@@ -79,13 +79,13 @@ DEFUN (debug_bgp_vnc,
 	  else
 	    {
 	      term_vnc_debug |= vncdebug[i].bit;
-	      vty_out (vty, "BGP vnc %s debugging is on%s",
-		vncdebug[i].name, VTY_NEWLINE);
+	      vty_outln (vty, "BGP vnc %s debugging is on",
+		vncdebug[i].name);
 	    }
 	  return CMD_SUCCESS;
 	}
     }
-  vty_out (vty, "Unknown debug flag: %s%s", argv[3]->arg, VTY_NEWLINE);
+  vty_outln (vty, "Unknown debug flag: %s", argv[3]->arg);
   return CMD_WARNING;
 }
 
@@ -118,13 +118,13 @@ DEFUN (no_debug_bgp_vnc,
 	  else
 	    {
 	      term_vnc_debug &= ~vncdebug[i].bit;
-	      vty_out (vty, "BGP vnc %s debugging is off%s",
-		vncdebug[i].name, VTY_NEWLINE);
+	      vty_outln (vty, "BGP vnc %s debugging is off",
+		vncdebug[i].name);
 	    }
 	  return CMD_SUCCESS;
 	}
     }
-  vty_out (vty, "Unknown debug flag: %s%s", argv[3]->arg, VTY_NEWLINE);
+  vty_outln (vty, "Unknown debug flag: %s", argv[3]->arg);
   return CMD_WARNING;
 }
 
@@ -144,7 +144,7 @@ DEFUN (no_debug_bgp_vnc_all,
        VNC_STR)
 {
   term_vnc_debug = 0;
-  vty_out (vty, "All possible VNC debugging has been turned off%s", VTY_NEWLINE);
+  vty_outln (vty, "All possible VNC debugging has been turned off");
       
   return CMD_SUCCESS;
 }
@@ -163,17 +163,17 @@ DEFUN (show_debugging_bgp_vnc,
 {
   size_t	i;
 
-  vty_out (vty, "BGP VNC debugging status:%s", VTY_NEWLINE);
+  vty_outln (vty, "BGP VNC debugging status:");
 
   for (i = 0; i < (sizeof(vncdebug) / sizeof(struct vnc_debug)); ++i)
     {
       if (term_vnc_debug & vncdebug[i].bit)
 	{
-	  vty_out (vty, "  BGP VNC %s debugging is on%s",
-	    vncdebug[i].name, VTY_NEWLINE);
+	  vty_outln (vty, "  BGP VNC %s debugging is on",
+	    vncdebug[i].name);
 	}
     }
-  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_outln (vty, "");
   return CMD_SUCCESS;
 }
 
@@ -187,7 +187,7 @@ bgp_vnc_config_write_debug (struct vty *vty)
     {
       if (conf_vnc_debug & vncdebug[i].bit)
 	{
-	  vty_out (vty, "debug bgp vnc %s%s", vncdebug[i].name, VTY_NEWLINE);
+	  vty_outln (vty, "debug bgp vnc %s", vncdebug[i].name);
 	  write++;
 	}
     }

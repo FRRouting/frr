@@ -197,7 +197,7 @@ rfp_cfg_write_cb (struct vty *vty, void *rfp_start_val)
   if (rfi->config_var != 0)
     {
       vty_out (vty, " rfp example-config-value %u", rfi->config_var);
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_outln (vty, "");
       write++;
     }
 

@@ -36,10 +36,10 @@ int dump_args(struct vty *vty, const char *descr,
               int argc, struct cmd_token *argv[])
 {
   int i;
-  vty_out (vty, "%s with %d args.%s", descr, argc, VTY_NEWLINE);
+  vty_outln (vty, "%s with %d args.", descr, argc);
   for (i = 0; i < argc; i++)
     {
-      vty_out (vty, "[%02d] %s@%s: %s%s", i, argv[i]->text, argv[i]->varname, argv[i]->arg, VTY_NEWLINE);
+      vty_outln (vty, "[%02d] %s@%s: %s", i, argv[i]->text, argv[i]->varname, argv[i]->arg);
     }
 
   return CMD_SUCCESS;

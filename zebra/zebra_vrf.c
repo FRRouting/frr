@@ -524,8 +524,8 @@ vrf_config_write (struct vty *vty)
       zvrf = vrf->info;
       if (! zvrf || strcmp (zvrf_name (zvrf), VRF_DEFAULT_NAME))
         {
-          vty_out (vty, "vrf %s%s", zvrf_name (zvrf), VTY_NEWLINE);
-          vty_out (vty, "!%s", VTY_NEWLINE);
+          vty_outln (vty, "vrf %s", zvrf_name(zvrf));
+          vty_outln (vty, "!");
         }
     }
   return 0;

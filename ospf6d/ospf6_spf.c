@@ -929,9 +929,9 @@ ospf6_spf_config_write (struct vty *vty)
   if (ospf6->spf_delay != OSPF_SPF_DELAY_DEFAULT ||
       ospf6->spf_holdtime != OSPF_SPF_HOLDTIME_DEFAULT ||
       ospf6->spf_max_holdtime != OSPF_SPF_MAX_HOLDTIME_DEFAULT)
-    vty_out (vty, " timers throttle spf %d %d %d%s",
+    vty_outln (vty, " timers throttle spf %d %d %d",
 	     ospf6->spf_delay, ospf6->spf_holdtime,
-	     ospf6->spf_max_holdtime, VTY_NEWLINE);
+	     ospf6->spf_max_holdtime);
 
 }
 

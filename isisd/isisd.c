@@ -218,7 +218,7 @@ isis_area_destroy (struct vty *vty, const char *area_tag)
 
   if (area == NULL)
     {
-      vty_out (vty, "Can't find ISIS instance %s", VTY_NEWLINE);
+      vty_outln (vty, "Can't find ISIS instance ");
       return CMD_ERR_NO_MATCH;
     }
 
@@ -352,8 +352,8 @@ area_net_title (struct vty *vty, const char *net_title)
   /* We check that we are not over the maximal number of addresses */
   if (listcount (area->area_addrs) >= isis->max_area_addrs)
     {
-      vty_out (vty, "Maximum of area addresses (%d) already reached %s",
-	       isis->max_area_addrs, VTY_NEWLINE);
+      vty_outln (vty, "Maximum of area addresses (%d) already reached ",
+	       isis->max_area_addrs);
       return CMD_ERR_NOTHING_TODO;
     }
 
@@ -366,16 +366,15 @@ area_net_title (struct vty *vty, const char *net_title)
 #endif /* EXTREME_DEBUG */
   if (addr->addr_len < 8 || addr->addr_len > 20)
     {
-      vty_out (vty, "area address must be at least 8..20 octets long (%d)%s",
-               addr->addr_len, VTY_NEWLINE);
+      vty_outln (vty, "area address must be at least 8..20 octets long (%d)",
+               addr->addr_len);
       XFREE (MTYPE_ISIS_AREA_ADDR, addr);
       return CMD_ERR_AMBIGUOUS;
     }
 
   if (addr->area_addr[addr->addr_len-1] != 0)
     {
-      vty_out (vty, "nsel byte (last byte) in area address must be 0%s",
-               VTY_NEWLINE);
+      vty_outln (vty,"nsel byte (last byte) in area address must be 0");
       XFREE (MTYPE_ISIS_AREA_ADDR, addr);
       return CMD_ERR_AMBIGUOUS;
     }
@@ -397,9 +396,8 @@ area_net_title (struct vty *vty, const char *net_title)
        */
       if (memcmp (isis->sysid, GETSYSID (addr), ISIS_SYS_ID_LEN))
 	{
-	  vty_out (vty,
-		   "System ID must not change when defining additional area"
-		   " addresses%s", VTY_NEWLINE);
+	  vty_outln (vty,
+		   "System ID must not change when defining additional area" " addresses");
 	  XFREE (MTYPE_ISIS_AREA_ADDR, addr);
 	  return CMD_ERR_AMBIGUOUS;
 	}
@@ -446,8 +444,8 @@ area_clear_net_title (struct vty *vty, const char *net_title)
   addr.addr_len = dotformat2buff (buff, net_title);
   if (addr.addr_len < 8 || addr.addr_len > 20)
     {
-      vty_out (vty, "Unsupported area address length %d, should be 8...20 %s",
-	       addr.addr_len, VTY_NEWLINE);
+      vty_outln (vty, "Unsupported area address length %d, should be 8...20 ",
+	       addr.addr_len);
       return CMD_ERR_AMBIGUOUS;
     }
 
@@ -460,8 +458,8 @@ area_clear_net_title (struct vty *vty, const char *net_title)
 
   if (!addrp)
     {
-      vty_out (vty, "No area address %s for area %s %s", net_title,
-	       area->area_tag, VTY_NEWLINE);
+      vty_outln (vty, "No area address %s for area %s ", net_title,
+	       area->area_tag);
       return CMD_ERR_NO_MATCH;
     }
 
@@ -495,17 +493,16 @@ show_isis_interface_common (struct vty *vty, const char *ifname, char detail)
 
   if (!isis)
     {
-      vty_out (vty, "IS-IS Routing Process not enabled%s", VTY_NEWLINE);
+      vty_outln (vty, "IS-IS Routing Process not enabled");
       return CMD_SUCCESS;
     }
 
   for (ALL_LIST_ELEMENTS_RO (isis->area_list, anode, area))
     {
-      vty_out (vty, "Area %s:%s", area->area_tag, VTY_NEWLINE);
+      vty_outln (vty, "Area %s:", area->area_tag);
 
       if (detail == ISIS_UI_LEVEL_BRIEF)
-        vty_out (vty, "  Interface   CircId   State    Type     Level%s",
-                 VTY_NEWLINE);
+        vty_outln (vty,"  Interface   CircId   State    Type     Level");
 
       for (ALL_LIST_ELEMENTS_RO (area->circuit_list, cnode, circuit))
         if (!ifname)
@@ -568,7 +565,7 @@ show_isis_neighbor_common (struct vty *vty, const char *id, char detail)
 
   if (!isis)
     {
-      vty_out (vty, "IS-IS Routing Process not enabled%s", VTY_NEWLINE);
+      vty_outln (vty, "IS-IS Routing Process not enabled");
       return CMD_SUCCESS;
     }
 
@@ -580,7 +577,7 @@ show_isis_neighbor_common (struct vty *vty, const char *id, char detail)
           dynhn = dynhn_find_by_name (id);
           if (dynhn == NULL)
             {
-              vty_out (vty, "Invalid system id %s%s", id, VTY_NEWLINE);
+              vty_outln (vty, "Invalid system id %s", id);
               return CMD_SUCCESS;
             }
           memcpy (sysid, dynhn->id, ISIS_SYS_ID_LEN);
@@ -589,11 +586,11 @@ show_isis_neighbor_common (struct vty *vty, const char *id, char detail)
 
   for (ALL_LIST_ELEMENTS_RO (isis->area_list, anode, area))
     {
-      vty_out (vty, "Area %s:%s", area->area_tag, VTY_NEWLINE);
+      vty_outln (vty, "Area %s:", area->area_tag);
 
       if (detail == ISIS_UI_LEVEL_BRIEF)
-        vty_out (vty, "  System Id           Interface   L  State"
-                      "        Holdtime SNPA%s", VTY_NEWLINE);
+        vty_outln (vty,
+                   "  System Id           Interface   L  State" "        Holdtime SNPA");
 
       for (ALL_LIST_ELEMENTS_RO (area->circuit_list, cnode, circuit))
         {
@@ -641,7 +638,7 @@ clear_isis_neighbor_common (struct vty *vty, const char *id)
 
   if (!isis)
     {
-      vty_out (vty, "IS-IS Routing Process not enabled%s", VTY_NEWLINE);
+      vty_outln (vty, "IS-IS Routing Process not enabled");
       return CMD_SUCCESS;
     }
 
@@ -653,7 +650,7 @@ clear_isis_neighbor_common (struct vty *vty, const char *id)
           dynhn = dynhn_find_by_name (id);
           if (dynhn == NULL)
             {
-              vty_out (vty, "Invalid system id %s%s", id, VTY_NEWLINE);
+              vty_outln (vty, "Invalid system id %s", id);
               return CMD_SUCCESS;
             }
           memcpy (sysid, dynhn->id, ISIS_SYS_ID_LEN);
@@ -760,42 +757,35 @@ print_debug (struct vty *vty, int flags, int onoff)
     strcpy (onoffs, "off");
 
   if (flags & DEBUG_ADJ_PACKETS)
-    vty_out (vty, "IS-IS Adjacency related packets debugging is %s%s", onoffs,
-	     VTY_NEWLINE);
+    vty_outln (vty, "IS-IS Adjacency related packets debugging is %s",
+               onoffs);
   if (flags & DEBUG_CHECKSUM_ERRORS)
-    vty_out (vty, "IS-IS checksum errors debugging is %s%s", onoffs,
-	     VTY_NEWLINE);
+    vty_outln (vty, "IS-IS checksum errors debugging is %s",onoffs);
   if (flags & DEBUG_LOCAL_UPDATES)
-    vty_out (vty, "IS-IS local updates debugging is %s%s", onoffs,
-	     VTY_NEWLINE);
+    vty_outln (vty, "IS-IS local updates debugging is %s",onoffs);
   if (flags & DEBUG_PROTOCOL_ERRORS)
-    vty_out (vty, "IS-IS protocol errors debugging is %s%s", onoffs,
-	     VTY_NEWLINE);
+    vty_outln (vty, "IS-IS protocol errors debugging is %s",onoffs);
   if (flags & DEBUG_SNP_PACKETS)
-    vty_out (vty, "IS-IS CSNP/PSNP packets debugging is %s%s", onoffs,
-	     VTY_NEWLINE);
+    vty_outln (vty, "IS-IS CSNP/PSNP packets debugging is %s",onoffs);
   if (flags & DEBUG_SPF_EVENTS)
-    vty_out (vty, "IS-IS SPF events debugging is %s%s", onoffs, VTY_NEWLINE);
+    vty_outln (vty, "IS-IS SPF events debugging is %s", onoffs);
   if (flags & DEBUG_SPF_STATS)
-    vty_out (vty, "IS-IS SPF Timing and Statistics Data debugging is %s%s",
-	     onoffs, VTY_NEWLINE);
+    vty_outln (vty, "IS-IS SPF Timing and Statistics Data debugging is %s",
+	     onoffs);
   if (flags & DEBUG_SPF_TRIGGERS)
-    vty_out (vty, "IS-IS SPF triggering events debugging is %s%s", onoffs,
-	     VTY_NEWLINE);
+    vty_outln (vty, "IS-IS SPF triggering events debugging is %s",onoffs);
   if (flags & DEBUG_UPDATE_PACKETS)
-    vty_out (vty, "IS-IS Update related packet debugging is %s%s", onoffs,
-	     VTY_NEWLINE);
+    vty_outln (vty, "IS-IS Update related packet debugging is %s",onoffs);
   if (flags & DEBUG_RTE_EVENTS)
-    vty_out (vty, "IS-IS Route related debuggin is %s%s", onoffs,
-	     VTY_NEWLINE);
+    vty_outln (vty, "IS-IS Route related debuggin is %s",onoffs);
   if (flags & DEBUG_EVENTS)
-    vty_out (vty, "IS-IS Event debugging is %s%s", onoffs, VTY_NEWLINE);
+    vty_outln (vty, "IS-IS Event debugging is %s", onoffs);
   if (flags & DEBUG_PACKET_DUMP)
-    vty_out (vty, "IS-IS Packet dump debugging is %s%s", onoffs, VTY_NEWLINE);
+    vty_outln (vty, "IS-IS Packet dump debugging is %s", onoffs);
   if (flags & DEBUG_LSP_GEN)
-    vty_out (vty, "IS-IS LSP generation debugging is %s%s", onoffs, VTY_NEWLINE);
+    vty_outln (vty, "IS-IS LSP generation debugging is %s", onoffs);
   if (flags & DEBUG_LSP_SCHED)
-    vty_out (vty, "IS-IS LSP scheduling debugging is %s%s", onoffs, VTY_NEWLINE);
+    vty_outln (vty, "IS-IS LSP scheduling debugging is %s", onoffs);
 }
 
 DEFUN (show_debugging,
@@ -806,7 +796,7 @@ DEFUN (show_debugging,
        ISIS_STR)
 {
   if (isis->debugs) {
-      vty_out (vty, "IS-IS:%s", VTY_NEWLINE);
+      vty_outln (vty, "IS-IS:");
       print_debug (vty, isis->debugs, 1);
   }
   return CMD_SUCCESS;
@@ -827,72 +817,72 @@ config_write_debug (struct vty *vty)
 
   if (flags & DEBUG_ADJ_PACKETS)
     {
-      vty_out (vty, "debug isis adj-packets%s", VTY_NEWLINE);
+      vty_outln (vty, "debug isis adj-packets");
       write++;
     }
   if (flags & DEBUG_CHECKSUM_ERRORS)
     {
-      vty_out (vty, "debug isis checksum-errors%s", VTY_NEWLINE);
+      vty_outln (vty, "debug isis checksum-errors");
       write++;
     }
   if (flags & DEBUG_LOCAL_UPDATES)
     {
-      vty_out (vty, "debug isis local-updates%s", VTY_NEWLINE);
+      vty_outln (vty, "debug isis local-updates");
       write++;
     }
   if (flags & DEBUG_PROTOCOL_ERRORS)
     {
-      vty_out (vty, "debug isis protocol-errors%s", VTY_NEWLINE);
+      vty_outln (vty, "debug isis protocol-errors");
       write++;
     }
   if (flags & DEBUG_SNP_PACKETS)
     {
-      vty_out (vty, "debug isis snp-packets%s", VTY_NEWLINE);
+      vty_outln (vty, "debug isis snp-packets");
       write++;
     }
   if (flags & DEBUG_SPF_EVENTS)
     {
-      vty_out (vty, "debug isis spf-events%s", VTY_NEWLINE);
+      vty_outln (vty, "debug isis spf-events");
       write++;
     }
   if (flags & DEBUG_SPF_STATS)
     {
-      vty_out (vty, "debug isis spf-statistics%s", VTY_NEWLINE);
+      vty_outln (vty, "debug isis spf-statistics");
       write++;
     }
   if (flags & DEBUG_SPF_TRIGGERS)
     {
-      vty_out (vty, "debug isis spf-triggers%s", VTY_NEWLINE);
+      vty_outln (vty, "debug isis spf-triggers");
       write++;
     }
   if (flags & DEBUG_UPDATE_PACKETS)
     {
-      vty_out (vty, "debug isis update-packets%s", VTY_NEWLINE);
+      vty_outln (vty, "debug isis update-packets");
       write++;
     }
   if (flags & DEBUG_RTE_EVENTS)
     {
-      vty_out (vty, "debug isis route-events%s", VTY_NEWLINE);
+      vty_outln (vty, "debug isis route-events");
       write++;
     }
   if (flags & DEBUG_EVENTS)
     {
-      vty_out (vty, "debug isis events%s", VTY_NEWLINE);
+      vty_outln (vty, "debug isis events");
       write++;
     }
   if (flags & DEBUG_PACKET_DUMP)
     {
-      vty_out (vty, "debug isis packet-dump%s", VTY_NEWLINE);
+      vty_outln (vty, "debug isis packet-dump");
       write++;
     }
   if (flags & DEBUG_LSP_GEN)
     {
-      vty_out (vty, "debug isis lsp-gen%s", VTY_NEWLINE);
+      vty_outln (vty, "debug isis lsp-gen");
       write++;
     }
   if (flags & DEBUG_LSP_SCHED)
     {
-      vty_out (vty, "debug isis lsp-sched%s", VTY_NEWLINE);
+      vty_outln (vty, "debug isis lsp-sched");
       write++;
     }
   write += spf_backoff_write_config(vty);
@@ -1322,7 +1312,7 @@ DEFUN (show_isis_spf_ietf,
 {
   if (!isis)
     {
-      vty_out (vty, "ISIS is not running%s", VTY_NEWLINE);
+      vty_outln (vty, "ISIS is not running");
       return CMD_SUCCESS;
     }
 
@@ -1331,33 +1321,31 @@ DEFUN (show_isis_spf_ietf,
 
   for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area))
     {
-      vty_out (vty, "Area %s:%s", area->area_tag ? area->area_tag : "null",
-               VTY_NEWLINE);
+      vty_outln (vty, "Area %s:",area->area_tag ? area->area_tag : "null");
 
       for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++)
         {
           if ((area->is_type & level) == 0)
             continue;
 
-          vty_out (vty, "  Level-%d:%s", level, VTY_NEWLINE);
+          vty_outln (vty, "  Level-%d:", level);
           vty_out (vty, "    SPF delay status: ");
           if (area->spf_timer[level -1])
             {
               struct timeval remain = thread_timer_remain(area->spf_timer[level - 1]);
-              vty_out(vty, "Pending, due in %ld msec%s",
-                      remain.tv_sec * 1000 + remain.tv_usec / 1000,
-                      VTY_NEWLINE);
+              vty_outln (vty, "Pending, due in %ld msec",
+                      remain.tv_sec * 1000 + remain.tv_usec / 1000);
             }
           else
             {
-              vty_out(vty, "Not scheduled%s", VTY_NEWLINE);
+              vty_outln (vty, "Not scheduled");
             }
 
           if (area->spf_delay_ietf[level - 1]) {
-            vty_out(vty,  "    Using draft-ietf-rtgwg-backoff-algo-04%s", VTY_NEWLINE);
+            vty_outln (vty,  "    Using draft-ietf-rtgwg-backoff-algo-04");
             spf_backoff_show(area->spf_delay_ietf[level - 1], vty, "    ");
           } else {
-            vty_out(vty,  "    Using legacy backoff algo%s", VTY_NEWLINE);
+            vty_outln (vty,  "    Using legacy backoff algo");
           }
         }
     }
@@ -1376,38 +1364,32 @@ DEFUN (show_isis_summary,
 
   if (isis == NULL)
   {
-    vty_out (vty, "ISIS is not running%s", VTY_NEWLINE);
+    vty_outln (vty, "ISIS is not running");
     return CMD_SUCCESS;
   }
 
-  vty_out (vty, "Process Id      : %ld%s", isis->process_id,
-      VTY_NEWLINE);
+  vty_outln (vty, "Process Id      : %ld",isis->process_id);
   if (isis->sysid_set)
-    vty_out (vty, "System Id       : %s%s", sysid_print (isis->sysid),
-        VTY_NEWLINE);
+    vty_outln (vty, "System Id       : %s",sysid_print(isis->sysid));
 
   vty_out (vty, "Up time         : ");
   vty_out_timestr(vty, isis->uptime);
-  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_outln (vty, "");
 
   if (isis->area_list)
-    vty_out (vty, "Number of areas : %d%s", isis->area_list->count,
-        VTY_NEWLINE);
+    vty_outln (vty, "Number of areas : %d",isis->area_list->count);
 
   for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area))
   {
-    vty_out (vty, "Area %s:%s", area->area_tag ? area->area_tag : "null",
-        VTY_NEWLINE);
+    vty_outln (vty, "Area %s:",area->area_tag ? area->area_tag : "null");
 
     if (listcount (area->area_addrs) > 0)
     {
       struct area_addr *area_addr;
       for (ALL_LIST_ELEMENTS_RO (area->area_addrs, node2, area_addr))
       {
-        vty_out (vty, "  Net: %s%s",
-            isonet_print (area_addr->area_addr,
-              area_addr->addr_len + ISIS_SYS_ID_LEN +
-              1), VTY_NEWLINE);
+        vty_outln (vty, "  Net: %s",
+            isonet_print(area_addr->area_addr, area_addr->addr_len + ISIS_SYS_ID_LEN + 1));
       }
     }
 
@@ -1416,45 +1398,45 @@ DEFUN (show_isis_summary,
       if ((area->is_type & level) == 0)
         continue;
 
-      vty_out (vty, "  Level-%d:%s", level, VTY_NEWLINE);
+      vty_outln (vty, "  Level-%d:", level);
       spftree = area->spftree[level - 1];
       if (area->spf_timer[level - 1])
-        vty_out (vty, "    SPF: (pending)%s", VTY_NEWLINE);
+        vty_outln (vty, "    SPF: (pending)");
       else
-        vty_out (vty, "    SPF:%s", VTY_NEWLINE);
+        vty_outln (vty, "    SPF:");
 
       vty_out (vty, "      minimum interval  : %d",
           area->min_spf_interval[level - 1]);
       if (area->spf_delay_ietf[level - 1])
          vty_out (vty, " (not used, IETF SPF delay activated)");
-      vty_out (vty, VTY_NEWLINE);
+      vty_outln (vty, "");
 
-      vty_out (vty, "    IPv4 route computation:%s", VTY_NEWLINE);
+      vty_outln (vty, "    IPv4 route computation:");
       vty_out (vty, "      last run elapsed  : ");
       vty_out_timestr(vty, spftree->last_run_timestamp);
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_outln (vty, "");
 
-      vty_out (vty, "      last run duration : %u usec%s",
-               (u_int32_t)spftree->last_run_duration, VTY_NEWLINE);
+      vty_outln (vty, "      last run duration : %u usec",
+               (u_int32_t)spftree->last_run_duration);
 
-      vty_out (vty, "      run count         : %d%s",
-          spftree->runcount, VTY_NEWLINE);
+      vty_outln (vty, "      run count         : %d",
+          spftree->runcount);
 
       spftree = area->spftree6[level - 1];
-      vty_out (vty, "    IPv6 route computation:%s", VTY_NEWLINE);
+      vty_outln (vty, "    IPv6 route computation:");
 
       vty_out (vty, "      last run elapsed  : ");
       vty_out_timestr(vty, spftree->last_run_timestamp);
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_outln (vty, "");
 
-      vty_out (vty, "      last run duration : %llu msec%s",
-               (unsigned long long)spftree->last_run_duration, VTY_NEWLINE);
+      vty_outln (vty, "      last run duration : %llu msec",
+               (unsigned long long)spftree->last_run_duration);
 
-      vty_out (vty, "      run count         : %d%s",
-          spftree->runcount, VTY_NEWLINE);
+      vty_outln (vty, "      run count         : %d",
+          spftree->runcount);
     }
   }
-  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_outln (vty, "");
 
   return CMD_SUCCESS;
 }
@@ -1526,8 +1508,7 @@ show_isis_database (struct vty *vty, const char *argv, int ui_level)
 
   for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area))
     {
-      vty_out (vty, "Area %s:%s", area->area_tag ? area->area_tag : "null",
-               VTY_NEWLINE);
+      vty_outln (vty, "Area %s:",area->area_tag ? area->area_tag : "null");
 
       for (level = 0; level < ISIS_LEVELS; level++)
         {
@@ -1558,13 +1539,12 @@ show_isis_database (struct vty *vty, const char *argv, int ui_level)
 
               if (lsp != NULL || argv == NULL)
                 {
-                  vty_out (vty, "IS-IS Level-%d link-state database:%s",
-                           level + 1, VTY_NEWLINE);
+                  vty_outln (vty, "IS-IS Level-%d link-state database:",
+                           level + 1);
 
                   /* print the title in all cases */
-                  vty_out (vty, "LSP ID                  PduLen  "
-                           "SeqNumber   Chksum  Holdtime  ATT/P/OL%s",
-                           VTY_NEWLINE);
+                  vty_outln (vty,
+                             "LSP ID                  PduLen  " "SeqNumber   Chksum  Holdtime  ATT/P/OL");
                 }
 
               if (lsp)
@@ -1580,8 +1560,8 @@ show_isis_database (struct vty *vty, const char *argv, int ui_level)
                                              ui_level,
                                              area->dynhostname);
 
-                  vty_out (vty, "    %u LSPs%s%s",
-                           lsp_count, VTY_NEWLINE, VTY_NEWLINE);
+                  vty_outln (vty, "    %u LSPs%s",
+                           lsp_count, VTY_NEWLINE);
                 }
             }
         }
@@ -1672,18 +1652,19 @@ DEFUN (isis_topology,
 
   if (area->oldmetric)
     {
-      vty_out (vty, "Multi topology IS-IS can only be used with wide metrics%s", VTY_NEWLINE);
+      vty_outln (vty,
+                 "Multi topology IS-IS can only be used with wide metrics");
       return CMD_ERR_AMBIGUOUS;
     }
 
   if (mtid == (uint16_t)-1)
     {
-      vty_out (vty, "Don't know topology '%s'%s", arg, VTY_NEWLINE);
+      vty_outln (vty, "Don't know topology '%s'", arg);
       return CMD_ERR_AMBIGUOUS;
     }
   if (mtid == ISIS_MT_IPV4_UNICAST)
     {
-      vty_out (vty, "Cannot configure IPv4 unicast topology%s", VTY_NEWLINE);
+      vty_outln (vty, "Cannot configure IPv4 unicast topology");
       return CMD_ERR_AMBIGUOUS;
     }
 
@@ -1707,18 +1688,19 @@ DEFUN (no_isis_topology,
 
   if (area->oldmetric)
     {
-      vty_out (vty, "Multi topology IS-IS can only be used with wide metrics%s", VTY_NEWLINE);
+      vty_outln (vty,
+                 "Multi topology IS-IS can only be used with wide metrics");
       return CMD_ERR_AMBIGUOUS;
     }
 
   if (mtid == (uint16_t)-1)
     {
-      vty_out (vty, "Don't know topology '%s'%s", arg, VTY_NEWLINE);
+      vty_outln (vty, "Don't know topology '%s'", arg);
       return CMD_ERR_AMBIGUOUS;
     }
   if (mtid == ISIS_MT_IPV4_UNICAST)
     {
-      vty_out (vty, "Cannot configure IPv4 unicast topology%s", VTY_NEWLINE);
+      vty_outln (vty, "Cannot configure IPv4 unicast topology");
       return CMD_ERR_AMBIGUOUS;
     }
 
@@ -2008,7 +1990,7 @@ isis_config_write (struct vty *vty)
       for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area))
       {
 	/* ISIS - Area name */
-	vty_out (vty, "router isis %s%s", area->area_tag, VTY_NEWLINE);
+	vty_outln (vty, "router isis %s", area->area_tag);
 	write++;
 	/* ISIS - Net */
 	if (listcount (area->area_addrs) > 0)
@@ -2016,10 +1998,8 @@ isis_config_write (struct vty *vty)
 	    struct area_addr *area_addr;
 	    for (ALL_LIST_ELEMENTS_RO (area->area_addrs, node2, area_addr))
 	      {
-		vty_out (vty, " net %s%s",
-			 isonet_print (area_addr->area_addr,
-				       area_addr->addr_len + ISIS_SYS_ID_LEN +
-				       1), VTY_NEWLINE);
+		vty_outln (vty, " net %s",
+			 isonet_print(area_addr->area_addr, area_addr->addr_len + ISIS_SYS_ID_LEN + 1));
 		write++;
 	      }
 	  }
@@ -2027,38 +2007,38 @@ isis_config_write (struct vty *vty)
 	 * false. */
 	if (!area->dynhostname)
 	  {
-	    vty_out (vty, " no hostname dynamic%s", VTY_NEWLINE);
+	    vty_outln (vty, " no hostname dynamic");
 	    write++;
 	  }
 	/* ISIS - Metric-Style - when true displays wide */
 	if (area->newmetric)
 	  {
 	    if (!area->oldmetric)
-	      vty_out (vty, " metric-style wide%s", VTY_NEWLINE);
+	      vty_outln (vty, " metric-style wide");
 	    else
-	      vty_out (vty, " metric-style transition%s", VTY_NEWLINE);
+	      vty_outln (vty, " metric-style transition");
 	    write++;
 	  }
 	else
 	  {
-	    vty_out (vty, " metric-style narrow%s", VTY_NEWLINE);
+	    vty_outln (vty, " metric-style narrow");
 	    write++;
 	  }
 	/* ISIS - overload-bit */
 	if (area->overload_bit)
 	  {
-	    vty_out (vty, " set-overload-bit%s", VTY_NEWLINE);
+	    vty_outln (vty, " set-overload-bit");
 	    write++;
 	  }
 	/* ISIS - Area is-type (level-1-2 is default) */
 	if (area->is_type == IS_LEVEL_1)
 	  {
-	    vty_out (vty, " is-type level-1%s", VTY_NEWLINE);
+	    vty_outln (vty, " is-type level-1");
 	    write++;
 	  }
 	else if (area->is_type == IS_LEVEL_2)
 	  {
-	    vty_out (vty, " is-type level-2-only%s", VTY_NEWLINE);
+	    vty_outln (vty, " is-type level-2-only");
 	    write++;
 	  }
 	write += isis_redist_config_write(vty, area, AF_INET);
@@ -2068,8 +2048,8 @@ isis_config_write (struct vty *vty)
 	  {
 	    if (area->lsp_gen_interval[0] != DEFAULT_MIN_LSP_GEN_INTERVAL)
 	      {
-		vty_out (vty, " lsp-gen-interval %d%s",
-			 area->lsp_gen_interval[0], VTY_NEWLINE);
+		vty_outln (vty, " lsp-gen-interval %d",
+			 area->lsp_gen_interval[0]);
 		write++;
 	      }
 	  }
@@ -2077,14 +2057,14 @@ isis_config_write (struct vty *vty)
 	  {
 	    if (area->lsp_gen_interval[0] != DEFAULT_MIN_LSP_GEN_INTERVAL)
 	      {
-		vty_out (vty, " lsp-gen-interval level-1 %d%s",
-			 area->lsp_gen_interval[0], VTY_NEWLINE);
+		vty_outln (vty, " lsp-gen-interval level-1 %d",
+			 area->lsp_gen_interval[0]);
 		write++;
 	      }
 	    if (area->lsp_gen_interval[1] != DEFAULT_MIN_LSP_GEN_INTERVAL)
 	      {
-		vty_out (vty, " lsp-gen-interval level-2 %d%s",
-			 area->lsp_gen_interval[1], VTY_NEWLINE);
+		vty_outln (vty, " lsp-gen-interval level-2 %d",
+			 area->lsp_gen_interval[1]);
 		write++;
 	      }
 	  }
@@ -2093,8 +2073,8 @@ isis_config_write (struct vty *vty)
 	  {
 	    if (area->max_lsp_lifetime[0] != DEFAULT_LSP_LIFETIME)
 	      {
-		vty_out (vty, " max-lsp-lifetime %u%s", area->max_lsp_lifetime[0],
-			 VTY_NEWLINE);
+		vty_outln (vty, " max-lsp-lifetime %u",
+                           area->max_lsp_lifetime[0]);
 		write++;
 	      }
 	  }
@@ -2102,14 +2082,14 @@ isis_config_write (struct vty *vty)
 	  {
 	    if (area->max_lsp_lifetime[0] != DEFAULT_LSP_LIFETIME)
 	      {
-		vty_out (vty, " max-lsp-lifetime level-1 %u%s",
-			 area->max_lsp_lifetime[0], VTY_NEWLINE);
+		vty_outln (vty, " max-lsp-lifetime level-1 %u",
+			 area->max_lsp_lifetime[0]);
 		write++;
 	      }
 	    if (area->max_lsp_lifetime[1] != DEFAULT_LSP_LIFETIME)
 	      {
-		vty_out (vty, " max-lsp-lifetime level-2 %u%s",
-			 area->max_lsp_lifetime[1], VTY_NEWLINE);
+		vty_outln (vty, " max-lsp-lifetime level-2 %u",
+			 area->max_lsp_lifetime[1]);
 		write++;
 	      }
 	  }
@@ -2118,8 +2098,8 @@ isis_config_write (struct vty *vty)
 	  {
 	    if (area->lsp_refresh[0] != DEFAULT_MAX_LSP_GEN_INTERVAL)
 	      {
-		vty_out (vty, " lsp-refresh-interval %u%s", area->lsp_refresh[0],
-			 VTY_NEWLINE);
+		vty_outln (vty, " lsp-refresh-interval %u",
+                           area->lsp_refresh[0]);
 		write++;
 	      }
 	  }
@@ -2127,20 +2107,20 @@ isis_config_write (struct vty *vty)
 	  {
 	    if (area->lsp_refresh[0] != DEFAULT_MAX_LSP_GEN_INTERVAL)
 	      {
-		vty_out (vty, " lsp-refresh-interval level-1 %u%s",
-			 area->lsp_refresh[0], VTY_NEWLINE);
+		vty_outln (vty, " lsp-refresh-interval level-1 %u",
+			 area->lsp_refresh[0]);
 		write++;
 	      }
 	    if (area->lsp_refresh[1] != DEFAULT_MAX_LSP_GEN_INTERVAL)
 	      {
-		vty_out (vty, " lsp-refresh-interval level-2 %u%s",
-			 area->lsp_refresh[1], VTY_NEWLINE);
+		vty_outln (vty, " lsp-refresh-interval level-2 %u",
+			 area->lsp_refresh[1]);
 		write++;
 	      }
 	  }
 	if (area->lsp_mtu != DEFAULT_LSP_MTU)
 	  {
-	    vty_out(vty, " lsp-mtu %u%s", area->lsp_mtu, VTY_NEWLINE);
+	    vty_outln (vty, " lsp-mtu %u", area->lsp_mtu);
 	    write++;
 	  }
 
@@ -2149,8 +2129,8 @@ isis_config_write (struct vty *vty)
 	  {
 	    if (area->min_spf_interval[0] != MINIMUM_SPF_INTERVAL)
 	      {
-		vty_out (vty, " spf-interval %d%s",
-			 area->min_spf_interval[0], VTY_NEWLINE);
+		vty_outln (vty, " spf-interval %d",
+			 area->min_spf_interval[0]);
 		write++;
 	      }
 	  }
@@ -2158,14 +2138,14 @@ isis_config_write (struct vty *vty)
 	  {
 	    if (area->min_spf_interval[0] != MINIMUM_SPF_INTERVAL)
 	      {
-		vty_out (vty, " spf-interval level-1 %d%s",
-			 area->min_spf_interval[0], VTY_NEWLINE);
+		vty_outln (vty, " spf-interval level-1 %d",
+			 area->min_spf_interval[0]);
 		write++;
 	      }
 	    if (area->min_spf_interval[1] != MINIMUM_SPF_INTERVAL)
 	      {
-		vty_out (vty, " spf-interval level-2 %d%s",
-			 area->min_spf_interval[1], VTY_NEWLINE);
+		vty_outln (vty, " spf-interval level-2 %d",
+			 area->min_spf_interval[1]);
 		write++;
 	      }
 	  }
@@ -2173,13 +2153,12 @@ isis_config_write (struct vty *vty)
 	/* IETF SPF interval */
 	if (area->spf_delay_ietf[0])
 	  {
-	    vty_out (vty, " spf-delay-ietf init-delay %ld short-delay %ld long-delay %ld holddown %ld time-to-learn %ld%s",
+	    vty_outln (vty, " spf-delay-ietf init-delay %ld short-delay %ld long-delay %ld holddown %ld time-to-learn %ld",
 	             spf_backoff_init_delay(area->spf_delay_ietf[0]),
 	             spf_backoff_short_delay(area->spf_delay_ietf[0]),
 	             spf_backoff_long_delay(area->spf_delay_ietf[0]),
 	             spf_backoff_holddown(area->spf_delay_ietf[0]),
-	             spf_backoff_timetolearn(area->spf_delay_ietf[0]),
-	             VTY_NEWLINE);
+	             spf_backoff_timetolearn(area->spf_delay_ietf[0]));
 	    write++;
 	  }
 
@@ -2195,7 +2174,7 @@ isis_config_write (struct vty *vty)
 		else
 		  vty_out(vty, "send-only");
 	      }
-	    vty_out(vty, "%s", VTY_NEWLINE);
+	    vty_outln (vty, "");
 	    write++; 
 	  }
         else if (area->area_passwd.type == ISIS_PASSWD_TYPE_CLEARTXT)
@@ -2209,7 +2188,7 @@ isis_config_write (struct vty *vty)
 		else
 		  vty_out(vty, "send-only");
 	      }
-	    vty_out(vty, "%s", VTY_NEWLINE);
+	    vty_outln (vty, "");
 	    write++; 
           }
 	if (area->domain_passwd.type == ISIS_PASSWD_TYPE_HMAC_MD5)
@@ -2224,7 +2203,7 @@ isis_config_write (struct vty *vty)
 		else
 		  vty_out(vty, "send-only");
 	      }
-	    vty_out(vty, "%s", VTY_NEWLINE);
+	    vty_outln (vty, "");
 	    write++;
 	  }
         else if (area->domain_passwd.type == ISIS_PASSWD_TYPE_CLEARTXT)
@@ -2239,13 +2218,13 @@ isis_config_write (struct vty *vty)
 		else
 		  vty_out(vty, "send-only");
 	      }
-	    vty_out(vty, "%s", VTY_NEWLINE);
+	    vty_outln (vty, "");
 	    write++;
 	  }
 
 	if (area->log_adj_changes)
 	  {
-	    vty_out (vty, " log-adjacency-changes%s", VTY_NEWLINE);
+	    vty_outln (vty, " log-adjacency-changes");
 	    write++;
 	  }
 

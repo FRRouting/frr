@@ -438,11 +438,11 @@ pim_zlookup_show_ip_multicast (struct vty *vty)
 {
   vty_out(vty, "Zclient lookup socket: ");
   if (zlookup) {
-    vty_out(vty, "%d failures=%d%s", zlookup->sock,
-            zlookup->fail, VTY_NEWLINE);
+    vty_outln (vty, "%d failures=%d", zlookup->sock,
+            zlookup->fail);
   }
   else {
-    vty_out(vty, "<null zclient>%s", VTY_NEWLINE);
+    vty_outln (vty, "<null zclient>");
   }
 }
 

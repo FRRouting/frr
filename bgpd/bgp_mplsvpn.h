@@ -67,6 +67,13 @@ typedef enum {
   "Address Family\n"   \
   "Address Family\n"
 
+#define V4_HEADER \
+  "   Network          Next Hop            Metric LocPrf Weight Path"
+#define V4_HEADER_TAG \
+  "   Network          Next Hop      In tag/Out tag"
+#define V4_HEADER_OVERLAY \
+  "   Network          Next Hop      EthTag    Overlay Index   RouterMac"
+
 struct rd_as
 {
   u_int16_t type;

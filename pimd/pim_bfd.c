@@ -52,11 +52,11 @@ pim_bfd_write_config (struct vty *vty, struct interface *ifp)
     return;
 
   if (CHECK_FLAG (bfd_info->flags, BFD_FLAG_PARAM_CFG))
-    vty_out (vty, " ip pim bfd %d %d %d%s",
+    vty_outln (vty, " ip pim bfd %d %d %d",
              bfd_info->detect_mult, bfd_info->required_min_rx,
-             bfd_info->desired_min_tx, VTY_NEWLINE);
+             bfd_info->desired_min_tx);
   else
-    vty_out (vty, " ip pim bfd%s", VTY_NEWLINE);
+    vty_outln (vty, " ip pim bfd");
 }
 
 /*

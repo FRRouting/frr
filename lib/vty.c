@@ -263,12 +263,12 @@ vty_hello (struct vty *vty)
               for (s = buf + strlen (buf); (s > buf) && isspace ((int)*(s - 1));
                    s--);
               *s = '\0';
-              vty_out (vty, "%s%s", buf, VTY_NEWLINE);
+              vty_outln (vty, "%s", buf);
             }
           fclose (f);
         }
       else
-        vty_out (vty, "MOTD file not found%s", VTY_NEWLINE);
+        vty_outln (vty, "MOTD file not found");
     }
   else if (host.motd)
     vty_out (vty, "%s", host.motd);
@@ -401,14 +401,14 @@ vty_auth (struct vty *vty, char *buf)
         {
           if (vty->node == AUTH_NODE)
             {
-              vty_out (vty, "%% Bad passwords, too many failures!%s", VTY_NEWLINE);
+              vty_outln (vty, "%% Bad passwords, too many failures!");
               vty->status = VTY_CLOSE;
             }
           else
             {
               /* AUTH_ENABLE_NODE */
               vty->fail = 0;
-              vty_out (vty, "%% Bad enable passwords, too many failures!%s", VTY_NEWLINE);
+              vty_outln (vty, "%% Bad enable passwords, too many failures!");
 	      vty->status = VTY_CLOSE;
             }
         }
@@ -493,16 +493,16 @@ vty_command (struct vty *vty, char *buf)
       {
       case CMD_WARNING:
         if (vty->type == VTY_FILE)
-          vty_out (vty, "Warning...%s", VTY_NEWLINE);
+          vty_outln (vty, "Warning...");
         break;
       case CMD_ERR_AMBIGUOUS:
-        vty_out (vty, "%% Ambiguous command.%s", VTY_NEWLINE);
+        vty_outln (vty, "%% Ambiguous command.");
         break;
       case CMD_ERR_NO_MATCH:
-        vty_out (vty, "%% [%s] Unknown command: %s%s", protocolname, buf, VTY_NEWLINE);
+        vty_outln (vty, "%% [%s] Unknown command: %s", protocolname, buf);
         break;
       case CMD_ERR_INCOMPLETE:
-        vty_out (vty, "%% Command incomplete.%s", VTY_NEWLINE);
+        vty_outln (vty, "%% Command incomplete.");
         break;
       }
   cmd_free_strvec (vline);
@@ -730,7 +730,7 @@ vty_backward_word (struct vty *vty)
 static void
 vty_down_level (struct vty *vty)
 {
-  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_outln (vty, "");
   cmd_exit (vty);
   vty_prompt (vty);
   vty->cp = 0;
@@ -740,7 +740,7 @@ vty_down_level (struct vty *vty)
 static void
 vty_end_config (struct vty *vty)
 {
-  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_outln (vty, "");
 
   switch (vty->node)
     {
@@ -945,11 +945,11 @@ vty_complete_command (struct vty *vty)
 
   cmd_free_strvec (vline);
 
-  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_outln (vty, "");
   switch (ret)
     {
     case CMD_ERR_AMBIGUOUS:
-      vty_out (vty, "%% Ambiguous command.%s", VTY_NEWLINE);
+      vty_outln (vty, "%% Ambiguous command.");
       vty_prompt (vty);
       vty_redraw_line (vty);
       break;
@@ -962,7 +962,7 @@ vty_complete_command (struct vty *vty)
       if (!matched[0])
         {
           /* 2016-11-28 equinox -- need to debug, SEGV here */
-          vty_out (vty, "%% CLI BUG: FULL_MATCH with NULL str%s", VTY_NEWLINE);
+          vty_outln (vty, "%% CLI BUG: FULL_MATCH with NULL str");
           vty_prompt (vty);
           vty_redraw_line (vty);
           break;
@@ -985,11 +985,11 @@ vty_complete_command (struct vty *vty)
       for (i = 0; matched[i] != NULL; i++)
         {
           if (i != 0 && ((i % 6) == 0))
-            vty_out (vty, "%s", VTY_NEWLINE);
+            vty_outln (vty, "");
           vty_out (vty, "%-10s ", matched[i]);
           XFREE (MTYPE_COMPLETION, matched[i]);
         }
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_outln (vty, "");
 
       vty_prompt (vty);
       vty_redraw_line (vty);
@@ -1017,7 +1017,7 @@ vty_describe_fold (struct vty *vty, int cmd_width,
 
   if (desc_width <= 0)
     {
-      vty_out (vty, "  %-*s  %s%s", cmd_width, cmd, token->desc, VTY_NEWLINE);
+      vty_outln (vty, "  %-*s  %s", cmd_width, cmd, token->desc);
       return;
     }
 
@@ -1034,12 +1034,12 @@ vty_describe_fold (struct vty *vty, int cmd_width,
 
       strncpy (buf, p, pos);
       buf[pos] = '\0';
-      vty_out (vty, "  %-*s  %s%s", cmd_width, cmd, buf, VTY_NEWLINE);
+      vty_outln (vty, "  %-*s  %s", cmd_width, cmd, buf);
 
       cmd = "";
     }
 
-  vty_out (vty, "  %-*s  %s%s", cmd_width, cmd, p, VTY_NEWLINE);
+  vty_outln (vty, "  %-*s  %s", cmd_width, cmd, p);
 
   XFREE (MTYPE_TMP, buf);
 }
@@ -1068,17 +1068,17 @@ vty_describe_command (struct vty *vty)
 
   describe = cmd_describe_command (vline, vty, &ret);
 
-  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_outln (vty, "");
 
   /* Ambiguous error. */
   switch (ret)
     {
     case CMD_ERR_AMBIGUOUS:
-      vty_out (vty, "%% Ambiguous command.%s", VTY_NEWLINE);
+      vty_outln (vty, "%% Ambiguous command.");
       goto out;
       break;
     case CMD_ERR_NO_MATCH:
-      vty_out (vty, "%% There is no matched command.%s", VTY_NEWLINE);
+      vty_outln (vty, "%% There is no matched command.");
       goto out;
       break;
     }
@@ -1116,13 +1116,12 @@ vty_describe_command (struct vty *vty)
           }
 
         if (!token->desc)
-          vty_out (vty, "  %-s%s",
-                   token->text,
-                   VTY_NEWLINE);
+          vty_outln (vty, "  %-s",
+                   token->text);
         else if (desc_width >= strlen (token->desc))
-          vty_out (vty, "  %-*s  %s%s", width,
+          vty_outln (vty, "  %-*s  %s", width,
                    token->text,
-                   token->desc, VTY_NEWLINE);
+                   token->desc);
         else
           vty_describe_fold (vty, width, desc_width, token);
 
@@ -1142,7 +1141,7 @@ vty_describe_command (struct vty *vty)
                     vty_out(vty, " %s", item);
                     XFREE(MTYPE_COMPLETION, item);
                   }
-                vty_out(vty, "%s", VTY_NEWLINE);
+                vty_outln (vty, "");
               }
             vector_free(varcomps);
           }
@@ -1156,13 +1155,12 @@ vty_describe_command (struct vty *vty)
   if ((token = token_cr))
     {
       if (!token->desc)
-        vty_out (vty, "  %-s%s",
-                 token->text,
-                 VTY_NEWLINE);
+        vty_outln (vty, "  %-s",
+                 token->text);
       else if (desc_width >= strlen (token->desc))
-        vty_out (vty, "  %-*s  %s%s", width,
+        vty_outln (vty, "  %-*s  %s", width,
                  token->text,
-                 token->desc, VTY_NEWLINE);
+                 token->desc);
       else
         vty_describe_fold (vty, width, desc_width, token);
     }
@@ -1188,7 +1186,7 @@ vty_stop_input (struct vty *vty)
 {
   vty->cp = vty->length = 0;
   vty_clear_buf (vty);
-  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_outln (vty, "");
 
   switch (vty->node)
     {
@@ -1299,20 +1297,20 @@ vty_telnet_option (struct vty *vty, unsigned char *buf, int nbytes)
           vty_out (vty, "SE ");
           break;
         case TELOPT_ECHO:
-          vty_out (vty, "TELOPT_ECHO %s", VTY_NEWLINE);
+          vty_outln (vty, "TELOPT_ECHO ");
           break;
         case TELOPT_SGA:
-          vty_out (vty, "TELOPT_SGA %s", VTY_NEWLINE);
+          vty_outln (vty, "TELOPT_SGA ");
           break;
         case TELOPT_NAWS:
-          vty_out (vty, "TELOPT_NAWS %s", VTY_NEWLINE);
+          vty_outln (vty, "TELOPT_NAWS ");
           break;
         default:
           vty_out (vty, "%x ", buf[i]);
           break;
         }
     }
-  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_outln (vty, "");
 
 #endif /* TELNET_OPTION_DEBUG */
 
@@ -1349,9 +1347,9 @@ vty_telnet_option (struct vty *vty, unsigned char *buf, int nbytes)
                 vty->width = ((vty->sb_buf[1] << 8)|vty->sb_buf[2]);
                 vty->height = ((vty->sb_buf[3] << 8)|vty->sb_buf[4]);
 #ifdef TELNET_OPTION_DEBUG
-                vty_out(vty, "TELNET NAWS window size negotiation completed: "
-                              "width %d, height %d%s",
-                        vty->width, vty->height, VTY_NEWLINE);
+                vty_outln (vty, "TELNET NAWS window size negotiation completed: "
+                              "width %d, height %d",
+                        vty->width, vty->height);
 #endif
               }
             break;
@@ -1608,7 +1606,7 @@ vty_read (struct thread *thread)
           break;
         case '\n':
         case '\r':
-          vty_out (vty, "%s", VTY_NEWLINE);
+          vty_outln (vty, "");
           vty_execute (vty);
           break;
         case '\t':
@@ -1767,7 +1765,7 @@ vty_create (int vty_sock, union sockunion *su)
       /* Vty is not available if password isn't set. */
       if (host.password == NULL && host.password_encrypt == NULL)
         {
-          vty_out (vty, "Vty password is not set.%s", VTY_NEWLINE);
+          vty_outln (vty, "Vty password is not set.");
           vty->status = VTY_CLOSE;
           vty_close (vty);
           return NULL;
@@ -1777,7 +1775,8 @@ vty_create (int vty_sock, union sockunion *su)
   /* Say hello to the world. */
   vty_hello (vty);
   if (! no_password_check)
-    vty_out (vty, "%sUser Access Verification%s%s", VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
+    vty_outln (vty, "%sUser Access Verification%s", VTY_NEWLINE,
+               VTY_NEWLINE);
 
   /* Setting up terminal. */
   vty_will_echo (vty);
@@ -2194,7 +2193,7 @@ vtysh_read (struct thread *thread)
       /* Clear command line buffer. */
       vty->cp = vty->length = 0;
       vty_clear_buf (vty);
-      vty_out (vty, "%% Command is too long.%s", VTY_NEWLINE);
+      vty_outln (vty, "%% Command is too long.");
     }
   else
     {
@@ -2337,7 +2336,7 @@ vty_timeout (struct thread *thread)
 
   /* Clear buffer*/
   buffer_reset (vty->obuf);
-  vty_out (vty, "%sVty connection is timed out.%s", VTY_NEWLINE, VTY_NEWLINE);
+  vty_outln (vty, "%sVty connection is timed out.", VTY_NEWLINE);
 
   /* Close connection. */
   vty->status = VTY_CLOSE;
@@ -2818,8 +2817,7 @@ DEFUN (no_vty_access_class,
   const char *accesslist = (argc == 3) ? argv[idx_word]->arg : NULL;
   if (! vty_accesslist_name || (argc == 3 && strcmp(vty_accesslist_name, accesslist)))
     {
-      vty_out (vty, "Access-class is not currently applied to vty%s",
-               VTY_NEWLINE);
+      vty_outln (vty,"Access-class is not currently applied to vty");
       return CMD_WARNING;
     }
 
@@ -2862,8 +2860,7 @@ DEFUN (no_vty_ipv6_access_class,
   if (! vty_ipv6_accesslist_name ||
       (argc == 4 && strcmp(vty_ipv6_accesslist_name, accesslist)))
     {
-      vty_out (vty, "IPv6 access-class is not currently applied to vty%s",
-               VTY_NEWLINE);
+      vty_outln (vty,"IPv6 access-class is not currently applied to vty");
       return CMD_WARNING;
     }
 
@@ -2987,30 +2984,30 @@ DEFUN (log_commands,
 static int
 vty_config_write (struct vty *vty)
 {
-  vty_out (vty, "line vty%s", VTY_NEWLINE);
+  vty_outln (vty, "line vty");
 
   if (vty_accesslist_name)
-    vty_out (vty, " access-class %s%s",
-             vty_accesslist_name, VTY_NEWLINE);
+    vty_outln (vty, " access-class %s",
+             vty_accesslist_name);
 
   if (vty_ipv6_accesslist_name)
-    vty_out (vty, " ipv6 access-class %s%s",
-             vty_ipv6_accesslist_name, VTY_NEWLINE);
+    vty_outln (vty, " ipv6 access-class %s",
+             vty_ipv6_accesslist_name);
 
   /* exec-timeout */
   if (vty_timeout_val != VTY_TIMEOUT_DEFAULT)
-    vty_out (vty, " exec-timeout %ld %ld%s",
+    vty_outln (vty, " exec-timeout %ld %ld",
              vty_timeout_val / 60,
-             vty_timeout_val % 60, VTY_NEWLINE);
+             vty_timeout_val % 60);
 
   /* login */
   if (no_password_check)
-    vty_out (vty, " no login%s", VTY_NEWLINE);
+    vty_outln (vty, " no login");
 
   if (do_log_commands)
-    vty_out (vty, "log commands%s", VTY_NEWLINE);
+    vty_outln (vty, "log commands");
 
-  vty_out (vty, "!%s", VTY_NEWLINE);
+  vty_outln (vty, "!");
 
   return CMD_SUCCESS;
 }

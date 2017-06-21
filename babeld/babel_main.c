@@ -377,7 +377,7 @@ babel_save_state_file(void)
 void
 show_babel_main_configuration (struct vty *vty)
 {
-    vty_out(vty,
+    vty_outln (vty,
             "state file              = %s%s"
             "configuration file      = %s%s"
             "protocol informations:%s"
@@ -386,7 +386,7 @@ show_babel_main_configuration (struct vty *vty)
             "vty address             = %s%s"
             "vty port                = %d%s"
             "id                      = %s%s"
-            "kernel_metric           = %d%s",
+            "kernel_metric           = %d",
             state_file, VTY_NEWLINE,
             babel_config_file ? babel_config_file : babel_config_default,
             VTY_NEWLINE,
@@ -397,5 +397,5 @@ show_babel_main_configuration (struct vty *vty)
             VTY_NEWLINE,
             babel_vty_port, VTY_NEWLINE,
             format_eui64(myid), VTY_NEWLINE,
-            kernel_metric, VTY_NEWLINE);
+            kernel_metric);
 }

@@ -3404,8 +3404,7 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
           if (nbr == NULL)
             {
               if (!use_json)
-                vty_out (vty, "  No backup designated router on this network%s",
-                         VTY_NEWLINE);
+                vty_outln (vty, "  No backup designated router on this network");
             }
           else
             {

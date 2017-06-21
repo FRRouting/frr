@@ -525,21 +525,19 @@ bgp_config_write_damp (struct vty *vty)
       && bgp_damp_cfg.reuse_limit == DEFAULT_REUSE
       && bgp_damp_cfg.suppress_value == DEFAULT_SUPPRESS
       && bgp_damp_cfg.max_suppress_time == bgp_damp_cfg.half_life*4)
-    vty_out (vty, " bgp dampening%s", VTY_NEWLINE);
+    vty_outln (vty, " bgp dampening");
   else if (bgp_damp_cfg.half_life != DEFAULT_HALF_LIFE*60
 	   && bgp_damp_cfg.reuse_limit == DEFAULT_REUSE
 	   && bgp_damp_cfg.suppress_value == DEFAULT_SUPPRESS
 	   && bgp_damp_cfg.max_suppress_time == bgp_damp_cfg.half_life*4)
-    vty_out (vty, " bgp dampening %lld%s",
-	     bgp_damp_cfg.half_life/60LL,
-	     VTY_NEWLINE);
+    vty_outln (vty, " bgp dampening %lld",
+	     bgp_damp_cfg.half_life / 60LL);
   else
-    vty_out (vty, " bgp dampening %lld %d %d %lld%s",
+    vty_outln (vty, " bgp dampening %lld %d %d %lld",
 	     bgp_damp_cfg.half_life/60LL,
 	     bgp_damp_cfg.reuse_limit,
 	     bgp_damp_cfg.suppress_value,
-	     bgp_damp_cfg.max_suppress_time/60LL,
-	     VTY_NEWLINE);
+	     bgp_damp_cfg.max_suppress_time / 60LL);
 }
 
 static const char *
@@ -654,7 +652,7 @@ bgp_damp_info_vty (struct vty *vty, struct bgp_info *binfo,
         vty_out (vty, ", reuse in %s",
 	       bgp_get_reuse_time (penalty, timebuf, BGP_UPTIME_LEN, 0, json_path));
 
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_outln (vty, "");
     }
 }
 
@@ -693,27 +691,27 @@ bgp_show_dampening_parameters (struct vty *vty, afi_t afi, safi_t safi)
 
   if (bgp == NULL)
     {
-      vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
+      vty_outln (vty, "No BGP process is configured");
       return CMD_WARNING;
     }
 
   if (CHECK_FLAG (bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING))
     {
-      vty_out (vty, "Half-life time: %lld min%s",
-               (long long)damp->half_life / 60, VTY_NEWLINE);
-      vty_out (vty, "Reuse penalty: %d%s",
-               damp->reuse_limit, VTY_NEWLINE);
-      vty_out (vty, "Suppress penalty: %d%s",
-               damp->suppress_value, VTY_NEWLINE);
-      vty_out (vty, "Max suppress time: %lld min%s",
-               (long long)damp->max_suppress_time / 60, VTY_NEWLINE);
-      vty_out (vty, "Max supress penalty: %u%s",
-               damp->ceiling, VTY_NEWLINE);
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_outln (vty, "Half-life time: %lld min",
+               (long long)damp->half_life / 60);
+      vty_outln (vty, "Reuse penalty: %d",
+               damp->reuse_limit);
+      vty_outln (vty, "Suppress penalty: %d",
+               damp->suppress_value);
+      vty_outln (vty, "Max suppress time: %lld min",
+               (long long)damp->max_suppress_time / 60);
+      vty_outln (vty, "Max supress penalty: %u",
+               damp->ceiling);
+      vty_outln (vty, "");
     }
   else
-    vty_out (vty, "dampening not enabled for %s%s",
-                  afi == AFI_IP ? "IPv4" : "IPv6", VTY_NEWLINE);
+    vty_outln (vty, "dampening not enabled for %s",
+                  afi == AFI_IP ? "IPv4" : "IPv6");
 
   return CMD_SUCCESS;
 }

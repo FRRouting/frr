@@ -118,7 +118,7 @@ DEFUN (grammar_test_complete,
       // print completions
       for (i = 0; i < vector_active (comps); i++) {
         tkn = vector_slot (comps, i);
-        vty_out (vty, "  %-*s  %s%s", width, tkn->text, tkn->desc, VTY_NEWLINE);
+        vty_outln (vty, "  %-*s  %s", width, tkn->text, tkn->desc);
       }
 
       for (i = 0; i < vector_active (comps); i++)
@@ -126,7 +126,7 @@ DEFUN (grammar_test_complete,
       vector_free (comps);
     }
   else
-    vty_out (vty, "%% No match%s", VTY_NEWLINE);
+    vty_outln (vty, "%% No match");
 
   // free resources
   list_delete (completions);
@@ -164,13 +164,13 @@ DEFUN (grammar_test_match,
   // print completions or relevant error message
   if (element)
     {
-      vty_out (vty, "Matched: %s%s", element->string, VTY_NEWLINE);
+      vty_outln (vty, "Matched: %s", element->string);
       struct listnode *ln;
       struct cmd_token *token;
       for (ALL_LIST_ELEMENTS_RO(argvv,ln,token))
-        vty_out (vty, "%s -- %s%s", token->text, token->arg, VTY_NEWLINE);
+        vty_outln (vty, "%s -- %s", token->text, token->arg);
 
-      vty_out (vty, "func: %p%s", element->func, VTY_NEWLINE);
+      vty_outln (vty, "func: %p", element->func);
 
       list_delete (argvv);
     }
@@ -178,16 +178,16 @@ DEFUN (grammar_test_match,
      assert(MATCHER_ERROR(result));
      switch (result) {
        case MATCHER_NO_MATCH:
-          vty_out (vty, "%% Unknown command%s", VTY_NEWLINE);
+          vty_outln (vty, "%% Unknown command");
           break;
        case MATCHER_INCOMPLETE:
-          vty_out (vty, "%% Incomplete command%s", VTY_NEWLINE);
+          vty_outln (vty, "%% Incomplete command");
           break;
        case MATCHER_AMBIGUOUS:
-          vty_out (vty, "%% Ambiguous command%s", VTY_NEWLINE);
+          vty_outln (vty, "%% Ambiguous command");
           break;
        default:
-          vty_out (vty, "%% Unknown error%s", VTY_NEWLINE);
+          vty_outln (vty, "%% Unknown error");
           break;
      }
   }
@@ -401,7 +401,7 @@ DEFUN (grammar_findambig,
         nodegraph = cnode->cmdgraph;
         if (!nodegraph)
           continue;
-        vty_out (vty, "scanning node %d%s", scannode - 1, VTY_NEWLINE);
+        vty_outln (vty, "scanning node %d", scannode - 1);
       }
 
     commands = cmd_graph_permutations (nodegraph);
@@ -410,23 +410,25 @@ DEFUN (grammar_findambig,
       {
         int same = prev && !strcmp (prev->cmd, cur->cmd);
         if (printall && !same)
-          vty_out (vty, "'%s' [%x]%s", cur->cmd, cur->el->daemon, VTY_NEWLINE);
+          vty_outln (vty, "'%s' [%x]", cur->cmd, cur->el->daemon);
         if (same)
           {
-            vty_out (vty, "'%s' AMBIGUOUS:%s", cur->cmd, VTY_NEWLINE);
-            vty_out (vty, "  %s%s   '%s'%s", prev->el->name, VTY_NEWLINE, prev->el->string, VTY_NEWLINE);
-            vty_out (vty, "  %s%s   '%s'%s", cur->el->name,  VTY_NEWLINE, cur->el->string,  VTY_NEWLINE);
-            vty_out (vty, "%s", VTY_NEWLINE);
+            vty_outln (vty, "'%s' AMBIGUOUS:", cur->cmd);
+            vty_outln (vty, "  %s%s   '%s'", prev->el->name, VTY_NEWLINE,
+                       prev->el->string);
+            vty_outln (vty, "  %s%s   '%s'", cur->el->name,  VTY_NEWLINE,
+                       cur->el->string);
+            vty_outln (vty, "");
             ambig++;
           }
         prev = cur;
       }
     list_delete (commands);
 
-    vty_out (vty, "%s", VTY_NEWLINE);
+    vty_outln (vty, "");
   } while (scan && scannode < LINK_PARAMS_NODE);
 
-  vty_out (vty, "%d ambiguous commands found.%s", ambig, VTY_NEWLINE);
+  vty_outln (vty, "%d ambiguous commands found.", ambig);
 
   if (scan)
     nodegraph = NULL;
@@ -463,11 +465,11 @@ DEFUN (grammar_access,
   cnode = vector_slot (cmdvec, atoi (argv[2]->arg));
   if (!cnode)
     {
-      vty_out (vty, "%% no such node%s", VTY_NEWLINE);
+      vty_outln (vty, "%% no such node");
       return CMD_WARNING;
     }
 
-  vty_out (vty, "node %d%s", (int)cnode->node, VTY_NEWLINE);
+  vty_outln (vty, "node %d", (int)cnode->node);
   nodegraph = cnode->cmdgraph;
   return CMD_SUCCESS;
 }
@@ -532,7 +534,7 @@ pretty_print_graph (struct vty *vty, struct graph_node *start, int level,
 
   if (stackpos == MAXDEPTH)
     {
-      vty_out(vty, " -aborting! (depth limit)%s", VTY_NEWLINE);
+      vty_outln (vty, " -aborting! (depth limit)");
       return;
     }
   stack[stackpos++] = start;
@@ -541,7 +543,7 @@ pretty_print_graph (struct vty *vty, struct graph_node *start, int level,
   if (numto)
     {
       if (numto > 1)
-        vty_out(vty, "%s", VTY_NEWLINE);
+        vty_outln (vty, "");
       for (unsigned int i = 0; i < vector_active (start->to); i++)
         {
           struct graph_node *adj = vector_slot (start->to, i);
@@ -553,12 +555,12 @@ pretty_print_graph (struct vty *vty, struct graph_node *start, int level,
           if (adj == start)
             vty_out(vty, "*");
           else if (((struct cmd_token *)adj->data)->type == END_TKN)
-            vty_out(vty, "--END%s", VTY_NEWLINE);
+            vty_outln (vty, "--END");
           else {
             size_t k;
             for (k = 0; k < stackpos; k++)
               if (stack[k] == adj) {
-                vty_out(vty, "<<loop@%zu %s", k, VTY_NEWLINE);
+                vty_outln (vty, "<<loop@%zu ", k);
                 break;
               }
             if (k == stackpos)
@@ -567,7 +569,7 @@ pretty_print_graph (struct vty *vty, struct graph_node *start, int level,
        }
     }
   else
-    vty_out(vty, "%s", VTY_NEWLINE);
+    vty_outln (vty, "");
 }
 
 static void
@@ -650,5 +652,5 @@ init_cmdgraph (struct vty *vty, struct graph **graph)
   struct cmd_token *token = cmd_token_new (START_TKN, 0, NULL, NULL);
   graph_new_node (*graph, token, (void (*)(void *)) &cmd_token_del);
   if (vty)
-    vty_out (vty, "initialized graph%s", VTY_NEWLINE);
+    vty_outln (vty, "initialized graph");
 }

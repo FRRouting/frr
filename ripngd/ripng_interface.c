@@ -916,27 +916,25 @@ ripng_network_write (struct vty *vty, int config_mode)
     if (node->info)
       {
 	struct prefix *p = &node->p;
-	vty_out (vty, "%s%s/%d%s", 
+	vty_outln (vty, "%s%s/%d", 
 		 config_mode ? " network " : "    ",
 		 inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
-		 p->prefixlen,
-		 VTY_NEWLINE);
+		 p->prefixlen);
 
       }
   
   /* Write enable interface. */
   for (i = 0; i < vector_active (ripng_enable_if); i++)
     if ((ifname = vector_slot (ripng_enable_if, i)) != NULL)
-      vty_out (vty, "%s%s%s",
+      vty_outln (vty, "%s%s",
 	       config_mode ? " network " : "    ",
-	       ifname,
-	       VTY_NEWLINE);
+	       ifname);
 
   /* Write passive interface. */
   if (config_mode)
     for (i = 0; i < vector_active (Vripng_passive_interface); i++)
       if ((ifname = vector_slot (Vripng_passive_interface, i)) != NULL)
-        vty_out (vty, " passive-interface %s%s", ifname, VTY_NEWLINE);
+        vty_outln (vty, " passive-interface %s", ifname);
 
   return 0;
 }
@@ -962,8 +960,8 @@ DEFUN (ripng_network,
 
   if (ret < 0)
     {
-      vty_out (vty, "There is same network configuration %s%s", argv[idx_if_or_addr]->arg,
-	       VTY_NEWLINE);
+      vty_outln (vty, "There is same network configuration %s",
+                 argv[idx_if_or_addr]->arg);
       return CMD_WARNING;
     }
 
@@ -992,8 +990,7 @@ DEFUN (no_ripng_network,
 
   if (ret < 0)
     {
-      vty_out (vty, "can't find network %s%s", argv[idx_if_or_addr]->arg,
-	       VTY_NEWLINE);
+      vty_outln (vty, "can't find network %s",argv[idx_if_or_addr]->arg);
       return CMD_WARNING;
     }
   
@@ -1124,31 +1121,28 @@ interface_config_write (struct vty *vty)
           (ri->split_horizon == ri->split_horizon_default))
         continue;
 
-      vty_out (vty, "interface %s%s", ifp->name,
-	       VTY_NEWLINE);
+      vty_outln (vty, "interface %s",ifp->name);
       if (ifp->desc)
-	vty_out (vty, " description %s%s", ifp->desc,
-		 VTY_NEWLINE);
+	vty_outln (vty, " description %s",ifp->desc);
 
       /* Split horizon. */
       if (ri->split_horizon != ri->split_horizon_default)
 	{
           switch (ri->split_horizon) {
           case RIPNG_SPLIT_HORIZON:
-            vty_out (vty, " ipv6 ripng split-horizon%s", VTY_NEWLINE);
+            vty_outln (vty, " ipv6 ripng split-horizon");
             break;
           case RIPNG_SPLIT_HORIZON_POISONED_REVERSE:
-            vty_out (vty, " ipv6 ripng split-horizon poisoned-reverse%s",
-                          VTY_NEWLINE);
+            vty_outln (vty," ipv6 ripng split-horizon poisoned-reverse");
             break;
           case RIPNG_NO_SPLIT_HORIZON:
           default:
-            vty_out (vty, " no ipv6 ripng split-horizon%s", VTY_NEWLINE);
+            vty_outln (vty, " no ipv6 ripng split-horizon");
             break;
           }
 	}
 
-      vty_out (vty, "!%s", VTY_NEWLINE);
+      vty_outln (vty, "!");
 
       write++;
     }

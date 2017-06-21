@@ -271,7 +271,7 @@ DEFUN (no_key_chain,
 
   if (! keychain)
     {
-      vty_out (vty, "Can't find keychain %s%s", argv[idx_word]->arg, VTY_NEWLINE);
+      vty_outln (vty, "Can't find keychain %s", argv[idx_word]->arg);
       return CMD_WARNING;
     }
 
@@ -314,7 +314,7 @@ DEFUN (no_key,
   key = key_lookup (keychain, index);
   if (! key)
     {
-      vty_out (vty, "Can't find key %d%s", index, VTY_NEWLINE);
+      vty_outln (vty, "Can't find key %d", index);
       return CMD_WARNING;
     }
 
@@ -477,20 +477,20 @@ key_lifetime_set (struct vty *vty, struct key_range *krange,
   time_start = key_str2time (stime_str, sday_str, smonth_str, syear_str);
   if (time_start < 0)
     {
-      vty_out (vty, "Malformed time value%s", VTY_NEWLINE);
+      vty_outln (vty, "Malformed time value");
       return CMD_WARNING;
     }
   time_end = key_str2time (etime_str, eday_str, emonth_str, eyear_str);
 
   if (time_end < 0)
     {
-      vty_out (vty, "Malformed time value%s", VTY_NEWLINE);
+      vty_outln (vty, "Malformed time value");
       return CMD_WARNING;
     }
 
   if (time_end <= time_start)
     {
-      vty_out (vty, "Expire time is not later than start time%s", VTY_NEWLINE);
+      vty_outln (vty, "Expire time is not later than start time");
       return CMD_WARNING;
     }
 
@@ -512,7 +512,7 @@ key_lifetime_duration_set (struct vty *vty, struct key_range *krange,
   time_start = key_str2time (stime_str, sday_str, smonth_str, syear_str);
   if (time_start < 0)
     {
-      vty_out (vty, "Malformed time value%s", VTY_NEWLINE);
+      vty_outln (vty, "Malformed time value");
       return CMD_WARNING;
     }
   krange->start = time_start;
@@ -534,7 +534,7 @@ key_lifetime_infinite_set (struct vty *vty, struct key_range *krange,
   time_start = key_str2time (stime_str, sday_str, smonth_str, syear_str);
   if (time_start < 0)
     {
-      vty_out (vty, "Malformed time value%s", VTY_NEWLINE);
+      vty_outln (vty, "Malformed time value");
       return CMD_WARNING;
     }
   krange->start = time_start;
@@ -966,14 +966,14 @@ keychain_config_write (struct vty *vty)
 
   for (ALL_LIST_ELEMENTS_RO (keychain_list, node, keychain))
     {
-      vty_out (vty, "key chain %s%s", keychain->name, VTY_NEWLINE);
+      vty_outln (vty, "key chain %s", keychain->name);
       
       for (ALL_LIST_ELEMENTS_RO (keychain->key, knode, key))
 	{
-	  vty_out (vty, " key %d%s", key->index, VTY_NEWLINE);
+	  vty_outln (vty, " key %d", key->index);
 
 	  if (key->string)
-	    vty_out (vty, "  key-string %s%s", key->string, VTY_NEWLINE);
+	    vty_outln (vty, "  key-string %s", key->string);
 
 	  if (key->accept.start)
 	    {
@@ -990,7 +990,7 @@ keychain_config_write (struct vty *vty)
 		  keychain_strftime (buf, BUFSIZ, &key->accept.end);
 		  vty_out (vty, " %s", buf);
 		}
-	      vty_out (vty, "%s", VTY_NEWLINE);
+	      vty_outln (vty, "");
 	    }
 
 	  if (key->send.start)
@@ -1007,10 +1007,10 @@ keychain_config_write (struct vty *vty)
 		  keychain_strftime (buf, BUFSIZ, &key->send.end);
 		  vty_out (vty, " %s", buf);
 		}
-	      vty_out (vty, "%s", VTY_NEWLINE);
+	      vty_outln (vty, "");
 	    }
 	}
-      vty_out (vty, "!%s", VTY_NEWLINE);
+      vty_outln (vty, "!");
     }
 
   return 0;

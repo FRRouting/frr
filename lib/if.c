@@ -694,9 +694,9 @@ DEFUN (interface,
 
   if ((sl = strlen(ifname)) > INTERFACE_NAMSIZ)
     {
-      vty_out (vty, "%% Interface name %s is invalid: length exceeds "
-		    "%d characters%s",
-	       ifname, INTERFACE_NAMSIZ, VTY_NEWLINE);
+      vty_outln (vty, "%% Interface name %s is invalid: length exceeds "
+		    "%d characters",
+	       ifname, INTERFACE_NAMSIZ);
       return CMD_WARNING;
     }
 
@@ -713,7 +713,7 @@ DEFUN (interface,
 
   if (!ifp)
     {
-      vty_out (vty, "%% interface %s not in %s%s", ifname, vrfname, VTY_NEWLINE);
+      vty_outln (vty, "%% interface %s not in %s", ifname, vrfname);
       return CMD_WARNING;
     }
   VTY_PUSH_CONTEXT (INTERFACE_NODE, ifp);

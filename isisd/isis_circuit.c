@@ -878,7 +878,7 @@ isis_circuit_print_vty (struct isis_circuit *circuit, struct vty *vty,
       vty_out (vty, "%-9s", circuit_state2string (circuit->state));
       vty_out (vty, "%-9s", circuit_type2string (circuit->circ_type));
       vty_out (vty, "%-9s", circuit_t2string (circuit->is_type));
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_outln (vty, "");
     }
 
   if (detail == ISIS_UI_LEVEL_DETAIL)
@@ -894,15 +894,15 @@ isis_circuit_print_vty (struct isis_circuit *circuit, struct vty *vty,
       else
         vty_out (vty, ", Active");
       vty_out (vty, ", Circuit Id: 0x%x", circuit->circuit_id);
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_outln (vty, "");
       vty_out (vty, "    Type: %s", circuit_type2string (circuit->circ_type));
       vty_out (vty, ", Level: %s", circuit_t2string (circuit->is_type));
       if (circuit->circ_type == CIRCUIT_T_BROADCAST)
         vty_out (vty, ", SNPA: %-10s", snpa_print (circuit->u.bc.snpa));
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_outln (vty, "");
       if (circuit->is_type & IS_LEVEL_1)
         {
-          vty_out (vty, "    Level-1 Information:%s", VTY_NEWLINE);
+          vty_outln (vty, "    Level-1 Information:");
           if (circuit->area->newmetric)
             vty_out (vty, "      Metric: %d", circuit->te_metric[0]);
           else
@@ -910,32 +910,30 @@ isis_circuit_print_vty (struct isis_circuit *circuit, struct vty *vty,
                      circuit->metric[0]);
           if (!circuit->is_passive)
             {
-              vty_out (vty, ", Active neighbors: %u%s",
-                       circuit->upadjcount[0], VTY_NEWLINE);
-              vty_out (vty, "      Hello interval: %u, "
-                            "Holddown count: %u %s%s",
+              vty_outln (vty, ", Active neighbors: %u",
+                       circuit->upadjcount[0]);
+              vty_outln (vty, "      Hello interval: %u, "
+                            "Holddown count: %u %s",
                        circuit->hello_interval[0],
                        circuit->hello_multiplier[0],
-                       (circuit->pad_hellos ? "(pad)" : "(no-pad)"),
-                       VTY_NEWLINE);
-              vty_out (vty, "      CNSP interval: %u, "
-                            "PSNP interval: %u%s",
+                       (circuit->pad_hellos ? "(pad)" : "(no-pad)"));
+              vty_outln (vty, "      CNSP interval: %u, "
+                            "PSNP interval: %u",
                        circuit->csnp_interval[0],
-                       circuit->psnp_interval[0], VTY_NEWLINE);
+                       circuit->psnp_interval[0]);
               if (circuit->circ_type == CIRCUIT_T_BROADCAST)
-                vty_out (vty, "      LAN Priority: %u, %s%s",
+                vty_outln (vty, "      LAN Priority: %u, %s",
                          circuit->priority[0],
-                         (circuit->u.bc.is_dr[0] ? \
-                          "is DIS" : "is not DIS"), VTY_NEWLINE);
+                         (circuit->u.bc.is_dr[0] ? "is DIS" : "is not DIS"));
             }
           else
             {
-              vty_out (vty, "%s", VTY_NEWLINE);
+              vty_outln (vty, "");
             }
         }
       if (circuit->is_type & IS_LEVEL_2)
         {
-          vty_out (vty, "    Level-2 Information:%s", VTY_NEWLINE);
+          vty_outln (vty, "    Level-2 Information:");
           if (circuit->area->newmetric)
             vty_out (vty, "      Metric: %d", circuit->te_metric[1]);
           else
@@ -943,58 +941,56 @@ isis_circuit_print_vty (struct isis_circuit *circuit, struct vty *vty,
                      circuit->metric[1]);
           if (!circuit->is_passive)
             {
-              vty_out (vty, ", Active neighbors: %u%s",
-                       circuit->upadjcount[1], VTY_NEWLINE);
-              vty_out (vty, "      Hello interval: %u, "
-                            "Holddown count: %u %s%s",
+              vty_outln (vty, ", Active neighbors: %u",
+                       circuit->upadjcount[1]);
+              vty_outln (vty, "      Hello interval: %u, "
+                            "Holddown count: %u %s",
                        circuit->hello_interval[1],
                        circuit->hello_multiplier[1],
-                       (circuit->pad_hellos ? "(pad)" : "(no-pad)"),
-                       VTY_NEWLINE);
-              vty_out (vty, "      CNSP interval: %u, "
-                            "PSNP interval: %u%s",
+                       (circuit->pad_hellos ? "(pad)" : "(no-pad)"));
+              vty_outln (vty, "      CNSP interval: %u, "
+                            "PSNP interval: %u",
                        circuit->csnp_interval[1],
-                       circuit->psnp_interval[1], VTY_NEWLINE);
+                       circuit->psnp_interval[1]);
               if (circuit->circ_type == CIRCUIT_T_BROADCAST)
-                vty_out (vty, "      LAN Priority: %u, %s%s",
+                vty_outln (vty, "      LAN Priority: %u, %s",
                          circuit->priority[1],
-                         (circuit->u.bc.is_dr[1] ? \
-                          "is DIS" : "is not DIS"), VTY_NEWLINE);
+                         (circuit->u.bc.is_dr[1] ? "is DIS" : "is not DIS"));
             }
           else
             {
-              vty_out (vty, "%s", VTY_NEWLINE);
+              vty_outln (vty, "");
             }
         }
       if (circuit->ip_addrs && listcount (circuit->ip_addrs) > 0)
         {
-          vty_out (vty, "    IP Prefix(es):%s", VTY_NEWLINE);
+          vty_outln (vty, "    IP Prefix(es):");
           for (ALL_LIST_ELEMENTS_RO (circuit->ip_addrs, node, ip_addr))
             {
               prefix2str (ip_addr, buf, sizeof (buf)),
-              vty_out (vty, "      %s%s", buf, VTY_NEWLINE);
+              vty_outln (vty, "      %s", buf);
             }
         }
       if (circuit->ipv6_link && listcount(circuit->ipv6_link) > 0)
         {
-          vty_out(vty, "    IPv6 Link-Locals:%s", VTY_NEWLINE);
+          vty_outln (vty, "    IPv6 Link-Locals:");
           for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_link, node, ip_addr))
             {
               prefix2str(ip_addr, (char*)buf, BUFSIZ),
-              vty_out(vty, "      %s%s", buf, VTY_NEWLINE);
+              vty_outln (vty, "      %s", buf);
             }
         }
       if (circuit->ipv6_non_link && listcount(circuit->ipv6_non_link) > 0)
         {
-          vty_out(vty, "    IPv6 Prefixes:%s", VTY_NEWLINE);
+          vty_outln (vty, "    IPv6 Prefixes:");
           for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link, node, ip_addr))
             {
               prefix2str(ip_addr, (char*)buf, BUFSIZ),
-              vty_out(vty, "      %s%s", buf, VTY_NEWLINE);
+              vty_outln (vty, "      %s", buf);
             }
         }
 
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_outln (vty, "");
     }
   return;
 }
@@ -1015,12 +1011,12 @@ isis_interface_config_write (struct vty *vty)
         continue;
 
       /* IF name */
-      vty_out (vty, "interface %s%s", ifp->name, VTY_NEWLINE);
+      vty_outln (vty, "interface %s", ifp->name);
       write++;
       /* IF desc */
       if (ifp->desc)
         {
-          vty_out (vty, " description %s%s", ifp->desc, VTY_NEWLINE);
+          vty_outln (vty, " description %s", ifp->desc);
           write++;
         }
       /* ISIS Circuit */
@@ -1031,39 +1027,36 @@ isis_interface_config_write (struct vty *vty)
             continue;
           if (circuit->ip_router)
             {
-              vty_out (vty, " ip router isis %s%s", area->area_tag,
-                       VTY_NEWLINE);
+              vty_outln (vty, " ip router isis %s",area->area_tag);
               write++;
             }
           if (circuit->is_passive)
             {
-              vty_out (vty, " isis passive%s", VTY_NEWLINE);
+              vty_outln (vty, " isis passive");
               write++;
             }
           if (circuit->circ_type_config == CIRCUIT_T_P2P)
             {
-              vty_out (vty, " isis network point-to-point%s", VTY_NEWLINE);
+              vty_outln (vty, " isis network point-to-point");
               write++;
             }
           if (circuit->ipv6_router)
             {
-              vty_out (vty, " ipv6 router isis %s%s", area->area_tag,
-                  VTY_NEWLINE);
+              vty_outln (vty, " ipv6 router isis %s",area->area_tag);
               write++;
             }
 
           /* ISIS - circuit type */
           if (circuit->is_type == IS_LEVEL_1)
             {
-              vty_out (vty, " isis circuit-type level-1%s", VTY_NEWLINE);
+              vty_outln (vty, " isis circuit-type level-1");
               write++;
             }
           else
             {
               if (circuit->is_type == IS_LEVEL_2)
                 {
-                  vty_out (vty, " isis circuit-type level-2-only%s",
-                           VTY_NEWLINE);
+                  vty_outln (vty," isis circuit-type level-2-only");
                   write++;
                 }
             }
@@ -1073,8 +1066,8 @@ isis_interface_config_write (struct vty *vty)
             {
               if (circuit->csnp_interval[0] != DEFAULT_CSNP_INTERVAL)
                 {
-                  vty_out (vty, " isis csnp-interval %d%s",
-                           circuit->csnp_interval[0], VTY_NEWLINE);
+                  vty_outln (vty, " isis csnp-interval %d",
+                           circuit->csnp_interval[0]);
                   write++;
                 }
             }
@@ -1084,8 +1077,8 @@ isis_interface_config_write (struct vty *vty)
               {
                 if (circuit->csnp_interval[i] != DEFAULT_CSNP_INTERVAL)
                   {
-                    vty_out (vty, " isis csnp-interval %d level-%d%s",
-                             circuit->csnp_interval[i], i + 1, VTY_NEWLINE);
+                    vty_outln (vty, " isis csnp-interval %d level-%d",
+                             circuit->csnp_interval[i], i + 1);
                     write++;
                   }
               }
@@ -1096,8 +1089,8 @@ isis_interface_config_write (struct vty *vty)
             {
               if (circuit->psnp_interval[0] != DEFAULT_PSNP_INTERVAL)
                 {
-                  vty_out (vty, " isis psnp-interval %d%s",
-                           circuit->psnp_interval[0], VTY_NEWLINE);
+                  vty_outln (vty, " isis psnp-interval %d",
+                           circuit->psnp_interval[0]);
                   write++;
                 }
             }
@@ -1107,8 +1100,8 @@ isis_interface_config_write (struct vty *vty)
                 {
                   if (circuit->psnp_interval[i] != DEFAULT_PSNP_INTERVAL)
                   {
-                    vty_out (vty, " isis psnp-interval %d level-%d%s",
-                             circuit->psnp_interval[i], i + 1, VTY_NEWLINE);
+                    vty_outln (vty, " isis psnp-interval %d level-%d",
+                             circuit->psnp_interval[i], i + 1);
                     write++;
                   }
                 }
@@ -1117,7 +1110,7 @@ isis_interface_config_write (struct vty *vty)
           /* ISIS - Hello padding - Defaults to true so only display if false */
           if (circuit->pad_hellos == 0)
             {
-              vty_out (vty, " no isis hello padding%s", VTY_NEWLINE);
+              vty_outln (vty, " no isis hello padding");
               write++;
             }
 
@@ -1126,8 +1119,8 @@ isis_interface_config_write (struct vty *vty)
             {
               if (circuit->hello_interval[0] != DEFAULT_HELLO_INTERVAL)
                 {
-                  vty_out (vty, " isis hello-interval %d%s",
-                           circuit->hello_interval[0], VTY_NEWLINE);
+                  vty_outln (vty, " isis hello-interval %d",
+                           circuit->hello_interval[0]);
                   write++;
                 }
             }
@@ -1137,8 +1130,8 @@ isis_interface_config_write (struct vty *vty)
                 {
                   if (circuit->hello_interval[i] != DEFAULT_HELLO_INTERVAL)
                     {
-                      vty_out (vty, " isis hello-interval %d level-%d%s",
-                               circuit->hello_interval[i], i + 1, VTY_NEWLINE);
+                      vty_outln (vty, " isis hello-interval %d level-%d",
+                               circuit->hello_interval[i], i + 1);
                       write++;
                     }
                 }
@@ -1149,8 +1142,8 @@ isis_interface_config_write (struct vty *vty)
             {
               if (circuit->hello_multiplier[0] != DEFAULT_HELLO_MULTIPLIER)
                 {
-                  vty_out (vty, " isis hello-multiplier %d%s",
-                           circuit->hello_multiplier[0], VTY_NEWLINE);
+                  vty_outln (vty, " isis hello-multiplier %d",
+                           circuit->hello_multiplier[0]);
                   write++;
                 }
             }
@@ -1160,9 +1153,8 @@ isis_interface_config_write (struct vty *vty)
                 {
                   if (circuit->hello_multiplier[i] != DEFAULT_HELLO_MULTIPLIER)
                     {
-                      vty_out (vty, " isis hello-multiplier %d level-%d%s",
-                               circuit->hello_multiplier[i], i + 1,
-                               VTY_NEWLINE);
+                      vty_outln (vty, " isis hello-multiplier %d level-%d",
+                               circuit->hello_multiplier[i],i + 1);
                       write++;
                     }
                 }
@@ -1173,8 +1165,8 @@ isis_interface_config_write (struct vty *vty)
             {
               if (circuit->priority[0] != DEFAULT_PRIORITY)
                 {
-                  vty_out (vty, " isis priority %d%s",
-                           circuit->priority[0], VTY_NEWLINE);
+                  vty_outln (vty, " isis priority %d",
+                           circuit->priority[0]);
                   write++;
                 }
             }
@@ -1184,8 +1176,8 @@ isis_interface_config_write (struct vty *vty)
                 {
                   if (circuit->priority[i] != DEFAULT_PRIORITY)
                     {
-                      vty_out (vty, " isis priority %d level-%d%s",
-                               circuit->priority[i], i + 1, VTY_NEWLINE);
+                      vty_outln (vty, " isis priority %d level-%d",
+                               circuit->priority[i], i + 1);
                       write++;
                     }
                 }
@@ -1196,8 +1188,7 @@ isis_interface_config_write (struct vty *vty)
             {
               if (circuit->te_metric[0] != DEFAULT_CIRCUIT_METRIC)
                 {
-                  vty_out (vty, " isis metric %d%s", circuit->te_metric[0],
-                           VTY_NEWLINE);
+                  vty_outln (vty, " isis metric %d",circuit->te_metric[0]);
                   write++;
                 }
             }
@@ -1207,27 +1198,27 @@ isis_interface_config_write (struct vty *vty)
                 {
                   if (circuit->te_metric[i] != DEFAULT_CIRCUIT_METRIC)
                     {
-                      vty_out (vty, " isis metric %d level-%d%s",
-                               circuit->te_metric[i], i + 1, VTY_NEWLINE);
+                      vty_outln (vty, " isis metric %d level-%d",
+                               circuit->te_metric[i], i + 1);
                       write++;
                     }
                 }
             }
           if (circuit->passwd.type == ISIS_PASSWD_TYPE_HMAC_MD5)
             {
-              vty_out (vty, " isis password md5 %s%s", circuit->passwd.passwd,
-                       VTY_NEWLINE);
+              vty_outln (vty, " isis password md5 %s",
+                         circuit->passwd.passwd);
               write++;
             }
           else if (circuit->passwd.type == ISIS_PASSWD_TYPE_CLEARTXT)
             {
-              vty_out (vty, " isis password clear %s%s", circuit->passwd.passwd,
-                       VTY_NEWLINE);
+              vty_outln (vty, " isis password clear %s",
+                         circuit->passwd.passwd);
               write++;
             }
           write += circuit_write_mt_settings(circuit, vty);
         }
-      vty_out (vty, "!%s", VTY_NEWLINE);
+      vty_outln (vty, "!");
     }
 
   return write;

@@ -2192,17 +2192,16 @@ ospf_apiserver_show_info (struct vty *vty, struct ospf_lsa *lsa)
   if (vty != NULL)
     {
       int i;
-      vty_out (vty, "  Added using OSPF API: %u octets of opaque data %s%s",
+      vty_outln (vty, "  Added using OSPF API: %u octets of opaque data %s",
 	       opaquelen,
-	       VALID_OPAQUE_INFO_LEN (lsa->data) ? "" : "(Invalid length?)",
-	       VTY_NEWLINE);
+	       VALID_OPAQUE_INFO_LEN(lsa->data) ? "" : "(Invalid length?)");
       vty_out (vty, "  Opaque data: ");
 
       for (i = 0; i < opaquelen; i++)
 	{
 	  vty_out (vty, "0x%x ", olsa->data[i]);
 	}
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_outln (vty, "");
     }
   else
     {

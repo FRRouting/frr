@@ -1671,10 +1671,9 @@ show_vty_router_addr (struct vty *vty, struct te_tlv_header *tlvh)
   struct te_tlv_router_addr *top = (struct te_tlv_router_addr *) tlvh;
 
   if (vty != NULL)
-    vty_out (vty, "  Router-Address: %s%s", inet_ntoa (top->value),
-             VTY_NEWLINE);
-  else
-    zlog_debug ("    Router-Address: %s", inet_ntoa (top->value));
+    vty_outln (vty, "  Router-Address: %s",inet_ntoa(top->value));
+    else
+      zlog_debug ("    Router-Address: %s", inet_ntoa (top->value));
 
   return TLV_SIZE (tlvh);
 }
@@ -1685,10 +1684,9 @@ show_vty_link_header (struct vty *vty, struct te_tlv_header *tlvh)
   struct te_tlv_link *top = (struct te_tlv_link *) tlvh;
 
   if (vty != NULL)
-    vty_out (vty, "  Link: %u octets of data%s", ntohs (top->header.length),
-             VTY_NEWLINE);
-  else
-    zlog_debug ("    Link: %u octets of data", ntohs (top->header.length));
+    vty_outln (vty, "  Link: %u octets of data",ntohs(top->header.length));
+    else
+      zlog_debug ("    Link: %u octets of data", ntohs (top->header.length));
 
   return TLV_HDR_SIZE;	/* Here is special, not "TLV_SIZE". */
 }
@@ -1713,8 +1711,7 @@ show_vty_link_subtlv_link_type (struct vty *vty, struct te_tlv_header *tlvh)
     }
 
   if (vty != NULL)
-    vty_out (vty, "  Link-Type: %s (%u)%s", cp, top->link_type.value,
-             VTY_NEWLINE);
+    vty_outln (vty, "  Link-Type: %s (%u)", cp,top->link_type.value);
   else
     zlog_debug ("    Link-Type: %s (%u)", cp, top->link_type.value);
 
@@ -1728,9 +1725,9 @@ show_vty_link_subtlv_link_id (struct vty *vty, struct te_tlv_header *tlvh)
 
   top = (struct te_link_subtlv_link_id *) tlvh;
   if (vty != NULL)
-    vty_out (vty, "  Link-ID: %s%s", inet_ntoa (top->value), VTY_NEWLINE);
-  else
-    zlog_debug ("    Link-ID: %s", inet_ntoa (top->value));
+    vty_outln (vty, "  Link-ID: %s", inet_ntoa(top->value));
+    else
+      zlog_debug ("    Link-ID: %s", inet_ntoa (top->value));
 
   return TLV_SIZE (tlvh);
 }
@@ -1746,17 +1743,16 @@ show_vty_link_subtlv_lclif_ipaddr (struct vty *vty,
   n = ntohs (tlvh->length) / sizeof (top->value[0]);
 
   if (vty != NULL)
-    vty_out (vty, "  Local Interface IP Address(es): %d%s", n, VTY_NEWLINE);
+    vty_outln (vty, "  Local Interface IP Address(es): %d", n);
   else
     zlog_debug ("    Local Interface IP Address(es): %d", n);
 
   for (i = 0; i < n; i++)
     {
       if (vty != NULL)
-        vty_out (vty, "    #%d: %s%s", i, inet_ntoa (top->value[i]),
-                 VTY_NEWLINE);
-      else
-        zlog_debug ("      #%d: %s", i, inet_ntoa (top->value[i]));
+        vty_outln (vty, "    #%d: %s", i,inet_ntoa(top->value[i]));
+        else
+          zlog_debug ("      #%d: %s", i, inet_ntoa (top->value[i]));
     }
   return TLV_SIZE (tlvh);
 }
@@ -1771,17 +1767,16 @@ show_vty_link_subtlv_rmtif_ipaddr (struct vty *vty,
   top = (struct te_link_subtlv_rmtif_ipaddr *) tlvh;
   n = ntohs (tlvh->length) / sizeof (top->value[0]);
   if (vty != NULL)
-    vty_out (vty, "  Remote Interface IP Address(es): %d%s", n, VTY_NEWLINE);
+    vty_outln (vty, "  Remote Interface IP Address(es): %d", n);
   else
     zlog_debug ("    Remote Interface IP Address(es): %d", n);
 
   for (i = 0; i < n; i++)
     {
       if (vty != NULL)
-        vty_out (vty, "    #%d: %s%s", i, inet_ntoa (top->value[i]),
-                 VTY_NEWLINE);
-      else
-        zlog_debug ("      #%d: %s", i, inet_ntoa (top->value[i]));
+        vty_outln (vty, "    #%d: %s", i,inet_ntoa(top->value[i]));
+        else
+          zlog_debug ("      #%d: %s", i, inet_ntoa (top->value[i]));
     }
   return TLV_SIZE (tlvh);
 }
@@ -1793,11 +1788,11 @@ show_vty_link_subtlv_te_metric (struct vty *vty, struct te_tlv_header *tlvh)
 
   top = (struct te_link_subtlv_te_metric *) tlvh;
   if (vty != NULL)
-    vty_out (vty, "  Traffic Engineering Metric: %u%s",
-             (u_int32_t) ntohl (top->value), VTY_NEWLINE);
-  else
-    zlog_debug ("    Traffic Engineering Metric: %u",
-                (u_int32_t) ntohl (top->value));
+    vty_outln (vty, "  Traffic Engineering Metric: %u",
+             (u_int32_t)ntohl(top->value));
+      else
+        zlog_debug ("    Traffic Engineering Metric: %u",
+		                (u_int32_t) ntohl (top->value));
 
   return TLV_SIZE (tlvh);
 }
@@ -1812,7 +1807,7 @@ show_vty_link_subtlv_max_bw (struct vty *vty, struct te_tlv_header *tlvh)
   fval = ntohf (top->value);
 
   if (vty != NULL)
-    vty_out (vty, "  Maximum Bandwidth: %g (Bytes/sec)%s", fval, VTY_NEWLINE);
+    vty_outln (vty, "  Maximum Bandwidth: %g (Bytes/sec)", fval);
   else
     zlog_debug ("    Maximum Bandwidth: %g (Bytes/sec)", fval);
 
@@ -1829,8 +1824,7 @@ show_vty_link_subtlv_max_rsv_bw (struct vty *vty, struct te_tlv_header *tlvh)
   fval = ntohf (top->value);
 
   if (vty != NULL)
-    vty_out (vty, "  Maximum Reservable Bandwidth: %g (Bytes/sec)%s", fval,
-             VTY_NEWLINE);
+    vty_outln (vty, "  Maximum Reservable Bandwidth: %g (Bytes/sec)",fval);
   else
     zlog_debug ("    Maximum Reservable Bandwidth: %g (Bytes/sec)", fval);
 
@@ -1846,7 +1840,7 @@ show_vty_link_subtlv_unrsv_bw (struct vty *vty, struct te_tlv_header *tlvh)
 
   top = (struct te_link_subtlv_unrsv_bw *) tlvh;
   if (vty != NULL)
-    vty_out (vty, "  Unreserved Bandwidth per Class Type in Byte/s:%s", VTY_NEWLINE);
+    vty_outln (vty, "  Unreserved Bandwidth per Class Type in Byte/s:");
   else
     zlog_debug ("    Unreserved Bandwidth per Class Type in Byte/s:");
   for (i = 0; i < MAX_CLASS_TYPE; i+=2)
@@ -1855,8 +1849,8 @@ show_vty_link_subtlv_unrsv_bw (struct vty *vty, struct te_tlv_header *tlvh)
       fval2 = ntohf (top->value[i+1]);
 
       if (vty != NULL)
-        vty_out(vty, "    [%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)%s",
-                i, fval1, i+1, fval2, VTY_NEWLINE);
+        vty_outln (vty, "    [%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)",
+                i, fval1, i+1, fval2);
       else
         zlog_debug ("      [%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)",
                     i, fval1, i+1, fval2);
@@ -1872,11 +1866,11 @@ show_vty_link_subtlv_rsc_clsclr (struct vty *vty, struct te_tlv_header *tlvh)
 
   top = (struct te_link_subtlv_rsc_clsclr *) tlvh;
   if (vty != NULL)
-    vty_out (vty, "  Resource class/color: 0x%x%s",
-             (u_int32_t) ntohl (top->value), VTY_NEWLINE);
-  else
-    zlog_debug ("    Resource Class/Color: 0x%x",
-                (u_int32_t) ntohl (top->value));
+    vty_outln (vty, "  Resource class/color: 0x%x",
+             (u_int32_t)ntohl(top->value));
+      else
+        zlog_debug ("    Resource Class/Color: 0x%x",
+		                (u_int32_t) ntohl (top->value));
 
   return TLV_SIZE (tlvh);
 }
@@ -1890,10 +1884,8 @@ show_vty_link_subtlv_lrrid (struct vty *vty, struct te_tlv_header *tlvh)
 
   if (vty != NULL)
     {
-      vty_out (vty, "  Local  TE Router ID: %s%s", inet_ntoa (top->local),
-               VTY_NEWLINE);
-      vty_out (vty, "  Remote TE Router ID: %s%s", inet_ntoa (top->remote),
-               VTY_NEWLINE);
+      vty_outln (vty, "  Local  TE Router ID: %s",inet_ntoa(top->local));
+      vty_outln (vty, "  Remote TE Router ID: %s",inet_ntoa(top->remote));
     }
   else
     {
@@ -1913,10 +1905,8 @@ show_vty_link_subtlv_llri (struct vty *vty, struct te_tlv_header *tlvh)
 
   if (vty != NULL)
     {
-      vty_out (vty, "  Link Local  ID: %d%s", (u_int32_t) ntohl (top->local),
-               VTY_NEWLINE);
-      vty_out (vty, "  Link Remote ID: %d%s", (u_int32_t) ntohl (top->remote),
-               VTY_NEWLINE);
+      vty_outln (vty, "  Link Local  ID: %d",(u_int32_t)ntohl(top->local));
+      vty_outln (vty, "  Link Remote ID: %d",(u_int32_t)ntohl(top->remote));
     }
   else
     {
@@ -1935,11 +1925,11 @@ show_vty_link_subtlv_rip (struct vty *vty, struct te_tlv_header *tlvh)
   top = (struct te_link_subtlv_rip *) tlvh;
 
   if (vty != NULL)
-    vty_out (vty, "  Inter-AS TE Remote ASBR IP address: %s%s",
-             inet_ntoa (top->value), VTY_NEWLINE);
-  else
-    zlog_debug ("    Inter-AS TE Remote ASBR IP address: %s",
-                inet_ntoa (top->value));
+    vty_outln (vty, "  Inter-AS TE Remote ASBR IP address: %s",
+             inet_ntoa(top->value));
+    else
+      zlog_debug ("    Inter-AS TE Remote ASBR IP address: %s",
+	                inet_ntoa (top->value));
 
   return TLV_SIZE (tlvh);
 }
@@ -1952,10 +1942,9 @@ show_vty_link_subtlv_ras (struct vty *vty, struct te_tlv_header *tlvh)
   top = (struct te_link_subtlv_ras *) tlvh;
 
   if (vty != NULL)
-    vty_out (vty, "  Inter-AS TE Remote AS number: %u%s", ntohl (top->value),
-             VTY_NEWLINE);
-  else
-    zlog_debug ("    Inter-AS TE Remote AS number: %u", ntohl (top->value));
+    vty_outln (vty, "  Inter-AS TE Remote AS number: %u",ntohl(top->value));
+    else
+      zlog_debug ("    Inter-AS TE Remote AS number: %u", ntohl (top->value));
 
   return TLV_SIZE (tlvh);
 }
@@ -1972,8 +1961,8 @@ show_vty_link_subtlv_av_delay (struct vty *vty, struct te_tlv_header *tlvh)
   anomalous = (u_int32_t) ntohl (top->value) & TE_EXT_ANORMAL;
 
   if (vty != NULL)
-    vty_out (vty, "  %s Average Link Delay: %d (micro-sec)%s",
-             anomalous ? "Anomalous" : "Normal", delay, VTY_NEWLINE);
+    vty_outln (vty, "  %s Average Link Delay: %d (micro-sec)",
+             anomalous ? "Anomalous" : "Normal", delay);
   else
     zlog_debug ("    %s Average Link Delay: %d (micro-sec)",
                 anomalous ? "Anomalous" : "Normal", delay);
@@ -1994,8 +1983,8 @@ show_vty_link_subtlv_mm_delay (struct vty *vty, struct te_tlv_header *tlvh)
   high = (u_int32_t) ntohl (top->high);
 
   if (vty != NULL)
-    vty_out (vty, "  %s Min/Max Link Delay: %d/%d (micro-sec)%s",
-             anomalous ? "Anomalous" : "Normal", low, high, VTY_NEWLINE);
+    vty_outln (vty, "  %s Min/Max Link Delay: %d/%d (micro-sec)",
+             anomalous ? "Anomalous" : "Normal", low, high);
   else
     zlog_debug ("    %s Min/Max Link Delay: %d/%d (micro-sec)",
                 anomalous ? "Anomalous" : "Normal", low, high);
@@ -2013,7 +2002,7 @@ show_vty_link_subtlv_delay_var (struct vty *vty, struct te_tlv_header *tlvh)
   jitter = (u_int32_t) ntohl (top->value) & TE_EXT_MASK;
 
   if (vty != NULL)
-    vty_out (vty, "  Delay Variation: %d (micro-sec)%s", jitter, VTY_NEWLINE);
+    vty_outln (vty, "  Delay Variation: %d (micro-sec)", jitter);
   else
     zlog_debug ("    Delay Variation: %d (micro-sec)", jitter);
 
@@ -2034,8 +2023,8 @@ show_vty_link_subtlv_pkt_loss (struct vty *vty, struct te_tlv_header *tlvh)
   anomalous = (u_int32_t) ntohl (top->value) & TE_EXT_ANORMAL;
 
   if (vty != NULL)
-    vty_out (vty, "  %s Link Loss: %g (%%)%s", anomalous ? "Anomalous" : "Normal",
-             fval, VTY_NEWLINE);
+    vty_outln (vty, "  %s Link Loss: %g (%%)", anomalous ? "Anomalous" : "Normal",
+             fval);
   else
     zlog_debug ("    %s Link Loss: %g (%%)", anomalous ? "Anomalous" : "Normal",
                 fval);
@@ -2053,8 +2042,8 @@ show_vty_link_subtlv_res_bw (struct vty *vty, struct te_tlv_header *tlvh)
   fval = ntohf (top->value);
 
   if (vty != NULL)
-    vty_out (vty, "  Unidirectional Residual Bandwidth: %g (Bytes/sec)%s",
-             fval, VTY_NEWLINE);
+    vty_outln (vty, "  Unidirectional Residual Bandwidth: %g (Bytes/sec)",
+             fval);
   else
     zlog_debug ("    Unidirectional Residual Bandwidth: %g (Bytes/sec)",
                 fval);
@@ -2072,8 +2061,8 @@ show_vty_link_subtlv_ava_bw (struct vty *vty, struct te_tlv_header *tlvh)
   fval = ntohf (top->value);
 
   if (vty != NULL)
-    vty_out (vty, "  Unidirectional Available Bandwidth: %g (Bytes/sec)%s",
-             fval, VTY_NEWLINE);
+    vty_outln (vty, "  Unidirectional Available Bandwidth: %g (Bytes/sec)",
+             fval);
   else
     zlog_debug ("    Unidirectional Available Bandwidth: %g (Bytes/sec)",
                 fval);
@@ -2091,8 +2080,8 @@ show_vty_link_subtlv_use_bw (struct vty *vty, struct te_tlv_header *tlvh)
   fval = ntohf (top->value);
 
   if (vty != NULL)
-    vty_out (vty, "  Unidirectional Utilized Bandwidth: %g (Bytes/sec)%s",
-             fval, VTY_NEWLINE);
+    vty_outln (vty, "  Unidirectional Utilized Bandwidth: %g (Bytes/sec)",
+             fval);
   else
     zlog_debug ("    Unidirectional Utilized Bandwidth: %g (Bytes/sec)",
                 fval);
@@ -2104,11 +2093,11 @@ static u_int16_t
 show_vty_unknown_tlv (struct vty *vty, struct te_tlv_header *tlvh)
 {
   if (vty != NULL)
-    vty_out (vty, "  Unknown TLV: [type(0x%x), length(0x%x)]%s",
-             ntohs (tlvh->type), ntohs (tlvh->length), VTY_NEWLINE);
-  else
-    zlog_debug ("    Unknown TLV: [type(0x%x), length(0x%x)]",
-                ntohs (tlvh->type), ntohs (tlvh->length));
+    vty_outln (vty, "  Unknown TLV: [type(0x%x), length(0x%x)]",
+             ntohs (tlvh->type), ntohs(tlvh->length));
+    else
+      zlog_debug ("    Unknown TLV: [type(0x%x), length(0x%x)]",
+	                ntohs (tlvh->type), ntohs (tlvh->length));
 
   return TLV_SIZE (tlvh);
 }
@@ -2241,16 +2230,16 @@ ospf_mpls_te_config_write_router (struct vty *vty)
 
   if (OspfMplsTE.status == enabled)
     {
-      vty_out (vty, " mpls-te on%s", VTY_NEWLINE);
-      vty_out (vty, " mpls-te router-address %s%s",
-               inet_ntoa (OspfMplsTE.router_addr.value), VTY_NEWLINE);
+      vty_outln (vty, " mpls-te on");
+      vty_outln (vty, " mpls-te router-address %s",
+               inet_ntoa(OspfMplsTE.router_addr.value));
     }
 
   if (OspfMplsTE.inter_as == AS)
-    vty_out (vty, "  mpls-te inter-as as%s", VTY_NEWLINE);
+    vty_outln (vty, "  mpls-te inter-as as");
   if (OspfMplsTE.inter_as == Area)
-    vty_out (vty, "  mpls-te inter-as area %s %s",
-             inet_ntoa (OspfMplsTE.interas_areaid), VTY_NEWLINE);
+    vty_outln (vty, "  mpls-te inter-as area %s ",
+             inet_ntoa(OspfMplsTE.interas_areaid));
 
   return;
 }
@@ -2336,7 +2325,7 @@ DEFUN (ospf_mpls_te_router_addr,
 
   if (! inet_aton (argv[idx_ipv4]->arg, &value))
     {
-      vty_out (vty, "Please specify Router-Addr by A.B.C.D%s", VTY_NEWLINE);
+      vty_outln (vty, "Please specify Router-Addr by A.B.C.D");
       return CMD_WARNING;
     }
 
@@ -2404,8 +2393,7 @@ set_inter_as_mode (struct vty *vty, const char *mode_name,
         }
       else
         {
-          vty_out (vty, "Unknown mode. Please choose between as or area%s",
-                   VTY_NEWLINE);
+          vty_outln (vty,"Unknown mode. Please choose between as or area");
           return CMD_WARNING;
         }
 
@@ -2416,8 +2404,8 @@ set_inter_as_mode (struct vty *vty, const char *mode_name,
       /* Register new callbacks regarding the flooding scope (AS or Area) */
       if (ospf_mpls_te_register (mode) < 0)
         {
-          vty_out (vty, "Internal error: Unable to register Inter-AS functions%s",
-                   VTY_NEWLINE);
+          vty_outln (vty,
+                     "Internal error: Unable to register Inter-AS functions");
           return CMD_WARNING;
         }
 
@@ -2440,14 +2428,14 @@ set_inter_as_mode (struct vty *vty, const char *mode_name,
         }
       else
         {
-          vty_out (vty, "Please change Inter-AS support to disable first before going to mode %s%s",
-                   mode2text[mode], VTY_NEWLINE);
+          vty_outln (vty, "Please change Inter-AS support to disable first before going to mode %s",
+                   mode2text[mode]);
           return CMD_WARNING;
         }
     }
   else
     {
-      vty_out (vty, "mpls-te has not been turned on%s", VTY_NEWLINE);
+      vty_outln (vty, "mpls-te has not been turned on");
       return CMD_WARNING;
     }
   return CMD_SUCCESS;
@@ -2517,12 +2505,12 @@ DEFUN (show_ip_ospf_mpls_te_router,
 {
   if (OspfMplsTE.status == enabled)
     {
-      vty_out (vty, "--- MPLS-TE router parameters ---%s", VTY_NEWLINE);
+      vty_outln (vty, "--- MPLS-TE router parameters ---");
 
       if (ntohs (OspfMplsTE.router_addr.header.type) != 0)
         show_vty_router_addr (vty, &OspfMplsTE.router_addr.header);
       else if (vty != NULL)
-        vty_out (vty, "  N/A%s", VTY_NEWLINE);
+        vty_outln (vty, "  N/A");
     }
   return CMD_SUCCESS;
 }
@@ -2543,22 +2531,22 @@ show_mpls_te_link_sub (struct vty *vty, struct interface *ifp)
         {
           if (IS_INTER_AS (lp->type))
             {
-              vty_out (vty, "-- Inter-AS TEv2 link parameters for %s --%s",
-                       ifp->name, VTY_NEWLINE);
+              vty_outln (vty, "-- Inter-AS TEv2 link parameters for %s --",
+                       ifp->name);
             }
           else
             {
               /* MPLS-TE is not activate on this interface */
               /* or this interface is passive and Inter-AS TEv2 is not activate */
-              vty_out (vty, "  %s: MPLS-TE is disabled on this interface%s",
-                       ifp->name, VTY_NEWLINE);
+              vty_outln (vty, "  %s: MPLS-TE is disabled on this interface",
+                       ifp->name);
               return;
             }
         }
       else
         {
-      vty_out (vty, "-- MPLS-TE link parameters for %s --%s",
-               ifp->name, VTY_NEWLINE);
+      vty_outln (vty, "-- MPLS-TE link parameters for %s --",
+               ifp->name);
         }
 
       if (TLV_TYPE(lp->link_type) != 0)
@@ -2597,12 +2585,12 @@ show_mpls_te_link_sub (struct vty *vty, struct interface *ifp)
         show_vty_link_subtlv_ava_bw (vty, &lp->ava_bw.header);
       if (TLV_TYPE(lp->use_bw) != 0)
         show_vty_link_subtlv_use_bw (vty, &lp->use_bw.header);
-      vty_out (vty, "---------------%s%s", VTY_NEWLINE, VTY_NEWLINE);
+      vty_outln (vty, "---------------%s", VTY_NEWLINE);
     }
   else
     {
-      vty_out (vty, "  %s: MPLS-TE is disabled on this interface%s",
-               ifp->name, VTY_NEWLINE);
+      vty_outln (vty, "  %s: MPLS-TE is disabled on this interface",
+               ifp->name);
     }
 
   return;
@@ -2632,7 +2620,7 @@ DEFUN (show_ip_ospf_mpls_te_link,
   else
     {
       if ((ifp = if_lookup_by_name (argv[idx_interface]->arg, VRF_DEFAULT)) == NULL)
-        vty_out (vty, "No such interface name%s", VTY_NEWLINE);
+        vty_outln (vty, "No such interface name");
       else
         show_mpls_te_link_sub (vty, ifp);
     }

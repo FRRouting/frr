@@ -173,9 +173,8 @@ static void pim_show_assert(struct vty *vty)
   
   now = pim_time_monotonic_sec();
 
-  vty_out(vty,
-	  "Interface Address         Source          Group           State  Winner          Uptime   Timer%s",
-	  VTY_NEWLINE);
+  vty_outln (vty,
+	  "Interface Address         Source          Group           State  Winner          Uptime   Timer");
 
   for (ALL_LIST_ELEMENTS_RO(pim_ifchannel_list, ch_node, ch)) {
     char ch_src_str[INET_ADDRSTRLEN];
@@ -202,7 +201,7 @@ static void pim_show_assert(struct vty *vty)
     pim_time_timer_to_mmss(timer, sizeof(timer),
 			   ch->t_ifassert_timer);
 
-    vty_out(vty, "%-9s %-15s %-15s %-15s %-6s %-15s %-8s %-5s%s",
+    vty_outln (vty, "%-9s %-15s %-15s %-15s %-6s %-15s %-8s %-5s",
 	    ch->interface->name,
 	    inet_ntoa(ifaddr),
 	    ch_src_str,
@@ -210,8 +209,7 @@ static void pim_show_assert(struct vty *vty)
 	    pim_ifchannel_ifassert_name(ch->ifassert_state),
 	    winner_str,
 	    uptime,
-	    timer,
-	    VTY_NEWLINE);
+	    timer);
   } /* scan interface channels */
 }
 
@@ -222,16 +220,15 @@ static void pim_show_assert_internal(struct vty *vty)
   struct pim_ifchannel *ch;
   struct in_addr ifaddr;
 
-  vty_out(vty,
+  vty_outln (vty,
 	  "CA:   CouldAssert%s"
 	  "ECA:  Evaluate CouldAssert%s"
 	  "ATD:  AssertTrackingDesired%s"
-	  "eATD: Evaluate AssertTrackingDesired%s%s",
-	  VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
+	  "eATD: Evaluate AssertTrackingDesired%s",
+	  VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
 
-  vty_out(vty,
-	  "Interface Address         Source          Group           CA  eCA ATD eATD%s",
-	  VTY_NEWLINE);
+  vty_outln (vty,
+	  "Interface Address         Source          Group           CA  eCA ATD eATD");
 
   for (ALL_LIST_ELEMENTS_RO(pim_ifchannel_list, ch_node, ch)) {
     pim_ifp = ch->interface->info;
@@ -248,7 +245,7 @@ static void pim_show_assert_internal(struct vty *vty)
 		   ch_src_str, sizeof(ch_src_str));
     pim_inet4_dump("<ch_grp?>", ch->sg.grp,
 		   ch_grp_str, sizeof(ch_grp_str));
-    vty_out(vty, "%-9s %-15s %-15s %-15s %-3s %-3s %-3s %-4s%s",
+    vty_outln (vty, "%-9s %-15s %-15s %-15s %-3s %-3s %-3s %-4s",
 	    ch->interface->name,
 	    inet_ntoa(ifaddr),
 	    ch_src_str,
@@ -256,8 +253,7 @@ static void pim_show_assert_internal(struct vty *vty)
 	    PIM_IF_FLAG_TEST_COULD_ASSERT(ch->flags) ? "yes" : "no",
 	    pim_macro_ch_could_assert_eval(ch) ? "yes" : "no",
 	    PIM_IF_FLAG_TEST_ASSERT_TRACKING_DESIRED(ch->flags) ? "yes" : "no",
-	    pim_macro_assert_tracking_desired_eval(ch) ? "yes" : "no",
-	    VTY_NEWLINE);
+	    pim_macro_assert_tracking_desired_eval(ch) ? "yes" : "no");
   } /* scan interface channels */
 }
 
@@ -268,9 +264,8 @@ static void pim_show_assert_metric(struct vty *vty)
   struct pim_ifchannel *ch;
   struct in_addr ifaddr;
 
-  vty_out(vty,
-	  "Interface Address         Source          Group           RPT Pref Metric Address        %s",
-	  VTY_NEWLINE);
+  vty_outln (vty,
+	  "Interface Address         Source          Group           RPT Pref Metric Address        ");
 
   for (ALL_LIST_ELEMENTS_RO(pim_ifchannel_list, ch_node, ch)) {
     pim_ifp = ch->interface->info;
@@ -294,7 +289,7 @@ static void pim_show_assert_metric(struct vty *vty)
     pim_inet4_dump("<addr?>", am.ip_address,
 		   addr_str, sizeof(addr_str));
 
-    vty_out(vty, "%-9s %-15s %-15s %-15s %-3s %4u %6u %-15s%s",
+    vty_outln (vty, "%-9s %-15s %-15s %-15s %-3s %4u %6u %-15s",
 	    ch->interface->name,
 	    inet_ntoa(ifaddr),
 	    ch_src_str,
@@ -302,8 +297,7 @@ static void pim_show_assert_metric(struct vty *vty)
 	    am.rpt_bit_flag ? "yes" : "no",
 	    am.metric_preference,
 	    am.route_metric,
-	    addr_str,
-	    VTY_NEWLINE);
+	    addr_str);
     } /* scan interface channels */
 }
 
@@ -314,9 +308,8 @@ static void pim_show_assert_winner_metric(struct vty *vty)
   struct pim_ifchannel *ch;
   struct in_addr ifaddr;
   
-  vty_out(vty,
-	  "Interface Address         Source          Group           RPT Pref Metric Address        %s",
-	  VTY_NEWLINE);
+  vty_outln (vty,
+	  "Interface Address         Source          Group           RPT Pref Metric Address        ");
 
   for (ALL_LIST_ELEMENTS_RO(pim_ifchannel_list, ch_node, ch)) {
     pim_ifp = ch->interface->info;
@@ -352,7 +345,7 @@ static void pim_show_assert_winner_metric(struct vty *vty)
     else
       snprintf(metr_str, sizeof(metr_str), "%6u", am->route_metric);
 
-    vty_out(vty, "%-9s %-15s %-15s %-15s %-3s %-4s %-6s %-15s%s",
+    vty_outln (vty, "%-9s %-15s %-15s %-15s %-3s %-4s %-6s %-15s",
 	    ch->interface->name,
 	    inet_ntoa(ifaddr),
 	    ch_src_str,
@@ -360,8 +353,7 @@ static void pim_show_assert_winner_metric(struct vty *vty)
 	    am->rpt_bit_flag ? "yes" : "no",
 	    pref_str,
 	    metr_str,
-	    addr_str,
-	    VTY_NEWLINE);
+	    addr_str);
   } /* scan interface channels */
 }
 
@@ -439,11 +431,11 @@ static void pim_show_membership(struct vty *vty, u_char uj)
   } /* scan interface channels */
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
   } else {
-    vty_out(vty,
-            "Interface  Address          Source           Group            Membership%s",
-            VTY_NEWLINE);
+    vty_outln (vty,
+            "Interface  Address          Source           Group            Membership");
 
     /*
      * Example of the json data we are traversing
@@ -488,7 +480,7 @@ static void pim_show_membership(struct vty *vty, u_char uj)
           vty_out(vty, "%-15s  ", if_field_key);
 
           json_object_object_get_ex(if_field_val, "localMembership", &json_tmp);
-          vty_out(vty, "%-10s%s", json_object_get_string(json_tmp), VTY_NEWLINE);
+          vty_outln (vty, "%-10s", json_object_get_string(json_tmp));
         }
       }
     }
@@ -499,17 +491,22 @@ static void pim_show_membership(struct vty *vty, u_char uj)
 
 static void pim_print_ifp_flags(struct vty *vty, struct interface *ifp, int mloop)
 {
-  vty_out(vty, "Flags%s", VTY_NEWLINE);
-  vty_out(vty, "-----%s", VTY_NEWLINE);
-  vty_out(vty, "All Multicast   : %s%s", (ifp->flags & IFF_ALLMULTI) ? "yes" : "no", VTY_NEWLINE);
-  vty_out(vty, "Broadcast       : %s%s", if_is_broadcast(ifp)? "yes" : "no", VTY_NEWLINE);
-  vty_out(vty, "Deleted         : %s%s", PIM_IF_IS_DELETED(ifp) ? "yes" : "no", VTY_NEWLINE);
-  vty_out(vty, "Interface Index : %d%s", ifp->ifindex, VTY_NEWLINE);
-  vty_out(vty, "Multicast       : %s%s", if_is_multicast(ifp) ? "yes" : "no", VTY_NEWLINE);
-  vty_out(vty, "Multicast Loop  : %d%s", mloop, VTY_NEWLINE);
-  vty_out(vty, "Promiscuous     : %s%s", (ifp->flags & IFF_PROMISC) ? "yes" : "no", VTY_NEWLINE);
-  vty_out(vty, "%s", VTY_NEWLINE);
-  vty_out(vty, "%s", VTY_NEWLINE);
+  vty_outln (vty, "Flags");
+  vty_outln (vty, "-----");
+  vty_outln (vty, "All Multicast   : %s",
+            (ifp->flags & IFF_ALLMULTI) ? "yes" : "no");
+  vty_outln (vty, "Broadcast       : %s",
+            if_is_broadcast(ifp) ? "yes" : "no");
+  vty_outln (vty, "Deleted         : %s",
+            PIM_IF_IS_DELETED(ifp) ? "yes" : "no");
+  vty_outln (vty, "Interface Index : %d", ifp->ifindex);
+  vty_outln (vty, "Multicast       : %s",
+            if_is_multicast(ifp) ? "yes" : "no");
+  vty_outln (vty, "Multicast Loop  : %d", mloop);
+  vty_outln (vty, "Promiscuous     : %s",
+            (ifp->flags & IFF_PROMISC) ? "yes" : "no");
+  vty_outln (vty, "");
+  vty_outln (vty, "");
 }
 
 static void igmp_show_interfaces(struct vty *vty, u_char uj)
@@ -525,9 +522,8 @@ static void igmp_show_interfaces(struct vty *vty, u_char uj)
   if (uj)
     json = json_object_new_object();
   else
-    vty_out(vty,
-            "Interface  State          Address  V  Querier  Query Timer    Uptime%s",
-            VTY_NEWLINE);
+    vty_outln (vty,
+            "Interface  State          Address  V  Querier  Query Timer    Uptime");
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
     struct pim_interface *pim_ifp;
@@ -560,21 +556,21 @@ static void igmp_show_interfaces(struct vty *vty, u_char uj)
         json_object_object_add(json, ifp->name, json_row);
 
       } else {
-        vty_out(vty, "%-9s  %5s  %15s  %d  %7s  %11s  %8s%s",
+        vty_outln (vty, "%-9s  %5s  %15s  %d  %7s  %11s  %8s",
                 ifp->name,
                 if_is_up(ifp) ? "up" : "down",
                 inet_ntoa(igmp->ifaddr),
                 pim_ifp->igmp_version,
 	        igmp->t_igmp_query_timer ? "local" : "other",
 	        query_hhmmss,
-                uptime,
-                VTY_NEWLINE);
+                uptime);
       }
     }
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   }
 }
@@ -663,35 +659,44 @@ static void igmp_show_interfaces_single(struct vty *vty, const char *ifname, u_c
         json_object_object_add(json, ifp->name, json_row);
 
       } else {
-        vty_out(vty, "Interface : %s%s", ifp->name, VTY_NEWLINE);
-        vty_out(vty, "State     : %s%s", if_is_up(ifp) ? "up" : "down", VTY_NEWLINE);
-        vty_out(vty, "Address   : %s%s", inet_ntoa(pim_ifp->primary_address), VTY_NEWLINE);
-        vty_out(vty, "Uptime    : %s%s", uptime, VTY_NEWLINE);
-        vty_out(vty, "Version   : %d%s", pim_ifp->igmp_version, VTY_NEWLINE);
-        vty_out(vty, "%s", VTY_NEWLINE);
-        vty_out(vty, "%s", VTY_NEWLINE);
+        vty_outln (vty, "Interface : %s", ifp->name);
+        vty_outln (vty, "State     : %s", if_is_up(ifp) ? "up" : "down");
+        vty_outln (vty, "Address   : %s",
+                  inet_ntoa(pim_ifp->primary_address));
+        vty_outln (vty, "Uptime    : %s", uptime);
+        vty_outln (vty, "Version   : %d", pim_ifp->igmp_version);
+        vty_outln (vty, "");
+        vty_outln (vty, "");
 
-        vty_out(vty, "Querier%s", VTY_NEWLINE);
-        vty_out(vty, "-------%s", VTY_NEWLINE);
-        vty_out(vty, "Querier     : %s%s", igmp->t_igmp_query_timer ? "local" : "other", VTY_NEWLINE);
-        vty_out(vty, "Start Count : %d%s", igmp->startup_query_count, VTY_NEWLINE);
-        vty_out(vty, "Query Timer : %s%s", query_hhmmss, VTY_NEWLINE);
-        vty_out(vty, "Other Timer : %s%s", other_hhmmss, VTY_NEWLINE);
-        vty_out(vty, "%s", VTY_NEWLINE);
-        vty_out(vty, "%s", VTY_NEWLINE);
+        vty_outln (vty, "Querier");
+        vty_outln (vty, "-------");
+        vty_outln (vty, "Querier     : %s",
+                  igmp->t_igmp_query_timer ? "local" : "other");
+        vty_outln (vty, "Start Count : %d", igmp->startup_query_count);
+        vty_outln (vty, "Query Timer : %s", query_hhmmss);
+        vty_outln (vty, "Other Timer : %s", other_hhmmss);
+        vty_outln (vty, "");
+        vty_outln (vty, "");
 
-        vty_out(vty, "Timers%s", VTY_NEWLINE);
-        vty_out(vty, "------%s", VTY_NEWLINE);
-        vty_out(vty, "Group Membership Interval      : %lis%s", gmi_msec/1000, VTY_NEWLINE);
-        vty_out(vty, "Last Member Query Time         : %lis%s", lmqt_msec/1000, VTY_NEWLINE);
-        vty_out(vty, "Older Host Present Interval    : %lis%s", ohpi_msec/1000, VTY_NEWLINE);
-        vty_out(vty, "Other Querier Present Interval : %lis%s", oqpi_msec/1000, VTY_NEWLINE);
-        vty_out(vty, "Query Interval                 : %ds%s", igmp->querier_query_interval, VTY_NEWLINE);
-        vty_out(vty, "Query Response Interval        : %lis%s", qri_msec/1000, VTY_NEWLINE);
-        vty_out(vty, "Robustness Variable            : %d%s", igmp->querier_robustness_variable, VTY_NEWLINE);
-        vty_out(vty, "Startup Query Interval         : %ds%s", sqi, VTY_NEWLINE);
-        vty_out(vty, "%s", VTY_NEWLINE);
-        vty_out(vty, "%s", VTY_NEWLINE);
+        vty_outln (vty, "Timers");
+        vty_outln (vty, "------");
+        vty_outln (vty, "Group Membership Interval      : %lis",
+                  gmi_msec / 1000);
+        vty_outln (vty, "Last Member Query Time         : %lis",
+                  lmqt_msec / 1000);
+        vty_outln (vty, "Older Host Present Interval    : %lis",
+                  ohpi_msec / 1000);
+        vty_outln (vty, "Other Querier Present Interval : %lis",
+                  oqpi_msec / 1000);
+        vty_outln (vty, "Query Interval                 : %ds",
+                  igmp->querier_query_interval);
+        vty_outln (vty, "Query Response Interval        : %lis",
+                  qri_msec / 1000);
+        vty_outln (vty, "Robustness Variable            : %d",
+                  igmp->querier_robustness_variable);
+        vty_outln (vty, "Startup Query Interval         : %ds", sqi);
+        vty_outln (vty, "");
+        vty_outln (vty, "");
 
         pim_print_ifp_flags(vty, ifp, mloop);
       }
@@ -699,11 +704,12 @@ static void igmp_show_interfaces_single(struct vty *vty, const char *ifname, u_c
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   } else {
     if (!found_ifname)
-      vty_out (vty, "%% No such interface%s", VTY_NEWLINE);
+      vty_outln (vty, "%% No such interface");
   }
 }
 
@@ -715,9 +721,8 @@ static void igmp_show_interface_join(struct vty *vty)
   
   now = pim_time_monotonic_sec();
 
-  vty_out(vty,
-	  "Interface Address         Source          Group           Socket Uptime  %s",
-	  VTY_NEWLINE);
+  vty_outln (vty,
+	  "Interface Address         Source          Group           Socket Uptime  ");
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
     struct pim_interface *pim_ifp;
@@ -746,14 +751,13 @@ static void igmp_show_interface_join(struct vty *vty)
       pim_inet4_dump("<grp?>", ij->group_addr, group_str, sizeof(group_str));
       pim_inet4_dump("<src?>", ij->source_addr, source_str, sizeof(source_str));
       
-      vty_out(vty, "%-9s %-15s %-15s %-15s %6d %8s%s",
+      vty_outln (vty, "%-9s %-15s %-15s %-15s %6d %8s",
 	      ifp->name,
 	      pri_addr_str,
 	      source_str,
 	      group_str,
 	      ij->sock_fd,
-	      uptime,
-	      VTY_NEWLINE);
+	      uptime);
     } /* for (pim_ifp->igmp_join_list) */
 
   } /* for (iflist) */
@@ -921,25 +925,23 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
       json_object_object_add(json, ifp->name, json_row);
 
     } else {
-      vty_out(vty, "Interface  : %s%s", ifp->name, VTY_NEWLINE);
-      vty_out(vty, "State      : %s%s", if_is_up(ifp) ? "up" : "down", VTY_NEWLINE);
+      vty_outln (vty, "Interface  : %s", ifp->name);
+      vty_outln (vty, "State      : %s", if_is_up(ifp) ? "up" : "down");
       if (pim_ifp->update_source.s_addr != INADDR_ANY) {
-        vty_out(vty, "Use Source : %s%s", inet_ntoa(pim_ifp->update_source), VTY_NEWLINE);
+        vty_outln (vty, "Use Source : %s", inet_ntoa(pim_ifp->update_source));
       }
       if (pim_ifp->sec_addr_list) {
         char pbuf[PREFIX2STR_BUFFER];
-        vty_out(vty, "Address    : %s (primary)%s",
-                inet_ntoa(ifaddr), VTY_NEWLINE);
+        vty_outln (vty, "Address    : %s (primary)",
+                inet_ntoa(ifaddr));
         for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, sec_node, sec_addr)) {
-          vty_out(vty, "             %s%s",
-                  prefix2str(&sec_addr->addr,
-			     pbuf,
-			     sizeof(pbuf)), VTY_NEWLINE);
+          vty_outln (vty, "             %s",
+                  prefix2str(&sec_addr->addr, pbuf, sizeof(pbuf)));
         }
       } else {
-        vty_out(vty, "Address    : %s%s", inet_ntoa(ifaddr), VTY_NEWLINE);
+        vty_outln (vty, "Address    : %s", inet_ntoa(ifaddr));
       }
-      vty_out(vty, "%s", VTY_NEWLINE);
+      vty_outln (vty, "");
 
       // PIM neighbors
       print_header = 1;
@@ -947,31 +949,32 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
       for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, neighnode, neigh)) {
 
         if (print_header) {
-          vty_out(vty, "PIM Neighbors%s", VTY_NEWLINE);
-          vty_out(vty, "-------------%s", VTY_NEWLINE);
+          vty_outln (vty, "PIM Neighbors");
+          vty_outln (vty, "-------------");
           print_header = 0;
         }
 
         pim_inet4_dump("<src?>", neigh->source_addr, neigh_src_str, sizeof(neigh_src_str));
         pim_time_uptime(uptime, sizeof(uptime), now - neigh->creation);
         pim_time_timer_to_hhmmss(expire, sizeof(expire), neigh->t_expire_timer);
-        vty_out(vty, "%-15s : up for %s, holdtime expires in %s%s", neigh_src_str, uptime, expire, VTY_NEWLINE);
+        vty_outln (vty, "%-15s : up for %s, holdtime expires in %s", neigh_src_str, uptime,
+                  expire);
       }
 
       if (!print_header) {
-        vty_out(vty, "%s", VTY_NEWLINE);
-        vty_out(vty, "%s", VTY_NEWLINE);
+        vty_outln (vty, "");
+        vty_outln (vty, "");
       }
 
-      vty_out(vty, "Designated Router%s", VTY_NEWLINE);
-      vty_out(vty, "-----------------%s", VTY_NEWLINE);
-      vty_out(vty, "Address   : %s%s", dr_str, VTY_NEWLINE);
-      vty_out(vty, "Priority  : %d%s", pim_ifp->pim_dr_priority, VTY_NEWLINE);
-      vty_out(vty, "Uptime    : %s%s", dr_uptime, VTY_NEWLINE);
-      vty_out(vty, "Elections : %d%s", pim_ifp->pim_dr_election_count, VTY_NEWLINE);
-      vty_out(vty, "Changes   : %d%s", pim_ifp->pim_dr_election_changes, VTY_NEWLINE);
-      vty_out(vty, "%s", VTY_NEWLINE);
-      vty_out(vty, "%s", VTY_NEWLINE);
+      vty_outln (vty, "Designated Router");
+      vty_outln (vty, "-----------------");
+      vty_outln (vty, "Address   : %s", dr_str);
+      vty_outln (vty, "Priority  : %d", pim_ifp->pim_dr_priority);
+      vty_outln (vty, "Uptime    : %s", dr_uptime);
+      vty_outln (vty, "Elections : %d", pim_ifp->pim_dr_election_count);
+      vty_outln (vty, "Changes   : %d", pim_ifp->pim_dr_election_changes);
+      vty_outln (vty, "");
+      vty_outln (vty, "");
 
       // FHR
       print_header = 1;
@@ -980,65 +983,77 @@ static void pim_show_interfaces_single(struct vty *vty, const char *ifname, u_ch
           if (up->flags & PIM_UPSTREAM_FLAG_MASK_FHR) {
 
             if (print_header) {
-              vty_out(vty, "FHR - First Hop Router%s", VTY_NEWLINE);
-              vty_out(vty, "----------------------%s", VTY_NEWLINE);
+              vty_outln (vty, "FHR - First Hop Router");
+              vty_outln (vty, "----------------------");
               print_header = 0;
             }
 
             pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
             pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
             pim_time_uptime(uptime, sizeof(uptime), now - up->state_transition);
-            vty_out(vty, "%s : %s is a source, uptime is %s%s", grp_str, src_str, uptime, VTY_NEWLINE);
+            vty_outln (vty, "%s : %s is a source, uptime is %s", grp_str, src_str,
+                      uptime);
           }
         }
       }
 
       if (!print_header) {
-        vty_out(vty, "%s", VTY_NEWLINE);
-        vty_out(vty, "%s", VTY_NEWLINE);
+        vty_outln (vty, "");
+        vty_outln (vty, "");
       }
 
-      vty_out(vty, "Hellos%s", VTY_NEWLINE);
-      vty_out(vty, "------%s", VTY_NEWLINE);
-      vty_out(vty, "Period         : %d%s", pim_ifp->pim_hello_period, VTY_NEWLINE);
-      vty_out(vty, "Timer          : %s%s", hello_timer, VTY_NEWLINE);
-      vty_out(vty, "StatStart      : %s%s", stat_uptime, VTY_NEWLINE);
-      vty_out(vty, "Receive        : %d%s", pim_ifp->pim_ifstat_hello_recv, VTY_NEWLINE);
-      vty_out(vty, "Receive Failed : %d%s", pim_ifp->pim_ifstat_hello_recvfail, VTY_NEWLINE);
-      vty_out(vty, "Send           : %d%s", pim_ifp->pim_ifstat_hello_sent, VTY_NEWLINE);
-      vty_out(vty, "Send Failed    : %d%s", pim_ifp->pim_ifstat_hello_sendfail, VTY_NEWLINE);
-      vty_out(vty, "Generation ID  : %08x%s", pim_ifp->pim_generation_id, VTY_NEWLINE);
-      vty_out(vty, "%s", VTY_NEWLINE);
-      vty_out(vty, "%s", VTY_NEWLINE);
+      vty_outln (vty, "Hellos");
+      vty_outln (vty, "------");
+      vty_outln (vty, "Period         : %d", pim_ifp->pim_hello_period);
+      vty_outln (vty, "Timer          : %s", hello_timer);
+      vty_outln (vty, "StatStart      : %s", stat_uptime);
+      vty_outln (vty, "Receive        : %d", pim_ifp->pim_ifstat_hello_recv);
+      vty_outln (vty, "Receive Failed : %d",
+                pim_ifp->pim_ifstat_hello_recvfail);
+      vty_outln (vty, "Send           : %d", pim_ifp->pim_ifstat_hello_sent);
+      vty_outln (vty, "Send Failed    : %d",
+                pim_ifp->pim_ifstat_hello_sendfail);
+      vty_outln (vty, "Generation ID  : %08x", pim_ifp->pim_generation_id);
+      vty_outln (vty, "");
+      vty_outln (vty, "");
 
       pim_print_ifp_flags(vty, ifp, mloop);
 
-      vty_out(vty, "Join Prune Interval%s", VTY_NEWLINE);
-      vty_out(vty, "-------------------%s", VTY_NEWLINE);
-      vty_out(vty, "LAN Delay                    : %s%s", pim_if_lan_delay_enabled(ifp) ? "yes" : "no", VTY_NEWLINE);
-      vty_out(vty, "Effective Propagation Delay  : %d msec%s", pim_if_effective_propagation_delay_msec(ifp), VTY_NEWLINE);
-      vty_out(vty, "Effective Override Interval  : %d msec%s", pim_if_effective_override_interval_msec(ifp), VTY_NEWLINE);
-      vty_out(vty, "Join Prune Override Interval : %d msec%s", pim_if_jp_override_interval_msec(ifp), VTY_NEWLINE);
-      vty_out(vty, "%s", VTY_NEWLINE);
-      vty_out(vty, "%s", VTY_NEWLINE);
+      vty_outln (vty, "Join Prune Interval");
+      vty_outln (vty, "-------------------");
+      vty_outln (vty, "LAN Delay                    : %s",
+                pim_if_lan_delay_enabled(ifp) ? "yes" : "no");
+      vty_outln (vty, "Effective Propagation Delay  : %d msec",
+                pim_if_effective_propagation_delay_msec(ifp));
+      vty_outln (vty, "Effective Override Interval  : %d msec",
+                pim_if_effective_override_interval_msec(ifp));
+      vty_outln (vty, "Join Prune Override Interval : %d msec",
+                pim_if_jp_override_interval_msec(ifp));
+      vty_outln (vty, "");
+      vty_outln (vty, "");
 
-      vty_out(vty, "LAN Prune Delay%s", VTY_NEWLINE);
-      vty_out(vty, "---------------%s", VTY_NEWLINE);
-      vty_out(vty, "Propagation Delay           : %d msec%s", pim_ifp->pim_propagation_delay_msec, VTY_NEWLINE);
-      vty_out(vty, "Propagation Delay (Highest) : %d msec%s", pim_ifp->pim_neighbors_highest_propagation_delay_msec, VTY_NEWLINE);
-      vty_out(vty, "Override Interval           : %d msec%s", pim_ifp->pim_override_interval_msec, VTY_NEWLINE);
-      vty_out(vty, "Override Interval (Highest) : %d msec%s", pim_ifp->pim_neighbors_highest_override_interval_msec, VTY_NEWLINE);
-      vty_out(vty, "%s", VTY_NEWLINE);
-      vty_out(vty, "%s", VTY_NEWLINE);
+      vty_outln (vty, "LAN Prune Delay");
+      vty_outln (vty, "---------------");
+      vty_outln (vty, "Propagation Delay           : %d msec",
+                pim_ifp->pim_propagation_delay_msec);
+      vty_outln (vty, "Propagation Delay (Highest) : %d msec",
+                pim_ifp->pim_neighbors_highest_propagation_delay_msec);
+      vty_outln (vty, "Override Interval           : %d msec",
+                pim_ifp->pim_override_interval_msec);
+      vty_outln (vty, "Override Interval (Highest) : %d msec",
+                pim_ifp->pim_neighbors_highest_override_interval_msec);
+      vty_outln (vty, "");
+      vty_outln (vty, "");
     }
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   } else {
     if (!found_ifname)
-      vty_out (vty, "%% No such interface%s", VTY_NEWLINE);
+      vty_outln (vty, "%% No such interface");
   }
 }
 
@@ -1090,9 +1105,11 @@ static void pim_show_interfaces(struct vty *vty, u_char uj)
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
   } else {
-    vty_out(vty, "Interface  State          Address  PIM Nbrs           PIM DR  FHR IfChannels%s", VTY_NEWLINE);
+    vty_outln (vty,
+              "Interface  State          Address  PIM Nbrs           PIM DR  FHR IfChannels");
 
     json_object_object_foreach(json, key, val) {
       vty_out(vty, "%-9s  ", key);
@@ -1117,7 +1134,7 @@ static void pim_show_interfaces(struct vty *vty, u_char uj)
       vty_out(vty, "%3d  ", json_object_get_int(json_tmp));
 
       json_object_object_get_ex(val, "pimIfChannels", &json_tmp);
-      vty_out(vty, "%9d%s", json_object_get_int(json_tmp), VTY_NEWLINE);
+      vty_outln (vty, "%9d", json_object_get_int(json_tmp));
     }
   }
 
@@ -1136,17 +1153,16 @@ static void pim_show_interface_traffic (struct vty *vty, u_char uj)
     json = json_object_new_object ();
   else
     {
-      vty_out (vty, "%s", VTY_NEWLINE);
-      vty_out (vty, "%-12s%-17s%-17s%-17s%-17s%-17s%-17s%s", "Interface",
+      vty_outln (vty, "");
+      vty_outln (vty, "%-12s%-17s%-17s%-17s%-17s%-17s%-17s", "Interface",
                "    HELLO", "    JOIN", "   PRUNE", "   REGISTER",
-               "  REGISTER-STOP", "  ASSERT", VTY_NEWLINE);
-      vty_out (vty,
-               "%-10s%-18s%-17s%-17s%-17s%-17s%-17s%s",
+               "  REGISTER-STOP", "  ASSERT");
+      vty_outln (vty,
+               "%-10s%-18s%-17s%-17s%-17s%-17s%-17s",
                "", "      Rx/Tx", "     Rx/Tx", "    Rx/Tx", "    Rx/Tx",
-               "     Rx/Tx", "    Rx/Tx", VTY_NEWLINE);
-      vty_out (vty,
-           "---------------------------------------------------------------------------------------------------------------%s",
-           VTY_NEWLINE);
+               "     Rx/Tx", "    Rx/Tx");
+      vty_outln (vty,
+           "---------------------------------------------------------------------------------------------------------------");
     }
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
@@ -1177,8 +1193,8 @@ static void pim_show_interface_traffic (struct vty *vty, u_char uj)
         }
       else
         {
-          vty_out (vty,
-               "%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %s",
+          vty_outln (vty,
+               "%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u ",
                ifp->name, pim_ifp->pim_ifstat_hello_recv,
                pim_ifp->pim_ifstat_hello_sent, pim_ifp->pim_ifstat_join_recv,
                pim_ifp->pim_ifstat_join_send, pim_ifp->pim_ifstat_prune_recv,
@@ -1187,12 +1203,13 @@ static void pim_show_interface_traffic (struct vty *vty, u_char uj)
                pim_ifp->pim_ifstat_reg_stop_recv,
                pim_ifp->pim_ifstat_reg_stop_send,
                pim_ifp->pim_ifstat_assert_recv,
-               pim_ifp->pim_ifstat_assert_send, VTY_NEWLINE);
+               pim_ifp->pim_ifstat_assert_send);
         }
     }
   if (uj)
     {
-      vty_out (vty, "%s%s", json_object_to_json_string_ext (json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+      vty_outln (vty, "%s",
+                 json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
       json_object_free (json);
     }
 }
@@ -1210,17 +1227,16 @@ static void pim_show_interface_traffic_single (struct vty *vty, const char *ifna
     json = json_object_new_object ();
   else
     {
-      vty_out (vty, "%s", VTY_NEWLINE);
-      vty_out (vty, "%-12s%-17s%-17s%-17s%-17s%-17s%-17s%s", "Interface",
+      vty_outln (vty, "");
+      vty_outln (vty, "%-12s%-17s%-17s%-17s%-17s%-17s%-17s", "Interface",
                "    HELLO", "    JOIN", "   PRUNE", "   REGISTER",
-               "  REGISTER-STOP", "  ASSERT", VTY_NEWLINE);
-      vty_out (vty,
-               "%-10s%-18s%-17s%-17s%-17s%-17s%-17s%s",
+               "  REGISTER-STOP", "  ASSERT");
+      vty_outln (vty,
+               "%-10s%-18s%-17s%-17s%-17s%-17s%-17s",
                "", "      Rx/Tx", "     Rx/Tx", "    Rx/Tx", "    Rx/Tx",
-               "     Rx/Tx", "    Rx/Tx", VTY_NEWLINE);
-      vty_out (vty,
-           "---------------------------------------------------------------------------------------------------------------%s",
-           VTY_NEWLINE);
+               "     Rx/Tx", "    Rx/Tx");
+      vty_outln (vty,
+           "---------------------------------------------------------------------------------------------------------------");
     }
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
@@ -1256,8 +1272,8 @@ static void pim_show_interface_traffic_single (struct vty *vty, const char *ifna
         }
       else
         {
-          vty_out (vty,
-               "%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %s",
+          vty_outln (vty,
+               "%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u ",
                ifp->name, pim_ifp->pim_ifstat_hello_recv,
                pim_ifp->pim_ifstat_hello_sent, pim_ifp->pim_ifstat_join_recv,
                pim_ifp->pim_ifstat_join_send, pim_ifp->pim_ifstat_prune_recv,
@@ -1266,18 +1282,19 @@ static void pim_show_interface_traffic_single (struct vty *vty, const char *ifna
                pim_ifp->pim_ifstat_reg_stop_recv,
                pim_ifp->pim_ifstat_reg_stop_send,
                pim_ifp->pim_ifstat_assert_recv,
-               pim_ifp->pim_ifstat_assert_send, VTY_NEWLINE);
+               pim_ifp->pim_ifstat_assert_send);
         }
     }
   if (uj)
     {
-      vty_out (vty, "%s%s", json_object_to_json_string_ext (json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+      vty_outln (vty, "%s",
+                 json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
       json_object_free (json);
     }
   else
     {
       if (!found_ifname)
-        vty_out (vty, "%% No such interface%s", VTY_NEWLINE);
+        vty_outln (vty, "%% No such interface");
     }
 }
 
@@ -1298,9 +1315,8 @@ static void pim_show_join(struct vty *vty, u_char uj)
   if (uj)
     json = json_object_new_object();
   else
-    vty_out(vty,
-            "Interface Address         Source          Group           State  Uptime   Expire Prune%s",
-            VTY_NEWLINE);
+    vty_outln (vty,
+            "Interface Address         Source          Group           State  Uptime   Expire Prune");
 
   for (ALL_LIST_ELEMENTS_RO(pim_ifchannel_list, ch_node, ch)) {
 
@@ -1358,7 +1374,7 @@ static void pim_show_join(struct vty *vty, u_char uj)
       else
         json_object_object_add(json_grp, ch_src_str, json_row);
     } else {
-      vty_out(vty, "%-9s %-15s %-15s %-15s %-6s %8s %-6s %5s%s",
+      vty_outln (vty, "%-9s %-15s %-15s %-15s %-6s %8s %-6s %5s",
 	      ch->interface->name,
 	      inet_ntoa(ifaddr),
 	      ch_src_str,
@@ -1366,13 +1382,13 @@ static void pim_show_join(struct vty *vty, u_char uj)
 	      pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags),
 	      uptime,
 	      expire,
-	      prune,
-	      VTY_NEWLINE);
+	      prune);
     }
   } /* scan interface channels */
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   }
 }
@@ -1496,33 +1512,44 @@ static void pim_show_neighbors_single(struct vty *vty, const char *neighbor, u_c
         json_object_object_add(json_ifp, neigh_src_str, json_row);
 
       } else {
-        vty_out(vty, "Interface : %s%s", ifp->name, VTY_NEWLINE);
-        vty_out(vty, "Neighbor  : %s%s", neigh_src_str, VTY_NEWLINE);
-        vty_out(vty, "    Uptime                         : %s%s", uptime, VTY_NEWLINE);
-        vty_out(vty, "    Holdtime                       : %s%s", expire, VTY_NEWLINE);
-        vty_out(vty, "    DR Priority                    : %d%s", neigh->dr_priority, VTY_NEWLINE);
-        vty_out(vty, "    Generation ID                  : %08x%s", neigh->generation_id, VTY_NEWLINE);
-        vty_out(vty, "    Override Interval (msec)       : %d%s", neigh->override_interval_msec, VTY_NEWLINE);
-        vty_out(vty, "    Propagation Delay (msec)       : %d%s", neigh->propagation_delay_msec, VTY_NEWLINE);
-        vty_out(vty, "    Hello Option - Address List    : %s%s", option_address_list ? "yes" : "no", VTY_NEWLINE);
-        vty_out(vty, "    Hello Option - DR Priority     : %s%s", option_dr_priority ? "yes" : "no", VTY_NEWLINE);
-        vty_out(vty, "    Hello Option - Generation ID   : %s%s", option_generation_id? "yes" : "no", VTY_NEWLINE);
-        vty_out(vty, "    Hello Option - Holdtime        : %s%s", option_holdtime ? "yes" : "no", VTY_NEWLINE);
-        vty_out(vty, "    Hello Option - LAN Prune Delay : %s%s", option_lan_prune_delay ? "yes" : "no", VTY_NEWLINE);
-        vty_out(vty, "    Hello Option - T-bit           : %s%s", option_t_bit ? "yes" : "no", VTY_NEWLINE);
+        vty_outln (vty, "Interface : %s", ifp->name);
+        vty_outln (vty, "Neighbor  : %s", neigh_src_str);
+        vty_outln (vty, "    Uptime                         : %s", uptime);
+        vty_outln (vty, "    Holdtime                       : %s", expire);
+        vty_outln (vty, "    DR Priority                    : %d",
+                  neigh->dr_priority);
+        vty_outln (vty, "    Generation ID                  : %08x",
+                  neigh->generation_id);
+        vty_outln (vty, "    Override Interval (msec)       : %d",
+                  neigh->override_interval_msec);
+        vty_outln (vty, "    Propagation Delay (msec)       : %d",
+                  neigh->propagation_delay_msec);
+        vty_outln (vty, "    Hello Option - Address List    : %s",
+                  option_address_list ? "yes" : "no");
+        vty_outln (vty, "    Hello Option - DR Priority     : %s",
+                  option_dr_priority ? "yes" : "no");
+        vty_outln (vty, "    Hello Option - Generation ID   : %s",
+                  option_generation_id ? "yes" : "no");
+        vty_outln (vty, "    Hello Option - Holdtime        : %s",
+                  option_holdtime ? "yes" : "no");
+        vty_outln (vty, "    Hello Option - LAN Prune Delay : %s",
+                  option_lan_prune_delay ? "yes" : "no");
+        vty_outln (vty, "    Hello Option - T-bit           : %s",
+                  option_t_bit ? "yes" : "no");
         pim_bfd_show_info (vty, neigh->bfd_info, json_ifp, uj, 0);
-        vty_out(vty, "%s", VTY_NEWLINE);
+        vty_outln (vty, "");
       }
     }
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   } else {
     {
       if (!found_neighbor)
-        vty_out (vty, "%% No such interface or neighbor%s", VTY_NEWLINE);
+        vty_outln (vty, "%% No such interface or neighbor");
     }
   }
 }
@@ -1545,7 +1572,8 @@ pim_show_state(struct vty *vty, const char *src_or_group, const char *group, u_c
     json = json_object_new_object();
   } else {
     vty_out(vty, "Codes: J -> Pim Join, I -> IGMP Report, S -> Source, * -> Inherited from (*,G)");
-    vty_out(vty, "%sInstalled Source           Group            IIF      OIL%s", VTY_NEWLINE, VTY_NEWLINE);
+    vty_outln (vty, "%sInstalled Source           Group            IIF      OIL",
+              VTY_NEWLINE);
   }
 
   for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
@@ -1662,15 +1690,16 @@ pim_show_state(struct vty *vty, const char *src_or_group, const char *group, u_c
     }
 
     if (!uj)
-      vty_out(vty, "%s", VTY_NEWLINE);
+      vty_outln (vty, "");
   }
 
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   } else {
-    vty_out(vty, "%s", VTY_NEWLINE);
+    vty_outln (vty, "");
   }
 }
 
@@ -1694,7 +1723,7 @@ static void pim_show_neighbors(struct vty *vty, u_char uj)
   if (uj) {
     json = json_object_new_object();
   } else {
-    vty_out(vty, "Interface         Neighbor    Uptime  Holdtime  DR Pri%s", VTY_NEWLINE);
+    vty_outln (vty, "Interface         Neighbor    Uptime  Holdtime  DR Pri");
   }
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
@@ -1726,13 +1755,12 @@ static void pim_show_neighbors(struct vty *vty, u_char uj)
         json_object_object_add(json_ifp_rows, neigh_src_str, json_row);
 
       } else {
-        vty_out(vty, "%-9s  %15s  %8s  %8s  %6d%s",
+        vty_outln (vty, "%-9s  %15s  %8s  %8s  %6d",
                 ifp->name,
                 neigh_src_str,
                 uptime,
                 expire,
-                neigh->dr_priority,
-                VTY_NEWLINE);
+                neigh->dr_priority);
       }
     }
 
@@ -1743,7 +1771,8 @@ static void pim_show_neighbors(struct vty *vty, u_char uj)
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   }
 }
@@ -1753,7 +1782,8 @@ static void pim_show_neighbors_secondary(struct vty *vty)
   struct listnode  *node;
   struct interface *ifp;
 
-  vty_out(vty, "Interface Address         Neighbor        Secondary      %s", VTY_NEWLINE);
+  vty_outln (vty,
+            "Interface Address         Neighbor        Secondary      ");
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
     struct pim_interface *pim_ifp;
@@ -1787,12 +1817,11 @@ static void pim_show_neighbors_secondary(struct vty *vty)
 
 	prefix2str(p, neigh_sec_str, sizeof(neigh_sec_str));
 
-	vty_out(vty, "%-9s %-15s %-15s %-15s%s",
+	vty_outln (vty, "%-9s %-15s %-15s %-15s",
 		ifp->name,
 		inet_ntoa(ifaddr),
 		neigh_src_str,
-		neigh_sec_str,
-		VTY_NEWLINE);
+		neigh_sec_str);
       }
     }
   }
@@ -1876,7 +1905,8 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
   if (uj)
     json = json_object_new_object();
   else
-    vty_out(vty, "Iif       Source          Group           State       Uptime   JoinTimer RSTimer   KATimer   RefCnt%s", VTY_NEWLINE);
+    vty_outln (vty,
+              "Iif       Source          Group           State       Uptime   JoinTimer RSTimer   KATimer   RefCnt");
 
   for (ALL_LIST_ELEMENTS_RO(pim_upstream_list, upnode, up)) {
     char src_str[INET_ADDRSTRLEN];
@@ -1943,7 +1973,7 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
       json_object_int_add(json_row, "sptBit", up->sptbit);
       json_object_object_add(json_group, src_str, json_row);
     } else {
-      vty_out(vty, "%-10s%-15s %-15s %-11s %-8s %-9s %-9s %-9s %6d%s",
+      vty_outln (vty, "%-10s%-15s %-15s %-11s %-8s %-9s %-9s %-9s %6d",
               up->rpf.source_nexthop.interface->name,
               src_str,
               grp_str,
@@ -1952,13 +1982,13 @@ static void pim_show_upstream(struct vty *vty, u_char uj)
               join_timer,
               rs_timer,
               ka_timer,
-              up->ref_count,
-              VTY_NEWLINE);
+              up->ref_count);
     }
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   }
 }
@@ -1977,9 +2007,8 @@ static void pim_show_join_desired(struct vty *vty, u_char uj)
   if (uj)
     json = json_object_new_object();
   else
-    vty_out(vty,
-            "Interface Source          Group           LostAssert Joins PimInclude JoinDesired EvalJD%s",
-            VTY_NEWLINE);
+    vty_outln (vty,
+            "Interface Source          Group           LostAssert Joins PimInclude JoinDesired EvalJD");
 
   /* scan per-interface (S,G) state */
   for (ALL_LIST_ELEMENTS_RO(pim_ifchannel_list, chnode, ch)) {
@@ -2022,7 +2051,7 @@ static void pim_show_join_desired(struct vty *vty, u_char uj)
       json_object_object_add(json_group, src_str, json_row);
 
     } else {
-      vty_out(vty, "%-9s %-15s %-15s %-10s %-5s %-10s %-11s %-6s%s",
+      vty_outln (vty, "%-9s %-15s %-15s %-10s %-5s %-10s %-11s %-6s",
 	      ch->interface->name,
 	      src_str,
 	      grp_str,
@@ -2030,13 +2059,13 @@ static void pim_show_join_desired(struct vty *vty, u_char uj)
 	      pim_macro_chisin_joins(ch) ? "yes" : "no",
 	      pim_macro_chisin_pim_include(ch) ? "yes" : "no",
 	      PIM_UPSTREAM_FLAG_TEST_DR_JOIN_DESIRED(up->flags) ? "yes" : "no",
-	      pim_upstream_evaluate_join_desired(up) ? "yes" : "no",
-	      VTY_NEWLINE);
+	      pim_upstream_evaluate_join_desired(up) ? "yes" : "no");
     }
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   }
 }
@@ -2052,9 +2081,8 @@ static void pim_show_upstream_rpf(struct vty *vty, u_char uj)
   if (uj)
     json = json_object_new_object();
   else
-    vty_out(vty,
-            "Source          Group           RpfIface RibNextHop      RpfAddress     %s",
-            VTY_NEWLINE);
+    vty_outln (vty,
+            "Source          Group           RpfIface RibNextHop      RpfAddress     ");
 
   for (ALL_LIST_ELEMENTS_RO(pim_upstream_list, upnode, up)) {
     char src_str[INET_ADDRSTRLEN];
@@ -2090,18 +2118,18 @@ static void pim_show_upstream_rpf(struct vty *vty, u_char uj)
         json_object_string_add(json_row, "rpfAddress", rpf_addr_str);
         json_object_object_add(json_group, src_str, json_row);
     } else {
-        vty_out(vty, "%-15s %-15s %-8s %-15s %-15s%s",
+        vty_outln (vty, "%-15s %-15s %-8s %-15s %-15s",
                 src_str,
                 grp_str,
                 rpf_ifname,
                 rpf_nexthop_str,
-                rpf_addr_str,
-                VTY_NEWLINE);
+                rpf_addr_str);
     }
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   }
 }
@@ -2121,21 +2149,21 @@ static void show_rpf_refresh_stats(struct vty *vty, time_t now, json_object *jso
     json_object_int_add(json, "nexthopLookups", qpim_nexthop_lookups);
     json_object_int_add(json, "nexthopLookupsAvoided", nexthop_lookups_avoided);
   } else {
-    vty_out(vty,
+    vty_outln (vty,
             "RPF Cache Refresh Delay:    %ld msecs%s"
             "RPF Cache Refresh Timer:    %ld msecs%s"
             "RPF Cache Refresh Requests: %lld%s"
             "RPF Cache Refresh Events:   %lld%s"
             "RPF Cache Refresh Last:     %s%s"
             "Nexthop Lookups:            %lld%s"
-	    "Nexthop Lookups Avoided:    %lld%s",
+	    "Nexthop Lookups Avoided:    %lld",
             qpim_rpf_cache_refresh_delay_msec, VTY_NEWLINE,
             pim_time_timer_remain_msec(qpim_rpf_cache_refresher), VTY_NEWLINE,
             (long long)qpim_rpf_cache_refresh_requests, VTY_NEWLINE,
             (long long)qpim_rpf_cache_refresh_events, VTY_NEWLINE,
             refresh_uptime, VTY_NEWLINE,
             (long long) qpim_nexthop_lookups, VTY_NEWLINE,
-	    (long long)nexthop_lookups_avoided, VTY_NEWLINE);
+	    (long long)nexthop_lookups_avoided);
   }
 }
 
@@ -2149,13 +2177,13 @@ static void show_scan_oil_stats(struct vty *vty, time_t now)
   pim_time_uptime_begin(uptime_mroute_add, sizeof(uptime_mroute_add), now, qpim_mroute_add_last);
   pim_time_uptime_begin(uptime_mroute_del, sizeof(uptime_mroute_del), now, qpim_mroute_del_last);
 
-  vty_out(vty,
+  vty_outln (vty,
           "Scan OIL - Last: %s  Events: %lld%s"
           "MFC Add  - Last: %s  Events: %lld%s"
-          "MFC Del  - Last: %s  Events: %lld%s",
+          "MFC Del  - Last: %s  Events: %lld",
           uptime_scan_oil,   (long long) qpim_scan_oil_events,   VTY_NEWLINE,
           uptime_mroute_add, (long long) qpim_mroute_add_events, VTY_NEWLINE,
-          uptime_mroute_del, (long long) qpim_mroute_del_events, VTY_NEWLINE);
+          uptime_mroute_del, (long long)qpim_mroute_del_events);
 }
 
 static void pim_show_rpf(struct vty *vty, u_char uj)
@@ -2172,10 +2200,9 @@ static void pim_show_rpf(struct vty *vty, u_char uj)
     show_rpf_refresh_stats(vty, now, json);
   } else {
     show_rpf_refresh_stats(vty, now, json);
-    vty_out(vty, "%s", VTY_NEWLINE);
-    vty_out(vty,
-            "Source          Group           RpfIface RpfAddress      RibNextHop      Metric Pref%s",
-            VTY_NEWLINE);
+    vty_outln (vty, "");
+    vty_outln (vty,
+            "Source          Group           RpfIface RpfAddress      RibNextHop      Metric Pref");
   }
 
   for (ALL_LIST_ELEMENTS_RO(pim_upstream_list, up_node, up)) {
@@ -2212,20 +2239,20 @@ static void pim_show_rpf(struct vty *vty, u_char uj)
       json_object_object_add(json_group, src_str, json_row);
 
     } else {
-      vty_out(vty, "%-15s %-15s %-8s %-15s %-15s %6d %4d%s",
+      vty_outln (vty, "%-15s %-15s %-8s %-15s %-15s %6d %4d",
               src_str,
               grp_str,
               rpf_ifname,
               rpf_addr_str,
               rib_nexthop_str,
               rpf->source_nexthop.mrib_route_metric,
-              rpf->source_nexthop.mrib_metric_preference,
-              VTY_NEWLINE);
+              rpf->source_nexthop.mrib_metric_preference);
     }
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   }
 }
@@ -2250,7 +2277,7 @@ pim_print_pnc_cache_walkcb (struct hash_backet *backet, void *arg)
       vty_out (vty, "%-15s ", inet_ntoa (pnc->rpf.rpf_addr.u.prefix4));
       vty_out (vty, "%-14s ", ifp ? ifp->name : "NULL");
       vty_out (vty, "%s ", inet_ntoa (nh_node->gate.ipv4));
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_outln (vty, "");
     }
   return CMD_SUCCESS;
 }
@@ -2261,14 +2288,14 @@ pim_show_nexthop (struct vty *vty)
 
   if (pimg && !pimg->rpf_hash)
     {
-      vty_out (vty, "no nexthop cache %s", VTY_NEWLINE);
+      vty_outln (vty, "no nexthop cache ");
       return;
     }
 
-  vty_out (vty, "Number of registered addresses: %lu %s",
-           pimg->rpf_hash->count, VTY_NEWLINE);
-  vty_out (vty, "Address         Interface      Nexthop%s", VTY_NEWLINE);
-  vty_out (vty, "-------------------------------------------%s", VTY_NEWLINE);
+  vty_outln (vty, "Number of registered addresses: %lu ",
+           pimg->rpf_hash->count);
+  vty_outln (vty, "Address         Interface      Nexthop");
+  vty_outln (vty, "-------------------------------------------");
 
   hash_walk (pimg->rpf_hash, pim_print_pnc_cache_walkcb, vty);
 
@@ -2288,7 +2315,8 @@ static void igmp_show_groups(struct vty *vty, u_char uj)
   if (uj)
     json = json_object_new_object();
   else
-    vty_out(vty, "Interface Address         Group           Mode Timer    Srcs V Uptime  %s", VTY_NEWLINE);
+    vty_outln (vty,
+              "Interface Address         Group           Mode Timer    Srcs V Uptime  ");
 
   /* scan interfaces */
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
@@ -2340,7 +2368,7 @@ static void igmp_show_groups(struct vty *vty, u_char uj)
             json_object_object_add(json_iface, group_str, json_row);
 
         } else {
-          vty_out(vty, "%-9s %-15s %-15s %4s %8s %4d %d %8s%s",
+          vty_outln (vty, "%-9s %-15s %-15s %4s %8s %4d %d %8s",
                   ifp->name,
                   ifaddr_str,
                   group_str,
@@ -2348,15 +2376,15 @@ static void igmp_show_groups(struct vty *vty, u_char uj)
                   hhmmss,
                   grp->group_source_list ? listcount(grp->group_source_list) : 0,
                   grp->igmp_version,
-                  uptime,
-                  VTY_NEWLINE);
+                  uptime);
         }
       } /* scan igmp groups */
     } /* scan igmp sockets */
   } /* scan interfaces */
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   }
 }
@@ -2366,7 +2394,8 @@ static void igmp_show_group_retransmission(struct vty *vty)
   struct listnode  *ifnode;
   struct interface *ifp;
 
-  vty_out(vty, "Interface Address         Group           RetTimer Counter RetSrcs%s", VTY_NEWLINE);
+  vty_outln (vty,
+            "Interface Address         Group           RetTimer Counter RetSrcs");
 
   /* scan interfaces */
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
@@ -2404,14 +2433,13 @@ static void igmp_show_group_retransmission(struct vty *vty)
 	  }
 	}
 
-	vty_out(vty, "%-9s %-15s %-15s %-8s %7d %7d%s",
+	vty_outln (vty, "%-9s %-15s %-15s %-8s %7d %7d",
 		ifp->name,
 		ifaddr_str,
 		group_str,
 		grp_retr_mmss,
 		grp->group_specific_query_retransmit_count,
-		grp_retr_sources,
-		VTY_NEWLINE);
+		grp_retr_sources);
 
       } /* scan igmp groups */
     } /* scan igmp sockets */
@@ -2426,7 +2454,8 @@ static void igmp_show_sources(struct vty *vty)
 
   now = pim_time_monotonic_sec();
 
-  vty_out(vty, "Interface Address         Group           Source          Timer Fwd Uptime  %s", VTY_NEWLINE);
+  vty_outln (vty,
+            "Interface Address         Group           Source          Timer Fwd Uptime  ");
 
   /* scan interfaces */
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
@@ -2465,15 +2494,14 @@ static void igmp_show_sources(struct vty *vty)
 
 	  pim_time_uptime(uptime, sizeof(uptime), now - src->source_creation);
 
-	  vty_out(vty, "%-9s %-15s %-15s %-15s %5s %3s %8s%s",
+	  vty_outln (vty, "%-9s %-15s %-15s %-15s %5s %3s %8s",
 		  ifp->name,
 		  ifaddr_str,
 		  group_str,
 		  source_str,
 		  mmss,
 		  IGMP_SOURCE_TEST_FORWARDING(src->source_flags) ? "Y" : "N",
-		  uptime,
-		  VTY_NEWLINE);
+		  uptime);
 	  
 	} /* scan group sources */
       } /* scan igmp groups */
@@ -2486,7 +2514,8 @@ static void igmp_show_source_retransmission(struct vty *vty)
   struct listnode  *ifnode;
   struct interface *ifp;
 
-  vty_out(vty, "Interface Address         Group           Source          Counter%s", VTY_NEWLINE);
+  vty_outln (vty,
+            "Interface Address         Group           Source          Counter");
 
   /* scan interfaces */
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), ifnode, ifp)) {
@@ -2519,13 +2548,12 @@ static void igmp_show_source_retransmission(struct vty *vty)
 
 	  pim_inet4_dump("<source?>", src->source_addr, source_str, sizeof(source_str));
 
-	  vty_out(vty, "%-9s %-15s %-15s %-15s %7d%s",
+	  vty_outln (vty, "%-9s %-15s %-15s %-15s %7d",
 		  ifp->name,
 		  ifaddr_str,
 		  group_str,
 		  source_str,
-		  src->source_query_retransmit_count,
-		  VTY_NEWLINE);
+		  src->source_query_retransmit_count);
 	  
 	} /* scan group sources */
       } /* scan igmp groups */
@@ -3085,14 +3113,14 @@ DEFUN (show_ip_pim_nexthop_lookup,
   result = inet_pton (AF_INET, addr_str, &src_addr);
   if (result <= 0)
     {
-      vty_out (vty, "Bad unicast address %s: errno=%d: %s%s",
-               addr_str, errno, safe_strerror (errno), VTY_NEWLINE);
+      vty_outln (vty, "Bad unicast address %s: errno=%d: %s",
+               addr_str, errno, safe_strerror(errno));
       return CMD_WARNING;
     }
 
   if (pim_is_group_224_4 (src_addr))
     {
-      vty_out (vty, "Invalid argument. Expected Valid Source Address.%s", VTY_NEWLINE);
+      vty_outln (vty, "Invalid argument. Expected Valid Source Address.");
       return CMD_WARNING;
     }
 
@@ -3100,14 +3128,15 @@ DEFUN (show_ip_pim_nexthop_lookup,
   result = inet_pton (AF_INET, addr_str1, &grp_addr);
   if (result <= 0)
     {
-      vty_out (vty, "Bad unicast address %s: errno=%d: %s%s",
-               addr_str, errno, safe_strerror (errno), VTY_NEWLINE);
+      vty_outln (vty, "Bad unicast address %s: errno=%d: %s",
+               addr_str, errno, safe_strerror(errno));
       return CMD_WARNING;
     }
 
   if (!pim_is_group_224_4 (grp_addr))
     {
-      vty_out (vty, "Invalid argument. Expected Valid Multicast Group Address.%s", VTY_NEWLINE);
+      vty_outln (vty,
+                 "Invalid argument. Expected Valid Multicast Group Address.");
       return CMD_WARNING;
     }
 
@@ -3134,8 +3163,8 @@ DEFUN (show_ip_pim_nexthop_lookup,
   pim_addr_dump ("<grp?>", &grp, grp_str, sizeof (grp_str));
   pim_addr_dump ("<nexthop?>", &nexthop.mrib_nexthop_addr,
                  nexthop_addr_str, sizeof (nexthop_addr_str));
-  vty_out (vty, "Group %s --- Nexthop %s Interface %s %s", grp_str,
-           nexthop_addr_str, nexthop.interface->name, VTY_NEWLINE);
+  vty_outln (vty, "Group %s --- Nexthop %s Interface %s ", grp_str,
+           nexthop_addr_str, nexthop.interface->name);
 
   return CMD_SUCCESS;
 }
@@ -3167,10 +3196,10 @@ static void show_multicast_interfaces(struct vty *vty)
   struct listnode  *node;
   struct interface *ifp;
 
-  vty_out(vty, "%s", VTY_NEWLINE);
+  vty_outln (vty, "");
   
-  vty_out(vty, "Interface Address         ifi Vif  PktsIn PktsOut    BytesIn   BytesOut%s",
-	  VTY_NEWLINE);
+  vty_outln (vty,
+            "Interface Address         ifi Vif  PktsIn PktsOut    BytesIn   BytesOut");
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp)) {
     struct pim_interface *pim_ifp;
@@ -3197,7 +3226,7 @@ static void show_multicast_interfaces(struct vty *vty)
 
     ifaddr = pim_ifp->primary_address;
 
-    vty_out(vty, "%-9s %-15s %3d %3d %7lu %7lu %10lu %10lu%s",
+    vty_outln (vty, "%-9s %-15s %3d %3d %7lu %7lu %10lu %10lu",
 	    ifp->name,
 	    inet_ntoa(ifaddr),
 	    ifp->ifindex,
@@ -3205,8 +3234,7 @@ static void show_multicast_interfaces(struct vty *vty)
 	    (unsigned long) vreq.icount,
 	    (unsigned long) vreq.ocount,
 	    (unsigned long) vreq.ibytes,
-	    (unsigned long) vreq.obytes,
-	    VTY_NEWLINE);
+	    (unsigned long)vreq.obytes);
   }
 }
 
@@ -3221,40 +3249,37 @@ DEFUN (show_ip_multicast,
 
   char uptime[10];
 
-  vty_out(vty, "Mroute socket descriptor: %d%s",
-          qpim_mroute_socket_fd,
-          VTY_NEWLINE);
+  vty_outln (vty, "Mroute socket descriptor: %d",
+          qpim_mroute_socket_fd);
 
   pim_time_uptime(uptime, sizeof(uptime), now - qpim_mroute_socket_creation);
-  vty_out(vty, "Mroute socket uptime: %s%s",
-          uptime,
-          VTY_NEWLINE);
+  vty_outln (vty, "Mroute socket uptime: %s",
+          uptime);
 
-  vty_out(vty, "%s", VTY_NEWLINE);
+  vty_outln (vty, "");
 
   pim_zebra_zclient_update (vty);
   pim_zlookup_show_ip_multicast (vty);
 
-  vty_out(vty, "%s", VTY_NEWLINE);
-  vty_out(vty, "Maximum highest VifIndex: %d%s",
-	  PIM_MAX_USABLE_VIFS,
-	  VTY_NEWLINE);
+  vty_outln (vty, "");
+  vty_outln (vty, "Maximum highest VifIndex: %d",
+	  PIM_MAX_USABLE_VIFS);
 
-  vty_out (vty, "%s", VTY_NEWLINE);
-  vty_out (vty, "Upstream Join Timer: %d secs%s",
-           qpim_t_periodic, VTY_NEWLINE);
-  vty_out (vty, "Join/Prune Holdtime: %d secs%s",
-           PIM_JP_HOLDTIME, VTY_NEWLINE);
-  vty_out (vty, "PIM ECMP: %s%s",
-           qpim_ecmp_enable ? "Enable" : "Disable", VTY_NEWLINE);
-  vty_out (vty, "PIM ECMP Rebalance: %s%s",
-           qpim_ecmp_rebalance_enable ? "Enable" : "Disable", VTY_NEWLINE);
+  vty_outln (vty, "");
+  vty_outln (vty, "Upstream Join Timer: %d secs",
+           qpim_t_periodic);
+  vty_outln (vty, "Join/Prune Holdtime: %d secs",
+           PIM_JP_HOLDTIME);
+  vty_outln (vty, "PIM ECMP: %s",
+           qpim_ecmp_enable ? "Enable" : "Disable");
+  vty_outln (vty, "PIM ECMP Rebalance: %s",
+           qpim_ecmp_rebalance_enable ? "Enable" : "Disable");
 
-  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_outln (vty, "");
 
   show_rpf_refresh_stats(vty, now, NULL);
 
-  vty_out(vty, "%s", VTY_NEWLINE);
+  vty_outln (vty, "");
 
   show_scan_oil_stats(vty, now);
 
@@ -3287,8 +3312,8 @@ static void show_mroute(struct vty *vty, u_char uj)
   if (uj) {
     json = json_object_new_object();
   } else {
-    vty_out(vty, "Source          Group           Proto  Input      Output     TTL  Uptime%s",
-            VTY_NEWLINE);
+    vty_outln (vty,
+              "Source          Group           Proto  Input      Output     TTL  Uptime");
   }
 
   now = pim_time_monotonic_sec();
@@ -3399,15 +3424,14 @@ static void show_mroute(struct vty *vty, u_char uj)
           strcpy(proto, "STAR");
         }
 
-        vty_out(vty, "%-15s %-15s %-6s %-10s %-10s %-3d  %8s%s",
+        vty_outln (vty, "%-15s %-15s %-6s %-10s %-10s %-3d  %8s",
                 src_str,
                 grp_str,
                 proto,
                 in_ifname,
                 out_ifname,
                 ttl,
-                oif_uptime,
-                VTY_NEWLINE);
+                oif_uptime);
 
         if (first)
 	  {
@@ -3420,15 +3444,14 @@ static void show_mroute(struct vty *vty, u_char uj)
     }
 
     if (!uj && !found_oif) {
-      vty_out(vty, "%-15s %-15s %-6s %-10s %-10s %-3d  %8s%s",
+      vty_outln (vty, "%-15s %-15s %-6s %-10s %-10s %-3d  %8s",
               src_str,
               grp_str,
               "none",
               in_ifname,
               "none",
               0,
-              "--:--:--",
-              VTY_NEWLINE);
+              "--:--:--");
     }
   }
 
@@ -3508,15 +3531,14 @@ static void show_mroute(struct vty *vty, u_char uj)
         }
         json_object_object_add(json_oil, out_ifname, json_ifp_out);
       } else {
-        vty_out(vty, "%-15s %-15s %-6s %-10s %-10s %-3d  %8s%s",
+        vty_outln (vty, "%-15s %-15s %-6s %-10s %-10s %-3d  %8s",
                 src_str,
                 grp_str,
                 proto,
                 in_ifname,
                 out_ifname,
                 ttl,
-                oif_uptime,
-                VTY_NEWLINE);
+                oif_uptime);
 	if (first)
           {
 	    src_str[0] = '\0';
@@ -3528,20 +3550,20 @@ static void show_mroute(struct vty *vty, u_char uj)
     }
 
     if (!uj && !found_oif) {
-        vty_out(vty, "%-15s %-15s %-6s %-10s %-10s %-3d  %8s%s",
+        vty_outln (vty, "%-15s %-15s %-6s %-10s %-10s %-3d  %8s",
                 src_str,
                 grp_str,
                 proto,
                 in_ifname,
                 "none",
                 0,
-                "--:--:--",
-                VTY_NEWLINE);
+                "--:--:--");
     }
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   }
 }
@@ -3565,10 +3587,10 @@ static void show_mroute_count(struct vty *vty)
   struct channel_oil *c_oil;
   struct static_route *s_route;
 
-  vty_out(vty, "%s", VTY_NEWLINE);
+  vty_outln (vty, "");
   
-  vty_out(vty, "Source          Group           LastUsed Packets Bytes WrongIf  %s",
-	  VTY_NEWLINE);
+  vty_outln (vty,
+            "Source          Group           LastUsed Packets Bytes WrongIf  ");
 
   /* Print PIM and IGMP route counts */
   for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
@@ -3583,14 +3605,13 @@ static void show_mroute_count(struct vty *vty)
     pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, source_str, sizeof(source_str));
 
-    vty_out(vty, "%-15s %-15s %-8llu %-7ld %-10ld %-7ld%s",
+    vty_outln (vty, "%-15s %-15s %-8llu %-7ld %-10ld %-7ld",
 	    source_str,
 	    group_str,
 	    c_oil->cc.lastused/100,
 	    c_oil->cc.pktcnt,
 	    c_oil->cc.bytecnt,
-	    c_oil->cc.wrong_if,
-	    VTY_NEWLINE);
+	    c_oil->cc.wrong_if);
   }
 
    /* Print static route counts */
@@ -3606,14 +3627,13 @@ static void show_mroute_count(struct vty *vty)
     pim_inet4_dump("<group?>", s_route->c_oil.oil.mfcc_mcastgrp, group_str, sizeof(group_str));
     pim_inet4_dump("<source?>", s_route->c_oil.oil.mfcc_origin, source_str, sizeof(source_str));
 
-    vty_out(vty, "%-15s %-15s %-8llu %-7ld %-10ld %-7ld%s",
+    vty_outln (vty, "%-15s %-15s %-8llu %-7ld %-10ld %-7ld",
        source_str,
        group_str,
        s_route->c_oil.cc.lastused,
        s_route->c_oil.cc.pktcnt,
        s_route->c_oil.cc.bytecnt,
-       s_route->c_oil.cc.wrong_if,
-       VTY_NEWLINE);
+       s_route->c_oil.cc.wrong_if);
   }
 }
 
@@ -3648,30 +3668,29 @@ DEFUN (show_ip_rib,
   addr_str = argv[idx_ipv4]->arg;
   result = inet_pton(AF_INET, addr_str, &addr);
   if (result <= 0) {
-    vty_out(vty, "Bad unicast address %s: errno=%d: %s%s",
-	    addr_str, errno, safe_strerror(errno), VTY_NEWLINE);
+    vty_outln (vty, "Bad unicast address %s: errno=%d: %s",
+	    addr_str, errno, safe_strerror(errno));
     return CMD_WARNING;
   }
 
   if (pim_nexthop_lookup(&nexthop, addr, 0)) {
-    vty_out(vty, "Failure querying RIB nexthop for unicast address %s%s",
-	    addr_str, VTY_NEWLINE);
+    vty_outln (vty, "Failure querying RIB nexthop for unicast address %s",
+	    addr_str);
     return CMD_WARNING;
   }
 
-  vty_out(vty, "Address         NextHop         Interface Metric Preference%s",
-	  VTY_NEWLINE);
+  vty_outln (vty,
+            "Address         NextHop         Interface Metric Preference");
 
   pim_addr_dump("<nexthop?>", &nexthop.mrib_nexthop_addr,
 		nexthop_addr_str, sizeof(nexthop_addr_str));
 
-  vty_out(vty, "%-15s %-15s %-9s %6d %10d%s",
+  vty_outln (vty, "%-15s %-15s %-9s %6d %10d",
 	  addr_str,
 	  nexthop_addr_str,
 	  nexthop.interface ? nexthop.interface->name : "<ifname?>",
 	  nexthop.mrib_route_metric,
-	  nexthop.mrib_metric_preference,
-	  VTY_NEWLINE);
+	  nexthop.mrib_metric_preference);
 
   return CMD_SUCCESS;
 }
@@ -3682,8 +3701,8 @@ static void show_ssmpingd(struct vty *vty)
   struct ssmpingd_sock *ss;
   time_t                now;
 
-  vty_out(vty, "Source          Socket Address          Port Uptime   Requests%s",
-	  VTY_NEWLINE);
+  vty_outln (vty,
+            "Source          Socket Address          Port Uptime   Requests");
 
   if (!qpim_ssmpingd_list)
     return;
@@ -3700,21 +3719,20 @@ static void show_ssmpingd(struct vty *vty)
     pim_inet4_dump("<src?>", ss->source_addr, source_str, sizeof(source_str));
 
     if (pim_socket_getsockname(ss->sock_fd, (struct sockaddr *) &bind_addr, &len)) {
-      vty_out(vty, "%% Failure reading socket name for ssmpingd source %s on fd=%d%s",
-	      source_str, ss->sock_fd, VTY_NEWLINE);
+      vty_outln (vty, "%% Failure reading socket name for ssmpingd source %s on fd=%d",
+	      source_str, ss->sock_fd);
     }
 
     pim_inet4_dump("<addr?>", bind_addr.sin_addr, bind_addr_str, sizeof(bind_addr_str));
     pim_time_uptime(ss_uptime, sizeof(ss_uptime), now - ss->creation);
 
-    vty_out(vty, "%-15s %6d %-15s %5d %8s %8lld%s",
+    vty_outln (vty, "%-15s %6d %-15s %5d %8s %8lld",
 	    source_str,
 	    ss->sock_fd,
 	    bind_addr_str,
 	    ntohs(bind_addr.sin_port),
 	    ss_uptime,
-	    (long long)ss->requests,
-	    VTY_NEWLINE);
+	    (long long)ss->requests);
   }
 }
 
@@ -3738,43 +3756,45 @@ pim_rp_cmd_worker (struct vty *vty, const char *rp, const char *group, const cha
 
   if (result == PIM_MALLOC_FAIL)
     {
-      vty_out (vty, "%% Out of memory%s", VTY_NEWLINE);
+      vty_outln (vty, "%% Out of memory");
       return CMD_WARNING;
     }
 
   if (result == PIM_GROUP_BAD_ADDRESS)
     {
-      vty_out (vty, "%% Bad group address specified: %s%s", group, VTY_NEWLINE);
+      vty_outln (vty, "%% Bad group address specified: %s", group);
       return CMD_WARNING;
     }
 
   if (result == PIM_RP_BAD_ADDRESS)
     {
-      vty_out (vty, "%% Bad RP address specified: %s%s", rp, VTY_NEWLINE);
+      vty_outln (vty, "%% Bad RP address specified: %s", rp);
       return CMD_WARNING;
     }
 
   if (result == PIM_RP_NO_PATH)
     {
-      vty_out (vty, "%% No Path to RP address specified: %s%s", rp, VTY_NEWLINE);
+      vty_outln (vty, "%% No Path to RP address specified: %s", rp);
       return CMD_WARNING;
     }
 
   if (result == PIM_GROUP_OVERLAP)
     {
-      vty_out (vty, "%% Group range specified cannot overlap%s", VTY_NEWLINE);
+      vty_outln (vty, "%% Group range specified cannot overlap");
       return CMD_WARNING;
     }
 
   if (result == PIM_GROUP_PFXLIST_OVERLAP)
     {
-      vty_out (vty, "%% This group is already covered by a RP prefix-list%s", VTY_NEWLINE);
+      vty_outln (vty,
+                 "%% This group is already covered by a RP prefix-list");
       return CMD_WARNING;
     }
 
   if (result == PIM_RP_PFXLIST_IN_USE)
     {
-      vty_out (vty, "%% The same prefix-list cannot be applied to multiple RPs%s", VTY_NEWLINE);
+      vty_outln (vty,
+                 "%% The same prefix-list cannot be applied to multiple RPs");
       return CMD_WARNING;
     }
 
@@ -4022,19 +4042,19 @@ pim_no_rp_cmd_worker (struct vty *vty, const char *rp, const char *group,
 
   if (result == PIM_GROUP_BAD_ADDRESS)
     {
-      vty_out (vty, "%% Bad group address specified: %s%s", group, VTY_NEWLINE);
+      vty_outln (vty, "%% Bad group address specified: %s", group);
       return CMD_WARNING;
     }
 
   if (result == PIM_RP_BAD_ADDRESS)
     {
-      vty_out (vty, "%% Bad RP address specified: %s%s", rp, VTY_NEWLINE);
+      vty_outln (vty, "%% Bad RP address specified: %s", rp);
       return CMD_WARNING;
     }
 
   if (result == PIM_RP_NOT_FOUND)
     {
-      vty_out (vty, "%% Unable to find specified RP%s", VTY_NEWLINE);
+      vty_outln (vty, "%% Unable to find specified RP");
       return CMD_WARNING;
     }
 
@@ -4084,13 +4104,13 @@ pim_ssm_cmd_worker (struct vty *vty, const char *plist)
   switch (result)
     {
     case PIM_SSM_ERR_NO_VRF:
-      vty_out (vty, "%% VRF doesn't exist%s", VTY_NEWLINE);
+      vty_outln (vty, "%% VRF doesn't exist");
       break;
     case PIM_SSM_ERR_DUP:
-      vty_out (vty, "%% duplicate config%s", VTY_NEWLINE);
+      vty_outln (vty, "%% duplicate config");
       break;
     default:
-      vty_out (vty, "%% ssm range config failed%s", VTY_NEWLINE);
+      vty_outln (vty, "%% ssm range config failed");
     }
 
   return CMD_WARNING;
@@ -4135,8 +4155,8 @@ DEFUN (no_ip_pim_ssm_prefix_list_name,
   if (ssm->plist_name && !strcmp(ssm->plist_name, argv[0]->arg))
     return pim_ssm_cmd_worker (vty, NULL);
 
-  vty_out (vty, "%% pim ssm prefix-list %s doesn't exist%s",
-           argv[0]->arg, VTY_NEWLINE);
+  vty_outln (vty, "%% pim ssm prefix-list %s doesn't exist",
+           argv[0]->arg);
 
   return CMD_WARNING;
 }
@@ -4152,11 +4172,12 @@ ip_pim_ssm_show_group_range(struct vty *vty, u_char uj)
       json_object *json;
       json = json_object_new_object();
       json_object_string_add(json, "ssmGroups", range_str);
-      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+      vty_outln (vty, "%s",
+                 json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
       json_object_free(json);
     }
   else
-    vty_out(vty, "SSM group range : %s%s", range_str, VTY_NEWLINE);
+    vty_outln (vty, "SSM group range : %s", range_str);
 }
 
 DEFUN (show_ip_pim_ssm_range,
@@ -4197,11 +4218,12 @@ ip_pim_ssm_show_group_type(struct vty *vty, u_char uj, const char *group)
       json_object *json;
       json = json_object_new_object();
       json_object_string_add(json, "groupType", type_str);
-      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+      vty_outln (vty, "%s",
+                 json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
       json_object_free(json);
     }
   else
-    vty_out(vty, "Group type : %s%s", type_str, VTY_NEWLINE);
+    vty_outln (vty, "Group type : %s", type_str);
 }
 
 DEFUN (show_ip_pim_group_type,
@@ -4237,7 +4259,8 @@ DEFUN_HIDDEN (no_ip_multicast_routing,
               "Global IP configuration subcommands\n"
               "Enable IP multicast forwarding\n")
 {
-  vty_out (vty, "Command is Disabled and will be removed in a future version%s",  VTY_NEWLINE);
+  vty_outln (vty,
+             "Command is Disabled and will be removed in a future version");
   return CMD_SUCCESS;
 }
 
@@ -4255,15 +4278,15 @@ DEFUN (ip_ssmpingd,
 
   result = inet_pton(AF_INET, source_str, &source_addr);
   if (result <= 0) {
-    vty_out(vty, "%% Bad source address %s: errno=%d: %s%s",
-	    source_str, errno, safe_strerror(errno), VTY_NEWLINE);
+    vty_outln (vty, "%% Bad source address %s: errno=%d: %s",
+	    source_str, errno, safe_strerror(errno));
     return CMD_WARNING;
   }
 
   result = pim_ssmpingd_start(source_addr);
   if (result) {
-    vty_out(vty, "%% Failure starting ssmpingd for source %s: %d%s",
-	    source_str, result, VTY_NEWLINE);
+    vty_outln (vty, "%% Failure starting ssmpingd for source %s: %d",
+	    source_str, result);
     return CMD_WARNING;
   }
 
@@ -4285,15 +4308,15 @@ DEFUN (no_ip_ssmpingd,
 
   result = inet_pton(AF_INET, source_str, &source_addr);
   if (result <= 0) {
-    vty_out(vty, "%% Bad source address %s: errno=%d: %s%s",
-	    source_str, errno, safe_strerror(errno), VTY_NEWLINE);
+    vty_outln (vty, "%% Bad source address %s: errno=%d: %s",
+	    source_str, errno, safe_strerror(errno));
     return CMD_WARNING;
   }
 
   result = pim_ssmpingd_stop(source_addr);
   if (result) {
-    vty_out(vty, "%% Failure stopping ssmpingd for source %s: %d%s",
-	    source_str, result, VTY_NEWLINE);
+    vty_outln (vty, "%% Failure stopping ssmpingd for source %s: %d",
+	    source_str, result);
     return CMD_WARNING;
   }
 
@@ -4366,8 +4389,8 @@ pim_cmd_igmp_start (struct vty *vty, struct interface *ifp)
       pim_ifp = pim_if_new(ifp, 1 /* igmp=true */, 0 /* pim=false */);
       if (!pim_ifp)
         {
-          vty_out(vty, "Could not enable IGMP on interface %s%s",
-	      ifp->name, VTY_NEWLINE);
+          vty_outln (vty, "Could not enable IGMP on interface %s",
+	      ifp->name);
           return CMD_WARNING;
         }
       need_startup = 1;
@@ -4451,8 +4474,8 @@ DEFUN (interface_ip_igmp_join,
   group_str = argv[idx_ipv4]->arg;
   result = inet_pton(AF_INET, group_str, &group_addr);
   if (result <= 0) {
-    vty_out(vty, "Bad group address %s: errno=%d: %s%s",
-	    group_str, errno, safe_strerror(errno), VTY_NEWLINE);
+    vty_outln (vty, "Bad group address %s: errno=%d: %s",
+	    group_str, errno, safe_strerror(errno));
     return CMD_WARNING;
   }
 
@@ -4460,15 +4483,15 @@ DEFUN (interface_ip_igmp_join,
   source_str = argv[idx_ipv4_2]->arg;
   result = inet_pton(AF_INET, source_str, &source_addr);
   if (result <= 0) {
-    vty_out(vty, "Bad source address %s: errno=%d: %s%s",
-	    source_str, errno, safe_strerror(errno), VTY_NEWLINE);
+    vty_outln (vty, "Bad source address %s: errno=%d: %s",
+	    source_str, errno, safe_strerror(errno));
     return CMD_WARNING;
   }
 
   result = pim_if_igmp_join_add(ifp, group_addr, source_addr);
   if (result) {
-    vty_out(vty, "%% Failure joining IGMP group %s source %s on interface %s: %d%s",
-	    group_str, source_str, ifp->name, result, VTY_NEWLINE);
+    vty_outln (vty, "%% Failure joining IGMP group %s source %s on interface %s: %d",
+	    group_str, source_str, ifp->name, result);
     return CMD_WARNING;
   }
 
@@ -4498,8 +4521,8 @@ DEFUN (interface_no_ip_igmp_join,
   group_str = argv[idx_ipv4]->arg;
   result = inet_pton(AF_INET, group_str, &group_addr);
   if (result <= 0) {
-    vty_out(vty, "Bad group address %s: errno=%d: %s%s",
-	    group_str, errno, safe_strerror(errno), VTY_NEWLINE);
+    vty_outln (vty, "Bad group address %s: errno=%d: %s",
+	    group_str, errno, safe_strerror(errno));
     return CMD_WARNING;
   }
 
@@ -4507,15 +4530,15 @@ DEFUN (interface_no_ip_igmp_join,
   source_str = argv[idx_ipv4_2]->arg;
   result = inet_pton(AF_INET, source_str, &source_addr);
   if (result <= 0) {
-    vty_out(vty, "Bad source address %s: errno=%d: %s%s",
-	    source_str, errno, safe_strerror(errno), VTY_NEWLINE);
+    vty_outln (vty, "Bad source address %s: errno=%d: %s",
+	    source_str, errno, safe_strerror(errno));
     return CMD_WARNING;
   }
 
   result = pim_if_igmp_join_del(ifp, group_addr, source_addr);
   if (result) {
-    vty_out(vty, "%% Failure leaving IGMP group %s source %s on interface %s: %d%s",
-	    group_str, source_str, ifp->name, result, VTY_NEWLINE);
+    vty_outln (vty, "%% Failure leaving IGMP group %s source %s on interface %s: %d",
+	    group_str, source_str, ifp->name, result);
     return CMD_WARNING;
   }
 
@@ -4682,25 +4705,22 @@ DEFUN (interface_ip_igmp_query_interval,
     already, but we verify them anyway for extra safety.
   */
   if (query_interval < IGMP_QUERY_INTERVAL_MIN) {
-    vty_out(vty, "General query interval %d lower than minimum %d%s",
+    vty_outln (vty, "General query interval %d lower than minimum %d",
 	    query_interval,
-	    IGMP_QUERY_INTERVAL_MIN,
-	    VTY_NEWLINE);
+	    IGMP_QUERY_INTERVAL_MIN);
     return CMD_WARNING;
   }
   if (query_interval > IGMP_QUERY_INTERVAL_MAX) {
-    vty_out(vty, "General query interval %d higher than maximum %d%s",
+    vty_outln (vty, "General query interval %d higher than maximum %d",
 	    query_interval,
-	    IGMP_QUERY_INTERVAL_MAX,
-	    VTY_NEWLINE);
+	    IGMP_QUERY_INTERVAL_MAX);
     return CMD_WARNING;
   }
 
   if (query_interval_dsec <= pim_ifp->igmp_query_max_response_time_dsec) {
-    vty_out(vty,
-	    "Can't set general query interval %d dsec <= query max response time %d dsec.%s",
-	    query_interval_dsec, pim_ifp->igmp_query_max_response_time_dsec,
-	    VTY_NEWLINE);
+    vty_outln (vty,
+	    "Can't set general query interval %d dsec <= query max response time %d dsec.",
+	    query_interval_dsec,pim_ifp->igmp_query_max_response_time_dsec);
     return CMD_WARNING;
   }
 
@@ -4727,10 +4747,10 @@ DEFUN (interface_no_ip_igmp_query_interval,
   default_query_interval_dsec = IGMP_GENERAL_QUERY_INTERVAL * 10;
 
   if (default_query_interval_dsec <= pim_ifp->igmp_query_max_response_time_dsec) {
-    vty_out(vty,
-	    "Can't set default general query interval %d dsec <= query max response time %d dsec.%s",
-	    default_query_interval_dsec, pim_ifp->igmp_query_max_response_time_dsec,
-	    VTY_NEWLINE);
+    vty_outln (vty,
+	    "Can't set default general query interval %d dsec <= query max response time %d dsec.",
+	    default_query_interval_dsec,
+	    pim_ifp->igmp_query_max_response_time_dsec);
     return CMD_WARNING;
   }
 
@@ -4826,10 +4846,9 @@ DEFUN (interface_ip_igmp_query_max_response_time,
   query_max_response_time = atoi(argv[3]->arg);
 
   if (query_max_response_time >= pim_ifp->igmp_default_query_interval * 10) {
-    vty_out(vty,
-	    "Can't set query max response time %d sec >= general query interval %d sec%s",
-	    query_max_response_time, pim_ifp->igmp_default_query_interval,
-	    VTY_NEWLINE);
+    vty_outln (vty,
+	    "Can't set query max response time %d sec >= general query interval %d sec",
+	    query_max_response_time,pim_ifp->igmp_default_query_interval);
     return CMD_WARNING;
   }
 
@@ -4887,10 +4906,9 @@ DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
   default_query_interval_dsec = 10 * pim_ifp->igmp_default_query_interval;
 
   if (query_max_response_time_dsec >= default_query_interval_dsec) {
-    vty_out(vty,
-	    "Can't set query max response time %d dsec >= general query interval %d dsec%s",
-	    query_max_response_time_dsec, default_query_interval_dsec,
-	    VTY_NEWLINE);
+    vty_outln (vty,
+	    "Can't set query max response time %d dsec >= general query interval %d dsec",
+	    query_max_response_time_dsec,default_query_interval_dsec);
     return CMD_WARNING;
   }
 
@@ -4932,7 +4950,7 @@ DEFUN (interface_ip_pim_drprio,
   uint32_t old_dr_prio;
 
   if (!pim_ifp) {
-    vty_out(vty, "Please enable PIM on interface, first%s", VTY_NEWLINE);
+    vty_outln (vty, "Please enable PIM on interface, first");
     return CMD_WARNING;
   }
 
@@ -4961,7 +4979,7 @@ DEFUN (interface_no_ip_pim_drprio,
   struct pim_interface *pim_ifp = ifp->info;
 
   if (!pim_ifp) {
-    vty_out(vty, "Pim not enabled on this interface%s", VTY_NEWLINE);
+    vty_outln (vty, "Pim not enabled on this interface");
     return CMD_WARNING;
   }
 
@@ -5004,11 +5022,12 @@ DEFUN_HIDDEN (interface_ip_pim_ssm,
   VTY_DECLVAR_CONTEXT(interface, ifp);
 
   if (!pim_cmd_interface_add(ifp)) {
-    vty_out(vty, "Could not enable PIM SM on interface%s", VTY_NEWLINE);
+    vty_outln (vty, "Could not enable PIM SM on interface");
     return CMD_WARNING;
   }
 
-  vty_out(vty, "WARN: Enabled PIM SM on interface; configure PIM SSM range if needed%s", VTY_NEWLINE);
+  vty_outln(vty, "WARN: Enabled PIM SM on interface; configure PIM SSM "
+                 "range if needed");
   return CMD_SUCCESS;
 }
 
@@ -5021,7 +5040,7 @@ DEFUN (interface_ip_pim_sm,
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
   if (!pim_cmd_interface_add(ifp)) {
-    vty_out(vty, "Could not enable PIM SM on interface%s", VTY_NEWLINE);
+    vty_outln (vty, "Could not enable PIM SM on interface");
     return CMD_WARNING;
   }
 
@@ -5066,7 +5085,7 @@ DEFUN_HIDDEN (interface_no_ip_pim_ssm,
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
   if (!pim_cmd_interface_delete(ifp)) {
-    vty_out(vty, "Unable to delete interface information%s", VTY_NEWLINE);
+    vty_outln (vty, "Unable to delete interface information");
     return CMD_WARNING;
   }
 
@@ -5083,7 +5102,7 @@ DEFUN (interface_no_ip_pim_sm,
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
   if (!pim_cmd_interface_delete(ifp)) {
-    vty_out(vty, "Unable to delete interface information%s", VTY_NEWLINE);
+    vty_outln (vty, "Unable to delete interface information");
     return CMD_WARNING;
   }
 
@@ -5111,23 +5130,23 @@ DEFUN (interface_ip_mroute,
    oifname = argv[idx_interface]->arg;
    oif = if_lookup_by_name(oifname, VRF_DEFAULT);
    if (!oif) {
-     vty_out(vty, "No such interface name %s%s",
-        oifname, VTY_NEWLINE);
+     vty_outln (vty, "No such interface name %s",
+        oifname);
      return CMD_WARNING;
    }
 
    grp_str = argv[idx_ipv4]->arg;
    result = inet_pton(AF_INET, grp_str, &grp_addr);
    if (result <= 0) {
-     vty_out(vty, "Bad group address %s: errno=%d: %s%s",
-        grp_str, errno, safe_strerror(errno), VTY_NEWLINE);
+     vty_outln (vty, "Bad group address %s: errno=%d: %s",
+        grp_str, errno, safe_strerror(errno));
      return CMD_WARNING;
    }
 
    src_addr.s_addr = INADDR_ANY;
 
    if (pim_static_add(iif, oif, grp_addr, src_addr)) {
-      vty_out(vty, "Failed to add route%s", VTY_NEWLINE);
+      vty_outln (vty, "Failed to add route");
       return CMD_WARNING;
    }
 
@@ -5158,29 +5177,29 @@ DEFUN (interface_ip_mroute_source,
    oifname = argv[idx_interface]->arg;
    oif = if_lookup_by_name(oifname, VRF_DEFAULT);
    if (!oif) {
-     vty_out(vty, "No such interface name %s%s",
-        oifname, VTY_NEWLINE);
+     vty_outln (vty, "No such interface name %s",
+        oifname);
      return CMD_WARNING;
    }
 
    grp_str = argv[idx_ipv4]->arg;
    result = inet_pton(AF_INET, grp_str, &grp_addr);
    if (result <= 0) {
-     vty_out(vty, "Bad group address %s: errno=%d: %s%s",
-        grp_str, errno, safe_strerror(errno), VTY_NEWLINE);
+     vty_outln (vty, "Bad group address %s: errno=%d: %s",
+        grp_str, errno, safe_strerror(errno));
      return CMD_WARNING;
    }
 
    src_str = argv[idx_ipv4_2]->arg;
    result = inet_pton(AF_INET, src_str, &src_addr);
    if (result <= 0) {
-     vty_out(vty, "Bad source address %s: errno=%d: %s%s",
-        src_str, errno, safe_strerror(errno), VTY_NEWLINE);
+     vty_outln (vty, "Bad source address %s: errno=%d: %s",
+        src_str, errno, safe_strerror(errno));
      return CMD_WARNING;
    }
 
    if (pim_static_add(iif, oif, grp_addr, src_addr)) {
-      vty_out(vty, "Failed to add route%s", VTY_NEWLINE);
+      vty_outln (vty, "Failed to add route");
       return CMD_WARNING;
    }
 
@@ -5209,23 +5228,23 @@ DEFUN (interface_no_ip_mroute,
    oifname = argv[idx_interface]->arg;
    oif = if_lookup_by_name(oifname, VRF_DEFAULT);
    if (!oif) {
-     vty_out(vty, "No such interface name %s%s",
-        oifname, VTY_NEWLINE);
+     vty_outln (vty, "No such interface name %s",
+        oifname);
      return CMD_WARNING;
    }
 
    grp_str = argv[idx_ipv4]->arg;
    result = inet_pton(AF_INET, grp_str, &grp_addr);
    if (result <= 0) {
-     vty_out(vty, "Bad group address %s: errno=%d: %s%s",
-        grp_str, errno, safe_strerror(errno), VTY_NEWLINE);
+     vty_outln (vty, "Bad group address %s: errno=%d: %s",
+        grp_str, errno, safe_strerror(errno));
      return CMD_WARNING;
    }
 
    src_addr.s_addr = INADDR_ANY;
 
    if (pim_static_del(iif, oif, grp_addr, src_addr)) {
-      vty_out(vty, "Failed to remove route%s", VTY_NEWLINE);
+      vty_outln (vty, "Failed to remove route");
       return CMD_WARNING;
    }
 
@@ -5257,29 +5276,29 @@ DEFUN (interface_no_ip_mroute_source,
    oifname = argv[idx_interface]->arg;
    oif = if_lookup_by_name(oifname, VRF_DEFAULT);
    if (!oif) {
-     vty_out(vty, "No such interface name %s%s",
-        oifname, VTY_NEWLINE);
+     vty_outln (vty, "No such interface name %s",
+        oifname);
      return CMD_WARNING;
    }
 
    grp_str = argv[idx_ipv4]->arg;
    result = inet_pton(AF_INET, grp_str, &grp_addr);
    if (result <= 0) {
-     vty_out(vty, "Bad group address %s: errno=%d: %s%s",
-        grp_str, errno, safe_strerror(errno), VTY_NEWLINE);
+     vty_outln (vty, "Bad group address %s: errno=%d: %s",
+        grp_str, errno, safe_strerror(errno));
      return CMD_WARNING;
    }
 
    src_str = argv[idx_ipv4_2]->arg;
    result = inet_pton(AF_INET, src_str, &src_addr);
    if (result <= 0) {
-     vty_out(vty, "Bad source address %s: errno=%d: %s%s",
-        src_str, errno, safe_strerror(errno), VTY_NEWLINE);
+     vty_outln (vty, "Bad source address %s: errno=%d: %s",
+        src_str, errno, safe_strerror(errno));
      return CMD_WARNING;
    }
 
    if (pim_static_del(iif, oif, grp_addr, src_addr)) {
-      vty_out(vty, "Failed to remove route%s", VTY_NEWLINE);
+      vty_outln (vty, "Failed to remove route");
       return CMD_WARNING;
    }
 
@@ -5304,7 +5323,7 @@ DEFUN (interface_ip_pim_hello,
     {
       if (!pim_cmd_interface_add(ifp))
         {
-          vty_out(vty, "Could not enable PIM SM on interface%s", VTY_NEWLINE);
+          vty_outln (vty, "Could not enable PIM SM on interface");
           return CMD_WARNING;
         }
     }
@@ -5334,7 +5353,7 @@ DEFUN (interface_no_ip_pim_hello,
   struct pim_interface *pim_ifp = ifp->info;
 
   if (!pim_ifp) {
-    vty_out(vty, "Pim not enabled on this interface%s", VTY_NEWLINE);
+    vty_outln (vty, "Pim not enabled on this interface");
     return CMD_WARNING;
   }
 
@@ -5579,22 +5598,22 @@ DEFUN (debug_pim_packets,
   if (argv_find (argv, argc, "hello", &idx))
     {
       PIM_DO_DEBUG_PIM_HELLO;
-      vty_out (vty, "PIM Hello debugging is on%s", VTY_NEWLINE);
+      vty_outln (vty, "PIM Hello debugging is on");
     }
   else if (argv_find (argv, argc ,"joins", &idx))
     {
       PIM_DO_DEBUG_PIM_J_P;
-      vty_out (vty, "PIM Join/Prune debugging is on%s", VTY_NEWLINE);
+      vty_outln (vty, "PIM Join/Prune debugging is on");
     }
   else if (argv_find (argv, argc, "register", &idx))
     {
       PIM_DO_DEBUG_PIM_REG;
-      vty_out (vty, "PIM Register debugging is on%s", VTY_NEWLINE);
+      vty_outln (vty, "PIM Register debugging is on");
     }
   else
     {
       PIM_DO_DEBUG_PIM_PACKETS;
-      vty_out (vty, "PIM Packet debugging is on %s", VTY_NEWLINE);
+      vty_outln (vty, "PIM Packet debugging is on ");
     }
   return CMD_SUCCESS;
 }
@@ -5614,17 +5633,17 @@ DEFUN (no_debug_pim_packets,
   if (argv_find (argv, argc,"hello",&idx))
     {
       PIM_DONT_DEBUG_PIM_HELLO;
-      vty_out (vty, "PIM Hello debugging is off %s", VTY_NEWLINE);
+      vty_outln (vty, "PIM Hello debugging is off ");
     }
   else if (argv_find (argv, argc, "joins", &idx))
     {
       PIM_DONT_DEBUG_PIM_J_P;
-      vty_out (vty, "PIM Join/Prune debugging is off %s", VTY_NEWLINE);
+      vty_outln (vty, "PIM Join/Prune debugging is off ");
     }
   else if (argv_find (argv, argc, "register", &idx))
     {
       PIM_DONT_DEBUG_PIM_REG;
-      vty_out (vty, "PIM Register debugging is off%s", VTY_NEWLINE);
+      vty_outln (vty, "PIM Register debugging is off");
     }
   else
     PIM_DONT_DEBUG_PIM_PACKETS;
@@ -5866,8 +5885,8 @@ interface_pim_use_src_cmd_worker(struct vty *vty, const char *source)
 
   result = inet_pton(AF_INET, source, &source_addr);
   if (result <= 0) {
-    vty_out(vty, "%% Bad source address %s: errno=%d: %s%s",
-        source, errno, safe_strerror(errno), VTY_NEWLINE);
+    vty_outln (vty, "%% Bad source address %s: errno=%d: %s",
+        source, errno, safe_strerror(errno));
     return CMD_WARNING;
   }
 
@@ -5876,13 +5895,13 @@ interface_pim_use_src_cmd_worker(struct vty *vty, const char *source)
     case PIM_SUCCESS:
       break;
    case PIM_IFACE_NOT_FOUND:
-      vty_out(vty, "Pim not enabled on this interface%s", VTY_NEWLINE);
+      vty_outln (vty, "Pim not enabled on this interface");
       break;
     case PIM_UPDATE_SOURCE_DUP:
-      vty_out(vty, "%% Source already set to %s%s", source, VTY_NEWLINE);
+      vty_outln (vty, "%% Source already set to %s", source);
       break;
     default:
-      vty_out(vty, "%% Source set failed%s", VTY_NEWLINE);
+      vty_outln (vty, "%% Source set failed");
   }
 
   return result?CMD_WARNING:CMD_SUCCESS;
@@ -6006,15 +6025,15 @@ ip_msdp_peer_cmd_worker (struct vty *vty, const char *peer, const char *local)
 
   result = inet_pton(AF_INET, peer, &peer_addr);
   if (result <= 0) {
-    vty_out(vty, "%% Bad peer address %s: errno=%d: %s%s",
-        peer, errno, safe_strerror(errno), VTY_NEWLINE);
+    vty_outln (vty, "%% Bad peer address %s: errno=%d: %s",
+        peer, errno, safe_strerror(errno));
     return CMD_WARNING;
   }
 
   result = inet_pton(AF_INET, local, &local_addr);
   if (result <= 0) {
-    vty_out(vty, "%% Bad source address %s: errno=%d: %s%s",
-        local, errno, safe_strerror(errno), VTY_NEWLINE);
+    vty_outln (vty, "%% Bad source address %s: errno=%d: %s",
+        local, errno, safe_strerror(errno));
     return CMD_WARNING;
   }
 
@@ -6023,16 +6042,16 @@ ip_msdp_peer_cmd_worker (struct vty *vty, const char *peer, const char *local)
     case PIM_MSDP_ERR_NONE:
       break;
     case PIM_MSDP_ERR_OOM:
-      vty_out(vty, "%% Out of memory%s", VTY_NEWLINE);
+      vty_outln (vty, "%% Out of memory");
       break;
     case PIM_MSDP_ERR_PEER_EXISTS:
-      vty_out(vty, "%% Peer exists%s", VTY_NEWLINE);
+      vty_outln (vty, "%% Peer exists");
       break;
     case PIM_MSDP_ERR_MAX_MESH_GROUPS:
-      vty_out(vty, "%% Only one mesh-group allowed currently%s", VTY_NEWLINE);
+      vty_outln (vty, "%% Only one mesh-group allowed currently");
       break;
     default:
-      vty_out(vty, "%% peer add failed%s", VTY_NEWLINE);
+      vty_outln (vty, "%% peer add failed");
   }
 
   return result?CMD_WARNING:CMD_SUCCESS;
@@ -6059,8 +6078,8 @@ ip_no_msdp_peer_cmd_worker (struct vty *vty, const char *peer)
 
   result = inet_pton(AF_INET, peer, &peer_addr);
   if (result <= 0) {
-    vty_out(vty, "%% Bad peer address %s: errno=%d: %s%s",
-        peer, errno, safe_strerror(errno), VTY_NEWLINE);
+    vty_outln (vty, "%% Bad peer address %s: errno=%d: %s",
+        peer, errno, safe_strerror(errno));
     return CMD_WARNING;
   }
 
@@ -6069,10 +6088,10 @@ ip_no_msdp_peer_cmd_worker (struct vty *vty, const char *peer)
     case PIM_MSDP_ERR_NONE:
       break;
     case PIM_MSDP_ERR_NO_PEER:
-      vty_out(vty, "%% Peer does not exist%s", VTY_NEWLINE);
+      vty_outln (vty, "%% Peer does not exist");
       break;
     default:
-      vty_out(vty, "%% peer del failed%s", VTY_NEWLINE);
+      vty_outln (vty, "%% peer del failed");
   }
 
   return result?CMD_WARNING:CMD_SUCCESS;
@@ -6098,8 +6117,8 @@ ip_msdp_mesh_group_member_cmd_worker(struct vty *vty, const char *mg, const char
 
   result = inet_pton(AF_INET, mbr, &mbr_ip);
   if (result <= 0) {
-    vty_out(vty, "%% Bad member address %s: errno=%d: %s%s",
-        mbr, errno, safe_strerror(errno), VTY_NEWLINE);
+    vty_outln (vty, "%% Bad member address %s: errno=%d: %s",
+        mbr, errno, safe_strerror(errno));
     return CMD_WARNING;
   }
 
@@ -6108,16 +6127,16 @@ ip_msdp_mesh_group_member_cmd_worker(struct vty *vty, const char *mg, const char
     case PIM_MSDP_ERR_NONE:
       break;
     case PIM_MSDP_ERR_OOM:
-      vty_out(vty, "%% Out of memory%s", VTY_NEWLINE);
+      vty_outln (vty, "%% Out of memory");
       break;
     case PIM_MSDP_ERR_MG_MBR_EXISTS:
-      vty_out(vty, "%% mesh-group member exists%s", VTY_NEWLINE);
+      vty_outln (vty, "%% mesh-group member exists");
       break;
     case PIM_MSDP_ERR_MAX_MESH_GROUPS:
-      vty_out(vty, "%% Only one mesh-group allowed currently%s", VTY_NEWLINE);
+      vty_outln (vty, "%% Only one mesh-group allowed currently");
       break;
     default:
-      vty_out(vty, "%% member add failed%s", VTY_NEWLINE);
+      vty_outln (vty, "%% member add failed");
   }
 
   return result?CMD_WARNING:CMD_SUCCESS;
@@ -6144,8 +6163,8 @@ ip_no_msdp_mesh_group_member_cmd_worker(struct vty *vty, const char *mg, const c
 
   result = inet_pton(AF_INET, mbr, &mbr_ip);
   if (result <= 0) {
-    vty_out(vty, "%% Bad member address %s: errno=%d: %s%s",
-        mbr, errno, safe_strerror(errno), VTY_NEWLINE);
+    vty_outln (vty, "%% Bad member address %s: errno=%d: %s",
+        mbr, errno, safe_strerror(errno));
     return CMD_WARNING;
   }
 
@@ -6154,13 +6173,13 @@ ip_no_msdp_mesh_group_member_cmd_worker(struct vty *vty, const char *mg, const c
     case PIM_MSDP_ERR_NONE:
       break;
     case PIM_MSDP_ERR_NO_MG:
-      vty_out(vty, "%% mesh-group does not exist%s", VTY_NEWLINE);
+      vty_outln (vty, "%% mesh-group does not exist");
       break;
     case PIM_MSDP_ERR_NO_MG_MBR:
-      vty_out(vty, "%% mesh-group member does not exist%s", VTY_NEWLINE);
+      vty_outln (vty, "%% mesh-group member does not exist");
       break;
     default:
-      vty_out(vty, "%% mesh-group member del failed%s", VTY_NEWLINE);
+      vty_outln (vty, "%% mesh-group member del failed");
   }
 
   return result?CMD_WARNING:CMD_SUCCESS;
@@ -6187,8 +6206,8 @@ ip_msdp_mesh_group_source_cmd_worker(struct vty *vty, const char *mg, const char
 
   result = inet_pton(AF_INET, src, &src_ip);
   if (result <= 0) {
-    vty_out(vty, "%% Bad source address %s: errno=%d: %s%s",
-        src, errno, safe_strerror(errno), VTY_NEWLINE);
+    vty_outln (vty, "%% Bad source address %s: errno=%d: %s",
+        src, errno, safe_strerror(errno));
     return CMD_WARNING;
   }
 
@@ -6197,13 +6216,13 @@ ip_msdp_mesh_group_source_cmd_worker(struct vty *vty, const char *mg, const char
     case PIM_MSDP_ERR_NONE:
       break;
     case PIM_MSDP_ERR_OOM:
-      vty_out(vty, "%% Out of memory%s", VTY_NEWLINE);
+      vty_outln (vty, "%% Out of memory");
       break;
     case PIM_MSDP_ERR_MAX_MESH_GROUPS:
-      vty_out(vty, "%% Only one mesh-group allowed currently%s", VTY_NEWLINE);
+      vty_outln (vty, "%% Only one mesh-group allowed currently");
       break;
     default:
-      vty_out(vty, "%% source add failed%s", VTY_NEWLINE);
+      vty_outln (vty, "%% source add failed");
   }
 
   return result?CMD_WARNING:CMD_SUCCESS;
@@ -6233,10 +6252,10 @@ ip_no_msdp_mesh_group_source_cmd_worker(struct vty *vty, const char *mg)
     case PIM_MSDP_ERR_NONE:
       break;
     case PIM_MSDP_ERR_NO_MG:
-      vty_out(vty, "%% mesh-group does not exist%s", VTY_NEWLINE);
+      vty_outln (vty, "%% mesh-group does not exist");
       break;
     default:
-      vty_out(vty, "%% mesh-group source del failed%s", VTY_NEWLINE);
+      vty_outln (vty, "%% mesh-group source del failed");
   }
 
   return result?CMD_WARNING:CMD_SUCCESS;
@@ -6252,10 +6271,10 @@ ip_no_msdp_mesh_group_cmd_worker(struct vty *vty, const char *mg)
     case PIM_MSDP_ERR_NONE:
       break;
     case PIM_MSDP_ERR_NO_MG:
-      vty_out(vty, "%% mesh-group does not exist%s", VTY_NEWLINE);
+      vty_outln (vty, "%% mesh-group does not exist");
       break;
     default:
-      vty_out(vty, "%% mesh-group source del failed%s", VTY_NEWLINE);
+      vty_outln (vty, "%% mesh-group source del failed");
   }
 
   return result ? CMD_WARNING : CMD_SUCCESS;
@@ -6283,7 +6302,8 @@ print_empty_json_obj(struct vty *vty)
 {
   json_object *json;
   json = json_object_new_object();
-  vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+  vty_outln (vty, "%s",
+             json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
   json_object_free(json);
 }
 
@@ -6317,9 +6337,9 @@ ip_msdp_show_mesh_group(struct vty *vty, u_char uj)
     json_object_string_add(json_mg_row, "name", mg->mesh_group_name);
     json_object_string_add(json_mg_row, "source", src_str);
   } else {
-    vty_out(vty, "Mesh group : %s%s", mg->mesh_group_name, VTY_NEWLINE);
-    vty_out(vty, "  Source : %s%s", src_str, VTY_NEWLINE);
-    vty_out(vty, "  Member                 State%s", VTY_NEWLINE);
+    vty_outln (vty, "Mesh group : %s", mg->mesh_group_name);
+    vty_outln (vty, "  Source : %s", src_str);
+    vty_outln (vty, "  Member                 State");
   }
 
   for (ALL_LIST_ELEMENTS_RO(mg->mbr_list, mbrnode, mbr)) {
@@ -6340,14 +6360,15 @@ ip_msdp_show_mesh_group(struct vty *vty, u_char uj)
       }
       json_object_object_add(json_members, mbr_str, json_row);
     } else {
-      vty_out(vty, "  %-15s  %11s%s",
-          mbr_str, state_str, VTY_NEWLINE);
+      vty_outln (vty, "  %-15s  %11s",
+          mbr_str, state_str);
     }
   }
 
   if (uj) {
     json_object_object_add(json, mg->mesh_group_name, json_mg_row);
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   }
 }
@@ -6384,7 +6405,8 @@ ip_msdp_show_peers(struct vty *vty, u_char uj)
   if (uj) {
     json = json_object_new_object();
   } else {
-    vty_out(vty, "Peer                       Local        State    Uptime   SaCnt%s", VTY_NEWLINE);
+    vty_outln (vty,
+              "Peer                       Local        State    Uptime   SaCnt");
   }
 
   for (ALL_LIST_ELEMENTS_RO(msdp->peer_list, mpnode, mp)) {
@@ -6406,14 +6428,15 @@ ip_msdp_show_peers(struct vty *vty, u_char uj)
       json_object_int_add(json_row, "saCount", mp->sa_cnt);
       json_object_object_add(json, peer_str, json_row);
     } else {
-      vty_out(vty, "%-15s  %15s  %11s  %8s  %6d%s",
+      vty_outln (vty, "%-15s  %15s  %11s  %8s  %6d",
           peer_str, local_str, state_str,
-          timebuf, mp->sa_cnt, VTY_NEWLINE);
+          timebuf, mp->sa_cnt);
     }
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   }
 }
@@ -6476,31 +6499,32 @@ ip_msdp_show_peers_detail(struct vty *vty, const char *peer, u_char uj)
       json_object_int_add(json_row, "saRcvd", mp->sa_rx_cnt);
       json_object_object_add(json, peer_str, json_row);
     } else {
-      vty_out(vty, "Peer : %s%s", peer_str, VTY_NEWLINE);
-      vty_out(vty, "  Local               : %s%s", local_str, VTY_NEWLINE);
-      vty_out(vty, "  Mesh Group          : %s%s", mp->mesh_group_name, VTY_NEWLINE);
-      vty_out(vty, "  State               : %s%s", state_str, VTY_NEWLINE);
-      vty_out(vty, "  Uptime              : %s%s", timebuf, VTY_NEWLINE);
+      vty_outln (vty, "Peer : %s", peer_str);
+      vty_outln (vty, "  Local               : %s", local_str);
+      vty_outln (vty, "  Mesh Group          : %s", mp->mesh_group_name);
+      vty_outln (vty, "  State               : %s", state_str);
+      vty_outln (vty, "  Uptime              : %s", timebuf);
 
-      vty_out(vty, "  Keepalive Timer     : %s%s", katimer, VTY_NEWLINE);
-      vty_out(vty, "  Conn Retry Timer    : %s%s", crtimer, VTY_NEWLINE);
-      vty_out(vty, "  Hold Timer          : %s%s", holdtimer, VTY_NEWLINE);
-      vty_out(vty, "  Last Reset          : %s%s", mp->last_reset, VTY_NEWLINE);
-      vty_out(vty, "  Conn Attempts       : %d%s", mp->conn_attempts, VTY_NEWLINE);
-      vty_out(vty, "  Established Changes : %d%s", mp->est_flaps, VTY_NEWLINE);
-      vty_out(vty, "  SA Count            : %d%s", mp->sa_cnt, VTY_NEWLINE);
-      vty_out(vty, "  Statistics          :%s", VTY_NEWLINE);
-      vty_out(vty, "                       Sent       Rcvd%s", VTY_NEWLINE);
-      vty_out(vty, "    Keepalives : %10d %10d%s",
-          mp->ka_tx_cnt, mp->ka_rx_cnt, VTY_NEWLINE);
-      vty_out(vty, "    SAs        : %10d %10d%s",
-          mp->sa_tx_cnt, mp->sa_rx_cnt, VTY_NEWLINE);
-      vty_out(vty, "%s", VTY_NEWLINE);
+      vty_outln (vty, "  Keepalive Timer     : %s", katimer);
+      vty_outln (vty, "  Conn Retry Timer    : %s", crtimer);
+      vty_outln (vty, "  Hold Timer          : %s", holdtimer);
+      vty_outln (vty, "  Last Reset          : %s", mp->last_reset);
+      vty_outln (vty, "  Conn Attempts       : %d", mp->conn_attempts);
+      vty_outln (vty, "  Established Changes : %d", mp->est_flaps);
+      vty_outln (vty, "  SA Count            : %d", mp->sa_cnt);
+      vty_outln (vty, "  Statistics          :");
+      vty_outln (vty, "                       Sent       Rcvd");
+      vty_outln (vty, "    Keepalives : %10d %10d",
+          mp->ka_tx_cnt, mp->ka_rx_cnt);
+      vty_outln (vty, "    SAs        : %10d %10d",
+          mp->sa_tx_cnt, mp->sa_rx_cnt);
+      vty_outln (vty, "");
     }
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   }
 }
@@ -6547,7 +6571,8 @@ ip_msdp_show_sa(struct vty *vty, u_char uj)
   if (uj) {
     json = json_object_new_object();
   } else {
-    vty_out(vty, "Source                     Group               RP  Local  SPT    Uptime%s", VTY_NEWLINE);
+    vty_outln (vty,
+              "Source                     Group               RP  Local  SPT    Uptime");
   }
 
   for (ALL_LIST_ELEMENTS_RO(msdp->sa_list, sanode, sa)) {
@@ -6588,14 +6613,15 @@ ip_msdp_show_sa(struct vty *vty, u_char uj)
       json_object_string_add(json_row, "upTime", timebuf);
       json_object_object_add(json_group, src_str, json_row);
     } else {
-      vty_out(vty, "%-15s  %15s  %15s  %5c  %3c  %8s%s",
-          src_str, grp_str, rp_str, local_str[0], spt_str[0], timebuf, VTY_NEWLINE);
+      vty_outln (vty, "%-15s  %15s  %15s  %5c  %3c  %8s",
+          src_str, grp_str, rp_str, local_str[0], spt_str[0], timebuf);
     }
   }
 
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   }
 }
@@ -6654,14 +6680,14 @@ ip_msdp_show_sa_entry_detail(struct pim_msdp_sa *sa, const char *src_str,
     json_object_string_add(json_row, "stateTimer", statetimer);
     json_object_object_add(json_group, src_str, json_row);
   } else {
-    vty_out(vty, "SA : %s%s", sa->sg_str, VTY_NEWLINE);
-    vty_out(vty, "  RP          : %s%s", rp_str, VTY_NEWLINE);
-    vty_out(vty, "  Peer        : %s%s", peer_str, VTY_NEWLINE);
-    vty_out(vty, "  Local       : %s%s", local_str, VTY_NEWLINE);
-    vty_out(vty, "  SPT Setup   : %s%s", spt_str, VTY_NEWLINE);
-    vty_out(vty, "  Uptime      : %s%s", timebuf, VTY_NEWLINE);
-    vty_out(vty, "  State Timer : %s%s", statetimer, VTY_NEWLINE);
-    vty_out(vty, "%s", VTY_NEWLINE);
+    vty_outln (vty, "SA : %s", sa->sg_str);
+    vty_outln (vty, "  RP          : %s", rp_str);
+    vty_outln (vty, "  Peer        : %s", peer_str);
+    vty_outln (vty, "  Local       : %s", local_str);
+    vty_outln (vty, "  SPT Setup   : %s", spt_str);
+    vty_outln (vty, "  Uptime      : %s", timebuf);
+    vty_outln (vty, "  State Timer : %s", statetimer);
+    vty_outln (vty, "");
   }
 }
 
@@ -6685,7 +6711,8 @@ ip_msdp_show_sa_detail(struct vty *vty, u_char uj)
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   }
 }
@@ -6728,7 +6755,8 @@ ip_msdp_show_sa_addr(struct vty *vty, const char *addr, u_char uj)
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   }
 }
@@ -6755,7 +6783,8 @@ ip_msdp_show_sa_sg(struct vty *vty, const char *src, const char *grp, u_char uj)
   }
 
   if (uj) {
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   }
 }

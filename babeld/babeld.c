@@ -83,27 +83,26 @@ babel_config_write (struct vty *vty)
 
     if (!babel_routing_process)
         return lines;
-    vty_out (vty, "router babel%s", VTY_NEWLINE);
+    vty_outln (vty, "router babel");
     if (diversity_kind != DIVERSITY_NONE)
     {
-        vty_out (vty, " babel diversity%s", VTY_NEWLINE);
+        vty_outln (vty, " babel diversity");
         lines++;
     }
     if (diversity_factor != BABEL_DEFAULT_DIVERSITY_FACTOR)
     {
-        vty_out (vty, " babel diversity-factor %d%s", diversity_factor,
-                 VTY_NEWLINE);
+        vty_outln (vty, " babel diversity-factor %d",diversity_factor);
         lines++;
     }
     if (resend_delay != BABEL_DEFAULT_RESEND_DELAY)
     {
-        vty_out (vty, " babel resend-delay %u%s", resend_delay, VTY_NEWLINE);
+        vty_outln (vty, " babel resend-delay %u", resend_delay);
         lines++;
     }
     if (smoothing_half_life != BABEL_DEFAULT_SMOOTHING_HALF_LIFE)
     {
-        vty_out (vty, " babel smoothing-half-life %u%s",
-                 smoothing_half_life, VTY_NEWLINE);
+        vty_outln (vty, " babel smoothing-half-life %u",
+                 smoothing_half_life);
         lines++;
     }
     /* list enabled interfaces */
@@ -113,7 +112,7 @@ babel_config_write (struct vty *vty)
         if (i != zclient->redist_default &&
 	    vrf_bitmap_check (zclient->redist[AFI_IP][i], VRF_DEFAULT))
         {
-            vty_out (vty, " redistribute %s%s", zebra_route_string (i), VTY_NEWLINE);
+            vty_outln (vty, " redistribute %s", zebra_route_string(i));
             lines++;
         }
 

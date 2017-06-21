@@ -564,73 +564,69 @@ update_group_show_walkcb (struct update_group *updgrp, void *arg)
 
   vty = ctx->vty;
 
-  vty_out (vty, "Update-group %" PRIu64 ":%s", updgrp->id, VTY_NEWLINE);
+  vty_outln (vty, "Update-group %" PRIu64 ":", updgrp->id);
   vty_out (vty, "  Created: %s", timestamp_string (updgrp->uptime));
   filter = &updgrp->conf->filter[updgrp->afi][updgrp->safi];
   if (filter->map[RMAP_OUT].name)
-    vty_out (vty, "  Outgoing route map: %s%s%s",
+    vty_outln (vty, "  Outgoing route map: %s%s",
 	     filter->map[RMAP_OUT].map ? "X" : "",
-	     filter->map[RMAP_OUT].name, VTY_NEWLINE);
-  vty_out (vty, "  MRAI value (seconds): %d%s",
-	   updgrp->conf->v_routeadv, VTY_NEWLINE);
+	     filter->map[RMAP_OUT].name);
+  vty_outln (vty, "  MRAI value (seconds): %d",
+	   updgrp->conf->v_routeadv);
   if (updgrp->conf->change_local_as)
-    vty_out (vty, "  Local AS %u%s%s%s",
+    vty_outln (vty, "  Local AS %u%s%s",
              updgrp->conf->change_local_as,
              CHECK_FLAG (updgrp->conf->flags,
                      PEER_FLAG_LOCAL_AS_NO_PREPEND) ?  " no-prepend" : "",
-             CHECK_FLAG (updgrp->conf->flags,
-                     PEER_FLAG_LOCAL_AS_REPLACE_AS) ?  " replace-as" : "",
-             VTY_NEWLINE);
+             CHECK_FLAG(updgrp->conf->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS) ? " replace-as" : "");
 
   UPDGRP_FOREACH_SUBGRP (updgrp, subgrp)
   {
     if (ctx->subgrp_id && (ctx->subgrp_id != subgrp->id))
       continue;
-    vty_out (vty, "%s", VTY_NEWLINE);
-    vty_out (vty, "  Update-subgroup %" PRIu64 ":%s", subgrp->id, VTY_NEWLINE);
+    vty_outln (vty, "");
+    vty_outln (vty, "  Update-subgroup %" PRIu64 ":", subgrp->id);
     vty_out (vty, "    Created: %s", timestamp_string (subgrp->uptime));
 
     if (subgrp->split_from.update_group_id || subgrp->split_from.subgroup_id)
       {
-	vty_out (vty, "    Split from group id: %" PRIu64 "%s",
-		 subgrp->split_from.update_group_id, VTY_NEWLINE);
-	vty_out (vty, "    Split from subgroup id: %" PRIu64 "%s",
-		 subgrp->split_from.subgroup_id, VTY_NEWLINE);
+	vty_outln (vty, "    Split from group id: %" PRIu64 "",
+		 subgrp->split_from.update_group_id);
+	vty_outln (vty, "    Split from subgroup id: %" PRIu64 "",
+		 subgrp->split_from.subgroup_id);
       }
 
-    vty_out (vty, "    Join events: %u%s", subgrp->join_events, VTY_NEWLINE);
-    vty_out (vty, "    Prune events: %u%s",
-	     subgrp->prune_events, VTY_NEWLINE);
-    vty_out (vty, "    Merge events: %u%s",
-	     subgrp->merge_events, VTY_NEWLINE);
-    vty_out (vty, "    Split events: %u%s",
-	     subgrp->split_events, VTY_NEWLINE);
-    vty_out (vty, "    Update group switch events: %u%s",
-	     subgrp->updgrp_switch_events, VTY_NEWLINE);
-    vty_out (vty, "    Peer refreshes combined: %u%s",
-	     subgrp->peer_refreshes_combined, VTY_NEWLINE);
-    vty_out (vty, "    Merge checks triggered: %u%s",
-	     subgrp->merge_checks_triggered, VTY_NEWLINE);
-    vty_out (vty, "    Version: %" PRIu64 "%s", subgrp->version, VTY_NEWLINE);
-    vty_out (vty, "    Packet queue length: %d%s",
-	     bpacket_queue_length (SUBGRP_PKTQ (subgrp)), VTY_NEWLINE);
-    vty_out (vty, "    Total packets enqueued: %u%s",
-	     subgroup_total_packets_enqueued (subgrp), VTY_NEWLINE);
-    vty_out (vty, "    Packet queue high watermark: %d%s",
-	     bpacket_queue_hwm_length (SUBGRP_PKTQ (subgrp)), VTY_NEWLINE);
-    vty_out (vty, "    Adj-out list count: %u%s",
-	     subgrp->adj_count, VTY_NEWLINE);
-    vty_out (vty, "    Advertise list: %s%s",
-	     advertise_list_is_empty (subgrp) ? "empty" : "not empty",
-	     VTY_NEWLINE);
-    vty_out (vty, "    Flags: %s%s",
-	     CHECK_FLAG (subgrp->flags,
-			 SUBGRP_FLAG_NEEDS_REFRESH) ? "R" : "", VTY_NEWLINE);
+    vty_outln (vty, "    Join events: %u", subgrp->join_events);
+    vty_outln (vty, "    Prune events: %u",
+	     subgrp->prune_events);
+    vty_outln (vty, "    Merge events: %u",
+	     subgrp->merge_events);
+    vty_outln (vty, "    Split events: %u",
+	     subgrp->split_events);
+    vty_outln (vty, "    Update group switch events: %u",
+	     subgrp->updgrp_switch_events);
+    vty_outln (vty, "    Peer refreshes combined: %u",
+	     subgrp->peer_refreshes_combined);
+    vty_outln (vty, "    Merge checks triggered: %u",
+	     subgrp->merge_checks_triggered);
+    vty_outln (vty, "    Version: %" PRIu64 "", subgrp->version);
+    vty_outln (vty, "    Packet queue length: %d",
+	     bpacket_queue_length(SUBGRP_PKTQ(subgrp)));
+    vty_outln (vty, "    Total packets enqueued: %u",
+	     subgroup_total_packets_enqueued(subgrp));
+    vty_outln (vty, "    Packet queue high watermark: %d",
+	     bpacket_queue_hwm_length(SUBGRP_PKTQ(subgrp)));
+    vty_outln (vty, "    Adj-out list count: %u",
+	     subgrp->adj_count);
+    vty_outln (vty, "    Advertise list: %s",
+	     advertise_list_is_empty(subgrp) ? "empty" : "not empty");
+    vty_outln (vty, "    Flags: %s",
+	     CHECK_FLAG(subgrp->flags, SUBGRP_FLAG_NEEDS_REFRESH) ? "R" : "");
     if (subgrp->peer_count > 0)
       {
-	vty_out (vty, "    Peers:%s", VTY_NEWLINE);
+	vty_outln (vty, "    Peers:");
 	SUBGRP_FOREACH_PEER (subgrp, paf)
-	  vty_out (vty, "      - %s%s", paf->peer->host, VTY_NEWLINE);
+	  vty_outln (vty, "      - %s", paf->peer->host);
       }
   }
   return UPDWALK_CONTINUE;
@@ -652,8 +648,8 @@ updgrp_show_packet_queue_walkcb (struct update_group *updgrp, void *arg)
   {
     if (ctx->subgrp_id && (ctx->subgrp_id != subgrp->id))
       continue;
-    vty_out (vty, "update group %" PRIu64 ", subgroup %" PRIu64 "%s", updgrp->id,
-	     subgrp->id, VTY_NEWLINE);
+    vty_outln (vty, "update group %" PRIu64 ", subgroup %" PRIu64 "", updgrp->id,
+	     subgrp->id);
     bpacket_queue_show_vty (SUBGRP_PKTQ (subgrp), vty);
   }
   return UPDWALK_CONTINUE;
@@ -1601,28 +1597,28 @@ update_group_show (struct bgp *bgp, afi_t afi, safi_t safi, struct vty *vty,
 void
 update_group_show_stats (struct bgp *bgp, struct vty *vty)
 {
-  vty_out (vty, "Update groups created: %u%s",
-	   bgp->update_group_stats.updgrps_created, VTY_NEWLINE);
-  vty_out (vty, "Update groups deleted: %u%s",
-	   bgp->update_group_stats.updgrps_deleted, VTY_NEWLINE);
-  vty_out (vty, "Update subgroups created: %u%s",
-	   bgp->update_group_stats.subgrps_created, VTY_NEWLINE);
-  vty_out (vty, "Update subgroups deleted: %u%s",
-	   bgp->update_group_stats.subgrps_deleted, VTY_NEWLINE);
-  vty_out (vty, "Join events: %u%s",
-	   bgp->update_group_stats.join_events, VTY_NEWLINE);
-  vty_out (vty, "Prune events: %u%s",
-	   bgp->update_group_stats.prune_events, VTY_NEWLINE);
-  vty_out (vty, "Merge events: %u%s",
-	   bgp->update_group_stats.merge_events, VTY_NEWLINE);
-  vty_out (vty, "Split events: %u%s",
-	   bgp->update_group_stats.split_events, VTY_NEWLINE);
-  vty_out (vty, "Update group switch events: %u%s",
-	   bgp->update_group_stats.updgrp_switch_events, VTY_NEWLINE);
-  vty_out (vty, "Peer route refreshes combined: %u%s",
-	   bgp->update_group_stats.peer_refreshes_combined, VTY_NEWLINE);
-  vty_out (vty, "Merge checks triggered: %u%s",
-	   bgp->update_group_stats.merge_checks_triggered, VTY_NEWLINE);
+  vty_outln (vty, "Update groups created: %u",
+	   bgp->update_group_stats.updgrps_created);
+  vty_outln (vty, "Update groups deleted: %u",
+	   bgp->update_group_stats.updgrps_deleted);
+  vty_outln (vty, "Update subgroups created: %u",
+	   bgp->update_group_stats.subgrps_created);
+  vty_outln (vty, "Update subgroups deleted: %u",
+	   bgp->update_group_stats.subgrps_deleted);
+  vty_outln (vty, "Join events: %u",
+	   bgp->update_group_stats.join_events);
+  vty_outln (vty, "Prune events: %u",
+	   bgp->update_group_stats.prune_events);
+  vty_outln (vty, "Merge events: %u",
+	   bgp->update_group_stats.merge_events);
+  vty_outln (vty, "Split events: %u",
+	   bgp->update_group_stats.split_events);
+  vty_outln (vty, "Update group switch events: %u",
+	   bgp->update_group_stats.updgrp_switch_events);
+  vty_outln (vty, "Peer route refreshes combined: %u",
+	   bgp->update_group_stats.peer_refreshes_combined);
+  vty_outln (vty, "Merge checks triggered: %u",
+	   bgp->update_group_stats.merge_checks_triggered);
 }
 
 /*
