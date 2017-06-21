@@ -119,7 +119,7 @@ struct pim_upstream {
 	 */
 	struct thread *t_rs_timer;
 #define PIM_REGISTER_SUPPRESSION_PERIOD (60)
-#define PIM_REGISTER_PROBE_PERIOD       (15)
+#define PIM_REGISTER_PROBE_PERIOD        (5)
 
 	/*
 	 * KAT(S,G)
