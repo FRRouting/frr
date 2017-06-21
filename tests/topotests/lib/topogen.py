@@ -149,9 +149,12 @@ class Topogen(object):
             raise ValueError('invalid node2 type')
 
         if ifname1 is None:
-            ifname1 = node1.register_link(ifname1)
+            ifname1 = node1.new_link()
         if ifname2 is None:
-            ifname1 = node2.register_link(ifname1)
+            ifname2 = node2.new_link()
+
+        node1.register_link(ifname1, node2, ifname2)
+        node2.register_link(ifname2, node1, ifname1)
         self.topo.addLink(node1.name, node2.name,
                           intfName1=ifname1, intfName2=ifname2)
 
@@ -218,8 +221,15 @@ class TopoGear(object):
         self.tgen = None
         self.name = None
         self.cls = None
-        self.links = []
+        self.links = {}
         self.linkn = 0
+
+    def run(self, command):
+        """
+        Runs the provided command string in the router and returns a string
+        with the response.
+        """
+        return self.tgen.net[self.name].cmd(command)
 
     def add_link(self, node, myif=None, nodeif=None):
         """
@@ -230,19 +240,57 @@ class TopoGear(object):
         """
         self.tgen.add_link(self, node, myif, nodeif)
 
-    def register_link(self, ifname=None):
+    def link_enable(self, myif, enabled=True):
         """
-        Register and returns an interface. If no interface name is specified,
-        then an standard interface name is used.
+        Set this node interface administrative state.
+        myif: this node interface name
+        enabled: whether we should enable or disable the interface
         """
-        if ifname is None:
-            ifname = '{}-eth{}'.format(self.name, self.linkn)
-        if ifname in self.links:
+        if myif not in self.links.keys():
+            raise KeyError('interface doesn\'t exists')
+
+        if enabled is True:
+            operation = 'up'
+        else:
+            operation = 'down'
+
+        return self.run('ip link set dev {} {}'.format(myif, operation))
+
+    def peer_link_enable(self, myif, enabled=True):
+        """
+        Set the peer interface administrative state.
+        myif: this node interface name
+        enabled: whether we should enable or disable the interface
+
+        NOTE: this is used to simulate a link down on this node, since when the
+        peer disables their interface our interface status changes to no link.
+        """
+        if myif not in self.links.keys():
+            raise KeyError('interface doesn\'t exists')
+
+        node, nodeif = self.links[myif]
+        node.link_enable(nodeif, enabled)
+
+    def new_link(self):
+        """
+        Generates a new unique link name.
+
+        NOTE: This function should only be called by Topogen.
+        """
+        ifname = '{}-eth{}'.format(self.name, self.linkn)
+        self.linkn += 1
+        return ifname
+
+    def register_link(self, myif, node, nodeif):
+        """
+        Register link between this node interface and outside node.
+
+        NOTE: This function should only be called by Topogen.
+        """
+        if myif in self.links.keys():
             raise KeyError('interface already exists')
 
-        self.linkn += 1
-        self.links.append(ifname)
-        return ifname
+        self.links[myif] = (node, nodeif)
 
 class TopoRouter(TopoGear):
     """
@@ -324,13 +372,6 @@ class TopoRouter(TopoGear):
         * Start daemons (e.g. FRR/Quagga)
         """
         return self.tgen.net[self.name].startRouter()
-
-    def run(self, command):
-        """
-        Runs the provided command string in the router and returns a string
-        with the response.
-        """
-        return self.tgen.net[self.name].cmd(command)
 
     def vtysh_cmd(self, command):
         """
