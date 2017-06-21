@@ -56,6 +56,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_evpn_private.h"
+#include "bgpd/bgp_evpn_vty.h"
 
 #if ENABLE_BGP_VNC
 #include "bgpd/rfapi/bgp_rfapi_cfg.h"
@@ -3122,6 +3123,7 @@ DEFUN (match_evpn_vni,
        match_evpn_vni_cmd,
        "match evpn vni (1-16777215)",
        MATCH_STR
+       EVPN_HELP_STR
        "Match VNI\n"
        "VNI ID\n")
 {
@@ -3134,6 +3136,7 @@ DEFUN (no_match_evpn_vni,
        "no match evpn vni (1-16777215)",
        NO_STR
        MATCH_STR
+       EVPN_HELP_STR
        "Match VNI\n"
        "VNI ID\n")
 {
