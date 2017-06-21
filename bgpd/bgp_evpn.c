@@ -347,9 +347,9 @@ static int bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn,
 	s = zclient->obuf;
 	stream_reset(s);
 
-	zclient_create_header(
-		s, add ? ZEBRA_REMOTE_MACIP_ADD : ZEBRA_REMOTE_MACIP_DEL,
-		bgp->vrf_id);
+	zclient_create_header(s, add ? ZEBRA_REMOTE_MACIP_ADD
+				     : ZEBRA_REMOTE_MACIP_DEL,
+			      bgp->vrf_id);
 	stream_putl(s, vpn->vni);
 	stream_put(s, &p->prefix.mac.octet, ETH_ALEN); /* Mac Addr */
 	/* IP address length and IP address, if any. */
@@ -400,9 +400,9 @@ static int bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 	s = zclient->obuf;
 	stream_reset(s);
 
-	zclient_create_header(
-		s, add ? ZEBRA_REMOTE_VTEP_ADD : ZEBRA_REMOTE_VTEP_DEL,
-		bgp->vrf_id);
+	zclient_create_header(s, add ? ZEBRA_REMOTE_VTEP_ADD
+				     : ZEBRA_REMOTE_VTEP_DEL,
+			      bgp->vrf_id);
 	stream_putl(s, vpn->vni);
 	if (IS_EVPN_PREFIX_IPADDR_V4(p))
 		stream_put_in_addr(s, &p->prefix.ip.ipaddr_v4);
@@ -472,7 +472,7 @@ static void add_mac_mobility_to_attr(u_int32_t seq_num, struct attr *attr)
 {
 	struct ecommunity ecom_tmp;
 	struct ecommunity_val eval;
-	struct ecommunity *ecom_mm;
+	u_int8_t *ecom_val_ptr;
 	int i;
 	u_int8_t *pnt;
 	int type = 0;
@@ -482,7 +482,7 @@ static void add_mac_mobility_to_attr(u_int32_t seq_num, struct attr *attr)
 	encode_mac_mobility_extcomm(0, seq_num, &eval);
 
 	/* Find current MM ecommunity */
-	ecom_mm = NULL;
+	ecom_val_ptr = NULL;
 
 	if (attr->ecommunity) {
 		for (i = 0; i < attr->ecommunity->size; i++) {
@@ -493,17 +493,17 @@ static void add_mac_mobility_to_attr(u_int32_t seq_num, struct attr *attr)
 			if (type == ECOMMUNITY_ENCODE_EVPN
 			    && sub_type
 				       == ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY) {
-				ecom_mm = (struct ecommunity *)
-						  attr->ecommunity->val
-					  + (i * 8);
+				ecom_val_ptr =
+					(u_int8_t *)(attr->ecommunity->val
+						     + (i * 8));
 				break;
 			}
 		}
 	}
 
 	/* Update the existing MM ecommunity */
-	if (ecom_mm) {
-		memcpy(ecom_mm->val, eval.val, sizeof(char) * ECOMMUNITY_SIZE);
+	if (ecom_val_ptr) {
+		memcpy(ecom_val_ptr, eval.val, sizeof(char) * ECOMMUNITY_SIZE);
 	}
 	/* Add MM to existing */
 	else {
