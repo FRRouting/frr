@@ -2061,7 +2061,7 @@ DEFUN (vtysh_show_work_queues,
 {
   unsigned int i;
   int ret = CMD_SUCCESS;
-  char line[] = "show work-queues\n";
+  char line[] = "do show work-queues\n";
 
   for (i = 0; i < array_size(vtysh_client); i++)
     if ( vtysh_client[i].fd >= 0 )
@@ -2171,7 +2171,7 @@ DEFUN (vtysh_show_logging,
 {
   unsigned int i;
   int ret = CMD_SUCCESS;
-  char line[] = "show logging\n";
+  char line[] = "do show logging\n";
   
   for (i = 0; i < array_size(vtysh_client); i++)
     if ( vtysh_client[i].fd >= 0 )
@@ -2487,7 +2487,7 @@ DEFUN (vtysh_write_terminal,
        "For the pim daemon\n")
 {
   u_int i;
-  char line[] = "write terminal\n";
+  char line[] = "do write terminal\n";
   FILE *fp = NULL;
 
   if (vtysh_pager_name)
@@ -2702,7 +2702,7 @@ DEFUN (vtysh_write_memory,
        "Write configuration to the file (same as write memory)\n")
 {
   int ret = CMD_SUCCESS;
-  char line[] = "write memory\n";
+  char line[] = "do write memory\n";
   u_int i;
 
   fprintf (stdout, "Note: this version of vtysh never writes vtysh.conf\n");
