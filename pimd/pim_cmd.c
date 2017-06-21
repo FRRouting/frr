@@ -4322,6 +4322,38 @@ DEFUN (show_ip_mroute,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_ip_mroute_vrf_all,
+       show_ip_mroute_vrf_all_cmd,
+       "show ip mroute vrf all [json]",
+       SHOW_STR
+       IP_STR
+       MROUTE_STR
+       VRF_CMD_HELP_STR
+       JSON_STR)
+{
+	u_char uj = use_json(argc, argv);
+	struct vrf *vrf;
+	bool first = true;
+
+	if (uj)
+		vty_out(vty, "{ ");
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		if (uj) {
+			if (!first)
+				vty_out(vty, ", ");
+			vty_out(vty, " \"%s\": ", vrf->name);
+			first = false;
+		} else
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		show_mroute(vty, vrf->info, uj);
+	}
+	if (uj)
+		vty_out(vty, "}");
+
+	return CMD_SUCCESS;
+}
+
 static void show_mroute_count(struct vty *vty, struct pim_instance *pim)
 {
 	struct listnode *node;
@@ -7803,6 +7835,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_rp_cmd);
 	install_element(VIEW_NODE, &show_ip_multicast_cmd);
 	install_element(VIEW_NODE, &show_ip_mroute_cmd);
+	install_element(VIEW_NODE, &show_ip_mroute_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_mroute_count_cmd);
 	install_element(VIEW_NODE, &show_ip_rib_cmd);
 	install_element(VIEW_NODE, &show_ip_ssmpingd_cmd);
