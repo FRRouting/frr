@@ -246,9 +246,7 @@ class TopoGear(object):
 
 class TopoRouter(TopoGear):
     """
-    Router abstraction. Has the following properties:
-    * cls: router class that will be used to instantiate
-    * name: router name
+    Router abstraction.
     """
 
     # The default required directories by Quagga/FRR
@@ -283,6 +281,14 @@ class TopoRouter(TopoGear):
     }
 
     def __init__(self, tgen, cls, name, **params):
+        """
+        The constructor has the following parameters:
+        * tgen: Topogen object
+        * cls: router class that will be used to instantiate
+        * name: router name
+        * daemondir: daemon binary directory
+        * routertype: 'quagga' or 'frr'
+        """
         super(TopoRouter, self).__init__()
         self.tgen = tgen
         self.net = None
