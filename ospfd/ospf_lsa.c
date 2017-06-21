@@ -2759,13 +2759,13 @@ ospf_lsa_install (struct ospf *ospf, struct ospf_interface *oi,
         case OSPF_AS_NSSA_LSA:
           zlog_debug ("LSA[%s]: Install %s",
                  dump_lsa_key (new),
-                 LOOKUP (ospf_lsa_type_msg, new->data->type));
+                 lookup_msg(ospf_lsa_type_msg, new->data->type, NULL));
           break;
         default:
 	  strcpy (area_str, inet_ntoa (new->area->area_id));
           zlog_debug ("LSA[%s]: Install %s to Area %s",
                  dump_lsa_key (new),
-                 LOOKUP (ospf_lsa_type_msg, new->data->type), area_str);
+                 lookup_msg(ospf_lsa_type_msg, new->data->type, NULL), area_str);
           break;
         }
     }

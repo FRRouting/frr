@@ -503,9 +503,8 @@ struct message tokennames[] = {
   item(JOIN_TKN),
   item(START_TKN),        // first token in line
   item(END_TKN),          // last token in line
-  { 0, NULL }
+  { 0 }
 };
-size_t tokennames_max = array_size(tokennames);
 
 /**
  * Pretty-prints a graph, assuming it is a tree.
@@ -522,7 +521,7 @@ pretty_print_graph (struct vty *vty, struct graph_node *start, int level,
   struct cmd_token *tok = start->data;
 
   snprintf(tokennum, sizeof(tokennum), "%d?", tok->type);
-  vty_out(vty, "%s", LOOKUP_DEF(tokennames, tok->type, tokennum));
+  vty_out(vty, "%s", lookup_msg(tokennames, tok->type, NULL));
   if (tok->text)
     vty_out(vty, ":\"%s\"", tok->text);
   if (tok->varname)
@@ -591,7 +590,7 @@ pretty_print_dot (FILE *ofd, unsigned opts, struct graph_node *start,
   snprintf(tokennum, sizeof(tokennum), "%d?", tok->type);
   fprintf(ofd, "  n%p [ shape=box, label=<", start);
 
-  fprintf(ofd, "<b>%s</b>", LOOKUP_DEF(tokennames, tok->type, tokennum));
+  fprintf(ofd, "<b>%s</b>", lookup_msg(tokennames, tok->type, NULL));
   if (tok->attr == CMD_ATTR_DEPRECATED)
     fprintf(ofd, " (d)");
   else if (tok->attr == CMD_ATTR_HIDDEN)

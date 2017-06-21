@@ -83,7 +83,7 @@ static const struct message nlmsg_str[] = {
   {RTM_NEWNEIGH, "RTM_NEWNEIGH"},
   {RTM_DELNEIGH, "RTM_DELNEIGH"},
   {RTM_GETNEIGH, "RTM_GETNEIGH"},
-  {0, NULL}
+  { 0 }
 };
 
 static const struct message rtproto_str[] = {
@@ -104,7 +104,7 @@ static const struct message rtproto_str[] = {
   {RTPROT_ISIS,     "IS-IS"},
   {RTPROT_RIP,      "RIP"},
   {RTPROT_RIPNG,    "RIPNG"},
-  {0,               NULL}
+  { 0 }
 };
 
 static const struct message family_str[] = {
@@ -113,13 +113,13 @@ static const struct message family_str[] = {
   {AF_BRIDGE,         "bridge"},
   {RTNL_FAMILY_IPMR,  "ipv4MR"},
   {RTNL_FAMILY_IP6MR, "ipv6MR"},
-  {0,                 NULL},
+  { 0 }
 };
 
 static const struct message rttype_str[] = {
   {RTN_UNICAST,   "unicast"},
   {RTN_MULTICAST, "multicast"},
-  {0,             NULL},
+  { 0 }
 };
 
 extern struct thread_master *master;
@@ -425,25 +425,25 @@ rta_nest_end(struct rtattr *rta, struct rtattr *nest)
 const char *
 nl_msg_type_to_str (uint16_t msg_type)
 {
-  return lookup (nlmsg_str, msg_type);
+  return lookup_msg (nlmsg_str, msg_type, "");
 }
 
 const char *
 nl_rtproto_to_str (u_char rtproto)
 {
-  return lookup (rtproto_str, rtproto);
+  return lookup_msg (rtproto_str, rtproto, "");
 }
 
 const char *
 nl_family_to_str (u_char family)
 {
-  return lookup (family_str, family);
+  return lookup_msg (family_str, family, "");
 }
 
 const char *
 nl_rttype_to_str (u_char rttype)
 {
-  return lookup (rttype_str, rttype);
+  return lookup_msg (rttype_str, rttype, "");
 }
 
 /*
