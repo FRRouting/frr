@@ -169,7 +169,7 @@ vty_outln (struct vty *vty, const char *format, ...)
   len = vty_out_variadic (vty, format, args);
   va_end (args);
 
-  return len + vty_out (vty, "%s", VTY_NEWLINE);
+  return len + vty_out (vty, "%s", VTYNL);
 }
 
 static int
@@ -954,7 +954,7 @@ vty_complete_command (struct vty *vty)
       vty_redraw_line (vty);
       break;
     case CMD_ERR_NO_MATCH:
-      /* vty_out (vty, "%% There is no matched command.%s", VTY_NEWLINE); */
+      /* vty_out (vty, "%% There is no matched command.%s", VTYNL); */
       vty_prompt (vty);
       vty_redraw_line (vty);
       break;
@@ -1148,7 +1148,7 @@ vty_describe_command (struct vty *vty)
 #if 0
         vty_out (vty, "  %-*s %s%s", width
                  desc->cmd[0] == '.' ? desc->cmd + 1 : desc->cmd,
-                 desc->str ? desc->str : "", VTY_NEWLINE);
+                 desc->str ? desc->str : "", VTYNL);
 #endif /* 0 */
       }
 
@@ -1775,8 +1775,8 @@ vty_create (int vty_sock, union sockunion *su)
   /* Say hello to the world. */
   vty_hello (vty);
   if (! no_password_check)
-    vty_outln (vty, "%sUser Access Verification%s", VTY_NEWLINE,
-               VTY_NEWLINE);
+    vty_outln (vty, "%sUser Access Verification%s", VTYNL,
+               VTYNL);
 
   /* Setting up terminal. */
   vty_will_echo (vty);
@@ -2336,7 +2336,7 @@ vty_timeout (struct thread *thread)
 
   /* Clear buffer*/
   buffer_reset (vty->obuf);
-  vty_outln (vty, "%sVty connection is timed out.", VTY_NEWLINE);
+  vty_outln (vty, "%sVty connection is timed out.", VTYNL);
 
   /* Close connection. */
   vty->status = VTY_CLOSE;
@@ -2719,7 +2719,7 @@ DEFUN_NOSH (config_who,
     if ((v = vector_slot (vtyvec, i)) != NULL)
       vty_out (vty, "%svty[%d] connected from %s.%s",
                v->config ? "*" : " ",
-               i, v->address, VTY_NEWLINE);
+               i, v->address, VTYNL);
   return CMD_SUCCESS;
 }
 
@@ -2961,7 +2961,7 @@ DEFUN_NOSH (show_history,
         }
 
       if (vty->hist[index] != NULL)
-        vty_out (vty, "  %s%s", vty->hist[index], VTY_NEWLINE);
+        vty_out (vty, "  %s%s", vty->hist[index], VTYNL);
 
       index++;
     }

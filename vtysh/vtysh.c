@@ -2503,7 +2503,7 @@ DEFUN (vtysh_write_terminal,
     fp = stdout;
 
   vty_outln (vty, "Building configuration...");
-  vty_outln (vty, "%sCurrent configuration:",VTY_NEWLINE);
+  vty_outln (vty, "%sCurrent configuration:",VTYNL);
   vty_outln (vty, "!");
 
   for (i = 0; i < array_size(vtysh_client); i++)

@@ -211,7 +211,7 @@ show_discovery_msg(struct vty *vty, struct imsg *imsg,
 
 			vty_out(vty, "%-8s %-15s ", "Targeted", addr);
 			if (strlen(addr) > 15)
-				vty_out(vty, "%s%46s", VTY_NEWLINE, " ");
+				vty_out(vty, "%s%46s", VTYNL, " ");
 			break;
 		}
 		vty_outln (vty, "%9u", adj->holdtime);
@@ -232,23 +232,23 @@ show_discovery_detail_adj(struct vty *vty, char *buffer, struct ctl_adj *adj)
 	size_t	 buflen = strlen(buffer);
 
 	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
-	    "      LSR Id: %s:0%s", inet_ntoa(adj->id), VTY_NEWLINE);
+	    "      LSR Id: %s:0%s", inet_ntoa(adj->id), VTYNL);
 	buflen = strlen(buffer);
 	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
 	    "          Source address: %s%s",
-	    log_addr(adj->af, &adj->src_addr), VTY_NEWLINE);
+	    log_addr(adj->af, &adj->src_addr), VTYNL);
 	buflen = strlen(buffer);
 	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
 	    "          Transport address: %s%s",
-	    log_addr(adj->af, &adj->trans_addr), VTY_NEWLINE);
+	    log_addr(adj->af, &adj->trans_addr), VTYNL);
 	buflen = strlen(buffer);
 	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
 	    "          Hello hold time: %u secs (due in %u secs)%s",
-	    adj->holdtime, adj->holdtime_remaining, VTY_NEWLINE);
+	    adj->holdtime, adj->holdtime_remaining, VTYNL);
 	buflen = strlen(buffer);
 	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
 	    "          Dual-stack capability TLV: %s%s",
-	    (adj->ds_tlv) ? "yes" : "no", VTY_NEWLINE);
+	    (adj->ds_tlv) ? "yes" : "no", VTYNL);
 }
 
 static int
@@ -280,7 +280,7 @@ show_discovery_detail_msg(struct vty *vty, struct imsg *imsg,
 		buflen = strlen(ifaces_buffer);
 		snprintf(ifaces_buffer + buflen, LDPBUFSIZ - buflen,
 		     "    %s: %s%s", iface->name, (iface->no_adj) ?
-		    "(no adjacencies)" : "", VTY_NEWLINE);
+		    "(no adjacencies)" : "", VTYNL);
 		break;
 	case IMSG_CTL_SHOW_DISC_TNBR:
 		tnbr = imsg->data;
@@ -294,7 +294,7 @@ show_discovery_detail_msg(struct vty *vty, struct imsg *imsg,
 		snprintf(tnbrs_buffer + buflen, LDPBUFSIZ - buflen,
 		    "    %s -> %s: %s%s", log_addr(tnbr->af, trans_addr),
 		    log_addr(tnbr->af, &tnbr->addr), (tnbr->no_adj) ?
-		    "(no adjacencies)" : "", VTY_NEWLINE);
+		    "(no adjacencies)" : "", VTYNL);
 		break;
 	case IMSG_CTL_SHOW_DISC_ADJ:
 		adj = imsg->data;
@@ -511,7 +511,7 @@ show_nbr_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 		    af_name(nbr->af), inet_ntoa(nbr->id),
 		    nbr_state_name(nbr->nbr_state), addr);
 		if (strlen(addr) > 15)
-			vty_out(vty, "%s%48s", VTY_NEWLINE, " ");
+			vty_out(vty, "%s%48s", VTYNL, " ");
 		vty_outln (vty, " %8s", log_time(nbr->uptime));
 		break;
 	case IMSG_CTL_END:
@@ -531,12 +531,12 @@ show_nbr_detail_adj(struct vty *vty, char *buffer, struct ctl_adj *adj)
 	switch (adj->type) {
 	case HELLO_LINK:
 		snprintf(buffer + buflen, LDPBUFSIZ - buflen,
-		    "      Interface: %s%s", adj->ifname, VTY_NEWLINE);
+		    "      Interface: %s%s", adj->ifname, VTYNL);
 		break;
 	case HELLO_TARGETED:
 		snprintf(buffer + buflen, LDPBUFSIZ - buflen,
 		    "      Targeted Hello: %s%s", log_addr(adj->af,
-		    &adj->src_addr), VTY_NEWLINE);
+		    &adj->src_addr), VTYNL);
 		break;
 	}
 }
@@ -873,7 +873,7 @@ show_nbr_capabilities(struct vty *vty, struct ctl_nbr *nbr)
 	    "   - Dynamic Announcement (0x0506)%s"
 	    "   - Typed Wildcard (0x050B)%s"
 	    "   - Unrecognized Notification (0x0603)",
-	    VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
+	    VTYNL, VTYNL, VTYNL);
 	vty_outln (vty, "  Capabilities Received:");
 	if (nbr->flags & F_NBR_CAP_DYNAMIC)
 		vty_outln (vty,"   - Dynamic Announcement (0x0506)");
@@ -1021,7 +1021,7 @@ show_lib_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 
 		vty_out(vty, "%-4s %-20s", af_name(rt->af), dstnet);
 		if (strlen(dstnet) > 20)
-			vty_out(vty, "%s%25s", VTY_NEWLINE, " ");
+			vty_out(vty, "%s%25s", VTYNL, " ");
 		vty_outln (vty, " %-15s %-11s %-13s %6s", inet_ntoa(rt->nexthop),
 		    log_label(rt->local_label), log_label(rt->remote_label),
 		    rt->in_use ? "yes" : "no");
@@ -1077,7 +1077,7 @@ show_lib_detail_msg(struct vty *vty, struct imsg *imsg, struct show_params *para
 		upstream = 1;
 		buflen = strlen(sent_buffer);
 		snprintf(sent_buffer + buflen, LDPBUFSIZ - buflen,
-		    "%12s%s:0%s", "", inet_ntoa(rt->nexthop), VTY_NEWLINE);
+		    "%12s%s:0%s", "", inet_ntoa(rt->nexthop), VTYNL);
 		break;
 	case IMSG_CTL_SHOW_LIB_RCVD:
 		downstream = 1;
@@ -1085,7 +1085,7 @@ show_lib_detail_msg(struct vty *vty, struct imsg *imsg, struct show_params *para
 		snprintf(rcvd_buffer + buflen, LDPBUFSIZ - buflen,
 		    "%12s%s:0, label %s%s%s", "", inet_ntoa(rt->nexthop),
 		    log_label(rt->remote_label),
-		    rt->in_use ? " (in use)" : "", VTY_NEWLINE);
+		    rt->in_use ? " (in use)" : "", VTYNL);
 		break;
 	case IMSG_CTL_SHOW_LIB_END:
 		if (upstream) {
@@ -1698,8 +1698,8 @@ ldp_vty_show_capabilities(struct vty *vty, int json)
 	    "Supported LDP Capabilities%s"
 	    " * Dynamic Announcement (0x0506)%s"
 	    " * Typed Wildcard (0x050B)%s"
-	    " * Unrecognized Notification (0x0603)%s", VTY_NEWLINE,
-	    VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
+	    " * Unrecognized Notification (0x0603)%s", VTYNL,
+	    VTYNL, VTYNL, VTYNL);
 
 	return (0);
 }

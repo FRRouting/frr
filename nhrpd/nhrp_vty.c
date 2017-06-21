@@ -682,10 +682,10 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 		  "Flags:%s%s%s"
 		  "Protocol-Address: %s/%zu",
 		  nhrp_cache_type_str[c->cur.type],
-		  VTY_NEWLINE,
+		  VTYNL,
 		  (c->cur.peer && c->cur.peer->online) ? " up": "",
 		  c->used ? " used": "",
-		  VTY_NEWLINE,
+		  VTYNL,
 		  sockunion2str(&c->remote_addr, buf, sizeof buf),
 		  8 * family2addrsize(sockunion_family(&c->remote_addr)));
 
@@ -731,7 +731,7 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 	} else if (argv[3]->text[0] == 's') {
 		nhrp_shortcut_foreach(ctx.afi, show_ip_nhrp_shortcut, &ctx);
 	} else {
-		vty_outln (vty, "Status: ok%s", VTY_NEWLINE);
+		vty_outln (vty, "Status: ok%s", VTYNL);
 		ctx.count++;
 		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
 			nhrp_cache_foreach(ifp, show_ip_opennhrp_cache, &ctx);

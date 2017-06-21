@@ -225,7 +225,7 @@ static void pim_show_assert_internal(struct vty *vty)
 	  "ECA:  Evaluate CouldAssert%s"
 	  "ATD:  AssertTrackingDesired%s"
 	  "eATD: Evaluate AssertTrackingDesired%s",
-	  VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
+	  VTYNL, VTYNL, VTYNL, VTYNL);
 
   vty_outln (vty,
 	  "Interface Address         Source          Group           CA  eCA ATD eATD");
@@ -1573,7 +1573,7 @@ pim_show_state(struct vty *vty, const char *src_or_group, const char *group, u_c
   } else {
     vty_out(vty, "Codes: J -> Pim Join, I -> IGMP Report, S -> Source, * -> Inherited from (*,G)");
     vty_outln (vty, "%sInstalled Source           Group            IIF      OIL",
-              VTY_NEWLINE);
+              VTYNL);
   }
 
   for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {
@@ -2157,12 +2157,12 @@ static void show_rpf_refresh_stats(struct vty *vty, time_t now, json_object *jso
             "RPF Cache Refresh Last:     %s%s"
             "Nexthop Lookups:            %lld%s"
 	    "Nexthop Lookups Avoided:    %lld",
-            qpim_rpf_cache_refresh_delay_msec, VTY_NEWLINE,
-            pim_time_timer_remain_msec(qpim_rpf_cache_refresher), VTY_NEWLINE,
-            (long long)qpim_rpf_cache_refresh_requests, VTY_NEWLINE,
-            (long long)qpim_rpf_cache_refresh_events, VTY_NEWLINE,
-            refresh_uptime, VTY_NEWLINE,
-            (long long) qpim_nexthop_lookups, VTY_NEWLINE,
+            qpim_rpf_cache_refresh_delay_msec, VTYNL,
+            pim_time_timer_remain_msec(qpim_rpf_cache_refresher), VTYNL,
+            (long long)qpim_rpf_cache_refresh_requests, VTYNL,
+            (long long)qpim_rpf_cache_refresh_events, VTYNL,
+            refresh_uptime, VTYNL,
+            (long long) qpim_nexthop_lookups, VTYNL,
 	    (long long)nexthop_lookups_avoided);
   }
 }
@@ -2181,8 +2181,8 @@ static void show_scan_oil_stats(struct vty *vty, time_t now)
           "Scan OIL - Last: %s  Events: %lld%s"
           "MFC Add  - Last: %s  Events: %lld%s"
           "MFC Del  - Last: %s  Events: %lld",
-          uptime_scan_oil,   (long long) qpim_scan_oil_events,   VTY_NEWLINE,
-          uptime_mroute_add, (long long) qpim_mroute_add_events, VTY_NEWLINE,
+          uptime_scan_oil,   (long long) qpim_scan_oil_events,   VTYNL,
+          uptime_mroute_add, (long long) qpim_mroute_add_events, VTYNL,
           uptime_mroute_del, (long long)qpim_mroute_del_events);
 }
 
@@ -3221,7 +3221,7 @@ static void show_multicast_interfaces(struct vty *vty)
 		pim_ifp->mroute_vif_index,
 		errno,
 		safe_strerror(errno),
-		VTY_NEWLINE);
+		VTYNL);
     }
 
     ifaddr = pim_ifp->primary_address;

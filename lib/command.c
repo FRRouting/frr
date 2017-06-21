@@ -1349,7 +1349,7 @@ DEFUN (show_version,
   vty_outln (vty, "%s %s (%s).", FRR_FULL_NAME, FRR_VERSION,
 	   host.name ? host.name : "");
   vty_outln (vty, "%s%s", FRR_COPYRIGHT, GIT_INFO);
-  vty_outln (vty, "configured with:%s    %s", VTY_NEWLINE,
+  vty_outln (vty, "configured with:%s    %s", VTYNL,
            FRR_CONFIG_ARGS);
 
   return CMD_SUCCESS;
@@ -1385,9 +1385,9 @@ command argument (e.g. 'show ?') and describes each possible%s\
 argument.%s\
 2. Partial help is provided when an abbreviated argument is entered%s\
    and you want to know what arguments match the input%s\
-   (e.g. 'show me?'.)%s", VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE,
-           VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE,
-           VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
+   (e.g. 'show me?'.)%s", VTYNL, VTYNL, VTYNL,
+           VTYNL, VTYNL, VTYNL, VTYNL, VTYNL,
+           VTYNL, VTYNL, VTYNL, VTYNL);
   return CMD_SUCCESS;
 }
 
@@ -1488,7 +1488,7 @@ vty_write_config (struct vty *vty)
 
   if (vty->type == VTY_TERM)
     {
-      vty_outln (vty, "%sCurrent configuration:",VTY_NEWLINE);
+      vty_outln (vty, "%sCurrent configuration:",VTYNL);
       vty_outln (vty, "!");
     }
 

@@ -1278,7 +1278,7 @@ smux_peer_oid (struct vty *vty, const char *oid_str, const char *passwd_str)
   ret = smux_str2oid (oid_str, oid, &oid_len);
   if (ret != 0)
     {
-      vty_out (vty, "object ID malformed%s", VTY_NEWLINE);
+      vty_out (vty, "object ID malformed%s", VTYNL);
       return CMD_WARNING;
     }
 

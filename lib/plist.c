@@ -1863,7 +1863,7 @@ config_write_prefix_afi (afi_t afi, struct vty *vty)
 	  vty_outln (vty, "");
 	  write++;
 	}
-      /* vty_out (vty, "!%s", VTY_NEWLINE); */
+      /* vty_out (vty, "!%s", VTYNL); */
     }
 
   for (plist = master->str.head; plist; plist = plist->next)

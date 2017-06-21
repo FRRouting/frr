@@ -229,8 +229,8 @@ subgrp_show_adjq_vty (struct update_subgroup *subgrp, struct vty *vty,
 	      vty_outln (vty,
 		       "BGP table version is %" PRIu64 ", local router ID is %s",
 		       table->version,inet_ntoa(bgp->router_id));
-	      vty_outln (vty, BGP_SHOW_SCODE_HEADER, VTY_NEWLINE);
-	      vty_outln (vty, BGP_SHOW_OCODE_HEADER, VTY_NEWLINE);
+	      vty_outln (vty, BGP_SHOW_SCODE_HEADER, VTYNL);
+	      vty_outln (vty, BGP_SHOW_OCODE_HEADER, VTYNL);
 	      header1 = 0;
 	    }
 	  if (header2)
@@ -251,7 +251,7 @@ subgrp_show_adjq_vty (struct update_subgroup *subgrp, struct vty *vty,
 	}
   if (output_count != 0)
     vty_outln (vty, "%sTotal number of prefixes %ld",
-	     VTY_NEWLINE, output_count);
+	     VTYNL, output_count);
 }
 
 static int

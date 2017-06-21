@@ -2009,8 +2009,8 @@ DEFUN (show_ipv6_ripng,
 	   "      (n) - normal, (s) - static, (d) - default, (r) - redistribute,%s"
 	   "      (i) - interface, (a/S) - aggregated/Suppressed%s%s"
 	   "   Network      Next Hop                      Via     Metric Tag Time",
-	   VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE,
-	   VTY_NEWLINE, VTY_NEWLINE);
+	   VTYNL, VTYNL, VTYNL,
+	   VTYNL, VTYNL);
   
   for (rp = route_top (ripng->table); rp; rp = route_next (rp))
     {
@@ -2425,7 +2425,7 @@ DEFUN (ripng_update_timer,
   update = strtoul (argv[0], &endptr, 10);
   if (update == ULONG_MAX || *endptr != '\0')
     {
-      vty_out (vty, "update timer value error%s", VTY_NEWLINE);
+      vty_out (vty, "update timer value error%s", VTYNL);
       return CMD_WARNING;
     }
 
@@ -2460,7 +2460,7 @@ DEFUN (ripng_timeout_timer,
   timeout = strtoul (argv[0], &endptr, 10);
   if (timeout == ULONG_MAX || *endptr != '\0')
     {
-      vty_out (vty, "timeout timer value error%s", VTY_NEWLINE);
+      vty_out (vty, "timeout timer value error%s", VTYNL);
       return CMD_WARNING;
     }
 
@@ -2493,7 +2493,7 @@ DEFUN (ripng_garbage_timer,
   garbage = strtoul (argv[0], &endptr, 10);
   if (garbage == ULONG_MAX || *endptr != '\0')
     {
-      vty_out (vty, "garbage timer value error%s", VTY_NEWLINE);
+      vty_out (vty, "garbage timer value error%s", VTYNL);
       return CMD_WARNING;
     }
 
@@ -2577,16 +2577,16 @@ DEFUN (show_ipv6_protocols,
   if (! ripng)
     return CMD_SUCCESS;
 
-  vty_out (vty, "Routing Protocol is \"ripng\"%s", VTY_NEWLINE);
+  vty_out (vty, "Routing Protocol is \"ripng\"%s", VTYNL);
   
   vty_out (vty, "Sending updates every %ld seconds, next due in %d seconds%s",
 	   ripng->update_time, 0,
-	   VTY_NEWLINE);
+	   VTYNL);
 
   vty_out (vty, "Timerout after %ld seconds, garbage correct %ld%s",
 	   ripng->timeout_time,
 	   ripng->garbage_time,
-	   VTY_NEWLINE);
+	   VTYNL);
 
   vty_out (vty, "Outgoing update filter list for all interfaces is not set");
   vty_out (vty, "Incoming update filter list for all interfaces is not set");
@@ -2767,13 +2767,13 @@ ripng_config_write (struct vty *vty)
 #if 0
       if (ripng->update_time != RIPNG_UPDATE_TIMER_DEFAULT)
 	vty_out (vty, " update-timer %d%s", ripng->update_time,
-		 VTY_NEWLINE);
+		 VTYNL);
       if (ripng->timeout_time != RIPNG_TIMEOUT_TIMER_DEFAULT)
 	vty_out (vty, " timeout-timer %d%s", ripng->timeout_time,
-		 VTY_NEWLINE);
+		 VTYNL);
       if (ripng->garbage_time != RIPNG_GARBAGE_TIMER_DEFAULT)
 	vty_out (vty, " garbage-timer %d%s", ripng->garbage_time,
-		 VTY_NEWLINE);
+		 VTYNL);
 #endif /* 0 */
 
       write += config_write_distribute (vty);

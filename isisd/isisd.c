@@ -1561,7 +1561,7 @@ show_isis_database (struct vty *vty, const char *argv, int ui_level)
                                              area->dynhostname);
 
                   vty_outln (vty, "    %u LSPs%s",
-                           lsp_count, VTY_NEWLINE);
+                           lsp_count, VTYNL);
                 }
             }
         }

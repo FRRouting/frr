@@ -1568,8 +1568,8 @@ show_debugging_ospf_common (struct vty *vty, struct ospf *ospf)
   int i;
 
   if (ospf->instance)
-    vty_outln (vty, "%sOSPF Instance: %d%s", VTY_NEWLINE, ospf->instance,
-             VTY_NEWLINE);
+    vty_outln (vty, "%sOSPF Instance: %d%s", VTYNL, ospf->instance,
+             VTYNL);
 
   vty_outln (vty, "OSPF debugging status:");
 

@@ -1003,7 +1003,7 @@ vty_show_route_map_entry (struct vty *vty, struct route_map *map)
 
       /* Description */
       if (index->description)
-	vty_outln (vty, "  Description:%s    %s", VTY_NEWLINE,
+	vty_outln (vty, "  Description:%s    %s", VTYNL,
 		 index->description);
       
       /* Match clauses */

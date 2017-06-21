@@ -2433,7 +2433,7 @@ DEFUN_NOSH (vnc_nve_group,
       if (!rfg)
         {
           /* Error out of memory */
-          vty_out (vty, "Can't allocate memory for NVE group%s", VTY_NEWLINE);
+          vty_out (vty, "Can't allocate memory for NVE group%s", VTYNL);
           return CMD_WARNING;
         }
 
@@ -3258,7 +3258,7 @@ DEFUN_NOSH (vnc_vrf_policy,
 
   if (!bgp)
     {
-      vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
+      vty_out (vty, "No BGP process is configured%s", VTYNL);
       return CMD_WARNING;
     }
 
@@ -3271,7 +3271,7 @@ DEFUN_NOSH (vnc_vrf_policy,
       if (!rfg)
         {
           /* Error out of memory */
-          vty_out (vty, "Can't allocate memory for NVE group%s", VTY_NEWLINE);
+          vty_out (vty, "Can't allocate memory for NVE group%s", VTYNL);
           return CMD_WARNING;
         }
     }
@@ -3401,7 +3401,7 @@ DEFUN (vnc_vrf_policy_nexthop,
 
   if (!str2prefix (argv[1]->arg, &p) && p.family)
     {
-      //vty_out (vty, "Nexthop set to self%s", VTY_NEWLINE);
+      //vty_out (vty, "Nexthop set to self%s", VTYNL);
       SET_FLAG (rfg->flags, RFAPI_RFG_VPN_NH_SELF);
       memset(&rfg->vn_prefix, 0, sizeof(struct prefix));
     }
@@ -3745,7 +3745,7 @@ DEFUN_NOSH (vnc_l2_group,
 
   if (!bgp)
     {
-      vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
+      vty_out (vty, "No BGP process is configured%s", VTYNL);
       return CMD_WARNING;
     }
 
@@ -3758,7 +3758,7 @@ DEFUN_NOSH (vnc_l2_group,
       if (!rfg)
         {
           /* Error out of memory */
-          vty_out (vty, "Can't allocate memory for L2 group%s", VTY_NEWLINE);
+          vty_out (vty, "Can't allocate memory for L2 group%s", VTYNL);
           return CMD_WARNING;
         }
       rfg->name = strdup (argv[1]->arg);
@@ -4300,7 +4300,7 @@ bgp_rfapi_cfg_write (struct vty *vty, struct bgp *bgp)
                 inet_ntop(rfg->vn_prefix.family, &rfg->vn_prefix.u.prefix, buf, sizeof(buf));
                 if (!buf[0] || buf[BUFSIZ - 1])
                   {
-                    //vty_out (vty, "nexthop self%s", VTY_NEWLINE);
+                    //vty_out (vty, "nexthop self%s", VTYNL);
                   }
                 else
                   {

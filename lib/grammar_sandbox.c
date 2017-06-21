@@ -414,9 +414,9 @@ DEFUN (grammar_findambig,
         if (same)
           {
             vty_outln (vty, "'%s' AMBIGUOUS:", cur->cmd);
-            vty_outln (vty, "  %s%s   '%s'", prev->el->name, VTY_NEWLINE,
+            vty_outln (vty, "  %s%s   '%s'", prev->el->name, VTYNL,
                        prev->el->string);
-            vty_outln (vty, "  %s%s   '%s'", cur->el->name,  VTY_NEWLINE,
+            vty_outln (vty, "  %s%s   '%s'", cur->el->name,  VTYNL,
                        cur->el->string);
             vty_outln (vty, "");
             ambig++;

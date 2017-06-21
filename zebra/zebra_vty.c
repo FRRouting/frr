@@ -665,7 +665,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
 
       vty_out (vty, "Routing entry for %s%s%s",
 	       srcdest_rnode2str(rn, buf, sizeof(buf)), mcast_info,
-	       VTY_NEWLINE);
+	       VTYNL);
       vty_out (vty, "  Known via \"%s", zebra_route_string (re->type));
       if (re->instance)
         vty_out (vty, "[%d]", re->instance);
@@ -688,7 +688,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
        vty_out (vty, ", blackhole");
       if (CHECK_FLAG (re->flags, ZEBRA_FLAG_REJECT))
        vty_out (vty, ", reject");
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_out (vty, "%s", VTYNL);
 
       if (re->type == ZEBRA_ROUTE_RIP
 	  || re->type == ZEBRA_ROUTE_OSPF
@@ -716,7 +716,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
 	    vty_out (vty, "%02dw%dd%02dh",
 		     tm->tm_yday/7,
 		     tm->tm_yday - ((tm->tm_yday/7) * 7), tm->tm_hour);
-	  vty_out (vty, " ago%s", VTY_NEWLINE);
+	  vty_out (vty, " ago%s", VTYNL);
 	}
 
       for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
@@ -795,9 +795,9 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
                                       nexthop->nh_label->label, buf, sizeof buf, 1));
            }
 
-	  vty_out (vty, "%s", VTY_NEWLINE);
+	  vty_out (vty, "%s", VTYNL);
 	}
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_out (vty, "%s", VTYNL);
     }
 }
 
@@ -1085,7 +1085,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct route_entry *r
 		     tm->tm_yday/7,
 		     tm->tm_yday - ((tm->tm_yday/7) * 7), tm->tm_hour);
 	}
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_out (vty, "%s", VTYNL);
     }
 }
 
@@ -1190,7 +1190,7 @@ do_show_ip_route (struct vty *vty, const char *vrf_name, afi_t afi, safi_t safi,
                     vty_out (vty, SHOW_ROUTE_V6_HEADER);
 
                   if (zvrf_id (zvrf) != VRF_DEFAULT)
-                    vty_outln (vty, "%sVRF %s:", VTY_NEWLINE,
+                    vty_outln (vty, "%sVRF %s:", VTYNL,
                                zvrf_name(zvrf));
 
                   first = 0;
@@ -1251,7 +1251,7 @@ DEFUN (show_ip_nht_vrf_all,
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     if ((zvrf = vrf->info) != NULL)
       {
-        vty_outln (vty, "%sVRF %s:", VTY_NEWLINE, zvrf_name(zvrf));
+        vty_outln (vty, "%sVRF %s:", VTYNL, zvrf_name(zvrf));
         zebra_print_rnh_table(zvrf_id (zvrf), AF_INET, vty, RNH_NEXTHOP_TYPE);
       }
 
@@ -1291,7 +1291,7 @@ DEFUN (show_ipv6_nht_vrf_all,
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     if ((zvrf = vrf->info) != NULL)
       {
-        vty_outln (vty, "%sVRF %s:", VTY_NEWLINE, zvrf_name(zvrf));
+        vty_outln (vty, "%sVRF %s:", VTYNL, zvrf_name(zvrf));
         zebra_print_rnh_table(zvrf_id (zvrf), AF_INET6, vty, RNH_NEXTHOP_TYPE);
       }
 

@@ -743,14 +743,14 @@ DEFUN_NOSH (no_interface,
 
   if (ifp == NULL)
     {
-      vty_out (vty, "%% Interface %s does not exist%s", ifname, VTY_NEWLINE);
+      vty_out (vty, "%% Interface %s does not exist%s", ifname, VTYNL);
       return CMD_WARNING;
     }
 
   if (CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE)) 
     {
       vty_out (vty, "%% Only inactive interfaces can be deleted%s",
-	      VTY_NEWLINE);
+	      VTYNL);
       return CMD_WARNING;
     }
 
@@ -798,7 +798,7 @@ DEFUN (show_address,
 
 	  if (p->family == AF_INET)
 	    vty_out (vty, "%s/%d%s", inet_ntoa (p->u.prefix4), p->prefixlen,
-		     VTY_NEWLINE);
+		     VTYNL);
 	}
     }
   return CMD_SUCCESS;
@@ -823,8 +823,8 @@ DEFUN (show_address_vrf_all,
       if (!vrf->iflist || !listcount (vrf->iflist))
         continue;
 
-      vty_out (vty, "%sVRF %u%s%s", VTY_NEWLINE, vrf->vrf_id, VTY_NEWLINE,
-	       VTY_NEWLINE);
+      vty_out (vty, "%sVRF %u%s%s", VTYNL, vrf->vrf_id, VTYNL,
+	       VTYNL);
 
       for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, ifp))
         {
@@ -834,7 +834,7 @@ DEFUN (show_address_vrf_all,
 
               if (p->family == AF_INET)
                 vty_out (vty, "%s/%d%s", inet_ntoa (p->u.prefix4), p->prefixlen,
-                         VTY_NEWLINE);
+                         VTYNL);
             }
         }
     }

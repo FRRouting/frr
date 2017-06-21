@@ -211,11 +211,11 @@ show_ip_eigrp_interface_header (struct vty *vty, struct eigrp *eigrp)
 {
 
   vty_outln (vty, "%s%s%d%s%s%s %-10s %-10s %-10s %-6s %-12s %-7s %-14s %-12s %-8s %-8s %-8s%s %-39s %-12s %-7s %-14s %-12s %-8s",
-           VTY_NEWLINE,
-           "EIGRP interfaces for AS(",eigrp->AS,")",VTY_NEWLINE,VTY_NEWLINE,
+           VTYNL,
+           "EIGRP interfaces for AS(",eigrp->AS,")",VTYNL,VTYNL,
            "Interface", "Bandwidth", "Delay", "Peers", "Xmit Queue", "Mean",
            "Pacing Time", "Multicast", "Pending", "Hello", "Holdtime",
-           VTY_NEWLINE,"","Un/Reliable","SRTT","Un/Reliable","Flow Timer",
+           VTYNL,"","Un/Reliable","SRTT","Un/Reliable","Flow Timer",
            "Routes");
 }
 
@@ -258,10 +258,10 @@ void
 show_ip_eigrp_neighbor_header (struct vty *vty, struct eigrp *eigrp)
 {
   vty_outln (vty, "%s%s%d%s%s%s%-3s %-17s %-20s %-6s %-8s %-6s %-5s %-5s %-5s%s %-41s %-6s %-8s %-6s %-4s %-6s %-5s ",
-           VTY_NEWLINE,
-           "EIGRP neighbors for AS(",eigrp->AS,")",VTY_NEWLINE,VTY_NEWLINE,
+           VTYNL,
+           "EIGRP neighbors for AS(",eigrp->AS,")",VTYNL,VTYNL,
            "H", "Address", "Interface", "Hold", "Uptime",
-           "SRTT", "RTO", "Q", "Seq", VTY_NEWLINE
+           "SRTT", "RTO", "Q", "Seq", VTYNL
            ,"","(sec)","","(ms)","","Cnt","Num");
 }
 
@@ -299,10 +299,10 @@ show_ip_eigrp_topology_header (struct vty *vty, struct eigrp *eigrp)
   router_id.s_addr = eigrp->router_id;
 
   vty_outln (vty, "%sEIGRP Topology Table for AS(%d)/ID(%s)%s",
-           VTY_NEWLINE, eigrp->AS, inet_ntoa(router_id), VTY_NEWLINE);
+           VTYNL, eigrp->AS, inet_ntoa(router_id), VTYNL);
   vty_outln (vty, "Codes: P - Passive, A - Active, U - Update, Q - Query, "
            "R - Reply%s       r - reply Status, s - sia Status%s",
-           VTY_NEWLINE, VTY_NEWLINE);
+           VTYNL, VTYNL);
 }
 
 void
@@ -380,7 +380,7 @@ DEFUN (show_debugging_eigrp,
                        lookup_msg(eigrp_packet_type_str, i + 1, NULL),
                        IS_DEBUG_EIGRP_PACKET (i, PACKET_DETAIL) ? " detail" : "");
           if (IS_DEBUG_EIGRP_PACKET (i, RECV))
-            vty_outln (vty, "  EIGRP packet %s receive%s debugging is on%s",
+            vty_outln (vty, "  EIGRP packet %s receive%s debugging is on",
                        lookup_msg(eigrp_packet_type_str, i + 1, NULL),
                        IS_DEBUG_EIGRP_PACKET (i, PACKET_DETAIL) ? " detail" : "");
         }

@@ -387,15 +387,15 @@ show_babel_main_configuration (struct vty *vty)
             "vty port                = %d%s"
             "id                      = %s%s"
             "kernel_metric           = %d",
-            state_file, VTY_NEWLINE,
+            state_file, VTYNL,
             babel_config_file ? babel_config_file : babel_config_default,
-            VTY_NEWLINE,
-            VTY_NEWLINE,
-            format_address(protocol_group), VTY_NEWLINE,
-            protocol_port, VTY_NEWLINE,
+            VTYNL,
+            VTYNL,
+            format_address(protocol_group), VTYNL,
+            protocol_port, VTYNL,
             babel_vty_addr ? babel_vty_addr : "None",
-            VTY_NEWLINE,
-            babel_vty_port, VTY_NEWLINE,
-            format_eui64(myid), VTY_NEWLINE,
+            VTYNL,
+            babel_vty_port, VTYNL,
+            format_eui64(myid), VTYNL,
             kernel_metric);
 }

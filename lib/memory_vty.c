@@ -110,7 +110,7 @@ DEFUN (show_modules,
 
   vty_outln (vty, "%-12s %-25s %s%s",
                 "Module Name", "Version", "Description",
-                VTY_NEWLINE);
+                VTYNL);
   while (plug)
     {
       const struct frrmod_info *i = plug->info;

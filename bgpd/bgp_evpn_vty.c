@@ -147,7 +147,7 @@ bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 									"Status codes: s suppressed, d damped, h history, * valid, > best, i - internal");
 								vty_outln (vty,
 									"Origin codes: i - IGP, e - EGP, ? - incomplete%s",
-									VTY_NEWLINE);
+									VTYNL);
 								vty_outln(vty, V4_HEADER);
 							}
 						}
@@ -257,7 +257,7 @@ bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 			  total_count);
 	else
 		vty_outln (vty, "%sDisplayed %ld out of %ld total prefixes",
-			VTY_NEWLINE, output_count, total_count);
+			VTYNL, output_count, total_count);
 	return CMD_SUCCESS;
 }
 

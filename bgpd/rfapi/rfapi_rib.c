@@ -2294,7 +2294,7 @@ rfapiRibShowResponsesSummary (void *stream)
   fp (out, "%-24s ", "Responses: (Prefixes)");
   fp (out, "%-8s %-8u ", "Active:", bgp->rfapi->rib_prefix_count_total);
   fp (out, "%-8s %-8u", "Maximum:", bgp->rfapi->rib_prefix_count_total_max);
-  fp (out, "%s", VTY_NEWLINE);
+  fp (out, "%s", VTYNL);
 
   fp (out, "%-24s ", "           (Updated)");
   fp (out, "%-8s %-8u ", "Update:",
@@ -2304,7 +2304,7 @@ rfapiRibShowResponsesSummary (void *stream)
   fp (out, "%-8s %-8u", "Total:",
       bgp->rfapi->stat.count_updated_response_updates +
       bgp->rfapi->stat.count_updated_response_deletes);
-  fp (out, "%s", VTY_NEWLINE);
+  fp (out, "%s", VTYNL);
 
   fp (out, "%-24s ", "           (NVEs)");
   for (ALL_LIST_ELEMENTS_RO (&bgp->rfapi->descriptors, node, rfd))
@@ -2315,7 +2315,7 @@ rfapiRibShowResponsesSummary (void *stream)
     }
   fp (out, "%-8s %-8u ", "Active:", nves_with_nonempty_ribs);
   fp (out, "%-8s %-8u", "Total:", nves);
-  fp (out, "%s", VTY_NEWLINE);
+  fp (out, "%s", VTYNL);
 
 }
 
@@ -2388,7 +2388,7 @@ print_rib_sl (
       fp (out, " %c %-20s %-15s %-15s %-4u %-8s %-8s%s%s",
           deleted ? 'r' : ' ',
           *printedprefix ? "" : str_pfx,
-          str_vn, str_un, ri->cost, str_lifetime, str_age, str_rd, VTY_NEWLINE);
+          str_vn, str_un, ri->cost, str_lifetime, str_age, str_rd, VTYNL);
 
       if (!*printedprefix)
         *printedprefix = 1;
@@ -2501,10 +2501,10 @@ rfapiRibShowResponses (
                   ++printedheader;
 
                   fp (out, "%s[%s]%s",
-                      VTY_NEWLINE,
-                      show_removed ? "Removed" : "Active", VTY_NEWLINE);
+                      VTYNL,
+                      show_removed ? "Removed" : "Active", VTYNL);
                   fp (out, "%-15s %-15s%s", "Querying VN", "Querying UN",
-                      VTY_NEWLINE);
+                      VTYNL);
                   fp (out, "   %-20s %-15s %-15s %4s %-8s %-8s%s",
                       "Prefix", "Registered VN", "Registered UN", "Cost",
                       "Lifetime",
@@ -2513,7 +2513,7 @@ rfapiRibShowResponses (
 #else
                       "Remaining",
 #endif
-                      VTY_NEWLINE);
+                      VTYNL);
                 }
               if (!printednve)
                 {
@@ -2526,11 +2526,11 @@ rfapiRibShowResponses (
                   fp (out, "%-15s %-15s%s",
                       rfapiRfapiIpAddr2Str (&rfd->vn_addr, str_vn, BUFSIZ),
                       rfapiRfapiIpAddr2Str (&rfd->un_addr, str_un, BUFSIZ),
-                      VTY_NEWLINE);
+                      VTYNL);
 
                 }
               prefix2str (&rn->p, str_pfx, BUFSIZ);
-              //fp(out, "  %s%s", buf, VTY_NEWLINE);  /* prefix */
+              //fp(out, "  %s%s", buf, VTYNL);  /* prefix */
 
               routes_displayed++;
               nhs_displayed += print_rib_sl (fp, vty, out, sl,
@@ -2542,12 +2542,12 @@ rfapiRibShowResponses (
 
   if (routes_total)
     {
-      fp (out, "%s", VTY_NEWLINE);
+      fp (out, "%s", VTYNL);
       fp (out, "Displayed %u NVEs, and %u out of %u %s prefixes",
           nves_displayed, routes_displayed,
           routes_total, show_removed ? "removed" : "active");
       if (nhs_displayed != routes_displayed || nhs_total != routes_total)
         fp (out, " with %u out of %u next hops", nhs_displayed, nhs_total);
-      fp (out, "%s", VTY_NEWLINE);
+      fp (out, "%s", VTYNL);
     }
 }

@@ -3144,7 +3144,7 @@ test_nexthops_callback (
 
   fp (out, "Nexthops Callback, Target=(");
   //rfapiPrintRfapiIpAddr(stream, target);
-  fp (out, ")%s", VTY_NEWLINE);
+  fp (out, ")%s", VTYNL);
 
   rfapiPrintNhl (stream, next_hops);
 
@@ -3838,7 +3838,7 @@ DEFUN (debug_rfapi_show_import,
               if (first_l2)
                 {
                   vty_outln (vty, "%sLNI-based Ethernet Tables:",
-                           VTY_NEWLINE);
+                           VTYNL);
                   first_l2 = 0;
                 }
               snprintf (buf, BUFSIZ, "L2VPN LNI=%u", lni);

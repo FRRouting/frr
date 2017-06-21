@@ -968,7 +968,7 @@ show_vty_unknown_tlv (struct vty *vty, struct subtlv_header *tlvh)
               vty_out (vty, " %#.2x", v[i]);
               if (rtn == 8)
                 {
-                  vty_out (vty, "%s             [%.2x]", VTY_NEWLINE, i + 1);
+                  vty_out (vty, "%s             [%.2x]", VTYNL, i + 1);
                   rtn = 1;
                 }
               else
@@ -1299,7 +1299,7 @@ show_mpls_te_sub (struct vty *vty, struct interface *ifp)
       show_vty_subtlv_res_bw (vty, &mtc->res_bw);
       show_vty_subtlv_ava_bw (vty, &mtc->ava_bw);
       show_vty_subtlv_use_bw (vty, &mtc->use_bw);
-      vty_outln (vty, "---------------%s", VTY_NEWLINE);
+      vty_outln (vty, "---------------%s", VTYNL);
     }
   else
     {

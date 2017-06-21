@@ -63,7 +63,7 @@ slow_func (struct vty *vty, const char *str, const int i)
     printf ("%s: hard error\n", __func__);
   
   if ((i % ITERS_PRINT) == 0)
-    printf ("%s did %d, x = %g%s", str, i, x, VTY_NEWLINE);  
+    printf ("%s did %d, x = %g%s", str, i, x, VTYNL);  
 }
 
 static void

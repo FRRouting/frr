@@ -3479,7 +3479,7 @@ DEFUN (show_ip_rip,
            "      (n) - normal, (s) - static, (d) - default, (r) - redistribute,%s"
 	   "      (i) - interface%s%s"
 	   "     Network            Next Hop         Metric From            Tag Time",
-	   VTY_NEWLINE, VTY_NEWLINE,  VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
+	   VTYNL, VTYNL,  VTYNL, VTYNL, VTYNL);
   
   for (np = route_top (rip->table); np; np = route_next (np))
     if ((list = np->info) != NULL)
