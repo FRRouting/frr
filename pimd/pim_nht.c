@@ -554,7 +554,7 @@ int pim_ecmp_nexthop_search(struct pim_instance *pim,
 							       grp_str,
 							       sizeof(grp_str));
 						zlog_debug(
-							"%s: (%s, %s) current nexthop %s is valid, skipping new path selection",
+							"%s: (%s,%s) current nexthop %s is valid, skipping new path selection",
 							__PRETTY_FUNCTION__,
 							src_str, grp_str,
 							nexthop->interface->name);
@@ -651,7 +651,7 @@ int pim_ecmp_nexthop_search(struct pim_instance *pim,
 					nexthop->mrib_nexthop_addr.u.prefix4,
 					buf, sizeof(buf));
 				zlog_debug(
-					"%s: (%s, %s) selected nhop interface %s addr %s mod_val %u iter %d ecmp %d",
+					"%s: (%s,%s) selected nhop interface %s addr %s mod_val %u iter %d ecmp %d",
 					__PRETTY_FUNCTION__, buf2, buf3,
 					ifp->name, buf, mod_val, nh_iter,
 					qpim_ecmp_enable);
