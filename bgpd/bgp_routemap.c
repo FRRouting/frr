@@ -620,6 +620,54 @@ struct route_map_rule_cmd route_match_mac_address_cmd = {
 	"mac address", route_match_mac_address, route_match_mac_address_compile,
 	route_match_mac_address_free};
 
+/* `match vni' */
+
+/* Match function should return 1 if match is success else return
+   zero. */
+static route_map_result_t route_match_vni(void *rule, struct prefix *prefix,
+					  route_map_object_t type, void *object)
+{
+	vni_t vni = 0;
+	struct bgp_info *bgp_info = NULL;
+
+	if (type == RMAP_BGP) {
+		vni = *((vni_t *)rule);
+		bgp_info = (struct bgp_info *)object;
+
+		if (vni == label2vni(&bgp_info->extra->label))
+			return RMAP_MATCH;
+	}
+
+	return RMAP_NOMATCH;
+}
+
+/* Route map `vni' match statement. */
+static void *route_match_vni_compile(const char *arg)
+{
+	vni_t *vni = NULL;
+	char *end = NULL;
+
+	vni = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(vni_t));
+	if (!vni)
+		return NULL;
+
+	*vni = strtoul(arg, &end, 10);
+	if (*end != '\0')
+		return NULL;
+
+	return vni;
+}
+
+/* Free route map's compiled `vni' value. */
+static void route_match_vni_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for vni matching. */
+struct route_map_rule_cmd route_match_evpn_vni_cmd = {
+	"vni", route_match_vni, route_match_vni_compile, route_match_vni_free};
+
 /* `match local-preference LOCAL-PREF' */
 
 /* Match function return 1 if match is success else return zero. */
@@ -3070,6 +3118,29 @@ DEFUN (no_match_mac_address,
 				      RMAP_EVENT_FILTER_DELETED);
 }
 
+DEFUN (match_evpn_vni,
+       match_evpn_vni_cmd,
+       "match evpn vni (1-16777215)",
+       MATCH_STR
+       "Match VNI\n"
+       "VNI ID\n")
+{
+	return bgp_route_match_add(vty, "evpn vni", argv[2]->arg,
+				   RMAP_EVENT_MATCH_ADDED);
+}
+
+DEFUN (no_match_evpn_vni,
+       no_match_evpn_vni_cmd,
+       "no match evpn vni (1-16777215)",
+       NO_STR
+       MATCH_STR
+       "Match VNI\n"
+       "VNI ID\n")
+{
+	return bgp_route_match_delete(vty, "evpn vni", argv[3]->arg,
+				      RMAP_EVENT_MATCH_DELETED);
+}
+
 DEFUN (match_peer,
        match_peer_cmd,
        "match peer <A.B.C.D|X:X::X:X>",
@@ -4427,6 +4498,7 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_interface_cmd);
 	route_map_install_match(&route_match_tag_cmd);
 	route_map_install_match(&route_match_mac_address_cmd);
+	route_map_install_match(&route_match_evpn_vni_cmd);
 
 	route_map_install_set(&route_set_ip_nexthop_cmd);
 	route_map_install_set(&route_set_local_pref_cmd);
@@ -4459,6 +4531,8 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &no_match_ip_route_source_prefix_list_cmd);
 	install_element(RMAP_NODE, &match_mac_address_cmd);
 	install_element(RMAP_NODE, &no_match_mac_address_cmd);
+	install_element(RMAP_NODE, &match_evpn_vni_cmd);
+	install_element(RMAP_NODE, &no_match_evpn_vni_cmd);
 
 	install_element(RMAP_NODE, &match_aspath_cmd);
 	install_element(RMAP_NODE, &no_match_aspath_cmd);

@@ -1580,10 +1580,17 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
 	/* Route map & unsuppress-map apply. */
 	if (ROUTE_MAP_OUT_NAME(filter) || (ri->extra && ri->extra->suppress)) {
 		struct bgp_info info;
+		struct bgp_info_extra dummy_info_extra;
 		struct attr dummy_attr;
 
 		info.peer = peer;
 		info.attr = attr;
+
+		if (ri->extra) {
+			memcpy(&dummy_info_extra, ri->extra,
+			       sizeof(struct bgp_info_extra));
+			info.extra = &dummy_info_extra;
+		}
 
 		/* don't confuse inbound and outbound setting */
 		RESET_FLAG(attr->rmap_change_flags);
