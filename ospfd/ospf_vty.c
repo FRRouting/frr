@@ -9692,14 +9692,14 @@ DEFUN (clear_ip_ospf_interface,
 {
   int idx_ifname = 4;
   struct interface *ifp;
-  struct listnode *node;
+  struct listnode *node, *n1;
   struct ospf *ospf = NULL;
 
   if (argc == 4) /* Clear all the ospfv2 interfaces. */
     {
       for (ALL_LIST_ELEMENTS_RO (om->ospf, node, ospf))
         {
-          for (ALL_LIST_ELEMENTS_RO (vrf_iflist (ospf->vrf_id), node, ifp))
+          for (ALL_LIST_ELEMENTS_RO (vrf_iflist (ospf->vrf_id), n1, ifp))
             ospf_interface_clear(ifp);
         }
     }

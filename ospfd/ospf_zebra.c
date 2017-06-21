@@ -1447,13 +1447,13 @@ ospf_prefix_list_update (struct prefix_list *plist)
   int type;
   int abr_inv = 0;
   struct ospf_area *area;
-  struct listnode *node;
+  struct listnode *node, *n1;
 
   /* If OSPF instatnce does not exist, return right now. */
   if (listcount (om->ospf) == 0)
     return;
   /* Iterate all ospf [VRF] instances */
-  for (ALL_LIST_ELEMENTS_RO (om->ospf, node, ospf))
+  for (ALL_LIST_ELEMENTS_RO (om->ospf, n1, ospf))
     {
       /* Update all route-maps which are used as redistribution filters.
        * They might use prefix-list.

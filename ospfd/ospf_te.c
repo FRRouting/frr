@@ -803,7 +803,7 @@ update_linkparams(struct mpls_te_link *lp)
           else
             {
               lp->flags = INTER_AS | FLOOD_AREA;
-              lp->area = ospf_area_lookup_by_area_id (ospf_lookup_by_vrf_id (VRF_DEFAULT), OspfMplsTE.interas_areaid);
+              lp->area = ospf_area_lookup_by_area_id (ospf_lookup(), OspfMplsTE.interas_areaid);
             }
         }
       set_linkparams_inter_as(lp, ifp->link_params->rmt_ip, ifp->link_params->rmt_as);
@@ -1216,6 +1216,7 @@ ospf_mpls_te_lsa_new (struct ospf_area *area, struct mpls_te_link *lp)
   struct in_addr lsa_id;
   u_int32_t tmp;
   u_int16_t length;
+  struct ospf *top = NULL;
 
   /* Create a stream for LSA. */
   if ((s = stream_new (OSPF_MAX_LSA_SIZE)) == NULL)
@@ -1244,7 +1245,10 @@ ospf_mpls_te_lsa_new (struct ospf_area *area, struct mpls_te_link *lp)
       tmp = SET_OPAQUE_LSID (OPAQUE_TYPE_INTER_AS_LSA, lp->instance);
       lsa_id.s_addr = htonl (tmp);
 
-      struct ospf *top = area->ospf;
+      if (area)
+        top = area->ospf;
+      else
+        top = ospf_lookup();
       if (OSPF_DEBUG_TRACE)
         zlog_debug ("%s: Setting MPLS-TE lsa header vrf %s id %u",
                     __PRETTY_FUNCTION__, ospf_vrf_id_to_name (top->vrf_id),
@@ -1553,7 +1557,7 @@ ospf_mpls_te_lsa_refresh (struct ospf_lsa *lsa)
   if (area)
     top = area->ospf;
   else
-    top = ospf_lookup_by_vrf_id (VRF_DEFAULT);
+    top = ospf_lookup();
 
   if (OSPF_DEBUG_TRACE)
     zlog_debug ("%s: ospf MPLS-TE lsa refresh with vrf %s id %u",
@@ -1595,7 +1599,7 @@ ospf_mpls_te_lsa_schedule (struct mpls_te_link *lp, opcode_t opcode)
 
   memset (&lsa, 0, sizeof (lsa));
   memset (&lsah, 0, sizeof (lsah));
-  top = ospf_lookup_by_vrf_id (VRF_DEFAULT);
+  top = ospf_lookup();
 
   /* Check if the pseudo link is ready to flood */
   if (!(CHECK_FLAG (lp->flags, LPFLG_LSA_ACTIVE))
@@ -2631,7 +2635,7 @@ DEFUN (show_ip_ospf_mpls_te_link,
 {
   int idx_interface = 5;
   struct interface *ifp;
-  struct listnode *node, *nnode;
+  struct listnode *node, *nnode, *n1;
   char *vrf_name = NULL;
   bool all_vrf;
   int inst = 0;
@@ -2648,7 +2652,7 @@ DEFUN (show_ip_ospf_mpls_te_link,
     {
       if (all_vrf)
         {
-          for (ALL_LIST_ELEMENTS_RO (om->ospf, node, ospf))
+          for (ALL_LIST_ELEMENTS_RO (om->ospf, n1, ospf))
             {
               if (!ospf->oi_running)
                 continue;

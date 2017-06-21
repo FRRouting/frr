@@ -576,4 +576,5 @@ extern void ospf_vrf_link (struct ospf *ospf, struct vrf *vrf);
 extern void ospf_vrf_unlink (struct ospf *ospf, struct vrf *vrf);
 const char *ospf_vrf_id_to_name (vrf_id_t vrf_id);
 
+#define ospf_lookup() ospf_lookup_by_vrf_id (VRF_DEFAULT)
 #endif /* _ZEBRA_OSPFD_H */

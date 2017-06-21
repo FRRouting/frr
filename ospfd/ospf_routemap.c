@@ -46,10 +46,10 @@ ospf_route_map_update (const char *name)
 {
   struct ospf *ospf = NULL;
   int type;
-  struct listnode *node = NULL;
+  struct listnode *n1 = NULL;
 
   /* If OSPF instatnce does not exist, return right now. */
-  for (ALL_LIST_ELEMENTS_RO (om->ospf, node, ospf))
+  for (ALL_LIST_ELEMENTS_RO (om->ospf, n1, ospf))
     {
       /* Update route-map */
       for (type = 0; type <= ZEBRA_ROUTE_MAX; type++)
@@ -90,10 +90,10 @@ ospf_route_map_event (route_map_event_t event, const char *name)
 {
   struct ospf *ospf = NULL;
   int type;
-  struct listnode *node = NULL;
+  struct listnode *n1 = NULL;
 
   /* If OSPF instatnce does not exist, return right now. */
-  for (ALL_LIST_ELEMENTS_RO (om->ospf, node, ospf))
+  for (ALL_LIST_ELEMENTS_RO (om->ospf, n1, ospf))
     {
       for (type = 0; type <= ZEBRA_ROUTE_MAX; type++)
         {
