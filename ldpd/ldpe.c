@@ -152,7 +152,7 @@ ldpe_init(struct ldpd_init *init)
 	control_listen();
 
 	LIST_INIT(&global.addr_list);
-	RB_INIT(&global.adj_tree);
+	RB_INIT(global_adj_head, &global.adj_tree);
 	TAILQ_INIT(&global.pending_conns);
 	if (inet_pton(AF_INET, AllRouters_v4, &global.mcast_addr_v4) != 1)
 		fatal("inet_pton");
@@ -216,7 +216,7 @@ ldpe_shutdown(void)
 		LIST_REMOVE(if_addr, entry);
 		free(if_addr);
 	}
-	while ((adj = RB_ROOT(&global.adj_tree)) != NULL)
+	while ((adj = RB_ROOT(global_adj_head, &global.adj_tree)) != NULL)
 		adj_del(adj, S_SHUTDOWN);
 
 	/* clean up */
@@ -456,10 +456,10 @@ ldpe_dispatch_main(struct thread *thread)
 				fatal(NULL);
 			memcpy(nconf, imsg.data, sizeof(struct ldpd_conf));
 
-			RB_INIT(&nconf->iface_tree);
-			RB_INIT(&nconf->tnbr_tree);
-			RB_INIT(&nconf->nbrp_tree);
-			RB_INIT(&nconf->l2vpn_tree);
+			RB_INIT(iface_head, &nconf->iface_tree);
+			RB_INIT(tnbr_head, &nconf->tnbr_tree);
+			RB_INIT(nbrp_head, &nconf->nbrp_tree);
+			RB_INIT(l2vpn_head, &nconf->l2vpn_tree);
 			break;
 		case IMSG_RECONF_IFACE:
 			if ((niface = malloc(sizeof(struct iface))) == NULL)
@@ -487,9 +487,9 @@ ldpe_dispatch_main(struct thread *thread)
 				fatal(NULL);
 			memcpy(nl2vpn, imsg.data, sizeof(struct l2vpn));
 
-			RB_INIT(&nl2vpn->if_tree);
-			RB_INIT(&nl2vpn->pw_tree);
-			RB_INIT(&nl2vpn->pw_inactive_tree);
+			RB_INIT(l2vpn_if_head, &nl2vpn->if_tree);
+			RB_INIT(l2vpn_pw_head, &nl2vpn->pw_tree);
+			RB_INIT(l2vpn_pw_head, &nl2vpn->pw_inactive_tree);
 
 			RB_INSERT(l2vpn_head, &nconf->l2vpn_tree, nl2vpn);
 			break;
@@ -876,8 +876,8 @@ ldpe_adj_detail_ctl(struct ctl_conn *c)
 			continue;
 
 		strlcpy(ictl.name, iface->name, sizeof(ictl.name));
-		if (RB_EMPTY(&iface->ipv4.adj_tree) &&
-		    RB_EMPTY(&iface->ipv6.adj_tree))
+		if (RB_EMPTY(ia_adj_head, &iface->ipv4.adj_tree) &&
+		    RB_EMPTY(ia_adj_head, &iface->ipv6.adj_tree))
 			ictl.no_adj = 1;
 		imsg_compose_event(&c->iev, IMSG_CTL_SHOW_DISC_IFACE, 0, 0,
 		    -1, &ictl, sizeof(ictl));

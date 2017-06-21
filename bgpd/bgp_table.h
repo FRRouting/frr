@@ -32,9 +32,6 @@ struct bgp_table
   
   int lock;
 
-  /* The owner of this 'bgp_table' structure. */
-  struct peer *owner;
-
   struct route_table *route_table;
   uint64_t version;
 };

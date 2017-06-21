@@ -60,7 +60,7 @@ extern struct zebra_t zebrad;
 /* static function declarations */
 
 static void
-fec_evaluate (struct zebra_vrf *zvrf, int add);
+fec_evaluate (struct zebra_vrf *zvrf);
 static u_int32_t
 fec_derive_label_from_index (struct zebra_vrf *vrf, zebra_fec_t *fec);
 static int
@@ -357,7 +357,7 @@ lsp_uninstall (struct zebra_vrf *zvrf, mpls_label_t label)
  * their local labels and trigger client updates.
  */
 static void
-fec_evaluate (struct zebra_vrf *zvrf, int add)
+fec_evaluate (struct zebra_vrf *zvrf)
 {
   struct route_node *rn;
   zebra_fec_t *fec;
@@ -385,13 +385,8 @@ fec_evaluate (struct zebra_vrf *zvrf, int add)
 
           /* Save old label, determine new label. */
           old_label = fec->label;
-          if (add)
-            {
-              new_label = zvrf->mpls_srgb.start_label + fec->label_index;
-              if (new_label >= zvrf->mpls_srgb.end_label)
-                new_label = MPLS_INVALID_LABEL;
-            }
-          else
+          new_label = zvrf->mpls_srgb.start_label + fec->label_index;
+          if (new_label >= zvrf->mpls_srgb.end_label)
             new_label = MPLS_INVALID_LABEL;
 
           /* If label has changed, update FEC and clients. */
@@ -399,8 +394,8 @@ fec_evaluate (struct zebra_vrf *zvrf, int add)
             continue;
 
           if (IS_ZEBRA_DEBUG_MPLS)
-            zlog_debug ("Update fec %s new label %u upon label block %s",
-                         buf, new_label, add ? "ADD" : "DEL");
+            zlog_debug ("Update fec %s new label %u upon label block",
+                         buf, new_label);
 
           fec->label = new_label;
           fec_update_clients (fec);
@@ -2937,7 +2932,7 @@ zebra_mpls_label_block_add (struct zebra_vrf *zvrf, u_int32_t start_label,
   zvrf->mpls_srgb.end_label = end_label;
 
   /* Evaluate registered FECs to see if any get a label or not. */
-  fec_evaluate (zvrf, 1);
+  fec_evaluate (zvrf);
   return 0;
 }
 
@@ -2947,11 +2942,11 @@ zebra_mpls_label_block_add (struct zebra_vrf *zvrf, u_int32_t start_label,
 int
 zebra_mpls_label_block_del (struct zebra_vrf *zvrf)
 {
-  zvrf->mpls_srgb.start_label = 0;
-  zvrf->mpls_srgb.end_label = 0;
+  zvrf->mpls_srgb.start_label = MPLS_DEFAULT_MIN_SRGB_LABEL;
+  zvrf->mpls_srgb.end_label = MPLS_DEFAULT_MAX_SRGB_LABEL;
 
   /* Process registered FECs to clear their local label, if needed. */
-  fec_evaluate (zvrf, 0);
+  fec_evaluate (zvrf);
   return 0;
 }
 
@@ -2964,9 +2959,13 @@ zebra_mpls_write_label_block_config (struct vty *vty, struct zebra_vrf *zvrf)
   if (zvrf->mpls_srgb.start_label == 0)
     return 0;
 
-  vty_out(vty, "mpls label global-block %u %u%s",
-          zvrf->mpls_srgb.start_label, zvrf->mpls_srgb.end_label,
-          VTY_NEWLINE);
+  if ((zvrf->mpls_srgb.start_label != MPLS_DEFAULT_MIN_SRGB_LABEL) ||
+      (zvrf->mpls_srgb.end_label != MPLS_DEFAULT_MAX_SRGB_LABEL))
+    {
+      vty_out(vty, "mpls label global-block %u %u%s",
+              zvrf->mpls_srgb.start_label, zvrf->mpls_srgb.end_label,
+              VTY_NEWLINE);
+    }
 
   return 1;
 }
@@ -3000,8 +2999,8 @@ zebra_mpls_init_tables (struct zebra_vrf *zvrf)
   zvrf->fec_table[AFI_IP] = route_table_init();
   zvrf->fec_table[AFI_IP6] = route_table_init();
   zvrf->mpls_flags = 0;
-  zvrf->mpls_srgb.start_label = 0;
-  zvrf->mpls_srgb.end_label = 0;
+  zvrf->mpls_srgb.start_label = MPLS_DEFAULT_MIN_SRGB_LABEL;
+  zvrf->mpls_srgb.end_label = MPLS_DEFAULT_MAX_SRGB_LABEL;
 }
 
 /*

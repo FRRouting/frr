@@ -275,11 +275,11 @@ argv_find_and_parse_safi (struct cmd_token **argv, int argc, int *index, safi_t 
  * that is being parsed.
  *
  * The show commands are generally of the form:
- * "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6> [<unicast|multicast|vpn|labeled-unicast>]] ..."
+ * "show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6> [<unicast|multicast|vpn|labeled-unicast>]] ..."
  *
  * Since we use argv_find if the show command in particular doesn't have:
  * [ip]
- * [<view|vrf> WORD]
+ * [<view|vrf> VIEWVRFNAME]
  * [<ipv4|ipv6> [<unicast|multicast|vpn|labeled-unicast>]]
  * The command parsing should still be ok.
  *
@@ -862,7 +862,7 @@ DEFUN (no_auto_summary,
 /* "router bgp" commands. */
 DEFUN_NOSH (router_bgp,
        router_bgp_cmd,
-       "router bgp [(1-4294967295) [<view|vrf> WORD]]",
+       "router bgp [(1-4294967295) [<view|vrf> VIEWVRFNAME]]",
        ROUTER_STR
        BGP_STR
        AS_STR
@@ -940,7 +940,7 @@ DEFUN_NOSH (router_bgp,
 /* "no router bgp" commands. */
 DEFUN (no_router_bgp,
        no_router_bgp_cmd,
-       "no router bgp [(1-4294967295) [<view|vrf> WORD]]",
+       "no router bgp [(1-4294967295) [<view|vrf> VIEWVRFNAME]]",
        NO_STR
        ROUTER_STR
        BGP_STR
@@ -1252,7 +1252,7 @@ DEFUN (bgp_maxmed_admin,
 
 DEFUN (bgp_maxmed_admin_medv,
        bgp_maxmed_admin_medv_cmd,
-       "bgp max-med administrative (0-4294967294)",
+       "bgp max-med administrative (0-4294967295)",
        BGP_STR
        "Advertise routes with max-med\n"
        "Administratively applied, for an indefinite period\n"
@@ -1262,7 +1262,7 @@ DEFUN (bgp_maxmed_admin_medv,
   int idx_number = 3;
 
   bgp->v_maxmed_admin = 1;
-  VTY_GET_INTEGER ("max-med admin med-value", bgp->maxmed_admin_value, argv[idx_number]->arg);
+  bgp->maxmed_admin_value = strtoul (argv[idx_number]->arg, NULL, 10);
 
   bgp_maxmed_update(bgp);
 
@@ -1271,7 +1271,7 @@ DEFUN (bgp_maxmed_admin_medv,
 
 DEFUN (no_bgp_maxmed_admin,
        no_bgp_maxmed_admin_cmd,
-       "no bgp max-med administrative [(0-4294967294)]",
+       "no bgp max-med administrative [(0-4294967295)]",
        NO_STR
        BGP_STR
        "Advertise routes with max-med\n"
@@ -1288,24 +1288,7 @@ DEFUN (no_bgp_maxmed_admin,
 
 DEFUN (bgp_maxmed_onstartup,
        bgp_maxmed_onstartup_cmd,
-       "bgp max-med on-startup (5-86400)",
-       BGP_STR
-       "Advertise routes with max-med\n"
-       "Effective on a startup\n"
-       "Time (seconds) period for max-med\n")
-{
-  VTY_DECLVAR_CONTEXT(bgp, bgp);
-  int idx_number = 3;
-  VTY_GET_INTEGER ("max-med on-startup period", bgp->v_maxmed_onstartup, argv[idx_number]->arg);
-  bgp->maxmed_onstartup_value = BGP_MAXMED_VALUE_DEFAULT;
-  bgp_maxmed_update(bgp);
-
-  return CMD_SUCCESS;
-}
-
-DEFUN (bgp_maxmed_onstartup_medv,
-       bgp_maxmed_onstartup_medv_cmd,
-       "bgp max-med on-startup (5-86400) (0-4294967294)",
+       "bgp max-med on-startup (5-86400) [(0-4294967295)]",
        BGP_STR
        "Advertise routes with max-med\n"
        "Effective on a startup\n"
@@ -1313,10 +1296,15 @@ DEFUN (bgp_maxmed_onstartup_medv,
        "Max MED value to be used\n")
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);
-  int idx_number = 3;
-  int idx_number_2 = 4;
-  VTY_GET_INTEGER ("max-med on-startup period", bgp->v_maxmed_onstartup, argv[idx_number]->arg);
-  VTY_GET_INTEGER ("max-med on-startup med-value", bgp->maxmed_onstartup_value, argv[idx_number_2]->arg);
+  int idx = 0;
+
+  argv_find (argv, argc, "(5-86400)", &idx);
+  bgp->v_maxmed_onstartup = strtoul (argv[idx]->arg, NULL, 10);
+  if (argv_find (argv, argc, "(0-4294967295)", &idx))
+    bgp->maxmed_onstartup_value = strtoul (argv[idx]->arg, NULL, 10);
+  else
+    bgp->maxmed_onstartup_value = BGP_MAXMED_VALUE_DEFAULT;
+
   bgp_maxmed_update(bgp);
 
   return CMD_SUCCESS;
@@ -1324,7 +1312,7 @@ DEFUN (bgp_maxmed_onstartup_medv,
 
 DEFUN (no_bgp_maxmed_onstartup,
        no_bgp_maxmed_onstartup_cmd,
-       "no bgp max-med on-startup [(5-86400) [(0-4294967294)]]",
+       "no bgp max-med on-startup [(5-86400) [(0-4294967295)]]",
        NO_STR
        BGP_STR
        "Advertise routes with max-med\n"
@@ -1493,25 +1481,11 @@ DEFUN (no_bgp_wpkt_quanta,
   return bgp_wpkt_quanta_config_vty(vty, argv[idx_number]->arg, 0);
 }
 
-static int
-bgp_coalesce_config_vty (struct vty *vty, const char *num, char set)
-{
-  VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-  if (set)
-    VTY_GET_INTEGER_RANGE ("coalesce-time", bgp->coalesce_time, num,
-			   0, 4294967295);
-  else
-    bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
-
-  return CMD_SUCCESS;
-}
-
 int
 bgp_config_write_coalesce_time (struct vty *vty, struct bgp *bgp)
 {
   if (bgp->coalesce_time != BGP_DEFAULT_SUBGROUP_COALESCE_TIME)
-      vty_out (vty, " coalesce-time %d%s",
+      vty_out (vty, " coalesce-time %u%s",
                bgp->coalesce_time, VTY_NEWLINE);
 
   return 0;
@@ -1524,8 +1498,12 @@ DEFUN (bgp_coalesce_time,
        "Subgroup coalesce timer\n"
        "Subgroup coalesce timer value (in ms)\n")
 {
-  int idx_number = 1;
-  return bgp_coalesce_config_vty(vty, argv[idx_number]->arg, 1);
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+  int idx = 0;
+  argv_find (argv, argc, "(0-4294967295)", &idx);
+  bgp->coalesce_time = strtoul (argv[idx]->arg, NULL, 10);
+  return CMD_SUCCESS;
 }
 
 DEFUN (no_bgp_coalesce_time,
@@ -1535,8 +1513,10 @@ DEFUN (no_bgp_coalesce_time,
        "Subgroup coalesce timer\n"
        "Subgroup coalesce timer value (in ms)\n")
 {
-  int idx_number = 2;
-  return bgp_coalesce_config_vty(vty, argv[idx_number]->arg, 0);
+  VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+  bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
+  return CMD_SUCCESS;
 }
 
 /* Maximum-paths configuration */
@@ -6496,7 +6476,7 @@ bgp_clear_prefix (struct vty *vty, const char *view_name, const char *ip_str,
 /* one clear bgp command to rule them all */
 DEFUN (clear_ip_bgp_all,
        clear_ip_bgp_all_cmd,
-       "clear [ip] bgp [<view|vrf> WORD] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<soft [<in|out>]|in [prefix-filter]|out>]",
+       "clear [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<soft [<in|out>]|in [prefix-filter]|out>]",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6531,8 +6511,8 @@ DEFUN (clear_ip_bgp_all,
   /* clear [ip] bgp */
   if (argv_find (argv, argc, "ip", &idx))
     afi = AFI_IP;
-
-  /* [<view|vrf> WORD] */
+  
+  /* [<view|vrf> VIEWVRFNAME] */
   if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
     {
       vrf = argv[idx + 1]->arg;
@@ -6603,7 +6583,7 @@ DEFUN (clear_ip_bgp_all,
 
 DEFUN (clear_ip_bgp_prefix,
        clear_ip_bgp_prefix_cmd,
-       "clear [ip] bgp [<view|vrf> WORD] prefix A.B.C.D/M",
+       "clear [ip] bgp [<view|vrf> VIEWVRFNAME] prefix A.B.C.D/M",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6616,7 +6596,7 @@ DEFUN (clear_ip_bgp_prefix,
 
   int idx = 0;
 
-  /* [<view|vrf> WORD] */
+  /* [<view|vrf> VIEWVRFNAME] */
   if (argv_find (argv, argc, "WORD", &idx))
     vrf = argv[idx]->arg;
 
@@ -6644,7 +6624,7 @@ DEFUN (clear_bgp_ipv6_safi_prefix,
 
 DEFUN (clear_bgp_instance_ipv6_safi_prefix,
        clear_bgp_instance_ipv6_safi_prefix_cmd,
-       "clear [ip] bgp <view|vrf> WORD ipv6 "BGP_SAFI_CMD_STR" prefix X:X::X:X/M",
+       "clear [ip] bgp <view|vrf> VIEWVRFNAME ipv6 "BGP_SAFI_CMD_STR" prefix X:X::X:X/M",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -7506,7 +7486,7 @@ bgp_show_summary_vty (struct vty *vty, const char *name,
 /* `show [ip] bgp summary' commands. */
 DEFUN (show_ip_bgp_summary,
        show_ip_bgp_summary_cmd,
-       "show [ip] bgp [<view|vrf> WORD] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] summary [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] summary [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -7525,7 +7505,7 @@ DEFUN (show_ip_bgp_summary,
   /* show [ip] bgp */
   if (argv_find (argv, argc, "ip", &idx))
     afi = AFI_IP;
-  /* [<view|vrf> WORD] */
+  /* [<view|vrf> VIEWVRFNAME] */
   if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
     vrf = argv[++idx]->arg;
   /* ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] */
@@ -9462,7 +9442,7 @@ bgp_show_neighbor_vty (struct vty *vty, const char *name,
 /* "show [ip] bgp neighbors" commands.  */
 DEFUN (show_ip_bgp_neighbors,
        show_ip_bgp_neighbors_cmd,
-       "show [ip] bgp [<view|vrf> WORD] [<ipv4|ipv6|vpnv4 <all|rd ASN:nn_or_IP-address:nn>>] neighbors [<A.B.C.D|X:X::X:X|WORD>] [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6|vpnv4 <all|rd ASN:nn_or_IP-address:nn>>] neighbors [<A.B.C.D|X:X::X:X|WORD>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9642,7 +9622,7 @@ bgp_show_update_groups(struct vty *vty, const char *name,
 
 DEFUN (show_ip_bgp_updgrps,
        show_ip_bgp_updgrps_cmd,
-       "show [ip] bgp [<view|vrf> WORD] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] update-groups [SUBGROUP-ID]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] update-groups [SUBGROUP-ID]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9662,7 +9642,7 @@ DEFUN (show_ip_bgp_updgrps,
   /* show [ip] bgp */
   if (argv_find (argv, argc, "ip", &idx))
     afi = AFI_IP;
-  /* [<view|vrf> WORD] */
+  /* [<view|vrf> VIEWVRFNAME] */
   if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
     vrf = argv[++idx]->arg;
   /* ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] */
@@ -9712,7 +9692,7 @@ DEFUN (show_bgp_updgrps_stats,
 
 DEFUN (show_bgp_instance_updgrps_stats,
        show_bgp_instance_updgrps_stats_cmd,
-       "show [ip] bgp <view|vrf> WORD update-groups statistics",
+       "show [ip] bgp <view|vrf> VIEWVRFNAME update-groups statistics",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9772,7 +9752,7 @@ DEFUN (show_ip_bgp_updgrps_adj,
 
 DEFUN (show_ip_bgp_instance_updgrps_adj,
        show_ip_bgp_instance_updgrps_adj_cmd,
-       "show [ip] bgp <view|vrf> WORD update-groups <advertise-queue|advertised-routes|packet-queue>",
+       "show [ip] bgp <view|vrf> VIEWVRFNAME update-groups <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9830,7 +9810,7 @@ DEFUN (show_bgp_updgrps_adj,
 
 DEFUN (show_bgp_instance_updgrps_adj,
        show_bgp_instance_updgrps_adj_cmd,
-       "show [ip] bgp <view|vrf> WORD update-groups <advertise-queue|advertised-routes|packet-queue>",
+       "show [ip] bgp <view|vrf> VIEWVRFNAME update-groups <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9871,7 +9851,7 @@ DEFUN (show_ip_bgp_updgrps_adj_s,
 
 DEFUN (show_ip_bgp_instance_updgrps_adj_s,
        show_ip_bgp_instance_updgrps_adj_s_cmd,
-       "show [ip] bgp <view|vrf> WORD update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
+       "show [ip] bgp <view|vrf> VIEWVRFNAME update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -9947,7 +9927,7 @@ DEFUN (show_bgp_updgrps_adj_s,
 
 DEFUN (show_bgp_instance_updgrps_adj_s,
        show_bgp_instance_updgrps_adj_s_cmd,
-       "show [ip] bgp <view|vrf> WORD update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
+       "show [ip] bgp <view|vrf> VIEWVRFNAME update-groups SUBGROUP-ID <advertise-queue|advertised-routes|packet-queue>",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -10134,7 +10114,7 @@ bgp_show_peer_group_vty (struct vty *vty, const char *name,
 
 DEFUN (show_ip_bgp_peer_groups,
        show_ip_bgp_peer_groups_cmd,
-       "show [ip] bgp [<view|vrf> WORD] peer-group [PGNAME]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] peer-group [PGNAME]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -11025,7 +11005,6 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &bgp_maxmed_admin_medv_cmd);
   install_element (BGP_NODE, &bgp_maxmed_onstartup_cmd);
   install_element (BGP_NODE, &no_bgp_maxmed_onstartup_cmd);
-  install_element (BGP_NODE, &bgp_maxmed_onstartup_medv_cmd);
 
   /* bgp disable-ebgp-connected-nh-check */
   install_element (BGP_NODE, &bgp_disable_connected_route_check_cmd);

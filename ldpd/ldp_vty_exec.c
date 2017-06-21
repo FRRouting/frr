@@ -1,21 +1,20 @@
 /*
  * Copyright (C) 2016 by Open Source Routing.
  *
- * This file is part of GNU Zebra.
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
  *
- * GNU Zebra is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
- *
- * GNU Zebra is distributed in the hope that it will be useful, but
+ * This program is distributed in the hope that it will be useful, but
  * WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
  * General Public License for more details.
  *
- * You should have received a copy of the GNU General Public License along
- * with this program; see the file COPYING; if not, write to the Free Software
- * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ * You should have received a copy of the GNU General Public License
+ * along with this program; see the file COPYING; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
+ * MA 02110-1301 USA
  */
 
 #include <zebra.h>
@@ -1582,24 +1581,22 @@ ldp_vty_get_af(const char *str, int *af)
 }
 
 int
-ldp_vty_show_binding(struct vty *vty, struct vty_arg *args[])
+ldp_vty_show_binding(struct vty *vty, const char *af_str, int detail, int json)
 {
 	struct imsgbuf		 ibuf;
 	struct show_params	 params;
-	const char		*af_str;
 	int			 af;
 
 	if (ldp_vty_connect(&ibuf) < 0)
 		return (CMD_WARNING);
 
-	af_str = vty_get_arg_value(args, "address-family");
 	if (ldp_vty_get_af(af_str, &af) < 0)
 		return (CMD_ERR_NO_MATCH);
 
 	memset(&params, 0, sizeof(params));
 	params.family = af;
-	params.detail = vty_get_arg_value(args, "detail") ? 1 : 0;
-	params.json = vty_get_arg_value(args, "json") ? 1 : 0;
+	params.detail = detail;
+	params.json = json;
 
 	if (!params.detail && !params.json)
 		vty_out(vty, "%-4s %-20s %-15s %-11s %-13s %6s%s", "AF",
@@ -1611,24 +1608,23 @@ ldp_vty_show_binding(struct vty *vty, struct vty_arg *args[])
 }
 
 int
-ldp_vty_show_discovery(struct vty *vty, struct vty_arg *args[])
+ldp_vty_show_discovery(struct vty *vty, const char *af_str, int detail,
+    int json)
 {
 	struct imsgbuf		 ibuf;
 	struct show_params	 params;
-	const char		*af_str;
 	int			 af;
 
 	if (ldp_vty_connect(&ibuf) < 0)
 		return (CMD_WARNING);
 
-	af_str = vty_get_arg_value(args, "address-family");
 	if (ldp_vty_get_af(af_str, &af) < 0)
 		return (CMD_ERR_NO_MATCH);
 
 	memset(&params, 0, sizeof(params));
 	params.family = af;
-	params.detail = vty_get_arg_value(args, "detail") ? 1 : 0;
-	params.json = vty_get_arg_value(args, "json") ? 1 : 0;
+	params.detail = detail;
+	params.json = json;
 
 	if (!params.detail && !params.json)
 		vty_out(vty, "%-4s %-15s %-8s %-15s %9s%s",
@@ -1643,24 +1639,22 @@ ldp_vty_show_discovery(struct vty *vty, struct vty_arg *args[])
 }
 
 int
-ldp_vty_show_interface(struct vty *vty, struct vty_arg *args[])
+ldp_vty_show_interface(struct vty *vty, const char *af_str, int json)
 {
 	struct imsgbuf		 ibuf;
 	struct show_params	 params;
 	unsigned int		 ifidx = 0;
-	const char		*af_str;
 	int			 af;
 
 	if (ldp_vty_connect(&ibuf) < 0)
 		return (CMD_WARNING);
 
-	af_str = vty_get_arg_value(args, "address-family");
 	if (ldp_vty_get_af(af_str, &af) < 0)
 		return (CMD_ERR_NO_MATCH);
 
 	memset(&params, 0, sizeof(params));
 	params.family = af;
-	params.json = vty_get_arg_value(args, "json") ? 1 : 0;
+	params.json = json;
 
 	/* header */
 	if (!params.json) {
@@ -1675,9 +1669,9 @@ ldp_vty_show_interface(struct vty *vty, struct vty_arg *args[])
 }
 
 int
-ldp_vty_show_capabilities(struct vty *vty, struct vty_arg *args[])
+ldp_vty_show_capabilities(struct vty *vty, int json)
 {
-	if (vty_get_arg_value(args, "json")) {
+	if (json) {
 		json_object	*json;
 		json_object	*json_array;
 		json_object	*json_cap;
@@ -1727,7 +1721,7 @@ ldp_vty_show_capabilities(struct vty *vty, struct vty_arg *args[])
 }
 
 int
-ldp_vty_show_neighbor(struct vty *vty, struct vty_arg *args[])
+ldp_vty_show_neighbor(struct vty *vty, int capabilities, int detail, int json)
 {
 	struct imsgbuf		 ibuf;
 	struct show_params	 params;
@@ -1736,9 +1730,9 @@ ldp_vty_show_neighbor(struct vty *vty, struct vty_arg *args[])
 		return (CMD_WARNING);
 
 	memset(&params, 0, sizeof(params));
-	params.capabilities = vty_get_arg_value(args, "capabilities") ? 1 : 0;
-	params.detail = vty_get_arg_value(args, "detail") ? 1 : 0;
-	params.json = vty_get_arg_value(args, "json") ? 1 : 0;
+	params.capabilities = capabilities;
+	params.detail = detail;
+	params.json = json;
 
 	if (params.capabilities)
 		params.detail = 1;
@@ -1753,7 +1747,7 @@ ldp_vty_show_neighbor(struct vty *vty, struct vty_arg *args[])
 }
 
 int
-ldp_vty_show_atom_binding(struct vty *vty, struct vty_arg *args[])
+ldp_vty_show_atom_binding(struct vty *vty, int json)
 {
 	struct imsgbuf		 ibuf;
 	struct show_params	 params;
@@ -1762,14 +1756,14 @@ ldp_vty_show_atom_binding(struct vty *vty, struct vty_arg *args[])
 		return (CMD_WARNING);
 
 	memset(&params, 0, sizeof(params));
-	params.json = vty_get_arg_value(args, "json") ? 1 : 0;
+	params.json = json;
 
 	imsg_compose(&ibuf, IMSG_CTL_SHOW_L2VPN_BINDING, 0, 0, -1, NULL, 0);
 	return (ldp_vty_dispatch(vty, &ibuf, SHOW_L2VPN_BINDING, &params));
 }
 
 int
-ldp_vty_show_atom_vc(struct vty *vty, struct vty_arg *args[])
+ldp_vty_show_atom_vc(struct vty *vty, int json)
 {
 	struct imsgbuf		 ibuf;
 	struct show_params	 params;
@@ -1778,7 +1772,7 @@ ldp_vty_show_atom_vc(struct vty *vty, struct vty_arg *args[])
 		return (CMD_WARNING);
 
 	memset(&params, 0, sizeof(params));
-	params.json = vty_get_arg_value(args, "json") ? 1 : 0;
+	params.json = json;
 
 	if (!params.json) {
 		/* header */
@@ -1795,13 +1789,10 @@ ldp_vty_show_atom_vc(struct vty *vty, struct vty_arg *args[])
 }
 
 int
-ldp_vty_clear_nbr(struct vty *vty, struct vty_arg *args[])
+ldp_vty_clear_nbr(struct vty *vty, const char *addr_str)
 {
 	struct imsgbuf		 ibuf;
-	const char		*addr_str;
 	struct ctl_nbr		 nbr;
-
-	addr_str = vty_get_arg_value(args, "addr");
 
 	memset(&nbr, 0, sizeof(nbr));
 	if (addr_str &&

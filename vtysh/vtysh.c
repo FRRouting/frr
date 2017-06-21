@@ -2029,17 +2029,19 @@ DEFUNSH (VTYSH_INTERFACE,
 DEFUN (vtysh_show_thread,
        vtysh_show_thread_cmd,
        "show thread cpu [FILTER]",
-      SHOW_STR
-      "Thread information\n"
-      "Thread CPU usage\n"
-      "Display filter (rwtexb)\n")
+       SHOW_STR
+       "Thread information\n"
+       "Thread CPU usage\n"
+       "Display filter (rwtexb)\n")
 {
-  int idx_filter = 3;
   unsigned int i;
+  int idx = 0;
   int ret = CMD_SUCCESS;
   char line[100];
 
-  sprintf(line, "show thread cpu %s\n", (argc == 4) ? argv[idx_filter]->arg : "");
+  const char *filter = argv_find (argv, argc, "FILTER", &idx) ? argv[idx]->arg : "";
+
+  snprintf(line, sizeof(line), "do show thread cpu %s\n", filter);
   for (i = 0; i < array_size(vtysh_client); i++)
     if ( vtysh_client[i].fd >= 0 )
       {

@@ -492,7 +492,7 @@ bgp_show_all_instances_nexthops_vty (struct vty *vty)
 
 DEFUN (show_ip_bgp_nexthop,
        show_ip_bgp_nexthop_cmd,
-       "show [ip] bgp [<view|vrf> WORD] nexthop [detail]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] nexthop [detail]",
        SHOW_STR
        IP_STR
        BGP_STR
