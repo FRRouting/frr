@@ -88,6 +88,7 @@ struct isis_area;
 struct isis_circuit;
 struct tlvs;
 struct te_is_neigh;
+struct isis_tlvs;
 
 uint16_t isis_area_ipv6_topology(struct isis_area *area);
 
@@ -138,7 +139,7 @@ circuit_get_mt_setting(struct isis_circuit *circuit, uint16_t mtid);
 int circuit_write_mt_settings(struct isis_circuit *circuit, struct vty *vty);
 struct isis_circuit_mt_setting **
 circuit_mt_settings(struct isis_circuit *circuit, unsigned int *mt_count);
-bool tlvs_to_adj_mt_set(struct tlvs *tlvs, bool v4_usable, bool v6_usable,
+bool tlvs_to_adj_mt_set(struct isis_tlvs *tlvs, bool v4_usable, bool v6_usable,
 			struct isis_adjacency *adj);
 bool adj_has_mt(struct isis_adjacency *adj, uint16_t mtid);
 void adj_mt_finish(struct isis_adjacency *adj);

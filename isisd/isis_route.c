@@ -208,13 +208,12 @@ static void nexthops6_print(struct list *nhs6)
 static void adjinfo2nexthop(struct list *nexthops, struct isis_adjacency *adj)
 {
 	struct isis_nexthop *nh;
-	struct listnode *node;
-	struct in_addr *ipv4_addr;
 
-	if (adj->ipv4_addrs == NULL)
+	if (!adj->ipv4_address_count)
 		return;
 
-	for (ALL_LIST_ELEMENTS_RO(adj->ipv4_addrs, node, ipv4_addr)) {
+	for (unsigned int i = 0; i < adj->ipv4_address_count; i++) {
+		struct in_addr *ipv4_addr = &adj->ipv4_addresses[i];
 		if (!nexthoplookup(nexthops, ipv4_addr,
 				   adj->circuit->interface->ifindex)) {
 			nh = isis_nexthop_create(
@@ -227,14 +226,13 @@ static void adjinfo2nexthop(struct list *nexthops, struct isis_adjacency *adj)
 
 static void adjinfo2nexthop6(struct list *nexthops6, struct isis_adjacency *adj)
 {
-	struct listnode *node;
-	struct in6_addr *ipv6_addr;
 	struct isis_nexthop6 *nh6;
 
-	if (!adj->ipv6_addrs)
+	if (!adj->ipv6_address_count)
 		return;
 
-	for (ALL_LIST_ELEMENTS_RO(adj->ipv6_addrs, node, ipv6_addr)) {
+	for (unsigned int i = 0; i < adj->ipv6_address_count; i++) {
+		struct in6_addr *ipv6_addr = &adj->ipv6_addresses[i];
 		if (!nexthop6lookup(nexthops6, ipv6_addr,
 				    adj->circuit->interface->ifindex)) {
 			nh6 = isis_nexthop6_create(

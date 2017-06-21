@@ -546,13 +546,9 @@ void isis_link_params_update(struct isis_circuit *circuit,
 		if ((SUBTLV_TYPE(mtc->rmt_ipaddr) == 0)
 		    && (circuit->circ_type == CIRCUIT_T_P2P)) {
 			struct isis_adjacency *adj = circuit->u.p2p.neighbor;
-			if (adj->ipv4_addrs != NULL
-			    && listcount(adj->ipv4_addrs) != 0) {
-				struct in_addr *ip_addr;
-				ip_addr = (struct in_addr *)listgetdata(
-					(struct listnode *)listhead(
-						adj->ipv4_addrs));
-				set_circuitparams_rmt_ipaddr(mtc, *ip_addr);
+			if (adj->ipv4_address_count) {
+				set_circuitparams_rmt_ipaddr(
+					mtc, adj->ipv4_addresses[0]);
 			}
 		}
 

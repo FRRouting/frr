@@ -28,6 +28,7 @@
 #include "isisd/isis_misc.h"
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_mt.h"
+#include "isisd/isis_tlvs2.h"
 
 DEFINE_MTYPE_STATIC(ISISD, MT_AREA_SETTING, "ISIS MT Area Setting")
 DEFINE_MTYPE_STATIC(ISISD, MT_CIRCUIT_SETTING, "ISIS MT Circuit Setting")
@@ -367,7 +368,7 @@ static void adj_mt_set(struct isis_adjacency *adj, unsigned int index,
 	adj->mt_set[index] = mtid;
 }
 
-bool tlvs_to_adj_mt_set(struct tlvs *tlvs, bool v4_usable, bool v6_usable,
+bool tlvs_to_adj_mt_set(struct isis_tlvs *tlvs, bool v4_usable, bool v6_usable,
 			struct isis_adjacency *adj)
 {
 	struct isis_circuit_mt_setting **mt_settings;
@@ -388,17 +389,19 @@ bool tlvs_to_adj_mt_set(struct tlvs *tlvs, bool v4_usable, bool v6_usable,
 
 	mt_settings = circuit_mt_settings(adj->circuit, &circuit_mt_count);
 	for (unsigned int i = 0; i < circuit_mt_count; i++) {
-		if (!tlvs->mt_router_info) {
+		if (tlvs->mt_router_info.count && !tlvs->mt_router_info_empty) {
 			/* Other end does not have MT enabled */
 			if (mt_settings[i]->mtid == ISIS_MT_IPV4_UNICAST
 			    && v4_usable)
 				adj_mt_set(adj, intersect_count++,
 					   ISIS_MT_IPV4_UNICAST);
 		} else {
-			struct listnode *node;
-			struct mt_router_info *info;
-			for (ALL_LIST_ELEMENTS_RO(tlvs->mt_router_info, node,
-						  info)) {
+			struct isis_mt_router_info *info_head;
+
+			info_head = (struct isis_mt_router_info *)
+					    tlvs->mt_router_info.head;
+			for (struct isis_mt_router_info *info = info_head; info;
+			     info = info->next) {
 				if (mt_settings[i]->mtid == info->mtid) {
 					bool usable;
 					switch (info->mtid) {
