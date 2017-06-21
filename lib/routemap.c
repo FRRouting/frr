@@ -2472,8 +2472,11 @@ DEFUN (set_metric,
   int idx_number = 2;
   VTY_DECLVAR_CONTEXT (route_map_index, index);
 
+  const char *pass = (argv[idx_number]->type == RANGE_TKN) ?
+                     argv[idx_number]->arg : argv[idx_number]->text;
+
   if (rmap_match_set_hook.set_metric)
-    return rmap_match_set_hook.set_metric (vty, index, "metric", argv[idx_number]->arg);
+    return rmap_match_set_hook.set_metric (vty, index, "metric", pass);
   return CMD_SUCCESS;
 }
 
@@ -2603,7 +2606,8 @@ DEFUN (no_route_map,
   struct route_map *map;
   struct route_map_index *index;
   char *endptr = NULL;
-  int permit = argv[idx_permit_deny]->arg[0] == 'p' ? RMAP_PERMIT : RMAP_DENY;
+  int permit = strmatch (argv[idx_permit_deny]->text, "permit") ?
+               RMAP_PERMIT : RMAP_DENY;
   const char *prefstr = argv[idx_number]->arg;
   const char *mapname = argv[idx_word]->arg;
   unsigned long pref = strtoul (prefstr, &endptr, 10);
