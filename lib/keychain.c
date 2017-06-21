@@ -990,7 +990,7 @@ keychain_config_write (struct vty *vty)
 		  keychain_strftime (buf, BUFSIZ, &key->accept.end);
 		  vty_out (vty, " %s", buf);
 		}
-	      vty_outln (vty, "");
+	      vty_out (vty, VTYNL);
 	    }
 
 	  if (key->send.start)
@@ -1007,7 +1007,7 @@ keychain_config_write (struct vty *vty)
 		  keychain_strftime (buf, BUFSIZ, &key->send.end);
 		  vty_out (vty, " %s", buf);
 		}
-	      vty_outln (vty, "");
+	      vty_out (vty, VTYNL);
 	    }
 	}
       vty_outln (vty, "!");

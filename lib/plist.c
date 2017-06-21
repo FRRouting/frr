@@ -1234,7 +1234,7 @@ vty_show_prefix_entry (struct vty *vty, afi_t afi, struct prefix_list *plist,
 	    vty_out (vty, " (hit count: %ld, refcount: %ld)", 
 		     pentry->hitcnt, pentry->refcnt);
 	  
-	  vty_outln (vty, "");
+	  vty_out (vty, VTYNL);
 	}
     }
 }
@@ -1346,7 +1346,7 @@ vty_show_prefix_list_prefix (struct vty *vty, afi_t afi, const char *name,
 	    vty_out (vty, " (hit count: %ld, refcount: %ld)", 
 		     pentry->hitcnt, pentry->refcnt);
 
-	  vty_outln (vty, "");
+	  vty_out (vty, VTYNL);
 
 	  if (type == first_match_display)
 	    return CMD_SUCCESS;
@@ -1860,7 +1860,7 @@ config_write_prefix_afi (afi_t afi, struct vty *vty)
 	      if (pentry->le)
 		vty_out (vty, " le %d", pentry->le);
 	    }
-	  vty_outln (vty, "");
+	  vty_out (vty, VTYNL);
 	  write++;
 	}
       /* vty_out (vty, "!%s", VTYNL); */
@@ -1903,7 +1903,7 @@ config_write_prefix_afi (afi_t afi, struct vty *vty)
 	      if (pentry->le)
 		vty_out (vty, " le %d", pentry->le);
 	    }
-	  vty_outln (vty, "");
+	  vty_out (vty, VTYNL);
 	  write++;
 	}
     }
@@ -2073,7 +2073,7 @@ prefix_bgp_show_prefix_list (struct vty *vty, afi_t afi, char *name, u_char use_
           if (pentry->le)
             vty_out (vty, " le %d", pentry->le);
 
-          vty_outln (vty, "");
+          vty_out (vty, VTYNL);
         }
     }
   return plist->count;

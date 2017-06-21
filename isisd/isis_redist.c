@@ -796,7 +796,7 @@ isis_redist_config_write(struct vty *vty, struct isis_area *area,
             vty_out(vty, " metric %u", redist->metric);
           if (redist->map_name)
             vty_out(vty, " route-map %s", redist->map_name);
-          vty_outln (vty, "");
+          vty_out (vty, VTYNL);
           write++;
         }
     }
@@ -814,7 +814,7 @@ isis_redist_config_write(struct vty *vty, struct isis_area *area,
         vty_out(vty, " metric %u", redist->metric);
       if (redist->map_name)
         vty_out(vty, " route-map %s", redist->map_name);
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
       write++;
     }
 

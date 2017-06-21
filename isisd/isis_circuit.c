@@ -878,7 +878,7 @@ isis_circuit_print_vty (struct isis_circuit *circuit, struct vty *vty,
       vty_out (vty, "%-9s", circuit_state2string (circuit->state));
       vty_out (vty, "%-9s", circuit_type2string (circuit->circ_type));
       vty_out (vty, "%-9s", circuit_t2string (circuit->is_type));
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
     }
 
   if (detail == ISIS_UI_LEVEL_DETAIL)
@@ -894,12 +894,12 @@ isis_circuit_print_vty (struct isis_circuit *circuit, struct vty *vty,
       else
         vty_out (vty, ", Active");
       vty_out (vty, ", Circuit Id: 0x%x", circuit->circuit_id);
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
       vty_out (vty, "    Type: %s", circuit_type2string (circuit->circ_type));
       vty_out (vty, ", Level: %s", circuit_t2string (circuit->is_type));
       if (circuit->circ_type == CIRCUIT_T_BROADCAST)
         vty_out (vty, ", SNPA: %-10s", snpa_print (circuit->u.bc.snpa));
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
       if (circuit->is_type & IS_LEVEL_1)
         {
           vty_outln (vty, "    Level-1 Information:");
@@ -928,7 +928,7 @@ isis_circuit_print_vty (struct isis_circuit *circuit, struct vty *vty,
             }
           else
             {
-              vty_outln (vty, "");
+              vty_out (vty, VTYNL);
             }
         }
       if (circuit->is_type & IS_LEVEL_2)
@@ -959,7 +959,7 @@ isis_circuit_print_vty (struct isis_circuit *circuit, struct vty *vty,
             }
           else
             {
-              vty_outln (vty, "");
+              vty_out (vty, VTYNL);
             }
         }
       if (circuit->ip_addrs && listcount (circuit->ip_addrs) > 0)
@@ -990,7 +990,7 @@ isis_circuit_print_vty (struct isis_circuit *circuit, struct vty *vty,
             }
         }
 
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
     }
   return;
 }

@@ -2026,7 +2026,7 @@ DEFUN (show_ipv6_ripng,
 	  vty_out (vty, "R(a) %s/%d ",
 			 inet6_ntoa (p->prefix), p->prefixlen);
 #endif /* DEBUG */
-	  vty_outln (vty, "");
+	  vty_out (vty, VTYNL);
 	  vty_out (vty, "%*s", 18, " ");
 
 	  vty_out (vty, "%*s", 28, " ");
@@ -2051,7 +2051,7 @@ DEFUN (show_ipv6_ripng,
 			 ripng_route_subtype_print(rinfo),
 			 inet6_ntoa (p->prefix), p->prefixlen);
 #endif /* DEBUG */
-	  vty_outln (vty, "");
+	  vty_out (vty, VTYNL);
 	  vty_out (vty, "%*s", 18, " ");
 	  len = vty_out (vty, "%s", inet6_ntoa (rinfo->nexthop));
 
@@ -2089,7 +2089,7 @@ DEFUN (show_ipv6_ripng,
 	    ripng_vty_out_uptime (vty, rinfo);
 	  }
 
-	  vty_outln (vty, "");
+	  vty_out (vty, VTYNL);
 	}
     }
 
@@ -2128,7 +2128,7 @@ DEFUN (show_ipv6_ripng_status,
   /* Redistribute information. */
   vty_out (vty, "  Redistributing:");
   ripng_redistribute_write (vty, 0);
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
 
   vty_out (vty, "  Default version control: send version %d,", ripng->version);
   vty_outln (vty, " receive version %d ",ripng->version);

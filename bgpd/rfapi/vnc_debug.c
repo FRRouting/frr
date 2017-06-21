@@ -173,7 +173,7 @@ DEFUN (show_debugging_bgp_vnc,
 	    vncdebug[i].name);
 	}
     }
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
   return CMD_SUCCESS;
 }
 

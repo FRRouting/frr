@@ -402,13 +402,13 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
       else
 	vty_out (vty, "-        ");
       vty_out (vty, "%-10s", snpa_print (adj->snpa));
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
     }
 
   if (detail == ISIS_UI_LEVEL_DETAIL)
     {
       level = adj->level;
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
       if (adj->circuit)
 	vty_out (vty, "    Interface: %s", adj->circuit->interface->name);
       else
@@ -421,13 +421,13 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
 		 time2string (adj->last_upd + adj->hold_time - now));
       else
 	vty_out (vty, ", Expires in %s", time2string (adj->hold_time));
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
       vty_out (vty, "    Adjacency flaps: %u", adj->flaps);
       vty_out (vty, ", Last: %s ago", time2string (now - adj->last_flap));
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
       vty_out (vty, "    Circuit type: %s", circuit_t2string (adj->circuit_t));
       vty_out (vty, ", Speaks: %s", nlpid2string (&adj->nlpids));
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
       if (adj->mt_count != 1 || adj->mt_set[0] != ISIS_MT_IPV4_UNICAST)
         {
           vty_outln (vty, "    Topologies:");
@@ -445,7 +445,7 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
           vty_out (vty, ", LAN id: %s.%02x",
               sysid_print (adj->lanid), adj->lanid[ISIS_SYS_ID_LEN]);
 
-        vty_outln (vty, "");
+        vty_out (vty, VTYNL);
         vty_out (vty, "    LAN Priority: %u", adj->prio[adj->level - 1]);
 
         vty_out (vty, ", %s, DIS flaps: %u, Last: %s ago",
@@ -455,7 +455,7 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
               (adj->dis_record[ISIS_LEVELS + level - 1].
                last_dis_change)));
       }
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
 
       if (adj->area_addrs && listcount (adj->area_addrs) > 0)
         {
@@ -480,7 +480,7 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
 	      vty_outln (vty, "      %s", ip6);
 	    }
 	}
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
     }
   return;
 }

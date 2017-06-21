@@ -4788,7 +4788,7 @@ show_ip_ospf_database_header (struct vty *vty, struct ospf_lsa *lsa)
 		 IS_ROUTER_LSA_VIRTUAL (rlsa) ? " VL-endpoint" : "",
 		 IS_ROUTER_LSA_SHORTCUT (rlsa) ? " Shortcut" : "");
 
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
     }
   vty_outln (vty, "  LS Type: %s",
              lookup_msg(ospf_lsa_type_msg, lsa->data->type, NULL));

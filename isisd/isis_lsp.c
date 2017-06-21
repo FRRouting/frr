@@ -1079,7 +1079,7 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
   for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.mt_ipv4_reachs, lnode, mt_ipv4_reachs))
     lsp_print_mt_ipv4_reach(mt_ipv4_reachs->list, vty, mt_ipv4_reachs->mtid);
 
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
 
   return;
 }

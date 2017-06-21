@@ -1561,7 +1561,7 @@ rtadv_config_write (struct vty *vty, struct interface *ifp)
 	vty_out (vty, " no-autoconfig");
       if (rprefix->AdvRouterAddressFlag)
 	vty_out (vty, " router-address");
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
     }
 }
 

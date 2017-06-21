@@ -444,7 +444,7 @@ bgp_show_nexthops (struct vty *vty, struct bgp *bgp, int detail)
 		}
 	      tbuf = time(NULL) - (bgp_clock() - bnc->last_update);
 	      vty_out (vty, "  Last update: %s", ctime(&tbuf));
-	      vty_outln (vty, "");
+	      vty_out (vty, VTYNL);
 	    }
 	}
     }

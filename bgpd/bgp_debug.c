@@ -254,7 +254,7 @@ bgp_debug_list_print (struct vty *vty, const char *desc, struct list *list)
         }
     }
 
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
 }
 
 /* Print the command to enable the debug for each peer/prefix this debug is
@@ -1747,7 +1747,7 @@ DEFUN (show_debugging_bgp,
 
   if (BGP_DEBUG (allow_martians, ALLOW_MARTIANS))
     vty_outln (vty, "  BGP allow martian next hop debugging is on");
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
   return CMD_SUCCESS;
 }
 

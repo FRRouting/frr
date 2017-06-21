@@ -1922,7 +1922,7 @@ rip_interface_config_write (struct vty *vty)
             vty_out (vty, " auth-length old-ripd");
           else 
             vty_out (vty, " auth-length rfc");
-          vty_outln (vty, "");
+          vty_out (vty, VTYNL);
         }
 
       if (ri->auth_str)

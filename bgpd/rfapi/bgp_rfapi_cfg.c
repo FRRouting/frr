@@ -2623,7 +2623,7 @@ bgp_rfapi_delete_nve_group (
             vty_out (vty, " un=");
           rfapiPrintRfapiIpAddr (vty, &rfd->un_addr);
           if (vty)
-            vty_outln (vty, "");
+            vty_out (vty, VTYNL);
         }
       list_delete (orphaned_nves);
     }
@@ -4463,7 +4463,7 @@ bgp_rfapi_cfg_write (struct vty *vty, struct bgp *bgp)
                   {
                     vty_out (vty, "%hu ", (uint16_t) ((uintptr_t) data));
                   }
-                vty_outln (vty, "");
+                vty_out (vty, VTYNL);
               }
 
             if (rfg->rt_import_list && rfg->rt_export_list &&
@@ -4550,7 +4550,7 @@ bgp_rfapi_cfg_write (struct vty *vty, struct bgp *bgp)
               vty_out (vty, "%d", hc->default_response_lifetime);
             else
               vty_out (vty, "infinite");
-            vty_outln (vty, "");
+            vty_out (vty, VTYNL);
           }
         if (hc->default_rt_import_list && hc->default_rt_export_list &&
             ecommunity_cmp (hc->default_rt_import_list,
@@ -4665,7 +4665,7 @@ bgp_rfapi_cfg_write (struct vty *vty, struct bgp *bgp)
               vty_out (vty, "%d", rfg->response_lifetime);
             else
               vty_out (vty, "infinite");
-            vty_outln (vty, "");
+            vty_out (vty, VTYNL);
           }
 
         if (rfg->rt_import_list && rfg->rt_export_list &&
@@ -5035,7 +5035,7 @@ bgp_rfapi_show_summary (struct bgp *bgp, struct vty *vty)
            (hc->rfp_cfg.ftd_advertisement_interval == RFAPI_RFP_CFG_DEFAULT_FTD_ADVERTISEMENT_INTERVAL ? "(default)" : ""));
   vty_outln (vty, "%-39s %d seconds", "Default RFP response lifetime:",
            hc->default_response_lifetime);
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
   return;
 }
 

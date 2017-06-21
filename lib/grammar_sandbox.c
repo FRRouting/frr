@@ -418,14 +418,14 @@ DEFUN (grammar_findambig,
                        prev->el->string);
             vty_outln (vty, "  %s%s   '%s'", cur->el->name,  VTYNL,
                        cur->el->string);
-            vty_outln (vty, "");
+            vty_out (vty, VTYNL);
             ambig++;
           }
         prev = cur;
       }
     list_delete (commands);
 
-    vty_outln (vty, "");
+    vty_out (vty, VTYNL);
   } while (scan && scannode < LINK_PARAMS_NODE);
 
   vty_outln (vty, "%d ambiguous commands found.", ambig);
@@ -543,7 +543,7 @@ pretty_print_graph (struct vty *vty, struct graph_node *start, int level,
   if (numto)
     {
       if (numto > 1)
-        vty_outln (vty, "");
+        vty_out (vty, VTYNL);
       for (unsigned int i = 0; i < vector_active (start->to); i++)
         {
           struct graph_node *adj = vector_slot (start->to, i);
@@ -569,7 +569,7 @@ pretty_print_graph (struct vty *vty, struct graph_node *start, int level,
        }
     }
   else
-    vty_outln (vty, "");
+    vty_out (vty, VTYNL);
 }
 
 static void

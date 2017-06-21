@@ -699,7 +699,7 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
                                      rd_vnc_eth.macaddr.octet[4],
                                      rd_vnc_eth.macaddr.octet[5]);
 #endif
-		          vty_outln (vty, "");
+		          vty_out (vty, VTYNL);
                         }
 		      rd_header = 0;
 		    }

@@ -2201,7 +2201,7 @@ ospf_apiserver_show_info (struct vty *vty, struct ospf_lsa *lsa)
 	{
 	  vty_out (vty, "0x%x ", olsa->data[i]);
 	}
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
     }
   else
     {

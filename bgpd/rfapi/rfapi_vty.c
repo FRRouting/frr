@@ -2516,7 +2516,7 @@ register_add (
          }
 
        vnc_zlog_debug_verbose ("%s: rfapi_register failed", __func__);
-       vty_outln (vty, "");
+       vty_out (vty, VTYNL);
        vty_outln (vty, "Registration failed.");
        vty_outln (vty,
                 "Confirm that either the VN or UN address matches a configured NVE group.");
@@ -4465,10 +4465,10 @@ rfapi_vty_show_nve_summary (struct vty *vty, show_nve_summary_t show_type)
                        h->stat.count_registrations_failed);
               vty_out (vty, "%-8s %-8u", "Total:",
                        h->stat.count_registrations);
-              vty_outln (vty, "");
+              vty_out (vty, VTYNL);
             }
           vty_out (vty, "%-24s ", "Prefixes registered:");
-          vty_outln (vty, "");
+          vty_out (vty, VTYNL);
 
           rfapiCountAllItRoutes (&active_local_routes,
                                  &active_remote_routes,
@@ -4480,16 +4480,16 @@ rfapi_vty_show_nve_summary (struct vty *vty, show_nve_summary_t show_type)
             {
               vty_out (vty, "    %-20s ", "Locally:");
               vty_out (vty, "%-8s %-8u ", "Active:", active_local_routes);
-              vty_outln (vty, "");
+              vty_out (vty, VTYNL);
             }
 
 
           vty_out (vty, "    %-20s ", "Remotely:");
           vty_out (vty, "%-8s %-8u", "Active:", active_remote_routes);
-          vty_outln (vty, "");
+          vty_out (vty, VTYNL);
           vty_out (vty, "    %-20s ", "In Holddown:");
           vty_out (vty, "%-8s %-8u", "Active:", holddown_remote_routes);
-          vty_outln (vty, "");
+          vty_out (vty, VTYNL);
           vty_out (vty, "    %-20s ", "Imported:");
           vty_out (vty, "%-8s %-8u", "Active:", imported_remote_routes);
           break;
@@ -4508,7 +4508,7 @@ rfapi_vty_show_nve_summary (struct vty *vty, show_nve_summary_t show_type)
         default:
           break;
         }
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
     }
   return 0;
 
@@ -4622,7 +4622,7 @@ DEFUN (vnc_show_summary,
   if (!check_and_display_is_vnc_running (vty))
     return CMD_SUCCESS;
   bgp_rfapi_show_summary (bgp_get_default (), vty);
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
   rfapi_vty_show_nve_summary (vty, SHOW_NVE_SUMMARY_ACTIVE_NVES);
   rfapi_vty_show_nve_summary (vty, SHOW_NVE_SUMMARY_QUERIES);
   rfapi_vty_show_nve_summary (vty, SHOW_NVE_SUMMARY_RESPONSES);
@@ -4719,7 +4719,7 @@ rfapi_show_registrations (
     }
   if (!printed)
     {
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
     }
 }
 

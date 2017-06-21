@@ -1635,7 +1635,7 @@ vty_show_ip_route_summary (struct vty *vty, struct route_table *table)
   vty_outln (vty, "------");
   vty_outln (vty, "%-20s %-20d %-20d ", "Totals", rib_cnt[ZEBRA_ROUTE_TOTAL],
            fib_cnt[ZEBRA_ROUTE_TOTAL]);
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
 }
 
 /*
@@ -1713,7 +1713,7 @@ vty_show_ip_route_summary_prefix (struct vty *vty, struct route_table *table)
   vty_outln (vty, "------");
   vty_outln (vty, "%-20s %-20d %-20d ", "Totals", rib_cnt[ZEBRA_ROUTE_TOTAL],
 	   fib_cnt[ZEBRA_ROUTE_TOTAL]);
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
 }
 
 /* Show route summary.  */
@@ -1966,7 +1966,7 @@ static_config (struct vty *vty, afi_t afi, safi_t safi, const char *cmd)
                        mpls_label2str (si->snh_label.num_labels,
                                        si->snh_label.label, buf, sizeof buf, 0));
 
-            vty_outln (vty, "");
+            vty_out (vty, VTYNL);
 
             write = 1;
           }
@@ -3057,7 +3057,7 @@ DEFUN (show_vrf,
        vty_out (vty, "inactive");
      else
        vty_out (vty, "id %u table %u", zvrf_id (zvrf), zvrf->table_id);
-     vty_outln (vty, "");
+     vty_out (vty, VTYNL);
 
     }
 

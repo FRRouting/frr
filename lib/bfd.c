@@ -461,7 +461,7 @@ bfd_show_info(struct vty *vty, struct bfd_info *bfd_info, int multihop,
   if (use_json)
     json_object_object_add(json_obj, "peerBfdInfo", json_bfd);
   else
-    vty_outln (vty, "");
+    vty_out (vty, VTYNL);
 }
 
 /*

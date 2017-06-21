@@ -868,7 +868,7 @@ static int interface_config_write(struct vty *vty)
 			if (nifp->ipsec_fallback_profile)
 				vty_out(vty, " fallback-profile %s",
 					nifp->ipsec_fallback_profile);
-			vty_outln (vty, "");
+			vty_out (vty, VTYNL);
 		}
 		if (nifp->source)
 			vty_outln (vty, " tunnel source %s",

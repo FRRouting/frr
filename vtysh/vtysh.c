@@ -814,7 +814,7 @@ vtysh_rl_describe (void)
                     fprintf (stdout, " %s", item);
                     XFREE (MTYPE_COMPLETION, item);
                   }
-                vty_outln (vty, "");
+                vty_out (vty, VTYNL);
               }
             vector_free (varcomps);
           }
@@ -2806,7 +2806,7 @@ DEFUN (vtysh_show_daemons,
   for (i = 0; i < array_size(vtysh_client); i++)
     if ( vtysh_client[i].fd >= 0 )
       vty_out(vty, " %s", vtysh_client[i].name);
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
 
   return CMD_SUCCESS;
 }

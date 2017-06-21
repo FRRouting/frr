@@ -861,7 +861,7 @@ ospf6_show (struct vty *vty, struct ospf6 *o)
 	vty_outln (vty, " Adjacency changes are logged");
     }
 
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
 
   for (ALL_LIST_ELEMENTS_RO (o->area_list, n, oa))
     ospf6_area_show (vty, oa);
@@ -992,7 +992,7 @@ ospf6_distance_config_write (struct vty *vty)
       if (ospf6->distance_external)
         vty_out (vty, " external %u", ospf6->distance_external);
 
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
     }
 
   for (rn = route_top (ospf6->distance_table); rn; rn = route_next (rn))

@@ -2674,7 +2674,7 @@ zebra_show_client_detail (struct vty *vty, struct zserv *client)
   vty_out (vty, "Client: %s", zebra_route_string(client->proto));
   if (client->instance)
     vty_out (vty, " Instance: %d", client->instance);
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
 
   vty_outln (vty, "------------------------ ");
   vty_outln (vty, "FD: %d ", client->sock);
@@ -2705,7 +2705,7 @@ zebra_show_client_detail (struct vty *vty, struct zserv *client)
   if (client->last_write_time)
     vty_outln (vty, "Last Sent Cmd: %s ",
 	     zserv_command_string(client->last_write_cmd));
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
 
   vty_outln (vty, "Type        Add        Update     Del ");
   vty_outln (vty, "================================================== ");
@@ -2724,7 +2724,7 @@ zebra_show_client_detail (struct vty *vty, struct zserv *client)
   vty_outln (vty, "Interface Up Notifications: %d",client->ifup_cnt);
   vty_outln (vty, "Interface Down Notifications: %d",client->ifdown_cnt);
 
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
   return;
 }
 

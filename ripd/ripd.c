@@ -3534,7 +3534,7 @@ DEFUN (show_ip_rip,
 	    vty_out (vty, "%3"ROUTE_TAG_PRI, (route_tag_t)rinfo->tag);
 	  }
 
-	vty_outln (vty, "");
+	vty_out (vty, VTYNL);
       }
   return CMD_SUCCESS;
 }
@@ -3576,7 +3576,7 @@ DEFUN (show_ip_rip_status,
   /* Redistribute information. */
   vty_out (vty, "  Redistributing:");
   config_write_rip_redistribute (vty, 0);
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
 
   vty_out (vty, "  Default version control: send version %s,",
 	   lookup_msg(ri_version_msg,rip->version_send, NULL));

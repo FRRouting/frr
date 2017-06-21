@@ -1727,7 +1727,7 @@ filter_show (struct vty *vty, const char *name, afi_t afi)
 		  vty_out (vty, " %s", inet_ntoa (filter->addr));
 		  if (filter->addr_mask.s_addr != 0)
 		    vty_out (vty, ", wildcard bits %s", inet_ntoa (filter->addr_mask));
-		  vty_outln (vty, "");
+		  vty_out (vty, VTYNL);
 		}
 	    }
 	}
@@ -1770,7 +1770,7 @@ filter_show (struct vty *vty, const char *name, afi_t afi)
 		  vty_out (vty, " %s", inet_ntoa (filter->addr));
 		  if (filter->addr_mask.s_addr != 0)
 		    vty_out (vty, ", wildcard bits %s", inet_ntoa (filter->addr_mask));
-		  vty_outln (vty, "");
+		  vty_out (vty, VTYNL);
 		}
 	    }
 	}
@@ -1855,7 +1855,7 @@ config_write_access_cisco (struct vty *vty, struct filter *mfilter)
 	  vty_out (vty, " %s", inet_ntoa (filter->mask));
 	  vty_out (vty, " %s", inet_ntoa (filter->mask_mask));
 	}
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
     }
   else
     {
@@ -1866,7 +1866,7 @@ config_write_access_cisco (struct vty *vty, struct filter *mfilter)
 	  vty_out (vty, " %s", inet_ntoa (filter->addr));
 	  if (filter->addr_mask.s_addr != 0)
 	    vty_out (vty, " %s", inet_ntoa (filter->addr_mask));
-	  vty_outln (vty, "");
+	  vty_out (vty, VTYNL);
 	}
     }
 }
@@ -1889,7 +1889,7 @@ config_write_access_zebra (struct vty *vty, struct filter *mfilter)
 	     p->prefixlen,
 	     filter->exact ? " exact-match" : "");
 
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
 }
 
 static int

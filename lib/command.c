@@ -463,7 +463,7 @@ config_write_host (struct vty *vty)
       if (zlog_default->maxlvl[ZLOG_DEST_FILE] != zlog_default->default_lvl)
         vty_out (vty, " %s",
                  zlog_priority[zlog_default->maxlvl[ZLOG_DEST_FILE]]);
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
     }
 
   if (zlog_default->maxlvl[ZLOG_DEST_STDOUT] != ZLOG_DISABLED)
@@ -472,7 +472,7 @@ config_write_host (struct vty *vty)
       if (zlog_default->maxlvl[ZLOG_DEST_STDOUT] != zlog_default->default_lvl)
         vty_out (vty, " %s",
                  zlog_priority[zlog_default->maxlvl[ZLOG_DEST_STDOUT]]);
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
     }
 
   if (zlog_default->maxlvl[ZLOG_DEST_MONITOR] == ZLOG_DISABLED)
@@ -487,7 +487,7 @@ config_write_host (struct vty *vty)
       if (zlog_default->maxlvl[ZLOG_DEST_SYSLOG] != zlog_default->default_lvl)
         vty_out (vty, " %s",
                  zlog_priority[zlog_default->maxlvl[ZLOG_DEST_SYSLOG]]);
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
     }
 
   if (zlog_default->facility != LOG_DAEMON)
@@ -1421,7 +1421,7 @@ permute (struct graph_node *start, struct vty *vty)
       }
       if (gn == start)
         vty_out (vty, "...");
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
     }
     else
     {
@@ -2012,7 +2012,7 @@ DEFUN (show_logging,
     vty_out (vty, "level %s, facility %s, ident %s",
              zlog_priority[zl->maxlvl[ZLOG_DEST_SYSLOG]],
              facility_name(zl->facility), zl->ident);
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
 
   vty_out (vty, "Stdout logging: ");
   if (zl->maxlvl[ZLOG_DEST_STDOUT] == ZLOG_DISABLED)
@@ -2020,7 +2020,7 @@ DEFUN (show_logging,
   else
     vty_out (vty, "level %s",
              zlog_priority[zl->maxlvl[ZLOG_DEST_STDOUT]]);
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
 
   vty_out (vty, "Monitor logging: ");
   if (zl->maxlvl[ZLOG_DEST_MONITOR] == ZLOG_DISABLED)
@@ -2028,7 +2028,7 @@ DEFUN (show_logging,
   else
     vty_out (vty, "level %s",
              zlog_priority[zl->maxlvl[ZLOG_DEST_MONITOR]]);
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
 
   vty_out (vty, "File logging: ");
   if ((zl->maxlvl[ZLOG_DEST_FILE] == ZLOG_DISABLED) ||
@@ -2038,7 +2038,7 @@ DEFUN (show_logging,
     vty_out (vty, "level %s, filename %s",
              zlog_priority[zl->maxlvl[ZLOG_DEST_FILE]],
              zl->filename);
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
 
   vty_outln (vty, "Protocol name: %s",
            zl->protoname);

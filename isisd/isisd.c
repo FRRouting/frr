@@ -1374,7 +1374,7 @@ DEFUN (show_isis_summary,
 
   vty_out (vty, "Up time         : ");
   vty_out_timestr(vty, isis->uptime);
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
 
   if (isis->area_list)
     vty_outln (vty, "Number of areas : %d",isis->area_list->count);
@@ -1409,12 +1409,12 @@ DEFUN (show_isis_summary,
           area->min_spf_interval[level - 1]);
       if (area->spf_delay_ietf[level - 1])
          vty_out (vty, " (not used, IETF SPF delay activated)");
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
 
       vty_outln (vty, "    IPv4 route computation:");
       vty_out (vty, "      last run elapsed  : ");
       vty_out_timestr(vty, spftree->last_run_timestamp);
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
 
       vty_outln (vty, "      last run duration : %u usec",
                (u_int32_t)spftree->last_run_duration);
@@ -1427,7 +1427,7 @@ DEFUN (show_isis_summary,
 
       vty_out (vty, "      last run elapsed  : ");
       vty_out_timestr(vty, spftree->last_run_timestamp);
-      vty_outln (vty, "");
+      vty_out (vty, VTYNL);
 
       vty_outln (vty, "      last run duration : %llu msec",
                (unsigned long long)spftree->last_run_duration);
@@ -1436,7 +1436,7 @@ DEFUN (show_isis_summary,
           spftree->runcount);
     }
   }
-  vty_outln (vty, "");
+  vty_out (vty, VTYNL);
 
   return CMD_SUCCESS;
 }
@@ -2174,7 +2174,7 @@ isis_config_write (struct vty *vty)
 		else
 		  vty_out(vty, "send-only");
 	      }
-	    vty_outln (vty, "");
+	    vty_out (vty, VTYNL);
 	    write++; 
 	  }
         else if (area->area_passwd.type == ISIS_PASSWD_TYPE_CLEARTXT)
@@ -2188,7 +2188,7 @@ isis_config_write (struct vty *vty)
 		else
 		  vty_out(vty, "send-only");
 	      }
-	    vty_outln (vty, "");
+	    vty_out (vty, VTYNL);
 	    write++; 
           }
 	if (area->domain_passwd.type == ISIS_PASSWD_TYPE_HMAC_MD5)
@@ -2203,7 +2203,7 @@ isis_config_write (struct vty *vty)
 		else
 		  vty_out(vty, "send-only");
 	      }
-	    vty_outln (vty, "");
+	    vty_out (vty, VTYNL);
 	    write++;
 	  }
         else if (area->domain_passwd.type == ISIS_PASSWD_TYPE_CLEARTXT)
@@ -2218,7 +2218,7 @@ isis_config_write (struct vty *vty)
 		else
 		  vty_out(vty, "send-only");
 	      }
-	    vty_outln (vty, "");
+	    vty_out (vty, VTYNL);
 	    write++;
 	  }
 
