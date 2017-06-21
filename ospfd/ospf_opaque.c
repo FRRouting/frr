@@ -1594,7 +1594,6 @@ ospf_opaque_lsa_install (struct ospf_lsa *lsa, int rt_recalc)
         }
       break;
     case OSPF_OPAQUE_AREA_LSA:
-      top = ospf_lookup_by_vrf_id (VRF_DEFAULT);
       if (lsa->area == NULL || (top = lsa->area->ospf) == NULL)
         {
           /* Above conditions must have passed. */
@@ -1603,6 +1602,7 @@ ospf_opaque_lsa_install (struct ospf_lsa *lsa, int rt_recalc)
         }
       break;
     case OSPF_OPAQUE_AS_LSA:
+      top = ospf_lookup_by_vrf_id (VRF_DEFAULT);
       if (lsa->area != NULL && (top = lsa->area->ospf) == NULL)
         {
           /* Above conditions must have passed. */
