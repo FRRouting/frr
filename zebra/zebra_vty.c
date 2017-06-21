@@ -2300,89 +2300,100 @@ DEFUN (show_vrf,
 
 DEFUN (show_evpn_vni,
        show_evpn_vni_cmd,
-       "show evpn vni",
+       "show evpn vni [json]",
        SHOW_STR
        "EVPN\n"
-       "VxLAN information\n")
+       "VxLAN information\n"
+       "JavaScript Object Notation\n")
 {
 	struct zebra_vrf *zvrf;
+	u_char uj = use_json(argc, argv);
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	zebra_vxlan_print_vnis(vty, zvrf);
+	zebra_vxlan_print_vnis(vty, zvrf, uj);
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_evpn_vni_vni,
        show_evpn_vni_vni_cmd,
-       "show evpn vni " CMD_VNI_RANGE,
+       "show evpn vni " CMD_VNI_RANGE "[json]",
        SHOW_STR
        "EVPN\n"
        "VxLAN Network Identifier\n"
-       "VNI number\n")
+       "VNI number\n"
+       "JavaScript Object Notation\n")
 {
 	struct zebra_vrf *zvrf;
 	vni_t vni;
+	u_char uj = use_json(argc, argv);
 
 	vni = strtoul(argv[3]->arg, NULL, 10);
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	zebra_vxlan_print_vni(vty, zvrf, vni);
+	zebra_vxlan_print_vni(vty, zvrf, vni, uj);
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_evpn_mac_vni,
        show_evpn_mac_vni_cmd,
-       "show evpn mac vni " CMD_VNI_RANGE,
+       "show evpn mac vni " CMD_VNI_RANGE "[json]",
        SHOW_STR
        "EVPN\n"
        "MAC addresses\n"
        "VxLAN Network Identifier\n"
-       "VNI number\n")
+       "VNI number\n"
+       "JavaScript Object Notation\n")
 {
 	struct zebra_vrf *zvrf;
 	vni_t vni;
+	u_char uj = use_json(argc, argv);
 
 	vni = strtoul(argv[4]->arg, NULL, 10);
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	zebra_vxlan_print_macs_vni(vty, zvrf, vni);
+	zebra_vxlan_print_macs_vni(vty, zvrf, vni, uj);
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_evpn_mac_vni_all,
        show_evpn_mac_vni_all_cmd,
-       "show evpn mac vni all",
+       "show evpn mac vni all [json]",
        SHOW_STR
        "EVPN\n"
        "MAC addresses\n"
        "VxLAN Network Identifier\n"
-       "All VNIs\n")
+       "All VNIs\n"
+       "JavaScript Object Notation\n")
 {
 	struct zebra_vrf *zvrf;
+	u_char uj = use_json(argc, argv);
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	zebra_vxlan_print_macs_all_vni(vty, zvrf);
+	zebra_vxlan_print_macs_all_vni(vty, zvrf, uj);
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_evpn_mac_vni_all_vtep,
        show_evpn_mac_vni_all_vtep_cmd,
-       "show evpn mac vni all vtep A.B.C.D",
+       "show evpn mac vni all vtep A.B.C.D [json]",
        SHOW_STR
        "EVPN\n"
        "MAC addresses\n"
        "VxLAN Network Identifier\n"
        "All VNIs\n"
        "Remote VTEP\n"
-       "Remote VTEP IP address\n")
+       "Remote VTEP IP address\n"
+       "JavaScript Object Notation\n")
 {
 	struct zebra_vrf *zvrf;
 	struct in_addr vtep_ip;
+	u_char uj = use_json(argc, argv);
 
 	if (!inet_aton(argv[6]->arg, &vtep_ip)) {
-		vty_out(vty, "%% Malformed VTEP IP address\n");
+		if (!uj)
+			vty_out(vty, "%% Malformed VTEP IP address\n");
 		return CMD_WARNING;
 	}
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	zebra_vxlan_print_macs_all_vni_vtep(vty, zvrf, vtep_ip);
+	zebra_vxlan_print_macs_all_vni_vtep(vty, zvrf, vtep_ip, uj);
 
 	return CMD_SUCCESS;
 }
@@ -2415,112 +2426,125 @@ DEFUN (show_evpn_mac_vni_mac,
 
 DEFUN (show_evpn_mac_vni_vtep,
        show_evpn_mac_vni_vtep_cmd,
-       "show evpn mac vni " CMD_VNI_RANGE " vtep A.B.C.D",
+       "show evpn mac vni " CMD_VNI_RANGE " vtep A.B.C.D" "[json]",
        SHOW_STR
        "EVPN\n"
        "MAC addresses\n"
        "VxLAN Network Identifier\n"
        "VNI number\n"
        "Remote VTEP\n"
-       "Remote VTEP IP address\n")
+       "Remote VTEP IP address\n"
+       "JavaScript Object Notation\n")
 {
 	struct zebra_vrf *zvrf;
 	vni_t vni;
 	struct in_addr vtep_ip;
+	u_char uj = use_json(argc, argv);
 
 	vni = strtoul(argv[4]->arg, NULL, 10);
 	if (!inet_aton(argv[6]->arg, &vtep_ip)) {
-		vty_out(vty, "%% Malformed VTEP IP address\n");
+		if (!uj)
+			vty_out(vty, "%% Malformed VTEP IP address\n");
 		return CMD_WARNING;
 	}
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	zebra_vxlan_print_macs_vni_vtep(vty, zvrf, vni, vtep_ip);
+	zebra_vxlan_print_macs_vni_vtep(vty, zvrf, vni, vtep_ip, uj);
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_evpn_neigh_vni,
        show_evpn_neigh_vni_cmd,
-       "show evpn arp-cache vni " CMD_VNI_RANGE,
+       "show evpn arp-cache vni " CMD_VNI_RANGE "[json]",
        SHOW_STR
        "EVPN\n"
        "ARP and ND cache\n"
        "VxLAN Network Identifier\n"
-       "VNI number\n")
+       "VNI number\n"
+       "JavaScript Object Notation\n")
 {
 	struct zebra_vrf *zvrf;
 	vni_t vni;
+	u_char uj = use_json(argc, argv);
 
 	vni = strtoul(argv[4]->arg, NULL, 10);
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	zebra_vxlan_print_neigh_vni(vty, zvrf, vni);
+	zebra_vxlan_print_neigh_vni(vty, zvrf, vni, uj);
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_evpn_neigh_vni_all,
        show_evpn_neigh_vni_all_cmd,
-       "show evpn arp-cache vni all",
+       "show evpn arp-cache vni all [json]",
        SHOW_STR
        "EVPN\n"
        "ARP and ND cache\n"
        "VxLAN Network Identifier\n"
-       "All VNIs\n")
+       "All VNIs\n"
+       "JavaScript Object Notation\n")
 {
 	struct zebra_vrf *zvrf;
+	u_char uj = use_json(argc, argv);
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	zebra_vxlan_print_neigh_all_vni(vty, zvrf);
+	zebra_vxlan_print_neigh_all_vni(vty, zvrf, uj);
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_evpn_neigh_vni_neigh,
        show_evpn_neigh_vni_neigh_cmd,
-       "show evpn arp-cache vni " CMD_VNI_RANGE " ip WORD",
+       "show evpn arp-cache vni " CMD_VNI_RANGE " ip WORD [json]",
        SHOW_STR
        "EVPN\n"
        "ARP and ND cache\n"
        "VxLAN Network Identifier\n"
        "VNI number\n"
        "Neighbor\n"
-       "Neighbor address (IPv4 or IPv6 address)\n")
+       "Neighbor address (IPv4 or IPv6 address)\n"
+       "JavaScript Object Notation\n")
 {
 	struct zebra_vrf *zvrf;
 	vni_t vni;
 	struct ipaddr ip;
+	u_char uj = use_json(argc, argv);
 
 	vni = strtoul(argv[4]->arg, NULL, 10);
 	if (str2ipaddr(argv[6]->arg, &ip) != 0) {
-		vty_out(vty, "%% Malformed Neighbor address\n");
+		if (!uj)
+			vty_out(vty, "%% Malformed Neighbor address\n");
 		return CMD_WARNING;
 	}
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	zebra_vxlan_print_specific_neigh_vni(vty, zvrf, vni, &ip);
+	zebra_vxlan_print_specific_neigh_vni(vty, zvrf, vni, &ip, uj);
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_evpn_neigh_vni_vtep,
        show_evpn_neigh_vni_vtep_cmd,
-       "show evpn arp-cache vni " CMD_VNI_RANGE " vtep A.B.C.D",
+       "show evpn arp-cache vni " CMD_VNI_RANGE " vtep A.B.C.D [json]",
        SHOW_STR
        "EVPN\n"
        "ARP and ND cache\n"
        "VxLAN Network Identifier\n"
        "VNI number\n"
        "Remote VTEP\n"
-       "Remote VTEP IP address\n")
+       "Remote VTEP IP address\n"
+       "JavaScript Object Notation\n")
 {
 	struct zebra_vrf *zvrf;
 	vni_t vni;
 	struct in_addr vtep_ip;
+	u_char uj = use_json(argc, argv);
 
 	vni = strtoul(argv[4]->arg, NULL, 10);
 	if (!inet_aton(argv[6]->arg, &vtep_ip)) {
-		vty_out(vty, "%% Malformed VTEP IP address\n");
+		if (!uj)
+			vty_out(vty, "%% Malformed VTEP IP address\n");
 		return CMD_WARNING;
 	}
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
-	zebra_vxlan_print_neigh_vni_vtep(vty, zvrf, vni, vtep_ip);
+	zebra_vxlan_print_neigh_vni_vtep(vty, zvrf, vni, vtep_ip, uj);
 	return CMD_SUCCESS;
 }
 

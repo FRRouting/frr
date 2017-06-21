@@ -41,32 +41,41 @@
 #define ZEBRA_VXLIF_MASTER_CHANGE       0x2
 #define ZEBRA_VXLIF_VLAN_CHANGE         0x4
 
+#define VNI_STR_LEN 32
+
 extern void zebra_vxlan_print_macs_vni(struct vty *vty, struct zebra_vrf *zvrf,
-				       vni_t vni);
+				       vni_t vni, u_char use_json);
 extern void zebra_vxlan_print_macs_all_vni(struct vty *vty,
-					   struct zebra_vrf *zvrf);
+					   struct zebra_vrf *zvrf,
+					   u_char use_json);
 extern void zebra_vxlan_print_macs_all_vni_vtep(struct vty *vty,
 						struct zebra_vrf *zvrf,
-						struct in_addr vtep_ip);
+						struct in_addr vtep_ip,
+						u_char use_json);
 extern void zebra_vxlan_print_specific_mac_vni(struct vty *vty,
 					       struct zebra_vrf *zvrf,
 					       vni_t vni, struct ethaddr *mac);
 extern void zebra_vxlan_print_macs_vni_vtep(struct vty *vty,
 					    struct zebra_vrf *zvrf, vni_t vni,
-					    struct in_addr vtep_ip);
+					    struct in_addr vtep_ip,
+					    u_char use_json);
 extern void zebra_vxlan_print_neigh_vni(struct vty *vty, struct zebra_vrf *zvrf,
-					vni_t vni);
+					vni_t vni, u_char use_json);
 extern void zebra_vxlan_print_neigh_all_vni(struct vty *vty,
-					    struct zebra_vrf *zvrf);
+					    struct zebra_vrf *zvrf,
+					    u_char use_json);
 extern void zebra_vxlan_print_specific_neigh_vni(struct vty *vty,
 						 struct zebra_vrf *zvrf,
-						 vni_t vni, struct ipaddr *ip);
+						 vni_t vni, struct ipaddr *ip,
+						 u_char use_json);
 extern void zebra_vxlan_print_neigh_vni_vtep(struct vty *vty,
 					     struct zebra_vrf *zvrf, vni_t vni,
-					     struct in_addr vtep_ip);
+					     struct in_addr vtep_ip,
+					     u_char use_json);
 extern void zebra_vxlan_print_vni(struct vty *vty, struct zebra_vrf *zvrf,
-				  vni_t vni);
-extern void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf);
+				  vni_t vni, u_char use_json);
+extern void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf,
+				   u_char use_json);
 
 extern int zebra_vxlan_add_del_gw_macip(struct interface *ifp, struct prefix *p,
 					int add);

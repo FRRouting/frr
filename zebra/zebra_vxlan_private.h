@@ -135,8 +135,9 @@ struct mac_walk_ctx {
 
 	struct in_addr r_vtep_ip; /* To walk MACs from specific VTEP */
 
-	struct vty *vty; /* Used by VTY handlers */
-	u_int32_t count; /* Used by VTY handlers */
+	struct vty *vty;	  /* Used by VTY handlers */
+	u_int32_t count;	  /* Used by VTY handlers */
+	struct json_object *json; /* Used for JSON Output */
 };
 
 /*
@@ -186,9 +187,10 @@ struct neigh_walk_ctx {
 
 	struct in_addr r_vtep_ip; /* To walk neighbors from specific VTEP */
 
-	struct vty *vty;   /* Used by VTY handlers */
-	u_int32_t count;   /* Used by VTY handlers */
-	u_char addr_width; /* Used by VTY handlers */
+	struct vty *vty;	  /* Used by VTY handlers */
+	u_int32_t count;	  /* Used by VTY handlers */
+	u_char addr_width;	/* Used by VTY handlers */
+	struct json_object *json; /* Used for JSON Output */
 };
 
 #endif /* _ZEBRA_VXLAN_PRIVATE_H */
