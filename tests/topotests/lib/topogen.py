@@ -103,7 +103,7 @@ class Topogen(object):
         for gear in self.gears.values():
             gear.net = self.net
 
-    def add_router(self, name=None, cls=topotest.Router):
+    def add_router(self, name=None, cls=topotest.Router, **params):
         """
         Adds a new router to the topology. This function has the following
         options:
@@ -115,7 +115,7 @@ class Topogen(object):
         if name in self.gears:
             raise KeyError('router already exists')
 
-        self.gears[name] = TopoRouter(self, cls, name)
+        self.gears[name] = TopoRouter(self, cls, name, **params)
         self.routern += 1
         return self.gears[name]
 
@@ -282,14 +282,15 @@ class TopoRouter(TopoGear):
         RD_LDP: 'ldpd',
     }
 
-    def __init__(self, tgen, cls, name):
+    def __init__(self, tgen, cls, name, **params):
         super(TopoRouter, self).__init__()
         self.tgen = tgen
         self.net = None
         self.name = name
         self.cls = cls
-        self.tgen.topo.addNode(self.name, cls=self.cls,
-                               privateDirs=self.PRIVATE_DIRS)
+        if not params.has_key('privateDirs'):
+            params['privateDirs'] = self.PRIVATE_DIRS
+        self.tgen.topo.addNode(self.name, cls=self.cls, **params)
 
     def load_config(self, daemon, source=None):
         """
