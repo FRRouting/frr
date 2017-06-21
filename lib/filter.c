@@ -91,6 +91,14 @@ struct access_master {
 };
 
 /* Static structure for IPv4 access_list's master. */
+static struct access_master access_master_mac = {
+	{NULL, NULL},
+	{NULL, NULL},
+	NULL,
+	NULL,
+};
+
+/* Static structure for IPv4 access_list's master. */
 static struct access_master access_master_ipv4 = {
 	{NULL, NULL},
 	{NULL, NULL},
@@ -112,6 +120,8 @@ static struct access_master *access_master_get(afi_t afi)
 		return &access_master_ipv4;
 	else if (afi == AFI_IP6)
 		return &access_master_ipv6;
+	else if (afi == AFI_L2VPN)
+		return &access_master_mac;
 	return NULL;
 }
 
@@ -146,6 +156,25 @@ static const char *filter_type_str(struct filter *filter)
 	}
 }
 
+/*
+ * mac filter match
+ * n is of type struct prefix_eth
+ * p can be of type struct ethaddr
+ */
+static int mac_filter_match(struct prefix *n, struct ethaddr *p)
+{
+	if (!n && !p)
+		return 1;
+
+	if (!n || !p)
+		return 0;
+
+	if (memcmp(&(n->u.prefix), p, sizeof(struct ethaddr)) == 0)
+		return 1;
+
+	return 0;
+}
+
 /* If filter match to the prefix then return 1. */
 static int filter_match_cisco(struct filter *mfilter, struct prefix *p)
 {
@@ -171,22 +200,37 @@ static int filter_match_cisco(struct filter *mfilter, struct prefix *p)
 }
 
 /* If filter match to the prefix then return 1. */
-static int filter_match_zebra(struct filter *mfilter, struct prefix *p)
+static int filter_match_zebra(struct filter *mfilter, void *obj)
 {
-	struct filter_zebra *filter;
+	struct filter_zebra *filter = NULL;
 
 	filter = &mfilter->u.zfilter;
 
-	if (filter->prefix.family == p->family) {
-		if (filter->exact) {
-			if (filter->prefix.prefixlen == p->prefixlen)
+	if (filter->prefix.family == AF_ETHERNET) {
+		struct ethaddr *p = NULL;
+
+		p = (struct ethaddr *)obj;
+		return mac_filter_match(&filter->prefix, p);
+	}
+
+	if (filter->prefix.family == AF_INET
+	    || filter->prefix.family == AF_INET6) {
+		struct prefix *p = NULL;
+
+		p = (struct prefix *)obj;
+		if (filter->prefix.family == p->family) {
+			if (filter->exact) {
+				if (filter->prefix.prefixlen == p->prefixlen)
+					return prefix_match(&filter->prefix, p);
+				else
+					return 0;
+			} else
 				return prefix_match(&filter->prefix, p);
-			else
-				return 0;
 		} else
-			return prefix_match(&filter->prefix, p);
-	} else
-		return 0;
+			return 0;
+	}
+
+	return 0;
 }
 
 /* Allocate new access list structure. */
@@ -377,7 +421,7 @@ enum filter_type access_list_apply(struct access_list *access, void *object)
 			if (filter_match_cisco(filter, p))
 				return filter->type;
 		} else {
-			if (filter_match_zebra(filter, p))
+			if (filter_match_zebra(filter, object))
 				return filter->type;
 		}
 	}
@@ -390,6 +434,7 @@ void access_list_add_hook(void (*func)(struct access_list *access))
 {
 	access_master_ipv4.add_hook = func;
 	access_master_ipv6.add_hook = func;
+	access_master_mac.add_hook = func;
 }
 
 /* Delete hook function. */
@@ -397,6 +442,7 @@ void access_list_delete_hook(void (*func)(struct access_list *access))
 {
 	access_master_ipv4.delete_hook = func;
 	access_master_ipv6.delete_hook = func;
+	access_master_mac.delete_hook = func;
 }
 
 /* Add new filter to the end of specified access_list. */
@@ -515,10 +561,18 @@ static struct filter *filter_lookup_zebra(struct access_list *access,
 		filter = &mfilter->u.zfilter;
 
 		if (filter->exact == new->exact
-		    && mfilter->type
-			       == mnew->type &&prefix_same(&filter->prefix,
-							   &new->prefix))
-			return mfilter;
+		    && mfilter->type == mnew->type) {
+			if (new->prefix.family == AF_ETHERNET) {
+				if (prefix_eth_same(
+					    (struct prefix_eth *)&filter
+						    ->prefix,
+					    (struct prefix_eth *)&new->prefix))
+					return mfilter;
+			} else {
+				if (prefix_same(&filter->prefix, &new->prefix))
+					return mfilter;
+			}
+		}
 	}
 	return NULL;
 }
@@ -1252,6 +1306,12 @@ static int filter_set_zebra(struct vty *vty, const char *name_str,
 				"IPv6 address prefix/prefixlen is malformed\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
+	} else if (afi == AFI_L2VPN) {
+		ret = str2prefix_eth(prefix_str, (struct prefix_eth *)&p);
+		if (ret <= 0) {
+			vty_out(vty, "MAC address is malformed\n");
+			return CMD_WARNING;
+		}
 	} else
 		return CMD_WARNING_CONFIG_FAILED;
 
@@ -1274,7 +1334,6 @@ static int filter_set_zebra(struct vty *vty, const char *name_str,
 			access_list_filter_add(access, mfilter);
 	} else {
 		struct filter *delete_filter;
-
 		delete_filter = filter_lookup_zebra(access, mfilter);
 		if (delete_filter)
 			access_list_filter_delete(access, delete_filter);
@@ -1283,6 +1342,64 @@ static int filter_set_zebra(struct vty *vty, const char *name_str,
 	}
 
 	return CMD_SUCCESS;
+}
+
+DEFUN (mac_access_list,
+       mac_access_list_cmd,
+       "mac access-list WORD <deny|permit> MAC",
+       "Add a mac access-list\n"
+       "Add an access list entry\n"
+       "MAC zebra access-list name\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "MAC address to match. e.g. 00:01:00:01:00:01\n")
+{
+	return filter_set_zebra(vty, argv[2]->arg, argv[3]->arg, AFI_L2VPN,
+				argv[4]->arg, 0, 1);
+}
+
+DEFUN (no_mac_access_list,
+       no_mac_access_list_cmd,
+       "no mac access-list WORD <deny|permit> MAC",
+       NO_STR
+       "Remove a mac access-list\n"
+       "Remove an access list entry\n"
+       "MAC zebra access-list name\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "MAC address to match. e.g. 00:01:00:01:00:01\n")
+{
+	return filter_set_zebra(vty, argv[3]->arg, argv[4]->arg, AFI_L2VPN,
+				argv[5]->arg, 0, 0);
+}
+
+DEFUN (mac_access_list_any,
+       mac_access_list_any_cmd,
+       "mac access-list WORD <deny|permit> any",
+       "Add a mac access-list\n"
+       "Add an access list entry\n"
+       "MAC zebra access-list name\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "MAC address to match. e.g. 00:01:00:01:00:01\n")
+{
+	return filter_set_zebra(vty, argv[2]->arg, argv[3]->arg, AFI_L2VPN,
+				"00:00:00:00:00:00", 0, 1);
+}
+
+DEFUN (no_mac_access_list_any,
+       no_mac_access_list_any_cmd,
+       "no mac access-list WORD <deny|permit> any",
+       NO_STR
+       "Remove a mac access-list\n"
+       "Remove an access list entry\n"
+       "MAC zebra access-list name\n"
+       "Specify packets to reject\n"
+       "Specify packets to forward\n"
+       "MAC address to match. e.g. 00:01:00:01:00:01\n")
+{
+	return filter_set_zebra(vty, argv[2]->arg, argv[3]->arg, AFI_L2VPN,
+				"00:00:00:00:00:00", 0, 0);
 }
 
 DEFUN (access_list_exact,
@@ -1666,12 +1783,15 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi)
 			filter = &mfilter->u.cfilter;
 
 			if (write) {
-				vty_out(vty, "%s IP%s access list %s\n",
+				vty_out(vty, "%s %s access list %s\n",
 					mfilter->cisco ? (filter->extended
 								  ? "Extended"
 								  : "Standard")
 						       : "Zebra",
-					afi == AFI_IP6 ? "v6" : "",
+					(afi == AFI_IP)
+						? ("")
+						: ((afi == AFI_IP6) ? ("ipv6 ")
+								    : ("mac ")),
 					access->name);
 				write = 0;
 			}
@@ -1710,12 +1830,15 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi)
 			filter = &mfilter->u.cfilter;
 
 			if (write) {
-				vty_out(vty, "%s IP%s access list %s\n",
+				vty_out(vty, "%s %s access list %s\n",
 					mfilter->cisco ? (filter->extended
 								  ? "Extended"
 								  : "Standard")
 						       : "Zebra",
-					afi == AFI_IP6 ? "v6" : "",
+					(afi == AFI_IP)
+						? ("")
+						: ((afi == AFI_IP6) ? ("ipv6 ")
+								    : ("mac ")),
 					access->name);
 				write = 0;
 			}
@@ -1744,6 +1867,29 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi)
 		}
 	}
 	return CMD_SUCCESS;
+}
+
+/* show MAC access list - this only has MAC filters for now*/
+DEFUN (show_mac_access_list,
+       show_mac_access_list_cmd,
+       "show mac access-list",
+       SHOW_STR
+       "mac access lists\n"
+       "List mac access lists\n")
+{
+	return filter_show(vty, NULL, AFI_L2VPN);
+}
+
+DEFUN (show_mac_access_list_name,
+       show_mac_access_list_name_cmd,
+       "show mac access-list WORD",
+       SHOW_STR
+       "mac\n"
+       "List mac access lists\n"
+       "mac zebra access-list\n"
+       "mac address")
+{
+	return filter_show(vty, argv[3]->arg, AFI_L2VPN);
 }
 
 DEFUN (show_ip_access_list,
@@ -1844,10 +1990,13 @@ void config_write_access_zebra(struct vty *vty, struct filter *mfilter)
 
 	if (p->prefixlen == 0 && !filter->exact)
 		vty_out(vty, " any");
-	else
+	else if (p->family == AF_INET6 || p->family == AF_INET)
 		vty_out(vty, " %s/%d%s",
 			inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
 			p->prefixlen, filter->exact ? " exact-match" : "");
+	else
+		vty_out(vty, " %s",
+			prefix_mac2str(&(p->u.prefix_eth), buf, sizeof(buf)));
 
 	vty_out(vty, "\n");
 }
@@ -1866,15 +2015,19 @@ static int config_write_access(struct vty *vty, afi_t afi)
 	for (access = master->num.head; access; access = access->next) {
 		if (access->remark) {
 			vty_out(vty, "%saccess-list %s remark %s\n",
-				afi == AFI_IP ? "" : "ipv6 ", access->name,
-				access->remark);
+				(afi == AFI_IP) ? ("")
+						: ((afi == AFI_IP6) ? ("ipv6 ")
+								    : ("mac ")),
+				access->name, access->remark);
 			write++;
 		}
 
 		for (mfilter = access->head; mfilter; mfilter = mfilter->next) {
 			vty_out(vty, "%saccess-list %s %s",
-				afi == AFI_IP ? "" : "ipv6 ", access->name,
-				filter_type_str(mfilter));
+				(afi == AFI_IP) ? ("")
+						: ((afi == AFI_IP6) ? ("ipv6 ")
+								    : ("mac ")),
+				access->name, filter_type_str(mfilter));
 
 			if (mfilter->cisco)
 				config_write_access_cisco(vty, mfilter);
@@ -1888,15 +2041,19 @@ static int config_write_access(struct vty *vty, afi_t afi)
 	for (access = master->str.head; access; access = access->next) {
 		if (access->remark) {
 			vty_out(vty, "%saccess-list %s remark %s\n",
-				afi == AFI_IP ? "" : "ipv6 ", access->name,
-				access->remark);
+				(afi == AFI_IP) ? ("")
+						: ((afi == AFI_IP6) ? ("ipv6 ")
+								    : ("mac ")),
+				access->name, access->remark);
 			write++;
 		}
 
 		for (mfilter = access->head; mfilter; mfilter = mfilter->next) {
 			vty_out(vty, "%saccess-list %s %s",
-				afi == AFI_IP ? "" : "ipv6 ", access->name,
-				filter_type_str(mfilter));
+				(afi == AFI_IP) ? ("")
+						: ((afi == AFI_IP6) ? ("ipv6 ")
+								    : ("mac ")),
+				access->name, filter_type_str(mfilter));
 
 			if (mfilter->cisco)
 				config_write_access_cisco(vty, mfilter);
@@ -1907,6 +2064,56 @@ static int config_write_access(struct vty *vty, afi_t afi)
 		}
 	}
 	return write;
+}
+
+static struct cmd_node access_mac_node = {
+	ACCESS_MAC_NODE, "", /* Access list has no interface. */
+	1};
+
+static int config_write_access_mac(struct vty *vty)
+{
+	return config_write_access(vty, AFI_L2VPN);
+}
+
+static void access_list_reset_mac(void)
+{
+	struct access_list *access;
+	struct access_list *next;
+	struct access_master *master;
+
+	master = access_master_get(AFI_L2VPN);
+	if (master == NULL)
+		return;
+
+	for (access = master->num.head; access; access = next) {
+		next = access->next;
+		access_list_delete(access);
+	}
+	for (access = master->str.head; access; access = next) {
+		next = access->next;
+		access_list_delete(access);
+	}
+
+	assert(master->num.head == NULL);
+	assert(master->num.tail == NULL);
+
+	assert(master->str.head == NULL);
+	assert(master->str.tail == NULL);
+}
+
+/* Install vty related command. */
+static void access_list_init_mac(void)
+{
+	install_node(&access_mac_node, config_write_access_mac);
+
+	install_element(ENABLE_NODE, &show_mac_access_list_cmd);
+	install_element(ENABLE_NODE, &show_mac_access_list_name_cmd);
+
+	/* Zebra access-list */
+	install_element(CONFIG_NODE, &mac_access_list_cmd);
+	install_element(CONFIG_NODE, &no_mac_access_list_cmd);
+	install_element(CONFIG_NODE, &mac_access_list_any_cmd);
+	install_element(CONFIG_NODE, &no_mac_access_list_any_cmd);
 }
 
 /* Access-list node. */
@@ -2050,10 +2257,12 @@ void access_list_init()
 {
 	access_list_init_ipv4();
 	access_list_init_ipv6();
+	access_list_init_mac();
 }
 
 void access_list_reset()
 {
 	access_list_reset_ipv4();
 	access_list_reset_ipv6();
+	access_list_reset_mac();
 }

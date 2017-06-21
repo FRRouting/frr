@@ -293,6 +293,7 @@ extern int prefix_cmp(const struct prefix *, const struct prefix *);
 extern int prefix_common_bits(const struct prefix *, const struct prefix *);
 extern void prefix_copy(struct prefix *dest, const struct prefix *src);
 extern void apply_mask(struct prefix *);
+extern int prefix_eth_same(struct prefix_eth *p1, struct prefix_eth *p2);
 
 extern struct prefix *sockunion2prefix(const union sockunion *dest,
 				       const union sockunion *mask);
@@ -356,6 +357,7 @@ static inline int ipv6_martian(struct in6_addr *addr)
 }
 
 extern int all_digit(const char *);
+extern int macstr2prefix_evpn(const char *str, struct prefix_evpn *p);
 
 /* NOTE: This routine expects the address argument in network byte order. */
 static inline int ipv4_martian(struct in_addr *addr)

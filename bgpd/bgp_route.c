@@ -1584,6 +1584,7 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
 
 		info.peer = peer;
 		info.attr = attr;
+
 		/* don't confuse inbound and outbound setting */
 		RESET_FLAG(attr->rmap_change_flags);
 
