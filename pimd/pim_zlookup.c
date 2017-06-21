@@ -552,10 +552,6 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 	stream_get(&lastused, s, sizeof(lastused));
 	ret = stream_getl(s);
 
-	if (PIM_DEBUG_ZEBRA)
-		zlog_debug("Received %lld for %s success: %d", lastused,
-			   pim_str_sg_dump(&sg), ret);
-
 	c_oil->cc.lastused = lastused;
 
 	return 0;
