@@ -76,6 +76,9 @@ struct ospf6_interface
   /* I/F MTU */
   u_int32_t ifmtu;
 
+  /* Configured MTU */
+  u_int32_t c_ifmtu;
+
   /* Interface State */
   u_char state;
 
