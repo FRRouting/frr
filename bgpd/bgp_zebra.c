@@ -1222,8 +1222,7 @@ bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info
   u_char distance;
   struct peer *peer;
   struct bgp_info *mpinfo;
-  size_t oldsize, newsize;
-  u_int32_t nhcount, metric;
+  u_int32_t metric;
   struct bgp_info local_info;
   struct bgp_info *info_cp = &local_info;
   route_tag_t tag;
@@ -1270,8 +1269,6 @@ bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info
 
     SET_FLAG (flags, ZEBRA_FLAG_INTERNAL);
 
-  nhcount = 1 + bgp_info_mpath_count (info);
-
   if (p->family == AF_INET && !BGP_ATTR_NEXTHOP_AFI_IP6(info->attr))
     {
       struct zapi_ipv4 api;
@@ -1280,38 +1277,10 @@ bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info
       int valid_nh_count = 0;
 
       /* resize nexthop buffer size if necessary */
-      if ((oldsize = stream_get_size (bgp_nexthop_buf)) <
-          (sizeof (struct in_addr *) * nhcount))
-        {
-          newsize = sizeof (struct in_addr *) * nhcount;
-          newsize = stream_resize (bgp_nexthop_buf, newsize);
-          if (newsize == oldsize)
-            {
-	          zlog_err ("can't resize nexthop buffer");
-	          return;
-            }
-        }
       stream_reset (bgp_nexthop_buf);
       nexthop = NULL;
 
-      /* For labeled unicast, each nexthop has a label too. Resize label
-       * buffer, if required.
-       */
-      if (safi == SAFI_LABELED_UNICAST)
-        {
-          if ((oldsize = stream_get_size (bgp_label_buf)) <
-              (sizeof (unsigned int) * nhcount))
-            {
-              newsize = (sizeof (unsigned int) * nhcount);
-              newsize = stream_resize (bgp_label_buf, newsize);
-              if (newsize == oldsize)
-                {
-                  zlog_err ("can't resize label buffer");
-                  return;
-                }
-            }
-          stream_reset (bgp_label_buf);
-        }
+      stream_reset (bgp_label_buf);
 
       /* Metric is currently based on the best-path only. */
       metric = info->attr->med;
@@ -1464,52 +1433,9 @@ bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info
       int valid_nh_count = 0;
 	    char buf[2][INET6_ADDRSTRLEN];
 
-      /* resize nexthop buffer size if necessary */
-      if ((oldsize = stream_get_size (bgp_nexthop_buf)) <
-          (sizeof (struct in6_addr *) * nhcount))
-        {
-          newsize = (sizeof (struct in6_addr *) * nhcount);
-          newsize = stream_resize (bgp_nexthop_buf, newsize);
-          if (newsize == oldsize)
-            {
-              zlog_err ("can't resize nexthop buffer");
-              return;
-            }
-        }
       stream_reset (bgp_nexthop_buf);
-
-      /* resize ifindices buffer size if necessary */
-      if ((oldsize = stream_get_size (bgp_ifindices_buf)) <
-          (sizeof (unsigned int) * nhcount))
-        {
-          newsize = (sizeof (unsigned int) * nhcount);
-          newsize = stream_resize (bgp_ifindices_buf, newsize);
-          if (newsize == oldsize)
-            {
-              zlog_err ("can't resize nexthop buffer");
-              return;
-            }
-        }
       stream_reset (bgp_ifindices_buf);
-
-      /* For labeled unicast, each nexthop has a label too. Resize label
-       * buffer, if required.
-       */
-      if (safi == SAFI_LABELED_UNICAST)
-        {
-          if ((oldsize = stream_get_size (bgp_label_buf)) <
-              (sizeof (unsigned int) * nhcount))
-            {
-              newsize = (sizeof (unsigned int) * nhcount);
-              newsize = stream_resize (bgp_label_buf, newsize);
-              if (newsize == oldsize)
-                {
-                  zlog_err ("can't resize label buffer");
-                  return;
-                }
-            }
-          stream_reset (bgp_label_buf);
-        }
+      stream_reset (bgp_label_buf);
 
       ifindex = 0;
       nexthop = NULL;
@@ -2270,14 +2196,22 @@ bgp_zebra_init (struct thread_master *master)
   zclient->import_check_update = bgp_read_import_check_update;
   zclient->fec_update = bgp_read_fec_update;
 
-  bgp_nexthop_buf = stream_new(BGP_NEXTHOP_BUF_SIZE);
-  bgp_ifindices_buf = stream_new(BGP_IFINDICES_BUF_SIZE);
-  bgp_label_buf = stream_new(BGP_LABEL_BUF_SIZE);
+  bgp_nexthop_buf = stream_new(multipath_num * sizeof (struct in6_addr));
+  bgp_ifindices_buf = stream_new(multipath_num * sizeof (unsigned int));
+  bgp_label_buf = stream_new(multipath_num * sizeof (unsigned int));
 }
 
 void
 bgp_zebra_destroy(void)
 {
+
+  if (bgp_nexthop_buf)
+    stream_free (bgp_nexthop_buf);
+  if (bgp_ifindices_buf)
+    stream_free (bgp_ifindices_buf);
+  if (bgp_label_buf)
+    stream_free (bgp_label_buf);
+
   if (zclient == NULL)
     return;
   zclient_stop(zclient);
