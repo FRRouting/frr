@@ -411,6 +411,22 @@ class TopoRouter(TopoGear):
 
         return res
 
+    def report_memory_leaks(self, testname):
+        """
+        Runs the router memory leak check test. Has the following parameter:
+        testname: the test file name for identification
+
+        NOTE: to run this you must have the environment variable
+        TOPOTESTS_CHECK_MEMLEAK set to the appropriated path.
+        """
+        memleak_file = os.environ.get('TOPOTESTS_CHECK_MEMLEAK')
+        if memleak_file is None:
+            print "SKIPPED check on Memory leaks: Disabled (TOPOTESTS_CHECK_MEMLEAK undefined)"
+            return
+
+        self.tgen.net[self.name].stopRouter()
+        self.tgen.net[self.name].report_memory_leaks(memleak_file, testname)
+
 class TopoSwitch(TopoGear):
     """
     Switch abstraction. Has the following properties:
