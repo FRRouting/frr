@@ -154,6 +154,14 @@ def test_ospf_link_down():
                                                count=20, wait=3)
         assert result, 'OSPF did not converge on {}:\n{}'.format(router, diff)
 
+def test_memory_leak():
+    "Run the memory leak test and report results."
+    tgen = get_topogen()
+    if not tgen.is_memleak_enabled():
+        pytest.skip('Memory leak test/report is disabled')
+
+    tgen.report_memory_leaks()
+
 if __name__ == '__main__':
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
