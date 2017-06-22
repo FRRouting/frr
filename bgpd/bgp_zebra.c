@@ -1282,44 +1282,12 @@ bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info
 
       stream_reset (bgp_label_buf);
 
-      /* Metric is currently based on the best-path only. */
-      metric = info->attr->med;
-
       if (bgp->table_map[afi][safi].name)
-        {
-          BGP_INFO_ATTR_BUF_INIT();
+        BGP_INFO_ATTR_BUF_INIT();
 
-          /* Copy info and attributes, so the route-map apply doesn't modify the
-             BGP route info. */
-          BGP_INFO_ATTR_BUF_COPY(info, info_cp);
-          if (bgp_table_map_apply(bgp->table_map[afi][safi].map, p, info_cp))
-            {
-              metric = info_cp->attr->med;
-              nexthop = &info_cp->attr->nexthop;
-
-              if (info_cp->attr->extra)
-                tag = info_cp->attr->extra->tag;
-            }
-          BGP_INFO_ATTR_BUF_FREE(info_cp);
-        }
-      else
-        {
-          nexthop = &info->attr->nexthop;
-        }
-
-      if (nexthop)
-        {
-          stream_put (bgp_nexthop_buf, &nexthop, sizeof (struct in_addr *));
-          valid_nh_count++;
-          if (safi == SAFI_LABELED_UNICAST)
-            {
-              label = label_pton(info->extra->tag);
-              stream_put (bgp_label_buf, &label, sizeof (u_int32_t));
-            }
-        }
-
-      for (mpinfo = bgp_info_mpath_first (info); mpinfo;
-           mpinfo = bgp_info_mpath_next (mpinfo))
+      /* Metric is currently based on the best-path only */
+      metric = info->attr->med;
+      for (mpinfo = info ; mpinfo; mpinfo = bgp_info_mpath_next (mpinfo))
         {
           nexthop = NULL;
 
@@ -1329,13 +1297,19 @@ bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info
                  BGP route info. */
               BGP_INFO_ATTR_BUF_COPY(mpinfo, info_cp);
               if (bgp_table_map_apply(bgp->table_map[afi][safi].map, p, info_cp))
-                nexthop = &info_cp->attr->nexthop;
+                {
+                  if (mpinfo == info)
+                    {
+                      /* Metric is currently based on the best-path only */
+                      metric = info_cp->attr->med;
+                      tag = info_cp->attr->extra->tag;
+                    }
+                  nexthop = &info_cp->attr->nexthop;
+                }
               BGP_INFO_ATTR_BUF_FREE(info_cp);
             }
           else
-            {
-              nexthop = &mpinfo->attr->nexthop;
-            }
+            nexthop = &mpinfo->attr->nexthop;
 
           if (nexthop == NULL)
             continue;
@@ -1442,56 +1416,11 @@ bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info
 
       assert (info->attr->extra);
 
-      /* Metric is currently based on the best-path only. */
-      metric = info->attr->med;
-
       if (bgp->table_map[afi][safi].name)
-        {
-          BGP_INFO_ATTR_BUF_INIT();
+        BGP_INFO_ATTR_BUF_INIT();
 
-          /* Copy info and attributes, so the route-map apply doesn't modify the
-             BGP route info. */
-          BGP_INFO_ATTR_BUF_COPY(info, info_cp);
-          if (bgp_table_map_apply(bgp->table_map[afi][safi].map, p, info_cp))
-            {
-              metric = info_cp->attr->med;
-              nexthop = bgp_info_to_ipv6_nexthop(info_cp);
-
-              if (info_cp->attr->extra)
-                tag = info_cp->attr->extra->tag;
-            }
-          BGP_INFO_ATTR_BUF_FREE(info_cp);
-        }
-      else
-        {
-           nexthop = bgp_info_to_ipv6_nexthop(info);
-        }
-
-      if (nexthop)
-        {
-          if (info->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
-            if (info->peer->nexthop.ifp)
-              ifindex = info->peer->nexthop.ifp->ifindex;
-
-          if (!ifindex)
-	    {
-	      if (info->peer->conf_if || info->peer->ifname)
-		ifindex = if_nametoindex (info->peer->conf_if ? info->peer->conf_if : info->peer->ifname);
-	      else if (info->peer->nexthop.ifp)
-		ifindex = info->peer->nexthop.ifp->ifindex;
-	    }
-          stream_put (bgp_nexthop_buf, &nexthop, sizeof (struct in6_addr *));
-          stream_put (bgp_ifindices_buf, &ifindex, sizeof (unsigned int));
-          if (safi == SAFI_LABELED_UNICAST)
-            {
-              label = label_pton(info->extra->tag);
-              stream_put (bgp_label_buf, &label, sizeof (u_int32_t));
-            }
-          valid_nh_count++;
-        }
-
-      for (mpinfo = bgp_info_mpath_first (info); mpinfo;
-           mpinfo = bgp_info_mpath_next (mpinfo))
+      metric = info->attr->med;
+      for (mpinfo = info ; mpinfo; mpinfo = bgp_info_mpath_next (mpinfo))
         {
           ifindex = 0;
           nexthop = NULL;
@@ -1502,18 +1431,24 @@ bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info
                  BGP route info. */
               BGP_INFO_ATTR_BUF_COPY(mpinfo, info_cp);
               if (bgp_table_map_apply(bgp->table_map[afi][safi].map, p, info_cp))
-                nexthop = bgp_info_to_ipv6_nexthop(info_cp);
+                {
+                  if (mpinfo == info)
+                    {
+                      metric = info_cp->attr->med;
+                      tag = info_cp->attr->extra->tag;
+                    }
+                  nexthop = bgp_info_to_ipv6_nexthop(info_cp);
+                }
               BGP_INFO_ATTR_BUF_FREE(info_cp);
             }
           else
-            {
-              nexthop = bgp_info_to_ipv6_nexthop(mpinfo);
-            }
+            nexthop = bgp_info_to_ipv6_nexthop(mpinfo);
 
           if (nexthop == NULL)
             continue;
 
-          if (mpinfo->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
+          if ((mpinfo == info) &&
+              mpinfo->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
             if (mpinfo->peer->nexthop.ifp)
               ifindex = mpinfo->peer->nexthop.ifp->ifindex;
 
