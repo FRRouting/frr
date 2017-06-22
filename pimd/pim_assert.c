@@ -147,7 +147,7 @@ static int dispatch_assert(struct interface *ifp, struct in_addr source_addr,
 	memset(&sg, 0, sizeof(struct prefix_sg));
 	sg.src = source_addr;
 	sg.grp = group_addr;
-	ch = pim_ifchannel_add(ifp, &sg, 0);
+	ch = pim_ifchannel_add(ifp, &sg, 0, 0);
 	if (!ch) {
 		zlog_warn(
 			"%s: (S,G)=%s failure creating channel on interface %s",

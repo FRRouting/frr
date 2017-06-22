@@ -116,7 +116,8 @@ void pim_ifchannel_delete_on_noinfo(struct interface *ifp);
 struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
 					 struct prefix_sg *sg);
 struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
-					struct prefix_sg *sg, int flags);
+					struct prefix_sg *sg, uint8_t ch_flags,
+					int up_flags);
 void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 			    struct in_addr upstream, struct prefix_sg *sg,
 			    uint8_t source_flags, uint16_t holdtime);

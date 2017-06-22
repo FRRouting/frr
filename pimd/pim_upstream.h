@@ -146,7 +146,8 @@ struct pim_upstream *pim_upstream_find_or_add(struct prefix_sg *sg,
 struct pim_upstream *pim_upstream_add(struct pim_instance *pim,
 				      struct prefix_sg *sg,
 				      struct interface *ifp, int flags,
-				      const char *name);
+				      const char *name,
+				      struct pim_ifchannel *ch);
 void pim_upstream_ref(struct pim_upstream *up, int flags, const char *name);
 struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 				      struct pim_upstream *up,

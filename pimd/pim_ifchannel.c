@@ -509,7 +509,8 @@ static struct pim_ifchannel *pim_ifchannel_find_parent(struct pim_ifchannel *ch)
 }
 
 struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
-					struct prefix_sg *sg, int flags)
+					struct prefix_sg *sg,
+					uint8_t source_flags, int up_flags)
 {
 	struct pim_interface *pim_ifp;
 	struct pim_ifchannel *ch;
@@ -521,27 +522,19 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 
 	pim_ifp = ifp->info;
 
-	up = pim_upstream_add(pim_ifp->pim, sg, NULL, flags,
-			      __PRETTY_FUNCTION__);
-	if (!up) {
-		zlog_err(
-			"%s: could not attach upstream (S,G)=%s on interface %s",
-			__PRETTY_FUNCTION__, pim_str_sg_dump(sg), ifp->name);
-		return NULL;
-	}
-
 	ch = XCALLOC(MTYPE_PIM_IFCHANNEL, sizeof(*ch));
 	if (!ch) {
 		zlog_warn(
 			"%s: pim_ifchannel_new() failure for (S,G)=%s on interface %s",
 			__PRETTY_FUNCTION__, up->sg_str, ifp->name);
-
-		pim_upstream_del(pim_ifp->pim, up, __PRETTY_FUNCTION__);
 		return NULL;
 	}
 
 	ch->flags = 0;
-	ch->upstream = up;
+	if ((source_flags & PIM_ENCODE_RPT_BIT)
+	    && !(source_flags & PIM_ENCODE_WC_BIT))
+		PIM_IF_FLAG_SET_S_G_RPT(ch->flags);
+
 	ch->interface = ifp;
 	ch->sg = *sg;
 	pim_str_sg_set(sg, ch->sg_str);
@@ -561,6 +554,32 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 	ch->t_ifjoin_prune_pending_timer = NULL;
 	ch->ifjoin_creation = 0;
 
+	/* Attach to list */
+	listnode_add_sort(pim_ifp->pim_ifchannel_list, ch);
+	ch = hash_get(pim_ifp->pim_ifchannel_hash, ch, hash_alloc_intern);
+	listnode_add_sort(pim_ifp->pim->ifchannel_list, ch);
+
+	up = pim_upstream_add(pim_ifp->pim, sg, NULL, up_flags,
+			      __PRETTY_FUNCTION__, ch);
+
+	if (!up) {
+		zlog_err(
+			"%s: could not attach upstream (S,G)=%s on interface %s",
+			__PRETTY_FUNCTION__, pim_str_sg_dump(sg), ifp->name);
+
+		pim_ifchannel_remove_children(ch);
+		if (ch)
+			list_delete(ch->sources);
+
+		listnode_delete(pim_ifp->pim_ifchannel_list, ch);
+		hash_release(pim_ifp->pim_ifchannel_hash, ch);
+		listnode_delete(pim_ifp->pim->ifchannel_list, ch);
+		XFREE(MTYPE_PIM_IFCHANNEL, ch);
+		return NULL;
+	}
+
+	listnode_add_sort(up->ifchannels, ch);
+
 	ch->ifassert_my_metric = pim_macro_ch_my_assert_metric_eval(ch);
 	ch->ifassert_winner_metric = pim_macro_ch_my_assert_metric_eval(ch);
 
@@ -579,13 +598,6 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 		PIM_IF_FLAG_SET_ASSERT_TRACKING_DESIRED(ch->flags);
 	else
 		PIM_IF_FLAG_UNSET_ASSERT_TRACKING_DESIRED(ch->flags);
-
-	/* Attach to list */
-	listnode_add_sort(pim_ifp->pim_ifchannel_list, ch);
-	ch = hash_get(pim_ifp->pim_ifchannel_hash, ch, hash_alloc_intern);
-	listnode_add_sort(pim_ifp->pim->ifchannel_list, ch);
-
-	listnode_add_sort(up->ifchannels, ch);
 
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug("%s: ifchannel %s is created ", __PRETTY_FUNCTION__,
@@ -772,7 +784,8 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 		return;
 	}
 
-	ch = pim_ifchannel_add(ifp, sg, PIM_UPSTREAM_FLAG_MASK_SRC_PIM);
+	ch = pim_ifchannel_add(ifp, sg, source_flags,
+			       PIM_UPSTREAM_FLAG_MASK_SRC_PIM);
 	if (!ch)
 		return;
 
@@ -914,7 +927,8 @@ void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
 		return;
 	}
 
-	ch = pim_ifchannel_add(ifp, sg, PIM_UPSTREAM_FLAG_MASK_SRC_PIM);
+	ch = pim_ifchannel_add(ifp, sg, source_flags,
+			       PIM_UPSTREAM_FLAG_MASK_SRC_PIM);
 	if (!ch)
 		return;
 
@@ -1027,7 +1041,7 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 		}
 	}
 
-	ch = pim_ifchannel_add(ifp, sg, PIM_UPSTREAM_FLAG_MASK_SRC_IGMP);
+	ch = pim_ifchannel_add(ifp, sg, 0, PIM_UPSTREAM_FLAG_MASK_SRC_IGMP);
 	if (!ch) {
 		return 0;
 	}

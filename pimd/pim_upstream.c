@@ -602,7 +602,8 @@ int pim_upstream_compare(void *arg1, void *arg2)
 static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 					     struct prefix_sg *sg,
 					     struct interface *incoming,
-					     int flags)
+					     int flags,
+					     struct pim_ifchannel *ch)
 {
 	enum pim_rpf_result rpf_result;
 	struct pim_interface *pim_ifp;
@@ -617,6 +618,9 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 
 	up->sg = *sg;
 	pim_str_sg_set(sg, up->sg_str);
+	if (ch)
+		ch->upstream = up;
+
 	up = hash_get(pim->upstream_hash, up, hash_alloc_intern);
 	if (!pim_rp_set_upstream_addr(pim, &up->upstream_addr, sg->src,
 				      sg->grp)) {
@@ -748,7 +752,8 @@ struct pim_upstream *pim_upstream_find_or_add(struct prefix_sg *sg,
 					up->ref_count);
 		}
 	} else
-		up = pim_upstream_add(pim_ifp->pim, sg, incoming, flags, name);
+		up = pim_upstream_add(pim_ifp->pim, sg, incoming, flags, name,
+				      NULL);
 
 	return up;
 }
@@ -766,7 +771,8 @@ void pim_upstream_ref(struct pim_upstream *up, int flags, const char *name)
 struct pim_upstream *pim_upstream_add(struct pim_instance *pim,
 				      struct prefix_sg *sg,
 				      struct interface *incoming, int flags,
-				      const char *name)
+				      const char *name,
+				      struct pim_ifchannel *ch)
 {
 	struct pim_upstream *up = NULL;
 	int found = 0;
@@ -776,7 +782,7 @@ struct pim_upstream *pim_upstream_add(struct pim_instance *pim,
 		pim_upstream_ref(up, flags, name);
 		found = 1;
 	} else {
-		up = pim_upstream_new(pim, sg, incoming, flags);
+		up = pim_upstream_new(pim, sg, incoming, flags, ch);
 	}
 
 	if (PIM_DEBUG_TRACE) {

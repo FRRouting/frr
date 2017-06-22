@@ -205,7 +205,7 @@ static void pim_msdp_sa_upstream_update(struct pim_msdp_sa *sa,
 	 * as if a JP message was rxed addressed to the RP itself." */
 	up = pim_upstream_add(sa->pim, &sa->sg, NULL /* iif */,
 			      PIM_UPSTREAM_FLAG_MASK_SRC_MSDP,
-			      __PRETTY_FUNCTION__);
+			      __PRETTY_FUNCTION__, NULL);
 
 	sa->up = up;
 	if (up) {
