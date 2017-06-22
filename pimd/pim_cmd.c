@@ -629,7 +629,7 @@ static void igmp_show_interfaces_single(struct vty *vty,
 	char other_hhmmss[10];
 	int found_ifname = 0;
 	int sqi;
-	int mloop;
+	int mloop = 0;
 	long gmi_msec; /* Group Membership Interval */
 	long lmqt_msec;
 	long ohpi_msec;
@@ -692,7 +692,11 @@ static void igmp_show_interfaces_single(struct vty *vty,
 
 			qri_msec = pim_ifp->igmp_query_max_response_time_dsec
 				   * 100;
-			mloop = pim_socket_mcastloop_get(pim_ifp->pim_sock_fd);
+			if (pim_ifp->pim_sock_fd >= 0)
+				mloop = pim_socket_mcastloop_get(
+					pim_ifp->pim_sock_fd);
+			else
+				mloop = 0;
 
 			if (uj) {
 				json_row = json_object_new_object();
@@ -889,7 +893,7 @@ static void pim_show_interfaces_single(struct vty *vty,
 	char src_str[INET_ADDRSTRLEN];
 	char stat_uptime[10];
 	char uptime[10];
-	int mloop;
+	int mloop = 0;
 	int found_ifname = 0;
 	int print_header;
 	json_object *json = NULL;
@@ -913,9 +917,6 @@ static void pim_show_interfaces_single(struct vty *vty,
 		if (!pim_ifp)
 			continue;
 
-		if (pim_ifp->pim_sock_fd < 0)
-			continue;
-
 		if (strcmp(ifname, "detail") && strcmp(ifname, ifp->name))
 			continue;
 
@@ -931,7 +932,10 @@ static void pim_show_interfaces_single(struct vty *vty,
 			      pim_ifp->pim_hello_period);
 		pim_time_uptime(stat_uptime, sizeof(stat_uptime),
 				now - pim_ifp->pim_ifstat_start);
-		mloop = pim_socket_mcastloop_get(pim_ifp->pim_sock_fd);
+		if (pim_ifp->pim_sock_fd >= 0)
+			mloop = pim_socket_mcastloop_get(pim_ifp->pim_sock_fd);
+		else
+			mloop = 0;
 
 		if (uj) {
 			char pbuf[PREFIX2STR_BUFFER];
@@ -1306,9 +1310,6 @@ static void pim_show_interfaces(struct vty *vty, struct pim_instance *pim,
 		pim_ifp = ifp->info;
 
 		if (!pim_ifp)
-			continue;
-
-		if (pim_ifp->pim_sock_fd < 0)
 			continue;
 
 		pim_nbrs = pim_ifp->pim_neighbor_list->count;
