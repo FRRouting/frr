@@ -34,7 +34,7 @@ use_json (const int argc, struct cmd_token *argv[])
   if (argc == 0)
     return 0;
 
-  if (argv[argc-1]->arg && strcmp(argv[argc-1]->arg, "json") == 0)
+  if (argv[argc-1]->arg && strmatch (argv[argc-1]->text, "json"))
     return 1;
 
   return 0;
