@@ -30,25 +30,20 @@ import os
 import sys
 import pytest
 
+# Import topogen and topotest helpers
+from lib import topotest
+from lib.topogen import Topogen, TopoRouter, get_topogen
+
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
-# Append to the search path the lib location
-sys.path.append(os.path.join(CWD, '..'))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
-from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
 
 class TemplateTopo(Topo):
     "Test topology builder"
     def build(self, *_args, **_opts):
         "Build function"
-        # pylint: disable=E1101
-        # Linter incorrectly detects tgen type as TemplateTopo.
         tgen = get_topogen(self)
 
         # This function only purpose is to define allocation and relationship
