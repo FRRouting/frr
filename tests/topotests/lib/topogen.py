@@ -224,6 +224,16 @@ class TopoGear(object):
         self.links = {}
         self.linkn = 0
 
+    def __str__(self):
+        links = ''
+        for myif, dest in self.links.iteritems():
+            _, destif = dest
+            if links != '':
+                links += ','
+            links += '"{}"<->"{}"'.format(myif, destif)
+
+        return 'TopoGear<name="{}",links=[{}]>'.format(self.name, links)
+
     def run(self, command):
         """
         Runs the provided command string in the router and returns a string
@@ -307,7 +317,7 @@ class TopoRouter(TopoGear):
     ]
 
     # Router Daemon enumeration definition.
-    RD_ZEBRA = 1,
+    RD_ZEBRA = 1
     RD_RIP = 2
     RD_RIPNG = 3
     RD_OSPF = 4
@@ -345,6 +355,11 @@ class TopoRouter(TopoGear):
         if not params.has_key('privateDirs'):
             params['privateDirs'] = self.PRIVATE_DIRS
         self.tgen.topo.addNode(self.name, cls=self.cls, **params)
+
+    def __str__(self):
+        gear = super(TopoRouter, self).__str__()
+        gear += ' TopoRouter<>'
+        return gear
 
     def load_config(self, daemon, source=None):
         """
@@ -442,3 +457,8 @@ class TopoSwitch(TopoGear):
         self.name = name
         self.cls = cls
         self.tgen.topo.addSwitch(name, cls=self.cls)
+
+    def __str__(self):
+        gear = super(TopoSwitch, self).__str__()
+        gear += ' TopoSwitch<>'
+        return gear
