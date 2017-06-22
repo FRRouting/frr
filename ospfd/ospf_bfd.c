@@ -356,7 +356,7 @@ ospf_bfd_if_param_set (struct interface *ifp, u_int32_t min_rx,
 
   params = IF_DEF_PARAMS (ifp);
 
-  if (IS_DEBUG_OSPF_TRACE)
+  if (IS_DEBUG_OSPF_VRF)
     zlog_debug ("%s: interface %s bfd param set, ifp->vrf_id %u vrf_name %s",
             __PRETTY_FUNCTION__, ifp->name, ifp->vrf_id, ospf_vrf_id_to_name (ifp->vrf_id));
 

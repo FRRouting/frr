@@ -247,7 +247,7 @@ ospf_if_new (struct ospf *ospf, struct interface *ifp, struct prefix *p)
   oi->ospf = ospf;
   QOBJ_REG (oi, ospf_interface);
 
-  if (IS_DEBUG_OSPF_TRACE)
+  if (IS_DEBUG_OSPF_VRF)
     zlog_debug ("%s: ospf interface %s vrf_name %s (id %u) created",
               __PRETTY_FUNCTION__, ifp->name,
               ospf_vrf_id_to_name (ospf->vrf_id), ospf->vrf_id);
@@ -325,7 +325,7 @@ ospf_if_free (struct ospf_interface *oi)
   list_free (oi->ls_ack);
   list_free (oi->ls_ack_direct.ls_ack);
   
-  if (IS_DEBUG_OSPF_TRACE)
+  if (IS_DEBUG_OSPF_VRF)
     zlog_debug ("%s: ospf interface %s vrf %s id %u deleted",
           __PRETTY_FUNCTION__, oi->ifp->name,
           ospf_vrf_id_to_name (oi->ifp->vrf_id), oi->ifp->vrf_id);

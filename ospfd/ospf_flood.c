@@ -90,7 +90,7 @@ ospf_external_info_check (struct ospf *ospf, struct ospf_lsa *lsa)
   p.prefix = lsa->data->id;
   p.prefixlen = ip_masklen (al->mask);
 
-  if (IS_DEBUG_OSPF_TRACE)
+  if (IS_DEBUG_OSPF_VRF)
     zlog_debug ("%s: external lsa interface, ospf vrf %s id %u",
               __PRETTY_FUNCTION__, ospf_vrf_id_to_name (ospf->vrf_id), ospf->vrf_id);
   for (type = 0; type <= ZEBRA_ROUTE_MAX; type++)

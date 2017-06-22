@@ -83,7 +83,7 @@ ospf_router_id_update_zebra (int command, struct zclient *zclient,
   ospf = ospf_lookup_by_vrf_id (vrf_id);
   if (!ospf)
     {
-      if (IS_DEBUG_OSPF_TRACE)
+      if (IS_DEBUG_OSPF_VRF)
         {
           char buf[PREFIX2STR_BUFFER];
           prefix2str(&router_id, buf, sizeof(buf));
@@ -94,7 +94,7 @@ ospf_router_id_update_zebra (int command, struct zclient *zclient,
   
   if (ospf != NULL)
     {
-      if (IS_DEBUG_OSPF_TRACE)
+      if (IS_DEBUG_OSPF_VRF)
         {
           char buf[PREFIX2STR_BUFFER];
           prefix2str(&router_id, buf, sizeof(buf));
@@ -377,7 +377,7 @@ ospf_interface_vrf_update (int command, struct zclient *zclient,
   if (! ifp)
     return 0;
 
-  if (IS_DEBUG_OSPF_TRACE)
+  if (IS_DEBUG_OSPF_VRF)
     zlog_debug("%s: Rx Interface %s VRF change vrf_id %u New vrf %s id %u",
                __PRETTY_FUNCTION__, ifp->name, vrf_id,
                ospf_vrf_id_to_name (new_vrf_id), new_vrf_id);
@@ -540,7 +540,7 @@ ospf_zebra_delete (struct prefix_ipv4 *p, struct ospf_route *or, struct ospf *os
 
   if (!ospf)
     {
-      if (OSPF_DEBUG_TRACE)
+      if (OSPF_DEBUG_VRF)
         zlog_debug ("%s: Input is NULL.", __PRETTY_FUNCTION__);
       return;
     }
@@ -632,7 +632,7 @@ ospf_zebra_add_discard (struct prefix_ipv4 *p, struct ospf *ospf)
 
   if (!ospf)
     {
-      if (OSPF_DEBUG_TRACE)
+      if (OSPF_DEBUG_VRF)
         zlog_debug ("%s: Input is NULL.", __PRETTY_FUNCTION__);
       return;
     }
@@ -1157,7 +1157,7 @@ ospf_zebra_read_ipv4 (int command, struct zclient *zclient,
   if (ospf == NULL)
     return 0;
 
-  if (IS_DEBUG_OSPF_TRACE)
+  if (IS_DEBUG_OSPF_VRF)
     zlog_debug ("%s: route update vrf %s id %u command %d",
           __PRETTY_FUNCTION__, ospf_vrf_id_to_name (vrf_id), vrf_id, command);
 
@@ -1294,7 +1294,7 @@ ospf_distribute_list_update_timer (struct thread *thread)
 
   zlog_info ("Zebra[Redistribute]: distribute-list update timer fired!");
 
-  if (IS_DEBUG_OSPF_TRACE)
+  if (IS_DEBUG_OSPF_VRF)
     zlog_debug ("%s: ospf distribute-list update arg_type %d vrf %s id %d", __PRETTY_FUNCTION__,
               arg_type, ospf_vrf_id_to_name (ospf->vrf_id), ospf->vrf_id);
 
@@ -1653,7 +1653,7 @@ ospf_zebra_vrf_register (struct ospf *ospf)
 
   if (ospf->vrf_id != VRF_DEFAULT && ospf->vrf_id != VRF_UNKNOWN)
     {
-      if (IS_DEBUG_OSPF_TRACE)
+      if (IS_DEBUG_OSPF_VRF)
         zlog_debug ("%s: Register VRF %s id %u", __PRETTY_FUNCTION__,
           ospf_vrf_id_to_name (ospf->vrf_id), ospf->vrf_id);
       zclient_send_reg_requests (zclient, ospf->vrf_id);
@@ -1668,7 +1668,7 @@ ospf_zebra_vrf_deregister (struct ospf *ospf)
 
   if (ospf->vrf_id != VRF_DEFAULT && ospf->vrf_id != VRF_UNKNOWN)
     {
-      if (IS_DEBUG_OSPF_TRACE)
+      if (IS_DEBUG_OSPF_VRF)
         zlog_debug ("%s: De-Register VRF %s id %u", __PRETTY_FUNCTION__,
           ospf_vrf_id_to_name (ospf->vrf_id), ospf->vrf_id);
       /* Deregister for router-id, interfaces, redistributed routes. */

@@ -562,7 +562,7 @@ register_opaque_info_per_type (struct ospf_opaque_functab *functab,
     case OSPF_OPAQUE_AS_LSA:
       /* Assign default OSPF instance to top, if lsa area is present
       then use area's OSPF instance */
-      top = ospf_lookup();
+      top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
       if (new->area != NULL && (top = new->area->ospf) == NULL)
         {
           free_opaque_info_per_type ((void *) oipt);
@@ -670,7 +670,7 @@ lookup_opaque_info_by_type (struct ospf_lsa *lsa)
     case OSPF_OPAQUE_AS_LSA:
       /* Assign default OSPF instance to top, if lsa area is present
       then use area's OSPF instance */
-      top = ospf_lookup();
+      top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
       if ((area = lsa->area) != NULL && (top = area->ospf) == NULL)
         {
           zlog_warn ("Type-11 Opaque-LSA: Reference to OSPF is missing?");
@@ -1602,7 +1602,7 @@ ospf_opaque_lsa_install (struct ospf_lsa *lsa, int rt_recalc)
         }
       break;
     case OSPF_OPAQUE_AS_LSA:
-      top = ospf_lookup();
+      top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
       if (lsa->area != NULL && (top = lsa->area->ospf) == NULL)
         {
           /* Above conditions must have passed. */
@@ -2023,7 +2023,7 @@ ospf_opaque_lsa_refresh_schedule (struct ospf_lsa *lsa0)
     case OSPF_OPAQUE_AS_LSA:
       /* Assign default OSPF instance to top, if lsa area is present
       then use area's OSPF instance */
-      top = ospf_lookup();
+      top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
       if ((lsa0->area != NULL) && (lsa0->area->ospf != NULL))
         top = lsa0->area->ospf;
       ospf_ls_retransmit_delete_nbr_as (top, lsa);
@@ -2073,7 +2073,7 @@ ospf_opaque_lsa_flush_schedule (struct ospf_lsa *lsa0)
   struct ospf_lsa *lsa;
   struct ospf *top = NULL;
 
-  top = ospf_lookup();
+  top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 
   if ((oipt = lookup_opaque_info_by_type (lsa0)) == NULL
   ||  (oipi = lookup_opaque_info_by_id (oipt, lsa0)) == NULL)

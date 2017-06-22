@@ -227,7 +227,7 @@ ospf_new (u_short instance, const char *name)
       new->vrf_id = VRF_UNKNOWN;
       new->name = XSTRDUP(MTYPE_OSPF_TOP, name); //freed in ospf_finish_final
       vrf = vrf_lookup_by_name (new->name);
-      if (IS_DEBUG_OSPF_TRACE)
+      if (IS_DEBUG_OSPF_VRF)
         zlog_debug ("%s: Create new ospf instance with vrf_name %s vrf_id %d",
                 __PRETTY_FUNCTION__, name, new->vrf_id);
       if (vrf)
@@ -412,7 +412,7 @@ ospf_get_instance (u_short instance)
             ospf_router_id_update (ospf);
           else
             {
-              if (IS_DEBUG_OSPF_TRACE)
+              if (IS_DEBUG_OSPF_VRF)
                 zlog_debug ("%s: ospf VRF (id %d) is not active yet, skip router id update",
                             __PRETTY_FUNCTION__, ospf->vrf_id);
             }
@@ -617,7 +617,7 @@ ospf_finish_final (struct ospf *ospf)
   
   list_delete (ospf->vlinks);
 
-  if (IS_DEBUG_OSPF_TRACE)
+  if (IS_DEBUG_OSPF_VRF)
     zlog_debug ("%s: Deleting ospf instance vrf_name %s vrf_id %d",
                  __PRETTY_FUNCTION__, ospf->name ? ospf->name : "NIL", ospf->vrf_id);
   /* Remove any ospf interface config params */
@@ -1049,7 +1049,7 @@ ospf_network_set (struct ospf *ospf, struct prefix_ipv4 *p,
       return 0;
     }
 
-  if (IS_DEBUG_OSPF_TRACE)
+  if (IS_DEBUG_OSPF_VRF)
     zlog_debug ("%s: ospf set network area_id %s vrf_name %s vrf_id %d",
             __PRETTY_FUNCTION__, inet_ntoa (area_id),
             ospf->name ? ospf->name : "NIL", ospf->vrf_id);
@@ -1147,7 +1147,7 @@ ospf_interface_set (struct ospf *ospf, struct interface *ifp, struct in_addr are
 
   area = ospf_area_get (ospf, area_id);
 
-  if (IS_DEBUG_OSPF_TRACE)
+  if (IS_DEBUG_OSPF_VRF)
     zlog_debug ("%s: Setting ospf interface %s area_id %s",
           __PRETTY_FUNCTION__, ifp->name, inet_ntoa (ospf->router_id));
   for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, co))
@@ -1193,7 +1193,7 @@ ospf_interface_unset (struct interface *ifp)
   UNSET_IF_PARAM (params, if_area);
   area_id = params->if_area;
 
-  if (IS_DEBUG_OSPF_TRACE)
+  if (IS_DEBUG_OSPF_VRF)
     zlog_debug ("%s: Unset interface %s params area_id %s",
         __PRETTY_FUNCTION__, ifp->name, inet_ntoa (ospf->router_id));
 
@@ -1231,7 +1231,7 @@ ospf_network_run_interface (struct prefix *p, struct ospf_area *area,
   if (memcmp (ifp->name, "VLINK", 5) == 0)
     return;
 
-  if (IS_DEBUG_OSPF_TRACE)
+  if (IS_DEBUG_OSPF_VRF)
     zlog_debug ("%s: interface %s speed %u bw %u ifp->vrf_id %d ospf vrf %s id %u",
             __PRETTY_FUNCTION__, ifp->name, ifp->speed, ifp->bandwidth, ifp->vrf_id,
             ospf_vrf_id_to_name (area->ospf->vrf_id), area->ospf->vrf_id);
@@ -1295,7 +1295,7 @@ ospf_network_run (struct prefix *p, struct ospf_area *area)
   /* Get target interface. */
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist(area->ospf->vrf_id), node, ifp))
     {
-      if (IS_DEBUG_OSPF_TRACE)
+      if (IS_DEBUG_OSPF_VRF)
         zlog_debug ("%s: Start ospf on interface %s ospf vrf %s id %u",
                 __PRETTY_FUNCTION__, ifp->name,
                 ospf_vrf_id_to_name (area->ospf->vrf_id), area->ospf->vrf_id);
@@ -1341,7 +1341,7 @@ ospf_if_update (struct ospf *ospf, struct interface *ifp)
   if (!ospf)
     ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
 
-  if (IS_DEBUG_OSPF_TRACE)
+  if (IS_DEBUG_OSPF_VRF)
     zlog_debug ("%s: interface %s ifp->vrf_id %u ospf vrf %s vrf_id %u router_id %s",
                 __PRETTY_FUNCTION__, ifp->name, ifp->vrf_id,
                 ospf_vrf_id_to_name (ospf->vrf_id), ospf->vrf_id,
@@ -2076,7 +2076,7 @@ void ospf_vrf_unlink (struct ospf *ospf, struct vrf *vrf)
 static int
 ospf_vrf_new (struct vrf *vrf)
 {
-  if (IS_DEBUG_OSPF_TRACE)
+  if (IS_DEBUG_OSPF_VRF)
     zlog_debug ("%s: VRF Created: %s(%d)", __PRETTY_FUNCTION__, vrf->name, vrf->vrf_id);
 
   return 0;
@@ -2086,7 +2086,7 @@ ospf_vrf_new (struct vrf *vrf)
 static int
 ospf_vrf_delete (struct vrf *vrf)
 {
-  if (IS_DEBUG_OSPF_TRACE)
+  if (IS_DEBUG_OSPF_VRF)
     zlog_debug ("%s: VRF Deletion: %s(%d)", __PRETTY_FUNCTION__, vrf->name, vrf->vrf_id);
 
   return 0;
@@ -2099,7 +2099,7 @@ ospf_vrf_enable (struct vrf *vrf)
   struct ospf *ospf = NULL;
   vrf_id_t old_vrf_id = VRF_DEFAULT;
 
-  if (IS_DEBUG_OSPF_TRACE)
+  if (IS_DEBUG_OSPF_VRF)
     zlog_debug("%s: VRF %s id %d enabled", __PRETTY_FUNCTION__, vrf->name, vrf->vrf_id);
 
   ospf = ospf_lookup_by_name(vrf->name);
@@ -2108,7 +2108,7 @@ ospf_vrf_enable (struct vrf *vrf)
       old_vrf_id = ospf->vrf_id;
       /* We have instance configured, link to VRF and make it "up". */
       ospf_vrf_link (ospf, vrf);
-      if (IS_DEBUG_OSPF_TRACE)
+      if (IS_DEBUG_OSPF_VRF)
         zlog_debug ("%s: ospf linked to vrf %s vrf_id %d (old id %d)",
                 __PRETTY_FUNCTION__, vrf->name, ospf->vrf_id, old_vrf_id);
 
@@ -2132,7 +2132,7 @@ ospf_vrf_disable (struct vrf *vrf)
   if (vrf->vrf_id == VRF_DEFAULT)
     return 0;
 
-  if (IS_DEBUG_OSPF_TRACE)
+  if (IS_DEBUG_OSPF_VRF)
     zlog_debug("%s: VRF %s id %d disabled.",
               __PRETTY_FUNCTION__, vrf->name, vrf->vrf_id);
 
@@ -2143,7 +2143,7 @@ ospf_vrf_disable (struct vrf *vrf)
       /* We have instance configured, unlink from VRF and make it "down". */
       ospf_vrf_unlink (ospf, vrf);
       ospf->oi_running = 0;
-      if (IS_DEBUG_OSPF_TRACE)
+      if (IS_DEBUG_OSPF_VRF)
         zlog_debug ("%s: ospf old_vrf_id %d unlinked", __PRETTY_FUNCTION__, old_vrf_id);
     }
 

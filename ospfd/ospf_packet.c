@@ -891,7 +891,7 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
   p.prefixlen = ip_masklen (hello->network_mask);
   p.u.prefix4 = iph->ip_src;
 
-  if (IS_DEBUG_OSPF_TRACE)
+  if (IS_DEBUG_OSPF_VRF)
     {
       if (oi->ospf->vrf_id)
         {
@@ -3420,7 +3420,7 @@ ospf_hello_send_sub (struct ospf_interface *oi, in_addr_t addr)
 
   op->dst.s_addr = addr;
 
-  if (IS_DEBUG_OSPF_TRACE)
+  if (IS_DEBUG_OSPF_VRF)
     {
       if (oi->ospf->vrf_id)
         zlog_debug ("%s: ospf hello send interface %s ospf vrf %s id %u",
