@@ -715,6 +715,7 @@ void ospf_redist_del(struct ospf *ospf, u_char type, u_short instance)
 			list_free(ospf->redist[type]);
 			ospf->redist[type] = NULL;
 		}
+		ospf_routemap_unset(red);
 		XFREE(MTYPE_OSPF_REDISTRIBUTE, red);
 	}
 }

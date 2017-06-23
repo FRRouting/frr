@@ -1187,7 +1187,7 @@ void ospf_ls_upd_queue_empty(struct ospf_interface *oi)
 		if ((lst = (struct list *)rn->info)) {
 			for (ALL_LIST_ELEMENTS(lst, node, nnode, lsa))
 				ospf_lsa_unlock(&lsa); /* oi->ls_upd_queue */
-			list_free(lst);
+			list_delete(lst);
 			rn->info = NULL;
 		}
 
