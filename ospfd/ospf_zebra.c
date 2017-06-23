@@ -93,17 +93,7 @@ ospf_router_id_update_zebra (int command, struct zclient *zclient,
     }
   
   if (ospf != NULL)
-    {
-      if (IS_DEBUG_OSPF_VRF)
-        {
-          char buf[PREFIX2STR_BUFFER];
-          prefix2str(&router_id, buf, sizeof(buf));
-          zlog_debug ("%s: ospf update router id %s vrf %s id %u",
-                  __PRETTY_FUNCTION__, buf, ospf_vrf_id_to_name (ospf->vrf_id),
-                  ospf->vrf_id);
-        }
-      ospf_router_id_update (ospf);
-    }
+    ospf_router_id_update (ospf);
   
   return 0;
 }
@@ -1288,7 +1278,7 @@ ospf_distribute_list_update_timer (struct thread *thread)
   void **arg = THREAD_ARG (thread);
 
   ospf = (struct ospf *)arg[0];
-  arg_type = *(int *)arg[1];
+  arg_type = (int)(intptr_t)arg[1];
 
   ospf->t_distribute_update = NULL;
 
@@ -1341,9 +1331,9 @@ ospf_distribute_list_update (struct ospf *ospf, int type,
   struct route_table *rt;
   struct ospf_external *ext;
 
-  void **args = XCALLOC (MTYPE_OSPF_DIST_ARGS, sizeof (struct ospf *) + sizeof (int ));
-  memcpy (args[0], &ospf, sizeof (struct ospf *));
-  memcpy (args[1], &type, sizeof (int));
+  void **args = XCALLOC (MTYPE_OSPF_DIST_ARGS, sizeof (void * )*2);
+  args[0] = ospf;
+  args[1] = (void *)((ptrdiff_t) type);
 
   /* External info does not exist. */
   ext = ospf_external_lookup(type, instance);

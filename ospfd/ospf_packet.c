@@ -891,17 +891,6 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
   p.prefixlen = ip_masklen (hello->network_mask);
   p.u.prefix4 = iph->ip_src;
 
-  if (IS_DEBUG_OSPF_VRF)
-    {
-      if (oi->ospf->vrf_id)
-        {
-          char pbuf[PREFIX2STR_BUFFER];
-          zlog_debug ("%s: Received hello_in %d vrf %s id %u ip_src %s",
-                  __PRETTY_FUNCTION__, oi->hello_in,
-                  ospf_vrf_id_to_name (oi->ospf->vrf_id), oi->ospf->vrf_id,
-                  prefix2str(&p, pbuf, sizeof(pbuf)));
-        }
-    }
   /* Compare network mask. */
   /* Checking is ignored for Point-to-Point and Virtual link. */
   if (oi->type != OSPF_IFTYPE_POINTOPOINT 
@@ -938,9 +927,10 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
     }
   
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_debug ("Packet %s [Hello:RECV]: Options %s",
+    zlog_debug ("Packet %s [Hello:RECV]: Options %s vrf %s",
 	       inet_ntoa (ospfh->router_id),
-	       ospf_options_dump (hello->options));
+	       ospf_options_dump (hello->options),
+               ospf_vrf_id_to_name (oi->ospf->vrf_id));
 
   /* Compare options. */
 #define REJECT_IF_TBIT_ON	1 /* XXX */
@@ -3423,7 +3413,7 @@ ospf_hello_send_sub (struct ospf_interface *oi, in_addr_t addr)
   if (IS_DEBUG_OSPF_VRF)
     {
       if (oi->ospf->vrf_id)
-        zlog_debug ("%s: ospf hello send interface %s ospf vrf %s id %u",
+        zlog_debug ("%s: Hello Tx interface %s ospf vrf %s id %u",
                   __PRETTY_FUNCTION__, oi->ifp->name,
                   ospf_vrf_id_to_name (oi->ospf->vrf_id), oi->ospf->vrf_id);
     }
