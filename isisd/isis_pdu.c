@@ -617,6 +617,18 @@ static int process_lan_hello(struct iih_info *iih)
 	return ISIS_OK;
 }
 
+static int pdu_len_validate(uint16_t pdu_len, struct isis_circuit *circuit)
+{
+	if (pdu_len < stream_get_getp(circuit->rcv_stream)
+	    || pdu_len > ISO_MTU(circuit)
+	    || pdu_len > stream_get_endp(circuit->rcv_stream))
+		return 1;
+
+	if (pdu_len < stream_get_endp(circuit->rcv_stream))
+		stream_set_endp(circuit->rcv_stream, pdu_len);
+	return 0;
+}
+
 static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 			 u_char *ssnpa)
 {
@@ -685,22 +697,13 @@ static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
 		stream_get(iih.dis, circuit->rcv_stream, ISIS_SYS_ID_LEN + 1);
 	}
 
-	if (iih.pdu_len < stream_get_getp(circuit->rcv_stream)
-	    || iih.pdu_len > ISO_MTU(circuit)
-	    || iih.pdu_len > stream_get_endp(circuit->rcv_stream)) {
+	if (pdu_len_validate(iih.pdu_len, circuit)) {
 		zlog_warn(
 			"ISIS-Adj (%s): Rcvd %s from (%s) with invalid pdu length %" PRIu16,
 			circuit->area->area_tag, pdu_name,
 			circuit->interface->name, iih.pdu_len);
 		return ISIS_WARNING;
 	}
-
-	/*
-	 * Set the stream endp to PDU length, ignoring additional padding
-	 * introduced by transport chips.
-	 */
-	if (iih.pdu_len < stream_get_endp(circuit->rcv_stream))
-		stream_set_endp(circuit->rcv_stream, iih.pdu_len);
 
 	if (!p2p_hello && !(level & iih.circ_type)) {
 		zlog_err("Level %d LAN Hello with Circuit Type %d", level,
@@ -906,8 +909,9 @@ static int process_lsp(int level, struct isis_circuit *circuit,
 	 */
 	lsp = lsp_search(hdr->lsp_id, circuit->area->lspdb[level - 1]);
 	if (lsp)
-		comp = lsp_compare(circuit->area->area_tag, lsp, hdr->seq_num,
-				   hdr->checksum, hdr->rem_lifetime);
+		comp = lsp_compare(circuit->area->area_tag, lsp,
+				   ntohl(hdr->seq_num), ntohs(hdr->checksum),
+				   ntohs(hdr->rem_lifetime));
 	if (lsp && (lsp->own_lsp))
 		goto dontcheckadj;
 
@@ -1142,60 +1146,48 @@ dontcheckadj:
  * Section 7.3.15.2 - Action on receipt of a sequence numbers PDU
  */
 
-static int process_snp(int snp_type, int level, struct isis_circuit *circuit,
+static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 		       const u_char *ssnpa)
 {
-	int retval = ISIS_OK;
-	int cmp, own_lsp;
-	char typechar = ' ';
-	uint16_t pdu_len;
-	struct isis_adjacency *adj;
-	struct isis_complete_seqnum_hdr *chdr = NULL;
-	struct isis_partial_seqnum_hdr *phdr = NULL;
-	uint32_t found = 0, expected = 0, auth_tlv_offset = 0;
-	struct isis_lsp *lsp;
-	struct lsp_entry *entry;
-	struct listnode *node, *nnode;
-	struct listnode *node2, *nnode2;
-	struct tlvs tlvs;
-	struct list *lsp_list = NULL;
-	struct isis_passwd *passwd;
+	bool is_csnp = (pdu_type == L1_COMPLETE_SEQ_NUM
+			|| pdu_type == L2_COMPLETE_SEQ_NUM);
+	char typechar = is_csnp ? 'C' : 'P';
+	int level = (pdu_type == L1_COMPLETE_SEQ_NUM
+		     || pdu_type == L1_PARTIAL_SEQ_NUM)
+			    ? ISIS_LEVEL1
+			    : ISIS_LEVEL2;
 
-	if (snp_type == ISIS_SNP_CSNP_FLAG) {
-		/* getting the header info */
-		typechar = 'C';
-		chdr = (struct isis_complete_seqnum_hdr *)STREAM_PNT(
-			circuit->rcv_stream);
-		stream_forward_getp(circuit->rcv_stream, ISIS_CSNP_HDRLEN);
-		pdu_len = ntohs(chdr->pdu_len);
-		if (pdu_len < (ISIS_FIXED_HDR_LEN + ISIS_CSNP_HDRLEN)
-		    || pdu_len > ISO_MTU(circuit)
-		    || pdu_len > stream_get_endp(circuit->rcv_stream)) {
-			zlog_warn("Received a CSNP with bogus length %d",
-				  pdu_len);
-			return ISIS_WARNING;
-		}
-	} else {
-		typechar = 'P';
-		phdr = (struct isis_partial_seqnum_hdr *)STREAM_PNT(
-			circuit->rcv_stream);
-		stream_forward_getp(circuit->rcv_stream, ISIS_PSNP_HDRLEN);
-		pdu_len = ntohs(phdr->pdu_len);
-		if (pdu_len < (ISIS_FIXED_HDR_LEN + ISIS_PSNP_HDRLEN)
-		    || pdu_len > ISO_MTU(circuit)
-		    || pdu_len > stream_get_endp(circuit->rcv_stream)) {
-			zlog_warn("Received a PSNP with bogus length %d",
-				  pdu_len);
-			return ISIS_WARNING;
-		}
+	uint16_t pdu_len = stream_getw(circuit->rcv_stream);
+	uint8_t rem_sys_id[ISIS_SYS_ID_LEN];
+	stream_get(rem_sys_id, circuit->rcv_stream, ISIS_SYS_ID_LEN);
+	stream_forward_getp(circuit->rcv_stream, 1); /* Circuit ID - unused */
+
+	uint8_t start_lsp_id[ISIS_SYS_ID_LEN + 2] = {};
+	uint8_t stop_lsp_id[ISIS_SYS_ID_LEN + 2] = {};
+
+	if (is_csnp) {
+		stream_get(start_lsp_id, circuit->rcv_stream,
+			   ISIS_SYS_ID_LEN + 2);
+		stream_get(stop_lsp_id, circuit->rcv_stream,
+			   ISIS_SYS_ID_LEN + 2);
 	}
 
-	/*
-	 * Set the stream endp to PDU length, ignoring additional padding
-	 * introduced by transport chips.
-	 */
-	if (pdu_len < stream_get_endp(circuit->rcv_stream))
-		stream_set_endp(circuit->rcv_stream, pdu_len);
+	if (pdu_len_validate(pdu_len, circuit)) {
+		zlog_warn("Received a CSNP with bogus length %d", pdu_len);
+		return ISIS_WARNING;
+	}
+
+	if (isis->debugs & DEBUG_SNP_PACKETS) {
+		zlog_debug(
+			"ISIS-Snp (%s): Rcvd L%d %cSNP on %s, cirType %s, cirID %u",
+			circuit->area->area_tag, level, typechar,
+			circuit->interface->name,
+			circuit_t2string(circuit->is_type),
+			circuit->circuit_id);
+		if (isis->debugs & DEBUG_PACKET_DUMP)
+			zlog_dump_data(STREAM_DATA(circuit->rcv_stream),
+				       stream_get_endp(circuit->rcv_stream));
+	}
 
 	/* 7.3.15.2 a) 1 - external domain circuit will discard snp pdu */
 	if (circuit->ext_domain) {
@@ -1223,9 +1215,8 @@ static int process_snp(int snp_type, int level, struct isis_circuit *circuit,
 	}
 
 	/* 7.3.15.2 a) 4 - not applicable for CSNP  only PSNPs on broadcast */
-	if ((snp_type == ISIS_SNP_PSNP_FLAG)
-	    && (circuit->circ_type == CIRCUIT_T_BROADCAST)
-	    && (!circuit->u.bc.is_dr[level - 1])) {
+	if (!is_csnp && (circuit->circ_type == CIRCUIT_T_BROADCAST)
+	    && !circuit->u.bc.is_dr[level - 1]) {
 		zlog_debug(
 			"ISIS-Snp (%s): Rcvd L%d %cSNP from %s on %s, "
 			"skipping: we are not the DIS",
@@ -1247,15 +1238,8 @@ static int process_snp(int snp_type, int level, struct isis_circuit *circuit,
 	/* for broadcast circuits, snpa should be compared */
 	/* FIXME : Do we need to check SNPA? */
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-		if (snp_type == ISIS_SNP_CSNP_FLAG) {
-			adj = isis_adj_lookup(chdr->source_id,
-					      circuit->u.bc.adjdb[level - 1]);
-		} else {
-			/* a psnp on a broadcast, how lovely of Juniper :) */
-			adj = isis_adj_lookup(phdr->source_id,
-					      circuit->u.bc.adjdb[level - 1]);
-		}
-		if (!adj)
+		if (!isis_adj_lookup(rem_sys_id,
+				     circuit->u.bc.adjdb[level - 1]))
 			return ISIS_OK; /* Silently discard */
 	} else {
 		if (!circuit->u.p2p.neighbor) {
@@ -1265,164 +1249,128 @@ static int process_snp(int snp_type, int level, struct isis_circuit *circuit,
 		}
 	}
 
-	/* 7.3.15.2 a) 8 - Passwords for level 1 - not implemented  */
+	struct isis_tlvs *tlvs;
+	int retval = ISIS_WARNING;
+	const char *error_log;
 
-	/* 7.3.15.2 a) 9 - Passwords for level 2 - not implemented  */
-
-	memset(&tlvs, 0, sizeof(struct tlvs));
-
-	/* parse the SNP */
-	expected |= TLVFLAG_LSP_ENTRIES;
-	expected |= TLVFLAG_AUTH_INFO;
-
-	auth_tlv_offset = stream_get_getp(circuit->rcv_stream);
-	retval = parse_tlvs(circuit->area->area_tag,
-			    STREAM_PNT(circuit->rcv_stream),
-			    pdu_len - stream_get_getp(circuit->rcv_stream),
-			    &expected, &found, &tlvs, &auth_tlv_offset);
-
-	if (retval > ISIS_WARNING) {
-		zlog_warn("something went very wrong processing SNP");
-		free_tlvs(&tlvs);
-		return retval;
+	if (isis_unpack_tlvs(STREAM_READABLE(circuit->rcv_stream),
+			     circuit->rcv_stream, &tlvs, &error_log)) {
+		zlog_warn("Something went wrong unpacking the SNP: %s",
+			  error_log);
+		goto out;
 	}
 
-	if (level == IS_LEVEL_1)
-		passwd = &circuit->area->area_passwd;
-	else
-		passwd = &circuit->area->domain_passwd;
-
-	if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_RECV)) {
-		if (passwd->type) {
-			if (!(found & TLVFLAG_AUTH_INFO)
-			    || authentication_check(&tlvs.auth_info, passwd,
-						    circuit->rcv_stream,
-						    auth_tlv_offset)) {
-				isis_event_auth_failure(circuit->area->area_tag,
-							"SNP authentication"
-							" failure",
-							phdr ? phdr->source_id
-							     : chdr->source_id);
-				free_tlvs(&tlvs);
-				return ISIS_OK;
-			}
-		}
+	struct isis_passwd *passwd = (level == IS_LEVEL_1)
+					     ? &circuit->area->area_passwd
+					     : &circuit->area->domain_passwd;
+	if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_RECV)
+	    && !isis_tlvs_auth_is_valid(tlvs, passwd, circuit->rcv_stream)) {
+		isis_event_auth_failure(circuit->area->area_tag,
+					"SNP authentication failure",
+					rem_sys_id);
+		goto out;
 	}
+
+	struct isis_lsp_entry *entry_head =
+		(struct isis_lsp_entry *)tlvs->lsp_entries.head;
 
 	/* debug isis snp-packets */
 	if (isis->debugs & DEBUG_SNP_PACKETS) {
 		zlog_debug("ISIS-Snp (%s): Rcvd L%d %cSNP from %s on %s",
 			   circuit->area->area_tag, level, typechar,
 			   snpa_print(ssnpa), circuit->interface->name);
-		if (tlvs.lsp_entries) {
-			for (ALL_LIST_ELEMENTS_RO(tlvs.lsp_entries, node,
-						  entry)) {
-				zlog_debug(
-					"ISIS-Snp (%s):         %cSNP entry %s, seq 0x%08x,"
-					" cksum 0x%04x, lifetime %us",
-					circuit->area->area_tag, typechar,
-					rawlspid_print(entry->lsp_id),
-					ntohl(entry->seq_num),
-					ntohs(entry->checksum),
-					ntohs(entry->rem_lifetime));
-			}
+		for (struct isis_lsp_entry *entry = entry_head; entry;
+		     entry = entry->next) {
+			zlog_debug(
+				"ISIS-Snp (%s):         %cSNP entry %s, seq 0x%08" PRIx32
+				", cksum 0x%04" PRIx16 ", lifetime %" PRIu16 "s",
+				circuit->area->area_tag, typechar,
+				rawlspid_print(entry->id), entry->seqno,
+				entry->checksum, entry->rem_lifetime);
 		}
 	}
 
 	/* 7.3.15.2 b) Actions on LSP_ENTRIES reported */
-	if (tlvs.lsp_entries) {
-		for (ALL_LIST_ELEMENTS_RO(tlvs.lsp_entries, node, entry)) {
-			lsp = lsp_search(entry->lsp_id,
-					 circuit->area->lspdb[level - 1]);
-			own_lsp = !memcmp(entry->lsp_id, isis->sysid,
-					  ISIS_SYS_ID_LEN);
-			if (lsp) {
-				/* 7.3.15.2 b) 1) is this LSP newer */
-				cmp = lsp_compare(circuit->area->area_tag, lsp,
-						  entry->seq_num,
-						  entry->checksum,
-						  entry->rem_lifetime);
-				/* 7.3.15.2 b) 2) if it equals, clear SRM on p2p
-				 */
-				if (cmp == LSP_EQUAL) {
+	for (struct isis_lsp_entry *entry = entry_head; entry;
+	     entry = entry->next) {
+		struct isis_lsp *lsp =
+			lsp_search(entry->id, circuit->area->lspdb[level - 1]);
+		bool own_lsp = !memcmp(entry->id, isis->sysid, ISIS_SYS_ID_LEN);
+		if (lsp) {
+			/* 7.3.15.2 b) 1) is this LSP newer */
+			int cmp = lsp_compare(circuit->area->area_tag, lsp,
+					      entry->seqno, entry->checksum,
+					      entry->rem_lifetime);
+			/* 7.3.15.2 b) 2) if it equals, clear SRM on p2p */
+			if (cmp == LSP_EQUAL) {
+				/* if (circuit->circ_type !=
+				 * CIRCUIT_T_BROADCAST) */
+				ISIS_CLEAR_FLAG(lsp->SRMflags, circuit);
+			}
+			/* 7.3.15.2 b) 3) if it is older, clear SSN and set SRM
+			   */
+			else if (cmp == LSP_OLDER) {
+				ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
+				ISIS_SET_FLAG(lsp->SRMflags, circuit);
+			}
+			/* 7.3.15.2 b) 4) if it is newer, set SSN and clear SRM
+			   on p2p */
+			else {
+				if (own_lsp) {
+					lsp_inc_seqnum(lsp, entry->seqno);
+					ISIS_SET_FLAG(lsp->SRMflags, circuit);
+				} else {
+					ISIS_SET_FLAG(lsp->SSNflags, circuit);
 					/* if (circuit->circ_type !=
 					 * CIRCUIT_T_BROADCAST) */
 					ISIS_CLEAR_FLAG(lsp->SRMflags, circuit);
 				}
-				/* 7.3.15.2 b) 3) if it is older, clear SSN and
-				   set SRM */
-				else if (cmp == LSP_OLDER) {
-					ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
-					ISIS_SET_FLAG(lsp->SRMflags, circuit);
-				}
-				/* 7.3.15.2 b) 4) if it is newer, set SSN and
-				   clear SRM on p2p */
-				else {
-					if (own_lsp) {
-						lsp_inc_seqnum(
-							lsp,
-							ntohl(entry->seq_num));
-						ISIS_SET_FLAG(lsp->SRMflags,
-							      circuit);
-					} else {
-						ISIS_SET_FLAG(lsp->SSNflags,
-							      circuit);
-						/* if (circuit->circ_type !=
-						 * CIRCUIT_T_BROADCAST) */
-						ISIS_CLEAR_FLAG(lsp->SRMflags,
-								circuit);
-					}
-				}
-			} else {
-				/* 7.3.15.2 b) 5) if it was not found, and all
-				 * of those are not 0,
-				 * insert it and set SSN on it */
-				if (entry->rem_lifetime && entry->checksum
-				    && entry->seq_num
-				    && memcmp(entry->lsp_id, isis->sysid,
-					      ISIS_SYS_ID_LEN)) {
-					lsp = lsp_new(
-						circuit->area, entry->lsp_id,
-						ntohs(entry->rem_lifetime), 0,
-						0, entry->checksum, level);
-					lsp_insert(lsp,
-						   circuit->area
-							   ->lspdb[level - 1]);
-					ISIS_FLAGS_CLEAR_ALL(lsp->SRMflags);
-					ISIS_SET_FLAG(lsp->SSNflags, circuit);
-				}
+			}
+		} else {
+			/* 7.3.15.2 b) 5) if it was not found, and all of those
+			 * are not 0,
+			 * insert it and set SSN on it */
+			if (entry->rem_lifetime && entry->checksum
+			    && entry->seqno && memcmp(entry->id, isis->sysid,
+						      ISIS_SYS_ID_LEN)) {
+				struct isis_lsp *lsp =
+					lsp_new(circuit->area, entry->id,
+						entry->rem_lifetime, 0, 0,
+						entry->checksum, level);
+				lsp_insert(lsp,
+					   circuit->area->lspdb[level - 1]);
+				ISIS_FLAGS_CLEAR_ALL(lsp->SRMflags);
+				ISIS_SET_FLAG(lsp->SSNflags, circuit);
 			}
 		}
 	}
 
 	/* 7.3.15.2 c) on CSNP set SRM for all in range which were not reported
 	 */
-	if (snp_type == ISIS_SNP_CSNP_FLAG) {
+	if (is_csnp) {
 		/*
 		 * Build a list from our own LSP db bounded with
 		 * start_lsp_id and stop_lsp_id
 		 */
-		lsp_list = list_new();
-		lsp_build_list_nonzero_ht(chdr->start_lsp_id, chdr->stop_lsp_id,
-					  lsp_list,
+		struct list *lsp_list = list_new();
+		lsp_build_list_nonzero_ht(start_lsp_id, stop_lsp_id, lsp_list,
 					  circuit->area->lspdb[level - 1]);
 
 		/* Fixme: Find a better solution */
-		if (tlvs.lsp_entries) {
-			for (ALL_LIST_ELEMENTS(tlvs.lsp_entries, node, nnode,
-					       entry)) {
-				for (ALL_LIST_ELEMENTS(lsp_list, node2, nnode2,
-						       lsp)) {
-					if (lsp_id_cmp(lsp->lsp_header->lsp_id,
-						       entry->lsp_id)
-					    == 0) {
-						list_delete_node(lsp_list,
-								 node2);
-						break;
-					}
+		struct listnode *node, *nnode;
+		struct isis_lsp *lsp;
+		for (struct isis_lsp_entry *entry = entry_head; entry;
+		     entry = entry->next) {
+			for (ALL_LIST_ELEMENTS(lsp_list, node, nnode, lsp)) {
+				if (lsp_id_cmp(lsp->lsp_header->lsp_id,
+					       entry->id)
+				    == 0) {
+					list_delete_node(lsp_list, node);
+					break;
 				}
 			}
 		}
+
 		/* on remaining LSPs we set SRM (neighbor knew not of) */
 		for (ALL_LIST_ELEMENTS_RO(lsp_list, node, lsp))
 			ISIS_SET_FLAG(lsp->SRMflags, circuit);
@@ -1430,59 +1378,10 @@ static int process_snp(int snp_type, int level, struct isis_circuit *circuit,
 		list_delete(lsp_list);
 	}
 
-	free_tlvs(&tlvs);
+	retval = ISIS_OK;
+out:
+	isis_free_tlvs(tlvs);
 	return retval;
-}
-
-static int process_csnp(int level, struct isis_circuit *circuit,
-			const u_char *ssnpa)
-{
-	if (isis->debugs & DEBUG_SNP_PACKETS) {
-		zlog_debug(
-			"ISIS-Snp (%s): Rcvd L%d CSNP on %s, cirType %s, cirID %u",
-			circuit->area->area_tag, level,
-			circuit->interface->name,
-			circuit_t2string(circuit->is_type),
-			circuit->circuit_id);
-		if (isis->debugs & DEBUG_PACKET_DUMP)
-			zlog_dump_data(STREAM_DATA(circuit->rcv_stream),
-				       stream_get_endp(circuit->rcv_stream));
-	}
-
-	/* Sanity check - FIXME: move to correct place */
-	if ((stream_get_endp(circuit->rcv_stream)
-	     - stream_get_getp(circuit->rcv_stream))
-	    < ISIS_CSNP_HDRLEN) {
-		zlog_warn("Packet too short ( < %d)", ISIS_CSNP_HDRLEN);
-		return ISIS_WARNING;
-	}
-
-	return process_snp(ISIS_SNP_CSNP_FLAG, level, circuit, ssnpa);
-}
-
-static int process_psnp(int level, struct isis_circuit *circuit,
-			const u_char *ssnpa)
-{
-	if (isis->debugs & DEBUG_SNP_PACKETS) {
-		zlog_debug(
-			"ISIS-Snp (%s): Rcvd L%d PSNP on %s, cirType %s, cirID %u",
-			circuit->area->area_tag, level,
-			circuit->interface->name,
-			circuit_t2string(circuit->is_type),
-			circuit->circuit_id);
-		if (isis->debugs & DEBUG_PACKET_DUMP)
-			zlog_dump_data(STREAM_DATA(circuit->rcv_stream),
-				       stream_get_endp(circuit->rcv_stream));
-	}
-
-	if ((stream_get_endp(circuit->rcv_stream)
-	     - stream_get_getp(circuit->rcv_stream))
-	    < ISIS_PSNP_HDRLEN) {
-		zlog_warn("Packet too short ( < %d)", ISIS_PSNP_HDRLEN);
-		return ISIS_WARNING;
-	}
-
-	return process_snp(ISIS_SNP_PSNP_FLAG, level, circuit, ssnpa);
 }
 
 static int pdu_size(uint8_t pdu_type, uint8_t *size)
@@ -1613,16 +1512,10 @@ static int isis_handle_pdu(struct isis_circuit *circuit, u_char *ssnpa)
 		retval = process_lsp(ISIS_LEVEL2, circuit, ssnpa);
 		break;
 	case L1_COMPLETE_SEQ_NUM:
-		retval = process_csnp(ISIS_LEVEL1, circuit, ssnpa);
-		break;
 	case L2_COMPLETE_SEQ_NUM:
-		retval = process_csnp(ISIS_LEVEL2, circuit, ssnpa);
-		break;
 	case L1_PARTIAL_SEQ_NUM:
-		retval = process_psnp(ISIS_LEVEL1, circuit, ssnpa);
-		break;
 	case L2_PARTIAL_SEQ_NUM:
-		retval = process_psnp(ISIS_LEVEL2, circuit, ssnpa);
+		retval = process_snp(pdu_type, circuit, ssnpa);
 		break;
 	default:
 		return ISIS_ERROR;
@@ -1886,94 +1779,6 @@ int send_p2p_hello(struct thread *thread)
 	return ISIS_OK;
 }
 
-static int build_csnp(int level, u_char *start, u_char *stop, struct list *lsps,
-		      struct isis_circuit *circuit)
-{
-	struct isis_passwd *passwd;
-	unsigned long lenp;
-	u_int16_t length;
-	unsigned char hmac_md5_hash[ISIS_AUTH_MD5_SIZE];
-	unsigned long auth_tlv_offset = 0;
-	int retval = ISIS_OK;
-	uint8_t pdu_type = (level == IS_LEVEL_1) ? L1_COMPLETE_SEQ_NUM
-						 : L2_COMPLETE_SEQ_NUM;
-
-	isis_circuit_stream(circuit, &circuit->snd_stream);
-
-	fill_fixed_hdr(pdu_type, circuit->snd_stream);
-
-	/*
-	 * Fill Level 1 or 2 Complete Sequence Numbers header
-	 */
-
-	lenp = stream_get_endp(circuit->snd_stream);
-	stream_putw(circuit->snd_stream, 0); /* PDU length - when we know it */
-	/* no need to send the source here, it is always us if we csnp */
-	stream_put(circuit->snd_stream, isis->sysid, ISIS_SYS_ID_LEN);
-	/* with zero circuit id - ref 9.10, 9.11 */
-	stream_putc(circuit->snd_stream, 0x00);
-
-	stream_put(circuit->snd_stream, start, ISIS_SYS_ID_LEN + 2);
-	stream_put(circuit->snd_stream, stop, ISIS_SYS_ID_LEN + 2);
-
-	/*
-	 * And TLVs
-	 */
-	if (level == IS_LEVEL_1)
-		passwd = &circuit->area->area_passwd;
-	else
-		passwd = &circuit->area->domain_passwd;
-
-	if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND)) {
-		switch (passwd->type) {
-		/* Cleartext */
-		case ISIS_PASSWD_TYPE_CLEARTXT:
-			if (tlv_add_authinfo(ISIS_PASSWD_TYPE_CLEARTXT,
-					     passwd->len, passwd->passwd,
-					     circuit->snd_stream))
-				return ISIS_WARNING;
-			break;
-
-		/* HMAC MD5 */
-		case ISIS_PASSWD_TYPE_HMAC_MD5:
-			/* Remember where TLV is written so we can later
-			 * overwrite the MD5 hash */
-			auth_tlv_offset = stream_get_endp(circuit->snd_stream);
-			memset(&hmac_md5_hash, 0, ISIS_AUTH_MD5_SIZE);
-			if (tlv_add_authinfo(ISIS_PASSWD_TYPE_HMAC_MD5,
-					     ISIS_AUTH_MD5_SIZE, hmac_md5_hash,
-					     circuit->snd_stream))
-				return ISIS_WARNING;
-			break;
-
-		default:
-			break;
-		}
-	}
-
-	retval = tlv_add_lsp_entries(lsps, circuit->snd_stream);
-	if (retval != ISIS_OK)
-		return retval;
-
-	length = (u_int16_t)stream_get_endp(circuit->snd_stream);
-	/* Update PU length */
-	stream_putw_at(circuit->snd_stream, lenp, length);
-
-	/* For HMAC MD5 we need to compute the md5 hash and store it */
-	if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND)
-	    && passwd->type == ISIS_PASSWD_TYPE_HMAC_MD5) {
-		hmac_md5(STREAM_DATA(circuit->snd_stream),
-			 stream_get_endp(circuit->snd_stream),
-			 (unsigned char *)&passwd->passwd, passwd->len,
-			 (unsigned char *)&hmac_md5_hash);
-		/* Copy the hash into the stream */
-		memcpy(STREAM_DATA(circuit->snd_stream) + auth_tlv_offset + 3,
-		       hmac_md5_hash, ISIS_AUTH_MD5_SIZE);
-	}
-
-	return retval;
-}
-
 /*
  * Count the maximum number of lsps that can be accomodated by a given size.
  */
@@ -1995,109 +1800,81 @@ static uint16_t get_max_lsp_count(uint16_t size)
 	return lsp_count;
 }
 
-/*
- * Calculate the length of Authentication Info. TLV.
- */
-static uint16_t auth_tlv_length(int level, struct isis_circuit *circuit)
-{
-	struct isis_passwd *passwd;
-	uint16_t length;
-
-	if (level == IS_LEVEL_1)
-		passwd = &circuit->area->area_passwd;
-	else
-		passwd = &circuit->area->domain_passwd;
-
-	/* Also include the length of TLV header */
-	length = AUTH_INFO_HDRLEN;
-	if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND)) {
-		switch (passwd->type) {
-		/* Cleartext */
-		case ISIS_PASSWD_TYPE_CLEARTXT:
-			length += passwd->len;
-			break;
-
-		/* HMAC MD5 */
-		case ISIS_PASSWD_TYPE_HMAC_MD5:
-			length += ISIS_AUTH_MD5_SIZE;
-			break;
-
-		default:
-			break;
-		}
-	}
-
-	return length;
-}
-
-/*
- * Calculate the maximum number of lsps that can be accomodated in a CSNP/PSNP.
- */
-static uint16_t max_lsps_per_snp(int snp_type, int level,
-				 struct isis_circuit *circuit)
-{
-	int snp_hdr_len;
-	int auth_tlv_len;
-	uint16_t lsp_count;
-
-	snp_hdr_len = ISIS_FIXED_HDR_LEN;
-	if (snp_type == ISIS_SNP_CSNP_FLAG)
-		snp_hdr_len += ISIS_CSNP_HDRLEN;
-	else
-		snp_hdr_len += ISIS_PSNP_HDRLEN;
-
-	auth_tlv_len = auth_tlv_length(level, circuit);
-	lsp_count = get_max_lsp_count(stream_get_size(circuit->snd_stream)
-				      - snp_hdr_len - auth_tlv_len);
-	return lsp_count;
-}
-
-/*
- * FIXME: support multiple CSNPs
- */
-
 int send_csnp(struct isis_circuit *circuit, int level)
 {
-	u_char start[ISIS_SYS_ID_LEN + 2];
-	u_char stop[ISIS_SYS_ID_LEN + 2];
-	struct list *list = NULL;
-	struct listnode *node;
-	struct isis_lsp *lsp;
-	u_char num_lsps, loop = 1;
-	int i, retval = ISIS_OK;
-
 	if (circuit->area->lspdb[level - 1] == NULL
 	    || dict_count(circuit->area->lspdb[level - 1]) == 0)
-		return retval;
+		return ISIS_OK;
 
+	isis_circuit_stream(circuit, &circuit->snd_stream);
+	fill_fixed_hdr((level == ISIS_LEVEL1) ? L1_COMPLETE_SEQ_NUM
+					      : L2_COMPLETE_SEQ_NUM,
+		       circuit->snd_stream);
+
+	size_t len_pointer = stream_get_endp(circuit->snd_stream);
+	stream_putw(circuit->snd_stream, 0);
+	stream_put(circuit->snd_stream, isis->sysid, ISIS_SYS_ID_LEN);
+	/* with zero circuit id - ref 9.10, 9.11 */
+	stream_putc(circuit->snd_stream, 0);
+
+	size_t start_pointer = stream_get_endp(circuit->snd_stream);
+	stream_put(circuit->snd_stream, 0, ISIS_SYS_ID_LEN + 2);
+	size_t end_pointer = stream_get_endp(circuit->snd_stream);
+	stream_put(circuit->snd_stream, 0, ISIS_SYS_ID_LEN + 2);
+
+	struct isis_passwd *passwd = (level == ISIS_LEVEL1)
+					     ? &circuit->area->area_passwd
+					     : &circuit->area->domain_passwd;
+
+	struct isis_tlvs *tlvs = isis_alloc_tlvs();
+
+	if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
+		isis_tlvs_add_auth(tlvs, passwd);
+
+	size_t tlv_start = stream_get_endp(circuit->snd_stream);
+	if (isis_pack_tlvs(tlvs, circuit->snd_stream, len_pointer, false)) {
+		isis_free_tlvs(tlvs);
+		return ISIS_WARNING;
+	}
+	isis_free_tlvs(tlvs);
+
+	uint16_t num_lsps =
+		get_max_lsp_count(STREAM_WRITEABLE(circuit->snd_stream));
+
+	uint8_t start[ISIS_SYS_ID_LEN + 2];
 	memset(start, 0x00, ISIS_SYS_ID_LEN + 2);
+	uint8_t stop[ISIS_SYS_ID_LEN + 2];
 	memset(stop, 0xff, ISIS_SYS_ID_LEN + 2);
 
-	num_lsps = max_lsps_per_snp(ISIS_SNP_CSNP_FLAG, level, circuit);
-
+	bool loop = true;
 	while (loop) {
-		list = list_new();
-		lsp_build_list(start, stop, num_lsps, list,
-			       circuit->area->lspdb[level - 1]);
+		tlvs = isis_alloc_tlvs();
+		if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
+			isis_tlvs_add_auth(tlvs, passwd);
+
+		struct isis_lsp *last_lsp;
+		isis_tlvs_add_csnp_entries(tlvs, start, stop, num_lsps,
+					   circuit->area->lspdb[level - 1],
+					   &last_lsp);
 		/*
 		 * Update the stop lsp_id before encoding this CSNP.
 		 */
-		if (listcount(list) < num_lsps) {
+		if (tlvs->lsp_entries.count < num_lsps) {
 			memset(stop, 0xff, ISIS_SYS_ID_LEN + 2);
 		} else {
-			node = listtail(list);
-			lsp = listgetdata(node);
-			memcpy(stop, lsp->lsp_header->lsp_id,
+			memcpy(stop, last_lsp->lsp_header->lsp_id,
 			       ISIS_SYS_ID_LEN + 2);
 		}
 
-		retval = build_csnp(level, start, stop, list, circuit);
-		if (retval != ISIS_OK) {
-			zlog_err("ISIS-Snp (%s): Build L%d CSNP on %s failed",
-				 circuit->area->area_tag, level,
-				 circuit->interface->name);
-			list_delete(list);
-			return retval;
+		memcpy(STREAM_DATA(circuit->snd_stream) + start_pointer, start,
+		       ISIS_SYS_ID_LEN + 2);
+		memcpy(STREAM_DATA(circuit->snd_stream) + end_pointer, stop,
+		       ISIS_SYS_ID_LEN + 2);
+		stream_set_endp(circuit->snd_stream, tlv_start);
+		if (isis_pack_tlvs(tlvs, circuit->snd_stream, len_pointer,
+				   false)) {
+			isis_free_tlvs(tlvs);
+			return ISIS_WARNING;
 		}
 
 		if (isis->debugs & DEBUG_SNP_PACKETS) {
@@ -2106,28 +1883,20 @@ int send_csnp(struct isis_circuit *circuit, int level)
 				circuit->area->area_tag, level,
 				circuit->interface->name,
 				stream_get_endp(circuit->snd_stream));
-			for (ALL_LIST_ELEMENTS_RO(list, node, lsp)) {
-				zlog_debug(
-					"ISIS-Snp (%s):         CSNP entry %s, seq 0x%08x,"
-					" cksum 0x%04x, lifetime %us",
-					circuit->area->area_tag,
-					rawlspid_print(lsp->lsp_header->lsp_id),
-					ntohl(lsp->lsp_header->seq_num),
-					ntohs(lsp->lsp_header->checksum),
-					ntohs(lsp->lsp_header->rem_lifetime));
-			}
+			log_multiline(LOG_DEBUG, "              ", "%s",
+				      isis_format_tlvs(tlvs));
 			if (isis->debugs & DEBUG_PACKET_DUMP)
 				zlog_dump_data(
 					STREAM_DATA(circuit->snd_stream),
 					stream_get_endp(circuit->snd_stream));
 		}
 
-		retval = circuit->tx(circuit, level);
+		int retval = circuit->tx(circuit, level);
 		if (retval != ISIS_OK) {
 			zlog_err("ISIS-Snp (%s): Send L%d CSNP on %s failed",
 				 circuit->area->area_tag, level,
 				 circuit->interface->name);
-			list_delete(list);
+			isis_free_tlvs(tlvs);
 			return retval;
 		}
 
@@ -2137,7 +1906,7 @@ int send_csnp(struct isis_circuit *circuit, int level)
 		 */
 		memcpy(start, stop, ISIS_SYS_ID_LEN + 2);
 		loop = 0;
-		for (i = ISIS_SYS_ID_LEN + 1; i >= 0; --i) {
+		for (int i = ISIS_SYS_ID_LEN + 1; i >= 0; --i) {
 			if (start[i] < (u_char)0xff) {
 				start[i] += 1;
 				loop = 1;
@@ -2145,10 +1914,10 @@ int send_csnp(struct isis_circuit *circuit, int level)
 			}
 		}
 		memset(stop, 0xff, ISIS_SYS_ID_LEN + 2);
-		list_delete(list);
+		isis_free_tlvs(tlvs);
 	}
 
-	return retval;
+	return ISIS_OK;
 }
 
 int send_l1_csnp(struct thread *thread)
@@ -2195,116 +1964,12 @@ int send_l2_csnp(struct thread *thread)
 	return retval;
 }
 
-static int build_psnp(int level, struct isis_circuit *circuit,
-		      struct list *lsps)
-{
-	unsigned long lenp;
-	u_int16_t length;
-	struct isis_lsp *lsp;
-	struct isis_passwd *passwd;
-	struct listnode *node;
-	unsigned char hmac_md5_hash[ISIS_AUTH_MD5_SIZE];
-	unsigned long auth_tlv_offset = 0;
-	int retval = ISIS_OK;
-	uint8_t pdu_type =
-		(level == IS_LEVEL_1) ? L1_PARTIAL_SEQ_NUM : L2_PARTIAL_SEQ_NUM;
-
-	isis_circuit_stream(circuit, &circuit->snd_stream);
-
-	fill_fixed_hdr(pdu_type, circuit->snd_stream);
-
-	/*
-	 * Fill Level 1 or 2 Partial Sequence Numbers header
-	 */
-	lenp = stream_get_endp(circuit->snd_stream);
-	stream_putw(circuit->snd_stream, 0); /* PDU length - when we know it */
-	stream_put(circuit->snd_stream, isis->sysid, ISIS_SYS_ID_LEN);
-	stream_putc(circuit->snd_stream, circuit->idx);
-
-	/*
-	 * And TLVs
-	 */
-
-	if (level == IS_LEVEL_1)
-		passwd = &circuit->area->area_passwd;
-	else
-		passwd = &circuit->area->domain_passwd;
-
-	if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND)) {
-		switch (passwd->type) {
-		/* Cleartext */
-		case ISIS_PASSWD_TYPE_CLEARTXT:
-			if (tlv_add_authinfo(ISIS_PASSWD_TYPE_CLEARTXT,
-					     passwd->len, passwd->passwd,
-					     circuit->snd_stream))
-				return ISIS_WARNING;
-			break;
-
-		/* HMAC MD5 */
-		case ISIS_PASSWD_TYPE_HMAC_MD5:
-			/* Remember where TLV is written so we can later
-			 * overwrite the MD5 hash */
-			auth_tlv_offset = stream_get_endp(circuit->snd_stream);
-			memset(&hmac_md5_hash, 0, ISIS_AUTH_MD5_SIZE);
-			if (tlv_add_authinfo(ISIS_PASSWD_TYPE_HMAC_MD5,
-					     ISIS_AUTH_MD5_SIZE, hmac_md5_hash,
-					     circuit->snd_stream))
-				return ISIS_WARNING;
-			break;
-
-		default:
-			break;
-		}
-	}
-
-	retval = tlv_add_lsp_entries(lsps, circuit->snd_stream);
-	if (retval != ISIS_OK)
-		return retval;
-
-	if (isis->debugs & DEBUG_SNP_PACKETS) {
-		for (ALL_LIST_ELEMENTS_RO(lsps, node, lsp)) {
-			zlog_debug(
-				"ISIS-Snp (%s):         PSNP entry %s, seq 0x%08x,"
-				" cksum 0x%04x, lifetime %us",
-				circuit->area->area_tag,
-				rawlspid_print(lsp->lsp_header->lsp_id),
-				ntohl(lsp->lsp_header->seq_num),
-				ntohs(lsp->lsp_header->checksum),
-				ntohs(lsp->lsp_header->rem_lifetime));
-		}
-	}
-
-	length = (u_int16_t)stream_get_endp(circuit->snd_stream);
-	/* Update PDU length */
-	stream_putw_at(circuit->snd_stream, lenp, length);
-
-	/* For HMAC MD5 we need to compute the md5 hash and store it */
-	if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND)
-	    && passwd->type == ISIS_PASSWD_TYPE_HMAC_MD5) {
-		hmac_md5(STREAM_DATA(circuit->snd_stream),
-			 stream_get_endp(circuit->snd_stream),
-			 (unsigned char *)&passwd->passwd, passwd->len,
-			 (unsigned char *)&hmac_md5_hash);
-		/* Copy the hash into the stream */
-		memcpy(STREAM_DATA(circuit->snd_stream) + auth_tlv_offset + 3,
-		       hmac_md5_hash, ISIS_AUTH_MD5_SIZE);
-	}
-
-	return ISIS_OK;
-}
-
 /*
  *  7.3.15.4 action on expiration of partial SNP interval
  *  level 1
  */
 static int send_psnp(int level, struct isis_circuit *circuit)
 {
-	struct isis_lsp *lsp;
-	struct list *list = NULL;
-	struct listnode *node;
-	u_char num_lsps;
-	int retval = ISIS_OK;
-
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST
 	    && circuit->u.bc.is_dr[level - 1])
 		return ISIS_OK;
@@ -2316,25 +1981,63 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 	if (!circuit->snd_stream)
 		return ISIS_ERROR;
 
-	num_lsps = max_lsps_per_snp(ISIS_SNP_PSNP_FLAG, level, circuit);
+	isis_circuit_stream(circuit, &circuit->snd_stream);
+	fill_fixed_hdr((level == ISIS_LEVEL1) ? L1_PARTIAL_SEQ_NUM
+					      : L2_PARTIAL_SEQ_NUM,
+		       circuit->snd_stream);
+
+	size_t len_pointer = stream_get_endp(circuit->snd_stream);
+	stream_putw(circuit->snd_stream, 0); /* length is filled in later */
+	stream_put(circuit->snd_stream, isis->sysid, ISIS_SYS_ID_LEN);
+	stream_putc(circuit->snd_stream, circuit->idx);
+
+	struct isis_passwd *passwd = (level == ISIS_LEVEL1)
+					     ? &circuit->area->area_passwd
+					     : &circuit->area->domain_passwd;
+
+	struct isis_tlvs *tlvs = isis_alloc_tlvs();
+
+	if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
+		isis_tlvs_add_auth(tlvs, passwd);
+
+	size_t tlv_start = stream_get_endp(circuit->snd_stream);
+	if (isis_pack_tlvs(tlvs, circuit->snd_stream, len_pointer, false)) {
+		isis_free_tlvs(tlvs);
+		return ISIS_WARNING;
+	}
+	isis_free_tlvs(tlvs);
+
+	uint16_t num_lsps =
+		get_max_lsp_count(STREAM_WRITEABLE(circuit->snd_stream));
 
 	while (1) {
-		list = list_new();
-		lsp_build_list_ssn(circuit, num_lsps, list,
-				   circuit->area->lspdb[level - 1]);
+		tlvs = isis_alloc_tlvs();
+		if (CHECK_FLAG(passwd->snp_auth, SNP_AUTH_SEND))
+			isis_tlvs_add_auth(tlvs, passwd);
 
-		if (listcount(list) == 0) {
-			list_delete(list);
+		for (dnode_t *dnode =
+			     dict_first(circuit->area->lspdb[level - 1]);
+		     dnode; dnode = dict_next(circuit->area->lspdb[level - 1],
+					      dnode)) {
+			struct isis_lsp *lsp = dnode_get(dnode);
+
+			if (ISIS_CHECK_FLAG(lsp->SSNflags, circuit))
+				isis_tlvs_add_lsp_entry(tlvs, lsp);
+
+			if (tlvs->lsp_entries.count == num_lsps)
+				break;
+		}
+
+		if (!tlvs->lsp_entries.count) {
+			isis_free_tlvs(tlvs);
 			return ISIS_OK;
 		}
 
-		retval = build_psnp(level, circuit, list);
-		if (retval != ISIS_OK) {
-			zlog_err("ISIS-Snp (%s): Build L%d PSNP on %s failed",
-				 circuit->area->area_tag, level,
-				 circuit->interface->name);
-			list_delete(list);
-			return retval;
+		stream_set_endp(circuit->snd_stream, tlv_start);
+		if (isis_pack_tlvs(tlvs, circuit->snd_stream, len_pointer,
+				   false)) {
+			isis_free_tlvs(tlvs);
+			return ISIS_WARNING;
 		}
 
 		if (isis->debugs & DEBUG_SNP_PACKETS) {
@@ -2343,18 +2046,20 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 				circuit->area->area_tag, level,
 				circuit->interface->name,
 				stream_get_endp(circuit->snd_stream));
+			log_multiline(LOG_DEBUG, "              ", "%s",
+				      isis_format_tlvs(tlvs));
 			if (isis->debugs & DEBUG_PACKET_DUMP)
 				zlog_dump_data(
 					STREAM_DATA(circuit->snd_stream),
 					stream_get_endp(circuit->snd_stream));
 		}
 
-		retval = circuit->tx(circuit, level);
+		int retval = circuit->tx(circuit, level);
 		if (retval != ISIS_OK) {
 			zlog_err("ISIS-Snp (%s): Send L%d PSNP on %s failed",
 				 circuit->area->area_tag, level,
 				 circuit->interface->name);
-			list_delete(list);
+			isis_free_tlvs(tlvs);
 			return retval;
 		}
 
@@ -2362,12 +2067,15 @@ static int send_psnp(int level, struct isis_circuit *circuit)
 		 * sending succeeded, we can clear SSN flags of this circuit
 		 * for the LSPs in list
 		 */
-		for (ALL_LIST_ELEMENTS_RO(list, node, lsp))
-			ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
-		list_delete(list);
+		struct isis_lsp_entry *entry_head;
+		entry_head = (struct isis_lsp_entry *)tlvs->lsp_entries.head;
+		for (struct isis_lsp_entry *entry = entry_head; entry;
+		     entry = entry->next)
+			ISIS_CLEAR_FLAG(entry->lsp->SSNflags, circuit);
+		isis_free_tlvs(tlvs);
 	}
 
-	return retval;
+	return ISIS_OK;
 }
 
 int send_l1_psnp(struct thread *thread)

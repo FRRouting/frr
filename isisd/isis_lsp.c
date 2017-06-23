@@ -234,6 +234,10 @@ void lsp_search_and_destroy(u_char *id, dict_t *lspdb)
 int lsp_compare(char *areatag, struct isis_lsp *lsp, u_int32_t seq_num,
 		u_int16_t checksum, u_int16_t rem_lifetime)
 {
+	seq_num = htonl(seq_num);
+	checksum = htons(checksum);
+	rem_lifetime = htons(rem_lifetime);
+
 	/* no point in double ntohl on seqnum */
 	if (lsp->lsp_header->seq_num == seq_num
 	    && lsp->lsp_header->checksum == checksum &&
@@ -597,7 +601,7 @@ struct isis_lsp *lsp_new(struct isis_area *area, u_char *lsp_id,
 							 + ISIS_FIXED_HDR_LEN);
 	lsp->lsp_header->pdu_len = htons(ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
 	memcpy(lsp->lsp_header->lsp_id, lsp_id, ISIS_SYS_ID_LEN + 2);
-	lsp->lsp_header->checksum = checksum; /* Provided in network order */
+	lsp->lsp_header->checksum = htons(checksum);
 	lsp->lsp_header->seq_num = htonl(seq_num);
 	lsp->lsp_header->rem_lifetime = htons(rem_lifetime);
 	lsp->lsp_header->lsp_bits = lsp_bits;
@@ -652,65 +656,6 @@ void lsp_build_list_nonzero_ht(u_char *start_id, u_char *stop_id,
 			listnode_add(list, curr->dict_data);
 		if (curr == last)
 			break;
-	}
-
-	return;
-}
-
-/*
- * Build a list of num_lsps LSPs bounded by start_id and stop_id.
- */
-void lsp_build_list(u_char *start_id, u_char *stop_id, u_char num_lsps,
-		    struct list *list, dict_t *lspdb)
-{
-	u_char count;
-	dnode_t *first, *last, *curr;
-
-	first = dict_lower_bound(lspdb, start_id);
-	if (!first)
-		return;
-
-	last = dict_upper_bound(lspdb, stop_id);
-
-	curr = first;
-
-	listnode_add(list, first->dict_data);
-	count = 1;
-
-	while (curr) {
-		curr = dict_next(lspdb, curr);
-		if (curr) {
-			listnode_add(list, curr->dict_data);
-			count++;
-		}
-		if (count == num_lsps || curr == last)
-			break;
-	}
-
-	return;
-}
-
-/*
- * Build a list of LSPs with SSN flag set for the given circuit
- */
-void lsp_build_list_ssn(struct isis_circuit *circuit, u_char num_lsps,
-			struct list *list, dict_t *lspdb)
-{
-	dnode_t *dnode, *next;
-	struct isis_lsp *lsp;
-	u_char count = 0;
-
-	dnode = dict_first(lspdb);
-	while (dnode != NULL) {
-		next = dict_next(lspdb, dnode);
-		lsp = dnode_get(dnode);
-		if (ISIS_CHECK_FLAG(lsp->SSNflags, circuit)) {
-			listnode_add(list, lsp);
-			++count;
-		}
-		if (count == num_lsps)
-			break;
-		dnode = next;
 	}
 
 	return;
