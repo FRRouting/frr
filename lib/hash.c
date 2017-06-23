@@ -387,7 +387,7 @@ DEFUN(show_hash_stats,
   struct listnode *ln;
   struct ttable *tt = ttable_new (&ttable_styles[TTSTYLE_BLANK]);
 
-  ttable_add_row (tt, "Hash table|Buckets|Entries|Empty|LF|FLF|SD");
+  ttable_add_row (tt, "Hash table|Buckets|Entries|Empty|LF|SD|FLF|SD");
   tt->style.cell.lpad = 2;
   tt->style.cell.rpad = 1;
   tt->style.corner = '+';
@@ -407,20 +407,20 @@ DEFUN(show_hash_stats,
    * - Full load factor: this is the number of elements in the table divided by
    *   the number of buckets that have some elements in them.
    *
-   * - Std. Dev.: This is the standard deviation from the full load factor. If
-   *   the FLF is the mean of number of elements per bucket, the standard
-   *   deviation measures how much any particular bucket is likely to deviate
-   *   from the mean. As a rule of thumb this number should be less than 2, and
-   *   ideally <= 1 for optimal performance. A number larger than 3 generally
-   *   indicates a poor hash function.
+   * - Std. Dev.: This is the standard deviation calculated from the relevant
+   *   load factor. If the load factor is the mean of number of elements per
+   *   bucket, the standard deviation measures how much any particular bucket
+   *   is likely to deviate from the mean. As a rule of thumb this number
+   *   should be less than 2, and ideally <= 1 for optimal performance. A
+   *   number larger than 3 generally indicates a poor hash function.
    */
 
-  long double lf;     // load factor
-  long double flf;    // full load factor
-  long double var;    // overall variance
-  long double fvar;   // full variance
-  long double stdv;   // overall stddev
-  long double fstdv;  // full stddev
+  double lf;          // load factor
+  double flf;         // full load factor
+  double var;         // overall variance
+  double fvar;        // full variance
+  double stdv;        // overall stddev
+  double fstdv;       // full stddev
 
   long double x2;     // h->count ^ 2
   long double ldc;    // (long double) h->count
@@ -434,21 +434,22 @@ DEFUN(show_hash_stats,
         continue;
 
       ssq   = (long double) h->stats.ssq;
-      x2    = pow(h->count, 2.0);
+      x2    = powl(h->count, 2.0);
       ldc   = (long double) h->count;
       full  = h->size - h->stats.empty;
       lf    = h->count / (double) h->size;
       flf   = full ? h->count / (double) (full) : 0;
-      var   = ldc ? (1.0 / ldc) * (h->stats.ssq - x2 / ldc) : 0;
-      fvar  = full ? (1.0 / full) * (h->stats.ssq - x2 / full) : 0;
+      var   = ldc ? (1.0 / ldc) * (ssq - x2 / ldc) : 0;
+      fvar  = full ? (1.0 / full) * (ssq - x2 / full) : 0;
       var   = (var < .0001) ? 0 : var;
       fvar  = (fvar < .0001) ? 0 : fvar;
-      stdv  = sqrtl(var);
-      fstdv = sqrtl(fvar);
+      stdv  = sqrt(var);
+      fstdv = sqrt(fvar);
 
-      ttable_add_row (tt, "%s|%d|%ld|%.0f%%|%.2Lf|%.2Lf|%.2Lf", h->name,
+      ttable_add_row (tt, "%s|%d|%ld|%.0f%%|%.2lf|%.2lf|%.2lf|%.2lf", h->name,
                       h->size, h->count,
-                      (h->stats.empty / (double) h->size)*100, lf, flf, fstdv);
+                      (h->stats.empty / (double) h->size)*100, lf, stdv, flf,
+                      fstdv);
     }
   pthread_mutex_unlock (&_hashes_mtx);
 
