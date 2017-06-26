@@ -7404,7 +7404,7 @@ static const struct cmd_variable_handler bgp_viewvrf_var_handlers[] = {
 	{.completions = NULL},
 };
 
-void bgp_pthreads_init()
+static void bgp_pthreads_init()
 {
 	frr_pthread_init();
 
