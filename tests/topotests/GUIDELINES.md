@@ -31,9 +31,9 @@ your machine:
 ```shell
 $ ls /tmp
 ...
-router1-zebra.err # zebra stderr output
-router1-zebra.log # zebra log file
-router1-zebra.out # zebra stdout output
+r1-zebra.err # zebra stderr output
+r1-zebra.log # zebra log file
+r1-zebra.out # zebra stdout output
 ...
 ```
 
@@ -78,10 +78,10 @@ $ find ./*
 ./example-test/test_template.py # the topology plus the test
 ...
 ./ospf-topo1 # the ospf topology test
-./ospf-topo1/router1 # router 1 configuration files
-./ospf-topo1/router1/zebra.conf # zebra configuration file
-./ospf-topo1/router1/ospfd.conf # ospf configuration file
-./ospf-topo1/router1/ospfroute.txt # 'show ip ospf' output reference file
+./ospf-topo1/r1 # router 1 configuration files
+./ospf-topo1/r1/zebra.conf # zebra configuration file
+./ospf-topo1/r1/ospfd.conf # ospf configuration file
+./ospf-topo1/r1/ospfroute.txt # 'show ip ospf' output reference file
 # removed other for shortness sake
 ...
 ./lib # shared test/topology functions
@@ -184,7 +184,7 @@ Parameters explanation:
 
 * -s: actives input/output capture. This is required by mininet in order to show
   the interactive shell.
-* --topology-only: don't run anytest, just build the topology.
+* --topology-only: don't run any tests, just build the topology.
 
 After executing the commands above you should get the following terminal output:
 
@@ -198,14 +198,14 @@ ospf-topo1/test_ospf_topo1.py *** Starting controller
 
 *** Starting 6 switches
 switch1 switch2 switch3 switch4 switch5 switch6 ...
-router2: frr zebra started
-router2: frr ospfd started
-router3: frr zebra started
-router3: frr ospfd started
-router1: frr zebra started
-router1: frr ospfd started
-router4: frr zebra started
-router4: frr ospfd started
+r2: frr zebra started
+r2: frr ospfd started
+r3: frr zebra started
+r3: frr ospfd started
+r1: frr zebra started
+r1: frr ospfd started
+r4: frr zebra started
+r4: frr ospfd started
 *** Starting CLI:
 mininet>
 ```
@@ -216,7 +216,7 @@ Interface), from here you can call your router vtysh or even bash.
 Here are some commands example:
 
 ```shell
-mininet> router1 ping 10.0.3.1
+mininet> r1 ping 10.0.3.1
 PING 10.0.3.1 (10.0.3.1) 56(84) bytes of data.
 64 bytes from 10.0.3.1: icmp_seq=1 ttl=64 time=0.576 ms
 64 bytes from 10.0.3.1: icmp_seq=2 ttl=64 time=0.083 ms
@@ -228,7 +228,7 @@ rtt min/avg/max/mdev = 0.083/0.249/0.576/0.231 ms
 
 
 
-mininet> router1 ping 10.0.3.3
+mininet> r1 ping 10.0.3.3
 PING 10.0.3.3 (10.0.3.3) 56(84) bytes of data.
 64 bytes from 10.0.3.3: icmp_seq=1 ttl=64 time=2.87 ms
 64 bytes from 10.0.3.3: icmp_seq=2 ttl=64 time=0.080 ms
@@ -240,7 +240,7 @@ rtt min/avg/max/mdev = 0.080/1.014/2.872/1.313 ms
 
 
 
-mininet> router3 vtysh
+mininet> r3 vtysh
 
 Hello, this is FRRouting (version 3.1-devrzalamena-build).
 Copyright 1996-2005 Kunihiro Ishiguro, et al.
@@ -252,20 +252,20 @@ Current configuration:
 !
 frr version 3.1-devrzalamena-build
 frr defaults traditional
-hostname router3
+hostname r3
 no service integrated-vtysh-config
 !
-log file /tmp/router3-zebra.log
+log file /tmp/r3-zebra.log
 !
-log file /tmp/router3-ospfd.log
+log file /tmp/r3-ospfd.log
 !
-interface router3-eth0
+interface r3-eth0
  ip address 10.0.3.1/24
 !
-interface router3-eth1
+interface r3-eth1
  ip address 10.0.10.1/24
 !
-interface router3-eth2
+interface r3-eth2
  ip address 172.16.0.2/24
 !
 router ospf
@@ -287,7 +287,7 @@ After you successfully configured your topology you can obtain the
 configuration files (per-daemon) using the following command:
 
 ```shell
-mininet> router3 vtysh -d ospfd
+mininet> r3 vtysh -d ospfd
 
 Hello, this is FRRouting (version 3.1-devrzalamena-build).
 Copyright 1996-2005 Kunihiro Ishiguro, et al.
@@ -301,7 +301,7 @@ frr version 3.1-devrzalamena-build
 frr defaults traditional
 no service integrated-vtysh-config
 !
-log file /tmp/router3-ospfd.log
+log file /tmp/r3-ospfd.log
 !
 router ospf
  ospf router-id 10.0.255.3
@@ -339,14 +339,14 @@ frr-1#
 119         import pdb
 120         pdb.set_trace()
 121  ->     for rnum in range(1, 5):
-122             router = 'router{}'.format(rnum)
+122             router = 'r{}'.format(rnum)
 123  
 124             # Load expected results from the command
 125             reffile = os.path.join(CWD, '{}/ospfroute.txt'.format(router))
 126             expected = open(reffile).read()
 (Pdb) tgen = get_topogen()
-(Pdb) pp tgen.gears['router1']
+(Pdb) pp tgen.gears['r1']
 <lib.topogen.TopoRouter object at 0x7f2349c98c50>
-(Pdb) pp str(tgen.gears['router1'])
-'TopoGear<name="router1",links=["router1-eth0"<->"switch1-eth0","router1-eth1"<->"switch3-eth0"]> TopoRouter<>'
+(Pdb) pp str(tgen.gears['r1'])
+'TopoGear<name="r1",links=["r1-eth0"<->"switch1-eth0","r1-eth1"<->"switch3-eth0"]> TopoRouter<>'
 ```
