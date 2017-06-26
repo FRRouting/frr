@@ -3242,7 +3242,7 @@ rfapiBgpInfoFilteredImportEncap (
   rn = route_node_lookup (rt, p);
 
 #if DEBUG_ENCAP_MONITOR
-  vnc_zlog_debug_verbose ("%s: initial encap lookup (it=%p) rn=%p",
+  vnc_zlog_debug_verbose ("%s: initial encap lookup(it=%p) rn=%p",
               __func__, import_table, rn);
 #endif
 

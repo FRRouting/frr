@@ -371,7 +371,7 @@ DEFUN (show_debugging_eigrp,
       if (IS_DEBUG_EIGRP_PACKET (i, SEND) && IS_DEBUG_EIGRP_PACKET (i, RECV))
         {
           vty_out (vty, "  EIGRP packet %s%s debugging is on%s",
-                   LOOKUP (eigrp_packet_type_str, i + 1),
+                   lookup_msg(eigrp_packet_type_str, i + 1, NULL),
                    IS_DEBUG_EIGRP_PACKET (i, PACKET_DETAIL) ? " detail" : "",
                    VTY_NEWLINE);
         }
@@ -379,12 +379,12 @@ DEFUN (show_debugging_eigrp,
         {
           if (IS_DEBUG_EIGRP_PACKET (i, SEND))
             vty_out (vty, "  EIGRP packet %s send%s debugging is on%s",
-                     LOOKUP (eigrp_packet_type_str, i + 1),
+                     lookup_msg(eigrp_packet_type_str, i + 1, NULL),
                      IS_DEBUG_EIGRP_PACKET (i, PACKET_DETAIL) ? " detail" : "",
                      VTY_NEWLINE);
           if (IS_DEBUG_EIGRP_PACKET (i, RECV))
             vty_out (vty, "  EIGRP packet %s receive%s debugging is on%s",
-                     LOOKUP (eigrp_packet_type_str, i + 1),
+                     lookup_msg(eigrp_packet_type_str, i + 1, NULL),
                      IS_DEBUG_EIGRP_PACKET (i, PACKET_DETAIL) ? " detail" : "",
                      VTY_NEWLINE);
         }

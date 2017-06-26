@@ -56,8 +56,8 @@ static const struct message ospf6_message_type_str [] =
   { OSPF6_MESSAGE_TYPE_LSREQ,    "LSReq"    },
   { OSPF6_MESSAGE_TYPE_LSUPDATE, "LSUpdate" },
   { OSPF6_MESSAGE_TYPE_LSACK,    "LSAck"    },
+  { 0 }
 };
-static const size_t ospf6_message_type_str_max = array_size(ospf6_message_type_str);
 
 /* Minimum (besides the standard OSPF packet header) lengths for OSPF
    packets of particular types, offset is the "type" field. */
@@ -1207,7 +1207,7 @@ ospf6_packet_examin (struct ospf6_header *oh, const unsigned bytesonwire)
   {
     if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
       zlog_debug ("%s: undersized (%u B) %s packet", __func__,
-                  bytesonwire, LOOKUP (ospf6_message_type_str, oh->type));
+                  bytesonwire, lookup_msg(ospf6_message_type_str, oh->type, NULL));
     return MSG_NG;
   }
   /* type-specific deeper validation */
@@ -1220,7 +1220,7 @@ ospf6_packet_examin (struct ospf6_header *oh, const unsigned bytesonwire)
       return MSG_OK;
     if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
       zlog_debug ("%s: alignment error in %s packet",
-                  __func__, LOOKUP (ospf6_message_type_str, oh->type));
+                  __func__, lookup_msg(ospf6_message_type_str, oh->type, NULL));
     return MSG_NG;
   case OSPF6_MESSAGE_TYPE_DBDESC:
     /* RFC5340 A.3.3, packet header + OSPF6_DB_DESC_MIN_SIZE bytes followed
@@ -1239,7 +1239,7 @@ ospf6_packet_examin (struct ospf6_header *oh, const unsigned bytesonwire)
       return MSG_OK;
     if (IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
       zlog_debug ("%s: alignment error in %s packet",
-                  __func__, LOOKUP (ospf6_message_type_str, oh->type));
+                  __func__, lookup_msg(ospf6_message_type_str, oh->type, NULL));
     return MSG_NG;
   case OSPF6_MESSAGE_TYPE_LSUPDATE:
     /* RFC5340 A.3.5, packet header + OSPF6_LS_UPD_MIN_SIZE bytes followed
@@ -1269,7 +1269,7 @@ ospf6_packet_examin (struct ospf6_header *oh, const unsigned bytesonwire)
     return MSG_NG;
   }
   if (test != MSG_OK && IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
-    zlog_debug ("%s: anomaly in %s packet", __func__, LOOKUP (ospf6_message_type_str, oh->type));
+    zlog_debug ("%s: anomaly in %s packet", __func__, lookup_msg(ospf6_message_type_str, oh->type, NULL));
   return test;
 }
 
@@ -1577,7 +1577,7 @@ ospf6_receive (struct thread *thread)
       inet_ntop (AF_INET6, &src, srcname, sizeof (srcname));
       inet_ntop (AF_INET6, &dst, dstname, sizeof (dstname));
       zlog_debug ("%s received on %s",
-                 LOOKUP (ospf6_message_type_str, oh->type), oi->interface->name);
+                 lookup_msg(ospf6_message_type_str, oh->type, NULL), oi->interface->name);
       zlog_debug ("    src: %s", srcname);
       zlog_debug ("    dst: %s", dstname);
 
@@ -1665,7 +1665,7 @@ ospf6_send (struct in6_addr *src, struct in6_addr *dst,
       else
         memset (srcname, 0, sizeof (srcname));
       zlog_debug ("%s send on %s",
-                 LOOKUP (ospf6_message_type_str, oh->type), oi->interface->name);
+                 lookup_msg(ospf6_message_type_str, oh->type, NULL), oi->interface->name);
       zlog_debug ("    src: %s", srcname);
       zlog_debug ("    dst: %s", dstname);
 

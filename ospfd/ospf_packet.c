@@ -78,9 +78,8 @@ const struct message ospf_packet_type_str[] =
   { OSPF_MSG_LS_REQ,  "Link State Request"        },
   { OSPF_MSG_LS_UPD,  "Link State Update"         },
   { OSPF_MSG_LS_ACK,  "Link State Acknowledgment" },
+  { 0 }
 };
-const size_t ospf_packet_type_str_max = sizeof (ospf_packet_type_str) /
-  sizeof (ospf_packet_type_str[0]);
 
 /* Minimum (besides OSPF_HEADER_SIZE) lengths for OSPF packets of
    particular types, offset is the "type" field of a packet. */
@@ -255,8 +254,8 @@ ospf_packet_add (struct ospf_interface *oi, struct ospf_packet *op)
       zlog_err("ospf_packet_add(interface %s in state %d [%s], packet type %s, "
 	       "destination %s) called with NULL obuf, ignoring "
 	       "(please report this bug)!\n",
-	       IF_NAME(oi), oi->state, LOOKUP (ospf_ism_state_msg, oi->state),
-	       LOOKUP (ospf_packet_type_str, stream_getc_from(op->s, 1)),
+	       IF_NAME(oi), oi->state, lookup_msg(ospf_ism_state_msg, oi->state, NULL),
+	       lookup_msg(ospf_packet_type_str, stream_getc_from(op->s, 1), NULL),
 	       inet_ntoa (op->dst));
       return;
     }
@@ -276,8 +275,8 @@ ospf_packet_add_top (struct ospf_interface *oi, struct ospf_packet *op)
       zlog_err("ospf_packet_add(interface %s in state %d [%s], packet type %s, "
 	       "destination %s) called with NULL obuf, ignoring "
 	       "(please report this bug)!\n",
-	       IF_NAME(oi), oi->state, LOOKUP (ospf_ism_state_msg, oi->state),
-	       LOOKUP (ospf_packet_type_str, stream_getc_from(op->s, 1)),
+	       IF_NAME(oi), oi->state, lookup_msg(ospf_ism_state_msg, oi->state, NULL),
+               lookup_msg(ospf_packet_type_str, stream_getc_from(op->s, 1), NULL),
 	       inet_ntoa (op->dst));
       return;
     }
@@ -815,7 +814,8 @@ ospf_write (struct thread *thread)
 	    }
 
           zlog_debug ("%s sent to [%s] via [%s].",
-		     LOOKUP (ospf_packet_type_str, type), inet_ntoa (op->dst),
+                     lookup_msg(ospf_packet_type_str, type, NULL),
+                     inet_ntoa (op->dst),
 		     IF_NAME (oi));
 
           if (IS_DEBUG_OSPF_PACKET (type - 1, DETAIL))
@@ -880,7 +880,7 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
         {
           zlog_debug ("ospf_header[%s/%s]: selforiginated, "
                      "dropping.",
-                     LOOKUP (ospf_packet_type_str, ospfh->type),
+                     lookup_msg(ospf_packet_type_str, ospfh->type, NULL),
                      inet_ntoa (iph->ip_src));
         }
       return;
@@ -1318,7 +1318,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
     case NSM_TwoWay:
       zlog_warn ("Packet[DD]: Neighbor %s state is %s, packet discarded.",
 		 inet_ntoa(nbr->router_id),
-		 LOOKUP (ospf_nsm_state_msg, nbr->state));
+		 lookup_msg(ospf_nsm_state_msg, nbr->state, NULL));
       break;
     case NSM_Init:
       OSPF_NSM_EVENT_EXECUTE (nbr, NSM_TwoWayReceived);
@@ -1538,7 +1538,7 @@ ospf_ls_req (struct ip *iph, struct ospf_header *ospfh,
       zlog_warn ("Link State Request received from %s: "
       		 "Neighbor state is %s, packet discarded.",
 		 inet_ntoa (ospfh->router_id),
-		 LOOKUP (ospf_nsm_state_msg, nbr->state));
+		 lookup_msg(ospf_nsm_state_msg, nbr->state, NULL));
       return;
     }
 
@@ -1773,7 +1773,7 @@ ospf_ls_upd (struct ospf *ospf, struct ip *iph, struct ospf_header *ospfh,
 	zlog_debug ("Link State Update: "
 		    "Neighbor[%s] state %s is less than Exchange",
 		    inet_ntoa (ospfh->router_id),
-		    LOOKUP(ospf_nsm_state_msg, nbr->state));
+		    lookup_msg(ospf_nsm_state_msg, nbr->state, NULL));
       return;
     }
 
@@ -2118,7 +2118,7 @@ ospf_ls_ack (struct ip *iph, struct ospf_header *ospfh,
 	zlog_debug ("Link State Acknowledgment: "
 		    "Neighbor[%s] state %s is less than Exchange",
 		    inet_ntoa (ospfh->router_id),
-		    LOOKUP(ospf_nsm_state_msg, nbr->state));
+		    lookup_msg(ospf_nsm_state_msg, nbr->state, NULL));
       return;
     }
   
@@ -2333,7 +2333,7 @@ ospf_check_auth (struct ospf_interface *oi, struct ospf_header *ospfh)
     {
       if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
         zlog_warn ("interface %s: auth-type mismatch, local %s, rcvd Null",
-                   IF_NAME (oi), LOOKUP (ospf_auth_type_str, iface_auth_type));
+                   IF_NAME (oi), lookup_msg(ospf_auth_type_str, iface_auth_type, NULL));
       return 0;
     }
     if (! ospf_check_sum (ospfh))
@@ -2349,7 +2349,7 @@ ospf_check_auth (struct ospf_interface *oi, struct ospf_header *ospfh)
     {
       if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
         zlog_warn ("interface %s: auth-type mismatch, local %s, rcvd Simple",
-                   IF_NAME (oi), LOOKUP (ospf_auth_type_str, iface_auth_type));
+                   IF_NAME (oi), lookup_msg(ospf_auth_type_str, iface_auth_type, NULL));
       return 0;
     }
     if (memcmp (OSPF_IF_PARAM (oi, auth_simple), ospfh->u.auth_data, OSPF_AUTH_SIMPLE_SIZE))
@@ -2371,7 +2371,7 @@ ospf_check_auth (struct ospf_interface *oi, struct ospf_header *ospfh)
     {
       if (IS_DEBUG_OSPF_PACKET (ospfh->type - 1, RECV))
         zlog_warn ("interface %s: auth-type mismatch, local %s, rcvd Cryptographic",
-                   IF_NAME (oi), LOOKUP (ospf_auth_type_str, iface_auth_type));
+                   IF_NAME (oi), lookup_msg(ospf_auth_type_str, iface_auth_type, NULL));
       return 0;
     }
     if (ospfh->checksum)
@@ -2480,7 +2480,7 @@ ospf_lsa_examin (struct lsa_header * lsah, const u_int16_t lsalen, const u_char 
   {
     if (IS_DEBUG_OSPF_PACKET (0, RECV))
       zlog_debug ("%s: undersized (%u B) %s",
-                  __func__, lsalen, LOOKUP (ospf_lsa_type_msg, lsah->type));
+                  __func__, lsalen, lookup_msg(ospf_lsa_type_msg, lsah->type, NULL));
     return MSG_NG;
   }
   switch (lsah->type)
@@ -2530,7 +2530,7 @@ ospf_lsa_examin (struct lsa_header * lsah, const u_int16_t lsalen, const u_char 
   }
   if (ret != MSG_OK && IS_DEBUG_OSPF_PACKET (0, RECV))
     zlog_debug ("%s: alignment error in %s",
-                __func__, LOOKUP (ospf_lsa_type_msg, lsah->type));
+                __func__, lookup_msg(ospf_lsa_type_msg, lsah->type, NULL));
   return ret;
 }
 
@@ -2669,7 +2669,7 @@ ospf_packet_examin (struct ospf_header * oh, const unsigned bytesonwire)
   {
     if (IS_DEBUG_OSPF_PACKET (0, RECV))
       zlog_debug ("%s: undersized (%u B) %s packet", __func__,
-                  bytesdeclared, LOOKUP (ospf_packet_type_str, oh->type));
+                  bytesdeclared, lookup_msg(ospf_packet_type_str, oh->type, NULL));
     return MSG_NG;
   }
   switch (oh->type)
@@ -2723,7 +2723,7 @@ ospf_packet_examin (struct ospf_header * oh, const unsigned bytesonwire)
     return MSG_NG;
   }
   if (ret != MSG_OK && IS_DEBUG_OSPF_PACKET (0, RECV))
-    zlog_debug ("%s: malformed %s packet", __func__, LOOKUP (ospf_packet_type_str, oh->type));
+    zlog_debug ("%s: malformed %s packet", __func__, lookup_msg(ospf_packet_type_str, oh->type, NULL));
   return ret;
 }
 
@@ -2913,7 +2913,7 @@ ospf_read (struct thread *thread)
     {
       zlog_warn ("Dropping packet for AllDRouters from [%s] via [%s] (ISM: %s)",
                  inet_ntoa (iph->ip_src), IF_NAME (oi),
-                 LOOKUP (ospf_ism_state_msg, oi->state));
+                 lookup_msg(ospf_ism_state_msg, oi->state, NULL));
       /* Try to fix multicast membership. */
       SET_FLAG(oi->multicast_memberships, MEMBER_DROUTERS);
       ospf_if_set_multicast(oi);
@@ -2941,7 +2941,7 @@ ospf_read (struct thread *thread)
         }
 
       zlog_debug ("%s received from [%s] via [%s]",
-                 LOOKUP (ospf_packet_type_str, ospfh->type),
+                 lookup_msg(ospf_packet_type_str, ospfh->type, NULL),
                  inet_ntoa (ospfh->router_id), IF_NAME (oi));
       zlog_debug (" src [%s],", inet_ntoa (iph->ip_src));
       zlog_debug (" dst [%s]", inet_ntoa (iph->ip_dst));
