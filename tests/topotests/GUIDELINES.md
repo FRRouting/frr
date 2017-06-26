@@ -18,14 +18,18 @@ $ sudo pytest
 In order to run a specific test, you can use the following command:
 
 ```shell
-$ sudo pytest ospf-topo1/test_ospf_topo1.py
+$ # running a specific topology
+$ sudo pytest ospf-topo1/
 $ # or inside the test folder
 $ cd ospf-topo1
 $ sudo pytest # to run all tests inside the directory
+$ sudo pytest test_ospf_topo1.py # to run a specific test
+$ # or outside the test folder
+$ cd ..
 $ sudo pytest ospf-topo1/test_ospf_topo1.py # to run a specific one
 ```
 
-The output of the tested daemons will be avaiable at the temporary folder of
+The output of the tested daemons will be available at the temporary folder of
 your machine:
 
 ```shell
@@ -92,8 +96,8 @@ $ find ./*
 Guidelines for creating/editing topotest:
 
 * New topologies that don't fit the existing directories should create its own
-* Always remember to add the __init__.py to new folders, this makes the life of
-  developers easier, auto complete engines and pylint happy
+* Always remember to add the `__init__.py` to new folders, this makes auto
+  complete engines and pylint happy
 * Router (Quagga/FRR) specific code should go on topotest.py
 * Generic/repeated router actions should have an abstraction in
   topogen.TopoRouter.
@@ -151,7 +155,7 @@ Here is the produced graph:
 
 ### Generating / Obtaining Configuration Files
 
-In order to get the configuration files or command output for each router we
+In order to get the configuration files or command output for each router, we
 need to run the topology and execute commands in vtysh. The quickest way to
 achieve that is writing the topology building code and running the topology.
 
@@ -166,6 +170,31 @@ $ cp example-test/test_template.py new-topo/test_new_topo.py
 ```
 
 * Modify the template according to your dot file
+
+Here is the template topology described in the previous section in python code:
+
+```py
+class TemplateTopo(Topo):
+    "Test topology builder"
+    def build(self, *_args, **_opts):
+        "Build function"
+        tgen = get_topogen(self)
+
+        # Create 2 routers
+        for routern in range(1, 3):
+            tgen.add_router('r{}'.format(routern))
+
+        # Create a switch with just one router connected to it to simulate a
+        # empty network.
+        switch = tgen.add_switch('s1')
+        switch.add_link(tgen.gears['r1'])
+
+        # Create a connection between r1 and r2
+        switch = tgen.add_switch('s2')
+        switch.add_link(tgen.gears['r1'])
+        switch.add_link(tgen.gears['r2'])
+```
+
 * Run the topology
 
 Topogen allows us to run the topology without running any tests, you can do that
@@ -186,10 +215,11 @@ Parameters explanation:
   the interactive shell.
 * --topology-only: don't run any tests, just build the topology.
 
-After executing the commands above you should get the following terminal output:
+After executing the commands above, you should get the following terminal
+output:
 
 ```shell
-============================================================================================================ test session starts =============================================================================================================
+=== test session starts ===
 platform linux2 -- Python 2.7.12, pytest-3.1.2, py-1.4.34, pluggy-0.4.0
 rootdir: /media/sf_src/topotests, inifile: pytest.ini
 collected 3 items
@@ -283,8 +313,8 @@ end
 frr-1#
 ```
 
-After you successfully configured your topology you can obtain the
-configuration files (per-daemon) using the following command:
+After you successfully configured your topology, you can obtain the
+configuration files (per-daemon) using the following commands:
 
 ```shell
 mininet> r3 vtysh -d ospfd
