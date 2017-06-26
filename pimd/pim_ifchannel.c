@@ -577,6 +577,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 		XFREE(MTYPE_PIM_IFCHANNEL, ch);
 		return NULL;
 	}
+	ch->upstream = up;
 
 	listnode_add_sort(up->ifchannels, ch);
 
