@@ -1952,7 +1952,6 @@ bgp_process_main (struct work_queue *wq, void *data)
    */
   if (safi == SAFI_UNICAST)
     {
-      bgp_table_lock (bgp_node_table (rn));
       if (new_select)
         {
           if (!old_select ||
@@ -6760,7 +6759,6 @@ route_vty_out_tag (struct vty *vty, struct prefix *p,
 
   label = decode_label (&binfo->extra->label);
 
-  // dwalton why is this called 'notag'?
   if (bgp_is_valid_label(&label))
     {
       if (json)
@@ -10984,10 +10982,10 @@ bgp_route_init (void)
   install_element (BGP_IPV6_NODE, &ipv6_bgp_network_route_map_cmd);
   install_element (BGP_IPV6_NODE, &no_bgp_table_map_cmd);
   install_element (BGP_IPV6_NODE, &no_ipv6_bgp_network_cmd);
-  install_element (BGP_IPV6L_NODE, &ipv6_bgp_network_label_index_cmd);
-  install_element (BGP_IPV6L_NODE, &no_ipv6_bgp_network_label_index_cmd);
-  install_element (BGP_IPV6L_NODE, &ipv6_bgp_network_label_index_route_map_cmd);
-  install_element (BGP_IPV6L_NODE, &no_ipv6_bgp_network_label_index_route_map_cmd);
+  install_element (BGP_IPV6_NODE, &ipv6_bgp_network_label_index_cmd);
+  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_network_label_index_cmd);
+  install_element (BGP_IPV6_NODE, &ipv6_bgp_network_label_index_route_map_cmd);
+  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_network_label_index_route_map_cmd);
 
   install_element (BGP_IPV6_NODE, &ipv6_aggregate_address_cmd);
   install_element (BGP_IPV6_NODE, &no_ipv6_aggregate_address_cmd);
