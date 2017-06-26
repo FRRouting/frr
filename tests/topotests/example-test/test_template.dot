@@ -1,29 +1,29 @@
-graph ospf_topo1 {
-	label="Template Topology";
-
-	# Make the Graph fit a A4 paper sheet
-	# 11inches x 8inches -> ~297mm x ~210mm
-	size="11,8!";
-	# Uncomment this one for vertical A4 paper sheet
-	#size="8,11!";
+graph template {
+	label="template";
 
 	# Routers
-	router1 [
+	r1 [
 		shape=octagon,
-		label="router1",
+		label="r1",
 	];
-	router2 [
+	r2 [
 		shape=octagon
-		label="router2\nrtr-id 10.0.255.1",
+		label="r2",
 	];
 
 	# Switches
-	switch1 [shape=box];
-	switch2 [shape=box];
+	s1 [
+		shape=box,
+		label="s1\n192.168.0.0/24",
+	];
+	s2 [
+		shape=box,
+		label="s2\n192.168.1.0/24",
+	];
 
 	# Connections
-	router1 -- switch1 [label="router1-eth0\n192.168.0.1/24"];
+	r1 -- s1 [label="eth0\n.1"];
 
-	router1 -- switch2 [label="router1-eth1\n192.168.1.100/24"];
-	router2 -- switch2 [label="router2-eth0\n192.168.1.1/24"];
+	r1 -- s2 [label="eth1\n.100"];
+	r2 -- s2 [label="eth0\n.1"];
 }

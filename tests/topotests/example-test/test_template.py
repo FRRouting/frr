@@ -52,18 +52,18 @@ class TemplateTopo(Topo):
         # Example
         #
         # Create 2 routers
-        for _router in range(1, 3):
-            tgen.add_router()
+        for routern in range(1, 3):
+            tgen.add_router('r{}'.format(routern))
 
         # Create a switch with just one router connected to it to simulate a
         # empty network.
-        switch = tgen.add_switch()
-        switch.add_link(tgen.gears['router1'])
+        switch = tgen.add_switch('s1')
+        switch.add_link(tgen.gears['r1'])
 
-        # Create a connection between router1 and router2
-        switch = tgen.add_switch()
-        switch.add_link(tgen.gears['router1'])
-        switch.add_link(tgen.gears['router2'])
+        # Create a connection between r1 and r2
+        switch = tgen.add_switch('s2')
+        switch.add_link(tgen.gears['r1'])
+        switch.add_link(tgen.gears['r2'])
 
 def setup_module(_m):
     "Sets up the pytest environment"

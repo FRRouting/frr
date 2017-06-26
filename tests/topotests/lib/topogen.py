@@ -111,7 +111,7 @@ class Topogen(object):
         Returns a TopoRouter.
         """
         if name is None:
-            name = 'router{}'.format(self.routern)
+            name = 'r{}'.format(self.routern)
         if name in self.gears:
             raise KeyError('router already exists')
 
@@ -127,7 +127,7 @@ class Topogen(object):
         Returns the switch name and number.
         """
         if name is None:
-            name = 'switch{}'.format(self.switchn)
+            name = 's{}'.format(self.switchn)
         if name in self.gears:
             raise KeyError('switch already exists')
 
