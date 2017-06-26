@@ -63,6 +63,7 @@ This is the recommended test writing routine:
 * Write the test itself
 * Create a Pull Request
 
+
 ### Topotest File Hierarchy
 
 Before starting to write any tests one must know the file hierarchy. The
@@ -211,9 +212,9 @@ $ sudo pytest -s --topology-only ospf-topo1/test_ospf_topo1.py
 
 Parameters explanation:
 
-* -s: actives input/output capture. This is required by mininet in order to show
+* `-s`: actives input/output capture. This is required by mininet in order to show
   the interactive shell.
-* --topology-only: don't run any tests, just build the topology.
+* `--topology-only`: don't run any tests, just build the topology.
 
 After executing the commands above, you should get the following terminal
 output:
@@ -351,22 +352,129 @@ frr-1#
 
 ### Writing Tests
 
-**TODO**
+Test topologies should always be bootstrapped from the
+[example-test/test_template.py](example-test/test_template.py),
+because it contains important boilerplate code that can't be avoided, like:
+
+* imports: os, sys, pytest, topotest/topogen and mininet topology class
+* The global variable CWD (Current Working directory): which is most likely
+  going to be used to reference the routers configuration file location
+
+  Example:
+
+```py
+# For all registered routers, load the zebra configuration file
+for rname, router in router_list.iteritems():
+    router.load_config(
+        TopoRouter.RD_ZEBRA,
+        os.path.join(CWD, '{}/zebra.conf'.format(rname))
+    )
+    # os.path.join() joins the CWD string with arguments adding the necessary
+    # slashes ('/'). Arguments must not begin with '/'.
+```
+
+* The topology class that inherits from Mininet Topo class
+
+```py
+class TemplateTopo(Topo):
+  def build(self, *_args, **_opts):
+    tgen = get_topogen(self)
+    # topology build code
+```
+
+* pytest `setup_module()` and `teardown_module()` to start the topology
+
+```py
+def setup_module(_m):
+    tgen = Topogen(TemplateTopo)
+    tgen.start_topology('debug')
+
+def teardown_module(_m):
+    tgen = get_topogen()
+    tgen.stop_topology()
+```
+
+* `__main__` initialization code (to support running the script directly)
+
+```py
+if __name__ == '__main__':
+    sys.exit(pytest.main(["-s"]))
+```
+
+Requirements:
+
+* Test code should always be declared inside functions that begin with the
+  `test_` prefix. Functions beginning with different prefixes will not be run by
+  pytest.
+* Configuration files and long output commands should go into separated files
+  inside folders named after the equipment.
+* Tests must be able to run without any interaction. To make sure your test
+  conforms with this, run it without the `-s` parameter.
 
 
 ### Debugging Execution
 
-**TODO**
+The most effective ways to inspect topology tests are:
+
+* Run pytest with `--pdb` option. This option will cause a pdb shell to appear
+  when an assertion fails
+
+  Example: `pytest -s --pdb ospf-topo1/test_ospf_topo1.py`
+
+* Set a breakpoint in the test code with `pdb`
+
+  Example:
+
+```py
+# Add the pdb import at the beginning of the file
+import pdb
+# ...
+
+# Add a breakpoint where you think the problem is
+def test_bla():
+  # ...
+  pdb.set_trace()
+  # ...
+```
+
+The [Python Debugger](https://docs.python.org/2.7/library/pdb.html) (pdb) shell
+allows us to run many useful operations like:
+
+* Setting breaking point on file/function/conditions (e.g. `break`, `condition`)
+* Inspecting variables (e.g. `p` (print), `pp` (pretty print))
+* Running python code
+
+TIP: The TopoGear (equipment abstraction class) implements the `__str__` method
+that allows the user to inspect equipment information.
+
+Example of pdb usage:
 
 ```shell
->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> PDB set_trace (IO-capturing turned off) >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 > /media/sf_src/topotests/ospf-topo1/test_ospf_topo1.py(121)test_ospf_convergence()
 -> for rnum in range(1, 5):
-(Pdb) l
-116  
-117     def test_ospf_convergence():
-118         "Test OSPF daemon convergence"
-119         import pdb
+(Pdb) help
+Documented commands (type help <topic>):
+========================================
+EOF    bt         cont      enable  jump  pp       run      unt
+a      c          continue  exit    l     q        s        until
+alias  cl         d         h       list  quit     step     up
+args   clear      debug     help    n     r        tbreak   w
+b      commands   disable   ignore  next  restart  u        whatis
+break  condition  down      j       p     return   unalias  where
+
+Miscellaneous help topics:
+==========================
+exec  pdb
+
+Undocumented commands:
+======================
+retval  rv
+
+(Pdb) list
+116                                   title2="Expected output")
+117
+118     def test_ospf_convergence():
+119         "Test OSPF daemon convergence"
 120         pdb.set_trace()
 121  ->     for rnum in range(1, 5):
 122             router = 'r{}'.format(rnum)
@@ -374,9 +482,37 @@ frr-1#
 124             # Load expected results from the command
 125             reffile = os.path.join(CWD, '{}/ospfroute.txt'.format(router))
 126             expected = open(reffile).read()
+(Pdb) step
+> /media/sf_src/topotests/ospf-topo1/test_ospf_topo1.py(122)test_ospf_convergence()
+-> router = 'r{}'.format(rnum)
+(Pdb) step
+> /media/sf_src/topotests/ospf-topo1/test_ospf_topo1.py(125)test_ospf_convergence()
+-> reffile = os.path.join(CWD, '{}/ospfroute.txt'.format(router))
+(Pdb) print rnum
+1
+(Pdb) print router
+r1
 (Pdb) tgen = get_topogen()
-(Pdb) pp tgen.gears['r1']
-<lib.topogen.TopoRouter object at 0x7f2349c98c50>
-(Pdb) pp str(tgen.gears['r1'])
-'TopoGear<name="r1",links=["r1-eth0"<->"switch1-eth0","r1-eth1"<->"switch3-eth0"]> TopoRouter<>'
+(Pdb) pp tgen.gears[router]
+<lib.topogen.TopoRouter object at 0x7f74e06c9850>
+(Pdb) pp str(tgen.gears[router])
+'TopoGear<name="r1",links=["r1-eth0"<->"s1-eth0","r1-eth1"<->"s3-eth0"]> TopoRouter<>'
+(Pdb) l 125
+120         pdb.set_trace()
+121         for rnum in range(1, 5):
+122             router = 'r{}'.format(rnum)
+123
+124             # Load expected results from the command
+125  ->         reffile = os.path.join(CWD, '{}/ospfroute.txt'.format(router))
+126             expected = open(reffile).read()
+127
+128             # Run test function until we get an result. Wait at most 60 seconds.
+129             test_func = partial(compare_show_ip_ospf, router, expected)
+130             result, diff = topotest.run_and_expect(test_func, '',
+(Pdb) router1 = tgen.gears[router]
+(Pdb) router1.vtysh_cmd('show ip ospf route')
+'============ OSPF network routing table ============\r\nN    10.0.1.0/24           [10] area: 0.0.0.0\r\n                           directly attached to r1-eth0\r\nN    10.0.2.0/24           [20] area: 0.0.0.0\r\n                           via 10.0.3.3, r1-eth1\r\nN    10.0.3.0/24           [10] area: 0.0.0.0\r\n                           directly attached to r1-eth1\r\nN    10.0.10.0/24          [20] area: 0.0.0.0\r\n                           via 10.0.3.1, r1-eth1\r\nN IA 172.16.0.0/24         [20] area: 0.0.0.0\r\n                           via 10.0.3.1, r1-eth1\r\nN IA 172.16.1.0/24         [30] area: 0.0.0.0\r\n                           via 10.0.3.1, r1-eth1\r\n\r\n============ OSPF router routing table =============\r\nR    10.0.255.2            [10] area: 0.0.0.0, ASBR\r\n                           via 10.0.3.3, r1-eth1\r\nR    10.0.255.3            [10] area: 0.0.0.0, ABR, ASBR\r\n                           via 10.0.3.1, r1-eth1\r\nR    10.0.255.4         IA [20] area: 0.0.0.0, ASBR\r\n                           via 10.0.3.1, r1-eth1\r\n\r\n============ OSPF external routing table ===========\r\n\r\n\r\n'
+(Pdb) tgen.mininet_cli()
+*** Starting CLI:
+mininet>
 ```
