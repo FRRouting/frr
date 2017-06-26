@@ -1386,7 +1386,7 @@ DEFUN (show_isis_topology,
 
   if (argc < 4)
     levels = ISIS_LEVEL1|ISIS_LEVEL2;
-  else if (!strcmp(argv[3]->arg, "level-1"))
+  else if (strmatch(argv[3]->text, "level-1"))
     levels = ISIS_LEVEL1;
   else
     levels = ISIS_LEVEL2;

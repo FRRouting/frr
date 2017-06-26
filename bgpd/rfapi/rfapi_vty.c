@@ -2236,7 +2236,7 @@ register_add (
 
        for (; argc; --argc, ++argv)
          {
-           if (!strcmp (argv[0]->arg, "local-next-hop"))
+           if (strmatch(argv[0]->text, "local-next-hop"))
              {
                if (arg_lnh)
                  {
@@ -2253,7 +2253,7 @@ register_add (
                ++argv, --argc;
                arg_lnh = argv[0]->arg;
              }
-           if (!strcmp (argv[0]->arg, "local-cost"))
+           if (strmatch(argv[0]->text, "local-cost"))
              {
                if (arg_lnh_cost)
                  {

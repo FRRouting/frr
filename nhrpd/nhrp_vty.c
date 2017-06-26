@@ -493,7 +493,7 @@ DEFUN(if_nhrp_map, if_nhrp_map_cmd,
 		return nhrp_vty_return(vty, NHRP_ERR_FAIL);
 
 	c->map = 1;
-	if (strcmp(argv[4]->text, "local") == 0) {
+	if (strmatch(argv[4]->text, "local")) {
 		nhrp_cache_update_binding(c, NHRP_CACHE_LOCAL, 0, NULL, 0, NULL);
 	} else{
 		if (str2sockunion(argv[4]->arg, &nbma_addr) < 0)

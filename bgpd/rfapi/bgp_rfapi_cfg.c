@@ -479,7 +479,7 @@ DEFUN (vnc_defaults_l2rd,
   VTY_DECLVAR_CONTEXT(bgp, bgp);
   uint8_t value = 0;
 
-  if (!strcmp (argv[1]->arg, "auto-vn"))
+  if (strmatch(argv[1]->text, "auto-vn"))
     {
       value = 0;
     }
@@ -539,7 +539,7 @@ DEFUN (vnc_defaults_responselifetime,
   if (!h)
     return CMD_WARNING;
 
-  if (!strcmp (argv[1]->arg, "infinite"))
+  if (strmatch(argv[1]->text, "infinite"))
     {
       rspint = RFAPI_INFINITE_LIFETIME;
     }
@@ -1102,7 +1102,7 @@ DEFUN (vnc_redistribute_lifetime,
 
   vnc_redistribute_prechange (bgp);
 
-  if (!strcmp (argv[3]->arg, "infinite"))
+  if (strmatch(argv[3]->text, "infinite"))
     {
       bgp->rfapi_cfg->redist_lifetime = RFAPI_INFINITE_LIFETIME;
     }
@@ -1141,7 +1141,7 @@ DEFUN (vnc_redist_bgpdirect_no_prefixlist,
       return CMD_WARNING;
     }
 
-  if (!strcmp (argv[3]->arg, "bgp-direct"))
+  if (strmatch(argv[3]->text, "bgp-direct"))
     {
       route_type = ZEBRA_ROUTE_BGP_DIRECT;
     }
@@ -1150,7 +1150,7 @@ DEFUN (vnc_redist_bgpdirect_no_prefixlist,
       route_type = ZEBRA_ROUTE_BGP_DIRECT_EXT;
     }
 
-  if (!strcmp (argv[4]->arg, "ipv4"))
+  if (strmatch(argv[4]->text, "ipv4"))
     {
       afi = AFI_IP;
     }
@@ -1194,7 +1194,7 @@ DEFUN (vnc_redist_bgpdirect_prefixlist,
       return CMD_WARNING;
     }
 
-  if (!strcmp (argv[2]->arg, "bgp-direct"))
+  if (strmatch(argv[2]->text, "bgp-direct"))
     {
       route_type = ZEBRA_ROUTE_BGP_DIRECT;
     }
@@ -1203,7 +1203,7 @@ DEFUN (vnc_redist_bgpdirect_prefixlist,
       route_type = ZEBRA_ROUTE_BGP_DIRECT_EXT;
     }
 
-  if (!strcmp (argv[3]->arg, "ipv4"))
+  if (strmatch(argv[3]->text, "ipv4"))
     {
       afi = AFI_IP;
     }
@@ -1244,7 +1244,7 @@ DEFUN (vnc_redist_bgpdirect_no_routemap,
       return CMD_WARNING;
     }
 
-  if (!strcmp (argv[3]->arg, "bgp-direct"))
+  if (strmatch(argv[3]->text, "bgp-direct"))
     {
       route_type = ZEBRA_ROUTE_BGP_DIRECT;
     }
@@ -1284,7 +1284,7 @@ DEFUN (vnc_redist_bgpdirect_routemap,
       return CMD_WARNING;
     }
 
-  if (!strcmp (argv[2]->arg, "bgp-direct"))
+  if (strmatch(argv[2]->text, "bgp-direct"))
     {
       route_type = ZEBRA_ROUTE_BGP_DIRECT;
     }
@@ -1337,7 +1337,7 @@ DEFUN (vnc_nve_group_redist_bgpdirect_no_prefixlist,
       return CMD_WARNING;
     }
 
-  if (!strcmp (argv[3]->arg, "ipv4"))
+  if (strmatch(argv[3]->text, "ipv4"))
     {
       afi = AFI_IP;
     }
@@ -1386,7 +1386,7 @@ DEFUN (vnc_nve_group_redist_bgpdirect_prefixlist,
       return CMD_WARNING;
     }
 
-  if (!strcmp (argv[2]->arg, "ipv4"))
+  if (strmatch(argv[2]->text, "ipv4"))
     {
       afi = AFI_IP;
     }
@@ -1804,7 +1804,7 @@ DEFUN (vnc_nve_group_export_no_prefixlist,
       return CMD_WARNING;
     }
 
-  if (!strcmp (argv[3]->arg, "ipv4"))
+  if (strmatch(argv[3]->text, "ipv4"))
     {
       afi = AFI_IP;
     }
@@ -1816,7 +1816,7 @@ DEFUN (vnc_nve_group_export_no_prefixlist,
   if (argv[2]->arg[0] == 'b')
     {
       if (((argc > 5)
-           && !strcmp (argv[5]->arg, rfg->plist_export_bgp_name[afi]))
+           && strmatch(argv[5]->text, rfg->plist_export_bgp_name[afi]))
           || (argc <= 5))
         {
 
@@ -1831,7 +1831,7 @@ DEFUN (vnc_nve_group_export_no_prefixlist,
   else
     {
       if (((argc > 5)
-           && !strcmp (argv[5]->arg, rfg->plist_export_zebra_name[afi]))
+           && strmatch(argv[5]->text, rfg->plist_export_zebra_name[afi]))
           || (argc <= 5))
         {
           if (rfg->plist_export_zebra_name[afi])
@@ -1873,7 +1873,7 @@ DEFUN (vnc_nve_group_export_prefixlist,
       return CMD_WARNING;
     }
 
-  if (!strcmp (argv[2]->arg, "ipv4"))
+  if (strmatch(argv[2]->text, "ipv4"))
     {
       afi = AFI_IP;
     }
@@ -1933,7 +1933,7 @@ DEFUN (vnc_nve_group_export_no_routemap,
   if (argv[2]->arg[0] == 'b')
     {
       if (((argc > 4)
-           && !strcmp (argv[4]->arg, rfg->routemap_export_bgp_name))
+           && strmatch(argv[4]->text, rfg->routemap_export_bgp_name))
           || (argc <= 4))
         {
 
@@ -1949,7 +1949,7 @@ DEFUN (vnc_nve_group_export_no_routemap,
   else
     {
       if (((argc > 4)
-           && !strcmp (argv[4]->arg, rfg->routemap_export_zebra_name))
+           && strmatch(argv[4]->text, rfg->routemap_export_zebra_name))
           || (argc <= 4))
         {
           if (rfg->routemap_export_zebra_name)
@@ -2032,7 +2032,7 @@ DEFUN (vnc_nve_export_no_prefixlist,
       return CMD_WARNING;
     }
 
-  if (!strcmp (argv[4]->arg, "ipv4"))
+  if (strmatch(argv[4]->text, "ipv4"))
     {
       afi = AFI_IP;
     }
@@ -2045,7 +2045,7 @@ DEFUN (vnc_nve_export_no_prefixlist,
     {
       if (((argc > 6)
            && hc->plist_export_bgp_name[afi]
-           && !strcmp (argv[6]->arg, hc->plist_export_bgp_name[afi]))
+           && strmatch(argv[6]->text, hc->plist_export_bgp_name[afi]))
           || (argc <= 6))
         {
 
@@ -2059,7 +2059,7 @@ DEFUN (vnc_nve_export_no_prefixlist,
     {
       if (((argc > 6)
            && hc->plist_export_zebra_name[afi]
-           && !strcmp (argv[6]->arg, hc->plist_export_zebra_name[afi]))
+           && strmatch(argv[6]->text, hc->plist_export_zebra_name[afi]))
           || (argc <= 6))
         {
 
@@ -2094,7 +2094,7 @@ DEFUN (vnc_nve_export_prefixlist,
       return CMD_WARNING;
     }
 
-  if (!strcmp (argv[3]->arg, "ipv4"))
+  if (strmatch(argv[3]->text, "ipv4"))
     {
       afi = AFI_IP;
     }
@@ -2145,7 +2145,7 @@ DEFUN (vnc_nve_export_no_routemap,
     {
       if (((argc > 5)
            && hc->routemap_export_bgp_name
-           && !strcmp (argv[5]->arg, hc->routemap_export_bgp_name))
+           && strmatch(argv[5]->text, hc->routemap_export_bgp_name))
           || (argc <= 5))
         {
 
@@ -2160,7 +2160,7 @@ DEFUN (vnc_nve_export_no_routemap,
     {
       if (((argc > 5)
            && hc->routemap_export_zebra_name
-           && !strcmp (argv[5]->arg, hc->routemap_export_zebra_name))
+           && strmatch(argv[5]->text, hc->routemap_export_zebra_name))
           || (argc <= 5))
         {
 
@@ -3050,7 +3050,7 @@ DEFUN (vnc_nve_group_l2rd,
       return CMD_WARNING;
     }
 
-  if (!strcmp (argv[1]->arg, "auto:vn"))
+  if (strmatch(argv[1]->text, "auto:vn"))
     {
       rfg->l2rd = 0;
     }
@@ -3199,7 +3199,7 @@ DEFUN (vnc_nve_group_responselifetime,
       return CMD_WARNING;
     }
 
-  if (!strcmp (argv[1]->arg, "infinite"))
+  if (strmatch(argv[1]->text, "infinite"))
     {
       rspint = RFAPI_INFINITE_LIFETIME;
     }

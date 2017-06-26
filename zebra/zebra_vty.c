@@ -2185,7 +2185,7 @@ DEFUN (ipv6_route,
   int idx_curr;
   char *src, *tag, *distance, *vrf;
 
-  if (!strcmp(argv[3]->text, "from"))
+  if (strmatch(argv[3]->text, "from"))
     {
       src = argv[4]->arg;
       idx_ipv6_ifname = 5;
@@ -2234,7 +2234,7 @@ DEFUN (ipv6_route_flags,
   int idx_curr;
   char *src, *tag, *distance, *vrf;
 
-  if (!strcmp(argv[3]->text, "from"))
+  if (strmatch(argv[3]->text, "from"))
     {
       src = argv[4]->arg;
       idx_ipv6_ifname = 5;
@@ -2283,7 +2283,7 @@ DEFUN (ipv6_route_ifname,
   int idx_curr = 5;
   char *src, *tag, *distance, *vrf;
 
-  if (!strcmp(argv[3]->text, "from"))
+  if (strmatch(argv[3]->text, "from"))
     {
       src = argv[4]->arg;
       idx_ipv6 = 5;
@@ -2335,7 +2335,7 @@ DEFUN (ipv6_route_ifname_flags,
   int idx_curr;
   char *src, *tag, *distance, *vrf;
 
-  if (!strcmp(argv[3]->text, "from"))
+  if (strmatch(argv[3]->text, "from"))
     {
       src = argv[4]->arg;
       idx_ipv6 = 5;
@@ -2387,7 +2387,7 @@ DEFUN (no_ipv6_route,
   int idx_curr;
   char *src, *tag, *distance, *vrf;
 
-  if (!strcmp(argv[4]->text, "from"))
+  if (strmatch(argv[4]->text, "from"))
     {
       src = argv[5]->arg;
       idx_ipv6_ifname = 6;
@@ -2436,7 +2436,7 @@ DEFUN (no_ipv6_route_flags,
   int idx_curr;
   char *src, *tag, *distance, *vrf;
 
-  if (!strcmp(argv[4]->text, "from"))
+  if (strmatch(argv[4]->text, "from"))
     {
       src = argv[5]->arg;
       idx_ipv6_ifname = 6;
@@ -2486,7 +2486,7 @@ DEFUN (no_ipv6_route_ifname,
   int idx_curr;
   char *src, *tag, *distance, *vrf;
 
-  if (!strcmp(argv[4]->text, "from"))
+  if (strmatch(argv[4]->text, "from"))
     {
       src = argv[5]->arg;
       idx_ipv6 = 6;
@@ -2539,7 +2539,7 @@ DEFUN (no_ipv6_route_ifname_flags,
   int idx_curr;
   char *src, *tag, *distance, *vrf;
 
-  if (!strcmp(argv[4]->text, "from"))
+  if (strmatch(argv[4]->text, "from"))
     {
       src = argv[5]->arg;
       idx_ipv6 = 6;

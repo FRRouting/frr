@@ -1313,43 +1313,43 @@ ospf6_route_table_show (struct vty *vty, int argc_start, int argc, struct cmd_to
 
   for (i = argc_start; i < argc; i++)
     {
-      if (! strcmp (argv[i]->arg, "summary"))
+      if (strmatch(argv[i]->text, "summary"))
         {
           summary++;
           continue;
         }
 
-      if (! strcmp (argv[i]->arg, "intra-area"))
+      if (strmatch(argv[i]->text, "intra-area"))
         {
           type = OSPF6_PATH_TYPE_INTRA;
           continue;
         }
 
-      if (! strcmp (argv[i]->arg, "inter-area"))
+      if (strmatch(argv[i]->text, "inter-area"))
         {
           type = OSPF6_PATH_TYPE_INTER;
           continue;
         }
 
-      if (! strcmp (argv[i]->arg, "external-1"))
+      if (strmatch(argv[i]->text, "external-1"))
         {
           type = OSPF6_PATH_TYPE_EXTERNAL1;
           continue;
         }
 
-      if (! strcmp (argv[i]->arg, "external-2"))
+      if (strmatch(argv[i]->text, "external-2"))
         {
           type = OSPF6_PATH_TYPE_EXTERNAL2;
           continue;
         }
 
-      if (! strcmp (argv[i]->arg, "detail"))
+      if (strmatch(argv[i]->text, "detail"))
         {
           detail++;
           continue;
         }
 
-      if (! strcmp (argv[i]->arg, "match"))
+      if (strmatch(argv[i]->text, "match"))
         {
           match++;
           continue;
@@ -1488,7 +1488,7 @@ ospf6_linkstate_table_show (struct vty *vty, int idx_ipv4, int argc,
 
   for (i = idx_ipv4; i < argc; i++)
     {
-      if (! strcmp (argv[i]->arg, "detail"))
+      if (strmatch(argv[i]->text, "detail"))
         {
           detail++;
           continue;

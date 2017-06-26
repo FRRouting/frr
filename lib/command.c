@@ -1534,8 +1534,8 @@ DEFUN (config_write,
   struct stat conf_stat;
 
   // if command was 'write terminal' or 'show running-config'
-  if (argc == 2 && (!strcmp(argv[idx_type]->text, "terminal") ||
-                    !strcmp(argv[0]->text, "show")))
+  if (argc == 2 && (strmatch(argv[idx_type]->text, "terminal") ||
+                    strmatch(argv[0]->text, "show")))
     {
       vty_write_config (vty);
       return CMD_SUCCESS;

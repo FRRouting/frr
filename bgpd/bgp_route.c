@@ -8867,7 +8867,7 @@ bgp_show_community (struct vty *vty, struct bgp *bgp, int argc,
         buffer_putc (b, ' ');
       else
 	{
-	  if ((strcmp (argv[i]->arg, "unicast") == 0) || (strcmp (argv[i]->arg, "multicast") == 0))
+	  if (strmatch(argv[i]->text, "unicast") || strmatch(argv[i]->text, "multicast"))
 	    continue;
 	  first = 1;
 	}
