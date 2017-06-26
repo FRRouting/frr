@@ -2078,6 +2078,7 @@ int bgp_process_packet(struct thread *thread)
 	peer = THREAD_ARG(thread);
 	rpkt_quanta_old = atomic_load_explicit(&peer->bgp->rpkt_quanta,
 					       memory_order_relaxed);
+	fsm_update_result = 0;
 
 	/* Guard against scheduled events that occur after peer deletion. */
 	if (peer->status == Deleted || peer->status == Clearing)
@@ -2167,6 +2168,13 @@ int bgp_process_packet(struct thread *thread)
 					"%s: BGP CAPABILITY receipt failed for peer: %s",
 					__FUNCTION__, peer->host);
 			break;
+		default:
+			/* The message type should have been sanitized before we
+			 * ever got
+			 * here. Receipt of a message with an invalid header at
+			 * this point is
+			 * indicative of a security issue. */
+			assert (!"Message of invalid type received during input processing");
 		}
 
 		/* delete processed packet */
@@ -2177,6 +2185,8 @@ int bgp_process_packet(struct thread *thread)
 		/* Update FSM */
 		if (mprc != BGP_PACKET_NOOP)
 			fsm_update_result = bgp_event_update(peer, mprc);
+		else
+			continue;
 
 		/* If peer was deleted, do not process any more packets. This is
 		 * usually
