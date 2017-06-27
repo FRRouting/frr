@@ -1388,7 +1388,6 @@ bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info
       api.type = ZEBRA_ROUTE_BGP;
       api.instance = 0;
       api.message = 0;
-      assert (safi != SAFI_LABELED_UNICAST); // remove this assert after testing
       api.safi = safi;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
 
@@ -1627,7 +1626,6 @@ bgp_zebra_announce (struct bgp_node *rn, struct prefix *p, struct bgp_info *info
       api.type = ZEBRA_ROUTE_BGP;
       api.instance = 0;
       api.message = 0;
-      assert (safi != SAFI_LABELED_UNICAST); // remove this assert after testing
       api.safi = safi;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
 
@@ -1805,7 +1803,6 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
       api.type = ZEBRA_ROUTE_BGP;
       api.instance = 0;
       api.message = 0;
-      assert (safi != SAFI_LABELED_UNICAST); // remove this assert after testing
       api.safi = safi;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
       api.nexthop_num = 0;
@@ -1847,7 +1844,6 @@ bgp_zebra_withdraw (struct prefix *p, struct bgp_info *info, safi_t safi)
       api.type = ZEBRA_ROUTE_BGP;
       api.instance = 0;
       api.message = 0;
-      assert (safi != SAFI_LABELED_UNICAST); // remove this assert after testing
       api.safi = safi;
       SET_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP);
       api.nexthop_num = 0;
