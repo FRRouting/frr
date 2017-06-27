@@ -259,6 +259,26 @@ class Router(Node):
                         'ospf6d': 0, 'isisd': 0, 'bgpd': 0, 'pimd': 0,
                         'ldpd': 0}
 
+    def _config_frr(self, **params):
+        "Configure FRR binaries"
+        self.daemondir = params.get('frrdir')
+        if self.daemondir is None:
+            self.daemondir = '/usr/lib/frr'
+
+        zebra_path = os.path.join(self.daemondir, 'zebra')
+        if not os.path.isfile(zebra_path):
+            raise Exception("FRR zebra binary doesn't exist at {}".format(zebra_path))
+
+    def _config_quagga(self, **params):
+        "Configure Quagga binaries"
+        self.daemondir = params.get('quaggadir')
+        if self.daemondir is None:
+            self.daemondir = '/usr/lib/quagga'
+
+        zebra_path = os.path.join(self.daemondir, 'zebra')
+        if not os.path.isfile(zebra_path):
+            raise Exception("Quagga zebra binary doesn't exist at {}".format(zebra_path))
+
     # pylint: disable=W0221
     # Some params are only meaningful for the parent class.
     def config(self, **params):
@@ -267,12 +287,11 @@ class Router(Node):
         # User did not specify the daemons directory, try to autodetect it.
         self.daemondir = params.get('daemondir')
         if self.daemondir is None:
-            self.daemondir = '/usr/lib/frr'
-            if not os.path.isfile(os.path.join(self.daemondir, 'zebra')):
-                self.daemondir = '/usr/lib/quagga'
-                self.routertype = 'quagga'
-                if not os.path.isfile(os.path.join(self.daemondir, 'zebra')):
-                    raise Exception('No FRR or Quagga binaries found')
+            self.routertype = params.get('routertype', 'frr')
+            if self.routertype == 'quagga':
+                self._config_quagga(**params)
+            else:
+                self._config_frr(**params)
         else:
             # Test the provided path
             zpath = os.path.join(self.daemondir, 'zebra')

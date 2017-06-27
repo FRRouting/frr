@@ -552,3 +552,15 @@ r1
 *** Starting CLI:
 mininet>
 ```
+
+To enable more debug messages in other Topogen subsystems (like Mininet), more
+logging messages can be displayed by modifying the test configuration file
+`pytest.ini`:
+
+```ini
+[topogen]
+# Change the default verbosity line from 'info'...
+#verbosity = info
+# ...to 'debug'
+verbosity = debug
+```

@@ -41,12 +41,15 @@ Basic usage instructions:
 import os
 import sys
 import json
+import ConfigParser
 
 from mininet.net import Mininet
 from mininet.log import setLogLevel
 from mininet.cli import CLI
 
 from lib import topotest
+
+CWD = os.path.dirname(os.path.realpath(__file__))
 
 # pylint: disable=C0103
 # Global Topogen variable. This is being used to keep the Topogen available on
@@ -75,7 +78,10 @@ def set_topogen(tgen):
 class Topogen(object):
     "A topology test builder helper."
 
+    CONFIG_SECTION = 'topogen'
+
     def __init__(self, cls):
+        self.config = None
         self.topo = None
         self.net = None
         self.gears = {}
@@ -97,6 +103,9 @@ class Topogen(object):
         # Set the global variable so the test cases can access it anywhere
         set_topogen(self)
 
+        # Load the default topology configurations
+        self._load_config()
+
         # Initialize the API
         self._mininet_reset()
         cls()
@@ -104,17 +113,39 @@ class Topogen(object):
         for gear in self.gears.values():
             gear.net = self.net
 
+    def _load_config(self):
+        """
+        Loads the configuration file `pytest.ini` located at the root dir of
+        topotests.
+        """
+        defaults = {
+            'verbosity': 'info',
+            'frrdir': '/usr/lib/frr',
+            'quaggadir': '/usr/lib/quagga',
+            'routertype': 'frr',
+        }
+        self.config = ConfigParser.ConfigParser(defaults)
+        pytestini_path = os.path.join(CWD, '../pytest.ini')
+        self.config.read(pytestini_path)
+
     def add_router(self, name=None, cls=topotest.Router, **params):
         """
         Adds a new router to the topology. This function has the following
         options:
-        name: (optional) select the router name
+        * `name`: (optional) select the router name
+        * `daemondir`: (optional) custom daemon binary directory
+        * `routertype`: (optional) `quagga` or `frr`
         Returns a TopoRouter.
         """
         if name is None:
             name = 'r{}'.format(self.routern)
         if name in self.gears:
             raise KeyError('router already exists')
+
+        params['frrdir'] = self.config.get(self.CONFIG_SECTION, 'frrdir')
+        params['quaggadir'] = self.config.get(self.CONFIG_SECTION, 'quaggadir')
+        if not params.has_key('routertype'):
+            params['routertype'] = self.config.get(self.CONFIG_SECTION, 'routertype')
 
         self.gears[name] = TopoRouter(self, cls, name, **params)
         self.routern += 1
@@ -167,7 +198,7 @@ class Topogen(object):
         return dict((rname, gear) for rname, gear in self.gears.iteritems()
                     if isinstance(gear, TopoRouter))
 
-    def start_topology(self, log_level='info'):
+    def start_topology(self, log_level=None):
         """
         Starts the topology class. Possible `log_level`s are:
         'debug': all information possible
@@ -177,6 +208,10 @@ class Topogen(object):
         'error': only error and critical messages
         'critical': only critical messages
         """
+        # If log_level is not specified use the configuration.
+        if log_level is None:
+            log_level = self.config.get('topogen', 'verbosity')
+
         # Run mininet
         setLogLevel(log_level)
         self.net.start()
