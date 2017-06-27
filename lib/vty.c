@@ -2212,7 +2212,10 @@ vtysh_read (struct thread *thread)
         }
     }
 
-  vty_event (VTYSH_READ, sock, vty);
+  if (vty->status == VTY_CLOSE)
+    vty_close (vty);
+  else
+    vty_event (VTYSH_READ, sock, vty);
 
   return 0;
 }
