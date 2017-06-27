@@ -198,7 +198,7 @@ foreach (keys %odefun) {
 }
 
 # Output DEFSH
-foreach (keys %live) {
+foreach (sort keys %live) {
     my ($proto);
     my ($key);
     $key = $live{$_};
@@ -213,7 +213,7 @@ vtysh_init_cmd ()
 {
 EOF
 
-foreach (keys %odefun) {
+foreach (sort keys %odefun) {
     my ($node, $str) = (split (/,/));
     $cmd = $ocmd{$_};
     $cmd =~ s/_cmd/_cmd_vtysh/;
