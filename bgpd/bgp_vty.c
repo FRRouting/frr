@@ -166,31 +166,23 @@ bgp_node_safi (struct vty *vty)
   return safi;
 }
 
-/* supports <ipv4|ipv6> */
+/**
+ * Converts an AFI in string form to afi_t
+ *
+ * @param afi string, one of
+ *  - "ipv4"
+ *  - "ipv6"
+ * @return the corresponding afi_t
+ */
 afi_t
-bgp_vty_afi_from_arg(const char *afi_str)
+bgp_vty_afi_from_str(const char *afi_str)
 {
-  afi_t afi = AFI_MAX;       /* unknown */
-  if (!strcmp(afi_str, "ipv4")) {
+  afi_t afi = AFI_MAX; /* unknown */
+  if (strmatch(afi_str, "ipv4"))
     afi = AFI_IP;
-    }
-  else if (!strcmp(afi_str, "ipv6")) {
+  else if (strmatch(afi_str, "ipv6"))
     afi = AFI_IP6;
-  }
-  else if (!strcmp(afi_str, "l2vpn")) {
-    afi = AFI_L2VPN;
-  }
   return afi;
-}
-
-int
-bgp_parse_afi(const char *str, afi_t *afi)
-{
-  *afi = bgp_vty_afi_from_arg(str);
-  if (*afi != AFI_MAX)
-    return 0;
-  else
-    return -1;
 }
 
 int
@@ -214,7 +206,7 @@ argv_find_and_parse_afi(struct cmd_token **argv, int argc, int *index, afi_t *af
 
 /* supports <unicast|multicast|vpn|labeled-unicast> */
 safi_t
-bgp_vty_safi_from_arg(const char *safi_str)
+bgp_vty_safi_from_str(const char *safi_str)
 {
   safi_t safi = SAFI_MAX;       /* unknown */
   if (strmatch (safi_str, "multicast"))
@@ -255,12 +247,6 @@ argv_find_and_parse_safi (struct cmd_token **argv, int argc, int *index, safi_t 
       ret = 1;
       if (safi)
         *safi = SAFI_MPLS_VPN;
-    }
-  else if (argv_find (argv, argc, "evpn", index))
-    {
-      ret = 1;
-      if (safi)
-        *safi = SAFI_EVPN;
     }
   return ret;
 }
@@ -6225,7 +6211,7 @@ DEFUN_NOSH (address_family_ipv4_safi,
 
   if (argc == 3)
     {
-      safi_t safi = bgp_vty_safi_from_arg(argv[2]->arg);
+      safi_t safi = bgp_vty_safi_from_str (argv[2]->text);
       vty->node = bgp_node_type(AFI_IP, safi);
     }
   else
@@ -6243,7 +6229,7 @@ DEFUN_NOSH (address_family_ipv6_safi,
 {
   if (argc == 3)
     {
-      safi_t safi = bgp_vty_safi_from_arg(argv[2]->arg);
+      safi_t safi = bgp_vty_safi_from_str (argv[2]->text);
       vty->node = bgp_node_type(AFI_IP6, safi);
     }
   else
@@ -6531,7 +6517,7 @@ DEFUN (clear_bgp_ipv6_safi_prefix,
   int idx_safi = 3;
   int idx_ipv6_prefixlen = 5;
   return bgp_clear_prefix (vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6,
-                           bgp_vty_safi_from_arg(argv[idx_safi]->arg), NULL);
+                           bgp_vty_safi_from_str(argv[idx_safi]->text), NULL);
 }
 
 DEFUN (clear_bgp_instance_ipv6_safi_prefix,
@@ -6550,7 +6536,7 @@ DEFUN (clear_bgp_instance_ipv6_safi_prefix,
   int idx_safi = 5;
   int idx_ipv6_prefixlen = 7;
   return bgp_clear_prefix (vty, argv[idx_word]->arg, argv[idx_ipv6_prefixlen]->arg, AFI_IP6,
-                           bgp_vty_safi_from_arg(argv[idx_safi]->arg), NULL);
+                           bgp_vty_safi_from_str(argv[idx_safi]->text), NULL);
 }
 
 DEFUN (show_bgp_views,
@@ -9665,8 +9651,8 @@ DEFUN (show_bgp_updgrps_afi_adj,
   int idx_safi = 3;
   int idx_type = 5;
   show_bgp_updgrps_adj_info_aux(vty, NULL,
-                                bgp_vty_afi_from_arg(argv[idx_afi]->arg),
-                                bgp_vty_safi_from_arg(argv[idx_safi]->arg),
+                                bgp_vty_afi_from_str(argv[idx_afi]->text),
+                                bgp_vty_safi_from_str(argv[idx_safi]->text),
                                 argv[idx_type]->arg, 0);
   return CMD_SUCCESS;
 }
@@ -9776,8 +9762,8 @@ DEFUN (show_bgp_updgrps_afi_adj_s,
   VTY_GET_ULL("subgroup-id", subgrp_id, argv[idx_subgroup_id]->arg);
 
   show_bgp_updgrps_adj_info_aux(vty, NULL, 
-                                bgp_vty_afi_from_arg(argv[idx_afi]->arg),
-                                bgp_vty_safi_from_arg(argv[idx_safi]->arg),
+                                bgp_vty_afi_from_str(argv[idx_afi]->text),
+                                bgp_vty_safi_from_str(argv[idx_safi]->text),
                                 argv[idx_type]->arg, subgrp_id);
   return CMD_SUCCESS;
 }
