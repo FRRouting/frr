@@ -214,6 +214,7 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		    __func__, inet_ntoa(lsr_id));
 		return;
 	}
+	ds_tlv = (tlvs_rcvd & F_HELLO_TLV_RCVD_DS) ? 1 : 0;
 
 	/* implicit transport address */
 	if (!(tlvs_rcvd & F_HELLO_TLV_RCVD_ADDR))
@@ -291,11 +292,21 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		source.link.src_addr = *src;
 	}
 
+	debug_hello_recv("%s lsr-id %s transport-address %s holdtime %u%s",
+	    log_hello_src(&source), inet_ntoa(lsr_id), log_addr(af, &trans_addr),
+	     holdtime, (ds_tlv) ? " (dual stack TLV present)" : "");
+
 	adj = adj_find(lsr_id, &source);
+	if (adj && adj->ds_tlv != ds_tlv) {
+		/*
+		 * Transient condition, ignore packet and wait until adjacency
+		 * times out.
+		 */
+		return;
+	}
 	nbr = nbr_find_ldpid(lsr_id.s_addr);
 
 	/* check dual-stack tlv */
-	ds_tlv = (tlvs_rcvd & F_HELLO_TLV_RCVD_DS) ? 1 : 0;
 	if (ds_tlv && trans_pref != leconf->trans_pref) {
 		/*
 	 	 * RFC 7552 - Section 6.1.1:
@@ -419,10 +430,6 @@ recv_hello(struct in_addr lsr_id, struct ldp_msg *msg, int af,
 		adj_start_itimer(adj);
 	else
 		adj_stop_itimer(adj);
-
-	debug_hello_recv("%s lsr-id %s transport-address %s holdtime %u%s",
-	    log_hello_src(&source), inet_ntoa(lsr_id), log_addr(af, &trans_addr),
-	     holdtime, (ds_tlv) ? " (dual stack TLV present)" : "");
 
 	if (nbr && nbr->state == NBR_STA_PRESENT && !nbr_pending_idtimer(nbr) &&
 	    nbr_session_active_role(nbr) && !nbr_pending_connect(nbr))

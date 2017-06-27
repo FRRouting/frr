@@ -109,17 +109,19 @@ adj_new(struct in_addr lsr_id, struct hello_source *source,
 	return (adj);
 }
 
-static void
-adj_del_single(struct adj *adj)
+void
+adj_del(struct adj *adj, uint32_t notif_status)
 {
+	struct nbr	*nbr = adj->nbr;
+
 	log_debug("%s: lsr-id %s, %s (%s)", __func__, inet_ntoa(adj->lsr_id),
 	    log_hello_src(&adj->source), af_name(adj_get_af(adj)));
 
 	adj_stop_itimer(adj);
 
 	RB_REMOVE(global_adj_head, &global.adj_tree, adj);
-	if (adj->nbr)
-		RB_REMOVE(nbr_adj_head, &adj->nbr->adj_tree, adj);
+	if (nbr)
+		RB_REMOVE(nbr_adj_head, &nbr->adj_tree, adj);
 	switch (adj->source.type) {
 	case HELLO_LINK:
 		RB_REMOVE(ia_adj_head, &adj->source.link.ia->adj_tree, adj);
@@ -130,15 +132,6 @@ adj_del_single(struct adj *adj)
 	}
 
 	free(adj);
-}
-
-void
-adj_del(struct adj *adj, uint32_t notif_status)
-{
-	struct nbr	*nbr = adj->nbr;
-	struct adj	*atmp;
-
-	adj_del_single(adj);
 
 	/*
 	 * If the neighbor still exists but none of its remaining
@@ -146,8 +139,6 @@ adj_del(struct adj *adj, uint32_t notif_status)
 	 * then delete it.
 	 */
 	if (nbr && nbr_adj_count(nbr, nbr->af) == 0) {
-		RB_FOREACH_SAFE(adj, nbr_adj_head, &nbr->adj_tree, atmp)
-			adj_del_single(adj);
 		session_shutdown(nbr, notif_status, 0, 0);
 		nbr_del(nbr);
 	}
@@ -194,7 +185,6 @@ adj_itimer(struct thread *thread)
 			tnbr_del(leconf, adj->source.target);
 			return (0);
 		}
-		adj->source.target->adj = NULL;
 	}
 
 	adj_del(adj, S_HOLDTIME_EXP);
