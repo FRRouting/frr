@@ -123,22 +123,30 @@ graph template {
 
 	# Routers
 	r1 [
-		shape=octagon,
+		shape=doubleoctagon,
 		label="r1",
+		fillcolor="#f08080",
+		style=filled,
 	];
 	r2 [
-		shape=octagon
+		shape=doubleoctagon,
 		label="r2",
+		fillcolor="#f08080",
+		style=filled,
 	];
 
 	# Switches
 	s1 [
-		shape=box,
+		shape=oval,
 		label="s1\n192.168.0.0/24",
+		fillcolor="#d0e0d0",
+		style=filled,
 	];
 	s2 [
-		shape=box,
+		shape=oval,
 		label="s2\n192.168.1.0/24",
+		fillcolor="#d0e0d0",
+		style=filled,
 	];
 
 	# Connections
