@@ -430,7 +430,7 @@ DEFUN (babel_set_hello_interval,
     babel_interface_nfo *babel_ifp;
     int interval;
 
-    VTY_GET_INTEGER_RANGE("milliseconds", interval, argv[2]->arg, 20, 10 * 0xFFFE);
+    interval = strtoul(argv[2]->arg, NULL, 10);
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
@@ -451,7 +451,7 @@ DEFUN (babel_set_update_interval,
     babel_interface_nfo *babel_ifp;
     int interval;
 
-    VTY_GET_INTEGER_RANGE("milliseconds", interval, argv[2]->arg, 20, 10 * 0xFFFE);
+    interval = strtoul(argv[2]->arg, NULL, 10);
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
@@ -471,7 +471,7 @@ DEFUN (babel_set_rxcost,
     babel_interface_nfo *babel_ifp;
     int rxcost;
 
-    VTY_GET_INTEGER_RANGE("units", rxcost, argv[2]->arg, 1, 0x10000 - 1);
+    rxcost = strtoul(argv[2]->arg, NULL, 10);
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
@@ -491,7 +491,7 @@ DEFUN (babel_set_rtt_decay,
     babel_interface_nfo *babel_ifp;
     int decay;
 
-    VTY_GET_INTEGER_RANGE("units", decay, argv[2]->arg, 1, 256);
+    decay = strtoul(argv[2]->arg, NULL, 10);
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
@@ -511,7 +511,7 @@ DEFUN (babel_set_rtt_min,
     babel_interface_nfo *babel_ifp;
     int rtt;
 
-    VTY_GET_INTEGER_RANGE("milliseconds", rtt, argv[2]->arg, 1, 65535);
+    rtt = strtoul(argv[2]->arg, NULL, 10);
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
@@ -531,7 +531,7 @@ DEFUN (babel_set_rtt_max,
     babel_interface_nfo *babel_ifp;
     int rtt;
 
-    VTY_GET_INTEGER_RANGE("milliseconds", rtt, argv[2]->arg, 1, 65535);
+    rtt = strtoul(argv[2]->arg, NULL, 10);
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
@@ -551,7 +551,7 @@ DEFUN (babel_set_max_rtt_penalty,
     babel_interface_nfo *babel_ifp;
     int penalty;
 
-    VTY_GET_INTEGER_RANGE("milliseconds", penalty, argv[2]->arg, 0, 65535);
+    penalty = strtoul(argv[2]->arg, NULL, 10);
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
@@ -604,7 +604,7 @@ DEFUN (babel_set_channel,
     babel_interface_nfo *babel_ifp;
     int channel;
 
-    VTY_GET_INTEGER_RANGE("channel", channel, argv[2]->arg, 1, 254);
+    channel = strtoul(argv[2]->arg, NULL, 10);
 
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);

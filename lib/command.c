@@ -2345,8 +2345,7 @@ DEFUN (config_log_timestamp_precision,
        "Number of subsecond digits\n")
 {
   int idx_number = 3;
-  VTY_GET_INTEGER_RANGE("Timestamp Precision",
-                        zlog_default->timestamp_precision, argv[idx_number]->arg, 0, 6);
+  zlog_default->timestamp_precision = strtoul(argv[idx_number]->arg, NULL, 10);
   return CMD_SUCCESS;
 }
 

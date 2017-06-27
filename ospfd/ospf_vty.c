@@ -155,7 +155,7 @@ DEFUN_NOSH (router_ospf,
     }
 
   if (argc > 2)
-    VTY_GET_INTEGER ("Instance", instance, argv[2]->arg);
+    instance = strtoul (argv[2]->arg, NULL, 10);
 
   /* The following logic to set the vty qobj index is in place to be able
      to ignore the commands which dont belong to this instance. */
@@ -185,7 +185,7 @@ DEFUN (no_router_ospf,
   u_short instance = 0;
 
   if (argc > 3)
-    VTY_GET_INTEGER ("Instance", instance, argv[3]->arg);
+    instance = strtoul(argv[3]->arg, NULL, 10);
 
   if ((ospf = ospf_lookup_instance (instance)) == NULL)
     return CMD_SUCCESS;
@@ -523,7 +523,7 @@ DEFUN (ospf_network_area,
     }
 
   /* Get network prefix and Area ID. */
-  VTY_GET_IPV4_PREFIX ("network prefix", p, argv[idx_ipv4_prefixlen]->arg);
+  str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
 
   ret = ospf_network_set (ospf, &p, area_id, format);
@@ -561,7 +561,7 @@ DEFUN (no_ospf_network_area,
     }
 
   /* Get network prefix and Area ID. */
-  VTY_GET_IPV4_PREFIX ("network prefix", p, argv[idx_ipv4_prefixlen]->arg);
+  str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
 
   ret = ospf_network_unset (ospf, &p, area_id);
@@ -597,12 +597,12 @@ DEFUN (ospf_area_range,
   u_int32_t cost;
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
-  VTY_GET_IPV4_PREFIX ("area range", p, argv[idx_ipv4_prefixlen]->arg);
+  str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 
   ospf_area_range_set (ospf, area_id, &p, OSPF_AREA_RANGE_ADVERTISE);
   if (argc > 5)
     {
-      VTY_GET_INTEGER ("range cost", cost, argv[idx_cost]->arg);
+      cost = strtoul(argv[idx_cost]->arg, NULL, 10);
       ospf_area_range_cost_set (ospf, area_id, &p, cost);
     }
 
@@ -630,12 +630,12 @@ DEFUN (ospf_area_range_cost,
   u_int32_t cost;
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
-  VTY_GET_IPV4_PREFIX ("area range", p, argv[idx_ipv4_prefixlen]->arg);
+  str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 
   ospf_area_range_set (ospf, area_id, &p, OSPF_AREA_RANGE_ADVERTISE);
   ospf_area_display_format_set (ospf, ospf_area_get (ospf, area_id), format);
 
-  VTY_GET_INTEGER ("range cost", cost, argv[idx_cost]->arg);
+  cost = strtoul(argv[idx_cost]->arg, NULL, 10);
   ospf_area_range_cost_set (ospf, area_id, &p, cost);
 
   return CMD_SUCCESS;
@@ -659,7 +659,7 @@ DEFUN (ospf_area_range_not_advertise,
   int format;
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
-  VTY_GET_IPV4_PREFIX ("area range", p, argv[idx_ipv4_prefixlen]->arg);
+  str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 
   ospf_area_range_set (ospf, area_id, &p, 0);
   ospf_area_display_format_set (ospf, ospf_area_get (ospf, area_id), format);
@@ -691,7 +691,7 @@ DEFUN (no_ospf_area_range,
   int format;
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
-  VTY_GET_IPV4_PREFIX ("area range", p, argv[idx_ipv4_prefixlen]->arg);
+  str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 
   ospf_area_range_unset (ospf, area_id, &p);
 
@@ -718,8 +718,8 @@ DEFUN (ospf_area_range_substitute,
   int format;
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
-  VTY_GET_IPV4_PREFIX ("area range", p, argv[idx_ipv4_prefixlen]->arg);
-  VTY_GET_IPV4_PREFIX ("substituted network prefix", s, argv[idx_ipv4_prefixlen_2]->arg);
+  str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
+  str2prefix_ipv4(argv[idx_ipv4_prefixlen_2]->arg, &s);
 
   ospf_area_range_substitute_set (ospf, area_id, &p, &s);
   ospf_area_display_format_set (ospf, ospf_area_get (ospf, area_id), format);
@@ -748,8 +748,8 @@ DEFUN (no_ospf_area_range_substitute,
   int format;
 
   VTY_GET_OSPF_AREA_ID (area_id, format, argv[idx_ipv4_number]->arg);
-  VTY_GET_IPV4_PREFIX ("area range", p, argv[idx_ipv4_prefixlen]->arg);
-  VTY_GET_IPV4_PREFIX ("substituted network prefix", s, argv[idx_ipv4_prefixlen_2]->arg);
+  str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
+  str2prefix_ipv4(argv[idx_ipv4_prefixlen_2]->arg, &s);
 
   ospf_area_range_substitute_unset (ospf, area_id, &p);
 
@@ -1651,7 +1651,7 @@ DEFUN (ospf_area_default_cost,
   struct prefix_ipv4 p;
 
   VTY_GET_OSPF_AREA_ID_NO_BB ("default-cost", area_id, format, argv[idx_ipv4_number]->arg);
-  VTY_GET_INTEGER_RANGE ("stub default cost", cost, argv[idx_number]->arg, 0, 16777215);
+  cost = strtoul(argv[idx_number]->arg, NULL, 10);
 
   area = ospf_area_get (ospf, area_id);
   ospf_area_display_format_set (ospf, area, format);
@@ -1688,14 +1688,12 @@ DEFUN (no_ospf_area_default_cost,
 {
   VTY_DECLVAR_CONTEXT(ospf, ospf);
   int idx_ipv4_number = 2;
-  int idx_number = 4;
   struct ospf_area *area;
   struct in_addr area_id;
   int format;
   struct prefix_ipv4 p;
 
   VTY_GET_OSPF_AREA_ID_NO_BB ("default-cost", area_id, format, argv[idx_ipv4_number]->arg);
-  VTY_CHECK_INTEGER_RANGE ("stub default cost", argv[idx_number]->arg, 0, OSPF_LS_INFINITY);
 
   area = ospf_area_lookup_by_area_id (ospf, area_id);
   if (area == NULL)
@@ -2211,7 +2209,7 @@ DEFUN (ospf_timers_min_ls_interval,
       return CMD_WARNING;
     }
 
-  VTY_GET_INTEGER ("LSA interval", interval, argv[idx_number]->arg);
+  interval = strtoul(argv[idx_number]->arg, NULL, 10);
 
   ospf->min_ls_interval = interval;
 
@@ -2253,7 +2251,7 @@ DEFUN (ospf_timers_min_ls_arrival,
       return CMD_WARNING;
     }
 
-  VTY_GET_INTEGER_RANGE ("minimum LSA inter-arrival time", arrival, argv[idx_number]->arg, 0, 1000);
+  arrival = strtoul(argv[idx_number]->arg, NULL, 10);
 
   ospf->min_ls_arrival = arrival;
 
@@ -2298,9 +2296,9 @@ DEFUN (ospf_timers_throttle_spf,
       return CMD_WARNING;
     }
   
-  VTY_GET_INTEGER_RANGE ("SPF delay timer", delay, argv[idx_number]->arg, 0, 600000);
-  VTY_GET_INTEGER_RANGE ("SPF hold timer", hold, argv[idx_number_2]->arg, 0, 600000);
-  VTY_GET_INTEGER_RANGE ("SPF max-hold timer", max, argv[idx_number_3]->arg, 0, 600000);
+  delay = strtoul(argv[idx_number]->arg, NULL, 10);
+  hold = strtoul(argv[idx_number_2]->arg, NULL, 10);
+  max = strtoul(argv[idx_number_3]->arg, NULL, 10);
   
   return ospf_timers_spf_set (vty, delay, hold, max);
 }
@@ -2341,7 +2339,7 @@ DEFUN (ospf_timers_lsa,
       return CMD_WARNING;
     }
 
-  VTY_GET_INTEGER ("LSA min-arrival", minarrival, argv[idx_number]->arg);
+  minarrival = strtoul(argv[idx_number]->arg, NULL, 10);
 
   ospf->min_ls_arrival = minarrival;
 
@@ -2362,7 +2360,7 @@ DEFUN (no_ospf_timers_lsa,
 
   if (argc > 4)
     {
-      VTY_GET_INTEGER ("LSA min-arrival", minarrival, argv[4]->arg);
+      minarrival = strtoul(argv[4]->arg, NULL, 10);
 
       if (ospf->min_ls_arrival != minarrival ||
 	  minarrival == OSPF_MIN_LS_ARRIVAL)
@@ -2392,13 +2390,13 @@ DEFUN (ospf_neighbor,
   unsigned int priority = OSPF_NEIGHBOR_PRIORITY_DEFAULT;
   unsigned int interval = OSPF_POLL_INTERVAL_DEFAULT;
 
-  VTY_GET_IPV4_ADDRESS ("neighbor address", nbr_addr, argv[idx_ipv4]->arg);
+  inet_aton(argv[idx_ipv4]->arg, &nbr_addr);
 
   if (argc > 2)
-    VTY_GET_INTEGER_RANGE ("neighbor priority", priority, argv[idx_pri]->arg, 0, 255);
+    priority = strtoul(argv[idx_pri]->arg, NULL, 10);
 
   if (argc > 4)
-    VTY_GET_INTEGER_RANGE ("poll interval", interval, argv[idx_poll]->arg, 1, 65535);
+    interval = strtoul(argv[idx_poll]->arg, NULL, 10);
 
   ospf_nbr_nbma_set (ospf, nbr_addr);
 
@@ -2429,12 +2427,12 @@ DEFUN (ospf_neighbor_poll_interval,
   unsigned int priority = OSPF_NEIGHBOR_PRIORITY_DEFAULT;
   unsigned int interval = OSPF_POLL_INTERVAL_DEFAULT;
 
-  VTY_GET_IPV4_ADDRESS ("neighbor address", nbr_addr, argv[idx_ipv4]->arg);
+  inet_aton(argv[idx_ipv4]->arg, &nbr_addr);
 
-  VTY_GET_INTEGER_RANGE ("poll interval", interval, argv[idx_poll]->arg, 1, 65535);
+  interval = strtoul(argv[idx_poll]->arg, NULL, 10);
 
   if (argc > 4)
-    VTY_GET_INTEGER_RANGE ("neighbor priority", priority, argv[idx_pri]->arg, 0, 255);
+    priority = strtoul(argv[idx_pri]->arg, NULL, 10);
 
   ospf_nbr_nbma_set (ospf, nbr_addr);
   ospf_nbr_nbma_poll_interval_set (ospf, nbr_addr, interval);
@@ -2460,7 +2458,7 @@ DEFUN (no_ospf_neighbor,
   int idx_ipv4 = 2;
   struct in_addr nbr_addr;
 
-  VTY_GET_IPV4_ADDRESS ("neighbor address", nbr_addr, argv[idx_ipv4]->arg);
+  inet_aton(argv[idx_ipv4]->arg, &nbr_addr);
 
   (void)ospf_nbr_nbma_unset (ospf, nbr_addr);
 
@@ -2482,7 +2480,7 @@ DEFUN (no_ospf_neighbor_poll,
   int idx_ipv4 = 2;
   struct in_addr nbr_addr;
 
-  VTY_GET_IPV4_ADDRESS ("neighbor address", nbr_addr, argv[idx_ipv4]->arg);
+  inet_aton(argv[idx_ipv4]->arg, &nbr_addr);
 
   (void)ospf_nbr_nbma_unset (ospf, nbr_addr);
 
@@ -2500,7 +2498,7 @@ DEFUN (ospf_refresh_timer,
   int idx_number = 2;
   unsigned int interval;
 
-  VTY_GET_INTEGER_RANGE ("refresh timer", interval, argv[idx_number]->arg, 10, 1800);
+  interval = strtoul(argv[idx_number]->arg, NULL, 10);
   interval = (interval / OSPF_LSA_REFRESHER_GRANULARITY) * OSPF_LSA_REFRESHER_GRANULARITY;
 
   ospf_timers_refresh_set (ospf, interval);
@@ -2522,7 +2520,7 @@ DEFUN (no_ospf_refresh_timer,
 
   if (argc == 1)
     {
-      VTY_GET_INTEGER_RANGE ("refresh timer", interval, argv[idx_number]->arg, 10, 1800);
+      interval = strtoul(argv[idx_number]->arg, NULL, 10);
   
       if (ospf->lsa_refresh_interval != interval ||
 	  interval == OSPF_LSA_REFRESH_INTERVAL_DEFAULT)
@@ -3237,7 +3235,7 @@ DEFUN (show_ip_ospf_instance,
   u_short instance = 0;
   u_char uj = use_json(argc, argv);
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
@@ -3634,7 +3632,7 @@ DEFUN (show_ip_ospf_instance_interface,
   u_short instance = 0;
   u_char uj = use_json(argc, argv);
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
@@ -3792,7 +3790,7 @@ DEFUN (show_ip_ospf_instance_neighbor,
   u_short instance = 0;
   u_char uj = use_json(argc, argv);
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
@@ -3905,7 +3903,7 @@ DEFUN (show_ip_ospf_instance_neighbor_all,
   u_short instance = 0;
   u_char uj = use_json(argc, argv);
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
@@ -4000,7 +3998,7 @@ DEFUN (show_ip_ospf_instance_neighbor_int,
   u_short instance = 0;
   u_char uj = use_json(argc, argv);
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
@@ -4372,7 +4370,7 @@ DEFUN (show_ip_ospf_instance_neighbor_id,
   u_short instance = 0;
   u_char uj = use_json(argc, argv);
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
@@ -4464,7 +4462,7 @@ DEFUN (show_ip_ospf_instance_neighbor_detail,
   u_short instance = 0;
   u_char uj = use_json(argc, argv);
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
@@ -4564,7 +4562,7 @@ DEFUN (show_ip_ospf_instance_neighbor_detail_all,
   u_short instance = 0;
   u_char uj = use_json(argc, argv);
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
@@ -4667,7 +4665,7 @@ DEFUN (show_ip_ospf_instance_neighbor_int_detail,
   u_short instance = 0;
   u_char uj = use_json(argc, argv);
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if ((ospf = ospf_lookup_instance(instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
@@ -5421,7 +5419,7 @@ DEFUN (show_ip_ospf_instance_database,
   int idx = 0;
   if (argv_find (argv, argc, "(1-65535)", &idx))
   {
-    VTY_GET_INTEGER ("Instance", instance, argv[idx]->arg);
+    instance = strtoul(argv[idx]->arg, NULL, 10);
     ospf = ospf_lookup_instance (instance);
   }
   else {
@@ -5449,7 +5447,7 @@ DEFUN (show_ip_ospf_instance_database_max,
   struct ospf *ospf;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
 
   if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
@@ -5550,7 +5548,7 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
   struct ospf *ospf;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
 
   if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
@@ -6225,8 +6223,7 @@ ospf_vty_dead_interval_set (struct vty *vty, const char *interval_str,
 
   if (interval_str)
     {
-      VTY_GET_INTEGER_RANGE ("Router Dead Interval", seconds, interval_str,
-                             1, 65535);
+      seconds = strtoul(interval_str, NULL, 10);
                              
       /* reset fast_hello too, just to be sure */
       UNSET_IF_PARAM (params, fast_hello);
@@ -6234,8 +6231,7 @@ ospf_vty_dead_interval_set (struct vty *vty, const char *interval_str,
     }
   else if (fast_hello_str)
     {
-      VTY_GET_INTEGER_RANGE ("Hello Multiplier", hellomult, fast_hello_str,
-                             1, 10);
+      hellomult = strtoul(fast_hello_str, NULL, 10);
       /* 1s dead-interval with sub-second hellos desired */
       seconds = OSPF_ROUTER_DEAD_INTERVAL_MINIMAL;
       SET_IF_PARAM (params, fast_hello);
@@ -7186,7 +7182,7 @@ DEFUN (ospf_redistribute_instance_source,
 
   source = proto_redistnum (AFI_IP, argv[idx_ospf_table]->text);
 
-  VTY_GET_INTEGER ("Instance ID", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
 
   if (!ospf)
     return CMD_SUCCESS;
@@ -7255,7 +7251,7 @@ DEFUN (no_ospf_redistribute_instance_source,
   else
     source = ZEBRA_ROUTE_TABLE;
 
-  VTY_GET_INTEGER ("Instance ID", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
 
   if ((source == ZEBRA_ROUTE_OSPF) && !ospf->instance)
     {
@@ -7768,7 +7764,7 @@ DEFUN (ospf_max_metric_router_lsa_startup,
       return CMD_WARNING;
     }
   
-  VTY_GET_INTEGER ("stub-router startup period", seconds, argv[idx_number]->arg);
+  seconds = strtoul(argv[idx_number]->arg, NULL, 10);
   
   ospf->stub_router_startup_time = seconds;
   
@@ -7824,7 +7820,7 @@ DEFUN (ospf_max_metric_router_lsa_shutdown,
       return CMD_WARNING;
     }
   
-  VTY_GET_INTEGER ("stub-router shutdown wait period", seconds, argv[idx_number]->arg);
+  seconds = strtoul(argv[idx_number]->arg, NULL, 10);
   
   ospf->stub_router_shutdown_time = seconds;
   
@@ -8077,7 +8073,7 @@ DEFUN (show_ip_ospf_instance_border_routers,
   struct ospf *ospf;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 
@@ -8140,7 +8136,7 @@ DEFUN (show_ip_ospf_instance_route,
   struct ospf *ospf;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if ((ospf = ospf_lookup_instance (instance)) == NULL || !ospf->oi_running)
     return CMD_SUCCESS;
 

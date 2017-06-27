@@ -701,7 +701,7 @@ bgp_clear (struct vty *vty, struct bgp *bgp,  afi_t afi, safi_t safi,
       as_t as;
       int find = 0;
 
-      VTY_GET_INTEGER_RANGE ("AS", as, arg, 1, BGP_AS4_MAX);
+      as = strtoul(arg, NULL, 10);
 
       for (ALL_LIST_ELEMENTS (bgp->peer, node, nnode, peer))
 	{
@@ -896,7 +896,7 @@ DEFUN_NOSH (router_bgp,
   // "router bgp X"
   else
     {
-      VTY_GET_INTEGER_RANGE ("AS", as, argv[idx_asn]->arg, 1, BGP_AS4_MAX);
+      as = strtoul (argv[idx_asn]->arg, NULL, 10);
 
       inst_type = BGP_INSTANCE_TYPE_DEFAULT;
       if (argc > 3)
@@ -970,7 +970,7 @@ DEFUN (no_router_bgp,
     }
   else
     {
-      VTY_GET_INTEGER_RANGE ("AS", as, argv[idx_asn]->arg, 1, BGP_AS4_MAX);
+      as = strtoul(argv[idx_asn]->arg, NULL, 10);
 
       if (argc > 4)
         name = argv[idx_vrf]->arg;
@@ -1108,7 +1108,7 @@ DEFUN (bgp_confederation_identifier,
   int idx_number = 3;
   as_t as;
 
-  VTY_GET_INTEGER_RANGE ("AS", as, argv[idx_number]->arg, 1, BGP_AS4_MAX);
+  as = strtoul(argv[idx_number]->arg, NULL, 10);
 
   bgp_confederation_id_set (bgp, as);
 
@@ -1145,7 +1145,7 @@ DEFUN (bgp_confederation_peers,
 
   for (i = idx_asn; i < argc; i++)
     {
-      VTY_GET_INTEGER_RANGE ("AS", as, argv[i]->arg, 1, BGP_AS4_MAX);
+      as = strtoul(argv[i]->arg, NULL, 10);
 
       if (bgp->as == as)
 	{
@@ -1175,7 +1175,7 @@ DEFUN (no_bgp_confederation_peers,
 
   for (i = idx_asn; i < argc; i++)
     {
-      VTY_GET_INTEGER_RANGE ("AS", as, argv[i]->arg, 1, BGP_AS4_MAX);
+      as = strtoul(argv[i]->arg, NULL, 10);
 
       bgp_confederation_peers_remove (bgp, as);
     }
@@ -1342,8 +1342,7 @@ bgp_update_delay_config_vty (struct vty *vty, const char *delay,
   u_int16_t update_delay;
   u_int16_t establish_wait;
 
-  VTY_GET_INTEGER_RANGE ("update-delay", update_delay, delay,
-                         BGP_UPDATE_DELAY_MIN, BGP_UPDATE_DELAY_MAX);
+  update_delay = strtoul(delay, NULL, 10);
 
   if (!wait) /* update-delay <delay> */
     {
@@ -1436,8 +1435,7 @@ bgp_wpkt_quanta_config_vty (struct vty *vty, const char *num, char set)
   VTY_DECLVAR_CONTEXT(bgp, bgp);
 
   if (set)
-    VTY_GET_INTEGER_RANGE ("write-quanta", bgp->wpkt_quanta, num,
-			   1, 10000);
+    bgp->wpkt_quanta = strtoul(num, NULL, 10);
   else
     bgp->wpkt_quanta = BGP_WRITE_PACKET_MAX;
 
@@ -1651,8 +1649,8 @@ DEFUN (bgp_timers,
   unsigned long keepalive = 0;
   unsigned long holdtime = 0;
 
-  VTY_GET_INTEGER ("keepalive", keepalive, argv[idx_number]->arg);
-  VTY_GET_INTEGER ("holdtime", holdtime, argv[idx_number_2]->arg);
+  keepalive = strtoul(argv[idx_number]->arg, NULL, 10);
+  holdtime = strtoul(argv[idx_number_2]->arg, NULL, 10);
 
   /* Holdtime value check. */
   if (holdtime < 3 && holdtime != 0)
@@ -1842,7 +1840,7 @@ DEFUN (bgp_graceful_restart_stalepath_time,
   int idx_number = 3;
   u_int32_t stalepath;
 
-  VTY_GET_INTEGER_RANGE ("stalepath-time", stalepath, argv[idx_number]->arg, 1, 3600);
+  stalepath = strtoul(argv[idx_number]->arg, NULL, 10);
   bgp->stalepath_time = stalepath;
   return CMD_SUCCESS;
 }
@@ -1859,7 +1857,7 @@ DEFUN (bgp_graceful_restart_restart_time,
   int idx_number = 3;
   u_int32_t restart;
 
-  VTY_GET_INTEGER_RANGE ("restart-time", restart, argv[idx_number]->arg, 1, 3600);
+  restart = strtoul(argv[idx_number]->arg, NULL, 10);
   bgp->restart_time = restart;
   return CMD_SUCCESS;
 }
@@ -2295,7 +2293,7 @@ DEFUN (bgp_default_local_preference,
   int idx_number = 3;
   u_int32_t local_pref;
 
-  VTY_GET_INTEGER ("local preference", local_pref, argv[idx_number]->arg);
+  local_pref = strtoul(argv[idx_number]->arg, NULL, 10);
 
   bgp_default_local_preference_set (bgp, local_pref);
   bgp_clear_star_soft_in (vty, bgp->name);
@@ -2332,7 +2330,7 @@ DEFUN (bgp_default_subgroup_pkt_queue_max,
   int idx_number = 3;
   u_int32_t max_size;
 
-  VTY_GET_INTEGER ("subgroup packet queue max", max_size, argv[idx_number]->arg);
+  max_size = strtoul(argv[idx_number]->arg, NULL, 10);
 
   bgp_default_subgroup_pkt_queue_max_set (bgp, max_size);
 
@@ -2405,9 +2403,7 @@ DEFUN (bgp_listen_limit,
   int idx_number = 3;
   int listen_limit;
 
-  VTY_GET_INTEGER_RANGE ("listen limit", listen_limit, argv[idx_number]->arg,
-                         BGP_DYNAMIC_NEIGHBORS_LIMIT_MIN,
-                         BGP_DYNAMIC_NEIGHBORS_LIMIT_MAX);
+  listen_limit = strtoul(argv[idx_number]->arg, NULL, 10);
 
   bgp_listen_limit_set (bgp, listen_limit);
 
@@ -2560,8 +2556,6 @@ DEFUN (no_bgp_listen_range,
   argv_find (argv, argc, "WORD", &idx);
   char *peergroup = argv[idx]->arg;
 
-  // VTY_GET_IPV4_PREFIX ("listen range", range, argv[idx_ipv4_prefixlen]->arg);
-
   /* Convert IP prefix string to struct prefix. */
   ret = str2prefix (prefix, &range);
   if (! ret)
@@ -2673,7 +2667,7 @@ peer_remote_as_vty (struct vty *vty, const char *peer_str,
   else
     {
       /* Get AS number.  */
-      VTY_GET_INTEGER_RANGE ("AS", as, as_str, 1, BGP_AS4_MAX);
+      as = strtoul(as_str, NULL, 10);
     }
 
   /* If peer is peer group, call proper function.  */
@@ -2767,7 +2761,7 @@ peer_conf_interface_get (struct vty *vty, const char *conf_if, afi_t afi,
       else
         {
           /* Get AS number.  */
-          VTY_GET_INTEGER_RANGE ("AS", as, as_str, 1, BGP_AS4_MAX);
+          as = strtoul(as_str, NULL, 10);
           as_type = AS_SPECIFIED;
         }
     }
@@ -3119,7 +3113,7 @@ DEFUN (neighbor_local_as,
   if (! peer)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER_RANGE ("Local AS", as, argv[idx_number]->arg, 1, BGP_AS4_MAX);
+  as = strtoul(argv[idx_number]->arg, NULL, 10);
   ret = peer_local_as_set (peer, as, 0, 0);
   return bgp_vty_return (vty, ret);
 }
@@ -3143,7 +3137,7 @@ DEFUN (neighbor_local_as_no_prepend,
   if (! peer)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER_RANGE ("Local AS", as, argv[idx_number]->arg, 1, BGP_AS4_MAX);
+  as = strtoul(argv[idx_number]->arg, NULL, 10);
   ret = peer_local_as_set (peer, as, 1, 0);
   return bgp_vty_return (vty, ret);
 }
@@ -3168,7 +3162,7 @@ DEFUN (neighbor_local_as_no_prepend_replace_as,
   if (! peer)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER_RANGE ("Local AS", as, argv[idx_number]->arg, 1, BGP_AS4_MAX);
+  as = strtoul(argv[idx_number]->arg, NULL, 10);
   ret = peer_local_as_set (peer, as, 1, 1);
   return bgp_vty_return (vty, ret);
 }
@@ -4589,7 +4583,7 @@ peer_ebgp_multihop_set_vty (struct vty *vty, const char *ip_str,
   if (! ttl_str)
     ttl = MAXTTL;
   else
-    VTY_GET_INTEGER_RANGE ("TTL", ttl, ttl_str, 1, MAXTTL);
+    ttl = strtoul(ttl_str, NULL, 10);
 
   return bgp_vty_return (vty,  peer_ebgp_multihop_set (peer, ttl));
 }
@@ -4900,7 +4894,7 @@ peer_port_vty (struct vty *vty, const char *ip_str, int afi,
     }
   else
     {
-      VTY_GET_INTEGER("port", port, port_str);
+      port = strtoul(port_str, NULL, 10);
     }
 
   peer_port_set (peer, port);
@@ -4950,7 +4944,7 @@ peer_weight_set_vty (struct vty *vty, const char *ip_str,
   if (! peer)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER_RANGE("weight", weight, weight_str, 0, 65535);
+  weight = strtoul(weight_str, NULL, 10);
 
   ret = peer_weight_set (peer, afi, safi, weight);
   return bgp_vty_return (vty, ret);
@@ -5079,8 +5073,8 @@ peer_timers_set_vty (struct vty *vty, const char *ip_str,
   if (! peer)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER_RANGE ("Keepalive", keepalive, keep_str, 0, 65535);
-  VTY_GET_INTEGER_RANGE ("Holdtime", holdtime, hold_str, 0, 65535);
+  keepalive = strtoul(keep_str, NULL, 10);
+  holdtime = strtoul(hold_str, NULL, 10);
 
   ret = peer_timers_set (peer, keepalive, holdtime);
 
@@ -5144,7 +5138,7 @@ peer_timers_connect_set_vty (struct vty *vty, const char *ip_str,
   if (! peer)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER_RANGE ("Connect time", connect, time_str, 0, 65535);
+  connect = strtoul(time_str, NULL, 10);
 
   ret = peer_timers_connect_set (peer, connect);
 
@@ -5208,7 +5202,7 @@ peer_advertise_interval_vty (struct vty *vty, const char *ip_str,
     return CMD_WARNING;
 
   if (time_str)
-    VTY_GET_INTEGER_RANGE ("advertise interval", routeadv, time_str, 0, 600);
+    routeadv = strtoul(time_str, NULL, 10);
 
   if (set)
     ret = peer_advertise_interval_set (peer, routeadv);
@@ -5259,7 +5253,7 @@ DEFUN (bgp_set_route_map_delay_timer,
 
   if (argv[idx_number]->arg)
     {
-      VTY_GET_INTEGER_RANGE ("delay-timer", rmap_delay_timer, argv[idx_number]->arg, 0, 600);
+      rmap_delay_timer = strtoul(argv[idx_number]->arg, NULL, 10);
       bm->rmap_update_timer = rmap_delay_timer;
 
       /* if the dynamic update handling is being disabled, and a timer is
@@ -5851,7 +5845,7 @@ peer_maximum_prefix_set_vty (struct vty *vty, const char *ip_str, afi_t afi,
   if (! peer)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER ("maximum number", max, num_str);
+  max = strtoul(num_str, NULL, 10);
   if (threshold_str)
     threshold = atoi (threshold_str);
   else
@@ -6173,7 +6167,7 @@ DEFUN (neighbor_ttl_security,
   if (! peer)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER_RANGE ("", gtsm_hops, argv[idx_number]->arg, 1, 254);
+  gtsm_hops = strtoul(argv[idx_number]->arg, NULL, 10);
 
   /*
    * If 'neighbor swpX', then this is for directly connected peers,
@@ -9622,7 +9616,7 @@ DEFUN (show_ip_bgp_updgrps,
   /* get subgroup id, if provided */
   idx = argc - 1;
   if (argv[idx]->type == VARIABLE_TKN)
-    VTY_GET_ULL("subgroup-id", subgrp_id, argv[idx]->arg);
+    subgrp_id = strtoull(argv[idx]->arg, NULL, 10);
 
   return (bgp_show_update_groups(vty, vrf, afi, safi, subgrp_id));
 }
@@ -9811,7 +9805,7 @@ DEFUN (show_ip_bgp_updgrps_adj_s,
   int idx_type = 5;
   uint64_t subgrp_id;
 
-  VTY_GET_ULL("subgroup-id", subgrp_id, argv[idx_subgroup_id]->arg);
+  subgrp_id = strtoull(argv[idx_subgroup_id]->arg, NULL, 10);
 
   show_bgp_updgrps_adj_info_aux(vty, NULL, AFI_IP, SAFI_UNICAST, argv[idx_type]->arg, subgrp_id);
   return CMD_SUCCESS;
@@ -9836,7 +9830,7 @@ DEFUN (show_ip_bgp_instance_updgrps_adj_s,
   int idx_type = 7;
   uint64_t subgrp_id;
 
-  VTY_GET_ULL("subgroup-id", subgrp_id, argv[idx_subgroup_id]->arg);
+  subgrp_id = strtoull(argv[idx_subgroup_id]->arg, NULL, 10);
 
   show_bgp_updgrps_adj_info_aux(vty, argv[idx_vrf]->arg, AFI_IP, SAFI_UNICAST, argv[idx_type]->arg, subgrp_id);
   return CMD_SUCCESS;
@@ -9862,7 +9856,7 @@ DEFUN (show_bgp_updgrps_afi_adj_s,
   int idx_type = 6;
   uint64_t subgrp_id;
 
-  VTY_GET_ULL("subgroup-id", subgrp_id, argv[idx_subgroup_id]->arg);
+  subgrp_id = strtoull(argv[idx_subgroup_id]->arg, NULL, 10);
 
   show_bgp_updgrps_adj_info_aux(vty, NULL, 
                                 bgp_vty_afi_from_arg(argv[idx_afi]->arg),
@@ -9887,7 +9881,7 @@ DEFUN (show_bgp_updgrps_adj_s,
   int idx_type = 4;
   uint64_t subgrp_id;
 
-  VTY_GET_ULL("subgroup-id", subgrp_id, argv[idx_subgroup_id]->arg);
+  subgrp_id = strtoull(argv[idx_subgroup_id]->arg, NULL, 10);
 
   show_bgp_updgrps_adj_info_aux(vty, NULL, AFI_IP6, SAFI_UNICAST, argv[idx_type]->arg, subgrp_id);
   return CMD_SUCCESS;
@@ -9911,7 +9905,7 @@ DEFUN (show_bgp_instance_updgrps_adj_s,
   int idx_type = 6;
   uint64_t subgrp_id;
 
-  VTY_GET_ULL("subgroup-id", subgrp_id, argv[idx_subgroup_id]->arg);
+  subgrp_id = strtoull(argv[idx_subgroup_id]->arg, NULL, 10);
 
   show_bgp_updgrps_adj_info_aux(vty, argv[idx_vrf]->arg, AFI_IP6, SAFI_UNICAST, argv[idx_type]->arg, subgrp_id);
   return CMD_SUCCESS;
@@ -10184,7 +10178,7 @@ DEFUN (bgp_redistribute_ipv4_metric,
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  VTY_GET_INTEGER ("metric", metric, argv[idx_number]->arg);
+  metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
   red = bgp_redist_add(bgp, AFI_IP, type, 0);
   bgp_redistribute_metric_set(bgp, red, AFI_IP, type, metric);
@@ -10223,7 +10217,7 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  VTY_GET_INTEGER ("metric", metric, argv[idx_number]->arg);
+  metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
   red = bgp_redist_add(bgp, AFI_IP, type, 0);
   bgp_redistribute_rmap_set (red, argv[idx_word]->arg);
@@ -10265,7 +10259,7 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  VTY_GET_INTEGER ("metric", metric, argv[idx_number]->arg);
+  metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
   red = bgp_redist_add(bgp, AFI_IP, type, 0);
   bgp_redistribute_metric_set(bgp, red, AFI_IP, type, metric);
@@ -10297,7 +10291,7 @@ DEFUN (bgp_redistribute_ipv4_ospf,
   u_short instance;
   u_short protocol;
 
-  VTY_GET_INTEGER ("Instance ID", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
 
   if (strncmp(argv[idx_ospf_table]->arg, "o", 1) == 0)
     protocol = ZEBRA_ROUTE_OSPF;
@@ -10339,7 +10333,7 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap,
   else
     protocol = ZEBRA_ROUTE_TABLE;
 
-  VTY_GET_INTEGER ("Instance ID", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
   bgp_redistribute_rmap_set (red, argv[idx_word]->arg);
   return bgp_redistribute_set (bgp, AFI_IP, protocol, instance);
@@ -10379,8 +10373,8 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric,
   else
     protocol = ZEBRA_ROUTE_TABLE;
 
-  VTY_GET_INTEGER ("Instance ID", instance, argv[idx_number]->arg);
-  VTY_GET_INTEGER ("metric", metric, argv[idx_number_2]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
+  metric = strtoul(argv[idx_number_2]->arg, NULL, 10);
 
   red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
   bgp_redistribute_metric_set(bgp, red, AFI_IP, protocol, metric);
@@ -10424,8 +10418,8 @@ DEFUN (bgp_redistribute_ipv4_ospf_rmap_metric,
   else
     protocol = ZEBRA_ROUTE_TABLE;
 
-  VTY_GET_INTEGER ("Instance ID", instance, argv[idx_number]->arg);
-  VTY_GET_INTEGER ("metric", metric, argv[idx_number_2]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
+  metric = strtoul(argv[idx_number_2]->arg, NULL, 10);
 
   red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
   bgp_redistribute_rmap_set (red, argv[idx_word]->arg);
@@ -10472,8 +10466,8 @@ DEFUN (bgp_redistribute_ipv4_ospf_metric_rmap,
   else
     protocol = ZEBRA_ROUTE_TABLE;
 
-  VTY_GET_INTEGER ("Instance ID", instance, argv[idx_number]->arg);
-  VTY_GET_INTEGER ("metric", metric, argv[idx_number_2]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
+  metric = strtoul(argv[idx_number_2]->arg, NULL, 10);
 
   red = bgp_redist_add(bgp, AFI_IP, protocol, instance);
   bgp_redistribute_metric_set(bgp, red, AFI_IP, protocol, metric);
@@ -10517,7 +10511,7 @@ DEFUN (no_bgp_redistribute_ipv4_ospf,
   else
     protocol = ZEBRA_ROUTE_TABLE;
 
-  VTY_GET_INTEGER ("Instance ID", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   return bgp_redistribute_unset (bgp, AFI_IP, protocol, instance);
 }
 
@@ -10637,7 +10631,7 @@ DEFUN (bgp_redistribute_ipv6_metric,
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  VTY_GET_INTEGER ("metric", metric, argv[idx_number]->arg);
+  metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
   red = bgp_redist_add(bgp, AFI_IP6, type, 0);
   bgp_redistribute_metric_set(bgp, red, AFI_IP6, type, metric);
@@ -10668,7 +10662,7 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  VTY_GET_INTEGER ("metric", metric, argv[idx_number]->arg);
+  metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
   red = bgp_redist_add(bgp, AFI_IP6, type, 0);
   bgp_redistribute_rmap_set (red, argv[idx_word]->arg);
@@ -10700,7 +10694,7 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
       vty_out (vty, "%% Invalid route type%s", VTY_NEWLINE);
       return CMD_WARNING;
     }
-  VTY_GET_INTEGER ("metric", metric, argv[idx_number]->arg);
+  metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
   red = bgp_redist_add(bgp, AFI_IP6, type, 0);
   bgp_redistribute_metric_set(bgp, red, AFI_IP6, SAFI_UNICAST, metric);

@@ -1806,7 +1806,7 @@ DEFUN (link_params_metric,
   struct if_link_params *iflp = if_link_params_get (ifp);
   u_int32_t metric;
 
-  VTY_GET_ULONG("metric", metric, argv[idx_number]->arg);
+  metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
   /* Update TE metric if needed */
   link_param_cmd_set_uint32 (ifp, &iflp->te_metric, LP_TE_METRIC, metric);
@@ -2011,7 +2011,7 @@ DEFUN (link_params_inter_as,
       return CMD_WARNING;
     }
 
-  VTY_GET_ULONG("AS number", as, argv[idx_number]->arg);
+  as = strtoul(argv[idx_number]->arg, NULL, 10);
 
   /* Update Remote IP and Remote AS fields if needed */
   if (IS_PARAM_UNSET(iflp, LP_RMT_AS)
@@ -2064,11 +2064,11 @@ DEFUN (link_params_delay,
 {
   /* Get and Check new delay values */
   u_int32_t delay = 0, low = 0, high = 0;
-  VTY_GET_ULONG("delay", delay, argv[1]->arg);
+  delay = strtoul(argv[1]->arg, NULL, 10);
   if (argc == 6)
   {
-    VTY_GET_ULONG("minimum delay", low, argv[3]->arg);
-    VTY_GET_ULONG("maximum delay", high, argv[5]->arg);
+    low = strtoul(argv[3]->arg, NULL, 10);
+    high = strtoul(argv[5]->arg, NULL, 10);
   }
 
   VTY_DECLVAR_CONTEXT (interface, ifp);
@@ -2167,7 +2167,7 @@ DEFUN (link_params_delay_var,
   struct if_link_params *iflp = if_link_params_get (ifp);
   u_int32_t value;
 
-  VTY_GET_ULONG("delay variation", value, argv[idx_number]->arg);
+  value = strtoul(argv[idx_number]->arg, NULL, 10);
 
   /* Update Delay Variation if needed */
   link_param_cmd_set_uint32 (ifp, &iflp->delay_var, LP_DELAY_VAR, value);

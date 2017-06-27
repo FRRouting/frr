@@ -926,7 +926,7 @@ DEFUN (ipv6_nd_ra_interval_msec,
   struct zebra_ns *zns;
 
   zns = zvrf->zns;
-  VTY_GET_INTEGER_RANGE ("router advertisement interval", interval, argv[idx_number]->arg, 70, 1800000);
+  interval = strtoul(argv[idx_number]->arg, NULL, 10);
   if ((zif->rtadv.AdvDefaultLifetime != -1 && interval > (unsigned)zif->rtadv.AdvDefaultLifetime * 1000))
   {
     vty_out (vty, "This ra-interval would conflict with configured ra-lifetime!%s", VTY_NEWLINE);
@@ -962,7 +962,7 @@ DEFUN (ipv6_nd_ra_interval,
   struct zebra_ns *zns;
 
   zns = zvrf->zns;
-  VTY_GET_INTEGER_RANGE ("router advertisement interval", interval, argv[idx_number]->arg, 1, 1800);
+  interval = strtoul(argv[idx_number]->arg, NULL, 10);
   if ((zif->rtadv.AdvDefaultLifetime != -1 && interval > (unsigned)zif->rtadv.AdvDefaultLifetime))
   {
     vty_out (vty, "This ra-interval would conflict with configured ra-lifetime!%s", VTY_NEWLINE);
@@ -1024,7 +1024,7 @@ DEFUN (ipv6_nd_ra_lifetime,
   struct zebra_if *zif = ifp->info;
   int lifetime;
 
-  VTY_GET_INTEGER_RANGE ("router lifetime", lifetime, argv[idx_number]->arg, 0, 9000);
+  lifetime = strtoul(argv[idx_number]->arg, NULL, 10);
 
   /* The value to be placed in the Router Lifetime field
    * of Router Advertisements sent from the interface,
@@ -1069,7 +1069,7 @@ DEFUN (ipv6_nd_reachable_time,
   int idx_number = 3;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
-  VTY_GET_INTEGER_RANGE ("reachable time", zif->rtadv.AdvReachableTime, argv[idx_number]->arg, 1, RTADV_MAX_REACHABLE_TIME);
+  zif->rtadv.AdvReachableTime = strtoul(argv[idx_number]->arg, NULL, 10);
   return CMD_SUCCESS;
 }
 
@@ -1101,7 +1101,7 @@ DEFUN (ipv6_nd_homeagent_preference,
   int idx_number = 3;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
-  VTY_GET_INTEGER_RANGE ("home agent preference", zif->rtadv.HomeAgentPreference, argv[idx_number]->arg, 0, 65535);
+  zif->rtadv.HomeAgentPreference = strtoul(argv[idx_number]->arg, NULL, 10);
   return CMD_SUCCESS;
 }
 
@@ -1133,7 +1133,7 @@ DEFUN (ipv6_nd_homeagent_lifetime,
   int idx_number = 3;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
-  VTY_GET_INTEGER_RANGE ("home agent lifetime", zif->rtadv.HomeAgentLifetime, argv[idx_number]->arg, 0, RTADV_MAX_HALIFETIME);
+  zif->rtadv.HomeAgentLifetime = strtoul(argv[idx_number]->arg, NULL, 10);
   return CMD_SUCCESS;
 }
 
@@ -1454,7 +1454,7 @@ DEFUN (ipv6_nd_mtu,
   int idx_number = 3;
   VTY_DECLVAR_CONTEXT (interface, ifp);
   struct zebra_if *zif = ifp->info;
-  VTY_GET_INTEGER_RANGE ("MTU", zif->rtadv.AdvLinkMTU, argv[idx_number]->arg, 1, 65535);
+  zif->rtadv.AdvLinkMTU = strtoul(argv[idx_number]->arg, NULL, 10);
   return CMD_SUCCESS;
 }
 

@@ -93,12 +93,9 @@ bfd_validate_param(struct vty *vty, const char *dm_str, const char *rx_str,
                     const char *tx_str, u_int8_t *dm_val, u_int32_t *rx_val,
                     u_int32_t *tx_val)
 {
-  VTY_GET_INTEGER_RANGE ("detect-mul", *dm_val, dm_str,
-                         BFD_MIN_DETECT_MULT, BFD_MAX_DETECT_MULT);
-  VTY_GET_INTEGER_RANGE ("min-rx", *rx_val, rx_str,
-                         BFD_MIN_MIN_RX, BFD_MAX_MIN_RX);
-  VTY_GET_INTEGER_RANGE ("min-tx", *tx_val, tx_str,
-                         BFD_MIN_MIN_TX, BFD_MAX_MIN_TX);
+  *dm_val = strtoul(dm_str, NULL, 10);
+  *rx_val = strtoul(rx_str, NULL, 10);
+  *tx_val = strtoul(tx_str, NULL, 10);
   return CMD_SUCCESS;
 }
 

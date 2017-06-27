@@ -4576,7 +4576,7 @@ bgp_static_set_safi (afi_t afi, safi_t safi, struct vty *vty, const char *ip_str
   if (label_str)
     {
       unsigned long label_val;
-      VTY_GET_INTEGER_RANGE("Label/tag", label_val, label_str, 0, 16777215);
+      label_val = strtoul(label_str, NULL, 10);
       encode_label (label_val, tag);
     }
   else
@@ -4710,7 +4710,7 @@ bgp_static_unset_safi(afi_t afi, safi_t safi, struct vty *vty, const char *ip_st
   if (label_str)
     {
       unsigned long label_val;
-      VTY_GET_INTEGER_RANGE("Label/tag", label_val, label_str, 0, MPLS_LABEL_MAX);
+      label_val = strtoul(label_str, NULL, 10);
       encode_label (label_val, tag);
     }
   else
@@ -5021,7 +5021,7 @@ DEFUN (bgp_network_label_index,
 {
   u_int32_t label_index;
 
-  VTY_GET_INTEGER ("label-index", label_index, argv[3]->arg);
+  label_index = strtoul(argv[3]->arg, NULL, 10);
   return bgp_static_set (vty, argv[1]->arg,
                          AFI_IP, bgp_node_safi (vty), NULL, 0, label_index);
 }
@@ -5038,7 +5038,7 @@ DEFUN (bgp_network_label_index_route_map,
 {
   u_int32_t label_index;
 
-  VTY_GET_INTEGER ("label-index", label_index, argv[3]->arg);
+  label_index = strtoul(argv[3]->arg, NULL, 10);
   return bgp_static_set (vty, argv[1]->arg,
                          AFI_IP, bgp_node_safi (vty), argv[5]->arg, 0, label_index);
 }
@@ -5168,7 +5168,7 @@ DEFUN (ipv6_bgp_network_label_index,
 {
   u_int32_t label_index;
 
-  VTY_GET_INTEGER ("label-index", label_index, argv[3]->arg);
+  label_index = strtoul(argv[3]->arg, NULL, 10);
   return bgp_static_set (vty, argv[1]->arg,
                          AFI_IP6, bgp_node_safi (vty), NULL, 0, label_index);
 }
@@ -5185,7 +5185,7 @@ DEFUN (ipv6_bgp_network_label_index_route_map,
 {
   u_int32_t label_index;
 
-  VTY_GET_INTEGER ("label-index", label_index, argv[3]->arg);
+  label_index = strtoul(argv[3]->arg, NULL, 10);
   return bgp_static_set (vty, argv[1]->arg,
                          AFI_IP6, bgp_node_safi (vty), argv[5]->arg, 0, label_index);
 }

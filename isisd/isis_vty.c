@@ -1532,7 +1532,7 @@ DEFUN (area_lsp_mtu,
   int idx_number = 1;
   unsigned int lsp_mtu;
 
-  VTY_GET_INTEGER_RANGE("lsp-mtu", lsp_mtu, argv[idx_number]->arg, 128, 4352);
+  lsp_mtu = strtoul(argv[idx_number]->arg, NULL, 10);
 
   return area_lsp_mtu_set(vty, lsp_mtu);
 }

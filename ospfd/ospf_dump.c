@@ -963,7 +963,7 @@ DEFUN (debug_ospf_instance_nsm,
   int idx_number = 2;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1038,7 +1038,7 @@ DEFUN (no_debug_ospf_instance_nsm,
   int idx_number = 3;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1115,7 +1115,7 @@ DEFUN (debug_ospf_instance_lsa,
   int idx_number = 2;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1194,7 +1194,7 @@ DEFUN (no_debug_ospf_instance_lsa,
   int idx_number = 3;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1259,7 +1259,7 @@ DEFUN (debug_ospf_instance_zebra,
   int idx_number = 2;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1327,7 +1327,7 @@ DEFUN (no_debug_ospf_instance_zebra,
   int idx_number = 3;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1374,7 +1374,7 @@ DEFUN (debug_ospf_instance_event,
   int idx_number = 2;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1396,7 +1396,7 @@ DEFUN (no_debug_ospf_instance_event,
   int idx_number = 3;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1444,7 +1444,7 @@ DEFUN (debug_ospf_instance_nssa,
   int idx_number = 2;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1466,7 +1466,7 @@ DEFUN (no_debug_ospf_instance_nssa,
   int idx_number = 3;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if (!ospf_lookup_instance (instance))
     return CMD_SUCCESS;
 
@@ -1688,7 +1688,7 @@ DEFUN (show_debugging_ospf_instance,
   struct ospf *ospf;
   u_short instance = 0;
 
-  VTY_GET_INTEGER ("Instance", instance, argv[idx_number]->arg);
+  instance = strtoul(argv[idx_number]->arg, NULL, 10);
   if ((ospf = ospf_lookup_instance (instance)) == NULL )
     return CMD_SUCCESS;
 

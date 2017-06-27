@@ -387,7 +387,7 @@ DEFUN (eigrp_network,
   struct prefix_ipv4 p;
   int ret;
 
-  VTY_GET_IPV4_PREFIX ("network prefix", p, argv[1]->arg);
+  str2prefix_ipv4(argv[1]->arg, &p);
 
   ret = eigrp_network_set (eigrp, &p);
 
@@ -411,7 +411,7 @@ DEFUN (no_eigrp_network,
   struct prefix_ipv4 p;
   int ret;
 
-  VTY_GET_IPV4_PREFIX ("network prefix", p, argv[2]->arg);
+  str2prefix_ipv4(argv[2]->arg, &p);
 
   ret = eigrp_network_unset (eigrp, &p);
 
@@ -1294,7 +1294,7 @@ DEFUN (clear_ip_eigrp_neighbors_IP,
   struct eigrp_neighbor *nbr;
   struct in_addr nbr_addr;
 
-  VTY_GET_IPV4_ADDRESS ("neighbor address", nbr_addr, argv[4]->arg);
+  inet_aton(argv[4]->arg, &nbr_addr);
 
   /* Check if eigrp process is enabled */
   eigrp = eigrp_lookup ();
@@ -1402,7 +1402,7 @@ DEFUN (clear_ip_eigrp_neighbors_IP_soft,
   struct eigrp_neighbor *nbr;
   struct in_addr nbr_addr;
 
-  VTY_GET_IPV4_ADDRESS ("neighbor address", nbr_addr, argv[4]->arg);
+  inet_aton(argv[4]->arg, &nbr_addr);
 
   /* Check if eigrp process is enabled */
   eigrp = eigrp_lookup ();

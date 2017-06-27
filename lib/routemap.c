@@ -2688,7 +2688,7 @@ DEFUN (rmap_onmatch_goto,
         }
 
       if (num)
-        VTY_GET_INTEGER_RANGE("route-map index", d, num, 1, 65535);
+        d = strtoul(num, NULL, 10);
       else
         d = index->pref + 1;
       

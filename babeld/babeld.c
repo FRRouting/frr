@@ -659,7 +659,7 @@ DEFUN (babel_diversity_factor,
 {
     int factor;
 
-    VTY_GET_INTEGER_RANGE("factor", factor, argv[2]->arg, 1, 256);
+    factor = strtoul(argv[2]->arg, NULL, 10);
 
     diversity_factor = factor;
     return CMD_SUCCESS;
@@ -675,7 +675,7 @@ DEFUN (babel_set_resend_delay,
 {
     int interval;
 
-    VTY_GET_INTEGER_RANGE("milliseconds", interval, argv[2]->arg, 20, 10 * 0xFFFE);
+    interval = strtoul(argv[2]->arg, NULL, 10);
 
     resend_delay = interval;
     return CMD_SUCCESS;
@@ -691,7 +691,7 @@ DEFUN (babel_set_smoothing_half_life,
 {
     int seconds;
 
-    VTY_GET_INTEGER_RANGE("seconds", seconds, argv[2]->arg, 0, 0xFFFE);
+    seconds = strtoul(argv[2]->arg, NULL, 10);
 
     change_smoothing_half_life(seconds);
     return CMD_SUCCESS;
