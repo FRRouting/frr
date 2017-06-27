@@ -44,8 +44,13 @@ r1-zebra.out # zebra stdout output
 You can also run memory leak tests to get reports:
 
 ```shell
+$ # Set the environment variable to apply to a specific test...
 $ sudo env TOPOTESTS_CHECK_MEMLEAK="/tmp/memleak_report_" pytest ospf-topo1/test_ospf_topo1.py
-...
+$ # ...or apply to all tests adding this line to the configuration file
+$ echo 'memleak_path = /tmp/memleak_report_' >> pytest.ini
+$ # You can also use your editor
+$ $EDITOR pytest.ini
+$ # After running tests you should see your files:
 $ ls /tmp/memleak_report_*
 memleak_report_test_ospf_topo1.txt
 ```

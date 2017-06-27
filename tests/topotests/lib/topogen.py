@@ -123,6 +123,7 @@ class Topogen(object):
             'frrdir': '/usr/lib/frr',
             'quaggadir': '/usr/lib/quagga',
             'routertype': 'frr',
+            'memleak_path': None,
         }
         self.config = ConfigParser.ConfigParser(defaults)
         pytestini_path = os.path.join(CWD, '../pytest.ini')
@@ -144,6 +145,7 @@ class Topogen(object):
 
         params['frrdir'] = self.config.get(self.CONFIG_SECTION, 'frrdir')
         params['quaggadir'] = self.config.get(self.CONFIG_SECTION, 'quaggadir')
+        params['memleak_path'] = self.config.get(self.CONFIG_SECTION, 'memleak_path')
         if not params.has_key('routertype'):
             params['routertype'] = self.config.get(self.CONFIG_SECTION, 'routertype')
 
@@ -388,8 +390,11 @@ class TopoRouter(TopoGear):
         self.net = None
         self.name = name
         self.cls = cls
+        self.options = {}
         if not params.has_key('privateDirs'):
             params['privateDirs'] = self.PRIVATE_DIRS
+
+        self.options['memleak_path'] = params.get('memleak_path', None)
         self.tgen.topo.addNode(self.name, cls=self.cls, **params)
 
     def __str__(self):
@@ -472,9 +477,9 @@ class TopoRouter(TopoGear):
         testname: the test file name for identification
 
         NOTE: to run this you must have the environment variable
-        TOPOTESTS_CHECK_MEMLEAK set to the appropriated path.
+        TOPOTESTS_CHECK_MEMLEAK set or memleak_path configured in `pytest.ini`.
         """
-        memleak_file = os.environ.get('TOPOTESTS_CHECK_MEMLEAK')
+        memleak_file = os.environ.get('TOPOTESTS_CHECK_MEMLEAK') or self.options['memleak_path']
         if memleak_file is None:
             print "SKIPPED check on Memory leaks: Disabled (TOPOTESTS_CHECK_MEMLEAK undefined)"
             return
