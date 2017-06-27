@@ -80,8 +80,7 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct route_entry *re)
   struct sockaddr_mpls smpls;
 #endif
   union sockunion *smplsp = NULL;
-  struct nexthop *nexthop, *tnexthop;
-  int recursing;
+  struct nexthop *nexthop;
   int nexthop_num = 0;
   ifindex_t ifindex = 0;
   int gate = 0;
@@ -106,7 +105,7 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct route_entry *re)
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
   /* Make gateway. */
-  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
     {
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
         continue;
@@ -266,8 +265,7 @@ kernel_rtm_ipv6 (int cmd, struct prefix *p, struct route_entry *re)
 {
   struct sockaddr_in6 *mask;
   struct sockaddr_in6 sin_dest, sin_mask, sin_gate;
-  struct nexthop *nexthop, *tnexthop;
-  int recursing;
+  struct nexthop *nexthop;
   int nexthop_num = 0;
   ifindex_t ifindex = 0;
   int gate = 0;
@@ -289,7 +287,7 @@ kernel_rtm_ipv6 (int cmd, struct prefix *p, struct route_entry *re)
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
   /* Make gateway. */
-  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
     {
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 	continue;

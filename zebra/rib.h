@@ -197,32 +197,24 @@ typedef struct rib_dest_t_
  * Iteration check: Check that the `nexthop' pointer is not NULL.
  *
  * Iteration step: This is the tricky part. Check if `nexthop' has
- * NEXTHOP_FLAG_RECURSIVE set. If yes, this implies that `nexthop' is in
- * the top level chain and has at least one nexthop attached to
- * `nexthop->resolved'. As we want to descend into `nexthop->resolved',
- * set `recursing' to 1 and set `nexthop' to `nexthop->resolved'.
- * `tnexthop' is left alone in that case so we can remember which nexthop
- * in the top level chain we are currently handling.
+ * NEXTHOP_FLAG_RECURSIVE set. If yes, this implies that `nexthop' has
+ * at least one nexthop attached to `nexthop->resolved'.
  *
  * If NEXTHOP_FLAG_RECURSIVE is not set, `nexthop' will progress in its
- * current chain. If we are recursing, `nexthop' will be set to
- * `nexthop->next' and `tnexthop' will be left alone. If we are not
- * recursing, both `tnexthop' and `nexthop' will be set to `nexthop->next'
- * as we are progressing in the top level chain.
- *   If we encounter `nexthop->next == NULL', we will clear the `recursing'
- * flag as we arived either at the end of the resolved chain or at the end
- * of the top level chain. In both cases, we set `tnexthop' and `nexthop'
- * to `tnexthop->next', progressing to the next position in the top-level
- * chain and possibly to its end marked by NULL.
+ * current chain. In case its current chain end is reached, it will try
+ * to get up to the previous recursion level and progress there. Whenever
+ * a step forward in a chain is done, recursion will be checked again.
+ * In a nustshell, it's equivalent to a pre-traversal order assuming that
+ * left branch is 'resolved' and right branch is 'next':
+ * https://en.wikipedia.org/wiki/Tree_traversal#/media/File:Sorted_binary_tree_preorder.svg
  */
-#define ALL_NEXTHOPS_RO(head, nexthop, tnexthop, recursing) \
-  (tnexthop) = (nexthop) = (head), (recursing) = 0; \
-  (nexthop); \
-  (nexthop) = CHECK_FLAG((nexthop)->flags, NEXTHOP_FLAG_RECURSIVE) \
-    ? (((recursing) = 1), (nexthop)->resolved) \
-    : ((nexthop)->next ? ((recursing) ? (nexthop)->next \
-                                      : ((tnexthop) = (nexthop)->next)) \
-                       : (((recursing) = 0),((tnexthop) = (tnexthop)->next)))
+#define ALL_NEXTHOPS_RO(head, nexthop)                              \
+  (nexthop) = (head);                                               \
+  (nexthop);                                                        \
+  (nexthop) = CHECK_FLAG((nexthop)->flags, NEXTHOP_FLAG_RECURSIVE)  \
+    ? ((nexthop)->resolved)                                         \
+       : ((nexthop)->next ? (nexthop)->next                         \
+          : ((nexthop)->rparent ? (nexthop)->rparent->next : NULL))
 
 #if defined (HAVE_RTADV)
 /* Structure which hold status of router advertisement. */

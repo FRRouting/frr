@@ -420,12 +420,11 @@ zebra_rnh_eval_import_check_entry (vrf_id_t vrfid, int family, int force,
   struct zserv *client;
   char bufn[INET6_ADDRSTRLEN];
   struct listnode *node;
-  struct nexthop *nexthop, *tnexthop;
-  int recursing;
+  struct nexthop *nexthop;
 
   if (re && (rnh->state == NULL))
     {
-      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
         if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
           {
             state_changed = 1;

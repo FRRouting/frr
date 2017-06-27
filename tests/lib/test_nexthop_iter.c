@@ -173,13 +173,12 @@ nexthop_chain_free(struct nexthop_chain *nc)
 static void
 nexthop_chain_verify_iter(struct nexthop_chain *nc)
 {
-  struct nexthop *nh, *tnh;
-  int recursing;
+  struct nexthop *nh;
   char *repr = NULL;
 
-  for (ALL_NEXTHOPS_RO(nc->head, nh, tnh, recursing))
+  for (ALL_NEXTHOPS_RO(nc->head, nh))
     {
-      if (recursing)
+      if (nh->rparent)
         str_appendf(&repr, "  %p\n", nh);
       else
         str_appendf(&repr, "%p\n", nh);

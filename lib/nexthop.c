@@ -135,7 +135,7 @@ nexthop_add (struct nexthop **target, struct nexthop *nexthop)
 }
 
 void
-copy_nexthops (struct nexthop **tnh, struct nexthop *nh)
+copy_nexthops (struct nexthop **tnh, struct nexthop *nh, struct nexthop *rparent)
 {
   struct nexthop *nexthop;
   struct nexthop *nh1;
@@ -150,11 +150,12 @@ copy_nexthops (struct nexthop **tnh, struct nexthop *nh)
       memcpy(&(nexthop->src), &(nh->src), sizeof(union g_addr));
       if (nh->nh_label)
         nexthop_add_labels (nexthop, nh->nh_label_type,
-			    nh->nh_label->num_labels, &nh->nh_label->label[0]);
+                nh->nh_label->num_labels, &nh->nh_label->label[0]);
+      nexthop->rparent = rparent;
       nexthop_add(tnh, nexthop);
 
       if (CHECK_FLAG(nh1->flags, NEXTHOP_FLAG_RECURSIVE))
-	copy_nexthops(&nexthop->resolved, nh1->resolved);
+        copy_nexthops(&nexthop->resolved, nh1->resolved, nexthop);
     }
 }
 

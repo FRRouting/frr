@@ -648,8 +648,7 @@ static void
 vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
 {
   struct route_entry *re;
-  struct nexthop *nexthop, *tnexthop;
-  int recursing;
+  struct nexthop *nexthop;
   char buf[SRCDEST2STR_BUFFER];
   struct zebra_vrf *zvrf;
 
@@ -720,13 +719,13 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
 	  vty_out (vty, " ago%s", VTY_NEWLINE);
 	}
 
-      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
-	{
+      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
+    {
           char addrstr[32];
 
 	  vty_out (vty, "  %c%s",
-		   CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB) ? '*' : ' ',
-		   recursing ? "  " : "");
+	       CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB) ? '*' : ' ',
+	       nexthop->rparent ? "  " : "");
 
 	  switch (nexthop->type)
 	    {
@@ -806,8 +805,7 @@ static void
 vty_show_ip_route (struct vty *vty, struct route_node *rn, struct route_entry *re,
                    json_object *json)
 {
-  struct nexthop *nexthop, *tnexthop;
-  int recursing;
+  struct nexthop *nexthop;
   int len = 0;
   char buf[SRCDEST2STR_BUFFER];
   json_object *json_nexthops = NULL;
@@ -868,7 +866,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct route_entry *r
           json_object_string_add(json_route, "uptime", buf);
         }
 
-      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
         {
           json_nexthop = json_object_new_object();
 
@@ -962,7 +960,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct route_entry *r
     }
 
   /* Nexthop information. */
-  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
     {
       if (nexthop == re->nexthop)
 	{
@@ -985,9 +983,9 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct route_entry *r
 	}
       else
 	vty_out (vty, "  %c%*c",
-		 CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)
-		 ? '*' : ' ',
-		 len - 3 + (2 * recursing), ' ');
+	     CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)
+	     ? '*' : ' ',
+	     len - 3 + (2 * (nexthop->rparent ? 1 : 0)), ' ');
 
       switch (nexthop->type)
 	{

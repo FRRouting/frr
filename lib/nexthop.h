@@ -81,8 +81,10 @@ struct nexthop
    * If the nexthop struct needs to be resolved recursively,
    * NEXTHOP_FLAG_RECURSIVE will be set in flags and the nexthops
    * obtained by recursive resolution will be added to `resolved'.
-   * Only one level of recursive resolution is currently supported. */
+   */
   struct nexthop *resolved;
+  /* Recursive parent */
+  struct nexthop *rparent;
 
   /* Type of label(s), if any */
   enum lsp_types_t nh_label_type;
@@ -107,7 +109,7 @@ nh_resolve_via_default(int family)
 struct nexthop *nexthop_new (void);
 void nexthop_add (struct nexthop **target, struct nexthop *nexthop);
 
-void copy_nexthops (struct nexthop **tnh, struct nexthop *nh);
+void copy_nexthops (struct nexthop **tnh, struct nexthop *nh, struct nexthop *rparent);
 void nexthop_free (struct nexthop *nexthop);
 void nexthops_free (struct nexthop *nexthop);
 
