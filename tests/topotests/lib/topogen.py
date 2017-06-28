@@ -40,6 +40,7 @@ Basic usage instructions:
 
 import os
 import sys
+import json
 
 from mininet.net import Mininet
 from mininet.log import setLogLevel
@@ -388,7 +389,7 @@ class TopoRouter(TopoGear):
         """
         return self.tgen.net[self.name].startRouter()
 
-    def vtysh_cmd(self, command):
+    def vtysh_cmd(self, command, isjson=False):
         """
         Runs the provided command string in the vty shell and returns a string
         with the response.
@@ -401,7 +402,11 @@ class TopoRouter(TopoGear):
             return self.vtysh_multicmd(command)
 
         vtysh_command = 'vtysh -c "{}" 2>/dev/null'.format(command)
-        return self.run(vtysh_command)
+        output = self.run(vtysh_command)
+        if isjson is False:
+            return output
+
+        return json.loads(output)
 
     def vtysh_multicmd(self, commands, pretty_output=True):
         """
