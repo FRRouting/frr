@@ -915,7 +915,7 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
     for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.is_neighs, lnode, is_neigh))
       {
 	lspid_print (is_neigh->neigh_id, LSPid, dynhost, 0);
-	vty_out (vty, "  Metric      : %-8d IS            : %s%s",
+	vty_out (vty, "  Metric      : %-8" PRIu8 " IS            : %s%s",
 		 is_neigh->metrics.metric_default, LSPid, VTY_NEWLINE);
       }
   
@@ -928,7 +928,7 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
 	      sizeof (ipv4_reach_prefix));
       memcpy (ipv4_reach_mask, inet_ntoa (ipv4_reach->mask),
 	      sizeof (ipv4_reach_mask));
-      vty_out (vty, "  Metric      : %-8d IPv4-Internal : %s %s%s",
+      vty_out (vty, "  Metric      : %-8" PRIu8 " IPv4-Internal : %s %s%s",
 	       ipv4_reach->metrics.metric_default, ipv4_reach_prefix,
 	       ipv4_reach_mask, VTY_NEWLINE);
     }
@@ -942,7 +942,7 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
 	      sizeof (ipv4_reach_prefix));
       memcpy (ipv4_reach_mask, inet_ntoa (ipv4_reach->mask),
 	      sizeof (ipv4_reach_mask));
-      vty_out (vty, "  Metric      : %-8d IPv4-External : %s %s%s",
+      vty_out (vty, "  Metric      : %-8" PRIu8 " IPv4-External : %s %s%s",
 	       ipv4_reach->metrics.metric_default, ipv4_reach_prefix,
 	       ipv4_reach_mask, VTY_NEWLINE);
     }
@@ -957,11 +957,11 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
       inet_ntop (AF_INET6, &in6, (char *)buff, BUFSIZ);
       if ((ipv6_reach->control_info &
 	   CTRL_INFO_DISTRIBUTION) == DISTRIBUTION_INTERNAL)
-	vty_out (vty, "  Metric      : %-8d IPv6-Internal : %s/%d%s",
+	vty_out (vty, "  Metric      : %-8" PRIu32 " IPv6-Internal : %s/%d%s",
 		 ntohl (ipv6_reach->metric),
 		 buff, ipv6_reach->prefix_len, VTY_NEWLINE);
       else
-	vty_out (vty, "  Metric      : %-8d IPv6-External : %s/%d%s",
+	vty_out (vty, "  Metric      : %-8" PRIu32 " IPv6-External : %s/%d%s",
 		 ntohl (ipv6_reach->metric),
 		 buff, ipv6_reach->prefix_len, VTY_NEWLINE);
     }
@@ -971,7 +971,7 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
     for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.te_is_neighs, lnode, te_is_neigh))
     {
       lspid_print (te_is_neigh->neigh_id, LSPid, dynhost, 0);
-      vty_out (vty, "  Metric      : %-8d IS-Extended   : %s%s",
+      vty_out (vty, "  Metric      : %-8u IS-Extended   : %s%s",
 	       GET_TE_METRIC(te_is_neigh), LSPid, VTY_NEWLINE);
       if (IS_MPLS_TE(isisMplsTE))
         mpls_te_print_detail(vty, te_is_neigh);
@@ -983,7 +983,7 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
 			       te_ipv4_reach))
     {
       /* FIXME: There should be better way to output this stuff. */
-      vty_out (vty, "  Metric      : %-8d IPv4-Extended : %s/%d%s",
+      vty_out (vty, "  Metric      : %-8" PRIu32 " IPv4-Extended : %s/%d%s",
 	       ntohl (te_ipv4_reach->te_metric),
 	       inet_ntoa (newprefix2inaddr (&te_ipv4_reach->prefix_start,
 					    te_ipv4_reach->control)),
