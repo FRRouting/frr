@@ -3270,7 +3270,7 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
       vty_outln (vty, "%s is %s", ifp->name,
                  ((is_up = if_is_operative(ifp)) ? "up" : "down"));
       vty_outln (vty, "  ifindex %u, MTU %u bytes, BW %u Mbit %s",
-                 ifp->ifindex, ifp->mtu, bandwidth, if_flag_dump(ifp->flags))
+                 ifp->ifindex, ifp->mtu, bandwidth, if_flag_dump(ifp->flags));
     }
 
   /* Is interface OSPF enabled? */
@@ -7025,8 +7025,7 @@ DEFUN (ip_ospf_area,
     if (OSPF_IF_PARAM_CONFIGURED(params, if_area))
       {
 	vty_out (vty,
-		 "Must remove previous area/address config before changing ospf area %s",
-		 VTY_NEWLINE);
+		 "Must remove previous area/address config before changing ospf area");
 	return CMD_WARNING;
       }
     ospf_if_update_params ((ifp), (addr));
