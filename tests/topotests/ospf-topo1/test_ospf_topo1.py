@@ -132,6 +132,75 @@ def test_ospf_convergence():
                                                count=20, wait=3)
         assert result, 'OSPF did not converge on {}:\n{}'.format(router, diff)
 
+def test_ospf_json():
+    "Test 'show ip ospf json' output for coherency."
+    tgen = get_topogen()
+
+    for rnum in range(1, 5):
+        router = tgen.gears['r{}'.format(rnum)]
+        expected = {
+            'routerId': '10.0.255.{}'.format(rnum),
+            'tosRoutesOnly': True,
+            'rfc2328Conform': True,
+            'spfScheduleDelayMsecs': 0,
+            'holdtimeMinMsecs': 50,
+            'holdtimeMaxMsecs': 5000,
+            'spfLastDurationMsecs': 0,
+            'lsaMinIntervalMsecs': 5000,
+            'lsaMinArrivalMsecs': 1000,
+            'writeMultiplier': 20,
+            'refreshTimerMsecs': 10000,
+            'asbrRouter': 'injectingExternalRoutingInformation',
+            'attachedAreaCounter': 1,
+            'areas': {}
+        }
+        # Area specific additional checks
+        if router.name == 'r1' or router.name == 'r2' or router.name == 'r3':
+            expected['areas']['0.0.0.0'] = {
+                'areaIfActiveCounter': 2,
+                'areaIfTotalCounter': 2,
+                'authentication': 'authenticationNone',
+                'backbone': True,
+                'lsaAsbrNumber': 1,
+                'lsaNetworkNumber': 1,
+                'lsaNssaNumber': 0,
+                'lsaNumber': 7,
+                'lsaOpaqueAreaNumber': 0,
+                'lsaOpaqueLinkNumber': 0,
+                'lsaRouterNumber': 3,
+                'lsaSummaryNumber': 2,
+                'nbrFullAdjacentCounter': 2,
+            }
+        if router.name == 'r3' or router.name == 'r4':
+            expected['areas']['0.0.0.1'] = {
+                'areaIfActiveCounter': 1,
+                'areaIfTotalCounter': 1,
+                'authentication': 'authenticationNone',
+                'lsaAsbrNumber': 2,
+                'lsaNetworkNumber': 1,
+                'lsaNssaNumber': 0,
+                'lsaNumber': 9,
+                'lsaOpaqueAreaNumber': 0,
+                'lsaOpaqueLinkNumber': 0,
+                'lsaRouterNumber': 2,
+                'lsaSummaryNumber': 4,
+                'nbrFullAdjacentCounter': 1,
+            }
+            # r4 has more interfaces for area 0.0.0.1
+            if router.name == 'r4':
+                expected['areas']['0.0.0.1'].update({
+                    'areaIfActiveCounter': 2,
+                    'areaIfTotalCounter': 2,
+                })
+
+        # router 3 has an additional area
+        if router.name == 'r3':
+            expected['attachedAreaCounter'] = 2
+
+        output = router.vtysh_cmd('show ip ospf json', isjson=True)
+        result = topotest.json_cmp(output, expected)
+        assert result is None, '"{}" JSON output mismatches the expected result'.format(router.name)
+
 def test_ospf_link_down():
     "Test OSPF convergence after a link goes down"
     tgen = get_topogen()
