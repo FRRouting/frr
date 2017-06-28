@@ -1160,10 +1160,10 @@ DEFUNSH(VTYSH_BGPD, address_family_evpn, address_family_evpn_cmd,
 }
 
 #if defined(HAVE_CUMULUS)
-DEFUNSH(VTYSH_BGPD, address_family_evpn2, address_family_evpn2_cmd,
-	"address-family evpn",
-	"Enter Address Family command mode\n"
-	"EVPN Address family\n")
+DEFUNSH_HIDDEN(VTYSH_BGPD, address_family_evpn2, address_family_evpn2_cmd,
+	       "address-family evpn",
+	       "Enter Address Family command mode\n"
+	       "EVPN Address family\n")
 {
 	vty->node = BGP_EVPN_NODE;
 	return CMD_SUCCESS;

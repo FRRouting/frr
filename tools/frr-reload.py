@@ -432,6 +432,8 @@ end
                     ctx_keys.append("address-family ipv6 unicast")
                 elif line == "address-family ipv4":
                     ctx_keys.append("address-family ipv4 unicast")
+                elif line == "address-family evpn":
+                    ctx_keys.append("address-family l2vpn evpn")
                 else:
                     ctx_keys.append(line)
 
@@ -745,6 +747,37 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                     lines_to_del_to_del.append((ctx_keys, None))
                     lines_to_add_to_del.append(((tmpline,), None))
 
+        if (len(ctx_keys) == 3 and
+            ctx_keys[0].startswith('router bgp') and
+            ctx_keys[1] == 'address-family l2vpn evpn' and
+            ctx_keys[2].startswith('vni')):
+
+            re_route_target = re.search('^route-target import (.*)$', line) if line is not None else False
+
+            if re_route_target:
+                rt = re_route_target.group(1).strip()
+                route_target_import_line = line
+                route_target_export_line = "route-target export %s" % rt
+                route_target_both_line = "route-target both %s" % rt
+
+                found_route_target_export_line = line_exist(lines_to_del, ctx_keys, route_target_export_line)
+                found_route_target_both_line = line_exist(lines_to_add, ctx_keys, route_target_both_line)
+
+                '''
+                If the running configs has
+                    route-target import 1:1
+                    route-target export 1:1
+
+                and the config we are reloading against has
+                    route-target both 1:1
+
+                then we can ignore deleting the import/export and ignore adding the 'both'
+                '''
+                if found_route_target_export_line and found_route_target_both_line:
+                    lines_to_del_to_del.append((ctx_keys, route_target_import_line))
+                    lines_to_del_to_del.append((ctx_keys, route_target_export_line))
+                    lines_to_add_to_del.append((ctx_keys, route_target_both_line))
+
         if not deleted:
             found_add_line = line_exist(lines_to_add, ctx_keys, line)
 
@@ -821,6 +854,13 @@ def compare_context_objects(newconf, running):
             # entire 'router bgp' context then ignore this sub-context
             elif "router bgp" in running_ctx_keys[0] and len(running_ctx_keys) > 1 and delete_bgpd:
                 continue
+
+            # Delete an entire vni sub-context under "address-family l2vpn evpn"
+            elif ("router bgp" in running_ctx_keys[0] and
+                  len(running_ctx_keys) > 2 and
+                  running_ctx_keys[1].startswith('address-family l2vpn evpn') and
+                  running_ctx_keys[2].startswith('vni ')):
+                lines_to_del.append((running_ctx_keys, None))
 
             elif ("router bgp" in running_ctx_keys[0] and
                   len(running_ctx_keys) > 1 and

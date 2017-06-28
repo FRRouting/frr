@@ -2266,6 +2266,97 @@ DEFUN (show_bgp_l2vpn_evpn_import_rt,
 	return CMD_SUCCESS;
 }
 
+#if defined(HAVE_CUMULUS)
+ALIAS_HIDDEN(show_bgp_l2vpn_evpn_vni, show_bgp_evpn_vni_cmd,
+	     "show bgp evpn vni [(1-16777215)]", SHOW_STR BGP_STR EVPN_HELP_STR
+	     "Show VNI\n"
+	     "VNI number\n")
+
+ALIAS_HIDDEN(show_bgp_l2vpn_evpn_summary, show_bgp_evpn_summary_cmd,
+	     "show bgp evpn summary [json]", SHOW_STR BGP_STR EVPN_HELP_STR
+	     "Summary of BGP neighbor status\n"
+	     "JavaScript Object Notation\n")
+
+ALIAS_HIDDEN(show_bgp_l2vpn_evpn_route, show_bgp_evpn_route_cmd,
+	     "show bgp evpn route [type <macip|multicast>]",
+	     SHOW_STR BGP_STR EVPN_HELP_STR
+	     "EVPN route information\n"
+	     "Specify Route type\n"
+	     "MAC-IP (Type-2) route\n"
+	     "Multicast (Type-3) route\n")
+
+ALIAS_HIDDEN(
+	show_bgp_l2vpn_evpn_route_rd, show_bgp_evpn_route_rd_cmd,
+	"show bgp evpn route rd ASN:nn_or_IP-address:nn [type <macip|multicast>]",
+	SHOW_STR BGP_STR EVPN_HELP_STR
+	"EVPN route information\n"
+	"Route Distinguisher\n"
+	"ASN:XX or A.B.C.D:XX\n"
+	"Specify Route type\n"
+	"MAC-IP (Type-2) route\n"
+	"Multicast (Type-3) route\n")
+
+ALIAS_HIDDEN(
+	show_bgp_l2vpn_evpn_route_rd_macip, show_bgp_evpn_route_rd_macip_cmd,
+	"show bgp evpn route rd ASN:nn_or_IP-address:nn mac WORD [ip WORD]",
+	SHOW_STR BGP_STR EVPN_HELP_STR
+	"EVPN route information\n"
+	"Route Distinguisher\n"
+	"ASN:XX or A.B.C.D:XX\n"
+	"MAC\n"
+	"MAC address (e.g., 00:e0:ec:20:12:62)\n"
+	"IP\n"
+	"IP address (IPv4 or IPv6)\n")
+
+ALIAS_HIDDEN(
+	show_bgp_l2vpn_evpn_route_vni, show_bgp_evpn_route_vni_cmd,
+	"show bgp evpn route vni (1-16777215) [<type <macip|multicast> | vtep A.B.C.D>]",
+	SHOW_STR BGP_STR EVPN_HELP_STR
+	"EVPN route information\n"
+	"VXLAN Network Identifier\n"
+	"VNI number\n"
+	"Specify Route type\n"
+	"MAC-IP (Type-2) route\n"
+	"Multicast (Type-3) route\n"
+	"Remote VTEP\n"
+	"Remote VTEP IP address\n")
+
+ALIAS_HIDDEN(show_bgp_l2vpn_evpn_route_vni_macip,
+	     show_bgp_evpn_route_vni_macip_cmd,
+	     "show bgp evpn route vni (1-16777215) mac WORD [ip WORD]",
+	     SHOW_STR BGP_STR EVPN_HELP_STR
+	     "EVPN route information\n"
+	     "VXLAN Network Identifier\n"
+	     "VNI number\n"
+	     "MAC\n"
+	     "MAC address (e.g., 00:e0:ec:20:12:62)\n"
+	     "IP\n"
+	     "IP address (IPv4 or IPv6)\n")
+
+ALIAS_HIDDEN(show_bgp_l2vpn_evpn_route_vni_multicast,
+	     show_bgp_evpn_route_vni_multicast_cmd,
+	     "show bgp evpn route vni (1-16777215) multicast A.B.C.D",
+	     SHOW_STR BGP_STR EVPN_HELP_STR
+	     "EVPN route information\n"
+	     "VXLAN Network Identifier\n"
+	     "VNI number\n"
+	     "Multicast (Type-3) route\n"
+	     "Originating Router IP address\n")
+
+ALIAS_HIDDEN(show_bgp_l2vpn_evpn_route_vni_all, show_bgp_evpn_route_vni_all_cmd,
+	     "show bgp evpn route vni all [vtep A.B.C.D]",
+	     SHOW_STR BGP_STR EVPN_HELP_STR
+	     "EVPN route information\n"
+	     "VXLAN Network Identifier\n"
+	     "All VNIs\n"
+	     "Remote VTEP\n"
+	     "Remote VTEP IP address\n")
+
+ALIAS_HIDDEN(show_bgp_l2vpn_evpn_import_rt, show_bgp_evpn_import_rt_cmd,
+	     "show bgp evpn import-rt",
+	     SHOW_STR BGP_STR EVPN_HELP_STR "Show import route target\n")
+#endif
+
 DEFUN_NOSH (bgp_evpn_vni,
             bgp_evpn_vni_cmd,
             "vni (1-16777215)",
@@ -2711,6 +2802,18 @@ void bgp_ethernetvpn_init(void)
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_route_vni_macip_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_route_vni_all_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_import_rt_cmd);
+
+	/* "show bgp evpn" commands. */
+	install_element(VIEW_NODE, &show_bgp_evpn_vni_cmd);
+	install_element(VIEW_NODE, &show_bgp_evpn_summary_cmd);
+	install_element(VIEW_NODE, &show_bgp_evpn_route_cmd);
+	install_element(VIEW_NODE, &show_bgp_evpn_route_rd_cmd);
+	install_element(VIEW_NODE, &show_bgp_evpn_route_rd_macip_cmd);
+	install_element(VIEW_NODE, &show_bgp_evpn_route_vni_cmd);
+	install_element(VIEW_NODE, &show_bgp_evpn_route_vni_multicast_cmd);
+	install_element(VIEW_NODE, &show_bgp_evpn_route_vni_macip_cmd);
+	install_element(VIEW_NODE, &show_bgp_evpn_route_vni_all_cmd);
+	install_element(VIEW_NODE, &show_bgp_evpn_import_rt_cmd);
 
 	install_element(BGP_EVPN_NODE, &bgp_evpn_vni_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_vni_cmd);
