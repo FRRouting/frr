@@ -102,6 +102,11 @@ struct zebra_vrf {
 	 */
 	int advertise_all_vni;
 
+	/*
+	 * Whether we are advertising g/w macip in EVPN or not.
+	 */
+	int advertise_gw_macip;
+
 	/* Route Installs */
 	uint64_t installs;
 	uint64_t removals;

@@ -68,7 +68,7 @@ static void zvni_print_hash(struct hash_backet *backet, void *ctxt);
 
 static int zvni_macip_send_msg_to_client(struct zebra_vrf *zvrf, vni_t vni,
 					 struct ethaddr *macaddr,
-					 struct ipaddr *ip, u_char sticky,
+					 struct ipaddr *ip, u_char flags,
 					 u_int16_t cmd);
 static unsigned int neigh_hash_keymake(void *p);
 static int neigh_cmp(const void *p1, const void *p2);
@@ -83,10 +83,10 @@ static void zvni_neigh_del_all(struct zebra_vrf *zvrf, zebra_vni_t *zvni,
 static zebra_neigh_t *zvni_neigh_lookup(zebra_vni_t *zvni, struct ipaddr *ip);
 static int zvni_neigh_send_add_to_client(struct zebra_vrf *zvrf, vni_t vni,
 					 struct ipaddr *ip,
-					 struct ethaddr *macaddr);
+					 struct ethaddr *macaddr, u_char flags);
 static int zvni_neigh_send_del_to_client(struct zebra_vrf *zvrf, vni_t vni,
 					 struct ipaddr *ip,
-					 struct ethaddr *macaddr);
+					 struct ethaddr *macaddr, u_char flags);
 static int zvni_neigh_install(zebra_vni_t *zvni, zebra_neigh_t *n);
 static int zvni_neigh_uninstall(zebra_vni_t *zvni, zebra_neigh_t *n);
 static zebra_vni_t *zvni_map_svi(struct interface *ifp,
@@ -106,9 +106,9 @@ static void zvni_mac_del_all(struct zebra_vrf *zvrf, zebra_vni_t *zvni,
 			     int uninstall, int upd_client, u_int32_t flags);
 static zebra_mac_t *zvni_mac_lookup(zebra_vni_t *zvni, struct ethaddr *macaddr);
 static int zvni_mac_send_add_to_client(struct zebra_vrf *zvrf, vni_t vni,
-				       struct ethaddr *macaddr, u_char sticky);
+				       struct ethaddr *macaddr, u_char flags);
 static int zvni_mac_send_del_to_client(struct zebra_vrf *zvrf, vni_t vni,
-				       struct ethaddr *macaddr, u_char sticky);
+				       struct ethaddr *macaddr, u_char flags);
 static zebra_vni_t *zvni_map_vlan(struct interface *ifp,
 				  struct interface *br_if, vlanid_t vid);
 static int zvni_mac_install(zebra_vni_t *zvni, zebra_mac_t *mac);
@@ -131,9 +131,30 @@ static int zvni_vtep_del(zebra_vni_t *zvni, zebra_vtep_t *zvtep);
 static int zvni_vtep_del_all(zebra_vni_t *zvni, int uninstall);
 static int zvni_vtep_install(zebra_vni_t *zvni, struct in_addr *vtep_ip);
 static int zvni_vtep_uninstall(zebra_vni_t *zvni, struct in_addr *vtep_ip);
-
+static int zvni_del_macip_for_intf(struct interface *ifp, zebra_vni_t *zvni);
+static int zvni_add_macip_for_intf(struct interface *ifp, zebra_vni_t *zvni);
+static int zvni_gw_macip_add(struct interface *ifp, zebra_vni_t *zvni,
+			     struct ethaddr *macaddr, struct ipaddr *ip);
+static int zvni_gw_macip_del(struct interface *ifp, zebra_vni_t *zvni,
+			     struct ipaddr *ip);
+struct interface *zebra_get_vrr_intf_for_svi(struct interface *ifp);
+static int advertise_gw_macip_enabled(struct zebra_vrf *zvrf,
+				      zebra_vni_t *zvni);
+static void zvni_deref_ip2mac(zebra_vni_t *zvni, zebra_mac_t *mac,
+			      int uninstall);
 
 /* Private functions */
+
+static int advertise_gw_macip_enabled(struct zebra_vrf *zvrf, zebra_vni_t *zvni)
+{
+	if (zvrf && zvrf->advertise_gw_macip)
+		return 1;
+
+	if (zvni && zvni->advertise_gw_macip)
+		return 1;
+
+	return 0;
+}
 
 /*
  * Helper function to determine maximum width of neighbor IP address for
@@ -450,7 +471,7 @@ static void zvni_print_hash(struct hash_backet *backet, void *ctxt)
  */
 static int zvni_macip_send_msg_to_client(struct zebra_vrf *zvrf, vni_t vni,
 					 struct ethaddr *macaddr,
-					 struct ipaddr *ip, u_char sticky,
+					 struct ipaddr *ip, u_char flags,
 					 u_int16_t cmd)
 {
 	struct zserv *client;
@@ -483,19 +504,18 @@ static int zvni_macip_send_msg_to_client(struct zebra_vrf *zvrf, vni_t vni,
 	} else
 		stream_putl(s, 0); /* Just MAC. */
 
-	stream_putc(s, sticky); /* Sticky MAC? */
+	stream_putc(s, flags); /* sticky mac/gateway mac */
 
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("%u:Send MACIP %s %sMAC %s IP %s VNI %u to %s",
-			   zvrf_id(zvrf),
-			   (cmd == ZEBRA_MACIP_ADD) ? "Add" : "Del",
-			   sticky ? "sticky " : "",
-			   prefix_mac2str(macaddr, buf, sizeof(buf)),
-			   ipaddr2str(ip, buf2, sizeof(buf2)), vni,
-			   zebra_route_string(client->proto));
+		zlog_debug(
+			"%u:Send MACIP %s flags 0x%x MAC %s IP %s VNI %u to %s",
+			zvrf_id(zvrf), (cmd == ZEBRA_MACIP_ADD) ? "Add" : "Del",
+			flags, prefix_mac2str(macaddr, buf, sizeof(buf)),
+			ipaddr2str(ip, buf2, sizeof(buf2)), vni,
+			zebra_route_string(client->proto));
 
 	if (cmd == ZEBRA_MACIP_ADD)
 		client->macipadd_cnt++;
@@ -597,8 +617,9 @@ static int zvni_neigh_del_hash_entry(struct hash_backet *backet, void *arg)
 		&& (n->flags & ZEBRA_NEIGH_REMOTE)
 		&& IPV4_ADDR_SAME(&n->r_vtep_ip, &wctx->r_vtep_ip))) {
 		if (wctx->upd_client && (n->flags & ZEBRA_NEIGH_LOCAL))
-			zvni_neigh_send_del_to_client(
-				wctx->zvrf, wctx->zvni->vni, &n->ip, &n->emac);
+			zvni_neigh_send_del_to_client(wctx->zvrf,
+						      wctx->zvni->vni, &n->ip,
+						      &n->emac, 0);
 
 		if (wctx->uninstall)
 			zvni_neigh_uninstall(wctx->zvni, n);
@@ -676,9 +697,9 @@ static zebra_neigh_t *zvni_neigh_lookup(zebra_vni_t *zvni, struct ipaddr *ip)
  */
 static int zvni_neigh_send_add_to_client(struct zebra_vrf *zvrf, vni_t vni,
 					 struct ipaddr *ip,
-					 struct ethaddr *macaddr)
+					 struct ethaddr *macaddr, u_char flags)
 {
-	return zvni_macip_send_msg_to_client(zvrf, vni, macaddr, ip, 0,
+	return zvni_macip_send_msg_to_client(zvrf, vni, macaddr, ip, flags,
 					     ZEBRA_MACIP_ADD);
 }
 
@@ -687,9 +708,9 @@ static int zvni_neigh_send_add_to_client(struct zebra_vrf *zvrf, vni_t vni,
  */
 static int zvni_neigh_send_del_to_client(struct zebra_vrf *zvrf, vni_t vni,
 					 struct ipaddr *ip,
-					 struct ethaddr *macaddr)
+					 struct ethaddr *macaddr, u_char flags)
 {
-	return zvni_macip_send_msg_to_client(zvrf, vni, macaddr, ip, 0,
+	return zvni_macip_send_msg_to_client(zvrf, vni, macaddr, ip, flags,
 					     ZEBRA_MACIP_DEL);
 }
 
@@ -768,6 +789,309 @@ static void zvni_install_neigh_hash(struct hash_backet *backet, void *ctxt)
 
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE))
 		zvni_neigh_install(wctx->zvni, n);
+}
+
+/* Get the VRR interface for SVI if any */
+struct interface *zebra_get_vrr_intf_for_svi(struct interface *ifp)
+{
+	struct zebra_vrf *zvrf = NULL;
+	struct interface *tmp_if = NULL;
+	struct zebra_if *zif = NULL;
+	struct listnode *node;
+
+	zvrf = vrf_info_lookup(ifp->vrf_id);
+	assert(zvrf);
+
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(zvrf_id(zvrf)), node, tmp_if)) {
+		zif = tmp_if->info;
+		if (!zif)
+			continue;
+
+		if (!IS_ZEBRA_IF_MACVLAN(tmp_if))
+			continue;
+
+		if (zif->link == ifp)
+			return tmp_if;
+	}
+
+	return NULL;
+}
+
+static int zvni_del_macip_for_intf(struct interface *ifp, zebra_vni_t *zvni)
+{
+	struct zebra_vrf *zvrf = NULL;
+	struct listnode *cnode = NULL, *cnnode = NULL;
+	struct connected *c = NULL;
+	struct ethaddr macaddr;
+
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
+	if (!zvrf)
+		return -1;
+
+	memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
+
+	for (ALL_LIST_ELEMENTS(ifp->connected, cnode, cnnode, c)) {
+		struct ipaddr ip;
+
+		memset(&ip, 0, sizeof(struct ipaddr));
+		if (!CHECK_FLAG(c->conf, ZEBRA_IFC_REAL))
+			continue;
+
+		if (c->address->family == AF_INET) {
+			ip.ipa_type = IPADDR_V4;
+			memcpy(&(ip.ipaddr_v4), &(c->address->u.prefix4),
+			       sizeof(struct in_addr));
+		} else if (c->address->family == AF_INET6) {
+			ip.ipa_type = IPADDR_V6;
+			memcpy(&(ip.ipaddr_v6), &(c->address->u.prefix6),
+			       sizeof(struct in6_addr));
+		} else {
+			continue;
+		}
+
+		zvni_gw_macip_del(ifp, zvni, &ip);
+	}
+
+	return 0;
+}
+
+static int zvni_add_macip_for_intf(struct interface *ifp, zebra_vni_t *zvni)
+{
+	struct zebra_vrf *zvrf = NULL;
+	struct listnode *cnode = NULL, *cnnode = NULL;
+	struct connected *c = NULL;
+	struct ethaddr macaddr;
+
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
+	if (!zvrf)
+		return -1;
+
+	memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
+
+	for (ALL_LIST_ELEMENTS(ifp->connected, cnode, cnnode, c)) {
+		struct ipaddr ip;
+
+		memset(&ip, 0, sizeof(struct ipaddr));
+		if (!CHECK_FLAG(c->conf, ZEBRA_IFC_REAL))
+			continue;
+
+		if (c->address->family == AF_INET) {
+			ip.ipa_type = IPADDR_V4;
+			memcpy(&(ip.ipaddr_v4), &(c->address->u.prefix4),
+			       sizeof(struct in_addr));
+		} else if (c->address->family == AF_INET6) {
+			ip.ipa_type = IPADDR_V6;
+			memcpy(&(ip.ipaddr_v6), &(c->address->u.prefix6),
+			       sizeof(struct in6_addr));
+		} else {
+			continue;
+		}
+
+		zvni_gw_macip_add(ifp, zvni, &macaddr, &ip);
+	}
+
+	return 0;
+}
+
+/*
+ * zvni_gw_macip_add_to_client
+ */
+static int zvni_gw_macip_add(struct interface *ifp, zebra_vni_t *zvni,
+			     struct ethaddr *macaddr, struct ipaddr *ip)
+{
+	struct zebra_vrf *zvrf = NULL;
+	struct zebra_if *zif = NULL;
+	struct zebra_l2info_vxlan *vxl = NULL;
+	zebra_neigh_t *n = NULL;
+	zebra_mac_t *mac = NULL;
+	char buf[ETHER_ADDR_STRLEN];
+	char buf2[INET6_ADDRSTRLEN];
+
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
+	if (!zvrf)
+		return -1;
+
+	zif = zvni->vxlan_if->info;
+	if (!zif)
+		return -1;
+
+	vxl = &zif->l2info.vxl;
+
+	mac = zvni_mac_lookup(zvni, macaddr);
+	if (!mac) {
+		mac = zvni_mac_add(zvni, macaddr);
+		if (!mac) {
+			zlog_err("%u:Failed to add MAC %s intf %s(%u) VID %u",
+				 ifp->vrf_id,
+				 prefix_mac2str(macaddr, buf, sizeof(buf)),
+				 ifp->name, ifp->ifindex, vxl->access_vlan);
+			return -1;
+		}
+	}
+
+	/* Set "local" forwarding info. */
+	SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
+	SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
+	memset(&mac->fwd_info, 0, sizeof(mac->fwd_info));
+	mac->fwd_info.local.ifindex = ifp->ifindex;
+	mac->fwd_info.local.vid = vxl->access_vlan;
+
+	n = zvni_neigh_lookup(zvni, ip);
+	if (!n) {
+		n = zvni_neigh_add(zvni, ip);
+		if (!n) {
+			zlog_err(
+				"%u:Failed to add neighbor %s MAC %s intf %s(%u) -> VNI %u",
+				ifp->vrf_id, ipaddr2str(ip, buf2, sizeof(buf2)),
+				prefix_mac2str(macaddr, NULL,
+					       ETHER_ADDR_STRLEN),
+				ifp->name, ifp->ifindex, zvni->vni);
+			return -1;
+		}
+	}
+
+	/* Set "local" forwarding info. */
+	SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
+	memcpy(&n->emac, macaddr, ETH_ALEN);
+	n->ifindex = ifp->ifindex;
+
+	/* We have a neigh associated to mac increment the refcnt*/
+	mac->neigh_refcnt++;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug(
+			"%u:SVI %s(%u) VNI %u, sending GW MAC %s IP %s add to BGP",
+			ifp->vrf_id, ifp->name, ifp->ifindex, zvni->vni,
+			prefix_mac2str(macaddr, NULL, ETHER_ADDR_STRLEN),
+			ipaddr2str(ip, buf2, sizeof(buf2)));
+
+	zvni_neigh_send_add_to_client(zvrf, zvni->vni, ip, macaddr,
+				      ZEBRA_MAC_TYPE_GW);
+
+	return 0;
+}
+
+/*
+ * zvni_gw_macip_del_from_client
+ */
+static int zvni_gw_macip_del(struct interface *ifp, zebra_vni_t *zvni,
+			     struct ipaddr *ip)
+{
+	struct zebra_vrf *zvrf = NULL;
+	zebra_neigh_t *n = NULL;
+	zebra_mac_t *mac = NULL;
+	char buf2[INET6_ADDRSTRLEN];
+
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
+	if (!zvrf)
+		return -1;
+
+	/* If the neigh entry is not present nothing to do*/
+	n = zvni_neigh_lookup(zvni, ip);
+	if (!n)
+		return 0;
+
+	/* mac entry should be present */
+	mac = zvni_mac_lookup(zvni, &n->emac);
+	if (!mac)
+		zlog_err("%u: MAC %s doesnt exsists for neigh %s on VNI %u",
+			 ifp->vrf_id,
+			 prefix_mac2str(&n->emac, NULL, ETHER_ADDR_STRLEN),
+			 ipaddr2str(ip, buf2, sizeof(buf2)), zvni->vni);
+
+	/* If the entry is not local nothing to do*/
+	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL))
+		return -1;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug(
+			"%u:SVI %s(%u) VNI %u, sending GW MAC %s IP %s del to BGP",
+			ifp->vrf_id, ifp->name, ifp->ifindex, zvni->vni,
+			prefix_mac2str(&(n->emac), NULL, ETHER_ADDR_STRLEN),
+			ipaddr2str(ip, buf2, sizeof(buf2)));
+
+	/* Remove neighbor from BGP. */
+	zvni_neigh_send_del_to_client(zvrf, zvni->vni, &n->ip, &n->emac,
+				      ZEBRA_MAC_TYPE_GW);
+
+	/* Delete this neighbor entry. */
+	zvni_neigh_del(zvni, n);
+
+	/* see if the mac needs to be deleted as well*/
+	zvni_deref_ip2mac(zvni, mac, 0);
+
+	return 0;
+}
+
+static void zvni_gw_macip_del_for_vni_hash(struct hash_backet *backet,
+					   void *zvrf)
+{
+	zebra_vni_t *zvni = NULL;
+	struct zebra_if *zif = NULL;
+	struct zebra_l2info_vxlan zl2_info;
+	struct interface *vlan_if = NULL;
+	struct interface *vrr_if = NULL;
+
+	/* Add primary SVI MAC*/
+	zvni = (zebra_vni_t *)backet->data;
+	if (!zvni)
+		return;
+
+	zif = zvni->vxlan_if->info;
+	zl2_info = zif->l2info.vxl;
+
+	vlan_if = zvni_map_to_svi(zvrf, zl2_info.access_vlan,
+				  zif->brslave_info.br_if);
+	if (!vlan_if)
+		return;
+
+	/* Del primary MAC-IP */
+	zvni_del_macip_for_intf(vlan_if, zvni);
+
+	/* Del VRR MAC-IP - if any*/
+	vrr_if = zebra_get_vrr_intf_for_svi(vlan_if);
+	if (vrr_if)
+		zvni_del_macip_for_intf(vrr_if, zvni);
+
+	return;
+}
+
+static void zvni_gw_macip_add_for_vni_hash(struct hash_backet *backet,
+					   void *zvrf)
+{
+	zebra_vni_t *zvni = NULL;
+	struct zebra_if *zif = NULL;
+	struct zebra_l2info_vxlan zl2_info;
+	struct interface *vlan_if = NULL;
+	struct interface *vrr_if = NULL;
+
+	zvni = (zebra_vni_t *)backet->data;
+	if (!zvni)
+		return;
+
+	if (!advertise_gw_macip_enabled(zvrf, zvni))
+		return;
+
+	zif = zvni->vxlan_if->info;
+	zl2_info = zif->l2info.vxl;
+
+	vlan_if = zvni_map_to_svi(zvrf, zl2_info.access_vlan,
+				  zif->brslave_info.br_if);
+	if (!vlan_if)
+		return;
+
+	if (!advertise_gw_macip_enabled(zvrf, zvni))
+		return;
+
+	/* Add primary SVI MAC-IP */
+	zvni_add_macip_for_intf(vlan_if, zvni);
+
+	/* Add VRR MAC-IP - if any*/
+	vrr_if = zebra_get_vrr_intf_for_svi(vlan_if);
+	if (vrr_if)
+		zvni_add_macip_for_intf(vrr_if, zvni);
+
+	return;
 }
 
 /*
@@ -864,8 +1188,9 @@ static int zvni_mac_del_hash_entry(struct hash_backet *backet, void *arg)
 		if (wctx->upd_client && (mac->flags & ZEBRA_MAC_LOCAL)) {
 			sticky = CHECK_FLAG(mac->flags, ZEBRA_MAC_STICKY) ? 1
 									  : 0;
-			zvni_mac_send_del_to_client(wctx->zvrf, wctx->zvni->vni,
-						    &mac->macaddr, sticky);
+			zvni_mac_send_del_to_client(
+				wctx->zvrf, wctx->zvni->vni, &mac->macaddr,
+				(sticky ? ZEBRA_MAC_TYPE_STICKY : 0));
 		}
 
 		if (wctx->uninstall)
@@ -941,9 +1266,9 @@ static zebra_mac_t *zvni_mac_lookup(zebra_vni_t *zvni, struct ethaddr *mac)
  * Inform BGP about local MAC addition.
  */
 static int zvni_mac_send_add_to_client(struct zebra_vrf *zvrf, vni_t vni,
-				       struct ethaddr *macaddr, u_char sticky)
+				       struct ethaddr *macaddr, u_char flags)
 {
-	return zvni_macip_send_msg_to_client(zvrf, vni, macaddr, NULL, sticky,
+	return zvni_macip_send_msg_to_client(zvrf, vni, macaddr, NULL, flags,
 					     ZEBRA_MACIP_ADD);
 }
 
@@ -951,9 +1276,9 @@ static int zvni_mac_send_add_to_client(struct zebra_vrf *zvrf, vni_t vni,
  * Inform BGP about local MAC deletion.
  */
 static int zvni_mac_send_del_to_client(struct zebra_vrf *zvrf, vni_t vni,
-				       struct ethaddr *macaddr, u_char sticky)
+				       struct ethaddr *macaddr, u_char flags)
 {
-	return zvni_macip_send_msg_to_client(zvrf, vni, macaddr, NULL, sticky,
+	return zvni_macip_send_msg_to_client(zvrf, vni, macaddr, NULL, flags,
 					     ZEBRA_MACIP_DEL);
 }
 
@@ -1234,6 +1559,7 @@ static void zvni_read_mac_neigh(struct zebra_vrf *zvrf, zebra_vni_t *zvni,
 	struct zebra_if *zif;
 	struct interface *vlan_if;
 	struct zebra_l2info_vxlan *vxl;
+	struct interface *vrr_if;
 
 	zif = ifp->info;
 	vxl = &zif->l2info.vxl;
@@ -1247,8 +1573,20 @@ static void zvni_read_mac_neigh(struct zebra_vrf *zvrf, zebra_vni_t *zvni,
 	macfdb_read_for_bridge(zvrf->zns, ifp, zif->brslave_info.br_if);
 	vlan_if = zvni_map_to_svi(zvrf, vxl->access_vlan,
 				  zif->brslave_info.br_if);
-	if (vlan_if)
+	if (vlan_if) {
+
+		if (advertise_gw_macip_enabled(zvrf, zvni)) {
+			/* Add SVI MAC-IP */
+			zvni_add_macip_for_intf(vlan_if, zvni);
+
+			/* Add VRR MAC-IP - if any*/
+			vrr_if = zebra_get_vrr_intf_for_svi(vlan_if);
+			if (vrr_if)
+				zvni_add_macip_for_intf(vrr_if, zvni);
+		}
+
 		neigh_read_for_vlan(zvrf->zns, vlan_if);
+	}
 }
 
 /*
@@ -1915,7 +2253,7 @@ int zebra_vxlan_local_neigh_del(struct interface *ifp,
 	assert(zvrf);
 
 	/* Remove neighbor from BGP. */
-	zvni_neigh_send_del_to_client(zvrf, zvni->vni, &n->ip, &n->emac);
+	zvni_neigh_send_del_to_client(zvrf, zvni->vni, &n->ip, &n->emac, 0);
 
 	/* Delete this neighbor entry. */
 	zvni_neigh_del(zvni, n);
@@ -2008,8 +2346,8 @@ int zebra_vxlan_local_neigh_add_update(struct interface *ifp,
 
 	/* Issue delete for older info, if needed. */
 	if (send_del)
-		zvni_neigh_send_del_to_client(zvrf, zvni->vni, &n->ip,
-					      &n->emac);
+		zvni_neigh_send_del_to_client(zvrf, zvni->vni, &n->ip, &n->emac,
+					      0);
 
 	/* Set "local" forwarding info. */
 	SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
@@ -2019,7 +2357,7 @@ int zebra_vxlan_local_neigh_add_update(struct interface *ifp,
 	/* Inform BGP if required. */
 	if (send_upd)
 		return zvni_neigh_send_add_to_client(zvrf, zvni->vni, ip,
-						     macaddr);
+						     macaddr, 0);
 
 	return 0;
 }
@@ -2419,7 +2757,8 @@ int zebra_vxlan_check_del_local_mac(struct interface *ifp,
 
 	/* Remove MAC from BGP. */
 	sticky = CHECK_FLAG(mac->flags, ZEBRA_MAC_STICKY) ? 1 : 0;
-	zvni_mac_send_del_to_client(zvrf, zvni->vni, macaddr, sticky);
+	zvni_mac_send_del_to_client(zvrf, zvni->vni, macaddr,
+				    (sticky ? ZEBRA_MAC_TYPE_STICKY : 0));
 
 	/* Delete this MAC entry. */
 	zvni_mac_del(zvni, mac);
@@ -2526,7 +2865,8 @@ int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 
 	/* Remove MAC from BGP. */
 	sticky = CHECK_FLAG(mac->flags, ZEBRA_MAC_STICKY) ? 1 : 0;
-	zvni_mac_send_del_to_client(zvrf, zvni->vni, macaddr, sticky);
+	zvni_mac_send_del_to_client(zvrf, zvni->vni, macaddr,
+				    (sticky ? ZEBRA_MAC_TYPE_STICKY : 0));
 
 	/* Delete this MAC entry. */
 	zvni_mac_del(zvni, mac);
@@ -2656,8 +2996,9 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 
 	/* Inform BGP if required. */
 	if (add)
-		return zvni_mac_send_add_to_client(zvrf, zvni->vni, macaddr,
-						   sticky);
+		return zvni_mac_send_add_to_client(
+			zvrf, zvni->vni, macaddr,
+			(sticky ? ZEBRA_MAC_TYPE_STICKY : 0));
 
 	return 0;
 }
@@ -2784,6 +3125,100 @@ int zebra_vxlan_remote_vtep_add(struct zserv *client, int sock, u_short length,
 
 		zvni_vtep_install(zvni, &vtep_ip);
 	}
+
+	return 0;
+}
+
+/*
+ * Add/Del gateway macip to evpn
+ * g/w can be:
+ *  1. SVI interface on a vlan aware bridge
+ *  2. SVI interface on a vlan unaware bridge
+ *  3. vrr interface (MACVLAN) associated to a SVI
+ * We advertise macip routes for an interface if it is associated to VxLan vlan
+ */
+int zebra_vxlan_add_del_gw_macip(struct interface *ifp, struct prefix *p,
+				 int add)
+{
+	struct ipaddr ip;
+	struct ethaddr macaddr;
+	zebra_vni_t *zvni = NULL;
+	struct zebra_vrf *zvrf = NULL;
+
+	memset(&ip, 0, sizeof(struct ipaddr));
+	memset(&macaddr, 0, sizeof(struct ethaddr));
+
+	if (IS_ZEBRA_IF_MACVLAN(ifp)) {
+		struct interface *svi_if =
+			NULL; /* SVI corresponding to the MACVLAN */
+		struct zebra_if *ifp_zif =
+			NULL; /* Zebra daemon specific info for MACVLAN */
+		struct zebra_if *svi_if_zif =
+			NULL; /* Zebra daemon specific info for SVI*/
+
+		ifp_zif = ifp->info;
+		if (!ifp_zif)
+			return -1;
+
+		svi_if = ifp_zif->link;
+		if (!svi_if) {
+			zlog_err("%u:MACVLAN %s(%u) without link information",
+				 ifp->vrf_id, ifp->name, ifp->ifindex);
+			return -1;
+		}
+
+		if (IS_ZEBRA_IF_VLAN(svi_if)) {
+			svi_if_zif = svi_if->info;
+			if (svi_if_zif)
+				zvni = zvni_map_svi(svi_if, svi_if_zif->link);
+		} else if (IS_ZEBRA_IF_BRIDGE(svi_if)) {
+			zvni = zvni_map_svi(svi_if, svi_if);
+		}
+	} else if (IS_ZEBRA_IF_VLAN(ifp)) {
+		struct zebra_if *svi_if_zif =
+			NULL; /* Zebra daemon specific info for SVI*/
+
+		svi_if_zif = ifp->info;
+		if (svi_if_zif)
+			zvni = zvni_map_svi(ifp, svi_if_zif->link);
+	} else if (IS_ZEBRA_IF_BRIDGE(ifp)) {
+		zvni = zvni_map_svi(ifp, ifp);
+	}
+
+	if (!zvni)
+		return 0;
+
+	if (!zvni->vxlan_if) {
+		zlog_err("VNI %u hash %p doesn't have intf upon MACVLAN up",
+			 zvni->vni, zvni);
+		return -1;
+	}
+
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
+	if (!zvrf)
+		return -1;
+
+	/* check if we are advertising gw macip routes */
+	if (!advertise_gw_macip_enabled(zvrf, zvni))
+		return 0;
+
+	memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
+
+	if (p->family == AF_INET) {
+		ip.ipa_type = IPADDR_V4;
+		memcpy(&(ip.ipaddr_v4), &(p->u.prefix4),
+		       sizeof(struct in_addr));
+	} else if (p->family == AF_INET6) {
+		ip.ipa_type = IPADDR_V6;
+		memcpy(&(ip.ipaddr_v6), &(p->u.prefix6),
+		       sizeof(struct in6_addr));
+	}
+
+
+	if (add)
+		zvni_gw_macip_add(ifp, zvni, &macaddr, &ip);
+	else
+		zvni_gw_macip_del(ifp, zvni, &ip);
 
 	return 0;
 }
@@ -3147,6 +3582,98 @@ int zebra_vxlan_if_add(struct interface *ifp)
 }
 
 /*
+ * Handle message from client to enable/disable advertisement of g/w macip
+ * routes
+ */
+int zebra_vxlan_advertise_gw_macip(struct zserv *client, int sock,
+				   u_short length, struct zebra_vrf *zvrf)
+{
+	struct stream *s;
+	int advertise;
+	vni_t vni = 0;
+	zebra_vni_t *zvni = NULL;
+
+	s = client->ibuf;
+	advertise = stream_getc(s);
+	vni = stream_get3(s);
+
+	if (!vni) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("%u:EVPN gateway macip Adv %s, currently %s",
+				   zvrf_id(zvrf),
+				   advertise ? "enabled" : "disabled",
+				   advertise_gw_macip_enabled(zvrf, NULL)
+					   ? "enabled"
+					   : "disabled");
+
+		if (zvrf->advertise_gw_macip == advertise)
+			return 0;
+
+		zvrf->advertise_gw_macip = advertise;
+
+		if (advertise_gw_macip_enabled(zvrf, zvni))
+			hash_iterate(zvrf->vni_table,
+				     zvni_gw_macip_add_for_vni_hash, zvrf);
+		else
+			hash_iterate(zvrf->vni_table,
+				     zvni_gw_macip_del_for_vni_hash, zvrf);
+
+	} else {
+		struct zebra_if *zif = NULL;
+		struct zebra_l2info_vxlan zl2_info;
+		struct interface *vlan_if = NULL;
+		struct interface *vrr_if = NULL;
+
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"%u:EVPN gateway macip Adv %s on VNI %d , currently %s",
+				zvrf_id(zvrf),
+				advertise ? "enabled" : "disabled", vni,
+				advertise_gw_macip_enabled(zvrf, zvni)
+					? "enabled"
+					: "disabled");
+
+		zvni = zvni_lookup(zvrf, vni);
+		if (!zvni)
+			return 0;
+
+		if (zvni->advertise_gw_macip == advertise)
+			return 0;
+
+		zvni->advertise_gw_macip = advertise;
+
+		zif = zvni->vxlan_if->info;
+		zl2_info = zif->l2info.vxl;
+
+		vlan_if = zvni_map_to_svi(zvrf, zl2_info.access_vlan,
+					  zif->brslave_info.br_if);
+		if (!vlan_if)
+			return 0;
+
+		if (advertise_gw_macip_enabled(zvrf, zvni)) {
+			/* Add primary SVI MAC-IP */
+			zvni_add_macip_for_intf(vlan_if, zvni);
+
+			/* Add VRR MAC-IP - if any*/
+			vrr_if = zebra_get_vrr_intf_for_svi(vlan_if);
+			if (vrr_if)
+				zvni_add_macip_for_intf(vrr_if, zvni);
+		} else {
+			/* Del primary MAC-IP */
+			zvni_del_macip_for_intf(vlan_if, zvni);
+
+			/* Del VRR MAC-IP - if any*/
+			vrr_if = zebra_get_vrr_intf_for_svi(vlan_if);
+			if (vrr_if)
+				zvni_del_macip_for_intf(vrr_if, zvni);
+		}
+	}
+
+	return 0;
+}
+
+
+/*
  * Handle message from client to learn (or stop learning) about VNIs and MACs.
  * When enabled, the VNI hash table will be built and MAC FDB table read;
  * when disabled, the entries should be deleted and remote VTEPs and MACs
@@ -3173,6 +3700,10 @@ int zebra_vxlan_advertise_all_vni(struct zserv *client, int sock,
 	if (EVPN_ENABLED(zvrf)) {
 		/* Build VNI hash table and inform BGP. */
 		zvni_build_hash_table(zvrf);
+
+		/* Add all SVI (L3 GW) MACs to BGP*/
+		hash_iterate(zvrf->vni_table, zvni_gw_macip_add_for_vni_hash,
+			     zvrf);
 
 		/* Read the MAC FDB */
 		macfdb_read(zvrf->zns);

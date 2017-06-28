@@ -380,6 +380,9 @@ struct bgp {
 	/* EVI hash table */
 	struct hash *vnihash;
 
+	/* EVPN enable - advertise gateway macip routes */
+	int advertise_gw_macip;
+
 	/* EVPN enable - advertise local VNIs and their MACs etc. */
 	int advertise_all_vni;
 

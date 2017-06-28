@@ -97,6 +97,7 @@ typedef enum {
 	ZEBRA_FEC_REGISTER,
 	ZEBRA_FEC_UNREGISTER,
 	ZEBRA_FEC_UPDATE,
+	ZEBRA_ADVERTISE_DEFAULT_GW,
 	ZEBRA_ADVERTISE_ALL_VNI,
 	ZEBRA_VNI_ADD,
 	ZEBRA_VNI_DEL,
@@ -265,6 +266,10 @@ struct zapi_ipv4 {
 
 	vrf_id_t vrf_id;
 };
+
+/* Zebra MAC types */
+#define ZEBRA_MAC_TYPE_STICKY                0x01 /* Sticky MAC*/
+#define ZEBRA_MAC_TYPE_GW                    0x02 /* gateway (SVI) mac*/
 
 /* Prototypes of zebra client service functions. */
 extern struct zclient *zclient_new(struct thread_master *);

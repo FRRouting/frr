@@ -63,6 +63,9 @@ struct zebra_vni_t_ {
 	/* VNI - key */
 	vni_t vni;
 
+	/* Flag for advertising gw macip */
+	u_int8_t advertise_gw_macip;
+
 	/* Corresponding VxLAN interface. */
 	struct interface *vxlan_if;
 

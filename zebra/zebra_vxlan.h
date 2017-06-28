@@ -68,6 +68,8 @@ extern void zebra_vxlan_print_vni(struct vty *vty, struct zebra_vrf *zvrf,
 				  vni_t vni);
 extern void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf);
 
+extern int zebra_vxlan_add_del_gw_macip(struct interface *ifp, struct prefix *p,
+					int add);
 extern int zebra_vxlan_svi_up(struct interface *ifp, struct interface *link_if);
 extern int zebra_vxlan_svi_down(struct interface *ifp,
 				struct interface *link_if);
@@ -104,6 +106,9 @@ extern int zebra_vxlan_remote_vtep_add(struct zserv *client, int sock,
 				       u_short length, struct zebra_vrf *zvrf);
 extern int zebra_vxlan_remote_vtep_del(struct zserv *client, int sock,
 				       u_short length, struct zebra_vrf *zvrf);
+extern int zebra_vxlan_advertise_gw_macip(struct zserv *client, int sock,
+					  u_short length,
+					  struct zebra_vrf *zvrf);
 extern int zebra_vxlan_advertise_all_vni(struct zserv *client, int sock,
 					 u_short length,
 					 struct zebra_vrf *zvrf);

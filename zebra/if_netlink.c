@@ -251,6 +251,8 @@ static void netlink_determine_zebra_iftype(char *kind, zebra_iftype_t *zif_type)
 		*zif_type = ZEBRA_IF_VLAN;
 	else if (strcmp(kind, "vxlan") == 0)
 		*zif_type = ZEBRA_IF_VXLAN;
+	else if (strcmp(kind, "macvlan") == 0)
+		*zif_type = ZEBRA_IF_MACVLAN;
 }
 
 // Temporary Assignments to compile on older platforms.

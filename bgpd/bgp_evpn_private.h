@@ -58,6 +58,9 @@ struct bgpevpn {
 #define VNI_FLAG_IMPRT_CFGD        0x8  /* Import RT is user configured */
 #define VNI_FLAG_EXPRT_CFGD        0x10 /* Export RT is user configured */
 
+	/* Flag to indicate if we are advertising the g/w mac ip for this VNI*/
+	u_int8_t advertise_gw_macip;
+
 	/* Id for deriving the RD automatically for this VNI */
 	u_int16_t rd_id;
 
