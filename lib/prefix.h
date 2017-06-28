@@ -279,6 +279,7 @@ extern int str2prefix (const char *, struct prefix *);
 
 extern const char *prefix2str (union prefixconstptr, char *, int);
 extern int prefix_match (const struct prefix *, const struct prefix *);
+extern int prefix_match_network_statement (const struct prefix *, const struct prefix *);
 extern int prefix_same (const struct prefix *, const struct prefix *);
 extern int prefix_cmp (const struct prefix *, const struct prefix *);
 extern int prefix_common_bits (const struct prefix *, const struct prefix *);
