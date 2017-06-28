@@ -67,8 +67,8 @@
 #### Check for RedHat 6.x or CentOS 6.x - they are too old to support PIM. 
 ####   Always disable it on these old systems unconditionally
 #
-# if CentOS 6 / RedHat 6, then disable PIMd
-%if 0%{?rhel} < 7
+# if CentOS / RedHat and version < 7, then disable PIMd (too old, won't work)
+%if 0%{?rhel} && 0%{?rhel} < 7
     %global  with_pimd  0
 %endif
 
