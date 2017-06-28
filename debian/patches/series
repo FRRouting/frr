@@ -1,5 +1,0 @@
-90_configure_ncurses.diff
-82_vtysh__vtysh_user.c__pam.diff
-80_vtysh__vtysh.c__privs.diff
-75_vtysh__vtysh.c__PAGER.diff
-50_vtysh__vtysh.conf.sample.diff
