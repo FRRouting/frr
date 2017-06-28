@@ -380,6 +380,7 @@ void
 ospf6_interface_state_update (struct interface *ifp)
 {
   struct ospf6_interface *oi;
+  unsigned int iobuflen;
 
   oi = (struct ospf6_interface *) ifp->info;
   if (oi == NULL)
@@ -392,9 +393,19 @@ ospf6_interface_state_update (struct interface *ifp)
   /* Adjust the mtu values if the kernel told us something new */
   if (ifp->mtu6 != oi->ifmtu)
     {
-      /* If nothing configured, just accept it */
+      /* If nothing configured, accept it and check for buffer size */
       if (!oi->c_ifmtu)
-        oi->ifmtu = ifp->mtu6;
+        {
+          oi->ifmtu = ifp->mtu6;
+          iobuflen = ospf6_iobuf_size (ifp->mtu6);
+          if (oi->ifmtu > iobuflen)
+            {
+              if (IS_OSPF6_DEBUG_INTERFACE)
+                zlog_debug ("Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
+                             ifp->name, iobuflen);
+              oi->ifmtu = iobuflen;
+            }
+        }
       else if (oi->c_ifmtu > ifp->mtu6)
         {
           oi->ifmtu = ifp->mtu6;
