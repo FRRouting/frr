@@ -803,7 +803,7 @@ update_linkparams(struct mpls_te_link *lp)
           else
             {
               lp->flags = INTER_AS | FLOOD_AREA;
-              lp->area = ospf_area_lookup_by_area_id (ospf_lookup(), OspfMplsTE.interas_areaid);
+              lp->area = ospf_area_lookup_by_area_id (ospf_lookup_by_vrf_id (VRF_DEFAULT), OspfMplsTE.interas_areaid);
             }
         }
       set_linkparams_inter_as(lp, ifp->link_params->rmt_ip, ifp->link_params->rmt_as);
@@ -1216,6 +1216,7 @@ ospf_mpls_te_lsa_new (struct ospf_area *area, struct mpls_te_link *lp)
   struct in_addr lsa_id;
   u_int32_t tmp;
   u_int16_t length;
+  struct ospf *top = NULL;
 
   /* Create a stream for LSA. */
   if ((s = stream_new (OSPF_MAX_LSA_SIZE)) == NULL)
@@ -1244,7 +1245,14 @@ ospf_mpls_te_lsa_new (struct ospf_area *area, struct mpls_te_link *lp)
       tmp = SET_OPAQUE_LSID (OPAQUE_TYPE_INTER_AS_LSA, lp->instance);
       lsa_id.s_addr = htonl (tmp);
 
-      struct ospf *top = ospf_lookup ();
+      if (area)
+        top = area->ospf;
+      else
+        top = ospf_lookup_by_vrf_id (VRF_DEFAULT);
+      if (OSPF_DEBUG_VRF)
+        zlog_debug ("%s: Setting MPLS-TE lsa header vrf %s id %u",
+                    __PRETTY_FUNCTION__, ospf_vrf_id_to_name (top->vrf_id),
+                    top->vrf_id);
 
       lsa_header_set (s, options, lsa_type, lsa_id, top->router_id);
     }
@@ -1549,7 +1557,12 @@ ospf_mpls_te_lsa_refresh (struct ospf_lsa *lsa)
   if (area)
     top = area->ospf;
   else
-    top = ospf_lookup ();
+    top = ospf_lookup_by_vrf_id (VRF_DEFAULT);
+
+  if (OSPF_DEBUG_VRF)
+    zlog_debug ("%s: ospf MPLS-TE lsa refresh with vrf %s id %u",
+                __PRETTY_FUNCTION__, ospf_vrf_id_to_name (top->vrf_id),
+                top->vrf_id);
 
   if (ospf_lsa_install (top, NULL /*oi */ , new) == NULL)
     {
@@ -1586,7 +1599,7 @@ ospf_mpls_te_lsa_schedule (struct mpls_te_link *lp, opcode_t opcode)
 
   memset (&lsa, 0, sizeof (lsa));
   memset (&lsah, 0, sizeof (lsah));
-  top = ospf_lookup ();
+  top = ospf_lookup_by_vrf_id (VRF_DEFAULT);
 
   /* Check if the pseudo link is ready to flood */
   if (!(CHECK_FLAG (lp->flags, LPFLG_LSA_ACTIVE))
@@ -2610,28 +2623,65 @@ show_mpls_te_link_sub (struct vty *vty, struct interface *ifp)
 
 DEFUN (show_ip_ospf_mpls_te_link,
        show_ip_ospf_mpls_te_link_cmd,
-       "show ip ospf mpls-te interface [INTERFACE]",
+       "show ip ospf [vrf <NAME|all>] mpls-te interface [INTERFACE]",
        SHOW_STR
        IP_STR
        OSPF_STR
+       VRF_CMD_HELP_STR
+       "All VRFs\n"
        "MPLS-TE information\n"
        "Interface information\n"
        "Interface name\n")
 {
   int idx_interface = 5;
   struct interface *ifp;
-  struct listnode *node, *nnode;
+  struct listnode *node, *nnode, *n1;
+  char *vrf_name = NULL;
+  bool all_vrf;
+  int inst = 0;
+  int idx_vrf = 0;
+  struct ospf *ospf = NULL;
 
+  if (argv_find (argv, argc, "vrf", &idx_vrf))
+    {
+      vrf_name = argv[idx_vrf + 1]->arg;
+      all_vrf = strmatch(vrf_name, "all");
+    }
+  /* vrf input is provided could be all or specific vrf*/
+  if (vrf_name)
+    {
+      if (all_vrf)
+        {
+          for (ALL_LIST_ELEMENTS_RO (om->ospf, n1, ospf))
+            {
+              if (!ospf->oi_running)
+                continue;
+              for (ALL_LIST_ELEMENTS (vrf_iflist (ospf->vrf_id), node, nnode, ifp))
+                show_mpls_te_link_sub (vty, ifp);
+            }
+          return CMD_SUCCESS;
+        }
+      else
+        {
+          if ((ospf = ospf_lookup_by_inst_name (inst, vrf_name)) == NULL
+                || !ospf->oi_running)
+            return CMD_SUCCESS;
+          for (ALL_LIST_ELEMENTS (vrf_iflist (ospf->vrf_id), node, nnode, ifp))
+            show_mpls_te_link_sub (vty, ifp);
+        }
+      return CMD_SUCCESS;
+    }
   /* Show All Interfaces. */
   if (argc == 5)
     {
-      for (ALL_LIST_ELEMENTS (vrf_iflist (VRF_DEFAULT), node, nnode, ifp))
+      ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
+      for (ALL_LIST_ELEMENTS (vrf_iflist (ospf->vrf_id), node, nnode, ifp))
         show_mpls_te_link_sub (vty, ifp);
     }
   /* Interface name is specified. */
   else
     {
-      if ((ifp = if_lookup_by_name (argv[idx_interface]->arg, VRF_DEFAULT)) == NULL)
+      if ((ifp = if_lookup_by_name_all_vrf (argv[idx_interface]->arg)) == NULL)
         vty_out (vty, "No such interface name%s", VTY_NEWLINE);
       else
         show_mpls_te_link_sub (vty, ifp);

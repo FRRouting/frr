@@ -89,7 +89,7 @@ ospf_path_free (struct ospf_path *op)
 }
 
 void
-ospf_route_delete (struct route_table *rt)
+ospf_route_delete (struct route_table *rt, struct ospf *ospf)
 {
   struct route_node *rn;
   struct ospf_route *or;
@@ -99,9 +99,9 @@ ospf_route_delete (struct route_table *rt)
       {
 	if (or->type == OSPF_DESTINATION_NETWORK)
 	  ospf_zebra_delete ((struct prefix_ipv4 *) &rn->p,
-				       or);
+				       or, ospf);
 	else if (or->type == OSPF_DESTINATION_DISCARD)
-	  ospf_zebra_delete_discard ((struct prefix_ipv4 *) &rn->p);
+	  ospf_zebra_delete_discard ((struct prefix_ipv4 *) &rn->p, ospf);
       }
 }
 
@@ -203,7 +203,7 @@ ospf_route_match_same (struct route_table *rt, struct prefix_ipv4 *prefix,
  */
 static void 
 ospf_route_delete_same_ext(struct route_table *external_routes,
-                     struct route_table *routes)
+                     struct route_table *routes, struct ospf *ospf)
 {
   struct route_node *rn,
                     *ext_rn;
@@ -221,7 +221,7 @@ ospf_route_delete_same_ext(struct route_table *external_routes,
             {
               if (ext_rn->info)
                 {
-                  ospf_zebra_delete (p, ext_rn->info);
+                  ospf_zebra_delete (p, ext_rn->info, ospf);
                   ospf_route_free( ext_rn->info);
                   ext_rn->info = NULL;
                 }
@@ -233,7 +233,7 @@ ospf_route_delete_same_ext(struct route_table *external_routes,
 
 /* rt: Old, cmprt: New */
 static void
-ospf_route_delete_uniq (struct route_table *rt, struct route_table *cmprt)
+ospf_route_delete_uniq (struct route_table *rt, struct route_table *cmprt, struct ospf *ospf)
 {
   struct route_node *rn;
   struct ospf_route *or;
@@ -247,12 +247,12 @@ ospf_route_delete_uniq (struct route_table *rt, struct route_table *cmprt)
 	    {
 	      if (! ospf_route_exist_new_table (cmprt,
 					   (struct prefix_ipv4 *) &rn->p))
-		ospf_zebra_delete ((struct prefix_ipv4 *) &rn->p, or);
+		ospf_zebra_delete ((struct prefix_ipv4 *) &rn->p, or, ospf);
 	    }
 	  else if (or->type == OSPF_DESTINATION_DISCARD)
 	    if (! ospf_route_exist_new_table (cmprt,
 					 (struct prefix_ipv4 *) &rn->p))
-	      ospf_zebra_delete_discard ((struct prefix_ipv4 *) &rn->p);
+	      ospf_zebra_delete_discard ((struct prefix_ipv4 *) &rn->p, ospf);
 	}
 }
 
@@ -273,9 +273,9 @@ ospf_route_install (struct ospf *ospf, struct route_table *rt)
 
   /* Delete old routes. */
   if (ospf->old_table)
-    ospf_route_delete_uniq (ospf->old_table, rt);
+    ospf_route_delete_uniq (ospf->old_table, rt, ospf);
   if (ospf->old_external_route)
-    ospf_route_delete_same_ext (ospf->old_external_route, rt);
+    ospf_route_delete_same_ext (ospf->old_external_route, rt, ospf);
 
   /* Install new routes. */
   for (rn = route_top (rt); rn; rn = route_next (rn))
@@ -285,12 +285,12 @@ ospf_route_install (struct ospf *ospf, struct route_table *rt)
 	  {
 	    if (! ospf_route_match_same (ospf->old_table,
 					 (struct prefix_ipv4 *)&rn->p, or))
-	      ospf_zebra_add ((struct prefix_ipv4 *) &rn->p, or);
+	      ospf_zebra_add ((struct prefix_ipv4 *) &rn->p, or, ospf);
 	  }
 	else if (or->type == OSPF_DESTINATION_DISCARD)
 	  if (! ospf_route_match_same (ospf->old_table,
 				       (struct prefix_ipv4 *) &rn->p, or))
-	    ospf_zebra_add_discard ((struct prefix_ipv4 *) &rn->p);
+	    ospf_zebra_add_discard ((struct prefix_ipv4 *) &rn->p, ospf);
       }
 }
 
@@ -443,7 +443,7 @@ ospf_intra_add_transit (struct route_table *rt, struct vertex *v,
   or->u.std.origin = (struct lsa_header *) lsa;
 
   ospf_route_copy_nexthops_from_vertex (or, v);
-  
+
   rn->info = or;
 }
 
@@ -940,8 +940,8 @@ ospf_prune_unreachable_routers (struct route_table *rtrs)
 }
 
 int
-ospf_add_discard_route (struct route_table *rt, struct ospf_area *area,
-			struct prefix_ipv4 *p)
+ospf_add_discard_route (struct ospf *ospf, struct route_table *rt,
+                        struct ospf_area *area, struct prefix_ipv4 *p)
 {
   struct route_node *rn;
   struct ospf_route *or, *new_or;
@@ -993,13 +993,13 @@ ospf_add_discard_route (struct route_table *rt, struct ospf_area *area,
   new_or->path_type = OSPF_PATH_INTER_AREA;
   rn->info = new_or;
 
-  ospf_zebra_add_discard (p);
+  ospf_zebra_add_discard (p, ospf);
 
   return 1;
 }
 
 void
-ospf_delete_discard_route (struct route_table *rt, struct prefix_ipv4 *p)
+ospf_delete_discard_route (struct ospf *ospf, struct route_table *rt, struct prefix_ipv4 *p)
 {
   struct route_node *rn;
   struct ospf_route *or;
@@ -1043,7 +1043,7 @@ ospf_delete_discard_route (struct route_table *rt, struct prefix_ipv4 *p)
   route_unlock_node (rn);
 
   /* remove the discard entry from the rib */
-  ospf_zebra_delete_discard(p);
+  ospf_zebra_delete_discard(p, ospf);
 
   return;
 }

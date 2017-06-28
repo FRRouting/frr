@@ -530,7 +530,7 @@ ospfGeneralGroup (struct variable *v, oid *name, size_t *length,
 {
   struct ospf *ospf;
 
-  ospf = ospf_lookup ();
+  ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
 
   /* Check whether the instance identifier is valid */
   if (smux_header_generic (v, name, length, exact, var_len, write_method)
@@ -664,7 +664,7 @@ ospfAreaLookup (struct variable *v, oid name[], size_t *length,
   struct ospf_area *area;
   int len;
 
-  ospf = ospf_lookup ();
+  ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
   if (ospf == NULL)
     return NULL;
 
@@ -770,7 +770,7 @@ ospf_stub_area_lookup_next (struct in_addr *area_id, int first)
   struct listnode *node;
   struct ospf *ospf;
 
-  ospf = ospf_lookup ();
+  ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
   if (ospf == NULL)
     return NULL;
 
@@ -801,7 +801,7 @@ ospfStubAreaLookup (struct variable *v, oid name[], size_t *length,
   struct ospf_area *area;
   int len;
 
-  ospf = ospf_lookup ();
+  ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
   if (ospf == NULL)
     return NULL;
 
@@ -948,7 +948,7 @@ ospfLsdbLookup (struct variable *v, oid *name, size_t *length,
   oid *offset;
   int offsetlen;
 
-  ospf = ospf_lookup ();
+  ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
 
 #define OSPF_LSDB_ENTRY_OFFSET \
           (IN_ADDR_SIZE + 1 + IN_ADDR_SIZE + IN_ADDR_SIZE)
@@ -1103,7 +1103,7 @@ ospfLsdbEntry (struct variable *v, oid *name, size_t *length, int exact,
   memset (&router_id, 0, sizeof (struct in_addr));
 
   /* Check OSPF instance. */
-  ospf = ospf_lookup ();
+  ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
   if (ospf == NULL)
     return NULL;
 
@@ -1164,7 +1164,7 @@ ospfAreaRangeLookup (struct variable *v, oid *name, size_t *length,
   p.family = AF_INET;
   p.prefixlen = IPV4_MAX_BITLEN;
 
-  ospf = ospf_lookup ();
+  ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
 
   if (exact) 
     {
@@ -1261,7 +1261,7 @@ ospfAreaRangeEntry (struct variable *v, oid *name, size_t *length, int exact,
     return NULL;
 
   /* Check OSPF instance. */
-  ospf = ospf_lookup ();
+  ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
   if (ospf == NULL)
     return NULL;
 
@@ -1310,7 +1310,7 @@ ospfHostLookup (struct variable *v, oid *name, size_t *length,
   struct ospf_nbr_nbma *nbr_nbma;
   struct ospf *ospf;
 
-  ospf = ospf_lookup ();
+  ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
   if (ospf == NULL)
     return NULL;
 
@@ -1369,7 +1369,7 @@ ospfHostEntry (struct variable *v, oid *name, size_t *length, int exact,
     return NULL;
 
   /* Check OSPF instance. */
-  ospf = ospf_lookup ();
+  ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
   if (ospf == NULL)
     return NULL;
 
@@ -1541,7 +1541,7 @@ ospf_snmp_if_lookup (struct in_addr *ifaddr, ifindex_t *ifindex)
   struct listnode *node;
   struct ospf_snmp_if *osif;
   struct ospf_interface *oi = NULL;
-  struct ospf *ospf = ospf_lookup ();
+  struct ospf *ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
 
   for (ALL_LIST_ELEMENTS_RO (ospf_snmp_iflist, node, osif))
     {  
@@ -1565,7 +1565,7 @@ ospf_snmp_if_lookup_next (struct in_addr *ifaddr, ifindex_t *ifindex,
 {
   struct ospf_snmp_if *osif;
   struct listnode *nn;
-  struct ospf *ospf = ospf_lookup ();
+  struct ospf *ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
   struct ospf_interface *oi = NULL;
 
   if (ospf == NULL)
@@ -1713,7 +1713,7 @@ ospfIfEntry (struct variable *v, oid *name, size_t *length, int exact,
   memset (&ifaddr, 0, sizeof (struct in_addr));
 
   /* Check OSPF instance. */
-  ospf = ospf_lookup ();
+  ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
   if (ospf == NULL)
     return NULL;
 
@@ -1885,7 +1885,7 @@ ospfIfMetricEntry (struct variable *v, oid *name, size_t *length, int exact,
   memset (&ifaddr, 0, sizeof (struct in_addr));
 
   /* Check OSPF instance. */
-  ospf = ospf_lookup ();
+  ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
   if (ospf == NULL)
     return NULL;
 
@@ -2179,7 +2179,7 @@ ospf_snmp_nbr_lookup_next (struct in_addr *nbr_addr, ifindex_t *ifindex,
   struct ospf_neighbor *min = NULL;
   struct ospf *ospf = ospf;
 
-  ospf = ospf_lookup ();
+  ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
 
   for (ALL_LIST_ELEMENTS_RO (ospf->oiflist, nn, oi))
     {
@@ -2223,7 +2223,7 @@ ospfNbrLookup (struct variable *v, oid *name, size_t *length,
   struct ospf_neighbor *nbr;
   struct ospf *ospf;
 
-  ospf = ospf_lookup ();
+  ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
 
   if (! ospf)
     return NULL;
@@ -2389,7 +2389,7 @@ ospfVirtNbrEntry (struct variable *v, oid *name, size_t *length, int exact,
   memset (&neighbor, 0, sizeof (struct in_addr));
 
   /* Check OSPF instance. */
-  ospf = ospf_lookup ();
+  ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
   if (ospf == NULL)
     return NULL;
 
@@ -2443,7 +2443,7 @@ ospfExtLsdbLookup (struct variable *v, oid *name, size_t *length, u_char *type,
   struct ospf_lsa *lsa;
   struct ospf *ospf;
 
-  ospf = ospf_lookup ();
+  ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
   if (exact)
     {
       if (*length != v->namelen + 1 + IN_ADDR_SIZE + IN_ADDR_SIZE)
@@ -2542,7 +2542,7 @@ ospfExtLsdbEntry (struct variable *v, oid *name, size_t *length, int exact,
   memset (&router_id, 0, sizeof (struct in_addr));
 
   /* Check OSPF instance. */
-  ospf = ospf_lookup ();
+  ospf = ospf_lookup_by_vrf_id (VRF_DEFAULT);
   if (ospf == NULL)
     return NULL;
 

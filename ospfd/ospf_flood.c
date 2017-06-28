@@ -77,7 +77,7 @@ ospf_flood_delayed_lsa_ack (struct ospf_neighbor *inbr, struct ospf_lsa *lsa)
 
 /* Check LSA is related to external info. */
 struct external_info *
-ospf_external_info_check (struct ospf_lsa *lsa)
+ospf_external_info_check (struct ospf *ospf, struct ospf_lsa *lsa)
 {
   struct as_external_lsa *al;
   struct prefix_ipv4 p;
@@ -90,14 +90,17 @@ ospf_external_info_check (struct ospf_lsa *lsa)
   p.prefix = lsa->data->id;
   p.prefixlen = ip_masklen (al->mask);
 
+  if (IS_DEBUG_OSPF_VRF)
+    zlog_debug ("%s: external lsa interface, ospf vrf %s id %u",
+              __PRETTY_FUNCTION__, ospf_vrf_id_to_name (ospf->vrf_id), ospf->vrf_id);
   for (type = 0; type <= ZEBRA_ROUTE_MAX; type++)
     {
       int redist_on = 0;
 
       redist_on = is_prefix_default (&p) ?
-                  vrf_bitmap_check (zclient->default_information, VRF_DEFAULT) :
+                  vrf_bitmap_check (zclient->default_information, ospf->vrf_id) :
                   (zclient->mi_redist[AFI_IP][type].enabled ||
-                   vrf_bitmap_check (zclient->redist[AFI_IP][type], VRF_DEFAULT));
+                   vrf_bitmap_check (zclient->redist[AFI_IP][type], ospf->vrf_id));
                    //Pending: check for MI above.
       if (redist_on)
         {
@@ -178,7 +181,7 @@ ospf_process_self_originated_lsa (struct ospf *ospf,
             
             if (new->data->type == OSPF_OPAQUE_LINK_LSA)
               {
-                ospf_opaque_lsa_refresh (new);
+                ospf_opaque_lsa_refresh (ospf, new);
                 return;
               }
 
@@ -201,17 +204,17 @@ ospf_process_self_originated_lsa (struct ospf *ospf,
            ospf_translated_nssa_refresh (ospf, NULL, new);
            return;
          }
-      ei = ospf_external_info_check (new);
+      ei = ospf_external_info_check (ospf, new);
       if (ei)
         ospf_external_lsa_refresh (ospf, new, ei, LSA_REFRESH_FORCE);
       else
         ospf_lsa_flush_as (ospf, new);
       break;
     case OSPF_OPAQUE_AREA_LSA:
-      ospf_opaque_lsa_refresh (new);
+      ospf_opaque_lsa_refresh (ospf, new);
       break;
     case OSPF_OPAQUE_AS_LSA:
-      ospf_opaque_lsa_refresh (new); /* Reconsideration may needed. *//* XXX */
+      ospf_opaque_lsa_refresh (ospf, new); /* Reconsideration may needed. *//* XXX */
       break;
     default:
       break;

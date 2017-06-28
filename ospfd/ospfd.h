@@ -28,6 +28,7 @@
 
 #include "filter.h"
 #include "log.h"
+#include "vrf.h"
 
 #include "ospf_memory.h"
 #include "ospf_dump_api.h"
@@ -141,6 +142,9 @@ struct ospf
   /* OSPF Router ID. */
   struct in_addr router_id;		/* Configured automatically. */
   struct in_addr router_id_static;	/* Configured manually. */
+
+  vrf_id_t vrf_id;  /* VRF Id */
+  char *name;       /* VRF name */
 
   /* ABR/ASBR internal flags. */
   u_char flags;
@@ -501,10 +505,12 @@ extern int ospf_zlog;
 
 /* Prototypes. */
 extern const char *ospf_redist_string(u_int route_type);
-extern struct ospf *ospf_lookup (void);
 extern struct ospf *ospf_lookup_instance (u_short);
-extern struct ospf *ospf_get (void);
+extern struct ospf *ospf_get (u_short instance, const char *name);
 extern struct ospf *ospf_get_instance (u_short);
+extern struct ospf *ospf_lookup_by_name (const char *name);
+extern struct ospf *ospf_lookup_by_inst_name (u_short instance, const char *name);
+extern struct ospf *ospf_lookup_by_vrf_id (vrf_id_t vrf_id);
 extern void ospf_finish (struct ospf *);
 extern void ospf_router_id_update (struct ospf *ospf);
 extern int ospf_network_set (struct ospf *, struct prefix_ipv4 *,
@@ -562,6 +568,11 @@ extern void ospf_route_map_init (void);
 
 extern void ospf_master_init (struct thread_master *master);
 
-extern int ospf_interface_set (struct interface *ifp, struct in_addr area_id);
+extern int ospf_interface_set (struct ospf *ospf, struct interface *ifp, struct in_addr area_id);
 extern int ospf_interface_unset (struct interface *ifp);
+extern void ospf_vrf_init (void);
+extern void ospf_vrf_terminate (void);
+extern void ospf_vrf_link (struct ospf *ospf, struct vrf *vrf);
+extern void ospf_vrf_unlink (struct ospf *ospf, struct vrf *vrf);
+const char *ospf_vrf_id_to_name (vrf_id_t vrf_id);
 #endif /* _ZEBRA_OSPFD_H */

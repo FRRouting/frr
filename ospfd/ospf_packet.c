@@ -927,9 +927,10 @@ ospf_hello (struct ip *iph, struct ospf_header *ospfh,
     }
   
   if (IS_DEBUG_OSPF_EVENT)
-    zlog_debug ("Packet %s [Hello:RECV]: Options %s",
+    zlog_debug ("Packet %s [Hello:RECV]: Options %s vrf %s",
 	       inet_ntoa (ospfh->router_id),
-	       ospf_options_dump (hello->options));
+	       ospf_options_dump (hello->options),
+               ospf_vrf_id_to_name (oi->ospf->vrf_id));
 
   /* Compare options. */
 #define REJECT_IF_TBIT_ON	1 /* XXX */
@@ -1562,7 +1563,7 @@ ospf_ls_req (struct ip *iph, struct ospf_header *ospfh,
 	}
 
       /* Search proper LSA in LSDB. */
-      find = ospf_lsa_lookup (oi->area, ls_type, ls_id, adv_router);
+      find = ospf_lsa_lookup (oi->ospf, oi->area, ls_type, ls_id, adv_router);
       if (find == NULL)
 	{
 	  OSPF_NSM_EVENT_SCHEDULE (nbr, NSM_BadLSReq);
@@ -2153,7 +2154,7 @@ ospf_ls_ack (struct ip *iph, struct ospf_header *ospfh,
 }
 
 static struct stream *
-ospf_recv_packet (int fd, struct interface **ifp, struct stream *ibuf)
+ospf_recv_packet (struct ospf *ospf, int fd, struct interface **ifp, struct stream *ibuf)
 {
   int ret;
   struct ip *iph;
@@ -2220,7 +2221,7 @@ ospf_recv_packet (int fd, struct interface **ifp, struct stream *ibuf)
 
   ifindex = getsockopt_ifindex (AF_INET, &msgh);
   
-  *ifp = if_lookup_by_index (ifindex, VRF_DEFAULT);
+  *ifp = if_lookup_by_index (ifindex, ospf->vrf_id);
 
   if (ret != ip_len)
     {
@@ -2777,7 +2778,7 @@ ospf_read (struct thread *thread)
   thread_add_read(master, ospf_read, ospf, ospf->fd, &ospf->t_read);
 
   stream_reset(ospf->ibuf);
-  if (!(ibuf = ospf_recv_packet (ospf->fd, &ifp, ospf->ibuf)))
+  if (!(ibuf = ospf_recv_packet (ospf, ospf->fd, &ifp, ospf->ibuf)))
     return -1;
   /* This raw packet is known to be at least as big as its IP header. */
   
@@ -2791,7 +2792,7 @@ ospf_read (struct thread *thread)
       /* Handle cases where the platform does not support retrieving the ifindex,
 	 and also platforms (such as Solaris 8) that claim to support ifindex
 	 retrieval but do not. */
-      c = if_lookup_address ((void *)&iph->ip_src, AF_INET, VRF_DEFAULT);
+      c = if_lookup_address ((void *)&iph->ip_src, AF_INET, ospf->vrf_id);
       if (c)
 	ifp = c->ifp;
       if (ifp == NULL)
@@ -3409,6 +3410,13 @@ ospf_hello_send_sub (struct ospf_interface *oi, in_addr_t addr)
 
   op->dst.s_addr = addr;
 
+  if (IS_DEBUG_OSPF_VRF)
+    {
+      if (oi->ospf->vrf_id)
+        zlog_debug ("%s: Hello Tx interface %s ospf vrf %s id %u",
+                  __PRETTY_FUNCTION__, oi->ifp->name,
+                  ospf_vrf_id_to_name (oi->ospf->vrf_id), oi->ospf->vrf_id);
+    }
   /* Add packet to the top of the interface output queue, so that they
    * can't get delayed by things like long queues of LS Update packets
    */
