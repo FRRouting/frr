@@ -142,7 +142,13 @@ Requires(preun): /sbin/install-info
 Requires(post): /sbin/install-info
 BuildRequires:  gcc texi2html texinfo patch libcap-devel groff
 BuildRequires:  readline readline-devel ncurses ncurses-devel
-BuildRequires:  json-c-devel bison >= 2.7 flex make python-devel >= 2.7
+BuildRequires:  json-c-devel bison >= 2.7 flex make
+%if 0%{?rhel} && 0%{?rhel} < 7
+#python27-devel is available from ius community repo for RedHat/CentOS 6
+BuildRequires:  python27-devel
+%else
+BuildRequires:  python-devel >= 2.7
+%endif
 Requires:       ncurses json-c initscripts
 %if %{with_pam}
 BuildRequires:  pam-devel
