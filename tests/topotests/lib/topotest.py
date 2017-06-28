@@ -42,6 +42,45 @@ from mininet.link import Intf
 
 from time import sleep
 
+
+def json_cmp(d1, d2, reason=False):
+    """
+    JSON compare function. Receives two parameters:
+    * `d1`: json value
+    * `d2`: json subset which we expect
+
+    Returns `None` when all keys that `d1` has matches `d2`,
+    otherwise a string containing what failed.
+
+    Note: key absence can be tested by adding a key with value `None`.
+    """
+    squeue = [(d1, d2)]
+    for s in squeue:
+        nd1, nd2 = s
+        s1, s2 = set(nd1), set(nd2)
+
+        # Expect all required fields to exist.
+        s2_req = set([key for key in nd2 if nd2[key] is not None])
+        diff = s2_req - s1
+        if diff != set({}):
+            return 'expected keys "{}" in "{}"'.format(diff, str(nd1))
+
+        for key in s2.intersection(s1):
+            # Test for non existence of key in d2
+            if nd2[key] is None:
+                return '"{}" should not exist in "{}"'.format(key, str(nd1))
+            # If nd1 key is a dict, we have to recurse in it later.
+            if isinstance(nd2[key], type({})):
+                squeue.append((nd1[key], nd2[key]))
+                continue
+            # Compare JSON values
+            if nd1[key] != nd2[key]:
+                return '"{}" value is different ("{}" != "{}")'.format(
+                    key, str(nd1[key]), str(nd2[key])
+                )
+
+    return None
+
 def run_and_expect(func, what, count=20, wait=3):
     """
     Run `func` and compare the result with `what`. Do it for `count` times
