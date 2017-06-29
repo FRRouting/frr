@@ -3251,6 +3251,7 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
   int is_up;
   struct ospf_neighbor *nbr;
   struct route_node *rn;
+  uint32_t bandwidth = ifp->bandwidth ? ifp->bandwidth : ifp->speed;
 
   /* Is interface up? */
   if (use_json)
@@ -3263,7 +3264,7 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
 
       json_object_int_add(json_interface_sub, "ifIndex", ifp->ifindex);
       json_object_int_add(json_interface_sub, "mtuBytes", ifp->mtu);
-      json_object_int_add(json_interface_sub, "bandwidthMbit", ifp->bandwidth);
+      json_object_int_add(json_interface_sub, "bandwidthMbit", bandwidth);
       json_object_string_add(json_interface_sub, "ifFlags", if_flag_dump(ifp->flags));
     }
   else
@@ -3271,7 +3272,7 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
       vty_out (vty, "%s is %s%s", ifp->name,
                ((is_up = if_is_operative(ifp)) ? "up" : "down"), VTY_NEWLINE);
       vty_out (vty, "  ifindex %u, MTU %u bytes, BW %u Mbit %s%s",
-               ifp->ifindex, ifp->mtu, ifp->bandwidth, if_flag_dump(ifp->flags),
+               ifp->ifindex, ifp->mtu, bandwidth, if_flag_dump(ifp->flags),
                VTY_NEWLINE);
     }
 

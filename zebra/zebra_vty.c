@@ -2087,10 +2087,10 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
           return CMD_WARNING;
         }
       if (add_cmd)
-        static_add_route (AFI_IP6, SAFI_UNICAST, type, &p, NULL, NULL, ifindex, ifname,
+        static_add_route (AFI_IP6, SAFI_UNICAST, type, &p, src_p, NULL, ifindex, ifname,
                           ZEBRA_FLAG_BLACKHOLE, tag, distance, zvrf, &snh_label);
       else
-        static_delete_route (AFI_IP6, SAFI_UNICAST, type, &p, NULL, NULL, ifindex, tag,
+        static_delete_route (AFI_IP6, SAFI_UNICAST, type, &p, src_p, NULL, ifindex, tag,
                              distance, zvrf, &snh_label);
       return CMD_SUCCESS;
     }
@@ -2220,7 +2220,6 @@ DEFUN (ipv6_route_flags,
        "IPv6 gateway address\n"
        "IPv6 gateway interface name\n"
        "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
        "Silently discard pkts when matched\n"
        "Set tag for this route\n"
        "Tag value\n"
