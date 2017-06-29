@@ -48,6 +48,7 @@ from mininet.log import setLogLevel
 from mininet.cli import CLI
 
 from lib import topotest
+from lib.topolog import logger, logger_config
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 
@@ -213,6 +214,9 @@ class Topogen(object):
         # If log_level is not specified use the configuration.
         if log_level is None:
             log_level = self.config.get('topogen', 'verbosity')
+
+        # Set python logger level
+        logger_config.set_log_level(log_level)
 
         # Run mininet
         setLogLevel(log_level)
