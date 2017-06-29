@@ -571,6 +571,10 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 		if (ch->sources)
 			list_delete(ch->sources);
 
+		THREAD_OFF(ch->t_ifjoin_expiry_timer);
+		THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
+		THREAD_OFF(ch->t_ifassert_timer);
+
 		listnode_delete(pim_ifp->pim_ifchannel_list, ch);
 		hash_release(pim_ifp->pim_ifchannel_hash, ch);
 		listnode_delete(pim_ifp->pim->ifchannel_list, ch);
