@@ -558,10 +558,11 @@ extern struct ospf_area *ospf_area_lookup_by_area_id (struct ospf *,
 extern void ospf_area_add_if (struct ospf_area *, struct ospf_interface *);
 extern void ospf_area_del_if (struct ospf_area *, struct ospf_interface *);
 
+extern void ospf_interface_area_set (struct interface *);
+extern void ospf_interface_area_unset (struct interface *);
+
 extern void ospf_route_map_init (void);
 
 extern void ospf_master_init (struct thread_master *master);
 
-extern int ospf_interface_set (struct interface *ifp, struct in_addr area_id);
-extern int ospf_interface_unset (struct interface *ifp);
 #endif /* _ZEBRA_OSPFD_H */
