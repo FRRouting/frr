@@ -21,6 +21,9 @@ def pytest_runtest_call():
     # pylint: disable=E1101
     # Trust me, 'config' exists.
     if pytest.config.getoption('--topology-only'):
-        # Allow user to play with the setup.
-        get_topogen().mininet_cli()
+        tgen = get_topogen()
+        if tgen is not None:
+            # Allow user to play with the setup.
+            tgen.mininet_cli()
+
         pytest.exit('the topology executed successfully')
