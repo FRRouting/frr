@@ -7031,7 +7031,7 @@ DEFUN (ip_ospf_area,
 
   // Check if we have an address arg and proccess it
   if (argc == idx + 3) {
-    VTY_GET_IPV4_ADDRESS("interface address", addr, argv[(idx+2)]->arg);
+    inet_aton(argv[idx+2]->arg, &addr);
     // update/create address-level params
     params = ospf_get_if_params ((ifp), (addr));
     if (OSPF_IF_PARAM_CONFIGURED(params, if_area))
@@ -7091,7 +7091,7 @@ DEFUN (no_ip_ospf_area,
 
   // Check if we have an address arg and proccess it
   if (argc == idx + 3) {
-    VTY_GET_IPV4_ADDRESS("interface address", addr, argv[(idx+2)]->arg);
+    inet_aton(argv[idx+2]->arg, &addr);
     params = ospf_lookup_if_params (ifp, addr);
     if ((params) == NULL)
       return CMD_SUCCESS;
