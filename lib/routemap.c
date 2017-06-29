@@ -521,10 +521,12 @@ generic_match_add (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          vty_out (vty, "%% [%s] Can't find rule.%s", frr_protonameinst,
+                   VTY_NEWLINE);
           return CMD_WARNING;
         case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+          vty_out (vty, "%% [%s] Argument form is unsupported or malformed.%s",
+                   frr_protonameinst, VTY_NEWLINE);
           return CMD_WARNING;
         }
     }
@@ -567,10 +569,12 @@ generic_match_delete (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_out (vty, "%% BGP Can't find rule.%s", VTY_NEWLINE);
+          vty_out (vty, "%% [%s] Can't find rule.%s", frr_protonameinst,
+                   VTY_NEWLINE);
           break;
         case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% BGP Argument is malformed.%s", VTY_NEWLINE);
+          vty_out (vty, "%% [%s] Argument form is unsupported or malformed.%s",
+                   frr_protonameinst, VTY_NEWLINE);
           break;
         }
       if (dep_name)
@@ -603,10 +607,12 @@ generic_set_add (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          vty_out (vty, "%% [%s] Can't find rule.%s", frr_protonameinst,
+                   VTY_NEWLINE);
           return CMD_WARNING;
         case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+          vty_out (vty, "%% [%s] Argument form is unsupported or malformed.%s",
+                   frr_protonameinst, VTY_NEWLINE);
           return CMD_WARNING;
         }
     }
@@ -625,10 +631,12 @@ generic_set_delete (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          vty_out (vty, "%% [%s] Can't find rule.%s", frr_protonameinst,
+                   VTY_NEWLINE);
           return CMD_WARNING;
         case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+          vty_out (vty, "%% [%s] Argument form is unsupported or malformed.%s",
+                   frr_protonameinst, VTY_NEWLINE);
           return CMD_WARNING;
         }
     }
@@ -2464,8 +2472,11 @@ DEFUN (set_metric,
   int idx_number = 2;
   VTY_DECLVAR_CONTEXT (route_map_index, index);
 
+  const char *pass = (argv[idx_number]->type == RANGE_TKN) ?
+                     argv[idx_number]->arg : argv[idx_number]->text;
+
   if (rmap_match_set_hook.set_metric)
-    return rmap_match_set_hook.set_metric (vty, index, "metric", argv[idx_number]->arg);
+    return rmap_match_set_hook.set_metric (vty, index, "metric", pass);
   return CMD_SUCCESS;
 }
 
@@ -2595,7 +2606,8 @@ DEFUN (no_route_map,
   struct route_map *map;
   struct route_map_index *index;
   char *endptr = NULL;
-  int permit = argv[idx_permit_deny]->arg[0] == 'p' ? RMAP_PERMIT : RMAP_DENY;
+  int permit = strmatch (argv[idx_permit_deny]->text, "permit") ?
+               RMAP_PERMIT : RMAP_DENY;
   const char *prefstr = argv[idx_number]->arg;
   const char *mapname = argv[idx_word]->arg;
   unsigned long pref = strtoul (prefstr, &endptr, 10);
