@@ -2423,9 +2423,8 @@ register_add (
                         VTY_NEWLINE);
                return CMD_WARNING;
              }
-           VTY_GET_INTEGER ("Logical Network ID",
-                            optary[opt_next].v.l2addr.logical_net_id,
-                            arg_vni);
+           optary[opt_next].v.l2addr.logical_net_id = strtoul(arg_vni, NULL,
+                                                              10);
 
            if ((rc = rfapiStr2EthAddr (arg_macaddr,
                                        &optary[opt_next].v.l2addr.macaddr)))
@@ -3170,8 +3169,7 @@ parse_deleter_args (
         }
       if (strcmp (arg_vni, "*"))
         {
-          VTY_GET_INTEGER ("Logical Network ID",
-                           rcdarg->l2o.o.logical_net_id, arg_vni);
+          rcdarg->l2o.o.logical_net_id = strtoul(arg_vni, NULL, 10);
           rcdarg->l2o.flags |= RFAPI_L2O_LNI;
         }
     }
@@ -5095,7 +5093,7 @@ vnc_add_vrf_prefix (struct vty *vty,
       if (arg_label)
         {
           int32_t label;
-          VTY_GET_INTEGER_RANGE ("Label value", label, arg_label, 0, MPLS_LABEL_MAX);
+          label = strtoul(arg_label, NULL, 10);
           l2o->label = label;
         }
       else

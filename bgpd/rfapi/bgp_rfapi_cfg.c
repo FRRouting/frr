@@ -545,7 +545,7 @@ DEFUN (vnc_defaults_responselifetime,
     }
   else
     {
-      VTY_GET_INTEGER ("Response Lifetime", rspint, argv[1]->arg);
+      rspint = strtoul(argv[1]->arg, NULL, 10);
       if (rspint > INT32_MAX)
         rspint = INT32_MAX;     /* is really an int, not an unsigned int */
     }
@@ -1108,8 +1108,7 @@ DEFUN (vnc_redistribute_lifetime,
     }
   else
     {
-      VTY_GET_INTEGER ("Response Lifetime", bgp->rfapi_cfg->redist_lifetime,
-                       argv[3]->arg);
+      bgp->rfapi_cfg->redist_lifetime = strtoul(argv[3]->arg, NULL, 10);
     }
 
   vnc_redistribute_postchange (bgp);
@@ -3205,7 +3204,7 @@ DEFUN (vnc_nve_group_responselifetime,
     }
   else
     {
-      VTY_GET_INTEGER ("Response Lifetime", rspint, argv[1]->arg);
+      rspint = strtoul(argv[1]->arg, NULL, 10);
     }
 
   rfg->response_lifetime = rspint;
@@ -3332,7 +3331,7 @@ DEFUN (vnc_vrf_policy_label,
       return CMD_WARNING;
     }
 
-  VTY_GET_INTEGER_RANGE ("Label value", label, argv[1]->arg, 0, MPLS_LABEL_MAX);
+  label = strtoul(argv[1]->arg, NULL, 10);
 
   if (bgp->rfapi_cfg->rfg_redist == rfg)
     {
@@ -3873,7 +3872,7 @@ DEFUN (vnc_l2_group_lni,
       return CMD_WARNING;
     }
 
-  VTY_GET_INTEGER ("logical-network-id", rfg->logical_net_id, argv[1]->arg);
+  rfg->logical_net_id = strtoul(argv[1]->arg, NULL, 10);
 
   return CMD_SUCCESS;
 }
@@ -3913,7 +3912,7 @@ DEFUN (vnc_l2_group_labels,
   for (; argc; --argc, ++argv)
     {
       uint32_t label;
-      VTY_GET_INTEGER_RANGE ("Label value", label, argv[0]->arg, 0, MPLS_LABEL_MAX);
+      label = strtoul(argv[0]->arg, NULL, 10);
       if (!listnode_lookup (ll, (void *) (uintptr_t) label))
         listnode_add (ll, (void *) (uintptr_t) label);
     }
@@ -3959,7 +3958,7 @@ DEFUN (vnc_l2_group_no_labels,
   for (; argc; --argc, ++argv)
     {
       uint32_t label;
-      VTY_GET_INTEGER_RANGE ("Label value", label, argv[0]->arg, 0, MPLS_LABEL_MAX);
+      label = strtoul(argv[0]->arg, NULL, 10);
       listnode_delete (ll, (void *) (uintptr_t) label);
     }
 

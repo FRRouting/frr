@@ -3339,7 +3339,7 @@ DEFUN (debug_rfapi_register_vn_un,
     }
   else
     {
-      VTY_GET_INTEGER ("Lifetime", lifetime, argv[10]->arg);
+      lifetime = strtoul(argv[10]->arg, NULL, 10);
     }
 
 
@@ -3428,13 +3428,12 @@ DEFUN (debug_rfapi_register_vn_un_l2o,
     }
   else
     {
-      VTY_GET_INTEGER ("Lifetime", lifetime, argv[10]->arg);
+      lifetime = strtoul(argv[10]->arg, NULL, 10);
     }
 
   /* L2 option parsing START */
   memset (optary, 0, sizeof (optary));
-  VTY_GET_INTEGER ("Logical Network ID",
-                   optary[opt_next].v.l2addr.logical_net_id, argv[14]->arg);
+  optary[opt_next].v.l2addr.logical_net_id = strtoul(argv[14]->arg, NULL, 10);
   if ((rc = rfapiStr2EthAddr (argv[12]->arg, &optary[opt_next].v.l2addr.macaddr)))
     {
       vty_out (vty, "Bad mac address \"%s\"%s", argv[12]->arg, VTY_NEWLINE);
@@ -3666,7 +3665,7 @@ DEFUN (debug_rfapi_query_vn_un_l2o,
       return CMD_WARNING;
     }
 
-  VTY_GET_INTEGER ("Logical Network ID", l2o_buf.logical_net_id, argv[8]->arg);
+  l2o_buf.logical_net_id = strtoul(argv[8]->arg, NULL, 10);
 
   /* construct option chain */
 

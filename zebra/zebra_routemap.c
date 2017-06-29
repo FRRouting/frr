@@ -419,7 +419,7 @@ DEFUN (zebra_route_map_timer,
   int idx_number = 3;
   u_int32_t rmap_delay_timer;
 
-  VTY_GET_INTEGER_RANGE ("delay-timer", rmap_delay_timer, argv[idx_number]->arg, 0, 600);
+  rmap_delay_timer = strtoul(argv[idx_number]->arg, NULL, 10);
   zebra_route_map_set_delay_timer(rmap_delay_timer);
 
   return (CMD_SUCCESS);

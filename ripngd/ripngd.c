@@ -2534,9 +2534,9 @@ DEFUN (ripng_timers,
   unsigned long timeout;
   unsigned long garbage;
 
-  VTY_GET_INTEGER_RANGE("update timer", update, argv[idx_number]->arg, 0, 65535);
-  VTY_GET_INTEGER_RANGE("timeout timer", timeout, argv[idx_number_2]->arg, 0, 65535);
-  VTY_GET_INTEGER_RANGE("garbage timer", garbage, argv[idx_number_3]->arg, 0, 65535);
+  update = strtoul(argv[idx_number]->arg, NULL, 10);
+  timeout = strtoul(argv[idx_number_2]->arg, NULL, 10);
+  garbage = strtoul(argv[idx_number_3]->arg, NULL, 10);
 
   /* Set each timer value. */
   ripng->update_time = update;

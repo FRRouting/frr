@@ -291,7 +291,7 @@ DEFUN_NOSH (key,
   struct key *key;
   u_int32_t index;
 
-  VTY_GET_INTEGER ("key identifier", index, argv[idx_number]->arg);
+  index = strtoul (argv[idx_number]->arg, NULL, 10);
   key = key_get (keychain, index);
   VTY_PUSH_CONTEXT_SUB (KEYCHAIN_KEY_NODE, key);
   
@@ -310,7 +310,7 @@ DEFUN (no_key,
   struct key *key;
   u_int32_t index;
   
-  VTY_GET_INTEGER ("key identifier", index, argv[idx_number]->arg);
+  index = strtoul(argv[idx_number]->arg, NULL, 10);
   key = key_lookup (keychain, index);
   if (! key)
     {
@@ -517,7 +517,7 @@ key_lifetime_duration_set (struct vty *vty, struct key_range *krange,
     }
   krange->start = time_start;
 
-  VTY_GET_INTEGER ("duration", duration, duration_str);
+  duration = strtoul(duration_str, NULL, 10);
   krange->duration = 1;
   krange->end = time_start + duration;
 

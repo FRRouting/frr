@@ -320,7 +320,7 @@ DEFUN_NOSH (ns_netns,
   if (!pathname)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER ("NS ID", ns_id, argv[idx_number]->arg);
+  ns_id = strtoul (argv[idx_number]->arg, NULL, 10);
   ns = ns_get (ns_id);
 
   if (ns->name && strcmp (ns->name, pathname) != 0)
@@ -361,7 +361,7 @@ DEFUN (no_ns_netns,
   if (!pathname)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER ("NS ID", ns_id, argv[idx_number]->arg);
+  ns_id = strtoul(argv[idx_number]->arg, NULL, 10);
   ns = ns_lookup (ns_id);
 
   if (!ns)

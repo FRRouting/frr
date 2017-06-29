@@ -233,7 +233,7 @@ DEFUN(nhrp_nflog_group, nhrp_nflog_group_cmd,
 {
 	uint32_t nfgroup;
 
-	VTY_GET_INTEGER_RANGE("nflog-group", nfgroup, argv[2]->arg, 1, 65535);
+	nfgroup = strtoul(argv[2]->arg, NULL, 10);
 	netlink_set_nflog_group(nfgroup);
 
 	return CMD_SUCCESS;
@@ -312,7 +312,7 @@ DEFUN(if_nhrp_network_id, if_nhrp_network_id_cmd,
 	struct nhrp_interface *nifp = ifp->info;
 	afi_t afi = cmd_to_afi(argv[0]);
 
-	VTY_GET_INTEGER_RANGE("network-id", nifp->afi[afi].network_id, argv[3]->arg, 1, 4294967295);
+	nifp->afi[afi].network_id = strtoul(argv[3]->arg, NULL, 10);
 	nhrp_interface_update(ifp);
 
 	return CMD_SUCCESS;
@@ -407,7 +407,7 @@ DEFUN(if_nhrp_holdtime, if_nhrp_holdtime_cmd,
 	struct nhrp_interface *nifp = ifp->info;
 	afi_t afi = cmd_to_afi(argv[0]);
 
-	VTY_GET_INTEGER_RANGE("holdtime", nifp->afi[afi].holdtime, argv[3]->arg, 1, 65000);
+	nifp->afi[afi].holdtime = strtoul(argv[3]->arg, NULL, 10);
 	nhrp_interface_update(ifp);
 
 	return CMD_SUCCESS;
@@ -445,7 +445,8 @@ DEFUN(if_nhrp_mtu, if_nhrp_mtu_cmd,
 	if (argv[3]->arg[0] == 'o') {
 		nifp->afi[AFI_IP].configured_mtu = -1;
 	} else {
-		VTY_GET_INTEGER_RANGE("mtu", nifp->afi[AFI_IP].configured_mtu, argv[3]->arg, 576, 1500);
+		nifp->afi[AFI_IP].configured_mtu = strtoul(argv[3]->arg, NULL,
+							   10);
 	}
 	nhrp_interface_update_mtu(ifp, AFI_IP);
 

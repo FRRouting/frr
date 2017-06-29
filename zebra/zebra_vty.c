@@ -106,7 +106,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
 
   /* tag */
   if (tag_str)
-    VTY_GET_INTEGER_RANGE("tag", tag, tag_str, 0, 4294967295);
+    tag = strtoul(tag_str, NULL, 10);
 
   /* VRF id */
   zvrf = zebra_vrf_lookup_by_name (vrf_id_str);
@@ -1402,7 +1402,7 @@ DEFUN (show_ip_route,
     }
 
   if (argv_find (argv, argc, "tag", &idx))
-    VTY_GET_INTEGER_RANGE("tag", tag, argv[idx+1]->arg, 0, 4294967295);
+    tag = strtoul(argv[idx + 1]->arg, NULL, 10);
 
   else if (argv_find (argv, argc, "A.B.C.D/M", &idx))
     {
@@ -1443,7 +1443,7 @@ DEFUN (show_ip_route,
         type = proto_redistnum (AFI_IP, argv[idx]->text);
 
       if (argv_find (argv, argc, "(1-65535)", &idx))
-        VTY_GET_INTEGER ("Instance", ospf_instance_id, argv[idx]->arg);
+        ospf_instance_id = strtoul(argv[idx]->arg, NULL, 10);
 
       if (type < 0)
         {
@@ -2031,7 +2031,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
 
   /* tag */
   if (tag_str)
-    VTY_GET_INTEGER_RANGE("tag", tag, tag_str, 0, 4294967295);
+    tag = strtoul(tag_str, NULL, 10);
 
   /* When gateway is valid IPv6 addrees, then gate is treated as
      nexthop address other case gate is treated as interface name. */
@@ -2606,7 +2606,7 @@ DEFUN (show_ipv6_route,
     }
 
   if (argv_find (argv, argc, "tag", &idx))
-    VTY_GET_INTEGER_RANGE("tag", tag, argv[idx+1]->arg, 0, 4294967295);
+    tag = strtoul(argv[idx + 1]->arg, NULL, 10);
 
   else if (argv_find (argv, argc, "X:X::X:X/M", &idx))
     {
@@ -3097,14 +3097,14 @@ DEFUN (ip_zebra_import_table_distance,
 {
   u_int32_t table_id = 0;
 
-  VTY_GET_INTEGER("table", table_id, argv[2]->arg);
+  table_id = strtoul(argv[2]->arg, NULL, 10);
   int distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
   char *rmap = strmatch (argv[argc - 2]->text, "route-map") ?
                XSTRDUP(MTYPE_ROUTE_MAP_NAME, argv[argc - 1]->arg) : NULL;
   int ret;
 
   if (argc == 7 || (argc == 5 && !rmap))
-    VTY_GET_INTEGER_RANGE("distance", distance, argv[4]->arg, 1, 255);
+    distance = strtoul(argv[4]->arg, NULL, 10);
 
   if (!is_zebra_valid_kernel_table(table_id))
     {
@@ -3140,7 +3140,7 @@ DEFUN (no_ip_zebra_import_table,
        "route-map name\n")
 {
   u_int32_t table_id = 0;
-  VTY_GET_INTEGER("table", table_id, argv[3]->arg);
+  table_id = strtoul(argv[3]->arg, NULL, 10);
 
   if (!is_zebra_valid_kernel_table(table_id))
     {

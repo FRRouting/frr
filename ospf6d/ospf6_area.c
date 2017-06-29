@@ -480,7 +480,7 @@ DEFUN (area_range,
 	}
       else
 	{
-	  VTY_GET_INTEGER_RANGE ("cost", cost, argv[5]->arg, 0, OSPF_LS_INFINITY);
+	  cost = strtoul(argv[5]->arg, NULL, 10);
 	  UNSET_FLAG (range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
 	}
     }
