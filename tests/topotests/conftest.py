@@ -3,6 +3,7 @@ Topotest conftest.py file.
 """
 
 from lib.topogen import get_topogen
+from lib.topotest import json_cmp_result
 import pytest
 
 def pytest_addoption(parser):
@@ -27,3 +28,15 @@ def pytest_runtest_call():
             tgen.mininet_cli()
 
         pytest.exit('the topology executed successfully')
+
+def pytest_assertrepr_compare(op, left, right):
+    """
+    Show proper assertion error message for json_cmp results.
+    """
+    json_result = left
+    if not isinstance(json_result, json_cmp_result):
+        json_result = right
+        if not isinstance(json_result, json_cmp_result):
+            return None
+
+    return json_result.errors

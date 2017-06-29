@@ -42,6 +42,20 @@ from mininet.link import Intf
 
 from time import sleep
 
+class json_cmp_result(object):
+    "json_cmp result class for better assertion messages"
+
+    def __init__(self):
+        self.errors = []
+
+    def add_error(self, error):
+        "Append error message to the result"
+        self.errors.append(error)
+
+    def has_errors(self):
+        "Returns True if there were errors, otherwise False."
+        return len(self.errors) > 0
+
 
 def json_cmp(d1, d2, reason=False):
     """
@@ -54,30 +68,39 @@ def json_cmp(d1, d2, reason=False):
 
     Note: key absence can be tested by adding a key with value `None`.
     """
-    squeue = [(d1, d2)]
+    squeue = [(d1, d2, 'json')]
+    result = json_cmp_result()
     for s in squeue:
-        nd1, nd2 = s
+        nd1, nd2, parent = s
         s1, s2 = set(nd1), set(nd2)
 
         # Expect all required fields to exist.
         s2_req = set([key for key in nd2 if nd2[key] is not None])
         diff = s2_req - s1
         if diff != set({}):
-            return 'expected keys "{}" in "{}"'.format(diff, str(nd1))
+            result.add_error('expected key(s) {} in {} (have {})'.format(
+                str(list(diff)), parent, str(list(s1))))
 
         for key in s2.intersection(s1):
             # Test for non existence of key in d2
             if nd2[key] is None:
-                return '"{}" should not exist in "{}"'.format(key, str(nd1))
+                result.add_error('"{}" should not exist in {} (have {})'.format(
+                    key, parent, str(s1)))
+                continue
             # If nd1 key is a dict, we have to recurse in it later.
             if isinstance(nd2[key], type({})):
-                squeue.append((nd1[key], nd2[key]))
+                nparent = '{}["{}"]'.format(parent, key)
+                squeue.append((nd1[key], nd2[key], nparent))
                 continue
             # Compare JSON values
             if nd1[key] != nd2[key]:
-                return '"{}" value is different ("{}" != "{}")'.format(
-                    key, str(nd1[key]), str(nd2[key])
-                )
+                result.add_error(
+                    '{}["{}"] value is different (have "{}", expected "{}")'.format(
+                        parent, key, str(nd1[key]), str(nd2[key])))
+                continue
+
+    if result.has_errors():
+        return result
 
     return None
 
