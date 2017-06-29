@@ -307,11 +307,11 @@ ospf_bfd_write_config(struct vty *vty, struct ospf_if_params *params)
   bfd_info = (struct bfd_info *)params->bfd_info;
 
   if (CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG))
-    vty_out (vty, " ip ospf bfd %d %d %d%s",
+    vty_outln (vty, " ip ospf bfd %d %d %d",
               bfd_info->detect_mult, bfd_info->required_min_rx,
-              bfd_info->desired_min_tx, VTY_NEWLINE);
+              bfd_info->desired_min_tx);
   else
-    vty_out (vty, " ip ospf bfd%s", VTY_NEWLINE);
+    vty_outln (vty, " ip ospf bfd");
 }
 
 /*

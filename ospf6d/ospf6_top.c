@@ -813,8 +813,7 @@ ospf6_show (struct vty *vty, struct ospf6 *o)
   /* Redistribute configuration */
   /* XXX */
 
-  vty_out (vty, " LSA minimum arrival %d msecs%s", o->lsa_minarrival,
-           VTY_NEWLINE);
+  vty_outln (vty, " LSA minimum arrival %d msecs",o->lsa_minarrival);
 
   /* Show SPF parameters */
   vty_out(vty, " Initial SPF scheduling delay %d millisec(s)%s"
@@ -857,12 +856,12 @@ ospf6_show (struct vty *vty, struct ospf6 *o)
   if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES))
     {
       if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_DETAIL))
-	vty_out(vty, " All adjacency changes are logged%s",VTY_NEWLINE);
+	vty_outln (vty, " All adjacency changes are logged");
       else
-	vty_out(vty, " Adjacency changes are logged%s",VTY_NEWLINE);
+	vty_outln (vty, " Adjacency changes are logged");
     }
 
-  vty_out (vty, "%s",VTY_NEWLINE);
+  vty_out (vty, VTYNL);
 
   for (ALL_LIST_ELEMENTS_RO (o->area_list, n, oa))
     ospf6_area_show (vty, oa);
@@ -978,7 +977,7 @@ ospf6_distance_config_write (struct vty *vty)
   struct ospf6_distance *odistance;
 
   if (ospf6->distance_all)
-    vty_out (vty, " distance %u%s", ospf6->distance_all, VTY_NEWLINE);
+    vty_outln (vty, " distance %u", ospf6->distance_all);
 
   if (ospf6->distance_intra
       || ospf6->distance_inter
@@ -993,7 +992,7 @@ ospf6_distance_config_write (struct vty *vty)
       if (ospf6->distance_external)
         vty_out (vty, " external %u", ospf6->distance_external);
 
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_out (vty, VTYNL);
     }
 
   for (rn = route_top (ospf6->distance_table); rn; rn = route_next (rn))
@@ -1001,10 +1000,9 @@ ospf6_distance_config_write (struct vty *vty)
       {
 	char buf[PREFIX_STRLEN];
 
-        vty_out (vty, " distance %u %s %s%s", odistance->distance,
+        vty_outln (vty, " distance %u %s %s", odistance->distance,
 		 prefix2str (&rn->p, buf, sizeof (buf)),
-                 odistance->access_list ? odistance->access_list : "",
-                 VTY_NEWLINE);
+                 odistance->access_list ? odistance->access_list : "");
       }
   return 0;
 }
@@ -1031,13 +1029,13 @@ config_write_ospf6 (struct vty *vty)
   if (CHECK_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES))
     {
       if (CHECK_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL))
-        vty_out(vty, " log-adjacency-changes detail%s", VTY_NEWLINE);
+        vty_outln (vty, " log-adjacency-changes detail");
       else if (!DFLT_OSPF6_LOG_ADJACENCY_CHANGES)
-        vty_out(vty, " log-adjacency-changes%s", VTY_NEWLINE);
+        vty_outln (vty, " log-adjacency-changes");
     }
   else if (DFLT_OSPF6_LOG_ADJACENCY_CHANGES)
     {
-      vty_out(vty, " no log-adjacency-changes%s", VTY_NEWLINE);
+      vty_outln (vty, " no log-adjacency-changes");
     }
 
   if (ospf6->ref_bandwidth != OSPF6_REFERENCE_BANDWIDTH)
@@ -1046,8 +1044,7 @@ config_write_ospf6 (struct vty *vty)
 
   /* LSA timers print. */
   if (ospf6->lsa_minarrival != OSPF_MIN_LS_ARRIVAL)
-    vty_out (vty, " timers lsa min-arrival %d%s", ospf6->lsa_minarrival,
-             VTY_NEWLINE);
+    vty_outln (vty, " timers lsa min-arrival %d",ospf6->lsa_minarrival);
 
   ospf6_stub_router_config_write (vty);
   ospf6_redistribute_config_write (vty);

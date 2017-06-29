@@ -41,8 +41,7 @@ DEFUN(config_write_integrated,
 	sigset_t oldmask, sigmask;
 
 	if (integrated_write_pid != -1) {
-		vty_out(vty, "%% configuration write already in progress.%s",
-			VTY_NEWLINE);
+		vty_outln (vty,"%% configuration write already in progress.");
 		return CMD_WARNING;
 	}
 
@@ -60,8 +59,8 @@ DEFUN(config_write_integrated,
 
 	child = fork();
 	if (child == -1) {
-		vty_out(vty, "%% configuration write fork() failed: %s.%s",
-			safe_strerror(errno), VTY_NEWLINE);
+		vty_outln (vty, "%% configuration write fork() failed: %s.",
+			safe_strerror(errno));
 		sigprocmask(SIG_SETMASK, &oldmask, NULL);
 		return CMD_WARNING;
 	}

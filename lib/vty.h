@@ -156,7 +156,7 @@ static inline void vty_push_context(struct vty *vty,
 #define VTY_CHECK_CONTEXT(ptr) \
 	if (!ptr) { \
 		vty_out (vty, "Current configuration object was deleted " \
-				"by another process.%s", VTY_NEWLINE); \
+				"by another process.%s", VTYNL); \
 		return CMD_WARNING; \
 	}
 
@@ -180,7 +180,7 @@ struct vty_arg
 #define INTEGRATE_DEFAULT_CONFIG "frr.conf"
 
 /* Small macro to determine newline is newline only or linefeed needed. */
-#define VTY_NEWLINE  ((vty->type == VTY_TERM) ? "\r\n" : "\n")
+#define VTYNL  ((vty->type == VTY_TERM) ? "\r\n" : "\n")
 
 /* Default time out value */
 #define VTY_TIMEOUT_DEFAULT 600
@@ -215,6 +215,7 @@ extern void vty_reset (void);
 extern struct vty *vty_new (void);
 extern struct vty *vty_stdio (void (*atclose)(void));
 extern int vty_out (struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
+extern int vty_outln (struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
 extern void vty_read_config (const char *, char *);
 extern void vty_time_print (struct vty *, int);
 extern void vty_serv_sock (const char *, unsigned short, const char *);

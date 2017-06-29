@@ -34,31 +34,28 @@ DEFUN (show_debugging_rip,
        DEBUG_STR
        RIP_STR)
 {
-  vty_out (vty, "RIP debugging status:%s", VTY_NEWLINE);
+  vty_outln (vty, "RIP debugging status:");
 
   if (IS_RIP_DEBUG_EVENT)
-    vty_out (vty, "  RIP event debugging is on%s", VTY_NEWLINE);
+    vty_outln (vty, "  RIP event debugging is on");
 
   if (IS_RIP_DEBUG_PACKET)
     {
       if (IS_RIP_DEBUG_SEND && IS_RIP_DEBUG_RECV)
 	{
-	  vty_out (vty, "  RIP packet debugging is on%s",
-		   VTY_NEWLINE);
+	  vty_outln (vty,"  RIP packet debugging is on");
 	}
       else
 	{
 	  if (IS_RIP_DEBUG_SEND)
-	    vty_out (vty, "  RIP packet send debugging is on%s",
-		     VTY_NEWLINE);
+	    vty_outln (vty,"  RIP packet send debugging is on");
 	  else
-	    vty_out (vty, "  RIP packet receive debugging is on%s",
-		     VTY_NEWLINE);
+	    vty_outln (vty,"  RIP packet receive debugging is on");
 	}
     }
 
   if (IS_RIP_DEBUG_ZEBRA)
-    vty_out (vty, "  RIP zebra debugging is on%s", VTY_NEWLINE);
+    vty_outln (vty, "  RIP zebra debugging is on");
 
   return CMD_SUCCESS;
 }
@@ -195,31 +192,28 @@ config_write_debug (struct vty *vty)
 
   if (IS_RIP_DEBUG_EVENT)
     {
-      vty_out (vty, "debug rip events%s", VTY_NEWLINE);
+      vty_outln (vty, "debug rip events");
       write++;
     }
   if (IS_RIP_DEBUG_PACKET)
     {
       if (IS_RIP_DEBUG_SEND && IS_RIP_DEBUG_RECV)
 	{
-	  vty_out (vty, "debug rip packet%s",
-		   VTY_NEWLINE);
+	  vty_outln (vty,"debug rip packet");
 	  write++;
 	}
       else
 	{
 	  if (IS_RIP_DEBUG_SEND)
-	    vty_out (vty, "debug rip packet send%s",
-		     VTY_NEWLINE);
+	    vty_outln (vty,"debug rip packet send");
 	  else
-	    vty_out (vty, "debug rip packet recv%s",
-		     VTY_NEWLINE);
+	    vty_outln (vty,"debug rip packet recv");
 	  write++;
 	}
     }
   if (IS_RIP_DEBUG_ZEBRA)
     {
-      vty_out (vty, "debug rip zebra%s", VTY_NEWLINE);
+      vty_outln (vty, "debug rip zebra");
       write++;
     }
   return write;

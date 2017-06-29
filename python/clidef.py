@@ -142,8 +142,8 @@ $argdecls
 			continue;
 		_fail = 0;$argblocks
 		if (_fail)
-			vty_out (vty, "%% invalid input for %s: %s%s",
-				argv[_i]->varname, argv[_i]->arg, VTY_NEWLINE);
+			vty_outln (vty, "%% invalid input for %s: %s",
+				   argv[_i]->varname, argv[_i]->arg);
 		_failcnt += _fail;
 	}
 	if (_failcnt)

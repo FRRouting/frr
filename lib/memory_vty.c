@@ -44,36 +44,26 @@ show_memory_mallinfo (struct vty *vty)
   struct mallinfo minfo = mallinfo();
   char buf[MTYPE_MEMSTR_LEN];
   
-  vty_out (vty, "System allocator statistics:%s", VTY_NEWLINE);
-  vty_out (vty, "  Total heap allocated:  %s%s",
-           mtype_memstr (buf, MTYPE_MEMSTR_LEN, minfo.arena),
-           VTY_NEWLINE);
-  vty_out (vty, "  Holding block headers: %s%s",
-           mtype_memstr (buf, MTYPE_MEMSTR_LEN, minfo.hblkhd),
-           VTY_NEWLINE);
-  vty_out (vty, "  Used small blocks:     %s%s",
-           mtype_memstr (buf, MTYPE_MEMSTR_LEN, minfo.usmblks),
-           VTY_NEWLINE);
-  vty_out (vty, "  Used ordinary blocks:  %s%s",
-           mtype_memstr (buf, MTYPE_MEMSTR_LEN, minfo.uordblks),
-           VTY_NEWLINE);
-  vty_out (vty, "  Free small blocks:     %s%s",
-           mtype_memstr (buf, MTYPE_MEMSTR_LEN, minfo.fsmblks),
-           VTY_NEWLINE);
-  vty_out (vty, "  Free ordinary blocks:  %s%s",
-           mtype_memstr (buf, MTYPE_MEMSTR_LEN, minfo.fordblks),
-           VTY_NEWLINE);
-  vty_out (vty, "  Ordinary blocks:       %ld%s",
-           (unsigned long)minfo.ordblks,
-           VTY_NEWLINE);
-  vty_out (vty, "  Small blocks:          %ld%s",
-           (unsigned long)minfo.smblks,
-           VTY_NEWLINE);
-  vty_out (vty, "  Holding blocks:        %ld%s",
-           (unsigned long)minfo.hblks,
-           VTY_NEWLINE);
-  vty_out (vty, "(see system documentation for 'mallinfo' for meaning)%s",
-           VTY_NEWLINE);
+  vty_outln (vty, "System allocator statistics:");
+  vty_outln (vty, "  Total heap allocated:  %s",
+           mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.arena));
+  vty_outln (vty, "  Holding block headers: %s",
+           mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.hblkhd));
+  vty_outln (vty, "  Used small blocks:     %s",
+           mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.usmblks));
+  vty_outln (vty, "  Used ordinary blocks:  %s",
+           mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.uordblks));
+  vty_outln (vty, "  Free small blocks:     %s",
+           mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.fsmblks));
+  vty_outln (vty, "  Free ordinary blocks:  %s",
+           mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.fordblks));
+  vty_outln (vty, "  Ordinary blocks:       %ld",
+           (unsigned long)minfo.ordblks);
+  vty_outln (vty, "  Small blocks:          %ld",
+           (unsigned long)minfo.smblks);
+  vty_outln (vty, "  Holding blocks:        %ld",
+           (unsigned long)minfo.hblks);
+  vty_outln (vty,"(see system documentation for 'mallinfo' for meaning)");
   return 1;
 }
 #endif /* HAVE_MALLINFO */
@@ -82,16 +72,14 @@ static int qmem_walker(void *arg, struct memgroup *mg, struct memtype *mt)
 {
 	struct vty *vty = arg;
 	if (!mt)
-		vty_out (vty, "--- qmem %s ---%s", mg->name, VTY_NEWLINE);
+		vty_outln (vty, "--- qmem %s ---", mg->name);
 	else {
 		if (mt->n_alloc != 0) {
 			char size[32];
 			snprintf(size, sizeof(size), "%6zu", mt->size);
-			vty_out (vty, "%-30s: %10zu  %s%s",
+			vty_outln (vty, "%-30s: %10zu  %s",
 				 mt->name, mt->n_alloc,
-				 mt->size == 0 ? "" :
-				 mt->size == SIZE_VAR ? "(variably sized)" :
-				 size, VTY_NEWLINE);
+				 mt->size == 0 ? "" : mt->size == SIZE_VAR ? "(variably sized)" : size);
 		}
 	}
 	return 0;
@@ -120,15 +108,14 @@ DEFUN (show_modules,
 {
   struct frrmod_runtime *plug = frrmod_list;
 
-  vty_out (vty, "%-12s %-25s %s%s%s",
+  vty_outln (vty, "%-12s %-25s %s%s",
                 "Module Name", "Version", "Description",
-                VTY_NEWLINE, VTY_NEWLINE);
+                VTYNL);
   while (plug)
     {
       const struct frrmod_info *i = plug->info;
 
-      vty_out (vty, "%-12s %-25s %s%s", i->name, i->version, i->description,
-                    VTY_NEWLINE);
+      vty_outln (vty, "%-12s %-25s %s", i->name, i->version,i->description);
       if (plug->dl_handle)
         {
 #ifdef HAVE_DLINFO_ORIGIN
@@ -142,13 +129,13 @@ DEFUN (show_modules,
             {
               name = strrchr(lm->l_name, '/');
               name = name ? name + 1 : lm->l_name;
-              vty_out (vty, "\tfrom: %s/%s%s", origin, name, VTY_NEWLINE);
+              vty_outln (vty, "\tfrom: %s/%s", origin, name);
             }
 # else
-          vty_out (vty, "\tfrom: %s %s", origin, plug->load_name, VTY_NEWLINE);
+          vty_outln (vty, "\tfrom: %s ", origin, plug->load_name);
 # endif
 #else
-          vty_out (vty, "\tfrom: %s%s", plug->load_name, VTY_NEWLINE);
+          vty_outln (vty, "\tfrom: %s", plug->load_name);
 #endif
         }
       plug = plug->next;

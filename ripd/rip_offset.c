@@ -117,7 +117,7 @@ rip_offset_list_set (struct vty *vty, const char *alist, const char *direct_str,
     direct = RIP_OFFSET_LIST_OUT;
   else
     {
-      vty_out (vty, "Invalid direction: %s%s", direct_str, VTY_NEWLINE);
+      vty_outln (vty, "Invalid direction: %s", direct_str);
       return CMD_WARNING;
     }
 
@@ -125,7 +125,7 @@ rip_offset_list_set (struct vty *vty, const char *alist, const char *direct_str,
   metric = atoi (metric_str);
   if (metric < 0 || metric > 16)
     {
-      vty_out (vty, "Invalid metric: %s%s", metric_str, VTY_NEWLINE);
+      vty_outln (vty, "Invalid metric: %s", metric_str);
       return CMD_WARNING;
     }
 
@@ -156,7 +156,7 @@ rip_offset_list_unset (struct vty *vty, const char *alist,
     direct = RIP_OFFSET_LIST_OUT;
   else
     {
-      vty_out (vty, "Invalid direction: %s%s", direct_str, VTY_NEWLINE);
+      vty_outln (vty, "Invalid direction: %s", direct_str);
       return CMD_WARNING;
     }
 
@@ -164,7 +164,7 @@ rip_offset_list_unset (struct vty *vty, const char *alist,
   metric = atoi (metric_str);
   if (metric < 0 || metric > 16)
     {
-      vty_out (vty, "Invalid metric: %s%s", metric_str, VTY_NEWLINE);
+      vty_outln (vty, "Invalid metric: %s", metric_str);
       return CMD_WARNING;
     }
 
@@ -188,7 +188,7 @@ rip_offset_list_unset (struct vty *vty, const char *alist,
     }
   else
     {
-      vty_out (vty, "Can't find offset-list%s", VTY_NEWLINE);
+      vty_outln (vty, "Can't find offset-list");
       return CMD_WARNING;
     }
   return CMD_SUCCESS;
@@ -397,28 +397,26 @@ config_write_rip_offset_list (struct vty *vty)
       if (! offset->ifname)
 	{
 	  if (offset->direct[RIP_OFFSET_LIST_IN].alist_name)
-	    vty_out (vty, " offset-list %s in %d%s",
+	    vty_outln (vty, " offset-list %s in %d",
 		     offset->direct[RIP_OFFSET_LIST_IN].alist_name,
-		     offset->direct[RIP_OFFSET_LIST_IN].metric,
-		     VTY_NEWLINE);
+		     offset->direct[RIP_OFFSET_LIST_IN].metric);
 	  if (offset->direct[RIP_OFFSET_LIST_OUT].alist_name)
-	    vty_out (vty, " offset-list %s out %d%s",
+	    vty_outln (vty, " offset-list %s out %d",
 		     offset->direct[RIP_OFFSET_LIST_OUT].alist_name,
-		     offset->direct[RIP_OFFSET_LIST_OUT].metric,
-		     VTY_NEWLINE);
+		     offset->direct[RIP_OFFSET_LIST_OUT].metric);
 	}
       else
 	{
 	  if (offset->direct[RIP_OFFSET_LIST_IN].alist_name)
-	    vty_out (vty, " offset-list %s in %d %s%s",
+	    vty_outln (vty, " offset-list %s in %d %s",
 		     offset->direct[RIP_OFFSET_LIST_IN].alist_name,
 		     offset->direct[RIP_OFFSET_LIST_IN].metric,
-		     offset->ifname, VTY_NEWLINE);
+		     offset->ifname);
 	  if (offset->direct[RIP_OFFSET_LIST_OUT].alist_name)
-	    vty_out (vty, " offset-list %s out %d %s%s",
+	    vty_outln (vty, " offset-list %s out %d %s",
 		     offset->direct[RIP_OFFSET_LIST_OUT].alist_name,
 		     offset->direct[RIP_OFFSET_LIST_OUT].metric,
-		     offset->ifname, VTY_NEWLINE);
+		     offset->ifname);
 	}
     }
 

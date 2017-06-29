@@ -290,8 +290,8 @@ DEFUN (babel_network,
         ret = babel_enable_if_add (argv[1]->arg);
 
     if (ret < 0) {
-        vty_out (vty, "There is same network configuration %s%s", argv[1]->arg,
-                 VTY_NEWLINE);
+        vty_outln (vty, "There is same network configuration %s",
+                   argv[1]->arg);
         return CMD_WARNING;
     }
 
@@ -318,8 +318,7 @@ DEFUN (no_babel_network,
         ret = babel_enable_if_delete (argv[2]->arg);
 
     if (ret < 0) {
-        vty_out (vty, "can't find network %s%s", argv[2]->arg,
-                 VTY_NEWLINE);
+        vty_outln (vty, "can't find network %s",argv[2]->arg);
         return CMD_WARNING;
     }
 
@@ -862,30 +861,31 @@ show_babel_interface_sub (struct vty *vty, struct interface *ifp)
   int is_up;
   babel_interface_nfo *babel_ifp;
 
-  vty_out (vty, "%s is %s%s", ifp->name,
-    ((is_up = if_is_operative(ifp)) ? "up" : "down"), VTY_NEWLINE);
-  vty_out (vty, "  ifindex %u, MTU %u bytes %s%s",
-    ifp->ifindex, MIN(ifp->mtu, ifp->mtu6), if_flag_dump(ifp->flags), VTY_NEWLINE);
+  vty_outln (vty, "%s is %s", ifp->name,
+    ((is_up = if_is_operative(ifp)) ? "up" : "down"));
+  vty_outln (vty, "  ifindex %u, MTU %u bytes %s",
+    ifp->ifindex, MIN(ifp->mtu, ifp->mtu6), if_flag_dump(ifp->flags));
 
   if (!IS_ENABLE(ifp))
   {
-    vty_out (vty, "  Babel protocol is not enabled on this interface%s", VTY_NEWLINE);
+    vty_outln (vty, "  Babel protocol is not enabled on this interface");
     return;
   }
   if (!is_up)
   {
-    vty_out (vty, "  Babel protocol is enabled, but not running on this interface%s", VTY_NEWLINE);
+    vty_outln (vty,
+               "  Babel protocol is enabled, but not running on this interface");
     return;
   }
   babel_ifp = babel_get_if_nfo (ifp);
-  vty_out (vty, "  Babel protocol is running on this interface%s", VTY_NEWLINE);
-  vty_out (vty, "  Operating mode is \"%s\"%s",
-           CHECK_FLAG (babel_ifp->flags, BABEL_IF_WIRED) ? "wired" : "wireless", VTY_NEWLINE);
-  vty_out (vty, "  Split horizon mode is %s%s",
-           CHECK_FLAG (babel_ifp->flags, BABEL_IF_SPLIT_HORIZON) ? "On" : "Off", VTY_NEWLINE);
-  vty_out (vty, "  Hello interval is %u ms%s", babel_ifp->hello_interval, VTY_NEWLINE);
-  vty_out (vty, "  Update interval is %u ms%s", babel_ifp->update_interval, VTY_NEWLINE);
-  vty_out (vty, "  Rxcost multiplier is %u%s", babel_ifp->cost, VTY_NEWLINE);
+  vty_outln (vty, "  Babel protocol is running on this interface");
+  vty_outln (vty, "  Operating mode is \"%s\"",
+           CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED) ? "wired" : "wireless");
+  vty_outln (vty, "  Split horizon mode is %s",
+           CHECK_FLAG(babel_ifp->flags, BABEL_IF_SPLIT_HORIZON) ? "On" : "Off");
+  vty_outln (vty, "  Hello interval is %u ms", babel_ifp->hello_interval);
+  vty_outln (vty, "  Update interval is %u ms", babel_ifp->update_interval);
+  vty_outln (vty, "  Rxcost multiplier is %u", babel_ifp->cost);
 }
 
 DEFUN (show_babel_interface,
@@ -907,7 +907,7 @@ DEFUN (show_babel_interface,
   }
   if ((ifp = if_lookup_by_name (argv[3]->arg, VRF_DEFAULT)) == NULL)
   {
-    vty_out (vty, "No such interface name%s", VTY_NEWLINE);
+    vty_outln (vty, "No such interface name");
     return CMD_WARNING;
   }
   show_babel_interface_sub (vty, ifp);
@@ -917,9 +917,9 @@ DEFUN (show_babel_interface,
 static void
 show_babel_neighbour_sub (struct vty *vty, struct neighbour *neigh)
 {
-    vty_out (vty,
+    vty_outln (vty,
              "Neighbour %s dev %s reach %04x rxcost %d txcost %d "
-             "rtt %s rttcost %d%s.%s",
+             "rtt %s rttcost %d%s.",
              format_address(neigh->address),
              neigh->ifp->name,
              neigh->reach,
@@ -927,8 +927,7 @@ show_babel_neighbour_sub (struct vty *vty, struct neighbour *neigh)
              neigh->txcost,
              format_thousands(neigh->rtt),
              neighbour_rttcost(neigh),
-             if_up(neigh->ifp) ? "" : " (down)",
-             VTY_NEWLINE);
+             if_up(neigh->ifp) ? "" : " (down)");
 }
 
 DEFUN (show_babel_neighbour,
@@ -950,7 +949,7 @@ DEFUN (show_babel_neighbour,
     }
     if ((ifp = if_lookup_by_name (argv[3]->arg, VRF_DEFAULT)) == NULL)
     {
-        vty_out (vty, "No such interface name%s", VTY_NEWLINE);
+        vty_outln (vty, "No such interface name");
         return CMD_WARNING;
     }
     FOR_ALL_NEIGHBOURS(neigh) {
@@ -1010,9 +1009,9 @@ show_babel_routes_sub(struct babel_route *route, struct vty *vty,
             channels[0] = '\0';
     }
 
-    vty_out(vty,
+    vty_outln (vty,
             "%s metric %d refmetric %d id %s seqno %d%s age %d "
-            "via %s neigh %s%s%s%s%s",
+            "via %s neigh %s%s%s%s",
             format_prefix(route->src->prefix, route->src->plen),
             route_metric(route), route->refmetric,
             format_eui64(route->src->id),
@@ -1023,9 +1022,7 @@ show_babel_routes_sub(struct babel_route *route, struct vty *vty,
             format_address(route->neigh->address),
             nexthop ? " nexthop " : "",
             nexthop ? format_address(nexthop) : "",
-            route->installed ? " (installed)" :
-            route_feasible(route) ? " (feasible)" : "",
-            VTY_NEWLINE);
+            route->installed ? " (installed)" : route_feasible(route) ? " (feasible)" : "");
 }
 
 static void
@@ -1035,10 +1032,9 @@ show_babel_xroutes_sub (struct xroute *xroute, struct vty *vty,
     if(prefix && !babel_prefix_eq(prefix, xroute->prefix, xroute->plen))
         return;
 
-    vty_out(vty, "%s metric %d (exported)%s",
+    vty_outln (vty, "%s metric %d (exported)",
             format_prefix(xroute->prefix, xroute->plen),
-            xroute->metric,
-            VTY_NEWLINE);
+            xroute->metric);
 }
 
 DEFUN (show_babel_route,
@@ -1093,7 +1089,7 @@ DEFUN (show_babel_route_prefix,
 
     ret = str2prefix(argv[3]->arg, &prefix);
     if(ret == 0) {
-      vty_out (vty, "%% Malformed address%s", VTY_NEWLINE);
+      vty_outln (vty, "%% Malformed address");
       return CMD_WARNING;
     }
         
@@ -1142,7 +1138,7 @@ DEFUN (show_babel_route_addr,
 
     ret = inet_aton (argv[3]->arg, &addr);
     if (ret <= 0) {
-        vty_out (vty, "%% Malformed address%s", VTY_NEWLINE);
+        vty_outln (vty, "%% Malformed address");
         return CMD_WARNING;
     }
 
@@ -1151,7 +1147,7 @@ DEFUN (show_babel_route_addr,
 
     ret = str2prefix(buf, &prefix);
     if (ret == 0) {
-        vty_out (vty, "%% Parse error -- this shouldn't happen%s", VTY_NEWLINE);
+        vty_outln (vty, "%% Parse error -- this shouldn't happen");
         return CMD_WARNING;
     }
 
@@ -1200,7 +1196,7 @@ DEFUN (show_babel_route_addr6,
 
     ret = inet_pton (AF_INET6, argv[3]->arg, &addr);
     if (ret <= 0) {
-        vty_out (vty, "%% Malformed address%s", VTY_NEWLINE);
+        vty_outln (vty, "%% Malformed address");
         return CMD_WARNING;
     }
 
@@ -1210,7 +1206,7 @@ DEFUN (show_babel_route_addr6,
 
     ret = str2prefix(buf, &prefix);
     if (ret == 0) {
-        vty_out (vty, "%% Parse error -- this shouldn't happen%s", VTY_NEWLINE);
+        vty_outln (vty, "%% Parse error -- this shouldn't happen");
         return CMD_WARNING;
     }
 
@@ -1248,9 +1244,9 @@ DEFUN (show_babel_parameters,
        "Babel information\n"
        "Configuration information\n")
 {
-    vty_out(vty, "    -- Babel running configuration --%s", VTY_NEWLINE);
+    vty_outln (vty, "    -- Babel running configuration --");
     show_babel_main_configuration(vty);
-    vty_out(vty, "    -- distribution lists --%s", VTY_NEWLINE);
+    vty_outln (vty, "    -- distribution lists --");
     config_show_distribute(vty);
 
     return CMD_SUCCESS;
@@ -1325,65 +1321,63 @@ interface_config_write (struct vty *vty)
     int write = 0;
 
     for (ALL_LIST_ELEMENTS_RO (vrf_iflist(VRF_DEFAULT), node, ifp)) {
-        vty_out (vty, "interface %s%s", ifp->name,
-                 VTY_NEWLINE);
+        vty_outln (vty, "interface %s",ifp->name);
         if (ifp->desc)
-            vty_out (vty, " description %s%s", ifp->desc,
-                     VTY_NEWLINE);
+            vty_outln (vty, " description %s",ifp->desc);
         babel_interface_nfo *babel_ifp = babel_get_if_nfo (ifp);
         /* wireless is the default*/
         if (CHECK_FLAG (babel_ifp->flags, BABEL_IF_WIRED))
         {
-            vty_out (vty, " babel wired%s", VTY_NEWLINE);
+            vty_outln (vty, " babel wired");
             write++;
         }
         if (babel_ifp->hello_interval != BABEL_DEFAULT_HELLO_INTERVAL)
         {
-            vty_out (vty, " babel hello-interval %u%s", babel_ifp->hello_interval, VTY_NEWLINE);
+            vty_outln (vty, " babel hello-interval %u",
+                       babel_ifp->hello_interval);
             write++;
         }
         if (babel_ifp->update_interval != BABEL_DEFAULT_UPDATE_INTERVAL)
         {
-            vty_out (vty, " babel update-interval %u%s", babel_ifp->update_interval, VTY_NEWLINE);
+            vty_outln (vty, " babel update-interval %u",
+                       babel_ifp->update_interval);
             write++;
         }
         /* Some parameters have different defaults for wired/wireless. */
         if (CHECK_FLAG (babel_ifp->flags, BABEL_IF_WIRED)) {
             if (!CHECK_FLAG (babel_ifp->flags, BABEL_IF_SPLIT_HORIZON)) {
-                vty_out (vty, " no babel split-horizon%s", VTY_NEWLINE);
+                vty_outln (vty, " no babel split-horizon");
                 write++;
             }
             if (babel_ifp->cost != BABEL_DEFAULT_RXCOST_WIRED) {
-                vty_out (vty, " babel rxcost %u%s", babel_ifp->cost, VTY_NEWLINE);
+                vty_outln (vty, " babel rxcost %u", babel_ifp->cost);
                 write++;
             }
             if (babel_ifp->channel == BABEL_IF_CHANNEL_INTERFERING) {
-                vty_out (vty, " babel channel interfering%s", VTY_NEWLINE);
+                vty_outln (vty, " babel channel interfering");
                 write++;
             } else if(babel_ifp->channel != BABEL_IF_CHANNEL_NONINTERFERING) {
-                vty_out (vty, " babel channel %d%s", babel_ifp->channel,
-                         VTY_NEWLINE);
+                vty_outln (vty, " babel channel %d",babel_ifp->channel);
                 write++;
             }
         } else {
             if (CHECK_FLAG (babel_ifp->flags, BABEL_IF_SPLIT_HORIZON)) {
-                vty_out (vty, " babel split-horizon%s", VTY_NEWLINE);
+                vty_outln (vty, " babel split-horizon");
                 write++;
             }
             if (babel_ifp->cost != BABEL_DEFAULT_RXCOST_WIRELESS) {
-                vty_out (vty, " babel rxcost %u%s", babel_ifp->cost, VTY_NEWLINE);
+                vty_outln (vty, " babel rxcost %u", babel_ifp->cost);
                 write++;
             }
             if (babel_ifp->channel == BABEL_IF_CHANNEL_NONINTERFERING) {
-                vty_out (vty, " babel channel noninterfering%s", VTY_NEWLINE);
+                vty_outln (vty, " babel channel noninterfering");
                 write++;
             } else if(babel_ifp->channel != BABEL_IF_CHANNEL_INTERFERING) {
-                vty_out (vty, " babel channel %d%s", babel_ifp->channel,
-                         VTY_NEWLINE);
+                vty_outln (vty, " babel channel %d",babel_ifp->channel);
                 write++;
             }
         }
-        vty_out (vty, "!%s", VTY_NEWLINE);
+        vty_outln (vty, "!");
         write++;
     }
     return write;
@@ -1399,7 +1393,7 @@ babel_enable_if_config_write (struct vty * vty)
     for (i = 0; i < vector_active (babel_enable_if); i++)
         if ((str = vector_slot (babel_enable_if, i)) != NULL)
         {
-            vty_out (vty, " network %s%s", str, VTY_NEWLINE);
+            vty_outln (vty, " network %s", str);
             lines++;
         }
     return lines;

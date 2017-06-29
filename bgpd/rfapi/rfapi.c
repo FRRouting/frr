@@ -3101,12 +3101,12 @@ DEFUN (
 
   if (!str2prefix (argv[5]->arg, &pfx))
     {
-      vty_out (vty, "Malformed address \"%s\"%s", argv[5]->arg, VTY_NEWLINE);
+      vty_outln (vty, "Malformed address \"%s\"", argv[5]->arg);
       return CMD_WARNING;
     }
   if (pfx.family != AF_INET && pfx.family != AF_INET6)
     {
-      vty_out (vty, "Invalid address \"%s\"%s", argv[5]->arg, VTY_NEWLINE);
+      vty_outln (vty, "Invalid address \"%s\"", argv[5]->arg);
       return CMD_WARNING;
     }
 
@@ -3144,7 +3144,7 @@ test_nexthops_callback (
 
   fp (out, "Nexthops Callback, Target=(");
   //rfapiPrintRfapiIpAddr(stream, target);
-  fp (out, ")%s", VTY_NEWLINE);
+  fp (out, ")%s", VTYNL);
 
   rfapiPrintNhl (stream, next_hops);
 
@@ -3185,12 +3185,12 @@ DEFUN (debug_rfapi_open,
   rc = rfapi_open (rfapi_get_rfp_start_val_by_bgp (bgp_get_default ()),
                    &vn, &un, /*&uo */ NULL, &lifetime, NULL, &handle);
 
-  vty_out (vty, "rfapi_open: status %d, handle %p, lifetime %d%s",
-           rc, handle, lifetime, VTY_NEWLINE);
+  vty_outln (vty, "rfapi_open: status %d, handle %p, lifetime %d",
+           rc, handle, lifetime);
 
   rc = rfapi_set_response_cb (handle, test_nexthops_callback);
 
-  vty_out (vty, "rfapi_set_response_cb: status %d%s", rc, VTY_NEWLINE);
+  vty_outln (vty, "rfapi_set_response_cb: status %d", rc);
 
   return CMD_SUCCESS;
 }
@@ -3230,15 +3230,14 @@ DEFUN (debug_rfapi_close_vn_un,
 
   if (rfapi_find_handle_vty (vty, &vn, &un, &handle))
     {
-      vty_out (vty, "can't locate handle matching vn=%s, un=%s%s",
-               argv[4]->arg, argv[6]->arg, VTY_NEWLINE);
+      vty_outln (vty, "can't locate handle matching vn=%s, un=%s",
+               argv[4]->arg, argv[6]->arg);
       return CMD_WARNING;
     }
 
   rc = rfapi_close (handle);
 
-  vty_out (vty, "rfapi_close(handle=%p): status %d%s", handle, rc,
-           VTY_NEWLINE);
+  vty_outln (vty, "rfapi_close(handle=%p): status %d", handle,rc);
 
   return CMD_SUCCESS;
 }
@@ -3259,14 +3258,13 @@ DEFUN (debug_rfapi_close_rfd,
 
   if (*endptr != '\0' || (uintptr_t) handle == UINTPTR_MAX)
     {
-      vty_out (vty, "Invalid value: %s%s", argv[4]->arg, VTY_NEWLINE);
+      vty_outln (vty, "Invalid value: %s", argv[4]->arg);
       return CMD_WARNING;
     }
 
   rc = rfapi_close (handle);
 
-  vty_out (vty, "rfapi_close(handle=%p): status %d%s", handle, rc,
-           VTY_NEWLINE);
+  vty_outln (vty, "rfapi_close(handle=%p): status %d", handle,rc);
 
   return CMD_SUCCESS;
 }
@@ -3313,8 +3311,8 @@ DEFUN (debug_rfapi_register_vn_un,
 
   if (rfapi_find_handle_vty (vty, &vn, &un, &handle))
     {
-      vty_out (vty, "can't locate handle matching vn=%s, un=%s%s",
-               argv[4]->arg, argv[6]->arg, VTY_NEWLINE);
+      vty_outln (vty, "can't locate handle matching vn=%s, un=%s",
+               argv[4]->arg, argv[6]->arg);
       return CMD_WARNING;
     }
 
@@ -3323,12 +3321,12 @@ DEFUN (debug_rfapi_register_vn_un,
    */
   if (!str2prefix (argv[8]->arg, &pfx))
     {
-      vty_out (vty, "Malformed prefix \"%s\"%s", argv[8]->arg, VTY_NEWLINE);
+      vty_outln (vty, "Malformed prefix \"%s\"", argv[8]->arg);
       return CMD_WARNING;
     }
   if (pfx.family != AF_INET && pfx.family != AF_INET6)
     {
-      vty_out (vty, "Bad family for prefix \"%s\"%s", argv[8]->arg, VTY_NEWLINE);
+      vty_outln (vty, "Bad family for prefix \"%s\"", argv[8]->arg);
       return CMD_WARNING;
     }
   rfapiQprefix2Rprefix (&pfx, &hpfx);
@@ -3346,8 +3344,8 @@ DEFUN (debug_rfapi_register_vn_un,
   rc = rfapi_register (handle, &hpfx, lifetime, NULL, NULL, 0);
   if (rc)
     {
-      vty_out (vty, "rfapi_register failed with rc=%d (%s)%s", rc,
-               strerror (rc), VTY_NEWLINE);
+      vty_outln (vty, "rfapi_register failed with rc=%d (%s)", rc,
+               strerror(rc));
     }
 
   return CMD_SUCCESS;
@@ -3402,8 +3400,8 @@ DEFUN (debug_rfapi_register_vn_un_l2o,
 
   if (rfapi_find_handle_vty (vty, &vn, &un, &handle))
     {
-      vty_out (vty, "can't locate handle matching vn=%s, un=%s%s",
-               argv[4]->arg, argv[6]->arg, VTY_NEWLINE);
+      vty_outln (vty, "can't locate handle matching vn=%s, un=%s",
+               argv[4]->arg, argv[6]->arg);
       return CMD_WARNING;
     }
 
@@ -3412,12 +3410,12 @@ DEFUN (debug_rfapi_register_vn_un_l2o,
    */
   if (!str2prefix (argv[8]->arg, &pfx))
     {
-      vty_out (vty, "Malformed prefix \"%s\"%s", argv[8]->arg, VTY_NEWLINE);
+      vty_outln (vty, "Malformed prefix \"%s\"", argv[8]->arg);
       return CMD_WARNING;
     }
   if (pfx.family != AF_INET && pfx.family != AF_INET6)
     {
-      vty_out (vty, "Bad family for prefix \"%s\"%s", argv[8]->arg, VTY_NEWLINE);
+      vty_outln (vty, "Bad family for prefix \"%s\"", argv[8]->arg);
       return CMD_WARNING;
     }
   rfapiQprefix2Rprefix (&pfx, &hpfx);
@@ -3436,7 +3434,7 @@ DEFUN (debug_rfapi_register_vn_un_l2o,
   optary[opt_next].v.l2addr.logical_net_id = strtoul(argv[14]->arg, NULL, 10);
   if ((rc = rfapiStr2EthAddr (argv[12]->arg, &optary[opt_next].v.l2addr.macaddr)))
     {
-      vty_out (vty, "Bad mac address \"%s\"%s", argv[12]->arg, VTY_NEWLINE);
+      vty_outln (vty, "Bad mac address \"%s\"", argv[12]->arg);
       return CMD_WARNING;
     }
   optary[opt_next].type = RFAPI_VN_OPTION_TYPE_L2ADDR;
@@ -3455,8 +3453,8 @@ DEFUN (debug_rfapi_register_vn_un_l2o,
   rc = rfapi_register (handle, &hpfx, lifetime, NULL /* &uo */ , opt, 0);
   if (rc)
     {
-      vty_out (vty, "rfapi_register failed with rc=%d (%s)%s", rc,
-               strerror (rc), VTY_NEWLINE);
+      vty_outln (vty, "rfapi_register failed with rc=%d (%s)", rc,
+               strerror(rc));
     }
 
   return CMD_SUCCESS;
@@ -3498,8 +3496,8 @@ DEFUN (debug_rfapi_unregister_vn_un,
 
   if (rfapi_find_handle_vty (vty, &vn, &un, &handle))
     {
-      vty_out (vty, "can't locate handle matching vn=%s, un=%s%s",
-               argv[4]->arg, argv[6]->arg, VTY_NEWLINE);
+      vty_outln (vty, "can't locate handle matching vn=%s, un=%s",
+               argv[4]->arg, argv[6]->arg);
       return CMD_WARNING;
     }
 
@@ -3508,12 +3506,12 @@ DEFUN (debug_rfapi_unregister_vn_un,
    */
   if (!str2prefix (argv[8]->arg, &pfx))
     {
-      vty_out (vty, "Malformed prefix \"%s\"%s", argv[8]->arg, VTY_NEWLINE);
+      vty_outln (vty, "Malformed prefix \"%s\"", argv[8]->arg);
       return CMD_WARNING;
     }
   if (pfx.family != AF_INET && pfx.family != AF_INET6)
     {
-      vty_out (vty, "Bad family for prefix \"%s\"%s", argv[8]->arg, VTY_NEWLINE);
+      vty_outln (vty, "Bad family for prefix \"%s\"", argv[8]->arg);
       return CMD_WARNING;
     }
   rfapiQprefix2Rprefix (&pfx, &hpfx);
@@ -3569,8 +3567,8 @@ DEFUN (debug_rfapi_query_vn_un,
 
   if (rfapi_find_handle_vty (vty, &vn, &un, &handle))
     {
-      vty_out (vty, "can't locate handle matching vn=%s, un=%s%s",
-               argv[4]->arg, argv[6]->arg, VTY_NEWLINE);
+      vty_outln (vty, "can't locate handle matching vn=%s, un=%s",
+               argv[4]->arg, argv[6]->arg);
       return CMD_WARNING;
     }
 
@@ -3581,8 +3579,8 @@ DEFUN (debug_rfapi_query_vn_un,
 
   if (rc)
     {
-      vty_out (vty, "rfapi_query failed with rc=%d (%s)%s", rc,
-               strerror (rc), VTY_NEWLINE);
+      vty_outln (vty, "rfapi_query failed with rc=%d (%s)", rc,
+               strerror(rc));
     }
   else
     {
@@ -3644,14 +3642,14 @@ DEFUN (debug_rfapi_query_vn_un_l2o,
   if ((rc = rfapiCliGetRfapiIpAddr (vty, argv[2], &target)))
     return rc;
 #else
-  vty_out (vty, "%% This command is broken.%s", VTY_NEWLINE);
+  vty_outln (vty, "%% This command is broken.");
   return CMD_WARNING;
 #endif
 
   if (rfapi_find_handle_vty (vty, &vn, &un, &handle))
     {
-      vty_out (vty, "can't locate handle matching vn=%s, un=%s%s",
-               argv[4]->arg, argv[6]->arg, VTY_NEWLINE);
+      vty_outln (vty, "can't locate handle matching vn=%s, un=%s",
+               argv[4]->arg, argv[6]->arg);
       return CMD_WARNING;
     }
 
@@ -3661,7 +3659,7 @@ DEFUN (debug_rfapi_query_vn_un_l2o,
   memset (&l2o_buf, 0, sizeof (l2o_buf));
   if (rfapiStr2EthAddr (argv[10]->arg, &l2o_buf.macaddr))
     {
-      vty_out (vty, "Bad mac address \"%s\"%s", argv[10]->arg, VTY_NEWLINE);
+      vty_outln (vty, "Bad mac address \"%s\"", argv[10]->arg);
       return CMD_WARNING;
     }
 
@@ -3690,8 +3688,8 @@ DEFUN (debug_rfapi_query_vn_un_l2o,
 
   if (rc)
     {
-      vty_out (vty, "rfapi_query failed with rc=%d (%s)%s", rc,
-               strerror (rc), VTY_NEWLINE);
+      vty_outln (vty, "rfapi_query failed with rc=%d (%s)", rc,
+               strerror(rc));
     }
   else
     {
@@ -3752,8 +3750,8 @@ DEFUN (debug_rfapi_query_done_vn_un,
 
   if (rfapi_find_handle_vty (vty, &vn, &un, &handle))
     {
-      vty_out (vty, "can't locate handle matching vn=%s, un=%s%s",
-               argv[5]->arg, argv[7]->arg, VTY_NEWLINE);
+      vty_outln (vty, "can't locate handle matching vn=%s, un=%s",
+               argv[5]->arg, argv[7]->arg);
       return CMD_WARNING;
     }
 
@@ -3762,7 +3760,7 @@ DEFUN (debug_rfapi_query_done_vn_un,
    */
   rc = rfapi_query_done (handle, &target);
 
-  vty_out (vty, "rfapi_query_done returned %d%s", rc, VTY_NEWLINE);
+  vty_outln (vty, "rfapi_query_done returned %d", rc);
 
   return CMD_SUCCESS;
 }
@@ -3788,14 +3786,14 @@ DEFUN (debug_rfapi_show_import,
   bgp = bgp_get_default ();     /* assume 1 instance for now */
   if (!bgp)
     {
-      vty_out (vty, "No BGP instance%s", VTY_NEWLINE);
+      vty_outln (vty, "No BGP instance");
       return CMD_WARNING;
     }
 
   h = bgp->rfapi;
   if (!h)
     {
-      vty_out (vty, "No RFAPI instance%s", VTY_NEWLINE);
+      vty_outln (vty, "No RFAPI instance");
       return CMD_WARNING;
     }
 
@@ -3809,7 +3807,7 @@ DEFUN (debug_rfapi_show_import,
     {
       s = ecommunity_ecom2str (it->rt_import_list,
                                ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-      vty_out (vty, "Import Table %p, RTs: %s%s", it, s, VTY_NEWLINE);
+      vty_outln (vty, "Import Table %p, RTs: %s", it, s);
       XFREE (MTYPE_ECOMMUNITY_STR, s);
 
       rfapiShowImportTable (vty, "IP VPN", it->imported_vpn[AFI_IP], 1);
@@ -3839,8 +3837,8 @@ DEFUN (debug_rfapi_show_import,
               lni = lni_as_ptr;
               if (first_l2)
                 {
-                  vty_out (vty, "%sLNI-based Ethernet Tables:%s",
-                           VTY_NEWLINE, VTY_NEWLINE);
+                  vty_outln (vty, "%sLNI-based Ethernet Tables:",
+                           VTYNL);
                   first_l2 = 0;
                 }
               snprintf (buf, BUFSIZ, "L2VPN LNI=%u", lni);
@@ -3891,8 +3889,8 @@ DEFUN (debug_rfapi_show_import_vn_un,
 
   if (rfapi_find_handle_vty (vty, &vn, &un, &handle))
     {
-      vty_out (vty, "can't locate handle matching vn=%s, un=%s%s",
-               argv[5]->arg, argv[7]->arg, VTY_NEWLINE);
+      vty_outln (vty, "can't locate handle matching vn=%s, un=%s",
+               argv[5]->arg, argv[7]->arg);
       return CMD_WARNING;
     }
 
@@ -3922,12 +3920,12 @@ DEFUN (debug_rfapi_response_omit_self,
 
   if (!bgp)
     {
-      vty_out (vty, "No BGP process is configured%s", VTY_NEWLINE);
+      vty_outln (vty, "No BGP process is configured");
       return CMD_WARNING;
     }
   if (!bgp->rfapi_cfg)
     {
-      vty_out (vty, "VNC not configured%s", VTY_NEWLINE);
+      vty_outln (vty, "VNC not configured");
       return CMD_WARNING;
     }
 
@@ -4193,7 +4191,7 @@ rfapi_rfp_get_or_init_group_config_nve (
   if (!rfg || !listnode_lookup (rfc->nve_groups_sequential, rfg))
     {
       /* Not in list anymore */
-      vty_out (vty, "Current NVE group no longer exists%s", VTY_NEWLINE);
+      vty_outln (vty, "Current NVE group no longer exists");
       return NULL;
     }
 
@@ -4218,7 +4216,7 @@ rfapi_rfp_get_or_init_group_config_l2 (
   if (!rfg || !listnode_lookup (rfc->l2_groups, rfg))
     {
       /* Not in list anymore */
-      vty_out (vty, "Current L2 group no longer exists%s", VTY_NEWLINE);
+      vty_outln (vty, "Current L2 group no longer exists");
       return NULL;
     }
   if (rfg->rfp_cfg == NULL && size > 0)

@@ -2004,13 +2004,13 @@ DEFUN (show_ipv6_ripng,
     return CMD_SUCCESS;
 
   /* Header of display. */ 
-  vty_out (vty, "Codes: R - RIPng, C - connected, S - Static, O - OSPF, B - BGP%s"
+  vty_outln (vty, "Codes: R - RIPng, C - connected, S - Static, O - OSPF, B - BGP%s"
 	   "Sub-codes:%s"
 	   "      (n) - normal, (s) - static, (d) - default, (r) - redistribute,%s"
 	   "      (i) - interface, (a/S) - aggregated/Suppressed%s%s"
-	   "   Network      Next Hop                      Via     Metric Tag Time%s",
-	   VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE,
-	   VTY_NEWLINE, VTY_NEWLINE, VTY_NEWLINE);
+	   "   Network      Next Hop                      Via     Metric Tag Time",
+	   VTYNL, VTYNL, VTYNL,
+	   VTYNL, VTYNL);
   
   for (rp = route_top (ripng->table); rp; rp = route_next (rp))
     {
@@ -2026,13 +2026,12 @@ DEFUN (show_ipv6_ripng,
 	  vty_out (vty, "R(a) %s/%d ",
 			 inet6_ntoa (p->prefix), p->prefixlen);
 #endif /* DEBUG */
-	  vty_out (vty, "%s", VTY_NEWLINE);
+	  vty_out (vty, VTYNL);
 	  vty_out (vty, "%*s", 18, " ");
 
 	  vty_out (vty, "%*s", 28, " ");
-	  vty_out (vty, "self      %2d  %3"ROUTE_TAG_PRI"%s", aggregate->metric,
-		   (route_tag_t)aggregate->tag,
-		   VTY_NEWLINE);
+	  vty_outln (vty, "self      %2d  %3"ROUTE_TAG_PRI"", aggregate->metric,
+		   (route_tag_t)aggregate->tag);
 	}
 
       if ((list = rp->info) != NULL)
@@ -2052,7 +2051,7 @@ DEFUN (show_ipv6_ripng,
 			 ripng_route_subtype_print(rinfo),
 			 inet6_ntoa (p->prefix), p->prefixlen);
 #endif /* DEBUG */
-	  vty_out (vty, "%s", VTY_NEWLINE);
+	  vty_out (vty, VTYNL);
 	  vty_out (vty, "%*s", 18, " ");
 	  len = vty_out (vty, "%s", inet6_ntoa (rinfo->nexthop));
 
@@ -2090,7 +2089,7 @@ DEFUN (show_ipv6_ripng,
 	    ripng_vty_out_uptime (vty, rinfo);
 	  }
 
-	  vty_out (vty, "%s", VTY_NEWLINE);
+	  vty_out (vty, VTYNL);
 	}
     }
 
@@ -2111,33 +2110,30 @@ DEFUN (show_ipv6_ripng_status,
   if (! ripng)
     return CMD_SUCCESS;
 
-  vty_out (vty, "Routing Protocol is \"RIPng\"%s", VTY_NEWLINE);
+  vty_outln (vty, "Routing Protocol is \"RIPng\"");
   vty_out (vty, "  Sending updates every %ld seconds with +/-50%%,",
            ripng->update_time);
-  vty_out (vty, " next due in %lu seconds%s",
-           thread_timer_remain_second (ripng->t_update),
-           VTY_NEWLINE);
+  vty_outln (vty, " next due in %lu seconds",
+           thread_timer_remain_second(ripng->t_update));
   vty_out (vty, "  Timeout after %ld seconds,", ripng->timeout_time);
-  vty_out (vty, " garbage collect after %ld seconds%s", ripng->garbage_time,
-           VTY_NEWLINE);
+  vty_outln (vty, " garbage collect after %ld seconds",ripng->garbage_time);
 
   /* Filtering status show. */
   config_show_distribute (vty);
 
   /* Default metric information. */
-  vty_out (vty, "  Default redistribution metric is %d%s",
-           ripng->default_metric, VTY_NEWLINE);
+  vty_outln (vty, "  Default redistribution metric is %d",
+           ripng->default_metric);
 
   /* Redistribute information. */
   vty_out (vty, "  Redistributing:");
   ripng_redistribute_write (vty, 0);
-  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_out (vty, VTYNL);
 
   vty_out (vty, "  Default version control: send version %d,", ripng->version);
-  vty_out (vty, " receive version %d %s", ripng->version,
-           VTY_NEWLINE);
+  vty_outln (vty, " receive version %d ",ripng->version);
 
-  vty_out (vty, "    Interface        Send  Recv%s", VTY_NEWLINE);
+  vty_outln (vty, "    Interface        Send  Recv");
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
     {
@@ -2148,18 +2144,18 @@ DEFUN (show_ipv6_ripng_status,
       if (ri->enable_network || ri->enable_interface)
 	{
 
-	  vty_out (vty, "    %-17s%-3d   %-3d%s", ifp->name,
+	  vty_outln (vty, "    %-17s%-3d   %-3d", ifp->name,
 		   ripng->version,
-		   ripng->version,
-		   VTY_NEWLINE);
+		   ripng->version);
 	}
     }
 
-  vty_out (vty, "  Routing for Networks:%s", VTY_NEWLINE);
+  vty_outln (vty, "  Routing for Networks:");
   ripng_network_write (vty, 0);
 
-  vty_out (vty, "  Routing Information Sources:%s", VTY_NEWLINE);
-  vty_out (vty, "    Gateway          BadPackets BadRoutes  Distance Last Update%s", VTY_NEWLINE);
+  vty_outln (vty, "  Routing Information Sources:");
+  vty_outln (vty,
+             "    Gateway          BadPackets BadRoutes  Distance Last Update");
   ripng_peer_display (vty);
 
   return CMD_SUCCESS;  
@@ -2264,7 +2260,7 @@ DEFUN (ripng_route,
   ret = str2prefix_ipv6 (argv[idx_ipv6addr]->arg, (struct prefix_ipv6 *)&p);
   if (ret <= 0)
     {
-      vty_out (vty, "Malformed address%s", VTY_NEWLINE);
+      vty_outln (vty, "Malformed address");
       return CMD_WARNING;
     }
   apply_mask_ipv6 (&p);
@@ -2272,7 +2268,7 @@ DEFUN (ripng_route,
   rp = route_node_get (ripng->route, (struct prefix *) &p);
   if (rp->info)
     {
-      vty_out (vty, "There is already same static route.%s", VTY_NEWLINE);
+      vty_outln (vty, "There is already same static route.");
       route_unlock_node (rp);
       return CMD_WARNING;
     }
@@ -2298,7 +2294,7 @@ DEFUN (no_ripng_route,
   ret = str2prefix_ipv6 (argv[idx_ipv6addr]->arg, (struct prefix_ipv6 *)&p);
   if (ret <= 0)
     {
-      vty_out (vty, "Malformed address%s", VTY_NEWLINE);
+      vty_outln (vty, "Malformed address");
       return CMD_WARNING;
     }
   apply_mask_ipv6 (&p);
@@ -2306,7 +2302,7 @@ DEFUN (no_ripng_route,
   rp = route_node_lookup (ripng->route, (struct prefix *) &p);
   if (! rp)
     {
-      vty_out (vty, "Can't find static route.%s", VTY_NEWLINE);
+      vty_outln (vty, "Can't find static route.");
       return CMD_WARNING;
     }
 
@@ -2333,7 +2329,7 @@ DEFUN (ripng_aggregate_address,
   ret = str2prefix_ipv6 (argv[idx_ipv6_prefixlen]->arg, (struct prefix_ipv6 *)&p);
   if (ret <= 0)
     {
-      vty_out (vty, "Malformed address%s", VTY_NEWLINE);
+      vty_outln (vty, "Malformed address");
       return CMD_WARNING;
     }
 
@@ -2341,7 +2337,7 @@ DEFUN (ripng_aggregate_address,
   node = route_node_get (ripng->aggregate, &p);
   if (node->info)
     {
-      vty_out (vty, "There is already same aggregate route.%s", VTY_NEWLINE);
+      vty_outln (vty, "There is already same aggregate route.");
       route_unlock_node (node);
       return CMD_WARNING;
     }
@@ -2367,14 +2363,14 @@ DEFUN (no_ripng_aggregate_address,
   ret = str2prefix_ipv6 (argv[idx_ipv6_prefixlen]->arg, (struct prefix_ipv6 *) &p);
   if (ret <= 0)
     {
-      vty_out (vty, "Malformed address%s", VTY_NEWLINE);
+      vty_outln (vty, "Malformed address");
       return CMD_WARNING;
     }
 
   rn = route_node_lookup (ripng->aggregate, &p);
   if (! rn)
     {
-      vty_out (vty, "Can't find aggregate route.%s", VTY_NEWLINE);
+      vty_outln (vty, "Can't find aggregate route.");
       return CMD_WARNING;
     }
   route_unlock_node (rn);
@@ -2429,7 +2425,7 @@ DEFUN (ripng_update_timer,
   update = strtoul (argv[0], &endptr, 10);
   if (update == ULONG_MAX || *endptr != '\0')
     {
-      vty_out (vty, "update timer value error%s", VTY_NEWLINE);
+      vty_out (vty, "update timer value error%s", VTYNL);
       return CMD_WARNING;
     }
 
@@ -2464,7 +2460,7 @@ DEFUN (ripng_timeout_timer,
   timeout = strtoul (argv[0], &endptr, 10);
   if (timeout == ULONG_MAX || *endptr != '\0')
     {
-      vty_out (vty, "timeout timer value error%s", VTY_NEWLINE);
+      vty_out (vty, "timeout timer value error%s", VTYNL);
       return CMD_WARNING;
     }
 
@@ -2497,7 +2493,7 @@ DEFUN (ripng_garbage_timer,
   garbage = strtoul (argv[0], &endptr, 10);
   if (garbage == ULONG_MAX || *endptr != '\0')
     {
-      vty_out (vty, "garbage timer value error%s", VTY_NEWLINE);
+      vty_out (vty, "garbage timer value error%s", VTYNL);
       return CMD_WARNING;
     }
 
@@ -2581,16 +2577,16 @@ DEFUN (show_ipv6_protocols,
   if (! ripng)
     return CMD_SUCCESS;
 
-  vty_out (vty, "Routing Protocol is \"ripng\"%s", VTY_NEWLINE);
+  vty_out (vty, "Routing Protocol is \"ripng\"%s", VTYNL);
   
   vty_out (vty, "Sending updates every %ld seconds, next due in %d seconds%s",
 	   ripng->update_time, 0,
-	   VTY_NEWLINE);
+	   VTYNL);
 
   vty_out (vty, "Timerout after %ld seconds, garbage correct %ld%s",
 	   ripng->timeout_time,
 	   ripng->garbage_time,
-	   VTY_NEWLINE);
+	   VTYNL);
 
   vty_out (vty, "Outgoing update filter list for all interfaces is not set");
   vty_out (vty, "Incoming update filter list for all interfaces is not set");
@@ -2684,7 +2680,7 @@ DEFUN (ripng_allow_ecmp,
 {
   if (ripng->ecmp)
     {
-      vty_out (vty, "ECMP is already enabled.%s", VTY_NEWLINE);
+      vty_outln (vty, "ECMP is already enabled.");
       return CMD_WARNING;
     }
 
@@ -2701,7 +2697,7 @@ DEFUN (no_ripng_allow_ecmp,
 {
   if (!ripng->ecmp)
     {
-      vty_out (vty, "ECMP is already disabled.%s", VTY_NEWLINE);
+      vty_outln (vty, "ECMP is already disabled.");
       return CMD_WARNING;
     }
 
@@ -2724,17 +2720,17 @@ ripng_config_write (struct vty *vty)
     {
 
       /* RIPng router. */
-      vty_out (vty, "router ripng%s", VTY_NEWLINE);
+      vty_outln (vty, "router ripng");
 
       if (ripng->default_information)
-	vty_out (vty, " default-information originate%s", VTY_NEWLINE);
+	vty_outln (vty, " default-information originate");
 
       ripng_network_write (vty, 1);
 
       /* RIPng default metric configuration */
       if (ripng->default_metric != RIPNG_DEFAULT_METRIC_DEFAULT)
-        vty_out (vty, " default-metric %d%s",
-		 ripng->default_metric, VTY_NEWLINE);
+        vty_outln (vty, " default-metric %d",
+		 ripng->default_metric);
 
       ripng_redistribute_write (vty, 1);
 
@@ -2744,44 +2740,40 @@ ripng_config_write (struct vty *vty)
       /* RIPng aggregate routes. */
       for (rp = route_top (ripng->aggregate); rp; rp = route_next (rp))
 	if (rp->info != NULL)
-	  vty_out (vty, " aggregate-address %s/%d%s", 
+	  vty_outln (vty, " aggregate-address %s/%d", 
 		   inet6_ntoa (rp->p.u.prefix6),
-		   rp->p.prefixlen, 
-
-		   VTY_NEWLINE);
+		   rp->p.prefixlen);
 
       /* ECMP configuration. */
       if (ripng->ecmp)
-        vty_out (vty, " allow-ecmp%s", VTY_NEWLINE);
+        vty_outln (vty, " allow-ecmp");
 
       /* RIPng static routes. */
       for (rp = route_top (ripng->route); rp; rp = route_next (rp))
 	if (rp->info != NULL)
-	  vty_out (vty, " route %s/%d%s", inet6_ntoa (rp->p.u.prefix6),
-		   rp->p.prefixlen,
-		   VTY_NEWLINE);
+	  vty_outln (vty, " route %s/%d", inet6_ntoa (rp->p.u.prefix6),
+		   rp->p.prefixlen);
 
       /* RIPng timers configuration. */
       if (ripng->update_time != RIPNG_UPDATE_TIMER_DEFAULT ||
 	  ripng->timeout_time != RIPNG_TIMEOUT_TIMER_DEFAULT ||
 	  ripng->garbage_time != RIPNG_GARBAGE_TIMER_DEFAULT)
 	{
-	  vty_out (vty, " timers basic %ld %ld %ld%s",
+	  vty_outln (vty, " timers basic %ld %ld %ld",
 		   ripng->update_time,
 		   ripng->timeout_time,
-		   ripng->garbage_time,
-		   VTY_NEWLINE);
+		   ripng->garbage_time);
 	}
 #if 0
       if (ripng->update_time != RIPNG_UPDATE_TIMER_DEFAULT)
 	vty_out (vty, " update-timer %d%s", ripng->update_time,
-		 VTY_NEWLINE);
+		 VTYNL);
       if (ripng->timeout_time != RIPNG_TIMEOUT_TIMER_DEFAULT)
 	vty_out (vty, " timeout-timer %d%s", ripng->timeout_time,
-		 VTY_NEWLINE);
+		 VTYNL);
       if (ripng->garbage_time != RIPNG_GARBAGE_TIMER_DEFAULT)
 	vty_out (vty, " garbage-timer %d%s", ripng->garbage_time,
-		 VTY_NEWLINE);
+		 VTYNL);
 #endif /* 0 */
 
       write += config_write_distribute (vty);

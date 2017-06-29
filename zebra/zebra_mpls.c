@@ -530,18 +530,18 @@ fec_print (zebra_fec_t *fec, struct vty *vty)
 
   rn = fec->rn;
   prefix2str(&rn->p, buf, BUFSIZ);
-  vty_out(vty, "%s%s", buf, VTY_NEWLINE);
+  vty_outln (vty, "%s", buf);
   vty_out(vty, "  Label: %s", label2str(fec->label, buf, BUFSIZ));
   if (fec->label_index != MPLS_INVALID_LABEL_INDEX)
     vty_out(vty, ", Label Index: %u", fec->label_index);
-  vty_out(vty, "%s", VTY_NEWLINE);
+  vty_out (vty, VTYNL);
   if (!list_isempty(fec->client_list))
     {
       vty_out(vty, "  Client list:");
       for (ALL_LIST_ELEMENTS_RO(fec->client_list, node, client))
         vty_out(vty, " %s(fd %d)",
                 zebra_route_string(client->proto), client->sock);
-      vty_out(vty, "%s", VTY_NEWLINE);
+      vty_out (vty, VTYNL);
     }
 }
 
@@ -1398,10 +1398,10 @@ nhlfe_print (zebra_nhlfe_t *nhlfe, struct vty *vty)
   if (!nexthop || !nexthop->nh_label) // unexpected
     return;
 
-  vty_out(vty, " type: %s remote label: %s distance: %d%s",
+  vty_outln (vty, " type: %s remote label: %s distance: %d",
           nhlfe_type2str(nhlfe->type),
           label2str(nexthop->nh_label->label[0], buf, BUFSIZ),
-          nhlfe->distance, VTY_NEWLINE);
+          nhlfe->distance);
   switch (nexthop->type)
     {
     case NEXTHOP_TYPE_IPV4:
@@ -1422,7 +1422,7 @@ nhlfe_print (zebra_nhlfe_t *nhlfe, struct vty *vty)
     }
   vty_out(vty, "%s", CHECK_FLAG (nhlfe->flags, NHLFE_FLAG_INSTALLED) ?
           " (installed)" : "");
-  vty_out(vty, "%s", VTY_NEWLINE);
+  vty_out (vty, VTYNL);
 }
 
 /*
@@ -1436,10 +1436,9 @@ lsp_print (zebra_lsp_t *lsp, void *ctxt)
 
   vty = (struct vty *) ctxt;
 
-  vty_out(vty, "Local label: %u%s%s",
+  vty_outln (vty, "Local label: %u%s",
           lsp->ile.in_label,
-          CHECK_FLAG (lsp->flags, LSP_FLAG_INSTALLED) ? " (installed)" : "",
-          VTY_NEWLINE);
+          CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED) ? " (installed)" : "");
 
   for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next)
     nhlfe_print (nhlfe, vty);
@@ -2239,8 +2238,8 @@ zebra_mpls_write_fec_config (struct vty *vty, struct zebra_vrf *zvrf)
 
           write = 1;
           prefix2str(&rn->p, buf, BUFSIZ);
-          vty_out(vty, "mpls label bind %s %s%s", buf,
-                  label2str(fec->label, lstr, BUFSIZ), VTY_NEWLINE);
+          vty_outln (vty, "mpls label bind %s %s", buf,
+                  label2str(fec->label, lstr, BUFSIZ));
         }
     }
 
@@ -2810,7 +2809,8 @@ zebra_mpls_print_lsp (struct vty *vty, struct zebra_vrf *zvrf, mpls_label_t labe
   if (use_json)
     {
       json = lsp_json(lsp);
-      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+      vty_outln (vty, "%s",
+                 json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
       json_object_free(json);
     }
   else
@@ -2840,14 +2840,15 @@ zebra_mpls_print_lsp_table (struct vty *vty, struct zebra_vrf *zvrf,
         json_object_object_add(json, label2str(lsp->ile.in_label, buf, BUFSIZ),
                                lsp_json(lsp));
 
-      vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+      vty_outln (vty, "%s",
+                 json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
       json_object_free(json);
     }
   else
     {
-      vty_out (vty, " Inbound                            Outbound%s", VTY_NEWLINE);
-      vty_out (vty, "   Label     Type          Nexthop     Label%s", VTY_NEWLINE);
-      vty_out (vty, "--------  -------  ---------------  --------%s", VTY_NEWLINE);
+      vty_outln (vty, " Inbound                            Outbound");
+      vty_outln (vty, "   Label     Type          Nexthop     Label");
+      vty_outln (vty, "--------  -------  ---------------  --------");
 
       for (ALL_LIST_ELEMENTS_RO(lsp_list, node, lsp))
         {
@@ -2870,11 +2871,11 @@ zebra_mpls_print_lsp_table (struct vty *vty, struct zebra_vrf *zvrf,
                   break;
                 }
 
-              vty_out (vty, "  %8d%s", nexthop->nh_label->label[0], VTY_NEWLINE);
+              vty_outln (vty, "  %8d", nexthop->nh_label->label[0]);
             }
         }
 
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_out (vty, VTYNL);
     }
 
   list_delete (lsp_list);
@@ -2912,8 +2913,8 @@ zebra_mpls_write_lsp_config (struct vty *vty, struct zebra_vrf *zvrf)
 		break;
 	    }
 
-            vty_out (vty, "mpls lsp %u %s %s%s",
-                     slsp->ile.in_label, buf, lstr, VTY_NEWLINE);
+            vty_outln (vty, "mpls lsp %u %s %s",
+                     slsp->ile.in_label, buf, lstr);
           }
       }
 
@@ -2962,9 +2963,8 @@ zebra_mpls_write_label_block_config (struct vty *vty, struct zebra_vrf *zvrf)
   if ((zvrf->mpls_srgb.start_label != MPLS_DEFAULT_MIN_SRGB_LABEL) ||
       (zvrf->mpls_srgb.end_label != MPLS_DEFAULT_MAX_SRGB_LABEL))
     {
-      vty_out(vty, "mpls label global-block %u %u%s",
-              zvrf->mpls_srgb.start_label, zvrf->mpls_srgb.end_label,
-              VTY_NEWLINE);
+      vty_outln (vty, "mpls label global-block %u %u",
+              zvrf->mpls_srgb.start_label,zvrf->mpls_srgb.end_label);
     }
 
   return 1;

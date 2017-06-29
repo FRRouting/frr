@@ -2851,10 +2851,10 @@ bgp_route_match_add (struct vty *vty,
       switch (ret)
 	{
 	case RMAP_RULE_MISSING:
-	  vty_out (vty, "%% BGP Can't find rule.%s", VTY_NEWLINE);
+	  vty_outln (vty, "%% BGP Can't find rule.");
 	  return CMD_WARNING;
 	case RMAP_COMPILE_ERROR:
-	  vty_out (vty, "%% BGP Argument is malformed.%s", VTY_NEWLINE);
+	  vty_outln (vty, "%% BGP Argument is malformed.");
 	  return CMD_WARNING;
 	}
     }
@@ -2900,10 +2900,10 @@ bgp_route_match_delete (struct vty *vty,
       switch (ret)
 	{
 	case RMAP_RULE_MISSING:
-	  vty_out (vty, "%% BGP Can't find rule.%s", VTY_NEWLINE);
+	  vty_outln (vty, "%% BGP Can't find rule.");
 	  break;
 	case RMAP_COMPILE_ERROR:
-	  vty_out (vty, "%% BGP Argument is malformed.%s", VTY_NEWLINE);
+	  vty_outln (vty, "%% BGP Argument is malformed.");
 	  break;
 	}
       if (dep_name)
@@ -3886,7 +3886,7 @@ DEFUN (set_community,
   /* Can't compile user input into communities attribute.  */
   if (! com)
     {
-      vty_out (vty, "%% Malformed communities attribute%s", VTY_NEWLINE);
+      vty_outln (vty, "%% Malformed communities attribute");
       return CMD_WARNING;
     }
 
@@ -4210,7 +4210,7 @@ DEFUN (set_aggregator_as,
   ret = inet_aton (argv[idx_ipv4]->arg, &address);
   if (ret == 0)
     {
-      vty_out (vty, "Aggregator IP address is invalid%s", VTY_NEWLINE);
+      vty_outln (vty, "Aggregator IP address is invalid");
       return CMD_WARNING;
     }
 
@@ -4251,7 +4251,7 @@ DEFUN (no_set_aggregator_as,
   ret = inet_aton (argv[idx_ip]->arg, &address);
   if (ret == 0)
     {
-      vty_out (vty, "Aggregator IP address is invalid%s", VTY_NEWLINE);
+      vty_outln (vty, "Aggregator IP address is invalid");
       return CMD_WARNING;
     }
 
@@ -4362,7 +4362,7 @@ DEFUN (set_ipv6_nexthop_global,
   ret = inet_pton (AF_INET6, argv[idx_ipv6]->arg, &addr);
   if (!ret)
     {
-      vty_out (vty, "%% Malformed nexthop address%s", VTY_NEWLINE);
+      vty_outln (vty, "%% Malformed nexthop address");
       return CMD_WARNING;
     }
   if (IN6_IS_ADDR_UNSPECIFIED(&addr) ||
@@ -4370,7 +4370,7 @@ DEFUN (set_ipv6_nexthop_global,
       IN6_IS_ADDR_MULTICAST(&addr)   ||
       IN6_IS_ADDR_LINKLOCAL(&addr))
     {
-      vty_out (vty, "%% Invalid global nexthop address%s", VTY_NEWLINE);
+      vty_outln (vty, "%% Invalid global nexthop address");
       return CMD_WARNING;
     }
 

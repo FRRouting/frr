@@ -821,13 +821,13 @@ pim_rp_config_write (struct vty *vty)
         continue;
 
       if (rp_info->plist)
-        vty_out(vty, "ip pim rp %s prefix-list %s%s",
+        vty_outln (vty, "ip pim rp %s prefix-list %s",
                 inet_ntop(AF_INET, &rp_info->rp.rpf_addr.u.prefix4, rp_buffer, 32),
-                rp_info->plist, VTY_NEWLINE);
+                rp_info->plist);
       else
-        vty_out(vty, "ip pim rp %s %s%s",
+        vty_outln (vty, "ip pim rp %s %s",
                 inet_ntop(AF_INET, &rp_info->rp.rpf_addr.u.prefix4, rp_buffer, 32),
-                prefix2str(&rp_info->group, group_buffer, 32), VTY_NEWLINE);
+                prefix2str(&rp_info->group, group_buffer, 32));
       count++;
     }
 
@@ -878,7 +878,8 @@ pim_rp_show_information (struct vty *vty, u_char uj)
   if (uj)
     json = json_object_new_object();
   else
-    vty_out (vty, "RP address       group/prefix-list   OIF         I am RP%s", VTY_NEWLINE);
+    vty_outln (vty,
+               "RP address       group/prefix-list   OIF         I am RP");
 
   for (ALL_LIST_ELEMENTS_RO (qpim_rp_list, node, rp_info))
     {
@@ -930,9 +931,9 @@ pim_rp_show_information (struct vty *vty, u_char uj)
 		vty_out (vty, "%-10s  ", "(Unknown)");
 
               if (rp_info->i_am_rp)
-                vty_out (vty, "yes%s", VTY_NEWLINE);
+                vty_outln (vty, "yes");
               else
-                vty_out (vty, "no%s", VTY_NEWLINE);
+                vty_outln (vty, "no");
             }
 
           prev_rp_info = rp_info;
@@ -943,7 +944,8 @@ pim_rp_show_information (struct vty *vty, u_char uj)
     if (prev_rp_info && json_rp_rows)
       json_object_object_add(json, inet_ntoa (prev_rp_info->rp.rpf_addr.u.prefix4), json_rp_rows);
 
-    vty_out (vty, "%s%s", json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY), VTY_NEWLINE);
+    vty_outln (vty, "%s",
+               json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
     json_object_free(json);
   }
 }
