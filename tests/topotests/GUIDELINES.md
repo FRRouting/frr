@@ -419,6 +419,34 @@ Requirements:
 * Tests must be able to run without any interaction. To make sure your test
   conforms with this, run it without the `-s` parameter.
 
+Tips:
+
+* Keep results in stack variables, so people inspecting code with `pdb` can
+  easily print their values.
+
+  Don't do this:
+
+  ```py
+  assert foobar(router1, router2)
+  ```
+
+  Do this instead:
+
+  ```py
+  result = foobar(router1, router2)
+  assert result
+  ```
+
+* Use `assert` messages to indicate where the test failed.
+
+  Example:
+
+  ```py
+  for router in router_list:
+      # ...
+      assert condition, 'Router "{}" condition failed'.format(router.name)
+  ```
+
 
 ### Debugging Execution
 
