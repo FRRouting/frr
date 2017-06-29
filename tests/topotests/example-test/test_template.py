@@ -30,15 +30,17 @@ import os
 import sys
 import pytest
 
+# Save the Current Working Directory to find configuration files.
+CWD = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(CWD, '../'))
+
+# pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
 
 class TemplateTopo(Topo):
     "Test topology builder"
@@ -99,4 +101,5 @@ def test_call_mininet_cli():
     tgen.mininet_cli()
 
 if __name__ == '__main__':
-    sys.exit(pytest.main(["-s"]))
+    args = ["-s"] + sys.argv[1:]
+    sys.exit(pytest.main(args))
