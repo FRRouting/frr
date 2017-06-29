@@ -568,7 +568,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 			__PRETTY_FUNCTION__, pim_str_sg_dump(sg), ifp->name);
 
 		pim_ifchannel_remove_children(ch);
-		if (ch)
+		if (ch->sources)
 			list_delete(ch->sources);
 
 		listnode_delete(pim_ifp->pim_ifchannel_list, ch);

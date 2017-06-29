@@ -1362,6 +1362,13 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 			return 0;
 		}
 		rpg = RP(pim_ifp->pim, up->sg.grp);
+		if (!rpg) {
+			if (PIM_DEBUG_TRACE)
+				zlog_debug(
+					"%s: Cannot send register for %s no RPF to the RP",
+					__PRETTY_FUNCTION__, up->sg_str);
+			return 0;
+		}
 		memset(&ip_hdr, 0, sizeof(struct ip));
 		ip_hdr.ip_p = PIM_IP_PROTO_PIM;
 		ip_hdr.ip_hl = 5;
