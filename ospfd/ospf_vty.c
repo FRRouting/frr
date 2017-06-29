@@ -374,7 +374,7 @@ DEFUN (ospf_passive_interface,
   struct ospf_if_params *params;
   struct route_node *rn;
 
-  if (strcmp (argv[1]->text, "default") == 0)
+  if (strmatch(argv[1]->text, "default"))
     {
       ospf_passive_interface_default (ospf, OSPF_IF_PASSIVE);
       return CMD_SUCCESS;
@@ -444,7 +444,7 @@ DEFUN (no_ospf_passive_interface,
   int ret;
   struct route_node *rn;
 
-  if (strcmp (argv[2]->text, "default") == 0)
+  if (strmatch(argv[2]->text, "default"))
     {
       ospf_passive_interface_default (ospf, OSPF_IF_ACTIVE);
       return CMD_SUCCESS;
@@ -1090,7 +1090,7 @@ DEFUN (ospf_area_vlink,
 		      i++;
 		    }
 		  else if (strncmp (argv[i+1]->arg, "m", 1) == 0
-			   && strcmp (argv[i+1]->arg, "message-digest-") != 0)
+			   && !strmatch(argv[i + 1]->text, "message-digest-"))
 		    {
 		      /* "authentication message-digest" */ 
 		      vl_config.auth_type = OSPF_AUTH_CRYPTOGRAPHIC;

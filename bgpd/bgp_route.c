@@ -8463,7 +8463,7 @@ DEFUN (show_ip_bgp_large_community_list,
   {
     afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
     if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
-      safi = bgp_vty_safi_from_arg (argv[idx]->text);
+      safi = bgp_vty_safi_from_str (argv[idx]->text);
   }
 
   int uj = use_json (argc, argv);
@@ -8508,7 +8508,7 @@ DEFUN (show_ip_bgp_large_community,
   {
     afi = strmatch(argv[idx]->text, "ipv6") ? AFI_IP6 : AFI_IP;
     if (argv_find (argv, argc, "unicast", &idx) || argv_find (argv, argc, "multicast", &idx))
-      safi = bgp_vty_safi_from_arg (argv[idx]->text);
+      safi = bgp_vty_safi_from_str (argv[idx]->text);
   }
 
   int uj = use_json (argc, argv);
@@ -8867,7 +8867,7 @@ bgp_show_community (struct vty *vty, struct bgp *bgp, int argc,
         buffer_putc (b, ' ');
       else
 	{
-	  if ((strcmp (argv[i]->arg, "unicast") == 0) || (strcmp (argv[i]->arg, "multicast") == 0))
+	  if (strmatch(argv[i]->text, "unicast") || strmatch(argv[i]->text, "multicast"))
 	    continue;
 	  first = 1;
 	}

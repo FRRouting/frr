@@ -753,7 +753,7 @@ DEFUN (dump_bgp_all,
   const struct bgp_dump_type_map *map = NULL;
 
   for (map = bgp_dump_type_map; map->str; map++)
-    if (strcmp(argv[idx_dump_routes]->arg, map->str) == 0)
+    if (strmatch(argv[idx_dump_routes]->text, map->str))
       bgp_dump_type = map->type;
 
   switch (bgp_dump_type)
@@ -800,7 +800,7 @@ DEFUN (no_dump_bgp_all,
   struct bgp_dump *bgp_dump_struct = NULL;
 
   for (map = bgp_dump_type_map; map->str; map++)
-    if (strcmp(argv[idx_dump_routes]->arg, map->str) == 0)
+    if (strmatch(argv[idx_dump_routes]->text, map->str))
       bgp_dump_type = map->type;
 
   switch (bgp_dump_type)

@@ -69,7 +69,7 @@ DEFUN (debug_bgp_vnc,
 
   for (i = 0; i < (sizeof(vncdebug) / sizeof(struct vnc_debug)); ++i)
     {
-      if (!strcmp(argv[3]->arg, vncdebug[i].name))
+      if (strmatch(argv[3]->text, vncdebug[i].name))
 	{
 	  if (vty->node == CONFIG_NODE)
 	    {
@@ -104,11 +104,11 @@ DEFUN (no_debug_bgp_vnc,
 {
   size_t	i;
 
-  if (!strcmp(argv[0]->arg, "no"))
+  if (strmatch(argv[0]->text, "no"))
     argc--, argv++;
   for (i = 0; i < (sizeof(vncdebug) / sizeof(struct vnc_debug)); ++i)
     {
-      if (!strcmp(argv[3]->arg, vncdebug[i].name))
+      if (strmatch(argv[3]->text, vncdebug[i].name))
 	{
 	  if (vty->node == CONFIG_NODE)
 	    {

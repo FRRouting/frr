@@ -166,31 +166,23 @@ bgp_node_safi (struct vty *vty)
   return safi;
 }
 
-/* supports <ipv4|ipv6> */
+/**
+ * Converts an AFI in string form to afi_t
+ *
+ * @param afi string, one of
+ *  - "ipv4"
+ *  - "ipv6"
+ * @return the corresponding afi_t
+ */
 afi_t
-bgp_vty_afi_from_arg(const char *afi_str)
+bgp_vty_afi_from_str(const char *afi_str)
 {
-  afi_t afi = AFI_MAX;       /* unknown */
-  if (!strcmp(afi_str, "ipv4")) {
+  afi_t afi = AFI_MAX; /* unknown */
+  if (strmatch(afi_str, "ipv4"))
     afi = AFI_IP;
-    }
-  else if (!strcmp(afi_str, "ipv6")) {
+  else if (strmatch(afi_str, "ipv6"))
     afi = AFI_IP6;
-  }
-  else if (!strcmp(afi_str, "l2vpn")) {
-    afi = AFI_L2VPN;
-  }
   return afi;
-}
-
-int
-bgp_parse_afi(const char *str, afi_t *afi)
-{
-  *afi = bgp_vty_afi_from_arg(str);
-  if (*afi != AFI_MAX)
-    return 0;
-  else
-    return -1;
 }
 
 int
@@ -214,16 +206,16 @@ argv_find_and_parse_afi(struct cmd_token **argv, int argc, int *index, afi_t *af
 
 /* supports <unicast|multicast|vpn|labeled-unicast> */
 safi_t
-bgp_vty_safi_from_arg(const char *safi_str)
+bgp_vty_safi_from_str(const char *safi_str)
 {
   safi_t safi = SAFI_MAX;       /* unknown */
-  if (strncmp (safi_str, "m", 1) == 0)
+  if (strmatch (safi_str, "multicast"))
     safi = SAFI_MULTICAST;
-  else if (strncmp (safi_str, "u", 1) == 0)
+  else if (strmatch (safi_str, "unicast"))
     safi = SAFI_UNICAST;
-  else if (strncmp (safi_str, "v", 1) == 0)
+  else if (strmatch (safi_str, "vpn"))
     safi = SAFI_MPLS_VPN;
-  else if (strncmp (safi_str, "l", 1) == 0)
+  else if (strmatch (safi_str, "labeled-unicast"))
     safi = SAFI_LABELED_UNICAST;
   return safi;
 }
@@ -255,12 +247,6 @@ argv_find_and_parse_safi (struct cmd_token **argv, int argc, int *index, safi_t 
       ret = 1;
       if (safi)
         *safi = SAFI_MPLS_VPN;
-    }
-  else if (argv_find (argv, argc, "evpn", index))
-    {
-      ret = 1;
-      if (safi)
-        *safi = SAFI_EVPN;
     }
   return ret;
 }
@@ -819,8 +805,8 @@ DEFUN (bgp_config_type,
        "cisco\n"
        "zebra\n")
 {
-  int idx_vendor = 2;
-  if (strncmp (argv[idx_vendor]->arg, "c", 1) == 0)
+  int idx = 0;
+  if (argv_find (argv, argc, "cisco", &idx))
     bgp_option_set (BGP_OPT_CONFIG_CISCO);
   else
     bgp_option_unset (BGP_OPT_CONFIG_CISCO);
@@ -3684,11 +3670,11 @@ DEFUN (neighbor_capability_orf_prefix,
   int idx_send_recv = 5;
   u_int16_t flag = 0;
 
-  if (strncmp (argv[idx_send_recv]->arg, "s", 1) == 0)
+  if (strmatch (argv[idx_send_recv]->text, "send"))
     flag = PEER_FLAG_ORF_PREFIX_SM;
-  else if (strncmp (argv[idx_send_recv]->arg, "r", 1) == 0)
+  else if (strmatch (argv[idx_send_recv]->text, "receive"))
     flag = PEER_FLAG_ORF_PREFIX_RM;
-  else if (strncmp (argv[idx_send_recv]->arg, "b", 1) == 0)
+  else if (strmatch (argv[idx_send_recv]->text, "both"))
     flag = PEER_FLAG_ORF_PREFIX_SM|PEER_FLAG_ORF_PREFIX_RM;
   else
     return CMD_WARNING;
@@ -3726,11 +3712,11 @@ DEFUN (no_neighbor_capability_orf_prefix,
   int idx_send_recv = 6;
   u_int16_t flag = 0;
 
-  if (strncmp (argv[idx_send_recv]->arg, "s", 1) == 0)
+  if (strmatch (argv[idx_send_recv]->text, "send"))
     flag = PEER_FLAG_ORF_PREFIX_SM;
-  else if (strncmp (argv[idx_send_recv]->arg, "r", 1) == 0)
+  else if (strmatch (argv[idx_send_recv]->text, "receive"))
     flag = PEER_FLAG_ORF_PREFIX_RM;
-  else if (strncmp (argv[idx_send_recv]->arg, "b", 1) == 0)
+  else if (strmatch (argv[idx_send_recv]->text, "both"))
     flag = PEER_FLAG_ORF_PREFIX_SM|PEER_FLAG_ORF_PREFIX_RM;
   else
     return CMD_WARNING;
@@ -4178,25 +4164,28 @@ DEFUN (no_neighbor_send_community_type,
        "Send Large Community attributes\n")
 {
   int idx_peer = 2;
-  int idx_type = 4;
-  if (strncmp (argv[idx_type]->arg, "s", 1) == 0)
+
+  const char *type = argv[argc - 1]->text;
+
+  if (strmatch (type, "standard"))
     return peer_af_flag_unset_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
 				   bgp_node_safi (vty),
 				   PEER_FLAG_SEND_COMMUNITY);
-  if (strncmp (argv[idx_type]->arg, "e", 1) == 0)
+  if (strmatch (type, "extended"))
     return peer_af_flag_unset_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
 				   bgp_node_safi (vty),
 				   PEER_FLAG_SEND_EXT_COMMUNITY);
-  if (strncmp (argv[idx_type]->arg, "l", 1) == 0)
+  if (strmatch (type, "large"))
     return peer_af_flag_unset_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
 				   bgp_node_safi (vty),
 				   PEER_FLAG_SEND_LARGE_COMMUNITY);
-  if (strncmp (argv[idx_type]->arg, "b", 1) == 0)
+  if (strmatch (type, "both"))
     return peer_af_flag_unset_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
 				   bgp_node_safi (vty),
 				   PEER_FLAG_SEND_COMMUNITY |
 				   PEER_FLAG_SEND_EXT_COMMUNITY);
 
+  /* if (strmatch (type, "all")) */
   return peer_af_flag_unset_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
 				 bgp_node_safi (vty),
 				 (PEER_FLAG_SEND_COMMUNITY |
@@ -4392,30 +4381,13 @@ DEFUN (no_neighbor_nexthop_local_unchanged,
 
 DEFUN (neighbor_attr_unchanged,
        neighbor_attr_unchanged_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged\
-       [<\
-          as-path [<next-hop [med]|med [next-hop]>]|\
-          next-hop [<as-path [med]|med [as-path]>]|\
-          med [<as-path [next-hop]|next-hop [as-path]>]\
-       >]",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [{as-path|next-hop|med}]",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP attribute is propagated unchanged to this neighbor\n"
        "As-path attribute\n"
        "Nexthop attribute\n"
-       "Med attribute\n"
-       "Med attribute\n"
-       "Nexthop attribute\n"
-       "Nexthop attribute\n"
-       "As-path attribute\n"
-       "Med attribute\n"
-       "Med attribute\n"
-       "As-path attribute\n"
-       "Med attribute\n"
-       "As-path attribute\n"
-       "Nexthop attribute\n"
-       "Nexthop attribute\n"
-       "As-path attribute\n")
+       "Med attribute\n")
 {
   int idx = 0;
   char *peer = argv[1]->arg;
@@ -4442,58 +4414,24 @@ DEFUN (neighbor_attr_unchanged,
 
 ALIAS_HIDDEN (neighbor_attr_unchanged,
               neighbor_attr_unchanged_hidden_cmd,
-              "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged\
-              [<\
-                 as-path [<next-hop [med]|med [next-hop]>]|\
-                 next-hop [<as-path [med]|med [as-path]>]|\
-                 med [<as-path [next-hop]|next-hop [as-path]>]\
-              >]",
+              "neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [{as-path|next-hop|med}]",
               NEIGHBOR_STR
               NEIGHBOR_ADDR_STR2
               "BGP attribute is propagated unchanged to this neighbor\n"
               "As-path attribute\n"
               "Nexthop attribute\n"
-              "Med attribute\n"
-              "Med attribute\n"
-              "Nexthop attribute\n"
-              "Nexthop attribute\n"
-              "As-path attribute\n"
-              "Med attribute\n"
-              "Med attribute\n"
-              "As-path attribute\n"
-              "Med attribute\n"
-              "As-path attribute\n"
-              "Nexthop attribute\n"
-              "Nexthop attribute\n"
-              "As-path attribute\n")
+              "Med attribute\n")
 
 DEFUN (no_neighbor_attr_unchanged,
        no_neighbor_attr_unchanged_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged\
-       [<\
-          as-path [<next-hop [med]|med [next-hop]>]|\
-          next-hop [<as-path [med]|med [as-path]>]|\
-          med [<as-path [next-hop]|next-hop [as-path]>]\
-       >]",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [{as-path|next-hop|med}]",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "BGP attribute is propagated unchanged to this neighbor\n"
        "As-path attribute\n"
        "Nexthop attribute\n"
-       "Med attribute\n"
-       "Med attribute\n"
-       "Nexthop attribute\n"
-       "Nexthop attribute\n"
-       "As-path attribute\n"
-       "Med attribute\n"
-       "Med attribute\n"
-       "As-path attribute\n"
-       "Med attribute\n"
-       "As-path attribute\n"
-       "Nexthop attribute\n"
-       "Nexthop attribute\n"
-       "As-path attribute\n")
+       "Med attribute\n")
 {
   int idx = 0;
   char *peer = argv[2]->arg;
@@ -4520,32 +4458,14 @@ DEFUN (no_neighbor_attr_unchanged,
 
 ALIAS_HIDDEN (no_neighbor_attr_unchanged,
               no_neighbor_attr_unchanged_hidden_cmd,
-              "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged\
-              [<\
-                 as-path [<next-hop [med]|med [next-hop]>]|\
-                 next-hop [<as-path [med]|med [as-path]>]|\
-                 med [<as-path [next-hop]|next-hop [as-path]>]\
-              >]",
+              "no neighbor <A.B.C.D|X:X::X:X|WORD> attribute-unchanged [{as-path|next-hop|med}]",
               NO_STR
               NEIGHBOR_STR
               NEIGHBOR_ADDR_STR2
               "BGP attribute is propagated unchanged to this neighbor\n"
               "As-path attribute\n"
               "Nexthop attribute\n"
-              "Med attribute\n"
-              "Med attribute\n"
-              "Nexthop attribute\n"
-              "Nexthop attribute\n"
-              "As-path attribute\n"
-              "Med attribute\n"
-              "Med attribute\n"
-              "As-path attribute\n"
-              "Med attribute\n"
-              "As-path attribute\n"
-              "Nexthop attribute\n"
-              "Nexthop attribute\n"
-              "As-path attribute\n")
-
+              "Med attribute\n")
 
 /* EBGP multihop configuration. */
 static int
@@ -5312,54 +5232,6 @@ DEFUN (no_neighbor_interface,
   return peer_interface_vty (vty, argv[idx_peer]->arg, NULL);
 }
 
-/* Set distribute list to the peer. */
-static int
-peer_distribute_set_vty (struct vty *vty, const char *ip_str,
-                         afi_t afi, safi_t safi,
-			 const char *name_str, const char *direct_str)
-{
-  int ret;
-  struct peer *peer;
-  int direct = FILTER_IN;
-
-  peer = peer_and_group_lookup_vty (vty, ip_str);
-  if (! peer)
-    return CMD_WARNING;
-
-  /* Check filter direction. */
-  if (strncmp (direct_str, "i", 1) == 0)
-    direct = FILTER_IN;
-  else if (strncmp (direct_str, "o", 1) == 0)
-    direct = FILTER_OUT;
-
-  ret = peer_distribute_set (peer, afi, safi, direct, name_str);
-
-  return bgp_vty_return (vty, ret);
-}
-
-static int
-peer_distribute_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
-			   safi_t safi, const char *direct_str)
-{
-  int ret;
-  struct peer *peer;
-  int direct = FILTER_IN;
-
-  peer = peer_and_group_lookup_vty (vty, ip_str);
-  if (! peer)
-    return CMD_WARNING;
-
-  /* Check filter direction. */
-  if (strncmp (direct_str, "i", 1) == 0)
-    direct = FILTER_IN;
-  else if (strncmp (direct_str, "o", 1) == 0)
-    direct = FILTER_OUT;
-
-  ret = peer_distribute_unset (peer, afi, safi, direct);
-
-  return bgp_vty_return (vty, ret);
-}
-
 DEFUN (neighbor_distribute_list,
        neighbor_distribute_list_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> distribute-list <(1-199)|(1300-2699)|WORD> <in|out>",
@@ -5374,9 +5246,22 @@ DEFUN (neighbor_distribute_list,
 {
   int idx_peer = 1;
   int idx_acl = 3;
-  int idx_in_out = 4;
-  return peer_distribute_set_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
-				  bgp_node_safi (vty), argv[idx_acl]->arg, argv[idx_in_out]->arg);
+  int direct, ret;
+  struct peer *peer;
+
+  const char *pstr = argv[idx_peer]->arg;
+  const char *acl = argv[idx_acl]->arg;
+  const char *inout = argv[argc-1]->text;
+
+  peer = peer_and_group_lookup_vty (vty, pstr);
+  if (! peer)
+    return CMD_WARNING;
+
+  /* Check filter direction. */
+  direct = strmatch (inout, "in") ? FILTER_IN : FILTER_OUT;
+  ret = peer_distribute_set (peer, bgp_node_afi (vty), bgp_node_safi (vty), direct, acl);
+
+  return bgp_vty_return (vty, ret);
 }
 
 ALIAS_HIDDEN (neighbor_distribute_list,
@@ -5405,9 +5290,21 @@ DEFUN (no_neighbor_distribute_list,
        "Filter outgoing updates\n")
 {
   int idx_peer = 2;
-  int idx_in_out = 5;
-  return peer_distribute_unset_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
-				    bgp_node_safi (vty), argv[idx_in_out]->arg);
+  int direct, ret;
+  struct peer *peer;
+
+  const char *pstr = argv[idx_peer]->arg;
+  const char *inout = argv[argc-1]->text;
+
+  peer = peer_and_group_lookup_vty (vty, pstr);
+  if (! peer)
+    return CMD_WARNING;
+
+  /* Check filter direction. */
+  direct = strmatch (inout, "in") ? FILTER_IN : FILTER_OUT;
+  ret = peer_distribute_unset (peer, bgp_node_afi (vty), bgp_node_safi (vty), direct);
+
+  return bgp_vty_return (vty, ret);
 }
 
 ALIAS_HIDDEN (no_neighbor_distribute_list,
@@ -6290,7 +6187,7 @@ DEFUN_NOSH (address_family_ipv4_safi,
 
   if (argc == 3)
     {
-      safi_t safi = bgp_vty_safi_from_arg(argv[2]->arg);
+      safi_t safi = bgp_vty_safi_from_str (argv[2]->text);
       vty->node = bgp_node_type(AFI_IP, safi);
     }
   else
@@ -6308,7 +6205,7 @@ DEFUN_NOSH (address_family_ipv6_safi,
 {
   if (argc == 3)
     {
-      safi_t safi = bgp_vty_safi_from_arg(argv[2]->arg);
+      safi_t safi = bgp_vty_safi_from_str (argv[2]->text);
       vty->node = bgp_node_type(AFI_IP6, safi);
     }
   else
@@ -6596,7 +6493,7 @@ DEFUN (clear_bgp_ipv6_safi_prefix,
   int idx_safi = 3;
   int idx_ipv6_prefixlen = 5;
   return bgp_clear_prefix (vty, NULL, argv[idx_ipv6_prefixlen]->arg, AFI_IP6,
-                           bgp_vty_safi_from_arg(argv[idx_safi]->arg), NULL);
+                           bgp_vty_safi_from_str(argv[idx_safi]->text), NULL);
 }
 
 DEFUN (clear_bgp_instance_ipv6_safi_prefix,
@@ -6615,7 +6512,7 @@ DEFUN (clear_bgp_instance_ipv6_safi_prefix,
   int idx_safi = 5;
   int idx_ipv6_prefixlen = 7;
   return bgp_clear_prefix (vty, argv[idx_word]->arg, argv[idx_ipv6_prefixlen]->arg, AFI_IP6,
-                           bgp_vty_safi_from_arg(argv[idx_safi]->arg), NULL);
+                           bgp_vty_safi_from_str(argv[idx_safi]->text), NULL);
 }
 
 DEFUN (show_bgp_views,
@@ -9730,8 +9627,8 @@ DEFUN (show_bgp_updgrps_afi_adj,
   int idx_safi = 3;
   int idx_type = 5;
   show_bgp_updgrps_adj_info_aux(vty, NULL,
-                                bgp_vty_afi_from_arg(argv[idx_afi]->arg),
-                                bgp_vty_safi_from_arg(argv[idx_safi]->arg),
+                                bgp_vty_afi_from_str(argv[idx_afi]->text),
+                                bgp_vty_safi_from_str(argv[idx_safi]->text),
                                 argv[idx_type]->arg, 0);
   return CMD_SUCCESS;
 }
@@ -9841,8 +9738,8 @@ DEFUN (show_bgp_updgrps_afi_adj_s,
   subgrp_id = strtoull(argv[idx_subgroup_id]->arg, NULL, 10);
 
   show_bgp_updgrps_adj_info_aux(vty, NULL, 
-                                bgp_vty_afi_from_arg(argv[idx_afi]->arg),
-                                bgp_vty_safi_from_arg(argv[idx_safi]->arg),
+                                bgp_vty_afi_from_str(argv[idx_afi]->text),
+                                bgp_vty_safi_from_str(argv[idx_safi]->text),
                                 argv[idx_type]->arg, subgrp_id);
   return CMD_SUCCESS;
 }

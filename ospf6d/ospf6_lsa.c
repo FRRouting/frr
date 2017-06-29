@@ -850,11 +850,11 @@ DEFUN (debug_ospf6_lsa_type,
 
   if (argc == 5)
     {
-      if (! strcmp (argv[idx_type]->text, "originate"))
+      if (strmatch(argv[idx_type]->text, "originate"))
         SET_FLAG (handler->debug, OSPF6_LSA_DEBUG_ORIGINATE);
-      else if (! strcmp (argv[idx_type]->text, "examine"))
+      else if (strmatch(argv[idx_type]->text, "examine"))
         SET_FLAG (handler->debug, OSPF6_LSA_DEBUG_EXAMIN);
-      else if (! strcmp (argv[idx_type]->text, "flooding"))
+      else if (strmatch(argv[idx_type]->text, "flooding"))
         SET_FLAG (handler->debug, OSPF6_LSA_DEBUG_FLOOD);
     }
   else
@@ -903,11 +903,11 @@ DEFUN (no_debug_ospf6_lsa_type,
 
   if (argc == 6)
     {
-      if (! strcmp (argv[idx_type]->text, "originate"))
+      if (strmatch(argv[idx_type]->text, "originate"))
         UNSET_FLAG (handler->debug, OSPF6_LSA_DEBUG_ORIGINATE);
-      if (! strcmp (argv[idx_type]->text, "examine"))
+      if (strmatch(argv[idx_type]->text, "examine"))
         UNSET_FLAG (handler->debug, OSPF6_LSA_DEBUG_EXAMIN);
-      if (! strcmp (argv[idx_type]->text, "flooding"))
+      if (strmatch(argv[idx_type]->text, "flooding"))
         UNSET_FLAG (handler->debug, OSPF6_LSA_DEBUG_FLOOD);
     }
   else

@@ -629,9 +629,9 @@ DEFUN_HIDDEN (neighbor_bfd_type,
   if (!peer)
     return CMD_WARNING;
 
-  if (!strcmp(argv[idx_hop]->arg, "singlehop"))
+  if (strmatch(argv[idx_hop]->text, "singlehop"))
     type = BFD_TYPE_SINGLEHOP;
-  else if (!strcmp(argv[idx_hop]->arg, "multihop"))
+  else if (strmatch(argv[idx_hop]->text, "multihop"))
     type = BFD_TYPE_MULTIHOP;
   else
     return CMD_WARNING;

@@ -3333,7 +3333,7 @@ DEFUN (debug_rfapi_register_vn_un,
     }
   rfapiQprefix2Rprefix (&pfx, &hpfx);
 
-  if (!strcmp (argv[10]->arg, "infinite"))
+  if (strmatch(argv[10]->text, "infinite"))
     {
       lifetime = RFAPI_INFINITE_LIFETIME;
     }
@@ -3422,7 +3422,7 @@ DEFUN (debug_rfapi_register_vn_un_l2o,
     }
   rfapiQprefix2Rprefix (&pfx, &hpfx);
 
-  if (!strcmp (argv[10]->arg, "infinite"))
+  if (strmatch(argv[10]->text, "infinite"))
     {
       lifetime = RFAPI_INFINITE_LIFETIME;
     }
@@ -3931,7 +3931,7 @@ DEFUN (debug_rfapi_response_omit_self,
       return CMD_WARNING;
     }
 
-  if (!strcmp (argv[3]->arg, "on"))
+  if (strmatch(argv[3]->text, "on"))
     SET_FLAG (bgp->rfapi_cfg->flags, BGP_VNC_CONFIG_FILTER_SELF_FROM_RSP);
   else
     UNSET_FLAG (bgp->rfapi_cfg->flags, BGP_VNC_CONFIG_FILTER_SELF_FROM_RSP);
