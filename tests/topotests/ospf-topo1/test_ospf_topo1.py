@@ -122,6 +122,8 @@ def test_ospf_convergence():
     for rnum in range(1, 5):
         router = 'r{}'.format(rnum)
 
+        logger.info('Waiting for router "%s" convergence', router)
+
         # Load expected results from the command
         reffile = os.path.join(CWD, '{}/ospfroute.txt'.format(router))
         expected = open(reffile).read()
@@ -138,6 +140,7 @@ def test_ospf_json():
 
     for rnum in range(1, 5):
         router = tgen.gears['r{}'.format(rnum)]
+        logger.info('Comparing router "%s" "show ip ospf json" output', router.name)
         expected = {
             'routerId': '10.0.255.{}'.format(rnum),
             'tosRoutesOnly': True,
@@ -212,7 +215,7 @@ def test_ospf_link_down():
     # Expect convergence on all routers
     for rnum in range(1, 5):
         router = 'r{}'.format(rnum)
-
+        logger.info('Waiting for router "%s" convergence after link failure', router)
         # Load expected results from the command
         reffile = os.path.join(CWD, '{}/ospfroute_down.txt'.format(router))
         expected = open(reffile).read()
