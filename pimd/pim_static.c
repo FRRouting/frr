@@ -337,7 +337,7 @@ int pim_static_del(struct pim_instance *pim, struct interface *iif,
 	return 0;
 }
 
-int pim_static_write_mroute(struct vty *vty, struct pim_instance *pim,
+int pim_static_write_mroute(struct pim_instance *pim, struct vty *vty,
 			    struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;

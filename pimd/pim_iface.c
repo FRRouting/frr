@@ -676,7 +676,7 @@ void pim_if_addr_add(struct connected *ifc)
 			rpf.rpf_addr.u.prefix4 = ifc->address->u.prefix4;
 			pnc = pim_nexthop_cache_find(pim_ifp->pim, &rpf);
 			if (pnc)
-				pim_sendmsg_zebra_rnh(zclient, pim_ifp->pim,
+				pim_sendmsg_zebra_rnh(pim_ifp->pim, zclient,
 						      pnc,
 						      ZEBRA_NEXTHOP_REGISTER);
 		}

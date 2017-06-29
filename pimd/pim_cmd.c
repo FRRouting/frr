@@ -176,7 +176,7 @@ static void pim_if_membership_refresh(struct interface *ifp)
 	pim_ifchannel_delete_on_noinfo(ifp);
 }
 
-static void pim_show_assert(struct vty *vty, struct pim_instance *pim)
+static void pim_show_assert(struct pim_instance *pim, struct vty *vty)
 {
 	struct pim_interface *pim_ifp;
 	struct pim_ifchannel *ch;
@@ -223,7 +223,7 @@ static void pim_show_assert(struct vty *vty, struct pim_instance *pim)
 	} /* scan interface channels */
 }
 
-static void pim_show_assert_internal(struct vty *vty, struct pim_instance *pim)
+static void pim_show_assert_internal(struct pim_instance *pim, struct vty *vty)
 {
 	struct pim_interface *pim_ifp;
 	struct listnode *ch_node;
@@ -267,7 +267,7 @@ static void pim_show_assert_internal(struct vty *vty, struct pim_instance *pim)
 	} /* scan interface channels */
 }
 
-static void pim_show_assert_metric(struct vty *vty, struct pim_instance *pim)
+static void pim_show_assert_metric(struct pim_instance *pim, struct vty *vty)
 {
 	struct pim_interface *pim_ifp;
 	struct listnode *ch_node;
@@ -307,8 +307,8 @@ static void pim_show_assert_metric(struct vty *vty, struct pim_instance *pim)
 	} /* scan interface channels */
 }
 
-static void pim_show_assert_winner_metric(struct vty *vty,
-					  struct pim_instance *pim)
+static void pim_show_assert_winner_metric(struct pim_instance *pim,
+					  struct vty *vty)
 {
 	struct pim_interface *pim_ifp;
 	struct listnode *ch_node;
@@ -392,7 +392,7 @@ static void json_object_pim_ifp_add(struct json_object *json,
 		json_object_boolean_true_add(json, "lanDelayEnabled");
 }
 
-static void pim_show_membership(struct vty *vty, struct pim_instance *pim,
+static void pim_show_membership(struct pim_instance *pim, struct vty *vty,
 				u_char uj)
 {
 	struct pim_interface *pim_ifp;
@@ -537,7 +537,7 @@ static void pim_print_ifp_flags(struct vty *vty, struct interface *ifp,
 	vty_out(vty, "\n");
 }
 
-static void igmp_show_interfaces(struct vty *vty, struct pim_instance *pim,
+static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 				 u_char uj)
 {
 	struct listnode *node;
@@ -615,9 +615,9 @@ static void igmp_show_interfaces(struct vty *vty, struct pim_instance *pim,
 	}
 }
 
-static void igmp_show_interfaces_single(struct vty *vty,
-					struct pim_instance *pim,
-					const char *ifname, u_char uj)
+static void igmp_show_interfaces_single(struct pim_instance *pim,
+					struct vty *vty, const char *ifname,
+					u_char uj)
 {
 	struct igmp_sock *igmp;
 	struct interface *ifp;
@@ -819,7 +819,7 @@ static void igmp_show_interfaces_single(struct vty *vty,
 	}
 }
 
-static void igmp_show_interface_join(struct vty *vty, struct pim_instance *pim)
+static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty)
 {
 	struct listnode *node;
 	struct interface *ifp;
@@ -870,9 +870,9 @@ static void igmp_show_interface_join(struct vty *vty, struct pim_instance *pim)
 	} /* for (iflist) */
 }
 
-static void pim_show_interfaces_single(struct vty *vty,
-				       struct pim_instance *pim,
-				       const char *ifname, u_char uj)
+static void pim_show_interfaces_single(struct pim_instance *pim,
+				       struct vty *vty, const char *ifname,
+				       u_char uj)
 {
 	struct in_addr ifaddr;
 	struct interface *ifp;
@@ -1289,7 +1289,7 @@ static void pim_show_interfaces_single(struct vty *vty,
 	}
 }
 
-static void pim_show_interfaces(struct vty *vty, struct pim_instance *pim,
+static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
 				u_char uj)
 {
 	struct interface *ifp;
@@ -1383,8 +1383,8 @@ static void pim_show_interfaces(struct vty *vty, struct pim_instance *pim,
 	json_object_free(json);
 }
 
-static void pim_show_interface_traffic(struct vty *vty,
-				       struct pim_instance *pim, u_char uj)
+static void pim_show_interface_traffic(struct pim_instance *pim,
+				       struct vty *vty, u_char uj)
 {
 	struct interface *ifp = NULL;
 	struct pim_interface *pim_ifp = NULL;
@@ -1463,8 +1463,8 @@ static void pim_show_interface_traffic(struct vty *vty,
 	}
 }
 
-static void pim_show_interface_traffic_single(struct vty *vty,
-					      struct pim_instance *pim,
+static void pim_show_interface_traffic_single(struct pim_instance *pim,
+					      struct vty *vty,
 					      const char *ifname, u_char uj)
 {
 	struct interface *ifp = NULL;
@@ -1553,7 +1553,7 @@ static void pim_show_interface_traffic_single(struct vty *vty,
 	}
 }
 
-static void pim_show_join(struct vty *vty, struct pim_instance *pim, u_char uj)
+static void pim_show_join(struct pim_instance *pim, struct vty *vty, u_char uj)
 {
 	struct pim_interface *pim_ifp;
 	struct in_addr ifaddr;
@@ -1654,7 +1654,7 @@ static void pim_show_join(struct vty *vty, struct pim_instance *pim, u_char uj)
 	}
 }
 
-static void pim_show_neighbors_single(struct vty *vty, struct pim_instance *pim,
+static void pim_show_neighbors_single(struct pim_instance *pim, struct vty *vty,
 				      const char *neighbor, u_char uj)
 {
 	struct listnode *node;
@@ -1864,7 +1864,7 @@ static void pim_show_neighbors_single(struct vty *vty, struct pim_instance *pim,
 	}
 }
 
-static void pim_show_state(struct vty *vty, struct pim_instance *pim,
+static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 			   const char *src_or_group, const char *group,
 			   u_char uj)
 {
@@ -2066,7 +2066,7 @@ static void pim_show_state(struct vty *vty, struct pim_instance *pim,
 	}
 }
 
-static void pim_show_neighbors(struct vty *vty, struct pim_instance *pim,
+static void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 			       u_char uj)
 {
 	struct listnode *node;
@@ -2149,8 +2149,8 @@ static void pim_show_neighbors(struct vty *vty, struct pim_instance *pim,
 	}
 }
 
-static void pim_show_neighbors_secondary(struct vty *vty,
-					 struct pim_instance *pim)
+static void pim_show_neighbors_secondary(struct pim_instance *pim,
+					 struct vty *vty)
 {
 	struct listnode *node;
 	struct interface *ifp;
@@ -2264,7 +2264,7 @@ static const char *pim_reg_state2brief_str(enum pim_reg_state reg_state,
 	return state_str;
 }
 
-static void pim_show_upstream(struct vty *vty, struct pim_instance *pim,
+static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 			      u_char uj)
 {
 	struct listnode *upnode;
@@ -2382,7 +2382,7 @@ static void pim_show_upstream(struct vty *vty, struct pim_instance *pim,
 	}
 }
 
-static void pim_show_join_desired(struct vty *vty, struct pim_instance *pim,
+static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
 				  u_char uj)
 {
 	struct listnode *chnode;
@@ -2469,7 +2469,7 @@ static void pim_show_join_desired(struct vty *vty, struct pim_instance *pim,
 	}
 }
 
-static void pim_show_upstream_rpf(struct vty *vty, struct pim_instance *pim,
+static void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty,
 				  u_char uj)
 {
 	struct listnode *upnode;
@@ -2580,7 +2580,7 @@ static void show_rpf_refresh_stats(struct vty *vty, time_t now,
 	}
 }
 
-static void show_scan_oil_stats(struct vty *vty, struct pim_instance *pim,
+static void show_scan_oil_stats(struct pim_instance *pim, struct vty *vty,
 				time_t now)
 {
 	char uptime_scan_oil[10];
@@ -2603,7 +2603,7 @@ static void show_scan_oil_stats(struct vty *vty, struct pim_instance *pim,
 		uptime_mroute_del, (long long)pim->mroute_del_events);
 }
 
-static void pim_show_rpf(struct vty *vty, struct pim_instance *pim, u_char uj)
+static void pim_show_rpf(struct pim_instance *pim, struct vty *vty, u_char uj)
 {
 	struct listnode *up_node;
 	struct pim_upstream *up;
@@ -2712,7 +2712,7 @@ static int pim_print_pnc_cache_walkcb(struct hash_backet *backet, void *arg)
 	return CMD_SUCCESS;
 }
 
-static void pim_show_nexthop(struct vty *vty, struct pim_instance *pim)
+static void pim_show_nexthop(struct pim_instance *pim, struct vty *vty)
 {
 	struct pnc_cache_walk_data cwd;
 
@@ -2726,7 +2726,7 @@ static void pim_show_nexthop(struct vty *vty, struct pim_instance *pim)
 	hash_walk(pim->rpf_hash, pim_print_pnc_cache_walkcb, &cwd);
 }
 
-static void igmp_show_groups(struct vty *vty, struct pim_instance *pim,
+static void igmp_show_groups(struct pim_instance *pim, struct vty *vty,
 			     u_char uj)
 {
 	struct listnode *ifnode;
@@ -2848,8 +2848,8 @@ static void igmp_show_groups(struct vty *vty, struct pim_instance *pim,
 	}
 }
 
-static void igmp_show_group_retransmission(struct vty *vty,
-					   struct pim_instance *pim)
+static void igmp_show_group_retransmission(struct pim_instance *pim,
+					   struct vty *vty)
 {
 	struct listnode *ifnode;
 	struct interface *ifp;
@@ -2914,7 +2914,7 @@ static void igmp_show_group_retransmission(struct vty *vty,
 	}		  /* scan interfaces */
 }
 
-static void igmp_show_sources(struct vty *vty, struct pim_instance *pim)
+static void igmp_show_sources(struct pim_instance *pim, struct vty *vty)
 {
 	struct listnode *ifnode;
 	struct interface *ifp;
@@ -2990,8 +2990,8 @@ static void igmp_show_sources(struct vty *vty, struct pim_instance *pim)
 	}			  /* scan interfaces */
 }
 
-static void igmp_show_source_retransmission(struct vty *vty,
-					    struct pim_instance *pim)
+static void igmp_show_source_retransmission(struct pim_instance *pim,
+					    struct vty *vty)
 {
 	struct listnode *ifnode;
 	struct interface *ifp;
@@ -3293,9 +3293,9 @@ DEFUN (show_ip_igmp_interface,
 
 	if (argv_find(argv, argc, "detail", &idx)
 	    || argv_find(argv, argc, "WORD", &idx))
-		igmp_show_interfaces_single(vty, vrf->info, argv[idx]->arg, uj);
+		igmp_show_interfaces_single(vrf->info, vty, argv[idx]->arg, uj);
 	else
-		igmp_show_interfaces(vty, vrf->info, uj);
+		igmp_show_interfaces(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
@@ -3315,7 +3315,7 @@ DEFUN (show_ip_igmp_join,
 	if (!vrf)
 		return CMD_WARNING;
 
-	igmp_show_interface_join(vty, vrf->info);
+	igmp_show_interface_join(vrf->info, vty);
 
 	return CMD_SUCCESS;
 }
@@ -3337,7 +3337,7 @@ DEFUN (show_ip_igmp_groups,
 	if (!vrf)
 		return CMD_WARNING;
 
-	igmp_show_groups(vty, vrf->info, uj);
+	igmp_show_groups(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
@@ -3358,7 +3358,7 @@ DEFUN (show_ip_igmp_groups_retransmissions,
 	if (!vrf)
 		return CMD_WARNING;
 
-	igmp_show_group_retransmission(vty, vrf->info);
+	igmp_show_group_retransmission(vrf->info, vty);
 
 	return CMD_SUCCESS;
 }
@@ -3378,7 +3378,7 @@ DEFUN (show_ip_igmp_sources,
 	if (!vrf)
 		return CMD_WARNING;
 
-	igmp_show_sources(vty, vrf->info);
+	igmp_show_sources(vrf->info, vty);
 
 	return CMD_SUCCESS;
 }
@@ -3399,7 +3399,7 @@ DEFUN (show_ip_igmp_sources_retransmissions,
 	if (!vrf)
 		return CMD_WARNING;
 
-	igmp_show_source_retransmission(vty, vrf->info);
+	igmp_show_source_retransmission(vrf->info, vty);
 
 	return CMD_SUCCESS;
 }
@@ -3419,7 +3419,7 @@ DEFUN (show_ip_pim_assert,
 	if (!vrf)
 		return CMD_WARNING;
 
-	pim_show_assert(vty, vrf->info);
+	pim_show_assert(vrf->info, vty);
 
 	return CMD_SUCCESS;
 }
@@ -3439,7 +3439,7 @@ DEFUN (show_ip_pim_assert_internal,
 	if (!vrf)
 		return CMD_WARNING;
 
-	pim_show_assert_internal(vty, vrf->info);
+	pim_show_assert_internal(vrf->info, vty);
 
 	return CMD_SUCCESS;
 }
@@ -3459,7 +3459,7 @@ DEFUN (show_ip_pim_assert_metric,
 	if (!vrf)
 		return CMD_WARNING;
 
-	pim_show_assert_metric(vty, vrf->info);
+	pim_show_assert_metric(vrf->info, vty);
 
 	return CMD_SUCCESS;
 }
@@ -3479,7 +3479,7 @@ DEFUN (show_ip_pim_assert_winner_metric,
 	if (!vrf)
 		return CMD_WARNING;
 
-	pim_show_assert_winner_metric(vty, vrf->info);
+	pim_show_assert_winner_metric(vrf->info, vty);
 
 	return CMD_SUCCESS;
 }
@@ -3505,10 +3505,10 @@ DEFUN (show_ip_pim_interface,
 
 	if (argv_find(argv, argc, "WORD", &idx)
 	    || argv_find(argv, argc, "detail", &idx))
-		pim_show_interfaces_single(vty, vrf->info, argv[idx]->arg, uj);
+		pim_show_interfaces_single(vrf->info, vty, argv[idx]->arg, uj);
 
 	else
-		pim_show_interfaces(vty, vrf->info, uj);
+		pim_show_interfaces(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
@@ -3530,7 +3530,7 @@ DEFUN (show_ip_pim_join,
 	if (!vrf)
 		return CMD_WARNING;
 
-	pim_show_join(vty, vrf->info, uj);
+	pim_show_join(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
@@ -3552,7 +3552,7 @@ DEFUN (show_ip_pim_local_membership,
 	if (!vrf)
 		return CMD_WARNING;
 
-	pim_show_membership(vty, vrf->info, uj);
+	pim_show_membership(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
@@ -3578,9 +3578,9 @@ DEFUN (show_ip_pim_neighbor,
 
 	if (argv_find(argv, argc, "detail", &idx)
 	    || argv_find(argv, argc, "WORD", &idx))
-		pim_show_neighbors_single(vty, vrf->info, argv[idx]->arg, uj);
+		pim_show_neighbors_single(vrf->info, vty, argv[idx]->arg, uj);
 	else
-		pim_show_neighbors(vty, vrf->info, uj);
+		pim_show_neighbors(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
@@ -3600,7 +3600,7 @@ DEFUN (show_ip_pim_secondary,
 	if (!vrf)
 		return CMD_WARNING;
 
-	pim_show_neighbors_secondary(vty, vrf->info);
+	pim_show_neighbors_secondary(vrf->info, vty);
 
 	return CMD_SUCCESS;
 }
@@ -3635,7 +3635,7 @@ DEFUN (show_ip_pim_state,
 			group = argv[idx + 1]->arg;
 	}
 
-	pim_show_state(vty, vrf->info, src_or_group, group, uj);
+	pim_show_state(vrf->info, vty, src_or_group, group, uj);
 
 	return CMD_SUCCESS;
 }
@@ -3657,7 +3657,7 @@ DEFUN (show_ip_pim_upstream,
 	if (!vrf)
 		return CMD_WARNING;
 
-	pim_show_upstream(vty, vrf->info, uj);
+	pim_show_upstream(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
@@ -3679,7 +3679,7 @@ DEFUN (show_ip_pim_upstream_join_desired,
 	if (!vrf)
 		return CMD_WARNING;
 
-	pim_show_join_desired(vty, vrf->info, uj);
+	pim_show_join_desired(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
@@ -3701,7 +3701,7 @@ DEFUN (show_ip_pim_upstream_rpf,
 	if (!vrf)
 		return CMD_WARNING;
 
-	pim_show_upstream_rpf(vty, vrf->info, uj);
+	pim_show_upstream_rpf(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
@@ -3723,7 +3723,7 @@ DEFUN (show_ip_pim_rp,
 	if (!vrf)
 		return CMD_WARNING;
 
-	pim_rp_show_information(vty, vrf->info, uj);
+	pim_rp_show_information(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
@@ -3745,7 +3745,7 @@ DEFUN (show_ip_pim_rpf,
 	if (!vrf)
 		return CMD_WARNING;
 
-	pim_show_rpf(vty, vrf->info, uj);
+	pim_show_rpf(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
@@ -3765,7 +3765,7 @@ DEFUN (show_ip_pim_nexthop,
 	if (!vrf)
 		return CMD_WARNING;
 
-	pim_show_nexthop(vty, vrf->info);
+	pim_show_nexthop(vrf->info, vty);
 
 	return CMD_SUCCESS;
 }
@@ -3875,15 +3875,15 @@ DEFUN (show_ip_pim_interface_traffic,
 		return CMD_WARNING;
 
 	if (argv_find(argv, argc, "WORD", &idx))
-		pim_show_interface_traffic_single(vty, vrf->info,
+		pim_show_interface_traffic_single(vrf->info, vty,
 						  argv[idx]->arg, uj);
 	else
-		pim_show_interface_traffic(vty, vrf->info, uj);
+		pim_show_interface_traffic(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
 
-static void show_multicast_interfaces(struct vty *vty, struct pim_instance *pim)
+static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty)
 {
 	struct listnode *node;
 	struct interface *ifp;
@@ -3971,14 +3971,14 @@ DEFUN (show_ip_multicast,
 
 	vty_out(vty, "\n");
 
-	show_scan_oil_stats(vty, pim, now);
+	show_scan_oil_stats(pim, vty, now);
 
-	show_multicast_interfaces(vty, pim);
+	show_multicast_interfaces(pim, vty);
 
 	return CMD_SUCCESS;
 }
 
-static void show_mroute(struct vty *vty, struct pim_instance *pim, u_char uj)
+static void show_mroute(struct pim_instance *pim, struct vty *vty, u_char uj)
 {
 	struct listnode *node;
 	struct channel_oil *c_oil;
@@ -4318,7 +4318,7 @@ DEFUN (show_ip_mroute,
 	if (!vrf)
 		return CMD_WARNING;
 
-	show_mroute(vty, vrf->info, uj);
+	show_mroute(vrf->info, vty, uj);
 	return CMD_SUCCESS;
 }
 
@@ -4346,7 +4346,7 @@ DEFUN (show_ip_mroute_vrf_all,
 			first = false;
 		} else
 			vty_out(vty, "VRF: %s\n", vrf->name);
-		show_mroute(vty, vrf->info, uj);
+		show_mroute(vrf->info, vty, uj);
 	}
 	if (uj)
 		vty_out(vty, "}");
@@ -4354,7 +4354,7 @@ DEFUN (show_ip_mroute_vrf_all,
 	return CMD_SUCCESS;
 }
 
-static void show_mroute_count(struct vty *vty, struct pim_instance *pim)
+static void show_mroute_count(struct pim_instance *pim, struct vty *vty)
 {
 	struct listnode *node;
 	struct channel_oil *c_oil;
@@ -4419,7 +4419,7 @@ DEFUN (show_ip_mroute_count,
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
 
-	show_mroute_count(vty, vrf->info);
+	show_mroute_count(vrf->info, vty);
 	return CMD_SUCCESS;
 }
 
@@ -4473,7 +4473,7 @@ DEFUN (show_ip_rib,
 	return CMD_SUCCESS;
 }
 
-static void show_ssmpingd(struct vty *vty, struct pim_instance *pim)
+static void show_ssmpingd(struct pim_instance *pim, struct vty *vty)
 {
 	struct listnode *node;
 	struct ssmpingd_sock *ss;
@@ -4529,11 +4529,11 @@ DEFUN (show_ip_ssmpingd,
 	if (!vrf)
 		return CMD_WARNING;
 
-	show_ssmpingd(vty, vrf->info);
+	show_ssmpingd(vrf->info, vty);
 	return CMD_SUCCESS;
 }
 
-static int pim_rp_cmd_worker(struct vty *vty, struct pim_instance *pim,
+static int pim_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
 			     const char *rp, const char *group,
 			     const char *plist)
 {
@@ -4811,10 +4811,10 @@ DEFUN (ip_pim_rp,
 	int idx_ipv4 = 3;
 
 	if (argc == (idx_ipv4 + 1))
-		return pim_rp_cmd_worker(vty, pim, argv[idx_ipv4]->arg, NULL,
+		return pim_rp_cmd_worker(pim, vty, argv[idx_ipv4]->arg, NULL,
 					 NULL);
 	else
-		return pim_rp_cmd_worker(vty, pim, argv[idx_ipv4]->arg,
+		return pim_rp_cmd_worker(pim, vty, argv[idx_ipv4]->arg,
 					 argv[idx_ipv4 + 1]->arg, NULL);
 }
 
@@ -4829,10 +4829,10 @@ DEFUN (ip_pim_rp_prefix_list,
        "Name of a prefix-list\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_rp_cmd_worker(vty, pim, argv[3]->arg, NULL, argv[5]->arg);
+	return pim_rp_cmd_worker(pim, vty, argv[3]->arg, NULL, argv[5]->arg);
 }
 
-static int pim_no_rp_cmd_worker(struct vty *vty, struct pim_instance *pim,
+static int pim_no_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
 				const char *rp, const char *group,
 				const char *plist)
 {
@@ -4870,10 +4870,10 @@ DEFUN (no_ip_pim_rp,
 	int idx_ipv4 = 4, idx_group = 0;
 
 	if (argv_find(argv, argc, "A.B.C.D/M", &idx_group))
-		return pim_no_rp_cmd_worker(vty, pim, argv[idx_ipv4]->arg,
+		return pim_no_rp_cmd_worker(pim, vty, argv[idx_ipv4]->arg,
 					    argv[idx_group]->arg, NULL);
 	else
-		return pim_no_rp_cmd_worker(vty, pim, argv[idx_ipv4]->arg, NULL,
+		return pim_no_rp_cmd_worker(pim, vty, argv[idx_ipv4]->arg, NULL,
 					    NULL);
 }
 
@@ -4889,7 +4889,7 @@ DEFUN (no_ip_pim_rp_prefix_list,
        "Name of a prefix-list\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_no_rp_cmd_worker(vty, pim, argv[4]->arg, NULL, argv[6]->arg);
+	return pim_no_rp_cmd_worker(pim, vty, argv[4]->arg, NULL, argv[6]->arg);
 }
 
 static int pim_ssm_cmd_worker(struct pim_instance *pim, struct vty *vty,
@@ -4961,8 +4961,8 @@ DEFUN (no_ip_pim_ssm_prefix_list_name,
 	return CMD_WARNING_CONFIG_FAILED;
 }
 
-static void ip_pim_ssm_show_group_range(struct vty *vty,
-					struct pim_instance *pim, u_char uj)
+static void ip_pim_ssm_show_group_range(struct pim_instance *pim,
+					struct vty *vty, u_char uj)
 {
 	struct pim_ssm *ssm = pim->ssm_info;
 	const char *range_str =
@@ -4996,13 +4996,13 @@ DEFUN (show_ip_pim_ssm_range,
 	if (!vrf)
 		return CMD_WARNING;
 
-	ip_pim_ssm_show_group_range(vty, vrf->info, uj);
+	ip_pim_ssm_show_group_range(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
 
-static void ip_pim_ssm_show_group_type(struct vty *vty,
-				       struct pim_instance *pim, u_char uj,
+static void ip_pim_ssm_show_group_type(struct pim_instance *pim,
+				       struct vty *vty, u_char uj,
 				       const char *group)
 {
 	struct in_addr group_addr;
@@ -5050,7 +5050,7 @@ DEFUN (show_ip_pim_group_type,
 		return CMD_WARNING;
 
 	argv_find(argv, argc, "A.B.C.D", &idx);
-	ip_pim_ssm_show_group_type(vty, vrf->info, uj, argv[idx]->arg);
+	ip_pim_ssm_show_group_type(vrf->info, vty, uj, argv[idx]->arg);
 
 	return CMD_SUCCESS;
 }
@@ -6839,7 +6839,7 @@ ALIAS(no_ip_pim_bfd, no_ip_pim_bfd_param_cmd,
       "Required min receive interval\n"
       "Desired min transmit interval\n")
 
-static int ip_msdp_peer_cmd_worker(struct vty *vty, struct pim_instance *pim,
+static int ip_msdp_peer_cmd_worker(struct pim_instance *pim, struct vty *vty,
 				   const char *peer, const char *local)
 {
 	enum pim_msdp_err result;
@@ -6892,10 +6892,10 @@ DEFUN_HIDDEN (ip_msdp_peer,
        "local ip address\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return ip_msdp_peer_cmd_worker(vty, pim, argv[3]->arg, argv[5]->arg);
+	return ip_msdp_peer_cmd_worker(pim, vty, argv[3]->arg, argv[5]->arg);
 }
 
-static int ip_no_msdp_peer_cmd_worker(struct vty *vty, struct pim_instance *pim,
+static int ip_no_msdp_peer_cmd_worker(struct pim_instance *pim, struct vty *vty,
 				      const char *peer)
 {
 	enum pim_msdp_err result;
@@ -6932,12 +6932,12 @@ DEFUN_HIDDEN (no_ip_msdp_peer,
        "peer ip address\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return ip_no_msdp_peer_cmd_worker(vty, pim, argv[4]->arg);
+	return ip_no_msdp_peer_cmd_worker(pim, vty, argv[4]->arg);
 }
 
-static int ip_msdp_mesh_group_member_cmd_worker(struct vty *vty,
-						struct pim_instance *pim,
-						const char *mg, const char *mbr)
+static int ip_msdp_mesh_group_member_cmd_worker(struct pim_instance *pim,
+						struct vty *vty, const char *mg,
+						const char *mbr)
 {
 	enum pim_msdp_err result;
 	struct in_addr mbr_ip;
@@ -6980,12 +6980,12 @@ DEFUN (ip_msdp_mesh_group_member,
        "peer ip address\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return ip_msdp_mesh_group_member_cmd_worker(vty, pim, argv[3]->arg,
+	return ip_msdp_mesh_group_member_cmd_worker(pim, vty, argv[3]->arg,
 						    argv[5]->arg);
 }
 
-static int ip_no_msdp_mesh_group_member_cmd_worker(struct vty *vty,
-						   struct pim_instance *pim,
+static int ip_no_msdp_mesh_group_member_cmd_worker(struct pim_instance *pim,
+						   struct vty *vty,
 						   const char *mg,
 						   const char *mbr)
 {
@@ -7027,13 +7027,13 @@ DEFUN (no_ip_msdp_mesh_group_member,
        "peer ip address\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return ip_no_msdp_mesh_group_member_cmd_worker(vty, pim, argv[4]->arg,
+	return ip_no_msdp_mesh_group_member_cmd_worker(pim, vty, argv[4]->arg,
 						       argv[6]->arg);
 }
 
-static int ip_msdp_mesh_group_source_cmd_worker(struct vty *vty,
-						struct pim_instance *pim,
-						const char *mg, const char *src)
+static int ip_msdp_mesh_group_source_cmd_worker(struct pim_instance *pim,
+						struct vty *vty, const char *mg,
+						const char *src)
 {
 	enum pim_msdp_err result;
 	struct in_addr src_ip;
@@ -7074,12 +7074,12 @@ DEFUN (ip_msdp_mesh_group_source,
        "source ip address for the TCP connection\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return ip_msdp_mesh_group_source_cmd_worker(vty, pim, argv[3]->arg,
+	return ip_msdp_mesh_group_source_cmd_worker(pim, vty, argv[3]->arg,
 						    argv[5]->arg);
 }
 
-static int ip_no_msdp_mesh_group_source_cmd_worker(struct vty *vty,
-						   struct pim_instance *pim,
+static int ip_no_msdp_mesh_group_source_cmd_worker(struct pim_instance *pim,
+						   struct vty *vty,
 						   const char *mg)
 {
 	enum pim_msdp_err result;
@@ -7098,9 +7098,8 @@ static int ip_no_msdp_mesh_group_source_cmd_worker(struct vty *vty,
 	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
 }
 
-static int ip_no_msdp_mesh_group_cmd_worker(struct vty *vty,
-					    struct pim_instance *pim,
-					    const char *mg)
+static int ip_no_msdp_mesh_group_cmd_worker(struct pim_instance *pim,
+					    struct vty *vty, const char *mg)
 {
 	enum pim_msdp_err result;
 
@@ -7131,9 +7130,9 @@ DEFUN (no_ip_msdp_mesh_group_source,
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
 	if (argc == 7)
-		return ip_no_msdp_mesh_group_cmd_worker(vty, pim, argv[6]->arg);
+		return ip_no_msdp_mesh_group_cmd_worker(pim, vty, argv[6]->arg);
 	else
-		return ip_no_msdp_mesh_group_source_cmd_worker(vty, pim,
+		return ip_no_msdp_mesh_group_source_cmd_worker(pim, vty,
 							       argv[4]->arg);
 }
 
@@ -7146,7 +7145,7 @@ static void print_empty_json_obj(struct vty *vty)
 	json_object_free(json);
 }
 
-static void ip_msdp_show_mesh_group(struct vty *vty, struct pim_instance *pim,
+static void ip_msdp_show_mesh_group(struct pim_instance *pim, struct vty *vty,
 				    u_char uj)
 {
 	struct listnode *mbrnode;
@@ -7231,12 +7230,12 @@ DEFUN (show_ip_msdp_mesh_group,
 	if (!vrf)
 		return CMD_WARNING;
 
-	ip_msdp_show_mesh_group(vty, vrf->info, uj);
+	ip_msdp_show_mesh_group(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
 
-static void ip_msdp_show_peers(struct vty *vty, struct pim_instance *pim,
+static void ip_msdp_show_peers(struct pim_instance *pim, struct vty *vty,
 			       u_char uj)
 {
 	struct listnode *mpnode;
@@ -7290,7 +7289,7 @@ static void ip_msdp_show_peers(struct vty *vty, struct pim_instance *pim,
 	}
 }
 
-static void ip_msdp_show_peers_detail(struct vty *vty, struct pim_instance *pim,
+static void ip_msdp_show_peers_detail(struct pim_instance *pim, struct vty *vty,
 				      const char *peer, u_char uj)
 {
 	struct listnode *mpnode;
@@ -7415,14 +7414,14 @@ DEFUN (show_ip_msdp_peer_detail,
 
 	if (argv_find(argv, argc, "detail", &idx)
 	    || argv_find(argv, argc, "A.B.C.D", &idx))
-		ip_msdp_show_peers_detail(vty, vrf->info, argv[idx]->arg, uj);
+		ip_msdp_show_peers_detail(vrf->info, vty, argv[idx]->arg, uj);
 	else
-		ip_msdp_show_peers(vty, vrf->info, uj);
+		ip_msdp_show_peers(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
 
-static void ip_msdp_show_sa(struct vty *vty, struct pim_instance *pim,
+static void ip_msdp_show_sa(struct pim_instance *pim, struct vty *vty,
 			    u_char uj)
 {
 	struct listnode *sanode;
@@ -7563,7 +7562,7 @@ static void ip_msdp_show_sa_entry_detail(struct pim_msdp_sa *sa,
 	}
 }
 
-static void ip_msdp_show_sa_detail(struct vty *vty, struct pim_instance *pim,
+static void ip_msdp_show_sa_detail(struct pim_instance *pim, struct vty *vty,
 				   u_char uj)
 {
 	struct listnode *sanode;
@@ -7608,12 +7607,12 @@ DEFUN (show_ip_msdp_sa_detail,
 	if (!vrf)
 		return CMD_WARNING;
 
-	ip_msdp_show_sa_detail(vty, vrf->info, uj);
+	ip_msdp_show_sa_detail(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
 
-static void ip_msdp_show_sa_addr(struct vty *vty, struct pim_instance *pim,
+static void ip_msdp_show_sa_addr(struct pim_instance *pim, struct vty *vty,
 				 const char *addr, u_char uj)
 {
 	struct listnode *sanode;
@@ -7642,7 +7641,7 @@ static void ip_msdp_show_sa_addr(struct vty *vty, struct pim_instance *pim,
 	}
 }
 
-static void ip_msdp_show_sa_sg(struct vty *vty, struct pim_instance *pim,
+static void ip_msdp_show_sa_sg(struct pim_instance *pim, struct vty *vty,
 			       const char *src, const char *grp, u_char uj)
 {
 	struct listnode *sanode;
@@ -7699,11 +7698,11 @@ DEFUN (show_ip_msdp_sa_sg,
 			       : NULL;
 
 	if (src_ip && grp_ip)
-		ip_msdp_show_sa_sg(vty, vrf->info, src_ip, grp_ip, uj);
+		ip_msdp_show_sa_sg(vrf->info, vty, src_ip, grp_ip, uj);
 	else if (src_ip)
-		ip_msdp_show_sa_addr(vty, vrf->info, src_ip, uj);
+		ip_msdp_show_sa_addr(vrf->info, vty, src_ip, uj);
 	else
-		ip_msdp_show_sa(vty, vrf->info, uj);
+		ip_msdp_show_sa(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
 }

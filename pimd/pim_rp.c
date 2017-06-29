@@ -854,7 +854,7 @@ int pim_rp_check_is_my_ip_address(struct pim_instance *pim,
 	return 0;
 }
 
-void pim_rp_show_information(struct vty *vty, struct pim_instance *pim,
+void pim_rp_show_information(struct pim_instance *pim, struct vty *vty,
 			     u_char uj)
 {
 	struct rp_info *rp_info;

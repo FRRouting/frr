@@ -219,7 +219,7 @@ struct pim_msdp {
 
 // struct pim_msdp *msdp;
 struct pim_instance;
-void pim_msdp_init(struct thread_master *master, struct pim_instance *pim);
+void pim_msdp_init(struct pim_instance *pim, struct thread_master *master);
 void pim_msdp_exit(struct pim_instance *pim);
 enum pim_msdp_err pim_msdp_peer_add(struct pim_instance *pim,
 				    struct in_addr peer, struct in_addr local,

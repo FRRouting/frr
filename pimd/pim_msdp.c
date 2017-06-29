@@ -1588,7 +1588,7 @@ static void pim_msdp_enable(struct pim_instance *pim)
 }
 
 /* MSDP init */
-void pim_msdp_init(struct thread_master *master, struct pim_instance *pim)
+void pim_msdp_init(struct pim_instance *pim, struct thread_master *master)
 {
 	pim->msdp.master = master;
 
