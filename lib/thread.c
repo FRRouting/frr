@@ -1115,7 +1115,6 @@ thread_cancel (struct thread *thread)
     listnode_add (thread->master->cancel_req, cr);
     do_thread_cancel (thread->master);
   }
-done:
   pthread_mutex_unlock (&thread->master->mtx);
 }
 
