@@ -557,3 +557,10 @@ zebra_init (struct thread_master *master)
   install_element (RIPNG_NODE, &ripng_redistribute_type_metric_routemap_cmd);
   install_element (RIPNG_NODE, &no_ripng_redistribute_type_cmd);
 }
+
+void
+ripng_zebra_stop (void)
+{
+  zclient_stop (zclient);
+  zclient_free (zclient);
+}
