@@ -43,6 +43,7 @@ struct zebra_pw {
 	int status;
 	uint8_t protocol;
 	struct zserv *client;
+	struct rnh *rnh;
 	struct thread *install_retry_timer;
 };
 
