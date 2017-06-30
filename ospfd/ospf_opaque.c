@@ -1120,7 +1120,7 @@ ospf_opaque_config_write_router (struct vty *vty, struct ospf *ospf)
   struct list *funclist;
 
   if (CHECK_FLAG (ospf->config, OSPF_OPAQUE_CAPABLE))
-    vty_out (vty, " capability opaque%s", VTY_NEWLINE);
+    vty_outln (vty, " capability opaque");
 
   funclist = ospf_opaque_wildcard_funclist;
   opaque_lsa_config_write_router_callback (funclist, vty);
@@ -1189,14 +1189,13 @@ show_opaque_info_detail (struct vty *vty, struct ospf_lsa *lsa)
   /* Switch output functionality by vty address. */
   if (vty != NULL)
     {
-      vty_out (vty, "  Opaque-Type %u (%s)%s", opaque_type,
-	       ospf_opaque_type_name (opaque_type), VTY_NEWLINE);
-      vty_out (vty, "  Opaque-ID   0x%x%s", opaque_id, VTY_NEWLINE);
+      vty_outln (vty, "  Opaque-Type %u (%s)", opaque_type,
+	       ospf_opaque_type_name(opaque_type));
+      vty_outln (vty, "  Opaque-ID   0x%x", opaque_id);
 
-      vty_out (vty, "  Opaque-Info: %u octets of data%s%s",
+      vty_outln (vty, "  Opaque-Info: %u octets of data%s",
                ntohs (lsah->length) - OSPF_LSA_HEADER_SIZE,
-               VALID_OPAQUE_INFO_LEN(lsah) ? "" : "(Invalid length?)",
-               VTY_NEWLINE);
+               VALID_OPAQUE_INFO_LEN(lsah) ? "" : "(Invalid length?)");
     }
   else
     {

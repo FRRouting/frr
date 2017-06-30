@@ -193,9 +193,8 @@ area_write_mt_settings(struct isis_area *area, struct vty *vty)
         {
           if (setting->mtid == ISIS_MT_IPV4_UNICAST)
             continue; /* always enabled, no need to write out config */
-          vty_out (vty, " topology %s%s%s", name,
-                   setting->overload ? " overload" : "",
-                   VTY_NEWLINE);
+          vty_outln (vty, " topology %s%s", name,
+                   setting->overload ? " overload" : "");
           written++;
         }
     }
@@ -326,7 +325,7 @@ circuit_write_mt_settings(struct isis_circuit *circuit, struct vty *vty)
       const char *name = isis_mtid2str(setting->mtid);
       if (name && !setting->enabled)
         {
-          vty_out (vty, " no isis topology %s%s", name, VTY_NEWLINE);
+          vty_outln (vty, " no isis topology %s", name);
           written++;
         }
     }

@@ -885,9 +885,9 @@ DEFUN (ospf6_timers_throttle_spf,
   int idx_number_3 = 5;
   unsigned int delay, hold, max;
 
-  VTY_GET_INTEGER_RANGE ("SPF delay timer", delay, argv[idx_number]->arg, 0, 600000);
-  VTY_GET_INTEGER_RANGE ("SPF hold timer", hold, argv[idx_number_2]->arg, 0, 600000);
-  VTY_GET_INTEGER_RANGE ("SPF max-hold timer", max, argv[idx_number_3]->arg, 0, 600000);
+  delay = strtoul(argv[idx_number]->arg, NULL, 10);
+  hold = strtoul(argv[idx_number_2]->arg, NULL, 10);
+  max = strtoul(argv[idx_number_3]->arg, NULL, 10);
 
   return ospf6_timers_spf_set (vty, delay, hold, max);
 }
@@ -929,9 +929,9 @@ ospf6_spf_config_write (struct vty *vty)
   if (ospf6->spf_delay != OSPF_SPF_DELAY_DEFAULT ||
       ospf6->spf_holdtime != OSPF_SPF_HOLDTIME_DEFAULT ||
       ospf6->spf_max_holdtime != OSPF_SPF_MAX_HOLDTIME_DEFAULT)
-    vty_out (vty, " timers throttle spf %d %d %d%s",
+    vty_outln (vty, " timers throttle spf %d %d %d",
 	     ospf6->spf_delay, ospf6->spf_holdtime,
-	     ospf6->spf_max_holdtime, VTY_NEWLINE);
+	     ospf6->spf_max_holdtime);
 
 }
 

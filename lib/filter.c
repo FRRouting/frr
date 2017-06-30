@@ -576,8 +576,7 @@ vty_access_list_remark_unset (struct vty *vty, afi_t afi, const char *name)
   access = access_list_lookup (afi, name);
   if (! access)
     {
-      vty_out (vty, "%% access-list %s doesn't exist%s", name,
-	       VTY_NEWLINE);
+      vty_outln (vty, "%% access-list %s doesn't exist",name);
       return CMD_WARNING;
     }
 
@@ -616,23 +615,21 @@ filter_set_cisco (struct vty *vty, const char *name_str, const char *type_str,
     type = FILTER_DENY;
   else
     {
-      vty_out (vty, "%% filter type must be permit or deny%s", VTY_NEWLINE);
+      vty_outln (vty, "%% filter type must be permit or deny");
       return CMD_WARNING;
     }
 
   ret = inet_aton (addr_str, &addr);
   if (ret <= 0)
     {
-      vty_out (vty, "%%Inconsistent address and mask%s",
-	       VTY_NEWLINE);
+      vty_outln (vty,"%%Inconsistent address and mask");
       return CMD_WARNING;
     }
 
   ret = inet_aton (addr_mask_str, &addr_mask);
   if (ret <= 0)
     {
-      vty_out (vty, "%%Inconsistent address and mask%s",
-	       VTY_NEWLINE);
+      vty_outln (vty,"%%Inconsistent address and mask");
       return CMD_WARNING;
     }
 
@@ -641,16 +638,14 @@ filter_set_cisco (struct vty *vty, const char *name_str, const char *type_str,
       ret = inet_aton (mask_str, &mask);
       if (ret <= 0)
 	{
-	  vty_out (vty, "%%Inconsistent address and mask%s",
-		   VTY_NEWLINE);
+	  vty_outln (vty,"%%Inconsistent address and mask");
 	  return CMD_WARNING;
 	}
 
       ret = inet_aton (mask_mask_str, &mask_mask);
       if (ret <= 0)
 	{
-	  vty_out (vty, "%%Inconsistent address and mask%s",
-		   VTY_NEWLINE);
+	  vty_outln (vty,"%%Inconsistent address and mask");
 	  return CMD_WARNING;
 	}
     }
@@ -1261,9 +1256,9 @@ filter_set_zebra (struct vty *vty, const char *name_str, const char *type_str,
 
   if (strlen(name_str) > ACL_NAMSIZ)
     {
-      vty_out (vty, "%% ACL name %s is invalid: length exceeds "
-                    "%d characters%s",
-               name_str, ACL_NAMSIZ, VTY_NEWLINE);
+      vty_outln (vty, "%% ACL name %s is invalid: length exceeds "
+                    "%d characters",
+               name_str, ACL_NAMSIZ);
       return CMD_WARNING;
     }
 
@@ -1274,7 +1269,7 @@ filter_set_zebra (struct vty *vty, const char *name_str, const char *type_str,
     type = FILTER_DENY;
   else
     {
-      vty_out (vty, "filter type must be [permit|deny]%s", VTY_NEWLINE);
+      vty_outln (vty, "filter type must be [permit|deny]");
       return CMD_WARNING;
     }
 
@@ -1284,8 +1279,7 @@ filter_set_zebra (struct vty *vty, const char *name_str, const char *type_str,
       ret = str2prefix_ipv4 (prefix_str, (struct prefix_ipv4 *)&p);
       if (ret <= 0)
 	{
-	  vty_out (vty, "IP address prefix/prefixlen is malformed%s",
-		   VTY_NEWLINE);
+	  vty_outln (vty,"IP address prefix/prefixlen is malformed");
 	  return CMD_WARNING;
 	}
     }
@@ -1294,8 +1288,7 @@ filter_set_zebra (struct vty *vty, const char *name_str, const char *type_str,
       ret = str2prefix_ipv6 (prefix_str, (struct prefix_ipv6 *) &p);
       if (ret <= 0)
 	{
-	  vty_out (vty, "IPv6 address prefix/prefixlen is malformed%s",
-		   VTY_NEWLINE);
+	  vty_outln (vty,"IPv6 address prefix/prefixlen is malformed");
 		   return CMD_WARNING;
 	}
     }
@@ -1431,8 +1424,7 @@ DEFUN (no_access_list_all,
   access = access_list_lookup (AFI_IP, argv[idx_acl]->arg);
   if (access == NULL)
     {
-      vty_out (vty, "%% access-list %s doesn't exist%s", argv[idx_acl]->arg,
-	       VTY_NEWLINE);
+      vty_outln (vty, "%% access-list %s doesn't exist",argv[idx_acl]->arg);
       return CMD_WARNING;
     }
 
@@ -1609,8 +1601,7 @@ DEFUN (no_ipv6_access_list_all,
   access = access_list_lookup (AFI_IP6, argv[idx_word]->arg);
   if (access == NULL)
     {
-      vty_out (vty, "%% access-list %s doesn't exist%s", argv[idx_word]->arg,
-	       VTY_NEWLINE);
+      vty_outln (vty, "%% access-list %s doesn't exist",argv[idx_word]->arg);
       return CMD_WARNING;
     }
 
@@ -1697,7 +1688,7 @@ filter_show (struct vty *vty, const char *name, afi_t afi)
     return 0;
 
   /* Print the name of the protocol */
-  vty_out(vty, "%s:%s", frr_protoname, VTY_NEWLINE);
+  vty_outln (vty, "%s:", frr_protoname);
 
   for (access = master->num.head; access; access = access->next)
     {
@@ -1712,11 +1703,11 @@ filter_show (struct vty *vty, const char *name, afi_t afi)
 
 	  if (write)
 	    {
-	      vty_out (vty, "%s IP%s access list %s%s",
+	      vty_outln (vty, "%s IP%s access list %s",
 		       mfilter->cisco ? 
 		       (filter->extended ? "Extended" : "Standard") : "Zebra",
 		       afi == AFI_IP6 ? "v6" : "",
-		       access->name, VTY_NEWLINE);
+		       access->name);
 	      write = 0;
 	    }
 
@@ -1730,13 +1721,13 @@ filter_show (struct vty *vty, const char *name, afi_t afi)
 	  else
 	    {
 	      if (filter->addr_mask.s_addr == 0xffffffff)
-		vty_out (vty, " any%s", VTY_NEWLINE);
+		vty_outln (vty, " any");
 	      else
 		{
 		  vty_out (vty, " %s", inet_ntoa (filter->addr));
 		  if (filter->addr_mask.s_addr != 0)
 		    vty_out (vty, ", wildcard bits %s", inet_ntoa (filter->addr_mask));
-		  vty_out (vty, "%s", VTY_NEWLINE);
+		  vty_out (vty, VTYNL);
 		}
 	    }
 	}
@@ -1755,11 +1746,11 @@ filter_show (struct vty *vty, const char *name, afi_t afi)
 
 	  if (write)
 	    {
-	      vty_out (vty, "%s IP%s access list %s%s",
+	      vty_outln (vty, "%s IP%s access list %s",
 		       mfilter->cisco ? 
 		       (filter->extended ? "Extended" : "Standard") : "Zebra",
 		       afi == AFI_IP6 ? "v6" : "",
-		       access->name, VTY_NEWLINE);
+		       access->name);
 	      write = 0;
 	    }
 
@@ -1773,13 +1764,13 @@ filter_show (struct vty *vty, const char *name, afi_t afi)
 	  else
 	    {
 	      if (filter->addr_mask.s_addr == 0xffffffff)
-		vty_out (vty, " any%s", VTY_NEWLINE);
+		vty_outln (vty, " any");
 	      else
 		{
 		  vty_out (vty, " %s", inet_ntoa (filter->addr));
 		  if (filter->addr_mask.s_addr != 0)
 		    vty_out (vty, ", wildcard bits %s", inet_ntoa (filter->addr_mask));
-		  vty_out (vty, "%s", VTY_NEWLINE);
+		  vty_out (vty, VTYNL);
 		}
 	    }
 	}
@@ -1864,18 +1855,18 @@ config_write_access_cisco (struct vty *vty, struct filter *mfilter)
 	  vty_out (vty, " %s", inet_ntoa (filter->mask));
 	  vty_out (vty, " %s", inet_ntoa (filter->mask_mask));
 	}
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_out (vty, VTYNL);
     }
   else
     {
       if (filter->addr_mask.s_addr == 0xffffffff)
-	vty_out (vty, " any%s", VTY_NEWLINE);
+	vty_outln (vty, " any");
       else
 	{
 	  vty_out (vty, " %s", inet_ntoa (filter->addr));
 	  if (filter->addr_mask.s_addr != 0)
 	    vty_out (vty, " %s", inet_ntoa (filter->addr_mask));
-	  vty_out (vty, "%s", VTY_NEWLINE);
+	  vty_out (vty, VTYNL);
 	}
     }
 }
@@ -1898,7 +1889,7 @@ config_write_access_zebra (struct vty *vty, struct filter *mfilter)
 	     p->prefixlen,
 	     filter->exact ? " exact-match" : "");
 
-  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_out (vty, VTYNL);
 }
 
 static int
@@ -1917,10 +1908,9 @@ config_write_access (struct vty *vty, afi_t afi)
     {
       if (access->remark)
 	{
-	  vty_out (vty, "%saccess-list %s remark %s%s",
+	  vty_outln (vty, "%saccess-list %s remark %s",
 		   afi == AFI_IP ? "" : "ipv6 ",
-		   access->name, access->remark,
-		   VTY_NEWLINE);
+		   access->name,access->remark);
 	  write++;
 	}
 
@@ -1944,10 +1934,9 @@ config_write_access (struct vty *vty, afi_t afi)
     {
       if (access->remark)
 	{
-	  vty_out (vty, "%saccess-list %s remark %s%s",
+	  vty_outln (vty, "%saccess-list %s remark %s",
 		   afi == AFI_IP ? "" : "ipv6 ",
-		   access->name, access->remark,
-		   VTY_NEWLINE);
+		   access->name,access->remark);
 	  write++;
 	}
 

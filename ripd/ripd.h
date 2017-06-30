@@ -388,6 +388,7 @@ extern void rip_if_down_all (void);
 extern void rip_route_map_init (void);
 extern void rip_route_map_reset (void);
 extern void rip_zclient_init(struct thread_master *);
+extern void rip_zclient_stop(void);
 extern void rip_zclient_reset (void);
 extern void rip_offset_init (void);
 extern int if_check_address (struct in_addr addr);

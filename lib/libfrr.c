@@ -366,7 +366,7 @@ struct thread_master *frr_init(void)
 
 	zprivs_init(di->privs);
 
-	master = thread_master_create();
+	master = thread_master_create(NULL);
 	signal_init(master, di->n_signals, di->signals);
 
 	if (di->flags & FRR_LIMITED_CLI)

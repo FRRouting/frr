@@ -402,13 +402,13 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
       else
 	vty_out (vty, "-        ");
       vty_out (vty, "%-10s", snpa_print (adj->snpa));
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_out (vty, VTYNL);
     }
 
   if (detail == ISIS_UI_LEVEL_DETAIL)
     {
       level = adj->level;
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_out (vty, VTYNL);
       if (adj->circuit)
 	vty_out (vty, "    Interface: %s", adj->circuit->interface->name);
       else
@@ -421,18 +421,18 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
 		 time2string (adj->last_upd + adj->hold_time - now));
       else
 	vty_out (vty, ", Expires in %s", time2string (adj->hold_time));
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_out (vty, VTYNL);
       vty_out (vty, "    Adjacency flaps: %u", adj->flaps);
       vty_out (vty, ", Last: %s ago", time2string (now - adj->last_flap));
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_out (vty, VTYNL);
       vty_out (vty, "    Circuit type: %s", circuit_t2string (adj->circuit_t));
       vty_out (vty, ", Speaks: %s", nlpid2string (&adj->nlpids));
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_out (vty, VTYNL);
       if (adj->mt_count != 1 || adj->mt_set[0] != ISIS_MT_IPV4_UNICAST)
         {
-          vty_out (vty, "    Topologies:%s", VTY_NEWLINE);
+          vty_outln (vty, "    Topologies:");
           for (unsigned int i = 0; i < adj->mt_count; i++)
-            vty_out (vty, "      %s%s", isis_mtid2str(adj->mt_set[i]), VTY_NEWLINE);
+            vty_outln (vty, "      %s", isis_mtid2str(adj->mt_set[i]));
         }
       vty_out (vty, "    SNPA: %s", snpa_print (adj->snpa));
       if (adj->circuit && (adj->circuit->circ_type == CIRCUIT_T_BROADCAST))
@@ -445,7 +445,7 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
           vty_out (vty, ", LAN id: %s.%02x",
               sysid_print (adj->lanid), adj->lanid[ISIS_SYS_ID_LEN]);
 
-        vty_out (vty, "%s", VTY_NEWLINE);
+        vty_out (vty, VTYNL);
         vty_out (vty, "    LAN Priority: %u", adj->prio[adj->level - 1]);
 
         vty_out (vty, ", %s, DIS flaps: %u, Last: %s ago",
@@ -455,32 +455,32 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
               (adj->dis_record[ISIS_LEVELS + level - 1].
                last_dis_change)));
       }
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_out (vty, VTYNL);
 
       if (adj->area_addrs && listcount (adj->area_addrs) > 0)
         {
           struct area_addr *area_addr;
-          vty_out (vty, "    Area Address(es):%s", VTY_NEWLINE);
+          vty_outln (vty, "    Area Address(es):");
           for (ALL_LIST_ELEMENTS_RO (adj->area_addrs, node, area_addr))
-            vty_out (vty, "      %s%s", isonet_print (area_addr->area_addr,
-                     area_addr->addr_len), VTY_NEWLINE);
+            vty_outln (vty, "      %s",
+                       isonet_print(area_addr->area_addr, area_addr->addr_len));
         }
       if (adj->ipv4_addrs && listcount (adj->ipv4_addrs) > 0)
 	{
-	  vty_out (vty, "    IPv4 Address(es):%s", VTY_NEWLINE);
+	  vty_outln (vty, "    IPv4 Address(es):");
 	  for (ALL_LIST_ELEMENTS_RO (adj->ipv4_addrs, node, ip_addr))
-            vty_out (vty, "      %s%s", inet_ntoa (*ip_addr), VTY_NEWLINE);
+            vty_outln (vty, "      %s", inet_ntoa(*ip_addr));
 	}
       if (adj->ipv6_addrs && listcount (adj->ipv6_addrs) > 0)
 	{
-	  vty_out (vty, "    IPv6 Address(es):%s", VTY_NEWLINE);
+	  vty_outln (vty, "    IPv6 Address(es):");
 	  for (ALL_LIST_ELEMENTS_RO (adj->ipv6_addrs, node, ipv6_addr))
 	    {
 	      inet_ntop (AF_INET6, ipv6_addr, (char *)ip6, INET6_ADDRSTRLEN);
-	      vty_out (vty, "      %s%s", ip6, VTY_NEWLINE);
+	      vty_outln (vty, "      %s", ip6);
 	    }
 	}
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_out (vty, VTYNL);
     }
   return;
 }

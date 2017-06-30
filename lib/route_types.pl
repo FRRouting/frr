@@ -123,7 +123,7 @@ sub codelist {
 	push @lines, "  \"       > - selected route, * - FIB route%s%s\", \\\n";
 	my @nl = ();
 	for (my $c = 0; $c < @lines + 1; $c++) {
-		push @nl, "VTY_NEWLINE"
+		push @nl, "VTYNL"
 	}
 	return join("", @lines) ."  ". join(", ", @nl);
 }

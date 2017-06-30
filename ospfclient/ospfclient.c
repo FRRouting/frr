@@ -326,7 +326,7 @@ main (int argc, char *argv[])
 
   /* Initialization */
   zprivs_init (&ospfd_privs);
-  master = thread_master_create ();
+  master = thread_master_create(NULL);
 
   /* Open connection to OSPF daemon */
   oclient = ospf_apiclient_connect (args[1], ASYNCPORT);

@@ -54,9 +54,9 @@ enum bgp_show_type
 
 #define BGP_SHOW_SCODE_HEADER "Status codes: s suppressed, d damped, "\
                               "h history, * valid, > best, = multipath,%s"\
-                "              i internal, r RIB-failure, S Stale, R Removed%s"
-#define BGP_SHOW_OCODE_HEADER "Origin codes: i - IGP, e - EGP, ? - incomplete%s%s"
-#define BGP_SHOW_HEADER "   Network          Next Hop            Metric LocPrf Weight Path%s"
+                "              i internal, r RIB-failure, S Stale, R Removed"
+#define BGP_SHOW_OCODE_HEADER "Origin codes: i - IGP, e - EGP, ? - incomplete%s"
+#define BGP_SHOW_HEADER "   Network          Next Hop            Metric LocPrf Weight Path"
 
 /* Ancillary information to struct bgp_info, 
  * used for uncommonly used data (aggregation, MPLS, etc.)

@@ -107,6 +107,127 @@ Automatic assignment of variable names works by applying the following rules:
 These rules should make it possible to avoid manual varname assignment in 90%
 of the cases.
 
+DEFPY
+-----
+
+`DEFPY(...)` is an enhanced version of `DEFUN()` which is preprocessed by
+` python/clidef.py`.  The python script parses the command definition string,
+extracts variable names and types, and generates a C wrapper function that
+parses the variables and passes them on.  This means that in the CLI function
+body, you will receive additional parameters with appropriate types.
+
+This is best explained by an example:
+
+```
+DEFPY(func, func_cmd, "[no] foo bar A.B.C.D (0-99)$num", "...help...")
+
+=>
+
+func(self, vty, argc, argv,     /* standard CLI arguments */
+
+        const char *no,         /* unparsed "no" */
+        struct in_addr bar,     /* parsed IP address */
+        const char *bar_str,    /* unparsed IP address */
+        long num,               /* parsed num */
+        const char *num_str)    /* unparsed num */
+```
+
+Note that as documented in the previous section, "bar" is automatically
+applied as variable name for "A.B.C.D".  The python code then detects this
+is an IP address argument and generates code to parse it into a
+`struct in_addr`, passing it in `bar`.  The raw value is passed in `bar_str`.
+The range/number argument works in the same way with the explicitly given
+variable name.
+
+### Type rules
+
+| Token(s)                 | Type        | Value if omitted by user |
+|--------------------------|-------------|--------------------------|
+| `A.B.C.D`                | `struct in_addr`             | 0.0.0.0 |
+| `X:X::X:X`               | `struct in6_addr`            | ::      |
+| `A.B.C.D + X:X::X:X`     | `const union sockunion *`    | NULL    |
+| `A.B.C.D/M`              | `const struct prefix_ipv4 *` | NULL    |
+| `X:X::X:X/M`             | `const struct prefix_ipv6 *` | NULL    |
+| `A.B.C.D/M + X:X::X:X/M` | `const struct prefix *`      | NULL    |
+| `(0-9)`                  | `long`                       | 0       |
+| `VARIABLE`               | `const char *`               | NULL    |
+| `word`                   | `const char *`               | NULL    |
+| _all other_              | `const char *`               | NULL    |
+
+Note the following details:
+
+* not all parameters are pointers, some are passed as values.
+* when the type is not `const char *`, there will be an extra `_str` argument
+  with type `const char *`.
+* you can give a variable name not only to `VARIABLE` tokens but also to
+  `word` tokens (e.g. constant words).  This is useful if some parts of a
+  command are optional.  The type will be `const char *`.
+* `[no]` will be passed as `const char *no`.
+* pointers will be NULL when the argument is optional and the user did not
+  use it.
+* if a parameter is not a pointer, but is optional and the user didn't use it,
+  the default value will be passed.  Check the `_str` argument if you need to
+  determine whether the parameter was omitted.
+* if the definition contains multiple parameters with the same variable name,
+  they will be collapsed into a single function parameter.  The python code
+  will detect if the types are compatible (i.e. IPv4 + IPv6 variantes) and
+  choose a corresponding C type.
+* the standard DEFUN parameters (self, vty, argc, argv) are still present and
+  can be used.  A DEFUN can simply be **edited into a DEFPY without further
+  changes and it will still work**;  this allows easy forward migration.
+* a file may contain both DEFUN and DEFPY statements.
+
+### Getting a parameter dump
+
+The clidef.py script can be called to get a list of DEFUNs/DEFPYs with
+the parameter name/type list:
+
+```
+lib/clippy python/clidef.py --all-defun --show lib/plist.c > /dev/null
+```
+
+The generated code is printed to stdout, the info dump to stderr.  The
+`--all-defun` argument will make it process DEFUN blocks as well as DEFPYs,
+which is useful prior to converting some DEFUNs.  **The dump does not list
+the `_str` arguments** to keep the output shorter.
+
+Note that the clidef.py script cannot be run with python directly, it needs
+to be run with _clippy_ since the latter makes the CLI parser available.
+
+### Include & Makefile requirements
+
+A source file that uses DEFPY needs to include the `_clippy.c` file **before
+all DEFPY statements**:
+
+```
+/* GPL header */
+#include ...
+
+...
+
+#include "filename_clippy.c"
+
+DEFPY(...)
+DEFPY(...)
+
+install_element(...)
+```
+
+This dependency needs to be marked in Makefile.am:  (there is no ordering
+requirement)
+
+```
+include ../common.am
+
+# ...
+
+# if linked into a LTLIBRARY (.la/.so):
+filename.lo: filename_clippy.c
+
+# if linked into an executable or static library (.a):
+filename.o: filename_clippy.c
+```
+
 Doc Strings
 -----------
 Each token in a command definition should be documented with a brief doc

@@ -140,7 +140,7 @@ int main (int argc, char *argv[])
 
 		printf ("Sequence to be tested: %s\n", sequence);
 
-		master = thread_master_create();
+		master = thread_master_create(NULL);
 		init_zclient (master, ZSERV_PATH);
 
 		zebra_send_label_manager_connect ();

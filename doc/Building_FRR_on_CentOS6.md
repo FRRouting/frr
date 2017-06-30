@@ -46,8 +46,7 @@ Install newer version of autoconf and automake (Package versions are too old)
     sudo make install
     cd ..
 
-Install `Python 2.7` in parallel to default 2.6 (needed for `make check` to 
-run unittests). 
+Install `Python 2.7` in parallel to default 2.6 
 Make sure you've install EPEL (`epel-release` as above). Then install current 
 `python2.7` and `pytest`
 

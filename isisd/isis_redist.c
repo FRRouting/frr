@@ -55,6 +55,18 @@ redist_protocol(int family)
   return 0;
 }
 
+static afi_t
+afi_for_redist_protocol(int protocol)
+{
+  if (protocol == 0)
+    return AFI_IP;
+  if (protocol == 1)
+    return AFI_IP6;
+
+  assert(!"Unknown redist protocol!");
+  return AFI_IP;
+}
+
 static int
 is_default(struct prefix *p)
 {
@@ -177,7 +189,7 @@ isis_redist_uninstall(struct isis_area *area, int level, struct prefix *p)
   if (!er_node->info)
     return;
 
-  XFREE(MTYPE_ISIS, er_node->info);
+  XFREE(MTYPE_ISIS_EXT_INFO, er_node->info);
   route_unlock_node(er_node);
   lsp_regenerate_schedule(area, level, 0);
 }
@@ -360,7 +372,7 @@ isis_redist_delete(int type, struct prefix *p)
         isis_redist_uninstall(area, level, p);
       }
 
-  XFREE(MTYPE_ISIS, ei_node->info);
+  XFREE(MTYPE_ISIS_EXT_INFO, ei_node->info);
   route_unlock_node(ei_node);
 }
 
@@ -387,7 +399,7 @@ isis_redist_update_zebra_subscriptions(struct isis *isis)
   int level;
   int protocol;
 
-  char do_subscribe[ZEBRA_ROUTE_MAX + 1];
+  char do_subscribe[REDIST_PROTOCOL_COUNT][ZEBRA_ROUTE_MAX + 1];
 
   memset(do_subscribe, 0, sizeof(do_subscribe));
 
@@ -396,20 +408,23 @@ isis_redist_update_zebra_subscriptions(struct isis *isis)
       for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++)
         for (level = 0; level < ISIS_LEVELS; level++)
           if (area->redist_settings[protocol][type][level].redist)
-            do_subscribe[type] = 1;
+            do_subscribe[protocol][type] = 1;
 
-  for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++)
-    {
-      /* This field is actually controlling transmission of the IS-IS
-       * routes to Zebra and has nothing to do with redistribution,
-       * so skip it. */
-      if (type == ZEBRA_ROUTE_ISIS)
-        continue;
+  for (protocol = 0; protocol < REDIST_PROTOCOL_COUNT; protocol++)
+    for (type = 0; type < ZEBRA_ROUTE_MAX + 1; type++)
+      {
+        /* This field is actually controlling transmission of the IS-IS
+         * routes to Zebra and has nothing to do with redistribution,
+         * so skip it. */
+        if (type == ZEBRA_ROUTE_ISIS)
+          continue;
 
-      if (do_subscribe[type])
-        isis_zebra_redistribute_set(type);
-      else
-        isis_zebra_redistribute_unset(type);
+        afi_t afi = afi_for_redist_protocol(protocol);
+
+        if (do_subscribe[protocol][type])
+          isis_zebra_redistribute_set(afi, type);
+        else
+          isis_zebra_redistribute_unset(afi, type);
     }
 }
 
@@ -505,7 +520,7 @@ isis_redist_unset(struct isis_area *area, int level,
             continue;
         }
 
-      XFREE(MTYPE_ISIS, rn->info);
+      XFREE(MTYPE_ISIS_EXT_INFO, rn->info);
       route_unlock_node(rn);
     }
 
@@ -540,7 +555,7 @@ isis_redist_area_finish(struct isis_area *area)
 
 DEFUN (isis_redistribute,
        isis_redistribute_cmd,
-       "redistribute " FRR_REDIST_STR_ISISD " <level-1|level-2> [<metric (0-16777215)|route-map WORD>]",
+       "redistribute <ipv4|ipv6> " FRR_REDIST_STR_ISISD " <level-1|level-2> [<metric (0-16777215)|route-map WORD>]",
        REDIST_STR
        "Redistribute IPv4 routes\n"
        "Redistribute IPv6 routes\n"
@@ -585,23 +600,30 @@ DEFUN (isis_redistribute,
 
   if ((area->is_type & level) != level)
     {
-      vty_out(vty, "Node is not a level-%d IS%s", level, VTY_NEWLINE);
+      vty_outln (vty, "Node is not a level-%d IS", level);
       return CMD_WARNING;
     }
 
-  if (strmatch(argv[idx_metric_rmap]->text, "metric"))
-    {
-      char *endp;
-      metric = strtoul(argv[idx_metric_rmap + 1]->arg, &endp, 10);
-      routemap = NULL;
+  metric = 0xffffffff;
+  routemap = NULL;
 
-      if (argv[idx_metric_rmap]->arg[0] == '\0' || *endp != '\0')
-        return CMD_WARNING;
-    }
-  else
+  if (argc > idx_metric_rmap + 1)
     {
-      routemap = argv[idx_metric_rmap + 1]->arg;
-      metric = 0xffffffff;
+      if (argv[idx_metric_rmap + 1]->arg[0] == '\0')
+        return CMD_WARNING;
+
+      if (strmatch(argv[idx_metric_rmap]->text, "metric"))
+        {
+          char *endp;
+          metric = strtoul(argv[idx_metric_rmap + 1]->arg, &endp, 10);
+
+          if (*endp != '\0')
+            return CMD_WARNING;
+        }
+      else
+        {
+           routemap = argv[idx_metric_rmap + 1]->arg;
+        }
     }
 
   isis_redist_set(area, level, family, type, metric, routemap, 0);
@@ -610,7 +632,7 @@ DEFUN (isis_redistribute,
 
 DEFUN (no_isis_redistribute,
        no_isis_redistribute_cmd,
-       "no redistribute " FRR_REDIST_STR_ISISD " <level-1|level-2>",
+       "no redistribute <ipv4|ipv6> " FRR_REDIST_STR_ISISD " <level-1|level-2>",
        NO_STR
        REDIST_STR
        "Redistribute IPv4 routes\n"
@@ -648,7 +670,7 @@ DEFUN (no_isis_redistribute,
 
 DEFUN (isis_default_originate,
        isis_default_originate_cmd,
-       "default-information originate <ipv4|ipv6> <level-1|level-2> [<always|metric (0-16777215)|route-map WORD>]",
+       "default-information originate <ipv4|ipv6> <level-1|level-2> [always] [<metric (0-16777215)|route-map WORD>]",
        "Control distribution of default information\n"
        "Distribute a default route\n"
        "Distribute default route for IPv4\n"
@@ -663,6 +685,7 @@ DEFUN (isis_default_originate,
 {
   int idx_afi = 2;
   int idx_level = 3;
+  int idx_always = 4;
   int idx_metric_rmap = 4;
   VTY_DECLVAR_CONTEXT (isis_area, area);
   int family;
@@ -679,24 +702,29 @@ DEFUN (isis_default_originate,
 
   if ((area->is_type & level) != level)
     {
-      vty_out(vty, "Node is not a level-%d IS%s", level, VTY_NEWLINE);
+      vty_outln (vty, "Node is not a level-%d IS", level);
       return CMD_WARNING;
     }
 
-  if (argc > 4)
-  {
-    if (strmatch (argv[idx_metric_rmap]->text, "always"))
+  if (argc > idx_always && strmatch (argv[idx_always]->text, "always"))
+    {
       originate_type = DEFAULT_ORIGINATE_ALWAYS;
-    else if (strmatch(argv[idx_metric_rmap]->text, "metric"))
-      metric = strtoul(argv[idx_metric_rmap + 1]->arg, NULL, 10);
-    else
-      routemap = argv[idx_metric_rmap + 1]->arg;
-  }
+      idx_metric_rmap++;
+    }
+
+  if (argc > idx_metric_rmap)
+    {
+      if (strmatch(argv[idx_metric_rmap]->text, "metric"))
+        metric = strtoul(argv[idx_metric_rmap + 1]->arg, NULL, 10);
+      else
+        routemap = argv[idx_metric_rmap + 1]->arg;
+    }
 
   if (family == AF_INET6 && originate_type != DEFAULT_ORIGINATE_ALWAYS)
     {
-      vty_out(vty, "Zebra doesn't implement default-originate for IPv6 yet%s", VTY_NEWLINE);
-      vty_out(vty, "so use with care or use default-originate always.%s", VTY_NEWLINE);
+      vty_outln (vty,
+                "Zebra doesn't implement default-originate for IPv6 yet");
+      vty_outln (vty, "so use with care or use default-originate always.");
     }
 
   isis_redist_set(area, level, family, DEFAULT_ROUTE, metric, routemap, originate_type);
@@ -768,7 +796,7 @@ isis_redist_config_write(struct vty *vty, struct isis_area *area,
             vty_out(vty, " metric %u", redist->metric);
           if (redist->map_name)
             vty_out(vty, " route-map %s", redist->map_name);
-          vty_out(vty, "%s", VTY_NEWLINE);
+          vty_out (vty, VTYNL);
           write++;
         }
     }
@@ -786,7 +814,7 @@ isis_redist_config_write(struct vty *vty, struct isis_area *area,
         vty_out(vty, " metric %u", redist->metric);
       if (redist->map_name)
         vty_out(vty, " route-map %s", redist->map_name);
-      vty_out(vty, "%s", VTY_NEWLINE);
+      vty_out (vty, VTYNL);
       write++;
     }
 

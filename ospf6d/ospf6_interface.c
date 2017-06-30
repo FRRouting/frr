@@ -202,6 +202,7 @@ ospf6_interface_create (struct interface *ifp)
   oi->state = OSPF6_INTERFACE_DOWN;
   oi->flag = 0;
   oi->mtu_ignore = 0;
+  oi->c_ifmtu = 0;
 
   /* Try to adjust I/O buffer size with IfMtu */
   oi->ifmtu = ifp->mtu6;
@@ -379,6 +380,7 @@ void
 ospf6_interface_state_update (struct interface *ifp)
 {
   struct ospf6_interface *oi;
+  unsigned int iobuflen;
 
   oi = (struct ospf6_interface *) ifp->info;
   if (oi == NULL)
@@ -387,6 +389,32 @@ ospf6_interface_state_update (struct interface *ifp)
     return;
   if (CHECK_FLAG (oi->flag, OSPF6_INTERFACE_DISABLE))
     return;
+
+  /* Adjust the mtu values if the kernel told us something new */
+  if (ifp->mtu6 != oi->ifmtu)
+    {
+      /* If nothing configured, accept it and check for buffer size */
+      if (!oi->c_ifmtu)
+        {
+          oi->ifmtu = ifp->mtu6;
+          iobuflen = ospf6_iobuf_size (ifp->mtu6);
+          if (oi->ifmtu > iobuflen)
+            {
+              if (IS_OSPF6_DEBUG_INTERFACE)
+                zlog_debug ("Interface %s: IfMtu is adjusted to I/O buffer size: %d.",
+                             ifp->name, iobuflen);
+              oi->ifmtu = iobuflen;
+            }
+        }
+      else if (oi->c_ifmtu > ifp->mtu6)
+        {
+          oi->ifmtu = ifp->mtu6;
+          zlog_warn ("Configured mtu %u on %s overridden by kernel %u",
+                      oi->c_ifmtu, ifp->name, ifp->mtu6);
+        }
+      else
+        oi->ifmtu = oi->c_ifmtu;
+    }
 
   if (if_is_operative (ifp)
       && (ospf6_interface_get_linklocal_address(oi->interface)
@@ -1112,7 +1140,7 @@ DEFUN (ipv6_ospf6_ifmtu,
 
   ifmtu = strtol (argv[idx_number]->arg, NULL, 10);
 
-  if (oi->ifmtu == ifmtu)
+  if (oi->c_ifmtu == ifmtu)
     return CMD_SUCCESS;
 
   if (ifp->mtu6 != 0 && ifp->mtu6 < ifmtu)
@@ -1129,13 +1157,13 @@ DEFUN (ipv6_ospf6_ifmtu,
         {
           vty_out (vty, "%s's ifmtu is adjusted to I/O buffer size (%d).%s",
                    ifp->name, iobuflen, VNL);
-          oi->ifmtu = iobuflen;
+          oi->ifmtu = oi->c_ifmtu = iobuflen;
         }
       else
-        oi->ifmtu = ifmtu;
+        oi->ifmtu = oi->c_ifmtu = ifmtu;
     }
   else
-    oi->ifmtu = ifmtu;
+    oi->ifmtu = oi->c_ifmtu = ifmtu;
 
   /* re-establish adjacencies */
   for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
@@ -1149,11 +1177,12 @@ DEFUN (ipv6_ospf6_ifmtu,
 
 DEFUN (no_ipv6_ospf6_ifmtu,
        no_ipv6_ospf6_ifmtu_cmd,
-       "no ipv6 ospf6 ifmtu",
+       "no ipv6 ospf6 ifmtu [(1-65535)]",
        NO_STR
        IP6_STR
        OSPF6_STR
        "Interface MTU\n"
+       "OSPFv3 Interface MTU\n"
        )
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
@@ -1183,6 +1212,8 @@ DEFUN (no_ipv6_ospf6_ifmtu,
     }
   else
     oi->ifmtu = ifp->mtu;
+
+  oi->c_ifmtu = 0;
 
   /* re-establish adjacencies */
   for (ALL_LIST_ELEMENTS (oi->neighbor_list, node, nnode, on))
@@ -1276,7 +1307,7 @@ DEFUN (auto_cost_reference_bandwidth,
   refbw = strtol (argv[idx_number]->arg, NULL, 10);
   if (refbw < 1 || refbw > 4294967)
     {
-      vty_out (vty, "reference-bandwidth value is invalid%s", VTY_NEWLINE);
+      vty_outln (vty, "reference-bandwidth value is invalid");
       return CMD_WARNING;
     }
 
@@ -1745,8 +1776,8 @@ config_write_ospf6_interface (struct vty *vty)
 
       if (ifp->desc)
         vty_out (vty, " description %s%s", ifp->desc, VNL);
-      if (ifp->mtu6 != oi->ifmtu)
-        vty_out (vty, " ipv6 ospf6 ifmtu %d%s", oi->ifmtu, VNL);
+      if (oi->c_ifmtu)
+        vty_out (vty, " ipv6 ospf6 ifmtu %d%s", oi->c_ifmtu, VNL);
 
       if (CHECK_FLAG (oi->flag, OSPF6_INTERFACE_NOAUTOCOST))
         vty_out (vty, " ipv6 ospf6 cost %d%s",

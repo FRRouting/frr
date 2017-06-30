@@ -44,6 +44,8 @@
  * struct parser_ctx is needed for the bison forward decls.
  */
 %code requires {
+  #include "config.h"
+
   #include <stdlib.h>
   #include <string.h>
   #include <ctype.h>
@@ -189,7 +191,7 @@ start:
 
 varname_token: '$' WORD
 {
-  $$ = XSTRDUP (MTYPE_LEX, $2);
+  $$ = $2;
 }
 | /* empty */
 {

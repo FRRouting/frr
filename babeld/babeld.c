@@ -83,27 +83,26 @@ babel_config_write (struct vty *vty)
 
     if (!babel_routing_process)
         return lines;
-    vty_out (vty, "router babel%s", VTY_NEWLINE);
+    vty_outln (vty, "router babel");
     if (diversity_kind != DIVERSITY_NONE)
     {
-        vty_out (vty, " babel diversity%s", VTY_NEWLINE);
+        vty_outln (vty, " babel diversity");
         lines++;
     }
     if (diversity_factor != BABEL_DEFAULT_DIVERSITY_FACTOR)
     {
-        vty_out (vty, " babel diversity-factor %d%s", diversity_factor,
-                 VTY_NEWLINE);
+        vty_outln (vty, " babel diversity-factor %d",diversity_factor);
         lines++;
     }
     if (resend_delay != BABEL_DEFAULT_RESEND_DELAY)
     {
-        vty_out (vty, " babel resend-delay %u%s", resend_delay, VTY_NEWLINE);
+        vty_outln (vty, " babel resend-delay %u", resend_delay);
         lines++;
     }
     if (smoothing_half_life != BABEL_DEFAULT_SMOOTHING_HALF_LIFE)
     {
-        vty_out (vty, " babel smoothing-half-life %u%s",
-                 smoothing_half_life, VTY_NEWLINE);
+        vty_outln (vty, " babel smoothing-half-life %u",
+                 smoothing_half_life);
         lines++;
     }
     /* list enabled interfaces */
@@ -113,7 +112,7 @@ babel_config_write (struct vty *vty)
         if (i != zclient->redist_default &&
 	    vrf_bitmap_check (zclient->redist[AFI_IP][i], VRF_DEFAULT))
         {
-            vty_out (vty, " redistribute %s%s", zebra_route_string (i), VTY_NEWLINE);
+            vty_outln (vty, " redistribute %s", zebra_route_string(i));
             lines++;
         }
 
@@ -659,7 +658,7 @@ DEFUN (babel_diversity_factor,
 {
     int factor;
 
-    VTY_GET_INTEGER_RANGE("factor", factor, argv[2]->arg, 1, 256);
+    factor = strtoul(argv[2]->arg, NULL, 10);
 
     diversity_factor = factor;
     return CMD_SUCCESS;
@@ -675,7 +674,7 @@ DEFUN (babel_set_resend_delay,
 {
     int interval;
 
-    VTY_GET_INTEGER_RANGE("milliseconds", interval, argv[2]->arg, 20, 10 * 0xFFFE);
+    interval = strtoul(argv[2]->arg, NULL, 10);
 
     resend_delay = interval;
     return CMD_SUCCESS;
@@ -691,7 +690,7 @@ DEFUN (babel_set_smoothing_half_life,
 {
     int seconds;
 
-    VTY_GET_INTEGER_RANGE("seconds", seconds, argv[2]->arg, 0, 0xFFFE);
+    seconds = strtoul(argv[2]->arg, NULL, 10);
 
     change_smoothing_half_life(seconds);
     return CMD_SUCCESS;

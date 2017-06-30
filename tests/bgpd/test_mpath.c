@@ -376,7 +376,7 @@ static int
 global_test_init (void)
 {
   qobj_init ();
-  master = thread_master_create ();
+  master = thread_master_create(NULL);
   zclient = zclient_new(master);
   bgp_master_init (master);
   vrf_init (NULL, NULL, NULL, NULL);

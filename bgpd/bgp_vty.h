@@ -54,14 +54,11 @@ extern int bgp_vty_return (struct vty *vty, int ret);
 extern struct peer *
 peer_and_group_lookup_vty (struct vty *vty, const char *peer_str);
 
-extern int
-bgp_parse_afi(const char *str, afi_t *afi);
-
 extern afi_t
-bgp_vty_afi_from_arg(const char *afi_str);
+bgp_vty_afi_from_str(const char *afi_str);
 
 extern safi_t
-bgp_vty_safi_from_arg(const char *safi_str);
+bgp_vty_safi_from_str(const char *safi_str);
 
 extern int
 argv_find_and_parse_afi(struct cmd_token **argv, int argc, int *index, afi_t *afi);

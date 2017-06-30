@@ -667,7 +667,7 @@ bgp_dump_set (struct vty *vty, struct bgp_dump *bgp_dump,
       interval = bgp_dump_parse_time (interval_str);
       if (interval == 0)
 	{
-	  vty_out (vty, "Malformed interval string%s", VTY_NEWLINE);
+	  vty_outln (vty, "Malformed interval string");
 	  return CMD_WARNING;
 	}
 
@@ -753,7 +753,7 @@ DEFUN (dump_bgp_all,
   const struct bgp_dump_type_map *map = NULL;
 
   for (map = bgp_dump_type_map; map->str; map++)
-    if (strcmp(argv[idx_dump_routes]->arg, map->str) == 0)
+    if (strmatch(argv[idx_dump_routes]->text, map->str))
       bgp_dump_type = map->type;
 
   switch (bgp_dump_type)
@@ -800,7 +800,7 @@ DEFUN (no_dump_bgp_all,
   struct bgp_dump *bgp_dump_struct = NULL;
 
   for (map = bgp_dump_type_map; map->str; map++)
-    if (strcmp(argv[idx_dump_routes]->arg, map->str) == 0)
+    if (strmatch(argv[idx_dump_routes]->text, map->str))
       bgp_dump_type = map->type;
 
   switch (bgp_dump_type)
@@ -866,12 +866,11 @@ config_write_bgp_dump (struct vty *vty)
           type_str = "all-et";
 
       if (bgp_dump_all.interval_str)
-	vty_out (vty, "dump bgp %s %s %s%s", type_str,
-		 bgp_dump_all.filename, bgp_dump_all.interval_str,
-		 VTY_NEWLINE);
+	vty_outln (vty, "dump bgp %s %s %s", type_str,
+		 bgp_dump_all.filename,bgp_dump_all.interval_str);
       else
-	vty_out (vty, "dump bgp %s %s%s", type_str,
-		 bgp_dump_all.filename, VTY_NEWLINE);
+	vty_outln (vty, "dump bgp %s %s", type_str,
+		 bgp_dump_all.filename);
     }
   if (bgp_dump_updates.filename)
     {
@@ -880,22 +879,20 @@ config_write_bgp_dump (struct vty *vty)
         type_str = "updates-et";
 
       if (bgp_dump_updates.interval_str)
-	vty_out (vty, "dump bgp %s %s %s%s", type_str,
-		 bgp_dump_updates.filename, bgp_dump_updates.interval_str,
-		 VTY_NEWLINE);
+	vty_outln (vty, "dump bgp %s %s %s", type_str,
+		 bgp_dump_updates.filename,bgp_dump_updates.interval_str);
       else
-	vty_out (vty, "dump bgp %s %s%s", type_str,
-		 bgp_dump_updates.filename, VTY_NEWLINE);
+	vty_outln (vty, "dump bgp %s %s", type_str,
+		 bgp_dump_updates.filename);
     }
   if (bgp_dump_routes.filename)
     {
       if (bgp_dump_routes.interval_str)
-	vty_out (vty, "dump bgp routes-mrt %s %s%s", 
-		 bgp_dump_routes.filename, bgp_dump_routes.interval_str,
-		 VTY_NEWLINE);
+	vty_outln (vty, "dump bgp routes-mrt %s %s", 
+		 bgp_dump_routes.filename,bgp_dump_routes.interval_str);
       else
-        vty_out (vty, "dump bgp routes-mrt %s%s",
-                 bgp_dump_routes.filename, VTY_NEWLINE);
+        vty_outln (vty, "dump bgp routes-mrt %s",
+                 bgp_dump_routes.filename);
 
     }
   return 0;

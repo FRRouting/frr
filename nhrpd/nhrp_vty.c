@@ -83,7 +83,7 @@ static int nhrp_vty_return(struct vty *vty, int ret)
 		snprintf(buf, sizeof(buf), "Unknown error %d", ret);
 	}
 
-	vty_out (vty, "%% %s%s", str, VTY_NEWLINE);
+	vty_outln (vty, "%% %s", str);
 
 	return CMD_WARNING;
 }
@@ -104,7 +104,7 @@ static int toggle_flag(
 		return CMD_SUCCESS;
 	}
 
-	vty_out(vty, "%% Invalid value %s%s", name, VTY_NEWLINE);
+	vty_outln (vty, "%% Invalid value %s", name);
 	return CMD_WARNING;
 }
 
@@ -118,7 +118,7 @@ DEFUN(show_debugging_nhrp, show_debugging_nhrp_cmd,
 {
 	int i;
 
-	vty_out(vty, "NHRP debugging status:%s", VTY_NEWLINE);
+	vty_outln (vty, "NHRP debugging status:");
 
 	for (i = 0; debug_flags_desc[i].str != NULL; i++) {
 		if (debug_flags_desc[i].key == NHRP_DEBUG_ALL)
@@ -126,8 +126,8 @@ DEFUN(show_debugging_nhrp, show_debugging_nhrp_cmd,
 		if (!(debug_flags_desc[i].key & debug_flags))
 			continue;
 
-		vty_out(vty, "  NHRP %s debugging is on%s",
-			debug_flags_desc[i].str, VTY_NEWLINE);
+		vty_outln (vty, "  NHRP %s debugging is on",
+			debug_flags_desc[i].str);
 	}
 
 	return CMD_SUCCESS;
@@ -158,7 +158,7 @@ static int nhrp_config_write(struct vty *vty)
 {
 #ifndef NO_DEBUG
 	if (debug_flags == NHRP_DEBUG_ALL) {
-		vty_out(vty, "debug nhrp all%s", VTY_NEWLINE);
+		vty_outln (vty, "debug nhrp all");
 	} else {
 		int i;
 
@@ -167,19 +167,20 @@ static int nhrp_config_write(struct vty *vty)
 				continue;
 			if (!(debug_flags & debug_flags_desc[i].key))
 				continue;
-			vty_out(vty, "debug nhrp %s%s", debug_flags_desc[i].str, VTY_NEWLINE);
+			vty_outln (vty, "debug nhrp %s",
+				  debug_flags_desc[i].str);
 		}
 	}
-	vty_out(vty, "!%s", VTY_NEWLINE);
+	vty_outln (vty, "!");
 #endif /* NO_DEBUG */
 
 	if (nhrp_event_socket_path) {
-		vty_out(vty, "nhrp event socket %s%s",
-			nhrp_event_socket_path, VTY_NEWLINE);
+		vty_outln (vty, "nhrp event socket %s",
+			nhrp_event_socket_path);
 	}
 	if (netlink_nflog_group) {
-		vty_out(vty, "nhrp nflog-group %d%s",
-			netlink_nflog_group, VTY_NEWLINE);
+		vty_outln (vty, "nhrp nflog-group %d",
+			netlink_nflog_group);
 	}
 
 	return 0;
@@ -233,7 +234,7 @@ DEFUN(nhrp_nflog_group, nhrp_nflog_group_cmd,
 {
 	uint32_t nfgroup;
 
-	VTY_GET_INTEGER_RANGE("nflog-group", nfgroup, argv[2]->arg, 1, 65535);
+	nfgroup = strtoul(argv[2]->arg, NULL, 10);
 	netlink_set_nflog_group(nfgroup);
 
 	return CMD_SUCCESS;
@@ -312,7 +313,7 @@ DEFUN(if_nhrp_network_id, if_nhrp_network_id_cmd,
 	struct nhrp_interface *nifp = ifp->info;
 	afi_t afi = cmd_to_afi(argv[0]);
 
-	VTY_GET_INTEGER_RANGE("network-id", nifp->afi[afi].network_id, argv[3]->arg, 1, 4294967295);
+	nifp->afi[afi].network_id = strtoul(argv[3]->arg, NULL, 10);
 	nhrp_interface_update(ifp);
 
 	return CMD_SUCCESS;
@@ -407,7 +408,7 @@ DEFUN(if_nhrp_holdtime, if_nhrp_holdtime_cmd,
 	struct nhrp_interface *nifp = ifp->info;
 	afi_t afi = cmd_to_afi(argv[0]);
 
-	VTY_GET_INTEGER_RANGE("holdtime", nifp->afi[afi].holdtime, argv[3]->arg, 1, 65000);
+	nifp->afi[afi].holdtime = strtoul(argv[3]->arg, NULL, 10);
 	nhrp_interface_update(ifp);
 
 	return CMD_SUCCESS;
@@ -445,7 +446,8 @@ DEFUN(if_nhrp_mtu, if_nhrp_mtu_cmd,
 	if (argv[3]->arg[0] == 'o') {
 		nifp->afi[AFI_IP].configured_mtu = -1;
 	} else {
-		VTY_GET_INTEGER_RANGE("mtu", nifp->afi[AFI_IP].configured_mtu, argv[3]->arg, 576, 1500);
+		nifp->afi[AFI_IP].configured_mtu = strtoul(argv[3]->arg, NULL,
+							   10);
 	}
 	nhrp_interface_update_mtu(ifp, AFI_IP);
 
@@ -493,7 +495,7 @@ DEFUN(if_nhrp_map, if_nhrp_map_cmd,
 		return nhrp_vty_return(vty, NHRP_ERR_FAIL);
 
 	c->map = 1;
-	if (strcmp(argv[4]->text, "local") == 0) {
+	if (strmatch(argv[4]->text, "local")) {
 		nhrp_cache_update_binding(c, NHRP_CACHE_LOCAL, 0, NULL, 0, NULL);
 	} else{
 		if (str2sockunion(argv[4]->arg, &nbma_addr) < 0)
@@ -596,18 +598,17 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 		return;
 
 	if (!ctx->count) {
-		vty_out(vty, "%-8s %-8s %-24s %-24s %-6s %s%s",
+		vty_outln (vty, "%-8s %-8s %-24s %-24s %-6s %s",
 			"Iface",
 			"Type",
 			"Protocol",
 			"NBMA",
 			"Flags",
-			"Identity",
-			VTY_NEWLINE);
+			"Identity");
 	}
 	ctx->count++;
 
-	vty_out(ctx->vty, "%-8s %-8s %-24s %-24s %c%c%c    %s%s",
+	vty_outln(ctx->vty, "%-8s %-8s %-24s %-24s %c%c%c    %s",
 		c->ifp->name,
 		nhrp_cache_type_str[c->cur.type],
 		sockunion2str(&c->remote_addr, buf[0], sizeof buf[0]),
@@ -615,8 +616,7 @@ static void show_ip_nhrp_cache(struct nhrp_cache *c, void *pctx)
 		c->used ? 'U' : ' ',
 		c->t_timeout ? 'T' : ' ',
 		c->t_auth ? 'A' : ' ',
-		c->cur.peer ? c->cur.peer->vc->remote.id : "-",
-		VTY_NEWLINE);
+		c->cur.peer ? c->cur.peer->vc->remote.id : "-");
 }
 
 static void show_ip_nhrp_nhs(struct nhrp_nhs *n, struct nhrp_registration *reg, void *pctx)
@@ -626,21 +626,22 @@ static void show_ip_nhrp_nhs(struct nhrp_nhs *n, struct nhrp_registration *reg, 
 	char buf[2][SU_ADDRSTRLEN];
 
 	if (!ctx->count) {
-		vty_out(vty, "%-8s %-24s %-16s %-16s%s",
+		vty_outln (vty, "%-8s %-24s %-16s %-16s",
 			"Iface",
 			"FQDN",
 			"NBMA",
-			"Protocol",
-			VTY_NEWLINE);
+			"Protocol");
 	}
 	ctx->count++;
 
-	vty_out(vty, "%-8s %-24s %-16s %-16s%s",
-		n->ifp->name,
-		n->nbma_fqdn,
-		(reg && reg->peer) ? sockunion2str(&reg->peer->vc->remote.nbma, buf[0], sizeof buf[0]) : "-",
-		sockunion2str(reg ? &reg->proto_addr : &n->proto_addr, buf[1], sizeof buf[1]),
-		VTY_NEWLINE);
+	vty_outln (vty, "%-8s %-24s %-16s %-16s",
+		   n->ifp->name,
+		   n->nbma_fqdn,
+		   (reg && reg->peer) ? sockunion2str(&reg->peer->vc->remote.nbma,
+		     				      buf[0], sizeof buf[0])
+		   		      : "-",
+		   sockunion2str(reg ? &reg->proto_addr : &n->proto_addr,
+		     		 buf[1], sizeof buf[1]));
 }
 
 static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
@@ -651,22 +652,20 @@ static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
 	char buf1[PREFIX_STRLEN], buf2[SU_ADDRSTRLEN];
 
 	if (!ctx->count) {
-		vty_out(vty, "%-8s %-24s %-24s %s%s",
+		vty_outln (vty, "%-8s %-24s %-24s %s",
 			"Type",
 			"Prefix",
 			"Via",
-			"Identity",
-			VTY_NEWLINE);
+			"Identity");
 	}
 	ctx->count++;
 
 	c = s->cache;
-	vty_out(ctx->vty, "%-8s %-24s %-24s %s%s",
+	vty_outln(ctx->vty, "%-8s %-24s %-24s %s",
 		nhrp_cache_type_str[s->type],
 		prefix2str(s->p, buf1, sizeof buf1),
 		c ? sockunion2str(&c->remote_addr, buf2, sizeof buf2) : "",
-		(c && c->cur.peer) ? c->cur.peer->vc->remote.id : "",
-		VTY_NEWLINE);
+		(c && c->cur.peer) ? c->cur.peer->vc->remote.id : "");
 }
 
 static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
@@ -678,34 +677,32 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 	if (ctx->afi != family2afi(sockunion_family(&c->remote_addr)))
 		return;
 
-	vty_out(ctx->vty,
-		"Type: %s%s"
-		"Flags:%s%s%s"
-		"Protocol-Address: %s/%zu%s",
-		nhrp_cache_type_str[c->cur.type],
-		VTY_NEWLINE,
-		(c->cur.peer && c->cur.peer->online) ? " up": "",
-		c->used ? " used": "",
-		VTY_NEWLINE,
-		sockunion2str(&c->remote_addr, buf, sizeof buf),
-		8 * family2addrsize(sockunion_family(&c->remote_addr)),
-		VTY_NEWLINE);
+	vty_outln(ctx->vty,
+		  "Type: %s%s"
+		  "Flags:%s%s%s"
+		  "Protocol-Address: %s/%zu",
+		  nhrp_cache_type_str[c->cur.type],
+		  VTYNL,
+		  (c->cur.peer && c->cur.peer->online) ? " up": "",
+		  c->used ? " used": "",
+		  VTYNL,
+		  sockunion2str(&c->remote_addr, buf, sizeof buf),
+		  8 * family2addrsize(sockunion_family(&c->remote_addr)));
 
 	if (c->cur.peer) {
-		vty_out(ctx->vty,
-			"NBMA-Address: %s%s",
-			sockunion2str(&c->cur.peer->vc->remote.nbma, buf, sizeof buf),
-			VTY_NEWLINE);
+		vty_outln(ctx->vty,
+			  "NBMA-Address: %s",
+			  sockunion2str(&c->cur.peer->vc->remote.nbma,
+			    		buf, sizeof buf));
 	}
 
 	if (sockunion_family(&c->cur.remote_nbma_natoa) != AF_UNSPEC) {
-		vty_out(ctx->vty,
-			"NBMA-NAT-OA-Address: %s%s",
-			sockunion2str(&c->cur.remote_nbma_natoa, buf, sizeof buf),
-			VTY_NEWLINE);
+		vty_outln(ctx->vty,
+			"NBMA-NAT-OA-Address: %s",
+			sockunion2str(&c->cur.remote_nbma_natoa, buf, sizeof buf));
 	}
 
-	vty_out(ctx->vty, "%s", VTY_NEWLINE);
+	vty_outln(ctx->vty, VTYNL);
 }
 
 DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
@@ -734,14 +731,14 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 	} else if (argv[3]->text[0] == 's') {
 		nhrp_shortcut_foreach(ctx.afi, show_ip_nhrp_shortcut, &ctx);
 	} else {
-		vty_out(vty, "Status: ok%s%s", VTY_NEWLINE, VTY_NEWLINE);
+		vty_outln (vty, "Status: ok%s", VTYNL);
 		ctx.count++;
 		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
 			nhrp_cache_foreach(ifp, show_ip_opennhrp_cache, &ctx);
 	}
 
 	if (!ctx.count) {
-		vty_out(vty, "%% No entries%s", VTY_NEWLINE);
+		vty_outln (vty, "%% No entries");
 		return CMD_WARNING;
 	}
 
@@ -753,13 +750,12 @@ static void show_dmvpn_entry(struct nhrp_vc *vc, void *ctx)
 	struct vty *vty = ctx;
 	char buf[2][SU_ADDRSTRLEN];
 
-	vty_out(vty, "%-24s %-24s %c      %-4d %-24s%s",
+	vty_outln (vty, "%-24s %-24s %c      %-4d %-24s",
 		sockunion2str(&vc->local.nbma, buf[0], sizeof buf[0]),
 		sockunion2str(&vc->remote.nbma, buf[1], sizeof buf[1]),
 		notifier_active(&vc->notifier_list) ? 'n' : ' ',
 		vc->ipsec,
-		vc->remote.id,
-		VTY_NEWLINE);
+		vc->remote.id);
 }
 
 DEFUN(show_dmvpn, show_dmvpn_cmd,
@@ -767,13 +763,12 @@ DEFUN(show_dmvpn, show_dmvpn_cmd,
 	SHOW_STR
 	"DMVPN information\n")
 {
-	vty_out(vty, "%-24s %-24s %-6s %-4s %-24s%s",
+	vty_outln (vty, "%-24s %-24s %-6s %-4s %-24s",
 		"Src",
 		"Dst",
 		"Flags",
 		"SAs",
-		"Identity",
-		VTY_NEWLINE);
+		"Identity");
 
 	nhrp_vc_foreach(show_dmvpn_entry, vty);
 
@@ -820,11 +815,11 @@ DEFUN(clear_nhrp, clear_nhrp_cmd,
 	}
 
 	if (!ctx.count) {
-		vty_out(vty, "%% No entries%s", VTY_NEWLINE);
+		vty_outln (vty, "%% No entries");
 		return CMD_WARNING;
 	}
 
-	vty_out(vty, "%% %d entries cleared%s", ctx.count, VTY_NEWLINE);
+	vty_outln (vty, "%% %d entries cleared", ctx.count);
 	return CMD_SUCCESS;
 }
 
@@ -843,12 +838,10 @@ static void interface_config_write_nhrp_map(struct nhrp_cache *c, void *data)
 	if (!c->map) return;
 	if (sockunion_family(&c->remote_addr) != ctx->family) return;
 
-	vty_out(vty, " %s nhrp map %s %s%s",
+	vty_outln (vty, " %s nhrp map %s %s",
 		ctx->aficmd,
 		sockunion2str(&c->remote_addr, buf[0], sizeof buf[0]),
-		c->cur.type == NHRP_CACHE_LOCAL ? "local" :
-		sockunion2str(&c->cur.peer->vc->remote.nbma, buf[1], sizeof buf[1]),
-		VTY_NEWLINE);
+		c->cur.type == NHRP_CACHE_LOCAL ? "local" : sockunion2str(&c->cur.peer->vc->remote.nbma, buf[1], sizeof buf[1]));
 }
 
 static int interface_config_write(struct vty *vty)
@@ -864,9 +857,9 @@ static int interface_config_write(struct vty *vty)
 	int i;
 
 	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
-		vty_out(vty, "interface %s%s", ifp->name, VTY_NEWLINE);
+		vty_outln (vty, "interface %s", ifp->name);
 		if (ifp->desc)
-			vty_out(vty, " description %s%s", ifp->desc, VTY_NEWLINE);
+			vty_outln (vty, " description %s", ifp->desc);
 
 		nifp = ifp->info;
 		if (nifp->ipsec_profile) {
@@ -875,11 +868,11 @@ static int interface_config_write(struct vty *vty)
 			if (nifp->ipsec_fallback_profile)
 				vty_out(vty, " fallback-profile %s",
 					nifp->ipsec_fallback_profile);
-			vty_out(vty, "%s", VTY_NEWLINE);
+			vty_out (vty, VTYNL);
 		}
 		if (nifp->source)
-			vty_out(vty, " tunnel source %s%s",
-				nifp->source, VTY_NEWLINE);
+			vty_outln (vty, " tunnel source %s",
+				nifp->source);
 
 		for (afi = 0; afi < AFI_MAX; afi++) {
 			struct nhrp_afi_data *ad = &nifp->afi[afi];
@@ -887,28 +880,25 @@ static int interface_config_write(struct vty *vty)
 			aficmd = afi_to_cmd(afi);
 
 			if (ad->network_id)
-				vty_out(vty, " %s nhrp network-id %u%s",
-					aficmd, ad->network_id,
-					VTY_NEWLINE);
+				vty_outln (vty, " %s nhrp network-id %u",
+					aficmd,ad->network_id);
 
 			if (ad->holdtime != NHRPD_DEFAULT_HOLDTIME)
-				vty_out(vty, " %s nhrp holdtime %u%s",
-					aficmd, ad->holdtime,
-					VTY_NEWLINE);
+				vty_outln (vty, " %s nhrp holdtime %u",
+					aficmd,ad->holdtime);
 
 			if (ad->configured_mtu < 0)
-				vty_out(vty, " %s nhrp mtu opennhrp%s",
-					aficmd, VTY_NEWLINE);
+				vty_outln (vty, " %s nhrp mtu opennhrp",
+					aficmd);
 			else if (ad->configured_mtu)
-				vty_out(vty, " %s nhrp mtu %u%s",
-					aficmd, ad->configured_mtu,
-					VTY_NEWLINE);
+				vty_outln (vty, " %s nhrp mtu %u",
+					aficmd,ad->configured_mtu);
 
 			for (i = 0; interface_flags_desc[i].str != NULL; i++) {
 				if (!(ad->flags & interface_flags_desc[i].key))
 					continue;
-				vty_out(vty, " %s nhrp %s%s",
-					aficmd, interface_flags_desc[i].str, VTY_NEWLINE);
+				vty_outln (vty, " %s nhrp %s",
+					aficmd, interface_flags_desc[i].str);
 			}
 
 			mapctx = (struct write_map_ctx) {
@@ -919,15 +909,14 @@ static int interface_config_write(struct vty *vty)
 			nhrp_cache_foreach(ifp, interface_config_write_nhrp_map, &mapctx);
 
 			list_for_each_entry(nhs, &ad->nhslist_head, nhslist_entry) {
-				vty_out(vty, " %s nhrp nhs %s nbma %s%s",
+				vty_outln (vty, " %s nhrp nhs %s nbma %s",
 					aficmd,
 					sockunion_family(&nhs->proto_addr) == AF_UNSPEC ? "dynamic" : sockunion2str(&nhs->proto_addr, buf, sizeof buf),
-					nhs->nbma_fqdn,
-					VTY_NEWLINE);
+					nhs->nbma_fqdn);
 			}
 		}
 
-		vty_out (vty, "!%s", VTY_NEWLINE);
+		vty_outln (vty, "!");
 	}
 
 	return 0;

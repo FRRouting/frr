@@ -228,7 +228,7 @@ DEFUN (if_rmap,
     type = IF_RMAP_OUT;
   else
     {
-      vty_out (vty, "route-map direction must be [in|out]%s", VTY_NEWLINE);
+      vty_outln (vty, "route-map direction must be [in|out]");
       return CMD_WARNING;
     }
 
@@ -259,14 +259,14 @@ DEFUN (no_if_rmap,
     type = IF_RMAP_OUT;
   else
     {
-      vty_out (vty, "route-map direction must be [in|out]%s", VTY_NEWLINE);
+      vty_outln (vty, "route-map direction must be [in|out]");
       return CMD_WARNING;
     }
 
   ret = if_rmap_unset (argv[idx_ifname]->arg, type, argv[idx_routemap_name]->arg);
   if (! ret)
     {
-      vty_out (vty, "route-map doesn't exist%s", VTY_NEWLINE);
+      vty_outln (vty, "route-map doesn't exist");
       return CMD_WARNING;
     }
   return CMD_SUCCESS;
@@ -290,19 +290,17 @@ config_write_if_rmap (struct vty *vty)
 
 	if (if_rmap->routemap[IF_RMAP_IN])
 	  {
-	    vty_out (vty, " route-map %s in %s%s", 
+	    vty_outln (vty, " route-map %s in %s", 
 		     if_rmap->routemap[IF_RMAP_IN],
-		     if_rmap->ifname,
-		     VTY_NEWLINE);
+		     if_rmap->ifname);
 	    write++;
 	  }
 
 	if (if_rmap->routemap[IF_RMAP_OUT])
 	  {
-	    vty_out (vty, " route-map %s out %s%s", 
+	    vty_outln (vty, " route-map %s out %s", 
 		     if_rmap->routemap[IF_RMAP_OUT],
-		     if_rmap->ifname,
-		     VTY_NEWLINE);
+		     if_rmap->ifname);
 	    write++;
 	  }
       }

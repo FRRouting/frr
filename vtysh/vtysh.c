@@ -815,7 +815,7 @@ vtysh_rl_describe (void)
                     fprintf (stdout, " %s", item);
                     XFREE (MTYPE_COMPLETION, item);
                   }
-                vty_out (vty, "%s", VTY_NEWLINE);
+                vty_out (vty, VTYNL);
               }
             vector_free (varcomps);
           }
@@ -2062,7 +2062,7 @@ DEFUN (vtysh_show_work_queues,
 {
   unsigned int i;
   int ret = CMD_SUCCESS;
-  char line[] = "show work-queues\n";
+  char line[] = "do show work-queues\n";
 
   for (i = 0; i < array_size(vtysh_client); i++)
     if ( vtysh_client[i].fd >= 0 )
@@ -2172,7 +2172,7 @@ DEFUN (vtysh_show_logging,
 {
   unsigned int i;
   int ret = CMD_SUCCESS;
-  char line[] = "show logging\n";
+  char line[] = "do show logging\n";
   
   for (i = 0; i < array_size(vtysh_client); i++)
     if ( vtysh_client[i].fd >= 0 )
@@ -2488,7 +2488,7 @@ DEFUN (vtysh_write_terminal,
        "For the pim daemon\n")
 {
   u_int i;
-  char line[] = "write terminal\n";
+  char line[] = "do write terminal\n";
   FILE *fp = NULL;
 
   if (vtysh_pager_name)
@@ -2503,10 +2503,9 @@ DEFUN (vtysh_write_terminal,
   else
     fp = stdout;
 
-  vty_out (vty, "Building configuration...%s", VTY_NEWLINE);
-  vty_out (vty, "%sCurrent configuration:%s", VTY_NEWLINE,
-           VTY_NEWLINE);
-  vty_out (vty, "!%s", VTY_NEWLINE);
+  vty_outln (vty, "Building configuration...");
+  vty_outln (vty, "%sCurrent configuration:",VTYNL);
+  vty_outln (vty, "!");
 
   for (i = 0; i < array_size(vtysh_client); i++)
     if ((argc < 3 ) || (strmatch (vtysh_client[i].name, argv[2]->text)))
@@ -2528,7 +2527,7 @@ DEFUN (vtysh_write_terminal,
       fp = NULL;
     }
 
-  vty_out (vty, "end%s", VTY_NEWLINE);
+  vty_outln (vty, "end");
   return CMD_SUCCESS;
 }
 
@@ -2703,7 +2702,7 @@ DEFUN (vtysh_write_memory,
        "Write configuration to the file (same as write memory)\n")
 {
   int ret = CMD_SUCCESS;
-  char line[] = "write memory\n";
+  char line[] = "do write memory\n";
   u_int i;
 
   fprintf (stdout, "Note: this version of vtysh never writes vtysh.conf\n");
@@ -2761,7 +2760,7 @@ DEFUN (vtysh_terminal_length,
   lines = strtol (argv[idx_number]->arg, &endptr, 10);
   if (lines < 0 || lines > 512 || *endptr != '\0')
     {
-      vty_out (vty, "length is malformed%s", VTY_NEWLINE);
+      vty_outln (vty, "length is malformed");
       return CMD_WARNING;
     }
 
@@ -2808,7 +2807,7 @@ DEFUN (vtysh_show_daemons,
   for (i = 0; i < array_size(vtysh_client); i++)
     if ( vtysh_client[i].fd >= 0 )
       vty_out(vty, " %s", vtysh_client[i].name);
-  vty_out(vty, "%s", VTY_NEWLINE);
+  vty_out (vty, VTYNL);
 
   return CMD_SUCCESS;
 }

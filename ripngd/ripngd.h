@@ -353,6 +353,7 @@ extern void ripng_route_map_reset (void);
 extern void ripng_terminate (void);
  /* zclient_init() is done by ripng_zebra.c:zebra_init() */
 extern void zebra_init(struct thread_master *);
+extern void ripng_zebra_stop (void);
 extern void ripng_zclient_reset (void);
 extern void ripng_offset_init (void);
 

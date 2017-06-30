@@ -115,7 +115,7 @@ int main(int argc, char **argv)
   struct thread t;
   struct timeval **alarms;
 
-  master = thread_master_create();
+  master = thread_master_create(NULL);
 
   log_buf_len = SCHEDULE_TIMERS * (TIMESTR_LEN + 1) + 1;
   log_buf_pos = 0;

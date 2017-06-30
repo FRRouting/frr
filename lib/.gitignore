@@ -22,3 +22,6 @@ command_parse.c
 command_parse.h
 refix
 grammar_sandbox
+clippy
+defun_lex.c
+plist_clippy.c
