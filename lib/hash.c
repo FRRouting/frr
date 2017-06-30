@@ -458,22 +458,21 @@ DEFUN(show_hash_stats,
   char underln[sizeof(header) + strlen(frr_protonameinst)];
   memset (underln, '-', sizeof(underln));
   underln[sizeof(underln) - 1] = '\0';
-  vty_out (vty, "%s%s%s", header, frr_protonameinst, VTY_NEWLINE);
-  vty_out (vty, "%s%s", underln, VTY_NEWLINE);
+  vty_outln (vty, "%s%s", header, frr_protonameinst);
+  vty_outln (vty, "%s", underln);
 
-  vty_out (vty, "# allocated: %d%s", _hashes->count, VTY_NEWLINE);
-  vty_out (vty, "# named:     %d%s%s", tt->nrows - 1, VTY_NEWLINE,
-           VTY_NEWLINE);
+  vty_outln (vty, "# allocated: %d", _hashes->count);
+  vty_outln (vty, "# named:     %d%s", tt->nrows - 1, VTYNL);
 
   if (tt->nrows > 1)
     {
       ttable_colseps (tt, 0, RIGHT, true, '|');
-      char *table = ttable_dump (tt, VTY_NEWLINE);
-      vty_out (vty, "%s%s", table, VTY_NEWLINE);
+      char *table = ttable_dump (tt, VTYNL);
+      vty_out (vty, "%s%s", table, VTYNL);
       XFREE (MTYPE_TMP, table);
     }
   else
-    vty_out (vty, "No named hash tables to display.%s", VTY_NEWLINE);
+    vty_outln (vty, "No named hash tables to display.");
 
   ttable_del (tt);
 

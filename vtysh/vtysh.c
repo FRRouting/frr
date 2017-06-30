@@ -2114,15 +2114,13 @@ DEFUN (vtysh_show_hashtable,
   unsigned long i;
   int ret = CMD_SUCCESS;
 
-  vty_out (vty, "%sLoad factor (LF) - average number of elements across all "
-                "buckets%s", VTY_NEWLINE, VTY_NEWLINE);
-  vty_out (vty, "Full load factor (FLF) - average number of elements "
-                "across full buckets%s%s", VTY_NEWLINE, VTY_NEWLINE);
+  fprintf (stdout, "\n");
+  fprintf (stdout, "Load factor (LF) - average number of elements across all buckets\n");
+  fprintf (stdout, "Full load factor (FLF) - average number of elements across full buckets\n\n");
 
-  vty_out (vty, "Standard deviation (SD) is calculated for both the LF and FLF%s", VTY_NEWLINE);
-  vty_out (vty, "and indicates the typical deviation of bucket chain length%s", VTY_NEWLINE);
-  vty_out (vty, "from the value in the corresponding load factor.%s%s",
-           VTY_NEWLINE, VTY_NEWLINE);
+  fprintf (stdout, "Standard deviation (SD) is calculated for both the LF and FLF\n");
+  fprintf (stdout, "and indicates the typical deviation of bucket chain length\n");
+  fprintf (stdout, "from the value in the corresponding load factor.\n\n");
 
   for (i = 0; i < array_size(vtysh_client); i++)
     if ( vtysh_client[i].fd >= 0 ) {
