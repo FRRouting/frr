@@ -71,6 +71,8 @@ struct cancel_req {
 /* Master of the theads. */
 struct thread_master
 {
+  char *name;
+
   struct thread **read;
   struct thread **write;
   struct pqueue *timer;
@@ -80,6 +82,7 @@ struct thread_master
   struct list *cancel_req;
   bool canceled;
   pthread_cond_t cancel_cond;
+  struct hash *cpu_record;
   int io_pipe[2];
   int fd_limit;
   struct fd_handler handler;
@@ -177,7 +180,7 @@ struct cpu_thread_history
 #define thread_execute(m,f,a,v) funcname_thread_execute(m,f,a,v,#f,__FILE__,__LINE__)
 
 /* Prototypes. */
-extern struct thread_master *thread_master_create (void);
+extern struct thread_master *thread_master_create (const char *);
 extern void thread_master_free (struct thread_master *);
 extern void thread_master_free_unused(struct thread_master *);
 
@@ -220,6 +223,6 @@ extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before,
 					  unsigned long *cpu_time_elapsed);
 
 /* only for use in logging functions! */
-extern struct thread *thread_current;
+extern pthread_key_t thread_current;
 
 #endif /* _ZEBRA_THREAD_H */

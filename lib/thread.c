@@ -47,16 +47,15 @@ DEFINE_MTYPE_STATIC(LIB, THREAD_STATS,  "Thread stats")
       write (m->io_pipe[1], &wakebyte, 1); \
   } while (0);
 
-static pthread_mutex_t cpu_record_mtx = PTHREAD_MUTEX_INITIALIZER;
-static struct hash *cpu_record = NULL;
+/* control variable for initializer */
+pthread_once_t init_once = PTHREAD_ONCE_INIT;
+pthread_key_t thread_current;
 
-static unsigned long
-timeval_elapsed (struct timeval a, struct timeval b)
-{
-  return (((a.tv_sec - b.tv_sec) * TIMER_SECOND_MICRO)
-	  + (a.tv_usec - b.tv_usec));
-}
+pthread_mutex_t masters_mtx = PTHREAD_MUTEX_INITIALIZER;
+static struct list *masters;
 
+
+/* CLI start ---------------------------------------------------------------- */
 static unsigned int
 cpu_record_hash_key (struct cpu_thread_history *a)
 {
@@ -106,12 +105,12 @@ vty_out_cpu_thread_history(struct vty* vty,
 }
 
 static void
-cpu_record_hash_print(struct hash_backet *bucket, 
-		      void *args[])
+cpu_record_hash_print(struct hash_backet *bucket, void *args[])
 {
   struct cpu_thread_history *totals = args[0];
   struct vty *vty = args[1];
   thread_type *filter = args[2];
+
   struct cpu_thread_history *a = bucket->data;
 
   if ( !(a->types & *filter) )
@@ -132,27 +131,129 @@ cpu_record_print(struct vty *vty, thread_type filter)
 {
   struct cpu_thread_history tmp;
   void *args[3] = {&tmp, vty, &filter};
+  struct thread_master *m;
+  struct listnode *ln;
 
   memset(&tmp, 0, sizeof tmp);
   tmp.funcname = "TOTAL";
   tmp.types = filter;
 
-  vty_outln (vty, "%21s %18s %18s",
-	  "", "CPU (user+system):", "Real (wall-clock):");
+  pthread_mutex_lock (&masters_mtx);
+  {
+    for (ALL_LIST_ELEMENTS_RO (masters, ln, m)) {
+      const char *name = m->name ? m->name : "main";
+
+      char underline[strlen(name) + 1];
+      memset (underline, '-', sizeof (underline));
+      underline[sizeof(underline)] = '\0';
+
+      vty_out (vty, VTYNL);
+      vty_outln(vty, "Showing statistics for pthread %s", name);
+      vty_outln(vty, "-------------------------------%s", underline);
+      vty_outln(vty, "%21s %18s %18s", "", "CPU (user+system):", "Real (wall-clock):");
+      vty_out(vty, "Active   Runtime(ms)   Invoked Avg uSec Max uSecs");
+      vty_out(vty, " Avg uSec Max uSecs");
+      vty_outln(vty, "  Type  Thread");
+
+      if (m->cpu_record->count)
+        hash_iterate(m->cpu_record,
+                     (void (*)(struct hash_backet *, void *))
+                     cpu_record_hash_print,
+                     args);
+      else
+        vty_outln(vty, "No data to display yet.");
+
+      vty_out(vty, VTYNL);
+    }
+  }
+  pthread_mutex_unlock (&masters_mtx);
+
+  vty_out(vty, VTYNL);
+  vty_outln(vty, "Total thread statistics");
+  vty_outln(vty, "-------------------------");
+  vty_outln(vty, "%21s %18s %18s", "", "CPU (user+system):", "Real (wall-clock):");
   vty_out(vty, "Active   Runtime(ms)   Invoked Avg uSec Max uSecs");
   vty_out(vty, " Avg uSec Max uSecs");
-  vty_outln (vty, "  Type  Thread");
-
-  pthread_mutex_lock (&cpu_record_mtx);
-  {
-    hash_iterate(cpu_record,
-                 (void(*)(struct hash_backet*,void*))cpu_record_hash_print,
-                 args);
-  }
-  pthread_mutex_unlock (&cpu_record_mtx);
+  vty_outln(vty, "  Type  Thread");
 
   if (tmp.total_calls > 0)
     vty_out_cpu_thread_history(vty, &tmp);
+}
+
+static void
+cpu_record_hash_clear (struct hash_backet *bucket, void *args[])
+{
+  thread_type *filter = args[0];
+  struct hash *cpu_record = args[1];
+
+  struct cpu_thread_history *a = bucket->data;
+
+  if ( !(a->types & *filter) )
+       return;
+  
+  hash_release (cpu_record, bucket->data);
+}
+
+static void
+cpu_record_clear (thread_type filter)
+{
+  thread_type *tmp = &filter;
+  struct thread_master *m;
+  struct listnode *ln;
+
+  pthread_mutex_lock (&masters_mtx);
+  {
+    for (ALL_LIST_ELEMENTS_RO (masters, ln, m)) {
+      pthread_mutex_lock (&m->mtx);
+      {
+        void *args[2] = { tmp, m->cpu_record };
+        hash_iterate (m->cpu_record,
+                      (void (*) (struct hash_backet*,void*))
+                      cpu_record_hash_clear,
+                      args);
+      }
+      pthread_mutex_unlock (&m->mtx);
+    }
+  }
+  pthread_mutex_unlock (&masters_mtx);
+}
+
+static thread_type
+parse_filter (const char *filterstr)
+{
+  int i = 0;
+  int filter = 0;
+
+  while (filterstr[i] != '\0')
+    {
+      switch (filterstr[i])
+        {
+        case 'r':
+        case 'R':
+          filter |= (1 << THREAD_READ);
+          break;
+        case 'w':
+        case 'W':
+          filter |= (1 << THREAD_WRITE);
+          break;
+        case 't':
+        case 'T':
+          filter |= (1 << THREAD_TIMER);
+          break;
+        case 'e':
+        case 'E':
+          filter |= (1 << THREAD_EVENT);
+          break;
+        case 'x':
+        case 'X':
+          filter |= (1 << THREAD_EXECUTE);
+          break;
+        default:
+          break;
+        }
+      ++i;
+    }
+  return filter;
 }
 
 DEFUN (show_thread_cpu,
@@ -163,138 +264,41 @@ DEFUN (show_thread_cpu,
        "Thread CPU usage\n"
        "Display filter (rwtexb)\n")
 {
-  int idx_filter = 3;
-  int i = 0;
   thread_type filter = (thread_type) -1U;
+  int idx = 0;
 
-  if (argc > 3)
-    {
-      filter = 0;
-      while (argv[idx_filter]->arg[i] != '\0')
-	{
-	  switch ( argv[idx_filter]->arg[i] )
-	    {
-	    case 'r':
-	    case 'R':
-	      filter |= (1 << THREAD_READ);
-	      break;
-	    case 'w':
-	    case 'W':
-	      filter |= (1 << THREAD_WRITE);
-	      break;
-	    case 't':
-	    case 'T':
-	      filter |= (1 << THREAD_TIMER);
-	      break;
-	    case 'e':
-	    case 'E':
-	      filter |= (1 << THREAD_EVENT);
-	      break;
-	    case 'x':
-	    case 'X':
-	      filter |= (1 << THREAD_EXECUTE);
-	      break;
-	    default:
-	      break;
-	    }
-	  ++i;
-	}
-      if (filter == 0)
-	{
-	  vty_outln (vty, "Invalid filter \"%s\" specified,"
-                  " must contain at least one of 'RWTEXB'",
-		  argv[idx_filter]->arg);
-	  return CMD_WARNING;
-	}
+  if (argv_find (argv, argc, "FILTER", &idx)) {
+    filter = parse_filter (argv[idx]->arg);
+    if (!filter) {
+      vty_outln(vty, "Invalid filter \"%s\" specified; must contain at least"
+                     "one of 'RWTEXB'%s", argv[idx]->arg);
+      return CMD_WARNING;
     }
+  }
 
   cpu_record_print(vty, filter);
   return CMD_SUCCESS;
 }
 
-static void
-cpu_record_hash_clear (struct hash_backet *bucket, 
-		      void *args)
-{
-  thread_type *filter = args;
-  struct cpu_thread_history *a = bucket->data;
-
-  if ( !(a->types & *filter) )
-       return;
-  
-  pthread_mutex_lock (&cpu_record_mtx);
-  {
-    hash_release (cpu_record, bucket->data);
-  }
-  pthread_mutex_unlock (&cpu_record_mtx);
-}
-
-static void
-cpu_record_clear (thread_type filter)
-{
-  thread_type *tmp = &filter;
-
-  pthread_mutex_lock (&cpu_record_mtx);
-  {
-    hash_iterate (cpu_record,
-                  (void (*) (struct hash_backet*,void*)) cpu_record_hash_clear,
-                  tmp);
-  }
-  pthread_mutex_unlock (&cpu_record_mtx);
-}
-
 DEFUN (clear_thread_cpu,
        clear_thread_cpu_cmd,
        "clear thread cpu [FILTER]",
-       "Clear stored data\n"
+       "Clear stored data in all pthreads\n"
        "Thread information\n"
        "Thread CPU usage\n"
        "Display filter (rwtexb)\n")
 {
-  int idx_filter = 3;
-  int i = 0;
   thread_type filter = (thread_type) -1U;
+  int idx = 0;
 
-  if (argc > 3)
-    {
-      filter = 0;
-      while (argv[idx_filter]->arg[i] != '\0')
-	{
-	  switch ( argv[idx_filter]->arg[i] )
-	    {
-	    case 'r':
-	    case 'R':
-	      filter |= (1 << THREAD_READ);
-	      break;
-	    case 'w':
-	    case 'W':
-	      filter |= (1 << THREAD_WRITE);
-	      break;
-	    case 't':
-	    case 'T':
-	      filter |= (1 << THREAD_TIMER);
-	      break;
-	    case 'e':
-	    case 'E':
-	      filter |= (1 << THREAD_EVENT);
-	      break;
-	    case 'x':
-	    case 'X':
-	      filter |= (1 << THREAD_EXECUTE);
-	      break;
-	    default:
-	      break;
-	    }
-	  ++i;
-	}
-      if (filter == 0)
-	{
-	  vty_outln (vty, "Invalid filter \"%s\" specified,"
-                  " must contain at least one of 'RWTEXB'",
-		  argv[idx_filter]->arg);
-	  return CMD_WARNING;
-	}
+  if (argv_find (argv, argc, "FILTER", &idx)) {
+    filter = parse_filter (argv[idx]->arg);
+    if (!filter) {
+      vty_outln(vty, "Invalid filter \"%s\" specified; must contain at least"
+                     "one of 'RWTEXB'%s", argv[idx]->arg);
+      return CMD_WARNING;
     }
+  }
 
   cpu_record_clear (filter);
   return CMD_SUCCESS;
@@ -306,6 +310,8 @@ thread_cmd_init (void)
   install_element (VIEW_NODE, &show_thread_cpu_cmd);
   install_element (ENABLE_NODE, &clear_thread_cpu_cmd);
 }
+/* CLI end ------------------------------------------------------------------ */
+
 
 static int
 thread_timer_cmp(void *a, void *b)
@@ -334,31 +340,37 @@ cancelreq_del (void *cr)
   XFREE (MTYPE_TMP, cr);
 }
 
+/* initializer, only ever called once */
+static void initializer ()
+{
+  if (!masters)
+    masters = list_new();
+
+  pthread_key_create (&thread_current, NULL);
+}
+
 /* Allocate new thread master.  */
 struct thread_master *
-thread_master_create (void)
+thread_master_create (const char *name)
 {
   struct thread_master *rv;
   struct rlimit limit;
 
-  getrlimit(RLIMIT_NOFILE, &limit);
-
-  pthread_mutex_lock (&cpu_record_mtx);
-  {
-    if (cpu_record == NULL)
-      cpu_record = hash_create ((unsigned int (*) (void *))cpu_record_hash_key,
-                                (int (*) (const void *, const void *))
-                                cpu_record_hash_cmp);
-  }
-  pthread_mutex_unlock (&cpu_record_mtx);
+  pthread_once (&init_once, &initializer);
 
   rv = XCALLOC (MTYPE_THREAD_MASTER, sizeof (struct thread_master));
   if (rv == NULL)
     return NULL;
 
+  /* Initialize master mutex */
   pthread_mutex_init (&rv->mtx, NULL);
   pthread_cond_init (&rv->cancel_cond, NULL);
 
+  /* Set name */
+  rv->name = name ? XSTRDUP (MTYPE_THREAD_MASTER, name) : NULL;
+
+  /* Initialize I/O task data structures */
+  getrlimit(RLIMIT_NOFILE, &limit);
   rv->fd_limit = (int)limit.rlim_cur;
   rv->read = XCALLOC (MTYPE_THREAD, sizeof (struct thread *) * rv->fd_limit);
   if (rv->read == NULL)
@@ -366,7 +378,6 @@ thread_master_create (void)
       XFREE (MTYPE_THREAD_MASTER, rv);
       return NULL;
     }
-
   rv->write = XCALLOC (MTYPE_THREAD, sizeof (struct thread *) * rv->fd_limit);
   if (rv->write == NULL)
     {
@@ -375,26 +386,45 @@ thread_master_create (void)
       return NULL;
     }
 
+  rv->cpu_record = hash_create ((unsigned int (*) (void *))cpu_record_hash_key,
+                                (int (*) (const void *, const void *))
+                                cpu_record_hash_cmp);
+
+
   /* Initialize the timer queues */
   rv->timer = pqueue_create();
   rv->timer->cmp = thread_timer_cmp;
   rv->timer->update = thread_timer_update;
+
+  /* Initialize thread_fetch() settings */
   rv->spin = true;
   rv->handle_signals = true;
+
+  /* Set pthread owner, should be updated by actual owner */
   rv->owner = pthread_self();
   rv->cancel_req = list_new ();
   rv->cancel_req->del = cancelreq_del;
   rv->canceled = true;
+
+  /* Initialize pipe poker */
   pipe (rv->io_pipe);
   set_nonblocking (rv->io_pipe[0]);
   set_nonblocking (rv->io_pipe[1]);
 
+  /* Initialize data structures for poll() */
   rv->handler.pfdsize = rv->fd_limit;
   rv->handler.pfdcount = 0;
   rv->handler.pfds = XCALLOC (MTYPE_THREAD_MASTER,
                               sizeof (struct pollfd) * rv->handler.pfdsize);
   rv->handler.copy = XCALLOC (MTYPE_THREAD_MASTER,
                               sizeof (struct pollfd) * rv->handler.pfdsize);
+
+  /* add to list */
+  pthread_mutex_lock (&masters_mtx);
+  {
+    listnode_add (masters, rv);
+  }
+  pthread_mutex_unlock (&masters_mtx);
 
   return rv;
 }
@@ -545,20 +575,13 @@ thread_master_free (struct thread_master *m)
   close (m->io_pipe[1]);
   list_delete (m->cancel_req);
 
+  hash_clean (m->cpu_record, cpu_record_hash_free);
+  hash_free (m->cpu_record);
+  m->cpu_record = NULL;
+
   XFREE (MTYPE_THREAD_MASTER, m->handler.pfds);
   XFREE (MTYPE_THREAD_MASTER, m->handler.copy);
   XFREE (MTYPE_THREAD_MASTER, m);
-
-  pthread_mutex_lock (&cpu_record_mtx);
-  {
-    if (cpu_record)
-      {
-        hash_clean (cpu_record, cpu_record_hash_free);
-        hash_free (cpu_record);
-        cpu_record = NULL;
-      }
-  }
-  pthread_mutex_unlock (&cpu_record_mtx);
 }
 
 /* Return remain time in second. */
@@ -630,12 +653,8 @@ thread_get (struct thread_master *m, u_char type,
     {
       tmp.func = func;
       tmp.funcname = funcname;
-      pthread_mutex_lock (&cpu_record_mtx);
-      {
-        thread->hist = hash_get (cpu_record, &tmp,
-                                 (void * (*) (void *))cpu_record_hash_alloc);
-      }
-      pthread_mutex_unlock (&cpu_record_mtx);
+      thread->hist = hash_get (m->cpu_record, &tmp,
+                               (void * (*) (void *))cpu_record_hash_alloc);
     }
   thread->hist->total_active++;
   thread->func = func;
@@ -676,7 +695,7 @@ fd_poll (struct thread_master *m, struct pollfd *pfds, nfds_t pfdsize,
 
   num = poll (pfds, count + 1, timeout);
 
-  static unsigned char trash[64];
+  unsigned char trash[64];
   if (num > 0 && pfds[count].revents != 0 && num--)
     while (read (m->io_pipe[0], &trash, sizeof (trash)) > 0);
 
@@ -1401,6 +1420,13 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
   return fetch;
 }
 
+static unsigned long
+timeval_elapsed (struct timeval a, struct timeval b)
+{
+  return (((a.tv_sec - b.tv_sec) * TIMER_SECOND_MICRO)
+	  + (a.tv_usec - b.tv_usec));
+}
+
 unsigned long
 thread_consumed_time (RUSAGE_T *now, RUSAGE_T *start, unsigned long *cputime)
 {
@@ -1449,8 +1475,6 @@ thread_getrusage (RUSAGE_T *r)
   getrusage(RUSAGE_SELF, &(r->cpu));
 }
 
-struct thread *thread_current = NULL;
-
 /* We check thread consumed time. If the system has getrusage, we'll
    use that to get in-depth stats on the performance of the thread in addition
    to wall clock time stats from gettimeofday. */
@@ -1463,9 +1487,9 @@ thread_call (struct thread *thread)
   GETRUSAGE (&before);
   thread->real = before.real;
 
-  thread_current = thread;
+  pthread_setspecific (thread_current, thread);
   (*thread->func) (thread);
-  thread_current = NULL;
+  pthread_setspecific (thread_current, NULL);
 
   GETRUSAGE (&after);
 
@@ -1518,12 +1542,8 @@ funcname_thread_execute (struct thread_master *m,
 
   tmp.func = dummy.func = func;
   tmp.funcname = dummy.funcname = funcname;
-  pthread_mutex_lock (&cpu_record_mtx);
-  {
-    dummy.hist = hash_get (cpu_record, &tmp,
-                           (void * (*) (void *))cpu_record_hash_alloc);
-  }
-  pthread_mutex_unlock (&cpu_record_mtx);
+  dummy.hist = hash_get (m->cpu_record, &tmp,
+                         (void * (*) (void *))cpu_record_hash_alloc);
 
   dummy.schedfrom = schedfrom;
   dummy.schedfrom_line = fromln;

@@ -67,7 +67,7 @@ main (int argc, char **argv)
   umask (0027);
 
   /* master init. */
-  master = thread_master_create ();
+  master = thread_master_create(NULL);
 
   openzlog("common-cli", "NONE", 0, LOG_CONS | LOG_NDELAY | LOG_PID,
            LOG_DAEMON);

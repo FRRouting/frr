@@ -200,7 +200,7 @@ main (int argc, char **argv)
   if (argc == 1)
       usage_exit ();
 
-  master = thread_master_create();
+  master = thread_master_create(NULL);
   /* Establish connection to zebra. */
   zclient = zclient_new(master);
   zclient->enable = 1;

@@ -86,7 +86,7 @@ struct frr_pthread *frr_pthread_new(const char *name, unsigned int id,
                             XCALLOC(MTYPE_FRR_PTHREAD,
                                     sizeof(struct frr_pthread));
                         fpt->id = id;
-                        fpt->master = thread_master_create();
+                        fpt->master = thread_master_create(name);
                         fpt->start_routine = start_routine;
                         fpt->stop_routine = stop_routine;
                         fpt->name = XSTRDUP(MTYPE_FRR_PTHREAD, name);
