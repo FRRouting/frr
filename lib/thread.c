@@ -271,7 +271,7 @@ DEFUN (show_thread_cpu,
     filter = parse_filter (argv[idx]->arg);
     if (!filter) {
       vty_outln(vty, "Invalid filter \"%s\" specified; must contain at least"
-                     "one of 'RWTEXB'%s", argv[idx]->arg);
+                     "one of 'RWTEXB'", argv[idx]->arg);
       return CMD_WARNING;
     }
   }
@@ -295,7 +295,7 @@ DEFUN (clear_thread_cpu,
     filter = parse_filter (argv[idx]->arg);
     if (!filter) {
       vty_outln(vty, "Invalid filter \"%s\" specified; must contain at least"
-                     "one of 'RWTEXB'%s", argv[idx]->arg);
+                     "one of 'RWTEXB'", argv[idx]->arg);
       return CMD_WARNING;
     }
   }
