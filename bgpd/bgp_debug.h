@@ -145,7 +145,6 @@ extern const char *bgp_notify_subcode_str(char, char);
 extern void bgp_notify_print (struct peer *, struct bgp_notify *, const char *);
 
 extern const struct message bgp_status_msg[];
-extern const int bgp_status_msg_max;
 extern int bgp_debug_neighbor_events(struct peer *peer);
 extern int bgp_debug_keepalive(struct peer *peer);
 extern int bgp_debug_update(struct peer *peer, struct prefix *p,

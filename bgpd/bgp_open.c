@@ -245,16 +245,16 @@ static const struct message orf_type_str[] =
 {
   { ORF_TYPE_PREFIX,		"Prefixlist"		},
   { ORF_TYPE_PREFIX_OLD,	"Prefixlist (old)"	},
+  { 0 }
 };
-static const int orf_type_str_max = array_size(orf_type_str);
 
 static const struct message orf_mode_str[] =
 {
   { ORF_MODE_RECEIVE,	"Receive"	},
   { ORF_MODE_SEND,	"Send"		},
   { ORF_MODE_BOTH,	"Both"		},
+  { 0 }
 };
-static const int orf_mode_str_max = array_size(orf_mode_str);
 
 static int
 bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
@@ -359,8 +359,8 @@ bgp_capability_orf_entry (struct peer *peer, struct capability_header *hdr)
       if (bgp_debug_neighbor_events(peer))
         zlog_debug ("%s OPEN has %s ORF capability"
                     " as %s for afi/safi: %d/%d",
-                    peer->host, LOOKUP (orf_type_str, type),
-                    LOOKUP (orf_mode_str, mode),
+                    peer->host, lookup_msg(orf_type_str, type, NULL),
+                    lookup_msg(orf_mode_str, mode, NULL),
                     pkt_afi, pkt_safi);
 
       if (hdr->code == CAPABILITY_CODE_ORF)
@@ -709,9 +709,9 @@ bgp_capability_hostname (struct peer *peer, struct capability_header *hdr)
   { CAPABILITY_CODE_DYNAMIC_OLD,	"Dynamic (Old)"			},
   { CAPABILITY_CODE_REFRESH_OLD,	"Route Refresh (Old)"		},
   { CAPABILITY_CODE_ORF_OLD,		"ORF (Old)"			},
-  { CAPABILITY_CODE_FQDN,               "FQDN"                          },
+  { CAPABILITY_CODE_FQDN,               "FQDN"				},
+  { 0 }
 };
-static const int capcode_str_max = array_size(capcode_str);
 
 /* Minimum sizes for length field of each cap (so not inc. the header) */
 static const size_t cap_minsizes[] = 
@@ -798,7 +798,7 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
       if (bgp_debug_neighbor_events(peer))
 	zlog_debug ("%s OPEN has %s capability (%u), length %u",
 		   peer->host,
-		   LOOKUP (capcode_str, caphdr.code),
+		   lookup_msg(capcode_str, caphdr.code, NULL),
 		   caphdr.code, caphdr.length);
       
       /* Length sanity check, type-specific, for known capabilities */
@@ -822,7 +822,7 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
                   zlog_info ("%s %s Capability length error: got %u,"
                              " expected at least %u",
                              peer->host, 
-                             LOOKUP (capcode_str, caphdr.code),
+                             lookup_msg(capcode_str, caphdr.code, NULL),
                              caphdr.length, 
 			     (unsigned) cap_minsizes[caphdr.code]);
                   bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR, BGP_NOTIFY_OPEN_MALFORMED_ATTR);
@@ -834,7 +834,7 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
                   zlog_info ("%s %s Capability length error: got %u,"
                              " expected a multiple of %u",
                              peer->host,
-                             LOOKUP (capcode_str, caphdr.code),
+                             lookup_msg(capcode_str, caphdr.code, NULL),
                              caphdr.length,
 			     (unsigned) cap_modsizes[caphdr.code]);
                   bgp_notify_send (peer, BGP_NOTIFY_OPEN_ERR,
@@ -933,7 +933,7 @@ bgp_capability_parse (struct peer *peer, size_t length, int *mp_capability,
         {
           if (stream_get_getp(s) > (start + caphdr.length))
             zlog_warn ("%s Cap-parser for %s read past cap-length, %u!",
-                       peer->host, LOOKUP (capcode_str, caphdr.code),
+                       peer->host, lookup_msg(capcode_str, caphdr.code, NULL),
                        caphdr.length);
           stream_set_getp (s, start + caphdr.length);
         }

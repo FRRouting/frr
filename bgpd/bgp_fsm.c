@@ -972,8 +972,8 @@ bgp_fsm_change_status (struct peer *peer, int status)
   if (bgp_debug_neighbor_events(peer))
     zlog_debug ("%s went from %s to %s",
 		peer->host,
-		LOOKUP (bgp_status_msg, peer->ostatus),
-		LOOKUP (bgp_status_msg, peer->status));
+		lookup_msg(bgp_status_msg, peer->ostatus, NULL),
+		lookup_msg(bgp_status_msg, peer->status, NULL));
 }
 
 /* Flush the event queue and ensure the peer is shut down */
@@ -1412,7 +1412,7 @@ static int
 bgp_fsm_event_error (struct peer *peer)
 {
   zlog_err ("%s [FSM] unexpected packet received in state %s",
-	    peer->host, LOOKUP (bgp_status_msg, peer->status));
+	    peer->host, lookup_msg(bgp_status_msg, peer->status, NULL));
 
   return bgp_stop_with_notify (peer, BGP_NOTIFY_FSM_ERR, 0);
 }
@@ -1598,7 +1598,7 @@ bgp_ignore (struct peer *peer)
 {
   zlog_err ("%s [FSM] Ignoring event %s in state %s, prior events %s, %s, fd %d",
              peer->host, bgp_event_str[peer->cur_event],
-	     LOOKUP (bgp_status_msg, peer->status),
+	     lookup_msg(bgp_status_msg, peer->status, NULL),
              bgp_event_str[peer->last_event],
              bgp_event_str[peer->last_major_event], peer->fd);
   return 0;
@@ -1610,7 +1610,7 @@ bgp_fsm_exeption (struct peer *peer)
 {
   zlog_err ("%s [FSM] Unexpected event %s in state %s, prior events %s, %s, fd %d",
              peer->host, bgp_event_str[peer->cur_event],
-	     LOOKUP (bgp_status_msg, peer->status),
+	     lookup_msg(bgp_status_msg, peer->status, NULL),
              bgp_event_str[peer->last_event],
              bgp_event_str[peer->last_major_event], peer->fd);
   return(bgp_stop (peer));
@@ -1836,8 +1836,8 @@ bgp_event_update (struct peer *peer, int event)
   if (bgp_debug_neighbor_events(peer) && peer->status != next)
     zlog_debug ("%s [FSM] %s (%s->%s), fd %d", peer->host,
 	       bgp_event_str[event],
-	       LOOKUP (bgp_status_msg, peer->status),
-	       LOOKUP (bgp_status_msg, next), peer->fd);
+	       lookup_msg(bgp_status_msg, peer->status, NULL),
+	       lookup_msg(bgp_status_msg, next, NULL), peer->fd);
 
   peer->last_event = peer->cur_event;
   peer->cur_event = event;
@@ -1872,7 +1872,7 @@ bgp_event_update (struct peer *peer, int event)
       zlog_err ("%s [FSM] Failure handling event %s in state %s, "
                  "prior events %s, %s, fd %d",
                  peer->host, bgp_event_str[peer->cur_event],
-	         LOOKUP (bgp_status_msg, peer->status),
+	         lookup_msg(bgp_status_msg, peer->status, NULL),
                  bgp_event_str[peer->last_event],
                  bgp_event_str[peer->last_major_event], peer->fd);
       bgp_stop (peer);

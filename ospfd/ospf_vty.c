@@ -3374,7 +3374,7 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
           json_object_string_add(json_interface_sub, "networkType", ospf_network_type_str[oi->type]);
           json_object_int_add(json_interface_sub, "cost", oi->output_cost);
           json_object_int_add(json_interface_sub, "transmitDelayMsecs", 1000 / OSPF_IF_PARAM (oi,transmit_delay));
-          json_object_string_add(json_interface_sub, "state", LOOKUP (ospf_ism_state_msg, oi->state));
+          json_object_string_add(json_interface_sub, "state", lookup_msg(ospf_ism_state_msg, oi->state, NULL));
           json_object_int_add(json_interface_sub, "priority", PRIORITY (oi));
         }
       else
@@ -3390,7 +3390,7 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
                    oi->output_cost, VTY_NEWLINE);
 
           vty_out (vty, "  Transmit Delay is %d sec, State %s, Priority %d%s",
-                   OSPF_IF_PARAM (oi,transmit_delay), LOOKUP (ospf_ism_state_msg, oi->state),
+                   OSPF_IF_PARAM (oi,transmit_delay), lookup_msg(ospf_ism_state_msg, oi->state, NULL),
                    PRIORITY (oi), VTY_NEWLINE);
         }
 
@@ -4125,11 +4125,11 @@ show_ip_ospf_neighbor_detail_sub (struct vty *vty, struct ospf_interface *oi,
   if (use_json)
     {
       json_object_int_add(json_sub, "nbrPriority", nbr->priority);
-      json_object_string_add(json_sub, "nbrState", LOOKUP (ospf_nsm_state_msg, nbr->state));
+      json_object_string_add(json_sub, "nbrState", lookup_msg(ospf_nsm_state_msg, nbr->state, NULL));
     }
   else
     vty_out (vty, "    Neighbor priority is %d, State is %s,",
-             nbr->priority, LOOKUP (ospf_nsm_state_msg, nbr->state));
+             nbr->priority, lookup_msg(ospf_nsm_state_msg, nbr->state, NULL));
 
   /* Show state changes. */
   if (use_json)
@@ -4800,9 +4800,9 @@ show_ip_ospf_database_header (struct vty *vty, struct ospf_lsa *lsa)
       vty_out (vty, "%s", VTY_NEWLINE);
     }
   vty_out (vty, "  LS Type: %s%s",
-           LOOKUP (ospf_lsa_type_msg, lsa->data->type), VTY_NEWLINE);
+           lookup_msg(ospf_lsa_type_msg, lsa->data->type, NULL), VTY_NEWLINE);
   vty_out (vty, "  Link State ID: %s %s%s", inet_ntoa (lsa->data->id),
-           LOOKUP (ospf_link_state_id_type_msg, lsa->data->type), VTY_NEWLINE);
+           lookup_msg(ospf_link_state_id_type_msg, lsa->data->type, NULL), VTY_NEWLINE);
   vty_out (vty, "  Advertising Router: %s%s",
            inet_ntoa (lsa->data->adv_router), VTY_NEWLINE);
   vty_out (vty, "  LS Seq Number: %08lx%s", (u_long)ntohl (lsa->data->ls_seqnum),

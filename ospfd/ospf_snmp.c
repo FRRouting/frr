@@ -2730,7 +2730,7 @@ ospfTrapIfStateChange (struct ospf_interface *oi)
 
   zlog_info("ospfTrapIfStateChange trap sent: %s now %s",
             inet_ntoa(oi->address->u.prefix4),
-            LOOKUP(ospf_ism_state_msg, oi->state));
+            lookup_msg(ospf_ism_state_msg, oi->state, NULL));
   
   oid_copy_addr (index, &(oi->address->u.prefix4), IN_ADDR_SIZE);
   index[IN_ADDR_SIZE] = 0;

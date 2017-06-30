@@ -86,8 +86,33 @@ static void write_wrapper (int fd, const void *buf, size_t count)
   return;
 }
 
-/* For time string format. */
+/**
+ * Looks up a message in a message list by key.
+ *
+ * If the message is not found, returns the provided error message.
+ *
+ * Terminates when it hits a struct message that's all zeros.
+ *
+ * @param mz the message list
+ * @param kz the message key
+ * @param nf the message to return if not found
+ * @return the message
+ */
+const char *
+lookup_msg(const struct message *mz, int kz, const char *nf)
+{
+  static struct message nt = { 0 };
+  const char *rz = nf ? nf : "(no message found)";
+  const struct message *pnt;
+  for (pnt = mz; memcmp(pnt, &nt, sizeof(struct message)); pnt++)
+    if (pnt->key == kz) {
+      rz = pnt->str ? pnt->str : rz;
+      break;
+    }
+  return rz;
+}
 
+/* For time string format. */
 size_t
 quagga_timestamp(int timestamp_precision, char *buf, size_t buflen)
 {
@@ -845,61 +870,6 @@ zlog_rotate (void)
     }
 
   return 1;
-}
-
-/* Message lookup function. */
-const char *
-lookup (const struct message *mes, int key)
-{
-  const struct message *pnt;
-
-  for (pnt = mes; pnt->key != 0; pnt++) 
-    if (pnt->key == key) 
-      return pnt->str;
-
-  return "";
-}
-
-/* Older/faster version of message lookup function, but requires caller to pass
- * in the array size (instead of relying on a 0 key to terminate the search). 
- *
- * The return value is the message string if found, or the 'none' pointer
- * provided otherwise.
- */
-const char *
-mes_lookup (const struct message *meslist, int max, int index,
-  const char *none, const char *mesname)
-{
-  int pos = index - meslist[0].key;
-  
-  /* first check for best case: index is in range and matches the key
-   * value in that slot.
-   * NB: key numbering might be offset from 0. E.g. protocol constants
-   * often start at 1.
-   */
-  if ((pos >= 0) && (pos < max)
-      && (meslist[pos].key == index))
-    return meslist[pos].str;
-
-  /* fall back to linear search */
-  {
-    int i;
-
-    for (i = 0; i < max; i++, meslist++)
-      {
-	if (meslist->key == index)
-	  {
-	    const char *str = (meslist->str ? meslist->str : none);
-	    
-	    zlog_debug ("message index %d [%s] found in %s at position %d (max is %d)",
-		      index, str, mesname, i, max);
-	    return str;
-	  }
-      }
-  }
-  zlog_err("message index %d not found in %s (max is %d)", index, mesname, max);
-  assert (none);
-  return none;
 }
 
 /* Wrapper around strerror to handle case where it returns NULL. */
