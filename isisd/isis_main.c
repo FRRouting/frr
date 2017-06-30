@@ -101,6 +101,7 @@ void sigusr1(void);
 static __attribute__((__noreturn__)) void
 terminate (int i)
 {
+  isis_zebra_stop ();
   exit (i);
 }
 
