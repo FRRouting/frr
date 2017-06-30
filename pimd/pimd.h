@@ -107,6 +107,8 @@
 #define PIM_MASK_MSDP_EVENTS         (1 << 19)
 #define PIM_MASK_MSDP_PACKETS        (1 << 20)
 #define PIM_MASK_MSDP_INTERNAL       (1 << 21)
+#define PIM_MASK_PIM_NHT             (1 << 22)
+#define PIM_MASK_PIM_NHT_DETAIL      (1 << 23)
 
 /* PIM error codes */
 #define PIM_SUCCESS                0
@@ -181,6 +183,8 @@ extern int32_t qpim_register_probe_time;
 #define PIM_DEBUG_MSDP_EVENTS         (qpim_debugs & PIM_MASK_MSDP_EVENTS)
 #define PIM_DEBUG_MSDP_PACKETS        (qpim_debugs & PIM_MASK_MSDP_PACKETS)
 #define PIM_DEBUG_MSDP_INTERNAL       (qpim_debugs & PIM_MASK_MSDP_INTERNAL)
+#define PIM_DEBUG_PIM_NHT             (qpim_debugs & PIM_MASK_PIM_NHT)
+#define PIM_DEBUG_PIM_NHT_DETAIL      (qpim_debugs & PIM_MASK_PIM_NHT_DETAIL)
 
 #define PIM_DEBUG_EVENTS       (qpim_debugs & (PIM_MASK_PIM_EVENTS | PIM_MASK_IGMP_EVENTS | PIM_MASK_MSDP_EVENTS))
 #define PIM_DEBUG_PACKETS      (qpim_debugs & (PIM_MASK_PIM_PACKETS | PIM_MASK_IGMP_PACKETS | PIM_MASK_MSDP_PACKETS))
@@ -207,6 +211,7 @@ extern int32_t qpim_register_probe_time;
 #define PIM_DO_DEBUG_MSDP_EVENTS         (qpim_debugs |= PIM_MASK_MSDP_EVENTS)
 #define PIM_DO_DEBUG_MSDP_PACKETS        (qpim_debugs |= PIM_MASK_MSDP_PACKETS)
 #define PIM_DO_DEBUG_MSDP_INTERNAL       (qpim_debugs |= PIM_MASK_MSDP_INTERNAL)
+#define PIM_DO_DEBUG_PIM_NHT             (qpim_debugs |= PIM_MASK_PIM_NHT)
 
 #define PIM_DONT_DEBUG_PIM_EVENTS          (qpim_debugs &= ~PIM_MASK_PIM_EVENTS)
 #define PIM_DONT_DEBUG_PIM_PACKETS         (qpim_debugs &= ~PIM_MASK_PIM_PACKETS)
@@ -229,6 +234,7 @@ extern int32_t qpim_register_probe_time;
 #define PIM_DONT_DEBUG_MSDP_EVENTS         (qpim_debugs &= ~PIM_MASK_MSDP_EVENTS)
 #define PIM_DONT_DEBUG_MSDP_PACKETS        (qpim_debugs &= ~PIM_MASK_MSDP_PACKETS)
 #define PIM_DONT_DEBUG_MSDP_INTERNAL       (qpim_debugs &= ~PIM_MASK_MSDP_INTERNAL)
+#define PIM_DONT_DEBUG_PIM_NHT             (qpim_debugs &= ~PIM_MASK_PIM_NHT)
 
 void pim_init(void);
 void pim_terminate(void);
