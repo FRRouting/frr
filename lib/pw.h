@@ -20,6 +20,9 @@
 #ifndef _FRR_PW_H
 #define _FRR_PW_H
 
+/* L2VPN name length. */
+#define L2VPN_NAME_LEN		32
+
 /* Pseudowire type - LDP and BGP use the same values. */
 #define PW_TYPE_ETHERNET_TAGGED	0x0004	/* RFC 4446 */
 #define PW_TYPE_ETHERNET	0x0005	/* RFC 4446 */
@@ -37,7 +40,9 @@
  */
 union pw_protocol_fields {
 	struct {
-		/* TODO */
+		struct in_addr lsr_id;
+		uint32_t pwid;
+		char vpn_name[L2VPN_NAME_LEN];
 	} ldp;
 	struct {
 		/* TODO */
