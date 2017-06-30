@@ -379,6 +379,7 @@ void nhrp_zebra_init(void)
 void nhrp_zebra_terminate(void)
 {
 	zclient_stop(zclient);
+	zclient_free(zclient);
 	route_table_finish(zebra_rib[AFI_IP]);
 	route_table_finish(zebra_rib[AFI_IP6]);
 }
