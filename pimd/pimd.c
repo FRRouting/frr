@@ -313,6 +313,8 @@ void pim_init()
 
 void pim_terminate()
 {
+  struct zclient *zclient;
+
   pim_free();
 
   /* reverse prefix_list_init */
@@ -321,4 +323,11 @@ void pim_terminate()
   prefix_list_reset ();
 
   pim_vrf_terminate ();
+
+  zclient = pim_zebra_zclient_get ();
+  if (zclient)
+    {
+      zclient_stop (zclient);
+      zclient_free (zclient);
+    }
 }
