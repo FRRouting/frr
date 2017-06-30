@@ -155,7 +155,7 @@ void bgp_keepalives_init()
 	pthread_condattr_destroy(&attrs);
 
 	// initialize peer hashtable
-	peerhash = hash_create_size(2048, peer_hash_key, peer_hash_cmp);
+	peerhash = hash_create_size(2048, peer_hash_key, peer_hash_cmp, NULL);
 }
 
 static void bgp_keepalives_finish(void *arg)

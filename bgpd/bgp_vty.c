@@ -1367,7 +1367,7 @@ void bgp_config_write_wpkt_quanta(struct vty *vty, struct bgp *bgp)
 	uint32_t quanta =
 		atomic_load_explicit(&bgp->wpkt_quanta, memory_order_relaxed);
 	if (quanta != BGP_WRITE_PACKET_MAX)
-		vty_out(vty, " write-quanta %d%s", quanta, VTY_NEWLINE);
+		vty_out(vty, " write-quanta %d\n", quanta);
 }
 
 void bgp_config_write_rpkt_quanta(struct vty *vty, struct bgp *bgp)
@@ -1375,7 +1375,7 @@ void bgp_config_write_rpkt_quanta(struct vty *vty, struct bgp *bgp)
 	uint32_t quanta =
 		atomic_load_explicit(&bgp->rpkt_quanta, memory_order_relaxed);
 	if (quanta != BGP_READ_PACKET_MAX)
-		vty_out(vty, " read-quanta %d%s", quanta, VTY_NEWLINE);
+		vty_out(vty, " read-quanta %d\n", quanta);
 }
 
 /* Packet quanta configuration */
