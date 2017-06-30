@@ -224,6 +224,14 @@ def get_file(content):
     fde.close()
     return fname
 
+def normalize_text(text):
+    """
+    Strips formating spaces/tabs and carriage returns.
+    """
+    text = re.sub(r'[ \t]+', ' ', text)
+    text = re.sub(r'\r', '', text)
+    return text
+
 def checkAddressSanitizerError(output, router, component):
     "Checks for AddressSanitizer in output. If found, then logs it and returns true, false otherwise"
 
