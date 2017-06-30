@@ -4,12 +4,6 @@ export DH_VERBOSE=1
 export DEB_BUILD_HARDENING=1
 export DH_OPTIONS=-v
 
-ifeq ($(WANT_SNMP), 1)
-  USE_SNMP=--enable-snmp
-  $(warning "DEBIAN: SNMP enabled, sorry for your inconvenience")
-else
-  $(warning "DEBIAN: SNMP disabled, see README.Debian")
-endif
 
 ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
   DEBIAN_JOBS := $(subst parallel=,,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
@@ -37,7 +31,7 @@ override_dh_auto_configure:
 		--localstatedir=/var/run/frr \
 		--sbindir=/usr/lib/frr \
 		--sysconfdir=/etc/frr \
-		$(USE_SNMP) \
+		--enable-snmp \
 		--enable-ospfapi=yes \
 		--enable-vtysh=yes \
 		--enable-isisd=yes \
@@ -84,12 +78,7 @@ override_dh_auto_install:
 	mkdir -p debian/tmp/etc/frr/
 	perl -pi -e 's#^!log file #!log file /var/log/frr/#' debian/tmp/usr/share/doc/frr/examples/*sample*
 
-	# installing the Frr specific SNMP MIB
-ifeq ($(WANT_SNMP), 1)
 	install -D -m 644 ./zebra/GNOME-PRODUCT-ZEBRA-MIB debian/tmp/usr/share/snmp/mibs/GNOME-PRODUCT-ZEBRA-MIB
-else
-	mkdir -p debian/tmp/usr/share/snmp/mibs/
-endif
 
 	# cleaning .la files
 	sed -i "/dependency_libs/ s/'.*'/''/" debian/tmp/usr/lib/*.la
