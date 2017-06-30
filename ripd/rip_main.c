@@ -100,6 +100,8 @@ sigint (void)
   if (! retain_mode)
     rip_clean ();
 
+  rip_zclient_stop ();
+
   exit (0);
 }
 

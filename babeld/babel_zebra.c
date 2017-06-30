@@ -400,4 +400,5 @@ void
 babel_zebra_close_connexion(void)
 {
     zclient_stop(zclient);
+    zclient_free(zclient);
 }

@@ -103,6 +103,7 @@ sigint (void)
   if (! retain_mode)
     ripng_clean ();
 
+  ripng_zebra_stop ();
   exit (0);
 }
 

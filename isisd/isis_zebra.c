@@ -720,3 +720,10 @@ isis_zebra_init (struct thread_master *master)
 
   return;
 }
+
+void
+isis_zebra_stop (void)
+{
+  zclient_stop (zclient);
+  zclient_free (zclient);
+}

@@ -497,6 +497,8 @@ ospf_terminate (void)
    * One or more ospf_finish()'s may have deferred shutdown to a timer
    * thread
    */
+  zclient_stop (zclient);
+  zclient_free (zclient);
 }
 
 void
