@@ -711,3 +711,10 @@ rip_zclient_init (struct thread_master *master)
   install_element (RIP_NODE, &rip_default_information_originate_cmd);
   install_element (RIP_NODE, &no_rip_default_information_originate_cmd);
 }
+
+void
+rip_zclient_stop (void)
+{
+  zclient_stop (zclient);
+  zclient_free (zclient);
+}
