@@ -8166,9 +8166,9 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
 	       p->prefixlen);
 
       if (has_valid_label)
-        vty_outln (vty, "Local label: %d%s", label);
+        vty_outln (vty, "Local label: %d", label);
       else if (bgp_labeled_safi(safi))
-        vty_outln (vty, "Local label: not allocated%s");
+        vty_outln (vty, "Local label: not allocated");
     }
 
   for (ri = rn->info; ri; ri = ri->next)
@@ -10716,13 +10716,8 @@ bgp_config_write_network_evpn (struct vty *vty, struct bgp *bgp,
             prefix2str (p, buf, sizeof (buf)),
 	    vty_out (vty, " network %s rd %s ethtag %u tag %u esi %s gwip %s routermac %s",
 		     buf, rdbuf, p->u.prefix_evpn.eth_tag,
-<<<<<<< HEAD
                      decode_label (&bgp_static->label), esi, buf2 , macrouter);
-	    vty_out (vty, "%s", VTY_NEWLINE);
-=======
-                     decode_label (bgp_static->tag), esi, buf2 , macrouter);
 	    vty_out (vty, VTYNL);
->>>>>>> 5fca4e3635c2778e8349bce0eaf944c26913d321
             if (macrouter)
               XFREE (MTYPE_TMP, macrouter);
             if (esi)
