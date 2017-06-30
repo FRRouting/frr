@@ -1301,7 +1301,7 @@ thread_fetch (struct thread_master *m, struct thread *fetch)
   struct timeval now;
   struct timeval zerotime = { 0, 0 };
   struct timeval tv;
-  struct timeval *tw;
+  struct timeval *tw = NULL;
 
   int num = 0;
 
