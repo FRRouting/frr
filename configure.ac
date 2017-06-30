@@ -7,7 +7,7 @@
 ##
 AC_PREREQ(2.60)
 
-AC_INIT(frr, 3.1-dev, [https://github.com/frrouting/frr/issues])
+AC_INIT(frr, 3.1.1.ATC.1, [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 PACKAGE_FULLNAME="FRRouting"
 AC_SUBST(PACKAGE_FULLNAME)
@@ -2041,3 +2041,4 @@ zebra protobuf enabled  : ${have_protobuf:-no}
 
 The above user and group must have read/write access to the state file
 directory and to the config files in the config file directory."
+
