@@ -6306,7 +6306,7 @@ DEFUN_NOSH (address_family_ipv4_safi,
        "address-family ipv4 [<unicast|multicast|vpn|labeled-unicast>]",
        "Enter Address Family command mode\n"
        "Address Family\n"
-       BGP_SAFI_HELP_STR)
+       BGP_SAFI_WITH_LABEL_HELP_STR)
 {
 
   if (argc == 3)
@@ -6325,7 +6325,7 @@ DEFUN_NOSH (address_family_ipv6_safi,
        "address-family ipv6 [<unicast|multicast|vpn|labeled-unicast>]",
        "Enter Address Family command mode\n"
        "Address Family\n"
-       BGP_SAFI_HELP_STR)
+       BGP_SAFI_WITH_LABEL_HELP_STR)
 {
   if (argc == 3)
     {
