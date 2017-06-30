@@ -27,6 +27,7 @@ test_ospf_topo1.py: Test the FRR/Quagga OSPF routing daemon.
 """
 
 import os
+import re
 import sys
 from functools import partial
 import pytest
@@ -96,6 +97,10 @@ def setup_module(mod):
             TopoRouter.RD_OSPF,
             os.path.join(CWD, '{}/ospfd.conf'.format(rname))
         )
+        router.load_config(
+            TopoRouter.RD_OSPF6,
+            os.path.join(CWD, '{}/ospf6d.conf'.format(rname))
+        )
 
     # Initialize all routers.
     tgen.start_router()
@@ -117,6 +122,31 @@ def compare_show_ip_ospf(rname, expected):
                               title1="Current output",
                               title2="Expected output")
 
+def compare_show_ipv6_ospf6(rname, expected):
+    """
+    Calls 'show ipv6 ospf6 route' for router `rname` and compare the obtained
+    result with the expected output.
+    """
+    tgen = get_topogen()
+    current = tgen.gears[rname].vtysh_cmd('show ipv6 ospf6 route')
+
+    # This output has space formating and random IPv6 link addresses, we have to
+    # remove them first before testing.
+    current = topotest.normalize_text(current)
+    expected = topotest.normalize_text(expected)
+
+    # Remove the link addresses
+    current = re.sub(r'fe80:[^ ]+', '', current)
+    expected = re.sub(r'fe80:[^ ]+', '', expected)
+
+    # Remove the time
+    current = re.sub(r'\d+:\d{2}:\d{2}', '', current)
+    expected = re.sub(r'\d+:\d{2}:\d{2}', '', expected)
+
+    return topotest.difflines(current, expected,
+                              title1="Current output",
+                              title2="Expected output")
+
 def test_ospf_convergence():
     "Test OSPF daemon convergence"
     for rnum in range(1, 5):
@@ -133,6 +163,23 @@ def test_ospf_convergence():
         result, diff = topotest.run_and_expect(test_func, '',
                                                count=20, wait=3)
         assert result, 'OSPF did not converge on {}:\n{}'.format(router, diff)
+
+def test_ospf6_convergence():
+    "Test OSPF6 daemon convergence"
+    for rnum in range(1, 5):
+        router = 'r{}'.format(rnum)
+
+        logger.info('Waiting for router "%s" IPv6 OSPF convergence', router)
+
+        # Load expected results from the command
+        reffile = os.path.join(CWD, '{}/ospf6route.txt'.format(router))
+        expected = open(reffile).read()
+
+        # Run test function until we get an result. Wait at most 60 seconds.
+        test_func = partial(compare_show_ipv6_ospf6, router, expected)
+        result, diff = topotest.run_and_expect(test_func, '',
+                                               count=20, wait=3)
+        assert result, 'OSPF6 did not converge on {}:\n{}'.format(router, diff)
 
 def test_ospf_json():
     "Test 'show ip ospf json' output for coherency."
@@ -225,6 +272,24 @@ def test_ospf_link_down():
         result, diff = topotest.run_and_expect(test_func, '',
                                                count=20, wait=3)
         assert result, 'OSPF did not converge on {}:\n{}'.format(router, diff)
+
+def test_ospf6_link_down():
+    "Test OSPF6 daemon convergence after link goes down"
+
+    for rnum in range(1, 5):
+        router = 'r{}'.format(rnum)
+
+        logger.info('Waiting for router "%s" IPv6 OSPF convergence after link down', router)
+
+        # Load expected results from the command
+        reffile = os.path.join(CWD, '{}/ospf6route_down.txt'.format(router))
+        expected = open(reffile).read()
+
+        # Run test function until we get an result. Wait at most 60 seconds.
+        test_func = partial(compare_show_ipv6_ospf6, router, expected)
+        result, diff = topotest.run_and_expect(test_func, '',
+                                               count=20, wait=3)
+        assert result, 'OSPF6 did not converge on {}:\n{}'.format(router, diff)
 
 def test_memory_leak():
     "Run the memory leak test and report results."
