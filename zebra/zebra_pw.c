@@ -27,6 +27,7 @@
 #include "zebra/debug.h"
 #include "zebra/rib.h"
 #include "zebra/zserv.h"
+#include "zebra/zebra_rnh.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_pw.h"
 
@@ -78,6 +79,9 @@ void zebra_pw_del(struct zebra_vrf *zvrf, struct zebra_pw *pw)
 		zlog_debug("%u: deleting pseudowire %s protocol %s", pw->vrf_id,
 			   pw->ifname, zebra_route_string(pw->protocol));
 
+	/* remove nexthop tracking */
+	zebra_deregister_rnh_pseudowire(pw->vrf_id, pw);
+
 	/* uninstall */
 	if (pw->status == PW_STATUS_UP)
 		hook_call(pw_uninstall, pw);
@@ -94,6 +98,8 @@ void zebra_pw_change(struct zebra_pw *pw, ifindex_t ifindex, int type, int af,
 		     uint32_t remote_label, uint8_t flags,
 		     union pw_protocol_fields *data)
 {
+	zebra_deregister_rnh_pseudowire(pw->vrf_id, pw);
+
 	pw->ifindex = ifindex;
 	pw->type = type;
 	pw->af = af;
@@ -104,7 +110,7 @@ void zebra_pw_change(struct zebra_pw *pw, ifindex_t ifindex, int type, int af,
 	pw->data = *data;
 
 	if (pw->enabled)
-		zebra_pw_update(pw);
+		zebra_register_rnh_pseudowire(pw->vrf_id, pw);
 	else
 		zebra_pw_uninstall(pw);
 }
@@ -120,6 +126,7 @@ void zebra_pw_update(struct zebra_pw *pw)
 {
 	if (zebra_pw_check_reachability(pw) < 0) {
 		zebra_pw_uninstall(pw);
+		/* wait for NHT and try again later */
 	} else {
 		/*
 		 * Install or reinstall the pseudowire (e.g. to update
