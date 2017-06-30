@@ -593,7 +593,7 @@ main_dispatch_lde(struct thread *thread)
 			break;
 		case IMSG_KPWLABEL_CHANGE:
 			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
-			    sizeof(struct kpw))
+			    sizeof(struct zebra_pw_t))
 				fatalx("invalid size of IMSG_KPWLABEL_CHANGE");
 			if (kmpw_set(imsg.data))
 				log_warnx("%s: error changing pseudowire",
@@ -601,10 +601,28 @@ main_dispatch_lde(struct thread *thread)
 			break;
 		case IMSG_KPWLABEL_DELETE:
 			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
-			    sizeof(struct kpw))
+			    sizeof(struct zebra_pw_t))
 				fatalx("invalid size of IMSG_KPWLABEL_DELETE");
 			if (kmpw_unset(imsg.data))
 				log_warnx("%s: error unsetting pseudowire",
+				    __func__);
+			break;
+		case IMSG_KNEXTHOP_REGISTER:
+			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
+			    sizeof(struct knexthop))
+				fatalx("invalid size of "
+				    "IMSG_KNEXTHOP_REGISTER");
+			if (knexthop_register(imsg.data))
+				log_warnx("%s: error registering nexthop",
+				    __func__);
+			break;
+		case IMSG_KNEXTHOP_UNREGISTER:
+			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
+			    sizeof(struct knexthop))
+				fatalx("invalid size of "
+				    "IMSG_KNEXTHOP_UNREGISTER");
+			if (knexthop_unregister(imsg.data))
+				log_warnx("%s: error unregistering nexthop",
 				    __func__);
 			break;
 		case IMSG_ACL_CHECK:

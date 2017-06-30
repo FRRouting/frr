@@ -726,6 +726,7 @@ pim_parse_nexthop_update (int command, struct zclient *zclient,
   distance = stream_getc (s);
   metric = stream_getl (s);
   nexthop_num = stream_getc (s);
+  stream_getc (s); /* number of labeled nexthops - unused */
 
   if (nexthop_num)
     {

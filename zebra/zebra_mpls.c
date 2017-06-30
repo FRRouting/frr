@@ -1346,7 +1346,7 @@ mpls_ftn_update (int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
     return 0;
 
   SET_FLAG (rib->status, RIB_ENTRY_CHANGED);
-  SET_FLAG (rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
+  SET_FLAG (rib->status, RIB_ENTRY_LABELS_CHANGED);
   rib_queue_add (rn);
 
   return 0;
@@ -1542,7 +1542,7 @@ mpls_ldp_ftn_uninstall_all (struct zebra_vrf *zvrf, int afi)
 	    {
 	      nexthop_del_labels (nexthop);
 	      SET_FLAG (rib->status, RIB_ENTRY_CHANGED);
-	      SET_FLAG (rib->status, RIB_ENTRY_NEXTHOPS_CHANGED);
+	      SET_FLAG (rib->status, RIB_ENTRY_LABELS_CHANGED);
 	      update = 1;
 	    }
 

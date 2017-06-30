@@ -1715,6 +1715,93 @@ lm_release_label_chunk (struct zclient *zclient, uint32_t start, uint32_t end)
   return 0;
 }
 
+int
+zebra_send_pw(struct zclient *zclient, struct zebra_pw_t *pw)
+{
+  struct stream *s;
+  uint8_t flags = 0;
+
+  if (zclient_debug)
+    {
+      char buf[INET6_ADDRSTRLEN];
+      zlog_debug ("pseudowire %s ifindex %u nexthop %s labels %u/%u (%s)",
+                  pw->ifname, pw->ifindex,
+                  inet_ntop(pw->af, &pw->nexthop, buf, sizeof(buf)),
+                  pw->local_label, pw->remote_label,
+                  (pw->cmd == ZEBRA_PW_ADD) ? "add" : "delete");
+    }
+
+  /* Reset stream. */
+  s = zclient->obuf;
+  stream_reset(s);
+
+  zclient_create_header(s, pw->cmd, VRF_DEFAULT);
+  stream_write(s, pw->ifname, IF_NAMESIZE);
+  stream_putl(s, pw->ifindex);
+
+  /* Put type */
+  stream_putl(s, pw->type);
+
+  /* Put nexthop */
+  stream_putl(s, pw->af);
+  switch (pw->af) {
+  case AF_INET:
+    stream_put_in_addr(s, &pw->nexthop.ipv4);
+    break;
+  case AF_INET6:
+    stream_write(s, (u_char *)&pw->nexthop.ipv6, 16);
+    break;
+  default:
+    zlog_err ("%s: unknown af", __func__);
+  }
+
+  /* Put labels */
+  stream_putl(s, pw->local_label);
+  stream_putl(s, pw->remote_label);
+
+  /* Put flags */
+  if (pw->flags & F_PW_CWORD)
+    flags |= F_PSEUDOWIRE_CWORD;
+  stream_putc(s, flags);
+
+  /* Protocol specific fields */
+  stream_write(s, &pw->data, sizeof(union pw_protocol_fields));
+
+  /* Put length at the first point of the stream. */
+  stream_putw_at(s, 0, stream_get_endp(s));
+
+  return (zclient_send_message(zclient));
+}
+/*
+ * Receive PW status update from Zebra and send it to LDE process.
+ */
+void
+zebra_read_pw_status_update(int command, struct zclient *zclient,
+                            zebra_size_t length, vrf_id_t vrf_id,
+                            struct zebra_pw_t *pw)
+{
+  struct stream	*s;
+  uint8_t status;
+
+  memset(pw, 0, sizeof(struct zebra_pw_t));
+  s = zclient->ibuf;
+
+  /* Get data. */
+  stream_get(pw->ifname, s, IF_NAMESIZE);
+  pw->ifindex = stream_getl(s);
+
+  status = stream_getc(s);
+  if (status == PSEUDOWIRE_STATUS_UP)
+    pw->flags |= F_PW_STATUS_UP;
+  else
+    pw->flags &= ~F_PW_STATUS_UP;
+
+  if (zclient_debug)
+    zlog_debug ("pseudowire %s ifindex %u status %s", pw->ifname,
+                pw->ifindex, (pw->flags & F_PW_STATUS_UP) ? "up" : "down");
+}
+
+
 /* Zebra client message read function. */
 static int
 zclient_read (struct thread *thread)
@@ -1898,6 +1985,10 @@ zclient_read (struct thread *thread)
     case ZEBRA_INTERFACE_LINK_PARAMS:
       if (zclient->interface_link_params)
         (*zclient->interface_link_params) (command, zclient, length);
+      break;
+    case ZEBRA_PW_STATUS_UPDATE:
+      if (zclient->pw_status_update)
+        (*zclient->pw_status_update) (command, zclient, length, vrf_id);
       break;
     default:
       break;
