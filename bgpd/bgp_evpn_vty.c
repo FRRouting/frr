@@ -1739,7 +1739,7 @@ static void write_vni_config(struct vty *vty, struct bgpevpn *vpn, int *write)
 					       ecom)) {
 				ecom_str = ecommunity_ecom2str(
 					ecom, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-				vty_out(vty, "  route-target export %s\n",
+				vty_out(vty, "   route-target export %s\n",
 					ecom_str);
 				XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
 			}
