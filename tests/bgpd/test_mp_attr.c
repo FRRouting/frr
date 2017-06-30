@@ -748,7 +748,7 @@ main (void)
   term_bgp_debug_as4 = -1UL;
   
   qobj_init ();
-  master = thread_master_create ();
+  master = thread_master_create(NULL);
   bgp_master_init (master);
   vrf_init (NULL, NULL, NULL, NULL);
   bgp_option_set (BGP_OPT_NO_LISTEN);

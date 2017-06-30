@@ -154,10 +154,10 @@ eigrp_route_match_add (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          vty_outln (vty, "%% Can't find rule.");
           return CMD_WARNING;
         case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+          vty_outln (vty, "%% Argument is malformed.");
           return CMD_WARNING;
         }
     }
@@ -176,10 +176,10 @@ eigrp_route_match_delete (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          vty_outln (vty, "%% Can't find rule.");
           return CMD_WARNING;
         case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+          vty_outln (vty, "%% Argument is malformed.");
           return CMD_WARNING;
         }
     }
@@ -199,7 +199,7 @@ eigrp_route_set_add (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          vty_outln (vty, "%% Can't find rule.");
           return CMD_WARNING;
         case RMAP_COMPILE_ERROR:
           /* rip, ripng and other protocols share the set metric command
@@ -207,7 +207,7 @@ eigrp_route_set_add (struct vty *vty, struct route_map_index *index,
              if metric is out of range for rip and ripng, it is not for
              other protocols. Do not return an error */
           if (strcmp(command, "metric")) {
-            vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+            vty_outln (vty, "%% Argument is malformed.");
             return CMD_WARNING;
           }
         }
@@ -228,10 +228,10 @@ eigrp_route_set_delete (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_out (vty, "%% Can't find rule.%s", VTY_NEWLINE);
+          vty_outln (vty, "%% Can't find rule.");
           return CMD_WARNING;
         case RMAP_COMPILE_ERROR:
-          vty_out (vty, "%% Argument is malformed.%s", VTY_NEWLINE);
+          vty_outln (vty, "%% Argument is malformed.");
           return CMD_WARNING;
         }
     }
@@ -1124,7 +1124,7 @@ DEFUN (set_ip_nexthop,
   ret = str2sockunion (argv[0], &su);
   if (ret < 0)
     {
-      vty_out (vty, "%% Malformed next-hop address%s", VTY_NEWLINE);
+      vty_outln (vty, "%% Malformed next-hop address");
       return CMD_WARNING;
     }
 

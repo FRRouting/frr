@@ -90,11 +90,11 @@ extern struct thread_master *master;
 #define OSPF6_ROUTER_ID_STR "Specify Router-ID\n"
 #define OSPF6_LS_ID_STR     "Specify Link State ID\n"
 
-#define VNL VTY_NEWLINE
+#define VNL VTYNL
 #define OSPF6_CMD_CHECK_RUNNING() \
   if (ospf6 == NULL) \
     { \
-      vty_out (vty, "OSPFv3 is not running%s", VTY_NEWLINE); \
+      vty_out (vty, "OSPFv3 is not running%s", VTYNL); \
       return CMD_SUCCESS; \
     }
 

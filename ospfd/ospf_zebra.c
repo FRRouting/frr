@@ -187,16 +187,10 @@ ospf_interface_state_up (int command, struct zclient *zclient,
       zebra_interface_if_set_value (zclient->ibuf, ifp);
 
       if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
-        zlog_debug ("Zebra: Interface[%s] state update.", ifp->name);
+        zlog_debug ("Zebra: Interface[%s] state update speed %u -> %u, bw  %d -> %d",
+                    ifp->name, if_tmp.speed, ifp->speed, if_tmp.bandwidth, ifp->bandwidth);
 
-      if (if_tmp.bandwidth != ifp->bandwidth)
-        {
-          if (IS_DEBUG_OSPF (zebra, ZEBRA_INTERFACE))
-            zlog_debug ("Zebra: Interface[%s] bandwidth change %d -> %d.",
-                       ifp->name, if_tmp.bandwidth, ifp->bandwidth);
-
-          ospf_if_recalculate_output_cost (ifp);
-        }
+      ospf_if_recalculate_output_cost (ifp);
 
       if (if_tmp.mtu != ifp->mtu)
         {
@@ -1451,7 +1445,7 @@ ospf_distance_set (struct vty *vty, struct ospf *ospf,
   ret = str2prefix_ipv4 (ip_str, &p);
   if (ret == 0)
     {
-      vty_out (vty, "Malformed prefix%s", VTY_NEWLINE);
+      vty_outln (vty, "Malformed prefix");
       return CMD_WARNING;
     }
 
@@ -1499,14 +1493,14 @@ ospf_distance_unset (struct vty *vty, struct ospf *ospf,
   ret = str2prefix_ipv4 (ip_str, &p);
   if (ret == 0)
     {
-      vty_out (vty, "Malformed prefix%s", VTY_NEWLINE);
+      vty_outln (vty, "Malformed prefix");
       return CMD_WARNING;
     }
 
   rn = route_node_lookup (ospf->distance_table, (struct prefix *) &p);
   if (!rn)
     {
-      vty_out (vty, "Can't find specified prefix%s", VTY_NEWLINE);
+      vty_outln (vty, "Can't find specified prefix");
       return CMD_WARNING;
     }
 

@@ -292,6 +292,31 @@ prefix_match (const struct prefix *n, const struct prefix *p)
   return 1;
 }
 
+/* If n includes p then return 1 else return 0. Prefix mask is not considered */
+int
+prefix_match_network_statement (const struct prefix *n, const struct prefix *p)
+{
+  int offset;
+  int shift;
+  const u_char *np, *pp;
+
+  /* Set both prefix's head pointer. */
+  np = (const u_char *)&n->u.prefix;
+  pp = (const u_char *)&p->u.prefix;
+
+  offset = n->prefixlen / PNBBY;
+  shift =  n->prefixlen % PNBBY;
+
+  if (shift)
+    if (maskbit[shift] & (np[offset] ^ pp[offset]))
+      return 0;
+
+  while (offset--)
+    if (np[offset] != pp[offset])
+      return 0;
+  return 1;
+}
+
 /* Copy prefix from src to dest. */
 void
 prefix_copy (struct prefix *dest, const struct prefix *src)

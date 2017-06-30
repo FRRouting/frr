@@ -131,7 +131,7 @@ lde(void)
 	ldpd_process = PROC_LDE_ENGINE;
 	log_procname = log_procnames[PROC_LDE_ENGINE];
 
-	master = thread_master_create();
+	master = thread_master_create(NULL);
 
 	/* setup signal handler */
 	signal_init(master, array_size(lde_signals), lde_signals);

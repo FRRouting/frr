@@ -223,44 +223,44 @@ void
 spf_backoff_show(struct spf_backoff *backoff, struct vty *vty,
                  const char *prefix)
 {
-  vty_out(vty, "%sCurrent state:     %s%s", prefix,
-          spf_backoff_state2str(backoff->state), VTY_NEWLINE);
-  vty_out(vty, "%sInit timer:        %ld msec%s", prefix,
-          backoff->init_delay, VTY_NEWLINE);
-  vty_out(vty, "%sShort timer:       %ld msec%s", prefix,
-          backoff->short_delay, VTY_NEWLINE);
-  vty_out(vty, "%sLong timer:        %ld msec%s", prefix,
-          backoff->long_delay, VTY_NEWLINE);
-  vty_out(vty, "%sHolddown timer:    %ld msec%s", prefix,
-          backoff->holddown, VTY_NEWLINE);
+  vty_outln (vty, "%sCurrent state:     %s", prefix,
+          spf_backoff_state2str(backoff->state));
+  vty_outln (vty, "%sInit timer:        %ld msec", prefix,
+          backoff->init_delay);
+  vty_outln (vty, "%sShort timer:       %ld msec", prefix,
+          backoff->short_delay);
+  vty_outln (vty, "%sLong timer:        %ld msec", prefix,
+          backoff->long_delay);
+  vty_outln (vty, "%sHolddown timer:    %ld msec", prefix,
+          backoff->holddown);
   if (backoff->t_holddown)
     {
       struct timeval remain = thread_timer_remain(backoff->t_holddown);
-      vty_out(vty, "%s                   Still runs for %ld msec%s",
-              prefix, remain.tv_sec * 1000 + remain.tv_usec/1000, VTY_NEWLINE);
+      vty_outln (vty, "%s                   Still runs for %ld msec",
+              prefix, remain.tv_sec * 1000 + remain.tv_usec / 1000);
     }
   else
     {
-      vty_out(vty, "%s                   Inactive%s", prefix, VTY_NEWLINE);
+      vty_outln (vty, "%s                   Inactive", prefix);
     }
 
-  vty_out(vty, "%sTimeToLearn timer: %ld msec%s", prefix,
-          backoff->timetolearn, VTY_NEWLINE);
+  vty_outln (vty, "%sTimeToLearn timer: %ld msec", prefix,
+          backoff->timetolearn);
   if (backoff->t_timetolearn)
     {
       struct timeval remain = thread_timer_remain(backoff->t_timetolearn);
-      vty_out(vty, "%s                   Still runs for %ld msec%s",
-              prefix, remain.tv_sec * 1000 + remain.tv_usec/1000, VTY_NEWLINE);
+      vty_outln (vty, "%s                   Still runs for %ld msec",
+              prefix, remain.tv_sec * 1000 + remain.tv_usec / 1000);
     }
   else
     {
-      vty_out(vty, "%s                   Inactive%s", prefix, VTY_NEWLINE);
+      vty_outln (vty, "%s                   Inactive", prefix);
     }
 
-  vty_out(vty, "%sFirst event:       %s%s", prefix,
-          timeval_format(&backoff->first_event_time), VTY_NEWLINE);
-  vty_out(vty, "%sLast event:        %s%s", prefix,
-          timeval_format(&backoff->last_event_time), VTY_NEWLINE);
+  vty_outln (vty, "%sFirst event:       %s", prefix,
+          timeval_format(&backoff->first_event_time));
+  vty_outln (vty, "%sLast event:        %s", prefix,
+          timeval_format(&backoff->last_event_time));
 }
 
 DEFUN(spf_backoff_debug,
@@ -291,7 +291,7 @@ spf_backoff_write_config(struct vty *vty)
 
   if (debug_spf_backoff)
     {
-      vty_out(vty, "debug spf-delay-ietf%s", VTY_NEWLINE);
+      vty_outln (vty, "debug spf-delay-ietf");
       written++;
     }
 

@@ -774,7 +774,7 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
             {
               /* pre-configured interface, learnt now */
               if (ifp->vrf_id != vrf_id)
-                if_update (ifp, name, strlen(name), vrf_id);
+                if_update_to_new_vrf (ifp, vrf_id);
             }
 
           /* Update interface information. */

@@ -526,18 +526,17 @@ bgp_bfd_peer_config_write(struct vty *vty, struct peer *peer, char *addr)
   bfd_info = (struct bfd_info *)peer->bfd_info;
 
   if (CHECK_FLAG (bfd_info->flags, BFD_FLAG_PARAM_CFG))
-    vty_out (vty, " neighbor %s bfd %d %d %d%s", addr,
+    vty_outln (vty, " neighbor %s bfd %d %d %d", addr,
       bfd_info->detect_mult, bfd_info->required_min_rx,
-      bfd_info->desired_min_tx, VTY_NEWLINE);
+      bfd_info->desired_min_tx);
 
   if (bfd_info->type != BFD_TYPE_NOT_CONFIGURED)
-    vty_out (vty, " neighbor %s bfd %s%s", addr,
-      (bfd_info->type == BFD_TYPE_MULTIHOP) ? "multihop" : "singlehop",
-      VTY_NEWLINE);
+    vty_outln (vty, " neighbor %s bfd %s", addr,
+      (bfd_info->type == BFD_TYPE_MULTIHOP) ? "multihop" : "singlehop");
 
   if (!CHECK_FLAG (bfd_info->flags, BFD_FLAG_PARAM_CFG) &&
         (bfd_info->type == BFD_TYPE_NOT_CONFIGURED))
-    vty_out (vty, " neighbor %s bfd%s", addr, VTY_NEWLINE);
+    vty_outln (vty, " neighbor %s bfd", addr);
 }
 
 /*
@@ -629,9 +628,9 @@ DEFUN_HIDDEN (neighbor_bfd_type,
   if (!peer)
     return CMD_WARNING;
 
-  if (!strcmp(argv[idx_hop]->arg, "singlehop"))
+  if (strmatch(argv[idx_hop]->text, "singlehop"))
     type = BFD_TYPE_SINGLEHOP;
-  else if (!strcmp(argv[idx_hop]->arg, "multihop"))
+  else if (strmatch(argv[idx_hop]->text, "multihop"))
     type = BFD_TYPE_MULTIHOP;
   else
     return CMD_WARNING;

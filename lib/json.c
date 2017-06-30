@@ -48,13 +48,7 @@ json_object_string_add(struct json_object* obj, const char *key,
 }
 
 void
-json_object_int_add(struct json_object* obj, const char *key, int32_t i)
-{
-  json_object_object_add(obj, key, json_object_new_int(i));
-}
-
-void
-json_object_long_add(struct json_object* obj, const char *key, int64_t i)
+json_object_int_add(struct json_object* obj, const char *key, int64_t i)
 {
 #if defined(HAVE_JSON_C_JSON_H)
   json_object_object_add(obj, key, json_object_new_int64(i));

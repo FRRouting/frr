@@ -39,10 +39,10 @@ DEFUN (show_debugging_zebra,
        "Debugging information\n"
        "Zebra configuration\n")
 {
-  vty_out (vty, "Zebra debugging status:%s", VTY_NEWLINE);
+  vty_out (vty, "Zebra debugging status:%s", VTYNL);
 
   if (IS_ZEBRA_DEBUG_EVENT)
-    vty_out (vty, "  Zebra event debugging is on%s", VTY_NEWLINE);
+    vty_out (vty, "  Zebra event debugging is on%s", VTYNL);
 
   if (IS_ZEBRA_DEBUG_PACKET)
     {
@@ -50,40 +50,40 @@ DEFUN (show_debugging_zebra,
 	{
 	  vty_out (vty, "  Zebra packet%s debugging is on%s",
 		   IS_ZEBRA_DEBUG_DETAIL ? " detail" : "",
-		   VTY_NEWLINE);
+		   VTYNL);
 	}
       else
 	{
 	  if (IS_ZEBRA_DEBUG_SEND)
 	    vty_out (vty, "  Zebra packet send%s debugging is on%s",
 		     IS_ZEBRA_DEBUG_DETAIL ? " detail" : "",
-		     VTY_NEWLINE);
+		     VTYNL);
 	  else
 	    vty_out (vty, "  Zebra packet receive%s debugging is on%s",
 		     IS_ZEBRA_DEBUG_DETAIL ? " detail" : "",
-		     VTY_NEWLINE);
+		     VTYNL);
 	}
     }
 
   if (IS_ZEBRA_DEBUG_KERNEL)
-    vty_out (vty, "  Zebra kernel debugging is on%s", VTY_NEWLINE);
+    vty_out (vty, "  Zebra kernel debugging is on%s", VTYNL);
   if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
-    vty_out (vty, "  Zebra kernel netlink message dumps (send) are on%s", VTY_NEWLINE);
+    vty_out (vty, "  Zebra kernel netlink message dumps (send) are on%s", VTYNL);
   if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV)
-    vty_out (vty, "  Zebra kernel netlink message dumps (recv) are on%s", VTY_NEWLINE);
+    vty_out (vty, "  Zebra kernel netlink message dumps (recv) are on%s", VTYNL);
 
   /* Check here using flags as the 'macro' does an OR */
   if (CHECK_FLAG (zebra_debug_rib, ZEBRA_DEBUG_RIB))
-    vty_out (vty, "  Zebra RIB debugging is on%s", VTY_NEWLINE);
+    vty_out (vty, "  Zebra RIB debugging is on%s", VTYNL);
   if (CHECK_FLAG (zebra_debug_rib, ZEBRA_DEBUG_RIB_DETAILED))
-    vty_out (vty, "  Zebra RIB detailed debugging is on%s", VTY_NEWLINE);
+    vty_out (vty, "  Zebra RIB detailed debugging is on%s", VTYNL);
 
   if (IS_ZEBRA_DEBUG_FPM)
-    vty_out (vty, "  Zebra FPM debugging is on%s", VTY_NEWLINE);
+    vty_out (vty, "  Zebra FPM debugging is on%s", VTYNL);
   if (IS_ZEBRA_DEBUG_NHT)
-    vty_out (vty, "  Zebra next-hop tracking debugging is on%s", VTY_NEWLINE);
+    vty_out (vty, "  Zebra next-hop tracking debugging is on%s", VTYNL);
   if (IS_ZEBRA_DEBUG_MPLS)
-    vty_out (vty, "  Zebra MPLS debugging is on%s", VTY_NEWLINE);
+    vty_out (vty, "  Zebra MPLS debugging is on%s", VTYNL);
 
   return CMD_SUCCESS;
 }
@@ -353,7 +353,7 @@ config_write_debug (struct vty *vty)
 
   if (IS_ZEBRA_DEBUG_EVENT)
     {
-      vty_out (vty, "debug zebra events%s", VTY_NEWLINE);
+      vty_out (vty, "debug zebra events%s", VTYNL);
       write++;
     }
   if (IS_ZEBRA_DEBUG_PACKET)
@@ -362,7 +362,7 @@ config_write_debug (struct vty *vty)
 	{
 	  vty_out (vty, "debug zebra packet%s%s",
 		   IS_ZEBRA_DEBUG_DETAIL ? " detail" : "",
-		   VTY_NEWLINE);
+		   VTYNL);
 	  write++;
 	}
       else
@@ -370,53 +370,53 @@ config_write_debug (struct vty *vty)
 	  if (IS_ZEBRA_DEBUG_SEND)
 	    vty_out (vty, "debug zebra packet send%s%s",
 		     IS_ZEBRA_DEBUG_DETAIL ? " detail" : "",
-		     VTY_NEWLINE);
+		     VTYNL);
 	  else
 	    vty_out (vty, "debug zebra packet recv%s%s",
 		     IS_ZEBRA_DEBUG_DETAIL ? " detail" : "",
-		     VTY_NEWLINE);
+		     VTYNL);
 	  write++;
 	}
     }
   if (IS_ZEBRA_DEBUG_KERNEL)
     {
-      vty_out (vty, "debug zebra kernel%s", VTY_NEWLINE);
+      vty_out (vty, "debug zebra kernel%s", VTYNL);
       write++;
     }
   if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV)
     {
-      vty_out (vty, "debug zebra kernel msgdump recv%s", VTY_NEWLINE);
+      vty_out (vty, "debug zebra kernel msgdump recv%s", VTYNL);
       write++;
     }
   if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
     {
-      vty_out (vty, "debug zebra kernel msgdump send%s", VTY_NEWLINE);
+      vty_out (vty, "debug zebra kernel msgdump send%s", VTYNL);
       write++;
     }
   /* Check here using flags as the 'macro' does an OR */
   if (CHECK_FLAG (zebra_debug_rib, ZEBRA_DEBUG_RIB))
     {
-      vty_out (vty, "debug zebra rib%s", VTY_NEWLINE);
+      vty_out (vty, "debug zebra rib%s", VTYNL);
       write++;
     }
   if (CHECK_FLAG (zebra_debug_rib, ZEBRA_DEBUG_RIB_DETAILED))
     {
-      vty_out (vty, "debug zebra rib detailed%s", VTY_NEWLINE);
+      vty_out (vty, "debug zebra rib detailed%s", VTYNL);
       write++;
     }
   if (IS_ZEBRA_DEBUG_FPM)
     {
-      vty_out (vty, "debug zebra fpm%s", VTY_NEWLINE);
+      vty_out (vty, "debug zebra fpm%s", VTYNL);
       write++;
     }
   if (IS_ZEBRA_DEBUG_NHT)
     {
-      vty_out (vty, "debug zebra nht%s", VTY_NEWLINE);
+      vty_out (vty, "debug zebra nht%s", VTYNL);
       write++;
     }
   if (IS_ZEBRA_DEBUG_MPLS)
     {
-      vty_out (vty, "debug zebra mpls%s", VTY_NEWLINE);
+      vty_out (vty, "debug zebra mpls%s", VTYNL);
       write++;
     }
   return write;

@@ -156,7 +156,7 @@ static inline void vty_push_context(struct vty *vty,
 #define VTY_CHECK_CONTEXT(ptr) \
 	if (!ptr) { \
 		vty_out (vty, "Current configuration object was deleted " \
-				"by another process.%s", VTY_NEWLINE); \
+				"by another process.%s", VTYNL); \
 		return CMD_WARNING; \
 	}
 
@@ -180,7 +180,7 @@ struct vty_arg
 #define INTEGRATE_DEFAULT_CONFIG "frr.conf"
 
 /* Small macro to determine newline is newline only or linefeed needed. */
-#define VTY_NEWLINE  ((vty->type == VTY_TERM) ? "\r\n" : "\n")
+#define VTYNL  ((vty->type == VTY_TERM) ? "\r\n" : "\n")
 
 /* Default time out value */
 #define VTY_TIMEOUT_DEFAULT 600
@@ -197,122 +197,6 @@ struct vty_arg
 #define IS_DIRECTORY_SEP(c) ((c) == DIRECTORY_SEP)
 #endif
 
-/* GCC have printf type attribute check.  */
-#ifdef __GNUC__
-#define PRINTF_ATTRIBUTE(a,b) __attribute__ ((__format__ (__printf__, a, b)))
-#else
-#define PRINTF_ATTRIBUTE(a,b)
-#endif /* __GNUC__ */
-
-/* Utility macros to convert VTY argument to unsigned long */
-#define VTY_GET_ULONG(NAME,V,STR) \
-do { \
-  char *endptr = NULL; \
-  errno = 0; \
-  (V) = strtoul ((STR), &endptr, 10); \
-  if (*(STR) == '-') \
-    { \
-      vty_out (vty, "%% Invalid %s value (dash)%s", NAME, VTY_NEWLINE); \
-      return CMD_WARNING; \
-    } \
-  if (*endptr != '\0') \
-    { \
-      vty_out (vty, "%% Invalid %s value (%s)%s", NAME, endptr, VTY_NEWLINE); \
-      return CMD_WARNING; \
-    } \
-  if (errno) \
-    { \
-      vty_out (vty, "%% Invalid %s value (error %d)%s", NAME, errno, VTY_NEWLINE); \
-      return CMD_WARNING; \
-    } \
-} while (0)
-
-/* Utility macros to convert VTY argument to unsigned long long */
-#define VTY_GET_ULL(NAME,V,STR) \
-do { \
-  char *endptr = NULL; \
-  errno = 0; \
-  (V) = strtoull ((STR), &endptr, 10); \
-  if (*(STR) == '-') \
-    { \
-      vty_out (vty, "%% Invalid %s value (dash)%s", NAME, VTY_NEWLINE); \
-      return CMD_WARNING; \
-    } \
-  if (*endptr != '\0') \
-    { \
-      vty_out (vty, "%% Invalid %s value (%s)%s", NAME, endptr, VTY_NEWLINE); \
-      return CMD_WARNING; \
-    } \
-  if (errno) \
-    { \
-      vty_out (vty, "%% Invalid %s value (error %d)%s", NAME, errno, VTY_NEWLINE); \
-      return CMD_WARNING; \
-    } \
-} while (0)
-
-/*
- * The logic below ((TMPL) <= ((MIN) && (TMPL) != (MIN)) is
- * done to circumvent the compiler complaining about
- * comparing unsigned numbers against zero, if MIN is zero.
- * NB: The compiler isn't smart enough to supress the warning
- * if you write (MIN) != 0 && tmpl < (MIN).
- */
-#define VTY_GET_INTEGER_RANGE_HEART(NAME,TMPL,STR,MIN,MAX)      \
-do {                                                            \
-  VTY_GET_ULONG(NAME, (TMPL), STR);                             \
-  if ( ((TMPL) <= (MIN) && (TMPL) != (MIN)) || (TMPL) > (MAX) ) \
-    {                                                           \
-      vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE);\
-      return CMD_WARNING;                                       \
-    }                                                           \
-} while (0)
-
-#define VTY_GET_INTEGER_RANGE(NAME,V,STR,MIN,MAX)               \
-do {                                                            \
-  unsigned long long tmpl;                                      \
-  VTY_GET_INTEGER_RANGE_HEART(NAME,tmpl,STR,MIN,MAX);           \
-  (V) = tmpl;                                                   \
-} while (0)
-
-#define VTY_CHECK_INTEGER_RANGE(NAME,STR,MIN,MAX)               \
-do {                                                            \
-  unsigned long tmpl;                                           \
-  VTY_GET_INTEGER_RANGE_HEART(NAME,tmpl,STR,MIN,MAX);           \
-} while (0)
-
-#define VTY_GET_INTEGER(NAME,V,STR)                             \
-    VTY_GET_INTEGER_RANGE(NAME,V,STR,0U,UINT32_MAX)
-
-#define VTY_GET_IPV4_ADDRESS(NAME,V,STR)                                      \
-do {                                                                             \
-  int retv;                                                                   \
-  retv = inet_aton ((STR), &(V));                                             \
-  if (!retv)                                                                  \
-    {                                                                         \
-      vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE);              \
-      return CMD_WARNING;                                                     \
-    }                                                                         \
-} while (0)
-
-#define VTY_GET_IPV4_PREFIX(NAME,V,STR)                                       \
-do {                                                                             \
-  int retv;                                                                   \
-  retv = str2prefix_ipv4 ((STR), &(V));                                       \
-  if (retv <= 0)                                                              \
-    {                                                                         \
-      vty_out (vty, "%% Invalid %s value%s", NAME, VTY_NEWLINE);              \
-      return CMD_WARNING;                                                     \
-    }                                                                         \
-} while (0)
-
-#define VTY_WARN_EXPERIMENTAL()                                               \
-do {                                                                          \
-  vty_out (vty, "%% WARNING: this command is experimental. Both its name and" \
-                " parameters may%s%% change in a future version of Quagga,"   \
-                " possibly breaking your configuration!%s",                   \
-                VTY_NEWLINE, VTY_NEWLINE);                                    \
-} while (0)
-
 /* Exported variables */
 extern char integrate_default[];
 
@@ -324,6 +208,7 @@ extern void vty_reset (void);
 extern struct vty *vty_new (void);
 extern struct vty *vty_stdio (void (*atclose)(void));
 extern int vty_out (struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
+extern int vty_outln (struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
 extern void vty_read_config (const char *, char *);
 extern void vty_time_print (struct vty *, int);
 extern void vty_serv_sock (const char *, unsigned short, const char *);

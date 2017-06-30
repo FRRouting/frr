@@ -158,7 +158,7 @@ if_create (const char *name, int namelen, vrf_id_t vrf_id)
 
 /* Create new interface structure. */
 void
-if_update (struct interface *ifp, const char *name, int namelen, vrf_id_t vrf_id)
+if_update_to_new_vrf (struct interface *ifp, vrf_id_t vrf_id)
 {
   struct list *intf_list = vrf_iflist_get (vrf_id);
 
@@ -166,10 +166,6 @@ if_update (struct interface *ifp, const char *name, int namelen, vrf_id_t vrf_id
   if (vrf_iflist (ifp->vrf_id))
     listnode_delete (vrf_iflist (ifp->vrf_id), ifp);
 
-  assert (name);
-  assert (namelen <= INTERFACE_NAMSIZ);	/* Need space for '\0' at end. */
-  strncpy (ifp->name, name, namelen);
-  ifp->name[namelen] = '\0';
   ifp->vrf_id = vrf_id;
   if (if_lookup_by_name (ifp->name, vrf_id) == NULL)
     listnode_add_sort (intf_list, ifp);
@@ -453,7 +449,7 @@ if_get_by_name_len (const char *name, size_t namelen, vrf_id_t vrf_id, int vty)
                 }
 	      else
 		{
-		  if_update (ifp, name, namelen, vrf_id);
+		  if_update_to_new_vrf (ifp, vrf_id);
 		  return ifp;
 		}
 	    }
@@ -694,9 +690,9 @@ DEFUN (interface,
 
   if ((sl = strlen(ifname)) > INTERFACE_NAMSIZ)
     {
-      vty_out (vty, "%% Interface name %s is invalid: length exceeds "
-		    "%d characters%s",
-	       ifname, INTERFACE_NAMSIZ, VTY_NEWLINE);
+      vty_outln (vty, "%% Interface name %s is invalid: length exceeds "
+		    "%d characters",
+	       ifname, INTERFACE_NAMSIZ);
       return CMD_WARNING;
     }
 
@@ -713,7 +709,7 @@ DEFUN (interface,
 
   if (!ifp)
     {
-      vty_out (vty, "%% interface %s not in %s%s", ifname, vrfname, VTY_NEWLINE);
+      vty_outln (vty, "%% interface %s not in %s", ifname, vrfname);
       return CMD_WARNING;
     }
   VTY_PUSH_CONTEXT (INTERFACE_NODE, ifp);
@@ -743,14 +739,14 @@ DEFUN_NOSH (no_interface,
 
   if (ifp == NULL)
     {
-      vty_out (vty, "%% Interface %s does not exist%s", ifname, VTY_NEWLINE);
+      vty_out (vty, "%% Interface %s does not exist%s", ifname, VTYNL);
       return CMD_WARNING;
     }
 
   if (CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE)) 
     {
       vty_out (vty, "%% Only inactive interfaces can be deleted%s",
-	      VTY_NEWLINE);
+	      VTYNL);
       return CMD_WARNING;
     }
 
@@ -798,7 +794,7 @@ DEFUN (show_address,
 
 	  if (p->family == AF_INET)
 	    vty_out (vty, "%s/%d%s", inet_ntoa (p->u.prefix4), p->prefixlen,
-		     VTY_NEWLINE);
+		     VTYNL);
 	}
     }
   return CMD_SUCCESS;
@@ -823,8 +819,8 @@ DEFUN (show_address_vrf_all,
       if (!vrf->iflist || !listcount (vrf->iflist))
         continue;
 
-      vty_out (vty, "%sVRF %u%s%s", VTY_NEWLINE, vrf->vrf_id, VTY_NEWLINE,
-	       VTY_NEWLINE);
+      vty_out (vty, "%sVRF %u%s%s", VTYNL, vrf->vrf_id, VTYNL,
+	       VTYNL);
 
       for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, ifp))
         {
@@ -834,7 +830,7 @@ DEFUN (show_address_vrf_all,
 
               if (p->family == AF_INET)
                 vty_out (vty, "%s/%d%s", inet_ntoa (p->u.prefix4), p->prefixlen,
-                         VTY_NEWLINE);
+                         VTYNL);
             }
         }
     }

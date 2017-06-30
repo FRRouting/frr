@@ -167,7 +167,7 @@ bgp_capability_vty_out (struct vty *vty, struct peer *peer, u_char use_json, jso
                     vty_out (vty, "SAFI Unknown %d ", mpc.safi);
                   break;
                 }
-              vty_out (vty, "%s", VTY_NEWLINE);
+              vty_out (vty, VTYNL);
             }
         }
       else if (hdr->code >= 128)

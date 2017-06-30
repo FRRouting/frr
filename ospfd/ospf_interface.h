@@ -31,8 +31,17 @@
 #define IF_DEF_PARAMS(I) (IF_OSPF_IF_INFO (I)->def_params)
 #define IF_OIFS(I)  (IF_OSPF_IF_INFO (I)->oifs)
 #define IF_OIFS_PARAMS(I) (IF_OSPF_IF_INFO (I)->params)
-			    
+
+/* Despite the name, this macro probably is for specialist use only */
 #define OSPF_IF_PARAM_CONFIGURED(S, P) ((S) && (S)->P##__config)
+
+/* Test whether an OSPF interface parameter is set, generally, given some
+ * existing ospf interface
+ */
+#define OSPF_IF_PARAM_IS_SET(O,P) \
+      (OSPF_IF_PARAM_CONFIGURED ((O)->params, P) || \
+      OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS((O)->ifp)->P))
+
 #define OSPF_IF_PARAM(O, P) \
         (OSPF_IF_PARAM_CONFIGURED ((O)->params, P)?\
                         (O)->params->P:IF_DEF_PARAMS((O)->ifp)->P)

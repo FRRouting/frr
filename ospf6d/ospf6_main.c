@@ -110,7 +110,10 @@ ospf6_exit (int status)
   cmd_terminate ();
 
   if (zclient)
-    zclient_free (zclient);
+    {
+      zclient_stop (zclient);
+      zclient_free (zclient);
+    }
 
   if (master)
     thread_master_free (master);

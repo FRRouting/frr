@@ -47,27 +47,42 @@ struct pqueue;
 
 struct fd_handler
 {
-  /* number of pfd stored in pfds */
-  nfds_t pfdcount;
-  /* number of pfd stored in pfds + number of snmp pfd */
-  nfds_t pfdcountsnmp;
-  /* number of pfd that fit in the allocated space of pfds */
+  /* number of pfd that fit in the allocated space of pfds. This is a constant
+   * and is the same for both pfds and copy. */
   nfds_t pfdsize;
+
   /* file descriptors to monitor for i/o */
   struct pollfd *pfds;
+  /* number of pollfds stored in pfds */
+  nfds_t pfdcount;
+
   /* chunk used for temp copy of pollfds */
   struct pollfd *copy;
+  /* number of pollfds stored in copy */
+  nfds_t copycount;
+};
+
+struct cancel_req {
+  struct thread *thread;
+  void *eventobj;
+  struct thread **threadref;
 };
 
 /* Master of the theads. */
 struct thread_master
 {
+  char *name;
+
   struct thread **read;
   struct thread **write;
   struct pqueue *timer;
   struct thread_list event;
   struct thread_list ready;
   struct thread_list unuse;
+  struct list *cancel_req;
+  bool canceled;
+  pthread_cond_t cancel_cond;
+  struct hash *cpu_record;
   int io_pipe[2];
   int fd_limit;
   struct fd_handler handler;
@@ -165,7 +180,7 @@ struct cpu_thread_history
 #define thread_execute(m,f,a,v) funcname_thread_execute(m,f,a,v,#f,__FILE__,__LINE__)
 
 /* Prototypes. */
-extern struct thread_master *thread_master_create (void);
+extern struct thread_master *thread_master_create (const char *);
 extern void thread_master_free (struct thread_master *);
 extern void thread_master_free_unused(struct thread_master *);
 
@@ -189,7 +204,8 @@ extern void funcname_thread_execute (struct thread_master *,
 #undef debugargdef
 
 extern void thread_cancel (struct thread *);
-extern unsigned int thread_cancel_event (struct thread_master *, void *);
+extern void thread_cancel_async (struct thread_master *, struct thread **, void *);
+extern void thread_cancel_event (struct thread_master *, void *);
 extern struct thread *thread_fetch (struct thread_master *, struct thread *);
 extern void thread_call (struct thread *);
 extern unsigned long thread_timer_remain_second (struct thread *);
@@ -207,6 +223,6 @@ extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before,
 					  unsigned long *cpu_time_elapsed);
 
 /* only for use in logging functions! */
-extern struct thread *thread_current;
+extern pthread_key_t thread_current;
 
 #endif /* _ZEBRA_THREAD_H */

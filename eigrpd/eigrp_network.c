@@ -262,7 +262,7 @@ static int
 eigrp_network_match_iface(const struct connected *co, const struct prefix *net)
 {
   /* new approach: more elegant and conceptually clean */
-  return prefix_match(net, CONNECTED_PREFIX (co));
+  return prefix_match_network_statement(net, CONNECTED_PREFIX (co));
 }
 
 static void

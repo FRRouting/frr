@@ -347,8 +347,7 @@ DEFUN (rip_redistribute_type,
 	}
     }
 
-  vty_out(vty, "Invalid type %s%s", argv[1]->arg,
-	  VTY_NEWLINE);
+  vty_outln (vty, "Invalid type %s",argv[1]->arg);
 
   return CMD_WARNING;
 }
@@ -374,8 +373,7 @@ DEFUN (no_rip_redistribute_type,
         }
     }
 
-  vty_out(vty, "Invalid type %s%s", argv[2]->arg,
-	  VTY_NEWLINE);
+  vty_outln (vty, "Invalid type %s",argv[2]->arg);
 
   return CMD_WARNING;
 }
@@ -402,7 +400,7 @@ DEFUN (rip_redistribute_type_routemap,
       }
   }
 
-  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->text, VTY_NEWLINE);
+  vty_outln (vty, "Invalid type %s", argv[idx_protocol]->text);
 
   return CMD_WARNING;
 }
@@ -430,7 +428,7 @@ DEFUN (no_rip_redistribute_type_routemap,
       }
   }
 
-  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->text, VTY_NEWLINE);
+  vty_outln (vty, "Invalid type %s", argv[idx_protocol]->text);
 
   return CMD_WARNING;
 }
@@ -460,7 +458,7 @@ DEFUN (rip_redistribute_type_metric,
       }
   }
 
-  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->text, VTY_NEWLINE);
+  vty_outln (vty, "Invalid type %s", argv[idx_protocol]->text);
 
   return CMD_WARNING;
 }
@@ -488,7 +486,7 @@ DEFUN (no_rip_redistribute_type_metric,
       }
   }
 
-  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->text, VTY_NEWLINE);
+  vty_outln (vty, "Invalid type %s", argv[idx_protocol]->text);
 
   return CMD_WARNING;
 }
@@ -522,7 +520,7 @@ DEFUN (rip_redistribute_type_metric_routemap,
       }
   }
 
-  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->text, VTY_NEWLINE);
+  vty_outln (vty, "Invalid type %s", argv[idx_protocol]->text);
 
   return CMD_WARNING;
 }
@@ -559,7 +557,7 @@ DEFUN (no_rip_redistribute_type_metric_routemap,
       }
     }
 
-  vty_out(vty, "Invalid type %s%s", argv[idx_protocol]->text, VTY_NEWLINE);
+  vty_outln (vty, "Invalid type %s", argv[idx_protocol]->text);
 
   return CMD_WARNING;
 }
@@ -616,13 +614,13 @@ config_write_zebra (struct vty *vty)
 {
   if (! zclient->enable)
     {
-      vty_out (vty, "no router zebra%s", VTY_NEWLINE);
+      vty_outln (vty, "no router zebra");
       return 1;
     }
   else if (! vrf_bitmap_check (zclient->redist[AFI_IP][ZEBRA_ROUTE_RIP], VRF_DEFAULT))
     {
-      vty_out (vty, "router zebra%s", VTY_NEWLINE);
-      vty_out (vty, " no redistribute rip%s", VTY_NEWLINE);
+      vty_outln (vty, "router zebra");
+      vty_outln (vty, " no redistribute rip");
       return 1;
     }
   return 0;
@@ -642,24 +640,20 @@ config_write_rip_redistribute (struct vty *vty, int config_mode)
 	    if (rip->route_map[i].metric_config)
 	      {
 		if (rip->route_map[i].name)
-		  vty_out (vty, " redistribute %s metric %d route-map %s%s",
+		  vty_outln (vty, " redistribute %s metric %d route-map %s",
 			   zebra_route_string(i), rip->route_map[i].metric,
-			   rip->route_map[i].name,
-			   VTY_NEWLINE);
+			   rip->route_map[i].name);
 		else
-		  vty_out (vty, " redistribute %s metric %d%s",
-			   zebra_route_string(i), rip->route_map[i].metric,
-			   VTY_NEWLINE);
+		  vty_outln (vty, " redistribute %s metric %d",
+			   zebra_route_string(i),rip->route_map[i].metric);
 	      }
 	    else
 	      {
 		if (rip->route_map[i].name)
-		  vty_out (vty, " redistribute %s route-map %s%s",
-			   zebra_route_string(i), rip->route_map[i].name,
-			   VTY_NEWLINE);
+		  vty_outln (vty, " redistribute %s route-map %s",
+			   zebra_route_string(i),rip->route_map[i].name);
 		else
-		  vty_out (vty, " redistribute %s%s", zebra_route_string(i),
-			   VTY_NEWLINE);
+		  vty_outln (vty, " redistribute %s",zebra_route_string(i));
 	      }
 	  }
 	else
@@ -716,4 +710,11 @@ rip_zclient_init (struct thread_master *master)
   install_element (RIP_NODE, &no_rip_redistribute_type_metric_routemap_cmd);
   install_element (RIP_NODE, &rip_default_information_originate_cmd);
   install_element (RIP_NODE, &no_rip_default_information_originate_cmd);
+}
+
+void
+rip_zclient_stop (void)
+{
+  zclient_stop (zclient);
+  zclient_free (zclient);
 }

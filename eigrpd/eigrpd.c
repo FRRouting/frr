@@ -267,8 +267,10 @@ eigrp_finish (struct eigrp *eigrp)
       && (listcount(eigrp_om->eigrp) == 0))
     {
       if (zclient)
-        zclient_free (zclient);
-
+	{
+	  zclient_stop (zclient);
+	  zclient_free (zclient);
+	}
       exit(0);
     }
 

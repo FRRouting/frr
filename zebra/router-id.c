@@ -202,14 +202,12 @@ router_id_write (struct vty *vty)
       if (zvrf->rid_user_assigned.u.prefix4.s_addr)
         {
           if (zvrf_id (zvrf) == VRF_DEFAULT)
-            vty_out (vty, "router-id %s%s",
-                     inet_ntoa (zvrf->rid_user_assigned.u.prefix4),
-                     VTY_NEWLINE);
-          else
-            vty_out (vty, "router-id %s vrf %s%s",
-                     inet_ntoa (zvrf->rid_user_assigned.u.prefix4),
-                     zvrf_name (zvrf),
-                     VTY_NEWLINE);
+            vty_outln (vty, "router-id %s",
+                     inet_ntoa(zvrf->rid_user_assigned.u.prefix4));
+            else
+              vty_outln (vty, "router-id %s vrf %s",
+	                     inet_ntoa (zvrf->rid_user_assigned.u.prefix4),
+	                     zvrf_name(zvrf));
         }
 }
 

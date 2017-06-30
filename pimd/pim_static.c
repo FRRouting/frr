@@ -337,9 +337,10 @@ pim_static_write_mroute (struct vty *vty, struct interface *ifp)
               {
                 struct interface *oifp = pim_if_find_by_vif_index (i);
                 if (sroute->source.s_addr == 0)
-                  vty_out (vty, " ip mroute %s %s%s", oifp->name, gbuf, VTY_NEWLINE);
+                  vty_outln (vty, " ip mroute %s %s", oifp->name, gbuf);
                 else
-                  vty_out (vty, " ip mroute %s %s %s%s", oifp->name, gbuf, sbuf, VTY_NEWLINE);
+                  vty_outln (vty, " ip mroute %s %s %s", oifp->name, gbuf,
+                             sbuf);
                 count ++;
               }
         }

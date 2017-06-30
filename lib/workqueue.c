@@ -191,23 +191,21 @@ DEFUN (show_work_queues,
   struct listnode *node;
   struct work_queue *wq;
   
-  vty_out (vty, 
-           "%c %8s %5s %8s %8s %21s%s",
-           ' ', "List","(ms) ","Q. Runs","Yields","Cycle Counts   ",
-           VTY_NEWLINE);
-  vty_out (vty,
-           "%c %8s %5s %8s %8s %7s %6s %8s %6s %s%s",
+  vty_outln (vty, 
+           "%c %8s %5s %8s %8s %21s",
+           ' ', "List","(ms) ","Q. Runs","Yields","Cycle Counts   ");
+  vty_outln (vty,
+           "%c %8s %5s %8s %8s %7s %6s %8s %6s %s",
            'P',
            "Items",
            "Hold",
            "Total","Total",
            "Best","Gran.","Total","Avg.",
-           "Name", 
-           VTY_NEWLINE);
+           "Name");
  
   for (ALL_LIST_ELEMENTS_RO (work_queues, node, wq))
     {
-      vty_out (vty,"%c %8d %5d %8ld %8ld %7d %6d %8ld %6u %s%s",
+      vty_outln (vty,"%c %8d %5d %8ld %8ld %7d %6d %8ld %6u %s",
                (CHECK_FLAG (wq->flags, WQ_UNPLUGGED) ? ' ' : 'P'),
                listcount (wq->items),
                wq->spec.hold,
@@ -215,8 +213,7 @@ DEFUN (show_work_queues,
                wq->cycles.best, wq->cycles.granularity, wq->cycles.total,
                  (wq->runs) ? 
                    (unsigned int) (wq->cycles.total / wq->runs) : 0,
-               wq->name,
-               VTY_NEWLINE);
+               wq->name);
     }
     
   return CMD_SUCCESS;
