@@ -164,6 +164,25 @@ def test_ospf_convergence():
                                                count=20, wait=3)
         assert result, 'OSPF did not converge on {}:\n{}'.format(router, diff)
 
+def test_ospf_kernel_route():
+    "Test OSPF kernel route installation"
+    tgen = get_topogen()
+    rlist = tgen.routers().values()
+    for router in rlist:
+        logger.info('Checking OSPF IPv4 kernel routes in "%s"', router.name)
+
+        routes = topotest.ip4_route(router)
+        expected = {
+            '10.0.1.0/24': {},
+            '10.0.2.0/24': {},
+            '10.0.3.0/24': {},
+            '10.0.10.0/24': {},
+            '172.16.0.0/24': {},
+            '172.16.1.0/24': {},
+        }
+        assertmsg = 'OSPF IPv4 route mismatch in router "{}"'.format(router.name)
+        assert topotest.json_cmp(routes, expected) is None, assertmsg
+
 def test_ospf6_convergence():
     "Test OSPF6 daemon convergence"
     for rnum in range(1, 5):
@@ -180,6 +199,25 @@ def test_ospf6_convergence():
         result, diff = topotest.run_and_expect(test_func, '',
                                                count=20, wait=3)
         assert result, 'OSPF6 did not converge on {}:\n{}'.format(router, diff)
+
+def test_ospf6_kernel_route():
+    "Test OSPF kernel route installation"
+    tgen = get_topogen()
+    rlist = tgen.routers().values()
+    for router in rlist:
+        logger.info('Checking OSPF IPv6 kernel routes in "%s"', router.name)
+
+        routes = topotest.ip6_route(router)
+        expected = {
+            '2001:db8:1::/64': {},
+            '2001:db8:2::/64': {},
+            '2001:db8:3::/64': {},
+            '2001:db8:100::/64': {},
+            '2001:db8:200::/64': {},
+            '2001:db8:300::/64': {},
+        }
+        assertmsg = 'OSPF IPv6 route mismatch in router "{}"'.format(router.name)
+        assert topotest.json_cmp(routes, expected) is None, assertmsg
 
 def test_ospf_json():
     "Test 'show ip ospf json' output for coherency."
@@ -273,6 +311,41 @@ def test_ospf_link_down():
                                                count=20, wait=3)
         assert result, 'OSPF did not converge on {}:\n{}'.format(router, diff)
 
+def test_ospf_link_down_kernel_route():
+    "Test OSPF kernel route installation"
+    tgen = get_topogen()
+    rlist = tgen.routers().values()
+    for router in rlist:
+        logger.info('Checking OSPF IPv4 kernel routes in "%s" after link down', router.name)
+
+        routes = topotest.ip4_route(router)
+        expected = {
+            '10.0.1.0/24': {},
+            '10.0.2.0/24': {},
+            '10.0.3.0/24': {},
+            '10.0.10.0/24': {},
+            '172.16.0.0/24': {},
+            '172.16.1.0/24': {},
+        }
+        if router.name == 'r1' or router.name == 'r2':
+            expected.update({
+                '10.0.10.0/24': None,
+                '172.16.0.0/24': None,
+                '172.16.1.0/24': None,
+            })
+        elif router.name == 'r3' or router.name == 'r4':
+            expected.update({
+                '10.0.1.0/24': None,
+                '10.0.2.0/24': None,
+            })
+        # Route '10.0.3.0' is no longer available for r4 since it is down.
+        if router.name == 'r4':
+            expected.update({
+                '10.0.3.0/24': None,
+            })
+        assertmsg = 'OSPF IPv4 route mismatch in router "{}" after link down'.format(router.name)
+        assert topotest.json_cmp(routes, expected) is None, assertmsg
+
 def test_ospf6_link_down():
     "Test OSPF6 daemon convergence after link goes down"
 
@@ -290,6 +363,41 @@ def test_ospf6_link_down():
         result, diff = topotest.run_and_expect(test_func, '',
                                                count=20, wait=3)
         assert result, 'OSPF6 did not converge on {}:\n{}'.format(router, diff)
+
+def test_ospf6_link_down_kernel_route():
+    "Test OSPF kernel route installation"
+    tgen = get_topogen()
+    rlist = tgen.routers().values()
+    for router in rlist:
+        logger.info('Checking OSPF IPv6 kernel routes in "%s" after link down', router.name)
+
+        routes = topotest.ip6_route(router)
+        expected = {
+            '2001:db8:1::/64': {},
+            '2001:db8:2::/64': {},
+            '2001:db8:3::/64': {},
+            '2001:db8:100::/64': {},
+            '2001:db8:200::/64': {},
+            '2001:db8:300::/64': {},
+        }
+        if router.name == 'r1' or router.name == 'r2':
+            expected.update({
+                '2001:db8:100::/64': None,
+                '2001:db8:200::/64': None,
+                '2001:db8:300::/64': None,
+            })
+        elif router.name == 'r3' or router.name == 'r4':
+            expected.update({
+                '2001:db8:1::/64': None,
+                '2001:db8:2::/64': None,
+            })
+        # Route '2001:db8:3::/64' is no longer available for r4 since it is down.
+        if router.name == 'r4':
+            expected.update({
+                '2001:db8:3::/64': None,
+            })
+        assertmsg = 'OSPF IPv6 route mismatch in router "{}" after link down'.format(router.name)
+        assert topotest.json_cmp(routes, expected) is None, assertmsg
 
 def test_memory_leak():
     "Run the memory leak test and report results."
