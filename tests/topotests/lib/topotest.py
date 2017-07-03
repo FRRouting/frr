@@ -287,6 +287,83 @@ def version_cmp(v1, v2):
             return -1
     return 0
 
+def ip4_route(node):
+    """
+    Gets a structured return of the command 'ip route'. It can be used in
+    conjuction with json_cmp() to provide accurate assert explanations.
+
+    Return example:
+    {
+        '10.0.1.0/24': {
+            'dev': 'eth0',
+            'via': '172.16.0.1',
+            'proto': '188',
+        },
+        '10.0.2.0/24': {
+            'dev': 'eth1',
+            'proto': 'kernel',
+        }
+    }
+    """
+    output = normalize_text(node.run('ip route')).splitlines()
+    result = {}
+    for line in output:
+        columns = line.split(' ')
+        route = result[columns[0]] = {}
+        prev = None
+        for column in columns:
+            if prev == 'dev':
+                route['dev'] = column
+            if prev == 'via':
+                route['via'] = column
+            if prev == 'proto':
+                route['proto'] = column
+            if prev == 'metric':
+                route['metric'] = column
+            if prev == 'scope':
+                route['scope'] = column
+            prev = column
+
+    return result
+
+def ip6_route(node):
+    """
+    Gets a structured return of the command 'ip -6 route'. It can be used in
+    conjuction with json_cmp() to provide accurate assert explanations.
+
+    Return example:
+    {
+        '2001:db8:1::/64': {
+            'dev': 'eth0',
+            'proto': '188',
+        },
+        '2001:db8:2::/64': {
+            'dev': 'eth1',
+            'proto': 'kernel',
+        }
+    }
+    """
+    output = normalize_text(node.run('ip -6 route')).splitlines()
+    result = {}
+    for line in output:
+        columns = line.split(' ')
+        route = result[columns[0]] = {}
+        prev = None
+        for column in columns:
+            if prev == 'dev':
+                route['dev'] = column
+            if prev == 'via':
+                route['via'] = column
+            if prev == 'proto':
+                route['proto'] = column
+            if prev == 'metric':
+                route['metric'] = column
+            if prev == 'pref':
+                route['pref'] = column
+            prev = column
+
+    return result
+
 def checkAddressSanitizerError(output, router, component):
     "Checks for AddressSanitizer in output. If found, then logs it and returns true, false otherwise"
 
