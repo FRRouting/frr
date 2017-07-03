@@ -485,7 +485,7 @@ check_status()
 
 # Load configuration
 . "$C_PATH/daemons"
-. "$C_PATH/daemons.conf"
+. "$C_PATH/debian.conf"
 
 # Read configuration variable file if it is present
 [ -r /etc/default/frr ] && . /etc/default/frr
