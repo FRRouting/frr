@@ -284,7 +284,7 @@ ecommunity_cmp (const void *arg1, const void *arg2)
 void
 ecommunity_init (void)
 {
-  ecomhash = hash_create (ecommunity_hash_make, ecommunity_cmp);
+  ecomhash = hash_create (ecommunity_hash_make, ecommunity_cmp, NULL);
 }
 
 void

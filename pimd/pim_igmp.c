@@ -822,7 +822,7 @@ static struct igmp_sock *igmp_sock_new(int fd,
   igmp->igmp_group_list->del = (void (*)(void *)) igmp_group_free;
 
   igmp->igmp_group_hash = hash_create (igmp_group_hash_key,
-                                       igmp_group_hash_equal);
+                                       igmp_group_hash_equal, NULL);
 
   igmp->fd                          = fd;
   igmp->interface                   = ifp;

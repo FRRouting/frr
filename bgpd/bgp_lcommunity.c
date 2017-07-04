@@ -286,7 +286,7 @@ lcommunity_hash (void)
 void
 lcommunity_init (void)
 {
-  lcomhash = hash_create (lcommunity_hash_make, lcommunity_cmp);
+  lcomhash = hash_create (lcommunity_hash_make, lcommunity_cmp, NULL);
 }
 
 void

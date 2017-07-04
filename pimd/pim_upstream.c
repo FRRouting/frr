@@ -1760,7 +1760,7 @@ pim_upstream_init (void)
 				      pim_upstream_hash_key,
 				      pim_upstream_sg_running);
   pim_upstream_hash = hash_create_size (8192, pim_upstream_hash_key,
-					pim_upstream_equal);
+					pim_upstream_equal, NULL);
 
   pim_upstream_list = list_new ();
   pim_upstream_list->del = (void (*)(void *)) pim_upstream_free;

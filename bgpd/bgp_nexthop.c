@@ -140,7 +140,7 @@ void
 bgp_address_init (struct bgp *bgp)
 {
   bgp->address_hash = hash_create (bgp_address_hash_key_make,
-                                  bgp_address_hash_cmp);
+                                  bgp_address_hash_cmp, NULL);
 }
 
 void
