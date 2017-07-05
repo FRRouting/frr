@@ -433,8 +433,7 @@ DEFUN (ip_route_flags,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this route\n"
-       VRF_CMD_HELP_STR
-       MPLS_LABEL_HELPSTR)
+       VRF_CMD_HELP_STR)
 {
   int idx_ipv4_prefixlen = 2;
   int idx_reject_blackhole = 3;
@@ -466,8 +465,7 @@ DEFUN (ip_route_mask,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this route\n"
-       VRF_CMD_HELP_STR
-       MPLS_LABEL_HELPSTR)
+       VRF_CMD_HELP_STR)
 {
   int idx_ipv4 = 2;
   int idx_ipv4_2 = 3;
@@ -497,8 +495,7 @@ DEFUN (ip_route_mask_flags,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this route\n"
-       VRF_CMD_HELP_STR
-       MPLS_LABEL_HELPSTR)
+       VRF_CMD_HELP_STR)
 {
   int idx_ipv4 = 2;
   int idx_ipv4_2 = 3;
@@ -530,8 +527,7 @@ DEFUN (no_ip_route,
        "Tag of this route\n"
        "Tag value\n"
        "Distance value for this route\n"
-       VRF_CMD_HELP_STR
-       MPLS_LABEL_HELPSTR)
+       VRF_CMD_HELP_STR)
 {
   int idx_ipv4_prefixlen = 3;
   int idx_ipv4_ifname_null = 4;
@@ -561,8 +557,7 @@ DEFUN (no_ip_route_flags,
        "Tag of this route\n"
        "Tag value\n"
        "Distance value for this route\n"
-       VRF_CMD_HELP_STR
-       MPLS_LABEL_HELPSTR)
+       VRF_CMD_HELP_STR)
 {
   int idx_ipv4_prefixlen = 3;
   int idx_curr = 5;
@@ -591,8 +586,7 @@ DEFUN (no_ip_route_mask,
        "Tag of this route\n"
        "Tag value\n"
        "Distance value for this route\n"
-       VRF_CMD_HELP_STR
-       MPLS_LABEL_HELPSTR)
+       VRF_CMD_HELP_STR)
 {
   int idx_ipv4 = 3;
   int idx_ipv4_2 = 4;
@@ -624,8 +618,7 @@ DEFUN (no_ip_route_mask_flags,
        "Tag of this route\n"
        "Tag value\n"
        "Distance value for this route\n"
-       VRF_CMD_HELP_STR
-       MPLS_LABEL_HELPSTR)
+       VRF_CMD_HELP_STR)
 {
   int idx_ipv4 = 3;
   int idx_ipv4_2 = 4;
@@ -2171,8 +2164,7 @@ DEFUN (ipv6_route,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR
-       MPLS_LABEL_HELPSTR)
+       VRF_CMD_HELP_STR)
 {
   int idx_ipv6_prefixlen = 2;
   int idx_ipv6_ifname;
@@ -2218,8 +2210,7 @@ DEFUN (ipv6_route_flags,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR
-       MPLS_LABEL_HELPSTR)
+       VRF_CMD_HELP_STR)
 {
   int idx_ipv6_prefixlen = 2;
   int idx_ipv6_ifname;
@@ -2267,8 +2258,7 @@ DEFUN (ipv6_route_ifname,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR
-       MPLS_LABEL_HELPSTR)
+       VRF_CMD_HELP_STR)
 {
   int idx_ipv6_prefixlen = 2;
   int idx_ipv6 = 3;
@@ -2318,8 +2308,7 @@ DEFUN (ipv6_route_ifname_flags,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR
-       MPLS_LABEL_HELPSTR)
+       VRF_CMD_HELP_STR)
 {
   int idx_ipv6_prefixlen = 2;
   int idx_ipv6;
@@ -2372,8 +2361,7 @@ DEFUN (no_ipv6_route,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR
-       MPLS_LABEL_HELPSTR)
+       VRF_CMD_HELP_STR)
 {
   int idx_ipv6_prefixlen = 3;
   int idx_ipv6_ifname;
@@ -2420,8 +2408,7 @@ DEFUN (no_ipv6_route_flags,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR
-       MPLS_LABEL_HELPSTR)
+       VRF_CMD_HELP_STR)
 {
   int idx_ipv6_prefixlen = 3;
   int idx_ipv6_ifname;
@@ -2470,8 +2457,7 @@ DEFUN (no_ipv6_route_ifname,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR
-       MPLS_LABEL_HELPSTR)
+       VRF_CMD_HELP_STR)
 {
   int idx_ipv6_prefixlen = 3;
   int idx_ipv6;
@@ -2522,8 +2508,7 @@ DEFUN (no_ipv6_route_ifname_flags,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR
-       MPLS_LABEL_HELPSTR)
+       VRF_CMD_HELP_STR)
 {
   int idx_ipv6_prefixlen = 3;
   int idx_ipv6;

@@ -7095,8 +7095,7 @@ DEFUN (ospf_redistribute_source,
        "Metric for redistributed routes\n"
        "OSPF default metric\n"
        "OSPF exterior metric type for redistributed routes\n"
-       "Set OSPF External Type 1 metrics\n"
-       "Set OSPF External Type 2 metrics\n"
+       "Set OSPF External Type 1/2 metrics\n"
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -7147,8 +7146,7 @@ DEFUN (no_ospf_redistribute_source,
        "Metric for redistributed routes\n"
        "OSPF default metric\n"
        "OSPF exterior metric type for redistributed routes\n"
-       "Set OSPF External Type 1 metrics\n"
-       "Set OSPF External Type 2 metrics\n"
+       "Set OSPF External Type 1/2 metrics\n"
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -7179,8 +7177,7 @@ DEFUN (ospf_redistribute_instance_source,
        "Metric for redistributed routes\n"
        "OSPF default metric\n"
        "OSPF exterior metric type for redistributed routes\n"
-       "Set OSPF External Type 1 metrics\n"
-       "Set OSPF External Type 2 metrics\n"
+       "Set OSPF External Type 1/2 metrics\n"
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -7251,8 +7248,7 @@ DEFUN (no_ospf_redistribute_instance_source,
        "Metric for redistributed routes\n"
        "OSPF default metric\n"
        "OSPF exterior metric type for redistributed routes\n"
-       "Set OSPF External Type 1 metrics\n"
-       "Set OSPF External Type 2 metrics\n"
+       "Set OSPF External Type 1/2 metrics\n"
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -7345,8 +7341,7 @@ DEFUN (ospf_default_information_originate,
        "OSPF default metric\n"
        "OSPF metric\n"
        "OSPF metric type for default routes\n"
-       "Set OSPF External Type 1 metrics\n"
-       "Set OSPF External Type 2 metrics\n"
+       "Set OSPF External Type 1/2 metrics\n"
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {
@@ -7392,8 +7387,7 @@ DEFUN (no_ospf_default_information_originate,
        "OSPF default metric\n"
        "OSPF metric\n"
        "OSPF metric type for default routes\n"
-       "Set OSPF External Type 1 metrics\n"
-       "Set OSPF External Type 2 metrics\n"
+       "Set OSPF External Type 1/2 metrics\n"
        "Route map reference\n"
        "Pointer to route-map entries\n")
 {

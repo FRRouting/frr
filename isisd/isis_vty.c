@@ -673,7 +673,6 @@ DEFUN (isis_hello_interval,
        "isis hello-interval (1-600)",
        "IS-IS commands\n"
        "Set Hello interval\n"
-       "Hello interval value\n"
        "Holdtime 1 seconds, interval depends on multiplier\n")
 {
   int idx_number = 2;
@@ -721,7 +720,6 @@ DEFUN (isis_hello_interval_l1,
        "isis hello-interval (1-600) level-1",
        "IS-IS commands\n"
        "Set Hello interval\n"
-       "Hello interval value\n"
        "Holdtime 1 second, interval depends on multiplier\n"
        "Specify hello-interval for level-1 IIHs\n")
 {
@@ -769,7 +767,6 @@ DEFUN (isis_hello_interval_l2,
        "isis hello-interval (1-600) level-2",
        "IS-IS commands\n"
        "Set Hello interval\n"
-       "Hello interval value\n"
        "Holdtime 1 second, interval depends on multiplier\n"
        "Specify hello-interval for level-2 IIHs\n")
 {
@@ -958,8 +955,7 @@ DEFUN (isis_hello_padding,
        "isis hello padding",
        "IS-IS commands\n"
        "Add padding to IS-IS hello packets\n"
-       "Pad hello packets\n"
-       "<cr>\n")
+       "Pad hello packets\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
   if (!circuit)
@@ -976,8 +972,7 @@ DEFUN (no_isis_hello_padding,
        NO_STR
        "IS-IS commands\n"
        "Add padding to IS-IS hello packets\n"
-       "Pad hello packets\n"
-       "<cr>\n")
+       "Pad hello packets\n")
 {
   struct isis_circuit *circuit = isis_circuit_lookup (vty);
   if (!circuit)
@@ -1431,8 +1426,7 @@ DEFUN (no_metric_style,
 DEFUN (set_overload_bit,
        set_overload_bit_cmd,
        "set-overload-bit",
-       "Set overload bit to avoid any transit traffic\n"
-       "Set overload bit\n")
+       "Set overload bit to avoid any transit traffic\n")
 {
   VTY_DECLVAR_CONTEXT (isis_area, area);
 
@@ -1455,8 +1449,7 @@ DEFUN (no_set_overload_bit,
 DEFUN (set_attached_bit,
        set_attached_bit_cmd,
        "set-attached-bit",
-       "Set attached bit to identify as L1/L2 router for inter-area traffic\n"
-       "Set attached bit\n")
+       "Set attached bit to identify as L1/L2 router for inter-area traffic\n")
 {
   VTY_DECLVAR_CONTEXT (isis_area, area);
 

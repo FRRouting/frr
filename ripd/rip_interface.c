@@ -1327,8 +1327,7 @@ DEFUN (ip_rip_receive_version,
        "Routing Information Protocol\n"
        "Advertisement reception\n"
        "Version control\n"
-       "RIP version 1\n"
-       "RIP version 2\n"
+       "RIP version\n"
        "None\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
@@ -1357,31 +1356,13 @@ DEFUN (ip_rip_receive_version,
 
 DEFUN (ip_rip_receive_version_1,
        ip_rip_receive_version_1_cmd,
-       "ip rip receive version (1-1) (2-2)",
+       "ip rip receive version <1 2|2 1>",
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement reception\n"
        "Version control\n"
        "RIP version 1\n"
-       "RIP version 2\n")
-{
-  VTY_DECLVAR_CONTEXT(interface, ifp);
-  struct rip_interface *ri;
-
-  ri = ifp->info;
-
-  /* Version 1 and 2. */
-  ri->ri_receive = RI_RIP_VERSION_1_AND_2;
-  return CMD_SUCCESS;
-}
-
-DEFUN (ip_rip_receive_version_2,
-       ip_rip_receive_version_2_cmd,
-       "ip rip receive version (2-2) (1-1)",
-       IP_STR
-       "Routing Information Protocol\n"
-       "Advertisement reception\n"
-       "Version control\n"
+       "RIP version 2\n"
        "RIP version 2\n"
        "RIP version 1\n")
 {
@@ -1403,8 +1384,7 @@ DEFUN (no_ip_rip_receive_version,
        "Routing Information Protocol\n"
        "Advertisement reception\n"
        "Version control\n"
-       "Version 1\n"
-       "Version 2\n")
+       "RIP version\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
   struct rip_interface *ri;
@@ -1423,8 +1403,7 @@ DEFUN (ip_rip_send_version,
        "Routing Information Protocol\n"
        "Advertisement transmission\n"
        "Version control\n"
-       "RIP version 1\n"
-       "RIP version 2\n")
+       "RIP version\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
   int idx_type = 4;
@@ -1448,31 +1427,13 @@ DEFUN (ip_rip_send_version,
 
 DEFUN (ip_rip_send_version_1,
        ip_rip_send_version_1_cmd,
-       "ip rip send version (1-1) (2-2)",
+       "ip rip send version <1 2|2 1>",
        IP_STR
        "Routing Information Protocol\n"
        "Advertisement transmission\n"
        "Version control\n"
        "RIP version 1\n"
-       "RIP version 2\n")
-{
-  VTY_DECLVAR_CONTEXT(interface, ifp);
-  struct rip_interface *ri;
-
-  ri = ifp->info;
-
-  /* Version 1 and 2. */
-  ri->ri_send = RI_RIP_VERSION_1_AND_2;
-  return CMD_SUCCESS;
-}
-
-DEFUN (ip_rip_send_version_2,
-       ip_rip_send_version_2_cmd,
-       "ip rip send version (2-2) (1-1)",
-       IP_STR
-       "Routing Information Protocol\n"
-       "Advertisement transmission\n"
-       "Version control\n"
+       "RIP version 2\n"
        "RIP version 2\n"
        "RIP version 1\n")
 {
@@ -1494,8 +1455,7 @@ DEFUN (no_ip_rip_send_version,
        "Routing Information Protocol\n"
        "Advertisement transmission\n"
        "Version control\n"
-       "Version 1\n"
-       "Version 2\n")
+       "RIP version\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
   struct rip_interface *ri;
@@ -2034,12 +1994,10 @@ rip_if_init (void)
 
   install_element (INTERFACE_NODE, &ip_rip_send_version_cmd);
   install_element (INTERFACE_NODE, &ip_rip_send_version_1_cmd);
-  install_element (INTERFACE_NODE, &ip_rip_send_version_2_cmd);
   install_element (INTERFACE_NODE, &no_ip_rip_send_version_cmd);
 
   install_element (INTERFACE_NODE, &ip_rip_receive_version_cmd);
   install_element (INTERFACE_NODE, &ip_rip_receive_version_1_cmd);
-  install_element (INTERFACE_NODE, &ip_rip_receive_version_2_cmd);
   install_element (INTERFACE_NODE, &no_ip_rip_receive_version_cmd);
 
   install_element (INTERFACE_NODE, &ip_rip_v2_broadcast_cmd);
