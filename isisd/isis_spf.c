@@ -44,7 +44,6 @@
 #include "isis_misc.h"
 #include "isis_adjacency.h"
 #include "isis_circuit.h"
-#include "isis_tlv.h"
 #include "isis_pdu.h"
 #include "isis_lsp.h"
 #include "isis_dynhn.h"
@@ -52,8 +51,23 @@
 #include "isis_route.h"
 #include "isis_csm.h"
 #include "isis_mt.h"
+#include "isis_tlvs2.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_RUN, "ISIS SPF Run Info");
+
+/*
+ *  supports the given af ?
+ */
+static bool speaks(uint8_t *protocols, uint8_t count, int family)
+{
+	for (uint8_t i = 0; i < count; i++) {
+		if (family == AF_INET && protocols[i] == NLPID_IP)
+			return true;
+		if (family == AF_INET6 && protocols[i] == NLPID_IPV6)
+			return true;
+	}
+	return false;
+}
 
 struct isis_spf_run {
 	struct isis_area *area;
@@ -340,7 +354,7 @@ static struct isis_lsp *isis_root_system_lsp(struct isis_area *area, int level,
 	LSP_PSEUDO_ID(lspid) = 0;
 	LSP_FRAGMENT(lspid) = 0;
 	lsp = lsp_search(lspid, area->lspdb[level - 1]);
-	if (lsp && lsp->lsp_header->rem_lifetime != 0)
+	if (lsp && lsp->hdr.rem_lifetime != 0)
 		return lsp;
 	return NULL;
 }
@@ -546,6 +560,13 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype,
 
 	assert(spftree && parent);
 
+	struct prefix p;
+	if (vtype >= VTYPE_IPREACH_INTERNAL) {
+		prefix_copy(&p, id);
+		apply_mask(&p);
+		id = &p;
+	}
+
 	/* RFC3787 section 5.1 */
 	if (spftree->area->newmetric == 1) {
 		if (dist > MAX_WIDE_PATH_METRIC)
@@ -632,30 +653,29 @@ static int isis_spf_process_lsp(struct isis_spftree *spftree,
 				uint16_t depth, u_char *root_sysid,
 				struct isis_vertex *parent)
 {
-	bool pseudo_lsp = LSP_PSEUDO_ID(lsp->lsp_header->lsp_id);
-	struct listnode *node, *fragnode = NULL;
+	bool pseudo_lsp = LSP_PSEUDO_ID(lsp->hdr.lsp_id);
+	struct listnode *fragnode = NULL;
 	uint32_t dist;
-	struct is_neigh *is_neigh;
-	struct te_is_neigh *te_is_neigh;
-	struct ipv4_reachability *ipreach;
-	struct te_ipv4_reachability *te_ipv4_reach;
 	enum vertextype vtype;
-	struct prefix prefix;
-	struct ipv6_reachability *ip6reach;
 	static const u_char null_sysid[ISIS_SYS_ID_LEN];
-	struct mt_router_info *mt_router_info = NULL;
+	struct isis_mt_router_info *mt_router_info = NULL;
+
+	if (!lsp->tlvs)
+		return ISIS_OK;
 
 	if (spftree->mtid != ISIS_MT_IPV4_UNICAST)
-		mt_router_info = tlvs_lookup_mt_router_info(&lsp->tlv_data,
-							    spftree->mtid);
+		mt_router_info = isis_tlvs_lookup_mt_router_info(lsp->tlvs,
+								 spftree->mtid);
 
 	if (!pseudo_lsp && (spftree->mtid == ISIS_MT_IPV4_UNICAST
-			    && !speaks(lsp->tlv_data.nlpids, spftree->family))
+			    && !speaks(lsp->tlvs->protocols_supported.protocols,
+				       lsp->tlvs->protocols_supported.count,
+				       spftree->family))
 	    && !mt_router_info)
 		return ISIS_OK;
 
 lspfragloop:
-	if (lsp->lsp_header->seq_num == 0) {
+	if (lsp->hdr.seqno == 0) {
 		zlog_warn(
 			"isis_spf_process_lsp(): lsp with 0 seq_num - ignore");
 		return ISIS_WARNING;
@@ -663,142 +683,122 @@ lspfragloop:
 
 #ifdef EXTREME_DEBUG
 	zlog_debug("ISIS-Spf: process_lsp %s",
-		   print_sys_hostname(lsp->lsp_header->lsp_id));
+		   print_sys_hostname(lsp->hdr.lsp_id));
 #endif /* EXTREME_DEBUG */
 
 	/* RFC3787 section 4 SHOULD ignore overload bit in pseudo LSPs */
 	if (pseudo_lsp || (spftree->mtid == ISIS_MT_IPV4_UNICAST
-			   && !ISIS_MASK_LSP_OL_BIT(lsp->lsp_header->lsp_bits))
+			   && !ISIS_MASK_LSP_OL_BIT(lsp->hdr.lsp_bits))
 	    || (mt_router_info && !mt_router_info->overload))
 
 	{
 		if (pseudo_lsp || spftree->mtid == ISIS_MT_IPV4_UNICAST) {
-			for (ALL_LIST_ELEMENTS_RO(lsp->tlv_data.is_neighs, node,
-						  is_neigh)) {
+			struct isis_oldstyle_reach *r;
+			for (r = (struct isis_oldstyle_reach *)
+					 lsp->tlvs->oldstyle_reach.head;
+			     r; r = r->next) {
 				/* C.2.6 a) */
 				/* Two way connectivity */
-				if (!memcmp(is_neigh->neigh_id, root_sysid,
-					    ISIS_SYS_ID_LEN))
+				if (!memcmp(r->id, root_sysid, ISIS_SYS_ID_LEN))
 					continue;
 				if (!pseudo_lsp
-				    && !memcmp(is_neigh->neigh_id, null_sysid,
+				    && !memcmp(r->id, null_sysid,
 					       ISIS_SYS_ID_LEN))
 					continue;
-				dist = cost + is_neigh->metrics.metric_default;
+				dist = cost + r->metric;
 				process_N(spftree,
-					  LSP_PSEUDO_ID(is_neigh->neigh_id)
+					  LSP_PSEUDO_ID(r->id)
 						  ? VTYPE_PSEUDO_IS
 						  : VTYPE_NONPSEUDO_IS,
-					  (void *)is_neigh->neigh_id, dist,
-					  depth + 1, parent);
+					  (void *)r->id, dist, depth + 1,
+					  parent);
 			}
 		}
 
-		struct list *te_is_neighs = NULL;
-		if (pseudo_lsp || spftree->mtid == ISIS_MT_IPV4_UNICAST) {
-			te_is_neighs = lsp->tlv_data.te_is_neighs;
-		} else {
-			struct tlv_mt_neighbors *mt_neighbors;
-			mt_neighbors = tlvs_lookup_mt_neighbors(&lsp->tlv_data,
-								spftree->mtid);
-			if (mt_neighbors)
-				te_is_neighs = mt_neighbors->list;
-		}
-		for (ALL_LIST_ELEMENTS_RO(te_is_neighs, node, te_is_neigh)) {
-			if (!memcmp(te_is_neigh->neigh_id, root_sysid,
-				    ISIS_SYS_ID_LEN))
+		struct isis_item_list *te_neighs = NULL;
+		if (pseudo_lsp || spftree->mtid == ISIS_MT_IPV4_UNICAST)
+			te_neighs = &lsp->tlvs->extended_reach;
+		else
+			te_neighs = isis_lookup_mt_items(&lsp->tlvs->mt_reach,
+							 spftree->mtid);
+
+		struct isis_extended_reach *er;
+		for (er = te_neighs
+				  ? (struct isis_extended_reach *)
+					    te_neighs->head
+				  : NULL;
+		     er; er = er->next) {
+			if (!memcmp(er->id, root_sysid, ISIS_SYS_ID_LEN))
 				continue;
 			if (!pseudo_lsp
-			    && !memcmp(te_is_neigh->neigh_id, null_sysid,
-				       ISIS_SYS_ID_LEN))
+			    && !memcmp(er->id, null_sysid, ISIS_SYS_ID_LEN))
 				continue;
-			dist = cost + GET_TE_METRIC(te_is_neigh);
+			dist = cost + er->metric;
 			process_N(spftree,
-				  LSP_PSEUDO_ID(te_is_neigh->neigh_id)
-					  ? VTYPE_PSEUDO_TE_IS
-					  : VTYPE_NONPSEUDO_TE_IS,
-				  (void *)te_is_neigh->neigh_id, dist,
-				  depth + 1, parent);
+				  LSP_PSEUDO_ID(er->id) ? VTYPE_PSEUDO_TE_IS
+							: VTYPE_NONPSEUDO_TE_IS,
+				  (void *)er->id, dist, depth + 1, parent);
 		}
 	}
 
 	if (!pseudo_lsp && spftree->family == AF_INET
 	    && spftree->mtid == ISIS_MT_IPV4_UNICAST) {
-		struct list *reachs[] = {lsp->tlv_data.ipv4_int_reachs,
-					 lsp->tlv_data.ipv4_ext_reachs};
+		struct isis_item_list *reachs[] = {
+			&lsp->tlvs->oldstyle_ip_reach,
+			&lsp->tlvs->oldstyle_ip_reach_ext};
 
-		prefix.family = AF_INET;
 		for (unsigned int i = 0; i < array_size(reachs); i++) {
-			vtype = (reachs[i] == lsp->tlv_data.ipv4_int_reachs)
-					? VTYPE_IPREACH_INTERNAL
-					: VTYPE_IPREACH_EXTERNAL;
-			for (ALL_LIST_ELEMENTS_RO(reachs[i], node, ipreach)) {
-				dist = cost + ipreach->metrics.metric_default;
-				prefix.u.prefix4 = ipreach->prefix;
-				prefix.prefixlen = ip_masklen(ipreach->mask);
-				apply_mask(&prefix);
-				process_N(spftree, vtype, (void *)&prefix, dist,
-					  depth + 1, parent);
+			vtype = i ? VTYPE_IPREACH_EXTERNAL
+				  : VTYPE_IPREACH_INTERNAL;
+
+			struct isis_oldstyle_ip_reach *r;
+			for (r = (struct isis_oldstyle_ip_reach *)reachs[i]
+					 ->head;
+			     r; r = r->next) {
+				dist = cost + r->metric;
+				process_N(spftree, vtype, (void *)&r->prefix,
+					  dist, depth + 1, parent);
 			}
 		}
 	}
 
 	if (!pseudo_lsp && spftree->family == AF_INET) {
-		struct list *ipv4reachs = NULL;
+		struct isis_item_list *ipv4_reachs;
+		if (spftree->mtid == ISIS_MT_IPV4_UNICAST)
+			ipv4_reachs = &lsp->tlvs->extended_ip_reach;
+		else
+			ipv4_reachs = isis_lookup_mt_items(
+				&lsp->tlvs->mt_ip_reach, spftree->mtid);
 
-		if (spftree->mtid == ISIS_MT_IPV4_UNICAST) {
-			ipv4reachs = lsp->tlv_data.te_ipv4_reachs;
-		} else {
-			struct tlv_mt_ipv4_reachs *mt_reachs;
-			mt_reachs = tlvs_lookup_mt_ipv4_reachs(&lsp->tlv_data,
-							       spftree->mtid);
-			if (mt_reachs)
-				ipv4reachs = mt_reachs->list;
-		}
-
-		prefix.family = AF_INET;
-		for (ALL_LIST_ELEMENTS_RO(ipv4reachs, node, te_ipv4_reach)) {
-			assert((te_ipv4_reach->control & 0x3F)
-			       <= IPV4_MAX_BITLEN);
-
-			dist = cost + ntohl(te_ipv4_reach->te_metric);
-			prefix.u.prefix4 =
-				newprefix2inaddr(&te_ipv4_reach->prefix_start,
-						 te_ipv4_reach->control);
-			prefix.prefixlen = (te_ipv4_reach->control & 0x3F);
-			apply_mask(&prefix);
-			process_N(spftree, VTYPE_IPREACH_TE, (void *)&prefix,
+		struct isis_extended_ip_reach *r;
+		for (r = ipv4_reachs
+				 ? (struct isis_extended_ip_reach *)
+					   ipv4_reachs->head
+				 : NULL;
+		     r; r = r->next) {
+			dist = cost + r->metric;
+			process_N(spftree, VTYPE_IPREACH_TE, (void *)&r->prefix,
 				  dist, depth + 1, parent);
 		}
 	}
 
 	if (!pseudo_lsp && spftree->family == AF_INET6) {
-		struct list *ipv6reachs = NULL;
+		struct isis_item_list *ipv6_reachs;
+		if (spftree->mtid == ISIS_MT_IPV4_UNICAST)
+			ipv6_reachs = &lsp->tlvs->ipv6_reach;
+		else
+			ipv6_reachs = isis_lookup_mt_items(
+				&lsp->tlvs->mt_ipv6_reach, spftree->mtid);
 
-		if (spftree->mtid == ISIS_MT_IPV4_UNICAST) {
-			ipv6reachs = lsp->tlv_data.ipv6_reachs;
-		} else {
-			struct tlv_mt_ipv6_reachs *mt_reachs;
-			mt_reachs = tlvs_lookup_mt_ipv6_reachs(&lsp->tlv_data,
-							       spftree->mtid);
-			if (mt_reachs)
-				ipv6reachs = mt_reachs->list;
-		}
-
-		prefix.family = AF_INET6;
-		for (ALL_LIST_ELEMENTS_RO(ipv6reachs, node, ip6reach)) {
-			assert(ip6reach->prefix_len <= IPV6_MAX_BITLEN);
-
-			dist = cost + ntohl(ip6reach->metric);
-			vtype = (ip6reach->control_info
-				 & CTRL_INFO_DISTRIBUTION)
-					? VTYPE_IP6REACH_EXTERNAL
-					: VTYPE_IP6REACH_INTERNAL;
-			prefix.prefixlen = ip6reach->prefix_len;
-			memcpy(&prefix.u.prefix6.s6_addr, ip6reach->prefix,
-			       PSIZE(ip6reach->prefix_len));
-			apply_mask(&prefix);
-			process_N(spftree, vtype, (void *)&prefix, dist,
+		struct isis_ipv6_reach *r;
+		for (r = ipv6_reachs
+				 ? (struct isis_ipv6_reach *)ipv6_reachs->head
+				 : NULL;
+		     r; r = r->next) {
+			dist = cost + r->metric;
+			vtype = r->external ? VTYPE_IP6REACH_EXTERNAL
+					    : VTYPE_IP6REACH_INTERNAL;
+			process_N(spftree, vtype, (void *)&r->prefix, dist,
 				  depth + 1, parent);
 		}
 	}
@@ -893,7 +893,9 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 				if (!adj_has_mt(adj, spftree->mtid))
 					continue;
 				if (spftree->mtid == ISIS_MT_IPV4_UNICAST
-				    && !speaks(&adj->nlpids, spftree->family))
+				    && !speaks(adj->nlpids.nlpids,
+					       adj->nlpids.count,
+					       spftree->family))
 					continue;
 				switch (adj->sys_type) {
 				case ISIS_SYSTYPE_ES:
@@ -928,8 +930,7 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 							->lspdb[spftree->level
 								- 1]);
 					if (lsp == NULL
-					    || lsp->lsp_header->rem_lifetime
-						       == 0)
+					    || lsp->hdr.rem_lifetime == 0)
 						zlog_warn(
 							"ISIS-Spf: No LSP %s found for IS adjacency "
 							"L%d on %s (ID %u)",
@@ -979,7 +980,7 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 			lsp = lsp_search(
 				lsp_id,
 				spftree->area->lspdb[spftree->level - 1]);
-			if (lsp == NULL || lsp->lsp_header->rem_lifetime == 0) {
+			if (lsp == NULL || lsp->hdr.rem_lifetime == 0) {
 				zlog_warn(
 					"ISIS-Spf: No lsp (%p) found from root "
 					"to L%d DR %s on %s (ID %d)",
@@ -1015,7 +1016,9 @@ static int isis_spf_preload_tent(struct isis_spftree *spftree,
 				LSP_PSEUDO_ID(lsp_id) = 0;
 				LSP_FRAGMENT(lsp_id) = 0;
 				if (spftree->mtid != ISIS_MT_IPV4_UNICAST
-				    || speaks(&adj->nlpids, spftree->family))
+				    || speaks(adj->nlpids.nlpids,
+					      adj->nlpids.count,
+					      spftree->family))
 					isis_spf_add_local(
 						spftree,
 						spftree->area->oldmetric
@@ -1178,7 +1181,7 @@ static int isis_run_spf(struct isis_area *area, int level, int family,
 			memcpy(lsp_id, vertex->N.id, ISIS_SYS_ID_LEN + 1);
 			LSP_FRAGMENT(lsp_id) = 0;
 			lsp = lsp_search(lsp_id, area->lspdb[level - 1]);
-			if (lsp && lsp->lsp_header->rem_lifetime != 0) {
+			if (lsp && lsp->hdr.rem_lifetime != 0) {
 				isis_spf_process_lsp(spftree, lsp, vertex->d_N,
 						     vertex->depth, sysid,
 						     vertex);

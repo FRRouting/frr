@@ -67,7 +67,7 @@ int iso_csum_verify(u_char *buffer, int len, uint16_t csum, int offset)
 		return 1;
 
 	checksum = fletcher_checksum(buffer, len, offset);
-	if (checksum == csum)
+	if (checksum == htons(csum))
 		return 0;
 	return 1;
 }

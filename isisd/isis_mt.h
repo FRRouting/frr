@@ -65,21 +65,6 @@ struct isis_circuit_mt_setting {
 	bool enabled;
 };
 
-struct tlv_mt_neighbors {
-	ISIS_MT_INFO_FIELDS
-	struct list *list;
-};
-
-struct tlv_mt_ipv4_reachs {
-	ISIS_MT_INFO_FIELDS
-	struct list *list;
-};
-
-struct tlv_mt_ipv6_reachs {
-	ISIS_MT_INFO_FIELDS
-	struct list *list;
-};
-
 const char *isis_mtid2str(uint16_t mtid);
 uint16_t isis_str2mtid(const char *name);
 
@@ -91,24 +76,6 @@ struct te_is_neigh;
 struct isis_tlvs;
 
 uint16_t isis_area_ipv6_topology(struct isis_area *area);
-
-struct mt_router_info *tlvs_lookup_mt_router_info(struct tlvs *tlvs,
-						  uint16_t mtid);
-
-struct tlv_mt_neighbors *tlvs_lookup_mt_neighbors(struct tlvs *tlvs,
-						  uint16_t mtid);
-struct tlv_mt_neighbors *tlvs_get_mt_neighbors(struct tlvs *tlvs,
-					       uint16_t mtid);
-
-struct tlv_mt_ipv4_reachs *tlvs_lookup_mt_ipv4_reachs(struct tlvs *tlvs,
-						      uint16_t mtid);
-struct tlv_mt_ipv4_reachs *tlvs_get_mt_ipv4_reachs(struct tlvs *tlvs,
-						   uint16_t mtid);
-
-struct tlv_mt_ipv6_reachs *tlvs_lookup_mt_ipv6_reachs(struct tlvs *tlvs,
-						      uint16_t mtid);
-struct tlv_mt_ipv6_reachs *tlvs_get_mt_ipv6_reachs(struct tlvs *tlvs,
-						   uint16_t mtid);
 
 struct isis_area_mt_setting *area_lookup_mt_setting(struct isis_area *area,
 						    uint16_t mtid);
@@ -143,8 +110,10 @@ bool tlvs_to_adj_mt_set(struct isis_tlvs *tlvs, bool v4_usable, bool v6_usable,
 			struct isis_adjacency *adj);
 bool adj_has_mt(struct isis_adjacency *adj, uint16_t mtid);
 void adj_mt_finish(struct isis_adjacency *adj);
-void tlvs_add_mt_bcast(struct tlvs *tlvs, struct isis_circuit *circuit,
-		       int level, struct te_is_neigh *neigh);
-void tlvs_add_mt_p2p(struct tlvs *tlvs, struct isis_circuit *circuit,
-		     struct te_is_neigh *neigh);
+void tlvs_add_mt_bcast(struct isis_tlvs *tlvs, struct isis_circuit *circuit,
+		       int level, uint8_t *id, uint32_t metric,
+		       uint8_t *subtlvs, uint8_t subtlv_len);
+void tlvs_add_mt_p2p(struct isis_tlvs *tlvs, struct isis_circuit *circuit,
+		     uint8_t *id, uint32_t metric, uint8_t *subtlvs,
+		     uint8_t subtlv_len);
 #endif

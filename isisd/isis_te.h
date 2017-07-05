@@ -81,6 +81,8 @@ struct subtlv_header {
 	u_char length; /* Value portion only, in byte */
 };
 
+#define MAX_SUBTLV_SIZE 256
+
 #define SUBTLV_HDR_SIZE        2  /* (sizeof (struct sub_tlv_header)) */
 
 #define SUBTLV_SIZE(stlvh) 	(SUBTLV_HDR_SIZE + (stlvh)->length)
@@ -306,12 +308,13 @@ struct mpls_te_circuit {
 /* Prototypes. */
 void isis_mpls_te_init(void);
 struct mpls_te_circuit *mpls_te_circuit_new(void);
-void mpls_te_print_detail(struct vty *, struct te_is_neigh *);
+struct sbuf;
+void mpls_te_print_detail(struct sbuf *buf, int indent, uint8_t *subtlvs, uint8_t subtlv_len);
 void set_circuitparams_local_ipaddr(struct mpls_te_circuit *, struct in_addr);
 void set_circuitparams_rmt_ipaddr(struct mpls_te_circuit *, struct in_addr);
-u_char subtlvs_len(struct mpls_te_circuit *);
-u_char add_te_subtlvs(u_char *, struct mpls_te_circuit *);
-u_char build_te_subtlvs(u_char *, struct isis_circuit *);
+uint8_t subtlvs_len(struct mpls_te_circuit *);
+uint8_t add_te_subtlvs(uint8_t *, struct mpls_te_circuit *);
+uint8_t build_te_subtlvs(uint8_t *, struct isis_circuit *);
 void isis_link_params_update(struct isis_circuit *, struct interface *);
 void isis_mpls_te_update(struct interface *);
 void isis_mpls_te_config_write_router(struct vty *);

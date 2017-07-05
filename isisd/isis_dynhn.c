@@ -94,38 +94,26 @@ struct isis_dynhn *dynhn_find_by_name(const char *hostname)
 	struct isis_dynhn *dyn = NULL;
 
 	for (ALL_LIST_ELEMENTS_RO(dyn_cache, node, dyn))
-		if (strncmp((char *)dyn->name.name, hostname, 255) == 0)
+		if (strncmp(dyn->hostname, hostname, 255) == 0)
 			return dyn;
 
 	return NULL;
 }
 
-void isis_dynhn_insert(const u_char *id, struct hostname *hostname, int level)
+void isis_dynhn_insert(const u_char *id, const char *hostname, int level)
 {
 	struct isis_dynhn *dyn;
 
 	dyn = dynhn_find_by_id(id);
-	if (dyn) {
-		memcpy(&dyn->name, hostname, hostname->namelen + 1);
-		memcpy(dyn->id, id, ISIS_SYS_ID_LEN);
-		dyn->refresh = time(NULL);
-		return;
-	}
-	dyn = XCALLOC(MTYPE_ISIS_DYNHN, sizeof(struct isis_dynhn));
 	if (!dyn) {
-		zlog_warn("isis_dynhn_insert(): out of memory!");
-		return;
+		dyn = XCALLOC(MTYPE_ISIS_DYNHN, sizeof(struct isis_dynhn));
+		memcpy(dyn->id, id, ISIS_SYS_ID_LEN);
+		dyn->level = level;
+		listnode_add(dyn_cache, dyn);
 	}
 
-	/* we also copy the length */
-	memcpy(&dyn->name, hostname, hostname->namelen + 1);
-	memcpy(dyn->id, id, ISIS_SYS_ID_LEN);
+	snprintf(dyn->hostname, sizeof(dyn->hostname), "%s", hostname);
 	dyn->refresh = time(NULL);
-	dyn->level = level;
-
-	listnode_add(dyn_cache, dyn);
-
-	return;
 }
 
 void isis_dynhn_remove(const u_char *id)
@@ -137,7 +125,6 @@ void isis_dynhn_remove(const u_char *id)
 		return;
 	listnode_delete(dyn_cache, dyn);
 	XFREE(MTYPE_ISIS_DYNHN, dyn);
-	return;
 }
 
 /*
@@ -155,7 +142,7 @@ void dynhn_print_all(struct vty *vty)
 	for (ALL_LIST_ELEMENTS_RO(dyn_cache, node, dyn)) {
 		vty_out(vty, "%-7d", dyn->level);
 		vty_out(vty, "%-15s%-15s\n", sysid_print(dyn->id),
-			dyn->name.name);
+			dyn->hostname);
 	}
 
 	vty_out(vty, "     * %s %s\n", sysid_print(isis->sysid),

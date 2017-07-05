@@ -49,7 +49,6 @@
 #include "isisd/isis_pdu.h"
 #include "isisd/isis_misc.h"
 #include "isisd/isis_constants.h"
-#include "isisd/isis_tlv.h"
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_spf.h"
 #include "isisd/isis_route.h"

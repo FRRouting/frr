@@ -37,7 +37,6 @@
 #include "isisd/isis_common.h"
 #include "isisd/isis_flags.h"
 #include "isisd/isis_circuit.h"
-#include "isisd/isis_tlv.h"
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_pdu.h"
 #include "isisd/isis_network.h"
