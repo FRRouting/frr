@@ -504,8 +504,6 @@ static int netlink_route_change_read_multicast(struct sockaddr_nl *snl,
 	char oif_list[256] = "\0";
 	vrf_id_t vrf = ns_id;
 	int table;
-	struct in_addr src = {.s_addr = 0};
-	struct in_addr grp = {.s_addr = 0};
 
 	if (mroute)
 		m = mroute;
@@ -532,13 +530,10 @@ static int netlink_route_change_read_multicast(struct sockaddr_nl *snl,
 		iif = *(int *)RTA_DATA(tb[RTA_IIF]);
 
 	if (tb[RTA_SRC])
-		src = *(struct in_addr *)RTA_DATA(tb[RTA_SRC]);
+		m->sg.src = *(struct in_addr *)RTA_DATA(tb[RTA_SRC]);
 
 	if (tb[RTA_DST])
-		grp = *(struct in_addr *)RTA_DATA(tb[RTA_DST]);
-
-	if (m->sg.src.s_addr != src.s_addr || m->sg.grp.s_addr != grp.s_addr)
-		return 0;
+		m->sg.grp = *(struct in_addr *)RTA_DATA(tb[RTA_DST]);
 
 	if ((RTA_EXPIRES <= RTA_MAX) && tb[RTA_EXPIRES])
 		m->lastused = *(unsigned long long *)RTA_DATA(tb[RTA_EXPIRES]);
@@ -1522,16 +1517,35 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 {
 	int suc = 0;
 	struct mcast_route_data *mr = (struct mcast_route_data *)in;
-	struct zebra_ns *zns = zvrf->zns;
+	struct {
+		struct nlmsghdr n;
+		struct ndmsg ndm;
+		char buf[256];
+	} req;
 
 	mroute = mr;
-	suc = netlink_request_route(zns, RTNL_FAMILY_IPMR, RTM_GETROUTE);
-	if (suc < 0)
-		return suc;
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
 
-	suc = netlink_parse_info(netlink_route_change_read_multicast,
-				 &zns->netlink_cmd, zns, 0, 0);
+	memset(&req.n, 0, sizeof(req.n));
+	memset(&req.ndm, 0, sizeof(req.ndm));
 
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
+	req.n.nlmsg_flags = NLM_F_REQUEST;
+	req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
+
+	req.ndm.ndm_family = RTNL_FAMILY_IPMR;
+	req.n.nlmsg_type = RTM_GETROUTE;
+
+	addattr_l(&req.n, sizeof(req), RTA_IIF, &mroute->ifindex, 4);
+	addattr_l(&req.n, sizeof(req), RTA_OIF, &mroute->ifindex, 4);
+	addattr_l(&req.n, sizeof(req), RTA_SRC, &mroute->sg.src.s_addr, 4);
+	addattr_l(&req.n, sizeof(req), RTA_DST, &mroute->sg.grp.s_addr, 4);
+	addattr_l(&req.n, sizeof(req), RTA_TABLE, &zvrf->table_id, 4);
+
+	suc = netlink_talk(netlink_route_change_read_multicast, &req.n,
+			   &zns->netlink_cmd, zns, 0);
+
+	mroute = NULL;
 	return suc;
 }
 
