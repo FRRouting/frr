@@ -6804,22 +6804,6 @@ DEFUN (show_bgp_memory,
   return CMD_SUCCESS;
 }
 
-static int
-bgp_show_summary_afi_safi_peer (struct peer *peer, int afi, int safi)
-{
-  if (peer->afc[afi][safi])
-    return 1;
-
-  /* The peer is doing 'ipv4 labeled-unicast' but we put those routes in
-   * the 'ipv4 unicast' table so return True for SAFI_UNICAST if they are
-   * doing SAFI_LABELED_UNICAST
-   */
-  if (safi == SAFI_UNICAST && peer->afc[afi][SAFI_LABELED_UNICAST])
-    return 1;
-
-  return 0;
-}
-
 /* Show BGP peer's summary information. */
 static int
 bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
@@ -6853,7 +6837,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
           if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
             continue;
 
-          if (bgp_show_summary_afi_safi_peer (peer, afi, safi))
+          if (peer->afc[afi][safi])
 	    {
 	      memset(dn_flag, '\0', sizeof(dn_flag));
 	      if (peer_dynamic_neighbor(peer))
@@ -6883,7 +6867,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
       if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
 	continue;
 
-      if (bgp_show_summary_afi_safi_peer (peer, afi, safi))
+      if (peer->afc[afi][safi])
 	{
           if (!count)
             {
@@ -7187,13 +7171,6 @@ bgp_show_summary_afi_safi_peer_exists (struct bgp *bgp, int afi, int safi)
 
       if (peer->afc[afi][safi])
         return 1;
-
-      /* The peer is doing 'ipv4 labeled-unicast' but we put those routes in
-       * the 'ipv4 unicast' table so return True for SAFI_UNICAST if they are
-       * doing SAFI_LABELED_UNICAST
-       */
-      if (safi == SAFI_UNICAST && peer->afc[afi][SAFI_LABELED_UNICAST])
-        return 1;
     }
 
   return 0;
@@ -7219,16 +7196,6 @@ bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
         safi = 1;                 /* SAFI_UNICAST */
       while (safi < SAFI_MAX)
         {
-
-          /* SAFI_LABELED_UNICAST routes are treated as SAFI_UNICAST
-           * so do not display a summary
-           */
-          if (safi == SAFI_LABELED_UNICAST)
-            {
-              safi++;
-              continue;
-            }
-
           if (bgp_show_summary_afi_safi_peer_exists (bgp, afi, safi))
             {
               json_output = true;
@@ -7359,13 +7326,13 @@ bgp_show_summary_vty (struct vty *vty, const char *name,
 /* `show [ip] bgp summary' commands. */
 DEFUN (show_ip_bgp_summary,
        show_ip_bgp_summary_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] summary [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] summary [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        BGP_AFI_HELP_STR
-       BGP_SAFI_HELP_STR
+       BGP_SAFI_WITH_LABEL_HELP_STR
        "Summary of BGP neighbor status\n"
        JSON_STR)
 {
