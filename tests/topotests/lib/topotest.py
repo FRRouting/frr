@@ -91,9 +91,50 @@ def json_cmp(d1, d2, reason=False):
                 continue
             # If nd1 key is a dict, we have to recurse in it later.
             if isinstance(nd2[key], type({})):
+                if not isinstance(nd1[key], type({})):
+                    result.add_error(
+                        '{}["{}"] has different type than expected '.format(parent, key) +
+                        '(have {}, expected {})'.format(type(nd1[key]), type(nd2[key])))
+                    continue
                 nparent = '{}["{}"]'.format(parent, key)
                 squeue.append((nd1[key], nd2[key], nparent))
                 continue
+            # Check list items
+            if isinstance(nd2[key], type([])):
+                if not isinstance(nd1[key], type([])):
+                    result.add_error(
+                        '{}["{}"] has different type than expected '.format(parent, key) +
+                        '(have {}, expected {})'.format(type(nd1[key]), type(nd2[key])))
+                    continue
+                # Check list size
+                if len(nd2[key]) > len(nd1[key]):
+                    result.add_error(
+                        '{}["{}"] too few items '.format(parent, key) +
+                        '(have ({}) "{}", expected ({}) "{}")'.format(
+                            len(nd1[key]), str(nd1[key]), len(nd2[key]), str(nd2[key])))
+                    continue
+
+                # List all unmatched items errors
+                unmatched = []
+                for expected in nd2[key]:
+                    matched = False
+                    for value in nd1[key]:
+                        if json_cmp({'json': value}, {'json': expected}) is None:
+                            matched = True
+                            break
+
+                    if matched:
+                        break
+                    if not matched:
+                        unmatched.append(expected)
+
+                # If there are unmatched items, error out.
+                if unmatched:
+                    result.add_error(
+                        '{}["{}"] value is different (have "{}", expected "{}")'.format(
+                            parent, key, str(nd1[key]), str(nd2[key])))
+                continue
+
             # Compare JSON values
             if nd1[key] != nd2[key]:
                 result.add_error(

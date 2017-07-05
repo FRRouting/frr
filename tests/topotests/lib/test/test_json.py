@@ -249,5 +249,85 @@ def test_json_intersect_multilevel_false():
     assert json_cmp(dcomplete, dsub5) is not None
     assert json_cmp(dcomplete, dsub6) is not None
 
+def test_json_with_list_sucess():
+    "Test successful json comparisons that have lists."
+
+    dcomplete = {
+        'list': [
+            {
+                'i1': 'item 1',
+                'i2': 'item 2',
+            },
+            {
+                'i10': 'item 10',
+            },
+        ],
+        'i100': 'item 100',
+    }
+
+    # Test list type
+    dsub1 = {
+        'list': [],
+    }
+    # Test list correct list items
+    dsub2 = {
+        'list': [
+            {
+                'i1': 'item 1',
+            },
+        ],
+        'i100': 'item 100',
+    }
+    # Test list correct list size
+    dsub3 = {
+        'list': [
+            {}, {},
+        ],
+    }
+
+    assert json_cmp(dcomplete, dsub1) is None
+    assert json_cmp(dcomplete, dsub2) is None
+    assert json_cmp(dcomplete, dsub3) is None
+
+def test_json_with_list_failure():
+    "Test failed json comparisons that have lists."
+
+    dcomplete = {
+        'list': [
+            {
+                'i1': 'item 1',
+                'i2': 'item 2',
+            },
+            {
+                'i10': 'item 10',
+            },
+        ],
+        'i100': 'item 100',
+    }
+
+    # Test list type
+    dsub1 = {
+        'list': {},
+    }
+    # Test list incorrect list items
+    dsub2 = {
+        'list': [
+            {
+                'i1': 'item 2',
+            },
+        ],
+        'i100': 'item 100',
+    }
+    # Test list correct list size
+    dsub3 = {
+        'list': [
+            {}, {}, {},
+        ],
+    }
+
+    assert json_cmp(dcomplete, dsub1) is not None
+    assert json_cmp(dcomplete, dsub2) is not None
+    assert json_cmp(dcomplete, dsub3) is not None
+
 if __name__ == '__main__':
     sys.exit(pytest.main())
