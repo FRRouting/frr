@@ -686,7 +686,7 @@ void
 community_init (void)
 {
   comhash = hash_create ((unsigned int (*) (void *))community_hash_make,
-			 (int (*) (const void *, const void *))community_cmp);
+			 (int (*) (const void *, const void *))community_cmp, NULL);
 }
 
 void

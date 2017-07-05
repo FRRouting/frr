@@ -55,7 +55,7 @@ void frr_pthread_init()
         pthread_mutex_lock(&pthread_table_mtx);
         {
                 pthread_table =
-                    hash_create(pthread_table_hash_key, pthread_table_hash_cmp);
+                    hash_create(pthread_table_hash_key, pthread_table_hash_cmp, NULL);
         }
         pthread_mutex_unlock(&pthread_table_mtx);
 }

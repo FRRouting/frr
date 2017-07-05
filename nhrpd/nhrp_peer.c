@@ -182,7 +182,7 @@ struct nhrp_peer *nhrp_peer_get(struct interface *ifp, const union sockunion *re
 	struct nhrp_vc *vc;
 
 	if (!nifp->peer_hash) {
-		nifp->peer_hash = hash_create(nhrp_peer_key, nhrp_peer_cmp);
+		nifp->peer_hash = hash_create(nhrp_peer_key, nhrp_peer_cmp, NULL);
 		if (!nifp->peer_hash) return NULL;
 	}
 
