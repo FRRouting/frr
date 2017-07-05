@@ -1590,6 +1590,11 @@ AC_SUBST(SNMP_LIBS)
 AC_SUBST(SNMP_CFLAGS)
 
 dnl ---------------
+dnl math
+dnl ---------------
+AC_SEARCH_LIBS([sqrt], [m])
+
+dnl ---------------
 dnl dlopen & dlinfo
 dnl ---------------
 AC_SEARCH_LIBS(dlopen, [dl dld], [], [

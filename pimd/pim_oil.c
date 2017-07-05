@@ -103,7 +103,7 @@ void
 pim_oil_init (void)
 {
   pim_channel_oil_hash = hash_create_size (8192, pim_oil_hash_key,
-					   pim_oil_equal);
+					   pim_oil_equal, NULL);
 
   pim_channel_oil_list = list_new();
   if (!pim_channel_oil_list) {

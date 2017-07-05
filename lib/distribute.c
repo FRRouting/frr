@@ -522,7 +522,8 @@ void
 distribute_list_init (int node)
 {
   disthash = hash_create (distribute_hash_make,
-                          (int (*) (const void *, const void *)) distribute_cmp);
+			  (int (*) (const void *, const void *))
+			  distribute_cmp, NULL);
 
   /* vtysh command-extraction doesn't grok install_element(node, ) */
   if (node == RIP_NODE) {

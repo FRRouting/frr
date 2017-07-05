@@ -97,7 +97,7 @@ void qobj_init (void)
   if (!nodes)
     {
       pthread_rwlock_init (&nodes_lock, NULL);
-      nodes = hash_create (qobj_key, qobj_cmp);
+      nodes = hash_create (qobj_key, qobj_cmp, NULL);
     }
 }
 

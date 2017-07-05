@@ -250,7 +250,7 @@ pim_instance_init (vrf_id_t vrf_id, afi_t afi)
   pim->spt.switchover = PIM_SPT_IMMEDIATE;
   pim->spt.plist = NULL;
 
-  pim->rpf_hash = hash_create_size (256, pim_rpf_hash_key, pim_rpf_equal);
+  pim->rpf_hash = hash_create_size (256, pim_rpf_hash_key, pim_rpf_equal, NULL);
 
   if (PIM_DEBUG_ZEBRA)
     zlog_debug ("%s: NHT rpf hash init ", __PRETTY_FUNCTION__);
