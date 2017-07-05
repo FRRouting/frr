@@ -785,19 +785,19 @@ struct peer {
 #define PEER_CONFIG_CONNECT           (1 << 1) /* connect */
 #define PEER_CONFIG_ROUTEADV          (1 << 2) /* route advertise */
 
-	u_int32_t holdtime;
-	u_int32_t keepalive;
-	u_int32_t connect;
-	u_int32_t routeadv;
+	_Atomic uint32_t holdtime;
+	_Atomic uint32_t keepalive;
+	_Atomic uint32_t connect;
+	_Atomic uint32_t routeadv;
 
 	/* Timer values. */
-	u_int32_t v_start;
-	u_int32_t v_connect;
-	u_int32_t v_holdtime;
-	u_int32_t v_keepalive;
-	u_int32_t v_routeadv;
-	u_int32_t v_pmax_restart;
-	u_int32_t v_gr_restart;
+	_Atomic uint32_t v_start;
+	_Atomic uint32_t v_connect;
+	_Atomic uint32_t v_holdtime;
+	_Atomic uint32_t v_keepalive;
+	_Atomic uint32_t v_routeadv;
+	_Atomic uint32_t v_pmax_restart;
+	_Atomic uint32_t v_gr_restart;
 
 	/* Threads. */
 	struct thread *t_read;
@@ -814,7 +814,7 @@ struct peer {
 	struct thread *t_process_packet;
 
 	/* Thread flags. */
-	u_int16_t thread_flags;
+	_Atomic uint16_t thread_flags;
 #define PEER_THREAD_WRITES_ON         (1 << 0)
 #define PEER_THREAD_READS_ON          (1 << 1)
 #define PEER_THREAD_KEEPALIVES_ON     (1 << 2)
@@ -822,19 +822,19 @@ struct peer {
 	struct work_queue *clear_node_queue;
 
 	/* Statistics field */
-	u_int32_t open_in;	 /* Open message input count */
-	u_int32_t open_out;	/* Open message output count */
-	u_int32_t update_in;       /* Update message input count */
-	u_int32_t update_out;      /* Update message ouput count */
-	time_t update_time;	/* Update message received time. */
-	u_int32_t keepalive_in;    /* Keepalive input count */
-	u_int32_t keepalive_out;   /* Keepalive output count */
-	u_int32_t notify_in;       /* Notify input count */
-	u_int32_t notify_out;      /* Notify output count */
-	u_int32_t refresh_in;      /* Route Refresh input count */
-	u_int32_t refresh_out;     /* Route Refresh output count */
-	u_int32_t dynamic_cap_in;  /* Dynamic Capability input count.  */
-	u_int32_t dynamic_cap_out; /* Dynamic Capability output count.  */
+	_Atomic uint32_t open_in;         /* Open message input count */
+	_Atomic uint32_t open_out;        /* Open message output count */
+	_Atomic uint32_t update_in;       /* Update message input count */
+	_Atomic uint32_t update_out;      /* Update message ouput count */
+	_Atomic time_t update_time;       /* Update message received time. */
+	_Atomic uint32_t keepalive_in;    /* Keepalive input count */
+	_Atomic uint32_t keepalive_out;   /* Keepalive output count */
+	_Atomic uint32_t notify_in;       /* Notify input count */
+	_Atomic uint32_t notify_out;      /* Notify output count */
+	_Atomic uint32_t refresh_in;      /* Route Refresh input count */
+	_Atomic uint32_t refresh_out;     /* Route Refresh output count */
+	_Atomic uint32_t dynamic_cap_in;  /* Dynamic Capability input count.  */
+	_Atomic uint32_t dynamic_cap_out; /* Dynamic Capability output count.  */
 
 	/* BGP state count */
 	u_int32_t established; /* Established */
@@ -847,8 +847,10 @@ struct peer {
 	/* Syncronization list and time.  */
 	struct bgp_synchronize *sync[AFI_MAX][SAFI_MAX];
 	time_t synctime;
-	time_t last_write;  /* timestamp when the last msg was written */
-	time_t last_update; /* timestamp when the last UPDATE msg was written */
+	/* timestamp when the last UPDATE msg was written */
+	_Atomic time_t last_write;
+	/* timestamp when the last msg was written */
+	_Atomic time_t last_update;
 
 	/* Send prefix count. */
 	unsigned long scount[AFI_MAX][SAFI_MAX];

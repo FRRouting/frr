@@ -61,10 +61,8 @@ void bgp_io_init()
 	bgp_io_thread_started = false;
 }
 
-static int bgp_io_dummy(struct thread *thread)
-{
-	return 0;
-}
+/* Unused callback for thread_add_read() */
+static int bgp_io_dummy(struct thread *thread) { return 0; }
 
 void *bgp_io_start(void *arg)
 {
@@ -81,9 +79,9 @@ void *bgp_io_start(void *arg)
 
 	struct thread task;
 
-	atomic_store_explicit(&bgp_io_thread_run, true, memory_order_relaxed);
+	atomic_store_explicit(&bgp_io_thread_run, true, memory_order_seq_cst);
 	atomic_store_explicit(&bgp_io_thread_started, true,
-			      memory_order_relaxed);
+			      memory_order_seq_cst);
 
 	while (bgp_io_thread_run) {
 		if (thread_fetch(fpt->master, &task)) {
@@ -99,7 +97,7 @@ void *bgp_io_start(void *arg)
 
 static int bgp_io_finish(struct thread *thread)
 {
-	atomic_store_explicit(&bgp_io_thread_run, false, memory_order_relaxed);
+	atomic_store_explicit(&bgp_io_thread_run, false, memory_order_seq_cst);
 	return 0;
 }
 
@@ -114,8 +112,8 @@ int bgp_io_stop(void **result, struct frr_pthread *fpt)
 
 void bgp_writes_on(struct peer *peer)
 {
-	while (!atomic_load_explicit(&bgp_io_thread_started,
-				     memory_order_relaxed))
+	while (
+	    !atomic_load_explicit(&bgp_io_thread_started, memory_order_seq_cst))
 		;
 
 	assert(peer->status != Deleted);
@@ -134,8 +132,8 @@ void bgp_writes_on(struct peer *peer)
 
 void bgp_writes_off(struct peer *peer)
 {
-	while (!atomic_load_explicit(&bgp_io_thread_started,
-				     memory_order_relaxed))
+	while (
+	    !atomic_load_explicit(&bgp_io_thread_started, memory_order_seq_cst))
 		;
 
 	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_IO);
@@ -148,8 +146,8 @@ void bgp_writes_off(struct peer *peer)
 
 void bgp_reads_on(struct peer *peer)
 {
-	while (!atomic_load_explicit(&bgp_io_thread_started,
-				     memory_order_relaxed))
+	while (
+	    !atomic_load_explicit(&bgp_io_thread_started, memory_order_seq_cst))
 		;
 
 	assert(peer->status != Deleted);
@@ -171,8 +169,8 @@ void bgp_reads_on(struct peer *peer)
 
 void bgp_reads_off(struct peer *peer)
 {
-	while (!atomic_load_explicit(&bgp_io_thread_started,
-				     memory_order_relaxed))
+	while (
+	    !atomic_load_explicit(&bgp_io_thread_started, memory_order_seq_cst))
 		;
 
 	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_IO);
@@ -376,8 +374,8 @@ static uint16_t bgp_write(struct peer *peer)
 	uint32_t wpkt_quanta_old;
 
 	// cache current write quanta
-	wpkt_quanta_old = atomic_load_explicit(&peer->bgp->wpkt_quanta,
-					       memory_order_relaxed);
+	wpkt_quanta_old =
+	    atomic_load_explicit(&peer->bgp->wpkt_quanta, memory_order_relaxed);
 
 	while (count < wpkt_quanta_old && (s = stream_fifo_head(peer->obuf))) {
 		int writenum;
@@ -405,13 +403,16 @@ static uint16_t bgp_write(struct peer *peer)
 
 		switch (type) {
 		case BGP_MSG_OPEN:
-			peer->open_out++;
+			atomic_fetch_add_explicit(&peer->open_out, 1,
+						  memory_order_relaxed);
 			break;
 		case BGP_MSG_UPDATE:
-			peer->update_out++;
+			atomic_fetch_add_explicit(&peer->update_out, 1,
+						  memory_order_relaxed);
 			break;
 		case BGP_MSG_NOTIFY:
-			peer->notify_out++;
+			atomic_fetch_add_explicit(&peer->notify_out, 1,
+						  memory_order_relaxed);
 			/* Double start timer. */
 			peer->v_start *= 2;
 
@@ -427,14 +428,17 @@ static uint16_t bgp_write(struct peer *peer)
 			goto done;
 
 		case BGP_MSG_KEEPALIVE:
-			peer->keepalive_out++;
+			atomic_fetch_add_explicit(&peer->keepalive_out, 1,
+						  memory_order_relaxed);
 			break;
 		case BGP_MSG_ROUTE_REFRESH_NEW:
 		case BGP_MSG_ROUTE_REFRESH_OLD:
-			peer->refresh_out++;
+			atomic_fetch_add_explicit(&peer->refresh_out, 1,
+						  memory_order_relaxed);
 			break;
 		case BGP_MSG_CAPABILITY:
-			peer->dynamic_cap_out++;
+			atomic_fetch_add_explicit(&peer->dynamic_cap_out, 1,
+						  memory_order_relaxed);
 			break;
 		}
 
@@ -447,11 +451,13 @@ static uint16_t bgp_write(struct peer *peer)
 done : {
 	/* Update last_update if UPDATEs were written. */
 	if (peer->update_out > oc)
-		peer->last_update = bgp_clock();
+		atomic_store_explicit(&peer->last_update, bgp_clock(),
+				      memory_order_relaxed);
 
 	/* If we TXed any flavor of packet update last_write */
 	if (update_last_write)
-		peer->last_write = bgp_clock();
+		atomic_store_explicit(&peer->last_write, bgp_clock(),
+				      memory_order_relaxed);
 }
 
 	return status;
@@ -483,12 +489,12 @@ static uint16_t bgp_read(struct peer *peer)
 				if (CHECK_FLAG(peer->sflags,
 					       PEER_STATUS_NSF_MODE)) {
 					peer->last_reset =
-						PEER_DOWN_NSF_CLOSE_SESSION;
+					    PEER_DOWN_NSF_CLOSE_SESSION;
 					SET_FLAG(peer->sflags,
 						 PEER_STATUS_NSF_WAIT);
 				} else
 					peer->last_reset =
-						PEER_DOWN_CLOSE_SESSION;
+					    PEER_DOWN_CLOSE_SESSION;
 			}
 
 			BGP_EVENT_ADD(peer, TCP_fatal_error);
@@ -498,19 +504,19 @@ static uint16_t bgp_read(struct peer *peer)
 		case 0: // TCP session closed
 			if (bgp_debug_neighbor_events(peer))
 				zlog_debug(
-					"%s [Event] BGP connection closed fd %d",
-					peer->host, peer->fd);
+				    "%s [Event] BGP connection closed fd %d",
+				    peer->host, peer->fd);
 
 			if (peer->status == Established) {
 				if (CHECK_FLAG(peer->sflags,
 					       PEER_STATUS_NSF_MODE)) {
 					peer->last_reset =
-						PEER_DOWN_NSF_CLOSE_SESSION;
+					    PEER_DOWN_NSF_CLOSE_SESSION;
 					SET_FLAG(peer->sflags,
 						 PEER_STATUS_NSF_WAIT);
 				} else
 					peer->last_reset =
-						PEER_DOWN_CLOSE_SESSION;
+					    PEER_DOWN_CLOSE_SESSION;
 			}
 
 			BGP_EVENT_ADD(peer, TCP_connection_closed);
@@ -541,8 +547,8 @@ static bool validate_header(struct peer *peer)
 	size_t getp = stream_get_getp(pkt);
 
 	static uint8_t marker[BGP_MARKER_SIZE] = {
-		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+	    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+	    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
 
 	if (memcmp(marker, stream_pnt(pkt), BGP_MARKER_SIZE) != 0) {
 		bgp_notify_send(peer, BGP_NOTIFY_HEADER_ERR,
@@ -560,13 +566,15 @@ static bool validate_header(struct peer *peer)
 	    && type != BGP_MSG_ROUTE_REFRESH_NEW
 	    && type != BGP_MSG_ROUTE_REFRESH_OLD
 	    && type != BGP_MSG_CAPABILITY) {
-		if (bgp_debug_neighbor_events(peer))
+		if (bgp_debug_neighbor_events(peer)) {
+			// XXX: zlog is not MT-safe
 			zlog_debug("%s unknown message type 0x%02x", peer->host,
 				   type);
+		}
 
 		bgp_notify_send_with_data(peer, BGP_NOTIFY_HEADER_ERR,
 					  BGP_NOTIFY_HEADER_BAD_MESTYPE,
-					  (u_char *)&type, 1);
+					  (u_char *) &type, 1);
 		return false;
 	}
 
@@ -582,15 +590,17 @@ static bool validate_header(struct peer *peer)
 		&& size < BGP_MSG_ROUTE_REFRESH_MIN_SIZE)
 	    || (type == BGP_MSG_CAPABILITY
 		&& size < BGP_MSG_CAPABILITY_MIN_SIZE)) {
-		if (bgp_debug_neighbor_events(peer))
+		if (bgp_debug_neighbor_events(peer)) {
+			// XXX: zlog is not MT-safe
 			zlog_debug("%s bad message length - %d for %s",
 				   peer->host, size,
 				   type == 128 ? "ROUTE-REFRESH"
-					       : bgp_type_str[(int)type]);
+					       : bgp_type_str[(int) type]);
+		}
 
 		bgp_notify_send_with_data(peer, BGP_NOTIFY_HEADER_ERR,
 					  BGP_NOTIFY_HEADER_BAD_MESLEN,
-					  (u_char *)&size, 2);
+					  (u_char *) &size, 2);
 		return false;
 	}
 
