@@ -19,6 +19,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#define FRR_COMPILING_TABLE_C
+
 #include <zebra.h>
 
 #include "prefix.h"

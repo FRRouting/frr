@@ -242,6 +242,9 @@ ospf6_lsdb_lookup_next (u_int16_t type, u_int32_t id, u_int32_t adv_router,
     zlog_debug ("lsdb_lookup_next: key: %s", buf);
   }
 
+  /* FIXME: need to find a better way here to work without sticking our
+   * hands in node->link, e.g. route_node_match_maynull() */
+
   node = lsdb->table->top;
   /* walk down tree. */
   while (node && node->p.prefixlen <= p->prefixlen &&
