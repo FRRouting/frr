@@ -1774,7 +1774,7 @@ mpls_str2label (const char *label_str, u_int8_t *num_labels,
 
   if (!rc)
     {
-      *num_labels = i + 1;
+      *num_labels = i;
       memcpy (labels, pl, *num_labels * sizeof (mpls_label_t));
     }
 
