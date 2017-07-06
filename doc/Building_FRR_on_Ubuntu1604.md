@@ -116,12 +116,12 @@ Add the following lines to `/etc/modules-load.d/modules.conf`:
 
 ### Install the systemd service
 
-    sudo install -m 644 tools/frr.service /etc/systemd/system/frr.service  
-    sudo install -m 644 cumulus/etc/default/frr /etc/default/frr  
-    sudo install -m 644 cumulus/etc/frr/daemons /etc/frr/daemons  
+    sudo install -m 644 tools/frr.service /etc/systemd/system/frr.service
+    sudo install -m 644 tools/etc/default/frr /etc/default/frr
+    sudo install -m 644 tools/etc/frr/daemons /etc/frr/daemons
     sudo install -m 644 tools/etc/frr/daemons.conf /etc/frr/daemons.conf
     sudo install -m 644 tools/etc/frr/frr.conf /etc/frr/frr.conf
-    sudo install -m 644 -o frr -g frr cumulus/etc/frr/vtysh.conf /etc/frr/vtysh.conf   
+    sudo install -m 644 -o frr -g frr tools/etc/frr/vtysh.conf /etc/frr/vtysh.conf
 
 ### Enable daemons 
 
