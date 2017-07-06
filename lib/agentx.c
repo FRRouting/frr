@@ -175,8 +175,7 @@ config_write_agentx (struct vty *vty)
 DEFUN (agentx_enable,
        agentx_enable_cmd,
        "agentx",
-       "SNMP AgentX protocol settings\n"
-       "SNMP AgentX settings\n")
+       "SNMP AgentX protocol settings\n")
 {
   if (!agentx_enabled)
     {
@@ -194,8 +193,7 @@ DEFUN (no_agentx,
        no_agentx_cmd,
        "no agentx",
        NO_STR
-       "SNMP AgentX protocol settings\n"
-       "SNMP AgentX settings\n")
+       "SNMP AgentX protocol settings\n")
 {
   if (!agentx_enabled) return CMD_SUCCESS;
   vty_outln (vty, "SNMP AgentX support cannot be disabled once enabled");

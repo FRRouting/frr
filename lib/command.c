@@ -2200,7 +2200,6 @@ DEFUN (no_config_log_file,
        "Logging control\n"
        "Cancel logging to file\n"
        "Logging file name\n"
-       "Logging file name\n"
        "Logging level\n")
 {
   zlog_reset_file ();
