@@ -208,8 +208,9 @@ route_unlock_node (struct route_node *node)
 
 /* Find matched prefix. */
 struct route_node *
-route_node_match (const struct route_table *table, const struct prefix *p)
+route_node_match (const struct route_table *table, union prefixconstptr pu)
 {
+  const struct prefix *p = pu.p;
   struct route_node *node;
   struct route_node *matched;
 
@@ -267,8 +268,9 @@ route_node_match_ipv6 (const struct route_table *table,
 
 /* Lookup same prefix node.  Return NULL when we can't find route. */
 struct route_node *
-route_node_lookup (const struct route_table *table, const struct prefix *p)
+route_node_lookup (const struct route_table *table, union prefixconstptr pu)
 {
+  const struct prefix *p = pu.p;
   struct route_node *node;
   u_char prefixlen = p->prefixlen;
   const u_char *prefix = &p->u.prefix;
@@ -289,8 +291,9 @@ route_node_lookup (const struct route_table *table, const struct prefix *p)
 
 /* Lookup same prefix node.  Return NULL when we can't find route. */
 struct route_node *
-route_node_lookup_maynull (const struct route_table *table, const struct prefix *p)
+route_node_lookup_maynull (const struct route_table *table, union prefixconstptr pu)
 {
+  const struct prefix *p = pu.p;
   struct route_node *node;
   u_char prefixlen = p->prefixlen;
   const u_char *prefix = &p->u.prefix;
@@ -311,8 +314,9 @@ route_node_lookup_maynull (const struct route_table *table, const struct prefix 
 
 /* Add node to routing table. */
 struct route_node *
-route_node_get (struct route_table *const table, const struct prefix *p)
+route_node_get (struct route_table *const table, union prefixconstptr pu)
 {
+  const struct prefix *p = pu.p;
   struct route_node *new;
   struct route_node *node;
   struct route_node *match;
@@ -473,7 +477,7 @@ route_next (struct route_node *node)
 
 /* Unlock current node and lock next node until limit. */
 struct route_node *
-route_next_until (struct route_node *node, struct route_node *limit)
+route_next_until (struct route_node *node, const struct route_node *limit)
 {
   struct route_node *next;
   struct route_node *start;
@@ -578,7 +582,7 @@ route_table_init (void)
  *         +1 if p1 occurs after p2 (p1 > p2)
  */
 int
-route_table_prefix_iter_cmp (struct prefix *p1, struct prefix *p2)
+route_table_prefix_iter_cmp (const struct prefix *p1, const struct prefix *p2)
 {
   struct prefix common_space;
   struct prefix *common = &common_space;
@@ -661,7 +665,7 @@ route_get_subtree_next (struct route_node *node)
  */
 static struct route_node *
 route_table_get_next_internal (const struct route_table *table,
-			       struct prefix *p)
+			       const struct prefix *p)
 {
   struct route_node *node, *tmp_node;
   int cmp;
@@ -762,8 +766,9 @@ route_table_get_next_internal (const struct route_table *table,
  * iteration.
  */
 struct route_node *
-route_table_get_next (const struct route_table *table, struct prefix *p)
+route_table_get_next (const struct route_table *table, union prefixconstptr pu)
 {
+  const struct prefix *p = pu.p;
   struct route_node *node;
 
   node = route_table_get_next_internal (table, p);

@@ -153,16 +153,16 @@ extern void route_unlock_node (struct route_node *node);
 extern struct route_node *route_top (struct route_table *);
 extern struct route_node *route_next (struct route_node *);
 extern struct route_node *route_next_until (struct route_node *,
-                                            struct route_node *);
+                                            const struct route_node *);
 extern struct route_node *route_node_get (struct route_table *const,
-                                          const struct prefix *);
+                                          union prefixconstptr);
 extern struct route_node *route_node_lookup (const struct route_table *,
-                                             const struct prefix *);
+                                             union prefixconstptr);
 extern struct route_node *route_node_lookup_maynull (const struct route_table *,
-                                             const struct prefix *);
+                                             union prefixconstptr);
 extern struct route_node *route_lock_node (struct route_node *node);
 extern struct route_node *route_node_match (const struct route_table *,
-                                            const struct prefix *);
+                                            union prefixconstptr);
 extern struct route_node *route_node_match_ipv4 (const struct route_table *,
 						 const struct in_addr *);
 extern struct route_node *route_node_match_ipv6 (const struct route_table *,
@@ -176,9 +176,9 @@ extern void route_node_destroy (route_table_delegate_t *,
 				struct route_table *, struct route_node *);
 
 extern struct route_node *
-route_table_get_next (const struct route_table *table, struct prefix *p);
+route_table_get_next (const struct route_table *table, union prefixconstptr pu);
 extern int
-route_table_prefix_iter_cmp (struct prefix *p1, struct prefix *p2);
+route_table_prefix_iter_cmp (const struct prefix *p1, const struct prefix *p2);
 
 /*
  * Iterator functions.
