@@ -607,6 +607,8 @@ static void zvni_print(zebra_vni_t *zvni, void **ctxt)
 		json_object_int_add(json, "ifindex", zvni->vxlan_if->ifindex);
 		json_object_string_add(json, "vtepIp",
 				       inet_ntoa(zvni->local_vtep_ip));
+		json_object_string_add(json, "advertiseGatewayMacip",
+				       zvni->advertise_gw_macip ? "Yes" : "No");
 		json_object_int_add(json, "numMacs", num_macs);
 		json_object_int_add(json, "numArpNd", num_neigh);
 	}
@@ -641,6 +643,8 @@ static void zvni_print(zebra_vni_t *zvni, void **ctxt)
 			" Number of ARPs (IPv4 and IPv6, local and remote) "
 			"known for this VNI: %u\n",
 			num_neigh);
+		vty_out(vty, " Advertise-gw-macip: %s\n",
+			zvni->advertise_gw_macip ? "Yes" : "No");
 	}
 }
 
@@ -2751,8 +2755,12 @@ void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf,
 	}
 	if (use_json) {
 		json = json_object_new_object();
+		json_object_string_add(json, "advertiseGatewayMacip",
+				       zvrf->advertise_gw_macip ? "Yes" : "No");
 		json_object_int_add(json, "numVnis", num_vnis);
 	} else {
+		vty_out(vty, "Advertise gateway mac-ip: %s\n",
+			zvrf->advertise_gw_macip ? "Yes" : "No");
 		vty_out(vty, "Number of VNIs: %u\n", num_vnis);
 		vty_out(vty, "%-10s %-21s %-15s %-8s %-8s %-15s\n", "VNI",
 			"VxLAN IF", "VTEP IP", "# MACs", "# ARPs",

@@ -195,6 +195,8 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn)
 	vty_out(vty, "  RD: %s\n",
 		prefix_rd2str(&vpn->prd, buf1, RD_ADDRSTRLEN));
 	vty_out(vty, "  Originator IP: %s\n", inet_ntoa(vpn->originator_ip));
+	vty_out(vty, "  Advertise-gw-macip : %s\n",
+		vpn->advertise_gw_macip ? "Yes" : "No");
 
 	vty_out(vty, "  Import Route Target:\n");
 	for (ALL_LIST_ELEMENTS(vpn->import_rtl, node, nnode, ecom)) {

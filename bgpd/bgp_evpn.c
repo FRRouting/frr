@@ -1193,6 +1193,12 @@ static int handle_tunnel_ip_change(struct bgp *bgp, struct bgpevpn *vpn,
 {
 	struct prefix_evpn p;
 
+	/* If VNI is not live, we only need to update the originator ip */
+	if (!is_vni_live(vpn)) {
+		vpn->originator_ip = originator_ip;
+		return 0;
+	}
+
 	/* Need to withdraw type-3 route as the originator IP is part
 	 * of the key.
 	 */
@@ -2678,14 +2684,14 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 
 	/* Lookup VNI. If present and no change, exit. */
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
-	if (vpn && is_vni_live(vpn)) {
+	if (vpn) {
 		if (IPV4_ADDR_SAME(&vpn->originator_ip, &originator_ip))
 			/* Probably some other param has changed that we don't
 			 * care about. */
 			return 0;
 
 		/* Local tunnel endpoint IP address has changed */
-		return handle_tunnel_ip_change(bgp, vpn, originator_ip);
+		handle_tunnel_ip_change(bgp, vpn, originator_ip);
 	}
 
 	/* Create or update as appropriate. */
@@ -2698,6 +2704,10 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 			return -1;
 		}
 	}
+
+	/* if the VNI is live already, there is nothibng more to do */
+	if (is_vni_live(vpn))
+		return 0;
 
 	/* Mark as "live" */
 	SET_FLAG(vpn->flags, VNI_FLAG_LIVE);
