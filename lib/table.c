@@ -27,6 +27,7 @@
 #include "table.h"
 #include "memory.h"
 #include "sockunion.h"
+#include "jhash.h"
 
 DEFINE_MTYPE(       LIB, ROUTE_TABLE, "Route table")
 DEFINE_MTYPE(       LIB, ROUTE_NODE,  "Route node")
@@ -34,6 +35,16 @@ DEFINE_MTYPE(       LIB, ROUTE_NODE,  "Route node")
 static void route_node_delete (struct route_node *);
 static void route_table_free (struct route_table *);
 
+static unsigned route_table_hash_key(void *pp)
+{
+  struct prefix copy;
+
+  /* make sure *all* unused bits are zero, particularly including alignment /
+   * padding and unused prefix bytes. */
+  memset (&copy, 0, sizeof(copy));
+  prefix_copy (&copy, (struct prefix *)pp);
+  return jhash (&copy, sizeof(copy), 0x55aa5a5a);
+}
 
 /*
  * route_table_init_with_delegate
@@ -45,6 +56,9 @@ route_table_init_with_delegate (route_table_delegate_t *delegate)
 
   rt = XCALLOC (MTYPE_ROUTE_TABLE, sizeof (struct route_table));
   rt->delegate = delegate;
+  rt->hash = hash_create(route_table_hash_key,
+                         (int (*)(const void *, const void *)) prefix_same,
+                         "route table hash");
   return rt;
 }
 
@@ -65,12 +79,15 @@ route_node_new (struct route_table *table)
 static struct route_node *
 route_node_set (struct route_table *table, const struct prefix *prefix)
 {
-  struct route_node *node;
+  struct route_node *node, *inserted;
   
   node = route_node_new (table);
 
   prefix_copy (&node->p, prefix);
   node->table = table;
+
+  inserted = hash_get (node->table->hash, node, hash_alloc_intern);
+  assert (inserted == node);
 
   return node;
 }
@@ -93,6 +110,9 @@ route_table_free (struct route_table *rt)
  
   if (rt == NULL)
     return;
+
+  hash_clean (rt->hash, NULL);
+  hash_free (rt->hash);
 
   node = rt->top;
 
@@ -322,6 +342,7 @@ route_node_get (struct route_table *const table, union prefixconstptr pu)
   struct route_node *new;
   struct route_node *node;
   struct route_node *match;
+  struct route_node *inserted;
   u_char prefixlen = p->prefixlen;
   const u_char *prefix = &p->u.prefix;
 
@@ -352,6 +373,8 @@ route_node_get (struct route_table *const table, union prefixconstptr pu)
       new->p.family = p->family;
       new->table = table;
       set_link (new, node);
+      inserted = hash_get (node->table->hash, new, hash_alloc_intern);
+      assert (inserted == new);
 
       if (match)
 	set_link (match, new);
@@ -406,6 +429,8 @@ route_node_delete (struct route_node *node)
     node->table->top = child;
 
   node->table->count--;
+
+  hash_release (node->table->hash, node);
 
   /* WARNING: FRAGILE CODE!
    * route_node_free may have the side effect of free'ing the entire table.

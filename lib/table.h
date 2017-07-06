@@ -23,6 +23,7 @@
 #define _ZEBRA_TABLE_H
 
 #include "memory.h"
+#include "hash.h"
 DECLARE_MTYPE(ROUTE_TABLE)
 DECLARE_MTYPE(ROUTE_NODE)
 
@@ -56,6 +57,7 @@ struct route_table_delegate_t_
 struct route_table
 {
   struct route_node *top;
+  struct hash *hash;
 
   /*
    * Delegate that performs certain functions for this table.
