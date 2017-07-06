@@ -396,8 +396,7 @@ lde_kernel_update(struct fec *fec)
 		lde_gc_start_timer();
 	} else {
 		fn->local_label = lde_update_label(fn);
-		if (fn->local_label != NO_LABEL &&
-		    RB_EMPTY(lde_map_head, &fn->upstream))
+		if (fn->local_label != NO_LABEL)
 			/* FEC.1: perform lsr label distribution procedure */
 			RB_FOREACH(ln, nbr_tree, &lde_nbrs)
 				lde_send_labelmapping(ln, fn, 1);
