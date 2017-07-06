@@ -908,8 +908,12 @@ lde_send_labelmapping(struct lde_nbr *ln, struct fec_node *fn, int single)
 	 */
 	lw = (struct lde_wdraw *)fec_find(&ln->sent_wdraw, &fn->fec);
 	if (lw) {
-		if (!fec_find(&ln->sent_map_pending, &fn->fec))
+		if (!fec_find(&ln->sent_map_pending, &fn->fec)) {
+			debug_evt("%s: FEC %s: scheduling to send label "
+			    "mapping later (waiting for pending label release)",
+			    __func__, log_fec(&fn->fec));
 			lde_map_pending_add(ln, fn);
+		}
 		return;
 	}
 
