@@ -4349,7 +4349,7 @@ DEFUN (show_ip_mroute_vrf_all,
 		show_mroute(vrf->info, vty, uj);
 	}
 	if (uj)
-		vty_out(vty, "}");
+		vty_out(vty, "}\n");
 
 	return CMD_SUCCESS;
 }

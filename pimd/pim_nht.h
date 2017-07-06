@@ -53,8 +53,6 @@ int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 			      struct pim_nexthop_cache *out_pnc);
 void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 				struct pim_upstream *up, struct rp_info *rp);
-struct pim_nexthop_cache *pim_nexthop_cache_add(struct pim_instance *pim,
-						struct pim_rpf *rpf_addr);
 struct pim_nexthop_cache *pim_nexthop_cache_find(struct pim_instance *pim,
 						 struct pim_rpf *rpf);
 uint32_t pim_compute_ecmp_hash(struct prefix *src, struct prefix *grp);
@@ -68,7 +66,6 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 			    int neighbor_needed);
 void pim_sendmsg_zebra_rnh(struct pim_instance *pim, struct zclient *zclient,
 			   struct pim_nexthop_cache *pnc, int command);
-int pim_update_rp_nh(struct pim_instance *pim, struct pim_nexthop_cache *pnc);
 void pim_resolve_upstream_nh(struct pim_instance *pim, struct prefix *nht_p);
 int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim,
 				     struct in_addr addr, struct prefix *src,
