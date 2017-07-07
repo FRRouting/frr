@@ -154,7 +154,7 @@ FRR_DAEMON_INFO(eigrpd, EIGRP,
 int
 main (int argc, char **argv, char **envp)
 {
-  frr_preinit (&eigrpd_di, argc, argv);
+  frr_preinit (&eigrpd_di, argv[0]);
   frr_opt_add ("", longopts, "");
 
   while (1)

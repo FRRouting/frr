@@ -221,7 +221,7 @@ main (int argc, char **argv)
   /* Socket to external label manager */
   char *lblmgr_path = NULL;
 
-  frr_preinit(&zebra_di, argc, argv);
+  frr_preinit (&zebra_di, argv[0]);
 
   frr_opt_add("bakz:e:l:r"
 #ifdef HAVE_NETLINK

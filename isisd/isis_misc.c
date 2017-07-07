@@ -27,6 +27,7 @@
 #include "vty.h"
 #include "hash.h"
 #include "if.h"
+#include "libfrr.h"
 #include "command.h"
 
 #include "isisd/dict.h"
@@ -529,7 +530,7 @@ newprefix2inaddr (u_char * prefix_start, u_char prefix_masklen)
 }
 
 /*
- * Returns host.name if any, otherwise
+ * Returns frr.host.name if any, otherwise
  * it returns the system hostname.
  */
 const char *
@@ -538,7 +539,7 @@ unix_hostname (void)
   static struct utsname names;
   const char *hostname;
 
-  hostname = host.name;
+  hostname = frr.host.name;
   if (!hostname)
     {
       uname (&names);

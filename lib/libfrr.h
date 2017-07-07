@@ -65,6 +65,69 @@ struct frr_daemon_info {
 	struct zebra_privs_t *privs;
 };
 
+/* Global data structure holding:
+ *  - Configuration file names and paths
+ *  - Hostname
+ *  - Miscellaneous runtime configuration options
+ *
+ * XXX: struct host has been moved from command.h without changes. Some of its
+ * fields probably make more sense in daemon_info.
+ */
+struct frr {
+	struct {
+		/* FRR configuration directory without trailing backslash. This
+		 * defaults to SYSCONFDIR, which is defined at compile time by
+		 * the --sysconfdir option.  */
+		char dir[MAXPATHLEN];
+
+		/* Basename of integrated config file */
+		char integrated[MAXPATHLEN];
+
+	} config;
+
+	/* VTY socket directory */
+	char vtydir[MAXPATHLEN];
+
+	/* Module directory */
+	char moduledir[MAXPATHLEN];
+
+	/* Daemon-specific information */
+	struct frr_daemon_info *daemon;
+
+	struct {
+		/* Host name of this router */
+		char *name;
+		
+		/* Password for vty interface */
+		char *password;
+		char *password_encrypt;
+		
+		/* Enable password */
+		char *enable;
+		char *enable_encrypt;
+		
+		/* System wide terminal lines */
+		int lines;
+		
+		/* Log filename */
+		char *logfile;
+		
+		/* config file name of this host */
+		char *config;
+		int noconfig;
+		
+		/* Flags for services */
+		int advanced;
+		int encrypt;
+		
+		/* Banner configuration. */
+		const char *motd;
+		char *motdfile;
+	} host;
+};
+
+extern struct frr frr;
+
 /* execname is the daemon's executable (and pidfile and configfile) name,
  * i.e. "zebra" or "bgpd"
  * constname is the daemons source-level name, primarily for the logging ID,
@@ -88,8 +151,7 @@ struct frr_daemon_info {
 	) \
 	/* end */
 
-extern void frr_preinit(struct frr_daemon_info *daemon,
-		int argc, char **argv);
+extern void frr_preinit (struct frr_daemon_info *daemon, const char *name);
 extern void frr_opt_add(const char *optstr,
 		const struct option *longopts, const char *helpstr);
 extern int frr_getopt(int argc, char * const argv[], int *longindex);
@@ -105,10 +167,9 @@ extern void frr_vty_serv(void);
 /* note: contains call to frr_vty_serv() */
 extern void frr_run(struct thread_master *master);
 
-extern char config_default[256];
-extern const char frr_sysconfdir[];
-extern const char frr_vtydir[];
-extern const char frr_moduledir[];
+extern void frr_update_confdir(const char *);
+extern void frr_integrated_conf(char *buf, size_t len);
+extern void frr_daemon_conf(char *buf, size_t len);
 
 extern char frr_protoname[];
 extern char frr_protonameinst[];

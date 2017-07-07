@@ -136,8 +136,10 @@ sighup(void)
 	 * Do a full configuration reload. In other words, reset vty_conf
 	 * and build a new configuartion from scratch.
 	 */
+	char defaultconf[MAXPATHLEN];
+	frr_daemon_conf(defaultconf, sizeof(defaultconf));
 	ldp_config_reset(vty_conf);
-	vty_read_config(ldpd_di.config_file, config_default);
+	vty_read_config(ldpd_di.config_file, defaultconf);
 	ldp_config_apply(NULL, vty_conf);
 }
 
@@ -203,7 +205,7 @@ main(int argc, char *argv[])
 	if (saved_argv0 == NULL)
 		saved_argv0 = (char *)"ldpd";
 
-	frr_preinit(&ldpd_di, argc, argv);
+	frr_preinit (&ldpd_di, argv[0]);
 	frr_opt_add("LEn:", longopts,
 		"      --ctl_socket   Override ctl socket path\n"
 		"-n,   --instance     Instance id\n");

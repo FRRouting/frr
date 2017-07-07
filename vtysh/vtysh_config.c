@@ -23,6 +23,7 @@
 #include "command.h"
 #include "linklist.h"
 #include "memory.h"
+#include "libfrr.h"
 
 #include "vtysh/vtysh.h"
 #include "vtysh/vtysh_user.h"
@@ -417,11 +418,10 @@ void
 vtysh_config_write ()
 {
   char line[81];
-  extern struct host host;
 
-  if (host.name)
+  if (frr.host.name)
     {
-      sprintf (line, "hostname %s", host.name);
+      sprintf (line, "hostname %s", frr.host.name);
       vtysh_config_parse_line(NULL, line);
     }
   if (vtysh_write_integrated == WRITE_INTEGRATED_NO)

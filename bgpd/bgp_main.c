@@ -138,7 +138,9 @@ sighup (void)
   zlog_info ("bgpd restarting!");
 
   /* Reload config file. */
-  vty_read_config (bgpd_di.config_file, config_default);
+  char defaultconf[MAXPATHLEN];
+  frr_daemon_conf(defaultconf, sizeof(defaultconf));
+  vty_read_config (bgpd_di.config_file, defaultconf);
 
   /* Try to return to normal operation. */
 }
@@ -357,7 +359,7 @@ main (int argc, char **argv)
   int no_fib_flag = 0;
   int skip_runas = 0;
 
-  frr_preinit(&bgpd_di, argc, argv);
+  frr_preinit (&bgpd_di, argv[0]);
   frr_opt_add("p:l:rne:", longopts,
 	"  -p, --bgp_port     Set bgp protocol's port number\n"
 	"  -l, --listenon     Listen on specified address (implies -n)\n"

@@ -32,16 +32,17 @@
 
 DEFINE_HOOK(frr_late_init, (struct thread_master *tm), (tm))
 
-const char frr_sysconfdir[] = SYSCONFDIR;
-const char frr_vtydir[] = DAEMON_VTY_DIR;
-const char frr_moduledir[] = MODULE_PATH;
+#define FRR_INTEGRATED_CONFIG "frr.conf"
 
 char frr_protoname[256] = "NONE";
 char frr_protonameinst[256] = "NONE";
 
-char config_default[256];
-static char pidfile_default[256];
-static char vtypath_default[256];
+/* Global configuration values. Initialized in preinit. */
+struct frr frr;
+
+/* Daemon-specific default configuration values */
+static char pidfile_default[MAXPATHLEN];
+static char vtypath_default[MAXPATHLEN];
 
 static char comb_optstr[256];
 static struct option comb_lo[64];
@@ -140,36 +141,72 @@ static const struct optspec os_user = {
 	lo_user
 };
 
-
-static struct frr_daemon_info *di = NULL;
-
-void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
+/**
+ * Updates the base configuration directory.
+ *
+ * @param base configuration directory without trailing slash
+ */
+void frr_update_confdir(const char *new)
 {
-	di = daemon;
+  snprintf(frr.config.dir, sizeof(frr.config.dir), "%s", new);
+}
+
+/**
+ * Prints the path to the integrated config into the provided buffer.
+ *
+ * @param buf the buffer to print into
+ * @param len the size of the buffer
+ */
+void frr_integrated_conf(char *buf, size_t len)
+{
+  snprintf(buf, len, "%s/%s", frr.config.dir, frr.config.integrated);
+}
+
+/**
+ * Prints the path to the default daemon config into the provided buffer.
+ *
+ * @param buf the buffer to print into
+ * @param len the size of the buffer
+ */
+void frr_daemon_conf(char *buf, size_t len)
+{
+  snprintf(buf, len, "%s/%s.conf", frr.config.dir, frr.daemon->name);
+}
+
+void frr_preinit(struct frr_daemon_info *daemon, const char *name)
+{
+	frr.daemon = daemon;
 
 	/* basename(), opencoded. */
-	char *p = strrchr(argv[0], '/');
-	di->progname = p ? p + 1 : argv[0];
+	char *p = strrchr(name, '/');
+	frr.daemon->progname = p ? p + 1 : name;
 
 	umask(0027);
 
 	opt_extend(&os_always);
-	if (!(di->flags & FRR_NO_CFG_PID_DRY))
+	if (!(frr.daemon->flags & FRR_NO_CFG_PID_DRY))
 		opt_extend(&os_cfg_pid_dry);
-	if (!(di->flags & FRR_NO_PRIVSEP))
+	if (!(frr.daemon->flags & FRR_NO_PRIVSEP))
 		opt_extend(&os_user);
-	if (!(di->flags & FRR_NO_ZCLIENT))
+	if (!(frr.daemon->flags & FRR_NO_ZCLIENT))
 		opt_extend(&os_zclient);
-	if (!(di->flags & FRR_NO_TCPVTY))
+	if (!(frr.daemon->flags & FRR_NO_TCPVTY))
 		opt_extend(&os_vty);
 
-	snprintf(config_default, sizeof(config_default), "%s/%s.conf",
-			frr_sysconfdir, di->name);
-	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
-			frr_vtydir, di->name);
+	/* Set global paths */
+	frr_update_confdir(SYSCONFDIR);
+	snprintf(frr.vtydir, sizeof(frr.vtydir), "%s", DAEMON_VTY_DIR);
+	snprintf(frr.moduledir, sizeof(frr.moduledir), "%s", MODULE_PATH);
+	snprintf(frr.config.integrated, sizeof(frr.config.integrated),
+		 "%s", FRR_INTEGRATED_CONFIG);
 
-	strlcpy(frr_protoname, di->logname, sizeof(frr_protoname));
-	strlcpy(frr_protonameinst, di->logname, sizeof(frr_protonameinst));
+        /* Set daemon-specific default configuration paths */
+	snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
+		 frr.vtydir, frr.daemon->name);
+
+	/* Set protocol names */
+	strlcpy(frr_protoname, frr.daemon->logname, sizeof(frr_protoname));
+	strlcpy(frr_protonameinst, frr.daemon->logname, sizeof(frr_protonameinst));
 }
 
 void frr_opt_add(const char *optstr, const struct option *longopts,
@@ -186,14 +223,14 @@ void frr_help_exit(int status)
 	if (status != 0)
 		fprintf(stderr, "Invalid options.\n\n");
 
-	if (di->printhelp)
-		di->printhelp(target);
+	if (frr.daemon->printhelp)
+		frr.daemon->printhelp(target);
 	else
 		fprintf(target, "Usage: %s [OPTION...]\n\n%s%s%s\n\n%s",
-				di->progname,
-				di->proghelp,
-				di->copyright ? "\n\n" : "",
-				di->copyright ? di->copyright : "",
+				frr.daemon->progname,
+				frr.daemon->proghelp,
+				frr.daemon->copyright ? "\n\n" : "",
+				frr.daemon->copyright ? frr.daemon->copyright : "",
 				comb_helpstr);
 	fprintf(target, "\nReport bugs to %s\n", FRR_BUG_ADDRESS);
 	exit(status);
@@ -219,11 +256,11 @@ static int frr_opt(int opt)
 		frr_help_exit(0);
 		break;
 	case 'v':
-		print_version(di->progname);
+		print_version(frr.daemon->progname);
 		exit(0);
 		break;
 	case 'd':
-		di->daemon_mode = 1;
+		frr.daemon->daemon_mode = 1;
 		break;
 	case 'M':
 		oc = XMALLOC(MTYPE_TMP, sizeof(*oc));
@@ -233,27 +270,27 @@ static int frr_opt(int opt)
 		modnext = &oc->next;
 		break;
 	case 'i':
-		if (di->flags & FRR_NO_CFG_PID_DRY)
+		if (frr.daemon->flags & FRR_NO_CFG_PID_DRY)
 			return 1;
-		di->pid_file = optarg;
+		frr.daemon->pid_file = optarg;
 		break;
 	case 'f':
-		if (di->flags & FRR_NO_CFG_PID_DRY)
+		if (frr.daemon->flags & FRR_NO_CFG_PID_DRY)
 			return 1;
-		di->config_file = optarg;
+		frr.daemon->config_file = optarg;
 		break;
 	case 'C':
-		if (di->flags & FRR_NO_CFG_PID_DRY)
+		if (frr.daemon->flags & FRR_NO_CFG_PID_DRY)
 			return 1;
-		di->dryrun = 1;
+		frr.daemon->dryrun = 1;
 		break;
 	case 'z':
-		if (di->flags & FRR_NO_ZCLIENT)
+		if (frr.daemon->flags & FRR_NO_ZCLIENT)
 			return 1;
 		zclient_serv_path_set(optarg);
 		break;
 	case 'A':
-		if (di->flags & FRR_NO_TCPVTY)
+		if (frr.daemon->flags & FRR_NO_TCPVTY)
 			return 1;
 		if (vty_addr_set) {
 			fprintf(stderr, "-A option specified more than once!\n");
@@ -261,10 +298,10 @@ static int frr_opt(int opt)
 			break;
 		}
 		vty_addr_set = 1;
-		di->vty_addr = optarg;
+		frr.daemon->vty_addr = optarg;
 		break;
 	case 'P':
-		if (di->flags & FRR_NO_TCPVTY)
+		if (frr.daemon->flags & FRR_NO_TCPVTY)
 			return 1;
 		if (vty_port_set) {
 			fprintf(stderr, "-P option specified more than once!\n");
@@ -272,7 +309,7 @@ static int frr_opt(int opt)
 			break;
 		}
 		vty_port_set = 1;
-		di->vty_port = strtoul(optarg, &err, 0);
+		frr.daemon->vty_port = strtoul(optarg, &err, 0);
 		if (*err || !*optarg) {
 			fprintf(stderr, "invalid port number \"%s\" for -P option\n",
 					optarg);
@@ -281,30 +318,30 @@ static int frr_opt(int opt)
 		}
 		break;
 	case OPTION_VTYSOCK:
-		if (di->vty_sock_path) {
+		if (frr.daemon->vty_sock_path) {
 			fprintf(stderr, "--vty_socket option specified more than once!\n");
 			errors++;
 			break;
 		}
-		di->vty_sock_path = optarg;
+		frr.daemon->vty_sock_path = optarg;
 		break;
 	case OPTION_MODULEDIR:
-		if (di->module_path) {
+		if (frr.daemon->module_path) {
 			fprintf(stderr, "----moduledir option specified more than once!\n");
 			errors++;
 			break;
 		}
-		di->module_path = optarg;
+		frr.daemon->module_path = optarg;
 		break;
 	case 'u':
-		if (di->flags & FRR_NO_PRIVSEP)
+		if (frr.daemon->flags & FRR_NO_PRIVSEP)
 			return 1;
-		di->privs->user = optarg;
+		frr.daemon->privs->user = optarg;
 		break;
 	case 'g':
-		if (di->flags & FRR_NO_PRIVSEP)
+		if (frr.daemon->flags & FRR_NO_PRIVSEP)
 			return 1;
-		di->privs->group = optarg;
+		frr.daemon->privs->group = optarg;
 		break;
 	default:
 		return 1;
@@ -332,6 +369,7 @@ int frr_getopt(int argc, char * const argv[], int *longindex)
 	return opt;
 }
 
+
 static struct thread_master *master;
 struct thread_master *frr_init(void)
 {
@@ -339,21 +377,21 @@ struct thread_master *frr_init(void)
 	struct frrmod_runtime *module;
 	char moderr[256];
 	const char *dir;
-	dir = di->module_path ? di->module_path : frr_moduledir;
+	dir = frr.daemon->module_path ? frr.daemon->module_path : frr.moduledir;
 
 	srandom(time(NULL));
 
-	if (di->instance)
+	if (frr.daemon->instance)
 		snprintf(frr_protonameinst, sizeof(frr_protonameinst),
-				"%s[%u]", di->logname, di->instance);
+				"%s[%u]", frr.daemon->logname, frr.daemon->instance);
 
-	openzlog (di->progname, di->logname, di->instance,
+	openzlog (frr.daemon->progname, frr.daemon->logname, frr.daemon->instance,
 			LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
 #if defined(HAVE_CUMULUS)
 	zlog_set_level (ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
 #endif
 
-	frrmod_init(di->module);
+	frrmod_init(frr.daemon->module);
 	while (modules) {
 		modules = (oc = modules)->next;
 		module = frrmod_load(oc->arg, dir, moderr, sizeof(moderr));
@@ -364,12 +402,12 @@ struct thread_master *frr_init(void)
 		XFREE(MTYPE_TMP, oc);
 	}
 
-	zprivs_init(di->privs);
+	zprivs_init(frr.daemon->privs);
 
 	master = thread_master_create(NULL);
-	signal_init(master, di->n_signals, di->signals);
+	signal_init(master, frr.daemon->n_signals, frr.daemon->signals);
 
-	if (di->flags & FRR_LIMITED_CLI)
+	if (frr.daemon->flags & FRR_LIMITED_CLI)
 		cmd_init(-1);
 	else
 		cmd_init(1);
@@ -383,50 +421,53 @@ void frr_config_fork(void)
 {
 	hook_call(frr_late_init, master);
 
-	if (di->instance) {
-		snprintf(config_default, sizeof(config_default), "%s/%s-%d.conf",
-				frr_sysconfdir, di->name, di->instance);
+	char defaultconf[MAXPATHLEN];
+	frr_daemon_conf(defaultconf, sizeof(defaultconf));
+
+	if (frr.daemon->instance) {
+		snprintf(defaultconf, sizeof(defaultconf), "%s/%s-%d.conf",
+			 frr.config.dir, frr.daemon->name, frr.daemon->instance);
 		snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s-%d.pid",
-				frr_vtydir, di->name, di->instance);
+			 frr.vtydir, frr.daemon->name, frr.daemon->instance);
 	}
 
-	vty_read_config(di->config_file, config_default);
+	vty_read_config(frr.daemon->config_file, defaultconf);
 
 	/* Don't start execution if we are in dry-run mode */
-	if (di->dryrun)
+	if (frr.daemon->dryrun)
 		exit(0);
 
 	/* Daemonize. */
-	if (di->daemon_mode && daemon (0, 0) < 0) {
+	if (frr.daemon->daemon_mode && daemon (0, 0) < 0) {
 		zlog_err("Zebra daemon failed: %s", strerror(errno));
 		exit(1);
 	}
 
-	if (!di->pid_file)
-		di->pid_file = pidfile_default;
-	pid_output (di->pid_file);
+	if (!frr.daemon->pid_file)
+		frr.daemon->pid_file = pidfile_default;
+	pid_output (frr.daemon->pid_file);
 }
 
 void frr_vty_serv(void)
 {
 	/* allow explicit override of vty_path in the future 
 	 * (not currently set anywhere) */
-	if (!di->vty_path) {
+	if (!frr.daemon->vty_path) {
 		const char *dir;
-		dir = di->vty_sock_path ? di->vty_sock_path : frr_vtydir;
+		dir = frr.daemon->vty_sock_path ? frr.daemon->vty_sock_path : frr.vtydir;
 
-		if (di->instance)
+		if (frr.daemon->instance)
 			snprintf(vtypath_default, sizeof(vtypath_default),
 					"%s/%s-%d.vty",
-					dir, di->name, di->instance);
+					dir, frr.daemon->name, frr.daemon->instance);
 		else
 			snprintf(vtypath_default, sizeof(vtypath_default),
-					"%s/%s.vty", dir, di->name);
+					"%s/%s.vty", dir, frr.daemon->name);
 
-		di->vty_path = vtypath_default;
+		frr.daemon->vty_path = vtypath_default;
 	}
 
-	vty_serv_sock(di->vty_addr, di->vty_port, di->vty_path);
+	vty_serv_sock(frr.daemon->vty_addr, frr.daemon->vty_port, frr.daemon->vty_path);
 }
 
 void frr_run(struct thread_master *master)
@@ -435,16 +476,16 @@ void frr_run(struct thread_master *master)
 
 	frr_vty_serv();
 
-	if (di->instance)
+	if (frr.daemon->instance)
 		snprintf(instanceinfo, sizeof(instanceinfo), "instance %u ",
-				di->instance);
+				frr.daemon->instance);
 
 	zlog_notice("%s %s starting: %svty@%d%s",
-			di->name,
+			frr.daemon->name,
 			FRR_VERSION,
 			instanceinfo,
-			di->vty_port,
-			di->startinfo);
+			frr.daemon->vty_port,
+			frr.daemon->startinfo);
 
 	struct thread thread;
 	while (thread_fetch(master, &thread))

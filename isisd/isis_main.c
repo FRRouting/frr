@@ -178,7 +178,7 @@ main (int argc, char **argv, char **envp)
 {
   int opt;
 
-  frr_preinit (&isisd_di, argc, argv);
+  frr_preinit (&isisd_di, argv[0]);
   frr_opt_add ("", longopts, "");
 
   /* Command line argument treatment. */
