@@ -439,6 +439,8 @@ def test_ospfv2_interfaces():
             actual = re.sub(r"BW [0-9]+ Mbit", "BW XX Mbit", actual)
             # Drop time in next due 
             actual = re.sub(r"Hello due in [0-9\.]+s", "Hello due in XX.XXXs", actual)
+            # Fix 'MTU mismatch detection: enabled' vs 'MTU mismatch detection:enabled' - accept both
+            actual = re.sub(r"MTU mismatch detection:([a-z]+.*)", r"MTU mismatch detection: \1", actual)
             # Fix newlines (make them all the same)
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
