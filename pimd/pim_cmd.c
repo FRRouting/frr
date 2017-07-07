@@ -4256,7 +4256,6 @@ DEFUN_HIDDEN (no_ip_multicast_routing,
               "no ip multicast-routing",
               NO_STR
               IP_STR
-              "Global IP configuration subcommands\n"
               "Enable IP multicast forwarding\n")
 {
   vty_outln (vty,
@@ -5732,7 +5731,6 @@ DEFUN (debug_ssmpingd,
        debug_ssmpingd_cmd,
        "debug ssmpingd",
        DEBUG_STR
-       DEBUG_PIM_STR
        DEBUG_SSMPINGD_STR)
 {
   PIM_DO_DEBUG_SSMPINGD;
@@ -5744,7 +5742,6 @@ DEFUN (no_debug_ssmpingd,
        "no debug ssmpingd",
        NO_STR
        DEBUG_STR
-       DEBUG_PIM_STR
        DEBUG_SSMPINGD_STR)
 {
   PIM_DONT_DEBUG_SSMPINGD;

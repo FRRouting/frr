@@ -1376,7 +1376,6 @@ DEFUN (bgp_update_delay_establish_wait,
        "update-delay (0-3600) (1-3600)",
        "Force initial delay for best-path and updates\n"
        "Seconds\n"
-       "Wait for peers to be established\n"
        "Seconds\n")
 {
   int idx_number = 1;
@@ -1391,7 +1390,7 @@ DEFUN (no_bgp_update_delay,
        NO_STR
        "Force initial delay for best-path and updates\n"
        "Seconds\n"
-       "Wait for peers to be established\n")
+       "Seconds\n")
 {
   return bgp_update_delay_deconfig_vty(vty);
 }
@@ -6240,11 +6239,10 @@ DEFUN_NOSH (address_family_vpnv6,
 
 DEFUN_NOSH (address_family_evpn,
        address_family_evpn_cmd,
-       "address-family <l2vpn evpn>",
+       "address-family l2vpn evpn",
        "Enter Address Family command mode\n"
-       "EVPN Address family\n"
-       "Layer2 VPN Address family\n"
-       "Ethernet Virtual Private Network Subsequent Address Family\n")
+       "Address Family\n"
+       "Address Family modifier\n")
 {
   vty->node = BGP_EVPN_NODE;
   return CMD_SUCCESS;
@@ -9620,8 +9618,7 @@ DEFUN (show_bgp_updgrps_afi_adj,
        "Detailed info about dynamic update groups\n"
        "Advertisement queue\n"
        "Announced routes\n"
-       "Packet queue\n"
-       "Specific subgroup info wanted for\n")
+       "Packet queue\n")
 {
   int idx_afi = 2;
   int idx_safi = 3;
@@ -9726,8 +9723,7 @@ DEFUN (show_bgp_updgrps_afi_adj_s,
        "Specific subgroup to display info for\n"
        "Advertisement queue\n"
        "Announced routes\n"
-       "Packet queue\n"
-       "Specific subgroup info wanted for\n")
+       "Packet queue\n")
 {
   int idx_afi = 2;
   int idx_safi = 3;
@@ -12180,8 +12176,7 @@ DEFUN (ip_lcommunity_list_standard,
        LCOMMUNITY_LIST_STR
        "Large Community list number (standard)\n"
        "Specify large community to reject\n"
-       "Specify large community to accept\n"
-       LCOMMUNITY_VAL_STR)
+       "Specify large community to accept\n")
 {
   return lcommunity_list_set_vty (vty, argc, argv, LARGE_COMMUNITY_LIST_STANDARD, 0);
 }

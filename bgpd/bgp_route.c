@@ -9436,7 +9436,6 @@ DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
        "Address Family modifier\n"
        "Address Family modifier\n"
        "Address Family modifier\n"
-       "Address Family modifier\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"

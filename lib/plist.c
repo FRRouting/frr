@@ -1736,9 +1736,7 @@ DEFPY (show_ipv6_prefix_list,
        PREFIX_LIST_STR
        "Name of a prefix list\n"
        "sequence number of an entry\n"
-       "Sequence number\n"
-       "Lookup longer prefix\n"
-       "First matched prefix\n")
+       "Sequence number\n")
 {
   enum display_type dtype = normal_display;
   if (dseq)

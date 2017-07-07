@@ -617,8 +617,7 @@ DEFUN (no_router_babel,
        "no router babel",
        NO_STR
        "Disable a routing process\n"
-       "Remove Babel instance command\n"
-       "No attributes\n")
+       "Remove Babel instance command\n")
 {
     if(babel_routing_process)
         babel_clean_routing_process();
