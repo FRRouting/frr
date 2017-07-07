@@ -6513,15 +6513,14 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 						len = vty_out(
 							vty, "%s",
 							binfo->peer->conf_if);
-						len =
-							7 - len; /* len of IPv6
-								    addr + max
-								    len of def
-								    ifname */
+						len = 16 - len; /* len of IPv6
+								   addr + max
+								   len of def
+								   ifname */
 
 						if (len < 1)
 							vty_out(vty, "\n%*s",
-								45, " ");
+								36, " ");
 						else
 							vty_out(vty, "%*s", len,
 								" ");
