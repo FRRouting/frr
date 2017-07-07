@@ -3300,6 +3300,47 @@ DEFUN (show_ip_igmp_interface,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_ip_igmp_interface_vrf_all,
+       show_ip_igmp_interface_vrf_all_cmd,
+       "show ip igmp vrf all interface [detail|WORD] [json]",
+       SHOW_STR
+       IP_STR
+       IGMP_STR
+       VRF_CMD_HELP_STR
+       "IGMP interface information\n"
+       "Detailed output\n"
+       "interface name\n"
+       "JavaScript Object Notation\n")
+{
+	int idx = 2;
+	u_char uj = use_json(argc, argv);
+	struct vrf *vrf;
+	bool first = true;
+
+	if (uj)
+		vty_out(vty, "{ ");
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		if (uj) {
+			if (!first)
+				vty_out(vty, ", ");
+			vty_out(vty, " \"%s\": ", vrf->name);
+			first = false;
+		} else
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		if (argv_find(argv, argc, "detail", &idx)
+		    || argv_find(argv, argc, "WORD", &idx))
+			igmp_show_interfaces_single(vrf->info, vty,
+						    argv[idx]->arg, uj);
+		else
+			igmp_show_interfaces(vrf->info, vty, uj);
+	}
+	if (uj)
+		vty_out(vty, "}\n");
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_ip_igmp_join,
        show_ip_igmp_join_cmd,
        "show ip igmp [vrf NAME] join",
@@ -3316,6 +3357,38 @@ DEFUN (show_ip_igmp_join,
 		return CMD_WARNING;
 
 	igmp_show_interface_join(vrf->info, vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_igmp_join_vrf_all,
+       show_ip_igmp_join_vrf_all_cmd,
+       "show ip igmp vrf all join",
+       SHOW_STR
+       IP_STR
+       IGMP_STR
+       VRF_CMD_HELP_STR
+       "IGMP static join information\n")
+{
+	u_char uj = use_json(argc, argv);
+	struct vrf *vrf;
+	bool first = true;
+
+	if (uj)
+		vty_out(vty, "{ ");
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		if (uj) {
+			if (!first)
+				vty_out(vty, ", ");
+			vty_out(vty, " \"%s\": ", vrf->name);
+			first = false;
+		} else
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		igmp_show_interface_join(vrf->info, vty);
+	}
+	if (uj)
+		vty_out(vty, "}\n");
 
 	return CMD_SUCCESS;
 }
@@ -3338,6 +3411,39 @@ DEFUN (show_ip_igmp_groups,
 		return CMD_WARNING;
 
 	igmp_show_groups(vrf->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_igmp_groups_vrf_all,
+       show_ip_igmp_groups_vrf_all_cmd,
+       "show ip igmp vrf all groups [json]",
+       SHOW_STR
+       IP_STR
+       IGMP_STR
+       VRF_CMD_HELP_STR
+       IGMP_GROUP_STR
+       "JavaScript Object Notation\n")
+{
+	u_char uj = use_json(argc, argv);
+	struct vrf *vrf;
+	bool first = true;
+
+	if (uj)
+		vty_out(vty, "{ ");
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		if (uj) {
+			if (!first)
+				vty_out(vty, ", ");
+			vty_out(vty, " \"%s\": ", vrf->name);
+			first = false;
+		} else
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		igmp_show_groups(vrf->info, vty, uj);
+	}
+	if (uj)
+		vty_out(vty, "}\n");
 
 	return CMD_SUCCESS;
 }
@@ -3506,9 +3612,49 @@ DEFUN (show_ip_pim_interface,
 	if (argv_find(argv, argc, "WORD", &idx)
 	    || argv_find(argv, argc, "detail", &idx))
 		pim_show_interfaces_single(vrf->info, vty, argv[idx]->arg, uj);
-
 	else
 		pim_show_interfaces(vrf->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_pim_interface_vrf_all,
+       show_ip_pim_interface_vrf_all_cmd,
+       "show ip pim vrf all interface [detail|WORD] [json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM interface information\n"
+       "Detailed output\n"
+       "interface name\n"
+       "JavaScript Object Notation\n")
+{
+	int idx = 6;
+	u_char uj = use_json(argc, argv);
+	struct vrf *vrf;
+	bool first = true;
+
+	if (uj)
+		vty_out(vty, "{ ");
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		if (uj) {
+			if (!first)
+				vty_out(vty, ", ");
+			vty_out(vty, " \"%s\": ", vrf->name);
+			first = false;
+		} else
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		if (argv_find(argv, argc, "WORD", &idx)
+		    || argv_find(argv, argc, "detail", &idx))
+			pim_show_interfaces_single(vrf->info, vty,
+						   argv[idx]->arg, uj);
+		else
+			pim_show_interfaces(vrf->info, vty, uj);
+	}
+	if (uj)
+		vty_out(vty, "}\n");
 
 	return CMD_SUCCESS;
 }
@@ -3533,6 +3679,39 @@ DEFUN (show_ip_pim_join,
 	pim_show_join(vrf->info, vty, uj);
 
 	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_pim_join_vrf_all,
+       show_ip_pim_join_vrf_all_cmd,
+       "show ip pim vrf all join [json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM interface join information\n"
+       JSON_STR)
+{
+	u_char uj = use_json(argc, argv);
+	struct vrf *vrf;
+	bool first = true;
+
+	if (uj)
+		vty_out(vty, "{ ");
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		if (uj) {
+			if (!first)
+				vty_out(vty, ", ");
+			vty_out(vty, " \"%s\": ", vrf->name);
+			first = false;
+		} else
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		pim_show_join(vrf->info, vty, uj);
+	}
+	if (uj)
+		vty_out(vty, "}\n");
+
+	return CMD_WARNING;
 }
 
 DEFUN (show_ip_pim_local_membership,
@@ -3581,6 +3760,47 @@ DEFUN (show_ip_pim_neighbor,
 		pim_show_neighbors_single(vrf->info, vty, argv[idx]->arg, uj);
 	else
 		pim_show_neighbors(vrf->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_pim_neighbor_vrf_all,
+       show_ip_pim_neighbor_vrf_all_cmd,
+       "show ip pim vrf all neighbor [detail|WORD] [json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM neighbor information\n"
+       "Detailed output\n"
+       "Name of interface or neighbor\n"
+       "JavaScript Object Notation\n")
+{
+	int idx = 2;
+	u_char uj = use_json(argc, argv);
+	struct vrf *vrf;
+	bool first = true;
+
+	if (uj)
+		vty_out(vty, "{ ");
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		if (uj) {
+			if (!first)
+				vty_out(vty, ", ");
+			vty_out(vty, " \"%s\": ", vrf->name);
+			first = false;
+		} else
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		if (argv_find(argv, argc, "detail", &idx)
+		    || argv_find(argv, argc, "WORD", &idx))
+			pim_show_neighbors_single(vrf->info, vty,
+						  argv[idx]->arg, uj);
+		else
+			pim_show_neighbors(vrf->info, vty, uj);
+	}
+	if (uj)
+		vty_out(vty, "}\n");
 
 	return CMD_SUCCESS;
 }
@@ -3640,6 +3860,53 @@ DEFUN (show_ip_pim_state,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_ip_pim_state_vrf_all,
+       show_ip_pim_state_vrf_all_cmd,
+       "show ip pim vrf all state [A.B.C.D [A.B.C.D]] [json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM state information\n"
+       "Unicast or Multicast address\n"
+       "Multicast address\n"
+       "JavaScript Object Notation\n")
+{
+	const char *src_or_group = NULL;
+	const char *group = NULL;
+	int idx = 2;
+	u_char uj = use_json(argc, argv);
+	struct vrf *vrf;
+	bool first = true;
+
+	if (uj) {
+		vty_out(vty, "{ ");
+		argc--;
+	}
+
+	if (argv_find(argv, argc, "A.B.C.D", &idx)) {
+		src_or_group = argv[idx]->arg;
+		if (idx + 1 < argc)
+			group = argv[idx + 1]->arg;
+	}
+
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		if (uj) {
+			if (!first)
+				vty_out(vty, ", ");
+			vty_out(vty, " \"%s\": ", vrf->name);
+			first = false;
+		} else
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		pim_show_state(vrf->info, vty, src_or_group, group, uj);
+	}
+	if (uj)
+		vty_out(vty, "}\n");
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_ip_pim_upstream,
        show_ip_pim_upstream_cmd,
        "show ip pim [vrf NAME] upstream [json]",
@@ -3658,6 +3925,37 @@ DEFUN (show_ip_pim_upstream,
 		return CMD_WARNING;
 
 	pim_show_upstream(vrf->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_pim_upstream_vrf_all,
+       show_ip_pim_upstream_vrf_all_cmd,
+       "show ip pim vrf all upstream [json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM upstream information\n"
+       JSON_STR)
+{
+	u_char uj = use_json(argc, argv);
+	struct vrf *vrf;
+	bool first = true;
+
+	if (uj)
+		vty_out(vty, "{ ");
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		if (uj) {
+			if (!first)
+				vty_out(vty, ", ");
+			vty_out(vty, " \"%s\": ", vrf->name);
+			first = false;
+		} else
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		pim_show_upstream(vrf->info, vty, uj);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -3728,6 +4026,39 @@ DEFUN (show_ip_pim_rp,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_ip_pim_rp_vrf_all,
+       show_ip_pim_rp_vrf_all_cmd,
+       "show ip pim vrf all rp-info [json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM RP information\n"
+       "JavaScript Object Notation\n")
+{
+	u_char uj = use_json(argc, argv);
+	struct vrf *vrf;
+	bool first = true;
+
+	if (uj)
+		vty_out(vty, "{ ");
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		if (uj) {
+			if (!first)
+				vty_out(vty, ", ");
+			vty_out(vty, " \"%s\": ", vrf->name);
+			first = false;
+		} else
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		pim_rp_show_information(vrf->info, vty, uj);
+	}
+	if (uj)
+		vty_out(vty, "}\n");
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_ip_pim_rpf,
        show_ip_pim_rpf_cmd,
        "show ip pim [vrf NAME] rpf [json]",
@@ -3746,6 +4077,39 @@ DEFUN (show_ip_pim_rpf,
 		return CMD_WARNING;
 
 	pim_show_rpf(vrf->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_pim_rpf_vrf_all,
+       show_ip_pim_rpf_vrf_all_cmd,
+       "show ip pim vrf all rpf [json]",
+       SHOW_STR
+       IP_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM cached source rpf information\n"
+       "JavaScript Object Notation\n")
+{
+	u_char uj = use_json(argc, argv);
+	struct vrf *vrf;
+	bool first = true;
+
+	if (uj)
+		vty_out(vty, "{ ");
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		if (uj) {
+			if (!first)
+				vty_out(vty, ", ");
+			vty_out(vty, " \"%s\": ", vrf->name);
+			first = false;
+		} else
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		pim_show_rpf(vrf->info, vty, uj);
+	}
+	if (uj)
+		vty_out(vty, "}\n");
 
 	return CMD_SUCCESS;
 }
@@ -3924,22 +4288,13 @@ static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty)
 	}
 }
 
-DEFUN (show_ip_multicast,
-       show_ip_multicast_cmd,
-       "show ip multicast [vrf NAME]",
-       SHOW_STR
-       IP_STR
-       VRF_CMD_HELP_STR
-       "Multicast global information\n")
+static void pim_cmd_show_ip_multicast_helper(struct pim_instance *pim,
+					     struct vty *vty)
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	struct pim_instance *pim;
+	struct vrf *vrf = pim->vrf;
 	time_t now = pim_time_monotonic_sec();
 	char uptime[10];
 
-	if (!vrf)
-		return CMD_WARNING;
 	pim = vrf->info;
 
 	vty_out(vty, "Mroute socket descriptor:");
@@ -3974,6 +4329,54 @@ DEFUN (show_ip_multicast,
 	show_scan_oil_stats(pim, vty, now);
 
 	show_multicast_interfaces(pim, vty);
+}
+
+DEFUN (show_ip_multicast,
+       show_ip_multicast_cmd,
+       "show ip multicast [vrf NAME]",
+       SHOW_STR
+       IP_STR
+       VRF_CMD_HELP_STR
+       "Multicast global information\n")
+{
+	int idx = 2;
+	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
+
+	if (!vrf)
+		return CMD_WARNING;
+
+	pim_cmd_show_ip_multicast_helper(vrf->info, vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_multicast_vrf_all,
+       show_ip_multicast_vrf_all_cmd,
+       "show ip multicast vrf all",
+       SHOW_STR
+       IP_STR
+       VRF_CMD_HELP_STR
+       "Multicast global information\n")
+{
+	u_char uj = use_json(argc, argv);
+	struct vrf *vrf;
+	bool first = true;
+
+	if (uj)
+		vty_out(vty, "{ ");
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		if (uj) {
+			if (!first)
+				vty_out(vty, ", ");
+			vty_out(vty, " \"%s\": ", vrf->name);
+			first = false;
+		} else
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		pim_cmd_show_ip_multicast_helper(vrf->info, vty);
+	}
+	if (uj)
+		vty_out(vty, "}\n");
 
 	return CMD_SUCCESS;
 }
@@ -7257,6 +7660,39 @@ DEFUN (show_ip_msdp_mesh_group,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_ip_msdp_mesh_group_vrf_all,
+       show_ip_msdp_mesh_group_vrf_all_cmd,
+       "show ip msdp vrf all mesh-group [json]",
+       SHOW_STR
+       IP_STR
+       MSDP_STR
+       VRF_CMD_HELP_STR
+       "MSDP mesh-group information\n"
+       "JavaScript Object Notation\n")
+{
+	u_char uj = use_json(argc, argv);
+	struct vrf *vrf;
+	bool first = true;
+
+	if (uj)
+		vty_out(vty, "{ ");
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		if (uj) {
+			if (!first)
+				vty_out(vty, ", ");
+			vty_out(vty, " \"%s\": ", vrf->name);
+			first = false;
+		} else
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		ip_msdp_show_mesh_group(vrf->info, vty, uj);
+	}
+	if (uj)
+		vty_out(vty, "}\n");
+
+	return CMD_SUCCESS;
+}
+
 static void ip_msdp_show_peers(struct pim_instance *pim, struct vty *vty,
 			       u_char uj)
 {
@@ -7439,6 +7875,47 @@ DEFUN (show_ip_msdp_peer_detail,
 		ip_msdp_show_peers_detail(vrf->info, vty, argv[idx]->arg, uj);
 	else
 		ip_msdp_show_peers(vrf->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_msdp_peer_detail_vrf_all,
+       show_ip_msdp_peer_detail_vrf_all_cmd,
+       "show ip msdp vrf all peer [detail|A.B.C.D] [json]",
+       SHOW_STR
+       IP_STR
+       MSDP_STR
+       VRF_CMD_HELP_STR
+       "MSDP peer information\n"
+       "Detailed output\n"
+       "peer ip address\n"
+       "JavaScript Object Notation\n")
+{
+	int idx = 2;
+	u_char uj = use_json(argc, argv);
+	struct vrf *vrf;
+	bool first = true;
+
+	if (uj)
+		vty_out(vty, "{ ");
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		if (uj) {
+			if (!first)
+				vty_out(vty, ", ");
+			vty_out(vty, " \"%s\": ", vrf->name);
+			first = false;
+		} else
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		if (argv_find(argv, argc, "detail", &idx)
+		    || argv_find(argv, argc, "A.B.C.D", &idx))
+			ip_msdp_show_peers_detail(vrf->info, vty,
+						  argv[idx]->arg, uj);
+		else
+			ip_msdp_show_peers(vrf->info, vty, uj);
+	}
+	if (uj)
+		vty_out(vty, "}\n");
 
 	return CMD_SUCCESS;
 }
@@ -7630,6 +8107,40 @@ DEFUN (show_ip_msdp_sa_detail,
 		return CMD_WARNING;
 
 	ip_msdp_show_sa_detail(vrf->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_msdp_sa_detail_vrf_all,
+       show_ip_msdp_sa_detail_vrf_all_cmd,
+       "show ip msdp vrf all sa detail [json]",
+       SHOW_STR
+       IP_STR
+       MSDP_STR
+       VRF_CMD_HELP_STR
+       "MSDP active-source information\n"
+       "Detailed output\n"
+       "JavaScript Object Notation\n")
+{
+	u_char uj = use_json(argc, argv);
+	struct vrf *vrf;
+	bool first = true;
+
+	if (uj)
+		vty_out(vty, "{ ");
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
+	{
+		if (uj) {
+			if (!first)
+				vty_out(vty, ", ");
+			vty_out(vty, " \"%s\": ", vrf->name);
+			first = false;
+		} else
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		ip_msdp_show_sa_detail(vrf->info, vty, uj);
+	}
+	if (uj)
+		vty_out(vty, "}\n");
 
 	return CMD_SUCCESS;
 }
@@ -7833,8 +8344,11 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_no_ip_mroute_source_cmd);
 
 	install_element(VIEW_NODE, &show_ip_igmp_interface_cmd);
+	install_element(VIEW_NODE, &show_ip_igmp_interface_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_join_cmd);
+	install_element(VIEW_NODE, &show_ip_igmp_join_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_groups_cmd);
+	install_element(VIEW_NODE, &show_ip_igmp_groups_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_groups_retransmissions_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_sources_cmd);
 	install_element(VIEW_NODE, &show_ip_igmp_sources_retransmissions_cmd);
@@ -7844,17 +8358,25 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_pim_assert_winner_metric_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_interface_traffic_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_interface_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_interface_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_join_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_join_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_local_membership_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_neighbor_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_neighbor_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_rpf_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_rpf_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_secondary_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_state_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_state_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_upstream_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_upstream_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_upstream_join_desired_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_upstream_rpf_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_rp_cmd);
+	install_element(VIEW_NODE, &show_ip_pim_rp_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_multicast_cmd);
+	install_element(VIEW_NODE, &show_ip_multicast_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_mroute_cmd);
 	install_element(VIEW_NODE, &show_ip_mroute_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_mroute_count_cmd);
@@ -7964,9 +8486,12 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_ip_msdp_mesh_group_source_cmd);
 	install_element(VRF_NODE, &no_ip_msdp_mesh_group_source_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_peer_detail_cmd);
+	install_element(VIEW_NODE, &show_ip_msdp_peer_detail_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_sa_detail_cmd);
+	install_element(VIEW_NODE, &show_ip_msdp_sa_detail_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_sa_sg_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_mesh_group_cmd);
+	install_element(VIEW_NODE, &show_ip_msdp_mesh_group_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_ssm_range_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_group_type_cmd);
 	install_element(INTERFACE_NODE, &interface_pim_use_source_cmd);
