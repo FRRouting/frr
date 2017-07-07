@@ -43,6 +43,7 @@ import sys
 import json
 import ConfigParser
 import glob
+import grp
 
 from mininet.net import Mininet
 from mininet.log import setLogLevel
@@ -431,6 +432,7 @@ class TopoRouter(TopoGear):
         self.name = name
         self.cls = cls
         self.options = {}
+        self.routertype = params.get('routertype', 'frr')
         if not params.has_key('privateDirs'):
             params['privateDirs'] = self.PRIVATE_DIRS
 
@@ -460,6 +462,16 @@ class TopoRouter(TopoGear):
             os.makedirs(self.logdir, 0755)
         except OSError:
             pass
+
+        # Allow unprivileged daemon user (frr/quagga) to create log files
+        try:
+            # Only allow group, if it exist.
+            gid = grp.getgrnam(self.routertype)[2]
+            os.chown(self.logdir, 0, gid)
+            os.chmod(self.logdir, 0775)
+        except KeyError:
+            # Allow anyone, but set the sticky bit to avoid file deletions
+            os.chmod(self.logdir, 01777)
 
         # Try to find relevant old logfiles in /tmp and delete them
         map(os.remove, glob.glob('{}/*{}*.log'.format(self.logdir, self.name)))
@@ -492,9 +504,20 @@ class TopoRouter(TopoGear):
         * Clean up files
         * Configure interfaces
         * Start daemons (e.g. FRR/Quagga)
+        * Configure daemon logging files
         """
         self.logger.debug('starting')
-        return self.tgen.net[self.name].startRouter()
+        nrouter = self.tgen.net[self.name]
+        result = nrouter.startRouter()
+
+        # Enable all daemon logging files and set them to the logdir.
+        for daemon, enabled in nrouter.daemons.iteritems():
+            if enabled == 0:
+                continue
+            self.vtysh_cmd('configure terminal\nlog file {}/{}-{}.log'.format(
+                self.logdir, self.name, daemon))
+
+        return result
 
     def stop(self):
         """
