@@ -38,6 +38,7 @@ sys.path.append(os.path.join(CWD, '../'))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
@@ -67,13 +68,12 @@ class TemplateTopo(Topo):
         switch.add_link(tgen.gears['r1'])
         switch.add_link(tgen.gears['r2'])
 
-def setup_module(_m):
+def setup_module(mod):
     "Sets up the pytest environment"
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(TemplateTopo)
+    tgen = Topogen(TemplateTopo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
-    # When deploying tests, please remove the debug logging level.
-    tgen.start_topology('debug')
+    tgen.start_topology()
 
     # This is a sample of configuration loading.
     router_list = tgen.routers()
@@ -89,16 +89,27 @@ def setup_module(_m):
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()
 
-def teardown_module(_m):
+def teardown_module(mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
+
     # This function tears down the whole topology.
     tgen.stop_topology()
 
 def test_call_mininet_cli():
     "Dummy test that just calls mininet CLI so we can interact with the build."
     tgen = get_topogen()
+    logger.info('calling mininet CLI')
     tgen.mininet_cli()
+
+# Memory leak test template
+def test_memory_leak():
+    "Run the memory leak test and report results."
+    tgen = get_topogen()
+    if not tgen.is_memleak_enabled():
+        pytest.skip('Memory leak test/report is disabled')
+
+    tgen.report_memory_leaks()
 
 if __name__ == '__main__':
     args = ["-s"] + sys.argv[1:]
