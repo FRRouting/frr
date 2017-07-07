@@ -42,6 +42,7 @@ import os
 import sys
 import json
 import ConfigParser
+import glob
 
 from mininet.net import Mininet
 from mininet.log import setLogLevel
@@ -81,14 +82,21 @@ class Topogen(object):
 
     CONFIG_SECTION = 'topogen'
 
-    def __init__(self, cls):
+    def __init__(self, cls, modname='unnamed'):
+        """
+        Topogen initialization function, takes the following arguments:
+        * `cls`: the topology class that is child of mininet.topo
+        * `modname`: module name must be a unique name to identify logs later.
+        """
         self.config = None
         self.topo = None
         self.net = None
         self.gears = {}
         self.routern = 1
         self.switchn = 1
+        self.modname = modname
         self._init_topo(cls)
+        logger.info('loading topology: {}'.format(self.modname))
 
     @staticmethod
     def _mininet_reset():
@@ -213,13 +221,16 @@ class Topogen(object):
         """
         # If log_level is not specified use the configuration.
         if log_level is None:
-            log_level = self.config.get('topogen', 'verbosity')
+            log_level = self.config.get(self.CONFIG_SECTION, 'verbosity')
 
         # Set python logger level
         logger_config.set_log_level(log_level)
 
         # Run mininet
-        setLogLevel(log_level)
+        if log_level == 'debug':
+            setLogLevel(log_level)
+
+        logger.info('starting topology: {}'.format(self.modname))
         self.net.start()
 
     def start_router(self, router=None):
@@ -239,6 +250,7 @@ class Topogen(object):
 
     def stop_topology(self):
         "Stops the network topology"
+        logger.info('stopping topology: {}'.format(self.modname))
         self.net.stop()
 
     def mininet_cli(self):
@@ -251,6 +263,27 @@ class Topogen(object):
                 'you must run pytest with \'-s\' in order to use mininet CLI')
 
         CLI(self.net)
+
+    def is_memleak_enabled(self):
+        "Returns `True` if memory leak report is enable, otherwise `False`."
+        memleak_file = os.environ.get('TOPOTESTS_CHECK_MEMLEAK')
+        if memleak_file is None:
+            return False
+        return True
+
+    def report_memory_leaks(self, testname=None):
+        "Run memory leak test and reports."
+        if not self.is_memleak_enabled():
+            return
+
+        # If no name was specified, use the test module name
+        if testname is None:
+            testname = self.modname
+
+        router_list = self.routers().values()
+        for router in router_list:
+            router.report_memory_leaks(self.modname)
+
 
 #
 # Topology gears (equipment)
@@ -306,6 +339,9 @@ class TopoGear(object):
         else:
             operation = 'down'
 
+        logger.info('setting node "{}" link "{}" to state "{}"'.format(
+            self.name, myif, operation
+        ))
         return self.run('ip link set dev {} {}'.format(myif, operation))
 
     def peer_link_enable(self, myif, enabled=True):
@@ -399,12 +435,36 @@ class TopoRouter(TopoGear):
             params['privateDirs'] = self.PRIVATE_DIRS
 
         self.options['memleak_path'] = params.get('memleak_path', None)
+
+        # Create new log directory
+        self.logdir = '/tmp/topotests/{}'.format(self.tgen.modname)
+        # Clean up before starting new log files: avoids removing just created
+        # log files.
+        self._prepare_tmpfiles()
+        # Propagate the router log directory
+        params['logdir'] = self.logdir
+
+        # Open router log file
+        logfile = '{}/{}.log'.format(self.logdir, name)
+        self.logger = logger_config.get_logger(name=name, target=logfile)
         self.tgen.topo.addNode(self.name, cls=self.cls, **params)
 
     def __str__(self):
         gear = super(TopoRouter, self).__str__()
         gear += ' TopoRouter<>'
         return gear
+
+    def _prepare_tmpfiles(self):
+        # Create directories if they don't exist
+        try:
+            os.makedirs(self.logdir, 0755)
+        except OSError:
+            pass
+
+        # Try to find relevant old logfiles in /tmp and delete them
+        map(os.remove, glob.glob('{}/*{}*.log'.format(self.logdir, self.name)))
+        # Remove old core files
+        map(os.remove, glob.glob('{}/{}*.dmp'.format(self.logdir, self.name)))
 
     def load_config(self, daemon, source=None):
         """
@@ -415,12 +475,14 @@ class TopoRouter(TopoGear):
         TopoRouter.RD_PIM.
         """
         daemonstr = self.RD.get(daemon)
+        self.logger.info('loading "{}" configuration: {}'.format(daemonstr, source))
         self.tgen.net[self.name].loadConf(daemonstr, source)
 
     def check_router_running(self):
         """
         Run a series of checks and returns a status string.
         """
+        self.logger.info('checking if daemons are running')
         return self.tgen.net[self.name].checkRouterRunning()
 
     def start(self):
@@ -431,7 +493,16 @@ class TopoRouter(TopoGear):
         * Configure interfaces
         * Start daemons (e.g. FRR/Quagga)
         """
+        self.logger.debug('starting')
         return self.tgen.net[self.name].startRouter()
+
+    def stop(self):
+        """
+        Stop router:
+        * Kill daemons
+        """
+        self.logger.debug('stopping')
+        return self.tgen.net[self.name].stopRouter()
 
     def vtysh_cmd(self, command, isjson=False):
         """
@@ -447,6 +518,8 @@ class TopoRouter(TopoGear):
 
         vtysh_command = 'vtysh -c "{}" 2>/dev/null'.format(command)
         output = self.run(vtysh_command)
+        self.logger.info('\nvtysh command => {}\nvtysh output <= {}'.format(
+            command, output))
         if isjson is False:
             return output
 
@@ -473,6 +546,9 @@ class TopoRouter(TopoGear):
         res = self.run(vtysh_command)
         os.unlink(fname)
 
+        self.logger.info('\nvtysh command => "{}"\nvtysh output <= "{}"'.format(
+            vtysh_command, res))
+
         return res
 
     def report_memory_leaks(self, testname):
@@ -485,10 +561,10 @@ class TopoRouter(TopoGear):
         """
         memleak_file = os.environ.get('TOPOTESTS_CHECK_MEMLEAK') or self.options['memleak_path']
         if memleak_file is None:
-            print "SKIPPED check on Memory leaks: Disabled (TOPOTESTS_CHECK_MEMLEAK undefined)"
             return
 
-        self.tgen.net[self.name].stopRouter()
+        self.stop()
+        self.logger.info('running memory leak report')
         self.tgen.net[self.name].report_memory_leaks(memleak_file, testname)
 
 class TopoSwitch(TopoGear):

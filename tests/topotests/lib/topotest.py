@@ -255,6 +255,7 @@ class Router(Node):
 
     def __init__(self, name, **params):
         super(Router, self).__init__(name, **params)
+        self.logdir = params.get('logdir', '/tmp')
         self.daemondir = None
         self.routertype = 'frr'
         self.daemons = {'zebra': 0, 'ripd': 0, 'ripngd': 0, 'ospfd': 0,
@@ -309,7 +310,7 @@ class Router(Node):
         # Enable coredumps
         assert_sysctl(self, 'kernel.core_uses_pid', 1)
         assert_sysctl(self, 'fs.suid_dumpable', 2)
-        corefile = '/tmp/{0}_%e_core-sig_%s-pid_%p.dmp'.format(self.name)
+        corefile = '{}/{}_%e_core-sig_%s-pid_%p.dmp'.format(self.logdir, self.name)
         assert_sysctl(self, 'kernel.core_pattern', corefile)
         self.cmd('ulimit -c unlimited')
         # Set ownership of config files
@@ -359,6 +360,7 @@ class Router(Node):
         # Disable integrated-vtysh-config
         self.cmd('echo "no service integrated-vtysh-config" >> /etc/%s/vtysh.conf' % self.routertype)
         self.cmd('chown %s:%svty /etc/%s/vtysh.conf' % (self.routertype, self.routertype, self.routertype))
+        # TODO remove the following lines after all tests are migrated to Topogen.
         # Try to find relevant old logfiles in /tmp and delete them
         map(os.remove, glob.glob("/tmp/*%s*.log" % self.name))
         # Remove old core files
@@ -391,8 +393,8 @@ class Router(Node):
         # Start Zebra first
         if self.daemons['zebra'] == 1:
             zebra_path = os.path.join(self.daemondir, 'zebra')
-            self.cmd('{0} > /tmp/{1}-zebra.out 2> /tmp/{1}-zebra.err &'.format(
-                zebra_path, self.name
+            self.cmd('{0} > {1}/{2}-zebra.out 2> {1}/{2}-zebra.err &'.format(
+                zebra_path, self.logdir, self.name
             ))
             self.waitOutput()
             logger.debug('{}: {} zebra started'.format(self, self.routertype))
@@ -407,8 +409,8 @@ class Router(Node):
                 continue
 
             daemon_path = os.path.join(self.daemondir, daemon)
-            self.cmd('{0} > /tmp/{1}-{2}.out 2> /tmp/{1}-{2}.err &'.format(
-                daemon_path, self.name, daemon
+            self.cmd('{0} > {1}/{2}-{3}.out 2> {1}/{2}-{3}.err &'.format(
+                daemon_path, self.logdir, self.name, daemon
             ))
             self.waitOutput()
             logger.debug('{}: {} {} started'.format(self, self.routertype, daemon))
@@ -417,7 +419,7 @@ class Router(Node):
     def getStdOut(self, daemon):
         return self.getLog('out', daemon)
     def getLog(self, log, daemon):
-        return self.cmd('cat /tmp/%s-%s.%s' % (self.name, daemon, log) )
+        return self.cmd('cat {}/{}-{}.{}'.format(self.logdir, self.name, daemon, log))
     def checkRouterRunning(self):
         "Check if router daemons are running and collect crashinfo they don't run"
 
@@ -432,7 +434,8 @@ class Router(Node):
             if (self.daemons[daemon] == 1) and not (daemon in daemonsRunning):
                 sys.stderr.write("%s: Daemon %s not running\n" % (self.name, daemon))
                 # Look for core file
-                corefiles = glob.glob("/tmp/%s_%s_core*.dmp" % (self.name, daemon))
+                corefiles = glob.glob('{}/{}_{}_core*.dmp'.format(
+                    self.logdir, self.name, daemon))
                 if (len(corefiles) > 0):
                     daemon_path = os.path.join(self.daemondir, daemon)
                     backtrace = subprocess.check_output([
@@ -442,8 +445,11 @@ class Router(Node):
                     sys.stderr.write("%s\n" % backtrace)
                 else:
                     # No core found - If we find matching logfile in /tmp, then print last 20 lines from it.
-                    if os.path.isfile("/tmp/%s-%s.log" % (self.name, daemon)):
-                        log_tail = subprocess.check_output(["tail -n20 /tmp/%s-%s.log 2> /dev/null"  % (self.name, daemon)], shell=True)
+                    if os.path.isfile('{}/{}-{}.log'.format(self.logdir, self.name, daemon)):
+                        log_tail = subprocess.check_output([
+                            "tail -n20 {}/{}-{}.log 2> /dev/null".format(
+                                self.logdir, self.name, daemon)
+                            ], shell=True)
                         sys.stderr.write("\nFrom %s %s %s log file:\n" % (self.routertype, self.name, daemon))
                         sys.stderr.write("%s\n" % log_tail)
 
