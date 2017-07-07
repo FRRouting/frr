@@ -33,6 +33,8 @@ import tempfile
 import platform
 import difflib
 
+from lib.topolog import logger
+
 from mininet.topo import Topo
 from mininet.net import Mininet
 from mininet.node import Node, OVSSwitch, Host
@@ -200,7 +202,7 @@ def checkAddressSanitizerError(output, router, component):
                 addrSanFile.write('    '+ '\n    '.join(addressSantizerLog.group(1).splitlines()) + '\n')
                 addrSanFile.write("\n---------------\n")
         return True
-    return False   
+    return False
 
 def addRouter(topo, name):
     "Adding a FRRouter (or Quagga) to Topology"
@@ -351,7 +353,7 @@ class Router(Node):
             self.cmd('chown %s:%s /etc/%s/%s.conf' % (self.routertype, self.routertype, self.routertype, daemon))
             self.waitOutput()
         else:
-            print("No daemon %s known" % daemon)
+            logger.warning('No daemon {} known'.format(daemon))
         # print "Daemons after:", self.daemons
     def startRouter(self):
         # Disable integrated-vtysh-config
@@ -368,14 +370,14 @@ class Router(Node):
         if self.daemons['ldpd'] == 1:
             ldpd_path = os.path.join(self.daemondir, 'ldpd')
             if not os.path.isfile(ldpd_path):
-                print("LDP Test, but no ldpd compiled or installed")
+                logger.warning("LDP Test, but no ldpd compiled or installed")
                 return "LDP Test, but no ldpd compiled or installed"
             kernel_version = re.search(r'([0-9]+)\.([0-9]+).*', platform.release())
 
             if kernel_version:
                 if (float(kernel_version.group(1)) < 4 or
                    (float(kernel_version.group(1)) == 4 and float(kernel_version.group(2)) < 5)):
-                    print("LDP Test need Linux Kernel 4.5 minimum")
+                    logger.warning("LDP Test need Linux Kernel 4.5 minimum")
                     return "LDP Test need Linux Kernel 4.5 minimum"
 
             self.cmd('/sbin/modprobe mpls-router')
@@ -393,7 +395,7 @@ class Router(Node):
                 zebra_path, self.name
             ))
             self.waitOutput()
-            print('%s: %s zebra started' % (self, self.routertype))
+            logger.debug('{}: {} zebra started'.format(self, self.routertype))
             sleep(1)
         # Fix Link-Local Addresses
         # Somehow (on Mininet only), Zebra removes the IPv6 Link-Local addresses on start. Fix this
@@ -409,7 +411,7 @@ class Router(Node):
                 daemon_path, self.name, daemon
             ))
             self.waitOutput()
-            print('%s: %s %s started' % (self, self.routertype, daemon))
+            logger.debug('{}: {} {} started'.format(self, self.routertype, daemon))
     def getStdErr(self, daemon):
         return self.getLog('err', daemon)
     def getStdOut(self, daemon):
@@ -504,7 +506,8 @@ class Router(Node):
                 log = self.getStdErr(daemon)
                 if "memstats" in log:
                     # Found memory leak
-                    print("\nRouter %s %s StdErr Log:\n%s" % (self.name, daemon, log))        
+                    logger.info('\nRouter {} {} StdErr Log:\n{}'.format(
+                        self.name, daemon, log))
                     if not leakfound:
                         leakfound = True
                         # Check if file already exists
@@ -530,4 +533,3 @@ class LegacySwitch(OVSSwitch):
     def __init__(self, name, **params):
         OVSSwitch.__init__(self, name, failMode='standalone', **params)
         self.switchIP = None
-
