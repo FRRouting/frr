@@ -1826,8 +1826,7 @@ ospf6_dbdesc_send (struct thread *thread)
   p = (u_char *)((caddr_t) dbdesc + sizeof (struct ospf6_dbdesc));
   if (! CHECK_FLAG (on->dbdesc_bits, OSPF6_DBDESC_IBIT))
     {
-      for (lsa = ospf6_lsdb_head (on->dbdesc_list); lsa;
-           lsa = ospf6_lsdb_next (lsa))
+      for (ALL_LSDB(on->dbdesc_list, lsa))
         {
           ospf6_lsa_age_update_to_send (lsa, on->ospf6_if->transdelay);
 
@@ -1870,8 +1869,7 @@ ospf6_dbdesc_send_newone (struct thread *thread)
   /* move LSAs from summary_list to dbdesc_list (within neighbor structure)
      so that ospf6_send_dbdesc () can send those LSAs */
   size = sizeof (struct ospf6_lsa_header) + sizeof (struct ospf6_dbdesc);
-  for (lsa = ospf6_lsdb_head (on->summary_list); lsa;
-       lsa = ospf6_lsdb_next (lsa))
+  for (ALL_LSDB(on->summary_list, lsa))
     {
       if (size + sizeof (struct ospf6_lsa_header) > ospf6_packet_max(on->ospf6_if))
         {
@@ -1932,8 +1930,7 @@ ospf6_lsreq_send (struct thread *thread)
 
   /* set Request entries in lsreq */
   p = (u_char *)((caddr_t) oh + sizeof (struct ospf6_header));
-  for (lsa = ospf6_lsdb_head (on->request_list); lsa;
-       lsa = ospf6_lsdb_next (lsa))
+  for (ALL_LSDB(on->request_list, lsa))
     {
       /* MTU check */
       if (p - sendbuf + sizeof (struct ospf6_lsreq_entry) > ospf6_packet_max(on->ospf6_if))
@@ -2015,8 +2012,7 @@ ospf6_lsupdate_send_neighbor (struct thread *thread)
 
   /* lsupdate_list lists those LSA which doesn't need to be
      retransmitted. remove those from the list */
-  for (lsa = ospf6_lsdb_head (on->lsupdate_list); lsa;
-       lsa = ospf6_lsdb_next (lsa))
+  for (ALL_LSDB(on->lsupdate_list, lsa))
     {
       /* MTU check */
       if ( (p - sendbuf + (unsigned int)OSPF6_LSA_SIZE (lsa->header))
@@ -2061,8 +2057,7 @@ ospf6_lsupdate_send_neighbor (struct thread *thread)
   p = (u_char *)((caddr_t) lsupdate + sizeof (struct ospf6_lsupdate));
   lsa_cnt = 0;
 
-  for (lsa = ospf6_lsdb_head (on->retrans_list); lsa;
-       lsa = ospf6_lsdb_next (lsa))
+  for (ALL_LSDB(on->retrans_list, lsa))
     {
       /* MTU check */
       if ( (p - sendbuf + (unsigned int)OSPF6_LSA_SIZE (lsa->header))
@@ -2138,8 +2133,7 @@ ospf6_lsupdate_send_interface (struct thread *thread)
   p = (u_char *)((caddr_t) lsupdate + sizeof (struct ospf6_lsupdate));
   lsa_cnt = 0;
 
-  for (lsa = ospf6_lsdb_head (oi->lsupdate_list); lsa;
-       lsa = ospf6_lsdb_next (lsa))
+  for (ALL_LSDB(oi->lsupdate_list, lsa))
     {
       /* MTU check */
       if ( (p - sendbuf + ((unsigned int)OSPF6_LSA_SIZE (lsa->header)))
@@ -2213,8 +2207,7 @@ ospf6_lsack_send_neighbor (struct thread *thread)
 
   p = (u_char *)((caddr_t) oh + sizeof (struct ospf6_header));
 
-  for (lsa = ospf6_lsdb_head (on->lsack_list); lsa;
-       lsa = ospf6_lsdb_next (lsa))
+  for (ALL_LSDB(on->lsack_list, lsa))
     {
       /* MTU check */
       if (p - sendbuf + sizeof (struct ospf6_lsa_header) > ospf6_packet_max(on->ospf6_if))
@@ -2281,8 +2274,7 @@ ospf6_lsack_send_interface (struct thread *thread)
 
   p = (u_char *)((caddr_t) oh + sizeof (struct ospf6_header));
 
-  for (lsa = ospf6_lsdb_head (oi->lsack_list); lsa;
-       lsa = ospf6_lsdb_next (lsa))
+  for (ALL_LSDB(oi->lsack_list, lsa))
     {
       /* MTU check */
       if (p - sendbuf + sizeof (struct ospf6_lsa_header) > ospf6_packet_max(oi))

@@ -50,6 +50,9 @@ extern void ospf6_lsdb_remove (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb);
 
 extern struct ospf6_lsa *ospf6_lsdb_head (struct ospf6_lsdb *lsdb);
 extern struct ospf6_lsa *ospf6_lsdb_next (struct ospf6_lsa *lsa);
+#define ALL_LSDB(lsdb, lsa) \
+	lsa = ospf6_lsdb_head(lsdb); lsa; \
+	lsa = ospf6_lsdb_next(lsa)
 
 extern struct ospf6_lsa *ospf6_lsdb_type_router_head (u_int16_t type,
                                                u_int32_t adv_router,
@@ -57,11 +60,17 @@ extern struct ospf6_lsa *ospf6_lsdb_type_router_head (u_int16_t type,
 extern struct ospf6_lsa *ospf6_lsdb_type_router_next (u_int16_t type,
                                                u_int32_t adv_router,
                                                struct ospf6_lsa *lsa);
+#define ALL_LSDB_TYPED_ADVRTR(lsdb, type, adv_router, lsa) \
+	lsa = ospf6_lsdb_type_router_head(type, adv_router, lsdb); lsa; \
+	lsa = ospf6_lsdb_type_router_next(type, adv_router, lsa)
 
 extern struct ospf6_lsa *ospf6_lsdb_type_head (u_int16_t type,
                                                struct ospf6_lsdb *lsdb);
 extern struct ospf6_lsa *ospf6_lsdb_type_next (u_int16_t type,
                                                struct ospf6_lsa *lsa);
+#define ALL_LSDB_TYPED(lsdb, type, lsa) \
+	lsa = ospf6_lsdb_type_head(type, lsdb); lsa; \
+	lsa = ospf6_lsdb_type_next(type, lsa)
 
 extern void ospf6_lsdb_remove_all (struct ospf6_lsdb *lsdb);
 extern void ospf6_lsdb_lsa_unlock (struct ospf6_lsa *lsa);

@@ -80,8 +80,7 @@ _lsdb_count_assert (struct ospf6_lsdb *lsdb)
 {
   struct ospf6_lsa *debug;
   unsigned int num = 0;
-  for (debug = ospf6_lsdb_head (lsdb); debug;
-       debug = ospf6_lsdb_next (debug))
+  for (ALL_LSDB(lsdb, debug))
     num++;
 
   if (num == lsdb->count)
@@ -89,8 +88,7 @@ _lsdb_count_assert (struct ospf6_lsdb *lsdb)
 
   zlog_debug ("PANIC !! lsdb[%p]->count = %d, real = %d",
              lsdb, lsdb->count, num);
-  for (debug = ospf6_lsdb_head (lsdb); debug;
-       debug = ospf6_lsdb_next (debug))
+  for (ALL_LSDB(lsdb, debug))
     zlog_debug ("%p %p %s lsdb[%p]", debug->prev, debug->next, debug->name,
                debug->lsdb);
   zlog_debug ("DUMP END");
@@ -437,7 +435,7 @@ ospf6_lsdb_remove_all (struct ospf6_lsdb *lsdb)
   if (lsdb == NULL)
     return;
 
-  for (lsa = ospf6_lsdb_head (lsdb); lsa; lsa = ospf6_lsdb_next (lsa))
+  for (ALL_LSDB(lsdb, lsa))
     ospf6_lsdb_remove (lsa, lsdb);
 }
 
@@ -458,7 +456,7 @@ ospf6_lsdb_maxage_remover (struct ospf6_lsdb *lsdb)
   int reschedule = 0;
   struct ospf6_lsa *lsa;
 
-  for (lsa = ospf6_lsdb_head (lsdb); lsa; lsa = ospf6_lsdb_next (lsa))
+  for (ALL_LSDB(lsdb, lsa))
     {
       if (! OSPF6_LSA_IS_MAXAGE (lsa))
 	continue;
@@ -559,8 +557,7 @@ ospf6_new_ls_id (u_int16_t type, u_int32_t adv_router,
   /* This routine is curently invoked only for Inter-Prefix LSAs for
    * non-summarized routes (no area/range).
    */
-  for (lsa = ospf6_lsdb_type_router_head (type, adv_router, lsdb); lsa;
-       lsa = ospf6_lsdb_type_router_next (type, adv_router, lsa))
+  for (ALL_LSDB_TYPED_ADVRTR(lsdb, type, adv_router, lsa))
     {
       tmp_id = ntohl (lsa->header->id);
       if (tmp_id < id)

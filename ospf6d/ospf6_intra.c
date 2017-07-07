@@ -341,8 +341,7 @@ ospf6_router_lsa_originate (struct thread *thread)
   type = ntohs (OSPF6_LSTYPE_ROUTER);
   router = oa->ospf6->router_id;
   count = 0;
-  for (lsa = ospf6_lsdb_type_router_head (type, router, oa->lsdb); lsa;
-       lsa = ospf6_lsdb_type_router_next (type, router, lsa))
+  for (ALL_LSDB_TYPED_ADVRTR(oa->lsdb, type, router, lsa))
     {
       if (ntohl (lsa->header->id) < link_state_id)
         continue;
@@ -495,8 +494,7 @@ ospf6_network_lsa_originate (struct thread *thread)
   /* Collect the interface's Link-LSAs to describe
      network's optional capabilities */
   type = htons (OSPF6_LSTYPE_LINK);
-  for (lsa = ospf6_lsdb_type_head (type, oi->lsdb); lsa;
-       lsa = ospf6_lsdb_type_next (type, lsa))
+  for (ALL_LSDB_TYPED(oi->lsdb, type, lsa))
     {
       link_lsa = (struct ospf6_link_lsa *)
         ((caddr_t) lsa->header + sizeof (struct ospf6_lsa_header));
@@ -1096,8 +1094,7 @@ ospf6_intra_prefix_lsa_originate_transit (struct thread *thread)
   route_advertise = ospf6_route_table_create (0, 0);
 
   type = ntohs (OSPF6_LSTYPE_LINK);
-  for (lsa = ospf6_lsdb_type_head (type, oi->lsdb); lsa;
-       lsa = ospf6_lsdb_type_next (type, lsa))
+  for (ALL_LSDB_TYPED(oi->lsdb, type, lsa))
     {
       if (OSPF6_LSA_IS_MAXAGE (lsa))
         continue;
@@ -1429,8 +1426,7 @@ ospf6_intra_route_calculation (struct ospf6_area *oa)
     route->flag = OSPF6_ROUTE_REMOVE;
 
   type = htons (OSPF6_LSTYPE_INTRA_PREFIX);
-  for (lsa = ospf6_lsdb_type_head (type, oa->lsdb); lsa;
-       lsa = ospf6_lsdb_type_next (type, lsa))
+  for (ALL_LSDB_TYPED(oa->lsdb, type, lsa))
     ospf6_intra_prefix_lsa_add (lsa);
 
   oa->route_table->hook_add = hook_add;

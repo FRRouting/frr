@@ -460,9 +460,8 @@ ospfv3GeneralGroup (struct variable *v, oid *name, size_t *length,
     case OSPFv3ASSCOPELSACHECKSUMSUM:
       if (ospf6)
         {
-          for (sum = 0, lsa = ospf6_lsdb_head (ospf6->lsdb);
-               lsa;
-               lsa = ospf6_lsdb_next (lsa))
+          sum = 0;
+          for (ALL_LSDB(ospf6->lsdb, lsa))
             sum += ntohs (lsa->header->checksum);
           return SNMP_INTEGER (sum);
         }
@@ -474,11 +473,8 @@ ospfv3GeneralGroup (struct variable *v, oid *name, size_t *length,
     case OSPFv3EXTLSACOUNT:
       if (ospf6)
         {
-          for (count = 0, lsa = ospf6_lsdb_type_head (htons (OSPF6_LSTYPE_AS_EXTERNAL),
-                                                      ospf6->lsdb);
-               lsa;
-               lsa = ospf6_lsdb_type_next (htons (OSPF6_LSTYPE_AS_EXTERNAL),
-                                           lsa))
+          count = 0;
+          for (ALL_LSDB_TYPED(ospf6->lsdb, htons (OSPF6_LSTYPE_AS_EXTERNAL), lsa))
             count += 1;
           return SNMP_INTEGER (count);
         }
@@ -590,9 +586,8 @@ ospfv3AreaEntry (struct variable *v, oid *name, size_t *length,
     case OSPFv3AREASCOPELSACOUNT:
       return SNMP_INTEGER (area->lsdb->count);
     case OSPFv3AREASCOPELSACKSUMSUM:
-      for (sum = 0, lsa = ospf6_lsdb_head (area->lsdb);
-	   lsa;
-	   lsa = ospf6_lsdb_next (lsa))
+      sum = 0;
+      for (ALL_LSDB(area->lsdb, lsa))
 	sum += ntohs (lsa->header->checksum);
       return SNMP_INTEGER (sum);
     case OSPFv3AREASUMMARY:
@@ -962,9 +957,8 @@ ospfv3IfEntry (struct variable *v, oid *name, size_t *length,
     case OSPFv3IFLINKSCOPELSACOUNT:
       return SNMP_INTEGER (oi->lsdb->count);
     case OSPFv3IFLINKLSACKSUMSUM:
-      for (sum = 0, lsa = ospf6_lsdb_head (oi->lsdb);
-	   lsa;
-	   lsa = ospf6_lsdb_next (lsa))
+      sum = 0;
+      for (ALL_LSDB(oi->lsdb, lsa))
 	sum += ntohs (lsa->header->checksum);
       return SNMP_INTEGER (sum);
     case OSPFv3IFDEMANDNBRPROBE:

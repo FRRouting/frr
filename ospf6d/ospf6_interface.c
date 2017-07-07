@@ -993,8 +993,7 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
            oi->lsupdate_list->count, duration,
            (oi->thread_send_lsupdate ? "on" : "off"),
            VNL);
-  for (lsa = ospf6_lsdb_head (oi->lsupdate_list); lsa;
-       lsa = ospf6_lsdb_next (lsa))
+  for (ALL_LSDB(oi->lsupdate_list, lsa))
     vty_out (vty, "      %s%s", lsa->name, VNL);
 
   timerclear (&res);
@@ -1005,8 +1004,7 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
            oi->lsack_list->count, duration,
            (oi->thread_send_lsack ? "on" : "off"),
            VNL);
-  for (lsa = ospf6_lsdb_head (oi->lsack_list); lsa;
-       lsa = ospf6_lsdb_next (lsa))
+  for (ALL_LSDB(oi->lsack_list, lsa))
     vty_out (vty, "      %s%s", lsa->name, VNL);
   ospf6_bfd_show_info(vty, oi->bfd_info, 1);
   return 0;

@@ -296,8 +296,7 @@ ospf6_nexthop_calc (struct ospf6_vertex *w, struct ospf6_vertex *v,
                 ROUTER_LSDESC_GET_NBR_ROUTERID (lsdesc));
 
   i = 0;
-  for (lsa = ospf6_lsdb_type_router_head (type, adv_router, oi->lsdb); lsa;
-       lsa = ospf6_lsdb_type_router_next (type, adv_router, lsa))
+  for (ALL_LSDB_TYPED_ADVRTR(oi->lsdb, type, adv_router, lsa))
     {
       if (VERTEX_IS_TYPE (ROUTER, v) &&
           htonl (ROUTER_LSDESC_GET_NBR_IFID (lsdesc)) != lsa->header->id)
