@@ -2626,12 +2626,17 @@ vtysh_write_config_integrated(void)
 
   fprintf (stdout,"Building Configuration...\n");
 
-  backup_config_file(quagga_config);
-  fp = fopen (quagga_config, "w");
+  /* build path to integrated config file */
+  char integrated[MAXPATHLEN];
+  snprintf(integrated, sizeof(integrated), "%s/%s", frr.config.dir,
+           frr.config.integrated);
+
+  backup_config_file(integrated);
+  fp = fopen (integrated, "w");
   if (fp == NULL)
     {
       fprintf (stdout,"%% Error: failed to open configuration file %s: %s\n",
-	       quagga_config, safe_strerror(errno));
+	       integrated, safe_strerror(errno));
       return CMD_WARNING;
     }
   fd = fileno (fp);
@@ -2645,7 +2650,7 @@ vtysh_write_config_integrated(void)
   if (fchmod (fd, CONFIGFILE_MASK) != 0)
     {
       printf ("%% Warning: can't chmod configuration file %s: %s\n",
-              quagga_config, safe_strerror(errno));
+              integrated, safe_strerror(errno));
       err++;
     }
 
@@ -2679,20 +2684,20 @@ vtysh_write_config_integrated(void)
       if ((uid != (uid_t)-1 || gid != (gid_t)-1) && fchown (fd, uid, gid))
         {
           printf ("%% Warning: can't chown configuration file %s: %s\n",
-                  quagga_config, safe_strerror(errno));
+                  integrated, safe_strerror(errno));
           err++;
         }
     }
   else
     {
       printf ("%% Warning: stat() failed on %s: %s\n",
-              quagga_config, safe_strerror(errno));
+              integrated, safe_strerror(errno));
       err++;
     }
 
   fclose (fp);
 
-  printf ("Integrated configuration saved to %s\n", quagga_config);
+  printf ("Integrated configuration saved to %s\n", integrated);
   if (err)
     return CMD_WARNING;
 
@@ -2704,10 +2709,15 @@ static bool want_config_integrated(void)
 {
   struct stat s;
 
+  /* build path to integrated config file */
+  char integrated[MAXPATHLEN];
+  snprintf(integrated, sizeof(integrated), "%s/%s", frr.config.dir,
+           frr.config.integrated);
+
   switch (vtysh_write_integrated)
     {
     case WRITE_INTEGRATED_UNSPECIFIED:
-      if (stat(quagga_config, &s) && errno == ENOENT)
+      if (stat(integrated, &s) && errno == ENOENT)
         return false;
       return true;
     case WRITE_INTEGRATED_NO:
@@ -3224,9 +3234,8 @@ vtysh_prompt (void)
   static struct utsname names;
   static char buf[100];
   const char*hostname;
-  extern struct host host;
 
-  hostname = host.name;
+  hostname = frr.host.name;
 
   if (!hostname)
     {

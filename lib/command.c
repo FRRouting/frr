@@ -42,6 +42,7 @@
 #include "command_graph.h"
 #include "qobj.h"
 #include "defaults.h"
+#include "libfrr.h"
 
 DEFINE_MTYPE(       LIB, HOST,       "Host config")
 DEFINE_MTYPE(       LIB, STRVEC,     "String vector")
@@ -50,9 +51,6 @@ DEFINE_MTYPE(       LIB, COMPLETION, "Completion item")
 /* Command vector which includes some level of command lists. Normally
    each daemon maintains each own cmdvec. */
 vector cmdvec = NULL;
-
-/* Host information structure. */
-struct host host;
 
 /* Standard command node structures. */
 static struct cmd_node auth_node =
@@ -432,22 +430,22 @@ zencrypt (const char *passwd)
 static int
 config_write_host (struct vty *vty)
 {
-  if (host.name)
-    vty_outln (vty, "hostname %s", host.name);
+  if (frr.host.name)
+    vty_outln (vty, "hostname %s", frr.host.name);
 
-  if (host.encrypt)
+  if (frr.host.encrypt)
     {
-      if (host.password_encrypt)
-        vty_outln (vty, "password 8 %s", host.password_encrypt);
-      if (host.enable_encrypt)
-        vty_outln (vty, "enable password 8 %s", host.enable_encrypt);
+      if (frr.host.password_encrypt)
+        vty_outln (vty, "password 8 %s", frr.host.password_encrypt);
+      if (frr.host.enable_encrypt)
+        vty_outln (vty, "enable password 8 %s", frr.host.enable_encrypt);
     }
   else
     {
-      if (host.password)
-        vty_outln (vty, "password %s", host.password);
-      if (host.enable)
-        vty_outln (vty, "enable password %s", host.enable);
+      if (frr.host.password)
+        vty_outln (vty, "password %s", frr.host.password);
+      if (frr.host.enable)
+        vty_outln (vty, "enable password %s", frr.host.enable);
     }
 
   if (zlog_default->default_lvl != LOG_DEBUG)
@@ -457,9 +455,9 @@ config_write_host (struct vty *vty)
                zlog_priority[zlog_default->default_lvl]);
     }
 
-  if (host.logfile && (zlog_default->maxlvl[ZLOG_DEST_FILE] != ZLOG_DISABLED))
+  if (frr.host.logfile && (zlog_default->maxlvl[ZLOG_DEST_FILE] != ZLOG_DISABLED))
     {
-      vty_out (vty, "log file %s", host.logfile);
+      vty_out (vty, "log file %s", frr.host.logfile);
       if (zlog_default->maxlvl[ZLOG_DEST_FILE] != zlog_default->default_lvl)
         vty_out (vty, " %s",
                  zlog_priority[zlog_default->maxlvl[ZLOG_DEST_FILE]]);
@@ -501,18 +499,18 @@ config_write_host (struct vty *vty)
     vty_outln (vty, "log timestamp precision %d",
              zlog_default->timestamp_precision);
 
-  if (host.advanced)
+  if (frr.host.advanced)
     vty_outln (vty, "service advanced-vty");
 
-  if (host.encrypt)
+  if (frr.host.encrypt)
     vty_outln (vty, "service password-encryption");
 
-  if (host.lines >= 0)
-    vty_outln (vty, "service terminal-length %d",host.lines);
+  if (frr.host.lines >= 0)
+    vty_outln (vty, "service terminal-length %d",frr.host.lines);
 
-  if (host.motdfile)
-    vty_outln (vty, "banner motd file %s", host.motdfile);
-  else if (! host.motd)
+  if (frr.host.motdfile)
+    vty_outln (vty, "banner motd file %s", frr.host.motdfile);
+  else if (! frr.host.motd)
     vty_outln (vty, "no banner motd");
 
   return 1;
@@ -1162,7 +1160,7 @@ DEFUN (enable,
        "Turn on privileged mode command\n")
 {
   /* If enable password is NULL, change to ENABLE_NODE */
-  if ((host.enable == NULL && host.enable_encrypt == NULL) ||
+  if ((frr.host.enable == NULL && frr.host.enable_encrypt == NULL) ||
       vty->type == VTY_SHELL_SERV)
     vty->node = ENABLE_NODE;
   else
@@ -1347,7 +1345,7 @@ DEFUN (show_version,
        "Displays zebra version\n")
 {
   vty_outln (vty, "%s %s (%s).", FRR_FULL_NAME, FRR_VERSION,
-	   host.name ? host.name : "");
+             frr.host.name ? frr.host.name : "");
   vty_outln (vty, "%s%s", FRR_COPYRIGHT, GIT_INFO);
   vty_outln (vty, "configured with:%s    %s", VTYNL,
            FRR_CONFIG_ARGS);
@@ -1537,18 +1535,18 @@ DEFUN (config_write,
       return CMD_SUCCESS;
     }
 
-  if (host.noconfig)
+  if (frr.host.noconfig)
     return CMD_SUCCESS;
 
   /* Check and see if we are operating under vtysh configuration */
-  if (host.config == NULL)
+  if (frr.host.config == NULL)
     {
       vty_outln (vty,"Can't save to configuration file, using vtysh.");
       return CMD_WARNING;
     }
 
   /* Get filename. */
-  config_file = host.config;
+  config_file = frr.host.config;
 
 #ifndef O_DIRECTORY
 #define O_DIRECTORY 0
@@ -1657,7 +1655,7 @@ DEFUN (copy_runningconf_startupconf,
        "Copy running config to... \n"
        "Copy running config to startup config (same as write file)\n")
 {
-  if (!host.noconfig)
+  if (!frr.host.noconfig)
     vty_write_config (vty);
   return CMD_SUCCESS;
 }
@@ -1673,16 +1671,16 @@ DEFUN (show_startup_config,
   char buf[BUFSIZ];
   FILE *confp;
 
-  if (host.noconfig)
+  if (frr.host.noconfig)
     return CMD_SUCCESS;
-  if (host.config == NULL)
+  if (frr.host.config == NULL)
     return CMD_WARNING;
 
-  confp = fopen (host.config, "r");
+  confp = fopen (frr.host.config, "r");
   if (confp == NULL)
     {
       vty_outln (vty, "Can't open configuration file [%s] due to '%s'",
-               host.config, safe_strerror(errno));
+                 frr.host.config, safe_strerror(errno));
       return CMD_WARNING;
     }
 
@@ -1705,8 +1703,8 @@ DEFUN (show_startup_config,
 int
 cmd_hostname_set (const char *hostname)
 {
-  XFREE (MTYPE_HOST, host.name);
-  host.name = hostname ? XSTRDUP (MTYPE_HOST, hostname) : NULL;
+  XFREE (MTYPE_HOST, frr.host.name);
+  frr.host.name = hostname ? XSTRDUP (MTYPE_HOST, hostname) : NULL;
   return CMD_SUCCESS;
 }
 
@@ -1750,12 +1748,12 @@ DEFUN (config_password,
   int idx_word = 2;
   if (argc == 3) // '8' was specified
   {
-    if (host.password)
-      XFREE (MTYPE_HOST, host.password);
-    host.password = NULL;
-    if (host.password_encrypt)
-      XFREE (MTYPE_HOST, host.password_encrypt);
-    host.password_encrypt = XSTRDUP (MTYPE_HOST, argv[idx_word]->arg);
+    if (frr.host.password)
+      XFREE (MTYPE_HOST, frr.host.password);
+    frr.host.password = NULL;
+    if (frr.host.password_encrypt)
+      XFREE (MTYPE_HOST, frr.host.password_encrypt);
+    frr.host.password_encrypt = XSTRDUP (MTYPE_HOST, argv[idx_word]->arg);
     return CMD_SUCCESS;
   }
 
@@ -1766,18 +1764,18 @@ DEFUN (config_password,
       return CMD_WARNING;
     }
 
-  if (host.password)
-    XFREE (MTYPE_HOST, host.password);
-  host.password = NULL;
+  if (frr.host.password)
+    XFREE (MTYPE_HOST, frr.host.password);
+  frr.host.password = NULL;
 
-  if (host.encrypt)
+  if (frr.host.encrypt)
     {
-      if (host.password_encrypt)
-        XFREE (MTYPE_HOST, host.password_encrypt);
-      host.password_encrypt = XSTRDUP (MTYPE_HOST, zencrypt (argv[idx_8]->arg));
+      if (frr.host.password_encrypt)
+        XFREE (MTYPE_HOST, frr.host.password_encrypt);
+      frr.host.password_encrypt = XSTRDUP (MTYPE_HOST, zencrypt (argv[idx_8]->arg));
     }
   else
-    host.password = XSTRDUP (MTYPE_HOST, argv[idx_8]->arg);
+    frr.host.password = XSTRDUP (MTYPE_HOST, argv[idx_8]->arg);
 
   return CMD_SUCCESS;
 }
@@ -1799,13 +1797,13 @@ DEFUN (config_enable_password,
     {
       if (argv[idx_8]->arg[0] == '8')
         {
-          if (host.enable)
-            XFREE (MTYPE_HOST, host.enable);
-          host.enable = NULL;
+          if (frr.host.enable)
+            XFREE (MTYPE_HOST, frr.host.enable);
+          frr.host.enable = NULL;
 
-          if (host.enable_encrypt)
-            XFREE (MTYPE_HOST, host.enable_encrypt);
-          host.enable_encrypt = XSTRDUP (MTYPE_HOST, argv[idx_word]->arg);
+          if (frr.host.enable_encrypt)
+            XFREE (MTYPE_HOST, frr.host.enable_encrypt);
+          frr.host.enable_encrypt = XSTRDUP (MTYPE_HOST, argv[idx_word]->arg);
 
           return CMD_SUCCESS;
         }
@@ -1823,19 +1821,19 @@ DEFUN (config_enable_password,
       return CMD_WARNING;
     }
 
-  if (host.enable)
-    XFREE (MTYPE_HOST, host.enable);
-  host.enable = NULL;
+  if (frr.host.enable)
+    XFREE (MTYPE_HOST, frr.host.enable);
+  frr.host.enable = NULL;
 
   /* Plain password input. */
-  if (host.encrypt)
+  if (frr.host.encrypt)
     {
-      if (host.enable_encrypt)
-        XFREE (MTYPE_HOST, host.enable_encrypt);
-      host.enable_encrypt = XSTRDUP (MTYPE_HOST, zencrypt (argv[idx_8]->arg));
+      if (frr.host.enable_encrypt)
+        XFREE (MTYPE_HOST, frr.host.enable_encrypt);
+      frr.host.enable_encrypt = XSTRDUP (MTYPE_HOST, zencrypt (argv[idx_8]->arg));
     }
   else
-    host.enable = XSTRDUP (MTYPE_HOST, argv[idx_8]->arg);
+    frr.host.enable = XSTRDUP (MTYPE_HOST, argv[idx_8]->arg);
 
   return CMD_SUCCESS;
 }
@@ -1848,13 +1846,13 @@ DEFUN (no_config_enable_password,
        "Modify enable password parameters\n"
        "Assign the privileged level password\n")
 {
-  if (host.enable)
-    XFREE (MTYPE_HOST, host.enable);
-  host.enable = NULL;
+  if (frr.host.enable)
+    XFREE (MTYPE_HOST, frr.host.enable);
+  frr.host.enable = NULL;
 
-  if (host.enable_encrypt)
-    XFREE (MTYPE_HOST, host.enable_encrypt);
-  host.enable_encrypt = NULL;
+  if (frr.host.enable_encrypt)
+    XFREE (MTYPE_HOST, frr.host.enable_encrypt);
+  frr.host.enable_encrypt = NULL;
 
   return CMD_SUCCESS;
 }
@@ -1865,22 +1863,22 @@ DEFUN (service_password_encrypt,
        "Set up miscellaneous service\n"
        "Enable encrypted passwords\n")
 {
-  if (host.encrypt)
+  if (frr.host.encrypt)
     return CMD_SUCCESS;
 
-  host.encrypt = 1;
+  frr.host.encrypt = 1;
 
-  if (host.password)
+  if (frr.host.password)
     {
-      if (host.password_encrypt)
-        XFREE (MTYPE_HOST, host.password_encrypt);
-      host.password_encrypt = XSTRDUP (MTYPE_HOST, zencrypt (host.password));
+      if (frr.host.password_encrypt)
+        XFREE (MTYPE_HOST, frr.host.password_encrypt);
+      frr.host.password_encrypt = XSTRDUP (MTYPE_HOST, zencrypt (frr.host.password));
     }
-  if (host.enable)
+  if (frr.host.enable)
     {
-      if (host.enable_encrypt)
-        XFREE (MTYPE_HOST, host.enable_encrypt);
-      host.enable_encrypt = XSTRDUP (MTYPE_HOST, zencrypt (host.enable));
+      if (frr.host.enable_encrypt)
+        XFREE (MTYPE_HOST, frr.host.enable_encrypt);
+      frr.host.enable_encrypt = XSTRDUP (MTYPE_HOST, zencrypt (frr.host.enable));
     }
 
   return CMD_SUCCESS;
@@ -1893,18 +1891,18 @@ DEFUN (no_service_password_encrypt,
        "Set up miscellaneous service\n"
        "Enable encrypted passwords\n")
 {
-  if (! host.encrypt)
+  if (! frr.host.encrypt)
     return CMD_SUCCESS;
 
-  host.encrypt = 0;
+  frr.host.encrypt = 0;
 
-  if (host.password_encrypt)
-    XFREE (MTYPE_HOST, host.password_encrypt);
-  host.password_encrypt = NULL;
+  if (frr.host.password_encrypt)
+    XFREE (MTYPE_HOST, frr.host.password_encrypt);
+  frr.host.password_encrypt = NULL;
 
-  if (host.enable_encrypt)
-    XFREE (MTYPE_HOST, host.enable_encrypt);
-  host.enable_encrypt = NULL;
+  if (frr.host.enable_encrypt)
+    XFREE (MTYPE_HOST, frr.host.enable_encrypt);
+  frr.host.enable_encrypt = NULL;
 
   return CMD_SUCCESS;
 }
@@ -1943,7 +1941,7 @@ DEFUN (service_terminal_length,
 {
   int idx_number = 2;
 
-  host.lines = atoi (argv[idx_number]->arg);
+  frr.host.lines = atoi (argv[idx_number]->arg);
 
   return CMD_SUCCESS;
 }
@@ -1956,7 +1954,7 @@ DEFUN (no_service_terminal_length,
        "System wide terminal length configuration\n"
        "Number of lines of VTY (0 means no line control)\n")
 {
-  host.lines = -1;
+  frr.host.lines = -1;
   return CMD_SUCCESS;
 }
 
@@ -2160,10 +2158,10 @@ set_log_file(struct vty *vty, const char *fname, int loglevel)
       return CMD_WARNING;
     }
 
-  if (host.logfile)
-    XFREE (MTYPE_HOST, host.logfile);
+  if (frr.host.logfile)
+    XFREE (MTYPE_HOST, frr.host.logfile);
 
-  host.logfile = XSTRDUP (MTYPE_HOST, fname);
+  frr.host.logfile = XSTRDUP (MTYPE_HOST, fname);
 
 #if defined(HAVE_CUMULUS)
   if (zlog_default->maxlvl[ZLOG_DEST_SYSLOG] != ZLOG_DISABLED)
@@ -2204,10 +2202,10 @@ DEFUN (no_config_log_file,
 {
   zlog_reset_file ();
 
-  if (host.logfile)
-    XFREE (MTYPE_HOST, host.logfile);
+  if (frr.host.logfile)
+    XFREE (MTYPE_HOST, frr.host.logfile);
 
-  host.logfile = NULL;
+  frr.host.logfile = NULL;
 
   return CMD_SUCCESS;
 }
@@ -2366,9 +2364,9 @@ cmd_banner_motd_file (const char *file)
   in = strstr (rpath, SYSCONFDIR);
   if (in == rpath)
     {
-      if (host.motdfile)
-        XFREE (MTYPE_HOST, host.motdfile);
-      host.motdfile = XSTRDUP (MTYPE_HOST, file);
+      if (frr.host.motdfile)
+        XFREE (MTYPE_HOST, frr.host.motdfile);
+      frr.host.motdfile = XSTRDUP (MTYPE_HOST, file);
     }
   else
     success = CMD_WARNING;
@@ -2403,7 +2401,7 @@ DEFUN (banner_motd_default,
        "Strings for motd\n"
        "Default string\n")
 {
-  host.motd = default_motd;
+  frr.host.motd = default_motd;
   return CMD_SUCCESS;
 }
 
@@ -2414,10 +2412,10 @@ DEFUN (no_banner_motd,
        "Set banner string\n"
        "Strings for motd\n")
 {
-  host.motd = NULL;
-  if (host.motdfile)
-    XFREE (MTYPE_HOST, host.motdfile);
-  host.motdfile = NULL;
+  frr.host.motd = NULL;
+  if (frr.host.motdfile)
+    XFREE (MTYPE_HOST, frr.host.motdfile);
+  frr.host.motdfile = NULL;
   return CMD_SUCCESS;
 }
 
@@ -2425,15 +2423,15 @@ DEFUN (no_banner_motd,
 void
 host_config_set (const char *filename)
 {
-  if (host.config)
-    XFREE (MTYPE_HOST, host.config);
-  host.config = XSTRDUP (MTYPE_HOST, filename);
+  if (frr.host.config)
+    XFREE (MTYPE_HOST, frr.host.config);
+  frr.host.config = XSTRDUP (MTYPE_HOST, filename);
 }
 
 const char *
 host_config_get (void)
 {
-  return host.config;
+  return frr.host.config;
 }
 
 void
@@ -2467,15 +2465,15 @@ cmd_init (int terminal)
   cmdvec = vector_init (VECTOR_MIN_SIZE);
 
   /* Default host value settings. */
-  host.name = NULL;
-  host.password = NULL;
-  host.enable = NULL;
-  host.logfile = NULL;
-  host.config = NULL;
-  host.noconfig = (terminal < 0);
-  host.lines = -1;
-  host.motd = default_motd;
-  host.motdfile = NULL;
+  frr.host.name = NULL;
+  frr.host.password = NULL;
+  frr.host.enable = NULL;
+  frr.host.logfile = NULL;
+  frr.host.config = NULL;
+  frr.host.noconfig = (terminal < 0);
+  frr.host.lines = -1;
+  frr.host.motd = default_motd;
+  frr.host.motdfile = NULL;
 
   /* Install top nodes. */
   install_node (&view_node, NULL);
@@ -2586,22 +2584,22 @@ cmd_terminate ()
       cmdvec = NULL;
     }
 
-  if (host.name)
-    XFREE (MTYPE_HOST, host.name);
-  if (host.password)
-    XFREE (MTYPE_HOST, host.password);
-  if (host.password_encrypt)
-    XFREE (MTYPE_HOST, host.password_encrypt);
-  if (host.enable)
-    XFREE (MTYPE_HOST, host.enable);
-  if (host.enable_encrypt)
-    XFREE (MTYPE_HOST, host.enable_encrypt);
-  if (host.logfile)
-    XFREE (MTYPE_HOST, host.logfile);
-  if (host.motdfile)
-    XFREE (MTYPE_HOST, host.motdfile);
-  if (host.config)
-    XFREE (MTYPE_HOST, host.config);
+  if (frr.host.name)
+    XFREE (MTYPE_HOST, frr.host.name);
+  if (frr.host.password)
+    XFREE (MTYPE_HOST, frr.host.password);
+  if (frr.host.password_encrypt)
+    XFREE (MTYPE_HOST, frr.host.password_encrypt);
+  if (frr.host.enable)
+    XFREE (MTYPE_HOST, frr.host.enable);
+  if (frr.host.enable_encrypt)
+    XFREE (MTYPE_HOST, frr.host.enable_encrypt);
+  if (frr.host.logfile)
+    XFREE (MTYPE_HOST, frr.host.logfile);
+  if (frr.host.motdfile)
+    XFREE (MTYPE_HOST, frr.host.motdfile);
+  if (frr.host.config)
+    XFREE (MTYPE_HOST, frr.host.config);
 
   list_delete (varhandlers);
   qobj_finish ();

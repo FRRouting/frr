@@ -90,7 +90,7 @@ FRR_DAEMON_INFO(pimd, PIM,
 
 
 int main(int argc, char** argv, char** envp) {
-  frr_preinit(&pimd_di, argc, argv);
+  frr_preinit (&pimd_di, argv[0]);
   frr_opt_add("", longopts, "");
 
   /* this while just reads the options */

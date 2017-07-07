@@ -150,7 +150,7 @@ main(int argc, char **argv)
 {
     int rc;
 
-    frr_preinit (&babeld_di, argc, argv);
+    frr_preinit (&babeld_di, argv[0]);
     frr_opt_add ("", longopts, "");
   
     babel_init_random();

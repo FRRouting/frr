@@ -51,7 +51,6 @@ DECLARE_MGROUP(MVTYSH)
 
 /* vtysh local configuration file. */
 #define VTYSH_DEFAULT_CONFIG "vtysh.conf"
-#define FRR_DEFAULT_CONFIG "frr.conf"
 
 enum vtysh_write_integrated {
 	WRITE_INTEGRATED_UNSPECIFIED,
@@ -60,8 +59,6 @@ enum vtysh_write_integrated {
 };
 
 extern enum vtysh_write_integrated vtysh_write_integrated;
-
-extern char *quagga_config;
 
 void vtysh_init_vty (void);
 void vtysh_init_cmd (void);

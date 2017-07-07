@@ -193,7 +193,7 @@ main (int argc, char *argv[], char *envp[])
 {
   int opt;
 
-  frr_preinit (&ospf6d_di, argc, argv);
+  frr_preinit (&ospf6d_di, argv[0]);
   frr_opt_add ("", longopts, "");
 
   /* Command line argument treatment. */

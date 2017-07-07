@@ -1057,7 +1057,7 @@ int main(int argc, char **argv)
 	const char *special = "zebra";
 	const char *blankstr = NULL;
 
-	frr_preinit(&watchfrr_di, argc, argv);
+	frr_preinit (&watchfrr_di, argv[0]);
 	progname = watchfrr_di.progname;
 
 	frr_opt_add("aAb:dek:l:i:p:r:R:S:s:t:T:z", longopts, "");

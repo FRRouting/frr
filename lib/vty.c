@@ -87,9 +87,6 @@ static int vty_config_is_lockless = 0;
 /* Login password check. */
 static int no_password_check = 0;
 
-/* Integrated configuration file path */
-char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
-
 static int do_log_commands = 0;
 
 static int
@@ -250,12 +247,12 @@ vty_time_print (struct vty *vty, int cr)
 void
 vty_hello (struct vty *vty)
 {
-  if (host.motdfile)
+  if (frr.host.motdfile)
     {
       FILE *f;
       char buf[4096];
 
-      f = fopen (host.motdfile, "r");
+      f = fopen (frr.host.motdfile, "r");
       if (f)
         {
           while (fgets (buf, sizeof (buf), f))
@@ -272,8 +269,8 @@ vty_hello (struct vty *vty)
       else
         vty_outln (vty, "MOTD file not found");
     }
-  else if (host.motd)
-    vty_out (vty, "%s", host.motd);
+  else if (frr.host.motd)
+    vty_out (vty, "%s", frr.host.motd);
 }
 
 /* Put out prompt and wait input from user. */
@@ -285,7 +282,7 @@ vty_prompt (struct vty *vty)
 
   if (vty->type == VTY_TERM)
     {
-      hostname = host.name;
+      hostname = frr.host.name;
       if (!hostname)
         {
           uname (&names);
@@ -363,27 +360,27 @@ vty_auth (struct vty *vty, char *buf)
   switch (vty->node)
     {
     case AUTH_NODE:
-      if (host.encrypt)
-        passwd = host.password_encrypt;
+      if (frr.host.encrypt)
+        passwd = frr.host.password_encrypt;
       else
-        passwd = host.password;
-      if (host.advanced)
-        next_node = host.enable ? VIEW_NODE : ENABLE_NODE;
+        passwd = frr.host.password;
+      if (frr.host.advanced)
+        next_node = frr.host.enable ? VIEW_NODE : ENABLE_NODE;
       else
         next_node = VIEW_NODE;
       break;
     case AUTH_ENABLE_NODE:
-      if (host.encrypt)
-        passwd = host.enable_encrypt;
+      if (frr.host.encrypt)
+        passwd = frr.host.enable_encrypt;
       else
-        passwd = host.enable;
+        passwd = frr.host.enable;
       next_node = ENABLE_NODE;
       break;
     }
 
   if (passwd)
     {
-      if (host.encrypt)
+      if (frr.host.encrypt)
         fail = strcmp (crypt(buf, passwd), passwd);
       else
         fail = strcmp (buf, passwd);
@@ -1754,18 +1751,18 @@ vty_create (int vty_sock, union sockunion *su)
   strcpy (vty->address, buf);
   if (no_password_check)
     {
-      if (host.advanced)
+      if (frr.host.advanced)
         vty->node = ENABLE_NODE;
       else
         vty->node = VIEW_NODE;
     }
-  if (host.lines >= 0)
-    vty->lines = host.lines;
+  if (frr.host.lines >= 0)
+    vty->lines = frr.host.lines;
 
   if (! no_password_check)
     {
       /* Vty is not available if password isn't set. */
-      if (host.password == NULL && host.password_encrypt == NULL)
+      if (frr.host.password == NULL && frr.host.password_encrypt == NULL)
         {
           vty_outln (vty, "Vty password is not set.");
           vty->status = VTY_CLOSE;
@@ -2453,10 +2450,13 @@ out_close_sav:
   return ret;
 }
 
-/* Read up configuration file from file_name. */
+/**
+ * Read and apply specified configuration file.
+ *
+ * @param config_file fully qualified path to configuration file
+ */
 void
-vty_read_config (const char *config_file,
-                 char *config_default_dir)
+vty_read_config (const char *config_file, const char *config_default_dir)
 {
   char cwd[MAXPATHLEN];
   FILE *confp = NULL;
@@ -2524,7 +2524,11 @@ vty_read_config (const char *config_file,
 
       if ( strstr(config_default_dir, "vtysh") == NULL)
         {
-          ret = stat (integrate_default, &conf_stat);
+          char integrated[MAXPATHLEN];
+          snprintf(integrated, sizeof(integrated), "%s/%s", frr.config.dir,
+                   frr.config.integrated);
+
+          ret = stat (integrated, &conf_stat);
           if (ret >= 0)
             goto tmp_free_and_out;
         }
@@ -2899,7 +2903,7 @@ DEFUN (service_advanced_vty,
        "Set up miscellaneous service\n"
        "Enable advanced mode vty interface\n")
 {
-  host.advanced = 1;
+  frr.host.advanced = 1;
   return CMD_SUCCESS;
 }
 
@@ -2910,7 +2914,7 @@ DEFUN (no_service_advanced_vty,
        "Set up miscellaneous service\n"
        "Enable advanced mode vty interface\n")
 {
-  host.advanced = 0;
+  frr.host.advanced = 0;
   return CMD_SUCCESS;
 }
 

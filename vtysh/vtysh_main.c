@@ -44,10 +44,6 @@
 /* VTY shell program name. */
 char *progname;
 
-/* Configuration file name and directory. */
-static char vtysh_config_always[MAXPATHLEN] = SYSCONFDIR VTYSH_DEFAULT_CONFIG;
-static char quagga_config_default[MAXPATHLEN] = SYSCONFDIR FRR_DEFAULT_CONFIG;
-char *quagga_config = quagga_config_default;
 char history_file[MAXPATHLEN];
 
 /* Flag for indicate executing child command. */
@@ -261,6 +257,9 @@ vtysh_unflock_config (void)
   close (flock_fd);
 }
 
+/* Pretend we are a daemon so we can get the global configuration values */
+FRR_DAEMON_INFO(vtysh, VTYSH)
+
 /* VTY shell main routine. */
 int
 main (int argc, char **argv, char **env)
@@ -271,7 +270,6 @@ main (int argc, char **argv, char **env)
   int boot_flag = 0;
   const char *daemon_name = NULL;
   const char *inputfile = NULL;
-  const char *vtysh_configfile_name;
   struct cmd_rec {
     char *line;
     struct cmd_rec *next;
@@ -283,6 +281,13 @@ main (int argc, char **argv, char **env)
   int writeconfig = 0;
   int ret = 0;
   char *homedir = NULL;
+
+  frr_preinit (&vtysh_di, argv[0]);
+
+  /* build path to integrated config file */
+  char integrated[MAXPATHLEN];
+  snprintf(integrated, sizeof(integrated), "%s/%s", frr.config.dir,
+           frr.config.integrated);
 
   /* check for restricted functionality if vtysh is run setuid */
   int restricted = (getuid() != geteuid()) || (getgid() != getegid());
@@ -327,50 +332,14 @@ main (int argc, char **argv, char **env)
 	  vty_sock_path = optarg;
 	  break;
 	case OPTION_CONFDIR:
-      /* 
-       * Skip option for Config Directory if setuid
-       */
-      if (restricted) 
-        {
-          fprintf (stderr, "Overriding of Config Directory blocked for vtysh with setuid");
-          return 1;
-        }
-	  /* 
-	   * Overwrite location for vtysh.conf
-	   */
-	  vtysh_configfile_name = strrchr(VTYSH_DEFAULT_CONFIG, '/');
-	  if (vtysh_configfile_name)
-	    /* skip '/' */
-	    vtysh_configfile_name++;
-	  else
-	    /*
-	     * VTYSH_DEFAULT_CONFIG configured with relative path
-	     * during config? Should really never happen for
-	     * sensible config
-	     */
-	    vtysh_configfile_name = (char *) VTYSH_DEFAULT_CONFIG;
-	  strlcpy(vtysh_config_always, optarg, sizeof(vtysh_config_always));
-	  strlcat(vtysh_config_always, "/", sizeof(vtysh_config_always));
-	  strlcat(vtysh_config_always, vtysh_configfile_name, 
-	      sizeof(vtysh_config_always));
-	  /* 
-	   * Overwrite location for frr.conf
-	   */
-	  vtysh_configfile_name = strrchr(FRR_DEFAULT_CONFIG, '/');
-	  if (vtysh_configfile_name)
-	    /* skip '/' */
-	    vtysh_configfile_name++;
-	  else
-	    /*
-	     * FRR_DEFAULT_CONFIG configured with relative path
-	     * during config? Should really never happen for
-	     * sensible config
-	     */
-	    vtysh_configfile_name = (char *) FRR_DEFAULT_CONFIG;
-	  strlcpy(quagga_config_default, optarg, sizeof(vtysh_config_always));
-	  strlcat(quagga_config_default, "/", sizeof(vtysh_config_always));
-	  strlcat(quagga_config_default, vtysh_configfile_name, 
-	      sizeof(quagga_config_default));
+	  /* Skip option for Config Directory if setuid */
+	  if (restricted)  {
+	    fprintf (stderr, "Overriding of Config Directory blocked for vtysh with setuid");
+	    return 1;
+	  }
+	  snprintf(frr.config.dir, sizeof(frr.config.dir), "%s", optarg);
+	  frr_update_confdir(optarg);
+
 	  break;
 	case 'd':
 	  daemon_name = optarg;
@@ -403,7 +372,7 @@ main (int argc, char **argv, char **env)
     }
 
   if (!vty_sock_path)
-    vty_sock_path = frr_vtydir;
+    vty_sock_path = DAEMON_VTY_DIR;
 
   if (markfile + writeconfig + dryrun + boot_flag > 1)
     {
@@ -433,7 +402,9 @@ main (int argc, char **argv, char **env)
   vty_init_vtysh ();
 
   /* Read vtysh configuration file before connecting to daemons. */
-  vtysh_read_config(vtysh_config_always);
+  char defaultconf[MAXPATHLEN];
+  frr_daemon_conf(defaultconf, sizeof(defaultconf));
+  vtysh_read_config(defaultconf);
 
   if (markfile)
     {
@@ -454,7 +425,7 @@ main (int argc, char **argv, char **env)
 	}
       else
 	{
-	  ret = vtysh_read_config(quagga_config_default);
+	  ret = vtysh_read_config(integrated);
 	}
 
       exit(ret);
@@ -615,13 +586,13 @@ main (int argc, char **argv, char **env)
   /* Boot startup configuration file. */
   if (boot_flag)
     {
-      vtysh_flock_config (quagga_config);
-      int ret = vtysh_read_config (quagga_config);
+      vtysh_flock_config (integrated);
+      int ret = vtysh_read_config (integrated);
       vtysh_unflock_config ();
       if (ret)
         {
 	  fprintf (stderr, "Configuration file[%s] processing failure: %d\n",
-		   quagga_config, ret);
+		   integrated, ret);
 	  if (no_error)
 	    exit (0);
 	  else

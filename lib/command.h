@@ -36,39 +36,6 @@ DECLARE_MTYPE(COMPLETION)
 /* for test-commands.c */
 DECLARE_MTYPE(STRVEC)
 
-/* Host configuration variable */
-struct host
-{
-  /* Host name of this router. */
-  char *name;
-
-  /* Password for vty interface. */
-  char *password;
-  char *password_encrypt;
-
-  /* Enable password */
-  char *enable;
-  char *enable_encrypt;
-
-  /* System wide terminal lines. */
-  int lines;
-
-  /* Log filename. */
-  char *logfile;
-
-  /* config file name of this host */
-  char *config;
-  int noconfig;
-
-  /* Flags for services */
-  int advanced;
-  int encrypt;
-
-  /* Banner configuration. */
-  const char *motd;
-  char *motdfile;
-};
-
 /* There are some command levels which called from command node. */
 enum node_type
 {

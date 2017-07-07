@@ -121,7 +121,7 @@ FRR_DAEMON_INFO(nhrpd, NHRP,
 
 int main(int argc, char **argv)
 {
-	frr_preinit(&nhrpd_di, argc, argv);
+	frr_preinit (&nhrpd_di, argv[0]);
 	frr_opt_add("", longopts, "");
 
 	parse_arguments(argc, argv);

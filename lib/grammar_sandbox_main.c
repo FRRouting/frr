@@ -25,6 +25,7 @@
 
 #include "command.h"
 #include "memory_vty.h"
+#include "libfrr.h"
 
 static void vty_do_exit(void)
 {
@@ -48,7 +49,7 @@ int main(int argc, char **argv)
 
   /* Library inits. */
   cmd_init (1);
-  host.name = strdup ("test");
+  frr.host.name = strdup ("test");
 
   vty_init (master);
   memory_init ();

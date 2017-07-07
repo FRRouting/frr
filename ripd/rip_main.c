@@ -86,7 +86,9 @@ sighup (void)
   zlog_info ("ripd restarting!");
 
   /* Reload config file. */
-  vty_read_config (ripd_di.config_file, config_default);
+  char defaultconf[MAXPATHLEN];
+  frr_daemon_conf(defaultconf, sizeof(defaultconf));
+  vty_read_config (ripd_di.config_file, defaultconf);
 
   /* Try to return to normal operation. */
 }
@@ -147,7 +149,7 @@ FRR_DAEMON_INFO(ripd, RIP,
 int
 main (int argc, char **argv)
 {
-  frr_preinit (&ripd_di, argc, argv);
+  frr_preinit (&ripd_di, argv[0]);
   frr_opt_add ("r", longopts,
 	"  -r, --retain       When program terminates, retain added route by ripd.\n");
 
