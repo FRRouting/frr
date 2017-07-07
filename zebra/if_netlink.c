@@ -403,16 +403,19 @@ static int get_iflink_speed(const char *ifname)
 	/* use ioctl to get IP address of an interface */
 	sd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
 	if (sd < 0) {
-		zlog_debug("Failure to read interface %s speed: %d %s", ifname,
-			   errno, safe_strerror(errno));
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Failure to read interface %s speed: %d %s",
+				   ifname, errno, safe_strerror(errno));
 		return 0;
 	}
 
 	/* Get the current link state for the interface */
 	rc = ioctl(sd, SIOCETHTOOL, (char *)&ifdata);
 	if (rc < 0) {
-		zlog_debug("IOCTL failure to read interface %s speed: %d %s",
-			   ifname, errno, safe_strerror(errno));
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug(
+				"IOCTL failure to read interface %s speed: %d %s",
+				ifname, errno, safe_strerror(errno));
 		ecmd.speed_hi = 0;
 		ecmd.speed = 0;
 	}
