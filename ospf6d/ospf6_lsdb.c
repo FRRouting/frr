@@ -221,9 +221,7 @@ ospf6_lsdb_lookup_next (u_int16_t type, u_int32_t id, u_int32_t adv_router,
                         struct ospf6_lsdb *lsdb)
 {
   struct route_node *node;
-  struct route_node *matched = NULL;
   struct prefix_ipv6 key;
-  struct prefix *p;
 
   if (lsdb == NULL)
     return NULL;
@@ -232,31 +230,14 @@ ospf6_lsdb_lookup_next (u_int16_t type, u_int32_t id, u_int32_t adv_router,
   ospf6_lsdb_set_key (&key, &type, sizeof (type));
   ospf6_lsdb_set_key (&key, &adv_router, sizeof (adv_router));
   ospf6_lsdb_set_key (&key, &id, sizeof (id));
-  p = (struct prefix *) &key;
 
   {
     char buf[PREFIX2STR_BUFFER];
-    prefix2str (p, buf, sizeof (buf));
+    prefix2str (&key, buf, sizeof (buf));
     zlog_debug ("lsdb_lookup_next: key: %s", buf);
   }
 
-  /* FIXME: need to find a better way here to work without sticking our
-   * hands in node->link, e.g. route_node_match_maynull() */
-
-  node = lsdb->table->top;
-  /* walk down tree. */
-  while (node && node->p.prefixlen <= p->prefixlen &&
-         prefix_match (&node->p, p))
-    {
-      matched = node;
-      node = node->link[prefix_bit(&p->u.prefix, node->p.prefixlen)];
-    }
-
-  if (matched)
-    node = matched;
-  else
-    node = lsdb->table->top;
-  route_lock_node (node);
+  node = route_table_get_next (lsdb->table, &key);
 
   /* skip to real existing entry */
   while (node && node->info == NULL)
@@ -265,17 +246,10 @@ ospf6_lsdb_lookup_next (u_int16_t type, u_int32_t id, u_int32_t adv_router,
   if (! node)
     return NULL;
 
-  if (prefix_same (&node->p, p))
-    {
-      node = route_next (node);
-      while (node && node->info == NULL)
-        node = route_next (node);
-    }
-
-  if (! node)
+  route_unlock_node (node);
+  if (! node->info)
     return NULL;
 
-  route_unlock_node (node);
   return (struct ospf6_lsa *) node->info;
 }
 
