@@ -1,0 +1,192 @@
+test# lsa set 0 type 1 adv 1.2.3.4 id 0.0.0.1
+test# lsa set 1 type 1 adv 1.2.3.4 id 0.0.0.2
+test# lsa set 2 type 2 adv 1.2.3.4 id 0.0.0.3
+test# lsa set 3 type 2 adv 128.2.3.4 id 0.0.0.4
+test# lsa set 4 type 2 adv 128.2.3.4 id 0.0.0.5
+test# lsa set 5 type 3 adv 0.0.0.1 id 0.0.0.6
+test# lsa refcounts
+[0] 1
+[1] 1
+[2] 1
+[3] 1
+[4] 1
+[5] 1
+test# 
+test# lsdb create
+test# 
+test# lsdb walk
+0 entries.
+test# lsdb walk type 1
+0 entries.
+test# lsdb walk type 2
+0 entries.
+test# lsdb get type 1 adv 1.2.3.4 id 0.0.0.2
+lsa = NULL
+test# lsdb get-next type 1 adv 1.2.3.4 id 0.0.0.2
+lsa = NULL
+test# lsa refcounts
+[0] 1
+[1] 1
+[2] 1
+[3] 1
+[4] 1
+[5] 1
+test# 
+test# lsdb add 0
+test# lsdb add 1
+test# lsa refcounts
+[0] 2
+[1] 2
+[2] 1
+[3] 1
+[4] 1
+[5] 1
+test# 
+test# lsdb walk
+type 1 adv 1.2.3.4 id 0.0.0.1
+type 1 adv 1.2.3.4 id 0.0.0.2
+2 entries.
+test# lsdb walk type 1
+type 1 adv 1.2.3.4 id 0.0.0.1
+type 1 adv 1.2.3.4 id 0.0.0.2
+2 entries.
+test# lsdb walk type 2
+0 entries.
+test# lsdb get type 1 adv 1.2.3.4 id 0.0.0.2
+type 1 adv 1.2.3.4 id 0.0.0.2
+test# lsdb get-next type 1 adv 1.2.3.4 id 0.0.0.2
+lsa = NULL
+test# lsa refcounts
+[0] 2
+[1] 2
+[2] 1
+[3] 1
+[4] 1
+[5] 1
+test# 
+test# lsdb remove 0
+test# lsdb add 2
+test# lsdb add 3
+test# lsdb add 4
+test# lsa refcounts
+[0] 1
+[1] 2
+[2] 2
+[3] 2
+[4] 2
+[5] 1
+test# 
+test# lsdb walk
+type 1 adv 1.2.3.4 id 0.0.0.2
+type 2 adv 1.2.3.4 id 0.0.0.3
+type 2 adv 128.2.3.4 id 0.0.0.4
+type 2 adv 128.2.3.4 id 0.0.0.5
+4 entries.
+test# lsdb walk type 1
+type 1 adv 1.2.3.4 id 0.0.0.2
+1 entries.
+test# lsdb walk type 2
+type 2 adv 1.2.3.4 id 0.0.0.3
+type 2 adv 128.2.3.4 id 0.0.0.4
+type 2 adv 128.2.3.4 id 0.0.0.5
+3 entries.
+test# lsdb get type 1 adv 1.2.3.4 id 0.0.0.2
+type 1 adv 1.2.3.4 id 0.0.0.2
+test# lsdb get-next type 1 adv 1.2.3.4 id 0.0.0.2
+type 2 adv 1.2.3.4 id 0.0.0.3
+test# lsa refcounts
+[0] 1
+[1] 2
+[2] 2
+[3] 2
+[4] 2
+[5] 1
+test# 
+test# lsdb add 5
+test# lsa refcounts
+[0] 1
+[1] 2
+[2] 2
+[3] 2
+[4] 2
+[5] 2
+test# 
+test# lsdb walk
+type 1 adv 1.2.3.4 id 0.0.0.2
+type 2 adv 1.2.3.4 id 0.0.0.3
+type 2 adv 128.2.3.4 id 0.0.0.4
+type 2 adv 128.2.3.4 id 0.0.0.5
+type 3 adv 0.0.0.1 id 0.0.0.6
+5 entries.
+test# lsdb walk type 1
+type 1 adv 1.2.3.4 id 0.0.0.2
+1 entries.
+test# lsdb walk type 2
+type 2 adv 1.2.3.4 id 0.0.0.3
+type 2 adv 128.2.3.4 id 0.0.0.4
+type 2 adv 128.2.3.4 id 0.0.0.5
+3 entries.
+test# lsdb get type 1 adv 1.2.3.4 id 0.0.0.2
+type 1 adv 1.2.3.4 id 0.0.0.2
+test# lsdb get-next type 1 adv 1.2.3.4 id 0.0.0.2
+type 2 adv 1.2.3.4 id 0.0.0.3
+test# lsa refcounts
+[0] 1
+[1] 2
+[2] 2
+[3] 2
+[4] 2
+[5] 2
+test# 
+test# lsdb remove 1
+test# lsdb remove 5
+test# lsa refcounts
+[0] 1
+[1] 1
+[2] 2
+[3] 2
+[4] 2
+[5] 1
+test# 
+test# lsdb walk
+type 2 adv 1.2.3.4 id 0.0.0.3
+type 2 adv 128.2.3.4 id 0.0.0.4
+type 2 adv 128.2.3.4 id 0.0.0.5
+3 entries.
+test# lsdb walk type 1
+0 entries.
+test# lsdb walk type 2
+type 2 adv 1.2.3.4 id 0.0.0.3
+type 2 adv 128.2.3.4 id 0.0.0.4
+type 2 adv 128.2.3.4 id 0.0.0.5
+3 entries.
+test# lsdb get type 1 adv 1.2.3.4 id 0.0.0.2
+lsa = NULL
+test# lsdb get-next type 1 adv 1.2.3.4 id 0.0.0.2
+type 2 adv 1.2.3.4 id 0.0.0.3
+test# lsa refcounts
+[0] 1
+[1] 1
+[2] 2
+[3] 2
+[4] 2
+[5] 1
+test# 
+test# lsdb delete
+test# 
+test# lsa refcounts
+[0] 1
+[1] 1
+[2] 1
+[3] 1
+[4] 1
+[5] 1
+test# lsa drop 0
+test# lsa drop 1
+test# lsa drop 2
+test# lsa drop 3
+test# lsa drop 4
+test# lsa drop 5
+test# 
+test# 
+end.

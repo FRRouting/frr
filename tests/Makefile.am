@@ -24,6 +24,14 @@ else
 TESTS_BGPD =
 endif
 
+if OSPF6D
+TESTS_OSPF6D = \
+	ospf6d/test_lsdb \
+	# end
+else
+TESTS_OSPF6D =
+endif
+
 if ENABLE_BGP_VNC
 BGP_VNC_RFP_LIB=@top_builddir@/$(LIBRFP)/librfp.a
 else
@@ -31,6 +39,7 @@ BGP_VNC_RFP_LIB =
 endif
 
 lib/cli/test_cli.o: lib/cli/test_cli_clippy.c
+ospf6d/test_lsdb.o: ospf6d/test_lsdb_clippy.c
 
 check_PROGRAMS = \
 	lib/test_buffer \
@@ -51,7 +60,9 @@ check_PROGRAMS = \
 	lib/test_ttable \
 	lib/cli/test_cli \
 	lib/cli/test_commands \
-	$(TESTS_BGPD)
+	$(TESTS_BGPD) \
+	$(TESTS_OSPF6D) \
+	# end
 
 ../vtysh/vtysh_cmd.c:
 	$(MAKE) -C ../vtysh vtysh_cmd.c
@@ -100,8 +111,11 @@ bgpd_test_ecommunity_SOURCES = bgpd/test_ecommunity.c
 bgpd_test_mp_attr_SOURCES = bgpd/test_mp_attr.c
 bgpd_test_mpath_SOURCES = bgpd/test_mpath.c
 
+ospf6d_test_lsdb_SOURCES = ospf6d/test_lsdb.c lib/cli/common_cli.c
+
 ALL_TESTS_LDADD = ../lib/libfrr.la @LIBCAP@
 BGP_TEST_LDADD = ../bgpd/libbgp.a $(BGP_VNC_RFP_LIB) $(ALL_TESTS_LDADD) -lm
+OSPF6_TEST_LDADD = ../ospf6d/libospf6.a $(ALL_TESTS_LDADD)
 
 lib_test_buffer_LDADD = $(ALL_TESTS_LDADD)
 lib_test_checksum_LDADD = $(ALL_TESTS_LDADD)
@@ -126,6 +140,7 @@ bgpd_test_capability_LDADD = $(BGP_TEST_LDADD)
 bgpd_test_ecommunity_LDADD = $(BGP_TEST_LDADD)
 bgpd_test_mp_attr_LDADD = $(BGP_TEST_LDADD)
 bgpd_test_mpath_LDADD = $(BGP_TEST_LDADD)
+ospf6d_test_lsdb_LDADD = $(OSPF6_TEST_LDADD)
 
 EXTRA_DIST = \
     runtests.py \
@@ -148,7 +163,11 @@ EXTRA_DIST = \
     lib/test_stream.refout \
     lib/test_table.py \
     lib/test_timer_correctness.py \
-    lib/test_ttable.py
+    lib/test_ttable.py \
+    ospf6d/test_lsdb.py \
+    ospf6d/test_lsdb.in \
+    ospf6d/test_lsdb.refout \
+    # end
 
 .PHONY: tests.xml
 tests.xml: $(check_PROGRAMS)
