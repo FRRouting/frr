@@ -250,8 +250,16 @@ class Topogen(object):
             router.start()
 
     def stop_topology(self):
-        "Stops the network topology"
+        """
+        Stops the network topology. This function will call the stop() function
+        of all gears before calling the mininet stop function, so they can have
+        their oportunity to do a graceful shutdown.
+        """
         logger.info('stopping topology: {}'.format(self.modname))
+
+        for gear in self.gears.values():
+            gear.stop()
+
         self.net.stop()
 
     def mininet_cli(self):
@@ -309,6 +317,14 @@ class TopoGear(object):
             links += '"{}"<->"{}"'.format(myif, destif)
 
         return 'TopoGear<name="{}",links=[{}]>'.format(self.name, links)
+
+    def start(self):
+        "Basic start function that just reports equipment start"
+        logger.info('starting "{}"'.format(self.name))
+
+    def stop(self):
+        "Basic start function that just reports equipment stop"
+        logger.info('stopping "{}"'.format(self.name))
 
     def run(self, command):
         """
