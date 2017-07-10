@@ -31,6 +31,8 @@ extern int addattr_l (struct nlmsghdr *n, unsigned int maxlen,
                       int type, void *data, unsigned int alen);
 extern int rta_addattr_l (struct rtattr *rta, unsigned int maxlen,
                           int type, void *data, unsigned int alen);
+extern int addattr16 (struct nlmsghdr *n, unsigned int maxlen,
+                      int type, u_int16_t data);
 extern int addattr32 (struct nlmsghdr *n, unsigned int maxlen,
                       int type, int data);
 extern struct rtattr *addattr_nest(struct nlmsghdr *n, int maxlen, int type);
@@ -52,7 +54,7 @@ extern int netlink_talk (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
 					ns_id_t, int startup),
 			 struct nlmsghdr *n, struct nlsock *nl,
                          struct zebra_ns *zns, int startup);
-extern int netlink_request (int family, int type, struct nlsock *nl);
+extern int netlink_request (struct nlsock *nl, struct nlmsghdr *n);
 
 #endif /* HAVE_NETLINK */
 

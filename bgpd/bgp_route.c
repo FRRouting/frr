@@ -4625,8 +4625,10 @@ bgp_static_set_safi (afi_t afi, safi_t safi, struct vty *vty, const char *ip_str
               vty_outln (vty, "%% Malformed GatewayIp");
               return CMD_WARNING;
             }
-          if((gw_ip.family == AF_INET &&  (p.u.prefix_evpn.flags & IP_PREFIX_V6))
-             || (gw_ip.family == AF_INET6 &&  (p.u.prefix_evpn.flags & IP_PREFIX_V4)))
+          if((gw_ip.family == AF_INET &&
+              IS_EVPN_PREFIX_IPADDR_V6((struct prefix_evpn *)&p)) ||
+             (gw_ip.family == AF_INET6 &&
+              IS_EVPN_PREFIX_IPADDR_V4((struct prefix_evpn *)&p)))
             {
               vty_outln (vty, "%% GatewayIp family differs with IP prefix");
               return CMD_WARNING;
@@ -6828,11 +6830,11 @@ route_vty_out_overlay (struct vty *vty, struct prefix *p,
       char *str = esi2str(id);
       vty_out (vty, "%s", str);
       XFREE (MTYPE_TMP, str);
-      if (p->u.prefix_evpn.flags & IP_PREFIX_V4)
+      if (IS_EVPN_PREFIX_IPADDR_V4((struct prefix_evpn *)p))
 	{
           vty_out (vty, "/%s", inet_ntoa (attr->extra->evpn_overlay.gw_ip.ipv4));
 	}
-      else if (p->u.prefix_evpn.flags & IP_PREFIX_V6)
+      else if (IS_EVPN_PREFIX_IPADDR_V6((struct prefix_evpn *)p))
 	{
           vty_out (vty, "/%s",
                    inet_ntop (AF_INET6, &(attr->extra->evpn_overlay.gw_ip.ipv6),
@@ -7195,7 +7197,8 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 	  
       /* Line2 display Next-hop, Neighbor, Router-id */
       /* Display the nexthop */
-      if (p->family == AF_INET &&
+      if ((p->family == AF_INET ||
+           p->family == AF_ETHERNET) &&
           (safi == SAFI_MPLS_VPN ||
            safi == SAFI_ENCAP ||
            safi == SAFI_EVPN ||

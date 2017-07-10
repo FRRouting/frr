@@ -1462,7 +1462,8 @@ peer_afi_active_nego (const struct peer *peer, afi_t afi)
       || peer->afc_nego[afi][SAFI_MULTICAST]
       || peer->afc_nego[afi][SAFI_LABELED_UNICAST]
       || peer->afc_nego[afi][SAFI_MPLS_VPN]
-      || peer->afc_nego[afi][SAFI_ENCAP])
+      || peer->afc_nego[afi][SAFI_ENCAP]
+      || peer->afc_nego[afi][SAFI_EVPN])
     return 1;
   return 0;
 }
@@ -1482,7 +1483,8 @@ peer_group_af_configured (struct peer_group *group)
       || peer->afc[AFI_IP6][SAFI_MULTICAST]
       || peer->afc[AFI_IP6][SAFI_LABELED_UNICAST]
       || peer->afc[AFI_IP6][SAFI_MPLS_VPN]
-      || peer->afc[AFI_IP6][SAFI_ENCAP])
+      || peer->afc[AFI_IP6][SAFI_ENCAP]
+      || peer->afc[AFI_IP6][SAFI_EVPN])
     return 1;
   return 0;
 }
