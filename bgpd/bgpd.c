@@ -2725,6 +2725,8 @@ peer_group_bind (struct bgp *bgp, union sockunion *su, struct peer *peer,
                     peer_group2peer_config_copy_af (group, peer, afi, safi);
                   }
               }
+            else if (peer->afc[afi][safi])
+              peer_deactivate (peer, afi, safi);
           }
 
       if (peer->group)
@@ -2805,6 +2807,8 @@ peer_group_bind (struct bgp *bgp, union sockunion *su, struct peer *peer,
               peer_af_create(peer, afi, safi);
               peer_group2peer_config_copy_af (group, peer, afi, safi);
             }
+          else if (peer->afc[afi][safi])
+            peer_deactivate (peer, afi, safi);
 
       SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 
