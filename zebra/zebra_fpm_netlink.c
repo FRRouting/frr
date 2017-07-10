@@ -154,8 +154,7 @@ typedef struct netlink_route_info_t_
  * Returns TRUE if a nexthop was added, FALSE otherwise.
  */
 static int
-netlink_route_info_add_nh (netlink_route_info_t *ri, struct nexthop *nexthop,
-			   int recursive)
+netlink_route_info_add_nh (netlink_route_info_t *ri, struct nexthop *nexthop)
 {
   netlink_nh_info_t nhi;
   union g_addr *src;
@@ -166,7 +165,7 @@ netlink_route_info_add_nh (netlink_route_info_t *ri, struct nexthop *nexthop,
   if (ri->num_nhs >= (int) ZEBRA_NUM_OF (ri->nhs))
     return 0;
 
-  nhi.recursive = recursive;
+  nhi.recursive = nexthop->rparent ? 1 : 0;
   nhi.type = nexthop->type;
   nhi.if_index = nexthop->ifindex;
 
@@ -298,7 +297,7 @@ netlink_route_info_fill (netlink_route_info_t *ri, int cmd,
           || (cmd == RTM_DELROUTE
               && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)))
         {
-          netlink_route_info_add_nh (ri, nexthop, (nexthop->rparent ? 1 : 0));
+          netlink_route_info_add_nh (ri, nexthop);
         }
     }
 
