@@ -414,6 +414,29 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
   newattre = newattr->extra;
   existattre = existattr->extra;
 
+  if (exist->sub_type == BGP_ROUTE_NORMAL
+      && new->sub_type != BGP_ROUTE_NORMAL
+      && newattr->distance != 0) {
+    struct prefix *exist_prefix = &(exist->net->p);
+    u_char bgp_distance = bgp_distance_apply(exist_prefix, exist,
+          exist_prefix->family, SAFI_UNICAST, bgp);
+    if (newattr->distance < bgp_distance) {
+      return -1;
+    } else if (bgp_distance < newattr->distance) {
+      return 1;
+    }
+  } else if (new->sub_type == BGP_ROUTE_NORMAL
+             && exist->sub_type != BGP_ROUTE_NORMAL
+             && existattr->distance != 0) {
+    struct prefix *new_prefix = &(new->net->p);
+    u_char bgp_distance = bgp_distance_apply(new_prefix, new,
+          new_prefix->family, SAFI_UNICAST, bgp);
+    if (existattr->distance < bgp_distance) {
+      return 1;
+    } else if (bgp_distance < existattr->distance) {
+      return -1;
+    }
+  }
   /* 1. Weight check. */
   new_weight = exist_weight = 0;
 
@@ -5969,7 +5992,8 @@ DEFUN (no_ipv6_aggregate_address,
 void
 bgp_redistribute_add (struct bgp *bgp, struct prefix *p, const struct in_addr *nexthop,
 		      const struct in6_addr *nexthop6, unsigned int ifindex,
-		      u_int32_t metric, u_char type, u_short instance, route_tag_t tag)
+		      u_int32_t metric, u_char type, u_short instance, route_tag_t tag,
+                      u_char distance)
 {
   struct bgp_info *new;
   struct bgp_info *bi;
@@ -5997,6 +6021,7 @@ bgp_redistribute_add (struct bgp *bgp, struct prefix *p, const struct in_addr *n
   attr.med = metric;
   attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC);
   attr.extra->tag = tag;
+  attr.distance = distance;
 
   afi = family2afi (p->family);
 
@@ -6042,6 +6067,7 @@ bgp_redistribute_add (struct bgp *bgp, struct prefix *p, const struct in_addr *n
                              afi, SAFI_UNICAST, p, NULL);
 
       new_attr = bgp_attr_intern (&attr_new);
+      new_attr->distance = distance;
 
       for (bi = bn->info; bi; bi = bi->next)
         if (bi->peer == bgp->peer_self

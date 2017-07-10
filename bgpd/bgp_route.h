@@ -321,7 +321,7 @@ extern int bgp_maximum_prefix_overflow (struct peer *, afi_t, safi_t, int);
 
 extern void bgp_redistribute_add (struct bgp *, struct prefix *, const struct in_addr *,
 				  const struct in6_addr *, unsigned int ifindex,
-				  u_int32_t, u_char, u_short, route_tag_t);
+				  u_int32_t, u_char, u_short, route_tag_t, u_char);
 extern void bgp_redistribute_delete (struct bgp *, struct prefix *, u_char, u_short);
 extern void bgp_redistribute_withdraw (struct bgp *, afi_t, int, u_short);
 
@@ -366,7 +366,7 @@ extern void bgp_aggregate_increment (struct bgp *, struct prefix *, struct bgp_i
 			      afi_t, safi_t);
 extern void bgp_aggregate_decrement (struct bgp *, struct prefix *, struct bgp_info *,
 			      afi_t, safi_t);
-
+extern u_char get_bgp_distance(struct bgp_info *rinfo, struct bgp *bgp);
 extern u_char bgp_distance_apply (struct prefix *, struct bgp_info *, afi_t, safi_t, struct bgp *);
 
 extern afi_t bgp_node_afi (struct vty *);
