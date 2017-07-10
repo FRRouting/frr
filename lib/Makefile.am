@@ -86,6 +86,9 @@ pkginclude_HEADERS = \
 	frr_pthread.h \
 	vrf_int.h \
 	termtable.h \
+	vlan.h \
+	vxlan.h \
+	ipaddr.h \
 	# end
 
 noinst_HEADERS = \

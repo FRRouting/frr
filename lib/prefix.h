@@ -32,6 +32,7 @@
 # endif
 #endif
 #include "sockunion.h"
+#include "ipaddr.h"
 
 #ifndef ETHER_ADDR_LEN
 #ifdef ETHERADDRL
@@ -62,30 +63,23 @@ struct ethaddr {
 struct evpn_addr
 {
   u_char route_type;
-  u_char flags;
-#define IP_ADDR_NONE      0x0
-#define IP_ADDR_V4        0x1
-#define IP_ADDR_V6        0x2
-#define IP_PREFIX_V4      0x4
-#define IP_PREFIX_V6      0x8
+  u_char ip_prefix_length;
   struct ethaddr mac;
   uint32_t eth_tag;
-  u_char ip_prefix_length;
+  ipaddr_t ip;
+#if 0
   union
   {
     u_char addr;
     struct in_addr v4_addr;
     struct in6_addr v6_addr;
   } ip;
+#endif
 };
 
-/* EVPN prefix structure. */
-struct prefix_evpn
-{
-  u_char family;
-  u_char prefixlen;
-  struct evpn_addr prefix __attribute__ ((aligned (8)));
-};
+#define IS_EVPN_PREFIX_IPADDR_NONE(evp)  IS_IPADDR_NONE(&(evp)->prefix.ip)
+#define IS_EVPN_PREFIX_IPADDR_V4(evp)    IS_IPADDR_V4(&(evp)->prefix.ip)
+#define IS_EVPN_PREFIX_IPADDR_V6(evp)    IS_IPADDR_V6(&(evp)->prefix.ip)
 
 /*
  * A struct prefix contains an address family, a prefix length, and an
@@ -165,6 +159,14 @@ struct prefix_eth
   u_char family;
   u_char prefixlen;
   struct ethaddr eth_addr __attribute__ ((aligned (8))); /* AF_ETHERNET */
+};
+
+/* EVPN prefix structure. */
+struct prefix_evpn
+{
+  u_char family;
+  u_char prefixlen;
+  struct evpn_addr prefix __attribute__ ((aligned (8)));
 };
 
 /* Prefix for a generic pointer */

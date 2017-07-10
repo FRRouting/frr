@@ -437,6 +437,32 @@ netlink_interface (struct sockaddr_nl *snl, struct nlmsghdr *h,
   return 0;
 }
 
+/* Request for specific interface or address information from the kernel */
+static int
+netlink_request_intf_addr (struct zebra_ns *zns,
+                           int family, int type,
+                           u_int32_t filter_mask)
+{
+  struct
+  {
+    struct nlmsghdr n;
+    struct ifinfomsg ifm;
+    char buf[256];
+  } req;
+
+  /* Form the request, specifying filter (rtattr) if needed. */
+  memset (&req, 0, sizeof (req));
+  req.n.nlmsg_type = type;
+  req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+  req.ifm.ifi_family = family;
+
+  /* Include filter, if specified. */
+  if (filter_mask)
+    addattr32 (&req.n, sizeof(req), IFLA_EXT_MASK, filter_mask);
+
+  return netlink_request (&zns->netlink_cmd, &req.n);
+}
+
 /* Interface lookup by netlink socket. */
 int
 interface_lookup_netlink (struct zebra_ns *zns)
@@ -444,7 +470,7 @@ interface_lookup_netlink (struct zebra_ns *zns)
   int ret;
 
   /* Get interface information. */
-  ret = netlink_request (AF_PACKET, RTM_GETLINK, &zns->netlink_cmd);
+  ret = netlink_request_intf_addr (zns, AF_PACKET, RTM_GETLINK, 0);
   if (ret < 0)
     return ret;
   ret = netlink_parse_info (netlink_interface, &zns->netlink_cmd, zns, 0, 1);
@@ -452,7 +478,7 @@ interface_lookup_netlink (struct zebra_ns *zns)
     return ret;
 
   /* Get IPv4 address of the interfaces. */
-  ret = netlink_request (AF_INET, RTM_GETADDR, &zns->netlink_cmd);
+  ret = netlink_request_intf_addr (zns, AF_INET, RTM_GETADDR, 0);
   if (ret < 0)
     return ret;
   ret = netlink_parse_info (netlink_interface_addr, &zns->netlink_cmd, zns, 0, 1);
@@ -460,7 +486,7 @@ interface_lookup_netlink (struct zebra_ns *zns)
     return ret;
 
   /* Get IPv6 address of the interfaces. */
-  ret = netlink_request (AF_INET6, RTM_GETADDR, &zns->netlink_cmd);
+  ret = netlink_request_intf_addr (zns, AF_INET6, RTM_GETADDR, 0);
   if (ret < 0)
     return ret;
   ret = netlink_parse_info (netlink_interface_addr, &zns->netlink_cmd, zns, 0, 1);

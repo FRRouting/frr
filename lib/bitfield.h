@@ -78,11 +78,26 @@ typedef unsigned int word_t;
     bf_set_bit(v, id);					\
   } while (0)
 
-/**
+/*
+ * allocate and assign 0th bit in the bitfiled.
+ */
+#define bf_assign_zero_index(v)    \
+  do {                             \
+    int id = 0;                    \
+    bf_assign_index(v, id);        \
+  } while (0)
+
+/*
  * return an id to bitfield v
  */
 #define bf_release_index(v, id)			\
   (v).data[bf_index(id)] &= ~(1 << (bf_offset(id)))
+
+/*
+ * return 0th index back to bitfield
+ */
+#define bf_release_zero_index(v)   \
+  bf_release_index(v, 0)
 
 #define bf_index(b) ((b) / WORD_SIZE)
 #define bf_offset(b) ((b) % WORD_SIZE)
@@ -116,6 +131,17 @@ typedef unsigned int word_t;
     sh = ((word & 0x3) == 0x3) << 1; word >>= sh; (b) |= sh;	\
     sh = ((word & 0x1) == 0x1) << 0; word >>= sh; (b) |= sh;	\
     (b) += (w * WORD_SIZE);					\
+  } while (0)
+
+/*
+ * Free the allocated memory for data
+ * @v: an instance of bitfield_t struct.
+ */
+#define bf_free(v)          \
+  do {                      \
+    if ((v).data) {         \
+      free((v).data);       \
+    }                       \
   } while (0)
 
 #endif
