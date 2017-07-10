@@ -443,7 +443,7 @@ static void forward_off(struct pim_upstream *up)
 	/* scan per-interface (S,G) state */
 	for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
 
-		pim_forward_stop(ch);
+		pim_forward_stop(ch, false);
 
 	} /* scan iface channel list */
 }

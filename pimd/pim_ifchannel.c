@@ -613,7 +613,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 
 static void ifjoin_to_noinfo(struct pim_ifchannel *ch, bool ch_del)
 {
-	pim_forward_stop(ch);
+	pim_forward_stop(ch, !ch_del);
 	pim_ifchannel_ifjoin_switch(__PRETTY_FUNCTION__, ch, PIM_IFJOIN_NOINFO);
 	if (ch_del)
 		delete_on_noinfo(ch);

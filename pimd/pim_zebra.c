@@ -1284,17 +1284,21 @@ void pim_forward_start(struct pim_ifchannel *ch)
 	pim_channel_add_oif(up->channel_oil, ch->interface, mask);
 }
 
-void pim_forward_stop(struct pim_ifchannel *ch)
+void pim_forward_stop(struct pim_ifchannel *ch, bool install_it)
 {
 	struct pim_upstream *up = ch->upstream;
 
 	if (PIM_DEBUG_PIM_TRACE) {
-		zlog_debug("%s: (S,G)=%s oif=%s", __PRETTY_FUNCTION__,
-			   ch->sg_str, ch->interface->name);
+		zlog_debug("%s: (S,G)=%s oif=%s install_it: %d installed: %d",
+			   __PRETTY_FUNCTION__, ch->sg_str, ch->interface->name,
+			   install_it, up->channel_oil->installed);
 	}
 
 	pim_channel_del_oif(up->channel_oil, ch->interface,
 			    PIM_OIF_FLAG_PROTO_PIM);
+
+	if (install_it && !up->channel_oil->installed)
+		pim_mroute_add(up->channel_oil, __PRETTY_FUNCTION__);
 }
 
 void pim_zebra_zclient_update(struct vty *vty)
