@@ -697,7 +697,6 @@ DEFUN (ospf6_stub_router_admin,
        ospf6_stub_router_admin_cmd,
        "stub-router administrative",
        "Make router a stub router\n"
-       "Advertise inability to be a transit router\n"
        "Administratively applied, for an indefinite period\n")
 {
   struct listnode *node;
@@ -722,7 +721,6 @@ DEFUN (no_ospf6_stub_router_admin,
        "no stub-router administrative",
        NO_STR
        "Make router a stub router\n"
-       "Advertise ability to be a transit router\n"
        "Administratively applied, for an indefinite period\n")
 {
   struct listnode *node;

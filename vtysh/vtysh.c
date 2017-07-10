@@ -1272,9 +1272,8 @@ DEFUNSH (VTYSH_BGPD,
 	 address_family_evpn_cmd,
 	 "address-family <l2vpn evpn>",
          "Enter Address Family command mode\n"
-         "EVPN Address family\n"
-         "Layer2 VPN Address family\n"
-         "Ethernet Virtual Private Network Subsequent Address Family\n")
+         "Address Family\n"
+         "Address Family modifier\n")
 {
   vty->node = BGP_EVPN_NODE;
   return CMD_SUCCESS;
@@ -2446,10 +2445,9 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_ALL,
 	 vtysh_config_password,
 	 vtysh_password_cmd,
-	 "password (8-8) WORD",
+	 "password [(8-8)] WORD",
 	 "Assign the terminal connection password\n"
 	 "Specifies a HIDDEN password will follow\n"
-	 "dummy string \n"
 	 "The HIDDEN line password string\n")
 {
   return CMD_SUCCESS;

@@ -7265,7 +7265,7 @@ bgp_config_write_family_header (struct vty *vty, afi_t afi, safi_t safi,
   if (*write)
     return;
 
-  vty_outln (vty, " !%s address-family ", VTYNL);
+  vty_out (vty, " !%s address-family ", VTYNL);
 
   if (afi == AFI_IP)
     {

@@ -2672,8 +2672,7 @@ DEFUN (add_vnc_prefix_cost_life,
        "Administrative cost   [default: 255]\n"
        "Administrative cost\n"
        "Registration lifetime [default: infinite]\n"
-       "Lifetime value in seconds\n"
-       "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
+       "Lifetime value in seconds\n")
 {
   /*                       pfx      vn       un       cost     life */
   return register_add (vty, argv[3], argv[5], argv[7], argv[9], argv[11],
@@ -2698,8 +2697,7 @@ DEFUN (add_vnc_prefix_life_cost,
        "Registration lifetime [default: infinite]\n"
        "Lifetime value in seconds\n"
        "Administrative cost   [default: 255]\n"
-       "Administrative cost\n"
-       "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
+       "Administrative cost\n")
 {
   /*                       pfx      vn       un       cost     life */
   return register_add (vty, argv[3], argv[5], argv[7], argv[11], argv[9],
@@ -2722,8 +2720,7 @@ DEFUN (add_vnc_prefix_cost,
        "UN IPv4 interface address\n"
        "UN IPv6 interface address\n"
        "Administrative cost   [default: 255]\n"
-       "Administrative cost\n"
-       "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
+       "Administrative cost\n")
 {
   /*                       pfx      vn       un       cost     life */
   return register_add (vty, argv[3], argv[5], argv[7], argv[9], NULL,
@@ -2746,8 +2743,7 @@ DEFUN (add_vnc_prefix_life,
        "UN IPv4 interface address\n"
        "UN IPv6 interface address\n"
        "Registration lifetime [default: infinite]\n"
-       "Lifetime value in seconds\n"
-       "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
+       "Lifetime value in seconds\n")
 {
   /*                       pfx      vn       un       cost     life */
   return register_add (vty, argv[3], argv[5], argv[7], NULL, argv[9],
@@ -2768,8 +2764,7 @@ DEFUN (add_vnc_prefix,
        "VN IPv6 interface address\n"
        "UN address of NVE\n"
        "UN IPv4 interface address\n"
-       "UN IPv6 interface address\n"
-       "[local-next-hop (A.B.C.D|X:X::X:X)] [local-cost <0-255>]\n")
+       "UN IPv6 interface address\n")
 {
   /*                       pfx      vn       un       cost     life */
   return register_add (vty, argv[3], argv[5], argv[7], NULL, NULL,
@@ -4063,7 +4058,6 @@ DEFUN (clear_vnc_mac_vn_un,
        "MAC address\n"
        "VNI keyword\n"
        "Any virtual network identifier\n"
-       "Virtual network identifier\n"
        "Virtual network identifier\n"
        "VN address of NVE\n"
        "All VN addresses\n"

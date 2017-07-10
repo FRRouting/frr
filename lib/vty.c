@@ -107,7 +107,7 @@ vty_out_variadic (struct vty *vty, const char *format, va_list args)
     {
       /* Try to write to initial buffer.  */
       va_copy (cp, args);
-      len = vsnprintf (buf, sizeof(buf), format, args);
+      len = vsnprintf (buf, sizeof(buf), format, cp);
       va_end (cp);
 
       /* Initial buffer is not enough.  */
@@ -124,7 +124,9 @@ vty_out_variadic (struct vty *vty, const char *format, va_list args)
               if (! p)
                 return -1;
 
-              len = vsnprintf (p, size, format, args);
+              va_copy (cp, args);
+              len = vsnprintf (p, size, format, cp);
+              va_end (cp);
 
               if (len > -1 && len < size)
                 break;

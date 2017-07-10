@@ -1729,9 +1729,7 @@ DEFUN (no_ipv6_ospf6_network,
        NO_STR
        IP6_STR
        OSPF6_STR
-       "Network type\n"
-       "Default to whatever interface type system specifies"
-       )
+       "Set default network type\n")
 {
   VTY_DECLVAR_CONTEXT(interface, ifp);
   struct ospf6_interface *oi;

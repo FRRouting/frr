@@ -21,14 +21,6 @@
 #ifndef _QUAGGA_BGP_ZEBRA_H
 #define _QUAGGA_BGP_ZEBRA_H
 
-#define BGP_NEXTHOP_BUF_SIZE (8 * sizeof (struct in_addr *))
-#define BGP_IFINDICES_BUF_SIZE (8 * sizeof (unsigned int))
-#define BGP_LABEL_BUF_SIZE (8 * sizeof (unsigned int))
-
-extern struct stream *bgp_nexthop_buf;
-extern struct stream *bgp_ifindices_buf;
-extern struct stream *bgp_label_buf;
-
 extern void bgp_zebra_init (struct thread_master *master);
 extern void bgp_zebra_destroy (void);
 extern int bgp_if_update_all (void);

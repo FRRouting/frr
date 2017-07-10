@@ -1313,9 +1313,9 @@ DEFUN (vnc_nve_group_redist_bgpdirect_no_prefixlist,
        NO_STR
        "Redistribute from other protocol\n"
        "Redistribute from BGP directly\n"
-       "Disable redistribute filter\n"
        "IPv4 routes\n"
-       "IPv6 routes\n" "Prefix-list for filtering redistributed routes\n")
+       "IPv6 routes\n"
+       "Prefix-list for filtering redistributed routes\n")
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);
   VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg)
@@ -1412,7 +1412,6 @@ DEFUN (vnc_nve_group_redist_bgpdirect_no_routemap,
        NO_STR
        "Redistribute from other protocols\n"
        "Redistribute from BGP directly\n"
-       "Disable redistribute filter\n"
        "Route-map for filtering redistributed routes\n")
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -2076,7 +2075,6 @@ DEFUN (vnc_nve_export_prefixlist,
        "Export to other protocols\n"
        "Export to BGP\n"
        "Export to Zebra (experimental)\n"
-       "Filters, used in 'registering-nve' export mode\n"
        "IPv4 prefixes\n"
        "IPv6 prefixes\n"
        "Prefix-list for filtering exported routes\n" "Prefix list name\n")
@@ -2178,7 +2176,6 @@ DEFUN (vnc_nve_export_routemap,
        "Export to other protocols\n"
        "Export to BGP\n"
        "Export to Zebra (experimental)\n"
-       "Filters, used in 'registering-nve' export mode\n"
        "Route-map for filtering exported routes\n" "Route map name\n")
 {
   VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -3918,7 +3915,6 @@ DEFUN (vnc_l2_group_no_labels,
        vnc_l2_group_no_labels_cmd,
        "no labels LABELLIST...",
        NO_STR
-       "Remove label values associated with L2 group\n"
        "Specify label values associated with L2 group\n"
        "Space separated list of label values <0-1048575>\n")
 {
