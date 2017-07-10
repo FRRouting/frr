@@ -80,13 +80,8 @@ typedef unsigned int mpls_lse_t;
 /* MPLS label value as a 32-bit (mostly we only care about the label value). */
 typedef unsigned int mpls_label_t;
 
-/* The MPLS explicit-null label is 0 which means when you memset a mpls_label_t
- * to zero you have set that variable to explicit-null which was probably not
- * your intent. The work-around is to use one bit to indicate if the
- * mpls_label_t has been set by the user. MPLS_INVALID_LABEL has this bit clear
- * so that we can use MPLS_INVALID_LABEL to initialize mpls_label_t variables.
- */
-#define MPLS_INVALID_LABEL                 0xFFFDFFFF
+#define MPLS_NO_LABEL                      0xFFFFFFFF
+#define MPLS_INVALID_LABEL                 0xFFFFFFFF
 
 /* LSP types. */
 enum lsp_types_t

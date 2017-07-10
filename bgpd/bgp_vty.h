@@ -28,20 +28,14 @@ struct bgp;
 
 #define BGP_AFI_CMD_STR         "<ipv4|ipv6>"
 #define BGP_AFI_HELP_STR        "Address Family\nAddress Family\n"
-#define BGP_SAFI_CMD_STR        "<unicast|multicast|vpn>"
+#define BGP_SAFI_CMD_STR        "<unicast|multicast|vpn|labeled-unicast>"
 #define BGP_SAFI_HELP_STR       \
+  "Address Family modifier\n"   \
   "Address Family modifier\n"   \
   "Address Family modifier\n"   \
   "Address Family modifier\n"
 #define BGP_AFI_SAFI_CMD_STR    BGP_AFI_CMD_STR" "BGP_SAFI_CMD_STR
 #define BGP_AFI_SAFI_HELP_STR   BGP_AFI_HELP_STR BGP_SAFI_HELP_STR
-
-#define BGP_SAFI_WITH_LABEL_CMD_STR  "<unicast|multicast|vpn|labeled-unicast>"
-#define BGP_SAFI_WITH_LABEL_HELP_STR       \
-  "Address Family modifier\n"   \
-  "Address Family modifier\n"   \
-  "Address Family modifier\n"   \
-  "Address Family modifier\n"
 
 extern void bgp_vty_init (void);
 extern const char *afi_safi_print (afi_t, safi_t);

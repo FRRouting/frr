@@ -22,7 +22,6 @@
 #ifndef _ZEBRA_STREAM_H
 #define _ZEBRA_STREAM_H
 
-#include "mpls.h"
 #include "prefix.h"
 
 /*
@@ -182,7 +181,7 @@ extern int stream_put_prefix_addpath (struct stream *, struct prefix *,
                                       u_int32_t addpath_tx_id);
 extern int stream_put_prefix (struct stream *, struct prefix *);
 extern int stream_put_labeled_prefix (struct stream *, struct prefix *,
-                                      mpls_label_t *);
+                                      u_char *);
 extern void stream_get (void *, struct stream *, size_t);
 extern void stream_get_from (void *, struct stream *, size_t, size_t);
 extern u_char stream_getc (struct stream *);

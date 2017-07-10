@@ -564,10 +564,9 @@ vtysh_mark_file (const char *filename)
        * to move into node in the vtysh where it succeeded. */
       if (ret == CMD_SUCCESS || ret == CMD_SUCCESS_DAEMON || ret == CMD_WARNING)
 	{
-	  if ((prev_node == BGP_VPNV4_NODE || prev_node == BGP_VPNV6_NODE
-               || prev_node == BGP_IPV4_NODE || prev_node == BGP_IPV6_NODE
-               || prev_node == BGP_IPV4L_NODE || prev_node == BGP_IPV6L_NODE
-               || prev_node == BGP_IPV4M_NODE || prev_node == BGP_IPV6M_NODE
+	  if ((prev_node == BGP_VPNV4_NODE || prev_node == BGP_IPV4_NODE
+	       || prev_node == BGP_IPV6_NODE || prev_node == BGP_IPV4M_NODE
+	       || prev_node == BGP_IPV6M_NODE || prev_node == BGP_VPNV6_NODE
                || prev_node == BGP_EVPN_NODE)
 	      && (tried == 1))
 	    {

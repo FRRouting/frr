@@ -74,7 +74,7 @@ struct bgp_info_extra
   u_int32_t igpmetric;
 
   /* MPLS label.  */
-  mpls_label_t label;
+  u_char tag[3];  
 
 #if ENABLE_BGP_VNC
   union {
@@ -207,7 +207,7 @@ struct bgp_static
   struct prefix_rd     prd;
 
   /* MPLS label.  */
-  mpls_label_t label;
+  u_char tag[3];
 
   /* EVPN */
   struct eth_segment_id *eth_s_id;
@@ -344,9 +344,9 @@ extern int bgp_static_unset_safi (afi_t afi, safi_t safi, struct vty *, const ch
 /* this is primarily for MPLS-VPN */
 extern int bgp_update (struct peer *, struct prefix *, u_int32_t, struct attr *,
 		       afi_t, safi_t, int, int, struct prefix_rd *,
-		       mpls_label_t *, int, struct bgp_route_evpn *);
+		       u_char *, int, struct bgp_route_evpn *);
 extern int bgp_withdraw (struct peer *, struct prefix *, u_int32_t, struct attr *,
-			 afi_t, safi_t, int, int, struct prefix_rd *, mpls_label_t *,
+			 afi_t, safi_t, int, int, struct prefix_rd *, u_char *, 
                          struct bgp_route_evpn *);
 
 /* for bgp_nexthop and bgp_damp */

@@ -1353,6 +1353,7 @@ DEFUN (no_ipv6_nht_default_route,
   return CMD_SUCCESS;
 }
 
+// dwalton one "show ip route" to rule them all
 DEFUN (show_ip_route,
        show_ip_route_cmd,
        "show ip <fib|route> [vrf NAME] [tag (1-4294967295)|A.B.C.D/M longer-prefixes|supernets-only|" FRR_IP_REDIST_STR_ZEBRA "|ospf (1-65535)] [json]",
@@ -2545,6 +2546,7 @@ DEFUN (no_ipv6_route_ifname_flags,
 			   tag, distance, vrf, NULL);
 }
 
+// dwalton duplicate to here
 DEFUN (show_ipv6_route,
        show_ipv6_route_cmd,
        "show ipv6 <fib|route> [vrf NAME] [tag (1-4294967295)|X:X::X:X/M longer-prefixes|" FRR_IP6_REDIST_STR_ZEBRA "] [json]",

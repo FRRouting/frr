@@ -785,26 +785,26 @@ subgroup_update_packet (struct update_subgroup *subgrp)
       else
 	{
 	  /* Encode the prefix in MP_REACH_NLRI attribute */
-	  mpls_label_t label = MPLS_INVALID_LABEL;
+	  u_char *tag = NULL;
 
 	  if (rn->prn)
 	    prd = (struct prefix_rd *) &rn->prn->p;
 
           if (safi == SAFI_LABELED_UNICAST)
-            label = bgp_adv_label(rn, binfo, peer, afi, safi);
+            tag = bgp_adv_label(rn, binfo, peer, afi, safi);
           else
             if (binfo && binfo->extra)
-              label = binfo->extra->label;
+              tag = binfo->extra->tag;
 
           if (bgp_labeled_safi(safi))
-            sprintf (label_buf, "label %u", label_pton(&label));
+            sprintf (label_buf, "label %u", label_pton(tag));
 
 	  if (stream_empty (snlri))
             mpattrlen_pos = bgp_packet_mpattr_start (snlri, peer, afi, safi,
                                                      &vecarr, adv->baa->attr);
 
           bgp_packet_mpattr_prefix (snlri, afi, safi, &rn->p, prd,
-                                    &label, addpath_encode, addpath_tx_id, adv->baa->attr);
+                                    tag, addpath_encode, addpath_tx_id, adv->baa->attr);
 	}
 
       num_pfx++;

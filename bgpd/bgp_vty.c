@@ -517,9 +517,6 @@ bgp_vty_return (struct vty *vty, int ret)
     case BGP_ERR_INVALID_FOR_DIRECT_PEER:
       str = "Operation not allowed on a directly connected neighbor";
       break;
-    case BGP_ERR_PEER_SAFI_CONFLICT:
-      str = "Cannot activate peer for both 'ipv4 unicast' and 'ipv4 labeled-unicast'";
-      break;
     }
   if (str)
     {
@@ -3261,7 +3258,10 @@ DEFUN (neighbor_activate,
     return CMD_WARNING;
 
   ret = peer_activate (peer, bgp_node_afi (vty), bgp_node_safi (vty));
-  return bgp_vty_return (vty, ret);
+
+  if (ret)
+    return CMD_WARNING;
+  return CMD_SUCCESS;
 }
 
 ALIAS_HIDDEN (neighbor_activate,
@@ -3289,7 +3289,10 @@ DEFUN (no_neighbor_activate,
     return CMD_WARNING;
 
   ret = peer_deactivate (peer, bgp_node_afi (vty), bgp_node_safi (vty));
-  return bgp_vty_return (vty, ret);
+
+  if (ret)
+    return CMD_WARNING;
+  return CMD_SUCCESS;
 }
 
 ALIAS_HIDDEN (no_neighbor_activate,
@@ -6178,7 +6181,7 @@ DEFUN_NOSH (address_family_ipv4_safi,
        "address-family ipv4 [<unicast|multicast|vpn|labeled-unicast>]",
        "Enter Address Family command mode\n"
        "Address Family\n"
-       BGP_SAFI_WITH_LABEL_HELP_STR)
+       BGP_SAFI_HELP_STR)
 {
 
   if (argc == 3)
@@ -6197,7 +6200,7 @@ DEFUN_NOSH (address_family_ipv6_safi,
        "address-family ipv6 [<unicast|multicast|vpn|labeled-unicast>]",
        "Enter Address Family command mode\n"
        "Address Family\n"
-       BGP_SAFI_WITH_LABEL_HELP_STR)
+       BGP_SAFI_HELP_STR)
 {
   if (argc == 3)
     {
@@ -6347,7 +6350,7 @@ bgp_clear_prefix (struct vty *vty, const char *view_name, const char *ip_str,
 /* one clear bgp command to rule them all */
 DEFUN (clear_ip_bgp_all,
        clear_ip_bgp_all_cmd,
-       "clear [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<soft [<in|out>]|in [prefix-filter]|out>]",
+       "clear [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> [<soft [<in|out>]|in [prefix-filter]|out>]",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -6361,7 +6364,7 @@ DEFUN (clear_ip_bgp_all,
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
        BGP_AFI_HELP_STR
-       BGP_SAFI_WITH_LABEL_HELP_STR
+       BGP_SAFI_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_IN_STR
        BGP_SOFT_OUT_STR
@@ -6382,18 +6385,12 @@ DEFUN (clear_ip_bgp_all,
   /* clear [ip] bgp */
   if (argv_find (argv, argc, "ip", &idx))
     afi = AFI_IP;
-  
   /* [<view|vrf> VIEWVRFNAME] */
   if (argv_find (argv, argc, "view", &idx) || argv_find (argv, argc, "vrf", &idx))
     {
       vrf = argv[idx + 1]->arg;
       idx += 2;
     }
-
-  /* ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] */
-  if (argv_find_and_parse_afi (argv, argc, &idx, &afi))
-    argv_find_and_parse_safi (argv, argc, &idx, &safi);
-
   /* <*|A.B.C.D|X:X::X:X|WORD|(1-4294967295)|external|peer-group WORD> */
   if (argv_find (argv, argc, "*", &idx))
     {
@@ -6429,7 +6426,11 @@ DEFUN (clear_ip_bgp_all,
     {
       clr_sort = clear_external;
     }
-
+  /* ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] */
+  if (argv_find_and_parse_afi (argv, argc, &idx, &afi))
+    {
+      argv_find_and_parse_safi (argv, argc, &idx, &safi);
+    }
   /* [<soft [<in|out>]|in [prefix-filter]|out>] */
   if (argv_find (argv, argc, "soft", &idx))
     {
@@ -7324,13 +7325,13 @@ bgp_show_summary_vty (struct vty *vty, const char *name,
 /* `show [ip] bgp summary' commands. */
 DEFUN (show_ip_bgp_summary,
        show_ip_bgp_summary_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] summary [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] summary [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        BGP_AFI_HELP_STR
-       BGP_SAFI_WITH_LABEL_HELP_STR
+       BGP_SAFI_HELP_STR
        "Summary of BGP neighbor status\n"
        JSON_STR)
 {
@@ -9460,13 +9461,13 @@ bgp_show_update_groups(struct vty *vty, const char *name,
 
 DEFUN (show_ip_bgp_updgrps,
        show_ip_bgp_updgrps_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] update-groups [SUBGROUP-ID]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] update-groups [SUBGROUP-ID]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        BGP_AFI_HELP_STR
-       BGP_SAFI_WITH_LABEL_HELP_STR
+       BGP_SAFI_HELP_STR
        "Detailed info about dynamic update groups\n"
        "Specific subgroup to display detailed info for\n")
 {
@@ -10874,8 +10875,14 @@ bgp_vty_init (void)
   install_element (BGP_IPV6_NODE, &bgp_maxpaths_ibgp_cluster_cmd);
   install_element (BGP_IPV6_NODE, &no_bgp_maxpaths_ibgp_cmd);
 
+  install_element (BGP_IPV4L_NODE, &bgp_maxpaths_cmd);
+  install_element (BGP_IPV4L_NODE, &no_bgp_maxpaths_cmd);
   install_element (BGP_IPV6L_NODE, &bgp_maxpaths_cmd);
   install_element (BGP_IPV6L_NODE, &no_bgp_maxpaths_cmd);
+
+  install_element (BGP_IPV4L_NODE, &bgp_maxpaths_ibgp_cmd);
+  install_element (BGP_IPV4L_NODE, &bgp_maxpaths_ibgp_cluster_cmd);
+  install_element (BGP_IPV4L_NODE, &no_bgp_maxpaths_ibgp_cmd);
   install_element (BGP_IPV6L_NODE, &bgp_maxpaths_ibgp_cmd);
   install_element (BGP_IPV6L_NODE, &bgp_maxpaths_ibgp_cluster_cmd);
   install_element (BGP_IPV6L_NODE, &no_bgp_maxpaths_ibgp_cmd);
@@ -11032,6 +11039,7 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &neighbor_set_peer_group_cmd);
   install_element (BGP_IPV4_NODE, &neighbor_set_peer_group_hidden_cmd);
   install_element (BGP_IPV4M_NODE, &neighbor_set_peer_group_hidden_cmd);
+  install_element (BGP_IPV4L_NODE, &neighbor_set_peer_group_hidden_cmd);
   install_element (BGP_IPV6_NODE, &neighbor_set_peer_group_hidden_cmd);
   install_element (BGP_IPV6M_NODE, &neighbor_set_peer_group_hidden_cmd);
   install_element (BGP_IPV6L_NODE, &neighbor_set_peer_group_hidden_cmd);
@@ -11042,6 +11050,7 @@ bgp_vty_init (void)
   install_element (BGP_NODE, &no_neighbor_set_peer_group_cmd);
   install_element (BGP_IPV4_NODE, &no_neighbor_set_peer_group_hidden_cmd);
   install_element (BGP_IPV4M_NODE, &no_neighbor_set_peer_group_hidden_cmd);
+  install_element (BGP_IPV4L_NODE, &no_neighbor_set_peer_group_hidden_cmd);
   install_element (BGP_IPV6_NODE, &no_neighbor_set_peer_group_hidden_cmd);
   install_element (BGP_IPV6M_NODE, &no_neighbor_set_peer_group_hidden_cmd);
   install_element (BGP_IPV6L_NODE, &no_neighbor_set_peer_group_hidden_cmd);

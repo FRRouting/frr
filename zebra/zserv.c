@@ -989,8 +989,6 @@ zserv_fec_register (struct zserv *client, int sock, u_short length)
           label_index = stream_getl(s);
           l += 4;
         }
-      else
-        label_index = MPLS_INVALID_LABEL_INDEX;
       zebra_mpls_fec_register (zvrf, &p, label_index, client);
     }
 

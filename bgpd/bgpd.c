@@ -1756,11 +1756,6 @@ non_peergroup_activate_af (struct peer *peer, afi_t afi, safi_t safi)
       return 1;
     }
 
-  /* Do not activate a peer for both SAFI_UNICAST and SAFI_LABELED_UNICAST */
-  if ((safi == SAFI_UNICAST && peer->afc[afi][SAFI_LABELED_UNICAST]) ||
-      (safi == SAFI_LABELED_UNICAST && peer->afc[afi][SAFI_UNICAST]))
-    return BGP_ERR_PEER_SAFI_CONFLICT;
-
   /* Nothing to do if we've already activated this peer */
   if (peer->afc[afi][safi])
     return 0;
@@ -1820,12 +1815,6 @@ peer_activate (struct peer *peer, afi_t afi, safi_t safi)
    * peer-group as well */
   if (CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
     {
-
-      /* Do not activate a peer for both SAFI_UNICAST and SAFI_LABELED_UNICAST */
-      if ((safi == SAFI_UNICAST && peer->afc[afi][SAFI_LABELED_UNICAST]) ||
-          (safi == SAFI_LABELED_UNICAST && peer->afc[afi][SAFI_UNICAST]))
-        return BGP_ERR_PEER_SAFI_CONFLICT;
-
       peer->afc[afi][safi] = 1;
       group = peer->group;
 
