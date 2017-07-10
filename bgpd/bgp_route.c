@@ -10247,6 +10247,22 @@ bgp_distance_apply (struct prefix *p, struct bgp_info *rinfo, afi_t afi,
     }
 }
 
+static void
+announce_routes_distance_update (struct bgp *bgp)
+{
+  afi_t afi;
+  safi_t safi;
+
+  /* Reannounce all routes to appropriate neighbors */
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+      for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+        {
+            zlog_debug("%s: Announcing routes again"
+                       "(afi=%d, safi=%d)", __func__, afi, safi);
+            bgp_zebra_announce_table(bgp, afi, safi);
+        }
+}
+
 DEFUN (bgp_distance,
        bgp_distance_cmd,
        "distance bgp (1-255) (1-255) (1-255)",
@@ -10269,6 +10285,7 @@ DEFUN (bgp_distance,
   bgp->distance_ebgp[afi][safi] = atoi (argv[idx_number]->arg);
   bgp->distance_ibgp[afi][safi] = atoi (argv[idx_number_2]->arg);
   bgp->distance_local[afi][safi] = atoi (argv[idx_number_3]->arg);
+  announce_routes_distance_update(bgp);
   return CMD_SUCCESS;
 }
 
@@ -10292,6 +10309,7 @@ DEFUN (no_bgp_distance,
   bgp->distance_ebgp[afi][safi] = 0;
   bgp->distance_ibgp[afi][safi] = 0;
   bgp->distance_local[afi][safi] = 0;
+  announce_routes_distance_update(bgp);
   return CMD_SUCCESS;
 }
 

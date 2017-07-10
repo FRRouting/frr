@@ -1791,6 +1791,25 @@ bgp_redist_del (struct bgp *bgp, afi_t afi, u_char type, u_short instance)
     }
 }
 
+/* Announce all routes of a table to zebra */
+void
+bgp_zebra_announce_table (struct bgp *bgp, afi_t afi, safi_t safi)
+{
+  struct bgp_node *rn;
+  struct bgp_table *table;
+  struct bgp_info *ri;
+
+  table = bgp->rib[afi][safi];
+  if (!table) return;
+
+  for (rn = bgp_table_top (table); rn; rn = bgp_route_next (rn))
+    for (ri = rn->info; ri; ri = ri->next)
+      if (CHECK_FLAG (ri->flags, BGP_INFO_SELECTED)
+          && ri->type == ZEBRA_ROUTE_BGP
+          && ri->sub_type == BGP_ROUTE_NORMAL)
+        bgp_zebra_announce (&rn->p, ri, bgp, safi);
+}
+
 /* Other routes redistribution into BGP. */
 int
 bgp_redistribute_set (struct bgp *bgp, afi_t afi, int type, u_short instance)
