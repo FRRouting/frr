@@ -39,6 +39,7 @@
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_debug.h"
+#include "bgpd/bgp_label.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_lcommunity.h"
@@ -537,6 +538,7 @@ bgp_attr_extra_new (void)
   struct attr_extra *extra;
   extra = XCALLOC (MTYPE_ATTR_EXTRA, sizeof (struct attr_extra));
   extra->label_index = BGP_INVALID_LABEL_INDEX;
+  extra->label = MPLS_INVALID_LABEL;
   return extra;
 }
 
@@ -580,6 +582,9 @@ bgp_attr_dup (struct attr *new, struct attr *orig)
     {
       new->extra = extra;
       memset(new->extra, 0, sizeof(struct attr_extra));
+      new->extra->label_index = BGP_INVALID_LABEL_INDEX;
+      new->extra->label = MPLS_INVALID_LABEL;
+
       if (orig->extra) {
         *new->extra = *orig->extra;
       }
@@ -681,6 +686,7 @@ attrhash_key_make (void *p)
       MIX(extra->mp_nexthop_global_in.s_addr);
       MIX(extra->originator_id.s_addr);
       MIX(extra->tag);
+      MIX(extra->label);
       MIX(extra->label_index);
     }
   
@@ -963,6 +969,8 @@ bgp_attr_default_set (struct attr *attr, u_char origin)
   attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_AS_PATH);
   attr->extra->weight = BGP_ATTR_DEFAULT_WEIGHT;
   attr->extra->tag = 0;
+  attr->extra->label_index = BGP_INVALID_LABEL_INDEX;
+  attr->extra->label = MPLS_INVALID_LABEL;
   attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_NEXT_HOP);
   attr->extra->mp_nexthop_len = IPV6_MAX_BYTELEN;
 
@@ -1004,6 +1012,8 @@ bgp_attr_aggregate_intern (struct bgp *bgp, u_char origin,
       attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_COMMUNITIES);
     }
 
+  attre.label_index = BGP_INVALID_LABEL_INDEX;
+  attre.label = MPLS_INVALID_LABEL;
   attre.weight = BGP_ATTR_DEFAULT_WEIGHT;
   attre.mp_nexthop_len = IPV6_MAX_BYTELEN;
   if (! as_set || atomic_aggregate)
@@ -2965,27 +2975,27 @@ bgp_packet_mpattr_start (struct stream *s, struct peer *peer,
 void
 bgp_packet_mpattr_prefix (struct stream *s, afi_t afi, safi_t safi,
 			  struct prefix *p, struct prefix_rd *prd,
-                          u_char *tag, int addpath_encode,
+                          mpls_label_t *label, int addpath_encode,
                           u_int32_t addpath_tx_id, struct attr *attr)
 {
   if (safi == SAFI_MPLS_VPN)
     {
       if (addpath_encode)
         stream_putl(s, addpath_tx_id);
-      /* Tag, RD, Prefix write. */
+      /* Label, RD, Prefix write. */
       stream_putc (s, p->prefixlen + 88);
-      stream_put (s, tag, 3);
+      stream_put (s, label, BGP_LABEL_BYTES);
       stream_put (s, prd->val, 8);
       stream_put (s, &p->u.prefix, PSIZE (p->prefixlen));
     }
   else if (safi == SAFI_EVPN)
     {
-      bgp_packet_mpattr_route_type_5(s, p, prd, tag, attr);
+      bgp_packet_mpattr_route_type_5(s, p, prd, label, attr);
     }
   else if (safi == SAFI_LABELED_UNICAST)
     {
       /* Prefix write with label. */
-      stream_put_labeled_prefix(s, p, tag);
+      stream_put_labeled_prefix(s, p, label);
     }
   else
     stream_put_prefix_addpath (s, p, addpath_encode, addpath_tx_id);
@@ -3116,7 +3126,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
 		      struct stream *s, struct attr *attr,
 		      struct bpacket_attr_vec_arr *vecarr,
 		      struct prefix *p, afi_t afi, safi_t safi,
-		      struct peer *from, struct prefix_rd *prd, u_char *tag,
+		      struct peer *from, struct prefix_rd *prd, mpls_label_t *label,
                       int addpath_encode,
                       u_int32_t addpath_tx_id)
 {
@@ -3139,7 +3149,7 @@ bgp_packet_attribute (struct bgp *bgp, struct peer *peer,
       size_t mpattrlen_pos = 0;
 
       mpattrlen_pos = bgp_packet_mpattr_start(s, peer, afi, safi, vecarr, attr);
-      bgp_packet_mpattr_prefix(s, afi, safi, p, prd, tag,
+      bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label,
                                addpath_encode, addpath_tx_id, attr);
       bgp_packet_mpattr_end(s, mpattrlen_pos);
     }
@@ -3572,16 +3582,17 @@ bgp_packet_mpunreach_start (struct stream *s, afi_t afi, safi_t safi)
 void
 bgp_packet_mpunreach_prefix (struct stream *s, struct prefix *p,
 			     afi_t afi, safi_t safi, struct prefix_rd *prd,
-			     u_char *tag, int addpath_encode,
+			     mpls_label_t *label, int addpath_encode,
                              u_int32_t addpath_tx_id, struct attr *attr)
 {
   u_char wlabel[3] = {0x80, 0x00, 0x00};
 
   if (safi == SAFI_LABELED_UNICAST)
-    tag = wlabel;
+    label = (mpls_label_t *) wlabel;
 
   return bgp_packet_mpattr_prefix (s, afi, safi, p, prd,
-                                   tag, addpath_encode, addpath_tx_id, attr);
+                                   label,
+                                   addpath_encode, addpath_tx_id, attr);
 }
 
 void

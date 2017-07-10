@@ -21,6 +21,7 @@
 #ifndef _QUAGGA_BGP_TABLE_H
 #define _QUAGGA_BGP_TABLE_H
 
+#include "mpls.h"
 #include "table.h"
 
 struct bgp_table
@@ -53,7 +54,7 @@ struct bgp_node
 
   struct bgp_node *prn;
 
-  u_char local_label[3];
+  mpls_label_t local_label;
 
   uint64_t version;
   u_char flags;

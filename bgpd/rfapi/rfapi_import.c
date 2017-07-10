@@ -543,7 +543,7 @@ rfapiBgpInfoCreate (
       rfapi_time (&new->extra->vnc.import.create_time);
     }
   if (label)
-    encode_label (*label, new->extra->tag);
+    encode_label (*label, &new->extra->label);
   new->type = type;
   new->sub_type = sub_type;
   new->peer = peer;
@@ -1431,7 +1431,7 @@ rfapiRouteInfo2NextHopEntry (
       vo->v.l2addr.local_nve_id = bi->extra->vnc.import.rd.val[1];
 
       /* label comes from MP_REACH_NLRI label */
-      vo->v.l2addr.label = decode_label (bi->extra->tag);
+      vo->v.l2addr.label = decode_label (&bi->extra->label);
 
       new->vn_options = vo;
 
@@ -4542,7 +4542,7 @@ rfapiBgpTableFilteredImport (
                     continue;
 
                   if (bi->extra)
-                    label = decode_label (bi->extra->tag);
+                    label = decode_label (&bi->extra->label);
                   (*rfapiBgpInfoFilteredImportFunction (safi)) (
 		    it,				/* which import table */
 		    FIF_ACTION_UPDATE,

@@ -35,7 +35,6 @@
 #include "thread.h"
 #include "workqueue.h"
 #include "queue.h"
-#include "mpls.h"
 #include "memory.h"
 #include "lib/json.h"
 
@@ -117,6 +116,7 @@ bgp_info_extra_new (void)
 {
   struct bgp_info_extra *new;
   new = XCALLOC (MTYPE_BGP_ROUTE_EXTRA, sizeof (struct bgp_info_extra));
+  new->label = MPLS_INVALID_LABEL;
   return new;
 }
 
@@ -694,7 +694,17 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
   /* 11. Maximum path check. */
   if (newm == existm)
     {
-      if (bgp_flag_check(bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX))
+      /* If one path has a label but the other does not, do not treat
+       * them as equals for multipath
+       */
+      if ((new->extra && bgp_is_valid_label(&new->extra->label)) !=
+          (exist->extra && bgp_is_valid_label(&exist->extra->label)))
+        {
+          if (debug)
+            zlog_debug("%s: %s and %s cannot be multipath, one has a label while the other does not",
+                       pfx_buf, new_buf, exist_buf);
+        }
+      else if (bgp_flag_check(bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX))
         {
 
 	  /*
@@ -1271,14 +1281,14 @@ subgroup_announce_check (struct bgp_node *rn, struct bgp_info *ri,
   /* If it's labeled safi, make sure the route has a valid label. */
   if (safi == SAFI_LABELED_UNICAST)
     {
-      u_char *tag = bgp_adv_label(rn, ri, peer, afi, safi);
-      if (!bgp_is_valid_label(tag))
+      mpls_label_t label = bgp_adv_label(rn, ri, peer, afi, safi);
+      if (!bgp_is_valid_label(&label))
         {
           if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
            zlog_debug ("u%" PRIu64 ":s%" PRIu64 " %s/%d is filtered - no label (%p)",
                   subgrp->update_group->id, subgrp->id,
                  inet_ntop(p->family, &p->u.prefix, buf, SU_ADDRSTRLEN),
-                 p->prefixlen, tag);
+                 p->prefixlen, &label);
           return 0;
         }
     }
@@ -1940,9 +1950,8 @@ bgp_process_main (struct work_queue *wq, void *data)
    * Right now, since we only deal with per-prefix labels, it is not necessary
    * to do this upon changes to best path except of the label index changes.
    */
-  if (safi == SAFI_LABELED_UNICAST)
+  if (safi == SAFI_UNICAST)
     {
-      bgp_table_lock (bgp_node_table (rn));
       if (new_select)
         {
           if (!old_select ||
@@ -1955,8 +1964,8 @@ bgp_process_main (struct work_queue *wq, void *data)
                 {
                   if (CHECK_FLAG (rn->flags, BGP_NODE_REGISTERED_FOR_LABEL))
                     bgp_unregister_for_label (rn);
-                  label_ntop (MPLS_IMP_NULL_LABEL, 1, rn->local_label);
-                  bgp_set_valid_label(rn->local_label);
+                  label_ntop (MPLS_IMP_NULL_LABEL, 1, &rn->local_label);
+                  bgp_set_valid_label(&rn->local_label);
                 }
               else
                 bgp_register_for_label (rn, new_select);
@@ -1996,6 +2005,10 @@ bgp_process_main (struct work_queue *wq, void *data)
           CHECK_FLAG (rn->flags, BGP_NODE_LABEL_CHANGED))
         {
           group_announce_route(bgp, afi, safi, rn, new_select);
+
+          /* unicast routes must also be annouced to labeled-unicast update-groups */
+          if (safi == SAFI_UNICAST)
+            group_announce_route(bgp, afi, SAFI_LABELED_UNICAST, rn, new_select);
 
           UNSET_FLAG (old_select->flags, BGP_INFO_ATTR_CHANGED);
           UNSET_FLAG (rn->flags, BGP_NODE_LABEL_CHANGED);
@@ -2048,6 +2061,10 @@ bgp_process_main (struct work_queue *wq, void *data)
 #endif
 
   group_announce_route(bgp, afi, safi, rn, new_select);
+
+  /* unicast routes must also be annouced to labeled-unicast update-groups */
+  if (safi == SAFI_UNICAST)
+    group_announce_route(bgp, afi, SAFI_LABELED_UNICAST, rn, new_select);
 
   /* FIB update. */
   if (bgp_fibupd_safi(safi) &&
@@ -2464,7 +2481,7 @@ bgp_update_martian_nexthop (struct bgp *bgp, afi_t afi, safi_t safi, struct attr
 int
 bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
             struct attr *attr, afi_t afi, safi_t safi, int type,
-            int sub_type, struct prefix_rd *prd, u_char *tag,
+            int sub_type, struct prefix_rd *prd, mpls_label_t *label,
             int soft_reconfig, struct bgp_route_evpn* evpn)
 {
   int ret;
@@ -2481,18 +2498,24 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   char label_buf[20];
   int connected = 0;
   int do_loop_check = 1;
+  int has_valid_label = 0;
 #if ENABLE_BGP_VNC
   int vnc_implicit_withdraw = 0;
 #endif
 
   memset (&new_attr, 0, sizeof(struct attr));
   memset (&new_extra, 0, sizeof(struct attr_extra));
+  new_extra.label_index = BGP_INVALID_LABEL_INDEX;
+  new_extra.label = MPLS_INVALID_LABEL;
 
   bgp = peer->bgp;
   rn = bgp_afi_node_get (bgp->rib[afi][safi], afi, safi, p, prd);
   label_buf[0] = '\0';
-  if (bgp_labeled_safi(safi))
-    sprintf (label_buf, "label %u", label_pton(tag));
+
+  has_valid_label = bgp_is_valid_label(label);
+
+  if (has_valid_label)
+    sprintf (label_buf, "label %u", label_pton(label));
   
   /* When peer's soft reconfiguration enabled.  Record input packet in
      Adj-RIBs-In.  */
@@ -2592,8 +2615,8 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
       /* Same attribute comes in. */
       if (!CHECK_FLAG (ri->flags, BGP_INFO_REMOVED) 
           && attrhash_cmp (ri->attr, attr_new)
-          && (!bgp_labeled_safi(safi) ||
-              memcmp ((bgp_info_extra_get (ri))->tag, tag, 3) == 0)
+          && (!has_valid_label ||
+              memcmp (&(bgp_info_extra_get (ri))->label, label, BGP_LABEL_BYTES) == 0)
           && (overlay_index_equal(afi, ri, evpn==NULL?NULL:&evpn->eth_s_id,
                                   evpn==NULL?NULL:&evpn->gw_ip)))
 	{
@@ -2714,9 +2737,12 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
       bgp_attr_unintern (&ri->attr);
       ri->attr = attr_new;
 
-      /* Update MPLS tag.  */
-      if (bgp_labeled_safi(safi))
-        memcpy ((bgp_info_extra_get (ri))->tag, tag, 3);
+      /* Update MPLS label */
+      if (has_valid_label)
+        {
+          memcpy (&(bgp_info_extra_get (ri))->label, label, BGP_LABEL_BYTES);
+          bgp_set_valid_label(&(bgp_info_extra_get (ri))->label);
+        }
 
 #if ENABLE_BGP_VNC
       if ((afi == AFI_IP || afi == AFI_IP6) && (safi == SAFI_UNICAST)) 
@@ -2814,10 +2840,10 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 #if ENABLE_BGP_VNC
   if (SAFI_MPLS_VPN == safi)
     {
-      uint32_t    label = decode_label(tag);
+      mpls_label_t label_decoded = decode_label(label);
 
       rfapiProcessUpdate(peer, NULL, p, prd, attr, afi, safi, type, sub_type,
-        &label);
+        &label_decoded);
     }
   if (SAFI_ENCAP == safi)
     {
@@ -2846,9 +2872,12 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
   /* Make new BGP info. */
   new = info_make(type, sub_type, 0, peer, attr_new, rn);
 
-  /* Update MPLS tag. */
-  if (bgp_labeled_safi(safi))
-    memcpy ((bgp_info_extra_get (new))->tag, tag, 3);
+  /* Update MPLS label */
+  if (has_valid_label)
+    {
+      memcpy (&(bgp_info_extra_get (new))->label, label, BGP_LABEL_BYTES);
+      bgp_set_valid_label(&(bgp_info_extra_get (new))->label);
+    }
 
   /* Update Overlay Index */
   if(afi == AFI_L2VPN)
@@ -2928,10 +2957,10 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 #if ENABLE_BGP_VNC
   if (SAFI_MPLS_VPN == safi)
     {
-      uint32_t    label = decode_label(tag);
+      mpls_label_t label_decoded = decode_label(label);
 
       rfapiProcessUpdate(peer, NULL, p, prd, attr, afi, safi, type, sub_type,
-        &label);
+        &label_decoded);
     }
   if (SAFI_ENCAP == safi)
     {
@@ -2981,7 +3010,7 @@ bgp_update (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 int
 bgp_withdraw (struct peer *peer, struct prefix *p, u_int32_t addpath_id,
               struct attr *attr, afi_t afi, safi_t safi, int type, int sub_type,
-	      struct prefix_rd *prd, u_char *tag, struct bgp_route_evpn *evpn)
+	      struct prefix_rd *prd, mpls_label_t *label, struct bgp_route_evpn *evpn)
 {
   struct bgp *bgp;
   char pfx_buf[BGP_PRD_PATH_STRLEN];
@@ -3169,11 +3198,11 @@ bgp_soft_reconfig_table (struct peer *peer, afi_t afi, safi_t safi,
 	if (ain->peer == peer)
 	  {
 	    struct bgp_info *ri = rn->info;
-	    u_char *tag = (ri && ri->extra) ? ri->extra->tag : NULL;
+	    mpls_label_t label = (ri && ri->extra) ? ri->extra->label : MPLS_INVALID_LABEL;
 
 	    ret = bgp_update (peer, &rn->p, ain->addpath_rx_id, ain->attr,
                               afi, safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
-			      prd, tag, 1, NULL);
+			      prd, &label, 1, NULL);
 
 	    if (ret < 0)
 	      {
@@ -4017,7 +4046,7 @@ bgp_static_withdraw (struct bgp *bgp, struct prefix *p, afi_t afi,
  */
 static void
 bgp_static_withdraw_safi (struct bgp *bgp, struct prefix *p, afi_t afi,
-                          safi_t safi, struct prefix_rd *prd, u_char *tag)
+                          safi_t safi, struct prefix_rd *prd)
 {
   struct bgp_node *rn;
   struct bgp_info *ri;
@@ -4065,7 +4094,7 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
   struct attr attr = { 0 };
   struct bgp_info *ri;
 #if ENABLE_BGP_VNC
-  u_int32_t        label = 0;
+  mpls_label_t label = 0;
 #endif
   union gw_addr add;
 
@@ -4130,8 +4159,7 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
           /* Unintern original. */
           aspath_unintern (&attr.aspath);
           bgp_attr_extra_free (&attr);
-          bgp_static_withdraw_safi (bgp, p, afi, safi, &bgp_static->prd,
-                                    bgp_static->tag);
+          bgp_static_withdraw_safi (bgp, p, afi, safi, &bgp_static->prd);
           return;
         }
 
@@ -4176,7 +4204,7 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
           ri->uptime = bgp_clock ();
 #if ENABLE_BGP_VNC
           if (ri->extra)
-              label = decode_label (ri->extra->tag);
+              label = decode_label (&ri->extra->label);
 #endif
 
           /* Process change. */
@@ -4200,9 +4228,9 @@ bgp_static_update_safi (struct bgp *bgp, struct prefix *p,
 		  rn);
   SET_FLAG (new->flags, BGP_INFO_VALID);
   new->extra = bgp_info_extra_new();
-  memcpy (new->extra->tag, bgp_static->tag, 3);
+  new->extra->label = bgp_static->label;
 #if ENABLE_BGP_VNC
-  label = decode_label (bgp_static->tag);
+  label = decode_label (&bgp_static->label);
 #endif
 
   /* Aggregate address increment. */
@@ -4430,8 +4458,7 @@ bgp_static_delete (struct bgp *bgp)
 		    bgp_static = rm->info;
 		    bgp_static_withdraw_safi (bgp, &rm->p,
 					       AFI_IP, safi,
-					       (struct prefix_rd *)&rn->p,
-					       bgp_static->tag);
+					       (struct prefix_rd *)&rn->p);
 		    bgp_static_free (bgp_static);
 		    rn->info = NULL;
 		    bgp_unlock_node (rn);
@@ -4545,7 +4572,7 @@ bgp_static_set_safi (afi_t afi, safi_t safi, struct vty *vty, const char *ip_str
   struct bgp_node *rn;
   struct bgp_table *table;
   struct bgp_static *bgp_static;
-  u_char tag[3];
+  mpls_label_t label = MPLS_INVALID_LABEL;
   struct prefix gw_ip;
 
   /* validate ip prefix */
@@ -4574,12 +4601,9 @@ bgp_static_set_safi (afi_t afi, safi_t safi, struct vty *vty, const char *ip_str
     {
       unsigned long label_val;
       label_val = strtoul(label_str, NULL, 10);
-      encode_label (label_val, tag);
+      encode_label (label_val, &label);
     }
-  else
-    {
-      memset (tag, 0, sizeof(tag)); /* empty, not even BoS */
-    }
+
   if (safi == SAFI_EVPN)
     {
       if( esi && str2esi (esi, NULL) == 0)
@@ -4632,7 +4656,7 @@ bgp_static_set_safi (afi_t afi, safi_t safi, struct vty *vty, const char *ip_str
       bgp_static->valid = 0;
       bgp_static->igpmetric = 0;
       bgp_static->igpnexthop.s_addr = 0;
-      memcpy(bgp_static->tag, tag, 3);
+      bgp_static->label = label;
       bgp_static->prd = prd;
 
       if (rmap_str)
@@ -4681,7 +4705,7 @@ bgp_static_unset_safi(afi_t afi, safi_t safi, struct vty *vty, const char *ip_st
   struct bgp_node *rn;
   struct bgp_table *table;
   struct bgp_static *bgp_static;
-  u_char tag[3];
+  mpls_label_t label = MPLS_INVALID_LABEL;
 
   /* Convert IP prefix string to struct prefix. */
   ret = str2prefix (ip_str, &p);
@@ -4708,11 +4732,7 @@ bgp_static_unset_safi(afi_t afi, safi_t safi, struct vty *vty, const char *ip_st
     {
       unsigned long label_val;
       label_val = strtoul(label_str, NULL, 10);
-      encode_label (label_val, tag);
-    }
-  else
-    {
-      memset (tag, 0, sizeof(tag)); /* empty, not even BoS */
+      encode_label (label_val, &label);
     }
 
   prn = bgp_node_get (bgp->route[afi][safi],
@@ -4727,7 +4747,7 @@ bgp_static_unset_safi(afi_t afi, safi_t safi, struct vty *vty, const char *ip_st
 
   if (rn)
     {
-      bgp_static_withdraw_safi (bgp, &p, afi, safi, &prd, tag);
+      bgp_static_withdraw_safi (bgp, &p, afi, safi, &prd);
 
       bgp_static = rn->info;
       bgp_static_free (bgp_static);
@@ -6650,7 +6670,7 @@ route_vty_out_tag (struct vty *vty, struct prefix *p,
 {
   json_object *json_out = NULL;
   struct attr *attr;
-  u_int32_t label = 0;
+  mpls_label_t label = MPLS_INVALID_LABEL;
 
   if (!binfo->extra)
     return;
@@ -6733,19 +6753,20 @@ route_vty_out_tag (struct vty *vty, struct prefix *p,
 	}
     }
 
-  label = decode_label (binfo->extra->tag);
+  label = decode_label (&binfo->extra->label);
 
-  if (json)
+  if (bgp_is_valid_label(&label))
     {
-      if (label)
-        json_object_int_add(json_out, "notag", label);
-      json_object_array_add(json, json_out);
-    }
-  else
-    {
-      vty_out (vty, "notag/%d", label);
-
-      vty_out (vty, VTYNL);
+      if (json)
+        {
+          json_object_int_add(json_out, "notag", label);
+          json_object_array_add(json, json_out);
+        }
+      else
+        {
+          vty_out (vty, "notag/%d", label);
+          vty_out (vty, VTYNL);
+        }
     }
 }  
 
@@ -7631,10 +7652,10 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       if (binfo->extra && binfo->extra->damp_info)
 	bgp_damp_info_vty (vty, binfo, json_path);
 
-      /* Remove Label */
-      if (bgp_labeled_safi(safi) && binfo->extra)
+      /* Remote Label */
+      if (binfo->extra && bgp_is_valid_label(&binfo->extra->label))
         {
-          uint32_t label = label_pton(binfo->extra->tag);
+          mpls_label_t label = label_pton(&binfo->extra->label);
           if (json_paths)
             json_object_int_add(json_path, "remoteLabel", label);
           else
@@ -8113,12 +8134,21 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
   int no_advertise = 0;
   int local_as = 0;
   int first = 1;
+  int has_valid_label = 0;
+  mpls_label_t label;
   json_object *json_adv_to = NULL;
 
   p = &rn->p;
+  has_valid_label = bgp_is_valid_label(&rn->local_label);
+
+  if (has_valid_label)
+    label = label_pton(&rn->local_label);
 
   if (json)
     {
+      if (has_valid_label)
+        json_object_int_add(json, "localLabel", label);
+
       json_object_string_add(json, "prefix", inet_ntop (p->family, &p->u.prefix, buf2, INET6_ADDRSTRLEN));
       json_object_int_add(json, "prefixlen", p->prefixlen);
     }
@@ -8135,17 +8165,10 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
 	       buf2,
 	       p->prefixlen);
 
-      if (bgp_labeled_safi(safi))
-        {
-          vty_out(vty, "Local label: ");
-          if (!bgp_is_valid_label(rn->local_label))
-            vty_outln (vty, "not allocated");
-          else
-            {
-              uint32_t label = label_pton(rn->local_label);
-              vty_outln (vty, "%d", label);
-            }
-        }
+      if (has_valid_label)
+        vty_outln (vty, "Local label: %d", label);
+      else if (bgp_labeled_safi(safi))
+        vty_outln (vty, "Local label: not allocated");
     }
 
   for (ri = rn->info; ri; ri = ri->next)
@@ -8427,17 +8450,13 @@ bgp_show_lcommunity_list (struct vty *vty, struct bgp *bgp, const char *lcom,
 
 DEFUN (show_ip_bgp_large_community_list,
        show_ip_bgp_large_community_list_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6> [<unicast|multicast|vpn|labeled-unicast>]] large-community-list <(1-500)|WORD> [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] large-community-list <(1-500)|WORD> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address Family\n"
-       "Address Family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_AFI_HELP_STR
+       BGP_SAFI_HELP_STR
        "Display routes matching the large-community-list\n"
        "large-community-list number\n"
        "large-community-list name\n"
@@ -8473,17 +8492,13 @@ DEFUN (show_ip_bgp_large_community_list,
 }
 DEFUN (show_ip_bgp_large_community,
        show_ip_bgp_large_community_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6> [<unicast|multicast|vpn|labeled-unicast>]] large-community [AA:BB:CC] [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] large-community [AA:BB:CC] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address Family\n"
-       "Address Family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_AFI_HELP_STR
+       BGP_SAFI_HELP_STR
        "Display routes matching the large-communities\n"
        "List of large-community numbers\n"
        JSON_STR)
@@ -9424,18 +9439,14 @@ bgp_peer_counts (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi, u_c
 
 DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
        show_ip_bgp_instance_neighbor_prefix_counts_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6> [<unicast|multicast|vpn|labeled-unicast>]] "
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] "
        "neighbors <A.B.C.D|X:X::X:X|WORD> prefix-counts [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
-       "Address Family\n"
-       "Address Family\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
-       "Address Family modifier\n"
+       BGP_AFI_HELP_STR
+       BGP_SAFI_HELP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
@@ -10625,7 +10636,7 @@ bgp_config_write_network_vpn (struct vty *vty, struct bgp *bgp,
   struct prefix *p;
   struct prefix_rd *prd;
   struct bgp_static *bgp_static;
-  u_int32_t label;
+  mpls_label_t label;
   char buf[SU_ADDRSTRLEN];
   char rdbuf[RD_ADDRSTRLEN];
   
@@ -10643,7 +10654,7 @@ bgp_config_write_network_vpn (struct vty *vty, struct bgp *bgp,
 
 	    /* "network" configuration display.  */
 	    prefix_rd2str (prd, rdbuf, RD_ADDRSTRLEN);
-	    label = decode_label (bgp_static->tag);
+	    label = decode_label (&bgp_static->label);
 
 	    vty_out (vty, "  network %s/%d rd %s",
 		     inet_ntop (p->family, &p->u.prefix, buf, SU_ADDRSTRLEN), 
@@ -10704,7 +10715,7 @@ bgp_config_write_network_evpn (struct vty *vty, struct bgp *bgp,
             prefix2str (p, buf, sizeof (buf)),
 	    vty_out (vty, " network %s rd %s ethtag %u tag %u esi %s gwip %s routermac %s",
 		     buf, rdbuf, p->u.prefix_evpn.eth_tag,
-                     decode_label (bgp_static->tag), esi, buf2 , macrouter);
+                     decode_label (&bgp_static->label), esi, buf2 , macrouter);
 	    vty_out (vty, VTYNL);
             if (macrouter)
               XFREE (MTYPE_TMP, macrouter);
@@ -10897,8 +10908,10 @@ bgp_route_init (void)
   install_element (BGP_IPV4_NODE, &bgp_network_route_map_cmd);
   install_element (BGP_IPV4_NODE, &bgp_network_mask_route_map_cmd);
   install_element (BGP_IPV4_NODE, &bgp_network_mask_natural_route_map_cmd);
-  install_element (BGP_IPV4L_NODE, &no_bgp_network_label_index_cmd);
-  install_element (BGP_IPV4L_NODE, &no_bgp_network_label_index_route_map_cmd);
+  install_element (BGP_IPV4_NODE, &bgp_network_label_index_cmd);
+  install_element (BGP_IPV4_NODE, &bgp_network_label_index_route_map_cmd);
+  install_element (BGP_IPV4_NODE, &no_bgp_network_label_index_cmd);
+  install_element (BGP_IPV4_NODE, &no_bgp_network_label_index_route_map_cmd);
   install_element (BGP_IPV4_NODE, &no_bgp_table_map_cmd);
   install_element (BGP_IPV4_NODE, &no_bgp_network_cmd);
   install_element (BGP_IPV4_NODE, &no_bgp_network_mask_cmd);
@@ -10927,20 +10940,6 @@ bgp_route_init (void)
   install_element (BGP_IPV4M_NODE, &no_aggregate_address_mask_cmd);
 
   /* IPv4 labeled-unicast configuration.  */
-  install_element (BGP_IPV4L_NODE, &bgp_table_map_cmd);
-  install_element (BGP_IPV4L_NODE, &bgp_network_cmd);
-  install_element (BGP_IPV4L_NODE, &bgp_network_mask_cmd);
-  install_element (BGP_IPV4L_NODE, &bgp_network_mask_natural_cmd);
-  install_element (BGP_IPV4L_NODE, &bgp_network_route_map_cmd);
-  install_element (BGP_IPV4L_NODE, &bgp_network_mask_route_map_cmd);
-  install_element (BGP_IPV4L_NODE, &bgp_network_mask_natural_route_map_cmd);
-  install_element (BGP_IPV4L_NODE, &bgp_network_label_index_cmd);
-  install_element (BGP_IPV4L_NODE, &bgp_network_label_index_route_map_cmd);
-  install_element (BGP_IPV4L_NODE, &no_bgp_table_map_cmd);
-  install_element (BGP_IPV4L_NODE, &no_bgp_network_cmd);
-  install_element (BGP_IPV4L_NODE, &no_bgp_network_mask_cmd);
-  install_element (BGP_IPV4L_NODE, &no_bgp_network_mask_natural_cmd);
-
   install_element (VIEW_NODE, &show_ip_bgp_instance_all_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_cmd);
   install_element (VIEW_NODE, &show_ip_bgp_route_cmd);
@@ -10974,10 +10973,10 @@ bgp_route_init (void)
   install_element (BGP_IPV6_NODE, &ipv6_bgp_network_route_map_cmd);
   install_element (BGP_IPV6_NODE, &no_bgp_table_map_cmd);
   install_element (BGP_IPV6_NODE, &no_ipv6_bgp_network_cmd);
-  install_element (BGP_IPV6L_NODE, &ipv6_bgp_network_label_index_cmd);
-  install_element (BGP_IPV6L_NODE, &no_ipv6_bgp_network_label_index_cmd);
-  install_element (BGP_IPV6L_NODE, &ipv6_bgp_network_label_index_route_map_cmd);
-  install_element (BGP_IPV6L_NODE, &no_ipv6_bgp_network_label_index_route_map_cmd);
+  install_element (BGP_IPV6_NODE, &ipv6_bgp_network_label_index_cmd);
+  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_network_label_index_cmd);
+  install_element (BGP_IPV6_NODE, &ipv6_bgp_network_label_index_route_map_cmd);
+  install_element (BGP_IPV6_NODE, &no_ipv6_bgp_network_label_index_route_map_cmd);
 
   install_element (BGP_IPV6_NODE, &ipv6_aggregate_address_cmd);
   install_element (BGP_IPV6_NODE, &no_ipv6_aggregate_address_cmd);

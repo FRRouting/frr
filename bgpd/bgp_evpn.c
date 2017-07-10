@@ -33,6 +33,7 @@
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_mplsvpn.h"
+#include "bgpd/bgp_label.h"
 #include "bgpd/bgp_evpn.h"
 
 int
@@ -46,7 +47,7 @@ bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 	struct evpn_addr *p_evpn_p;
 	struct bgp_route_evpn evpn;
 	uint8_t route_type, route_length;
-	u_char *pnt_label;
+	mpls_label_t label;
 	u_int32_t addpath_id = 0;
 
 	/* Check peer status. */
@@ -146,22 +147,23 @@ bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 		}
 
 		/* Fetch Label */
-		if (pnt + 3 > lim) {
+		if (pnt + BGP_LABEL_BYTES > lim) {
 			zlog_err("not enough bytes for Label left in NLRI?");
 			return -1;
 		}
-		pnt_label = pnt;
 
-		pnt += 3;
+                memcpy(&label, pnt, BGP_LABEL_BYTES);
+                bgp_set_valid_label(&label);
+		pnt += BGP_LABEL_BYTES;
 
 		if (!withdraw) {
 			bgp_update(peer, &p, addpath_id, attr, AFI_L2VPN,
 				   SAFI_EVPN, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
-				   &prd, pnt_label, 0, &evpn);
+				   &prd, &label, 0, &evpn);
 		} else {
 			bgp_withdraw(peer, &p, addpath_id, attr, AFI_L2VPN,
 				     SAFI_EVPN, ZEBRA_ROUTE_BGP,
-				     BGP_ROUTE_NORMAL, &prd, pnt_label, &evpn);
+				     BGP_ROUTE_NORMAL, &prd, &label, &evpn);
 		}
 	}
 
@@ -174,7 +176,7 @@ bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 void
 bgp_packet_mpattr_route_type_5(struct stream *s,
 			       struct prefix *p, struct prefix_rd *prd,
-			       u_char * label, struct attr *attr)
+			       mpls_label_t *label, struct attr *attr)
 {
 	int len;
 	char temp[16];
