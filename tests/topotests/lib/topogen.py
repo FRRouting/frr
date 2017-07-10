@@ -97,6 +97,7 @@ class Topogen(object):
         self.switchn = 1
         self.modname = modname
         self.errors = {}
+        self.peern = 1
         self._init_topo(cls)
         logger.info('loading topology: {}'.format(self.modname))
 
@@ -180,6 +181,22 @@ class Topogen(object):
         self.switchn += 1
         return self.gears[name]
 
+    def add_exabgp_peer(self, name, ip, defaultRoute):
+        """
+        Adds a new ExaBGP peer to the topology. This function has the following
+        parameters:
+        * `ip`: the peer address (e.g. '1.2.3.4/24')
+        * `defaultRoute`: the peer default route (e.g. 'via 1.2.3.1')
+        """
+        if name is None:
+            name = 'peer{}'.format(self.peern)
+        if name in self.gears:
+            raise KeyError('exabgp peer already exists')
+
+        self.gears[name] = TopoExaBGP(self, name, ip=ip, defaultRoute=defaultRoute)
+        self.peern += 1
+        return self.gears[name]
+
     def add_link(self, node1, node2, ifname1=None, ifname2=None):
         """
         Creates a connection between node1 and node2. The nodes can be the
@@ -203,13 +220,42 @@ class Topogen(object):
         self.topo.addLink(node1.name, node2.name,
                           intfName1=ifname1, intfName2=ifname2)
 
+    def get_gears(self, geartype):
+        """
+        Returns a dictionary of all gears of type `geartype`.
+
+        Normal usage:
+        * Dictionary iteration:
+        ```py
+        tgen = get_topogen()
+        router_dict = tgen.get_gears(TopoRouter)
+        for router_name, router in router_dict.iteritems():
+            # Do stuff
+        ```
+        * List iteration:
+        ```py
+        tgen = get_topogen()
+        peer_list = tgen.get_gears(TopoExaBGP).values()
+        for peer in peer_list:
+            # Do stuff
+        ```
+        """
+        return dict((name, gear) for name, gear in self.gears.iteritems()
+                    if isinstance(gear, geartype))
+
     def routers(self):
         """
         Returns the router dictionary (key is the router name and value is the
         router object itself).
         """
-        return dict((rname, gear) for rname, gear in self.gears.iteritems()
-                    if isinstance(gear, TopoRouter))
+        return self.get_gears(TopoRouter)
+
+    def exabgp_peers(self):
+        """
+        Returns the exabgp peer dictionary (key is the peer name and value is
+        the peer object itself).
+        """
+        return self.get_gears(TopoExaBGP)
 
     def start_topology(self, log_level=None):
         """
@@ -640,3 +686,82 @@ class TopoSwitch(TopoGear):
         gear = super(TopoSwitch, self).__str__()
         gear += ' TopoSwitch<>'
         return gear
+
+class TopoHost(TopoGear):
+    "Host abstraction."
+    # pylint: disable=too-few-public-methods
+
+    def __init__(self, tgen, name, **params):
+        """
+        Mininet has the following known `params` for hosts:
+        * `ip`: the IP address (string) for the host interface
+        * `defaultRoute`: the default route that will be installed
+          (e.g. 'via 10.0.0.1')
+        * `privateDirs`: directories that will be mounted on a different domain
+          (e.g. '/etc/important_dir').
+        """
+        super(TopoHost, self).__init__()
+        self.tgen = tgen
+        self.net = None
+        self.name = name
+        self.options = params
+        self.tgen.topo.addHost(name, **params)
+
+    def __str__(self):
+        gear = super(TopoHost, self).__str__()
+        gear += ' TopoHost<ip="{}",defaultRoute="{}",privateDirs="{}">'.format(
+            self.options['ip'], self.options['defaultRoute'],
+            str(self.options['privateDirs']))
+        return gear
+
+class TopoExaBGP(TopoHost):
+    "ExaBGP peer abstraction."
+    # pylint: disable=too-few-public-methods
+
+    PRIVATE_DIRS = [
+        '/etc/exabgp',
+        '/var/run/exabgp',
+        '/var/log',
+    ]
+
+    def __init__(self, tgen, name, **params):
+        """
+        ExaBGP usually uses the following parameters:
+        * `ip`: the IP address (string) for the host interface
+        * `defaultRoute`: the default route that will be installed
+          (e.g. 'via 10.0.0.1')
+
+        Note: the different between a host and a ExaBGP peer is that this class
+        has a privateDirs already defined and contains functions to handle ExaBGP
+        things.
+        """
+        params['privateDirs'] = self.PRIVATE_DIRS
+        super(TopoExaBGP, self).__init__(tgen, name, **params)
+        self.tgen.topo.addHost(name, **params)
+
+    def __str__(self):
+        gear = super(TopoExaBGP, self).__str__()
+        gear += ' TopoExaBGP<>'.format()
+        return gear
+
+    def start(self, peer_dir, env_file=None):
+        """
+        Start running ExaBGP daemon:
+        * Copy all peer* folder contents into /etc/exabgp
+        * Copy exabgp env file if specified
+        * Make all python files runnable
+        * Run ExaBGP with env file `env_file` and configuration peer*/exabgp.cfg
+        """
+        self.run('mkdir /etc/exabgp')
+        self.run('chmod 755 /etc/exabgp')
+        self.run('cp {}/* /etc/exabgp/'.format(peer_dir))
+        if env_file is not None:
+            self.run('cp {} /etc/exabgp/exabgp.env'.format(env_file))
+        self.run('chmod 644 /etc/exabgp/*')
+        self.run('chmod a+x /etc/exabgp/*.py')
+        self.run('chown -R exabgp:exabgp /etc/exabgp')
+        self.run('exabgp -e /etc/exabgp/exabgp.env /etc/exabgp/exabgp.cfg')
+
+    def stop(self):
+        "Stop ExaBGP peer and kill the daemon"
+        self.run('kill `cat /var/run/exabgp/exabgp.pid`')
