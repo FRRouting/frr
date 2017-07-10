@@ -9447,7 +9447,6 @@ DEFUN (show_ip_bgp_instance_neighbor_prefix_counts,
        BGP_INSTANCE_HELP_STR
        BGP_AFI_HELP_STR
        BGP_SAFI_HELP_STR
-       "Address Family modifier\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
