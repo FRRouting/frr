@@ -720,12 +720,12 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
 	}
 
       for (ALL_NEXTHOPS(re->nexthop, nexthop))
-    {
+        {
           char addrstr[32];
 
 	  vty_out (vty, "  %c%s",
-	       CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB) ? '*' : ' ',
-	       nexthop->rparent ? "  " : "");
+	           CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB) ? '*' : ' ',
+	           nexthop->rparent ? "  " : "");
 
 	  switch (nexthop->type)
 	    {
@@ -983,9 +983,9 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct route_entry *r
 	}
       else
 	vty_out (vty, "  %c%*c",
-	     CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)
-	     ? '*' : ' ',
-	     len - 3 + (2 * (nexthop->rparent ? 1 : 0)), ' ');
+	         CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)
+	         ? '*' : ' ',
+	         len - 3 + (2 * (nexthop->rparent ? 1 : 0)), ' ');
 
       switch (nexthop->type)
 	{
