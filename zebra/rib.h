@@ -208,7 +208,7 @@ typedef struct rib_dest_t_
  * left branch is 'resolved' and right branch is 'next':
  * https://en.wikipedia.org/wiki/Tree_traversal#/media/File:Sorted_binary_tree_preorder.svg
  */
-#define ALL_NEXTHOPS_RO(head, nexthop)                              \
+#define ALL_NEXTHOPS(head, nexthop)                              \
   (nexthop) = (head);                                               \
   (nexthop);                                                        \
   (nexthop) = CHECK_FLAG((nexthop)->flags, NEXTHOP_FLAG_RECURSIVE)  \

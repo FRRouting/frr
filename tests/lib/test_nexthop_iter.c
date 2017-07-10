@@ -1,6 +1,6 @@
 /*
  * Recursive Nexthop Iterator test.
- * This tests the ALL_NEXTHOPS_RO macro.
+ * This tests the ALL_NEXTHOPS macro.
  *
  * Copyright (C) 2012 by Open Source Routing.
  * Copyright (C) 2012 by Internet Systems Consortium, Inc. ("ISC")
@@ -204,8 +204,8 @@ nexthop_chain_free(struct nexthop_chain *nc)
 }
 
 /* This function builds a string representation of
- * the nexthop chain using the ALL_NEXTHOPS_RO macro.
- * It verifies that the ALL_NEXTHOPS_RO macro iterated
+ * the nexthop chain using the ALL_NEXTHOPS macro.
+ * It verifies that the ALL_NEXTHOPS macro iterated
  * correctly over the nexthop chain by comparing the
  * generated representation with the expected representation.
  */
@@ -215,7 +215,7 @@ nexthop_chain_verify_iter(struct nexthop_chain *nc)
   struct nexthop *nh;
   char *repr = NULL;
 
-  for (ALL_NEXTHOPS_RO(nc->head, nh))
+  for (ALL_NEXTHOPS(nc->head, nh))
     add_string_representation (&repr, nh);
 
   if (repr && verbose)

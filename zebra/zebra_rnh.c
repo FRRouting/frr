@@ -424,7 +424,7 @@ zebra_rnh_eval_import_check_entry (vrf_id_t vrfid, int family, int force,
 
   if (re && (rnh->state == NULL))
     {
-      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
+      for (ALL_NEXTHOPS(re->nexthop, nexthop))
         if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
           {
             state_changed = 1;

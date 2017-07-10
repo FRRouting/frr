@@ -105,7 +105,7 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct route_entry *re)
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
   /* Make gateway. */
-  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
+  for (ALL_NEXTHOPS(re->nexthop, nexthop))
     {
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
         continue;
@@ -225,7 +225,7 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct route_entry *re)
          if (IS_ZEBRA_DEBUG_RIB)
            zlog_debug ("%s: odd command %s for flags %d",
              __func__, lookup_msg(rtm_type_str, cmd, NULL), nexthop->flags);
-     } /* for (ALL_NEXTHOPS_RO(...))*/
+     } /* for (ALL_NEXTHOPS(...))*/
  
    /* If there was no useful nexthop, then complain. */
    if (nexthop_num == 0 && IS_ZEBRA_DEBUG_KERNEL)
@@ -287,7 +287,7 @@ kernel_rtm_ipv6 (int cmd, struct prefix *p, struct route_entry *re)
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
   /* Make gateway. */
-  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
+  for (ALL_NEXTHOPS(re->nexthop, nexthop))
     {
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 	continue;

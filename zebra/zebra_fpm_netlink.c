@@ -285,7 +285,7 @@ netlink_route_info_fill (netlink_route_info_t *ri, int cmd,
   if (discard)
     return 1;
 
-  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
+  for (ALL_NEXTHOPS(re->nexthop, nexthop))
     {
       if (ri->num_nhs >= multipath_num)
         break;

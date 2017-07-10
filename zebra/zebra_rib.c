@@ -529,7 +529,7 @@ nexthop_active (afi_t afi, struct route_entry *re, struct nexthop *nexthop, int 
       else if (CHECK_FLAG (re->flags, ZEBRA_FLAG_INTERNAL))
 	{
 	  resolved = 0;
-	  for (ALL_NEXTHOPS_RO(match->nexthop, newhop))
+	  for (ALL_NEXTHOPS(match->nexthop, newhop))
 	    if (CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_FIB)
 		&& ! CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_RECURSIVE))
 	      {
@@ -547,7 +547,7 @@ nexthop_active (afi_t afi, struct route_entry *re, struct nexthop *nexthop, int 
       else if (re->type == ZEBRA_ROUTE_STATIC)
 	{
 	  resolved = 0;
-	  for (ALL_NEXTHOPS_RO(match->nexthop, newhop))
+	  for (ALL_NEXTHOPS(match->nexthop, newhop))
 	    if (CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_FIB))
 	      {
 		if (set)
@@ -628,7 +628,7 @@ rib_match (afi_t afi, safi_t safi, vrf_id_t vrf_id,
 	  if (match->type != ZEBRA_ROUTE_CONNECT)
 	    {
 	      int found = 0;
-	      for (ALL_NEXTHOPS_RO(match->nexthop, newhop))
+	      for (ALL_NEXTHOPS(match->nexthop, newhop))
 		if (CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_FIB))
 		  {
 		    found = 1;
@@ -754,7 +754,7 @@ rib_lookup_ipv4 (struct prefix_ipv4 *p, vrf_id_t vrf_id)
   if (match->type == ZEBRA_ROUTE_CONNECT)
     return match;
 
-  for (ALL_NEXTHOPS_RO(match->nexthop, nexthop))
+  for (ALL_NEXTHOPS(match->nexthop, nexthop))
     if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
       return match;
 
@@ -816,7 +816,7 @@ rib_lookup_ipv4_route (struct prefix_ipv4 *p, union sockunion * qgate,
   
   /* Ok, we have a cood candidate, let's check it's nexthop list... */
   nexthops_active = 0;
-  for (ALL_NEXTHOPS_RO(match->nexthop, nexthop))
+  for (ALL_NEXTHOPS(match->nexthop, nexthop))
     if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
       {
         nexthops_active = 1;
@@ -1028,7 +1028,7 @@ zebra_rib_labeled_unicast (struct route_entry *re)
   if (re->type != ZEBRA_ROUTE_BGP)
     return 0;
 
-  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
+  for (ALL_NEXTHOPS(re->nexthop, nexthop))
     if (!nexthop->nh_label || !nexthop->nh_label->num_labels)
       return 0;
 
@@ -1051,7 +1051,7 @@ rib_install_kernel (struct route_node *rn, struct route_entry *re, struct route_
 
   if (info->safi != SAFI_UNICAST)
     {
-      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
+      for (ALL_NEXTHOPS(re->nexthop, nexthop))
         SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
       return ret;
     }
@@ -1067,7 +1067,7 @@ rib_install_kernel (struct route_node *rn, struct route_entry *re, struct route_
   /* If install succeeds, update FIB flag for nexthops. */
   if (!ret)
     {
-      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
+      for (ALL_NEXTHOPS(re->nexthop, nexthop))
         {
           if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
             continue;
@@ -1096,7 +1096,7 @@ rib_uninstall_kernel (struct route_node *rn, struct route_entry *re)
 
   if (info->safi != SAFI_UNICAST)
     {
-      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
+      for (ALL_NEXTHOPS(re->nexthop, nexthop))
         SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
       return ret;
     }
@@ -1109,7 +1109,7 @@ rib_uninstall_kernel (struct route_node *rn, struct route_entry *re)
   ret = kernel_route_rib (p, src_p, re, NULL);
   zvrf->removals++;
 
-  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
+  for (ALL_NEXTHOPS(re->nexthop, nexthop))
     UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
 
   return ret;
@@ -1397,7 +1397,7 @@ rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
         {
           int in_fib = 0;
 
-          for (ALL_NEXTHOPS_RO(new->nexthop, nexthop))
+          for (ALL_NEXTHOPS(new->nexthop, nexthop))
             if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
               {
                 in_fib = 1;
@@ -1632,7 +1632,7 @@ rib_process (struct route_node *rn)
 
       /* Check if we have a FIB route for the destination, otherwise,
        * don't redistribute it */
-      for (ALL_NEXTHOPS_RO(new_fib ? new_fib->nexthop : NULL, nexthop))
+      for (ALL_NEXTHOPS(new_fib ? new_fib->nexthop : NULL, nexthop))
         {
           if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
             {
@@ -2168,7 +2168,7 @@ void _route_entry_dump (const char * func,
     re->nexthop_active_num
   );
 
-  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
+  for (ALL_NEXTHOPS(re->nexthop, nexthop))
     {
       inet_ntop (p->family, &nexthop->gate, straddr, INET6_ADDRSTRLEN);
       zlog_debug
@@ -2453,7 +2453,7 @@ rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
               same = re;
               break;
             }
-          for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
+          for (ALL_NEXTHOPS(re->nexthop, nexthop))
             if (IPV4_ADDR_SAME (&nexthop->gate.ipv4, gate) ||
 	        IPV6_ADDR_SAME (&nexthop->gate.ipv6, gate))
               {

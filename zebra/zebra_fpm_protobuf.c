@@ -194,7 +194,7 @@ create_add_route_message (qpb_allocator_t *allocator, rib_dest_t *dest,
    * Figure out the set of nexthops to be added to the message.
    */
   num_nhs = 0;
-  for (ALL_NEXTHOPS_RO (re->nexthop, nexthop))
+  for (ALL_NEXTHOPS (re->nexthop, nexthop))
     {
       if (num_nhs >= multipath_num)
         break;

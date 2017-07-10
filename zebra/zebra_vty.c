@@ -719,7 +719,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
 	  vty_out (vty, " ago%s", VTY_NEWLINE);
 	}
 
-      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
+      for (ALL_NEXTHOPS(re->nexthop, nexthop))
     {
           char addrstr[32];
 
@@ -866,7 +866,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct route_entry *r
           json_object_string_add(json_route, "uptime", buf);
         }
 
-      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
+      for (ALL_NEXTHOPS(re->nexthop, nexthop))
         {
           json_nexthop = json_object_new_object();
 
@@ -960,7 +960,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct route_entry *r
     }
 
   /* Nexthop information. */
-  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
+  for (ALL_NEXTHOPS(re->nexthop, nexthop))
     {
       if (nexthop == re->nexthop)
 	{

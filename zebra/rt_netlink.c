@@ -1282,7 +1282,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
   if (discard)
     {
       if (cmd == RTM_NEWROUTE)
-        for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
+        for (ALL_NEXTHOPS(re->nexthop, nexthop))
           {
             /* We shouldn't encounter recursive nexthops on discard routes,
              * but it is probably better to handle that case correctly anyway.
@@ -1296,7 +1296,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
   /* Count overall nexthops so we can decide whether to use singlepath
    * or multipath case. */
   nexthop_num = 0;
-  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
+  for (ALL_NEXTHOPS(re->nexthop, nexthop))
     {
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
         continue;
@@ -1312,7 +1312,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
   if (nexthop_num == 1 || multipath_num == 1)
     {
       nexthop_num = 0;
-      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
+      for (ALL_NEXTHOPS(re->nexthop, nexthop))
         {
           if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
             {
@@ -1383,7 +1383,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
       rtnh = RTA_DATA (rta);
 
       nexthop_num = 0;
-      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop))
+      for (ALL_NEXTHOPS(re->nexthop, nexthop))
         {
           if (nexthop_num >= multipath_num)
             break;
