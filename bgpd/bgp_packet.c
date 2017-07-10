@@ -1391,7 +1391,6 @@ bgp_update_receive (struct peer *peer, bgp_size_t size)
   memset (&attr, 0, sizeof (struct attr));
   memset (&extra, 0, sizeof (struct attr_extra));
   extra.label_index = BGP_INVALID_LABEL_INDEX;
-  extra.label = MPLS_INVALID_LABEL;
   memset (&nlris, 0, sizeof (nlris));
   attr.extra = &extra;
   memset (peer->rcvd_attr_str, 0, BUFSIZ);

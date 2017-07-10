@@ -536,7 +536,7 @@ vnc_import_bgp_add_route_mode_resolve_nve_one_bi (
     ecommunity_merge (new_ecom, bi->attr->extra->ecommunity);
 
   if (bi->extra)
-    label = decode_label (&bi->extra->label);
+    label = decode_label (bi->extra->tag);
 
   add_vnc_route (
     &vncHDResolveNve,
@@ -1919,7 +1919,7 @@ vnc_import_bgp_exterior_add_route_it (
               if (bi_interior->extra)
                 {
                   prd = &bi_interior->extra->vnc.import.rd;
-                  label = decode_label (&bi_interior->extra->label);
+                  label = decode_label (bi_interior->extra->tag);
                 }
               else
                 prd = NULL;
@@ -2101,7 +2101,7 @@ vnc_import_bgp_exterior_del_route (
               if (bi_interior->extra)
                 {
                   prd = &bi_interior->extra->vnc.import.rd;
-                  label = decode_label (&bi_interior->extra->label);
+                  label = decode_label (bi_interior->extra->tag);
                 }
               else
                 prd = NULL;
@@ -2249,7 +2249,7 @@ vnc_import_bgp_exterior_add_route_interior (
           if (bi_interior->extra)
             {
               prd = &bi_interior->extra->vnc.import.rd;
-              label = decode_label (&bi_interior->extra->label);
+              label = decode_label (bi_interior->extra->tag);
             }
           else
             prd = NULL;
@@ -2364,7 +2364,7 @@ vnc_import_bgp_exterior_add_route_interior (
                   if (bi->extra)
                     {
                       prd = &bi->extra->vnc.import.rd;
-                      label = decode_label (&bi->extra->label);
+                      label = decode_label (bi->extra->tag);
                     }
                   else
                     prd = NULL;
@@ -2388,7 +2388,7 @@ vnc_import_bgp_exterior_add_route_interior (
               if (bi_interior->extra)
                 {
                   prd = &bi_interior->extra->vnc.import.rd;
-                  label = decode_label (&bi_interior->extra->label);
+                  label = decode_label (bi_interior->extra->tag);
                 }
               else
                 prd = NULL;
@@ -2512,7 +2512,7 @@ vnc_import_bgp_exterior_add_route_interior (
           if (bi_interior->extra)
             {
               prd = &bi_interior->extra->vnc.import.rd;
-              label = decode_label (&bi_interior->extra->label);
+              label = decode_label (bi_interior->extra->tag);
             }
           else
             prd = NULL;
@@ -2633,7 +2633,7 @@ vnc_import_bgp_exterior_del_route_interior (
       if (bi_interior->extra)
         {
           prd = &bi_interior->extra->vnc.import.rd;
-          label = decode_label (&bi_interior->extra->label);
+          label = decode_label (bi_interior->extra->tag);
         }
       else
         prd = NULL;
@@ -2716,7 +2716,7 @@ vnc_import_bgp_exterior_del_route_interior (
               if (bi->extra)
                 {
                   prd = &bi->extra->vnc.import.rd;
-                  label = decode_label (&bi->extra->label);
+                  label = decode_label (bi->extra->tag);
                 }
               else
                 prd = NULL;

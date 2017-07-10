@@ -478,7 +478,7 @@ rfapi_vty_out_vncinfo (
     }
 
   if (bi->extra != NULL)
-    vty_out (vty, " label=%u", decode_label (&bi->extra->label));
+    vty_out (vty, " label=%u", decode_label (bi->extra->tag));
 
   if (!rfapiGetVncLifetime (bi->attr, &lifetime))
     {
@@ -1178,7 +1178,7 @@ rfapiPrintRemoteRegBi (
                 inet_ntop (pfx_vn.family, &pfx_vn.u.prefix, buf_ntop, BUFSIZ));
       if (bi->extra)
         {
-          u_int32_t l = decode_label (&bi->extra->label);
+          u_int32_t l = decode_label (bi->extra->tag);
           snprintf (buf_vn, BUFSIZ, "Label: %d", l);
         }
       else                      /* should never happen */
@@ -1305,7 +1305,7 @@ rfapiPrintRemoteRegBi (
     }
   if (tun_type != BGP_ENCAP_TYPE_MPLS && bi->extra)
     {
-      u_int32_t l = decode_label (&bi->extra->label);
+      u_int32_t l = decode_label (bi->extra->tag);
       if (!MPLS_LABEL_IS_NULL (l))
         {
           fp (out, "  Label: %d", l);

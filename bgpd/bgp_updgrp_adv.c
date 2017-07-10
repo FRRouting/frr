@@ -598,9 +598,6 @@ subgroup_announce_table (struct update_subgroup *subgrp,
   safi = SUBGRP_SAFI (subgrp);
   addpath_capable = bgp_addpath_encode_tx (peer, afi, safi);
 
-  if (safi == SAFI_LABELED_UNICAST)
-    safi = SAFI_UNICAST;
-
   if (!table)
     table = peer->bgp->rib[afi][safi];
 

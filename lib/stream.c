@@ -920,10 +920,9 @@ stream_put_prefix (struct stream *s, struct prefix *p)
 
 /* Put NLRI with label */
 int
-stream_put_labeled_prefix (struct stream *s, struct prefix *p, mpls_label_t *label)
+stream_put_labeled_prefix (struct stream *s, struct prefix *p, u_char *label)
 {
   size_t psize;
-  u_char *label_pnt = (u_char *) label;
 
   STREAM_VERIFY_SANE(s);
 
@@ -936,9 +935,9 @@ stream_put_labeled_prefix (struct stream *s, struct prefix *p, mpls_label_t *lab
     }
 
   stream_putc (s, (p->prefixlen + 24));
-  stream_putc(s, label_pnt[0]);
-  stream_putc(s, label_pnt[1]);
-  stream_putc(s, label_pnt[2]);
+  stream_putc(s, label[0]);
+  stream_putc(s, label[1]);
+  stream_putc(s, label[2]);
   memcpy (s->data + s->endp, &p->u.prefix, psize);
   s->endp += psize;
 

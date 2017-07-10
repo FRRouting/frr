@@ -1170,7 +1170,7 @@ add_vnc_route (
   /* save backref to rfapi handle */
   assert (bgp_info_extra_get (new));
   new->extra->vnc.export.rfapi_handle = (void *) rfd;
-  encode_label (label_val, &new->extra->label);
+  encode_label (label_val, new->extra->tag);
 
   /* debug */
 
@@ -1197,7 +1197,7 @@ add_vnc_route (
 	    bgp, prd, table, p, new);
         }
       bgp_unlock_node (prn);
-      encode_label (label_val, &bn->local_label);
+      encode_label (label_val, bn->local_label);
     }
 
   bgp_unlock_node (bn);
