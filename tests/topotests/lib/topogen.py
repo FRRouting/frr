@@ -96,6 +96,7 @@ class Topogen(object):
         self.routern = 1
         self.switchn = 1
         self.modname = modname
+        self.errors = {}
         self._init_topo(cls)
         logger.info('loading topology: {}'.format(self.modname))
 
@@ -293,6 +294,19 @@ class Topogen(object):
         for router in router_list:
             router.report_memory_leaks(self.modname)
 
+    def set_error(self, message, code=None):
+        "Sets an error message and signal other tests to skip."
+        logger.error(message)
+
+        # If no code is defined use a sequential number
+        if code is None:
+            code = len(self.errors)
+
+        self.errors[code] = message
+
+    def has_errors(self):
+        "Returns whether errors exist or not."
+        return len(self.errors) > 0
 
 #
 # Topology gears (equipment)
