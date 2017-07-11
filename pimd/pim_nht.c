@@ -489,9 +489,12 @@ int pim_ecmp_nexthop_search(struct pim_instance *pim,
 			// If the current nexthop is not valid, candidate to
 			// choose new Nexthop.
 			for (nh_node = pnc->nexthop; nh_node;
-			     nh_node = nh_node->next)
+			     nh_node = nh_node->next) {
 				curr_route_valid = (nexthop->interface->ifindex
 						    == nh_node->ifindex);
+				if (curr_route_valid)
+					break;
+			}
 
 			if (curr_route_valid
 			    && !pim_if_connected_to_source(nexthop->interface,
@@ -734,17 +737,6 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 				break;
 			}
 
-			if (PIM_DEBUG_PIM_NHT) {
-				char p_str[PREFIX2STR_BUFFER];
-				prefix2str(&p, p_str, sizeof(p_str));
-				zlog_debug(
-					"%s: NHT addr %s(%s) %d-nhop via %s type %d distance:%u metric:%u ",
-					__PRETTY_FUNCTION__, p_str,
-					pim->vrf->name, i + 1,
-					inet_ntoa(nexthop->gate.ipv4),
-					nexthop->type, distance, metric);
-			}
-
 			ifp = if_lookup_by_index(nexthop->ifindex, pim->vrf_id);
 			if (!ifp) {
 				if (PIM_DEBUG_PIM_NHT) {
@@ -759,6 +751,18 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 				}
 				nexthop_free(nexthop);
 				continue;
+			}
+
+			if (PIM_DEBUG_PIM_NHT) {
+				char p_str[PREFIX2STR_BUFFER];
+				prefix2str(&p, p_str, sizeof(p_str));
+				zlog_debug(
+					"%s: NHT addr %s(%s) %d-nhop via %s(%s) type %d distance:%u metric:%u ",
+					__PRETTY_FUNCTION__, p_str,
+					pim->vrf->name, i + 1,
+					inet_ntoa(nexthop->gate.ipv4),
+					ifp->name, nexthop->type, distance,
+					metric);
 			}
 
 			if (!ifp->info) {
