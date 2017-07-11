@@ -4400,12 +4400,13 @@ DEFUN (no_set_ipv6_nexthop_global,
 #ifdef KEEP_OLD_VPN_COMMANDS
 DEFUN (set_vpn_nexthop,
        set_vpn_nexthop_cmd,
-       "set <vpnv4|vpnv6> next-hop <A.B.C.D|X:X::X:X>",
+       "set <vpnv4 next-hop A.B.C.D|vpnv6 next-hop X:X::X:X>",
        SET_STR
        "VPNv4 information\n"
-       "VPNv6 information\n"
        "VPN next-hop address\n"
        "IP address of next hop\n"
+       "VPNv6 information\n"
+       "VPN next-hop address\n"
        "IPv6 address of next hop\n")
 {
   int idx_ip = 3;
@@ -4426,12 +4427,14 @@ DEFUN (set_vpn_nexthop,
 
 DEFUN (no_set_vpn_nexthop,
        no_set_vpn_nexthop_cmd,
-       "no set vpn next-hop <A.B.C.D|X:X::X:X>",
+       "no set <vpnv4 next-hop A.B.C.D|vpnv6 next-hop X:X::X:X>",
        NO_STR
        SET_STR
-       "VPN information\n"
+       "VPNv4 information\n"
        "VPN next-hop address\n"
        "IP address of next hop\n"
+       "VPNv6 information\n"
+       "VPN next-hop address\n"
        "IPv6 address of next hop\n")
 {
   int idx_ip = 4;
