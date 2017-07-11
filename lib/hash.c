@@ -87,13 +87,8 @@ hash_alloc_intern (void *arg)
 }
 
 #define hash_update_ssq(hz, old, new) \
-  do { \
-    long double res; \
-    res = powl(old, 2.0); \
-    hz->stats.ssq -= (uint64_t) res;\
-    res = powl(new, 2.0); \
-    hz->stats.ssq += (uint64_t) res; \
-  } while (0); \
+    atomic_fetch_add_explicit(&hz->stats.ssq, (new + old)*(new - old),\
+                              memory_order_relaxed);
 
 /* Expand hash if the chain length exceeds the threshold. */
 static void hash_expand (struct hash *hash)
