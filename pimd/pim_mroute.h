@@ -67,6 +67,10 @@
 #define MRT_PIM      (MRT_BASE+8)    /* enable PIM code      */
 #endif
 
+#ifndef MRT_TABLE
+#define MRT_TABLE    (209)           /* Specify mroute table ID */
+#endif
+
 #ifndef HAVE_VIFI_T
 typedef unsigned short vifi_t;
 #endif
