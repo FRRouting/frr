@@ -7023,7 +7023,8 @@ DEFUN (no_debug_pim_trace_detail,
        NO_STR
        DEBUG_STR
        DEBUG_PIM_STR
-       DEBUG_PIM_TRACE_STR)
+       DEBUG_PIM_TRACE_STR
+       "Detailed Information\n")
 {
 	PIM_DONT_DEBUG_PIM_TRACE_DETAIL;
 	return CMD_SUCCESS;
