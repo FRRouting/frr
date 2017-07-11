@@ -7365,7 +7365,7 @@ afi_safi_print (afi_t afi, safi_t safi)
   else if (afi == AFI_IP && safi == SAFI_MULTICAST)
     return "IPv4 Multicast";
   else if (afi == AFI_IP && safi == SAFI_LABELED_UNICAST)
-    return "IPv4 labeled-unicast";
+    return "IPv4 Labeled Unicast";
   else if (afi == AFI_IP && safi == SAFI_MPLS_VPN)
     return "IPv4 VPN";
   else if (afi == AFI_IP && safi == SAFI_ENCAP)
@@ -7375,7 +7375,7 @@ afi_safi_print (afi_t afi, safi_t safi)
   else if (afi == AFI_IP6 && safi == SAFI_MULTICAST)
     return "IPv6 Multicast";
   else if (afi == AFI_IP6 && safi == SAFI_LABELED_UNICAST)
-    return "IPv6 labeled-unicast";
+    return "IPv6 Labeled Unicast";
   else if (afi == AFI_IP6 && safi == SAFI_MPLS_VPN)
     return "IPv6 VPN";
   else if (afi == AFI_IP6 && safi == SAFI_ENCAP)
