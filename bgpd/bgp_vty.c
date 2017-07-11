@@ -1487,7 +1487,7 @@ DEFUN (no_bgp_coalesce_time,
 /* Maximum-paths configuration */
 DEFUN (bgp_maxpaths,
        bgp_maxpaths_cmd,
-       "maximum-paths (1-255)",
+       "maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM),
        "Forward packets over multiple paths\n"
        "Number of paths\n")
 {
@@ -1497,13 +1497,13 @@ DEFUN (bgp_maxpaths,
 
 ALIAS_HIDDEN (bgp_maxpaths,
               bgp_maxpaths_hidden_cmd,
-              "maximum-paths (1-255)",
+              "maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM),
               "Forward packets over multiple paths\n"
               "Number of paths\n")
 
 DEFUN (bgp_maxpaths_ibgp,
        bgp_maxpaths_ibgp_cmd,
-       "maximum-paths ibgp (1-255)",
+       "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM),
        "Forward packets over multiple paths\n"
        "iBGP-multipath\n"
        "Number of paths\n")
@@ -1514,14 +1514,14 @@ DEFUN (bgp_maxpaths_ibgp,
 
 ALIAS_HIDDEN (bgp_maxpaths_ibgp,
               bgp_maxpaths_ibgp_hidden_cmd,
-              "maximum-paths ibgp (1-255)",
+              "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM),
               "Forward packets over multiple paths\n"
               "iBGP-multipath\n"
               "Number of paths\n")
 
 DEFUN (bgp_maxpaths_ibgp_cluster,
        bgp_maxpaths_ibgp_cluster_cmd,
-       "maximum-paths ibgp (1-255) equal-cluster-length",
+       "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM) " equal-cluster-length",
        "Forward packets over multiple paths\n"
        "iBGP-multipath\n"
        "Number of paths\n"
@@ -1534,7 +1534,7 @@ DEFUN (bgp_maxpaths_ibgp_cluster,
 
 ALIAS_HIDDEN (bgp_maxpaths_ibgp_cluster,
               bgp_maxpaths_ibgp_cluster_hidden_cmd,
-              "maximum-paths ibgp (1-255) equal-cluster-length",
+              "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM) " equal-cluster-length",
               "Forward packets over multiple paths\n"
               "iBGP-multipath\n"
               "Number of paths\n"
@@ -1542,7 +1542,7 @@ ALIAS_HIDDEN (bgp_maxpaths_ibgp_cluster,
 
 DEFUN (no_bgp_maxpaths,
        no_bgp_maxpaths_cmd,
-       "no maximum-paths [(1-255)]",
+       "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM) "]",
        NO_STR
        "Forward packets over multiple paths\n"
        "Number of paths\n")
@@ -1552,14 +1552,14 @@ DEFUN (no_bgp_maxpaths,
 
 ALIAS_HIDDEN (no_bgp_maxpaths,
               no_bgp_maxpaths_hidden_cmd,
-              "no maximum-paths [(1-255)]",
+              "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM) "]",
               NO_STR
               "Forward packets over multiple paths\n"
               "Number of paths\n")
 
 DEFUN (no_bgp_maxpaths_ibgp,
        no_bgp_maxpaths_ibgp_cmd,
-       "no maximum-paths ibgp [(1-255) [equal-cluster-length]]",
+       "no maximum-paths ibgp [" CMD_RANGE_STR(1, MULTIPATH_NUM) " [equal-cluster-length]]",
        NO_STR
        "Forward packets over multiple paths\n"
        "iBGP-multipath\n"
@@ -1571,7 +1571,7 @@ DEFUN (no_bgp_maxpaths_ibgp,
 
 ALIAS_HIDDEN (no_bgp_maxpaths_ibgp,
               no_bgp_maxpaths_ibgp_hidden_cmd,
-              "no maximum-paths ibgp [(1-255) [equal-cluster-length]]",
+              "no maximum-paths ibgp [" CMD_RANGE_STR(1, MULTIPATH_NUM) " [equal-cluster-length]]",
               NO_STR
               "Forward packets over multiple paths\n"
               "iBGP-multipath\n"

@@ -293,6 +293,7 @@ struct cmd_node
  */
 #define CMD_CREATE_STR(s)  CMD_CREATE_STR_HELPER(s)
 #define CMD_CREATE_STR_HELPER(s) #s
+#define CMD_RANGE_STR(a,s) "(" CMD_CREATE_STR(a) "-" CMD_CREATE_STR(s) ")"
 
 /* Common descriptions. */
 #define SHOW_STR "Show running system information\n"
