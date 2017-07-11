@@ -22,7 +22,7 @@ Add packages:
 
     sudo yum install git autoconf automake libtool make gawk readline-devel \
       texinfo net-snmp-devel groff pkgconfig json-c-devel pam-devel \
-      flex pytest
+      flex epel-release
 
 Install newer version of bison (CentOS 6 package source is too old) from 
 CentOS 7
@@ -79,9 +79,6 @@ any packages**
 ### Download Source, configure and compile it
 (You may prefer different options on configure statement. These are just 
 an example.)
-
-You may want to pay special attention to `/usr/lib64` paths and change 
-them if you are not building on a x86_64 architecture
 
     git clone https://github.com/frrouting/frr.git frr
     cd frr

@@ -38,9 +38,6 @@ any packages**
 (You may prefer different options on configure statement. These are just 
 an example.)
 
-You may want to pay special attention to `/usr/lib64` paths and change 
-them if you are not building on a x86_64 architecture
-
     git clone https://github.com/frrouting/frr.git frr
     cd frr
     git checkout stable/2.0
