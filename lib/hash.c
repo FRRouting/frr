@@ -428,6 +428,13 @@ DEFUN(show_hash_stats,
   long double ssq;    // ssq casted to long double
 
   pthread_mutex_lock (&_hashes_mtx);
+  if (!_hashes)
+    {
+      pthread_mutex_unlock (&_hashes_mtx);
+      vty_outln (vty, "No hash tables in use.");
+      return CMD_SUCCESS;
+    }
+
   for (ALL_LIST_ELEMENTS_RO (_hashes, ln, h))
     {
       if (!h->name)
@@ -482,6 +489,5 @@ DEFUN(show_hash_stats,
 void
 hash_cmd_init ()
 {
-  _hashes = list_new();
   install_element (ENABLE_NODE, &show_hash_stats_cmd);
 }
