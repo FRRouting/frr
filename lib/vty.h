@@ -186,6 +186,10 @@ struct vty_arg
 #define VTY_NEWLINE                               VTYNL
 #define VTY_GET_INTEGER(desc,v,str)               {(v)=strtoul ((str), NULL, 10);}
 #define VTY_GET_INTEGER_RANGE(desc,v,str,min,max) {(v)=strtoul ((str), NULL, 10);}
+#define VTY_GET_ULONG(desc,v,str)                 {(v)=strtoul ((str), NULL, 10);}
+#define VTY_GET_ULL(desc,v,str)                   {(v)=strtoull ((str), NULL, 10);}
+#define VTY_GET_IPV4_ADDRESS(desc,v,str)          inet_aton ((str), &(v))
+#define VTY_GET_IPV4_PREFIX(desc,v,str)           str2prefix_ipv4 ((str), &(v))
 
 /* Default time out value */
 #define VTY_TIMEOUT_DEFAULT 600
