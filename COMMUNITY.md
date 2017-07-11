@@ -380,3 +380,24 @@ CLI's are a complicated ugly beast.  Additions or changes to the CLI
 should use a DEFUN to encapsulate one setting as much as is possible.
 Additionally as new DEFUN's are added to the system, documentation
 should be provided for the new commands.
+
+### Backwards Compatibility
+
+As a general principle, changes to CLI and code in the lib/ directory
+should be made in a backwards compatible fashion. This means that
+changes that are purely stylistic in nature should be avoided, e.g.,
+renaming an existing macro or library function name without any
+functional change. When adding new parameters to common functions, it is
+also good to consider if this too should be done in a backward
+compatible fashion, e.g., by preserving the old form in addition to
+adding the new form.
+
+This is not to say that minor or even major functional changes to CLI
+and common code should be avoided, but rather that the benefit gained
+from a change should be weighed against the added cost/complexity to
+existing code.  Also, that when making such changes, it is good to
+preserve compatibility when possible to do so without introducing
+maintenance overhead/cost.  It is also important to keep in mind,
+existing code includes code that may reside in private repositories (and
+is yet to be submitted) or code that has yet to be migrated from Quagga
+to FRR.
