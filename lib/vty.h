@@ -182,6 +182,11 @@ struct vty_arg
 /* Small macro to determine newline is newline only or linefeed needed. */
 #define VTYNL  ((vty->type == VTY_TERM) ? "\r\n" : "\n")
 
+/* for compatibility */
+#define VTY_NEWLINE                               VTYNL
+#define VTY_GET_INTEGER(desc,v,str)               {(v)=strtoul ((str), NULL, 10);}
+#define VTY_GET_INTEGER_RANGE(desc,v,str,min,max) {(v)=strtoul ((str), NULL, 10);}
+
 /* Default time out value */
 #define VTY_TIMEOUT_DEFAULT 600
 
