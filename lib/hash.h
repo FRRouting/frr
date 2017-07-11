@@ -54,8 +54,6 @@ struct hashstats
 {
   /* number of empty hash buckets */
   _Atomic int empty;
-  /* sum of squares of bucket length */
-  _Atomic uint64_t ssq;
 };
 
 struct hash
