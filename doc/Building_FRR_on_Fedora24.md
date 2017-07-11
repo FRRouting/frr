@@ -1,6 +1,10 @@
 Building FRR on Fedora 24 from Git Source
 =========================================
 
+(As an alternative to this installation, you may prefer to create a FRR
+rpm package yourself and install that package instead. See instructions
+in redhat/README.rpm_build.md on how to build a rpm package)
+
 Install required packages
 -------------------------
 
@@ -35,11 +39,13 @@ them if you are not building on a x86_64 architecture
     git checkout stable/2.0
     ./bootstrap.sh
     ./configure \
+        --bindir=/usr/bin \
+        --sbindir=/usr/lib/frr \
         --sysconfdir=/etc/frr \
-        --libdir=/usr/lib64/frr \
-        --libexecdir=/usr/lib64/frr \
+        --libdir=/usr/lib/frr \
+        --libexecdir=/usr/lib/frr \
         --localstatedir=/var/run/frr \
-        --enable-pimd \
+        --disable-pimd \
         --enable-snmp=agentx \
         --enable-multipath=64 \
         --enable-ospfclient=yes \
@@ -51,12 +57,16 @@ them if you are not building on a x86_64 architecture
         --disable-exampledir \
         --enable-watchfrr \
         --enable-tcp-zebra \
+        --enable-ldpd \
         --enable-fpm \
         --with-pkg-git-version \
-        --with-pkg-extra-version=-MyOwnFRRVersion    
+        --with-pkg-extra-version=-MyOwnFRRVersion   
     make
     make check
     sudo make install
+
+### Install deamon config file
+    sudo install -p -m 644 redhat/daemons /etc/frr/
 
 ### Create empty FRR configuration files
     sudo mkdir /var/log/frr
@@ -74,6 +84,11 @@ them if you are not building on a x86_64 architecture
     sudo touch /etc/frr/vtysh.conf
     sudo chown frr:frrvt /etc/frr/vtysh.conf
     sudo chmod 640 /etc/frr/*.conf
+
+### Edit /etc/frr/daemons as needed to select the required daemons
+
+Look for the section with `watchfrr_enable=...` and `zebra=...` etc.
+Enable the daemons as required by changing the value to `yes` 
 
 ### Enable IP & IPv6 forwarding (and MPLS)
 
@@ -102,33 +117,12 @@ Create a new file `/etc/modules-load.d/mpls.conf` with the following content:
 
 **Reboot** or use `sysctl` to apply the same config to the running system
 
-### Install Service files 
-    install -p -m 644 redhat/zebra.service /usr/lib/systemd/system/zebra.service
-    install -p -m 644 redhat/isisd.service /usr/lib/systemd/system/isisd.service
-    install -p -m 644 redhat/ripd.service /usr/lib/systemd/system/ripd.service
-    install -p -m 644 redhat/ospfd.service /usr/lib/systemd/system/ospfd.service
-    install -p -m 644 redhat/bgpd.service /usr/lib/systemd/system/bgpd.service
-    install -p -m 644 redhat/ospf6d.service /usr/lib/systemd/system/ospf6d.service
-    install -p -m 644 redhat/ripngd.service /usr/lib/systemd/system/ripngd.service
-    install -p -m 644 redhat/pimd.service /usr/lib/systemd/system/pimd.service
-    install -p -m 644 redhat/pimd.service /usr/lib/systemd/system/ldpd.service
-    install -p -m 644 redhat/frr.sysconfig /etc/sysconfig/frr
-    install -p -m 644 redhat/frr.logrotate /etc/logrotate.d/frr
+### Install frr Service and redhat init files 
+    sudo install -p -m 644 redhat/frr.service /usr/lib/systemd/system/frr.service
+    sudo install -p -m 755 redhat/frr.init /usr/lib/frr/frr
+ 
+### Enable required frr at startup
+    sudo systemctl enable frr
 
-### Register the systemd files
-    systemctl preset zebra.service
-    systemctl preset ripd.service
-    systemctl preset ospfd.service
-    systemctl preset bgpd.service
-    systemctl preset ospf6d.service
-    systemctl preset ripngd.service
-    systemctl preset pimd.service
-    systemctl preset ldpd.service
-
-### Enable required daemons at startup
-Only enable zebra and the daemons which are needed for your setup
-
-    systemctl enable zebra
-    systemctl enable ospfd
-    systemctl enable bgpd
-    [...] etc (as needed)
+### Reboot or start FRR manually
+    sudo systemctl start frr
