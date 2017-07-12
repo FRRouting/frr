@@ -10,8 +10,8 @@ PREFIX=192.168.145.
 #PREFIX=3ffe:123:456::
 ADDRPLEN=32
 CONFBASE=/tmp
-PIDBASE=/var/run/quagga
-CHOWNSTR=quagga:quagga
+PIDBASE=/var/run/frr
+CHOWNSTR=frr:frr
 
 for H in `seq 1 ${NUM}` ; do
 	CONF="${CONFBASE}"/bgpd${H}.conf
