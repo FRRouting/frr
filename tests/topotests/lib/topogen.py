@@ -322,7 +322,8 @@ class Topogen(object):
 
     def is_memleak_enabled(self):
         "Returns `True` if memory leak report is enable, otherwise `False`."
-        memleak_file = os.environ.get('TOPOTESTS_CHECK_MEMLEAK')
+        memleak_file = (os.environ.get('TOPOTESTS_CHECK_MEMLEAK') or
+                        self.config.get(self.CONFIG_SECTION, 'memleak_path'))
         if memleak_file is None:
             return False
         return True
