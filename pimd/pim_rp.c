@@ -48,13 +48,14 @@
 /* Cleanup pim->rpf_hash each node data */
 void pim_rp_list_hash_clean(void *data)
 {
-	struct pim_nexthop_cache *pnc;
+	struct pim_nexthop_cache *pnc = (struct pim_nexthop_cache *)data;
 
 	list_delete(pnc->rp_list);
 	pnc->rp_list = NULL;
 
-	list_delete(pnc->upstream_list);
-	pnc->upstream_list = NULL;
+	hash_clean(pnc->upstream_hash, NULL);
+	hash_free(pnc->upstream_hash);
+	pnc->upstream_hash = NULL;
 
 	XFREE(MTYPE_PIM_NEXTHOP_CACHE, pnc);
 }

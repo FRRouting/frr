@@ -130,8 +130,9 @@ static struct pim_nexthop_cache *pim_nexthop_cache_add(struct pim_instance *pim,
 	pnc->rp_list = list_new();
 	pnc->rp_list->cmp = pim_rp_list_cmp;
 
-	pnc->upstream_list = list_new();
-	pnc->upstream_list->cmp = pim_upstream_compare;
+	pnc->upstream_hash = hash_create_size(8192, pim_upstream_hash_key,
+					      pim_upstream_equal,
+					      "PNC Upstream Hash");
 
 	return pnc;
 }
@@ -187,11 +188,8 @@ int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 			listnode_add_sort(pnc->rp_list, rp);
 	}
 
-	if (up != NULL) {
-		ch_node = listnode_lookup(pnc->upstream_list, up);
-		if (ch_node == NULL)
-			listnode_add_sort(pnc->upstream_list, up);
-	}
+	if (up != NULL)
+		up = hash_get(pnc->upstream_hash, up, hash_alloc_intern);
 
 	if (pnc && CHECK_FLAG(pnc->flags, PIM_NEXTHOP_VALID)) {
 		memcpy(out_pnc, pnc, sizeof(struct pim_nexthop_cache));
@@ -217,24 +215,24 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 		if (rp)
 			listnode_delete(pnc->rp_list, rp);
 		if (up)
-			listnode_delete(pnc->upstream_list, up);
+			hash_release(pnc->upstream_hash, up);
 
 		if (PIM_DEBUG_PIM_NHT) {
 			char buf[PREFIX_STRLEN];
 			prefix2str(addr, buf, sizeof buf);
 			zlog_debug(
-				"%s: NHT %s(%s) rp_list count:%d upstream_list count:%d ",
+				"%s: NHT %s(%s) rp_list count:%d upstream count:%ld",
 				__PRETTY_FUNCTION__, buf, pim->vrf->name,
-				pnc->rp_list->count, pnc->upstream_list->count);
+				pnc->rp_list->count, pnc->upstream_hash->count);
 		}
 
 		if (pnc->rp_list->count == 0
-		    && pnc->upstream_list->count == 0) {
+		    && pnc->upstream_hash->count == 0) {
 			pim_sendmsg_zebra_rnh(pim, zclient, pnc,
 					      ZEBRA_NEXTHOP_UNREGISTER);
 
 			list_delete(pnc->rp_list);
-			list_delete(pnc->upstream_list);
+			hash_free(pnc->upstream_hash);
 
 			hash_release(pim->rpf_hash, pnc);
 			if (pnc->nexthop)
@@ -306,116 +304,111 @@ void pim_resolve_upstream_nh(struct pim_instance *pim, struct prefix *nht_p)
 }
 
 /* Update Upstream nexthop info based on Nexthop update received from Zebra.*/
+static int pim_update_upstream_nh_helper(struct hash_backet *backet, void *arg)
+{
+	struct pim_instance *pim = (struct pim_instance *)arg;
+	struct pim_upstream *up = (struct pim_upstream *)backet->data;
+	int vif_index = 0;
+
+	enum pim_rpf_result rpf_result;
+	struct pim_rpf old;
+
+	old.source_nexthop.interface = up->rpf.source_nexthop.interface;
+	rpf_result = pim_rpf_update(pim, up, &old, 0);
+	if (rpf_result == PIM_RPF_FAILURE)
+		return HASHWALK_CONTINUE;
+
+	/* update kernel multicast forwarding cache (MFC) */
+	if (up->channel_oil) {
+		ifindex_t ifindex = up->rpf.source_nexthop.interface->ifindex;
+
+		vif_index = pim_if_find_vifindex_by_ifindex(pim, ifindex);
+		/* Pass Current selected NH vif index to mroute download
+		 */
+		if (vif_index)
+			pim_scan_individual_oil(up->channel_oil, vif_index);
+		else {
+			if (PIM_DEBUG_PIM_NHT)
+				zlog_debug(
+					"%s: NHT upstream %s channel_oil IIF %s vif_index is not valid",
+					__PRETTY_FUNCTION__, up->sg_str,
+					up->rpf.source_nexthop.interface->name);
+		}
+	}
+
+	if (rpf_result == PIM_RPF_CHANGED) {
+		struct pim_neighbor *nbr;
+
+		nbr = pim_neighbor_find(old.source_nexthop.interface,
+					old.rpf_addr.u.prefix4);
+		if (nbr)
+			pim_jp_agg_remove_group(nbr->upstream_jp_agg, up);
+
+		/*
+		 * We have detected a case where we might need to rescan
+		 * the inherited o_list so do it.
+		 */
+		if (up->channel_oil
+		    && up->channel_oil->oil_inherited_rescan) {
+			pim_upstream_inherited_olist_decide(pim, up);
+			up->channel_oil->oil_inherited_rescan = 0;
+		}
+
+		if (up->join_state == PIM_UPSTREAM_JOINED) {
+			/*
+			 * If we come up real fast we can be here
+			 * where the mroute has not been installed
+			 * so install it.
+			 */
+			if (up->channel_oil
+			    && !up->channel_oil->installed)
+				pim_mroute_add(up->channel_oil,
+					       __PRETTY_FUNCTION__);
+
+			/*
+			 * RFC 4601: 4.5.7.  Sending (S,G) Join/Prune Messages
+			 *
+			 * Transitions from Joined State
+			 *
+			 * RPF'(S,G) changes not due to an Assert
+			 *
+			 * The upstream (S,G) state machine remains in Joined
+			 * state. Send Join(S,G) to the new upstream
+			 * neighbor, which is the new value of RPF'(S,G).
+			 * Send Prune(S,G) to the old upstream neighbor, which
+			 * is the old value of RPF'(S,G).  Set the Join
+			 * Timer (JT) to expire after t_periodic seconds.
+			 */
+			pim_jp_agg_switch_interface(&old, &up->rpf, up);
+
+			pim_upstream_join_timer_restart(up, &old);
+		} /* up->join_state == PIM_UPSTREAM_JOINED */
+
+		/*
+		 * FIXME can join_desired actually be changed by
+		 * pim_rpf_update() returning PIM_RPF_CHANGED ?
+		 */
+		pim_upstream_update_join_desired(pim, up);
+
+	} /* PIM_RPF_CHANGED */
+
+	if (PIM_DEBUG_PIM_NHT) {
+		zlog_debug("%s: NHT upstream %s(%s) old ifp %s new ifp %s",
+			   __PRETTY_FUNCTION__, up->sg_str, pim->vrf->name,
+			   old.source_nexthop.interface->name,
+			   up->rpf.source_nexthop.interface->name);
+	}
+
+	return HASHWALK_CONTINUE;
+}
+
 static int pim_update_upstream_nh(struct pim_instance *pim,
 				  struct pim_nexthop_cache *pnc)
 {
-	struct listnode *up_node;
-	struct listnode *ifnode;
-	struct listnode *up_nextnode;
-	struct listnode *node;
-	struct pim_upstream *up = NULL;
-	struct interface *ifp = NULL;
-	int vif_index = 0;
+	struct listnode *node, *ifnode;
+	struct interface *ifp;
 
-	for (ALL_LIST_ELEMENTS(pnc->upstream_list, up_node, up_nextnode, up)) {
-		enum pim_rpf_result rpf_result;
-		struct pim_rpf old;
-
-		old.source_nexthop.interface = up->rpf.source_nexthop.interface;
-		rpf_result = pim_rpf_update(pim, up, &old, 0);
-		if (rpf_result == PIM_RPF_FAILURE)
-			continue;
-
-		/* update kernel multicast forwarding cache (MFC) */
-		if (up->channel_oil) {
-			ifindex_t ifindex =
-				up->rpf.source_nexthop.interface->ifindex;
-			vif_index =
-				pim_if_find_vifindex_by_ifindex(pim, ifindex);
-			/* Pass Current selected NH vif index to mroute download
-			 */
-			if (vif_index)
-				pim_scan_individual_oil(up->channel_oil,
-							vif_index);
-			else {
-				if (PIM_DEBUG_PIM_NHT)
-					zlog_debug(
-						"%s: NHT upstream %s channel_oil IIF %s vif_index is not valid",
-						__PRETTY_FUNCTION__, up->sg_str,
-						up->rpf.source_nexthop
-							.interface->name);
-			}
-		}
-
-		if (rpf_result == PIM_RPF_CHANGED) {
-			struct pim_neighbor *nbr;
-
-			nbr = pim_neighbor_find(old.source_nexthop.interface,
-						old.rpf_addr.u.prefix4);
-			if (nbr)
-				pim_jp_agg_remove_group(nbr->upstream_jp_agg,
-							up);
-
-			/*
-			 * We have detected a case where we might need to rescan
-			 * the inherited o_list so do it.
-			 */
-			if (up->channel_oil
-			    && up->channel_oil->oil_inherited_rescan) {
-				pim_upstream_inherited_olist_decide(pim, up);
-				up->channel_oil->oil_inherited_rescan = 0;
-			}
-
-			if (up->join_state == PIM_UPSTREAM_JOINED) {
-				/*
-				 * If we come up real fast we can be here
-				 * where the mroute has not been installed
-				 * so install it.
-				 */
-				if (up->channel_oil
-				    && !up->channel_oil->installed)
-					pim_mroute_add(up->channel_oil,
-						       __PRETTY_FUNCTION__);
-
-				/*
-				   RFC 4601: 4.5.7.  Sending (S,G) Join/Prune
-				   Messages
-
-				   Transitions from Joined State
-
-				   RPF'(S,G) changes not due to an Assert
-
-				   The upstream (S,G) state machine remains in
-				   Joined
-				   state. Send Join(S,G) to the new upstream
-				   neighbor, which is
-				   the new value of RPF'(S,G).  Send Prune(S,G)
-				   to the old
-				   upstream neighbor, which is the old value of
-				   RPF'(S,G).  Set
-				   the Join Timer (JT) to expire after
-				   t_periodic seconds.
-				 */
-				pim_jp_agg_switch_interface(&old, &up->rpf, up);
-
-				pim_upstream_join_timer_restart(up, &old);
-			} /* up->join_state == PIM_UPSTREAM_JOINED */
-
-			/* FIXME can join_desired actually be changed by
-			   pim_rpf_update()
-			   returning PIM_RPF_CHANGED ? */
-			pim_upstream_update_join_desired(pim, up);
-
-		} /* PIM_RPF_CHANGED */
-
-		if (PIM_DEBUG_PIM_NHT) {
-			zlog_debug(
-				"%s: NHT upstream %s(%s) old ifp %s new ifp %s",
-				__PRETTY_FUNCTION__, up->sg_str, pim->vrf->name,
-				old.source_nexthop.interface->name,
-				up->rpf.source_nexthop.interface->name);
-		}
-	} /* for (pnc->upstream_list) */
+	hash_walk(pnc->upstream_hash, pim_update_upstream_nh_helper, pim);
 
 	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), ifnode, ifp))
 		if (ifp->info) {
@@ -809,9 +802,9 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 		char buf[PREFIX2STR_BUFFER];
 		prefix2str(&p, buf, sizeof(buf));
 		zlog_debug(
-			"%s: NHT Update for %s(%s) num_nh %d num_pim_nh %d vrf:%d up %d rp %d",
+			"%s: NHT Update for %s(%s) num_nh %d num_pim_nh %d vrf:%d up %ld rp %d",
 			__PRETTY_FUNCTION__, buf, pim->vrf->name, nexthop_num,
-			pnc->nexthop_num, vrf_id, listcount(pnc->upstream_list),
+			pnc->nexthop_num, vrf_id, pnc->upstream_hash->count,
 			listcount(pnc->rp_list));
 	}
 
@@ -819,7 +812,7 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 
 	if (listcount(pnc->rp_list))
 		pim_update_rp_nh(pim, pnc);
-	if (listcount(pnc->upstream_list))
+	if (pnc->upstream_hash->count)
 		pim_update_upstream_nh(pim, pnc);
 
 	return 0;

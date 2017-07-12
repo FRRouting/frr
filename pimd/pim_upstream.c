@@ -1527,7 +1527,7 @@ void pim_upstream_find_new_rpf(struct pim_instance *pim)
 	}
 }
 
-static unsigned int pim_upstream_hash_key(void *arg)
+unsigned int pim_upstream_hash_key(void *arg)
 {
 	struct pim_upstream *up = (struct pim_upstream *)arg;
 
@@ -1545,7 +1545,7 @@ void pim_upstream_terminate(struct pim_instance *pim)
 	pim->upstream_hash = NULL;
 }
 
-static int pim_upstream_equal(const void *arg1, const void *arg2)
+int pim_upstream_equal(const void *arg1, const void *arg2)
 {
 	const struct pim_upstream *up1 = (const struct pim_upstream *)arg1;
 	const struct pim_upstream *up2 = (const struct pim_upstream *)arg2;

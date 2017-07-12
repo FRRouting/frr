@@ -43,7 +43,7 @@ struct pim_nexthop_cache {
 #define PIM_NEXTHOP_VALID             (1 << 0)
 
 	struct list *rp_list;
-	struct list *upstream_list;
+	struct hash *upstream_hash;
 };
 
 int pim_parse_nexthop_update(int command, struct zclient *zclient,
