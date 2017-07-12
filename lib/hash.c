@@ -86,15 +86,6 @@ hash_alloc_intern (void *arg)
   return arg;
 }
 
-#define hash_update_ssq(hz, old, new) \
-  do { \
-    long double res; \
-    res = powl(old, 2.0); \
-    hz->stats.ssq -= (uint64_t) res;\
-    res = powl(new, 2.0); \
-    hz->stats.ssq += (uint64_t) res; \
-  } while (0); \
-
 /* Expand hash if the chain length exceeds the threshold. */
 static void hash_expand (struct hash *hash)
 {
@@ -125,8 +116,6 @@ static void hash_expand (struct hash *hash)
 	  hb->next->len = 0;
 
 	hb->len = newlen;
-
-	hash_update_ssq(hash, oldlen, newlen);
 
 	new_index[h] = hb;
       }
@@ -206,8 +195,6 @@ hash_get (struct hash *hash, void *data, void * (*alloc_func) (void *))
 
       backet->len = newlen;
 
-      hash_update_ssq(hash, oldlen, newlen);
-
       return backet->data;
     }
   return NULL;
@@ -262,8 +249,6 @@ hash_release (struct hash *hash, void *data)
 	    hash->index[index]->len = newlen;
 	  else
             hash->stats.empty++;
-
-	  hash_update_ssq(hash, oldlen, newlen);
 
 	  ret = backet->data;
 	  XFREE (MTYPE_HASH_BACKET, backet);
@@ -343,7 +328,6 @@ hash_clean (struct hash *hash, void (*free_func) (void *))
       hash->index[i] = NULL;
     }
 
-  hash->stats.ssq = 0;
   hash->stats.empty = hash->size;
 }
 
@@ -387,7 +371,7 @@ DEFUN(show_hash_stats,
   struct listnode *ln;
   struct ttable *tt = ttable_new (&ttable_styles[TTSTYLE_BLANK]);
 
-  ttable_add_row (tt, "Hash table|Buckets|Entries|Empty|LF|SD|FLF|SD");
+  ttable_add_row (tt, "Hash table|Buckets|Entries|Empty|LF|FLF");
   tt->style.cell.lpad = 2;
   tt->style.cell.rpad = 1;
   tt->style.corner = '+';
@@ -417,6 +401,7 @@ DEFUN(show_hash_stats,
 
   double lf;          // load factor
   double flf;         // full load factor
+#if 0
   double var;         // overall variance
   double fvar;        // full variance
   double stdv;        // overall stddev
@@ -424,8 +409,9 @@ DEFUN(show_hash_stats,
 
   long double x2;     // h->count ^ 2
   long double ldc;    // (long double) h->count
-  long double full;   // h->size - h->stats.empty
   long double ssq;    // ssq casted to long double
+#endif
+  long double full;   // h->size - h->stats.empty
 
   pthread_mutex_lock (&_hashes_mtx);
   if (!_hashes)
@@ -440,23 +426,24 @@ DEFUN(show_hash_stats,
       if (!h->name)
         continue;
 
-      ssq   = (long double) h->stats.ssq;
-      x2    = powl(h->count, 2.0);
-      ldc   = (long double) h->count;
       full  = h->size - h->stats.empty;
       lf    = h->count / (double) h->size;
       flf   = full ? h->count / (double) (full) : 0;
+#if 0
+      ssq   = (long double) h->stats.ssq;
+      x2    = powl(h->count, 2.0);
+      ldc   = (long double) h->count;
       var   = ldc ? (1.0 / ldc) * (ssq - x2 / ldc) : 0;
       fvar  = full ? (1.0 / full) * (ssq - x2 / full) : 0;
       var   = (var < .0001) ? 0 : var;
       fvar  = (fvar < .0001) ? 0 : fvar;
       stdv  = sqrt(var);
       fstdv = sqrt(fvar);
+#endif
 
-      ttable_add_row (tt, "%s|%d|%ld|%.0f%%|%.2lf|%.2lf|%.2lf|%.2lf", h->name,
+      ttable_add_row (tt, "%s|%d|%ld|%.0f%%|%.2lf|%.2lf", h->name,
                       h->size, h->count,
-                      (h->stats.empty / (double) h->size)*100, lf, stdv, flf,
-                      fstdv);
+                      (h->stats.empty / (double) h->size)*100, lf, flf);
     }
   pthread_mutex_unlock (&_hashes_mtx);
 
