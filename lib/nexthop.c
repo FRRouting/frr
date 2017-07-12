@@ -274,3 +274,14 @@ nexthop_next(struct nexthop *nexthop)
 
   return NULL;
 }
+
+unsigned int
+nexthop_level(struct nexthop *nexthop)
+{
+  unsigned int rv = 0;
+
+  for (struct nexthop *par = nexthop->rparent; par; par = par->rparent)
+    rv++;
+
+  return rv;
+}

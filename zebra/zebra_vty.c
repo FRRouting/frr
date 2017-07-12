@@ -985,7 +985,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct route_entry *r
 	vty_out (vty, "  %c%*c",
 	         CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)
 	         ? '*' : ' ',
-	         len - 3 + (2 * (nexthop->rparent ? 1 : 0)), ' ');
+	         len - 3 + (2 * nexthop_level(nexthop)), ' ');
 
       switch (nexthop->type)
 	{
