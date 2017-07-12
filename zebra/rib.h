@@ -181,24 +181,19 @@ typedef struct rib_dest_t_
 /* The following for loop allows to iterate over the nexthop
  * structure of routes.
  *
- * We have to maintain quite a bit of state:
+ * head:      The pointer to the first nexthop in the chain.
  *
  * nexthop:   The pointer to the current nexthop, either in the
- *            top-level chain or in the resolved chain of ni.
- * tnexthop:  The pointer to the current nexthop in the top-level
- *            nexthop chain.
- * recursing: Information if nh currently is in the top-level chain
- *            (0) or in a resolved chain (1).
+ *            top-level chain or in a resolved chain.
  *
- * Initialization: Set `nexthop' and `tnexthop' to the head of the
- * top-level chain. As nexthop is in the top level chain, set recursing
- * to 0.
+ * Initialization: Set `nexthop' to the head of the top-level chain.
  *
  * Iteration check: Check that the `nexthop' pointer is not NULL.
  *
  * Iteration step: This is the tricky part. Check if `nexthop' has
  * NEXTHOP_FLAG_RECURSIVE set. If yes, this implies that `nexthop' has
- * at least one nexthop attached to `nexthop->resolved'.
+ * at least one nexthop attached to `nexthop->resolved', which will be
+ * the next one.
  *
  * If NEXTHOP_FLAG_RECURSIVE is not set, `nexthop' will progress in its
  * current chain. In case its current chain end is reached, it will try
