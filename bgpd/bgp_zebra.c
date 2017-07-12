@@ -1616,7 +1616,7 @@ bgp_zebra_announce_table (struct bgp *bgp, afi_t afi, safi_t safi)
       if (ri->type == ZEBRA_ROUTE_BGP
           && ri->sub_type == BGP_ROUTE_NORMAL) {
         if (CHECK_FLAG (ri->flags, BGP_INFO_SELECTED)) {
-          bgp_zebra_announce (&rn->p, ri, bgp, afi, safi);
+          bgp_zebra_announce (rn, &rn->p, ri, bgp, afi, safi);
         }
         // allow best-path selection to happen if parameters have changed
         bgp_process(bgp, rn, afi, safi);
