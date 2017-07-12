@@ -1,6 +1,10 @@
 Building FRR on CentOS 7 from Git Source
 ========================================
 
+(As an alternative to this installation, you may prefer to create a FRR
+rpm package yourself and install that package instead. See instructions
+in redhat/README.rpm_build.md on how to build a rpm package)
+
 CentOS 7 restrictions:
 ----------------------
 
@@ -13,13 +17,10 @@ Install required packages
 
 Add packages:
 
-    sudo yum install git autoconf automake libtool make gawk readline-devel \
-      texinfo net-snmp-devel groff pkgconfig json-c-devel pam-devel \
-      bison flex pytest c-ares-devel python-devel rpm-build
-
-To build from git (in difference to building from distribution tar.gz as created by `make dist`), the python development libraries are needed. (Make sure you've installed EPEL libraries as shown above for this to work)
-
-    yum install python34-devel
+    sudo yum install git autoconf automake libtool make gawk \
+      readline-devel texinfo net-snmp-devel groff pkgconfig \
+      json-c-devel pam-devel bison flex pytest c-ares-devel \
+      perl-XML-LibXML
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
@@ -38,17 +39,19 @@ any packages**
 (You may prefer different options on configure statement. These are just 
 an example.)
 
-You may want to pay special attention to `/usr/lib64` paths and change 
-them if you are not building on a x86_64 architecture
-
     git clone https://github.com/frrouting/frr.git frr
     cd frr
+    git checkout stable/3.0
     ./bootstrap.sh
     ./configure \
+        --bindir=/usr/bin \
+        --sbindir=/usr/lib/frr \
         --sysconfdir=/etc/frr \
-        --libdir=/usr/lib64/frr \
-        --libexecdir=/usr/lib64/frr \
+        --libdir=/usr/lib/frr \
+        --libexecdir=/usr/lib/frr \
         --localstatedir=/var/run/frr \
+        --with-moduledir=/usr/lib/frr/modules \
+        --enable-pimd \
         --enable-snmp=agentx \
         --enable-multipath=64 \
         --enable-ospfclient=yes \
@@ -60,9 +63,11 @@ them if you are not building on a x86_64 architecture
         --disable-exampledir \
         --enable-watchfrr \
         --enable-tcp-zebra \
+        --disable-ldpd \
         --enable-fpm \
+        --enable-nhrpd \
         --with-pkg-git-version \
-        --with-pkg-extra-version=-MyOwnFRRVersion   
+        --with-pkg-extra-version=-MyOwnFRRVersion
     make
     make check
     sudo make install
@@ -78,10 +83,20 @@ them if you are not building on a x86_64 architecture
     sudo touch /etc/frr/ripd.conf
     sudo touch /etc/frr/ripngd.conf
     sudo touch /etc/frr/pimd.conf
+    sudo touch /etc/frr/nhrpd.conf
     sudo chown -R frr:frr /etc/frr/
     sudo touch /etc/frr/vtysh.conf
     sudo chown frr:frrvt /etc/frr/vtysh.conf
     sudo chmod 640 /etc/frr/*.conf
+
+### Install daemon config file
+    sudo install -p -m 644 redhat/daemons /etc/frr/
+    sudo chown frr:frr /etc/frr/daemons
+
+### Edit /etc/frr/daemons as needed to select the required daemons
+
+Look for the section with `watchfrr_enable=...` and `zebra=...` etc.
+Enable the daemons as required by changing the value to `yes` 
 
 ### Enable IP & IPv6 forwarding
 
@@ -94,33 +109,19 @@ following content:
     net.ipv4.conf.all.forwarding=1
     net.ipv6.conf.all.forwarding=1
 
-**Reboot** or use `sysctl` to apply the same config to the running system
+Load the modifed sysctl's on the system:
 
-### Install Service files 
-    sudo install -p -m 644 redhat/zebra.service /usr/lib/systemd/system/zebra.service
-    sudo install -p -m 644 redhat/isisd.service /usr/lib/systemd/system/isisd.service
-    sudo install -p -m 644 redhat/ripd.service /usr/lib/systemd/system/ripd.service
-    sudo install -p -m 644 redhat/ospfd.service /usr/lib/systemd/system/ospfd.service
-    sudo install -p -m 644 redhat/bgpd.service /usr/lib/systemd/system/bgpd.service
-    sudo install -p -m 644 redhat/ospf6d.service /usr/lib/systemd/system/ospf6d.service
-    sudo install -p -m 644 redhat/ripngd.service /usr/lib/systemd/system/ripngd.service
-    sudo install -p -m 644 redhat/pimd.service /usr/lib/systemd/system/pimd.service
-    sudo install -p -m 644 redhat/frr.sysconfig /etc/sysconfig/frr
-    sudo install -p -m 644 redhat/frr.logrotate /etc/logrotate.d/frr
+    sudo sysctl -p /etc/sysctl.d/90-routing-sysctl.conf
+
+### Install frr Service and redhat init files 
+    sudo install -p -m 644 redhat/frr.service /usr/lib/systemd/system/frr.service
+    sudo install -p -m 755 redhat/frr.init /usr/lib/frr/frr
 
 ### Register the systemd files
-    sudo systemctl preset zebra.service
-    sudo systemctl preset ripd.service
-    sudo systemctl preset ospfd.service
-    sudo systemctl preset bgpd.service
-    sudo systemctl preset ospf6d.service
-    sudo systemctl preset ripngd.service
-    sudo systemctl preset pimd.service
+    sudo systemctl preset frr.service
+ 
+### Enable required frr at startup
+    sudo systemctl enable frr
 
-### Enable required daemons at startup
-Only enable zebra and the daemons which are needed for your setup
-
-    sudo systemctl enable zebra
-    sudo systemctl enable ospfd
-    sudo systemctl enable bgpd
-    [...] etc (as needed)
+### Reboot or start FRR manually
+    sudo systemctl start frr
