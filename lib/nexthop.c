@@ -242,3 +242,34 @@ nexthop2str (struct nexthop *nexthop, char *str, int size)
 
   return str;
 }
+
+/*
+ * Iteration step for ALL_NEXTHOPS macro:
+ * This is the tricky part. Check if `nexthop' has
+ * NEXTHOP_FLAG_RECURSIVE set. If yes, this implies that `nexthop' has
+ * at least one nexthop attached to `nexthop->resolved', which will be
+ * the next one.
+ *
+ * If NEXTHOP_FLAG_RECURSIVE is not set, `nexthop' will progress in its
+ * current chain. In case its current chain end is reached, it will move
+ * upwards in the recursion levels and progress there. Whenever a step
+ * forward in a chain is done, recursion will be checked again.
+ * In a nustshell, it's equivalent to a pre-traversal order assuming that
+ * left branch is 'resolved' and right branch is 'next':
+ * https://en.wikipedia.org/wiki/Tree_traversal#/media/File:Sorted_binary_tree_preorder.svg
+ */
+struct nexthop *
+nexthop_next(struct nexthop *nexthop)
+{
+  if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+    return nexthop->resolved;
+
+  if (nexthop->next)
+    return nexthop->next;
+
+  for (struct nexthop *par = nexthop->rparent; par; par = par->rparent)
+    if (par->next)
+      return par->next;
+
+  return NULL;
+}

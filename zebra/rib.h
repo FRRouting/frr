@@ -178,39 +178,6 @@ typedef struct rib_dest_t_
 #define RNODE_FOREACH_RE_SAFE(rn, re, next)				\
   RE_DEST_FOREACH_ROUTE_SAFE (rib_dest_from_rnode (rn), re, next)
 
-/* The following for loop allows to iterate over the nexthop
- * structure of routes.
- *
- * head:      The pointer to the first nexthop in the chain.
- *
- * nexthop:   The pointer to the current nexthop, either in the
- *            top-level chain or in a resolved chain.
- *
- * Initialization: Set `nexthop' to the head of the top-level chain.
- *
- * Iteration check: Check that the `nexthop' pointer is not NULL.
- *
- * Iteration step: This is the tricky part. Check if `nexthop' has
- * NEXTHOP_FLAG_RECURSIVE set. If yes, this implies that `nexthop' has
- * at least one nexthop attached to `nexthop->resolved', which will be
- * the next one.
- *
- * If NEXTHOP_FLAG_RECURSIVE is not set, `nexthop' will progress in its
- * current chain. In case its current chain end is reached, it will try
- * to get up to the previous recursion level and progress there. Whenever
- * a step forward in a chain is done, recursion will be checked again.
- * In a nustshell, it's equivalent to a pre-traversal order assuming that
- * left branch is 'resolved' and right branch is 'next':
- * https://en.wikipedia.org/wiki/Tree_traversal#/media/File:Sorted_binary_tree_preorder.svg
- */
-#define ALL_NEXTHOPS(head, nexthop)                              \
-  (nexthop) = (head);                                               \
-  (nexthop);                                                        \
-  (nexthop) = CHECK_FLAG((nexthop)->flags, NEXTHOP_FLAG_RECURSIVE)  \
-    ? ((nexthop)->resolved)                                         \
-       : ((nexthop)->next ? (nexthop)->next                         \
-          : ((nexthop)->rparent ? (nexthop)->rparent->next : NULL))
-
 #if defined (HAVE_RTADV)
 /* Structure which hold status of router advertisement. */
 struct rtadv
