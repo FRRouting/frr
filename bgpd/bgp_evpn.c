@@ -2685,7 +2685,8 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 	/* Lookup VNI. If present and no change, exit. */
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
 	if (vpn) {
-		if (IPV4_ADDR_SAME(&vpn->originator_ip, &originator_ip))
+		if (is_vni_live(vpn)
+		    && IPV4_ADDR_SAME(&vpn->originator_ip, &originator_ip))
 			/* Probably some other param has changed that we don't
 			 * care about. */
 			return 0;
