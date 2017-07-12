@@ -1,7 +1,7 @@
 @node  Packet Binary Dump Format
 @appendix Packet Binary Dump Format
 
-  Quagga can dump routing protocol packet into file with a binary format
+  FRR can dump routing protocol packet into file with a binary format
 (@pxref{Dump BGP packets and table}).
 
   It seems to be better that we share the MRT's header format for
