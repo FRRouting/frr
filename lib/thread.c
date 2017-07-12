@@ -564,6 +564,12 @@ thread_master_free_unused (struct thread_master *m)
 void
 thread_master_free (struct thread_master *m)
 {
+  pthread_mutex_lock (&masters_mtx);
+  {
+    listnode_delete (masters, m);
+  }
+  pthread_mutex_unlock (&masters_mtx);
+
   thread_array_free (m, m->read);
   thread_array_free (m, m->write);
   thread_queue_free (m, m->timer);
