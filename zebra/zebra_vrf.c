@@ -131,6 +131,11 @@ zebra_vrf_static_route_interface_fixup (struct interface *ifp)
 		    if ((strcmp (si->ifname, ifp->name) == 0) &&
 			(si->ifindex != ifp->ifindex))
 		      {
+			/* Reinstall route:
+			 * 1. uninstall fake route
+			 * 2. install real route with si->type == STATIC_IFINDEX
+			 */
+			static_uninstall_route (afi, safi, &rn->p, NULL, si);
 			si->ifindex = ifp->ifindex;
 			static_install_route (afi, safi, &rn->p, NULL, si);
 		      }	  

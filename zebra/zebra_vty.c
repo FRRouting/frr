@@ -159,7 +159,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
         static_add_route (AFI_IP, safi, type, &p, NULL, NULL, ifindex, ifname,
 			  ZEBRA_FLAG_BLACKHOLE, tag, distance, zvrf, &snh_label);
       else
-        static_delete_route (AFI_IP, safi, type, &p, NULL, NULL, ifindex, tag,
+        static_delete_route (AFI_IP, safi, type, &p, NULL, NULL, ifindex, ifname, tag,
 			     distance, zvrf, &snh_label);
       return CMD_SUCCESS;
     }
@@ -187,7 +187,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
       static_add_route (AFI_IP, safi, type, &p, NULL, NULL, ifindex, ifname, flag,
 			tag, distance, zvrf, &snh_label);
     else
-      static_delete_route (AFI_IP, safi, type, &p, NULL, NULL, ifindex, tag, distance,
+      static_delete_route (AFI_IP, safi, type, &p, NULL, NULL, ifindex, ifname, tag, distance,
 			   zvrf, &snh_label);
 
     return CMD_SUCCESS;
@@ -214,11 +214,11 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
 
   if (add_cmd)
     static_add_route (AFI_IP, safi, type, &p, NULL,
-		      ifindex ? NULL : (union g_addr *)&gate, ifindex, ifname,
+		      (ifindex || ifname) ? NULL : (union g_addr *)&gate, ifindex, ifname,
 		      flag, tag, distance, zvrf, &snh_label);
   else
     static_delete_route (AFI_IP, safi, type, &p, NULL,
-			 ifindex ? NULL : (union g_addr *)&gate, ifindex, tag,
+			 (ifindex || ifname) ? NULL : (union g_addr *)&gate, ifindex, ifname, tag,
 			 distance, zvrf, &snh_label);
 
   return CMD_SUCCESS;
@@ -739,7 +739,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
 	      break;
 	    case NEXTHOP_TYPE_IFINDEX:
 	      vty_out (vty, " directly connected, %s",
-		       ifindex2ifname (nexthop->ifindex, re->vrf_id));
+	               nexthop->ifname);
 	      break;
 	    case NEXTHOP_TYPE_BLACKHOLE:
 	      vty_out (vty, " directly connected, Null0");
@@ -891,7 +891,6 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct route_entry *r
                   json_object_string_add(json_nexthop, "interfaceName", ifindex2ifname (nexthop->ifindex, re->vrf_id));
                 }
               break;
-
             case NEXTHOP_TYPE_IFINDEX:
               json_object_boolean_true_add(json_nexthop, "directlyConnected");
               json_object_int_add(json_nexthop, "interfaceIndex", nexthop->ifindex);
@@ -1001,7 +1000,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct route_entry *r
 
 	case NEXTHOP_TYPE_IFINDEX:
 	  vty_out (vty, " is directly connected, %s",
-		   ifindex2ifname (nexthop->ifindex, re->vrf_id));
+	           nexthop->ifname);
 	  break;
 	case NEXTHOP_TYPE_BLACKHOLE:
 	  vty_out (vty, " is directly connected, Null0");
@@ -2076,7 +2075,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
         static_add_route (AFI_IP6, SAFI_UNICAST, type, &p, src_p, NULL, ifindex, ifname,
                           ZEBRA_FLAG_BLACKHOLE, tag, distance, zvrf, &snh_label);
       else
-        static_delete_route (AFI_IP6, SAFI_UNICAST, type, &p, src_p, NULL, ifindex, tag,
+        static_delete_route (AFI_IP6, SAFI_UNICAST, type, &p, src_p, NULL, ifindex, ifname, tag,
                              distance, zvrf, &snh_label);
       return CMD_SUCCESS;
     }
@@ -2139,12 +2138,13 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
         }
     }
 
+
   if (add_cmd)
     static_add_route (AFI_IP6, SAFI_UNICAST, type, &p, src_p, (union g_addr *)gate,
                       ifindex, ifname, flag, tag, distance, zvrf, &snh_label);
   else
     static_delete_route (AFI_IP6, SAFI_UNICAST, type, &p, src_p, (union g_addr *)gate,
-                         ifindex, tag, distance, zvrf, &snh_label);
+                         ifindex, ifname, tag, distance, zvrf, &snh_label);
 
   return CMD_SUCCESS;
 }

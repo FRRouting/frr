@@ -83,7 +83,10 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p,
 	  zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
 	  break;
 	case STATIC_IFINDEX:
-	  nexthop = route_entry_nexthop_ifindex_add (re, si->ifindex);
+	  if (si->ifindex == IFINDEX_DELETED)
+	    nexthop = route_entry_nexthop_ifname_add (re, si->ifname);
+	  else
+	    nexthop = route_entry_nexthop_ifindex_add (re, si->ifindex);
 	  break;
 	case STATIC_BLACKHOLE:
 	  nexthop = route_entry_nexthop_blackhole_add (re);
@@ -147,7 +150,10 @@ static_install_route (afi_t afi, safi_t safi, struct prefix *p,
 	  zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
 	  break;
 	case STATIC_IFINDEX:
-	  nexthop = route_entry_nexthop_ifindex_add (re, si->ifindex);
+	  if (si->ifindex == IFINDEX_DELETED)
+	    nexthop = route_entry_nexthop_ifname_add (re, si->ifname);
+	  else
+	    nexthop = route_entry_nexthop_ifindex_add (re, si->ifindex);
 	  break;
 	case STATIC_BLACKHOLE:
 	  nexthop = route_entry_nexthop_blackhole_add (re);
@@ -209,7 +215,7 @@ static_nexthop_same (struct nexthop *nexthop, struct static_route *si)
     return 1;
   else if (nexthop->type == NEXTHOP_TYPE_IFINDEX
       && si->type == STATIC_IFINDEX
-      && nexthop->ifindex == si->ifindex)
+      && (nexthop->ifindex == si->ifindex || !strcmp(nexthop->ifname, si->ifname) ))
     return 1;
   else if (nexthop->type == NEXTHOP_TYPE_IPV6
       && si->type == STATIC_IPV6_GATEWAY
@@ -362,6 +368,7 @@ static_add_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
     return -1;
 
   if (!ifindex &&
+      !ifname &&
       (type == STATIC_IFINDEX ||
        type == STATIC_IPV6_GATEWAY_IFINDEX))
     return -1;
@@ -376,7 +383,8 @@ static_add_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	  && (! gate ||
 	      ((afi == AFI_IP && IPV4_ADDR_SAME (gate, &si->addr.ipv4)) ||
 	       (afi == AFI_IP6 && IPV6_ADDR_SAME (gate, &si->addr.ipv6))))
-	  && (! ifindex || ifindex == si->ifindex))
+         && ((! ifindex && ! ifname) || (ifindex == si->ifindex || !strcmp(ifname, si->ifname) )))
+
 	{
 	  if ((distance == si->distance) && (tag == si->tag) &&
 	      !memcmp (&si->snh_label, snh_label, sizeof (struct static_nh_label)) &&
@@ -392,7 +400,7 @@ static_add_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
 
   /* Distance or tag or label changed, delete existing first. */
   if (update)
-    static_delete_route (afi, safi, type, p, src_p, gate, ifindex, update->tag,
+    static_delete_route (afi, safi, type, p, src_p, gate, ifindex, ifname, update->tag,
 			 update->distance, zvrf, &update->snh_label);
 
   /* Make new static route structure. */
@@ -404,7 +412,7 @@ static_add_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
   si->tag = tag;
   si->vrf_id = zvrf_id (zvrf);
   si->ifindex = ifindex;
-  if (si->ifindex)
+  if (ifname)
     strcpy(si->ifname, ifname);
 
   switch (type)
@@ -462,12 +470,14 @@ int
 static_delete_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
 		     struct prefix_ipv6 *src_p,
 		     union g_addr *gate, ifindex_t ifindex,
+		     const char *ifname,
 		     route_tag_t tag, u_char distance, struct zebra_vrf *zvrf,
 		     struct static_nh_label *snh_label)
 {
   struct route_node *rn;
   struct static_route *si;
   struct route_table *stable;
+
 
   /* Lookup table.  */
   stable = zebra_vrf_static_table (afi, safi, zvrf);
@@ -485,7 +495,7 @@ static_delete_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	&& (! gate || (
 		       (afi == AFI_IP && IPV4_ADDR_SAME (gate, &si->addr.ipv4)) ||
 		       (afi == AFI_IP6 && IPV6_ADDR_SAME (gate, &si->addr.ipv6))))
-	&& (! ifindex || ifindex == si->ifindex)
+	&& ((! ifindex &&! ifname) || (ifindex == si->ifindex || !strcmp(ifname, si->ifname)))
 	&& (! tag || (tag == si->tag))
 	&& (! snh_label->num_labels ||
 	    !memcmp (&si->snh_label, snh_label, sizeof (struct static_nh_label))))

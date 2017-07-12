@@ -60,7 +60,7 @@ struct nexthop
 
   /* Interface index. */
   ifindex_t ifindex;
-
+  char ifname[INTERFACE_NAMSIZ + 1];
   enum nexthop_types_t type;
 
   u_char flags;

@@ -227,8 +227,6 @@ route_entry_nexthop_delete (struct route_entry *re, struct nexthop *nexthop)
   re->nexthop_num--;
 }
 
-
-
 struct nexthop *
 route_entry_nexthop_ifindex_add (struct route_entry *re, ifindex_t ifindex)
 {
@@ -238,10 +236,30 @@ route_entry_nexthop_ifindex_add (struct route_entry *re, ifindex_t ifindex)
   nexthop->type = NEXTHOP_TYPE_IFINDEX;
   nexthop->ifindex = ifindex;
 
+  /*
+   * For situation when, real interface will be fake.
+   * For static route we need ifname, because ifindex will be bad
+   */
+  strcpy(nexthop->ifname, ifindex2ifname (nexthop->ifindex, re->vrf_id));
+
   route_entry_nexthop_add (re, nexthop);
 
   return nexthop;
 }
+
+struct nexthop *
+route_entry_nexthop_ifname_add (struct route_entry *re, char *ifname)
+{
+  struct nexthop *nexthop;
+  nexthop = nexthop_new ();
+  nexthop->type = NEXTHOP_TYPE_IFINDEX;
+  strcpy(nexthop->ifname, ifname);
+
+  route_entry_nexthop_add (re, nexthop);
+
+  return nexthop;
+}
+
 
 struct nexthop *
 route_entry_nexthop_ipv4_add (struct route_entry *re, struct in_addr *ipv4, struct in_addr *src)
