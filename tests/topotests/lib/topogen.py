@@ -322,6 +322,10 @@ class Topogen(object):
 
     def is_memleak_enabled(self):
         "Returns `True` if memory leak report is enable, otherwise `False`."
+        # On router failure we can't run the memory leak test
+        if self.routers_have_failure():
+            return False
+
         memleak_file = (os.environ.get('TOPOTESTS_CHECK_MEMLEAK') or
                         self.config.get(self.CONFIG_SECTION, 'memleak_path'))
         if memleak_file is None:
@@ -354,6 +358,24 @@ class Topogen(object):
     def has_errors(self):
         "Returns whether errors exist or not."
         return len(self.errors) > 0
+
+    def routers_have_failure(self):
+        "Runs an assertion to make sure that all routers are running."
+        if self.has_errors():
+            return True
+
+        errors = ''
+        router_list = self.routers().values()
+        for router in router_list:
+            result = router.check_router_running()
+            if result != '':
+                errors += result + '\n'
+
+        if errors != '':
+            self.set_error(errors, 'router_error')
+            assert errors != '', errors
+            return True
+        return False
 
 #
 # Topology gears (equipment)
