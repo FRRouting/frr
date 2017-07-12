@@ -77,6 +77,9 @@ set_ifindex(struct interface *ifp, ifindex_t ifi_index, struct zebra_ns *zns)
 		     "was renamed from %s to %s, results are uncertain!",
                     ifi_index, oifp->name, ifp->name);
 	  if_delete_update(oifp);
+	  if (IS_ZEBRA_DEBUG_KERNEL)
+	    zlog_debug ("delete pseudo iface %s(%u) from zebra", oifp->name, ifi_index);
+	  if_delete(oifp);
         }
     }
   ifp->ifindex = ifi_index;
@@ -873,8 +876,12 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
       UNSET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
 
-      if (!vrf_device)
+      if (!vrf_device) {
         if_delete_update (ifp);
+	if (IS_ZEBRA_DEBUG_KERNEL)
+	  zlog_debug ("delete pseudo iface %s(%u) from zebra", name, ifp->ifindex);
+        if_delete(ifp);
+      }
     }
 
   return 0;
