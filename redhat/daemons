@@ -45,8 +45,10 @@ ripd=no
 ripngd=no
 isisd=no
 ldpd=no
+pimd=no
 nhrpd=no
 eigrpd=no
+babeld=no
 #
 # Command line options for the daemons
 #
@@ -58,6 +60,8 @@ ripd_options=("-A 127.0.0.1")
 ripngd_options=("-A ::1")
 isisd_options=("-A 127.0.0.1")
 ldpd_options=("-A 127.0.0.1")
+pimd_options=("-A 127.0.0.1")
 nhrpd_options=("-A 127.0.0.1")
 eigrpd_options=("-A 127.0.0.1")
+babeld_options=("-A 127.0.0.1")
 
