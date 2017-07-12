@@ -301,6 +301,18 @@ static const struct in6_addr maskbytes6[] = {
 
 #define MASKBIT(offset)  ((0xff << (PNBBY - (offset))) & 0xff)
 
+int is_zero_mac(struct ethaddr *mac)
+{
+	int i = 0;
+
+	for (i = 0; i < ETH_ALEN; i++) {
+		if (mac->octet[i])
+			return 0;
+	}
+
+	return 1;
+}
+
 unsigned int prefix_bit(const u_char *prefix, const u_char prefixlen)
 {
 	unsigned int offset = prefixlen / 8;

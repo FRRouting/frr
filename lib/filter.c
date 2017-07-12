@@ -169,6 +169,10 @@ static int mac_filter_match(struct prefix *n, struct ethaddr *p)
 	if (!n || !p)
 		return 0;
 
+	/* check if we are matching on any mac */
+	if (is_zero_mac(&(n->u.prefix_eth)))
+		return 1;
+
 	if (memcmp(&(n->u.prefix), p, sizeof(struct ethaddr)) == 0)
 		return 1;
 
@@ -1398,7 +1402,7 @@ DEFUN (no_mac_access_list_any,
        "Specify packets to forward\n"
        "MAC address to match. e.g. 00:01:00:01:00:01\n")
 {
-	return filter_set_zebra(vty, argv[2]->arg, argv[3]->arg, AFI_L2VPN,
+	return filter_set_zebra(vty, argv[3]->arg, argv[4]->arg, AFI_L2VPN,
 				"00:00:00:00:00:00", 0, 0);
 }
 
@@ -1994,9 +1998,13 @@ void config_write_access_zebra(struct vty *vty, struct filter *mfilter)
 		vty_out(vty, " %s/%d%s",
 			inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
 			p->prefixlen, filter->exact ? " exact-match" : "");
-	else
-		vty_out(vty, " %s",
-			prefix_mac2str(&(p->u.prefix_eth), buf, sizeof(buf)));
+	else if (p->family == AF_ETHERNET) {
+		if (is_zero_mac(&(p->u.prefix_eth)))
+			vty_out(vty, " any");
+		else
+			vty_out(vty, " %s", prefix_mac2str(&(p->u.prefix_eth),
+							   buf, sizeof(buf)));
+	}
 
 	vty_out(vty, "\n");
 }
