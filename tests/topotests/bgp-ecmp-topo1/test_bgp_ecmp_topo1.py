@@ -27,24 +27,22 @@ test_bgp_ecmp_topo1.py: Test BGP topology with ECMP (Equal Cost MultiPath).
 """
 
 import os
-import re
 import sys
 import pytest
 from time import sleep
 
-from mininet.topo import Topo
-from mininet.net import Mininet
-from mininet.node import Node, OVSSwitch, Host
-from mininet.log import setLogLevel, info
-from mininet.cli import CLI
-from mininet.link import Intf
+# Save the Current Working Directory to find configuration files.
+CWD = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(CWD, '../'))
 
-from functools import partial
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# pylint: disable=C0413
+# Import topogen and topotest helpers
 from lib import topotest
+from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topolog import logger
 
-fatal_error = ""
+# Required to instantiate the topology builder class.
+from mininet.topo import Topo
 
 total_ebgp_peers = 20
 
@@ -54,35 +52,31 @@ total_ebgp_peers = 20
 ##
 #####################################################
 
-class NetworkTopo(Topo):
+class BGPECMPTopo1(Topo):
     "BGP ECMP Topology 1"
 
     def build(self, **_opts):
+        tgen = get_topogen(self)
 
-        exabgpPrivateDirs = ['/etc/exabgp',
-                             '/var/run/exabgp',
-                             '/var/log']
-
-        # Setup Router
-        router = {}
-        router[1] = topotest.addRouter(self, 'r1')
+        # Create the BGP router
+        router = tgen.add_router('r1')
 
         # Setup Switches - 1 switch per 5 peering routers
-        switch = {}
         for swNum in range(1, (total_ebgp_peers+4)/5 +1):
-            print("Create switch s%d", swNum)
-            switch[swNum] = self.addSwitch('s%d' % (swNum), cls=topotest.LegacySwitch)
-            self.addLink(switch[swNum], router[1], intfName2='r1-eth%d' % (swNum-1))
+            switch = tgen.add_switch('s{}'.format(swNum))
+            switch.add_link(router)
 
         # Add 'total_ebgp_peers' number of eBGP ExaBGP neighbors
-        peer = {}
         for peerNum in range(1, total_ebgp_peers+1):
             swNum = ((peerNum -1) / 5 + 1)
 
-            peer[peerNum] = self.addHost('peer%s' % peerNum, ip='10.0.%s.%s/24' % (swNum, (peerNum+100)),
-                                    defaultRoute='via 10.0.%s.1' % swNum,
-                                    privateDirs=exabgpPrivateDirs)
-            self.addLink(switch[swNum], peer[peerNum], intfName2='peer%s-eth0' % peerNum)
+            peer_ip = '10.0.{}.{}'.format(swNum, peerNum + 100)
+            peer_route = 'via 10.0.{}.1'.format(swNum)
+            peer = tgen.add_exabgp_peer('peer{}'.format(peerNum),
+                                        ip=peer_ip, defaultRoute=peer_route)
+
+            switch = tgen.gears['s{}'.format(swNum)]
+            switch.add_link(peer)
 
 
 #####################################################
@@ -92,84 +86,36 @@ class NetworkTopo(Topo):
 #####################################################
 
 def setup_module(module):
-    global topo, net
-
-    print("\n\n** %s: Setup Topology" % module.__name__)
-    print("******************************************\n")
-
-    print("Cleanup old Mininet runs")
-    os.system('sudo mn -c > /dev/null 2>&1')
-
-    thisDir = os.path.dirname(os.path.realpath(__file__))
-    topo = NetworkTopo()
-
-    net = Mininet(controller=None, topo=topo)
-    net.start()
+    tgen = Topogen(BGPECMPTopo1, module.__name__)
+    tgen.start_topology()
 
     # Starting Routers
-    for i in range(1, 2):
-        net['r%s' % i].loadConf('zebra', '%s/r%s/zebra.conf' % (thisDir, i))
-        net['r%s' % i].loadConf('bgpd', '%s/r%s/bgpd.conf' % (thisDir, i))
-        net['r%s' % i].startRouter()
+    router_list = tgen.routers()
+    for rname, router in router_list.iteritems():
+        router.load_config(
+            TopoRouter.RD_ZEBRA,
+            os.path.join(CWD, '{}/zebra.conf'.format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_BGP,
+            os.path.join(CWD, '{}/bgpd.conf'.format(rname))
+        )
+        router.start()
 
     # Starting Hosts and init ExaBGP on each of them
-    print('*** Starting BGP on all %d Peers in 10s' % total_ebgp_peers)
+    logger.info('starting BGP on all {} Peers in 10s'.format(total_ebgp_peers))
     sleep(10)
-    for i in range(1, total_ebgp_peers+1):
-        net['peer%s' % i].cmd('cp %s/exabgp.env /etc/exabgp/exabgp.env' % thisDir)
-        net['peer%s' % i].cmd('cp %s/peer%s/* /etc/exabgp/' % (thisDir, i))
-        net['peer%s' % i].cmd('chmod 644 /etc/exabgp/*')
-        net['peer%s' % i].cmd('chmod 755 /etc/exabgp/*.py')
-        net['peer%s' % i].cmd('chown -R exabgp:exabgp /etc/exabgp')
-        net['peer%s' % i].cmd('exabgp -e /etc/exabgp/exabgp.env /etc/exabgp/exabgp.cfg')
-        print('peer%s' % i),
-    print('')
-
-    # For debugging after starting Quagga/FRR daemons, uncomment the next line
-    CLI(net)
-
+    peer_list = tgen.exabgp_peers()
+    for pname, peer in peer_list.iteritems():
+        peer_dir = os.path.join(CWD, pname)
+        env_file = os.path.join(CWD, 'exabgp.env')
+        peer.start(peer_dir, env_file)
+        logger.info(pname)
 
 def teardown_module(module):
-    global net
-
-    print("\n\n** %s: Shutdown Topology" % module.__name__)
-    print("******************************************\n")
-
-    # Shutdown - clean up everything
-    print('*** Killing BGP on Peer routers')
-    # Killing ExaBGP
-    for i in range(1, total_ebgp_peers+1):
-        net['peer%s' % i].cmd('kill `cat /var/run/exabgp/exabgp.pid`')
-
-    # End - Shutdown network
-    net.stop()
-
-
-def test_router_running():
-    global fatal_error
-    global net
-
-    # Skip if previous fatal error condition is raised
-    if (fatal_error != ""):
-        pytest.skip(fatal_error)
-
-    print("\n\n** Check if FRR/Quagga is running on each Router node")
-    print("******************************************\n")
-    sleep(5)
-
-    # Starting Routers
-    for i in range(1, 2):
-        fatal_error = net['r%s' % i].checkRouterRunning()
-        assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
-    # CLI(net)
-
+    tgen = get_topogen()
+    tgen.stop_topology()
 
 if __name__ == '__main__':
-
-    setLogLevel('info')
-    # To suppress tracebacks, either use the following pytest call or add "--tb=no" to cli
-    # retval = pytest.main(["-s", "--tb=no"])
-    retval = pytest.main(["-s"])
-    sys.exit(retval)
+    args = ["-s"] + sys.argv[1:]
+    sys.exit(pytest.main(args))
