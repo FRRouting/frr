@@ -404,5 +404,6 @@ struct cmd_variable_handler {
 
 extern void cmd_variable_complete (struct cmd_token *token, const char *arg, vector comps);
 extern void cmd_variable_handler_register (const struct cmd_variable_handler *cvh);
+extern char *cmd_variable_comp2str (vector comps, unsigned short cols, const char nl[]);
 
 #endif /* _ZEBRA_COMMAND_H */

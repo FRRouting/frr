@@ -771,7 +771,7 @@ vtysh_rl_describe (void)
       rl_on_new_line ();
       return 0;
       break;
-    }  
+    }
 
   /* Get width of command string. */
   width = 0;
@@ -808,15 +808,14 @@ vtysh_rl_describe (void)
 
             if (vector_active (varcomps) > 0)
               {
-                fprintf(stdout, "     ");
-                for (size_t j = 0; j < vector_active (varcomps); j++)
-                  {
-                    char *item = vector_slot (varcomps, j);
-                    fprintf (stdout, " %s", item);
-                    XFREE (MTYPE_COMPLETION, item);
-                  }
-                vty_out (vty, VTYNL);
+                int rows, cols;
+                rl_get_screen_size(&rows, &cols);
+
+                char *ac = cmd_variable_comp2str(varcomps, cols, "\n");
+                fprintf(stdout, "%s\n", ac);
+                XFREE(MTYPE_TMP, ac);
               }
+
             vector_free (varcomps);
           }
       }

@@ -1134,17 +1134,13 @@ vty_describe_command (struct vty *vty)
             vector varcomps = vector_init (VECTOR_MIN_SIZE);
             cmd_variable_complete (token, ref, varcomps);
 
-            if (vector_active(varcomps) > 0)
+            if (vector_active (varcomps) > 0)
               {
-                vty_out(vty, "     ");
-                for (size_t j = 0; j < vector_active (varcomps); j++)
-                  {
-                    char *item = vector_slot (varcomps, j);
-                    vty_out(vty, " %s", item);
-                    XFREE(MTYPE_COMPLETION, item);
-                  }
-                vty_out (vty, VTYNL);
+                char *ac = cmd_variable_comp2str(varcomps, vty->width, VTYNL);
+                vty_outln(vty, "%s", ac);
+                XFREE(MTYPE_TMP, ac);
               }
+
             vector_free(varcomps);
           }
 #if 0
