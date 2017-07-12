@@ -198,21 +198,10 @@ route_entry_nexthop_add (struct route_entry *re, struct nexthop *nexthop)
 void
 route_entry_copy_nexthops (struct route_entry *re, struct nexthop *nh)
 {
-  struct nexthop *nexthop;
-
-  nexthop = nexthop_new();
-  nexthop->flags = nh->flags;
-  nexthop->type = nh->type;
-  nexthop->ifindex = nh->ifindex;
-  memcpy(&(nexthop->gate), &(nh->gate), sizeof(union g_addr));
-  memcpy(&(nexthop->src), &(nh->src), sizeof(union g_addr));
-  if (nh->nh_label)
-    nexthop_add_labels (nexthop, nh->nh_label_type, nh->nh_label->num_labels,
-                        &nh->nh_label->label[0]);
-  nexthop->rparent = NULL;
-  route_entry_nexthop_add(re, nexthop);
-  if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE))
-    copy_nexthops(&nexthop->resolved, nh->resolved, nexthop);
+  assert(!re->nexthop);
+  copy_nexthops(&re->nexthop, nh, NULL);
+  for (struct nexthop *nexthop = nh; nh; nh = nh->next)
+    re->nexthop_num++;
 }
 
 /* Delete specified nexthop from the list. */

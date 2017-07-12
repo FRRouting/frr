@@ -830,7 +830,6 @@ static void
 copy_state (struct rnh *rnh, struct route_entry *re, struct route_node *rn)
 {
   struct route_entry *state;
-  struct nexthop *nh;
 
   if (rnh->state)
     {
@@ -845,8 +844,7 @@ copy_state (struct rnh *rnh, struct route_entry *re, struct route_node *rn)
   state->type = re->type;
   state->metric = re->metric;
 
-  for (nh = re->nexthop; nh; nh = nh->next)
-    route_entry_copy_nexthops(state, nh);
+  route_entry_copy_nexthops(state, re->nexthop);
   rnh->state = state;
 }
 
