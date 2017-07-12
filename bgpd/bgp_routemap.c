@@ -2672,7 +2672,7 @@ struct route_map_rule_cmd route_set_ipv6_nexthop_peer_cmd =
   route_set_ipv6_nexthop_peer_free
 };
 
-/* `set ip vpn nexthop A.B.C.D' */
+/* `set ipv4 vpn next-hop A.B.C.D' */
 
 static route_map_result_t
 route_set_vpnv4_nexthop (void *rule, struct prefix *prefix,
@@ -2714,7 +2714,7 @@ route_set_vpnv4_nexthop_compile (const char *arg)
   return address;
 }
 
-/* `set ipv6 vpn nexthop A.B.C.D' */
+/* `set ipv6 vpn next-hop A.B.C.D' */
 
 static route_map_result_t
 route_set_vpnv6_nexthop (void *rule, struct prefix *prefix,
@@ -2761,16 +2761,16 @@ route_set_vpn_nexthop_free (void *rule)
   XFREE (MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
-/* Route map commands for ip nexthop set. */
+/* Route map commands for ipv4 next-hop set. */
 struct route_map_rule_cmd route_set_vpnv4_nexthop_cmd =
 {
-  "ip vpn next-hop",
+  "ipv4 vpn next-hop",
   route_set_vpnv4_nexthop,
   route_set_vpnv4_nexthop_compile,
   route_set_vpn_nexthop_free
 };
 
-/* Route map commands for ip nexthop set. */
+/* Route map commands for ipv6 next-hop set. */
 struct route_map_rule_cmd route_set_vpnv6_nexthop_cmd =
 {
   "ipv6 vpn next-hop",
@@ -4416,7 +4416,7 @@ DEFUN (set_vpn_nexthop,
     {
       if (afi == AFI_IP)
         return generic_set_add (vty, VTY_GET_CONTEXT(route_map_index),
-                              "ip vpn next-hop", argv[idx_ip]->arg);
+                              "ipv4 vpn next-hop", argv[idx_ip]->arg);
       else
         return generic_set_add (vty, VTY_GET_CONTEXT(route_map_index),
                               "ipv6 vpn next-hop", argv[idx_ip]->arg);
@@ -4447,7 +4447,7 @@ DEFUN (no_set_vpn_nexthop,
     {
       if (afi == AFI_IP)
         return generic_set_delete (vty, VTY_GET_CONTEXT(route_map_index),
-                                   "ip vpn next-hop", arg);
+                                   "ipv4 vpn next-hop", arg);
       else
         return generic_set_delete (vty, VTY_GET_CONTEXT(route_map_index),
                                    "ipv6 vpn next-hop", argv[idx_ip]->arg);
@@ -4475,7 +4475,7 @@ DEFUN (set_ipx_vpn_nexthop,
     {
       if (afi == AFI_IP)
         return generic_set_add (vty, VTY_GET_CONTEXT(route_map_index),
-                              "ip vpn next-hop", argv[idx_ip]->arg);
+                              "ipv4 vpn next-hop", argv[idx_ip]->arg);
       else
         return generic_set_add (vty, VTY_GET_CONTEXT(route_map_index),
                               "ipv6 vpn next-hop", argv[idx_ip]->arg);
@@ -4508,7 +4508,7 @@ DEFUN (no_set_ipx_vpn_nexthop,
     {
       if (afi == AFI_IP)
         return generic_set_delete (vty, VTY_GET_CONTEXT(route_map_index),
-                                   "ip vpn next-hop", arg);
+                                   "ipv4 vpn next-hop", arg);
       else
         return generic_set_delete (vty, VTY_GET_CONTEXT(route_map_index),
                                    "ipv6 vpn next-hop", arg);
