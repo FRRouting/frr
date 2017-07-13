@@ -200,7 +200,7 @@ route_entry_copy_nexthops (struct route_entry *re, struct nexthop *nh)
 {
   assert(!re->nexthop);
   copy_nexthops(&re->nexthop, nh, NULL);
-  for (struct nexthop *nexthop = nh; nh; nh = nh->next)
+  for (struct nexthop *nexthop = nh; nexthop; nexthop = nexthop->next)
     re->nexthop_num++;
 }
 
