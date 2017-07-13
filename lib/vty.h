@@ -196,7 +196,7 @@ struct vty_arg
 #endif
 
 #define VNL                                       "\n" \
-/*	CPP_WARN("VNL has been replaced with \\n.") */
+	CPP_WARN("VNL has been replaced with \\n.")
 #define VTYNL                                     "\n" \
 /*	CPP_WARN("VTYNL has been replaced with \\n.") */
 #define VTY_NEWLINE                               "\n" \

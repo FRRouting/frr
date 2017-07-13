@@ -371,25 +371,25 @@ ospf6_area_show (struct vty *vty, struct ospf6_area *oa)
   unsigned long result;
 
   if (!IS_AREA_STUB (oa))
-    vty_out (vty, " Area %s%s", oa->name, VNL);
+    vty_out (vty, " Area %s%s", oa->name, VTYNL);
   else
     {
       if (oa->no_summary)
 	{
-	  vty_out (vty, " Area %s[Stub, No Summary]%s", oa->name, VNL);
+	  vty_out (vty, " Area %s[Stub, No Summary]%s", oa->name, VTYNL);
 	}
       else
 	{
-	  vty_out (vty, " Area %s[Stub]%s", oa->name, VNL);
+	  vty_out (vty, " Area %s[Stub]%s", oa->name, VTYNL);
 	}
     }
   vty_out (vty, "     Number of Area scoped LSAs is %u%s",
-           oa->lsdb->count, VNL);
+           oa->lsdb->count, VTYNL);
 
   vty_out (vty, "     Interface attached to this area:");
   for (ALL_LIST_ELEMENTS_RO (oa->if_list, i, oi))
     vty_out (vty, " %s", oi->interface->name);
-  vty_out (vty, "%s", VNL);
+  vty_out (vty, "%s", VTYNL);
 
   if (oa->ts_spf.tv_sec || oa->ts_spf.tv_usec)
     {
@@ -417,7 +417,7 @@ ospf6_area_show (struct vty *vty, struct ospf6_area *oa)
   u_int32_t area_id = htonl (strtoul (str, &ep, 10));      \
   if (*ep && inet_pton (AF_INET, str, &area_id) != 1)      \
     {                                                      \
-      vty_out (vty, "Malformed Area-ID: %s%s", str, VNL);  \
+      vty_out (vty, "Malformed Area-ID: %s%s", str, VTYNL);  \
       return CMD_SUCCESS;                                  \
     }                                                      \
   int format = !*ep ? OSPF6_AREA_FMT_DECIMAL :             \
@@ -454,7 +454,7 @@ DEFUN (area_range,
   ret = str2prefix (argv[idx_ipv6_prefixlen]->arg, &prefix);
   if (ret != 1 || prefix.family != AF_INET6)
     {
-      vty_out (vty, "Malformed argument: %s%s", argv[idx_ipv6_prefixlen]->arg, VNL);
+      vty_out (vty, "Malformed argument: %s%s", argv[idx_ipv6_prefixlen]->arg, VTYNL);
       return CMD_SUCCESS;
     }
 
@@ -528,14 +528,14 @@ DEFUN (no_area_range,
   ret = str2prefix (argv[idx_ipv6]->arg, &prefix);
   if (ret != 1 || prefix.family != AF_INET6)
     {
-      vty_out (vty, "Malformed argument: %s%s", argv[idx_ipv6]->arg, VNL);
+      vty_out (vty, "Malformed argument: %s%s", argv[idx_ipv6]->arg, VTYNL);
       return CMD_SUCCESS;
     }
 
   range = ospf6_route_lookup (&prefix, oa->range_table);
   if (range == NULL)
     {
-      vty_out (vty, "Range %s does not exists.%s", argv[idx_ipv6]->arg, VNL);
+      vty_out (vty, "Range %s does not exists.%s", argv[idx_ipv6]->arg, VTYNL);
       return CMD_SUCCESS;
     }
 
@@ -583,28 +583,28 @@ ospf6_area_config_write (struct vty *vty)
               if (range->path.u.cost_config != OSPF_AREA_RANGE_COST_UNSPEC)
                 vty_out (vty, " cost %d", range->path.u.cost_config);
             }
-          vty_out (vty, "%s", VNL);
+          vty_out (vty, "%s", VTYNL);
 
         }
       if (IS_AREA_STUB (oa))
 	{
 	  if (oa->no_summary)
-	    vty_out (vty, " area %s stub no-summary%s", oa->name, VNL);
+	    vty_out (vty, " area %s stub no-summary%s", oa->name, VTYNL);
 	  else
-	    vty_out (vty, " area %s stub%s", oa->name, VNL);
+	    vty_out (vty, " area %s stub%s", oa->name, VTYNL);
 	}
       if (PREFIX_NAME_IN (oa))
         vty_out (vty, " area %s filter-list prefix %s in%s",
-                 oa->name, PREFIX_NAME_IN (oa), VNL);
+                 oa->name, PREFIX_NAME_IN (oa), VTYNL);
       if (PREFIX_NAME_OUT (oa))
         vty_out (vty, " area %s filter-list prefix %s out%s",
-                 oa->name, PREFIX_NAME_OUT (oa), VNL);
+                 oa->name, PREFIX_NAME_OUT (oa), VTYNL);
       if (IMPORT_NAME (oa))
         vty_out (vty, " area %s import-list %s%s",
-                 oa->name, IMPORT_NAME (oa), VNL);
+                 oa->name, IMPORT_NAME (oa), VTYNL);
       if (EXPORT_NAME (oa))
         vty_out (vty, " area %s export-list %s%s",
-                 oa->name, EXPORT_NAME (oa), VNL);
+                 oa->name, EXPORT_NAME (oa), VTYNL);
     }
 }
 
@@ -832,7 +832,7 @@ DEFUN (show_ipv6_ospf6_spf_tree,
       if (route == NULL)
         {
           vty_out (vty, "LS entry for root not found in area %s%s",
-                   oa->name, VNL);
+                   oa->name, VTYNL);
           continue;
         }
       root = (struct ospf6_vertex *) route->route_option;
@@ -866,13 +866,13 @@ DEFUN (show_ipv6_ospf6_area_spf_tree,
 
   if (inet_pton (AF_INET, argv[idx_ipv4]->arg, &area_id) != 1)
     {
-      vty_out (vty, "Malformed Area-ID: %s%s", argv[idx_ipv4]->arg, VNL);
+      vty_out (vty, "Malformed Area-ID: %s%s", argv[idx_ipv4]->arg, VTYNL);
       return CMD_SUCCESS;
     }
   oa = ospf6_area_lookup (area_id, ospf6);
   if (oa == NULL)
     {
-      vty_out (vty, "No such Area: %s%s", argv[idx_ipv4]->arg, VNL);
+      vty_out (vty, "No such Area: %s%s", argv[idx_ipv4]->arg, VTYNL);
       return CMD_SUCCESS;
     }
 
@@ -880,7 +880,7 @@ DEFUN (show_ipv6_ospf6_area_spf_tree,
   if (route == NULL)
     {
       vty_out (vty, "LS entry for root not found in area %s%s",
-               oa->name, VNL);
+               oa->name, VTYNL);
       return CMD_SUCCESS;
     }
   root = (struct ospf6_vertex *) route->route_option;
@@ -919,13 +919,13 @@ DEFUN (show_ipv6_ospf6_simulate_spf_tree_root,
 
   if (inet_pton (AF_INET, argv[idx_ipv4_2]->arg, &area_id) != 1)
     {
-      vty_out (vty, "Malformed Area-ID: %s%s", argv[idx_ipv4_2]->arg, VNL);
+      vty_out (vty, "Malformed Area-ID: %s%s", argv[idx_ipv4_2]->arg, VTYNL);
       return CMD_SUCCESS;
     }
   oa = ospf6_area_lookup (area_id, ospf6);
   if (oa == NULL)
     {
-      vty_out (vty, "No such Area: %s%s", argv[idx_ipv4_2]->arg, VNL);
+      vty_out (vty, "No such Area: %s%s", argv[idx_ipv4_2]->arg, VTYNL);
       return CMD_SUCCESS;
     }
 

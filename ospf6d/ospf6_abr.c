@@ -1067,15 +1067,15 @@ ospf6_inter_area_prefix_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
     OSPF6_LSA_HEADER_END (lsa->header);
 
   vty_out (vty, "     Metric: %lu%s",
-           (u_long) OSPF6_ABR_SUMMARY_METRIC (prefix_lsa), VNL);
+           (u_long) OSPF6_ABR_SUMMARY_METRIC (prefix_lsa), VTYNL);
 
   ospf6_prefix_options_printbuf (prefix_lsa->prefix.prefix_options,
                                  buf, sizeof (buf));
-  vty_out (vty, "     Prefix Options: %s%s", buf, VNL);
+  vty_out (vty, "     Prefix Options: %s%s", buf, VTYNL);
 
   vty_out (vty, "     Prefix: %s%s",
 	   ospf6_inter_area_prefix_lsa_get_prefix_str (lsa, buf, sizeof(buf),
-						       0), VNL);
+						       0), VTYNL);
 
   return 0;
 }
@@ -1109,12 +1109,12 @@ ospf6_inter_area_router_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
     OSPF6_LSA_HEADER_END (lsa->header);
 
   ospf6_options_printbuf (router_lsa->options, buf, sizeof (buf));
-  vty_out (vty, "     Options: %s%s", buf, VNL);
+  vty_out (vty, "     Options: %s%s", buf, VTYNL);
   vty_out (vty, "     Metric: %lu%s",
-           (u_long) OSPF6_ABR_SUMMARY_METRIC (router_lsa), VNL);
+           (u_long) OSPF6_ABR_SUMMARY_METRIC (router_lsa), VTYNL);
 
   inet_ntop (AF_INET, &router_lsa->router_id, buf, sizeof (buf));
-  vty_out (vty, "     Destination Router ID: %s%s", buf, VNL);
+  vty_out (vty, "     Destination Router ID: %s%s", buf, VTYNL);
 
   return 0;
 }
@@ -1149,7 +1149,7 @@ int
 config_write_ospf6_debug_abr (struct vty *vty)
 {
   if (IS_OSPF6_DEBUG_ABR)
-    vty_out (vty, "debug ospf6 abr%s", VNL);
+    vty_out (vty, "debug ospf6 abr%s", VTYNL);
   return 0;
 }
 

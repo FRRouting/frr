@@ -742,13 +742,13 @@ ospf6_spf_display_subtree (struct vty *vty, const char *prefix, int rest,
   int restnum;
 
   /* "prefix" is the space prefix of the display line */
-  vty_out (vty, "%s+-%s [%d]%s", prefix, v->name, v->cost, VNL);
+  vty_out (vty, "%s+-%s [%d]%s", prefix, v->name, v->cost, VTYNL);
 
   len = strlen (prefix) + 4;
   next_prefix = (char *) malloc (len);
   if (next_prefix == NULL)
     {
-      vty_out (vty, "malloc failed%s", VNL);
+      vty_out (vty, "malloc failed%s", VTYNL);
       return;
     }
   snprintf (next_prefix, len, "%s%s", prefix, (rest ? "|  " : "   "));
@@ -914,11 +914,11 @@ int
 config_write_ospf6_debug_spf (struct vty *vty)
 {
   if (IS_OSPF6_DEBUG_SPF (PROCESS))
-    vty_out (vty, "debug ospf6 spf process%s", VNL);
+    vty_out (vty, "debug ospf6 spf process%s", VTYNL);
   if (IS_OSPF6_DEBUG_SPF (TIME))
-    vty_out (vty, "debug ospf6 spf time%s", VNL);
+    vty_out (vty, "debug ospf6 spf time%s", VTYNL);
   if (IS_OSPF6_DEBUG_SPF (DATABASE))
-    vty_out (vty, "debug ospf6 spf database%s", VNL);
+    vty_out (vty, "debug ospf6 spf database%s", VTYNL);
   return 0;
 }
 

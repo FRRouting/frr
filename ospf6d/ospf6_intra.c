@@ -105,7 +105,7 @@ ospf6_router_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 
   ospf6_capability_printbuf (router_lsa->bits, bits, sizeof (bits));
   ospf6_options_printbuf (router_lsa->options, options, sizeof (options));
-  vty_out (vty, "    Bits: %s Options: %s%s", bits, options, VNL);
+  vty_out (vty, "    Bits: %s Options: %s%s", bits, options, VTYNL);
 
   start = (char *) router_lsa + sizeof (struct ospf6_router_lsa);
   end = (char *) lsa->header + ntohs (lsa->header->length);
@@ -126,16 +126,16 @@ ospf6_router_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
         snprintf (name, sizeof (name), "Unknown (%#x)", lsdesc->type);
 
       vty_out (vty, "    Type: %s Metric: %d%s",
-               name, ntohs (lsdesc->metric), VNL);
+               name, ntohs (lsdesc->metric), VTYNL);
       vty_out (vty, "    Interface ID: %s%s",
                inet_ntop (AF_INET, &lsdesc->interface_id,
-                          buf, sizeof (buf)), VNL);
+                          buf, sizeof (buf)), VTYNL);
       vty_out (vty, "    Neighbor Interface ID: %s%s",
                inet_ntop (AF_INET, &lsdesc->neighbor_interface_id,
-                          buf, sizeof (buf)), VNL);
+                          buf, sizeof (buf)), VTYNL);
       vty_out (vty, "    Neighbor Router ID: %s%s",
                inet_ntop (AF_INET, &lsdesc->neighbor_router_id,
-                          buf, sizeof (buf)), VNL);
+                          buf, sizeof (buf)), VTYNL);
     }
   return 0;
 }
@@ -408,7 +408,7 @@ ospf6_network_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
     ((caddr_t) lsa->header + sizeof (struct ospf6_lsa_header));
 
   ospf6_options_printbuf (network_lsa->options, options, sizeof (options));
-  vty_out (vty, "     Options: %s%s", options, VNL);
+  vty_out (vty, "     Options: %s%s", options, VTYNL);
 
   start = (char *) network_lsa + sizeof (struct ospf6_network_lsa);
   end = (char *) lsa->header + ntohs (lsa->header->length);
@@ -417,7 +417,7 @@ ospf6_network_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
     {
       lsdesc = (struct ospf6_network_lsdesc *) current;
       inet_ntop (AF_INET, &lsdesc->router_id, buf, sizeof (buf));
-      vty_out (vty, "     Attached Router: %s%s", buf, VNL);
+      vty_out (vty, "     Attached Router: %s%s", buf, VTYNL);
     }
   return 0;
 }
@@ -624,9 +624,9 @@ ospf6_link_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
   prefixnum = ntohl (link_lsa->prefix_num);
 
   vty_out (vty, "     Priority: %d Options: %s%s",
-           link_lsa->priority, options, VNL);
-  vty_out (vty, "     LinkLocal Address: %s%s", buf, VNL);
-  vty_out (vty, "     Number of Prefix: %d%s", prefixnum, VNL);
+           link_lsa->priority, options, VTYNL);
+  vty_out (vty, "     LinkLocal Address: %s%s", buf, VTYNL);
+  vty_out (vty, "     Number of Prefix: %d%s", prefixnum, VTYNL);
 
   start = (char *) link_lsa + sizeof (struct ospf6_link_lsa);
   end = (char *) lsa->header + ntohs (lsa->header->length); 
@@ -646,14 +646,14 @@ ospf6_link_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
       nu = (CHECK_FLAG (prefix->prefix_options, OSPF6_PREFIX_OPTION_NU) ?
            "NU" : "--");
       vty_out (vty, "     Prefix Options: %s|%s|%s|%s%s",
-               p, mc, la, nu, VNL);
+               p, mc, la, nu, VTYNL);
 
       memset (&in6, 0, sizeof (in6));
       memcpy (&in6, OSPF6_PREFIX_BODY (prefix),
               OSPF6_PREFIX_SPACE (prefix->prefix_length));
       inet_ntop (AF_INET6, &in6, buf, sizeof (buf));
       vty_out (vty, "     Prefix: %s/%d%s",
-               buf, prefix->prefix_length, VNL);
+               buf, prefix->prefix_length, VTYNL);
     }
 
   return 0;
@@ -825,14 +825,14 @@ ospf6_intra_prefix_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
 
   prefixnum = ntohs (intra_prefix_lsa->prefix_num);
 
-  vty_out (vty, "     Number of Prefix: %d%s", prefixnum, VNL);
+  vty_out (vty, "     Number of Prefix: %d%s", prefixnum, VTYNL);
 
   inet_ntop (AF_INET, &intra_prefix_lsa->ref_id, id, sizeof (id));
   inet_ntop (AF_INET, &intra_prefix_lsa->ref_adv_router,
              adv_router, sizeof (adv_router));
   vty_out (vty, "     Reference: %s Id: %s Adv: %s%s",
            ospf6_lstype_name (intra_prefix_lsa->ref_type), id, adv_router,
-           VNL);
+           VTYNL);
 
   start = (char *) intra_prefix_lsa + sizeof (struct ospf6_intra_prefix_lsa);
   end = (char *) lsa->header + ntohs (lsa->header->length); 
@@ -852,14 +852,14 @@ ospf6_intra_prefix_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
       nu = (CHECK_FLAG (prefix->prefix_options, OSPF6_PREFIX_OPTION_NU) ?
            "NU" : "--");
       vty_out (vty, "     Prefix Options: %s|%s|%s|%s%s",
-               p, mc, la, nu, VNL);
+               p, mc, la, nu, VTYNL);
 
       memset (&in6, 0, sizeof (in6));
       memcpy (&in6, OSPF6_PREFIX_BODY (prefix),
               OSPF6_PREFIX_SPACE (prefix->prefix_length));
       inet_ntop (AF_INET6, &in6, buf, sizeof (buf));
       vty_out (vty, "     Prefix: %s/%d%s",
-               buf, prefix->prefix_length, VNL);
+               buf, prefix->prefix_length, VTYNL);
     }
 
   return 0;
@@ -1793,18 +1793,18 @@ config_write_ospf6_debug_brouter (struct vty *vty)
 {
   char buf[16];
   if (IS_OSPF6_DEBUG_BROUTER)
-    vty_out (vty, "debug ospf6 border-routers%s", VNL);
+    vty_out (vty, "debug ospf6 border-routers%s", VTYNL);
   if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER)
     {
       inet_ntop (AF_INET, &conf_debug_ospf6_brouter_specific_router_id,
                  buf, sizeof (buf));
-      vty_out (vty, "debug ospf6 border-routers router-id %s%s", buf, VNL);
+      vty_out (vty, "debug ospf6 border-routers router-id %s%s", buf, VTYNL);
     }
   if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA)
     {
       inet_ntop (AF_INET, &conf_debug_ospf6_brouter_specific_area_id,
                  buf, sizeof (buf));
-      vty_out (vty, "debug ospf6 border-routers area-id %s%s", buf, VNL);
+      vty_out (vty, "debug ospf6 border-routers area-id %s%s", buf, VTYNL);
     }
   return 0;
 }

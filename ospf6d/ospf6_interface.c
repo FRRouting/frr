@@ -919,18 +919,18 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
 
   vty_out (vty, "%s is %s, type %s%s",
            ifp->name, updown[if_is_operative (ifp)], type,
-	   VNL);
-  vty_out (vty, "  Interface ID: %d%s", ifp->ifindex, VNL);
+	   VTYNL);
+  vty_out (vty, "  Interface ID: %d%s", ifp->ifindex, VTYNL);
 
   if (ifp->info == NULL)
     {
-      vty_out (vty, "   OSPF not enabled on this interface%s", VNL);
+      vty_out (vty, "   OSPF not enabled on this interface%s", VTYNL);
       return 0;
     }
   else
     oi = (struct ospf6_interface *) ifp->info;
 
-  vty_out (vty, "  Internet Address:%s", VNL);
+  vty_out (vty, "  Internet Address:%s", VTYNL);
 
   for (ALL_LIST_ELEMENTS_RO (ifp->connected, i, c))
     {
@@ -940,15 +940,15 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
         {
         case AF_INET:
           vty_out (vty, "    inet : %s%s", strbuf,
-		   VNL);
+		   VTYNL);
           break;
         case AF_INET6:
           vty_out (vty, "    inet6: %s%s", strbuf,
-		   VNL);
+		   VTYNL);
           break;
         default:
           vty_out (vty, "    ???  : %s%s", strbuf,
-		   VNL);
+		   VTYNL);
           break;
         }
     }
@@ -956,32 +956,32 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
   if (oi->area)
     {
       vty_out (vty, "  Instance ID %d, Interface MTU %d (autodetect: %d)%s",
-	       oi->instance_id, oi->ifmtu, ifp->mtu6, VNL);
+	       oi->instance_id, oi->ifmtu, ifp->mtu6, VTYNL);
       vty_out (vty, "  MTU mismatch detection: %s%s", oi->mtu_ignore ?
-	       "disabled" : "enabled", VNL);
+	       "disabled" : "enabled", VTYNL);
       inet_ntop (AF_INET, &oi->area->area_id,
                  strbuf, sizeof (strbuf));
       vty_out (vty, "  Area ID %s, Cost %u%s", strbuf, oi->cost,
-	       VNL);
+	       VTYNL);
     }
   else
-    vty_out (vty, "  Not Attached to Area%s", VNL);
+    vty_out (vty, "  Not Attached to Area%s", VTYNL);
 
   vty_out (vty, "  State %s, Transmit Delay %d sec, Priority %d%s",
            ospf6_interface_state_str[oi->state],
            oi->transdelay, oi->priority,
-	   VNL);
-  vty_out (vty, "  Timer intervals configured:%s", VNL);
+	   VTYNL);
+  vty_out (vty, "  Timer intervals configured:%s", VTYNL);
   vty_out (vty, "   Hello %d, Dead %d, Retransmit %d%s",
            oi->hello_interval, oi->dead_interval, oi->rxmt_interval,
-	   VNL);
+	   VTYNL);
 
   inet_ntop (AF_INET, &oi->drouter, drouter, sizeof (drouter));
   inet_ntop (AF_INET, &oi->bdrouter, bdrouter, sizeof (bdrouter));
-  vty_out (vty, "  DR: %s BDR: %s%s", drouter, bdrouter, VNL);
+  vty_out (vty, "  DR: %s BDR: %s%s", drouter, bdrouter, VTYNL);
 
   vty_out (vty, "  Number of I/F scoped LSAs is %u%s",
-           oi->lsdb->count, VNL);
+           oi->lsdb->count, VTYNL);
 
   monotime(&now);
 
@@ -992,10 +992,10 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
   vty_out (vty, "    %d Pending LSAs for LSUpdate in Time %s [thread %s]%s",
            oi->lsupdate_list->count, duration,
            (oi->thread_send_lsupdate ? "on" : "off"),
-           VNL);
+           VTYNL);
   for (lsa = ospf6_lsdb_head (oi->lsupdate_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
-    vty_out (vty, "      %s%s", lsa->name, VNL);
+    vty_out (vty, "      %s%s", lsa->name, VTYNL);
 
   timerclear (&res);
   if (oi->thread_send_lsack)
@@ -1004,10 +1004,10 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
   vty_out (vty, "    %d Pending LSAs for LSAck in Time %s [thread %s]%s",
            oi->lsack_list->count, duration,
            (oi->thread_send_lsack ? "on" : "off"),
-           VNL);
+           VTYNL);
   for (lsa = ospf6_lsdb_head (oi->lsack_list); lsa;
        lsa = ospf6_lsdb_next (lsa))
-    vty_out (vty, "      %s%s", lsa->name, VNL);
+    vty_out (vty, "      %s%s", lsa->name, VTYNL);
   ospf6_bfd_show_info(vty, oi->bfd_info, 1);
   return 0;
 }
@@ -1032,7 +1032,7 @@ DEFUN (show_ipv6_ospf6_interface,
       if (ifp == NULL)
         {
           vty_out (vty, "No such Interface: %s%s", argv[idx_ifname]->arg,
-                   VNL);
+                   VTYNL);
           return CMD_WARNING;
         }
       ospf6_interface_show (vty, ifp);
@@ -1068,14 +1068,14 @@ DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
   ifp = if_lookup_by_name (argv[idx_ifname]->arg, VRF_DEFAULT);
   if (ifp == NULL)
     {
-      vty_out (vty, "No such Interface: %s%s", argv[idx_ifname]->arg, VNL);
+      vty_out (vty, "No such Interface: %s%s", argv[idx_ifname]->arg, VTYNL);
       return CMD_WARNING;
     }
 
   oi = ifp->info;
   if (oi == NULL)
     {
-      vty_out (vty, "OSPFv3 is not enabled on %s%s", argv[idx_ifname]->arg, VNL);
+      vty_out (vty, "OSPFv3 is not enabled on %s%s", argv[idx_ifname]->arg, VTYNL);
       return CMD_WARNING;
     }
 
@@ -1146,7 +1146,7 @@ DEFUN (ipv6_ospf6_ifmtu,
   if (ifp->mtu6 != 0 && ifp->mtu6 < ifmtu)
     {
       vty_out (vty, "%s's ospf6 ifmtu cannot go beyond physical mtu (%d)%s",
-               ifp->name, ifp->mtu6, VNL);
+               ifp->name, ifp->mtu6, VTYNL);
       return CMD_WARNING;
     }
 
@@ -1156,7 +1156,7 @@ DEFUN (ipv6_ospf6_ifmtu,
       if (iobuflen < ifmtu)
         {
           vty_out (vty, "%s's ifmtu is adjusted to I/O buffer size (%d).%s",
-                   ifp->name, iobuflen, VNL);
+                   ifp->name, iobuflen, VTYNL);
           oi->ifmtu = oi->c_ifmtu = iobuflen;
         }
       else
@@ -1204,7 +1204,7 @@ DEFUN (no_ipv6_ospf6_ifmtu,
       if (iobuflen < ifp->mtu)
         {
           vty_out (vty, "%s's ifmtu is adjusted to I/O buffer size (%d).%s",
-                   ifp->name, iobuflen, VNL);
+                   ifp->name, iobuflen, VTYNL);
           oi->ifmtu = iobuflen;
         }
       else
@@ -1250,7 +1250,7 @@ DEFUN (ipv6_ospf6_cost,
 
   if (lcost > UINT32_MAX)
     {
-      vty_out (vty, "Cost %ld is out of range%s", lcost, VNL);
+      vty_out (vty, "Cost %ld is out of range%s", lcost, VTYNL);
       return CMD_WARNING;
     }
   
@@ -1770,62 +1770,62 @@ config_write_ospf6_interface (struct vty *vty)
         continue;
 
       vty_out (vty, "interface %s%s",
-               oi->interface->name, VNL);
+               oi->interface->name, VTYNL);
 
       if (ifp->desc)
-        vty_out (vty, " description %s%s", ifp->desc, VNL);
+        vty_out (vty, " description %s%s", ifp->desc, VTYNL);
       if (oi->c_ifmtu)
-        vty_out (vty, " ipv6 ospf6 ifmtu %d%s", oi->c_ifmtu, VNL);
+        vty_out (vty, " ipv6 ospf6 ifmtu %d%s", oi->c_ifmtu, VTYNL);
 
       if (CHECK_FLAG (oi->flag, OSPF6_INTERFACE_NOAUTOCOST))
         vty_out (vty, " ipv6 ospf6 cost %d%s",
-                 oi->cost, VNL);
+                 oi->cost, VTYNL);
 
       if (oi->hello_interval != OSPF6_INTERFACE_HELLO_INTERVAL)
         vty_out (vty, " ipv6 ospf6 hello-interval %d%s",
-                 oi->hello_interval, VNL);
+                 oi->hello_interval, VTYNL);
 
       if (oi->dead_interval != OSPF6_INTERFACE_DEAD_INTERVAL)
         vty_out (vty, " ipv6 ospf6 dead-interval %d%s",
-                 oi->dead_interval, VNL);
+                 oi->dead_interval, VTYNL);
 
       if (oi->rxmt_interval != OSPF6_INTERFACE_RXMT_INTERVAL)
         vty_out (vty, " ipv6 ospf6 retransmit-interval %d%s",
-                 oi->rxmt_interval, VNL);
+                 oi->rxmt_interval, VTYNL);
 
       if (oi->priority != OSPF6_INTERFACE_PRIORITY)
         vty_out (vty, " ipv6 ospf6 priority %d%s",
-                 oi->priority, VNL);
+                 oi->priority, VTYNL);
 
       if (oi->transdelay != OSPF6_INTERFACE_TRANSDELAY)
         vty_out (vty, " ipv6 ospf6 transmit-delay %d%s",
-                 oi->transdelay, VNL);
+                 oi->transdelay, VTYNL);
 
       if (oi->instance_id != OSPF6_INTERFACE_INSTANCE_ID)
         vty_out (vty, " ipv6 ospf6 instance-id %d%s",
-                 oi->instance_id, VNL);
+                 oi->instance_id, VTYNL);
 
       if (oi->plist_name)
         vty_out (vty, " ipv6 ospf6 advertise prefix-list %s%s",
-                 oi->plist_name, VNL);
+                 oi->plist_name, VTYNL);
 
       if (CHECK_FLAG (oi->flag, OSPF6_INTERFACE_PASSIVE))
-        vty_out (vty, " ipv6 ospf6 passive%s", VNL);
+        vty_out (vty, " ipv6 ospf6 passive%s", VTYNL);
 
       if (oi->mtu_ignore)
-        vty_out (vty, " ipv6 ospf6 mtu-ignore%s", VNL);
+        vty_out (vty, " ipv6 ospf6 mtu-ignore%s", VTYNL);
 
       if (oi->type != ospf6_default_iftype(ifp))
         {
           if (oi->type == OSPF_IFTYPE_POINTOPOINT)
-            vty_out (vty, " ipv6 ospf6 network point-to-point%s", VNL);
+            vty_out (vty, " ipv6 ospf6 network point-to-point%s", VTYNL);
           else if (oi->type == OSPF_IFTYPE_BROADCAST)
-            vty_out (vty, " ipv6 ospf6 network broadcast%s", VNL);
+            vty_out (vty, " ipv6 ospf6 network broadcast%s", VTYNL);
         }
 
       ospf6_bfd_write_config(vty, oi);
 
-      vty_out (vty, "!%s", VNL);
+      vty_out (vty, "!%s", VTYNL);
     }
   return 0;
 }
@@ -1922,7 +1922,7 @@ DEFUN (clear_ipv6_ospf6_interface,
     {
       if ((ifp = if_lookup_by_name (argv[idx_ifname]->arg, VRF_DEFAULT)) == NULL)
         {
-          vty_out (vty, "No such Interface: %s%s", argv[idx_ifname]->arg, VNL);
+          vty_out (vty, "No such Interface: %s%s", argv[idx_ifname]->arg, VTYNL);
           return CMD_WARNING;
         }
       ospf6_interface_clear (vty, ifp);
@@ -1966,7 +1966,7 @@ int
 config_write_ospf6_debug_interface (struct vty *vty)
 {
   if (IS_OSPF6_DEBUG_INTERFACE)
-    vty_out (vty, "debug ospf6 interface%s", VNL);
+    vty_out (vty, "debug ospf6 interface%s", VTYNL);
   return 0;
 }
 
