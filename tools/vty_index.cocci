@@ -141,7 +141,7 @@ fn << rule11.fn;
 @@
 print "R11 removing vty-index argument on %s(...)" % (fn)
 
-#/* find type of the argument - note args are mostly unnamed in Quagga :( */
+#/* find type of the argument - note args are mostly unnamed in FRR :( */
 @ rule12 @
 identifier rule11.fn;
 identifier T, argname;

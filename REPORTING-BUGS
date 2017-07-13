@@ -16,7 +16,7 @@ Please supply the following information:
 1. Your FRRouting version or if it is from git then the  commit reference.
    Please try to report bugs against git master or the latest release.
 2. FRR daemons you run e.g. bgpd or ripd and full name of your OS. Any
-   specific options you compiled Quagga with. 
+   specific options you compiled FRR with. 
 3. Problem description. Copy and paste relative commands and their output to
    describe your network setup e.g. "zebra>show ip route".
    Please, also give your simple network layout and output of relative OS

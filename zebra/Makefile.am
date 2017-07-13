@@ -85,7 +85,7 @@ EXTRA_DIST = if_ioctl.c if_ioctl_solaris.c if_netlink.c \
 client : client_main.o ../lib/libfrr.la
 	$(CC) -g -o client client_main.o ../liblzebra.la $(LIBS) $(LIB_IPV6)
 
-quaggaconfdir = $(sysconfdir)
+frrconfdir = $(sysconfdir)
 
 examplesdir = $(exampledir)
 dist_examples_DATA = zebra.conf.sample
