@@ -645,7 +645,11 @@ class TopoRouter(TopoGear):
         if isjson is False:
             return output
 
-        return json.loads(output)
+        try:
+            return json.loads(output)
+        except ValueError:
+            logger.warning('vtysh_cmd: failed to convert json output')
+            return {}
 
     def vtysh_multicmd(self, commands, pretty_output=True):
         """
