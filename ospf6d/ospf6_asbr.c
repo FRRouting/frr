@@ -789,7 +789,7 @@ ospf6_redistribute_show_config (struct vty *vty)
       total++;
     }
 
-  vty_out (vty, "Redistributing External Routes from:%s", VTYNL);
+  vty_out (vty, "Redistributing External Routes from:\n");
   for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
     {
       if (type == ZEBRA_ROUTE_OSPF6)
@@ -1082,13 +1082,13 @@ route_map_command_status (struct vty *vty, int ret)
   switch (ret)
     {
     case RMAP_RULE_MISSING:
-      vty_out (vty, "OSPF6 Can't find rule.%s", VTYNL);
+      vty_out (vty, "OSPF6 Can't find rule.\n");
       break;
     case RMAP_COMPILE_ERROR:
-      vty_out (vty, "OSPF6 Argument is malformed.%s", VTYNL);
+      vty_out (vty, "OSPF6 Argument is malformed.\n");
       break;
     default:
-      vty_out (vty, "OSPF6 route-map add set failed.%s", VTYNL);
+      vty_out (vty, "OSPF6 route-map add set failed.\n");
       break;
     }
   return CMD_WARNING;
@@ -1399,7 +1399,7 @@ int
 config_write_ospf6_debug_asbr (struct vty *vty)
 {
   if (IS_OSPF6_DEBUG_ASBR)
-    vty_out (vty, "debug ospf6 asbr%s", VTYNL);
+    vty_out (vty, "debug ospf6 asbr\n");
   return 0;
 }
 

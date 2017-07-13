@@ -315,11 +315,11 @@ DEFUN (show_zebra,
   int i;
   if (zclient == NULL)
     {
-      vty_out (vty, "Not connected to zebra%s", VTYNL);
+      vty_out (vty, "Not connected to zebra\n");
       return CMD_SUCCESS;
     }
 
-  vty_out (vty, "Zebra Infomation%s", VTYNL);
+  vty_out (vty, "Zebra Infomation\n");
   vty_out (vty, "  enable: %d fail: %d%s",
            zclient->enable, zclient->fail, VTYNL);
   vty_out (vty, "  redistribute default: %d%s",
@@ -331,7 +331,7 @@ DEFUN (show_zebra,
       if (vrf_bitmap_check (zclient->redist[AFI_IP6][i], VRF_DEFAULT))
         vty_out (vty, " %s", zebra_route_string(i));
     }
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
   return CMD_SUCCESS;
 }
 
@@ -341,15 +341,15 @@ config_write_ospf6_zebra (struct vty *vty)
 {
   if (! zclient->enable)
     {
-      vty_out (vty, "no router zebra%s", VTYNL);
-      vty_out (vty, "!%s", VTYNL);
+      vty_out (vty, "no router zebra\n");
+      vty_out (vty, "!\n");
     }
   else if (! vrf_bitmap_check (zclient->redist[AFI_IP6][ZEBRA_ROUTE_OSPF6],
                                VRF_DEFAULT))
     {
-      vty_out (vty, "router zebra%s", VTYNL);
-      vty_out (vty, " no redistribute ospf6%s", VTYNL);
-      vty_out (vty, "!%s", VTYNL);
+      vty_out (vty, "router zebra\n");
+      vty_out (vty, " no redistribute ospf6\n");
+      vty_out (vty, "!\n");
     }
   return 0;
 }
@@ -905,13 +905,13 @@ int
 config_write_ospf6_debug_zebra (struct vty *vty)
 {
   if (IS_OSPF6_DEBUG_ZEBRA (SEND) && IS_OSPF6_DEBUG_ZEBRA (RECV))
-    vty_out (vty, "debug ospf6 zebra%s", VTYNL);
+    vty_out (vty, "debug ospf6 zebra\n");
   else
     {
       if (IS_OSPF6_DEBUG_ZEBRA (SEND))
-        vty_out (vty, "debug ospf6 zebra send%s", VTYNL);
+        vty_out (vty, "debug ospf6 zebra send\n");
       if (IS_OSPF6_DEBUG_ZEBRA (RECV))
-        vty_out (vty, "debug ospf6 zebra recv%s", VTYNL);
+        vty_out (vty, "debug ospf6 zebra recv\n");
     }
   return 0;
 }

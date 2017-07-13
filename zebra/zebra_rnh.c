@@ -996,7 +996,7 @@ print_nh (struct nexthop *nexthop, struct vty *vty)
     default:
       break;
     }
-  vty_out(vty, "%s", VTYNL);
+  vty_out(vty, "\n");
 }
 
 static void
@@ -1030,5 +1030,5 @@ print_rnh (struct route_node *rn, struct vty *vty)
 	    client->sock, rnh->filtered[client->proto] ? "(filtered)" : "");
   if (!list_isempty(rnh->zebra_static_route_list))
     vty_out(vty, " zebra%s", rnh->filtered[ZEBRA_ROUTE_STATIC] ? "(filtered)" : "");
-  vty_out(vty, "%s", VTYNL);
+  vty_out(vty, "\n");
 }

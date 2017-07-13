@@ -924,13 +924,13 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
 
   if (ifp->info == NULL)
     {
-      vty_out (vty, "   OSPF not enabled on this interface%s", VTYNL);
+      vty_out (vty, "   OSPF not enabled on this interface\n");
       return 0;
     }
   else
     oi = (struct ospf6_interface *) ifp->info;
 
-  vty_out (vty, "  Internet Address:%s", VTYNL);
+  vty_out (vty, "  Internet Address:\n");
 
   for (ALL_LIST_ELEMENTS_RO (ifp->connected, i, c))
     {
@@ -965,13 +965,13 @@ ospf6_interface_show (struct vty *vty, struct interface *ifp)
 	       VTYNL);
     }
   else
-    vty_out (vty, "  Not Attached to Area%s", VTYNL);
+    vty_out (vty, "  Not Attached to Area\n");
 
   vty_out (vty, "  State %s, Transmit Delay %d sec, Priority %d%s",
            ospf6_interface_state_str[oi->state],
            oi->transdelay, oi->priority,
 	   VTYNL);
-  vty_out (vty, "  Timer intervals configured:%s", VTYNL);
+  vty_out (vty, "  Timer intervals configured:\n");
   vty_out (vty, "   Hello %d, Dead %d, Retransmit %d%s",
            oi->hello_interval, oi->dead_interval, oi->rxmt_interval,
 	   VTYNL);
@@ -1810,22 +1810,22 @@ config_write_ospf6_interface (struct vty *vty)
                  oi->plist_name, VTYNL);
 
       if (CHECK_FLAG (oi->flag, OSPF6_INTERFACE_PASSIVE))
-        vty_out (vty, " ipv6 ospf6 passive%s", VTYNL);
+        vty_out (vty, " ipv6 ospf6 passive\n");
 
       if (oi->mtu_ignore)
-        vty_out (vty, " ipv6 ospf6 mtu-ignore%s", VTYNL);
+        vty_out (vty, " ipv6 ospf6 mtu-ignore\n");
 
       if (oi->type != ospf6_default_iftype(ifp))
         {
           if (oi->type == OSPF_IFTYPE_POINTOPOINT)
-            vty_out (vty, " ipv6 ospf6 network point-to-point%s", VTYNL);
+            vty_out (vty, " ipv6 ospf6 network point-to-point\n");
           else if (oi->type == OSPF_IFTYPE_BROADCAST)
-            vty_out (vty, " ipv6 ospf6 network broadcast%s", VTYNL);
+            vty_out (vty, " ipv6 ospf6 network broadcast\n");
         }
 
       ospf6_bfd_write_config(vty, oi);
 
-      vty_out (vty, "!%s", VTYNL);
+      vty_out (vty, "!\n");
     }
   return 0;
 }
@@ -1966,7 +1966,7 @@ int
 config_write_ospf6_debug_interface (struct vty *vty)
 {
   if (IS_OSPF6_DEBUG_INTERFACE)
-    vty_out (vty, "debug ospf6 interface%s", VTYNL);
+    vty_out (vty, "debug ospf6 interface\n");
   return 0;
 }
 

@@ -93,7 +93,7 @@ extern struct thread_master *master;
 #define OSPF6_CMD_CHECK_RUNNING() \
   if (ospf6 == NULL) \
     { \
-      vty_out (vty, "OSPFv3 is not running%s", VTYNL); \
+      vty_out (vty, "OSPFv3 is not running\n"); \
       return CMD_SUCCESS; \
     }
 

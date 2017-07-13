@@ -54,7 +54,7 @@ ospf6_unknown_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
   start = (u_char *) lsa->header + sizeof (struct ospf6_lsa_header);
   end = (u_char *) lsa->header + ntohs (lsa->header->length);
 
-  vty_out (vty, "        Unknown contents:%s", VTYNL);
+  vty_out (vty, "        Unknown contents:\n");
   for (current = start; current < end; current ++)
     {
       if ((current - start) % 16 == 0)
@@ -445,7 +445,7 @@ ospf6_lsa_show_dump (struct vty *vty, struct ospf6_lsa *lsa)
   start = (u_char *) lsa->header;
   end = (u_char *) lsa->header + ntohs (lsa->header->length);
 
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
   vty_out (vty, "%s:%s", lsa->name, VTYNL);
 
   for (current = start; current < end; current ++)
@@ -474,7 +474,7 @@ ospf6_lsa_show_internal (struct vty *vty, struct ospf6_lsa *lsa)
   inet_ntop (AF_INET, &lsa->header->adv_router,
              adv_router, sizeof (adv_router));
 
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
   vty_out (vty, "Age: %4hu Type: %s%s", ospf6_lsa_age_current (lsa),
            ospf6_lstype_name (lsa->header->type), VTYNL);
   vty_out (vty, "Link State ID: %s%s", id, VTYNL);
@@ -489,7 +489,7 @@ ospf6_lsa_show_internal (struct vty *vty, struct ospf6_lsa *lsa)
   vty_out (vty, "ReTx Count: %d%s", lsa->retrans_count, VTYNL);
   vty_out (vty, "Threads: Expire: 0x%p, Refresh: 0x%p %s",
            (void *)lsa->expire, (void *)lsa->refresh, VTYNL);
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
   return;
 }
 
@@ -527,7 +527,7 @@ ospf6_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
     handler = &unknown_handler;
   (*handler->show) (vty, lsa);
 
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
 }
 
 /* OSPFv3 LSA creation/deletion function */

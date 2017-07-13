@@ -745,8 +745,7 @@ DEFUN_NOSH (no_interface,
 
   if (CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE)) 
     {
-      vty_out (vty, "%% Only inactive interfaces can be deleted%s",
-	      VTYNL);
+      vty_out (vty, "%% Only inactive interfaces can be deleted\n");
       return CMD_WARNING;
     }
 

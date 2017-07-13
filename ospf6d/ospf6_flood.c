@@ -1032,7 +1032,7 @@ int
 config_write_ospf6_debug_flood (struct vty *vty)
 {
   if (IS_OSPF6_DEBUG_FLOODING)
-    vty_out (vty, "debug ospf6 flooding%s", VTYNL);
+    vty_out (vty, "debug ospf6 flooding\n");
   return 0;
 }
 

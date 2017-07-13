@@ -938,7 +938,7 @@ vty_complete_command (struct vty *vty)
       vty_redraw_line (vty);
       break;
     case CMD_ERR_NO_MATCH:
-      /* vty_out (vty, "%% There is no matched command.%s", VTYNL); */
+      /* vty_out (vty, "%% There is no matched command.\n"); */
       vty_prompt (vty);
       vty_redraw_line (vty);
       break;

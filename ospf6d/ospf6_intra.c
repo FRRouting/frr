@@ -1793,7 +1793,7 @@ config_write_ospf6_debug_brouter (struct vty *vty)
 {
   char buf[16];
   if (IS_OSPF6_DEBUG_BROUTER)
-    vty_out (vty, "debug ospf6 border-routers%s", VTYNL);
+    vty_out (vty, "debug ospf6 border-routers\n");
   if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER)
     {
       inet_ntop (AF_INET, &conf_debug_ospf6_brouter_specific_router_id,

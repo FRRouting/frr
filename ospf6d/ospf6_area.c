@@ -389,7 +389,7 @@ ospf6_area_show (struct vty *vty, struct ospf6_area *oa)
   vty_out (vty, "     Interface attached to this area:");
   for (ALL_LIST_ELEMENTS_RO (oa->if_list, i, oi))
     vty_out (vty, " %s", oi->interface->name);
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
 
   if (oa->ts_spf.tv_sec || oa->ts_spf.tv_usec)
     {
@@ -583,7 +583,7 @@ ospf6_area_config_write (struct vty *vty)
               if (range->path.u.cost_config != OSPF_AREA_RANGE_COST_UNSPEC)
                 vty_out (vty, " cost %d", range->path.u.cost_config);
             }
-          vty_out (vty, "%s", VTYNL);
+          vty_out (vty, "\n");
 
         }
       if (IS_AREA_STUB (oa))

@@ -1131,7 +1131,7 @@ ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
   vty_out (vty, "Router Bits: %s%s", capa, VTYNL);
 
   /* Prefix Options */
-  vty_out (vty, "Prefix Options: xxx%s", VTYNL);
+  vty_out (vty, "Prefix Options: xxx\n");
 
   /* Metrics */
   vty_out (vty, "Metric Type: %d%s", route->path.metric_type,
@@ -1140,7 +1140,7 @@ ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
            route->path.cost, route->path.u.cost_e2, VTYNL);
 
   /* Nexthops */
-  vty_out (vty, "Nexthop:%s", VTYNL);
+  vty_out (vty, "Nexthop:\n");
   for (ALL_LIST_ELEMENTS_RO (route->nh_list, node, nh))
     {
       /* nexthop */
@@ -1148,7 +1148,7 @@ ospf6_route_show_detail (struct vty *vty, struct ospf6_route *route)
       ifname = ifindex2ifname (nh->ifindex, VRF_DEFAULT);
       vty_out (vty, "  %s %.*s%s", nexthop, IFNAMSIZ, ifname, VTYNL);
     }
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
 }
 
 static void
@@ -1619,11 +1619,11 @@ int
 config_write_ospf6_debug_route (struct vty *vty)
 {
   if (IS_OSPF6_DEBUG_ROUTE (TABLE))
-    vty_out (vty, "debug ospf6 route table%s", VTYNL);
+    vty_out (vty, "debug ospf6 route table\n");
   if (IS_OSPF6_DEBUG_ROUTE (INTRA))
-    vty_out (vty, "debug ospf6 route intra-area%s", VTYNL);
+    vty_out (vty, "debug ospf6 route intra-area\n");
   if (IS_OSPF6_DEBUG_ROUTE (INTER))
-    vty_out (vty, "debug ospf6 route inter-area%s", VTYNL);
+    vty_out (vty, "debug ospf6 route inter-area\n");
   return 0;
 }
 

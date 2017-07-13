@@ -315,7 +315,7 @@ DEFUN (no_router_ospf6,
        OSPF6_STR)
 {
   if (ospf6 == NULL)
-    vty_out (vty, "OSPFv3 is not configured%s", VTYNL);
+    vty_out (vty, "OSPFv3 is not configured\n");
   else
     {
       ospf6_delete (ospf6);
@@ -835,13 +835,13 @@ ospf6_show (struct vty *vty, struct ospf6 *o)
                (long long)o->ts_spf_duration.tv_usec, VTYNL);
     }
   else
-    vty_out(vty, "has not been run$%s", VTYNL);
+    vty_out(vty, "has not been run$\n");
   threadtimer_string(now, o->t_spf_calc, buf, sizeof(buf));
   vty_out (vty, " SPF timer %s%s%s",
 	   (o->t_spf_calc ? "due in " : "is "), buf, VTYNL);
 
   if (CHECK_FLAG (o->flag, OSPF6_STUB_ROUTER))
-    vty_out (vty, " Router Is Stub Router%s", VTYNL);
+    vty_out (vty, " Router Is Stub Router\n");
 
   /* LSAs */
   vty_out (vty, " Number of AS scoped LSAs is %u%s",
@@ -963,7 +963,7 @@ ospf6_stub_router_config_write (struct vty *vty)
 {
   if (CHECK_FLAG (ospf6->flag, OSPF6_STUB_ROUTER))
     {
-      vty_out (vty, " stub-router administrative%s", VTYNL);
+      vty_out (vty, " stub-router administrative\n");
     }
     return;
 }
@@ -1019,7 +1019,7 @@ config_write_ospf6 (struct vty *vty)
     return CMD_SUCCESS;
 
   inet_ntop (AF_INET, &ospf6->router_id_static, router_id, sizeof (router_id));
-  vty_out (vty, "router ospf6%s", VTYNL);
+  vty_out (vty, "router ospf6\n");
   if (ospf6->router_id_static != 0)
     vty_out (vty, " router-id %s%s", router_id, VTYNL);
 
@@ -1056,7 +1056,7 @@ config_write_ospf6 (struct vty *vty)
         vty_out (vty, " interface %s area %s%s",
                  oi->interface->name, oa->name, VTYNL);
     }
-  vty_out (vty, "!%s", VTYNL);
+  vty_out (vty, "!\n");
   return 0;
 }
 

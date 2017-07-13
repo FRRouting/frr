@@ -2425,7 +2425,7 @@ DEFUN (ripng_update_timer,
   update = strtoul (argv[0], &endptr, 10);
   if (update == ULONG_MAX || *endptr != '\0')
     {
-      vty_out (vty, "update timer value error%s", VTYNL);
+      vty_out (vty, "update timer value error\n");
       return CMD_WARNING;
     }
 
@@ -2460,7 +2460,7 @@ DEFUN (ripng_timeout_timer,
   timeout = strtoul (argv[0], &endptr, 10);
   if (timeout == ULONG_MAX || *endptr != '\0')
     {
-      vty_out (vty, "timeout timer value error%s", VTYNL);
+      vty_out (vty, "timeout timer value error\n");
       return CMD_WARNING;
     }
 
@@ -2493,7 +2493,7 @@ DEFUN (ripng_garbage_timer,
   garbage = strtoul (argv[0], &endptr, 10);
   if (garbage == ULONG_MAX || *endptr != '\0')
     {
-      vty_out (vty, "garbage timer value error%s", VTYNL);
+      vty_out (vty, "garbage timer value error\n");
       return CMD_WARNING;
     }
 
@@ -2577,7 +2577,7 @@ DEFUN (show_ipv6_protocols,
   if (! ripng)
     return CMD_SUCCESS;
 
-  vty_out (vty, "Routing Protocol is \"ripng\"%s", VTYNL);
+  vty_out (vty, "Routing Protocol is \"ripng\"\n");
   
   vty_out (vty, "Sending updates every %ld seconds, next due in %d seconds%s",
 	   ripng->update_time, 0,

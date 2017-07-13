@@ -1149,7 +1149,7 @@ int
 config_write_ospf6_debug_abr (struct vty *vty)
 {
   if (IS_OSPF6_DEBUG_ABR)
-    vty_out (vty, "debug ospf6 abr%s", VTYNL);
+    vty_out (vty, "debug ospf6 abr\n");
   return 0;
 }
 

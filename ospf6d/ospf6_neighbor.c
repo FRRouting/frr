@@ -1016,11 +1016,11 @@ config_write_ospf6_debug_neighbor (struct vty *vty)
 {
   if (IS_OSPF6_DEBUG_NEIGHBOR (STATE) &&
       IS_OSPF6_DEBUG_NEIGHBOR (EVENT))
-    vty_out (vty, "debug ospf6 neighbor%s", VTYNL);
+    vty_out (vty, "debug ospf6 neighbor\n");
   else if (IS_OSPF6_DEBUG_NEIGHBOR (STATE))
-    vty_out (vty, "debug ospf6 neighbor state%s", VTYNL);
+    vty_out (vty, "debug ospf6 neighbor state\n");
   else if (IS_OSPF6_DEBUG_NEIGHBOR (EVENT))
-    vty_out (vty, "debug ospf6 neighbor event%s", VTYNL);
+    vty_out (vty, "debug ospf6 neighbor event\n");
   return 0;
 }
 

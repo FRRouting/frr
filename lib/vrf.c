@@ -507,8 +507,7 @@ DEFUN_NOSH (no_vrf,
 
   if (CHECK_FLAG (vrfp->status, VRF_ACTIVE))
     {
-      vty_out (vty, "%% Only inactive VRFs can be deleted%s",
-              VTYNL);
+      vty_out (vty, "%% Only inactive VRFs can be deleted\n");
       return CMD_WARNING;
     }
 

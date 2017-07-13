@@ -110,7 +110,7 @@ config_write_ospf6_debug (struct vty *vty)
   config_write_ospf6_debug_asbr (vty);
   config_write_ospf6_debug_abr (vty);
   config_write_ospf6_debug_flood (vty);
-  vty_out (vty, "!%s", VTYNL);
+  vty_out (vty, "!\n");
   return 0;
 }
 
@@ -206,7 +206,7 @@ DEFUN (show_ipv6_ospf6_database,
   vty_out (vty, AS_LSDB_TITLE_FORMAT, VTYNL, VTYNL, VTYNL);
   ospf6_lsdb_show (vty, level, NULL, NULL, NULL, o->lsdb);
 
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
   return CMD_SUCCESS;
 }
 
@@ -277,7 +277,7 @@ DEFUN (show_ipv6_ospf6_database_type,
         break;
     }
 
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
   return CMD_SUCCESS;
 }
 
@@ -330,7 +330,7 @@ DEFUN (show_ipv6_ospf6_database_id,
   vty_out (vty, AS_LSDB_TITLE_FORMAT, VTYNL, VTYNL, VTYNL);
   ospf6_lsdb_show (vty, level, NULL, &id, NULL, o->lsdb);
 
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
   return CMD_SUCCESS;
 }
 
@@ -381,7 +381,7 @@ DEFUN (show_ipv6_ospf6_database_router,
   vty_out (vty, AS_LSDB_TITLE_FORMAT, VTYNL, VTYNL, VTYNL);
   ospf6_lsdb_show (vty, level, NULL, NULL, &adv_router, o->lsdb);
 
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
   return CMD_SUCCESS;
 }
 
@@ -457,7 +457,7 @@ DEFUN (show_ipv6_ospf6_database_type_id,
         break;
     }
 
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
   return CMD_SUCCESS;
 }
 
@@ -534,7 +534,7 @@ DEFUN (show_ipv6_ospf6_database_type_router,
         break;
     }
 
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
   return CMD_SUCCESS;
 }
 
@@ -589,7 +589,7 @@ DEFUN (show_ipv6_ospf6_database_id_router,
   vty_out (vty, AS_LSDB_TITLE_FORMAT, VTYNL, VTYNL, VTYNL);
   ospf6_lsdb_show (vty, level, NULL, &id, &adv_router, o->lsdb);
 
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
   return CMD_SUCCESS;
 }
 
@@ -644,7 +644,7 @@ DEFUN (show_ipv6_ospf6_database_adv_router_linkstate_id,
   vty_out (vty, AS_LSDB_TITLE_FORMAT, VTYNL, VTYNL, VTYNL);
   ospf6_lsdb_show (vty, level, NULL, &id, &adv_router, o->lsdb);
 
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
   return CMD_SUCCESS;
 }
 
@@ -721,7 +721,7 @@ DEFUN (show_ipv6_ospf6_database_type_id_router,
         break;
     }
 
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
   return CMD_SUCCESS;
 }
 
@@ -801,7 +801,7 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
         break;
     }
 
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
   return CMD_SUCCESS;
 }
 
@@ -848,7 +848,7 @@ DEFUN (show_ipv6_ospf6_database_self_originated,
   vty_out (vty, AS_LSDB_TITLE_FORMAT, VTYNL, VTYNL, VTYNL);
   ospf6_lsdb_show (vty, level, NULL, NULL, &adv_router, o->lsdb);
 
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
   return CMD_SUCCESS;
 }
 
@@ -923,7 +923,7 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated,
         break;
     }
 
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
   return CMD_SUCCESS;
 }
 
@@ -1001,7 +1001,7 @@ DEFUN (show_ipv6_ospf6_database_type_self_originated_linkstate_id,
         break;
     }
 
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
   return CMD_SUCCESS;
 }
 
@@ -1078,7 +1078,7 @@ DEFUN (show_ipv6_ospf6_database_type_id_self_originated,
         break;
     }
 
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
   return CMD_SUCCESS;
 }
 
@@ -1162,7 +1162,7 @@ DEFUN (show_ipv6_ospf6_linkstate,
       ospf6_linkstate_table_show (vty, idx_ipv4, argc, argv, oa->spf_table);
     }
 
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
   return CMD_SUCCESS;
 }
 
@@ -1190,7 +1190,7 @@ DEFUN (show_ipv6_ospf6_linkstate_detail,
       ospf6_linkstate_table_show (vty, idx_detail, argc, argv, oa->spf_table);
     }
 
-  vty_out (vty, "%s", VTYNL);
+  vty_out (vty, "\n");
   return CMD_SUCCESS;
 }
 
