@@ -677,10 +677,10 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 	if (ctx->afi != family2afi(sockunion_family(&c->remote_addr)))
 		return;
 
-	vty_outln(ctx->vty,
+	vty_out(ctx->vty,
 		  "Type: %s%s"
 		  "Flags:%s%s%s"
-		  "Protocol-Address: %s/%zu",
+		  "Protocol-Address: %s/%zu\n",
 		  nhrp_cache_type_str[c->cur.type],
 		  VTYNL,
 		  (c->cur.peer && c->cur.peer->online) ? " up": "",
@@ -702,7 +702,7 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 			sockunion2str(&c->cur.remote_nbma_natoa, buf, sizeof buf));
 	}
 
-	vty_outln(ctx->vty, VTYNL);
+	vty_out(ctx->vty, "\n\n");
 }
 
 DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,

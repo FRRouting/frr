@@ -2296,13 +2296,13 @@ register_add (
 
        if (!str2prefix (arg_prefix, &pfx))
          {
-           vty_outln (vty, "Malformed prefix \"%s\"",arg_prefix);
+           vty_out (vty, "Malformed prefix \"%s\"\n",arg_prefix);
            goto fail;
          }
        if (pfx.family != AF_INET
            && pfx.family != AF_INET6)
          {
-           vty_outln (vty, "prefix \"%s\" has invalid address family",
+           vty_out (vty, "prefix \"%s\" has invalid address family\n",
                     arg_prefix);
            goto fail;
          }
@@ -2410,8 +2410,8 @@ register_add (
          {
            if (!arg_vni)
              {
-               vty_outln (vty,
-                        "Missing \"vni\" parameter (mandatory with mac)");
+               vty_out (vty,
+                        "Missing \"vni\" parameter (mandatory with mac)\n");
                return CMD_WARNING;
              }
            optary[opt_next].v.l2addr.logical_net_id = strtoul(arg_vni, NULL,
@@ -3129,7 +3129,7 @@ parse_deleter_args (
 
       if (!str2prefix (arg_prefix, &rcdarg->prefix))
         {
-          vty_outln (vty, "Malformed prefix \"%s\"", arg_prefix);
+          vty_out (vty, "Malformed prefix \"%s\"\n", arg_prefix);
           return rc;
         }
     }
@@ -3145,7 +3145,7 @@ parse_deleter_args (
         {
           if ((rc = rfapiStr2EthAddr (arg_l2addr, &rcdarg->l2o.o.macaddr)))
             {
-              vty_outln (vty, "Malformed L2 Address \"%s\"",
+              vty_out (vty, "Malformed L2 Address \"%s\"\n",
                        arg_l2addr);
               return rc;
             }
@@ -3161,7 +3161,7 @@ parse_deleter_args (
     {
       if (!str2prefix_rd (arg_rd, &rcdarg->rd))
         {
-          vty_outln (vty, "Malformed RD \"%s\"",
+          vty_out (vty, "Malformed RD \"%s\"\n",
                    arg_rd);
           return rc;
         }
@@ -4574,8 +4574,8 @@ rfapi_show_nves (
       if (!printed)
         {
           /* print out a header */
-          vty_outln (vty,
-                     "                                " "Active      Next Hops");
+          vty_out (vty,
+                     "                                Active      Next Hops\n");
           vty_out (vty, "%-15s %-15s %-5s %-5s %-6s %-6s %s\n",
                    "VN Address",
                    "UN Address",
@@ -4653,12 +4653,12 @@ DEFUN (vnc_show_nves_ptct,
 
   if (!str2prefix (argv[4]->arg, &pfx))
     {
-      vty_outln (vty, "Malformed address \"%s\"", argv[4]->arg);
+      vty_out (vty, "Malformed address \"%s\"\n", argv[4]->arg);
       return CMD_WARNING;
     }
   if (pfx.family != AF_INET && pfx.family != AF_INET6)
     {
-      vty_outln (vty, "Invalid address \"%s\"", argv[4]->arg);
+      vty_out (vty, "Invalid address \"%s\"\n", argv[4]->arg);
       return CMD_WARNING;
     }
 
@@ -5019,31 +5019,31 @@ vnc_add_vrf_prefix (struct vty *vty,
   /* arg checks */
   if (!rfg)
     {
-      vty_outln (vty, "VRF \"%s\" appears not to be configured.",
+      vty_out (vty, "VRF \"%s\" appears not to be configured.\n",
                arg_vrf);
           return CMD_WARNING;
     }
   if (!rfg->rt_export_list || !rfg->rfapi_import_table)
     {
-      vty_outln (vty, "VRF \"%s\" is missing RT import/export RT configuration.",
+      vty_out (vty, "VRF \"%s\" is missing RT import/export RT configuration.\n",
                arg_vrf);
       return CMD_WARNING;
     }
   if (!rfg->rd.family && !arg_rd)
     {
-      vty_outln (vty, "VRF \"%s\" isn't configured with an RD, so RD must be provided.",
+      vty_out (vty, "VRF \"%s\" isn't configured with an RD, so RD must be provided.\n",
                arg_vrf);
       return CMD_WARNING;
     }
   if (rfg->label > MPLS_LABEL_MAX && !arg_label)
     {
-      vty_outln (vty, "VRF \"%s\" isn't configured with a default labels, so a label must be provided.",
+      vty_out (vty, "VRF \"%s\" isn't configured with a default labels, so a label must be provided.\n",
                arg_vrf);
       return CMD_WARNING;
     }
   if (!str2prefix (arg_prefix, &pfx))
     {
-      vty_outln (vty, "Malformed prefix \"%s\"",
+      vty_out (vty, "Malformed prefix \"%s\"\n",
                arg_prefix);
       return CMD_WARNING;
     }
@@ -5057,7 +5057,7 @@ vnc_add_vrf_prefix (struct vty *vty,
       opt->type = RFAPI_VN_OPTION_TYPE_INTERNAL_RD;
       if (!str2prefix_rd (arg_rd, &opt->v.internal_rd))
         {
-          vty_outln (vty, "Malformed RD \"%s\"",
+          vty_out (vty, "Malformed RD \"%s\"\n",
                    arg_rd);
           return CMD_WARNING;
         }
@@ -5085,7 +5085,7 @@ vnc_add_vrf_prefix (struct vty *vty,
       pref = strtoul (arg_pref, &endptr, 10);
       if (*endptr != '\0')
         {
-          vty_outln (vty, "%% Invalid local-preference value \"%s\"",
+          vty_out (vty, "%% Invalid local-preference value \"%s\"\n",
                      arg_pref);
           return CMD_WARNING;
          }
@@ -5272,7 +5272,7 @@ vnc_clear_vrf (struct vty *vty,
   /* arg checks */
   if (!rfg)
     {
-      vty_outln (vty, "VRF \"%s\" appears not to be configured.",
+      vty_out (vty, "VRF \"%s\" appears not to be configured.\n",
                arg_vrf);
           return CMD_WARNING;
     }

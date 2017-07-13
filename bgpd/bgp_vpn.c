@@ -110,7 +110,7 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd,
                                      "Status codes: s suppressed, d damped, h history, * valid, > best, i - internal\n");
                           vty_out (vty, "Origin codes: i - IGP, e - EGP, ? - incomplete%s\n",
                                    VTYNL);
-                          vty_outln (vty, V4_HEADER);
+                          vty_out (vty, V4_HEADER);
                         }
                       header = 0;
                     }

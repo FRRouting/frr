@@ -1331,8 +1331,8 @@ vty_telnet_option (struct vty *vty, unsigned char *buf, int nbytes)
                 vty->width = ((vty->sb_buf[1] << 8)|vty->sb_buf[2]);
                 vty->height = ((vty->sb_buf[3] << 8)|vty->sb_buf[4]);
 #ifdef TELNET_OPTION_DEBUG
-                vty_outln (vty, "TELNET NAWS window size negotiation completed: "
-                              "width %d, height %d",
+                vty_out (vty, "TELNET NAWS window size negotiation completed: "
+                              "width %d, height %d\n",
                         vty->width, vty->height);
 #endif
               }

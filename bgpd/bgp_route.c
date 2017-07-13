@@ -7768,8 +7768,8 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 }
 
 #define BGP_SHOW_HEADER_CSV "Flags, Network, Next Hop, Metric, LocPrf, Weight, Path"
-#define BGP_SHOW_DAMP_HEADER "   Network          From             Reuse    Path"
-#define BGP_SHOW_FLAP_HEADER "   Network          From            Flaps Duration Reuse    Path"
+#define BGP_SHOW_DAMP_HEADER "   Network          From             Reuse    Path\n"
+#define BGP_SHOW_FLAP_HEADER "   Network          From            Flaps Duration Reuse    Path\n"
 
 static int
 bgp_show_prefix_list (struct vty *vty, struct bgp *bgp,
@@ -7986,18 +7986,18 @@ bgp_show_table (struct vty *vty, struct bgp *bgp, struct bgp_table *table,
 
             if (!use_json && header)
               {
-                vty_outln (vty, "BGP table version is %" PRIu64 ", local router ID is %s", table->version,
+                vty_out (vty, "BGP table version is %" PRIu64 ", local router ID is %s\n", table->version,
                            inet_ntoa(bgp->router_id));
-                vty_outln (vty, BGP_SHOW_SCODE_HEADER, VTYNL);
-                vty_outln (vty, BGP_SHOW_OCODE_HEADER, VTYNL);
+                vty_out (vty, BGP_SHOW_SCODE_HEADER);
+                vty_out (vty, BGP_SHOW_OCODE_HEADER);
                 if (type == bgp_show_type_dampend_paths
                     || type == bgp_show_type_damp_neighbor)
-                  vty_outln (vty, BGP_SHOW_DAMP_HEADER);
+                  vty_out (vty, BGP_SHOW_DAMP_HEADER);
                 else if (type == bgp_show_type_flap_statistics
                          || type == bgp_show_type_flap_neighbor)
-                  vty_outln (vty, BGP_SHOW_FLAP_HEADER);
+                  vty_out (vty, BGP_SHOW_FLAP_HEADER);
                 else
-                  vty_outln (vty, BGP_SHOW_HEADER);
+                  vty_out (vty, BGP_SHOW_HEADER);
                 header = 0;
               }
 
@@ -9644,10 +9644,10 @@ show_adj_route (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
         }
       else
         {
-          vty_outln (vty, "BGP table version is %" PRIu64 ", local router ID is %s", table->version,
+          vty_out (vty, "BGP table version is %" PRIu64 ", local router ID is %s\n", table->version,
                      inet_ntoa(bgp->router_id));
-          vty_outln (vty, BGP_SHOW_SCODE_HEADER, VTYNL);
-          vty_outln (vty, BGP_SHOW_OCODE_HEADER, VTYNL);
+          vty_out (vty, BGP_SHOW_SCODE_HEADER);
+          vty_out (vty, BGP_SHOW_OCODE_HEADER);
 
           vty_out (vty, "Originating default network 0.0.0.0%s\n",
                    VTYNL);
@@ -9677,15 +9677,15 @@ show_adj_route (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
                         {
                           vty_out (vty, "BGP table version is 0, local router ID is %s\n",
                                      inet_ntoa(bgp->router_id));
-                          vty_outln (vty, BGP_SHOW_SCODE_HEADER, VTYNL);
-                          vty_outln (vty, BGP_SHOW_OCODE_HEADER, VTYNL);
+                          vty_out (vty, BGP_SHOW_SCODE_HEADER);
+                          vty_out (vty, BGP_SHOW_OCODE_HEADER);
                         }
                       header1 = 0;
                     }
                   if (header2)
                     {
                       if (!use_json)
-                        vty_outln (vty, BGP_SHOW_HEADER);
+                        vty_out (vty, BGP_SHOW_HEADER);
                       header2 = 0;
                     }
                   if (ain->attr)
@@ -9719,10 +9719,10 @@ show_adj_route (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
                         }
                       else
                         {
-                          vty_outln (vty, "BGP table version is %" PRIu64 ", local router ID is %s", table->version,
+                          vty_out (vty, "BGP table version is %" PRIu64 ", local router ID is %s\n", table->version,
                                    inet_ntoa(bgp->router_id));
-                          vty_outln (vty, BGP_SHOW_SCODE_HEADER, VTYNL);
-                          vty_outln (vty, BGP_SHOW_OCODE_HEADER, VTYNL);
+                          vty_out (vty, BGP_SHOW_SCODE_HEADER);
+                          vty_out (vty, BGP_SHOW_OCODE_HEADER);
                         }
                       header1 = 0;
                     }
@@ -9730,7 +9730,7 @@ show_adj_route (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
                   if (header2)
                     {
                       if (!use_json)
-                        vty_outln (vty, BGP_SHOW_HEADER);
+                        vty_out (vty, BGP_SHOW_HEADER);
                       header2 = 0;
                     }
 

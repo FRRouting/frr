@@ -302,7 +302,7 @@ DEFUN (match_source_protocol,
   i = proto_name2num(proto);
   if (i < 0)
     {
-      vty_outln (vty, "invalid protocol name \"%s\"", proto);
+      vty_out (vty, "invalid protocol name \"%s\"\n", proto);
       return CMD_WARNING;
     }
   return zebra_route_match_add (vty, "source-protocol", proto, RMAP_EVENT_MATCH_ADDED);
@@ -459,7 +459,7 @@ DEFUN (ip_protocol,
     i = proto_name2num(proto);
   if (i < 0)
     {
-      vty_outln (vty, "invalid protocol name \"%s\"", proto);
+      vty_out (vty, "invalid protocol name \"%s\"\n", proto);
       return CMD_WARNING;
     }
   if (proto_rm[AFI_IP][i])
@@ -500,7 +500,7 @@ DEFUN (no_ip_protocol,
 
   if (i < 0)
     {
-      vty_outln (vty, "invalid protocol name \"%s\"", proto);
+      vty_out (vty, "invalid protocol name \"%s\"\n", proto);
      return CMD_WARNING;
     }
 
@@ -566,7 +566,7 @@ DEFUN (ipv6_protocol,
     i = proto_name2num(proto);
   if (i < 0)
     {
-      vty_outln (vty, "invalid protocol name \"%s\"", proto);
+      vty_out (vty, "invalid protocol name \"%s\"\n", proto);
       return CMD_WARNING;
     }
   if (proto_rm[AFI_IP6][i])
@@ -606,7 +606,7 @@ DEFUN (no_ipv6_protocol,
     i = proto_name2num(proto);
   if (i < 0)
     {
-      vty_outln (vty, "invalid protocol name \"%s\"", proto);
+      vty_out (vty, "invalid protocol name \"%s\"\n", proto);
      return CMD_WARNING;
     }
   if (!proto_rm[AFI_IP6][i])
@@ -672,7 +672,7 @@ DEFUN (ip_protocol_nht_rmap,
     i = proto_name2num(proto);
   if (i < 0)
     {
-      vty_outln (vty, "invalid protocol name \"%s\"", proto);
+      vty_out (vty, "invalid protocol name \"%s\"\n", proto);
       return CMD_WARNING;
     }
   if (nht_rm[AFI_IP][i])
@@ -707,7 +707,7 @@ DEFUN (no_ip_protocol_nht_rmap,
 
   if (i < 0)
     {
-      vty_outln (vty, "invalid protocol name \"%s\"", proto);
+      vty_out (vty, "invalid protocol name \"%s\"\n", proto);
       return CMD_WARNING;
     }
 
@@ -770,7 +770,7 @@ DEFUN (ipv6_protocol_nht_rmap,
     i = proto_name2num(proto);
   if (i < 0)
     {
-      vty_outln (vty, "invalid protocol name \"%s\"", proto);
+      vty_out (vty, "invalid protocol name \"%s\"\n", proto);
       return CMD_WARNING;
     }
   if (nht_rm[AFI_IP6][i])
@@ -801,13 +801,13 @@ DEFUN (no_ipv6_protocol_nht_rmap,
     i = proto_name2num(proto);
   if (i < 0)
     {
-      vty_outln (vty, "invalid protocol name \"%s\"", proto);
+      vty_out (vty, "invalid protocol name \"%s\"\n", proto);
       return CMD_WARNING;
     }
 
   if (nht_rm[AFI_IP6][i] && rmap && strcmp(rmap, nht_rm[AFI_IP6][i]))
     {
-      vty_outln (vty, "invalid route-map \"%s\"", rmap);
+      vty_out (vty, "invalid route-map \"%s\"\n", rmap);
       return CMD_WARNING;
     }
 

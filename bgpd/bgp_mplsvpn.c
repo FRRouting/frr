@@ -634,7 +634,7 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
                       else
                         {
 		          if (tags)
-		            vty_outln (vty, V4_HEADER_TAG);
+		            vty_out (vty, V4_HEADER_TAG);
 		          else
 		            {
 		              vty_out (vty, "BGP table version is 0, local router ID is %s\n",
@@ -643,7 +643,7 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
                                          "Status codes: s suppressed, d damped, h history, * valid, > best, i - internal\n");
 		              vty_out (vty, "Origin codes: i - IGP, e - EGP, ? - incomplete%s\n",
 		                       VTYNL);
-		              vty_outln (vty, V4_HEADER);
+		              vty_out (vty, V4_HEADER);
 		            }
                         }
 		      header = 0;

@@ -874,11 +874,11 @@ lsp_print_mt_ipv6_reach(struct list *list, struct vty *vty, uint16_t mtid)
         {
           if ((ipv6_reach->control_info &
                CTRL_INFO_DISTRIBUTION) == DISTRIBUTION_INTERNAL)
-            vty_outln (vty, "  Metric      : %-8" PRIu32 " IPv6-Internal : %s/%d",
+            vty_out (vty, "  Metric      : %-8" PRIu32 " IPv6-Internal : %s/%d\n",
                        ntohl (ipv6_reach->metric),
                        buff, ipv6_reach->prefix_len);
           else
-            vty_outln (vty, "  Metric      : %-8" PRIu32 " IPv6-External : %s/%d",
+            vty_out (vty, "  Metric      : %-8" PRIu32 " IPv6-External : %s/%d\n",
                        ntohl (ipv6_reach->metric),
                        buff, ipv6_reach->prefix_len);
         }
@@ -886,12 +886,12 @@ lsp_print_mt_ipv6_reach(struct list *list, struct vty *vty, uint16_t mtid)
         {
           if ((ipv6_reach->control_info &
                CTRL_INFO_DISTRIBUTION) == DISTRIBUTION_INTERNAL)
-            vty_outln (vty, "  Metric      : %-8" PRIu32 " IPv6-MT-Int   : %s/%d %s",
+            vty_out (vty, "  Metric      : %-8" PRIu32 " IPv6-MT-Int   : %s/%d %s\n",
                        ntohl (ipv6_reach->metric),
                        buff, ipv6_reach->prefix_len,
                        isis_mtid2str(mtid));
           else
-            vty_outln (vty, "  Metric      : %-8" PRIu32 " IPv6-MT-Ext   : %s/%d %s",
+            vty_out (vty, "  Metric      : %-8" PRIu32 " IPv6-MT-Ext   : %s/%d %s\n",
                        ntohl (ipv6_reach->metric),
                        buff, ipv6_reach->prefix_len,
                        isis_mtid2str(mtid));
@@ -910,7 +910,7 @@ lsp_print_mt_ipv4_reach(struct list *list, struct vty *vty, uint16_t mtid)
       if (mtid == ISIS_MT_IPV4_UNICAST)
         {
           /* FIXME: There should be better way to output this stuff. */
-          vty_outln (vty, "  Metric      : %-8" PRIu32 " IPv4-Extended : %s/%d",
+          vty_out (vty, "  Metric      : %-8" PRIu32 " IPv4-Extended : %s/%d\n",
                      ntohl (te_ipv4_reach->te_metric),
                      inet_ntoa (newprefix2inaddr (&te_ipv4_reach->prefix_start,
                                                   te_ipv4_reach->control)),
@@ -919,7 +919,7 @@ lsp_print_mt_ipv4_reach(struct list *list, struct vty *vty, uint16_t mtid)
       else
         {
           /* FIXME: There should be better way to output this stuff. */
-          vty_outln (vty, "  Metric      : %-8" PRIu32 " IPv4-MT       : %s/%d %s",
+          vty_out (vty, "  Metric      : %-8" PRIu32 " IPv4-MT       : %s/%d %s\n",
                      ntohl (te_ipv4_reach->te_metric),
                      inet_ntoa (newprefix2inaddr (&te_ipv4_reach->prefix_start,
                                                   te_ipv4_reach->control)),
@@ -1023,7 +1023,7 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
     for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.is_neighs, lnode, is_neigh))
       {
 	lspid_print (is_neigh->neigh_id, LSPid, dynhost, 0);
-	vty_outln (vty, "  Metric      : %-8" PRIu8 " IS            : %s",
+	vty_out (vty, "  Metric      : %-8" PRIu8 " IS            : %s\n",
 		   is_neigh->metrics.metric_default, LSPid);
       }
   
@@ -1036,7 +1036,7 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
 	      sizeof (ipv4_reach_prefix));
       memcpy (ipv4_reach_mask, inet_ntoa (ipv4_reach->mask),
 	      sizeof (ipv4_reach_mask));
-      vty_outln (vty, "  Metric      : %-8" PRIu8 " IPv4-Internal : %s %s",
+      vty_out (vty, "  Metric      : %-8" PRIu8 " IPv4-Internal : %s %s\n",
 	         ipv4_reach->metrics.metric_default, ipv4_reach_prefix,
 	         ipv4_reach_mask);
     }
@@ -1050,7 +1050,7 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
 	      sizeof (ipv4_reach_prefix));
       memcpy (ipv4_reach_mask, inet_ntoa (ipv4_reach->mask),
 	      sizeof (ipv4_reach_mask));
-      vty_outln (vty, "  Metric      : %-8" PRIu8 " IPv4-External : %s %s",
+      vty_out (vty, "  Metric      : %-8" PRIu8 " IPv4-External : %s %s\n",
 	         ipv4_reach->metrics.metric_default, ipv4_reach_prefix,
 	         ipv4_reach_mask);
     }

@@ -564,7 +564,7 @@ update_group_show_walkcb (struct update_group *updgrp, void *arg)
 
   vty = ctx->vty;
 
-  vty_outln (vty, "Update-group %" PRIu64 ":", updgrp->id);
+  vty_out (vty, "Update-group %" PRIu64 ":\n", updgrp->id);
   vty_out (vty, "  Created: %s", timestamp_string (updgrp->uptime));
   filter = &updgrp->conf->filter[updgrp->afi][updgrp->safi];
   if (filter->map[RMAP_OUT].name)
@@ -585,14 +585,14 @@ update_group_show_walkcb (struct update_group *updgrp, void *arg)
     if (ctx->subgrp_id && (ctx->subgrp_id != subgrp->id))
       continue;
     vty_out (vty, VTYNL);
-    vty_outln (vty, "  Update-subgroup %" PRIu64 ":", subgrp->id);
+    vty_out (vty, "  Update-subgroup %" PRIu64 ":\n", subgrp->id);
     vty_out (vty, "    Created: %s", timestamp_string (subgrp->uptime));
 
     if (subgrp->split_from.update_group_id || subgrp->split_from.subgroup_id)
       {
-	vty_outln (vty, "    Split from group id: %" PRIu64 "",
+	vty_out (vty, "    Split from group id: %" PRIu64 "\n",
 		 subgrp->split_from.update_group_id);
-	vty_outln (vty, "    Split from subgroup id: %" PRIu64 "",
+	vty_out (vty, "    Split from subgroup id: %" PRIu64 "\n",
 		 subgrp->split_from.subgroup_id);
       }
 
@@ -609,7 +609,7 @@ update_group_show_walkcb (struct update_group *updgrp, void *arg)
 	     subgrp->peer_refreshes_combined);
     vty_out (vty, "    Merge checks triggered: %u\n",
 	     subgrp->merge_checks_triggered);
-    vty_outln (vty, "    Version: %" PRIu64 "", subgrp->version);
+    vty_out (vty, "    Version: %" PRIu64 "\n", subgrp->version);
     vty_out (vty, "    Packet queue length: %d\n",
 	     bpacket_queue_length(SUBGRP_PKTQ(subgrp)));
     vty_out (vty, "    Total packets enqueued: %u\n",
@@ -648,7 +648,7 @@ updgrp_show_packet_queue_walkcb (struct update_group *updgrp, void *arg)
   {
     if (ctx->subgrp_id && (ctx->subgrp_id != subgrp->id))
       continue;
-    vty_outln (vty, "update group %" PRIu64 ", subgroup %" PRIu64 "", updgrp->id,
+    vty_out (vty, "update group %" PRIu64 ", subgroup %" PRIu64 "\n", updgrp->id,
 	     subgrp->id);
     bpacket_queue_show_vty (SUBGRP_PKTQ (subgrp), vty);
   }

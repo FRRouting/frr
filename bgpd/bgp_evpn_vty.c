@@ -135,10 +135,10 @@ bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 						} else {
 							if (option ==
 							    SHOW_DISPLAY_TAGS)
-								vty_outln(vty, V4_HEADER_TAG);
+								vty_out(vty, V4_HEADER_TAG);
 							else if (option ==
 								 SHOW_DISPLAY_OVERLAY)
-								vty_outln(vty, V4_HEADER_OVERLAY);
+								vty_out(vty, V4_HEADER_OVERLAY);
 							else {
 								vty_out (vty,
 									"BGP table version is 0, local router ID is %s\n",
@@ -148,7 +148,7 @@ bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 								vty_out (vty,
 									"Origin codes: i - IGP, e - EGP, ? - incomplete%s\n",
 									VTYNL);
-								vty_outln(vty, V4_HEADER);
+								vty_out(vty, V4_HEADER);
 							}
 						}
 						header = 0;
@@ -224,7 +224,7 @@ bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 									 ip),
 									rd_ip.
 									val);
-							vty_outln (vty, VTYNL);
+							vty_out (vty, "\n\n");
 						}
 						rd_header = 0;
 					}

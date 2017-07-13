@@ -300,8 +300,8 @@ show_ip_eigrp_topology_header (struct vty *vty, struct eigrp *eigrp)
 
   vty_out (vty, "%sEIGRP Topology Table for AS(%d)/ID(%s)%s\n",
            VTYNL, eigrp->AS, inet_ntoa(router_id), VTYNL);
-  vty_outln (vty, "Codes: P - Passive, A - Active, U - Update, Q - Query, "
-           "R - Reply%s       r - reply Status, s - sia Status%s",
+  vty_out (vty, "Codes: P - Passive, A - Active, U - Update, Q - Query, "
+           "R - Reply%s       r - reply Status, s - sia Status%s\n",
            VTYNL, VTYNL);
 }
 
@@ -315,7 +315,7 @@ show_ip_eigrp_prefix_entry (struct vty *vty, struct eigrp_prefix_entry *tn)
   vty_out (vty, "%s/%u, ",
 	   inet_ntoa (tn->destination_ipv4->prefix), tn->destination_ipv4->prefixlen);
   vty_out (vty, "%u successors, ", successors->count);
-  vty_outln (vty, "FD is %u, serno: %" PRIu64 " ", tn->fdistance, tn->serno);
+  vty_out (vty, "FD is %u, serno: %" PRIu64 " \n", tn->fdistance, tn->serno);
 
   list_delete(successors);
 }

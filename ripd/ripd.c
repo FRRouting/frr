@@ -3474,11 +3474,11 @@ DEFUN (show_ip_rip,
   if (! rip)
     return CMD_SUCCESS;
 
-  vty_outln (vty, "Codes: R - RIP, C - connected, S - Static, O - OSPF, B - BGP%s"
+  vty_out (vty, "Codes: R - RIP, C - connected, S - Static, O - OSPF, B - BGP%s"
 	   "Sub-codes:%s"
            "      (n) - normal, (s) - static, (d) - default, (r) - redistribute,%s"
 	   "      (i) - interface%s%s"
-	   "     Network            Next Hop         Metric From            Tag Time",
+	   "     Network            Next Hop         Metric From            Tag Time\n",
 	   VTYNL, VTYNL,  VTYNL, VTYNL, VTYNL);
   
   for (np = route_top (rip->table); np; np = route_next (np))
@@ -3558,7 +3558,7 @@ DEFUN (show_ip_rip_status,
   if (! rip)
     return CMD_SUCCESS;
 
-  vty_outln (vty, "Routing Protocol is \"rip\"");
+  vty_out (vty, "Routing Protocol is \"rip\"\n");
   vty_out (vty, "  Sending updates every %ld seconds with +/-50%%,",
 	   rip->update_time);
   vty_out (vty, " next due in %lu seconds\n", 

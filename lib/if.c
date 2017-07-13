@@ -690,8 +690,8 @@ DEFUN (interface,
 
   if ((sl = strlen(ifname)) > INTERFACE_NAMSIZ)
     {
-      vty_outln (vty, "%% Interface name %s is invalid: length exceeds "
-		    "%d characters",
+      vty_out (vty, "%% Interface name %s is invalid: length exceeds "
+		    "%d characters\n",
 	       ifname, INTERFACE_NAMSIZ);
       return CMD_WARNING;
     }

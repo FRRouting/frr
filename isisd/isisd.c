@@ -396,8 +396,8 @@ area_net_title (struct vty *vty, const char *net_title)
        */
       if (memcmp (isis->sysid, GETSYSID (addr), ISIS_SYS_ID_LEN))
 	{
-	  vty_outln (vty,
-		   "System ID must not change when defining additional area" " addresses");
+	  vty_out (vty,
+		   "System ID must not change when defining additional area addresses\n");
 	  XFREE (MTYPE_ISIS_AREA_ADDR, addr);
 	  return CMD_ERR_AMBIGUOUS;
 	}
@@ -589,8 +589,8 @@ show_isis_neighbor_common (struct vty *vty, const char *id, char detail)
       vty_out (vty, "Area %s:\n", area->area_tag);
 
       if (detail == ISIS_UI_LEVEL_BRIEF)
-        vty_outln (vty,
-                   "  System Id           Interface   L  State" "        Holdtime SNPA");
+        vty_out (vty,
+                   "  System Id           Interface   L  State        Holdtime SNPA\n");
 
       for (ALL_LIST_ELEMENTS_RO (area->circuit_list, cnode, circuit))
         {
@@ -1543,8 +1543,8 @@ show_isis_database (struct vty *vty, const char *argv, int ui_level)
                            level + 1);
 
                   /* print the title in all cases */
-                  vty_outln (vty,
-                             "LSP ID                  PduLen  " "SeqNumber   Chksum  Holdtime  ATT/P/OL");
+                  vty_out (vty,
+                             "LSP ID                  PduLen  SeqNumber   Chksum  Holdtime  ATT/P/OL\n");
                 }
 
               if (lsp)

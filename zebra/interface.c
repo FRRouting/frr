@@ -984,27 +984,27 @@ nd_dump_vty (struct vty *vty, struct interface *ifp)
 	       zif->ra_sent, zif->ra_rcvd);
       interval = rtadv->MaxRtrAdvInterval;
       if (interval % 1000)
-        vty_outln (vty, "  ND router advertisements are sent every "
-			"%d milliseconds",interval);
+        vty_out (vty, "  ND router advertisements are sent every "
+			"%d milliseconds\n",interval);
       else
-        vty_outln (vty, "  ND router advertisements are sent every "
-			"%d seconds",interval / 1000);
+        vty_out (vty, "  ND router advertisements are sent every "
+			"%d seconds\n",interval / 1000);
       if (rtadv->AdvDefaultLifetime != -1)
 	vty_out (vty, "  ND router advertisements live for %d seconds\n",
 		 rtadv->AdvDefaultLifetime);
       else
 	vty_out (vty,
                    "  ND router advertisements lifetime tracks ra-interval\n");
-      vty_outln (vty, "  ND router advertisement default router preference is "
-			"%s",rtadv_pref_strs[rtadv->DefaultPreference]);
+      vty_out (vty, "  ND router advertisement default router preference is "
+			"%s\n",rtadv_pref_strs[rtadv->DefaultPreference]);
       if (rtadv->AdvManagedFlag)
 	vty_out (vty,"  Hosts use DHCP to obtain routable addresses.\n");
       else
 	vty_out (vty,"  Hosts use stateless autoconfig for addresses.\n");
       if (rtadv->AdvHomeAgentFlag)
       {
-      	vty_outln (vty,
-                         "  ND router advertisements with " "Home Agent flag bit set.");
+	vty_out (vty,
+                         "  ND router advertisements with Home Agent flag bit set.\n");
 	if (rtadv->HomeAgentLifetime != -1)
 	  vty_out (vty, "  Home Agent lifetime is %u seconds\n",
 	           rtadv->HomeAgentLifetime);
@@ -1175,13 +1175,13 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 
 #ifdef HAVE_PROC_NET_DEV
   /* Statistics print out using proc file system. */
-  vty_outln (vty, "    %lu input packets (%lu multicast), %lu bytes, "
-	   "%lu dropped",
+  vty_out (vty, "    %lu input packets (%lu multicast), %lu bytes, "
+	   "%lu dropped\n",
 	   ifp->stats.rx_packets, ifp->stats.rx_multicast,
 	   ifp->stats.rx_bytes, ifp->stats.rx_dropped);
 
-  vty_outln (vty, "    %lu input errors, %lu length, %lu overrun,"
-	   " %lu CRC, %lu frame",
+  vty_out (vty, "    %lu input errors, %lu length, %lu overrun,"
+	   " %lu CRC, %lu frame\n",
 	   ifp->stats.rx_errors, ifp->stats.rx_length_errors,
 	   ifp->stats.rx_over_errors, ifp->stats.rx_crc_errors,
 	   ifp->stats.rx_frame_errors);
@@ -1193,8 +1193,8 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 	   ifp->stats.tx_packets, ifp->stats.tx_bytes,
 	   ifp->stats.tx_dropped);
 
-  vty_outln (vty, "    %lu output errors, %lu aborted, %lu carrier,"
-	   " %lu fifo, %lu heartbeat",
+  vty_out (vty, "    %lu output errors, %lu aborted, %lu carrier,"
+	   " %lu fifo, %lu heartbeat\n",
 	   ifp->stats.tx_errors, ifp->stats.tx_aborted_errors,
 	   ifp->stats.tx_carrier_errors, ifp->stats.tx_fifo_errors,
 	   ifp->stats.tx_heartbeat_errors);
@@ -1206,8 +1206,8 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 #ifdef HAVE_NET_RT_IFLIST
 #if defined (__bsdi__) || defined (__NetBSD__)
   /* Statistics print out using sysctl (). */
-  vty_outln (vty, "    input packets %llu, bytes %llu, dropped %llu,"
-           " multicast packets %llu",
+  vty_out (vty, "    input packets %llu, bytes %llu, dropped %llu,"
+           " multicast packets %llu\n",
            (unsigned long long)ifp->stats.ifi_ipackets,
            (unsigned long long)ifp->stats.ifi_ibytes,
            (unsigned long long)ifp->stats.ifi_iqdrops,
@@ -1216,8 +1216,8 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
   vty_out (vty, "    input errors %llu\n",
            (unsigned long long)ifp->stats.ifi_ierrors);
 
-  vty_outln (vty, "    output packets %llu, bytes %llu,"
-           " multicast packets %llu",
+  vty_out (vty, "    output packets %llu, bytes %llu,"
+           " multicast packets %llu\n",
            (unsigned long long)ifp->stats.ifi_opackets,
            (unsigned long long)ifp->stats.ifi_obytes,
            (unsigned long long)ifp->stats.ifi_omcasts);
@@ -1229,8 +1229,8 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
            (unsigned long long)ifp->stats.ifi_collisions);
 #else
   /* Statistics print out using sysctl (). */
-  vty_outln (vty, "    input packets %lu, bytes %lu, dropped %lu,"
-	   " multicast packets %lu",
+  vty_out (vty, "    input packets %lu, bytes %lu, dropped %lu,"
+	   " multicast packets %lu\n",
 	   ifp->stats.ifi_ipackets, ifp->stats.ifi_ibytes,
 	   ifp->stats.ifi_iqdrops,ifp->stats.ifi_imcasts);
 

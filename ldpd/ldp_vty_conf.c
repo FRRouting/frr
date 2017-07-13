@@ -171,8 +171,8 @@ ldp_af_config_write(struct vty *vty, int af, struct ldpd_conf *conf,
 		vty_out (vty, "  discovery transport-address %s\n",
 		    log_addr(af, &af_conf->trans_addr));
 		else
-			vty_outln (vty,
-				  "  ! Incomplete config, specify a discovery " "transport-address");
+			vty_out (vty,
+				  "  ! Incomplete config, specify a discovery transport-address\n");
 
 	if ((af_conf->flags & F_LDPD_AF_ALLOCHOSTONLY) ||
 	    af_conf->acl_label_allocate_for[0] != '\0') {
@@ -282,12 +282,12 @@ ldp_config_write(struct vty *vty)
 
 		if (nbrp->flags & F_NBRP_GTSM) {
 			if (nbrp->gtsm_enabled)
-				vty_outln (vty, " neighbor %s ttl-security hops "
-				    "%u",  inet_ntoa(nbrp->lsr_id),
+				vty_out (vty, " neighbor %s ttl-security hops "
+				    "%u\n",  inet_ntoa(nbrp->lsr_id),
 				    nbrp->gtsm_hops);
 			else
-				vty_outln (vty, " neighbor %s ttl-security "
-				    "disable",inet_ntoa(nbrp->lsr_id));
+				vty_out (vty, " neighbor %s ttl-security "
+				    "disable\n",inet_ntoa(nbrp->lsr_id));
 		}
 
 		if (nbrp->auth.method == AUTH_MD5SIG)
@@ -333,8 +333,8 @@ ldp_l2vpn_pw_config_write(struct vty *vty, struct l2vpn_pw *pw)
 		vty_out (vty, "  pw-status disable\n");
 
 	if (missing_lsrid)
-		vty_outln (vty,
-		          "  ! Incomplete config, specify a neighbor " "lsr-id");
+		vty_out (vty,
+		          "  ! Incomplete config, specify a neighbor lsr-id\n");
 	if (missing_pwid)
 		vty_out (vty,"  ! Incomplete config, specify a pw-id\n");
 }

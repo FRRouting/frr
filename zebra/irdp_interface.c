@@ -478,8 +478,8 @@ DEFUN (ip_irdp_minadvertinterval,
       return CMD_SUCCESS;
   }
   else {
-      vty_outln (vty, "%% MinAdvertInterval must be less than or equal to "
-                      "MaxAdvertInterval");
+      vty_out (vty, "%% MinAdvertInterval must be less than or equal to "
+                      "MaxAdvertInterval\n");
       return CMD_WARNING;
   }
 }
@@ -505,8 +505,8 @@ DEFUN (ip_irdp_maxadvertinterval,
       return CMD_SUCCESS;
   }
   else {
-      vty_outln (vty, "%% MaxAdvertInterval must be greater than or equal to "
-                      "MinAdvertInterval");
+      vty_out (vty, "%% MaxAdvertInterval must be greater than or equal to "
+                      "MinAdvertInterval\n");
       return CMD_WARNING;
   }
 }

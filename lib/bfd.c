@@ -394,8 +394,8 @@ bfd_show_param(struct vty *vty, struct bfd_info *bfd_info, int bfd_tag,
     }
   else
     {
-      vty_outln (vty, "  %s%sDetect Mul: %d, Min Rx interval: %d,"
-                " Min Tx interval: %d",
+      vty_out (vty, "  %s%sDetect Mul: %d, Min Rx interval: %d,"
+                " Min Tx interval: %d\n",
                     (extra_space) ? "  ": "", (bfd_tag) ? "BFD: " : "  ",
                     bfd_info->detect_mult, bfd_info->required_min_rx,
                     bfd_info->desired_min_tx);

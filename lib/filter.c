@@ -1256,8 +1256,8 @@ filter_set_zebra (struct vty *vty, const char *name_str, const char *type_str,
 
   if (strlen(name_str) > ACL_NAMSIZ)
     {
-      vty_outln (vty, "%% ACL name %s is invalid: length exceeds "
-                    "%d characters",
+      vty_out (vty, "%% ACL name %s is invalid: length exceeds "
+                    "%d characters\n",
                name_str, ACL_NAMSIZ);
       return CMD_WARNING;
     }

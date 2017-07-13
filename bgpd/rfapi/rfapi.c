@@ -3101,12 +3101,12 @@ DEFUN (
 
   if (!str2prefix (argv[5]->arg, &pfx))
     {
-      vty_outln (vty, "Malformed address \"%s\"", argv[5]->arg);
+      vty_out (vty, "Malformed address \"%s\"\n", argv[5]->arg);
       return CMD_WARNING;
     }
   if (pfx.family != AF_INET && pfx.family != AF_INET6)
     {
-      vty_outln (vty, "Invalid address \"%s\"", argv[5]->arg);
+      vty_out (vty, "Invalid address \"%s\"\n", argv[5]->arg);
       return CMD_WARNING;
     }
 
@@ -3321,12 +3321,12 @@ DEFUN (debug_rfapi_register_vn_un,
    */
   if (!str2prefix (argv[8]->arg, &pfx))
     {
-      vty_outln (vty, "Malformed prefix \"%s\"", argv[8]->arg);
+      vty_out (vty, "Malformed prefix \"%s\"\n", argv[8]->arg);
       return CMD_WARNING;
     }
   if (pfx.family != AF_INET && pfx.family != AF_INET6)
     {
-      vty_outln (vty, "Bad family for prefix \"%s\"", argv[8]->arg);
+      vty_out (vty, "Bad family for prefix \"%s\"\n", argv[8]->arg);
       return CMD_WARNING;
     }
   rfapiQprefix2Rprefix (&pfx, &hpfx);
@@ -3410,12 +3410,12 @@ DEFUN (debug_rfapi_register_vn_un_l2o,
    */
   if (!str2prefix (argv[8]->arg, &pfx))
     {
-      vty_outln (vty, "Malformed prefix \"%s\"", argv[8]->arg);
+      vty_out (vty, "Malformed prefix \"%s\"\n", argv[8]->arg);
       return CMD_WARNING;
     }
   if (pfx.family != AF_INET && pfx.family != AF_INET6)
     {
-      vty_outln (vty, "Bad family for prefix \"%s\"", argv[8]->arg);
+      vty_out (vty, "Bad family for prefix \"%s\"\n", argv[8]->arg);
       return CMD_WARNING;
     }
   rfapiQprefix2Rprefix (&pfx, &hpfx);
@@ -3434,7 +3434,7 @@ DEFUN (debug_rfapi_register_vn_un_l2o,
   optary[opt_next].v.l2addr.logical_net_id = strtoul(argv[14]->arg, NULL, 10);
   if ((rc = rfapiStr2EthAddr (argv[12]->arg, &optary[opt_next].v.l2addr.macaddr)))
     {
-      vty_outln (vty, "Bad mac address \"%s\"", argv[12]->arg);
+      vty_out (vty, "Bad mac address \"%s\"\n", argv[12]->arg);
       return CMD_WARNING;
     }
   optary[opt_next].type = RFAPI_VN_OPTION_TYPE_L2ADDR;
@@ -3506,12 +3506,12 @@ DEFUN (debug_rfapi_unregister_vn_un,
    */
   if (!str2prefix (argv[8]->arg, &pfx))
     {
-      vty_outln (vty, "Malformed prefix \"%s\"", argv[8]->arg);
+      vty_out (vty, "Malformed prefix \"%s\"\n", argv[8]->arg);
       return CMD_WARNING;
     }
   if (pfx.family != AF_INET && pfx.family != AF_INET6)
     {
-      vty_outln (vty, "Bad family for prefix \"%s\"", argv[8]->arg);
+      vty_out (vty, "Bad family for prefix \"%s\"\n", argv[8]->arg);
       return CMD_WARNING;
     }
   rfapiQprefix2Rprefix (&pfx, &hpfx);
@@ -3659,7 +3659,7 @@ DEFUN (debug_rfapi_query_vn_un_l2o,
   memset (&l2o_buf, 0, sizeof (l2o_buf));
   if (rfapiStr2EthAddr (argv[10]->arg, &l2o_buf.macaddr))
     {
-      vty_outln (vty, "Bad mac address \"%s\"", argv[10]->arg);
+      vty_out (vty, "Bad mac address \"%s\"\n", argv[10]->arg);
       return CMD_WARNING;
     }
 

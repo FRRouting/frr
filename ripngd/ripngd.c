@@ -2004,11 +2004,11 @@ DEFUN (show_ipv6_ripng,
     return CMD_SUCCESS;
 
   /* Header of display. */ 
-  vty_outln (vty, "Codes: R - RIPng, C - connected, S - Static, O - OSPF, B - BGP%s"
+  vty_out (vty, "Codes: R - RIPng, C - connected, S - Static, O - OSPF, B - BGP%s"
 	   "Sub-codes:%s"
 	   "      (n) - normal, (s) - static, (d) - default, (r) - redistribute,%s"
 	   "      (i) - interface, (a/S) - aggregated/Suppressed%s%s"
-	   "   Network      Next Hop                      Via     Metric Tag Time",
+	   "   Network      Next Hop                      Via     Metric Tag Time\n",
 	   VTYNL, VTYNL, VTYNL,
 	   VTYNL, VTYNL);
   
@@ -2030,7 +2030,7 @@ DEFUN (show_ipv6_ripng,
 	  vty_out (vty, "%*s", 18, " ");
 
 	  vty_out (vty, "%*s", 28, " ");
-	  vty_outln (vty, "self      %2d  %3"ROUTE_TAG_PRI"", aggregate->metric,
+	  vty_out (vty, "self      %2d  %3"ROUTE_TAG_PRI"\n", aggregate->metric,
 		   (route_tag_t)aggregate->tag);
 	}
 
@@ -2110,7 +2110,7 @@ DEFUN (show_ipv6_ripng_status,
   if (! ripng)
     return CMD_SUCCESS;
 
-  vty_outln (vty, "Routing Protocol is \"RIPng\"");
+  vty_out (vty, "Routing Protocol is \"RIPng\"\n");
   vty_out (vty, "  Sending updates every %ld seconds with +/-50%%,",
            ripng->update_time);
   vty_out (vty, " next due in %lu seconds\n",

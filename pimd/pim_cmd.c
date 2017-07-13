@@ -220,11 +220,11 @@ static void pim_show_assert_internal(struct vty *vty)
   struct pim_ifchannel *ch;
   struct in_addr ifaddr;
 
-  vty_outln (vty,
+  vty_out (vty,
 	  "CA:   CouldAssert%s"
 	  "ECA:  Evaluate CouldAssert%s"
 	  "ATD:  AssertTrackingDesired%s"
-	  "eATD: Evaluate AssertTrackingDesired%s",
+	  "eATD: Evaluate AssertTrackingDesired%s\n",
 	  VTYNL, VTYNL, VTYNL, VTYNL);
 
   vty_out (vty,
@@ -2149,14 +2149,14 @@ static void show_rpf_refresh_stats(struct vty *vty, time_t now, json_object *jso
     json_object_int_add(json, "nexthopLookups", qpim_nexthop_lookups);
     json_object_int_add(json, "nexthopLookupsAvoided", nexthop_lookups_avoided);
   } else {
-    vty_outln (vty,
+    vty_out (vty,
             "RPF Cache Refresh Delay:    %ld msecs%s"
             "RPF Cache Refresh Timer:    %ld msecs%s"
             "RPF Cache Refresh Requests: %lld%s"
             "RPF Cache Refresh Events:   %lld%s"
             "RPF Cache Refresh Last:     %s%s"
             "Nexthop Lookups:            %lld%s"
-	    "Nexthop Lookups Avoided:    %lld",
+	    "Nexthop Lookups Avoided:    %lld\n",
             qpim_rpf_cache_refresh_delay_msec, VTYNL,
             pim_time_timer_remain_msec(qpim_rpf_cache_refresher), VTYNL,
             (long long)qpim_rpf_cache_refresh_requests, VTYNL,
@@ -2177,10 +2177,10 @@ static void show_scan_oil_stats(struct vty *vty, time_t now)
   pim_time_uptime_begin(uptime_mroute_add, sizeof(uptime_mroute_add), now, qpim_mroute_add_last);
   pim_time_uptime_begin(uptime_mroute_del, sizeof(uptime_mroute_del), now, qpim_mroute_del_last);
 
-  vty_outln (vty,
+  vty_out (vty,
           "Scan OIL - Last: %s  Events: %lld%s"
           "MFC Add  - Last: %s  Events: %lld%s"
-          "MFC Del  - Last: %s  Events: %lld",
+          "MFC Del  - Last: %s  Events: %lld\n",
           uptime_scan_oil,   (long long) qpim_scan_oil_events,   VTYNL,
           uptime_mroute_add, (long long) qpim_mroute_add_events, VTYNL,
           uptime_mroute_del, (long long)qpim_mroute_del_events);
@@ -5025,8 +5025,8 @@ DEFUN_HIDDEN (interface_ip_pim_ssm,
     return CMD_WARNING;
   }
 
-  vty_outln(vty, "WARN: Enabled PIM SM on interface; configure PIM SSM "
-                 "range if needed");
+  vty_out(vty, "WARN: Enabled PIM SM on interface; configure PIM SSM "
+                 "range if needed\n");
   return CMD_SUCCESS;
 }
 

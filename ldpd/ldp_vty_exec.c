@@ -564,8 +564,8 @@ show_nbr_detail_msg(struct vty *vty, struct imsg *imsg,
 		    log_addr(nbr->af, &nbr->raddr),ntohs(nbr->rport));
 		vty_out (vty, "  Authentication: %s\n",
 		    (nbr->auth_method == AUTH_MD5SIG) ? "TCP MD5 Signature" : "none");
-		vty_outln(vty, "  Session Holdtime: %u secs; "
-		    "KeepAlive interval: %u secs", nbr->holdtime,
+		vty_out(vty, "  Session Holdtime: %u secs; "
+		    "KeepAlive interval: %u secs\n", nbr->holdtime,
 		    nbr->holdtime / KEEPALIVE_PER_PERIOD);
 		vty_out(vty, "  State: %s; Downstream-Unsolicited\n",
 		    nbr_state_name(nbr->nbr_state));
@@ -869,10 +869,10 @@ show_nbr_detail_msg_json(struct imsg *imsg, struct show_params *params,
 void
 show_nbr_capabilities(struct vty *vty, struct ctl_nbr *nbr)
 {
-	vty_outln (vty, "  Capabilities Sent:%s"
+	vty_out (vty, "  Capabilities Sent:%s"
 	    "   - Dynamic Announcement (0x0506)%s"
 	    "   - Typed Wildcard (0x050B)%s"
-	    "   - Unrecognized Notification (0x0603)",
+	    "   - Unrecognized Notification (0x0603)\n",
 	    VTYNL, VTYNL, VTYNL);
 	vty_out (vty, "  Capabilities Received:\n");
 	if (nbr->flags & F_NBR_CAP_DYNAMIC)
@@ -1242,8 +1242,8 @@ show_l2vpn_binding_msg(struct vty *vty, struct imsg *imsg,
 		if (pw->local_label != NO_LABEL) {
 			vty_out (vty, "    Local Label:  %u\n",
 				  pw->local_label);
-			vty_outln (vty, "%-8sCbit: %u,    VC Type: %s,    "
-			    "GroupID: %u", "", pw->local_cword,
+			vty_out (vty, "%-8sCbit: %u,    VC Type: %s,    "
+			    "GroupID: %u\n", "", pw->local_cword,
 			    pw_type_name(pw->type),pw->local_gid);
 			vty_out (vty, "%-8sMTU: %u\n", "",pw->local_ifmtu);
 		} else
@@ -1253,8 +1253,8 @@ show_l2vpn_binding_msg(struct vty *vty, struct imsg *imsg,
 		if (pw->remote_label != NO_LABEL) {
 			vty_out (vty, "    Remote Label: %u\n",
 			    pw->remote_label);
-			vty_outln (vty, "%-8sCbit: %u,    VC Type: %s,    "
-			    "GroupID: %u", "", pw->remote_cword,
+			vty_out (vty, "%-8sCbit: %u,    VC Type: %s,    "
+			    "GroupID: %u\n", "", pw->remote_cword,
 			    pw_type_name(pw->type),pw->remote_gid);
 			vty_out (vty, "%-8sMTU: %u\n", "",pw->remote_ifmtu);
 		} else
@@ -1694,11 +1694,11 @@ ldp_vty_show_capabilities(struct vty *vty, int json)
 		return (0);
 	}
 
-	vty_outln (vty,
+	vty_out (vty,
 	    "Supported LDP Capabilities%s"
 	    " * Dynamic Announcement (0x0506)%s"
 	    " * Typed Wildcard (0x050B)%s"
-	    " * Unrecognized Notification (0x0603)%s", VTYNL,
+	    " * Unrecognized Notification (0x0603)%s\n", VTYNL,
 	    VTYNL, VTYNL, VTYNL);
 
 	return (0);

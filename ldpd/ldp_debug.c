@@ -116,13 +116,13 @@ ldp_vty_show_debugging(struct vty *vty)
 	if (LDP_DEBUG(event, EVENT))
 		vty_out (vty, "  LDP events debugging is on\n");
 	if (LDP_DEBUG(msg, MSG_RECV_ALL))
-		vty_outln (vty,
-			  "  LDP detailed messages debugging is on " "(inbound)");
+		vty_out (vty,
+			  "  LDP detailed messages debugging is on (inbound)\n");
 	else if (LDP_DEBUG(msg, MSG_RECV))
 		vty_out (vty,"  LDP messages debugging is on (inbound)\n");
 	if (LDP_DEBUG(msg, MSG_SEND_ALL))
-		vty_outln (vty,
-			  "  LDP detailed messages debugging is on " "(outbound)");
+		vty_out (vty,
+			  "  LDP detailed messages debugging is on (outbound)\n");
 	else if (LDP_DEBUG(msg, MSG_SEND))
 		vty_out (vty,"  LDP messages debugging is on (outbound)\n");
 	if (LDP_DEBUG(zebra, ZEBRA))

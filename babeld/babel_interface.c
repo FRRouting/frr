@@ -879,7 +879,7 @@ show_babel_interface_sub (struct vty *vty, struct interface *ifp)
   }
   babel_ifp = babel_get_if_nfo (ifp);
   vty_out (vty, "  Babel protocol is running on this interface\n");
-  vty_outln (vty, "  Operating mode is \"%s\"",
+  vty_out (vty, "  Operating mode is \"%s\"\n",
            CHECK_FLAG(babel_ifp->flags, BABEL_IF_WIRED) ? "wired" : "wireless");
   vty_out (vty, "  Split horizon mode is %s\n",
            CHECK_FLAG(babel_ifp->flags, BABEL_IF_SPLIT_HORIZON) ? "On" : "Off");
@@ -917,9 +917,9 @@ DEFUN (show_babel_interface,
 static void
 show_babel_neighbour_sub (struct vty *vty, struct neighbour *neigh)
 {
-    vty_outln (vty,
+    vty_out (vty,
              "Neighbour %s dev %s reach %04x rxcost %d txcost %d "
-             "rtt %s rttcost %d%s.",
+             "rtt %s rttcost %d%s.\n",
              format_address(neigh->address),
              neigh->ifp->name,
              neigh->reach,
@@ -1009,9 +1009,9 @@ show_babel_routes_sub(struct babel_route *route, struct vty *vty,
             channels[0] = '\0';
     }
 
-    vty_outln (vty,
+    vty_out (vty,
             "%s metric %d refmetric %d id %s seqno %d%s age %d "
-            "via %s neigh %s%s%s%s",
+            "via %s neigh %s%s%s%s\n",
             format_prefix(route->src->prefix, route->src->plen),
             route_metric(route), route->refmetric,
             format_eui64(route->src->id),

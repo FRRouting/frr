@@ -1321,8 +1321,8 @@ isis_print_paths (struct vty *vty, struct list *paths, u_char *root_sysid)
   struct isis_adjacency *adj;
   char buff[PREFIX2STR_BUFFER];
 
-  vty_outln (vty,
-             "Vertex               Type         Metric " "Next-Hop             Interface Parent");
+  vty_out (vty,
+             "Vertex               Type         Metric Next-Hop             Interface Parent\n");
 
   for (ALL_LIST_ELEMENTS_RO (paths, node, vertex)) {
       if (memcmp (vertex->N.id, root_sysid, ISIS_SYS_ID_LEN) == 0) {

@@ -272,8 +272,8 @@ DEFUN (isis_network,
 
   if (isis_circuit_circ_type_set(circuit, CIRCUIT_T_P2P))
     {
-      vty_outln (vty,
-                 "isis network point-to-point " "is valid only on broadcast interfaces");
+      vty_out (vty,
+                 "isis network point-to-point is valid only on broadcast interfaces\n");
       return CMD_ERR_AMBIGUOUS;
     }
 
@@ -294,8 +294,8 @@ DEFUN (no_isis_network,
 
   if (isis_circuit_circ_type_set(circuit, CIRCUIT_T_BROADCAST))
     {
-      vty_outln (vty,
-                 "isis network point-to-point " "is valid only on broadcast interfaces");
+      vty_out (vty,
+                 "isis network point-to-point is valid only on broadcast interfaces\n");
       return CMD_ERR_AMBIGUOUS;
     }
 
@@ -509,8 +509,8 @@ DEFUN (isis_metric,
   if (circuit->area && circuit->area->oldmetric == 1 &&
       met > MAX_NARROW_LINK_METRIC)
     {
-      vty_outln (vty, "Invalid metric %d - should be <0-63> "
-               "when narrow metric type enabled",
+      vty_out (vty, "Invalid metric %d - should be <0-63> "
+               "when narrow metric type enabled\n",
                met);
       return CMD_ERR_AMBIGUOUS;
     }
@@ -519,8 +519,8 @@ DEFUN (isis_metric,
   if (circuit->area && circuit->area->newmetric == 1 &&
       met > MAX_WIDE_LINK_METRIC)
     {
-      vty_outln (vty, "Invalid metric %d - should be <0-16777215> "
-               "when wide metric type enabled",
+      vty_out (vty, "Invalid metric %d - should be <0-16777215> "
+               "when wide metric type enabled\n",
                met);
       return CMD_ERR_AMBIGUOUS;
     }
@@ -569,8 +569,8 @@ DEFUN (isis_metric_l1,
   if (circuit->area && circuit->area->oldmetric == 1 &&
       met > MAX_NARROW_LINK_METRIC)
     {
-      vty_outln (vty, "Invalid metric %d - should be <0-63> "
-               "when narrow metric type enabled",
+      vty_out (vty, "Invalid metric %d - should be <0-63> "
+               "when narrow metric type enabled\n",
                met);
       return CMD_ERR_AMBIGUOUS;
     }
@@ -579,8 +579,8 @@ DEFUN (isis_metric_l1,
   if (circuit->area && circuit->area->newmetric == 1 &&
       met > MAX_WIDE_LINK_METRIC)
     {
-      vty_outln (vty, "Invalid metric %d - should be <0-16777215> "
-               "when wide metric type enabled",
+      vty_out (vty, "Invalid metric %d - should be <0-16777215> "
+               "when wide metric type enabled\n",
                met);
       return CMD_ERR_AMBIGUOUS;
     }
@@ -628,8 +628,8 @@ DEFUN (isis_metric_l2,
   if (circuit->area && circuit->area->oldmetric == 1 &&
       met > MAX_NARROW_LINK_METRIC)
     {
-      vty_outln (vty, "Invalid metric %d - should be <0-63> "
-               "when narrow metric type enabled",
+      vty_out (vty, "Invalid metric %d - should be <0-63> "
+               "when narrow metric type enabled\n",
                met);
       return CMD_ERR_AMBIGUOUS;
     }
@@ -638,8 +638,8 @@ DEFUN (isis_metric_l2,
   if (circuit->area && circuit->area->newmetric == 1 &&
       met > MAX_WIDE_LINK_METRIC)
     {
-      vty_outln (vty, "Invalid metric %d - should be <0-16777215> "
-               "when wide metric type enabled",
+      vty_out (vty, "Invalid metric %d - should be <0-16777215> "
+               "when wide metric type enabled\n",
                met);
       return CMD_ERR_AMBIGUOUS;
     }
@@ -1606,8 +1606,8 @@ set_lsp_gen_interval (struct vty *vty, struct isis_area *area,
 
       if (interval >= area->lsp_refresh[lvl-1])
         {
-          vty_outln (vty, "LSP gen interval %us must be less than "
-                   "the LSP refresh interval %us",
+          vty_out (vty, "LSP gen interval %us must be less than "
+                   "the LSP refresh interval %us\n",
                    interval, area->lsp_refresh[lvl - 1]);
           return CMD_ERR_AMBIGUOUS;
         }
@@ -1845,17 +1845,17 @@ area_max_lsp_lifetime_set(struct vty *vty, int level,
 
       if (refresh_interval < area->lsp_refresh[lvl-1])
         {
-          vty_outln (vty, "Level %d Max LSP lifetime %us must be 300s greater than "
-                   "the configured LSP refresh interval %us",
+          vty_out (vty, "Level %d Max LSP lifetime %us must be 300s greater than "
+                   "the configured LSP refresh interval %us\n",
                    lvl, interval, area->lsp_refresh[lvl - 1]);
-          vty_outln (vty, "Automatically reducing level %d LSP refresh interval "
-                   "to %us", lvl, refresh_interval);
+          vty_out (vty, "Automatically reducing level %d LSP refresh interval "
+                   "to %us\n", lvl, refresh_interval);
           set_refresh_interval[lvl-1] = 1;
 
           if (refresh_interval <= area->lsp_gen_interval[lvl-1])
             {
-              vty_outln (vty, "LSP refresh interval %us must be greater than "
-                       "the configured LSP gen interval %us",
+              vty_out (vty, "LSP refresh interval %us must be greater than "
+                       "the configured LSP gen interval %us\n",
                        refresh_interval,area->lsp_gen_interval[lvl - 1]);
               return CMD_ERR_AMBIGUOUS;
             }
@@ -1929,15 +1929,15 @@ area_lsp_refresh_interval_set(struct vty *vty, int level, uint16_t interval)
         continue;
       if (interval <= area->lsp_gen_interval[lvl-1])
         {
-          vty_outln (vty, "LSP refresh interval %us must be greater than "
-                   "the configured LSP gen interval %us",
+          vty_out (vty, "LSP refresh interval %us must be greater than "
+                   "the configured LSP gen interval %us\n",
                    interval,area->lsp_gen_interval[lvl - 1]);
           return CMD_ERR_AMBIGUOUS;
         }
       if (interval > (area->max_lsp_lifetime[lvl-1] - 300))
         {
-          vty_outln (vty, "LSP refresh interval %us must be less than "
-                   "the configured LSP lifetime %us less 300",
+          vty_out (vty, "LSP refresh interval %us must be less than "
+                   "the configured LSP lifetime %us less 300\n",
                    interval,area->max_lsp_lifetime[lvl - 1]);
           return CMD_ERR_AMBIGUOUS;
         }

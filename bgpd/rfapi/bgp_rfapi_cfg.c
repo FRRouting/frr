@@ -491,7 +491,7 @@ DEFUN (vnc_defaults_l2rd,
       value = value_l & 0xff;
       if (!argv[1]->arg[0] || *end)
         {
-          vty_outln (vty, "%% Malformed l2 nve ID \"%s\"",argv[1]->arg);
+          vty_out (vty, "%% Malformed l2 nve ID \"%s\"\n",argv[1]->arg);
           return CMD_WARNING;
         }
       if ((value_l < 1) || (value_l > 0xff))
@@ -2606,7 +2606,7 @@ bgp_rfapi_delete_nve_group (
                 vty_out (vty, " un=");
               rfapiPrintRfapiIpAddr (vty, &rfd->un_addr);
               if (vty)
-                vty_outln (vty, " to new group \"%s\"",rfd->rfg->name);
+                vty_out (vty, " to new group \"%s\"\n",rfd->rfg->name);
 
             }
         }
@@ -2644,7 +2644,7 @@ bgp_rfapi_delete_named_nve_group (
       if (!rfg)
         {
           if (vty)
-            vty_outln (vty, "No NVE group named \"%s\"",rfg_name);
+            vty_out (vty, "No NVE group named \"%s\"\n",rfg_name);
           return CMD_WARNING;
         }
     }
@@ -2740,7 +2740,7 @@ DEFUN (vnc_nve_group_prefix,
 
   if (!str2prefix (argv[2]->arg, &p))
     {
-      vty_outln (vty, "Malformed prefix \"%s\"", argv[2]->arg);
+      vty_out (vty, "Malformed prefix \"%s\"\n", argv[2]->arg);
       return CMD_WARNING;
     }
 
@@ -2773,7 +2773,7 @@ DEFUN (vnc_nve_group_prefix,
           /*
            * different group name: fail
            */
-          vty_outln (vty, "nve group \"%s\" already has \"%s\" prefix %s",
+          vty_out (vty, "nve group \"%s\" already has \"%s\" prefix %s\n",
                    ((struct rfapi_nve_group_cfg *) (rn->info))->name,
                    argv[1]->arg, argv[2]->arg);
           return CMD_WARNING;
@@ -3054,7 +3054,7 @@ DEFUN (vnc_nve_group_l2rd,
 
       if (!argv[1]->arg[0] || *end)
         {
-          vty_outln (vty, "%% Malformed l2 nve ID \"%s\"",argv[1]->arg);
+          vty_out (vty, "%% Malformed l2 nve ID \"%s\"\n",argv[1]->arg);
           return CMD_WARNING;
         }
       if ((value_l < 1) || (value_l > 0xff))
@@ -3808,7 +3808,7 @@ bgp_rfapi_delete_named_l2_group (
       if (!rfg)
         {
           if (vty)
-            vty_outln (vty, "No L2 group named \"%s\"",rfg_name);
+            vty_out (vty, "No L2 group named \"%s\"\n",rfg_name);
           return CMD_WARNING;
         }
     }

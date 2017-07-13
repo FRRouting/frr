@@ -215,7 +215,7 @@ struct vty_arg
 	CPP_WARN("VTY_GET_IPV4_PREFIX is no longer useful, use str2prefix_ipv4() or DEFPY.")
 #define vty_outln(vty, str, ...) \
 	vty_out(vty, str "\n", ## __VA_ARGS__) \
-/*	CPP_WARN("vty_outln is no longer useful, use vty_out(...\\n...)") */
+	CPP_WARN("vty_outln is no longer useful, use vty_out(...\\n...)")
 
 /* Default time out value */
 #define VTY_TIMEOUT_DEFAULT 600
