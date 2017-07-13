@@ -401,3 +401,15 @@ maintenance overhead/cost.  It is also important to keep in mind,
 existing code includes code that may reside in private repositories (and
 is yet to be submitted) or code that has yet to be migrated from Quagga
 to FRR.
+
+That said, compatibility measures can (and should) be removed when either:
+
+* they become a significant burden, e.g. when data structures change and
+  the compatibility measure would need a complex adaptation layer or becomes
+  flat-out impossible
+* some measure of time (dependent on the specific case) has passed, so that
+  the compatibility grace period is considered expired.
+
+In all cases, compatibility pieces should be marked with compiler/preprocessor
+annotations to print warnings at compile time, pointing to the appropriate
+update path.  A `-Werror` build should fail if compatibility bits are used.
