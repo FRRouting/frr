@@ -1269,8 +1269,8 @@ ospf6_as_external_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
   /* Tag */
   if (CHECK_FLAG (external->bits_metric, OSPF6_ASBR_BIT_T))
     {
-      vty_out (vty, "     Tag: %"ROUTE_TAG_PRI"%s",
-               ospf6_as_external_lsa_get_tag (lsa), VTYNL);
+      vty_out (vty, "     Tag: %"ROUTE_TAG_PRI"\n",
+               ospf6_as_external_lsa_get_tag (lsa));
     }
 
   return 0;

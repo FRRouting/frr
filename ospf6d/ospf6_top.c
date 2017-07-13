@@ -814,14 +814,14 @@ ospf6_show (struct vty *vty, struct ospf6 *o)
   vty_out (vty, " LSA minimum arrival %d msecs\n",o->lsa_minarrival);
 
   /* Show SPF parameters */
-  vty_out(vty, " Initial SPF scheduling delay %d millisec(s)%s"
-	  " Minimum hold time between consecutive SPFs %d millsecond(s)%s"
-	  " Maximum hold time between consecutive SPFs %d millsecond(s)%s"
-	  " Hold time multiplier is currently %d%s",
-	  o->spf_delay, VTYNL,
-	  o->spf_holdtime, VTYNL,
-	  o->spf_max_holdtime, VTYNL,
-	  o->spf_hold_multiplier, VTYNL);
+  vty_out(vty, " Initial SPF scheduling delay %d millisec(s)\n"
+	  " Minimum hold time between consecutive SPFs %d millsecond(s)\n"
+	  " Maximum hold time between consecutive SPFs %d millsecond(s)\n"
+	  " Hold time multiplier is currently %d\n",
+	  o->spf_delay,
+	  o->spf_holdtime,
+	  o->spf_max_holdtime,
+	  o->spf_hold_multiplier);
 
   vty_out(vty, " SPF algorithm ");
   if (o->ts_spf.tv_sec || o->ts_spf.tv_usec)

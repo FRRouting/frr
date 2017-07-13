@@ -474,8 +474,8 @@ DEFUN_NOSH (vrf,
   if (strlen(vrfname) > VRF_NAMSIZ)
     {
       vty_out (vty, "%% VRF name %s is invalid: length exceeds "
-                    "%d characters%s",
-               vrfname, VRF_NAMSIZ, VTYNL);
+                    "%d characters\n",
+               vrfname, VRF_NAMSIZ);
       return CMD_WARNING;
     }
 

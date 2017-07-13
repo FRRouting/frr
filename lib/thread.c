@@ -163,12 +163,12 @@ cpu_record_print(struct vty *vty, thread_type filter)
       else
         vty_out(vty, "No data to display yet.\n");
 
-      vty_out(vty, VTYNL);
+      vty_out(vty, "\n");
     }
   }
   pthread_mutex_unlock (&masters_mtx);
 
-  vty_out(vty, VTYNL);
+  vty_out(vty, "\n");
   vty_out(vty, "Total thread statistics\n");
   vty_out(vty, "-------------------------\n");
   vty_out(vty, "%21s %18s %18s\n", "", "CPU (user+system):", "Real (wall-clock):");

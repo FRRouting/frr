@@ -232,23 +232,23 @@ show_discovery_detail_adj(struct vty *vty, char *buffer, struct ctl_adj *adj)
 	size_t	 buflen = strlen(buffer);
 
 	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
-	    "      LSR Id: %s:0%s", inet_ntoa(adj->id), VTYNL);
+	    "      LSR Id: %s:0\n", inet_ntoa(adj->id));
 	buflen = strlen(buffer);
 	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
-	    "          Source address: %s%s",
-	    log_addr(adj->af, &adj->src_addr), VTYNL);
+	    "          Source address: %s\n",
+	    log_addr(adj->af, &adj->src_addr));
 	buflen = strlen(buffer);
 	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
-	    "          Transport address: %s%s",
-	    log_addr(adj->af, &adj->trans_addr), VTYNL);
+	    "          Transport address: %s\n",
+	    log_addr(adj->af, &adj->trans_addr));
 	buflen = strlen(buffer);
 	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
-	    "          Hello hold time: %u secs (due in %u secs)%s",
-	    adj->holdtime, adj->holdtime_remaining, VTYNL);
+	    "          Hello hold time: %u secs (due in %u secs)\n",
+	    adj->holdtime, adj->holdtime_remaining);
 	buflen = strlen(buffer);
 	snprintf(buffer + buflen, LDPBUFSIZ - buflen,
-	    "          Dual-stack capability TLV: %s%s",
-	    (adj->ds_tlv) ? "yes" : "no", VTYNL);
+	    "          Dual-stack capability TLV: %s\n",
+	    (adj->ds_tlv) ? "yes" : "no");
 }
 
 static int
@@ -279,8 +279,8 @@ show_discovery_detail_msg(struct vty *vty, struct imsg *imsg,
 
 		buflen = strlen(ifaces_buffer);
 		snprintf(ifaces_buffer + buflen, LDPBUFSIZ - buflen,
-		     "    %s: %s%s", iface->name, (iface->no_adj) ?
-		    "(no adjacencies)" : "", VTYNL);
+		     "    %s: %s\n", iface->name, (iface->no_adj) ?
+		    "(no adjacencies)" : "");
 		break;
 	case IMSG_CTL_SHOW_DISC_TNBR:
 		tnbr = imsg->data;
@@ -292,9 +292,9 @@ show_discovery_detail_msg(struct vty *vty, struct imsg *imsg,
 		    tnbr->af))->trans_addr;
 		buflen = strlen(tnbrs_buffer);
 		snprintf(tnbrs_buffer + buflen, LDPBUFSIZ - buflen,
-		    "    %s -> %s: %s%s", log_addr(tnbr->af, trans_addr),
+		    "    %s -> %s: %s\n", log_addr(tnbr->af, trans_addr),
 		    log_addr(tnbr->af, &tnbr->addr), (tnbr->no_adj) ?
-		    "(no adjacencies)" : "", VTYNL);
+		    "(no adjacencies)" : "");
 		break;
 	case IMSG_CTL_SHOW_DISC_ADJ:
 		adj = imsg->data;
@@ -531,12 +531,12 @@ show_nbr_detail_adj(struct vty *vty, char *buffer, struct ctl_adj *adj)
 	switch (adj->type) {
 	case HELLO_LINK:
 		snprintf(buffer + buflen, LDPBUFSIZ - buflen,
-		    "      Interface: %s%s", adj->ifname, VTYNL);
+		    "      Interface: %s\n", adj->ifname);
 		break;
 	case HELLO_TARGETED:
 		snprintf(buffer + buflen, LDPBUFSIZ - buflen,
-		    "      Targeted Hello: %s%s", log_addr(adj->af,
-		    &adj->src_addr), VTYNL);
+		    "      Targeted Hello: %s\n", log_addr(adj->af,
+		    &adj->src_addr));
 		break;
 	}
 }
@@ -869,11 +869,10 @@ show_nbr_detail_msg_json(struct imsg *imsg, struct show_params *params,
 void
 show_nbr_capabilities(struct vty *vty, struct ctl_nbr *nbr)
 {
-	vty_out (vty, "  Capabilities Sent:%s"
-	    "   - Dynamic Announcement (0x0506)%s"
-	    "   - Typed Wildcard (0x050B)%s"
-	    "   - Unrecognized Notification (0x0603)\n",
-	    VTYNL, VTYNL, VTYNL);
+	vty_out (vty, "  Capabilities Sent:\n"
+	    "   - Dynamic Announcement (0x0506)\n"
+	    "   - Typed Wildcard (0x050B)\n"
+	    "   - Unrecognized Notification (0x0603)\n");
 	vty_out (vty, "  Capabilities Received:\n");
 	if (nbr->flags & F_NBR_CAP_DYNAMIC)
 		vty_out (vty,"   - Dynamic Announcement (0x0506)\n");
@@ -1077,15 +1076,15 @@ show_lib_detail_msg(struct vty *vty, struct imsg *imsg, struct show_params *para
 		upstream = 1;
 		buflen = strlen(sent_buffer);
 		snprintf(sent_buffer + buflen, LDPBUFSIZ - buflen,
-		    "%12s%s:0%s", "", inet_ntoa(rt->nexthop), VTYNL);
+		    "%12s%s:0\n", "", inet_ntoa(rt->nexthop));
 		break;
 	case IMSG_CTL_SHOW_LIB_RCVD:
 		downstream = 1;
 		buflen = strlen(rcvd_buffer);
 		snprintf(rcvd_buffer + buflen, LDPBUFSIZ - buflen,
-		    "%12s%s:0, label %s%s%s", "", inet_ntoa(rt->nexthop),
+		    "%12s%s:0, label %s%s\n", "", inet_ntoa(rt->nexthop),
 		    log_label(rt->remote_label),
-		    rt->in_use ? " (in use)" : "", VTYNL);
+		    rt->in_use ? " (in use)" : "");
 		break;
 	case IMSG_CTL_SHOW_LIB_END:
 		if (upstream) {
@@ -1695,11 +1694,10 @@ ldp_vty_show_capabilities(struct vty *vty, int json)
 	}
 
 	vty_out (vty,
-	    "Supported LDP Capabilities%s"
-	    " * Dynamic Announcement (0x0506)%s"
-	    " * Typed Wildcard (0x050B)%s"
-	    " * Unrecognized Notification (0x0603)%s\n", VTYNL,
-	    VTYNL, VTYNL, VTYNL);
+	    "Supported LDP Capabilities\n"
+	    " * Dynamic Announcement (0x0506)\n"
+	    " * Typed Wildcard (0x050B)\n"
+	    " * Unrecognized Notification (0x0603)\n\n");
 
 	return (0);
 }

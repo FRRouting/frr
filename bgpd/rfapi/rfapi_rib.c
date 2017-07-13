@@ -2500,19 +2500,18 @@ rfapiRibShowResponses (
                 {
                   ++printedheader;
 
-                  fp (out, "%s[%s]\n",
-                      VTYNL,
+                  fp (out, "\n[%s]\n",
                       show_removed ? "Removed" : "Active");
                   fp (out, "%-15s %-15s\n", "Querying VN", "Querying UN");
-                  fp (out, "   %-20s %-15s %-15s %4s %-8s %-8s%s",
+                  fp (out, "   %-20s %-15s %-15s %4s %-8s %-8s\n",
                       "Prefix", "Registered VN", "Registered UN", "Cost",
                       "Lifetime",
 #if RFAPI_REGISTRATIONS_REPORT_AGE
-                      "Age",
+                      "Age"
 #else
-                      "Remaining",
+                      "Remaining"
 #endif
-                      VTYNL);
+                      );
                 }
               if (!printednve)
                 {

@@ -2004,13 +2004,11 @@ DEFUN (show_ipv6_ripng,
     return CMD_SUCCESS;
 
   /* Header of display. */ 
-  vty_out (vty, "Codes: R - RIPng, C - connected, S - Static, O - OSPF, B - BGP%s"
-	   "Sub-codes:%s"
-	   "      (n) - normal, (s) - static, (d) - default, (r) - redistribute,%s"
-	   "      (i) - interface, (a/S) - aggregated/Suppressed%s%s"
-	   "   Network      Next Hop                      Via     Metric Tag Time\n",
-	   VTYNL, VTYNL, VTYNL,
-	   VTYNL, VTYNL);
+  vty_out (vty, "Codes: R - RIPng, C - connected, S - Static, O - OSPF, B - BGP\n"
+	   "Sub-codes:\n"
+	   "      (n) - normal, (s) - static, (d) - default, (r) - redistribute,\n"
+	   "      (i) - interface, (a/S) - aggregated/Suppressed\n\n"
+	   "   Network      Next Hop                      Via     Metric Tag Time\n");
   
   for (rp = route_top (ripng->table); rp; rp = route_next (rp))
     {

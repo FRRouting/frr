@@ -678,14 +678,12 @@ static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 		return;
 
 	vty_out(ctx->vty,
-		  "Type: %s%s"
-		  "Flags:%s%s%s"
+		  "Type: %s\n"
+		  "Flags:%s%s\n"
 		  "Protocol-Address: %s/%zu\n",
 		  nhrp_cache_type_str[c->cur.type],
-		  VTYNL,
 		  (c->cur.peer && c->cur.peer->online) ? " up": "",
 		  c->used ? " used": "",
-		  VTYNL,
 		  sockunion2str(&c->remote_addr, buf, sizeof buf),
 		  8 * family2addrsize(sockunion_family(&c->remote_addr)));
 

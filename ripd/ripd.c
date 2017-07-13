@@ -3474,12 +3474,11 @@ DEFUN (show_ip_rip,
   if (! rip)
     return CMD_SUCCESS;
 
-  vty_out (vty, "Codes: R - RIP, C - connected, S - Static, O - OSPF, B - BGP%s"
-	   "Sub-codes:%s"
-           "      (n) - normal, (s) - static, (d) - default, (r) - redistribute,%s"
-	   "      (i) - interface%s%s"
-	   "     Network            Next Hop         Metric From            Tag Time\n",
-	   VTYNL, VTYNL,  VTYNL, VTYNL, VTYNL);
+  vty_out (vty, "Codes: R - RIP, C - connected, S - Static, O - OSPF, B - BGP\n"
+	   "Sub-codes:\n"
+           "      (n) - normal, (s) - static, (d) - default, (r) - redistribute,\n"
+	   "      (i) - interface\n\n"
+	   "     Network            Next Hop         Metric From            Tag Time\n");
   
   for (np = route_top (rip->table); np; np = route_next (np))
     if ((list = np->info) != NULL)

@@ -221,11 +221,10 @@ static void pim_show_assert_internal(struct vty *vty)
   struct in_addr ifaddr;
 
   vty_out (vty,
-	  "CA:   CouldAssert%s"
-	  "ECA:  Evaluate CouldAssert%s"
-	  "ATD:  AssertTrackingDesired%s"
-	  "eATD: Evaluate AssertTrackingDesired%s\n",
-	  VTYNL, VTYNL, VTYNL, VTYNL);
+	  "CA:   CouldAssert\n"
+	  "ECA:  Evaluate CouldAssert\n"
+	  "ATD:  AssertTrackingDesired\n"
+	  "eATD: Evaluate AssertTrackingDesired\n\n");
 
   vty_out (vty,
 	  "Interface Address         Source          Group           CA  eCA ATD eATD\n");
@@ -2149,19 +2148,19 @@ static void show_rpf_refresh_stats(struct vty *vty, time_t now, json_object *jso
     json_object_int_add(json, "nexthopLookupsAvoided", nexthop_lookups_avoided);
   } else {
     vty_out (vty,
-            "RPF Cache Refresh Delay:    %ld msecs%s"
-            "RPF Cache Refresh Timer:    %ld msecs%s"
-            "RPF Cache Refresh Requests: %lld%s"
-            "RPF Cache Refresh Events:   %lld%s"
-            "RPF Cache Refresh Last:     %s%s"
-            "Nexthop Lookups:            %lld%s"
+            "RPF Cache Refresh Delay:    %ld msecs\n"
+            "RPF Cache Refresh Timer:    %ld msecs\n"
+            "RPF Cache Refresh Requests: %lld\n"
+            "RPF Cache Refresh Events:   %lld\n"
+            "RPF Cache Refresh Last:     %s\n"
+            "Nexthop Lookups:            %lld\n"
 	    "Nexthop Lookups Avoided:    %lld\n",
-            qpim_rpf_cache_refresh_delay_msec, VTYNL,
-            pim_time_timer_remain_msec(qpim_rpf_cache_refresher), VTYNL,
-            (long long)qpim_rpf_cache_refresh_requests, VTYNL,
-            (long long)qpim_rpf_cache_refresh_events, VTYNL,
-            refresh_uptime, VTYNL,
-            (long long) qpim_nexthop_lookups, VTYNL,
+            qpim_rpf_cache_refresh_delay_msec,
+            pim_time_timer_remain_msec(qpim_rpf_cache_refresher),
+            (long long)qpim_rpf_cache_refresh_requests,
+            (long long)qpim_rpf_cache_refresh_events,
+            refresh_uptime,
+            (long long) qpim_nexthop_lookups,
 	    (long long)nexthop_lookups_avoided);
   }
 }
@@ -2177,11 +2176,11 @@ static void show_scan_oil_stats(struct vty *vty, time_t now)
   pim_time_uptime_begin(uptime_mroute_del, sizeof(uptime_mroute_del), now, qpim_mroute_del_last);
 
   vty_out (vty,
-          "Scan OIL - Last: %s  Events: %lld%s"
-          "MFC Add  - Last: %s  Events: %lld%s"
+          "Scan OIL - Last: %s  Events: %lld\n"
+          "MFC Add  - Last: %s  Events: %lld\n"
           "MFC Del  - Last: %s  Events: %lld\n",
-          uptime_scan_oil,   (long long) qpim_scan_oil_events,   VTYNL,
-          uptime_mroute_add, (long long) qpim_mroute_add_events, VTYNL,
+          uptime_scan_oil,   (long long) qpim_scan_oil_events,
+          uptime_mroute_add, (long long) qpim_mroute_add_events,
           uptime_mroute_del, (long long)qpim_mroute_del_events);
 }
 
@@ -3214,13 +3213,12 @@ static void show_multicast_interfaces(struct vty *vty)
     vreq.vifi = pim_ifp->mroute_vif_index;
 
     if (ioctl(qpim_mroute_socket_fd, SIOCGETVIFCNT, &vreq)) {
-      zlog_warn("ioctl(SIOCGETVIFCNT=%lu) failure for interface %s vif_index=%d: errno=%d: %s%s",
+      zlog_warn("ioctl(SIOCGETVIFCNT=%lu) failure for interface %s vif_index=%d: errno=%d: %s\n",
 		(unsigned long)SIOCGETVIFCNT,
 		ifp->name,
 		pim_ifp->mroute_vif_index,
 		errno,
-		safe_strerror(errno),
-		VTYNL);
+		safe_strerror(errno));
     }
 
     ifaddr = pim_ifp->primary_address;

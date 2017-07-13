@@ -223,7 +223,7 @@ DEFUN (ospf_router_id,
     if (area->full_nbrs)
       {
         vty_out (vty, "For this router-id change to take effect,"
-                 " save config and restart ospfd%s", VTYNL);
+                 " save config and restart ospfd\n");
         return CMD_SUCCESS;
       }
 
@@ -258,7 +258,7 @@ DEFUN_HIDDEN (ospf_router_id_old,
     if (area->full_nbrs)
       {
         vty_out (vty, "For this router-id change to take effect,"
-                 " save config and restart ospfd%s", VTYNL);
+                 " save config and restart ospfd\n");
         return CMD_SUCCESS;
       }
 
@@ -285,7 +285,7 @@ DEFUN (no_ospf_router_id,
     if (area->full_nbrs)
       {
         vty_out (vty, "For this router-id change to take effect,"
-                 " save config and restart ospfd%s", VTYNL);
+                 " save config and restart ospfd\n");
         return CMD_SUCCESS;
       }
 
@@ -1356,8 +1356,7 @@ DEFUN (ospf_area_shortcut,
 
   if (ospf->abr_type != OSPF_ABR_SHORTCUT)
     vty_out (vty, "Shortcut area setting will take effect "
-	     "only when the router is configured as Shortcut ABR%s",
-	     VTYNL);
+	     "only when the router is configured as Shortcut ABR\n");
 
   return CMD_SUCCESS;
 }
@@ -2716,8 +2715,8 @@ show_ip_ospf_area (struct vty *vty, struct ospf_area *area, json_object *json_ar
     }
   else
     vty_out (vty, "   Number of interfaces in this area: Total: %d, "
-             "Active: %d%s", listcount (area->oiflist),
-             area->act_ints, VTYNL);
+             "Active: %d\n", listcount (area->oiflist),
+             area->act_ints);
 
   if (area->external_routing == OSPF_AREA_NSSA)
     {
@@ -2830,7 +2829,7 @@ show_ip_ospf_area (struct vty *vty, struct ospf_area *area, json_object *json_ar
     {
       /* Show number of fully adjacent neighbors. */
       vty_out (vty, "   Number of fully adjacent neighbors in this area:"
-               " %d%s", area->full_nbrs, VTYNL);
+               " %d\n", area->full_nbrs);
 
       /* Show authentication type. */
       vty_out (vty, "   Area has ");
@@ -2843,7 +2842,7 @@ show_ip_ospf_area (struct vty *vty, struct ospf_area *area, json_object *json_ar
 
       if (!OSPF_IS_AREA_BACKBONE (area))
         vty_out (vty, "   Number of full virtual adjacencies going through"
-                 " this area: %d%s", area->full_vls, VTYNL);
+                 " this area: %d\n", area->full_vls);
 
       /* Show SPF calculation times. */
       vty_out (vty, "   SPF algorithm executed %d times\n",
@@ -3013,14 +3012,14 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
     }
   else
     {
-      vty_out (vty, " Initial SPF scheduling delay %d millisec(s)%s"
-                    " Minimum hold time between consecutive SPFs %d millisec(s)%s"
-                    " Maximum hold time between consecutive SPFs %d millisec(s)%s"
-                    " Hold time multiplier is currently %d%s",
-               ospf->spf_delay, VTYNL,
-               ospf->spf_holdtime, VTYNL,
-               ospf->spf_max_holdtime, VTYNL,
-               ospf->spf_hold_multiplier, VTYNL);
+      vty_out (vty, " Initial SPF scheduling delay %d millisec(s)\n"
+                    " Minimum hold time between consecutive SPFs %d millisec(s)\n"
+                    " Maximum hold time between consecutive SPFs %d millisec(s)\n"
+                    " Hold time multiplier is currently %d\n",
+               ospf->spf_delay,
+               ospf->spf_holdtime,
+               ospf->spf_max_holdtime,
+               ospf->spf_hold_multiplier);
     }
 
   if (use_json)
@@ -3104,7 +3103,7 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
         json_object_string_add(json, "asbrRouter", "injectingExternalRoutingInformation");
       else
         vty_out (vty, " This router is an ASBR "
-                 "(injecting external routing information)%s", VTYNL);
+                 "(injecting external routing information)\n");
     }
 
   /* Show Number of AS-external-LSAs. */
@@ -4909,8 +4908,8 @@ show_as_external_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
       vty_out (vty, "        Forward Address: %s\n",
 	       inet_ntoa (al->e[0].fwd_addr));
 
-      vty_out (vty, "        External Route Tag: %"ROUTE_TAG_PRI"%s%s",
-	       (route_tag_t)ntohl (al->e[0].route_tag), VTYNL, VTYNL);
+      vty_out (vty, "        External Route Tag: %"ROUTE_TAG_PRI"\n\n",
+	       (route_tag_t)ntohl (al->e[0].route_tag));
     }
 
   return 0;
@@ -4961,8 +4960,8 @@ show_as_nssa_lsa_detail (struct vty *vty, struct ospf_lsa *lsa)
       vty_out (vty, "        NSSA: Forward Address: %s\n",
 	       inet_ntoa (al->e[0].fwd_addr));
 
-      vty_out (vty, "        External Route Tag: %"ROUTE_TAG_PRI"%s%s",
-	       (route_tag_t)ntohl (al->e[0].route_tag), VTYNL, VTYNL);
+      vty_out (vty, "        External Route Tag: %"ROUTE_TAG_PRI"\n\n",
+	       (route_tag_t)ntohl (al->e[0].route_tag));
     }
 
   return 0;
@@ -7906,12 +7905,12 @@ show_ip_ospf_route_external (struct vty *vty, struct route_table *rt)
 	switch (er->path_type)
 	  {
 	  case OSPF_PATH_TYPE1_EXTERNAL:
-	    vty_out (vty, "N E1 %-18s    [%d] tag: %"ROUTE_TAG_PRI"%s", buf1,
-		     er->cost, er->u.ext.tag, VTYNL);
+	    vty_out (vty, "N E1 %-18s    [%d] tag: %"ROUTE_TAG_PRI"\n", buf1,
+		     er->cost, er->u.ext.tag);
 	    break;
 	  case OSPF_PATH_TYPE2_EXTERNAL:
-	    vty_out (vty, "N E2 %-18s    [%d/%d] tag: %"ROUTE_TAG_PRI"%s", buf1, er->cost,
-		     er->u.ext.type2_cost, er->u.ext.tag, VTYNL);
+	    vty_out (vty, "N E2 %-18s    [%d/%d] tag: %"ROUTE_TAG_PRI"\n", buf1, er->cost,
+		     er->u.ext.type2_cost, er->u.ext.tag);
 	    break;
 	  }
 
@@ -8502,10 +8501,10 @@ config_write_virtual_link (struct vty *vty, struct ospf *ospf)
 	  for (ALL_LIST_ELEMENTS_RO (IF_DEF_PARAMS (vl_data->vl_oi->ifp)->auth_crypt,
                                      n2, ck))
             vty_out (vty, " area %s virtual-link %s"
-                     " message-digest-key %d md5 %s%s",
+                     " message-digest-key %d md5 %s\n",
                      buf,
                      inet_ntoa (vl_data->vl_peer),
-                     ck->key_id, ck->auth_key, VTYNL);
+                     ck->key_id, ck->auth_key);
 	 
 	}
     }
@@ -8694,7 +8693,7 @@ ospf_config_write (struct vty *vty)
       if (ospf->ref_bandwidth != OSPF_DEFAULT_REF_BANDWIDTH)
         {
           vty_out (vty, "! Important: ensure reference bandwidth "
-                        "is consistent across all routers%s", VTYNL);
+                        "is consistent across all routers\n");
           vty_out (vty, " auto-cost reference-bandwidth %d\n",
 		   ospf->ref_bandwidth);
         }

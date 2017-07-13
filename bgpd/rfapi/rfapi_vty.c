@@ -385,14 +385,14 @@ rfapiStdioPrintf (void *stream, const char *format, ...)
 /* Fake out for debug logging */
 static struct vty vty_dummy_zlog;
 static struct vty vty_dummy_stdio;
-#define HVTYNL ((vty == &vty_dummy_zlog)? "": VTYNL)
+#define HVTYNL ((vty == &vty_dummy_zlog)? "": "\n")
 
 static const char *
 str_vty_newline (struct vty *vty)
 {
   if (vty == &vty_dummy_zlog)
     return "";
-  return VTYNL;
+  return "\n";
 }
 
 int

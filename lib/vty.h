@@ -156,7 +156,7 @@ static inline void vty_push_context(struct vty *vty,
 #define VTY_CHECK_CONTEXT(ptr) \
 	if (!ptr) { \
 		vty_out (vty, "Current configuration object was deleted " \
-				"by another process.%s", VTYNL); \
+				"by another process.\n"); \
 		return CMD_WARNING; \
 	}
 
@@ -198,7 +198,7 @@ struct vty_arg
 #define VNL                                       "\n" \
 	CPP_WARN("VNL has been replaced with \\n.")
 #define VTYNL                                     "\n" \
-/*	CPP_WARN("VTYNL has been replaced with \\n.") */
+	CPP_WARN("VTYNL has been replaced with \\n.")
 #define VTY_NEWLINE                               "\n" \
 	CPP_WARN("VTY_NEWLINE has been replaced with \\n.")
 #define VTY_GET_INTEGER(desc,v,str)               {(v)=strtoul ((str), NULL, 10);} \

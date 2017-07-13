@@ -467,7 +467,7 @@ DEFUN(show_hash_stats,
   if (tt->nrows > 1)
     {
       ttable_colseps (tt, 0, RIGHT, true, '|');
-      char *table = ttable_dump (tt, VTYNL);
+      char *table = ttable_dump (tt, "\n");
       vty_out (vty, "%s\n", table);
       XFREE (MTYPE_TMP, table);
     }
