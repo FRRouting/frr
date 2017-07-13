@@ -276,6 +276,9 @@ test_run_first(void)
   nexthop_chain_add_recursive(nc);
   nexthop_chain_verify_iter(nc);
 
+  nexthop_chain_add_top(nc);
+  nexthop_chain_verify_iter(nc);
+
   nexthop_chain_free(nc);
 }
 
