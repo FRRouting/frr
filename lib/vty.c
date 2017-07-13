@@ -92,23 +92,28 @@ char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
 
 static int do_log_commands = 0;
 
-static int
-vty_out_variadic (struct vty *vty, const char *format, va_list args)
+/* VTY standard output function. */
+int
+vty_out (struct vty *vty, const char *format, ...)
 {
+  va_list args;
   int len = 0;
   int size = 1024;
   char buf[1024];
   char *p = NULL;
-  va_list cp;
 
   if (vty_shell (vty))
-    vprintf (format, args);
+    {
+      va_start (args, format);
+      vprintf (format, args);
+      va_end (args);
+    }
   else
     {
       /* Try to write to initial buffer.  */
-      va_copy (cp, args);
-      len = vsnprintf (buf, sizeof(buf), format, cp);
-      va_end (cp);
+      va_start (args, format);
+      len = vsnprintf (buf, sizeof(buf), format, args);
+      va_end (args);
 
       /* Initial buffer is not enough.  */
       if (len < 0 || len >= size)
@@ -124,9 +129,9 @@ vty_out_variadic (struct vty *vty, const char *format, va_list args)
               if (! p)
                 return -1;
 
-              va_copy (cp, args);
-              len = vsnprintf (p, size, format, cp);
-              va_end (cp);
+              va_start (args, format);
+              len = vsnprintf (p, size, format, args);
+              va_end (args);
 
               if (len > -1 && len < size)
                 break;
@@ -138,7 +143,10 @@ vty_out_variadic (struct vty *vty, const char *format, va_list args)
         p = buf;
 
       /* Pointer p must point out buffer. */
-      buffer_put (vty->obuf, (u_char *) p, len);
+      if (vty->type != VTY_TERM)
+        buffer_put (vty->obuf, (u_char *) p, len);
+      else
+        buffer_put_crlf (vty->obuf, (u_char *) p, len);
 
       /* If p is not different with buf, it is allocated buffer.  */
       if (p != buf)
@@ -146,32 +154,6 @@ vty_out_variadic (struct vty *vty, const char *format, va_list args)
     }
 
   return len;
-}
-/* VTY standard output function. */
-int
-vty_out (struct vty *vty, const char *format, ...)
-{
-  int len;
-  va_list args;
-
-  va_start (args, format);
-  len = vty_out_variadic (vty, format, args);
-  va_end (args);
-
-  return len;
-}
-
-int
-vty_outln (struct vty *vty, const char *format, ...)
-{
-  int len;
-  va_list args;
-
-  va_start (args, format);
-  len = vty_out_variadic (vty, format, args);
-  va_end (args);
-
-  return len + vty_out (vty, "%s", VTYNL);
 }
 
 static int

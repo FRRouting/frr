@@ -90,7 +90,6 @@ extern struct thread_master *master;
 #define OSPF6_ROUTER_ID_STR "Specify Router-ID\n"
 #define OSPF6_LS_ID_STR     "Specify Link State ID\n"
 
-#define VNL VTYNL
 #define OSPF6_CMD_CHECK_RUNNING() \
   if (ospf6 == NULL) \
     { \

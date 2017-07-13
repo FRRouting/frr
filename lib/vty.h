@@ -179,9 +179,6 @@ struct vty_arg
 /* Integrated configuration file. */
 #define INTEGRATE_DEFAULT_CONFIG "frr.conf"
 
-/* Small macro to determine newline is newline only or linefeed needed. */
-#define VTYNL  ((vty->type == VTY_TERM) ? "\r\n" : "\n")
-
 /* for compatibility */
 #if defined(__ICC)
 #define CPP_WARN_STR(X) #X
@@ -198,8 +195,12 @@ struct vty_arg
 #define CPP_WARN(text)
 #endif
 
-#define VTY_NEWLINE                               VTYNL \
-	CPP_WARN("VTY_NEWLINE has been replaced with VTYNL and/or vty_outln().")
+#define VNL                                       "\n" \
+/*	CPP_WARN("VNL has been replaced with \\n.") */
+#define VTYNL                                     "\n" \
+/*	CPP_WARN("VTYNL has been replaced with \\n.") */
+#define VTY_NEWLINE                               "\n" \
+	CPP_WARN("VTY_NEWLINE has been replaced with \\n.")
 #define VTY_GET_INTEGER(desc,v,str)               {(v)=strtoul ((str), NULL, 10);} \
 	CPP_WARN("VTY_GET_INTEGER is no longer useful, use strtoul() or DEFPY.")
 #define VTY_GET_INTEGER_RANGE(desc,v,str,min,max) {(v)=strtoul ((str), NULL, 10);} \
@@ -212,6 +213,9 @@ struct vty_arg
 	CPP_WARN("VTY_GET_IPV4_ADDRESS is no longer useful, use inet_aton() or DEFPY.")
 #define VTY_GET_IPV4_PREFIX(desc,v,str)           str2prefix_ipv4 ((str), &(v)) \
 	CPP_WARN("VTY_GET_IPV4_PREFIX is no longer useful, use str2prefix_ipv4() or DEFPY.")
+#define vty_outln(vty, str, ...) \
+	vty_out(vty, str "\n", ## __VA_ARGS__) \
+/*	CPP_WARN("vty_outln is no longer useful, use vty_out(...\\n...)") */
 
 /* Default time out value */
 #define VTY_TIMEOUT_DEFAULT 600
@@ -239,7 +243,6 @@ extern void vty_reset (void);
 extern struct vty *vty_new (void);
 extern struct vty *vty_stdio (void (*atclose)(void));
 extern int vty_out (struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
-extern int vty_outln (struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
 extern void vty_read_config (const char *, char *);
 extern void vty_time_print (struct vty *, int);
 extern void vty_serv_sock (const char *, unsigned short, const char *);

@@ -41,6 +41,8 @@ extern void buffer_put (struct buffer *, const void *, size_t);
 extern void buffer_putc (struct buffer *, u_char);
 /* Add a NUL-terminated string to the end of the buffer. */
 extern void buffer_putstr (struct buffer *, const char *);
+/* Add given data, inline-expanding \n to \r\n */
+extern void buffer_put_crlf(struct buffer *b, const void *p, size_t size);
 
 /* Combine all accumulated (and unflushed) data inside the buffer into a
    single NUL-terminated string allocated using XMALLOC(MTYPE_TMP).  Note
