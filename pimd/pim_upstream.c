@@ -541,7 +541,7 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 				    && PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(
 					       up->flags)) {
 					pim_upstream_keep_alive_timer_start(
-						up, qpim_keep_alive_time);
+						up, pim->keep_alive_time);
 					pim_register_join(up);
 				}
 			} else {
@@ -1664,9 +1664,9 @@ static void pim_upstream_sg_running(void *arg)
 			PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
 			pim_upstream_fhr_kat_start(up);
 		}
-		pim_upstream_keep_alive_timer_start(up, qpim_keep_alive_time);
+		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
 	} else if (PIM_UPSTREAM_FLAG_TEST_SRC_LHR(up->flags))
-		pim_upstream_keep_alive_timer_start(up, qpim_keep_alive_time);
+		pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
 
 	if (up->sptbit != PIM_UPSTREAM_SPTBIT_TRUE) {
 		pim_upstream_set_sptbit(up, up->rpf.source_nexthop.interface);

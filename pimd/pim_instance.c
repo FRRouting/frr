@@ -74,6 +74,10 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 
 	pim_if_init(pim);
 
+	pim->keep_alive_time = PIM_KEEPALIVE_PERIOD;
+	pim->rp_keep_alive_time = PIM_RP_KEEPALIVE_PERIOD;
+
+
 	pim->vrf_id = vrf->vrf_id;
 	pim->vrf = vrf;
 

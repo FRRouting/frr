@@ -88,6 +88,9 @@ struct pim_instance {
 
 	struct list *ssmpingd_list;
 	struct in_addr ssmpingd_group_addr;
+
+	unsigned int keep_alive_time;
+	unsigned int rp_keep_alive_time;
 };
 
 void pim_vrf_init(void);

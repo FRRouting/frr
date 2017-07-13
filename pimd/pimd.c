@@ -58,8 +58,6 @@ int64_t qpim_rpf_cache_refresh_events = 0;
 int64_t qpim_rpf_cache_refresh_last = 0;
 int64_t qpim_scan_oil_events = 0;
 int64_t qpim_scan_oil_last = 0;
-unsigned int qpim_keep_alive_time = PIM_KEEPALIVE_PERIOD;
-signed int qpim_rp_keep_alive_time = 0;
 int64_t qpim_nexthop_lookups = 0;
 int qpim_packet_process = PIM_DEFAULT_PACKET_PROCESS;
 uint8_t qpim_ecmp_enable = 0;
@@ -97,8 +95,6 @@ static void pim_free()
 
 void pim_init()
 {
-	qpim_rp_keep_alive_time = PIM_RP_KEEPALIVE_PERIOD;
-
 	if (!inet_aton(PIM_ALL_PIM_ROUTERS, &qpim_all_pim_routers_addr)) {
 		zlog_err(
 			"%s %s: could not solve %s to group address: errno=%d: %s",

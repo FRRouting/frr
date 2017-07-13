@@ -142,8 +142,6 @@ int64_t qpim_rpf_cache_refresh_last;
 int64_t qpim_scan_oil_events;
 int64_t qpim_scan_oil_last;
 int64_t qpim_nexthop_lookups;
-extern unsigned int qpim_keep_alive_time;
-extern signed int qpim_rp_keep_alive_time;
 extern int qpim_packet_process;
 extern uint8_t qpim_ecmp_enable;
 extern uint8_t qpim_ecmp_rebalance_enable;
