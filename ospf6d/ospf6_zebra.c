@@ -320,11 +320,10 @@ DEFUN (show_zebra,
     }
 
   vty_out (vty, "Zebra Infomation\n");
-  vty_out (vty, "  enable: %d fail: %d%s",
-           zclient->enable, zclient->fail, VTYNL);
-  vty_out (vty, "  redistribute default: %d%s",
-           vrf_bitmap_check (zclient->default_information, VRF_DEFAULT),
-           VTYNL);
+  vty_out (vty, "  enable: %d fail: %d\n",
+           zclient->enable, zclient->fail);
+  vty_out (vty, "  redistribute default: %d\n",
+           vrf_bitmap_check (zclient->default_information, VRF_DEFAULT));
   vty_out (vty, "  redistribute:");
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
     {

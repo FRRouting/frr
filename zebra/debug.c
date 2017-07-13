@@ -48,20 +48,17 @@ DEFUN (show_debugging_zebra,
     {
       if (IS_ZEBRA_DEBUG_SEND && IS_ZEBRA_DEBUG_RECV)
 	{
-	  vty_out (vty, "  Zebra packet%s debugging is on%s",
-		   IS_ZEBRA_DEBUG_DETAIL ? " detail" : "",
-		   VTYNL);
+	  vty_out (vty, "  Zebra packet%s debugging is on\n",
+		   IS_ZEBRA_DEBUG_DETAIL ? " detail" : "");
 	}
       else
 	{
 	  if (IS_ZEBRA_DEBUG_SEND)
-	    vty_out (vty, "  Zebra packet send%s debugging is on%s",
-		     IS_ZEBRA_DEBUG_DETAIL ? " detail" : "",
-		     VTYNL);
+	    vty_out (vty, "  Zebra packet send%s debugging is on\n",
+		     IS_ZEBRA_DEBUG_DETAIL ? " detail" : "");
 	  else
-	    vty_out (vty, "  Zebra packet receive%s debugging is on%s",
-		     IS_ZEBRA_DEBUG_DETAIL ? " detail" : "",
-		     VTYNL);
+	    vty_out (vty, "  Zebra packet receive%s debugging is on\n",
+		     IS_ZEBRA_DEBUG_DETAIL ? " detail" : "");
 	}
     }
 
@@ -360,21 +357,18 @@ config_write_debug (struct vty *vty)
     {
       if (IS_ZEBRA_DEBUG_SEND && IS_ZEBRA_DEBUG_RECV)
 	{
-	  vty_out (vty, "debug zebra packet%s%s",
-		   IS_ZEBRA_DEBUG_DETAIL ? " detail" : "",
-		   VTYNL);
+	  vty_out (vty, "debug zebra packet%s\n",
+		   IS_ZEBRA_DEBUG_DETAIL ? " detail" : "");
 	  write++;
 	}
       else
 	{
 	  if (IS_ZEBRA_DEBUG_SEND)
-	    vty_out (vty, "debug zebra packet send%s%s",
-		     IS_ZEBRA_DEBUG_DETAIL ? " detail" : "",
-		     VTYNL);
+	    vty_out (vty, "debug zebra packet send%s\n",
+		     IS_ZEBRA_DEBUG_DETAIL ? " detail" : "");
 	  else
-	    vty_out (vty, "debug zebra packet recv%s%s",
-		     IS_ZEBRA_DEBUG_DETAIL ? " detail" : "",
-		     VTYNL);
+	    vty_out (vty, "debug zebra packet recv%s\n",
+		     IS_ZEBRA_DEBUG_DETAIL ? " detail" : "");
 	  write++;
 	}
     }

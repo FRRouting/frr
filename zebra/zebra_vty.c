@@ -656,9 +656,8 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
                        : " using Unicast RIB";
         }
 
-      vty_out (vty, "Routing entry for %s%s%s",
-	       srcdest_rnode2str(rn, buf, sizeof(buf)), mcast_info,
-	       VTYNL);
+      vty_out (vty, "Routing entry for %s%s\n",
+	       srcdest_rnode2str(rn, buf, sizeof(buf)), mcast_info);
       vty_out (vty, "  Known via \"%s", zebra_route_string (re->type));
       if (re->instance)
         vty_out (vty, "[%d]", re->instance);

@@ -1130,9 +1130,9 @@ vty_describe_command (struct vty *vty)
             vector_free(varcomps);
           }
 #if 0
-        vty_out (vty, "  %-*s %s%s", width
+        vty_out (vty, "  %-*s %s\n", width
                  desc->cmd[0] == '.' ? desc->cmd + 1 : desc->cmd,
-                 desc->str ? desc->str : "", VTYNL);
+                 desc->str ? desc->str : "");
 #endif /* 0 */
       }
 
@@ -2700,9 +2700,9 @@ DEFUN_NOSH (config_who,
 
   for (i = 0; i < vector_active (vtyvec); i++)
     if ((v = vector_slot (vtyvec, i)) != NULL)
-      vty_out (vty, "%svty[%d] connected from %s.%s",
+      vty_out (vty, "%svty[%d] connected from %s.\n",
                v->config ? "*" : " ",
-               i, v->address, VTYNL);
+               i, v->address);
   return CMD_SUCCESS;
 }
 
@@ -2944,7 +2944,7 @@ DEFUN_NOSH (show_history,
         }
 
       if (vty->hist[index] != NULL)
-        vty_out (vty, "  %s%s", vty->hist[index], VTYNL);
+        vty_out (vty, "  %s\n", vty->hist[index]);
 
       index++;
     }

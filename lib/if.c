@@ -739,7 +739,7 @@ DEFUN_NOSH (no_interface,
 
   if (ifp == NULL)
     {
-      vty_out (vty, "%% Interface %s does not exist%s", ifname, VTYNL);
+      vty_out (vty, "%% Interface %s does not exist\n", ifname);
       return CMD_WARNING;
     }
 
@@ -792,8 +792,7 @@ DEFUN (show_address,
 	  p = ifc->address;
 
 	  if (p->family == AF_INET)
-	    vty_out (vty, "%s/%d%s", inet_ntoa (p->u.prefix4), p->prefixlen,
-		     VTYNL);
+	    vty_out (vty, "%s/%d\n", inet_ntoa (p->u.prefix4), p->prefixlen);
 	}
     }
   return CMD_SUCCESS;
@@ -818,8 +817,7 @@ DEFUN (show_address_vrf_all,
       if (!vrf->iflist || !listcount (vrf->iflist))
         continue;
 
-      vty_out (vty, "\nVRF %u%s%s", vrf->vrf_id, VTYNL,
-	       VTYNL);
+      vty_out (vty, "\nVRF %u\n\n", vrf->vrf_id);
 
       for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, ifp))
         {
@@ -828,8 +826,7 @@ DEFUN (show_address_vrf_all,
               p = ifc->address;
 
               if (p->family == AF_INET)
-                vty_out (vty, "%s/%d%s", inet_ntoa (p->u.prefix4), p->prefixlen,
-                         VTYNL);
+                vty_out (vty, "%s/%d\n", inet_ntoa (p->u.prefix4), p->prefixlen);
             }
         }
     }

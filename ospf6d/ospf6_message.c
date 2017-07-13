@@ -2487,13 +2487,11 @@ config_write_ospf6_debug_message (struct vty *vty)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (i, SEND) &&
           IS_OSPF6_DEBUG_MESSAGE (i, RECV))
-        vty_out (vty, "debug ospf6 message %s%s", type_str[i], VTYNL);
+        vty_out (vty, "debug ospf6 message %s\n", type_str[i]);
       else if (IS_OSPF6_DEBUG_MESSAGE (i, SEND))
-        vty_out (vty, "debug ospf6 message %s send%s", type_str[i],
-                 VTYNL);
+        vty_out (vty, "debug ospf6 message %s send\n", type_str[i]);
       else if (IS_OSPF6_DEBUG_MESSAGE (i, RECV))
-        vty_out (vty, "debug ospf6 message %s recv%s", type_str[i],
-                 VTYNL);
+        vty_out (vty, "debug ospf6 message %s recv\n", type_str[i]);
     }
 
   return 0;

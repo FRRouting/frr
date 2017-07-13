@@ -343,7 +343,7 @@ DEFUN (ospf6_router_id,
   ret = inet_pton (AF_INET, argv[idx_ipv4]->arg, &router_id);
   if (ret == 0)
     {
-      vty_out (vty, "malformed OSPF Router-ID: %s%s", argv[idx_ipv4]->arg, VTYNL);
+      vty_out (vty, "malformed OSPF Router-ID: %s\n", argv[idx_ipv4]->arg);
       return CMD_SUCCESS;
     }
 
@@ -588,15 +588,15 @@ DEFUN (ospf6_interface_area,
     oi = ospf6_interface_create (ifp);
   if (oi->area)
     {
-      vty_out (vty, "%s already attached to Area %s%s",
-               oi->interface->name, oi->area->name, VTYNL);
+      vty_out (vty, "%s already attached to Area %s\n",
+               oi->interface->name, oi->area->name);
       return CMD_SUCCESS;
     }
 
   /* parse Area-ID */
   if (inet_pton (AF_INET, argv[idx_ipv4]->arg, &area_id) != 1)
     {
-      vty_out (vty, "Invalid Area-ID: %s%s", argv[idx_ipv4]->arg, VTYNL);
+      vty_out (vty, "Invalid Area-ID: %s\n", argv[idx_ipv4]->arg);
       return CMD_SUCCESS;
     }
 
@@ -645,35 +645,35 @@ DEFUN (no_ospf6_interface_area,
   ifp = if_lookup_by_name (argv[idx_ifname]->arg, VRF_DEFAULT);
   if (ifp == NULL)
     {
-      vty_out (vty, "No such interface %s%s", argv[idx_ifname]->arg, VTYNL);
+      vty_out (vty, "No such interface %s\n", argv[idx_ifname]->arg);
       return CMD_SUCCESS;
     }
 
   oi = (struct ospf6_interface *) ifp->info;
   if (oi == NULL)
     {
-      vty_out (vty, "Interface %s not enabled%s", ifp->name, VTYNL);
+      vty_out (vty, "Interface %s not enabled\n", ifp->name);
       return CMD_SUCCESS;
     }
 
   /* parse Area-ID */
   if (inet_pton (AF_INET, argv[idx_ipv4]->arg, &area_id) != 1)
     {
-      vty_out (vty, "Invalid Area-ID: %s%s", argv[idx_ipv4]->arg, VTYNL);
+      vty_out (vty, "Invalid Area-ID: %s\n", argv[idx_ipv4]->arg);
       return CMD_SUCCESS;
     }
 
   /* Verify Area */
   if (oi->area == NULL)
     {
-      vty_out (vty, "No such Area-ID: %s%s", argv[idx_ipv4]->arg, VTYNL);
+      vty_out (vty, "No such Area-ID: %s\n", argv[idx_ipv4]->arg);
       return CMD_SUCCESS;
     }
 
   if (oi->area->area_id != area_id)
     {
-      vty_out (vty, "Wrong Area-ID: %s is attached to area %s%s",
-               oi->interface->name, oi->area->name, VTYNL);
+      vty_out (vty, "Wrong Area-ID: %s is attached to area %s\n",
+               oi->interface->name, oi->area->name);
       return CMD_SUCCESS;
     }
 
@@ -799,14 +799,14 @@ ospf6_show (struct vty *vty, struct ospf6 *o)
 
   /* process id, router id */
   inet_ntop (AF_INET, &o->router_id, router_id, sizeof (router_id));
-  vty_out (vty, " OSPFv3 Routing Process (0) with Router-ID %s%s",
-           router_id, VTYNL);
+  vty_out (vty, " OSPFv3 Routing Process (0) with Router-ID %s\n",
+           router_id);
 
   /* running time */
   monotime(&now);
   timersub (&now, &o->starttime, &running);
   timerstring (&running, duration, sizeof (duration));
-  vty_out (vty, " Running %s%s", duration, VTYNL);
+  vty_out (vty, " Running %s\n", duration);
 
   /* Redistribute configuration */
   /* XXX */
@@ -829,27 +829,27 @@ ospf6_show (struct vty *vty, struct ospf6 *o)
       timersub(&now, &o->ts_spf, &result);
       timerstring(&result, buf, sizeof(buf));
       ospf6_spf_reason_string(o->last_spf_reason, rbuf, sizeof(rbuf));
-      vty_out(vty, "last executed %s ago, reason %s%s", buf, rbuf, VTYNL);
-      vty_out (vty, " Last SPF duration %lld sec %lld usec%s",
+      vty_out(vty, "last executed %s ago, reason %s\n", buf, rbuf);
+      vty_out (vty, " Last SPF duration %lld sec %lld usec\n",
                (long long)o->ts_spf_duration.tv_sec,
-               (long long)o->ts_spf_duration.tv_usec, VTYNL);
+               (long long)o->ts_spf_duration.tv_usec);
     }
   else
     vty_out(vty, "has not been run$\n");
   threadtimer_string(now, o->t_spf_calc, buf, sizeof(buf));
-  vty_out (vty, " SPF timer %s%s%s",
-	   (o->t_spf_calc ? "due in " : "is "), buf, VTYNL);
+  vty_out (vty, " SPF timer %s%s\n",
+	   (o->t_spf_calc ? "due in " : "is "), buf);
 
   if (CHECK_FLAG (o->flag, OSPF6_STUB_ROUTER))
     vty_out (vty, " Router Is Stub Router\n");
 
   /* LSAs */
-  vty_out (vty, " Number of AS scoped LSAs is %u%s",
-           o->lsdb->count, VTYNL);
+  vty_out (vty, " Number of AS scoped LSAs is %u\n",
+           o->lsdb->count);
 
   /* Areas */
-  vty_out (vty, " Number of areas in this router is %u%s",
-           listcount (o->area_list), VTYNL);
+  vty_out (vty, " Number of areas in this router is %u\n",
+           listcount (o->area_list));
 
   if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES))
     {
@@ -1021,7 +1021,7 @@ config_write_ospf6 (struct vty *vty)
   inet_ntop (AF_INET, &ospf6->router_id_static, router_id, sizeof (router_id));
   vty_out (vty, "router ospf6\n");
   if (ospf6->router_id_static != 0)
-    vty_out (vty, " router-id %s%s", router_id, VTYNL);
+    vty_out (vty, " router-id %s\n", router_id);
 
   /* log-adjacency-changes flag print. */
   if (CHECK_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES))
@@ -1037,8 +1037,7 @@ config_write_ospf6 (struct vty *vty)
     }
 
   if (ospf6->ref_bandwidth != OSPF6_REFERENCE_BANDWIDTH)
-    vty_out (vty, " auto-cost reference-bandwidth %d%s", ospf6->ref_bandwidth,
-             VTYNL);
+    vty_out (vty, " auto-cost reference-bandwidth %d\n", ospf6->ref_bandwidth);
 
   /* LSA timers print. */
   if (ospf6->lsa_minarrival != OSPF_MIN_LS_ARRIVAL)
@@ -1053,8 +1052,8 @@ config_write_ospf6 (struct vty *vty)
   for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, j, oa))
     {
       for (ALL_LIST_ELEMENTS_RO (oa->if_list, k, oi))
-        vty_out (vty, " interface %s area %s%s",
-                 oi->interface->name, oa->name, VTYNL);
+        vty_out (vty, " interface %s area %s\n",
+                 oi->interface->name, oa->name);
     }
   vty_out (vty, "!\n");
   return 0;

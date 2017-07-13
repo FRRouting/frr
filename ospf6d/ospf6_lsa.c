@@ -381,9 +381,9 @@ ospf6_lsa_header_print (struct ospf6_lsa *lsa)
 void
 ospf6_lsa_show_summary_header (struct vty *vty)
 {
-  vty_out (vty, "%-4s %-15s%-15s%4s %8s %30s%s",
+  vty_out (vty, "%-4s %-15s%-15s%4s %8s %30s\n",
            "Type", "LSId", "AdvRouter", "Age", "SeqNum",
-           "Payload", VTYNL);
+           "Payload");
 }
 
 void
@@ -408,11 +408,11 @@ ospf6_lsa_show_summary (struct vty *vty, struct ospf6_lsa *lsa)
       (type == OSPF6_LSTYPE_INTER_ROUTER) ||
       (type == OSPF6_LSTYPE_AS_EXTERNAL))
     {
-      vty_out (vty, "%-4s %-15s%-15s%4hu %8lx %30s%s",
+      vty_out (vty, "%-4s %-15s%-15s%4hu %8lx %30s\n",
 	       ospf6_lstype_short_name (lsa->header->type),
 	       id, adv_router, ospf6_lsa_age_current (lsa),
 	       (u_long) ntohl (lsa->header->seqnum),
-	       handler->get_prefix_str(lsa, buf, sizeof(buf), 0), VTYNL);
+	       handler->get_prefix_str(lsa, buf, sizeof(buf), 0));
     }
   else if (type != OSPF6_LSTYPE_UNKNOWN)
     {
@@ -423,16 +423,16 @@ ospf6_lsa_show_summary (struct vty *vty, struct ospf6_lsa *lsa)
 
       while (handler->get_prefix_str(lsa, buf, sizeof(buf), cnt) != NULL)
 	{
-	  vty_out (vty, "%s %30s%s", tmpbuf, buf, VTYNL);
+	  vty_out (vty, "%s %30s\n", tmpbuf, buf);
 	  cnt++;
 	}
     }
   else
     {
-      vty_out (vty, "%-4s %-15s%-15s%4hu %8lx%s",
+      vty_out (vty, "%-4s %-15s%-15s%4hu %8lx\n",
 	       ospf6_lstype_short_name (lsa->header->type),
 	       id, adv_router, ospf6_lsa_age_current (lsa),
-	       (u_long) ntohl (lsa->header->seqnum), VTYNL);
+	       (u_long) ntohl (lsa->header->seqnum));
     }
 }
 
@@ -446,7 +446,7 @@ ospf6_lsa_show_dump (struct vty *vty, struct ospf6_lsa *lsa)
   end = (u_char *) lsa->header + ntohs (lsa->header->length);
 
   vty_out (vty, "\n");
-  vty_out (vty, "%s:%s", lsa->name, VTYNL);
+  vty_out (vty, "%s:\n", lsa->name);
 
   for (current = start; current < end; current ++)
     {
@@ -475,20 +475,20 @@ ospf6_lsa_show_internal (struct vty *vty, struct ospf6_lsa *lsa)
              adv_router, sizeof (adv_router));
 
   vty_out (vty, "\n");
-  vty_out (vty, "Age: %4hu Type: %s%s", ospf6_lsa_age_current (lsa),
-           ospf6_lstype_name (lsa->header->type), VTYNL);
-  vty_out (vty, "Link State ID: %s%s", id, VTYNL);
-  vty_out (vty, "Advertising Router: %s%s", adv_router, VTYNL);
-  vty_out (vty, "LS Sequence Number: %#010lx%s",
-           (u_long) ntohl (lsa->header->seqnum), VTYNL);
-  vty_out (vty, "CheckSum: %#06hx Length: %hu%s",
+  vty_out (vty, "Age: %4hu Type: %s\n", ospf6_lsa_age_current (lsa),
+           ospf6_lstype_name (lsa->header->type));
+  vty_out (vty, "Link State ID: %s\n", id);
+  vty_out (vty, "Advertising Router: %s\n", adv_router);
+  vty_out (vty, "LS Sequence Number: %#010lx\n",
+           (u_long) ntohl (lsa->header->seqnum));
+  vty_out (vty, "CheckSum: %#06hx Length: %hu\n",
            ntohs (lsa->header->checksum),
-           ntohs (lsa->header->length), VTYNL);
-  vty_out (vty, "Flag: %x %s", lsa->flag, VTYNL);
-  vty_out (vty, "Lock: %d %s", lsa->lock, VTYNL);
-  vty_out (vty, "ReTx Count: %d%s", lsa->retrans_count, VTYNL);
-  vty_out (vty, "Threads: Expire: 0x%p, Refresh: 0x%p %s",
-           (void *)lsa->expire, (void *)lsa->refresh, VTYNL);
+           ntohs (lsa->header->length));
+  vty_out (vty, "Flag: %x \n", lsa->flag);
+  vty_out (vty, "Lock: %d \n", lsa->lock);
+  vty_out (vty, "ReTx Count: %d\n", lsa->retrans_count);
+  vty_out (vty, "Threads: Expire: 0x%p, Refresh: 0x%p \n",
+           (void *)lsa->expire, (void *)lsa->refresh);
   vty_out (vty, "\n");
   return;
 }
@@ -511,16 +511,16 @@ ospf6_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
   timersub (&now, &lsa->installed, &res);
   timerstring (&res, duration, sizeof (duration));
 
-  vty_out (vty, "Age: %4hu Type: %s%s", ospf6_lsa_age_current (lsa),
-           ospf6_lstype_name (lsa->header->type), VTYNL);
-  vty_out (vty, "Link State ID: %s%s", id, VTYNL);
-  vty_out (vty, "Advertising Router: %s%s", adv_router, VTYNL);
-  vty_out (vty, "LS Sequence Number: %#010lx%s",
-           (u_long) ntohl (lsa->header->seqnum), VTYNL);
-  vty_out (vty, "CheckSum: %#06hx Length: %hu%s",
+  vty_out (vty, "Age: %4hu Type: %s\n", ospf6_lsa_age_current (lsa),
+           ospf6_lstype_name (lsa->header->type));
+  vty_out (vty, "Link State ID: %s\n", id);
+  vty_out (vty, "Advertising Router: %s\n", adv_router);
+  vty_out (vty, "LS Sequence Number: %#010lx\n",
+           (u_long) ntohl (lsa->header->seqnum));
+  vty_out (vty, "CheckSum: %#06hx Length: %hu\n",
            ntohs (lsa->header->checksum),
-           ntohs (lsa->header->length), VTYNL);
-  vty_out (vty, "Duration: %s%s", duration, VTYNL);
+           ntohs (lsa->header->length));
+  vty_out (vty, "Duration: %s\n", duration);
 
   handler = ospf6_get_lsa_handler (lsa->header->type);
   if (handler->show == NULL)
@@ -937,17 +937,17 @@ config_write_ospf6_debug_lsa (struct vty *vty)
       if (handler == NULL)
         continue;
       if (CHECK_FLAG (handler->debug, OSPF6_LSA_DEBUG))
-        vty_out (vty, "debug ospf6 lsa %s%s",
-                 ospf6_lsa_handler_name (handler), VTYNL);
+        vty_out (vty, "debug ospf6 lsa %s\n",
+                 ospf6_lsa_handler_name (handler));
       if (CHECK_FLAG (handler->debug, OSPF6_LSA_DEBUG_ORIGINATE))
-        vty_out (vty, "debug ospf6 lsa %s originate%s",
-                 ospf6_lsa_handler_name (handler), VTYNL);
+        vty_out (vty, "debug ospf6 lsa %s originate\n",
+                 ospf6_lsa_handler_name (handler));
       if (CHECK_FLAG (handler->debug, OSPF6_LSA_DEBUG_EXAMIN))
-        vty_out (vty, "debug ospf6 lsa %s examine%s",
-                 ospf6_lsa_handler_name (handler), VTYNL);
+        vty_out (vty, "debug ospf6 lsa %s examine\n",
+                 ospf6_lsa_handler_name (handler));
       if (CHECK_FLAG (handler->debug, OSPF6_LSA_DEBUG_FLOOD))
-        vty_out (vty, "debug ospf6 lsa %s flooding%s",
-                 ospf6_lsa_handler_name (handler), VTYNL);
+        vty_out (vty, "debug ospf6 lsa %s flooding\n",
+                 ospf6_lsa_handler_name (handler));
     }
 
   return 0;

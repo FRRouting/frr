@@ -44,8 +44,8 @@
     }                                                                         \
   if (OSPF_IS_AREA_ID_BACKBONE ((V)))                                         \
     {                                                                         \
-      vty_out (vty, "%% You can't configure %s to backbone%s",                \
-               NAME, VTYNL);                                            \
+      vty_out (vty, "%% You can't configure %s to backbone\n",                \
+               NAME);                                            \
     }                                                                         \
 }
 

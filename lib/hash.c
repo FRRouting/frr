@@ -462,13 +462,13 @@ DEFUN(show_hash_stats,
   vty_out (vty, "%s\n", underln);
 
   vty_out (vty, "# allocated: %d\n", _hashes->count);
-  vty_out (vty, "# named:     %d%s\n", tt->nrows - 1, VTYNL);
+  vty_out (vty, "# named:     %d\n\n", tt->nrows - 1);
 
   if (tt->nrows > 1)
     {
       ttable_colseps (tt, 0, RIGHT, true, '|');
       char *table = ttable_dump (tt, VTYNL);
-      vty_out (vty, "%s%s", table, VTYNL);
+      vty_out (vty, "%s\n", table);
       XFREE (MTYPE_TMP, table);
     }
   else

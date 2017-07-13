@@ -501,7 +501,7 @@ DEFUN_NOSH (no_vrf,
 
   if (vrfp == NULL)
     {
-      vty_out (vty, "%% VRF %s does not exist%s", vrfname, VTYNL);
+      vty_out (vty, "%% VRF %s does not exist\n", vrfname);
       return CMD_WARNING;
     }
 

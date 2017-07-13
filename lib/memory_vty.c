@@ -108,9 +108,8 @@ DEFUN (show_modules,
 {
   struct frrmod_runtime *plug = frrmod_list;
 
-  vty_out (vty, "%-12s %-25s %s%s\n",
-                "Module Name", "Version", "Description",
-                VTYNL);
+  vty_out (vty, "%-12s %-25s %s\n\n",
+                "Module Name", "Version", "Description");
   while (plug)
     {
       const struct frrmod_info *i = plug->info;

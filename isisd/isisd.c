@@ -1560,8 +1560,8 @@ show_isis_database (struct vty *vty, const char *argv, int ui_level)
                                              ui_level,
                                              area->dynhostname);
 
-                  vty_out (vty, "    %u LSPs%s\n",
-                           lsp_count, VTYNL);
+                  vty_out (vty, "    %u LSPs\n\n",
+                           lsp_count);
                 }
             }
         }

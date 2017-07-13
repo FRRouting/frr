@@ -1451,8 +1451,8 @@ zfpm_show_stats (struct vty *vty)
   zfpm_stats_t total_stats;
   time_t elapsed;
 
-  vty_out (vty, "\n%-40s %10s     Last %2d secs%s\n", "Counter",
-	   "Total", ZFPM_STATS_IVL_SECS, VTYNL);
+  vty_out (vty, "\n%-40s %10s     Last %2d secs\n\n", "Counter",
+	   "Total", ZFPM_STATS_IVL_SECS);
 
   /*
    * Compute the total stats up to this instant.

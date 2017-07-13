@@ -759,11 +759,11 @@ ospf6_redistribute_config_write (struct vty *vty)
         continue;
 
       if (ospf6->rmap[type].name)
-        vty_out (vty, " redistribute %s route-map %s%s",
-                 ZROUTE_NAME (type), ospf6->rmap[type].name, VTYNL);
+        vty_out (vty, " redistribute %s route-map %s\n",
+                 ZROUTE_NAME (type), ospf6->rmap[type].name);
       else
-        vty_out (vty, " redistribute %s%s",
-                 ZROUTE_NAME (type), VTYNL);
+        vty_out (vty, " redistribute %s\n",
+                 ZROUTE_NAME (type));
     }
 
   return 0;
@@ -803,10 +803,10 @@ ospf6_redistribute_show_config (struct vty *vty)
                  (ospf6->rmap[type].map ? "" : " (not found !)"),
                  VTYNL);
       else
-        vty_out (vty, "    %d: %s%s", nroute[type],
-                 ZROUTE_NAME (type), VTYNL);
+        vty_out (vty, "    %d: %s\n", nroute[type],
+                 ZROUTE_NAME (type));
     }
-  vty_out (vty, "Total %d routes%s", total, VTYNL);
+  vty_out (vty, "Total %d routes\n", total);
 }
 
 
@@ -1247,28 +1247,24 @@ ospf6_as_external_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
     (CHECK_FLAG (external->bits_metric, OSPF6_ASBR_BIT_F) ? 'F' : '-'),
     (CHECK_FLAG (external->bits_metric, OSPF6_ASBR_BIT_T) ? 'T' : '-'));
 
-  vty_out (vty, "     Bits: %s%s", buf, VTYNL);
-  vty_out (vty, "     Metric: %5lu%s", (u_long) OSPF6_ASBR_METRIC (external),
-           VTYNL);
+  vty_out (vty, "     Bits: %s\n", buf);
+  vty_out (vty, "     Metric: %5lu\n", (u_long) OSPF6_ASBR_METRIC (external));
 
   ospf6_prefix_options_printbuf (external->prefix.prefix_options,
                                  buf, sizeof (buf));
-  vty_out (vty, "     Prefix Options: %s%s", buf,
-           VTYNL);
+  vty_out (vty, "     Prefix Options: %s\n", buf);
 
-  vty_out (vty, "     Referenced LSType: %d%s",
-           ntohs (external->prefix.prefix_refer_lstype),
-           VTYNL);
+  vty_out (vty, "     Referenced LSType: %d\n",
+           ntohs (external->prefix.prefix_refer_lstype));
 
-  vty_out (vty, "     Prefix: %s%s",
-	   ospf6_as_external_lsa_get_prefix_str (lsa, buf, sizeof(buf), 0), VTYNL);
+  vty_out (vty, "     Prefix: %s\n",
+	   ospf6_as_external_lsa_get_prefix_str (lsa, buf, sizeof(buf), 0));
 
   /* Forwarding-Address */
   if (CHECK_FLAG (external->bits_metric, OSPF6_ASBR_BIT_F))
     {
-      vty_out (vty, "     Forwarding-Address: %s%s",
-	       ospf6_as_external_lsa_get_prefix_str (lsa, buf, sizeof(buf), 1),
-	       VTYNL);
+      vty_out (vty, "     Forwarding-Address: %s\n",
+	       ospf6_as_external_lsa_get_prefix_str (lsa, buf, sizeof(buf), 1));
     }
 
   /* Tag */
@@ -1297,12 +1293,12 @@ ospf6_asbr_external_route_show (struct vty *vty, struct ospf6_route *route)
     snprintf (forwarding, sizeof (forwarding), ":: (ifindex %d)",
               ospf6_route_get_first_nh_index (route));
 
-  vty_out (vty, "%c %-32s %-15s type-%d %5lu %s%s",
+  vty_out (vty, "%c %-32s %-15s type-%d %5lu %s\n",
            zebra_route_char(info->type),
            prefix, id, route->path.metric_type,
            (u_long) (route->path.metric_type == 2 ?
                      route->path.u.cost_e2 : route->path.cost),
-           forwarding, VTYNL);
+           forwarding);
 }
 
 DEFUN (show_ipv6_ospf6_redistribute,

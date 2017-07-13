@@ -324,8 +324,8 @@ DEFUN_NOSH (ns_netns,
 
   if (ns->name && strcmp (ns->name, pathname) != 0)
     {
-      vty_out (vty, "NS %u is already configured with NETNS %s%s",
-               ns->ns_id, ns->name, VTYNL);
+      vty_out (vty, "NS %u is already configured with NETNS %s\n",
+               ns->ns_id, ns->name);
       return CMD_WARNING;
     }
 
@@ -334,8 +334,8 @@ DEFUN_NOSH (ns_netns,
 
   if (!ns_enable (ns))
     {
-      vty_out (vty, "Can not associate NS %u with NETNS %s%s",
-               ns->ns_id, ns->name, VTYNL);
+      vty_out (vty, "Can not associate NS %u with NETNS %s\n",
+               ns->ns_id, ns->name);
       return CMD_WARNING;
     }
 

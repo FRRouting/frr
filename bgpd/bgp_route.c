@@ -9184,8 +9184,8 @@ bgp_table_stats (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi)
   ts.table = bgp->rib[afi][safi];
   thread_execute (bm->master, bgp_table_stats_walker, &ts, 0);
 
-  vty_out (vty, "BGP %s RIB statistics%s\n",
-           afi_safi_print (afi, safi), VTYNL);
+  vty_out (vty, "BGP %s RIB statistics\n\n",
+           afi_safi_print (afi, safi));
   
   for (i = 0; i < BGP_STATS_MAX; i++)
     {

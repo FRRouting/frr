@@ -742,7 +742,7 @@ ospf6_spf_display_subtree (struct vty *vty, const char *prefix, int rest,
   int restnum;
 
   /* "prefix" is the space prefix of the display line */
-  vty_out (vty, "%s+-%s [%d]%s", prefix, v->name, v->cost, VTYNL);
+  vty_out (vty, "%s+-%s [%d]\n", prefix, v->name, v->cost);
 
   len = strlen (prefix) + 4;
   next_prefix = (char *) malloc (len);

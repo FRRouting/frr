@@ -83,8 +83,8 @@ DEFUN (show_version_ospf6,
        "Display ospf6d version\n"
       )
 {
-  vty_out (vty, "Zebra OSPF6d Version: %s%s",
-           ospf6_daemon_version, VTYNL);
+  vty_out (vty, "Zebra OSPF6d Version: %s\n",
+           ospf6_daemon_version);
 
   return CMD_SUCCESS;
 }
@@ -1115,7 +1115,7 @@ DEFUN (show_ipv6_ospf6_border_routers,
           ro = ospf6_route_lookup (&prefix, ospf6->brouter_table);
           if (!ro)
             {
-              vty_out (vty, "No Route found for Router ID: %s%s", argv[4]->arg, VTYNL);
+              vty_out (vty, "No Route found for Router ID: %s\n", argv[4]->arg);
               return CMD_SUCCESS;
             }
 
@@ -1157,7 +1157,7 @@ DEFUN (show_ipv6_ospf6_linkstate,
 
   for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, node, oa))
     {
-      vty_out (vty, "\n        SPF Result in Area %s%s%s", oa->name, VTYNL, VTYNL);
+      vty_out (vty, "\n        SPF Result in Area %s\n\n", oa->name);
       ospf6_linkstate_table_show (vty, idx_ipv4, argc, argv, oa->spf_table);
     }
 
@@ -1184,7 +1184,7 @@ DEFUN (show_ipv6_ospf6_linkstate_detail,
 
   for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, node, oa))
     {
-      vty_out (vty, "\n        SPF Result in Area %s%s%s", oa->name, VTYNL, VTYNL);
+      vty_out (vty, "\n        SPF Result in Area %s\n\n", oa->name);
       ospf6_linkstate_table_show (vty, idx_detail, argc, argv, oa->spf_table);
     }
 

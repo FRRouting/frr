@@ -2579,14 +2579,12 @@ DEFUN (show_ipv6_protocols,
 
   vty_out (vty, "Routing Protocol is \"ripng\"\n");
   
-  vty_out (vty, "Sending updates every %ld seconds, next due in %d seconds%s",
-	   ripng->update_time, 0,
-	   VTYNL);
+  vty_out (vty, "Sending updates every %ld seconds, next due in %d seconds\n",
+	   ripng->update_time, 0);
 
-  vty_out (vty, "Timerout after %ld seconds, garbage correct %ld%s",
+  vty_out (vty, "Timerout after %ld seconds, garbage correct %ld\n",
 	   ripng->timeout_time,
-	   ripng->garbage_time,
-	   VTYNL);
+	   ripng->garbage_time);
 
   vty_out (vty, "Outgoing update filter list for all interfaces is not set");
   vty_out (vty, "Incoming update filter list for all interfaces is not set");
@@ -2766,14 +2764,11 @@ ripng_config_write (struct vty *vty)
 	}
 #if 0
       if (ripng->update_time != RIPNG_UPDATE_TIMER_DEFAULT)
-	vty_out (vty, " update-timer %d%s", ripng->update_time,
-		 VTYNL);
+	vty_out (vty, " update-timer %d\n", ripng->update_time);
       if (ripng->timeout_time != RIPNG_TIMEOUT_TIMER_DEFAULT)
-	vty_out (vty, " timeout-timer %d%s", ripng->timeout_time,
-		 VTYNL);
+	vty_out (vty, " timeout-timer %d\n", ripng->timeout_time);
       if (ripng->garbage_time != RIPNG_GARBAGE_TIMER_DEFAULT)
-	vty_out (vty, " garbage-timer %d%s", ripng->garbage_time,
-		 VTYNL);
+	vty_out (vty, " garbage-timer %d\n", ripng->garbage_time);
 #endif /* 0 */
 
       write += config_write_distribute (vty);

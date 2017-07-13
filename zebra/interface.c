@@ -1458,8 +1458,7 @@ DEFUN (show_interface_desc_vrf_all,
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     if (!list_isempty (vrf->iflist))
       {
-        vty_out (vty, "\n\tVRF %u%s\n", vrf->vrf_id,
-		 VTYNL);
+        vty_out (vty, "\n\tVRF %u\n\n", vrf->vrf_id);
         if_show_description (vty, vrf->vrf_id);
       }
 
