@@ -37,6 +37,6 @@ extern void eigrp_zebra_route_add (struct prefix_ipv4 *, struct list *);
 extern void eigrp_zebra_route_delete (struct prefix_ipv4 *);
 extern int eigrp_redistribute_set (struct eigrp *, int, struct eigrp_metrics);
 extern int eigrp_redistribute_unset (struct eigrp *, int);
-extern vrf_bitmap_t eigrp_is_type_redistributed (int);
+extern int eigrp_is_type_redistributed (int);
 
 #endif /* _ZEBRA_EIGRP_ZEBRA_H_ */
