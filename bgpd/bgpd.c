@@ -6502,15 +6502,15 @@ bgp_config_write_filter (struct vty *vty, struct peer *peer,
 	|| strcmp (filter->dlist[in].name, gfilter->dlist[in].name) != 0)
       {
         afi_header_vty_out (vty, afi, safi, write,
-                            "  neighbor %s distribute-list %s in%s",
-                            addr, filter->dlist[in].name, VTYNL);
+                            "  neighbor %s distribute-list %s in\n",
+                            addr, filter->dlist[in].name);
       }
 
   if (filter->dlist[out].name && ! gfilter)
     {
       afi_header_vty_out (vty, afi, safi, write,
-                          "  neighbor %s distribute-list %s out%s",
-                          addr, filter->dlist[out].name, VTYNL);
+                          "  neighbor %s distribute-list %s out\n",
+                          addr, filter->dlist[out].name);
     }
 
   /* prefix-list. */
@@ -6519,15 +6519,15 @@ bgp_config_write_filter (struct vty *vty, struct peer *peer,
 	|| strcmp (filter->plist[in].name, gfilter->plist[in].name) != 0)
       {
         afi_header_vty_out (vty, afi, safi, write,
-                            "  neighbor %s prefix-list %s in%s",
-                            addr, filter->plist[in].name, VTYNL);
+                            "  neighbor %s prefix-list %s in\n",
+                            addr, filter->plist[in].name);
       }
 
   if (filter->plist[out].name && ! gfilter)
     {
       afi_header_vty_out (vty, afi, safi, write,
-                          "  neighbor %s prefix-list %s out%s",
-                          addr, filter->plist[out].name, VTYNL);
+                          "  neighbor %s prefix-list %s out\n",
+                          addr, filter->plist[out].name);
     }
 
   /* route-map. */
@@ -6536,8 +6536,8 @@ bgp_config_write_filter (struct vty *vty, struct peer *peer,
        || strcmp (filter->map[RMAP_IN].name, gfilter->map[RMAP_IN].name) != 0)
       {
         afi_header_vty_out (vty, afi, safi, write,
-                            "  neighbor %s route-map %s in%s",
-                            addr, filter->map[RMAP_IN].name, VTYNL);
+                            "  neighbor %s route-map %s in\n",
+                            addr, filter->map[RMAP_IN].name);
       }
 
   if (filter->map[RMAP_OUT].name)
@@ -6545,16 +6545,16 @@ bgp_config_write_filter (struct vty *vty, struct peer *peer,
        || strcmp (filter->map[RMAP_OUT].name, gfilter->map[RMAP_OUT].name) != 0)
     {
       afi_header_vty_out (vty, afi, safi, write,
-                          "  neighbor %s route-map %s out%s",
-                          addr, filter->map[RMAP_OUT].name, VTYNL);
+                          "  neighbor %s route-map %s out\n",
+                          addr, filter->map[RMAP_OUT].name);
     }
 
   /* unsuppress-map */
   if (filter->usmap.name && ! gfilter)
     {
       afi_header_vty_out (vty, afi, safi, write,
-                          "  neighbor %s unsuppress-map %s%s",
-                          addr, filter->usmap.name, VTYNL);
+                          "  neighbor %s unsuppress-map %s\n",
+                          addr, filter->usmap.name);
     }
 
   /* filter-list. */
@@ -6563,15 +6563,15 @@ bgp_config_write_filter (struct vty *vty, struct peer *peer,
 	|| strcmp (filter->aslist[in].name, gfilter->aslist[in].name) != 0)
       {
         afi_header_vty_out (vty, afi, safi, write,
-                            "  neighbor %s filter-list %s in%s",
-                            addr, filter->aslist[in].name, VTYNL);
+                            "  neighbor %s filter-list %s in\n",
+                            addr, filter->aslist[in].name);
       }
 
   if (filter->aslist[out].name && ! gfilter)
     {
       afi_header_vty_out (vty, afi, safi, write,
-                          "  neighbor %s filter-list %s out%s",
-                          addr, filter->aslist[out].name, VTYNL);
+                          "  neighbor %s filter-list %s out\n",
+                          addr, filter->aslist[out].name);
     }
 }
 
@@ -6942,16 +6942,16 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
       if (g_peer->afc[afi][safi] && !peer->afc[afi][safi])
         {
           afi_header_vty_out (vty, afi, safi, write,
-                              "  no neighbor %s activate%s",
-                              addr, VTYNL);
+                              "  no neighbor %s activate\n",
+                              addr);
         }
 
       /* If the peer-group is not active but peer is, print an 'activate' */
       else if (!g_peer->afc[afi][safi] && peer->afc[afi][safi])
         {
           afi_header_vty_out (vty, afi, safi, write,
-                              "  neighbor %s activate%s",
-                              addr, VTYNL);
+                              "  neighbor %s activate\n",
+                              addr);
         }
     }
   else
@@ -6963,14 +6963,14 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
               if (bgp_flag_check (bgp, BGP_FLAG_NO_DEFAULT_IPV4))
                 {
                   afi_header_vty_out(vty, afi, safi, write,
-                                     "  neighbor %s activate%s",
-                                     addr, VTYNL);
+                                     "  neighbor %s activate\n",
+                                     addr);
                 }
             }
           else
             afi_header_vty_out (vty, afi, safi, write,
-                                "  neighbor %s activate%s",
-                                addr, VTYNL);
+                                "  neighbor %s activate\n",
+                                addr);
         }
       else
 	{
@@ -6979,8 +6979,8 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
 	      if (!bgp_flag_check (bgp, BGP_FLAG_NO_DEFAULT_IPV4))
 		{
 		  afi_header_vty_out (vty, afi, safi, write,
-				      "  no neighbor %s activate%s",
-				      addr, VTYNL);
+				      "  no neighbor %s activate\n",
+				      addr);
 		}
 	    }
 	}
@@ -6990,15 +6990,15 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
   if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_ADDPATH_TX_ALL_PATHS))
     {
       afi_header_vty_out (vty, afi, safi, write,
-                          "  neighbor %s addpath-tx-all-paths%s",
-                          addr, VTYNL);
+                          "  neighbor %s addpath-tx-all-paths\n",
+                          addr);
     }
 
   if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS))
     {
       afi_header_vty_out (vty, afi, safi, write,
-                          "  neighbor %s addpath-tx-bestpath-per-AS%s",
-                          addr, VTYNL);
+                          "  neighbor %s addpath-tx-bestpath-per-AS\n",
+                          addr);
     }
 
   /* ORF capability.  */
@@ -7023,61 +7023,61 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
   if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_REFLECTOR_CLIENT))
     {
       afi_header_vty_out (vty, afi, safi, write,
-                          "  neighbor %s route-reflector-client%s",
-                          addr, VTYNL);
+                          "  neighbor %s route-reflector-client\n",
+                          addr);
     }
 
   /* next-hop-self force */
   if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_FORCE_NEXTHOP_SELF))
     {
       afi_header_vty_out (vty, afi, safi, write,
-                          "  neighbor %s next-hop-self force%s",
-                          addr, VTYNL);
+                          "  neighbor %s next-hop-self force\n",
+                          addr);
     }
 
   /* next-hop-self */
   if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_NEXTHOP_SELF))
     {
       afi_header_vty_out (vty, afi, safi, write,
-                          "  neighbor %s next-hop-self%s",
-                          addr, VTYNL);
+                          "  neighbor %s next-hop-self\n",
+                          addr);
     }
 
   /* remove-private-AS */
   if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE))
     {
       afi_header_vty_out (vty, afi, safi, write,
-                          "  neighbor %s remove-private-AS all replace-AS%s",
-                          addr, VTYNL);
+                          "  neighbor %s remove-private-AS all replace-AS\n",
+                          addr);
     }
 
   else if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_REPLACE))
     {
       afi_header_vty_out (vty, afi, safi, write,
-                          "  neighbor %s remove-private-AS replace-AS%s",
-                          addr, VTYNL);
+                          "  neighbor %s remove-private-AS replace-AS\n",
+                          addr);
     }
 
   else if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS_ALL))
     {
       afi_header_vty_out (vty, afi, safi, write,
-                          "  neighbor %s remove-private-AS all%s",
-                          addr, VTYNL);
+                          "  neighbor %s remove-private-AS all\n",
+                          addr);
     }
 
   else if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_REMOVE_PRIVATE_AS))
     {
       afi_header_vty_out (vty, afi, safi, write,
-                          "  neighbor %s remove-private-AS%s",
-                          addr, VTYNL);
+                          "  neighbor %s remove-private-AS\n",
+                          addr);
     }
 
   /* as-override */
   if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_AS_OVERRIDE))
     {
       afi_header_vty_out (vty, afi, safi, write,
-                          "  neighbor %s as-override%s",
-                          addr, VTYNL);
+                          "  neighbor %s as-override\n",
+                          addr);
     }
 
   /* send-community print. */
@@ -7088,26 +7088,26 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
           && peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_LARGE_COMMUNITY))
         {
           afi_header_vty_out (vty, afi, safi, write,
-                              "  neighbor %s send-community all%s",
-                              addr, VTYNL);
+                              "  neighbor %s send-community all\n",
+                              addr);
         }
       else if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_LARGE_COMMUNITY))
         {
           afi_header_vty_out (vty, afi, safi, write,
-                              "  neighbor %s send-community large%s",
-                              addr, VTYNL);
+                              "  neighbor %s send-community large\n",
+                              addr);
         }
       else if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_EXT_COMMUNITY))
         {
           afi_header_vty_out (vty, afi, safi, write,
-                              "  neighbor %s send-community extended%s",
-                              addr, VTYNL);
+                              "  neighbor %s send-community extended\n",
+                              addr);
         }
       else if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_COMMUNITY))
         {
           afi_header_vty_out (vty, afi, safi, write,
-                              "  neighbor %s send-community%s",
-                              addr, VTYNL);
+                              "  neighbor %s send-community\n",
+                              addr);
         }
     }
   else
@@ -7120,8 +7120,8 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
           (!g_peer || peer_af_flag_check (g_peer, afi, safi, PEER_FLAG_SEND_LARGE_COMMUNITY)))
         {
           afi_header_vty_out (vty, afi, safi, write,
-                              "  no neighbor %s send-community all%s",
-                              addr, VTYNL);
+                              "  no neighbor %s send-community all\n",
+                              addr);
         }
       else
         {
@@ -7129,24 +7129,24 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
               (!g_peer || peer_af_flag_check (g_peer, afi, safi, PEER_FLAG_SEND_LARGE_COMMUNITY)))
             {
               afi_header_vty_out (vty, afi, safi, write,
-                                  "  no neighbor %s send-community large%s",
-                                  addr, VTYNL);
+                                  "  no neighbor %s send-community large\n",
+                                  addr);
             }
 
           if (!peer_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_EXT_COMMUNITY) &&
               (!g_peer || peer_af_flag_check (g_peer, afi, safi, PEER_FLAG_SEND_EXT_COMMUNITY)))
             {
               afi_header_vty_out (vty, afi, safi, write,
-                                  "  no neighbor %s send-community extended%s",
-                                  addr, VTYNL);
+                                  "  no neighbor %s send-community extended\n",
+                                  addr);
             }
 
           if (!peer_af_flag_check (peer, afi, safi, PEER_FLAG_SEND_COMMUNITY) &&
               (!g_peer || peer_af_flag_check (g_peer, afi, safi, PEER_FLAG_SEND_COMMUNITY)))
             {
               afi_header_vty_out (vty, afi, safi, write,
-                                  "  no neighbor %s send-community%s",
-                                  addr, VTYNL);
+                                  "  no neighbor %s send-community\n",
+                                  addr);
             }
         }
     }
@@ -7170,8 +7170,8 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
   if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_SOFT_RECONFIG))
     {
       afi_header_vty_out (vty, afi, safi, write,
-                          "  neighbor %s soft-reconfiguration inbound%s",
-                          addr, VTYNL);
+                          "  neighbor %s soft-reconfiguration inbound\n",
+                          addr);
     }
 
   /* maximum-prefix. */
@@ -7198,16 +7198,16 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
   if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_RSERVER_CLIENT))
     {
       afi_header_vty_out (vty, afi, safi, write,
-                          "  neighbor %s route-server-client%s",
-                          addr, VTYNL);
+                          "  neighbor %s route-server-client\n",
+                          addr);
     }
 
   /* Nexthop-local unchanged. */
   if (peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED))
     {
       afi_header_vty_out (vty, afi, safi, write,
-                          "  neighbor %s nexthop-local unchanged%s",
-                          addr, VTYNL);
+                          "  neighbor %s nexthop-local unchanged\n",
+                          addr);
     }
 
   /* allowas-in <1-10> */
@@ -7220,14 +7220,14 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
           if (peer->allowas_in[afi][safi] == 3)
             {
               afi_header_vty_out (vty, afi, safi, write,
-                                  "  neighbor %s allowas-in%s",
-                                  addr, VTYNL);
+                                  "  neighbor %s allowas-in\n",
+                                  addr);
             }
           else
             {
               afi_header_vty_out (vty, afi, safi, write,
-                                  "  neighbor %s allowas-in %d%s",
-                                  addr, peer->allowas_in[afi][safi], VTYNL);
+                                  "  neighbor %s allowas-in %d\n",
+                                  addr, peer->allowas_in[afi][safi]);
             }
         }
     }
@@ -7239,8 +7239,8 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
           || ! peer_af_flag_check (g_peer, afi, safi, PEER_FLAG_ALLOWAS_IN_ORIGIN))
         {
           afi_header_vty_out (vty, afi, safi, write,
-                              "  neighbor %s allowas-in origin%s",
-                              addr, VTYNL);
+                              "  neighbor %s allowas-in origin\n",
+                              addr);
         }
     }
 
@@ -7253,8 +7253,8 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
 	if (peer->weight[afi][safi])
           {
             afi_header_vty_out (vty, afi, safi, write,
-                                "  neighbor %s weight %lu%s",
-                                addr, peer->weight[afi][safi], VTYNL);
+                                "  neighbor %s weight %lu\n",
+                                addr, peer->weight[afi][safi]);
           }
       }
 
@@ -7271,19 +7271,19 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
           && peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_MED_UNCHANGED))
         {
 	  afi_header_vty_out (vty, afi, safi, write,
-                              "  neighbor %s attribute-unchanged%s",
-                              addr, VTYNL);
+                              "  neighbor %s attribute-unchanged\n",
+                              addr);
         }
       else
         {
           afi_header_vty_out (vty, afi, safi, write,
-               "  neighbor %s attribute-unchanged%s%s%s%s", addr,
+               "  neighbor %s attribute-unchanged%s%s%s\n", addr,
 	       peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_AS_PATH_UNCHANGED) ?
 	       " as-path" : "",
 	       peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_NEXTHOP_UNCHANGED) ?
 	       " next-hop" : "",
 	       peergroup_af_flag_check (peer, afi, safi, PEER_FLAG_MED_UNCHANGED) ?
-	       " med" : "", VTYNL);
+	       " med" : "");
         }
     }
 }

@@ -3144,7 +3144,7 @@ test_nexthops_callback (
 
   fp (out, "Nexthops Callback, Target=(");
   //rfapiPrintRfapiIpAddr(stream, target);
-  fp (out, ")%s", VTYNL);
+  fp (out, ")\n");
 
   rfapiPrintNhl (stream, next_hops);
 

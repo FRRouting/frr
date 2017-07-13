@@ -798,10 +798,9 @@ ospf6_redistribute_show_config (struct vty *vty)
         continue;
 
       if (ospf6->rmap[type].name)
-        vty_out (vty, "    %d: %s with route-map \"%s\"%s%s", nroute[type],
+        vty_out (vty, "    %d: %s with route-map \"%s\"%s\n", nroute[type],
                  ZROUTE_NAME (type), ospf6->rmap[type].name,
-                 (ospf6->rmap[type].map ? "" : " (not found !)"),
-                 VTYNL);
+                 (ospf6->rmap[type].map ? "" : " (not found !)"));
       else
         vty_out (vty, "    %d: %s\n", nroute[type],
                  ZROUTE_NAME (type));

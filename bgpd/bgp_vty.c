@@ -616,7 +616,7 @@ bgp_clear (struct vty *vty, struct bgp *bgp,  afi_t afi, safi_t safi,
           peer = peer_lookup (bgp, &su);
           if (! peer)
             {
-              vty_out (vty, "%%BGP: Unknown neighbor - \"%s\"%s", arg, VTYNL);
+              vty_out (vty, "%%BGP: Unknown neighbor - \"%s\"\n", arg);
               return CMD_WARNING;
             }
         }
@@ -3414,7 +3414,7 @@ peer_flag_modify_vty (struct vty *vty, const char *ip_str,
    */
   if (peer->conf_if && (flag == PEER_FLAG_DISABLE_CONNECTED_CHECK)) {
     vty_out (vty, "%s is directly connected peer, cannot accept disable-"
-                  "connected-check%s", ip_str, VTYNL);
+                  "connected-check\n", ip_str);
     return CMD_WARNING;
   }
 
@@ -6943,8 +6943,8 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
                   if (bgp->v_maxmed_admin)
                     vty_out (vty, "Max-med administrative active\n");
 
-                 vty_out(vty, "BGP table version %" PRIu64 "%s",
-                         bgp_table_version(bgp->rib[afi][safi]), VTYNL);
+                 vty_out(vty, "BGP table version %" PRIu64 "\n",
+                         bgp_table_version(bgp->rib[afi][safi]));
 
                   ents = bgp_table_count (bgp->rib[afi][safi]);
                   vty_out (vty, "RIB entries %ld, using %s of memory\n", ents,
@@ -7088,8 +7088,8 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
       else
         {
           if (use_json)
-            vty_out(vty, "{\"error\": {\"message\": \"No %s neighbor configured\"}}%s",
-                    afi_safi_print(afi, safi), VTYNL);
+            vty_out(vty, "{\"error\": {\"message\": \"No %s neighbor configured\"}}\n",
+                    afi_safi_print(afi, safi));
           else
             vty_out (vty, "No %s neighbor is configured\n",
                      afi_safi_print(afi, safi));
@@ -7646,8 +7646,8 @@ bgp_show_peer_afi (struct vty *vty, struct peer *p, afi_t afi, safi_t safi,
       paf = peer_af_find(p, afi, safi);
       if (paf && PAF_SUBGRP(paf))
         {
-          vty_out (vty, "  Update group %" PRIu64 ", subgroup %" PRIu64 "%s",
-	           PAF_UPDGRP(paf)->id, PAF_SUBGRP(paf)->id, VTYNL);
+          vty_out (vty, "  Update group %" PRIu64 ", subgroup %" PRIu64 "\n",
+	           PAF_UPDGRP(paf)->id, PAF_SUBGRP(paf)->id);
           vty_out (vty, "  Packet Queue length %d\n",
                    bpacket_queue_virtual_length(paf));
         }
@@ -8811,7 +8811,7 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
                   msg_str = bgp_notify_admin_message(msgbuf, sizeof(msgbuf),
                                                      (u_char*)p->notify.data, p->notify.length);
                   if (msg_str)
-                    vty_out (vty, "    Message: \"%s\"%s", msg_str, VTYNL);
+                    vty_out (vty, "    Message: \"%s\"\n", msg_str);
                 }
             }
           else
@@ -9112,8 +9112,7 @@ bgp_show_all_instances_neighbors_vty (struct vty *vty, u_char use_json)
             {
               zlog_err("Unable to allocate memory for JSON object");
               vty_out (vty,
-                       "{\"error\": {\"message:\": \"Unable to allocate memory for JSON object\"}}}%s",
-                       VTYNL);
+                       "{\"error\": {\"message:\": \"Unable to allocate memory for JSON object\"}}}\n");
               return;
             }
 

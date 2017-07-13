@@ -995,10 +995,10 @@ rfapiShowVncQueries (void *stream, struct prefix *pfx_match)
               if (!printedheader)
                 {
                   ++printedheader;
-                  fp (out, "%s", VTYNL);
-                  fp (out, "%-15s %-15s %-15s %-10s%s",
+                  fp (out, "\n");
+                  fp (out, "%-15s %-15s %-15s %-10s\n",
                       "VN Address", "UN Address",
-                      "Target", "Remaining", VTYNL);
+                      "Target", "Remaining");
                 }
 
               if (!printedquerier)
@@ -1022,9 +1022,9 @@ rfapiShowVncQueries (void *stream, struct prefix *pfx_match)
                   rfapiFormatSeconds (thread_timer_remain_second (m->timer),
                                       buf_remain, BUFSIZ);
                 }
-              fp (out, " %-15s %-10s%s",
+              fp (out, " %-15s %-10s\n",
                   inet_ntop (m->p.family, &m->p.u.prefix, buf_pfx, BUFSIZ),
-                  buf_remain, VTYNL);
+                  buf_remain);
             }
         }
 
@@ -1070,10 +1070,10 @@ rfapiShowVncQueries (void *stream, struct prefix *pfx_match)
               if (!printedheader)
                 {
                   ++printedheader;
-                  fp (out, "%s", VTYNL);
-                  fp (out, "%-15s %-15s %-17s %10s %-10s%s",
+                  fp (out, "\n");
+                  fp (out, "%-15s %-15s %-17s %10s %-10s\n",
                       "VN Address", "UN Address",
-                      "Target", "LNI", "Remaining", VTYNL);
+                      "Target", "LNI", "Remaining");
                 }
 
               if (!printedquerier)
@@ -1097,19 +1097,18 @@ rfapiShowVncQueries (void *stream, struct prefix *pfx_match)
                   rfapiFormatSeconds (thread_timer_remain_second
                                       (mon_eth->timer), buf_remain, BUFSIZ);
                 }
-              fp (out, " %-17s %10d %-10s%s",
+              fp (out, " %-17s %10d %-10s\n",
                   rfapi_ntop (pfx_mac.family, &pfx_mac.u.prefix, buf_pfx,
-                              BUFSIZ), mon_eth->logical_net_id, buf_remain,
-                  VTYNL);
+                              BUFSIZ), mon_eth->logical_net_id, buf_remain);
             }
         }
     }
 
   if (queries_total)
     {
-      fp (out, "%s", VTYNL);
-      fp (out, "Displayed %d out of %d total queries%s",
-          queries_displayed, queries_total, VTYNL);
+      fp (out, "\n");
+      fp (out, "Displayed %d out of %d total queries\n",
+          queries_displayed, queries_total);
     }
   return CMD_SUCCESS;
 }
