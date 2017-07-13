@@ -211,7 +211,7 @@ show_discovery_msg(struct vty *vty, struct imsg *imsg,
 
 			vty_out(vty, "%-8s %-15s ", "Targeted", addr);
 			if (strlen(addr) > 15)
-				vty_out(vty, "%s%46s", VTYNL, " ");
+				vty_out(vty, "\n%46s", " ");
 			break;
 		}
 		vty_out (vty, "%9u\n", adj->holdtime);
@@ -511,7 +511,7 @@ show_nbr_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 		    af_name(nbr->af), inet_ntoa(nbr->id),
 		    nbr_state_name(nbr->nbr_state), addr);
 		if (strlen(addr) > 15)
-			vty_out(vty, "%s%48s", VTYNL, " ");
+			vty_out(vty, "\n%48s", " ");
 		vty_out (vty, " %8s\n", log_time(nbr->uptime));
 		break;
 	case IMSG_CTL_END:
@@ -1021,7 +1021,7 @@ show_lib_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 
 		vty_out(vty, "%-4s %-20s", af_name(rt->af), dstnet);
 		if (strlen(dstnet) > 20)
-			vty_out(vty, "%s%25s", VTYNL, " ");
+			vty_out(vty, "\n%25s", " ");
 		vty_out (vty, " %-15s %-11s %-13s %6s\n", inet_ntoa(rt->nexthop),
 		    log_label(rt->local_label), log_label(rt->remote_label),
 		    rt->in_use ? "yes" : "no");

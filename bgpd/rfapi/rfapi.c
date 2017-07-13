@@ -3837,8 +3837,7 @@ DEFUN (debug_rfapi_show_import,
               lni = lni_as_ptr;
               if (first_l2)
                 {
-                  vty_out (vty, "%sLNI-based Ethernet Tables:\n",
-                           VTYNL);
+                  vty_out (vty, "\nLNI-based Ethernet Tables:\n");
                   first_l2 = 0;
                 }
               snprintf (buf, BUFSIZ, "L2VPN LNI=%u", lni);

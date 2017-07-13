@@ -6191,7 +6191,7 @@ route_vty_out_route (struct prefix *p, struct vty *vty)
 
   len = 17 - len;
   if (len < 1)
-    vty_out (vty, "%s%*s", VTYNL, 20, " ");
+    vty_out (vty, "\n%*s", 20, " ");
   else
     vty_out (vty, "%*s", len, " ");
 }
@@ -6415,7 +6415,7 @@ route_vty_out (struct vty *vty, struct prefix *p,
 		      len = 7 - len; /* len of IPv6 addr + max len of def ifname */
 
 		      if (len < 1)
-			vty_out (vty, "%s%*s", VTYNL, 45, " ");
+			vty_out (vty, "\n%*s", 45, " ");
 		      else
 			vty_out (vty, "%*s", len, " ");
 		    }
@@ -6428,7 +6428,7 @@ route_vty_out (struct vty *vty, struct prefix *p,
 		      len = 16 - len;
 
 		      if (len < 1)
-			vty_out (vty, "%s%*s", VTYNL, 36, " ");
+			vty_out (vty, "\n%*s", 36, " ");
 		      else
 			vty_out (vty, "%*s", len, " ");
 		    }
@@ -6442,7 +6442,7 @@ route_vty_out (struct vty *vty, struct prefix *p,
 		  len = 16 - len;
 
 		  if (len < 1)
-		    vty_out (vty, "%s%*s", VTYNL, 36, " ");
+		    vty_out (vty, "\n%*s", 36, " ");
 		  else
 		    vty_out (vty, "%*s", len, " ");
 		}
@@ -6630,7 +6630,7 @@ route_vty_out_tmp (struct vty *vty, struct prefix *p, struct attr *attr, safi_t 
                              buf, BUFSIZ));
               len = 16 - len;
               if (len < 1)
-                vty_out (vty, "%s%*s", VTYNL, 36, " ");
+                vty_out (vty, "\n%*s", 36, " ");
               else
                 vty_out (vty, "%*s", len, " ");
             }
@@ -6884,7 +6884,7 @@ damp_route_vty_out (struct vty *vty, struct prefix *p, struct bgp_info *binfo,
   if (len < 1)
     {
       if (!use_json)
-        vty_out (vty, "%s%*s", VTYNL, 34, " ");
+        vty_out (vty, "\n%*s", 34, " ");
     }
   else
     {
@@ -6954,7 +6954,7 @@ flap_route_vty_out (struct vty *vty, struct prefix *p, struct bgp_info *binfo,
   if (len < 1)
     {
       if (!use_json)
-        vty_out (vty, "%s%*s", VTYNL, 33, " ");
+        vty_out (vty, "\n%*s", 33, " ");
     }
   else
     {
@@ -8043,8 +8043,7 @@ bgp_show_table (struct vty *vty, struct bgp *bgp, struct bgp_table *table,
                        total_count);
         }
       else
-        vty_out (vty, "%sDisplayed  %ld routes and %ld total paths\n",
-                 VTYNL, output_count, total_count);
+        vty_out (vty, "\nDisplayed  %ld routes and %ld total paths\n", output_count, total_count);
     }
 
   return CMD_SUCCESS;
@@ -8105,8 +8104,7 @@ bgp_show_all_instances_routes_vty (struct vty *vty, afi_t afi, safi_t safi,
         }
       else
         {
-          vty_out (vty, "%sInstance %s:\n",
-                   VTYNL,
+          vty_out (vty, "\nInstance %s:\n",
                    (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? "Default" : bgp->name);
         }
       bgp_show (vty, bgp, afi, safi, bgp_show_type_normal, NULL, use_json);
@@ -9422,8 +9420,7 @@ bgp_peer_counts (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi, u_c
         }
 
       vty_out (vty, "PfxCt: %ld\n", peer->pcount[afi][safi]);
-      vty_out (vty, "%sCounts from RIB table walk:%s\n",
-               VTYNL, VTYNL);
+      vty_out (vty, "\nCounts from RIB table walk:\n\n");
 
       for (i = 0; i < PCOUNT_MAX; i++)
         vty_out (vty, "%20s: %-10d\n", pcount_strs[i], pcounts.count[i]);
@@ -9649,8 +9646,7 @@ show_adj_route (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
           vty_out (vty, BGP_SHOW_SCODE_HEADER);
           vty_out (vty, BGP_SHOW_OCODE_HEADER);
 
-          vty_out (vty, "Originating default network 0.0.0.0%s\n",
-                   VTYNL);
+          vty_out (vty, "Originating default network 0.0.0.0\n\n");
         }
       header1 = 0;
     }
@@ -9757,8 +9753,7 @@ show_adj_route (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
       if (use_json)
         json_object_int_add(json, "totalPrefixCounter", output_count);
       else
-        vty_out (vty, "%sTotal number of prefixes %ld\n",
-                 VTYNL, output_count);
+        vty_out (vty, "\nTotal number of prefixes %ld\n", output_count);
     }
   if (use_json)
     {

@@ -1572,8 +1572,7 @@ pim_show_state(struct vty *vty, const char *src_or_group, const char *group, u_c
     json = json_object_new_object();
   } else {
     vty_out(vty, "Codes: J -> Pim Join, I -> IGMP Report, S -> Source, * -> Inherited from (*,G)");
-    vty_out (vty, "%sInstalled Source           Group            IIF      OIL\n",
-              VTYNL);
+    vty_out (vty, "\nInstalled Source           Group            IIF      OIL\n");
   }
 
   for (ALL_LIST_ELEMENTS_RO(pim_channel_oil_list, node, c_oil)) {

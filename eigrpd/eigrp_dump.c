@@ -210,8 +210,7 @@ void
 show_ip_eigrp_interface_header (struct vty *vty, struct eigrp *eigrp)
 {
 
-  vty_out (vty, "%s%s%d%s%s%s %-10s %-10s %-10s %-6s %-12s %-7s %-14s %-12s %-8s %-8s %-8s%s %-39s %-12s %-7s %-14s %-12s %-8s\n",
-           VTYNL,
+  vty_out (vty, "\n%s%d%s%s%s %-10s %-10s %-10s %-6s %-12s %-7s %-14s %-12s %-8s %-8s %-8s%s %-39s %-12s %-7s %-14s %-12s %-8s\n",
            "EIGRP interfaces for AS(",eigrp->AS,")",VTYNL,VTYNL,
            "Interface", "Bandwidth", "Delay", "Peers", "Xmit Queue", "Mean",
            "Pacing Time", "Multicast", "Pending", "Hello", "Holdtime",
@@ -257,8 +256,7 @@ show_ip_eigrp_interface_detail (struct vty *vty, struct eigrp *eigrp,
 void
 show_ip_eigrp_neighbor_header (struct vty *vty, struct eigrp *eigrp)
 {
-  vty_out (vty, "%s%s%d%s%s%s%-3s %-17s %-20s %-6s %-8s %-6s %-5s %-5s %-5s%s %-41s %-6s %-8s %-6s %-4s %-6s %-5s \n",
-           VTYNL,
+  vty_out (vty, "\n%s%d%s%s%s%-3s %-17s %-20s %-6s %-8s %-6s %-5s %-5s %-5s%s %-41s %-6s %-8s %-6s %-4s %-6s %-5s \n",
            "EIGRP neighbors for AS(",eigrp->AS,")",VTYNL,VTYNL,
            "H", "Address", "Interface", "Hold", "Uptime",
            "SRTT", "RTO", "Q", "Seq", VTYNL
@@ -298,8 +296,7 @@ show_ip_eigrp_topology_header (struct vty *vty, struct eigrp *eigrp)
   struct in_addr router_id;
   router_id.s_addr = eigrp->router_id;
 
-  vty_out (vty, "%sEIGRP Topology Table for AS(%d)/ID(%s)%s\n",
-           VTYNL, eigrp->AS, inet_ntoa(router_id), VTYNL);
+  vty_out (vty, "\nEIGRP Topology Table for AS(%d)/ID(%s)%s\n", eigrp->AS, inet_ntoa(router_id), VTYNL);
   vty_out (vty, "Codes: P - Passive, A - Active, U - Update, Q - Query, "
            "R - Reply%s       r - reply Status, s - sia Status%s\n",
            VTYNL, VTYNL);

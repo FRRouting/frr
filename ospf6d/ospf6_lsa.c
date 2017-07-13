@@ -58,7 +58,7 @@ ospf6_unknown_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
   for (current = start; current < end; current ++)
     {
       if ((current - start) % 16 == 0)
-        vty_out (vty, "%s        ", VTYNL);
+        vty_out (vty, "\n        ");
       else if ((current - start) % 4 == 0)
         vty_out (vty, " ");
 
@@ -66,7 +66,7 @@ ospf6_unknown_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
       vty_out (vty, "%s", byte);
     }
 
-  vty_out (vty, "%s%s", VTYNL, VTYNL);
+  vty_out (vty, "\n\n");
   return 0;
 }
 
@@ -451,7 +451,7 @@ ospf6_lsa_show_dump (struct vty *vty, struct ospf6_lsa *lsa)
   for (current = start; current < end; current ++)
     {
       if ((current - start) % 16 == 0)
-        vty_out (vty, "%s        ", VTYNL);
+        vty_out (vty, "\n        ");
       else if ((current - start) % 4 == 0)
         vty_out (vty, " ");
 
@@ -459,7 +459,7 @@ ospf6_lsa_show_dump (struct vty *vty, struct ospf6_lsa *lsa)
       vty_out (vty, "%s", byte);
     }
 
-  vty_out (vty, "%s%s", VTYNL, VTYNL);
+  vty_out (vty, "\n\n");
   return;
 }
 

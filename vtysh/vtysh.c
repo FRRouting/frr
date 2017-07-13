@@ -2529,7 +2529,7 @@ DEFUN (vtysh_write_terminal,
     fp = stdout;
 
   vty_out (vty, "Building configuration...\n");
-  vty_out (vty, "%sCurrent configuration:\n",VTYNL);
+  vty_out (vty, "\nCurrent configuration:\n");
   vty_out (vty, "!\n");
 
   for (i = 0; i < array_size(vtysh_client); i++)

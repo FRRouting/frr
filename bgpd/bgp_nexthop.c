@@ -478,8 +478,7 @@ bgp_show_all_instances_nexthops_vty (struct vty *vty)
 
   for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
     {
-      vty_out (vty, "%sInstance %s:\n",
-               VTYNL,
+      vty_out (vty, "\nInstance %s:\n",
                (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? "Default" : bgp->name);
       bgp_show_nexthops (vty, bgp, 0);
     }

@@ -1451,7 +1451,7 @@ zfpm_show_stats (struct vty *vty)
   zfpm_stats_t total_stats;
   time_t elapsed;
 
-  vty_out (vty, "%s%-40s %10s     Last %2d secs%s\n", VTYNL, "Counter",
+  vty_out (vty, "\n%-40s %10s     Last %2d secs%s\n", "Counter",
 	   "Total", ZFPM_STATS_IVL_SECS, VTYNL);
 
   /*
@@ -1490,7 +1490,7 @@ zfpm_show_stats (struct vty *vty)
 
   elapsed = zfpm_get_elapsed_time (zfpm_g->last_stats_clear_time);
 
-  vty_out (vty, "%sStats were cleared %lu seconds ago\n", VTYNL,
+  vty_out (vty, "\nStats were cleared %lu seconds ago\n",
 	   (unsigned long)elapsed);
 }
 

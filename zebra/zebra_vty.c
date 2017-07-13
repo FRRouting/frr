@@ -1183,7 +1183,7 @@ do_show_ip_route (struct vty *vty, const char *vrf_name, afi_t afi, safi_t safi,
                     vty_out (vty, SHOW_ROUTE_V6_HEADER);
 
                   if (zvrf_id (zvrf) != VRF_DEFAULT)
-                    vty_out (vty, "%sVRF %s:\n", VTYNL,
+                    vty_out (vty, "\nVRF %s:\n",
                                zvrf_name(zvrf));
 
                   first = 0;
@@ -1244,7 +1244,7 @@ DEFUN (show_ip_nht_vrf_all,
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     if ((zvrf = vrf->info) != NULL)
       {
-        vty_out (vty, "%sVRF %s:\n", VTYNL, zvrf_name(zvrf));
+        vty_out (vty, "\nVRF %s:\n", zvrf_name(zvrf));
         zebra_print_rnh_table(zvrf_id (zvrf), AF_INET, vty, RNH_NEXTHOP_TYPE);
       }
 
@@ -1284,7 +1284,7 @@ DEFUN (show_ipv6_nht_vrf_all,
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     if ((zvrf = vrf->info) != NULL)
       {
-        vty_out (vty, "%sVRF %s:\n", VTYNL, zvrf_name(zvrf));
+        vty_out (vty, "\nVRF %s:\n", zvrf_name(zvrf));
         zebra_print_rnh_table(zvrf_id (zvrf), AF_INET6, vty, RNH_NEXTHOP_TYPE);
       }
 

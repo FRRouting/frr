@@ -1349,7 +1349,7 @@ DEFUN (show_version,
   vty_out (vty, "%s %s (%s).\n", FRR_FULL_NAME, FRR_VERSION,
 	   host.name ? host.name : "");
   vty_out (vty, "%s%s\n", FRR_COPYRIGHT, GIT_INFO);
-  vty_out (vty, "configured with:%s    %s\n", VTYNL,
+  vty_out (vty, "configured with:\n    %s\n",
            FRR_CONFIG_ARGS);
 
   return CMD_SUCCESS;
@@ -1374,20 +1374,18 @@ DEFUN (config_help,
        "Description of the interactive help system\n")
 {
   vty_out (vty,
-           "Quagga VTY provides advanced help feature.  When you need help,%s\
-anytime at the command line please press '?'.%s\
-%s\
-If nothing matches, the help list will be empty and you must backup%s\
- until entering a '?' shows the available options.%s\
-Two styles of help are provided:%s\
-1. Full help is available when you are ready to enter a%s\
-command argument (e.g. 'show ?') and describes each possible%s\
-argument.%s\
-2. Partial help is provided when an abbreviated argument is entered%s\
-   and you want to know what arguments match the input%s\
-   (e.g. 'show me?'.)%s\n", VTYNL, VTYNL, VTYNL,
-           VTYNL, VTYNL, VTYNL, VTYNL, VTYNL,
-           VTYNL, VTYNL, VTYNL, VTYNL);
+           "Quagga VTY provides advanced help feature.  When you need help,\n\
+anytime at the command line please press '?'.\n\
+\n\
+If nothing matches, the help list will be empty and you must backup\n\
+ until entering a '?' shows the available options.\n\
+Two styles of help are provided:\n\
+1. Full help is available when you are ready to enter a\n\
+command argument (e.g. 'show ?') and describes each possible\n\
+argument.\n\
+2. Partial help is provided when an abbreviated argument is entered\n\
+   and you want to know what arguments match the input\n\
+   (e.g. 'show me?'.)\n\n");
   return CMD_SUCCESS;
 }
 
@@ -1488,7 +1486,7 @@ vty_write_config (struct vty *vty)
 
   if (vty->type == VTY_TERM)
     {
-      vty_out (vty, "%sCurrent configuration:\n",VTYNL);
+      vty_out (vty, "\nCurrent configuration:\n");
       vty_out (vty, "!\n");
     }
 

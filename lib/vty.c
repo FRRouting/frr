@@ -1759,8 +1759,7 @@ vty_create (int vty_sock, union sockunion *su)
   /* Say hello to the world. */
   vty_hello (vty);
   if (! no_password_check)
-    vty_out (vty, "%sUser Access Verification%s\n", VTYNL,
-               VTYNL);
+    vty_out (vty, "\nUser Access Verification\n\n");
 
   /* Setting up terminal. */
   vty_will_echo (vty);
@@ -2320,7 +2319,7 @@ vty_timeout (struct thread *thread)
 
   /* Clear buffer*/
   buffer_reset (vty->obuf);
-  vty_out (vty, "%sVty connection is timed out.\n", VTYNL);
+  vty_out (vty, "\nVty connection is timed out.\n");
 
   /* Close connection. */
   vty->status = VTY_CLOSE;

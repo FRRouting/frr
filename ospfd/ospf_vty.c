@@ -806,8 +806,7 @@ ospf_find_vl_data (struct ospf *ospf, struct ospf_vl_config_data *vl_config)
   if (area_id.s_addr == OSPF_AREA_BACKBONE)
     {
       vty_out (vty, 
-	       "Configuring VLs over the backbone is not allowed%s",
-               VTYNL);
+	       "Configuring VLs over the backbone is not allowed\n");
       return NULL;
     }
   area = ospf_area_get (ospf, area_id);
@@ -2748,7 +2747,7 @@ show_ip_ospf_area (struct vty *vty, struct ospf_area *area, json_object *json_ar
         }
       else
         {
-          vty_out (vty, "   It is an NSSA configuration. %s   Elected NSSA/ABR performs type-7/type-5 LSA translation. %s", VTYNL, VTYNL);
+          vty_out (vty, "   It is an NSSA configuration. \n   Elected NSSA/ABR performs type-7/type-5 LSA translation. \n");
           if (! IS_OSPF_ABR (area->ospf))
             vty_out (vty, "   It is not ABR, therefore not Translator. \n");
           else if (area->NSSATranslatorState)
@@ -2918,7 +2917,7 @@ show_ip_ospf_common (struct vty *vty, struct ospf *ospf, u_char use_json)
         }
       else
         {
-          vty_out (vty, "%sOSPF Instance: %d%s%s", VTYNL, ospf->instance,
+          vty_out (vty, "\nOSPF Instance: %d%s%s", ospf->instance,
                    VTYNL, VTYNL);
         }
     }
@@ -3517,7 +3516,7 @@ show_ip_ospf_interface_common (struct vty *vty, struct ospf *ospf, int argc,
       if (use_json)
         json_object_int_add(json, "ospfInstance", ospf->instance);
       else
-        vty_out (vty, "%sOSPF Instance: %d%s%s", VTYNL, ospf->instance,
+        vty_out (vty, "\nOSPF Instance: %d%s%s", ospf->instance,
                  VTYNL, VTYNL);
     }
 
@@ -3622,8 +3621,7 @@ DEFUN (show_ip_ospf_instance_interface,
 static void
 show_ip_ospf_neighbour_header (struct vty *vty)
 {
-  vty_out (vty, "%s%-15s %3s %-15s %9s %-15s %-20s %5s %5s %5s%s",
-           VTYNL,
+  vty_out (vty, "\n%-15s %3s %-15s %9s %-15s %-20s %5s %5s %5s%s",
            "Neighbor ID", "Pri", "State", "Dead Time",
            "Address", "Interface", "RXmtL", "RqstL", "DBsmL",
            VTYNL);
@@ -3715,7 +3713,7 @@ show_ip_ospf_neighbor_common (struct vty *vty, struct ospf *ospf, u_char use_jso
       if (use_json)
         json_object_int_add(json, "ospfInstance", ospf->instance);
       else
-        vty_out (vty, "%sOSPF Instance: %d%s%s", VTYNL, ospf->instance,
+        vty_out (vty, "\nOSPF Instance: %d%s%s", ospf->instance,
                  VTYNL, VTYNL);
     }
 
@@ -3795,7 +3793,7 @@ show_ip_ospf_neighbor_all_common (struct vty *vty, struct ospf *ospf, u_char use
       if (use_json)
         json_object_int_add(json, "ospfInstance", ospf->instance);
       else
-        vty_out (vty, "%sOSPF Instance: %d%s%s", VTYNL, ospf->instance,
+        vty_out (vty, "\nOSPF Instance: %d%s%s", ospf->instance,
                  VTYNL, VTYNL);
     }
 
@@ -3905,7 +3903,7 @@ show_ip_ospf_neighbor_int_common (struct vty *vty, struct ospf *ospf, int arg_ba
       if (use_json)
         json_object_int_add(json, "ospfInstance", ospf->instance);
       else
-        vty_out (vty, "%sOSPF Instance: %d%s%s", VTYNL, ospf->instance,
+        vty_out (vty, "\nOSPF Instance: %d%s%s", ospf->instance,
                  VTYNL, VTYNL);
     }
 
@@ -4280,7 +4278,7 @@ show_ip_ospf_neighbor_id_common (struct vty *vty, struct ospf *ospf,
       if (use_json)
         json_object_int_add(json, "ospfInstance", ospf->instance);
       else
-        vty_out (vty, "%sOSPF Instance: %d%s%s", VTYNL, ospf->instance,
+        vty_out (vty, "\nOSPF Instance: %d%s%s", ospf->instance,
                  VTYNL, VTYNL);
     }
 
@@ -4368,7 +4366,7 @@ show_ip_ospf_neighbor_detail_common (struct vty *vty, struct ospf *ospf, u_char 
       if (use_json)
         json_object_int_add(json, "ospfInstance", ospf->instance);
       else
-        vty_out (vty, "%sOSPF Instance: %d%s%s", VTYNL, ospf->instance,
+        vty_out (vty, "\nOSPF Instance: %d%s%s", ospf->instance,
                  VTYNL, VTYNL);
     }
 
@@ -4460,7 +4458,7 @@ show_ip_ospf_neighbor_detail_all_common (struct vty *vty, struct ospf *ospf, u_c
       if (use_json)
         json_object_int_add(json, "ospfInstance", ospf->instance);
       else
-        vty_out (vty, "%sOSPF Instance: %d%s%s", VTYNL, ospf->instance,
+        vty_out (vty, "\nOSPF Instance: %d%s%s", ospf->instance,
                  VTYNL, VTYNL);
     }
 
@@ -4563,7 +4561,7 @@ show_ip_ospf_neighbor_int_detail_common (struct vty *vty, struct ospf *ospf,
       if (use_json)
         json_object_int_add(json, "ospfInstance", ospf->instance);
       else
-        vty_out (vty, "%sOSPF Instance: %d%s%s", VTYNL, ospf->instance,
+        vty_out (vty, "\nOSPF Instance: %d%s%s", ospf->instance,
                  VTYNL, VTYNL);
     }
 
@@ -5099,8 +5097,7 @@ show_lsa_detail (struct vty *vty, struct ospf *ospf, int type,
     default:
       for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
         {
-          vty_out (vty, "%s                %s (Area %s)%s%s",
-                   VTYNL, show_database_desc[type],
+          vty_out (vty, "\n                %s (Area %s)%s%s", show_database_desc[type],
                    ospf_area_desc_string (area), VTYNL, VTYNL);
           show_lsa_detail_proc (vty, AREA_LSDB (area, type), id, adv_router);
         }
@@ -5147,8 +5144,7 @@ show_lsa_detail_adv_router (struct vty *vty, struct ospf *ospf, int type,
     default:
       for (ALL_LIST_ELEMENTS_RO (ospf->areas, node, area))
         {
-          vty_out (vty, "%s                %s (Area %s)%s%s",
-                   VTYNL, show_database_desc[type],
+          vty_out (vty, "\n                %s (Area %s)%s%s", show_database_desc[type],
                    ospf_area_desc_string (area), VTYNL, VTYNL);
           show_lsa_detail_adv_router_proc (vty, AREA_LSDB (area, type),
                                            adv_router);
@@ -5229,8 +5225,7 @@ show_ip_ospf_database_maxage (struct vty *vty, struct ospf *ospf)
 {
   struct route_node *rn;
 
-  vty_out (vty, "%s                MaxAge Link States:%s%s",
-           VTYNL, VTYNL, VTYNL);
+  vty_out (vty, "\n                MaxAge Link States:\n\n");
 
   for (rn = route_top (ospf->maxage_lsa); rn; rn = route_next (rn))
     {
@@ -5277,10 +5272,10 @@ show_ip_ospf_database_common (struct vty *vty, struct ospf *ospf,
   struct in_addr id, adv_router;
 
   if (ospf->instance)
-    vty_out (vty, "%sOSPF Instance: %d%s", VTYNL, ospf->instance,
+    vty_out (vty, "\nOSPF Instance: %d%s", ospf->instance,
              VTYNL);
 
-  vty_out (vty, "%s       OSPF Router with ID (%s)%s%s", VTYNL,
+  vty_out (vty, "\n       OSPF Router with ID (%s)%s%s",
            inet_ntoa (ospf->router_id), VTYNL, VTYNL);
 
   /* Show all LSA. */
@@ -5436,10 +5431,10 @@ show_ip_ospf_database_type_adv_router_common (struct vty *vty, struct ospf *ospf
   struct in_addr adv_router;
 
   if (ospf->instance)
-    vty_out (vty, "%sOSPF Instance: %d%s", VTYNL, ospf->instance,
+    vty_out (vty, "\nOSPF Instance: %d%s", ospf->instance,
              VTYNL);
 
-  vty_out (vty, "%s       OSPF Router with ID (%s)%s%s", VTYNL,
+  vty_out (vty, "\n       OSPF Router with ID (%s)%s%s",
            inet_ntoa (ospf->router_id), VTYNL, VTYNL);
 
   /* Set database type to show. */
@@ -6952,8 +6947,7 @@ DEFUN (ip_ospf_area,
   if (OSPF_IF_PARAM_CONFIGURED(params, if_area))
     {
       vty_out (vty,
-               "Must remove previous area config before changing ospf area %s",
-               VTYNL);
+               "Must remove previous area config before changing ospf area \n");
       return CMD_WARNING;
     }
 
@@ -7982,7 +7976,7 @@ static int
 show_ip_ospf_border_routers_common (struct vty *vty, struct ospf *ospf)
 {
   if (ospf->instance)
-    vty_out (vty, "%sOSPF Instance: %d%s%s", VTYNL, ospf->instance,
+    vty_out (vty, "\nOSPF Instance: %d%s%s", ospf->instance,
              VTYNL, VTYNL);
 
   if (ospf->new_table == NULL)
@@ -8042,7 +8036,7 @@ static int
 show_ip_ospf_route_common (struct vty *vty, struct ospf *ospf)
 {
   if (ospf->instance)
-    vty_out (vty, "%sOSPF Instance: %d%s%s", VTYNL, ospf->instance,
+    vty_out (vty, "\nOSPF Instance: %d%s%s", ospf->instance,
              VTYNL, VTYNL);
 
   if (ospf->new_table == NULL)

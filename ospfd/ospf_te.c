@@ -2585,7 +2585,7 @@ show_mpls_te_link_sub (struct vty *vty, struct interface *ifp)
         show_vty_link_subtlv_ava_bw (vty, &lp->ava_bw.header);
       if (TLV_TYPE(lp->use_bw) != 0)
         show_vty_link_subtlv_use_bw (vty, &lp->use_bw.header);
-      vty_out (vty, "---------------%s\n", VTYNL);
+      vty_out (vty, "---------------\n\n");
     }
   else
     {

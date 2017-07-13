@@ -818,7 +818,7 @@ DEFUN (show_address_vrf_all,
       if (!vrf->iflist || !listcount (vrf->iflist))
         continue;
 
-      vty_out (vty, "%sVRF %u%s%s", VTYNL, vrf->vrf_id, VTYNL,
+      vty_out (vty, "\nVRF %u%s%s", vrf->vrf_id, VTYNL,
 	       VTYNL);
 
       for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, ifp))

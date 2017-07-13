@@ -641,8 +641,7 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
 		                       inet_ntoa(bgp->router_id));
 		              vty_out (vty,
                                          "Status codes: s suppressed, d damped, h history, * valid, > best, i - internal\n");
-		              vty_out (vty, "Origin codes: i - IGP, e - EGP, ? - incomplete%s\n",
-		                       VTYNL);
+		              vty_out (vty, "Origin codes: i - IGP, e - EGP, ? - incomplete\n\n");
 		              vty_out (vty, V4_HEADER);
 		            }
                         }
@@ -749,8 +748,7 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
       if (output_count == 0)
 	vty_out (vty, "No prefixes displayed, %ld exist\n", total_count);
       else
-	vty_out (vty, "%sDisplayed %ld routes and %ld total paths\n",
-		 VTYNL, output_count, total_count);
+	vty_out (vty, "\nDisplayed %ld routes and %ld total paths\n", output_count, total_count);
     }
 
   return CMD_SUCCESS;

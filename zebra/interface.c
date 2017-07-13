@@ -1077,7 +1077,7 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 	   ifp->ifindex, ifp->metric, ifp->mtu, ifp->speed);
   if (ifp->mtu6 != ifp->mtu)
     vty_out (vty, "mtu6 %d ", ifp->mtu6);
-  vty_out (vty, "%s  flags: %s\n", VTYNL,
+  vty_out (vty, "\n  flags: %s\n",
            if_flag_dump(ifp->flags));
   
   /* Hardware address. */
@@ -1458,7 +1458,7 @@ DEFUN (show_interface_desc_vrf_all,
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     if (!list_isempty (vrf->iflist))
       {
-        vty_out (vty, "%s\tVRF %u%s\n", VTYNL, vrf->vrf_id,
+        vty_out (vty, "\n\tVRF %u%s\n", vrf->vrf_id,
 		 VTYNL);
         if_show_description (vty, vrf->vrf_id);
       }

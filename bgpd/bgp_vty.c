@@ -6628,8 +6628,7 @@ DEFUN (show_bgp_vrfs,
   else
     {
       if (count)
-        vty_out (vty, "%sTotal number of VRFs (including default): %d%s",
-                 VTYNL, count, VTYNL);
+        vty_out (vty, "\nTotal number of VRFs (including default): %d%s", count, VTYNL);
     }
 
   return CMD_SUCCESS;
@@ -7111,7 +7110,7 @@ bgp_show_summary (struct vty *vty, struct bgp *bgp, int afi, int safi,
   else
     {
       if (count)
-        vty_out (vty, "%sTotal number of neighbors %d%s", VTYNL,
+        vty_out (vty, "\nTotal number of neighbors %d%s",
                 count, VTYNL);
       else
         {
@@ -7198,8 +7197,7 @@ bgp_show_summary_afi_safi (struct vty *vty, struct bgp *bgp, int afi, int safi,
                     }
                   else
                     {
-                      vty_out (vty, "%s%s Summary:%s",
-                               VTYNL, afi_safi_print(afi, safi), VTYNL);
+                      vty_out (vty, "\n%s Summary:%s", afi_safi_print(afi, safi), VTYNL);
                     }
                 }
               bgp_show_summary (vty, bgp, afi, safi, use_json, json);
@@ -7251,8 +7249,7 @@ bgp_show_all_instances_summary_vty (struct vty *vty, afi_t afi, safi_t safi,
         }
       else
         {
-          vty_out (vty, "%sInstance %s:%s",
-                   VTYNL,
+          vty_out (vty, "\nInstance %s:%s",
                    (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
                    ? "Default" : bgp->name, VTYNL);
         }
@@ -8493,7 +8490,7 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
 
                   if (CHECK_FLAG (p->cap, PEER_CAP_ENHE_RCV))
 		    {
-		      vty_out (vty, "      Address families by peer:%s        ", VTYNL);
+		      vty_out (vty, "      Address families by peer:\n        ");
                       for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
                         if (CHECK_FLAG (p->af_cap[AFI_IP][safi], PEER_CAP_ENHE_AF_RCV))
                           vty_out (vty, "           %s%s",
@@ -8564,7 +8561,7 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
 
 		      vty_out (vty, "      Remote Restart timer is %d seconds%s",
 			       p->v_gr_restart, VTYNL);
-		      vty_out (vty, "      Address families by peer:%s        ", VTYNL);
+		      vty_out (vty, "      Address families by peer:\n        ");
 
 		      for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
 		        for (safi = SAFI_UNICAST ; safi < SAFI_MAX ; safi++)
@@ -8865,7 +8862,7 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
           if (p->last_reset_cause_size)
             {
               msg = p->last_reset_cause;
-              vty_out(vty, "  Message received that caused BGP to send a NOTIFICATION:%s    ", VTYNL);
+              vty_out(vty, "  Message received that caused BGP to send a NOTIFICATION:\n    ");
               for (i = 1; i <= p->last_reset_cause_size; i++)
                 {
                   vty_out(vty, "%02X", *msg++);
@@ -8874,7 +8871,7 @@ bgp_show_peer (struct vty *vty, struct peer *p, u_char use_json, json_object *js
                     {
                       if (i % 16 == 0)
                         {
-                          vty_out(vty, "%s    ", VTYNL);
+                          vty_out(vty, "\n    ");
                         }
                       else if (i % 4 == 0)
                         {
@@ -9185,8 +9182,7 @@ bgp_show_all_instances_neighbors_vty (struct vty *vty, u_char use_json)
         }
       else
         {
-          vty_out (vty, "%sInstance %s:%s",
-                   VTYNL,
+          vty_out (vty, "\nInstance %s:%s",
                    (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
                    ? "Default" : bgp->name,
                    VTYNL);
@@ -9403,8 +9399,7 @@ bgp_show_all_instances_updgrps_vty (struct vty *vty, afi_t afi, safi_t safi)
 
   for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
     {
-      vty_out (vty, "%sInstance %s:%s",
-               VTYNL,
+      vty_out (vty, "\nInstance %s:%s",
                (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? "Default" : bgp->name,
                VTYNL);
       update_group_show(bgp, afi, safi, vty, 0);
@@ -9789,14 +9784,11 @@ bgp_show_one_peer_group (struct vty *vty, struct peer_group *group)
 
   if (conf->as_type == AS_SPECIFIED ||
       conf->as_type == AS_EXTERNAL) {
-  vty_out (vty, "%sBGP peer-group %s, remote AS %d%s",
-           VTYNL, group->name, conf->as, VTYNL);
+  vty_out (vty, "\nBGP peer-group %s, remote AS %d%s", group->name, conf->as, VTYNL);
   } else if (conf->as_type == AS_INTERNAL) {
-    vty_out (vty, "%sBGP peer-group %s, remote AS %d%s",
-	     VTYNL, group->name, group->bgp->as, VTYNL);
+    vty_out (vty, "\nBGP peer-group %s, remote AS %d%s", group->name, group->bgp->as, VTYNL);
   } else {
-    vty_out (vty, "%sBGP peer-group %s%s",
-	     VTYNL, group->name, VTYNL);
+    vty_out (vty, "\nBGP peer-group %s%s", group->name, VTYNL);
   }
 
   if ((group->bgp->as == conf->as) || (conf->as_type == AS_INTERNAL))

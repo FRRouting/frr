@@ -1157,8 +1157,7 @@ DEFUN (show_ipv6_ospf6_linkstate,
 
   for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, node, oa))
     {
-      vty_out (vty, "%s        SPF Result in Area %s%s%s",
-               VTYNL, oa->name, VTYNL, VTYNL);
+      vty_out (vty, "\n        SPF Result in Area %s%s%s", oa->name, VTYNL, VTYNL);
       ospf6_linkstate_table_show (vty, idx_ipv4, argc, argv, oa->spf_table);
     }
 
@@ -1185,8 +1184,7 @@ DEFUN (show_ipv6_ospf6_linkstate_detail,
 
   for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, node, oa))
     {
-      vty_out (vty, "%s        SPF Result in Area %s%s%s",
-               VTYNL, oa->name, VTYNL, VTYNL);
+      vty_out (vty, "\n        SPF Result in Area %s%s%s", oa->name, VTYNL, VTYNL);
       ospf6_linkstate_table_show (vty, idx_detail, argc, argv, oa->spf_table);
     }
 
