@@ -393,7 +393,7 @@ config_show_distribute (struct vty *vty)
                                    DISTRIBUTE_V6_OUT, has_print);
     }
   if (has_print)
-    vty_out (vty, VTYNL);
+    vty_out (vty, "\n");
   else
     vty_out (vty, " not set\n");
 
@@ -414,7 +414,7 @@ config_show_distribute (struct vty *vty)
             has_print = distribute_print(vty, dist->prefix, 1,
                                          DISTRIBUTE_V6_OUT, has_print);
             if (has_print)
-	      vty_out (vty, VTYNL);
+	      vty_out (vty, "\n");
             else
               vty_out (vty, " nothing\n");
 	    }
@@ -437,7 +437,7 @@ config_show_distribute (struct vty *vty)
                                    DISTRIBUTE_V6_IN, has_print);
     }
   if (has_print)
-    vty_out (vty, VTYNL);
+    vty_out (vty, "\n");
   else
     vty_out (vty, " not set\n");
 
@@ -458,7 +458,7 @@ config_show_distribute (struct vty *vty)
             has_print = distribute_print(vty, dist->prefix, 1,
                                          DISTRIBUTE_V6_IN, has_print);
             if (has_print)
-	      vty_out (vty, VTYNL);
+	      vty_out (vty, "\n");
             else
               vty_out (vty, " nothing\n");
 	    }

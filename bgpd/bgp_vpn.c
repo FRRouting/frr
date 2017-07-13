@@ -170,7 +170,7 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd,
                                      rd_vnc_eth.macaddr.octet[5]);
 #endif
 
-                          vty_out (vty, VTYNL);
+                          vty_out (vty, "\n");
                         }
                       rd_header = 0;
                     }

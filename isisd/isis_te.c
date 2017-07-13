@@ -974,7 +974,7 @@ show_vty_unknown_tlv (struct vty *vty, struct subtlv_header *tlvh)
               else
                 rtn++;
             }
-          vty_out (vty, VTYNL);
+          vty_out (vty, "\n");
         }
       else
         vty_out (vty, "    Unknown TLV: [type(%#.2x), length(%#.2x)]\n",

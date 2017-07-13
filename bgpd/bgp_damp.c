@@ -652,7 +652,7 @@ bgp_damp_info_vty (struct vty *vty, struct bgp_info *binfo,
         vty_out (vty, ", reuse in %s",
 	       bgp_get_reuse_time (penalty, timebuf, BGP_UPTIME_LEN, 0, json_path));
 
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
 }
 
@@ -707,7 +707,7 @@ bgp_show_dampening_parameters (struct vty *vty, afi_t afi, safi_t safi)
                (long long)damp->max_suppress_time / 60);
       vty_out (vty, "Max supress penalty: %u\n",
                damp->ceiling);
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
   else
     vty_out (vty, "dampening not enabled for %s\n",

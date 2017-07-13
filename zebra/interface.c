@@ -944,7 +944,7 @@ connected_dump_vty (struct vty *vty, struct connected *connected)
   if (connected->label)
     vty_out (vty, " %s", connected->label);
 
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
 }
 
 /* Dump interface neighbor address information to vty. */
@@ -959,7 +959,7 @@ nbr_connected_dump_vty (struct vty *vty, struct nbr_connected *connected)
   prefix_vty_out (vty, p);
   vty_out (vty, "/%d", p->prefixlen);
 
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
 }
 
 #if defined (HAVE_RTADV)
@@ -1089,14 +1089,14 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
       vty_out (vty, "  HWaddr: ");
       for (i = 0; i < ifp->hw_addr_len; i++)
 	vty_out (vty, "%s%02x", i == 0 ? "" : ":", ifp->hw_addr[i]);
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
   
   /* Bandwidth in Mbps */
   if (ifp->bandwidth != 0)
     {
       vty_out(vty, "  bandwidth %u Mbps", ifp->bandwidth);
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
 
   for (rn = route_top (zebra_if->ipv4_subnets); rn; rn = route_next (rn))
@@ -1144,7 +1144,7 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
               vty_out(vty, " Min:  %u (micro-sec.)", iflp->min_delay);
               vty_out(vty, " Max:  %u (micro-sec.)", iflp->max_delay);
             }
-          vty_out (vty, VTYNL);
+          vty_out (vty, "\n");
         }
       if (IS_PARAM_SET(iflp, LP_DELAY_VAR))
         vty_out (vty, "    Link Delay Variation %u (micro-sec.)\n",
@@ -1422,7 +1422,7 @@ if_show_description (struct vty *vty, vrf_id_t vrf_id)
 
       if (ifp->desc)
 	vty_out (vty, "%s", ifp->desc);
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
 }
 
@@ -2767,7 +2767,7 @@ link_params_config_write (struct vty *vty, struct interface *ifp)
           vty_out(vty, " min %u", iflp->min_delay);
           vty_out(vty, " max %u", iflp->max_delay);
         }
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
   if (IS_PARAM_SET(iflp, LP_DELAY_VAR))
     vty_out (vty, "  delay-variation %u\n", iflp->delay_var);
@@ -2844,7 +2844,7 @@ if_config_write (struct vty *vty)
 		if (ifc->label)
 		  vty_out (vty, " label %s", ifc->label);
 
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 	      }
 	  }
 

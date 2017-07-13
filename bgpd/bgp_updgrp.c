@@ -584,7 +584,7 @@ update_group_show_walkcb (struct update_group *updgrp, void *arg)
   {
     if (ctx->subgrp_id && (ctx->subgrp_id != subgrp->id))
       continue;
-    vty_out (vty, VTYNL);
+    vty_out (vty, "\n");
     vty_out (vty, "  Update-subgroup %" PRIu64 ":\n", subgrp->id);
     vty_out (vty, "    Created: %s", timestamp_string (subgrp->uptime));
 

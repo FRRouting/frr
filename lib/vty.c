@@ -714,7 +714,7 @@ vty_backward_word (struct vty *vty)
 static void
 vty_down_level (struct vty *vty)
 {
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
   cmd_exit (vty);
   vty_prompt (vty);
   vty->cp = 0;
@@ -724,7 +724,7 @@ vty_down_level (struct vty *vty)
 static void
 vty_end_config (struct vty *vty)
 {
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
 
   switch (vty->node)
     {
@@ -929,7 +929,7 @@ vty_complete_command (struct vty *vty)
 
   cmd_free_strvec (vline);
 
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
   switch (ret)
     {
     case CMD_ERR_AMBIGUOUS:
@@ -969,11 +969,11 @@ vty_complete_command (struct vty *vty)
       for (i = 0; matched[i] != NULL; i++)
         {
           if (i != 0 && ((i % 6) == 0))
-            vty_out (vty, VTYNL);
+            vty_out (vty, "\n");
           vty_out (vty, "%-10s ", matched[i]);
           XFREE (MTYPE_COMPLETION, matched[i]);
         }
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
 
       vty_prompt (vty);
       vty_redraw_line (vty);
@@ -1052,7 +1052,7 @@ vty_describe_command (struct vty *vty)
 
   describe = cmd_describe_command (vline, vty, &ret);
 
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
 
   /* Ambiguous error. */
   switch (ret)
@@ -1125,7 +1125,7 @@ vty_describe_command (struct vty *vty)
                     vty_out(vty, " %s", item);
                     XFREE(MTYPE_COMPLETION, item);
                   }
-                vty_out (vty, VTYNL);
+                vty_out (vty, "\n");
               }
             vector_free(varcomps);
           }
@@ -1170,7 +1170,7 @@ vty_stop_input (struct vty *vty)
 {
   vty->cp = vty->length = 0;
   vty_clear_buf (vty);
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
 
   switch (vty->node)
     {
@@ -1294,7 +1294,7 @@ vty_telnet_option (struct vty *vty, unsigned char *buf, int nbytes)
           break;
         }
     }
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
 
 #endif /* TELNET_OPTION_DEBUG */
 
@@ -1590,7 +1590,7 @@ vty_read (struct thread *thread)
           break;
         case '\n':
         case '\r':
-          vty_out (vty, VTYNL);
+          vty_out (vty, "\n");
           vty_execute (vty);
           break;
         case '\t':

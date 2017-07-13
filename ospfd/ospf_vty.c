@@ -4726,7 +4726,7 @@ show_lsa_summary (struct vty *vty, struct ospf_lsa *lsa, int self)
 	  default:
 	    break;
 	  }
-	vty_out (vty, VTYNL);
+	vty_out (vty, "\n");
       }
 
   return 0;
@@ -4788,7 +4788,7 @@ show_ip_ospf_database_header (struct vty *vty, struct ospf_lsa *lsa)
 		 IS_ROUTER_LSA_VIRTUAL (rlsa) ? " VL-endpoint" : "",
 		 IS_ROUTER_LSA_SHORTCUT (rlsa) ? " Shortcut" : "");
 
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
   vty_out (vty, "  LS Type: %s\n",
              lookup_msg(ospf_lsa_type_msg, lsa->data->type, NULL));
@@ -8362,7 +8362,7 @@ config_write_interface (struct vty *vty)
 	    vty_out (vty, " area %s", inet_ntoa (params->if_area));
 	    if (params != IF_DEF_PARAMS (ifp))
 	      vty_out (vty, " %s", inet_ntoa (rn->p.u.prefix4));
-            vty_out (vty, VTYNL);
+            vty_out (vty, "\n");
 	  }
 
 	/* bfd  print. */

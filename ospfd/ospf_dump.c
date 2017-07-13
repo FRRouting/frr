@@ -1653,7 +1653,7 @@ show_debugging_ospf_common (struct vty *vty, struct ospf *ospf)
   if (IS_DEBUG_OSPF (nssa, NSSA) == OSPF_DEBUG_NSSA)
     vty_out (vty, "  OSPF NSSA debugging is on\n");
 
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
 
   return CMD_SUCCESS;
 }

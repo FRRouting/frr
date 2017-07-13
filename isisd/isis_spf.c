@@ -1336,7 +1336,7 @@ isis_print_paths (struct vty *vty, struct list *paths, u_char *root_sysid)
 	for (ALL_LIST_ELEMENTS_RO (vertex->Adj_N, anode, adj)) {
 	  if (adj) {
 	    if (rows) {
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 		vty_out (vty, "%-20s %-12s %-6s ", "", "", "");
 	    }
 	    vty_out (vty, "%-20s %-9s ",
@@ -1356,7 +1356,7 @@ isis_print_paths (struct vty *vty, struct list *paths, u_char *root_sysid)
 	int rows = 0;
 	for (ALL_LIST_ELEMENTS_RO (vertex->parents, pnode, pvertex)) {
 	  if (rows) {
-	    vty_out (vty, VTYNL);
+	    vty_out (vty, "\n");
 	    vty_out (vty, "%-72s", "");
 	  }
 	  vty_out (vty, "%s(%d)",
@@ -1367,7 +1367,7 @@ isis_print_paths (struct vty *vty, struct list *paths, u_char *root_sysid)
 	vty_out (vty, "  NULL ");
       }
 
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
 }
 
@@ -1409,7 +1409,7 @@ DEFUN (show_isis_topology,
 	      vty_out (vty, "IS-IS paths to level-%d routers that speak IP\n",
 		       level);
 	      isis_print_paths (vty, area->spftree[level-1]->paths, isis->sysid);
-	      vty_out (vty, VTYNL);
+	      vty_out (vty, "\n");
 	    }
 	  if (area->ipv6_circuits > 0 && area->spftree6[level-1]
 	      && area->spftree6[level-1]->paths->count > 0)
@@ -1418,11 +1418,11 @@ DEFUN (show_isis_topology,
 		       "IS-IS paths to level-%d routers that speak IPv6\n",
 		       level);
 	      isis_print_paths (vty, area->spftree6[level-1]->paths, isis->sysid);
-	      vty_out (vty, VTYNL);
+	      vty_out (vty, "\n");
 	    }
 	}
 
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
 
   return CMD_SUCCESS;

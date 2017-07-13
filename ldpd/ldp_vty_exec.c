@@ -135,7 +135,7 @@ show_interface_msg(struct vty *vty, struct imsg *imsg,
 		    iface->adj_cnt);
 		break;
 	case IMSG_CTL_END:
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 		return (1);
 	default:
 		break;
@@ -217,7 +217,7 @@ show_discovery_msg(struct vty *vty, struct imsg *imsg,
 		vty_out (vty, "%9u\n", adj->holdtime);
 		break;
 	case IMSG_CTL_END:
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 		return (1);
 	default:
 		break;
@@ -326,7 +326,7 @@ show_discovery_detail_msg(struct vty *vty, struct imsg *imsg,
 		vty_out(vty, "%s", ifaces_buffer);
 		vty_out (vty, "  Targeted Hellos:\n");
 		vty_out(vty, "%s", tnbrs_buffer);
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 		return (1);
 	default:
 		break;
@@ -620,7 +620,7 @@ show_nbr_detail_msg(struct vty *vty, struct imsg *imsg,
 			vty_out (vty, "    IPv6:\n");
 			vty_out(vty, "%s", v6adjs_buffer);
 		}
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 		break;
 	case IMSG_CTL_END:
 		return (1);
@@ -898,10 +898,10 @@ show_nbr_capabilities_msg(struct vty *vty, struct imsg *imsg, struct show_params
 		vty_out (vty, "Peer LDP Identifier: %s:0\n",
 			  inet_ntoa(nbr->id));
 		show_nbr_capabilities(vty, nbr);
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 		break;
 	case IMSG_CTL_END:
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 		return (1);
 	default:
 		break;
@@ -1027,7 +1027,7 @@ show_lib_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 		    rt->in_use ? "yes" : "no");
 		break;
 	case IMSG_CTL_END:
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 		return (1);
 	default:
 		break;
@@ -1099,7 +1099,7 @@ show_lib_detail_msg(struct vty *vty, struct imsg *imsg, struct show_params *para
 			vty_out (vty, "%-8sNo remote bindings\n","");
 		break;
 	case IMSG_CTL_END:
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 		return (1);
 	default:
 		break;
@@ -1261,7 +1261,7 @@ show_l2vpn_binding_msg(struct vty *vty, struct imsg *imsg,
 			vty_out (vty,"    Remote Label: unassigned\n");
 		break;
 	case IMSG_CTL_END:
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 		return (1);
 	default:
 		break;
@@ -1345,7 +1345,7 @@ show_l2vpn_pw_msg(struct vty *vty, struct imsg *imsg, struct show_params *params
 		    (pw->status ? "UP" : "DOWN"));
 		break;
 	case IMSG_CTL_END:
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 		return (1);
 	default:
 		break;

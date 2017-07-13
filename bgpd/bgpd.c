@@ -6626,7 +6626,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
           if_ras_printed = TRUE;
         }
 
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
 
   /* remote-as and peer-group */
@@ -7016,7 +7016,7 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
 	vty_out (vty, " send");
       else
 	vty_out (vty, " receive");
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
 
   /* Route reflector client. */
@@ -7163,7 +7163,7 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
                           "  neighbor %s default-originate", addr);
       if (peer->default_rmap[afi][safi].name)
 	vty_out (vty, " route-map %s", peer->default_rmap[afi][safi].name);
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
 
   /* Soft reconfiguration inbound. */
@@ -7191,7 +7191,7 @@ bgp_config_write_peer_af (struct vty *vty, struct bgp *bgp,
 	  vty_out (vty, " warning-only");
 	if (peer->pmax_restart[afi][safi])
 	  vty_out (vty, " restart %u", peer->pmax_restart[afi][safi]);
-	vty_out (vty, VTYNL);
+	vty_out (vty, "\n");
       }
 
   /* Route server client. */
@@ -7329,7 +7329,7 @@ bgp_config_write_family_header (struct vty *vty, afi_t afi, safi_t safi,
       if (safi == SAFI_EVPN)
 	vty_out (vty, "l2vpn evpn");
     }
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
 
   *write = 1;
 }
@@ -7416,7 +7416,7 @@ bgp_config_write (struct vty *vty)
                      (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW) ?
                      "view" : "vrf", bgp->name);
 	}
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
 
       /* No Synchronization */
       if (bgp_option_check (BGP_OPT_CONFIG_CISCO))
@@ -7487,7 +7487,7 @@ bgp_config_write (struct vty *vty)
          for (i = 0; i < bgp->confed_peers_cnt; i++)
            vty_out(vty, " %u", bgp->confed_peers[i]);
 
-          vty_out (vty, VTYNL);
+          vty_out (vty, "\n");
 	}
 
       /* BGP enforce-first-as. */
@@ -7508,14 +7508,14 @@ bgp_config_write (struct vty *vty)
           vty_out (vty, " bgp max-med on-startup %u", bgp->v_maxmed_onstartup);
           if (bgp->maxmed_onstartup_value != BGP_MAXMED_VALUE_DEFAULT)
             vty_out (vty, " %u", bgp->maxmed_onstartup_value);
-          vty_out (vty, VTYNL);
+          vty_out (vty, "\n");
         }
       if (bgp->v_maxmed_admin != BGP_MAXMED_ADMIN_UNCONFIGURED)
         {
           vty_out (vty, " bgp max-med administrative");
           if (bgp->maxmed_admin_value != BGP_MAXMED_VALUE_DEFAULT)
             vty_out (vty, " %u", bgp->maxmed_admin_value);
-          vty_out (vty, VTYNL);
+          vty_out (vty, "\n");
         }
 
       /* write quanta */
@@ -7570,7 +7570,7 @@ bgp_config_write (struct vty *vty)
 	    vty_out (vty, " confed");
 	  if (bgp_flag_check (bgp, BGP_FLAG_MED_MISSING_AS_WORST))
 	    vty_out (vty, " missing-as-worst");
-	  vty_out (vty, VTYNL);
+	  vty_out (vty, "\n");
 	}
 
       /* BGP network import check. */

@@ -147,7 +147,7 @@ cpu_record_print(struct vty *vty, thread_type filter)
       memset (underline, '-', sizeof (underline));
       underline[sizeof(underline)] = '\0';
 
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
       vty_out(vty, "Showing statistics for pthread %s\n", name);
       vty_out(vty, "-------------------------------%s\n", underline);
       vty_out(vty, "%21s %18s %18s\n", "", "CPU (user+system):", "Real (wall-clock):");

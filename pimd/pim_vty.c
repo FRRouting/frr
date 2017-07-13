@@ -254,7 +254,7 @@ int pim_interface_config_write(struct vty *vty)
 	vty_out(vty, " ip pim hello %d", pim_ifp->pim_hello_period);
 	if (pim_ifp->pim_default_holdtime != -1)
 	  vty_out(vty, " %d", pim_ifp->pim_default_holdtime);
-	vty_out (vty, VTYNL);
+	vty_out (vty, "\n");
       }
 
       /* update source */

@@ -538,7 +538,7 @@ DEFUN (no_ip_as_path,
 
   if (asfilter == NULL)
     {
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
       return CMD_WARNING;
     }
 

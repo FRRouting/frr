@@ -6526,7 +6526,7 @@ route_vty_out (struct vty *vty, struct prefix *p,
     }
   else
     {
-    vty_out (vty, VTYNL);
+    vty_out (vty, "\n");
 #if ENABLE_BGP_VNC
       /* prints an additional line, indented, with VNC info, if present */
       if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP))
@@ -6663,7 +6663,7 @@ route_vty_out_tmp (struct vty *vty, struct prefix *p, struct attr *attr, safi_t 
       json_object_object_add(json_ar, inet_ntop (p->family, &p->u.prefix, buf_cut, BUFSIZ), json_net);
     }
   else
-    vty_out (vty, VTYNL);
+    vty_out (vty, "\n");
 }  
 
 void
@@ -6767,7 +6767,7 @@ route_vty_out_tag (struct vty *vty, struct prefix *p,
       else
         {
           vty_out (vty, "notag/%d", label);
-          vty_out (vty, VTYNL);
+          vty_out (vty, "\n");
         }
     }
 }  
@@ -6855,7 +6855,7 @@ route_vty_out_overlay (struct vty *vty, struct prefix *p,
             }
         }
     }
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
 }
 
 /* dampening route */
@@ -6919,7 +6919,7 @@ damp_route_vty_out (struct vty *vty, struct prefix *p, struct bgp_info *binfo,
         vty_out (vty, "%s", bgp_origin_str[attr->origin]);
     }
   if (!use_json)
-    vty_out (vty, VTYNL);
+    vty_out (vty, "\n");
 }
 
 /* flap route */
@@ -7019,7 +7019,7 @@ flap_route_vty_out (struct vty *vty, struct prefix *p, struct bgp_info *binfo,
         vty_out (vty, "%s", bgp_origin_str[attr->origin]);
     }
   if (!use_json)
-    vty_out (vty, VTYNL);
+    vty_out (vty, "\n");
 }
 
 static void
@@ -7193,7 +7193,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
         }
 
       if (!json_paths)
-        vty_out (vty, VTYNL);
+        vty_out (vty, "\n");
 	  
       /* Line2 display Next-hop, Neighbor, Router-id */
       /* Display the nexthop */
@@ -7343,7 +7343,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 	}
 
       if (!json_paths)
-        vty_out (vty, VTYNL);
+        vty_out (vty, "\n");
 
       /* display the link-local nexthop */
       if (attr->extra && attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
@@ -7562,7 +7562,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
         json_object_object_add(json_path, "bestpath", json_bestpath);
 
       if (!json_paths)
-        vty_out (vty, VTYNL);
+        vty_out (vty, "\n");
 	  
       /* Line 4 display Community */
       if (attr->community)
@@ -7649,7 +7649,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 	    }
 
           if (!json_paths)
-	    vty_out (vty, VTYNL);
+	    vty_out (vty, "\n");
 	}
 
       if (binfo->extra && binfo->extra->damp_info)
@@ -7724,7 +7724,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
             {
               if (!first)
                 {
-	          vty_out (vty, VTYNL);
+	          vty_out (vty, "\n");
                 }
             }
         }
@@ -7764,7 +7764,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
       json_object_array_add(json_paths, json_path);
     }
   else
-    vty_out (vty, VTYNL);
+    vty_out (vty, "\n");
 }
 
 #define BGP_SHOW_HEADER_CSV "Flags, Network, Next Hop, Metric, LocPrf, Weight, Path"
@@ -8249,7 +8249,7 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
         {
           if (first)
             vty_out (vty, "  Not advertised to any peer");
-          vty_out (vty, VTYNL);
+          vty_out (vty, "\n");
         }
     }
 }
@@ -9245,7 +9245,7 @@ bgp_table_stats (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi)
             vty_out (vty, "%12llu", ts.counts[i]);
         }
         
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
   return CMD_SUCCESS;
 }
@@ -10672,7 +10672,7 @@ bgp_config_write_network_vpn (struct vty *vty, struct bgp *bgp,
                 if (bgp_static->backdoor)
                   vty_out (vty, " backdoor");
               }
-	    vty_out (vty, VTYNL);
+	    vty_out (vty, "\n");
 	  }
   return 0;
 }
@@ -10719,7 +10719,7 @@ bgp_config_write_network_evpn (struct vty *vty, struct bgp *bgp,
 	    vty_out (vty, " network %s rd %s ethtag %u tag %u esi %s gwip %s routermac %s",
 		     buf, rdbuf, p->u.prefix_evpn.eth_tag,
                      decode_label (&bgp_static->label), esi, buf2 , macrouter);
-	    vty_out (vty, VTYNL);
+	    vty_out (vty, "\n");
             if (macrouter)
               XFREE (MTYPE_TMP, macrouter);
             if (esi)
@@ -10794,7 +10794,7 @@ bgp_config_write_network (struct vty *vty, struct bgp *bgp,
 	      vty_out (vty, " backdoor");
           }
 
-	vty_out (vty, VTYNL);
+	vty_out (vty, "\n");
       }
 
   /* Aggregate-address configuration. */
@@ -10828,7 +10828,7 @@ bgp_config_write_network (struct vty *vty, struct bgp *bgp,
 	if (bgp_aggregate->summary_only)
 	  vty_out (vty, " summary-only");
 
-	vty_out (vty, VTYNL);
+	vty_out (vty, "\n");
       }
 
   return 0;

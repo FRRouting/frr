@@ -127,7 +127,7 @@ ldp_vty_show_debugging(struct vty *vty)
 		vty_out (vty,"  LDP messages debugging is on (outbound)\n");
 	if (LDP_DEBUG(zebra, ZEBRA))
 		vty_out (vty, "  LDP zebra debugging is on\n");
-	vty_out (vty, VTYNL);
+	vty_out (vty, "\n");
 
 	return (CMD_SUCCESS);
 }

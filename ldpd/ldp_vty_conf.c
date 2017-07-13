@@ -155,7 +155,7 @@ ldp_af_config_write(struct vty *vty, int af, struct ldpd_conf *conf,
 		if (af_conf->acl_thello_accept_from[0] != '\0')
 			vty_out(vty, " from %s",
 			    af_conf->acl_thello_accept_from);
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 	}
 
 	if (af_conf->thello_holdtime != TARGETED_DFLT_HOLDTIME &&
@@ -182,7 +182,7 @@ ldp_af_config_write(struct vty *vty, int af, struct ldpd_conf *conf,
 		else
 			vty_out(vty, " for %s",
 			    af_conf->acl_label_allocate_for);
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 	}
 
 	if (af_conf->acl_label_advertise_for[0] != '\0' ||
@@ -194,7 +194,7 @@ ldp_af_config_write(struct vty *vty, int af, struct ldpd_conf *conf,
 		if (af_conf->acl_label_advertise_for[0] != '\0')
 			vty_out(vty, " for %s",
 			    af_conf->acl_label_advertise_for);
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 	}
 
 	if (af_conf->flags & F_LDPD_AF_EXPNULL) {
@@ -202,7 +202,7 @@ ldp_af_config_write(struct vty *vty, int af, struct ldpd_conf *conf,
 		if (af_conf->acl_label_expnull_for[0] != '\0')
 			vty_out(vty, " for %s",
 			    af_conf->acl_label_expnull_for);
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 	}
 
 	if (af_conf->acl_label_accept_for[0] != '\0' ||
@@ -214,7 +214,7 @@ ldp_af_config_write(struct vty *vty, int af, struct ldpd_conf *conf,
 		if (af_conf->acl_label_accept_for[0] != '\0')
 			vty_out(vty, " for %s",
 			    af_conf->acl_label_accept_for);
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 	}
 
 	if (af_conf->flags & F_LDPD_AF_NO_GTSM)

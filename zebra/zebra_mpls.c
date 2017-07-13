@@ -534,14 +534,14 @@ fec_print (zebra_fec_t *fec, struct vty *vty)
   vty_out(vty, "  Label: %s", label2str(fec->label, buf, BUFSIZ));
   if (fec->label_index != MPLS_INVALID_LABEL_INDEX)
     vty_out(vty, ", Label Index: %u", fec->label_index);
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
   if (!list_isempty(fec->client_list))
     {
       vty_out(vty, "  Client list:");
       for (ALL_LIST_ELEMENTS_RO(fec->client_list, node, client))
         vty_out(vty, " %s(fd %d)",
                 zebra_route_string(client->proto), client->sock);
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
 }
 
@@ -1422,7 +1422,7 @@ nhlfe_print (zebra_nhlfe_t *nhlfe, struct vty *vty)
     }
   vty_out(vty, "%s", CHECK_FLAG (nhlfe->flags, NHLFE_FLAG_INSTALLED) ?
           " (installed)" : "");
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
 }
 
 /*
@@ -2875,7 +2875,7 @@ zebra_mpls_print_lsp_table (struct vty *vty, struct zebra_vrf *zvrf,
             }
         }
 
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
 
   list_delete (lsp_list);

@@ -698,7 +698,7 @@ zebra_import_table_config (struct vty *vty)
               if (rmap_name)
 	        vty_out(vty, " route-map %s", rmap_name);
 
-	      vty_out (vty, VTYNL);
+	      vty_out (vty, "\n");
 	      write = 1;
 	    }
 	}
