@@ -139,6 +139,8 @@ void ospf6_lsdb_add(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 					(*lsdb->hook_add)(lsa);
 			}
 		}
+		/* to free the lookup lock in node get*/
+		route_unlock_node(current);
 		ospf6_lsa_unlock(old);
 	}
 

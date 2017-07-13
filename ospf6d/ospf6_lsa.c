@@ -509,7 +509,8 @@ struct ospf6_lsa *ospf6_lsa_create(struct ospf6_lsa_header *header)
 
 	/* allocate memory for this LSA */
 	new_header =
-		(struct ospf6_lsa_header *)XMALLOC(MTYPE_OSPF6_LSA, lsa_size);
+		(struct ospf6_lsa_header *)XMALLOC(MTYPE_OSPF6_LSA_HEADER,
+						   lsa_size);
 
 	/* copy LSA from original header */
 	memcpy(new_header, header, lsa_size);
@@ -537,7 +538,7 @@ struct ospf6_lsa *ospf6_lsa_create_headeronly(struct ospf6_lsa_header *header)
 
 	/* allocate memory for this LSA */
 	new_header = (struct ospf6_lsa_header *)XMALLOC(
-		MTYPE_OSPF6_LSA, sizeof(struct ospf6_lsa_header));
+		MTYPE_OSPF6_LSA_HEADER, sizeof(struct ospf6_lsa_header));
 
 	/* copy LSA from original header */
 	memcpy(new_header, header, sizeof(struct ospf6_lsa_header));
@@ -568,7 +569,7 @@ void ospf6_lsa_delete(struct ospf6_lsa *lsa)
 	THREAD_OFF(lsa->refresh);
 
 	/* do free */
-	XFREE(MTYPE_OSPF6_LSA, lsa->header);
+	XFREE(MTYPE_OSPF6_LSA_HEADER, lsa->header);
 	XFREE(MTYPE_OSPF6_LSA, lsa);
 }
 
