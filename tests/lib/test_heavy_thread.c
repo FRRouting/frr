@@ -112,7 +112,7 @@ DEFUN (clear_foo,
 
   if (!argc)
     {
-      vty_outln (vty, "%% string argument required");
+      vty_out (vty, "%% string argument required\n");
       return CMD_WARNING;
     }
   

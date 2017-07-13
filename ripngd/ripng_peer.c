@@ -193,7 +193,7 @@ ripng_peer_display (struct vty *vty)
 
   for (ALL_LIST_ELEMENTS (peer_list, node, nnode, peer))
     {
-      vty_outln (vty, "    %s %s%14s %10d %10d %10d      %s", inet6_ntoa (peer->addr),
+      vty_out (vty, "    %s %s%14s %10d %10d %10d      %s\n", inet6_ntoa (peer->addr),
                VTYNL, " ",
 	       peer->recv_badpackets, peer->recv_badroutes,
 	       ZEBRA_RIPNG_DISTANCE_DEFAULT,

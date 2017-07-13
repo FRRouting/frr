@@ -1396,7 +1396,7 @@ DEFUN (show_isis_topology,
 
   for (ALL_LIST_ELEMENTS_RO (isis->area_list, node, area))
     {
-      vty_outln (vty, "Area %s:",area->area_tag ? area->area_tag : "null");
+      vty_out (vty, "Area %s:\n",area->area_tag ? area->area_tag : "null");
 
       for (int level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++)
 	{
@@ -1406,7 +1406,7 @@ DEFUN (show_isis_topology,
 	  if (area->ip_circuits > 0 && area->spftree[level-1]
 	      && area->spftree[level-1]->paths->count > 0)
 	    {
-	      vty_outln (vty, "IS-IS paths to level-%d routers that speak IP",
+	      vty_out (vty, "IS-IS paths to level-%d routers that speak IP\n",
 		       level);
 	      isis_print_paths (vty, area->spftree[level-1]->paths, isis->sysid);
 	      vty_out (vty, VTYNL);
@@ -1414,8 +1414,8 @@ DEFUN (show_isis_topology,
 	  if (area->ipv6_circuits > 0 && area->spftree6[level-1]
 	      && area->spftree6[level-1]->paths->count > 0)
 	    {
-	      vty_outln (vty,
-		       "IS-IS paths to level-%d routers that speak IPv6",
+	      vty_out (vty,
+		       "IS-IS paths to level-%d routers that speak IPv6\n",
 		       level);
 	      isis_print_paths (vty, area->spftree6[level-1]->paths, isis->sysid);
 	      vty_out (vty, VTYNL);

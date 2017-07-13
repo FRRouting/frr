@@ -439,11 +439,11 @@ pim_zlookup_show_ip_multicast (struct vty *vty)
 {
   vty_out(vty, "Zclient lookup socket: ");
   if (zlookup) {
-    vty_outln (vty, "%d failures=%d", zlookup->sock,
+    vty_out (vty, "%d failures=%d\n", zlookup->sock,
             zlookup->fail);
   }
   else {
-    vty_outln (vty, "<null zclient>");
+    vty_out (vty, "<null zclient>\n");
   }
 }
 

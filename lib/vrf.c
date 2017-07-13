@@ -555,7 +555,7 @@ static int
 vrf_write_host (struct vty *vty)
 {
   if (debug_vrf)
-    vty_outln (vty, "debug vrf");
+    vty_out (vty, "debug vrf\n");
 
   return 1;
 }

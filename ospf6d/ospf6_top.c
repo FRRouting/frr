@@ -811,7 +811,7 @@ ospf6_show (struct vty *vty, struct ospf6 *o)
   /* Redistribute configuration */
   /* XXX */
 
-  vty_outln (vty, " LSA minimum arrival %d msecs",o->lsa_minarrival);
+  vty_out (vty, " LSA minimum arrival %d msecs\n",o->lsa_minarrival);
 
   /* Show SPF parameters */
   vty_out(vty, " Initial SPF scheduling delay %d millisec(s)%s"
@@ -854,9 +854,9 @@ ospf6_show (struct vty *vty, struct ospf6 *o)
   if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES))
     {
       if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_DETAIL))
-	vty_outln (vty, " All adjacency changes are logged");
+	vty_out (vty, " All adjacency changes are logged\n");
       else
-	vty_outln (vty, " Adjacency changes are logged");
+	vty_out (vty, " Adjacency changes are logged\n");
     }
 
   vty_out (vty, VTYNL);
@@ -975,7 +975,7 @@ ospf6_distance_config_write (struct vty *vty)
   struct ospf6_distance *odistance;
 
   if (ospf6->distance_all)
-    vty_outln (vty, " distance %u", ospf6->distance_all);
+    vty_out (vty, " distance %u\n", ospf6->distance_all);
 
   if (ospf6->distance_intra
       || ospf6->distance_inter
@@ -998,7 +998,7 @@ ospf6_distance_config_write (struct vty *vty)
       {
 	char buf[PREFIX_STRLEN];
 
-        vty_outln (vty, " distance %u %s %s", odistance->distance,
+        vty_out (vty, " distance %u %s %s\n", odistance->distance,
 		 prefix2str (&rn->p, buf, sizeof (buf)),
                  odistance->access_list ? odistance->access_list : "");
       }
@@ -1027,13 +1027,13 @@ config_write_ospf6 (struct vty *vty)
   if (CHECK_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES))
     {
       if (CHECK_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL))
-        vty_outln (vty, " log-adjacency-changes detail");
+        vty_out (vty, " log-adjacency-changes detail\n");
       else if (!DFLT_OSPF6_LOG_ADJACENCY_CHANGES)
-        vty_outln (vty, " log-adjacency-changes");
+        vty_out (vty, " log-adjacency-changes\n");
     }
   else if (DFLT_OSPF6_LOG_ADJACENCY_CHANGES)
     {
-      vty_outln (vty, " no log-adjacency-changes");
+      vty_out (vty, " no log-adjacency-changes\n");
     }
 
   if (ospf6->ref_bandwidth != OSPF6_REFERENCE_BANDWIDTH)
@@ -1042,7 +1042,7 @@ config_write_ospf6 (struct vty *vty)
 
   /* LSA timers print. */
   if (ospf6->lsa_minarrival != OSPF_MIN_LS_ARRIVAL)
-    vty_outln (vty, " timers lsa min-arrival %d",ospf6->lsa_minarrival);
+    vty_out (vty, " timers lsa min-arrival %d\n",ospf6->lsa_minarrival);
 
   ospf6_stub_router_config_write (vty);
   ospf6_redistribute_config_write (vty);

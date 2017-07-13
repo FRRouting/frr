@@ -709,7 +709,7 @@ DEFUN (interface,
 
   if (!ifp)
     {
-      vty_outln (vty, "%% interface %s not in %s", ifname, vrfname);
+      vty_out (vty, "%% interface %s not in %s\n", ifname, vrfname);
       return CMD_WARNING;
     }
   VTY_PUSH_CONTEXT (INTERFACE_NODE, ifp);

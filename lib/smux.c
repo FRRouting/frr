@@ -1387,7 +1387,7 @@ config_write_smux (struct vty *vty)
 	  vty_out (vty, "%s%d", first ? "" : ".", (int) smux_oid[i]);
 	  first = 0;
 	}
-      vty_outln (vty, " %s", smux_passwd);
+      vty_out (vty, " %s\n", smux_passwd);
     }
   return 0;
 }

@@ -349,7 +349,7 @@ DEFUN (no_distribute_list,
 
   if (! ret)
     {
-      vty_outln (vty, "distribute list doesn't exist");
+      vty_out (vty, "distribute list doesn't exist\n");
       return CMD_WARNING;
     }
   return CMD_SUCCESS;
@@ -395,7 +395,7 @@ config_show_distribute (struct vty *vty)
   if (has_print)
     vty_out (vty, VTYNL);
   else
-    vty_outln (vty, " not set");
+    vty_out (vty, " not set\n");
 
   for (i = 0; i < disthash->size; i++)
     for (mp = disthash->index[i]; mp; mp = mp->next)
@@ -416,7 +416,7 @@ config_show_distribute (struct vty *vty)
             if (has_print)
 	      vty_out (vty, VTYNL);
             else
-              vty_outln (vty, " nothing");
+              vty_out (vty, " nothing\n");
 	    }
       }
 
@@ -439,7 +439,7 @@ config_show_distribute (struct vty *vty)
   if (has_print)
     vty_out (vty, VTYNL);
   else
-    vty_outln (vty, " not set");
+    vty_out (vty, " not set\n");
 
   for (i = 0; i < disthash->size; i++)
     for (mp = disthash->index[i]; mp; mp = mp->next)
@@ -460,7 +460,7 @@ config_show_distribute (struct vty *vty)
             if (has_print)
 	      vty_out (vty, VTYNL);
             else
-              vty_outln (vty, " nothing");
+              vty_out (vty, " nothing\n");
 	    }
       }
   return 0;
@@ -487,7 +487,7 @@ config_write_distribute (struct vty *vty)
 	  if (dist->list[j]) {
 	    output = j == DISTRIBUTE_V4_OUT || j == DISTRIBUTE_V6_OUT;
             v6 = j == DISTRIBUTE_V6_IN || j == DISTRIBUTE_V6_OUT;
-	    vty_outln (vty, " %sdistribute-list %s %s %s",
+	    vty_out (vty, " %sdistribute-list %s %s %s\n",
                      v6 ? "ipv6 " : "",
 		     dist->list[j],
 		     output ? "out" : "in",
@@ -499,7 +499,7 @@ config_write_distribute (struct vty *vty)
 	  if (dist->prefix[j]) {
 	    output = j == DISTRIBUTE_V4_OUT || j == DISTRIBUTE_V6_OUT;
             v6 = j == DISTRIBUTE_V6_IN || j == DISTRIBUTE_V6_OUT;
-	    vty_outln (vty, " %sdistribute-list prefix %s %s %s",
+	    vty_out (vty, " %sdistribute-list prefix %s %s %s\n",
                      v6 ? "ipv6 " : "",
 		     dist->prefix[j],
 		     output ? "out" : "in",

@@ -1012,7 +1012,7 @@ DEFPY (no_bgp_router_id,
     {
       if (! IPV4_ADDR_SAME (&bgp->router_id_static, &router_id))
 	{
-	  vty_outln (vty, "%% BGP router-id doesn't match");
+	  vty_out (vty, "%% BGP router-id doesn't match\n");
 	  return CMD_WARNING;
 	}
     }

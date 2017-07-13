@@ -392,12 +392,12 @@ bpacket_queue_show_vty (struct bpacket_queue *q, struct vty *vty)
   pkt = bpacket_queue_first (q);
   while (pkt)
     {
-      vty_outln (vty, "  Packet %p ver %u buffer %p", pkt, pkt->ver,
+      vty_out (vty, "  Packet %p ver %u buffer %p\n", pkt, pkt->ver,
 	       pkt->buffer);
 
       LIST_FOREACH (paf, &(pkt->peers), pkt_train)
       {
-	vty_outln (vty, "      - %s", paf->peer->host);
+	vty_out (vty, "      - %s\n", paf->peer->host);
       }
       pkt = bpacket_next (pkt);
     }

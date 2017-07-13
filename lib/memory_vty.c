@@ -44,26 +44,26 @@ show_memory_mallinfo (struct vty *vty)
   struct mallinfo minfo = mallinfo();
   char buf[MTYPE_MEMSTR_LEN];
   
-  vty_outln (vty, "System allocator statistics:");
-  vty_outln (vty, "  Total heap allocated:  %s",
+  vty_out (vty, "System allocator statistics:\n");
+  vty_out (vty, "  Total heap allocated:  %s\n",
            mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.arena));
-  vty_outln (vty, "  Holding block headers: %s",
+  vty_out (vty, "  Holding block headers: %s\n",
            mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.hblkhd));
-  vty_outln (vty, "  Used small blocks:     %s",
+  vty_out (vty, "  Used small blocks:     %s\n",
            mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.usmblks));
-  vty_outln (vty, "  Used ordinary blocks:  %s",
+  vty_out (vty, "  Used ordinary blocks:  %s\n",
            mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.uordblks));
-  vty_outln (vty, "  Free small blocks:     %s",
+  vty_out (vty, "  Free small blocks:     %s\n",
            mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.fsmblks));
-  vty_outln (vty, "  Free ordinary blocks:  %s",
+  vty_out (vty, "  Free ordinary blocks:  %s\n",
            mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.fordblks));
-  vty_outln (vty, "  Ordinary blocks:       %ld",
+  vty_out (vty, "  Ordinary blocks:       %ld\n",
            (unsigned long)minfo.ordblks);
-  vty_outln (vty, "  Small blocks:          %ld",
+  vty_out (vty, "  Small blocks:          %ld\n",
            (unsigned long)minfo.smblks);
-  vty_outln (vty, "  Holding blocks:        %ld",
+  vty_out (vty, "  Holding blocks:        %ld\n",
            (unsigned long)minfo.hblks);
-  vty_outln (vty,"(see system documentation for 'mallinfo' for meaning)");
+  vty_out (vty,"(see system documentation for 'mallinfo' for meaning)\n");
   return 1;
 }
 #endif /* HAVE_MALLINFO */
@@ -72,12 +72,12 @@ static int qmem_walker(void *arg, struct memgroup *mg, struct memtype *mt)
 {
 	struct vty *vty = arg;
 	if (!mt)
-		vty_outln (vty, "--- qmem %s ---", mg->name);
+		vty_out (vty, "--- qmem %s ---\n", mg->name);
 	else {
 		if (mt->n_alloc != 0) {
 			char size[32];
 			snprintf(size, sizeof(size), "%6zu", mt->size);
-			vty_outln (vty, "%-30s: %10zu  %s",
+			vty_out (vty, "%-30s: %10zu  %s\n",
 				 mt->name, mt->n_alloc,
 				 mt->size == 0 ? "" : mt->size == SIZE_VAR ? "(variably sized)" : size);
 		}
@@ -108,14 +108,14 @@ DEFUN (show_modules,
 {
   struct frrmod_runtime *plug = frrmod_list;
 
-  vty_outln (vty, "%-12s %-25s %s%s",
+  vty_out (vty, "%-12s %-25s %s%s\n",
                 "Module Name", "Version", "Description",
                 VTYNL);
   while (plug)
     {
       const struct frrmod_info *i = plug->info;
 
-      vty_outln (vty, "%-12s %-25s %s", i->name, i->version,i->description);
+      vty_out (vty, "%-12s %-25s %s\n", i->name, i->version,i->description);
       if (plug->dl_handle)
         {
 #ifdef HAVE_DLINFO_ORIGIN
@@ -129,13 +129,13 @@ DEFUN (show_modules,
             {
               name = strrchr(lm->l_name, '/');
               name = name ? name + 1 : lm->l_name;
-              vty_outln (vty, "\tfrom: %s/%s", origin, name);
+              vty_out (vty, "\tfrom: %s/%s\n", origin, name);
             }
 # else
-          vty_outln (vty, "\tfrom: %s ", origin, plug->load_name);
+          vty_out (vty, "\tfrom: %s \n", origin, plug->load_name);
 # endif
 #else
-          vty_outln (vty, "\tfrom: %s", plug->load_name);
+          vty_out (vty, "\tfrom: %s\n", plug->load_name);
 #endif
         }
       plug = plug->next;

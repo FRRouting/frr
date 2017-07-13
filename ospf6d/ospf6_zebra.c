@@ -683,7 +683,7 @@ ospf6_distance_set (struct vty *vty, struct ospf6 *o,
   ret = str2prefix_ipv6 (ip_str, &p);
   if (ret == 0)
     {
-      vty_outln (vty, "Malformed prefix");
+      vty_out (vty, "Malformed prefix\n");
       return CMD_WARNING;
     }
 
@@ -731,14 +731,14 @@ ospf6_distance_unset (struct vty *vty, struct ospf6 *o,
   ret = str2prefix_ipv6 (ip_str, &p);
   if (ret == 0)
     {
-      vty_outln (vty, "Malformed prefix");
+      vty_out (vty, "Malformed prefix\n");
       return CMD_WARNING;
     }
 
   rn = route_node_lookup (o->distance_table, (struct prefix *) &p);
   if (!rn)
     {
-      vty_outln (vty, "Cant't find specified prefix");
+      vty_out (vty, "Cant't find specified prefix\n");
       return CMD_WARNING;
     }
 

@@ -1047,7 +1047,7 @@ eigrp_update_send_GR (struct eigrp_neighbor *nbr, enum GR_type gr_type, struct v
       if(vty != NULL)
         {
           vty_time_print (vty, 0);
-          vty_outln (vty, "Neighbor %s (%s) is resync: manually cleared",
+          vty_out (vty, "Neighbor %s (%s) is resync: manually cleared\n",
                    inet_ntoa (nbr->src),
                    ifindex2ifname(nbr->ei->ifp->ifindex, VRF_DEFAULT));
         }

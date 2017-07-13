@@ -824,7 +824,7 @@ lsp_print (struct isis_lsp *lsp, struct vty *vty, char dynhost)
     }
   else
     vty_out (vty, " %5u    ", ntohs (lsp->lsp_header->rem_lifetime));
-  vty_outln (vty, "%s",
+  vty_out (vty, "%s\n",
            lsp_bits2string(&lsp->lsp_header->lsp_bits));
 }
 
@@ -842,12 +842,12 @@ lsp_print_mt_reach(struct list *list, struct vty *vty,
       lspid_print(neigh->neigh_id, lspid, dynhost, 0);
       if (mtid == ISIS_MT_IPV4_UNICAST)
         {
-          vty_outln(vty, "  Metric      : %-8u IS-Extended   : %s",
+          vty_out(vty, "  Metric      : %-8u IS-Extended   : %s\n",
                     GET_TE_METRIC(neigh), lspid);
         }
       else
         {
-          vty_outln(vty, "  Metric      : %-8u MT-Reach      : %s %s",
+          vty_out(vty, "  Metric      : %-8u MT-Reach      : %s %s\n",
                     GET_TE_METRIC(neigh), lspid,
                     isis_mtid2str(mtid));
         }
@@ -955,7 +955,7 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
   if (lsp->tlv_data.area_addrs)
     for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.area_addrs, lnode, area_addr))
       {
-	vty_outln (vty, "  Area Address: %s",
+	vty_out (vty, "  Area Address: %s\n",
 		 isonet_print(area_addr->area_addr, area_addr->addr_len));
       }
   
@@ -968,11 +968,11 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
 	    {
 	    case NLPID_IP:
 	    case NLPID_IPV6:
-	      vty_outln (vty, "  NLPID       : 0x%X",
+	      vty_out (vty, "  NLPID       : 0x%X\n",
 		       lsp->tlv_data.nlpids->nlpids[i]);
 	      break;
 	    default:
-	      vty_outln (vty, "  NLPID       : %s", "unknown");
+	      vty_out (vty, "  NLPID       : %s\n", "unknown");
 	      break;
 	    }
 	}
@@ -980,7 +980,7 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
 
   for (ALL_LIST_ELEMENTS_RO(lsp->tlv_data.mt_router_info, lnode, mt_router_info))
     {
-      vty_outln (vty, "  MT          : %s%s",
+      vty_out (vty, "  MT          : %s%s\n",
                isis_mtid2str(mt_router_info->mtid),
                mt_router_info->overload ? " (overload)" : "");
     }
@@ -991,16 +991,16 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
       bzero (hostname, sizeof (hostname));
       memcpy (hostname, lsp->tlv_data.hostname->name,
 	      lsp->tlv_data.hostname->namelen);
-      vty_outln (vty, "  Hostname    : %s", hostname);
+      vty_out (vty, "  Hostname    : %s\n", hostname);
     }
 
   /* authentication tlv */
   if (lsp->tlv_data.auth_info.type != ISIS_PASSWD_TYPE_UNUSED)
     {
       if (lsp->tlv_data.auth_info.type == ISIS_PASSWD_TYPE_HMAC_MD5)
-        vty_outln (vty, "  Auth type   : md5");
+        vty_out (vty, "  Auth type   : md5\n");
       else if (lsp->tlv_data.auth_info.type == ISIS_PASSWD_TYPE_CLEARTXT)
-        vty_outln (vty, "  Auth type   : clear text");
+        vty_out (vty, "  Auth type   : clear text\n");
     }
 
   /* TE router id */
@@ -1008,14 +1008,14 @@ lsp_print_detail (struct isis_lsp *lsp, struct vty *vty, char dynhost)
     {
       memcpy (ipv4_address, inet_ntoa (lsp->tlv_data.router_id->id),
 	      sizeof (ipv4_address));
-      vty_outln (vty, "  Router ID   : %s", ipv4_address);
+      vty_out (vty, "  Router ID   : %s\n", ipv4_address);
     }
 
   if (lsp->tlv_data.ipv4_addrs)
     for (ALL_LIST_ELEMENTS_RO (lsp->tlv_data.ipv4_addrs, lnode, ipv4_addr))
       {
         memcpy (ipv4_address, inet_ntoa (*ipv4_addr), sizeof (ipv4_address));
-        vty_outln (vty, "  IPv4 Address: %s", ipv4_address);
+        vty_out (vty, "  IPv4 Address: %s\n", ipv4_address);
       }
 
   /* for the IS neighbor tlv */

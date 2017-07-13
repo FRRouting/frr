@@ -65,18 +65,18 @@ config_write_network (struct vty *vty, struct eigrp *eigrp)
     if (rn->info)
       {
         /* Network print. */
-        vty_outln (vty, " network %s/%d ",
+        vty_out (vty, " network %s/%d \n",
                  inet_ntoa (rn->p.u.prefix4), rn->p.prefixlen);
       }
 
   if (eigrp->max_paths != EIGRP_MAX_PATHS_DEFAULT)
-    vty_outln (vty, " maximum-paths %d", eigrp->max_paths);
+    vty_out (vty, " maximum-paths %d\n", eigrp->max_paths);
 
   if (eigrp->variance != EIGRP_VARIANCE_DEFAULT)
-    vty_outln (vty, " variance %d", eigrp->variance);
+    vty_out (vty, " variance %d\n", eigrp->variance);
 
   /*Separate EIGRP configuration from the rest of the config*/
-  vty_outln (vty, "!");
+  vty_out (vty, "!\n");
 
   return 0;
 }
@@ -89,39 +89,39 @@ config_write_interfaces (struct vty *vty, struct eigrp *eigrp)
 
   for (ALL_LIST_ELEMENTS_RO (eigrp->eiflist, node, ei))
     {
-      vty_outln (vty, "interface %s", ei->ifp->name);
+      vty_out (vty, "interface %s\n", ei->ifp->name);
 
       if ((IF_DEF_PARAMS (ei->ifp)->auth_type) == EIGRP_AUTH_TYPE_MD5)
         {
-          vty_outln (vty, " ip authentication mode eigrp %d md5", eigrp->AS);
+          vty_out (vty, " ip authentication mode eigrp %d md5\n", eigrp->AS);
         }
 
       if ((IF_DEF_PARAMS (ei->ifp)->auth_type) == EIGRP_AUTH_TYPE_SHA256)
         {
-          vty_outln (vty, " ip authentication mode eigrp %d hmac-sha-256",
+          vty_out (vty, " ip authentication mode eigrp %d hmac-sha-256\n",
                      eigrp->AS);
         }
 
       if(IF_DEF_PARAMS (ei->ifp)->auth_keychain)
         {
-          vty_outln (vty, " ip authentication key-chain eigrp %d %s",eigrp->AS,
+          vty_out (vty, " ip authentication key-chain eigrp %d %s\n",eigrp->AS,
                      IF_DEF_PARAMS(ei->ifp)->auth_keychain);
         }
 
       if ((IF_DEF_PARAMS (ei->ifp)->v_hello) != EIGRP_HELLO_INTERVAL_DEFAULT)
         {
-          vty_outln (vty, " ip hello-interval eigrp %d",
+          vty_out (vty, " ip hello-interval eigrp %d\n",
                      IF_DEF_PARAMS(ei->ifp)->v_hello);
         }
 
       if ((IF_DEF_PARAMS (ei->ifp)->v_wait) != EIGRP_HOLD_INTERVAL_DEFAULT)
         {
-          vty_outln (vty, " ip hold-time eigrp %d",
+          vty_out (vty, " ip hold-time eigrp %d\n",
                      IF_DEF_PARAMS(ei->ifp)->v_wait);
         }
 
       /*Separate this EIGRP interface configuration from the others*/
-      vty_outln (vty, "!");
+      vty_out (vty, "!\n");
     }
 
   return 0;
@@ -134,23 +134,23 @@ eigrp_write_interface (struct vty *vty)
   struct interface *ifp;
 
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist(VRF_DEFAULT), node, ifp)) {
-    vty_outln (vty, "interface %s",ifp->name);
+    vty_out (vty, "interface %s\n",ifp->name);
 
     if (ifp->desc)
-      vty_outln (vty, " description %s",ifp->desc);
+      vty_out (vty, " description %s\n",ifp->desc);
 
     if (IF_DEF_PARAMS (ifp)->bandwidth != EIGRP_BANDWIDTH_DEFAULT)
-      vty_outln (vty, " bandwidth %u",IF_DEF_PARAMS(ifp)->bandwidth);
+      vty_out (vty, " bandwidth %u\n",IF_DEF_PARAMS(ifp)->bandwidth);
     if (IF_DEF_PARAMS (ifp)->delay != EIGRP_DELAY_DEFAULT)
-      vty_outln (vty, " delay %u", IF_DEF_PARAMS(ifp)->delay);
+      vty_out (vty, " delay %u\n", IF_DEF_PARAMS(ifp)->delay);
     if (IF_DEF_PARAMS (ifp)->v_hello != EIGRP_HELLO_INTERVAL_DEFAULT)
-      vty_outln (vty, " ip hello-interval eigrp %u",
+      vty_out (vty, " ip hello-interval eigrp %u\n",
                IF_DEF_PARAMS(ifp)->v_hello);
     if (IF_DEF_PARAMS (ifp)->v_wait != EIGRP_HOLD_INTERVAL_DEFAULT)
-      vty_outln (vty, " ip hold-time eigrp %u",
+      vty_out (vty, " ip hold-time eigrp %u\n",
                IF_DEF_PARAMS(ifp)->v_wait);
 
-    vty_outln (vty, "!");
+    vty_out (vty, "!\n");
   }
 
   return 0;
@@ -179,7 +179,7 @@ config_write_eigrp_router (struct vty *vty, struct eigrp *eigrp)
   int write=0;
 
   /* `router eigrp' print. */
-  vty_outln (vty, "router eigrp %d", eigrp->AS);
+  vty_out (vty, "router eigrp %d\n", eigrp->AS);
 
   write++;
 
@@ -191,7 +191,7 @@ config_write_eigrp_router (struct vty *vty, struct eigrp *eigrp)
     {
       struct in_addr router_id_static;
       router_id_static.s_addr = htonl(eigrp->router_id_static);
-      vty_outln (vty, " eigrp router-id %s",
+      vty_out (vty, " eigrp router-id %s\n",
                inet_ntoa(router_id_static));
     }
 
@@ -202,7 +202,7 @@ config_write_eigrp_router (struct vty *vty, struct eigrp *eigrp)
   config_write_eigrp_distribute (vty, eigrp);
 
   /*Separate EIGRP configuration from the rest of the config*/
-  vty_outln (vty, "!");
+  vty_out (vty, "!\n");
 
   return write;
 }
@@ -235,7 +235,7 @@ DEFUN (no_router_eigrp,
   eigrp = eigrp_lookup ();
   if (eigrp->AS != atoi (argv[3]->arg))
     {
-      vty_outln (vty,"%% Attempting to deconfigure non-existent AS");
+      vty_out (vty,"%% Attempting to deconfigure non-existent AS\n");
       return CMD_WARNING;
     }
 
@@ -393,7 +393,7 @@ DEFUN (eigrp_network,
 
   if (ret == 0)
     {
-      vty_outln (vty, "There is already same network statement.");
+      vty_out (vty, "There is already same network statement.\n");
       return CMD_WARNING;
     }
 
@@ -417,7 +417,7 @@ DEFUN (no_eigrp_network,
 
   if (ret == 0)
   {
-    vty_outln (vty,"Can't find specified network configuration.");
+    vty_out (vty,"Can't find specified network configuration.\n");
     return CMD_WARNING;
   }
 
@@ -465,7 +465,7 @@ DEFUN (show_ip_eigrp_topology,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, " EIGRP Routing Process not enabled");
+      vty_out (vty, " EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -521,7 +521,7 @@ DEFUN (show_ip_eigrp_interfaces,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, "EIGRP Routing Process not enabled");
+      vty_out (vty, "EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -568,7 +568,7 @@ DEFUN (show_ip_eigrp_neighbors,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, " EIGRP Routing Process not enabled");
+      vty_out (vty, " EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -607,7 +607,7 @@ DEFUN (eigrp_if_delay,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, " EIGRP Routing Process not enabled");
+      vty_out (vty, " EIGRP Routing Process not enabled\n");
 
       return CMD_SUCCESS;
     }
@@ -633,7 +633,7 @@ DEFUN (no_eigrp_if_delay,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, " EIGRP Routing Process not enabled");
+      vty_out (vty, " EIGRP Routing Process not enabled\n");
 
       return CMD_SUCCESS;
     }
@@ -658,7 +658,7 @@ DEFUN (eigrp_if_bandwidth,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, " EIGRP Routing Process not enabled");
+      vty_out (vty, " EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -684,7 +684,7 @@ DEFUN (no_eigrp_if_bandwidth,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, " EIGRP Routing Process not enabled");
+      vty_out (vty, " EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -709,7 +709,7 @@ DEFUN (eigrp_if_ip_hellointerval,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, " EIGRP Routing Process not enabled");
+      vty_out (vty, " EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -737,7 +737,7 @@ DEFUN (no_eigrp_if_ip_hellointerval,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, " EIGRP Routing Process not enabled");
+      vty_out (vty, " EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -771,7 +771,7 @@ DEFUN (eigrp_if_ip_holdinterval,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, " EIGRP Routing Process not enabled");
+      vty_out (vty, " EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -798,7 +798,7 @@ DEFUN (eigrp_ip_summary_address,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, " EIGRP Routing Process not enabled");
+      vty_out (vty, " EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -826,7 +826,7 @@ DEFUN (no_eigrp_ip_summary_address,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, " EIGRP Routing Process not enabled");
+      vty_out (vty, " EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -852,7 +852,7 @@ DEFUN (no_eigrp_if_ip_holdinterval,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, " EIGRP Routing Process not enabled");
+      vty_out (vty, " EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -899,7 +899,7 @@ DEFUN (eigrp_authentication_mode,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, " EIGRP Routing Process not enabled");
+      vty_out (vty, " EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -929,7 +929,7 @@ DEFUN (no_eigrp_authentication_mode,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, " EIGRP Routing Process not enabled");
+      vty_out (vty, " EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -955,7 +955,7 @@ DEFUN (eigrp_authentication_keychain,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, "EIGRP Routing Process not enabled");
+      vty_out (vty, "EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -971,7 +971,7 @@ DEFUN (eigrp_authentication_keychain,
         IF_DEF_PARAMS (ifp)->auth_keychain = strdup(keychain->name);
     }
   else
-    vty_outln (vty,"Key chain with specified name not found");
+    vty_out (vty,"Key chain with specified name not found\n");
 
   return CMD_SUCCESS;
 }
@@ -993,7 +993,7 @@ DEFUN (no_eigrp_authentication_keychain,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, "EIGRP Routing Process not enabled");
+      vty_out (vty, "EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -1004,8 +1004,8 @@ DEFUN (no_eigrp_authentication_keychain,
       IF_DEF_PARAMS (ifp)->auth_keychain = NULL;
     }
   else
-    vty_outln (vty,
-              "Key chain with specified name not configured on interface");
+    vty_out (vty,
+              "Key chain with specified name not configured on interface\n");
 
   return CMD_SUCCESS;
 }
@@ -1080,7 +1080,7 @@ DEFUN (eigrp_variance,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, "EIGRP Routing Process not enabled");
+      vty_out (vty, "EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
   variance = atoi(argv[1]->arg);
@@ -1103,7 +1103,7 @@ DEFUN (no_eigrp_variance,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, "EIGRP Routing Process not enabled");
+      vty_out (vty, "EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -1126,7 +1126,7 @@ DEFUN (eigrp_maximum_paths,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, "EIGRP Routing Process not enabled");
+      vty_out (vty, "EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -1151,7 +1151,7 @@ DEFUN (no_eigrp_maximum_paths,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, "EIGRP Routing Process not enabled");
+      vty_out (vty, "EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -1182,7 +1182,7 @@ DEFUN (clear_ip_eigrp_neighbors,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, " EIGRP Routing Process not enabled");
+      vty_out (vty, " EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -1201,7 +1201,7 @@ DEFUN (clear_ip_eigrp_neighbors,
                           inet_ntoa (nbr->src),
                           ifindex2ifname (nbr->ei->ifp->ifindex, VRF_DEFAULT));
               vty_time_print (vty, 0);
-              vty_outln (vty, "Neighbor %s (%s) is down: manually cleared",
+              vty_out (vty, "Neighbor %s (%s) is down: manually cleared\n",
                        inet_ntoa (nbr->src),
                        ifindex2ifname(nbr->ei->ifp->ifindex, VRF_DEFAULT));
 
@@ -1238,7 +1238,7 @@ DEFUN (clear_ip_eigrp_neighbors_int,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, " EIGRP Routing Process not enabled");
+      vty_out (vty, " EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -1247,7 +1247,7 @@ DEFUN (clear_ip_eigrp_neighbors_int,
   ei = eigrp_if_lookup_by_name(eigrp, argv[idx]->arg);
   if(ei == NULL)
     {
-      vty_outln (vty, " Interface (%s) doesn't exist", argv[idx]->arg);
+      vty_out (vty, " Interface (%s) doesn't exist\n", argv[idx]->arg);
       return CMD_WARNING;
     }
 
@@ -1263,7 +1263,7 @@ DEFUN (clear_ip_eigrp_neighbors_int,
                       inet_ntoa (nbr->src),
                       ifindex2ifname (nbr->ei->ifp->ifindex, VRF_DEFAULT));
           vty_time_print (vty, 0);
-          vty_outln (vty, "Neighbor %s (%s) is down: manually cleared",
+          vty_out (vty, "Neighbor %s (%s) is down: manually cleared\n",
                    inet_ntoa (nbr->src),
                    ifindex2ifname(nbr->ei->ifp->ifindex, VRF_DEFAULT));
 
@@ -1299,7 +1299,7 @@ DEFUN (clear_ip_eigrp_neighbors_IP,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, " EIGRP Routing Process not enabled");
+      vty_out (vty, " EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -1309,7 +1309,7 @@ DEFUN (clear_ip_eigrp_neighbors_IP,
   /* if neighbor doesn't exists, notify user and exit */
   if(nbr == NULL)
     {
-      vty_outln (vty, "Neighbor with entered address doesn't exists.");
+      vty_out (vty, "Neighbor with entered address doesn't exists.\n");
       return CMD_WARNING;
     }
 
@@ -1337,7 +1337,7 @@ DEFUN (clear_ip_eigrp_neighbors_soft,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, " EIGRP Routing Process not enabled");
+      vty_out (vty, " EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -1367,7 +1367,7 @@ DEFUN (clear_ip_eigrp_neighbors_int_soft,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, " EIGRP Routing Process not enabled");
+      vty_out (vty, " EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -1375,7 +1375,7 @@ DEFUN (clear_ip_eigrp_neighbors_int_soft,
   ei = eigrp_if_lookup_by_name(eigrp, argv[4]->arg);
   if(ei == NULL)
     {
-      vty_outln (vty, " Interface (%s) doesn't exist", argv[4]->arg);
+      vty_out (vty, " Interface (%s) doesn't exist\n", argv[4]->arg);
       return CMD_WARNING;
     }
 
@@ -1407,7 +1407,7 @@ DEFUN (clear_ip_eigrp_neighbors_IP_soft,
   eigrp = eigrp_lookup ();
   if (eigrp == NULL)
     {
-      vty_outln (vty, " EIGRP Routing Process not enabled");
+      vty_out (vty, " EIGRP Routing Process not enabled\n");
       return CMD_SUCCESS;
     }
 
@@ -1417,7 +1417,7 @@ DEFUN (clear_ip_eigrp_neighbors_IP_soft,
   /* if neighbor doesn't exists, notify user and exit */
   if(nbr == NULL)
     {
-      vty_outln (vty, "Neighbor with entered address doesn't exists.");
+      vty_out (vty, "Neighbor with entered address doesn't exists.\n");
       return CMD_WARNING;
     }
 

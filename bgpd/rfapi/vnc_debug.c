@@ -79,13 +79,13 @@ DEFUN (debug_bgp_vnc,
 	  else
 	    {
 	      term_vnc_debug |= vncdebug[i].bit;
-	      vty_outln (vty, "BGP vnc %s debugging is on",
+	      vty_out (vty, "BGP vnc %s debugging is on\n",
 		vncdebug[i].name);
 	    }
 	  return CMD_SUCCESS;
 	}
     }
-  vty_outln (vty, "Unknown debug flag: %s", argv[3]->arg);
+  vty_out (vty, "Unknown debug flag: %s\n", argv[3]->arg);
   return CMD_WARNING;
 }
 
@@ -118,13 +118,13 @@ DEFUN (no_debug_bgp_vnc,
 	  else
 	    {
 	      term_vnc_debug &= ~vncdebug[i].bit;
-	      vty_outln (vty, "BGP vnc %s debugging is off",
+	      vty_out (vty, "BGP vnc %s debugging is off\n",
 		vncdebug[i].name);
 	    }
 	  return CMD_SUCCESS;
 	}
     }
-  vty_outln (vty, "Unknown debug flag: %s", argv[3]->arg);
+  vty_out (vty, "Unknown debug flag: %s\n", argv[3]->arg);
   return CMD_WARNING;
 }
 
@@ -144,7 +144,7 @@ DEFUN (no_debug_bgp_vnc_all,
        VNC_STR)
 {
   term_vnc_debug = 0;
-  vty_outln (vty, "All possible VNC debugging has been turned off");
+  vty_out (vty, "All possible VNC debugging has been turned off\n");
       
   return CMD_SUCCESS;
 }
@@ -163,13 +163,13 @@ DEFUN (show_debugging_bgp_vnc,
 {
   size_t	i;
 
-  vty_outln (vty, "BGP VNC debugging status:");
+  vty_out (vty, "BGP VNC debugging status:\n");
 
   for (i = 0; i < (sizeof(vncdebug) / sizeof(struct vnc_debug)); ++i)
     {
       if (term_vnc_debug & vncdebug[i].bit)
 	{
-	  vty_outln (vty, "  BGP VNC %s debugging is on",
+	  vty_out (vty, "  BGP VNC %s debugging is on\n",
 	    vncdebug[i].name);
 	}
     }
@@ -187,7 +187,7 @@ bgp_vnc_config_write_debug (struct vty *vty)
     {
       if (conf_vnc_debug & vncdebug[i].bit)
 	{
-	  vty_outln (vty, "debug bgp vnc %s", vncdebug[i].name);
+	  vty_out (vty, "debug bgp vnc %s\n", vncdebug[i].name);
 	  write++;
 	}
     }

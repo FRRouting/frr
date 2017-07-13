@@ -51,7 +51,7 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd,
   if (bgp == NULL)
     {
       if (!use_json)
-        vty_outln (vty, "No BGP process is configured");
+        vty_out (vty, "No BGP process is configured\n");
       return CMD_WARNING;
     }
 
@@ -104,11 +104,11 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd,
                         }
                       else
                         {
-                          vty_outln (vty, "BGP table version is 0, local router ID is %s",
+                          vty_out (vty, "BGP table version is 0, local router ID is %s\n",
                                    inet_ntoa(bgp->router_id));
-                          vty_outln (vty,
-                                     "Status codes: s suppressed, d damped, h history, * valid, > best, i - internal");
-                          vty_outln (vty, "Origin codes: i - IGP, e - EGP, ? - incomplete%s",
+                          vty_out (vty,
+                                     "Status codes: s suppressed, d damped, h history, * valid, > best, i - internal\n");
+                          vty_out (vty, "Origin codes: i - IGP, e - EGP, ? - incomplete%s\n",
                                    VTYNL);
                           vty_outln (vty, V4_HEADER);
                         }
@@ -191,7 +191,7 @@ show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd,
   if (use_json)
     {
       json_object_object_add(json, "routes", json_routes);
-      vty_outln (vty, "%s",
+      vty_out (vty, "%s\n",
                  json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
       json_object_free(json);
     }

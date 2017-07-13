@@ -430,9 +430,9 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
       vty_out (vty, VTYNL);
       if (adj->mt_count != 1 || adj->mt_set[0] != ISIS_MT_IPV4_UNICAST)
         {
-          vty_outln (vty, "    Topologies:");
+          vty_out (vty, "    Topologies:\n");
           for (unsigned int i = 0; i < adj->mt_count; i++)
-            vty_outln (vty, "      %s", isis_mtid2str(adj->mt_set[i]));
+            vty_out (vty, "      %s\n", isis_mtid2str(adj->mt_set[i]));
         }
       vty_out (vty, "    SNPA: %s", snpa_print (adj->snpa));
       if (adj->circuit && (adj->circuit->circ_type == CIRCUIT_T_BROADCAST))
@@ -460,24 +460,24 @@ isis_adj_print_vty (struct isis_adjacency *adj, struct vty *vty, char detail)
       if (adj->area_addrs && listcount (adj->area_addrs) > 0)
         {
           struct area_addr *area_addr;
-          vty_outln (vty, "    Area Address(es):");
+          vty_out (vty, "    Area Address(es):\n");
           for (ALL_LIST_ELEMENTS_RO (adj->area_addrs, node, area_addr))
-            vty_outln (vty, "      %s",
+            vty_out (vty, "      %s\n",
                        isonet_print(area_addr->area_addr, area_addr->addr_len));
         }
       if (adj->ipv4_addrs && listcount (adj->ipv4_addrs) > 0)
 	{
-	  vty_outln (vty, "    IPv4 Address(es):");
+	  vty_out (vty, "    IPv4 Address(es):\n");
 	  for (ALL_LIST_ELEMENTS_RO (adj->ipv4_addrs, node, ip_addr))
-            vty_outln (vty, "      %s", inet_ntoa(*ip_addr));
+            vty_out (vty, "      %s\n", inet_ntoa(*ip_addr));
 	}
       if (adj->ipv6_addrs && listcount (adj->ipv6_addrs) > 0)
 	{
-	  vty_outln (vty, "    IPv6 Address(es):");
+	  vty_out (vty, "    IPv6 Address(es):\n");
 	  for (ALL_LIST_ELEMENTS_RO (adj->ipv6_addrs, node, ipv6_addr))
 	    {
 	      inet_ntop (AF_INET6, ipv6_addr, (char *)ip6, INET6_ADDRSTRLEN);
-	      vty_outln (vty, "      %s", ip6);
+	      vty_out (vty, "      %s\n", ip6);
 	    }
 	}
       vty_out (vty, VTYNL);

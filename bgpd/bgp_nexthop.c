@@ -387,7 +387,7 @@ bgp_show_nexthops (struct vty *vty, struct bgp *bgp, int detail)
   time_t tbuf;
   afi_t afi;
 
-  vty_outln (vty, "Current BGP nexthop cache:");
+  vty_out (vty, "Current BGP nexthop cache:\n");
   for (afi = AFI_IP ; afi < AFI_MAX ; afi++)
     {
       if (!bgp->nexthop_cache_table[afi])
@@ -399,7 +399,7 @@ bgp_show_nexthops (struct vty *vty, struct bgp *bgp, int detail)
 	    {
 	      if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID))
 		{
-		  vty_outln (vty, " %s valid [IGP metric %d], #paths %d",
+		  vty_out (vty, " %s valid [IGP metric %d], #paths %d\n",
 			   inet_ntop (rn->p.family, &rn->p.u.prefix, buf, sizeof (buf)),
 			   bnc->metric, bnc->path_count);
 		  if (detail)
@@ -407,40 +407,40 @@ bgp_show_nexthops (struct vty *vty, struct bgp *bgp, int detail)
 		      switch (nexthop->type)
 			{
 			case NEXTHOP_TYPE_IPV6:
-			  vty_outln (vty, "  gate %s",
+			  vty_out (vty, "  gate %s\n",
 				   inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf, sizeof(buf)));
 			  break;
 			case NEXTHOP_TYPE_IPV6_IFINDEX:
-			  vty_outln (vty, "  gate %s, if %s",
+			  vty_out (vty, "  gate %s, if %s\n",
 				  inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf,
 					    sizeof (buf)),
 				  ifindex2ifname(nexthop->ifindex, bgp->vrf_id));
 			  break;
 			case NEXTHOP_TYPE_IPV4:
-			  vty_outln (vty, "  gate %s",
+			  vty_out (vty, "  gate %s\n",
 				   inet_ntop(AF_INET, &nexthop->gate.ipv4, buf, sizeof(buf)));
 			  break;
 			case NEXTHOP_TYPE_IFINDEX:
-			  vty_outln (vty, "  if %s",
+			  vty_out (vty, "  if %s\n",
 				   ifindex2ifname(nexthop->ifindex, bgp->vrf_id));
 			  break;
 			case NEXTHOP_TYPE_IPV4_IFINDEX:
-			  vty_outln (vty, "  gate %s, if %s",
+			  vty_out (vty, "  gate %s, if %s\n",
 				   inet_ntop(AF_INET, &nexthop->gate.ipv4, buf,
 					     sizeof (buf)),
 				   ifindex2ifname(nexthop->ifindex, bgp->vrf_id));
 			  break;
 			default:
-			  vty_outln (vty, "  invalid nexthop type %u",
+			  vty_out (vty, "  invalid nexthop type %u\n",
 				   nexthop->type);
 			}
 		}
 	      else
 		{
-		  vty_outln (vty, " %s invalid",
+		  vty_out (vty, " %s invalid\n",
 			   inet_ntop(rn->p.family, &rn->p.u.prefix, buf, sizeof(buf)));
 		  if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
-		    vty_outln (vty, "  Must be Connected");
+		    vty_out (vty, "  Must be Connected\n");
 		}
 	      tbuf = time(NULL) - (bgp_clock() - bnc->last_update);
 	      vty_out (vty, "  Last update: %s", ctime(&tbuf));
@@ -461,7 +461,7 @@ show_ip_bgp_nexthop_table (struct vty *vty, const char *name, int detail)
     bgp = bgp_get_default ();
   if (!bgp)
     {
-      vty_outln (vty, "%% No such BGP instance exist");
+      vty_out (vty, "%% No such BGP instance exist\n");
       return CMD_WARNING;
     }
 
@@ -478,7 +478,7 @@ bgp_show_all_instances_nexthops_vty (struct vty *vty)
 
   for (ALL_LIST_ELEMENTS (bm->bgp, node, nnode, bgp))
     {
-      vty_outln (vty, "%sInstance %s:",
+      vty_out (vty, "%sInstance %s:\n",
                VTYNL,
                (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? "Default" : bgp->name);
       bgp_show_nexthops (vty, bgp, 0);

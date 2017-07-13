@@ -105,28 +105,28 @@ ldp_vty_debug(struct vty *vty, int disable, const char *type_str,
 int
 ldp_vty_show_debugging(struct vty *vty)
 {
-	vty_outln (vty, "LDP debugging status:");
+	vty_out (vty, "LDP debugging status:\n");
 
 	if (LDP_DEBUG(hello, HELLO_RECV))
-		vty_outln (vty,"  LDP discovery debugging is on (inbound)");
+		vty_out (vty,"  LDP discovery debugging is on (inbound)\n");
 	if (LDP_DEBUG(hello, HELLO_SEND))
-		vty_outln (vty,"  LDP discovery debugging is on (outbound)");
+		vty_out (vty,"  LDP discovery debugging is on (outbound)\n");
 	if (LDP_DEBUG(errors, ERRORS))
-		vty_outln (vty, "  LDP errors debugging is on");
+		vty_out (vty, "  LDP errors debugging is on\n");
 	if (LDP_DEBUG(event, EVENT))
-		vty_outln (vty, "  LDP events debugging is on");
+		vty_out (vty, "  LDP events debugging is on\n");
 	if (LDP_DEBUG(msg, MSG_RECV_ALL))
 		vty_outln (vty,
 			  "  LDP detailed messages debugging is on " "(inbound)");
 	else if (LDP_DEBUG(msg, MSG_RECV))
-		vty_outln (vty,"  LDP messages debugging is on (inbound)");
+		vty_out (vty,"  LDP messages debugging is on (inbound)\n");
 	if (LDP_DEBUG(msg, MSG_SEND_ALL))
 		vty_outln (vty,
 			  "  LDP detailed messages debugging is on " "(outbound)");
 	else if (LDP_DEBUG(msg, MSG_SEND))
-		vty_outln (vty,"  LDP messages debugging is on (outbound)");
+		vty_out (vty,"  LDP messages debugging is on (outbound)\n");
 	if (LDP_DEBUG(zebra, ZEBRA))
-		vty_outln (vty, "  LDP zebra debugging is on");
+		vty_out (vty, "  LDP zebra debugging is on\n");
 	vty_out (vty, VTYNL);
 
 	return (CMD_SUCCESS);
@@ -138,43 +138,43 @@ ldp_debug_config_write(struct vty *vty)
 	int write = 0;
 
 	if (CONF_LDP_DEBUG(hello, HELLO_RECV)) {
-		vty_outln (vty,"debug mpls ldp discovery hello recv");
+		vty_out (vty,"debug mpls ldp discovery hello recv\n");
 		write = 1;
 	}
 
 	if (CONF_LDP_DEBUG(hello, HELLO_SEND)) {
-		vty_outln (vty,"debug mpls ldp discovery hello sent");
+		vty_out (vty,"debug mpls ldp discovery hello sent\n");
 		write = 1;
 	}
 
 	if (CONF_LDP_DEBUG(errors, ERRORS)) {
-		vty_outln (vty, "debug mpls ldp errors");
+		vty_out (vty, "debug mpls ldp errors\n");
 		write = 1;
 	}
 
 	if (CONF_LDP_DEBUG(event, EVENT)) {
-		vty_outln (vty, "debug mpls ldp event");
+		vty_out (vty, "debug mpls ldp event\n");
 		write = 1;
 	}
 
 	if (CONF_LDP_DEBUG(msg, MSG_RECV_ALL)) {
-		vty_outln (vty, "debug mpls ldp messages recv all");
+		vty_out (vty, "debug mpls ldp messages recv all\n");
 		write = 1;
 	} else if (CONF_LDP_DEBUG(msg, MSG_RECV)) {
-		vty_outln (vty, "debug mpls ldp messages recv");
+		vty_out (vty, "debug mpls ldp messages recv\n");
 		write = 1;
 	}
 
 	if (CONF_LDP_DEBUG(msg, MSG_SEND_ALL)) {
-		vty_outln (vty, "debug mpls ldp messages sent all");
+		vty_out (vty, "debug mpls ldp messages sent all\n");
 		write = 1;
 	} else if (CONF_LDP_DEBUG(msg, MSG_SEND)) {
-		vty_outln (vty, "debug mpls ldp messages sent");
+		vty_out (vty, "debug mpls ldp messages sent\n");
 		write = 1;
 	}
 
 	if (CONF_LDP_DEBUG(zebra, ZEBRA)) {
-		vty_outln (vty, "debug mpls ldp zebra");
+		vty_out (vty, "debug mpls ldp zebra\n");
 		write = 1;
 	}
 

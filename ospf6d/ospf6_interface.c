@@ -1307,7 +1307,7 @@ DEFUN (auto_cost_reference_bandwidth,
   refbw = strtol (argv[idx_number]->arg, NULL, 10);
   if (refbw < 1 || refbw > 4294967)
     {
-      vty_outln (vty, "reference-bandwidth value is invalid");
+      vty_out (vty, "reference-bandwidth value is invalid\n");
       return CMD_WARNING;
     }
 

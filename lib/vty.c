@@ -247,12 +247,12 @@ vty_hello (struct vty *vty)
               for (s = buf + strlen (buf); (s > buf) && isspace ((int)*(s - 1));
                    s--);
               *s = '\0';
-              vty_outln (vty, "%s", buf);
+              vty_out (vty, "%s\n", buf);
             }
           fclose (f);
         }
       else
-        vty_outln (vty, "MOTD file not found");
+        vty_out (vty, "MOTD file not found\n");
     }
   else if (host.motd)
     vty_out (vty, "%s", host.motd);
@@ -385,14 +385,14 @@ vty_auth (struct vty *vty, char *buf)
         {
           if (vty->node == AUTH_NODE)
             {
-              vty_outln (vty, "%% Bad passwords, too many failures!");
+              vty_out (vty, "%% Bad passwords, too many failures!\n");
               vty->status = VTY_CLOSE;
             }
           else
             {
               /* AUTH_ENABLE_NODE */
               vty->fail = 0;
-              vty_outln (vty, "%% Bad enable passwords, too many failures!");
+              vty_out (vty, "%% Bad enable passwords, too many failures!\n");
 	      vty->status = VTY_CLOSE;
             }
         }
@@ -477,16 +477,16 @@ vty_command (struct vty *vty, char *buf)
       {
       case CMD_WARNING:
         if (vty->type == VTY_FILE)
-          vty_outln (vty, "Warning...");
+          vty_out (vty, "Warning...\n");
         break;
       case CMD_ERR_AMBIGUOUS:
-        vty_outln (vty, "%% Ambiguous command.");
+        vty_out (vty, "%% Ambiguous command.\n");
         break;
       case CMD_ERR_NO_MATCH:
-        vty_outln (vty, "%% [%s] Unknown command: %s", protocolname, buf);
+        vty_out (vty, "%% [%s] Unknown command: %s\n", protocolname, buf);
         break;
       case CMD_ERR_INCOMPLETE:
-        vty_outln (vty, "%% Command incomplete.");
+        vty_out (vty, "%% Command incomplete.\n");
         break;
       }
   cmd_free_strvec (vline);
@@ -933,7 +933,7 @@ vty_complete_command (struct vty *vty)
   switch (ret)
     {
     case CMD_ERR_AMBIGUOUS:
-      vty_outln (vty, "%% Ambiguous command.");
+      vty_out (vty, "%% Ambiguous command.\n");
       vty_prompt (vty);
       vty_redraw_line (vty);
       break;
@@ -946,7 +946,7 @@ vty_complete_command (struct vty *vty)
       if (!matched[0])
         {
           /* 2016-11-28 equinox -- need to debug, SEGV here */
-          vty_outln (vty, "%% CLI BUG: FULL_MATCH with NULL str");
+          vty_out (vty, "%% CLI BUG: FULL_MATCH with NULL str\n");
           vty_prompt (vty);
           vty_redraw_line (vty);
           break;
@@ -1001,7 +1001,7 @@ vty_describe_fold (struct vty *vty, int cmd_width,
 
   if (desc_width <= 0)
     {
-      vty_outln (vty, "  %-*s  %s", cmd_width, cmd, token->desc);
+      vty_out (vty, "  %-*s  %s\n", cmd_width, cmd, token->desc);
       return;
     }
 
@@ -1018,12 +1018,12 @@ vty_describe_fold (struct vty *vty, int cmd_width,
 
       strncpy (buf, p, pos);
       buf[pos] = '\0';
-      vty_outln (vty, "  %-*s  %s", cmd_width, cmd, buf);
+      vty_out (vty, "  %-*s  %s\n", cmd_width, cmd, buf);
 
       cmd = "";
     }
 
-  vty_outln (vty, "  %-*s  %s", cmd_width, cmd, p);
+  vty_out (vty, "  %-*s  %s\n", cmd_width, cmd, p);
 
   XFREE (MTYPE_TMP, buf);
 }
@@ -1058,11 +1058,11 @@ vty_describe_command (struct vty *vty)
   switch (ret)
     {
     case CMD_ERR_AMBIGUOUS:
-      vty_outln (vty, "%% Ambiguous command.");
+      vty_out (vty, "%% Ambiguous command.\n");
       goto out;
       break;
     case CMD_ERR_NO_MATCH:
-      vty_outln (vty, "%% There is no matched command.");
+      vty_out (vty, "%% There is no matched command.\n");
       goto out;
       break;
     }
@@ -1100,10 +1100,10 @@ vty_describe_command (struct vty *vty)
           }
 
         if (!token->desc)
-          vty_outln (vty, "  %-s",
+          vty_out (vty, "  %-s\n",
                    token->text);
         else if (desc_width >= strlen (token->desc))
-          vty_outln (vty, "  %-*s  %s", width,
+          vty_out (vty, "  %-*s  %s\n", width,
                    token->text,
                    token->desc);
         else
@@ -1139,10 +1139,10 @@ vty_describe_command (struct vty *vty)
   if ((token = token_cr))
     {
       if (!token->desc)
-        vty_outln (vty, "  %-s",
+        vty_out (vty, "  %-s\n",
                  token->text);
       else if (desc_width >= strlen (token->desc))
-        vty_outln (vty, "  %-*s  %s", width,
+        vty_out (vty, "  %-*s  %s\n", width,
                  token->text,
                  token->desc);
       else
@@ -1281,13 +1281,13 @@ vty_telnet_option (struct vty *vty, unsigned char *buf, int nbytes)
           vty_out (vty, "SE ");
           break;
         case TELOPT_ECHO:
-          vty_outln (vty, "TELOPT_ECHO ");
+          vty_out (vty, "TELOPT_ECHO \n");
           break;
         case TELOPT_SGA:
-          vty_outln (vty, "TELOPT_SGA ");
+          vty_out (vty, "TELOPT_SGA \n");
           break;
         case TELOPT_NAWS:
-          vty_outln (vty, "TELOPT_NAWS ");
+          vty_out (vty, "TELOPT_NAWS \n");
           break;
         default:
           vty_out (vty, "%x ", buf[i]);
@@ -1749,7 +1749,7 @@ vty_create (int vty_sock, union sockunion *su)
       /* Vty is not available if password isn't set. */
       if (host.password == NULL && host.password_encrypt == NULL)
         {
-          vty_outln (vty, "Vty password is not set.");
+          vty_out (vty, "Vty password is not set.\n");
           vty->status = VTY_CLOSE;
           vty_close (vty);
           return NULL;
@@ -1759,7 +1759,7 @@ vty_create (int vty_sock, union sockunion *su)
   /* Say hello to the world. */
   vty_hello (vty);
   if (! no_password_check)
-    vty_outln (vty, "%sUser Access Verification%s", VTYNL,
+    vty_out (vty, "%sUser Access Verification%s\n", VTYNL,
                VTYNL);
 
   /* Setting up terminal. */
@@ -2177,7 +2177,7 @@ vtysh_read (struct thread *thread)
       /* Clear command line buffer. */
       vty->cp = vty->length = 0;
       vty_clear_buf (vty);
-      vty_outln (vty, "%% Command is too long.");
+      vty_out (vty, "%% Command is too long.\n");
     }
   else
     {
@@ -2320,7 +2320,7 @@ vty_timeout (struct thread *thread)
 
   /* Clear buffer*/
   buffer_reset (vty->obuf);
-  vty_outln (vty, "%sVty connection is timed out.", VTYNL);
+  vty_out (vty, "%sVty connection is timed out.\n", VTYNL);
 
   /* Close connection. */
   vty->status = VTY_CLOSE;
@@ -2801,7 +2801,7 @@ DEFUN (no_vty_access_class,
   const char *accesslist = (argc == 3) ? argv[idx_word]->arg : NULL;
   if (! vty_accesslist_name || (argc == 3 && strcmp(vty_accesslist_name, accesslist)))
     {
-      vty_outln (vty,"Access-class is not currently applied to vty");
+      vty_out (vty,"Access-class is not currently applied to vty\n");
       return CMD_WARNING;
     }
 
@@ -2844,7 +2844,7 @@ DEFUN (no_vty_ipv6_access_class,
   if (! vty_ipv6_accesslist_name ||
       (argc == 4 && strcmp(vty_ipv6_accesslist_name, accesslist)))
     {
-      vty_outln (vty,"IPv6 access-class is not currently applied to vty");
+      vty_out (vty,"IPv6 access-class is not currently applied to vty\n");
       return CMD_WARNING;
     }
 
@@ -2968,30 +2968,30 @@ DEFUN (log_commands,
 static int
 vty_config_write (struct vty *vty)
 {
-  vty_outln (vty, "line vty");
+  vty_out (vty, "line vty\n");
 
   if (vty_accesslist_name)
-    vty_outln (vty, " access-class %s",
+    vty_out (vty, " access-class %s\n",
              vty_accesslist_name);
 
   if (vty_ipv6_accesslist_name)
-    vty_outln (vty, " ipv6 access-class %s",
+    vty_out (vty, " ipv6 access-class %s\n",
              vty_ipv6_accesslist_name);
 
   /* exec-timeout */
   if (vty_timeout_val != VTY_TIMEOUT_DEFAULT)
-    vty_outln (vty, " exec-timeout %ld %ld",
+    vty_out (vty, " exec-timeout %ld %ld\n",
              vty_timeout_val / 60,
              vty_timeout_val % 60);
 
   /* login */
   if (no_password_check)
-    vty_outln (vty, " no login");
+    vty_out (vty, " no login\n");
 
   if (do_log_commands)
-    vty_outln (vty, "log commands");
+    vty_out (vty, "log commands\n");
 
-  vty_outln (vty, "!");
+  vty_out (vty, "!\n");
 
   return CMD_SUCCESS;
 }

@@ -222,7 +222,7 @@ DEFUN (babel_redistribute_type,
     type = babel_proto_redistnum(argv[1]->arg);
 
     if (type < 0) {
-        vty_outln (vty, "Invalid type %s", argv[1]->arg);
+        vty_out (vty, "Invalid type %s\n", argv[1]->arg);
         return CMD_WARNING;
     }
 
@@ -243,7 +243,7 @@ DEFUN (no_babel_redistribute_type,
     type = babel_proto_redistnum(argv[2]->arg);
 
     if (type < 0) {
-        vty_outln (vty, "Invalid type %s", argv[2]->arg);
+        vty_out (vty, "Invalid type %s\n", argv[2]->arg);
         return CMD_WARNING;
     }
 
@@ -277,7 +277,7 @@ DEFUN (debug_babel,
         }
     }
 
-    vty_outln (vty, "Invalid type %s", argv[2]->arg);
+    vty_out (vty, "Invalid type %s\n", argv[2]->arg);
 
     return CMD_WARNING;
 }
@@ -307,7 +307,7 @@ DEFUN (no_debug_babel,
         }
     }
 
-    vty_outln (vty, "Invalid type %s", argv[3]->arg);
+    vty_out (vty, "Invalid type %s\n", argv[3]->arg);
 
     return CMD_WARNING;
 }
@@ -324,7 +324,7 @@ debug_babel_config_write (struct vty * vty)
 
     if (debug == BABEL_DEBUG_ALL)
     {
-        vty_outln (vty, "debug babel all");
+        vty_out (vty, "debug babel all\n");
         lines++;
     }
     else
@@ -335,12 +335,12 @@ debug_babel_config_write (struct vty * vty)
                 && CHECK_FLAG (debug, debug_type[i].type)
             )
             {
-                vty_outln (vty, "debug babel %s", debug_type[i].str);
+                vty_out (vty, "debug babel %s\n", debug_type[i].str);
                 lines++;
             }
     if (lines)
     {
-        vty_outln (vty, "!");
+        vty_out (vty, "!\n");
         lines++;
     }
     return lines;
@@ -384,13 +384,13 @@ zebra_config_write (struct vty *vty)
 {
     if (! zclient->enable)
     {
-        vty_outln (vty, "no router zebra");
+        vty_out (vty, "no router zebra\n");
         return 1;
     }
     else if (! vrf_bitmap_check (zclient->redist[AFI_IP][ZEBRA_ROUTE_BABEL], VRF_DEFAULT))
     {
-        vty_outln (vty, "router zebra");
-        vty_outln (vty, " no redistribute babel");
+        vty_out (vty, "router zebra\n");
+        vty_out (vty, " no redistribute babel\n");
         return 1;
     }
     return 0;

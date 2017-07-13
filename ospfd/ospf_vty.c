@@ -3267,9 +3267,9 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
     }
   else
     {
-      vty_outln (vty, "%s is %s", ifp->name,
+      vty_out (vty, "%s is %s\n", ifp->name,
                  ((is_up = if_is_operative(ifp)) ? "up" : "down"));
-      vty_outln (vty, "  ifindex %u, MTU %u bytes, BW %u Mbit %s",
+      vty_out (vty, "  ifindex %u, MTU %u bytes, BW %u Mbit %s\n",
                  ifp->ifindex, ifp->mtu, bandwidth, if_flag_dump(ifp->flags));
     }
 
@@ -3375,16 +3375,16 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
         }
       else
         {
-          vty_outln (vty, " Area %s", ospf_area_desc_string (oi->area));
+          vty_out (vty, " Area %s\n", ospf_area_desc_string (oi->area));
 
-          vty_outln (vty, "  MTU mismatch detection: %s",
+          vty_out (vty, "  MTU mismatch detection: %s\n",
                      OSPF_IF_PARAM(oi, mtu_ignore) ? "disabled" : "enabled");
 
-          vty_outln (vty, "  Router ID %s, Network Type %s, Cost: %d",
+          vty_out (vty, "  Router ID %s, Network Type %s, Cost: %d\n",
                      inet_ntoa (ospf->router_id), ospf_network_type_str[oi->type],
                      oi->output_cost);
 
-          vty_outln (vty, "  Transmit Delay is %d sec, State %s, Priority %d",
+          vty_out (vty, "  Transmit Delay is %d sec, State %s, Priority %d\n",
                      OSPF_IF_PARAM (oi,transmit_delay), lookup_msg(ospf_ism_state_msg, oi->state, NULL),
                      PRIORITY (oi));
         }
@@ -3393,7 +3393,7 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
       if (DR (oi).s_addr == 0)
         {
           if (!use_json)
-            vty_outln (vty, "  No backup designated router on this network");
+            vty_out (vty, "  No backup designated router on this network\n");
         }
       else
         {
@@ -3401,7 +3401,7 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
           if (nbr == NULL)
             {
               if (!use_json)
-                vty_outln (vty, "  No backup designated router on this network");
+                vty_out (vty, "  No backup designated router on this network\n");
             }
           else
             {
@@ -3414,7 +3414,7 @@ show_ip_ospf_interface_sub (struct vty *vty, struct ospf *ospf, struct interface
                 {
                   vty_out (vty, "  Backup Designated Router (ID) %s,",
                            inet_ntoa (nbr->router_id));
-                  vty_outln (vty, " Interface Address %s",
+                  vty_out (vty, " Interface Address %s\n",
                              inet_ntoa (nbr->address.u.prefix4));
                 }
             }
@@ -4769,10 +4769,10 @@ show_ip_ospf_database_header (struct vty *vty, struct ospf_lsa *lsa)
 {
   struct router_lsa *rlsa = (struct router_lsa*) lsa->data;
   
-  vty_outln (vty, "  LS age: %d", LS_AGE (lsa));
-  vty_outln (vty, "  Options: 0x%-2x : %s", lsa->data->options,
+  vty_out (vty, "  LS age: %d\n", LS_AGE (lsa));
+  vty_out (vty, "  Options: 0x%-2x : %s\n", lsa->data->options,
            ospf_options_dump(lsa->data->options));
-  vty_outln (vty, "  LS Flags: 0x%-2x %s",
+  vty_out (vty, "  LS Flags: 0x%-2x %s\n",
              lsa->flags,
              ((lsa->flags & OSPF_LSA_LOCAL_XLT) ?
               "(Translated from Type-7)" : ""));
@@ -4790,14 +4790,14 @@ show_ip_ospf_database_header (struct vty *vty, struct ospf_lsa *lsa)
 
       vty_out (vty, VTYNL);
     }
-  vty_outln (vty, "  LS Type: %s",
+  vty_out (vty, "  LS Type: %s\n",
              lookup_msg(ospf_lsa_type_msg, lsa->data->type, NULL));
-  vty_outln (vty, "  Link State ID: %s %s", inet_ntoa (lsa->data->id),
+  vty_out (vty, "  Link State ID: %s %s\n", inet_ntoa (lsa->data->id),
              lookup_msg(ospf_link_state_id_type_msg, lsa->data->type, NULL));
-  vty_outln (vty, "  Advertising Router: %s", inet_ntoa (lsa->data->adv_router));
-  vty_outln (vty, "  LS Seq Number: %08lx", (u_long)ntohl (lsa->data->ls_seqnum));
-  vty_outln (vty, "  Checksum: 0x%04x", ntohs (lsa->data->checksum));
-  vty_outln (vty, "  Length: %d%s", ntohs (lsa->data->length), VTYNL);
+  vty_out (vty, "  Advertising Router: %s\n", inet_ntoa (lsa->data->adv_router));
+  vty_out (vty, "  LS Seq Number: %08lx\n", (u_long)ntohl (lsa->data->ls_seqnum));
+  vty_out (vty, "  Checksum: 0x%04x\n", ntohs (lsa->data->checksum));
+  vty_out (vty, "  Length: %d%s\n", ntohs (lsa->data->length), VTYNL);
 }
 
 const char *link_type_desc[] =
@@ -7071,7 +7071,7 @@ DEFUN (no_ip_ospf_area,
 
   if (!OSPF_IF_PARAM_CONFIGURED(params, if_area))
     {
-      vty_outln (vty, "Can't find specified interface area configuration.");
+      vty_out (vty, "Can't find specified interface area configuration.\n");
       return CMD_WARNING;
     }  
 

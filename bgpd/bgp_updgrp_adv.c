@@ -250,7 +250,7 @@ subgrp_show_adjq_vty (struct update_subgroup *subgrp, struct vty *vty,
 	    }
 	}
   if (output_count != 0)
-    vty_outln (vty, "%sTotal number of prefixes %ld",
+    vty_out (vty, "%sTotal number of prefixes %ld\n",
 	     VTYNL, output_count);
 }
 

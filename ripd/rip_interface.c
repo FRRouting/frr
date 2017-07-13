@@ -1233,7 +1233,7 @@ DEFUN (rip_network,
 
   if (ret < 0)
     {
-      vty_outln (vty, "There is a same network configuration %s",
+      vty_out (vty, "There is a same network configuration %s\n",
                  argv[idx_ipv4_word]->arg);
       return CMD_WARNING;
     }
@@ -1263,7 +1263,7 @@ DEFUN (no_rip_network,
 
   if (ret < 0)
     {
-      vty_outln (vty, "Can't find network configuration %s",
+      vty_out (vty, "Can't find network configuration %s\n",
                  argv[idx_ipv4_word]->arg);
       return CMD_WARNING;
     }
@@ -1286,7 +1286,7 @@ DEFUN (rip_neighbor,
 
   if (ret <= 0)
     {
-      vty_outln (vty, "Please specify address by A.B.C.D");
+      vty_out (vty, "Please specify address by A.B.C.D\n");
       return CMD_WARNING;
     }
 
@@ -1311,7 +1311,7 @@ DEFUN (no_rip_neighbor,
 
   if (ret <= 0)
     {
-      vty_outln (vty, "Please specify address by A.B.C.D");
+      vty_out (vty, "Please specify address by A.B.C.D\n");
       return CMD_WARNING;
     }
 
@@ -1534,7 +1534,7 @@ DEFUN (ip_rip_authentication_mode,
   {
     if (auth_type != RIP_AUTH_MD5)
     {
-      vty_outln (vty, "auth length argument only valid for md5");
+      vty_out (vty, "auth length argument only valid for md5\n");
       return CMD_WARNING;
     }
     if (strmatch ("rfc", authlen))
@@ -1591,14 +1591,14 @@ DEFUN (ip_rip_authentication_string,
 
   if (strlen (argv[idx_line]->arg) > 16)
     {
-      vty_outln (vty,
-                 "%% RIPv2 authentication string must be shorter than 16");
+      vty_out (vty,
+                 "%% RIPv2 authentication string must be shorter than 16\n");
       return CMD_WARNING;
     }
 
   if (ri->key_chain)
     {
-      vty_outln (vty, "%% key-chain configuration exists");
+      vty_out (vty, "%% key-chain configuration exists\n");
       return CMD_WARNING;
     }
 
@@ -1651,7 +1651,7 @@ DEFUN (ip_rip_authentication_key_chain,
 
   if (ri->auth_str)
     {
-      vty_outln (vty,"%% authentication string configuration exists");
+      vty_out (vty,"%% authentication string configuration exists\n");
       return CMD_WARNING;
     }
 
@@ -1837,43 +1837,43 @@ rip_interface_config_write (struct vty *vty)
           (!ri->key_chain)                                 )
         continue;
 
-      vty_outln (vty, "interface %s",ifp->name);
+      vty_out (vty, "interface %s\n",ifp->name);
 
       if (ifp->desc)
-	vty_outln (vty, " description %s",ifp->desc);
+	vty_out (vty, " description %s\n",ifp->desc);
 
       /* Split horizon. */
       if (ri->split_horizon != ri->split_horizon_default)
 	{
           switch (ri->split_horizon) {
           case RIP_SPLIT_HORIZON:
-            vty_outln (vty, " ip rip split-horizon");
+            vty_out (vty, " ip rip split-horizon\n");
             break;
           case RIP_SPLIT_HORIZON_POISONED_REVERSE:
-            vty_outln (vty," ip rip split-horizon poisoned-reverse");
+            vty_out (vty," ip rip split-horizon poisoned-reverse\n");
             break;
           case RIP_NO_SPLIT_HORIZON:
           default:
-            vty_outln (vty, " no ip rip split-horizon");
+            vty_out (vty, " no ip rip split-horizon\n");
             break;
           }
 	}
 
       /* RIP version setting. */
       if (ri->ri_send != RI_RIP_UNSPEC)
-	vty_outln (vty, " ip rip send version %s",
+	vty_out (vty, " ip rip send version %s\n",
 		   lookup_msg(ri_version_msg, ri->ri_send, NULL));
 
       if (ri->ri_receive != RI_RIP_UNSPEC)
-	vty_outln (vty, " ip rip receive version %s ",
+	vty_out (vty, " ip rip receive version %s \n",
 		   lookup_msg(ri_version_msg, ri->ri_receive, NULL));
 
       if (ri->v2_broadcast)
-	vty_outln (vty, " ip rip v2-broadcast");
+	vty_out (vty, " ip rip v2-broadcast\n");
 
       /* RIP authentication. */
       if (ri->auth_type == RIP_AUTH_SIMPLE_PASSWORD)
-	vty_outln (vty, " ip rip authentication mode text");
+	vty_out (vty, " ip rip authentication mode text\n");
 
       if (ri->auth_type == RIP_AUTH_MD5)
         {
@@ -1886,14 +1886,14 @@ rip_interface_config_write (struct vty *vty)
         }
 
       if (ri->auth_str)
-	vty_outln (vty, " ip rip authentication string %s",
+	vty_out (vty, " ip rip authentication string %s\n",
 		 ri->auth_str);
 
       if (ri->key_chain)
-	vty_outln (vty, " ip rip authentication key-chain %s",
+	vty_out (vty, " ip rip authentication key-chain %s\n",
 		 ri->key_chain);
 
-      vty_outln (vty, "!");
+      vty_out (vty, "!\n");
     }
   return 0;
 }
@@ -1908,7 +1908,7 @@ config_write_rip_network (struct vty *vty, int config_mode)
   /* Network type RIP enable interface statement. */
   for (node = route_top (rip_enable_network); node; node = route_next (node))
     if (node->info)
-      vty_outln (vty, "%s%s/%d", 
+      vty_out (vty, "%s%s/%d\n", 
 	       config_mode ? " network " : "    ",
 	       inet_ntoa (node->p.u.prefix4),
 	       node->p.prefixlen);
@@ -1916,24 +1916,24 @@ config_write_rip_network (struct vty *vty, int config_mode)
   /* Interface name RIP enable statement. */
   for (i = 0; i < vector_active (rip_enable_interface); i++)
     if ((ifname = vector_slot (rip_enable_interface, i)) != NULL)
-      vty_outln (vty, "%s%s",
+      vty_out (vty, "%s%s\n",
 	       config_mode ? " network " : "    ",
 	       ifname);
 
   /* RIP neighbors listing. */
   for (node = route_top (rip->neighbor); node; node = route_next (node))
     if (node->info)
-      vty_outln (vty, "%s%s", 
+      vty_out (vty, "%s%s\n", 
 	       config_mode ? " neighbor " : "    ",
 	       inet_ntoa(node->p.u.prefix4));
 
   /* RIP passive interface listing. */
   if (config_mode) {
     if (passive_default)
-      vty_outln (vty, " passive-interface default");
+      vty_out (vty, " passive-interface default\n");
     for (i = 0; i < vector_active (Vrip_passive_nondefault); i++)
       if ((ifname = vector_slot (Vrip_passive_nondefault, i)) != NULL)
-	vty_outln (vty, " %spassive-interface %s",
+	vty_out (vty, " %spassive-interface %s\n",
 		 (passive_default ? "no " : ""), ifname);
   }
 

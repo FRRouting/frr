@@ -396,18 +396,18 @@ ospf6_area_show (struct vty *vty, struct ospf6_area *oa)
       result = monotime_since(&oa->ts_spf, NULL);
       if (result/TIMER_SECOND_MICRO > 0)
 	{
-	  vty_outln (vty, "SPF last executed %ld.%lds ago",
+	  vty_out (vty, "SPF last executed %ld.%lds ago\n",
 		   result/TIMER_SECOND_MICRO,
 		   result % TIMER_SECOND_MICRO);
 	}
       else
 	{
-	  vty_outln (vty, "SPF last executed %ldus ago",
+	  vty_out (vty, "SPF last executed %ldus ago\n",
 		   result);
 	}
     }
   else
-    vty_outln (vty, "SPF has not been run");
+    vty_out (vty, "SPF has not been run\n");
 }
 
 
@@ -968,7 +968,7 @@ DEFUN (ospf6_area_stub,
 
   if (!ospf6_area_stub_set (ospf6, area))
     {
-      vty_outln (vty,"First deconfigure all virtual link through this area");
+      vty_out (vty,"First deconfigure all virtual link through this area\n");
       return CMD_WARNING;
     }
 
@@ -993,7 +993,7 @@ DEFUN (ospf6_area_stub_no_summary,
 
   if (!ospf6_area_stub_set (ospf6, area))
     {
-      vty_outln (vty,"First deconfigure all virtual link through this area");
+      vty_out (vty,"First deconfigure all virtual link through this area\n");
       return CMD_WARNING;
     }
 

@@ -6639,22 +6639,22 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
         {
           if (peer->as_type == AS_SPECIFIED)
             {
-              vty_outln (vty, " neighbor %s remote-as %u", addr,peer->as);
+              vty_out (vty, " neighbor %s remote-as %u\n", addr,peer->as);
             }
           else if (peer->as_type == AS_INTERNAL)
             {
-              vty_outln (vty, " neighbor %s remote-as internal", addr);
+              vty_out (vty, " neighbor %s remote-as internal\n", addr);
             }
           else if (peer->as_type == AS_EXTERNAL)
             {
-              vty_outln (vty, " neighbor %s remote-as external", addr);
+              vty_out (vty, " neighbor %s remote-as external\n", addr);
             }
         }
 
       /* For swpX peers we displayed the peer-group
        * via 'neighbor swpX interface peer-group WORD' */
       if (!if_pg_printed)
-          vty_outln (vty, " neighbor %s peer-group %s", addr,
+          vty_out (vty, " neighbor %s peer-group %s\n", addr,
                    peer->group->name);
     }
 
@@ -6664,22 +6664,22 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
       /* peer is a peer-group, declare the peer-group */
       if (CHECK_FLAG (peer->sflags, PEER_STATUS_GROUP))
         {
-          vty_outln (vty, " neighbor %s peer-group",addr);
+          vty_out (vty, " neighbor %s peer-group\n",addr);
         }
 
       if (!if_ras_printed)
         {
           if (peer->as_type == AS_SPECIFIED)
             {
-              vty_outln (vty, " neighbor %s remote-as %u", addr,peer->as);
+              vty_out (vty, " neighbor %s remote-as %u\n", addr,peer->as);
             }
           else if (peer->as_type == AS_INTERNAL)
             {
-              vty_outln (vty, " neighbor %s remote-as internal", addr);
+              vty_out (vty, " neighbor %s remote-as internal\n", addr);
             }
           else if (peer->as_type == AS_EXTERNAL)
             {
-              vty_outln (vty, " neighbor %s remote-as external", addr);
+              vty_out (vty, " neighbor %s remote-as external\n", addr);
             }
         }
     }
@@ -6694,7 +6694,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
           || (CHECK_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS) !=
               CHECK_FLAG (g_peer->flags, PEER_FLAG_LOCAL_AS_REPLACE_AS)))
         {
-          vty_outln (vty, " neighbor %s local-as %u%s%s", addr,
+          vty_out (vty, " neighbor %s local-as %u%s%s\n", addr,
                    peer->change_local_as,
                    CHECK_FLAG (peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND) ?
                    " no-prepend" : "",
@@ -6705,7 +6705,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
   /* description */
   if (peer->desc)
     {
-      vty_outln (vty, " neighbor %s description %s", addr,peer->desc);
+      vty_out (vty, " neighbor %s description %s\n", addr,peer->desc);
     }
 
   /* shutdown */
@@ -6716,10 +6716,10 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
           peer->tx_shutdown_message)
         {
           if (peer->tx_shutdown_message)
-            vty_outln (vty, " neighbor %s shutdown message %s", addr,
+            vty_out (vty, " neighbor %s shutdown message %s\n", addr,
                      peer->tx_shutdown_message);
           else
-            vty_outln (vty, " neighbor %s shutdown", addr);
+            vty_out (vty, " neighbor %s shutdown\n", addr);
         }
     }
 
@@ -6739,7 +6739,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
           || ! g_peer->password
           || strcmp (peer->password, g_peer->password) != 0)
         {
-          vty_outln (vty, " neighbor %s password %s", addr,peer->password);
+          vty_out (vty, " neighbor %s password %s\n", addr,peer->password);
         }
     }
 
@@ -6748,20 +6748,20 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
     {
       if (!peer_group_active (peer))
         {
-          vty_outln (vty, " neighbor %s solo", addr);
+          vty_out (vty, " neighbor %s solo\n", addr);
         }
     }
 
   /* BGP port */
   if (peer->port != BGP_PORT_DEFAULT)
     {
-      vty_outln (vty, " neighbor %s port %d", addr,peer->port);
+      vty_out (vty, " neighbor %s port %d\n", addr,peer->port);
     }
 
   /* Local interface name */
   if (peer->ifname)
     {
-      vty_outln (vty, " neighbor %s interface %s", addr,peer->ifname);
+      vty_out (vty, " neighbor %s interface %s\n", addr,peer->ifname);
     }
 
   /* passive */
@@ -6770,7 +6770,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
       if (! peer_group_active (peer) ||
           ! CHECK_FLAG (g_peer->flags, PEER_FLAG_PASSIVE))
         {
-          vty_outln (vty, " neighbor %s passive", addr);
+          vty_out (vty, " neighbor %s passive\n", addr);
         }
     }
 
@@ -6780,7 +6780,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
     {
       if (! peer_group_active (peer) || g_peer->ttl != peer->ttl)
         {
-          vty_outln (vty, " neighbor %s ebgp-multihop %d", addr,peer->ttl);
+          vty_out (vty, " neighbor %s ebgp-multihop %d\n", addr,peer->ttl);
         }
     }
 
@@ -6789,7 +6789,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
     {
       if (! peer_group_active (peer) || g_peer->gtsm_hops != peer->gtsm_hops)
         {
-          vty_outln (vty, " neighbor %s ttl-security hops %d", addr,
+          vty_out (vty, " neighbor %s ttl-security hops %d\n", addr,
                    peer->gtsm_hops);
         }
     }
@@ -6800,7 +6800,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
       if (! peer_group_active (peer) ||
           ! CHECK_FLAG (g_peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK))
         {
-          vty_outln (vty, " neighbor %s disable-connected-check", addr);
+          vty_out (vty, " neighbor %s disable-connected-check\n", addr);
         }
     }
 
@@ -6810,7 +6810,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
       if (! peer_group_active (peer) || ! g_peer->update_if
           || strcmp (g_peer->update_if, peer->update_if) != 0)
         {
-          vty_outln (vty, " neighbor %s update-source %s", addr,
+          vty_out (vty, " neighbor %s update-source %s\n", addr,
                    peer->update_if);
         }
     }
@@ -6820,7 +6820,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
           || sockunion_cmp (g_peer->update_source,
                             peer->update_source) != 0)
         {
-          vty_outln (vty, " neighbor %s update-source %s", addr,
+          vty_out (vty, " neighbor %s update-source %s\n", addr,
                    sockunion2str(peer->update_source, buf, SU_ADDRSTRLEN));
         }
     }
@@ -6830,7 +6830,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
       ((! peer_group_active (peer) && peer->v_routeadv != BGP_DEFAULT_EBGP_ROUTEADV) ||
        (peer_group_active (peer) && peer->v_routeadv != g_peer->v_routeadv)))
     {
-      vty_outln (vty, " neighbor %s advertisement-interval %u",
+      vty_out (vty, " neighbor %s advertisement-interval %u\n",
                addr, peer->v_routeadv);
     }
 
@@ -6839,7 +6839,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
       ((! peer_group_active (peer) && (peer->keepalive != BGP_DEFAULT_KEEPALIVE || peer->holdtime != BGP_DEFAULT_HOLDTIME)) ||
        (peer_group_active (peer) && (peer->keepalive != g_peer->keepalive || peer->holdtime != g_peer->holdtime))))
     {
-      vty_outln (vty, " neighbor %s timers %u %u", addr,
+      vty_out (vty, " neighbor %s timers %u %u\n", addr,
                peer->keepalive, peer->holdtime);
     }
 
@@ -6848,7 +6848,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
        (peer_group_active (peer) && peer->connect != g_peer->connect)))
 
     {
-      vty_outln (vty, " neighbor %s timers connect %u", addr,
+      vty_out (vty, " neighbor %s timers connect %u\n", addr,
                peer->connect);
     }
 
@@ -6858,7 +6858,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
       if (! peer_group_active (peer) ||
           ! CHECK_FLAG (g_peer->flags, PEER_FLAG_DYNAMIC_CAPABILITY))
         {
-          vty_outln (vty, " neighbor %s capability dynamic",addr);
+          vty_out (vty, " neighbor %s capability dynamic\n",addr);
         }
     }
 
@@ -6868,7 +6868,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
       if (! peer_group_active (peer) ||
           ! CHECK_FLAG (g_peer->flags, PEER_FLAG_CAPABILITY_ENHE))
         {
-          vty_outln (vty, " no neighbor %s capability extended-nexthop",
+          vty_out (vty, " no neighbor %s capability extended-nexthop\n",
                      addr);
         }
     }
@@ -6878,7 +6878,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
       if (! peer_group_active (peer) ||
           ! CHECK_FLAG (g_peer->flags, PEER_FLAG_CAPABILITY_ENHE))
         {
-          vty_outln (vty, " neighbor %s capability extended-nexthop",addr);
+          vty_out (vty, " neighbor %s capability extended-nexthop\n",addr);
         }
     }
 
@@ -6888,7 +6888,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
       if (! peer_group_active (peer) ||
           ! CHECK_FLAG (g_peer->flags, PEER_FLAG_DONT_CAPABILITY))
         {
-          vty_outln (vty, " neighbor %s dont-capability-negotiate",addr);
+          vty_out (vty, " neighbor %s dont-capability-negotiate\n",addr);
         }
     }
 
@@ -6898,7 +6898,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
       if (! peer_group_active (peer) ||
           ! CHECK_FLAG (g_peer->flags, PEER_FLAG_OVERRIDE_CAPABILITY))
         {
-          vty_outln (vty, " neighbor %s override-capability",addr);
+          vty_out (vty, " neighbor %s override-capability\n",addr);
         }
     }
 
@@ -6908,7 +6908,7 @@ bgp_config_write_peer_global (struct vty *vty, struct bgp *bgp,
       if (! peer_group_active (peer) ||
           ! CHECK_FLAG (g_peer->flags, PEER_FLAG_STRICT_CAP_MATCH))
         {
-          vty_outln (vty, " neighbor %s strict-capability-match",addr);
+          vty_out (vty, " neighbor %s strict-capability-match\n",addr);
         }
     }
 }
@@ -7368,7 +7368,7 @@ bgp_config_write_family (struct vty *vty, struct bgp *bgp, afi_t afi,
   bgp_config_write_table_map (vty, bgp, afi, safi, &write);
 
   if (write)
-    vty_outln (vty, " exit-address-family");
+    vty_out (vty, " exit-address-family\n");
 
   return write;
 }
@@ -7386,25 +7386,25 @@ bgp_config_write (struct vty *vty)
   /* BGP Multiple instance. */
   if (!bgp_option_check (BGP_OPT_MULTIPLE_INSTANCE))
     {    
-      vty_outln (vty, "no bgp multiple-instance");
+      vty_out (vty, "no bgp multiple-instance\n");
       write++;
     }
 
   /* BGP Config type. */
   if (bgp_option_check (BGP_OPT_CONFIG_CISCO))
     {    
-      vty_outln (vty, "bgp config-type cisco");
+      vty_out (vty, "bgp config-type cisco\n");
       write++;
     }
 
   if (bm->rmap_update_timer != RMAP_DEFAULT_UPDATE_TIMER)
-    vty_outln (vty, "bgp route-map delay-timer %u",bm->rmap_update_timer);
+    vty_out (vty, "bgp route-map delay-timer %u\n",bm->rmap_update_timer);
 
   /* BGP configuration. */
   for (ALL_LIST_ELEMENTS (bm->bgp, mnode, mnnode, bgp))
     {
       if (write)
-	vty_outln (vty, "!");
+	vty_out (vty, "!\n");
 
       /* Router bgp ASN */
       vty_out (vty, "router bgp %u", bgp->as);
@@ -7420,62 +7420,62 @@ bgp_config_write (struct vty *vty)
 
       /* No Synchronization */
       if (bgp_option_check (BGP_OPT_CONFIG_CISCO))
-	vty_outln (vty, " no synchronization");
+	vty_out (vty, " no synchronization\n");
 
       /* BGP fast-external-failover. */
       if (CHECK_FLAG (bgp->flags, BGP_FLAG_NO_FAST_EXT_FAILOVER))
-	vty_outln (vty, " no bgp fast-external-failover"); 
+	vty_out (vty, " no bgp fast-external-failover\n"); 
 
       /* BGP router ID. */
       if (bgp->router_id_static.s_addr != 0)
-	vty_outln (vty, " bgp router-id %s",
+	vty_out (vty, " bgp router-id %s\n",
                  inet_ntoa(bgp->router_id_static));
 
       /* BGP log-neighbor-changes. */
       if (!!bgp_flag_check (bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES)
           != DFLT_BGP_LOG_NEIGHBOR_CHANGES)
-        vty_outln (vty, " %sbgp log-neighbor-changes",
+        vty_out (vty, " %sbgp log-neighbor-changes\n",
                  bgp_flag_check(bgp, BGP_FLAG_LOG_NEIGHBOR_CHANGES) ? "" : "no ");
 
       /* BGP configuration. */
       if (bgp_flag_check (bgp, BGP_FLAG_ALWAYS_COMPARE_MED))
-	vty_outln (vty, " bgp always-compare-med");
+	vty_out (vty, " bgp always-compare-med\n");
 
       /* BGP default ipv4-unicast. */
       if (bgp_flag_check (bgp, BGP_FLAG_NO_DEFAULT_IPV4))
-	vty_outln (vty, " no bgp default ipv4-unicast");
+	vty_out (vty, " no bgp default ipv4-unicast\n");
 
       /* BGP default local-preference. */
       if (bgp->default_local_pref != BGP_DEFAULT_LOCAL_PREF)
-	vty_outln (vty, " bgp default local-preference %u",
+	vty_out (vty, " bgp default local-preference %u\n",
 		 bgp->default_local_pref);
 
       /* BGP default show-hostname */
       if (!!bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME)
           != DFLT_BGP_SHOW_HOSTNAME)
-        vty_outln (vty, " %sbgp default show-hostname",
+        vty_out (vty, " %sbgp default show-hostname\n",
                  bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME) ? "" : "no ");
 
       /* BGP default subgroup-pkt-queue-max. */
       if (bgp->default_subgroup_pkt_queue_max != BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX)
-	vty_outln (vty, " bgp default subgroup-pkt-queue-max %u",
+	vty_out (vty, " bgp default subgroup-pkt-queue-max %u\n",
 		 bgp->default_subgroup_pkt_queue_max);
 
       /* BGP client-to-client reflection. */
       if (bgp_flag_check (bgp, BGP_FLAG_NO_CLIENT_TO_CLIENT))
-	vty_outln (vty, " no bgp client-to-client reflection");
+	vty_out (vty, " no bgp client-to-client reflection\n");
       
       /* BGP cluster ID. */
       if (CHECK_FLAG (bgp->config, BGP_CONFIG_CLUSTER_ID))
-	vty_outln (vty, " bgp cluster-id %s",inet_ntoa(bgp->cluster_id));
+	vty_out (vty, " bgp cluster-id %s\n",inet_ntoa(bgp->cluster_id));
 
       /* Disable ebgp connected nexthop check */
       if (bgp_flag_check (bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
-	vty_outln (vty, " bgp disable-ebgp-connected-route-check");
+	vty_out (vty, " bgp disable-ebgp-connected-route-check\n");
 
       /* Confederation identifier*/
       if (CHECK_FLAG (bgp->config, BGP_CONFIG_CONFEDERATION))
-       vty_outln (vty, " bgp confederation identifier %i",bgp->confed_id);
+       vty_out (vty, " bgp confederation identifier %i\n",bgp->confed_id);
 
       /* Confederation peer */
       if (bgp->confed_peers_cnt > 0)
@@ -7492,12 +7492,12 @@ bgp_config_write (struct vty *vty)
 
       /* BGP enforce-first-as. */
       if (bgp_flag_check (bgp, BGP_FLAG_ENFORCE_FIRST_AS))
-	vty_outln (vty, " bgp enforce-first-as");
+	vty_out (vty, " bgp enforce-first-as\n");
 
       /* BGP deterministic-med. */
       if (!!bgp_flag_check (bgp, BGP_FLAG_DETERMINISTIC_MED)
           != DFLT_BGP_DETERMINISTIC_MED)
-        vty_outln (vty, " %sbgp deterministic-med",
+        vty_out (vty, " %sbgp deterministic-med\n",
                  bgp_flag_check(bgp, BGP_FLAG_DETERMINISTIC_MED) ? "" : "no ");
 
       /* BGP update-delay. */
@@ -7526,42 +7526,42 @@ bgp_config_write (struct vty *vty)
 
       /* BGP graceful-restart. */
       if (bgp->stalepath_time != BGP_DEFAULT_STALEPATH_TIME)
-	vty_outln (vty, " bgp graceful-restart stalepath-time %u",
+	vty_out (vty, " bgp graceful-restart stalepath-time %u\n",
 		 bgp->stalepath_time);
       if (bgp->restart_time != BGP_DEFAULT_RESTART_TIME)
-	vty_outln (vty, " bgp graceful-restart restart-time %u",
+	vty_out (vty, " bgp graceful-restart restart-time %u\n",
 		 bgp->restart_time);
       if (bgp_flag_check (bgp, BGP_FLAG_GRACEFUL_RESTART))
-       vty_outln (vty, " bgp graceful-restart");
+       vty_out (vty, " bgp graceful-restart\n");
 
       /* BGP graceful-restart Preserve State F bit. */
       if (bgp_flag_check (bgp, BGP_FLAG_GR_PRESERVE_FWD))
-       vty_outln (vty, " bgp graceful-restart preserve-fw-state");
+       vty_out (vty, " bgp graceful-restart preserve-fw-state\n");
 
       /* BGP bestpath method. */
       if (bgp_flag_check (bgp, BGP_FLAG_ASPATH_IGNORE))
-	vty_outln (vty, " bgp bestpath as-path ignore");
+	vty_out (vty, " bgp bestpath as-path ignore\n");
       if (bgp_flag_check (bgp, BGP_FLAG_ASPATH_CONFED))
-	vty_outln (vty, " bgp bestpath as-path confed");
+	vty_out (vty, " bgp bestpath as-path confed\n");
 
       if (bgp_flag_check (bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX))
         {
           if (bgp_flag_check (bgp, BGP_FLAG_MULTIPATH_RELAX_AS_SET))
             {
-              vty_outln (vty,
-                         " bgp bestpath as-path multipath-relax as-set");
+              vty_out (vty,
+                         " bgp bestpath as-path multipath-relax as-set\n");
             }
           else
             {
-              vty_outln (vty, " bgp bestpath as-path multipath-relax");
+              vty_out (vty, " bgp bestpath as-path multipath-relax\n");
             }
         }
 
       if (bgp_flag_check (bgp, BGP_FLAG_RR_ALLOW_OUTBOUND_POLICY)) {
-	vty_outln (vty," bgp route-reflector allow-outbound-policy");
+	vty_out (vty," bgp route-reflector allow-outbound-policy\n");
       }
       if (bgp_flag_check (bgp, BGP_FLAG_COMPARE_ROUTER_ID))
-	vty_outln (vty, " bgp bestpath compare-routerid");
+	vty_out (vty, " bgp bestpath compare-routerid\n");
       if (bgp_flag_check (bgp, BGP_FLAG_MED_CONFED)
 	  || bgp_flag_check (bgp, BGP_FLAG_MED_MISSING_AS_WORST))
 	{
@@ -7576,7 +7576,7 @@ bgp_config_write (struct vty *vty)
       /* BGP network import check. */
       if (!!bgp_flag_check (bgp, BGP_FLAG_IMPORT_CHECK)
           != DFLT_BGP_IMPORT_CHECK)
-        vty_outln (vty, " %sbgp network import-check",
+        vty_out (vty, " %sbgp network import-check\n",
                  bgp_flag_check(bgp, BGP_FLAG_IMPORT_CHECK) ? "" : "no ");
 
       /* BGP flag dampening. */
@@ -7587,7 +7587,7 @@ bgp_config_write (struct vty *vty)
       /* BGP timers configuration. */
       if (bgp->default_keepalive != BGP_DEFAULT_KEEPALIVE
 	  && bgp->default_holdtime != BGP_DEFAULT_HOLDTIME)
-	vty_outln (vty, " timers bgp %u %u", bgp->default_keepalive,
+	vty_out (vty, " timers bgp %u %u\n", bgp->default_keepalive,
 		 bgp->default_holdtime);
 
       /* peer-group */
@@ -7608,7 +7608,7 @@ bgp_config_write (struct vty *vty)
 
       /* No auto-summary */
       if (bgp_option_check (BGP_OPT_CONFIG_CISCO))
-	vty_outln (vty, " no auto-summary");
+	vty_out (vty, " no auto-summary\n");
 
       /* IPv4 unicast configuration.  */
       write += bgp_config_write_family (vty, bgp, AFI_IP, SAFI_UNICAST);

@@ -128,7 +128,7 @@ show_interface_msg(struct vty *vty, struct imsg *imsg,
 		snprintf(timers, sizeof(timers), "%u/%u",
 		    iface->hello_interval, iface->hello_holdtime);
 
-		vty_outln (vty, "%-4s %-11s %-6s %-8s %-12s %3u",
+		vty_out (vty, "%-4s %-11s %-6s %-8s %-12s %3u\n",
 		    af_name(iface->af), iface->name,
 		    if_state_name(iface->state), iface->uptime == 0 ?
 		    "00:00:00" : log_time(iface->uptime), timers,
@@ -214,7 +214,7 @@ show_discovery_msg(struct vty *vty, struct imsg *imsg,
 				vty_out(vty, "%s%46s", VTYNL, " ");
 			break;
 		}
-		vty_outln (vty, "%9u", adj->holdtime);
+		vty_out (vty, "%9u\n", adj->holdtime);
 		break;
 	case IMSG_CTL_END:
 		vty_out (vty, VTYNL);
@@ -313,18 +313,18 @@ show_discovery_detail_msg(struct vty *vty, struct imsg *imsg,
 		break;
 	case IMSG_CTL_END:
 		rtr_id.s_addr = ldp_rtr_id_get(ldpd_conf);
-		vty_outln (vty, "Local:");
-		vty_outln (vty, "  LSR Id: %s:0",inet_ntoa(rtr_id));
+		vty_out (vty, "Local:\n");
+		vty_out (vty, "  LSR Id: %s:0\n",inet_ntoa(rtr_id));
 		if (ldpd_conf->ipv4.flags & F_LDPD_AF_ENABLED)
-			vty_outln (vty, "  Transport Address (IPv4): %s",
+			vty_out (vty, "  Transport Address (IPv4): %s\n",
 			    log_addr(AF_INET, &ldpd_conf->ipv4.trans_addr));
 		if (ldpd_conf->ipv6.flags & F_LDPD_AF_ENABLED)
-			vty_outln (vty, "  Transport Address (IPv6): %s",
+			vty_out (vty, "  Transport Address (IPv6): %s\n",
 			    log_addr(AF_INET6, &ldpd_conf->ipv6.trans_addr));
-		vty_outln (vty, "Discovery Sources:");
-		vty_outln (vty, "  Interfaces:");
+		vty_out (vty, "Discovery Sources:\n");
+		vty_out (vty, "  Interfaces:\n");
 		vty_out(vty, "%s", ifaces_buffer);
-		vty_outln (vty, "  Targeted Hellos:");
+		vty_out (vty, "  Targeted Hellos:\n");
 		vty_out(vty, "%s", tnbrs_buffer);
 		vty_out (vty, VTYNL);
 		return (1);
@@ -512,7 +512,7 @@ show_nbr_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 		    nbr_state_name(nbr->nbr_state), addr);
 		if (strlen(addr) > 15)
 			vty_out(vty, "%s%48s", VTYNL, " ");
-		vty_outln (vty, " %8s", log_time(nbr->uptime));
+		vty_out (vty, " %8s\n", log_time(nbr->uptime));
 		break;
 	case IMSG_CTL_END:
 		return (1);
@@ -557,41 +557,41 @@ show_nbr_detail_msg(struct vty *vty, struct imsg *imsg,
 
 		v4adjs_buffer[0] = '\0';
 		v6adjs_buffer[0] = '\0';
-		vty_outln (vty, "Peer LDP Identifier: %s:0",
+		vty_out (vty, "Peer LDP Identifier: %s:0\n",
 			  inet_ntoa(nbr->id));
-		vty_outln (vty, "  TCP connection: %s:%u - %s:%u",
+		vty_out (vty, "  TCP connection: %s:%u - %s:%u\n",
 		    log_addr(nbr->af, &nbr->laddr), ntohs(nbr->lport),
 		    log_addr(nbr->af, &nbr->raddr),ntohs(nbr->rport));
-		vty_outln (vty, "  Authentication: %s",
+		vty_out (vty, "  Authentication: %s\n",
 		    (nbr->auth_method == AUTH_MD5SIG) ? "TCP MD5 Signature" : "none");
 		vty_outln(vty, "  Session Holdtime: %u secs; "
 		    "KeepAlive interval: %u secs", nbr->holdtime,
 		    nbr->holdtime / KEEPALIVE_PER_PERIOD);
-		vty_outln(vty, "  State: %s; Downstream-Unsolicited",
+		vty_out(vty, "  State: %s; Downstream-Unsolicited\n",
 		    nbr_state_name(nbr->nbr_state));
-		vty_outln (vty, "  Up time: %s",log_time(nbr->uptime));
+		vty_out (vty, "  Up time: %s\n",log_time(nbr->uptime));
 
 		stats = &nbr->stats;
-		vty_outln (vty, "  Messages sent/rcvd:");
-		vty_outln (vty, "   - Keepalive Messages: %u/%u",
+		vty_out (vty, "  Messages sent/rcvd:\n");
+		vty_out (vty, "   - Keepalive Messages: %u/%u\n",
 		    stats->kalive_sent, stats->kalive_rcvd);
-		vty_outln (vty, "   - Address Messages: %u/%u",
+		vty_out (vty, "   - Address Messages: %u/%u\n",
 		    stats->addr_sent, stats->addr_rcvd);
-		vty_outln (vty, "   - Address Withdraw Messages: %u/%u",
+		vty_out (vty, "   - Address Withdraw Messages: %u/%u\n",
 		    stats->addrwdraw_sent, stats->addrwdraw_rcvd);
-		vty_outln (vty, "   - Notification Messages: %u/%u",
+		vty_out (vty, "   - Notification Messages: %u/%u\n",
 		    stats->notif_sent, stats->notif_rcvd);
-		vty_outln (vty, "   - Capability Messages: %u/%u",
+		vty_out (vty, "   - Capability Messages: %u/%u\n",
 		    stats->capability_sent, stats->capability_rcvd);
-		vty_outln (vty, "   - Label Mapping Messages: %u/%u",
+		vty_out (vty, "   - Label Mapping Messages: %u/%u\n",
 		    stats->labelmap_sent, stats->labelmap_rcvd);
-		vty_outln (vty, "   - Label Request Messages: %u/%u",
+		vty_out (vty, "   - Label Request Messages: %u/%u\n",
 		    stats->labelreq_sent, stats->labelreq_rcvd);
-		vty_outln (vty, "   - Label Withdraw Messages: %u/%u",
+		vty_out (vty, "   - Label Withdraw Messages: %u/%u\n",
 		    stats->labelwdraw_sent, stats->labelwdraw_rcvd);
-		vty_outln (vty, "   - Label Release Messages: %u/%u",
+		vty_out (vty, "   - Label Release Messages: %u/%u\n",
 		    stats->labelrel_sent, stats->labelrel_rcvd);
-		vty_outln (vty, "   - Label Abort Request Messages: %u/%u",
+		vty_out (vty, "   - Label Abort Request Messages: %u/%u\n",
 		    stats->labelabreq_sent, stats->labelabreq_rcvd);
 
 		show_nbr_capabilities(vty, nbr);
@@ -611,13 +611,13 @@ show_nbr_detail_msg(struct vty *vty, struct imsg *imsg,
 		}
 		break;
 	case IMSG_CTL_SHOW_NBR_END:
-		vty_outln (vty, "  LDP Discovery Sources:");
+		vty_out (vty, "  LDP Discovery Sources:\n");
 		if (v4adjs_buffer[0] != '\0') {
-			vty_outln (vty, "    IPv4:");
+			vty_out (vty, "    IPv4:\n");
 			vty_out(vty, "%s", v4adjs_buffer);
 		}
 		if (v6adjs_buffer[0] != '\0') {
-			vty_outln (vty, "    IPv6:");
+			vty_out (vty, "    IPv6:\n");
 			vty_out(vty, "%s", v6adjs_buffer);
 		}
 		vty_out (vty, VTYNL);
@@ -874,13 +874,13 @@ show_nbr_capabilities(struct vty *vty, struct ctl_nbr *nbr)
 	    "   - Typed Wildcard (0x050B)%s"
 	    "   - Unrecognized Notification (0x0603)",
 	    VTYNL, VTYNL, VTYNL);
-	vty_outln (vty, "  Capabilities Received:");
+	vty_out (vty, "  Capabilities Received:\n");
 	if (nbr->flags & F_NBR_CAP_DYNAMIC)
-		vty_outln (vty,"   - Dynamic Announcement (0x0506)");
+		vty_out (vty,"   - Dynamic Announcement (0x0506)\n");
 	if (nbr->flags & F_NBR_CAP_TWCARD)
-		vty_outln (vty, "   - Typed Wildcard (0x050B)");
+		vty_out (vty, "   - Typed Wildcard (0x050B)\n");
 	if (nbr->flags & F_NBR_CAP_UNOTIF)
-		vty_outln (vty,"   - Unrecognized Notification (0x0603)");
+		vty_out (vty,"   - Unrecognized Notification (0x0603)\n");
 }
 
 static int
@@ -895,7 +895,7 @@ show_nbr_capabilities_msg(struct vty *vty, struct imsg *imsg, struct show_params
 		if (nbr->nbr_state != NBR_STA_OPER)
 			break;
 
-		vty_outln (vty, "Peer LDP Identifier: %s:0",
+		vty_out (vty, "Peer LDP Identifier: %s:0\n",
 			  inet_ntoa(nbr->id));
 		show_nbr_capabilities(vty, nbr);
 		vty_out (vty, VTYNL);
@@ -1022,7 +1022,7 @@ show_lib_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 		vty_out(vty, "%-4s %-20s", af_name(rt->af), dstnet);
 		if (strlen(dstnet) > 20)
 			vty_out(vty, "%s%25s", VTYNL, " ");
-		vty_outln (vty, " %-15s %-11s %-13s %6s", inet_ntoa(rt->nexthop),
+		vty_out (vty, " %-15s %-11s %-13s %6s\n", inet_ntoa(rt->nexthop),
 		    log_label(rt->local_label), log_label(rt->remote_label),
 		    rt->in_use ? "yes" : "no");
 		break;
@@ -1069,8 +1069,8 @@ show_lib_detail_msg(struct vty *vty, struct imsg *imsg, struct show_params *para
 		snprintf(dstnet, sizeof(dstnet), "%s/%d",
 		    log_addr(rt->af, &rt->prefix), rt->prefixlen);
 
-		vty_outln (vty, "%s", dstnet);
-		vty_outln (vty, "%-8sLocal binding: label: %s", "",
+		vty_out (vty, "%s\n", dstnet);
+		vty_out (vty, "%-8sLocal binding: label: %s\n", "",
 		    log_label(rt->local_label));
 		break;
 	case IMSG_CTL_SHOW_LIB_SENT:
@@ -1089,14 +1089,14 @@ show_lib_detail_msg(struct vty *vty, struct imsg *imsg, struct show_params *para
 		break;
 	case IMSG_CTL_SHOW_LIB_END:
 		if (upstream) {
-			vty_outln (vty, "%-8sAdvertised to:", "");
+			vty_out (vty, "%-8sAdvertised to:\n", "");
 			vty_out(vty, "%s", sent_buffer);
 		}
 		if (downstream) {
-			vty_outln (vty, "%-8sRemote bindings:", "");
+			vty_out (vty, "%-8sRemote bindings:\n", "");
 			vty_out(vty, "%s", rcvd_buffer);
 		} else
-			vty_outln (vty, "%-8sNo remote bindings","");
+			vty_out (vty, "%-8sNo remote bindings\n","");
 		break;
 	case IMSG_CTL_END:
 		vty_out (vty, VTYNL);
@@ -1235,30 +1235,30 @@ show_l2vpn_binding_msg(struct vty *vty, struct imsg *imsg,
 	case IMSG_CTL_SHOW_L2VPN_BINDING:
 		pw = imsg->data;
 
-		vty_outln (vty, "  Destination Address: %s, VC ID: %u",
+		vty_out (vty, "  Destination Address: %s, VC ID: %u\n",
 		    inet_ntoa(pw->lsr_id), pw->pwid);
 
 		/* local binding */
 		if (pw->local_label != NO_LABEL) {
-			vty_outln (vty, "    Local Label:  %u",
+			vty_out (vty, "    Local Label:  %u\n",
 				  pw->local_label);
 			vty_outln (vty, "%-8sCbit: %u,    VC Type: %s,    "
 			    "GroupID: %u", "", pw->local_cword,
 			    pw_type_name(pw->type),pw->local_gid);
-			vty_outln (vty, "%-8sMTU: %u", "",pw->local_ifmtu);
+			vty_out (vty, "%-8sMTU: %u\n", "",pw->local_ifmtu);
 		} else
-			vty_outln (vty,"    Local Label: unassigned");
+			vty_out (vty,"    Local Label: unassigned\n");
 
 		/* remote binding */
 		if (pw->remote_label != NO_LABEL) {
-			vty_outln (vty, "    Remote Label: %u",
+			vty_out (vty, "    Remote Label: %u\n",
 			    pw->remote_label);
 			vty_outln (vty, "%-8sCbit: %u,    VC Type: %s,    "
 			    "GroupID: %u", "", pw->remote_cword,
 			    pw_type_name(pw->type),pw->remote_gid);
-			vty_outln (vty, "%-8sMTU: %u", "",pw->remote_ifmtu);
+			vty_out (vty, "%-8sMTU: %u\n", "",pw->remote_ifmtu);
 		} else
-			vty_outln (vty,"    Remote Label: unassigned");
+			vty_out (vty,"    Remote Label: unassigned\n");
 		break;
 	case IMSG_CTL_END:
 		vty_out (vty, VTYNL);
@@ -1340,7 +1340,7 @@ show_l2vpn_pw_msg(struct vty *vty, struct imsg *imsg, struct show_params *params
 	case IMSG_CTL_SHOW_L2VPN_PW:
 		pw = imsg->data;
 
-		vty_outln (vty, "%-9s %-15s %-10u %-16s %-10s", pw->ifname,
+		vty_out (vty, "%-9s %-15s %-10u %-16s %-10s\n", pw->ifname,
 		    inet_ntoa(pw->lsr_id), pw->pwid, pw->l2vpn_name,
 		    (pw->status ? "UP" : "DOWN"));
 		break;
@@ -1540,7 +1540,7 @@ ldp_vty_dispatch(struct vty *vty, struct imsgbuf *ibuf, enum show_command cmd,
  done:
 	close(ibuf->fd);
 	if (json) {
-		vty_outln (vty, "%s",
+		vty_out (vty, "%s\n",
 			  json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
@@ -1584,7 +1584,7 @@ ldp_vty_show_binding(struct vty *vty, const char *af_str, int detail, int json)
 	params.json = json;
 
 	if (!params.detail && !params.json)
-		vty_outln (vty, "%-4s %-20s %-15s %-11s %-13s %6s", "AF",
+		vty_out (vty, "%-4s %-20s %-15s %-11s %-13s %6s\n", "AF",
 		    "Destination", "Nexthop", "Local Label", "Remote Label",
 		    "In Use");
 
@@ -1612,7 +1612,7 @@ ldp_vty_show_discovery(struct vty *vty, const char *af_str, int detail,
 	params.json = json;
 
 	if (!params.detail && !params.json)
-		vty_outln (vty, "%-4s %-15s %-8s %-15s %9s",
+		vty_out (vty, "%-4s %-15s %-8s %-15s %9s\n",
 		    "AF", "ID", "Type", "Source", "Holdtime");
 
 	if (params.detail)
@@ -1643,7 +1643,7 @@ ldp_vty_show_interface(struct vty *vty, const char *af_str, int json)
 
 	/* header */
 	if (!params.json) {
-		vty_outln (vty, "%-4s %-11s %-6s %-8s %-12s %3s", "AF",
+		vty_out (vty, "%-4s %-11s %-6s %-8s %-12s %3s\n", "AF",
 		    "Interface", "State", "Uptime", "Hello Timers","ac");
 	}
 
@@ -1688,7 +1688,7 @@ ldp_vty_show_capabilities(struct vty *vty, int json)
 		    "0x0603");
 		json_object_array_add(json_array, json_cap);
 
-		vty_outln (vty, "%s",
+		vty_out (vty, "%s\n",
 			  json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 		return (0);
@@ -1722,7 +1722,7 @@ ldp_vty_show_neighbor(struct vty *vty, int capabilities, int detail, int json)
 		params.detail = 1;
 
 	if (!params.detail && !params.json)
-		vty_outln (vty, "%-4s %-15s %-11s %-15s %8s",
+		vty_out (vty, "%-4s %-15s %-11s %-15s %8s\n",
 		    "AF", "ID", "State", "Remote Address","Uptime");
 
 	imsg_compose(&ibuf, IMSG_CTL_SHOW_NBR, 0, 0, -1, NULL, 0);
@@ -1759,9 +1759,9 @@ ldp_vty_show_atom_vc(struct vty *vty, int json)
 
 	if (!params.json) {
 		/* header */
-		vty_outln (vty, "%-9s %-15s %-10s %-16s %-10s",
+		vty_out (vty, "%-9s %-15s %-10s %-16s %-10s\n",
 		    "Interface", "Peer ID", "VC ID", "Name","Status");
-		vty_outln (vty, "%-9s %-15s %-10s %-16s %-10s",
+		vty_out (vty, "%-9s %-15s %-10s %-16s %-10s\n",
 		    "---------", "---------------", "----------",
 		    "----------------", "----------");
 	}
@@ -1780,7 +1780,7 @@ ldp_vty_clear_nbr(struct vty *vty, const char *addr_str)
 	if (addr_str &&
 	    (ldp_get_address(addr_str, &nbr.af, &nbr.raddr) == -1 ||
 	    bad_addr(nbr.af, &nbr.raddr))) {
-		vty_outln (vty, "%% Malformed address");
+		vty_out (vty, "%% Malformed address\n");
 		return (CMD_WARNING);
 	}
 

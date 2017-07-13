@@ -423,7 +423,7 @@ bfd_show_status(struct vty *vty, struct bfd_info *bfd_info, int bfd_tag,
     }
   else
     {
-      vty_outln (vty, "  %s%sStatus: %s, Last update: %s",
+      vty_out (vty, "  %s%sStatus: %s, Last update: %s\n",
                   (extra_space) ? "  ": "", (bfd_tag) ? "BFD: " : "  ",
                   bfd_get_status_str(bfd_info->status), time_buf);
     }
@@ -451,7 +451,7 @@ bfd_show_info(struct vty *vty, struct bfd_info *bfd_info, int multihop,
     }
   else
     {
-      vty_outln (vty, "  %sBFD: Type: %s", (extra_space) ? "  " : "",
+      vty_out (vty, "  %sBFD: Type: %s\n", (extra_space) ? "  " : "",
               (multihop) ? "multi hop" : "single hop");
     }
 
