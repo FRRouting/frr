@@ -116,6 +116,35 @@ def teardown_module(module):
     tgen = get_topogen()
     tgen.stop_topology()
 
+def test_bgp_ecmp():
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    expect = {
+        'routerId': '10.0.255.1',
+        'routes': {
+        },
+    }
+
+    for net in range(1, 5):
+        for subnet in range(0, 10):
+            netkey = '10.20{}.{}.0/24'.format(net, subnet)
+            expect['routes'][netkey] = []
+            for _ in range(0, 10):
+                peer = {'multipath': True, 'valid': True}
+                expect['routes'][netkey].append(peer)
+
+    def _output_cmp():
+        output = tgen.gears['r1'].vtysh_cmd('show ip bgp json', isjson=True)
+        return topotest.json_cmp(output, expect)
+
+    _, res = topotest.run_and_expect(_output_cmp, None, count=20, wait=3)
+    assertmsg = 'expected multipath routes in "show ip bgp" output'
+    assert res is None, assertmsg
+
 if __name__ == '__main__':
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
