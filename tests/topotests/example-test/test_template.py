@@ -99,6 +99,10 @@ def teardown_module(mod):
 def test_call_mininet_cli():
     "Dummy test that just calls mininet CLI so we can interact with the build."
     tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     logger.info('calling mininet CLI')
     tgen.mininet_cli()
 
