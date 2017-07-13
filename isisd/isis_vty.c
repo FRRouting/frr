@@ -93,7 +93,7 @@ DEFUN (ip_router_isis,
     if (circuit->state != C_STATE_CONF && circuit->state != C_STATE_UP)
       {
         vty_outln (vty, "Couldn't bring up interface, please check log.");
-        return CMD_WARNING;
+        return CMD_WARNING_CONFIG_FAILED;
       }
   }
 

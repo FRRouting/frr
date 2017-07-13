@@ -223,7 +223,7 @@ DEFUN (babel_redistribute_type,
 
     if (type < 0) {
         vty_outln (vty, "Invalid type %s", argv[1]->arg);
-        return CMD_WARNING;
+        return CMD_WARNING_CONFIG_FAILED;
     }
 
     zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, type, 0, VRF_DEFAULT);
@@ -244,7 +244,7 @@ DEFUN (no_babel_redistribute_type,
 
     if (type < 0) {
         vty_outln (vty, "Invalid type %s", argv[2]->arg);
-        return CMD_WARNING;
+        return CMD_WARNING_CONFIG_FAILED;
     }
 
     zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP, type, 0, VRF_DEFAULT);
@@ -279,7 +279,7 @@ DEFUN (debug_babel,
 
     vty_outln (vty, "Invalid type %s", argv[2]->arg);
 
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 }
 
 /* [Babel Command] */
@@ -309,7 +309,7 @@ DEFUN (no_debug_babel,
 
     vty_outln (vty, "Invalid type %s", argv[3]->arg);
 
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 }
 #endif /* NO_DEBUG */
 

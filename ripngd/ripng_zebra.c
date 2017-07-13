@@ -338,7 +338,7 @@ DEFUN (ripng_redistribute_type,
   if (type < 0)
     {
       vty_outln (vty, "Invalid type %s", proto);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0, VRF_DEFAULT);
@@ -364,7 +364,7 @@ DEFUN (no_ripng_redistribute_type,
   if (type < 0)
     {
       vty_outln (vty, "Invalid type %s", proto);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ripng_redistribute_metric_unset (type);
@@ -392,7 +392,7 @@ DEFUN (ripng_redistribute_type_metric,
   if (type < 0)
     {
       vty_outln (vty, "Invalid type %s", argv[idx_protocol]->text);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ripng_redistribute_metric_set (type, metric);
@@ -418,7 +418,7 @@ DEFUN (ripng_redistribute_type_routemap,
   if (type < 0)
     {
       vty_outln (vty, "Invalid type %s", argv[idx_protocol]->text);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ripng_redistribute_routemap_set (type, argv[idx_word]->text);
@@ -449,7 +449,7 @@ DEFUN (ripng_redistribute_type_metric_routemap,
   if (type < 0)
     {
       vty_outln (vty, "Invalid type %s", argv[idx_protocol]->text);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ripng_redistribute_metric_set (type, metric);

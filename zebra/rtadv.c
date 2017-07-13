@@ -879,7 +879,7 @@ DEFUN (ipv6_nd_suppress_ra,
     {
       vty_outln (vty,
                  "Cannot configure IPv6 Router Advertisements on this  interface");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ipv6_nd_suppress_ra_set (ifp, RA_SUPPRESS);
@@ -903,7 +903,7 @@ DEFUN (no_ipv6_nd_suppress_ra,
     {
       vty_outln (vty,
                  "Cannot configure IPv6 Router Advertisements on this interface");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ipv6_nd_suppress_ra_set (ifp, RA_ENABLE);
@@ -933,7 +933,7 @@ DEFUN (ipv6_nd_ra_interval_msec,
   {
     vty_outln (vty,
                "This ra-interval would conflict with configured ra-lifetime!");
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   if (zif->rtadv.MaxRtrAdvInterval % 1000)
@@ -970,7 +970,7 @@ DEFUN (ipv6_nd_ra_interval,
   {
     vty_outln (vty,
                "This ra-interval would conflict with configured ra-lifetime!");
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   if (zif->rtadv.MaxRtrAdvInterval % 1000)
@@ -1038,7 +1038,7 @@ DEFUN (ipv6_nd_ra_lifetime,
     {
       vty_outln (vty,
                  "This ra-lifetime would conflict with configured ra-interval");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   zif->rtadv.AdvDefaultLifetime = lifetime;
@@ -1334,7 +1334,7 @@ DEFUN (ipv6_nd_prefix,
   if (!ret)
     {
       vty_outln (vty, "Malformed IPv6 prefix");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   apply_mask_ipv6 (&rp.prefix); /* RFC4861 4.6.2 */
   rp.AdvOnLinkFlag = !offlink;
@@ -1350,7 +1350,7 @@ DEFUN (ipv6_nd_prefix,
     if (rp.AdvPreferredLifetime > rp.AdvValidLifetime)
       {
         vty_outln (vty, "Invalid preferred lifetime");
-        return CMD_WARNING;
+        return CMD_WARNING_CONFIG_FAILED;
       }
   }
 
@@ -1387,7 +1387,7 @@ DEFUN (no_ipv6_nd_prefix,
   if (!ret)
     {
       vty_outln (vty, "Malformed IPv6 prefix");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   apply_mask_ipv6 (&rp.prefix); /* RFC4861 4.6.2 */
 
@@ -1395,7 +1395,7 @@ DEFUN (no_ipv6_nd_prefix,
   if (!ret)
     {
       vty_outln (vty, "Non-existant IPv6 prefix");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;

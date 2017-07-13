@@ -2852,10 +2852,10 @@ bgp_route_match_add (struct vty *vty,
 	{
 	case RMAP_RULE_MISSING:
 	  vty_outln (vty, "%% BGP Can't find rule.");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	case RMAP_COMPILE_ERROR:
 	  vty_outln (vty, "%% BGP Argument is malformed.");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
     }
 
@@ -2910,7 +2910,7 @@ bgp_route_match_delete (struct vty *vty,
 	XFREE(MTYPE_ROUTE_MAP_RULE, dep_name);
       if (rmap_name)
 	XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (type != RMAP_EVENT_MATCH_DELETED && dep_name)
@@ -3592,7 +3592,8 @@ DEFUN (match_origin,
     return bgp_route_match_add (vty, "origin", "incomplete",
 				RMAP_EVENT_MATCH_ADDED);
 
-  return CMD_WARNING;
+  vty_outln (vty, "%% Invalid match origin type");
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 
@@ -3887,7 +3888,7 @@ DEFUN (set_community,
   if (! com)
     {
       vty_outln (vty, "%% Malformed communities attribute");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Set communites attribute string.  */
@@ -4152,7 +4153,8 @@ DEFUN (set_origin,
     return generic_set_add (vty, VTY_GET_CONTEXT(route_map_index), "origin",
                             "incomplete");
 
-  return CMD_WARNING;
+  vty_outln (vty, "%% Invalid set origin type");
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 
@@ -4211,7 +4213,7 @@ DEFUN (set_aggregator_as,
   if (ret == 0)
     {
       vty_outln (vty, "Aggregator IP address is invalid");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   argstr = XMALLOC (MTYPE_ROUTE_MAP_COMPILED,
@@ -4252,7 +4254,7 @@ DEFUN (no_set_aggregator_as,
   if (ret == 0)
     {
       vty_outln (vty, "Aggregator IP address is invalid");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   argstr = XMALLOC (MTYPE_ROUTE_MAP_COMPILED,
@@ -4363,7 +4365,7 @@ DEFUN (set_ipv6_nexthop_global,
   if (!ret)
     {
       vty_outln (vty, "%% Malformed nexthop address");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   if (IN6_IS_ADDR_UNSPECIFIED(&addr) ||
       IN6_IS_ADDR_LOOPBACK(&addr)    ||
@@ -4371,7 +4373,7 @@ DEFUN (set_ipv6_nexthop_global,
       IN6_IS_ADDR_LINKLOCAL(&addr))
     {
       vty_outln (vty, "%% Invalid global nexthop address");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return generic_set_add (vty, VTY_GET_CONTEXT(route_map_index),

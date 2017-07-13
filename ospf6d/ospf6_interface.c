@@ -1147,7 +1147,7 @@ DEFUN (ipv6_ospf6_ifmtu,
     {
       vty_out (vty, "%s's ospf6 ifmtu cannot go beyond physical mtu (%d)%s",
                ifp->name, ifp->mtu6, VNL);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (oi->ifmtu < ifmtu)
@@ -1251,7 +1251,7 @@ DEFUN (ipv6_ospf6_cost,
   if (lcost > UINT32_MAX)
     {
       vty_out (vty, "Cost %ld is out of range%s", lcost, VNL);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   
   if (oi->cost == lcost)
@@ -1308,7 +1308,7 @@ DEFUN (auto_cost_reference_bandwidth,
   if (refbw < 1 || refbw > 4294967)
     {
       vty_outln (vty, "reference-bandwidth value is invalid");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* If reference bandwidth is changed. */

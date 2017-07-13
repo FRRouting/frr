@@ -292,7 +292,7 @@ DEFUN (babel_network,
     if (ret < 0) {
         vty_outln (vty, "There is same network configuration %s",
                    argv[1]->arg);
-        return CMD_WARNING;
+        return CMD_WARNING_CONFIG_FAILED;
     }
 
     return CMD_SUCCESS;
@@ -319,7 +319,7 @@ DEFUN (no_babel_network,
 
     if (ret < 0) {
         vty_outln (vty, "can't find network %s",argv[2]->arg);
-        return CMD_WARNING;
+        return CMD_WARNING_CONFIG_FAILED;
     }
 
     return CMD_SUCCESS;

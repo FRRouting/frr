@@ -317,7 +317,7 @@ DEFUN_NOSH (ns_netns,
   char *pathname = ns_netns_pathname (vty, argv[idx_name]->arg);
 
   if (!pathname)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ns_id = strtoul (argv[idx_number]->arg, NULL, 10);
   ns = ns_get (ns_id);
@@ -326,7 +326,7 @@ DEFUN_NOSH (ns_netns,
     {
       vty_out (vty, "NS %u is already configured with NETNS %s%s",
                ns->ns_id, ns->name, VTYNL);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (!ns->name)
@@ -336,7 +336,7 @@ DEFUN_NOSH (ns_netns,
     {
       vty_out (vty, "Can not associate NS %u with NETNS %s%s",
                ns->ns_id, ns->name, VTYNL);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -358,7 +358,7 @@ DEFUN (no_ns_netns,
   char *pathname = ns_netns_pathname (vty, argv[idx_name]->arg);
 
   if (!pathname)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ns_id = strtoul(argv[idx_number]->arg, NULL, 10);
   ns = ns_lookup (ns_id);
@@ -372,7 +372,7 @@ DEFUN (no_ns_netns,
   if (ns->name && strcmp (ns->name, pathname) != 0)
     {
       vty_outln (vty, "Incorrect NETNS file name");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ns_disable (ns);

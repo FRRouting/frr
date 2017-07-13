@@ -291,6 +291,7 @@ vtysh_execute_func (const char *line, int pager)
    * Changing vty->node is enough to try it just out without actual walkup in
    * the vtysh. */
   while (ret != CMD_SUCCESS && ret != CMD_SUCCESS_DAEMON && ret != CMD_WARNING
+         && ret != CMD_WARNING_CONFIG_FAILED
 	 && vty->node > CONFIG_NODE)
     {
       vty->node = node_parent(vty->node);
@@ -350,6 +351,7 @@ vtysh_execute_func (const char *line, int pager)
   switch (ret)
     {
     case CMD_WARNING:
+    case CMD_WARNING_CONFIG_FAILED:
       if (vty->type == VTY_FILE)
 	fprintf (stdout,"Warning...\n");
       break;
@@ -553,6 +555,7 @@ vtysh_mark_file (const char *filename)
        * Changing vty->node is enough to try it just out without actual walkup in
        * the vtysh. */
       while (ret != CMD_SUCCESS && ret != CMD_SUCCESS_DAEMON && ret != CMD_WARNING
+             && ret != CMD_WARNING_CONFIG_FAILED
 	     && vty->node > CONFIG_NODE)
 	{
 	  vty->node = node_parent(vty->node);
@@ -594,12 +597,13 @@ vtysh_mark_file (const char *filename)
       switch (ret)
 	{
 	case CMD_WARNING:
+	case CMD_WARNING_CONFIG_FAILED:
 	  if (vty->type == VTY_FILE)
 	    fprintf (stderr,"line %d: Warning...: %s\n", lineno, vty->buf);
 	  fclose(confp);
 	  vty_close(vty);
           XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
-	  return CMD_WARNING;
+	  return ret;
 	case CMD_ERR_AMBIGUOUS:
 	  fprintf (stderr,"line %d: %% Ambiguous command: %s\n", lineno, vty->buf);
 	  fclose(confp);
@@ -674,9 +678,10 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
       switch (ret)
 	{
 	case CMD_WARNING:
+	case CMD_WARNING_CONFIG_FAILED:
 	  if (vty->type == VTY_FILE)
 	    fprintf (stderr,"line %d: Warning[%d]...: %s\n", lineno, vty->node, vty->buf);
-	  retcode = CMD_WARNING;		/* once we have an error, we remember & return that */
+	  retcode = ret;		/* once we have an error, we remember & return that */
 	  break;
 	case CMD_ERR_AMBIGUOUS:
 	  fprintf (stderr,"line %d: %% Ambiguous command[%d]: %s\n", lineno, vty->node, vty->buf);
@@ -2633,7 +2638,7 @@ vtysh_write_config_integrated(void)
     {
       fprintf (stdout,"%% Error: failed to open configuration file %s: %s\n",
 	       quagga_config, safe_strerror(errno));
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   fd = fileno (fp);
 
@@ -2735,7 +2740,7 @@ DEFUN (vtysh_write_memory,
   /* If integrated frr.conf explicitely set. */
   if (want_config_integrated())
     {
-      ret = CMD_WARNING;
+      ret = CMD_WARNING_CONFIG_FAILED;
       for (i = 0; i < array_size(vtysh_client); i++)
         if (vtysh_client[i].flag == VTYSH_WATCHFRR)
           break;
@@ -3037,7 +3042,7 @@ vtysh_connect (struct vtysh_client *vclient)
     {
       fprintf  (stderr, "vtysh_connect(%s): stat = %s\n", 
                 path, safe_strerror(errno));
-      exit(1);
+      exit (1);
     }
   
   if (ret >= 0)
