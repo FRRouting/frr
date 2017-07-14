@@ -1,6 +1,10 @@
 Building FRR on CentOS 6 from Git Source
 ========================================
 
+(As an alternative to this installation, you may prefer to create a FRR
+rpm package yourself and install that package instead. See instructions 
+in redhat/README.rpm_build.md on how to build a rpm package)
+
 Instructions are tested with `CentOS 6.8` on `x86_64` platform
 
 CentOS 6 restrictions:
@@ -16,13 +20,15 @@ Install required packages
 
 Add packages:
 
-    sudo yum install git autoconf automake libtool make gawk readline-devel \
-      texinfo net-snmp-devel groff pkgconfig json-c-devel pam-devel \
-      flex c-ares-devel epel-release rpm-build libcap-devel texi2html
+    sudo yum install git autoconf automake libtool make gawk \
+      readline-devel texinfo net-snmp-devel groff pkgconfig \
+      json-c-devel pam-devel flex epel-release perl-XML-LibXML \
+      c-ares-devel
 
 Install newer version of bison (CentOS 6 package source is too old) from 
 CentOS 7
 
+    sudo yum install rpm-build
     curl -O http://vault.centos.org/7.0.1406/os/Source/SPackages/bison-2.7-4.el7.src.rpm
     rpmbuild --rebuild ./bison-2.7-4.el7.src.rpm
     sudo yum install ./rpmbuild/RPMS/x86_64/bison-2.7-4.el6.x86_64.rpm
@@ -48,12 +54,12 @@ Install newer version of autoconf and automake (Package versions are too old)
 
 Install `Python 2.7` in parallel to default 2.6 (needed for `make check` to 
 run unittests). 
-Make sure you've install EPEL (`epel-release` as above). Then install current 
-`python2.7` and `pytest`
+Pick correct EPEL based on CentOS version used. Then install current `pytest`
 
-    rpm -ivh https://centos6.iuscommunity.org/ius-release.rpm
-    yum install python27 python27-devel python27-pip 
-    pip2.7 install pytest
+    sudo rpm -ivh http://dl.fedoraproject.org/pub/epel/6/x86_64/epel-release-6-8.noarch.rpm
+    sudo rpm -ivh https://centos6.iuscommunity.org/ius-release.rpm
+    sudo yum install python27 python27-pip
+    sudo pip2.7 install pytest
 
 Please note that `CentOS 6` needs to keep python pointing to version 2.6 
 for `yum` to keep working, so don't create a symlink for python2.7 to python
@@ -75,17 +81,18 @@ any packages**
 (You may prefer different options on configure statement. These are just 
 an example.)
 
-You may want to pay special attention to `/usr/lib64` paths and change 
-them if you are not building on a x86_64 architecture
-
     git clone https://github.com/frrouting/frr.git frr
     cd frr
+    git checkout stable/3.0
     ./bootstrap.sh
     ./configure \
+        --bindir=/usr/bin \
+        --sbindir=/usr/lib/frr \
         --sysconfdir=/etc/frr \
-        --libdir=/usr/lib64/frr \
-        --libexecdir=/usr/lib64/frr \
+        --libdir=/usr/lib/frr \
+        --libexecdir=/usr/lib/frr \
         --localstatedir=/var/run/frr \
+        --with-moduledir=/usr/lib/frr/modules \
         --disable-pimd \
         --enable-snmp=agentx \
         --enable-multipath=64 \
@@ -98,9 +105,11 @@ them if you are not building on a x86_64 architecture
         --disable-exampledir \
         --enable-watchfrr \
         --enable-tcp-zebra \
+        --disable-ldpd \
         --enable-fpm \
+        --enable-nhrpd \
         --with-pkg-git-version \
-        --with-pkg-extra-version=-MyOwnFRRVersion   
+        --with-pkg-extra-version=-MyOwnFRRVersion
     make
     make check PYTHON=/usr/bin/python2.7
     sudo make install
@@ -115,10 +124,20 @@ them if you are not building on a x86_64 architecture
     sudo touch /etc/frr/isisd.conf
     sudo touch /etc/frr/ripd.conf
     sudo touch /etc/frr/ripngd.conf
+    sudo touch /etc/frr/nhrpd.conf
     sudo chown -R frr:frr /etc/frr/
     sudo touch /etc/frr/vtysh.conf
     sudo chown frr:frrvt /etc/frr/vtysh.conf
     sudo chmod 640 /etc/frr/*.conf
+
+### Install daemon config file
+    sudo install -p -m 644 redhat/daemons /etc/frr/
+    sudo chown frr:frr /etc/frr/daemons
+
+### Edit /etc/frr/daemons as needed to select the required daemons
+
+Look for the section with `watchfrr_enable=...` and `zebra=...` etc.
+Enable the daemons as required by changing the value to `yes` 
 
 ### Enable IP & IPv6 forwarding
 
@@ -132,28 +151,16 @@ settings)
     # Controls source route verification
     net.ipv4.conf.default.rp_filter = 0
 
-**Reboot** or use `sysctl` to apply the same config to the running system
+Load the modifed sysctl's on the system:
+
+    sudo sysctl -p /etc/sysctl.d/90-routing-sysctl.conf
 
 ### Add init.d startup files
-    sudo cp redhat/bgpd.init /etc/init.d/bgpd
-    sudo cp redhat/isisd.init /etc/init.d/isisd
-    sudo cp redhat/ospfd.init /etc/init.d/ospfd
-    sudo cp redhat/ospf6d.init /etc/init.d/ospf6d
-    sudo cp redhat/ripngd.init /etc/init.d/ripngd
-    sudo cp redhat/ripd.init /etc/init.d/ripd
-    sudo cp redhat/zebra.init /etc/init.d/zebra
-    sudo chkconfig --add zebra 
-    sudo chkconfig --add ripd
-    sudo chkconfig --add ripngd
-    sudo chkconfig --add ospf6d
-    sudo chkconfig --add ospfd
-    sudo chkconfig --add bgpd
-    sudo chkconfig --add isisd
+    sudo install -p -m 755 redhat/frr.init /etc/init.d/frr
+    sudo chkconfig --add frr
 
-### Enable required daemons at startup
-Only enable zebra and the daemons which are needed for your setup
+### Enable frr daemon at startup
+    sudo chkconfig frr on
 
-    sudo chkconfig zebra on
-    sudo chkconfig ospfd on
-    sudo chkconfig bgpd on
-    [...] etc (as needed)
+### Start FRR manually (or reboot)
+    sudo /etc/init.d/frr start
