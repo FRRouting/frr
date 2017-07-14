@@ -232,6 +232,61 @@ def normalize_text(text):
     text = re.sub(r'\r', '', text)
     return text
 
+def version_cmp(v1, v2):
+    """
+    Compare two version strings and returns:
+
+    * `-1`: if `v1` is less than `v2`
+    * `0`: if `v1` is equal to `v2`
+    * `1`: if `v1` is greater than `v2`
+
+    Raises `ValueError` if versions are not well formated.
+    """
+    vregex = r'(?P<whole>\d+(\.(\d+))*)'
+    v1m = re.match(vregex, v1)
+    v2m = re.match(vregex, v2)
+    if v1m is None or v2m is None:
+        raise ValueError("got a invalid version string")
+
+    # Split values
+    v1g = v1m.group('whole').split('.')
+    v2g = v2m.group('whole').split('.')
+
+    # Get the longest version string
+    vnum = len(v1g)
+    if len(v2g) > vnum:
+        vnum = len(v2g)
+
+    # Reverse list because we are going to pop the tail
+    v1g.reverse()
+    v2g.reverse()
+    for _ in range(vnum):
+        try:
+            v1n = int(v1g.pop())
+        except IndexError:
+            while v2g:
+                v2n = int(v2g.pop())
+                if v2n > 0:
+                    return -1
+            break
+
+        try:
+            v2n = int(v2g.pop())
+        except IndexError:
+            if v1n > 0:
+                return 1
+            while v1g:
+                v1n = int(v1g.pop())
+                if v1n > 0:
+                    return -1
+            break
+
+        if v1n > v2n:
+            return 1
+        if v1n < v2n:
+            return -1
+    return 0
+
 def checkAddressSanitizerError(output, router, component):
     "Checks for AddressSanitizer in output. If found, then logs it and returns true, false otherwise"
 
