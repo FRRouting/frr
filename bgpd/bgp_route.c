@@ -8066,12 +8066,16 @@ bgp_show (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
         vty_out (vty, "No BGP process is configured\n");
       return CMD_WARNING;
     }
+
   /* use MPLS and ENCAP specific shows until they are merged */
   if (safi == SAFI_MPLS_VPN) 
     {
       return bgp_show_mpls_vpn(vty, afi, NULL, type, output_arg,
                                0, use_json);
     }
+  /* labeled-unicast routes live in the unicast table */
+  else if (safi == SAFI_LABELED_UNICAST)
+    safi = SAFI_UNICAST;
 
   table = bgp->rib[afi][safi];
 
@@ -8388,6 +8392,10 @@ bgp_show_route (struct vty *vty, struct bgp *bgp, const char *ip_str,
   if (!bgp)
     bgp = bgp_get_default ();
 
+  /* labeled-unicast routes live in the unicast table */
+  if (safi == SAFI_LABELED_UNICAST)
+    safi = SAFI_UNICAST;
+
   return bgp_show_route_in_table (vty, bgp, bgp->rib[afi][safi], ip_str, 
                                   afi, safi, prd, prefix_check, pathtype,
                                   use_json);
@@ -8451,13 +8459,13 @@ bgp_show_lcommunity_list (struct vty *vty, struct bgp *bgp, const char *lcom,
 
 DEFUN (show_ip_bgp_large_community_list,
        show_ip_bgp_large_community_list_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] large-community-list <(1-500)|WORD> [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] large-community-list <(1-500)|WORD> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        BGP_AFI_HELP_STR
-       BGP_SAFI_HELP_STR
+       BGP_SAFI_WITH_LABEL_HELP_STR
        "Display routes matching the large-community-list\n"
        "large-community-list number\n"
        "large-community-list name\n"
@@ -8493,13 +8501,13 @@ DEFUN (show_ip_bgp_large_community_list,
 }
 DEFUN (show_ip_bgp_large_community,
        show_ip_bgp_large_community_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] large-community [AA:BB:CC] [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] large-community [AA:BB:CC] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        BGP_AFI_HELP_STR
-       BGP_SAFI_HELP_STR
+       BGP_SAFI_WITH_LABEL_HELP_STR
        "Display routes matching the large-communities\n"
        "List of large-community numbers\n"
        JSON_STR)
@@ -8540,7 +8548,7 @@ static int bgp_table_stats (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t 
 /* BGP route print out function. */
 DEFUN (show_ip_bgp,
        show_ip_bgp_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]]\
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]]\
           [<\
              cidr-only\
              |dampening <flap-statistics|dampened-paths|parameters>\
@@ -8558,7 +8566,7 @@ DEFUN (show_ip_bgp,
        BGP_STR
        BGP_INSTANCE_HELP_STR
        BGP_AFI_HELP_STR
-       BGP_SAFI_HELP_STR
+       BGP_SAFI_WITH_LABEL_HELP_STR
        "Display only routes with non-natural netmasks\n"
        "Display detailed information about dampening\n"
        "Display flap statistics of routes\n"
@@ -8661,14 +8669,14 @@ DEFUN (show_ip_bgp,
 
 DEFUN (show_ip_bgp_route,
        show_ip_bgp_route_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]]"
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]]"
        "<A.B.C.D|A.B.C.D/M|X:X::X:X|X:X::X:X/M> [<bestpath|multipath>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        BGP_AFI_HELP_STR
-       BGP_SAFI_HELP_STR
+       BGP_SAFI_WITH_LABEL_HELP_STR
        "Network in the BGP routing table to display\n"
        "IPv4 prefix\n"
        "Network in the BGP routing table to display\n"
@@ -8733,13 +8741,13 @@ DEFUN (show_ip_bgp_route,
 
 DEFUN (show_ip_bgp_regexp,
        show_ip_bgp_regexp_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] regexp REGEX...",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] regexp REGEX...",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        BGP_AFI_HELP_STR
-       BGP_SAFI_HELP_STR
+       BGP_SAFI_WITH_LABEL_HELP_STR
        "Display routes matching the AS path regular expression\n"
        "A regular-expression to match the BGP AS paths\n")
 {
@@ -8764,13 +8772,13 @@ DEFUN (show_ip_bgp_regexp,
 
 DEFUN (show_ip_bgp_instance_all,
        show_ip_bgp_instance_all_cmd,
-       "show [ip] bgp <view|vrf> all ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] [json]",
+       "show [ip] bgp <view|vrf> all ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_ALL_HELP_STR
        BGP_AFI_HELP_STR
-       BGP_SAFI_HELP_STR
+       BGP_SAFI_WITH_LABEL_HELP_STR
        JSON_STR)
 {
   afi_t afi = AFI_IP;
@@ -9172,21 +9180,25 @@ bgp_table_stats (struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi)
 {
   struct bgp_table_stats ts;
   unsigned int i;
-  
+
   if (!bgp->rib[afi][safi])
     {
       vty_out (vty, "%% No RIB exist's for the AFI(%d)/SAFI(%d)\n",
 	       afi, safi);
       return CMD_WARNING;
     }
-  
+
+  vty_out (vty, "BGP %s RIB statistics\n",
+           afi_safi_print (afi, safi));
+
+  /* labeled-unicast routes live in the unicast table */
+  if (safi == SAFI_LABELED_UNICAST)
+    safi = SAFI_UNICAST;
+
   memset (&ts, 0, sizeof (ts));
   ts.table = bgp->rib[afi][safi];
   thread_execute (bm->master, bgp_table_stats_walker, &ts, 0);
 
-  vty_out (vty, "BGP %s RIB statistics\n\n",
-           afi_safi_print (afi, safi));
-  
   for (i = 0; i < BGP_STATS_MAX; i++)
     {
       if (!table_stats_strs[i])
@@ -9772,6 +9784,10 @@ peer_adj_routes (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
   if (use_json)
     json = json_object_new_object();
 
+  /* labeled-unicast routes live in the unicast table */
+  if (safi == SAFI_LABELED_UNICAST)
+    safi = SAFI_UNICAST;
+
   if (!peer || !peer->afc[afi][safi])
     {
       if (use_json)
@@ -9807,14 +9823,14 @@ peer_adj_routes (struct vty *vty, struct peer *peer, afi_t afi, safi_t safi,
 
 DEFUN (show_ip_bgp_instance_neighbor_advertised_route,
        show_ip_bgp_instance_neighbor_advertised_route_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] "
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] "
        "neighbors <A.B.C.D|X:X::X:X|WORD> <received-routes|advertised-routes> [route-map WORD] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        BGP_AFI_HELP_STR
-       BGP_SAFI_HELP_STR
+       BGP_SAFI_WITH_LABEL_HELP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
@@ -9966,19 +9982,23 @@ bgp_show_neighbor_route (struct vty *vty, struct peer *peer, afi_t afi,
       return CMD_WARNING;
     }
 
+  /* labeled-unicast routes live in the unicast table */
+  if (safi == SAFI_LABELED_UNICAST)
+    safi = SAFI_UNICAST;
+
   return bgp_show (vty, peer->bgp, afi, safi, type, &peer->su, use_json);
 }
 
 DEFUN (show_ip_bgp_neighbor_routes,
        show_ip_bgp_neighbor_routes_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] "
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] "
        "neighbors <A.B.C.D|X:X::X:X|WORD> <flap-statistics|dampened-routes|routes> [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        BGP_AFI_HELP_STR
-       BGP_SAFI_HELP_STR
+       BGP_SAFI_WITH_LABEL_HELP_STR
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
