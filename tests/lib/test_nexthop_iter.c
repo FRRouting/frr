@@ -1,6 +1,6 @@
 /*
  * Recursive Nexthop Iterator test.
- * This tests the ALL_NEXTHOPS_RO macro.
+ * This tests the ALL_NEXTHOPS macro.
  *
  * Copyright (C) 2012 by Open Source Routing.
  * Copyright (C) 2012 by Internet Systems Consortium, Inc. ("ISC")
@@ -108,6 +108,29 @@ nexthop_chain_add_top(struct nexthop_chain *nc)
 }
 
 static void
+add_string_representation (char **repr, struct nexthop *nh)
+{
+  struct nexthop *parent;
+
+  /* add indentations first */
+  parent = nh->rparent;
+  while (parent)
+    {
+      str_appendf(repr, "  ");
+      parent = parent->rparent;
+    }
+  str_appendf(repr, "%p\n", nh);
+}
+
+static void
+start_recursive_chain (struct nexthop_chain *nc, struct nexthop *nh)
+{
+  SET_FLAG(nc->current_top->flags, NEXTHOP_FLAG_RECURSIVE);
+  nc->current_top->resolved = nh;
+  nh->rparent = nc->current_top;
+  nc->current_recursive = nh;
+}
+static void
 nexthop_chain_add_recursive(struct nexthop_chain *nc)
 {
   struct nexthop *nh;
@@ -120,36 +143,52 @@ nexthop_chain_add_recursive(struct nexthop_chain *nc)
     {
       nc->current_recursive->next = nh;
       nh->prev = nc->current_recursive;
+      nh->rparent = nc->current_recursive->rparent;
       nc->current_recursive = nh;
     }
   else
-    {
-      SET_FLAG(nc->current_top->flags, NEXTHOP_FLAG_RECURSIVE);
-      nc->current_top->resolved = nh;
-      nc->current_recursive = nh;
-    }
-  str_appendf(&nc->repr, "  %p\n", nh);
+    start_recursive_chain (nc, nh);
+
+  add_string_representation (&nc->repr, nh);
 }
 
 static void
+nexthop_chain_add_recursive_level(struct nexthop_chain *nc)
+{
+  struct nexthop *nh;
+
+  nh = calloc(sizeof(*nh), 1);
+  assert(nh);
+
+  assert(nc->current_top);
+  if (nc->current_recursive)
+    {
+      SET_FLAG(nc->current_recursive->flags, NEXTHOP_FLAG_RECURSIVE);
+      nc->current_recursive->resolved = nh;
+      nh->rparent = nc->current_recursive;
+      nc->current_recursive = nh;
+    }
+  else
+    start_recursive_chain (nc, nh);
+
+  add_string_representation (&nc->repr, nh);
+}
+
+static void
+nexthop_clear_recursive (struct nexthop *tcur)
+{
+  if (!tcur)
+    return;
+  if (CHECK_FLAG(tcur->flags, NEXTHOP_FLAG_RECURSIVE))
+    nexthop_clear_recursive (tcur->resolved);
+  if (tcur->next)
+    nexthop_clear_recursive (tcur->next);
+  free (tcur);
+}
+static void
 nexthop_chain_clear(struct nexthop_chain *nc)
 {
-  struct nexthop *tcur, *tnext;
-
-  for (tcur = nc->head; tcur; tcur = tnext)
-    {
-      tnext = tcur->next;
-      if (CHECK_FLAG(tcur->flags, NEXTHOP_FLAG_RECURSIVE))
-        {
-          struct nexthop *rcur, *rnext;
-          for (rcur = tcur->resolved; rcur; rcur = rnext)
-            {
-              rnext = rcur->next;
-              free(rcur);
-            }
-        }
-      free(tcur);
-    }
+  nexthop_clear_recursive (nc->head);
   nc->head = nc->current_top = nc->current_recursive = NULL;
   free(nc->repr);
   nc->repr = NULL;
@@ -165,25 +204,19 @@ nexthop_chain_free(struct nexthop_chain *nc)
 }
 
 /* This function builds a string representation of
- * the nexthop chain using the ALL_NEXTHOPS_RO macro.
- * It verifies that the ALL_NEXTHOPS_RO macro iterated
+ * the nexthop chain using the ALL_NEXTHOPS macro.
+ * It verifies that the ALL_NEXTHOPS macro iterated
  * correctly over the nexthop chain by comparing the
  * generated representation with the expected representation.
  */
 static void
 nexthop_chain_verify_iter(struct nexthop_chain *nc)
 {
-  struct nexthop *nh, *tnh;
-  int recursing;
+  struct nexthop *nh;
   char *repr = NULL;
 
-  for (ALL_NEXTHOPS_RO(nc->head, nh, tnh, recursing))
-    {
-      if (recursing)
-        str_appendf(&repr, "  %p\n", nh);
-      else
-        str_appendf(&repr, "%p\n", nh);
-    }
+  for (ALL_NEXTHOPS(nc->head, nh))
+    add_string_representation (&repr, nh);
 
   if (repr && verbose)
     printf("===\n%s", repr);
@@ -234,6 +267,18 @@ test_run_first(void)
   nexthop_chain_add_recursive(nc);
   nexthop_chain_verify_iter(nc);
 
+  nexthop_chain_add_recursive_level(nc);
+  nexthop_chain_verify_iter(nc);
+
+  nexthop_chain_add_recursive(nc);
+  nexthop_chain_verify_iter(nc);
+
+  nexthop_chain_add_recursive(nc);
+  nexthop_chain_verify_iter(nc);
+
+  nexthop_chain_add_top(nc);
+  nexthop_chain_verify_iter(nc);
+
   nexthop_chain_free(nc);
 }
 
@@ -268,9 +313,12 @@ test_run_prng(void)
         case 6:
         case 7:
         case 8:
-        case 9:
           if (nc->current_top)
             nexthop_chain_add_recursive(nc);
+          break;
+        case 9:
+          if (nc->current_top)
+            nexthop_chain_add_recursive_level(nc);
           break;
         }
       nexthop_chain_verify_iter(nc);

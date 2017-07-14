@@ -198,20 +198,10 @@ route_entry_nexthop_add (struct route_entry *re, struct nexthop *nexthop)
 void
 route_entry_copy_nexthops (struct route_entry *re, struct nexthop *nh)
 {
-  struct nexthop *nexthop;
-
-  nexthop = nexthop_new();
-  nexthop->flags = nh->flags;
-  nexthop->type = nh->type;
-  nexthop->ifindex = nh->ifindex;
-  memcpy(&(nexthop->gate), &(nh->gate), sizeof(union g_addr));
-  memcpy(&(nexthop->src), &(nh->src), sizeof(union g_addr));
-  if (nh->nh_label)
-    nexthop_add_labels (nexthop, nh->nh_label_type, nh->nh_label->num_labels,
-                        &nh->nh_label->label[0]);
-  route_entry_nexthop_add(re, nexthop);
-  if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_RECURSIVE))
-    copy_nexthops(&nexthop->resolved, nh->resolved);
+  assert(!re->nexthop);
+  copy_nexthops(&re->nexthop, nh, NULL);
+  for (struct nexthop *nexthop = nh; nexthop; nexthop = nexthop->next)
+    re->nexthop_num++;
 }
 
 /* Delete specified nexthop from the list. */
@@ -389,6 +379,7 @@ nexthop_set_resolved (afi_t afi, struct nexthop *newhop, struct nexthop *nexthop
       resolved_hop->ifindex = newhop->ifindex;
     }
 
+  resolved_hop->rparent = nexthop;
   nexthop_add(&nexthop->resolved, resolved_hop);
 }
 
@@ -403,8 +394,7 @@ nexthop_active (afi_t afi, struct route_entry *re, struct nexthop *nexthop, int 
   struct route_node *rn;
   struct route_entry *match;
   int resolved;
-  struct nexthop *newhop, *tnewhop;
-  int recursing = 0;
+  struct nexthop *newhop;
   struct interface *ifp;
 
   if ((nexthop->type == NEXTHOP_TYPE_IPV4) || nexthop->type == NEXTHOP_TYPE_IPV6)
@@ -528,7 +518,7 @@ nexthop_active (afi_t afi, struct route_entry *re, struct nexthop *nexthop, int 
       else if (CHECK_FLAG (re->flags, ZEBRA_FLAG_INTERNAL))
 	{
 	  resolved = 0;
-	  for (newhop = match->nexthop; newhop; newhop = newhop->next)
+	  for (ALL_NEXTHOPS(match->nexthop, newhop))
 	    if (CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_FIB)
 		&& ! CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_RECURSIVE))
 	      {
@@ -546,7 +536,7 @@ nexthop_active (afi_t afi, struct route_entry *re, struct nexthop *nexthop, int 
       else if (re->type == ZEBRA_ROUTE_STATIC)
 	{
 	  resolved = 0;
-	  for (ALL_NEXTHOPS_RO(match->nexthop, newhop, tnewhop, recursing))
+	  for (ALL_NEXTHOPS(match->nexthop, newhop))
 	    if (CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_FIB))
 	      {
 		if (set)
@@ -577,8 +567,7 @@ rib_match (afi_t afi, safi_t safi, vrf_id_t vrf_id,
   struct route_table *table;
   struct route_node *rn;
   struct route_entry *match;
-  struct nexthop *newhop, *tnewhop;
-  int recursing;
+  struct nexthop *newhop;
 
   /* Lookup table.  */
   table = zebra_vrf_table (afi, safi, vrf_id);
@@ -628,7 +617,7 @@ rib_match (afi_t afi, safi_t safi, vrf_id_t vrf_id,
 	  if (match->type != ZEBRA_ROUTE_CONNECT)
 	    {
 	      int found = 0;
-	      for (ALL_NEXTHOPS_RO(match->nexthop, newhop, tnewhop, recursing))
+	      for (ALL_NEXTHOPS(match->nexthop, newhop))
 		if (CHECK_FLAG (newhop->flags, NEXTHOP_FLAG_FIB))
 		  {
 		    found = 1;
@@ -724,8 +713,7 @@ rib_lookup_ipv4 (struct prefix_ipv4 *p, vrf_id_t vrf_id)
   struct route_table *table;
   struct route_node *rn;
   struct route_entry *match;
-  struct nexthop *nexthop, *tnexthop;
-  int recursing;
+  struct nexthop *nexthop;
 
   /* Lookup table.  */
   table = zebra_vrf_table (AFI_IP, SAFI_UNICAST, vrf_id);
@@ -754,8 +742,8 @@ rib_lookup_ipv4 (struct prefix_ipv4 *p, vrf_id_t vrf_id)
 
   if (match->type == ZEBRA_ROUTE_CONNECT)
     return match;
-  
-  for (ALL_NEXTHOPS_RO(match->nexthop, nexthop, tnexthop, recursing))
+
+  for (ALL_NEXTHOPS(match->nexthop, nexthop))
     if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
       return match;
 
@@ -781,8 +769,7 @@ rib_lookup_ipv4_route (struct prefix_ipv4 *p, union sockunion * qgate,
   struct route_table *table;
   struct route_node *rn;
   struct route_entry *match;
-  struct nexthop *nexthop, *tnexthop;
-  int recursing;
+  struct nexthop *nexthop;
   int nexthops_active;
 
   /* Lookup table.  */
@@ -818,7 +805,7 @@ rib_lookup_ipv4_route (struct prefix_ipv4 *p, union sockunion * qgate,
   
   /* Ok, we have a cood candidate, let's check it's nexthop list... */
   nexthops_active = 0;
-  for (ALL_NEXTHOPS_RO(match->nexthop, nexthop, tnexthop, recursing))
+  for (ALL_NEXTHOPS(match->nexthop, nexthop))
     if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
       {
         nexthops_active = 1;
@@ -830,7 +817,7 @@ rib_lookup_ipv4_route (struct prefix_ipv4 *p, union sockunion * qgate,
             inet_ntop (AF_INET, &nexthop->gate.ipv4.s_addr, gate_buf, INET_ADDRSTRLEN);
             inet_ntop (AF_INET, &sockunion2ip(qgate), qgate_buf, INET_ADDRSTRLEN);
             zlog_debug ("%s: qgate == %s, %s == %s", __func__,
-                        qgate_buf, recursing ? "rgate" : "gate", gate_buf);
+                        qgate_buf, nexthop->rparent ? "rgate" : "gate", gate_buf);
           }
       }
 
@@ -1025,13 +1012,12 @@ nexthop_active_update (struct route_node *rn, struct route_entry *re, int set)
 int
 zebra_rib_labeled_unicast (struct route_entry *re)
 {
-  struct nexthop *nexthop = NULL, *tnexthop;
-  int recursing;
+  struct nexthop *nexthop = NULL;
 
   if (re->type != ZEBRA_ROUTE_BGP)
     return 0;
 
-  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+  for (ALL_NEXTHOPS(re->nexthop, nexthop))
     if (!nexthop->nh_label || !nexthop->nh_label->num_labels)
       return 0;
 
@@ -1045,9 +1031,8 @@ int
 rib_install_kernel (struct route_node *rn, struct route_entry *re, struct route_entry *old)
 {
   int ret = 0;
-  struct nexthop *nexthop, *tnexthop;
+  struct nexthop *nexthop;
   rib_table_info_t *info = srcdest_rnode_table_info(rn);
-  int recursing;
   struct prefix *p, *src_p;
   struct zebra_vrf *zvrf = vrf_info_lookup (re->vrf_id);
 
@@ -1055,7 +1040,7 @@ rib_install_kernel (struct route_node *rn, struct route_entry *re, struct route_
 
   if (info->safi != SAFI_UNICAST)
     {
-      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+      for (ALL_NEXTHOPS(re->nexthop, nexthop))
         SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
       return ret;
     }
@@ -1071,7 +1056,7 @@ rib_install_kernel (struct route_node *rn, struct route_entry *re, struct route_
   /* If install succeeds, update FIB flag for nexthops. */
   if (!ret)
     {
-      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+      for (ALL_NEXTHOPS(re->nexthop, nexthop))
         {
           if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
             continue;
@@ -1091,9 +1076,8 @@ int
 rib_uninstall_kernel (struct route_node *rn, struct route_entry *re)
 {
   int ret = 0;
-  struct nexthop *nexthop, *tnexthop;
+  struct nexthop *nexthop;
   rib_table_info_t *info = srcdest_rnode_table_info(rn);
-  int recursing;
   struct prefix *p, *src_p;
   struct zebra_vrf *zvrf = vrf_info_lookup (re->vrf_id);
 
@@ -1101,7 +1085,7 @@ rib_uninstall_kernel (struct route_node *rn, struct route_entry *re)
 
   if (info->safi != SAFI_UNICAST)
     {
-      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+      for (ALL_NEXTHOPS(re->nexthop, nexthop))
         SET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
       return ret;
     }
@@ -1114,7 +1098,7 @@ rib_uninstall_kernel (struct route_node *rn, struct route_entry *re)
   ret = kernel_route_rib (p, src_p, re, NULL);
   zvrf->removals++;
 
-  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+  for (ALL_NEXTHOPS(re->nexthop, nexthop))
     UNSET_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB);
 
   return ret;
@@ -1284,8 +1268,7 @@ static void
 rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
                         struct route_entry *old, struct route_entry *new)
 {
-  struct nexthop *nexthop = NULL, *tnexthop;
-  int recursing;
+  struct nexthop *nexthop = NULL;
   int nh_active = 0;
   int installed = 1;
 
@@ -1403,7 +1386,7 @@ rib_process_update_fib (struct zebra_vrf *zvrf, struct route_node *rn,
         {
           int in_fib = 0;
 
-          for (ALL_NEXTHOPS_RO(new->nexthop, nexthop, tnexthop, recursing))
+          for (ALL_NEXTHOPS(new->nexthop, nexthop))
             if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
               {
                 in_fib = 1;
@@ -1634,13 +1617,11 @@ rib_process (struct route_node *rn)
   /* Redistribute SELECTED entry */
   if (old_selected != new_selected || selected_changed)
     {
-      struct nexthop *nexthop, *tnexthop;
-      int recursing;
+      struct nexthop *nexthop;
 
       /* Check if we have a FIB route for the destination, otherwise,
        * don't redistribute it */
-      for (ALL_NEXTHOPS_RO(new_fib ? new_fib->nexthop : NULL, nexthop,
-                           tnexthop, recursing))
+      for (ALL_NEXTHOPS(new_fib ? new_fib->nexthop : NULL, nexthop))
         {
           if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
             {
@@ -2141,8 +2122,7 @@ void _route_entry_dump (const char * func,
   bool is_srcdst = src_p && src_p->prefixlen;
   char straddr[PREFIX_STRLEN];
   char srcaddr[PREFIX_STRLEN];
-  struct nexthop *nexthop, *tnexthop;
-  int recursing;
+  struct nexthop *nexthop;
 
   zlog_debug ("%s: dumping RE entry %p for %s%s%s vrf %u", func, (const void *)re,
               prefix2str(pp, straddr, sizeof(straddr)),
@@ -2177,14 +2157,14 @@ void _route_entry_dump (const char * func,
     re->nexthop_active_num
   );
 
-  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+  for (ALL_NEXTHOPS(re->nexthop, nexthop))
     {
       inet_ntop (p->family, &nexthop->gate, straddr, INET6_ADDRSTRLEN);
       zlog_debug
       (
         "%s: %s %s with flags %s%s%s",
         func,
-        (recursing ? "  NH" : "NH"),
+        (nexthop->rparent ? "  NH" : "NH"),
         straddr,
         (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_ACTIVE) ? "ACTIVE " : ""),
         (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB) ? "FIB " : ""),
@@ -2391,8 +2371,7 @@ rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
   struct route_entry *re;
   struct route_entry *fib = NULL;
   struct route_entry *same = NULL;
-  struct nexthop *nexthop, *tnexthop;
-  int recursing;
+  struct nexthop *nexthop;
   char buf2[INET6_ADDRSTRLEN];
 
   assert(!src_p || afi == AFI_IP6);
@@ -2463,7 +2442,7 @@ rib_delete (afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
               same = re;
               break;
             }
-          for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+          for (ALL_NEXTHOPS(re->nexthop, nexthop))
             if (IPV4_ADDR_SAME (&nexthop->gate.ipv4, gate) ||
 	        IPV6_ADDR_SAME (&nexthop->gate.ipv6, gate))
               {

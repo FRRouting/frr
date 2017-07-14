@@ -154,8 +154,7 @@ typedef struct netlink_route_info_t_
  * Returns TRUE if a nexthop was added, FALSE otherwise.
  */
 static int
-netlink_route_info_add_nh (netlink_route_info_t *ri, struct nexthop *nexthop,
-			   int recursive)
+netlink_route_info_add_nh (netlink_route_info_t *ri, struct nexthop *nexthop)
 {
   netlink_nh_info_t nhi;
   union g_addr *src;
@@ -166,7 +165,7 @@ netlink_route_info_add_nh (netlink_route_info_t *ri, struct nexthop *nexthop,
   if (ri->num_nhs >= (int) ZEBRA_NUM_OF (ri->nhs))
     return 0;
 
-  nhi.recursive = recursive;
+  nhi.recursive = nexthop->rparent ? 1 : 0;
   nhi.type = nexthop->type;
   nhi.if_index = nexthop->ifindex;
 
@@ -233,8 +232,7 @@ static int
 netlink_route_info_fill (netlink_route_info_t *ri, int cmd,
 			 rib_dest_t *dest, struct route_entry *re)
 {
-  struct nexthop *nexthop, *tnexthop;
-  int recursing;
+  struct nexthop *nexthop;
   int discard;
 
   memset (ri, 0, sizeof (*ri));
@@ -286,7 +284,7 @@ netlink_route_info_fill (netlink_route_info_t *ri, int cmd,
   if (discard)
     return 1;
 
-  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+  for (ALL_NEXTHOPS(re->nexthop, nexthop))
     {
       if (ri->num_nhs >= multipath_num)
         break;
@@ -299,7 +297,7 @@ netlink_route_info_fill (netlink_route_info_t *ri, int cmd,
           || (cmd == RTM_DELROUTE
               && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)))
         {
-          netlink_route_info_add_nh (ri, nexthop, recursing);
+          netlink_route_info_add_nh (ri, nexthop);
         }
     }
 
