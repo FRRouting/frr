@@ -7254,7 +7254,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
           bgp_evpn_label2str (&binfo->extra->label, tag_buf, sizeof (tag_buf));
           vty_out (vty, " VNI %s", tag_buf);
         }
-      vty_out (vty, "%s", VTY_NEWLINE);
+      vty_out (vty, "\n");
       if (binfo->extra && binfo->extra->parent)
         {
           struct bgp_info *parent_ri;
@@ -7265,10 +7265,10 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
           if (rn && rn->prn)
             {
               prn = rn->prn;
-              vty_out (vty, "  Imported from %s:%s%s",
+              vty_out (vty, "  Imported from %s:%s\n",
                        prefix_rd2str ((struct prefix_rd *)&prn->p,
                                       buf1, RD_ADDRSTRLEN),
-                       buf2, VTY_NEWLINE);
+                       buf2);
             }
         }
     }
@@ -7761,7 +7761,7 @@ route_vty_out_detail (struct vty *vty, struct bgp *bgp, struct prefix *p,
 
       /* Line 6 display Large community */
       if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES))
-        vty_outln (vty, "      Large Community: %s\n",
+        vty_out (vty, "      Large Community: %s\n",
                  attr->lcommunity->str);
 
       /* Line 7 display Originator, Cluster-id */
@@ -8329,19 +8329,18 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
     {
 #if defined (HAVE_CUMULUS)
       if (safi == SAFI_EVPN)
-        vty_out (vty, "BGP routing table entry for %s%s%s%s",
+        vty_out (vty, "BGP routing table entry for %s%s%s\n",
                  prd ? prefix_rd2str (prd, buf1, RD_ADDRSTRLEN) : "",
                  prd ? ":" : "",
                  bgp_evpn_route2str ((struct prefix_evpn *)p,
-                                     buf3, sizeof (buf3)),
-                 VTY_NEWLINE);
+                                     buf3, sizeof (buf3)));
       else
-        vty_out (vty, "BGP routing table entry for %s%s%s/%d%s",
+        vty_out (vty, "BGP routing table entry for %s%s%s/%d\n",
 	       ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP) ?
 	       prefix_rd2str (prd, buf1, RD_ADDRSTRLEN) : ""),
 	       safi == SAFI_MPLS_VPN ? ":" : "",
 	       inet_ntop (p->family, &p->u.prefix, buf2, INET6_ADDRSTRLEN),
-	       p->prefixlen, VTY_NEWLINE);
+	       p->prefixlen);
 #else
       if (p->family == AF_ETHERNET)
         prefix2str (p, buf2, INET6_ADDRSTRLEN);

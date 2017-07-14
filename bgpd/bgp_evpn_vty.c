@@ -123,12 +123,11 @@ display_import_rt (struct vty *vty, struct irt_node *irt)
         return;
     }
 
-  vty_out (vty, "%s", VTY_NEWLINE);
-  vty_out (vty, "List of VNIs importing routes with this route-target:%s",
-           VTY_NEWLINE);
+  vty_out (vty, "\n");
+  vty_out (vty, "List of VNIs importing routes with this route-target:\n");
 
   for (ALL_LIST_ELEMENTS (irt->vnis, node, nnode, tmp_vpn))
-    vty_out (vty, "  %u%s", tmp_vpn->vni, VTY_NEWLINE);
+    vty_out (vty, "  %u\n", tmp_vpn->vni);
 }
 
 static void
@@ -170,25 +169,22 @@ bgp_evpn_show_route_rd_header (struct vty *vty, struct bgp_node *rd_rn)
         break;
     }
 
-  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_out (vty, "\n");
 }
 
 static void
 bgp_evpn_show_route_header (struct vty *vty, struct bgp *bgp)
 {
-  char ri_header[] = "   Network          Next Hop            Metric LocPrf Weight Path%s";
+  char ri_header[] = "   Network          Next Hop            Metric LocPrf Weight Path\n";
 
-  vty_out (vty, "BGP table version is 0, local router ID is %s%s",
-           inet_ntoa (bgp->router_id), VTY_NEWLINE);
+  vty_out (vty, "BGP table version is 0, local router ID is %s\n",
+           inet_ntoa (bgp->router_id));
   vty_out (vty, "Status codes: s suppressed, d damped, h history, "
-           "* valid, > best, i - internal%s", VTY_NEWLINE);
-  vty_out (vty, "Origin codes: i - IGP, e - EGP, ? - incomplete%s",
-           VTY_NEWLINE);
-  vty_out (vty, "EVPN type-2 prefix: [2]:[ESI]:[EthTag]:[MAClen]:[MAC]:[IPlen]:[IP]%s",
-           VTY_NEWLINE);
-  vty_out (vty, "EVPN type-3 prefix: [3]:[EthTag]:[IPlen]:[OrigIP]%s%s",
-           VTY_NEWLINE, VTY_NEWLINE);
-  vty_out (vty, ri_header, VTY_NEWLINE);
+           "* valid, > best, i - internal\n");
+  vty_out (vty, "Origin codes: i - IGP, e - EGP, ? - incomplete\n");
+  vty_out (vty, "EVPN type-2 prefix: [2]:[ESI]:[EthTag]:[MAClen]:[MAC]:[IPlen]:[IP]\n");
+  vty_out (vty, "EVPN type-3 prefix: [3]:[EthTag]:[IPlen]:[OrigIP]\n\n");
+  vty_out (vty, "%s", ri_header);
 }
 
 static void
@@ -202,27 +198,26 @@ display_vni (struct vty *vty, struct bgpevpn *vpn)
   vty_out (vty, "VNI: %d", vpn->vni);
   if (is_vni_live (vpn))
     vty_out (vty, " (known to the kernel)");
-  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_out (vty, "\n");
 
-  vty_out (vty, "  RD: %s%s",
-           prefix_rd2str (&vpn->prd, buf1, RD_ADDRSTRLEN),
-           VTY_NEWLINE);
-  vty_out (vty, "  Originator IP: %s%s",
-           inet_ntoa(vpn->originator_ip), VTY_NEWLINE);
+  vty_out (vty, "  RD: %s\n",
+           prefix_rd2str (&vpn->prd, buf1, RD_ADDRSTRLEN));
+  vty_out (vty, "  Originator IP: %s\n",
+           inet_ntoa(vpn->originator_ip));
 
-  vty_out (vty, "  Import Route Target:%s", VTY_NEWLINE);
+  vty_out (vty, "  Import Route Target:\n");
   for (ALL_LIST_ELEMENTS (vpn->import_rtl, node, nnode, ecom))
     {
       ecom_str = ecommunity_ecom2str (ecom, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-      vty_out (vty, "    %s%s", ecom_str, VTY_NEWLINE);
+      vty_out (vty, "    %s\n", ecom_str);
       XFREE (MTYPE_ECOMMUNITY_STR, ecom_str);
     }
 
-  vty_out (vty, "  Export Route Target:%s", VTY_NEWLINE);
+  vty_out (vty, "  Export Route Target:\n");
   for (ALL_LIST_ELEMENTS (vpn->export_rtl, node, nnode, ecom))
     {
       ecom_str = ecommunity_ecom2str (ecom, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-      vty_out (vty, "    %s%s", ecom_str, VTY_NEWLINE);
+      vty_out (vty, "    %s\n", ecom_str);
       XFREE (MTYPE_ECOMMUNITY_STR, ecom_str);
     }
 }
@@ -273,12 +268,12 @@ show_vni_routes (struct bgp *bgp, struct bgpevpn *vpn, int type,
     }
 
   if (prefix_cnt == 0)
-    vty_out (vty, "No EVPN prefixes %sexist for this VNI%s",
-             type ? "(of requested type) " : "", VTY_NEWLINE);
+    vty_out (vty, "No EVPN prefixes %sexist for this VNI\n",
+             type ? "(of requested type) " : "");
   else
-    vty_out (vty, "%sDisplayed %u prefixes (%u paths)%s%s",
-             VTY_NEWLINE, prefix_cnt, path_cnt,
-             type ? " (of requested type)" : "", VTY_NEWLINE);
+    vty_out (vty, "\nDisplayed %u prefixes (%u paths)%s\n",
+             prefix_cnt, path_cnt,
+             type ? " (of requested type)" : "");
 }
 
 static void
@@ -288,7 +283,7 @@ show_vni_routes_hash (struct hash_backet *backet, void *arg)
   struct vni_walk_ctx *wctx = arg;
   struct vty *vty = wctx->vty;
 
-  vty_out (vty, "%sVNI: %d%s%s", VTY_NEWLINE, vpn->vni, VTY_NEWLINE, VTY_NEWLINE);
+  vty_out (vty, "\nVNI: %d\n\n", vpn->vni);
   show_vni_routes (wctx->bgp, vpn, 0, wctx->vty, wctx->vtep_ip);
 }
 
@@ -338,7 +333,7 @@ show_vni_entry (struct hash_backet *backet, struct vty *vty)
       XFREE (MTYPE_ECOMMUNITY_STR, ecom_str);
       break;
     }
-  vty_out (vty, "%s", VTY_NEWLINE);
+  vty_out (vty, "\n");
 }
 #endif /* HAVE_CUMULUS */
 
@@ -1385,7 +1380,7 @@ evpn_show_route_vni_multicast (struct vty *vty, struct bgp *bgp,
   vpn = bgp_evpn_lookup_vni (bgp, vni);
   if (!vpn)
     {
-      vty_out (vty, "VNI not found%s", VTY_NEWLINE);
+      vty_out (vty, "VNI not found\n");
       return;
     }
 
@@ -1394,7 +1389,7 @@ evpn_show_route_vni_multicast (struct vty *vty, struct bgp *bgp,
   rn = bgp_node_lookup (vpn->route_table, (struct prefix *)&p);
   if (!rn || !rn->info)
     {
-      vty_out (vty, "%% Network not in table%s", VTY_NEWLINE);
+      vty_out (vty, "%% Network not in table\n");
       return;
     }
 
@@ -1408,8 +1403,8 @@ evpn_show_route_vni_multicast (struct vty *vty, struct bgp *bgp,
       path_cnt++;
     }
 
-  vty_out (vty, "%sDisplayed %u paths for requested prefix%s",
-           VTY_NEWLINE, path_cnt, VTY_NEWLINE);
+  vty_out (vty, "\nDisplayed %u paths for requested prefix\n",
+           path_cnt);
 }
 
 /*
@@ -1436,7 +1431,7 @@ evpn_show_route_vni_macip (struct vty *vty, struct bgp *bgp,
   vpn = bgp_evpn_lookup_vni (bgp, vni);
   if (!vpn)
     {
-      vty_out (vty, "VNI not found%s", VTY_NEWLINE);
+      vty_out (vty, "VNI not found\n");
       return;
     }
 
@@ -1445,7 +1440,7 @@ evpn_show_route_vni_macip (struct vty *vty, struct bgp *bgp,
   rn = bgp_node_lookup (vpn->route_table, (struct prefix *)&p);
   if (!rn || !rn->info)
     {
-      vty_out (vty, "%% Network not in table%s", VTY_NEWLINE);
+      vty_out (vty, "%% Network not in table\n");
       return;
     }
 
@@ -1459,8 +1454,8 @@ evpn_show_route_vni_macip (struct vty *vty, struct bgp *bgp,
       path_cnt++;
     }
 
-  vty_out (vty, "%sDisplayed %u paths for requested prefix%s",
-           VTY_NEWLINE, path_cnt, VTY_NEWLINE);
+  vty_out (vty, "\nDisplayed %u paths for requested prefix\n",
+           path_cnt);
 }
 
 /*
@@ -1478,7 +1473,7 @@ evpn_show_routes_vni (struct vty *vty, struct bgp *bgp,
   vpn = bgp_evpn_lookup_vni (bgp, vni);
   if (!vpn)
     {
-      vty_out (vty, "VNI not found%s", VTY_NEWLINE);
+      vty_out (vty, "VNI not found\n");
       return;
     }
 
@@ -1512,7 +1507,7 @@ evpn_show_route_rd_macip (struct vty *vty, struct bgp *bgp,
                             (struct prefix *)&p, prd);
   if (!rn || !rn->info)
     {
-      vty_out (vty, "%% Network not in table%s", VTY_NEWLINE);
+      vty_out (vty, "%% Network not in table\n");
       return;
     }
 
@@ -1526,8 +1521,8 @@ evpn_show_route_rd_macip (struct vty *vty, struct bgp *bgp,
       path_cnt++;
     }
 
-  vty_out (vty, "%sDisplayed %u paths for requested prefix%s",
-           VTY_NEWLINE, path_cnt, VTY_NEWLINE);
+  vty_out (vty, "\nDisplayed %u paths for requested prefix\n",
+           path_cnt);
 }
 
 /*
@@ -1573,9 +1568,9 @@ evpn_show_route_rd (struct vty *vty, struct bgp *bgp,
           if (rd_header)
             {
               vty_out (vty, "EVPN type-2 prefix: [2]:[ESI]:[EthTag]:[MAClen]:"
-                       "[MAC]%s", VTY_NEWLINE);
+                       "[MAC]\n");
               vty_out (vty, "EVPN type-3 prefix: [3]:[EthTag]:[IPlen]:"
-                       "[OrigIP]%s%s", VTY_NEWLINE, VTY_NEWLINE);
+                       "[OrigIP]\n\n");
               rd_header = 0;
             }
 
@@ -1594,12 +1589,12 @@ evpn_show_route_rd (struct vty *vty, struct bgp *bgp,
     }
 
   if (prefix_cnt == 0)
-    vty_out (vty, "No prefixes exist with this RD%s%s",
-             type ? " (of requested type)" : "", VTY_NEWLINE);
+    vty_out (vty, "No prefixes exist with this RD%s\n",
+             type ? " (of requested type)" : "");
   else
-    vty_out (vty, "%sDisplayed %u prefixes (%u paths) with this RD%s%s",
-             VTY_NEWLINE, prefix_cnt, path_cnt,
-             type ? " (of requested type)" : "", VTY_NEWLINE);
+    vty_out (vty, "\nDisplayed %u prefixes (%u paths) with this RD%s\n",
+             prefix_cnt, path_cnt,
+             type ? " (of requested type)" : "");
 }
 
 /*
@@ -1675,12 +1670,12 @@ evpn_show_all_routes (struct vty *vty, struct bgp *bgp, int type)
     }
 
   if (prefix_cnt == 0)
-    vty_out (vty, "No EVPN prefixes %sexist%s",
-             type ? "(of requested type) " : "", VTY_NEWLINE);
+    vty_out (vty, "No EVPN prefixes %sexist\n",
+             type ? "(of requested type) " : "");
   else
-    vty_out (vty, "%sDisplayed %u prefixes (%u paths)%s%s",
-             VTY_NEWLINE, prefix_cnt, path_cnt,
-             type ? " (of requested type)" : "", VTY_NEWLINE);
+    vty_out (vty, "\nDisplayed %u prefixes (%u paths)%s\n",
+             prefix_cnt, path_cnt,
+             type ? " (of requested type)" : "");
 }
 
 /*
@@ -1694,7 +1689,7 @@ evpn_show_vni (struct vty *vty, struct bgp *bgp, vni_t vni)
   vpn = bgp_evpn_lookup_vni (bgp, vni);
   if (!vpn)
     {
-      vty_out (vty, "VNI not found%s", VTY_NEWLINE);
+      vty_out (vty, "VNI not found\n");
       return;
     }
 
@@ -1712,11 +1707,10 @@ evpn_show_all_vnis (struct vty *vty, struct bgp *bgp)
   num_vnis = hashcount(bgp->vnihash);
   if (!num_vnis)
     return;
-  vty_out(vty, "Number of VNIs: %u%s",
-          num_vnis, VTY_NEWLINE);
-  vty_out(vty, "Flags: * - Kernel %s", VTY_NEWLINE);
-  vty_out(vty, "  %-10s %-15s %-21s %-25s %-25s%s",
-          "VNI", "Orig IP", "RD", "Import RT", "Export RT", VTY_NEWLINE);
+  vty_out(vty, "Number of VNIs: %u\n", num_vnis);
+  vty_out(vty, "Flags: * - Kernel \n");
+  vty_out(vty, "  %-10s %-15s %-21s %-25s %-25s\n",
+          "VNI", "Orig IP", "RD", "Import RT", "Export RT");
   hash_iterate (bgp->vnihash,
                 (void (*) (struct hash_backet *, void *))
                 show_vni_entry, vty);
@@ -1758,18 +1752,17 @@ write_vni_config (struct vty *vty, struct bgpevpn *vpn, int *write)
   if (is_vni_configured (vpn))
     {
       bgp_config_write_family_header (vty, afi, safi, write);
-      vty_out (vty, "  vni %d%s", vpn->vni, VTY_NEWLINE);
+      vty_out (vty, "  vni %d\n", vpn->vni);
       if (is_rd_configured (vpn))
-          vty_out (vty, "   rd %s%s",
-                        prefix_rd2str (&vpn->prd, buf1, RD_ADDRSTRLEN),
-                        VTY_NEWLINE);
+          vty_out (vty, "   rd %s\n",
+                        prefix_rd2str (&vpn->prd, buf1, RD_ADDRSTRLEN));
 
       if (is_import_rt_configured (vpn))
         {
           for (ALL_LIST_ELEMENTS (vpn->import_rtl, node, nnode, ecom))
             {
               ecom_str = ecommunity_ecom2str (ecom, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-              vty_out (vty, "   route-target import %s%s", ecom_str, VTY_NEWLINE);
+              vty_out (vty, "   route-target import %s\n", ecom_str);
               XFREE (MTYPE_ECOMMUNITY_STR, ecom_str);
             }
         }
@@ -1779,12 +1772,12 @@ write_vni_config (struct vty *vty, struct bgpevpn *vpn, int *write)
           for (ALL_LIST_ELEMENTS (vpn->export_rtl, node, nnode, ecom))
             {
               ecom_str = ecommunity_ecom2str (ecom, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-              vty_out (vty, "   route-target export %s%s", ecom_str, VTY_NEWLINE);
+              vty_out (vty, "   route-target export %s\n", ecom_str);
               XFREE (MTYPE_ECOMMUNITY_STR, ecom_str);
             }
         }
 
-      vty_out (vty, "  exit-vni%s", VTY_NEWLINE);
+      vty_out (vty, "  exit-vni\n");
     }
 }
 
@@ -1838,8 +1831,8 @@ DEFUN (show_bgp_evpn_vni,
   if (!bgp)
     return CMD_WARNING;
 
-  vty_out (vty, "Advertise All VNI flag: %s%s",
-           bgp->advertise_all_vni? "Enabled" : "Disabled", VTY_NEWLINE);
+  vty_out (vty, "Advertise All VNI flag: %s\n",
+           bgp->advertise_all_vni? "Enabled" : "Disabled");
 
   evpn_show_all_vnis (vty, bgp);
   return CMD_SUCCESS;
@@ -1861,7 +1854,7 @@ DEFUN (show_bgp_evpn_vni_num,
   if (!bgp)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER_RANGE ("VNI", vni, argv[4]->arg, 1, VNI_MAX);
+  vni = strtoul(argv[4]->arg, NULL, 10);
 
   evpn_show_vni (vty, bgp, vni);
   return CMD_SUCCESS;
@@ -1939,7 +1932,7 @@ DEFUN (show_bgp_evpn_route_rd,
   ret = str2prefix_rd (argv[5]->arg, &prd);
   if (! ret)
     {
-      vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
+      vty_out (vty, "%% Malformed Route Distinguisher\n");
       return CMD_WARNING;
     }
 
@@ -1984,12 +1977,12 @@ DEFUN (show_bgp_evpn_route_rd_macip,
   ret = str2prefix_rd (argv[5]->arg, &prd);
   if (! ret)
     {
-      vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
+      vty_out (vty, "%% Malformed Route Distinguisher\n");
       return CMD_WARNING;
     }
   if (!prefix_str2mac (argv[7]->arg, &mac))
     {
-      vty_out (vty, "%% Malformed MAC address%s", VTY_NEWLINE);
+      vty_out (vty, "%% Malformed MAC address\n");
       return CMD_WARNING;
     }
   memset (&ip, 0, sizeof (ip));
@@ -1997,7 +1990,7 @@ DEFUN (show_bgp_evpn_route_rd_macip,
     {
       if (str2ipaddr (argv[9]->arg, &ip) != 0)
         {
-          vty_out (vty, "%% Malformed IP address%s", VTY_NEWLINE);
+          vty_out (vty, "%% Malformed IP address\n");
           return CMD_WARNING;
         }
     }
@@ -2032,7 +2025,7 @@ DEFUN (show_bgp_evpn_route_vni,
 
   vtep_ip.s_addr  = 0;
 
-  VTY_GET_INTEGER_RANGE ("VNI", vni, argv[5]->arg, 1, VNI_MAX);
+  vni = strtoul(argv[5]->arg, NULL, 10);
 
   if (argc == 8 && argv[6]->arg)
     {
@@ -2049,7 +2042,7 @@ DEFUN (show_bgp_evpn_route_vni,
         {
           if (!inet_aton (argv[7]->arg, &vtep_ip))
             {
-              vty_out (vty, "%% Malformed VTEP IP address%s", VTY_NEWLINE);
+              vty_out (vty, "%% Malformed VTEP IP address\n");
               return CMD_WARNING;
             }
         }
@@ -2084,10 +2077,10 @@ DEFUN (show_bgp_evpn_route_vni_macip,
   if (!bgp)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER_RANGE ("VNI", vni, argv[5]->arg, 1, VNI_MAX);
+  vni = strtoul(argv[5]->arg, NULL, 10);
   if (!prefix_str2mac (argv[7]->arg, &mac))
     {
-      vty_out (vty, "%% Malformed MAC address%s", VTY_NEWLINE);
+      vty_out (vty, "%% Malformed MAC address\n");
       return CMD_WARNING;
     }
   memset (&ip, 0, sizeof (ip));
@@ -2095,7 +2088,7 @@ DEFUN (show_bgp_evpn_route_vni_macip,
     {
       if (str2ipaddr (argv[9]->arg, &ip) != 0)
         {
-          vty_out (vty, "%% Malformed IP address%s", VTY_NEWLINE);
+          vty_out (vty, "%% Malformed IP address\n");
           return CMD_WARNING;
         }
     }
@@ -2125,11 +2118,11 @@ DEFUN (show_bgp_evpn_route_vni_multicast,
   if (!bgp)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER_RANGE ("VNI", vni, argv[5]->arg, 1, VNI_MAX);
+  vni = strtoul(argv[5]->arg, NULL, 10);
   ret = inet_aton (argv[7]->arg, &orig_ip);
   if (!ret)
     {
-      vty_out (vty, "%% Malformed Originating Router IP address%s", VTY_NEWLINE);
+      vty_out (vty, "%% Malformed Originating Router IP address\n");
       return CMD_WARNING;
     }
 
@@ -2161,7 +2154,7 @@ DEFUN (show_bgp_evpn_route_vni_all,
     {
       if (!inet_aton (argv[7]->arg, &vtep_ip))
         {
-          vty_out (vty, "%% Malformed VTEP IP address%s", VTY_NEWLINE);
+          vty_out (vty, "%% Malformed VTEP IP address\n");
           return CMD_WARNING;
         }
     }
@@ -2201,13 +2194,13 @@ DEFUN_NOSH (bgp_evpn_vni,
   if (!bgp)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER_RANGE ("VNI", vni, argv[1]->arg, 1, VNI_MAX);
+  vni = strtoul(argv[1]->arg, NULL, 10);
 
   /* Create VNI, or mark as configured. */
   vpn = evpn_create_update_vni (bgp, vni);
   if (!vpn)
     {
-      vty_out (vty, "%% Failed to create VNI %s", VTY_NEWLINE);
+      vty_out (vty, "%% Failed to create VNI \n");
       return CMD_WARNING;
     }
 
@@ -2229,18 +2222,18 @@ DEFUN (no_bgp_evpn_vni,
   if (!bgp)
     return CMD_WARNING;
 
-  VTY_GET_INTEGER_RANGE ("VNI", vni, argv[2]->arg, 1, VNI_MAX);
+  vni = strtoul(argv[2]->arg, NULL, 10);
 
   /* Check if we should disallow. */
   vpn = bgp_evpn_lookup_vni (bgp, vni);
   if (!vpn)
     {
-      vty_out (vty, "%% Specified VNI does not exist%s", VTY_NEWLINE);
+      vty_out (vty, "%% Specified VNI does not exist\n");
       return CMD_WARNING;
     }
   if (!is_vni_configured (vpn))
     {
-      vty_out (vty, "%% Specified VNI is not configured%s", VTY_NEWLINE);
+      vty_out (vty, "%% Specified VNI is not configured\n");
       return CMD_WARNING;
     }
 
@@ -2275,7 +2268,7 @@ DEFUN (bgp_evpn_vni_rd,
   ret = str2prefix_rd (argv[1]->arg, &prd);
   if (! ret)
     {
-      vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
+      vty_out (vty, "%% Malformed Route Distinguisher\n");
       return CMD_WARNING;
     }
 
@@ -2306,20 +2299,20 @@ DEFUN (no_bgp_evpn_vni_rd,
   ret = str2prefix_rd (argv[2]->arg, &prd);
   if (! ret)
     {
-      vty_out (vty, "%% Malformed Route Distinguisher%s", VTY_NEWLINE);
+      vty_out (vty, "%% Malformed Route Distinguisher\n");
       return CMD_WARNING;
     }
 
   /* Check if we should disallow. */
   if (!is_rd_configured (vpn))
     {
-      vty_out (vty, "%% RD is not configured for this VNI%s", VTY_NEWLINE);
+      vty_out (vty, "%% RD is not configured for this VNI\n");
       return CMD_WARNING;
     }
 
   if (!bgp_evpn_rd_matches_existing(vpn, &prd))
     {
-      vty_out (vty, "%% RD specified does not match configuration for this VNI%s", VTY_NEWLINE);
+      vty_out (vty, "%% RD specified does not match configuration for this VNI\n");
       return CMD_WARNING;
     }
 
@@ -2342,7 +2335,7 @@ DEFUN (no_bgp_evpn_vni_rd_without_val,
   /* Check if we should disallow. */
   if (!is_rd_configured (vpn))
     {
-      vty_out (vty, "%% RD is not configured for this VNI%s", VTY_NEWLINE);
+      vty_out (vty, "%% RD is not configured for this VNI\n");
       return CMD_WARNING;
     }
 
@@ -2396,7 +2389,7 @@ DEFUN (bgp_evpn_vni_rt,
     rt_type = RT_TYPE_BOTH;
   else
     {
-      vty_out (vty, "%% Invalid Route Target type%s", VTY_NEWLINE);
+      vty_out (vty, "%% Invalid Route Target type\n");
       return CMD_WARNING;
     }
 
@@ -2408,7 +2401,7 @@ DEFUN (bgp_evpn_vni_rt,
       ecommunity_str(ecomadd);
       if (!ecomadd)
         {
-          vty_out (vty, "%% Malformed Route Target list%s", VTY_NEWLINE);
+          vty_out (vty, "%% Malformed Route Target list\n");
           return CMD_WARNING;
         }
 
@@ -2425,7 +2418,7 @@ DEFUN (bgp_evpn_vni_rt,
       ecommunity_str(ecomadd);
       if (!ecomadd)
         {
-          vty_out (vty, "%% Malformed Route Target list%s", VTY_NEWLINE);
+          vty_out (vty, "%% Malformed Route Target list\n");
           return CMD_WARNING;
         }
 
@@ -2463,7 +2456,7 @@ DEFUN (no_bgp_evpn_vni_rt,
     rt_type = RT_TYPE_BOTH;
   else
     {
-      vty_out (vty, "%% Invalid Route Target type%s", VTY_NEWLINE);
+      vty_out (vty, "%% Invalid Route Target type\n");
       return CMD_WARNING;
     }
 
@@ -2473,7 +2466,7 @@ DEFUN (no_bgp_evpn_vni_rt,
     {
       if (!is_import_rt_configured (vpn))
         {
-          vty_out (vty, "%% Import RT is not configured for this VNI%s", VTY_NEWLINE);
+          vty_out (vty, "%% Import RT is not configured for this VNI\n");
           return CMD_WARNING;
         }
     }
@@ -2481,7 +2474,7 @@ DEFUN (no_bgp_evpn_vni_rt,
     {
       if (!is_export_rt_configured (vpn))
         {
-          vty_out (vty, "%% Export RT is not configured for this VNI%s", VTY_NEWLINE);
+          vty_out (vty, "%% Export RT is not configured for this VNI\n");
           return CMD_WARNING;
         }
     }
@@ -2489,7 +2482,7 @@ DEFUN (no_bgp_evpn_vni_rt,
     {
       if (!is_import_rt_configured (vpn) && !is_export_rt_configured (vpn))
         {
-          vty_out (vty, "%% Import/Export RT is not configured for this VNI%s", VTY_NEWLINE);
+          vty_out (vty, "%% Import/Export RT is not configured for this VNI\n");
           return CMD_WARNING;
         }
     }
@@ -2498,7 +2491,7 @@ DEFUN (no_bgp_evpn_vni_rt,
   ecommunity_str(ecomdel);
   if (!ecomdel)
     {
-      vty_out (vty, "%% Malformed Route Target list%s", VTY_NEWLINE);
+      vty_out (vty, "%% Malformed Route Target list\n");
       return CMD_WARNING;
     }
 
@@ -2506,7 +2499,7 @@ DEFUN (no_bgp_evpn_vni_rt,
     {
       if (!bgp_evpn_rt_matches_existing (vpn->import_rtl, ecomdel))
         {
-          vty_out (vty, "%% RT specified does not match configuration for this VNI%s", VTY_NEWLINE);
+          vty_out (vty, "%% RT specified does not match configuration for this VNI\n");
           return CMD_WARNING;
         }
       evpn_unconfigure_import_rt (bgp, vpn, ecomdel);
@@ -2515,7 +2508,7 @@ DEFUN (no_bgp_evpn_vni_rt,
     {
       if (!bgp_evpn_rt_matches_existing (vpn->export_rtl, ecomdel))
         {
-          vty_out (vty, "%% RT specified does not match configuration for this VNI%s", VTY_NEWLINE);
+          vty_out (vty, "%% RT specified does not match configuration for this VNI\n");
           return CMD_WARNING;
         }
       evpn_unconfigure_export_rt (bgp, vpn, ecomdel);
@@ -2538,7 +2531,7 @@ DEFUN (no_bgp_evpn_vni_rt,
 
       if (! found_ecomdel)
         {
-          vty_out (vty, "%% RT specified does not match configuration for this VNI%s", VTY_NEWLINE);
+          vty_out (vty, "%% RT specified does not match configuration for this VNI\n");
           return CMD_WARNING;
         }
     }
@@ -2571,7 +2564,7 @@ DEFUN (no_bgp_evpn_vni_rt_without_val,
     }
   else
     {
-      vty_out (vty, "%% Invalid Route Target type%s", VTY_NEWLINE);
+      vty_out (vty, "%% Invalid Route Target type\n");
       return CMD_WARNING;
     }
 
@@ -2580,7 +2573,7 @@ DEFUN (no_bgp_evpn_vni_rt_without_val,
     {
       if (!is_import_rt_configured (vpn))
         {
-          vty_out (vty, "%% Import RT is not configured for this VNI%s", VTY_NEWLINE);
+          vty_out (vty, "%% Import RT is not configured for this VNI\n");
           return CMD_WARNING;
         }
     }
@@ -2588,7 +2581,7 @@ DEFUN (no_bgp_evpn_vni_rt_without_val,
     {
       if (!is_export_rt_configured (vpn))
         {
-          vty_out (vty, "%% Export RT is not configured for this VNI%s", VTY_NEWLINE);
+          vty_out (vty, "%% Export RT is not configured for this VNI\n");
           return CMD_WARNING;
         }
     }
@@ -2623,7 +2616,7 @@ bgp_config_write_evpn_info (struct vty *vty, struct bgp *bgp, afi_t afi,
   if (bgp->advertise_all_vni)
     {
       bgp_config_write_family_header (vty, afi, safi, write);
-      vty_out (vty, "  advertise-all-vni%s", VTY_NEWLINE);
+      vty_out (vty, "  advertise-all-vni\n");
     }
 }
 

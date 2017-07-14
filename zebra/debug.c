@@ -439,7 +439,7 @@ config_write_debug (struct vty *vty)
     }
   if (IS_ZEBRA_DEBUG_VXLAN)
     {
-      vty_out (vty, "debug zebra vxlan%s", VTY_NEWLINE);
+      vty_out (vty, "debug zebra vxlan\n");
       write++;
     }
   return write;

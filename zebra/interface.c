@@ -1209,23 +1209,23 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 	connected_dump_vty (vty, connected);
     }
 
-  vty_out(vty, "  Interface Type %s%s",
-          zebra_ziftype_2str (zebra_if->zif_type), VTY_NEWLINE);
+  vty_out(vty, "  Interface Type %s\n",
+          zebra_ziftype_2str (zebra_if->zif_type));
   if (IS_ZEBRA_IF_BRIDGE (ifp))
     {
       struct zebra_l2info_bridge *bridge_info;
 
       bridge_info = &zebra_if->l2info.br;
-      vty_out(vty, "  Bridge VLAN-aware: %s%s",
-              bridge_info->vlan_aware ? "yes" : "no", VTY_NEWLINE);
+      vty_out(vty, "  Bridge VLAN-aware: %s\n",
+              bridge_info->vlan_aware ? "yes" : "no");
     }
   else if (IS_ZEBRA_IF_VLAN(ifp))
     {
       struct zebra_l2info_vlan *vlan_info;
 
       vlan_info = &zebra_if->l2info.vl;
-      vty_out(vty, "  VLAN Id %u%s",
-              vlan_info->vid, VTY_NEWLINE);
+      vty_out(vty, "  VLAN Id %u\n",
+              vlan_info->vid);
     }
   else if (IS_ZEBRA_IF_VXLAN (ifp))
     {
@@ -1237,7 +1237,7 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
         vty_out(vty, " VTEP IP: %s", inet_ntoa (vxlan_info->vtep_ip));
       if (vxlan_info->access_vlan)
         vty_out(vty, " Access VLAN Id %u", vxlan_info->access_vlan);
-      vty_out(vty, "%s", VTY_NEWLINE);
+      vty_out(vty, "\n");
     }
 
   if (IS_ZEBRA_IF_BRIDGE_SLAVE (ifp))
@@ -1246,13 +1246,13 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 
       br_slave = &zebra_if->brslave_info;
       if (br_slave->bridge_ifindex != IFINDEX_INTERNAL)
-        vty_out(vty, "  Master (bridge) ifindex %u%s",
-                br_slave->bridge_ifindex, VTY_NEWLINE);
+        vty_out(vty, "  Master (bridge) ifindex %u\n",
+                br_slave->bridge_ifindex);
     }
 
   if (zebra_if->link_ifindex != IFINDEX_INTERNAL)
-    vty_out(vty, "  Link ifindex %u%s",
-            zebra_if->link_ifindex, VTY_NEWLINE);
+    vty_out(vty, "  Link ifindex %u\n",
+            zebra_if->link_ifindex);
 
   if (HAS_LINK_PARAMS(ifp))
     {
