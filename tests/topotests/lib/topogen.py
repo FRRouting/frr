@@ -693,6 +693,50 @@ class TopoRouter(TopoGear):
         self.logger.info('running memory leak report')
         self.tgen.net[self.name].report_memory_leaks(memleak_file, testname)
 
+    def version_info(self):
+        "Get equipment information from 'show version'."
+        output = self.vtysh_cmd('show version').split('\n')[0]
+        columns = topotest.normalize_text(output).split(' ')
+        return {
+            'type': columns[0],
+            'version': columns[1],
+        }
+
+    def has_version(self, cmpop, version):
+        """
+        Compares router version using operation `cmpop` with `version`.
+        Valid `cmpop` values:
+        * `>=`: has the same version or greater
+        * '>': has greater version
+        * '=': has the same version
+        * '<': has a lesser version
+        * '<=': has the same version or lesser
+
+        Usage example: router.has_version('>', '1.0')
+        """
+        rversion = self.version_info()['version']
+        result = topotest.version_cmp(rversion, version)
+        if cmpop == '>=':
+            return result >= 0
+        if cmpop == '>':
+            return result > 0
+        if cmpop == '=':
+            return result == 0
+        if cmpop == '<':
+            return result < 0
+        if cmpop == '<':
+            return result < 0
+        if cmpop == '<=':
+            return result <= 0
+
+    def has_type(self, rtype):
+        """
+        Compares router type with `rtype`. Returns `True` if the type matches,
+        otherwise `false`.
+        """
+        curtype = self.version_info()['type']
+        return rtype == curtype
+
 class TopoSwitch(TopoGear):
     """
     Switch abstraction. Has the following properties:
