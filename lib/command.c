@@ -718,13 +718,12 @@ cmd_variable_complete (struct cmd_token *token, const char *arg, vector comps)
 #define AUTOCOMP_INDENT 5
 
 char *
-cmd_variable_comp2str(vector comps, unsigned short cols, const char nl[])
+cmd_variable_comp2str(vector comps, unsigned short cols)
 {
   size_t bsz = 16;
   char *buf = XCALLOC(MTYPE_TMP, bsz);
   int lc = AUTOCOMP_INDENT;
   size_t cs = AUTOCOMP_INDENT;
-  size_t nllen = strlen(nl);
   size_t itemlen;
   snprintf(buf, bsz, "%*s", AUTOCOMP_INDENT, "");
   for (size_t j = 0; j < vector_active (comps); j++)
@@ -732,12 +731,12 @@ cmd_variable_comp2str(vector comps, unsigned short cols, const char nl[])
       char *item = vector_slot (comps, j);
       itemlen = strlen(item);
 
-      if (cs + itemlen + nllen + AUTOCOMP_INDENT + 2 >= bsz)
+      if (cs + itemlen + AUTOCOMP_INDENT + 3 >= bsz)
         buf = XREALLOC(MTYPE_TMP, buf, (bsz *= 2));
 
       if (lc + itemlen + 1 >= cols)
         {
-          cs += snprintf(&buf[cs], bsz - cs, "%s%*s", nl, AUTOCOMP_INDENT, "");
+          cs += snprintf(&buf[cs], bsz - cs, "\n%*s", AUTOCOMP_INDENT, "");
           lc = AUTOCOMP_INDENT;
         }
 

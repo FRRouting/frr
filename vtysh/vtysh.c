@@ -816,7 +816,7 @@ vtysh_rl_describe (void)
                 int rows, cols;
                 rl_get_screen_size(&rows, &cols);
 
-                char *ac = cmd_variable_comp2str(varcomps, cols, "\n");
+                char *ac = cmd_variable_comp2str(varcomps, cols);
                 fprintf(stdout, "%s\n", ac);
                 XFREE(MTYPE_TMP, ac);
               }

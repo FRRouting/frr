@@ -1118,7 +1118,7 @@ vty_describe_command (struct vty *vty)
 
             if (vector_active (varcomps) > 0)
               {
-                char *ac = cmd_variable_comp2str(varcomps, vty->width, "\n");
+                char *ac = cmd_variable_comp2str(varcomps, vty->width);
                 vty_out(vty, "%s\n", ac);
                 XFREE(MTYPE_TMP, ac);
               }
