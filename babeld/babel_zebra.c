@@ -227,6 +227,7 @@ DEFUN (babel_redistribute_type,
     }
 
     zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, type, 0, VRF_DEFAULT);
+    zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0, VRF_DEFAULT);
     return CMD_SUCCESS;
 }
 
@@ -248,6 +249,7 @@ DEFUN (no_babel_redistribute_type,
     }
 
     zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP, type, 0, VRF_DEFAULT);
+    zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP6, type, 0, VRF_DEFAULT);
     /* perhaps should we remove xroutes having the same type... */
     return CMD_SUCCESS;
 }
