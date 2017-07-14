@@ -414,6 +414,29 @@ bgp_info_cmp (struct bgp *bgp, struct bgp_info *new, struct bgp_info *exist,
   newattre = newattr->extra;
   existattre = existattr->extra;
 
+  if (exist->sub_type == BGP_ROUTE_NORMAL
+      && new->sub_type != BGP_ROUTE_NORMAL
+      && newattr->distance != 0) {
+    struct prefix *exist_prefix = &(exist->net->p);
+    u_char bgp_distance = bgp_distance_apply(exist_prefix, exist,
+          exist_prefix->family, SAFI_UNICAST, bgp);
+    if (newattr->distance < bgp_distance) {
+      return -1;
+    } else if (bgp_distance < newattr->distance) {
+      return 1;
+    }
+  } else if (new->sub_type == BGP_ROUTE_NORMAL
+             && exist->sub_type != BGP_ROUTE_NORMAL
+             && existattr->distance != 0) {
+    struct prefix *new_prefix = &(new->net->p);
+    u_char bgp_distance = bgp_distance_apply(new_prefix, new,
+          new_prefix->family, SAFI_UNICAST, bgp);
+    if (existattr->distance < bgp_distance) {
+      return 1;
+    } else if (bgp_distance < existattr->distance) {
+      return -1;
+    }
+  }
   /* 1. Weight check. */
   new_weight = exist_weight = 0;
 
@@ -5969,7 +5992,8 @@ DEFUN (no_ipv6_aggregate_address,
 void
 bgp_redistribute_add (struct bgp *bgp, struct prefix *p, const struct in_addr *nexthop,
 		      const struct in6_addr *nexthop6, unsigned int ifindex,
-		      u_int32_t metric, u_char type, u_short instance, route_tag_t tag)
+		      u_int32_t metric, u_char type, u_short instance, route_tag_t tag,
+                      u_char distance)
 {
   struct bgp_info *new;
   struct bgp_info *bi;
@@ -5997,6 +6021,7 @@ bgp_redistribute_add (struct bgp *bgp, struct prefix *p, const struct in_addr *n
   attr.med = metric;
   attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_MULTI_EXIT_DISC);
   attr.extra->tag = tag;
+  attr.distance = distance;
 
   afi = family2afi (p->family);
 
@@ -6042,6 +6067,7 @@ bgp_redistribute_add (struct bgp *bgp, struct prefix *p, const struct in_addr *n
                              afi, SAFI_UNICAST, p, NULL);
 
       new_attr = bgp_attr_intern (&attr_new);
+      new_attr->distance = distance;
 
       for (bi = bn->info; bi; bi = bi->next)
         if (bi->peer == bgp->peer_self
@@ -10262,6 +10288,22 @@ bgp_distance_apply (struct prefix *p, struct bgp_info *rinfo, afi_t afi,
     }
 }
 
+static void
+announce_routes_distance_update (struct bgp *bgp)
+{
+  afi_t afi;
+  safi_t safi;
+
+  /* Reannounce all routes to appropriate neighbors */
+  for (afi = AFI_IP; afi < AFI_MAX; afi++)
+      for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
+        {
+            zlog_debug("%s: Announcing routes again"
+                       "(afi=%d, safi=%d)", __func__, afi, safi);
+            bgp_zebra_announce_table(bgp, afi, safi);
+        }
+}
+
 DEFUN (bgp_distance,
        bgp_distance_cmd,
        "distance bgp (1-255) (1-255) (1-255)",
@@ -10284,6 +10326,7 @@ DEFUN (bgp_distance,
   bgp->distance_ebgp[afi][safi] = atoi (argv[idx_number]->arg);
   bgp->distance_ibgp[afi][safi] = atoi (argv[idx_number_2]->arg);
   bgp->distance_local[afi][safi] = atoi (argv[idx_number_3]->arg);
+  announce_routes_distance_update(bgp);
   return CMD_SUCCESS;
 }
 
@@ -10307,6 +10350,7 @@ DEFUN (no_bgp_distance,
   bgp->distance_ebgp[afi][safi] = 0;
   bgp->distance_ibgp[afi][safi] = 0;
   bgp->distance_local[afi][safi] = 0;
+  announce_routes_distance_update(bgp);
   return CMD_SUCCESS;
 }
 

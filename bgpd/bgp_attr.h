@@ -182,7 +182,9 @@ struct attr
   u_int32_t med;
   u_int32_t local_pref;
   ifindex_t nh_ifindex;
-  
+
+  u_char distance;
+
   /* Path origin attribute */
   u_char origin;
 

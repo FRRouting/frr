@@ -731,6 +731,7 @@ attrhash_cmp (const void *p1, const void *p2)
       && attr1->aspath == attr2->aspath
       && attr1->community == attr2->community
       && attr1->med == attr2->med
+      && attr1->distance == attr2->distance
       && attr1->local_pref == attr2->local_pref
       && attr1->rmap_change_flags == attr2->rmap_change_flags)
     {
