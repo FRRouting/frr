@@ -403,6 +403,7 @@ command_complete (struct graph *graph,
                 trace_matcher ("trivial_match\n");
                 if (exact_match_exists && !last_token)
                   break;
+                /* fallthru */
               case exact_match:
                 trace_matcher ("exact_match\n");
                 if (last_token)

@@ -331,14 +331,14 @@ work_queue_run (struct thread *thread)
 	{
 	  item->ran--;
 	  work_queue_item_requeue (wq, node);
-      /* If a single node is being used with a meta-queue (e.g., zebra),
-       * update the next node as we don't want to exit the thread and
-       * reschedule it after every node. By definition, WQ_REQUEUE is
-       * meant to continue the processing; the yield logic will kick in
-       * to terminate the thread when time has exceeded.
-       */
-      if (nnode == NULL)
-        nnode = node;
+          /* If a single node is being used with a meta-queue (e.g., zebra),
+           * update the next node as we don't want to exit the thread and
+           * reschedule it after every node. By definition, WQ_REQUEUE is
+           * meant to continue the processing; the yield logic will kick in
+           * to terminate the thread when time has exceeded.
+           */
+          if (nnode == NULL)
+            nnode = node;
 	  break;
 	}
       case WQ_RETRY_NOW:
@@ -348,7 +348,7 @@ work_queue_run (struct thread *thread)
 	  if (wq->spec.errorfunc)
 	    wq->spec.errorfunc (wq, item);
 	}
-	/* fall through here is deliberate */
+	/* fallthru */
       case WQ_SUCCESS:
       default:
 	{
