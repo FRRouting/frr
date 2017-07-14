@@ -19,12 +19,15 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#define FRR_COMPILING_TABLE_C
+
 #include <zebra.h>
 
 #include "prefix.h"
 #include "table.h"
 #include "memory.h"
 #include "sockunion.h"
+#include "jhash.h"
 
 DEFINE_MTYPE(       LIB, ROUTE_TABLE, "Route table")
 DEFINE_MTYPE(       LIB, ROUTE_NODE,  "Route node")
@@ -32,6 +35,22 @@ DEFINE_MTYPE(       LIB, ROUTE_NODE,  "Route node")
 static void route_node_delete (struct route_node *);
 static void route_table_free (struct route_table *);
 
+static unsigned route_table_hash_key(void *pp)
+{
+  struct prefix copy;
+
+  /* make sure *all* unused bits are zero, particularly including alignment /
+   * padding and unused prefix bytes. */
+  memset (&copy, 0, sizeof(copy));
+  prefix_copy (&copy, (struct prefix *)pp);
+  return jhash (&copy, sizeof(copy), 0x55aa5a5a);
+}
+
+static int route_table_hash_cmp(const void *a, const void *b)
+{
+  const struct prefix *pa = a, *pb = b;
+  return prefix_cmp(pa, pb) == 0;
+}
 
 /*
  * route_table_init_with_delegate
@@ -43,6 +62,9 @@ route_table_init_with_delegate (route_table_delegate_t *delegate)
 
   rt = XCALLOC (MTYPE_ROUTE_TABLE, sizeof (struct route_table));
   rt->delegate = delegate;
+  rt->hash = hash_create(route_table_hash_key,
+                         route_table_hash_cmp,
+                         "route table hash");
   return rt;
 }
 
@@ -63,12 +85,15 @@ route_node_new (struct route_table *table)
 static struct route_node *
 route_node_set (struct route_table *table, const struct prefix *prefix)
 {
-  struct route_node *node;
+  struct route_node *node, *inserted;
   
   node = route_node_new (table);
 
   prefix_copy (&node->p, prefix);
   node->table = table;
+
+  inserted = hash_get (node->table->hash, node, hash_alloc_intern);
+  assert (inserted == node);
 
   return node;
 }
@@ -91,6 +116,9 @@ route_table_free (struct route_table *rt)
  
   if (rt == NULL)
     return;
+
+  hash_clean (rt->hash, NULL);
+  hash_free (rt->hash);
 
   node = rt->top;
 
@@ -208,8 +236,9 @@ route_unlock_node (struct route_node *node)
 
 /* Find matched prefix. */
 struct route_node *
-route_node_match (const struct route_table *table, const struct prefix *p)
+route_node_match (const struct route_table *table, union prefixconstptr pu)
 {
+  const struct prefix *p = pu.p;
   struct route_node *node;
   struct route_node *matched;
 
@@ -267,57 +296,41 @@ route_node_match_ipv6 (const struct route_table *table,
 
 /* Lookup same prefix node.  Return NULL when we can't find route. */
 struct route_node *
-route_node_lookup (const struct route_table *table, const struct prefix *p)
+route_node_lookup (const struct route_table *table, union prefixconstptr pu)
 {
+  const struct prefix *p = pu.p;
   struct route_node *node;
-  u_char prefixlen = p->prefixlen;
-  const u_char *prefix = &p->u.prefix;
 
-  node = table->top;
-
-  while (node && node->p.prefixlen <= prefixlen &&
-	 prefix_match (&node->p, p))
-    {
-      if (node->p.prefixlen == prefixlen)
-        return node->info ? route_lock_node (node) : NULL;
-
-      node = node->link[prefix_bit(prefix, node->p.prefixlen)];
-    }
-
-  return NULL;
+  node = hash_get (table->hash, (void *)p, NULL);
+  return (node && node->info) ? route_lock_node (node) : NULL;
 }
 
 /* Lookup same prefix node.  Return NULL when we can't find route. */
 struct route_node *
-route_node_lookup_maynull (const struct route_table *table, const struct prefix *p)
+route_node_lookup_maynull (const struct route_table *table, union prefixconstptr pu)
 {
+  const struct prefix *p = pu.p;
   struct route_node *node;
-  u_char prefixlen = p->prefixlen;
-  const u_char *prefix = &p->u.prefix;
 
-  node = table->top;
-
-  while (node && node->p.prefixlen <= prefixlen &&
-	 prefix_match (&node->p, p))
-    {
-      if (node->p.prefixlen == prefixlen)
-        return route_lock_node (node);
-
-      node = node->link[prefix_bit(prefix, node->p.prefixlen)];
-    }
-
-  return NULL;
+  node = hash_get (table->hash, (void *)p, NULL);
+  return node ? route_lock_node (node) : NULL;
 }
 
 /* Add node to routing table. */
 struct route_node *
-route_node_get (struct route_table *const table, const struct prefix *p)
+route_node_get (struct route_table *const table, union prefixconstptr pu)
 {
+  const struct prefix *p = pu.p;
   struct route_node *new;
   struct route_node *node;
   struct route_node *match;
+  struct route_node *inserted;
   u_char prefixlen = p->prefixlen;
   const u_char *prefix = &p->u.prefix;
+
+  node = hash_get (table->hash, (void *)p, NULL);
+  if (node && node->info)
+    return route_lock_node (node);
 
   match = NULL;
   node = table->top;
@@ -346,6 +359,8 @@ route_node_get (struct route_table *const table, const struct prefix *p)
       new->p.family = p->family;
       new->table = table;
       set_link (new, node);
+      inserted = hash_get (node->table->hash, new, hash_alloc_intern);
+      assert (inserted == new);
 
       if (match)
 	set_link (match, new);
@@ -400,6 +415,8 @@ route_node_delete (struct route_node *node)
     node->table->top = child;
 
   node->table->count--;
+
+  hash_release (node->table->hash, node);
 
   /* WARNING: FRAGILE CODE!
    * route_node_free may have the side effect of free'ing the entire table.
@@ -473,7 +490,7 @@ route_next (struct route_node *node)
 
 /* Unlock current node and lock next node until limit. */
 struct route_node *
-route_next_until (struct route_node *node, struct route_node *limit)
+route_next_until (struct route_node *node, const struct route_node *limit)
 {
   struct route_node *next;
   struct route_node *start;
@@ -578,7 +595,7 @@ route_table_init (void)
  *         +1 if p1 occurs after p2 (p1 > p2)
  */
 int
-route_table_prefix_iter_cmp (struct prefix *p1, struct prefix *p2)
+route_table_prefix_iter_cmp (const struct prefix *p1, const struct prefix *p2)
 {
   struct prefix common_space;
   struct prefix *common = &common_space;
@@ -661,7 +678,7 @@ route_get_subtree_next (struct route_node *node)
  */
 static struct route_node *
 route_table_get_next_internal (const struct route_table *table,
-			       struct prefix *p)
+			       const struct prefix *p)
 {
   struct route_node *node, *tmp_node;
   int cmp;
@@ -762,8 +779,9 @@ route_table_get_next_internal (const struct route_table *table,
  * iteration.
  */
 struct route_node *
-route_table_get_next (const struct route_table *table, struct prefix *p)
+route_table_get_next (const struct route_table *table, union prefixconstptr pu)
 {
+  const struct prefix *p = pu.p;
   struct route_node *node;
 
   node = route_table_get_next_internal (table, p);

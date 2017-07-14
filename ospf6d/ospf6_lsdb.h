@@ -48,20 +48,32 @@ extern struct ospf6_lsa *ospf6_lsdb_lookup_next (u_int16_t type, u_int32_t id,
 extern void ospf6_lsdb_add (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb);
 extern void ospf6_lsdb_remove (struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb);
 
-extern struct ospf6_lsa *ospf6_lsdb_head (struct ospf6_lsdb *lsdb);
-extern struct ospf6_lsa *ospf6_lsdb_next (struct ospf6_lsa *lsa);
+extern const struct route_node *ospf6_lsdb_head (
+                                          struct ospf6_lsdb *lsdb,
+                                          int argmode,
+                                          uint16_t type,
+                                          uint32_t adv_router,
+                                          struct ospf6_lsa **lsa);
+extern struct ospf6_lsa *ospf6_lsdb_next (const struct route_node *iterend,
+                                          struct ospf6_lsa *lsa);
 
-extern struct ospf6_lsa *ospf6_lsdb_type_router_head (u_int16_t type,
-                                               u_int32_t adv_router,
-                                               struct ospf6_lsdb *lsdb);
-extern struct ospf6_lsa *ospf6_lsdb_type_router_next (u_int16_t type,
-                                               u_int32_t adv_router,
-                                               struct ospf6_lsa *lsa);
+#define ALL_LSDB_TYPED_ADVRTR(lsdb, type, adv_router, lsa) \
+	const struct route_node *iterend = \
+	  ospf6_lsdb_head(lsdb, 2, type, adv_router, &lsa); \
+	lsa; \
+	lsa = ospf6_lsdb_next(iterend, lsa)
 
-extern struct ospf6_lsa *ospf6_lsdb_type_head (u_int16_t type,
-                                               struct ospf6_lsdb *lsdb);
-extern struct ospf6_lsa *ospf6_lsdb_type_next (u_int16_t type,
-                                               struct ospf6_lsa *lsa);
+#define ALL_LSDB_TYPED(lsdb, type, lsa) \
+	const struct route_node *iterend = \
+	  ospf6_lsdb_head(lsdb, 1, type, 0, &lsa); \
+	lsa; \
+	lsa = ospf6_lsdb_next(iterend, lsa)
+
+#define ALL_LSDB(lsdb, lsa) \
+	const struct route_node *iterend = \
+	  ospf6_lsdb_head(lsdb, 0, 0, 0, &lsa); \
+	lsa; \
+	lsa = ospf6_lsdb_next(iterend, lsa)
 
 extern void ospf6_lsdb_remove_all (struct ospf6_lsdb *lsdb);
 extern void ospf6_lsdb_lsa_unlock (struct ospf6_lsa *lsa);

@@ -343,8 +343,7 @@ ospf6_asbr_lsentry_add (struct ospf6_route *asbr_entry)
 
   type = htons (OSPF6_LSTYPE_AS_EXTERNAL);
   router = ospf6_linkstate_prefix_adv_router (&asbr_entry->prefix);
-  for (lsa = ospf6_lsdb_type_router_head (type, router, ospf6->lsdb); lsa;
-       lsa = ospf6_lsdb_type_router_next (type, router, lsa))
+  for (ALL_LSDB_TYPED_ADVRTR(ospf6->lsdb, type, router, lsa))
     {
       if (! OSPF6_LSA_IS_MAXAGE (lsa))
         ospf6_asbr_lsa_add (lsa);
@@ -360,8 +359,7 @@ ospf6_asbr_lsentry_remove (struct ospf6_route *asbr_entry)
 
   type = htons (OSPF6_LSTYPE_AS_EXTERNAL);
   router = ospf6_linkstate_prefix_adv_router (&asbr_entry->prefix);
-  for (lsa = ospf6_lsdb_type_router_head (type, router, ospf6->lsdb);
-       lsa; lsa = ospf6_lsdb_type_router_next (type, router, lsa))
+  for (ALL_LSDB_TYPED_ADVRTR(ospf6->lsdb, type, router, lsa))
     ospf6_asbr_lsa_remove (lsa);
 }
 
@@ -444,8 +442,7 @@ ospf6_asbr_send_externals_to_area (struct ospf6_area *oa)
 {
   struct ospf6_lsa *lsa;
 
-  for (lsa = ospf6_lsdb_head (oa->ospf6->lsdb); lsa;
-       lsa = ospf6_lsdb_next (lsa))
+  for (ALL_LSDB(oa->ospf6->lsdb, lsa))
     {
       if (ntohs (lsa->header->type) == OSPF6_LSTYPE_AS_EXTERNAL)
 	{

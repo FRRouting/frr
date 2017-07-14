@@ -989,13 +989,11 @@ ospf6_abr_examin_brouter (u_int32_t router_id)
     return;
 
   type = htons (OSPF6_LSTYPE_INTER_ROUTER);
-  for (lsa = ospf6_lsdb_type_router_head (type, router_id, oa->lsdb); lsa;
-       lsa = ospf6_lsdb_type_router_next (type, router_id, lsa))
-      ospf6_abr_examin_summary (lsa, oa);
+  for (ALL_LSDB_TYPED_ADVRTR(oa->lsdb, type, router_id, lsa))
+    ospf6_abr_examin_summary (lsa, oa);
 
   type = htons (OSPF6_LSTYPE_INTER_PREFIX);
-  for (lsa = ospf6_lsdb_type_router_head (type, router_id, oa->lsdb); lsa;
-       lsa = ospf6_lsdb_type_router_next (type, router_id, lsa))
+  for (ALL_LSDB_TYPED_ADVRTR(oa->lsdb, type, router_id, lsa))
     ospf6_abr_examin_summary (lsa, oa);
 }
 
@@ -1006,13 +1004,11 @@ ospf6_abr_reimport (struct ospf6_area *oa)
   u_int16_t type;
 
   type = htons (OSPF6_LSTYPE_INTER_ROUTER);
-  for (lsa = ospf6_lsdb_type_head (type, oa->lsdb); lsa;
-       lsa = ospf6_lsdb_type_next (type, lsa))
+  for (ALL_LSDB_TYPED(oa->lsdb, type, lsa))
     ospf6_abr_examin_summary (lsa, oa);
 
   type = htons (OSPF6_LSTYPE_INTER_PREFIX);
-  for (lsa = ospf6_lsdb_type_head (type, oa->lsdb); lsa;
-       lsa = ospf6_lsdb_type_next (type, lsa))
+  for (ALL_LSDB_TYPED(oa->lsdb, type, lsa))
     ospf6_abr_examin_summary (lsa, oa);
 }
 

@@ -23,6 +23,7 @@
 #define _ZEBRA_TABLE_H
 
 #include "memory.h"
+#include "hash.h"
 DECLARE_MTYPE(ROUTE_TABLE)
 DECLARE_MTYPE(ROUTE_NODE)
 
@@ -56,6 +57,7 @@ struct route_table_delegate_t_
 struct route_table
 {
   struct route_node *top;
+  struct hash *hash;
 
   /*
    * Delegate that performs certain functions for this table.
@@ -72,6 +74,41 @@ struct route_table
 };
 
 /*
+ * node->link is really internal to the table code and should not be
+ * accessed by outside code.  We don't have any writers (yay), though some
+ * readers are left to be fixed.
+ *
+ * rationale: we need to add a hash table in parallel, to speed up
+ * exact-match lookups.
+ *
+ * same really applies for node->parent, though that's less of an issue.
+ * table->link should be - and is - NEVER written by outside code
+ */
+#ifdef FRR_COMPILING_TABLE_C
+#define table_rdonly(x)		x
+#define table_internal(x)	x
+#else
+#define table_rdonly(x)		const x
+#define table_internal(x)	const x \
+	__attribute__((deprecated("this should only be accessed by lib/table.c")))
+/* table_internal is for node->link and node->lock, once we have done
+ * something about remaining accesses */
+#endif
+
+/* so... the problem with this is that "const" doesn't mean "readonly".
+ * It in fact may allow the compiler to optimize based on the assumption
+ * that the value doesn't change.  Hence, since the only purpose of this
+ * is to aid in development, don't put the "const" in release builds.
+ *
+ * (I haven't seen this actually break, but GCC and LLVM are getting ever
+ * more aggressive in optimizing...)
+ */
+#ifndef DEV_BUILD
+#undef table_rdonly
+#define table_rdonly(x) x
+#endif
+
+/*
  * Macro that defines all fields in a route node.
  */
 #define ROUTE_NODE_FIELDS			\
@@ -79,12 +116,12 @@ struct route_table
   struct prefix p;				\
 						\
   /* Tree link. */				\
-  struct route_table *table;			\
-  struct route_node *parent;			\
-  struct route_node *link[2];			\
+  struct route_table * table_rdonly(table);	\
+  struct route_node * table_rdonly(parent);	\
+  struct route_node * table_rdonly(link[2]);	\
 						\
   /* Lock of this radix */			\
-  unsigned int lock;				\
+  unsigned int table_rdonly(lock);		\
 						\
   /* Each node of route. */			\
   void *info;					\
@@ -153,16 +190,16 @@ extern void route_unlock_node (struct route_node *node);
 extern struct route_node *route_top (struct route_table *);
 extern struct route_node *route_next (struct route_node *);
 extern struct route_node *route_next_until (struct route_node *,
-                                            struct route_node *);
+                                            const struct route_node *);
 extern struct route_node *route_node_get (struct route_table *const,
-                                          const struct prefix *);
+                                          union prefixconstptr);
 extern struct route_node *route_node_lookup (const struct route_table *,
-                                             const struct prefix *);
+                                             union prefixconstptr);
 extern struct route_node *route_node_lookup_maynull (const struct route_table *,
-                                             const struct prefix *);
+                                             union prefixconstptr);
 extern struct route_node *route_lock_node (struct route_node *node);
 extern struct route_node *route_node_match (const struct route_table *,
-                                            const struct prefix *);
+                                            union prefixconstptr);
 extern struct route_node *route_node_match_ipv4 (const struct route_table *,
 						 const struct in_addr *);
 extern struct route_node *route_node_match_ipv6 (const struct route_table *,
@@ -176,9 +213,9 @@ extern void route_node_destroy (route_table_delegate_t *,
 				struct route_table *, struct route_node *);
 
 extern struct route_node *
-route_table_get_next (const struct route_table *table, struct prefix *p);
+route_table_get_next (const struct route_table *table, union prefixconstptr pu);
 extern int
-route_table_prefix_iter_cmp (struct prefix *p1, struct prefix *p2);
+route_table_prefix_iter_cmp (const struct prefix *p1, const struct prefix *p2);
 
 /*
  * Iterator functions.

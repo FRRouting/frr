@@ -1804,6 +1804,8 @@ rfapiRibUpdatePendingNodeSubtree (
   struct route_node		*omit_subtree,    /* may be NULL */
   uint32_t			lifetime)
 {
+  /* FIXME: need to find a better way here to work without sticking our
+   * hands in node->link */
   if (it_node->l_left && (it_node->l_left != omit_subtree))
     {
       if (it_node->l_left->info)

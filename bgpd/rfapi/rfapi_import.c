@@ -1776,6 +1776,8 @@ rfapiNhlAddSubtree (
   struct rfapi_ip_prefix rprefix;
   int                    rcount = 0;
 
+  /* FIXME: need to find a better way here to work without sticking our
+   * hands in node->link */
   if (rn->l_left && rn->l_left != omit_node)
     {
       if (rn->l_left->info)
