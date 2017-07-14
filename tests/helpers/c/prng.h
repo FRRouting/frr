@@ -27,7 +27,7 @@
 struct prng;
 
 struct prng* prng_new(unsigned long long seed);
-unsigned int prng_rand(struct prng*);
+int prng_rand(struct prng*);
 const char * prng_fuzz(struct prng*,
                        const char *string,
                        const char *charset,
