@@ -577,7 +577,7 @@ vty_access_list_remark_unset (struct vty *vty, afi_t afi, const char *name)
   if (! access)
     {
       vty_outln (vty, "%% access-list %s doesn't exist",name);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (access->remark)
@@ -616,21 +616,21 @@ filter_set_cisco (struct vty *vty, const char *name_str, const char *type_str,
   else
     {
       vty_outln (vty, "%% filter type must be permit or deny");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ret = inet_aton (addr_str, &addr);
   if (ret <= 0)
     {
       vty_outln (vty,"%%Inconsistent address and mask");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ret = inet_aton (addr_mask_str, &addr_mask);
   if (ret <= 0)
     {
       vty_outln (vty,"%%Inconsistent address and mask");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (extended)
@@ -639,14 +639,14 @@ filter_set_cisco (struct vty *vty, const char *name_str, const char *type_str,
       if (ret <= 0)
 	{
 	  vty_outln (vty,"%%Inconsistent address and mask");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       ret = inet_aton (mask_mask_str, &mask_mask);
       if (ret <= 0)
 	{
 	  vty_outln (vty,"%%Inconsistent address and mask");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
     }
 
@@ -1259,7 +1259,7 @@ filter_set_zebra (struct vty *vty, const char *name_str, const char *type_str,
       vty_outln (vty, "%% ACL name %s is invalid: length exceeds "
                     "%d characters",
                name_str, ACL_NAMSIZ);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Check of filter type. */
@@ -1270,7 +1270,7 @@ filter_set_zebra (struct vty *vty, const char *name_str, const char *type_str,
   else
     {
       vty_outln (vty, "filter type must be [permit|deny]");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Check string format of prefix and prefixlen. */
@@ -1280,7 +1280,7 @@ filter_set_zebra (struct vty *vty, const char *name_str, const char *type_str,
       if (ret <= 0)
 	{
 	  vty_outln (vty,"IP address prefix/prefixlen is malformed");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
     }
   else if (afi == AFI_IP6)
@@ -1289,11 +1289,11 @@ filter_set_zebra (struct vty *vty, const char *name_str, const char *type_str,
       if (ret <= 0)
 	{
 	  vty_outln (vty,"IPv6 address prefix/prefixlen is malformed");
-		   return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
     }
   else
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   mfilter = filter_new ();
   mfilter->type = type;
@@ -1425,7 +1425,7 @@ DEFUN (no_access_list_all,
   if (access == NULL)
     {
       vty_outln (vty, "%% access-list %s doesn't exist",argv[idx_acl]->arg);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   master = access->master;
@@ -1602,7 +1602,7 @@ DEFUN (no_ipv6_access_list_all,
   if (access == NULL)
     {
       vty_outln (vty, "%% access-list %s doesn't exist",argv[idx_word]->arg);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   master = access->master;

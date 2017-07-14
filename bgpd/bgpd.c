@@ -2260,7 +2260,7 @@ peer_group_get (struct bgp *bgp, const char *name)
   SET_FLAG (group->conf->sflags, PEER_STATUS_GROUP);
   listnode_add_sort (bgp->group, group);
 
-  return 0;
+  return group;
 }
 
 static void 

@@ -1294,7 +1294,7 @@ int main(int argc, char **argv)
 	if (watchfrr_di.daemon_mode) {
 		zlog_set_level(ZLOG_DEST_SYSLOG, MIN(gs.loglevel, LOG_DEBUG));
 		if (daemon (0, 0) < 0) {
-			fprintf(stderr, "Watchquagga daemon failed: %s",
+			fprintf(stderr, "Watchfrr daemon failed: %s",
 					strerror(errno));
 			exit (1);
 		}

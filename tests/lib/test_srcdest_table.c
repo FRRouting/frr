@@ -386,7 +386,13 @@ static void
 test_state_del_one_route(struct test_state *test,
 		         struct prng *prng)
 {
-  unsigned int which_route = prng_rand(prng) % test->log->count;
+  unsigned int which_route;
+
+  if (test->log->count == 0)
+    return;
+
+  which_route = prng_rand(prng) % test->log->count;
+
   struct route_node *rn;
   struct prefix *dst_p, *src_p;
   struct prefix_ipv6 dst6_p, src6_p;

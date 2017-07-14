@@ -1279,7 +1279,7 @@ smux_peer_oid (struct vty *vty, const char *oid_str, const char *passwd_str)
   if (ret != 0)
     {
       vty_out (vty, "object ID malformed%s", VTYNL);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (smux_oid)
@@ -1339,7 +1339,7 @@ DEFUN (smux_peer,
       return CMD_SUCCESS;
     }
   else
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (smux_peer_password,
@@ -1357,7 +1357,7 @@ DEFUN (smux_peer_password,
       return CMD_SUCCESS;
     }
   else
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (no_smux_peer,

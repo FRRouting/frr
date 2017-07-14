@@ -715,6 +715,41 @@ cmd_variable_complete (struct cmd_token *token, const char *arg, vector comps)
   vector_free(tmpcomps);
 }
 
+#define AUTOCOMP_INDENT 5
+
+char *
+cmd_variable_comp2str(vector comps, unsigned short cols, const char nl[])
+{
+  size_t bsz = 16;
+  char *buf = XCALLOC(MTYPE_TMP, bsz);
+  int lc = AUTOCOMP_INDENT;
+  size_t cs = AUTOCOMP_INDENT;
+  size_t nllen = strlen(nl);
+  size_t itemlen;
+  snprintf(buf, bsz, "%*s", AUTOCOMP_INDENT, "");
+  for (size_t j = 0; j < vector_active (comps); j++)
+    {
+      char *item = vector_slot (comps, j);
+      itemlen = strlen(item);
+
+      if (cs + itemlen + nllen + AUTOCOMP_INDENT + 2 >= bsz)
+        buf = XREALLOC(MTYPE_TMP, buf, (bsz *= 2));
+
+      if (lc + itemlen + 1 >= cols)
+        {
+          cs += snprintf(&buf[cs], bsz - cs, "%s%*s", nl, AUTOCOMP_INDENT, "");
+          lc = AUTOCOMP_INDENT;
+        }
+
+      size_t written = snprintf(&buf[cs], bsz - cs, "%s ", item);
+      lc += written;
+      cs += written;
+      XFREE (MTYPE_COMPLETION, item);
+      vector_set_index (comps, j, NULL);
+    }
+  return buf;
+}
+
 void
 cmd_variable_handler_register (const struct cmd_variable_handler *cvh)
 {
@@ -1153,7 +1188,7 @@ DEFUN (config_terminal,
   else
     {
       vty_outln (vty, "VTY configuration is locked by other VTY");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   return CMD_SUCCESS;
 }
@@ -1729,7 +1764,7 @@ DEFUN (config_hostname,
   if (!isalpha((int) word->arg[0]))
     {
       vty_outln (vty, "Please specify string starting with alphabet");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return cmd_hostname_set (word->arg);
@@ -1770,7 +1805,7 @@ DEFUN (config_password,
     {
       vty_outln (vty,
                "Please specify string starting with alphanumeric");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (host.password)
@@ -1819,7 +1854,7 @@ DEFUN (config_enable_password,
       else
         {
           vty_outln (vty, "Unknown encryption type.");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -1827,7 +1862,7 @@ DEFUN (config_enable_password,
     {
       vty_outln (vty,
                "Please specify string starting with alphanumeric");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (host.enable)
@@ -2141,14 +2176,14 @@ set_log_file(struct vty *vty, const char *fname, int loglevel)
       if (getcwd (cwd, MAXPATHLEN) == NULL)
         {
           zlog_err ("config_log_file: Unable to alloc mem!");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
 
       if ( (p = XMALLOC (MTYPE_TMP, strlen (cwd) + strlen (fname) + 2))
           == NULL)
         {
           zlog_err ("config_log_file: Unable to alloc mem!");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       sprintf (p, "%s/%s", cwd, fname);
       fullpath = p;
@@ -2164,7 +2199,7 @@ set_log_file(struct vty *vty, const char *fname, int loglevel)
   if (!ret)
     {
       vty_out (vty, "can't open logfile %s\n", fname);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (host.logfile)
@@ -2378,7 +2413,7 @@ cmd_banner_motd_file (const char *file)
       host.motdfile = XSTRDUP (MTYPE_HOST, file);
     }
   else
-    success = CMD_WARNING;
+    success = CMD_WARNING_CONFIG_FAILED;
 
   return success;
 }
@@ -2397,7 +2432,7 @@ DEFUN (banner_motd_file,
 
   if (cmd == CMD_ERR_NO_FILE)
     vty_out (vty, "%s does not exist", filename);
-  else if (cmd == CMD_WARNING)
+  else if (cmd == CMD_WARNING_CONFIG_FAILED)
     vty_out (vty, "%s must be in %s", filename, SYSCONFDIR);
 
   return cmd;

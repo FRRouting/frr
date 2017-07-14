@@ -291,6 +291,7 @@ vtysh_execute_func (const char *line, int pager)
    * Changing vty->node is enough to try it just out without actual walkup in
    * the vtysh. */
   while (ret != CMD_SUCCESS && ret != CMD_SUCCESS_DAEMON && ret != CMD_WARNING
+         && ret != CMD_WARNING_CONFIG_FAILED
 	 && vty->node > CONFIG_NODE)
     {
       vty->node = node_parent(vty->node);
@@ -354,6 +355,7 @@ vtysh_execute_func (const char *line, int pager)
   switch (ret)
     {
     case CMD_WARNING:
+    case CMD_WARNING_CONFIG_FAILED:
       if (vty->type == VTY_FILE)
 	fprintf (stdout,"Warning...\n");
       break;
@@ -557,6 +559,7 @@ vtysh_mark_file (const char *filename)
        * Changing vty->node is enough to try it just out without actual walkup in
        * the vtysh. */
       while (ret != CMD_SUCCESS && ret != CMD_SUCCESS_DAEMON && ret != CMD_WARNING
+             && ret != CMD_WARNING_CONFIG_FAILED
 	     && vty->node > CONFIG_NODE)
 	{
 	  vty->node = node_parent(vty->node);
@@ -602,12 +605,13 @@ vtysh_mark_file (const char *filename)
       switch (ret)
 	{
 	case CMD_WARNING:
+	case CMD_WARNING_CONFIG_FAILED:
 	  if (vty->type == VTY_FILE)
 	    fprintf (stderr,"line %d: Warning...: %s\n", lineno, vty->buf);
 	  fclose(confp);
 	  vty_close(vty);
           XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
-	  return CMD_WARNING;
+	  return ret;
 	case CMD_ERR_AMBIGUOUS:
 	  fprintf (stderr,"line %d: %% Ambiguous command: %s\n", lineno, vty->buf);
 	  fclose(confp);
@@ -682,9 +686,10 @@ vtysh_config_from_file (struct vty *vty, FILE *fp)
       switch (ret)
 	{
 	case CMD_WARNING:
+	case CMD_WARNING_CONFIG_FAILED:
 	  if (vty->type == VTY_FILE)
 	    fprintf (stderr,"line %d: Warning[%d]...: %s\n", lineno, vty->node, vty->buf);
-	  retcode = CMD_WARNING;		/* once we have an error, we remember & return that */
+	  retcode = ret;		/* once we have an error, we remember & return that */
 	  break;
 	case CMD_ERR_AMBIGUOUS:
 	  fprintf (stderr,"line %d: %% Ambiguous command[%d]: %s\n", lineno, vty->node, vty->buf);
@@ -779,7 +784,7 @@ vtysh_rl_describe (void)
       rl_on_new_line ();
       return 0;
       break;
-    }  
+    }
 
   /* Get width of command string. */
   width = 0;
@@ -816,15 +821,14 @@ vtysh_rl_describe (void)
 
             if (vector_active (varcomps) > 0)
               {
-                fprintf(stdout, "     ");
-                for (size_t j = 0; j < vector_active (varcomps); j++)
-                  {
-                    char *item = vector_slot (varcomps, j);
-                    fprintf (stdout, " %s", item);
-                    XFREE (MTYPE_COMPLETION, item);
-                  }
-                vty_out (vty, VTYNL);
+                int rows, cols;
+                rl_get_screen_size(&rows, &cols);
+
+                char *ac = cmd_variable_comp2str(varcomps, cols, "\n");
+                fprintf(stdout, "%s\n", ac);
+                XFREE(MTYPE_TMP, ac);
               }
+
             vector_free (varcomps);
           }
       }
@@ -2498,20 +2502,10 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_ALL,
 	 vtysh_config_password,
 	 vtysh_password_cmd,
-	 "password [(8-8)] WORD",
+	 "password [(8-8)] LINE",
 	 "Assign the terminal connection password\n"
 	 "Specifies a HIDDEN password will follow\n"
-	 "The HIDDEN line password string\n")
-{
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_ALL,
-	 vtysh_password_text,
-	 vtysh_password_text_cmd,
-	 "password LINE",
-	 "Assign the terminal connection password\n"
-	 "The UNENCRYPTED (cleartext) line password\n")
+	 "The password string\n")
 {
   return CMD_SUCCESS;
 }
@@ -2519,22 +2513,11 @@ DEFUNSH (VTYSH_ALL,
 DEFUNSH (VTYSH_ALL,
 	 vtysh_config_enable_password,
 	 vtysh_enable_password_cmd,
-	 "enable password (8-8) WORD",
+	 "enable password [(8-8)] LINE",
 	 "Modify enable password parameters\n"
 	 "Assign the privileged level password\n"
 	 "Specifies a HIDDEN password will follow\n"
-	 "The HIDDEN 'enable' password string\n")
-{
-  return CMD_SUCCESS;
-}
-
-DEFUNSH (VTYSH_ALL,
-	 vtysh_enable_password_text,
-	 vtysh_enable_password_text_cmd,
-	 "enable password LINE",
-	 "Modify enable password parameters\n"
-	 "Assign the privileged level password\n"
-	 "The UNENCRYPTED (cleartext) 'enable' password\n")
+	 "The 'enable' password string\n")
 {
   return CMD_SUCCESS;
 }
@@ -2686,7 +2669,7 @@ vtysh_write_config_integrated(void)
     {
       fprintf (stdout,"%% Error: failed to open configuration file %s: %s\n",
 	       quagga_config, safe_strerror(errno));
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   fd = fileno (fp);
 
@@ -2788,7 +2771,7 @@ DEFUN (vtysh_write_memory,
   /* If integrated frr.conf explicitely set. */
   if (want_config_integrated())
     {
-      ret = CMD_WARNING;
+      ret = CMD_WARNING_CONFIG_FAILED;
       for (i = 0; i < array_size(vtysh_client); i++)
         if (vtysh_client[i].flag == VTYSH_WATCHFRR)
           break;
@@ -3090,7 +3073,7 @@ vtysh_connect (struct vtysh_client *vclient)
     {
       fprintf  (stderr, "vtysh_connect(%s): stat = %s\n", 
                 path, safe_strerror(errno));
-      exit(1);
+      exit (1);
     }
   
   if (ret >= 0)
@@ -3696,8 +3679,6 @@ vtysh_init_vty (void)
   install_element (CONFIG_NODE, &no_vtysh_service_password_encrypt_cmd);
 
   install_element (CONFIG_NODE, &vtysh_password_cmd);
-  install_element (CONFIG_NODE, &vtysh_password_text_cmd);
   install_element (CONFIG_NODE, &vtysh_enable_password_cmd);
-  install_element (CONFIG_NODE, &vtysh_enable_password_text_cmd);
   install_element (CONFIG_NODE, &no_vtysh_enable_password_cmd);
 }

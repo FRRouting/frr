@@ -1174,7 +1174,7 @@ DEFUN (isis_mpls_te_router_addr,
   if (! inet_aton (argv[idx_ipv4]->arg, &value))
     {
       vty_outln (vty, "Please specify Router-Addr by A.B.C.D");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   isisMplsTE.router_id.s_addr = value.s_addr;

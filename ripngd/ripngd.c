@@ -2227,7 +2227,7 @@ DEFUN_NOSH (router_ripng,
       if (ret < 0)
 	{
 	  zlog_warn ("can't create RIPng");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
     }
 
@@ -2261,7 +2261,7 @@ DEFUN (ripng_route,
   if (ret <= 0)
     {
       vty_outln (vty, "Malformed address");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   apply_mask_ipv6 (&p);
 
@@ -2270,7 +2270,7 @@ DEFUN (ripng_route,
     {
       vty_outln (vty, "There is already same static route.");
       route_unlock_node (rp);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   rp->info = (void *)1;
 
@@ -2295,7 +2295,7 @@ DEFUN (no_ripng_route,
   if (ret <= 0)
     {
       vty_outln (vty, "Malformed address");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   apply_mask_ipv6 (&p);
 
@@ -2303,7 +2303,7 @@ DEFUN (no_ripng_route,
   if (! rp)
     {
       vty_outln (vty, "Can't find static route.");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ripng_redistribute_delete (ZEBRA_ROUTE_RIPNG, RIPNG_ROUTE_STATIC, &p, 0);
@@ -2330,7 +2330,7 @@ DEFUN (ripng_aggregate_address,
   if (ret <= 0)
     {
       vty_outln (vty, "Malformed address");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Check aggregate alredy exist or not. */
@@ -2339,7 +2339,7 @@ DEFUN (ripng_aggregate_address,
     {
       vty_outln (vty, "There is already same aggregate route.");
       route_unlock_node (node);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   node->info = (void *)1;
 
@@ -2364,14 +2364,14 @@ DEFUN (no_ripng_aggregate_address,
   if (ret <= 0)
     {
       vty_outln (vty, "Malformed address");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   rn = route_node_lookup (ripng->aggregate, &p);
   if (! rn)
     {
       vty_outln (vty, "Can't find aggregate route.");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   route_unlock_node (rn);
   rn->info = NULL;
@@ -2426,7 +2426,7 @@ DEFUN (ripng_update_timer,
   if (update == ULONG_MAX || *endptr != '\0')
     {
       vty_out (vty, "update timer value error%s", VTYNL);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ripng->update_time = update;
@@ -2461,7 +2461,7 @@ DEFUN (ripng_timeout_timer,
   if (timeout == ULONG_MAX || *endptr != '\0')
     {
       vty_out (vty, "timeout timer value error%s", VTYNL);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ripng->timeout_time = timeout;
@@ -2494,7 +2494,7 @@ DEFUN (ripng_garbage_timer,
   if (garbage == ULONG_MAX || *endptr != '\0')
     {
       vty_out (vty, "garbage timer value error%s", VTYNL);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ripng->garbage_time = garbage;
@@ -2681,7 +2681,7 @@ DEFUN (ripng_allow_ecmp,
   if (ripng->ecmp)
     {
       vty_outln (vty, "ECMP is already enabled.");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ripng->ecmp = 1;
@@ -2698,7 +2698,7 @@ DEFUN (no_ripng_allow_ecmp,
   if (!ripng->ecmp)
     {
       vty_outln (vty, "ECMP is already disabled.");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ripng->ecmp = 0;

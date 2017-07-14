@@ -2832,7 +2832,7 @@ DEFUN (ip_forwarding,
   if (ret == 0)
     {
       vty_outln (vty, "Can't turn on IP forwarding");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -2854,7 +2854,7 @@ DEFUN (no_ip_forwarding,
   if (ret != 0)
     {
       vty_outln (vty, "Can't turn off IP forwarding");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -3005,7 +3005,7 @@ DEFUN (ipv6_forwarding,
   if (ret == 0)
     {
       vty_outln (vty, "Can't turn on IPv6 forwarding");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -3027,7 +3027,7 @@ DEFUN (no_ipv6_forwarding,
   if (ret != 0)
     {
       vty_outln (vty, "Can't turn off IPv6 forwarding");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;

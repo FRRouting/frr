@@ -14,7 +14,7 @@ depend.dev
 depend.doc
 depend.libs
 depend.smf
-quagga.init
+frr.init
 *.pkg
 *.pkg.gz
 *~

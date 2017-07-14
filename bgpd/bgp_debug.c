@@ -970,7 +970,7 @@ DEFUN (no_debug_bgp_bestpath_prefix,
     {
       prefix_free(argv_p);
       vty_outln (vty, "%% Malformed Prefix");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (bgp_debug_bestpath_prefixes && !list_isempty(bgp_debug_bestpath_prefixes))
@@ -1345,7 +1345,7 @@ DEFUN (debug_bgp_update_prefix,
     {
       prefix_free(argv_p);
       vty_outln (vty, "%% Malformed Prefix");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
 
@@ -1398,7 +1398,7 @@ DEFUN (no_debug_bgp_update_prefix,
     {
       prefix_free(argv_p);
       vty_outln (vty, "%% Malformed Prefix");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (bgp_debug_update_prefixes && !list_isempty(bgp_debug_update_prefixes))
@@ -1499,7 +1499,7 @@ DEFUN (debug_bgp_zebra_prefix,
     {
       prefix_free(argv_p);
       vty_outln (vty, "%% Malformed Prefix");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (!bgp_debug_zebra_prefixes)
@@ -1569,7 +1569,7 @@ DEFUN (no_debug_bgp_zebra_prefix,
     {
       prefix_free(argv_p);
       vty_outln (vty, "%% Malformed Prefix");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (bgp_debug_zebra_prefixes && !list_isempty(bgp_debug_zebra_prefixes))

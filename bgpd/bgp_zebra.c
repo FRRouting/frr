@@ -1815,7 +1815,7 @@ bgp_redistribute_set (struct bgp *bgp, afi_t afi, int type, u_short instance)
    * know of this instance.
    */
   if (!bgp_install_info_to_zebra (bgp))
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (BGP_DEBUG (zebra, ZEBRA))
     zlog_debug("Tx redistribute add VRF %u afi %d %s %d",

@@ -668,7 +668,7 @@ bgp_dump_set (struct vty *vty, struct bgp_dump *bgp_dump,
       if (interval == 0)
 	{
 	  vty_outln (vty, "Malformed interval string");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       /* Setting interval string */

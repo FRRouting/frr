@@ -1135,17 +1135,13 @@ vty_describe_command (struct vty *vty)
             vector varcomps = vector_init (VECTOR_MIN_SIZE);
             cmd_variable_complete (token, ref, varcomps);
 
-            if (vector_active(varcomps) > 0)
+            if (vector_active (varcomps) > 0)
               {
-                vty_out(vty, "     ");
-                for (size_t j = 0; j < vector_active (varcomps); j++)
-                  {
-                    char *item = vector_slot (varcomps, j);
-                    vty_out(vty, " %s", item);
-                    XFREE(MTYPE_COMPLETION, item);
-                  }
-                vty_out (vty, VTYNL);
+                char *ac = cmd_variable_comp2str(varcomps, vty->width, VTYNL);
+                vty_outln(vty, "%s", ac);
+                XFREE(MTYPE_TMP, ac);
               }
+
             vector_free(varcomps);
           }
 #if 0
@@ -2222,7 +2218,7 @@ vtysh_read (struct thread *thread)
               if (ret == CMD_SUSPEND)
                 break;
 
-              /* warning: watchquagga hardcodes this result write */
+              /* warning: watchfrr hardcodes this result write */
               header[3] = ret;
               buffer_put(vty->obuf, header, 4);
 
@@ -2821,7 +2817,7 @@ DEFUN (no_vty_access_class,
   if (! vty_accesslist_name || (argc == 3 && strcmp(vty_accesslist_name, accesslist)))
     {
       vty_outln (vty,"Access-class is not currently applied to vty");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   XFREE(MTYPE_VTY, vty_accesslist_name);
@@ -2864,7 +2860,7 @@ DEFUN (no_vty_ipv6_access_class,
       (argc == 4 && strcmp(vty_ipv6_accesslist_name, accesslist)))
     {
       vty_outln (vty,"IPv6 access-class is not currently applied to vty");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   XFREE(MTYPE_VTY, vty_ipv6_accesslist_name);

@@ -68,7 +68,7 @@ DEFUN (debug_rip_events,
        "RIP events\n")
 {
   rip_debug_event = RIP_DEBUG_EVENT;
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (debug_rip_packet,
@@ -110,7 +110,7 @@ DEFUN (debug_rip_zebra,
        "RIP and ZEBRA communication\n")
 {
   rip_debug_zebra = RIP_DEBUG_ZEBRA;
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (no_debug_rip_events,
@@ -174,7 +174,7 @@ DEFUN (no_debug_rip_zebra,
        "RIP and ZEBRA communication\n")
 {
   rip_debug_zebra = 0;
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 /* Debug node. */

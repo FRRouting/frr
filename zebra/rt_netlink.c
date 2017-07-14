@@ -1233,8 +1233,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
 {
   int bytelen;
   struct sockaddr_nl snl;
-  struct nexthop *nexthop = NULL, *tnexthop;
-  int recursing;
+  struct nexthop *nexthop = NULL;
   unsigned int nexthop_num;
   int discard;
   int family = PREFIX_FAMILY(p);
@@ -1326,7 +1325,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
   if (discard)
     {
       if (cmd == RTM_NEWROUTE)
-        for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+        for (ALL_NEXTHOPS(re->nexthop, nexthop))
           {
             /* We shouldn't encounter recursive nexthops on discard routes,
              * but it is probably better to handle that case correctly anyway.
@@ -1340,7 +1339,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
   /* Count overall nexthops so we can decide whether to use singlepath
    * or multipath case. */
   nexthop_num = 0;
-  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+  for (ALL_NEXTHOPS(re->nexthop, nexthop))
     {
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
         continue;
@@ -1356,7 +1355,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
   if (nexthop_num == 1 || multipath_num == 1)
     {
       nexthop_num = 0;
-      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+      for (ALL_NEXTHOPS(re->nexthop, nexthop))
         {
           if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
             {
@@ -1397,7 +1396,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
               || (cmd == RTM_DELROUTE
                   && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)))
             {
-              routedesc = recursing ? "recursive, 1 hop" : "single hop";
+              routedesc = nexthop->rparent ? "recursive, 1 hop" : "single hop";
 
               _netlink_route_debug(cmd, p, nexthop, routedesc, family, zvrf);
               _netlink_route_build_singlepath(routedesc, bytelen,
@@ -1427,7 +1426,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
       rtnh = RTA_DATA (rta);
 
       nexthop_num = 0;
-      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+      for (ALL_NEXTHOPS(re->nexthop, nexthop))
         {
           if (nexthop_num >= multipath_num)
             break;
@@ -1472,7 +1471,7 @@ netlink_route_multipath (int cmd, struct prefix *p, struct prefix *src_p,
               || (cmd == RTM_DELROUTE
                   && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)))
             {
-              routedesc = recursing ? "recursive, multihop" : "multihop";
+              routedesc = nexthop->rparent ? "recursive, multihop" : "multihop";
               nexthop_num++;
 
               _netlink_route_debug(cmd, p, nexthop,

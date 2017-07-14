@@ -110,7 +110,7 @@ struct frrmod_runtime *frrmod_load(const char *spec,
 		dlclose(handle);
 		if (err)
 			snprintf(err, err_len,
-					"\"%s\" is not a Quagga module: %s",
+					"\"%s\" is not an FRR module: %s",
 					name, dlerror());
 		return NULL;
 	}

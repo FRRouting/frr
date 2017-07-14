@@ -434,7 +434,7 @@ ldp_vty_address_family(struct vty *vty, int disable, const char *af_str)
 		af = AF_INET6;
 		af_conf = &vty_conf->ipv6;
 	} else
-		return (CMD_WARNING);
+		return (CMD_WARNING_CONFIG_FAILED);
 
 	if (disable) {
 		af_conf->flags &= ~F_LDPD_AF_ENABLED;
@@ -474,7 +474,7 @@ ldp_vty_disc_holdtime(struct vty *vty, int disable, const char *hello_type_str,
 	secs = strtol(seconds_str, &ep, 10);
 	if (*ep != '\0' || secs < MIN_HOLDTIME || secs > MAX_HOLDTIME) {
 		vty_outln (vty, "%% Invalid holdtime");
-		return (CMD_WARNING);
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	if (hello_type_str[0] == 'h')
@@ -569,7 +569,7 @@ ldp_vty_disc_interval(struct vty *vty, int disable, const char *hello_type_str,
 	if (*ep != '\0' || secs < MIN_HELLO_INTERVAL ||
 	    secs > MAX_HELLO_INTERVAL) {
 		vty_outln (vty, "%% Invalid interval");
-		return (CMD_WARNING);
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	if (hello_type_str[0] == 'h')
@@ -687,7 +687,7 @@ ldp_vty_nbr_session_holdtime(struct vty *vty, int disable,
 	if (inet_pton(AF_INET, lsr_id_str, &lsr_id) != 1 ||
 	    bad_addr_v4(lsr_id)) {
 		vty_outln (vty, "%% Malformed address");
-		return (CMD_WARNING);
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	secs = strtol(seconds_str, &ep, 10);
@@ -847,11 +847,11 @@ ldp_vty_neighbor_targeted(struct vty *vty, int disable, const char *addr_str)
 	if (inet_pton(af, addr_str, &addr) != 1 ||
 	    bad_addr(af, &addr)) {
 		vty_outln (vty, "%% Malformed address");
-		return (CMD_WARNING);
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 	if (af == AF_INET6 && IN6_IS_SCOPE_EMBED(&addr.v6)) {
 		vty_outln (vty, "%% Address can not be link-local");
-		return (CMD_WARNING);
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	tnbr = tnbr_find(vty_conf, af, &addr);
@@ -1069,7 +1069,7 @@ ldp_vty_neighbor_password(struct vty *vty, int disable, const char *lsr_id_str,
 	if (inet_pton(AF_INET, lsr_id_str, &lsr_id) != 1 ||
 	    bad_addr_v4(lsr_id)) {
 		vty_outln (vty, "%% Malformed address");
-		return (CMD_WARNING);
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	nbrp = nbr_params_find(vty_conf, lsr_id);
@@ -1115,7 +1115,7 @@ ldp_vty_neighbor_ttl_security(struct vty *vty, int disable,
 	if (inet_pton(AF_INET, lsr_id_str, &lsr_id) != 1 ||
 	    bad_addr_v4(lsr_id)) {
 		vty_outln (vty, "%% Malformed address");
-		return (CMD_WARNING);
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	if (hops_str) {
@@ -1227,7 +1227,7 @@ ldp_vty_l2vpn_mtu(struct vty *vty, int disable, const char *mtu_str)
 	mtu = strtol(mtu_str, &ep, 10);
 	if (*ep != '\0' || mtu < MIN_L2VPN_MTU || mtu > MAX_L2VPN_MTU) {
 		vty_outln (vty, "%% Invalid MTU");
-		return (CMD_WARNING);
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	if (disable)
@@ -1374,7 +1374,7 @@ ldp_vty_l2vpn_pw_nbr_addr(struct vty *vty, int disable, const char *addr_str)
 	if (ldp_get_address(addr_str, &af, &addr) == -1 ||
 	    bad_addr(af, &addr)) {
 		vty_outln (vty, "%% Malformed address");
-		return (CMD_WARNING);
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	if (disable) {
@@ -1401,7 +1401,7 @@ ldp_vty_l2vpn_pw_nbr_id(struct vty *vty, int disable, const char *lsr_id_str)
 	if (inet_pton(AF_INET, lsr_id_str, &lsr_id) != 1 ||
 	    bad_addr_v4(lsr_id)) {
 		vty_outln (vty, "%% Malformed address");
-		return (CMD_WARNING);
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	if (disable)
@@ -1424,7 +1424,7 @@ ldp_vty_l2vpn_pw_pwid(struct vty *vty, int disable, const char *pwid_str)
 	pwid = strtol(pwid_str, &ep, 10);
 	if (*ep != '\0' || pwid < MIN_PWID_ID || pwid > MAX_PWID_ID) {
 		vty_outln (vty, "%% Invalid pw-id");
-		return (CMD_WARNING);
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	if (disable)

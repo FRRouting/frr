@@ -226,7 +226,7 @@ DEFUN (router_id,
 
   rid.u.prefix4.s_addr = inet_addr (argv[idx_ipv4]->arg);
   if (!rid.u.prefix4.s_addr)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   rid.prefixlen = 32;
   rid.family = AF_INET;

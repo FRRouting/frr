@@ -223,10 +223,11 @@ DEFUN (babel_redistribute_type,
 
     if (type < 0) {
         vty_outln (vty, "Invalid type %s", argv[1]->arg);
-        return CMD_WARNING;
+        return CMD_WARNING_CONFIG_FAILED;
     }
 
     zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, type, 0, VRF_DEFAULT);
+    zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0, VRF_DEFAULT);
     return CMD_SUCCESS;
 }
 
@@ -244,10 +245,11 @@ DEFUN (no_babel_redistribute_type,
 
     if (type < 0) {
         vty_outln (vty, "Invalid type %s", argv[2]->arg);
-        return CMD_WARNING;
+        return CMD_WARNING_CONFIG_FAILED;
     }
 
     zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP, type, 0, VRF_DEFAULT);
+    zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP6, type, 0, VRF_DEFAULT);
     /* perhaps should we remove xroutes having the same type... */
     return CMD_SUCCESS;
 }
@@ -279,7 +281,7 @@ DEFUN (debug_babel,
 
     vty_outln (vty, "Invalid type %s", argv[2]->arg);
 
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 }
 
 /* [Babel Command] */
@@ -309,7 +311,7 @@ DEFUN (no_debug_babel,
 
     vty_outln (vty, "Invalid type %s", argv[3]->arg);
 
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 }
 #endif /* NO_DEBUG */
 

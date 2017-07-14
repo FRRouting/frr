@@ -145,8 +145,7 @@ create_add_route_message (qpb_allocator_t *allocator, rib_dest_t *dest,
 {
   Fpm__AddRoute *msg;
   int discard;
-  struct nexthop *nexthop, *tnexthop;
-  int recursing;
+  struct nexthop *nexthop;
   uint num_nhs, u;
   struct nexthop *nexthops[MULTIPATH_NUM];
 
@@ -195,7 +194,7 @@ create_add_route_message (qpb_allocator_t *allocator, rib_dest_t *dest,
    * Figure out the set of nexthops to be added to the message.
    */
   num_nhs = 0;
-  for (ALL_NEXTHOPS_RO (re->nexthop, nexthop, tnexthop, recursing))
+  for (ALL_NEXTHOPS (re->nexthop, nexthop))
     {
       if (num_nhs >= multipath_num)
         break;

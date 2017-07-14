@@ -85,7 +85,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
   if (ret <= 0)
     {
       vty_outln (vty, "%% Malformed address");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Cisco like mask notation. */
@@ -95,7 +95,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
       if (ret == 0)
         {
           vty_outln (vty, "%% Malformed address");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       p.prefixlen = ip_masklen (mask);
     }
@@ -119,7 +119,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
   if (!zvrf)
     {
       vty_outln (vty, "%% vrf %s is not defined", vrf_id_str);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Labels */
@@ -129,7 +129,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
 	{
 	  vty_outln (vty,
                      "%% MPLS not turned on in kernel, ignoring command");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
       int rc = mpls_str2label (label_str, &snh_label.num_labels,
                                snh_label.label);
@@ -148,7 +148,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
                      MPLS_MAX_LABELS);
             break;
           }
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -158,7 +158,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
       if (flag_str)
         {
           vty_outln (vty, "%% can not have flag %s with Null0", flag_str);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       if (add_cmd)
         static_add_route (AFI_IP, safi, type, &p, NULL, NULL, ifindex, ifname,
@@ -182,7 +182,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
         break;
       default:
         vty_outln (vty, "%% Malformed flag %s ", flag_str);
-        return CMD_WARNING;
+        return CMD_WARNING_CONFIG_FAILED;
     }
   }
 
@@ -292,7 +292,7 @@ DEFUN (ip_multicast_mode,
   else
     {
       vty_outln (vty, "Invalid mode specified");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -645,8 +645,7 @@ static void
 vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
 {
   struct route_entry *re;
-  struct nexthop *nexthop, *tnexthop;
-  int recursing;
+  struct nexthop *nexthop;
   char buf[SRCDEST2STR_BUFFER];
   struct zebra_vrf *zvrf;
 
@@ -717,13 +716,13 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
 	  vty_out (vty, " ago%s", VTYNL);
 	}
 
-      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
-	{
+      for (ALL_NEXTHOPS(re->nexthop, nexthop))
+        {
           char addrstr[32];
 
 	  vty_out (vty, "  %c%s",
-		   CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB) ? '*' : ' ',
-		   recursing ? "  " : "");
+	           CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB) ? '*' : ' ',
+	           nexthop->rparent ? "  " : "");
 
 	  switch (nexthop->type)
 	    {
@@ -803,8 +802,7 @@ static void
 vty_show_ip_route (struct vty *vty, struct route_node *rn, struct route_entry *re,
                    json_object *json)
 {
-  struct nexthop *nexthop, *tnexthop;
-  int recursing;
+  struct nexthop *nexthop;
   int len = 0;
   char buf[SRCDEST2STR_BUFFER];
   json_object *json_nexthops = NULL;
@@ -865,7 +863,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct route_entry *r
           json_object_string_add(json_route, "uptime", buf);
         }
 
-      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+      for (ALL_NEXTHOPS(re->nexthop, nexthop))
         {
           json_nexthop = json_object_new_object();
 
@@ -959,7 +957,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct route_entry *r
     }
 
   /* Nexthop information. */
-  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+  for (ALL_NEXTHOPS(re->nexthop, nexthop))
     {
       if (nexthop == re->nexthop)
 	{
@@ -982,9 +980,9 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct route_entry *r
 	}
       else
 	vty_out (vty, "  %c%*c",
-		 CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)
-		 ? '*' : ' ',
-		 len - 3 + (2 * recursing), ' ');
+	         CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)
+	         ? '*' : ' ',
+	         len - 3 + (2 * nexthop_level(nexthop)), ' ');
 
       switch (nexthop->type)
 	{
@@ -1998,7 +1996,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
   if (ret <= 0)
     {
       vty_outln (vty, "%% Malformed address");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (src_str)
@@ -2007,7 +2005,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
       if (ret <= 0 || src.family != AF_INET6)
         {
           vty_outln (vty, "%% Malformed source address");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       src_p = (struct prefix_ipv6*)&src;
     }
@@ -2035,7 +2033,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
   if (!zvrf)
     {
       vty_outln (vty, "%% vrf %s is not defined", vrf_id_str);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Labels */
@@ -2046,7 +2044,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
         {
           vty_outln (vty,
                      "%% MPLS not turned on in kernel, ignoring command");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       int rc = mpls_str2label (label_str, &snh_label.num_labels,
                                snh_label.label);
@@ -2065,7 +2063,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
                      MPLS_MAX_LABELS);
             break;
           }
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -2075,7 +2073,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
       if (flag_str)
         {
           vty_outln (vty, "%% can not have flag %s with Null0", flag_str);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       if (add_cmd)
         static_add_route (AFI_IP6, SAFI_UNICAST, type, &p, src_p, NULL, ifindex, ifname,
@@ -2099,7 +2097,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
         break;
       default:
         vty_outln (vty, "%% Malformed flag %s ", flag_str);
-        return CMD_WARNING;
+        return CMD_WARNING_CONFIG_FAILED;
     }
   }
 
@@ -2110,7 +2108,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
       if (ret != 1)
         {
           vty_outln (vty, "%% Malformed address");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       type = STATIC_IPV6_GATEWAY_IFINDEX;
       gate = &gate_addr;
@@ -2118,7 +2116,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
       if (!ifp)
         {
           vty_outln (vty, "%% Malformed Interface name %s", ifname);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       ifindex = ifp->ifindex;
     }

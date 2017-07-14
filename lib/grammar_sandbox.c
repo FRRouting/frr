@@ -399,7 +399,7 @@ DEFUN (grammar_findambig,
   if (!scan && !nodegraph)
     {
       vty_out(vty, "nodegraph uninitialized\r\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   do {
@@ -442,7 +442,7 @@ DEFUN (grammar_findambig,
 
   if (scan)
     nodegraph = NULL;
-  return ambig == 0 ? CMD_SUCCESS : CMD_WARNING;
+  return ambig == 0 ? CMD_SUCCESS : CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (grammar_init_graph,
@@ -476,7 +476,7 @@ DEFUN (grammar_access,
   if (!cnode)
     {
       vty_outln (vty, "%% no such node");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   vty_outln (vty, "node %d", (int)cnode->node);

@@ -127,7 +127,7 @@ dnl autoconf 2.59 appears not to support AC_PROG_SED
 dnl AC_PROG_SED
 AC_CHECK_PROG([SED],[sed],[sed],[/bin/false])
 
-dnl try and enable CFLAGS that are useful for Quagga
+dnl try and enable CFLAGS that are useful for FRR
 dnl - specifically, options to control warnings
 
 AC_USE_SYSTEM_EXTENSIONS
@@ -249,7 +249,7 @@ AX_PTHREAD([
   CFLAGS="$CFLAGS $PTHREAD_CFLAGS"
   LIBS="$PTHREAD_LIBS $LIBS"
 ], [
-  AC_MSG_FAILURE([This Quagga version needs pthreads])
+  AC_MSG_FAILURE([This FRR version needs pthreads])
 ])
 
 dnl --------------
@@ -283,7 +283,7 @@ AC_ARG_WITH(vtysh_pager,
 	AS_HELP_STRING([--with-vtysh-pager=PAGER], [control what pager is compiled in as default]),
 	VTYSH_PAGER=$withval, VTYSH_PAGER="more")
 AC_ARG_ENABLE(vtysh,
-  AS_HELP_STRING([--disable-vtysh], [do not build integrated vty shell for Quagga]))
+  AS_HELP_STRING([--disable-vtysh], [do not build integrated vty shell for FRR]))
 AC_ARG_ENABLE(doc,
   AS_HELP_STRING([--disable-doc], [do not build docs]))
 AC_ARG_ENABLE(zebra,
@@ -939,7 +939,7 @@ AM_CONDITIONAL(VTYSH, test "x$VTYSH" = "xvtysh")
 dnl ----------
 dnl PAM module
 dnl
-dnl Quagga detects the PAM library it is built against by checking for a
+dnl FRR detects the PAM library it is built against by checking for a
 dnl functional pam_misc.h (Linux-PAM) or openpam.h (OpenPAM) header. pam_misc.h
 dnl is known to #include pam_appl.h, the standard header of a PAM library, and
 dnl openpam.h doesn't do that, although depends on the header too. Hence a
@@ -1759,10 +1759,10 @@ dnl --------------------------------------
 
 AM_PROG_LEX
 AC_MSG_CHECKING(version of flex)
-quagga_ac_flex_version="$(eval $LEX -V | grep flex | head -n 1)"
-quagga_ac_flex_version="${quagga_ac_flex_version##* }"
-AC_MSG_RESULT([$quagga_ac_flex_version])
-AX_COMPARE_VERSION([$quagga_ac_flex_version], [lt], [2.5.20], [
+frr_ac_flex_version="$(eval $LEX -V | grep flex | head -n 1)"
+frr_ac_flex_version="${frr_ac_flex_version##* }"
+AC_MSG_RESULT([$frr_ac_flex_version])
+AX_COMPARE_VERSION([$frr_ac_flex_version], [lt], [2.5.20], [
   LEX="$SHELL $missing_dir/missing flex"
   if test -f "${srcdir}/lib/command_lex.c" -a -f "${srcdir}/lib/command_lex.h"; then
     AC_MSG_WARN([using pregenerated flex output files])
@@ -1776,38 +1776,38 @@ AX_COMPARE_VERSION([$quagga_ac_flex_version], [lt], [2.5.20], [
 AC_PROG_YACC
 dnl thanks GNU bison for this b*llshit...
 AC_MSG_CHECKING(version of bison)
-quagga_ac_bison_version="$(eval $YACC -V | grep bison | head -n 1)"
-quagga_ac_bison_version="${quagga_ac_bison_version##* }"
-quagga_ac_bison_missing="false"
-case "x${quagga_ac_bison_version}" in
+frr_ac_bison_version="$(eval $YACC -V | grep bison | head -n 1)"
+frr_ac_bison_version="${frr_ac_bison_version##* }"
+frr_ac_bison_missing="false"
+case "x${frr_ac_bison_version}" in
   x2.7*)
     BISON_OPENBRACE='"'
     BISON_CLOSEBRACE='"'
     BISON_VERBOSE=''
-    AC_MSG_RESULT([$quagga_ac_bison_version - 2.7 or older])
+    AC_MSG_RESULT([$frr_ac_bison_version - 2.7 or older])
     ;;
   x2.*|x1.*)
-    AC_MSG_RESULT([$quagga_ac_bison_version])
+    AC_MSG_RESULT([$frr_ac_bison_version])
     AC_MSG_WARN([installed bison is too old.  Please install GNU bison 2.7.x or newer.])
-    quagga_ac_bison_missing="true"
+    frr_ac_bison_missing="true"
     ;;
   x)
     AC_MSG_RESULT([none])
     AC_MSG_WARN([could not determine bison version.  Please install GNU bison 2.7.x or newer.])
-    quagga_ac_bison_missing="true"
+    frr_ac_bison_missing="true"
     ;;
   *)
     BISON_OPENBRACE='{'
     BISON_CLOSEBRACE='}'
     BISON_VERBOSE='-Dparse.error=verbose'
-    AC_MSG_RESULT([$quagga_ac_bison_version - 3.0 or newer])
+    AC_MSG_RESULT([$frr_ac_bison_version - 3.0 or newer])
     ;;
 esac
 AC_SUBST(BISON_OPENBRACE)
 AC_SUBST(BISON_CLOSEBRACE)
 AC_SUBST(BISON_VERBOSE)
 
-if $quagga_ac_bison_missing; then
+if $frr_ac_bison_missing; then
   YACC="$SHELL $missing_dir/missing bison -y"
   if test -f "${srcdir}/lib/command_parse.c" -a -f "${srcdir}/lib/command_parse.h"; then
     AC_MSG_WARN([using pregenerated bison output files])
@@ -2013,7 +2013,7 @@ AC_CONFIG_FILES([solaris/Makefile])
 
 AC_CONFIG_FILES([vtysh/extract.pl],[chmod +x vtysh/extract.pl])
 
-## Hack, but working solution to avoid rebuilding of quagga.info.
+## Hack, but working solution to avoid rebuilding of frr.info.
 ## It's already in CVS until texinfo 4.7 is more common.
 AC_OUTPUT
 

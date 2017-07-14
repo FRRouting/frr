@@ -2,5 +2,5 @@ snapcraft.yaml
 parts
 prime
 stage
-quagga*.snap
+frr*.snap
 !*/Makefile
