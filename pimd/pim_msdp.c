@@ -1619,7 +1619,17 @@ void pim_msdp_exit(struct pim_instance *pim)
 	}
 
 	if (pim->msdp.peer_list) {
-		list_free(pim->msdp.peer_list);
+		list_delete(pim->msdp.peer_list);
 		pim->msdp.peer_list = NULL;
+	}
+
+	if (pim->msdp.sa_hash) {
+		hash_free(pim->msdp.sa_hash);
+		pim->msdp.sa_hash = NULL;
+	}
+
+	if (pim->msdp.sa_list) {
+		list_delete(pim->msdp.sa_list);
+		pim->msdp.sa_list = NULL;
 	}
 }
