@@ -969,7 +969,7 @@ DEFUN (ospf6_area_stub,
   if (!ospf6_area_stub_set (ospf6, area))
     {
       vty_outln (vty,"First deconfigure all virtual link through this area");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ospf6_area_no_summary_unset (ospf6, area);
@@ -994,7 +994,7 @@ DEFUN (ospf6_area_stub_no_summary,
   if (!ospf6_area_stub_set (ospf6, area))
     {
       vty_outln (vty,"First deconfigure all virtual link through this area");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ospf6_area_no_summary_set (ospf6, area);

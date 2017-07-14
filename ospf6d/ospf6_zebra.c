@@ -684,7 +684,7 @@ ospf6_distance_set (struct vty *vty, struct ospf6 *o,
   if (ret == 0)
     {
       vty_outln (vty, "Malformed prefix");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   distance = atoi (distance_str);
@@ -732,14 +732,14 @@ ospf6_distance_unset (struct vty *vty, struct ospf6 *o,
   if (ret == 0)
     {
       vty_outln (vty, "Malformed prefix");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   rn = route_node_lookup (o->distance_table, (struct prefix *) &p);
   if (!rn)
     {
-      vty_outln (vty, "Cant't find specified prefix");
-      return CMD_WARNING;
+      vty_outln (vty, "Can't find specified prefix");
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   odistance = rn->info;

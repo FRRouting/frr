@@ -1036,7 +1036,7 @@ vnc_redistribute_set (struct bgp *bgp, afi_t afi, int type)
 {
   if (!bgp->rfapi_cfg)
     {
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Set flag to BGP instance. */
@@ -1046,7 +1046,7 @@ vnc_redistribute_set (struct bgp *bgp, afi_t afi, int type)
 
   /* Return if already redistribute flag is set. */
   if (zclient_vnc->redist[afi][type])
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   vrf_bitmap_set (zclient_vnc->redist[afi][type], VRF_DEFAULT);
 
@@ -1054,7 +1054,7 @@ vnc_redistribute_set (struct bgp *bgp, afi_t afi, int type)
 
   /* Return if zebra connection is not established. */
   if (zclient_vnc->sock < 0)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (BGP_DEBUG (zebra, ZEBRA))
     vnc_zlog_debug_verbose ("Zebra send: redistribute add %s", zebra_route_string (type));
@@ -1074,7 +1074,7 @@ vnc_redistribute_unset (struct bgp *bgp, afi_t afi, int type)
   if (!bgp->rfapi_cfg)
     {
       vnc_zlog_debug_verbose ("%s: return (no rfapi_cfg)", __func__);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Unset flag from BGP instance. */
@@ -1082,7 +1082,7 @@ vnc_redistribute_unset (struct bgp *bgp, afi_t afi, int type)
 
   /* Return if zebra connection is disabled. */
   if (!zclient_vnc->redist[afi][type])
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   zclient_vnc->redist[afi][type] = 0;
 
   if (bgp->rfapi_cfg->redist[AFI_IP][type] == 0

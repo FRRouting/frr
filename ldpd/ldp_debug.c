@@ -43,7 +43,7 @@ ldp_vty_debug(struct vty *vty, int disable, const char *type_str,
 {
 	if (strcmp(type_str, "discovery") == 0) {
 		if (dir_str == NULL)
-			return (CMD_WARNING);
+			return (CMD_WARNING_CONFIG_FAILED);
 
 		if (dir_str[0] == 'r') {
 			if (disable)
@@ -68,7 +68,7 @@ ldp_vty_debug(struct vty *vty, int disable, const char *type_str,
 			DEBUG_ON(event, EVENT);
 	} else if (strcmp(type_str, "messages") == 0) {
 		if (dir_str == NULL)
-			return (CMD_WARNING);
+			return (CMD_WARNING_CONFIG_FAILED);
 
 		if (dir_str[0] == 'r') {
 			if (disable) {

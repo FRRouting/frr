@@ -694,7 +694,7 @@ DEFUN (ospf6_redistribute,
   char *proto = argv[argc - 1]->text;
   type = proto_redistnum(AFI_IP6, proto);
   if (type < 0)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ospf6_asbr_redistribute_unset (type);
   ospf6_asbr_redistribute_set (type);
@@ -716,7 +716,7 @@ DEFUN (ospf6_redistribute_routemap,
   char *proto = argv[idx_protocol]->text;
   type = proto_redistnum(AFI_IP6, proto);
   if (type < 0)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ospf6_asbr_redistribute_unset (type);
   ospf6_asbr_routemap_set (type, argv[idx_word]->arg);
@@ -739,7 +739,7 @@ DEFUN (no_ospf6_redistribute,
   char *proto = argv[idx_protocol]->text;
   type = proto_redistnum(AFI_IP6, proto);
   if (type < 0)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ospf6_asbr_redistribute_unset (type);
 
@@ -1091,7 +1091,7 @@ route_map_command_status (struct vty *vty, int ret)
       vty_out (vty, "OSPF6 route-map add set failed.%s", VNL);
       break;
     }
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 /* add "set metric-type" */

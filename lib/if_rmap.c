@@ -229,7 +229,7 @@ DEFUN (if_rmap,
   else
     {
       vty_outln (vty, "route-map direction must be [in|out]");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if_rmap_set (argv[idx_ifname]->arg, type, argv[idx_rmap_name]->arg);
@@ -260,14 +260,14 @@ DEFUN (no_if_rmap,
   else
     {
       vty_outln (vty, "route-map direction must be [in|out]");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ret = if_rmap_unset (argv[idx_ifname]->arg, type, argv[idx_routemap_name]->arg);
   if (! ret)
     {
       vty_outln (vty, "route-map doesn't exist");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   return CMD_SUCCESS;
 }

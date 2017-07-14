@@ -178,6 +178,7 @@ struct cmd_node
 #define CMD_SUCCESS_DAEMON      10
 #define CMD_ERR_NO_FILE         11
 #define CMD_SUSPEND             12
+#define CMD_WARNING_CONFIG_FAILED 13
 
 /* Argc max counts. */
 #define CMD_ARGC_MAX   25

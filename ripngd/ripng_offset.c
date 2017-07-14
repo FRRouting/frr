@@ -126,7 +126,7 @@ ripng_offset_list_set (struct vty *vty, const char *alist,
   else
     {
       vty_outln (vty, "Invalid direction: %s", direct_str);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Check metric. */
@@ -134,7 +134,7 @@ ripng_offset_list_set (struct vty *vty, const char *alist,
   if (metric < 0 || metric > 16)
     {
       vty_outln (vty, "Invalid metric: %s", metric_str);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Get offset-list structure with interface name. */
@@ -165,7 +165,7 @@ ripng_offset_list_unset (struct vty *vty, const char *alist,
   else
     {
       vty_outln (vty, "Invalid direction: %s", direct_str);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Check metric. */
@@ -173,7 +173,7 @@ ripng_offset_list_unset (struct vty *vty, const char *alist,
   if (metric < 0 || metric > 16)
     {
       vty_outln (vty, "Invalid metric: %s", metric_str);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Get offset-list structure with interface name. */
@@ -197,7 +197,7 @@ ripng_offset_list_unset (struct vty *vty, const char *alist,
   else
     {
       vty_outln (vty, "Can't find offset-list");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   return CMD_SUCCESS;
 }
