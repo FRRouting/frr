@@ -8308,7 +8308,7 @@ route_vty_out_detail_header (struct vty *vty, struct bgp *bgp,
   int local_as = 0;
   int first = 1;
   int has_valid_label = 0;
-  mpls_label_t label;
+  mpls_label_t label = 0;
   json_object *json_adv_to = NULL;
 
   p = &rn->p;

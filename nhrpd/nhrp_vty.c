@@ -671,7 +671,6 @@ static void show_ip_nhrp_shortcut(struct nhrp_shortcut *s, void *pctx)
 static void show_ip_opennhrp_cache(struct nhrp_cache *c, void *pctx)
 {
 	struct info_ctx *ctx = pctx;
-	struct vty *vty = ctx->vty;
 	char buf[SU_ADDRSTRLEN];
 
 	if (ctx->afi != family2afi(sockunion_family(&c->remote_addr)))
