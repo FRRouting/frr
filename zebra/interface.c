@@ -47,6 +47,7 @@
 #include "zebra/zebra_ptm.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/interface.h"
+#include "zebra/zebra_vxlan.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -680,6 +681,8 @@ if_delete_connected (struct interface *ifp)
 void
 if_delete_update (struct interface *ifp)
 {
+  struct zebra_if *zif;
+
   if (if_is_up(ifp))
     {
       zlog_err ("interface %s vrf %u index %d is still up while being deleted.",
@@ -713,6 +716,16 @@ if_delete_update (struct interface *ifp)
   /* if the ifp is in a vrf, move it to default so vrf can be deleted if desired */
   if (ifp->vrf_id)
     if_handle_vrf_change (ifp, VRF_DEFAULT);
+
+  /* Reset some zebra interface params to default values. */
+  zif = ifp->info;
+  if (zif)
+    {
+      zif->zif_type = ZEBRA_IF_OTHER;
+      zif->zif_slave_type = ZEBRA_IF_SLAVE_NONE;
+      memset (&zif->l2info, 0, sizeof (union zebra_l2if_info));
+      memset (&zif->brslave_info, 0, sizeof (struct zebra_l2info_brslave));
+    }
 }
 
 /* VRF change for an interface */
@@ -834,6 +847,7 @@ void
 if_up (struct interface *ifp)
 {
   struct zebra_if *zif;
+  struct interface *link_if;
 
   zif = ifp->info;
   zif->up_count++;
@@ -868,6 +882,24 @@ if_up (struct interface *ifp)
   rib_update (ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 
   zebra_vrf_static_route_interface_fixup (ifp);
+
+  /* Handle interface up for specific types for EVPN. Non-VxLAN interfaces
+   * are checked to see if (remote) neighbor entries need to be installed
+   * on them for ARP suppression.
+   */
+  if (IS_ZEBRA_IF_VXLAN (ifp))
+    zebra_vxlan_if_up (ifp);
+  else if (IS_ZEBRA_IF_BRIDGE (ifp))
+    {
+      link_if = ifp;
+      zebra_vxlan_svi_up (ifp, link_if);
+    }
+  else if (IS_ZEBRA_IF_VLAN (ifp))
+    {
+      link_if = zif->link;
+      if (link_if)
+        zebra_vxlan_svi_up (ifp, link_if);
+    }
 }
 
 /* Interface goes down.  We have to manage different behavior of based
@@ -876,10 +908,30 @@ void
 if_down (struct interface *ifp)
 {
   struct zebra_if *zif;
+  struct interface *link_if;
 
   zif = ifp->info;
   zif->down_count++;
   quagga_timestamp (2, zif->down_last, sizeof (zif->down_last));
+
+  /* Handle interface down for specific types for EVPN. Non-VxLAN interfaces
+   * are checked to see if (remote) neighbor entries need to be purged
+   * for ARP suppression.
+   */
+  if (IS_ZEBRA_IF_VXLAN (ifp))
+    zebra_vxlan_if_down (ifp);
+  else if (IS_ZEBRA_IF_BRIDGE (ifp))
+    {
+      link_if = ifp;
+      zebra_vxlan_svi_down (ifp, link_if);
+    }
+  else if (IS_ZEBRA_IF_VLAN (ifp))
+    {
+      link_if = zif->link;
+      if (link_if)
+        zebra_vxlan_svi_down (ifp, link_if);
+    }
+
 
   /* Notify to the protocol daemons. */
   zebra_interface_down_update (ifp);
@@ -902,6 +954,17 @@ void
 if_refresh (struct interface *ifp)
 {
   if_get_flags (ifp);
+}
+
+void
+zebra_if_update_link (struct interface *ifp, ifindex_t link_ifindex)
+{
+  struct zebra_if *zif;
+
+  zif = (struct zebra_if *)ifp->info;
+  zif->link_ifindex = link_ifindex;
+  zif->link = if_lookup_by_index_per_ns (zebra_ns_lookup (NS_DEFAULT),
+                                         link_ifindex);
 }
 
 
@@ -1020,6 +1083,37 @@ nd_dump_vty (struct vty *vty, struct interface *ifp)
 }
 #endif /* HAVE_RTADV */
 
+static const char *
+zebra_ziftype_2str (zebra_iftype_t zif_type)
+{
+  switch (zif_type)
+    {
+      case ZEBRA_IF_OTHER:
+        return "Other";
+        break;
+
+      case ZEBRA_IF_BRIDGE:
+        return "Bridge";
+        break;
+
+      case ZEBRA_IF_VLAN:
+        return "Vlan";
+        break;
+
+      case ZEBRA_IF_VXLAN:
+        return "Vxlan";
+        break;
+
+      case ZEBRA_IF_VRF:
+        return "VRF";
+        break;
+
+      default:
+        return "Unknown";
+        break;
+    }
+}
+
 /* Interface's information print out to vty interface. */
 static void
 if_dump_vty (struct vty *vty, struct interface *ifp)
@@ -1114,6 +1208,51 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 	  (connected->address->family == AF_INET6))
 	connected_dump_vty (vty, connected);
     }
+
+  vty_out(vty, "  Interface Type %s\n",
+          zebra_ziftype_2str (zebra_if->zif_type));
+  if (IS_ZEBRA_IF_BRIDGE (ifp))
+    {
+      struct zebra_l2info_bridge *bridge_info;
+
+      bridge_info = &zebra_if->l2info.br;
+      vty_out(vty, "  Bridge VLAN-aware: %s\n",
+              bridge_info->vlan_aware ? "yes" : "no");
+    }
+  else if (IS_ZEBRA_IF_VLAN(ifp))
+    {
+      struct zebra_l2info_vlan *vlan_info;
+
+      vlan_info = &zebra_if->l2info.vl;
+      vty_out(vty, "  VLAN Id %u\n",
+              vlan_info->vid);
+    }
+  else if (IS_ZEBRA_IF_VXLAN (ifp))
+    {
+      struct zebra_l2info_vxlan *vxlan_info;
+
+      vxlan_info = &zebra_if->l2info.vxl;
+      vty_out(vty, "  VxLAN Id %u", vxlan_info->vni);
+      if (vxlan_info->vtep_ip.s_addr != INADDR_ANY)
+        vty_out(vty, " VTEP IP: %s", inet_ntoa (vxlan_info->vtep_ip));
+      if (vxlan_info->access_vlan)
+        vty_out(vty, " Access VLAN Id %u", vxlan_info->access_vlan);
+      vty_out(vty, "\n");
+    }
+
+  if (IS_ZEBRA_IF_BRIDGE_SLAVE (ifp))
+    {
+      struct zebra_l2info_brslave *br_slave;
+
+      br_slave = &zebra_if->brslave_info;
+      if (br_slave->bridge_ifindex != IFINDEX_INTERNAL)
+        vty_out(vty, "  Master (bridge) ifindex %u\n",
+                br_slave->bridge_ifindex);
+    }
+
+  if (zebra_if->link_ifindex != IFINDEX_INTERNAL)
+    vty_out(vty, "  Link ifindex %u\n",
+            zebra_if->link_ifindex);
 
   if (HAS_LINK_PARAMS(ifp))
     {

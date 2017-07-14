@@ -29,6 +29,7 @@
 #include "sockunion.h"
 #include "log.h"
 #include "privs.h"
+#include "vxlan.h"
 
 #include "zebra/debug.h"
 #include "zebra/rib.h"
@@ -423,6 +424,44 @@ kernel_neigh_update (int add, int ifindex, uint32_t addr, char *lla, int llalen)
 
 extern int
 kernel_get_ipmr_sg_stats (void *mroute)
+{
+  return 0;
+}
+
+int
+kernel_add_vtep (vni_t vni, struct interface *ifp, struct in_addr *vtep_ip)
+{
+  return 0;
+}
+
+int
+kernel_del_vtep (vni_t vni, struct interface *ifp, struct in_addr *vtep_ip)
+{
+  return 0;
+}
+
+int
+kernel_add_mac (struct interface *ifp, vlanid_t vid,
+                struct ethaddr *mac, struct in_addr vtep_ip,
+                u_char sticky)
+{
+  return 0;
+}
+
+int
+kernel_del_mac (struct interface *ifp, vlanid_t vid,
+                struct ethaddr *mac, struct in_addr vtep_ip, int local)
+{
+  return 0;
+}
+
+int kernel_add_neigh (struct interface *ifp, struct ipaddr *ip,
+                      struct ethaddr *mac)
+{
+  return 0;
+}
+
+int kernel_del_neigh (struct interface *ifp, struct ipaddr *ip)
 {
   return 0;
 }

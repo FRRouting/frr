@@ -227,6 +227,10 @@ bgp_router_id_set (struct bgp *bgp, const struct in_addr *id)
   if (IPV4_ADDR_SAME (&bgp->router_id, id))
     return 0;
 
+  /* EVPN uses router id in RD, withdraw them */
+  if (bgp->advertise_all_vni)
+    bgp_evpn_handle_router_id_update (bgp, TRUE);
+
   IPV4_ADDR_COPY (&bgp->router_id, id);
 
   /* Set all peer's local identifier with this value. */
@@ -241,6 +245,11 @@ bgp_router_id_set (struct bgp *bgp, const struct in_addr *id)
                           BGP_NOTIFY_CEASE_CONFIG_CHANGE);
        }
     }
+
+  /* EVPN uses router id in RD, update them */
+  if (bgp->advertise_all_vni)
+    bgp_evpn_handle_router_id_update (bgp, FALSE);
+
   return 0;
 }
 
@@ -3004,6 +3013,7 @@ bgp_create (as_t *as, const char *name, enum bgp_instance_type inst_type)
   QOBJ_REG (bgp, bgp);
 
   update_bgp_group_init(bgp);
+  bgp_evpn_init(bgp);
   return bgp;
 }
 
@@ -3354,6 +3364,8 @@ bgp_free (struct bgp *bgp)
 
   bgp_scan_finish (bgp);
   bgp_address_destroy (bgp);
+
+  bgp_evpn_cleanup (bgp);
 
   if (bgp->name)
     XFREE(MTYPE_BGP, bgp->name);
@@ -7366,6 +7378,9 @@ bgp_config_write_family (struct vty *vty, struct bgp *bgp, afi_t afi,
 
   bgp_config_write_maxpaths (vty, bgp, afi, safi, &write);
   bgp_config_write_table_map (vty, bgp, afi, safi, &write);
+
+  if (safi == SAFI_EVPN)
+    bgp_config_write_evpn_info (vty, bgp, afi, safi, &write);
 
   if (write)
     vty_out (vty, " exit-address-family\n");

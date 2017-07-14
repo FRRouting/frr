@@ -329,11 +329,11 @@ bgp_connected_delete (struct bgp *bgp, struct connected *ifc)
 }
 
 int
-bgp_nexthop_self (struct bgp *bgp, struct attr *attr)
+bgp_nexthop_self (struct bgp *bgp, struct in_addr nh_addr)
 {
   struct bgp_addr tmp, *addr;
 
-  tmp.addr = attr->nexthop;
+  tmp.addr = nh_addr;
 
   addr = hash_lookup (bgp->address_hash, &tmp);
   if (addr)

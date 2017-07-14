@@ -37,6 +37,7 @@
 #include "zebra/zebra_static.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_mpls.h"
+#include "zebra/zebra_vxlan.h"
 
 extern struct zebra_t zebrad;
 
@@ -244,6 +245,9 @@ zebra_vrf_delete (struct vrf *vrf)
 		rib_close_table (zvrf->other_table[afi][table_id]);
 	}
 
+      /* Cleanup Vxlan table and update kernel */
+      zebra_vxlan_close_tables (zvrf);
+
       zebra_mpls_close_tables (zvrf);
 
       for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, ifp))
@@ -421,6 +425,7 @@ zebra_vrf_alloc (void)
       zvrf->import_check_table[afi] = table;
     }
 
+  zebra_vxlan_init_tables (zvrf);
   zebra_mpls_init_tables (zvrf);
 
   return zvrf;

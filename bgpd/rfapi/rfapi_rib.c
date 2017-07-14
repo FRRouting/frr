@@ -664,7 +664,7 @@ rfapiRibBi2Ri(
   ri->lifetime = lifetime;
 
   /* This loop based on rfapiRouteInfo2NextHopEntry() */
-  for (pEncap = bi->attr->extra->vnc_subtlvs; pEncap; pEncap = pEncap->next)
+  for (pEncap = bi->attr->vnc_subtlvs; pEncap; pEncap = pEncap->next)
     {
       struct bgp_tea_options *hop;
 
@@ -723,11 +723,11 @@ rfapiRibBi2Ri(
       memcpy (&vo->v.l2addr.macaddr, bi->extra->vnc.import.rd.val+2,
 	ETHER_ADDR_LEN);
 
-      if (bi->attr && bi->attr->extra)
+      if (bi->attr)
         {
-          (void) rfapiEcommunityGetLNI (bi->attr->extra->ecommunity,
+          (void) rfapiEcommunityGetLNI (bi->attr->ecommunity,
                                         &vo->v.l2addr.logical_net_id);
-          (void) rfapiEcommunityGetEthernetTag (bi->attr->extra->ecommunity,
+          (void) rfapiEcommunityGetEthernetTag (bi->attr->ecommunity,
                                                 &vo->v.l2addr.tag_id);
         }
 

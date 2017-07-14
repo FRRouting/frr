@@ -19,6 +19,8 @@
 #ifndef _QUAGGA_BGP_ENCAP_TYPES_H
 #define _QUAGGA_BGP_ENCAP_TYPES_H
 
+#include "bgpd/bgp_ecommunity.h"
+
 /* from http://www.iana.org/assignments/bgp-parameters/bgp-parameters.xhtml#tunnel-types */
 typedef enum {
     BGP_ENCAP_TYPE_RESERVED=0,
@@ -212,5 +214,16 @@ struct bgp_encap_type_pbb {
     struct bgp_tea_subtlv_remote_endpoint       st_endpoint;    /* optional */
     struct bgp_tea_subtlv_encap_pbb		st_encap;
 };
+
+static inline void
+encode_encap_extcomm (bgp_encap_types tnl_type,
+                      struct ecommunity_val *eval)
+{
+  memset (eval, 0, sizeof (*eval));
+  eval->val[0] = ECOMMUNITY_ENCODE_OPAQUE;
+  eval->val[1] = ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP;
+  eval->val[6] = ((tnl_type) >> 8) & 0xff;
+  eval->val[7] = (tnl_type) & 0xff;
+}
 
 #endif /* _QUAGGA_BGP_ENCAP_TYPES_H */

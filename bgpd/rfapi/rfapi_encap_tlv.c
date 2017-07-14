@@ -162,28 +162,24 @@ rfapi_tunneltype_option_to_tlv (
 struct rfapi_un_option *
 rfapi_encap_tlv_to_un_option (struct attr *attr)
 {
-  struct attr_extra *attre = attr->extra;
   struct rfapi_un_option *uo = NULL;
   struct rfapi_tunneltype_option *tto;
   int rc;
   struct bgp_attr_encap_subtlv *stlv;
 
-  if (!attre)
-    return NULL;
-
   /* no tunnel encap attr stored */
-  if (!attre->encap_tunneltype)
+  if (!attr->encap_tunneltype)
     return NULL;
 
-  stlv = attre->encap_subtlvs;
+  stlv = attr->encap_subtlvs;
 
   uo = XCALLOC (MTYPE_RFAPI_UN_OPTION, sizeof (struct rfapi_un_option));
   assert (uo);
   uo->type = RFAPI_UN_OPTION_TYPE_TUNNELTYPE;
-  uo->v.tunnel.type = attre->encap_tunneltype;
+  uo->v.tunnel.type = attr->encap_tunneltype;
   tto = &uo->v.tunnel;
 
-  switch (attre->encap_tunneltype)
+  switch (attr->encap_tunneltype)
     {
     case BGP_ENCAP_TYPE_L2TPV3_OVER_IP:
       rc = tlv_to_bgp_encap_type_l2tpv3overip (stlv, &tto->bgpinfo.l2tpv3_ip);
@@ -249,7 +245,7 @@ rfapi_encap_tlv_to_un_option (struct attr *attr)
 
     default:
       vnc_zlog_debug_verbose ("%s: unknown tunnel type %d",
-                  __func__, attre->encap_tunneltype);
+                  __func__, attr->encap_tunneltype);
       rc = -1;
       break;
     }

@@ -96,6 +96,15 @@ typedef enum {
   ZEBRA_FEC_REGISTER,
   ZEBRA_FEC_UNREGISTER,
   ZEBRA_FEC_UPDATE,
+  ZEBRA_ADVERTISE_ALL_VNI,
+  ZEBRA_VNI_ADD,
+  ZEBRA_VNI_DEL,
+  ZEBRA_REMOTE_VTEP_ADD,
+  ZEBRA_REMOTE_VTEP_DEL,
+  ZEBRA_MACIP_ADD,
+  ZEBRA_MACIP_DEL,
+  ZEBRA_REMOTE_MACIP_ADD,
+  ZEBRA_REMOTE_MACIP_DEL,
 } zebra_message_types_t;
 
 struct redist_proto
@@ -167,6 +176,10 @@ struct zclient
   int (*redistribute_route_ipv6_add) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*redistribute_route_ipv6_del) (int, struct zclient *, uint16_t, vrf_id_t);
   int (*fec_update) (int, struct zclient *, uint16_t);
+  int (*local_vni_add) (int, struct zclient *, uint16_t, vrf_id_t);
+  int (*local_vni_del) (int, struct zclient *, uint16_t, vrf_id_t);
+  int (*local_macip_add) (int, struct zclient *, uint16_t, vrf_id_t);
+  int (*local_macip_del) (int, struct zclient *, uint16_t, vrf_id_t);
 };
 
 /* Zebra API message flag. */
