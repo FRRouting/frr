@@ -563,7 +563,7 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
   if (bgp == NULL)
     {
       if (!use_json)
-        vty_outln (vty, "No BGP process is configured");
+        vty_out (vty, "No BGP process is configured\n");
       return CMD_WARNING;
     }
 
@@ -589,7 +589,7 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
 
   if ((afi != AFI_IP) && (afi != AFI_IP6))
     {
-      vty_outln (vty, "Afi %d not supported", afi);
+      vty_out (vty, "Afi %d not supported\n", afi);
       return CMD_WARNING;
     }
 
@@ -634,16 +634,15 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
                       else
                         {
 		          if (tags)
-		            vty_outln (vty, V4_HEADER_TAG);
+		            vty_out (vty, V4_HEADER_TAG);
 		          else
 		            {
-		              vty_outln (vty, "BGP table version is 0, local router ID is %s",
+		              vty_out (vty, "BGP table version is 0, local router ID is %s\n",
 		                       inet_ntoa(bgp->router_id));
-		              vty_outln (vty,
-                                         "Status codes: s suppressed, d damped, h history, * valid, > best, i - internal");
-		              vty_outln (vty, "Origin codes: i - IGP, e - EGP, ? - incomplete%s",
-		                       VTYNL);
-		              vty_outln (vty, V4_HEADER);
+		              vty_out (vty,
+                                         "Status codes: s suppressed, d damped, h history, * valid, > best, i - internal\n");
+		              vty_out (vty, "Origin codes: i - IGP, e - EGP, ? - incomplete\n\n");
+		              vty_out (vty, V4_HEADER);
 		            }
                         }
 		      header = 0;
@@ -703,7 +702,7 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
                                      rd_vnc_eth.macaddr.octet[4],
                                      rd_vnc_eth.macaddr.octet[5]);
 #endif
-		          vty_out (vty, VTYNL);
+		          vty_out (vty, "\n");
                         }
 		      rd_header = 0;
 		    }
@@ -740,17 +739,16 @@ bgp_show_mpls_vpn (struct vty *vty, afi_t afi, struct prefix_rd *prd,
   if (use_json)
     {
       json_object_object_add(json, "routes", json_nroute);
-      vty_outln (vty, "%s",
+      vty_out (vty, "%s\n",
                  json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
       json_object_free(json);
     }
   else
     {
       if (output_count == 0)
-	vty_outln (vty, "No prefixes displayed, %ld exist", total_count);
+	vty_out (vty, "No prefixes displayed, %ld exist\n", total_count);
       else
-	vty_outln (vty, "%sDisplayed %ld routes and %ld total paths",
-		 VTYNL, output_count, total_count);
+	vty_out (vty, "\nDisplayed %ld routes and %ld total paths\n", output_count, total_count);
     }
 
   return CMD_SUCCESS;
@@ -781,7 +779,7 @@ DEFUN (show_bgp_ip_vpn_all_rd,
           ret = str2prefix_rd (argv[idx_rd]->arg, &prd);
           if (! ret)
             {
-              vty_outln (vty, "%% Malformed Route Distinguisher");
+              vty_out (vty, "%% Malformed Route Distinguisher\n");
               return CMD_WARNING;
             }
           return bgp_show_mpls_vpn (vty, afi, &prd, bgp_show_type_normal, NULL, 0, use_json (argc, argv));
@@ -816,7 +814,7 @@ DEFUN (show_ip_bgp_vpn_rd,
       ret = str2prefix_rd (argv[idx_ext_community]->arg, &prd);
       if (! ret)
         {
-          vty_outln (vty, "%% Malformed Route Distinguisher");
+          vty_out (vty, "%% Malformed Route Distinguisher\n");
           return CMD_WARNING;
         }
       return bgp_show_mpls_vpn (vty, afi, &prd, bgp_show_type_normal, NULL, 0, 0);
@@ -881,7 +879,7 @@ DEFUN (show_ip_bgp_vpn_rd_tags,
       ret = str2prefix_rd (argv[idx_ext_community]->arg, &prd);
       if (! ret)
         {
-          vty_outln (vty, "%% Malformed Route Distinguisher");
+          vty_out (vty, "%% Malformed Route Distinguisher\n");
           return CMD_WARNING;
         }
       return bgp_show_mpls_vpn (vty, afi, &prd, bgp_show_type_normal, NULL, 1, 0);
@@ -920,11 +918,11 @@ DEFUN (show_ip_bgp_vpn_all_neighbor_routes,
               json_object *json_no = NULL;
               json_no = json_object_new_object();
               json_object_string_add(json_no, "warning", "Malformed address");
-              vty_outln (vty, "%s", json_object_to_json_string(json_no));
+              vty_out (vty, "%s\n", json_object_to_json_string(json_no));
               json_object_free(json_no);
             }
           else
-            vty_outln (vty, "Malformed address: %s", argv[idx_ipv4]->arg);
+            vty_out (vty, "Malformed address: %s\n", argv[idx_ipv4]->arg);
           return CMD_WARNING;
         }
 
@@ -936,11 +934,11 @@ DEFUN (show_ip_bgp_vpn_all_neighbor_routes,
               json_object *json_no = NULL;
               json_no = json_object_new_object();
               json_object_string_add(json_no, "warning", "No such neighbor or address family");
-              vty_outln (vty, "%s", json_object_to_json_string(json_no));
+              vty_out (vty, "%s\n", json_object_to_json_string(json_no));
               json_object_free(json_no);
             }
           else
-            vty_outln (vty, "%% No such neighbor or address family");
+            vty_out (vty, "%% No such neighbor or address family\n");
           return CMD_WARNING;
         }
 
@@ -983,11 +981,11 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_routes,
               json_object *json_no = NULL;
               json_no = json_object_new_object();
               json_object_string_add(json_no, "warning", "Malformed Route Distinguisher");
-              vty_outln (vty, "%s", json_object_to_json_string(json_no));
+              vty_out (vty, "%s\n", json_object_to_json_string(json_no));
               json_object_free(json_no);
             }
           else
-            vty_outln (vty, "%% Malformed Route Distinguisher");
+            vty_out (vty, "%% Malformed Route Distinguisher\n");
           return CMD_WARNING;
         }
 
@@ -999,11 +997,11 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_routes,
               json_object *json_no = NULL;
               json_no = json_object_new_object();
               json_object_string_add(json_no, "warning", "Malformed address");
-              vty_outln (vty, "%s", json_object_to_json_string(json_no));
+              vty_out (vty, "%s\n", json_object_to_json_string(json_no));
               json_object_free(json_no);
             }
           else
-            vty_outln (vty, "Malformed address: %s",
+            vty_out (vty, "Malformed address: %s\n",
                        argv[idx_ext_community]->arg);
           return CMD_WARNING;
         }
@@ -1016,11 +1014,11 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_routes,
               json_object *json_no = NULL;
               json_no = json_object_new_object();
               json_object_string_add(json_no, "warning", "No such neighbor or address family");
-              vty_outln (vty, "%s", json_object_to_json_string(json_no));
+              vty_out (vty, "%s\n", json_object_to_json_string(json_no));
               json_object_free(json_no);
             }
           else
-            vty_outln (vty, "%% No such neighbor or address family");
+            vty_out (vty, "%% No such neighbor or address family\n");
           return CMD_WARNING;
         }
 
@@ -1060,11 +1058,11 @@ DEFUN (show_ip_bgp_vpn_all_neighbor_advertised_routes,
               json_object *json_no = NULL;
               json_no = json_object_new_object();
               json_object_string_add(json_no, "warning", "Malformed address");
-              vty_outln (vty, "%s", json_object_to_json_string(json_no));
+              vty_out (vty, "%s\n", json_object_to_json_string(json_no));
               json_object_free(json_no);
             }
           else
-            vty_outln (vty, "Malformed address: %s", argv[idx_ipv4]->arg);
+            vty_out (vty, "Malformed address: %s\n", argv[idx_ipv4]->arg);
           return CMD_WARNING;
         }
       peer = peer_lookup (NULL, &su);
@@ -1075,11 +1073,11 @@ DEFUN (show_ip_bgp_vpn_all_neighbor_advertised_routes,
               json_object *json_no = NULL;
               json_no = json_object_new_object();
               json_object_string_add(json_no, "warning", "No such neighbor or address family");
-              vty_outln (vty, "%s", json_object_to_json_string(json_no));
+              vty_out (vty, "%s\n", json_object_to_json_string(json_no));
               json_object_free(json_no);
             }
           else
-            vty_outln (vty, "%% No such neighbor or address family");
+            vty_out (vty, "%% No such neighbor or address family\n");
           return CMD_WARNING;
         }
       return show_adj_route_vpn (vty, peer, NULL, AFI_IP, SAFI_MPLS_VPN, uj);
@@ -1121,11 +1119,11 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_advertised_routes,
               json_object *json_no = NULL;
               json_no = json_object_new_object();
               json_object_string_add(json_no, "warning", "Malformed address");
-              vty_outln (vty, "%s", json_object_to_json_string(json_no));
+              vty_out (vty, "%s\n", json_object_to_json_string(json_no));
               json_object_free(json_no);
             }
           else
-            vty_outln (vty, "Malformed address: %s",
+            vty_out (vty, "Malformed address: %s\n",
                        argv[idx_ext_community]->arg);
           return CMD_WARNING;
         }
@@ -1137,11 +1135,11 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_advertised_routes,
               json_object *json_no = NULL;
               json_no = json_object_new_object();
               json_object_string_add(json_no, "warning", "No such neighbor or address family");
-              vty_outln (vty, "%s", json_object_to_json_string(json_no));
+              vty_out (vty, "%s\n", json_object_to_json_string(json_no));
               json_object_free(json_no);
             }
           else
-            vty_outln (vty, "%% No such neighbor or address family");
+            vty_out (vty, "%% No such neighbor or address family\n");
           return CMD_WARNING;
         }
 
@@ -1153,11 +1151,11 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_advertised_routes,
               json_object *json_no = NULL;
               json_no = json_object_new_object();
               json_object_string_add(json_no, "warning", "Malformed Route Distinguisher");
-              vty_outln (vty, "%s", json_object_to_json_string(json_no));
+              vty_out (vty, "%s\n", json_object_to_json_string(json_no));
               json_object_free(json_no);
             }
           else
-            vty_outln (vty, "%% Malformed Route Distinguisher");
+            vty_out (vty, "%% Malformed Route Distinguisher\n");
           return CMD_WARNING;
         }
 

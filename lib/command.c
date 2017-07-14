@@ -433,27 +433,27 @@ static int
 config_write_host (struct vty *vty)
 {
   if (host.name)
-    vty_outln (vty, "hostname %s", host.name);
+    vty_out (vty, "hostname %s\n", host.name);
 
   if (host.encrypt)
     {
       if (host.password_encrypt)
-        vty_outln (vty, "password 8 %s", host.password_encrypt);
+        vty_out (vty, "password 8 %s\n", host.password_encrypt);
       if (host.enable_encrypt)
-        vty_outln (vty, "enable password 8 %s", host.enable_encrypt);
+        vty_out (vty, "enable password 8 %s\n", host.enable_encrypt);
     }
   else
     {
       if (host.password)
-        vty_outln (vty, "password %s", host.password);
+        vty_out (vty, "password %s\n", host.password);
       if (host.enable)
-        vty_outln (vty, "enable password %s", host.enable);
+        vty_out (vty, "enable password %s\n", host.enable);
     }
 
   if (zlog_default->default_lvl != LOG_DEBUG)
     {
-      vty_outln (vty,"! N.B. The 'log trap' command is deprecated.");
-      vty_outln (vty, "log trap %s",
+      vty_out (vty,"! N.B. The 'log trap' command is deprecated.\n");
+      vty_out (vty, "log trap %s\n",
                zlog_priority[zlog_default->default_lvl]);
     }
 
@@ -463,7 +463,7 @@ config_write_host (struct vty *vty)
       if (zlog_default->maxlvl[ZLOG_DEST_FILE] != zlog_default->default_lvl)
         vty_out (vty, " %s",
                  zlog_priority[zlog_default->maxlvl[ZLOG_DEST_FILE]]);
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
 
   if (zlog_default->maxlvl[ZLOG_DEST_STDOUT] != ZLOG_DISABLED)
@@ -472,13 +472,13 @@ config_write_host (struct vty *vty)
       if (zlog_default->maxlvl[ZLOG_DEST_STDOUT] != zlog_default->default_lvl)
         vty_out (vty, " %s",
                  zlog_priority[zlog_default->maxlvl[ZLOG_DEST_STDOUT]]);
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
 
   if (zlog_default->maxlvl[ZLOG_DEST_MONITOR] == ZLOG_DISABLED)
-    vty_outln (vty,"no log monitor");
+    vty_out (vty,"no log monitor\n");
   else if (zlog_default->maxlvl[ZLOG_DEST_MONITOR] != zlog_default->default_lvl)
-    vty_outln (vty,"log monitor %s",
+    vty_out (vty,"log monitor %s\n",
             zlog_priority[zlog_default->maxlvl[ZLOG_DEST_MONITOR]]);
 
   if (zlog_default->maxlvl[ZLOG_DEST_SYSLOG] != ZLOG_DISABLED)
@@ -487,33 +487,33 @@ config_write_host (struct vty *vty)
       if (zlog_default->maxlvl[ZLOG_DEST_SYSLOG] != zlog_default->default_lvl)
         vty_out (vty, " %s",
                  zlog_priority[zlog_default->maxlvl[ZLOG_DEST_SYSLOG]]);
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
 
   if (zlog_default->facility != LOG_DAEMON)
-    vty_outln (vty, "log facility %s",
+    vty_out (vty, "log facility %s\n",
              facility_name(zlog_default->facility));
 
   if (zlog_default->record_priority == 1)
-    vty_outln (vty, "log record-priority");
+    vty_out (vty, "log record-priority\n");
 
   if (zlog_default->timestamp_precision > 0)
-    vty_outln (vty, "log timestamp precision %d",
+    vty_out (vty, "log timestamp precision %d\n",
              zlog_default->timestamp_precision);
 
   if (host.advanced)
-    vty_outln (vty, "service advanced-vty");
+    vty_out (vty, "service advanced-vty\n");
 
   if (host.encrypt)
-    vty_outln (vty, "service password-encryption");
+    vty_out (vty, "service password-encryption\n");
 
   if (host.lines >= 0)
-    vty_outln (vty, "service terminal-length %d",host.lines);
+    vty_out (vty, "service terminal-length %d\n",host.lines);
 
   if (host.motdfile)
-    vty_outln (vty, "banner motd file %s", host.motdfile);
+    vty_out (vty, "banner motd file %s\n", host.motdfile);
   else if (! host.motd)
-    vty_outln (vty, "no banner motd");
+    vty_out (vty, "no banner motd\n");
 
   return 1;
 }
@@ -718,13 +718,12 @@ cmd_variable_complete (struct cmd_token *token, const char *arg, vector comps)
 #define AUTOCOMP_INDENT 5
 
 char *
-cmd_variable_comp2str(vector comps, unsigned short cols, const char nl[])
+cmd_variable_comp2str(vector comps, unsigned short cols)
 {
   size_t bsz = 16;
   char *buf = XCALLOC(MTYPE_TMP, bsz);
   int lc = AUTOCOMP_INDENT;
   size_t cs = AUTOCOMP_INDENT;
-  size_t nllen = strlen(nl);
   size_t itemlen;
   snprintf(buf, bsz, "%*s", AUTOCOMP_INDENT, "");
   for (size_t j = 0; j < vector_active (comps); j++)
@@ -732,12 +731,12 @@ cmd_variable_comp2str(vector comps, unsigned short cols, const char nl[])
       char *item = vector_slot (comps, j);
       itemlen = strlen(item);
 
-      if (cs + itemlen + nllen + AUTOCOMP_INDENT + 2 >= bsz)
+      if (cs + itemlen + AUTOCOMP_INDENT + 3 >= bsz)
         buf = XREALLOC(MTYPE_TMP, buf, (bsz *= 2));
 
       if (lc + itemlen + 1 >= cols)
         {
-          cs += snprintf(&buf[cs], bsz - cs, "%s%*s", nl, AUTOCOMP_INDENT, "");
+          cs += snprintf(&buf[cs], bsz - cs, "\n%*s", AUTOCOMP_INDENT, "");
           lc = AUTOCOMP_INDENT;
         }
 
@@ -1184,7 +1183,7 @@ DEFUN (config_terminal,
     vty->node = CONFIG_NODE;
   else
     {
-      vty_outln (vty, "VTY configuration is locked by other VTY");
+      vty_out (vty, "VTY configuration is locked by other VTY\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
   return CMD_SUCCESS;
@@ -1381,10 +1380,10 @@ DEFUN (show_version,
        SHOW_STR
        "Displays zebra version\n")
 {
-  vty_outln (vty, "%s %s (%s).", FRR_FULL_NAME, FRR_VERSION,
+  vty_out (vty, "%s %s (%s).\n", FRR_FULL_NAME, FRR_VERSION,
 	   host.name ? host.name : "");
-  vty_outln (vty, "%s%s", FRR_COPYRIGHT, GIT_INFO);
-  vty_outln (vty, "configured with:%s    %s", VTYNL,
+  vty_out (vty, "%s%s\n", FRR_COPYRIGHT, GIT_INFO);
+  vty_out (vty, "configured with:\n    %s\n",
            FRR_CONFIG_ARGS);
 
   return CMD_SUCCESS;
@@ -1408,21 +1407,19 @@ DEFUN (config_help,
        "help",
        "Description of the interactive help system\n")
 {
-  vty_outln (vty,
-           "Quagga VTY provides advanced help feature.  When you need help,%s\
-anytime at the command line please press '?'.%s\
-%s\
-If nothing matches, the help list will be empty and you must backup%s\
- until entering a '?' shows the available options.%s\
-Two styles of help are provided:%s\
-1. Full help is available when you are ready to enter a%s\
-command argument (e.g. 'show ?') and describes each possible%s\
-argument.%s\
-2. Partial help is provided when an abbreviated argument is entered%s\
-   and you want to know what arguments match the input%s\
-   (e.g. 'show me?'.)%s", VTYNL, VTYNL, VTYNL,
-           VTYNL, VTYNL, VTYNL, VTYNL, VTYNL,
-           VTYNL, VTYNL, VTYNL, VTYNL);
+  vty_out (vty,
+           "Quagga VTY provides advanced help feature.  When you need help,\n\
+anytime at the command line please press '?'.\n\
+\n\
+If nothing matches, the help list will be empty and you must backup\n\
+ until entering a '?' shows the available options.\n\
+Two styles of help are provided:\n\
+1. Full help is available when you are ready to enter a\n\
+command argument (e.g. 'show ?') and describes each possible\n\
+argument.\n\
+2. Partial help is provided when an abbreviated argument is entered\n\
+   and you want to know what arguments match the input\n\
+   (e.g. 'show me?'.)\n\n");
   return CMD_SUCCESS;
 }
 
@@ -1456,7 +1453,7 @@ permute (struct graph_node *start, struct vty *vty)
       }
       if (gn == start)
         vty_out (vty, "...");
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
     else
     {
@@ -1490,7 +1487,7 @@ cmd_list_cmds (struct vty *vty, int do_permute)
         if ((element = vector_slot (node->cmd_vector, i)) &&
              element->attr != CMD_ATTR_DEPRECATED &&
              element->attr != CMD_ATTR_HIDDEN)
-          vty_outln (vty, "    %s", element->string);
+          vty_out (vty, "    %s\n", element->string);
   }
   return CMD_SUCCESS;
 }
@@ -1523,25 +1520,25 @@ vty_write_config (struct vty *vty)
 
   if (vty->type == VTY_TERM)
     {
-      vty_outln (vty, "%sCurrent configuration:",VTYNL);
-      vty_outln (vty, "!");
+      vty_out (vty, "\nCurrent configuration:\n");
+      vty_out (vty, "!\n");
     }
 
-  vty_outln (vty, "frr version %s", FRR_VER_SHORT);
-  vty_outln (vty, "frr defaults %s", DFLT_NAME);
-  vty_outln (vty, "!");
+  vty_out (vty, "frr version %s\n", FRR_VER_SHORT);
+  vty_out (vty, "frr defaults %s\n", DFLT_NAME);
+  vty_out (vty, "!\n");
 
   for (i = 0; i < vector_active (cmdvec); i++)
     if ((node = vector_slot (cmdvec, i)) && node->func
         && (node->vtysh || vty->type != VTY_SHELL))
       {
         if ((*node->func) (vty))
-          vty_outln (vty, "!");
+          vty_out (vty, "!\n");
       }
 
   if (vty->type == VTY_TERM)
     {
-      vty_outln (vty, "end");
+      vty_out (vty, "end\n");
     }
 }
 
@@ -1578,7 +1575,7 @@ DEFUN (config_write,
   /* Check and see if we are operating under vtysh configuration */
   if (host.config == NULL)
     {
-      vty_outln (vty,"Can't save to configuration file, using vtysh.");
+      vty_out (vty,"Can't save to configuration file, using vtysh.\n");
       return CMD_WARNING;
     }
 
@@ -1613,12 +1610,12 @@ DEFUN (config_write,
   fd = mkstemp (config_file_tmp);
   if (fd < 0)
     {
-      vty_outln (vty, "Can't open configuration file %s.",config_file_tmp);
+      vty_out (vty, "Can't open configuration file %s.\n",config_file_tmp);
       goto finished;
     }
   if (fchmod (fd, CONFIGFILE_MASK) != 0)
     {
-      vty_outln (vty, "Can't chmod configuration file %s: %s (%d).",
+      vty_out (vty, "Can't chmod configuration file %s: %s (%d).\n",
         config_file_tmp, safe_strerror(errno), errno);
       goto finished;
     }
@@ -1640,13 +1637,13 @@ DEFUN (config_write,
       if (unlink (config_file_sav) != 0)
         if (errno != ENOENT)
           {
-            vty_outln (vty, "Can't unlink backup configuration file %s.",
+            vty_out (vty, "Can't unlink backup configuration file %s.\n",
                        config_file_sav);
             goto finished;
           }
       if (link (config_file, config_file_sav) != 0)
         {
-          vty_outln (vty, "Can't backup old configuration file %s.",
+          vty_out (vty, "Can't backup old configuration file %s.\n",
                      config_file_sav);
           goto finished;
         }
@@ -1655,13 +1652,13 @@ DEFUN (config_write,
     }
   if (rename (config_file_tmp, config_file) != 0)
     {
-      vty_outln (vty, "Can't save configuration file %s.",config_file);
+      vty_out (vty, "Can't save configuration file %s.\n",config_file);
       goto finished;
     }
   if (dirfd >= 0)
     fsync (dirfd);
 
-  vty_outln (vty, "Configuration saved to %s",config_file);
+  vty_out (vty, "Configuration saved to %s\n",config_file);
   ret = CMD_SUCCESS;
 
 finished:
@@ -1716,7 +1713,7 @@ DEFUN (show_startup_config,
   confp = fopen (host.config, "r");
   if (confp == NULL)
     {
-      vty_outln (vty, "Can't open configuration file [%s] due to '%s'",
+      vty_out (vty, "Can't open configuration file [%s] due to '%s'\n",
                host.config, safe_strerror(errno));
       return CMD_WARNING;
     }
@@ -1729,7 +1726,7 @@ DEFUN (show_startup_config,
         cp++;
       *cp = '\0';
 
-      vty_outln (vty, "%s", buf);
+      vty_out (vty, "%s\n", buf);
     }
 
   fclose (confp);
@@ -1756,7 +1753,7 @@ DEFUN (config_hostname,
 
   if (!isalpha((int) word->arg[0]))
     {
-      vty_outln (vty, "Please specify string starting with alphabet");
+      vty_out (vty, "Please specify string starting with alphabet\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -1796,8 +1793,8 @@ DEFUN (config_password,
 
   if (!isalnum (argv[idx_8]->arg[0]))
     {
-      vty_outln (vty,
-               "Please specify string starting with alphanumeric");
+      vty_out (vty,
+               "Please specify string starting with alphanumeric\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -1846,15 +1843,15 @@ DEFUN (config_enable_password,
         }
       else
         {
-          vty_outln (vty, "Unknown encryption type.");
+          vty_out (vty, "Unknown encryption type.\n");
           return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
   if (!isalnum (argv[idx_8]->arg[0]))
     {
-      vty_outln (vty,
-               "Please specify string starting with alphanumeric");
+      vty_out (vty,
+               "Please specify string starting with alphanumeric\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -2003,7 +2000,7 @@ DEFUN_HIDDEN (do_echo,
 {
   char *message;
 
-  vty_outln (vty, "%s",
+  vty_out (vty, "%s\n",
              ((message = argv_concat(argv, argc, 1)) ? message : ""));
   if (message)
     XFREE(MTYPE_TMP, message);
@@ -2047,7 +2044,7 @@ DEFUN (show_logging,
     vty_out (vty, "level %s, facility %s, ident %s",
              zlog_priority[zl->maxlvl[ZLOG_DEST_SYSLOG]],
              facility_name(zl->facility), zl->ident);
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
 
   vty_out (vty, "Stdout logging: ");
   if (zl->maxlvl[ZLOG_DEST_STDOUT] == ZLOG_DISABLED)
@@ -2055,7 +2052,7 @@ DEFUN (show_logging,
   else
     vty_out (vty, "level %s",
              zlog_priority[zl->maxlvl[ZLOG_DEST_STDOUT]]);
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
 
   vty_out (vty, "Monitor logging: ");
   if (zl->maxlvl[ZLOG_DEST_MONITOR] == ZLOG_DISABLED)
@@ -2063,7 +2060,7 @@ DEFUN (show_logging,
   else
     vty_out (vty, "level %s",
              zlog_priority[zl->maxlvl[ZLOG_DEST_MONITOR]]);
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
 
   vty_out (vty, "File logging: ");
   if ((zl->maxlvl[ZLOG_DEST_FILE] == ZLOG_DISABLED) ||
@@ -2073,13 +2070,13 @@ DEFUN (show_logging,
     vty_out (vty, "level %s, filename %s",
              zlog_priority[zl->maxlvl[ZLOG_DEST_FILE]],
              zl->filename);
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
 
-  vty_outln (vty, "Protocol name: %s",
+  vty_out (vty, "Protocol name: %s\n",
            zl->protoname);
-  vty_outln (vty, "Record priority: %s",
+  vty_out (vty, "Record priority: %s\n",
            (zl->record_priority ? "enabled" : "disabled"));
-  vty_outln (vty, "Timestamp precision: %d",
+  vty_out (vty, "Timestamp precision: %d\n",
            zl->timestamp_precision);
 
   return CMD_SUCCESS;

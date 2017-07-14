@@ -343,28 +343,28 @@ void irdp_config_write (struct vty *vty, struct interface *ifp)
   if(irdp->flags & IF_ACTIVE || irdp->flags & IF_SHUTDOWN) {
 
     if( irdp->flags & IF_SHUTDOWN)
-      vty_outln (vty, " ip irdp shutdown ");
+      vty_out (vty, " ip irdp shutdown \n");
 
     if( irdp->flags & IF_BROADCAST)
-      vty_outln (vty, " ip irdp broadcast");
+      vty_out (vty, " ip irdp broadcast\n");
     else
-      vty_outln (vty, " ip irdp multicast");
+      vty_out (vty, " ip irdp multicast\n");
 
-    vty_outln (vty, " ip irdp preference %ld",
+    vty_out (vty, " ip irdp preference %ld\n",
 	     irdp->Preference);
 
     for (ALL_LIST_ELEMENTS_RO (irdp->AdvPrefList, node, adv))
-      vty_outln (vty, " ip irdp address %s preference %d",
+      vty_out (vty, " ip irdp address %s preference %d\n",
                     inet_2a(adv->ip.s_addr, b1),
                     adv->pref);
 
-    vty_outln (vty, " ip irdp holdtime %d",
+    vty_out (vty, " ip irdp holdtime %d\n",
 	     irdp->Lifetime);
 
-    vty_outln (vty, " ip irdp minadvertinterval %ld",
+    vty_out (vty, " ip irdp minadvertinterval %ld\n",
 	     irdp->MinAdvertInterval);
 
-    vty_outln (vty, " ip irdp maxadvertinterval %ld",
+    vty_out (vty, " ip irdp maxadvertinterval %ld\n",
 	     irdp->MaxAdvertInterval);
 
   }
@@ -478,8 +478,8 @@ DEFUN (ip_irdp_minadvertinterval,
       return CMD_SUCCESS;
   }
   else {
-      vty_outln (vty, "%% MinAdvertInterval must be less than or equal to "
-                      "MaxAdvertInterval");
+      vty_out (vty, "%% MinAdvertInterval must be less than or equal to "
+                      "MaxAdvertInterval\n");
       return CMD_WARNING_CONFIG_FAILED;
   }
 }
@@ -505,8 +505,8 @@ DEFUN (ip_irdp_maxadvertinterval,
       return CMD_SUCCESS;
   }
   else {
-      vty_outln (vty, "%% MaxAdvertInterval must be greater than or equal to "
-                      "MinAdvertInterval");
+      vty_out (vty, "%% MaxAdvertInterval must be greater than or equal to "
+                      "MinAdvertInterval\n");
       return CMD_WARNING_CONFIG_FAILED;
   }
 }

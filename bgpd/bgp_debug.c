@@ -254,7 +254,7 @@ bgp_debug_list_print (struct vty *vty, const char *desc, struct list *list)
         }
     }
 
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
 }
 
 /* Print the command to enable the debug for each peer/prefix this debug is
@@ -274,14 +274,14 @@ bgp_debug_list_conf_print (struct vty *vty, const char *desc, struct list *list)
         {
           if (filter->host)
             {
-              vty_outln (vty, "%s %s", desc, filter->host);
+              vty_out (vty, "%s %s\n", desc, filter->host);
               write++;
             }
 
 
           if (filter->p)
             {
-              vty_outln (vty, "%s %s/%d", desc,
+              vty_out (vty, "%s %s/%d\n", desc,
                        inet_ntop (filter->p->family, &filter->p->u.prefix, buf, INET6_ADDRSTRLEN),
                        filter->p->prefixlen);
               write++;
@@ -291,7 +291,7 @@ bgp_debug_list_conf_print (struct vty *vty, const char *desc, struct list *list)
 
     if (!write)
       {
-        vty_outln (vty, "%s", desc);
+        vty_out (vty, "%s\n", desc);
         write++;
       }
 
@@ -583,7 +583,7 @@ DEFUN (debug_bgp_as4,
   else
     {
       TERM_DEBUG_ON (as4, AS4);
-      vty_outln (vty, "BGP as4 debugging is on");
+      vty_out (vty, "BGP as4 debugging is on\n");
     }
   return CMD_SUCCESS;
 }
@@ -601,7 +601,7 @@ DEFUN (no_debug_bgp_as4,
   else
     {
       TERM_DEBUG_OFF (as4, AS4);
-      vty_outln (vty, "BGP as4 debugging is off");
+      vty_out (vty, "BGP as4 debugging is off\n");
     }
   return CMD_SUCCESS;
 }
@@ -619,7 +619,7 @@ DEFUN (debug_bgp_as4_segment,
   else
     {
       TERM_DEBUG_ON (as4, AS4_SEGMENT);
-      vty_outln (vty, "BGP as4 segment debugging is on");
+      vty_out (vty, "BGP as4 segment debugging is on\n");
     }
   return CMD_SUCCESS;
 }
@@ -638,7 +638,7 @@ DEFUN (no_debug_bgp_as4_segment,
   else
     {
       TERM_DEBUG_OFF (as4, AS4_SEGMENT);
-      vty_outln (vty, "BGP as4 segment debugging is off");
+      vty_out (vty, "BGP as4 segment debugging is off\n");
     }
   return CMD_SUCCESS;
 }
@@ -658,7 +658,7 @@ DEFUN (debug_bgp_neighbor_events,
   else
     {
       TERM_DEBUG_ON (neighbor_events, NEIGHBOR_EVENTS);
-      vty_outln (vty, "BGP neighbor-events debugging is on");
+      vty_out (vty, "BGP neighbor-events debugging is on\n");
     }
   return CMD_SUCCESS;
 }
@@ -681,7 +681,7 @@ DEFUN (debug_bgp_neighbor_events_peer,
 
   if (bgp_debug_list_has_entry(bgp_debug_neighbor_events_peers, host, NULL))
     {
-      vty_outln (vty, "BGP neighbor-events debugging is already enabled for %s",
+      vty_out (vty, "BGP neighbor-events debugging is already enabled for %s\n",
                  host);
       return CMD_SUCCESS;
     }
@@ -693,7 +693,7 @@ DEFUN (debug_bgp_neighbor_events_peer,
   else
     {
       TERM_DEBUG_ON (neighbor_events, NEIGHBOR_EVENTS);
-      vty_outln (vty, "BGP neighbor-events debugging is on for %s", host);
+      vty_out (vty, "BGP neighbor-events debugging is on for %s\n", host);
     }
   return CMD_SUCCESS;
 }
@@ -713,7 +713,7 @@ DEFUN (no_debug_bgp_neighbor_events,
   else
     {
       TERM_DEBUG_OFF (neighbor_events, NEIGHBOR_EVENTS);
-      vty_outln (vty, "BGP neighbor-events debugging is off");
+      vty_out (vty, "BGP neighbor-events debugging is off\n");
     }
   return CMD_SUCCESS;
 }
@@ -747,9 +747,9 @@ DEFUN (no_debug_bgp_neighbor_events_peer,
     }
 
   if (found_peer)
-    vty_outln (vty, "BGP neighbor-events debugging is off for %s", host);
+    vty_out (vty, "BGP neighbor-events debugging is off for %s\n", host);
   else
-    vty_outln (vty, "BGP neighbor-events debugging was not enabled for %s",
+    vty_out (vty, "BGP neighbor-events debugging was not enabled for %s\n",
                host);
 
   return CMD_SUCCESS;
@@ -768,7 +768,7 @@ DEFUN (debug_bgp_nht,
   else
     {
       TERM_DEBUG_ON (nht, NHT);
-      vty_outln (vty, "BGP nexthop tracking debugging is on");
+      vty_out (vty, "BGP nexthop tracking debugging is on\n");
     }
   return CMD_SUCCESS;
 }
@@ -786,7 +786,7 @@ DEFUN (no_debug_bgp_nht,
   else
     {
       TERM_DEBUG_OFF (nht, NHT);
-      vty_outln (vty, "BGP nexthop tracking debugging is off");
+      vty_out (vty, "BGP nexthop tracking debugging is off\n");
     }
   return CMD_SUCCESS;
 }
@@ -806,7 +806,7 @@ DEFUN (debug_bgp_keepalive,
   else
     {
       TERM_DEBUG_ON (keepalive, KEEPALIVE);
-      vty_outln (vty, "BGP keepalives debugging is on");
+      vty_out (vty, "BGP keepalives debugging is on\n");
     }
   return CMD_SUCCESS;
 }
@@ -829,7 +829,7 @@ DEFUN (debug_bgp_keepalive_peer,
 
   if (bgp_debug_list_has_entry(bgp_debug_keepalive_peers, host, NULL))
     {
-      vty_outln (vty, "BGP keepalive debugging is already enabled for %s",
+      vty_out (vty, "BGP keepalive debugging is already enabled for %s\n",
                  host);
       return CMD_SUCCESS;
     }
@@ -841,7 +841,7 @@ DEFUN (debug_bgp_keepalive_peer,
   else
     {
       TERM_DEBUG_ON (keepalive, KEEPALIVE);
-      vty_outln (vty, "BGP keepalives debugging is on for %s", host);
+      vty_out (vty, "BGP keepalives debugging is on for %s\n", host);
     }
   return CMD_SUCCESS;
 }
@@ -861,7 +861,7 @@ DEFUN (no_debug_bgp_keepalive,
   else
     {
       TERM_DEBUG_OFF (keepalive, KEEPALIVE);
-      vty_outln (vty, "BGP keepalives debugging is off");
+      vty_out (vty, "BGP keepalives debugging is off\n");
     }
   return CMD_SUCCESS;
 }
@@ -895,9 +895,9 @@ DEFUN (no_debug_bgp_keepalive_peer,
     }
 
   if (found_peer)
-    vty_outln (vty, "BGP keepalives debugging is off for %s", host);
+    vty_out (vty, "BGP keepalives debugging is off for %s\n", host);
   else
-    vty_outln (vty, "BGP keepalives debugging was not enabled for %s", host);
+    vty_out (vty, "BGP keepalives debugging was not enabled for %s\n", host);
 
   return CMD_SUCCESS;
 }
@@ -922,7 +922,7 @@ DEFPY (debug_bgp_bestpath_prefix,
 
   if (bgp_debug_list_has_entry(bgp_debug_bestpath_prefixes, NULL, bestpath))
     {
-      vty_outln (vty, "BGP bestpath debugging is already enabled for %s", bestpath_str);
+      vty_out (vty, "BGP bestpath debugging is already enabled for %s\n", bestpath_str);
       return CMD_SUCCESS;
     }
 
@@ -935,7 +935,7 @@ DEFPY (debug_bgp_bestpath_prefix,
   else
     {
       TERM_DEBUG_ON (bestpath, BESTPATH);
-      vty_outln (vty, "BGP bestpath debugging is on for %s", bestpath_str);
+      vty_out (vty, "BGP bestpath debugging is on for %s\n", bestpath_str);
     }
 
   return CMD_SUCCESS;
@@ -962,7 +962,7 @@ DEFUN (no_debug_bgp_bestpath_prefix,
   if (!ret)
     {
       prefix_free(argv_p);
-      vty_outln (vty, "%% Malformed Prefix");
+      vty_out (vty, "%% Malformed Prefix\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -979,16 +979,16 @@ DEFUN (no_debug_bgp_bestpath_prefix,
           else
             {
               TERM_DEBUG_OFF (bestpath, BESTPATH);
-              vty_outln (vty, "BGP bestpath debugging (per prefix) is off");
+              vty_out (vty, "BGP bestpath debugging (per prefix) is off\n");
             }
         }
     }
 
   if (found_prefix)
-    vty_outln (vty, "BGP bestpath debugging is off for %s",
+    vty_out (vty, "BGP bestpath debugging is off for %s\n",
                argv[idx_ipv4_ipv6_prefixlen]->arg);
   else
-    vty_outln (vty, "BGP bestpath debugging was not enabled for %s",
+    vty_out (vty, "BGP bestpath debugging was not enabled for %s\n",
                argv[idx_ipv4_ipv6_prefixlen]->arg);
 
   return CMD_SUCCESS;
@@ -1009,7 +1009,7 @@ DEFUN (no_debug_bgp_bestpath,
   else
     {
       TERM_DEBUG_OFF (bestpath, BESTPATH);
-      vty_outln (vty, "BGP bestpath debugging is off");
+      vty_out (vty, "BGP bestpath debugging is off\n");
     }
   return CMD_SUCCESS;
 }
@@ -1035,7 +1035,7 @@ DEFUN (debug_bgp_update,
     {
       TERM_DEBUG_ON (update, UPDATE_IN);
       TERM_DEBUG_ON (update, UPDATE_OUT);
-      vty_outln (vty, "BGP updates debugging is on");
+      vty_out (vty, "BGP updates debugging is on\n");
     }
   return CMD_SUCCESS;
 }
@@ -1068,12 +1068,12 @@ DEFUN (debug_bgp_update_direct,
       if (strncmp ("i", argv[idx_in_out]->arg, 1) == 0)
 	{
 	  TERM_DEBUG_ON (update, UPDATE_IN);
-	  vty_outln (vty, "BGP updates debugging is on (inbound)");
+	  vty_out (vty, "BGP updates debugging is on (inbound)\n");
 	}
       else
 	{
 	  TERM_DEBUG_ON (update, UPDATE_OUT);
-	  vty_outln (vty, "BGP updates debugging is on (outbound)");
+	  vty_out (vty, "BGP updates debugging is on (outbound)\n");
 	}
     }
   return CMD_SUCCESS;
@@ -1111,7 +1111,7 @@ DEFUN (debug_bgp_update_direct_peer,
     {
       if (bgp_debug_list_has_entry(bgp_debug_update_in_peers, host, NULL))
         {
-          vty_outln (vty, "BGP inbound update debugging is already enabled for %s",
+          vty_out (vty, "BGP inbound update debugging is already enabled for %s\n",
                      host);
           return CMD_SUCCESS;
         }
@@ -1121,7 +1121,7 @@ DEFUN (debug_bgp_update_direct_peer,
     {
       if (bgp_debug_list_has_entry(bgp_debug_update_out_peers, host, NULL))
         {
-          vty_outln (vty, "BGP outbound update debugging is already enabled for %s",
+          vty_out (vty, "BGP outbound update debugging is already enabled for %s\n",
                      host);
           return CMD_SUCCESS;
         }
@@ -1166,13 +1166,13 @@ DEFUN (debug_bgp_update_direct_peer,
       if (inbound)
 	{
 	  TERM_DEBUG_ON (update, UPDATE_IN);
-	  vty_outln (vty, "BGP updates debugging is on (inbound) for %s",
+	  vty_out (vty, "BGP updates debugging is on (inbound) for %s\n",
                      argv[idx_peer]->arg);
 	}
       else
 	{
 	  TERM_DEBUG_ON (update, UPDATE_OUT);
-	  vty_outln (vty, "BGP updates debugging is on (outbound) for %s",
+	  vty_out (vty, "BGP updates debugging is on (outbound) for %s\n",
                      argv[idx_peer]->arg);
 	}
     }
@@ -1201,7 +1201,7 @@ DEFUN (no_debug_bgp_update_direct,
       else
         {
           TERM_DEBUG_OFF (update, UPDATE_IN);
-          vty_outln (vty, "BGP updates debugging is off (inbound)");
+          vty_out (vty, "BGP updates debugging is off (inbound)\n");
         }
     }
   else
@@ -1215,7 +1215,7 @@ DEFUN (no_debug_bgp_update_direct,
       else
         {
           TERM_DEBUG_OFF (update, UPDATE_OUT);
-          vty_outln (vty, "BGP updates debugging is off (outbound)");
+          vty_out (vty, "BGP updates debugging is off (outbound)\n");
         }
     }
 
@@ -1258,7 +1258,7 @@ DEFUN (no_debug_bgp_update_direct_peer,
           else
             {
               TERM_DEBUG_OFF (update, UPDATE_IN);
-              vty_outln (vty, "BGP updates debugging (inbound) is off");
+              vty_out (vty, "BGP updates debugging (inbound) is off\n");
             }
         }
     }
@@ -1275,7 +1275,7 @@ DEFUN (no_debug_bgp_update_direct_peer,
           else
             {
               TERM_DEBUG_OFF (update, UPDATE_OUT);
-              vty_outln (vty, "BGP updates debugging (outbound) is off");
+              vty_out (vty, "BGP updates debugging (outbound) is off\n");
             }
         }
 
@@ -1302,16 +1302,16 @@ DEFUN (no_debug_bgp_update_direct_peer,
 
   if (found_peer)
     if (inbound)
-      vty_outln (vty, "BGP updates debugging (inbound) is off for %s", host);
+      vty_out (vty, "BGP updates debugging (inbound) is off for %s\n", host);
     else
-      vty_outln (vty, "BGP updates debugging (outbound) is off for %s",
+      vty_out (vty, "BGP updates debugging (outbound) is off for %s\n",
                  host);
   else
     if (inbound)
-      vty_outln (vty, "BGP updates debugging (inbound) was not enabled for %s",
+      vty_out (vty, "BGP updates debugging (inbound) was not enabled for %s\n",
                  host);
     else
-      vty_outln (vty, "BGP updates debugging (outbound) was not enabled for %s",
+      vty_out (vty, "BGP updates debugging (outbound) was not enabled for %s\n",
                  host);
 
   return CMD_SUCCESS;
@@ -1337,7 +1337,7 @@ DEFUN (debug_bgp_update_prefix,
   if (!ret)
     {
       prefix_free(argv_p);
-      vty_outln (vty, "%% Malformed Prefix");
+      vty_out (vty, "%% Malformed Prefix\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -1347,7 +1347,7 @@ DEFUN (debug_bgp_update_prefix,
 
   if (bgp_debug_list_has_entry(bgp_debug_update_prefixes, NULL, argv_p))
     {
-      vty_outln (vty, "BGP updates debugging is already enabled for %s",
+      vty_out (vty, "BGP updates debugging is already enabled for %s\n",
                  argv[idx_ipv4_ipv6_prefixlen]->arg);
       return CMD_SUCCESS;
     }
@@ -1361,7 +1361,7 @@ DEFUN (debug_bgp_update_prefix,
   else
     {
       TERM_DEBUG_ON (update, UPDATE_PREFIX);
-      vty_outln (vty, "BGP updates debugging is on for %s",
+      vty_out (vty, "BGP updates debugging is on for %s\n",
                  argv[idx_ipv4_ipv6_prefixlen]->arg);
     }
 
@@ -1390,7 +1390,7 @@ DEFUN (no_debug_bgp_update_prefix,
   if (!ret)
     {
       prefix_free(argv_p);
-      vty_outln (vty, "%% Malformed Prefix");
+      vty_out (vty, "%% Malformed Prefix\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -1407,16 +1407,16 @@ DEFUN (no_debug_bgp_update_prefix,
           else
             {
               TERM_DEBUG_OFF (update, UPDATE_PREFIX);
-              vty_outln (vty, "BGP updates debugging (per prefix) is off");
+              vty_out (vty, "BGP updates debugging (per prefix) is off\n");
             }
         }
     }
 
   if (found_prefix)
-    vty_outln (vty, "BGP updates debugging is off for %s",
+    vty_out (vty, "BGP updates debugging is off for %s\n",
                argv[idx_ipv4_ipv6_prefixlen]->arg);
   else
-    vty_outln (vty, "BGP updates debugging was not enabled for %s",
+    vty_out (vty, "BGP updates debugging was not enabled for %s\n",
                argv[idx_ipv4_ipv6_prefixlen]->arg);
 
   return CMD_SUCCESS;
@@ -1448,7 +1448,7 @@ DEFUN (no_debug_bgp_update,
       TERM_DEBUG_OFF (update, UPDATE_IN);
       TERM_DEBUG_OFF (update, UPDATE_OUT);
       TERM_DEBUG_OFF (update, UPDATE_PREFIX);
-      vty_outln (vty, "BGP updates debugging is off");
+      vty_out (vty, "BGP updates debugging is off\n");
     }
   return CMD_SUCCESS;
 }
@@ -1466,7 +1466,7 @@ DEFUN (debug_bgp_zebra,
   else
     {
       TERM_DEBUG_ON (zebra, ZEBRA);
-      vty_outln (vty, "BGP zebra debugging is on");
+      vty_out (vty, "BGP zebra debugging is on\n");
     }
   return CMD_SUCCESS;
 }
@@ -1491,7 +1491,7 @@ DEFUN (debug_bgp_zebra_prefix,
   if (!ret)
     {
       prefix_free(argv_p);
-      vty_outln (vty, "%% Malformed Prefix");
+      vty_out (vty, "%% Malformed Prefix\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -1500,7 +1500,7 @@ DEFUN (debug_bgp_zebra_prefix,
 
   if (bgp_debug_list_has_entry(bgp_debug_zebra_prefixes, NULL, argv_p))
     {
-      vty_outln (vty, "BGP zebra debugging is already enabled for %s",
+      vty_out (vty, "BGP zebra debugging is already enabled for %s\n",
                  argv[idx_ipv4_ipv6_prefixlen]->arg);
       return CMD_SUCCESS;
     }
@@ -1512,7 +1512,7 @@ DEFUN (debug_bgp_zebra_prefix,
   else
     {
       TERM_DEBUG_ON (zebra, ZEBRA);
-      vty_outln (vty, "BGP zebra debugging is on for %s",
+      vty_out (vty, "BGP zebra debugging is on for %s\n",
                  argv[idx_ipv4_ipv6_prefixlen]->arg);
     }
 
@@ -1534,7 +1534,7 @@ DEFUN (no_debug_bgp_zebra,
   else
     {
       TERM_DEBUG_OFF (zebra, ZEBRA);
-      vty_outln (vty, "BGP zebra debugging is off");
+      vty_out (vty, "BGP zebra debugging is off\n");
     }
   return CMD_SUCCESS;
 }
@@ -1561,7 +1561,7 @@ DEFUN (no_debug_bgp_zebra_prefix,
   if (!ret)
     {
       prefix_free(argv_p);
-      vty_outln (vty, "%% Malformed Prefix");
+      vty_out (vty, "%% Malformed Prefix\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -1576,16 +1576,16 @@ DEFUN (no_debug_bgp_zebra_prefix,
           else
             {
               TERM_DEBUG_OFF (zebra, ZEBRA);
-              vty_outln (vty, "BGP zebra debugging is off");
+              vty_out (vty, "BGP zebra debugging is off\n");
             }
         }
     }
 
   if (found_prefix)
-    vty_outln (vty, "BGP zebra debugging is off for %s",
+    vty_out (vty, "BGP zebra debugging is off for %s\n",
                argv[idx_ipv4_ipv6_prefixlen]->arg);
   else
-    vty_outln (vty, "BGP zebra debugging was not enabled for %s",
+    vty_out (vty, "BGP zebra debugging was not enabled for %s\n",
                argv[idx_ipv4_ipv6_prefixlen]->arg);
 
   return CMD_SUCCESS;
@@ -1603,7 +1603,7 @@ DEFUN (debug_bgp_allow_martians,
   else
     {
       TERM_DEBUG_ON (allow_martians, ALLOW_MARTIANS);
-      vty_outln (vty, "BGP allow_martian next hop debugging is on");
+      vty_out (vty, "BGP allow_martian next hop debugging is on\n");
     }
   return CMD_SUCCESS;
 }
@@ -1621,7 +1621,7 @@ DEFUN (no_debug_bgp_allow_martians,
   else
     {
       TERM_DEBUG_OFF (allow_martians, ALLOW_MARTIANS);
-      vty_outln (vty, "BGP allow martian next hop debugging is off");
+      vty_out (vty, "BGP allow martian next hop debugging is off\n");
     }
   return CMD_SUCCESS;
 }
@@ -1640,7 +1640,7 @@ DEFUN (debug_bgp_update_groups,
   else
     {
       TERM_DEBUG_ON (update_groups, UPDATE_GROUPS);
-      vty_outln (vty, "BGP update-groups debugging is on");
+      vty_out (vty, "BGP update-groups debugging is on\n");
     }
   return CMD_SUCCESS;
 }
@@ -1658,7 +1658,7 @@ DEFUN (no_debug_bgp_update_groups,
   else
     {
       TERM_DEBUG_OFF (update_groups, UPDATE_GROUPS);
-      vty_outln (vty, "BGP update-groups debugging is off");
+      vty_out (vty, "BGP update-groups debugging is off\n");
     }
   return CMD_SUCCESS;
 }
@@ -1691,7 +1691,7 @@ DEFUN (no_debug_bgp,
   TERM_DEBUG_OFF (neighbor_events, NEIGHBOR_EVENTS);
   TERM_DEBUG_OFF (zebra, ZEBRA);
   TERM_DEBUG_OFF (allow_martians, ALLOW_MARTIANS);
-  vty_outln (vty, "All possible debugging has been turned off");
+  vty_out (vty, "All possible debugging has been turned off\n");
       
   return CMD_SUCCESS;
 }
@@ -1703,13 +1703,13 @@ DEFUN (show_debugging_bgp,
        DEBUG_STR
        BGP_STR)
 {
-  vty_outln (vty, "BGP debugging status:");
+  vty_out (vty, "BGP debugging status:\n");
 
   if (BGP_DEBUG (as4, AS4))
-    vty_outln (vty, "  BGP as4 debugging is on");
+    vty_out (vty, "  BGP as4 debugging is on\n");
 
   if (BGP_DEBUG (as4, AS4_SEGMENT))
-    vty_outln (vty, "  BGP as4 aspath segment debugging is on");
+    vty_out (vty, "  BGP as4 aspath segment debugging is on\n");
 
   if (BGP_DEBUG (bestpath, BESTPATH))
     bgp_debug_list_print (vty, "  BGP bestpath debugging is on",
@@ -1724,10 +1724,10 @@ DEFUN (show_debugging_bgp,
                           bgp_debug_neighbor_events_peers);
 
   if (BGP_DEBUG (nht, NHT))
-    vty_outln (vty, "  BGP next-hop tracking debugging is on");
+    vty_out (vty, "  BGP next-hop tracking debugging is on\n");
 
   if (BGP_DEBUG (update_groups, UPDATE_GROUPS))
-    vty_outln (vty, "  BGP update-groups debugging is on");
+    vty_out (vty, "  BGP update-groups debugging is on\n");
 
   if (BGP_DEBUG (update, UPDATE_PREFIX))
     bgp_debug_list_print (vty, "  BGP updates debugging is on",
@@ -1746,8 +1746,8 @@ DEFUN (show_debugging_bgp,
                           bgp_debug_zebra_prefixes);
 
   if (BGP_DEBUG (allow_martians, ALLOW_MARTIANS))
-    vty_outln (vty, "  BGP allow martian next hop debugging is on");
-  vty_out (vty, VTYNL);
+    vty_out (vty, "  BGP allow martian next hop debugging is on\n");
+  vty_out (vty, "\n");
   return CMD_SUCCESS;
 }
 
@@ -1802,13 +1802,13 @@ bgp_config_write_debug (struct vty *vty)
 
   if (CONF_BGP_DEBUG (as4, AS4))
     {
-      vty_outln (vty, "debug bgp as4");
+      vty_out (vty, "debug bgp as4\n");
       write++;
     }
 
   if (CONF_BGP_DEBUG (as4, AS4_SEGMENT))
     {
-      vty_outln (vty, "debug bgp as4 segment");
+      vty_out (vty, "debug bgp as4 segment\n");
       write++;
     }
 
@@ -1832,13 +1832,13 @@ bgp_config_write_debug (struct vty *vty)
 
   if (CONF_BGP_DEBUG (nht, NHT))
     {
-      vty_outln (vty, "debug bgp nht");
+      vty_out (vty, "debug bgp nht\n");
       write++;
     }
 
   if (CONF_BGP_DEBUG (update_groups, UPDATE_GROUPS))
     {
-      vty_outln (vty, "debug bgp update-groups");
+      vty_out (vty, "debug bgp update-groups\n");
       write++;
     }
 
@@ -1864,7 +1864,7 @@ bgp_config_write_debug (struct vty *vty)
     {
       if (!bgp_debug_zebra_prefixes || list_isempty(bgp_debug_zebra_prefixes))
         {
-          vty_outln (vty, "debug bgp zebra");
+          vty_out (vty, "debug bgp zebra\n");
           write++;
         }
       else
@@ -1876,7 +1876,7 @@ bgp_config_write_debug (struct vty *vty)
 
   if (CONF_BGP_DEBUG (allow_martians, ALLOW_MARTIANS))
     {
-      vty_outln (vty, "debug bgp allow-martians");
+      vty_out (vty, "debug bgp allow-martians\n");
       write++;
     }
 

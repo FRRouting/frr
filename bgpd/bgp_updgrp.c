@@ -564,17 +564,17 @@ update_group_show_walkcb (struct update_group *updgrp, void *arg)
 
   vty = ctx->vty;
 
-  vty_outln (vty, "Update-group %" PRIu64 ":", updgrp->id);
+  vty_out (vty, "Update-group %" PRIu64 ":\n", updgrp->id);
   vty_out (vty, "  Created: %s", timestamp_string (updgrp->uptime));
   filter = &updgrp->conf->filter[updgrp->afi][updgrp->safi];
   if (filter->map[RMAP_OUT].name)
-    vty_outln (vty, "  Outgoing route map: %s%s",
+    vty_out (vty, "  Outgoing route map: %s%s\n",
 	     filter->map[RMAP_OUT].map ? "X" : "",
 	     filter->map[RMAP_OUT].name);
-  vty_outln (vty, "  MRAI value (seconds): %d",
+  vty_out (vty, "  MRAI value (seconds): %d\n",
 	   updgrp->conf->v_routeadv);
   if (updgrp->conf->change_local_as)
-    vty_outln (vty, "  Local AS %u%s%s",
+    vty_out (vty, "  Local AS %u%s%s\n",
              updgrp->conf->change_local_as,
              CHECK_FLAG (updgrp->conf->flags,
                      PEER_FLAG_LOCAL_AS_NO_PREPEND) ?  " no-prepend" : "",
@@ -584,49 +584,49 @@ update_group_show_walkcb (struct update_group *updgrp, void *arg)
   {
     if (ctx->subgrp_id && (ctx->subgrp_id != subgrp->id))
       continue;
-    vty_out (vty, VTYNL);
-    vty_outln (vty, "  Update-subgroup %" PRIu64 ":", subgrp->id);
+    vty_out (vty, "\n");
+    vty_out (vty, "  Update-subgroup %" PRIu64 ":\n", subgrp->id);
     vty_out (vty, "    Created: %s", timestamp_string (subgrp->uptime));
 
     if (subgrp->split_from.update_group_id || subgrp->split_from.subgroup_id)
       {
-	vty_outln (vty, "    Split from group id: %" PRIu64 "",
+	vty_out (vty, "    Split from group id: %" PRIu64 "\n",
 		 subgrp->split_from.update_group_id);
-	vty_outln (vty, "    Split from subgroup id: %" PRIu64 "",
+	vty_out (vty, "    Split from subgroup id: %" PRIu64 "\n",
 		 subgrp->split_from.subgroup_id);
       }
 
-    vty_outln (vty, "    Join events: %u", subgrp->join_events);
-    vty_outln (vty, "    Prune events: %u",
+    vty_out (vty, "    Join events: %u\n", subgrp->join_events);
+    vty_out (vty, "    Prune events: %u\n",
 	     subgrp->prune_events);
-    vty_outln (vty, "    Merge events: %u",
+    vty_out (vty, "    Merge events: %u\n",
 	     subgrp->merge_events);
-    vty_outln (vty, "    Split events: %u",
+    vty_out (vty, "    Split events: %u\n",
 	     subgrp->split_events);
-    vty_outln (vty, "    Update group switch events: %u",
+    vty_out (vty, "    Update group switch events: %u\n",
 	     subgrp->updgrp_switch_events);
-    vty_outln (vty, "    Peer refreshes combined: %u",
+    vty_out (vty, "    Peer refreshes combined: %u\n",
 	     subgrp->peer_refreshes_combined);
-    vty_outln (vty, "    Merge checks triggered: %u",
+    vty_out (vty, "    Merge checks triggered: %u\n",
 	     subgrp->merge_checks_triggered);
-    vty_outln (vty, "    Version: %" PRIu64 "", subgrp->version);
-    vty_outln (vty, "    Packet queue length: %d",
+    vty_out (vty, "    Version: %" PRIu64 "\n", subgrp->version);
+    vty_out (vty, "    Packet queue length: %d\n",
 	     bpacket_queue_length(SUBGRP_PKTQ(subgrp)));
-    vty_outln (vty, "    Total packets enqueued: %u",
+    vty_out (vty, "    Total packets enqueued: %u\n",
 	     subgroup_total_packets_enqueued(subgrp));
-    vty_outln (vty, "    Packet queue high watermark: %d",
+    vty_out (vty, "    Packet queue high watermark: %d\n",
 	     bpacket_queue_hwm_length(SUBGRP_PKTQ(subgrp)));
-    vty_outln (vty, "    Adj-out list count: %u",
+    vty_out (vty, "    Adj-out list count: %u\n",
 	     subgrp->adj_count);
-    vty_outln (vty, "    Advertise list: %s",
+    vty_out (vty, "    Advertise list: %s\n",
 	     advertise_list_is_empty(subgrp) ? "empty" : "not empty");
-    vty_outln (vty, "    Flags: %s",
+    vty_out (vty, "    Flags: %s\n",
 	     CHECK_FLAG(subgrp->flags, SUBGRP_FLAG_NEEDS_REFRESH) ? "R" : "");
     if (subgrp->peer_count > 0)
       {
-	vty_outln (vty, "    Peers:");
+	vty_out (vty, "    Peers:\n");
 	SUBGRP_FOREACH_PEER (subgrp, paf)
-	  vty_outln (vty, "      - %s", paf->peer->host);
+	  vty_out (vty, "      - %s\n", paf->peer->host);
       }
   }
   return UPDWALK_CONTINUE;
@@ -648,7 +648,7 @@ updgrp_show_packet_queue_walkcb (struct update_group *updgrp, void *arg)
   {
     if (ctx->subgrp_id && (ctx->subgrp_id != subgrp->id))
       continue;
-    vty_outln (vty, "update group %" PRIu64 ", subgroup %" PRIu64 "", updgrp->id,
+    vty_out (vty, "update group %" PRIu64 ", subgroup %" PRIu64 "\n", updgrp->id,
 	     subgrp->id);
     bpacket_queue_show_vty (SUBGRP_PKTQ (subgrp), vty);
   }
@@ -1597,27 +1597,27 @@ update_group_show (struct bgp *bgp, afi_t afi, safi_t safi, struct vty *vty,
 void
 update_group_show_stats (struct bgp *bgp, struct vty *vty)
 {
-  vty_outln (vty, "Update groups created: %u",
+  vty_out (vty, "Update groups created: %u\n",
 	   bgp->update_group_stats.updgrps_created);
-  vty_outln (vty, "Update groups deleted: %u",
+  vty_out (vty, "Update groups deleted: %u\n",
 	   bgp->update_group_stats.updgrps_deleted);
-  vty_outln (vty, "Update subgroups created: %u",
+  vty_out (vty, "Update subgroups created: %u\n",
 	   bgp->update_group_stats.subgrps_created);
-  vty_outln (vty, "Update subgroups deleted: %u",
+  vty_out (vty, "Update subgroups deleted: %u\n",
 	   bgp->update_group_stats.subgrps_deleted);
-  vty_outln (vty, "Join events: %u",
+  vty_out (vty, "Join events: %u\n",
 	   bgp->update_group_stats.join_events);
-  vty_outln (vty, "Prune events: %u",
+  vty_out (vty, "Prune events: %u\n",
 	   bgp->update_group_stats.prune_events);
-  vty_outln (vty, "Merge events: %u",
+  vty_out (vty, "Merge events: %u\n",
 	   bgp->update_group_stats.merge_events);
-  vty_outln (vty, "Split events: %u",
+  vty_out (vty, "Split events: %u\n",
 	   bgp->update_group_stats.split_events);
-  vty_outln (vty, "Update group switch events: %u",
+  vty_out (vty, "Update group switch events: %u\n",
 	   bgp->update_group_stats.updgrp_switch_events);
-  vty_outln (vty, "Peer route refreshes combined: %u",
+  vty_out (vty, "Peer route refreshes combined: %u\n",
 	   bgp->update_group_stats.peer_refreshes_combined);
-  vty_outln (vty, "Merge checks triggered: %u",
+  vty_out (vty, "Merge checks triggered: %u\n",
 	   bgp->update_group_stats.merge_checks_triggered);
 }
 

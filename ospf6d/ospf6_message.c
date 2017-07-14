@@ -2459,41 +2459,39 @@ config_write_ospf6_debug_message (struct vty *vty)
 
   if (s == 0x3f && r == 0x3f)
     {
-      vty_out (vty, "debug ospf6 message all%s", VNL);
+      vty_out (vty, "debug ospf6 message all\n");
       return 0;
     }
 
   if (s == 0x3f && r == 0)
     {
-      vty_out (vty, "debug ospf6 message all send%s", VNL);
+      vty_out (vty, "debug ospf6 message all send\n");
       return 0;
     }
   else if (s == 0 && r == 0x3f)
     {
-      vty_out (vty, "debug ospf6 message all recv%s", VNL);
+      vty_out (vty, "debug ospf6 message all recv\n");
       return 0;
     }
 
   /* Unknown message is logged by default */
   if (! IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, SEND) &&
       ! IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
-    vty_out (vty, "no debug ospf6 message unknown%s", VNL);
+    vty_out (vty, "no debug ospf6 message unknown\n");
   else if (! IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, SEND))
-    vty_out (vty, "no debug ospf6 message unknown send%s", VNL);
+    vty_out (vty, "no debug ospf6 message unknown send\n");
   else if (! IS_OSPF6_DEBUG_MESSAGE (OSPF6_MESSAGE_TYPE_UNKNOWN, RECV))
-    vty_out (vty, "no debug ospf6 message unknown recv%s", VNL);
+    vty_out (vty, "no debug ospf6 message unknown recv\n");
 
   for (i = 1; i < 6; i++)
     {
       if (IS_OSPF6_DEBUG_MESSAGE (i, SEND) &&
           IS_OSPF6_DEBUG_MESSAGE (i, RECV))
-        vty_out (vty, "debug ospf6 message %s%s", type_str[i], VNL);
+        vty_out (vty, "debug ospf6 message %s\n", type_str[i]);
       else if (IS_OSPF6_DEBUG_MESSAGE (i, SEND))
-        vty_out (vty, "debug ospf6 message %s send%s", type_str[i],
-                 VNL);
+        vty_out (vty, "debug ospf6 message %s send\n", type_str[i]);
       else if (IS_OSPF6_DEBUG_MESSAGE (i, RECV))
-        vty_out (vty, "debug ospf6 message %s recv%s", type_str[i],
-                 VNL);
+        vty_out (vty, "debug ospf6 message %s recv\n", type_str[i]);
     }
 
   return 0;

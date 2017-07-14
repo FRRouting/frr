@@ -1533,14 +1533,14 @@ pim_msdp_config_write(struct vty *vty)
 
   if (mg->src_ip.s_addr != INADDR_ANY) {
     pim_inet4_dump("<src?>", mg->src_ip, src_str, sizeof(src_str));
-    vty_outln (vty, "ip msdp mesh-group %s source %s",
+    vty_out (vty, "ip msdp mesh-group %s source %s\n",
         mg->mesh_group_name, src_str);
     ++count;
   }
 
   for (ALL_LIST_ELEMENTS_RO(mg->mbr_list, mbrnode, mbr)) {
     pim_inet4_dump("<mbr?>", mbr->mbr_ip, mbr_str, sizeof(mbr_str));
-    vty_outln (vty, "ip msdp mesh-group %s member %s",
+    vty_out (vty, "ip msdp mesh-group %s member %s\n",
         mg->mesh_group_name, mbr_str);
     ++count;
   }

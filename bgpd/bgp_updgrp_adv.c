@@ -226,16 +226,16 @@ subgrp_show_adjq_vty (struct update_subgroup *subgrp, struct vty *vty,
 	{
 	  if (header1)
 	    {
-	      vty_outln (vty,
-		       "BGP table version is %" PRIu64 ", local router ID is %s",
+	      vty_out (vty,
+		       "BGP table version is %" PRIu64 ", local router ID is %s\n",
 		       table->version,inet_ntoa(bgp->router_id));
-	      vty_outln (vty, BGP_SHOW_SCODE_HEADER, VTYNL);
-	      vty_outln (vty, BGP_SHOW_OCODE_HEADER, VTYNL);
+	      vty_out (vty, BGP_SHOW_SCODE_HEADER);
+	      vty_out (vty, BGP_SHOW_OCODE_HEADER);
 	      header1 = 0;
 	    }
 	  if (header2)
 	    {
-	      vty_outln (vty, BGP_SHOW_HEADER);
+	      vty_out (vty, BGP_SHOW_HEADER);
 	      header2 = 0;
 	    }
 	  if ((flags & UPDWALK_FLAGS_ADVQUEUE) && adj->adv && adj->adv->baa)
@@ -250,8 +250,7 @@ subgrp_show_adjq_vty (struct update_subgroup *subgrp, struct vty *vty,
 	    }
 	}
   if (output_count != 0)
-    vty_outln (vty, "%sTotal number of prefixes %ld",
-	     VTYNL, output_count);
+    vty_out (vty, "\nTotal number of prefixes %ld\n", output_count);
 }
 
 static int
@@ -266,7 +265,7 @@ updgrp_show_adj_walkcb (struct update_group *updgrp, void *arg)
   {
     if (ctx->subgrp_id && (ctx->subgrp_id != subgrp->id))
       continue;
-    vty_outln (vty, "update group %" PRIu64 ", subgroup %" PRIu64 "", updgrp->id,
+    vty_out (vty, "update group %" PRIu64 ", subgroup %" PRIu64 "\n", updgrp->id,
 	     subgrp->id);
     subgrp_show_adjq_vty (subgrp, vty, ctx->flags);
   }

@@ -685,7 +685,7 @@ show_vty_subtlv_admin_grp (struct vty *vty, struct te_subtlv_admin_grp *tlv)
 {
 
   if (vty != NULL)
-    vty_outln (vty, "    Administrative Group: 0x%x",
+    vty_out (vty, "    Administrative Group: 0x%x\n",
              (u_int32_t)ntohl(tlv->value));
       else
         zlog_debug ("      Administrative Group: 0x%x",
@@ -699,8 +699,8 @@ show_vty_subtlv_llri (struct vty *vty, struct te_subtlv_llri *tlv)
 {
   if (vty != NULL)
     {
-      vty_outln (vty, "    Link Local  ID: %d",(u_int32_t)ntohl(tlv->local));
-      vty_outln (vty, "    Link Remote ID: %d",
+      vty_out (vty, "    Link Local  ID: %d\n",(u_int32_t)ntohl(tlv->local));
+      vty_out (vty, "    Link Remote ID: %d\n",
                  (u_int32_t)ntohl(tlv->remote));
     }
   else
@@ -716,7 +716,7 @@ static u_char
 show_vty_subtlv_local_ipaddr (struct vty *vty, struct te_subtlv_local_ipaddr *tlv)
 {
   if (vty != NULL)
-    vty_outln (vty, "    Local Interface IP Address(es): %s",
+    vty_out (vty, "    Local Interface IP Address(es): %s\n",
                inet_ntoa(tlv->value));
     else
       zlog_debug ("      Local Interface IP Address(es): %s", inet_ntoa (tlv->value));
@@ -728,7 +728,7 @@ static u_char
 show_vty_subtlv_rmt_ipaddr (struct vty *vty, struct te_subtlv_rmt_ipaddr *tlv)
 {
   if (vty != NULL)
-    vty_outln (vty, "    Remote Interface IP Address(es): %s",
+    vty_out (vty, "    Remote Interface IP Address(es): %s\n",
                inet_ntoa(tlv->value));
     else
       zlog_debug ("      Remote Interface IP Address(es): %s", inet_ntoa (tlv->value));
@@ -744,7 +744,7 @@ show_vty_subtlv_max_bw (struct vty *vty, struct te_subtlv_max_bw *tlv)
   fval = ntohf (tlv->value);
 
   if (vty != NULL)
-    vty_outln (vty, "    Maximum Bandwidth: %g (Bytes/sec)", fval);
+    vty_out (vty, "    Maximum Bandwidth: %g (Bytes/sec)\n", fval);
   else
     zlog_debug ("      Maximum Bandwidth: %g (Bytes/sec)", fval);
 
@@ -759,7 +759,7 @@ show_vty_subtlv_max_rsv_bw (struct vty *vty, struct te_subtlv_max_rsv_bw *tlv)
   fval = ntohf (tlv->value);
 
   if (vty != NULL)
-    vty_outln (vty, "    Maximum Reservable Bandwidth: %g (Bytes/sec)",fval);
+    vty_out (vty, "    Maximum Reservable Bandwidth: %g (Bytes/sec)\n",fval);
   else
     zlog_debug ("      Maximum Reservable Bandwidth: %g (Bytes/sec)", fval);
 
@@ -773,7 +773,7 @@ show_vty_subtlv_unrsv_bw (struct vty *vty, struct te_subtlv_unrsv_bw *tlv)
   int i;
 
   if (vty != NULL)
-    vty_outln (vty, "    Unreserved Bandwidth:");
+    vty_out (vty, "    Unreserved Bandwidth:\n");
   else
     zlog_debug ("      Unreserved Bandwidth:");
 
@@ -782,7 +782,7 @@ show_vty_subtlv_unrsv_bw (struct vty *vty, struct te_subtlv_unrsv_bw *tlv)
       fval1 = ntohf (tlv->value[i]);
       fval2 = ntohf (tlv->value[i+1]);
       if (vty != NULL)
-        vty_outln (vty, "      [%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)", i, fval1, i+1,
+        vty_out (vty, "      [%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)\n", i, fval1, i+1,
                    fval2);
       else
         zlog_debug ("        [%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)", i, fval1, i+1, fval2);
@@ -798,7 +798,7 @@ show_vty_subtlv_te_metric (struct vty *vty, struct te_subtlv_te_metric *tlv)
 
   te_metric = tlv->value[2] | tlv->value[1] << 8 | tlv->value[0] << 16;
   if (vty != NULL)
-    vty_outln (vty, "    Traffic Engineering Metric: %u", te_metric);
+    vty_out (vty, "    Traffic Engineering Metric: %u\n", te_metric);
   else
     zlog_debug ("      Traffic Engineering Metric: %u", te_metric);
 
@@ -809,7 +809,7 @@ static u_char
 show_vty_subtlv_ras (struct vty *vty, struct te_subtlv_ras *tlv)
 {
   if (vty != NULL)
-    vty_outln (vty, "    Inter-AS TE Remote AS number: %u",
+    vty_out (vty, "    Inter-AS TE Remote AS number: %u\n",
                ntohl(tlv->value));
     else
       zlog_debug ("      Inter-AS TE Remote AS number: %u", ntohl (tlv->value));
@@ -821,7 +821,7 @@ static u_char
 show_vty_subtlv_rip (struct vty *vty, struct te_subtlv_rip *tlv)
 {
   if (vty != NULL)
-    vty_outln (vty, "    Inter-AS TE Remote ASBR IP address: %s",
+    vty_out (vty, "    Inter-AS TE Remote ASBR IP address: %s\n",
                inet_ntoa(tlv->value));
     else
       zlog_debug ("      Inter-AS TE Remote ASBR IP address: %s", inet_ntoa (tlv->value));
@@ -839,7 +839,7 @@ show_vty_subtlv_av_delay (struct vty *vty, struct te_subtlv_av_delay *tlv)
   A = (u_int32_t) ntohl (tlv->value) & TE_EXT_ANORMAL;
 
   if (vty != NULL)
-    vty_outln (vty, "    %s Average Link Delay: %d (micro-sec)", A ? "Anomalous" : "Normal",
+    vty_out (vty, "    %s Average Link Delay: %d (micro-sec)\n", A ? "Anomalous" : "Normal",
                delay);
   else
     zlog_debug ("      %s Average Link Delay: %d (micro-sec)", A ? "Anomalous" : "Normal", delay);
@@ -858,7 +858,7 @@ show_vty_subtlv_mm_delay (struct vty *vty, struct te_subtlv_mm_delay *tlv)
   high = (u_int32_t) ntohl (tlv->high) & TE_EXT_MASK;
 
   if (vty != NULL)
-    vty_outln (vty, "    %s Min/Max Link Delay: %d / %d (micro-sec)", A ? "Anomalous" : "Normal", low,
+    vty_out (vty, "    %s Min/Max Link Delay: %d / %d (micro-sec)\n", A ? "Anomalous" : "Normal", low,
                high);
   else
     zlog_debug ("      %s Min/Max Link Delay: %d / %d (micro-sec)", A ? "Anomalous" : "Normal", low, high);
@@ -874,7 +874,7 @@ show_vty_subtlv_delay_var (struct vty *vty, struct te_subtlv_delay_var *tlv)
   jitter = (u_int32_t) ntohl (tlv->value) & TE_EXT_MASK;
 
   if (vty != NULL)
-    vty_outln (vty, "    Delay Variation: %d (micro-sec)", jitter);
+    vty_out (vty, "    Delay Variation: %d (micro-sec)\n", jitter);
   else
     zlog_debug ("      Delay Variation: %d (micro-sec)", jitter);
 
@@ -893,7 +893,7 @@ show_vty_subtlv_pkt_loss (struct vty *vty, struct te_subtlv_pkt_loss *tlv)
   A = (u_int32_t) ntohl (tlv->value) & TE_EXT_ANORMAL;
 
   if (vty != NULL)
-    vty_outln (vty, "    %s Link Packet Loss: %g (%%)", A ? "Anomalous" : "Normal",
+    vty_out (vty, "    %s Link Packet Loss: %g (%%)\n", A ? "Anomalous" : "Normal",
                fval);
   else
     zlog_debug ("      %s Link Packet Loss: %g (%%)", A ? "Anomalous" : "Normal", fval);
@@ -909,7 +909,7 @@ show_vty_subtlv_res_bw (struct vty *vty, struct te_subtlv_res_bw *tlv)
   fval = ntohf(tlv->value);
 
   if (vty != NULL)
-    vty_outln (vty, "    Unidirectional Residual Bandwidth: %g (Bytes/sec)",
+    vty_out (vty, "    Unidirectional Residual Bandwidth: %g (Bytes/sec)\n",
                fval);
   else
     zlog_debug ("      Unidirectional Residual Bandwidth: %g (Bytes/sec)", fval);
@@ -925,7 +925,7 @@ show_vty_subtlv_ava_bw (struct vty *vty, struct te_subtlv_ava_bw *tlv)
   fval = ntohf (tlv->value);
 
   if (vty != NULL)
-    vty_outln (vty, "    Unidirectional Available Bandwidth: %g (Bytes/sec)",
+    vty_out (vty, "    Unidirectional Available Bandwidth: %g (Bytes/sec)\n",
                fval);
   else
     zlog_debug ("      Unidirectional Available Bandwidth: %g (Bytes/sec)", fval);
@@ -941,7 +941,7 @@ show_vty_subtlv_use_bw (struct vty *vty, struct te_subtlv_use_bw *tlv)
   fval = ntohf (tlv->value);
 
   if (vty != NULL)
-    vty_outln (vty, "    Unidirectional Utilized Bandwidth: %g (Bytes/sec)",
+    vty_out (vty, "    Unidirectional Utilized Bandwidth: %g (Bytes/sec)\n",
                fval);
   else
     zlog_debug ("      Unidirectional Utilized Bandwidth: %g (Bytes/sec)", fval);
@@ -959,7 +959,7 @@ show_vty_unknown_tlv (struct vty *vty, struct subtlv_header *tlvh)
     {
       if (tlvh->length != 0)
         {
-          vty_outln (vty, "    Unknown TLV: [type(%#.2x), length(%#.2x)]",
+          vty_out (vty, "    Unknown TLV: [type(%#.2x), length(%#.2x)]\n",
               tlvh->type, tlvh->length);
           vty_out(vty, "       Dump: [00]");
           rtn = 1;          /* initialize end of line counter */
@@ -968,16 +968,16 @@ show_vty_unknown_tlv (struct vty *vty, struct subtlv_header *tlvh)
               vty_out (vty, " %#.2x", v[i]);
               if (rtn == 8)
                 {
-                  vty_out (vty, "%s             [%.2x]", VTYNL, i + 1);
+                  vty_out (vty, "\n             [%.2x]", i + 1);
                   rtn = 1;
                 }
               else
                 rtn++;
             }
-          vty_out (vty, VTYNL);
+          vty_out (vty, "\n");
         }
       else
-        vty_outln (vty, "    Unknown TLV: [type(%#.2x), length(%#.2x)]",
+        vty_out (vty, "    Unknown TLV: [type(%#.2x), length(%#.2x)]\n",
             tlvh->type, tlvh->length);
     }
   else
@@ -1069,8 +1069,8 @@ isis_mpls_te_config_write_router (struct vty *vty)
 {
   if (IS_MPLS_TE(isisMplsTE))
     {
-      vty_outln (vty, "  mpls-te on");
-      vty_outln (vty, "  mpls-te router-address %s",
+      vty_out (vty, "  mpls-te on\n");
+      vty_out (vty, "  mpls-te router-address %s\n",
                inet_ntoa(isisMplsTE.router_id));
     }
 
@@ -1173,7 +1173,7 @@ DEFUN (isis_mpls_te_router_addr,
 
   if (! inet_aton (argv[idx_ipv4]->arg, &value))
     {
-      vty_outln (vty, "Please specify Router-Addr by A.B.C.D");
+      vty_out (vty, "Please specify Router-Addr by A.B.C.D\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -1201,7 +1201,7 @@ DEFUN (isis_mpls_te_inter_as,
        "AREA native mode self originate INTER-AS LSP with L1 and L2 flooding scope)\n"
        "AS native mode self originate INTER-AS LSP with L2 only flooding scope\n")
 {
-  vty_outln (vty, "Not yet supported");
+  vty_out (vty, "Not yet supported\n");
   return CMD_SUCCESS;
 }
 
@@ -1213,7 +1213,7 @@ DEFUN (no_isis_mpls_te_inter_as,
        "Disable MPLS-TE Inter-AS support\n")
 {
 
-  vty_outln (vty, "Not yet supported");
+  vty_out (vty, "Not yet supported\n");
   return CMD_SUCCESS;
 }
 
@@ -1227,16 +1227,16 @@ DEFUN (show_isis_mpls_te_router,
 {
   if (IS_MPLS_TE(isisMplsTE))
     {
-      vty_outln (vty, "--- MPLS-TE router parameters ---");
+      vty_out (vty, "--- MPLS-TE router parameters ---\n");
 
       if (ntohs (isisMplsTE.router_id.s_addr) != 0)
-        vty_outln (vty, "  Router-Address: %s",
+        vty_out (vty, "  Router-Address: %s\n",
                    inet_ntoa(isisMplsTE.router_id));
         else
-          vty_outln (vty, "  N/A");
+          vty_out (vty, "  N/A\n");
     }
   else
-    vty_outln (vty, "  MPLS-TE is disable on this router");
+    vty_out (vty, "  MPLS-TE is disable on this router\n");
 
   return CMD_SUCCESS;
 }
@@ -1254,21 +1254,21 @@ show_mpls_te_sub (struct vty *vty, struct interface *ifp)
         {
           if (IS_INTER_AS(mtc->type))
             {
-              vty_outln (vty, "-- Inter-AS TEv2 link parameters for %s --",
+              vty_out (vty, "-- Inter-AS TEv2 link parameters for %s --\n",
                        ifp->name);
             }
           else
             {
               /* MPLS-TE is not activate on this interface */
               /* or this interface is passive and Inter-AS TEv2 is not activate */
-              vty_outln (vty, "  %s: MPLS-TE is disabled on this interface",
+              vty_out (vty, "  %s: MPLS-TE is disabled on this interface\n",
                        ifp->name);
               return;
             }
         }
       else
         {
-          vty_outln (vty, "-- MPLS-TE link parameters for %s --",
+          vty_out (vty, "-- MPLS-TE link parameters for %s --\n",
                    ifp->name);
         }
 
@@ -1299,11 +1299,11 @@ show_mpls_te_sub (struct vty *vty, struct interface *ifp)
       show_vty_subtlv_res_bw (vty, &mtc->res_bw);
       show_vty_subtlv_ava_bw (vty, &mtc->ava_bw);
       show_vty_subtlv_use_bw (vty, &mtc->use_bw);
-      vty_outln (vty, "---------------%s", VTYNL);
+      vty_out (vty, "---------------\n\n");
     }
   else
     {
-      vty_outln (vty, "  %s: MPLS-TE is disabled on this interface",
+      vty_out (vty, "  %s: MPLS-TE is disabled on this interface\n",
                ifp->name);
     }
 
@@ -1333,7 +1333,7 @@ DEFUN (show_isis_mpls_te_interface,
   else
     {
       if ((ifp = if_lookup_by_name (argv[idx_interface]->arg, VRF_DEFAULT)) == NULL)
-        vty_outln (vty, "No such interface name");
+        vty_out (vty, "No such interface name\n");
       else
         show_mpls_te_sub (vty, ifp);
     }

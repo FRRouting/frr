@@ -366,7 +366,7 @@ void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *vty)
   if(vty != NULL)
     {
       vty_time_print (vty, 0);
-      vty_outln (vty, "Neighbor %s (%s) is down: manually cleared",
+      vty_out (vty, "Neighbor %s (%s) is down: manually cleared\n",
                inet_ntoa (nbr->src),
                ifindex2ifname(nbr->ei->ifp->ifindex, VRF_DEFAULT));
     }

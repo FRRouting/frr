@@ -602,9 +602,9 @@ skiplist_debug(struct vty *vty, struct skiplist *l)
 
     if (!l)
 	l = skiplist_last_created;
-    vty_outln (vty, "Skiplist %p has max level %d", l, l->level);
+    vty_out (vty, "Skiplist %p has max level %d\n", l, l->level);
     for (i = l->level; i >= 0; --i)
-	vty_outln (vty, "  @%d: %ld",
+	vty_out (vty, "  @%d: %ld\n",
 	    i,(long)((l->stats->forward[i]) - (struct skiplistnode *)NULL));
 }
 

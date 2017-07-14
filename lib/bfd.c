@@ -394,8 +394,8 @@ bfd_show_param(struct vty *vty, struct bfd_info *bfd_info, int bfd_tag,
     }
   else
     {
-      vty_outln (vty, "  %s%sDetect Mul: %d, Min Rx interval: %d,"
-                " Min Tx interval: %d",
+      vty_out (vty, "  %s%sDetect Mul: %d, Min Rx interval: %d,"
+                " Min Tx interval: %d\n",
                     (extra_space) ? "  ": "", (bfd_tag) ? "BFD: " : "  ",
                     bfd_info->detect_mult, bfd_info->required_min_rx,
                     bfd_info->desired_min_tx);
@@ -423,7 +423,7 @@ bfd_show_status(struct vty *vty, struct bfd_info *bfd_info, int bfd_tag,
     }
   else
     {
-      vty_outln (vty, "  %s%sStatus: %s, Last update: %s",
+      vty_out (vty, "  %s%sStatus: %s, Last update: %s\n",
                   (extra_space) ? "  ": "", (bfd_tag) ? "BFD: " : "  ",
                   bfd_get_status_str(bfd_info->status), time_buf);
     }
@@ -451,7 +451,7 @@ bfd_show_info(struct vty *vty, struct bfd_info *bfd_info, int multihop,
     }
   else
     {
-      vty_outln (vty, "  %sBFD: Type: %s", (extra_space) ? "  " : "",
+      vty_out (vty, "  %sBFD: Type: %s\n", (extra_space) ? "  " : "",
               (multihop) ? "multi hop" : "single hop");
     }
 
@@ -461,7 +461,7 @@ bfd_show_info(struct vty *vty, struct bfd_info *bfd_info, int multihop,
   if (use_json)
     json_object_object_add(json_obj, "peerBfdInfo", json_bfd);
   else
-    vty_out (vty, VTYNL);
+    vty_out (vty, "\n");
 }
 
 /*

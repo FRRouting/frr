@@ -600,7 +600,7 @@ DEFUN (isis_redistribute,
 
   if ((area->is_type & level) != level)
     {
-      vty_outln (vty, "Node is not a level-%d IS", level);
+      vty_out (vty, "Node is not a level-%d IS\n", level);
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -702,7 +702,7 @@ DEFUN (isis_default_originate,
 
   if ((area->is_type & level) != level)
     {
-      vty_outln (vty, "Node is not a level-%d IS", level);
+      vty_out (vty, "Node is not a level-%d IS\n", level);
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -722,9 +722,9 @@ DEFUN (isis_default_originate,
 
   if (family == AF_INET6 && originate_type != DEFAULT_ORIGINATE_ALWAYS)
     {
-      vty_outln (vty,
-                "Zebra doesn't implement default-originate for IPv6 yet");
-      vty_outln (vty, "so use with care or use default-originate always.");
+      vty_out (vty,
+                "Zebra doesn't implement default-originate for IPv6 yet\n");
+      vty_out (vty, "so use with care or use default-originate always.\n");
     }
 
   isis_redist_set(area, level, family, DEFAULT_ROUTE, metric, routemap, originate_type);
@@ -796,7 +796,7 @@ isis_redist_config_write(struct vty *vty, struct isis_area *area,
             vty_out(vty, " metric %u", redist->metric);
           if (redist->map_name)
             vty_out(vty, " route-map %s", redist->map_name);
-          vty_out (vty, VTYNL);
+          vty_out (vty, "\n");
           write++;
         }
     }
@@ -814,7 +814,7 @@ isis_redist_config_write(struct vty *vty, struct isis_area *area,
         vty_out(vty, " metric %u", redist->metric);
       if (redist->map_name)
         vty_out(vty, " route-map %s", redist->map_name);
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
       write++;
     }
 

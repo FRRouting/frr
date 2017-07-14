@@ -146,7 +146,7 @@ DEFUN (clear_foo,
   char *str;
   if (!argc)
     {
-      vty_outln (vty, "%% string argument required");
+      vty_out (vty, "%% string argument required\n");
       return CMD_WARNING;
     }
   

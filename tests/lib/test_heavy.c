@@ -63,7 +63,7 @@ slow_func (struct vty *vty, const char *str, const int i)
     printf ("%s: hard error\n", __func__);
   
   if ((i % ITERS_PRINT) == 0)
-    printf ("%s did %d, x = %g%s", str, i, x, VTYNL);  
+    printf ("%s did %d, x = %g\n", str, i, x);
 }
 
 static void
@@ -88,7 +88,7 @@ DEFUN (clear_foo,
   char *str;
   if (!argc)
     {
-      vty_outln (vty, "%% string argument required");
+      vty_out (vty, "%% string argument required\n");
       return CMD_WARNING;
     }
   

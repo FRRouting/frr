@@ -385,14 +385,14 @@ rfapiStdioPrintf (void *stream, const char *format, ...)
 /* Fake out for debug logging */
 static struct vty vty_dummy_zlog;
 static struct vty vty_dummy_stdio;
-#define HVTYNL ((vty == &vty_dummy_zlog)? "": VTYNL)
+#define HVTYNL ((vty == &vty_dummy_zlog)? "": "\n")
 
 static const char *
 str_vty_newline (struct vty *vty)
 {
   if (vty == &vty_dummy_zlog)
     return "";
-  return VTYNL;
+  return "\n";
 }
 
 int
@@ -939,14 +939,14 @@ rfapiShowVncQueries (void *stream, struct prefix *pfx_match)
   bgp = bgp_get_default ();     /* assume 1 instance for now */
   if (!bgp)
     {
-      vty_outln (vty, "No BGP instance");
+      vty_out (vty, "No BGP instance\n");
       return CMD_WARNING;
     }
 
   h = bgp->rfapi;
   if (!h)
     {
-      vty_outln (vty, "No RFAPI instance");
+      vty_out (vty, "No RFAPI instance\n");
       return CMD_WARNING;
     }
 
@@ -995,10 +995,10 @@ rfapiShowVncQueries (void *stream, struct prefix *pfx_match)
               if (!printedheader)
                 {
                   ++printedheader;
-                  fp (out, "%s", VTYNL);
-                  fp (out, "%-15s %-15s %-15s %-10s%s",
+                  fp (out, "\n");
+                  fp (out, "%-15s %-15s %-15s %-10s\n",
                       "VN Address", "UN Address",
-                      "Target", "Remaining", VTYNL);
+                      "Target", "Remaining");
                 }
 
               if (!printedquerier)
@@ -1022,9 +1022,9 @@ rfapiShowVncQueries (void *stream, struct prefix *pfx_match)
                   rfapiFormatSeconds (thread_timer_remain_second (m->timer),
                                       buf_remain, BUFSIZ);
                 }
-              fp (out, " %-15s %-10s%s",
+              fp (out, " %-15s %-10s\n",
                   inet_ntop (m->p.family, &m->p.u.prefix, buf_pfx, BUFSIZ),
-                  buf_remain, VTYNL);
+                  buf_remain);
             }
         }
 
@@ -1070,10 +1070,10 @@ rfapiShowVncQueries (void *stream, struct prefix *pfx_match)
               if (!printedheader)
                 {
                   ++printedheader;
-                  fp (out, "%s", VTYNL);
-                  fp (out, "%-15s %-15s %-17s %10s %-10s%s",
+                  fp (out, "\n");
+                  fp (out, "%-15s %-15s %-17s %10s %-10s\n",
                       "VN Address", "UN Address",
-                      "Target", "LNI", "Remaining", VTYNL);
+                      "Target", "LNI", "Remaining");
                 }
 
               if (!printedquerier)
@@ -1097,19 +1097,18 @@ rfapiShowVncQueries (void *stream, struct prefix *pfx_match)
                   rfapiFormatSeconds (thread_timer_remain_second
                                       (mon_eth->timer), buf_remain, BUFSIZ);
                 }
-              fp (out, " %-17s %10d %-10s%s",
+              fp (out, " %-17s %10d %-10s\n",
                   rfapi_ntop (pfx_mac.family, &pfx_mac.u.prefix, buf_pfx,
-                              BUFSIZ), mon_eth->logical_net_id, buf_remain,
-                  VTYNL);
+                              BUFSIZ), mon_eth->logical_net_id, buf_remain);
             }
         }
     }
 
   if (queries_total)
     {
-      fp (out, "%s", VTYNL);
-      fp (out, "Displayed %d out of %d total queries%s",
-          queries_displayed, queries_total, VTYNL);
+      fp (out, "\n");
+      fp (out, "Displayed %d out of %d total queries\n",
+          queries_displayed, queries_total);
     }
   return CMD_SUCCESS;
 }
@@ -2221,7 +2220,7 @@ register_add (
        if (!bgp)
          {
            if (vty)
-             vty_outln (vty, "BGP not configured");
+             vty_out (vty, "BGP not configured\n");
            return CMD_WARNING_CONFIG_FAILED;
          }
 
@@ -2230,7 +2229,7 @@ register_add (
        if (!h || !rfapi_cfg)
          {
            if (vty)
-             vty_outln (vty, "RFAPI not configured");
+             vty_out (vty, "RFAPI not configured\n");
            return CMD_WARNING_CONFIG_FAILED;
          }
 
@@ -2240,12 +2239,12 @@ register_add (
              {
                if (arg_lnh)
                  {
-                   vty_outln (vty,"local-next-hop specified more than once");
+                   vty_out (vty,"local-next-hop specified more than once\n");
                    return CMD_WARNING_CONFIG_FAILED;
                  }
                if (argc <= 1)
                  {
-                   vty_outln (vty,"Missing parameter for local-next-hop");
+                   vty_out (vty,"Missing parameter for local-next-hop\n");
                    return CMD_WARNING_CONFIG_FAILED;
                  }
                ++argv, --argc;
@@ -2255,12 +2254,12 @@ register_add (
              {
                if (arg_lnh_cost)
                  {
-                   vty_outln (vty,"local-cost specified more than once");
+                   vty_out (vty,"local-cost specified more than once\n");
                    return CMD_WARNING_CONFIG_FAILED;
                  }
                if (argc <= 1)
                  {
-                   vty_outln (vty,"Missing parameter for local-cost");
+                   vty_out (vty,"Missing parameter for local-cost\n");
                    return CMD_WARNING_CONFIG_FAILED;
                  }
                ++argv, --argc;
@@ -2288,7 +2287,7 @@ register_add (
                arg_prefix = "0::0/128";
                break;
              default:
-               vty_outln (vty,"Internal error, unknown VN address family");
+               vty_out (vty,"Internal error, unknown VN address family\n");
                return CMD_WARNING_CONFIG_FAILED;
              }
 
@@ -2296,13 +2295,13 @@ register_add (
 
        if (!str2prefix (arg_prefix, &pfx))
          {
-           vty_outln (vty, "Malformed prefix \"%s\"",arg_prefix);
+           vty_out (vty, "Malformed prefix \"%s\"\n",arg_prefix);
            goto fail;
          }
        if (pfx.family != AF_INET
            && pfx.family != AF_INET6)
          {
-           vty_outln (vty, "prefix \"%s\" has invalid address family",
+           vty_out (vty, "prefix \"%s\" has invalid address family\n",
                     arg_prefix);
            goto fail;
          }
@@ -2316,7 +2315,7 @@ register_add (
            cost = strtoul (arg_cost, &endptr, 10);
            if (*endptr != '\0' || cost > 255)
              {
-               vty_outln (vty, "%% Invalid %s value", "cost");
+               vty_out (vty, "%% Invalid %s value\n", "cost");
                goto fail;
              }
          }
@@ -2337,7 +2336,7 @@ register_add (
                lifetime = strtoul (arg_lifetime, &endptr, 10);
                if (*endptr != '\0')
                  {
-                   vty_outln (vty, "%% Invalid %s value","lifetime");
+                   vty_out (vty, "%% Invalid %s value\n","lifetime");
                    goto fail;
                  }
              }
@@ -2351,8 +2350,8 @@ register_add (
          {
            if (!arg_lnh)
              {
-               vty_outln (vty,
-                        "%% %s may only be specified with local-next-hop",
+               vty_out (vty,
+                        "%% %s may only be specified with local-next-hop\n",
                         "local-cost");
                goto fail;
              }
@@ -2360,7 +2359,7 @@ register_add (
            lnh_cost = strtoul (arg_lnh_cost, &endptr, 10);
            if (*endptr != '\0' || lnh_cost > 255)
              {
-               vty_outln (vty, "%% Invalid %s value","local-cost");
+               vty_out (vty, "%% Invalid %s value\n","local-cost");
                goto fail;
              }
          }
@@ -2373,7 +2372,7 @@ register_add (
          {
            if (!arg_prefix)
              {
-               vty_outln (vty, "%% %s may only be specified with prefix",
+               vty_out (vty, "%% %s may only be specified with prefix\n",
                         "local-next-hop");
                goto fail;
              }
@@ -2401,7 +2400,7 @@ register_add (
 
        if (arg_vni && !arg_macaddr)
          {
-           vty_outln (vty, "%% %s may only be specified with mac address",
+           vty_out (vty, "%% %s may only be specified with mac address\n",
                     "virtual-network-identifier");
            goto fail;
          }
@@ -2410,8 +2409,8 @@ register_add (
          {
            if (!arg_vni)
              {
-               vty_outln (vty,
-                        "Missing \"vni\" parameter (mandatory with mac)");
+               vty_out (vty,
+                        "Missing \"vni\" parameter (mandatory with mac)\n");
                return CMD_WARNING_CONFIG_FAILED;
              }
            optary[opt_next].v.l2addr.logical_net_id = strtoul(arg_vni, NULL,
@@ -2420,7 +2419,7 @@ register_add (
            if ((rc = rfapiStr2EthAddr (arg_macaddr,
                                        &optary[opt_next].v.l2addr.macaddr)))
              {
-               vty_outln (vty, "Invalid %s value","mac address");
+               vty_out (vty, "Invalid %s value\n","mac address");
                goto fail;
              }
            /* TBD label, NVE ID */
@@ -2472,7 +2471,7 @@ register_add (
                                 &rfd);
                if (rc)
                  {
-                   vty_outln (vty, "Can't open session for this NVE: %s",
+                   vty_out (vty, "Can't open session for this NVE: %s\n",
                             rfapi_error_str(rc));
                    rc = CMD_WARNING_CONFIG_FAILED;
                    goto fail;
@@ -2480,7 +2479,7 @@ register_add (
              }
            else
              {
-               vty_outln (vty, "Can't find session for this NVE: %s",
+               vty_out (vty, "Can't find session for this NVE: %s\n",
                         rfapi_error_str(rc));
                goto fail;
              }
@@ -2516,10 +2515,10 @@ register_add (
          }
 
        vnc_zlog_debug_verbose ("%s: rfapi_register failed", __func__);
-       vty_out (vty, VTYNL);
-       vty_outln (vty, "Registration failed.");
-       vty_outln (vty,
-                "Confirm that either the VN or UN address matches a configured NVE group.");
+       vty_out (vty, "\n");
+       vty_out (vty, "Registration failed.\n");
+       vty_out (vty,
+                "Confirm that either the VN or UN address matches a configured NVE group.\n");
        return CMD_WARNING_CONFIG_FAILED;
 
      fail:
@@ -3129,7 +3128,7 @@ parse_deleter_args (
 
       if (!str2prefix (arg_prefix, &rcdarg->prefix))
         {
-          vty_outln (vty, "Malformed prefix \"%s\"", arg_prefix);
+          vty_out (vty, "Malformed prefix \"%s\"\n", arg_prefix);
           return rc;
         }
     }
@@ -3138,14 +3137,14 @@ parse_deleter_args (
     {
       if (!arg_vni)
         {
-          vty_outln (vty, "Missing VNI");
+          vty_out (vty, "Missing VNI\n");
           return rc;
         }
       if (strcmp (arg_l2addr, "*"))
         {
           if ((rc = rfapiStr2EthAddr (arg_l2addr, &rcdarg->l2o.o.macaddr)))
             {
-              vty_outln (vty, "Malformed L2 Address \"%s\"",
+              vty_out (vty, "Malformed L2 Address \"%s\"\n",
                        arg_l2addr);
               return rc;
             }
@@ -3161,7 +3160,7 @@ parse_deleter_args (
     {
       if (!str2prefix_rd (arg_rd, &rcdarg->rd))
         {
-          vty_outln (vty, "Malformed RD \"%s\"",
+          vty_out (vty, "Malformed RD \"%s\"\n",
                    arg_rd);
           return rc;
         }
@@ -3705,12 +3704,12 @@ print_cleared_stats (struct rfapi_local_reg_delete_arg *cda)
       cda->nves = NULL;
     }
   if (cda->failed_pfx_count)
-      vty_outln (vty, "Failed to delete %d prefixes",
+      vty_out (vty, "Failed to delete %d prefixes\n",
                cda->failed_pfx_count);
 
   /* left as "prefixes" even in single case for ease of machine parsing */
-  vty_outln (vty,
-           "[Local] Cleared %u registrations, %u prefixes, %u responses from %d NVEs",
+  vty_out (vty,
+           "[Local] Cleared %u registrations, %u prefixes, %u responses from %d NVEs\n",
            cda->reg_count, cda->pfx_count, cda->query_count,cda->nve_count);
 
 /*
@@ -3718,7 +3717,7 @@ print_cleared_stats (struct rfapi_local_reg_delete_arg *cda)
  * the command line
  */
 
-  vty_outln (vty, "[Holddown] Cleared %u prefixes from %u NVEs",
+  vty_out (vty, "[Holddown] Cleared %u prefixes from %u NVEs\n",
            cda->remote_holddown_pfx_count,cda->remote_holddown_nve_count);
 }
 
@@ -4395,8 +4394,8 @@ check_and_display_is_vnc_running (struct vty *vty)
 
   if (vty)
     {
-      vty_outln (vty,
-               "VNC is not configured. (There are no configured BGP VPN SAFI peers.)");
+      vty_out (vty,
+               "VNC is not configured. (There are no configured BGP VPN SAFI peers.)\n");
     }
   return 0;                     /* not running */
 }
@@ -4459,10 +4458,10 @@ rfapi_vty_show_nve_summary (struct vty *vty, show_nve_summary_t show_type)
                        h->stat.count_registrations_failed);
               vty_out (vty, "%-8s %-8u", "Total:",
                        h->stat.count_registrations);
-              vty_out (vty, VTYNL);
+              vty_out (vty, "\n");
             }
           vty_out (vty, "%-24s ", "Prefixes registered:");
-          vty_out (vty, VTYNL);
+          vty_out (vty, "\n");
 
           rfapiCountAllItRoutes (&active_local_routes,
                                  &active_remote_routes,
@@ -4474,16 +4473,16 @@ rfapi_vty_show_nve_summary (struct vty *vty, show_nve_summary_t show_type)
             {
               vty_out (vty, "    %-20s ", "Locally:");
               vty_out (vty, "%-8s %-8u ", "Active:", active_local_routes);
-              vty_out (vty, VTYNL);
+              vty_out (vty, "\n");
             }
 
 
           vty_out (vty, "    %-20s ", "Remotely:");
           vty_out (vty, "%-8s %-8u", "Active:", active_remote_routes);
-          vty_out (vty, VTYNL);
+          vty_out (vty, "\n");
           vty_out (vty, "    %-20s ", "In Holddown:");
           vty_out (vty, "%-8s %-8u", "Active:", holddown_remote_routes);
-          vty_out (vty, VTYNL);
+          vty_out (vty, "\n");
           vty_out (vty, "    %-20s ", "Imported:");
           vty_out (vty, "%-8s %-8u", "Active:", imported_remote_routes);
           break;
@@ -4502,12 +4501,12 @@ rfapi_vty_show_nve_summary (struct vty *vty, show_nve_summary_t show_type)
         default:
           break;
         }
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
   return 0;
 
 notcfg:
-  vty_outln (vty, "VNC is not configured.");
+  vty_out (vty, "VNC is not configured.\n");
   return CMD_WARNING;
 }
 
@@ -4574,9 +4573,9 @@ rfapi_show_nves (
       if (!printed)
         {
           /* print out a header */
-          vty_outln (vty,
-                     "                                " "Active      Next Hops");
-          vty_outln (vty, "%-15s %-15s %-5s %-5s %-6s %-6s %s",
+          vty_out (vty,
+                     "                                Active      Next Hops\n");
+          vty_out (vty, "%-15s %-15s %-5s %-5s %-6s %-6s %s\n",
                    "VN Address",
                    "UN Address",
                    "Regis", "Resps", "Reach", "Remove", "Age");
@@ -4584,7 +4583,7 @@ rfapi_show_nves (
 
       ++printed;
 
-      vty_outln (vty, "%-15s %-15s %-5u %-5u %-6u %-6u %s",
+      vty_out (vty, "%-15s %-15s %-5u %-5u %-6u %-6u %s\n",
                vn_addr_buf,
                un_addr_buf,
                rfapiApCount (rfd),
@@ -4595,13 +4594,13 @@ rfapi_show_nves (
     }
 
   if (printed > 0 || vn_prefix || un_prefix)
-    vty_outln (vty, "Displayed %d out of %d active NVEs",
+    vty_out (vty, "Displayed %d out of %d active NVEs\n",
              printed, total);
 
   return 0;
 
 notcfg:
-  vty_outln (vty, "VNC is not configured.");
+  vty_out (vty, "VNC is not configured.\n");
   return CMD_WARNING;
 }
 
@@ -4616,7 +4615,7 @@ DEFUN (vnc_show_summary,
   if (!check_and_display_is_vnc_running (vty))
     return CMD_SUCCESS;
   bgp_rfapi_show_summary (bgp_get_default (), vty);
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
   rfapi_vty_show_nve_summary (vty, SHOW_NVE_SUMMARY_ACTIVE_NVES);
   rfapi_vty_show_nve_summary (vty, SHOW_NVE_SUMMARY_QUERIES);
   rfapi_vty_show_nve_summary (vty, SHOW_NVE_SUMMARY_RESPONSES);
@@ -4653,12 +4652,12 @@ DEFUN (vnc_show_nves_ptct,
 
   if (!str2prefix (argv[4]->arg, &pfx))
     {
-      vty_outln (vty, "Malformed address \"%s\"", argv[4]->arg);
+      vty_out (vty, "Malformed address \"%s\"\n", argv[4]->arg);
       return CMD_WARNING;
     }
   if (pfx.family != AF_INET && pfx.family != AF_INET6)
     {
-      vty_outln (vty, "Invalid address \"%s\"", argv[4]->arg);
+      vty_out (vty, "Invalid address \"%s\"\n", argv[4]->arg);
       return CMD_WARNING;
     }
 
@@ -4713,7 +4712,7 @@ rfapi_show_registrations (
     }
   if (!printed)
     {
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
 }
 
@@ -4734,7 +4733,7 @@ DEFUN (vnc_show_registrations_pfx,
     {
       if (!str2prefix (argv[3]->arg, &p))
         {
-          vty_outln (vty, "Invalid prefix: %s", argv[3]->arg);
+          vty_out (vty, "Invalid prefix: %s\n", argv[3]->arg);
           return CMD_SUCCESS;
         }
       else
@@ -4774,7 +4773,7 @@ DEFUN (vnc_show_registrations_some_pfx,
     {
       if (!str2prefix (argv[4]->arg, &p))
         {
-          vty_outln (vty, "Invalid prefix: %s", argv[4]->arg);
+          vty_out (vty, "Invalid prefix: %s\n", argv[4]->arg);
           return CMD_SUCCESS;
         }
       else
@@ -4831,7 +4830,7 @@ DEFUN (vnc_show_responses_pfx,
     {
       if (!str2prefix (argv[3]->arg, &p))
         {
-          vty_outln (vty, "Invalid prefix: %s", argv[3]->arg);
+          vty_out (vty, "Invalid prefix: %s\n", argv[3]->arg);
           return CMD_SUCCESS;
         }
       else
@@ -4874,7 +4873,7 @@ DEFUN (vnc_show_responses_some_pfx,
     {
       if (!str2prefix (argv[4]->arg, &p))
         {
-          vty_outln (vty, "Invalid prefix: %s", argv[4]->arg);
+          vty_out (vty, "Invalid prefix: %s\n", argv[4]->arg);
           return CMD_SUCCESS;
         }
       else
@@ -4923,7 +4922,7 @@ DEFUN (show_vnc_queries_pfx,
     {
       if (!str2prefix (argv[3]->arg, &pfx))
         {
-          vty_outln (vty, "Invalid prefix: %s", argv[3]->arg);
+          vty_out (vty, "Invalid prefix: %s\n", argv[3]->arg);
           return CMD_WARNING;
         }
       p = &pfx;
@@ -4976,7 +4975,7 @@ DEFUN (vnc_clear_counters,
   return CMD_SUCCESS;
 
 notcfg:
-  vty_outln (vty, "VNC is not configured.");
+  vty_out (vty, "VNC is not configured.\n");
   return CMD_WARNING;
 }
 
@@ -5006,12 +5005,12 @@ vnc_add_vrf_prefix (struct vty *vty,
   bgp = bgp_get_default (); /* assume main instance for now */
   if (!bgp)
     {
-      vty_outln (vty, "No BGP process is configured");
+      vty_out (vty, "No BGP process is configured\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
   if (!bgp->rfapi || !bgp->rfapi_cfg)
     {
-      vty_outln (vty, "VRF support not configured");
+      vty_out (vty, "VRF support not configured\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -5019,31 +5018,31 @@ vnc_add_vrf_prefix (struct vty *vty,
   /* arg checks */
   if (!rfg)
     {
-      vty_outln (vty, "VRF \"%s\" appears not to be configured.",
+      vty_out (vty, "VRF \"%s\" appears not to be configured.\n",
                arg_vrf);
       return CMD_WARNING_CONFIG_FAILED;
     }
   if (!rfg->rt_export_list || !rfg->rfapi_import_table)
     {
-      vty_outln (vty, "VRF \"%s\" is missing RT import/export RT configuration.",
+      vty_out (vty, "VRF \"%s\" is missing RT import/export RT configuration.\n",
                arg_vrf);
       return CMD_WARNING_CONFIG_FAILED;
     }
   if (!rfg->rd.family && !arg_rd)
     {
-      vty_outln (vty, "VRF \"%s\" isn't configured with an RD, so RD must be provided.",
+      vty_out (vty, "VRF \"%s\" isn't configured with an RD, so RD must be provided.\n",
                arg_vrf);
       return CMD_WARNING_CONFIG_FAILED;
     }
   if (rfg->label > MPLS_LABEL_MAX && !arg_label)
     {
-      vty_outln (vty, "VRF \"%s\" isn't configured with a default labels, so a label must be provided.",
+      vty_out (vty, "VRF \"%s\" isn't configured with a default labels, so a label must be provided.\n",
                arg_vrf);
       return CMD_WARNING_CONFIG_FAILED;
     }
   if (!str2prefix (arg_prefix, &pfx))
     {
-      vty_outln (vty, "Malformed prefix \"%s\"",
+      vty_out (vty, "Malformed prefix \"%s\"\n",
                arg_prefix);
       return CMD_WARNING_CONFIG_FAILED;
     }
@@ -5057,7 +5056,7 @@ vnc_add_vrf_prefix (struct vty *vty,
       opt->type = RFAPI_VN_OPTION_TYPE_INTERNAL_RD;
       if (!str2prefix_rd (arg_rd, &opt->v.internal_rd))
         {
-          vty_outln (vty, "Malformed RD \"%s\"",
+          vty_out (vty, "Malformed RD \"%s\"\n",
                    arg_rd);
           return CMD_WARNING_CONFIG_FAILED;
         }
@@ -5085,7 +5084,7 @@ vnc_add_vrf_prefix (struct vty *vty,
       pref = strtoul (arg_pref, &endptr, 10);
       if (*endptr != '\0')
         {
-          vty_outln (vty, "%% Invalid local-preference value \"%s\"",
+          vty_out (vty, "%% Invalid local-preference value \"%s\"\n",
                      arg_pref);
           return CMD_WARNING_CONFIG_FAILED;
          }
@@ -5150,7 +5149,7 @@ vnc_add_vrf_prefix (struct vty *vty,
     }
 
   vnc_zlog_debug_verbose ("%s: rfapi_register failed", __func__);
-  vty_outln (vty, "Add failed.");
+  vty_out (vty, "Add failed.\n");
   return CMD_WARNING_CONFIG_FAILED;
 }
 
@@ -5260,19 +5259,19 @@ vnc_clear_vrf (struct vty *vty,
     bgp = bgp_get_default (); /* assume main instance for now */
   if (!bgp)
     {
-      vty_outln (vty, "No BGP process is configured");
+      vty_out (vty, "No BGP process is configured\n");
       return CMD_WARNING;
     }
   if (!bgp->rfapi || !bgp->rfapi_cfg)
     {
-      vty_outln (vty, "VRF support not configured");
+      vty_out (vty, "VRF support not configured\n");
       return CMD_WARNING;
     }
   rfg = bgp_rfapi_cfg_match_byname (bgp,  arg_vrf, RFAPI_GROUP_CFG_VRF);
   /* arg checks */
   if (!rfg)
     {
-      vty_outln (vty, "VRF \"%s\" appears not to be configured.",
+      vty_out (vty, "VRF \"%s\" appears not to be configured.\n",
                arg_vrf);
           return CMD_WARNING;
     }
@@ -5284,7 +5283,7 @@ vnc_clear_vrf (struct vty *vty,
   start_count = rfapi_cfg_group_it_count(rfg);
   clear_vnc_prefix (&cda);
   clear_vnc_vrf_closer (rfg);
-  vty_outln (vty, "Cleared %u out of %d prefixes.", 
+  vty_out (vty, "Cleared %u out of %d prefixes.\n", 
            cda.pfx_count, start_count);
   return CMD_SUCCESS;
 }
