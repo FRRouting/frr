@@ -55,6 +55,7 @@ struct evpn_config_write
   struct vty *vty;
 };
 
+#if defined (HAVE_CUMULUS)
 static void
 display_import_rt (struct vty *vty, struct irt_node *irt)
 {
@@ -339,6 +340,7 @@ show_vni_entry (struct hash_backet *backet, struct vty *vty)
     }
   vty_out (vty, "%s", VTY_NEWLINE);
 }
+#endif /* HAVE_CUMULUS */
 
 static int
 bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
@@ -1020,6 +1022,7 @@ DEFUN(no_evpnrt5_network,
 				     argv[idx_ethtag]->arg);
 }
 
+#if defined(HAVE_CUMULUS)
 static void
 evpn_rt_delete_auto (struct bgp *bgp, struct bgpevpn *vpn, struct list *rtl)
 {
@@ -1742,6 +1745,7 @@ evpn_unset_advertise_all_vni (struct bgp *bgp)
   bgp_zebra_advertise_all_vni (bgp, bgp->advertise_all_vni);
   bgp_evpn_cleanup_on_disable (bgp);
 }
+#endif /* HAVE_CUMULUS */
 
 static void
 write_vni_config (struct vty *vty, struct bgpevpn *vpn, int *write)
@@ -1794,6 +1798,7 @@ write_vni_config_for_entry (struct hash_backet *backet,
   write_vni_config (cfg->vty, vpn, &cfg->write);
 }
 
+#if defined (HAVE_CUMULUS)
 DEFUN (bgp_evpn_advertise_all_vni,
        bgp_evpn_advertise_all_vni_cmd,
        "advertise-all-vni",
@@ -2597,7 +2602,7 @@ DEFUN (no_bgp_evpn_vni_rt_without_val,
     evpn_unconfigure_export_rt (bgp, vpn, NULL);
   return CMD_SUCCESS;
 }
-
+#endif
 /*
  * Output EVPN configuration information.
  */
@@ -2640,6 +2645,7 @@ void bgp_ethernetvpn_init(void)
   install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_all_overlay_cmd);
   install_element(BGP_EVPN_NODE, &no_evpnrt5_network_cmd);
   install_element(BGP_EVPN_NODE, &evpnrt5_network_cmd);
+#if defined(HAVE_CUMULUS)
   install_element (BGP_EVPN_NODE, &bgp_evpn_advertise_all_vni_cmd);
   install_element (BGP_EVPN_NODE, &no_bgp_evpn_advertise_all_vni_cmd);
 
@@ -2665,4 +2671,5 @@ void bgp_ethernetvpn_init(void)
   install_element (BGP_EVPN_VNI_NODE, &bgp_evpn_vni_rt_cmd);
   install_element (BGP_EVPN_VNI_NODE, &no_bgp_evpn_vni_rt_cmd);
   install_element (BGP_EVPN_VNI_NODE, &no_bgp_evpn_vni_rt_without_val_cmd);
+#endif
 }
