@@ -199,6 +199,50 @@ buffer_putstr (struct buffer *b, const char *c)
   buffer_put(b, c, strlen(c));
 }
 
+/* Expand \n to \r\n */
+void
+buffer_put_crlf(struct buffer *b, const void *origp, size_t origsize)
+{
+  struct buffer_data *data = b->tail;
+  const char *p = origp, *end = p + origsize, *lf;
+  size_t size;
+
+  lf = memchr(p, '\n', end - p);
+
+  /* We use even last one byte of data buffer. */
+  while (p < end)
+    {
+      size_t avail, chunk;
+
+      /* If there is no data buffer add it. */
+      if (data == NULL || data->cp == b->size)
+        data = buffer_add (b);
+
+      size = (lf ? lf : end) - p;
+      avail = b->size - data->cp;
+
+      chunk = (size <= avail) ? size : avail;
+      memcpy (data->data + data->cp, p, chunk);
+
+      p += chunk;
+      data->cp += chunk;
+
+      if (lf && size <= avail)
+        {
+          /* we just copied up to (including) a '\n' */
+          if (data->cp == b->size)
+            data = buffer_add (b);
+          data->data[data->cp++] = '\r';
+          if (data->cp == b->size)
+            data = buffer_add (b);
+          data->data[data->cp++] = '\n';
+
+          p++;
+          lf = memchr(p, '\n', end - p);
+        }
+    }
+}
+
 /* Keep flushing data to the fd until the buffer is empty or an error is
    encountered or the operation would block. */
 buffer_status_t

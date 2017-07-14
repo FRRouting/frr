@@ -135,7 +135,7 @@ nexthop_add (struct nexthop **target, struct nexthop *nexthop)
 }
 
 void
-copy_nexthops (struct nexthop **tnh, struct nexthop *nh)
+copy_nexthops (struct nexthop **tnh, struct nexthop *nh, struct nexthop *rparent)
 {
   struct nexthop *nexthop;
   struct nexthop *nh1;
@@ -143,18 +143,20 @@ copy_nexthops (struct nexthop **tnh, struct nexthop *nh)
   for (nh1 = nh; nh1; nh1 = nh1->next)
     {
       nexthop = nexthop_new();
-      nexthop->flags = nh->flags;
-      nexthop->type = nh->type;
       nexthop->ifindex = nh->ifindex;
-      memcpy(&(nexthop->gate), &(nh->gate), sizeof(union g_addr));
-      memcpy(&(nexthop->src), &(nh->src), sizeof(union g_addr));
+      nexthop->type = nh->type;
+      nexthop->flags = nh->flags;
+      memcpy(&nexthop->gate, &nh->gate, sizeof(nh->gate));
+      memcpy(&nexthop->src, &nh->src, sizeof(nh->src));
+      memcpy(&nexthop->rmap_src, &nh->rmap_src, sizeof(nh->rmap_src));
+      nexthop->rparent = rparent;
       if (nh->nh_label)
         nexthop_add_labels (nexthop, nh->nh_label_type,
-			    nh->nh_label->num_labels, &nh->nh_label->label[0]);
+                nh->nh_label->num_labels, &nh->nh_label->label[0]);
       nexthop_add(tnh, nexthop);
 
       if (CHECK_FLAG(nh1->flags, NEXTHOP_FLAG_RECURSIVE))
-	copy_nexthops(&nexthop->resolved, nh1->resolved);
+        copy_nexthops(&nexthop->resolved, nh1->resolved, nexthop);
     }
 }
 
@@ -240,4 +242,46 @@ nexthop2str (struct nexthop *nexthop, char *str, int size)
     }
 
   return str;
+}
+
+/*
+ * Iteration step for ALL_NEXTHOPS macro:
+ * This is the tricky part. Check if `nexthop' has
+ * NEXTHOP_FLAG_RECURSIVE set. If yes, this implies that `nexthop' has
+ * at least one nexthop attached to `nexthop->resolved', which will be
+ * the next one.
+ *
+ * If NEXTHOP_FLAG_RECURSIVE is not set, `nexthop' will progress in its
+ * current chain. In case its current chain end is reached, it will move
+ * upwards in the recursion levels and progress there. Whenever a step
+ * forward in a chain is done, recursion will be checked again.
+ * In a nustshell, it's equivalent to a pre-traversal order assuming that
+ * left branch is 'resolved' and right branch is 'next':
+ * https://en.wikipedia.org/wiki/Tree_traversal#/media/File:Sorted_binary_tree_preorder.svg
+ */
+struct nexthop *
+nexthop_next(struct nexthop *nexthop)
+{
+  if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+    return nexthop->resolved;
+
+  if (nexthop->next)
+    return nexthop->next;
+
+  for (struct nexthop *par = nexthop->rparent; par; par = par->rparent)
+    if (par->next)
+      return par->next;
+
+  return NULL;
+}
+
+unsigned int
+nexthop_level(struct nexthop *nexthop)
+{
+  unsigned int rv = 0;
+
+  for (struct nexthop *par = nexthop->rparent; par; par = par->rparent)
+    rv++;
+
+  return rv;
 }

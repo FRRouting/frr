@@ -532,8 +532,8 @@ make_prefix (int afi, struct bgp_info *ri, struct prefix *p)
       break;
     case AFI_IP6:
       /* We don't register link local NH */
-      if (ri->attr->extra->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL
-	  || IN6_IS_ADDR_LINKLOCAL (&ri->attr->extra->mp_nexthop_global))
+      if (ri->attr->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL
+	  || IN6_IS_ADDR_LINKLOCAL (&ri->attr->mp_nexthop_global))
 	return -1;
 
       p->family = AF_INET6;
@@ -545,7 +545,7 @@ make_prefix (int afi, struct bgp_info *ri, struct prefix *p)
 	}
       else
 	{
-	  p->u.prefix6 = ri->attr->extra->mp_nexthop_global;
+	  p->u.prefix6 = ri->attr->mp_nexthop_global;
 	  p->prefixlen = IPV6_MAX_BITLEN;
 	}
       break;

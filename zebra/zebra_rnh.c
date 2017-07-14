@@ -420,12 +420,11 @@ zebra_rnh_eval_import_check_entry (vrf_id_t vrfid, int family, int force,
   struct zserv *client;
   char bufn[INET6_ADDRSTRLEN];
   struct listnode *node;
-  struct nexthop *nexthop, *tnexthop;
-  int recursing;
+  struct nexthop *nexthop;
 
   if (re && (rnh->state == NULL))
     {
-      for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+      for (ALL_NEXTHOPS(re->nexthop, nexthop))
         if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB))
           {
             state_changed = 1;
@@ -831,7 +830,6 @@ static void
 copy_state (struct rnh *rnh, struct route_entry *re, struct route_node *rn)
 {
   struct route_entry *state;
-  struct nexthop *nh;
 
   if (rnh->state)
     {
@@ -846,8 +844,7 @@ copy_state (struct rnh *rnh, struct route_entry *re, struct route_node *rn)
   state->type = re->type;
   state->metric = re->metric;
 
-  for (nh = re->nexthop; nh; nh = nh->next)
-    route_entry_copy_nexthops(state, nh);
+  route_entry_copy_nexthops(state, re->nexthop);
   rnh->state = state;
 }
 
@@ -996,7 +993,7 @@ print_nh (struct nexthop *nexthop, struct vty *vty)
     default:
       break;
     }
-  vty_out(vty, "%s", VTYNL);
+  vty_out(vty, "\n");
 }
 
 static void
@@ -1009,20 +1006,18 @@ print_rnh (struct route_node *rn, struct vty *vty)
   char buf[BUFSIZ];
 
   rnh = rn->info;
-  vty_out(vty, "%s%s%s", inet_ntop(rn->p.family, &rn->p.u.prefix, buf, BUFSIZ),
-	  CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED) ? "(Connected)" : "",
-	  VTYNL);
+  vty_out(vty, "%s%s\n", inet_ntop(rn->p.family, &rn->p.u.prefix, buf, BUFSIZ),
+	  CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED) ? "(Connected)" : "");
   if (rnh->state)
     {
-      vty_out(vty, " resolved via %s%s",
-	      zebra_route_string(rnh->state->type), VTYNL);
+      vty_out(vty, " resolved via %s\n",
+	      zebra_route_string(rnh->state->type));
       for (nexthop = rnh->state->nexthop; nexthop; nexthop = nexthop->next)
 	print_nh(nexthop, vty);
     }
   else
-    vty_out(vty, " unresolved%s%s",
-	    CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED) ? "(Connected)" : "",
-	    VTYNL);
+    vty_out(vty, " unresolved%s\n",
+	    CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED) ? "(Connected)" : "");
 
   vty_out(vty, " Client list:");
   for (ALL_LIST_ELEMENTS_RO(rnh->client_list, node, client))
@@ -1030,5 +1025,5 @@ print_rnh (struct route_node *rn, struct vty *vty)
 	    client->sock, rnh->filtered[client->proto] ? "(filtered)" : "");
   if (!list_isempty(rnh->zebra_static_route_list))
     vty_out(vty, " zebra%s", rnh->filtered[ZEBRA_ROUTE_STATIC] ? "(filtered)" : "");
-  vty_out(vty, "%s", VTYNL);
+  vty_out(vty, "\n");
 }

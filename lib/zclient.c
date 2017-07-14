@@ -2047,6 +2047,22 @@ zclient_read (struct thread *thread)
       if (zclient->fec_update)
         (*zclient->fec_update) (command, zclient, length);
       break;
+    case ZEBRA_VNI_ADD:
+      if (zclient->local_vni_add)
+	(*zclient->local_vni_add) (command, zclient, length, vrf_id);
+      break;
+    case ZEBRA_VNI_DEL:
+      if (zclient->local_vni_del)
+	(*zclient->local_vni_del) (command, zclient, length, vrf_id);
+      break;
+    case ZEBRA_MACIP_ADD:
+      if (zclient->local_macip_add)
+        (*zclient->local_macip_add) (command, zclient, length, vrf_id);
+      break;
+    case ZEBRA_MACIP_DEL:
+      if (zclient->local_macip_del)
+        (*zclient->local_macip_del) (command, zclient, length, vrf_id);
+      break;
     default:
       break;
     }

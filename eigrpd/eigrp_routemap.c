@@ -154,11 +154,11 @@ eigrp_route_match_add (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_outln (vty, "%% Can't find rule.");
-          return CMD_WARNING;
+          vty_out (vty, "%% Can't find rule.\n");
+          return CMD_WARNING_CONFIG_FAILED;
         case RMAP_COMPILE_ERROR:
-          vty_outln (vty, "%% Argument is malformed.");
-          return CMD_WARNING;
+          vty_out (vty, "%% Argument is malformed.\n");
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
   return CMD_SUCCESS;
@@ -176,11 +176,11 @@ eigrp_route_match_delete (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_outln (vty, "%% Can't find rule.");
-          return CMD_WARNING;
+          vty_out (vty, "%% Can't find rule.\n");
+          return CMD_WARNING_CONFIG_FAILED;
         case RMAP_COMPILE_ERROR:
-          vty_outln (vty, "%% Argument is malformed.");
-          return CMD_WARNING;
+          vty_out (vty, "%% Argument is malformed.\n");
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
   return CMD_SUCCESS;
@@ -199,16 +199,16 @@ eigrp_route_set_add (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_outln (vty, "%% Can't find rule.");
-          return CMD_WARNING;
+          vty_out (vty, "%% Can't find rule.\n");
+          return CMD_WARNING_CONFIG_FAILED;
         case RMAP_COMPILE_ERROR:
           /* rip, ripng and other protocols share the set metric command
              but only values from 0 to 16 are valid for rip and ripng
              if metric is out of range for rip and ripng, it is not for
              other protocols. Do not return an error */
           if (strcmp(command, "metric")) {
-            vty_outln (vty, "%% Argument is malformed.");
-            return CMD_WARNING;
+            vty_out (vty, "%% Argument is malformed.\n");
+            return CMD_WARNING_CONFIG_FAILED;
           }
         }
     }
@@ -228,11 +228,11 @@ eigrp_route_set_delete (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_outln (vty, "%% Can't find rule.");
-          return CMD_WARNING;
+          vty_out (vty, "%% Can't find rule.\n");
+          return CMD_WARNING_CONFIG_FAILED;
         case RMAP_COMPILE_ERROR:
-          vty_outln (vty, "%% Argument is malformed.");
-          return CMD_WARNING;
+          vty_out (vty, "%% Argument is malformed.\n");
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
   return CMD_SUCCESS;
@@ -1124,8 +1124,8 @@ DEFUN (set_ip_nexthop,
   ret = str2sockunion (argv[0], &su);
   if (ret < 0)
     {
-      vty_outln (vty, "%% Malformed next-hop address");
-      return CMD_WARNING;
+      vty_out (vty, "%% Malformed next-hop address\n");
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return eigrp_route_set_add (vty, vty->index, "ip next-hop", argv[0]);

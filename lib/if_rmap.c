@@ -228,8 +228,8 @@ DEFUN (if_rmap,
     type = IF_RMAP_OUT;
   else
     {
-      vty_outln (vty, "route-map direction must be [in|out]");
-      return CMD_WARNING;
+      vty_out (vty, "route-map direction must be [in|out]\n");
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if_rmap_set (argv[idx_ifname]->arg, type, argv[idx_rmap_name]->arg);
@@ -259,15 +259,15 @@ DEFUN (no_if_rmap,
     type = IF_RMAP_OUT;
   else
     {
-      vty_outln (vty, "route-map direction must be [in|out]");
-      return CMD_WARNING;
+      vty_out (vty, "route-map direction must be [in|out]\n");
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ret = if_rmap_unset (argv[idx_ifname]->arg, type, argv[idx_routemap_name]->arg);
   if (! ret)
     {
-      vty_outln (vty, "route-map doesn't exist");
-      return CMD_WARNING;
+      vty_out (vty, "route-map doesn't exist\n");
+      return CMD_WARNING_CONFIG_FAILED;
     }
   return CMD_SUCCESS;
 }
@@ -290,7 +290,7 @@ config_write_if_rmap (struct vty *vty)
 
 	if (if_rmap->routemap[IF_RMAP_IN])
 	  {
-	    vty_outln (vty, " route-map %s in %s", 
+	    vty_out (vty, " route-map %s in %s\n", 
 		     if_rmap->routemap[IF_RMAP_IN],
 		     if_rmap->ifname);
 	    write++;
@@ -298,7 +298,7 @@ config_write_if_rmap (struct vty *vty)
 
 	if (if_rmap->routemap[IF_RMAP_OUT])
 	  {
-	    vty_outln (vty, " route-map %s out %s", 
+	    vty_out (vty, " route-map %s out %s\n", 
 		     if_rmap->routemap[IF_RMAP_OUT],
 		     if_rmap->ifname);
 	    write++;

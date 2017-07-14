@@ -136,6 +136,7 @@ enum node_type
   MPLS_NODE,                    /* MPLS config node */
   VTY_NODE,                     /* Vty node. */
   LINK_PARAMS_NODE,             /* Link-parameters node */
+  BGP_EVPN_VNI_NODE,            /* BGP EVPN VNI */
 };
 
 /* Node which has some commands and prompt string and configuration
@@ -178,6 +179,7 @@ struct cmd_node
 #define CMD_SUCCESS_DAEMON      10
 #define CMD_ERR_NO_FILE         11
 #define CMD_SUSPEND             12
+#define CMD_WARNING_CONFIG_FAILED 13
 
 /* Argc max counts. */
 #define CMD_ARGC_MAX   25
@@ -293,6 +295,7 @@ struct cmd_node
  */
 #define CMD_CREATE_STR(s)  CMD_CREATE_STR_HELPER(s)
 #define CMD_CREATE_STR_HELPER(s) #s
+#define CMD_RANGE_STR(a,s) "(" CMD_CREATE_STR(a) "-" CMD_CREATE_STR(s) ")"
 
 /* Common descriptions. */
 #define SHOW_STR "Show running system information\n"
@@ -404,5 +407,6 @@ struct cmd_variable_handler {
 
 extern void cmd_variable_complete (struct cmd_token *token, const char *arg, vector comps);
 extern void cmd_variable_handler_register (const struct cmd_variable_handler *cvh);
+extern char *cmd_variable_comp2str (vector comps, unsigned short cols);
 
 #endif /* _ZEBRA_COMMAND_H */

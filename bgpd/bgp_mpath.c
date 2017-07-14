@@ -106,35 +106,31 @@ bgp_maximum_paths_unset (struct bgp *bgp, afi_t afi, safi_t safi,
 int
 bgp_info_nexthop_cmp (struct bgp_info *bi1, struct bgp_info *bi2)
 {
-  struct attr_extra *ae1, *ae2;
   int compare;
 
-  ae1 = bi1->attr->extra;
-  ae2 = bi2->attr->extra;
-
   compare = IPV4_ADDR_CMP (&bi1->attr->nexthop, &bi2->attr->nexthop);
-  if (!compare && ae1 && ae2)
+  if (!compare)
     {
-      if (ae1->mp_nexthop_len == ae2->mp_nexthop_len)
+      if (bi1->attr->mp_nexthop_len == bi2->attr->mp_nexthop_len)
         {
-          switch (ae1->mp_nexthop_len)
+          switch (bi1->attr->mp_nexthop_len)
             {
             case BGP_ATTR_NHLEN_IPV4:
             case BGP_ATTR_NHLEN_VPNV4:
-              compare = IPV4_ADDR_CMP (&ae1->mp_nexthop_global_in,
-                                       &ae2->mp_nexthop_global_in);
+              compare = IPV4_ADDR_CMP (&bi1->attr->mp_nexthop_global_in,
+                                       &bi2->attr->mp_nexthop_global_in);
               break;
             case BGP_ATTR_NHLEN_IPV6_GLOBAL:
             case BGP_ATTR_NHLEN_VPNV6_GLOBAL:
-              compare = IPV6_ADDR_CMP (&ae1->mp_nexthop_global,
-                                       &ae2->mp_nexthop_global);
+              compare = IPV6_ADDR_CMP (&bi1->attr->mp_nexthop_global,
+                                       &bi2->attr->mp_nexthop_global);
               break;
             case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
-              compare = IPV6_ADDR_CMP (&ae1->mp_nexthop_global,
-                                       &ae2->mp_nexthop_global);
+              compare = IPV6_ADDR_CMP (&bi1->attr->mp_nexthop_global,
+                                       &bi2->attr->mp_nexthop_global);
               if (!compare)
-                compare = IPV6_ADDR_CMP (&ae1->mp_nexthop_local,
-                                         &ae2->mp_nexthop_local);
+                compare = IPV6_ADDR_CMP (&bi1->attr->mp_nexthop_local,
+                                         &bi2->attr->mp_nexthop_local);
               break;
             }
         }
@@ -142,14 +138,14 @@ bgp_info_nexthop_cmp (struct bgp_info *bi1, struct bgp_info *bi2)
       /* This can happen if one IPv6 peer sends you global and link-local
        * nexthops but another IPv6 peer only sends you global
        */
-      else if (ae1->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||
-               ae1->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
+      else if (bi1->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL ||
+               bi1->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
         {
-          compare = IPV6_ADDR_CMP (&ae1->mp_nexthop_global,
-                                   &ae2->mp_nexthop_global);
+          compare = IPV6_ADDR_CMP (&bi1->attr->mp_nexthop_global,
+                                   &bi2->attr->mp_nexthop_global);
           if (!compare)
             {
-              if (ae1->mp_nexthop_len < ae2->mp_nexthop_len)
+              if (bi1->attr->mp_nexthop_len < bi2->attr->mp_nexthop_len)
                 compare = -1;
               else
                 compare = 1;
@@ -663,7 +659,6 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
   struct community *community, *commerge;
   struct ecommunity *ecomm, *ecommerge;
   struct lcommunity *lcomm, *lcommerge;
-  struct attr_extra *ae;
   struct attr attr = { 0 };
 
   if (old_best && (old_best != new_best) &&
@@ -697,9 +692,8 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
       aspath = aspath_dup (attr.aspath);
       origin = attr.origin;
       community = attr.community ? community_dup (attr.community) : NULL;
-      ae = attr.extra;
-      ecomm = (ae && ae->ecommunity) ? ecommunity_dup (ae->ecommunity) : NULL;
-      lcomm = (ae && ae->lcommunity) ? lcommunity_dup (ae->lcommunity) : NULL;
+      ecomm = (attr.ecommunity) ? ecommunity_dup (attr.ecommunity) : NULL;
+      lcomm = (attr.lcommunity) ? lcommunity_dup (attr.lcommunity) : NULL;
 
       for (mpinfo = bgp_info_mpath_first (new_best); mpinfo;
            mpinfo = bgp_info_mpath_next (mpinfo))
@@ -723,28 +717,27 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
                 community = community_dup (mpinfo->attr->community);
             }
 
-          ae = mpinfo->attr->extra;
-          if (ae && ae->ecommunity)
+          if (mpinfo->attr->ecommunity)
             {
               if (ecomm)
                 {
-                  ecommerge = ecommunity_merge (ecomm, ae->ecommunity);
+                  ecommerge = ecommunity_merge (ecomm, mpinfo->attr->ecommunity);
                   ecomm = ecommunity_uniq_sort (ecommerge);
                   ecommunity_free (&ecommerge);
                 }
               else
-                ecomm = ecommunity_dup (ae->ecommunity);
+                ecomm = ecommunity_dup (mpinfo->attr->ecommunity);
             }
-          if (ae && ae->lcommunity)
+          if (mpinfo->attr->lcommunity)
             {
               if (lcomm)
                 {
-                  lcommerge = lcommunity_merge (lcomm, ae->lcommunity);
+                  lcommerge = lcommunity_merge (lcomm, mpinfo->attr->lcommunity);
                   lcomm = lcommunity_uniq_sort (lcommerge);
                   lcommunity_free (&lcommerge);
                 }
               else
-                lcomm = lcommunity_dup (ae->lcommunity);
+                lcomm = lcommunity_dup (mpinfo->attr->lcommunity);
             }
         }
 
@@ -757,21 +750,18 @@ bgp_info_mpath_aggregate_update (struct bgp_info *new_best,
         }
       if (ecomm)
         {
-          ae = bgp_attr_extra_get (&attr);
-          ae->ecommunity = ecomm;
+          attr.ecommunity = ecomm;
           attr.flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
         }
 
       /* Zap multipath attr nexthop so we set nexthop to self */
       attr.nexthop.s_addr = 0;
-      if (attr.extra)
-        memset (&attr.extra->mp_nexthop_global, 0, sizeof (struct in6_addr));
+      memset (&attr.mp_nexthop_global, 0, sizeof (struct in6_addr));
 
       /* TODO: should we set ATOMIC_AGGREGATE and AGGREGATOR? */
     }
 
   new_attr = bgp_attr_intern (&attr);
-  bgp_attr_extra_free (&attr);
 
   if (new_attr != bgp_info_mpath_attr (new_best))
     {

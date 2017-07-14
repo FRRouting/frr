@@ -552,10 +552,7 @@ zebra_add_import_table_entry (struct route_node *rn, struct route_entry *re, con
 	      newre->nexthop_num = 0;
 	      newre->uptime = time(NULL);
 	      newre->instance = re->table;
-
-	      /* Assuming these routes are never recursive */
-	      for (nhop = re->nexthop; nhop; nhop = nhop->next)
-	        route_entry_copy_nexthops(newre, nhop);
+	      route_entry_copy_nexthops(newre, re->nexthop);
 
 	      rib_add_multipath(AFI_IP, SAFI_UNICAST, &p, NULL, newre);
 	    }
@@ -698,7 +695,7 @@ zebra_import_table_config (struct vty *vty)
               if (rmap_name)
 	        vty_out(vty, " route-map %s", rmap_name);
 
-	      vty_out (vty, VTYNL);
+	      vty_out (vty, "\n");
 	      write = 1;
 	    }
 	}

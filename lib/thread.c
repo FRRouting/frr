@@ -95,7 +95,7 @@ vty_out_cpu_thread_history(struct vty* vty,
 	  a->total_active, a->cpu.total/1000, a->cpu.total%1000, a->total_calls,
 	  a->cpu.total/a->total_calls, a->cpu.max,
 	  a->real.total/a->total_calls, a->real.max);
-  vty_outln (vty, " %c%c%c%c%c %s",
+  vty_out (vty, " %c%c%c%c%c %s\n",
 	  a->types & (1 << THREAD_READ) ? 'R':' ',
 	  a->types & (1 << THREAD_WRITE) ? 'W':' ',
 	  a->types & (1 << THREAD_TIMER) ? 'T':' ',
@@ -147,13 +147,13 @@ cpu_record_print(struct vty *vty, thread_type filter)
       memset (underline, '-', sizeof (underline));
       underline[sizeof(underline)] = '\0';
 
-      vty_out (vty, VTYNL);
-      vty_outln(vty, "Showing statistics for pthread %s", name);
-      vty_outln(vty, "-------------------------------%s", underline);
-      vty_outln(vty, "%21s %18s %18s", "", "CPU (user+system):", "Real (wall-clock):");
+      vty_out (vty, "\n");
+      vty_out(vty, "Showing statistics for pthread %s\n", name);
+      vty_out(vty, "-------------------------------%s\n", underline);
+      vty_out(vty, "%21s %18s %18s\n", "", "CPU (user+system):", "Real (wall-clock):");
       vty_out(vty, "Active   Runtime(ms)   Invoked Avg uSec Max uSecs");
       vty_out(vty, " Avg uSec Max uSecs");
-      vty_outln(vty, "  Type  Thread");
+      vty_out(vty, "  Type  Thread\n");
 
       if (m->cpu_record->count)
         hash_iterate(m->cpu_record,
@@ -161,20 +161,20 @@ cpu_record_print(struct vty *vty, thread_type filter)
                      cpu_record_hash_print,
                      args);
       else
-        vty_outln(vty, "No data to display yet.");
+        vty_out(vty, "No data to display yet.\n");
 
-      vty_out(vty, VTYNL);
+      vty_out(vty, "\n");
     }
   }
   pthread_mutex_unlock (&masters_mtx);
 
-  vty_out(vty, VTYNL);
-  vty_outln(vty, "Total thread statistics");
-  vty_outln(vty, "-------------------------");
-  vty_outln(vty, "%21s %18s %18s", "", "CPU (user+system):", "Real (wall-clock):");
+  vty_out(vty, "\n");
+  vty_out(vty, "Total thread statistics\n");
+  vty_out(vty, "-------------------------\n");
+  vty_out(vty, "%21s %18s %18s\n", "", "CPU (user+system):", "Real (wall-clock):");
   vty_out(vty, "Active   Runtime(ms)   Invoked Avg uSec Max uSecs");
   vty_out(vty, " Avg uSec Max uSecs");
-  vty_outln(vty, "  Type  Thread");
+  vty_out(vty, "  Type  Thread\n");
 
   if (tmp.total_calls > 0)
     vty_out_cpu_thread_history(vty, &tmp);
@@ -270,8 +270,8 @@ DEFUN (show_thread_cpu,
   if (argv_find (argv, argc, "FILTER", &idx)) {
     filter = parse_filter (argv[idx]->arg);
     if (!filter) {
-      vty_outln(vty, "Invalid filter \"%s\" specified; must contain at least"
-                     "one of 'RWTEXB'", argv[idx]->arg);
+      vty_out(vty, "Invalid filter \"%s\" specified; must contain at least"
+                     "one of 'RWTEXB'\n", argv[idx]->arg);
       return CMD_WARNING;
     }
   }
@@ -294,8 +294,8 @@ DEFUN (clear_thread_cpu,
   if (argv_find (argv, argc, "FILTER", &idx)) {
     filter = parse_filter (argv[idx]->arg);
     if (!filter) {
-      vty_outln(vty, "Invalid filter \"%s\" specified; must contain at least"
-                     "one of 'RWTEXB'", argv[idx]->arg);
+      vty_out(vty, "Invalid filter \"%s\" specified; must contain at least"
+                     "one of 'RWTEXB'\n", argv[idx]->arg);
       return CMD_WARNING;
     }
   }
@@ -564,6 +564,12 @@ thread_master_free_unused (struct thread_master *m)
 void
 thread_master_free (struct thread_master *m)
 {
+  pthread_mutex_lock (&masters_mtx);
+  {
+    listnode_delete (masters, m);
+  }
+  pthread_mutex_unlock (&masters_mtx);
+
   thread_array_free (m, m->read);
   thread_array_free (m, m->write);
   thread_queue_free (m, m->timer);

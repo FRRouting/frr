@@ -4,6 +4,7 @@
  *
  * Copyright (C) 2012 by Open Source Routing.
  * Copyright (C) 2012 by Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2017 Christian Franke
  *
  * This file is part of Quagga
  *
@@ -32,26 +33,8 @@
 
 struct prng
 {
-  unsigned long long state1;
-  unsigned long long state2;
+  uint64_t state;
 };
-
-static char
-prng_bit(struct prng *prng)
-{
-  prng->state1 *= 2416;
-  prng->state1 += 374441;
-  prng->state1 %= 1771875;
-
-  if (prng->state1 % 2)
-    {
-      prng->state2 *= 84589;
-      prng->state2 += 45989;
-      prng->state2 %= 217728;
-    }
-
-  return prng->state2 % 2;
-}
 
 struct prng*
 prng_new(unsigned long long seed)
@@ -59,22 +42,23 @@ prng_new(unsigned long long seed)
   struct prng *rv = calloc(sizeof(*rv), 1);
   assert(rv);
 
-  rv->state1 = rv->state2 = seed;
+  rv->state = seed;
 
   return rv;
 }
 
-unsigned int
+/*
+ * This implementation has originally been provided to musl libc by
+ * Szabolcs Nagy <nsz at port70 dot net> in 2013 under the terms of
+ * the MIT license.
+ * It is a simple LCG which D.E. Knuth attributes to C.E. Haynes in
+ * TAOCP Vol2 3.3.4
+ */
+int
 prng_rand(struct prng *prng)
 {
-  unsigned int i, rv = 0;
-
-  for (i = 0; i < 32; i++)
-    {
-      rv |= prng_bit(prng);
-      rv <<= 1;
-    }
-  return rv;
+  prng->state = 6364136223846793005ULL*prng->state + 1;
+  return prng->state>>33;
 }
 
 const char *

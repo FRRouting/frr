@@ -95,6 +95,15 @@ struct zebra_vrf
   u_int16_t mpls_flags;
 #define MPLS_FLAG_SCHEDULE_LSPS    (1 << 0)
 
+  /*
+   * VNI hash table (for EVPN). Only in default instance.
+   */
+  struct hash *vni_table;
+  /*
+   * Whether EVPN is enabled or not.
+   */
+  int advertise_all_vni;
+
   /* Route Installs */
   uint64_t installs;
   uint64_t removals;

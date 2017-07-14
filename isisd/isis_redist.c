@@ -581,27 +581,27 @@ DEFUN (isis_redistribute,
 
   family = str2family(argv[idx_afi]->text);
   if (family < 0)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   afi = family2afi(family);
   if (!afi)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   type = proto_redistnum(afi, argv[idx_protocol]->text);
   if (type < 0)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (!strcmp("level-1", argv[idx_level]->arg))
     level = 1;
   else if (!strcmp("level-2", argv[idx_level]->arg))
     level = 2;
   else
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if ((area->is_type & level) != level)
     {
-      vty_outln (vty, "Node is not a level-%d IS", level);
-      return CMD_WARNING;
+      vty_out (vty, "Node is not a level-%d IS\n", level);
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   metric = 0xffffffff;
@@ -610,7 +610,7 @@ DEFUN (isis_redistribute,
   if (argc > idx_metric_rmap + 1)
     {
       if (argv[idx_metric_rmap + 1]->arg[0] == '\0')
-        return CMD_WARNING;
+        return CMD_WARNING_CONFIG_FAILED;
 
       if (strmatch(argv[idx_metric_rmap]->text, "metric"))
         {
@@ -618,7 +618,7 @@ DEFUN (isis_redistribute,
           metric = strtoul(argv[idx_metric_rmap + 1]->arg, &endp, 10);
 
           if (*endp != '\0')
-            return CMD_WARNING;
+            return CMD_WARNING_CONFIG_FAILED;
         }
       else
         {
@@ -652,15 +652,15 @@ DEFUN (no_isis_redistribute,
 
   family = str2family(argv[idx_afi]->arg);
   if (family < 0)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   afi = family2afi(family);
   if (!afi)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   type = proto_redistnum(afi, argv[idx_protocol]->text);
   if (type < 0)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   level = strmatch ("level-1", argv[idx_level]->text) ? 1 : 2;
 
@@ -696,14 +696,14 @@ DEFUN (isis_default_originate,
 
   family = str2family(argv[idx_afi]->text);
   if (family < 0)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   level = strmatch ("level-1", argv[idx_level]->text) ? 1 : 2;
 
   if ((area->is_type & level) != level)
     {
-      vty_outln (vty, "Node is not a level-%d IS", level);
-      return CMD_WARNING;
+      vty_out (vty, "Node is not a level-%d IS\n", level);
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (argc > idx_always && strmatch (argv[idx_always]->text, "always"))
@@ -722,9 +722,9 @@ DEFUN (isis_default_originate,
 
   if (family == AF_INET6 && originate_type != DEFAULT_ORIGINATE_ALWAYS)
     {
-      vty_outln (vty,
-                "Zebra doesn't implement default-originate for IPv6 yet");
-      vty_outln (vty, "so use with care or use default-originate always.");
+      vty_out (vty,
+                "Zebra doesn't implement default-originate for IPv6 yet\n");
+      vty_out (vty, "so use with care or use default-originate always.\n");
     }
 
   isis_redist_set(area, level, family, DEFAULT_ROUTE, metric, routemap, originate_type);
@@ -750,14 +750,14 @@ DEFUN (no_isis_default_originate,
 
   family = str2family(argv[idx_afi]->text);
   if (family < 0)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (strmatch ("level-1", argv[idx_level]->text))
     level = 1;
   else if (strmatch ("level-2", argv[idx_level]->text))
     level = 2;
   else
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   isis_redist_unset(area, level, family, DEFAULT_ROUTE);
   return 0;
@@ -796,7 +796,7 @@ isis_redist_config_write(struct vty *vty, struct isis_area *area,
             vty_out(vty, " metric %u", redist->metric);
           if (redist->map_name)
             vty_out(vty, " route-map %s", redist->map_name);
-          vty_out (vty, VTYNL);
+          vty_out (vty, "\n");
           write++;
         }
     }
@@ -814,7 +814,7 @@ isis_redist_config_write(struct vty *vty, struct isis_area *area,
         vty_out(vty, " metric %u", redist->metric);
       if (redist->map_name)
         vty_out(vty, " route-map %s", redist->map_name);
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
       write++;
     }
 

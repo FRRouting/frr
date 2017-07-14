@@ -28,7 +28,7 @@
   retv = str2area_id ((STR), &(V), &(F));                                     \
   if (retv < 0)                                                               \
     {                                                                         \
-      vty_out (vty, "%% Invalid OSPF area ID%s", VTYNL);                \
+      vty_out (vty, "%% Invalid OSPF area ID\n");                \
       return CMD_WARNING;                                                     \
     }                                                                         \
 }
@@ -39,13 +39,13 @@
   retv = str2area_id ((STR), &(V), &(F));                                     \
   if (retv < 0)                                                               \
     {                                                                         \
-      vty_out (vty, "%% Invalid OSPF area ID%s", VTYNL);                \
+      vty_out (vty, "%% Invalid OSPF area ID\n");                \
       return CMD_WARNING;                                                     \
     }                                                                         \
   if (OSPF_IS_AREA_ID_BACKBONE ((V)))                                         \
     {                                                                         \
-      vty_out (vty, "%% You can't configure %s to backbone%s",                \
-               NAME, VTYNL);                                            \
+      vty_out (vty, "%% You can't configure %s to backbone\n",                \
+               NAME);                                            \
     }                                                                         \
 }
 

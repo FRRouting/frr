@@ -164,6 +164,7 @@ EXTRA_DIST = \
     lib/test_table.py \
     lib/test_timer_correctness.py \
     lib/test_ttable.py \
+    lib/test_ttable.refout \
     ospf6d/test_lsdb.py \
     ospf6d/test_lsdb.in \
     ospf6d/test_lsdb.refout \

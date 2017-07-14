@@ -526,17 +526,17 @@ bgp_bfd_peer_config_write(struct vty *vty, struct peer *peer, char *addr)
   bfd_info = (struct bfd_info *)peer->bfd_info;
 
   if (CHECK_FLAG (bfd_info->flags, BFD_FLAG_PARAM_CFG))
-    vty_outln (vty, " neighbor %s bfd %d %d %d", addr,
+    vty_out (vty, " neighbor %s bfd %d %d %d\n", addr,
       bfd_info->detect_mult, bfd_info->required_min_rx,
       bfd_info->desired_min_tx);
 
   if (bfd_info->type != BFD_TYPE_NOT_CONFIGURED)
-    vty_outln (vty, " neighbor %s bfd %s", addr,
+    vty_out (vty, " neighbor %s bfd %s\n", addr,
       (bfd_info->type == BFD_TYPE_MULTIHOP) ? "multihop" : "singlehop");
 
   if (!CHECK_FLAG (bfd_info->flags, BFD_FLAG_PARAM_CFG) &&
         (bfd_info->type == BFD_TYPE_NOT_CONFIGURED))
-    vty_outln (vty, " neighbor %s bfd", addr);
+    vty_out (vty, " neighbor %s bfd\n", addr);
 }
 
 /*
@@ -562,7 +562,7 @@ DEFUN (neighbor_bfd,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ret = bgp_bfd_peer_param_set (peer, BFD_DEF_MIN_RX, BFD_DEF_MIN_TX,
                                   BFD_DEF_DETECT_MULT, 1);
@@ -595,7 +595,7 @@ DEFUN (neighbor_bfd_param,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (!peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if ((ret = bfd_validate_param (vty, argv[idx_number_1]->arg, argv[idx_number_2]->arg, argv[idx_number_3]->arg, &dm_val,
                                  &rx_val, &tx_val)) != CMD_SUCCESS)
@@ -626,14 +626,14 @@ DEFUN_HIDDEN (neighbor_bfd_type,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (!peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (strmatch(argv[idx_hop]->text, "singlehop"))
     type = BFD_TYPE_SINGLEHOP;
   else if (strmatch(argv[idx_hop]->text, "multihop"))
     type = BFD_TYPE_MULTIHOP;
   else
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ret = bgp_bfd_peer_param_type_set (peer, type);
   if (ret != 0)
@@ -659,7 +659,7 @@ DEFUN (no_neighbor_bfd,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ret = bgp_bfd_peer_param_unset(peer);
   if (ret != 0)
@@ -685,7 +685,7 @@ DEFUN_HIDDEN (no_neighbor_bfd_type,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (!peer->bfd_info)
     return 0;

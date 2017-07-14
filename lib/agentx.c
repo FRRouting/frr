@@ -168,7 +168,7 @@ static int
 config_write_agentx (struct vty *vty)
 {
   if (agentx_enabled)
-      vty_outln (vty, "agentx");
+      vty_out (vty, "agentx\n");
   return 1;
 }
 
@@ -185,7 +185,7 @@ DEFUN (agentx_enable,
       agentx_enabled = 1;
       return CMD_SUCCESS;
     }
-  vty_outln (vty, "SNMP AgentX already enabled");
+  vty_out (vty, "SNMP AgentX already enabled\n");
   return CMD_SUCCESS;
 }
 
@@ -196,8 +196,8 @@ DEFUN (no_agentx,
        "SNMP AgentX protocol settings\n")
 {
   if (!agentx_enabled) return CMD_SUCCESS;
-  vty_outln (vty, "SNMP AgentX support cannot be disabled once enabled");
-  return CMD_WARNING;
+  vty_out (vty, "SNMP AgentX support cannot be disabled once enabled\n");
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 void

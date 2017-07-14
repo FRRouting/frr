@@ -29,6 +29,7 @@
 #include "sockunion.h"
 #include "log.h"
 #include "privs.h"
+#include "vxlan.h"
 
 #include "zebra/debug.h"
 #include "zebra/rib.h"
@@ -80,8 +81,7 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct route_entry *re)
   struct sockaddr_mpls smpls;
 #endif
   union sockunion *smplsp = NULL;
-  struct nexthop *nexthop, *tnexthop;
-  int recursing;
+  struct nexthop *nexthop;
   int nexthop_num = 0;
   ifindex_t ifindex = 0;
   int gate = 0;
@@ -106,7 +106,7 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct route_entry *re)
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
   /* Make gateway. */
-  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+  for (ALL_NEXTHOPS(re->nexthop, nexthop))
     {
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
         continue;
@@ -226,7 +226,7 @@ kernel_rtm_ipv4 (int cmd, struct prefix *p, struct route_entry *re)
          if (IS_ZEBRA_DEBUG_RIB)
            zlog_debug ("%s: odd command %s for flags %d",
              __func__, lookup_msg(rtm_type_str, cmd, NULL), nexthop->flags);
-     } /* for (ALL_NEXTHOPS_RO(...))*/
+     } /* for (ALL_NEXTHOPS(...))*/
  
    /* If there was no useful nexthop, then complain. */
    if (nexthop_num == 0 && IS_ZEBRA_DEBUG_KERNEL)
@@ -266,8 +266,7 @@ kernel_rtm_ipv6 (int cmd, struct prefix *p, struct route_entry *re)
 {
   struct sockaddr_in6 *mask;
   struct sockaddr_in6 sin_dest, sin_mask, sin_gate;
-  struct nexthop *nexthop, *tnexthop;
-  int recursing;
+  struct nexthop *nexthop;
   int nexthop_num = 0;
   ifindex_t ifindex = 0;
   int gate = 0;
@@ -289,7 +288,7 @@ kernel_rtm_ipv6 (int cmd, struct prefix *p, struct route_entry *re)
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
   /* Make gateway. */
-  for (ALL_NEXTHOPS_RO(re->nexthop, nexthop, tnexthop, recursing))
+  for (ALL_NEXTHOPS(re->nexthop, nexthop))
     {
       if (CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 	continue;
@@ -425,6 +424,44 @@ kernel_neigh_update (int add, int ifindex, uint32_t addr, char *lla, int llalen)
 
 extern int
 kernel_get_ipmr_sg_stats (void *mroute)
+{
+  return 0;
+}
+
+int
+kernel_add_vtep (vni_t vni, struct interface *ifp, struct in_addr *vtep_ip)
+{
+  return 0;
+}
+
+int
+kernel_del_vtep (vni_t vni, struct interface *ifp, struct in_addr *vtep_ip)
+{
+  return 0;
+}
+
+int
+kernel_add_mac (struct interface *ifp, vlanid_t vid,
+                struct ethaddr *mac, struct in_addr vtep_ip,
+                u_char sticky)
+{
+  return 0;
+}
+
+int
+kernel_del_mac (struct interface *ifp, vlanid_t vid,
+                struct ethaddr *mac, struct in_addr vtep_ip, int local)
+{
+  return 0;
+}
+
+int kernel_add_neigh (struct interface *ifp, struct ipaddr *ip,
+                      struct ethaddr *mac)
+{
+  return 0;
+}
+
+int kernel_del_neigh (struct interface *ifp, struct ipaddr *ip)
 {
   return 0;
 }

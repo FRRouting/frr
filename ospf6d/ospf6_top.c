@@ -315,7 +315,7 @@ DEFUN (no_router_ospf6,
        OSPF6_STR)
 {
   if (ospf6 == NULL)
-    vty_out (vty, "OSPFv3 is not configured%s", VNL);
+    vty_out (vty, "OSPFv3 is not configured\n");
   else
     {
       ospf6_delete (ospf6);
@@ -343,7 +343,7 @@ DEFUN (ospf6_router_id,
   ret = inet_pton (AF_INET, argv[idx_ipv4]->arg, &router_id);
   if (ret == 0)
     {
-      vty_out (vty, "malformed OSPF Router-ID: %s%s", argv[idx_ipv4]->arg, VNL);
+      vty_out (vty, "malformed OSPF Router-ID: %s\n", argv[idx_ipv4]->arg);
       return CMD_SUCCESS;
     }
 
@@ -588,15 +588,15 @@ DEFUN (ospf6_interface_area,
     oi = ospf6_interface_create (ifp);
   if (oi->area)
     {
-      vty_out (vty, "%s already attached to Area %s%s",
-               oi->interface->name, oi->area->name, VNL);
+      vty_out (vty, "%s already attached to Area %s\n",
+               oi->interface->name, oi->area->name);
       return CMD_SUCCESS;
     }
 
   /* parse Area-ID */
   if (inet_pton (AF_INET, argv[idx_ipv4]->arg, &area_id) != 1)
     {
-      vty_out (vty, "Invalid Area-ID: %s%s", argv[idx_ipv4]->arg, VNL);
+      vty_out (vty, "Invalid Area-ID: %s\n", argv[idx_ipv4]->arg);
       return CMD_SUCCESS;
     }
 
@@ -645,35 +645,35 @@ DEFUN (no_ospf6_interface_area,
   ifp = if_lookup_by_name (argv[idx_ifname]->arg, VRF_DEFAULT);
   if (ifp == NULL)
     {
-      vty_out (vty, "No such interface %s%s", argv[idx_ifname]->arg, VNL);
+      vty_out (vty, "No such interface %s\n", argv[idx_ifname]->arg);
       return CMD_SUCCESS;
     }
 
   oi = (struct ospf6_interface *) ifp->info;
   if (oi == NULL)
     {
-      vty_out (vty, "Interface %s not enabled%s", ifp->name, VNL);
+      vty_out (vty, "Interface %s not enabled\n", ifp->name);
       return CMD_SUCCESS;
     }
 
   /* parse Area-ID */
   if (inet_pton (AF_INET, argv[idx_ipv4]->arg, &area_id) != 1)
     {
-      vty_out (vty, "Invalid Area-ID: %s%s", argv[idx_ipv4]->arg, VNL);
+      vty_out (vty, "Invalid Area-ID: %s\n", argv[idx_ipv4]->arg);
       return CMD_SUCCESS;
     }
 
   /* Verify Area */
   if (oi->area == NULL)
     {
-      vty_out (vty, "No such Area-ID: %s%s", argv[idx_ipv4]->arg, VNL);
+      vty_out (vty, "No such Area-ID: %s\n", argv[idx_ipv4]->arg);
       return CMD_SUCCESS;
     }
 
   if (oi->area->area_id != area_id)
     {
-      vty_out (vty, "Wrong Area-ID: %s is attached to area %s%s",
-               oi->interface->name, oi->area->name, VNL);
+      vty_out (vty, "Wrong Area-ID: %s is attached to area %s\n",
+               oi->interface->name, oi->area->name);
       return CMD_SUCCESS;
     }
 
@@ -799,29 +799,29 @@ ospf6_show (struct vty *vty, struct ospf6 *o)
 
   /* process id, router id */
   inet_ntop (AF_INET, &o->router_id, router_id, sizeof (router_id));
-  vty_out (vty, " OSPFv3 Routing Process (0) with Router-ID %s%s",
-           router_id, VNL);
+  vty_out (vty, " OSPFv3 Routing Process (0) with Router-ID %s\n",
+           router_id);
 
   /* running time */
   monotime(&now);
   timersub (&now, &o->starttime, &running);
   timerstring (&running, duration, sizeof (duration));
-  vty_out (vty, " Running %s%s", duration, VNL);
+  vty_out (vty, " Running %s\n", duration);
 
   /* Redistribute configuration */
   /* XXX */
 
-  vty_outln (vty, " LSA minimum arrival %d msecs",o->lsa_minarrival);
+  vty_out (vty, " LSA minimum arrival %d msecs\n",o->lsa_minarrival);
 
   /* Show SPF parameters */
-  vty_out(vty, " Initial SPF scheduling delay %d millisec(s)%s"
-	  " Minimum hold time between consecutive SPFs %d millsecond(s)%s"
-	  " Maximum hold time between consecutive SPFs %d millsecond(s)%s"
-	  " Hold time multiplier is currently %d%s",
-	  o->spf_delay, VNL,
-	  o->spf_holdtime, VNL,
-	  o->spf_max_holdtime, VNL,
-	  o->spf_hold_multiplier, VNL);
+  vty_out(vty, " Initial SPF scheduling delay %d millisec(s)\n"
+	  " Minimum hold time between consecutive SPFs %d millsecond(s)\n"
+	  " Maximum hold time between consecutive SPFs %d millsecond(s)\n"
+	  " Hold time multiplier is currently %d\n",
+	  o->spf_delay,
+	  o->spf_holdtime,
+	  o->spf_max_holdtime,
+	  o->spf_hold_multiplier);
 
   vty_out(vty, " SPF algorithm ");
   if (o->ts_spf.tv_sec || o->ts_spf.tv_usec)
@@ -829,37 +829,37 @@ ospf6_show (struct vty *vty, struct ospf6 *o)
       timersub(&now, &o->ts_spf, &result);
       timerstring(&result, buf, sizeof(buf));
       ospf6_spf_reason_string(o->last_spf_reason, rbuf, sizeof(rbuf));
-      vty_out(vty, "last executed %s ago, reason %s%s", buf, rbuf, VNL);
-      vty_out (vty, " Last SPF duration %lld sec %lld usec%s",
+      vty_out(vty, "last executed %s ago, reason %s\n", buf, rbuf);
+      vty_out (vty, " Last SPF duration %lld sec %lld usec\n",
                (long long)o->ts_spf_duration.tv_sec,
-               (long long)o->ts_spf_duration.tv_usec, VNL);
+               (long long)o->ts_spf_duration.tv_usec);
     }
   else
-    vty_out(vty, "has not been run$%s", VNL);
+    vty_out(vty, "has not been run$\n");
   threadtimer_string(now, o->t_spf_calc, buf, sizeof(buf));
-  vty_out (vty, " SPF timer %s%s%s",
-	   (o->t_spf_calc ? "due in " : "is "), buf, VNL);
+  vty_out (vty, " SPF timer %s%s\n",
+	   (o->t_spf_calc ? "due in " : "is "), buf);
 
   if (CHECK_FLAG (o->flag, OSPF6_STUB_ROUTER))
-    vty_out (vty, " Router Is Stub Router%s", VNL);
+    vty_out (vty, " Router Is Stub Router\n");
 
   /* LSAs */
-  vty_out (vty, " Number of AS scoped LSAs is %u%s",
-           o->lsdb->count, VNL);
+  vty_out (vty, " Number of AS scoped LSAs is %u\n",
+           o->lsdb->count);
 
   /* Areas */
-  vty_out (vty, " Number of areas in this router is %u%s",
-           listcount (o->area_list), VNL);
+  vty_out (vty, " Number of areas in this router is %u\n",
+           listcount (o->area_list));
 
   if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES))
     {
       if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_DETAIL))
-	vty_outln (vty, " All adjacency changes are logged");
+	vty_out (vty, " All adjacency changes are logged\n");
       else
-	vty_outln (vty, " Adjacency changes are logged");
+	vty_out (vty, " Adjacency changes are logged\n");
     }
 
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
 
   for (ALL_LIST_ELEMENTS_RO (o->area_list, n, oa))
     ospf6_area_show (vty, oa);
@@ -963,7 +963,7 @@ ospf6_stub_router_config_write (struct vty *vty)
 {
   if (CHECK_FLAG (ospf6->flag, OSPF6_STUB_ROUTER))
     {
-      vty_out (vty, " stub-router administrative%s", VNL);
+      vty_out (vty, " stub-router administrative\n");
     }
     return;
 }
@@ -975,7 +975,7 @@ ospf6_distance_config_write (struct vty *vty)
   struct ospf6_distance *odistance;
 
   if (ospf6->distance_all)
-    vty_outln (vty, " distance %u", ospf6->distance_all);
+    vty_out (vty, " distance %u\n", ospf6->distance_all);
 
   if (ospf6->distance_intra
       || ospf6->distance_inter
@@ -990,7 +990,7 @@ ospf6_distance_config_write (struct vty *vty)
       if (ospf6->distance_external)
         vty_out (vty, " external %u", ospf6->distance_external);
 
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
 
   for (rn = route_top (ospf6->distance_table); rn; rn = route_next (rn))
@@ -998,7 +998,7 @@ ospf6_distance_config_write (struct vty *vty)
       {
 	char buf[PREFIX_STRLEN];
 
-        vty_outln (vty, " distance %u %s %s", odistance->distance,
+        vty_out (vty, " distance %u %s %s\n", odistance->distance,
 		 prefix2str (&rn->p, buf, sizeof (buf)),
                  odistance->access_list ? odistance->access_list : "");
       }
@@ -1019,30 +1019,29 @@ config_write_ospf6 (struct vty *vty)
     return CMD_SUCCESS;
 
   inet_ntop (AF_INET, &ospf6->router_id_static, router_id, sizeof (router_id));
-  vty_out (vty, "router ospf6%s", VNL);
+  vty_out (vty, "router ospf6\n");
   if (ospf6->router_id_static != 0)
-    vty_out (vty, " router-id %s%s", router_id, VNL);
+    vty_out (vty, " router-id %s\n", router_id);
 
   /* log-adjacency-changes flag print. */
   if (CHECK_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES))
     {
       if (CHECK_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL))
-        vty_outln (vty, " log-adjacency-changes detail");
+        vty_out (vty, " log-adjacency-changes detail\n");
       else if (!DFLT_OSPF6_LOG_ADJACENCY_CHANGES)
-        vty_outln (vty, " log-adjacency-changes");
+        vty_out (vty, " log-adjacency-changes\n");
     }
   else if (DFLT_OSPF6_LOG_ADJACENCY_CHANGES)
     {
-      vty_outln (vty, " no log-adjacency-changes");
+      vty_out (vty, " no log-adjacency-changes\n");
     }
 
   if (ospf6->ref_bandwidth != OSPF6_REFERENCE_BANDWIDTH)
-    vty_out (vty, " auto-cost reference-bandwidth %d%s", ospf6->ref_bandwidth,
-             VNL);
+    vty_out (vty, " auto-cost reference-bandwidth %d\n", ospf6->ref_bandwidth);
 
   /* LSA timers print. */
   if (ospf6->lsa_minarrival != OSPF_MIN_LS_ARRIVAL)
-    vty_outln (vty, " timers lsa min-arrival %d",ospf6->lsa_minarrival);
+    vty_out (vty, " timers lsa min-arrival %d\n",ospf6->lsa_minarrival);
 
   ospf6_stub_router_config_write (vty);
   ospf6_redistribute_config_write (vty);
@@ -1053,10 +1052,10 @@ config_write_ospf6 (struct vty *vty)
   for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, j, oa))
     {
       for (ALL_LIST_ELEMENTS_RO (oa->if_list, k, oi))
-        vty_out (vty, " interface %s area %s%s",
-                 oi->interface->name, oa->name, VNL);
+        vty_out (vty, " interface %s area %s\n",
+                 oi->interface->name, oa->name);
     }
-  vty_out (vty, "!%s", VNL);
+  vty_out (vty, "!\n");
   return 0;
 }
 

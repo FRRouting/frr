@@ -1438,7 +1438,7 @@ zfpm_start_stats_timer (void)
  */
 #define ZFPM_SHOW_STAT(counter)						\
   do {									\
-    vty_outln (vty, "%-40s %10lu %16lu", #counter, total_stats.counter,	\
+    vty_out (vty, "%-40s %10lu %16lu\n", #counter, total_stats.counter,	\
 	     zfpm_g->last_ivl_stats.counter);		\
   } while (0)
 
@@ -1451,8 +1451,8 @@ zfpm_show_stats (struct vty *vty)
   zfpm_stats_t total_stats;
   time_t elapsed;
 
-  vty_outln (vty, "%s%-40s %10s     Last %2d secs%s", VTYNL, "Counter",
-	   "Total", ZFPM_STATS_IVL_SECS, VTYNL);
+  vty_out (vty, "\n%-40s %10s     Last %2d secs\n\n", "Counter",
+	   "Total", ZFPM_STATS_IVL_SECS);
 
   /*
    * Compute the total stats up to this instant.
@@ -1490,7 +1490,7 @@ zfpm_show_stats (struct vty *vty)
 
   elapsed = zfpm_get_elapsed_time (zfpm_g->last_stats_clear_time);
 
-  vty_outln (vty, "%sStats were cleared %lu seconds ago", VTYNL,
+  vty_out (vty, "\nStats were cleared %lu seconds ago\n",
 	   (unsigned long)elapsed);
 }
 
@@ -1502,7 +1502,7 @@ zfpm_clear_stats (struct vty *vty)
 {
   if (!zfpm_is_enabled ())
     {
-      vty_outln (vty, "The FPM module is not enabled...");
+      vty_out (vty, "The FPM module is not enabled...\n");
       return;
     }
 
@@ -1515,7 +1515,7 @@ zfpm_clear_stats (struct vty *vty)
 
   zfpm_g->last_stats_clear_time = monotime(NULL);
 
-  vty_outln (vty, "Cleared FPM stats");
+  vty_out (vty, "Cleared FPM stats\n");
 }
 
 /*
@@ -1671,7 +1671,7 @@ static int fpm_remote_srv_write (struct vty *vty)
 
    if (zfpm_g->fpm_server != FPM_DEFAULT_IP || 
           zfpm_g->fpm_port != FPM_DEFAULT_PORT)
-      vty_outln (vty,"fpm connection ip %s port %d", inet_ntoa (in),
+      vty_out (vty,"fpm connection ip %s port %d\n", inet_ntoa (in),
                  zfpm_g->fpm_port);
 
    return 0;

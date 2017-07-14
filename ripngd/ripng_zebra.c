@@ -337,8 +337,8 @@ DEFUN (ripng_redistribute_type,
 
   if (type < 0)
     {
-      vty_outln (vty, "Invalid type %s", proto);
-      return CMD_WARNING;
+      vty_out (vty, "Invalid type %s\n", proto);
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0, VRF_DEFAULT);
@@ -363,8 +363,8 @@ DEFUN (no_ripng_redistribute_type,
 
   if (type < 0)
     {
-      vty_outln (vty, "Invalid type %s", proto);
-      return CMD_WARNING;
+      vty_out (vty, "Invalid type %s\n", proto);
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ripng_redistribute_metric_unset (type);
@@ -391,8 +391,8 @@ DEFUN (ripng_redistribute_type_metric,
 
   if (type < 0)
     {
-      vty_outln (vty, "Invalid type %s", argv[idx_protocol]->text);
-      return CMD_WARNING;
+      vty_out (vty, "Invalid type %s\n", argv[idx_protocol]->text);
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ripng_redistribute_metric_set (type, metric);
@@ -417,8 +417,8 @@ DEFUN (ripng_redistribute_type_routemap,
 
   if (type < 0)
     {
-      vty_outln (vty, "Invalid type %s", argv[idx_protocol]->text);
-      return CMD_WARNING;
+      vty_out (vty, "Invalid type %s\n", argv[idx_protocol]->text);
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ripng_redistribute_routemap_set (type, argv[idx_word]->text);
@@ -448,8 +448,8 @@ DEFUN (ripng_redistribute_type_metric_routemap,
 
   if (type < 0)
     {
-      vty_outln (vty, "Invalid type %s", argv[idx_protocol]->text);
-      return CMD_WARNING;
+      vty_out (vty, "Invalid type %s\n", argv[idx_protocol]->text);
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ripng_redistribute_metric_set (type, metric);
@@ -472,20 +472,20 @@ ripng_redistribute_write (struct vty *vty, int config_mode)
 	  if (ripng->route_map[i].metric_config)
 	    {
 	      if (ripng->route_map[i].name)
-		vty_outln (vty, " redistribute %s metric %d route-map %s",
+		vty_out (vty, " redistribute %s metric %d route-map %s\n",
 			 zebra_route_string(i), ripng->route_map[i].metric,
 			ripng->route_map[i].name);
 	      else
-		vty_outln (vty, " redistribute %s metric %d",
+		vty_out (vty, " redistribute %s metric %d\n",
 			zebra_route_string(i),ripng->route_map[i].metric);
 	    }
 	  else
 	    {
 	      if (ripng->route_map[i].name)
-		vty_outln (vty, " redistribute %s route-map %s",
+		vty_out (vty, " redistribute %s route-map %s\n",
 			 zebra_route_string(i),ripng->route_map[i].name);
 	      else
-		vty_outln (vty, " redistribute %s",zebra_route_string(i));
+		vty_out (vty, " redistribute %s\n",zebra_route_string(i));
 	    }
 	}
       else
@@ -499,13 +499,13 @@ zebra_config_write (struct vty *vty)
 {
   if (! zclient->enable)
     {
-      vty_outln (vty, "no router zebra");
+      vty_out (vty, "no router zebra\n");
       return 1;
     }
   else if (! vrf_bitmap_check (zclient->redist[AFI_IP6][ZEBRA_ROUTE_RIPNG], VRF_DEFAULT))
     {
-      vty_outln (vty, "router zebra");
-      vty_outln (vty, " no redistribute ripng");
+      vty_out (vty, "router zebra\n");
+      vty_out (vty, " no redistribute ripng\n");
       return 1;
     }
   return 0;

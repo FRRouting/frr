@@ -868,8 +868,7 @@ route_match_lcommunity (void *rule, struct prefix *prefix,
       if (! list)
         return RMAP_NOMATCH;
 
-      if (bgp_info->attr->extra &&
-          lcommunity_list_match (bgp_info->attr->extra->lcommunity, list))
+      if (lcommunity_list_match (bgp_info->attr->lcommunity, list))
         return RMAP_MATCH;
 
     }
@@ -933,15 +932,12 @@ route_match_ecommunity (void *rule, struct prefix *prefix,
     {
       bgp_info = object;
 
-      if (!bgp_info->attr->extra)
-        return RMAP_NOMATCH;
-
       list = community_list_lookup (bgp_clist, (char *) rule,
 				    EXTCOMMUNITY_LIST_MASTER);
       if (! list)
 	return RMAP_NOMATCH;
 
-      if (ecommunity_list_match (bgp_info->attr->extra->ecommunity, list))
+      if (ecommunity_list_match (bgp_info->attr->ecommunity, list))
 	return RMAP_MATCH;
     }
   return RMAP_NOMATCH;
@@ -1149,10 +1145,7 @@ route_match_tag (void *rule, struct prefix *prefix,
       tag = rule;
       bgp_info = object;
 
-      if (!bgp_info->attr->extra)
-         return RMAP_NOMATCH;
-
-      return ((bgp_info->attr->extra->tag == *tag)? RMAP_MATCH : RMAP_NOMATCH);
+      return ((bgp_info->attr->tag == *tag)? RMAP_MATCH : RMAP_NOMATCH);
     }
 
   return RMAP_NOMATCH;
@@ -1332,7 +1325,6 @@ route_set_weight (void *rule, struct prefix *prefix, route_map_object_t type,
 {
   struct rmap_value *rv;
   struct bgp_info *bgp_info;
-  u_int32_t weight;
 
   if (type == RMAP_BGP)
     {
@@ -1341,11 +1333,7 @@ route_set_weight (void *rule, struct prefix *prefix, route_map_object_t type,
       bgp_info = object;
 
       /* Set weight value. */
-      weight = route_value_adjust(rv, 0, bgp_info->peer);
-      if (weight)
-        (bgp_attr_extra_get (bgp_info->attr))->weight = weight;
-      else if (bgp_info->attr->extra)
-        bgp_info->attr->extra->weight = 0;
+      bgp_info->attr->weight = route_value_adjust(rv, 0, bgp_info->peer);
     }
 
   return RMAP_OKAY;
@@ -1644,14 +1632,13 @@ route_set_lcommunity (void *rule, struct prefix *prefix,
       rcs = rule;
       binfo = object;
       attr = binfo->attr;
-      old = (attr->extra) ? attr->extra->lcommunity : NULL;
+      old = attr->lcommunity;
 
       /* "none" case.  */
       if (rcs->none)
         {
           attr->flag &= ~(ATTR_FLAG_BIT (BGP_ATTR_LARGE_COMMUNITIES));
-          if (attr->extra)
-            attr->extra->lcommunity = NULL;
+          attr->lcommunity = NULL;
 
           /* See the longer comment down below. */
           if (old && old->refcnt == 0)
@@ -1676,7 +1663,7 @@ route_set_lcommunity (void *rule, struct prefix *prefix,
         new = lcommunity_dup (rcs->lcom);
 
       /* will be intern()'d or attr_flush()'d by bgp_update_main() */
-      (bgp_attr_extra_get (attr))->lcommunity = new;
+      attr->lcommunity = new;
 
       attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_LARGE_COMMUNITIES);
     }
@@ -1766,7 +1753,7 @@ route_set_lcommunity_delete (void *rule, struct prefix *prefix,
       binfo = object;
       list = community_list_lookup (bgp_clist, rule,
                                     LARGE_COMMUNITY_LIST_MASTER);
-      old = ((binfo->attr->extra) ? binfo->attr->extra->lcommunity : NULL);
+      old = binfo->attr->lcommunity;
 
       if (list && old)
         {
@@ -1783,13 +1770,13 @@ route_set_lcommunity_delete (void *rule, struct prefix *prefix,
 
           if (new->size == 0)
             {
-              binfo->attr->extra->lcommunity = NULL;
+              binfo->attr->lcommunity = NULL;
               binfo->attr->flag &= ~ATTR_FLAG_BIT (BGP_ATTR_LARGE_COMMUNITIES);
               lcommunity_free (&new);
             }
           else
             {
-              binfo->attr->extra->lcommunity = new;
+              binfo->attr->lcommunity = new;
               binfo->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_LARGE_COMMUNITIES);
             }
         }
@@ -1946,7 +1933,7 @@ route_set_ecommunity (void *rule, struct prefix *prefix,
 	return RMAP_OKAY;
 
       /* We assume additive for Extended Community. */
-      old_ecom = (bgp_attr_extra_get (bgp_info->attr))->ecommunity;
+      old_ecom = bgp_info->attr->ecommunity;
 
       if (old_ecom)
 	{
@@ -1961,7 +1948,7 @@ route_set_ecommunity (void *rule, struct prefix *prefix,
 	new_ecom = ecommunity_dup (ecom);
 
       /* will be intern()'d or attr_flush()'d by bgp_update_main() */
-      bgp_info->attr->extra->ecommunity = new_ecom;
+      bgp_info->attr->ecommunity = new_ecom;
 
       bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_EXT_COMMUNITIES);
     }
@@ -2129,16 +2116,14 @@ route_set_aggregator_as (void *rule, struct prefix *prefix,
 {
   struct bgp_info *bgp_info;
   struct aggregator *aggregator;
-  struct attr_extra *ae;
 
   if (type == RMAP_BGP)
     {
       bgp_info = object;
       aggregator = rule;
-      ae = bgp_attr_extra_get (bgp_info->attr);
 
-      ae->aggregator_as = aggregator->as;
-      ae->aggregator_addr = aggregator->address;
+      bgp_info->attr->aggregator_as = aggregator->as;
+      bgp_info->attr->aggregator_addr = aggregator->address;
       bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_AGGREGATOR);
     }
 
@@ -2187,16 +2172,14 @@ route_set_tag (void *rule, struct prefix *prefix,
 {
   route_tag_t *tag;
   struct bgp_info *bgp_info;
-  struct attr_extra *ae;
 
   if (type == RMAP_BGP)
     {
       tag = rule;
       bgp_info = object;
-      ae = bgp_attr_extra_get (bgp_info->attr);
 
       /* Set tag value */
-      ae->tag=*tag;
+      bgp_info->attr->tag=*tag;
 
     }
 
@@ -2231,7 +2214,7 @@ route_set_label_index (void *rule, struct prefix *prefix,
       label_index = rv->value;
       if (label_index)
         {
-          (bgp_attr_extra_get (bgp_info->attr))->label_index = label_index;
+          bgp_info->attr->label_index = label_index;
           bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_PREFIX_SID);
         }
     }
@@ -2302,14 +2285,11 @@ route_match_ipv6_next_hop (void *rule, struct prefix *prefix,
     {
       bgp_info = object;
 
-      if (!bgp_info->attr->extra)
-        return RMAP_NOMATCH;
-
-      if (IPV6_ADDR_SAME (&bgp_info->attr->extra->mp_nexthop_global, addr))
+      if (IPV6_ADDR_SAME (&bgp_info->attr->mp_nexthop_global, addr))
 	return RMAP_MATCH;
 
-      if (bgp_info->attr->extra->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL &&
-	  IPV6_ADDR_SAME (&bgp_info->attr->extra->mp_nexthop_local, rule))
+      if (bgp_info->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL &&
+	  IPV6_ADDR_SAME (&bgp_info->attr->mp_nexthop_local, rule))
 	return RMAP_MATCH;
 
       return RMAP_NOMATCH;
@@ -2407,11 +2387,11 @@ route_set_ipv6_nexthop_global (void *rule, struct prefix *prefix,
       bgp_info = object;
 
       /* Set next hop value. */
-      (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_global = *address;
+      bgp_info->attr->mp_nexthop_global = *address;
 
       /* Set nexthop length. */
-      if (bgp_info->attr->extra->mp_nexthop_len == 0)
-	bgp_info->attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
+      if (bgp_info->attr->mp_nexthop_len == 0)
+	bgp_info->attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
 
       SET_FLAG(bgp_info->attr->rmap_change_flags,
 	       BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED);
@@ -2477,13 +2457,13 @@ route_set_ipv6_nexthop_prefer_global (void *rule, struct prefix *prefix,
 	  && sockunion_family (peer->su_remote) == AF_INET6)
 	{
           /* Set next hop preference to global */
-          bgp_info->attr->extra->mp_nexthop_prefer_global = TRUE;
+          bgp_info->attr->mp_nexthop_prefer_global = TRUE;
           SET_FLAG(bgp_info->attr->rmap_change_flags,
                    BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED);
 	}
       else
         {
-          bgp_info->attr->extra->mp_nexthop_prefer_global = FALSE;
+          bgp_info->attr->mp_nexthop_prefer_global = FALSE;
           SET_FLAG(bgp_info->attr->rmap_change_flags,
                    BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED);
         }
@@ -2535,11 +2515,11 @@ route_set_ipv6_nexthop_local (void *rule, struct prefix *prefix,
       bgp_info = object;
 
       /* Set next hop value. */
-      (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_local = *address;
+      bgp_info->attr->mp_nexthop_local = *address;
 
       /* Set nexthop length. */
-      if (bgp_info->attr->extra->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
-	bgp_info->attr->extra->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
+      if (bgp_info->attr->mp_nexthop_len != BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
+	bgp_info->attr->mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL;
 
       SET_FLAG(bgp_info->attr->rmap_change_flags,
 	       BATTR_RMAP_IPV6_LL_NHOP_CHANGED);
@@ -2611,15 +2591,15 @@ route_set_ipv6_nexthop_peer (void *rule, struct prefix *prefix,
           /* Set next hop value and length in attribute. */
           if (IN6_IS_ADDR_LINKLOCAL(&peer_address))
             {
-              (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_local = peer_address;
-              if (bgp_info->attr->extra->mp_nexthop_len != 32)
-                bgp_info->attr->extra->mp_nexthop_len = 32;
+              bgp_info->attr->mp_nexthop_local = peer_address;
+              if (bgp_info->attr->mp_nexthop_len != 32)
+                bgp_info->attr->mp_nexthop_len = 32;
             }
           else
             {
-              (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_global = peer_address;
-              if (bgp_info->attr->extra->mp_nexthop_len == 0)
-                bgp_info->attr->extra->mp_nexthop_len = 16;
+              bgp_info->attr->mp_nexthop_global = peer_address;
+              if (bgp_info->attr->mp_nexthop_len == 0)
+                bgp_info->attr->mp_nexthop_len = 16;
             }
 
 	}
@@ -2633,9 +2613,9 @@ route_set_ipv6_nexthop_peer (void *rule, struct prefix *prefix,
 	  SET_FLAG(bgp_info->attr->rmap_change_flags,
 		   BATTR_RMAP_NEXTHOP_PEER_ADDRESS);
           /* clear next hop value. */
-          memset (&((bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_global),
+          memset (&(bgp_info->attr->mp_nexthop_global),
                   0, sizeof (struct in6_addr));
-          memset (&((bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_local),
+          memset (&(bgp_info->attr->mp_nexthop_local),
                   0, sizeof (struct in6_addr));
 	}
     }
@@ -2688,8 +2668,8 @@ route_set_vpnv4_nexthop (void *rule, struct prefix *prefix,
       bgp_info = object;
 
       /* Set next hop value. */
-      (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_global_in = *address;
-      (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_len = 4;
+      bgp_info->attr->mp_nexthop_global_in = *address;
+      bgp_info->attr->mp_nexthop_len = 4;
     }
 
   return RMAP_OKAY;
@@ -2730,8 +2710,8 @@ route_set_vpnv6_nexthop (void *rule, struct prefix *prefix,
       bgp_info = object;
 
       /* Set next hop value. */
-      memcpy (&(bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_global, address, sizeof(struct in6_addr));
-      (bgp_attr_extra_get (bgp_info->attr))->mp_nexthop_len = BGP_ATTR_NHLEN_VPNV6_GLOBAL;
+      memcpy (&bgp_info->attr->mp_nexthop_global, address, sizeof(struct in6_addr));
+      bgp_info->attr->mp_nexthop_len = BGP_ATTR_NHLEN_VPNV6_GLOBAL;
     }
 
   return RMAP_OKAY;
@@ -2794,7 +2774,7 @@ route_set_originator_id (void *rule, struct prefix *prefix, route_map_object_t t
       bgp_info = object;
 
       bgp_info->attr->flag |= ATTR_FLAG_BIT (BGP_ATTR_ORIGINATOR_ID);
-      (bgp_attr_extra_get (bgp_info->attr))->originator_id = *address;
+      bgp_info->attr->originator_id = *address;
     }
 
   return RMAP_OKAY;
@@ -2851,11 +2831,11 @@ bgp_route_match_add (struct vty *vty,
       switch (ret)
 	{
 	case RMAP_RULE_MISSING:
-	  vty_outln (vty, "%% BGP Can't find rule.");
-	  return CMD_WARNING;
+	  vty_out (vty, "%% BGP Can't find rule.\n");
+          return CMD_WARNING_CONFIG_FAILED;
 	case RMAP_COMPILE_ERROR:
-	  vty_outln (vty, "%% BGP Argument is malformed.");
-	  return CMD_WARNING;
+	  vty_out (vty, "%% BGP Argument is malformed.\n");
+          return CMD_WARNING_CONFIG_FAILED;
 	}
     }
 
@@ -2900,17 +2880,17 @@ bgp_route_match_delete (struct vty *vty,
       switch (ret)
 	{
 	case RMAP_RULE_MISSING:
-	  vty_outln (vty, "%% BGP Can't find rule.");
+	  vty_out (vty, "%% BGP Can't find rule.\n");
 	  break;
 	case RMAP_COMPILE_ERROR:
-	  vty_outln (vty, "%% BGP Argument is malformed.");
+	  vty_out (vty, "%% BGP Argument is malformed.\n");
 	  break;
 	}
       if (dep_name)
 	XFREE(MTYPE_ROUTE_MAP_RULE, dep_name);
       if (rmap_name)
 	XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (type != RMAP_EVENT_MATCH_DELETED && dep_name)
@@ -3112,6 +3092,9 @@ bgp_route_map_process_update (struct bgp *bgp, const char *rmap_name, int route_
     for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
       {
         /* For table route-map updates. */
+        if (!bgp_fibupd_safi(safi))
+          continue;
+
 	if (bgp->table_map[afi][safi].name &&
 	    (strcmp(rmap_name, bgp->table_map[afi][safi].name) == 0))
 	  {
@@ -3592,7 +3575,8 @@ DEFUN (match_origin,
     return bgp_route_match_add (vty, "origin", "incomplete",
 				RMAP_EVENT_MATCH_ADDED);
 
-  return CMD_WARNING;
+  vty_out (vty, "%% Invalid match origin type\n");
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 
@@ -3886,8 +3870,8 @@ DEFUN (set_community,
   /* Can't compile user input into communities attribute.  */
   if (! com)
     {
-      vty_outln (vty, "%% Malformed communities attribute");
-      return CMD_WARNING;
+      vty_out (vty, "%% Malformed communities attribute\n");
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Set communites attribute string.  */
@@ -4152,7 +4136,8 @@ DEFUN (set_origin,
     return generic_set_add (vty, VTY_GET_CONTEXT(route_map_index), "origin",
                             "incomplete");
 
-  return CMD_WARNING;
+  vty_out (vty, "%% Invalid set origin type\n");
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 
@@ -4210,8 +4195,8 @@ DEFUN (set_aggregator_as,
   ret = inet_aton (argv[idx_ipv4]->arg, &address);
   if (ret == 0)
     {
-      vty_outln (vty, "Aggregator IP address is invalid");
-      return CMD_WARNING;
+      vty_out (vty, "Aggregator IP address is invalid\n");
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   argstr = XMALLOC (MTYPE_ROUTE_MAP_COMPILED,
@@ -4251,8 +4236,8 @@ DEFUN (no_set_aggregator_as,
   ret = inet_aton (argv[idx_ip]->arg, &address);
   if (ret == 0)
     {
-      vty_outln (vty, "Aggregator IP address is invalid");
-      return CMD_WARNING;
+      vty_out (vty, "Aggregator IP address is invalid\n");
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   argstr = XMALLOC (MTYPE_ROUTE_MAP_COMPILED,
@@ -4362,16 +4347,16 @@ DEFUN (set_ipv6_nexthop_global,
   ret = inet_pton (AF_INET6, argv[idx_ipv6]->arg, &addr);
   if (!ret)
     {
-      vty_outln (vty, "%% Malformed nexthop address");
-      return CMD_WARNING;
+      vty_out (vty, "%% Malformed nexthop address\n");
+      return CMD_WARNING_CONFIG_FAILED;
     }
   if (IN6_IS_ADDR_UNSPECIFIED(&addr) ||
       IN6_IS_ADDR_LOOPBACK(&addr)    ||
       IN6_IS_ADDR_MULTICAST(&addr)   ||
       IN6_IS_ADDR_LINKLOCAL(&addr))
     {
-      vty_outln (vty, "%% Invalid global nexthop address");
-      return CMD_WARNING;
+      vty_out (vty, "%% Invalid global nexthop address\n");
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return generic_set_add (vty, VTY_GET_CONTEXT(route_map_index),
@@ -4400,12 +4385,13 @@ DEFUN (no_set_ipv6_nexthop_global,
 #ifdef KEEP_OLD_VPN_COMMANDS
 DEFUN (set_vpn_nexthop,
        set_vpn_nexthop_cmd,
-       "set <vpnv4|vpnv6> next-hop <A.B.C.D|X:X::X:X>",
+       "set <vpnv4 next-hop A.B.C.D|vpnv6 next-hop X:X::X:X>",
        SET_STR
        "VPNv4 information\n"
-       "VPNv6 information\n"
        "VPN next-hop address\n"
        "IP address of next hop\n"
+       "VPNv6 information\n"
+       "VPN next-hop address\n"
        "IPv6 address of next hop\n")
 {
   int idx_ip = 3;
@@ -4426,12 +4412,14 @@ DEFUN (set_vpn_nexthop,
 
 DEFUN (no_set_vpn_nexthop,
        no_set_vpn_nexthop_cmd,
-       "no set vpn next-hop <A.B.C.D|X:X::X:X>",
+       "no set <vpnv4 next-hop A.B.C.D|vpnv6 next-hop X:X::X:X>",
        NO_STR
        SET_STR
-       "VPN information\n"
+       "VPNv4 information\n"
        "VPN next-hop address\n"
        "IP address of next hop\n"
+       "VPNv6 information\n"
+       "VPN next-hop address\n"
        "IPv6 address of next hop\n")
 {
   int idx_ip = 4;

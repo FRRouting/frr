@@ -87,13 +87,8 @@ hash_alloc_intern (void *arg)
 }
 
 #define hash_update_ssq(hz, old, new) \
-  do { \
-    long double res; \
-    res = powl(old, 2.0); \
-    hz->stats.ssq -= (uint64_t) res;\
-    res = powl(new, 2.0); \
-    hz->stats.ssq += (uint64_t) res; \
-  } while (0); \
+    atomic_fetch_add_explicit(&hz->stats.ssq, (new + old)*(new - old),\
+                              memory_order_relaxed);
 
 /* Expand hash if the chain length exceeds the threshold. */
 static void hash_expand (struct hash *hash)
@@ -428,6 +423,13 @@ DEFUN(show_hash_stats,
   long double ssq;    // ssq casted to long double
 
   pthread_mutex_lock (&_hashes_mtx);
+  if (!_hashes)
+    {
+      pthread_mutex_unlock (&_hashes_mtx);
+      vty_out (vty, "No hash tables in use.\n");
+      return CMD_SUCCESS;
+    }
+
   for (ALL_LIST_ELEMENTS_RO (_hashes, ln, h))
     {
       if (!h->name)
@@ -458,21 +460,21 @@ DEFUN(show_hash_stats,
   char underln[sizeof(header) + strlen(frr_protonameinst)];
   memset (underln, '-', sizeof(underln));
   underln[sizeof(underln) - 1] = '\0';
-  vty_outln (vty, "%s%s", header, frr_protonameinst);
-  vty_outln (vty, "%s", underln);
+  vty_out (vty, "%s%s\n", header, frr_protonameinst);
+  vty_out (vty, "%s\n", underln);
 
-  vty_outln (vty, "# allocated: %d", _hashes->count);
-  vty_outln (vty, "# named:     %d%s", tt->nrows - 1, VTYNL);
+  vty_out (vty, "# allocated: %d\n", _hashes->count);
+  vty_out (vty, "# named:     %d\n\n", tt->nrows - 1);
 
   if (tt->nrows > 1)
     {
       ttable_colseps (tt, 0, RIGHT, true, '|');
-      char *table = ttable_dump (tt, VTYNL);
-      vty_out (vty, "%s%s", table, VTYNL);
+      char *table = ttable_dump (tt, "\n");
+      vty_out (vty, "%s\n", table);
       XFREE (MTYPE_TMP, table);
     }
   else
-    vty_outln (vty, "No named hash tables to display.");
+    vty_out (vty, "No named hash tables to display.\n");
 
   ttable_del (tt);
 
@@ -482,6 +484,5 @@ DEFUN(show_hash_stats,
 void
 hash_cmd_init ()
 {
-  _hashes = list_new();
   install_element (ENABLE_NODE, &show_hash_stats_cmd);
 }

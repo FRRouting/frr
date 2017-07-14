@@ -126,7 +126,7 @@ typedef unsigned char   u_int8_t;
 #define __APPLE_USE_RFC_3542
 #endif
 
-#include "lib/openbsd-tree.h"
+#include "openbsd-tree.h"
 
 #include <netinet/in.h>
 #include <netinet/in_systm.h>

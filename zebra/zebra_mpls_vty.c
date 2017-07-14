@@ -53,42 +53,42 @@ zebra_mpls_transit_lsp (struct vty *vty, int add_cmd, const char *inlabel_str,
 
   if (!mpls_enabled)
     {
-      vty_outln (vty,"%% MPLS not turned on in kernel, ignoring command");
-      return CMD_WARNING;
+      vty_out (vty,"%% MPLS not turned on in kernel, ignoring command\n");
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   zvrf = vrf_info_lookup(VRF_DEFAULT);
   if (!zvrf)
     {
-      vty_outln (vty, "%% Default VRF does not exist");
-      return CMD_WARNING;
+      vty_out (vty, "%% Default VRF does not exist\n");
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (!inlabel_str)
     {
-      vty_outln (vty, "%% No Label Information");
-      return CMD_WARNING;
+      vty_out (vty, "%% No Label Information\n");
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   out_label = MPLS_IMP_NULL_LABEL; /* as initialization */
   label = atoi(inlabel_str);
   if (!IS_MPLS_UNRESERVED_LABEL(label))
     {
-      vty_outln (vty, "%% Invalid label");
-      return CMD_WARNING;
+      vty_out (vty, "%% Invalid label\n");
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (add_cmd)
     {
       if (!gate_str)
         {
-          vty_outln (vty, "%% No Nexthop Information");
-          return CMD_WARNING;
+          vty_out (vty, "%% No Nexthop Information\n");
+          return CMD_WARNING_CONFIG_FAILED;
         }
       if (!outlabel_str)
         {
-          vty_outln (vty, "%% No Outgoing label Information");
-          return CMD_WARNING;
+          vty_out (vty, "%% No Outgoing label Information\n");
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -108,8 +108,8 @@ zebra_mpls_transit_lsp (struct vty *vty, int add_cmd, const char *inlabel_str,
             gtype = NEXTHOP_TYPE_IPV4;
           else
             {
-              vty_outln (vty, "%% Invalid nexthop");
-              return CMD_WARNING;
+              vty_out (vty, "%% Invalid nexthop\n");
+              return CMD_WARNING_CONFIG_FAILED;
             }
         }
     }
@@ -133,8 +133,8 @@ zebra_mpls_transit_lsp (struct vty *vty, int add_cmd, const char *inlabel_str,
       if (!zebra_mpls_lsp_label_consistent (zvrf, in_label, out_label, gtype,
                                             &gate, 0))
         {
-          vty_outln (vty,"%% Label value not consistent");
-          return CMD_WARNING;
+          vty_out (vty,"%% Label value not consistent\n");
+          return CMD_WARNING_CONFIG_FAILED;
         }
 #endif /* HAVE_CUMULUS */
 
@@ -146,9 +146,9 @@ zebra_mpls_transit_lsp (struct vty *vty, int add_cmd, const char *inlabel_str,
 
   if (ret)
     {
-      vty_outln (vty, "%% LSP cannot be %s",
+      vty_out (vty, "%% LSP cannot be %s\n",
                add_cmd ? "added" : "deleted");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -218,24 +218,24 @@ zebra_mpls_bind (struct vty *vty, int add_cmd, const char *prefix,
   zvrf = vrf_info_lookup(VRF_DEFAULT);
   if (!zvrf)
     {
-      vty_outln (vty, "%% Default VRF does not exist");
-      return CMD_WARNING;
+      vty_out (vty, "%% Default VRF does not exist\n");
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   memset(&p, 0, sizeof(struct prefix));
   ret = str2prefix(prefix, &p);
   if (ret <= 0)
     {
-      vty_outln (vty, "%% Malformed address");
-      return CMD_WARNING;
+      vty_out (vty, "%% Malformed address\n");
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (add_cmd)
     {
       if (!label_str)
         {
-          vty_outln (vty, "%% No label binding specified");
-          return CMD_WARNING;
+          vty_out (vty, "%% No label binding specified\n");
+          return CMD_WARNING_CONFIG_FAILED;
         }
 
       if (!strcmp(label_str, "implicit-null"))
@@ -252,13 +252,13 @@ zebra_mpls_bind (struct vty *vty, int add_cmd, const char *prefix,
           label = atoi(label_str);
           if (!IS_MPLS_UNRESERVED_LABEL(label))
             {
-              vty_outln (vty, "%% Invalid label");
-              return CMD_WARNING;
+              vty_out (vty, "%% Invalid label\n");
+              return CMD_WARNING_CONFIG_FAILED;
             }
           if (zebra_mpls_label_already_bound (zvrf, label))
             {
-              vty_outln (vty,"%% Label already bound to a FEC");
-              return CMD_WARNING;
+              vty_out (vty,"%% Label already bound to a FEC\n");
+              return CMD_WARNING_CONFIG_FAILED;
             }
         }
 
@@ -269,9 +269,9 @@ zebra_mpls_bind (struct vty *vty, int add_cmd, const char *prefix,
 
   if (ret)
     {
-      vty_outln (vty, "%% FEC to label binding cannot be %s",
+      vty_out (vty, "%% FEC to label binding cannot be %s\n",
                add_cmd ? "added" : "deleted");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -874,7 +874,7 @@ DEFUN (show_mpls_fec,
       ret = str2prefix(argv[3]->arg, &p);
       if (ret <= 0)
         {
-          vty_outln (vty, "%% Malformed address");
+          vty_out (vty, "%% Malformed address\n");
           return CMD_WARNING;
         }
       zebra_mpls_print_fec (vty, zvrf, &p);
@@ -925,7 +925,7 @@ DEFUN (show_mpls_status,
        "MPLS information\n"
        "MPLS status\n")
 {
-  vty_outln (vty, "MPLS support enabled: %s",
+  vty_out (vty, "MPLS support enabled: %s\n",
              (mpls_enabled) ? "yes" : "no (mpls kernel extensions not detected)");
   return CMD_SUCCESS;
 }
@@ -942,16 +942,16 @@ zebra_mpls_global_block (struct vty *vty, int add_cmd,
   zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
   if (!zvrf)
     {
-      vty_outln (vty, "%% Default VRF does not exist");
-      return CMD_WARNING;
+      vty_out (vty, "%% Default VRF does not exist\n");
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (add_cmd)
     {
       if (!start_label_str || !end_label_str)
         {
-          vty_outln (vty, "%% Labels not specified");
-          return CMD_WARNING;
+          vty_out (vty, "%% Labels not specified\n");
+          return CMD_WARNING_CONFIG_FAILED;
         }
 
       start_label = atoi(start_label_str);
@@ -959,13 +959,13 @@ zebra_mpls_global_block (struct vty *vty, int add_cmd,
       if (!IS_MPLS_UNRESERVED_LABEL(start_label) ||
           !IS_MPLS_UNRESERVED_LABEL(end_label))
         {
-          vty_outln (vty, "%% Invalid label");
-          return CMD_WARNING;
+          vty_out (vty, "%% Invalid label\n");
+          return CMD_WARNING_CONFIG_FAILED;
         }
       if (end_label < start_label)
         {
-          vty_outln (vty,"%% End label is less than Start label");
-          return CMD_WARNING;
+          vty_out (vty,"%% End label is less than Start label\n");
+          return CMD_WARNING_CONFIG_FAILED;
         }
 
       ret = zebra_mpls_label_block_add (zvrf, start_label, end_label);
@@ -975,9 +975,9 @@ zebra_mpls_global_block (struct vty *vty, int add_cmd,
 
   if (ret)
     {
-      vty_outln (vty, "%% Global label block could not be %s",
+      vty_out (vty, "%% Global label block could not be %s\n",
                add_cmd ? "added" : "deleted");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;

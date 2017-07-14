@@ -374,7 +374,7 @@ void
 zebra_ptm_write (struct vty *vty)
 {
   if (ptm_cb.ptm_enable)
-    vty_outln (vty, "ptm-enable");
+    vty_out (vty, "ptm-enable\n");
 
   return;
 }
@@ -1089,9 +1089,9 @@ zebra_ptm_show_status(struct vty *vty, struct interface *ifp)
 {
   vty_out (vty, "  PTM status: ");
   if (ifp->ptm_enable) {
-    vty_outln (vty, "%s",zebra_ptm_get_status_str(ifp->ptm_status));
+    vty_out (vty, "%s\n",zebra_ptm_get_status_str(ifp->ptm_status));
   } else {
-    vty_outln (vty, "disabled");
+    vty_out (vty, "disabled\n");
   }
 }
 
@@ -1161,5 +1161,5 @@ void
 zebra_ptm_if_write (struct vty *vty, struct zebra_if *zebra_ifp)
 {
   if (zebra_ifp->ptm_enable == ZEBRA_IF_PTM_ENABLE_OFF)
-    vty_outln (vty, " no ptm-enable");
+    vty_out (vty, " no ptm-enable\n");
 }

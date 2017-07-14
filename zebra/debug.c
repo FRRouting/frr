@@ -31,6 +31,7 @@ unsigned long zebra_debug_rib;
 unsigned long zebra_debug_fpm;
 unsigned long zebra_debug_nht;
 unsigned long zebra_debug_mpls;
+unsigned long zebra_debug_vxlan;
 
 DEFUN (show_debugging_zebra,
        show_debugging_zebra_cmd,
@@ -39,51 +40,48 @@ DEFUN (show_debugging_zebra,
        "Debugging information\n"
        "Zebra configuration\n")
 {
-  vty_out (vty, "Zebra debugging status:%s", VTYNL);
+  vty_out (vty, "Zebra debugging status:\n");
 
   if (IS_ZEBRA_DEBUG_EVENT)
-    vty_out (vty, "  Zebra event debugging is on%s", VTYNL);
+    vty_out (vty, "  Zebra event debugging is on\n");
 
   if (IS_ZEBRA_DEBUG_PACKET)
     {
       if (IS_ZEBRA_DEBUG_SEND && IS_ZEBRA_DEBUG_RECV)
 	{
-	  vty_out (vty, "  Zebra packet%s debugging is on%s",
-		   IS_ZEBRA_DEBUG_DETAIL ? " detail" : "",
-		   VTYNL);
+	  vty_out (vty, "  Zebra packet%s debugging is on\n",
+		   IS_ZEBRA_DEBUG_DETAIL ? " detail" : "");
 	}
       else
 	{
 	  if (IS_ZEBRA_DEBUG_SEND)
-	    vty_out (vty, "  Zebra packet send%s debugging is on%s",
-		     IS_ZEBRA_DEBUG_DETAIL ? " detail" : "",
-		     VTYNL);
+	    vty_out (vty, "  Zebra packet send%s debugging is on\n",
+		     IS_ZEBRA_DEBUG_DETAIL ? " detail" : "");
 	  else
-	    vty_out (vty, "  Zebra packet receive%s debugging is on%s",
-		     IS_ZEBRA_DEBUG_DETAIL ? " detail" : "",
-		     VTYNL);
+	    vty_out (vty, "  Zebra packet receive%s debugging is on\n",
+		     IS_ZEBRA_DEBUG_DETAIL ? " detail" : "");
 	}
     }
 
   if (IS_ZEBRA_DEBUG_KERNEL)
-    vty_out (vty, "  Zebra kernel debugging is on%s", VTYNL);
+    vty_out (vty, "  Zebra kernel debugging is on\n");
   if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
-    vty_out (vty, "  Zebra kernel netlink message dumps (send) are on%s", VTYNL);
+    vty_out (vty, "  Zebra kernel netlink message dumps (send) are on\n");
   if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV)
-    vty_out (vty, "  Zebra kernel netlink message dumps (recv) are on%s", VTYNL);
+    vty_out (vty, "  Zebra kernel netlink message dumps (recv) are on\n");
 
   /* Check here using flags as the 'macro' does an OR */
   if (CHECK_FLAG (zebra_debug_rib, ZEBRA_DEBUG_RIB))
-    vty_out (vty, "  Zebra RIB debugging is on%s", VTYNL);
+    vty_out (vty, "  Zebra RIB debugging is on\n");
   if (CHECK_FLAG (zebra_debug_rib, ZEBRA_DEBUG_RIB_DETAILED))
-    vty_out (vty, "  Zebra RIB detailed debugging is on%s", VTYNL);
+    vty_out (vty, "  Zebra RIB detailed debugging is on\n");
 
   if (IS_ZEBRA_DEBUG_FPM)
-    vty_out (vty, "  Zebra FPM debugging is on%s", VTYNL);
+    vty_out (vty, "  Zebra FPM debugging is on\n");
   if (IS_ZEBRA_DEBUG_NHT)
-    vty_out (vty, "  Zebra next-hop tracking debugging is on%s", VTYNL);
+    vty_out (vty, "  Zebra next-hop tracking debugging is on\n");
   if (IS_ZEBRA_DEBUG_MPLS)
-    vty_out (vty, "  Zebra MPLS debugging is on%s", VTYNL);
+    vty_out (vty, "  Zebra MPLS debugging is on\n");
 
   return CMD_SUCCESS;
 }
@@ -96,7 +94,7 @@ DEFUN (debug_zebra_events,
        "Debug option set for zebra events\n")
 {
   zebra_debug_event = ZEBRA_DEBUG_EVENT;
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (debug_zebra_nht,
@@ -107,7 +105,7 @@ DEFUN (debug_zebra_nht,
        "Debug option set for zebra next hop tracking\n")
 {
   zebra_debug_nht = ZEBRA_DEBUG_NHT;
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (debug_zebra_mpls,
@@ -118,6 +116,17 @@ DEFUN (debug_zebra_mpls,
        "Debug option set for zebra MPLS LSPs\n")
 {
   zebra_debug_mpls = ZEBRA_DEBUG_MPLS;
+  return CMD_WARNING_CONFIG_FAILED;
+}
+
+DEFUN (debug_zebra_vxlan,
+       debug_zebra_vxlan_cmd,
+       "debug zebra vxlan",
+       DEBUG_STR
+       "Zebra configuration\n"
+       "Debug option set for zebra VxLAN (EVPN)\n")
+{
+  zebra_debug_vxlan = ZEBRA_DEBUG_VXLAN;
   return CMD_WARNING;
 }
 
@@ -251,6 +260,18 @@ DEFUN (no_debug_zebra_mpls,
   return CMD_SUCCESS;
 }
 
+DEFUN (no_debug_zebra_vxlan,
+       no_debug_zebra_vxlan_cmd,
+       "no debug zebra vxlan",
+       NO_STR
+       DEBUG_STR
+       "Zebra configuration\n"
+       "Debug option set for zebra VxLAN (EVPN)\n")
+{
+  zebra_debug_vxlan = 0;
+  return CMD_SUCCESS;
+}
+
 DEFUN (no_debug_zebra_packet,
        no_debug_zebra_packet_cmd,
        "no debug zebra packet [<recv|send>]",
@@ -353,70 +374,72 @@ config_write_debug (struct vty *vty)
 
   if (IS_ZEBRA_DEBUG_EVENT)
     {
-      vty_out (vty, "debug zebra events%s", VTYNL);
+      vty_out (vty, "debug zebra events\n");
       write++;
     }
   if (IS_ZEBRA_DEBUG_PACKET)
     {
       if (IS_ZEBRA_DEBUG_SEND && IS_ZEBRA_DEBUG_RECV)
 	{
-	  vty_out (vty, "debug zebra packet%s%s",
-		   IS_ZEBRA_DEBUG_DETAIL ? " detail" : "",
-		   VTYNL);
+	  vty_out (vty, "debug zebra packet%s\n",
+		   IS_ZEBRA_DEBUG_DETAIL ? " detail" : "");
 	  write++;
 	}
       else
 	{
 	  if (IS_ZEBRA_DEBUG_SEND)
-	    vty_out (vty, "debug zebra packet send%s%s",
-		     IS_ZEBRA_DEBUG_DETAIL ? " detail" : "",
-		     VTYNL);
+	    vty_out (vty, "debug zebra packet send%s\n",
+		     IS_ZEBRA_DEBUG_DETAIL ? " detail" : "");
 	  else
-	    vty_out (vty, "debug zebra packet recv%s%s",
-		     IS_ZEBRA_DEBUG_DETAIL ? " detail" : "",
-		     VTYNL);
+	    vty_out (vty, "debug zebra packet recv%s\n",
+		     IS_ZEBRA_DEBUG_DETAIL ? " detail" : "");
 	  write++;
 	}
     }
   if (IS_ZEBRA_DEBUG_KERNEL)
     {
-      vty_out (vty, "debug zebra kernel%s", VTYNL);
+      vty_out (vty, "debug zebra kernel\n");
       write++;
     }
   if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV)
     {
-      vty_out (vty, "debug zebra kernel msgdump recv%s", VTYNL);
+      vty_out (vty, "debug zebra kernel msgdump recv\n");
       write++;
     }
   if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
     {
-      vty_out (vty, "debug zebra kernel msgdump send%s", VTYNL);
+      vty_out (vty, "debug zebra kernel msgdump send\n");
       write++;
     }
   /* Check here using flags as the 'macro' does an OR */
   if (CHECK_FLAG (zebra_debug_rib, ZEBRA_DEBUG_RIB))
     {
-      vty_out (vty, "debug zebra rib%s", VTYNL);
+      vty_out (vty, "debug zebra rib\n");
       write++;
     }
   if (CHECK_FLAG (zebra_debug_rib, ZEBRA_DEBUG_RIB_DETAILED))
     {
-      vty_out (vty, "debug zebra rib detailed%s", VTYNL);
+      vty_out (vty, "debug zebra rib detailed\n");
       write++;
     }
   if (IS_ZEBRA_DEBUG_FPM)
     {
-      vty_out (vty, "debug zebra fpm%s", VTYNL);
+      vty_out (vty, "debug zebra fpm\n");
       write++;
     }
   if (IS_ZEBRA_DEBUG_NHT)
     {
-      vty_out (vty, "debug zebra nht%s", VTYNL);
+      vty_out (vty, "debug zebra nht\n");
       write++;
     }
   if (IS_ZEBRA_DEBUG_MPLS)
     {
-      vty_out (vty, "debug zebra mpls%s", VTYNL);
+      vty_out (vty, "debug zebra mpls\n");
+      write++;
+    }
+  if (IS_ZEBRA_DEBUG_VXLAN)
+    {
+      vty_out (vty, "debug zebra vxlan\n");
       write++;
     }
   return write;
@@ -431,6 +454,7 @@ zebra_debug_init (void)
   zebra_debug_rib = 0;
   zebra_debug_fpm = 0;
   zebra_debug_mpls = 0;
+  zebra_debug_vxlan = 0;
 
   install_node (&debug_node, config_write_debug);
 
@@ -439,6 +463,7 @@ zebra_debug_init (void)
   install_element (ENABLE_NODE, &debug_zebra_events_cmd);
   install_element (ENABLE_NODE, &debug_zebra_nht_cmd);
   install_element (ENABLE_NODE, &debug_zebra_mpls_cmd);
+  install_element (ENABLE_NODE, &debug_zebra_vxlan_cmd);
   install_element (ENABLE_NODE, &debug_zebra_packet_cmd);
   install_element (ENABLE_NODE, &debug_zebra_kernel_cmd);
   install_element (ENABLE_NODE, &debug_zebra_kernel_msgdump_cmd);
@@ -448,6 +473,7 @@ zebra_debug_init (void)
   install_element (ENABLE_NODE, &no_debug_zebra_events_cmd);
   install_element (ENABLE_NODE, &no_debug_zebra_nht_cmd);
   install_element (ENABLE_NODE, &no_debug_zebra_mpls_cmd);
+  install_element (ENABLE_NODE, &no_debug_zebra_vxlan_cmd);
   install_element (ENABLE_NODE, &no_debug_zebra_packet_cmd);
   install_element (ENABLE_NODE, &no_debug_zebra_kernel_cmd);
   install_element (ENABLE_NODE, &no_debug_zebra_kernel_msgdump_cmd);
@@ -458,6 +484,7 @@ zebra_debug_init (void)
   install_element (CONFIG_NODE, &debug_zebra_events_cmd);
   install_element (CONFIG_NODE, &debug_zebra_nht_cmd);
   install_element (CONFIG_NODE, &debug_zebra_mpls_cmd);
+  install_element (CONFIG_NODE, &debug_zebra_vxlan_cmd);
   install_element (CONFIG_NODE, &debug_zebra_packet_cmd);
   install_element (CONFIG_NODE, &debug_zebra_kernel_cmd);
   install_element (CONFIG_NODE, &debug_zebra_kernel_msgdump_cmd);
@@ -467,6 +494,7 @@ zebra_debug_init (void)
   install_element (CONFIG_NODE, &no_debug_zebra_events_cmd);
   install_element (CONFIG_NODE, &no_debug_zebra_nht_cmd);
   install_element (CONFIG_NODE, &no_debug_zebra_mpls_cmd);
+  install_element (CONFIG_NODE, &no_debug_zebra_vxlan_cmd);
   install_element (CONFIG_NODE, &no_debug_zebra_packet_cmd);
   install_element (CONFIG_NODE, &no_debug_zebra_kernel_cmd);
   install_element (CONFIG_NODE, &no_debug_zebra_kernel_msgdump_cmd);
