@@ -85,7 +85,7 @@ static int nhrp_vty_return(struct vty *vty, int ret)
 
 	vty_out (vty, "%% %s\n", str);
 
-	return CMD_WARNING;
+	return CMD_WARNING_CONFIG_FAILED;;
 }
 
 static int toggle_flag(
@@ -105,7 +105,7 @@ static int toggle_flag(
 	}
 
 	vty_out (vty, "%% Invalid value %s\n", name);
-	return CMD_WARNING;
+	return CMD_WARNING_CONFIG_FAILED;;
 }
 
 #ifndef NO_DEBUG

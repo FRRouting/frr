@@ -2207,7 +2207,7 @@ register_add (
        struct rfapi_vn_option *opt = NULL;
        int opt_next = 0;
 
-       int rc = CMD_WARNING;
+       int rc = CMD_WARNING_CONFIG_FAILED;
        char *endptr;
        struct bgp *bgp;
        struct rfapi *h;
@@ -2221,7 +2221,7 @@ register_add (
          {
            if (vty)
              vty_out (vty, "BGP not configured\n");
-           return CMD_WARNING;
+           return CMD_WARNING_CONFIG_FAILED;
          }
 
        h = bgp->rfapi;
@@ -2230,7 +2230,7 @@ register_add (
          {
            if (vty)
              vty_out (vty, "RFAPI not configured\n");
-           return CMD_WARNING;
+           return CMD_WARNING_CONFIG_FAILED;
          }
 
        for (; argc; --argc, ++argv)
@@ -2240,12 +2240,12 @@ register_add (
                if (arg_lnh)
                  {
                    vty_out (vty,"local-next-hop specified more than once\n");
-                   return CMD_WARNING;
+                   return CMD_WARNING_CONFIG_FAILED;
                  }
                if (argc <= 1)
                  {
                    vty_out (vty,"Missing parameter for local-next-hop\n");
-                   return CMD_WARNING;
+                   return CMD_WARNING_CONFIG_FAILED;
                  }
                ++argv, --argc;
                arg_lnh = argv[0]->arg;
@@ -2255,12 +2255,12 @@ register_add (
                if (arg_lnh_cost)
                  {
                    vty_out (vty,"local-cost specified more than once\n");
-                   return CMD_WARNING;
+                   return CMD_WARNING_CONFIG_FAILED;
                  }
                if (argc <= 1)
                  {
                    vty_out (vty,"Missing parameter for local-cost\n");
-                   return CMD_WARNING;
+                   return CMD_WARNING_CONFIG_FAILED;
                  }
                ++argv, --argc;
                arg_lnh_cost = argv[0]->arg;
@@ -2288,7 +2288,7 @@ register_add (
                break;
              default:
                vty_out (vty,"Internal error, unknown VN address family\n");
-               return CMD_WARNING;
+               return CMD_WARNING_CONFIG_FAILED;
              }
 
          }
@@ -2411,7 +2411,7 @@ register_add (
              {
                vty_out (vty,
                         "Missing \"vni\" parameter (mandatory with mac)\n");
-               return CMD_WARNING;
+               return CMD_WARNING_CONFIG_FAILED;
              }
            optary[opt_next].v.l2addr.logical_net_id = strtoul(arg_vni, NULL,
                                                               10);
@@ -2473,7 +2473,7 @@ register_add (
                  {
                    vty_out (vty, "Can't open session for this NVE: %s\n",
                             rfapi_error_str(rc));
-                   rc = CMD_WARNING;
+                   rc = CMD_WARNING_CONFIG_FAILED;
                    goto fail;
                  }
              }
@@ -2519,7 +2519,7 @@ register_add (
        vty_out (vty, "Registration failed.\n");
        vty_out (vty,
                 "Confirm that either the VN or UN address matches a configured NVE group.\n");
-       return CMD_WARNING;
+       return CMD_WARNING_CONFIG_FAILED;
 
      fail:
        vnc_zlog_debug_verbose ("%s: fail, rc=%d", __func__, rc);
@@ -5006,12 +5006,12 @@ vnc_add_vrf_prefix (struct vty *vty,
   if (!bgp)
     {
       vty_out (vty, "No BGP process is configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   if (!bgp->rfapi || !bgp->rfapi_cfg)
     {
       vty_out (vty, "VRF support not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   rfg = bgp_rfapi_cfg_match_byname (bgp,  arg_vrf, RFAPI_GROUP_CFG_VRF);
@@ -5020,31 +5020,31 @@ vnc_add_vrf_prefix (struct vty *vty,
     {
       vty_out (vty, "VRF \"%s\" appears not to be configured.\n",
                arg_vrf);
-          return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   if (!rfg->rt_export_list || !rfg->rfapi_import_table)
     {
       vty_out (vty, "VRF \"%s\" is missing RT import/export RT configuration.\n",
                arg_vrf);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   if (!rfg->rd.family && !arg_rd)
     {
       vty_out (vty, "VRF \"%s\" isn't configured with an RD, so RD must be provided.\n",
                arg_vrf);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   if (rfg->label > MPLS_LABEL_MAX && !arg_label)
     {
       vty_out (vty, "VRF \"%s\" isn't configured with a default labels, so a label must be provided.\n",
                arg_vrf);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   if (!str2prefix (arg_prefix, &pfx))
     {
       vty_out (vty, "Malformed prefix \"%s\"\n",
                arg_prefix);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   rfapiQprefix2Rprefix (&pfx, &rpfx);
   memset (optary, 0, sizeof (optary));
@@ -5058,7 +5058,7 @@ vnc_add_vrf_prefix (struct vty *vty,
         {
           vty_out (vty, "Malformed RD \"%s\"\n",
                    arg_rd);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
   if (rfg->label <= MPLS_LABEL_MAX || arg_label)
@@ -5086,7 +5086,7 @@ vnc_add_vrf_prefix (struct vty *vty,
         {
           vty_out (vty, "%% Invalid local-preference value \"%s\"\n",
                      arg_pref);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
          }
     }
   rpfx.cost = 255 - (pref & 255) ;
@@ -5150,7 +5150,7 @@ vnc_add_vrf_prefix (struct vty *vty,
 
   vnc_zlog_debug_verbose ("%s: rfapi_register failed", __func__);
   vty_out (vty, "Add failed.\n");
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (add_vrf_prefix_rd_label_pref,

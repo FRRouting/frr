@@ -1,18 +1,18 @@
 #!/bin/sh
 
-# This file is helpful for building quagga from cvs on NetBSD, and
+# This file is helpful for building FRR from cvs on NetBSD, and
 # probably on any system using pkgsrc.  
 # One should have readline installed already (pkgsrc/devel/readline).
 
 MAKE=make
-# Quagga is currently documented not to require GNU make, but sometimes
+# FRR is currently documented not to require GNU make, but sometimes
 # BSD make fails.  Enable this if statement as a workaround.
 if false; then
     MAKE=gmake
     echo "WARNING: using gmake to work around nonportable makefiles"
 fi
 
-# Use /usr/quagga to be independent, and /usr/pkg to overwrite pkgsrc.
+# Use /usr/frr to be independent, and /usr/pkg to overwrite pkgsrc.
 PREFIX=/usr/pkg
 
 case $1 in

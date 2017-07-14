@@ -858,7 +858,7 @@ static int
 ripng_passive_interface_set (struct vty *vty, const char *ifname)
 {
   if (ripng_passive_interface_lookup (ifname) >= 0)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   vector_set (Vripng_passive_interface, strdup (ifname));
 
@@ -875,7 +875,7 @@ ripng_passive_interface_unset (struct vty *vty, const char *ifname)
 
   i = ripng_passive_interface_lookup (ifname);
   if (i < 0)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   str = vector_slot (Vripng_passive_interface, i);
   free (str);
@@ -962,7 +962,7 @@ DEFUN (ripng_network,
     {
       vty_out (vty, "There is same network configuration %s\n",
                  argv[idx_if_or_addr]->arg);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -991,7 +991,7 @@ DEFUN (no_ripng_network,
   if (ret < 0)
     {
       vty_out (vty, "can't find network %s\n",argv[idx_if_or_addr]->arg);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   
   return CMD_SUCCESS;

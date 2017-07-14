@@ -155,10 +155,10 @@ eigrp_route_match_add (struct vty *vty, struct route_map_index *index,
         {
         case RMAP_RULE_MISSING:
           vty_out (vty, "%% Can't find rule.\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         case RMAP_COMPILE_ERROR:
           vty_out (vty, "%% Argument is malformed.\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
   return CMD_SUCCESS;
@@ -177,10 +177,10 @@ eigrp_route_match_delete (struct vty *vty, struct route_map_index *index,
         {
         case RMAP_RULE_MISSING:
           vty_out (vty, "%% Can't find rule.\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         case RMAP_COMPILE_ERROR:
           vty_out (vty, "%% Argument is malformed.\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
   return CMD_SUCCESS;
@@ -200,7 +200,7 @@ eigrp_route_set_add (struct vty *vty, struct route_map_index *index,
         {
         case RMAP_RULE_MISSING:
           vty_out (vty, "%% Can't find rule.\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         case RMAP_COMPILE_ERROR:
           /* rip, ripng and other protocols share the set metric command
              but only values from 0 to 16 are valid for rip and ripng
@@ -208,7 +208,7 @@ eigrp_route_set_add (struct vty *vty, struct route_map_index *index,
              other protocols. Do not return an error */
           if (strcmp(command, "metric")) {
             vty_out (vty, "%% Argument is malformed.\n");
-            return CMD_WARNING;
+            return CMD_WARNING_CONFIG_FAILED;
           }
         }
     }
@@ -229,10 +229,10 @@ eigrp_route_set_delete (struct vty *vty, struct route_map_index *index,
         {
         case RMAP_RULE_MISSING:
           vty_out (vty, "%% Can't find rule.\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         case RMAP_COMPILE_ERROR:
           vty_out (vty, "%% Argument is malformed.\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
   return CMD_SUCCESS;
@@ -1125,7 +1125,7 @@ DEFUN (set_ip_nexthop,
   if (ret < 0)
     {
       vty_out (vty, "%% Malformed next-hop address\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return eigrp_route_set_add (vty, vty->index, "ip next-hop", argv[0]);

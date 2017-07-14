@@ -4274,12 +4274,12 @@ bgp_static_set (struct vty *vty, const char *ip_str,
   if (! ret)
     {
       vty_out (vty, "%% Malformed prefix\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL (&p.u.prefix6))
     {
       vty_out (vty,"%% Malformed prefix (link-local address)\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   apply_mask (&p);
@@ -4296,7 +4296,7 @@ bgp_static_set (struct vty *vty, const char *ip_str,
       if (bgp_static->label_index != label_index)
         {
           vty_out (vty, "%% Label index cannot be changed\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
 
       /* Check previous routes are installed into BGP.  */
@@ -4368,12 +4368,12 @@ bgp_static_unset (struct vty *vty, const char *ip_str,
   if (! ret)
     {
       vty_out (vty, "%% Malformed prefix\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL (&p.u.prefix6))
     {
       vty_out (vty,"%% Malformed prefix (link-local address)\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   apply_mask (&p);
@@ -4382,7 +4382,7 @@ bgp_static_unset (struct vty *vty, const char *ip_str,
   if (! rn)
     {
       vty_out (vty,"%% Can't find specified static route configuration.\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   bgp_static = rn->info;
@@ -4580,21 +4580,21 @@ bgp_static_set_safi (afi_t afi, safi_t safi, struct vty *vty, const char *ip_str
   if (! ret)
     {
       vty_out (vty, "%% Malformed prefix\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   apply_mask (&p);
   if ( (afi == AFI_L2VPN) &&
        (bgp_build_evpn_prefix ( evpn_type, ethtag!=NULL?atol(ethtag):0, &p)))
     {
       vty_out (vty, "%% L2VPN prefix could not be forged\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ret = str2prefix_rd (rd_str, &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed rd\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (label_str)
@@ -4609,12 +4609,12 @@ bgp_static_set_safi (afi_t afi, safi_t safi, struct vty *vty, const char *ip_str
       if( esi && str2esi (esi, NULL) == 0)
         {
           vty_out (vty, "%% Malformed ESI\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       if( routermac && prefix_str2mac (routermac, NULL) == 0)
         {
           vty_out (vty, "%% Malformed Router MAC\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       if (gwip)
         {
@@ -4623,7 +4623,7 @@ bgp_static_set_safi (afi_t afi, safi_t safi, struct vty *vty, const char *ip_str
           if (! ret)
             {
               vty_out (vty, "%% Malformed GatewayIp\n");
-              return CMD_WARNING;
+              return CMD_WARNING_CONFIG_FAILED;
             }
           if((gw_ip.family == AF_INET &&
               IS_EVPN_PREFIX_IPADDR_V6((struct prefix_evpn *)&p)) ||
@@ -4631,7 +4631,7 @@ bgp_static_set_safi (afi_t afi, safi_t safi, struct vty *vty, const char *ip_str
               IS_EVPN_PREFIX_IPADDR_V4((struct prefix_evpn *)&p)))
             {
               vty_out (vty, "%% GatewayIp family differs with IP prefix\n");
-              return CMD_WARNING;
+              return CMD_WARNING_CONFIG_FAILED;
             }
         }
     }
@@ -4714,20 +4714,20 @@ bgp_static_unset_safi(afi_t afi, safi_t safi, struct vty *vty, const char *ip_st
   if (! ret)
     {
       vty_out (vty, "%% Malformed prefix\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   apply_mask (&p);
   if ( (afi == AFI_L2VPN) &&
        (bgp_build_evpn_prefix ( evpn_type, ethtag!=NULL?atol(ethtag):0, &p)))
     {
       vty_out (vty, "%% L2VPN prefix could not be forged\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   ret = str2prefix_rd (rd_str, &prd);
   if (! ret)
     {
       vty_out (vty, "%% Malformed rd\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (label_str)
@@ -4901,7 +4901,7 @@ DEFUN (bgp_network_mask,
   if (! ret)
     {
       vty_out (vty, "%% Inconsistent address and mask\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return bgp_static_set (vty, prefix_str,
@@ -4928,7 +4928,7 @@ DEFUN (bgp_network_mask_route_map,
   if (! ret)
     {
       vty_out (vty, "%% Inconsistent address and mask\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return bgp_static_set (vty, prefix_str,
@@ -4953,7 +4953,7 @@ DEFUN (bgp_network_mask_backdoor,
   if (! ret)
     {
       vty_out (vty, "%% Inconsistent address and mask\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return bgp_static_set (vty, prefix_str, AFI_IP, SAFI_UNICAST,
@@ -4975,7 +4975,7 @@ DEFUN (bgp_network_mask_natural,
   if (! ret)
     {
       vty_out (vty, "%% Inconsistent address and mask\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return bgp_static_set (vty, prefix_str,
@@ -5000,7 +5000,7 @@ DEFUN (bgp_network_mask_natural_route_map,
   if (! ret)
     {
       vty_out (vty, "%% Inconsistent address and mask\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return bgp_static_set (vty, prefix_str,
@@ -5023,7 +5023,7 @@ DEFUN (bgp_network_mask_natural_backdoor,
   if (! ret)
     {
       vty_out (vty, "%% Inconsistent address and mask\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return bgp_static_set (vty, prefix_str, AFI_IP, SAFI_UNICAST,
@@ -5098,7 +5098,7 @@ DEFUN (no_bgp_network_mask,
   if (! ret)
     {
       vty_out (vty, "%% Inconsistent address and mask\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return bgp_static_unset (vty, prefix_str, AFI_IP, 
@@ -5123,7 +5123,7 @@ DEFUN (no_bgp_network_mask_natural,
   if (! ret)
     {
       vty_out (vty, "%% Inconsistent address and mask\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return bgp_static_unset (vty, prefix_str, AFI_IP, 
@@ -5757,7 +5757,7 @@ bgp_aggregate_unset (struct vty *vty, const char *prefix_str,
   if (!ret)
     {
       vty_out (vty, "Malformed prefix\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   apply_mask (&p);
 
@@ -5766,7 +5766,7 @@ bgp_aggregate_unset (struct vty *vty, const char *prefix_str,
   if (! rn)
     {
       vty_out (vty,"%% There is no aggregate-address configuration.\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   aggregate = rn->info;
@@ -5802,7 +5802,7 @@ bgp_aggregate_set (struct vty *vty, const char *prefix_str,
   if (!ret)
     {
       vty_out (vty, "Malformed prefix\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   apply_mask (&p);
 
@@ -5818,7 +5818,7 @@ bgp_aggregate_set (struct vty *vty, const char *prefix_str,
         {
           vty_out (vty, "Error deleting aggregate.\n");
 	  bgp_unlock_node (rn);
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -5885,7 +5885,7 @@ DEFUN (aggregate_address_mask,
   if (! ret)
     {
       vty_out (vty, "%% Inconsistent address and mask\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return bgp_aggregate_set (vty, prefix_str, AFI_IP, bgp_node_safi (vty), summary_only, as_set);
@@ -5931,7 +5931,7 @@ DEFUN (no_aggregate_address_mask,
   if (! ret)
     {
       vty_out (vty, "%% Inconsistent address and mask\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return bgp_aggregate_unset (vty, prefix_str, AFI_IP, bgp_node_safi (vty));
@@ -10095,7 +10095,7 @@ bgp_distance_set (struct vty *vty, const char *distance_str,
   if (ret == 0)
     {
       vty_out (vty, "Malformed prefix\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   distance = atoi (distance_str);
@@ -10147,14 +10147,14 @@ bgp_distance_unset (struct vty *vty, const char *distance_str,
   if (ret == 0)
     {
       vty_out (vty, "Malformed prefix\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   rn = bgp_node_lookup (bgp_distance_table[afi][safi], (struct prefix *)&p);
   if (! rn)
     {
       vty_out (vty, "Can't find specified prefix\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   bdistance = rn->info;
@@ -10163,7 +10163,7 @@ bgp_distance_unset (struct vty *vty, const char *distance_str,
   if (bdistance->distance != distance)
     {
        vty_out (vty, "Distance does not match configured\n");
-       return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (bdistance->access_list)

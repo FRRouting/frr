@@ -197,7 +197,7 @@ DEFUN (no_agentx,
 {
   if (!agentx_enabled) return CMD_SUCCESS;
   vty_out (vty, "SNMP AgentX support cannot be disabled once enabled\n");
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 void

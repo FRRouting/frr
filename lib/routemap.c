@@ -522,11 +522,11 @@ generic_match_add (struct vty *vty, struct route_map_index *index,
         {
         case RMAP_RULE_MISSING:
           vty_out (vty, "%% [%s] Can't find rule.\n", frr_protonameinst);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         case RMAP_COMPILE_ERROR:
           vty_out (vty, "%% [%s] Argument form is unsupported or malformed.\n",
                      frr_protonameinst);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -579,7 +579,7 @@ generic_match_delete (struct vty *vty, struct route_map_index *index,
         XFREE(MTYPE_ROUTE_MAP_RULE, dep_name);
       if (rmap_name)
         XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (type != RMAP_EVENT_MATCH_DELETED && dep_name)
@@ -606,11 +606,11 @@ generic_set_add (struct vty *vty, struct route_map_index *index,
         {
         case RMAP_RULE_MISSING:
           vty_out (vty, "%% [%s] Can't find rule.\n", frr_protonameinst);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         case RMAP_COMPILE_ERROR:
           vty_out (vty, "%% [%s] Argument form is unsupported or malformed.\n",
                      frr_protonameinst);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
   return CMD_SUCCESS;
@@ -629,11 +629,11 @@ generic_set_delete (struct vty *vty, struct route_map_index *index,
         {
         case RMAP_RULE_MISSING:
           vty_out (vty, "%% [%s] Can't find rule.\n", frr_protonameinst);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         case RMAP_COMPILE_ERROR:
           vty_out (vty, "%% [%s] Argument form is unsupported or malformed.\n",
                      frr_protonameinst);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
   return CMD_SUCCESS;
@@ -2360,14 +2360,14 @@ DEFUN (set_ip_nexthop,
   if (ret < 0)
     {
       vty_out (vty, "%% Malformed nexthop address\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   if (su.sin.sin_addr.s_addr == 0 ||
       IPV4_CLASS_DE(su.sin.sin_addr.s_addr))
     {
       vty_out (vty,
                  "%% nexthop address cannot be 0.0.0.0, multicast or reserved\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (rmap_match_set_hook.set_ip_nexthop)
@@ -2417,12 +2417,12 @@ DEFUN (set_ipv6_nexthop_local,
   if (!ret)
     {
       vty_out (vty, "%% Malformed nexthop address\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   if (!IN6_IS_ADDR_LINKLOCAL(&addr))
     {
       vty_out (vty, "%% Invalid link-local nexthop address\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (rmap_match_set_hook.set_ipv6_nexthop_local)
@@ -2578,7 +2578,7 @@ DEFUN (no_route_map_all,
   if (map == NULL)
     {
       vty_out (vty, "%% Could not find route-map %s\n", mapname);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   route_map_delete (map);
@@ -2613,7 +2613,7 @@ DEFUN (no_route_map,
   if (map == NULL)
     {
       vty_out (vty, "%% Could not find route-map %s\n", mapname);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Lookup route map index. */
@@ -2622,7 +2622,7 @@ DEFUN (no_route_map,
     {
       vty_out (vty, "%% Could not find route-map entry %s %s\n", 
 	       mapname, prefstr);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Delete index from route map. */
@@ -2649,7 +2649,7 @@ DEFUN (rmap_onmatch_next,
         {
 	  /* Under a deny clause, match means it's finished. No need to set next */
 	  vty_out (vty,"on-match next not supported under route-map deny\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       index->exitpolicy = RMAP_NEXT;
     }
@@ -2690,7 +2690,7 @@ DEFUN (rmap_onmatch_goto,
         {
 	  /* Under a deny clause, match means it's finished. No need to go anywhere */
 	  vty_out (vty,"on-match goto not supported under route-map deny\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
 
       if (num)
@@ -2702,7 +2702,7 @@ DEFUN (rmap_onmatch_goto,
 	{
 	  /* Can't allow you to do that, Dave */
 	  vty_out (vty, "can't jump backwards in route-maps\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
       else
 	{

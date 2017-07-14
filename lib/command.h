@@ -178,6 +178,7 @@ struct cmd_node
 #define CMD_SUCCESS_DAEMON      10
 #define CMD_ERR_NO_FILE         11
 #define CMD_SUSPEND             12
+#define CMD_WARNING_CONFIG_FAILED 13
 
 /* Argc max counts. */
 #define CMD_ARGC_MAX   25
@@ -293,6 +294,7 @@ struct cmd_node
  */
 #define CMD_CREATE_STR(s)  CMD_CREATE_STR_HELPER(s)
 #define CMD_CREATE_STR_HELPER(s) #s
+#define CMD_RANGE_STR(a,s) "(" CMD_CREATE_STR(a) "-" CMD_CREATE_STR(s) ")"
 
 /* Common descriptions. */
 #define SHOW_STR "Show running system information\n"

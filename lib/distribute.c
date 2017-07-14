@@ -350,7 +350,7 @@ DEFUN (no_distribute_list,
   if (! ret)
     {
       vty_out (vty, "distribute list doesn't exist\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   return CMD_SUCCESS;
 }

@@ -476,7 +476,7 @@ DEFUN_NOSH (vrf,
       vty_out (vty, "%% VRF name %s is invalid: length exceeds "
                     "%d characters\n",
                vrfname, VRF_NAMSIZ);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   vrfp = vrf_get (VRF_UNKNOWN, vrfname);
@@ -502,13 +502,13 @@ DEFUN_NOSH (no_vrf,
   if (vrfp == NULL)
     {
       vty_out (vty, "%% VRF %s does not exist\n", vrfname);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (CHECK_FLAG (vrfp->status, VRF_ACTIVE))
     {
       vty_out (vty, "%% Only inactive VRFs can be deleted\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   vrf_delete(vrfp);

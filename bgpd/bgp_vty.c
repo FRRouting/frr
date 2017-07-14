@@ -520,7 +520,7 @@ bgp_vty_return (struct vty *vty, int ret)
   if (str)
     {
       vty_out (vty, "%% %s\n", str);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   return CMD_SUCCESS;
 }
@@ -790,7 +790,7 @@ DEFUN (no_bgp_multiple_instance,
   if (ret < 0)
     {
       vty_out (vty, "%% There are more than two BGP instances\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   return CMD_SUCCESS;
 }
@@ -871,13 +871,13 @@ DEFUN_NOSH (router_bgp,
       if (bgp == NULL)
         {
           vty_out (vty, "%% No BGP process is configured\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
 
       if (listcount(bm->bgp) > 1)
         {
           vty_out (vty, "%% Multiple BGP processes are configured\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -902,15 +902,15 @@ DEFUN_NOSH (router_bgp,
         {
         case BGP_ERR_MULTIPLE_INSTANCE_NOT_SET:
           vty_out (vty, "Please specify 'bgp multiple-instance' first\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         case BGP_ERR_AS_MISMATCH:
           vty_out (vty, "BGP is already running; AS is %u\n", as);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         case BGP_ERR_INSTANCE_MISMATCH:
           vty_out (vty, "BGP instance name and AS number mismatch\n");
           vty_out (vty, "BGP instance is already running; AS is %u\n",
                    as);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
 
       /* Pending: handle when user tries to change a view to vrf n vv. */
@@ -946,13 +946,13 @@ DEFUN (no_router_bgp,
       if (bgp == NULL)
         {
           vty_out (vty, "%% No BGP process is configured\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
 
       if (listcount(bm->bgp) > 1)
         {
           vty_out (vty, "%% Multiple BGP processes are configured\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
   else
@@ -967,7 +967,7 @@ DEFUN (no_router_bgp,
       if (! bgp)
         {
           vty_out (vty, "%% Can't find BGP instance\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -1007,7 +1007,7 @@ DEFPY (no_bgp_router_id,
       if (! IPV4_ADDR_SAME (&bgp->router_id_static, &router_id))
 	{
 	  vty_out (vty, "%% BGP router-id doesn't match\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
     }
 
@@ -1036,7 +1036,7 @@ DEFUN (bgp_cluster_id,
   if (! ret)
     {
       vty_out (vty, "%% Malformed bgp cluster identifier\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   bgp_cluster_id_set (bgp, &cluster);
@@ -1172,7 +1172,7 @@ bgp_maxpaths_config_vty (struct vty *vty, int peer_type, const char *mpaths,
         vty_out (vty,
                  "%% Maxpaths Specified: %d is > than multipath num specified on bgp command line %d",
                  maxpaths, multipath_num);
-        return CMD_WARNING;
+        return CMD_WARNING_CONFIG_FAILED;
       }
     ret = bgp_maximum_paths_set (bgp, afi, safi, peer_type, maxpaths, options);
   }
@@ -1186,7 +1186,7 @@ bgp_maxpaths_config_vty (struct vty *vty, int peer_type, const char *mpaths,
 	       (set == 1) ? "" : "un",
 	       (peer_type == BGP_PEER_EBGP) ? "ebgp" : "ibgp",
 	       maxpaths, afi, safi);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   bgp_recalculate_all_bestpaths (bgp);
@@ -1320,7 +1320,7 @@ bgp_update_delay_config_vty (struct vty *vty, const char *delay,
   if (update_delay < establish_wait)
     {
       vty_out (vty, "%%Failed: update-delay less than the establish-wait!\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   bgp->v_update_delay = update_delay;
@@ -1479,7 +1479,7 @@ DEFUN (no_bgp_coalesce_time,
 /* Maximum-paths configuration */
 DEFUN (bgp_maxpaths,
        bgp_maxpaths_cmd,
-       "maximum-paths (1-255)",
+       "maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM),
        "Forward packets over multiple paths\n"
        "Number of paths\n")
 {
@@ -1489,13 +1489,13 @@ DEFUN (bgp_maxpaths,
 
 ALIAS_HIDDEN (bgp_maxpaths,
               bgp_maxpaths_hidden_cmd,
-              "maximum-paths (1-255)",
+              "maximum-paths " CMD_RANGE_STR(1, MULTIPATH_NUM),
               "Forward packets over multiple paths\n"
               "Number of paths\n")
 
 DEFUN (bgp_maxpaths_ibgp,
        bgp_maxpaths_ibgp_cmd,
-       "maximum-paths ibgp (1-255)",
+       "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM),
        "Forward packets over multiple paths\n"
        "iBGP-multipath\n"
        "Number of paths\n")
@@ -1506,14 +1506,14 @@ DEFUN (bgp_maxpaths_ibgp,
 
 ALIAS_HIDDEN (bgp_maxpaths_ibgp,
               bgp_maxpaths_ibgp_hidden_cmd,
-              "maximum-paths ibgp (1-255)",
+              "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM),
               "Forward packets over multiple paths\n"
               "iBGP-multipath\n"
               "Number of paths\n")
 
 DEFUN (bgp_maxpaths_ibgp_cluster,
        bgp_maxpaths_ibgp_cluster_cmd,
-       "maximum-paths ibgp (1-255) equal-cluster-length",
+       "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM) " equal-cluster-length",
        "Forward packets over multiple paths\n"
        "iBGP-multipath\n"
        "Number of paths\n"
@@ -1526,7 +1526,7 @@ DEFUN (bgp_maxpaths_ibgp_cluster,
 
 ALIAS_HIDDEN (bgp_maxpaths_ibgp_cluster,
               bgp_maxpaths_ibgp_cluster_hidden_cmd,
-              "maximum-paths ibgp (1-255) equal-cluster-length",
+              "maximum-paths ibgp " CMD_RANGE_STR(1, MULTIPATH_NUM) " equal-cluster-length",
               "Forward packets over multiple paths\n"
               "iBGP-multipath\n"
               "Number of paths\n"
@@ -1534,7 +1534,7 @@ ALIAS_HIDDEN (bgp_maxpaths_ibgp_cluster,
 
 DEFUN (no_bgp_maxpaths,
        no_bgp_maxpaths_cmd,
-       "no maximum-paths [(1-255)]",
+       "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM) "]",
        NO_STR
        "Forward packets over multiple paths\n"
        "Number of paths\n")
@@ -1544,14 +1544,14 @@ DEFUN (no_bgp_maxpaths,
 
 ALIAS_HIDDEN (no_bgp_maxpaths,
               no_bgp_maxpaths_hidden_cmd,
-              "no maximum-paths [(1-255)]",
+              "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM) "]",
               NO_STR
               "Forward packets over multiple paths\n"
               "Number of paths\n")
 
 DEFUN (no_bgp_maxpaths_ibgp,
        no_bgp_maxpaths_ibgp_cmd,
-       "no maximum-paths ibgp [(1-255) [equal-cluster-length]]",
+       "no maximum-paths ibgp [" CMD_RANGE_STR(1, MULTIPATH_NUM) " [equal-cluster-length]]",
        NO_STR
        "Forward packets over multiple paths\n"
        "iBGP-multipath\n"
@@ -1563,7 +1563,7 @@ DEFUN (no_bgp_maxpaths_ibgp,
 
 ALIAS_HIDDEN (no_bgp_maxpaths_ibgp,
               no_bgp_maxpaths_ibgp_hidden_cmd,
-              "no maximum-paths ibgp [(1-255) [equal-cluster-length]]",
+              "no maximum-paths ibgp [" CMD_RANGE_STR(1, MULTIPATH_NUM) " [equal-cluster-length]]",
               NO_STR
               "Forward packets over multiple paths\n"
               "iBGP-multipath\n"
@@ -1618,7 +1618,7 @@ DEFUN (bgp_timers,
   if (holdtime < 3 && holdtime != 0)
     {
       vty_out (vty, "%% hold time value must be either 0 or greater than 3\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   bgp_timers_set (bgp, keepalive, holdtime);
@@ -1752,7 +1752,7 @@ DEFUN (no_bgp_deterministic_med,
       if (bestpath_per_as_used)
         {
           vty_out (vty, "bgp deterministic-med cannot be disabled while addpath-tx-bestpath-per-AS is in use\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       else
         {
@@ -2445,7 +2445,7 @@ DEFUN (bgp_listen_range,
   if (! ret)
     {
       vty_out (vty, "%% Malformed listen range\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   afi = family2afi(range.family);
@@ -2453,7 +2453,7 @@ DEFUN (bgp_listen_range,
   if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL (&range.u.prefix6))
     {
       vty_out (vty, "%% Malformed listen range (link-local address)\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   apply_mask (&range);
@@ -2468,7 +2468,7 @@ DEFUN (bgp_listen_range,
         {
           vty_out (vty, "%% Same listen range is attached to peer-group %s\n",
                    existing_group->name);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -2476,14 +2476,14 @@ DEFUN (bgp_listen_range,
   if (listen_range_exists (bgp, &range, 0))
     {
       vty_out (vty, "%% Listen range overlaps with existing listen range\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   group = peer_group_lookup (bgp, peergroup);
   if (! group)
     {
       vty_out (vty, "%% Configure the peer-group first\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ret = peer_group_listen_range_add(group, &range);
@@ -2519,7 +2519,7 @@ DEFUN (no_bgp_listen_range,
   if (! ret)
     {
       vty_out (vty, "%% Malformed listen range\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   afi = family2afi(range.family);
@@ -2527,7 +2527,7 @@ DEFUN (no_bgp_listen_range,
   if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL (&range.u.prefix6))
     {
       vty_out (vty, "%% Malformed listen range (link-local address)\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   apply_mask (&range);
@@ -2536,7 +2536,7 @@ DEFUN (no_bgp_listen_range,
   if (! group)
     {
       vty_out (vty, "%% Peer-group does not exist\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ret = peer_group_listen_range_del(group, &range);
@@ -2639,7 +2639,7 @@ peer_remote_as_vty (struct vty *vty, const char *peer_str,
           if (ret < 0)
             {
               vty_out (vty, "%% Create the peer-group or interface first\n");
-              return CMD_WARNING;
+              return CMD_WARNING_CONFIG_FAILED;
             }
           return CMD_SUCCESS;
         }
@@ -2649,7 +2649,7 @@ peer_remote_as_vty (struct vty *vty, const char *peer_str,
       if (peer_address_self_check (bgp, &su))
         {
           vty_out (vty, "%% Can not configure the local system as neighbor\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       ret = peer_remote_as (bgp, &su, NULL, &as, as_type, afi, safi);
     }
@@ -2659,10 +2659,10 @@ peer_remote_as_vty (struct vty *vty, const char *peer_str,
     {
     case BGP_ERR_PEER_GROUP_MEMBER:
       vty_out (vty, "%% Peer-group AS %u. Cannot configure remote-as for member\n", as);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     case BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT:
       vty_out (vty, "%% The AS# can not be changed from %u to %s, peer-group members must be all internal or all external\n", as, as_str);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   return bgp_vty_return (vty, ret);
 }
@@ -2700,7 +2700,7 @@ peer_conf_interface_get (struct vty *vty, const char *conf_if, afi_t afi,
   if (group)
     {
       vty_out (vty, "%% Name conflict with peer-group \n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (as_str)
@@ -2738,7 +2738,10 @@ peer_conf_interface_get (struct vty *vty, const char *conf_if, afi_t afi,
                             NULL);
 
       if (!peer)
-	return CMD_WARNING;
+        {
+          vty_outln (vty, "%% BGP failed to create peer");
+          return CMD_WARNING_CONFIG_FAILED;
+        }
 
       if (v6only)
         SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
@@ -2780,7 +2783,7 @@ peer_conf_interface_get (struct vty *vty, const char *conf_if, afi_t afi,
       if (! group)
         {
           vty_out (vty, "%% Configure the peer-group first\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
 
       ret = peer_group_bind (bgp, &su, peer, group, &as);
@@ -2882,12 +2885,15 @@ DEFUN (neighbor_peer_group,
   if (peer)
     {
       vty_out (vty, "%% Name conflict with interface: \n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   group = peer_group_get (bgp, argv[idx_word]->arg);
   if (! group)
-    return CMD_WARNING;
+    {
+      vty_outln (vty, "%% BGP failed to find or create peer-group");
+      return CMD_WARNING_CONFIG_FAILED;
+    }
 
   return CMD_SUCCESS;
 }
@@ -2931,7 +2937,7 @@ DEFUN (no_neighbor,
       else
 	{
 	  vty_out (vty, "%% Create the peer-group first\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
     }
   else
@@ -2942,7 +2948,7 @@ DEFUN (no_neighbor,
           if (peer_dynamic_neighbor (peer))
             {
               vty_out (vty, "%% Operation not allowed on a dynamic neighbor\n");
-              return CMD_WARNING;
+              return CMD_WARNING_CONFIG_FAILED;
             }
 
 	  other = peer->doppelganger;
@@ -2986,7 +2992,7 @@ DEFUN (no_neighbor_interface_config,
   else
     {
       vty_out (vty, "%% Create the bgp interface first\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   return CMD_SUCCESS;
 }
@@ -3009,7 +3015,7 @@ DEFUN (no_neighbor_peer_group,
   else
     {
       vty_out (vty, "%% Create the peer-group first\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   return CMD_SUCCESS;
 }
@@ -3044,7 +3050,7 @@ DEFUN (no_neighbor_interface_peer_group_remote_as,
   else
     {
       vty_out (vty, "%% Create the peer-group or interface first\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   return CMD_SUCCESS;
 }
@@ -3065,7 +3071,7 @@ DEFUN (neighbor_local_as,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   as = strtoul(argv[idx_number]->arg, NULL, 10);
   ret = peer_local_as_set (peer, as, 0, 0);
@@ -3089,7 +3095,7 @@ DEFUN (neighbor_local_as_no_prepend,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   as = strtoul(argv[idx_number]->arg, NULL, 10);
   ret = peer_local_as_set (peer, as, 1, 0);
@@ -3114,7 +3120,7 @@ DEFUN (neighbor_local_as_no_prepend_replace_as,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   as = strtoul(argv[idx_number]->arg, NULL, 10);
   ret = peer_local_as_set (peer, as, 1, 1);
@@ -3138,7 +3144,7 @@ DEFUN (no_neighbor_local_as,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ret = peer_local_as_unset (peer);
   return bgp_vty_return (vty, ret);
@@ -3160,7 +3166,7 @@ DEFUN (neighbor_solo,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ret = update_group_adjust_soloness(peer, 1);
   return bgp_vty_return (vty, ret);
@@ -3180,7 +3186,7 @@ DEFUN (no_neighbor_solo,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ret = update_group_adjust_soloness(peer, 0);
   return bgp_vty_return (vty, ret);
@@ -3201,7 +3207,7 @@ DEFUN (neighbor_password,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ret = peer_password_set (peer, argv[idx_line]->arg);
   return bgp_vty_return (vty, ret);
@@ -3222,7 +3228,7 @@ DEFUN (no_neighbor_password,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ret = peer_password_unset (peer);
   return bgp_vty_return (vty, ret);
@@ -3242,7 +3248,7 @@ DEFUN (neighbor_activate,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ret = peer_activate (peer, bgp_node_afi (vty), bgp_node_safi (vty));
   return bgp_vty_return (vty, ret);
@@ -3270,7 +3276,7 @@ DEFUN (no_neighbor_activate,
   /* Lookup peer. */
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ret = peer_deactivate (peer, bgp_node_afi (vty), bgp_node_safi (vty));
   return bgp_vty_return (vty, ret);
@@ -3310,7 +3316,7 @@ DEFUN (neighbor_set_peer_group,
       if (!peer)
         {
           vty_out (vty, "%% Malformed address or name: %s\n", argv[idx_peer]->arg);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
   else
@@ -3318,7 +3324,7 @@ DEFUN (neighbor_set_peer_group,
       if (peer_address_self_check (bgp, &su))
         {
           vty_out (vty, "%% Can not configure the local system as neighbor\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
 
       /* Disallow for dynamic neighbor. */
@@ -3326,7 +3332,7 @@ DEFUN (neighbor_set_peer_group,
       if (peer && peer_dynamic_neighbor (peer))
         {
           vty_out (vty, "%% Operation not allowed on a dynamic neighbor\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -3334,7 +3340,7 @@ DEFUN (neighbor_set_peer_group,
   if (! group)
     {
       vty_out (vty, "%% Configure the peer-group first\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ret = peer_group_bind (bgp, &su, peer, group, &as);
@@ -3342,7 +3348,7 @@ DEFUN (neighbor_set_peer_group,
   if (ret == BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT)
     {
       vty_out (vty, "%% Peer with AS %u cannot be in this peer-group, members must be all internal or all external\n", as);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return bgp_vty_return (vty, ret);
@@ -3374,13 +3380,13 @@ DEFUN (no_neighbor_set_peer_group,
 
   peer = peer_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   group = peer_group_lookup (bgp, argv[idx_word]->arg);
   if (! group)
     {
       vty_out (vty, "%% Configure the peer-group first\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ret = peer_group_unbind (bgp, peer, group);
@@ -3406,7 +3412,7 @@ peer_flag_modify_vty (struct vty *vty, const char *ip_str,
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   /*
    * If 'neighbor <interface>', then this is for directly connected peers,
@@ -3415,7 +3421,7 @@ peer_flag_modify_vty (struct vty *vty, const char *ip_str,
   if (peer->conf_if && (flag == PEER_FLAG_DISABLE_CONNECTED_CHECK)) {
     vty_out (vty, "%s is directly connected peer, cannot accept disable-"
                   "connected-check\n", ip_str);
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   if (!set && flag == PEER_FLAG_SHUTDOWN)
@@ -3483,7 +3489,7 @@ DEFUN (neighbor_shutdown_msg,
       char *message;
 
       if (!peer)
-        return CMD_WARNING;
+        return CMD_WARNING_CONFIG_FAILED;
       message = argv_concat (argv, argc, 4);
       peer_tx_shutdown_message_set (peer, message);
       XFREE (MTYPE_TMP, message);
@@ -3607,7 +3613,7 @@ peer_af_flag_modify_vty (struct vty *vty, const char *peer_str, afi_t afi,
 
   peer = peer_and_group_lookup_vty (vty, peer_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (set)
     ret = peer_af_flag_set (peer, afi, safi, flag);
@@ -3655,7 +3661,10 @@ DEFUN (neighbor_capability_orf_prefix,
   else if (strmatch (argv[idx_send_recv]->text, "both"))
     flag = PEER_FLAG_ORF_PREFIX_SM|PEER_FLAG_ORF_PREFIX_RM;
   else
-    return CMD_WARNING;
+    {
+      vty_outln (vty, "%% BGP invalid orf prefix-list option");
+      return CMD_WARNING_CONFIG_FAILED;
+    }
 
   return peer_af_flag_set_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
 			       bgp_node_safi (vty), flag);
@@ -3697,7 +3706,10 @@ DEFUN (no_neighbor_capability_orf_prefix,
   else if (strmatch (argv[idx_send_recv]->text, "both"))
     flag = PEER_FLAG_ORF_PREFIX_SM|PEER_FLAG_ORF_PREFIX_RM;
   else
-    return CMD_WARNING;
+    {
+      vty_outln (vty, "%% BGP invalid orf prefix-list option");
+      return CMD_WARNING_CONFIG_FAILED;
+    }
 
   return peer_af_flag_unset_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
 				 bgp_node_safi (vty), flag);
@@ -4244,7 +4256,7 @@ DEFUN (neighbor_route_reflector_client,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   return peer_af_flag_set_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
 			       bgp_node_safi (vty),
@@ -4293,7 +4305,7 @@ DEFUN (neighbor_route_server_client,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   return peer_af_flag_set_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
                                bgp_node_safi (vty),
                                PEER_FLAG_RSERVER_CLIENT);
@@ -4455,7 +4467,7 @@ peer_ebgp_multihop_set_vty (struct vty *vty, const char *ip_str,
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (peer->conf_if)
     return bgp_vty_return (vty, BGP_ERR_INVALID_FOR_DIRECT_PEER);
@@ -4475,7 +4487,7 @@ peer_ebgp_multihop_unset_vty (struct vty *vty, const char *ip_str)
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   return bgp_vty_return (vty, peer_ebgp_multihop_unset (peer));
 }
@@ -4560,7 +4572,7 @@ DEFUN (neighbor_description,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   str = argv_concat(argv, argc, idx_line);
 
@@ -4585,7 +4597,7 @@ DEFUN (no_neighbor_description,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   peer_description_unset (peer);
 
@@ -4603,7 +4615,7 @@ peer_update_source_vty (struct vty *vty, const char *peer_str,
 
   peer = peer_and_group_lookup_vty (vty, peer_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (peer->conf_if)
     return CMD_WARNING;
@@ -4620,7 +4632,7 @@ peer_update_source_vty (struct vty *vty, const char *peer_str,
           if (str2prefix (source_str, &p))
             {
               vty_out (vty, "%% Invalid update-source, remove prefix length \n");
-              return CMD_WARNING;
+              return CMD_WARNING_CONFIG_FAILED;
             }
           else
 	    peer_update_source_if_set (peer, source_str);
@@ -4673,7 +4685,7 @@ peer_default_originate_set_vty (struct vty *vty, const char *peer_str,
 
   peer = peer_and_group_lookup_vty (vty, peer_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (set)
     ret = peer_default_originate_set (peer, afi, safi, rmap);
@@ -4764,7 +4776,7 @@ peer_port_vty (struct vty *vty, const char *ip_str, int afi,
 
   peer = peer_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (! port_str)
     {
@@ -4821,7 +4833,7 @@ peer_weight_set_vty (struct vty *vty, const char *ip_str,
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   weight = strtoul(weight_str, NULL, 10);
 
@@ -4838,7 +4850,7 @@ peer_weight_unset_vty (struct vty *vty, const char *ip_str,
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ret = peer_weight_unset (peer, afi, safi);
   return bgp_vty_return (vty, ret);
@@ -4950,7 +4962,7 @@ peer_timers_set_vty (struct vty *vty, const char *ip_str,
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   keepalive = strtoul(keep_str, NULL, 10);
   holdtime = strtoul(hold_str, NULL, 10);
@@ -4968,7 +4980,7 @@ peer_timers_unset_vty (struct vty *vty, const char *ip_str)
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ret = peer_timers_unset (peer);
 
@@ -5015,7 +5027,7 @@ peer_timers_connect_set_vty (struct vty *vty, const char *ip_str,
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   connect = strtoul(time_str, NULL, 10);
 
@@ -5032,7 +5044,7 @@ peer_timers_connect_unset_vty (struct vty *vty, const char *ip_str)
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ret = peer_timers_connect_unset (peer);
 
@@ -5078,7 +5090,7 @@ peer_advertise_interval_vty (struct vty *vty, const char *ip_str,
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (time_str)
     routeadv = strtoul(time_str, NULL, 10);
@@ -5146,7 +5158,10 @@ DEFUN (bgp_set_route_map_delay_timer,
       return CMD_SUCCESS;
     }
   else
-    return CMD_WARNING;
+    {
+      vty_outln (vty, "%% BGP invalid route-map delay-timer");
+      return CMD_WARNING_CONFIG_FAILED;
+    }
 }
 
 DEFUN (no_bgp_set_route_map_delay_timer,
@@ -5173,7 +5188,10 @@ peer_interface_vty (struct vty *vty, const char *ip_str, const char *str)
 
   peer = peer_lookup_vty (vty, ip_str);
   if (! peer || peer->conf_if)
-    return CMD_WARNING;
+    {
+      vty_outln (vty, "%% BGP invalid peer %s", ip_str);
+      return CMD_WARNING_CONFIG_FAILED;
+    }
 
   if (str)
     peer_interface_set (peer, str);
@@ -5232,7 +5250,7 @@ DEFUN (neighbor_distribute_list,
 
   peer = peer_and_group_lookup_vty (vty, pstr);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   /* Check filter direction. */
   direct = strmatch (inout, "in") ? FILTER_IN : FILTER_OUT;
@@ -5275,7 +5293,7 @@ DEFUN (no_neighbor_distribute_list,
 
   peer = peer_and_group_lookup_vty (vty, pstr);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   /* Check filter direction. */
   direct = strmatch (inout, "in") ? FILTER_IN : FILTER_OUT;
@@ -5309,7 +5327,7 @@ peer_prefix_list_set_vty (struct vty *vty, const char *ip_str, afi_t afi,
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   /* Check filter direction. */
   if (strncmp (direct_str, "i", 1) == 0)
@@ -5332,7 +5350,7 @@ peer_prefix_list_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   /* Check filter direction. */
   if (strncmp (direct_str, "i", 1) == 0)
@@ -5411,7 +5429,7 @@ peer_aslist_set_vty (struct vty *vty, const char *ip_str,
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   /* Check filter direction. */
   if (strncmp (direct_str, "i", 1) == 0)
@@ -5435,7 +5453,7 @@ peer_aslist_unset_vty (struct vty *vty, const char *ip_str,
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   /* Check filter direction. */
   if (strncmp (direct_str, "i", 1) == 0)
@@ -5515,7 +5533,7 @@ peer_route_map_set_vty (struct vty *vty, const char *ip_str,
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   /* Check filter direction. */
   if (strncmp (direct_str, "in", 2) == 0)
@@ -5538,7 +5556,7 @@ peer_route_map_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   /* Check filter direction. */
   if (strncmp (direct_str, "in", 2) == 0)
@@ -5616,7 +5634,7 @@ peer_unsuppress_map_set_vty (struct vty *vty, const char *ip_str, afi_t afi,
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ret = peer_unsuppress_map_set (peer, afi, safi, name_str);
 
@@ -5633,7 +5651,7 @@ peer_unsuppress_map_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ret = peer_unsuppress_map_unset (peer, afi, safi);
 
@@ -5699,7 +5717,7 @@ peer_maximum_prefix_set_vty (struct vty *vty, const char *ip_str, afi_t afi,
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   max = strtoul(num_str, NULL, 10);
   if (threshold_str)
@@ -5726,7 +5744,7 @@ peer_maximum_prefix_unset_vty (struct vty *vty, const char *ip_str, afi_t afi,
 
   peer = peer_and_group_lookup_vty (vty, ip_str);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ret = peer_maximum_prefix_unset (peer, afi, safi);
 
@@ -5945,7 +5963,7 @@ DEFUN (neighbor_allowas_in,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (argc <= idx_number_origin)
     allow_num = 3;
@@ -5988,7 +6006,7 @@ DEFUN (no_neighbor_allowas_in,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ret = peer_allowas_in_unset (peer, bgp_node_afi (vty), bgp_node_safi (vty));
 
@@ -6021,7 +6039,7 @@ DEFUN (neighbor_ttl_security,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   gtsm_hops = strtoul(argv[idx_number]->arg, NULL, 10);
 
@@ -6032,7 +6050,7 @@ DEFUN (neighbor_ttl_security,
   if (peer->conf_if && (gtsm_hops > 1)) {
     vty_out (vty, "%s is directly connected peer, hops cannot exceed 1\n",
                   argv[idx_peer]->arg);
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   return bgp_vty_return (vty, peer_ttl_security_hops_set (peer, gtsm_hops));
@@ -6053,7 +6071,7 @@ DEFUN (no_neighbor_ttl_security,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   return bgp_vty_return (vty, peer_ttl_security_hops_unset (peer));
 }
@@ -6070,7 +6088,7 @@ DEFUN (neighbor_addpath_tx_all_paths,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   return peer_af_flag_set_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
 			       bgp_node_safi (vty),
@@ -6118,7 +6136,7 @@ DEFUN (neighbor_addpath_tx_bestpath_per_as,
 
   peer = peer_and_group_lookup_vty (vty, argv[idx_peer]->arg);
   if (! peer)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   return peer_af_flag_set_vty (vty, argv[idx_peer]->arg, bgp_node_afi (vty),
 			       bgp_node_safi (vty),
@@ -9908,7 +9926,7 @@ DEFUN (bgp_redistribute_ipv4,
   if (type < 0)
     {
       vty_out (vty, "%% Invalid route type\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   bgp_redist_add(bgp, AFI_IP, type, 0);
   return bgp_redistribute_set (bgp, AFI_IP, type, 0);
@@ -9938,7 +9956,7 @@ DEFUN (bgp_redistribute_ipv4_rmap,
   if (type < 0)
     {
       vty_out (vty, "%% Invalid route type\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   red = bgp_redist_add(bgp, AFI_IP, type, 0);
@@ -9973,7 +9991,7 @@ DEFUN (bgp_redistribute_ipv4_metric,
   if (type < 0)
     {
       vty_out (vty, "%% Invalid route type\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
@@ -10012,7 +10030,7 @@ DEFUN (bgp_redistribute_ipv4_rmap_metric,
   if (type < 0)
     {
       vty_out (vty, "%% Invalid route type\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
@@ -10054,7 +10072,7 @@ DEFUN (bgp_redistribute_ipv4_metric_rmap,
   if (type < 0)
     {
       vty_out (vty, "%% Invalid route type\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
@@ -10344,7 +10362,7 @@ DEFUN (no_bgp_redistribute_ipv4,
   if (type < 0)
     {
       vty_out (vty, "%% Invalid route type\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   return bgp_redistribute_unset (bgp, AFI_IP, type, 0);
 }
@@ -10374,7 +10392,7 @@ DEFUN (bgp_redistribute_ipv6,
   if (type < 0)
     {
       vty_out (vty, "%% Invalid route type\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   bgp_redist_add(bgp, AFI_IP6, type, 0);
@@ -10399,7 +10417,7 @@ DEFUN (bgp_redistribute_ipv6_rmap,
   if (type < 0)
     {
       vty_out (vty, "%% Invalid route type\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   red = bgp_redist_add(bgp, AFI_IP6, type, 0);
@@ -10426,7 +10444,7 @@ DEFUN (bgp_redistribute_ipv6_metric,
   if (type < 0)
     {
       vty_out (vty, "%% Invalid route type\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
@@ -10457,7 +10475,7 @@ DEFUN (bgp_redistribute_ipv6_rmap_metric,
   if (type < 0)
     {
       vty_out (vty, "%% Invalid route type\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
@@ -10489,7 +10507,7 @@ DEFUN (bgp_redistribute_ipv6_metric_rmap,
   if (type < 0)
     {
       vty_out (vty, "%% Invalid route type\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   metric = strtoul(argv[idx_number]->arg, NULL, 10);
 
@@ -10518,7 +10536,7 @@ DEFUN (no_bgp_redistribute_ipv6,
   if (type < 0)
     {
       vty_out (vty, "%% Invalid route type\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return bgp_redistribute_unset (bgp, AFI_IP6, type, 0);
@@ -11775,7 +11793,7 @@ DEFUN (ip_community_list_standard,
     {
       /* Display error string.  */
       community_list_perror (vty, ret);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -11815,7 +11833,7 @@ DEFUN (no_ip_community_list_standard_all,
   if (ret < 0)
     {
       community_list_perror (vty, ret);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -11854,7 +11872,7 @@ DEFUN (ip_community_list_expanded_all,
     {
       /* Display error string.  */
       community_list_perror (vty, ret);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -11894,7 +11912,7 @@ DEFUN (no_ip_community_list_expanded_all,
   if (ret < 0)
     {
       community_list_perror (vty, ret);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -12002,7 +12020,7 @@ lcommunity_list_set_vty (struct vty *vty, int argc, struct cmd_token **argv,
   if (reject_all_digit_name && all_digit (cl_name))
     {
       vty_out (vty, "%% Community name cannot have all digits\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   idx = 0;
@@ -12024,7 +12042,7 @@ lcommunity_list_set_vty (struct vty *vty, int argc, struct cmd_token **argv,
   if (ret < 0)
     {
       community_list_perror (vty, ret);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   return CMD_SUCCESS;
 }
@@ -12072,7 +12090,7 @@ lcommunity_list_unset_vty (struct vty *vty, int argc, struct cmd_token **argv,
   if (ret < 0)
     {
       community_list_perror (vty, ret);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -12356,7 +12374,7 @@ DEFUN (ip_extcommunity_list_standard,
   if (ret < 0)
     {
       community_list_perror (vty, ret);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -12393,7 +12411,7 @@ DEFUN (ip_extcommunity_list_name_expanded,
   if (ret < 0)
     {
       community_list_perror (vty, ret);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -12433,7 +12451,7 @@ DEFUN (no_ip_extcommunity_list_standard_all,
   if (ret < 0)
     {
       community_list_perror (vty, ret);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -12473,7 +12491,7 @@ DEFUN (no_ip_extcommunity_list_expanded_all,
   if (ret < 0)
     {
       community_list_perror (vty, ret);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;

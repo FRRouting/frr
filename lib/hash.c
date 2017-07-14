@@ -87,13 +87,8 @@ hash_alloc_intern (void *arg)
 }
 
 #define hash_update_ssq(hz, old, new) \
-  do { \
-    long double res; \
-    res = powl(old, 2.0); \
-    hz->stats.ssq -= (uint64_t) res;\
-    res = powl(new, 2.0); \
-    hz->stats.ssq += (uint64_t) res; \
-  } while (0); \
+    atomic_fetch_add_explicit(&hz->stats.ssq, (new + old)*(new - old),\
+                              memory_order_relaxed);
 
 /* Expand hash if the chain length exceeds the threshold. */
 static void hash_expand (struct hash *hash)
@@ -428,6 +423,13 @@ DEFUN(show_hash_stats,
   long double ssq;    // ssq casted to long double
 
   pthread_mutex_lock (&_hashes_mtx);
+  if (!_hashes)
+    {
+      pthread_mutex_unlock (&_hashes_mtx);
+      vty_outln (vty, "No hash tables in use.");
+      return CMD_SUCCESS;
+    }
+
   for (ALL_LIST_ELEMENTS_RO (_hashes, ln, h))
     {
       if (!h->name)
@@ -482,6 +484,5 @@ DEFUN(show_hash_stats,
 void
 hash_cmd_init ()
 {
-  _hashes = list_new();
   install_element (ENABLE_NODE, &show_hash_stats_cmd);
 }

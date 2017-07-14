@@ -349,7 +349,7 @@ DEFUN (rip_redistribute_type,
 
   vty_out (vty, "Invalid type %s\n",argv[1]->arg);
 
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (no_rip_redistribute_type,
@@ -375,7 +375,7 @@ DEFUN (no_rip_redistribute_type,
 
   vty_out (vty, "Invalid type %s\n",argv[2]->arg);
 
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (rip_redistribute_type_routemap,
@@ -402,7 +402,7 @@ DEFUN (rip_redistribute_type_routemap,
 
   vty_out (vty, "Invalid type %s\n", argv[idx_protocol]->text);
 
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (no_rip_redistribute_type_routemap,
@@ -422,7 +422,7 @@ DEFUN (no_rip_redistribute_type_routemap,
     if (strmatch (redist_type[i].str, argv[idx_protocol]->text))
       {
         if (rip_routemap_unset (redist_type[i].type,argv[idx_word]->arg))
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         rip_redistribute_unset (redist_type[i].type);
         return CMD_SUCCESS;
       }
@@ -430,7 +430,7 @@ DEFUN (no_rip_redistribute_type_routemap,
 
   vty_out (vty, "Invalid type %s\n", argv[idx_protocol]->text);
 
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (rip_redistribute_type_metric,
@@ -460,7 +460,7 @@ DEFUN (rip_redistribute_type_metric,
 
   vty_out (vty, "Invalid type %s\n", argv[idx_protocol]->text);
 
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (no_rip_redistribute_type_metric,
@@ -480,7 +480,7 @@ DEFUN (no_rip_redistribute_type_metric,
     if (strmatch (redist_type[i].str, argv[idx_protocol]->text))
       {
         if (rip_metric_unset (redist_type[i].type, atoi(argv[idx_number]->arg)))
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         rip_redistribute_unset (redist_type[i].type);
         return CMD_SUCCESS;
       }
@@ -488,7 +488,7 @@ DEFUN (no_rip_redistribute_type_metric,
 
   vty_out (vty, "Invalid type %s\n", argv[idx_protocol]->text);
 
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (rip_redistribute_type_metric_routemap,
@@ -522,7 +522,7 @@ DEFUN (rip_redistribute_type_metric_routemap,
 
   vty_out (vty, "Invalid type %s\n", argv[idx_protocol]->text);
 
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 
@@ -546,11 +546,11 @@ DEFUN (no_rip_redistribute_type_metric_routemap,
     if (strmatch (redist_type[i].str, argv[idx_protocol]->text))
       {
         if (rip_metric_unset (redist_type[i].type, atoi(argv[idx_number]->arg)))
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         if (rip_routemap_unset (redist_type[i].type, argv[idx_word]->arg))
           {
             rip_redistribute_metric_set(redist_type[i].type, atoi(argv[idx_number]->arg));
-            return CMD_WARNING;
+            return CMD_WARNING_CONFIG_FAILED;
           }
         rip_redistribute_unset (redist_type[i].type);
         return CMD_SUCCESS;
@@ -559,7 +559,7 @@ DEFUN (no_rip_redistribute_type_metric_routemap,
 
   vty_out (vty, "Invalid type %s\n", argv[idx_protocol]->text);
 
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 /* Default information originate. */

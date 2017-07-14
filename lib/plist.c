@@ -884,7 +884,7 @@ vty_invalid_prefix_range (struct vty *vty, const char *prefix)
 {
   vty_out (vty, "%% Invalid prefix range for %s, make sure: len < ge-value <= le-value\n",
            prefix);
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 static int
@@ -921,7 +921,7 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
   else
     {
       vty_out (vty, "%% prefix type must be permit or deny\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* "any" is special token for matching any IPv4 addresses.  */
@@ -941,7 +941,7 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
       if (ret <= 0)
 	{
 	  vty_out (vty, "%% Malformed IPv4 prefix\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       /* make a copy to verify prefix matches mask length */
@@ -963,7 +963,7 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
       if (ret <= 0)
 	{
 	  vty_out (vty, "%% Malformed IPv6 prefix\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       /* make a copy to verify prefix matches mask length */
@@ -974,7 +974,7 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
     case AFI_L2VPN:
     default:
       vty_out (vty, "%% Unrecognized AFI (%d)\n", afi);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
       break;
     }
 
@@ -1043,7 +1043,7 @@ vty_prefix_list_uninstall (struct vty *vty, afi_t afi, const char *name,
   if (! plist)
     {
       vty_out (vty, "%% Can't find specified prefix-list\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Only prefix-list name specified, delete the entire prefix-list. */
@@ -1058,7 +1058,7 @@ vty_prefix_list_uninstall (struct vty *vty, afi_t afi, const char *name,
   if ((typestr == NULL) || (prefix == NULL))
     {
       vty_out (vty, "%% Both prefix and type required\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Check sequence number. */
@@ -1079,7 +1079,7 @@ vty_prefix_list_uninstall (struct vty *vty, afi_t afi, const char *name,
   else
     {
       vty_out (vty, "%% prefix type must be permit or deny\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* "any" is special token for matching any IPv4 addresses.  */
@@ -1097,7 +1097,7 @@ vty_prefix_list_uninstall (struct vty *vty, afi_t afi, const char *name,
       if (ret <= 0)
 	{
 	  vty_out (vty, "%% Malformed IPv4 prefix\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
     }
   else if (afi == AFI_IP6)
@@ -1114,7 +1114,7 @@ vty_prefix_list_uninstall (struct vty *vty, afi_t afi, const char *name,
       if (ret <= 0)
 	{
 	  vty_out (vty, "%% Malformed IPv6 prefix\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
     }
 
@@ -1124,7 +1124,7 @@ vty_prefix_list_uninstall (struct vty *vty, afi_t afi, const char *name,
   if (pentry == NULL)
     {
       vty_out (vty, "%% Can't find specified prefix-list\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Install new filter to the access_list. */
@@ -1142,7 +1142,7 @@ vty_prefix_list_desc_unset (struct vty *vty, afi_t afi, const char *name)
   if (! plist)
     {
       vty_out (vty, "%% Can't find specified prefix-list\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (plist->desc)
@@ -1944,18 +1944,18 @@ prefix_bgp_orf_set (char *name, afi_t afi, struct orf_prefix *orfp,
 
   /* ge and le value check */ 
   if (orfp->ge && orfp->ge <= orfp->p.prefixlen)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   if (orfp->le && orfp->le <= orfp->p.prefixlen)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   if (orfp->le && orfp->ge > orfp->le)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (orfp->ge && orfp->le == (afi == AFI_IP ? 32 : 128))
     orfp->le = 0;
 
   plist = prefix_list_get (afi, 1, name);
   if (! plist)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (set)
     {
@@ -1966,7 +1966,7 @@ prefix_bgp_orf_set (char *name, afi_t afi, struct orf_prefix *orfp,
       if (prefix_entry_dup_check (plist, pentry))
 	{
 	  prefix_list_entry_free (pentry);
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       prefix_list_entry_add (plist, pentry);
@@ -1978,7 +1978,7 @@ prefix_bgp_orf_set (char *name, afi_t afi, struct orf_prefix *orfp,
 					 orfp->seq, orfp->le, orfp->ge);
 
       if (! pentry)
-	return CMD_WARNING;
+        return CMD_WARNING_CONFIG_FAILED;
 
       prefix_list_entry_delete (plist, pentry, 1);
     }

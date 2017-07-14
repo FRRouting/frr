@@ -3754,45 +3754,45 @@ pim_rp_cmd_worker (struct vty *vty, const char *rp, const char *group, const cha
   if (result == PIM_MALLOC_FAIL)
     {
       vty_out (vty, "%% Out of memory\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (result == PIM_GROUP_BAD_ADDRESS)
     {
       vty_out (vty, "%% Bad group address specified: %s\n", group);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (result == PIM_RP_BAD_ADDRESS)
     {
       vty_out (vty, "%% Bad RP address specified: %s\n", rp);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (result == PIM_RP_NO_PATH)
     {
       vty_out (vty, "%% No Path to RP address specified: %s\n", rp);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (result == PIM_GROUP_OVERLAP)
     {
       vty_out (vty, "%% Group range specified cannot overlap\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (result == PIM_GROUP_PFXLIST_OVERLAP)
     {
       vty_out (vty,
                  "%% This group is already covered by a RP prefix-list\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (result == PIM_RP_PFXLIST_IN_USE)
     {
       vty_out (vty,
                  "%% The same prefix-list cannot be applied to multiple RPs\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -4040,19 +4040,19 @@ pim_no_rp_cmd_worker (struct vty *vty, const char *rp, const char *group,
   if (result == PIM_GROUP_BAD_ADDRESS)
     {
       vty_out (vty, "%% Bad group address specified: %s\n", group);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (result == PIM_RP_BAD_ADDRESS)
     {
       vty_out (vty, "%% Bad RP address specified: %s\n", rp);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (result == PIM_RP_NOT_FOUND)
     {
       vty_out (vty, "%% Unable to find specified RP\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -4110,7 +4110,7 @@ pim_ssm_cmd_worker (struct vty *vty, const char *plist)
       vty_out (vty, "%% ssm range config failed\n");
     }
 
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (ip_pim_ssm_prefix_list,
@@ -4155,7 +4155,7 @@ DEFUN (no_ip_pim_ssm_prefix_list_name,
   vty_out (vty, "%% pim ssm prefix-list %s doesn't exist\n",
            argv[0]->arg);
 
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 static void
@@ -4276,14 +4276,14 @@ DEFUN (ip_ssmpingd,
   if (result <= 0) {
     vty_out (vty, "%% Bad source address %s: errno=%d: %s\n",
 	    source_str, errno, safe_strerror(errno));
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   result = pim_ssmpingd_start(source_addr);
   if (result) {
     vty_out (vty, "%% Failure starting ssmpingd for source %s: %d\n",
 	    source_str, result);
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   return CMD_SUCCESS;
@@ -4306,14 +4306,14 @@ DEFUN (no_ip_ssmpingd,
   if (result <= 0) {
     vty_out (vty, "%% Bad source address %s: errno=%d: %s\n",
 	    source_str, errno, safe_strerror(errno));
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   result = pim_ssmpingd_stop(source_addr);
   if (result) {
     vty_out (vty, "%% Failure stopping ssmpingd for source %s: %d\n",
 	    source_str, result);
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   return CMD_SUCCESS;
@@ -4387,7 +4387,7 @@ pim_cmd_igmp_start (struct vty *vty, struct interface *ifp)
         {
           vty_out (vty, "Could not enable IGMP on interface %s\n",
 	      ifp->name);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       need_startup = 1;
     }
@@ -4472,7 +4472,7 @@ DEFUN (interface_ip_igmp_join,
   if (result <= 0) {
     vty_out (vty, "Bad group address %s: errno=%d: %s\n",
 	    group_str, errno, safe_strerror(errno));
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   /* Source address */
@@ -4481,14 +4481,14 @@ DEFUN (interface_ip_igmp_join,
   if (result <= 0) {
     vty_out (vty, "Bad source address %s: errno=%d: %s\n",
 	    source_str, errno, safe_strerror(errno));
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   result = pim_if_igmp_join_add(ifp, group_addr, source_addr);
   if (result) {
     vty_out (vty, "%% Failure joining IGMP group %s source %s on interface %s: %d\n",
 	    group_str, source_str, ifp->name, result);
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   return CMD_SUCCESS;
@@ -4519,7 +4519,7 @@ DEFUN (interface_no_ip_igmp_join,
   if (result <= 0) {
     vty_out (vty, "Bad group address %s: errno=%d: %s\n",
 	    group_str, errno, safe_strerror(errno));
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   /* Source address */
@@ -4528,14 +4528,14 @@ DEFUN (interface_no_ip_igmp_join,
   if (result <= 0) {
     vty_out (vty, "Bad source address %s: errno=%d: %s\n",
 	    source_str, errno, safe_strerror(errno));
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   result = pim_if_igmp_join_del(ifp, group_addr, source_addr);
   if (result) {
     vty_out (vty, "%% Failure leaving IGMP group %s source %s on interface %s: %d\n",
 	    group_str, source_str, ifp->name, result);
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   return CMD_SUCCESS;
@@ -4704,20 +4704,20 @@ DEFUN (interface_ip_igmp_query_interval,
     vty_out (vty, "General query interval %d lower than minimum %d\n",
 	    query_interval,
 	    IGMP_QUERY_INTERVAL_MIN);
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
   if (query_interval > IGMP_QUERY_INTERVAL_MAX) {
     vty_out (vty, "General query interval %d higher than maximum %d\n",
 	    query_interval,
 	    IGMP_QUERY_INTERVAL_MAX);
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   if (query_interval_dsec <= pim_ifp->igmp_query_max_response_time_dsec) {
     vty_out (vty,
 	    "Can't set general query interval %d dsec <= query max response time %d dsec.\n",
 	    query_interval_dsec,pim_ifp->igmp_query_max_response_time_dsec);
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   change_query_interval(pim_ifp, query_interval);
@@ -4747,7 +4747,7 @@ DEFUN (interface_no_ip_igmp_query_interval,
 	    "Can't set default general query interval %d dsec <= query max response time %d dsec.\n",
 	    default_query_interval_dsec,
 	    pim_ifp->igmp_query_max_response_time_dsec);
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   change_query_interval(pim_ifp, IGMP_GENERAL_QUERY_INTERVAL);
@@ -4845,7 +4845,7 @@ DEFUN (interface_ip_igmp_query_max_response_time,
     vty_out (vty,
 	    "Can't set query max response time %d sec >= general query interval %d sec\n",
 	    query_max_response_time,pim_ifp->igmp_default_query_interval);
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   change_query_max_response_time(pim_ifp, query_max_response_time);
@@ -4905,7 +4905,7 @@ DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
     vty_out (vty,
 	    "Can't set query max response time %d dsec >= general query interval %d dsec\n",
 	    query_max_response_time_dsec,default_query_interval_dsec);
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   change_query_max_response_time(pim_ifp, query_max_response_time_dsec);
@@ -4947,7 +4947,7 @@ DEFUN (interface_ip_pim_drprio,
 
   if (!pim_ifp) {
     vty_out (vty, "Please enable PIM on interface, first\n");
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   old_dr_prio = pim_ifp->pim_dr_priority;
@@ -4976,7 +4976,7 @@ DEFUN (interface_no_ip_pim_drprio,
 
   if (!pim_ifp) {
     vty_out (vty, "Pim not enabled on this interface\n");
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   if (pim_ifp->pim_dr_priority != PIM_DEFAULT_DR_PRIORITY) {
@@ -5019,7 +5019,7 @@ DEFUN_HIDDEN (interface_ip_pim_ssm,
 
   if (!pim_cmd_interface_add(ifp)) {
     vty_out (vty, "Could not enable PIM SM on interface\n");
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   vty_out(vty, "WARN: Enabled PIM SM on interface; configure PIM SSM "
@@ -5037,7 +5037,7 @@ DEFUN (interface_ip_pim_sm,
   VTY_DECLVAR_CONTEXT(interface, ifp);
   if (!pim_cmd_interface_add(ifp)) {
     vty_out (vty, "Could not enable PIM SM on interface\n");
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   pim_if_create_pimreg();
@@ -5082,7 +5082,7 @@ DEFUN_HIDDEN (interface_no_ip_pim_ssm,
   VTY_DECLVAR_CONTEXT(interface, ifp);
   if (!pim_cmd_interface_delete(ifp)) {
     vty_out (vty, "Unable to delete interface information\n");
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   return CMD_SUCCESS;
@@ -5099,7 +5099,7 @@ DEFUN (interface_no_ip_pim_sm,
   VTY_DECLVAR_CONTEXT(interface, ifp);
   if (!pim_cmd_interface_delete(ifp)) {
     vty_out (vty, "Unable to delete interface information\n");
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   return CMD_SUCCESS;
@@ -5128,7 +5128,7 @@ DEFUN (interface_ip_mroute,
    if (!oif) {
      vty_out (vty, "No such interface name %s\n",
         oifname);
-     return CMD_WARNING;
+     return CMD_WARNING_CONFIG_FAILED;
    }
 
    grp_str = argv[idx_ipv4]->arg;
@@ -5136,14 +5136,14 @@ DEFUN (interface_ip_mroute,
    if (result <= 0) {
      vty_out (vty, "Bad group address %s: errno=%d: %s\n",
         grp_str, errno, safe_strerror(errno));
-     return CMD_WARNING;
+     return CMD_WARNING_CONFIG_FAILED;
    }
 
    src_addr.s_addr = INADDR_ANY;
 
    if (pim_static_add(iif, oif, grp_addr, src_addr)) {
       vty_out (vty, "Failed to add route\n");
-      return CMD_WARNING;
+     return CMD_WARNING_CONFIG_FAILED;
    }
 
    return CMD_SUCCESS;
@@ -5175,7 +5175,7 @@ DEFUN (interface_ip_mroute_source,
    if (!oif) {
      vty_out (vty, "No such interface name %s\n",
         oifname);
-     return CMD_WARNING;
+     return CMD_WARNING_CONFIG_FAILED;
    }
 
    grp_str = argv[idx_ipv4]->arg;
@@ -5183,7 +5183,7 @@ DEFUN (interface_ip_mroute_source,
    if (result <= 0) {
      vty_out (vty, "Bad group address %s: errno=%d: %s\n",
         grp_str, errno, safe_strerror(errno));
-     return CMD_WARNING;
+     return CMD_WARNING_CONFIG_FAILED;
    }
 
    src_str = argv[idx_ipv4_2]->arg;
@@ -5191,12 +5191,12 @@ DEFUN (interface_ip_mroute_source,
    if (result <= 0) {
      vty_out (vty, "Bad source address %s: errno=%d: %s\n",
         src_str, errno, safe_strerror(errno));
-     return CMD_WARNING;
+     return CMD_WARNING_CONFIG_FAILED;
    }
 
    if (pim_static_add(iif, oif, grp_addr, src_addr)) {
       vty_out (vty, "Failed to add route\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
    }
 
    return CMD_SUCCESS;
@@ -5226,7 +5226,7 @@ DEFUN (interface_no_ip_mroute,
    if (!oif) {
      vty_out (vty, "No such interface name %s\n",
         oifname);
-     return CMD_WARNING;
+     return CMD_WARNING_CONFIG_FAILED;
    }
 
    grp_str = argv[idx_ipv4]->arg;
@@ -5234,14 +5234,14 @@ DEFUN (interface_no_ip_mroute,
    if (result <= 0) {
      vty_out (vty, "Bad group address %s: errno=%d: %s\n",
         grp_str, errno, safe_strerror(errno));
-     return CMD_WARNING;
+     return CMD_WARNING_CONFIG_FAILED;
    }
 
    src_addr.s_addr = INADDR_ANY;
 
    if (pim_static_del(iif, oif, grp_addr, src_addr)) {
       vty_out (vty, "Failed to remove route\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
    }
 
    return CMD_SUCCESS;
@@ -5274,7 +5274,7 @@ DEFUN (interface_no_ip_mroute_source,
    if (!oif) {
      vty_out (vty, "No such interface name %s\n",
         oifname);
-     return CMD_WARNING;
+     return CMD_WARNING_CONFIG_FAILED;
    }
 
    grp_str = argv[idx_ipv4]->arg;
@@ -5282,7 +5282,7 @@ DEFUN (interface_no_ip_mroute_source,
    if (result <= 0) {
      vty_out (vty, "Bad group address %s: errno=%d: %s\n",
         grp_str, errno, safe_strerror(errno));
-     return CMD_WARNING;
+     return CMD_WARNING_CONFIG_FAILED;
    }
 
    src_str = argv[idx_ipv4_2]->arg;
@@ -5290,12 +5290,12 @@ DEFUN (interface_no_ip_mroute_source,
    if (result <= 0) {
      vty_out (vty, "Bad source address %s: errno=%d: %s\n",
         src_str, errno, safe_strerror(errno));
-     return CMD_WARNING;
+     return CMD_WARNING_CONFIG_FAILED;
    }
 
    if (pim_static_del(iif, oif, grp_addr, src_addr)) {
       vty_out (vty, "Failed to remove route\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
    }
 
    return CMD_SUCCESS;
@@ -5320,7 +5320,7 @@ DEFUN (interface_ip_pim_hello,
       if (!pim_cmd_interface_add(ifp))
         {
           vty_out (vty, "Could not enable PIM SM on interface\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -5350,7 +5350,7 @@ DEFUN (interface_no_ip_pim_hello,
 
   if (!pim_ifp) {
     vty_out (vty, "Pim not enabled on this interface\n");
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   pim_ifp->pim_hello_period     = PIM_DEFAULT_HELLO_PERIOD;
@@ -5881,7 +5881,7 @@ interface_pim_use_src_cmd_worker(struct vty *vty, const char *source)
   if (result <= 0) {
     vty_out (vty, "%% Bad source address %s: errno=%d: %s\n",
         source, errno, safe_strerror(errno));
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   result = pim_update_source_set(ifp, source_addr);
@@ -5898,7 +5898,7 @@ interface_pim_use_src_cmd_worker(struct vty *vty, const char *source)
       vty_out (vty, "%% Source set failed\n");
   }
 
-  return result?CMD_WARNING:CMD_SUCCESS;
+  return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
 }
 
 DEFUN (interface_pim_use_source,
@@ -6021,14 +6021,14 @@ ip_msdp_peer_cmd_worker (struct vty *vty, const char *peer, const char *local)
   if (result <= 0) {
     vty_out (vty, "%% Bad peer address %s: errno=%d: %s\n",
         peer, errno, safe_strerror(errno));
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   result = inet_pton(AF_INET, local, &local_addr);
   if (result <= 0) {
     vty_out (vty, "%% Bad source address %s: errno=%d: %s\n",
         local, errno, safe_strerror(errno));
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   result = pim_msdp_peer_add(peer_addr, local_addr, "default", NULL/* mp_p */);
@@ -6048,7 +6048,7 @@ ip_msdp_peer_cmd_worker (struct vty *vty, const char *peer, const char *local)
       vty_out (vty, "%% peer add failed\n");
   }
 
-  return result?CMD_WARNING:CMD_SUCCESS;
+  return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
 }
 
 DEFUN_HIDDEN (ip_msdp_peer,
@@ -6074,7 +6074,7 @@ ip_no_msdp_peer_cmd_worker (struct vty *vty, const char *peer)
   if (result <= 0) {
     vty_out (vty, "%% Bad peer address %s: errno=%d: %s\n",
         peer, errno, safe_strerror(errno));
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   result = pim_msdp_peer_del(peer_addr);
@@ -6088,7 +6088,7 @@ ip_no_msdp_peer_cmd_worker (struct vty *vty, const char *peer)
       vty_out (vty, "%% peer del failed\n");
   }
 
-  return result?CMD_WARNING:CMD_SUCCESS;
+  return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
 }
 
 DEFUN_HIDDEN (no_ip_msdp_peer,
@@ -6113,7 +6113,7 @@ ip_msdp_mesh_group_member_cmd_worker(struct vty *vty, const char *mg, const char
   if (result <= 0) {
     vty_out (vty, "%% Bad member address %s: errno=%d: %s\n",
         mbr, errno, safe_strerror(errno));
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   result = pim_msdp_mg_mbr_add(mg, mbr_ip);
@@ -6133,7 +6133,7 @@ ip_msdp_mesh_group_member_cmd_worker(struct vty *vty, const char *mg, const char
       vty_out (vty, "%% member add failed\n");
   }
 
-  return result?CMD_WARNING:CMD_SUCCESS;
+  return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
 }
 
 DEFUN (ip_msdp_mesh_group_member,
@@ -6159,7 +6159,7 @@ ip_no_msdp_mesh_group_member_cmd_worker(struct vty *vty, const char *mg, const c
   if (result <= 0) {
     vty_out (vty, "%% Bad member address %s: errno=%d: %s\n",
         mbr, errno, safe_strerror(errno));
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   result = pim_msdp_mg_mbr_del(mg, mbr_ip);
@@ -6176,7 +6176,7 @@ ip_no_msdp_mesh_group_member_cmd_worker(struct vty *vty, const char *mg, const c
       vty_out (vty, "%% mesh-group member del failed\n");
   }
 
-  return result?CMD_WARNING:CMD_SUCCESS;
+  return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
 }
 DEFUN (no_ip_msdp_mesh_group_member,
        no_ip_msdp_mesh_group_member_cmd,
@@ -6202,7 +6202,7 @@ ip_msdp_mesh_group_source_cmd_worker(struct vty *vty, const char *mg, const char
   if (result <= 0) {
     vty_out (vty, "%% Bad source address %s: errno=%d: %s\n",
         src, errno, safe_strerror(errno));
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   result = pim_msdp_mg_src_add(mg, src_ip);
@@ -6219,7 +6219,7 @@ ip_msdp_mesh_group_source_cmd_worker(struct vty *vty, const char *mg, const char
       vty_out (vty, "%% source add failed\n");
   }
 
-  return result?CMD_WARNING:CMD_SUCCESS;
+  return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
 }
 
 
@@ -6252,7 +6252,7 @@ ip_no_msdp_mesh_group_source_cmd_worker(struct vty *vty, const char *mg)
       vty_out (vty, "%% mesh-group source del failed\n");
   }
 
-  return result?CMD_WARNING:CMD_SUCCESS;
+  return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
 }
 
 static int
@@ -6271,7 +6271,7 @@ ip_no_msdp_mesh_group_cmd_worker(struct vty *vty, const char *mg)
       vty_out (vty, "%% mesh-group source del failed\n");
   }
 
-  return result ? CMD_WARNING : CMD_SUCCESS;
+  return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
 }
 
 DEFUN (no_ip_msdp_mesh_group_source,

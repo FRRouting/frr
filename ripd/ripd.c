@@ -2815,7 +2815,7 @@ DEFUN_NOSH (router_rip,
       if (ret < 0)
 	{
 	  zlog_info ("Can't create RIP");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
     }
   VTY_PUSH_CONTEXT(RIP_NODE, rip);
@@ -2848,7 +2848,7 @@ DEFUN (rip_version,
   if (version != RIPv1 && version != RIPv2)
     {
       vty_out (vty, "invalid rip version %d\n",version);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   rip->version_send = version;
   rip->version_recv = version;
@@ -2886,7 +2886,7 @@ DEFUN (rip_route,
   if (ret < 0)
     {
       vty_out (vty, "Malformed address\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   apply_mask_ipv4 (&p);
 
@@ -2897,7 +2897,7 @@ DEFUN (rip_route,
     {
       vty_out (vty, "There is already same static route.\n");
       route_unlock_node (node);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   node->info = (void *)1;
@@ -2923,7 +2923,7 @@ DEFUN (no_rip_route,
   if (ret < 0)
     {
       vty_out (vty, "Malformed address\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   apply_mask_ipv4 (&p);
 
@@ -2932,7 +2932,7 @@ DEFUN (no_rip_route,
   if (! node)
     {
       vty_out (vty, "Can't find route %s.\n",argv[idx_ipv4_prefixlen]->arg);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   rip_redistribute_delete (ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, 0);
@@ -3015,21 +3015,21 @@ DEFUN (rip_timers,
   if (update > RIP_TIMER_MAX || update < RIP_TIMER_MIN || *endptr != '\0')  
     {
       vty_out (vty, "update timer value error\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   
   timeout = strtoul (argv[idx_number_2]->arg, &endptr, 10);
   if (timeout > RIP_TIMER_MAX || timeout < RIP_TIMER_MIN || *endptr != '\0') 
     {
       vty_out (vty, "timeout timer value error\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   
   garbage = strtoul (argv[idx_number_3]->arg, &endptr, 10);
   if (garbage > RIP_TIMER_MAX || garbage < RIP_TIMER_MIN || *endptr != '\0') 
     {
       vty_out (vty, "garbage timer value error\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Set each timer value. */
@@ -3103,7 +3103,7 @@ rip_distance_set (struct vty *vty, const char *distance_str, const char *ip_str,
   if (ret == 0)
     {
       vty_out (vty, "Malformed prefix\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   distance = atoi (distance_str);
@@ -3149,14 +3149,14 @@ rip_distance_unset (struct vty *vty, const char *distance_str,
   if (ret == 0)
     {
       vty_out (vty, "Malformed prefix\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   rn = route_node_lookup (rip_distance_table, (struct prefix *)&p);
   if (! rn)
     {
       vty_out (vty, "Can't find specified prefix\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   rdistance = rn->info;
@@ -3387,7 +3387,7 @@ DEFUN (rip_allow_ecmp,
   if (rip->ecmp)
     {
       vty_out (vty, "ECMP is already enabled.\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   rip->ecmp = 1;
@@ -3404,7 +3404,7 @@ DEFUN (no_rip_allow_ecmp,
   if (!rip->ecmp)
     {
       vty_out (vty, "ECMP is already disabled.\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   rip->ecmp = 0;

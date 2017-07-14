@@ -236,7 +236,7 @@ DEFUN (no_router_eigrp,
   if (eigrp->AS != atoi (argv[3]->arg))
     {
       vty_out (vty,"%% Attempting to deconfigure non-existent AS\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   eigrp_finish_final (eigrp);
@@ -394,7 +394,7 @@ DEFUN (eigrp_network,
   if (ret == 0)
     {
       vty_out (vty, "There is already same network statement.\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -418,7 +418,7 @@ DEFUN (no_eigrp_network,
   if (ret == 0)
   {
     vty_out (vty,"Can't find specified network configuration.\n");
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   }
 
   return CMD_SUCCESS;
@@ -866,7 +866,7 @@ str2auth_type (const char *str, struct interface *ifp)
 {
   /* Sanity check. */
   if (str == NULL)
-     return CMD_WARNING;
+     return CMD_WARNING_CONFIG_FAILED;
 
   if(strncmp(str, "md5",3) == 0)
     {
@@ -879,7 +879,7 @@ str2auth_type (const char *str, struct interface *ifp)
       return CMD_SUCCESS;
     }
 
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (eigrp_authentication_mode,
@@ -1032,7 +1032,7 @@ DEFUN (eigrp_redistribute_source_metric,
   argv_find (argv, argc, "redistribute", &idx);
   source = proto_redistnum(AFI_IP, argv[idx+1]->arg);
   if (source < 0 )
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   /* Get metrics values */
 
@@ -1061,7 +1061,7 @@ DEFUN (no_eigrp_redistribute_source_metric,
   argv_find (argv, argc, "redistribute", &idx);
   source = proto_redistnum(AFI_IP, argv[idx+1]->arg);
   if (source < 0 )
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   /* Get metrics values */
 

@@ -1183,7 +1183,7 @@ DEFUN (router_info,
         {
           vty_out (vty, "%% specified Area ID %s is invalid\n",
                    area);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       scope = OSPF_OPAQUE_AREA_LSA;
     }
@@ -1197,7 +1197,7 @@ DEFUN (router_info,
   if ((ospf_router_info_register (scope)) != 0)
     {
       zlog_warn ("Enable to register Router Information callbacks. Abort!");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   OspfRI.status = enabled;
@@ -1274,12 +1274,12 @@ DEFUN (pce_address,
   struct ospf_pce_info *pi = &OspfRI.pce_info;
 
   if (!ospf_ri_enabled (vty))
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (!inet_aton (argv[idx_ipv4]->arg, &value))
     {
       vty_out (vty, "Please specify PCE Address by A.B.C.D\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (ntohs (pi->pce_address.header.type) == 0
@@ -1326,12 +1326,12 @@ DEFUN (pce_path_scope,
   struct ospf_pce_info *pi = &OspfRI.pce_info;
 
   if (!ospf_ri_enabled (vty))
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (sscanf (argv[idx_bitpattern]->arg, "0x%x", &scope) != 1)
     {
       vty_out (vty, "pce_path_scope: fscanf: %s\n",safe_strerror(errno));
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (ntohl (pi->pce_scope.header.type) == 0 || scope != pi->pce_scope.value)
@@ -1380,12 +1380,12 @@ DEFUN (pce_domain,
   struct ri_pce_subtlv_domain *domain;
 
   if (!ospf_ri_enabled (vty))
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (sscanf (argv[idx_number]->arg, "%d", &as) != 1)
     {
       vty_out (vty, "pce_domain: fscanf: %s\n",safe_strerror(errno));
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Check if the domain is not already in the domain list */
@@ -1422,7 +1422,7 @@ DEFUN (no_pce_domain,
   if (sscanf (argv[idx_number]->arg, "%d", &as) != 1)
     {
       vty_out (vty, "no_pce_domain: fscanf: %s\n",safe_strerror(errno));
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Unset corresponding PCE domain */
@@ -1451,12 +1451,12 @@ DEFUN (pce_neigbhor,
   struct ri_pce_subtlv_neighbor *neighbor;
 
   if (!ospf_ri_enabled (vty))
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (sscanf (argv[idx_number]->arg, "%d", &as) != 1)
     {
       vty_out (vty, "pce_neighbor: fscanf: %s\n",safe_strerror(errno));
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Check if the domain is not already in the domain list */
@@ -1493,7 +1493,7 @@ DEFUN (no_pce_neighbor,
   if (sscanf (argv[idx_number]->arg, "%d", &as) != 1)
     {
       vty_out (vty, "no_pce_neighbor: fscanf: %s\n",safe_strerror(errno));
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Unset corresponding PCE domain */
@@ -1519,12 +1519,12 @@ DEFUN (pce_cap_flag,
   struct ospf_pce_info *pce = &OspfRI.pce_info;
 
   if (!ospf_ri_enabled (vty))
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (sscanf (argv[idx_bitpattern]->arg, "0x%x", &cap) != 1)
     {
       vty_out (vty, "pce_cap_flag: fscanf: %s\n",safe_strerror(errno));
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (ntohl (pce->pce_cap_flag.header.type) == 0

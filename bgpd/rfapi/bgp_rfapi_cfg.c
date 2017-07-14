@@ -300,7 +300,7 @@ DEFUN (vnc_advertise_un_method,
   if (!bgp->rfapi_cfg)
     {
       vty_out (vty, "VNC not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
 
@@ -348,7 +348,7 @@ set_ecom_list (
           vty_out (vty, "Malformed community-list value\n");
           if (ecom)
             ecommunity_free (&ecom);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
 
       if (ecom)
@@ -436,13 +436,13 @@ DEFUN (vnc_defaults_rd,
       if (!argv[1]->arg[8] || *end)
         {
           vty_out (vty, "%% Malformed rd\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       if (value32 > 0xffff)
         {
           vty_out (vty, "%% Malformed rd (must be less than %u\n",
                    0x0ffff);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
 
       memset (&prd, 0, sizeof (prd));
@@ -461,7 +461,7 @@ DEFUN (vnc_defaults_rd,
       if (!ret)
         {
           vty_out (vty, "%% Malformed rd\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -492,14 +492,14 @@ DEFUN (vnc_defaults_l2rd,
       if (!argv[1]->arg[0] || *end)
         {
           vty_out (vty, "%% Malformed l2 nve ID \"%s\"\n",argv[1]->arg);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       if ((value_l < 1) || (value_l > 0xff))
         {
           vty_out (vty,
                    "%% Malformed l2 nve id (must be greater than 0 and less than %u\n",
                    0x100);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
   bgp->rfapi_cfg->flags |= BGP_VNC_CONFIG_L2RD;
@@ -536,7 +536,7 @@ DEFUN (vnc_defaults_responselifetime,
 
   h = bgp->rfapi;
   if (!h)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   if (strmatch(argv[1]->text, "infinite"))
     {
@@ -801,20 +801,20 @@ DEFUN (vnc_redistribute_rh_roo_localadmin,
   if (!bgp->rfapi_cfg)
     {
       vty_out (vty, "RFAPI not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   localadmin = strtoul (argv[4]->arg, &endptr, 0);
   if (!argv[4]->arg[0] || *endptr)
     {
       vty_out (vty, "%% Malformed value\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (localadmin > 0xffff)
     {
       vty_out (vty, "%% Value out of range (0-%d)\n", 0xffff);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (bgp->rfapi_cfg->resolve_nve_roo_local_admin == localadmin)
@@ -857,7 +857,7 @@ DEFUN (vnc_redistribute_mode,
   if (!bgp->rfapi_cfg)
     {
       vty_out (vty, "RFAPI not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
 
@@ -877,7 +877,7 @@ DEFUN (vnc_redistribute_mode,
 
     default:
       vty_out (vty, "unknown redistribute mode\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (newmode != bgp->rfapi_cfg->redist_mode)
@@ -912,13 +912,13 @@ DEFUN (vnc_redistribute_protocol,
   if (!bgp->rfapi_cfg)
     {
       vty_out (vty, "RFAPI not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (rfapi_str2route_type (argv[2]->arg, argv[3]->arg, &afi, &type))
     {
       vty_out (vty, "%% Invalid route type\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (type == ZEBRA_ROUTE_BGP_DIRECT_EXT)
@@ -960,13 +960,13 @@ DEFUN (vnc_no_redistribute_protocol,
   if (!bgp->rfapi_cfg)
     {
       vty_out (vty, "RFAPI not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (rfapi_str2route_type (argv[3]->arg, argv[4]->arg, &afi, &type))
     {
       vty_out (vty, "%% Invalid route type\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   VNC_REDIST_DISABLE (bgp, afi, type);
@@ -1001,13 +1001,13 @@ DEFUN (vnc_redistribute_bgp_exterior,
   if (!bgp->rfapi_cfg)
     {
       vty_out (vty, "RFAPI not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (rfapi_str2route_type (argv[2]->arg, "bgp-direct-to-nve-groups", &afi, &type))
     {
       vty_out (vty, "%% Invalid route type\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (bgp->rfapi_cfg->redist_bgp_exterior_view_name)
@@ -1033,7 +1033,7 @@ DEFUN (vnc_redistribute_nvegroup,
   if (!bgp->rfapi_cfg)
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   vnc_redistribute_prechange (bgp);
@@ -1066,7 +1066,7 @@ DEFUN (vnc_redistribute_no_nvegroup,
   if (!bgp->rfapi_cfg)
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   vnc_redistribute_prechange (bgp);
@@ -1096,7 +1096,7 @@ DEFUN (vnc_redistribute_lifetime,
   if (!bgp->rfapi_cfg)
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   vnc_redistribute_prechange (bgp);
@@ -1136,7 +1136,7 @@ DEFUN (vnc_redist_bgpdirect_no_prefixlist,
   if (!(hc = bgp->rfapi_cfg))
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (strmatch(argv[3]->text, "bgp-direct"))
@@ -1189,7 +1189,7 @@ DEFUN (vnc_redist_bgpdirect_prefixlist,
   if (!(hc = bgp->rfapi_cfg))
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (strmatch(argv[2]->text, "bgp-direct"))
@@ -1239,7 +1239,7 @@ DEFUN (vnc_redist_bgpdirect_no_routemap,
   if (!(hc = bgp->rfapi_cfg))
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (strmatch(argv[3]->text, "bgp-direct"))
@@ -1279,7 +1279,7 @@ DEFUN (vnc_redist_bgpdirect_routemap,
   if (!(hc = bgp->rfapi_cfg))
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (strmatch(argv[2]->text, "bgp-direct"))
@@ -1324,7 +1324,7 @@ DEFUN (vnc_nve_group_redist_bgpdirect_no_prefixlist,
   if (!bgp->rfapi_cfg)
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* make sure it's still in list */
@@ -1332,7 +1332,7 @@ DEFUN (vnc_nve_group_redist_bgpdirect_no_prefixlist,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (strmatch(argv[3]->text, "ipv4"))
@@ -1373,7 +1373,7 @@ DEFUN (vnc_nve_group_redist_bgpdirect_prefixlist,
   if (!bgp->rfapi_cfg)
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* make sure it's still in list */
@@ -1381,7 +1381,7 @@ DEFUN (vnc_nve_group_redist_bgpdirect_prefixlist,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (strmatch(argv[2]->text, "ipv4"))
@@ -1420,7 +1420,7 @@ DEFUN (vnc_nve_group_redist_bgpdirect_no_routemap,
   if (!bgp->rfapi_cfg)
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* make sure it's still in list */
@@ -1428,7 +1428,7 @@ DEFUN (vnc_nve_group_redist_bgpdirect_no_routemap,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   vnc_redistribute_prechange (bgp);
@@ -1456,7 +1456,7 @@ DEFUN (vnc_nve_group_redist_bgpdirect_routemap,
   if (!bgp->rfapi_cfg)
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* make sure it's still in list */
@@ -1464,7 +1464,7 @@ DEFUN (vnc_nve_group_redist_bgpdirect_routemap,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   vnc_redistribute_prechange (bgp);
@@ -1505,7 +1505,7 @@ DEFUN (vnc_export_mode,
   if (!bgp->rfapi_cfg)
     {
       vty_out (vty, "VNC not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (argv[2]->arg[0] == 'b')
@@ -1527,7 +1527,7 @@ DEFUN (vnc_export_mode,
           break;
         default:
           vty_out (vty, "Invalid mode specified\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
 
       if (newmode == oldmode)
@@ -1551,7 +1551,7 @@ DEFUN (vnc_export_mode,
        * export to zebra with RH mode is not yet implemented
        */
       vty_out (vty,"Changing modes for zebra export not implemented yet\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
 
       oldmode = bgp->rfapi_cfg->flags & BGP_VNC_CONFIG_EXPORT_ZEBRA_MODE_BITS;
       bgp->rfapi_cfg->flags &= ~BGP_VNC_CONFIG_EXPORT_ZEBRA_MODE_BITS;
@@ -1591,7 +1591,7 @@ DEFUN (vnc_export_mode,
           break;
         default:
           vty_out (vty, "Invalid mode\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -1626,7 +1626,7 @@ DEFUN (vnc_export_nvegroup,
   if (!bgp->rfapi_cfg)
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   rfg_new = bgp_rfapi_cfg_match_byname (bgp, argv[5]->arg, RFAPI_GROUP_CFG_NVE);
@@ -1728,7 +1728,7 @@ DEFUN (vnc_no_export_nvegroup,
   if (!bgp->rfapi_cfg)
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (argv[2]->arg[0] == 'b')
@@ -1789,7 +1789,7 @@ DEFUN (vnc_nve_group_export_no_prefixlist,
   if (!bgp->rfapi_cfg)
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* make sure it's still in list */
@@ -1797,7 +1797,7 @@ DEFUN (vnc_nve_group_export_no_prefixlist,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (strmatch(argv[3]->text, "ipv4"))
@@ -1858,7 +1858,7 @@ DEFUN (vnc_nve_group_export_prefixlist,
   if (!bgp->rfapi_cfg)
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* make sure it's still in list */
@@ -1866,7 +1866,7 @@ DEFUN (vnc_nve_group_export_prefixlist,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (strmatch(argv[2]->text, "ipv4"))
@@ -1915,7 +1915,7 @@ DEFUN (vnc_nve_group_export_no_routemap,
   if (!bgp->rfapi_cfg)
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* make sure it's still in list */
@@ -1923,7 +1923,7 @@ DEFUN (vnc_nve_group_export_no_routemap,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (argv[2]->arg[0] == 'b')
@@ -1974,7 +1974,7 @@ DEFUN (vnc_nve_group_export_routemap,
   if (!bgp->rfapi_cfg)
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* make sure it's still in list */
@@ -1982,7 +1982,7 @@ DEFUN (vnc_nve_group_export_routemap,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (argv[1]->arg[0] == 'b')
@@ -2025,7 +2025,7 @@ DEFUN (vnc_nve_export_no_prefixlist,
   if (!(hc = bgp->rfapi_cfg))
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (strmatch(argv[4]->text, "ipv4"))
@@ -2086,7 +2086,7 @@ DEFUN (vnc_nve_export_prefixlist,
   if (!(hc = bgp->rfapi_cfg))
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (strmatch(argv[3]->text, "ipv4"))
@@ -2133,7 +2133,7 @@ DEFUN (vnc_nve_export_no_routemap,
   if (!(hc = bgp->rfapi_cfg))
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (argv[3]->arg[0] == 'b')
@@ -2184,7 +2184,7 @@ DEFUN (vnc_nve_export_routemap,
   if (!(hc = bgp->rfapi_cfg))
     {
       vty_out (vty, "rfapi not configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (argv[2]->arg[0] == 'b')
@@ -2431,7 +2431,7 @@ DEFUN_NOSH (vnc_nve_group,
         {
           /* Error out of memory */
           vty_out (vty, "Can't allocate memory for NVE group\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
 
       /* Copy defaults from struct rfapi_cfg */
@@ -2645,7 +2645,7 @@ bgp_rfapi_delete_named_nve_group (
         {
           if (vty)
             vty_out (vty, "No NVE group named \"%s\"\n",rfg_name);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -2735,20 +2735,20 @@ DEFUN (vnc_nve_group_prefix,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (!str2prefix (argv[2]->arg, &p))
     {
       vty_out (vty, "Malformed prefix \"%s\"\n", argv[2]->arg);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   afi = family2afi (p.family);
   if (!afi)
     {
       vty_out (vty, "Unsupported address family\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (argv[1]->arg[0] == 'u')
@@ -2776,7 +2776,7 @@ DEFUN (vnc_nve_group_prefix,
           vty_out (vty, "nve group \"%s\" already has \"%s\" prefix %s\n",
                    ((struct rfapi_nve_group_cfg *) (rn->info))->name,
                    argv[1]->arg, argv[2]->arg);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       else
         {
@@ -2854,7 +2854,7 @@ DEFUN (vnc_nve_group_rt_import,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   rc = set_ecom_list (vty, argc - 2, argv + 2, &rfg->rt_import_list);
@@ -2920,7 +2920,7 @@ DEFUN (vnc_nve_group_rt_export,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (bgp->rfapi_cfg->rfg_redist == rfg)
@@ -2958,7 +2958,7 @@ DEFUN (vnc_nve_group_rt_both,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   rc = set_ecom_list (vty, argc - 2, argv + 2, &rfg->rt_import_list);
@@ -3039,7 +3039,7 @@ DEFUN (vnc_nve_group_l2rd,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (strmatch(argv[1]->text, "auto:vn"))
@@ -3055,14 +3055,14 @@ DEFUN (vnc_nve_group_l2rd,
       if (!argv[1]->arg[0] || *end)
         {
           vty_out (vty, "%% Malformed l2 nve ID \"%s\"\n",argv[1]->arg);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       if ((value_l < 1) || (value_l > 0xff))
         {
           vty_out (vty,
                    "%% Malformed l2 nve id (must be greater than 0 and less than %u\n",
                    0x100);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
 
       rfg->l2rd = value;
@@ -3086,7 +3086,7 @@ DEFUN (vnc_nve_group_no_l2rd,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   rfg->l2rd = 0;
@@ -3111,7 +3111,7 @@ DEFUN (vnc_nve_group_rd,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (!strncmp (argv[1]->arg, "auto:vn:", 8))
@@ -3127,13 +3127,13 @@ DEFUN (vnc_nve_group_rd,
       if (!argv[1]->arg[8] || *end)
         {
           vty_out (vty, "%% Malformed rd\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       if (value32 > 0xffff)
         {
           vty_out (vty, "%% Malformed rd (must be less than %u\n",
                    0x0ffff);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
 
       memset (&prd, 0, sizeof (prd));
@@ -3152,7 +3152,7 @@ DEFUN (vnc_nve_group_rd,
       if (!ret)
         {
           vty_out (vty, "%% Malformed rd\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -3187,7 +3187,7 @@ DEFUN (vnc_nve_group_responselifetime,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (strmatch(argv[1]->text, "infinite"))
@@ -3256,7 +3256,7 @@ DEFUN_NOSH (vnc_vrf_policy,
   if (!bgp)
     {
       vty_out (vty, "No BGP process is configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Search for name */
@@ -3269,7 +3269,7 @@ DEFUN_NOSH (vnc_vrf_policy,
         {
           /* Error out of memory */
           vty_out (vty, "Can't allocate memory for NVE group\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
   /*
@@ -3293,7 +3293,7 @@ DEFUN (vnc_no_vrf_policy,
   if (!bgp)
     {
       vty_out (vty, "No BGP process is configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   return bgp_rfapi_delete_named_nve_group (vty, bgp, argv[2]->arg, RFAPI_GROUP_CFG_VRF);
 }
@@ -3312,7 +3312,7 @@ DEFUN (vnc_vrf_policy_label,
   if (!bgp)
     {
       vty_out (vty, "No BGP process is configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* make sure it's still in list */
@@ -3320,7 +3320,7 @@ DEFUN (vnc_vrf_policy_label,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   label = strtoul(argv[1]->arg, NULL, 10);
@@ -3353,7 +3353,7 @@ DEFUN (vnc_vrf_policy_no_label,
     {
       /* Not in list anymore */
       vty_out (vty, "Current VRF group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (bgp->rfapi_cfg->rfg_redist == rfg)
@@ -3388,7 +3388,7 @@ DEFUN (vnc_vrf_policy_nexthop,
     {
       /* Not in list anymore */
       vty_out (vty, "Current VRF no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (bgp->rfapi_cfg->rfg_redist == rfg)
@@ -3438,7 +3438,7 @@ DEFUN (vnc_vrf_policy_rt_import,
   if (!bgp)
     {
       vty_out (vty, "No BGP process is configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* make sure it's still in list */
@@ -3446,7 +3446,7 @@ DEFUN (vnc_vrf_policy_rt_import,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   rc = set_ecom_list (vty, argc-2, argv+2, &rfg->rt_import_list);
@@ -3510,7 +3510,7 @@ DEFUN (vnc_vrf_policy_rt_export,
   if (!bgp)
     {
       vty_out (vty, "No BGP process is configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* make sure it's still in list */
@@ -3518,7 +3518,7 @@ DEFUN (vnc_vrf_policy_rt_export,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (bgp->rfapi_cfg->rfg_redist == rfg)
@@ -3554,7 +3554,7 @@ DEFUN (vnc_vrf_policy_rt_both,
   if (!bgp)
     {
       vty_out (vty, "No BGP process is configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* make sure it's still in list */
@@ -3562,7 +3562,7 @@ DEFUN (vnc_vrf_policy_rt_both,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   rc = set_ecom_list (vty, argc-2, argv+2, &rfg->rt_import_list);
@@ -3642,7 +3642,7 @@ DEFUN (vnc_vrf_policy_rd,
   if (!bgp)
     {
       vty_out (vty, "No BGP process is configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* make sure it's still in list */
@@ -3650,7 +3650,7 @@ DEFUN (vnc_vrf_policy_rd,
     {
       /* Not in list anymore */
       vty_out (vty, "Current NVE group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (!strncmp (argv[1]->arg, "auto:nh:", 8))
@@ -3666,13 +3666,13 @@ DEFUN (vnc_vrf_policy_rd,
       if (!*(argv[1]->arg + 5) || *end)
         {
           vty_out (vty, "%% Malformed rd\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       if (value32 > 0xffff)
         {
           vty_out (vty, "%% Malformed rd (must be less than %u\n",
                    0x0ffff);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
 
       memset (&prd, 0, sizeof (prd));
@@ -3691,7 +3691,7 @@ DEFUN (vnc_vrf_policy_rd,
       if (!ret)
         {
           vty_out (vty, "%% Malformed rd\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -3743,7 +3743,7 @@ DEFUN_NOSH (vnc_l2_group,
   if (!bgp)
     {
       vty_out (vty, "No BGP process is configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Search for name */
@@ -3756,7 +3756,7 @@ DEFUN_NOSH (vnc_l2_group,
         {
           /* Error out of memory */
           vty_out (vty, "Can't allocate memory for L2 group\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       rfg->name = strdup (argv[1]->arg);
       /* add to tail of list */
@@ -3809,7 +3809,7 @@ bgp_rfapi_delete_named_l2_group (
         {
           if (vty)
             vty_out (vty, "No L2 group named \"%s\"\n",rfg_name);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -3834,7 +3834,7 @@ DEFUN (vnc_no_l2_group,
   if (!bgp)
     {
       vty_out (vty, "No BGP process is configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   return bgp_rfapi_delete_named_l2_group (vty, bgp, argv[3]->arg);
 }
@@ -3852,7 +3852,7 @@ DEFUN (vnc_l2_group_lni,
   if (!bgp)
     {
       vty_out (vty, "No BGP process is configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* make sure it's still in list */
@@ -3860,7 +3860,7 @@ DEFUN (vnc_l2_group_lni,
     {
       /* Not in list anymore */
       vty_out (vty, "Current L2 group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   rfg->logical_net_id = strtoul(argv[1]->arg, NULL, 10);
@@ -3881,7 +3881,7 @@ DEFUN (vnc_l2_group_labels,
   if (!bgp)
     {
       vty_out (vty, "No BGP process is configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* make sure it's still in list */
@@ -3889,7 +3889,7 @@ DEFUN (vnc_l2_group_labels,
     {
       /* Not in list anymore */
       vty_out (vty, "Current L2 group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ll = rfg->labels;
@@ -3925,7 +3925,7 @@ DEFUN (vnc_l2_group_no_labels,
   if (!bgp)
     {
       vty_out (vty, "No BGP process is configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* make sure it's still in list */
@@ -3933,14 +3933,14 @@ DEFUN (vnc_l2_group_no_labels,
     {
       /* Not in list anymore */
       vty_out (vty, "Current L2 group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ll = rfg->labels;
   if (ll == NULL)
     {
       vty_out (vty, "Label no longer associated with group\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   argc-=2;
@@ -3988,7 +3988,7 @@ DEFUN (vnc_l2_group_rt,
   if (!bgp)
     {
       vty_out (vty, "No BGP process is configured\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* make sure it's still in list */
@@ -3996,7 +3996,7 @@ DEFUN (vnc_l2_group_rt,
     {
       /* Not in list anymore */
       vty_out (vty, "Current L2 group no longer exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (do_import)

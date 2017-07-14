@@ -272,7 +272,7 @@ DEFUN (no_key_chain,
   if (! keychain)
     {
       vty_out (vty, "Can't find keychain %s\n", argv[idx_word]->arg);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   keychain_delete (keychain);
@@ -315,7 +315,7 @@ DEFUN (no_key,
   if (! key)
     {
       vty_out (vty, "Can't find key %d\n", index);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   key_delete (keychain, key);
@@ -478,20 +478,20 @@ key_lifetime_set (struct vty *vty, struct key_range *krange,
   if (time_start < 0)
     {
       vty_out (vty, "Malformed time value\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   time_end = key_str2time (etime_str, eday_str, emonth_str, eyear_str);
 
   if (time_end < 0)
     {
       vty_out (vty, "Malformed time value\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (time_end <= time_start)
     {
       vty_out (vty, "Expire time is not later than start time\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   krange->start = time_start;
@@ -513,7 +513,7 @@ key_lifetime_duration_set (struct vty *vty, struct key_range *krange,
   if (time_start < 0)
     {
       vty_out (vty, "Malformed time value\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   krange->start = time_start;
 
@@ -535,7 +535,7 @@ key_lifetime_infinite_set (struct vty *vty, struct key_range *krange,
   if (time_start < 0)
     {
       vty_out (vty, "Malformed time value\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   krange->start = time_start;
 

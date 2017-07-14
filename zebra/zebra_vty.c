@@ -80,7 +80,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
   if (ret <= 0)
     {
       vty_out (vty, "%% Malformed address\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Cisco like mask notation. */
@@ -90,7 +90,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
       if (ret == 0)
         {
           vty_out (vty, "%% Malformed address\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       p.prefixlen = ip_masklen (mask);
     }
@@ -114,7 +114,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
   if (!zvrf)
     {
       vty_out (vty, "%% vrf %s is not defined\n", vrf_id_str);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Labels */
@@ -124,7 +124,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
 	{
 	  vty_out (vty,
                      "%% MPLS not turned on in kernel, ignoring command\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
       int rc = mpls_str2label (label_str, &snh_label.num_labels,
                                snh_label.label);
@@ -143,7 +143,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
                      MPLS_MAX_LABELS);
             break;
           }
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -153,7 +153,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
       if (flag_str)
         {
           vty_out (vty, "%% can not have flag %s with Null0\n", flag_str);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       if (add_cmd)
         static_add_route (AFI_IP, safi, type, &p, NULL, NULL, ifindex, ifname,
@@ -177,7 +177,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
         break;
       default:
         vty_out (vty, "%% Malformed flag %s \n", flag_str);
-        return CMD_WARNING;
+        return CMD_WARNING_CONFIG_FAILED;
     }
   }
 
@@ -287,7 +287,7 @@ DEFUN (ip_multicast_mode,
   else
     {
       vty_out (vty, "Invalid mode specified\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -1992,7 +1992,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
   if (ret <= 0)
     {
       vty_out (vty, "%% Malformed address\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (src_str)
@@ -2001,7 +2001,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
       if (ret <= 0 || src.family != AF_INET6)
         {
           vty_out (vty, "%% Malformed source address\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       src_p = (struct prefix_ipv6*)&src;
     }
@@ -2029,7 +2029,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
   if (!zvrf)
     {
       vty_out (vty, "%% vrf %s is not defined\n", vrf_id_str);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Labels */
@@ -2040,7 +2040,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
         {
           vty_out (vty,
                      "%% MPLS not turned on in kernel, ignoring command\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       int rc = mpls_str2label (label_str, &snh_label.num_labels,
                                snh_label.label);
@@ -2059,7 +2059,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
                      MPLS_MAX_LABELS);
             break;
           }
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -2069,7 +2069,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
       if (flag_str)
         {
           vty_out (vty, "%% can not have flag %s with Null0\n", flag_str);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       if (add_cmd)
         static_add_route (AFI_IP6, SAFI_UNICAST, type, &p, src_p, NULL, ifindex, ifname,
@@ -2093,7 +2093,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
         break;
       default:
         vty_out (vty, "%% Malformed flag %s \n", flag_str);
-        return CMD_WARNING;
+        return CMD_WARNING_CONFIG_FAILED;
     }
   }
 
@@ -2104,7 +2104,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
       if (ret != 1)
         {
           vty_out (vty, "%% Malformed address\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       type = STATIC_IPV6_GATEWAY_IFINDEX;
       gate = &gate_addr;
@@ -2112,7 +2112,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
       if (!ifp)
         {
           vty_out (vty, "%% Malformed Interface name %s\n", ifname);
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       ifindex = ifp->ifindex;
     }

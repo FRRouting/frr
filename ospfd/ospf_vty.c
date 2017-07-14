@@ -151,7 +151,7 @@ DEFUN_NOSH (router_ospf,
   if (!ospf)
     {
       vty_out (vty, "There isn't active ospf instance \n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (argc > 2)
@@ -214,7 +214,7 @@ DEFUN (ospf_router_id,
   if (!ret)
     {
       vty_out (vty, "Please specify Router ID by A.B.C.D\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ospf->router_id_static = router_id;
@@ -249,7 +249,7 @@ DEFUN_HIDDEN (ospf_router_id_old,
   if (!ret)
     {
       vty_out (vty, "Please specify Router ID by A.B.C.D\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ospf->router_id_static = router_id;
@@ -390,7 +390,7 @@ DEFUN (ospf_passive_interface,
       if (!ret)
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_get_if_params (ifp, addr);
@@ -459,7 +459,7 @@ DEFUN (no_ospf_passive_interface,
       if (!ret)
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_lookup_if_params (ifp, addr);
@@ -509,13 +509,13 @@ DEFUN (ospf_network_area,
   if (ospf->instance)
     {
       vty_out (vty, "The network command is not supported in multi-instance ospf\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (ospf->if_ospf_cli_count > 0)
     {
       vty_out (vty, "Please remove all ip ospf area x.x.x.x commands first.\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Get network prefix and Area ID. */
@@ -526,7 +526,7 @@ DEFUN (ospf_network_area,
   if (ret == 0)
     {
       vty_out (vty, "There is already same network statement.\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -552,7 +552,7 @@ DEFUN (no_ospf_network_area,
   if (ospf->instance)
     {
       vty_out (vty, "The network command is not supported in multi-instance ospf\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Get network prefix and Area ID. */
@@ -563,7 +563,7 @@ DEFUN (no_ospf_network_area,
   if (ret == 0)
     {
       vty_out (vty, "Can't find specified network area configuration.\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -868,7 +868,7 @@ ospf_vl_set_security (struct ospf_vl_data *vl_data,
 	{
 	  vty_out (vty, "OSPF: Key %d already exists\n",
 		   vl_config->crypto_key_id);
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
       ck = ospf_crypt_key_new ();
       ck->key_id = vl_config->crypto_key_id;
@@ -886,7 +886,7 @@ ospf_vl_set_security (struct ospf_vl_data *vl_data,
 	{
 	  vty_out (vty, "OSPF: Key %d does not exist\n", 
 		   vl_config->crypto_key_id);
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
       
       ospf_crypt_key_delete (IF_DEF_PARAMS (ifp)->auth_crypt, vl_config->crypto_key_id);
@@ -940,7 +940,7 @@ ospf_vl_set (struct ospf *ospf, struct ospf_vl_config_data *vl_config)
 
   vl_data = ospf_find_vl_data (ospf, vl_config);
   if (!vl_data)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
   
   /* Process this one first as it can have a fatal result, which can
      only logically occur if the virtual link exists already
@@ -1029,14 +1029,14 @@ DEFUN (ospf_area_vlink,
   if (ret < 0)
     {
       vty_out (vty, "OSPF area ID is invalid\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ret = inet_aton (argv[idx_ipv4]->arg, &vl_config.vl_peer);
   if (! ret)
     {
       vty_out (vty, "Please specify valid Router ID as a.b.c.d\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (argc <=4)
@@ -1097,7 +1097,7 @@ DEFUN (ospf_area_vlink,
 	    {
 	      vl_config.crypto_key_id = strtol (argv[i]->arg, NULL, 10);
 	      if (vl_config.crypto_key_id < 0)
-		return CMD_WARNING;
+                return CMD_WARNING_CONFIG_FAILED;
 	      i++;
 	      if (i < argc)
 		{
@@ -1148,21 +1148,21 @@ DEFUN (no_ospf_area_vlink,
   if (ret < 0)
     {
       vty_out (vty, "OSPF area ID is invalid\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   area = ospf_area_lookup_by_area_id (ospf, vl_config.area_id);
   if (!area)
     {
       vty_out (vty, "Area does not exist\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ret = inet_aton (argv[idx_ipv4]->arg, &vl_config.vl_peer);
   if (! ret)
     {
       vty_out (vty, "Please specify valid Router ID as a.b.c.d\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (argc <=5)
@@ -1212,11 +1212,11 @@ DEFUN (no_ospf_area_vlink,
 	    {
 	      vl_config.crypto_key_id = strtol (argv[i]->arg, NULL, 10);
 	      if (vl_config.crypto_key_id < 0)
-		return CMD_WARNING;
+                return CMD_WARNING_CONFIG_FAILED;
 	      vl_config.md5_key = NULL;
 	    }
 	  else
-	    return CMD_WARNING;
+            return CMD_WARNING_CONFIG_FAILED;
 	  break;
 
 	}
@@ -1247,14 +1247,14 @@ DEFUN (ospf_area_vlink_intervals,
   if (ret < 0)
     {
       vty_out (vty, "OSPF area ID is invalid\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ret = inet_aton (router_id, &vl_config.vl_peer);
   if (! ret)
     {
       vty_out (vty, "Please specify valid Router ID as a.b.c.d\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   for (int idx = 4; idx < argc; idx++)
@@ -1293,14 +1293,14 @@ DEFUN (no_ospf_area_vlink_intervals,
   if (ret < 0)
     {
       vty_out (vty, "OSPF area ID is invalid\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ret = inet_aton (router_id, &vl_config.vl_peer);
   if (! ret)
     {
       vty_out (vty, "Please specify valid Router ID as a.b.c.d\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   for (int idx = 5; idx < argc; idx++)
@@ -1350,7 +1350,7 @@ DEFUN (ospf_area_shortcut,
   else if (strncmp (argv[idx_enable_disable]->arg, "e", 1) == 0)
     mode = OSPF_SHORTCUT_ENABLE;
   else
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ospf_area_shortcut_set (ospf, area, mode);
 
@@ -1410,7 +1410,7 @@ DEFUN (ospf_area_stub,
   if (ret == 0)
     {
       vty_out (vty, "First deconfigure all virtual link through this area\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ospf_area_no_summary_unset (ospf, area_id);
@@ -1439,7 +1439,7 @@ DEFUN (ospf_area_stub_no_summary,
   if (ret == 0)
     {
       vty_out (vty, "%% Area cannot be stub as it contains a virtual link\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ospf_area_no_summary_set (ospf, area_id);
@@ -1505,7 +1505,7 @@ ospf_area_nssa_cmd_handler (struct vty *vty, int argc, struct cmd_token **argv,
   if (ret == 0)
     {
       vty_out (vty, "%% Area cannot be nssa as it contains a virtual link\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (argc > 3)
@@ -1644,7 +1644,7 @@ DEFUN (ospf_area_default_cost,
   if (area->external_routing == OSPF_AREA_DEFAULT)
     {
       vty_out (vty, "The area is neither stub, nor NSSA\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   area->default_cost = cost;
@@ -1687,7 +1687,7 @@ DEFUN (no_ospf_area_default_cost,
   if (area->external_routing == OSPF_AREA_DEFAULT)
     {
       vty_out (vty, "The area is neither stub, nor NSSA\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   area->default_cost = 1;
@@ -2016,7 +2016,7 @@ DEFUN (ospf_abr_type,
   else if (strncmp (argv[idx_vendor]->arg, "st", 2) == 0)
     abr_type = OSPF_ABR_STAND;
   else
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   /* If ABR type value is changed, schedule ABR task. */
   if (ospf->abr_type != abr_type)
@@ -2052,7 +2052,7 @@ DEFUN (no_ospf_abr_type,
   else if (strncmp (argv[idx_vendor]->arg, "st", 2) == 0)
     abr_type = OSPF_ABR_STAND;
   else
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   /* If ABR type value is changed, schedule ABR task. */
   if (ospf->abr_type == abr_type)
@@ -2191,7 +2191,7 @@ DEFUN (ospf_timers_min_ls_interval,
   if (argc < 5)
     {
       vty_out (vty, "Insufficient arguments\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   interval = strtoul(argv[idx_number]->arg, NULL, 10);
@@ -2233,7 +2233,7 @@ DEFUN (ospf_timers_min_ls_arrival,
   if (argc < 4)
     {
       vty_out (vty, "Insufficient arguments\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   arrival = strtoul(argv[idx_number]->arg, NULL, 10);
@@ -2278,7 +2278,7 @@ DEFUN (ospf_timers_throttle_spf,
   if (argc < 6)
     {
       vty_out (vty, "Insufficient arguments\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   
   delay = strtoul(argv[idx_number]->arg, NULL, 10);
@@ -2321,7 +2321,7 @@ DEFUN (ospf_timers_lsa,
   if (argc < 4)
     {
       vty_out (vty, "Insufficient number of arguments\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   minarrival = strtoul(argv[idx_number]->arg, NULL, 10);
@@ -2535,7 +2535,7 @@ DEFUN (ospf_auto_cost_reference_bandwidth,
   if (refbw < 1 || refbw > 4294967)
     {
       vty_out (vty, "reference-bandwidth value is invalid\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* If reference bandwidth is changed. */
@@ -2594,7 +2594,7 @@ DEFUN (ospf_write_multiplier,
   if (write_oi_count < 1 || write_oi_count > 100)
     {
       vty_out (vty, "write-multiplier value is invalid\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ospf->write_oi_count = write_oi_count;
@@ -5493,7 +5493,7 @@ DEFUN (ip_ospf_authentication_args,
       if (!ret)
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_get_if_params (ifp, addr);
@@ -5517,7 +5517,7 @@ DEFUN (ip_ospf_authentication_args,
     }
 
   vty_out (vty, "You shouldn't get here!\n");
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (ip_ospf_authentication,
@@ -5542,7 +5542,7 @@ DEFUN (ip_ospf_authentication,
       if (!ret)
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_get_if_params (ifp, addr);
@@ -5583,14 +5583,14 @@ DEFUN (no_ip_ospf_authentication_args,
       if (!ret)
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_lookup_if_params (ifp, addr);
       if (params == NULL)
 	{
 	  vty_out (vty, "Ip Address specified is unknown\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
       params->auth_type = OSPF_AUTH_NOTSET;
       UNSET_IF_PARAM (params, auth_type);
@@ -5613,7 +5613,7 @@ DEFUN (no_ip_ospf_authentication_args,
       else
 	{
 	  vty_out (vty, "Unexpected input encountered\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
       /*
        * Here we have a case where the user has entered
@@ -5672,14 +5672,14 @@ DEFUN (no_ip_ospf_authentication,
       if (!ret)
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_lookup_if_params (ifp, addr);
       if (params == NULL)
 	{
 	  vty_out (vty, "Ip Address specified is unknown\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params->auth_type = OSPF_AUTH_NOTSET;
@@ -5751,7 +5751,7 @@ DEFUN (ip_ospf_authentication_key,
       if (!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_get_if_params (ifp, addr);
@@ -5796,7 +5796,7 @@ DEFUN (no_ip_ospf_authentication_key,
       if (!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_lookup_if_params (ifp, addr);
@@ -5857,7 +5857,7 @@ DEFUN (ip_ospf_message_digest_key,
       if (!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_get_if_params (ifp, addr);
@@ -5868,7 +5868,7 @@ DEFUN (ip_ospf_message_digest_key,
   if (ospf_crypt_key_lookup (params->auth_crypt, key_id) != NULL)
     {
       vty_out (vty, "OSPF: Key %d already exists\n", key_id);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ck = ospf_crypt_key_new ();
@@ -5923,7 +5923,7 @@ DEFUN (no_ip_ospf_message_digest_key,
       if (!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_lookup_if_params (ifp, addr);
@@ -5936,7 +5936,7 @@ DEFUN (no_ip_ospf_message_digest_key,
   if (ck == NULL)
     {
       vty_out (vty, "OSPF: Key %d does not exist\n", key_id);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ospf_crypt_key_delete (params->auth_crypt, key_id);
@@ -5990,7 +5990,7 @@ DEFUN (ip_ospf_cost,
       if(!inet_aton(ifaddr, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_get_if_params (ifp, addr);
@@ -6044,7 +6044,7 @@ DEFUN (no_ip_ospf_cost,
       if (!inet_aton(ifaddr, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_lookup_if_params (ifp, addr);
@@ -6115,7 +6115,7 @@ ospf_vty_dead_interval_set (struct vty *vty, const char *interval_str,
       if (!ret)
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_get_if_params (ifp, addr);
@@ -6141,7 +6141,7 @@ ospf_vty_dead_interval_set (struct vty *vty, const char *interval_str,
   else
     {
       vty_out (vty, "Please specify dead-interval or hello-multiplier\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
     
   SET_IF_PARAM (params, v_wait);
@@ -6240,7 +6240,7 @@ DEFUN (no_ip_ospf_dead_interval,
       if (!ret)
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_lookup_if_params (ifp, addr);
@@ -6318,7 +6318,7 @@ DEFUN (ip_ospf_hello_interval,
       if(!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_get_if_params (ifp, addr);
@@ -6364,7 +6364,7 @@ DEFUN (no_ip_ospf_hello_interval,
       if(!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_lookup_if_params (ifp, addr);
@@ -6415,7 +6415,7 @@ DEFUN (ip_ospf_network,
   if (old_type == OSPF_IFTYPE_LOOPBACK)
     {
       vty_out (vty, "This is a loopback interface. Can't set network type.\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (argv_find (argv, argc, "broadcast", &idx))
@@ -6543,7 +6543,7 @@ DEFUN (ip_ospf_priority,
       if (!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_get_if_params (ifp, addr);
@@ -6604,7 +6604,7 @@ DEFUN (no_ip_ospf_priority,
       if (!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_lookup_if_params (ifp, addr);
@@ -6674,7 +6674,7 @@ DEFUN (ip_ospf_retransmit_interval,
       if (!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_get_if_params (ifp, addr);
@@ -6720,7 +6720,7 @@ DEFUN (no_ip_ospf_retransmit_interval,
       if (!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_lookup_if_params (ifp, addr);
@@ -6776,7 +6776,7 @@ DEFUN (ip_ospf_transmit_delay,
       if (!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_get_if_params (ifp, addr);
@@ -6821,7 +6821,7 @@ DEFUN (no_ip_ospf_transmit_delay,
       if (!inet_aton(argv[idx]->arg, &addr))
 	{
 	  vty_out (vty, "Please specify interface address by A.B.C.D\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       params = ospf_lookup_if_params (ifp, addr);
@@ -6898,20 +6898,20 @@ DEFUN (ip_ospf_area,
   if (ret < 0)
     {
       vty_out (vty, "Please specify area by A.B.C.D|<0-4294967295>\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   if (memcmp (ifp->name, "VLINK", 5) == 0)
     {
       vty_out (vty, "Cannot enable OSPF on a virtual link.\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   params = IF_DEF_PARAMS (ifp);
-  if (OSPF_IF_PARAM_CONFIGURED(params, if_area))
+  if (OSPF_IF_PARAM_CONFIGURED(params, if_area) && !IPV4_ADDR_SAME(&params->if_area, &area_id))
     {
       vty_out (vty,
                "Must remove previous area config before changing ospf area \n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   // Check if we have an address arg and proccess it
@@ -6923,7 +6923,7 @@ DEFUN (ip_ospf_area,
       {
 	vty_out (vty,
 		 "Must remove previous area/address config before changing ospf area");
-	return CMD_WARNING;
+        return CMD_WARNING_CONFIG_FAILED;
       }
     ospf_if_update_params ((ifp), (addr));
   }
@@ -6933,7 +6933,7 @@ DEFUN (ip_ospf_area,
       if (rn->info != NULL)
         {
           vty_out (vty, "Please remove all network commands first.\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -6986,7 +6986,7 @@ DEFUN (no_ip_ospf_area,
   if (!OSPF_IF_PARAM_CONFIGURED(params, if_area))
     {
       vty_out (vty, "Can't find specified interface area configuration.\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }  
 
   UNSET_IF_PARAM (params, if_area);
@@ -7027,19 +7027,19 @@ DEFUN (ospf_redistribute_source,
   /* Get distribute source. */
   source = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
   if (source < 0)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   red = ospf_redist_add(ospf, source, 0);
 
   /* Get metric value. */
   if (argv_find (argv, argc, "(0-16777214)", &idx)) {
     if (!str2metric (argv[idx]->arg, &metric))
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
   }
   /* Get metric type. */
   else if (argv_find (argv, argc, "(1-2)", &idx)) {
     if (!str2metric_type (argv[idx]->arg, &type))
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
   }
   /* Get route-map */
   else if (argv_find (argv, argc, "WORD", &idx)) {
@@ -7071,7 +7071,7 @@ DEFUN (no_ospf_redistribute_source,
 
   source = proto_redistnum(AFI_IP, argv[idx_protocol]->text);
   if (source < 0)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   red = ospf_redist_lookup(ospf, source, 0);
   if (!red)
@@ -7118,25 +7118,25 @@ DEFUN (ospf_redistribute_instance_source,
   if ((source == ZEBRA_ROUTE_OSPF) && !ospf->instance)
     {
       vty_out (vty, "Instance redistribution in non-instanced OSPF not allowed\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if ((source == ZEBRA_ROUTE_OSPF) && (ospf->instance == instance))
     {
       vty_out (vty, "Same instance OSPF redistribution not allowed\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Get metric value. */
   if (argv_find (argv, argc, "metric", &idx))
     if (!str2metric (argv[idx+1]->arg, &metric))
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
 
   idx = 3;
   /* Get metric type. */
   if (argv_find (argv, argc, "metric-type", &idx))
     if (!str2metric_type (argv[idx+1]->arg, &type))
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
 
   red = ospf_redist_add(ospf, source, instance);
 
@@ -7181,13 +7181,13 @@ DEFUN (no_ospf_redistribute_instance_source,
   if ((source == ZEBRA_ROUTE_OSPF) && !ospf->instance)
     {
       vty_out (vty, "Instance redistribution in non-instanced OSPF not allowed\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if ((source == ZEBRA_ROUTE_OSPF) && (ospf->instance == instance))
     {
       vty_out (vty, "Same instance OSPF redistribution not allowed\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   red = ospf_redist_lookup(ospf, source, instance);
@@ -7215,7 +7215,7 @@ DEFUN (ospf_distribute_list_out,
   /* Get distribute source. */
   source = proto_redistnum(AFI_IP, proto);
   if (source < 0)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   return ospf_distribute_list_out_set (ospf, source, argv[idx_word]->arg);
 }
@@ -7236,7 +7236,7 @@ DEFUN (no_ospf_distribute_list_out,
   char *proto = argv[argc - 1]->text;
   source = proto_redistnum(AFI_IP, proto);
   if (source < 0)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   return ospf_distribute_list_out_unset (ospf, source, argv[idx_word]->arg);
 }
@@ -7270,12 +7270,12 @@ DEFUN (ospf_default_information_originate,
   /* Get metric value */
   else if (argv_find (argv, argc, "(0-16777214)", &idx)) {
     if (!str2metric (argv[idx]->arg, &metric))
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
   }
   /* Get metric type. */
   else if (argv_find (argv, argc, "(1-2)", &idx)) {
     if (!str2metric_type (argv[idx]->arg, &type))
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
   }
   /* Get route-map */
   else if (argv_find (argv, argc, "WORD", &idx))
@@ -7337,7 +7337,7 @@ DEFUN (ospf_default_metric,
   int metric = -1;
 
   if (!str2metric (argv[idx_number]->arg, &metric))
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   ospf->default_metric = metric;
 
@@ -7549,7 +7549,7 @@ DEFUN (ip_ospf_mtu_ignore,
       if (!ret)
         {
           vty_out (vty, "Please specify interface address by A.B.C.D\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       params = ospf_get_if_params (ifp, addr);
       ospf_if_update_params (ifp, addr);
@@ -7591,7 +7591,7 @@ DEFUN (no_ip_ospf_mtu_ignore,
       if (!ret)
         {
           vty_out (vty, "Please specify interface address by A.B.C.D\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       params = ospf_get_if_params (ifp, addr);
       ospf_if_update_params (ifp, addr);
@@ -7680,7 +7680,7 @@ DEFUN (ospf_max_metric_router_lsa_startup,
   if (argc != 1)
     {
       vty_out (vty, "%% Must supply stub-router period");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   
   seconds = strtoul(argv[idx_number]->arg, NULL, 10);
@@ -7736,7 +7736,7 @@ DEFUN (ospf_max_metric_router_lsa_shutdown,
   if (argc != 1)
     {
       vty_out (vty, "%% Must supply stub-router shutdown period");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   
   seconds = strtoul(argv[idx_number]->arg, NULL, 10);

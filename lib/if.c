@@ -693,7 +693,7 @@ DEFUN (interface,
       vty_out (vty, "%% Interface name %s is invalid: length exceeds "
 		    "%d characters\n",
 	       ifname, INTERFACE_NAMSIZ);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
 /*Pending: need proper vrf name based lookup/(possible creation of VRF)
@@ -710,7 +710,7 @@ DEFUN (interface,
   if (!ifp)
     {
       vty_out (vty, "%% interface %s not in %s\n", ifname, vrfname);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   VTY_PUSH_CONTEXT (INTERFACE_NODE, ifp);
 
@@ -740,13 +740,13 @@ DEFUN_NOSH (no_interface,
   if (ifp == NULL)
     {
       vty_out (vty, "%% Interface %s does not exist\n", ifname);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE)) 
     {
       vty_out (vty, "%% Only inactive interfaces can be deleted\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if_delete(ifp);

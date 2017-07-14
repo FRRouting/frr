@@ -69,7 +69,7 @@ DEFUN (debug_ripng_events,
        "Debug option set for ripng events\n")
 {
   ripng_debug_event = RIPNG_DEBUG_EVENT;
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (debug_ripng_packet,
@@ -112,7 +112,7 @@ DEFUN (debug_ripng_zebra,
        "Debug option set for ripng and zebra communication\n")
 {
   ripng_debug_zebra = RIPNG_DEBUG_ZEBRA;
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (no_debug_ripng_events,
@@ -176,7 +176,7 @@ DEFUN (no_debug_ripng_zebra,
        "Debug option set for ripng and zebra communication\n")
 {
   ripng_debug_zebra = 0;
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 /* Debug node. */

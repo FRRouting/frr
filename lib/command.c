@@ -1150,7 +1150,7 @@ DEFUN (config_terminal,
   else
     {
       vty_out (vty, "VTY configuration is locked by other VTY\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   return CMD_SUCCESS;
 }
@@ -1720,7 +1720,7 @@ DEFUN (config_hostname,
   if (!isalpha((int) word->arg[0]))
     {
       vty_out (vty, "Please specify string starting with alphabet\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return cmd_hostname_set (word->arg);
@@ -1761,7 +1761,7 @@ DEFUN (config_password,
     {
       vty_out (vty,
                "Please specify string starting with alphanumeric\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (host.password)
@@ -1810,7 +1810,7 @@ DEFUN (config_enable_password,
       else
         {
           vty_out (vty, "Unknown encryption type.\n");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
     }
 
@@ -1818,7 +1818,7 @@ DEFUN (config_enable_password,
     {
       vty_out (vty,
                "Please specify string starting with alphanumeric\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (host.enable)
@@ -2132,14 +2132,14 @@ set_log_file(struct vty *vty, const char *fname, int loglevel)
       if (getcwd (cwd, MAXPATHLEN) == NULL)
         {
           zlog_err ("config_log_file: Unable to alloc mem!");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
 
       if ( (p = XMALLOC (MTYPE_TMP, strlen (cwd) + strlen (fname) + 2))
           == NULL)
         {
           zlog_err ("config_log_file: Unable to alloc mem!");
-          return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
         }
       sprintf (p, "%s/%s", cwd, fname);
       fullpath = p;
@@ -2155,7 +2155,7 @@ set_log_file(struct vty *vty, const char *fname, int loglevel)
   if (!ret)
     {
       vty_out (vty, "can't open logfile %s\n", fname);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (host.logfile)
@@ -2369,7 +2369,7 @@ cmd_banner_motd_file (const char *file)
       host.motdfile = XSTRDUP (MTYPE_HOST, file);
     }
   else
-    success = CMD_WARNING;
+    success = CMD_WARNING_CONFIG_FAILED;
 
   return success;
 }
@@ -2388,7 +2388,7 @@ DEFUN (banner_motd_file,
 
   if (cmd == CMD_ERR_NO_FILE)
     vty_out (vty, "%s does not exist", filename);
-  else if (cmd == CMD_WARNING)
+  else if (cmd == CMD_WARNING_CONFIG_FAILED)
     vty_out (vty, "%s must be in %s", filename, SYSCONFDIR);
 
   return cmd;

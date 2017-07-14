@@ -86,7 +86,7 @@ DEFUN (debug_bgp_vnc,
 	}
     }
   vty_out (vty, "Unknown debug flag: %s\n", argv[3]->arg);
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (no_debug_bgp_vnc,
@@ -125,7 +125,7 @@ DEFUN (no_debug_bgp_vnc,
 	}
     }
   vty_out (vty, "Unknown debug flag: %s\n", argv[3]->arg);
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 

@@ -1168,7 +1168,7 @@ static int
 rip_passive_nondefault_set (struct vty *vty, const char *ifname)
 {
   if (rip_passive_nondefault_lookup (ifname) >= 0)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   vector_set (Vrip_passive_nondefault, strdup (ifname));
 
@@ -1185,7 +1185,7 @@ rip_passive_nondefault_unset (struct vty *vty, const char *ifname)
 
   i = rip_passive_nondefault_lookup (ifname);
   if (i < 0)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   str = vector_slot (Vrip_passive_nondefault, i);
   free (str);
@@ -1235,7 +1235,7 @@ DEFUN (rip_network,
     {
       vty_out (vty, "There is a same network configuration %s\n",
                  argv[idx_ipv4_word]->arg);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -1265,7 +1265,7 @@ DEFUN (no_rip_network,
     {
       vty_out (vty, "Can't find network configuration %s\n",
                  argv[idx_ipv4_word]->arg);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   return CMD_SUCCESS;
@@ -1287,7 +1287,7 @@ DEFUN (rip_neighbor,
   if (ret <= 0)
     {
       vty_out (vty, "Please specify address by A.B.C.D\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   rip_neighbor_add (&p);
@@ -1312,7 +1312,7 @@ DEFUN (no_rip_neighbor,
   if (ret <= 0)
     {
       vty_out (vty, "Please specify address by A.B.C.D\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   rip_neighbor_delete (&p);
@@ -1351,7 +1351,7 @@ DEFUN (ip_rip_receive_version,
       break;
     }
 
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (ip_rip_receive_version_1,
@@ -1422,7 +1422,7 @@ DEFUN (ip_rip_send_version,
       ri->ri_send = RI_RIP_VERSION_2;
       return CMD_SUCCESS;
     }
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (ip_rip_send_version_1,
@@ -1535,7 +1535,7 @@ DEFUN (ip_rip_authentication_mode,
     if (auth_type != RIP_AUTH_MD5)
     {
       vty_out (vty, "auth length argument only valid for md5\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
     if (strmatch ("rfc", authlen))
       ri->md5_auth_len = RIP_AUTH_MD5_SIZE;
@@ -1593,13 +1593,13 @@ DEFUN (ip_rip_authentication_string,
     {
       vty_out (vty,
                  "%% RIPv2 authentication string must be shorter than 16\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (ri->key_chain)
     {
       vty_out (vty, "%% key-chain configuration exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (ri->auth_str)
@@ -1652,7 +1652,7 @@ DEFUN (ip_rip_authentication_key_chain,
   if (ri->auth_str)
     {
       vty_out (vty,"%% authentication string configuration exists\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (ri->key_chain)

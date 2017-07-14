@@ -480,7 +480,7 @@ DEFUN (ip_irdp_minadvertinterval,
   else {
       vty_out (vty, "%% MinAdvertInterval must be less than or equal to "
                       "MaxAdvertInterval\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
   }
 }
 
@@ -507,7 +507,7 @@ DEFUN (ip_irdp_maxadvertinterval,
   else {
       vty_out (vty, "%% MaxAdvertInterval must be greater than or equal to "
                       "MinAdvertInterval\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
   }
 }
 
@@ -561,7 +561,7 @@ DEFUN (ip_irdp_address_preference,
   irdp=&zi->irdp;
 
   ret = inet_aton(argv[idx_ipv4]->arg, &ip);
-  if(!ret) return CMD_WARNING;
+  if(!ret) return CMD_WARNING_CONFIG_FAILED;
 
   pref = atoi(argv[idx_number]->arg);
 
@@ -603,7 +603,7 @@ DEFUN (no_ip_irdp_address_preference,
 
   ret = inet_aton(argv[idx_ipv4]->arg, &ip);
   if (!ret)
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   for (ALL_LIST_ELEMENTS (irdp->AdvPrefList, node, nnode, adv))
     {

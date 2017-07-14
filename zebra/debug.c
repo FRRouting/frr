@@ -93,7 +93,7 @@ DEFUN (debug_zebra_events,
        "Debug option set for zebra events\n")
 {
   zebra_debug_event = ZEBRA_DEBUG_EVENT;
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (debug_zebra_nht,
@@ -104,7 +104,7 @@ DEFUN (debug_zebra_nht,
        "Debug option set for zebra next hop tracking\n")
 {
   zebra_debug_nht = ZEBRA_DEBUG_NHT;
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (debug_zebra_mpls,
@@ -115,7 +115,7 @@ DEFUN (debug_zebra_mpls,
        "Debug option set for zebra MPLS LSPs\n")
 {
   zebra_debug_mpls = ZEBRA_DEBUG_MPLS;
-  return CMD_WARNING;
+  return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (debug_zebra_packet,

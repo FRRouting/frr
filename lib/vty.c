@@ -2202,7 +2202,7 @@ vtysh_read (struct thread *thread)
               if (ret == CMD_SUSPEND)
                 break;
 
-              /* warning: watchquagga hardcodes this result write */
+              /* warning: watchfrr hardcodes this result write */
               header[3] = ret;
               buffer_put(vty->obuf, header, 4);
 
@@ -2801,7 +2801,7 @@ DEFUN (no_vty_access_class,
   if (! vty_accesslist_name || (argc == 3 && strcmp(vty_accesslist_name, accesslist)))
     {
       vty_out (vty,"Access-class is not currently applied to vty\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   XFREE(MTYPE_VTY, vty_accesslist_name);
@@ -2844,7 +2844,7 @@ DEFUN (no_vty_ipv6_access_class,
       (argc == 4 && strcmp(vty_ipv6_accesslist_name, accesslist)))
     {
       vty_out (vty,"IPv6 access-class is not currently applied to vty\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   XFREE(MTYPE_VTY, vty_ipv6_accesslist_name);

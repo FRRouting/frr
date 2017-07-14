@@ -148,7 +148,9 @@ EXTRA_DIST = \
     lib/test_stream.refout \
     lib/test_table.py \
     lib/test_timer_correctness.py \
-    lib/test_ttable.py
+    lib/test_ttable.py \
+    lib/test_ttable.refout \
+    # end
 
 .PHONY: tests.xml
 tests.xml: $(check_PROGRAMS)

@@ -459,7 +459,7 @@ DEFUN (ip_as_path,
     {
       vty_out (vty, "can't compile regexp %s\n", regstr);
       XFREE (MTYPE_TMP, regstr);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   asfilter = as_filter_make (regex, regstr, type);
@@ -504,7 +504,7 @@ DEFUN (no_ip_as_path,
   if (aslist == NULL)
     {
       vty_out (vty, "ip as-path access-list %s doesn't exist\n",aslistname);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Check the filter type. */
@@ -515,7 +515,7 @@ DEFUN (no_ip_as_path,
   else
     {
       vty_out (vty, "filter type must be [permit|deny]\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   
   /* Compile AS path. */
@@ -527,7 +527,7 @@ DEFUN (no_ip_as_path,
     {
       vty_out (vty, "can't compile regexp %s\n", regstr);
       XFREE (MTYPE_TMP, regstr);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Lookup asfilter. */
@@ -539,7 +539,7 @@ DEFUN (no_ip_as_path,
   if (asfilter == NULL)
     {
       vty_out (vty, "\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   as_list_filter_delete (aslist, asfilter);
@@ -564,7 +564,7 @@ DEFUN (no_ip_as_path_all,
     {
       vty_out (vty, "ip as-path access-list %s doesn't exist\n",
                  argv[idx_word]->arg);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   as_list_delete (aslist);

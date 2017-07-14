@@ -1480,7 +1480,7 @@ DEFUN (multicast,
       if (ret < 0)
 	{
 	  vty_out (vty, "Can't set multicast flag\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
       if_refresh (ifp);
     }
@@ -1506,7 +1506,7 @@ DEFUN (no_multicast,
       if (ret < 0)
 	{
 	  vty_out (vty, "Can't unset multicast flag\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
       if_refresh (ifp);
     }
@@ -1572,7 +1572,7 @@ DEFUN (shutdown_if,
         if (ret < 0)
           {
             vty_out (vty, "Can't shutdown interface\n");
-            return CMD_WARNING;
+            return CMD_WARNING_CONFIG_FAILED;
           }
         if_refresh (ifp);
     }
@@ -1598,7 +1598,7 @@ DEFUN (no_shutdown_if,
       if (ret < 0)
 	{
 	  vty_out (vty, "Can't up interface\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
       if_refresh (ifp);
 
@@ -1630,7 +1630,7 @@ DEFUN (bandwidth_if,
   if (bandwidth < 1 || bandwidth > 100000)
     {
       vty_out (vty, "Bandwidth is invalid\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   
   ifp->bandwidth = bandwidth;
@@ -1754,7 +1754,7 @@ DEFUN (link_params_enable,
       if (IS_ZEBRA_DEBUG_EVENT)
         zlog_debug ("Link-params: failed to init TE link parameters  %s", ifp->name);
 
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* force protocols to update LINK STATE due to parameters change */
@@ -1832,7 +1832,7 @@ DEFUN (link_params_maxbw,
   if (sscanf (argv[idx_bandwidth]->arg, "%g", &bw) != 1)
     {
       vty_out (vty, "link_params_maxbw: fscanf: %s\n",safe_strerror(errno));
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Check that Maximum bandwidth is not lower than other bandwidth parameters */
@@ -1851,7 +1851,7 @@ DEFUN (link_params_maxbw,
     {
       vty_out (vty,
                "Maximum Bandwidth could not be lower than others bandwidth\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Update Maximum Bandwidth if needed */
@@ -1875,7 +1875,7 @@ DEFUN (link_params_max_rsv_bw,
     {
       vty_out (vty, "link_params_max_rsv_bw: fscanf: %s\n",
                  safe_strerror(errno));
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Check that bandwidth is not greater than maximum bandwidth parameter */
@@ -1884,7 +1884,7 @@ DEFUN (link_params_max_rsv_bw,
       vty_out (vty,
                "Maximum Reservable Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
                iflp->max_bw);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Update Maximum Reservable Bandwidth if needed */
@@ -1912,14 +1912,14 @@ DEFUN (link_params_unrsv_bw,
     {
       vty_out (vty, "link_params_unrsv_bw: fscanf: %s\n",
                  safe_strerror(errno));
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (sscanf (argv[idx_bandwidth]->arg, "%g", &bw) != 1)
     {
       vty_out (vty, "link_params_unrsv_bw: fscanf: %s\n",
                  safe_strerror(errno));
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Check that bandwidth is not greater than maximum bandwidth parameter */
@@ -1928,7 +1928,7 @@ DEFUN (link_params_unrsv_bw,
       vty_out (vty,
                "UnReserved Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
                iflp->max_bw);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Update Unreserved Bandwidth if needed */
@@ -1952,7 +1952,7 @@ DEFUN (link_params_admin_grp,
     {
       vty_out (vty, "link_params_admin_grp: fscanf: %s\n",
                safe_strerror(errno));
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Update Administrative Group if needed */
@@ -1995,7 +1995,7 @@ DEFUN (link_params_inter_as,
   if (!inet_aton (argv[idx_ipv4]->arg, &addr))
     {
       vty_out (vty, "Please specify Router-Addr by A.B.C.D\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   as = strtoul(argv[idx_number]->arg, NULL, 10);
@@ -2070,7 +2070,7 @@ DEFUN (link_params_delay,
       {
         vty_out (vty, "Average delay should be comprise between Min (%d) and Max (%d) delay\n",
                  iflp->min_delay, iflp->max_delay);
-        return CMD_WARNING;
+        return CMD_WARNING_CONFIG_FAILED;
       }
     /* Update delay if value is not set or change */
     if (IS_PARAM_UNSET(iflp, LP_DELAY)|| iflp->av_delay != delay)
@@ -2095,7 +2095,7 @@ DEFUN (link_params_delay,
       {
         vty_out (vty, "Average delay should be comprise between Min (%d) and Max (%d) delay\n",
                  low, high);
-        return CMD_WARNING;
+        return CMD_WARNING_CONFIG_FAILED;
       }
     /* Update Delays if needed */
     if (IS_PARAM_UNSET(iflp, LP_DELAY)
@@ -2191,7 +2191,7 @@ DEFUN (link_params_pkt_loss,
     {
       vty_out (vty, "link_params_pkt_loss: fscanf: %s\n",
                  safe_strerror(errno));
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (fval > MAX_PKT_LOSS)
@@ -2231,7 +2231,7 @@ DEFUN (link_params_res_bw,
   if (sscanf (argv[idx_bandwidth]->arg, "%g", &bw) != 1)
     {
       vty_out (vty, "link_params_res_bw: fscanf: %s\n",safe_strerror(errno));
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Check that bandwidth is not greater than maximum bandwidth parameter */
@@ -2240,7 +2240,7 @@ DEFUN (link_params_res_bw,
       vty_out (vty,
                "Residual Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
                iflp->max_bw);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Update Residual Bandwidth if needed */
@@ -2277,7 +2277,7 @@ DEFUN (link_params_ava_bw,
   if (sscanf (argv[idx_bandwidth]->arg, "%g", &bw) != 1)
     {
       vty_out (vty, "link_params_ava_bw: fscanf: %s\n",safe_strerror(errno));
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Check that bandwidth is not greater than maximum bandwidth parameter */
@@ -2286,7 +2286,7 @@ DEFUN (link_params_ava_bw,
       vty_out (vty,
                "Available Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
                iflp->max_bw);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Update Residual Bandwidth if needed */
@@ -2323,7 +2323,7 @@ DEFUN (link_params_use_bw,
   if (sscanf (argv[idx_bandwidth]->arg, "%g", &bw) != 1)
     {
       vty_out (vty, "link_params_use_bw: fscanf: %s\n",safe_strerror(errno));
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Check that bandwidth is not greater than maximum bandwidth parameter */
@@ -2332,7 +2332,7 @@ DEFUN (link_params_use_bw,
       vty_out (vty,
                "Utilised Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
                iflp->max_bw);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Update Utilized Bandwidth if needed */
@@ -2372,13 +2372,13 @@ ip_address_install (struct vty *vty, struct interface *ifp,
   if (ret <= 0)
     {
       vty_out (vty, "%% Malformed address \n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (ipv4_martian(&cp.prefix))
     {
       vty_out (vty, "%% Invalid address\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ifc = connected_check (ifp, (struct prefix *) &cp);
@@ -2430,7 +2430,7 @@ ip_address_install (struct vty *vty, struct interface *ifp,
 	{
 	  vty_out (vty, "%% Can't set interface IP address: %s.\n", 
 		   safe_strerror(errno));
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       SET_FLAG (ifc->conf, ZEBRA_IFC_QUEUED);
@@ -2456,7 +2456,7 @@ ip_address_uninstall (struct vty *vty, struct interface *ifp,
   if (ret <= 0)
     {
       vty_out (vty, "%% Malformed address \n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Check current interface address. */
@@ -2464,12 +2464,12 @@ ip_address_uninstall (struct vty *vty, struct interface *ifp,
   if (! ifc)
     {
       vty_out (vty, "%% Can't find address\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* This is not configured address. */
   if (! CHECK_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED))
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   UNSET_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED);
   
@@ -2479,7 +2479,7 @@ ip_address_uninstall (struct vty *vty, struct interface *ifp,
     {
       listnode_delete (ifp->connected, ifc);
       connected_free (ifc);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* This is real route. */
@@ -2488,7 +2488,7 @@ ip_address_uninstall (struct vty *vty, struct interface *ifp,
     {
       vty_out (vty, "%% Can't unset interface IP address: %s.\n", 
 	       safe_strerror(errno));
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   UNSET_FLAG (ifc->conf, ZEBRA_IFC_QUEUED);
   /* we will receive a kernel notification about this route being removed.
@@ -2572,13 +2572,13 @@ ipv6_address_install (struct vty *vty, struct interface *ifp,
   if (ret <= 0)
     {
       vty_out (vty, "%% Malformed address \n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (ipv6_martian(&cp.prefix))
     {
       vty_out (vty, "%% Invalid address\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   ifc = connected_check (ifp, (struct prefix *) &cp);
@@ -2626,7 +2626,7 @@ ipv6_address_install (struct vty *vty, struct interface *ifp,
 	{
 	  vty_out (vty, "%% Can't set interface IP address: %s.\n", 
 		   safe_strerror(errno));
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       SET_FLAG (ifc->conf, ZEBRA_IFC_QUEUED);
@@ -2665,7 +2665,7 @@ ipv6_address_uninstall (struct vty *vty, struct interface *ifp,
   if (ret <= 0)
     {
       vty_out (vty, "%% Malformed address \n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Check current interface address. */
@@ -2673,12 +2673,12 @@ ipv6_address_uninstall (struct vty *vty, struct interface *ifp,
   if (! ifc)
     {
       vty_out (vty, "%% Can't find address\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* This is not configured address. */
   if (! CHECK_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED))
-    return CMD_WARNING;
+    return CMD_WARNING_CONFIG_FAILED;
 
   UNSET_FLAG (ifc->conf, ZEBRA_IFC_CONFIGURED);
 
@@ -2688,7 +2688,7 @@ ipv6_address_uninstall (struct vty *vty, struct interface *ifp,
     {
       listnode_delete (ifp->connected, ifc);
       connected_free (ifc);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* This is real route. */
@@ -2697,7 +2697,7 @@ ipv6_address_uninstall (struct vty *vty, struct interface *ifp,
     {
       vty_out (vty, "%% Can't unset interface IP address: %s.\n", 
 	       safe_strerror(errno));
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   UNSET_FLAG (ifc->conf, ZEBRA_IFC_QUEUED);

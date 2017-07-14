@@ -74,10 +74,10 @@ zebra_route_match_add(struct vty *vty,
 	{
 	case RMAP_RULE_MISSING:
 	  vty_out (vty, "%% Zebra Can't find rule.\n");
-	  return CMD_WARNING;
+	  return CMD_WARNING_CONFIG_FAILED;
 	case RMAP_COMPILE_ERROR:
 	  vty_out (vty, "%% Zebra Argument is malformed.\n");
-	  return CMD_WARNING;
+	  return CMD_WARNING_CONFIG_FAILED;
 	}
     }
 
@@ -122,10 +122,10 @@ zebra_route_match_delete (struct vty *vty,
 	{
 	case RMAP_RULE_MISSING:
 	  vty_out (vty, "%% Zebra Can't find rule.\n");
-	  return CMD_WARNING;
+	  return CMD_WARNING_CONFIG_FAILED;
 	case RMAP_COMPILE_ERROR:
 	  vty_out (vty, "%% Zebra Argument is malformed.\n");
-	  return CMD_WARNING;
+	  return CMD_WARNING_CONFIG_FAILED;
 	}
     }
 
@@ -303,7 +303,7 @@ DEFUN (match_source_protocol,
   if (i < 0)
     {
       vty_out (vty, "invalid protocol name \"%s\"\n", proto);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   return zebra_route_match_add (vty, "source-protocol", proto, RMAP_EVENT_MATCH_ADDED);
 }
@@ -351,7 +351,7 @@ DEFUN (set_src,
       if (inet_pton(AF_INET6, argv[idx_ip]->arg, &src.ipv6) != 1)
 	{
 	  vty_out (vty, "%% not a valid IPv4/v6 address\n");
-	  return CMD_WARNING;
+          return CMD_WARNING_CONFIG_FAILED;
 	}
 
       p.family = family = AF_INET6;
@@ -368,7 +368,7 @@ DEFUN (set_src,
   if (!zebra_check_addr(&p))
     {
       vty_out (vty, "%% not a valid source IPv4/v6 address\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
@@ -387,7 +387,7 @@ DEFUN (set_src,
   if (!pif)
     {
       vty_out (vty, "%% not a local address\n");
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   VTY_DECLVAR_CONTEXT (route_map_index, index);
@@ -460,7 +460,7 @@ DEFUN (ip_protocol,
   if (i < 0)
     {
       vty_out (vty, "invalid protocol name \"%s\"\n", proto);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   if (proto_rm[AFI_IP][i])
     {
@@ -501,7 +501,7 @@ DEFUN (no_ip_protocol,
   if (i < 0)
     {
       vty_out (vty, "invalid protocol name \"%s\"\n", proto);
-     return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (!proto_rm[AFI_IP][i])
@@ -567,7 +567,7 @@ DEFUN (ipv6_protocol,
   if (i < 0)
     {
       vty_out (vty, "invalid protocol name \"%s\"\n", proto);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   if (proto_rm[AFI_IP6][i])
     {
@@ -607,7 +607,7 @@ DEFUN (no_ipv6_protocol,
   if (i < 0)
     {
       vty_out (vty, "invalid protocol name \"%s\"\n", proto);
-     return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   if (!proto_rm[AFI_IP6][i])
     return CMD_SUCCESS;
@@ -673,7 +673,7 @@ DEFUN (ip_protocol_nht_rmap,
   if (i < 0)
     {
       vty_out (vty, "invalid protocol name \"%s\"\n", proto);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   if (nht_rm[AFI_IP][i])
     {
@@ -708,7 +708,7 @@ DEFUN (no_ip_protocol_nht_rmap,
   if (i < 0)
     {
       vty_out (vty, "invalid protocol name \"%s\"\n", proto);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (!nht_rm[AFI_IP][i])
@@ -771,7 +771,7 @@ DEFUN (ipv6_protocol_nht_rmap,
   if (i < 0)
     {
       vty_out (vty, "invalid protocol name \"%s\"\n", proto);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
   if (nht_rm[AFI_IP6][i])
     XFREE (MTYPE_ROUTE_MAP_NAME, nht_rm[AFI_IP6][i]);
@@ -802,13 +802,13 @@ DEFUN (no_ipv6_protocol_nht_rmap,
   if (i < 0)
     {
       vty_out (vty, "invalid protocol name \"%s\"\n", proto);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (nht_rm[AFI_IP6][i] && rmap && strcmp(rmap, nht_rm[AFI_IP6][i]))
     {
       vty_out (vty, "invalid route-map \"%s\"\n", rmap);
-      return CMD_WARNING;
+      return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (nht_rm[AFI_IP6][i])
