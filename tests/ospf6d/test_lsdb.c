@@ -81,7 +81,7 @@ DEFPY(lsa_drop, lsa_drop_cmd,
 	if ((size_t)idx >= lsa_count)
 		return CMD_SUCCESS;
 	if (lsas[idx]->lock != 1)
-		vty_outln(vty, "refcount at %u", lsas[idx]->lock);
+		vty_out(vty, "refcount at %u\n", lsas[idx]->lock);
 	ospf6_lsa_unlock(lsas[idx]);
 	lsas[idx] = NULL;
 	return CMD_SUCCESS;
@@ -113,14 +113,14 @@ static void lsa_show_oneline(struct vty *vty, struct ospf6_lsa *lsa)
 	char adv_router[64], id[64];
 
 	if (!lsa) {
-		vty_outln(vty, "lsa = NULL");
+		vty_out(vty, "lsa = NULL\n");
 		return;
 	}
 	inet_ntop(AF_INET, &lsa->header->id,
 			id, sizeof (id));
 	inet_ntop(AF_INET, &lsa->header->adv_router,
 			adv_router, sizeof (adv_router));
-	vty_outln(vty, "type %u adv %s id %s",
+	vty_out(vty, "type %u adv %s id %s\n",
 			ntohs(lsa->header->type), adv_router, id);
 }
 
@@ -135,7 +135,7 @@ DEFPY(lsdb_walk, lsdb_walk_cmd,
 		lsa_show_oneline(vty, lsa);
 		cnt++;
 	}
-	vty_outln(vty, "%u entries.", cnt);
+	vty_out(vty, "%u entries.\n", cnt);
 	return CMD_SUCCESS;
 }
 
@@ -153,7 +153,7 @@ DEFPY(lsdb_walk_type, lsdb_walk_type_cmd,
 		lsa_show_oneline(vty, lsa);
 		cnt++;
 	}
-	vty_outln(vty, "%u entries.", cnt);
+	vty_out(vty, "%u entries.\n", cnt);
 	return CMD_SUCCESS;
 }
 
@@ -173,7 +173,7 @@ DEFPY(lsdb_walk_type_adv, lsdb_walk_type_adv_cmd,
 		lsa_show_oneline(vty, lsa);
 		cnt++;
 	}
-	vty_outln(vty, "%u entries.", cnt);
+	vty_out(vty, "%u entries.\n", cnt);
 	return CMD_SUCCESS;
 }
 
@@ -205,7 +205,7 @@ DEFPY(lsa_refcounts, lsa_refcounts_cmd,
 {
 	for (size_t i = 0; i < lsa_count; i++)
 		if (lsas[i])
-			vty_outln(vty, "[%zu] %u", i, lsas[i]->lock);
+			vty_out(vty, "[%zu] %u\n", i, lsas[i]->lock);
 	return CMD_SUCCESS;
 }
 
