@@ -2739,7 +2739,7 @@ peer_conf_interface_get (struct vty *vty, const char *conf_if, afi_t afi,
 
       if (!peer)
         {
-          vty_outln (vty, "%% BGP failed to create peer");
+          vty_out (vty, "%% BGP failed to create peer\n");
           return CMD_WARNING_CONFIG_FAILED;
         }
 
@@ -2891,7 +2891,7 @@ DEFUN (neighbor_peer_group,
   group = peer_group_get (bgp, argv[idx_word]->arg);
   if (! group)
     {
-      vty_outln (vty, "%% BGP failed to find or create peer-group");
+      vty_out (vty, "%% BGP failed to find or create peer-group\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -3662,7 +3662,7 @@ DEFUN (neighbor_capability_orf_prefix,
     flag = PEER_FLAG_ORF_PREFIX_SM|PEER_FLAG_ORF_PREFIX_RM;
   else
     {
-      vty_outln (vty, "%% BGP invalid orf prefix-list option");
+      vty_out (vty, "%% BGP invalid orf prefix-list option\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -3707,7 +3707,7 @@ DEFUN (no_neighbor_capability_orf_prefix,
     flag = PEER_FLAG_ORF_PREFIX_SM|PEER_FLAG_ORF_PREFIX_RM;
   else
     {
-      vty_outln (vty, "%% BGP invalid orf prefix-list option");
+      vty_out (vty, "%% BGP invalid orf prefix-list option\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -5159,7 +5159,7 @@ DEFUN (bgp_set_route_map_delay_timer,
     }
   else
     {
-      vty_outln (vty, "%% BGP invalid route-map delay-timer");
+      vty_out (vty, "%% BGP invalid route-map delay-timer\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 }
@@ -5189,7 +5189,7 @@ peer_interface_vty (struct vty *vty, const char *ip_str, const char *str)
   peer = peer_lookup_vty (vty, ip_str);
   if (! peer || peer->conf_if)
     {
-      vty_outln (vty, "%% BGP invalid peer %s", ip_str);
+      vty_out (vty, "%% BGP invalid peer %s\n", ip_str);
       return CMD_WARNING_CONFIG_FAILED;
     }
 

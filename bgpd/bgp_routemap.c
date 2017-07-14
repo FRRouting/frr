@@ -3592,7 +3592,7 @@ DEFUN (match_origin,
     return bgp_route_match_add (vty, "origin", "incomplete",
 				RMAP_EVENT_MATCH_ADDED);
 
-  vty_outln (vty, "%% Invalid match origin type");
+  vty_out (vty, "%% Invalid match origin type\n");
   return CMD_WARNING_CONFIG_FAILED;
 }
 
@@ -4153,7 +4153,7 @@ DEFUN (set_origin,
     return generic_set_add (vty, VTY_GET_CONTEXT(route_map_index), "origin",
                             "incomplete");
 
-  vty_outln (vty, "%% Invalid set origin type");
+  vty_out (vty, "%% Invalid set origin type\n");
   return CMD_WARNING_CONFIG_FAILED;
 }
 

@@ -52,7 +52,7 @@ struct graph *nodegraph = NULL, *nodegraph_free = NULL;
 
 #define check_nodegraph() \
   do { if (!nodegraph) { \
-      vty_outln(vty, "nodegraph not initialized"); \
+      vty_out(vty, "nodegraph not initialized\n"); \
       return CMD_WARNING; \
     } } while (0)
 

@@ -426,7 +426,7 @@ DEFUN(show_hash_stats,
   if (!_hashes)
     {
       pthread_mutex_unlock (&_hashes_mtx);
-      vty_outln (vty, "No hash tables in use.");
+      vty_out (vty, "No hash tables in use.\n");
       return CMD_SUCCESS;
     }
 
