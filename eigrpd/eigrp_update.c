@@ -297,7 +297,7 @@ eigrp_update_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *
           tlv = eigrp_read_ipv4_tlv(s);
 
           /*searching if destination exists */
-          dest_addr.family = AFI_IP;
+          dest_addr.family = AF_INET;
           dest_addr.prefix = tlv->destination;
           dest_addr.prefixlen = tlv->prefix_length;
           struct eigrp_prefix_entry *dest =

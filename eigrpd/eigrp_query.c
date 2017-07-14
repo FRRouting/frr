@@ -119,7 +119,7 @@ eigrp_query_receive (struct eigrp *eigrp, struct ip *iph, struct eigrp_header *e
 
           tlv = eigrp_read_ipv4_tlv(s);
 
-	  dest_addr.family = AFI_IP;
+	  dest_addr.family = AF_INET;
           dest_addr.prefix = tlv->destination;
           dest_addr.prefixlen = tlv->prefix_length;
           struct eigrp_prefix_entry *dest =

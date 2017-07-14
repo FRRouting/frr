@@ -59,6 +59,7 @@ static int
 config_write_network (struct vty *vty, struct eigrp *eigrp)
 {
   struct route_node *rn;
+  int i;
 
   /* `network area' print. */
   for (rn = route_top (eigrp->networks); rn; rn = route_next (rn))
@@ -74,6 +75,11 @@ config_write_network (struct vty *vty, struct eigrp *eigrp)
 
   if (eigrp->variance != EIGRP_VARIANCE_DEFAULT)
     vty_out (vty, " variance %d\n", eigrp->variance);
+
+  for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
+    if (i != zclient->redist_default &&
+	vrf_bitmap_check (zclient->redist[AFI_IP][i], VRF_DEFAULT))
+	vty_outln (vty, " redistribute %s", zebra_route_string(i));
 
   /*Separate EIGRP configuration from the rest of the config*/
   vty_out (vty, "!\n");

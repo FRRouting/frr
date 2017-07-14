@@ -496,11 +496,12 @@ eigrp_zebra_route_delete (struct prefix_ipv4 *p)
   return;
 }
 
-vrf_bitmap_t
+int
 eigrp_is_type_redistributed (int type)
 {
-  return (DEFAULT_ROUTE_TYPE (type)) ?
-    zclient->default_information : zclient->redist[AFI_IP][type];
+  return ((DEFAULT_ROUTE_TYPE (type)) ?
+	  vrf_bitmap_check (zclient->default_information, VRF_DEFAULT) :
+	  vrf_bitmap_check (zclient->redist[AFI_IP][type], VRF_DEFAULT));
 }
 
 int
@@ -528,11 +529,6 @@ eigrp_redistribute_set (struct eigrp *eigrp, int type, struct eigrp_metrics metr
   zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient,
                         AFI_IP, type, 0, VRF_DEFAULT);
 
-  //  if (IS_DEBUG_EIGRP (zebra, ZEBRA_REDISTRIBUTE))
-  //    zlog_debug ("Redistribute[%s]: Start  Type[%d], Metric[%d]",
-  //               ospf_redist_string(type),
-  //               metric_type (ospf, type), metric_value (ospf, type));
-
   ++eigrp->redistribute;
 
   return CMD_SUCCESS;
@@ -549,11 +545,6 @@ eigrp_redistribute_unset (struct eigrp *eigrp, int type)
                             AFI_IP, type, 0, VRF_DEFAULT);
       --eigrp->redistribute;
     }
-
-  //  if (IS_DEBUG_EIGRP (zebra, ZEBRA_REDISTRIBUTE))
-  //    zlog_debug ("Redistribute[%s]: Start  Type[%d], Metric[%d]",
-  //               ospf_redist_string(type),
-  //               metric_type (ospf, type), metric_value (ospf, type));
 
   return CMD_SUCCESS;
 }
