@@ -521,10 +521,10 @@ generic_match_add (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_outln (vty, "%% [%s] Can't find rule.", frr_protonameinst);
+          vty_out (vty, "%% [%s] Can't find rule.\n", frr_protonameinst);
           return CMD_WARNING_CONFIG_FAILED;
         case RMAP_COMPILE_ERROR:
-          vty_outln (vty, "%% [%s] Argument form is unsupported or malformed.",
+          vty_out (vty, "%% [%s] Argument form is unsupported or malformed.\n",
                      frr_protonameinst);
           return CMD_WARNING_CONFIG_FAILED;
         }
@@ -568,10 +568,10 @@ generic_match_delete (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_outln (vty, "%% [%s] Can't find rule.", frr_protonameinst);
+          vty_out (vty, "%% [%s] Can't find rule.\n", frr_protonameinst);
           break;
         case RMAP_COMPILE_ERROR:
-          vty_outln (vty, "%% [%s] Argument form is unsupported or malformed.",
+          vty_out (vty, "%% [%s] Argument form is unsupported or malformed.\n",
                      frr_protonameinst);
           break;
         }
@@ -605,10 +605,10 @@ generic_set_add (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_outln (vty, "%% [%s] Can't find rule.", frr_protonameinst);
+          vty_out (vty, "%% [%s] Can't find rule.\n", frr_protonameinst);
           return CMD_WARNING_CONFIG_FAILED;
         case RMAP_COMPILE_ERROR:
-          vty_outln (vty, "%% [%s] Argument form is unsupported or malformed.",
+          vty_out (vty, "%% [%s] Argument form is unsupported or malformed.\n",
                      frr_protonameinst);
           return CMD_WARNING_CONFIG_FAILED;
         }
@@ -628,10 +628,10 @@ generic_set_delete (struct vty *vty, struct route_map_index *index,
       switch (ret)
         {
         case RMAP_RULE_MISSING:
-          vty_outln (vty, "%% [%s] Can't find rule.", frr_protonameinst);
+          vty_out (vty, "%% [%s] Can't find rule.\n", frr_protonameinst);
           return CMD_WARNING_CONFIG_FAILED;
         case RMAP_COMPILE_ERROR:
-          vty_outln (vty, "%% [%s] Argument form is unsupported or malformed.",
+          vty_out (vty, "%% [%s] Argument form is unsupported or malformed.\n",
                      frr_protonameinst);
           return CMD_WARNING_CONFIG_FAILED;
         }
@@ -993,43 +993,43 @@ vty_show_route_map_entry (struct vty *vty, struct route_map *map)
   struct route_map_index *index;
   struct route_map_rule *rule;
 
-  vty_outln (vty, "%s:", frr_protonameinst);
+  vty_out (vty, "%s:\n", frr_protonameinst);
 
   for (index = map->head; index; index = index->next)
     {
-      vty_outln (vty, "route-map %s, %s, sequence %d",
+      vty_out (vty, "route-map %s, %s, sequence %d\n",
                map->name, route_map_type_str (index->type),
                index->pref);
 
       /* Description */
       if (index->description)
-	vty_outln (vty, "  Description:%s    %s", VTYNL,
+	vty_out (vty, "  Description:\n    %s\n",
 		 index->description);
       
       /* Match clauses */
-      vty_outln (vty, "  Match clauses:");
+      vty_out (vty, "  Match clauses:\n");
       for (rule = index->match_list.head; rule; rule = rule->next)
-        vty_outln (vty, "    %s %s", 
+        vty_out (vty, "    %s %s\n", 
                  rule->cmd->str, rule->rule_str);
       
-      vty_outln (vty, "  Set clauses:");
+      vty_out (vty, "  Set clauses:\n");
       for (rule = index->set_list.head; rule; rule = rule->next)
-        vty_outln (vty, "    %s %s",
+        vty_out (vty, "    %s %s\n",
                  rule->cmd->str, rule->rule_str);
       
       /* Call clause */
-      vty_outln (vty, "  Call clause:");
+      vty_out (vty, "  Call clause:\n");
       if (index->nextrm)
-        vty_outln (vty, "    Call %s", index->nextrm);
+        vty_out (vty, "    Call %s\n", index->nextrm);
       
       /* Exit Policy */
-      vty_outln (vty, "  Action:");
+      vty_out (vty, "  Action:\n");
       if (index->exitpolicy == RMAP_GOTO)
-        vty_outln (vty, "    Goto %d", index->nextpref);
+        vty_out (vty, "    Goto %d\n", index->nextpref);
       else if (index->exitpolicy == RMAP_NEXT)
-        vty_outln (vty, "    Continue to next entry");
+        vty_out (vty, "    Continue to next entry\n");
       else if (index->exitpolicy == RMAP_EXIT)
-        vty_outln (vty, "    Exit routemap");
+        vty_out (vty, "    Exit routemap\n");
     }
 }
 
@@ -1049,7 +1049,7 @@ vty_show_route_map (struct vty *vty, const char *name)
         }
       else
         {
-          vty_outln (vty, "%s: 'route-map %s' not found", frr_protonameinst,
+          vty_out (vty, "%s: 'route-map %s' not found\n", frr_protonameinst,
                    name);
           return CMD_SUCCESS;
         }
@@ -2359,14 +2359,14 @@ DEFUN (set_ip_nexthop,
   ret = str2sockunion (argv[idx_ipv4]->arg, &su);
   if (ret < 0)
     {
-      vty_outln (vty, "%% Malformed nexthop address");
+      vty_out (vty, "%% Malformed nexthop address\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
   if (su.sin.sin_addr.s_addr == 0 ||
       IPV4_CLASS_DE(su.sin.sin_addr.s_addr))
     {
-      vty_outln (vty,
-                 "%% nexthop address cannot be 0.0.0.0, multicast " "or reserved");
+      vty_out (vty,
+                 "%% nexthop address cannot be 0.0.0.0, multicast or reserved\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -2416,12 +2416,12 @@ DEFUN (set_ipv6_nexthop_local,
   ret = inet_pton (AF_INET6, argv[idx_ipv6]->arg, &addr);
   if (!ret)
     {
-      vty_outln (vty, "%% Malformed nexthop address");
+      vty_out (vty, "%% Malformed nexthop address\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
   if (!IN6_IS_ADDR_LINKLOCAL(&addr))
     {
-      vty_outln (vty, "%% Invalid link-local nexthop address");
+      vty_out (vty, "%% Invalid link-local nexthop address\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -2577,7 +2577,7 @@ DEFUN (no_route_map_all,
   map = route_map_lookup_by_name (mapname);
   if (map == NULL)
     {
-      vty_outln (vty, "%% Could not find route-map %s", mapname);
+      vty_out (vty, "%% Could not find route-map %s\n", mapname);
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -2612,7 +2612,7 @@ DEFUN (no_route_map,
   map = route_map_lookup_by_name (mapname);
   if (map == NULL)
     {
-      vty_outln (vty, "%% Could not find route-map %s", mapname);
+      vty_out (vty, "%% Could not find route-map %s\n", mapname);
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -2620,7 +2620,7 @@ DEFUN (no_route_map,
   index = route_map_index_lookup (map, permit, pref);
   if (index == NULL)
     {
-      vty_outln (vty, "%% Could not find route-map entry %s %s", 
+      vty_out (vty, "%% Could not find route-map entry %s %s\n", 
 	       mapname, prefstr);
       return CMD_WARNING_CONFIG_FAILED;
     }
@@ -2648,7 +2648,7 @@ DEFUN (rmap_onmatch_next,
       if (index->type == RMAP_DENY)
         {
 	  /* Under a deny clause, match means it's finished. No need to set next */
-	  vty_outln (vty,"on-match next not supported under route-map deny");
+	  vty_out (vty,"on-match next not supported under route-map deny\n");
           return CMD_WARNING_CONFIG_FAILED;
         }
       index->exitpolicy = RMAP_NEXT;
@@ -2689,7 +2689,7 @@ DEFUN (rmap_onmatch_goto,
       if (index->type == RMAP_DENY)
         {
 	  /* Under a deny clause, match means it's finished. No need to go anywhere */
-	  vty_outln (vty,"on-match goto not supported under route-map deny");
+	  vty_out (vty,"on-match goto not supported under route-map deny\n");
           return CMD_WARNING_CONFIG_FAILED;
         }
 
@@ -2701,7 +2701,7 @@ DEFUN (rmap_onmatch_goto,
       if (d <= index->pref)
 	{
 	  /* Can't allow you to do that, Dave */
-	  vty_outln (vty, "can't jump backwards in route-maps");
+	  vty_out (vty, "can't jump backwards in route-maps\n");
           return CMD_WARNING_CONFIG_FAILED;
 	}
       else
@@ -2860,31 +2860,31 @@ route_map_config_write (struct vty *vty)
     for (index = map->head; index; index = index->next)
       {
 	if (!first)
-	  vty_outln (vty, "!");
+	  vty_out (vty, "!\n");
 	else
 	  first = 0;
 
-	vty_outln (vty, "route-map %s %s %d", 
+	vty_out (vty, "route-map %s %s %d\n", 
 		 map->name,
 		 route_map_type_str (index->type),
 		 index->pref);
 
 	if (index->description)
-	  vty_outln (vty, " description %s", index->description);
+	  vty_out (vty, " description %s\n", index->description);
 
 	for (rule = index->match_list.head; rule; rule = rule->next)
-	  vty_outln (vty, " match %s %s", rule->cmd->str, 
+	  vty_out (vty, " match %s %s\n", rule->cmd->str, 
 		   rule->rule_str ? rule->rule_str : "");
 
 	for (rule = index->set_list.head; rule; rule = rule->next)
-	  vty_outln (vty, " set %s %s", rule->cmd->str,
+	  vty_out (vty, " set %s %s\n", rule->cmd->str,
 		   rule->rule_str ? rule->rule_str : "");
    if (index->nextrm)
-     vty_outln (vty, " call %s", index->nextrm);
+     vty_out (vty, " call %s\n", index->nextrm);
 	if (index->exitpolicy == RMAP_GOTO)
-      vty_outln (vty, " on-match goto %d", index->nextpref);
+      vty_out (vty, " on-match goto %d\n", index->nextpref);
 	if (index->exitpolicy == RMAP_NEXT)
-	  vty_outln (vty," on-match next");
+	  vty_out (vty," on-match next\n");
 	
 	write++;
       }

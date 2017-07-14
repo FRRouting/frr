@@ -191,11 +191,11 @@ DEFUN (show_work_queues,
   struct listnode *node;
   struct work_queue *wq;
   
-  vty_outln (vty, 
-           "%c %8s %5s %8s %8s %21s",
+  vty_out (vty, 
+           "%c %8s %5s %8s %8s %21s\n",
            ' ', "List","(ms) ","Q. Runs","Yields","Cycle Counts   ");
-  vty_outln (vty,
-           "%c %8s %5s %8s %8s %7s %6s %8s %6s %s",
+  vty_out (vty,
+           "%c %8s %5s %8s %8s %7s %6s %8s %6s %s\n",
            'P',
            "Items",
            "Hold",
@@ -205,7 +205,7 @@ DEFUN (show_work_queues,
  
   for (ALL_LIST_ELEMENTS_RO (work_queues, node, wq))
     {
-      vty_outln (vty,"%c %8d %5d %8ld %8ld %7d %6d %8ld %6u %s",
+      vty_out (vty,"%c %8d %5d %8ld %8ld %7d %6d %8ld %6u %s\n",
                (CHECK_FLAG (wq->flags, WQ_UNPLUGGED) ? ' ' : 'P'),
                listcount (wq->items),
                wq->spec.hold,

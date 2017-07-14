@@ -474,8 +474,8 @@ DEFUN_NOSH (vrf,
   if (strlen(vrfname) > VRF_NAMSIZ)
     {
       vty_out (vty, "%% VRF name %s is invalid: length exceeds "
-                    "%d characters%s",
-               vrfname, VRF_NAMSIZ, VTYNL);
+                    "%d characters\n",
+               vrfname, VRF_NAMSIZ);
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -501,14 +501,13 @@ DEFUN_NOSH (no_vrf,
 
   if (vrfp == NULL)
     {
-      vty_out (vty, "%% VRF %s does not exist%s", vrfname, VTYNL);
+      vty_out (vty, "%% VRF %s does not exist\n", vrfname);
       return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (CHECK_FLAG (vrfp->status, VRF_ACTIVE))
     {
-      vty_out (vty, "%% Only inactive VRFs can be deleted%s",
-              VTYNL);
+      vty_out (vty, "%% Only inactive VRFs can be deleted\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -555,7 +554,7 @@ static int
 vrf_write_host (struct vty *vty)
 {
   if (debug_vrf)
-    vty_outln (vty, "debug vrf");
+    vty_out (vty, "debug vrf\n");
 
   return 1;
 }

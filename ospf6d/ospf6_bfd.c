@@ -295,11 +295,11 @@ ospf6_bfd_write_config(struct vty *vty, struct ospf6_interface *oi)
   bfd_info = (struct bfd_info *)oi->bfd_info;
 
   if (CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG))
-    vty_outln (vty, " ipv6 ospf6 bfd %d %d %d",
+    vty_out (vty, " ipv6 ospf6 bfd %d %d %d\n",
               bfd_info->detect_mult, bfd_info->required_min_rx,
               bfd_info->desired_min_tx);
   else
-    vty_outln (vty, " ipv6 ospf6 bfd");
+    vty_out (vty, " ipv6 ospf6 bfd\n");
 }
 
 /*

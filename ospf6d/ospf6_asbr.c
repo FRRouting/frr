@@ -759,11 +759,11 @@ ospf6_redistribute_config_write (struct vty *vty)
         continue;
 
       if (ospf6->rmap[type].name)
-        vty_out (vty, " redistribute %s route-map %s%s",
-                 ZROUTE_NAME (type), ospf6->rmap[type].name, VNL);
+        vty_out (vty, " redistribute %s route-map %s\n",
+                 ZROUTE_NAME (type), ospf6->rmap[type].name);
       else
-        vty_out (vty, " redistribute %s%s",
-                 ZROUTE_NAME (type), VNL);
+        vty_out (vty, " redistribute %s\n",
+                 ZROUTE_NAME (type));
     }
 
   return 0;
@@ -789,7 +789,7 @@ ospf6_redistribute_show_config (struct vty *vty)
       total++;
     }
 
-  vty_out (vty, "Redistributing External Routes from:%s", VNL);
+  vty_out (vty, "Redistributing External Routes from:\n");
   for (type = 0; type < ZEBRA_ROUTE_MAX; type++)
     {
       if (type == ZEBRA_ROUTE_OSPF6)
@@ -798,15 +798,14 @@ ospf6_redistribute_show_config (struct vty *vty)
         continue;
 
       if (ospf6->rmap[type].name)
-        vty_out (vty, "    %d: %s with route-map \"%s\"%s%s", nroute[type],
+        vty_out (vty, "    %d: %s with route-map \"%s\"%s\n", nroute[type],
                  ZROUTE_NAME (type), ospf6->rmap[type].name,
-                 (ospf6->rmap[type].map ? "" : " (not found !)"),
-                 VNL);
+                 (ospf6->rmap[type].map ? "" : " (not found !)"));
       else
-        vty_out (vty, "    %d: %s%s", nroute[type],
-                 ZROUTE_NAME (type), VNL);
+        vty_out (vty, "    %d: %s\n", nroute[type],
+                 ZROUTE_NAME (type));
     }
-  vty_out (vty, "Total %d routes%s", total, VNL);
+  vty_out (vty, "Total %d routes\n", total);
 }
 
 
@@ -1082,13 +1081,13 @@ route_map_command_status (struct vty *vty, int ret)
   switch (ret)
     {
     case RMAP_RULE_MISSING:
-      vty_out (vty, "OSPF6 Can't find rule.%s", VNL);
+      vty_out (vty, "OSPF6 Can't find rule.\n");
       break;
     case RMAP_COMPILE_ERROR:
-      vty_out (vty, "OSPF6 Argument is malformed.%s", VNL);
+      vty_out (vty, "OSPF6 Argument is malformed.\n");
       break;
     default:
-      vty_out (vty, "OSPF6 route-map add set failed.%s", VNL);
+      vty_out (vty, "OSPF6 route-map add set failed.\n");
       break;
     }
   return CMD_WARNING_CONFIG_FAILED;
@@ -1247,35 +1246,31 @@ ospf6_as_external_lsa_show (struct vty *vty, struct ospf6_lsa *lsa)
     (CHECK_FLAG (external->bits_metric, OSPF6_ASBR_BIT_F) ? 'F' : '-'),
     (CHECK_FLAG (external->bits_metric, OSPF6_ASBR_BIT_T) ? 'T' : '-'));
 
-  vty_out (vty, "     Bits: %s%s", buf, VNL);
-  vty_out (vty, "     Metric: %5lu%s", (u_long) OSPF6_ASBR_METRIC (external),
-           VNL);
+  vty_out (vty, "     Bits: %s\n", buf);
+  vty_out (vty, "     Metric: %5lu\n", (u_long) OSPF6_ASBR_METRIC (external));
 
   ospf6_prefix_options_printbuf (external->prefix.prefix_options,
                                  buf, sizeof (buf));
-  vty_out (vty, "     Prefix Options: %s%s", buf,
-           VNL);
+  vty_out (vty, "     Prefix Options: %s\n", buf);
 
-  vty_out (vty, "     Referenced LSType: %d%s",
-           ntohs (external->prefix.prefix_refer_lstype),
-           VNL);
+  vty_out (vty, "     Referenced LSType: %d\n",
+           ntohs (external->prefix.prefix_refer_lstype));
 
-  vty_out (vty, "     Prefix: %s%s",
-	   ospf6_as_external_lsa_get_prefix_str (lsa, buf, sizeof(buf), 0), VNL);
+  vty_out (vty, "     Prefix: %s\n",
+	   ospf6_as_external_lsa_get_prefix_str (lsa, buf, sizeof(buf), 0));
 
   /* Forwarding-Address */
   if (CHECK_FLAG (external->bits_metric, OSPF6_ASBR_BIT_F))
     {
-      vty_out (vty, "     Forwarding-Address: %s%s",
-	       ospf6_as_external_lsa_get_prefix_str (lsa, buf, sizeof(buf), 1),
-	       VNL);
+      vty_out (vty, "     Forwarding-Address: %s\n",
+	       ospf6_as_external_lsa_get_prefix_str (lsa, buf, sizeof(buf), 1));
     }
 
   /* Tag */
   if (CHECK_FLAG (external->bits_metric, OSPF6_ASBR_BIT_T))
     {
-      vty_out (vty, "     Tag: %"ROUTE_TAG_PRI"%s",
-               ospf6_as_external_lsa_get_tag (lsa), VNL);
+      vty_out (vty, "     Tag: %"ROUTE_TAG_PRI"\n",
+               ospf6_as_external_lsa_get_tag (lsa));
     }
 
   return 0;
@@ -1297,12 +1292,12 @@ ospf6_asbr_external_route_show (struct vty *vty, struct ospf6_route *route)
     snprintf (forwarding, sizeof (forwarding), ":: (ifindex %d)",
               ospf6_route_get_first_nh_index (route));
 
-  vty_out (vty, "%c %-32s %-15s type-%d %5lu %s%s",
+  vty_out (vty, "%c %-32s %-15s type-%d %5lu %s\n",
            zebra_route_char(info->type),
            prefix, id, route->path.metric_type,
            (u_long) (route->path.metric_type == 2 ?
                      route->path.u.cost_e2 : route->path.cost),
-           forwarding, VNL);
+           forwarding);
 }
 
 DEFUN (show_ipv6_ospf6_redistribute,
@@ -1399,7 +1394,7 @@ int
 config_write_ospf6_debug_asbr (struct vty *vty)
 {
   if (IS_OSPF6_DEBUG_ASBR)
-    vty_out (vty, "debug ospf6 asbr%s", VNL);
+    vty_out (vty, "debug ospf6 asbr\n");
   return 0;
 }
 

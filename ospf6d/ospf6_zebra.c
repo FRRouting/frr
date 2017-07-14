@@ -315,23 +315,22 @@ DEFUN (show_zebra,
   int i;
   if (zclient == NULL)
     {
-      vty_out (vty, "Not connected to zebra%s", VNL);
+      vty_out (vty, "Not connected to zebra\n");
       return CMD_SUCCESS;
     }
 
-  vty_out (vty, "Zebra Infomation%s", VNL);
-  vty_out (vty, "  enable: %d fail: %d%s",
-           zclient->enable, zclient->fail, VNL);
-  vty_out (vty, "  redistribute default: %d%s",
-           vrf_bitmap_check (zclient->default_information, VRF_DEFAULT),
-           VNL);
+  vty_out (vty, "Zebra Infomation\n");
+  vty_out (vty, "  enable: %d fail: %d\n",
+           zclient->enable, zclient->fail);
+  vty_out (vty, "  redistribute default: %d\n",
+           vrf_bitmap_check (zclient->default_information, VRF_DEFAULT));
   vty_out (vty, "  redistribute:");
   for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
     {
       if (vrf_bitmap_check (zclient->redist[AFI_IP6][i], VRF_DEFAULT))
         vty_out (vty, " %s", zebra_route_string(i));
     }
-  vty_out (vty, "%s", VNL);
+  vty_out (vty, "\n");
   return CMD_SUCCESS;
 }
 
@@ -341,15 +340,15 @@ config_write_ospf6_zebra (struct vty *vty)
 {
   if (! zclient->enable)
     {
-      vty_out (vty, "no router zebra%s", VNL);
-      vty_out (vty, "!%s", VNL);
+      vty_out (vty, "no router zebra\n");
+      vty_out (vty, "!\n");
     }
   else if (! vrf_bitmap_check (zclient->redist[AFI_IP6][ZEBRA_ROUTE_OSPF6],
                                VRF_DEFAULT))
     {
-      vty_out (vty, "router zebra%s", VNL);
-      vty_out (vty, " no redistribute ospf6%s", VNL);
-      vty_out (vty, "!%s", VNL);
+      vty_out (vty, "router zebra\n");
+      vty_out (vty, " no redistribute ospf6\n");
+      vty_out (vty, "!\n");
     }
   return 0;
 }
@@ -683,7 +682,7 @@ ospf6_distance_set (struct vty *vty, struct ospf6 *o,
   ret = str2prefix_ipv6 (ip_str, &p);
   if (ret == 0)
     {
-      vty_outln (vty, "Malformed prefix");
+      vty_out (vty, "Malformed prefix\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -731,14 +730,14 @@ ospf6_distance_unset (struct vty *vty, struct ospf6 *o,
   ret = str2prefix_ipv6 (ip_str, &p);
   if (ret == 0)
     {
-      vty_outln (vty, "Malformed prefix");
+      vty_out (vty, "Malformed prefix\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
   rn = route_node_lookup (o->distance_table, (struct prefix *) &p);
   if (!rn)
     {
-      vty_outln (vty, "Can't find specified prefix");
+      vty_out (vty, "Cant't find specified prefix\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -905,13 +904,13 @@ int
 config_write_ospf6_debug_zebra (struct vty *vty)
 {
   if (IS_OSPF6_DEBUG_ZEBRA (SEND) && IS_OSPF6_DEBUG_ZEBRA (RECV))
-    vty_out (vty, "debug ospf6 zebra%s", VNL);
+    vty_out (vty, "debug ospf6 zebra\n");
   else
     {
       if (IS_OSPF6_DEBUG_ZEBRA (SEND))
-        vty_out (vty, "debug ospf6 zebra send%s", VNL);
+        vty_out (vty, "debug ospf6 zebra send\n");
       if (IS_OSPF6_DEBUG_ZEBRA (RECV))
-        vty_out (vty, "debug ospf6 zebra recv%s", VNL);
+        vty_out (vty, "debug ospf6 zebra recv\n");
     }
   return 0;
 }

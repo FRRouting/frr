@@ -882,7 +882,7 @@ prefix_entry_dup_check (struct prefix_list *plist,
 static int
 vty_invalid_prefix_range (struct vty *vty, const char *prefix)
 {
-  vty_outln (vty, "%% Invalid prefix range for %s, make sure: len < ge-value <= le-value",
+  vty_out (vty, "%% Invalid prefix range for %s, make sure: len < ge-value <= le-value\n",
            prefix);
   return CMD_WARNING_CONFIG_FAILED;
 }
@@ -920,7 +920,7 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
     type = PREFIX_DENY;
   else
     {
-      vty_outln (vty, "%% prefix type must be permit or deny");
+      vty_out (vty, "%% prefix type must be permit or deny\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -940,7 +940,7 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
 
       if (ret <= 0)
 	{
-	  vty_outln (vty, "%% Malformed IPv4 prefix");
+	  vty_out (vty, "%% Malformed IPv4 prefix\n");
           return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -962,7 +962,7 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
 
       if (ret <= 0)
 	{
-	  vty_outln (vty, "%% Malformed IPv6 prefix");
+	  vty_out (vty, "%% Malformed IPv6 prefix\n");
           return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -973,7 +973,7 @@ vty_prefix_list_install (struct vty *vty, afi_t afi, const char *name,
       break;
     case AFI_L2VPN:
     default:
-      vty_outln (vty, "%% Unrecognized AFI (%d)", afi);
+      vty_out (vty, "%% Unrecognized AFI (%d)\n", afi);
       return CMD_WARNING_CONFIG_FAILED;
       break;
     }
@@ -1042,7 +1042,7 @@ vty_prefix_list_uninstall (struct vty *vty, afi_t afi, const char *name,
   plist = prefix_list_lookup (afi, name);
   if (! plist)
     {
-      vty_outln (vty, "%% Can't find specified prefix-list");
+      vty_out (vty, "%% Can't find specified prefix-list\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -1057,7 +1057,7 @@ vty_prefix_list_uninstall (struct vty *vty, afi_t afi, const char *name,
   /* We must have, at a minimum, both the type and prefix here */
   if ((typestr == NULL) || (prefix == NULL))
     {
-      vty_outln (vty, "%% Both prefix and type required");
+      vty_out (vty, "%% Both prefix and type required\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -1078,7 +1078,7 @@ vty_prefix_list_uninstall (struct vty *vty, afi_t afi, const char *name,
     type = PREFIX_DENY;
   else
     {
-      vty_outln (vty, "%% prefix type must be permit or deny");
+      vty_out (vty, "%% prefix type must be permit or deny\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -1096,7 +1096,7 @@ vty_prefix_list_uninstall (struct vty *vty, afi_t afi, const char *name,
 
       if (ret <= 0)
 	{
-	  vty_outln (vty, "%% Malformed IPv4 prefix");
+	  vty_out (vty, "%% Malformed IPv4 prefix\n");
           return CMD_WARNING_CONFIG_FAILED;
 	}
     }
@@ -1113,7 +1113,7 @@ vty_prefix_list_uninstall (struct vty *vty, afi_t afi, const char *name,
 
       if (ret <= 0)
 	{
-	  vty_outln (vty, "%% Malformed IPv6 prefix");
+	  vty_out (vty, "%% Malformed IPv6 prefix\n");
           return CMD_WARNING_CONFIG_FAILED;
 	}
     }
@@ -1123,7 +1123,7 @@ vty_prefix_list_uninstall (struct vty *vty, afi_t afi, const char *name,
 
   if (pentry == NULL)
     {
-      vty_outln (vty, "%% Can't find specified prefix-list");
+      vty_out (vty, "%% Can't find specified prefix-list\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -1141,7 +1141,7 @@ vty_prefix_list_desc_unset (struct vty *vty, afi_t afi, const char *name)
   plist = prefix_list_lookup (afi, name);
   if (! plist)
     {
-      vty_outln (vty, "%% Can't find specified prefix-list");
+      vty_out (vty, "%% Can't find specified prefix-list\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -1179,21 +1179,21 @@ vty_show_prefix_entry (struct vty *vty, afi_t afi, struct prefix_list *plist,
                                                                            
   if (dtype == normal_display)
     {
-      vty_outln (vty, "ip%s prefix-list %s: %d entries",
+      vty_out (vty, "ip%s prefix-list %s: %d entries\n",
 	       afi == AFI_IP ? "" : "v6",
 	       plist->name, plist->count);
       if (plist->desc)
-	vty_outln (vty, "   Description: %s", plist->desc);
+	vty_out (vty, "   Description: %s\n", plist->desc);
     }
   else if (dtype == summary_display || dtype == detail_display)
     {
-      vty_outln (vty, "ip%s prefix-list %s:",
+      vty_out (vty, "ip%s prefix-list %s:\n",
 	       afi == AFI_IP ? "" : "v6", plist->name);
 
       if (plist->desc)
-	vty_outln (vty, "   Description: %s", plist->desc);
+	vty_out (vty, "   Description: %s\n", plist->desc);
 
-      vty_outln (vty, "   count: %d, range entries: %d, sequences: %u - %u",
+      vty_out (vty, "   count: %d, range entries: %d, sequences: %u - %u\n",
 	       plist->count, plist->rangecount, 
 	       plist->head ? plist->head->seq : 0, 
 	       plist->tail ? plist->tail->seq : 0);
@@ -1234,7 +1234,7 @@ vty_show_prefix_entry (struct vty *vty, afi_t afi, struct prefix_list *plist,
 	    vty_out (vty, " (hit count: %ld, refcount: %ld)", 
 		     pentry->hitcnt, pentry->refcnt);
 	  
-	  vty_out (vty, VTYNL);
+	  vty_out (vty, "\n");
 	}
     }
 }
@@ -1259,7 +1259,7 @@ vty_show_prefix_list (struct vty *vty, afi_t afi, const char *name,
       plist = prefix_list_lookup (afi, name);
       if (! plist)
 	{
-	  vty_outln (vty, "%% Can't find specified prefix-list");
+	  vty_out (vty, "%% Can't find specified prefix-list\n");
 	  return CMD_WARNING;
 	}
       vty_show_prefix_entry (vty, afi, plist, master, dtype, seqnum);
@@ -1269,7 +1269,7 @@ vty_show_prefix_list (struct vty *vty, afi_t afi, const char *name,
       if (dtype == detail_display || dtype == summary_display)
 	{
 	  if (master->recent)
-	    vty_outln (vty, "Prefix-list with the last deletion/insertion: %s",
+	    vty_out (vty, "Prefix-list with the last deletion/insertion: %s\n",
 		     master->recent->name);
 	}
 
@@ -1296,14 +1296,14 @@ vty_show_prefix_list_prefix (struct vty *vty, afi_t afi, const char *name,
   plist = prefix_list_lookup (afi, name);
   if (! plist)
     {
-      vty_outln (vty, "%% Can't find specified prefix-list");
+      vty_out (vty, "%% Can't find specified prefix-list\n");
       return CMD_WARNING;
     }
 
   ret = str2prefix (prefix, &p);
   if (ret <= 0)
     {
-      vty_outln (vty, "%% prefix is malformed");
+      vty_out (vty, "%% prefix is malformed\n");
       return CMD_WARNING;
     }
 
@@ -1346,7 +1346,7 @@ vty_show_prefix_list_prefix (struct vty *vty, afi_t afi, const char *name,
 	    vty_out (vty, " (hit count: %ld, refcount: %ld)", 
 		     pentry->hitcnt, pentry->refcnt);
 
-	  vty_out (vty, VTYNL);
+	  vty_out (vty, "\n");
 
 	  if (type == first_match_display)
 	    return CMD_SUCCESS;
@@ -1384,7 +1384,7 @@ vty_clear_prefix_list (struct vty *vty, afi_t afi, const char *name,
       plist = prefix_list_lookup (afi, name);
       if (! plist)
 	{
-	  vty_outln (vty, "%% Can't find specified prefix-list");
+	  vty_out (vty, "%% Can't find specified prefix-list\n");
 	  return CMD_WARNING;
 	}
 
@@ -1393,7 +1393,7 @@ vty_clear_prefix_list (struct vty *vty, afi_t afi, const char *name,
 	  ret = str2prefix (prefix, &p);
 	  if (ret <= 0)
 	    {
-	      vty_outln (vty, "%% prefix is malformed");
+	      vty_out (vty, "%% prefix is malformed\n");
 	      return CMD_WARNING;
 	    }
 	}
@@ -1816,16 +1816,16 @@ config_write_prefix_afi (afi_t afi, struct vty *vty)
 
   if (! master->seqnum)
     {
-      vty_outln (vty, "no ip%s prefix-list sequence-number", 
+      vty_out (vty, "no ip%s prefix-list sequence-number\n", 
 	       afi == AFI_IP ? "" : "v6");
-      vty_outln (vty, "!");
+      vty_out (vty, "!\n");
     }
 
   for (plist = master->num.head; plist; plist = plist->next)
     {
       if (plist->desc)
 	{
-	  vty_outln (vty, "ip%s prefix-list %s description %s",
+	  vty_out (vty, "ip%s prefix-list %s description %s\n",
 		   afi == AFI_IP ? "" : "v6",
 		   plist->name, plist->desc);
 	  write++;
@@ -1858,17 +1858,17 @@ config_write_prefix_afi (afi_t afi, struct vty *vty)
 	      if (pentry->le)
 		vty_out (vty, " le %d", pentry->le);
 	    }
-	  vty_out (vty, VTYNL);
+	  vty_out (vty, "\n");
 	  write++;
 	}
-      /* vty_out (vty, "!%s", VTYNL); */
+      /* vty_out (vty, "!\n"); */
     }
 
   for (plist = master->str.head; plist; plist = plist->next)
     {
       if (plist->desc)
 	{
-	  vty_outln (vty, "ip%s prefix-list %s description %s",
+	  vty_out (vty, "ip%s prefix-list %s description %s\n",
 		   afi == AFI_IP ? "" : "v6",
 		   plist->name, plist->desc);
 	  write++;
@@ -1901,7 +1901,7 @@ config_write_prefix_afi (afi_t afi, struct vty *vty)
 	      if (pentry->le)
 		vty_out (vty, " le %d", pentry->le);
 	    }
-	  vty_out (vty, VTYNL);
+	  vty_out (vty, "\n");
 	  write++;
 	}
     }
@@ -2046,13 +2046,13 @@ prefix_bgp_show_prefix_list (struct vty *vty, afi_t afi, char *name, u_char use_
       else
         json_object_object_add(json, "ipv6PrefixList", json_prefix);
 
-      vty_outln (vty, "%s",
+      vty_out (vty, "%s\n",
                  json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
       json_object_free(json);
     }
   else
     {
-      vty_outln (vty, "ip%s prefix-list %s: %d entries",
+      vty_out (vty, "ip%s prefix-list %s: %d entries\n",
                afi == AFI_IP ? "" : "v6",
                plist->name, plist->count);
 
@@ -2071,7 +2071,7 @@ prefix_bgp_show_prefix_list (struct vty *vty, afi_t afi, char *name, u_char use_
           if (pentry->le)
             vty_out (vty, " le %d", pentry->le);
 
-          vty_out (vty, VTYNL);
+          vty_out (vty, "\n");
         }
     }
   return plist->count;

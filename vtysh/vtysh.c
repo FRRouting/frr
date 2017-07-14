@@ -824,7 +824,7 @@ vtysh_rl_describe (void)
                 int rows, cols;
                 rl_get_screen_size(&rows, &cols);
 
-                char *ac = cmd_variable_comp2str(varcomps, cols, "\n");
+                char *ac = cmd_variable_comp2str(varcomps, cols);
                 fprintf(stdout, "%s\n", ac);
                 XFREE(MTYPE_TMP, ac);
               }
@@ -2564,9 +2564,9 @@ DEFUN (vtysh_write_terminal,
   else
     fp = stdout;
 
-  vty_outln (vty, "Building configuration...");
-  vty_outln (vty, "%sCurrent configuration:",VTYNL);
-  vty_outln (vty, "!");
+  vty_out (vty, "Building configuration...\n");
+  vty_out (vty, "\nCurrent configuration:\n");
+  vty_out (vty, "!\n");
 
   for (i = 0; i < array_size(vtysh_client); i++)
     if ((argc < 3 ) || (strmatch (vtysh_client[i].name, argv[2]->text)))
@@ -2588,7 +2588,7 @@ DEFUN (vtysh_write_terminal,
       fp = NULL;
     }
 
-  vty_outln (vty, "end");
+  vty_out (vty, "end\n");
   return CMD_SUCCESS;
 }
 
@@ -2821,7 +2821,7 @@ DEFUN (vtysh_terminal_length,
   lines = strtol (argv[idx_number]->arg, &endptr, 10);
   if (lines < 0 || lines > 512 || *endptr != '\0')
     {
-      vty_outln (vty, "length is malformed");
+      vty_out (vty, "length is malformed\n");
       return CMD_WARNING;
     }
 
@@ -2868,7 +2868,7 @@ DEFUN (vtysh_show_daemons,
   for (i = 0; i < array_size(vtysh_client); i++)
     if ( vtysh_client[i].fd >= 0 )
       vty_out(vty, " %s", vtysh_client[i].name);
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
 
   return CMD_SUCCESS;
 }

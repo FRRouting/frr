@@ -1007,7 +1007,7 @@ connected_dump_vty (struct vty *vty, struct connected *connected)
   if (connected->label)
     vty_out (vty, " %s", connected->label);
 
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
 }
 
 /* Dump interface neighbor address information to vty. */
@@ -1022,7 +1022,7 @@ nbr_connected_dump_vty (struct vty *vty, struct nbr_connected *connected)
   prefix_vty_out (vty, p);
   vty_out (vty, "/%d", p->prefixlen);
 
-  vty_out (vty, VTYNL);
+  vty_out (vty, "\n");
 }
 
 #if defined (HAVE_RTADV)
@@ -1039,46 +1039,46 @@ nd_dump_vty (struct vty *vty, struct interface *ifp)
 
   if (rtadv->AdvSendAdvertisements)
     {
-      vty_outln (vty, "  ND advertised reachable time is %d milliseconds",
+      vty_out (vty, "  ND advertised reachable time is %d milliseconds\n",
 	       rtadv->AdvReachableTime);
-      vty_outln (vty, "  ND advertised retransmit interval is %d milliseconds",
+      vty_out (vty, "  ND advertised retransmit interval is %d milliseconds\n",
 	       rtadv->AdvRetransTimer);
-      vty_outln (vty, "  ND router advertisements sent: %d rcvd: %d",
+      vty_out (vty, "  ND router advertisements sent: %d rcvd: %d\n",
 	       zif->ra_sent, zif->ra_rcvd);
       interval = rtadv->MaxRtrAdvInterval;
       if (interval % 1000)
-        vty_outln (vty, "  ND router advertisements are sent every "
-			"%d milliseconds",interval);
+        vty_out (vty, "  ND router advertisements are sent every "
+			"%d milliseconds\n",interval);
       else
-        vty_outln (vty, "  ND router advertisements are sent every "
-			"%d seconds",interval / 1000);
+        vty_out (vty, "  ND router advertisements are sent every "
+			"%d seconds\n",interval / 1000);
       if (rtadv->AdvDefaultLifetime != -1)
-	vty_outln (vty, "  ND router advertisements live for %d seconds",
+	vty_out (vty, "  ND router advertisements live for %d seconds\n",
 		 rtadv->AdvDefaultLifetime);
       else
-	vty_outln (vty,
-                   "  ND router advertisements lifetime tracks ra-interval");
-      vty_outln (vty, "  ND router advertisement default router preference is "
-			"%s",rtadv_pref_strs[rtadv->DefaultPreference]);
+	vty_out (vty,
+                   "  ND router advertisements lifetime tracks ra-interval\n");
+      vty_out (vty, "  ND router advertisement default router preference is "
+			"%s\n",rtadv_pref_strs[rtadv->DefaultPreference]);
       if (rtadv->AdvManagedFlag)
-	vty_outln (vty,"  Hosts use DHCP to obtain routable addresses.");
+	vty_out (vty,"  Hosts use DHCP to obtain routable addresses.\n");
       else
-	vty_outln (vty,"  Hosts use stateless autoconfig for addresses.");
+	vty_out (vty,"  Hosts use stateless autoconfig for addresses.\n");
       if (rtadv->AdvHomeAgentFlag)
       {
-      	vty_outln (vty,
-                         "  ND router advertisements with " "Home Agent flag bit set.");
+	vty_out (vty,
+                         "  ND router advertisements with Home Agent flag bit set.\n");
 	if (rtadv->HomeAgentLifetime != -1)
-	  vty_outln (vty, "  Home Agent lifetime is %u seconds",
+	  vty_out (vty, "  Home Agent lifetime is %u seconds\n",
 	           rtadv->HomeAgentLifetime);
 	else
-	  vty_outln (vty,"  Home Agent lifetime tracks ra-lifetime");
-	vty_outln (vty, "  Home Agent preference is %u",
+	  vty_out (vty,"  Home Agent lifetime tracks ra-lifetime\n");
+	vty_out (vty, "  Home Agent preference is %u\n",
 	         rtadv->HomeAgentPreference);
       }
       if (rtadv->AdvIntervalOption)
-      	vty_outln (vty,
-                         "  ND router advertisements with Adv. Interval option.");
+      	vty_out (vty,
+                         "  ND router advertisements with Adv. Interval option.\n");
     }
 }
 #endif /* HAVE_RTADV */
@@ -1133,36 +1133,36 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
     
     if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION)) {
       if (if_is_running(ifp))
-       vty_outln (vty, "is up");
+       vty_out (vty, "is up\n");
       else
-	vty_outln (vty, "is down");
+	vty_out (vty, "is down\n");
     } else {
-      vty_outln (vty, "detection is disabled");
+      vty_out (vty, "detection is disabled\n");
     }
   } else {
-    vty_outln (vty, "down");
+    vty_out (vty, "down\n");
   }
 
-  vty_outln (vty, "  Link ups:   %5u    last: %s", zebra_if->up_count,
+  vty_out (vty, "  Link ups:   %5u    last: %s\n", zebra_if->up_count,
            zebra_if->up_last[0] ? zebra_if->up_last : "(never)");
-  vty_outln (vty, "  Link downs: %5u    last: %s", zebra_if->down_count,
+  vty_out (vty, "  Link downs: %5u    last: %s\n", zebra_if->down_count,
            zebra_if->down_last[0] ? zebra_if->down_last : "(never)");
 
   zebra_ptm_show_status(vty, ifp);
 
   vrf = vrf_lookup_by_id (ifp->vrf_id);
-  vty_outln (vty, "  vrf: %s", vrf->name);
+  vty_out (vty, "  vrf: %s\n", vrf->name);
 
   if (ifp->desc)
-    vty_outln (vty, "  Description: %s",ifp->desc);
+    vty_out (vty, "  Description: %s\n",ifp->desc);
   if (ifp->ifindex == IFINDEX_INTERNAL)
     {
-      vty_outln (vty, "  pseudo interface");
+      vty_out (vty, "  pseudo interface\n");
       return;
     }
   else if (! CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE))
     {
-      vty_outln (vty, "  index %d inactive interface", 
+      vty_out (vty, "  index %d inactive interface\n", 
 	      ifp->ifindex);
       return;
     }
@@ -1171,11 +1171,11 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
 	   ifp->ifindex, ifp->metric, ifp->mtu, ifp->speed);
   if (ifp->mtu6 != ifp->mtu)
     vty_out (vty, "mtu6 %d ", ifp->mtu6);
-  vty_outln (vty, "%s  flags: %s", VTYNL,
+  vty_out (vty, "\n  flags: %s\n",
            if_flag_dump(ifp->flags));
   
   /* Hardware address. */
-  vty_outln (vty, "  Type: %s", if_link_type_str(ifp->ll_type));
+  vty_out (vty, "  Type: %s\n", if_link_type_str(ifp->ll_type));
   if (ifp->hw_addr_len != 0)
     {
       int i;
@@ -1183,14 +1183,14 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
       vty_out (vty, "  HWaddr: ");
       for (i = 0; i < ifp->hw_addr_len; i++)
 	vty_out (vty, "%s%02x", i == 0 ? "" : ":", ifp->hw_addr[i]);
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
   
   /* Bandwidth in Mbps */
   if (ifp->bandwidth != 0)
     {
       vty_out(vty, "  bandwidth %u Mbps", ifp->bandwidth);
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
 
   for (rn = route_top (zebra_if->ipv4_subnets); rn; rn = route_next (rn))
@@ -1258,23 +1258,23 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
     {
       int i;
       struct if_link_params *iflp = ifp->link_params;
-      vty_outln (vty, "  Traffic Engineering Link Parameters:");
+      vty_out (vty, "  Traffic Engineering Link Parameters:\n");
       if (IS_PARAM_SET(iflp, LP_TE_METRIC))
-        vty_outln (vty, "    TE metric %u",iflp->te_metric);
+        vty_out (vty, "    TE metric %u\n",iflp->te_metric);
       if (IS_PARAM_SET(iflp, LP_MAX_BW))
-        vty_outln (vty, "    Maximum Bandwidth %g (Byte/s)", iflp->max_bw);
+        vty_out (vty, "    Maximum Bandwidth %g (Byte/s)\n", iflp->max_bw);
       if (IS_PARAM_SET(iflp, LP_MAX_RSV_BW))
-        vty_outln (vty, "    Maximum Reservable Bandwidth %g (Byte/s)",
+        vty_out (vty, "    Maximum Reservable Bandwidth %g (Byte/s)\n",
                   iflp->max_rsv_bw);
       if (IS_PARAM_SET(iflp, LP_UNRSV_BW)) {
-        vty_outln (vty, "    Unreserved Bandwidth per Class Type in Byte/s:");
+        vty_out (vty, "    Unreserved Bandwidth per Class Type in Byte/s:\n");
         for (i = 0; i < MAX_CLASS_TYPE; i+=2)
-          vty_outln (vty, "      [%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)",
+          vty_out (vty, "      [%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)\n",
                   i, iflp->unrsv_bw[i], i+1, iflp->unrsv_bw[i + 1]);
       }
 
       if (IS_PARAM_SET(iflp, LP_ADM_GRP))
-        vty_outln (vty, "    Administrative Group:%u", iflp->admin_grp);
+        vty_out (vty, "    Administrative Group:%u\n", iflp->admin_grp);
       if (IS_PARAM_SET(iflp, LP_DELAY))
         {
           vty_out(vty, "    Link Delay Average: %u (micro-sec.)", iflp->av_delay);
@@ -1283,21 +1283,21 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
               vty_out(vty, " Min:  %u (micro-sec.)", iflp->min_delay);
               vty_out(vty, " Max:  %u (micro-sec.)", iflp->max_delay);
             }
-          vty_out (vty, VTYNL);
+          vty_out (vty, "\n");
         }
       if (IS_PARAM_SET(iflp, LP_DELAY_VAR))
-        vty_outln (vty, "    Link Delay Variation %u (micro-sec.)",
+        vty_out (vty, "    Link Delay Variation %u (micro-sec.)\n",
                   iflp->delay_var);
       if (IS_PARAM_SET(iflp, LP_PKT_LOSS))
-        vty_outln (vty, "    Link Packet Loss %g (in %%)", iflp->pkt_loss);
+        vty_out (vty, "    Link Packet Loss %g (in %%)\n", iflp->pkt_loss);
       if (IS_PARAM_SET(iflp, LP_AVA_BW))
-        vty_outln (vty, "    Available Bandwidth %g (Byte/s)", iflp->ava_bw);
+        vty_out (vty, "    Available Bandwidth %g (Byte/s)\n", iflp->ava_bw);
       if (IS_PARAM_SET(iflp, LP_RES_BW))
-        vty_outln (vty, "    Residual Bandwidth %g (Byte/s)", iflp->res_bw);
+        vty_out (vty, "    Residual Bandwidth %g (Byte/s)\n", iflp->res_bw);
       if (IS_PARAM_SET(iflp, LP_USE_BW))
-        vty_outln (vty, "    Utilized Bandwidth %g (Byte/s)", iflp->use_bw);
+        vty_out (vty, "    Utilized Bandwidth %g (Byte/s)\n", iflp->use_bw);
       if (IS_PARAM_SET(iflp, LP_RMT_AS))
-        vty_outln (vty, "    Neighbor ASBR IP: %s AS: %u ", inet_ntoa(iflp->rmt_ip),
+        vty_out (vty, "    Neighbor ASBR IP: %s AS: %u \n", inet_ntoa(iflp->rmt_ip),
                   iflp->rmt_as);
     }
 
@@ -1308,82 +1308,82 @@ if_dump_vty (struct vty *vty, struct interface *ifp)
   nd_dump_vty (vty, ifp);
 #endif /* HAVE_RTADV */
   if (listhead(ifp->nbr_connected))
-    vty_outln (vty, "  Neighbor address(s):");
+    vty_out (vty, "  Neighbor address(s):\n");
   for (ALL_LIST_ELEMENTS_RO (ifp->nbr_connected, node, nbr_connected))
     nbr_connected_dump_vty (vty, nbr_connected);
 
 #ifdef HAVE_PROC_NET_DEV
   /* Statistics print out using proc file system. */
-  vty_outln (vty, "    %lu input packets (%lu multicast), %lu bytes, "
-	   "%lu dropped",
+  vty_out (vty, "    %lu input packets (%lu multicast), %lu bytes, "
+	   "%lu dropped\n",
 	   ifp->stats.rx_packets, ifp->stats.rx_multicast,
 	   ifp->stats.rx_bytes, ifp->stats.rx_dropped);
 
-  vty_outln (vty, "    %lu input errors, %lu length, %lu overrun,"
-	   " %lu CRC, %lu frame",
+  vty_out (vty, "    %lu input errors, %lu length, %lu overrun,"
+	   " %lu CRC, %lu frame\n",
 	   ifp->stats.rx_errors, ifp->stats.rx_length_errors,
 	   ifp->stats.rx_over_errors, ifp->stats.rx_crc_errors,
 	   ifp->stats.rx_frame_errors);
 
-  vty_outln (vty, "    %lu fifo, %lu missed", ifp->stats.rx_fifo_errors,
+  vty_out (vty, "    %lu fifo, %lu missed\n", ifp->stats.rx_fifo_errors,
 	   ifp->stats.rx_missed_errors);
 
-  vty_outln (vty, "    %lu output packets, %lu bytes, %lu dropped",
+  vty_out (vty, "    %lu output packets, %lu bytes, %lu dropped\n",
 	   ifp->stats.tx_packets, ifp->stats.tx_bytes,
 	   ifp->stats.tx_dropped);
 
-  vty_outln (vty, "    %lu output errors, %lu aborted, %lu carrier,"
-	   " %lu fifo, %lu heartbeat",
+  vty_out (vty, "    %lu output errors, %lu aborted, %lu carrier,"
+	   " %lu fifo, %lu heartbeat\n",
 	   ifp->stats.tx_errors, ifp->stats.tx_aborted_errors,
 	   ifp->stats.tx_carrier_errors, ifp->stats.tx_fifo_errors,
 	   ifp->stats.tx_heartbeat_errors);
 
-  vty_outln (vty, "    %lu window, %lu collisions",
+  vty_out (vty, "    %lu window, %lu collisions\n",
 	   ifp->stats.tx_window_errors, ifp->stats.collisions);
 #endif /* HAVE_PROC_NET_DEV */
 
 #ifdef HAVE_NET_RT_IFLIST
 #if defined (__bsdi__) || defined (__NetBSD__)
   /* Statistics print out using sysctl (). */
-  vty_outln (vty, "    input packets %llu, bytes %llu, dropped %llu,"
-           " multicast packets %llu",
+  vty_out (vty, "    input packets %llu, bytes %llu, dropped %llu,"
+           " multicast packets %llu\n",
            (unsigned long long)ifp->stats.ifi_ipackets,
            (unsigned long long)ifp->stats.ifi_ibytes,
            (unsigned long long)ifp->stats.ifi_iqdrops,
            (unsigned long long)ifp->stats.ifi_imcasts);
 
-  vty_outln (vty, "    input errors %llu",
+  vty_out (vty, "    input errors %llu\n",
            (unsigned long long)ifp->stats.ifi_ierrors);
 
-  vty_outln (vty, "    output packets %llu, bytes %llu,"
-           " multicast packets %llu",
+  vty_out (vty, "    output packets %llu, bytes %llu,"
+           " multicast packets %llu\n",
            (unsigned long long)ifp->stats.ifi_opackets,
            (unsigned long long)ifp->stats.ifi_obytes,
            (unsigned long long)ifp->stats.ifi_omcasts);
 
-  vty_outln (vty, "    output errors %llu",
+  vty_out (vty, "    output errors %llu\n",
            (unsigned long long)ifp->stats.ifi_oerrors);
 
-  vty_outln (vty, "    collisions %llu",
+  vty_out (vty, "    collisions %llu\n",
            (unsigned long long)ifp->stats.ifi_collisions);
 #else
   /* Statistics print out using sysctl (). */
-  vty_outln (vty, "    input packets %lu, bytes %lu, dropped %lu,"
-	   " multicast packets %lu",
+  vty_out (vty, "    input packets %lu, bytes %lu, dropped %lu,"
+	   " multicast packets %lu\n",
 	   ifp->stats.ifi_ipackets, ifp->stats.ifi_ibytes,
 	   ifp->stats.ifi_iqdrops,ifp->stats.ifi_imcasts);
 
-  vty_outln (vty, "    input errors %lu",
+  vty_out (vty, "    input errors %lu\n",
 	   ifp->stats.ifi_ierrors);
 
-  vty_outln (vty, "    output packets %lu, bytes %lu, multicast packets %lu",
+  vty_out (vty, "    output packets %lu, bytes %lu, multicast packets %lu\n",
 	   ifp->stats.ifi_opackets, ifp->stats.ifi_obytes,
 	   ifp->stats.ifi_omcasts);
 
-  vty_outln (vty, "    output errors %lu",
+  vty_out (vty, "    output errors %lu\n",
 	   ifp->stats.ifi_oerrors);
 
-  vty_outln (vty, "    collisions %lu",
+  vty_out (vty, "    collisions %lu\n",
 	   ifp->stats.ifi_collisions);
 #endif /* __bsdi__ || __NetBSD__ */
 #endif /* HAVE_NET_RT_IFLIST */
@@ -1479,7 +1479,7 @@ DEFUN (show_interface_name_vrf,
   ifp = if_lookup_by_name (argv[idx_ifname]->arg, vrf_id);
   if (ifp == NULL)
     {
-      vty_outln (vty, "%% Can't find interface %s",argv[idx_ifname]->arg);
+      vty_out (vty, "%% Can't find interface %s\n",argv[idx_ifname]->arg);
       return CMD_WARNING;
     }
   if_dump_vty (vty, ifp);
@@ -1517,7 +1517,7 @@ DEFUN (show_interface_name_vrf_all,
 
   if (!found)
     {
-      vty_outln (vty, "%% Can't find interface %s", argv[idx_ifname]->arg);
+      vty_out (vty, "%% Can't find interface %s\n", argv[idx_ifname]->arg);
       return CMD_WARNING;
     }
 
@@ -1531,7 +1531,7 @@ if_show_description (struct vty *vty, vrf_id_t vrf_id)
   struct listnode *node;
   struct interface *ifp;
 
-  vty_outln (vty, "Interface       Status  Protocol  Description");
+  vty_out (vty, "Interface       Status  Protocol  Description\n");
   for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), node, ifp))
     {
       int len;
@@ -1561,7 +1561,7 @@ if_show_description (struct vty *vty, vrf_id_t vrf_id)
 
       if (ifp->desc)
 	vty_out (vty, "%s", ifp->desc);
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
 }
 
@@ -1597,8 +1597,7 @@ DEFUN (show_interface_desc_vrf_all,
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     if (!list_isempty (vrf->iflist))
       {
-        vty_outln (vty, "%s\tVRF %u%s", VTYNL, vrf->vrf_id,
-		 VTYNL);
+        vty_out (vty, "\n\tVRF %u\n\n", vrf->vrf_id);
         if_show_description (vty, vrf->vrf_id);
       }
 
@@ -1619,7 +1618,7 @@ DEFUN (multicast,
       ret = if_set_flags (ifp, IFF_MULTICAST);
       if (ret < 0)
 	{
-	  vty_outln (vty, "Can't set multicast flag");
+	  vty_out (vty, "Can't set multicast flag\n");
           return CMD_WARNING_CONFIG_FAILED;
 	}
       if_refresh (ifp);
@@ -1645,7 +1644,7 @@ DEFUN (no_multicast,
       ret = if_unset_flags (ifp, IFF_MULTICAST);
       if (ret < 0)
 	{
-	  vty_outln (vty, "Can't unset multicast flag");
+	  vty_out (vty, "Can't unset multicast flag\n");
           return CMD_WARNING_CONFIG_FAILED;
 	}
       if_refresh (ifp);
@@ -1711,7 +1710,7 @@ DEFUN (shutdown_if,
         ret = if_unset_flags (ifp, IFF_UP);
         if (ret < 0)
           {
-            vty_outln (vty, "Can't shutdown interface");
+            vty_out (vty, "Can't shutdown interface\n");
             return CMD_WARNING_CONFIG_FAILED;
           }
         if_refresh (ifp);
@@ -1737,7 +1736,7 @@ DEFUN (no_shutdown_if,
       ret = if_set_flags (ifp, IFF_UP | IFF_RUNNING);
       if (ret < 0)
 	{
-	  vty_outln (vty, "Can't up interface");
+	  vty_out (vty, "Can't up interface\n");
           return CMD_WARNING_CONFIG_FAILED;
 	}
       if_refresh (ifp);
@@ -1769,7 +1768,7 @@ DEFUN (bandwidth_if,
   /* bandwidth range is <1-100000> */
   if (bandwidth < 1 || bandwidth > 100000)
     {
-      vty_outln (vty, "Bandwidth is invalid");
+      vty_out (vty, "Bandwidth is invalid\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
   
@@ -1971,7 +1970,7 @@ DEFUN (link_params_maxbw,
 
   if (sscanf (argv[idx_bandwidth]->arg, "%g", &bw) != 1)
     {
-      vty_outln (vty, "link_params_maxbw: fscanf: %s",safe_strerror(errno));
+      vty_out (vty, "link_params_maxbw: fscanf: %s\n",safe_strerror(errno));
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -1989,8 +1988,8 @@ DEFUN (link_params_maxbw,
       || (bw <= iflp->res_bw)
       || (bw <= iflp->use_bw))
     {
-      vty_outln (vty,
-               "Maximum Bandwidth could not be lower than others bandwidth");
+      vty_out (vty,
+               "Maximum Bandwidth could not be lower than others bandwidth\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -2013,7 +2012,7 @@ DEFUN (link_params_max_rsv_bw,
 
   if (sscanf (argv[idx_bandwidth]->arg, "%g", &bw) != 1)
     {
-      vty_outln (vty, "link_params_max_rsv_bw: fscanf: %s",
+      vty_out (vty, "link_params_max_rsv_bw: fscanf: %s\n",
                  safe_strerror(errno));
       return CMD_WARNING_CONFIG_FAILED;
     }
@@ -2021,8 +2020,8 @@ DEFUN (link_params_max_rsv_bw,
   /* Check that bandwidth is not greater than maximum bandwidth parameter */
   if (bw > iflp->max_bw)
     {
-      vty_outln (vty,
-               "Maximum Reservable Bandwidth could not be greater than Maximum Bandwidth (%g)",
+      vty_out (vty,
+               "Maximum Reservable Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
                iflp->max_bw);
       return CMD_WARNING_CONFIG_FAILED;
     }
@@ -2050,14 +2049,14 @@ DEFUN (link_params_unrsv_bw,
   /* We don't have to consider about range check here. */
   if (sscanf (argv[idx_number]->arg, "%d", &priority) != 1)
     {
-      vty_outln (vty, "link_params_unrsv_bw: fscanf: %s",
+      vty_out (vty, "link_params_unrsv_bw: fscanf: %s\n",
                  safe_strerror(errno));
       return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (sscanf (argv[idx_bandwidth]->arg, "%g", &bw) != 1)
     {
-      vty_outln (vty, "link_params_unrsv_bw: fscanf: %s",
+      vty_out (vty, "link_params_unrsv_bw: fscanf: %s\n",
                  safe_strerror(errno));
       return CMD_WARNING_CONFIG_FAILED;
     }
@@ -2065,8 +2064,8 @@ DEFUN (link_params_unrsv_bw,
   /* Check that bandwidth is not greater than maximum bandwidth parameter */
   if (bw > iflp->max_bw)
     {
-      vty_outln (vty,
-               "UnReserved Bandwidth could not be greater than Maximum Bandwidth (%g)",
+      vty_out (vty,
+               "UnReserved Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
                iflp->max_bw);
       return CMD_WARNING_CONFIG_FAILED;
     }
@@ -2090,7 +2089,7 @@ DEFUN (link_params_admin_grp,
 
   if (sscanf (argv[idx_bitpattern]->arg, "0x%lx", &value) != 1)
     {
-      vty_outln (vty, "link_params_admin_grp: fscanf: %s",
+      vty_out (vty, "link_params_admin_grp: fscanf: %s\n",
                safe_strerror(errno));
       return CMD_WARNING_CONFIG_FAILED;
     }
@@ -2134,7 +2133,7 @@ DEFUN (link_params_inter_as,
 
   if (!inet_aton (argv[idx_ipv4]->arg, &addr))
     {
-      vty_outln (vty, "Please specify Router-Addr by A.B.C.D");
+      vty_out (vty, "Please specify Router-Addr by A.B.C.D\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -2208,7 +2207,7 @@ DEFUN (link_params_delay,
     if (IS_PARAM_SET(iflp, LP_MM_DELAY)
         && (delay <= iflp->min_delay || delay >= iflp->max_delay))
       {
-        vty_outln (vty, "Average delay should be comprise between Min (%d) and Max (%d) delay",
+        vty_out (vty, "Average delay should be comprise between Min (%d) and Max (%d) delay\n",
                  iflp->min_delay, iflp->max_delay);
         return CMD_WARNING_CONFIG_FAILED;
       }
@@ -2233,7 +2232,7 @@ DEFUN (link_params_delay,
     /* Check new delays value coherency */
     if (delay <= low || delay >= high)
       {
-        vty_outln (vty, "Average delay should be comprise between Min (%d) and Max (%d) delay",
+        vty_out (vty, "Average delay should be comprise between Min (%d) and Max (%d) delay\n",
                  low, high);
         return CMD_WARNING_CONFIG_FAILED;
       }
@@ -2329,7 +2328,7 @@ DEFUN (link_params_pkt_loss,
 
   if (sscanf (argv[idx_percentage]->arg, "%g", &fval) != 1)
     {
-      vty_outln (vty, "link_params_pkt_loss: fscanf: %s",
+      vty_out (vty, "link_params_pkt_loss: fscanf: %s\n",
                  safe_strerror(errno));
       return CMD_WARNING_CONFIG_FAILED;
     }
@@ -2370,15 +2369,15 @@ DEFUN (link_params_res_bw,
 
   if (sscanf (argv[idx_bandwidth]->arg, "%g", &bw) != 1)
     {
-      vty_outln (vty, "link_params_res_bw: fscanf: %s",safe_strerror(errno));
+      vty_out (vty, "link_params_res_bw: fscanf: %s\n",safe_strerror(errno));
       return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Check that bandwidth is not greater than maximum bandwidth parameter */
   if (bw > iflp->max_bw)
     {
-      vty_outln (vty,
-               "Residual Bandwidth could not be greater than Maximum Bandwidth (%g)",
+      vty_out (vty,
+               "Residual Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
                iflp->max_bw);
       return CMD_WARNING_CONFIG_FAILED;
     }
@@ -2416,15 +2415,15 @@ DEFUN (link_params_ava_bw,
 
   if (sscanf (argv[idx_bandwidth]->arg, "%g", &bw) != 1)
     {
-      vty_outln (vty, "link_params_ava_bw: fscanf: %s",safe_strerror(errno));
+      vty_out (vty, "link_params_ava_bw: fscanf: %s\n",safe_strerror(errno));
       return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Check that bandwidth is not greater than maximum bandwidth parameter */
   if (bw > iflp->max_bw)
     {
-      vty_outln (vty,
-               "Available Bandwidth could not be greater than Maximum Bandwidth (%g)",
+      vty_out (vty,
+               "Available Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
                iflp->max_bw);
       return CMD_WARNING_CONFIG_FAILED;
     }
@@ -2462,15 +2461,15 @@ DEFUN (link_params_use_bw,
 
   if (sscanf (argv[idx_bandwidth]->arg, "%g", &bw) != 1)
     {
-      vty_outln (vty, "link_params_use_bw: fscanf: %s",safe_strerror(errno));
+      vty_out (vty, "link_params_use_bw: fscanf: %s\n",safe_strerror(errno));
       return CMD_WARNING_CONFIG_FAILED;
     }
 
   /* Check that bandwidth is not greater than maximum bandwidth parameter */
   if (bw > iflp->max_bw)
     {
-      vty_outln (vty,
-               "Utilised Bandwidth could not be greater than Maximum Bandwidth (%g)",
+      vty_out (vty,
+               "Utilised Bandwidth could not be greater than Maximum Bandwidth (%g)\n",
                iflp->max_bw);
       return CMD_WARNING_CONFIG_FAILED;
     }
@@ -2511,13 +2510,13 @@ ip_address_install (struct vty *vty, struct interface *ifp,
   ret = str2prefix_ipv4 (addr_str, &cp);
   if (ret <= 0)
     {
-      vty_outln (vty, "%% Malformed address ");
+      vty_out (vty, "%% Malformed address \n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (ipv4_martian(&cp.prefix))
     {
-      vty_outln (vty, "%% Invalid address");
+      vty_out (vty, "%% Invalid address\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -2568,7 +2567,7 @@ ip_address_install (struct vty *vty, struct interface *ifp,
       ret = if_set_prefix (ifp, ifc);
       if (ret < 0)
 	{
-	  vty_outln (vty, "%% Can't set interface IP address: %s.", 
+	  vty_out (vty, "%% Can't set interface IP address: %s.\n", 
 		   safe_strerror(errno));
           return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -2595,7 +2594,7 @@ ip_address_uninstall (struct vty *vty, struct interface *ifp,
   ret = str2prefix_ipv4 (addr_str, &cp);
   if (ret <= 0)
     {
-      vty_outln (vty, "%% Malformed address ");
+      vty_out (vty, "%% Malformed address \n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -2603,7 +2602,7 @@ ip_address_uninstall (struct vty *vty, struct interface *ifp,
   ifc = connected_check (ifp, (struct prefix *) &cp);
   if (! ifc)
     {
-      vty_outln (vty, "%% Can't find address");
+      vty_out (vty, "%% Can't find address\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -2626,7 +2625,7 @@ ip_address_uninstall (struct vty *vty, struct interface *ifp,
   ret = if_unset_prefix (ifp, ifc);
   if (ret < 0)
     {
-      vty_outln (vty, "%% Can't unset interface IP address: %s.", 
+      vty_out (vty, "%% Can't unset interface IP address: %s.\n", 
 	       safe_strerror(errno));
       return CMD_WARNING_CONFIG_FAILED;
     }
@@ -2711,13 +2710,13 @@ ipv6_address_install (struct vty *vty, struct interface *ifp,
   ret = str2prefix_ipv6 (addr_str, &cp);
   if (ret <= 0)
     {
-      vty_outln (vty, "%% Malformed address ");
+      vty_out (vty, "%% Malformed address \n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (ipv6_martian(&cp.prefix))
     {
-      vty_outln (vty, "%% Invalid address");
+      vty_out (vty, "%% Invalid address\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -2764,7 +2763,7 @@ ipv6_address_install (struct vty *vty, struct interface *ifp,
 
       if (ret < 0)
 	{
-	  vty_outln (vty, "%% Can't set interface IP address: %s.", 
+	  vty_out (vty, "%% Can't set interface IP address: %s.\n", 
 		   safe_strerror(errno));
           return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -2804,7 +2803,7 @@ ipv6_address_uninstall (struct vty *vty, struct interface *ifp,
   ret = str2prefix_ipv6 (addr_str, &cp);
   if (ret <= 0)
     {
-      vty_outln (vty, "%% Malformed address ");
+      vty_out (vty, "%% Malformed address \n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -2812,7 +2811,7 @@ ipv6_address_uninstall (struct vty *vty, struct interface *ifp,
   ifc = connected_check (ifp, (struct prefix *) &cp);
   if (! ifc)
     {
-      vty_outln (vty, "%% Can't find address");
+      vty_out (vty, "%% Can't find address\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -2835,7 +2834,7 @@ ipv6_address_uninstall (struct vty *vty, struct interface *ifp,
   ret = if_prefix_delete_ipv6 (ifp, ifc);
   if (ret < 0)
     {
-      vty_outln (vty, "%% Can't unset interface IP address: %s.", 
+      vty_out (vty, "%% Can't unset interface IP address: %s.\n", 
 	       safe_strerror(errno));
       return CMD_WARNING_CONFIG_FAILED;
     }
@@ -2881,23 +2880,23 @@ link_params_config_write (struct vty *vty, struct interface *ifp)
 
   struct if_link_params *iflp = ifp->link_params;
 
-  vty_outln (vty, " link-params");
-  vty_outln (vty, "  enable");
+  vty_out (vty, " link-params\n");
+  vty_out (vty, "  enable\n");
   if (IS_PARAM_SET(iflp, LP_TE_METRIC) && iflp->te_metric != ifp->metric)
-    vty_outln (vty, "  metric %u",iflp->te_metric);
+    vty_out (vty, "  metric %u\n",iflp->te_metric);
   if (IS_PARAM_SET(iflp, LP_MAX_BW) && iflp->max_bw != iflp->default_bw)
-    vty_outln (vty, "  max-bw %g", iflp->max_bw);
+    vty_out (vty, "  max-bw %g\n", iflp->max_bw);
   if (IS_PARAM_SET(iflp, LP_MAX_RSV_BW) && iflp->max_rsv_bw != iflp->default_bw)
-    vty_outln (vty, "  max-rsv-bw %g", iflp->max_rsv_bw);
+    vty_out (vty, "  max-rsv-bw %g\n", iflp->max_rsv_bw);
   if (IS_PARAM_SET(iflp, LP_UNRSV_BW))
     {
       for (i = 0; i < 8; i++)
 	if (iflp->unrsv_bw[i] != iflp->default_bw)
-	  vty_outln (vty, "  unrsv-bw %d %g",
+	  vty_out (vty, "  unrsv-bw %d %g\n",
 		  i, iflp->unrsv_bw[i]);
     }
   if (IS_PARAM_SET(iflp, LP_ADM_GRP))
-    vty_outln (vty, "  admin-grp 0x%x", iflp->admin_grp);
+    vty_out (vty, "  admin-grp 0x%x\n", iflp->admin_grp);
   if (IS_PARAM_SET(iflp, LP_DELAY))
     {
       vty_out(vty, "  delay %u", iflp->av_delay);
@@ -2906,22 +2905,22 @@ link_params_config_write (struct vty *vty, struct interface *ifp)
           vty_out(vty, " min %u", iflp->min_delay);
           vty_out(vty, " max %u", iflp->max_delay);
         }
-      vty_out (vty, VTYNL);
+      vty_out (vty, "\n");
     }
   if (IS_PARAM_SET(iflp, LP_DELAY_VAR))
-    vty_outln (vty, "  delay-variation %u", iflp->delay_var);
+    vty_out (vty, "  delay-variation %u\n", iflp->delay_var);
   if (IS_PARAM_SET(iflp, LP_PKT_LOSS))
-    vty_outln (vty, "  packet-loss %g", iflp->pkt_loss);
+    vty_out (vty, "  packet-loss %g\n", iflp->pkt_loss);
   if (IS_PARAM_SET(iflp, LP_AVA_BW))
-    vty_outln (vty, "  ava-bw %g", iflp->ava_bw);
+    vty_out (vty, "  ava-bw %g\n", iflp->ava_bw);
   if (IS_PARAM_SET(iflp, LP_RES_BW))
-    vty_outln (vty, "  res-bw %g", iflp->res_bw);
+    vty_out (vty, "  res-bw %g\n", iflp->res_bw);
   if (IS_PARAM_SET(iflp, LP_USE_BW))
-    vty_outln (vty, "  use-bw %g", iflp->use_bw);
+    vty_out (vty, "  use-bw %g\n", iflp->use_bw);
   if (IS_PARAM_SET(iflp, LP_RMT_AS))
-    vty_outln (vty, "  neighbor %s as %u", inet_ntoa(iflp->rmt_ip),
+    vty_out (vty, "  neighbor %s as %u\n", inet_ntoa(iflp->rmt_ip),
         iflp->rmt_as);
-  vty_outln (vty, "  exit-link-params");
+  vty_out (vty, "  exit-link-params\n");
   return 0;
 }
 
@@ -2947,28 +2946,28 @@ if_config_write (struct vty *vty)
       vrf = vrf_lookup_by_id (ifp->vrf_id);
 
       if (ifp->vrf_id == VRF_DEFAULT)
-        vty_outln (vty, "interface %s", ifp->name);
+        vty_out (vty, "interface %s\n", ifp->name);
       else
-        vty_outln (vty, "interface %s vrf %s", ifp->name,vrf->name);
+        vty_out (vty, "interface %s vrf %s\n", ifp->name,vrf->name);
 
       if (if_data)
 	{
 	  if (if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON)
-	    vty_outln (vty, " shutdown");
+	    vty_out (vty, " shutdown\n");
 
           zebra_ptm_if_write(vty, if_data);
 	}
 
       if (ifp->desc)
-	vty_outln (vty, " description %s",ifp->desc);
+	vty_out (vty, " description %s\n",ifp->desc);
 
       /* Assign bandwidth here to avoid unnecessary interface flap
 	 while processing config script */
       if (ifp->bandwidth != 0)
-	vty_outln (vty, " bandwidth %u", ifp->bandwidth); 
+	vty_out (vty, " bandwidth %u\n", ifp->bandwidth); 
 
       if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION))
-        vty_outln (vty, " no link-detect");
+        vty_out (vty, " no link-detect\n");
 
       for (ALL_LIST_ELEMENTS_RO (ifp->connected, addrnode, ifc))
 	  {
@@ -2983,14 +2982,14 @@ if_config_write (struct vty *vty)
 		if (ifc->label)
 		  vty_out (vty, " label %s", ifc->label);
 
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 	      }
 	  }
 
       if (if_data)
 	{
 	  if (if_data->multicast != IF_ZEBRA_MULTICAST_UNSPEC)
-	    vty_outln (vty, " %smulticast",
+	    vty_out (vty, " %smulticast\n",
 		     if_data->multicast == IF_ZEBRA_MULTICAST_ON ? "" : "no ");
 	}
 
@@ -3004,7 +3003,7 @@ if_config_write (struct vty *vty)
 
       link_params_config_write (vty, ifp);
 
-      vty_outln (vty, "!");
+      vty_out (vty, "!\n");
     }
   return 0;
 }

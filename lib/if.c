@@ -690,8 +690,8 @@ DEFUN (interface,
 
   if ((sl = strlen(ifname)) > INTERFACE_NAMSIZ)
     {
-      vty_outln (vty, "%% Interface name %s is invalid: length exceeds "
-		    "%d characters",
+      vty_out (vty, "%% Interface name %s is invalid: length exceeds "
+		    "%d characters\n",
 	       ifname, INTERFACE_NAMSIZ);
       return CMD_WARNING_CONFIG_FAILED;
     }
@@ -709,7 +709,7 @@ DEFUN (interface,
 
   if (!ifp)
     {
-      vty_outln (vty, "%% interface %s not in %s", ifname, vrfname);
+      vty_out (vty, "%% interface %s not in %s\n", ifname, vrfname);
       return CMD_WARNING_CONFIG_FAILED;
     }
   VTY_PUSH_CONTEXT (INTERFACE_NODE, ifp);
@@ -739,14 +739,13 @@ DEFUN_NOSH (no_interface,
 
   if (ifp == NULL)
     {
-      vty_out (vty, "%% Interface %s does not exist%s", ifname, VTYNL);
+      vty_out (vty, "%% Interface %s does not exist\n", ifname);
       return CMD_WARNING_CONFIG_FAILED;
     }
 
   if (CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE)) 
     {
-      vty_out (vty, "%% Only inactive interfaces can be deleted%s",
-	      VTYNL);
+      vty_out (vty, "%% Only inactive interfaces can be deleted\n");
       return CMD_WARNING_CONFIG_FAILED;
     }
 
@@ -793,8 +792,7 @@ DEFUN (show_address,
 	  p = ifc->address;
 
 	  if (p->family == AF_INET)
-	    vty_out (vty, "%s/%d%s", inet_ntoa (p->u.prefix4), p->prefixlen,
-		     VTYNL);
+	    vty_out (vty, "%s/%d\n", inet_ntoa (p->u.prefix4), p->prefixlen);
 	}
     }
   return CMD_SUCCESS;
@@ -819,8 +817,7 @@ DEFUN (show_address_vrf_all,
       if (!vrf->iflist || !listcount (vrf->iflist))
         continue;
 
-      vty_out (vty, "%sVRF %u%s%s", VTYNL, vrf->vrf_id, VTYNL,
-	       VTYNL);
+      vty_out (vty, "\nVRF %u\n\n", vrf->vrf_id);
 
       for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, ifp))
         {
@@ -829,8 +826,7 @@ DEFUN (show_address_vrf_all,
               p = ifc->address;
 
               if (p->family == AF_INET)
-                vty_out (vty, "%s/%d%s", inet_ntoa (p->u.prefix4), p->prefixlen,
-                         VTYNL);
+                vty_out (vty, "%s/%d\n", inet_ntoa (p->u.prefix4), p->prefixlen);
             }
         }
     }

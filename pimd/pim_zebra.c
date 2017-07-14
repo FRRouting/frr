@@ -1151,11 +1151,11 @@ pim_zebra_zclient_update (struct vty *vty)
   vty_out(vty, "Zclient update socket: ");
 
   if (zclient) {
-    vty_outln (vty, "%d failures=%d", zclient->sock,
+    vty_out (vty, "%d failures=%d\n", zclient->sock,
 	    zclient->fail);
   }
   else {
-    vty_outln (vty, "<null zclient>");
+    vty_out (vty, "<null zclient>\n");
   }
 }
 
