@@ -113,6 +113,7 @@ nsm_timer_set (struct ospf_neighbor *nbr)
     case NSM_Down:
       OSPF_NSM_TIMER_OFF (nbr->t_inactivity);
       OSPF_NSM_TIMER_OFF (nbr->t_hello_reply);
+      /* fallthru */
     case NSM_Attempt:
     case NSM_Init:
     case NSM_TwoWay:

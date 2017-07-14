@@ -1152,6 +1152,7 @@ ospf_db_desc_proc (struct stream *s, struct ospf_interface *oi,
           case -1:
             /* Neighbour has a more recent LSA, we must request it */
             ospf_ls_request_add (nbr, new);
+            /* fallthru */
           case 0:
             /* If we have a copy of this LSA, it's either less recent
              * and we're requesting it from neighbour (the case above), or
@@ -1327,6 +1328,7 @@ ospf_db_desc (struct ip *iph, struct ospf_header *ospfh,
 	 through to case ExStart below.  */
       if (nbr->state != NSM_ExStart)
 	break;
+      /* fallthru */
     case NSM_ExStart:
       /* Initial DBD */
       if ((IS_SET_DD_ALL (dd->flags) == OSPF_DD_FLAG_ALL) &&
