@@ -1888,10 +1888,9 @@ DEFUN (show_mac_access_list_name,
        show_mac_access_list_name_cmd,
        "show mac access-list WORD",
        SHOW_STR
-       "mac\n"
+       "mac access lists\n"
        "List mac access lists\n"
-       "mac zebra access-list\n"
-       "mac address")
+       "mac address\n")
 {
 	return filter_show(vty, argv[3]->arg, AFI_L2VPN);
 }
