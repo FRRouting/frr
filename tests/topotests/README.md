@@ -13,7 +13,8 @@ tests)
 3. apt-get install iproute
 4. pip install ipaddr
 5. pip install pytest
-6. pip install exabgp
+6. pip install exabgp==3.4.17
+   (Newer 4.0 version of exabgp is not yet supported)
 7. useradd -d /var/run/exabgp/ -s /bin/false exabgp
 
 ### Enable Coredumps
