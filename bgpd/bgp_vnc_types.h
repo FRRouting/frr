@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright 2015-2016, LabN Consulting, L.L.C.
  *
  * This program is free software; you can redistribute it and/or
@@ -21,20 +21,20 @@
 
 #if ENABLE_BGP_VNC
 typedef enum {
-    BGP_VNC_SUBTLV_TYPE_LIFETIME=1,
-    BGP_VNC_SUBTLV_TYPE_RFPOPTION=2,    /* deprecated */
+	BGP_VNC_SUBTLV_TYPE_LIFETIME = 1,
+	BGP_VNC_SUBTLV_TYPE_RFPOPTION = 2, /* deprecated */
 } bgp_vnc_subtlv_types;
 
 /*
  * VNC Attribute subtlvs
  */
 struct bgp_vnc_subtlv_lifetime {
-    uint32_t	lifetime;
+	uint32_t lifetime;
 };
 
 struct bgp_vnc_subtlv_unaddr {
-    struct prefix	un_address;	/* IPv4 or IPv6; pfx length ignored */
+	struct prefix un_address; /* IPv4 or IPv6; pfx length ignored */
 };
 
-#endif  /* ENABLE_BGP_VNC */
+#endif /* ENABLE_BGP_VNC */
 #endif /* _QUAGGA_BGP_VNC_TYPES_H */

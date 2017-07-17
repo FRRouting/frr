@@ -67,164 +67,146 @@
 //#include "eigrpd/eigrp_routemap.h"
 
 /* eigprd privileges */
-zebra_capabilities_t _caps_p [] = 
-{
-  ZCAP_NET_RAW,
-  ZCAP_BIND,
-  ZCAP_NET_ADMIN,
+zebra_capabilities_t _caps_p[] = {
+	ZCAP_NET_RAW, ZCAP_BIND, ZCAP_NET_ADMIN,
 };
 
-struct zebra_privs_t eigrpd_privs =
-{
-#if defined (FRR_USER) && defined (FRR_GROUP)
-  .user = FRR_USER,
-  .group = FRR_GROUP,
+struct zebra_privs_t eigrpd_privs = {
+#if defined(FRR_USER) && defined(FRR_GROUP)
+	.user = FRR_USER,
+	.group = FRR_GROUP,
 #endif
-#if defined (VTY_GROUP)
-  .vty_group = VTY_GROUP,
+#if defined(VTY_GROUP)
+	.vty_group = VTY_GROUP,
 #endif
-  .caps_p = _caps_p,
-  .cap_num_p = array_size (_caps_p),
-  .cap_num_i = 0
-};
+	.caps_p = _caps_p,
+	.cap_num_p = array_size(_caps_p),
+	.cap_num_i = 0};
 
 /* EIGRPd options. */
-struct option longopts[] =
-  {
-    { 0 }
-  };
+struct option longopts[] = {{0}};
 
 /* Master of threads. */
 struct thread_master *master;
 
 /* SIGHUP handler. */
-static void 
-sighup (void)
+static void sighup(void)
 {
-  zlog_info ("SIGHUP received");
+	zlog_info("SIGHUP received");
 }
 
 /* SIGINT / SIGTERM handler. */
-static void
-sigint (void)
+static void sigint(void)
 {
-  zlog_notice ("Terminating on signal");
-  eigrp_terminate ();
+	zlog_notice("Terminating on signal");
+	eigrp_terminate();
 }
 
 /* SIGUSR1 handler. */
-static void
-sigusr1 (void)
+static void sigusr1(void)
 {
-  zlog_rotate ();
+	zlog_rotate();
 }
 
-struct quagga_signal_t eigrp_signals[] =
-{
-  {
-    .signal = SIGHUP,
-    .handler = &sighup,
-  },
-  {
-    .signal = SIGUSR1,
-    .handler = &sigusr1,
-  },  
-  {
-    .signal = SIGINT,
-    .handler = &sigint,
-  },
-  {
-    .signal = SIGTERM,
-    .handler = &sigint,
-  },
+struct quagga_signal_t eigrp_signals[] = {
+	{
+		.signal = SIGHUP,
+		.handler = &sighup,
+	},
+	{
+		.signal = SIGUSR1,
+		.handler = &sigusr1,
+	},
+	{
+		.signal = SIGINT,
+		.handler = &sigint,
+	},
+	{
+		.signal = SIGTERM,
+		.handler = &sigint,
+	},
 };
 
-FRR_DAEMON_INFO(eigrpd, EIGRP,
-                .vty_port = EIGRP_VTY_PORT,
+FRR_DAEMON_INFO(eigrpd, EIGRP, .vty_port = EIGRP_VTY_PORT,
 
-                .proghelp = "Implementation of the EIGRP routing protocol.",
+		.proghelp = "Implementation of the EIGRP routing protocol.",
 
-                .signals = eigrp_signals,
-                .n_signals = array_size(eigrp_signals),
+		.signals = eigrp_signals,
+		.n_signals = array_size(eigrp_signals),
 
-                .privs = &eigrpd_privs,
-                )
+		.privs = &eigrpd_privs, )
 
 /* EIGRPd main routine. */
-int
-main (int argc, char **argv, char **envp)
+int main(int argc, char **argv, char **envp)
 {
-  frr_preinit (&eigrpd_di, argc, argv);
-  frr_opt_add ("", longopts, "");
+	frr_preinit(&eigrpd_di, argc, argv);
+	frr_opt_add("", longopts, "");
 
-  while (1)
-    {
-      int opt;
+	while (1) {
+		int opt;
 
-      opt = frr_getopt (argc, argv, NULL);
+		opt = frr_getopt(argc, argv, NULL);
 
-      if (opt == EOF)
-        break;
+		if (opt == EOF)
+			break;
 
-      switch (opt)
-        {
-        case 0:
-          break;
-        default:
-          frr_help_exit (1);
-          break;
-        }
-    }
+		switch (opt) {
+		case 0:
+			break;
+		default:
+			frr_help_exit(1);
+			break;
+		}
+	}
 
-  /* EIGRP master init. */
-  eigrp_master_init ();
-  eigrp_om->master = frr_init();
-  master = eigrp_om->master;
+	/* EIGRP master init. */
+	eigrp_master_init();
+	eigrp_om->master = frr_init();
+	master = eigrp_om->master;
 
-  vrf_init (NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL);
 
-  /*EIGRPd init*/
-  eigrp_if_init ();
-  eigrp_zebra_init ();
-  eigrp_debug_init ();
+	/*EIGRPd init*/
+	eigrp_if_init();
+	eigrp_zebra_init();
+	eigrp_debug_init();
 
-  /* Get configuration file. */
-  /* EIGRP VTY inits */
-  eigrp_vty_init ();
-  keychain_init();
-  eigrp_vty_show_init ();
-  eigrp_vty_if_init ();
+	/* Get configuration file. */
+	/* EIGRP VTY inits */
+	eigrp_vty_init();
+	keychain_init();
+	eigrp_vty_show_init();
+	eigrp_vty_if_init();
 
 #ifdef HAVE_SNMP
-  eigrp_snmp_init ();
+	eigrp_snmp_init();
 #endif /* HAVE_SNMP */
 
-  /* Access list install. */
-  access_list_init ();
-  access_list_add_hook (eigrp_distribute_update_all_wrapper);
-  access_list_delete_hook (eigrp_distribute_update_all_wrapper);
+	/* Access list install. */
+	access_list_init();
+	access_list_add_hook(eigrp_distribute_update_all_wrapper);
+	access_list_delete_hook(eigrp_distribute_update_all_wrapper);
 
-  /* Prefix list initialize.*/
-  prefix_list_init ();
-  prefix_list_add_hook (eigrp_distribute_update_all);
-  prefix_list_delete_hook (eigrp_distribute_update_all);
+	/* Prefix list initialize.*/
+	prefix_list_init();
+	prefix_list_add_hook(eigrp_distribute_update_all);
+	prefix_list_delete_hook(eigrp_distribute_update_all);
 
-  /*eigrp_route_map_init();
-    route_map_add_hook (eigrp_rmap_update);
-    route_map_delete_hook (eigrp_rmap_update);*/
-  /*if_rmap_init (EIGRP_NODE);
-    if_rmap_hook_add (eigrp_if_rmap_update);
-    if_rmap_hook_delete (eigrp_if_rmap_update);*/
+	/*eigrp_route_map_init();
+	  route_map_add_hook (eigrp_rmap_update);
+	  route_map_delete_hook (eigrp_rmap_update);*/
+	/*if_rmap_init (EIGRP_NODE);
+	  if_rmap_hook_add (eigrp_if_rmap_update);
+	  if_rmap_hook_delete (eigrp_if_rmap_update);*/
 
-  /* Distribute list install. */
-  distribute_list_init (EIGRP_NODE);
-  distribute_list_add_hook (eigrp_distribute_update);
-  distribute_list_delete_hook (eigrp_distribute_update);
+	/* Distribute list install. */
+	distribute_list_init(EIGRP_NODE);
+	distribute_list_add_hook(eigrp_distribute_update);
+	distribute_list_delete_hook(eigrp_distribute_update);
 
-  frr_config_fork ();
-  frr_run(master);
+	frr_config_fork();
+	frr_run(master);
 
-  /* Not reached. */
-  return (0);
-  
+	/* Not reached. */
+	return (0);
 }

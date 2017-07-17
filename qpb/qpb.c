@@ -25,4 +25,3 @@
 /*
  * Main file for the qpb library.
  */
-

@@ -27,11 +27,11 @@
 #include "pim_iface.h"
 
 struct ssmpingd_sock {
-  int            sock_fd;     /* socket */
-  struct thread *t_sock_read; /* thread for reading socket */
-  struct in_addr source_addr; /* source address */
-  int64_t        creation;    /* timestamp of socket creation */
-  int64_t        requests;    /* counter */
+	int sock_fd;		    /* socket */
+	struct thread *t_sock_read; /* thread for reading socket */
+	struct in_addr source_addr; /* source address */
+	int64_t creation;	   /* timestamp of socket creation */
+	int64_t requests;	   /* counter */
 };
 
 void pim_ssmpingd_init(void);

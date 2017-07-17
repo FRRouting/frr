@@ -56,45 +56,39 @@ extern route_table_delegate_t _srcdest_srcnode_delegate;
 
 extern struct route_table *srcdest_table_init(void);
 extern struct route_node *srcdest_rnode_get(struct route_table *table,
-                                            union prefixptr dst_pu,
-                                            struct prefix_ipv6 *src_p);
+					    union prefixptr dst_pu,
+					    struct prefix_ipv6 *src_p);
 extern struct route_node *srcdest_rnode_lookup(struct route_table *table,
-                                            union prefixptr dst_pu,
-                                            struct prefix_ipv6 *src_p);
-extern void srcdest_rnode_prefixes (struct route_node *rn, struct prefix **p,
-                                    struct prefix **src_p);
-extern const char *srcdest_rnode2str(struct route_node *rn, char *str, int size);
+					       union prefixptr dst_pu,
+					       struct prefix_ipv6 *src_p);
+extern void srcdest_rnode_prefixes(struct route_node *rn, struct prefix **p,
+				   struct prefix **src_p);
+extern const char *srcdest_rnode2str(struct route_node *rn, char *str,
+				     int size);
 extern struct route_node *srcdest_route_next(struct route_node *rn);
 
-static inline int
-rnode_is_dstnode (struct route_node *rn)
+static inline int rnode_is_dstnode(struct route_node *rn)
 {
-  return rn->table->delegate == &_srcdest_dstnode_delegate;
+	return rn->table->delegate == &_srcdest_dstnode_delegate;
 }
 
-static inline int
-rnode_is_srcnode (struct route_node *rn)
+static inline int rnode_is_srcnode(struct route_node *rn)
 {
-  return rn->table->delegate == &_srcdest_srcnode_delegate;
+	return rn->table->delegate == &_srcdest_srcnode_delegate;
 }
 
-static inline struct route_table *
-srcdest_rnode_table (struct route_node *rn)
+static inline struct route_table *srcdest_rnode_table(struct route_node *rn)
 {
-  if (rnode_is_srcnode (rn))
-    {
-      struct route_node *dst_rn = rn->table->info;
-      return dst_rn->table;
-    }
-  else
-    {
-      return rn->table;
-    }
+	if (rnode_is_srcnode(rn)) {
+		struct route_node *dst_rn = rn->table->info;
+		return dst_rn->table;
+	} else {
+		return rn->table;
+	}
 }
-static inline void *
-srcdest_rnode_table_info (struct route_node *rn)
+static inline void *srcdest_rnode_table_info(struct route_node *rn)
 {
-  return srcdest_rnode_table(rn)->info;
+	return srcdest_rnode_table(rn)->info;
 }
 
 #endif /* _ZEBRA_SRC_DEST_TABLE_H */

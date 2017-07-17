@@ -32,65 +32,63 @@
 
 struct thread_master *master;
 
-int dump_args(struct vty *vty, const char *descr,
-              int argc, struct cmd_token *argv[])
+int dump_args(struct vty *vty, const char *descr, int argc,
+	      struct cmd_token *argv[])
 {
-  int i;
-  vty_outln (vty, "%s with %d args.", descr, argc);
-  for (i = 0; i < argc; i++)
-    {
-      vty_outln (vty, "[%02d] %s@%s: %s", i, argv[i]->text, argv[i]->varname, argv[i]->arg);
-    }
+	int i;
+	vty_out(vty, "%s with %d args.\n", descr, argc);
+	for (i = 0; i < argc; i++) {
+		vty_out(vty, "[%02d] %s@%s: %s\n", i, argv[i]->text,
+			argv[i]->varname, argv[i]->arg);
+	}
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 static void vty_do_exit(void)
 {
-  printf ("\nend.\n");
-  cmd_terminate ();
-  vty_terminate ();
-  thread_master_free (master);
-  closezlog ();
+	printf("\nend.\n");
+	cmd_terminate();
+	vty_terminate();
+	thread_master_free(master);
+	closezlog();
 
-  log_memstats_stderr ("testcli");
-  exit (0);
+	log_memstats_stderr("testcli");
+	exit(0);
 }
 
 /* main routine. */
-int
-main (int argc, char **argv)
+int main(int argc, char **argv)
 {
-  struct thread thread;
+	struct thread thread;
 
-  /* Set umask before anything for security */
-  umask (0027);
+	/* Set umask before anything for security */
+	umask(0027);
 
-  /* master init. */
-  master = thread_master_create(NULL);
+	/* master init. */
+	master = thread_master_create(NULL);
 
-  openzlog("common-cli", "NONE", 0, LOG_CONS | LOG_NDELAY | LOG_PID,
-           LOG_DAEMON);
-  zlog_set_level(ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
-  zlog_set_level(ZLOG_DEST_STDOUT, ZLOG_DISABLED);
-  zlog_set_level(ZLOG_DEST_MONITOR, LOG_DEBUG);
+	openzlog("common-cli", "NONE", 0, LOG_CONS | LOG_NDELAY | LOG_PID,
+		 LOG_DAEMON);
+	zlog_set_level(ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
+	zlog_set_level(ZLOG_DEST_STDOUT, ZLOG_DISABLED);
+	zlog_set_level(ZLOG_DEST_MONITOR, LOG_DEBUG);
 
-  /* Library inits. */
-  cmd_init (1);
-  cmd_hostname_set ("test");
+	/* Library inits. */
+	cmd_init(1);
+	cmd_hostname_set("test");
 
-  vty_init (master);
-  memory_init ();
+	vty_init(master);
+	memory_init();
 
-  test_init (argc, argv);
+	test_init(argc, argv);
 
-  vty_stdio (vty_do_exit);
+	vty_stdio(vty_do_exit);
 
-  /* Fetch next active thread. */
-  while (thread_fetch (master, &thread))
-    thread_call (&thread);
+	/* Fetch next active thread. */
+	while (thread_fetch(master, &thread))
+		thread_call(&thread);
 
-  /* Not reached. */
-  exit (0);
+	/* Not reached. */
+	exit(0);
 }
-

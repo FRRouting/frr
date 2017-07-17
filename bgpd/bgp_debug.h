@@ -57,10 +57,10 @@ extern int Debug_Radix;
 #define	DETAIL	 6
 
 /* Prototypes. */
-extern void bgp_debug_init (void);
-extern void bgp_packet_dump (struct stream *);
+extern void bgp_debug_init(void);
+extern void bgp_packet_dump(struct stream *);
 
-extern int debug (unsigned int option);
+extern int debug(unsigned int option);
 
 extern unsigned long conf_bgp_debug_as4;
 extern unsigned long conf_bgp_debug_neighbor_events;
@@ -92,10 +92,9 @@ extern struct list *bgp_debug_update_prefixes;
 extern struct list *bgp_debug_bestpath_prefixes;
 extern struct list *bgp_debug_zebra_prefixes;
 
-struct bgp_debug_filter
-{
-  char *host;
-  struct prefix *p;
+struct bgp_debug_filter {
+	char *host;
+	struct prefix *p;
 };
 
 #define BGP_DEBUG_AS4                 0x01
@@ -122,39 +121,41 @@ struct bgp_debug_filter
 #define TERM_DEBUG_ON(a, b)	(term_bgp_debug_ ## a |= (BGP_DEBUG_ ## b))
 #define TERM_DEBUG_OFF(a, b)	(term_bgp_debug_ ## a &= ~(BGP_DEBUG_ ## b))
 
-#define DEBUG_ON(a, b) \
-    do { \
-	CONF_DEBUG_ON(a, b); \
-	TERM_DEBUG_ON(a, b); \
-    } while (0)
-#define DEBUG_OFF(a, b) \
-    do { \
-	CONF_DEBUG_OFF(a, b); \
-	TERM_DEBUG_OFF(a, b); \
-    } while (0)
+#define DEBUG_ON(a, b)                                                         \
+	do {                                                                   \
+		CONF_DEBUG_ON(a, b);                                           \
+		TERM_DEBUG_ON(a, b);                                           \
+	} while (0)
+#define DEBUG_OFF(a, b)                                                        \
+	do {                                                                   \
+		CONF_DEBUG_OFF(a, b);                                          \
+		TERM_DEBUG_OFF(a, b);                                          \
+	} while (0)
 
 #define BGP_DEBUG(a, b)		(term_bgp_debug_ ## a & BGP_DEBUG_ ## b)
 #define CONF_BGP_DEBUG(a, b)    (conf_bgp_debug_ ## a & BGP_DEBUG_ ## b)
 
 extern const char *bgp_type_str[];
 
-extern int bgp_dump_attr (struct attr *, char *, size_t);
+extern int bgp_dump_attr(struct attr *, char *, size_t);
 extern int bgp_debug_peer_updout_enabled(char *host);
 extern const char *bgp_notify_code_str(char);
 extern const char *bgp_notify_subcode_str(char, char);
-extern void bgp_notify_print (struct peer *, struct bgp_notify *, const char *);
+extern void bgp_notify_print(struct peer *, struct bgp_notify *, const char *);
 
 extern const struct message bgp_status_msg[];
 extern int bgp_debug_neighbor_events(struct peer *peer);
 extern int bgp_debug_keepalive(struct peer *peer);
 extern int bgp_debug_update(struct peer *peer, struct prefix *p,
-                            struct update_group *updgrp, unsigned int inbound);
+			    struct update_group *updgrp, unsigned int inbound);
 extern int bgp_debug_bestpath(struct prefix *p);
 extern int bgp_debug_zebra(struct prefix *p);
 
 extern int bgp_debug_count(void);
-extern const char *bgp_debug_rdpfxpath2str (struct prefix_rd *, union prefixconstptr,
-                                            int, u_int32_t, char *, int);
-const char *bgp_notify_admin_message(char *buf, size_t bufsz, u_char *data, size_t datalen);
+extern const char *bgp_debug_rdpfxpath2str(afi_t, safi_t, struct prefix_rd *,
+					   union prefixconstptr, mpls_label_t *,
+					   int, u_int32_t, char *, int);
+const char *bgp_notify_admin_message(char *buf, size_t bufsz, u_char *data,
+				     size_t datalen);
 
 #endif /* _QUAGGA_BGP_DEBUG_H */

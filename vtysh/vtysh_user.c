@@ -38,7 +38,7 @@
 #include "command.h"
 #include "vtysh/vtysh_user.h"
 
-/* 
+/*
  * Compiler is warning about prototypes not being declared.
  * The DEFUNSH and DEFUN macro's are messing with the
  * compiler I believe.  This is just to make it happy.
@@ -53,27 +53,22 @@ extern struct list *config_top;
 extern void config_add_line(struct list *config, const char *line);
 
 #ifdef USE_PAM
-static struct pam_conv conv = 
+static struct pam_conv conv = {PAM_CONV_FUNC, NULL};
+
+static int vtysh_pam(const char *user)
 {
-  PAM_CONV_FUNC,
-  NULL
-};
+	int ret;
+	pam_handle_t *pamh = NULL;
 
-static int
-vtysh_pam (const char *user)
-{
-  int ret;
-  pam_handle_t *pamh = NULL;
+	/* Start PAM. */
+	ret = pam_start(FRR_PAM_NAME, user, &conv, &pamh);
+	/* printf ("ret %d\n", ret); */
 
-  /* Start PAM. */
-  ret = pam_start(FRR_PAM_NAME, user, &conv, &pamh);
-  /* printf ("ret %d\n", ret); */
+	/* Is user really user? */
+	if (ret == PAM_SUCCESS)
+		ret = pam_authenticate(pamh, 0);
+/* printf ("ret %d\n", ret); */
 
-  /* Is user really user? */
-  if (ret == PAM_SUCCESS)
-    ret = pam_authenticate (pamh, 0);
-  /* printf ("ret %d\n", ret); */
-  
 #if 0
   /* Permitted access? */
   if (ret == PAM_SUCCESS)
@@ -83,85 +78,76 @@ vtysh_pam (const char *user)
   if (ret == PAM_AUTHINFO_UNAVAIL)
     ret = PAM_SUCCESS;
 #endif /* 0 */
-  
-  /* This is where we have been authorized or not. */
+
+/* This is where we have been authorized or not. */
 #ifdef DEBUG
-  if (ret == PAM_SUCCESS)
-    printf("Authenticated\n");
-  else
-    printf("Not Authenticated\n");
+	if (ret == PAM_SUCCESS)
+		printf("Authenticated\n");
+	else
+		printf("Not Authenticated\n");
 #endif /* DEBUG */
 
-  /* close Linux-PAM */
-  if (pam_end (pamh, ret) != PAM_SUCCESS) 
-    {
-      pamh = NULL;
-      fprintf(stderr, "vtysh_pam: failed to release authenticator\n");
-      exit(1);
-    }
+	/* close Linux-PAM */
+	if (pam_end(pamh, ret) != PAM_SUCCESS) {
+		pamh = NULL;
+		fprintf(stderr, "vtysh_pam: failed to release authenticator\n");
+		exit(1);
+	}
 
-  return ret == PAM_SUCCESS ? 0 : 1;
+	return ret == PAM_SUCCESS ? 0 : 1;
 }
 #endif /* USE_PAM */
 
-struct vtysh_user
-{
-  char *name;
-  u_char nopassword;
+struct vtysh_user {
+	char *name;
+	u_char nopassword;
 };
 
 struct list *userlist;
 
-static struct vtysh_user *
-user_new (void)
+static struct vtysh_user *user_new(void)
 {
-  return XCALLOC (MTYPE_TMP, sizeof (struct vtysh_user));
+	return XCALLOC(MTYPE_TMP, sizeof(struct vtysh_user));
 }
 
-static struct vtysh_user *
-user_lookup (const char *name)
+static struct vtysh_user *user_lookup(const char *name)
 {
-  struct listnode *node, *nnode;
-  struct vtysh_user *user;
+	struct listnode *node, *nnode;
+	struct vtysh_user *user;
 
-  for (ALL_LIST_ELEMENTS (userlist, node, nnode, user))
-    {
-      if (strcmp (user->name, name) == 0)
-	return user;
-    }
-  return NULL;
-}
-
-void
-user_config_write ()
-{
-  struct listnode *node, *nnode;
-  struct vtysh_user *user;
-  char line[128];
-
-  for (ALL_LIST_ELEMENTS (userlist, node, nnode, user))
-    {
-      if (user->nopassword)
-	{
-	  sprintf(line, "username %s nopassword", user->name);
-	  config_add_line (config_top, line);
+	for (ALL_LIST_ELEMENTS(userlist, node, nnode, user)) {
+		if (strcmp(user->name, name) == 0)
+			return user;
 	}
-    }
+	return NULL;
 }
 
-static struct vtysh_user *
-user_get (const char *name)
+void user_config_write()
 {
-  struct vtysh_user *user;
-  user = user_lookup (name);
-  if (user)
-    return user;
+	struct listnode *node, *nnode;
+	struct vtysh_user *user;
+	char line[128];
 
-  user = user_new ();
-  user->name = strdup (name);
-  listnode_add (userlist, user);
+	for (ALL_LIST_ELEMENTS(userlist, node, nnode, user)) {
+		if (user->nopassword) {
+			sprintf(line, "username %s nopassword", user->name);
+			config_add_line(config_top, line);
+		}
+	}
+}
 
-  return user;
+static struct vtysh_user *user_get(const char *name)
+{
+	struct vtysh_user *user;
+	user = user_lookup(name);
+	if (user)
+		return user;
+
+	user = user_new();
+	user->name = strdup(name);
+	listnode_add(userlist, user);
+
+	return user;
 }
 
 DEFUN (vtysh_banner_motd_file,
@@ -172,8 +158,8 @@ DEFUN (vtysh_banner_motd_file,
        "Banner from a file\n"
        "Filename\n")
 {
-  int idx_file = 3;
-  return cmd_banner_motd_file (argv[idx_file]->arg);
+	int idx_file = 3;
+	return cmd_banner_motd_file(argv[idx_file]->arg);
 }
 
 DEFUN (username_nopassword,
@@ -183,57 +169,53 @@ DEFUN (username_nopassword,
        "\n"
        "\n")
 {
-  int idx_word = 1;
-  struct vtysh_user *user;
-  user = user_get (argv[idx_word]->arg);
-  user->nopassword = 1;
-  return CMD_SUCCESS;
+	int idx_word = 1;
+	struct vtysh_user *user;
+	user = user_get(argv[idx_word]->arg);
+	user->nopassword = 1;
+	return CMD_SUCCESS;
 }
 
-int
-vtysh_auth (void)
+int vtysh_auth(void)
 {
-  struct vtysh_user *user;
-  struct passwd *passwd;
+	struct vtysh_user *user;
+	struct passwd *passwd;
 
-  if ((passwd = getpwuid (geteuid ())) == NULL)
-  {
-    fprintf (stderr, "could not lookup user ID %d\n", (int) geteuid());
-    exit (1);
-  }
+	if ((passwd = getpwuid(geteuid())) == NULL) {
+		fprintf(stderr, "could not lookup user ID %d\n",
+			(int)geteuid());
+		exit(1);
+	}
 
-  user = user_lookup (passwd->pw_name);
-  if (user && user->nopassword)
-    /* Pass through */;
-  else
-    {
+	user = user_lookup(passwd->pw_name);
+	if (user && user->nopassword)
+		/* Pass through */;
+	else {
 #ifdef USE_PAM
-      if (vtysh_pam (passwd->pw_name))
-	exit (0);
+		if (vtysh_pam(passwd->pw_name))
+			exit(0);
 #endif /* USE_PAM */
-    }
-  return 0;
+	}
+	return 0;
 }
 
-char *
-vtysh_get_home (void)
+char *vtysh_get_home(void)
 {
-  struct passwd *passwd;
-  char * homedir;
+	struct passwd *passwd;
+	char *homedir;
 
-  if ((homedir = getenv("HOME")) != 0)
-    return homedir;
+	if ((homedir = getenv("HOME")) != 0)
+		return homedir;
 
-  /* Fallback if HOME is undefined */
-  passwd = getpwuid (getuid ());
+	/* Fallback if HOME is undefined */
+	passwd = getpwuid(getuid());
 
-  return passwd ? passwd->pw_dir : NULL;
+	return passwd ? passwd->pw_dir : NULL;
 }
 
-void
-vtysh_user_init (void)
+void vtysh_user_init(void)
 {
-  userlist = list_new ();
-  install_element (CONFIG_NODE, &username_nopassword_cmd);
-  install_element (CONFIG_NODE, &vtysh_banner_motd_file_cmd);
+	userlist = list_new();
+	install_element(CONFIG_NODE, &username_nopassword_cmd);
+	install_element(CONFIG_NODE, &vtysh_banner_motd_file_cmd);
 }

@@ -36,114 +36,114 @@ const char *prog_name = 0;
 
 static int iface_solve_index(const char *ifname)
 {
-  struct if_nameindex *ini;
-  ifindex_t ifindex = -1;
-  int i;
+	struct if_nameindex *ini;
+	ifindex_t ifindex = -1;
+	int i;
 
-  if (!ifname)
-    return -1;
+	if (!ifname)
+		return -1;
 
-  ini = if_nameindex();
-  if (!ini) {
-    int err = errno;
-    fprintf(stderr,
-	    "%s: interface=%s: failure solving index: errno=%d: %s\n",
-	    prog_name, ifname, err, strerror(err));
-    errno = err;
-    return -1;
-  }
+	ini = if_nameindex();
+	if (!ini) {
+		int err = errno;
+		fprintf(stderr,
+			"%s: interface=%s: failure solving index: errno=%d: %s\n",
+			prog_name, ifname, err, strerror(err));
+		errno = err;
+		return -1;
+	}
 
-  for (i = 0; ini[i].if_index; ++i) {
+	for (i = 0; ini[i].if_index; ++i) {
 #if 0
     fprintf(stderr,
 	    "%s: interface=%s matching against local ifname=%s ifindex=%d\n",
 	    prog_name, ifname, ini[i].if_name, ini[i].if_index);
 #endif
-    if (!strcmp(ini[i].if_name, ifname)) {
-      ifindex = ini[i].if_index;
-      break;
-    }
-  }
+		if (!strcmp(ini[i].if_name, ifname)) {
+			ifindex = ini[i].if_index;
+			break;
+		}
+	}
 
-  if_freenameindex(ini);
+	if_freenameindex(ini);
 
-  return ifindex;
+	return ifindex;
 }
 
 int main(int argc, const char *argv[])
 {
-  struct in_addr group_addr;
-  struct in_addr source_addr;
-  const char *ifname;
-  const char *group;
-  const char *source;
-  ifindex_t ifindex;
-  int result;
-  int fd;
+	struct in_addr group_addr;
+	struct in_addr source_addr;
+	const char *ifname;
+	const char *group;
+	const char *source;
+	ifindex_t ifindex;
+	int result;
+	int fd;
 
-  prog_name = argv[0];
+	prog_name = argv[0];
 
-  fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-  if (fd < 0) {
-    fprintf(stderr,
-	    "%s: could not create socket: socket(): errno=%d: %s\n",
-	    prog_name, errno, strerror(errno));
-    exit(1);
-  }
+	fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if (fd < 0) {
+		fprintf(stderr,
+			"%s: could not create socket: socket(): errno=%d: %s\n",
+			prog_name, errno, strerror(errno));
+		exit(1);
+	}
 
-  if (argc != 4) {
-    fprintf(stderr,
-	    "usage:   %s interface group     source\n"
-	    "example: %s eth0      232.1.1.1 1.1.1.1\n",
-	    prog_name, prog_name);
-    exit(1);
-  }
+	if (argc != 4) {
+		fprintf(stderr,
+			"usage:   %s interface group     source\n"
+			"example: %s eth0      232.1.1.1 1.1.1.1\n",
+			prog_name, prog_name);
+		exit(1);
+	}
 
-  ifname = argv[1];
-  group  = argv[2];
-  source = argv[3];
+	ifname = argv[1];
+	group = argv[2];
+	source = argv[3];
 
-  ifindex = iface_solve_index(ifname);
-  if (ifindex < 0) {
-    fprintf(stderr, "%s: could not find interface: %s\n",
-	    prog_name, ifname);
-    exit(1);
-  }
+	ifindex = iface_solve_index(ifname);
+	if (ifindex < 0) {
+		fprintf(stderr, "%s: could not find interface: %s\n", prog_name,
+			ifname);
+		exit(1);
+	}
 
-  result = inet_pton(AF_INET, group, &group_addr);
-  if (result <= 0) {
-    fprintf(stderr, "%s: bad group address: %s\n",
-	    prog_name, group);
-    exit(1);
-  }
+	result = inet_pton(AF_INET, group, &group_addr);
+	if (result <= 0) {
+		fprintf(stderr, "%s: bad group address: %s\n", prog_name,
+			group);
+		exit(1);
+	}
 
-  result = inet_pton(AF_INET, source, &source_addr);
-  if (result <= 0) {
-    fprintf(stderr, "%s: bad source address: %s\n",
-	    prog_name, source);
-    exit(1);
-  }
+	result = inet_pton(AF_INET, source, &source_addr);
+	if (result <= 0) {
+		fprintf(stderr, "%s: bad source address: %s\n", prog_name,
+			source);
+		exit(1);
+	}
 
-  result = pim_igmp_join_source(fd, ifindex, group_addr, source_addr);
-  if (result) {
-    fprintf(stderr,
-	    "%s: setsockopt(fd=%d) failure for IGMP group %s source %s ifindex %d on interface %s: errno=%d: %s\n",
-	    prog_name, fd, group, source, ifindex, ifname,
-	    errno, strerror(errno));
-    exit(1);
-  }
+	result = pim_igmp_join_source(fd, ifindex, group_addr, source_addr);
+	if (result) {
+		fprintf(stderr,
+			"%s: setsockopt(fd=%d) failure for IGMP group %s source %s ifindex %d on interface %s: errno=%d: %s\n",
+			prog_name, fd, group, source, ifindex, ifname, errno,
+			strerror(errno));
+		exit(1);
+	}
 
-  printf("%s: joined channel (S,G)=(%s,%s) on interface %s\n",
-	 prog_name, source, group, ifname);
+	printf("%s: joined channel (S,G)=(%s,%s) on interface %s\n", prog_name,
+	       source, group, ifname);
 
-  printf("%s: waiting...\n", prog_name);
+	printf("%s: waiting...\n", prog_name);
 
-  getchar();
+	getchar();
 
-  close(fd);
+	close(fd);
 
-  printf("%s: left channel (S,G)=(%s,%s) on interface %s\n",
-	 prog_name, source, group, ifname);
+	printf("%s: left channel (S,G)=(%s,%s) on interface %s\n", prog_name,
+	       source, group, ifname);
 
-  exit(0);
+	exit(0);
 }

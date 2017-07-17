@@ -812,7 +812,7 @@ def compare_context_objects(newconf, running):
                 delete_bgpd = True
                 lines_to_del.append((running_ctx_keys, None))
 
-            # We cannot do 'no interface' in quagga, and so deal with it
+            # We cannot do 'no interface' in FRR, and so deal with it
             elif running_ctx_keys[0].startswith('interface'):
                 for line in running_ctx.lines:
                     lines_to_del.append((running_ctx_keys, line))
@@ -1010,7 +1010,7 @@ if __name__ == '__main__':
         # the "neighbor 1.1.1.1 route-map FOO out" line...so we compare the
         # configs again to put this line back.
 
-        # There are many keywords in quagga that can only appear one time under
+        # There are many keywords in FRR that can only appear one time under
         # a context, take "bgp router-id" for example. If the config that we are
         # reloading against has the following:
         #
@@ -1038,7 +1038,7 @@ if __name__ == '__main__':
                 lines_to_add.extend(lines_to_add_first_pass)
 
             # Only do deletes on the first pass. The reason being if we
-            # configure a bgp neighbor via "neighbor swp1 interface" quagga
+            # configure a bgp neighbor via "neighbor swp1 interface" FRR
             # will automatically add:
             #
             # interface swp1

@@ -1,18 +1,18 @@
 /*
- * IS-IS Rout(e)ing protocol - isis_constants.h   
+ * IS-IS Rout(e)ing protocol - isis_constants.h
  *
  * Copyright (C) 2001,2002   Sampo Saaristo
- *                           Tampere University of Technology      
+ *                           Tampere University of Technology
  *                           Institute of Communications Engineering
  *
- * This program is free software; you can redistribute it and/or modify it 
- * under the terms of the GNU General Public Licenseas published by the Free 
- * Software Foundation; either version 2 of the License, or (at your option) 
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public Licenseas published by the Free
+ * Software Foundation; either version 2 of the License, or (at your option)
  * any later version.
  *
- * This program is distributed in the hope that it will be useful,but WITHOUT 
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for 
+ * This program is distributed in the hope that it will be useful,but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
  * You should have received a copy of the GNU General Public License along
@@ -163,9 +163,9 @@
 /* we need to be aware of the fact we are using ISO sized
  * packets, using isomtu = mtu - LLC_LEN
  */
-#define ISO_MTU(C) \
-          ((if_is_broadcast ((C)->interface)) ? \
-           (C->interface->mtu - LLC_LEN) : (C->interface->mtu))
+#define ISO_MTU(C)                                                             \
+	((if_is_broadcast((C)->interface)) ? (C->interface->mtu - LLC_LEN)     \
+					   : (C->interface->mtu))
 
 #ifndef ETH_ALEN
 #define ETH_ALEN 6
@@ -176,9 +176,9 @@
 
 static inline uint16_t isis_ethertype(size_t len)
 {
-  if (len > MAX_LLC_LEN)
-    return ETHERTYPE_EXT_LLC;
-  return len;
+	if (len > MAX_LLC_LEN)
+		return ETHERTYPE_EXT_LLC;
+	return len;
 }
 
 #endif /* ISIS_CONSTANTS_H */

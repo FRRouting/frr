@@ -30,15 +30,17 @@
 #define PIM_MSG_REGISTER_LEN   (8)
 #define PIM_MSG_REGISTER_STOP_LEN (4)
 
-int pim_register_stop_recv (uint8_t *buf, int buf_size);
+int pim_register_stop_recv(uint8_t *buf, int buf_size);
 
-int pim_register_recv (struct interface *ifp,
-		       struct in_addr dest_addr,
-		       struct in_addr src_addr,
-		       uint8_t *tlv_buf, int tlv_buf_size);
+int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
+		      struct in_addr src_addr, uint8_t *tlv_buf,
+		      int tlv_buf_size);
 
-void pim_register_send (const uint8_t *buf, int buf_size, struct in_addr src, struct pim_rpf *rpg, int null_register, struct pim_upstream *up);
-void pim_register_stop_send (struct interface *ifp, struct prefix_sg *sg, struct in_addr src, struct in_addr originator);
-void pim_register_join (struct pim_upstream *up);
+void pim_register_send(const uint8_t *buf, int buf_size, struct in_addr src,
+		       struct pim_rpf *rpg, int null_register,
+		       struct pim_upstream *up);
+void pim_register_stop_send(struct interface *ifp, struct prefix_sg *sg,
+			    struct in_addr src, struct in_addr originator);
+void pim_register_join(struct pim_upstream *up);
 
 #endif

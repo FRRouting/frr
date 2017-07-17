@@ -42,78 +42,75 @@ struct vty;
  * The type determines what kind of data the token can match (in the
  * matching use case) or hold (in the argv use case).
  */
-enum cmd_token_type
-{
-  WORD_TKN,         // words
-  VARIABLE_TKN,     // almost anything
-  RANGE_TKN,        // integer range
-  IPV4_TKN,         // IPV4 addresses
-  IPV4_PREFIX_TKN,  // IPV4 network prefixes
-  IPV6_TKN,         // IPV6 prefixes
-  IPV6_PREFIX_TKN,  // IPV6 network prefixes
+enum cmd_token_type {
+	WORD_TKN,	// words
+	VARIABLE_TKN,    // almost anything
+	RANGE_TKN,       // integer range
+	IPV4_TKN,	// IPV4 addresses
+	IPV4_PREFIX_TKN, // IPV4 network prefixes
+	IPV6_TKN,	// IPV6 prefixes
+	IPV6_PREFIX_TKN, // IPV6 network prefixes
 
-  /* plumbing types */
-  FORK_TKN,         // marks subgraph beginning
-  JOIN_TKN,         // marks subgraph end
-  START_TKN,        // first token in line
-  END_TKN,          // last token in line
+	/* plumbing types */
+	FORK_TKN,  // marks subgraph beginning
+	JOIN_TKN,  // marks subgraph end
+	START_TKN, // first token in line
+	END_TKN,   // last token in line
 
-  SPECIAL_TKN = FORK_TKN,
+	SPECIAL_TKN = FORK_TKN,
 };
 
 #define IS_VARYING_TOKEN(x) ((x) >= VARIABLE_TKN && (x) < FORK_TKN)
 
 /* Command attributes */
-enum
-{
-  CMD_ATTR_NORMAL,
-  CMD_ATTR_DEPRECATED,
-  CMD_ATTR_HIDDEN,
+enum { CMD_ATTR_NORMAL,
+       CMD_ATTR_DEPRECATED,
+       CMD_ATTR_HIDDEN,
 };
 
 /* Comamand token struct. */
-struct cmd_token
-{
-  enum cmd_token_type type;     // token type
-  uint8_t attr;                 // token attributes
-  bool allowrepeat;             // matcher allowed to match token repetively?
-  uint32_t refcnt;
+struct cmd_token {
+	enum cmd_token_type type; // token type
+	uint8_t attr;		  // token attributes
+	bool allowrepeat;	 // matcher allowed to match token repetively?
+	uint32_t refcnt;
 
-  char *text;                   // token text
-  char *desc;                   // token description
-  long long min, max;           // for ranges
-  char *arg;                    // user input that matches this token
-  char *varname;
+	char *text;	 // token text
+	char *desc;	 // token description
+	long long min, max; // for ranges
+	char *arg;	  // user input that matches this token
+	char *varname;
 
-  struct graph_node *forkjoin;  // paired FORK/JOIN for JOIN/FORK
+	struct graph_node *forkjoin; // paired FORK/JOIN for JOIN/FORK
 };
 
 /* Structure of command element. */
-struct cmd_element
-{
-  const char *string;           /* Command specification by string. */
-  const char *doc;              /* Documentation of this command. */
-  int daemon;                   /* Daemon to which this command belong. */
-  uint8_t attr;                 /* Command attributes */
+struct cmd_element {
+	const char *string; /* Command specification by string. */
+	const char *doc;    /* Documentation of this command. */
+	int daemon;	 /* Daemon to which this command belong. */
+	uint8_t attr;       /* Command attributes */
 
-  /* handler function for command */
-  int (*func) (const struct cmd_element *, struct vty *, int, struct cmd_token *[]);
+	/* handler function for command */
+	int (*func)(const struct cmd_element *, struct vty *, int,
+		    struct cmd_token *[]);
 
-  const char *name;             /* symbol name for debugging */
+	const char *name; /* symbol name for debugging */
 };
 
 /* text for <cr> command */
 #define CMD_CR_TEXT "<cr>"
 
 /* memory management for cmd_token */
-extern struct cmd_token *cmd_token_new (enum cmd_token_type, uint8_t attr,
-                                        const char *text, const char *desc);
-extern struct cmd_token *cmd_token_dup (struct cmd_token *);
-extern void cmd_token_del (struct cmd_token *);
+extern struct cmd_token *cmd_token_new(enum cmd_token_type, uint8_t attr,
+				       const char *text, const char *desc);
+extern struct cmd_token *cmd_token_dup(struct cmd_token *);
+extern void cmd_token_del(struct cmd_token *);
 extern void cmd_token_varname_set(struct cmd_token *token, const char *varname);
 
-extern void cmd_graph_parse (struct graph *graph, struct cmd_element *cmd);
-extern void cmd_graph_names (struct graph *graph);
-extern void cmd_graph_merge (struct graph *old, struct graph *new, int direction);
+extern void cmd_graph_parse(struct graph *graph, struct cmd_element *cmd);
+extern void cmd_graph_names(struct graph *graph);
+extern void cmd_graph_merge(struct graph *old, struct graph *new,
+			    int direction);
 
 #endif /* _FRR_COMMAND_GRAPH_H */

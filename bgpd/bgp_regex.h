@@ -24,13 +24,13 @@
 #include <zebra.h>
 
 #ifdef HAVE_LIBPCREPOSIX
-# include <pcreposix.h>
+#include <pcreposix.h>
 #else
-# include <regex.h>
+#include <regex.h>
 #endif /* HAVE_LIBPCREPOSIX */
 
-extern void bgp_regex_free (regex_t *regex);
-extern regex_t *bgp_regcomp (const char *str);
-extern int bgp_regexec (regex_t *regex, struct aspath *aspath);
+extern void bgp_regex_free(regex_t *regex);
+extern regex_t *bgp_regcomp(const char *str);
+extern int bgp_regexec(regex_t *regex, struct aspath *aspath);
 
 #endif /* _QUAGGA_BGP_REGEX_H */

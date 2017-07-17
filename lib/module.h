@@ -27,9 +27,9 @@
 #include <stdbool.h>
 
 #if !defined(__GNUC__)
-# error module code needs GCC visibility extensions
+#error module code needs GCC visibility extensions
 #elif __GNUC__ < 4
-# error module code needs GCC visibility extensions
+#error module code needs GCC visibility extensions
 #else
 # define DSO_PUBLIC __attribute__ ((visibility ("default")))
 # define DSO_SELF   __attribute__ ((visibility ("protected")))
@@ -82,20 +82,20 @@ union _frrmod_runtime_u {
 extern union _frrmod_runtime_u _frrmod_this_module;
 #define THIS_MODULE (&_frrmod_this_module.r)
 
-#define FRR_COREMOD_SETUP(...) \
-	static const struct frrmod_info _frrmod_info = { __VA_ARGS__ }; \
-	DSO_LOCAL union _frrmod_runtime_u _frrmod_this_module = { \
-		.r.info = &_frrmod_info, \
+#define FRR_COREMOD_SETUP(...)                                                 \
+	static const struct frrmod_info _frrmod_info = {__VA_ARGS__};          \
+	DSO_LOCAL union _frrmod_runtime_u _frrmod_this_module = {              \
+		.r.info = &_frrmod_info,                                       \
 	};
-#define FRR_MODULE_SETUP(...) \
-	FRR_COREMOD_SETUP(__VA_ARGS__) \
+#define FRR_MODULE_SETUP(...)                                                  \
+	FRR_COREMOD_SETUP(__VA_ARGS__)                                         \
 	DSO_SELF struct frrmod_runtime *frr_module = &_frrmod_this_module.r;
 
 extern struct frrmod_runtime *frrmod_list;
 
 extern void frrmod_init(struct frrmod_runtime *modinfo);
-extern struct frrmod_runtime *frrmod_load(const char *spec,
-		const char *dir, char *err, size_t err_len);
+extern struct frrmod_runtime *frrmod_load(const char *spec, const char *dir,
+					  char *err, size_t err_len);
 #if 0
 /* not implemented yet */
 extern void frrmod_unload(struct frrmod_runtime *module);

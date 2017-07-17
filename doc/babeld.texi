@@ -1,7 +1,7 @@
 @c -*-texinfo-*-
-@c This is part of the Quagga Manual.
+@c This is part of the FRR Manual.
 @c @value{COPYRIGHT_STR}
-@c See file quagga.texi for copying conditions.
+@c See file frr.texi for copying conditions.
 @node Babel
 @chapter Babel
 
@@ -14,7 +14,7 @@ perform reliable link quality estimation on wireless links.  Babel is
 a double-stack routing protocol, meaning that a single Babel instance
 is able to perform routing for both IPv4 and IPv6.
 
-Quagga implements Babel as described in RFC6126.
+FRR implements Babel as described in RFC6126.
 
 @menu
 * Configuring babeld::          

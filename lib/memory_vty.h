@@ -23,9 +23,9 @@
 
 #include "memory.h"
 
-extern void memory_init (void);
+extern void memory_init(void);
 
 /* Human friendly string for given byte count */
 #define MTYPE_MEMSTR_LEN 20
-extern const char *mtype_memstr (char *, size_t, unsigned long);
+extern const char *mtype_memstr(char *, size_t, unsigned long);
 #endif /* _ZEBRA_MEMORY_VTY_H */

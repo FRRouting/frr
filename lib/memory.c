@@ -35,9 +35,11 @@ static inline void mt_count_alloc(struct memtype *mt, size_t size)
 
 	oldsize = atomic_load_explicit(&mt->size, memory_order_relaxed);
 	if (oldsize == 0)
-		oldsize = atomic_exchange_explicit(&mt->size, size, memory_order_relaxed);
+		oldsize = atomic_exchange_explicit(&mt->size, size,
+						   memory_order_relaxed);
 	if (oldsize != 0 && oldsize != size && oldsize != SIZE_VAR)
-		atomic_store_explicit(&mt->size, SIZE_VAR, memory_order_relaxed);
+		atomic_store_explicit(&mt->size, SIZE_VAR,
+				      memory_order_relaxed);
 }
 
 static inline void mt_count_free(struct memtype *mt)
@@ -111,23 +113,24 @@ static int qmem_exit_walker(void *arg, struct memgroup *mg, struct memtype *mt)
 	struct exit_dump_args *eda = arg;
 
 	if (!mt) {
-		fprintf(stderr, "%s: showing active allocations in "
-				"memory group %s\n",
-				eda->prefix, mg->name);
+		fprintf(stderr,
+			"%s: showing active allocations in "
+			"memory group %s\n",
+			eda->prefix, mg->name);
 
 	} else if (mt->n_alloc) {
 		char size[32];
 		eda->error++;
 		snprintf(size, sizeof(size), "%10zu", mt->size);
 		fprintf(stderr, "%s: memstats:  %-30s: %6zu * %s\n",
-				eda->prefix, mt->name, mt->n_alloc,
-				mt->size == SIZE_VAR ? "(variably sized)" : size);
+			eda->prefix, mt->name, mt->n_alloc,
+			mt->size == SIZE_VAR ? "(variably sized)" : size);
 	}
 	return 0;
 }
 
 void log_memstats_stderr(const char *prefix)
 {
-	struct exit_dump_args eda = { .prefix = prefix, .error = 0 };
+	struct exit_dump_args eda = {.prefix = prefix, .error = 0};
 	qmem_walk(qmem_exit_walker, &eda);
 }

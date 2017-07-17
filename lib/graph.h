@@ -26,22 +26,19 @@
 
 #include "vector.h"
 
-struct graph
-{
-  vector nodes;
+struct graph {
+	vector nodes;
 };
 
-struct graph_node
-{
-  vector from;                  // nodes which have edges to this node
-  vector to;                    // nodes which this node has edges to
+struct graph_node {
+	vector from; // nodes which have edges to this node
+	vector to;   // nodes which this node has edges to
 
-  void *data;                   // node data
-  void (*del) (void *data);     // deletion callback
+	void *data;		 // node data
+	void (*del)(void *data); // deletion callback
 };
 
-struct graph *
-graph_new (void);
+struct graph *graph_new(void);
 
 /**
  * Creates a new node.
@@ -51,8 +48,8 @@ graph_new (void);
  * @param[in] del data deletion callback
  * @return the new node
  */
-struct graph_node *
-graph_new_node (struct graph *graph, void *data, void (*del) (void*));
+struct graph_node *graph_new_node(struct graph *graph, void *data,
+				  void (*del)(void *));
 
 /**
  * Deletes a node.
@@ -66,8 +63,7 @@ graph_new_node (struct graph *graph, void *data, void (*del) (void*));
  * @param[in] graph the graph this node belongs to
  * @param[out] node pointer to node to delete
  */
-void
-graph_delete_node (struct graph *graph, struct graph_node *node);
+void graph_delete_node(struct graph *graph, struct graph_node *node);
 
 /**
  * Makes a directed edge between two nodes.
@@ -76,8 +72,8 @@ graph_delete_node (struct graph *graph, struct graph_node *node);
  * @param[in] to
  * @return to
  */
-struct graph_node *
-graph_add_edge (struct graph_node *from, struct graph_node *to);
+struct graph_node *graph_add_edge(struct graph_node *from,
+				  struct graph_node *to);
 
 /**
  * Removes a directed edge between two nodes.
@@ -85,8 +81,7 @@ graph_add_edge (struct graph_node *from, struct graph_node *to);
  * @param[in] from
  * @param[in] to
  */
-void
-graph_remove_edge (struct graph_node *from, struct graph_node *to);
+void graph_remove_edge(struct graph_node *from, struct graph_node *to);
 
 /**
  * Deletes a graph.
@@ -94,7 +89,6 @@ graph_remove_edge (struct graph_node *from, struct graph_node *to);
  *
  * @param graph the graph to delete
  */
-void
-graph_delete_graph (struct graph *graph);
+void graph_delete_graph(struct graph *graph);
 
 #endif /* _ZEBRA_COMMAND_GRAPH_H */

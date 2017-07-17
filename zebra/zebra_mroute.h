@@ -23,12 +23,12 @@
 #define __ZEBRA_MROUTE_H__
 
 struct mcast_route_data {
-  struct prefix_sg sg;
-  unsigned int ifindex;
-  unsigned long long lastused;
+	struct prefix_sg sg;
+	unsigned int ifindex;
+	unsigned long long lastused;
 };
 
-int zebra_ipmr_route_stats (struct zserv *client, int sock, u_short length, struct zebra_vrf *zvf);
+int zebra_ipmr_route_stats(struct zserv *client, int sock, u_short length,
+			   struct zebra_vrf *zvf);
 
 #endif
-

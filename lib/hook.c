@@ -39,18 +39,15 @@ void _hook_register(struct hook *hook, void *funcptr, void *arg, bool has_arg,
 	hook->entries = he;
 }
 
-void _hook_unregister(struct hook *hook, void *funcptr,
-		      void *arg, bool has_arg)
+void _hook_unregister(struct hook *hook, void *funcptr, void *arg, bool has_arg)
 {
 	struct hookent *he, **prev;
 
 	for (prev = &hook->entries; (he = *prev) != NULL; prev = &he->next)
 		if (he->hookfn == funcptr && he->hookarg == arg
-				&& he->has_arg == has_arg)
-		{
+		    && he->has_arg == has_arg) {
 			*prev = he->next;
 			XFREE(MTYPE_HOOK_ENTRY, he);
 			break;
 		}
 }
-

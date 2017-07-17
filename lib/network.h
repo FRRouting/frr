@@ -25,8 +25,8 @@
 /* Both readn and writen are deprecated and will be removed.  They are not
    suitable for use with non-blocking file descriptors.
  */
-extern int readn (int, u_char *, int);
-extern int writen (int, const u_char *, int);
+extern int readn(int, u_char *, int);
+extern int writen(int, const u_char *, int);
 
 /* Set the file descriptor to use non-blocking I/O.  Returns 0 for success,
    -1 on error. */
@@ -35,10 +35,10 @@ extern int set_nonblocking(int fd);
 extern int set_cloexec(int fd);
 
 /* Does the I/O error indicate that the operation should be retried later? */
-#define ERRNO_IO_RETRY(EN) \
+#define ERRNO_IO_RETRY(EN)                                                     \
 	(((EN) == EAGAIN) || ((EN) == EWOULDBLOCK) || ((EN) == EINTR))
 
-extern float htonf (float);
-extern float ntohf (float);
+extern float htonf(float);
+extern float ntohf(float);
 
 #endif /* _ZEBRA_NETWORK_H */

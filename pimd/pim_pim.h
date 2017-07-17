@@ -36,15 +36,15 @@
 #define PIM_DEFAULT_T_PERIODIC                   (60)   /* RFC 4601: 4.11.  Timer Values */
 
 enum pim_msg_type {
-  PIM_MSG_TYPE_HELLO = 0,
-  PIM_MSG_TYPE_REGISTER,
-  PIM_MSG_TYPE_REG_STOP,
-  PIM_MSG_TYPE_JOIN_PRUNE,
-  PIM_MSG_TYPE_BOOTSTRAP,
-  PIM_MSG_TYPE_ASSERT,
-  PIM_MSG_TYPE_GRAFT,
-  PIM_MSG_TYPE_GRAFT_ACK,
-  PIM_MSG_TYPE_CANDIDATE
+	PIM_MSG_TYPE_HELLO = 0,
+	PIM_MSG_TYPE_REGISTER,
+	PIM_MSG_TYPE_REG_STOP,
+	PIM_MSG_TYPE_JOIN_PRUNE,
+	PIM_MSG_TYPE_BOOTSTRAP,
+	PIM_MSG_TYPE_ASSERT,
+	PIM_MSG_TYPE_GRAFT,
+	PIM_MSG_TYPE_GRAFT_ACK,
+	PIM_MSG_TYPE_CANDIDATE
 };
 
 void pim_ifstat_reset(struct interface *ifp);
@@ -56,11 +56,7 @@ void pim_hello_restart_triggered(struct interface *ifp);
 
 int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len);
 
-int pim_msg_send(int fd,
-		 struct in_addr src,
-		 struct in_addr dst,
-		 uint8_t *pim_msg,
-		 int pim_msg_size,
-		 const char *ifname);
+int pim_msg_send(int fd, struct in_addr src, struct in_addr dst,
+		 uint8_t *pim_msg, int pim_msg_size, const char *ifname);
 
 #endif /* PIM_PIM_H */
