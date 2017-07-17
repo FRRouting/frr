@@ -39,34 +39,24 @@
 #include "ripd/ripd.h"
 
 /* ripd options. */
-static struct option longopts[] = 
-{
-  { "retain",      no_argument,       NULL, 'r'},
-  { 0 }
-};
+static struct option longopts[] = {{"retain", no_argument, NULL, 'r'}, {0}};
 
 /* ripd privileges */
-zebra_capabilities_t _caps_p [] = 
-{
-  ZCAP_NET_RAW,
-  ZCAP_BIND
-};
+zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND};
 
-struct zebra_privs_t ripd_privs =
-{
+struct zebra_privs_t ripd_privs = {
 #if defined(FRR_USER)
-  .user = FRR_USER,
+	.user = FRR_USER,
 #endif
 #if defined FRR_GROUP
-  .group = FRR_GROUP,
+	.group = FRR_GROUP,
 #endif
 #ifdef VTY_GROUP
-  .vty_group = VTY_GROUP,
+	.vty_group = VTY_GROUP,
 #endif
-  .caps_p = _caps_p,
-  .cap_num_p = 2,
-  .cap_num_i = 0
-};
+	.caps_p = _caps_p,
+	.cap_num_p = 2,
+	.cap_num_i = 0};
 
 /* Route retain mode flag. */
 int retain_mode = 0;
@@ -77,119 +67,110 @@ struct thread_master *master;
 static struct frr_daemon_info ripd_di;
 
 /* SIGHUP handler. */
-static void 
-sighup (void)
+static void sighup(void)
 {
-  zlog_info ("SIGHUP received");
-  rip_clean ();
-  rip_reset ();
-  zlog_info ("ripd restarting!");
+	zlog_info("SIGHUP received");
+	rip_clean();
+	rip_reset();
+	zlog_info("ripd restarting!");
 
-  /* Reload config file. */
-  vty_read_config (ripd_di.config_file, config_default);
+	/* Reload config file. */
+	vty_read_config(ripd_di.config_file, config_default);
 
-  /* Try to return to normal operation. */
+	/* Try to return to normal operation. */
 }
 
 /* SIGINT handler. */
-static void
-sigint (void)
+static void sigint(void)
 {
-  zlog_notice ("Terminating on signal");
+	zlog_notice("Terminating on signal");
 
-  if (! retain_mode)
-    rip_clean ();
+	if (!retain_mode)
+		rip_clean();
 
-  rip_zclient_stop ();
+	rip_zclient_stop();
 
-  exit (0);
+	exit(0);
 }
 
 /* SIGUSR1 handler. */
-static void
-sigusr1 (void)
+static void sigusr1(void)
 {
-  zlog_rotate();
+	zlog_rotate();
 }
 
-static struct quagga_signal_t ripd_signals[] =
-{
-  { 
-    .signal = SIGHUP,
-    .handler = &sighup,
-  },
-  { 
-    .signal = SIGUSR1,
-    .handler = &sigusr1,
-  },
-  {
-    .signal = SIGINT,
-    .handler = &sigint,
-  },
-  {
-    .signal = SIGTERM,
-    .handler = &sigint,
-  },
-};  
+static struct quagga_signal_t ripd_signals[] = {
+	{
+		.signal = SIGHUP,
+		.handler = &sighup,
+	},
+	{
+		.signal = SIGUSR1,
+		.handler = &sigusr1,
+	},
+	{
+		.signal = SIGINT,
+		.handler = &sigint,
+	},
+	{
+		.signal = SIGTERM,
+		.handler = &sigint,
+	},
+};
 
-FRR_DAEMON_INFO(ripd, RIP,
-	.vty_port = RIP_VTY_PORT,
+FRR_DAEMON_INFO(ripd, RIP, .vty_port = RIP_VTY_PORT,
 
-	.proghelp = "Implementation of the RIP routing protocol.",
+		.proghelp = "Implementation of the RIP routing protocol.",
 
-	.signals = ripd_signals,
-	.n_signals = array_size(ripd_signals),
+		.signals = ripd_signals, .n_signals = array_size(ripd_signals),
 
-	.privs = &ripd_privs,
-)
+		.privs = &ripd_privs, )
 
 /* Main routine of ripd. */
-int
-main (int argc, char **argv)
+int main(int argc, char **argv)
 {
-  frr_preinit (&ripd_di, argc, argv);
-  frr_opt_add ("r", longopts,
-	"  -r, --retain       When program terminates, retain added route by ripd.\n");
+	frr_preinit(&ripd_di, argc, argv);
+	frr_opt_add(
+		"r", longopts,
+		"  -r, --retain       When program terminates, retain added route by ripd.\n");
 
-  /* Command line option parse. */
-  while (1) 
-    {
-      int opt;
+	/* Command line option parse. */
+	while (1) {
+		int opt;
 
-      opt = frr_getopt (argc, argv, NULL);
-    
-      if (opt == EOF)
-	break;
+		opt = frr_getopt(argc, argv, NULL);
 
-      switch (opt) 
-	{
-	case 0:
-	  break;
-	case 'r':
-	  retain_mode = 1;
-	  break;
-	default:
-	  frr_help_exit (1);
-	  break;
+		if (opt == EOF)
+			break;
+
+		switch (opt) {
+		case 0:
+			break;
+		case 'r':
+			retain_mode = 1;
+			break;
+		default:
+			frr_help_exit(1);
+			break;
+		}
 	}
-    }
 
-  /* Prepare master thread. */
-  master = frr_init ();
+	/* Prepare master thread. */
+	master = frr_init();
 
-  /* Library initialization. */
-  keychain_init ();
-  vrf_init (NULL, NULL, NULL, NULL);
+	/* Library initialization. */
+	keychain_init();
+	vrf_init(NULL, NULL, NULL, NULL);
 
-  /* RIP related initialization. */
-  rip_init ();
-  rip_if_init ();
-  rip_zclient_init(master);
-  rip_peer_init ();
+	/* RIP related initialization. */
+	rip_init();
+	rip_if_init();
+	rip_zclient_init(master);
+	rip_peer_init();
 
-  frr_config_fork ();
-  frr_run (master);
+	frr_config_fork();
+	frr_run(master);
 
-  /* Not reached. */
-  return (0);
+	/* Not reached. */
+	return (0);
 }

@@ -1,4 +1,4 @@
-/* 
+/*
  *
  * Copyright 2016, LabN Consulting, L.L.C.
  *
@@ -44,8 +44,7 @@ extern unsigned long term_vnc_debug;
 #define vnc_zlog_debug_verbose  if (VNC_DEBUG(VERBOSE)) zlog_debug
 #define vnc_zlog_debug_any      if (VNC_DEBUG(ANY)) zlog_debug
 
-extern void
-vnc_debug_init (void);
+extern void vnc_debug_init(void);
 
 #endif /* ENABLE_BGP_VNC */
 

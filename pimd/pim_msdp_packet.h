@@ -50,8 +50,8 @@
 #define PIM_MSDP_SA_X_SIZE 8
 #define PIM_MSDP_SA_ONE_ENTRY_SIZE 12
 #define PIM_MSDP_SA_Y_SIZE(entry_cnt) (PIM_MSDP_SA_ONE_ENTRY_SIZE * entry_cnt)
-#define PIM_MSDP_SA_ENTRY_CNT2SIZE(entry_cnt) (PIM_MSDP_SA_X_SIZE +\
-                                    PIM_MSDP_SA_Y_SIZE(entry_cnt))
+#define PIM_MSDP_SA_ENTRY_CNT2SIZE(entry_cnt)                                  \
+	(PIM_MSDP_SA_X_SIZE + PIM_MSDP_SA_Y_SIZE(entry_cnt))
 /* SA TLV has to have atleast only one entry in it so x=8 + y=12 */
 #define PIM_MSDP_SA_TLV_MIN_SIZE PIM_MSDP_SA_ENTRY_CNT2SIZE(1)
 /* XXX: theoretically we can fix a max of 255 but that may result in packet

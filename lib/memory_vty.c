@@ -38,33 +38,32 @@
 #include "command.h"
 
 #ifdef HAVE_MALLINFO
-static int
-show_memory_mallinfo (struct vty *vty)
+static int show_memory_mallinfo(struct vty *vty)
 {
-  struct mallinfo minfo = mallinfo();
-  char buf[MTYPE_MEMSTR_LEN];
-  
-  vty_out (vty, "System allocator statistics:\n");
-  vty_out (vty, "  Total heap allocated:  %s\n",
-           mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.arena));
-  vty_out (vty, "  Holding block headers: %s\n",
-           mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.hblkhd));
-  vty_out (vty, "  Used small blocks:     %s\n",
-           mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.usmblks));
-  vty_out (vty, "  Used ordinary blocks:  %s\n",
-           mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.uordblks));
-  vty_out (vty, "  Free small blocks:     %s\n",
-           mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.fsmblks));
-  vty_out (vty, "  Free ordinary blocks:  %s\n",
-           mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.fordblks));
-  vty_out (vty, "  Ordinary blocks:       %ld\n",
-           (unsigned long)minfo.ordblks);
-  vty_out (vty, "  Small blocks:          %ld\n",
-           (unsigned long)minfo.smblks);
-  vty_out (vty, "  Holding blocks:        %ld\n",
-           (unsigned long)minfo.hblks);
-  vty_out (vty,"(see system documentation for 'mallinfo' for meaning)\n");
-  return 1;
+	struct mallinfo minfo = mallinfo();
+	char buf[MTYPE_MEMSTR_LEN];
+
+	vty_out(vty, "System allocator statistics:\n");
+	vty_out(vty, "  Total heap allocated:  %s\n",
+		mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.arena));
+	vty_out(vty, "  Holding block headers: %s\n",
+		mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.hblkhd));
+	vty_out(vty, "  Used small blocks:     %s\n",
+		mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.usmblks));
+	vty_out(vty, "  Used ordinary blocks:  %s\n",
+		mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.uordblks));
+	vty_out(vty, "  Free small blocks:     %s\n",
+		mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.fsmblks));
+	vty_out(vty, "  Free ordinary blocks:  %s\n",
+		mtype_memstr(buf, MTYPE_MEMSTR_LEN, minfo.fordblks));
+	vty_out(vty, "  Ordinary blocks:       %ld\n",
+		(unsigned long)minfo.ordblks);
+	vty_out(vty, "  Small blocks:          %ld\n",
+		(unsigned long)minfo.smblks);
+	vty_out(vty, "  Holding blocks:        %ld\n",
+		(unsigned long)minfo.hblks);
+	vty_out(vty, "(see system documentation for 'mallinfo' for meaning)\n");
+	return 1;
 }
 #endif /* HAVE_MALLINFO */
 
@@ -72,14 +71,17 @@ static int qmem_walker(void *arg, struct memgroup *mg, struct memtype *mt)
 {
 	struct vty *vty = arg;
 	if (!mt)
-		vty_out (vty, "--- qmem %s ---\n", mg->name);
+		vty_out(vty, "--- qmem %s ---\n", mg->name);
 	else {
 		if (mt->n_alloc != 0) {
 			char size[32];
 			snprintf(size, sizeof(size), "%6zu", mt->size);
-			vty_out (vty, "%-30s: %10zu  %s\n",
-				 mt->name, mt->n_alloc,
-				 mt->size == 0 ? "" : mt->size == SIZE_VAR ? "(variably sized)" : size);
+			vty_out(vty, "%-30s: %10zu  %s\n", mt->name,
+				mt->n_alloc,
+				mt->size == 0 ? ""
+					      : mt->size == SIZE_VAR
+							? "(variably sized)"
+							: size);
 		}
 	}
 	return 0;
@@ -93,11 +95,11 @@ DEFUN (show_memory,
        "Memory statistics\n")
 {
 #ifdef HAVE_MALLINFO
-  show_memory_mallinfo (vty);
+	show_memory_mallinfo(vty);
 #endif /* HAVE_MALLINFO */
 
-  qmem_walk(qmem_walker, vty);
-  return CMD_SUCCESS;
+	qmem_walk(qmem_walker, vty);
+	return CMD_SUCCESS;
 }
 
 DEFUN (show_modules,
@@ -106,47 +108,44 @@ DEFUN (show_modules,
        "Show running system information\n"
        "Loaded modules\n")
 {
-  struct frrmod_runtime *plug = frrmod_list;
+	struct frrmod_runtime *plug = frrmod_list;
 
-  vty_out (vty, "%-12s %-25s %s\n\n",
-                "Module Name", "Version", "Description");
-  while (plug)
-    {
-      const struct frrmod_info *i = plug->info;
+	vty_out(vty, "%-12s %-25s %s\n\n", "Module Name", "Version",
+		"Description");
+	while (plug) {
+		const struct frrmod_info *i = plug->info;
 
-      vty_out (vty, "%-12s %-25s %s\n", i->name, i->version,i->description);
-      if (plug->dl_handle)
-        {
+		vty_out(vty, "%-12s %-25s %s\n", i->name, i->version,
+			i->description);
+		if (plug->dl_handle) {
 #ifdef HAVE_DLINFO_ORIGIN
-          char origin[MAXPATHLEN] = "";
-          dlinfo (plug->dl_handle, RTLD_DI_ORIGIN, &origin);
-# ifdef HAVE_DLINFO_LINKMAP
-          const char *name;
-          struct link_map *lm = NULL;
-          dlinfo (plug->dl_handle, RTLD_DI_LINKMAP, &lm);
-          if (lm)
-            {
-              name = strrchr(lm->l_name, '/');
-              name = name ? name + 1 : lm->l_name;
-              vty_out (vty, "\tfrom: %s/%s\n", origin, name);
-            }
-# else
-          vty_out (vty, "\tfrom: %s \n", origin, plug->load_name);
-# endif
+			char origin[MAXPATHLEN] = "";
+			dlinfo(plug->dl_handle, RTLD_DI_ORIGIN, &origin);
+#ifdef HAVE_DLINFO_LINKMAP
+			const char *name;
+			struct link_map *lm = NULL;
+			dlinfo(plug->dl_handle, RTLD_DI_LINKMAP, &lm);
+			if (lm) {
+				name = strrchr(lm->l_name, '/');
+				name = name ? name + 1 : lm->l_name;
+				vty_out(vty, "\tfrom: %s/%s\n", origin, name);
+			}
 #else
-          vty_out (vty, "\tfrom: %s\n", plug->load_name);
+			vty_out(vty, "\tfrom: %s \n", origin, plug->load_name);
 #endif
-        }
-      plug = plug->next;
-    }
-  return CMD_SUCCESS;
+#else
+			vty_out(vty, "\tfrom: %s\n", plug->load_name);
+#endif
+		}
+		plug = plug->next;
+	}
+	return CMD_SUCCESS;
 }
 
-void
-memory_init (void)
+void memory_init(void)
 {
-  install_element (VIEW_NODE, &show_memory_cmd);
-  install_element (VIEW_NODE, &show_modules_cmd);
+	install_element(VIEW_NODE, &show_memory_cmd);
+	install_element(VIEW_NODE, &show_modules_cmd);
 }
 
 /* Stats querying from users */
@@ -157,44 +156,39 @@ memory_init (void)
  * The pointer returned may be NULL (indicating an error)
  * or point to the given buffer, or point to static storage.
  */
-const char *
-mtype_memstr (char *buf, size_t len, unsigned long bytes)
+const char *mtype_memstr(char *buf, size_t len, unsigned long bytes)
 {
-  unsigned int m, k;
+	unsigned int m, k;
 
-  /* easy cases */
-  if (!bytes)
-    return "0 bytes";
-  if (bytes == 1)
-    return "1 byte";
+	/* easy cases */
+	if (!bytes)
+		return "0 bytes";
+	if (bytes == 1)
+		return "1 byte";
 
-  /*
-   * When we pass the 2gb barrier mallinfo() can no longer report
-   * correct data so it just does something odd...
-   * Reporting like Terrabytes of data.  Which makes users...
-   * edgy.. yes edgy that's the term for it.
-   * So let's just give up gracefully
-   */
-  if (bytes > 0x7fffffff)
-    return "> 2GB";
+	/*
+	 * When we pass the 2gb barrier mallinfo() can no longer report
+	 * correct data so it just does something odd...
+	 * Reporting like Terrabytes of data.  Which makes users...
+	 * edgy.. yes edgy that's the term for it.
+	 * So let's just give up gracefully
+	 */
+	if (bytes > 0x7fffffff)
+		return "> 2GB";
 
-  m = bytes >> 20;
-  k = bytes >> 10;
+	m = bytes >> 20;
+	k = bytes >> 10;
 
- if (m > 10)
-    {
-      if (bytes & (1 << 19))
-        m++;
-      snprintf (buf, len, "%d MiB", m);
-    }
-  else if (k > 10)
-    {
-      if (bytes & (1 << 9))
-        k++;
-      snprintf (buf, len, "%d KiB", k);
-    }
-  else
-    snprintf (buf, len, "%ld bytes", bytes);
-  
-  return buf;
+	if (m > 10) {
+		if (bytes & (1 << 19))
+			m++;
+		snprintf(buf, len, "%d MiB", m);
+	} else if (k > 10) {
+		if (bytes & (1 << 9))
+			k++;
+		snprintf(buf, len, "%d KiB", k);
+	} else
+		snprintf(buf, len, "%ld bytes", bytes);
+
+	return buf;
 }

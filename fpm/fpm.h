@@ -88,7 +88,7 @@
  */
 
 /*
- * Local host as a default server for fpm connection 
+ * Local host as a default server for fpm connection
  */
 #define FPM_DEFAULT_IP              (htonl (INADDR_LOOPBACK))
 
@@ -109,24 +109,23 @@
 /*
  * Header that precedes each fpm message to/from the FPM.
  */
-typedef struct fpm_msg_hdr_t_
-{
-  /*
-   * Protocol version.
-   */
-  uint8_t version;
+typedef struct fpm_msg_hdr_t_ {
+	/*
+	 * Protocol version.
+	 */
+	uint8_t version;
 
-  /*
-   * Type of message, see below.
-   */
-  uint8_t msg_type;
+	/*
+	 * Type of message, see below.
+	 */
+	uint8_t msg_type;
 
-  /*
-   * Length of entire message, including the header, in network byte
-   * order.
-   */
-  uint16_t msg_len;
-} __attribute__ ((packed)) fpm_msg_hdr_t;
+	/*
+	 * Length of entire message, including the header, in network byte
+	 * order.
+	 */
+	uint16_t msg_len;
+} __attribute__((packed)) fpm_msg_hdr_t;
 
 #ifdef __SUNPRO_C
 #pragma pack()
@@ -138,19 +137,19 @@ typedef struct fpm_msg_hdr_t_
 #define FPM_PROTO_VERSION 1
 
 typedef enum fpm_msg_type_e_ {
-  FPM_MSG_TYPE_NONE = 0,
+	FPM_MSG_TYPE_NONE = 0,
 
-  /*
-   * Indicates that the payload is a completely formed netlink
-   * message.
-   *
-   * XXX Netlink cares about the alignment of messages. When any
-   * FPM_MSG_TYPE_NETLINK messages are sent over a channel, then all
-   * messages should be sized such that netlink alignment is
-   * maintained.
-   */
-  FPM_MSG_TYPE_NETLINK = 1,
-  FPM_MSG_TYPE_PROTOBUF = 2,
+	/*
+	 * Indicates that the payload is a completely formed netlink
+	 * message.
+	 *
+	 * XXX Netlink cares about the alignment of messages. When any
+	 * FPM_MSG_TYPE_NETLINK messages are sent over a channel, then all
+	 * messages should be sized such that netlink alignment is
+	 * maintained.
+	 */
+	FPM_MSG_TYPE_NETLINK = 1,
+	FPM_MSG_TYPE_PROTOBUF = 2,
 } fpm_msg_type_e;
 
 /*
@@ -167,10 +166,9 @@ typedef enum fpm_msg_type_e_ {
  *
  * **NB**: Alignment is required only when netlink messages are used.
  */
-static inline size_t
-fpm_msg_align (size_t len)
+static inline size_t fpm_msg_align(size_t len)
 {
-  return (len + FPM_MSG_ALIGNTO - 1) & ~(FPM_MSG_ALIGNTO - 1);
+	return (len + FPM_MSG_ALIGNTO - 1) & ~(FPM_MSG_ALIGNTO - 1);
 }
 
 /*
@@ -191,10 +189,9 @@ COMPILE_ASSERT(FPM_MSG_ALIGNTO == FPM_MSG_HDR_LEN);
  * The length value that should be placed in the msg_len field of the
  * header for a *payload* of size 'data_len'.
  */
-static inline size_t
-fpm_data_len_to_msg_len (size_t data_len)
+static inline size_t fpm_data_len_to_msg_len(size_t data_len)
 {
-  return data_len + FPM_MSG_HDR_LEN;
+	return data_len + FPM_MSG_HDR_LEN;
 }
 
 /*
@@ -202,28 +199,25 @@ fpm_data_len_to_msg_len (size_t data_len)
  *
  * Pointer to the payload of the given fpm header.
  */
-static inline void *
-fpm_msg_data (fpm_msg_hdr_t *hdr)
+static inline void *fpm_msg_data(fpm_msg_hdr_t *hdr)
 {
-  return ((char*) hdr) + FPM_MSG_HDR_LEN;
+	return ((char *)hdr) + FPM_MSG_HDR_LEN;
 }
 
 /*
  * fpm_msg_len
  */
-static inline size_t
-fpm_msg_len (const fpm_msg_hdr_t *hdr)
+static inline size_t fpm_msg_len(const fpm_msg_hdr_t *hdr)
 {
-  return ntohs (hdr->msg_len);
+	return ntohs(hdr->msg_len);
 }
 
 /*
  * fpm_msg_data_len
  */
-static inline size_t
-fpm_msg_data_len (const fpm_msg_hdr_t *hdr)
+static inline size_t fpm_msg_data_len(const fpm_msg_hdr_t *hdr)
 {
-  return (fpm_msg_len (hdr) - FPM_MSG_HDR_LEN);
+	return (fpm_msg_len(hdr) - FPM_MSG_HDR_LEN);
 }
 
 /*
@@ -231,23 +225,21 @@ fpm_msg_data_len (const fpm_msg_hdr_t *hdr)
  *
  * Move to the next message in a buffer.
  */
-static inline fpm_msg_hdr_t *
-fpm_msg_next (fpm_msg_hdr_t *hdr, size_t *len)
+static inline fpm_msg_hdr_t *fpm_msg_next(fpm_msg_hdr_t *hdr, size_t *len)
 {
-  size_t msg_len;
+	size_t msg_len;
 
-  msg_len = fpm_msg_len (hdr);
+	msg_len = fpm_msg_len(hdr);
 
-  if (len) {
-    if (*len < msg_len)
-      {
-	assert(0);
-	return NULL;
-      }
-    *len -= msg_len;
-  }
+	if (len) {
+		if (*len < msg_len) {
+			assert(0);
+			return NULL;
+		}
+		*len -= msg_len;
+	}
 
-  return (fpm_msg_hdr_t *) (((char*) hdr) + msg_len);
+	return (fpm_msg_hdr_t *)(((char *)hdr) + msg_len);
 }
 
 /*
@@ -255,27 +247,26 @@ fpm_msg_next (fpm_msg_hdr_t *hdr, size_t *len)
  *
  * Returns TRUE if a message header looks well-formed.
  */
-static inline int
-fpm_msg_hdr_ok (const fpm_msg_hdr_t *hdr)
+static inline int fpm_msg_hdr_ok(const fpm_msg_hdr_t *hdr)
 {
-  size_t msg_len;
+	size_t msg_len;
 
-  if (hdr->msg_type == FPM_MSG_TYPE_NONE)
-    return 0;
+	if (hdr->msg_type == FPM_MSG_TYPE_NONE)
+		return 0;
 
-  msg_len = fpm_msg_len (hdr);
+	msg_len = fpm_msg_len(hdr);
 
-  if (msg_len < FPM_MSG_HDR_LEN || msg_len > FPM_MAX_MSG_LEN)
-    return 0;
+	if (msg_len < FPM_MSG_HDR_LEN || msg_len > FPM_MAX_MSG_LEN)
+		return 0;
 
-  /*
-   * Netlink messages must be aligned properly.
-   */
-  if (hdr->msg_type == FPM_MSG_TYPE_NETLINK &&
-      fpm_msg_align (msg_len) != msg_len)
-    return 0;
+	/*
+	 * Netlink messages must be aligned properly.
+	 */
+	if (hdr->msg_type == FPM_MSG_TYPE_NETLINK
+	    && fpm_msg_align(msg_len) != msg_len)
+		return 0;
 
-  return 1;
+	return 1;
 }
 
 /*
@@ -285,25 +276,24 @@ fpm_msg_hdr_ok (const fpm_msg_hdr_t *hdr)
  *
  * @param len The length in bytes from 'hdr' to the end of the buffer.
  */
-static inline int
-fpm_msg_ok (const fpm_msg_hdr_t *hdr, size_t len)
+static inline int fpm_msg_ok(const fpm_msg_hdr_t *hdr, size_t len)
 {
-  if (len < FPM_MSG_HDR_LEN)
-    return 0;
+	if (len < FPM_MSG_HDR_LEN)
+		return 0;
 
-  if (!fpm_msg_hdr_ok (hdr))
-    return 0;
+	if (!fpm_msg_hdr_ok(hdr))
+		return 0;
 
-  if (fpm_msg_len (hdr) > len)
-    return 0;
+	if (fpm_msg_len(hdr) > len)
+		return 0;
 
-  return 1;
+	return 1;
 }
 
 // tcp maximum range
 #define TCP_MAX_PORT   65535
 
-// tcp minimum range 
+// tcp minimum range
 #define TCP_MIN_PORT   1
 
 #endif /* _FPM_H */

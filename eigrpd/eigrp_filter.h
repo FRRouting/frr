@@ -33,11 +33,11 @@
 #ifndef EIGRPD_EIGRP_FILTER_H_
 #define EIGRPD_EIGRP_FILTER_H_
 
-extern void eigrp_distribute_update (struct distribute *);
-extern void eigrp_distribute_update_interface (struct interface *);
-extern void eigrp_distribute_update_all (struct prefix_list *);
+extern void eigrp_distribute_update(struct distribute *);
+extern void eigrp_distribute_update_interface(struct interface *);
+extern void eigrp_distribute_update_all(struct prefix_list *);
 extern void eigrp_distribute_update_all_wrapper(struct access_list *);
-extern int eigrp_distribute_timer_process (struct thread *);
-extern int eigrp_distribute_timer_interface (struct thread *);
+extern int eigrp_distribute_timer_process(struct thread *);
+extern int eigrp_distribute_timer_interface(struct thread *);
 
 #endif /* EIGRPD_EIGRP_FILTER_H_ */

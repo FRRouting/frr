@@ -63,311 +63,291 @@
 
 extern int irdp_sock;
 
-static const char *
-inet_2a(u_int32_t a, char *b)
+static const char *inet_2a(u_int32_t a, char *b)
 {
-  sprintf(b, "%u.%u.%u.%u",
-          (a    ) & 0xFF,
-          (a>> 8) & 0xFF,
-          (a>>16) & 0xFF,
-          (a>>24) & 0xFF);
-  return  b;
+	sprintf(b, "%u.%u.%u.%u", (a)&0xFF, (a >> 8) & 0xFF, (a >> 16) & 0xFF,
+		(a >> 24) & 0xFF);
+	return b;
 }
 
 
-static struct prefix *
-irdp_get_prefix(struct interface *ifp)
+static struct prefix *irdp_get_prefix(struct interface *ifp)
 {
-  struct listnode *node;
-  struct connected *ifc;
+	struct listnode *node;
+	struct connected *ifc;
 
-  if (ifp->connected)
-    for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
-      return ifc->address;
+	if (ifp->connected)
+		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc))
+			return ifc->address;
 
-  return NULL;
+	return NULL;
 }
 
 /* Join to the add/leave multicast group. */
-static int
-if_group (struct interface *ifp,
-	  int sock,
-	  u_int32_t group,
-	  int add_leave)
+static int if_group(struct interface *ifp, int sock, u_int32_t group,
+		    int add_leave)
 {
-  struct ip_mreq m;
-  struct prefix *p;
-  int ret;
-  char b1[INET_ADDRSTRLEN];
+	struct ip_mreq m;
+	struct prefix *p;
+	int ret;
+	char b1[INET_ADDRSTRLEN];
 
-  memset (&m, 0, sizeof (m));
-  m.imr_multiaddr.s_addr = htonl (group);
-  p = irdp_get_prefix(ifp);
+	memset(&m, 0, sizeof(m));
+	m.imr_multiaddr.s_addr = htonl(group);
+	p = irdp_get_prefix(ifp);
 
-  if(!p) {
-        zlog_warn ("IRDP: can't get address for %s", ifp->name);
-	return 1;
-  }
+	if (!p) {
+		zlog_warn("IRDP: can't get address for %s", ifp->name);
+		return 1;
+	}
 
-  m.imr_interface = p->u.prefix4;
+	m.imr_interface = p->u.prefix4;
 
-  ret = setsockopt (sock, IPPROTO_IP, add_leave,
-		    (char *) &m, sizeof (struct ip_mreq));
-  if (ret < 0)
-    zlog_warn ("IRDP: %s can't setsockopt %s: %s",
-	       add_leave == IP_ADD_MEMBERSHIP? "join group":"leave group",
-	       inet_2a(group, b1),
-	       safe_strerror (errno));
+	ret = setsockopt(sock, IPPROTO_IP, add_leave, (char *)&m,
+			 sizeof(struct ip_mreq));
+	if (ret < 0)
+		zlog_warn("IRDP: %s can't setsockopt %s: %s",
+			  add_leave == IP_ADD_MEMBERSHIP ? "join group"
+							 : "leave group",
+			  inet_2a(group, b1), safe_strerror(errno));
 
-  return ret;
+	return ret;
 }
 
-static int
-if_add_group (struct interface *ifp)
+static int if_add_group(struct interface *ifp)
 {
-  struct zebra_if *zi= ifp->info;
-  struct irdp_interface *irdp = &zi->irdp;
-  int ret;
-  char b1[INET_ADDRSTRLEN];
+	struct zebra_if *zi = ifp->info;
+	struct irdp_interface *irdp = &zi->irdp;
+	int ret;
+	char b1[INET_ADDRSTRLEN];
 
-  ret = if_group (ifp, irdp_sock, INADDR_ALLRTRS_GROUP, IP_ADD_MEMBERSHIP);
-  if (ret < 0) {
-    return ret;
-  }
+	ret = if_group(ifp, irdp_sock, INADDR_ALLRTRS_GROUP, IP_ADD_MEMBERSHIP);
+	if (ret < 0) {
+		return ret;
+	}
 
-  if(irdp->flags & IF_DEBUG_MISC )
-    zlog_debug("IRDP: Adding group %s for %s",
-	       inet_2a(htonl(INADDR_ALLRTRS_GROUP), b1),
-	       ifp->name);
-  return 0;
+	if (irdp->flags & IF_DEBUG_MISC)
+		zlog_debug("IRDP: Adding group %s for %s",
+			   inet_2a(htonl(INADDR_ALLRTRS_GROUP), b1), ifp->name);
+	return 0;
 }
 
-static int
-if_drop_group (struct interface *ifp)
+static int if_drop_group(struct interface *ifp)
 {
-  struct zebra_if *zi= ifp->info;
-  struct irdp_interface *irdp = &zi->irdp;
-  int ret;
-  char b1[INET_ADDRSTRLEN];
+	struct zebra_if *zi = ifp->info;
+	struct irdp_interface *irdp = &zi->irdp;
+	int ret;
+	char b1[INET_ADDRSTRLEN];
 
-  ret = if_group (ifp, irdp_sock, INADDR_ALLRTRS_GROUP, IP_DROP_MEMBERSHIP);
-  if (ret < 0)
-    return ret;
+	ret = if_group(ifp, irdp_sock, INADDR_ALLRTRS_GROUP,
+		       IP_DROP_MEMBERSHIP);
+	if (ret < 0)
+		return ret;
 
-  if(irdp->flags & IF_DEBUG_MISC)
-    zlog_debug("IRDP: Leaving group %s for %s",
-	       inet_2a(htonl(INADDR_ALLRTRS_GROUP), b1),
-	       ifp->name);
-  return 0;
+	if (irdp->flags & IF_DEBUG_MISC)
+		zlog_debug("IRDP: Leaving group %s for %s",
+			   inet_2a(htonl(INADDR_ALLRTRS_GROUP), b1), ifp->name);
+	return 0;
 }
 
-static void
-if_set_defaults(struct interface *ifp)
+static void if_set_defaults(struct interface *ifp)
 {
-  struct zebra_if *zi=ifp->info;
-  struct irdp_interface *irdp=&zi->irdp;
+	struct zebra_if *zi = ifp->info;
+	struct irdp_interface *irdp = &zi->irdp;
 
-  irdp->MaxAdvertInterval = IRDP_MAXADVERTINTERVAL;
-  irdp->MinAdvertInterval = IRDP_MINADVERTINTERVAL;
-  irdp->Preference = IRDP_PREFERENCE;
-  irdp->Lifetime = IRDP_LIFETIME;
+	irdp->MaxAdvertInterval = IRDP_MAXADVERTINTERVAL;
+	irdp->MinAdvertInterval = IRDP_MINADVERTINTERVAL;
+	irdp->Preference = IRDP_PREFERENCE;
+	irdp->Lifetime = IRDP_LIFETIME;
 }
 
 
-static struct Adv *Adv_new (void)
+static struct Adv *Adv_new(void)
 {
-  return XCALLOC (MTYPE_TMP, sizeof (struct Adv));
+	return XCALLOC(MTYPE_TMP, sizeof(struct Adv));
 }
 
-static void
-Adv_free (struct Adv *adv)
+static void Adv_free(struct Adv *adv)
 {
-  XFREE (MTYPE_TMP, adv);
+	XFREE(MTYPE_TMP, adv);
 }
 
-static void
-irdp_if_start(struct interface *ifp, int multicast, int set_defaults)
+static void irdp_if_start(struct interface *ifp, int multicast,
+			  int set_defaults)
 {
-  struct zebra_if *zi= ifp->info;
-  struct irdp_interface *irdp = &zi->irdp;
-  struct listnode *node;
-  struct connected *ifc;
-  u_int32_t timer, seed;
+	struct zebra_if *zi = ifp->info;
+	struct irdp_interface *irdp = &zi->irdp;
+	struct listnode *node;
+	struct connected *ifc;
+	u_int32_t timer, seed;
 
-  if (irdp->flags & IF_ACTIVE ) {
-    zlog_warn("IRDP: Interface is already active %s", ifp->name);
-    return;
-  }
-  if ((irdp_sock < 0) && ((irdp_sock = irdp_sock_init()) < 0)) {
-    zlog_warn("IRDP: Cannot activate interface %s (cannot create "
-	      "IRDP socket)", ifp->name);
-    return;
-  }
-  irdp->flags |= IF_ACTIVE;
+	if (irdp->flags & IF_ACTIVE) {
+		zlog_warn("IRDP: Interface is already active %s", ifp->name);
+		return;
+	}
+	if ((irdp_sock < 0) && ((irdp_sock = irdp_sock_init()) < 0)) {
+		zlog_warn(
+			"IRDP: Cannot activate interface %s (cannot create "
+			"IRDP socket)",
+			ifp->name);
+		return;
+	}
+	irdp->flags |= IF_ACTIVE;
 
-  if(!multicast)
-    irdp->flags |= IF_BROADCAST;
+	if (!multicast)
+		irdp->flags |= IF_BROADCAST;
 
-  if_add_update(ifp);
+	if_add_update(ifp);
 
-  if (! (ifp->flags & IFF_UP)) {
-    zlog_warn("IRDP: Interface is down %s", ifp->name);
-  }
+	if (!(ifp->flags & IFF_UP)) {
+		zlog_warn("IRDP: Interface is down %s", ifp->name);
+	}
 
-  /* Shall we cancel if_start if if_add_group fails? */
+	/* Shall we cancel if_start if if_add_group fails? */
 
-  if( multicast) {
-    if_add_group(ifp);
+	if (multicast) {
+		if_add_group(ifp);
 
-    if (! (ifp->flags & (IFF_MULTICAST|IFF_ALLMULTI))) {
-      zlog_warn("IRDP: Interface not multicast enabled %s", ifp->name);
-    }
-  }
+		if (!(ifp->flags & (IFF_MULTICAST | IFF_ALLMULTI))) {
+			zlog_warn("IRDP: Interface not multicast enabled %s",
+				  ifp->name);
+		}
+	}
 
-  if(set_defaults)
-    if_set_defaults(ifp);
+	if (set_defaults)
+		if_set_defaults(ifp);
 
-  irdp->irdp_sent = 0;
+	irdp->irdp_sent = 0;
 
-  /* The spec suggests this for randomness */
+	/* The spec suggests this for randomness */
 
-  seed = 0;
-  if( ifp->connected)
-    for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
-      {
-        seed = ifc->address->u.prefix4.s_addr;
-        break;
-      }
+	seed = 0;
+	if (ifp->connected)
+		for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
+			seed = ifc->address->u.prefix4.s_addr;
+			break;
+		}
 
-  srandom(seed);
-  timer =  (random () % IRDP_DEFAULT_INTERVAL) + 1;
+	srandom(seed);
+	timer = (random() % IRDP_DEFAULT_INTERVAL) + 1;
 
-  irdp->AdvPrefList = list_new();
-  irdp->AdvPrefList->del =  (void (*)(void *)) Adv_free; /* Destructor */
-
-
-  /* And this for startup. Speed limit from 1991 :-). But it's OK*/
-
-  if(irdp->irdp_sent < MAX_INITIAL_ADVERTISEMENTS &&
-     timer > MAX_INITIAL_ADVERT_INTERVAL )
-	  timer= MAX_INITIAL_ADVERT_INTERVAL;
+	irdp->AdvPrefList = list_new();
+	irdp->AdvPrefList->del = (void (*)(void *))Adv_free; /* Destructor */
 
 
-  if(irdp->flags & IF_DEBUG_MISC)
-    zlog_debug("IRDP: Init timer for %s set to %u",
-	       ifp->name,
-	       timer);
+	/* And this for startup. Speed limit from 1991 :-). But it's OK*/
 
-  irdp->t_advertise = NULL;
-  thread_add_timer(zebrad.master, irdp_send_thread, ifp, timer,
-                   &irdp->t_advertise);
+	if (irdp->irdp_sent < MAX_INITIAL_ADVERTISEMENTS
+	    && timer > MAX_INITIAL_ADVERT_INTERVAL)
+		timer = MAX_INITIAL_ADVERT_INTERVAL;
+
+
+	if (irdp->flags & IF_DEBUG_MISC)
+		zlog_debug("IRDP: Init timer for %s set to %u", ifp->name,
+			   timer);
+
+	irdp->t_advertise = NULL;
+	thread_add_timer(zebrad.master, irdp_send_thread, ifp, timer,
+			 &irdp->t_advertise);
 }
 
-static void
-irdp_if_stop(struct interface *ifp)
+static void irdp_if_stop(struct interface *ifp)
 {
-  struct zebra_if *zi=ifp->info;
-  struct irdp_interface *irdp=&zi->irdp;
+	struct zebra_if *zi = ifp->info;
+	struct irdp_interface *irdp = &zi->irdp;
 
-  if (irdp == NULL) {
-    zlog_warn ("Interface %s structure is NULL", ifp->name);
-    return;
-  }
+	if (irdp == NULL) {
+		zlog_warn("Interface %s structure is NULL", ifp->name);
+		return;
+	}
 
-  if (! (irdp->flags & IF_ACTIVE )) {
-    zlog_warn("Interface is not active %s", ifp->name);
-    return;
-  }
+	if (!(irdp->flags & IF_ACTIVE)) {
+		zlog_warn("Interface is not active %s", ifp->name);
+		return;
+	}
 
-  if(! (irdp->flags & IF_BROADCAST))
-    if_drop_group(ifp);
+	if (!(irdp->flags & IF_BROADCAST))
+		if_drop_group(ifp);
 
-  irdp_advert_off(ifp);
+	irdp_advert_off(ifp);
 
-  list_delete(irdp->AdvPrefList);
-  irdp->AdvPrefList=NULL;
+	list_delete(irdp->AdvPrefList);
+	irdp->AdvPrefList = NULL;
 
-  irdp->flags = 0;
+	irdp->flags = 0;
 }
 
 
-static void
-irdp_if_shutdown(struct interface *ifp)
+static void irdp_if_shutdown(struct interface *ifp)
 {
-  struct zebra_if *zi= ifp->info;
-  struct irdp_interface *irdp = &zi->irdp;
+	struct zebra_if *zi = ifp->info;
+	struct irdp_interface *irdp = &zi->irdp;
 
-  if (irdp->flags & IF_SHUTDOWN ) {
-    zlog_warn("IRDP: Interface is already shutdown %s", ifp->name);
-    return;
-  }
+	if (irdp->flags & IF_SHUTDOWN) {
+		zlog_warn("IRDP: Interface is already shutdown %s", ifp->name);
+		return;
+	}
 
-  irdp->flags |= IF_SHUTDOWN;
-  irdp->flags &= ~IF_ACTIVE;
+	irdp->flags |= IF_SHUTDOWN;
+	irdp->flags &= ~IF_ACTIVE;
 
-  if(! (irdp->flags & IF_BROADCAST))
-    if_drop_group(ifp);
+	if (!(irdp->flags & IF_BROADCAST))
+		if_drop_group(ifp);
 
-  /* Tell the hosts we are out of service */
-  irdp_advert_off(ifp);
+	/* Tell the hosts we are out of service */
+	irdp_advert_off(ifp);
 }
 
-static void
-irdp_if_no_shutdown(struct interface *ifp)
+static void irdp_if_no_shutdown(struct interface *ifp)
 {
-  struct zebra_if *zi= ifp->info;
-  struct irdp_interface *irdp = &zi->irdp;
+	struct zebra_if *zi = ifp->info;
+	struct irdp_interface *irdp = &zi->irdp;
 
-  if (! (irdp->flags & IF_SHUTDOWN )) {
-    zlog_warn("IRDP: Interface is not shutdown %s", ifp->name);
-    return;
-  }
+	if (!(irdp->flags & IF_SHUTDOWN)) {
+		zlog_warn("IRDP: Interface is not shutdown %s", ifp->name);
+		return;
+	}
 
-  irdp->flags &= ~IF_SHUTDOWN;
+	irdp->flags &= ~IF_SHUTDOWN;
 
-  irdp_if_start(ifp, irdp->flags & IF_BROADCAST? FALSE : TRUE, FALSE);
-
+	irdp_if_start(ifp, irdp->flags & IF_BROADCAST ? FALSE : TRUE, FALSE);
 }
 
 
 /* Write configuration to user */
 
-void irdp_config_write (struct vty *vty, struct interface *ifp)
+void irdp_config_write(struct vty *vty, struct interface *ifp)
 {
-  struct zebra_if *zi=ifp->info;
-  struct irdp_interface *irdp=&zi->irdp;
-  struct Adv *adv;
-  struct listnode *node;
-  char b1[INET_ADDRSTRLEN];
+	struct zebra_if *zi = ifp->info;
+	struct irdp_interface *irdp = &zi->irdp;
+	struct Adv *adv;
+	struct listnode *node;
+	char b1[INET_ADDRSTRLEN];
 
-  if(irdp->flags & IF_ACTIVE || irdp->flags & IF_SHUTDOWN) {
+	if (irdp->flags & IF_ACTIVE || irdp->flags & IF_SHUTDOWN) {
 
-    if( irdp->flags & IF_SHUTDOWN)
-      vty_out (vty, " ip irdp shutdown \n");
+		if (irdp->flags & IF_SHUTDOWN)
+			vty_out(vty, " ip irdp shutdown \n");
 
-    if( irdp->flags & IF_BROADCAST)
-      vty_out (vty, " ip irdp broadcast\n");
-    else
-      vty_out (vty, " ip irdp multicast\n");
+		if (irdp->flags & IF_BROADCAST)
+			vty_out(vty, " ip irdp broadcast\n");
+		else
+			vty_out(vty, " ip irdp multicast\n");
 
-    vty_out (vty, " ip irdp preference %ld\n",
-	     irdp->Preference);
+		vty_out(vty, " ip irdp preference %ld\n", irdp->Preference);
 
-    for (ALL_LIST_ELEMENTS_RO (irdp->AdvPrefList, node, adv))
-      vty_out (vty, " ip irdp address %s preference %d\n",
-                    inet_2a(adv->ip.s_addr, b1),
-                    adv->pref);
+		for (ALL_LIST_ELEMENTS_RO(irdp->AdvPrefList, node, adv))
+			vty_out(vty, " ip irdp address %s preference %d\n",
+				inet_2a(adv->ip.s_addr, b1), adv->pref);
 
-    vty_out (vty, " ip irdp holdtime %d\n",
-	     irdp->Lifetime);
+		vty_out(vty, " ip irdp holdtime %d\n", irdp->Lifetime);
 
-    vty_out (vty, " ip irdp minadvertinterval %ld\n",
-	     irdp->MinAdvertInterval);
+		vty_out(vty, " ip irdp minadvertinterval %ld\n",
+			irdp->MinAdvertInterval);
 
-    vty_out (vty, " ip irdp maxadvertinterval %ld\n",
-	     irdp->MaxAdvertInterval);
-
-  }
+		vty_out(vty, " ip irdp maxadvertinterval %ld\n",
+			irdp->MaxAdvertInterval);
+	}
 }
 
 
@@ -378,10 +358,10 @@ DEFUN (ip_irdp_multicast,
        "ICMP Router discovery on this interface\n"
        "Use multicast mode\n")
 {
-  VTY_DECLVAR_CONTEXT (interface, ifp);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
-  irdp_if_start(ifp, TRUE, TRUE);
-  return CMD_SUCCESS;
+	irdp_if_start(ifp, TRUE, TRUE);
+	return CMD_SUCCESS;
 }
 
 DEFUN (ip_irdp_broadcast,
@@ -391,10 +371,10 @@ DEFUN (ip_irdp_broadcast,
        "ICMP Router discovery on this interface\n"
        "Use broadcast mode\n")
 {
-  VTY_DECLVAR_CONTEXT (interface, ifp);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
-  irdp_if_start(ifp, FALSE, TRUE);
-  return CMD_SUCCESS;
+	irdp_if_start(ifp, FALSE, TRUE);
+	return CMD_SUCCESS;
 }
 
 DEFUN (no_ip_irdp,
@@ -404,10 +384,10 @@ DEFUN (no_ip_irdp,
        IP_STR
        "Disable ICMP Router discovery on this interface\n")
 {
-  VTY_DECLVAR_CONTEXT (interface, ifp);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
-  irdp_if_stop(ifp);
-  return CMD_SUCCESS;
+	irdp_if_stop(ifp);
+	return CMD_SUCCESS;
 }
 
 DEFUN (ip_irdp_shutdown,
@@ -417,10 +397,10 @@ DEFUN (ip_irdp_shutdown,
        "ICMP Router discovery on this interface\n"
        "ICMP Router discovery shutdown on this interface\n")
 {
-  VTY_DECLVAR_CONTEXT (interface, ifp);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
-  irdp_if_shutdown(ifp);
-  return CMD_SUCCESS;
+	irdp_if_shutdown(ifp);
+	return CMD_SUCCESS;
 }
 
 DEFUN (no_ip_irdp_shutdown,
@@ -431,10 +411,10 @@ DEFUN (no_ip_irdp_shutdown,
        "ICMP Router discovery on this interface\n"
        "ICMP Router discovery no shutdown on this interface\n")
 {
-  VTY_DECLVAR_CONTEXT (interface, ifp);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
-  irdp_if_no_shutdown(ifp);
-  return CMD_SUCCESS;
+	irdp_if_no_shutdown(ifp);
+	return CMD_SUCCESS;
 }
 
 DEFUN (ip_irdp_holdtime,
@@ -445,16 +425,16 @@ DEFUN (ip_irdp_holdtime,
        "Set holdtime value\n"
        "Holdtime value in seconds. Default is 1800 seconds\n")
 {
-  int idx_number = 3;
-  VTY_DECLVAR_CONTEXT (interface, ifp);
-  struct zebra_if *zi;
-  struct irdp_interface *irdp;
+	int idx_number = 3;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct zebra_if *zi;
+	struct irdp_interface *irdp;
 
-  zi=ifp->info;
-  irdp=&zi->irdp;
+	zi = ifp->info;
+	irdp = &zi->irdp;
 
-  irdp->Lifetime = atoi(argv[idx_number]->arg);
-  return CMD_SUCCESS;
+	irdp->Lifetime = atoi(argv[idx_number]->arg);
+	return CMD_SUCCESS;
 }
 
 DEFUN (ip_irdp_minadvertinterval,
@@ -465,23 +445,23 @@ DEFUN (ip_irdp_minadvertinterval,
        "Set minimum time between advertisement\n"
        "Minimum advertisement interval in seconds\n")
 {
-  int idx_number = 3;
-  VTY_DECLVAR_CONTEXT (interface, ifp);
-  struct zebra_if *zi;
-  struct irdp_interface *irdp;
+	int idx_number = 3;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct zebra_if *zi;
+	struct irdp_interface *irdp;
 
-  zi=ifp->info;
-  irdp=&zi->irdp;
+	zi = ifp->info;
+	irdp = &zi->irdp;
 
-  if((unsigned) atoi(argv[idx_number]->arg) <= irdp->MaxAdvertInterval) {
-      irdp->MinAdvertInterval = atoi(argv[idx_number]->arg);
-      return CMD_SUCCESS;
-  }
-  else {
-      vty_out (vty, "%% MinAdvertInterval must be less than or equal to "
-                      "MaxAdvertInterval\n");
-      return CMD_WARNING_CONFIG_FAILED;
-  }
+	if ((unsigned)atoi(argv[idx_number]->arg) <= irdp->MaxAdvertInterval) {
+		irdp->MinAdvertInterval = atoi(argv[idx_number]->arg);
+		return CMD_SUCCESS;
+	} else {
+		vty_out(vty,
+			"%% MinAdvertInterval must be less than or equal to "
+			"MaxAdvertInterval\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 }
 
 DEFUN (ip_irdp_maxadvertinterval,
@@ -492,23 +472,23 @@ DEFUN (ip_irdp_maxadvertinterval,
        "Set maximum time between advertisement\n"
        "Maximum advertisement interval in seconds\n")
 {
-  int idx_number = 3;
-  VTY_DECLVAR_CONTEXT (interface, ifp);
-  struct zebra_if *zi;
-  struct irdp_interface *irdp;
+	int idx_number = 3;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct zebra_if *zi;
+	struct irdp_interface *irdp;
 
-  zi=ifp->info;
-  irdp=&zi->irdp;
+	zi = ifp->info;
+	irdp = &zi->irdp;
 
-  if(irdp->MinAdvertInterval <= (unsigned) atoi(argv[idx_number]->arg)) {
-      irdp->MaxAdvertInterval = atoi(argv[idx_number]->arg);
-      return CMD_SUCCESS;
-  }
-  else {
-      vty_out (vty, "%% MaxAdvertInterval must be greater than or equal to "
-                      "MinAdvertInterval\n");
-      return CMD_WARNING_CONFIG_FAILED;
-  }
+	if (irdp->MinAdvertInterval <= (unsigned)atoi(argv[idx_number]->arg)) {
+		irdp->MaxAdvertInterval = atoi(argv[idx_number]->arg);
+		return CMD_SUCCESS;
+	} else {
+		vty_out(vty,
+			"%% MaxAdvertInterval must be greater than or equal to "
+			"MinAdvertInterval\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 }
 
 /* DEFUN needs to be fixed for negative ranages...
@@ -524,16 +504,16 @@ DEFUN (ip_irdp_preference,
        "Set default preference level for this interface\n"
        "Preference level\n")
 {
-  int idx_number = 3;
-  VTY_DECLVAR_CONTEXT (interface, ifp);
-  struct zebra_if *zi;
-  struct irdp_interface *irdp;
+	int idx_number = 3;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct zebra_if *zi;
+	struct irdp_interface *irdp;
 
-  zi=ifp->info;
-  irdp=&zi->irdp;
+	zi = ifp->info;
+	irdp = &zi->irdp;
 
-  irdp->Preference = atoi(argv[idx_number]->arg);
-  return CMD_SUCCESS;
+	irdp->Preference = atoi(argv[idx_number]->arg);
+	return CMD_SUCCESS;
 }
 
 DEFUN (ip_irdp_address_preference,
@@ -546,36 +526,36 @@ DEFUN (ip_irdp_address_preference,
        "Specify IRDP non-default preference to advertise\n"
        "Preference level\n")
 {
-  int idx_ipv4 = 3;
-  int idx_number = 5;
-  VTY_DECLVAR_CONTEXT (interface, ifp);
-  struct listnode *node;
-  struct in_addr ip;
-  int pref;
-  int ret;
-  struct zebra_if *zi;
-  struct irdp_interface *irdp;
-  struct Adv *adv;
+	int idx_ipv4 = 3;
+	int idx_number = 5;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct listnode *node;
+	struct in_addr ip;
+	int pref;
+	int ret;
+	struct zebra_if *zi;
+	struct irdp_interface *irdp;
+	struct Adv *adv;
 
-  zi=ifp->info;
-  irdp=&zi->irdp;
+	zi = ifp->info;
+	irdp = &zi->irdp;
 
-  ret = inet_aton(argv[idx_ipv4]->arg, &ip);
-  if(!ret) return CMD_WARNING_CONFIG_FAILED;
+	ret = inet_aton(argv[idx_ipv4]->arg, &ip);
+	if (!ret)
+		return CMD_WARNING_CONFIG_FAILED;
 
-  pref = atoi(argv[idx_number]->arg);
+	pref = atoi(argv[idx_number]->arg);
 
-  for (ALL_LIST_ELEMENTS_RO (irdp->AdvPrefList, node, adv))
-    if(adv->ip.s_addr == ip.s_addr)
-      return CMD_SUCCESS;
+	for (ALL_LIST_ELEMENTS_RO(irdp->AdvPrefList, node, adv))
+		if (adv->ip.s_addr == ip.s_addr)
+			return CMD_SUCCESS;
 
-  adv = Adv_new();
-  adv->ip = ip;
-  adv->pref = pref;
-  listnode_add(irdp->AdvPrefList, adv);
+	adv = Adv_new();
+	adv->ip = ip;
+	adv->pref = pref;
+	listnode_add(irdp->AdvPrefList, adv);
 
-  return CMD_SUCCESS;
-
+	return CMD_SUCCESS;
 }
 
 DEFUN (no_ip_irdp_address_preference,
@@ -589,32 +569,30 @@ DEFUN (no_ip_irdp_address_preference,
        "Reset ICMP Router discovery preference on this interface\n"
        "Old preference level\n")
 {
-  int idx_ipv4 = 4;
-  VTY_DECLVAR_CONTEXT (interface, ifp);
-  struct listnode *node, *nnode;
-  struct in_addr ip;
-  int ret;
-  struct zebra_if *zi;
-  struct irdp_interface *irdp;
-  struct Adv *adv;
+	int idx_ipv4 = 4;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct listnode *node, *nnode;
+	struct in_addr ip;
+	int ret;
+	struct zebra_if *zi;
+	struct irdp_interface *irdp;
+	struct Adv *adv;
 
-  zi=ifp->info;
-  irdp=&zi->irdp;
+	zi = ifp->info;
+	irdp = &zi->irdp;
 
-  ret = inet_aton(argv[idx_ipv4]->arg, &ip);
-  if (!ret)
-    return CMD_WARNING_CONFIG_FAILED;
+	ret = inet_aton(argv[idx_ipv4]->arg, &ip);
+	if (!ret)
+		return CMD_WARNING_CONFIG_FAILED;
 
-  for (ALL_LIST_ELEMENTS (irdp->AdvPrefList, node, nnode, adv))
-    {
-      if(adv->ip.s_addr == ip.s_addr )
-        {
-          listnode_delete(irdp->AdvPrefList, adv);
-          break;
-        }
-    }
+	for (ALL_LIST_ELEMENTS(irdp->AdvPrefList, node, nnode, adv)) {
+		if (adv->ip.s_addr == ip.s_addr) {
+			listnode_delete(irdp->AdvPrefList, adv);
+			break;
+		}
+	}
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN (ip_irdp_debug_messages,
@@ -625,16 +603,16 @@ DEFUN (ip_irdp_debug_messages,
        "IRDP debugging options\n"
        "Enable debugging for IRDP messages\n")
 {
-  VTY_DECLVAR_CONTEXT (interface, ifp);
-  struct zebra_if *zi;
-  struct irdp_interface *irdp;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct zebra_if *zi;
+	struct irdp_interface *irdp;
 
-  zi=ifp->info;
-  irdp=&zi->irdp;
+	zi = ifp->info;
+	irdp = &zi->irdp;
 
-  irdp->flags |= IF_DEBUG_MESSAGES;
+	irdp->flags |= IF_DEBUG_MESSAGES;
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN (ip_irdp_debug_misc,
@@ -645,16 +623,16 @@ DEFUN (ip_irdp_debug_misc,
        "IRDP debugging options\n"
        "Enable debugging for miscellaneous IRDP events\n")
 {
-  VTY_DECLVAR_CONTEXT (interface, ifp);
-  struct zebra_if *zi;
-  struct irdp_interface *irdp;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct zebra_if *zi;
+	struct irdp_interface *irdp;
 
-  zi=ifp->info;
-  irdp=&zi->irdp;
+	zi = ifp->info;
+	irdp = &zi->irdp;
 
-  irdp->flags |= IF_DEBUG_MISC;
+	irdp->flags |= IF_DEBUG_MISC;
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN (ip_irdp_debug_packet,
@@ -665,16 +643,16 @@ DEFUN (ip_irdp_debug_packet,
        "IRDP debugging options\n"
        "Enable debugging for IRDP packets\n")
 {
-  VTY_DECLVAR_CONTEXT (interface, ifp);
-  struct zebra_if *zi;
-  struct irdp_interface *irdp;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct zebra_if *zi;
+	struct irdp_interface *irdp;
 
-  zi=ifp->info;
-  irdp=&zi->irdp;
+	zi = ifp->info;
+	irdp = &zi->irdp;
 
-  irdp->flags |= IF_DEBUG_PACKET;
+	irdp->flags |= IF_DEBUG_PACKET;
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 
@@ -686,39 +664,38 @@ DEFUN (ip_irdp_debug_disable,
        "IRDP debugging options\n"
        "Disable debugging for all IRDP events\n")
 {
-  VTY_DECLVAR_CONTEXT (interface, ifp);
-  struct zebra_if *zi;
-  struct irdp_interface *irdp;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct zebra_if *zi;
+	struct irdp_interface *irdp;
 
-  zi=ifp->info;
-  irdp=&zi->irdp;
+	zi = ifp->info;
+	irdp = &zi->irdp;
 
-  irdp->flags &= ~IF_DEBUG_PACKET;
-  irdp->flags &= ~IF_DEBUG_MESSAGES;
-  irdp->flags &= ~IF_DEBUG_MISC;
+	irdp->flags &= ~IF_DEBUG_PACKET;
+	irdp->flags &= ~IF_DEBUG_MESSAGES;
+	irdp->flags &= ~IF_DEBUG_MISC;
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
-void
-irdp_init ()
+void irdp_init()
 {
-  install_element (INTERFACE_NODE, &ip_irdp_broadcast_cmd);
-  install_element (INTERFACE_NODE, &ip_irdp_multicast_cmd);
-  install_element (INTERFACE_NODE, &no_ip_irdp_cmd);
-  install_element (INTERFACE_NODE, &ip_irdp_shutdown_cmd);
-  install_element (INTERFACE_NODE, &no_ip_irdp_shutdown_cmd);
-  install_element (INTERFACE_NODE, &ip_irdp_holdtime_cmd);
-  install_element (INTERFACE_NODE, &ip_irdp_maxadvertinterval_cmd);
-  install_element (INTERFACE_NODE, &ip_irdp_minadvertinterval_cmd);
-  install_element (INTERFACE_NODE, &ip_irdp_preference_cmd);
-  install_element (INTERFACE_NODE, &ip_irdp_address_preference_cmd);
-  install_element (INTERFACE_NODE, &no_ip_irdp_address_preference_cmd);
+	install_element(INTERFACE_NODE, &ip_irdp_broadcast_cmd);
+	install_element(INTERFACE_NODE, &ip_irdp_multicast_cmd);
+	install_element(INTERFACE_NODE, &no_ip_irdp_cmd);
+	install_element(INTERFACE_NODE, &ip_irdp_shutdown_cmd);
+	install_element(INTERFACE_NODE, &no_ip_irdp_shutdown_cmd);
+	install_element(INTERFACE_NODE, &ip_irdp_holdtime_cmd);
+	install_element(INTERFACE_NODE, &ip_irdp_maxadvertinterval_cmd);
+	install_element(INTERFACE_NODE, &ip_irdp_minadvertinterval_cmd);
+	install_element(INTERFACE_NODE, &ip_irdp_preference_cmd);
+	install_element(INTERFACE_NODE, &ip_irdp_address_preference_cmd);
+	install_element(INTERFACE_NODE, &no_ip_irdp_address_preference_cmd);
 
-  install_element (INTERFACE_NODE, &ip_irdp_debug_messages_cmd);
-  install_element (INTERFACE_NODE, &ip_irdp_debug_misc_cmd);
-  install_element (INTERFACE_NODE, &ip_irdp_debug_packet_cmd);
-  install_element (INTERFACE_NODE, &ip_irdp_debug_disable_cmd);
+	install_element(INTERFACE_NODE, &ip_irdp_debug_messages_cmd);
+	install_element(INTERFACE_NODE, &ip_irdp_debug_misc_cmd);
+	install_element(INTERFACE_NODE, &ip_irdp_debug_packet_cmd);
+	install_element(INTERFACE_NODE, &ip_irdp_debug_disable_cmd);
 }
 
 #endif /* HAVE_IRDP */

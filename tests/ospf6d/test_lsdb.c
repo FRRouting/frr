@@ -116,12 +116,11 @@ static void lsa_show_oneline(struct vty *vty, struct ospf6_lsa *lsa)
 		vty_out(vty, "lsa = NULL\n");
 		return;
 	}
-	inet_ntop(AF_INET, &lsa->header->id,
-			id, sizeof (id));
-	inet_ntop(AF_INET, &lsa->header->adv_router,
-			adv_router, sizeof (adv_router));
-	vty_out(vty, "type %u adv %s id %s\n",
-			ntohs(lsa->header->type), adv_router, id);
+	inet_ntop(AF_INET, &lsa->header->id, id, sizeof(id));
+	inet_ntop(AF_INET, &lsa->header->adv_router, adv_router,
+		  sizeof(adv_router));
+	vty_out(vty, "type %u adv %s id %s\n", ntohs(lsa->header->type),
+		adv_router, id);
 }
 
 DEFPY(lsdb_walk, lsdb_walk_cmd,

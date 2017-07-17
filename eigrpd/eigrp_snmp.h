@@ -29,7 +29,7 @@
 #ifndef _ZEBRA_EIGRP_SNMP_H
 #define _ZEBRA_EIGRP_SNMP_H
 
-extern void eigrp_snmp_init (void);
+extern void eigrp_snmp_init(void);
 
 
 #endif /* _ZEBRA_EIGRP_SNMP_H */

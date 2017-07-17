@@ -25,23 +25,23 @@
 
 struct frr_pthread {
 
-        /* pthread id */
-        pthread_t thread;
+	/* pthread id */
+	pthread_t thread;
 
-        /* frr thread identifier */
-        unsigned int id;
+	/* frr thread identifier */
+	unsigned int id;
 
-        /* thread master for this pthread's thread.c event loop */
-        struct thread_master *master;
+	/* thread master for this pthread's thread.c event loop */
+	struct thread_master *master;
 
-        /* start routine */
-        void *(*start_routine) (void *);
+	/* start routine */
+	void *(*start_routine)(void *);
 
-        /* stop routine */
-        int (*stop_routine) (void **, struct frr_pthread *);
+	/* stop routine */
+	int (*stop_routine)(void **, struct frr_pthread *);
 
-        /* the (hopefully descriptive) name of this thread */
-        char *name;
+	/* the (hopefully descriptive) name of this thread */
+	char *name;
 };
 
 /* Initializes this module.
@@ -82,8 +82,9 @@ void frr_pthread_finish(void);
  * @return the created frr_pthread upon success, or NULL upon failure
  */
 struct frr_pthread *frr_pthread_new(const char *name, unsigned int id,
-                                    void *(*start_routine) (void *),
-                                    int (*stop_routine) (void **, struct frr_pthread *));
+				    void *(*start_routine)(void *),
+				    int (*stop_routine)(void **,
+							struct frr_pthread *));
 
 /* Destroys an frr_pthread.
  *
@@ -116,7 +117,7 @@ struct frr_pthread *frr_pthread_get(unsigned int id);
  *
  * @return see pthread_create(3)
  */
-int frr_pthread_run(unsigned int id, const pthread_attr_t * attr, void *arg);
+int frr_pthread_run(unsigned int id, const pthread_attr_t *attr, void *arg);
 
 /* Stops an frr_pthread with a result.
  *

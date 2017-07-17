@@ -134,7 +134,7 @@ void ttable_cell_del(struct ttable_cell *cell);
  */
 struct ttable_cell *ttable_insert_row(struct ttable *tt, unsigned int row,
 				      const char *format, ...)
-				      PRINTF_ATTRIBUTE(3, 4);
+	PRINTF_ATTRIBUTE(3, 4);
 /**
  * Inserts a new row at the end of the table.
  *
@@ -160,7 +160,7 @@ struct ttable_cell *ttable_insert_row(struct ttable *tt, unsigned int row,
  * columns were specified
  */
 struct ttable_cell *ttable_add_row(struct ttable *tt, const char *format, ...)
-				   PRINTF_ATTRIBUTE(2, 3);
+	PRINTF_ATTRIBUTE(2, 3);
 
 /**
  * Removes a row from the table.

@@ -41,12 +41,12 @@ typedef unsigned long dictcount_t;
 typedef enum { dnode_red, dnode_black } dnode_color_t;
 
 typedef struct dnode_t {
-    struct dnode_t *dict_left;
-    struct dnode_t *dict_right;
-    struct dnode_t *dict_parent;
-    dnode_color_t dict_color;
-    const void *dict_key;
-    void *dict_data;
+	struct dnode_t *dict_left;
+	struct dnode_t *dict_right;
+	struct dnode_t *dict_parent;
+	dnode_color_t dict_color;
+	const void *dict_key;
+	void *dict_data;
 } dnode_t;
 
 typedef int (*dict_comp_t)(const void *, const void *);
@@ -54,21 +54,21 @@ typedef dnode_t *(*dnode_alloc_t)(void *);
 typedef void (*dnode_free_t)(dnode_t *, void *);
 
 typedef struct dict_t {
-    dnode_t dict_nilnode;
-    dictcount_t dict_nodecount;
-    dictcount_t dict_maxcount;
-    dict_comp_t dict_compare;
-    dnode_alloc_t dict_allocnode;
-    dnode_free_t dict_freenode;
-    void *dict_context;
-    int dict_dupes;
+	dnode_t dict_nilnode;
+	dictcount_t dict_nodecount;
+	dictcount_t dict_maxcount;
+	dict_comp_t dict_compare;
+	dnode_alloc_t dict_allocnode;
+	dnode_free_t dict_freenode;
+	void *dict_context;
+	int dict_dupes;
 } dict_t;
 
 typedef void (*dnode_process_t)(dict_t *, dnode_t *, void *);
 
 typedef struct dict_load_t {
-    dict_t *dict_dictptr;
-    dnode_t dict_nilnode;
+	dict_t *dict_dictptr;
+	dnode_t dict_nilnode;
 } dict_load_t;
 
 extern dict_t *dict_create(dictcount_t, dict_comp_t);

@@ -29,48 +29,44 @@
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_l2.h"
 
-void zebra_l2_map_slave_to_bridge (struct zebra_l2info_brslave *br_slave)
+void zebra_l2_map_slave_to_bridge(struct zebra_l2info_brslave *br_slave)
 {
 }
 
-void
-zebra_l2_unmap_slave_from_bridge (struct zebra_l2info_brslave *br_slave)
+void zebra_l2_unmap_slave_from_bridge(struct zebra_l2info_brslave *br_slave)
 {
 }
 
-void zebra_l2_bridge_add_update (struct interface *ifp,
-                                 struct zebra_l2info_bridge *bridge_info,
-                                 int add)
+void zebra_l2_bridge_add_update(struct interface *ifp,
+				struct zebra_l2info_bridge *bridge_info,
+				int add)
 {
 }
 
-void zebra_l2_bridge_del (struct interface *ifp)
+void zebra_l2_bridge_del(struct interface *ifp)
 {
 }
 
-void zebra_l2_vlanif_update (struct interface *ifp,
-                             struct zebra_l2info_vlan *vlan_info)
+void zebra_l2_vlanif_update(struct interface *ifp,
+			    struct zebra_l2info_vlan *vlan_info)
 {
 }
 
-void zebra_l2_vxlanif_add_update (struct interface *ifp,
-                                  struct zebra_l2info_vxlan *vxlan_info,
-                                  int add)
+void zebra_l2_vxlanif_add_update(struct interface *ifp,
+				 struct zebra_l2info_vxlan *vxlan_info, int add)
 {
 }
 
-void
-zebra_l2_vxlanif_update_access_vlan (struct interface *ifp,
-                                     vlanid_t access_vlan)
+void zebra_l2_vxlanif_update_access_vlan(struct interface *ifp,
+					 vlanid_t access_vlan)
 {
 }
 
-void zebra_l2_vxlanif_del (struct interface *ifp)
+void zebra_l2_vxlanif_del(struct interface *ifp)
 {
 }
 
-void
-zebra_l2if_update_bridge_slave (struct interface *ifp,
-                                ifindex_t bridge_ifindex)
+void zebra_l2if_update_bridge_slave(struct interface *ifp,
+				    ifindex_t bridge_ifindex)
 {
 }

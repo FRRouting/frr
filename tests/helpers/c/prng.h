@@ -26,12 +26,10 @@
 
 struct prng;
 
-struct prng* prng_new(unsigned long long seed);
-int prng_rand(struct prng*);
-const char * prng_fuzz(struct prng*,
-                       const char *string,
-                       const char *charset,
-                       unsigned int operations);
+struct prng *prng_new(unsigned long long seed);
+int prng_rand(struct prng *);
+const char *prng_fuzz(struct prng *, const char *string, const char *charset,
+		      unsigned int operations);
 void prng_free(struct prng *);
 
 #endif

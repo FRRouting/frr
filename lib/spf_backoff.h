@@ -30,13 +30,10 @@ struct spf_backoff;
 struct thread_master;
 struct vty;
 
-struct spf_backoff *spf_backoff_new(struct thread_master *m,
-                                    const char *name,
-                                    long init_delay,
-                                    long short_delay,
-                                    long long_delay,
-                                    long holddown,
-                                    long timetolearn);
+struct spf_backoff *spf_backoff_new(struct thread_master *m, const char *name,
+				    long init_delay, long short_delay,
+				    long long_delay, long holddown,
+				    long timetolearn);
 
 void spf_backoff_free(struct spf_backoff *backoff);
 
@@ -45,9 +42,8 @@ void spf_backoff_free(struct spf_backoff *backoff);
 long spf_backoff_schedule(struct spf_backoff *backoff);
 
 /* Shows status of SPF backoff instance */
-void spf_backoff_show(struct spf_backoff *backoff,
-                      struct vty *vty,
-                      const char *prefix);
+void spf_backoff_show(struct spf_backoff *backoff, struct vty *vty,
+		      const char *prefix);
 
 /* Writes out global SPF backoff debug config */
 int spf_backoff_write_config(struct vty *vty);

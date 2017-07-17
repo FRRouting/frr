@@ -44,41 +44,41 @@
 #define min(a, b) ((a) < (b) ? (a) : (b))
 
 struct ripng_rte_data {
-  struct prefix_ipv6 *p;
-  struct ripng_info *rinfo;
-  struct ripng_aggregate *aggregate;
+	struct prefix_ipv6 *p;
+	struct ripng_info *rinfo;
+	struct ripng_aggregate *aggregate;
 };
 
 void _ripng_rte_del(struct ripng_rte_data *A);
 int _ripng_rte_cmp(struct ripng_rte_data *A, struct ripng_rte_data *B);
 
-#define METRIC_OUT(a) \
-    ((a)->rinfo ?  (a)->rinfo->metric_out : (a)->aggregate->metric_out)
-#define NEXTHOP_OUT_PTR(a) \
-    ((a)->rinfo ?  &((a)->rinfo->nexthop_out) : &((a)->aggregate->nexthop_out))
-#define TAG_OUT(a) \
-    ((a)->rinfo ?  (a)->rinfo->tag_out : (a)->aggregate->tag_out)
+#define METRIC_OUT(a)                                                          \
+	((a)->rinfo ? (a)->rinfo->metric_out : (a)->aggregate->metric_out)
+#define NEXTHOP_OUT_PTR(a)                                                     \
+	((a)->rinfo ? &((a)->rinfo->nexthop_out)                               \
+		    : &((a)->aggregate->nexthop_out))
+#define TAG_OUT(a) ((a)->rinfo ? (a)->rinfo->tag_out : (a)->aggregate->tag_out)
 
-struct list *
-ripng_rte_new(void) {
-  struct list *rte;
+struct list *ripng_rte_new(void)
+{
+	struct list *rte;
 
-  rte = list_new();
-  rte->cmp = (int (*)(void *, void *)) _ripng_rte_cmp;
-  rte->del = (void (*)(void *)) _ripng_rte_del;
+	rte = list_new();
+	rte->cmp = (int (*)(void *, void *))_ripng_rte_cmp;
+	rte->del = (void (*)(void *))_ripng_rte_del;
 
-  return rte;
+	return rte;
 }
 
-void
-ripng_rte_free(struct list *ripng_rte_list) {
-  list_delete(ripng_rte_list);
+void ripng_rte_free(struct list *ripng_rte_list)
+{
+	list_delete(ripng_rte_list);
 }
 
 /* Delete RTE */
-void
-_ripng_rte_del(struct ripng_rte_data *A) {
-  XFREE(MTYPE_RIPNG_RTE_DATA, A);
+void _ripng_rte_del(struct ripng_rte_data *A)
+{
+	XFREE(MTYPE_RIPNG_RTE_DATA, A);
 }
 
 /* Compare RTE:
@@ -86,128 +86,138 @@ _ripng_rte_del(struct ripng_rte_data *A) {
  *         0  if A = B
  *         -  if A < B
  */
-int
-_ripng_rte_cmp(struct ripng_rte_data *A, struct ripng_rte_data *B) {
-  return addr6_cmp(NEXTHOP_OUT_PTR(A), NEXTHOP_OUT_PTR(B));
+int _ripng_rte_cmp(struct ripng_rte_data *A, struct ripng_rte_data *B)
+{
+	return addr6_cmp(NEXTHOP_OUT_PTR(A), NEXTHOP_OUT_PTR(B));
 }
 
 /* Add routing table entry */
-void
-ripng_rte_add(struct list *ripng_rte_list, struct prefix_ipv6 *p,
-              struct ripng_info *rinfo, struct ripng_aggregate *aggregate) {
+void ripng_rte_add(struct list *ripng_rte_list, struct prefix_ipv6 *p,
+		   struct ripng_info *rinfo, struct ripng_aggregate *aggregate)
+{
 
-  struct ripng_rte_data *data;
+	struct ripng_rte_data *data;
 
-  /* At least one should not be null */
-  assert(!rinfo || !aggregate);
+	/* At least one should not be null */
+	assert(!rinfo || !aggregate);
 
-  data = XMALLOC(MTYPE_RIPNG_RTE_DATA, sizeof(*data));
-  data->p     = p;
-  data->rinfo = rinfo;
-  data->aggregate = aggregate;
+	data = XMALLOC(MTYPE_RIPNG_RTE_DATA, sizeof(*data));
+	data->p = p;
+	data->rinfo = rinfo;
+	data->aggregate = aggregate;
 
-  listnode_add_sort(ripng_rte_list, data);
-} 
+	listnode_add_sort(ripng_rte_list, data);
+}
 
 /* Send the RTE with the nexthop support
  */
-void
-ripng_rte_send(struct list *ripng_rte_list, struct interface *ifp,
-               struct sockaddr_in6 *to) {
+void ripng_rte_send(struct list *ripng_rte_list, struct interface *ifp,
+		    struct sockaddr_in6 *to)
+{
 
-  struct ripng_rte_data *data;
-  struct listnode *node, *nnode;
+	struct ripng_rte_data *data;
+	struct listnode *node, *nnode;
 
-  struct in6_addr last_nexthop;
-  struct in6_addr myself_nexthop;
+	struct in6_addr last_nexthop;
+	struct in6_addr myself_nexthop;
 
-  struct stream *s;
-  int num;
-  int mtu;
-  int rtemax;
-  int ret;
+	struct stream *s;
+	int num;
+	int mtu;
+	int rtemax;
+	int ret;
 
-  /* Most of the time, there is no nexthop */
-  memset(&last_nexthop, 0, sizeof(last_nexthop));
+	/* Most of the time, there is no nexthop */
+	memset(&last_nexthop, 0, sizeof(last_nexthop));
 
-  /* Use myself_nexthop if the nexthop is not a link-local address, because
-   * we remain a right path without beeing the optimal one.
-   */
-  memset(&myself_nexthop, 0, sizeof(myself_nexthop));
+	/* Use myself_nexthop if the nexthop is not a link-local address,
+	 * because
+	 * we remain a right path without beeing the optimal one.
+	 */
+	memset(&myself_nexthop, 0, sizeof(myself_nexthop));
 
-  /* Output stream get from ripng structre.  XXX this should be
-     interface structure. */
-  s = ripng->obuf;
+	/* Output stream get from ripng structre.  XXX this should be
+	   interface structure. */
+	s = ripng->obuf;
 
-  /* Reset stream and RTE counter. */
-  stream_reset (s);
-  num = 0;
+	/* Reset stream and RTE counter. */
+	stream_reset(s);
+	num = 0;
 
-  mtu = ifp->mtu6;
-  if (mtu < 0)
-    mtu = IFMINMTU;
+	mtu = ifp->mtu6;
+	if (mtu < 0)
+		mtu = IFMINMTU;
 
-  rtemax = (min (mtu, RIPNG_MAX_PACKET_SIZE) -
-	    IPV6_HDRLEN - 
-	    sizeof (struct udphdr) -
-	    sizeof (struct ripng_packet) +
-	    sizeof (struct rte)) / sizeof (struct rte);
+	rtemax = (min(mtu, RIPNG_MAX_PACKET_SIZE) - IPV6_HDRLEN
+		  - sizeof(struct udphdr) - sizeof(struct ripng_packet)
+		  + sizeof(struct rte))
+		 / sizeof(struct rte);
 
-  for (ALL_LIST_ELEMENTS (ripng_rte_list, node, nnode, data)) {
-    /* (2.1) Next hop support */
-    if (!IPV6_ADDR_SAME(&last_nexthop, NEXTHOP_OUT_PTR(data))) {
+	for (ALL_LIST_ELEMENTS(ripng_rte_list, node, nnode, data)) {
+		/* (2.1) Next hop support */
+		if (!IPV6_ADDR_SAME(&last_nexthop, NEXTHOP_OUT_PTR(data))) {
 
-      /* A nexthop entry should be at least followed by 1 RTE */
-      if (num == (rtemax-1)) {
-	ret = ripng_send_packet ((caddr_t) STREAM_DATA (s), stream_get_endp (s),
-				 to, ifp);
+			/* A nexthop entry should be at least followed by 1 RTE
+			 */
+			if (num == (rtemax - 1)) {
+				ret = ripng_send_packet((caddr_t)STREAM_DATA(s),
+							stream_get_endp(s), to,
+							ifp);
 
-        if (ret >= 0 && IS_RIPNG_DEBUG_SEND)
-          ripng_packet_dump((struct ripng_packet *)STREAM_DATA (s),
-			    stream_get_endp(s), "SEND");
-        num = 0;
-        stream_reset (s);
-      }
+				if (ret >= 0 && IS_RIPNG_DEBUG_SEND)
+					ripng_packet_dump(
+						(struct ripng_packet *)
+							STREAM_DATA(s),
+						stream_get_endp(s), "SEND");
+				num = 0;
+				stream_reset(s);
+			}
 
-      /* Add the nexthop (2.1) */
+			/* Add the nexthop (2.1) */
 
-      /* If the received next hop address is not a link-local address,
-       * it should be treated as 0:0:0:0:0:0:0:0.
-       */
-      if (!IN6_IS_ADDR_LINKLOCAL(NEXTHOP_OUT_PTR(data)))
-        last_nexthop = myself_nexthop;
-      else
-	last_nexthop = *NEXTHOP_OUT_PTR(data);
+			/* If the received next hop address is not a link-local
+			 * address,
+			 * it should be treated as 0:0:0:0:0:0:0:0.
+			 */
+			if (!IN6_IS_ADDR_LINKLOCAL(NEXTHOP_OUT_PTR(data)))
+				last_nexthop = myself_nexthop;
+			else
+				last_nexthop = *NEXTHOP_OUT_PTR(data);
 
-      num = ripng_write_rte(num, s, NULL, &last_nexthop, 0, RIPNG_METRIC_NEXTHOP);
-    } else {
-      /* Rewrite the nexthop for each new packet */
-      if ((num == 0) && !IPV6_ADDR_SAME(&last_nexthop, &myself_nexthop))
-        num = ripng_write_rte(num, s, NULL, &last_nexthop, 0, RIPNG_METRIC_NEXTHOP);
-    }
-    num = ripng_write_rte(num, s, data->p, NULL,
-			  TAG_OUT(data), METRIC_OUT(data));
+			num = ripng_write_rte(num, s, NULL, &last_nexthop, 0,
+					      RIPNG_METRIC_NEXTHOP);
+		} else {
+			/* Rewrite the nexthop for each new packet */
+			if ((num == 0)
+			    && !IPV6_ADDR_SAME(&last_nexthop, &myself_nexthop))
+				num = ripng_write_rte(num, s, NULL,
+						      &last_nexthop, 0,
+						      RIPNG_METRIC_NEXTHOP);
+		}
+		num = ripng_write_rte(num, s, data->p, NULL, TAG_OUT(data),
+				      METRIC_OUT(data));
 
-    if (num == rtemax) {
-      ret = ripng_send_packet ((caddr_t) STREAM_DATA (s), stream_get_endp (s),
-			       to, ifp);
+		if (num == rtemax) {
+			ret = ripng_send_packet((caddr_t)STREAM_DATA(s),
+						stream_get_endp(s), to, ifp);
 
-      if (ret >= 0 && IS_RIPNG_DEBUG_SEND)
-        ripng_packet_dump((struct ripng_packet *)STREAM_DATA (s),
-			  stream_get_endp(s), "SEND");
-      num = 0;
-      stream_reset (s);
-    }
-  }
+			if (ret >= 0 && IS_RIPNG_DEBUG_SEND)
+				ripng_packet_dump(
+					(struct ripng_packet *)STREAM_DATA(s),
+					stream_get_endp(s), "SEND");
+			num = 0;
+			stream_reset(s);
+		}
+	}
 
-  /* If unwritten RTE exist, flush it. */
-  if (num != 0) {
-    ret = ripng_send_packet ((caddr_t) STREAM_DATA (s), stream_get_endp (s),
-			     to, ifp);
+	/* If unwritten RTE exist, flush it. */
+	if (num != 0) {
+		ret = ripng_send_packet((caddr_t)STREAM_DATA(s),
+					stream_get_endp(s), to, ifp);
 
-    if (ret >= 0 && IS_RIPNG_DEBUG_SEND)
-      ripng_packet_dump ((struct ripng_packet *)STREAM_DATA (s),
-			 stream_get_endp (s), "SEND");
-    stream_reset (s);
-  }
+		if (ret >= 0 && IS_RIPNG_DEBUG_SEND)
+			ripng_packet_dump((struct ripng_packet *)STREAM_DATA(s),
+					  stream_get_endp(s), "SEND");
+		stream_reset(s);
+	}
 }

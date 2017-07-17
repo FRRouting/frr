@@ -34,41 +34,37 @@
 
 #define RD_ADDRSTRLEN  28
 
-struct rd_as
-{
-  u_int16_t type;
-  as_t as;
-  u_int32_t val;
+struct rd_as {
+	u_int16_t type;
+	as_t as;
+	u_int32_t val;
 };
 
-struct rd_ip
-{
-  u_int16_t type;
-  struct in_addr ip;
-  u_int16_t val;
+struct rd_ip {
+	u_int16_t type;
+	struct in_addr ip;
+	u_int16_t val;
 };
 
 #if ENABLE_BGP_VNC
-struct rd_vnc_eth
-{
-  u_int16_t type;
-  uint8_t local_nve_id;
-  struct ethaddr macaddr;
+struct rd_vnc_eth {
+	u_int16_t type;
+	uint8_t local_nve_id;
+	struct ethaddr macaddr;
 };
 #endif
 
-extern u_int16_t decode_rd_type (u_char *pnt);
-extern void encode_rd_type (u_int16_t, u_char *);
+extern u_int16_t decode_rd_type(u_char *pnt);
+extern void encode_rd_type(u_int16_t, u_char *);
 
-extern void decode_rd_as (u_char *pnt, struct rd_as *rd_as);
-extern void decode_rd_as4 (u_char *pnt, struct rd_as *rd_as);
-extern void decode_rd_ip (u_char *pnt, struct rd_ip *rd_ip);
+extern void decode_rd_as(u_char *pnt, struct rd_as *rd_as);
+extern void decode_rd_as4(u_char *pnt, struct rd_as *rd_as);
+extern void decode_rd_ip(u_char *pnt, struct rd_ip *rd_ip);
 #if ENABLE_BGP_VNC
-extern void
-decode_rd_vnc_eth (u_char *pnt, struct rd_vnc_eth *rd_vnc_eth);
+extern void decode_rd_vnc_eth(u_char *pnt, struct rd_vnc_eth *rd_vnc_eth);
 #endif
 
-extern int str2prefix_rd (const char *, struct prefix_rd *);
-extern char *prefix_rd2str (struct prefix_rd *, char *, size_t);
+extern int str2prefix_rd(const char *, struct prefix_rd *);
+extern char *prefix_rd2str(struct prefix_rd *, char *, size_t);
 
 #endif /* _QUAGGA_BGP_RD_H */

@@ -53,13 +53,13 @@
 #define IS_ZEBRA_DEBUG_DETAIL (zebra_debug_packet & ZEBRA_DEBUG_DETAIL)
 
 #define IS_ZEBRA_DEBUG_KERNEL (zebra_debug_kernel & ZEBRA_DEBUG_KERNEL)
-#define IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND \
-        (zebra_debug_kernel & ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
-#define IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV \
-        (zebra_debug_kernel & ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV)
+#define IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND                                     \
+	(zebra_debug_kernel & ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
+#define IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV                                     \
+	(zebra_debug_kernel & ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV)
 
-#define IS_ZEBRA_DEBUG_RIB \
-        (zebra_debug_rib & (ZEBRA_DEBUG_RIB | ZEBRA_DEBUG_RIB_DETAILED))
+#define IS_ZEBRA_DEBUG_RIB                                                     \
+	(zebra_debug_rib & (ZEBRA_DEBUG_RIB | ZEBRA_DEBUG_RIB_DETAILED))
 #define IS_ZEBRA_DEBUG_RIB_DETAILED  (zebra_debug_rib & ZEBRA_DEBUG_RIB_DETAILED)
 
 #define IS_ZEBRA_DEBUG_FPM (zebra_debug_fpm & ZEBRA_DEBUG_FPM)
@@ -76,6 +76,6 @@ extern unsigned long zebra_debug_nht;
 extern unsigned long zebra_debug_mpls;
 extern unsigned long zebra_debug_vxlan;
 
-extern void zebra_debug_init (void);
+extern void zebra_debug_init(void);
 
 #endif /* _ZEBRA_DEBUG_H */

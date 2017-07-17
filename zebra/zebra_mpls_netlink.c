@@ -26,22 +26,21 @@
 /*
  * Install Label Forwarding entry into the kernel.
  */
-int
-kernel_add_lsp (zebra_lsp_t *lsp)
+int kernel_add_lsp(zebra_lsp_t *lsp)
 {
-  int ret;
+	int ret;
 
-  if (!lsp || !lsp->best_nhlfe) // unexpected
-    return -1;
+	if (!lsp || !lsp->best_nhlfe) // unexpected
+		return -1;
 
-  UNSET_FLAG (lsp->flags, LSP_FLAG_CHANGED);
-  ret = netlink_mpls_multipath (RTM_NEWROUTE, lsp);
-  if (!ret)
-    SET_FLAG (lsp->flags, LSP_FLAG_INSTALLED);
-  else
-    clear_nhlfe_installed (lsp);
+	UNSET_FLAG(lsp->flags, LSP_FLAG_CHANGED);
+	ret = netlink_mpls_multipath(RTM_NEWROUTE, lsp);
+	if (!ret)
+		SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
+	else
+		clear_nhlfe_installed(lsp);
 
-  return ret;
+	return ret;
 }
 
 /*
@@ -55,58 +54,54 @@ kernel_add_lsp (zebra_lsp_t *lsp)
  * through the metric field (before kernel-MPLS). This shouldn't be an issue
  * any longer, so REPLACE can be reintroduced.
  */
-int
-kernel_upd_lsp (zebra_lsp_t *lsp)
+int kernel_upd_lsp(zebra_lsp_t *lsp)
 {
-  int ret;
+	int ret;
 
-  if (!lsp || !lsp->best_nhlfe) // unexpected
-    return -1;
+	if (!lsp || !lsp->best_nhlfe) // unexpected
+		return -1;
 
-  UNSET_FLAG (lsp->flags, LSP_FLAG_CHANGED);
+	UNSET_FLAG(lsp->flags, LSP_FLAG_CHANGED);
 
-  /* First issue a DEL and clear the installed flag. */
-  netlink_mpls_multipath (RTM_DELROUTE, lsp);
-  UNSET_FLAG (lsp->flags, LSP_FLAG_INSTALLED);
+	/* First issue a DEL and clear the installed flag. */
+	netlink_mpls_multipath(RTM_DELROUTE, lsp);
+	UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 
-  /* Then issue an ADD. */
-  ret = netlink_mpls_multipath (RTM_NEWROUTE, lsp);
-  if (!ret)
-    SET_FLAG (lsp->flags, LSP_FLAG_INSTALLED);
-  else
-    clear_nhlfe_installed (lsp);
+	/* Then issue an ADD. */
+	ret = netlink_mpls_multipath(RTM_NEWROUTE, lsp);
+	if (!ret)
+		SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
+	else
+		clear_nhlfe_installed(lsp);
 
-  return ret;
+	return ret;
 }
 
 /*
  * Delete Label Forwarding entry from the kernel.
  */
-int
-kernel_del_lsp (zebra_lsp_t *lsp)
+int kernel_del_lsp(zebra_lsp_t *lsp)
 {
-  if (!lsp) // unexpected
-    return -1;
+	if (!lsp) // unexpected
+		return -1;
 
-  if (CHECK_FLAG (lsp->flags, LSP_FLAG_INSTALLED))
-    {
-      netlink_mpls_multipath (RTM_DELROUTE, lsp);
-      UNSET_FLAG (lsp->flags, LSP_FLAG_INSTALLED);
-    }
+	if (CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED)) {
+		netlink_mpls_multipath(RTM_DELROUTE, lsp);
+		UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
+	}
 
-  return 0;
+	return 0;
 }
 
-int
-mpls_kernel_init (void)
+int mpls_kernel_init(void)
 {
-  struct stat st;
+	struct stat st;
 
-  /*
-   * Check if the MPLS module is loaded in the kernel.
-   */
-  if (stat ("/proc/sys/net/mpls", &st) != 0)
-    return -1;
+	/*
+	 * Check if the MPLS module is loaded in the kernel.
+	 */
+	if (stat("/proc/sys/net/mpls", &st) != 0)
+		return -1;
 
-  return 0;
+	return 0;
 };

@@ -32,23 +32,22 @@
  */
 #define json_object_to_json_string_ext(A, B) json_object_to_json_string (A)
 
-extern int json_object_object_get_ex(struct json_object *obj,
-					   const char *key,
-					   struct json_object **value);
+extern int json_object_object_get_ex(struct json_object *obj, const char *key,
+				     struct json_object **value);
 #endif
 
 #include "command.h"
 
 extern int use_json(const int argc, struct cmd_token *argv[]);
-extern void json_object_string_add(struct json_object* obj, const char *key,
-                                   const char *s);
-extern void json_object_int_add(struct json_object* obj, const char *key,
-                                 int64_t i);
-extern void json_object_boolean_false_add(struct json_object* obj,
-                                          const char *key);
-extern void json_object_boolean_true_add(struct json_object* obj,
-                                         const char *key);
-extern struct json_object* json_object_lock(struct json_object *obj);
+extern void json_object_string_add(struct json_object *obj, const char *key,
+				   const char *s);
+extern void json_object_int_add(struct json_object *obj, const char *key,
+				int64_t i);
+extern void json_object_boolean_false_add(struct json_object *obj,
+					  const char *key);
+extern void json_object_boolean_true_add(struct json_object *obj,
+					 const char *key);
+extern struct json_object *json_object_lock(struct json_object *obj);
 extern void json_object_free(struct json_object *obj);
 
 #define JSON_STR "JavaScript Object Notation\n"

@@ -42,15 +42,14 @@ typedef struct zebra_neigh_t_ zebra_neigh_t;
  *
  * Right now, this just has each remote VTEP's IP address.
  */
-struct zebra_vtep_t_
-{
-  /* Remote IP. */
-  /* NOTE: Can only be IPv4 right now. */
-  struct in_addr vtep_ip;
+struct zebra_vtep_t_ {
+	/* Remote IP. */
+	/* NOTE: Can only be IPv4 right now. */
+	struct in_addr vtep_ip;
 
-  /* Links. */
-  struct zebra_vtep_t_ *next;
-  struct zebra_vtep_t_ *prev;
+	/* Links. */
+	struct zebra_vtep_t_ *next;
+	struct zebra_vtep_t_ *prev;
 };
 
 
@@ -60,25 +59,24 @@ struct zebra_vtep_t_
  * Contains information pertaining to a VNI:
  * - the list of remote VTEPs (with this VNI)
  */
-struct zebra_vni_t_
-{
-  /* VNI - key */
-  vni_t vni;
+struct zebra_vni_t_ {
+	/* VNI - key */
+	vni_t vni;
 
-  /* Corresponding VxLAN interface. */
-  struct interface *vxlan_if;
+	/* Corresponding VxLAN interface. */
+	struct interface *vxlan_if;
 
-  /* List of remote VTEPs */
-  zebra_vtep_t *vteps;
+	/* List of remote VTEPs */
+	zebra_vtep_t *vteps;
 
-  /* Local IP */
-  struct in_addr local_vtep_ip;
+	/* Local IP */
+	struct in_addr local_vtep_ip;
 
-  /* List of local or remote MAC */
-  struct hash *mac_table;
+	/* List of local or remote MAC */
+	struct hash *mac_table;
 
-  /* List of local or remote neighbors (MAC+IP) */
-  struct hash *neigh_table;
+	/* List of local or remote neighbors (MAC+IP) */
+	struct hash *neigh_table;
 };
 
 /*
@@ -93,53 +91,49 @@ struct zebra_vni_t_
  * information. The correct VNI will be obtained as zebra maintains
  * the mapping (of VLAN to VNI).
  */
-struct zebra_mac_t_
-{
-  /* MAC address. */
-  struct ethaddr  macaddr;
+struct zebra_mac_t_ {
+	/* MAC address. */
+	struct ethaddr macaddr;
 
-  u_int32_t       flags;
+	u_int32_t flags;
 #define ZEBRA_MAC_LOCAL   0x01
 #define ZEBRA_MAC_REMOTE  0x02
 #define ZEBRA_MAC_AUTO    0x04  /* Auto created for neighbor. */
 #define ZEBRA_MAC_STICKY  0x08  /* Static MAC */
 
-  /* Local or remote info. */
-  union
-    {
-      struct
-        {
-          ifindex_t ifindex;
-          vlanid_t  vid;
-        } local;
+	/* Local or remote info. */
+	union {
+		struct {
+			ifindex_t ifindex;
+			vlanid_t vid;
+		} local;
 
-      struct in_addr r_vtep_ip;
-    } fwd_info;
+		struct in_addr r_vtep_ip;
+	} fwd_info;
 
-  u_int32_t       neigh_refcnt;
+	u_int32_t neigh_refcnt;
 };
 
 /*
  * Context for MAC hash walk - used by callbacks.
  */
-struct mac_walk_ctx
-{
-  zebra_vni_t *zvni;          /* VNI hash */
-  struct zebra_vrf *zvrf;     /* VRF - for client notification. */
-  int uninstall;              /* uninstall from kernel? */
-  int upd_client;             /* uninstall from client? */
+struct mac_walk_ctx {
+	zebra_vni_t *zvni;      /* VNI hash */
+	struct zebra_vrf *zvrf; /* VRF - for client notification. */
+	int uninstall;		/* uninstall from kernel? */
+	int upd_client;		/* uninstall from client? */
 
-  u_int32_t flags;
+	u_int32_t flags;
 #define DEL_LOCAL_MAC                0x1
 #define DEL_REMOTE_MAC               0x2
 #define DEL_ALL_MAC                  (DEL_LOCAL_MAC | DEL_REMOTE_MAC)
 #define DEL_REMOTE_MAC_FROM_VTEP     0x4
 #define SHOW_REMOTE_MAC_FROM_VTEP    0x8
 
-  struct in_addr r_vtep_ip;   /* To walk MACs from specific VTEP */
+	struct in_addr r_vtep_ip; /* To walk MACs from specific VTEP */
 
-  struct vty *vty;            /* Used by VTY handlers */
-  u_int32_t  count;           /* Used by VTY handlers */
+	struct vty *vty; /* Used by VTY handlers */
+	u_int32_t count; /* Used by VTY handlers */
 };
 
 /*
@@ -153,47 +147,45 @@ struct mac_walk_ctx
  * it is sufficient for zebra to maintain against the VNI. The correct
  * VNI will be obtained as zebra maintains the mapping (of VLAN to VNI).
  */
-struct zebra_neigh_t_
-{
-  /* IP address. */
-  struct ipaddr   ip;
+struct zebra_neigh_t_ {
+	/* IP address. */
+	struct ipaddr ip;
 
-  /* MAC address. */
-  struct ethaddr  emac;
+	/* MAC address. */
+	struct ethaddr emac;
 
-  /* Underlying interface. */
-  ifindex_t ifindex;
+	/* Underlying interface. */
+	ifindex_t ifindex;
 
-  u_int32_t       flags;
+	u_int32_t flags;
 #define ZEBRA_NEIGH_LOCAL   0x01
 #define ZEBRA_NEIGH_REMOTE  0x02
 
-  /* Remote VTEP IP - applicable only for remote neighbors. */
-  struct in_addr r_vtep_ip;
+	/* Remote VTEP IP - applicable only for remote neighbors. */
+	struct in_addr r_vtep_ip;
 };
 
 /*
  * Context for neighbor hash walk - used by callbacks.
  */
-struct neigh_walk_ctx
-{
-  zebra_vni_t *zvni;          /* VNI hash */
-  struct zebra_vrf *zvrf;     /* VRF - for client notification. */
-  int uninstall;              /* uninstall from kernel? */
-  int upd_client;             /* uninstall from client? */
+struct neigh_walk_ctx {
+	zebra_vni_t *zvni;      /* VNI hash */
+	struct zebra_vrf *zvrf; /* VRF - for client notification. */
+	int uninstall;		/* uninstall from kernel? */
+	int upd_client;		/* uninstall from client? */
 
-  u_int32_t flags;
+	u_int32_t flags;
 #define DEL_LOCAL_NEIGH              0x1
 #define DEL_REMOTE_NEIGH             0x2
 #define DEL_ALL_NEIGH                (DEL_LOCAL_NEIGH | DEL_REMOTE_NEIGH)
 #define DEL_REMOTE_NEIGH_FROM_VTEP   0x4
 #define SHOW_REMOTE_NEIGH_FROM_VTEP  0x8
 
-  struct in_addr r_vtep_ip;   /* To walk neighbors from specific VTEP */
+	struct in_addr r_vtep_ip; /* To walk neighbors from specific VTEP */
 
-  struct vty *vty;            /* Used by VTY handlers */
-  u_int32_t  count;           /* Used by VTY handlers */
-  u_char     addr_width;      /* Used by VTY handlers */
+	struct vty *vty;   /* Used by VTY handlers */
+	u_int32_t count;   /* Used by VTY handlers */
+	u_char addr_width; /* Used by VTY handlers */
 };
 
 #endif /* _ZEBRA_VXLAN_PRIVATE_H */

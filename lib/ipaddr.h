@@ -28,22 +28,19 @@
 /*
  * Generic IP address - union of IPv4 and IPv6 address.
  */
-enum ipaddr_type_t
-{
-  IPADDR_NONE = 0,
-  IPADDR_V4 = 1,            /* IPv4 */
-  IPADDR_V6 = 2,            /* IPv6 */
+enum ipaddr_type_t {
+	IPADDR_NONE = 0,
+	IPADDR_V4 = 1, /* IPv4 */
+	IPADDR_V6 = 2, /* IPv6 */
 };
 
-struct ipaddr
-{
-  enum ipaddr_type_t ipa_type;
-  union
-    {
-      u_char addr;
-      struct in_addr _v4_addr;
-      struct in6_addr _v6_addr;
-    } ip;
+struct ipaddr {
+	enum ipaddr_type_t ipa_type;
+	union {
+		u_char addr;
+		struct in_addr _v4_addr;
+		struct in6_addr _v6_addr;
+	} ip;
 #define ipaddr_v4 ip._v4_addr
 #define ipaddr_v6 ip._v6_addr
 };
@@ -55,40 +52,37 @@ struct ipaddr
 #define SET_IPADDR_V4(p)  (p)->ipa_type = IPADDR_V4
 #define SET_IPADDR_V6(p)  (p)->ipa_type = IPADDR_V6
 
-static inline int
-str2ipaddr (const char *str, struct ipaddr *ip)
+static inline int str2ipaddr(const char *str, struct ipaddr *ip)
 {
-  int ret;
+	int ret;
 
-  memset (ip, 0, sizeof (struct ipaddr));
+	memset(ip, 0, sizeof(struct ipaddr));
 
-  ret = inet_pton (AF_INET, str, &ip->ipaddr_v4);
-  if (ret > 0) /* Valid IPv4 address. */
-    {
-      ip->ipa_type = IPADDR_V4;
-      return 0;
-    }
-  ret = inet_pton (AF_INET6, str, &ip->ipaddr_v6);
-  if (ret > 0) /* Valid IPv6 address. */
-    {
-      ip->ipa_type = IPADDR_V6;
-      return 0;
-    }
+	ret = inet_pton(AF_INET, str, &ip->ipaddr_v4);
+	if (ret > 0) /* Valid IPv4 address. */
+	{
+		ip->ipa_type = IPADDR_V4;
+		return 0;
+	}
+	ret = inet_pton(AF_INET6, str, &ip->ipaddr_v6);
+	if (ret > 0) /* Valid IPv6 address. */
+	{
+		ip->ipa_type = IPADDR_V6;
+		return 0;
+	}
 
-  return -1;
+	return -1;
 }
 
-static inline char *
-ipaddr2str (struct ipaddr *ip, char *buf, int size)
+static inline char *ipaddr2str(struct ipaddr *ip, char *buf, int size)
 {
-  buf[0] = '\0';
-  if (ip)
-    {
-      if (IS_IPADDR_V4(ip))
-        inet_ntop (AF_INET, &ip->ip.addr, buf, size);
-      else if (IS_IPADDR_V6(ip))
-        inet_ntop (AF_INET6, &ip->ip.addr, buf, size);
-    }
-  return buf;
+	buf[0] = '\0';
+	if (ip) {
+		if (IS_IPADDR_V4(ip))
+			inet_ntop(AF_INET, &ip->ip.addr, buf, size);
+		else if (IS_IPADDR_V6(ip))
+			inet_ntop(AF_INET6, &ip->ip.addr, buf, size);
+	}
+	return buf;
 }
 #endif /* __IPADDR_H__ */

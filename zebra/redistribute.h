@@ -27,46 +27,51 @@
 #include "vty.h"
 #include "vrf.h"
 
-extern void zebra_redistribute_add (int, struct zserv *, int, struct zebra_vrf *zvrf);
-extern void zebra_redistribute_delete (int, struct zserv *, int, struct zebra_vrf *zvrf);
+extern void zebra_redistribute_add(int, struct zserv *, int,
+				   struct zebra_vrf *zvrf);
+extern void zebra_redistribute_delete(int, struct zserv *, int,
+				      struct zebra_vrf *zvrf);
 
-extern void zebra_redistribute_default_add (int, struct zserv *, int,
-					    struct zebra_vrf *zvrf);
-extern void zebra_redistribute_default_delete (int, struct zserv *, int,
-					       struct zebra_vrf *zvrf);
+extern void zebra_redistribute_default_add(int, struct zserv *, int,
+					   struct zebra_vrf *zvrf);
+extern void zebra_redistribute_default_delete(int, struct zserv *, int,
+					      struct zebra_vrf *zvrf);
 
-extern void redistribute_update (struct prefix *, struct prefix *,
-                                 struct route_entry *, struct route_entry *);
-extern void redistribute_delete (struct prefix *, struct prefix *, struct route_entry *);
+extern void redistribute_update(struct prefix *, struct prefix *,
+				struct route_entry *, struct route_entry *);
+extern void redistribute_delete(struct prefix *, struct prefix *,
+				struct route_entry *);
 
-extern void zebra_interface_up_update (struct interface *);
-extern void zebra_interface_down_update (struct interface *);
+extern void zebra_interface_up_update(struct interface *);
+extern void zebra_interface_down_update(struct interface *);
 
-extern void zebra_interface_add_update (struct interface *);
-extern void zebra_interface_delete_update (struct interface *);
+extern void zebra_interface_add_update(struct interface *);
+extern void zebra_interface_delete_update(struct interface *);
 
-extern void zebra_interface_address_add_update (struct interface *,
-					 	struct connected *);
-extern void zebra_interface_address_delete_update (struct interface *,
-						   struct connected *c);
-extern void zebra_interface_parameters_update (struct interface *);
-extern void zebra_interface_vrf_update_del (struct interface *, vrf_id_t new_vrf_id);
-extern void zebra_interface_vrf_update_add (struct interface *, vrf_id_t old_vrf_id);
+extern void zebra_interface_address_add_update(struct interface *,
+					       struct connected *);
+extern void zebra_interface_address_delete_update(struct interface *,
+						  struct connected *c);
+extern void zebra_interface_parameters_update(struct interface *);
+extern void zebra_interface_vrf_update_del(struct interface *,
+					   vrf_id_t new_vrf_id);
+extern void zebra_interface_vrf_update_add(struct interface *,
+					   vrf_id_t old_vrf_id);
 
-extern int zebra_import_table (afi_t afi, u_int32_t table_id,
-			       u_int32_t distance, const char *rmap_name, int add);
+extern int zebra_import_table(afi_t afi, u_int32_t table_id, u_int32_t distance,
+			      const char *rmap_name, int add);
 
-extern int zebra_add_import_table_entry (struct route_node *rn,
-					 struct route_entry *re, const char *rmap_name);
-extern int zebra_del_import_table_entry (struct route_node *rn,
-					 struct route_entry *re);
+extern int zebra_add_import_table_entry(struct route_node *rn,
+					struct route_entry *re,
+					const char *rmap_name);
+extern int zebra_del_import_table_entry(struct route_node *rn,
+					struct route_entry *re);
 extern int is_zebra_import_table_enabled(afi_t, u_int32_t table_id);
 
 extern int zebra_import_table_config(struct vty *);
 
 extern void zebra_import_table_rm_update(void);
 
-extern int is_default (struct prefix *);
+extern int is_default(struct prefix *);
 
 #endif /* _ZEBRA_REDISTRIBUTE_H */
-

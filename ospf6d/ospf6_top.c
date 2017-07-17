@@ -54,240 +54,218 @@ DEFINE_QOBJ_TYPE(ospf6)
 /* global ospf6d variable */
 struct ospf6 *ospf6;
 
-static void ospf6_disable (struct ospf6 *o);
+static void ospf6_disable(struct ospf6 *o);
 
-static void
-ospf6_top_lsdb_hook_add (struct ospf6_lsa *lsa)
+static void ospf6_top_lsdb_hook_add(struct ospf6_lsa *lsa)
 {
-  switch (ntohs (lsa->header->type))
-    {
-      case OSPF6_LSTYPE_AS_EXTERNAL:
-        ospf6_asbr_lsa_add (lsa);
-        break;
+	switch (ntohs(lsa->header->type)) {
+	case OSPF6_LSTYPE_AS_EXTERNAL:
+		ospf6_asbr_lsa_add(lsa);
+		break;
 
-      default:
-        break;
-    }
+	default:
+		break;
+	}
 }
 
-static void
-ospf6_top_lsdb_hook_remove (struct ospf6_lsa *lsa)
+static void ospf6_top_lsdb_hook_remove(struct ospf6_lsa *lsa)
 {
-  switch (ntohs (lsa->header->type))
-    {
-      case OSPF6_LSTYPE_AS_EXTERNAL:
-        ospf6_asbr_lsa_remove (lsa);
-        break;
+	switch (ntohs(lsa->header->type)) {
+	case OSPF6_LSTYPE_AS_EXTERNAL:
+		ospf6_asbr_lsa_remove(lsa);
+		break;
 
-      default:
-        break;
-    }
+	default:
+		break;
+	}
 }
 
-static void
-ospf6_top_route_hook_add (struct ospf6_route *route)
+static void ospf6_top_route_hook_add(struct ospf6_route *route)
 {
-  ospf6_abr_originate_summary (route);
-  ospf6_zebra_route_update_add (route);
+	ospf6_abr_originate_summary(route);
+	ospf6_zebra_route_update_add(route);
 }
 
-static void
-ospf6_top_route_hook_remove (struct ospf6_route *route)
+static void ospf6_top_route_hook_remove(struct ospf6_route *route)
 {
-  route->flag |= OSPF6_ROUTE_REMOVE;
-  ospf6_abr_originate_summary (route);
-  ospf6_zebra_route_update_remove (route);
+	route->flag |= OSPF6_ROUTE_REMOVE;
+	ospf6_abr_originate_summary(route);
+	ospf6_zebra_route_update_remove(route);
 }
 
-static void
-ospf6_top_brouter_hook_add (struct ospf6_route *route)
+static void ospf6_top_brouter_hook_add(struct ospf6_route *route)
 {
-  ospf6_abr_examin_brouter (ADV_ROUTER_IN_PREFIX (&route->prefix));
-  ospf6_asbr_lsentry_add (route);
-  ospf6_abr_originate_summary (route);
+	ospf6_abr_examin_brouter(ADV_ROUTER_IN_PREFIX(&route->prefix));
+	ospf6_asbr_lsentry_add(route);
+	ospf6_abr_originate_summary(route);
 }
 
-static void
-ospf6_top_brouter_hook_remove (struct ospf6_route *route)
+static void ospf6_top_brouter_hook_remove(struct ospf6_route *route)
 {
-  route->flag |= OSPF6_ROUTE_REMOVE;
-  ospf6_abr_examin_brouter (ADV_ROUTER_IN_PREFIX (&route->prefix));
-  ospf6_asbr_lsentry_remove (route);
-  ospf6_abr_originate_summary (route);
+	route->flag |= OSPF6_ROUTE_REMOVE;
+	ospf6_abr_examin_brouter(ADV_ROUTER_IN_PREFIX(&route->prefix));
+	ospf6_asbr_lsentry_remove(route);
+	ospf6_abr_originate_summary(route);
 }
 
-static struct ospf6 *
-ospf6_create (void)
+static struct ospf6 *ospf6_create(void)
 {
-  struct ospf6 *o;
+	struct ospf6 *o;
 
-  o = XCALLOC (MTYPE_OSPF6_TOP, sizeof (struct ospf6));
+	o = XCALLOC(MTYPE_OSPF6_TOP, sizeof(struct ospf6));
 
-  /* initialize */
-  monotime(&o->starttime);
-  o->area_list = list_new ();
-  o->area_list->cmp = ospf6_area_cmp;
-  o->lsdb = ospf6_lsdb_create (o);
-  o->lsdb_self = ospf6_lsdb_create (o);
-  o->lsdb->hook_add = ospf6_top_lsdb_hook_add;
-  o->lsdb->hook_remove = ospf6_top_lsdb_hook_remove;
+	/* initialize */
+	monotime(&o->starttime);
+	o->area_list = list_new();
+	o->area_list->cmp = ospf6_area_cmp;
+	o->lsdb = ospf6_lsdb_create(o);
+	o->lsdb_self = ospf6_lsdb_create(o);
+	o->lsdb->hook_add = ospf6_top_lsdb_hook_add;
+	o->lsdb->hook_remove = ospf6_top_lsdb_hook_remove;
 
-  o->spf_delay = OSPF_SPF_DELAY_DEFAULT;
-  o->spf_holdtime = OSPF_SPF_HOLDTIME_DEFAULT;
-  o->spf_max_holdtime = OSPF_SPF_MAX_HOLDTIME_DEFAULT;
-  o->spf_hold_multiplier = 1;
+	o->spf_delay = OSPF_SPF_DELAY_DEFAULT;
+	o->spf_holdtime = OSPF_SPF_HOLDTIME_DEFAULT;
+	o->spf_max_holdtime = OSPF_SPF_MAX_HOLDTIME_DEFAULT;
+	o->spf_hold_multiplier = 1;
 
-  /* LSA timers value init */
-  o->lsa_minarrival = OSPF_MIN_LS_ARRIVAL;
+	/* LSA timers value init */
+	o->lsa_minarrival = OSPF_MIN_LS_ARRIVAL;
 
-  o->route_table = OSPF6_ROUTE_TABLE_CREATE (GLOBAL, ROUTES);
-  o->route_table->scope = o;
-  o->route_table->hook_add = ospf6_top_route_hook_add;
-  o->route_table->hook_remove = ospf6_top_route_hook_remove;
+	o->route_table = OSPF6_ROUTE_TABLE_CREATE(GLOBAL, ROUTES);
+	o->route_table->scope = o;
+	o->route_table->hook_add = ospf6_top_route_hook_add;
+	o->route_table->hook_remove = ospf6_top_route_hook_remove;
 
-  o->brouter_table = OSPF6_ROUTE_TABLE_CREATE (GLOBAL, BORDER_ROUTERS);
-  o->brouter_table->scope = o;
-  o->brouter_table->hook_add = ospf6_top_brouter_hook_add;
-  o->brouter_table->hook_remove = ospf6_top_brouter_hook_remove;
+	o->brouter_table = OSPF6_ROUTE_TABLE_CREATE(GLOBAL, BORDER_ROUTERS);
+	o->brouter_table->scope = o;
+	o->brouter_table->hook_add = ospf6_top_brouter_hook_add;
+	o->brouter_table->hook_remove = ospf6_top_brouter_hook_remove;
 
-  o->external_table = OSPF6_ROUTE_TABLE_CREATE (GLOBAL, EXTERNAL_ROUTES);
-  o->external_table->scope = o;
+	o->external_table = OSPF6_ROUTE_TABLE_CREATE(GLOBAL, EXTERNAL_ROUTES);
+	o->external_table->scope = o;
 
-  o->external_id_table = route_table_init ();
+	o->external_id_table = route_table_init();
 
-  o->ref_bandwidth = OSPF6_REFERENCE_BANDWIDTH;
+	o->ref_bandwidth = OSPF6_REFERENCE_BANDWIDTH;
 
-  o->distance_table = route_table_init ();
+	o->distance_table = route_table_init();
 
-  /* Enable "log-adjacency-changes" */
+/* Enable "log-adjacency-changes" */
 #if DFLT_OSPF6_LOG_ADJACENCY_CHANGES
-  SET_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
+	SET_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
 #endif
 
-  QOBJ_REG (o, ospf6);
+	QOBJ_REG(o, ospf6);
 
-  return o;
+	return o;
 }
 
-void
-ospf6_delete (struct ospf6 *o)
+void ospf6_delete(struct ospf6 *o)
 {
-  struct listnode *node, *nnode;
-  struct ospf6_area *oa;
+	struct listnode *node, *nnode;
+	struct ospf6_area *oa;
 
-  QOBJ_UNREG (o);
-  ospf6_disable (ospf6);
+	QOBJ_UNREG(o);
+	ospf6_disable(ospf6);
 
-  for (ALL_LIST_ELEMENTS (o->area_list, node, nnode, oa))
-    ospf6_area_delete (oa);
+	for (ALL_LIST_ELEMENTS(o->area_list, node, nnode, oa))
+		ospf6_area_delete(oa);
 
 
-  list_delete (o->area_list);
+	list_delete(o->area_list);
 
-  ospf6_lsdb_delete (o->lsdb);
-  ospf6_lsdb_delete (o->lsdb_self);
+	ospf6_lsdb_delete(o->lsdb);
+	ospf6_lsdb_delete(o->lsdb_self);
 
-  ospf6_route_table_delete (o->route_table);
-  ospf6_route_table_delete (o->brouter_table);
+	ospf6_route_table_delete(o->route_table);
+	ospf6_route_table_delete(o->brouter_table);
 
-  ospf6_route_table_delete (o->external_table);
-  route_table_finish (o->external_id_table);
+	ospf6_route_table_delete(o->external_table);
+	route_table_finish(o->external_id_table);
 
-  ospf6_distance_reset (o);
-  route_table_finish (o->distance_table);
+	ospf6_distance_reset(o);
+	route_table_finish(o->distance_table);
 
-  XFREE (MTYPE_OSPF6_TOP, o);
+	XFREE(MTYPE_OSPF6_TOP, o);
 }
 
-static void
-ospf6_disable (struct ospf6 *o)
+static void ospf6_disable(struct ospf6 *o)
 {
-  struct listnode *node, *nnode;
-  struct ospf6_area *oa;
+	struct listnode *node, *nnode;
+	struct ospf6_area *oa;
 
-  if (! CHECK_FLAG (o->flag, OSPF6_DISABLED))
-    {
-      SET_FLAG (o->flag, OSPF6_DISABLED);
-      
-      for (ALL_LIST_ELEMENTS (o->area_list, node, nnode, oa))
-        ospf6_area_disable (oa);
+	if (!CHECK_FLAG(o->flag, OSPF6_DISABLED)) {
+		SET_FLAG(o->flag, OSPF6_DISABLED);
 
-      /* XXX: This also changes persistent settings */
-      ospf6_asbr_redistribute_reset();
+		for (ALL_LIST_ELEMENTS(o->area_list, node, nnode, oa))
+			ospf6_area_disable(oa);
 
-      ospf6_lsdb_remove_all (o->lsdb);
-      ospf6_route_remove_all (o->route_table);
-      ospf6_route_remove_all (o->brouter_table);
+		/* XXX: This also changes persistent settings */
+		ospf6_asbr_redistribute_reset();
 
-      THREAD_OFF(o->maxage_remover);
-      THREAD_OFF(o->t_spf_calc);
-      THREAD_OFF(o->t_ase_calc);
-    }
-}
+		ospf6_lsdb_remove_all(o->lsdb);
+		ospf6_route_remove_all(o->route_table);
+		ospf6_route_remove_all(o->brouter_table);
 
-static int
-ospf6_maxage_remover (struct thread *thread)
-{
-  struct ospf6 *o = (struct ospf6 *) THREAD_ARG (thread);
-  struct ospf6_area *oa;
-  struct ospf6_interface *oi;
-  struct ospf6_neighbor *on;
-  struct listnode *i, *j, *k;
-  int reschedule = 0;
-
-  o->maxage_remover = (struct thread *) NULL;
-
-  for (ALL_LIST_ELEMENTS_RO (o->area_list, i, oa))
-    {
-      for (ALL_LIST_ELEMENTS_RO (oa->if_list, j, oi))
-        {
-          for (ALL_LIST_ELEMENTS_RO (oi->neighbor_list, k, on))
-            {
-              if (on->state != OSPF6_NEIGHBOR_EXCHANGE &&
-                  on->state != OSPF6_NEIGHBOR_LOADING)
-		  continue;
-
-	      ospf6_maxage_remove (o);
-              return 0;
-            }
-        }
-    }
-
-  for (ALL_LIST_ELEMENTS_RO (o->area_list, i, oa))
-    {
-      for (ALL_LIST_ELEMENTS_RO (oa->if_list, j, oi))
-	{
-	  if (ospf6_lsdb_maxage_remover (oi->lsdb))
-	    {
-	      reschedule = 1;
-	    }
+		THREAD_OFF(o->maxage_remover);
+		THREAD_OFF(o->t_spf_calc);
+		THREAD_OFF(o->t_ase_calc);
 	}
-      
-      if (ospf6_lsdb_maxage_remover (oa->lsdb))
-	{
-	    reschedule = 1;
-	}
-    }
-
-  if (ospf6_lsdb_maxage_remover (o->lsdb))
-    {
-      reschedule = 1;
-    }
-
-  if (reschedule)
-    {
-      ospf6_maxage_remove (o);
-    }
-
-  return 0;
 }
 
-void
-ospf6_maxage_remove (struct ospf6 *o)
+static int ospf6_maxage_remover(struct thread *thread)
 {
-  if (o)
-    thread_add_timer(master, ospf6_maxage_remover, o, OSPF_LSA_MAXAGE_REMOVE_DELAY_DEFAULT,
-                     &o->maxage_remover);
+	struct ospf6 *o = (struct ospf6 *)THREAD_ARG(thread);
+	struct ospf6_area *oa;
+	struct ospf6_interface *oi;
+	struct ospf6_neighbor *on;
+	struct listnode *i, *j, *k;
+	int reschedule = 0;
+
+	o->maxage_remover = (struct thread *)NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(o->area_list, i, oa)) {
+		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
+			for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, k, on)) {
+				if (on->state != OSPF6_NEIGHBOR_EXCHANGE
+				    && on->state != OSPF6_NEIGHBOR_LOADING)
+					continue;
+
+				ospf6_maxage_remove(o);
+				return 0;
+			}
+		}
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(o->area_list, i, oa)) {
+		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
+			if (ospf6_lsdb_maxage_remover(oi->lsdb)) {
+				reschedule = 1;
+			}
+		}
+
+		if (ospf6_lsdb_maxage_remover(oa->lsdb)) {
+			reschedule = 1;
+		}
+	}
+
+	if (ospf6_lsdb_maxage_remover(o->lsdb)) {
+		reschedule = 1;
+	}
+
+	if (reschedule) {
+		ospf6_maxage_remove(o);
+	}
+
+	return 0;
+}
+
+void ospf6_maxage_remove(struct ospf6 *o)
+{
+	if (o)
+		thread_add_timer(master, ospf6_maxage_remover, o,
+				 OSPF_LSA_MAXAGE_REMOVE_DELAY_DEFAULT,
+				 &o->maxage_remover);
 }
 
 /* start ospf6 */
@@ -297,13 +275,13 @@ DEFUN_NOSH (router_ospf6,
        ROUTER_STR
        OSPF6_STR)
 {
-  if (ospf6 == NULL)
-    ospf6 = ospf6_create ();
+	if (ospf6 == NULL)
+		ospf6 = ospf6_create();
 
-  /* set current ospf point. */
-  VTY_PUSH_CONTEXT(OSPF6_NODE, ospf6);
+	/* set current ospf point. */
+	VTY_PUSH_CONTEXT(OSPF6_NODE, ospf6);
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 /* stop ospf6 */
@@ -314,18 +292,17 @@ DEFUN (no_router_ospf6,
        ROUTER_STR
        OSPF6_STR)
 {
-  if (ospf6 == NULL)
-    vty_out (vty, "OSPFv3 is not configured\n");
-  else
-    {
-      ospf6_delete (ospf6);
-      ospf6 = NULL;
-    }
+	if (ospf6 == NULL)
+		vty_out(vty, "OSPFv3 is not configured\n");
+	else {
+		ospf6_delete(ospf6);
+		ospf6 = NULL;
+	}
 
-  /* return to config node . */
-  VTY_PUSH_CONTEXT_NULL(CONFIG_NODE);
+	/* return to config node . */
+	VTY_PUSH_CONTEXT_NULL(CONFIG_NODE);
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 /* change Router_ID commands. */
@@ -335,23 +312,23 @@ DEFUN (ospf6_router_id,
        "Configure OSPF Router-ID\n"
        V4NOTATION_STR)
 {
-  VTY_DECLVAR_CONTEXT(ospf6, o);
-  int idx_ipv4 = 1;
-  int ret;
-  u_int32_t router_id;
+	VTY_DECLVAR_CONTEXT(ospf6, o);
+	int idx_ipv4 = 1;
+	int ret;
+	u_int32_t router_id;
 
-  ret = inet_pton (AF_INET, argv[idx_ipv4]->arg, &router_id);
-  if (ret == 0)
-    {
-      vty_out (vty, "malformed OSPF Router-ID: %s\n", argv[idx_ipv4]->arg);
-      return CMD_SUCCESS;
-    }
+	ret = inet_pton(AF_INET, argv[idx_ipv4]->arg, &router_id);
+	if (ret == 0) {
+		vty_out(vty, "malformed OSPF Router-ID: %s\n",
+			argv[idx_ipv4]->arg);
+		return CMD_SUCCESS;
+	}
 
-  o->router_id_static = router_id;
-  if (o->router_id  == 0)
-    o->router_id  = router_id;
+	o->router_id_static = router_id;
+	if (o->router_id == 0)
+		o->router_id = router_id;
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN (ospf6_log_adjacency_changes,
@@ -359,11 +336,11 @@ DEFUN (ospf6_log_adjacency_changes,
        "log-adjacency-changes",
        "Log changes in adjacency state\n")
 {
-  VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
-  SET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
-  UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL);
-  return CMD_SUCCESS;
+	SET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
+	UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL);
+	return CMD_SUCCESS;
 }
 
 DEFUN (ospf6_log_adjacency_changes_detail,
@@ -372,11 +349,11 @@ DEFUN (ospf6_log_adjacency_changes_detail,
        "Log changes in adjacency state\n"
        "Log all state changes\n")
 {
-  VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
-  SET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
-  SET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL);
-  return CMD_SUCCESS;
+	SET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
+	SET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL);
+	return CMD_SUCCESS;
 }
 
 DEFUN (no_ospf6_log_adjacency_changes,
@@ -385,11 +362,11 @@ DEFUN (no_ospf6_log_adjacency_changes,
        NO_STR
        "Log changes in adjacency state\n")
 {
-  VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
-  UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL);
-  UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
-  return CMD_SUCCESS;
+	UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL);
+	UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
+	return CMD_SUCCESS;
 }
 
 DEFUN (no_ospf6_log_adjacency_changes_detail,
@@ -399,10 +376,10 @@ DEFUN (no_ospf6_log_adjacency_changes_detail,
        "Log changes in adjacency state\n"
        "Log all state changes\n")
 {
-  VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
-  UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL);
-  return CMD_SUCCESS;
+	UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL);
+	return CMD_SUCCESS;
 }
 
 DEFUN (ospf6_timers_lsa,
@@ -413,14 +390,14 @@ DEFUN (ospf6_timers_lsa,
        "Minimum delay in receiving new version of a LSA\n"
        "Delay in milliseconds\n")
 {
-  VTY_DECLVAR_CONTEXT(ospf6, ospf);
-  int idx_number = 3;
-  unsigned int minarrival;
+	VTY_DECLVAR_CONTEXT(ospf6, ospf);
+	int idx_number = 3;
+	unsigned int minarrival;
 
-  minarrival = strtoul(argv[idx_number]->arg, NULL, 10);
-  ospf->lsa_minarrival = minarrival;
+	minarrival = strtoul(argv[idx_number]->arg, NULL, 10);
+	ospf->lsa_minarrival = minarrival;
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN (no_ospf6_timers_lsa,
@@ -432,22 +409,21 @@ DEFUN (no_ospf6_timers_lsa,
        "Minimum delay in receiving new version of a LSA\n"
        "Delay in milliseconds\n")
 {
-  VTY_DECLVAR_CONTEXT(ospf6, ospf);
-  int idx_number = 4;
-  unsigned int minarrival;
+	VTY_DECLVAR_CONTEXT(ospf6, ospf);
+	int idx_number = 4;
+	unsigned int minarrival;
 
-  if (argc == 5)
-    {
-      minarrival = strtoul(argv[idx_number]->arg, NULL, 10);
+	if (argc == 5) {
+		minarrival = strtoul(argv[idx_number]->arg, NULL, 10);
 
-      if (ospf->lsa_minarrival != minarrival ||
-	  minarrival == OSPF_MIN_LS_ARRIVAL)
+		if (ospf->lsa_minarrival != minarrival
+		    || minarrival == OSPF_MIN_LS_ARRIVAL)
+			return CMD_SUCCESS;
+	}
+
+	ospf->lsa_minarrival = OSPF_MIN_LS_ARRIVAL;
+
 	return CMD_SUCCESS;
-    }
-
-  ospf->lsa_minarrival = OSPF_MIN_LS_ARRIVAL;
-
-  return CMD_SUCCESS;
 }
 
 
@@ -457,11 +433,11 @@ DEFUN (ospf6_distance,
        "Administrative distance\n"
        "OSPF6 Administrative distance\n")
 {
-  VTY_DECLVAR_CONTEXT(ospf6, o);
+	VTY_DECLVAR_CONTEXT(ospf6, o);
 
-  o->distance_all = atoi (argv[1]->arg);
+	o->distance_all = atoi(argv[1]->arg);
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN (no_ospf6_distance,
@@ -471,11 +447,11 @@ DEFUN (no_ospf6_distance,
        "Administrative distance\n"
        "OSPF6 Administrative distance\n")
 {
-  VTY_DECLVAR_CONTEXT(ospf6, o);
+	VTY_DECLVAR_CONTEXT(ospf6, o);
 
-  o->distance_all = 0;
+	o->distance_all = 0;
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN (ospf6_distance_ospf6,
@@ -490,19 +466,19 @@ DEFUN (ospf6_distance_ospf6,
        "External routes\n"
        "Distance for external routes\n")
 {
-  VTY_DECLVAR_CONTEXT(ospf6, o);
-  int idx = 0;
+	VTY_DECLVAR_CONTEXT(ospf6, o);
+	int idx = 0;
 
-  if (argv_find (argv, argc, "intra-area", &idx))
-    o->distance_intra = atoi(argv[idx + 1]->arg);
-  idx = 0;
-  if (argv_find (argv, argc, "inter-area", &idx))
-    o->distance_inter = atoi(argv[idx + 1]->arg);
-  idx = 0;
-  if (argv_find (argv, argc, "external", &idx))
-    o->distance_external = atoi(argv[idx + 1]->arg);
+	if (argv_find(argv, argc, "intra-area", &idx))
+		o->distance_intra = atoi(argv[idx + 1]->arg);
+	idx = 0;
+	if (argv_find(argv, argc, "inter-area", &idx))
+		o->distance_inter = atoi(argv[idx + 1]->arg);
+	idx = 0;
+	if (argv_find(argv, argc, "external", &idx))
+		o->distance_external = atoi(argv[idx + 1]->arg);
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN (no_ospf6_distance_ospf6,
@@ -518,17 +494,17 @@ DEFUN (no_ospf6_distance_ospf6,
        "External routes\n"
        "Distance for external routes\n")
 {
-  VTY_DECLVAR_CONTEXT(ospf6, o);
-  int idx = 0;
+	VTY_DECLVAR_CONTEXT(ospf6, o);
+	int idx = 0;
 
-  if (argv_find (argv, argc, "intra-area", &idx) || argc == 3)
-    idx = o->distance_intra = 0;
-  if (argv_find (argv, argc, "inter-area", &idx) || argc == 3)
-    idx = o->distance_inter = 0;
-  if (argv_find (argv, argc, "external", &idx) || argc == 3)
-    o->distance_external = 0;
+	if (argv_find(argv, argc, "intra-area", &idx) || argc == 3)
+		idx = o->distance_intra = 0;
+	if (argv_find(argv, argc, "inter-area", &idx) || argc == 3)
+		idx = o->distance_inter = 0;
+	if (argv_find(argv, argc, "external", &idx) || argc == 3)
+		o->distance_external = 0;
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 #if 0
@@ -573,56 +549,54 @@ DEFUN (ospf6_interface_area,
        "OSPF6 area ID in IPv4 address notation\n"
       )
 {
-  VTY_DECLVAR_CONTEXT(ospf6, o);
-  int idx_ifname = 1;
-  int idx_ipv4 = 3;
-  struct ospf6_area *oa;
-  struct ospf6_interface *oi;
-  struct interface *ifp;
-  u_int32_t area_id;
+	VTY_DECLVAR_CONTEXT(ospf6, o);
+	int idx_ifname = 1;
+	int idx_ipv4 = 3;
+	struct ospf6_area *oa;
+	struct ospf6_interface *oi;
+	struct interface *ifp;
+	u_int32_t area_id;
 
-  /* find/create ospf6 interface */
-  ifp = if_get_by_name (argv[idx_ifname]->arg, VRF_DEFAULT);
-  oi = (struct ospf6_interface *) ifp->info;
-  if (oi == NULL)
-    oi = ospf6_interface_create (ifp);
-  if (oi->area)
-    {
-      vty_out (vty, "%s already attached to Area %s\n",
-               oi->interface->name, oi->area->name);
-      return CMD_SUCCESS;
-    }
+	/* find/create ospf6 interface */
+	ifp = if_get_by_name(argv[idx_ifname]->arg, VRF_DEFAULT);
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+	if (oi->area) {
+		vty_out(vty, "%s already attached to Area %s\n",
+			oi->interface->name, oi->area->name);
+		return CMD_SUCCESS;
+	}
 
-  /* parse Area-ID */
-  if (inet_pton (AF_INET, argv[idx_ipv4]->arg, &area_id) != 1)
-    {
-      vty_out (vty, "Invalid Area-ID: %s\n", argv[idx_ipv4]->arg);
-      return CMD_SUCCESS;
-    }
+	/* parse Area-ID */
+	if (inet_pton(AF_INET, argv[idx_ipv4]->arg, &area_id) != 1) {
+		vty_out(vty, "Invalid Area-ID: %s\n", argv[idx_ipv4]->arg);
+		return CMD_SUCCESS;
+	}
 
-  /* find/create ospf6 area */
-  oa = ospf6_area_lookup (area_id, o);
-  if (oa == NULL)
-    oa = ospf6_area_create (area_id, o, OSPF6_AREA_FMT_DOTTEDQUAD);
+	/* find/create ospf6 area */
+	oa = ospf6_area_lookup(area_id, o);
+	if (oa == NULL)
+		oa = ospf6_area_create(area_id, o, OSPF6_AREA_FMT_DOTTEDQUAD);
 
-  /* attach interface to area */
-  listnode_add (oa->if_list, oi); /* sort ?? */
-  oi->area = oa;
+	/* attach interface to area */
+	listnode_add(oa->if_list, oi); /* sort ?? */
+	oi->area = oa;
 
-  SET_FLAG (oa->flag, OSPF6_AREA_ENABLE);
+	SET_FLAG(oa->flag, OSPF6_AREA_ENABLE);
 
-  /* ospf6 process is currently disabled, not much more to do */
-  if (CHECK_FLAG (o->flag, OSPF6_DISABLED))
-    return CMD_SUCCESS;
+	/* ospf6 process is currently disabled, not much more to do */
+	if (CHECK_FLAG(o->flag, OSPF6_DISABLED))
+		return CMD_SUCCESS;
 
-  /* start up */
-  ospf6_interface_enable (oi);
+	/* start up */
+	ospf6_interface_enable(oi);
 
-  /* If the router is ABR, originate summary routes */
-  if (ospf6_is_router_abr (o))
-    ospf6_abr_enable_area (oa);
+	/* If the router is ABR, originate summary routes */
+	if (ospf6_is_router_abr(o))
+		ospf6_abr_enable_area(oa);
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN (no_ospf6_interface_area,
@@ -635,62 +609,56 @@ DEFUN (no_ospf6_interface_area,
        "OSPF6 area ID in IPv4 address notation\n"
        )
 {
-  int idx_ifname = 2;
-  int idx_ipv4 = 4;
-  struct ospf6_interface *oi;
-  struct ospf6_area *oa;
-  struct interface *ifp;
-  u_int32_t area_id;
+	int idx_ifname = 2;
+	int idx_ipv4 = 4;
+	struct ospf6_interface *oi;
+	struct ospf6_area *oa;
+	struct interface *ifp;
+	u_int32_t area_id;
 
-  ifp = if_lookup_by_name (argv[idx_ifname]->arg, VRF_DEFAULT);
-  if (ifp == NULL)
-    {
-      vty_out (vty, "No such interface %s\n", argv[idx_ifname]->arg);
-      return CMD_SUCCESS;
-    }
+	ifp = if_lookup_by_name(argv[idx_ifname]->arg, VRF_DEFAULT);
+	if (ifp == NULL) {
+		vty_out(vty, "No such interface %s\n", argv[idx_ifname]->arg);
+		return CMD_SUCCESS;
+	}
 
-  oi = (struct ospf6_interface *) ifp->info;
-  if (oi == NULL)
-    {
-      vty_out (vty, "Interface %s not enabled\n", ifp->name);
-      return CMD_SUCCESS;
-    }
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL) {
+		vty_out(vty, "Interface %s not enabled\n", ifp->name);
+		return CMD_SUCCESS;
+	}
 
-  /* parse Area-ID */
-  if (inet_pton (AF_INET, argv[idx_ipv4]->arg, &area_id) != 1)
-    {
-      vty_out (vty, "Invalid Area-ID: %s\n", argv[idx_ipv4]->arg);
-      return CMD_SUCCESS;
-    }
+	/* parse Area-ID */
+	if (inet_pton(AF_INET, argv[idx_ipv4]->arg, &area_id) != 1) {
+		vty_out(vty, "Invalid Area-ID: %s\n", argv[idx_ipv4]->arg);
+		return CMD_SUCCESS;
+	}
 
-  /* Verify Area */
-  if (oi->area == NULL)
-    {
-      vty_out (vty, "No such Area-ID: %s\n", argv[idx_ipv4]->arg);
-      return CMD_SUCCESS;
-    }
+	/* Verify Area */
+	if (oi->area == NULL) {
+		vty_out(vty, "No such Area-ID: %s\n", argv[idx_ipv4]->arg);
+		return CMD_SUCCESS;
+	}
 
-  if (oi->area->area_id != area_id)
-    {
-      vty_out (vty, "Wrong Area-ID: %s is attached to area %s\n",
-               oi->interface->name, oi->area->name);
-      return CMD_SUCCESS;
-    }
+	if (oi->area->area_id != area_id) {
+		vty_out(vty, "Wrong Area-ID: %s is attached to area %s\n",
+			oi->interface->name, oi->area->name);
+		return CMD_SUCCESS;
+	}
 
-  thread_execute (master, interface_down, oi, 0);
+	thread_execute(master, interface_down, oi, 0);
 
-  oa = oi->area;
-  listnode_delete (oi->area->if_list, oi);
-  oi->area = (struct ospf6_area *) NULL;
+	oa = oi->area;
+	listnode_delete(oi->area->if_list, oi);
+	oi->area = (struct ospf6_area *)NULL;
 
-  /* Withdraw inter-area routes from this area, if necessary */
-  if (oa->if_list->count == 0)
-    {
-      UNSET_FLAG (oa->flag, OSPF6_AREA_ENABLE);
-      ospf6_abr_disable_area (oa);
-    }
+	/* Withdraw inter-area routes from this area, if necessary */
+	if (oa->if_list->count == 0) {
+		UNSET_FLAG(oa->flag, OSPF6_AREA_ENABLE);
+		ospf6_abr_disable_area(oa);
+	}
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN (ospf6_stub_router_admin,
@@ -699,21 +667,19 @@ DEFUN (ospf6_stub_router_admin,
        "Make router a stub router\n"
        "Administratively applied, for an indefinite period\n")
 {
-  struct listnode *node;
-  struct ospf6_area *oa;
+	struct listnode *node;
+	struct ospf6_area *oa;
 
-  if (!CHECK_FLAG (ospf6->flag, OSPF6_STUB_ROUTER))
-    {
-      for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, node, oa))
-	{
-	   OSPF6_OPT_CLEAR (oa->options, OSPF6_OPT_V6);
-	   OSPF6_OPT_CLEAR (oa->options, OSPF6_OPT_R);
-	   OSPF6_ROUTER_LSA_SCHEDULE (oa);
+	if (!CHECK_FLAG(ospf6->flag, OSPF6_STUB_ROUTER)) {
+		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
+			OSPF6_OPT_CLEAR(oa->options, OSPF6_OPT_V6);
+			OSPF6_OPT_CLEAR(oa->options, OSPF6_OPT_R);
+			OSPF6_ROUTER_LSA_SCHEDULE(oa);
+		}
+		SET_FLAG(ospf6->flag, OSPF6_STUB_ROUTER);
 	}
-      SET_FLAG (ospf6->flag, OSPF6_STUB_ROUTER);
-    }
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN (no_ospf6_stub_router_admin,
@@ -723,21 +689,19 @@ DEFUN (no_ospf6_stub_router_admin,
        "Make router a stub router\n"
        "Administratively applied, for an indefinite period\n")
 {
-  struct listnode *node;
-  struct ospf6_area *oa;
+	struct listnode *node;
+	struct ospf6_area *oa;
 
-  if (CHECK_FLAG (ospf6->flag, OSPF6_STUB_ROUTER))
-    {
-      for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, node, oa))
-	{
-	   OSPF6_OPT_SET (oa->options, OSPF6_OPT_V6);
-	   OSPF6_OPT_SET (oa->options, OSPF6_OPT_R);
-	   OSPF6_ROUTER_LSA_SCHEDULE (oa);
+	if (CHECK_FLAG(ospf6->flag, OSPF6_STUB_ROUTER)) {
+		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
+			OSPF6_OPT_SET(oa->options, OSPF6_OPT_V6);
+			OSPF6_OPT_SET(oa->options, OSPF6_OPT_R);
+			OSPF6_ROUTER_LSA_SCHEDULE(oa);
+		}
+		UNSET_FLAG(ospf6->flag, OSPF6_STUB_ROUTER);
 	}
-      UNSET_FLAG (ospf6->flag, OSPF6_STUB_ROUTER);
-    }
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 #if 0
@@ -788,81 +752,75 @@ DEFUN (no_ospf6_stub_router_shutdown,
 }
 #endif
 
-static void
-ospf6_show (struct vty *vty, struct ospf6 *o)
+static void ospf6_show(struct vty *vty, struct ospf6 *o)
 {
-  struct listnode *n;
-  struct ospf6_area *oa;
-  char router_id[16], duration[32];
-  struct timeval now, running, result;
-  char buf[32], rbuf[32];
+	struct listnode *n;
+	struct ospf6_area *oa;
+	char router_id[16], duration[32];
+	struct timeval now, running, result;
+	char buf[32], rbuf[32];
 
-  /* process id, router id */
-  inet_ntop (AF_INET, &o->router_id, router_id, sizeof (router_id));
-  vty_out (vty, " OSPFv3 Routing Process (0) with Router-ID %s\n",
-           router_id);
+	/* process id, router id */
+	inet_ntop(AF_INET, &o->router_id, router_id, sizeof(router_id));
+	vty_out(vty, " OSPFv3 Routing Process (0) with Router-ID %s\n",
+		router_id);
 
-  /* running time */
-  monotime(&now);
-  timersub (&now, &o->starttime, &running);
-  timerstring (&running, duration, sizeof (duration));
-  vty_out (vty, " Running %s\n", duration);
+	/* running time */
+	monotime(&now);
+	timersub(&now, &o->starttime, &running);
+	timerstring(&running, duration, sizeof(duration));
+	vty_out(vty, " Running %s\n", duration);
 
-  /* Redistribute configuration */
-  /* XXX */
+	/* Redistribute configuration */
+	/* XXX */
 
-  vty_out (vty, " LSA minimum arrival %d msecs\n",o->lsa_minarrival);
+	vty_out(vty, " LSA minimum arrival %d msecs\n", o->lsa_minarrival);
 
-  /* Show SPF parameters */
-  vty_out(vty, " Initial SPF scheduling delay %d millisec(s)\n"
-	  " Minimum hold time between consecutive SPFs %d millsecond(s)\n"
-	  " Maximum hold time between consecutive SPFs %d millsecond(s)\n"
-	  " Hold time multiplier is currently %d\n",
-	  o->spf_delay,
-	  o->spf_holdtime,
-	  o->spf_max_holdtime,
-	  o->spf_hold_multiplier);
+	/* Show SPF parameters */
+	vty_out(vty,
+		" Initial SPF scheduling delay %d millisec(s)\n"
+		" Minimum hold time between consecutive SPFs %d millsecond(s)\n"
+		" Maximum hold time between consecutive SPFs %d millsecond(s)\n"
+		" Hold time multiplier is currently %d\n",
+		o->spf_delay, o->spf_holdtime, o->spf_max_holdtime,
+		o->spf_hold_multiplier);
 
-  vty_out(vty, " SPF algorithm ");
-  if (o->ts_spf.tv_sec || o->ts_spf.tv_usec)
-    {
-      timersub(&now, &o->ts_spf, &result);
-      timerstring(&result, buf, sizeof(buf));
-      ospf6_spf_reason_string(o->last_spf_reason, rbuf, sizeof(rbuf));
-      vty_out(vty, "last executed %s ago, reason %s\n", buf, rbuf);
-      vty_out (vty, " Last SPF duration %lld sec %lld usec\n",
-               (long long)o->ts_spf_duration.tv_sec,
-               (long long)o->ts_spf_duration.tv_usec);
-    }
-  else
-    vty_out(vty, "has not been run$\n");
-  threadtimer_string(now, o->t_spf_calc, buf, sizeof(buf));
-  vty_out (vty, " SPF timer %s%s\n",
-	   (o->t_spf_calc ? "due in " : "is "), buf);
+	vty_out(vty, " SPF algorithm ");
+	if (o->ts_spf.tv_sec || o->ts_spf.tv_usec) {
+		timersub(&now, &o->ts_spf, &result);
+		timerstring(&result, buf, sizeof(buf));
+		ospf6_spf_reason_string(o->last_spf_reason, rbuf, sizeof(rbuf));
+		vty_out(vty, "last executed %s ago, reason %s\n", buf, rbuf);
+		vty_out(vty, " Last SPF duration %lld sec %lld usec\n",
+			(long long)o->ts_spf_duration.tv_sec,
+			(long long)o->ts_spf_duration.tv_usec);
+	} else
+		vty_out(vty, "has not been run$\n");
+	threadtimer_string(now, o->t_spf_calc, buf, sizeof(buf));
+	vty_out(vty, " SPF timer %s%s\n", (o->t_spf_calc ? "due in " : "is "),
+		buf);
 
-  if (CHECK_FLAG (o->flag, OSPF6_STUB_ROUTER))
-    vty_out (vty, " Router Is Stub Router\n");
+	if (CHECK_FLAG(o->flag, OSPF6_STUB_ROUTER))
+		vty_out(vty, " Router Is Stub Router\n");
 
-  /* LSAs */
-  vty_out (vty, " Number of AS scoped LSAs is %u\n",
-           o->lsdb->count);
+	/* LSAs */
+	vty_out(vty, " Number of AS scoped LSAs is %u\n", o->lsdb->count);
 
-  /* Areas */
-  vty_out (vty, " Number of areas in this router is %u\n",
-           listcount (o->area_list));
+	/* Areas */
+	vty_out(vty, " Number of areas in this router is %u\n",
+		listcount(o->area_list));
 
-  if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES))
-    {
-      if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_DETAIL))
-	vty_out (vty, " All adjacency changes are logged\n");
-      else
-	vty_out (vty, " Adjacency changes are logged\n");
-    }
+	if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES)) {
+		if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_DETAIL))
+			vty_out(vty, " All adjacency changes are logged\n");
+		else
+			vty_out(vty, " Adjacency changes are logged\n");
+	}
 
-  vty_out (vty, "\n");
+	vty_out(vty, "\n");
 
-  for (ALL_LIST_ELEMENTS_RO (o->area_list, n, oa))
-    ospf6_area_show (vty, oa);
+	for (ALL_LIST_ELEMENTS_RO(o->area_list, n, oa))
+		ospf6_area_show(vty, oa);
 }
 
 /* show top level structures */
@@ -873,10 +831,10 @@ DEFUN (show_ipv6_ospf6,
        IP6_STR
        OSPF6_STR)
 {
-  OSPF6_CMD_CHECK_RUNNING ();
+	OSPF6_CMD_CHECK_RUNNING();
 
-  ospf6_show (vty, ospf6);
-  return CMD_SUCCESS;
+	ospf6_show(vty, ospf6);
+	return CMD_SUCCESS;
 }
 
 DEFUN (show_ipv6_ospf6_route,
@@ -895,10 +853,10 @@ DEFUN (show_ipv6_ospf6_route,
        "Detailed information\n"
        "Summary of route table\n")
 {
-  OSPF6_CMD_CHECK_RUNNING ();
+	OSPF6_CMD_CHECK_RUNNING();
 
-  ospf6_route_table_show (vty, 4, argc, argv, ospf6->route_table);
-  return CMD_SUCCESS;
+	ospf6_route_table_show(vty, 4, argc, argv, ospf6->route_table);
+	return CMD_SUCCESS;
 }
 
 DEFUN (show_ipv6_ospf6_route_match,
@@ -912,10 +870,10 @@ DEFUN (show_ipv6_ospf6_route_match,
        "Display routes which match the specified route\n"
        "Display routes longer than the specified route\n")
 {
-  OSPF6_CMD_CHECK_RUNNING ();
+	OSPF6_CMD_CHECK_RUNNING();
 
-  ospf6_route_table_show (vty, 4, argc, argv, ospf6->route_table);
-  return CMD_SUCCESS;
+	ospf6_route_table_show(vty, 4, argc, argv, ospf6->route_table);
+	return CMD_SUCCESS;
 }
 
 DEFUN (show_ipv6_ospf6_route_match_detail,
@@ -930,12 +888,11 @@ DEFUN (show_ipv6_ospf6_route_match_detail,
        "Detailed information\n"
        )
 {
-  OSPF6_CMD_CHECK_RUNNING ();
+	OSPF6_CMD_CHECK_RUNNING();
 
-  ospf6_route_table_show (vty, 4, argc, argv, ospf6->route_table);
-  return CMD_SUCCESS;
+	ospf6_route_table_show(vty, 4, argc, argv, ospf6->route_table);
+	return CMD_SUCCESS;
 }
-
 
 
 DEFUN (show_ipv6_ospf6_route_type_detail,
@@ -952,153 +909,143 @@ DEFUN (show_ipv6_ospf6_route_type_detail,
        "Detailed information\n"
        )
 {
-  OSPF6_CMD_CHECK_RUNNING ();
+	OSPF6_CMD_CHECK_RUNNING();
 
-  ospf6_route_table_show (vty, 4, argc, argv, ospf6->route_table);
-  return CMD_SUCCESS;
+	ospf6_route_table_show(vty, 4, argc, argv, ospf6->route_table);
+	return CMD_SUCCESS;
 }
 
-static void
-ospf6_stub_router_config_write (struct vty *vty)
+static void ospf6_stub_router_config_write(struct vty *vty)
 {
-  if (CHECK_FLAG (ospf6->flag, OSPF6_STUB_ROUTER))
-    {
-      vty_out (vty, " stub-router administrative\n");
-    }
-    return;
+	if (CHECK_FLAG(ospf6->flag, OSPF6_STUB_ROUTER)) {
+		vty_out(vty, " stub-router administrative\n");
+	}
+	return;
 }
 
-static int
-ospf6_distance_config_write (struct vty *vty)
+static int ospf6_distance_config_write(struct vty *vty)
 {
-  struct route_node *rn;
-  struct ospf6_distance *odistance;
+	struct route_node *rn;
+	struct ospf6_distance *odistance;
 
-  if (ospf6->distance_all)
-    vty_out (vty, " distance %u\n", ospf6->distance_all);
+	if (ospf6->distance_all)
+		vty_out(vty, " distance %u\n", ospf6->distance_all);
 
-  if (ospf6->distance_intra
-      || ospf6->distance_inter
-      || ospf6->distance_external)
-    {
-      vty_out (vty, " distance ospf6");
+	if (ospf6->distance_intra || ospf6->distance_inter
+	    || ospf6->distance_external) {
+		vty_out(vty, " distance ospf6");
 
-      if (ospf6->distance_intra)
-        vty_out (vty, " intra-area %u", ospf6->distance_intra);
-      if (ospf6->distance_inter)
-        vty_out (vty, " inter-area %u", ospf6->distance_inter);
-      if (ospf6->distance_external)
-        vty_out (vty, " external %u", ospf6->distance_external);
+		if (ospf6->distance_intra)
+			vty_out(vty, " intra-area %u", ospf6->distance_intra);
+		if (ospf6->distance_inter)
+			vty_out(vty, " inter-area %u", ospf6->distance_inter);
+		if (ospf6->distance_external)
+			vty_out(vty, " external %u", ospf6->distance_external);
 
-      vty_out (vty, "\n");
-    }
+		vty_out(vty, "\n");
+	}
 
-  for (rn = route_top (ospf6->distance_table); rn; rn = route_next (rn))
-    if ((odistance = rn->info) != NULL)
-      {
-	char buf[PREFIX_STRLEN];
+	for (rn = route_top(ospf6->distance_table); rn; rn = route_next(rn))
+		if ((odistance = rn->info) != NULL) {
+			char buf[PREFIX_STRLEN];
 
-        vty_out (vty, " distance %u %s %s\n", odistance->distance,
-		 prefix2str (&rn->p, buf, sizeof (buf)),
-                 odistance->access_list ? odistance->access_list : "");
-      }
-  return 0;
+			vty_out(vty, " distance %u %s %s\n",
+				odistance->distance,
+				prefix2str(&rn->p, buf, sizeof(buf)),
+				odistance->access_list ? odistance->access_list
+						       : "");
+		}
+	return 0;
 }
 
 /* OSPF configuration write function. */
-static int
-config_write_ospf6 (struct vty *vty)
+static int config_write_ospf6(struct vty *vty)
 {
-  char router_id[16];
-  struct listnode *j, *k;
-  struct ospf6_area *oa;
-  struct ospf6_interface *oi;
+	char router_id[16];
+	struct listnode *j, *k;
+	struct ospf6_area *oa;
+	struct ospf6_interface *oi;
 
-  /* OSPFv3 configuration. */
-  if (ospf6 == NULL)
-    return CMD_SUCCESS;
+	/* OSPFv3 configuration. */
+	if (ospf6 == NULL)
+		return CMD_SUCCESS;
 
-  inet_ntop (AF_INET, &ospf6->router_id_static, router_id, sizeof (router_id));
-  vty_out (vty, "router ospf6\n");
-  if (ospf6->router_id_static != 0)
-    vty_out (vty, " router-id %s\n", router_id);
+	inet_ntop(AF_INET, &ospf6->router_id_static, router_id,
+		  sizeof(router_id));
+	vty_out(vty, "router ospf6\n");
+	if (ospf6->router_id_static != 0)
+		vty_out(vty, " router-id %s\n", router_id);
 
-  /* log-adjacency-changes flag print. */
-  if (CHECK_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES))
-    {
-      if (CHECK_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL))
-        vty_out (vty, " log-adjacency-changes detail\n");
-      else if (!DFLT_OSPF6_LOG_ADJACENCY_CHANGES)
-        vty_out (vty, " log-adjacency-changes\n");
-    }
-  else if (DFLT_OSPF6_LOG_ADJACENCY_CHANGES)
-    {
-      vty_out (vty, " no log-adjacency-changes\n");
-    }
+	/* log-adjacency-changes flag print. */
+	if (CHECK_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES)) {
+		if (CHECK_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL))
+			vty_out(vty, " log-adjacency-changes detail\n");
+		else if (!DFLT_OSPF6_LOG_ADJACENCY_CHANGES)
+			vty_out(vty, " log-adjacency-changes\n");
+	} else if (DFLT_OSPF6_LOG_ADJACENCY_CHANGES) {
+		vty_out(vty, " no log-adjacency-changes\n");
+	}
 
-  if (ospf6->ref_bandwidth != OSPF6_REFERENCE_BANDWIDTH)
-    vty_out (vty, " auto-cost reference-bandwidth %d\n", ospf6->ref_bandwidth);
+	if (ospf6->ref_bandwidth != OSPF6_REFERENCE_BANDWIDTH)
+		vty_out(vty, " auto-cost reference-bandwidth %d\n",
+			ospf6->ref_bandwidth);
 
-  /* LSA timers print. */
-  if (ospf6->lsa_minarrival != OSPF_MIN_LS_ARRIVAL)
-    vty_out (vty, " timers lsa min-arrival %d\n",ospf6->lsa_minarrival);
+	/* LSA timers print. */
+	if (ospf6->lsa_minarrival != OSPF_MIN_LS_ARRIVAL)
+		vty_out(vty, " timers lsa min-arrival %d\n",
+			ospf6->lsa_minarrival);
 
-  ospf6_stub_router_config_write (vty);
-  ospf6_redistribute_config_write (vty);
-  ospf6_area_config_write (vty);
-  ospf6_spf_config_write (vty);
-  ospf6_distance_config_write (vty);
+	ospf6_stub_router_config_write(vty);
+	ospf6_redistribute_config_write(vty);
+	ospf6_area_config_write(vty);
+	ospf6_spf_config_write(vty);
+	ospf6_distance_config_write(vty);
 
-  for (ALL_LIST_ELEMENTS_RO (ospf6->area_list, j, oa))
-    {
-      for (ALL_LIST_ELEMENTS_RO (oa->if_list, k, oi))
-        vty_out (vty, " interface %s area %s\n",
-                 oi->interface->name, oa->name);
-    }
-  vty_out (vty, "!\n");
-  return 0;
+	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, j, oa)) {
+		for (ALL_LIST_ELEMENTS_RO(oa->if_list, k, oi))
+			vty_out(vty, " interface %s area %s\n",
+				oi->interface->name, oa->name);
+	}
+	vty_out(vty, "!\n");
+	return 0;
 }
 
 /* OSPF6 node structure. */
-static struct cmd_node ospf6_node =
-{
-  OSPF6_NODE,
-  "%s(config-ospf6)# ",
-  1 /* VTYSH */
+static struct cmd_node ospf6_node = {
+	OSPF6_NODE, "%s(config-ospf6)# ", 1 /* VTYSH */
 };
 
 /* Install ospf related commands. */
-void
-ospf6_top_init (void)
+void ospf6_top_init(void)
 {
-  /* Install ospf6 top node. */
-  install_node (&ospf6_node, config_write_ospf6);
+	/* Install ospf6 top node. */
+	install_node(&ospf6_node, config_write_ospf6);
 
-  install_element (VIEW_NODE, &show_ipv6_ospf6_cmd);
-  install_element (CONFIG_NODE, &router_ospf6_cmd);
-  install_element (CONFIG_NODE, &no_router_ospf6_cmd);
+	install_element(VIEW_NODE, &show_ipv6_ospf6_cmd);
+	install_element(CONFIG_NODE, &router_ospf6_cmd);
+	install_element(CONFIG_NODE, &no_router_ospf6_cmd);
 
-  install_element (VIEW_NODE, &show_ipv6_ospf6_route_cmd);
-  install_element (VIEW_NODE, &show_ipv6_ospf6_route_match_cmd);
-  install_element (VIEW_NODE, &show_ipv6_ospf6_route_match_detail_cmd);
-  install_element (VIEW_NODE, &show_ipv6_ospf6_route_type_detail_cmd);
+	install_element(VIEW_NODE, &show_ipv6_ospf6_route_cmd);
+	install_element(VIEW_NODE, &show_ipv6_ospf6_route_match_cmd);
+	install_element(VIEW_NODE, &show_ipv6_ospf6_route_match_detail_cmd);
+	install_element(VIEW_NODE, &show_ipv6_ospf6_route_type_detail_cmd);
 
-  install_default (OSPF6_NODE);
-  install_element (OSPF6_NODE, &ospf6_router_id_cmd);
-  install_element (OSPF6_NODE, &ospf6_log_adjacency_changes_cmd);
-  install_element (OSPF6_NODE, &ospf6_log_adjacency_changes_detail_cmd);
-  install_element (OSPF6_NODE, &no_ospf6_log_adjacency_changes_cmd);
-  install_element (OSPF6_NODE, &no_ospf6_log_adjacency_changes_detail_cmd);
+	install_default(OSPF6_NODE);
+	install_element(OSPF6_NODE, &ospf6_router_id_cmd);
+	install_element(OSPF6_NODE, &ospf6_log_adjacency_changes_cmd);
+	install_element(OSPF6_NODE, &ospf6_log_adjacency_changes_detail_cmd);
+	install_element(OSPF6_NODE, &no_ospf6_log_adjacency_changes_cmd);
+	install_element(OSPF6_NODE, &no_ospf6_log_adjacency_changes_detail_cmd);
 
-  /* LSA timers commands */
-  install_element (OSPF6_NODE, &ospf6_timers_lsa_cmd);
-  install_element (OSPF6_NODE, &no_ospf6_timers_lsa_cmd);
+	/* LSA timers commands */
+	install_element(OSPF6_NODE, &ospf6_timers_lsa_cmd);
+	install_element(OSPF6_NODE, &no_ospf6_timers_lsa_cmd);
 
-  install_element (OSPF6_NODE, &ospf6_interface_area_cmd);
-  install_element (OSPF6_NODE, &no_ospf6_interface_area_cmd);
-  install_element (OSPF6_NODE, &ospf6_stub_router_admin_cmd);
-  install_element (OSPF6_NODE, &no_ospf6_stub_router_admin_cmd);
-  /* For a later time */
+	install_element(OSPF6_NODE, &ospf6_interface_area_cmd);
+	install_element(OSPF6_NODE, &no_ospf6_interface_area_cmd);
+	install_element(OSPF6_NODE, &ospf6_stub_router_admin_cmd);
+	install_element(OSPF6_NODE, &no_ospf6_stub_router_admin_cmd);
+/* For a later time */
 #if 0
   install_element (OSPF6_NODE, &ospf6_stub_router_startup_cmd);
   install_element (OSPF6_NODE, &no_ospf6_stub_router_startup_cmd);
@@ -1106,10 +1053,10 @@ ospf6_top_init (void)
   install_element (OSPF6_NODE, &no_ospf6_stub_router_shutdown_cmd);
 #endif
 
-  install_element (OSPF6_NODE, &ospf6_distance_cmd);
-  install_element (OSPF6_NODE, &no_ospf6_distance_cmd);
-  install_element (OSPF6_NODE, &ospf6_distance_ospf6_cmd);
-  install_element (OSPF6_NODE, &no_ospf6_distance_ospf6_cmd);
+	install_element(OSPF6_NODE, &ospf6_distance_cmd);
+	install_element(OSPF6_NODE, &no_ospf6_distance_cmd);
+	install_element(OSPF6_NODE, &ospf6_distance_ospf6_cmd);
+	install_element(OSPF6_NODE, &no_ospf6_distance_ospf6_cmd);
 #if 0
   install_element (OSPF6_NODE, &ospf6_distance_source_cmd);
   install_element (OSPF6_NODE, &no_ospf6_distance_source_cmd);

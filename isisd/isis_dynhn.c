@@ -2,17 +2,17 @@
  * IS-IS Rout(e)ing protocol - isis_dynhn.c
  *                             Dynamic hostname cache
  * Copyright (C) 2001,2002   Sampo Saaristo
- *                           Tampere University of Technology      
+ *                           Tampere University of Technology
  *                           Institute of Communications Engineering
  *
- * This program is free software; you can redistribute it and/or modify it 
- * under the terms of the GNU General Public Licenseas published by the Free 
- * Software Foundation; either version 2 of the License, or (at your option) 
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public Licenseas published by the Free
+ * Software Foundation; either version 2 of the License, or (at your option)
  * any later version.
  *
- * This program is distributed in the hope that it will be useful,but WITHOUT 
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for 
+ * This program is distributed in the hope that it will be useful,but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
  * You should have received a copy of the GNU General Public License along
@@ -44,107 +44,100 @@
 extern struct host host;
 
 struct list *dyn_cache = NULL;
-static int dyn_cache_cleanup (struct thread *);
+static int dyn_cache_cleanup(struct thread *);
 
-void
-dyn_cache_init (void)
+void dyn_cache_init(void)
 {
-  if (dyn_cache == NULL)
-    dyn_cache = list_new ();
-  thread_add_timer(master, dyn_cache_cleanup, NULL, 120, &isis->t_dync_clean);
-  return;
+	if (dyn_cache == NULL)
+		dyn_cache = list_new();
+	thread_add_timer(master, dyn_cache_cleanup, NULL, 120,
+			 &isis->t_dync_clean);
+	return;
 }
 
-static int
-dyn_cache_cleanup (struct thread *thread)
+static int dyn_cache_cleanup(struct thread *thread)
 {
-  struct listnode *node, *nnode;
-  struct isis_dynhn *dyn;
-  time_t now = time (NULL);
+	struct listnode *node, *nnode;
+	struct isis_dynhn *dyn;
+	time_t now = time(NULL);
 
-  isis->t_dync_clean = NULL;
+	isis->t_dync_clean = NULL;
 
-  for (ALL_LIST_ELEMENTS (dyn_cache, node, nnode, dyn))
-    {
-      if ((now - dyn->refresh) < MAX_LSP_LIFETIME)
-        continue;
+	for (ALL_LIST_ELEMENTS(dyn_cache, node, nnode, dyn)) {
+		if ((now - dyn->refresh) < MAX_LSP_LIFETIME)
+			continue;
 
-      list_delete_node (dyn_cache, node);
-      XFREE (MTYPE_ISIS_DYNHN, dyn);
-    }
+		list_delete_node(dyn_cache, node);
+		XFREE(MTYPE_ISIS_DYNHN, dyn);
+	}
 
-  thread_add_timer(master, dyn_cache_cleanup, NULL, 120, &isis->t_dync_clean);
-  return ISIS_OK;
+	thread_add_timer(master, dyn_cache_cleanup, NULL, 120,
+			 &isis->t_dync_clean);
+	return ISIS_OK;
 }
 
-struct isis_dynhn *
-dynhn_find_by_id (const u_char * id)
+struct isis_dynhn *dynhn_find_by_id(const u_char *id)
 {
-  struct listnode *node = NULL;
-  struct isis_dynhn *dyn = NULL;
+	struct listnode *node = NULL;
+	struct isis_dynhn *dyn = NULL;
 
-  for (ALL_LIST_ELEMENTS_RO (dyn_cache, node, dyn))
-    if (memcmp (dyn->id, id, ISIS_SYS_ID_LEN) == 0)
-      return dyn;
+	for (ALL_LIST_ELEMENTS_RO(dyn_cache, node, dyn))
+		if (memcmp(dyn->id, id, ISIS_SYS_ID_LEN) == 0)
+			return dyn;
 
-  return NULL;
+	return NULL;
 }
 
-struct isis_dynhn *
-dynhn_find_by_name (const char *hostname)
+struct isis_dynhn *dynhn_find_by_name(const char *hostname)
 {
-  struct listnode *node = NULL;
-  struct isis_dynhn *dyn = NULL;
+	struct listnode *node = NULL;
+	struct isis_dynhn *dyn = NULL;
 
-  for (ALL_LIST_ELEMENTS_RO (dyn_cache, node, dyn))
-    if (strncmp ((char *)dyn->name.name, hostname, 255) == 0)
-      return dyn;
+	for (ALL_LIST_ELEMENTS_RO(dyn_cache, node, dyn))
+		if (strncmp((char *)dyn->name.name, hostname, 255) == 0)
+			return dyn;
 
-  return NULL;
+	return NULL;
 }
 
-void
-isis_dynhn_insert (const u_char * id, struct hostname *hostname, int level)
+void isis_dynhn_insert(const u_char *id, struct hostname *hostname, int level)
 {
-  struct isis_dynhn *dyn;
+	struct isis_dynhn *dyn;
 
-  dyn = dynhn_find_by_id (id);
-  if (dyn)
-    {
-      memcpy (&dyn->name, hostname, hostname->namelen + 1);
-      memcpy (dyn->id, id, ISIS_SYS_ID_LEN);
-      dyn->refresh = time (NULL);
-      return;
-    }
-  dyn = XCALLOC (MTYPE_ISIS_DYNHN, sizeof (struct isis_dynhn));
-  if (!dyn)
-    {
-      zlog_warn ("isis_dynhn_insert(): out of memory!");
-      return;
-    }
+	dyn = dynhn_find_by_id(id);
+	if (dyn) {
+		memcpy(&dyn->name, hostname, hostname->namelen + 1);
+		memcpy(dyn->id, id, ISIS_SYS_ID_LEN);
+		dyn->refresh = time(NULL);
+		return;
+	}
+	dyn = XCALLOC(MTYPE_ISIS_DYNHN, sizeof(struct isis_dynhn));
+	if (!dyn) {
+		zlog_warn("isis_dynhn_insert(): out of memory!");
+		return;
+	}
 
-  /* we also copy the length */
-  memcpy (&dyn->name, hostname, hostname->namelen + 1);
-  memcpy (dyn->id, id, ISIS_SYS_ID_LEN);
-  dyn->refresh = time (NULL);
-  dyn->level = level;
+	/* we also copy the length */
+	memcpy(&dyn->name, hostname, hostname->namelen + 1);
+	memcpy(dyn->id, id, ISIS_SYS_ID_LEN);
+	dyn->refresh = time(NULL);
+	dyn->level = level;
 
-  listnode_add (dyn_cache, dyn);
+	listnode_add(dyn_cache, dyn);
 
-  return;
+	return;
 }
 
-void
-isis_dynhn_remove (const u_char * id)
+void isis_dynhn_remove(const u_char *id)
 {
-  struct isis_dynhn *dyn;
+	struct isis_dynhn *dyn;
 
-  dyn = dynhn_find_by_id (id);
-  if (!dyn)
-    return;
-  listnode_delete (dyn_cache, dyn);
-  XFREE (MTYPE_ISIS_DYNHN, dyn);
-  return;
+	dyn = dynhn_find_by_id(id);
+	if (!dyn)
+		return;
+	listnode_delete(dyn_cache, dyn);
+	XFREE(MTYPE_ISIS_DYNHN, dyn);
+	return;
 }
 
 /*
@@ -153,19 +146,19 @@ isis_dynhn_remove (const u_char * id)
  *  2     0000.0000.0002 bar-gw
  *      * 0000.0000.0004 this-gw
  */
-void
-dynhn_print_all (struct vty *vty)
+void dynhn_print_all(struct vty *vty)
 {
-  struct listnode *node;
-  struct isis_dynhn *dyn;
+	struct listnode *node;
+	struct isis_dynhn *dyn;
 
-  vty_out (vty, "Level  System ID      Dynamic Hostname\n");
-  for (ALL_LIST_ELEMENTS_RO (dyn_cache, node, dyn))
-    {
-      vty_out (vty, "%-7d", dyn->level);
-      vty_out (vty, "%-15s%-15s\n", sysid_print (dyn->id),dyn->name.name);
-    }
+	vty_out(vty, "Level  System ID      Dynamic Hostname\n");
+	for (ALL_LIST_ELEMENTS_RO(dyn_cache, node, dyn)) {
+		vty_out(vty, "%-7d", dyn->level);
+		vty_out(vty, "%-15s%-15s\n", sysid_print(dyn->id),
+			dyn->name.name);
+	}
 
-  vty_out (vty, "     * %s %s\n", sysid_print (isis->sysid),unix_hostname());
-  return;
+	vty_out(vty, "     * %s %s\n", sysid_print(isis->sysid),
+		unix_hostname());
+	return;
 }

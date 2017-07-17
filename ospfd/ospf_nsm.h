@@ -59,33 +59,31 @@
 #define OSPF_NSM_TIMER_ON(T,F,V) thread_add_timer (master, (F), nbr, (V), &(T))
 
 /* Macro for OSPF NSM timer turn off. */
-#define OSPF_NSM_TIMER_OFF(X)                                                 \
-      do {                                                                    \
-        if (X)                                                                \
-          {                                                                   \
-            thread_cancel (X);                                                \
-            (X) = NULL;                                                       \
-          }                                                                   \
-      } while (0)
+#define OSPF_NSM_TIMER_OFF(X)                                                  \
+	do {                                                                   \
+		if (X) {                                                       \
+			thread_cancel(X);                                      \
+			(X) = NULL;                                            \
+		}                                                              \
+	} while (0)
 
 /* Macro for OSPF NSM schedule event. */
-#define OSPF_NSM_EVENT_SCHEDULE(N,E)                                          \
-      thread_add_event (master, ospf_nsm_event, (N), (E), NULL)
+#define OSPF_NSM_EVENT_SCHEDULE(N, E)                                          \
+	thread_add_event(master, ospf_nsm_event, (N), (E), NULL)
 
 /* Macro for OSPF NSM execute event. */
-#define OSPF_NSM_EVENT_EXECUTE(N,E)                                           \
-      thread_execute (master, ospf_nsm_event, (N), (E))
+#define OSPF_NSM_EVENT_EXECUTE(N, E)                                           \
+	thread_execute(master, ospf_nsm_event, (N), (E))
 
 /* Prototypes. */
-extern int ospf_nsm_event (struct thread *);
-extern void ospf_check_nbr_loading (struct ospf_neighbor *);
-extern int ospf_db_summary_isempty (struct ospf_neighbor *);
-extern int ospf_db_summary_count (struct ospf_neighbor *);
-extern void ospf_db_summary_clear (struct ospf_neighbor *);
+extern int ospf_nsm_event(struct thread *);
+extern void ospf_check_nbr_loading(struct ospf_neighbor *);
+extern int ospf_db_summary_isempty(struct ospf_neighbor *);
+extern int ospf_db_summary_count(struct ospf_neighbor *);
+extern void ospf_db_summary_clear(struct ospf_neighbor *);
 
 DECLARE_HOOK(ospf_nsm_change,
-		(struct ospf_neighbor *on, int state, int oldstate),
-		(on, state, oldstate))
+	     (struct ospf_neighbor * on, int state, int oldstate),
+	     (on, state, oldstate))
 
 #endif /* _ZEBRA_OSPF_NSM_H */
-

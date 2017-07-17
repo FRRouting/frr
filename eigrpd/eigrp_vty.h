@@ -32,10 +32,9 @@
 #ifndef _QUAGGA_EIGRP_VTY_H
 #define _QUAGGA_EIGRP_VTY_H
 
-
 /* Prototypes. */
-extern void eigrp_vty_init (void);
-extern void eigrp_vty_show_init (void);
-extern void eigrp_vty_if_init (void);
+extern void eigrp_vty_init(void);
+extern void eigrp_vty_show_init(void);
+extern void eigrp_vty_if_init(void);
 
 #endif /* _Quagga_EIGRP_VTY_H_ */

@@ -65,10 +65,9 @@
  * |   Number of Joined Sources    |   Number of Pruned Sources    |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
-#define PIM_JP_GROUP_HEADER_SIZE     (PIM_ENCODED_IPV4_UCAST_SIZE + \
-                                      1 + 1 + 2 +                   \
-                                      PIM_ENCODED_IPV4_GROUP_SIZE + \
-                                      2 + 2)
+#define PIM_JP_GROUP_HEADER_SIZE                                               \
+	(PIM_ENCODED_IPV4_UCAST_SIZE + 1 + 1 + 2 + PIM_ENCODED_IPV4_GROUP_SIZE \
+	 + 2 + 2)
 
 #define PIM_PROTO_VERSION             (2)
 
@@ -108,7 +107,6 @@
 #define PIM_MASK_MSDP_PACKETS        (1 << 20)
 #define PIM_MASK_MSDP_INTERNAL       (1 << 21)
 
-
 /* PIM error codes */
 #define PIM_SUCCESS                0
 #define PIM_MALLOC_FAIL           -1
@@ -127,34 +125,34 @@ const char *const PIM_ALL_ROUTERS;
 const char *const PIM_ALL_PIM_ROUTERS;
 const char *const PIM_ALL_IGMP_ROUTERS;
 
-extern struct thread_master     *master;
+extern struct thread_master *master;
 extern struct zebra_privs_t pimd_privs;
-uint32_t                  qpim_debugs;
-int                       qpim_mroute_socket_fd;
-int64_t                   qpim_mroute_socket_creation; /* timestamp of creation */
-struct in_addr            qpim_all_pim_routers_addr;
-int                       qpim_t_periodic; /* Period between Join/Prune Messages */
-struct pim_assert_metric  qpim_infinite_assert_metric;
-long                      qpim_rpf_cache_refresh_delay_msec;
-struct thread            *qpim_rpf_cache_refresher;
-int64_t                   qpim_rpf_cache_refresh_requests;
-int64_t                   qpim_rpf_cache_refresh_events;
-int64_t                   qpim_rpf_cache_refresh_last;
-struct list              *qpim_ssmpingd_list; /* list of struct ssmpingd_sock */
-struct in_addr            qpim_ssmpingd_group_addr;
-int64_t                   qpim_scan_oil_events;
-int64_t                   qpim_scan_oil_last;
-int64_t                   qpim_mroute_add_events;
-int64_t                   qpim_mroute_add_last;
-int64_t                   qpim_mroute_del_events;
-int64_t                   qpim_mroute_del_last;
-int64_t                   qpim_nexthop_lookups;
-struct list              *qpim_static_route_list; /* list of routes added statically */
-extern unsigned int       qpim_keep_alive_time;
-extern signed int         qpim_rp_keep_alive_time;
-extern int                qpim_packet_process;
-extern uint8_t            qpim_ecmp_enable;
-extern uint8_t            qpim_ecmp_rebalance_enable;
+uint32_t qpim_debugs;
+int qpim_mroute_socket_fd;
+int64_t qpim_mroute_socket_creation; /* timestamp of creation */
+struct in_addr qpim_all_pim_routers_addr;
+int qpim_t_periodic; /* Period between Join/Prune Messages */
+struct pim_assert_metric qpim_infinite_assert_metric;
+long qpim_rpf_cache_refresh_delay_msec;
+struct thread *qpim_rpf_cache_refresher;
+int64_t qpim_rpf_cache_refresh_requests;
+int64_t qpim_rpf_cache_refresh_events;
+int64_t qpim_rpf_cache_refresh_last;
+struct list *qpim_ssmpingd_list; /* list of struct ssmpingd_sock */
+struct in_addr qpim_ssmpingd_group_addr;
+int64_t qpim_scan_oil_events;
+int64_t qpim_scan_oil_last;
+int64_t qpim_mroute_add_events;
+int64_t qpim_mroute_add_last;
+int64_t qpim_mroute_del_events;
+int64_t qpim_mroute_del_last;
+int64_t qpim_nexthop_lookups;
+struct list *qpim_static_route_list; /* list of routes added statically */
+extern unsigned int qpim_keep_alive_time;
+extern signed int qpim_rp_keep_alive_time;
+extern int qpim_packet_process;
+extern uint8_t qpim_ecmp_enable;
+extern uint8_t qpim_ecmp_rebalance_enable;
 
 #define PIM_DEFAULT_PACKET_PROCESS 3
 
@@ -239,36 +237,35 @@ extern int32_t qpim_register_probe_time;
 #define PIM_DONT_DEBUG_MSDP_INTERNAL       (qpim_debugs &= ~PIM_MASK_MSDP_INTERNAL)
 
 enum pim_spt_switchover {
-  PIM_SPT_IMMEDIATE,
-  PIM_SPT_INFINITY,
+	PIM_SPT_IMMEDIATE,
+	PIM_SPT_INFINITY,
 };
 
 /* Per VRF PIM DB */
-struct pim_instance
-{
-  afi_t afi;
-  vrf_id_t vrf_id;
+struct pim_instance {
+	afi_t afi;
+	vrf_id_t vrf_id;
 
-  struct {
-    enum pim_spt_switchover switchover;
-    char *plist;
-  } spt;
+	struct {
+		enum pim_spt_switchover switchover;
+		char *plist;
+	} spt;
 
-  struct hash *rpf_hash;
+	struct hash *rpf_hash;
 
-  void *ssm_info; /* per-vrf SSM configuration */
-  
-  int send_v6_secondary;
+	void *ssm_info; /* per-vrf SSM configuration */
+
+	int send_v6_secondary;
 };
 
-extern struct pim_instance *pimg; //Pim Global Instance
+extern struct pim_instance *pimg; // Pim Global Instance
 
 void pim_init(void);
 void pim_terminate(void);
 
-extern void pim_route_map_init (void);
+extern void pim_route_map_init(void);
 extern void pim_route_map_terminate(void);
-void pim_vrf_init (void);
-void pim_prefix_list_update (struct prefix_list *plist);
+void pim_vrf_init(void);
+void pim_prefix_list_update(struct prefix_list *plist);
 
 #endif /* PIMD_H */

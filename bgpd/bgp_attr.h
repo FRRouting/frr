@@ -1,4 +1,4 @@
-/* BGP attributes. 
+/* BGP attributes.
  * Copyright (C) 1996, 97, 98 Kunihiro Ishiguro
  *
  * This file is part of GNU Zebra.
@@ -27,14 +27,13 @@
 /* Simple bit mapping. */
 #define BITMAP_NBBY 8
 
-#define SET_BITMAP(MAP, NUM) \
-        SET_FLAG (MAP[(NUM) / BITMAP_NBBY], 1 << ((NUM) % BITMAP_NBBY))
+#define SET_BITMAP(MAP, NUM)                                                   \
+	SET_FLAG(MAP[(NUM) / BITMAP_NBBY], 1 << ((NUM) % BITMAP_NBBY))
 
-#define CHECK_BITMAP(MAP, NUM) \
-        CHECK_FLAG (MAP[(NUM) / BITMAP_NBBY], 1 << ((NUM) % BITMAP_NBBY))
+#define CHECK_BITMAP(MAP, NUM)                                                 \
+	CHECK_FLAG(MAP[(NUM) / BITMAP_NBBY], 1 << ((NUM) % BITMAP_NBBY))
 
 #define BGP_MED_MAX UINT32_MAX
-
 
 /* BGP Attribute type range. */
 #define BGP_ATTR_TYPE_RANGE     256
@@ -68,12 +67,12 @@
 #define BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH  6
 
 struct bgp_attr_encap_subtlv {
-    struct bgp_attr_encap_subtlv	*next;		/* for chaining */
-    /* Reference count of this attribute. */
-    unsigned long refcnt;
-    uint16_t				type;
-    uint16_t				length;
-    uint8_t				value[1];	/* will be extended */
+	struct bgp_attr_encap_subtlv *next; /* for chaining */
+	/* Reference count of this attribute. */
+	unsigned long refcnt;
+	uint16_t type;
+	uint16_t length;
+	uint8_t value[1]; /* will be extended */
 };
 
 #if ENABLE_BGP_VNC
@@ -81,110 +80,108 @@ struct bgp_attr_encap_subtlv {
  * old rfp<->rfapi representation
  */
 struct bgp_tea_options {
-    struct bgp_tea_options *next;
-    uint8_t               options_count;
-    uint16_t              options_length; /* each TLV may be 256 in length */
-    uint8_t               type;
-    uint8_t               length;
-    void                 *value; /* pointer to data */
+	struct bgp_tea_options *next;
+	uint8_t options_count;
+	uint16_t options_length; /* each TLV may be 256 in length */
+	uint8_t type;
+	uint8_t length;
+	void *value; /* pointer to data */
 };
 
 #endif
 
 /* Overlay Index Info */
-struct overlay_index
-{
-  struct eth_segment_id eth_s_id;
-  union gw_addr gw_ip;
+struct overlay_index {
+	struct eth_segment_id eth_s_id;
+	union gw_addr gw_ip;
 };
 
 /* BGP core attribute structure. */
-struct attr
-{
-  /* AS Path structure */
-  struct aspath *aspath;
+struct attr {
+	/* AS Path structure */
+	struct aspath *aspath;
 
-  /* Community structure */
-  struct community *community;
+	/* Community structure */
+	struct community *community;
 
-  /* Reference count of this attribute. */
-  unsigned long refcnt;
+	/* Reference count of this attribute. */
+	unsigned long refcnt;
 
-  /* Flag of attribute is set or not. */
-  uint64_t flag;
+	/* Flag of attribute is set or not. */
+	uint64_t flag;
 
-  /* Apart from in6_addr, the remaining static attributes */
-  struct in_addr nexthop;
-  u_int32_t med;
-  u_int32_t local_pref;
-  ifindex_t nh_ifindex;
+	/* Apart from in6_addr, the remaining static attributes */
+	struct in_addr nexthop;
+	u_int32_t med;
+	u_int32_t local_pref;
+	ifindex_t nh_ifindex;
 
-  /* Path origin attribute */
-  u_char origin;
+	/* Path origin attribute */
+	u_char origin;
 
-  /* has the route-map changed any attribute?
-     Used on the peer outbound side. */
-  u_int32_t rmap_change_flags;
+	/* has the route-map changed any attribute?
+	   Used on the peer outbound side. */
+	u_int32_t rmap_change_flags;
 
-    /* Multi-Protocol Nexthop, AFI IPv6 */
-  struct in6_addr mp_nexthop_global;
-  struct in6_addr mp_nexthop_local;
+	/* Multi-Protocol Nexthop, AFI IPv6 */
+	struct in6_addr mp_nexthop_global;
+	struct in6_addr mp_nexthop_local;
 
-  /* Extended Communities attribute. */
-  struct ecommunity *ecommunity;
+	/* Extended Communities attribute. */
+	struct ecommunity *ecommunity;
 
-  /* Large Communities attribute. */
-  struct lcommunity *lcommunity;
+	/* Large Communities attribute. */
+	struct lcommunity *lcommunity;
 
-  /* Route-Reflector Cluster attribute */
-  struct cluster_list *cluster;
-  
-  /* Unknown transitive attribute. */
-  struct transit *transit;
+	/* Route-Reflector Cluster attribute */
+	struct cluster_list *cluster;
 
-  struct in_addr mp_nexthop_global_in;
-  
-  /* Aggregator Router ID attribute */
-  struct in_addr aggregator_addr;
-  
-  /* Route Reflector Originator attribute */
-  struct in_addr originator_id;
-  
-  /* Local weight, not actually an attribute */
-  u_int32_t weight;
-  
-  /* Aggregator ASN */
-  as_t aggregator_as;
-  
-  /* MP Nexthop length */
-  u_char mp_nexthop_len;
+	/* Unknown transitive attribute. */
+	struct transit *transit;
 
-  /* MP Nexthop preference */
-  u_char mp_nexthop_prefer_global;
+	struct in_addr mp_nexthop_global_in;
 
-  /* Static MAC for EVPN */
-  u_char sticky;
+	/* Aggregator Router ID attribute */
+	struct in_addr aggregator_addr;
 
-  /* route tag */
-  route_tag_t tag;
+	/* Route Reflector Originator attribute */
+	struct in_addr originator_id;
 
-  /* Label index */
-  u_int32_t label_index;
+	/* Local weight, not actually an attribute */
+	u_int32_t weight;
 
-  /* MPLS label */
-  mpls_label_t label;
+	/* Aggregator ASN */
+	as_t aggregator_as;
 
-  uint16_t			encap_tunneltype;	/* grr */
-  struct bgp_attr_encap_subtlv *encap_subtlvs;		/* rfc5512 */
+	/* MP Nexthop length */
+	u_char mp_nexthop_len;
+
+	/* MP Nexthop preference */
+	u_char mp_nexthop_prefer_global;
+
+	/* Static MAC for EVPN */
+	u_char sticky;
+
+	/* route tag */
+	route_tag_t tag;
+
+	/* Label index */
+	u_int32_t label_index;
+
+	/* MPLS label */
+	mpls_label_t label;
+
+	uint16_t encap_tunneltype;		     /* grr */
+	struct bgp_attr_encap_subtlv *encap_subtlvs; /* rfc5512 */
 
 #if ENABLE_BGP_VNC
-  struct bgp_attr_encap_subtlv *vnc_subtlvs;		/* VNC-specific */
+	struct bgp_attr_encap_subtlv *vnc_subtlvs; /* VNC-specific */
 #endif
-  /* EVPN */
-  struct overlay_index evpn_overlay;
+	/* EVPN */
+	struct overlay_index evpn_overlay;
 
-  /* EVPN MAC Mobility sequence number, if any. */
-  u_int32_t mm_seqnum;
+	/* EVPN MAC Mobility sequence number, if any. */
+	u_int32_t mm_seqnum;
 };
 
 /* rmap_change_flags definition */
@@ -197,97 +194,97 @@ struct attr
 #define BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED (1 << 6)
 
 /* Router Reflector related structure. */
-struct cluster_list
-{
-  unsigned long refcnt;
-  int length;
-  struct in_addr *list;
+struct cluster_list {
+	unsigned long refcnt;
+	int length;
+	struct in_addr *list;
 };
 
 /* Unknown transit attribute. */
-struct transit
-{
-  unsigned long refcnt;
-  int length;
-  u_char *val;
+struct transit {
+	unsigned long refcnt;
+	int length;
+	u_char *val;
 };
 
 #define ATTR_FLAG_BIT(X)  (1ULL << ((X) - 1))
 
-#define BGP_CLUSTER_LIST_LENGTH(attr)				\
-  (((attr)->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST)) ?	\
-   (attr)->cluster->length : 0)
+#define BGP_CLUSTER_LIST_LENGTH(attr)                                          \
+	(((attr)->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))                 \
+		 ? (attr)->cluster->length                                     \
+		 : 0)
 
 typedef enum {
- BGP_ATTR_PARSE_PROCEED = 0,
- BGP_ATTR_PARSE_ERROR = -1,
- BGP_ATTR_PARSE_WITHDRAW = -2,
+	BGP_ATTR_PARSE_PROCEED = 0,
+	BGP_ATTR_PARSE_ERROR = -1,
+	BGP_ATTR_PARSE_WITHDRAW = -2,
 
- /* only used internally, send notify + convert to BGP_ATTR_PARSE_ERROR */
- BGP_ATTR_PARSE_ERROR_NOTIFYPLS = -3,
+	/* only used internally, send notify + convert to BGP_ATTR_PARSE_ERROR
+	   */
+	BGP_ATTR_PARSE_ERROR_NOTIFYPLS = -3,
 } bgp_attr_parse_ret_t;
 
 struct bpacket_attr_vec_arr;
 
 /* Prototypes. */
-extern void bgp_attr_init (void);
-extern void bgp_attr_finish (void);
-extern bgp_attr_parse_ret_t bgp_attr_parse (struct peer *, struct attr *,
-                                           bgp_size_t, struct bgp_nlri *,
-                                           struct bgp_nlri *);
-extern void bgp_attr_dup (struct attr *, struct attr *);
-extern void bgp_attr_deep_dup (struct attr *, struct attr *);
-extern void bgp_attr_deep_free (struct attr *);
-extern struct attr *bgp_attr_intern (struct attr *attr);
-extern struct attr *bgp_attr_refcount (struct attr *attr);
-extern void bgp_attr_unintern_sub (struct attr *);
-extern void bgp_attr_unintern (struct attr **);
-extern void bgp_attr_flush (struct attr *);
-extern struct attr *bgp_attr_default_set (struct attr *attr, u_char);
-extern struct attr *bgp_attr_aggregate_intern (struct bgp *, u_char,
-                                        struct aspath *, 
-                                        struct community *, int as_set, u_char);
-extern bgp_size_t bgp_packet_attribute (struct bgp *bgp, struct peer *,
-					struct stream *, struct attr *,
-					struct bpacket_attr_vec_arr *vecarr,
-					struct prefix *, afi_t, safi_t,
-					struct peer *, struct prefix_rd *,
-					mpls_label_t *, int, u_int32_t);
-extern void bgp_dump_routes_attr (struct stream *, struct attr *,
-                                  struct prefix *);
-extern int attrhash_cmp (const void *, const void *);
-extern unsigned int attrhash_key_make (void *);
-extern void attr_show_all (struct vty *);
-extern unsigned long int attr_count (void);
-extern unsigned long int attr_unknown_count (void);
+extern void bgp_attr_init(void);
+extern void bgp_attr_finish(void);
+extern bgp_attr_parse_ret_t bgp_attr_parse(struct peer *, struct attr *,
+					   bgp_size_t, struct bgp_nlri *,
+					   struct bgp_nlri *);
+extern void bgp_attr_dup(struct attr *, struct attr *);
+extern void bgp_attr_deep_dup(struct attr *, struct attr *);
+extern void bgp_attr_deep_free(struct attr *);
+extern struct attr *bgp_attr_intern(struct attr *attr);
+extern struct attr *bgp_attr_refcount(struct attr *attr);
+extern void bgp_attr_unintern_sub(struct attr *);
+extern void bgp_attr_unintern(struct attr **);
+extern void bgp_attr_flush(struct attr *);
+extern struct attr *bgp_attr_default_set(struct attr *attr, u_char);
+extern struct attr *bgp_attr_aggregate_intern(struct bgp *, u_char,
+					      struct aspath *,
+					      struct community *, int as_set,
+					      u_char);
+extern bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *,
+				       struct stream *, struct attr *,
+				       struct bpacket_attr_vec_arr *vecarr,
+				       struct prefix *, afi_t, safi_t,
+				       struct peer *, struct prefix_rd *,
+				       mpls_label_t *, int, u_int32_t);
+extern void bgp_dump_routes_attr(struct stream *, struct attr *,
+				 struct prefix *);
+extern int attrhash_cmp(const void *, const void *);
+extern unsigned int attrhash_key_make(void *);
+extern void attr_show_all(struct vty *);
+extern unsigned long int attr_count(void);
+extern unsigned long int attr_unknown_count(void);
 
 /* Cluster list prototypes. */
-extern int cluster_loop_check (struct cluster_list *, struct in_addr);
-extern void cluster_unintern (struct cluster_list *);
+extern int cluster_loop_check(struct cluster_list *, struct in_addr);
+extern void cluster_unintern(struct cluster_list *);
 
 /* Transit attribute prototypes. */
-void transit_unintern (struct transit *);
+void transit_unintern(struct transit *);
 
 /* Below exported for unit-test purposes only */
 struct bgp_attr_parser_args {
-  struct peer *peer;
-  bgp_size_t length; /* attribute data length; */
-  bgp_size_t total; /* total length, inc header */
-  struct attr *attr;
-  u_int8_t type;
-  u_int8_t flags;
-  u_char *startp;   
+	struct peer *peer;
+	bgp_size_t length; /* attribute data length; */
+	bgp_size_t total;  /* total length, inc header */
+	struct attr *attr;
+	u_int8_t type;
+	u_int8_t flags;
+	u_char *startp;
 };
-extern int bgp_mp_reach_parse (struct bgp_attr_parser_args *args, 
-			       struct bgp_nlri *);
-extern int bgp_mp_unreach_parse (struct bgp_attr_parser_args *args,
-                                 struct bgp_nlri *);
+extern int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
+			      struct bgp_nlri *);
+extern int bgp_mp_unreach_parse(struct bgp_attr_parser_args *args,
+				struct bgp_nlri *);
 
 extern struct bgp_attr_encap_subtlv *
 encap_tlv_dup(struct bgp_attr_encap_subtlv *orig);
 
-extern void
-bgp_attr_flush_encap(struct attr *attr);
+extern void bgp_attr_flush_encap(struct attr *attr);
 
 /**
  * Set of functions to encode MP_REACH_NLRI and MP_UNREACH_NLRI attributes.
@@ -296,41 +293,44 @@ bgp_attr_flush_encap(struct attr *attr);
  * finally the _end() function.
  */
 extern size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer,
-                                      afi_t afi, safi_t safi,
-                                      struct bpacket_attr_vec_arr *vecarr,
+				      afi_t afi, safi_t safi,
+				      struct bpacket_attr_vec_arr *vecarr,
 				      struct attr *attr);
 extern void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 				     struct prefix *p, struct prefix_rd *prd,
 				     mpls_label_t *label, int addpath_encode,
-                                     u_int32_t addpath_tx_id,
-                                     struct attr *);
+				     u_int32_t addpath_tx_id, struct attr *);
 extern size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
-                                            struct prefix *p);
+					    struct prefix *p);
 extern void bgp_packet_mpattr_end(struct stream *s, size_t sizep);
 
-extern size_t bgp_packet_mpunreach_start (struct stream *s, afi_t afi,
-					  safi_t safi);
-extern void bgp_packet_mpunreach_prefix (struct stream *s, struct prefix *p,
-			     afi_t afi, safi_t safi, struct prefix_rd *prd,
-			     mpls_label_t *, int, u_int32_t, struct attr *);
-extern void bgp_packet_mpunreach_end (struct stream *s, size_t attrlen_pnt);
+extern size_t bgp_packet_mpunreach_start(struct stream *s, afi_t afi,
+					 safi_t safi);
+extern void bgp_packet_mpunreach_prefix(struct stream *s, struct prefix *p,
+					afi_t afi, safi_t safi,
+					struct prefix_rd *prd, mpls_label_t *,
+					int, u_int32_t, struct attr *);
+extern void bgp_packet_mpunreach_end(struct stream *s, size_t attrlen_pnt);
 
-static inline int
-bgp_rmap_nhop_changed(u_int32_t out_rmap_flags, u_int32_t in_rmap_flags)
+static inline int bgp_rmap_nhop_changed(u_int32_t out_rmap_flags,
+					u_int32_t in_rmap_flags)
 {
-  return ((CHECK_FLAG(out_rmap_flags, BATTR_RMAP_NEXTHOP_PEER_ADDRESS) ||
-           CHECK_FLAG(out_rmap_flags, BATTR_RMAP_NEXTHOP_UNCHANGED) ||
-           CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV4_NHOP_CHANGED) ||
-           CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED) ||
-           CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED) ||
-           CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV6_LL_NHOP_CHANGED) ||
-           CHECK_FLAG(in_rmap_flags, BATTR_RMAP_NEXTHOP_UNCHANGED)) ? 1 : 0);
+	return ((CHECK_FLAG(out_rmap_flags, BATTR_RMAP_NEXTHOP_PEER_ADDRESS)
+		 || CHECK_FLAG(out_rmap_flags, BATTR_RMAP_NEXTHOP_UNCHANGED)
+		 || CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV4_NHOP_CHANGED)
+		 || CHECK_FLAG(out_rmap_flags,
+			       BATTR_RMAP_IPV6_GLOBAL_NHOP_CHANGED)
+		 || CHECK_FLAG(out_rmap_flags,
+			       BATTR_RMAP_IPV6_PREFER_GLOBAL_CHANGED)
+		 || CHECK_FLAG(out_rmap_flags, BATTR_RMAP_IPV6_LL_NHOP_CHANGED)
+		 || CHECK_FLAG(in_rmap_flags, BATTR_RMAP_NEXTHOP_UNCHANGED))
+			? 1
+			: 0);
 }
 
-static inline u_int32_t
-mac_mobility_seqnum (struct attr *attr)
+static inline u_int32_t mac_mobility_seqnum(struct attr *attr)
 {
-  return (attr) ? attr->mm_seqnum : 0;
+	return (attr) ? attr->mm_seqnum : 0;
 }
 
 #endif /* _QUAGGA_BGP_ATTR_H */

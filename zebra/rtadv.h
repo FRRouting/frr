@@ -26,38 +26,36 @@
 #include "zebra/interface.h"
 
 /* NB: RTADV is defined in zebra/interface.h above */
-#if defined (HAVE_RTADV)
+#if defined(HAVE_RTADV)
 
 /* Router advertisement prefix. */
-struct rtadv_prefix
-{
-  /* Prefix to be advertised. */
-  struct prefix_ipv6 prefix;
-  
-  /* The value to be placed in the Valid Lifetime in the Prefix */
-  u_int32_t AdvValidLifetime;
+struct rtadv_prefix {
+	/* Prefix to be advertised. */
+	struct prefix_ipv6 prefix;
+
+	/* The value to be placed in the Valid Lifetime in the Prefix */
+	u_int32_t AdvValidLifetime;
 #define RTADV_VALID_LIFETIME 2592000
 
-  /* The value to be placed in the on-link flag */
-  int AdvOnLinkFlag;
+	/* The value to be placed in the on-link flag */
+	int AdvOnLinkFlag;
 
-  /* The value to be placed in the Preferred Lifetime in the Prefix
-     Information option, in seconds.*/
-  u_int32_t AdvPreferredLifetime;
+	/* The value to be placed in the Preferred Lifetime in the Prefix
+	   Information option, in seconds.*/
+	u_int32_t AdvPreferredLifetime;
 #define RTADV_PREFERRED_LIFETIME 604800
 
-  /* The value to be placed in the Autonomous Flag. */
-  int AdvAutonomousFlag;
+	/* The value to be placed in the Autonomous Flag. */
+	int AdvAutonomousFlag;
 
-  /* The value to be placed in the Router Address Flag [RFC6275 7.2]. */
-  int AdvRouterAddressFlag;
+	/* The value to be placed in the Router Address Flag [RFC6275 7.2]. */
+	int AdvRouterAddressFlag;
 #ifndef ND_OPT_PI_FLAG_RADDR
 #define ND_OPT_PI_FLAG_RADDR         0x20
 #endif
-
 };
 
-extern void rtadv_config_write (struct vty *, struct interface *);
+extern void rtadv_config_write(struct vty *, struct interface *);
 
 /* RFC4584 Extension to Sockets API for Mobile IPv6 */
 
@@ -69,11 +67,11 @@ extern void rtadv_config_write (struct vty *, struct interface *);
 #endif
 
 #ifndef HAVE_STRUCT_ND_OPT_ADV_INTERVAL
-struct nd_opt_adv_interval {   /* Advertisement interval option */
-        uint8_t        nd_opt_ai_type;
-        uint8_t        nd_opt_ai_len;
-        uint16_t       nd_opt_ai_reserved;
-        uint32_t       nd_opt_ai_interval;
+struct nd_opt_adv_interval { /* Advertisement interval option */
+	uint8_t nd_opt_ai_type;
+	uint8_t nd_opt_ai_len;
+	uint16_t nd_opt_ai_reserved;
+	uint32_t nd_opt_ai_interval;
 } __attribute__((__packed__));
 #else
 #ifndef HAVE_STRUCT_ND_OPT_ADV_INTERVAL_ND_OPT_AI_TYPE
@@ -86,12 +84,12 @@ struct nd_opt_adv_interval {   /* Advertisement interval option */
 #endif
 
 #ifndef HAVE_STRUCT_ND_OPT_HOMEAGENT_INFO
-struct nd_opt_homeagent_info {  /* Home Agent info */
-        u_int8_t        nd_opt_hai_type;
-        u_int8_t        nd_opt_hai_len;
-        u_int16_t       nd_opt_hai_reserved;
-        u_int16_t       nd_opt_hai_preference;
-        u_int16_t       nd_opt_hai_lifetime;
+struct nd_opt_homeagent_info { /* Home Agent info */
+	u_int8_t nd_opt_hai_type;
+	u_int8_t nd_opt_hai_len;
+	u_int16_t nd_opt_hai_reserved;
+	u_int16_t nd_opt_hai_preference;
+	u_int16_t nd_opt_hai_lifetime;
 } __attribute__((__packed__));
 #endif
 
@@ -100,14 +98,15 @@ extern const char *rtadv_pref_strs[];
 #endif /* HAVE_RTADV */
 
 typedef enum {
-  RA_ENABLE = 0,
-  RA_SUPPRESS,
+	RA_ENABLE = 0,
+	RA_SUPPRESS,
 } ipv6_nd_suppress_ra_status;
 
-extern void rtadv_init (struct zebra_ns *);
-extern void rtadv_terminate (struct zebra_ns *);
-extern void rtadv_cmd_init (void);
-extern void zebra_interface_radv_set (struct zserv *client, int sock, u_short length,
-                          struct zebra_vrf *zvrf, int enable);
+extern void rtadv_init(struct zebra_ns *);
+extern void rtadv_terminate(struct zebra_ns *);
+extern void rtadv_cmd_init(void);
+extern void zebra_interface_radv_set(struct zserv *client, int sock,
+				     u_short length, struct zebra_vrf *zvrf,
+				     int enable);
 
 #endif /* _ZEBRA_RTADV_H */

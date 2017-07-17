@@ -1,4 +1,4 @@
-/* 
+/*
  * This file is part of Quagga.
  *
  * Quagga is free software; you can redistribute it and/or modify it
@@ -21,56 +21,50 @@
 #include "lib/log.h"
 #include "lib/memory.h"
 
-static void
-sighup (void)
+static void sighup(void)
 {
-  printf ("processed hup\n");
+	printf("processed hup\n");
 }
 
-static void
-sigusr1 (void)
+static void sigusr1(void)
 {
-  printf ("processed usr1\n");
+	printf("processed usr1\n");
 }
 
-static void
-sigusr2 (void)
+static void sigusr2(void)
 {
-  printf ("processed usr2\n");
+	printf("processed usr2\n");
 }
 
-struct quagga_signal_t sigs[] = 
-{
-  {
-    .signal = SIGHUP,
-    .handler = &sighup,
-  },
-  {
-    .signal = SIGUSR1,
-    .handler = &sigusr1,
-  },
-  {
-    .signal = SIGUSR2,
-    .handler = &sigusr2,
-  }
-};
+struct quagga_signal_t sigs[] = {{
+					 .signal = SIGHUP,
+					 .handler = &sighup,
+				 },
+				 {
+					 .signal = SIGUSR1,
+					 .handler = &sigusr1,
+				 },
+				 {
+					 .signal = SIGUSR2,
+					 .handler = &sigusr2,
+				 }};
 
 struct thread_master *master;
 struct thread t;
 
-int
-main (void)
+int main(void)
 {
-  master = thread_master_create(NULL);
-  signal_init (master, array_size(sigs), sigs);
+	master = thread_master_create(NULL);
+	signal_init(master, array_size(sigs), sigs);
 
-  openzlog("testsig", "NONE", 0, LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
-  zlog_set_level(ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
-  zlog_set_level(ZLOG_DEST_STDOUT, LOG_DEBUG);
-  zlog_set_level(ZLOG_DEST_MONITOR, ZLOG_DISABLED);
+	openzlog("testsig", "NONE", 0, LOG_CONS | LOG_NDELAY | LOG_PID,
+		 LOG_DAEMON);
+	zlog_set_level(ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
+	zlog_set_level(ZLOG_DEST_STDOUT, LOG_DEBUG);
+	zlog_set_level(ZLOG_DEST_MONITOR, ZLOG_DISABLED);
 
-  while (thread_fetch (master, &t))
-    thread_call (&t);
+	while (thread_fetch(master, &t))
+		thread_call(&t);
 
-  exit (0);
+	exit(0);
 }

@@ -1,4 +1,4 @@
-/* 
+/*
  *
  * Copyright 2015-2016, LabN Consulting, L.L.C.
  *
@@ -23,15 +23,15 @@
 #include "bgpd/rfapi/rfapi.h"
 #include "lib/command.h"
 
-struct rfp_instance_t
-{
-  struct rfapi_rfp_cfg rfapi_config;
-  struct rfapi_rfp_cb_methods rfapi_callbacks;
-  struct thread_master *master;
-  uint32_t config_var;
+struct rfp_instance_t {
+	struct rfapi_rfp_cfg rfapi_config;
+	struct rfapi_rfp_cb_methods rfapi_callbacks;
+	struct thread_master *master;
+	uint32_t config_var;
 };
 
-struct rfp_instance_t global_rfi;       /* dynamically allocate in full implementation */
+struct rfp_instance_t
+	global_rfi; /* dynamically allocate in full implementation */
 
 /***********************************************************************
  * Sample VTY / internal function
@@ -44,26 +44,25 @@ DEFUN (rfp_example_config_value,
        "Example value to be configured\n"
        "Value to display")
 {
-  uint32_t value = 0;
-  struct rfp_instance_t *rfi = NULL;
-  rfi = rfapi_get_rfp_start_val (VTY_GET_CONTEXT (bgp));   /* BGP_NODE */
-  assert (rfi != NULL);
+	uint32_t value = 0;
+	struct rfp_instance_t *rfi = NULL;
+	rfi = rfapi_get_rfp_start_val(VTY_GET_CONTEXT(bgp)); /* BGP_NODE */
+	assert(rfi != NULL);
 
-  value = strtoul(argv[2]->arg, NULL, 10);
-  if (rfi)
-    rfi->config_var = value;
-  return CMD_SUCCESS;
+	value = strtoul(argv[2]->arg, NULL, 10);
+	if (rfi)
+		rfi->config_var = value;
+	return CMD_SUCCESS;
 }
 
-static void
-rfp_vty_install ()
+static void rfp_vty_install()
 {
-  static int installed = 0;
-  if (installed)                /* do this only once */
-    return;
-  installed = 1;
-  /* example of new cli command */
-  install_element (BGP_NODE, &rfp_example_config_value_cmd);
+	static int installed = 0;
+	if (installed) /* do this only once */
+		return;
+	installed = 1;
+	/* example of new cli command */
+	install_element(BGP_NODE, &rfp_example_config_value_cmd);
 }
 
 /***********************************************************************
@@ -73,7 +72,7 @@ rfp_vty_install ()
 /*------------------------------------------
  * rfp_response_cb
  *
- * Callbacks of this type are used to provide asynchronous 
+ * Callbacks of this type are used to provide asynchronous
  * route updates from RFAPI to the RFP client.
  *
  * response_cb
@@ -87,7 +86,7 @@ rfp_vty_install ()
  *	filtered out if the global BGP_VNC_CONFIG_FILTER_SELF_FROM_RSP
  *	flag is set.
  *
- * input: 
+ * input:
  *	next_hops	a list of possible next hops.
  *			This is a linked list allocated within the
  *			rfapi. The response_cb callback function is responsible
@@ -98,25 +97,25 @@ rfp_vty_install ()
  *			rfapi_open()
  *
  *------------------------------------------*/
-static void
-rfp_response_cb (struct rfapi_next_hop_entry *next_hops, void *userdata)
+static void rfp_response_cb(struct rfapi_next_hop_entry *next_hops,
+			    void *userdata)
 {
-  /* 
-   * Identify NVE based on userdata, which is a value passed 
-   * to RFAPI in the rfapi_open call 
-   */
+	/*
+	 * Identify NVE based on userdata, which is a value passed
+	 * to RFAPI in the rfapi_open call
+	 */
 
-  /* process list of next_hops */
+	/* process list of next_hops */
 
-  /* free next hops */
-  rfapi_free_next_hop_list (next_hops);
-  return;
+	/* free next hops */
+	rfapi_free_next_hop_list(next_hops);
+	return;
 }
 
 /*------------------------------------------
  * rfp_local_cb
  *
- * Callbacks of this type are used to provide asynchronous 
+ * Callbacks of this type are used to provide asynchronous
  * route updates from RFAPI to the RFP client.
  *
  * local_cb
@@ -124,7 +123,7 @@ rfp_response_cb (struct rfapi_next_hop_entry *next_hops, void *userdata)
  *	has been added or deleted. Deleted routes are indicated
  *	with lifetime==RFAPI_REMOVE_RESPONSE_LIFETIME.
  *
- * input: 
+ * input:
  *	next_hops	a list of possible next hops.
  *			This is a linked list allocated within the
  *			rfapi. The local_cb callback function is responsible
@@ -135,28 +134,27 @@ rfp_response_cb (struct rfapi_next_hop_entry *next_hops, void *userdata)
  *			rfapi_open()
  *
  *------------------------------------------*/
-static void
-rfp_local_cb (struct rfapi_next_hop_entry *next_hops, void *userdata)
+static void rfp_local_cb(struct rfapi_next_hop_entry *next_hops, void *userdata)
 {
-  /* 
-   * Identify NVE based on userdata, which is a value passed 
-   * to RFAPI in the rfapi_open call 
-   */
+	/*
+	 * Identify NVE based on userdata, which is a value passed
+	 * to RFAPI in the rfapi_open call
+	 */
 
-  /* process list of local next_hops */
+	/* process list of local next_hops */
 
-  /* free next hops */
-  rfapi_free_next_hop_list (next_hops);
-  return;
+	/* free next hops */
+	rfapi_free_next_hop_list(next_hops);
+	return;
 }
 
 /*------------------------------------------
- * rfp_close_cb 
+ * rfp_close_cb
  *
- * Callbacks used to provide asynchronous 
+ * Callbacks used to provide asynchronous
  * notification that an rfapi_handle was invalidated
  *
- * input: 
+ * input:
  *	pHandle		Firmerly valid rfapi_handle returned to
  *			client via rfapi_open().
  *
@@ -164,44 +162,42 @@ rfp_local_cb (struct rfapi_next_hop_entry *next_hops, void *userdata)
  *			ESTALE	handle invalidated by configuration change
  *
  *------------------------------------------*/
-static void
-rfp_close_cb (rfapi_handle pHandle, int reason)
+static void rfp_close_cb(rfapi_handle pHandle, int reason)
 {
-  /* close / invalidate NVE with the pHandle returned by the rfapi_open call */
-  return;
+	/* close / invalidate NVE with the pHandle returned by the rfapi_open
+	 * call */
+	return;
 }
 
 /*------------------------------------------
  * rfp_cfg_write_cb
  *
  * This callback is used to generate output for any config parameters
- * that may supported by RFP  via RFP defined vty commands at the bgp 
+ * that may supported by RFP  via RFP defined vty commands at the bgp
  * level.  See loglevel as an example.
  *
- * input: 
+ * input:
  *    vty           -- quagga vty context
  *    rfp_start_val -- value returned by rfp_start
  *
  * output:
  *    to vty, rfp related configuration
  *
- * return value: 
+ * return value:
  *    lines written
 --------------------------------------------*/
-static int
-rfp_cfg_write_cb (struct vty *vty, void *rfp_start_val)
+static int rfp_cfg_write_cb(struct vty *vty, void *rfp_start_val)
 {
-  struct rfp_instance_t *rfi = rfp_start_val;
-  int write = 0;
-  assert (rfp_start_val != NULL);
-  if (rfi->config_var != 0)
-    {
-      vty_out (vty, " rfp example-config-value %u", rfi->config_var);
-      vty_out (vty, "\n");
-      write++;
-    }
+	struct rfp_instance_t *rfi = rfp_start_val;
+	int write = 0;
+	assert(rfp_start_val != NULL);
+	if (rfi->config_var != 0) {
+		vty_out(vty, " rfp example-config-value %u", rfi->config_var);
+		vty_out(vty, "\n");
+		write++;
+	}
 
-  return write;
+	return write;
 }
 
 /***********************************************************************
@@ -213,50 +209,51 @@ rfp_cfg_write_cb (struct vty *vty, void *rfp_start_val)
  *
  * This function will start the RFP code
  *
- * input: 
+ * input:
  *    master    quagga thread_master to tie into bgpd threads
- * 
+ *
  * output:
- *    cfgp      Pointer to rfapi_rfp_cfg (null = use defaults), 
+ *    cfgp      Pointer to rfapi_rfp_cfg (null = use defaults),
  *              copied by caller, updated via rfp_set_configuration
  *    cbmp      Pointer to rfapi_rfp_cb_methods, may be null
  *              copied by caller, updated via rfapi_rfp_set_cb_methods
  *
- * return value: 
+ * return value:
  *    rfp_start_val rfp returned value passed on rfp_stop and rfp_cfg_write
- * 
+ *
 --------------------------------------------*/
-void *
-rfp_start (struct thread_master *master,
-           struct rfapi_rfp_cfg **cfgp, struct rfapi_rfp_cb_methods **cbmp)
+void *rfp_start(struct thread_master *master, struct rfapi_rfp_cfg **cfgp,
+		struct rfapi_rfp_cb_methods **cbmp)
 {
-  memset (&global_rfi, 0, sizeof (struct rfp_instance_t));
-  global_rfi.master = master;   /* for BGPD threads */
+	memset(&global_rfi, 0, sizeof(struct rfp_instance_t));
+	global_rfi.master = master; /* for BGPD threads */
 
-  /* initilize struct rfapi_rfp_cfg, see rfapi.h */
-  global_rfi.rfapi_config.download_type = RFAPI_RFP_DOWNLOAD_FULL;      /* default=partial */
-  global_rfi.rfapi_config.ftd_advertisement_interval =
-    RFAPI_RFP_CFG_DEFAULT_FTD_ADVERTISEMENT_INTERVAL;
-  global_rfi.rfapi_config.holddown_factor = 0;  /* default: RFAPI_RFP_CFG_DEFAULT_HOLDDOWN_FACTOR */
-  global_rfi.rfapi_config.use_updated_response = 1;     /* 0=no */
-  global_rfi.rfapi_config.use_removes = 1;      /* 0=no */
+	/* initilize struct rfapi_rfp_cfg, see rfapi.h */
+	global_rfi.rfapi_config.download_type =
+		RFAPI_RFP_DOWNLOAD_FULL; /* default=partial */
+	global_rfi.rfapi_config.ftd_advertisement_interval =
+		RFAPI_RFP_CFG_DEFAULT_FTD_ADVERTISEMENT_INTERVAL;
+	global_rfi.rfapi_config.holddown_factor =
+		0; /* default: RFAPI_RFP_CFG_DEFAULT_HOLDDOWN_FACTOR */
+	global_rfi.rfapi_config.use_updated_response = 1; /* 0=no */
+	global_rfi.rfapi_config.use_removes = 1;	  /* 0=no */
 
 
-  /* initilize structrfapi_rfp_cb_methods , see rfapi.h */
-  global_rfi.rfapi_callbacks.cfg_cb = rfp_cfg_write_cb;
-  /* no group config */
-  global_rfi.rfapi_callbacks.response_cb = rfp_response_cb;
-  global_rfi.rfapi_callbacks.local_cb = rfp_local_cb;
-  global_rfi.rfapi_callbacks.close_cb = rfp_close_cb;
+	/* initilize structrfapi_rfp_cb_methods , see rfapi.h */
+	global_rfi.rfapi_callbacks.cfg_cb = rfp_cfg_write_cb;
+	/* no group config */
+	global_rfi.rfapi_callbacks.response_cb = rfp_response_cb;
+	global_rfi.rfapi_callbacks.local_cb = rfp_local_cb;
+	global_rfi.rfapi_callbacks.close_cb = rfp_close_cb;
 
-  if (cfgp != NULL)
-    *cfgp = &global_rfi.rfapi_config;
-  if (cbmp != NULL)
-    *cbmp = &global_rfi.rfapi_callbacks;
+	if (cfgp != NULL)
+		*cfgp = &global_rfi.rfapi_config;
+	if (cbmp != NULL)
+		*cbmp = &global_rfi.rfapi_callbacks;
 
-  rfp_vty_install ();
+	rfp_vty_install();
 
-  return &global_rfi;
+	return &global_rfi;
 }
 
 /*------------------------------------------
@@ -264,24 +261,22 @@ rfp_start (struct thread_master *master,
  *
  * This function is called on shutdown to trigger RFP cleanup
  *
- * input: 
+ * input:
  *    none
  *
  * output:
  *    none
  *
- * return value: 
+ * return value:
  *    rfp_start_val
 --------------------------------------------*/
-void
-rfp_stop (void *rfp_start_val)
+void rfp_stop(void *rfp_start_val)
 {
-  assert (rfp_start_val != NULL);
+	assert(rfp_start_val != NULL);
 }
 
 /* TO BE REMOVED */
-void
-rfp_clear_vnc_nve_all (void)
+void rfp_clear_vnc_nve_all(void)
 {
-  return;
+	return;
 }

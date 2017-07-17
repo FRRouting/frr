@@ -26,42 +26,40 @@
 
 #ifdef HAVE_NETLINK
 /* Socket interface to kernel */
-struct nlsock
-{
-  int sock;
-  int seq;
-  struct sockaddr_nl snl;
-  char name[64];
+struct nlsock {
+	int sock;
+	int seq;
+	struct sockaddr_nl snl;
+	char name[64];
 };
 #endif
 
-struct zebra_ns
-{
-  /* net-ns name.  */
-  char name[VRF_NAMSIZ];
+struct zebra_ns {
+	/* net-ns name.  */
+	char name[VRF_NAMSIZ];
 
-  /* Identifier. */
-  ns_id_t ns_id;
+	/* Identifier. */
+	ns_id_t ns_id;
 
 #ifdef HAVE_NETLINK
-  struct nlsock netlink;     /* kernel messages */
-  struct nlsock netlink_cmd; /* command channel */
-  struct thread *t_netlink;
+	struct nlsock netlink;     /* kernel messages */
+	struct nlsock netlink_cmd; /* command channel */
+	struct thread *t_netlink;
 #endif
 
-  struct route_table *if_table;
+	struct route_table *if_table;
 
-#if defined (HAVE_RTADV)
-  struct rtadv rtadv;
+#if defined(HAVE_RTADV)
+	struct rtadv rtadv;
 #endif /* HAVE_RTADV */
 };
 
 #define NS_DEFAULT 0
 #define NS_UNKNOWN UINT16_MAX
 
-struct zebra_ns *zebra_ns_lookup (ns_id_t ns_id);
+struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id);
 
-int zebra_ns_init (void);
-int zebra_ns_enable (ns_id_t ns_id, void **info);
-int zebra_ns_disable (ns_id_t ns_id, void **info);
+int zebra_ns_init(void);
+int zebra_ns_enable(ns_id_t ns_id, void **info);
+int zebra_ns_disable(ns_id_t ns_id, void **info);
 #endif

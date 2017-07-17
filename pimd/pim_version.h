@@ -22,6 +22,6 @@
 
 #define PIMD_VERSION_STR "0.166"
 
-const char * const PIMD_VERSION;
+const char *const PIMD_VERSION;
 
 #endif /* PIM_VERSION_H */

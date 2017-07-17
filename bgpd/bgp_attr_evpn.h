@@ -29,7 +29,6 @@
 #define ESI_TYPE_ROUTER    4  /* <RouterId-4B>:<Local Discriminator Value-4B> */
 #define ESI_TYPE_AS        5  /* <AS-4B>:<Local Discriminator Value-4B> */
 
-
 #define MAX_ESI {0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff,0xff}
 #define ESI_LEN 10
 
@@ -38,32 +37,30 @@
 u_long eth_tag_id;
 struct attr;
 
-struct eth_segment_id
-{
-  u_char val[ESI_LEN];
+struct eth_segment_id {
+	u_char val[ESI_LEN];
 };
 
-union gw_addr
-{
-  struct in_addr ipv4;
-  struct in6_addr ipv6;
+union gw_addr {
+	struct in_addr ipv4;
+	struct in6_addr ipv6;
 };
 
-struct bgp_route_evpn
-{
-  struct eth_segment_id eth_s_id;
-  union gw_addr gw_ip;
+struct bgp_route_evpn {
+	struct eth_segment_id eth_s_id;
+	union gw_addr gw_ip;
 };
 
 extern int str2esi(const char *str, struct eth_segment_id *id);
 extern char *esi2str(struct eth_segment_id *id);
 extern char *ecom_mac2str(char *ecom_mac);
 
-extern void bgp_add_routermac_ecom(struct attr *attr, struct ethaddr *routermac);
+extern void bgp_add_routermac_ecom(struct attr *attr,
+				   struct ethaddr *routermac);
 extern int bgp_build_evpn_prefix(int type, uint32_t eth_tag,
-         struct prefix *dst);
+				 struct prefix *dst);
 
-extern u_int32_t
-bgp_attr_mac_mobility_seqnum (struct attr *attr, u_char *sticky);
+extern u_int32_t bgp_attr_mac_mobility_seqnum(struct attr *attr,
+					      u_char *sticky);
 
-#endif        /* _QUAGGA_BGP_ATTR_EVPN_H */
+#endif /* _QUAGGA_BGP_ATTR_EVPN_H */

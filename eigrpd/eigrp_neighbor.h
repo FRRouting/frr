@@ -34,21 +34,23 @@
 
 /* Prototypes */
 extern struct eigrp_neighbor *eigrp_nbr_get(struct eigrp_interface *,
-					    struct eigrp_header *,
-					    struct ip *);
-extern struct eigrp_neighbor *eigrp_nbr_new (struct eigrp_interface *);
+					    struct eigrp_header *, struct ip *);
+extern struct eigrp_neighbor *eigrp_nbr_new(struct eigrp_interface *);
 extern void eigrp_nbr_delete(struct eigrp_neighbor *);
 
 extern int holddown_timer_expired(struct thread *);
 
-extern int eigrp_neighborship_check(struct eigrp_neighbor *,struct TLV_Parameter_Type *);
+extern int eigrp_neighborship_check(struct eigrp_neighbor *,
+				    struct TLV_Parameter_Type *);
 extern void eigrp_nbr_state_update(struct eigrp_neighbor *);
 extern void eigrp_nbr_state_set(struct eigrp_neighbor *, u_char state);
 extern u_char eigrp_nbr_state_get(struct eigrp_neighbor *);
 extern int eigrp_nbr_count_get(void);
 extern const char *eigrp_nbr_state_str(struct eigrp_neighbor *);
-extern struct eigrp_neighbor *eigrp_nbr_lookup_by_addr (struct eigrp_interface *, struct in_addr *);
-extern struct eigrp_neighbor *eigrp_nbr_lookup_by_addr_process (struct eigrp *, struct in_addr);
+extern struct eigrp_neighbor *eigrp_nbr_lookup_by_addr(struct eigrp_interface *,
+						       struct in_addr *);
+extern struct eigrp_neighbor *eigrp_nbr_lookup_by_addr_process(struct eigrp *,
+							       struct in_addr);
 extern void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *vty);
 
 #endif /* _ZEBRA_EIGRP_NEIGHBOR_H */

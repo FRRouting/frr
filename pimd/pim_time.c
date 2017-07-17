@@ -30,16 +30,15 @@
 
 static int gettime_monotonic(struct timeval *tv)
 {
-  int result;
+	int result;
 
-  result = gettimeofday(tv, 0);
-  if (result) {
-    zlog_err("%s: gettimeofday() failure: errno=%d: %s",
-	     __PRETTY_FUNCTION__,
-	     errno, safe_strerror(errno));
-  }
+	result = gettimeofday(tv, 0);
+	if (result) {
+		zlog_err("%s: gettimeofday() failure: errno=%d: %s",
+			 __PRETTY_FUNCTION__, errno, safe_strerror(errno));
+	}
 
-  return result;
+	return result;
 }
 
 /*
@@ -48,16 +47,15 @@ static int gettime_monotonic(struct timeval *tv)
 */
 int64_t pim_time_monotonic_sec()
 {
-  struct timeval now_tv;
+	struct timeval now_tv;
 
-  if (gettime_monotonic(&now_tv)) {
-    zlog_err("%s: gettime_monotonic() failure: errno=%d: %s",
-	     __PRETTY_FUNCTION__,
-	     errno, safe_strerror(errno));
-    return -1;
-  }
+	if (gettime_monotonic(&now_tv)) {
+		zlog_err("%s: gettime_monotonic() failure: errno=%d: %s",
+			 __PRETTY_FUNCTION__, errno, safe_strerror(errno));
+		return -1;
+	}
 
-  return now_tv.tv_sec;
+	return now_tv.tv_sec;
 }
 
 /*
@@ -66,117 +64,111 @@ int64_t pim_time_monotonic_sec()
 */
 int64_t pim_time_monotonic_dsec()
 {
-  struct timeval now_tv;
-  int64_t        now_dsec;
+	struct timeval now_tv;
+	int64_t now_dsec;
 
-  if (gettime_monotonic(&now_tv)) {
-    zlog_err("%s: gettime_monotonic() failure: errno=%d: %s",
-	     __PRETTY_FUNCTION__,
-	     errno, safe_strerror(errno));
-    return -1;
-  }
+	if (gettime_monotonic(&now_tv)) {
+		zlog_err("%s: gettime_monotonic() failure: errno=%d: %s",
+			 __PRETTY_FUNCTION__, errno, safe_strerror(errno));
+		return -1;
+	}
 
-  now_dsec = ((int64_t) now_tv.tv_sec) * 10 + ((int64_t) now_tv.tv_usec) / 100000;
+	now_dsec = ((int64_t)now_tv.tv_sec) * 10
+		   + ((int64_t)now_tv.tv_usec) / 100000;
 
-  return now_dsec;
+	return now_dsec;
 }
 
-int64_t
-pim_time_monotonic_usec (void)
+int64_t pim_time_monotonic_usec(void)
 {
-  struct timeval now_tv;
-  int64_t        now_dsec;
+	struct timeval now_tv;
+	int64_t now_dsec;
 
-  if (gettime_monotonic(&now_tv)) {
-    zlog_err("%s: gettime_monotonic() failure: errno=%d: %s",
-             __PRETTY_FUNCTION__,
-             errno, safe_strerror(errno));
-    return -1;
-  }
+	if (gettime_monotonic(&now_tv)) {
+		zlog_err("%s: gettime_monotonic() failure: errno=%d: %s",
+			 __PRETTY_FUNCTION__, errno, safe_strerror(errno));
+		return -1;
+	}
 
-  now_dsec = ((int64_t) now_tv.tv_sec) * 1000000 + ((int64_t) now_tv.tv_usec);
+	now_dsec =
+		((int64_t)now_tv.tv_sec) * 1000000 + ((int64_t)now_tv.tv_usec);
 
-  return now_dsec;
-
+	return now_dsec;
 }
 
 int pim_time_mmss(char *buf, int buf_size, long sec)
 {
-  long mm;
-  int wr;
+	long mm;
+	int wr;
 
-  zassert(buf_size >= 5);
+	zassert(buf_size >= 5);
 
-  mm = sec / 60;
-  sec %= 60;
-  
-  wr = snprintf(buf, buf_size, "%02ld:%02ld", mm, sec);
+	mm = sec / 60;
+	sec %= 60;
 
-  return wr != 8;
+	wr = snprintf(buf, buf_size, "%02ld:%02ld", mm, sec);
+
+	return wr != 8;
 }
 
 static int pim_time_hhmmss(char *buf, int buf_size, long sec)
 {
-  long hh;
-  long mm;
-  int wr;
+	long hh;
+	long mm;
+	int wr;
 
-  zassert(buf_size >= 8);
+	zassert(buf_size >= 8);
 
-  hh = sec / 3600;
-  sec %= 3600;
-  mm = sec / 60;
-  sec %= 60;
-  
-  wr = snprintf(buf, buf_size, "%02ld:%02ld:%02ld", hh, mm, sec);
+	hh = sec / 3600;
+	sec %= 3600;
+	mm = sec / 60;
+	sec %= 60;
 
-  return wr != 8;
+	wr = snprintf(buf, buf_size, "%02ld:%02ld:%02ld", hh, mm, sec);
+
+	return wr != 8;
 }
 
 void pim_time_timer_to_mmss(char *buf, int buf_size, struct thread *t_timer)
 {
-  if (t_timer) {
-    pim_time_mmss(buf, buf_size,
-		  thread_timer_remain_second(t_timer));
-  }
-  else {
-    snprintf(buf, buf_size, "--:--");
-  }
+	if (t_timer) {
+		pim_time_mmss(buf, buf_size,
+			      thread_timer_remain_second(t_timer));
+	} else {
+		snprintf(buf, buf_size, "--:--");
+	}
 }
 
 void pim_time_timer_to_hhmmss(char *buf, int buf_size, struct thread *t_timer)
 {
-  if (t_timer) {
-    pim_time_hhmmss(buf, buf_size,
-		    thread_timer_remain_second(t_timer));
-  }
-  else {
-    snprintf(buf, buf_size, "--:--:--");
-  }
+	if (t_timer) {
+		pim_time_hhmmss(buf, buf_size,
+				thread_timer_remain_second(t_timer));
+	} else {
+		snprintf(buf, buf_size, "--:--:--");
+	}
 }
 
 void pim_time_uptime(char *buf, int buf_size, int64_t uptime_sec)
 {
-  zassert(buf_size >= 8);
+	zassert(buf_size >= 8);
 
-  pim_time_hhmmss(buf, buf_size, uptime_sec);
+	pim_time_hhmmss(buf, buf_size, uptime_sec);
 }
 
 void pim_time_uptime_begin(char *buf, int buf_size, int64_t now, int64_t begin)
 {
-  if (begin > 0)
-    pim_time_uptime(buf, buf_size, now - begin);
-  else
-    snprintf(buf, buf_size, "--:--:--");
+	if (begin > 0)
+		pim_time_uptime(buf, buf_size, now - begin);
+	else
+		snprintf(buf, buf_size, "--:--:--");
 }
 
 long pim_time_timer_remain_msec(struct thread *t_timer)
 {
-  /* FIXME: Actually fetch msec resolution from thread */
+	/* FIXME: Actually fetch msec resolution from thread */
 
-  /* no timer thread running means timer has expired: return 0 */
+	/* no timer thread running means timer has expired: return 0 */
 
-  return t_timer ?
-    1000 * thread_timer_remain_second(t_timer) :
-    0;
+	return t_timer ? 1000 * thread_timer_remain_second(t_timer) : 0;
 }

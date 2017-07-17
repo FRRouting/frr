@@ -73,25 +73,25 @@ typedef unsigned short vifi_t;
 
 #ifndef HAVE_STRUCT_VIFCTL
 struct vifctl {
-	vifi_t	vifc_vifi;		/* Index of VIF */
-	unsigned char vifc_flags;	/* VIFF_ flags */
-	unsigned char vifc_threshold;	/* ttl limit */
-	unsigned int vifc_rate_limit;	/* Rate limiter values (NI) */
-	struct in_addr vifc_lcl_addr;	/* Our address */
-	struct in_addr vifc_rmt_addr;	/* IPIP tunnel addr */
+	vifi_t vifc_vifi;	     /* Index of VIF */
+	unsigned char vifc_flags;     /* VIFF_ flags */
+	unsigned char vifc_threshold; /* ttl limit */
+	unsigned int vifc_rate_limit; /* Rate limiter values (NI) */
+	struct in_addr vifc_lcl_addr; /* Our address */
+	struct in_addr vifc_rmt_addr; /* IPIP tunnel addr */
 };
 #endif
 
 #ifndef HAVE_STRUCT_MFCCTL
 struct mfcctl {
-  struct in_addr mfcc_origin;             /* Origin of mcast      */
-  struct in_addr mfcc_mcastgrp;           /* Group in question    */
-  vifi_t         mfcc_parent;             /* Where it arrived     */
-  unsigned char  mfcc_ttls[MAXVIFS];      /* Where it is going    */
-  unsigned int   mfcc_pkt_cnt;            /* pkt count for src-grp */
-  unsigned int   mfcc_byte_cnt;
-  unsigned int   mfcc_wrong_if;
-  int            mfcc_expire;
+	struct in_addr mfcc_origin;       /* Origin of mcast      */
+	struct in_addr mfcc_mcastgrp;     /* Group in question    */
+	vifi_t mfcc_parent;		  /* Where it arrived     */
+	unsigned char mfcc_ttls[MAXVIFS]; /* Where it is going    */
+	unsigned int mfcc_pkt_cnt;	/* pkt count for src-grp */
+	unsigned int mfcc_byte_cnt;
+	unsigned int mfcc_wrong_if;
+	int mfcc_expire;
 };
 #endif
 
@@ -107,11 +107,11 @@ struct mfcctl {
  */
 #ifndef HAVE_STRUCT_SIOC_SG_REQ
 struct sioc_sg_req {
-  struct in_addr src;
-  struct in_addr grp;
-  unsigned long pktcnt;
-  unsigned long bytecnt;
-  unsigned long wrong_if;
+	struct in_addr src;
+	struct in_addr grp;
+	unsigned long pktcnt;
+	unsigned long bytecnt;
+	unsigned long wrong_if;
 };
 #endif
 
@@ -126,11 +126,11 @@ struct sioc_sg_req {
  */
 #ifndef HAVE_STRUCT_SIOC_VIF_REQ
 struct sioc_vif_req {
-  vifi_t  vifi;           /* Which iface */
-  unsigned long icount;   /* In packets */
-  unsigned long ocount;   /* Out packets */
-  unsigned long ibytes;   /* In bytes */
-  unsigned long obytes;   /* Out bytes */
+	vifi_t vifi;	  /* Which iface */
+	unsigned long icount; /* In packets */
+	unsigned long ocount; /* Out packets */
+	unsigned long ibytes; /* In bytes */
+	unsigned long obytes; /* Out bytes */
 };
 #endif
 
@@ -144,14 +144,13 @@ struct sioc_vif_req {
 #endif
 
 #ifndef HAVE_STRUCT_IGMPMSG
-struct igmpmsg
-{
-  uint32_t unused1,unused2;
-  unsigned char im_msgtype;               /* What is this */
-  unsigned char im_mbz;                   /* Must be zero */
-  unsigned char im_vif;                   /* Interface (this ought to be a vifi_t!) */
-  unsigned char unused3;
-  struct in_addr im_src,im_dst;
+struct igmpmsg {
+	uint32_t unused1, unused2;
+	unsigned char im_msgtype; /* What is this */
+	unsigned char im_mbz;     /* Must be zero */
+	unsigned char im_vif;     /* Interface (this ought to be a vifi_t!) */
+	unsigned char unused3;
+	struct in_addr im_src, im_dst;
 };
 #endif
 #endif
@@ -167,7 +166,8 @@ struct igmpmsg
 int pim_mroute_socket_enable(void);
 int pim_mroute_socket_disable(void);
 
-int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr, unsigned char flags);
+int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr,
+		       unsigned char flags);
 int pim_mroute_del_vif(int vif_index);
 
 int pim_mroute_add(struct channel_oil *c_oil, const char *name);
@@ -175,5 +175,5 @@ int pim_mroute_del(struct channel_oil *c_oil, const char *name);
 
 int pim_mroute_msg(int fd, const char *buf, int buf_size);
 
-void pim_mroute_update_counters (struct channel_oil *c_oil);
+void pim_mroute_update_counters(struct channel_oil *c_oil);
 #endif /* PIM_MROUTE_H */

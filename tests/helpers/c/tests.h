@@ -24,7 +24,7 @@
 #ifndef _QUAGGA_TESTS_H
 #define _QUAGGA_TESTS_H
 
-extern void test_init (void);
-extern void test_init_cmd (void);
+extern void test_init(void);
+extern void test_init_cmd(void);
 
 #endif /* _QUAGGA_TESTS_H */
