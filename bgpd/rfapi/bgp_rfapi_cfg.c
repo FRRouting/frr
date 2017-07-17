@@ -503,9 +503,8 @@ DEFUN (vnc_defaults_responselifetime,
 	} else {
 		rspint = strtoul(argv[1]->arg, NULL, 10);
 		if (rspint > INT32_MAX)
-			rspint =
-				INT32_MAX; /* is really an int, not an unsigned
-					      int */
+			rspint = INT32_MAX; /* is really an int, not an unsigned
+					       int */
 	}
 
 	bgp->rfapi_cfg->default_response_lifetime = rspint;
@@ -1674,8 +1673,9 @@ DEFUN (vnc_nve_group_export_no_prefixlist,
 	}
 
 	if (argv[2]->arg[0] == 'b') {
-		if (((argc > 5) && strmatch(argv[5]->text,
-					    rfg->plist_export_bgp_name[afi]))
+		if (((argc > 5)
+		     && strmatch(argv[5]->text,
+				 rfg->plist_export_bgp_name[afi]))
 		    || (argc <= 5)) {
 
 			if (rfg->plist_export_bgp_name[afi])
@@ -1686,8 +1686,9 @@ DEFUN (vnc_nve_group_export_no_prefixlist,
 			vnc_direct_bgp_reexport_group_afi(bgp, rfg, afi);
 		}
 	} else {
-		if (((argc > 5) && strmatch(argv[5]->text,
-					    rfg->plist_export_zebra_name[afi]))
+		if (((argc > 5)
+		     && strmatch(argv[5]->text,
+				 rfg->plist_export_zebra_name[afi]))
 		    || (argc <= 5)) {
 			if (rfg->plist_export_zebra_name[afi])
 				free(rfg->plist_export_zebra_name[afi]);
@@ -1791,8 +1792,9 @@ DEFUN (vnc_nve_group_export_no_routemap,
 			vnc_direct_bgp_reexport_group_afi(bgp, rfg, AFI_IP6);
 		}
 	} else {
-		if (((argc > 4) && strmatch(argv[4]->text,
-					    rfg->routemap_export_zebra_name))
+		if (((argc > 4)
+		     && strmatch(argv[4]->text,
+				 rfg->routemap_export_zebra_name))
 		    || (argc <= 4)) {
 			if (rfg->routemap_export_zebra_name)
 				free(rfg->routemap_export_zebra_name);
@@ -2445,8 +2447,9 @@ bgp_rfapi_delete_named_nve_group(struct vty *vty, /* NULL = no output */
 	 */
 	for (ALL_LIST_ELEMENTS_RO(bgp->rfapi_cfg->rfg_export_direct_bgp_l, node,
 				  rfgn)) {
-		if (rfg_name == NULL || (type == RFAPI_GROUP_CFG_NVE
-					 && !strcmp(rfgn->name, rfg_name))) {
+		if (rfg_name == NULL
+		    || (type == RFAPI_GROUP_CFG_NVE
+			&& !strcmp(rfgn->name, rfg_name))) {
 			rfgn->rfg = NULL;
 			/* remove exported routes from this group */
 			vnc_direct_bgp_del_group(bgp, rfg);
@@ -2460,8 +2463,9 @@ bgp_rfapi_delete_named_nve_group(struct vty *vty, /* NULL = no output */
 	for (ALL_LIST_ELEMENTS_RO(bgp->rfapi_cfg->rfg_export_zebra_l, node,
 				  rfgn)) {
 
-		if (rfg_name == NULL || (type == RFAPI_GROUP_CFG_NVE
-					 && !strcmp(rfgn->name, rfg_name))) {
+		if (rfg_name == NULL
+		    || (type == RFAPI_GROUP_CFG_NVE
+			&& !strcmp(rfgn->name, rfg_name))) {
 			rfgn->rfg = NULL;
 			/* remove exported routes from this group */
 			vnc_zebra_del_group(bgp, rfg);

@@ -435,9 +435,8 @@ int zclient_lookup_nexthop(struct pim_zlookup_nexthop nexthop_tab[],
 				nexthop_tab[0].route_metric);
 		}
 
-		addr =
-			nexthop_addr.u.prefix4; /* use nexthop addr for
-						   recursive lookup */
+		addr = nexthop_addr.u.prefix4; /* use nexthop addr for
+						  recursive lookup */
 
 	} /* for (max_lookup) */
 

@@ -267,8 +267,9 @@ DEFUN (zebra_ptm_enable,
 	for (ALL_LIST_ELEMENTS_RO(vrf->iflist, i, ifp))
 		if (!ifp->ptm_enable) {
 			if_data = (struct zebra_if *)ifp->info;
-			if (if_data && (if_data->ptm_enable
-					== ZEBRA_IF_PTM_ENABLE_UNSPEC)) {
+			if (if_data
+			    && (if_data->ptm_enable
+				== ZEBRA_IF_PTM_ENABLE_UNSPEC)) {
 				ifp->ptm_enable = ZEBRA_IF_PTM_ENABLE_ON;
 			}
 			/* Assign a default unknown status */

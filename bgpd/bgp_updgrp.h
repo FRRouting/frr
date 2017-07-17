@@ -267,7 +267,6 @@ struct update_subgroup {
  */
 #define SUBGRP_DECR_STAT(subgrp, stat) SUBGRP_INCR_STAT_BY(subgrp, stat, -1)
 
-
 typedef int (*updgrp_walkcb)(struct update_group *updgrp, void *ctx);
 
 /* really a private structure */

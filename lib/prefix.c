@@ -1151,8 +1151,9 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 	switch (p->family) {
 	case AF_INET:
 	case AF_INET6:
-		snprintf(str, size, "%s/%d", inet_ntop(p->family, &p->u.prefix,
-						       buf, PREFIX2STR_BUFFER),
+		snprintf(str, size, "%s/%d",
+			 inet_ntop(p->family, &p->u.prefix, buf,
+				   PREFIX2STR_BUFFER),
 			 p->prefixlen);
 		break;
 

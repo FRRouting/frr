@@ -441,7 +441,7 @@ dnode_t *dict_lookup(dict_t *dict, const void *key)
 			root = root->right;
 		else {
 			if (!dict->dupes) { /* no duplicates, return match
-					       */
+					     */
 				return root;
 			} else { /* could be dupes, find leftmost one	*/
 				do {

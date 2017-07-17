@@ -131,46 +131,60 @@ const char *ospf_api_typename(int msgtype)
 {
 	struct nametab NameTab[] = {
 		{
-			MSG_REGISTER_OPAQUETYPE, "Register opaque-type",
+			MSG_REGISTER_OPAQUETYPE,
+			"Register opaque-type",
 		},
 		{
-			MSG_UNREGISTER_OPAQUETYPE, "Unregister opaque-type",
+			MSG_UNREGISTER_OPAQUETYPE,
+			"Unregister opaque-type",
 		},
 		{
-			MSG_REGISTER_EVENT, "Register event",
+			MSG_REGISTER_EVENT,
+			"Register event",
 		},
 		{
-			MSG_SYNC_LSDB, "Sync LSDB",
+			MSG_SYNC_LSDB,
+			"Sync LSDB",
 		},
 		{
-			MSG_ORIGINATE_REQUEST, "Originate request",
+			MSG_ORIGINATE_REQUEST,
+			"Originate request",
 		},
 		{
-			MSG_DELETE_REQUEST, "Delete request",
+			MSG_DELETE_REQUEST,
+			"Delete request",
 		},
 		{
-			MSG_REPLY, "Reply",
+			MSG_REPLY,
+			"Reply",
 		},
 		{
-			MSG_READY_NOTIFY, "Ready notify",
+			MSG_READY_NOTIFY,
+			"Ready notify",
 		},
 		{
-			MSG_LSA_UPDATE_NOTIFY, "LSA update notify",
+			MSG_LSA_UPDATE_NOTIFY,
+			"LSA update notify",
 		},
 		{
-			MSG_LSA_DELETE_NOTIFY, "LSA delete notify",
+			MSG_LSA_DELETE_NOTIFY,
+			"LSA delete notify",
 		},
 		{
-			MSG_NEW_IF, "New interface",
+			MSG_NEW_IF,
+			"New interface",
 		},
 		{
-			MSG_DEL_IF, "Del interface",
+			MSG_DEL_IF,
+			"Del interface",
 		},
 		{
-			MSG_ISM_CHANGE, "ISM change",
+			MSG_ISM_CHANGE,
+			"ISM change",
 		},
 		{
-			MSG_NSM_CHANGE, "NSM change",
+			MSG_NSM_CHANGE,
+			"NSM change",
 		},
 	};
 
@@ -191,38 +205,48 @@ const char *ospf_api_errname(int errcode)
 {
 	struct nametab NameTab[] = {
 		{
-			OSPF_API_OK, "OK",
+			OSPF_API_OK,
+			"OK",
 		},
 		{
-			OSPF_API_NOSUCHINTERFACE, "No such interface",
+			OSPF_API_NOSUCHINTERFACE,
+			"No such interface",
 		},
 		{
-			OSPF_API_NOSUCHAREA, "No such area",
+			OSPF_API_NOSUCHAREA,
+			"No such area",
 		},
 		{
-			OSPF_API_NOSUCHLSA, "No such LSA",
+			OSPF_API_NOSUCHLSA,
+			"No such LSA",
 		},
 		{
-			OSPF_API_ILLEGALLSATYPE, "Illegal LSA type",
+			OSPF_API_ILLEGALLSATYPE,
+			"Illegal LSA type",
 		},
 		{
-			OSPF_API_OPAQUETYPEINUSE, "Opaque type in use",
+			OSPF_API_OPAQUETYPEINUSE,
+			"Opaque type in use",
 		},
 		{
 			OSPF_API_OPAQUETYPENOTREGISTERED,
 			"Opaque type not registered",
 		},
 		{
-			OSPF_API_NOTREADY, "Not ready",
+			OSPF_API_NOTREADY,
+			"Not ready",
 		},
 		{
-			OSPF_API_NOMEMORY, "No memory",
+			OSPF_API_NOMEMORY,
+			"No memory",
 		},
 		{
-			OSPF_API_ERROR, "Other error",
+			OSPF_API_ERROR,
+			"Other error",
 		},
 		{
-			OSPF_API_UNDEF, "Undefined",
+			OSPF_API_UNDEF,
+			"Undefined",
 		},
 	};
 

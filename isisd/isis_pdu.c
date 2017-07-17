@@ -1391,11 +1391,10 @@ dontcheckadj:
 					lsp_set_all_srmflags(lsp);
 					/* v */
 					ISIS_FLAGS_CLEAR_ALL(
-						lsp
-							->SSNflags); /* FIXME:
-									OTHER
-									than c
-									*/
+						lsp->SSNflags); /* FIXME:
+								   OTHER
+								   than c
+								   */
 
 					/* For the case of lsp confusion, flood
 					 * the purge back to its

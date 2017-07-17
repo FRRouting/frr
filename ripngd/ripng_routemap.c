@@ -150,7 +150,9 @@ static route_map_result_t route_match_tag(void *rule, struct prefix *prefix,
 }
 
 static struct route_map_rule_cmd route_match_tag_cmd = {
-	"tag", route_match_tag, route_map_rule_tag_compile,
+	"tag",
+	route_match_tag,
+	route_map_rule_tag_compile,
 	route_map_rule_tag_free,
 };
 
@@ -240,7 +242,9 @@ static void route_set_metric_free(void *rule)
 }
 
 static struct route_map_rule_cmd route_set_metric_cmd = {
-	"metric", route_set_metric, route_set_metric_compile,
+	"metric",
+	route_set_metric,
+	route_set_metric_compile,
 	route_set_metric_free,
 };
 

@@ -330,8 +330,9 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 			pim_str_sg_dump(&sg), src_str, ifp->name, i_am_rp);
 	}
 
-	if (i_am_rp && (dest_addr.s_addr
-			== ((RP(sg.grp))->rpf_addr.u.prefix4.s_addr))) {
+	if (i_am_rp
+	    && (dest_addr.s_addr
+		== ((RP(sg.grp))->rpf_addr.u.prefix4.s_addr))) {
 		sentRegisterStop = 0;
 
 		if (*bits & PIM_REGISTER_BORDER_BIT) {

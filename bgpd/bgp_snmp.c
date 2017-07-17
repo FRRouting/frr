@@ -864,8 +864,6 @@ static u_char *bgp4PathAttrTable(struct variable *v, oid name[], size_t *length,
 		return SNMP_INTEGER(-1);
 		break;
 	case BGP4PATHATTRBEST: /* 13 */
-			       /* $FRR indent$ */
-			       /* clang-format off */
 #define BGP4_PathAttrBest_false 1
 #define BGP4_PathAttrBest_true  2
 		if (CHECK_FLAG(binfo->flags, BGP_INFO_SELECTED))

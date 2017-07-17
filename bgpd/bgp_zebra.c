@@ -621,10 +621,12 @@ static int zebra_read_ipv4(int command, struct zclient *zclient,
 			zlog_debug(
 				"Rx IPv4 route add VRF %u %s[%d] %s/%d nexthop %s metric %u tag %" ROUTE_TAG_PRI,
 				vrf_id, zebra_route_string(api.type),
-				api.instance, inet_ntop(AF_INET, &p.prefix,
-							buf[0], sizeof(buf[0])),
-				p.prefixlen, inet_ntop(AF_INET, &nexthop,
-						       buf[1], sizeof(buf[1])),
+				api.instance,
+				inet_ntop(AF_INET, &p.prefix, buf[0],
+					  sizeof(buf[0])),
+				p.prefixlen,
+				inet_ntop(AF_INET, &nexthop, buf[1],
+					  sizeof(buf[1])),
 				api.metric, api.tag);
 		}
 
@@ -655,10 +657,12 @@ static int zebra_read_ipv4(int command, struct zclient *zclient,
 				"Rx IPv4 route delete VRF %u %s[%d] %s/%d "
 				"nexthop %s metric %u tag %" ROUTE_TAG_PRI,
 				vrf_id, zebra_route_string(api.type),
-				api.instance, inet_ntop(AF_INET, &p.prefix,
-							buf[0], sizeof(buf[0])),
-				p.prefixlen, inet_ntop(AF_INET, &nexthop,
-						       buf[1], sizeof(buf[1])),
+				api.instance,
+				inet_ntop(AF_INET, &p.prefix, buf[0],
+					  sizeof(buf[0])),
+				p.prefixlen,
+				inet_ntop(AF_INET, &nexthop, buf[1],
+					  sizeof(buf[1])),
 				api.metric, api.tag);
 		}
 		bgp_redistribute_delete(bgp, (struct prefix *)&p, api.type,
@@ -748,10 +752,12 @@ static int zebra_read_ipv6(int command, struct zclient *zclient,
 			zlog_debug(
 				"Rx IPv6 route add VRF %u %s[%d] %s/%d nexthop %s metric %u tag %" ROUTE_TAG_PRI,
 				vrf_id, zebra_route_string(api.type),
-				api.instance, inet_ntop(AF_INET6, &p.prefix,
-							buf[0], sizeof(buf[0])),
-				p.prefixlen, inet_ntop(AF_INET, &nexthop,
-						       buf[1], sizeof(buf[1])),
+				api.instance,
+				inet_ntop(AF_INET6, &p.prefix, buf[0],
+					  sizeof(buf[0])),
+				p.prefixlen,
+				inet_ntop(AF_INET, &nexthop, buf[1],
+					  sizeof(buf[1])),
 				api.metric, api.tag);
 		}
 
@@ -781,10 +787,12 @@ static int zebra_read_ipv6(int command, struct zclient *zclient,
 				"Rx IPv6 route delete VRF %u %s[%d] %s/%d "
 				"nexthop %s metric %u tag %" ROUTE_TAG_PRI,
 				vrf_id, zebra_route_string(api.type),
-				api.instance, inet_ntop(AF_INET6, &p.prefix,
-							buf[0], sizeof(buf[0])),
-				p.prefixlen, inet_ntop(AF_INET6, &nexthop,
-						       buf[1], sizeof(buf[1])),
+				api.instance,
+				inet_ntop(AF_INET6, &p.prefix, buf[0],
+					  sizeof(buf[0])),
+				p.prefixlen,
+				inet_ntop(AF_INET6, &nexthop, buf[1],
+					  sizeof(buf[1])),
 				api.metric, api.tag);
 		}
 		bgp_redistribute_delete(bgp, (struct prefix *)&p, api.type,
@@ -1316,8 +1324,9 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 				"Tx IPv4 route %s VRF %u %s/%d metric %u tag %" ROUTE_TAG_PRI
 				" count %d",
 				(valid_nh_count ? "add" : "delete"),
-				bgp->vrf_id, inet_ntop(AF_INET, &p->u.prefix4,
-						       buf[0], sizeof(buf[0])),
+				bgp->vrf_id,
+				inet_ntop(AF_INET, &p->u.prefix4, buf[0],
+					  sizeof(buf[0])),
 				p->prefixlen, api.metric, api.tag,
 				api.nexthop_num);
 			for (i = 0; i < api.nexthop_num; i++) {

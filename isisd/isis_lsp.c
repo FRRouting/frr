@@ -838,26 +838,30 @@ static void lsp_print_mt_ipv6_reach(struct list *list, struct vty *vty,
 		if (mtid == ISIS_MT_IPV4_UNICAST) {
 			if ((ipv6_reach->control_info & CTRL_INFO_DISTRIBUTION)
 			    == DISTRIBUTION_INTERNAL)
-				vty_out(vty, "  Metric      : %-8" PRIu32
-					     " IPv6-Internal : %s/%d\n",
+				vty_out(vty,
+					"  Metric      : %-8" PRIu32
+					" IPv6-Internal : %s/%d\n",
 					ntohl(ipv6_reach->metric), buff,
 					ipv6_reach->prefix_len);
 			else
-				vty_out(vty, "  Metric      : %-8" PRIu32
-					     " IPv6-External : %s/%d\n",
+				vty_out(vty,
+					"  Metric      : %-8" PRIu32
+					" IPv6-External : %s/%d\n",
 					ntohl(ipv6_reach->metric), buff,
 					ipv6_reach->prefix_len);
 		} else {
 			if ((ipv6_reach->control_info & CTRL_INFO_DISTRIBUTION)
 			    == DISTRIBUTION_INTERNAL)
-				vty_out(vty, "  Metric      : %-8" PRIu32
-					     " IPv6-MT-Int   : %s/%d %s\n",
+				vty_out(vty,
+					"  Metric      : %-8" PRIu32
+					" IPv6-MT-Int   : %s/%d %s\n",
 					ntohl(ipv6_reach->metric), buff,
 					ipv6_reach->prefix_len,
 					isis_mtid2str(mtid));
 			else
-				vty_out(vty, "  Metric      : %-8" PRIu32
-					     " IPv6-MT-Ext   : %s/%d %s\n",
+				vty_out(vty,
+					"  Metric      : %-8" PRIu32
+					" IPv6-MT-Ext   : %s/%d %s\n",
 					ntohl(ipv6_reach->metric), buff,
 					ipv6_reach->prefix_len,
 					isis_mtid2str(mtid));
@@ -875,8 +879,9 @@ static void lsp_print_mt_ipv4_reach(struct list *list, struct vty *vty,
 		if (mtid == ISIS_MT_IPV4_UNICAST) {
 			/* FIXME: There should be better way to output this
 			 * stuff. */
-			vty_out(vty, "  Metric      : %-8" PRIu32
-				     " IPv4-Extended : %s/%d\n",
+			vty_out(vty,
+				"  Metric      : %-8" PRIu32
+				" IPv4-Extended : %s/%d\n",
 				ntohl(te_ipv4_reach->te_metric),
 				inet_ntoa(newprefix2inaddr(
 					&te_ipv4_reach->prefix_start,
@@ -885,8 +890,9 @@ static void lsp_print_mt_ipv4_reach(struct list *list, struct vty *vty,
 		} else {
 			/* FIXME: There should be better way to output this
 			 * stuff. */
-			vty_out(vty, "  Metric      : %-8" PRIu32
-				     " IPv4-MT       : %s/%d %s\n",
+			vty_out(vty,
+				"  Metric      : %-8" PRIu32
+				" IPv4-MT       : %s/%d %s\n",
 				ntohl(te_ipv4_reach->te_metric),
 				inet_ntoa(newprefix2inaddr(
 					&te_ipv4_reach->prefix_start,
@@ -987,8 +993,9 @@ void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty, char dynhost)
 		for (ALL_LIST_ELEMENTS_RO(lsp->tlv_data.is_neighs, lnode,
 					  is_neigh)) {
 			lspid_print(is_neigh->neigh_id, LSPid, dynhost, 0);
-			vty_out(vty, "  Metric      : %-8" PRIu8
-				     " IS            : %s\n",
+			vty_out(vty,
+				"  Metric      : %-8" PRIu8
+				" IS            : %s\n",
 				is_neigh->metrics.metric_default, LSPid);
 		}
 
@@ -1000,8 +1007,9 @@ void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty, char dynhost)
 			       sizeof(ipv4_reach_prefix));
 			memcpy(ipv4_reach_mask, inet_ntoa(ipv4_reach->mask),
 			       sizeof(ipv4_reach_mask));
-			vty_out(vty, "  Metric      : %-8" PRIu8
-				     " IPv4-Internal : %s %s\n",
+			vty_out(vty,
+				"  Metric      : %-8" PRIu8
+				" IPv4-Internal : %s %s\n",
 				ipv4_reach->metrics.metric_default,
 				ipv4_reach_prefix, ipv4_reach_mask);
 		}
@@ -1014,8 +1022,9 @@ void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty, char dynhost)
 			       sizeof(ipv4_reach_prefix));
 			memcpy(ipv4_reach_mask, inet_ntoa(ipv4_reach->mask),
 			       sizeof(ipv4_reach_mask));
-			vty_out(vty, "  Metric      : %-8" PRIu8
-				     " IPv4-External : %s %s\n",
+			vty_out(vty,
+				"  Metric      : %-8" PRIu8
+				" IPv4-External : %s %s\n",
 				ipv4_reach->metrics.metric_default,
 				ipv4_reach_prefix, ipv4_reach_mask);
 		}
@@ -2754,9 +2763,9 @@ int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level)
 		THREAD_TIMER_OFF(circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1]);
 		diff = now - lsp->last_generated;
 		if (diff < circuit->area->lsp_gen_interval[lvl - 1]) {
-			timeout =
-				1000 * (circuit->area->lsp_gen_interval[lvl - 1]
-					- diff);
+			timeout = 1000
+				  * (circuit->area->lsp_gen_interval[lvl - 1]
+				     - diff);
 			sched_debug(
 				"ISIS (%s): Sechduling in %ld ms to match configured lsp_gen_interval",
 				area->area_tag, timeout);
@@ -2981,9 +2990,9 @@ void lsp_purge_non_exist(int level, struct isis_link_state_hdr *lsp_hdr,
 	lsp->level = level;
 	lsp->pdu = stream_new(LLC_LEN + area->lsp_mtu);
 	lsp->isis_header = (struct isis_fixed_hdr *)STREAM_DATA(lsp->pdu);
-	fill_fixed_hdr(lsp->isis_header,
-		       (lsp->level == IS_LEVEL_1) ? L1_LINK_STATE
-						  : L2_LINK_STATE);
+	fill_fixed_hdr(lsp->isis_header, (lsp->level == IS_LEVEL_1)
+						 ? L1_LINK_STATE
+						 : L2_LINK_STATE);
 	lsp->lsp_header = (struct isis_link_state_hdr *)(STREAM_DATA(lsp->pdu)
 							 + ISIS_FIXED_HDR_LEN);
 	memcpy(lsp->lsp_header, lsp_hdr, ISIS_LSP_HDR_LEN);

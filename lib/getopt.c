@@ -619,8 +619,9 @@ int long_only;
 
 	if (longopts != NULL
 	    && (argv[optind][1] == '-'
-		|| (long_only && (argv[optind][2]
-				  || !my_index(optstring, argv[optind][1]))))) {
+		|| (long_only
+		    && (argv[optind][2]
+			|| !my_index(optstring, argv[optind][1]))))) {
 		char *nameend;
 		const struct option *p;
 		const struct option *pfound = NULL;

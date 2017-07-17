@@ -643,9 +643,9 @@ static int ospf_write(struct thread *thread)
 #ifdef WANT_OSPF_WRITE_FRAGMENT
 	static u_int16_t ipid = 0;
 	u_int16_t maxdatasize;
-#endif /* WANT_OSPF_WRITE_FRAGMENT */
-       /* $FRR indent$ */
-       /* clang-format off */
+#endif  /* WANT_OSPF_WRITE_FRAGMENT */
+	/* $FRR indent$ */
+	/* clang-format off */
 #define OSPF_WRITE_IPHL_SHIFT 2
 	int pkt_count = 0;
 
@@ -2436,15 +2436,15 @@ static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 			return 0;
 		}
 		/* only MD5 crypto method can pass ospf_packet_examin() */
-		if (
-			NULL == (ck = listgetdata(listtail(
-					 OSPF_IF_PARAM(oi, auth_crypt))))
-			|| ospfh->u.crypt.key_id != ck->key_id ||
-			/* Condition above uses the last key ID on the list,
-			   which is
-			   different from what ospf_crypt_key_lookup() does. A
-			   bug? */
-			!ospf_check_md5_digest(oi, ospfh)) {
+		if (NULL
+			    == (ck = listgetdata(listtail(
+					OSPF_IF_PARAM(oi, auth_crypt))))
+		    || ospfh->u.crypt.key_id != ck->key_id ||
+		    /* Condition above uses the last key ID on the list,
+		       which is
+		       different from what ospf_crypt_key_lookup() does. A
+		       bug? */
+		    !ospf_check_md5_digest(oi, ospfh)) {
 			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
 				zlog_warn("interface %s: MD5 auth failed",
 					  IF_NAME(oi));
@@ -2548,7 +2548,7 @@ static unsigned ospf_lsa_examin(struct lsa_header *lsah, const u_int16_t lsalen,
 							      header, "flags",
 							      0, "# links" */
 			ntohs(rlsa->links)		   /* 16 bits */
-			);
+		);
 		break;
 	case OSPF_AS_EXTERNAL_LSA:
 	/* RFC2328 A.4.5, LSA header + 4 bytes followed by N>=1 12-bytes long
@@ -2772,7 +2772,7 @@ static unsigned ospf_packet_examin(struct ospf_header *oh,
 			bytesdeclared - OSPF_HEADER_SIZE - OSPF_LS_UPD_MIN_SIZE,
 			0,		       /* full LSAs */
 			ntohl(lsupd->num_lsas) /* 32 bits */
-			);
+		);
 		break;
 	case OSPF_MSG_LS_ACK:
 		/* RFC2328 A.3.6, packet header followed by N>=0 header-only
@@ -2888,8 +2888,8 @@ int ospf_read(struct thread *thread)
 
 	ospfh = (struct ospf_header *)STREAM_PNT(ibuf);
 	if (MSG_OK
-	    != ospf_packet_examin(
-		       ospfh, stream_get_endp(ibuf) - stream_get_getp(ibuf)))
+	    != ospf_packet_examin(ospfh, stream_get_endp(ibuf)
+						 - stream_get_getp(ibuf)))
 		return -1;
 	/* Now it is safe to access all fields of OSPF packet header. */
 
@@ -2935,8 +2935,9 @@ int ospf_read(struct thread *thread)
 	 * or header area is backbone but ospf_interface is not
 	 * check for VLINK interface
 	 */
-	if ((oi == NULL) || (OSPF_IS_AREA_ID_BACKBONE(ospfh->area_id)
-			     && !OSPF_IS_AREA_ID_BACKBONE(oi->area->area_id))) {
+	if ((oi == NULL)
+	    || (OSPF_IS_AREA_ID_BACKBONE(ospfh->area_id)
+		&& !OSPF_IS_AREA_ID_BACKBONE(oi->area->area_id))) {
 		if ((oi = ospf_associate_packet_vl(ospf, ifp, iph, ospfh))
 		    == NULL) {
 			if (!ospf->instance && IS_DEBUG_OSPF_EVENT)

@@ -161,7 +161,8 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
  */
 #define DEFINE_HOOK(hookname, arglist, passlist)                               \
 	struct hook _hook_##hookname = {                                       \
-		.name = #hookname, .entries = NULL,                            \
+		.name = #hookname,                                             \
+		.entries = NULL,                                               \
 	};                                                                     \
 	static int hook_call_##hookname arglist                                \
 	{                                                                      \

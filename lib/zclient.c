@@ -1480,8 +1480,9 @@ struct connected *zebra_interface_address_read(int type, struct stream *s,
 				zlog_warn(
 					"warning: interface %s address %s "
 					"with peer flag set, but no peer address!",
-					ifp->name, prefix2str(ifc->address, buf,
-							      sizeof buf));
+					ifp->name,
+					prefix2str(ifc->address, buf,
+						   sizeof buf));
 				UNSET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
 			}
 		}

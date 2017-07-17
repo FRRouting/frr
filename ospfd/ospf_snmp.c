@@ -872,7 +872,9 @@ static u_char *ospfStubAreaEntry(struct variable *v, oid *name, size_t *length,
 		return SNMP_INTEGER(SNMP_VALID);
 		break;
 	case OSPFSTUBMETRICTYPE: /* 5 */
-/* OSPF Metric type. */
+				 /* OSPF Metric type. */
+				 /* $FRR indent$ */
+				 /* clang-format off */
 #define OSPF_ospfMetric     1
 #define OSPF_comparableCost 2
 #define OSPF_nonComparable  3
@@ -2100,7 +2102,8 @@ static struct ospf_neighbor *ospf_snmp_nbr_lookup(struct ospf *ospf,
 
 	for (ALL_LIST_ELEMENTS(ospf->oiflist, node, nnode, oi)) {
 		for (rn = route_top(oi->nbrs); rn; rn = route_next(rn))
-			if ((nbr = rn->info) != NULL && nbr != oi->nbr_self
+			if ((nbr = rn->info) != NULL
+			    && nbr != oi->nbr_self
 			    /* If EXACT match is needed, provide ALL entry found
 					&& nbr->state != NSM_Down
 			     */

@@ -361,7 +361,8 @@ testcase_t test_bgp_info_mpath_update = {
  * Set up testcase vector
  */
 testcase_t *all_tests[] = {
-	&test_bgp_cfg_maximum_paths, &test_bgp_mp_list,
+	&test_bgp_cfg_maximum_paths,
+	&test_bgp_mp_list,
 	&test_bgp_info_mpath_update,
 };
 

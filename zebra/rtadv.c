@@ -263,7 +263,7 @@ static void rtadv_send_packet(int sock, struct interface *ifp)
 								      for RL,
 								      but not
 								      for HAL*/
-			      );
+			);
 		len += sizeof(struct nd_opt_homeagent_info);
 	}
 
@@ -1274,8 +1274,9 @@ DEFUN (ipv6_nd_prefix,
 {
 	/* prelude */
 	char *prefix = argv[3]->arg;
-	int lifetimes = (argc > 4) && (argv[4]->type == RANGE_TKN
-				       || strmatch(argv[4]->text, "infinite"));
+	int lifetimes = (argc > 4)
+			&& (argv[4]->type == RANGE_TKN
+			    || strmatch(argv[4]->text, "infinite"));
 	int routeropts = lifetimes ? argc > 6 : argc > 4;
 
 	int idx_routeropts = routeropts ? (lifetimes ? 6 : 4) : 0;

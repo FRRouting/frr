@@ -610,15 +610,15 @@ static struct test_segment {
 			/* Nexthop */ 192, 168, 0, 1,
 			/* SNPA (defunct, MBZ) */ 0x0,
 			/* NLRI tuples */ 88 + 16, 0, 1, 2, /* tag */
-							    /* rd, 8 octets */
-			0, 0,				    /* RD_TYPE_AS */
-			0, 2, 0, 0xff, 3, 4,		    /* AS(2):val(4) */
-			10, 1,				    /* 10.1/16 */
-			88 + 17, 0xff, 0, 0,		    /* tag */
-							    /* rd, 8 octets */
-			0, 0,				    /* RD_TYPE_IP */
-			192, 168, 0, 1,			    /* IPv4 */
-			10, 2, 3,			    /* 10.2.3/17 */
+			/* rd, 8 octets */
+			0, 0,		     /* RD_TYPE_AS */
+			0, 2, 0, 0xff, 3, 4, /* AS(2):val(4) */
+			10, 1,		     /* 10.1/16 */
+			88 + 17, 0xff, 0, 0, /* tag */
+			/* rd, 8 octets */
+			0, 0,		/* RD_TYPE_IP */
+			192, 168, 0, 1, /* IPv4 */
+			10, 2, 3,       /* 10.2.3/17 */
 		},
 		(4 + 12 + 1 + (1 + 3 + 8 + 2) + (1 + 3 + 8 + 3)),
 		SHOULD_PARSE,
@@ -700,15 +700,15 @@ static struct test_segment {
 			/* Nexthop */ 192, 168, 0, 1,
 			/* SNPA (defunct, MBZ) */ 0x0,
 			/* NLRI tuples */ 88 + 32, 0, 1, 2, /* tag */
-							    /* rd, 8 octets */
-			0, 0,				    /* RD_TYPE_AS */
-			0, 2, 0, 0xff, 3, 4,		    /* AS(2):val(4) */
-			10, 1,				    /* 10.1/16 */
-			88 + 17, 0xff, 0, 0,		    /* tag */
-							    /* rd, 8 octets */
-			0, 0,				    /* RD_TYPE_IP */
-			192, 168, 0, 1,			    /* IPv4 */
-			10, 2, 3,			    /* 10.2.3/17 */
+			/* rd, 8 octets */
+			0, 0,		     /* RD_TYPE_AS */
+			0, 2, 0, 0xff, 3, 4, /* AS(2):val(4) */
+			10, 1,		     /* 10.1/16 */
+			88 + 17, 0xff, 0, 0, /* tag */
+			/* rd, 8 octets */
+			0, 0,		/* RD_TYPE_IP */
+			192, 168, 0, 1, /* IPv4 */
+			10, 2, 3,       /* 10.2.3/17 */
 		},
 		(4 + 12 + 1 + (1 + 3 + 8 + 2) + (1 + 3 + 8 + 3)),
 		SHOULD_ERR,
@@ -727,16 +727,16 @@ static struct test_segment {
 			/* Nexthop */ 192, 168, 0, 1,
 			/* SNPA (defunct, MBZ) */ 0x0,
 			/* NLRI tuples */ 88 + 16, 0, 1, 2, /* tag */
-							    /* rd, 8 octets */
-			0, 0,				    /* RD_TYPE_AS */
-			0, 2, 0, 0xff, 3, 4,		    /* AS(2):val(4) */
-			10, 1,				    /* 10.1/16 */
-			88 + 17, 0xff, 0, 0,		    /* tag */
-							    /* rd, 8 octets */
-			0, 0,				    /* RD_TYPE_IP */
-			192, 168, 0, 1,			    /* IPv4 */
-			10, 2, 3,			    /* 10.2.3/17 */
-			88 + 1,				    /* bogus */
+			/* rd, 8 octets */
+			0, 0,		     /* RD_TYPE_AS */
+			0, 2, 0, 0xff, 3, 4, /* AS(2):val(4) */
+			10, 1,		     /* 10.1/16 */
+			88 + 17, 0xff, 0, 0, /* tag */
+			/* rd, 8 octets */
+			0, 0,		/* RD_TYPE_IP */
+			192, 168, 0, 1, /* IPv4 */
+			10, 2, 3,       /* 10.2.3/17 */
+			88 + 1,		/* bogus */
 		},
 		(4 + 12 + 1 + (1 + 3 + 8 + 2) + (1 + 3 + 8 + 3) + 1),
 		SHOULD_ERR,
@@ -755,15 +755,15 @@ static struct test_segment {
 			/* Nexthop */ 192, 168, 0, 1,
 			/* SNPA (defunct, MBZ) */ 0x0,
 			/* NLRI tuples */ 88 + 16, 0, 1, 2, /* tag */
-							    /* rd, 8 octets */
-			0, 0,				    /* RD_TYPE_AS */
-			0, 2, 0, 0xff, 3, 4,		    /* AS(2):val(4) */
-			10, 1,				    /* 10.1/16 */
-			88 + 2, 0xff, 0, 0,		    /* tag */
-							    /* rd, 8 octets */
-			0, 0,				    /* RD_TYPE_IP */
-			192, 168, 0, 1,			    /* IPv4 */
-			10, 2, 3,			    /* 10.2.3/17 */
+			/* rd, 8 octets */
+			0, 0,		     /* RD_TYPE_AS */
+			0, 2, 0, 0xff, 3, 4, /* AS(2):val(4) */
+			10, 1,		     /* 10.1/16 */
+			88 + 2, 0xff, 0, 0,  /* tag */
+			/* rd, 8 octets */
+			0, 0,		/* RD_TYPE_IP */
+			192, 168, 0, 1, /* IPv4 */
+			10, 2, 3,       /* 10.2.3/17 */
 		},
 		(4 + 12 + 1 + (1 + 3 + 8 + 2) + (1 + 3 + 8 + 3)),
 		SHOULD_ERR,
@@ -782,15 +782,15 @@ static struct test_segment {
 			/* Nexthop */ 192, 168, 0, 1,
 			/* SNPA (defunct, MBZ) */ 0x0,
 			/* NLRI tuples */ 88 + 16, 0, 1, 2, /* tag */
-							    /* rd, 8 octets */
-			0xff, 0,			    /* Bogus RD */
-			0, 2, 0, 0xff, 3, 4,		    /* AS(2):val(4) */
-			10, 1,				    /* 10.1/16 */
-			88 + 17, 0xff, 0, 0,		    /* tag */
-							    /* rd, 8 octets */
-			0, 0,				    /* RD_TYPE_IP */
-			192, 168, 0, 1,			    /* IPv4 */
-			10, 2, 3,			    /* 10.2.3/17 */
+			/* rd, 8 octets */
+			0xff, 0,	     /* Bogus RD */
+			0, 2, 0, 0xff, 3, 4, /* AS(2):val(4) */
+			10, 1,		     /* 10.1/16 */
+			88 + 17, 0xff, 0, 0, /* tag */
+			/* rd, 8 octets */
+			0, 0,		/* RD_TYPE_IP */
+			192, 168, 0, 1, /* IPv4 */
+			10, 2, 3,       /* 10.2.3/17 */
 		},
 		(4 + 12 + 1 + (1 + 3 + 8 + 2) + (1 + 3 + 8 + 3)),
 		SHOULD_PARSE,
@@ -809,16 +809,16 @@ static struct test_segment {
 			/* Nexthop */ 192, 168, 0, 1,
 			/* SNPA (defunct, MBZ) */ 0x0,
 			/* NLRI tuples */ 88 + 16, 0, 1, 2, /* tag */
-							    /* rd, 8 octets */
-			0, 0,				    /* RD_TYPE_AS */
-			0, 2, 0, 0xff, 3, 4,		    /* AS(2):val(4) */
-			10, 1,				    /* 10.1/16 */
-			88 + 17, 0xff, 0, 0,		    /* tag */
-							    /* rd, 8 octets */
-			0, 0,				    /* RD_TYPE_IP */
-			192, 168, 0, 1,			    /* IPv4 */
-			10, 2, 3,			    /* 10.2.3/17 */
-			0 /* 0/0, bogus for vpnv4 ?? */
+			/* rd, 8 octets */
+			0, 0,		     /* RD_TYPE_AS */
+			0, 2, 0, 0xff, 3, 4, /* AS(2):val(4) */
+			10, 1,		     /* 10.1/16 */
+			88 + 17, 0xff, 0, 0, /* tag */
+			/* rd, 8 octets */
+			0, 0,		/* RD_TYPE_IP */
+			192, 168, 0, 1, /* IPv4 */
+			10, 2, 3,       /* 10.2.3/17 */
+			0		/* 0/0, bogus for vpnv4 ?? */
 		},
 		(4 + 12 + 1 + (1 + 3 + 8 + 2) + (1 + 3 + 8 + 3) + 1),
 		SHOULD_ERR,
@@ -901,11 +901,23 @@ static struct test_segment mp_unreach_segments[] = {
 		"IPv6-unreach2",
 		"IPV6 MP Unreach, 2 NLRIs",
 		{
-			/* AFI / SAFI */ 0x0, AFI_IP6, SAFI_UNICAST,
-			/* NLRI tuples */ 32, 0xff, 0xfe, 0x1,
-			0x2,			  /* fffe:102::/32 */
-			64, 0xff, 0xfe, 0x0, 0x1, /* fffe:1:2:3::/64 */
-			0x0, 0x2, 0x0, 0x3,
+			/* AFI / SAFI */ 0x0,
+			AFI_IP6,
+			SAFI_UNICAST,
+			/* NLRI tuples */ 32,
+			0xff,
+			0xfe,
+			0x1,
+			0x2, /* fffe:102::/32 */
+			64,
+			0xff,
+			0xfe,
+			0x0,
+			0x1, /* fffe:1:2:3::/64 */
+			0x0,
+			0x2,
+			0x0,
+			0x3,
 		},
 		(3 + 5 + 9),
 		SHOULD_PARSE,
@@ -980,15 +992,15 @@ static struct test_segment mp_unreach_segments[] = {
 		{
 			/* AFI / SAFI */ 0x0, AFI_IP, IANA_SAFI_MPLS_VPN,
 			/* NLRI tuples */ 88 + 16, 0, 1, 2, /* tag */
-							    /* rd, 8 octets */
-			0, 0,				    /* RD_TYPE_AS */
-			0, 2, 0, 0xff, 3, 4,		    /* AS(2):val(4) */
-			10, 1,				    /* 10.1/16 */
-			88 + 17, 0xff, 0, 0,		    /* tag */
-							    /* rd, 8 octets */
-			0, 0,				    /* RD_TYPE_IP */
-			192, 168, 0, 1,			    /* IPv4 */
-			10, 2, 3,			    /* 10.2.3/17 */
+			/* rd, 8 octets */
+			0, 0,		     /* RD_TYPE_AS */
+			0, 2, 0, 0xff, 3, 4, /* AS(2):val(4) */
+			10, 1,		     /* 10.1/16 */
+			88 + 17, 0xff, 0, 0, /* tag */
+			/* rd, 8 octets */
+			0, 0,		/* RD_TYPE_IP */
+			192, 168, 0, 1, /* IPv4 */
+			10, 2, 3,       /* 10.2.3/17 */
 		},
 		(3 + (1 + 3 + 8 + 2) + (1 + 3 + 8 + 3)),
 		SHOULD_PARSE,
@@ -1017,9 +1029,9 @@ static void handle_result(struct peer *peer, struct test_segment *t,
 
 
 	if (tty)
-		printf("%s",
-		       (failed > oldfailed) ? VT100_RED "failed!" VT100_RESET
-					    : VT100_GREEN "OK" VT100_RESET);
+		printf("%s", (failed > oldfailed)
+				     ? VT100_RED "failed!" VT100_RESET
+				     : VT100_GREEN "OK" VT100_RESET);
 	else
 		printf("%s", (failed > oldfailed) ? "failed!" : "OK");
 

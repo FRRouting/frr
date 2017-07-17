@@ -509,7 +509,9 @@ int _rb_check(const struct rb_type *, void *, unsigned long);
 		return _cmp(l, r);                                             \
 	}                                                                      \
 	static const struct rb_type _name##_RB_INFO = {                        \
-		_name##_RB_COMPARE, _aug, offsetof(struct _type, _field),      \
+		_name##_RB_COMPARE,                                            \
+		_aug,                                                          \
+		offsetof(struct _type, _field),                                \
 	};                                                                     \
 	const struct rb_type *const _name##_RB_TYPE = &_name##_RB_INFO;
 

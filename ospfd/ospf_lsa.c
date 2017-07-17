@@ -429,8 +429,8 @@ static char link_info_set(struct stream *s, struct in_addr id,
 			 *
 			 * Simpler just to subtract OSPF_MAX_LSA_SIZE though.
 			 */
-			ret = stream_resize(
-				s, OSPF_MAX_PACKET_SIZE - OSPF_MAX_LSA_SIZE);
+			ret = stream_resize(s, OSPF_MAX_PACKET_SIZE
+						       - OSPF_MAX_LSA_SIZE);
 		}
 
 		if (ret == OSPF_MAX_LSA_SIZE) {
@@ -519,8 +519,9 @@ static int lsa_link_broadcast_set(struct stream *s, struct ospf_interface *oi)
 
 	dr = ospf_nbr_lookup_by_addr(oi->nbrs, &DR(oi));
 	/* Describe Type 2 link. */
-	if (dr && (dr->state == NSM_Full
-		   || IPV4_ADDR_SAME(&oi->address->u.prefix4, &DR(oi)))
+	if (dr
+	    && (dr->state == NSM_Full
+		|| IPV4_ADDR_SAME(&oi->address->u.prefix4, &DR(oi)))
 	    && ospf_nbr_count(oi, NSM_Full) > 0) {
 		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 			zlog_debug(
@@ -3417,7 +3418,7 @@ struct in_addr ospf_lsa_unique_id(struct ospf *ospf, struct ospf_lsdb *lsdb,
 			return id;
 		}
 		/* Masklen differs, then apply wildcard mask to Link State ID.
-		   */
+		 */
 		else {
 			masklen2ip(p->prefixlen, &mask);
 

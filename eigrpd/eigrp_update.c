@@ -771,8 +771,8 @@ void eigrp_update_send_all(struct eigrp *eigrp,
 /**
  * @fn eigrp_update_send_GR_part
  *
- * @param[in]		nbr		contains neighbor who would receive Graceful
- * restart
+ * @param[in]		nbr		contains neighbor who would receive
+ * Graceful restart
  *
  * @return void
  *
@@ -1034,8 +1034,8 @@ int eigrp_update_send_GR_thread(struct thread *thread)
 /**
  * @fn eigrp_update_send_GR
  *
- * @param[in]		nbr			Neighbor who would receive Graceful
- * restart
+ * @param[in]		nbr			Neighbor who would receive
+ * Graceful restart
  * @param[in]		gr_type 	Who executed Graceful restart
  * @param[in]		vty 		Virtual terminal for log output
  *
@@ -1094,8 +1094,8 @@ void eigrp_update_send_GR(struct eigrp_neighbor *nbr, enum GR_type gr_type,
 /**
  * @fn eigrp_update_send_interface_GR
  *
- * @param[in]		ei			Interface to neighbors of which the GR
- * is sent
+ * @param[in]		ei			Interface to neighbors of which the
+ * GR is sent
  * @param[in]		gr_type 	Who executed Graceful restart
  * @param[in]		vty 		Virtual terminal for log output
  *

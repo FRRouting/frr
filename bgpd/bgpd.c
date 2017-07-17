@@ -3886,8 +3886,9 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	}
 
 	/* Track if addpath TX is in use */
-	if (flag & (PEER_FLAG_ADDPATH_TX_ALL_PATHS
-		    | PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS)) {
+	if (flag
+	    & (PEER_FLAG_ADDPATH_TX_ALL_PATHS
+	       | PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS)) {
 		bgp = peer->bgp;
 		addpath_tx_used = 0;
 
@@ -6757,8 +6758,9 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 	} else {
 		if (!peer_af_flag_check(peer, afi, safi,
 					PEER_FLAG_SEND_COMMUNITY)
-		    && (!g_peer || peer_af_flag_check(g_peer, afi, safi,
-						      PEER_FLAG_SEND_COMMUNITY))
+		    && (!g_peer
+			|| peer_af_flag_check(g_peer, afi, safi,
+					      PEER_FLAG_SEND_COMMUNITY))
 		    && !peer_af_flag_check(peer, afi, safi,
 					   PEER_FLAG_SEND_EXT_COMMUNITY)
 		    && (!g_peer
@@ -6766,9 +6768,10 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 					      PEER_FLAG_SEND_EXT_COMMUNITY))
 		    && !peer_af_flag_check(peer, afi, safi,
 					   PEER_FLAG_SEND_LARGE_COMMUNITY)
-		    && (!g_peer || peer_af_flag_check(
-					   g_peer, afi, safi,
-					   PEER_FLAG_SEND_LARGE_COMMUNITY))) {
+		    && (!g_peer
+			|| peer_af_flag_check(
+				   g_peer, afi, safi,
+				   PEER_FLAG_SEND_LARGE_COMMUNITY))) {
 			afi_header_vty_out(
 				vty, afi, safi, write,
 				"  no neighbor %s send-community all\n", addr);
@@ -6799,9 +6802,10 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 
 			if (!peer_af_flag_check(peer, afi, safi,
 						PEER_FLAG_SEND_COMMUNITY)
-			    && (!g_peer || peer_af_flag_check(
-						   g_peer, afi, safi,
-						   PEER_FLAG_SEND_COMMUNITY))) {
+			    && (!g_peer
+				|| peer_af_flag_check(
+					   g_peer, afi, safi,
+					   PEER_FLAG_SEND_COMMUNITY))) {
 				afi_header_vty_out(
 					vty, afi, safi, write,
 					"  no neighbor %s send-community\n",

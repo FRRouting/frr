@@ -50,8 +50,10 @@ struct test_spec {
 					       deleted */
 	const unsigned int hops;	    /* aspath_count_hops result */
 	const unsigned int confeds;	 /* aspath_count_confeds */
-	const int private_as; /* whether the private_as check should pass or
-				 fail */
+	const int private_as;   /* whether the private_as check should pass or
+				   fail */
+				/* $FRR indent$ */
+				/* clang-format off */
 #define NOT_ALL_PRIVATE 0
 #define ALL_PRIVATE 1
 	const as_t does_loop;   /* an ASN which should trigger loop-check */
@@ -85,7 +87,14 @@ static struct test_segment {
 		{0x2, 0x1, 0x22, 0x12, 0x2, 0x1, 0x00, 0x04},
 		8,
 		{
-			"8722 4", "8722 4", 2, 0, NOT_ALL_PRIVATE, 4, 5, 8722,
+			"8722 4",
+			"8722 4",
+			2,
+			0,
+			NOT_ALL_PRIVATE,
+			4,
+			5,
+			8722,
 		},
 	},
 	{
@@ -398,8 +407,22 @@ static struct test_segment {
 		"reconcile_start_trans",
 		"seq(23456,23456,23456) seq(6435,59408,21665)",
 		{
-			0x2, 0x3, 0x5b, 0xa0, 0x5b, 0xa0, 0x5b, 0xa0, 0x2, 0x3,
-			0x19, 0x23, 0xe8, 0x10, 0x54, 0xa1,
+			0x2,
+			0x3,
+			0x5b,
+			0xa0,
+			0x5b,
+			0xa0,
+			0x5b,
+			0xa0,
+			0x2,
+			0x3,
+			0x19,
+			0x23,
+			0xe8,
+			0x10,
+			0x54,
+			0xa1,
 		},
 		16,
 		{"23456 23456 23456 6435 59408 21665",
@@ -411,8 +434,22 @@ static struct test_segment {
 		"reconcile_start_trans4",
 		"seq(1842,41591,51793) seq(6435,59408,21665)",
 		{
-			0x2, 0x3, 0x07, 0x32, 0xa2, 0x77, 0xca, 0x51, 0x2, 0x3,
-			0x19, 0x23, 0xe8, 0x10, 0x54, 0xa1,
+			0x2,
+			0x3,
+			0x07,
+			0x32,
+			0xa2,
+			0x77,
+			0xca,
+			0x51,
+			0x2,
+			0x3,
+			0x19,
+			0x23,
+			0xe8,
+			0x10,
+			0x54,
+			0xa1,
 		},
 		16,
 		{"1842 41591 51793 6435 59408 21665",
@@ -424,8 +461,20 @@ static struct test_segment {
 		"reconcile_start_trans_error",
 		"seq(23456,23456,23456) seq(6435,59408)",
 		{
-			0x2, 0x3, 0x5b, 0xa0, 0x5b, 0xa0, 0x5b, 0xa0, 0x2, 0x2,
-			0x19, 0x23, 0xe8, 0x10,
+			0x2,
+			0x3,
+			0x5b,
+			0xa0,
+			0x5b,
+			0xa0,
+			0x5b,
+			0xa0,
+			0x2,
+			0x2,
+			0x19,
+			0x23,
+			0xe8,
+			0x10,
 		},
 		14,
 		{"23456 23456 23456 6435 59408", "23456 23456 23456 6435 59408",
@@ -503,7 +552,10 @@ static struct aspath_tests {
 		0,
 		0,
 		{
-			COMMON_ATTRS, BGP_ATTR_FLAG_TRANS, BGP_ATTR_AS_PATH, 10,
+			COMMON_ATTRS,
+			BGP_ATTR_FLAG_TRANS,
+			BGP_ATTR_AS_PATH,
+			10,
 		},
 		COMMON_ATTR_SIZE + 3,
 	},
@@ -516,7 +568,10 @@ static struct aspath_tests {
 		-1,
 		0,
 		{
-			COMMON_ATTRS, BGP_ATTR_FLAG_TRANS, BGP_ATTR_AS_PATH, 8,
+			COMMON_ATTRS,
+			BGP_ATTR_FLAG_TRANS,
+			BGP_ATTR_AS_PATH,
+			8,
 		},
 		COMMON_ATTR_SIZE + 3,
 	},
@@ -529,7 +584,10 @@ static struct aspath_tests {
 		-1,
 		0,
 		{
-			COMMON_ATTRS, BGP_ATTR_FLAG_TRANS, BGP_ATTR_AS_PATH, 12,
+			COMMON_ATTRS,
+			BGP_ATTR_FLAG_TRANS,
+			BGP_ATTR_AS_PATH,
+			12,
 		},
 		COMMON_ATTR_SIZE + 3,
 	},
@@ -544,7 +602,8 @@ static struct aspath_tests {
 		{
 			COMMON_ATTRS,
 			BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL,
-			BGP_ATTR_AS_PATH, 10,
+			BGP_ATTR_AS_PATH,
+			10,
 		},
 		COMMON_ATTR_SIZE + 3,
 	},
@@ -559,7 +618,8 @@ static struct aspath_tests {
 		{
 			COMMON_ATTRS,
 			BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL,
-			BGP_ATTR_AS4_PATH, 10,
+			BGP_ATTR_AS4_PATH,
+			10,
 		},
 		COMMON_ATTR_SIZE + 3,
 	},
@@ -574,7 +634,8 @@ static struct aspath_tests {
 		{
 			COMMON_ATTRS,
 			BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL,
-			BGP_ATTR_AS4_PATH, 10,
+			BGP_ATTR_AS4_PATH,
+			10,
 		},
 		COMMON_ATTR_SIZE + 3,
 	},
@@ -587,7 +648,10 @@ static struct aspath_tests {
 		0,
 		PEER_CAP_AS4_RCV | PEER_CAP_AS4_ADV,
 		{
-			COMMON_ATTRS, BGP_ATTR_FLAG_TRANS, BGP_ATTR_AS_PATH, 18,
+			COMMON_ATTRS,
+			BGP_ATTR_FLAG_TRANS,
+			BGP_ATTR_AS_PATH,
+			18,
 		},
 		COMMON_ATTR_SIZE + 3,
 	},
@@ -600,7 +664,10 @@ static struct aspath_tests {
 		-1,
 		PEER_CAP_AS4_RCV | PEER_CAP_AS4_ADV,
 		{
-			COMMON_ATTRS, BGP_ATTR_FLAG_TRANS, BGP_ATTR_AS_PATH, 16,
+			COMMON_ATTRS,
+			BGP_ATTR_FLAG_TRANS,
+			BGP_ATTR_AS_PATH,
+			16,
 		},
 		COMMON_ATTR_SIZE + 3,
 	},
@@ -613,7 +680,10 @@ static struct aspath_tests {
 		-1,
 		PEER_CAP_AS4_RCV | PEER_CAP_AS4_ADV,
 		{
-			COMMON_ATTRS, BGP_ATTR_FLAG_TRANS, BGP_ATTR_AS_PATH, 20,
+			COMMON_ATTRS,
+			BGP_ATTR_FLAG_TRANS,
+			BGP_ATTR_AS_PATH,
+			20,
 		},
 		COMMON_ATTR_SIZE + 3,
 	},
@@ -626,7 +696,10 @@ static struct aspath_tests {
 		-1,
 		PEER_CAP_AS4_RCV | PEER_CAP_AS4_ADV,
 		{
-			COMMON_ATTRS, BGP_ATTR_FLAG_TRANS, BGP_ATTR_AS_PATH, 22,
+			COMMON_ATTRS,
+			BGP_ATTR_FLAG_TRANS,
+			BGP_ATTR_AS_PATH,
+			22,
 		},
 		COMMON_ATTR_SIZE + 3,
 	},
@@ -641,7 +714,8 @@ static struct aspath_tests {
 		{
 			COMMON_ATTRS,
 			BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL,
-			BGP_ATTR_AS_PATH, 18,
+			BGP_ATTR_AS_PATH,
+			18,
 		},
 		COMMON_ATTR_SIZE + 3,
 	},
@@ -656,7 +730,8 @@ static struct aspath_tests {
 		{
 			COMMON_ATTRS,
 			BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL,
-			BGP_ATTR_AS4_PATH, 14,
+			BGP_ATTR_AS4_PATH,
+			14,
 		},
 		COMMON_ATTR_SIZE + 3,
 	},
@@ -671,7 +746,8 @@ static struct aspath_tests {
 		{
 			COMMON_ATTRS,
 			BGP_ATTR_FLAG_TRANS | BGP_ATTR_FLAG_OPTIONAL,
-			BGP_ATTR_AS4_PATH, 14,
+			BGP_ATTR_AS4_PATH,
+			14,
 		},
 		COMMON_ATTR_SIZE + 3,
 		&test_segments[0],
@@ -804,7 +880,13 @@ static struct tests {
 	{NULL,
 	 NULL,
 	 {
-		 NULL, 0, 0, 0, 0, 0, 0,
+		 NULL,
+		 0,
+		 0,
+		 0,
+		 0,
+		 0,
+		 0,
 	 }},
 };
 
@@ -852,7 +934,13 @@ struct tests reconcile_tests[] = {
 	{NULL,
 	 NULL,
 	 {
-		 NULL, 0, 0, 0, 0, 0, 0,
+		 NULL,
+		 0,
+		 0,
+		 0,
+		 0,
+		 0,
+		 0,
 	 }},
 };
 

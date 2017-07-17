@@ -1358,12 +1358,11 @@ void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
 			 * list_isempty (oipt->id_list)
 			 * not being empty.
 			 */
-			if (
-				oipt->t_opaque_lsa_self
-					!= NULL /* Waiting for a thread call. */
-				|| oipt->status == PROC_SUSPEND) /* Cannot
-								    originate
-								    now. */
+			if (oipt->t_opaque_lsa_self
+				    != NULL /* Waiting for a thread call. */
+			    || oipt->status == PROC_SUSPEND) /* Cannot
+								originate
+								now. */
 				continue;
 
 			ospf_opaque_lsa_reoriginate_schedule(
@@ -1384,12 +1383,11 @@ void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
 			 * list_isempty (oipt->id_list)
 			 * not being empty.
 			 */
-			if (
-				oipt->t_opaque_lsa_self
-					!= NULL /* Waiting for a thread call. */
-				|| oipt->status == PROC_SUSPEND) /* Cannot
-								    originate
-								    now. */
+			if (oipt->t_opaque_lsa_self
+				    != NULL /* Waiting for a thread call. */
+			    || oipt->status == PROC_SUSPEND) /* Cannot
+								originate
+								now. */
 				continue;
 
 			ospf_opaque_lsa_reoriginate_schedule(
@@ -1410,12 +1408,11 @@ void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
 			 * list_isempty (oipt->id_list)
 			 * not being empty.
 			 */
-			if (
-				oipt->t_opaque_lsa_self
-					!= NULL /* Waiting for a thread call. */
-				|| oipt->status == PROC_SUSPEND) /* Cannot
-								    originate
-								    now. */
+			if (oipt->t_opaque_lsa_self
+				    != NULL /* Waiting for a thread call. */
+			    || oipt->status == PROC_SUSPEND) /* Cannot
+								originate
+								now. */
 				continue;
 
 			ospf_opaque_lsa_reoriginate_schedule((void *)top,

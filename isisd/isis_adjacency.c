@@ -446,9 +446,10 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 					adj->dis_record[ISIS_LEVELS + level - 1]
 						.dis),
 				adj->dischanges[level - 1],
-				time2string(now - (adj->dis_record[ISIS_LEVELS
-								   + level - 1]
-							   .last_dis_change)));
+				time2string(now
+					    - (adj->dis_record[ISIS_LEVELS
+							       + level - 1]
+						       .last_dis_change)));
 		}
 		vty_out(vty, "\n");
 

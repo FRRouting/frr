@@ -1402,9 +1402,10 @@ DEFUN (ipv6_ospf6_priority,
 
 	oi->priority = strtol(argv[idx_number]->arg, NULL, 10);
 
-	if (oi->area && (oi->state == OSPF6_INTERFACE_DROTHER
-			 || oi->state == OSPF6_INTERFACE_BDR
-			 || oi->state == OSPF6_INTERFACE_DR))
+	if (oi->area
+	    && (oi->state == OSPF6_INTERFACE_DROTHER
+		|| oi->state == OSPF6_INTERFACE_BDR
+		|| oi->state == OSPF6_INTERFACE_DR))
 		ospf6_interface_state_change(dr_election(oi), oi);
 
 	return CMD_SUCCESS;

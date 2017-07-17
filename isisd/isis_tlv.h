@@ -217,7 +217,7 @@ struct te_ipv4_reachability {
 	u_int32_t te_metric;
 	u_char control;
 	u_char prefix_start; /* since this is variable length by nature it only
-				*/
+			      */
 };			     /* points to an approximate location */
 
 #define TE_IPV4_HAS_SUBTLV (0x40)

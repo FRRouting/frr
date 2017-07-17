@@ -854,8 +854,9 @@ static int zserv_rnh_register(struct zserv *client, int sock, u_short length,
 			if (flags
 			    && !CHECK_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH))
 				SET_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH);
-			else if (!flags && CHECK_FLAG(rnh->flags,
-						      ZEBRA_NHT_EXACT_MATCH))
+			else if (!flags
+				 && CHECK_FLAG(rnh->flags,
+					       ZEBRA_NHT_EXACT_MATCH))
 				UNSET_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH);
 		}
 
@@ -2819,8 +2820,9 @@ DEFUN (show_zebra,
 	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
 	{
 		struct zebra_vrf *zvrf = vrf->info;
-		vty_out(vty, "%-25s %10" PRIu64 " %10" PRIu64 " %10" PRIu64
-			     " %10" PRIu64 " %10" PRIu64 "\n",
+		vty_out(vty,
+			"%-25s %10" PRIu64 " %10" PRIu64 " %10" PRIu64
+			" %10" PRIu64 " %10" PRIu64 "\n",
 			vrf->name, zvrf->installs, zvrf->removals,
 			zvrf->neigh_updates, zvrf->lsp_installs,
 			zvrf->lsp_removals);

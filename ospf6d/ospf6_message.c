@@ -869,7 +869,7 @@ static unsigned ospf6_prefixes_examin(
 	unsigned length,
 	const u_int32_t req_num_pfxs /* always compared with the actual number
 					of prefixes */
-	)
+)
 {
 	u_char requested_pfx_bytes;
 	u_int32_t real_num_pfxs = 0;
@@ -1066,7 +1066,7 @@ static unsigned ospf6_lsa_examin(struct ospf6_lsa_header *lsah,
 			lsalen - OSPF6_LSA_HEADER_SIZE
 				- OSPF6_LINK_LSA_MIN_SIZE,
 			ntohl(link_lsa->prefix_num) /* 32 bits */
-			);
+		);
 	case OSPF6_LSTYPE_INTRA_PREFIX:
 		/* RFC5340 A.4.10, LSA header + OSPF6_INTRA_PREFIX_LSA_MIN_SIZE
 		   bytes
@@ -1084,7 +1084,7 @@ static unsigned ospf6_lsa_examin(struct ospf6_lsa_header *lsah,
 			lsalen - OSPF6_LSA_HEADER_SIZE
 				- OSPF6_INTRA_PREFIX_LSA_MIN_SIZE,
 			ntohs(intra_prefix_lsa->prefix_num) /* 16 bits */
-			);
+		);
 	}
 	/* No additional validation is possible for unknown LSA types, which are
 	   themselves valid in OPSFv3, hence the default decision is to accept.
@@ -1270,7 +1270,7 @@ static unsigned ospf6_packet_examin(struct ospf6_header *oh,
 						    + OSPF6_LS_UPD_MIN_SIZE),
 			bytesonwire - OSPF6_HEADER_SIZE - OSPF6_LS_UPD_MIN_SIZE,
 			0, ntohl(lsupd->lsa_number) /* 32 bits */
-			);
+		);
 		break;
 	case OSPF6_MESSAGE_TYPE_LSACK:
 		/* RFC5340 A.3.6, packet header + N>=0 header-only LSAs. */

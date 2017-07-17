@@ -552,8 +552,9 @@ struct eigrp_interface *eigrp_if_lookup_recv_if(struct eigrp *eigrp,
 
 		if (prefix_match(CONNECTED_PREFIX(ei->connected),
 				 (struct prefix *)&addr)) {
-			if ((match == NULL) || (match->address->prefixlen
-						< ei->address->prefixlen))
+			if ((match == NULL)
+			    || (match->address->prefixlen
+				< ei->address->prefixlen))
 				match = ei;
 		}
 	}

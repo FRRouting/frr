@@ -507,7 +507,8 @@ static int zebra_config_write(struct vty *vty)
 
 /* Zebra node structure. */
 static struct cmd_node zebra_node = {
-	ZEBRA_NODE, "%s(config-router)# ",
+	ZEBRA_NODE,
+	"%s(config-router)# ",
 };
 
 static void ripng_zebra_connected(struct zclient *zclient)

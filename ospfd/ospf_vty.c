@@ -290,8 +290,9 @@ static void ospf_passive_interface_default(struct ospf *ospf, u_char newval)
 	ospf->passive_interface_default = newval;
 
 	for (ALL_LIST_ELEMENTS_RO(om->iflist, ln, ifp)) {
-		if (ifp && OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp),
-						    passive_interface))
+		if (ifp
+		    && OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp),
+						passive_interface))
 			UNSET_IF_PARAM(IF_DEF_PARAMS(ifp), passive_interface);
 	}
 	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, ln, oi)) {
@@ -394,8 +395,9 @@ DEFUN (ospf_passive_interface,
 	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
 		struct ospf_interface *oi = rn->info;
 
-		if (oi && (OSPF_IF_PARAM(oi, passive_interface)
-			   == OSPF_IF_PASSIVE))
+		if (oi
+		    && (OSPF_IF_PARAM(oi, passive_interface)
+			== OSPF_IF_PASSIVE))
 			ospf_if_set_multicast(oi);
 	}
 	/*
@@ -2125,7 +2127,8 @@ ALIAS(ospf_compatible_rfc1583, ospf_rfc1583_flag_cmd,
       "Enable the RFC1583Compatibility flag\n")
 
 ALIAS(no_ospf_compatible_rfc1583, no_ospf_rfc1583_flag_cmd,
-      "no ospf rfc1583compatibility", NO_STR
+      "no ospf rfc1583compatibility",
+      NO_STR
       "OSPF specific commands\n"
       "Disable the RFC1583Compatibility flag\n")
 
@@ -2579,7 +2582,8 @@ DEFUN (no_ospf_write_multiplier,
 }
 
 ALIAS(no_ospf_write_multiplier, no_write_multiplier_cmd,
-      "no write-multiplier (1-100)", NO_STR
+      "no write-multiplier (1-100)",
+      NO_STR
       "Write multiplier\n"
       "Maximum number of interface serviced per write\n")
 
@@ -3177,8 +3181,9 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 
 	if (use_json) {
 		json_object_object_add(json, "areas", json_areas);
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else
 		vty_out(vty, "\n");
@@ -3322,10 +3327,10 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 					dstr = "Broadcast";
 
 				/* For Vlinks, showing the peer address is
-		   * probably more
-		   *  *  *  *                * informative than the local
-		   * interface that is being used
-		   *   *   *   *                               */
+				 * probably more
+				 *  *  *  *                * informative than
+				 * the local interface that is being used
+				 *   *   *   *                               */
 				if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
 					dest = &oi->vl_data->peer_addr;
 				else
@@ -3606,8 +3611,9 @@ static int show_ip_ospf_interface_common(struct vty *vty, struct ospf *ospf,
 	}
 
 	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else
 		vty_out(vty, "\n");
@@ -3817,8 +3823,9 @@ static int show_ip_ospf_neighbor_common(struct vty *vty, struct ospf *ospf,
 		show_ip_ospf_neighbor_sub(vty, oi, json, use_json);
 
 	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else
 		vty_out(vty, "\n");
@@ -3937,8 +3944,9 @@ static int show_ip_ospf_neighbor_all_common(struct vty *vty, struct ospf *ospf,
 	}
 
 	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else
 		vty_out(vty, "\n");
@@ -4030,8 +4038,9 @@ static int show_ip_ospf_neighbor_int_common(struct vty *vty, struct ospf *ospf,
 	}
 
 	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else
 		vty_out(vty, "\n");
@@ -4413,8 +4422,9 @@ static int show_ip_ospf_neighbor_id_common(struct vty *vty, struct ospf *ospf,
 	}
 
 	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else
 		vty_out(vty, "\n");
@@ -4502,8 +4512,9 @@ static int show_ip_ospf_neighbor_detail_common(struct vty *vty,
 	}
 
 	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else
 		vty_out(vty, "\n");
@@ -4600,8 +4611,9 @@ static int show_ip_ospf_neighbor_detail_all_common(struct vty *vty,
 	}
 
 	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
 		vty_out(vty, "\n");
@@ -4702,8 +4714,9 @@ static int show_ip_ospf_neighbor_int_detail_common(struct vty *vty,
 	}
 
 	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else
 		vty_out(vty, "\n");

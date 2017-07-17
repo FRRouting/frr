@@ -848,7 +848,9 @@ static route_map_result_t ospf6_routemap_rule_match_tag(void *rule,
 }
 
 static struct route_map_rule_cmd ospf6_routemap_rule_match_tag_cmd = {
-	"tag", ospf6_routemap_rule_match_tag, route_map_rule_tag_compile,
+	"tag",
+	ospf6_routemap_rule_match_tag,
+	route_map_rule_tag_compile,
 	route_map_rule_tag_free,
 };
 
@@ -883,7 +885,8 @@ static void ospf6_routemap_rule_set_metric_type_free(void *rule)
 }
 
 struct route_map_rule_cmd ospf6_routemap_rule_set_metric_type_cmd = {
-	"metric-type", ospf6_routemap_rule_set_metric_type,
+	"metric-type",
+	ospf6_routemap_rule_set_metric_type,
 	ospf6_routemap_rule_set_metric_type_compile,
 	ospf6_routemap_rule_set_metric_type_free,
 };
@@ -918,7 +921,8 @@ static void ospf6_routemap_rule_set_metric_free(void *rule)
 }
 
 struct route_map_rule_cmd ospf6_routemap_rule_set_metric_cmd = {
-	"metric", ospf6_routemap_rule_set_metric,
+	"metric",
+	ospf6_routemap_rule_set_metric,
 	ospf6_routemap_rule_set_metric_compile,
 	ospf6_routemap_rule_set_metric_free,
 };
@@ -956,7 +960,8 @@ static void ospf6_routemap_rule_set_forwarding_free(void *rule)
 }
 
 struct route_map_rule_cmd ospf6_routemap_rule_set_forwarding_cmd = {
-	"forwarding-address", ospf6_routemap_rule_set_forwarding,
+	"forwarding-address",
+	ospf6_routemap_rule_set_forwarding,
 	ospf6_routemap_rule_set_forwarding_compile,
 	ospf6_routemap_rule_set_forwarding_free,
 };
@@ -978,7 +983,9 @@ static route_map_result_t ospf6_routemap_rule_set_tag(void *rule,
 }
 
 static struct route_map_rule_cmd ospf6_routemap_rule_set_tag_cmd = {
-	"tag", ospf6_routemap_rule_set_tag, route_map_rule_tag_compile,
+	"tag",
+	ospf6_routemap_rule_set_tag,
+	route_map_rule_tag_compile,
 	route_map_rule_tag_free,
 };
 

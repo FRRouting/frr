@@ -1232,8 +1232,9 @@ int route_map_delete_match(struct route_map_index *index,
 		return 1;
 
 	for (rule = index->match_list.head; rule; rule = rule->next)
-		if (rule->cmd == cmd && (rulecmp(rule->rule_str, match_arg) == 0
-					 || match_arg == NULL)) {
+		if (rule->cmd == cmd
+		    && (rulecmp(rule->rule_str, match_arg) == 0
+			|| match_arg == NULL)) {
 			route_map_rule_delete(&index->match_list, rule);
 			/* Execute event hook. */
 			if (route_map_master.event_hook) {
@@ -1319,8 +1320,9 @@ int route_map_delete_set(struct route_map_index *index, const char *set_name,
 		return 1;
 
 	for (rule = index->set_list.head; rule; rule = rule->next)
-		if ((rule->cmd == cmd) && (rulecmp(rule->rule_str, set_arg) == 0
-					   || set_arg == NULL)) {
+		if ((rule->cmd == cmd)
+		    && (rulecmp(rule->rule_str, set_arg) == 0
+			|| set_arg == NULL)) {
 			route_map_rule_delete(&index->set_list, rule);
 			/* Execute event hook. */
 			if (route_map_master.event_hook) {

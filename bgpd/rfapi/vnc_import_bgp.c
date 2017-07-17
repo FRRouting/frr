@@ -2009,7 +2009,7 @@ void vnc_import_bgp_exterior_del_route(
 							bgp_info_unlock(info);
 							route_unlock_node(
 								rn); /* sl entry
-									*/
+								      */
 						}
 						if (skiplist_empty(
 							    RFAPI_MONITOR_EXTERIOR(
