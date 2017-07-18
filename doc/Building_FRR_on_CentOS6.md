@@ -14,6 +14,9 @@ CentOS 6 restrictions:
   needed
 - MPLS is not supported on `CentOS 6`. MPLS requires Linux Kernel 4.5 or 
   higher (LDP can be built, but may have limited use without MPLS)
+- Zebra is unable to detect what bridge/vrf an interface is associcated
+  with (IFLA_INFO_SLAVE_KIND does not exist in the kernel headers, you
+  can use a newer kernel + headers to get this functionality)
 
 Install required packages
 -------------------------
