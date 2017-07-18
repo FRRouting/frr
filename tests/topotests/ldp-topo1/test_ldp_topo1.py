@@ -544,17 +544,26 @@ def test_zebra_ipv4_routingTable():
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
-            # Fix newlines (make them all the same)
-            expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
 
             # Actual output from router
             actual = net['r%s' % i].cmd('vtysh -c "show ip route" 2> /dev/null | grep "^O"').rstrip()
             # Drop timers on end of line (older Quagga Versions)
             actual = re.sub(r", [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", "", actual)
-            # Mask out label
-            actual = re.sub(r" label [0-9]+", " label xxx", actual)
+
+            # Mask out label - all LDP labels should be >= 10 (2-digit)
+            #   leaving the implicit labels unmasked
+            actual = re.sub(r" label [0-9][0-9]+", " label xxx", actual)
+            #   and translating remaining implicit (single-digit) labels to label y
+            actual = re.sub(r" label [0-9]+", " label y", actual)
+            # Check if we have implicit labels - if not, then remove them from reference
+            if (not re.search(r" label y", actual)):
+		expected = re.sub(r", label y", "", expected)
+
+            # now fix newlines of expected (make them all the same)
+            expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
+
             # Add missing comma before label (for old version)
-            actual = re.sub(r"([0-9]) label xxx", r"\1, label xxx", actual)
+            actual = re.sub(r"([0-9]) label ", r"\1, label ", actual)
 
             # Fix newlines (make them all the same)
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
