@@ -23,8 +23,8 @@
 
 #include <zebra.h>
 
-extern int
-show_adj_route_vpn (struct vty *vty, struct peer *peer, struct prefix_rd *prd,
-                    afi_t afi, safi_t safi, u_char use_json);
+extern int show_adj_route_vpn(struct vty *vty, struct peer *peer,
+			      struct prefix_rd *prd, afi_t afi, safi_t safi,
+			      u_char use_json);
 
 #endif /* _QUAGGA_BGP_VPN_H */

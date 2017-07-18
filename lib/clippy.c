@@ -75,8 +75,9 @@ int main(int argc, char **argv)
 			*cr = ' ';
 		fprintf(stderr, "clippy interactive shell\n(Python %s)\n", ver);
 		free(ver);
-		PyRun_SimpleString("import rlcompleter, readline\n"
-				"readline.parse_and_bind('tab: complete')");
+		PyRun_SimpleString(
+			"import rlcompleter, readline\n"
+			"readline.parse_and_bind('tab: complete')");
 	}
 
 	if (PyRun_AnyFile(fp, pyfile)) {
@@ -86,7 +87,7 @@ int main(int argc, char **argv)
 			printf("unknown python failure (?)\n");
 		return 1;
 	}
-        Py_Finalize();
+	Py_Finalize();
 
 #if PY_MAJOR_VERSION >= 3
 	for (int i = 1; i < argc; i++)
@@ -106,15 +107,15 @@ int main(int argc, char **argv)
 #include "log.h"
 #include "zassert.h"
 
-#define ZLOG_FUNC(FUNCNAME) \
-void FUNCNAME(const char *format, ...) \
-{ \
-  va_list args; \
-  va_start(args, format); \
-  vfprintf (stderr, format, args); \
-  fputs ("\n", stderr); \
-  va_end(args); \
-}
+#define ZLOG_FUNC(FUNCNAME)                                                    \
+	void FUNCNAME(const char *format, ...)                                 \
+	{                                                                      \
+		va_list args;                                                  \
+		va_start(args, format);                                        \
+		vfprintf(stderr, format, args);                                \
+		fputs("\n", stderr);                                           \
+		va_end(args);                                                  \
+	}
 
 ZLOG_FUNC(zlog_err)
 ZLOG_FUNC(zlog_warn)
@@ -122,16 +123,16 @@ ZLOG_FUNC(zlog_info)
 ZLOG_FUNC(zlog_notice)
 ZLOG_FUNC(zlog_debug)
 
-void
-_zlog_assert_failed (const char *assertion, const char *file,
-		     unsigned int line, const char *function)
+void _zlog_assert_failed(const char *assertion, const char *file,
+			 unsigned int line, const char *function)
 {
-	fprintf(stderr, "Assertion `%s' failed in file %s, line %u, function %s",
+	fprintf(stderr,
+		"Assertion `%s' failed in file %s, line %u, function %s",
 		assertion, file, line, (function ? function : "?"));
 	abort();
 }
 
-void memory_oom (size_t size, const char *name)
+void memory_oom(size_t size, const char *name)
 {
 	abort();
 }

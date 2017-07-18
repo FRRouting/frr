@@ -29,38 +29,30 @@
 /*
  * _qpb_alloc
  */
-static void *
-_qpb_alloc (void *allocator_data, size_t size)
+static void *_qpb_alloc(void *allocator_data, size_t size)
 {
-  return linear_allocator_alloc (allocator_data, size);
+	return linear_allocator_alloc(allocator_data, size);
 }
 
 /*
  * _qpb_free
  */
-static void
-_qpb_free (void *allocator_data, void *ptr)
+static void _qpb_free(void *allocator_data, void *ptr)
 {
-  linear_allocator_free (allocator_data, ptr);
+	linear_allocator_free(allocator_data, ptr);
 }
 
-static ProtobufCAllocator allocator_template = {
-  _qpb_alloc,
-  _qpb_free,
-  NULL,
-  8192,
-  NULL
-};
+static ProtobufCAllocator allocator_template = {_qpb_alloc, _qpb_free, NULL,
+						8192, NULL};
 
 /*
  * qpb_allocator_init_linear
  *
  * Initialize qpb_allocator_t with the given linear allocator.
  */
-void
-qpb_allocator_init_linear (qpb_allocator_t *allocator,
-			   linear_allocator_t *linear_allocator)
+void qpb_allocator_init_linear(qpb_allocator_t *allocator,
+			       linear_allocator_t *linear_allocator)
 {
-  *allocator = allocator_template;
-  allocator->allocator_data = linear_allocator;
+	*allocator = allocator_template;
+	allocator->allocator_data = linear_allocator;
 }

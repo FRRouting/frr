@@ -20,23 +20,22 @@
 #ifndef __WHEEL_H__
 #define __WHEEL_H__
 
-struct timer_wheel
-{
-  struct thread_master *master;
-  int slots;
-  long long curr_slot;
-  unsigned int period;
-  unsigned int nexttime;
-  unsigned int slots_to_skip;
+struct timer_wheel {
+	struct thread_master *master;
+	int slots;
+	long long curr_slot;
+	unsigned int period;
+	unsigned int nexttime;
+	unsigned int slots_to_skip;
 
-  struct list **wheel_slot_lists;
-  struct thread *timer;
-  /*
-   * Key to determine what slot the item belongs in
-   */
-  unsigned int (*slot_key) (void *);
+	struct list **wheel_slot_lists;
+	struct thread *timer;
+	/*
+	 * Key to determine what slot the item belongs in
+	 */
+	unsigned int (*slot_key)(void *);
 
-  void (*slot_run) (void *);
+	void (*slot_run)(void *);
 };
 
 /*
@@ -75,24 +74,24 @@ struct timer_wheel
  * and cause significant amount of time handling thread events instead
  * of running your code.
  */
-struct timer_wheel *wheel_init (struct thread_master *master, int period, size_t slots,
-				unsigned int (*slot_key) (void *),
-				void (*slot_run) (void *));
+struct timer_wheel *wheel_init(struct thread_master *master, int period,
+			       size_t slots, unsigned int (*slot_key)(void *),
+			       void (*slot_run)(void *));
 
 /*
  * Delete the specified timer wheel created
  */
-void wheel_delete (struct timer_wheel *);
+void wheel_delete(struct timer_wheel *);
 
 /*
  * Pause the Wheel from running
  */
-int wheel_stop (struct timer_wheel *wheel);
+int wheel_stop(struct timer_wheel *wheel);
 
 /*
  * Start the wheel running again
  */
-int wheel_start (struct timer_wheel *wheel);
+int wheel_start(struct timer_wheel *wheel);
 
 /*
  * wheel - The Timer wheel being modified
@@ -102,7 +101,7 @@ int wheel_start (struct timer_wheel *wheel);
  * Add item to a slot setup by the slot_key,
  * possibly change next time pop.
  */
-int wheel_add_item (struct timer_wheel *wheel, void *item);
+int wheel_add_item(struct timer_wheel *wheel, void *item);
 
 /*
  * wheel - The Timer wheel being modified.
@@ -112,6 +111,6 @@ int wheel_add_item (struct timer_wheel *wheel, void *item);
  * Remove a item to a slot setup by the slot_key,
  * possibly change next time pop.
  */
-int wheel_remove_item (struct timer_wheel *wheel, void *item);
+int wheel_remove_item(struct timer_wheel *wheel, void *item);
 
 #endif

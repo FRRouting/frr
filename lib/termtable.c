@@ -349,7 +349,7 @@ char *ttable_dump(struct ttable *tt, const char *newline)
 	rsize = nl_len + (tt->style.border.right_on ? 1 : 0);
 	right = XCALLOC(MTYPE_TTABLE, rsize);
 
-	memset (left, ' ', lsize);
+	memset(left, ' ', lsize);
 
 	if (tt->style.border.left_on)
 		left[lsize - 1] = tt->style.border.left;

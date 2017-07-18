@@ -25,7 +25,28 @@
 #include "zebra/zserv.h"
 #include "zebra/rt_netlink.h"
 
-void route_read (struct zebra_ns *zns)
+void route_read(struct zebra_ns *zns)
 {
-  netlink_route_read (zns);
+	netlink_route_read(zns);
+}
+
+void macfdb_read(struct zebra_ns *zns)
+{
+	netlink_macfdb_read(zns);
+}
+
+void macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
+			    struct interface *br_if)
+{
+	netlink_macfdb_read_for_bridge(zns, ifp, br_if);
+}
+
+void neigh_read(struct zebra_ns *zns)
+{
+	netlink_neigh_read(zns);
+}
+
+void neigh_read_for_vlan(struct zebra_ns *zns, struct interface *vlan_if)
+{
+	netlink_neigh_read_for_vlan(zns, vlan_if);
 }

@@ -46,7 +46,7 @@ extern unsigned long rip_debug_event;
 extern unsigned long rip_debug_packet;
 extern unsigned long rip_debug_zebra;
 
-extern void rip_debug_init (void);
-extern void rip_debug_reset (void);
+extern void rip_debug_init(void);
+extern void rip_debug_reset(void);
 
 #endif /* _ZEBRA_RIP_DEBUG_H */

@@ -115,16 +115,16 @@ ldp_af_iface_config_write(struct vty *vty, int af)
 		if (!ia->enabled)
 			continue;
 
-		vty_outln (vty, "  !");
-		vty_outln (vty, "  interface %s", iface->name);
+		vty_out (vty, "  !\n");
+		vty_out (vty, "  interface %s\n", iface->name);
 
 		if (ia->hello_holdtime != LINK_DFLT_HOLDTIME &&
 		    ia->hello_holdtime != 0)
-			vty_outln (vty, "   discovery hello holdtime %u",
+			vty_out (vty, "   discovery hello holdtime %u\n",
 			    ia->hello_holdtime);
 		if (ia->hello_interval != DEFAULT_HELLO_INTERVAL &&
 		    ia->hello_interval != 0)
-			vty_outln (vty, "   discovery hello interval %u",
+			vty_out (vty, "   discovery hello interval %u\n",
 			    ia->hello_interval);
 	}
 }
@@ -138,16 +138,16 @@ ldp_af_config_write(struct vty *vty, int af, struct ldpd_conf *conf,
 	if (!(af_conf->flags & F_LDPD_AF_ENABLED))
 		return;
 
-	vty_outln (vty, " !");
-	vty_outln (vty, " address-family %s", af_name(af));
+	vty_out (vty, " !\n");
+	vty_out (vty, " address-family %s\n", af_name(af));
 
 	if (af_conf->lhello_holdtime != LINK_DFLT_HOLDTIME &&
 	    af_conf->lhello_holdtime != 0 )
-		vty_outln (vty, "  discovery hello holdtime %u",
+		vty_out (vty, "  discovery hello holdtime %u\n",
 		    af_conf->lhello_holdtime);
 	if (af_conf->lhello_interval != DEFAULT_HELLO_INTERVAL &&
 	    af_conf->lhello_interval != 0)
-		vty_outln (vty, "  discovery hello interval %u",
+		vty_out (vty, "  discovery hello interval %u\n",
 		    af_conf->lhello_interval);
 
 	if (af_conf->flags & F_LDPD_AF_THELLO_ACCEPT) {
@@ -155,24 +155,24 @@ ldp_af_config_write(struct vty *vty, int af, struct ldpd_conf *conf,
 		if (af_conf->acl_thello_accept_from[0] != '\0')
 			vty_out(vty, " from %s",
 			    af_conf->acl_thello_accept_from);
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 	}
 
 	if (af_conf->thello_holdtime != TARGETED_DFLT_HOLDTIME &&
 	    af_conf->thello_holdtime != 0)
-		vty_outln (vty, "  discovery targeted-hello holdtime %u",
+		vty_out (vty, "  discovery targeted-hello holdtime %u\n",
 		    af_conf->thello_holdtime);
 	if (af_conf->thello_interval != DEFAULT_HELLO_INTERVAL &&
 	    af_conf->thello_interval != 0)
-		vty_outln (vty, "  discovery targeted-hello interval %u",
+		vty_out (vty, "  discovery targeted-hello interval %u\n",
 		    af_conf->thello_interval);
 
 	if (ldp_addrisset(af, &af_conf->trans_addr))
-		vty_outln (vty, "  discovery transport-address %s",
+		vty_out (vty, "  discovery transport-address %s\n",
 		    log_addr(af, &af_conf->trans_addr));
 		else
-			vty_outln (vty,
-				  "  ! Incomplete config, specify a discovery " "transport-address");
+			vty_out (vty,
+				  "  ! Incomplete config, specify a discovery transport-address\n");
 
 	if ((af_conf->flags & F_LDPD_AF_ALLOCHOSTONLY) ||
 	    af_conf->acl_label_allocate_for[0] != '\0') {
@@ -182,7 +182,7 @@ ldp_af_config_write(struct vty *vty, int af, struct ldpd_conf *conf,
 		else
 			vty_out(vty, " for %s",
 			    af_conf->acl_label_allocate_for);
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 	}
 
 	if (af_conf->acl_label_advertise_for[0] != '\0' ||
@@ -194,7 +194,7 @@ ldp_af_config_write(struct vty *vty, int af, struct ldpd_conf *conf,
 		if (af_conf->acl_label_advertise_for[0] != '\0')
 			vty_out(vty, " for %s",
 			    af_conf->acl_label_advertise_for);
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 	}
 
 	if (af_conf->flags & F_LDPD_AF_EXPNULL) {
@@ -202,7 +202,7 @@ ldp_af_config_write(struct vty *vty, int af, struct ldpd_conf *conf,
 		if (af_conf->acl_label_expnull_for[0] != '\0')
 			vty_out(vty, " for %s",
 			    af_conf->acl_label_expnull_for);
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 	}
 
 	if (af_conf->acl_label_accept_for[0] != '\0' ||
@@ -214,26 +214,26 @@ ldp_af_config_write(struct vty *vty, int af, struct ldpd_conf *conf,
 		if (af_conf->acl_label_accept_for[0] != '\0')
 			vty_out(vty, " for %s",
 			    af_conf->acl_label_accept_for);
-		vty_out (vty, VTYNL);
+		vty_out (vty, "\n");
 	}
 
 	if (af_conf->flags & F_LDPD_AF_NO_GTSM)
-		vty_outln (vty, "  ttl-security disable");
+		vty_out (vty, "  ttl-security disable\n");
 
 	if (af_conf->keepalive != DEFAULT_KEEPALIVE)
-		vty_outln (vty, "  session holdtime %u",af_conf->keepalive);
+		vty_out (vty, "  session holdtime %u\n",af_conf->keepalive);
 
 	RB_FOREACH(tnbr, tnbr_head, &ldpd_conf->tnbr_tree) {
 		if (tnbr->af == af) {
-			vty_outln (vty, "  !");
-			vty_outln (vty, "  neighbor %s targeted",
+			vty_out (vty, "  !\n");
+			vty_out (vty, "  neighbor %s targeted\n",
 			    log_addr(tnbr->af, &tnbr->addr));
 		}
 	}
 
 	ldp_af_iface_config_write(vty, af);
 
-	vty_outln (vty, "  !");
+	vty_out (vty, "  !\n");
 }
 
 int
@@ -244,61 +244,61 @@ ldp_config_write(struct vty *vty)
 	if (!(ldpd_conf->flags & F_LDPD_ENABLED))
 		return (0);
 
-	vty_outln (vty, "mpls ldp");
+	vty_out (vty, "mpls ldp\n");
 
 	if (ldpd_conf->rtr_id.s_addr != 0)
-		vty_outln (vty, " router-id %s",
+		vty_out (vty, " router-id %s\n",
 		    inet_ntoa(ldpd_conf->rtr_id));
 
 	if (ldpd_conf->lhello_holdtime != LINK_DFLT_HOLDTIME &&
 	    ldpd_conf->lhello_holdtime != 0)
-		vty_outln (vty, " discovery hello holdtime %u",
+		vty_out (vty, " discovery hello holdtime %u\n",
 		    ldpd_conf->lhello_holdtime);
 	if (ldpd_conf->lhello_interval != DEFAULT_HELLO_INTERVAL &&
 	    ldpd_conf->lhello_interval != 0)
-		vty_outln (vty, " discovery hello interval %u",
+		vty_out (vty, " discovery hello interval %u\n",
 		    ldpd_conf->lhello_interval);
 
 	if (ldpd_conf->thello_holdtime != TARGETED_DFLT_HOLDTIME &&
 	    ldpd_conf->thello_holdtime != 0)
-		vty_outln (vty, " discovery targeted-hello holdtime %u",
+		vty_out (vty, " discovery targeted-hello holdtime %u\n",
 		    ldpd_conf->thello_holdtime);
 	if (ldpd_conf->thello_interval != DEFAULT_HELLO_INTERVAL &&
 	    ldpd_conf->thello_interval != 0)
-		vty_outln (vty, " discovery targeted-hello interval %u",
+		vty_out (vty, " discovery targeted-hello interval %u\n",
 		    ldpd_conf->thello_interval);
 
 	if (ldpd_conf->trans_pref == DUAL_STACK_LDPOV4)
-		vty_outln (vty,
-			  " dual-stack transport-connection prefer ipv4");
+		vty_out (vty,
+			  " dual-stack transport-connection prefer ipv4\n");
 
 	if (ldpd_conf->flags & F_LDPD_DS_CISCO_INTEROP)
-		vty_outln (vty, " dual-stack cisco-interop");
+		vty_out (vty, " dual-stack cisco-interop\n");
 
 	RB_FOREACH(nbrp, nbrp_head, &ldpd_conf->nbrp_tree) {
 		if (nbrp->flags & F_NBRP_KEEPALIVE)
-			vty_outln (vty, " neighbor %s session holdtime %u",
+			vty_out (vty, " neighbor %s session holdtime %u\n",
 			    inet_ntoa(nbrp->lsr_id),nbrp->keepalive);
 
 		if (nbrp->flags & F_NBRP_GTSM) {
 			if (nbrp->gtsm_enabled)
-				vty_outln (vty, " neighbor %s ttl-security hops "
-				    "%u",  inet_ntoa(nbrp->lsr_id),
+				vty_out (vty, " neighbor %s ttl-security hops "
+				    "%u\n",  inet_ntoa(nbrp->lsr_id),
 				    nbrp->gtsm_hops);
 			else
-				vty_outln (vty, " neighbor %s ttl-security "
-				    "disable",inet_ntoa(nbrp->lsr_id));
+				vty_out (vty, " neighbor %s ttl-security "
+				    "disable\n",inet_ntoa(nbrp->lsr_id));
 		}
 
 		if (nbrp->auth.method == AUTH_MD5SIG)
-			vty_outln (vty, " neighbor %s password %s",
+			vty_out (vty, " neighbor %s password %s\n",
 			    inet_ntoa(nbrp->lsr_id),nbrp->auth.md5key);
 	}
 
 	ldp_af_config_write(vty, AF_INET, ldpd_conf, &ldpd_conf->ipv4);
 	ldp_af_config_write(vty, AF_INET6, ldpd_conf, &ldpd_conf->ipv6);
-	vty_outln (vty, " !");
-	vty_outln (vty, "!");
+	vty_out (vty, " !\n");
+	vty_out (vty, "!\n");
 
 	return (1);
 }
@@ -309,34 +309,34 @@ ldp_l2vpn_pw_config_write(struct vty *vty, struct l2vpn_pw *pw)
 	int	 missing_lsrid = 0;
 	int	 missing_pwid = 0;
 
-	vty_outln (vty, " !");
-	vty_outln (vty, " member pseudowire %s", pw->ifname);
+	vty_out (vty, " !\n");
+	vty_out (vty, " member pseudowire %s\n", pw->ifname);
 
 	if (pw->lsr_id.s_addr != INADDR_ANY)
-		vty_outln (vty, "  neighbor lsr-id %s",inet_ntoa(pw->lsr_id));
+		vty_out (vty, "  neighbor lsr-id %s\n",inet_ntoa(pw->lsr_id));
 		else
 			missing_lsrid = 1;
 
 	if (pw->flags & F_PW_STATIC_NBR_ADDR)
-		vty_outln (vty, "  neighbor address %s",
+		vty_out (vty, "  neighbor address %s\n",
 		          log_addr(pw->af, &pw->addr));
 
 	if (pw->pwid != 0)
-		vty_outln (vty, "  pw-id %u", pw->pwid);
+		vty_out (vty, "  pw-id %u\n", pw->pwid);
 	else
 		missing_pwid = 1;
 
 	if (!(pw->flags & F_PW_CWORD_CONF))
-		vty_outln (vty, "  control-word exclude");
+		vty_out (vty, "  control-word exclude\n");
 
 	if (!(pw->flags & F_PW_STATUSTLV_CONF))
-		vty_outln (vty, "  pw-status disable");
+		vty_out (vty, "  pw-status disable\n");
 
 	if (missing_lsrid)
-		vty_outln (vty,
-		          "  ! Incomplete config, specify a neighbor " "lsr-id");
+		vty_out (vty,
+		          "  ! Incomplete config, specify a neighbor lsr-id\n");
 	if (missing_pwid)
-		vty_outln (vty,"  ! Incomplete config, specify a pw-id");
+		vty_out (vty,"  ! Incomplete config, specify a pw-id\n");
 }
 
 int
@@ -347,27 +347,27 @@ ldp_l2vpn_config_write(struct vty *vty)
 	struct l2vpn_pw		*pw;
 
 	RB_FOREACH(l2vpn, l2vpn_head, &ldpd_conf->l2vpn_tree) {
-		vty_outln (vty, "l2vpn %s type vpls", l2vpn->name);
+		vty_out (vty, "l2vpn %s type vpls\n", l2vpn->name);
 
 		if (l2vpn->pw_type != DEFAULT_PW_TYPE)
-			vty_outln (vty, " vc type ethernet-tagged");
+			vty_out (vty, " vc type ethernet-tagged\n");
 
 		if (l2vpn->mtu != DEFAULT_L2VPN_MTU)
-			vty_outln (vty, " mtu %u", l2vpn->mtu);
+			vty_out (vty, " mtu %u\n", l2vpn->mtu);
 
 		if (l2vpn->br_ifname[0] != '\0')
-			vty_outln (vty, " bridge %s",l2vpn->br_ifname);
+			vty_out (vty, " bridge %s\n",l2vpn->br_ifname);
 
 		RB_FOREACH(lif, l2vpn_if_head, &l2vpn->if_tree)
-			vty_outln (vty, " member interface %s",lif->ifname);
+			vty_out (vty, " member interface %s\n",lif->ifname);
 
 		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_tree)
 			ldp_l2vpn_pw_config_write(vty, pw);
 		RB_FOREACH(pw, l2vpn_pw_head, &l2vpn->pw_inactive_tree)
 			ldp_l2vpn_pw_config_write(vty, pw);
 
-		vty_outln (vty, " !");
-		vty_outln (vty, "!");
+		vty_out (vty, " !\n");
+		vty_out (vty, "!\n");
 	}
 
 	return (0);
@@ -434,7 +434,7 @@ ldp_vty_address_family(struct vty *vty, int disable, const char *af_str)
 		af = AF_INET6;
 		af_conf = &vty_conf->ipv6;
 	} else
-		return (CMD_WARNING);
+		return (CMD_WARNING_CONFIG_FAILED);
 
 	if (disable) {
 		af_conf->flags &= ~F_LDPD_AF_ENABLED;
@@ -473,8 +473,8 @@ ldp_vty_disc_holdtime(struct vty *vty, int disable, const char *hello_type_str,
 
 	secs = strtol(seconds_str, &ep, 10);
 	if (*ep != '\0' || secs < MIN_HOLDTIME || secs > MAX_HOLDTIME) {
-		vty_outln (vty, "%% Invalid holdtime");
-		return (CMD_WARNING);
+		vty_out (vty, "%% Invalid holdtime\n");
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	if (hello_type_str[0] == 'h')
@@ -568,8 +568,8 @@ ldp_vty_disc_interval(struct vty *vty, int disable, const char *hello_type_str,
 	secs = strtol(seconds_str, &ep, 10);
 	if (*ep != '\0' || secs < MIN_HELLO_INTERVAL ||
 	    secs > MAX_HELLO_INTERVAL) {
-		vty_outln (vty, "%% Invalid interval");
-		return (CMD_WARNING);
+		vty_out (vty, "%% Invalid interval\n");
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	if (hello_type_str[0] == 'h')
@@ -686,13 +686,13 @@ ldp_vty_nbr_session_holdtime(struct vty *vty, int disable,
 
 	if (inet_pton(AF_INET, lsr_id_str, &lsr_id) != 1 ||
 	    bad_addr_v4(lsr_id)) {
-		vty_outln (vty, "%% Malformed address");
-		return (CMD_WARNING);
+		vty_out (vty, "%% Malformed address\n");
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	secs = strtol(seconds_str, &ep, 10);
 	if (*ep != '\0' || secs < MIN_KEEPALIVE || secs > MAX_KEEPALIVE) {
-		vty_outln (vty, "%% Invalid holdtime");
+		vty_out (vty, "%% Invalid holdtime\n");
 		return (CMD_SUCCESS);
 	}
 
@@ -732,7 +732,7 @@ ldp_vty_af_session_holdtime(struct vty *vty, int disable,
 
 	secs = strtol(seconds_str, &ep, 10);
 	if (*ep != '\0' || secs < MIN_KEEPALIVE || secs > MAX_KEEPALIVE) {
-		vty_outln (vty, "%% Invalid holdtime");
+		vty_out (vty, "%% Invalid holdtime\n");
 		return (CMD_SUCCESS);
 	}
 
@@ -778,7 +778,7 @@ ldp_vty_interface(struct vty *vty, int disable, const char *ifname)
 
 	if (iface == NULL) {
 		if (ldp_iface_is_configured(vty_conf, ifname)) {
-			vty_outln (vty,"%% Interface is already in use");
+			vty_out (vty,"%% Interface is already in use\n");
 			return (CMD_SUCCESS);
 		}
 
@@ -825,7 +825,7 @@ ldp_vty_trans_addr(struct vty *vty, int disable, const char *addr_str)
 	else {
 		if (inet_pton(af, addr_str, &af_conf->trans_addr) != 1 ||
 		    bad_addr(af, &af_conf->trans_addr)) {
-			vty_outln (vty, "%% Malformed address");
+			vty_out (vty, "%% Malformed address\n");
 			return (CMD_SUCCESS);
 		}
 	}
@@ -846,12 +846,12 @@ ldp_vty_neighbor_targeted(struct vty *vty, int disable, const char *addr_str)
 
 	if (inet_pton(af, addr_str, &addr) != 1 ||
 	    bad_addr(af, &addr)) {
-		vty_outln (vty, "%% Malformed address");
-		return (CMD_WARNING);
+		vty_out (vty, "%% Malformed address\n");
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 	if (af == AF_INET6 && IN6_IS_SCOPE_EMBED(&addr.v6)) {
-		vty_outln (vty, "%% Address can not be link-local");
-		return (CMD_WARNING);
+		vty_out (vty, "%% Address can not be link-local\n");
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	tnbr = tnbr_find(vty_conf, af, &addr);
@@ -1022,7 +1022,7 @@ ldp_vty_router_id(struct vty *vty, int disable, const char *addr_str)
 	else {
 		if (inet_pton(AF_INET, addr_str, &vty_conf->rtr_id) != 1 ||
 		    bad_addr_v4(vty_conf->rtr_id)) {
-			vty_outln (vty, "%% Malformed address");
+			vty_out (vty, "%% Malformed address\n");
 			return (CMD_SUCCESS);
 		}
 	}
@@ -1068,8 +1068,8 @@ ldp_vty_neighbor_password(struct vty *vty, int disable, const char *lsr_id_str,
 
 	if (inet_pton(AF_INET, lsr_id_str, &lsr_id) != 1 ||
 	    bad_addr_v4(lsr_id)) {
-		vty_outln (vty, "%% Malformed address");
-		return (CMD_WARNING);
+		vty_out (vty, "%% Malformed address\n");
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	nbrp = nbr_params_find(vty_conf, lsr_id);
@@ -1114,14 +1114,14 @@ ldp_vty_neighbor_ttl_security(struct vty *vty, int disable,
 
 	if (inet_pton(AF_INET, lsr_id_str, &lsr_id) != 1 ||
 	    bad_addr_v4(lsr_id)) {
-		vty_outln (vty, "%% Malformed address");
-		return (CMD_WARNING);
+		vty_out (vty, "%% Malformed address\n");
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	if (hops_str) {
 		hops = strtol(hops_str, &ep, 10);
 		if (*ep != '\0' || hops < 1 || hops > 254) {
-			vty_outln (vty, "%% Invalid hop count");
+			vty_out (vty, "%% Invalid hop count\n");
 			return (CMD_SUCCESS);
 		}
 	}
@@ -1226,8 +1226,8 @@ ldp_vty_l2vpn_mtu(struct vty *vty, int disable, const char *mtu_str)
 
 	mtu = strtol(mtu_str, &ep, 10);
 	if (*ep != '\0' || mtu < MIN_L2VPN_MTU || mtu > MAX_L2VPN_MTU) {
-		vty_outln (vty, "%% Invalid MTU");
-		return (CMD_WARNING);
+		vty_out (vty, "%% Invalid MTU\n");
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	if (disable)
@@ -1286,7 +1286,7 @@ ldp_vty_l2vpn_interface(struct vty *vty, int disable, const char *ifname)
 		return (CMD_SUCCESS);
 
 	if (ldp_iface_is_configured(vty_conf, ifname)) {
-		vty_outln (vty, "%% Interface is already in use");
+		vty_out (vty, "%% Interface is already in use\n");
 		return (CMD_SUCCESS);
 	}
 
@@ -1329,7 +1329,7 @@ ldp_vty_l2vpn_pseudowire(struct vty *vty, int disable, const char *ifname)
 	}
 
 	if (ldp_iface_is_configured(vty_conf, ifname)) {
-		vty_outln (vty, "%% Interface is already in use");
+		vty_out (vty, "%% Interface is already in use\n");
 		return (CMD_SUCCESS);
 	}
 
@@ -1373,8 +1373,8 @@ ldp_vty_l2vpn_pw_nbr_addr(struct vty *vty, int disable, const char *addr_str)
 
 	if (ldp_get_address(addr_str, &af, &addr) == -1 ||
 	    bad_addr(af, &addr)) {
-		vty_outln (vty, "%% Malformed address");
-		return (CMD_WARNING);
+		vty_out (vty, "%% Malformed address\n");
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	if (disable) {
@@ -1400,8 +1400,8 @@ ldp_vty_l2vpn_pw_nbr_id(struct vty *vty, int disable, const char *lsr_id_str)
 
 	if (inet_pton(AF_INET, lsr_id_str, &lsr_id) != 1 ||
 	    bad_addr_v4(lsr_id)) {
-		vty_outln (vty, "%% Malformed address");
-		return (CMD_WARNING);
+		vty_out (vty, "%% Malformed address\n");
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	if (disable)
@@ -1423,8 +1423,8 @@ ldp_vty_l2vpn_pw_pwid(struct vty *vty, int disable, const char *pwid_str)
 
 	pwid = strtol(pwid_str, &ep, 10);
 	if (*ep != '\0' || pwid < MIN_PWID_ID || pwid > MAX_PWID_ID) {
-		vty_outln (vty, "%% Invalid pw-id");
-		return (CMD_WARNING);
+		vty_out (vty, "%% Invalid pw-id\n");
+		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	if (disable)

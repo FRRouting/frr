@@ -37,106 +37,107 @@ static pthread_mutex_t pthread_table_mtx = PTHREAD_MUTEX_INITIALIZER;
 /* pthread_table->hash_cmp */
 static int pthread_table_hash_cmp(const void *value1, const void *value2)
 {
-        const struct frr_pthread *tq1 = value1;
-        const struct frr_pthread *tq2 = value2;
+	const struct frr_pthread *tq1 = value1;
+	const struct frr_pthread *tq2 = value2;
 
-        return (tq1->id == tq2->id);
+	return (tq1->id == tq2->id);
 }
 
 /* pthread_table->hash_key */
 static unsigned int pthread_table_hash_key(void *value)
 {
-        return ((struct frr_pthread *)value)->id;
+	return ((struct frr_pthread *)value)->id;
 }
 /* ------------------------------------------------------------------------ */
 
 void frr_pthread_init()
 {
-        pthread_mutex_lock(&pthread_table_mtx);
-        {
-                pthread_table =
-                    hash_create(pthread_table_hash_key, pthread_table_hash_cmp, NULL);
-        }
-        pthread_mutex_unlock(&pthread_table_mtx);
+	pthread_mutex_lock(&pthread_table_mtx);
+	{
+		pthread_table = hash_create(pthread_table_hash_key,
+					    pthread_table_hash_cmp, NULL);
+	}
+	pthread_mutex_unlock(&pthread_table_mtx);
 }
 
 void frr_pthread_finish()
 {
-        pthread_mutex_lock(&pthread_table_mtx);
-        {
-                hash_clean(pthread_table, (void (*)(void *))frr_pthread_destroy);
-                hash_free(pthread_table);
-        }
-        pthread_mutex_unlock(&pthread_table_mtx);
+	pthread_mutex_lock(&pthread_table_mtx);
+	{
+		hash_clean(pthread_table,
+			   (void (*)(void *))frr_pthread_destroy);
+		hash_free(pthread_table);
+	}
+	pthread_mutex_unlock(&pthread_table_mtx);
 }
 
 struct frr_pthread *frr_pthread_new(const char *name, unsigned int id,
-                                    void *(*start_routine) (void *),
-                                    int (*stop_routine) (void **, struct frr_pthread *))
+				    void *(*start_routine)(void *),
+				    int (*stop_routine)(void **,
+							struct frr_pthread *))
 {
-        static struct frr_pthread holder = { 0 };
-        struct frr_pthread *fpt = NULL;
+	static struct frr_pthread holder = {0};
+	struct frr_pthread *fpt = NULL;
 
-        pthread_mutex_lock(&pthread_table_mtx);
-        {
-                holder.id = id;
+	pthread_mutex_lock(&pthread_table_mtx);
+	{
+		holder.id = id;
 
-                if (!hash_lookup(pthread_table, &holder)) {
-                        struct frr_pthread *fpt =
-                            XCALLOC(MTYPE_FRR_PTHREAD,
-                                    sizeof(struct frr_pthread));
-                        fpt->id = id;
-                        fpt->master = thread_master_create(name);
-                        fpt->start_routine = start_routine;
-                        fpt->stop_routine = stop_routine;
-                        fpt->name = XSTRDUP(MTYPE_FRR_PTHREAD, name);
+		if (!hash_lookup(pthread_table, &holder)) {
+			struct frr_pthread *fpt = XCALLOC(
+				MTYPE_FRR_PTHREAD, sizeof(struct frr_pthread));
+			fpt->id = id;
+			fpt->master = thread_master_create(name);
+			fpt->start_routine = start_routine;
+			fpt->stop_routine = stop_routine;
+			fpt->name = XSTRDUP(MTYPE_FRR_PTHREAD, name);
 
-                        hash_get(pthread_table, fpt, hash_alloc_intern);
-                }
-        }
-        pthread_mutex_unlock(&pthread_table_mtx);
+			hash_get(pthread_table, fpt, hash_alloc_intern);
+		}
+	}
+	pthread_mutex_unlock(&pthread_table_mtx);
 
-        return fpt;
+	return fpt;
 }
 
 void frr_pthread_destroy(struct frr_pthread *fpt)
 {
-        thread_master_free(fpt->master);
-        XFREE(MTYPE_FRR_PTHREAD, fpt->name);
-        XFREE(MTYPE_FRR_PTHREAD, fpt);
+	thread_master_free(fpt->master);
+	XFREE(MTYPE_FRR_PTHREAD, fpt->name);
+	XFREE(MTYPE_FRR_PTHREAD, fpt);
 }
 
 struct frr_pthread *frr_pthread_get(unsigned int id)
 {
-        static struct frr_pthread holder = { 0 };
-        struct frr_pthread *fpt;
+	static struct frr_pthread holder = {0};
+	struct frr_pthread *fpt;
 
-        pthread_mutex_lock(&pthread_table_mtx);
-        {
-                holder.id = id;
-                fpt = hash_lookup(pthread_table, &holder);
-        }
-        pthread_mutex_unlock(&pthread_table_mtx);
+	pthread_mutex_lock(&pthread_table_mtx);
+	{
+		holder.id = id;
+		fpt = hash_lookup(pthread_table, &holder);
+	}
+	pthread_mutex_unlock(&pthread_table_mtx);
 
-        return fpt;
+	return fpt;
 }
 
-int frr_pthread_run(unsigned int id, const pthread_attr_t * attr, void *arg)
+int frr_pthread_run(unsigned int id, const pthread_attr_t *attr, void *arg)
 {
-        struct frr_pthread *fpt = frr_pthread_get(id);
-        int ret;
+	struct frr_pthread *fpt = frr_pthread_get(id);
+	int ret;
 
-        if (!fpt)
-                return -1;
+	if (!fpt)
+		return -1;
 
-        ret = pthread_create(&fpt->thread, attr, fpt->start_routine, arg);
+	ret = pthread_create(&fpt->thread, attr, fpt->start_routine, arg);
 
-        /* Per pthread_create(3), the contents of fpt->thread are undefined if
-         * pthread_create() did not succeed. Reset this value to zero. */
-        if (ret < 0)
-                memset(&fpt->thread, 0x00, sizeof(fpt->thread));
+	/* Per pthread_create(3), the contents of fpt->thread are undefined if
+	 * pthread_create() did not succeed. Reset this value to zero. */
+	if (ret < 0)
+		memset(&fpt->thread, 0x00, sizeof(fpt->thread));
 
-        return ret;
+	return ret;
 }
 
 /**
@@ -148,15 +149,15 @@ int frr_pthread_run(unsigned int id, const pthread_attr_t * attr, void *arg)
  */
 static int frr_pthread_stop_actual(struct frr_pthread *fpt, void **result)
 {
-        int ret = (*fpt->stop_routine) (result, fpt);
-        memset(&fpt->thread, 0x00, sizeof(fpt->thread));
-        return ret;
+	int ret = (*fpt->stop_routine)(result, fpt);
+	memset(&fpt->thread, 0x00, sizeof(fpt->thread));
+	return ret;
 }
 
 int frr_pthread_stop(unsigned int id, void **result)
 {
-        struct frr_pthread *fpt = frr_pthread_get(id);
-        return frr_pthread_stop_actual(fpt, result);
+	struct frr_pthread *fpt = frr_pthread_get(id);
+	return frr_pthread_stop_actual(fpt, result);
 }
 
 /**
@@ -164,20 +165,20 @@ int frr_pthread_stop(unsigned int id, void **result)
  */
 static void frr_pthread_stop_all_iter(struct hash_backet *hb, void *arg)
 {
-        struct frr_pthread *fpt = hb->data;
-        frr_pthread_stop_actual(fpt, NULL);
+	struct frr_pthread *fpt = hb->data;
+	frr_pthread_stop_actual(fpt, NULL);
 }
 
 void frr_pthread_stop_all()
 {
-        pthread_mutex_lock(&pthread_table_mtx);
-        {
-                hash_iterate(pthread_table, frr_pthread_stop_all_iter, NULL);
-        }
-        pthread_mutex_unlock(&pthread_table_mtx);
+	pthread_mutex_lock(&pthread_table_mtx);
+	{
+		hash_iterate(pthread_table, frr_pthread_stop_all_iter, NULL);
+	}
+	pthread_mutex_unlock(&pthread_table_mtx);
 }
 
 unsigned int frr_pthread_get_id()
 {
-        return next_id++;
+	return next_id++;
 }

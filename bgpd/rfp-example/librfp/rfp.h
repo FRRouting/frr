@@ -1,4 +1,4 @@
-/* 
+/*
  *
  * Copyright 2015-2016, LabN Consulting, L.L.C.
  *
@@ -23,8 +23,8 @@
 #define _RFP_H
 
 #include "bgpd/rfapi/rfapi.h"
-extern int bgp_rfp_cfg_write (void *vty, void *bgp);
+extern int bgp_rfp_cfg_write(void *vty, void *bgp);
 /* TO BE REMOVED */
-void rfp_clear_vnc_nve_all (void);
+void rfp_clear_vnc_nve_all(void);
 
 #endif /* _RFP_H */

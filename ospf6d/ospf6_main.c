@@ -55,187 +55,163 @@
 #define OSPF6_VTY_PORT             2606
 
 /* ospf6d privileges */
-zebra_capabilities_t _caps_p [] =
-{
-  ZCAP_NET_RAW,
-  ZCAP_BIND
-};
+zebra_capabilities_t _caps_p[] = {ZCAP_NET_RAW, ZCAP_BIND};
 
-struct zebra_privs_t ospf6d_privs =
-{
+struct zebra_privs_t ospf6d_privs = {
 #if defined(FRR_USER)
-  .user = FRR_USER,
+	.user = FRR_USER,
 #endif
 #if defined FRR_GROUP
-  .group = FRR_GROUP,
+	.group = FRR_GROUP,
 #endif
 #ifdef VTY_GROUP
-  .vty_group = VTY_GROUP,
+	.vty_group = VTY_GROUP,
 #endif
-  .caps_p = _caps_p,
-  .cap_num_p = 2,
-  .cap_num_i = 0
-};
+	.caps_p = _caps_p,
+	.cap_num_p = 2,
+	.cap_num_i = 0};
 
 /* ospf6d options, we use GNU getopt library. */
-struct option longopts[] = 
-{
-  { 0 }
-};
+struct option longopts[] = {{0}};
 
 /* Master of threads. */
 struct thread_master *master;
 
-static void __attribute__ ((noreturn))
-ospf6_exit (int status)
+static void __attribute__((noreturn)) ospf6_exit(int status)
 {
-  struct listnode *node;
-  struct interface *ifp;
+	struct listnode *node;
+	struct interface *ifp;
 
-  if (ospf6)
-    ospf6_delete (ospf6);
+	if (ospf6)
+		ospf6_delete(ospf6);
 
-  bfd_gbl_exit();
+	bfd_gbl_exit();
 
-  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (VRF_DEFAULT), node, ifp))
-    if (ifp->info != NULL)
-      ospf6_interface_delete(ifp->info);
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
+		if (ifp->info != NULL)
+			ospf6_interface_delete(ifp->info);
 
-  ospf6_message_terminate ();
-  ospf6_asbr_terminate ();
-  ospf6_lsa_terminate ();
+	ospf6_message_terminate();
+	ospf6_asbr_terminate();
+	ospf6_lsa_terminate();
 
-  vrf_terminate ();
-  vty_terminate ();
-  cmd_terminate ();
+	vrf_terminate();
+	vty_terminate();
+	cmd_terminate();
 
-  if (zclient)
-    {
-      zclient_stop (zclient);
-      zclient_free (zclient);
-    }
+	if (zclient) {
+		zclient_stop(zclient);
+		zclient_free(zclient);
+	}
 
-  if (master)
-    thread_master_free (master);
+	if (master)
+		thread_master_free(master);
 
-  closezlog ();
+	closezlog();
 
-  exit (status);
+	exit(status);
 }
 
 /* SIGHUP handler. */
-static void 
-sighup (void)
+static void sighup(void)
 {
-  zlog_info ("SIGHUP received");
+	zlog_info("SIGHUP received");
 }
 
 /* SIGINT handler. */
-static void
-sigint (void)
+static void sigint(void)
 {
-  zlog_notice ("Terminating on signal SIGINT");
-  ospf6_exit (0);
+	zlog_notice("Terminating on signal SIGINT");
+	ospf6_exit(0);
 }
 
 /* SIGTERM handler. */
-static void
-sigterm (void)
+static void sigterm(void)
 {
-  zlog_notice ("Terminating on signal SIGTERM");
-  ospf6_clean();
-  ospf6_exit (0);
+	zlog_notice("Terminating on signal SIGTERM");
+	ospf6_clean();
+	ospf6_exit(0);
 }
 
 /* SIGUSR1 handler. */
-static void
-sigusr1 (void)
+static void sigusr1(void)
 {
-  zlog_info ("SIGUSR1 received");
-  zlog_rotate();
+	zlog_info("SIGUSR1 received");
+	zlog_rotate();
 }
 
-struct quagga_signal_t ospf6_signals[] =
-{
-  {
-    .signal = SIGHUP,
-    .handler = &sighup,
-  },
-  {
-    .signal = SIGINT,
-    .handler = &sigint,
-  },
-  {
-    .signal = SIGTERM,
-    .handler = &sigterm,
-  },
-  {
-    .signal = SIGUSR1,
-    .handler = &sigusr1,
-  },
+struct quagga_signal_t ospf6_signals[] = {
+	{
+		.signal = SIGHUP,
+		.handler = &sighup,
+	},
+	{
+		.signal = SIGINT,
+		.handler = &sigint,
+	},
+	{
+		.signal = SIGTERM,
+		.handler = &sigterm,
+	},
+	{
+		.signal = SIGUSR1,
+		.handler = &sigusr1,
+	},
 };
 
-FRR_DAEMON_INFO(ospf6d, OSPF6,
-	.vty_port = OSPF6_VTY_PORT,
+FRR_DAEMON_INFO(ospf6d, OSPF6, .vty_port = OSPF6_VTY_PORT,
 
-	.proghelp = "Implementation of the OSPFv3 routing protocol.",
+		.proghelp = "Implementation of the OSPFv3 routing protocol.",
 
-	.signals = ospf6_signals,
-	.n_signals = array_size(ospf6_signals),
+		.signals = ospf6_signals,
+		.n_signals = array_size(ospf6_signals),
 
-	.privs = &ospf6d_privs,
-)
+		.privs = &ospf6d_privs, )
 
 /* Main routine of ospf6d. Treatment of argument and starting ospf finite
    state machine is handled here. */
-int
-main (int argc, char *argv[], char *envp[])
+int main(int argc, char *argv[], char *envp[])
 {
-  int opt;
+	int opt;
 
-  frr_preinit (&ospf6d_di, argc, argv);
-  frr_opt_add ("", longopts, "");
+	frr_preinit(&ospf6d_di, argc, argv);
+	frr_opt_add("", longopts, "");
 
-  /* Command line argument treatment. */
-  while (1) 
-    {
-      opt = frr_getopt (argc, argv, NULL);
-    
-      if (opt == EOF)
-        break;
+	/* Command line argument treatment. */
+	while (1) {
+		opt = frr_getopt(argc, argv, NULL);
 
-      switch (opt) 
-        {
-        case 0:
-          break;
-        default:
-          frr_help_exit (1);
-          break;
-        }
-    }
+		if (opt == EOF)
+			break;
 
-  if (geteuid () != 0)
-    {
-      errno = EPERM;
-      perror (ospf6d_di.progname);
-      exit (1);
-    }
+		switch (opt) {
+		case 0:
+			break;
+		default:
+			frr_help_exit(1);
+			break;
+		}
+	}
 
-  /* thread master */
-  master = frr_init ();
+	if (geteuid() != 0) {
+		errno = EPERM;
+		perror(ospf6d_di.progname);
+		exit(1);
+	}
 
-  vrf_init (NULL, NULL, NULL, NULL);
-  access_list_init ();
-  prefix_list_init ();
+	/* thread master */
+	master = frr_init();
 
-  /* initialize ospf6 */
-  ospf6_init ();
+	vrf_init(NULL, NULL, NULL, NULL);
+	access_list_init();
+	prefix_list_init();
 
-  frr_config_fork ();
-  frr_run (master);
+	/* initialize ospf6 */
+	ospf6_init();
 
-  /* Not reached. */
-  ospf6_exit (0);
+	frr_config_fork();
+	frr_run(master);
+
+	/* Not reached. */
+	ospf6_exit(0);
 }
-
-

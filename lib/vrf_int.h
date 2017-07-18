@@ -42,7 +42,7 @@
  * Given a newly running vrf enable it to be used
  * by interested routing protocols
  */
-extern int vrf_enable (struct vrf *);
+extern int vrf_enable(struct vrf *);
 
 /*
  * vrf_delete
@@ -50,7 +50,6 @@ extern int vrf_enable (struct vrf *);
  * Given a vrf that is being deleted, delete it
  * from interested parties
  */
-extern void vrf_delete (struct vrf *);
+extern void vrf_delete(struct vrf *);
 
 #endif
-

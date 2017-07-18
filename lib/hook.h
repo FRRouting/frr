@@ -91,7 +91,7 @@
 
 struct hookent {
 	struct hookent *next;
-	void *hookfn;		/* actually a function pointer */
+	void *hookfn; /* actually a function pointer */
 	void *hookarg;
 	bool has_arg;
 	struct frrmod_runtime *module;
@@ -111,29 +111,27 @@ struct hook {
 extern void _hook_register(struct hook *hook, void *funcptr, void *arg,
 			   bool has_arg, struct frrmod_runtime *module,
 			   const char *funcname);
-#define hook_register(hookname, func) \
-	_hook_register(&_hook_ ## hookname, \
-			_hook_typecheck_ ## hookname (func), \
-			NULL, false, THIS_MODULE, #func)
-#define hook_register_arg(hookname, func, arg) \
-	_hook_register(&_hook_ ## hookname, \
-			_hook_typecheck_arg_ ## hookname (func), \
-			arg, true, THIS_MODULE, #func)
+#define hook_register(hookname, func)                                          \
+	_hook_register(&_hook_##hookname, _hook_typecheck_##hookname(func),    \
+		       NULL, false, THIS_MODULE, #func)
+#define hook_register_arg(hookname, func, arg)                                 \
+	_hook_register(&_hook_##hookname,                                      \
+		       _hook_typecheck_arg_##hookname(func), arg, true,        \
+		       THIS_MODULE, #func)
 
 extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 			     bool has_arg);
-#define hook_unregister(hookname, func) \
-	_hook_unregister(&_hook_ ## hookname, \
-			_hook_typecheck_ ## hookname (func), NULL, false)
-#define hook_unregister_arg(hookname, func, arg) \
-	_hook_unregister(&_hook_ ## hookname, \
-			_hook_typecheck_arg_ ## hookname (func), arg, true)
+#define hook_unregister(hookname, func)                                        \
+	_hook_unregister(&_hook_##hookname, _hook_typecheck_##hookname(func),  \
+			 NULL, false)
+#define hook_unregister_arg(hookname, func, arg)                               \
+	_hook_unregister(&_hook_##hookname,                                    \
+			 _hook_typecheck_arg_##hookname(func), arg, true)
 
 /* invoke hooks
  * this is private (static) to the file that has the DEFINE_HOOK statement
  */
-#define hook_call(hookname, ...) \
-	hook_call_ ## hookname (__VA_ARGS__)
+#define hook_call(hookname, ...) hook_call_##hookname(__VA_ARGS__)
 
 /* helpers to add the void * arg */
 #define HOOK_ADDDEF(...) (void *hookarg , ## __VA_ARGS__)
@@ -146,42 +144,45 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
  * theoretically passlist is not neccessary, but let's keep things simple and
  * use exact same args on DECLARE and DEFINE.
  */
-#define DECLARE_HOOK(hookname, arglist, passlist) \
-	extern struct hook _hook_ ## hookname; \
-	__attribute__((unused)) \
-	static void *_hook_typecheck_ ## hookname ( \
-			int (*funcptr) arglist) { \
-		return (void *)funcptr; } \
-	__attribute__((unused)) \
-	static void *_hook_typecheck_arg_ ## hookname ( \
-			int (*funcptr) HOOK_ADDDEF arglist) { \
-		return (void *)funcptr; }
+#define DECLARE_HOOK(hookname, arglist, passlist)                              \
+	extern struct hook _hook_##hookname;                                   \
+	__attribute__((unused)) static void *_hook_typecheck_##hookname(       \
+		int(*funcptr) arglist)                                         \
+	{                                                                      \
+		return (void *)funcptr;                                        \
+	}                                                                      \
+	__attribute__((unused)) static void *_hook_typecheck_arg_##hookname(   \
+		int(*funcptr) HOOK_ADDDEF arglist)                             \
+	{                                                                      \
+		return (void *)funcptr;                                        \
+	}
 
 /* use in source file - contains hook-related definitions.
  */
-#define DEFINE_HOOK(hookname, arglist, passlist) \
-	struct hook _hook_ ## hookname = { \
-		.name = #hookname, \
-		.entries = NULL, \
-	}; \
-	static int hook_call_ ## hookname arglist { \
-		int hooksum = 0; \
-		struct hookent *he = _hook_ ## hookname .entries; \
-		void *hookarg; \
-		union { \
-			void *voidptr; \
-			int (*fptr) arglist; \
-			int (*farg) HOOK_ADDDEF arglist; \
-		} hookp; \
-		for (; he; he = he->next) { \
-			hookarg = he->hookarg; \
-			hookp.voidptr = he->hookfn; \
-			if (!he->has_arg) \
-				hooksum += hookp.fptr passlist; \
-			else \
-				hooksum += hookp.farg HOOK_ADDARG passlist; \
-		} \
-		return hooksum; \
+#define DEFINE_HOOK(hookname, arglist, passlist)                               \
+	struct hook _hook_##hookname = {                                       \
+		.name = #hookname,                                             \
+		.entries = NULL,                                               \
+	};                                                                     \
+	static int hook_call_##hookname arglist                                \
+	{                                                                      \
+		int hooksum = 0;                                               \
+		struct hookent *he = _hook_##hookname.entries;                 \
+		void *hookarg;                                                 \
+		union {                                                        \
+			void *voidptr;                                         \
+			int(*fptr) arglist;                                    \
+			int(*farg) HOOK_ADDDEF arglist;                        \
+		} hookp;                                                       \
+		for (; he; he = he->next) {                                    \
+			hookarg = he->hookarg;                                 \
+			hookp.voidptr = he->hookfn;                            \
+			if (!he->has_arg)                                      \
+				hooksum += hookp.fptr passlist;                \
+			else                                                   \
+				hooksum += hookp.farg HOOK_ADDARG passlist;    \
+		}                                                              \
+		return hooksum;                                                \
 	}
 
 #endif /* _FRR_HOOK_H */

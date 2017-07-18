@@ -142,7 +142,7 @@ $argdecls
 			continue;
 		_fail = 0;$argblocks
 		if (_fail)
-			vty_outln (vty, "%% invalid input for %s: %s",
+			vty_out (vty, "%% invalid input for %s: %s\\n",
 				   argv[_i]->varname, argv[_i]->arg);
 		_failcnt += _fail;
 	}

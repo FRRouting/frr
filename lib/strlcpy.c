@@ -14,7 +14,7 @@
  *
  * You should have received a copy of the GNU Lesser General Public
  * License along with the GNU C Library; if not, see
- * <http://www.gnu.org/licenses/>.  
+ * <http://www.gnu.org/licenses/>.
  */
 
 /* adapted for Quagga from glibc patch submission originally from
@@ -27,31 +27,27 @@
 #ifndef HAVE_STRLCPY
 #undef strlcpy
 
-size_t
-strlcpy (char *__restrict dest, const char *__restrict src, size_t size);
+size_t strlcpy(char *__restrict dest, const char *__restrict src, size_t size);
 
-size_t
-strlcpy (char *__restrict dest, const char *__restrict src, size_t size)
+size_t strlcpy(char *__restrict dest, const char *__restrict src, size_t size)
 {
-  size_t src_length = strlen (src);
+	size_t src_length = strlen(src);
 
-  if (__builtin_expect (src_length >= size, 0))
-    {
-      if (size > 0)
-	{
-	  /* Copy the leading portion of the string.  The last
-	     character is subsequently overwritten with the NUL
-	     terminator, but the destination size is usually a
-	     multiple of a small power of two, so writing it twice
-	     should be more efficient than copying an odd number of
-	     bytes.  */
-	  memcpy (dest, src, size);
-	  dest[size - 1] = '\0';
-	}
-    }
-  else
-      /* Copy the string and its terminating NUL character.  */
-      memcpy (dest, src, src_length + 1);
-  return src_length;
+	if (__builtin_expect(src_length >= size, 0)) {
+		if (size > 0) {
+			/* Copy the leading portion of the string.  The last
+			   character is subsequently overwritten with the NUL
+			   terminator, but the destination size is usually a
+			   multiple of a small power of two, so writing it twice
+			   should be more efficient than copying an odd number
+			   of
+			   bytes.  */
+			memcpy(dest, src, size);
+			dest[size - 1] = '\0';
+		}
+	} else
+		/* Copy the string and its terminating NUL character.  */
+		memcpy(dest, src, src_length + 1);
+	return src_length;
 }
 #endif /* HAVE_STRLCPY */

@@ -46,28 +46,27 @@
    to that logging destination. */
 #define ZLOG_DISABLED	(LOG_EMERG-1)
 
-typedef enum
-{
-  ZLOG_DEST_SYSLOG = 0,
-  ZLOG_DEST_STDOUT,
-  ZLOG_DEST_MONITOR,
-  ZLOG_DEST_FILE
+typedef enum {
+	ZLOG_DEST_SYSLOG = 0,
+	ZLOG_DEST_STDOUT,
+	ZLOG_DEST_MONITOR,
+	ZLOG_DEST_FILE
 } zlog_dest_t;
 #define ZLOG_NUM_DESTS		(ZLOG_DEST_FILE+1)
 
 /* Message structure. */
-struct message
-{
-  int key;
-  const char *str;
+struct message {
+	int key;
+	const char *str;
 };
 
 /* Open zlog function */
-extern void openzlog (const char *progname, const char *protoname,
-                      uint16_t instance, int syslog_options, int syslog_facility);
+extern void openzlog(const char *progname, const char *protoname,
+		     uint16_t instance, int syslog_options,
+		     int syslog_facility);
 
 /* Close zlog function. */
-extern void closezlog (void);
+extern void closezlog(void);
 
 /* GCC have printf type attribute check.  */
 #ifdef __GNUC__
@@ -77,29 +76,29 @@ extern void closezlog (void);
 #endif /* __GNUC__ */
 
 /* Handy zlog functions. */
-extern void zlog_err (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-extern void zlog_warn (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-extern void zlog_info (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-extern void zlog_notice (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
-extern void zlog_debug (const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
+extern void zlog_err(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
+extern void zlog_warn(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
+extern void zlog_info(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
+extern void zlog_notice(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
+extern void zlog_debug(const char *format, ...) PRINTF_ATTRIBUTE(1, 2);
 
-extern void zlog_thread_info (int log_level);
+extern void zlog_thread_info(int log_level);
 
 /* Set logging level for the given destination.  If the log_level
    argument is ZLOG_DISABLED, then the destination is disabled.
    This function should not be used for file logging (use zlog_set_file
    or zlog_reset_file instead). */
-extern void zlog_set_level (zlog_dest_t, int log_level);
+extern void zlog_set_level(zlog_dest_t, int log_level);
 
 /* Set logging to the given filename at the specified level. */
-extern int zlog_set_file (const char *filename, int log_level);
+extern int zlog_set_file(const char *filename, int log_level);
 /* Disable file logging. */
-extern int zlog_reset_file (void);
+extern int zlog_reset_file(void);
 
 /* Rotate log. */
-extern int zlog_rotate (void);
+extern int zlog_rotate(void);
 
-const char *lookup_msg (const struct message *mz, int kz, const char *nf);
+const char *lookup_msg(const struct message *mz, int kz, const char *nf);
 
 /* Safe version of strerror -- never returns NULL. */
 extern const char *safe_strerror(int errnum);
@@ -107,9 +106,10 @@ extern const char *safe_strerror(int errnum);
 /* To be called when a fatal signal is caught. */
 extern void zlog_signal(int signo, const char *action
 #ifdef SA_SIGINFO
-			, siginfo_t *siginfo, void *program_counter
+			,
+			siginfo_t *siginfo, void *program_counter
 #endif
-		       );
+);
 
 /* Log a backtrace. */
 extern void zlog_backtrace(int priority);
@@ -131,49 +131,51 @@ extern size_t quagga_timestamp(int timestamp_precision /* # subsecond digits */,
 			       char *buf, size_t buflen);
 
 extern void zlog_hexdump(const void *mem, unsigned int len);
-extern const char *zlog_sanitize(char *buf, size_t bufsz, const void *in, size_t inlen);
+extern const char *zlog_sanitize(char *buf, size_t bufsz, const void *in,
+				 size_t inlen);
 
 
-extern int vzlog_test (int priority);
+extern int vzlog_test(int priority);
 
 /* structure useful for avoiding repeated rendering of the same timestamp */
 struct timestamp_control {
-   size_t len;		/* length of rendered timestamp */
-   int precision;	/* configuration parameter */
-   int already_rendered; /* should be initialized to 0 */
-   char buf[QUAGGA_TIMESTAMP_LEN];	/* will contain the rendered timestamp */
+	size_t len;			/* length of rendered timestamp */
+	int precision;			/* configuration parameter */
+	int already_rendered;		/* should be initialized to 0 */
+	char buf[QUAGGA_TIMESTAMP_LEN]; /* will contain the rendered timestamp
+					 */
 };
 
 /* Defines for use in command construction: */
 
-#define LOG_LEVEL_DESC \
-  "System is unusable\n" \
-  "Immediate action needed\n" \
-  "Critical conditions\n" \
-  "Error conditions\n" \
-  "Warning conditions\n" \
-  "Normal but significant conditions\n" \
-  "Informational messages\n" \
-  "Debugging messages\n"
+#define LOG_LEVEL_DESC                                                         \
+	"System is unusable\n"                                                 \
+	"Immediate action needed\n"                                            \
+	"Critical conditions\n"                                                \
+	"Error conditions\n"                                                   \
+	"Warning conditions\n"                                                 \
+	"Normal but significant conditions\n"                                  \
+	"Informational messages\n"                                             \
+	"Debugging messages\n"
 
-#define LOG_FACILITY_DESC \
-       "Kernel\n" \
-       "User process\n" \
-       "Mail system\n" \
-       "System daemons\n" \
-       "Authorization system\n" \
-       "Syslog itself\n" \
-       "Line printer system\n" \
-       "USENET news\n" \
-       "Unix-to-Unix copy system\n" \
-       "Cron/at facility\n" \
-       "Local use\n" \
-       "Local use\n" \
-       "Local use\n" \
-       "Local use\n" \
-       "Local use\n" \
-       "Local use\n" \
-       "Local use\n" \
-       "Local use\n"
+#define LOG_FACILITY_DESC                                                      \
+	"Kernel\n"                                                             \
+	"User process\n"                                                       \
+	"Mail system\n"                                                        \
+	"System daemons\n"                                                     \
+	"Authorization system\n"                                               \
+	"Syslog itself\n"                                                      \
+	"Line printer system\n"                                                \
+	"USENET news\n"                                                        \
+	"Unix-to-Unix copy system\n"                                           \
+	"Cron/at facility\n"                                                   \
+	"Local use\n"                                                          \
+	"Local use\n"                                                          \
+	"Local use\n"                                                          \
+	"Local use\n"                                                          \
+	"Local use\n"                                                          \
+	"Local use\n"                                                          \
+	"Local use\n"                                                          \
+	"Local use\n"
 
 #endif /* _ZEBRA_LOG_H */

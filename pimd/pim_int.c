@@ -27,18 +27,18 @@
 
 uint32_t pim_read_uint32_host(const uint8_t *buf)
 {
-  uint32_t val;
-  memcpy(&val, buf, sizeof(val));
-  /* val is in netorder */
-  val = ntohl(val);
-  /* val is in hostorder */
-  return val;
+	uint32_t val;
+	memcpy(&val, buf, sizeof(val));
+	/* val is in netorder */
+	val = ntohl(val);
+	/* val is in hostorder */
+	return val;
 }
 
 void pim_write_uint32(uint8_t *buf, uint32_t val_host)
 {
-  /* val_host is in host order */
-  val_host = htonl(val_host);
-  /* val_host is in netorder */
-  memcpy(buf, &val_host, sizeof(val_host));
+	/* val_host is in host order */
+	val_host = htonl(val_host);
+	/* val_host is in netorder */
+	memcpy(buf, &val_host, sizeof(val_host));
 }

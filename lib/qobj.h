@@ -28,10 +28,10 @@
  * this is intentional to prevent the struct from growing beyond the allocated
  * space.
  */
-#define RESERVED_SPACE_STRUCT(name, fieldname, size) \
-	struct { \
-		struct name fieldname; \
-		char padding ## fieldname[size - sizeof(struct name)]; \
+#define RESERVED_SPACE_STRUCT(name, fieldname, size)                           \
+	struct {                                                               \
+		struct name fieldname;                                         \
+		char padding##fieldname[size - sizeof(struct name)];           \
 	};
 
 /* don't need struct definitions for these here.  code actually using
@@ -47,12 +47,16 @@
  */
 #ifndef HAVE_QOBJ_NODETYPE_CLI
 #define HAVE_QOBJ_NODETYPE_CLI -1
-struct qobj_nodetype_cli { int dummy; };
+struct qobj_nodetype_cli {
+	int dummy;
+};
 #endif
 
 #ifndef HAVE_QOBJ_NODETYPE_CAPNP
 #define HAVE_QOBJ_NODETYPE_CAPNP -1
-struct qobj_nodetype_capnp { int dummy; };
+struct qobj_nodetype_capnp {
+	int dummy;
+};
 #endif
 
 /* each different kind of object will have a global variable of this type,
@@ -71,15 +75,12 @@ struct qobj_node {
 	struct qobj_nodetype *type;
 };
 
-#define QOBJ_FIELDS \
-	struct qobj_node qobj_node;
+#define QOBJ_FIELDS struct qobj_node qobj_node;
 
 /* call these at the end of any _create function (QOBJ_REG)
  * and beginning of any _destroy function (QOBJ_UNREG) */
-#define QOBJ_REG(n, structname) \
-	qobj_reg(&n->qobj_node, &qobj_t_ ## structname)
-#define QOBJ_UNREG(n) \
-	qobj_unreg(&n->qobj_node)
+#define QOBJ_REG(n, structname) qobj_reg(&n->qobj_node, &qobj_t_##structname)
+#define QOBJ_UNREG(n) qobj_unreg(&n->qobj_node)
 
 /* internals - should not be directly used without a good reason
  *
@@ -99,29 +100,29 @@ struct qobj_node *qobj_get(uint64_t id);
 void *qobj_get_typed(uint64_t id, struct qobj_nodetype *type);
 
 /* type declarations */
-#define DECLARE_QOBJ_TYPE(structname) \
-	extern struct qobj_nodetype qobj_t_ ## structname;
-#define DEFINE_QOBJ_TYPE(structname) \
-	struct qobj_nodetype qobj_t_ ## structname = { \
-		.node_member_offset = \
-			(ptrdiff_t)offsetof(struct structname, qobj_node) \
-	};
-#define DEFINE_QOBJ_TYPE_INIT(structname, ...) \
-	struct qobj_nodetype qobj_t_ ## structname = { \
-		.node_member_offset = \
-			(ptrdiff_t)offsetof(struct structname, qobj_node), \
-		__VA_ARGS__ \
-	};
+#define DECLARE_QOBJ_TYPE(structname)                                          \
+	extern struct qobj_nodetype qobj_t_##structname;
+#define DEFINE_QOBJ_TYPE(structname)                                           \
+	struct qobj_nodetype qobj_t_##structname = {                           \
+		.node_member_offset =                                          \
+			(ptrdiff_t)offsetof(struct structname, qobj_node)};
+#define DEFINE_QOBJ_TYPE_INIT(structname, ...)                                 \
+	struct qobj_nodetype qobj_t_##structname = {                           \
+		.node_member_offset =                                          \
+			(ptrdiff_t)offsetof(struct structname, qobj_node),     \
+		__VA_ARGS__};
 
 /* ID dereference with typecheck.
  * will return NULL if id not found or wrong type. */
-#define QOBJ_GET_TYPESAFE(id, structname) \
-	((struct structname *)qobj_get_typed((id), &qobj_t_ ## structname))
+#define QOBJ_GET_TYPESAFE(id, structname)                                      \
+	((struct structname *)qobj_get_typed((id), &qobj_t_##structname))
 
-#define QOBJ_ID(ptr) \
-	((ptr)->qobj_node.nid)
-#define QOBJ_ID_0SAFE(ptr) \
-	({ typeof (ptr) _ptr = (ptr); _ptr ? _ptr->qobj_node.nid : 0ULL; })
+#define QOBJ_ID(ptr) ((ptr)->qobj_node.nid)
+#define QOBJ_ID_0SAFE(ptr)                                                     \
+	({                                                                     \
+		typeof(ptr) _ptr = (ptr);                                      \
+		_ptr ? _ptr->qobj_node.nid : 0ULL;                             \
+	})
 
 void qobj_init(void);
 void qobj_finish(void);

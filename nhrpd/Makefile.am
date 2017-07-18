@@ -4,7 +4,7 @@ AM_CPPFLAGS = -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib -DQ
 DEFS = @DEFS@ @CARES_CFLAGS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
 INSTALL_SDATA=@INSTALL@ -m 600
 
-AM_CFLAGS = $(PICFLAGS) #$(WERROR)
+AM_CFLAGS = $(PICFLAGS) $(WERROR)
 AM_LDFLAGS = $(PICLDFLAGS)
 
 sbin_PROGRAMS = nhrpd

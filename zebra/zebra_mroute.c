@@ -31,37 +31,37 @@
 #include "zebra/zebra_mroute.h"
 #include "zebra/rt.h"
 
-int
-zebra_ipmr_route_stats (struct zserv *client, int fd, u_short length, struct zebra_vrf *zvrf)
+int zebra_ipmr_route_stats(struct zserv *client, int fd, u_short length,
+			   struct zebra_vrf *zvrf)
 {
-  struct mcast_route_data mroute;
-  struct stream *s;
-  int suc;
+	struct mcast_route_data mroute;
+	struct stream *s;
+	int suc;
 
-  char sbuf[40];
-  char gbuf[40];
+	char sbuf[40];
+	char gbuf[40];
 
-  memset (&mroute, 0, sizeof (mroute));
-  stream_get (&mroute.sg.src, client->ibuf, 4);
-  stream_get (&mroute.sg.grp, client->ibuf, 4);
-  mroute.ifindex = stream_getl (client->ibuf);
+	memset(&mroute, 0, sizeof(mroute));
+	stream_get(&mroute.sg.src, client->ibuf, 4);
+	stream_get(&mroute.sg.grp, client->ibuf, 4);
+	mroute.ifindex = stream_getl(client->ibuf);
 
-  strcpy (sbuf, inet_ntoa (mroute.sg.src));
-  strcpy (gbuf, inet_ntoa (mroute.sg.grp));
+	strcpy(sbuf, inet_ntoa(mroute.sg.src));
+	strcpy(gbuf, inet_ntoa(mroute.sg.grp));
 
-  suc = kernel_get_ipmr_sg_stats (&mroute);
+	suc = kernel_get_ipmr_sg_stats(&mroute);
 
-  s = client->obuf;
+	s = client->obuf;
 
-  stream_reset (s);
+	stream_reset(s);
 
-  zserv_create_header (s, ZEBRA_IPMR_ROUTE_STATS, zvrf_id (zvrf));
-  stream_put_in_addr (s, &mroute.sg.src);
-  stream_put_in_addr (s, &mroute.sg.grp);
-  stream_put (s, &mroute.lastused, sizeof (mroute.lastused));
-  stream_putl (s, suc);
+	zserv_create_header(s, ZEBRA_IPMR_ROUTE_STATS, zvrf_id(zvrf));
+	stream_put_in_addr(s, &mroute.sg.src);
+	stream_put_in_addr(s, &mroute.sg.grp);
+	stream_put(s, &mroute.lastused, sizeof(mroute.lastused));
+	stream_putl(s, suc);
 
-  stream_putw_at (s, 0, stream_get_endp (s));
-  zebra_server_send_message (client);
-  return 0;
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zebra_server_send_message(client);
+	return 0;
 }

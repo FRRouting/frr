@@ -48,7 +48,6 @@
 #define EIGRP_VARIANCE_DEFAULT  1
 #define EIGRP_MAX_PATHS_DEFAULT 4
 
-
 /* Return values of functions involved in packet verification */
 #define MSG_OK    0
 #define MSG_NG    1
@@ -63,11 +62,10 @@
 #define EIGRP_AUTH_MD5_TLV_SIZE          40
 #define EIGRP_AUTH_SHA256_TLV_SIZE          56
 
-/*Cisco routers use only first 44 bytes of basic hello for their MD5 calculations*/
+/*Cisco routers use only first 44 bytes of basic hello for their MD5
+ * calculations*/
 #define EIGRP_MD5_BASIC_COMPUTE       44
 #define EIGRP_MD5_UPDATE_INIT_COMPUTE       40
-
-
 
 #define EIGRP_AUTH_BASIC_HELLO_FLAG       0x01
 #define EIGRP_AUTH_TID_HELLO_FLAG       0x02
@@ -109,14 +107,14 @@
 #define EIGRP_HELLO_ADD_SEQUENCE              0x02
 #define EIGRP_HELLO_GRACEFUL_SHUTDOWN_NBR     0x04
 
-    /* EIGRP Network Type. */
- #define EIGRP_IFTYPE_NONE                0
- #define EIGRP_IFTYPE_POINTOPOINT         1
- #define EIGRP_IFTYPE_BROADCAST           2
- #define EIGRP_IFTYPE_NBMA                3
- #define EIGRP_IFTYPE_POINTOMULTIPOINT    4
- #define EIGRP_IFTYPE_LOOPBACK            5
- #define EIGRP_IFTYPE_MAX                 6
+/* EIGRP Network Type. */
+#define EIGRP_IFTYPE_NONE 0
+#define EIGRP_IFTYPE_POINTOPOINT 1
+#define EIGRP_IFTYPE_BROADCAST 2
+#define EIGRP_IFTYPE_NBMA 3
+#define EIGRP_IFTYPE_POINTOMULTIPOINT 4
+#define EIGRP_IFTYPE_LOOPBACK 5
+#define EIGRP_IFTYPE_MAX 6
 
 #define EIGRP_IF_ACTIVE                  0
 #define EIGRP_IF_PASSIVE                 1
@@ -138,11 +136,11 @@
 
 /*EEGRP FSM states*/
 enum eigrp_fsm_states {
-  EIGRP_FSM_STATE_PASSIVE,
-  EIGRP_FSM_STATE_ACTIVE_0,
-  EIGRP_FSM_STATE_ACTIVE_1,
-  EIGRP_FSM_STATE_ACTIVE_2,
-  EIGRP_FSM_STATE_ACTIVE_3,
+	EIGRP_FSM_STATE_PASSIVE,
+	EIGRP_FSM_STATE_ACTIVE_0,
+	EIGRP_FSM_STATE_ACTIVE_1,
+	EIGRP_FSM_STATE_ACTIVE_2,
+	EIGRP_FSM_STATE_ACTIVE_3,
 };
 
 /*EIGRP FSM events return values*/
@@ -175,7 +173,7 @@ enum eigrp_fsm_states {
 #define IDRP_PROTID		10		/*!< InterDomain Routing Protocol */
 #define CONN_PROTID		11		/*!< Connected source */
 
-/* 
+/*
  * metric k-value defaults
  */
 #define EIGRP_K1_DEFAULT	1		//!< unweighed inverse bandwidth
@@ -185,13 +183,11 @@ enum eigrp_fsm_states {
 #define EIGRP_K5_DEFAULT	0		//!< no reliability term
 #define EIGRP_K6_DEFAULT	0		//!< do not add in extended metrics
 
-
 /*
  * EIGRP Fixed header
  */
 #define EIGRP_HEADER_LEN        20U
 #define EIGRP_PACKET_MAX_LEN    65535U   /* includes IP Header size. */
-
 
 #define EIGRP_TLV_HDR_LENGTH    4
 
@@ -255,7 +251,8 @@ enum eigrp_fsm_states {
 #define EIGRP_TLV_PEER_TERMINATION_LEN 	(9U)
 #define EIGRP_TLV_PEER_TIDLIST          (EIGRP_TLV_GENERAL | 0x0008)    /*!< peer sub-topology list */
 
-/* Older cisco routers send TIDLIST value wrong, adding for backwards compatabily */
+/* Older cisco routers send TIDLIST value wrong, adding for backwards
+ * compatabily */
 #define EIGRP_TLV_PEER_MTRLIST          (EIGRP_TLV_GENERAL | 0x00f5)
 
 /**
@@ -413,7 +410,6 @@ enum eigrp_fsm_states {
 #define EIGRP_EXTCOMM_SAR               0x8804 /* EIGRP System: Remote AS + Remote ID  */
 #define EIGRP_EXTCOMM_RPM               0x8805 /* EIGRP Remote: Protocol + Metric    */
 #define EIGRP_EXTCOMM_VRR               0x8806 /* EIGRP Vecmet: Rsvd + (internal) Routerid */
-
 
 /*
  * EIGRP Filter constants

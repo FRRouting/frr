@@ -27,9 +27,9 @@
 
 #ifdef SUNOS_5
 #define _XPG4_2
-typedef unsigned int    u_int32_t;
-typedef unsigned short  u_int16_t;
-typedef unsigned char   u_int8_t;
+typedef unsigned int u_int32_t;
+typedef unsigned short u_int16_t;
+typedef unsigned char u_int8_t;
 #endif /* SUNOS_5 */
 
 #include <unistd.h>
@@ -95,7 +95,7 @@ typedef unsigned char   u_int8_t;
 #ifdef __va_copy
 #define va_copy(DST,SRC) __va_copy(DST,SRC)
 #else
-/* Now we are desperate; this should work on many typical platforms. 
+/* Now we are desperate; this should work on many typical platforms.
    But this is slightly dangerous, because the standard does not require
    va_copy to be a macro. */
 #define va_copy(DST,SRC) memcpy(&(DST), &(SRC), sizeof(va_list))
@@ -218,17 +218,17 @@ typedef unsigned char   u_int8_t;
 #endif /* HAVE_GLIBC_BACKTRACE */
 
 /* Local includes: */
-#if !(defined(__GNUC__) || defined(VTYSH_EXTRACT_PL)) 
+#if !(defined(__GNUC__) || defined(VTYSH_EXTRACT_PL))
 #define __attribute__(x)
-#endif  /* !__GNUC__ || VTYSH_EXTRACT_PL */
+#endif /* !__GNUC__ || VTYSH_EXTRACT_PL */
 
 #include "zassert.h"
 
 #ifndef HAVE_STRLCAT
-size_t strlcat (char *__restrict dest, const char *__restrict src, size_t size);
+size_t strlcat(char *__restrict dest, const char *__restrict src, size_t size);
 #endif
 #ifndef HAVE_STRLCPY
-size_t strlcpy (char *__restrict dest, const char *__restrict src, size_t size);
+size_t strlcpy(char *__restrict dest, const char *__restrict src, size_t size);
 #endif
 
 #ifdef HAVE_BROKEN_CMSG_FIRSTHDR
@@ -236,13 +236,14 @@ size_t strlcpy (char *__restrict dest, const char *__restrict src, size_t size);
    please refer to http://bugzilla.quagga.net/show_bug.cgi?id=142 */
 
 /* Check that msg_controllen is large enough. */
-#define ZCMSG_FIRSTHDR(mhdr) \
-  (((size_t)((mhdr)->msg_controllen) >= sizeof(struct cmsghdr)) ? \
-   CMSG_FIRSTHDR(mhdr) : (struct cmsghdr *)NULL)
+#define ZCMSG_FIRSTHDR(mhdr)                                                   \
+	(((size_t)((mhdr)->msg_controllen) >= sizeof(struct cmsghdr))          \
+		 ? CMSG_FIRSTHDR(mhdr)                                         \
+		 : (struct cmsghdr *)NULL)
 
 #warning "CMSG_FIRSTHDR is broken on this platform, using a workaround"
 
-#else /* HAVE_BROKEN_CMSG_FIRSTHDR */
+#else  /* HAVE_BROKEN_CMSG_FIRSTHDR */
 #define ZCMSG_FIRSTHDR(M) CMSG_FIRSTHDR(M)
 #endif /* HAVE_BROKEN_CMSG_FIRSTHDR */
 
@@ -254,7 +255,7 @@ size_t strlcpy (char *__restrict dest, const char *__restrict src, size_t size);
 #define PRINTF_ATTRIBUTE(a,b)
 #endif /* __GNUC__ */
 
-/* 
+/*
  * RFC 3542 defines several macros for using struct cmsghdr.
  * Here, we define those that are not present
  */
@@ -276,10 +277,10 @@ size_t strlcpy (char *__restrict dest, const char *__restrict src, size_t size);
  * version.
  */
 #ifndef CMSG_SPACE
-#define CMSG_SPACE(l)       (_CMSG_DATA_ALIGN(sizeof(struct cmsghdr)) + \
-                              _CMSG_HDR_ALIGN(l))
+#define CMSG_SPACE(l)                                                          \
+	(_CMSG_DATA_ALIGN(sizeof(struct cmsghdr)) + _CMSG_HDR_ALIGN(l))
 #warning "assuming 4-byte alignment for CMSG_SPACE"
-#endif  /* CMSG_SPACE */
+#endif /* CMSG_SPACE */
 
 
 #ifndef CMSG_LEN
@@ -290,29 +291,28 @@ size_t strlcpy (char *__restrict dest, const char *__restrict src, size_t size);
 
 /*  The definition of struct in_pktinfo is missing in old version of
     GLIBC 2.1 (Redhat 6.1).  */
-#if defined (GNU_LINUX) && ! defined (HAVE_STRUCT_IN_PKTINFO)
-struct in_pktinfo
-{
-  int ipi_ifindex;
-  struct in_addr ipi_spec_dst;
-  struct in_addr ipi_addr;
+#if defined(GNU_LINUX) && !defined(HAVE_STRUCT_IN_PKTINFO)
+struct in_pktinfo {
+	int ipi_ifindex;
+	struct in_addr ipi_spec_dst;
+	struct in_addr ipi_addr;
 };
 #endif
 
-/* 
+/*
  * IP_HDRINCL / struct ip byte order
  *
  * Linux: network byte order
  * *BSD: network, except for length and offset. (cf Stevens)
  * SunOS: nominally as per BSD. but bug: network order on LE.
- * OpenBSD: network byte order, apart from older versions which are as per 
+ * OpenBSD: network byte order, apart from older versions which are as per
  *          *BSD
  */
-#if defined(__NetBSD__) \
-   || (defined(__FreeBSD__) && (__FreeBSD_version < 1100030)) \
-   || (defined(__OpenBSD__) && (OpenBSD < 200311)) \
-   || (defined(__APPLE__)) \
-   || (defined(SUNOS_5) && defined(WORDS_BIGENDIAN))
+#if defined(__NetBSD__)                                                        \
+	|| (defined(__FreeBSD__) && (__FreeBSD_version < 1100030))             \
+	|| (defined(__OpenBSD__) && (OpenBSD < 200311))                        \
+	|| (defined(__APPLE__))                                                \
+	|| (defined(SUNOS_5) && defined(WORDS_BIGENDIAN))
 #define HAVE_IP_HDRINCL_BSD_ORDER
 #endif
 
@@ -327,7 +327,7 @@ struct in_pktinfo
 
 #if defined(WORDS_BIGENDIAN)
 #define BYTE_ORDER	BIG_ENDIAN
-#else /* !WORDS_BIGENDIAN */
+#else  /* !WORDS_BIGENDIAN */
 #define BYTE_ORDER	LITTLE_ENDIAN
 #endif /* WORDS_BIGENDIAN */
 
@@ -338,17 +338,21 @@ struct in_pktinfo
 #ifdef MAX
 #undef MAX
 #endif
-#define MAX(a, b) \
-	({ typeof (a) _a = (a); \
-	   typeof (b) _b = (b); \
-	   _a > _b ? _a : _b; })
+#define MAX(a, b)                                                              \
+	({                                                                     \
+		typeof(a) _a = (a);                                            \
+		typeof(b) _b = (b);                                            \
+		_a > _b ? _a : _b;                                             \
+	})
 #ifdef MIN
 #undef MIN
 #endif
-#define MIN(a, b) \
-	({ typeof (a) _a = (a); \
-	   typeof (b) _b = (b); \
-	   _a < _b ? _a : _b; })
+#define MIN(a, b)                                                              \
+	({                                                                     \
+		typeof(a) _a = (a);                                            \
+		typeof(b) _b = (b);                                            \
+		_a < _b ? _a : _b;                                             \
+	})
 
 #define ZEBRA_NUM_OF(x) (sizeof (x) / sizeof (x[0]))
 
@@ -377,7 +381,7 @@ struct in_pktinfo
 extern const char *zebra_route_string(unsigned int route_type);
 /* Map a route type to a char.  For example, ZEBRA_ROUTE_RIPNG -> 'R'. */
 extern char zebra_route_char(unsigned int route_type);
-/* Map a zserv command type to the same string, 
+/* Map a zserv command type to the same string,
  * e.g. ZEBRA_INTERFACE_ADD -> "ZEBRA_INTERFACE_ADD" */
 /* Map a protocol name to its number. e.g. ZEBRA_ROUTE_BGP->9*/
 extern int proto_name2num(const char *s);
@@ -386,7 +390,7 @@ extern int proto_name2num(const char *s);
  * an AFI value to restrict input */
 extern int proto_redistnum(int afi, const char *s);
 
-extern const char *zserv_command_string (unsigned int command);
+extern const char *zserv_command_string(unsigned int command);
 
 #define strmatch(a,b) (!strcmp((a), (b)))
 
@@ -409,12 +413,7 @@ extern const char *zserv_command_string (unsigned int command);
 #endif
 
 /* Address family numbers from RFC1700. */
-typedef enum {
-  AFI_IP  = 1,
-  AFI_IP6 = 2,
-  AFI_L2VPN = 3,
-  AFI_MAX = 4
-} afi_t;
+typedef enum { AFI_IP = 1, AFI_IP6 = 2, AFI_L2VPN = 3, AFI_MAX = 4 } afi_t;
 
 /* Subsequent Address Family Identifier. */
 #define SAFI_UNICAST              1
@@ -444,12 +443,12 @@ typedef enum {
  * Note: Only useful (i.e., supported) values are defined below.
  */
 typedef enum {
-  IANA_AFI_RESERVED = 0,
-  IANA_AFI_IPV4 = 1,
-  IANA_AFI_IPV6 = 2,
-  IANA_AFI_L2VPN = 25,
-  IANA_AFI_IPMR = 128,
-  IANA_AFI_IP6MR = 129
+	IANA_AFI_RESERVED = 0,
+	IANA_AFI_IPV4 = 1,
+	IANA_AFI_IPV6 = 2,
+	IANA_AFI_L2VPN = 25,
+	IANA_AFI_IPMR = 128,
+	IANA_AFI_IP6MR = 129
 } iana_afi_t;
 
 #define IANA_SAFI_RESERVED            0
@@ -491,60 +490,60 @@ typedef uint32_t route_tag_t;
 #define ROUTE_TAG_MAX UINT32_MAX
 #define ROUTE_TAG_PRI PRIu32
 
-static inline afi_t afi_iana2int (iana_afi_t afi)
+static inline afi_t afi_iana2int(iana_afi_t afi)
 {
-  if (afi == IANA_AFI_IPV4)
-    return AFI_IP;
-  if (afi == IANA_AFI_IPV6)
-    return AFI_IP6;
-  if (afi == IANA_AFI_L2VPN)
-    return AFI_L2VPN;
-  return AFI_MAX;
+	if (afi == IANA_AFI_IPV4)
+		return AFI_IP;
+	if (afi == IANA_AFI_IPV6)
+		return AFI_IP6;
+	if (afi == IANA_AFI_L2VPN)
+		return AFI_L2VPN;
+	return AFI_MAX;
 }
 
-static inline iana_afi_t afi_int2iana (afi_t afi)
+static inline iana_afi_t afi_int2iana(afi_t afi)
 {
-  if (afi == AFI_IP)
-    return IANA_AFI_IPV4;
-  if (afi == AFI_IP6)
-    return IANA_AFI_IPV6;
-  if (afi == AFI_L2VPN)
-    return IANA_AFI_L2VPN;
-  return IANA_AFI_RESERVED;
+	if (afi == AFI_IP)
+		return IANA_AFI_IPV4;
+	if (afi == AFI_IP6)
+		return IANA_AFI_IPV6;
+	if (afi == AFI_L2VPN)
+		return IANA_AFI_L2VPN;
+	return IANA_AFI_RESERVED;
 }
 
-static inline safi_t safi_iana2int (safi_t safi)
+static inline safi_t safi_iana2int(safi_t safi)
 {
-  if (safi == IANA_SAFI_UNICAST)
-    return SAFI_UNICAST;
-  if (safi == IANA_SAFI_MULTICAST)
-    return SAFI_MULTICAST;
-  if (safi == IANA_SAFI_MPLS_VPN)
-    return SAFI_MPLS_VPN;
-  if (safi == IANA_SAFI_ENCAP)
-    return SAFI_ENCAP;
-  if (safi == IANA_SAFI_EVPN)
-    return SAFI_EVPN;
-  if (safi == IANA_SAFI_LABELED_UNICAST)
-    return SAFI_LABELED_UNICAST;
-  return SAFI_MAX;
+	if (safi == IANA_SAFI_UNICAST)
+		return SAFI_UNICAST;
+	if (safi == IANA_SAFI_MULTICAST)
+		return SAFI_MULTICAST;
+	if (safi == IANA_SAFI_MPLS_VPN)
+		return SAFI_MPLS_VPN;
+	if (safi == IANA_SAFI_ENCAP)
+		return SAFI_ENCAP;
+	if (safi == IANA_SAFI_EVPN)
+		return SAFI_EVPN;
+	if (safi == IANA_SAFI_LABELED_UNICAST)
+		return SAFI_LABELED_UNICAST;
+	return SAFI_MAX;
 }
 
-static inline safi_t safi_int2iana (safi_t safi)
+static inline safi_t safi_int2iana(safi_t safi)
 {
-  if (safi == SAFI_UNICAST)
-    return IANA_SAFI_UNICAST;
-  if (safi == SAFI_MULTICAST)
-    return IANA_SAFI_MULTICAST;
-  if (safi == SAFI_MPLS_VPN)
-    return IANA_SAFI_MPLS_VPN;
-  if (safi == SAFI_ENCAP)
-    return IANA_SAFI_ENCAP;
-  if (safi == SAFI_EVPN)
-    return IANA_SAFI_EVPN;
-  if (safi == SAFI_LABELED_UNICAST)
-    return IANA_SAFI_LABELED_UNICAST;
-  return IANA_SAFI_RESERVED;
+	if (safi == SAFI_UNICAST)
+		return IANA_SAFI_UNICAST;
+	if (safi == SAFI_MULTICAST)
+		return IANA_SAFI_MULTICAST;
+	if (safi == SAFI_MPLS_VPN)
+		return IANA_SAFI_MPLS_VPN;
+	if (safi == SAFI_ENCAP)
+		return IANA_SAFI_ENCAP;
+	if (safi == SAFI_EVPN)
+		return IANA_SAFI_EVPN;
+	if (safi == SAFI_LABELED_UNICAST)
+		return IANA_SAFI_LABELED_UNICAST;
+	return IANA_SAFI_RESERVED;
 }
 
 #endif /* _ZEBRA_H */

@@ -30,169 +30,166 @@ extern struct zebra_privs_t zserv_privs;
 
 char proc_net_snmp[] = "/proc/net/snmp";
 
-static void
-dropline (FILE *fp)
+static void dropline(FILE *fp)
 {
-  int c;
+	int c;
 
-  while ((c = getc (fp)) != '\n')
-    ;
+	while ((c = getc(fp)) != '\n')
+		;
 }
 
-int
-ipforward (void)
+int ipforward(void)
 {
-  FILE *fp;
-  int ipforwarding = 0;
-  char buf[10];
+	FILE *fp;
+	int ipforwarding = 0;
+	char buf[10];
 
-  fp = fopen (proc_net_snmp, "r");
+	fp = fopen(proc_net_snmp, "r");
 
-  if (fp == NULL)
-    return -1;
+	if (fp == NULL)
+		return -1;
 
-  /* We don't care about the first line. */
-  dropline (fp);
-  
-  /* Get ip_statistics.IpForwarding : 
-     1 => ip forwarding enabled 
-     2 => ip forwarding off. */
-  if (fgets (buf, 6, fp))
-    sscanf (buf, "Ip: %d", &ipforwarding);
+	/* We don't care about the first line. */
+	dropline(fp);
 
-  fclose(fp);
-  
-  if (ipforwarding == 1)
-    return 1;
+	/* Get ip_statistics.IpForwarding :
+	   1 => ip forwarding enabled
+	   2 => ip forwarding off. */
+	if (fgets(buf, 6, fp))
+		sscanf(buf, "Ip: %d", &ipforwarding);
 
-  return 0;
+	fclose(fp);
+
+	if (ipforwarding == 1)
+		return 1;
+
+	return 0;
 }
 
 /* char proc_ipv4_forwarding[] = "/proc/sys/net/ipv4/conf/all/forwarding"; */
 char proc_ipv4_forwarding[] = "/proc/sys/net/ipv4/ip_forward";
 
-int
-ipforward_on (void)
+int ipforward_on(void)
 {
-  FILE *fp;
-  
-  if ( zserv_privs.change(ZPRIVS_RAISE) )
-  	zlog_err ("Can't raise privileges, %s", safe_strerror (errno) );
+	FILE *fp;
 
-  fp = fopen (proc_ipv4_forwarding, "w");
+	if (zserv_privs.change(ZPRIVS_RAISE))
+		zlog_err("Can't raise privileges, %s", safe_strerror(errno));
 
-  if (fp == NULL) {
-    if ( zserv_privs.change(ZPRIVS_LOWER) )
-      zlog_err ("Can't lower privileges, %s", safe_strerror (errno));
-    return -1;
-  }
+	fp = fopen(proc_ipv4_forwarding, "w");
 
-  fprintf (fp, "1\n");
+	if (fp == NULL) {
+		if (zserv_privs.change(ZPRIVS_LOWER))
+			zlog_err("Can't lower privileges, %s",
+				 safe_strerror(errno));
+		return -1;
+	}
 
-  fclose (fp);
+	fprintf(fp, "1\n");
 
-  if ( zserv_privs.change(ZPRIVS_LOWER) )
-    zlog_err ("Can't lower privileges, %s", safe_strerror (errno));
+	fclose(fp);
 
-  return ipforward ();
+	if (zserv_privs.change(ZPRIVS_LOWER))
+		zlog_err("Can't lower privileges, %s", safe_strerror(errno));
+
+	return ipforward();
 }
 
-int
-ipforward_off (void)
+int ipforward_off(void)
 {
-  FILE *fp;
+	FILE *fp;
 
-  if ( zserv_privs.change(ZPRIVS_RAISE) )
-  	zlog_err ("Can't raise privileges, %s", safe_strerror (errno));
+	if (zserv_privs.change(ZPRIVS_RAISE))
+		zlog_err("Can't raise privileges, %s", safe_strerror(errno));
 
-  fp = fopen (proc_ipv4_forwarding, "w");
+	fp = fopen(proc_ipv4_forwarding, "w");
 
-  if (fp == NULL) {
-    if ( zserv_privs.change(ZPRIVS_LOWER) )
-      zlog_err ("Can't lower privileges, %s", safe_strerror (errno));
-    return -1;
-  }
+	if (fp == NULL) {
+		if (zserv_privs.change(ZPRIVS_LOWER))
+			zlog_err("Can't lower privileges, %s",
+				 safe_strerror(errno));
+		return -1;
+	}
 
-  fprintf (fp, "0\n");
+	fprintf(fp, "0\n");
 
-  fclose (fp);
+	fclose(fp);
 
-  if ( zserv_privs.change(ZPRIVS_LOWER) )
-    zlog_err ("Can't lower privileges, %s", safe_strerror (errno));
+	if (zserv_privs.change(ZPRIVS_LOWER))
+		zlog_err("Can't lower privileges, %s", safe_strerror(errno));
 
-  return ipforward ();
+	return ipforward();
 }
 
 char proc_ipv6_forwarding[] = "/proc/sys/net/ipv6/conf/all/forwarding";
 
-int
-ipforward_ipv6 (void)
+int ipforward_ipv6(void)
 {
-  FILE *fp;
-  char buf[5];
-  int ipforwarding = 0;
+	FILE *fp;
+	char buf[5];
+	int ipforwarding = 0;
 
-  fp = fopen (proc_ipv6_forwarding, "r");
+	fp = fopen(proc_ipv6_forwarding, "r");
 
-  if (fp == NULL)
-    return -1;
+	if (fp == NULL)
+		return -1;
 
-  if (fgets (buf, 2, fp))
-    sscanf (buf, "%d", &ipforwarding);
+	if (fgets(buf, 2, fp))
+		sscanf(buf, "%d", &ipforwarding);
 
-  fclose (fp);
-  return ipforwarding;
+	fclose(fp);
+	return ipforwarding;
 }
 
-int
-ipforward_ipv6_on (void)
+int ipforward_ipv6_on(void)
 {
-  FILE *fp;
+	FILE *fp;
 
-  if ( zserv_privs.change(ZPRIVS_RAISE) )
-       zlog_err ("Can't raise privileges, %s", safe_strerror (errno));
+	if (zserv_privs.change(ZPRIVS_RAISE))
+		zlog_err("Can't raise privileges, %s", safe_strerror(errno));
 
-  fp = fopen (proc_ipv6_forwarding, "w");
+	fp = fopen(proc_ipv6_forwarding, "w");
 
-  if (fp == NULL) {
-    if ( zserv_privs.change(ZPRIVS_LOWER) )
-      zlog_err ("Can't lower privileges, %s", safe_strerror (errno));
-    return -1;
-  }
+	if (fp == NULL) {
+		if (zserv_privs.change(ZPRIVS_LOWER))
+			zlog_err("Can't lower privileges, %s",
+				 safe_strerror(errno));
+		return -1;
+	}
 
-  fprintf (fp, "1\n");
+	fprintf(fp, "1\n");
 
-  fclose (fp);
+	fclose(fp);
 
-  if ( zserv_privs.change(ZPRIVS_LOWER) )
-    zlog_err ("Can't lower privileges, %s", safe_strerror (errno));
+	if (zserv_privs.change(ZPRIVS_LOWER))
+		zlog_err("Can't lower privileges, %s", safe_strerror(errno));
 
-  return ipforward_ipv6 ();
+	return ipforward_ipv6();
 }
 
 
-int
-ipforward_ipv6_off (void)
+int ipforward_ipv6_off(void)
 {
-  FILE *fp;
+	FILE *fp;
 
-  if ( zserv_privs.change(ZPRIVS_RAISE) )
-       zlog_err ("Can't raise privileges, %s", safe_strerror (errno));
+	if (zserv_privs.change(ZPRIVS_RAISE))
+		zlog_err("Can't raise privileges, %s", safe_strerror(errno));
 
-  fp = fopen (proc_ipv6_forwarding, "w");
+	fp = fopen(proc_ipv6_forwarding, "w");
 
-  if (fp == NULL) {
-    if ( zserv_privs.change(ZPRIVS_LOWER) )
-      zlog_err ("Can't lower privileges, %s", safe_strerror (errno));
-    return -1;
-  }
+	if (fp == NULL) {
+		if (zserv_privs.change(ZPRIVS_LOWER))
+			zlog_err("Can't lower privileges, %s",
+				 safe_strerror(errno));
+		return -1;
+	}
 
-  fprintf (fp, "0\n");
+	fprintf(fp, "0\n");
 
-  fclose (fp);
+	fclose(fp);
 
-  if ( zserv_privs.change(ZPRIVS_LOWER) )
-    zlog_err ("Can't lower privileges, %s", safe_strerror (errno));
+	if (zserv_privs.change(ZPRIVS_LOWER))
+		zlog_err("Can't lower privileges, %s", safe_strerror(errno));
 
-  return ipforward_ipv6 ();
+	return ipforward_ipv6();
 }

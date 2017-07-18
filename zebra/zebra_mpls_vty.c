@@ -39,119 +39,106 @@
 #include "zebra/zebra_routemap.h"
 #include "zebra/zebra_static.h"
 
-static int
-zebra_mpls_transit_lsp (struct vty *vty, int add_cmd, const char *inlabel_str,
-		        const char *gate_str, const char *outlabel_str,
-                        const char *flag_str)
+static int zebra_mpls_transit_lsp(struct vty *vty, int add_cmd,
+				  const char *inlabel_str, const char *gate_str,
+				  const char *outlabel_str,
+				  const char *flag_str)
 {
-  struct zebra_vrf *zvrf;
-  int ret;
-  enum nexthop_types_t gtype;
-  union g_addr gate;
-  mpls_label_t label;
-  mpls_label_t in_label, out_label;
+	struct zebra_vrf *zvrf;
+	int ret;
+	enum nexthop_types_t gtype;
+	union g_addr gate;
+	mpls_label_t label;
+	mpls_label_t in_label, out_label;
 
-  if (!mpls_enabled)
-    {
-      vty_outln (vty,"%% MPLS not turned on in kernel, ignoring command");
-      return CMD_WARNING;
-    }
+	if (!mpls_enabled) {
+		vty_out(vty,
+			"%% MPLS not turned on in kernel, ignoring command\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-  zvrf = vrf_info_lookup(VRF_DEFAULT);
-  if (!zvrf)
-    {
-      vty_outln (vty, "%% Default VRF does not exist");
-      return CMD_WARNING;
-    }
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	if (!zvrf) {
+		vty_out(vty, "%% Default VRF does not exist\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-  if (!inlabel_str)
-    {
-      vty_outln (vty, "%% No Label Information");
-      return CMD_WARNING;
-    }
+	if (!inlabel_str) {
+		vty_out(vty, "%% No Label Information\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-  out_label = MPLS_IMP_NULL_LABEL; /* as initialization */
-  label = atoi(inlabel_str);
-  if (!IS_MPLS_UNRESERVED_LABEL(label))
-    {
-      vty_outln (vty, "%% Invalid label");
-      return CMD_WARNING;
-    }
+	out_label = MPLS_IMP_NULL_LABEL; /* as initialization */
+	label = atoi(inlabel_str);
+	if (!IS_MPLS_UNRESERVED_LABEL(label)) {
+		vty_out(vty, "%% Invalid label\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-  if (add_cmd)
-    {
-      if (!gate_str)
-        {
-          vty_outln (vty, "%% No Nexthop Information");
-          return CMD_WARNING;
-        }
-      if (!outlabel_str)
-        {
-          vty_outln (vty, "%% No Outgoing label Information");
-          return CMD_WARNING;
-        }
-    }
+	if (add_cmd) {
+		if (!gate_str) {
+			vty_out(vty, "%% No Nexthop Information\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		if (!outlabel_str) {
+			vty_out(vty, "%% No Outgoing label Information\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
 
-  in_label = label;
-  gtype = NEXTHOP_TYPE_BLACKHOLE; /* as initialization */
+	in_label = label;
+	gtype = NEXTHOP_TYPE_BLACKHOLE; /* as initialization */
 
-  if (gate_str)
-    {
-      /* Gateway is a IPv4 or IPv6 nexthop. */
-      ret = inet_pton (AF_INET6, gate_str, &gate.ipv6);
-      if (ret)
-        gtype = NEXTHOP_TYPE_IPV6;
-      else
-        {
-          ret = inet_pton (AF_INET, gate_str, &gate.ipv4);
-          if (ret)
-            gtype = NEXTHOP_TYPE_IPV4;
-          else
-            {
-              vty_outln (vty, "%% Invalid nexthop");
-              return CMD_WARNING;
-            }
-        }
-    }
+	if (gate_str) {
+		/* Gateway is a IPv4 or IPv6 nexthop. */
+		ret = inet_pton(AF_INET6, gate_str, &gate.ipv6);
+		if (ret)
+			gtype = NEXTHOP_TYPE_IPV6;
+		else {
+			ret = inet_pton(AF_INET, gate_str, &gate.ipv4);
+			if (ret)
+				gtype = NEXTHOP_TYPE_IPV4;
+			else {
+				vty_out(vty, "%% Invalid nexthop\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+		}
+	}
 
-  if (outlabel_str)
-    {
-      if (outlabel_str[0] == 'i')
-        out_label = MPLS_IMP_NULL_LABEL;
-      else if (outlabel_str[0] == 'e' && gtype == NEXTHOP_TYPE_IPV4)
-        out_label = MPLS_V4_EXP_NULL_LABEL;
-      else if (outlabel_str[0] == 'e' && gtype == NEXTHOP_TYPE_IPV6)
-        out_label = MPLS_V6_EXP_NULL_LABEL;
-      else
-        out_label = atoi(outlabel_str);
-    }
+	if (outlabel_str) {
+		if (outlabel_str[0] == 'i')
+			out_label = MPLS_IMP_NULL_LABEL;
+		else if (outlabel_str[0] == 'e' && gtype == NEXTHOP_TYPE_IPV4)
+			out_label = MPLS_V4_EXP_NULL_LABEL;
+		else if (outlabel_str[0] == 'e' && gtype == NEXTHOP_TYPE_IPV6)
+			out_label = MPLS_V6_EXP_NULL_LABEL;
+		else
+			out_label = atoi(outlabel_str);
+	}
 
-  if (add_cmd)
-    {
+	if (add_cmd) {
 #if defined(HAVE_CUMULUS)
-      /* Check that label value is consistent. */
-      if (!zebra_mpls_lsp_label_consistent (zvrf, in_label, out_label, gtype,
-                                            &gate, 0))
-        {
-          vty_outln (vty,"%% Label value not consistent");
-          return CMD_WARNING;
-        }
+		/* Check that label value is consistent. */
+		if (!zebra_mpls_lsp_label_consistent(zvrf, in_label, out_label,
+						     gtype, &gate, 0)) {
+			vty_out(vty, "%% Label value not consistent\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 #endif /* HAVE_CUMULUS */
 
-      ret = zebra_mpls_static_lsp_add (zvrf, in_label, out_label, gtype,
-                                       &gate, 0);
-    }
-  else
-    ret = zebra_mpls_static_lsp_del (zvrf, in_label, gtype, &gate, 0);
+		ret = zebra_mpls_static_lsp_add(zvrf, in_label, out_label,
+						gtype, &gate, 0);
+	} else
+		ret = zebra_mpls_static_lsp_del(zvrf, in_label, gtype, &gate,
+						0);
 
-  if (ret)
-    {
-      vty_outln (vty, "%% LSP cannot be %s",
-               add_cmd ? "added" : "deleted");
-      return CMD_WARNING;
-    }
+	if (ret) {
+		vty_out(vty, "%% LSP cannot be %s\n",
+			add_cmd ? "added" : "deleted");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN (mpls_transit_lsp,
@@ -166,7 +153,8 @@ DEFUN (mpls_transit_lsp,
        "Use Explicit-Null label\n"
        "Use Implicit-Null label\n")
 {
-  return zebra_mpls_transit_lsp (vty, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL);
+	return zebra_mpls_transit_lsp(vty, 1, argv[2]->arg, argv[3]->arg,
+				      argv[4]->arg, NULL);
 }
 
 DEFUN (no_mpls_transit_lsp,
@@ -179,22 +167,21 @@ DEFUN (no_mpls_transit_lsp,
        "IPv4 gateway address\n"
        "IPv6 gateway address\n")
 {
-  return zebra_mpls_transit_lsp (vty, 0, argv[3]->arg, argv[4]->arg, NULL, NULL);
+	return zebra_mpls_transit_lsp(vty, 0, argv[3]->arg, argv[4]->arg, NULL,
+				      NULL);
 }
 
-ALIAS (no_mpls_transit_lsp,
-       no_mpls_transit_lsp_out_label_cmd,
-       "no mpls lsp (16-1048575) <A.B.C.D|X:X::X:X> <(16-1048575)|explicit-null|implicit-null>",
-       NO_STR
-       MPLS_STR
-       "Establish label switched path\n"
-       "Incoming MPLS label\n"
-       "IPv4 gateway address\n"
-       "IPv6 gateway address\n"
-       "Outgoing MPLS label\n"
-       "Use Explicit-Null label\n"
-       "Use Implicit-Null label\n")
- 
+ALIAS(no_mpls_transit_lsp, no_mpls_transit_lsp_out_label_cmd,
+      "no mpls lsp (16-1048575) <A.B.C.D|X:X::X:X> <(16-1048575)|explicit-null|implicit-null>",
+      NO_STR MPLS_STR
+      "Establish label switched path\n"
+      "Incoming MPLS label\n"
+      "IPv4 gateway address\n"
+      "IPv6 gateway address\n"
+      "Outgoing MPLS label\n"
+      "Use Explicit-Null label\n"
+      "Use Implicit-Null label\n")
+
 DEFUN (no_mpls_transit_lsp_all,
        no_mpls_transit_lsp_all_cmd,
        "no mpls lsp (16-1048575)",
@@ -203,78 +190,67 @@ DEFUN (no_mpls_transit_lsp_all,
        "Establish label switched path\n"
        "Incoming MPLS label\n")
 {
-  return zebra_mpls_transit_lsp (vty, 0, argv[3]->arg, NULL, NULL, NULL);
+	return zebra_mpls_transit_lsp(vty, 0, argv[3]->arg, NULL, NULL, NULL);
 }
 
-static int
-zebra_mpls_bind (struct vty *vty, int add_cmd, const char *prefix,
-                const char *label_str)
+static int zebra_mpls_bind(struct vty *vty, int add_cmd, const char *prefix,
+			   const char *label_str)
 {
-  struct zebra_vrf *zvrf;
-  struct prefix p;
-  u_int32_t label;
-  int ret;
+	struct zebra_vrf *zvrf;
+	struct prefix p;
+	u_int32_t label;
+	int ret;
 
-  zvrf = vrf_info_lookup(VRF_DEFAULT);
-  if (!zvrf)
-    {
-      vty_outln (vty, "%% Default VRF does not exist");
-      return CMD_WARNING;
-    }
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	if (!zvrf) {
+		vty_out(vty, "%% Default VRF does not exist\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-  memset(&p, 0, sizeof(struct prefix));
-  ret = str2prefix(prefix, &p);
-  if (ret <= 0)
-    {
-      vty_outln (vty, "%% Malformed address");
-      return CMD_WARNING;
-    }
+	memset(&p, 0, sizeof(struct prefix));
+	ret = str2prefix(prefix, &p);
+	if (ret <= 0) {
+		vty_out(vty, "%% Malformed address\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-  if (add_cmd)
-    {
-      if (!label_str)
-        {
-          vty_outln (vty, "%% No label binding specified");
-          return CMD_WARNING;
-        }
+	if (add_cmd) {
+		if (!label_str) {
+			vty_out(vty, "%% No label binding specified\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 
-      if (!strcmp(label_str, "implicit-null"))
-        label = MPLS_IMP_NULL_LABEL;
-      else if (!strcmp(label_str, "explicit-null"))
-        {
-          if (p.family == AF_INET)
-            label = MPLS_V4_EXP_NULL_LABEL;
-          else
-            label = MPLS_V6_EXP_NULL_LABEL;
-        }
-      else
-        {
-          label = atoi(label_str);
-          if (!IS_MPLS_UNRESERVED_LABEL(label))
-            {
-              vty_outln (vty, "%% Invalid label");
-              return CMD_WARNING;
-            }
-          if (zebra_mpls_label_already_bound (zvrf, label))
-            {
-              vty_outln (vty,"%% Label already bound to a FEC");
-              return CMD_WARNING;
-            }
-        }
+		if (!strcmp(label_str, "implicit-null"))
+			label = MPLS_IMP_NULL_LABEL;
+		else if (!strcmp(label_str, "explicit-null")) {
+			if (p.family == AF_INET)
+				label = MPLS_V4_EXP_NULL_LABEL;
+			else
+				label = MPLS_V6_EXP_NULL_LABEL;
+		} else {
+			label = atoi(label_str);
+			if (!IS_MPLS_UNRESERVED_LABEL(label)) {
+				vty_out(vty, "%% Invalid label\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+			if (zebra_mpls_label_already_bound(zvrf, label)) {
+				vty_out(vty,
+					"%% Label already bound to a FEC\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
+		}
 
-      ret = zebra_mpls_static_fec_add (zvrf, &p, label);
-    }
-  else
-    ret = zebra_mpls_static_fec_del (zvrf, &p);
+		ret = zebra_mpls_static_fec_add(zvrf, &p, label);
+	} else
+		ret = zebra_mpls_static_fec_del(zvrf, &p);
 
-  if (ret)
-    {
-      vty_outln (vty, "%% FEC to label binding cannot be %s",
-               add_cmd ? "added" : "deleted");
-      return CMD_WARNING;
-    }
+	if (ret) {
+		vty_out(vty, "%% FEC to label binding cannot be %s\n",
+			add_cmd ? "added" : "deleted");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN (mpls_label_bind,
@@ -289,7 +265,7 @@ DEFUN (mpls_label_bind,
        "Use Implicit-Null Label\n"
        "Use Explicit-Null Label\n")
 {
-  return zebra_mpls_bind (vty, 1, argv[3]->arg, argv[4]->arg);
+	return zebra_mpls_bind(vty, 1, argv[3]->arg, argv[4]->arg);
 }
 
 DEFUN (no_mpls_label_bind,
@@ -303,9 +279,8 @@ DEFUN (no_mpls_label_bind,
        "IPv6 prefix\n"
        "MPLS Label to bind\n"
        "Use Implicit-Null Label\n")
-
 {
-  return zebra_mpls_bind (vty, 0, argv[4]->arg, NULL);
+	return zebra_mpls_bind(vty, 0, argv[4]->arg, NULL);
 }
 
 /* Static route configuration.  */
@@ -320,8 +295,9 @@ DEFUN (ip_route_label,
        "Null interface\n"
        MPLS_LABEL_HELPSTR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL,
-                            NULL, NULL, argv[5]->arg);
+	return zebra_static_ipv4(vty, SAFI_UNICAST, 1, argv[2]->arg, NULL,
+				 argv[3]->arg, NULL, NULL, NULL, NULL,
+				 argv[5]->arg);
 }
 
 DEFUN (ip_route_tag_label,
@@ -337,8 +313,9 @@ DEFUN (ip_route_tag_label,
        "Tag value\n"
        MPLS_LABEL_HELPSTR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, argv[5]->arg,
-                            NULL, NULL, argv[7]->arg);
+	return zebra_static_ipv4(vty, SAFI_UNICAST, 1, argv[2]->arg, NULL,
+				 argv[3]->arg, NULL, argv[5]->arg, NULL, NULL,
+				 argv[7]->arg);
 }
 
 /* Mask as A.B.C.D format.  */
@@ -354,8 +331,9 @@ DEFUN (ip_route_mask_label,
        "Null interface\n"
        MPLS_LABEL_HELPSTR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, NULL,
-                            NULL, NULL, argv[6]->arg);
+	return zebra_static_ipv4(vty, SAFI_UNICAST, 1, argv[2]->arg,
+				 argv[3]->arg, argv[4]->arg, NULL, NULL, NULL,
+				 NULL, argv[6]->arg);
 }
 
 DEFUN (ip_route_mask_tag_label,
@@ -371,10 +349,10 @@ DEFUN (ip_route_mask_tag_label,
        "Set tag for this route\n"
        "Tag value\n"
        MPLS_LABEL_HELPSTR)
-
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, argv[6]->arg,
-                            NULL, NULL, argv[8]->arg);
+	return zebra_static_ipv4(vty, SAFI_UNICAST, 1, argv[2]->arg,
+				 argv[3]->arg, argv[4]->arg, NULL, argv[6]->arg,
+				 NULL, NULL, argv[8]->arg);
 }
 
 /* Distance option value.  */
@@ -390,8 +368,9 @@ DEFUN (ip_route_distance_label,
        "Distance value for this route\n"
        MPLS_LABEL_HELPSTR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL,
-                            argv[4]->arg, NULL, argv[6]->arg);
+	return zebra_static_ipv4(vty, SAFI_UNICAST, 1, argv[2]->arg, NULL,
+				 argv[3]->arg, NULL, NULL, argv[4]->arg, NULL,
+				 argv[6]->arg);
 }
 
 DEFUN (ip_route_tag_distance_label,
@@ -407,10 +386,10 @@ DEFUN (ip_route_tag_distance_label,
        "Tag value\n"
        "Distance value for this route\n"
        MPLS_LABEL_HELPSTR)
-
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, argv[5]->arg,
-                            argv[6]->arg, NULL, argv[8]->arg);
+	return zebra_static_ipv4(vty, SAFI_UNICAST, 1, argv[2]->arg, NULL,
+				 argv[3]->arg, NULL, argv[5]->arg, argv[6]->arg,
+				 NULL, argv[8]->arg);
 }
 
 DEFUN (ip_route_mask_distance_label,
@@ -426,8 +405,9 @@ DEFUN (ip_route_mask_distance_label,
        "Distance value for this route\n"
        MPLS_LABEL_HELPSTR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, NULL,
-                            argv[5]->arg, NULL, argv[7]->arg);
+	return zebra_static_ipv4(vty, SAFI_UNICAST, 1, argv[2]->arg,
+				 argv[3]->arg, argv[4]->arg, NULL, NULL,
+				 argv[5]->arg, NULL, argv[7]->arg);
 }
 
 DEFUN (ip_route_mask_tag_distance_label,
@@ -445,8 +425,9 @@ DEFUN (ip_route_mask_tag_distance_label,
        "Distance value for this route\n"
        MPLS_LABEL_HELPSTR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 1, argv[2]->arg, argv[3]->arg, argv[4]->arg, NULL, argv[6]->arg,
-                            argv[7]->arg, NULL, argv[9]->arg);
+	return zebra_static_ipv4(vty, SAFI_UNICAST, 1, argv[2]->arg,
+				 argv[3]->arg, argv[4]->arg, NULL, argv[6]->arg,
+				 argv[7]->arg, NULL, argv[9]->arg);
 }
 
 DEFUN (no_ip_route_label,
@@ -461,8 +442,9 @@ DEFUN (no_ip_route_label,
        "Null interface\n"
        MPLS_LABEL_HELPSTR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, NULL,
-                            NULL, NULL, argv[6]->arg);
+	return zebra_static_ipv4(vty, SAFI_UNICAST, 0, argv[3]->arg, NULL,
+				 argv[4]->arg, NULL, NULL, NULL, NULL,
+				 argv[6]->arg);
 }
 
 DEFUN (no_ip_route_tag_label,
@@ -479,8 +461,9 @@ DEFUN (no_ip_route_tag_label,
        "Tag value\n"
        MPLS_LABEL_HELPSTR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, argv[6]->arg,
-                            NULL, NULL, argv[8]->arg);
+	return zebra_static_ipv4(vty, SAFI_UNICAST, 0, argv[3]->arg, NULL,
+				 argv[4]->arg, NULL, argv[6]->arg, NULL, NULL,
+				 argv[8]->arg);
 }
 
 DEFUN (no_ip_route_mask_label,
@@ -496,8 +479,9 @@ DEFUN (no_ip_route_mask_label,
        "Null interface\n"
        MPLS_LABEL_HELPSTR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL, NULL,
-                            NULL, NULL, argv[7]->arg);
+	return zebra_static_ipv4(vty, SAFI_UNICAST, 0, argv[3]->arg,
+				 argv[4]->arg, argv[5]->arg, NULL, NULL, NULL,
+				 NULL, argv[7]->arg);
 }
 
 DEFUN (no_ip_route_mask_tag_label,
@@ -515,8 +499,9 @@ DEFUN (no_ip_route_mask_tag_label,
        "Tag value\n"
        MPLS_LABEL_HELPSTR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL, argv[7]->arg,
-                            NULL, NULL, argv[9]->arg);
+	return zebra_static_ipv4(vty, SAFI_UNICAST, 0, argv[3]->arg,
+				 argv[4]->arg, argv[5]->arg, NULL, argv[7]->arg,
+				 NULL, NULL, argv[9]->arg);
 }
 
 DEFUN (no_ip_route_distance_label,
@@ -532,8 +517,9 @@ DEFUN (no_ip_route_distance_label,
        "Distance value for this route\n"
        MPLS_LABEL_HELPSTR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, NULL,
-                            argv[5]->arg, NULL, argv[7]->arg);
+	return zebra_static_ipv4(vty, SAFI_UNICAST, 0, argv[3]->arg, NULL,
+				 argv[4]->arg, NULL, NULL, argv[5]->arg, NULL,
+				 argv[7]->arg);
 }
 
 DEFUN (no_ip_route_tag_distance_label,
@@ -551,8 +537,9 @@ DEFUN (no_ip_route_tag_distance_label,
        "Distance value for this route\n"
        MPLS_LABEL_HELPSTR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, argv[6]->arg,
-                            argv[7]->arg, NULL, argv[9]->arg);
+	return zebra_static_ipv4(vty, SAFI_UNICAST, 0, argv[3]->arg, NULL,
+				 argv[4]->arg, NULL, argv[6]->arg, argv[7]->arg,
+				 NULL, argv[9]->arg);
 }
 
 DEFUN (no_ip_route_mask_distance_label,
@@ -569,8 +556,9 @@ DEFUN (no_ip_route_mask_distance_label,
        "Distance value for this route\n"
        MPLS_LABEL_HELPSTR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL, NULL,
-                            argv[6]->arg, NULL, argv[8]->arg);
+	return zebra_static_ipv4(vty, SAFI_UNICAST, 0, argv[3]->arg,
+				 argv[4]->arg, argv[5]->arg, NULL, NULL,
+				 argv[6]->arg, NULL, argv[8]->arg);
 }
 
 DEFUN (no_ip_route_mask_tag_distance_label,
@@ -589,8 +577,9 @@ DEFUN (no_ip_route_mask_tag_distance_label,
        "Distance value for this route\n"
        MPLS_LABEL_HELPSTR)
 {
-  return zebra_static_ipv4 (vty, SAFI_UNICAST, 0, argv[3]->arg, argv[4]->arg, argv[5]->arg, NULL, argv[7]->arg,
-                            argv[8]->arg, NULL, argv[10]->arg);
+	return zebra_static_ipv4(vty, SAFI_UNICAST, 0, argv[3]->arg,
+				 argv[4]->arg, argv[5]->arg, NULL, argv[7]->arg,
+				 argv[8]->arg, NULL, argv[10]->arg);
 }
 
 DEFUN (ipv6_route_label,
@@ -603,7 +592,8 @@ DEFUN (ipv6_route_label,
        "IPv6 gateway interface name\n"
        MPLS_LABEL_HELPSTR)
 {
-  return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL, NULL, NULL, NULL, argv[5]->arg);
+	return static_ipv6_func(vty, 1, argv[2]->arg, NULL, argv[3]->arg, NULL,
+				NULL, NULL, NULL, NULL, argv[5]->arg);
 }
 
 DEFUN (ipv6_route_tag_label,
@@ -618,7 +608,8 @@ DEFUN (ipv6_route_tag_label,
        "Tag value\n"
        MPLS_LABEL_HELPSTR)
 {
-  return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL, argv[5]->arg, NULL, NULL, argv[7]->arg);
+	return static_ipv6_func(vty, 1, argv[2]->arg, NULL, argv[3]->arg, NULL,
+				NULL, argv[5]->arg, NULL, NULL, argv[7]->arg);
 }
 
 DEFUN (ipv6_route_ifname_label,
@@ -631,7 +622,9 @@ DEFUN (ipv6_route_ifname_label,
        "IPv6 gateway interface name\n"
        MPLS_LABEL_HELPSTR)
 {
-  return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg, NULL, NULL, NULL, NULL, argv[6]->arg);
+	return static_ipv6_func(vty, 1, argv[2]->arg, NULL, argv[3]->arg,
+				argv[4]->arg, NULL, NULL, NULL, NULL,
+				argv[6]->arg);
 }
 DEFUN (ipv6_route_ifname_tag_label,
        ipv6_route_ifname_tag_label_cmd,
@@ -645,7 +638,9 @@ DEFUN (ipv6_route_ifname_tag_label,
        "Tag value\n"
        MPLS_LABEL_HELPSTR)
 {
-  return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg, NULL, argv[6]->arg, NULL, NULL, argv[8]->arg);
+	return static_ipv6_func(vty, 1, argv[2]->arg, NULL, argv[3]->arg,
+				argv[4]->arg, NULL, argv[6]->arg, NULL, NULL,
+				argv[8]->arg);
 }
 
 DEFUN (ipv6_route_pref_label,
@@ -659,7 +654,8 @@ DEFUN (ipv6_route_pref_label,
        "Distance value for this prefix\n"
        MPLS_LABEL_HELPSTR)
 {
-  return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL, NULL, argv[4]->arg, NULL, argv[6]->arg);
+	return static_ipv6_func(vty, 1, argv[2]->arg, NULL, argv[3]->arg, NULL,
+				NULL, NULL, argv[4]->arg, NULL, argv[6]->arg);
 }
 
 DEFUN (ipv6_route_pref_tag_label,
@@ -675,7 +671,9 @@ DEFUN (ipv6_route_pref_tag_label,
        "Distance value for this prefix\n"
        MPLS_LABEL_HELPSTR)
 {
-  return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, NULL, NULL, argv[5]->arg, argv[6]->arg, NULL, argv[8]->arg);
+	return static_ipv6_func(vty, 1, argv[2]->arg, NULL, argv[3]->arg, NULL,
+				NULL, argv[5]->arg, argv[6]->arg, NULL,
+				argv[8]->arg);
 }
 
 DEFUN (ipv6_route_ifname_pref_label,
@@ -689,7 +687,9 @@ DEFUN (ipv6_route_ifname_pref_label,
        "Distance value for this prefix\n"
        MPLS_LABEL_HELPSTR)
 {
-  return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg, NULL, NULL, argv[5]->arg, NULL, argv[7]->arg);
+	return static_ipv6_func(vty, 1, argv[2]->arg, NULL, argv[3]->arg,
+				argv[4]->arg, NULL, NULL, argv[5]->arg, NULL,
+				argv[7]->arg);
 }
 
 DEFUN (ipv6_route_ifname_pref_tag_label,
@@ -705,7 +705,9 @@ DEFUN (ipv6_route_ifname_pref_tag_label,
        "Distance value for this prefix\n"
        MPLS_LABEL_HELPSTR)
 {
-  return static_ipv6_func (vty, 1, argv[2]->arg, NULL, argv[3]->arg, argv[4]->arg, NULL, argv[6]->arg, argv[7]->arg, NULL, argv[9]->arg);
+	return static_ipv6_func(vty, 1, argv[2]->arg, NULL, argv[3]->arg,
+				argv[4]->arg, NULL, argv[6]->arg, argv[7]->arg,
+				NULL, argv[9]->arg);
 }
 
 DEFUN (no_ipv6_route_label,
@@ -719,7 +721,8 @@ DEFUN (no_ipv6_route_label,
        "IPv6 gateway interface name\n"
        MPLS_LABEL_HELPSTR)
 {
-  return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, NULL, NULL, NULL, NULL, argv[6]->arg);
+	return static_ipv6_func(vty, 0, argv[3]->arg, NULL, argv[4]->arg, NULL,
+				NULL, NULL, NULL, NULL, argv[6]->arg);
 }
 
 DEFUN (no_ipv6_route_tag_label,
@@ -735,7 +738,8 @@ DEFUN (no_ipv6_route_tag_label,
        "Tag value\n"
        MPLS_LABEL_HELPSTR)
 {
-  return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, NULL, argv[6]->arg, NULL, NULL, argv[8]->arg);
+	return static_ipv6_func(vty, 0, argv[3]->arg, NULL, argv[4]->arg, NULL,
+				NULL, argv[6]->arg, NULL, NULL, argv[8]->arg);
 }
 
 DEFUN (no_ipv6_route_ifname_label,
@@ -749,7 +753,9 @@ DEFUN (no_ipv6_route_ifname_label,
        "IPv6 gateway interface name\n"
        MPLS_LABEL_HELPSTR)
 {
-  return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, argv[5]->arg, NULL, NULL, NULL, NULL, argv[7]->arg);
+	return static_ipv6_func(vty, 0, argv[3]->arg, NULL, argv[4]->arg,
+				argv[5]->arg, NULL, NULL, NULL, NULL,
+				argv[7]->arg);
 }
 
 DEFUN (no_ipv6_route_ifname_tag_label,
@@ -765,7 +771,9 @@ DEFUN (no_ipv6_route_ifname_tag_label,
        "Tag value\n"
        MPLS_LABEL_HELPSTR)
 {
-  return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, argv[5]->arg, NULL, argv[7]->arg, NULL, NULL, argv[9]->arg);
+	return static_ipv6_func(vty, 0, argv[3]->arg, NULL, argv[4]->arg,
+				argv[5]->arg, NULL, argv[7]->arg, NULL, NULL,
+				argv[9]->arg);
 }
 
 DEFUN (no_ipv6_route_pref_label,
@@ -780,7 +788,8 @@ DEFUN (no_ipv6_route_pref_label,
        "Distance value for this prefix\n"
        MPLS_LABEL_HELPSTR)
 {
-  return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, NULL, NULL, argv[5]->arg, NULL, argv[7]->arg);
+	return static_ipv6_func(vty, 0, argv[3]->arg, NULL, argv[4]->arg, NULL,
+				NULL, NULL, argv[5]->arg, NULL, argv[7]->arg);
 }
 
 DEFUN (no_ipv6_route_pref_tag_label,
@@ -797,7 +806,9 @@ DEFUN (no_ipv6_route_pref_tag_label,
        "Distance value for this prefix\n"
        MPLS_LABEL_HELPSTR)
 {
-  return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, NULL, NULL, argv[6]->arg, argv[7]->arg, NULL, argv[9]->arg);
+	return static_ipv6_func(vty, 0, argv[3]->arg, NULL, argv[4]->arg, NULL,
+				NULL, argv[6]->arg, argv[7]->arg, NULL,
+				argv[9]->arg);
 }
 
 DEFUN (no_ipv6_route_ifname_pref_label,
@@ -812,7 +823,9 @@ DEFUN (no_ipv6_route_ifname_pref_label,
        "Distance value for this prefix\n"
        MPLS_LABEL_HELPSTR)
 {
-  return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, argv[5]->arg, NULL, NULL, argv[6]->arg, NULL, argv[8]->arg);
+	return static_ipv6_func(vty, 0, argv[3]->arg, NULL, argv[4]->arg,
+				argv[5]->arg, NULL, NULL, argv[6]->arg, NULL,
+				argv[8]->arg);
 }
 
 DEFUN (no_ipv6_route_ifname_pref_tag_label,
@@ -829,24 +842,25 @@ DEFUN (no_ipv6_route_ifname_pref_tag_label,
        "Distance value for this prefix\n"
        MPLS_LABEL_HELPSTR)
 {
-  return static_ipv6_func (vty, 0, argv[3]->arg, NULL, argv[4]->arg, argv[5]->arg, NULL, argv[7]->arg, argv[8]->arg, NULL, argv[10]->arg);
+	return static_ipv6_func(vty, 0, argv[3]->arg, NULL, argv[4]->arg,
+				argv[5]->arg, NULL, argv[7]->arg, argv[8]->arg,
+				NULL, argv[10]->arg);
 }
 
 /* MPLS LSP configuration write function. */
-static int
-zebra_mpls_config (struct vty *vty)
+static int zebra_mpls_config(struct vty *vty)
 {
-  int write = 0;
-  struct zebra_vrf *zvrf;
+	int write = 0;
+	struct zebra_vrf *zvrf;
 
-  zvrf = vrf_info_lookup(VRF_DEFAULT);
-  if (!zvrf)
-    return 0;
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	if (!zvrf)
+		return 0;
 
-  write += zebra_mpls_write_lsp_config(vty, zvrf);
-  write += zebra_mpls_write_fec_config(vty, zvrf);
-  write += zebra_mpls_write_label_block_config (vty, zvrf);
-  return write;
+	write += zebra_mpls_write_lsp_config(vty, zvrf);
+	write += zebra_mpls_write_fec_config(vty, zvrf);
+	write += zebra_mpls_write_label_block_config(vty, zvrf);
+	return write;
 }
 
 DEFUN (show_mpls_fec,
@@ -858,29 +872,27 @@ DEFUN (show_mpls_fec,
        "FEC to display information about\n"
        "FEC to display information about\n")
 {
-  struct zebra_vrf *zvrf;
-  struct prefix p;
-  int ret;
+	struct zebra_vrf *zvrf;
+	struct prefix p;
+	int ret;
 
-  zvrf = vrf_info_lookup(VRF_DEFAULT);
-  if (!zvrf)
-    return 0;
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	if (!zvrf)
+		return 0;
 
-  if (argc == 3)
-    zebra_mpls_print_fec_table(vty, zvrf);
-  else
-    {
-      memset(&p, 0, sizeof(struct prefix));
-      ret = str2prefix(argv[3]->arg, &p);
-      if (ret <= 0)
-        {
-          vty_outln (vty, "%% Malformed address");
-          return CMD_WARNING;
-        }
-      zebra_mpls_print_fec (vty, zvrf, &p);
-    }
+	if (argc == 3)
+		zebra_mpls_print_fec_table(vty, zvrf);
+	else {
+		memset(&p, 0, sizeof(struct prefix));
+		ret = str2prefix(argv[3]->arg, &p);
+		if (ret <= 0) {
+			vty_out(vty, "%% Malformed address\n");
+			return CMD_WARNING;
+		}
+		zebra_mpls_print_fec(vty, zvrf, &p);
+	}
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN (show_mpls_table,
@@ -891,12 +903,12 @@ DEFUN (show_mpls_table,
        "MPLS table\n"
        JSON_STR)
 {
-  struct zebra_vrf *zvrf;
-  u_char uj = use_json (argc, argv);
+	struct zebra_vrf *zvrf;
+	u_char uj = use_json(argc, argv);
 
-  zvrf = vrf_info_lookup(VRF_DEFAULT);
-  zebra_mpls_print_lsp_table(vty, zvrf, uj);
-  return CMD_SUCCESS;
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zebra_mpls_print_lsp_table(vty, zvrf, uj);
+	return CMD_SUCCESS;
 }
 
 DEFUN (show_mpls_table_lsp,
@@ -908,14 +920,14 @@ DEFUN (show_mpls_table_lsp,
        "LSP to display information about\n"
        JSON_STR)
 {
-  u_int32_t label;
-  struct zebra_vrf *zvrf;
-  u_char uj = use_json (argc, argv);
+	u_int32_t label;
+	struct zebra_vrf *zvrf;
+	u_char uj = use_json(argc, argv);
 
-  zvrf = vrf_info_lookup(VRF_DEFAULT);
-  label = atoi(argv[3]->arg);
-  zebra_mpls_print_lsp (vty, zvrf, label, uj);
-  return CMD_SUCCESS;
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	label = atoi(argv[3]->arg);
+	zebra_mpls_print_lsp(vty, zvrf, label, uj);
+	return CMD_SUCCESS;
 }
 
 DEFUN (show_mpls_status,
@@ -925,62 +937,56 @@ DEFUN (show_mpls_status,
        "MPLS information\n"
        "MPLS status\n")
 {
-  vty_outln (vty, "MPLS support enabled: %s",
-             (mpls_enabled) ? "yes" : "no (mpls kernel extensions not detected)");
-  return CMD_SUCCESS;
+	vty_out(vty, "MPLS support enabled: %s\n",
+		(mpls_enabled) ? "yes"
+			       : "no (mpls kernel extensions not detected)");
+	return CMD_SUCCESS;
 }
 
-static int
-zebra_mpls_global_block (struct vty *vty, int add_cmd,
-                     const char *start_label_str, const char *end_label_str)
+static int zebra_mpls_global_block(struct vty *vty, int add_cmd,
+				   const char *start_label_str,
+				   const char *end_label_str)
 {
-  int ret;
-  u_int32_t start_label;
-  u_int32_t end_label;
-  struct zebra_vrf *zvrf;
+	int ret;
+	u_int32_t start_label;
+	u_int32_t end_label;
+	struct zebra_vrf *zvrf;
 
-  zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
-  if (!zvrf)
-    {
-      vty_outln (vty, "%% Default VRF does not exist");
-      return CMD_WARNING;
-    }
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+	if (!zvrf) {
+		vty_out(vty, "%% Default VRF does not exist\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-  if (add_cmd)
-    {
-      if (!start_label_str || !end_label_str)
-        {
-          vty_outln (vty, "%% Labels not specified");
-          return CMD_WARNING;
-        }
+	if (add_cmd) {
+		if (!start_label_str || !end_label_str) {
+			vty_out(vty, "%% Labels not specified\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 
-      start_label = atoi(start_label_str);
-      end_label = atoi(end_label_str);
-      if (!IS_MPLS_UNRESERVED_LABEL(start_label) ||
-          !IS_MPLS_UNRESERVED_LABEL(end_label))
-        {
-          vty_outln (vty, "%% Invalid label");
-          return CMD_WARNING;
-        }
-      if (end_label < start_label)
-        {
-          vty_outln (vty,"%% End label is less than Start label");
-          return CMD_WARNING;
-        }
+		start_label = atoi(start_label_str);
+		end_label = atoi(end_label_str);
+		if (!IS_MPLS_UNRESERVED_LABEL(start_label)
+		    || !IS_MPLS_UNRESERVED_LABEL(end_label)) {
+			vty_out(vty, "%% Invalid label\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		if (end_label < start_label) {
+			vty_out(vty, "%% End label is less than Start label\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 
-      ret = zebra_mpls_label_block_add (zvrf, start_label, end_label);
-    }
-  else
-    ret = zebra_mpls_label_block_del (zvrf);
+		ret = zebra_mpls_label_block_add(zvrf, start_label, end_label);
+	} else
+		ret = zebra_mpls_label_block_del(zvrf);
 
-  if (ret)
-    {
-      vty_outln (vty, "%% Global label block could not be %s",
-               add_cmd ? "added" : "deleted");
-      return CMD_WARNING;
-    }
+	if (ret) {
+		vty_out(vty, "%% Global label block could not be %s\n",
+			add_cmd ? "added" : "deleted");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN (mpls_label_global_block,
@@ -992,7 +998,7 @@ DEFUN (mpls_label_global_block,
        "Start label\n"
        "End label\n")
 {
-  return zebra_mpls_global_block (vty, 1, argv[3]->arg, argv[4]->arg);
+	return zebra_mpls_global_block(vty, 1, argv[3]->arg, argv[4]->arg);
 }
 
 DEFUN (no_mpls_label_global_block,
@@ -1005,65 +1011,64 @@ DEFUN (no_mpls_label_global_block,
        "Start label\n"
        "End label\n")
 {
-  return zebra_mpls_global_block (vty, 0, NULL, NULL);
+	return zebra_mpls_global_block(vty, 0, NULL, NULL);
 }
 
 /* MPLS node for MPLS LSP. */
-static struct cmd_node mpls_node = { MPLS_NODE,  "",  1 };
+static struct cmd_node mpls_node = {MPLS_NODE, "", 1};
 
 /* MPLS VTY.  */
-void
-zebra_mpls_vty_init (void)
+void zebra_mpls_vty_init(void)
 {
-  install_element (VIEW_NODE, &show_mpls_status_cmd);
+	install_element(VIEW_NODE, &show_mpls_status_cmd);
 
-  install_node (&mpls_node, zebra_mpls_config);
+	install_node(&mpls_node, zebra_mpls_config);
 
-  install_element (CONFIG_NODE, &ip_route_label_cmd);
-  install_element (CONFIG_NODE, &ip_route_tag_label_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_label_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_tag_label_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_label_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_tag_label_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_label_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_tag_label_cmd);
-  install_element (CONFIG_NODE, &ip_route_distance_label_cmd);
-  install_element (CONFIG_NODE, &ip_route_tag_distance_label_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_distance_label_cmd);
-  install_element (CONFIG_NODE, &ip_route_mask_tag_distance_label_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_distance_label_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_tag_distance_label_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_distance_label_cmd);
-  install_element (CONFIG_NODE, &no_ip_route_mask_tag_distance_label_cmd);
+	install_element(CONFIG_NODE, &ip_route_label_cmd);
+	install_element(CONFIG_NODE, &ip_route_tag_label_cmd);
+	install_element(CONFIG_NODE, &ip_route_mask_label_cmd);
+	install_element(CONFIG_NODE, &ip_route_mask_tag_label_cmd);
+	install_element(CONFIG_NODE, &no_ip_route_label_cmd);
+	install_element(CONFIG_NODE, &no_ip_route_tag_label_cmd);
+	install_element(CONFIG_NODE, &no_ip_route_mask_label_cmd);
+	install_element(CONFIG_NODE, &no_ip_route_mask_tag_label_cmd);
+	install_element(CONFIG_NODE, &ip_route_distance_label_cmd);
+	install_element(CONFIG_NODE, &ip_route_tag_distance_label_cmd);
+	install_element(CONFIG_NODE, &ip_route_mask_distance_label_cmd);
+	install_element(CONFIG_NODE, &ip_route_mask_tag_distance_label_cmd);
+	install_element(CONFIG_NODE, &no_ip_route_distance_label_cmd);
+	install_element(CONFIG_NODE, &no_ip_route_tag_distance_label_cmd);
+	install_element(CONFIG_NODE, &no_ip_route_mask_distance_label_cmd);
+	install_element(CONFIG_NODE, &no_ip_route_mask_tag_distance_label_cmd);
 
-  install_element (CONFIG_NODE, &ipv6_route_label_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_ifname_label_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_label_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_ifname_label_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_pref_label_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_ifname_pref_label_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_pref_label_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_ifname_pref_label_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_tag_label_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_ifname_tag_label_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_pref_tag_label_cmd);
-  install_element (CONFIG_NODE, &ipv6_route_ifname_pref_tag_label_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_tag_label_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_ifname_tag_label_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_pref_tag_label_cmd);
-  install_element (CONFIG_NODE, &no_ipv6_route_ifname_pref_tag_label_cmd);
+	install_element(CONFIG_NODE, &ipv6_route_label_cmd);
+	install_element(CONFIG_NODE, &ipv6_route_ifname_label_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_route_label_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_route_ifname_label_cmd);
+	install_element(CONFIG_NODE, &ipv6_route_pref_label_cmd);
+	install_element(CONFIG_NODE, &ipv6_route_ifname_pref_label_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_route_pref_label_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_route_ifname_pref_label_cmd);
+	install_element(CONFIG_NODE, &ipv6_route_tag_label_cmd);
+	install_element(CONFIG_NODE, &ipv6_route_ifname_tag_label_cmd);
+	install_element(CONFIG_NODE, &ipv6_route_pref_tag_label_cmd);
+	install_element(CONFIG_NODE, &ipv6_route_ifname_pref_tag_label_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_route_tag_label_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_route_ifname_tag_label_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_route_pref_tag_label_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_route_ifname_pref_tag_label_cmd);
 
-  install_element (CONFIG_NODE, &mpls_transit_lsp_cmd);
-  install_element (CONFIG_NODE, &no_mpls_transit_lsp_cmd);
-  install_element (CONFIG_NODE, &no_mpls_transit_lsp_out_label_cmd);
-  install_element (CONFIG_NODE, &no_mpls_transit_lsp_all_cmd);
-  install_element (CONFIG_NODE, &mpls_label_bind_cmd);
-  install_element (CONFIG_NODE, &no_mpls_label_bind_cmd);
+	install_element(CONFIG_NODE, &mpls_transit_lsp_cmd);
+	install_element(CONFIG_NODE, &no_mpls_transit_lsp_cmd);
+	install_element(CONFIG_NODE, &no_mpls_transit_lsp_out_label_cmd);
+	install_element(CONFIG_NODE, &no_mpls_transit_lsp_all_cmd);
+	install_element(CONFIG_NODE, &mpls_label_bind_cmd);
+	install_element(CONFIG_NODE, &no_mpls_label_bind_cmd);
 
-  install_element (CONFIG_NODE, &mpls_label_global_block_cmd);
-  install_element (CONFIG_NODE, &no_mpls_label_global_block_cmd);
+	install_element(CONFIG_NODE, &mpls_label_global_block_cmd);
+	install_element(CONFIG_NODE, &no_mpls_label_global_block_cmd);
 
-  install_element (VIEW_NODE, &show_mpls_table_cmd);
-  install_element (VIEW_NODE, &show_mpls_table_lsp_cmd);
-  install_element (VIEW_NODE, &show_mpls_fec_cmd);
+	install_element(VIEW_NODE, &show_mpls_table_cmd);
+	install_element(VIEW_NODE, &show_mpls_table_lsp_cmd);
+	install_element(VIEW_NODE, &show_mpls_fec_cmd);
 }

@@ -1,0 +1,72 @@
+lsa set 0 type 1 adv 1.2.3.4 id 0.0.0.1
+lsa set 1 type 1 adv 1.2.3.4 id 0.0.0.2
+lsa set 2 type 2 adv 1.2.3.4 id 0.0.0.3
+lsa set 3 type 2 adv 128.2.3.4 id 0.0.0.4
+lsa set 4 type 2 adv 128.2.3.4 id 0.0.0.5
+lsa set 5 type 3 adv 0.0.0.1 id 0.0.0.6
+lsa refcounts
+
+lsdb create
+
+lsdb walk
+lsdb walk type 1
+lsdb walk type 2
+lsdb get type 1 adv 1.2.3.4 id 0.0.0.2
+lsdb get-next type 1 adv 1.2.3.4 id 0.0.0.2
+lsa refcounts
+
+lsdb add 0
+lsdb add 1
+lsa refcounts
+
+lsdb walk
+lsdb walk type 1
+lsdb walk type 2
+lsdb get type 1 adv 1.2.3.4 id 0.0.0.2
+lsdb get-next type 1 adv 1.2.3.4 id 0.0.0.2
+lsa refcounts
+
+lsdb remove 0
+lsdb add 2
+lsdb add 3
+lsdb add 4
+lsa refcounts
+
+lsdb walk
+lsdb walk type 1
+lsdb walk type 2
+lsdb get type 1 adv 1.2.3.4 id 0.0.0.2
+lsdb get-next type 1 adv 1.2.3.4 id 0.0.0.2
+lsa refcounts
+
+lsdb add 5
+lsa refcounts
+
+lsdb walk
+lsdb walk type 1
+lsdb walk type 2
+lsdb get type 1 adv 1.2.3.4 id 0.0.0.2
+lsdb get-next type 1 adv 1.2.3.4 id 0.0.0.2
+lsa refcounts
+
+lsdb remove 1
+lsdb remove 5
+lsa refcounts
+
+lsdb walk
+lsdb walk type 1
+lsdb walk type 2
+lsdb get type 1 adv 1.2.3.4 id 0.0.0.2
+lsdb get-next type 1 adv 1.2.3.4 id 0.0.0.2
+lsa refcounts
+
+lsdb delete
+
+lsa refcounts
+lsa drop 0
+lsa drop 1
+lsa drop 2
+lsa drop 3
+lsa drop 4
+lsa drop 5
+

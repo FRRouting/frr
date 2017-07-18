@@ -1,4 +1,4 @@
-/* 
+/*
  *
  * Copyright 2016, LabN Consulting, L.L.C.
  *
@@ -34,19 +34,18 @@ unsigned long conf_vnc_debug;
 unsigned long term_vnc_debug;
 
 struct vnc_debug {
-	unsigned long	bit;
-	const char		*name;
+	unsigned long bit;
+	const char *name;
 };
 
-struct vnc_debug	vncdebug[] =
-{
-	{VNC_DEBUG_RFAPI_QUERY,		"rfapi-query"},
-	{VNC_DEBUG_IMPORT_BI_ATTACH,	"import-bi-attach"},
-	{VNC_DEBUG_IMPORT_DEL_REMOTE,	"import-del-remote"},
-	{VNC_DEBUG_EXPORT_BGP_GETCE,	"export-bgp-getce"},
-	{VNC_DEBUG_EXPORT_BGP_DIRECT_ADD,	"export-bgp-direct-add"},
-	{VNC_DEBUG_IMPORT_BGP_ADD_ROUTE,	"import-bgp-add-route"},
-	{VNC_DEBUG_VERBOSE,         	"verbose"},
+struct vnc_debug vncdebug[] = {
+	{VNC_DEBUG_RFAPI_QUERY, "rfapi-query"},
+	{VNC_DEBUG_IMPORT_BI_ATTACH, "import-bi-attach"},
+	{VNC_DEBUG_IMPORT_DEL_REMOTE, "import-del-remote"},
+	{VNC_DEBUG_EXPORT_BGP_GETCE, "export-bgp-getce"},
+	{VNC_DEBUG_EXPORT_BGP_DIRECT_ADD, "export-bgp-direct-add"},
+	{VNC_DEBUG_IMPORT_BGP_ADD_ROUTE, "import-bgp-add-route"},
+	{VNC_DEBUG_VERBOSE, "verbose"},
 };
 
 #define VNC_STR "VNC information\n"
@@ -65,28 +64,23 @@ DEFUN (debug_bgp_vnc,
        "import delete remote routes\n"
        "verbose logging\n")
 {
-  size_t	i;
+	size_t i;
 
-  for (i = 0; i < (sizeof(vncdebug) / sizeof(struct vnc_debug)); ++i)
-    {
-      if (strmatch(argv[3]->text, vncdebug[i].name))
-	{
-	  if (vty->node == CONFIG_NODE)
-	    {
-	      conf_vnc_debug |= vncdebug[i].bit;
-	      term_vnc_debug |= vncdebug[i].bit;
-	    }
-	  else
-	    {
-	      term_vnc_debug |= vncdebug[i].bit;
-	      vty_outln (vty, "BGP vnc %s debugging is on",
-		vncdebug[i].name);
-	    }
-	  return CMD_SUCCESS;
+	for (i = 0; i < (sizeof(vncdebug) / sizeof(struct vnc_debug)); ++i) {
+		if (strmatch(argv[3]->text, vncdebug[i].name)) {
+			if (vty->node == CONFIG_NODE) {
+				conf_vnc_debug |= vncdebug[i].bit;
+				term_vnc_debug |= vncdebug[i].bit;
+			} else {
+				term_vnc_debug |= vncdebug[i].bit;
+				vty_out(vty, "BGP vnc %s debugging is on\n",
+					vncdebug[i].name);
+			}
+			return CMD_SUCCESS;
+		}
 	}
-    }
-  vty_outln (vty, "Unknown debug flag: %s", argv[3]->arg);
-  return CMD_WARNING;
+	vty_out(vty, "Unknown debug flag: %s\n", argv[3]->arg);
+	return CMD_WARNING_CONFIG_FAILED;
 }
 
 DEFUN (no_debug_bgp_vnc,
@@ -102,30 +96,25 @@ DEFUN (no_debug_bgp_vnc,
        "import delete remote routes\n"
        "verbose logging\n")
 {
-  size_t	i;
+	size_t i;
 
-  if (strmatch(argv[0]->text, "no"))
-    argc--, argv++;
-  for (i = 0; i < (sizeof(vncdebug) / sizeof(struct vnc_debug)); ++i)
-    {
-      if (strmatch(argv[3]->text, vncdebug[i].name))
-	{
-	  if (vty->node == CONFIG_NODE)
-	    {
-	      conf_vnc_debug &= ~vncdebug[i].bit;
-	      term_vnc_debug &= ~vncdebug[i].bit;
-	    }
-	  else
-	    {
-	      term_vnc_debug &= ~vncdebug[i].bit;
-	      vty_outln (vty, "BGP vnc %s debugging is off",
-		vncdebug[i].name);
-	    }
-	  return CMD_SUCCESS;
+	if (strmatch(argv[0]->text, "no"))
+		argc--, argv++;
+	for (i = 0; i < (sizeof(vncdebug) / sizeof(struct vnc_debug)); ++i) {
+		if (strmatch(argv[3]->text, vncdebug[i].name)) {
+			if (vty->node == CONFIG_NODE) {
+				conf_vnc_debug &= ~vncdebug[i].bit;
+				term_vnc_debug &= ~vncdebug[i].bit;
+			} else {
+				term_vnc_debug &= ~vncdebug[i].bit;
+				vty_out(vty, "BGP vnc %s debugging is off\n",
+					vncdebug[i].name);
+			}
+			return CMD_SUCCESS;
+		}
 	}
-    }
-  vty_outln (vty, "Unknown debug flag: %s", argv[3]->arg);
-  return CMD_WARNING;
+	vty_out(vty, "Unknown debug flag: %s\n", argv[3]->arg);
+	return CMD_WARNING_CONFIG_FAILED;
 }
 
 
@@ -143,10 +132,10 @@ DEFUN (no_debug_bgp_vnc_all,
        BGP_STR
        VNC_STR)
 {
-  term_vnc_debug = 0;
-  vty_outln (vty, "All possible VNC debugging has been turned off");
-      
-  return CMD_SUCCESS;
+	term_vnc_debug = 0;
+	vty_out(vty, "All possible VNC debugging has been turned off\n");
+
+	return CMD_SUCCESS;
 }
 
 /***********************************************************************
@@ -161,55 +150,44 @@ DEFUN (show_debugging_bgp_vnc,
        BGP_STR
        VNC_STR)
 {
-  size_t	i;
+	size_t i;
 
-  vty_outln (vty, "BGP VNC debugging status:");
+	vty_out(vty, "BGP VNC debugging status:\n");
 
-  for (i = 0; i < (sizeof(vncdebug) / sizeof(struct vnc_debug)); ++i)
-    {
-      if (term_vnc_debug & vncdebug[i].bit)
-	{
-	  vty_outln (vty, "  BGP VNC %s debugging is on",
-	    vncdebug[i].name);
+	for (i = 0; i < (sizeof(vncdebug) / sizeof(struct vnc_debug)); ++i) {
+		if (term_vnc_debug & vncdebug[i].bit) {
+			vty_out(vty, "  BGP VNC %s debugging is on\n",
+				vncdebug[i].name);
+		}
 	}
-    }
-  vty_out (vty, VTYNL);
-  return CMD_SUCCESS;
+	vty_out(vty, "\n");
+	return CMD_SUCCESS;
 }
 
-static int
-bgp_vnc_config_write_debug (struct vty *vty)
+static int bgp_vnc_config_write_debug(struct vty *vty)
 {
-  int write = 0;
-  size_t	i;
+	int write = 0;
+	size_t i;
 
-  for (i = 0; i < (sizeof(vncdebug) / sizeof(struct vnc_debug)); ++i)
-    {
-      if (conf_vnc_debug & vncdebug[i].bit)
-	{
-	  vty_outln (vty, "debug bgp vnc %s", vncdebug[i].name);
-	  write++;
+	for (i = 0; i < (sizeof(vncdebug) / sizeof(struct vnc_debug)); ++i) {
+		if (conf_vnc_debug & vncdebug[i].bit) {
+			vty_out(vty, "debug bgp vnc %s\n", vncdebug[i].name);
+			write++;
+		}
 	}
-    }
-  return write;
+	return write;
 }
 
-static struct cmd_node debug_node =
+static struct cmd_node debug_node = {DEBUG_VNC_NODE, "", 1};
+
+void vnc_debug_init(void)
 {
-  DEBUG_VNC_NODE,
-  "",
-  1
-};
+	install_node(&debug_node, bgp_vnc_config_write_debug);
+	install_element(ENABLE_NODE, &show_debugging_bgp_vnc_cmd);
 
-void
-vnc_debug_init (void)
-{
-  install_node (&debug_node, bgp_vnc_config_write_debug);
-  install_element (ENABLE_NODE, &show_debugging_bgp_vnc_cmd);
+	install_element(ENABLE_NODE, &debug_bgp_vnc_cmd);
+	install_element(CONFIG_NODE, &debug_bgp_vnc_cmd);
+	install_element(ENABLE_NODE, &no_debug_bgp_vnc_cmd);
 
-  install_element (ENABLE_NODE, &debug_bgp_vnc_cmd);
-  install_element (CONFIG_NODE, &debug_bgp_vnc_cmd);
-  install_element (ENABLE_NODE, &no_debug_bgp_vnc_cmd);
-
-  install_element (ENABLE_NODE, &no_debug_bgp_vnc_all_cmd);
+	install_element(ENABLE_NODE, &no_debug_bgp_vnc_all_cmd);
 }

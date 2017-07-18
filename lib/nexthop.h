@@ -30,40 +30,38 @@
 #define NEXTHOP_STRLEN (INET6_ADDRSTRLEN + 30)
 
 union g_addr {
-  struct in_addr ipv4;
-  struct in6_addr ipv6;
+	struct in_addr ipv4;
+	struct in6_addr ipv6;
 };
 
-enum nexthop_types_t
-{
-  NEXTHOP_TYPE_IFINDEX = 1,      /* Directly connected.  */
-  NEXTHOP_TYPE_IPV4,             /* IPv4 nexthop.  */
-  NEXTHOP_TYPE_IPV4_IFINDEX,     /* IPv4 nexthop with ifindex.  */
-  NEXTHOP_TYPE_IPV6,             /* IPv6 nexthop.  */
-  NEXTHOP_TYPE_IPV6_IFINDEX,     /* IPv6 nexthop with ifindex.  */
-  NEXTHOP_TYPE_BLACKHOLE,        /* Null0 nexthop.  */
+enum nexthop_types_t {
+	NEXTHOP_TYPE_IFINDEX = 1,  /* Directly connected.  */
+	NEXTHOP_TYPE_IPV4,	 /* IPv4 nexthop.  */
+	NEXTHOP_TYPE_IPV4_IFINDEX, /* IPv4 nexthop with ifindex.  */
+	NEXTHOP_TYPE_IPV6,	 /* IPv6 nexthop.  */
+	NEXTHOP_TYPE_IPV6_IFINDEX, /* IPv6 nexthop with ifindex.  */
+	NEXTHOP_TYPE_BLACKHOLE,    /* Null0 nexthop.  */
 };
 
 /* Nexthop label structure. */
-struct nexthop_label
-{
-  u_int8_t num_labels;
-  u_int8_t reserved[3];
-  mpls_label_t label[0]; /* 1 or more labels. */
+struct nexthop_label {
+	u_int8_t num_labels;
+	u_int8_t reserved[3];
+	mpls_label_t label[0]; /* 1 or more labels. */
 };
 
 /* Nexthop structure. */
-struct nexthop
-{
-  struct nexthop *next;
-  struct nexthop *prev;
+struct nexthop {
+	struct nexthop *next;
+	struct nexthop *prev;
 
-  /* Interface index. */
-  ifindex_t ifindex;
-  char ifname[INTERFACE_NAMSIZ + 1];
-  enum nexthop_types_t type;
+	/* Interface index. */
+	ifindex_t ifindex;
+	char ifname[INTERFACE_NAMSIZ + 1];
 
-  u_char flags;
+	enum nexthop_types_t type;
+
+	u_char flags;
 #define NEXTHOP_FLAG_ACTIVE     (1 << 0) /* This nexthop is alive. */
 #define NEXTHOP_FLAG_FIB        (1 << 1) /* FIB nexthop. */
 #define NEXTHOP_FLAG_RECURSIVE  (1 << 2) /* Recursive nexthop. */
@@ -71,52 +69,71 @@ struct nexthop
 #define NEXTHOP_FLAG_MATCHED    (1 << 4) /* Already matched vs a nexthop */
 #define NEXTHOP_FLAG_FILTERED   (1 << 5) /* rmap filtered, used by static only */
 
-  /* Nexthop address */
-  union g_addr gate;
-  union g_addr src;
-  union g_addr rmap_src;	/* Src is set via routemap */
+	/* Nexthop address */
+	union g_addr gate;
+	union g_addr src;
+	union g_addr rmap_src; /* Src is set via routemap */
 
-  /* Nexthops obtained by recursive resolution.
-   *
-   * If the nexthop struct needs to be resolved recursively,
-   * NEXTHOP_FLAG_RECURSIVE will be set in flags and the nexthops
-   * obtained by recursive resolution will be added to `resolved'.
-   * Only one level of recursive resolution is currently supported. */
-  struct nexthop *resolved;
+	/* Nexthops obtained by recursive resolution.
+	 *
+	 * If the nexthop struct needs to be resolved recursively,
+	 * NEXTHOP_FLAG_RECURSIVE will be set in flags and the nexthops
+	 * obtained by recursive resolution will be added to `resolved'.
+	 */
+	struct nexthop *resolved;
+	/* Recursive parent */
+	struct nexthop *rparent;
 
-  /* Type of label(s), if any */
-  enum lsp_types_t nh_label_type;
+	/* Type of label(s), if any */
+	enum lsp_types_t nh_label_type;
 
-  /* Label(s) associated with this nexthop. */
-  struct nexthop_label *nh_label;
+	/* Label(s) associated with this nexthop. */
+	struct nexthop_label *nh_label;
 };
+
+/* The following for loop allows to iterate over the nexthop
+ * structure of routes.
+ *
+ * head:      The pointer to the first nexthop in the chain.
+ *
+ * nexthop:   The pointer to the current nexthop, either in the
+ *            top-level chain or in a resolved chain.
+ */
+#define ALL_NEXTHOPS(head, nexthop)                                            \
+	(nexthop) = (head);                                                    \
+	(nexthop);                                                             \
+	(nexthop) = nexthop_next(nexthop)
 
 extern int zebra_rnh_ip_default_route;
 extern int zebra_rnh_ipv6_default_route;
 
-static inline int
-nh_resolve_via_default(int family)
+static inline int nh_resolve_via_default(int family)
 {
-  if (((family == AF_INET) && zebra_rnh_ip_default_route) ||
-      ((family == AF_INET6) && zebra_rnh_ipv6_default_route))
-    return 1;
-  else
-    return 0;
+	if (((family == AF_INET) && zebra_rnh_ip_default_route)
+	    || ((family == AF_INET6) && zebra_rnh_ipv6_default_route))
+		return 1;
+	else
+		return 0;
 }
 
-struct nexthop *nexthop_new (void);
-void nexthop_add (struct nexthop **target, struct nexthop *nexthop);
+struct nexthop *nexthop_new(void);
+void nexthop_add(struct nexthop **target, struct nexthop *nexthop);
 
-void copy_nexthops (struct nexthop **tnh, struct nexthop *nh);
-void nexthop_free (struct nexthop *nexthop);
-void nexthops_free (struct nexthop *nexthop);
+void copy_nexthops(struct nexthop **tnh, struct nexthop *nh,
+		   struct nexthop *rparent);
+void nexthop_free(struct nexthop *nexthop);
+void nexthops_free(struct nexthop *nexthop);
 
-void nexthop_add_labels (struct nexthop *, enum lsp_types_t, u_int8_t, mpls_label_t *);
-void nexthop_del_labels (struct nexthop *);
+void nexthop_add_labels(struct nexthop *, enum lsp_types_t, u_int8_t,
+			mpls_label_t *);
+void nexthop_del_labels(struct nexthop *);
 
-extern const char *nexthop_type_to_str (enum nexthop_types_t nh_type);
-extern int nexthop_same_no_recurse (struct nexthop *next1, struct nexthop *next2);
-extern int nexthop_labels_match (struct nexthop *nh1, struct nexthop *nh2);
+extern const char *nexthop_type_to_str(enum nexthop_types_t nh_type);
+extern int nexthop_same_no_recurse(struct nexthop *next1,
+				   struct nexthop *next2);
+extern int nexthop_labels_match(struct nexthop *nh1, struct nexthop *nh2);
 
-extern const char * nexthop2str (struct nexthop *nexthop, char *str, int size);
+extern const char *nexthop2str(struct nexthop *nexthop, char *str, int size);
+extern struct nexthop *nexthop_next(struct nexthop *nexthop);
+extern unsigned int nexthop_level(struct nexthop *nexthop);
 #endif /*_LIB_NEXTHOP_H */

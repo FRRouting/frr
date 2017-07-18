@@ -68,8 +68,8 @@ void frrmod_init(struct frrmod_runtime *modinfo)
 	execname = modinfo->info->name;
 }
 
-struct frrmod_runtime *frrmod_load(const char *spec,
-		const char *dir, char *err, size_t err_len)
+struct frrmod_runtime *frrmod_load(const char *spec, const char *dir, char *err,
+				   size_t err_len)
 {
 	void *handle = NULL;
 	char name[PATH_MAX], fullpath[PATH_MAX], *args;
@@ -83,13 +83,13 @@ struct frrmod_runtime *frrmod_load(const char *spec,
 
 	if (!strchr(name, '/')) {
 		if (!handle && execname) {
-			snprintf(fullpath, sizeof(fullpath), "%s/%s_%s.so",
-					dir, execname, name);
+			snprintf(fullpath, sizeof(fullpath), "%s/%s_%s.so", dir,
+				 execname, name);
 			handle = dlopen(fullpath, RTLD_NOW | RTLD_GLOBAL);
 		}
 		if (!handle) {
-			snprintf(fullpath, sizeof(fullpath), "%s/%s.so",
-					dir, name);
+			snprintf(fullpath, sizeof(fullpath), "%s/%s.so", dir,
+				 name);
 			handle = dlopen(fullpath, RTLD_NOW | RTLD_GLOBAL);
 		}
 	}
@@ -100,8 +100,8 @@ struct frrmod_runtime *frrmod_load(const char *spec,
 	if (!handle) {
 		if (err)
 			snprintf(err, err_len,
-					"loading module \"%s\" failed: %s",
-					name, dlerror());
+				 "loading module \"%s\" failed: %s", name,
+				 dlerror());
 		return NULL;
 	}
 
@@ -110,8 +110,8 @@ struct frrmod_runtime *frrmod_load(const char *spec,
 		dlclose(handle);
 		if (err)
 			snprintf(err, err_len,
-					"\"%s\" is not a Quagga module: %s",
-					name, dlerror());
+				 "\"%s\" is not an FRR module: %s", name,
+				 dlerror());
 		return NULL;
 	}
 	rtinfo = *rtinfop;
@@ -124,9 +124,8 @@ struct frrmod_runtime *frrmod_load(const char *spec,
 	if (rtinfo->finished_loading) {
 		dlclose(handle);
 		if (err)
-			snprintf(err, err_len,
-					"module \"%s\" already loaded",
-					name);
+			snprintf(err, err_len, "module \"%s\" already loaded",
+				 name);
 		goto out_fail;
 	}
 
@@ -134,8 +133,7 @@ struct frrmod_runtime *frrmod_load(const char *spec,
 		dlclose(handle);
 		if (err)
 			snprintf(err, err_len,
-					"module \"%s\" initialisation failed",
-					name);
+				 "module \"%s\" initialisation failed", name);
 		goto out_fail;
 	}
 

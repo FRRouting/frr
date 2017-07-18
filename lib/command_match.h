@@ -31,38 +31,31 @@
 /* These definitions exist in command.c in the current engine but should be
  * relocated here in the new engine
  */
-enum filter_type
-{
-  FILTER_RELAXED,
-  FILTER_STRICT
-};
+enum filter_type { FILTER_RELAXED, FILTER_STRICT };
 
 /* matcher result value */
-enum matcher_rv
-{
-  MATCHER_NO_MATCH,
-  MATCHER_INCOMPLETE,
-  MATCHER_AMBIGUOUS,
-  MATCHER_OK,
+enum matcher_rv {
+	MATCHER_NO_MATCH,
+	MATCHER_INCOMPLETE,
+	MATCHER_AMBIGUOUS,
+	MATCHER_OK,
 };
 
 /* completion match types */
-enum match_type
-{
-  trivial_match,  // the input is null
-  no_match,       // the input does not match
-  partly_match,   // the input matches but is incomplete
-  exact_match     // the input matches and is complete
+enum match_type {
+	trivial_match, // the input is null
+	no_match,      // the input does not match
+	partly_match,  // the input matches but is incomplete
+	exact_match    // the input matches and is complete
 };
 
 /* Defines which matcher_rv values constitute an error. Should be used with
  * matcher_rv return values to do basic error checking.
  */
-#define MATCHER_ERROR(matcher_rv) \
-  (   (matcher_rv) == MATCHER_INCOMPLETE \
-   || (matcher_rv) == MATCHER_NO_MATCH \
-   || (matcher_rv) == MATCHER_AMBIGUOUS \
-  )
+#define MATCHER_ERROR(matcher_rv)                                              \
+	((matcher_rv) == MATCHER_INCOMPLETE                                    \
+	 || (matcher_rv) == MATCHER_NO_MATCH                                   \
+	 || (matcher_rv) == MATCHER_AMBIGUOUS)
 
 /**
  * Attempt to find an exact command match for a line of user input.
@@ -79,11 +72,9 @@ enum match_type
  * safely deleted or modified; it is the instance initialized on startup.
  * @return matcher status
  */
-enum matcher_rv
-command_match (struct graph *cmdgraph,
-               vector vline,
-               struct list **argv,
-               const struct cmd_element **element);
+enum matcher_rv command_match(struct graph *cmdgraph, vector vline,
+			      struct list **argv,
+			      const struct cmd_element **element);
 
 /**
  * Compiles possible completions for a given line of user input.
@@ -104,9 +95,7 @@ command_match (struct graph *cmdgraph,
  * of that element (e.g. 'encapv4', 'encapv6', etc for input 'en').
  * @return matcher status
  */
-enum matcher_rv
-command_complete (struct graph *cmdgraph,
-                  vector vline,
-                  struct list **completions);
+enum matcher_rv command_complete(struct graph *cmdgraph, vector vline,
+				 struct list **completions);
 
 #endif /* _ZEBRA_COMMAND_MATCH_H */

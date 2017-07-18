@@ -113,19 +113,15 @@ sub codelist {
 			$protodetail{$p}->{"shorthelp"});
 		if (length($str . $s) > 70) {
 			$str =~ s/ $//;
-			push @lines, $str . "%s\" \\\n";
+			push @lines, $str . "\\n\" \\\n";
 			$str = "  \"       ";
 		}
 		$str .= $s;
 	}
 	$str =~ s/ $//;
-	push @lines, $str . "%s\" \\\n";
-	push @lines, "  \"       > - selected route, * - FIB route%s%s\", \\\n";
-	my @nl = ();
-	for (my $c = 0; $c < @lines + 1; $c++) {
-		push @nl, "VTYNL"
-	}
-	return join("", @lines) ."  ". join(", ", @nl);
+	push @lines, $str . "\\n\" \\\n";
+	push @lines, "  \"       > - selected route, * - FIB route\\n\\n\"";
+	return join("", @lines);
 }
 
 print "\n";

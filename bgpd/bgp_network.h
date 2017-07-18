@@ -23,13 +23,13 @@
 
 #define BGP_SOCKET_SNDBUF_SIZE 65536
 
-extern int bgp_socket (unsigned short, const char *);
-extern void bgp_close (void);
-extern int bgp_connect (struct peer *);
-extern int bgp_getsockname (struct peer *);
+extern int bgp_socket(unsigned short, const char *);
+extern void bgp_close(void);
+extern int bgp_connect(struct peer *);
+extern int bgp_getsockname(struct peer *);
 
-extern int bgp_md5_set (struct peer *);
-extern int bgp_md5_unset (struct peer *);
+extern int bgp_md5_set(struct peer *);
+extern int bgp_md5_unset(struct peer *);
 extern int bgp_set_socket_ttl(struct peer *, int fd);
 
 #endif /* _QUAGGA_BGP_NETWORK_H */

@@ -38,25 +38,23 @@
  * fpm__route_key__create
  */
 #define fpm_route_key_create fpm__route_key__create
-static inline Fpm__RouteKey *
-fpm__route_key__create (qpb_allocator_t *allocator, struct prefix *prefix)
+static inline Fpm__RouteKey *fpm__route_key__create(qpb_allocator_t *allocator,
+						    struct prefix *prefix)
 {
-  Fpm__RouteKey *key;
+	Fpm__RouteKey *key;
 
-  key = QPB_ALLOC (allocator, typeof (*key));
-  if (!key)
-    {
-      return NULL;
-    }
-  fpm__route_key__init (key);
+	key = QPB_ALLOC(allocator, typeof(*key));
+	if (!key) {
+		return NULL;
+	}
+	fpm__route_key__init(key);
 
-  key->prefix = qpb__l3_prefix__create (allocator, prefix);
-  if (!key->prefix)
-    {
-      return NULL;
-    }
+	key->prefix = qpb__l3_prefix__create(allocator, prefix);
+	if (!key->prefix) {
+		return NULL;
+	}
 
-  return key;
+	return key;
 }
 
 #endif

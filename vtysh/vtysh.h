@@ -63,41 +63,41 @@ extern enum vtysh_write_integrated vtysh_write_integrated;
 
 extern char *quagga_config;
 
-void vtysh_init_vty (void);
-void vtysh_init_cmd (void);
-extern int vtysh_connect_all (const char *optional_daemon_name);
-void vtysh_readline_init (void);
-void vtysh_user_init (void);
+void vtysh_init_vty(void);
+void vtysh_init_cmd(void);
+extern int vtysh_connect_all(const char *optional_daemon_name);
+void vtysh_readline_init(void);
+void vtysh_user_init(void);
 
-int vtysh_execute (const char *);
-int vtysh_execute_no_pager (const char *);
+int vtysh_execute(const char *);
+int vtysh_execute_no_pager(const char *);
 
-char *vtysh_prompt (void);
+char *vtysh_prompt(void);
 
-void vtysh_config_write (void);
+void vtysh_config_write(void);
 
-int vtysh_config_from_file (struct vty *, FILE *);
+int vtysh_config_from_file(struct vty *, FILE *);
 
-void config_add_line (struct list *, const char *);
+void config_add_line(struct list *, const char *);
 
 int vtysh_mark_file(const char *filename);
 
-int vtysh_read_config (const char *);
-int vtysh_write_config_integrated (void);
+int vtysh_read_config(const char *);
+int vtysh_write_config_integrated(void);
 
-void vtysh_config_parse_line (void *, const char *);
+void vtysh_config_parse_line(void *, const char *);
 
-void vtysh_config_dump (FILE *);
+void vtysh_config_dump(FILE *);
 
-void vtysh_config_init (void);
+void vtysh_config_init(void);
 
-void vtysh_pager_init (void);
+void vtysh_pager_init(void);
 
 /* Child process execution flag. */
 extern int execute_flag;
 
 extern struct vty *vty;
 
-extern const char * vty_sock_path;
+extern const char *vty_sock_path;
 
 #endif /* VTYSH_H */

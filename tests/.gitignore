@@ -44,3 +44,4 @@ __pycache__
 /lib/test_timer_correctness
 /lib/test_timer_performance
 /lib/test_ttable
+/ospf6d/test_lsdb
