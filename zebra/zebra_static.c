@@ -383,8 +383,7 @@ static_add_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	  && (! gate ||
 	      ((afi == AFI_IP && IPV4_ADDR_SAME (gate, &si->addr.ipv4)) ||
 	       (afi == AFI_IP6 && IPV6_ADDR_SAME (gate, &si->addr.ipv6))))
-         && ((! ifindex && ! ifname) || (ifindex == si->ifindex || !strcmp(ifname, si->ifname) )))
-
+         && ((! ifindex && ! ifname) || (ifindex && ifindex == si->ifindex) || (ifname && !strcmp(ifname, si->ifname))))
 	{
 	  if ((distance == si->distance) && (tag == si->tag) &&
 	      !memcmp (&si->snh_label, snh_label, sizeof (struct static_nh_label)) &&
@@ -478,7 +477,6 @@ static_delete_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
   struct static_route *si;
   struct route_table *stable;
 
-
   /* Lookup table.  */
   stable = zebra_vrf_static_table (afi, safi, zvrf);
   if (! stable)
@@ -495,7 +493,7 @@ static_delete_route (afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	&& (! gate || (
 		       (afi == AFI_IP && IPV4_ADDR_SAME (gate, &si->addr.ipv4)) ||
 		       (afi == AFI_IP6 && IPV6_ADDR_SAME (gate, &si->addr.ipv6))))
-	&& ((! ifindex &&! ifname) || (ifindex == si->ifindex || !strcmp(ifname, si->ifname)))
+	&& ((! ifindex && ! ifname) || (ifindex && ifindex == si->ifindex) || (ifname && !strcmp(ifname, si->ifname)))
 	&& (! tag || (tag == si->tag))
 	&& (! snh_label->num_labels ||
 	    !memcmp (&si->snh_label, snh_label, sizeof (struct static_nh_label))))

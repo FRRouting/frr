@@ -878,8 +878,8 @@ netlink_link_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
 
       if (!vrf_device) {
         if_delete_update (ifp);
-	if (IS_ZEBRA_DEBUG_KERNEL)
-	  zlog_debug ("delete pseudo interface %s(%u) from zebra", name, ifp->ifindex);
+        if (IS_ZEBRA_DEBUG_KERNEL)
+          zlog_debug ("delete pseudo interface %s(%u) from zebra", name, ifp->ifindex);
         if_delete(ifp);
       }
     }

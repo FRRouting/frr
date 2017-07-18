@@ -738,8 +738,7 @@ vty_show_ip_route_detail (struct vty *vty, struct route_node *rn, int mcast)
                          ifindex2ifname (nexthop->ifindex, re->vrf_id));
 	      break;
 	    case NEXTHOP_TYPE_IFINDEX:
-	      vty_out (vty, " directly connected, %s",
-	               nexthop->ifname);
+	      vty_out (vty, " directly connected, %s", nexthop->ifname);
 	      break;
 	    case NEXTHOP_TYPE_BLACKHOLE:
 	      vty_out (vty, " directly connected, Null0");
@@ -999,8 +998,7 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct route_entry *r
 	  break;
 
 	case NEXTHOP_TYPE_IFINDEX:
-	  vty_out (vty, " is directly connected, %s",
-	           nexthop->ifname);
+	  vty_out (vty, " is directly connected, %s", nexthop->ifname);
 	  break;
 	case NEXTHOP_TYPE_BLACKHOLE:
 	  vty_out (vty, " is directly connected, Null0");
@@ -2137,7 +2135,6 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
           ifname = gate_str;
         }
     }
-
 
   if (add_cmd)
     static_add_route (AFI_IP6, SAFI_UNICAST, type, &p, src_p, (union g_addr *)gate,
