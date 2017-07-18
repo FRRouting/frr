@@ -770,7 +770,17 @@ void if_nbr_ipv6ll_to_ipv4ll_neigh_update(struct interface *ifp,
 	inet_pton(AF_INET, buf, &ipv4_ll);
 
 	ipv6_ll_address_to_mac(address, (u_char *)mac);
-	kernel_neigh_update(add, ifp->ifindex, ipv4_ll.s_addr, mac, 6);
+
+	/*
+	 * Remove existed arp record for the interface as netlink
+	 * protocol does not have update message types
+	 *
+	 * supported message types are RTM_NEWNEIGH and RTM_DELNEIGH
+	 */
+	kernel_neigh_update (0, ifp->ifindex, ipv4_ll.s_addr, mac, 6);
+
+	/* Add arp record */
+	kernel_neigh_update (add, ifp->ifindex, ipv4_ll.s_addr, mac, 6);
 	zvrf->neigh_updates++;
 }
 
