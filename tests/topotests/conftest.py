@@ -2,7 +2,7 @@
 Topotest conftest.py file.
 """
 
-from lib.topogen import get_topogen
+from lib.topogen import get_topogen, diagnose_env
 from lib.topotest import json_cmp_result
 import pytest
 
@@ -40,3 +40,8 @@ def pytest_assertrepr_compare(op, left, right):
             return None
 
     return json_result.errors
+
+def pytest_configure(config):
+    "Assert that the environment is correctly configured."
+    if not diagnose_env():
+        pytest.exit('enviroment has errors, please read the logs')

@@ -44,6 +44,10 @@ import json
 import ConfigParser
 import glob
 import grp
+import platform
+import pwd
+import re
+import subprocess
 
 from mininet.net import Mininet
 from mininet.log import setLogLevel
@@ -77,6 +81,15 @@ def set_topogen(tgen):
 #
 # Main class: topology builder
 #
+
+# Topogen configuration defaults
+tgen_defaults = {
+    'verbosity': 'info',
+    'frrdir': '/usr/lib/frr',
+    'quaggadir': '/usr/lib/quagga',
+    'routertype': 'frr',
+    'memleak_path': None,
+}
 
 class Topogen(object):
     "A topology test builder helper."
@@ -130,14 +143,7 @@ class Topogen(object):
         Loads the configuration file `pytest.ini` located at the root dir of
         topotests.
         """
-        defaults = {
-            'verbosity': 'info',
-            'frrdir': '/usr/lib/frr',
-            'quaggadir': '/usr/lib/quagga',
-            'routertype': 'frr',
-            'memleak_path': None,
-        }
-        self.config = ConfigParser.ConfigParser(defaults)
+        self.config = ConfigParser.ConfigParser(tgen_defaults)
         pytestini_path = os.path.join(CWD, '../pytest.ini')
         self.config.read(pytestini_path)
 
@@ -836,3 +842,129 @@ class TopoExaBGP(TopoHost):
     def stop(self):
         "Stop ExaBGP peer and kill the daemon"
         self.run('kill `cat /var/run/exabgp/exabgp.pid`')
+
+
+#
+# Diagnostic function
+#
+
+# Disable linter branch warning. It is expected to have these here.
+# pylint: disable=R0912
+def diagnose_env():
+    """
+    Run diagnostics in the running environment. Returns `True` when everything
+    is ok, otherwise `False`.
+    """
+    ret = True
+    logger.info('Running environment diagnostics')
+
+    # Load configuration
+    config = ConfigParser.ConfigParser(tgen_defaults)
+    pytestini_path = os.path.join(CWD, '../pytest.ini')
+    config.read(pytestini_path)
+
+    # Assert that we are running as root
+    if os.getuid() != 0:
+        logger.error('you must run topotest as root')
+        ret = False
+
+    # Assert that we have mininet
+    if os.system('which mn >/dev/null 2>/dev/null') != 0:
+        logger.error('could not find mininet binary (mininet is not installed)')
+        ret = False
+
+    # Assert that we have iproute installed
+    if os.system('which ip >/dev/null 2>/dev/null') != 0:
+        logger.error('could not find ip binary (iproute is not installed)')
+        ret = False
+
+    # Assert that we have gdb installed
+    if os.system('which gdb >/dev/null 2>/dev/null') != 0:
+        logger.error('could not find gdb binary (gdb is not installed)')
+        ret = False
+
+    # Assert that FRR utilities exist
+    frrdir = config.get('topogen', 'frrdir')
+    if not os.path.isdir(frrdir):
+        logger.error('could not find {} directory'.format(frrdir))
+        ret = False
+    else:
+        try:
+            pwd.getpwnam('frr')[2]
+        except KeyError:
+            logger.warning('could not find "frr" user')
+
+        try:
+            grp.getgrnam('frr')[2]
+        except KeyError:
+            logger.warning('could not find "frr" group')
+
+        try:
+            if 'frr' not in grp.getgrnam('frrvty').gr_mem:
+                logger.error('"frr" user and group exist, but user is not under "frrvty"')
+        except KeyError:
+            logger.warning('could not find "frrvty" group')
+
+        for fname in ['zebra', 'ospfd', 'ospf6d', 'bgpd', 'ripd', 'ripngd',
+                      'isisd', 'pimd', 'ldpd']:
+            path = os.path.join(frrdir, fname)
+            if not os.path.isfile(path):
+                # LDPd is an exception
+                if fname == 'ldpd':
+                    logger.info('could not find {} in {}'.format(fname, frrdir) +
+                                '(LDPd tests will not run)')
+                    continue
+
+                logger.warning('could not find {} in {}'.format(fname, frrdir))
+                ret = False
+
+    # Assert that Quagga utilities exist
+    quaggadir = config.get('topogen', 'quaggadir')
+    if not os.path.isdir(quaggadir):
+        logger.info('could not find {} directory (quagga tests will not run)'.format(quaggadir))
+    else:
+        try:
+            pwd.getpwnam('quagga')[2]
+        except KeyError:
+            logger.info('could not find "quagga" user')
+
+        try:
+            grp.getgrnam('quagga')[2]
+        except KeyError:
+            logger.info('could not find "quagga" group')
+
+        try:
+            if 'quagga' not in grp.getgrnam('quaggavty').gr_mem:
+                logger.error('"quagga" user and group exist, but user is not under "quaggavty"')
+        except KeyError:
+            logger.warning('could not find "frrvty" group')
+
+        for fname in ['zebra', 'ospfd', 'ospf6d', 'bgpd', 'ripd', 'ripngd',
+                      'isisd', 'pimd']:
+            path = os.path.join(quaggadir, fname)
+            if not os.path.isfile(path):
+                logger.warning('could not find {} in {}'.format(fname, quaggadir))
+                ret = False
+
+    if not os.path.isdir('/tmp'):
+        logger.warning('could not find /tmp for logs')
+
+    # Test MPLS availability
+    krel = platform.release()
+    if topotest.version_cmp(krel, '4.5') < 0:
+        logger.info('LDPd tests will not run (have kernel "{}", but it requires 4.5)'.format(krel))
+
+    # TODO remove me when we start supporting exabgp >= 4
+    try:
+        output = subprocess.check_output(['exabgp', '-v'])
+        line = output.split('\n')[0]
+        version = line.split(' ')[2]
+        if topotest.version_cmp(version, '4') >= 0:
+            logger.warning('BGP topologies are still using exabgp version 3, expect failures')
+
+    # We want to catch all exceptions
+    # pylint: disable=W0702
+    except:
+        logger.warning('failed to find exabgp or returned error')
+
+    return ret
