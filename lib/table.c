@@ -277,10 +277,12 @@ struct route_node *route_node_match_ipv6(const struct route_table *table,
 struct route_node *route_node_lookup(const struct route_table *table,
 				     union prefixconstptr pu)
 {
-	const struct prefix *p = pu.p;
+	struct prefix p;
 	struct route_node *node;
+	prefix_copy(&p, pu.p);
+	apply_mask(&p);
 
-	node = hash_get(table->hash, (void *)p, NULL);
+	node = hash_get(table->hash, (void *)&p, NULL);
 	return (node && node->info) ? route_lock_node(node) : NULL;
 }
 
@@ -288,10 +290,12 @@ struct route_node *route_node_lookup(const struct route_table *table,
 struct route_node *route_node_lookup_maynull(const struct route_table *table,
 					     union prefixconstptr pu)
 {
-	const struct prefix *p = pu.p;
+	struct prefix p;
 	struct route_node *node;
+	prefix_copy(&p, pu.p);
+	apply_mask(&p);
 
-	node = hash_get(table->hash, (void *)p, NULL);
+	node = hash_get(table->hash, (void *)&p, NULL);
 	return node ? route_lock_node(node) : NULL;
 }
 
