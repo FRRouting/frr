@@ -7900,11 +7900,18 @@ DEFUN (show_ip_msdp_peer_detail,
 	u_char uj = use_json(argc, argv);
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	if (uj)
-		argc--;
 
-	if (argv_find(argv, argc, "detail", &idx)
-	    || argv_find(argv, argc, "A.B.C.D", &idx))
+	if (!vrf)
+		return CMD_WARNING;
+
+	char *arg = NULL;
+
+	if (argv_find(argv, argc, "detail", &idx))
+		arg = argv[idx]->text;
+	else if (argv_find(argv, argc, "A.B.C.D", &idx))
+		arg = argv[idx]->arg;
+
+	if (arg)
 		ip_msdp_show_peers_detail(vrf->info, vty, argv[idx]->arg, uj);
 	else
 		ip_msdp_show_peers(vrf->info, vty, uj);
