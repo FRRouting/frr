@@ -885,10 +885,12 @@ def diagnose_env():
 
     # Assert that FRR utilities exist
     frrdir = config.get('topogen', 'frrdir')
+    hasfrr = False
     if not os.path.isdir(frrdir):
         logger.error('could not find {} directory'.format(frrdir))
         ret = False
     else:
+        hasfrr = True
         try:
             pwd.getpwnam('frr')[2]
         except KeyError:
@@ -920,9 +922,13 @@ def diagnose_env():
 
     # Assert that Quagga utilities exist
     quaggadir = config.get('topogen', 'quaggadir')
-    if not os.path.isdir(quaggadir):
+    if hasfrr:
+        # if we have frr, don't check for quagga
+        pass
+    elif not os.path.isdir(quaggadir):
         logger.info('could not find {} directory (quagga tests will not run)'.format(quaggadir))
     else:
+        ret = True
         try:
             pwd.getpwnam('quagga')[2]
         except KeyError:
@@ -937,7 +943,7 @@ def diagnose_env():
             if 'quagga' not in grp.getgrnam('quaggavty').gr_mem:
                 logger.error('"quagga" user and group exist, but user is not under "quaggavty"')
         except KeyError:
-            logger.warning('could not find "frrvty" group')
+            logger.warning('could not find "quaggavty" group')
 
         for fname in ['zebra', 'ospfd', 'ospf6d', 'bgpd', 'ripd', 'ripngd',
                       'isisd', 'pimd']:
