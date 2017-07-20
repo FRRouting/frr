@@ -162,8 +162,8 @@ int zebra_static_ipv4(struct vty *vty, safi_t safi, int add_cmd,
 					 tag, distance, zvrf, &snh_label);
 		else
 			static_delete_route(AFI_IP, safi, type, &p, NULL, NULL,
-					    ifindex, ifname, tag, distance, zvrf,
-					    &snh_label);
+					    ifindex, ifname, tag, distance,
+					    zvrf, &snh_label);
 		return CMD_SUCCESS;
 	}
 
@@ -191,8 +191,8 @@ int zebra_static_ipv4(struct vty *vty, safi_t safi, int add_cmd,
 					 zvrf, &snh_label);
 		else
 			static_delete_route(AFI_IP, safi, type, &p, NULL, NULL,
-					    ifindex, ifname, tag, distance, zvrf,
-					    &snh_label);
+					    ifindex, ifname, tag, distance,
+					    zvrf, &snh_label);
 
 		return CMD_SUCCESS;
 	}
@@ -215,13 +215,16 @@ int zebra_static_ipv4(struct vty *vty, safi_t safi, int add_cmd,
 
 	if (add_cmd)
 		static_add_route(AFI_IP, safi, type, &p, NULL,
-				 (ifindex || ifname) ? NULL : (union g_addr *)&gate,
+				 (ifindex || ifname) ?
+					NULL : (union g_addr *)&gate,
 				 ifindex, ifname, flag, tag, distance, zvrf,
 				 &snh_label);
 	else
 		static_delete_route(AFI_IP, safi, type, &p, NULL,
-				    (ifindex || ifname) ? NULL : (union g_addr *)&gate,
-				    ifindex, ifname, tag, distance, zvrf, &snh_label);
+				    (ifindex || ifname) ?
+					NULL : (union g_addr *)&gate,
+				    ifindex, ifname, tag, distance, zvrf,
+				    &snh_label);
 
 	return CMD_SUCCESS;
 }
@@ -2100,8 +2103,8 @@ int static_ipv6_func(struct vty *vty, int add_cmd, const char *dest_str,
 					 zvrf, &snh_label);
 		else
 			static_delete_route(AFI_IP6, SAFI_UNICAST, type, &p,
-					    src_p, NULL, ifindex, ifname, tag, distance,
-					    zvrf, &snh_label);
+					    src_p, NULL, ifindex, ifname, tag,
+					    distance, zvrf, &snh_label);
 		return CMD_SUCCESS;
 	}
 

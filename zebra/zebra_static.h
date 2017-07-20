@@ -95,7 +95,8 @@ extern int static_add_route(afi_t, safi_t safi, u_char type, struct prefix *p,
 
 extern int static_delete_route(afi_t, safi_t safi, u_char type,
 			       struct prefix *p, struct prefix_ipv6 *src_p,
-			       union g_addr *gate, ifindex_t ifindex, const char *ifname,
+			       union g_addr *gate, ifindex_t ifindex,
+			       const char *ifname,
 			       route_tag_t tag, u_char distance,
 			       struct zebra_vrf *zvrf,
 			       struct static_nh_label *snh_label);
