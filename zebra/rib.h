@@ -228,6 +228,8 @@ typedef enum {
 	RIB_UPDATE_OTHER
 } rib_update_event_t;
 
+extern struct nexthop *route_entry_nexthop_ifname_add(struct route_entry *,
+						       char *);
 extern struct nexthop *route_entry_nexthop_ifindex_add(struct route_entry *,
 						       ifindex_t);
 extern struct nexthop *route_entry_nexthop_blackhole_add(struct route_entry *);

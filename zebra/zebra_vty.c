@@ -162,8 +162,8 @@ int zebra_static_ipv4(struct vty *vty, safi_t safi, int add_cmd,
 					 tag, distance, zvrf, &snh_label);
 		else
 			static_delete_route(AFI_IP, safi, type, &p, NULL, NULL,
-					    ifindex, tag, distance, zvrf,
-					    &snh_label);
+					    ifindex, ifname, tag, distance,
+					    zvrf, &snh_label);
 		return CMD_SUCCESS;
 	}
 
@@ -191,8 +191,8 @@ int zebra_static_ipv4(struct vty *vty, safi_t safi, int add_cmd,
 					 zvrf, &snh_label);
 		else
 			static_delete_route(AFI_IP, safi, type, &p, NULL, NULL,
-					    ifindex, tag, distance, zvrf,
-					    &snh_label);
+					    ifindex, ifname, tag, distance,
+					    zvrf, &snh_label);
 
 		return CMD_SUCCESS;
 	}
@@ -215,13 +215,16 @@ int zebra_static_ipv4(struct vty *vty, safi_t safi, int add_cmd,
 
 	if (add_cmd)
 		static_add_route(AFI_IP, safi, type, &p, NULL,
-				 ifindex ? NULL : (union g_addr *)&gate,
+				 (ifindex || ifname) ?
+					NULL : (union g_addr *)&gate,
 				 ifindex, ifname, flag, tag, distance, zvrf,
 				 &snh_label);
 	else
 		static_delete_route(AFI_IP, safi, type, &p, NULL,
-				    ifindex ? NULL : (union g_addr *)&gate,
-				    ifindex, tag, distance, zvrf, &snh_label);
+				    (ifindex || ifname) ?
+					NULL : (union g_addr *)&gate,
+				    ifindex, ifname, tag, distance, zvrf,
+				    &snh_label);
 
 	return CMD_SUCCESS;
 }
@@ -726,8 +729,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				break;
 			case NEXTHOP_TYPE_IFINDEX:
 				vty_out(vty, " directly connected, %s",
-					ifindex2ifname(nexthop->ifindex,
-						       re->vrf_id));
+					nexthop->ifname);
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
 				vty_out(vty, " directly connected, Null0");
@@ -1037,7 +1039,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 
 		case NEXTHOP_TYPE_IFINDEX:
 			vty_out(vty, " is directly connected, %s",
-				ifindex2ifname(nexthop->ifindex, re->vrf_id));
+				nexthop->ifname);
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:
 			vty_out(vty, " is directly connected, Null0");
@@ -2101,8 +2103,8 @@ int static_ipv6_func(struct vty *vty, int add_cmd, const char *dest_str,
 					 zvrf, &snh_label);
 		else
 			static_delete_route(AFI_IP6, SAFI_UNICAST, type, &p,
-					    src_p, NULL, ifindex, tag, distance,
-					    zvrf, &snh_label);
+					    src_p, NULL, ifindex, ifname, tag,
+					    distance, zvrf, &snh_label);
 		return CMD_SUCCESS;
 	}
 
@@ -2162,7 +2164,7 @@ int static_ipv6_func(struct vty *vty, int add_cmd, const char *dest_str,
 				 tag, distance, zvrf, &snh_label);
 	else
 		static_delete_route(AFI_IP6, SAFI_UNICAST, type, &p, src_p,
-				    (union g_addr *)gate, ifindex, tag,
+				    (union g_addr *)gate, ifindex, ifname, tag,
 				    distance, zvrf, &snh_label);
 
 	return CMD_SUCCESS;

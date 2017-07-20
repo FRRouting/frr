@@ -212,7 +212,26 @@ struct nexthop *route_entry_nexthop_ifindex_add(struct route_entry *re,
 	nexthop->type = NEXTHOP_TYPE_IFINDEX;
 	nexthop->ifindex = ifindex;
 
+	/*
+	 * For situation when, real interface will be fake.
+	 * For static route we need ifname, because ifindex will be bad
+	 */
+	strncpy(nexthop->ifname, ifindex2ifname(nexthop->ifindex, re->vrf_id),
+						sizeof(nexthop->ifname));
 	route_entry_nexthop_add(re, nexthop);
+
+	return nexthop;
+}
+
+struct nexthop * route_entry_nexthop_ifname_add (struct route_entry *re,
+						 char *ifname)
+{
+	struct nexthop *nexthop;
+	nexthop = nexthop_new ();
+	nexthop->type = NEXTHOP_TYPE_IFINDEX;
+	strncpy(nexthop->ifname, ifname, sizeof(nexthop->ifname));
+
+	route_entry_nexthop_add (re, nexthop);
 
 	return nexthop;
 }

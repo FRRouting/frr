@@ -127,6 +127,10 @@ void zebra_vrf_static_route_interface_fixup(struct interface *ifp)
 						     == 0)
 						    && (si->ifindex
 							!= ifp->ifindex)) {
+							static_uninstall_route(
+								afi, safi,
+								&rn->p, NULL,
+								si);
 							si->ifindex =
 								ifp->ifindex;
 							static_install_route(
