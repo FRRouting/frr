@@ -84,6 +84,9 @@ struct ospf_external {
 	struct route_table *external_info;
 };
 
+/* Status of various sub function e.g. TE */
+typedef enum _status_t {disable, enable} status_t;
+
 /* OSPF master for system wide configuration and variables. */
 struct ospf_master {
 	/* OSPF instance. */

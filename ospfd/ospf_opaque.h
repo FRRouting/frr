@@ -77,6 +77,47 @@
 	((ntohs((lsahdr)->length) >= sizeof(struct lsa_header))                \
 	 && ((ntohs((lsahdr)->length) % sizeof(u_int32_t)) == 0))
 
+/*
+ * Following section defines generic TLV (type, length, value) macros,
+ * used for various LSA opaque usage e.g. Traffic Engineering.
+ */
+struct tlv_header
+{
+  u_int16_t     type;                   /* Type of Value */
+  u_int16_t     length;                 /* Length of Value portion only, in bytes */
+};
+
+#define TLV_HDR_SIZE \
+        (sizeof (struct tlv_header))
+
+#define TLV_BODY_SIZE(tlvh) \
+        (ROUNDUP (ntohs ((tlvh)->length), sizeof (u_int32_t)))
+
+#define TLV_SIZE(tlvh) \
+        (TLV_HDR_SIZE + TLV_BODY_SIZE(tlvh))
+
+#define TLV_HDR_TOP(lsah) \
+        (struct tlv_header *)((char *)(lsah) + OSPF_LSA_HEADER_SIZE)
+
+#define TLV_HDR_NEXT(tlvh) \
+        (struct tlv_header *)((char *)(tlvh) + TLV_SIZE(tlvh))
+
+#define TLV_HDR_SUBTLV(tlvh) \
+        (struct tlv_header *)((char *)(tlvh) + TLV_HDR_SIZE)
+
+#define TLV_DATA(tlvh)     (void *)((char *)(tlvh) + TLV_HDR_SIZE)
+
+#define TLV_TYPE(tlvh)     tlvh.header.type
+#define TLV_LEN(tlvh)      tlvh.header.length
+#define TLV_HDR(tlvh)      tlvh.header
+
+/* Following declaration concerns the Opaque LSA management */
+typedef enum _opcode_t {
+	REORIGINATE_THIS_LSA,
+	REFRESH_THIS_LSA,
+	FLUSH_THIS_LSA
+} opcode_t;
+
 /* Prototypes. */
 
 extern void ospf_opaque_init(void);
