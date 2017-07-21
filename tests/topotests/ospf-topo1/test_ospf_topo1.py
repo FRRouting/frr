@@ -149,6 +149,10 @@ def compare_show_ipv6_ospf6(rname, expected):
 
 def test_ospf_convergence():
     "Test OSPF daemon convergence"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip('skipped because of router(s) failure')
+
     for rnum in range(1, 5):
         router = 'r{}'.format(rnum)
 
@@ -161,12 +165,15 @@ def test_ospf_convergence():
         # Run test function until we get an result. Wait at most 60 seconds.
         test_func = partial(compare_show_ip_ospf, router, expected)
         result, diff = topotest.run_and_expect(test_func, '',
-                                               count=20, wait=3)
+                                               count=25, wait=3)
         assert result, 'OSPF did not converge on {}:\n{}'.format(router, diff)
 
 def test_ospf_kernel_route():
     "Test OSPF kernel route installation"
     tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip('skipped because of router(s) failure')
+
     rlist = tgen.routers().values()
     for router in rlist:
         logger.info('Checking OSPF IPv4 kernel routes in "%s"', router.name)
@@ -185,6 +192,10 @@ def test_ospf_kernel_route():
 
 def test_ospf6_convergence():
     "Test OSPF6 daemon convergence"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip('skipped because of router(s) failure')
+
     for rnum in range(1, 5):
         router = 'r{}'.format(rnum)
 
@@ -197,12 +208,15 @@ def test_ospf6_convergence():
         # Run test function until we get an result. Wait at most 60 seconds.
         test_func = partial(compare_show_ipv6_ospf6, router, expected)
         result, diff = topotest.run_and_expect(test_func, '',
-                                               count=20, wait=3)
+                                               count=25, wait=3)
         assert result, 'OSPF6 did not converge on {}:\n{}'.format(router, diff)
 
 def test_ospf6_kernel_route():
     "Test OSPF kernel route installation"
     tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip('skipped because of router(s) failure')
+
     rlist = tgen.routers().values()
     for router in rlist:
         logger.info('Checking OSPF IPv6 kernel routes in "%s"', router.name)
@@ -222,6 +236,8 @@ def test_ospf6_kernel_route():
 def test_ospf_json():
     "Test 'show ip ospf json' output for coherency."
     tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip('skipped because of router(s) failure')
 
     for rnum in range(1, 5):
         router = tgen.gears['r{}'.format(rnum)]
@@ -292,6 +308,8 @@ def test_ospf_json():
 def test_ospf_link_down():
     "Test OSPF convergence after a link goes down"
     tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip('skipped because of router(s) failure')
 
     # Simulate a network down event on router3 switch3 interface.
     router3 = tgen.gears['r3']
@@ -308,12 +326,15 @@ def test_ospf_link_down():
         # Run test function until we get an result. Wait at most 60 seconds.
         test_func = partial(compare_show_ip_ospf, router, expected)
         result, diff = topotest.run_and_expect(test_func, '',
-                                               count=20, wait=3)
+                                               count=25, wait=3)
         assert result, 'OSPF did not converge on {}:\n{}'.format(router, diff)
 
 def test_ospf_link_down_kernel_route():
     "Test OSPF kernel route installation"
     tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip('skipped because of router(s) failure')
+
     rlist = tgen.routers().values()
     for router in rlist:
         logger.info('Checking OSPF IPv4 kernel routes in "%s" after link down', router.name)
@@ -348,6 +369,9 @@ def test_ospf_link_down_kernel_route():
 
 def test_ospf6_link_down():
     "Test OSPF6 daemon convergence after link goes down"
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip('skipped because of router(s) failure')
 
     for rnum in range(1, 5):
         router = 'r{}'.format(rnum)
@@ -361,12 +385,15 @@ def test_ospf6_link_down():
         # Run test function until we get an result. Wait at most 60 seconds.
         test_func = partial(compare_show_ipv6_ospf6, router, expected)
         result, diff = topotest.run_and_expect(test_func, '',
-                                               count=20, wait=3)
+                                               count=25, wait=3)
         assert result, 'OSPF6 did not converge on {}:\n{}'.format(router, diff)
 
 def test_ospf6_link_down_kernel_route():
     "Test OSPF kernel route installation"
     tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip('skipped because of router(s) failure')
+
     rlist = tgen.routers().values()
     for router in rlist:
         logger.info('Checking OSPF IPv6 kernel routes in "%s" after link down', router.name)
