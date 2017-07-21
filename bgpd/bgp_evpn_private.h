@@ -28,6 +28,8 @@
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ecommunity.h"
 
+#define RT_ADDRSTRLEN                    28
+
 /* EVPN prefix lengths. */
 #define EVPN_TYPE_2_ROUTE_PREFIXLEN      224
 #define EVPN_TYPE_3_ROUTE_PREFIXLEN      224
