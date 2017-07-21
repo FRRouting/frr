@@ -264,10 +264,52 @@ Portions:
   Copyright (C) 2016 Your name [optional brief change description]
 ```
 
-### Code styling / format
+### Code style / format
 
-Coding style standards in FRR vary depending on location.  Pre-existing
-code uses GNU coding standards.  New code may use Linux kernel coding style.
+FRR uses Linux kernel style except where noted below.
+
+To help with compliance, in the project root there is a .clang-format
+configuration file which can be used with the `clang-format` tool from the LLVM
+project. In the `tools/` directory there is a Python script named `indent.py`
+that wraps clang-format and handles some edge cases specific to FRR. If you are
+submitting a new file, it is recommended to run that script over the new file
+after ensuring that the latest stable release of `clang-format` is in your
+PATH.
+
+**Whitespace changes in untouched parts of the code are not acceptable in
+patches that change actual code.**  To change/fix formatting issues, please
+create a separate patch that only does formatting changes and nothing else.
+
+Kernel and BSD styles are documented externally:
+
+* [https://www.kernel.org/doc/html/latest/process/coding-style.html](https://www.kernel.org/doc/html/latest/process/coding-style.html)
+* [http://man.openbsd.org/style](http://man.openbsd.org/style)
+
+For GNU coding style, use `indent` with the following invocation:
+
+```
+indent -nut -nfc1 file_for_submission.c
+```
+
+#### Exceptions
+
+FRR project code comes from a variety of sources, so there are some stylistic
+exceptions in place. Here they are, by branch.
+
+**For `master`:**
+
+BSD coding style applies to:
+
+* ldpd/
+
+`babeld` uses, approximately, the following style:
+
+* K&R style braces
+* Indents are 4 spaces
+* Function return types are on their own line
+
+
+**For `stable/3.0` and `stable/2.0`:**
 
 GNU coding style apply to the following parts:
 
@@ -281,57 +323,15 @@ GNU coding style apply to the following parts:
 * ripngd/
 * vtysh/
 
-Linux kernel coding style applies to:
-
-* nhrpd/
-* watchfrr/
-* pimd/
-* lib/{checksum,hook,imsg-buffer,imsg,libfrr,md5,module,monotime,queue}.[ch]
-
 BSD coding style applies to:
 
 * ldpd/
 
-**Whitespace changes in untouched parts of the code are not acceptable in
-patches that change actual code.**  To change/fix formatting issues, please
-create a separate patch that only does formatting changes and nothing else.
+#### Policy
 
-It is acceptable to rewrap entire files to Linux kernel style, but this
-**MUST** come as a separate patch that does nothing other than this
-reformatting.
-
-
-#### GNU style
-
-For GNU coding style, Indentation follows the result of invoking GNU indent:
-
-```
-indent -nut -nfc1 file_for_submission.c
-```
-
-Originally, tabs were used instead of spaces, with tabs are every 8 columns.
-However, tab interoperability issues mean space characters are now preferred for
-new changes. We generally only clean up whitespace when code is unmaintainable
-due to whitespace issues, to minimise merging conflicts.
-
-
-#### Linux kernel & BSD style
-
-These styles are documented externally:
-
-* [https://www.kernel.org/doc/Documentation/CodingStyle](https://www.kernel.org/doc/Documentation/CodingStyle).
-* [http://man.openbsd.org/style](http://man.openbsd.org/style)
-
-They are relatively similar but differ in details.
-
-pimd deviates from Linux kernel style in using 2 spaces for indentation, with
-Tabs replacing 8 spaces, as well as adding a line break between `}` and `else`.
-It is acceptable to convert indentation in pimd/ to Linux kernel style, but
-please convert an entire file at a time.  (Rationale: apart from 2-space
-indentation, the styles are sufficiently close to not upset when mixed.)
-
-Unlike GNU style, these styles use tabs, not spaces.
-
+The above standards relate to code formatting. For other stylistic choices e.g.
+use of `typedef`, variable naming, etc. refer to the Linux kernel style
+documentation.
 
 ### Compile-Time conditional code
 
