@@ -1,4 +1,7 @@
-# Developing for FRRouting
+Developing for FRRouting
+=========================
+
+## Table of Contents
 
 [TOC]
 
@@ -15,7 +18,7 @@ it's the document that needs to be updated, not reality.
 ## Git Structure
 
 The master Git for FRRouting resides on Github at
-[https://github.com/frrouting/frr](https://github.com/FRRouting/XXX)
+[https://github.com/frrouting/frr](https://github.com/FRRouting/frr)
 
 ![git branches continually merging to the left from 3 lanes; float-right](doc/git_branches.svg
 "git branch mechanics")
@@ -53,17 +56,18 @@ Documentation should be written in Tex (.texi) or Markdown (.md) format with
 a preference for Markdown.
 
 
-## Before Submitting your changes
+## Mailing lists
 
-* Format code (see [Code style requirements](#code-styling-requirements))
-* Verify and acknowledge license (see [License for contributions](#license-for-contributions))
-* Test building with various configurations:
-    * `buildtest.sh`
-* Verify building source distribution:
-    * `make dist` (and try rebuilding from the resulting tar file)
-* Run DejaGNU unit tests:
-    * `make test`
-* Document Regression Runs and plans for continued maintenance of the feature
+Italicized lists are private.
+
+| Topic                          | List                         |
+|--------------------------------|------------------------------|
+| Development                    | dev@lists.frrouting.org      |
+| Users & Operators              | frog@lists.frrouting.org     |
+| Announcements                  | announce@lists.frrouting.org |
+| _Security_                     | security@lists.frrouting.org |
+| _Technical Steering Committee_ | tsc@lists.frrouting.org      |
+
 
 ### Changelog
 
@@ -76,16 +80,45 @@ for the release notes.
 
 ## Submitting Patches and Enhancements
 
+### Pre-submission Checklist
+
+* Format code (see [Coding style requirements](#coding-style-requirements))
+* Verify and acknowledge license (see [License for contributions](#license-for-contributions))
+* Ensure you have properly signed off (see [Signing Off](#signing-off))
+* Test building with various configurations:
+    * `buildtest.sh`
+* Verify building source distribution:
+    * `make dist` (and try rebuilding from the resulting tar file)
+* Run unit tests:
+    * `make test`
+* Document Regression Runs and plans for continued maintenance of the feature
+
 ### License for contributions
 
 FRRouting is under a “GPLv2 or later” license. Any code submitted must be
 released under the same license (preferred) or any license which allows
 redistribution under this GPLv2 license (eg MIT License).
 
-### Signed-off required
+### Signing Off
 
-Submissions to FRRouting require a “Signed-off” in the patch or git commit.
-We follow the same standard as the Linux Kernel Development.
+Code submitted to FRRouting must be signed off. We have the same requirements
+for using the signed-off-by process as the Linux kernel. In short, you must
+include a signed-off-by tag in every patch.
+
+`Signed-off-by:` this is a developer's certification that he or she has the
+right to submit the patch for inclusion into the project. It is an agreement to
+the Developer's Certificate of Origin (below). Code without a proper signoff
+cannot and will not be merged.
+
+If you are unfamiliar with this process, you should read the [official policy
+at kernel.org](http://www.kernel.org/doc/Documentation/SubmittingPatches) and
+you might find this article about [participating in the Linux community on the
+Linux Foundation
+website](http://www.linuxfoundation.org/content/how-participate-linux-community-0)
+to be a helpful resource.
+
+In short, when you sign off on a commit, you assert your agreement to all of
+the following:
 
 > Developer's Certificate of Origin 1.1
 >
@@ -113,79 +146,52 @@ We follow the same standard as the Linux Kernel Development.
 >     maintained indefinitely and may be redistributed consistent with
 >     this project or the open source license(s) involved.
 
-#### Using this Process
-
-We have the same requirements for using the signed-off-by process as the Linux
-kernel. In short, you need to include a signed-off-by tag in every patch:
-
-* `Signed-off-by:` this is a developer's certification that he or she has the
-right to submit the patch for inclusion into the project. It is an agreement to
-the Developer's Certificate of Origin (above). Code without a proper signoff
-cannot be merged into the mainline.
-
-Please make sure to have a `Signed-off-by:` in each commit/patch or the patches
-will be rejected until this is added.
-
-If you are unfamiliar with this process, you should read the [official policy
-at kernel.org](http://www.kernel.org/doc/Documentation/SubmittingPatches) and
-you might find this article about [participating in the Linux community on the
-Linux Foundation
-website](http://www.linuxfoundation.org/content/how-participate-linux-community-0)
-to be a helpful resource.
-
-### Code submission - What do I submit my changes against?
+### What do I submit my changes against?
 
 We've documented where we would like to have the different fixes applied at
 https://github.com/FRRouting/frr/wiki/Where-Do-I-create-a-Pull-Request-against%3F
 If you are unsure where your submission goes, look at that document or ask
-the question of a maintainer.
+a project maintainer.
 
-### Code submission - Github Pull Request (Strongly Preferred)
+### Github pull requests
 
-Preferred submission of code is by using a Github Pull Request against the
-Develop branch. Code submitted by Pull Request will have an email generated to
-the FRRouting-devel mailing list for review and the submission will be
-automatically tested by one or more CI systems. Only after this test succeeds
-(and the submission is based on the head of the develop branch), then it will
-be automatically merged into the develop branch. In case of failed tests, it is
-up to the submitter to either amend the request with further commits or close,
-fix and create a new pull request.
-
-Further (manual) code review and discussion happens after the merge into the
-develop branch.
-
-
-### Code submission - Mailing Patch to FRRouting-Devel list
-
-As an alternative submission, a patch can be mailed to the FRRouting-Devel
-mailing list. Preferred way to send the patch is using git send-mail. Patches
-received on the mailing list will be picked up by Patchwork and tested against
-the latest develop branch. After a further ACK by someone on the mailing list,
-the patch is then merged into the develop branch.
+The preferred method of submitting changes is a Github pull request. Code
+submitted by pull request will have an email generated to the FRRouting-devel
+mailing list for review and the submission will be automatically tested by one
+or more CI systems. Only after this test succeeds it will be automatically merged into
+the develop branch. In case of failed tests, it is up to the submitter to
+either amend the request with further commits or close, fix and create a new
+pull request.
 
 Further (manual) code review and discussion happens after the merge into the
 develop branch.
 
-#### Sending patch to mailing list
+
+### Patch submission via mailing list
+
+As an alternative submission method, a patch can be mailed to the development
+mailing list. Patches received on the mailing list will be picked up by
+Patchwork and tested against the latest development branch.
 
 The recommended way to send the patch (or series of NN patches) to the list is
-by using ‘git send-email’ as follows (assuming they are the most recent NN
+by using `git send-email` as follows (assuming they are the N most recent
 commit(s) in your git history:
 
 ```
-git send-email -NN --annotate --to=XXX-Devel@XXX.org
+git send-email -NN --annotate --to=dev@lists.frrouting.org
 ```
 
 If your commits do not already contain a `Signed-off-by` line, then use the
-following version to add it (after making sure to be able to agree to the
-Developer Certificate of Origin as outlined above):
+following command to add it (after making sure you agree to the Developer
+Certificate of Origin as outlined above):
 
 ```
-git send-email -NN --annotate --signoff --to=XXX-Devel@XXX.org
+git send-email -NN --annotate --signoff --to=dev@lists.frrouting.org
 ```
 
-Submitting multi-commit patches as a Github Pull Request is strongly encouraged
-and will allow your changes to merge faster
+Submitting multi-commit patches as a Github pull request is **strongly
+encouraged** and increases the probability of your patch getting reviewed and
+merged in a timely manner.
 
 
 ## After submitting your changes
@@ -195,33 +201,32 @@ and will allow your changes to merge faster
       less than 2 hrs of the submission. If you don’t get the email, then check
       status on the github pull request (if submitted by pull request) or on
       Patchwork at
-      [https://patchwork.FRRouting.org](https://patchwork.PROJECT.org) (if
+      [https://patchwork.frrouting.org](https://patchwork.frrouting.org) (if
       submitted as patch to mailing list).
-    * Please notify FRRouting-Devel mailing list if you think something doesn’t
+    * Please notify development mailing list if you think something doesn’t
       work
 * If the tests failed:
     * In general, expect the community to ignore the submission until the tests
       pass.
     * It is up to you to fix and resubmit.
-        * This includes fixing existing dejagnu (“make test”) tests if your
+        * This includes fixing existing unit (“make test”) tests if your
           changes broke or changed them.
         * It also includes fixing distribution packages for the failing
           platforms (ie if new libraries are required)
-        * Feel free to ask for help on FRRouting-Devel list
+        * Feel free to ask for help on development list
     * Go back to the submission process and repeat until the tests pass.
 * If the tests pass:
-    * If the changes are done as a pull request, then they should be
-      automatically merged to the develop branch.
-    * Changes sent to mailing list require a manual ACK to be merged and should
-      be merged within 2 weeks. If you don’t see the merge or any
-      reason/discussion on FRRouting-Devel, then please ask.
+    * Wait for reviewers. Someone will review your code or be assigned to
+      review your code.
+    * Respond to any comments or concerns the reviewer has.
+    * After all comments and concerns are addressed, expect your patch to be
+      merged.
 * Watch out for questions on the mailing list. At this time there will be a
   manual code review and further (longer) tests by various community members.
-* Your submission is done once it is merged to the master branch. (which should
-  happen every few weeks from the develop branch)
+* Your submission is done once it is merged to the master branch.
 
 
-## Code style requirements
+## Coding style requirements
 
 ### Source file header
 
@@ -267,9 +272,10 @@ Portions:
 
 ### Code formatting
 
-FRR uses Linux kernel style except where noted below.
+FRR uses Linux kernel style except where noted below. Code which does not
+comply with these style guidelines will not be accepted.
 
-To help with compliance, in the project root there is a .clang-format
+To assist with compliance, in the project root there is a .clang-format
 configuration file which can be used with the `clang-format` tool from the LLVM
 project. In the `tools/` directory there is a Python script named `indent.py`
 that wraps clang-format and handles some edge cases specific to FRR. If you are
@@ -281,6 +287,7 @@ PATH.
 patches that change actual code.**  To change/fix formatting issues, please
 create a separate patch that only does formatting changes and nothing else.
 
+#### Style documentation
 Kernel and BSD styles are documented externally:
 
 * [https://www.kernel.org/doc/html/latest/process/coding-style.html](https://www.kernel.org/doc/html/latest/process/coding-style.html)
