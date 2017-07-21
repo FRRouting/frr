@@ -111,7 +111,7 @@ static void ospf_router_info_config_write_router(struct vty *vty);
 static void ospf_router_info_show_info(struct vty *vty, struct ospf_lsa *lsa);
 static int ospf_router_info_lsa_originate(void *arg);
 static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa);
-static void ospf_router_info_lsa_schedule(opcode_t opcode);
+static void ospf_router_info_lsa_schedule(enum lsa_opcode opcode);
 static void ospf_router_info_register_vty(void);
 static void del_pce_info(void *val);
 
@@ -778,7 +778,7 @@ static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa)
 	return new;
 }
 
-static void ospf_router_info_lsa_schedule(opcode_t opcode)
+static void ospf_router_info_lsa_schedule(enum lsa_opcode opcode)
 {
 	struct ospf_lsa lsa;
 	struct lsa_header lsah;

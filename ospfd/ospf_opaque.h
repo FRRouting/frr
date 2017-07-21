@@ -81,8 +81,7 @@
  * Following section defines generic TLV (type, length, value) macros,
  * used for various LSA opaque usage e.g. Traffic Engineering.
  */
-struct tlv_header
-{
+struct tlv_header {
   u_int16_t     type;                   /* Type of Value */
   u_int16_t     length;                 /* Length of Value portion only, in bytes */
 };
@@ -112,11 +111,11 @@ struct tlv_header
 #define TLV_HDR(tlvh)      tlvh.header
 
 /* Following declaration concerns the Opaque LSA management */
-typedef enum _opcode_t {
+enum lsa_opcode {
 	REORIGINATE_THIS_LSA,
 	REFRESH_THIS_LSA,
 	FLUSH_THIS_LSA
-} opcode_t;
+};
 
 /* Prototypes. */
 

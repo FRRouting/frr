@@ -229,8 +229,8 @@ static struct mpls_te_link *lookup_linkparams_by_instance(struct ospf_lsa *lsa)
 }
 
 static void ospf_mpls_te_foreach_area(void (*func)(struct mpls_te_link *lp,
-						   opcode_t sched_opcode),
-				      opcode_t sched_opcode)
+					enum lsa_opcode sched_opcode),
+				      enum lsa_opcode sched_opcode)
 {
 	struct listnode *node, *nnode;
 	struct listnode *node2;
@@ -1509,7 +1509,7 @@ static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa)
 	return new;
 }
 
-void ospf_mpls_te_lsa_schedule(struct mpls_te_link *lp, opcode_t opcode)
+void ospf_mpls_te_lsa_schedule(struct mpls_te_link *lp, enum lsa_opcode opcode)
 {
 	struct ospf_lsa lsa;
 	struct lsa_header lsah;

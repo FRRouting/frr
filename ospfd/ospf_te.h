@@ -408,7 +408,7 @@ extern int ospf_mpls_te_init(void);
 extern void ospf_mpls_te_term(void);
 extern struct ospf_mpls_te *get_ospf_mpls_te(void);
 extern void ospf_mpls_te_update_if(struct interface *);
-extern void ospf_mpls_te_lsa_schedule(struct mpls_te_link *, opcode_t);
+extern void ospf_mpls_te_lsa_schedule(struct mpls_te_link *, enum lsa_opcode);
 extern void set_linkparams_llri(struct mpls_te_link *, u_int32_t, u_int32_t);
 extern void set_linkparams_lrrid(struct mpls_te_link *, struct in_addr,
 				 struct in_addr);
