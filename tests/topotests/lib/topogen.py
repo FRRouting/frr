@@ -620,7 +620,7 @@ class TopoRouter(TopoGear):
             if enabled == 0:
                 continue
             self.vtysh_cmd('configure terminal\nlog file {}/{}-{}.log'.format(
-                self.logdir, self.name, daemon))
+                self.logdir, self.name, daemon), daemon=daemon)
 
         return result
 
@@ -632,7 +632,7 @@ class TopoRouter(TopoGear):
         self.logger.debug('stopping')
         return self.tgen.net[self.name].stopRouter()
 
-    def vtysh_cmd(self, command, isjson=False):
+    def vtysh_cmd(self, command, isjson=False, daemon=None):
         """
         Runs the provided command string in the vty shell and returns a string
         with the response.
@@ -642,9 +642,14 @@ class TopoRouter(TopoGear):
         """
         # Detect multi line commands
         if command.find('\n') != -1:
-            return self.vtysh_multicmd(command)
+            return self.vtysh_multicmd(command, daemon=daemon)
 
-        vtysh_command = 'vtysh -c "{}" 2>/dev/null'.format(command)
+        dparam = ''
+        if daemon is not None:
+            dparam += '-d {}'.format(daemon)
+
+        vtysh_command = 'vtysh {} -c "{}" 2>/dev/null'.format(dparam, command)
+
         output = self.run(vtysh_command)
         self.logger.info('\nvtysh command => {}\nvtysh output <= {}'.format(
             command, output))
@@ -657,7 +662,7 @@ class TopoRouter(TopoGear):
             logger.warning('vtysh_cmd: failed to convert json output')
             return {}
 
-    def vtysh_multicmd(self, commands, pretty_output=True):
+    def vtysh_multicmd(self, commands, pretty_output=True, daemon=None):
         """
         Runs the provided commands in the vty shell and return the result of
         execution.
@@ -669,11 +674,15 @@ class TopoRouter(TopoGear):
         # Prepare the temporary file that will hold the commands
         fname = topotest.get_file(commands)
 
+        dparam = ''
+        if daemon is not None:
+            dparam += '-d {}'.format(daemon)
+
         # Run the commands and delete the temporary file
         if pretty_output:
-            vtysh_command = 'vtysh < {}'.format(fname)
+            vtysh_command = 'vtysh {} < {}'.format(dparam, fname)
         else:
-            vtysh_command = 'vtysh -f {}'.format(fname)
+            vtysh_command = 'vtysh {} -f {}'.format(dparam, fname)
 
         res = self.run(vtysh_command)
         os.unlink(fname)
