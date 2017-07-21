@@ -1,4 +1,4 @@
-# Developing for PROJECT (DRAFT)
+# Developing for FRRouting
 
 [TOC]
 
@@ -14,8 +14,8 @@ it's the document that needs to be updated, not reality.
 
 ## Git Structure
 
-The master Git for PROJECT resides on Github at
-[https://github.com/PROJECT/XXX](https://github.com/PROJECT/XXX)
+The master Git for FRRouting resides on Github at
+[https://github.com/frrouting/frr](https://github.com/FRRouting/XXX)
 
 ![git branches continually merging to the left from 3 lanes; float-right](doc/git_branches.svg
 "git branch mechanics")
@@ -38,23 +38,24 @@ is still here, this document obviously wasn't updated.
 
 ## Programming language, Tools and Libraries
 
-The core of PROJECT is written in C (gcc or clang supported). A few
-non-essential scripts are implemented in Perl and Python. PROJECT requires
-the following tools to build distribution packages: automake, autoconf,
-texinfo, libtool and gawk and various libraries (i.e. libpam and libjson-c).
+The core of FRRouting is written in C (gcc or clang supported) and makes use of
+GNU compiler extensions. A few non-essential scripts are implemented in Perl
+and Python. FRRouting requires the following tools to build distribution
+packages: automake, autoconf, texinfo, libtool and gawk and various libraries
+(i.e. libpam and libjson-c).
 
 If your contribution requires a new library or other tool, then please
-highlight this in your description of the change. Also make sure it’s
-supported by all PROJECT platform OSes or provide a way to build without the
-library (potentially without the new feature) on the other platforms.
+highlight this in your description of the change. Also make sure it’s supported
+by all FRRouting platform OSes or provide a way to build without the library
+(potentially without the new feature) on the other platforms.
 
 Documentation should be written in Tex (.texi) or Markdown (.md) format with
-preference on Markdown.
+a preference for Markdown.
 
 
 ## Before Submitting your changes
 
-* Format code (see [Code Styling requirements](#code-styling-requirements))
+* Format code (see [Code style requirements](#code-styling-requirements))
 * Verify and acknowledge license (see [License for contributions](#license-for-contributions))
 * Test building with various configurations:
     * `buildtest.sh`
@@ -77,13 +78,13 @@ for the release notes.
 
 ### License for contributions
 
-PROJECT is under a “GPLv2 or later” license. Any code submitted must be
+FRRouting is under a “GPLv2 or later” license. Any code submitted must be
 released under the same license (preferred) or any license which allows
 redistribution under this GPLv2 license (eg MIT License).
 
 ### Signed-off required
 
-Submissions to PROJECT require a “Signed-off” in the patch or git commit.
+Submissions to FRRouting require a “Signed-off” in the patch or git commit.
 We follow the same standard as the Linux Kernel Development.
 
 > Developer's Certificate of Origin 1.1
@@ -143,7 +144,7 @@ the question of a maintainer.
 
 Preferred submission of code is by using a Github Pull Request against the
 Develop branch. Code submitted by Pull Request will have an email generated to
-the PROJECT-devel mailing list for review and the submission will be
+the FRRouting-devel mailing list for review and the submission will be
 automatically tested by one or more CI systems. Only after this test succeeds
 (and the submission is based on the head of the develop branch), then it will
 be automatically merged into the develop branch. In case of failed tests, it is
@@ -154,9 +155,9 @@ Further (manual) code review and discussion happens after the merge into the
 develop branch.
 
 
-### Code submission - Mailing Patch to PROJECT-Devel list
+### Code submission - Mailing Patch to FRRouting-Devel list
 
-As an alternative submission, a patch can be mailed to the PROJECT-Devel
+As an alternative submission, a patch can be mailed to the FRRouting-Devel
 mailing list. Preferred way to send the patch is using git send-mail. Patches
 received on the mailing list will be picked up by Patchwork and tested against
 the latest develop branch. After a further ACK by someone on the mailing list,
@@ -194,9 +195,9 @@ and will allow your changes to merge faster
       less than 2 hrs of the submission. If you don’t get the email, then check
       status on the github pull request (if submitted by pull request) or on
       Patchwork at
-      [https://patchwork.PROJECT.org](https://patchwork.PROJECT.org) (if
+      [https://patchwork.FRRouting.org](https://patchwork.PROJECT.org) (if
       submitted as patch to mailing list).
-    * Please notify PROJECT-Devel mailing list if you think something doesn’t
+    * Please notify FRRouting-Devel mailing list if you think something doesn’t
       work
 * If the tests failed:
     * In general, expect the community to ignore the submission until the tests
@@ -206,23 +207,23 @@ and will allow your changes to merge faster
           changes broke or changed them.
         * It also includes fixing distribution packages for the failing
           platforms (ie if new libraries are required)
-        * Feel free to ask for help on PROJECT-Devel list
+        * Feel free to ask for help on FRRouting-Devel list
     * Go back to the submission process and repeat until the tests pass.
 * If the tests pass:
     * If the changes are done as a pull request, then they should be
       automatically merged to the develop branch.
     * Changes sent to mailing list require a manual ACK to be merged and should
       be merged within 2 weeks. If you don’t see the merge or any
-      reason/discussion on PROJECT-Devel, then please ask.
+      reason/discussion on FRRouting-Devel, then please ask.
 * Watch out for questions on the mailing list. At this time there will be a
   manual code review and further (longer) tests by various community members.
 * Your submission is done once it is merged to the master branch. (which should
   happen every few weeks from the develop branch)
 
 
-## Code Styling requirements
+## Code style requirements
 
-### File header required for new files added
+### Source file header
 
 New files need to have a Copyright header (see [License for
 contributions](#license-for-contributions) above) added to the file. Preferred
@@ -251,7 +252,7 @@ form of the header is as follows:
 #include <zebra.h>
 ```
 
-### Adding Copyright claims to already existing file
+### Adding copyright claims to existing files
 
 When adding copyright claims for modifications to an existing file, please
 preface the claim with "Portions: " on a line before it and indent the
@@ -264,7 +265,7 @@ Portions:
   Copyright (C) 2016 Your name [optional brief change description]
 ```
 
-### Code style / format
+### Code formatting
 
 FRR uses Linux kernel style except where noted below.
 
@@ -294,13 +295,13 @@ indent -nut -nfc1 file_for_submission.c
 #### Exceptions
 
 FRR project code comes from a variety of sources, so there are some stylistic
-exceptions in place. Here they are, by branch.
+exceptions in place. They are organized here by branch.
 
 **For `master`:**
 
 BSD coding style applies to:
 
-* ldpd/
+* `ldpd/`
 
 `babeld` uses, approximately, the following style:
 
@@ -313,46 +314,46 @@ BSD coding style applies to:
 
 GNU coding style apply to the following parts:
 
-* lib/
-* zebra/
-* bgpd/
-* ospfd/
-* ospf6d/
-* isisd/
-* ripd/
-* ripngd/
-* vtysh/
+* `lib/`
+* `zebra/`
+* `bgpd/`
+* `ospfd/`
+* `ospf6d/`
+* `isisd/`
+* `ripd/`
+* `ripngd/`
+* `vtysh/`
 
 BSD coding style applies to:
 
-* ldpd/
+* `ldpd/`
 
 #### Policy
 
-The above standards relate to code formatting. For other stylistic choices e.g.
-use of `typedef`, variable naming, etc. refer to the Linux kernel style
+The above standards relate to code formatting. For other stylistic choices,
+such as use of `typedef`, variable naming, etc. refer to the Linux kernel style
 documentation.
 
-### Compile-Time conditional code
+### Compile-time conditional code
 
-Many users access PROJECT via binary packages from 3rd party sources;
+Many users access FRR via binary packages from 3rd party sources;
 compile-time code puts inclusion/exclusion in the hands of the package
 maintainer.  Please think very carefully before making code conditional at
 compile time, as it increases regression testing, maintenance burdens, and user
-confusion. In particular, please avoid gratuitous --enable-… switches to the
-configure script - typically code should be good enough to be in PROJECT, or it
-shouldn’t be there at all.
+confusion. In particular, please avoid gratuitous `--enable-…` switches to the
+configure script - in general, code should be of high quality and in working
+condition, or it shouldn’t be in FRR at all.
 
 When code must be compile-time conditional, try have the compiler make it
-conditional rather than the C pre-processor - so that it will still be checked
-by the compiler, even if disabled. I.e. this:
+conditional rather than the C pre-processor so that it will still be checked by
+the compiler, even if disabled. For example,
 
 ```
 if (SOME_SYMBOL)
       frobnicate();
 ```
 
-rather than
+is preferred to
 
 ```
 #ifdef SOME_SYMBOL
@@ -363,18 +364,18 @@ frobnicate ();
 Note that the former approach requires ensuring that `SOME_SYMBOL` will be
 defined (watch your `AC_DEFINE`s).
 
-### Debug-Guards in code
+### Debug-guards in code
 
-Debugs are an important methodology to allow developers to fix issues
+Debugging statements are an important methodology to allow developers to fix issues
 found in the code after it has been released.  The caveat here is
 that the developer must remember that people will be using the code
 at scale and in ways that can be unexpected for the original implementor.
-As such debugs MUST be guarded in such a way that they can be turned off.
-This PROJECT has the ability to turn on/off debugs from the CLI and it is
+As such debugs **MUST** be guarded in such a way that they can be turned off.
+FRR has the ability to turn on/off debugs from the CLI and it is
 expected that the developer will use this convention to allow control
 of their debugs.
 
-### CLI-Changes
+### CLI changes
 
 CLI's are a complicated ugly beast.  Additions or changes to the CLI
 should use a DEFUN to encapsulate one setting as much as is possible.
