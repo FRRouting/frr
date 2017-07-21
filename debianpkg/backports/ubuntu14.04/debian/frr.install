@@ -2,7 +2,6 @@ etc/frr/
 usr/bin/vtysh
 usr/include/frr/
 usr/lib/
-tools/frr-reload.py usr/lib/frr/
 tools/frr etc/init.d/
 usr/share/doc/frr/
 usr/share/man/man1/vtysh.1
