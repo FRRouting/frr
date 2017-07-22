@@ -136,8 +136,8 @@ def compare_show_ipv6_ospf6(rname, expected):
     expected = topotest.normalize_text(expected)
 
     # Remove the link addresses
-    current = re.sub(r'fe80:[^ ]+', '', current)
-    expected = re.sub(r'fe80:[^ ]+', '', expected)
+    current = re.sub(r'fe80::[^ ]+', 'fe80::xxxx:xxxx:xxxx:xxxx', current)
+    expected = re.sub(r'fe80::[^ ]+', 'fe80::xxxx:xxxx:xxxx:xxxx', expected)
 
     # Remove the time
     current = re.sub(r'\d+:\d{2}:\d{2}', '', current)
