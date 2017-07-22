@@ -32,6 +32,7 @@ if beforebase != beforeid:
     sys.exit(1)
 
 revs = run(['git', 'rev-list', 'reindent-master-before..%s' % commit]).strip().split('\n')
+revs.reverse()
 
 srcdir = os.getcwd()
 tmpdir = tempfile.mkdtemp('frrindent')
