@@ -1375,12 +1375,7 @@ fi
 dnl --------------------
 dnl Daemon disable check
 dnl --------------------
-if test "${enable_zebra}" = "no";then
-  ZEBRA=""
-else
-  ZEBRA="zebra"
-fi
-AM_CONDITIONAL(ZEBRA, test "x$ZEBRA" = "xzebra")
+AM_CONDITIONAL(ZEBRA, test "${enable_zebra}" != "no")
 
 if test "${enable_bgpd}" = "no";then
   BGPD=""
@@ -1506,7 +1501,6 @@ fi
 AM_CONDITIONAL([ENABLE_BGP_VNC], [test x${enable_bgp_vnc} != xno])
 
 AC_SUBST(DOC)
-AC_SUBST(ZEBRA)
 AC_SUBST(RFPTEST)
 AC_SUBST(LIBRFP)
 AC_SUBST(RFPINC)
@@ -1969,7 +1963,7 @@ AC_CACHE_VAL(ac_cv_htonl_works,
 )
 AC_MSG_RESULT($ac_cv_htonl_works)
 
-AC_CONFIG_FILES([Makefile qpb/Makefile zebra/Makefile ripd/Makefile
+AC_CONFIG_FILES([Makefile qpb/Makefile ripd/Makefile
 	  ripngd/Makefile bgpd/Makefile ospfd/Makefile watchfrr/Makefile
 	  ospf6d/Makefile ldpd/Makefile isisd/Makefile vtysh/Makefile
 	  doc/Makefile ospfclient/Makefile tests/Makefile m4/Makefile

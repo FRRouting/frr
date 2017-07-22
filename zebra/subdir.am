@@ -1,0 +1,152 @@
+#
+# zebra
+#
+
+if ZEBRA
+sbin_PROGRAMS += zebra/zebra
+dist_examples_DATA += zebra/zebra.conf.sample
+
+if SNMP
+module_LTLIBRARIES += zebra/zebra_snmp.la
+endif
+if FPM
+module_LTLIBRARIES += zebra/zebra_fpm.la
+endif
+
+## endif ZEBRA
+endif
+
+ipforward = @IPFORWARD@
+if_method = @IF_METHOD@
+rt_method = @RT_METHOD@
+rtread_method = @RTREAD_METHOD@
+kernel_method = @KERNEL_METHOD@
+ioctl_method = @IOCTL_METHOD@
+mpls_method = @MPLS_METHOD@
+
+otherobj = \
+	zebra/$(ioctl_method) \
+	zebra/$(ipforward) \
+	zebra/$(if_method) \
+	zebra/$(rt_method) \
+	zebra/$(rtread_method) \
+	zebra/$(kernel_method) \
+	zebra/$(mpls_method) \
+	# end
+
+zebra_zebra_LDADD = $(otherobj) lib/libfrr.la $(LIBCAP)
+zebra_zebra_DEPENDENCIES = $(otherobj) lib/libfrr.la
+
+zebra_zebra_SOURCES = \
+	zebra/connected.c \
+	zebra/debug.c \
+	zebra/interface.c \
+	zebra/irdp_interface.c \
+	zebra/irdp_main.c \
+	zebra/irdp_packet.c \
+	zebra/label_manager.c \
+	zebra/main.c \
+	zebra/redistribute.c \
+	zebra/router-id.c \
+	zebra/rtadv.c \
+	zebra/zebra_l2.c \
+	zebra/zebra_memory.c \
+	zebra/zebra_mpls.c \
+	zebra/zebra_mpls_vty.c \
+	zebra/zebra_mroute.c \
+	zebra/zebra_ns.c \
+	zebra/zebra_ptm.c \
+	zebra/zebra_ptm_redistribute.c \
+	zebra/zebra_rib.c \
+	zebra/zebra_rnh.c \
+	zebra/zebra_routemap.c \
+	zebra/zebra_static.c \
+	zebra/zebra_vrf.c \
+	zebra/zebra_vty.c \
+	zebra/zebra_vxlan.c \
+	zebra/zserv.c \
+	# end
+
+zebra/zebra_vty.$(OBJEXT): zebra/zebra_vty_clippy.c
+
+noinst_HEADERS += \
+	zebra/connected.h \
+	zebra/debug.h \
+	zebra/if_netlink.h \
+	zebra/interface.h \
+	zebra/ioctl.h \
+	zebra/ioctl_solaris.h \
+	zebra/ipforward.h \
+	zebra/irdp.h \
+	zebra/kernel_netlink.h \
+	zebra/kernel_socket.h \
+	zebra/label_manager.h \
+	zebra/redistribute.h \
+	zebra/rib.h \
+	zebra/router-id.h \
+	zebra/rt.h \
+	zebra/rt_netlink.h \
+	zebra/rtadv.h \
+	zebra/zebra_fpm_private.h \
+	zebra/zebra_l2.h \
+	zebra/zebra_memory.h \
+	zebra/zebra_mpls.h \
+	zebra/zebra_mroute.h \
+	zebra/zebra_ns.h \
+	zebra/zebra_ptm.h \
+	zebra/zebra_ptm_redistribute.h \
+	zebra/zebra_rnh.h \
+	zebra/zebra_routemap.h \
+	zebra/zebra_static.h \
+	zebra/zebra_vrf.h \
+	zebra/zebra_vxlan.h \
+	zebra/zebra_vxlan_private.h \
+	zebra/zserv.h \
+	# end
+
+zebra_zebra_snmp_la_SOURCES = zebra/zebra_snmp.c
+zebra_zebra_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS)
+zebra_zebra_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+zebra_zebra_snmp_la_LIBADD = lib/libfrrsnmp.la
+
+zebra_zebra_fpm_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+zebra_zebra_fpm_la_LIBADD = $(Q_FPM_PB_CLIENT_LDOPTS)
+zebra_zebra_fpm_la_SOURCES = zebra/zebra_fpm.c
+if HAVE_NETLINK
+zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_netlink.c
+endif
+if HAVE_PROTOBUF
+zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_protobuf.c
+if DEV_BUILD
+zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_dt.c
+endif
+endif
+
+EXTRA_DIST += \
+	zebra/GNOME-SMI \
+	zebra/GNOME-PRODUCT-ZEBRA-MIB \
+	zebra/if_ioctl.c \
+	zebra/if_ioctl_solaris.c \
+	zebra/if_netlink.c \
+	zebra/if_sysctl.c \
+	zebra/ioctl.c \
+	zebra/ioctl_solaris.c \
+	zebra/ipforward_proc.c \
+	zebra/ipforward_solaris.c \
+	zebra/ipforward_sysctl.c \
+	zebra/kernel_netlink.c \
+	zebra/kernel_socket.c \
+	zebra/rt_netlink.c \
+	zebra/rt_socket.c \
+	zebra/rtread_getmsg.c \
+	zebra/rtread_netlink.c \
+	zebra/rtread_sysctl.c \
+	zebra/zebra_mpls_netlink.c \
+	zebra/zebra_mpls_null.c \
+	zebra/zebra_mpls_openbsd.c \
+	# end
+
+# -- unmaintained --
+# noinst_PROGRAMS += zebra/client
+# zebra_client_SOURCES = zebra/client_main.c
+# zebra_client_LDADD = lib/libfrr.la
