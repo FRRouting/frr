@@ -1236,10 +1236,10 @@ static int apiserver_sync_callback(struct ospf_lsa *lsa, void *p_arg,
 			zlog_warn(
 				"apiserver_sync_callback: new_msg_update failed");
 #ifdef NOTYET
-/* Cannot allocate new message. What should we do? */
-/*        ospf_apiserver_free (apiserv);*/ /* Do nothing
-					      here XXX
-					      */
+			/* Cannot allocate new message. What should we do? */
+			/*        ospf_apiserver_free (apiserv);*/ /* Do nothing
+								      here XXX
+								      */
 #endif
 			goto out;
 		}

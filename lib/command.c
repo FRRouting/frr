@@ -56,23 +56,19 @@ struct host host;
 
 /* Standard command node structures. */
 static struct cmd_node auth_node = {
-	AUTH_NODE,
-	"Password: ",
+	AUTH_NODE, "Password: ",
 };
 
 static struct cmd_node view_node = {
-	VIEW_NODE,
-	"%s> ",
+	VIEW_NODE, "%s> ",
 };
 
 static struct cmd_node auth_enable_node = {
-	AUTH_ENABLE_NODE,
-	"Password: ",
+	AUTH_ENABLE_NODE, "Password: ",
 };
 
 static struct cmd_node enable_node = {
-	ENABLE_NODE,
-	"%s# ",
+	ENABLE_NODE, "%s# ",
 };
 
 static struct cmd_node config_node = {CONFIG_NODE, "%s(config)# ", 1};
@@ -653,9 +649,8 @@ void cmd_variable_complete(struct cmd_token *token, const char *arg,
 	for (ALL_LIST_ELEMENTS_RO(varhandlers, ln, cvh)) {
 		if (cvh->tokenname && strcmp(cvh->tokenname, token->text))
 			continue;
-		if (cvh->varname
-		    && (!token->varname
-			|| strcmp(cvh->varname, token->varname)))
+		if (cvh->varname && (!token->varname
+				     || strcmp(cvh->varname, token->varname)))
 			continue;
 		cvh->completions(tmpcomps, token);
 		break;
@@ -1500,9 +1495,8 @@ DEFUN (config_write,
 	struct stat conf_stat;
 
 	// if command was 'write terminal' or 'show running-config'
-	if (argc == 2
-	    && (strmatch(argv[idx_type]->text, "terminal")
-		|| strmatch(argv[0]->text, "show"))) {
+	if (argc == 2 && (strmatch(argv[idx_type]->text, "terminal")
+			  || strmatch(argv[0]->text, "show"))) {
 		vty_write_config(vty);
 		return CMD_SUCCESS;
 	}

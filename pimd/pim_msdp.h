@@ -69,7 +69,7 @@ enum pim_msdp_sa_flags {
 	PIM_MSDP_SAF_PEER = (1 << 1),
 	PIM_MSDP_SAF_REF = (PIM_MSDP_SAF_LOCAL | PIM_MSDP_SAF_PEER),
 	PIM_MSDP_SAF_STALE = (1 << 2), /* local entries can get kicked out on
-					* misc pim events such as RP change */
+				       * misc pim events such as RP change */
 	PIM_MSDP_SAF_UP_DEL_IN_PROG = (1 << 3)
 };
 
@@ -116,13 +116,13 @@ struct pim_msdp_peer {
 #define PIM_MSDP_PEER_HOLD_TIME 75
 	struct thread *hold_timer; // 5.4
 				   /* $FRR indent$ */
-				   /* clang-format off */
+/* clang-format off */
 #define PIM_MSDP_PEER_KA_TIME 60
-	struct thread *ka_timer;   // 5.5
-				   /* $FRR indent$ */
-				   /* clang-format off */
+	struct thread *ka_timer; // 5.5
+				 /* $FRR indent$ */
+				 /* clang-format off */
 #define PIM_MSDP_PEER_CONNECT_RETRY_TIME 30
-	struct thread *cr_timer;   // 5.6
+	struct thread *cr_timer; // 5.6
 
 	/* packet thread and buffers */
 	uint32_t packet_size;

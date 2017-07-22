@@ -2603,9 +2603,8 @@ int rfapi_register(void *handle, struct rfapi_ip_prefix *prefix,
 			ZEBRA_ROUTE_BGP, BGP_ROUTE_RFP, NULL,
 			action == RFAPI_REGISTER_KILL);
 
-		if (0
-		    == rfapiApDelete(bgp, rfd, &p, pfx_mac, &prd,
-				     &adv_tunnel)) {
+		if (0 == rfapiApDelete(bgp, rfd, &p, pfx_mac, &prd,
+				       &adv_tunnel)) {
 			if (adv_tunnel)
 				rfapiTunnelRouteAnnounce(
 					bgp, rfd, &rfd->max_prefix_lifetime);

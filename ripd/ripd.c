@@ -454,8 +454,9 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 		/* Get back the object */
 		rte->nexthop = newinfo.nexthop_out;
 		rte->tag = htons(newinfo.tag_out); /* XXX */
-		rte->metric = newinfo.metric_out;  /* XXX: the routemap uses the
-						      metric_out field */
+		rte->metric =
+			newinfo.metric_out; /* XXX: the routemap uses the
+					       metric_out field */
 	}
 
 	/* Once the entry has been validated, update the metric by

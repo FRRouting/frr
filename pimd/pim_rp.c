@@ -948,9 +948,8 @@ void pim_rp_show_information(struct vty *vty, u_char uj)
 				inet_ntoa(prev_rp_info->rp.rpf_addr.u.prefix4),
 				json_rp_rows);
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }

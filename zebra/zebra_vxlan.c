@@ -903,10 +903,9 @@ static void zvni_mac_del_from_vtep(zebra_vni_t *zvni, int uninstall,
 	wctx.flags = DEL_REMOTE_MAC_FROM_VTEP;
 	wctx.r_vtep_ip = *r_vtep_ip;
 
-	hash_iterate(
-		zvni->mac_table,
-		(void (*)(struct hash_backet *, void *))zvni_mac_del_hash_entry,
-		&wctx);
+	hash_iterate(zvni->mac_table, (void (*)(struct hash_backet *,
+						void *))zvni_mac_del_hash_entry,
+		     &wctx);
 }
 
 /*
@@ -927,10 +926,9 @@ static void zvni_mac_del_all(struct zebra_vrf *zvrf, zebra_vni_t *zvni,
 	wctx.upd_client = upd_client;
 	wctx.flags = flags;
 
-	hash_iterate(
-		zvni->mac_table,
-		(void (*)(struct hash_backet *, void *))zvni_mac_del_hash_entry,
-		&wctx);
+	hash_iterate(zvni->mac_table, (void (*)(struct hash_backet *,
+						void *))zvni_mac_del_hash_entry,
+		     &wctx);
 }
 
 /*
@@ -1995,7 +1993,7 @@ int zebra_vxlan_local_neigh_add_update(struct interface *ifp,
 				send_del = 1;
 		} else if (ext_learned)
 		/* The neighbor is remote and that is the notification we got.
-		 */
+		   */
 		{
 			/* TODO: Evaluate if we need to do anything here. */
 			return 0;

@@ -429,7 +429,7 @@ static void if_addr_wakeup(struct interface *ifp)
 					 * XXX: RUNNING is not a settable flag
 					 * on any system
 					 * I (paulj) am aware of.
-					 */
+					*/
 					if_set_flags(ifp, IFF_UP | IFF_RUNNING);
 					if_refresh(ifp);
 				}
@@ -1757,9 +1757,7 @@ DEFUN (no_bandwidth_if,
 
 
 struct cmd_node link_params_node = {
-	LINK_PARAMS_NODE,
-	"%s(config-link-params)# ",
-	1,
+	LINK_PARAMS_NODE, "%s(config-link-params)# ", 1,
 };
 
 static void link_param_cmd_set_uint32(struct interface *ifp, uint32_t *field,

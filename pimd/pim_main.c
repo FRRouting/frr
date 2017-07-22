@@ -53,10 +53,7 @@ struct option longopts[] = {{0}};
 
 /* pimd privileges */
 zebra_capabilities_t _caps_p[] = {
-	ZCAP_NET_ADMIN,
-	ZCAP_SYS_ADMIN,
-	ZCAP_NET_RAW,
-	ZCAP_BIND,
+	ZCAP_NET_ADMIN, ZCAP_SYS_ADMIN, ZCAP_NET_RAW, ZCAP_BIND,
 };
 
 /* pimd privileges to run with */

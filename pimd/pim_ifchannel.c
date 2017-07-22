@@ -814,9 +814,8 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 		/*
 		 * If we are going to be a LHR, we need to note it
 		 */
-		if (ch->upstream->parent
-		    && (ch->upstream->parent->flags
-			& PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
+		if (ch->upstream->parent && (ch->upstream->parent->flags
+					     & PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
 		    && !(ch->upstream->flags
 			 & PIM_UPSTREAM_FLAG_MASK_SRC_LHR)) {
 			pim_upstream_ref(ch->upstream,

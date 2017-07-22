@@ -361,9 +361,8 @@ int static_add_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	if (!stable)
 		return -1;
 
-	if (!gate
-	    && (type == STATIC_IPV4_GATEWAY || type == STATIC_IPV6_GATEWAY
-		|| type == STATIC_IPV6_GATEWAY_IFINDEX))
+	if (!gate && (type == STATIC_IPV4_GATEWAY || type == STATIC_IPV6_GATEWAY
+		      || type == STATIC_IPV6_GATEWAY_IFINDEX))
 		return -1;
 
 	if (!ifindex
@@ -376,11 +375,10 @@ int static_add_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	/* Do nothing if there is a same static route.  */
 	for (si = rn->info; si; si = si->next) {
 		if (type == si->type
-		    && (!gate
-			|| ((afi == AFI_IP
-			     && IPV4_ADDR_SAME(gate, &si->addr.ipv4))
-			    || (afi == AFI_IP6
-				&& IPV6_ADDR_SAME(gate, &si->addr.ipv6))))
+		    && (!gate || ((afi == AFI_IP
+				   && IPV4_ADDR_SAME(gate, &si->addr.ipv4))
+				  || (afi == AFI_IP6
+				      && IPV6_ADDR_SAME(gate, &si->addr.ipv6))))
 		    && (!ifindex || ifindex == si->ifindex)) {
 			if ((distance == si->distance) && (tag == si->tag)
 			    && !memcmp(&si->snh_label, snh_label,
@@ -485,11 +483,10 @@ int static_delete_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	/* Find same static route is the tree */
 	for (si = rn->info; si; si = si->next)
 		if (type == si->type
-		    && (!gate
-			|| ((afi == AFI_IP
-			     && IPV4_ADDR_SAME(gate, &si->addr.ipv4))
-			    || (afi == AFI_IP6
-				&& IPV6_ADDR_SAME(gate, &si->addr.ipv6))))
+		    && (!gate || ((afi == AFI_IP
+				   && IPV4_ADDR_SAME(gate, &si->addr.ipv4))
+				  || (afi == AFI_IP6
+				      && IPV6_ADDR_SAME(gate, &si->addr.ipv6))))
 		    && (!ifindex || ifindex == si->ifindex)
 		    && (!tag || (tag == si->tag))
 		    && (!snh_label->num_labels

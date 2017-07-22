@@ -73,9 +73,8 @@ static char *ospf6_router_lsa_get_nbr_id(struct ospf6_lsa *lsa, char *buf,
 
 		lsdesc = (struct ospf6_router_lsdesc
 				  *)(start
-				     + pos
-					       * (sizeof(struct
-							 ospf6_router_lsdesc)));
+				     + pos * (sizeof(struct
+						     ospf6_router_lsdesc)));
 		if ((char *)lsdesc < end) {
 			if (buf && (buflen > INET_ADDRSTRLEN * 2)) {
 				inet_ntop(AF_INET,

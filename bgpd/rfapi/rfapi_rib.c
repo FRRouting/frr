@@ -527,11 +527,11 @@ void rfapiRibClear(struct rfapi_descriptor *rfd)
 
 					struct rfapi_info *ri;
 
-					while (0
-					       == skiplist_first(
-							  (struct skiplist *)
-								  rn->info,
-							  NULL, (void **)&ri)) {
+					while (0 == skiplist_first(
+							    (struct skiplist *)
+								    rn->info,
+							    NULL,
+							    (void **)&ri)) {
 
 						rfapi_info_free(ri);
 						skiplist_delete_first(
@@ -2449,7 +2449,7 @@ void rfapiRibShowResponses(void *stream, struct prefix *pfx_match,
 #else
 					   "Remaining"
 #endif
-					);
+					   );
 				}
 				if (!printednve) {
 					char str_vn[BUFSIZ];

@@ -1470,8 +1470,7 @@ DEFUN (no_bgp_maxpaths,
 }
 
 ALIAS_HIDDEN(no_bgp_maxpaths, no_bgp_maxpaths_hidden_cmd,
-	     "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM) "]",
-	     NO_STR
+	     "no maximum-paths [" CMD_RANGE_STR(1, MULTIPATH_NUM) "]", NO_STR
 	     "Forward packets over multiple paths\n"
 	     "Number of paths\n")
 
@@ -6377,9 +6376,8 @@ DEFUN (show_bgp_vrfs,
 
 		json_object_int_add(json, "totalVrfs", count);
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
 		if (count)
@@ -6473,20 +6471,17 @@ DEFUN (show_bgp_memory,
 	/* Other attributes */
 	if ((count = community_count()))
 		vty_out(vty, "%ld BGP community entries, using %s of memory\n",
-			count,
-			mtype_memstr(memstrbuf, sizeof(memstrbuf),
-				     count * sizeof(struct community)));
+			count, mtype_memstr(memstrbuf, sizeof(memstrbuf),
+					    count * sizeof(struct community)));
 	if ((count = mtype_stats_alloc(MTYPE_ECOMMUNITY)))
 		vty_out(vty, "%ld BGP community entries, using %s of memory\n",
-			count,
-			mtype_memstr(memstrbuf, sizeof(memstrbuf),
-				     count * sizeof(struct ecommunity)));
+			count, mtype_memstr(memstrbuf, sizeof(memstrbuf),
+					    count * sizeof(struct ecommunity)));
 	if ((count = mtype_stats_alloc(MTYPE_LCOMMUNITY)))
 		vty_out(vty,
 			"%ld BGP large-community entries, using %s of memory\n",
-			count,
-			mtype_memstr(memstrbuf, sizeof(memstrbuf),
-				     count * sizeof(struct lcommunity)));
+			count, mtype_memstr(memstrbuf, sizeof(memstrbuf),
+					    count * sizeof(struct lcommunity)));
 
 	if ((count = mtype_stats_alloc(MTYPE_CLUSTER)))
 		vty_out(vty, "%ld Cluster lists, using %s of memory\n", count,
@@ -6515,9 +6510,8 @@ DEFUN (show_bgp_memory,
 				     count * sizeof(struct hash_backet)));
 	if ((count = mtype_stats_alloc(MTYPE_BGP_REGEXP)))
 		vty_out(vty, "%ld compiled regexes, using %s of memory\n",
-			count,
-			mtype_memstr(memstrbuf, sizeof(memstrbuf),
-				     count * sizeof(regex_t)));
+			count, mtype_memstr(memstrbuf, sizeof(memstrbuf),
+					    count * sizeof(regex_t)));
 	return CMD_SUCCESS;
 }
 
@@ -6742,9 +6736,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 							ents);
 						json_object_int_add(
 							json, "peerGroupMemory",
-							ents
-								* sizeof(struct
-									 peer_group));
+							ents * sizeof(struct
+								      peer_group));
 					}
 
 					if (CHECK_FLAG(bgp->af_flags[afi][safi],
@@ -6775,9 +6768,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 						mtype_memstr(
 							memstrbuf,
 							sizeof(memstrbuf),
-							ents
-								* sizeof(struct
-									 bgp_node)));
+							ents * sizeof(struct
+								      bgp_node)));
 
 					/* Peer related usage */
 					ents = listcount(bgp->peer);
@@ -6787,9 +6779,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 						mtype_memstr(
 							memstrbuf,
 							sizeof(memstrbuf),
-							ents
-								* sizeof(struct
-									 peer)));
+							ents * sizeof(struct
+								      peer)));
 
 					if ((ents = listcount(bgp->group)))
 						vty_out(vty,
@@ -6798,9 +6789,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 							mtype_memstr(
 								memstrbuf,
 								sizeof(memstrbuf),
-								ents
-									* sizeof(struct
-										 peer_group)));
+								ents * sizeof(struct
+									      peer_group)));
 
 					if (CHECK_FLAG(bgp->af_flags[afi][safi],
 						       BGP_CONFIG_DAMPENING))
@@ -6918,9 +6908,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					vty_out(vty, "%*s",
 						max_neighbor_width - len, " ");
 
-				vty_out(vty,
-					"4 %10u %7d %7d %8" PRIu64
-					" %4d %4zd %8s",
+				vty_out(vty, "4 %10u %7d %7d %8" PRIu64
+					     " %4d %4zd %8s",
 					peer->as,
 					peer->open_in + peer->update_in
 						+ peer->keepalive_in
@@ -6968,9 +6957,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 		json_object_int_add(json, "totalPeers", count);
 		json_object_int_add(json, "dynamicPeers", dn_count);
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
 		if (count)
@@ -7065,9 +7053,10 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 			}
 			safi++;
 			if (safi == SAFI_RESERVED_4
-			    || safi == SAFI_RESERVED_5) /* handle special
-							   cases to match
-							   zebra.h */
+			    || safi
+				       == SAFI_RESERVED_5) /* handle special
+							      cases to match
+							      zebra.h */
 				safi++;
 			if (!safi_wildcard)
 				safi = SAFI_MAX;
@@ -7626,9 +7615,8 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 
 		paf = peer_af_find(p, afi, safi);
 		if (paf && PAF_SUBGRP(paf)) {
-			vty_out(vty,
-				"  Update group %" PRIu64 ", subgroup %" PRIu64
-				"\n",
+			vty_out(vty, "  Update group %" PRIu64
+				     ", subgroup %" PRIu64 "\n",
 				PAF_UPDGRP(paf)->id, PAF_SUBGRP(paf)->id);
 			vty_out(vty, "  Packet Queue length %d\n",
 				bpacket_queue_virtual_length(paf));
@@ -9394,9 +9382,8 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 			} else
 				vty_out(vty,
 					"  Reduce the no. of prefix from %s, will restart in %ld seconds\n",
-					p->host,
-					thread_timer_remain_second(
-						p->t_pmax_restart));
+					p->host, thread_timer_remain_second(
+							 p->t_pmax_restart));
 		} else {
 			if (use_json)
 				json_object_boolean_true_add(
@@ -9636,9 +9623,8 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 	}
 
 	if (use_json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
 		vty_out(vty, "\n");
@@ -11093,45 +11079,31 @@ int bgp_config_write_redistribute(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 /* BGP node structure. */
 static struct cmd_node bgp_node = {
-	BGP_NODE,
-	"%s(config-router)# ",
-	1,
+	BGP_NODE, "%s(config-router)# ", 1,
 };
 
 static struct cmd_node bgp_ipv4_unicast_node = {
-	BGP_IPV4_NODE,
-	"%s(config-router-af)# ",
-	1,
+	BGP_IPV4_NODE, "%s(config-router-af)# ", 1,
 };
 
 static struct cmd_node bgp_ipv4_multicast_node = {
-	BGP_IPV4M_NODE,
-	"%s(config-router-af)# ",
-	1,
+	BGP_IPV4M_NODE, "%s(config-router-af)# ", 1,
 };
 
 static struct cmd_node bgp_ipv4_labeled_unicast_node = {
-	BGP_IPV4L_NODE,
-	"%s(config-router-af)# ",
-	1,
+	BGP_IPV4L_NODE, "%s(config-router-af)# ", 1,
 };
 
 static struct cmd_node bgp_ipv6_unicast_node = {
-	BGP_IPV6_NODE,
-	"%s(config-router-af)# ",
-	1,
+	BGP_IPV6_NODE, "%s(config-router-af)# ", 1,
 };
 
 static struct cmd_node bgp_ipv6_multicast_node = {
-	BGP_IPV6M_NODE,
-	"%s(config-router-af)# ",
-	1,
+	BGP_IPV6M_NODE, "%s(config-router-af)# ", 1,
 };
 
 static struct cmd_node bgp_ipv6_labeled_unicast_node = {
-	BGP_IPV6L_NODE,
-	"%s(config-router-af)# ",
-	1,
+	BGP_IPV6L_NODE, "%s(config-router-af)# ", 1,
 };
 
 static struct cmd_node bgp_vpnv4_node = {BGP_VPNV4_NODE,

@@ -661,8 +661,7 @@ int config_write_rip_redistribute(struct vty *vty, int config_mode)
 
 /* Zebra node structure. */
 static struct cmd_node zebra_node = {
-	ZEBRA_NODE,
-	"%s(config-router)# ",
+	ZEBRA_NODE, "%s(config-router)# ",
 };
 
 static void rip_zebra_connected(struct zclient *zclient)

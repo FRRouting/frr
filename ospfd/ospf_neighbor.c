@@ -460,8 +460,9 @@ struct ospf_neighbor *ospf_nbr_get(struct ospf_interface *oi,
 
 	if (oi->type == OSPF_IFTYPE_VIRTUALLINK
 	    || oi->type == OSPF_IFTYPE_POINTOPOINT)
-		key.u.prefix4 = ospfh->router_id; /* index vlink and ptp nbrs by
-						     router-id */
+		key.u.prefix4 =
+			ospfh->router_id; /* index vlink and ptp nbrs by
+					     router-id */
 	else
 		key.u.prefix4 = iph->ip_src;
 

@@ -1121,8 +1121,8 @@ int update_subgroup_check_merge(struct update_subgroup *subgrp,
 }
 
 /*
- * update_subgroup_merge_check_thread_cb
- */
+* update_subgroup_merge_check_thread_cb
+*/
 static int update_subgroup_merge_check_thread_cb(struct thread *thread)
 {
 	struct update_subgroup *subgrp;

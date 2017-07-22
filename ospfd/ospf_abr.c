@@ -1034,20 +1034,22 @@ static void ospf_abr_process_network_rt(struct ospf *ospf,
 			continue;
 		}
 
-		if (or->path_type == OSPF_PATH_INTRA_AREA
-			      && !ospf_abr_should_announce(
-					 ospf, (struct prefix_ipv4 *)&rn->p,
-					 or)) {
+		if (
+			or->path_type == OSPF_PATH_INTRA_AREA
+				  && !ospf_abr_should_announce(
+					     ospf, (struct prefix_ipv4 *)&rn->p,
+					     or)) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
 					"ospf_abr_process_network_rt(): denied by export-list");
 			continue;
 		}
 
-		if (or->path_type == OSPF_PATH_INTRA_AREA
-			      && !ospf_abr_plist_out_check(
-					 area, or,
-					 (struct prefix_ipv4 *)&rn->p)) {
+		if (
+			or->path_type == OSPF_PATH_INTRA_AREA
+				  && !ospf_abr_plist_out_check(
+					     area, or,
+					     (struct prefix_ipv4 *)&rn->p)) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
 					"ospf_abr_process_network_rt(): denied by prefix-list");
@@ -1269,9 +1271,10 @@ static void ospf_abr_process_router_rt(struct ospf *ospf,
 				continue;
 			}
 
-			if (or->path_type == OSPF_PATH_INTER_AREA
-				      && !OSPF_IS_AREA_ID_BACKBONE(
-						 or->u.std.area_id)) {
+			if (
+				or->path_type == OSPF_PATH_INTER_AREA
+					  && !OSPF_IS_AREA_ID_BACKBONE(
+						     or->u.std.area_id)) {
 				if (IS_DEBUG_OSPF_EVENT)
 					zlog_debug(
 						"ospf_abr_process_router_rt(): "

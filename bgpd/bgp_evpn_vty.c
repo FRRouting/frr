@@ -1301,10 +1301,9 @@ static void evpn_show_routes_vni_all(struct vty *vty, struct bgp *bgp,
 	wctx.bgp = bgp;
 	wctx.vty = vty;
 	wctx.vtep_ip = vtep_ip;
-	hash_iterate(
-		bgp->vnihash,
-		(void (*)(struct hash_backet *, void *))show_vni_routes_hash,
-		&wctx);
+	hash_iterate(bgp->vnihash, (void (*)(struct hash_backet *,
+					     void *))show_vni_routes_hash,
+		     &wctx);
 }
 
 /*

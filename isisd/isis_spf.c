@@ -366,9 +366,10 @@ static struct isis_vertex *isis_spf_add_root(struct isis_spftree *spftree,
 		zlog_warn("ISIS-Spf: could not find own l%d LSP!",
 			  spftree->level);
 
-	vertex = isis_vertex_new(id, spftree->area->oldmetric
-					     ? VTYPE_NONPSEUDO_IS
-					     : VTYPE_NONPSEUDO_TE_IS);
+	vertex = isis_vertex_new(id,
+				 spftree->area->oldmetric
+					 ? VTYPE_NONPSEUDO_IS
+					 : VTYPE_NONPSEUDO_TE_IS);
 	listnode_add(spftree->paths, vertex);
 
 #ifdef EXTREME_DEBUG
@@ -507,13 +508,11 @@ static void isis_spf_add_local(struct isis_spftree *spftree,
 			/*       d) */
 			if (listcount(vertex->Adj_N) > ISIS_MAX_PATH_SPLITS)
 				remove_excess_adjs(vertex->Adj_N);
-			if (parent
-			    && (listnode_lookup(vertex->parents, parent)
-				== NULL))
+			if (parent && (listnode_lookup(vertex->parents, parent)
+				       == NULL))
 				listnode_add(vertex->parents, parent);
-			if (parent
-			    && (listnode_lookup(parent->children, vertex)
-				== NULL))
+			if (parent && (listnode_lookup(parent->children, vertex)
+				       == NULL))
 				listnode_add(parent->children, vertex);
 			return;
 		} else if (vertex->d_N < cost) {
@@ -650,9 +649,8 @@ static int isis_spf_process_lsp(struct isis_spftree *spftree,
 		mt_router_info = tlvs_lookup_mt_router_info(&lsp->tlv_data,
 							    spftree->mtid);
 
-	if (!pseudo_lsp
-	    && (spftree->mtid == ISIS_MT_IPV4_UNICAST
-		&& !speaks(lsp->tlv_data.nlpids, spftree->family))
+	if (!pseudo_lsp && (spftree->mtid == ISIS_MT_IPV4_UNICAST
+			    && !speaks(lsp->tlv_data.nlpids, spftree->family))
 	    && !mt_router_info)
 		return ISIS_OK;
 
@@ -669,9 +667,8 @@ lspfragloop:
 #endif /* EXTREME_DEBUG */
 
 	/* RFC3787 section 4 SHOULD ignore overload bit in pseudo LSPs */
-	if (pseudo_lsp
-	    || (spftree->mtid == ISIS_MT_IPV4_UNICAST
-		&& !ISIS_MASK_LSP_OL_BIT(lsp->lsp_header->lsp_bits))
+	if (pseudo_lsp || (spftree->mtid == ISIS_MT_IPV4_UNICAST
+			   && !ISIS_MASK_LSP_OL_BIT(lsp->lsp_header->lsp_bits))
 	    || (mt_router_info && !mt_router_info->overload))
 
 	{

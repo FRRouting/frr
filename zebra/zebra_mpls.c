@@ -1965,7 +1965,7 @@ int zebra_mpls_label_already_bound(struct zebra_vrf *zvrf, mpls_label_t label)
  * Add static FEC to label binding. If there are clients registered for this
  * FEC, notify them. If there are labeled routes for this FEC, install the
  * label forwarding entry.
- */
+*/
 int zebra_mpls_static_fec_add(struct zebra_vrf *zvrf, struct prefix *p,
 			      mpls_label_t in_label)
 {
@@ -2639,9 +2639,8 @@ void zebra_mpls_print_lsp(struct vty *vty, struct zebra_vrf *zvrf,
 
 	if (use_json) {
 		json = lsp_json(lsp);
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else
 		lsp_print(lsp, (void *)vty);
@@ -2669,9 +2668,8 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 				json, label2str(lsp->ile.in_label, buf, BUFSIZ),
 				lsp_json(lsp));
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
 		vty_out(vty, " Inbound                            Outbound\n");

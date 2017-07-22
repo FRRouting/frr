@@ -158,9 +158,8 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 		if (ret) {
 			zlog_err(
 				"%s: Can't set TxTTL on peer (rtrid %s) socket, err = %d",
-				__func__,
-				inet_ntop(AF_INET, &peer->remote_id, buf,
-					  sizeof(buf)),
+				__func__, inet_ntop(AF_INET, &peer->remote_id,
+						    buf, sizeof(buf)),
 				errno);
 			return ret;
 		}
@@ -173,9 +172,8 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 		if (ret) {
 			zlog_err(
 				"%s: Can't set TxTTL on peer (rtrid %s) socket, err = %d",
-				__func__,
-				inet_ntop(AF_INET, &peer->remote_id, buf,
-					  sizeof(buf)),
+				__func__, inet_ntop(AF_INET, &peer->remote_id,
+						    buf, sizeof(buf)),
 				errno);
 			return ret;
 		}
@@ -184,9 +182,8 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 		if (ret) {
 			zlog_err(
 				"%s: Can't set MinTTL on peer (rtrid %s) socket, err = %d",
-				__func__,
-				inet_ntop(AF_INET, &peer->remote_id, buf,
-					  sizeof(buf)),
+				__func__, inet_ntop(AF_INET, &peer->remote_id,
+						    buf, sizeof(buf)),
 				errno);
 			return ret;
 		}

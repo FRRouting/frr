@@ -732,9 +732,8 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 
 		space_remaining = STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s))
 				  - BGP_MAX_PACKET_SIZE_OVERFLOW;
-		space_needed =
-			BGP_NLRI_LENGTH
-			+ bgp_packet_mpattr_prefix_size(afi, safi, &rn->p);
+		space_needed = BGP_NLRI_LENGTH + bgp_packet_mpattr_prefix_size(
+							 afi, safi, &rn->p);
 
 		/* When remaining space can't include NLRI and it's length.  */
 		if (space_remaining < space_needed)
@@ -778,9 +777,9 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			space_remaining =
 				STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s))
 				- BGP_MAX_PACKET_SIZE_OVERFLOW;
-			space_needed = BGP_NLRI_LENGTH
-				       + bgp_packet_mpattr_prefix_size(
-						 afi, safi, &rn->p);
+			space_needed =
+				BGP_NLRI_LENGTH + bgp_packet_mpattr_prefix_size(
+							  afi, safi, &rn->p);
 
 			/* If the attributes alone do not leave any room for
 			 * NLRI then

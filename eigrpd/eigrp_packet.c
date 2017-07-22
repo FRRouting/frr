@@ -134,9 +134,8 @@ int eigrp_make_md5_digest(struct eigrp_interface *ei, struct stream *s,
 			MD5Update(&ctx, zeropad, 16 - strlen(key->string));
 		if (backup_end > (EIGRP_HEADER_LEN + EIGRP_AUTH_MD5_TLV_SIZE)) {
 			MD5Update(&ctx,
-				  ibuf
-					  + (EIGRP_HEADER_LEN
-					     + EIGRP_AUTH_MD5_TLV_SIZE),
+				  ibuf + (EIGRP_HEADER_LEN
+					  + EIGRP_AUTH_MD5_TLV_SIZE),
 				  backup_end - 20
 					  - (EIGRP_HEADER_LEN
 					     + EIGRP_AUTH_MD5_TLV_SIZE));
@@ -209,9 +208,8 @@ int eigrp_check_md5_digest(struct stream *s,
 			MD5Update(&ctx, zeropad, 16 - strlen(key->string));
 		if (backup_end > (EIGRP_HEADER_LEN + EIGRP_AUTH_MD5_TLV_SIZE)) {
 			MD5Update(&ctx,
-				  ibuf
-					  + (EIGRP_HEADER_LEN
-					     + EIGRP_AUTH_MD5_TLV_SIZE),
+				  ibuf + (EIGRP_HEADER_LEN
+					  + EIGRP_AUTH_MD5_TLV_SIZE),
 				  backup_end - 20
 					  - (EIGRP_HEADER_LEN
 					     + EIGRP_AUTH_MD5_TLV_SIZE));
@@ -328,9 +326,9 @@ int eigrp_write(struct thread *thread)
 	struct listnode *node;
 #ifdef WANT_EIGRP_WRITE_FRAGMENT
 	static u_int16_t ipid = 0;
-#endif  /* WANT_EIGRP_WRITE_FRAGMENT */
-	/* $FRR indent$ */
-	/* clang-format off */
+#endif /* WANT_EIGRP_WRITE_FRAGMENT */
+       /* $FRR indent$ */
+/* clang-format off */
 #define EIGRP_WRITE_IPHL_SHIFT 2
 
 	eigrp->t_write = NULL;

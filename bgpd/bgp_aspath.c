@@ -878,9 +878,8 @@ size_t aspath_put(struct stream *s, struct aspath *as, int use32bit)
 		 * The general assumption here is that many things tested will
 		 * never happen.  And, in real live, up to now, they have not.
 		 */
-		while (seg
-		       && (ASSEGMENT_LEN(seg, use32bit)
-			   <= STREAM_WRITEABLE(s))) {
+		while (seg && (ASSEGMENT_LEN(seg, use32bit)
+			       <= STREAM_WRITEABLE(s))) {
 			struct assegment *next = seg->next;
 			int written = 0;
 			int asns_packed = 0;
@@ -1585,14 +1584,12 @@ int aspath_cmp_left(const struct aspath *aspath1, const struct aspath *aspath2)
 		return 1;
 
 	/* find first non-confed segments for each */
-	while (seg1
-	       && ((seg1->type == AS_CONFED_SEQUENCE)
-		   || (seg1->type == AS_CONFED_SET)))
+	while (seg1 && ((seg1->type == AS_CONFED_SEQUENCE)
+			|| (seg1->type == AS_CONFED_SET)))
 		seg1 = seg1->next;
 
-	while (seg2
-	       && ((seg2->type == AS_CONFED_SEQUENCE)
-		   || (seg2->type == AS_CONFED_SET)))
+	while (seg2 && ((seg2->type == AS_CONFED_SEQUENCE)
+			|| (seg2->type == AS_CONFED_SET)))
 		seg2 = seg2->next;
 
 	/* Check as1's */
@@ -2069,8 +2066,7 @@ static void aspath_show_all_iterator(struct hash_backet *backet,
    `show [ip] bgp paths' command. */
 void aspath_print_all_vty(struct vty *vty)
 {
-	hash_iterate(ashash,
-		     (void (*)(struct hash_backet *,
-			       void *))aspath_show_all_iterator,
+	hash_iterate(ashash, (void (*)(struct hash_backet *,
+				       void *))aspath_show_all_iterator,
 		     vty);
 }

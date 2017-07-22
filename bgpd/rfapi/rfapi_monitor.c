@@ -1339,11 +1339,10 @@ struct route_node *rfapiMonitorEthAdd(struct bgp *bgp,
 	{
 		char buf[BUFSIZ];
 
-		vnc_zlog_debug_verbose("%s: LNI=%d: rfd=%p, pfx=%s", __func__,
-				       logical_net_id, rfd,
-				       rfapi_ntop(pfx_mac_buf.family,
-						  pfx_mac_buf.u.val, buf,
-						  BUFSIZ));
+		vnc_zlog_debug_verbose(
+			"%s: LNI=%d: rfd=%p, pfx=%s", __func__, logical_net_id,
+			rfd, rfapi_ntop(pfx_mac_buf.family, pfx_mac_buf.u.val,
+					buf, BUFSIZ));
 	}
 
 

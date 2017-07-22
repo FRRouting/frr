@@ -104,8 +104,9 @@ struct eigrp {
 
 	uint64_t serno; /* Global serial number counter for topology entry
 			   changes*/
-	uint64_t serno_last_update; /* Highest serial number of information send
-				       by last update*/
+	uint64_t
+		serno_last_update; /* Highest serial number of information send
+				      by last update*/
 	struct list *topology_changes_internalIPV4;
 	struct list *topology_changes_externalIPV4;
 

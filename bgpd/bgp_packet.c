@@ -547,8 +547,9 @@ void bgp_open_send(struct peer *peer)
 
 	/* Set open packet values. */
 	stream_putc(s, BGP_VERSION_4); /* BGP version */
-	stream_putw(s, (local_as <= BGP_AS_MAX) ? (u_int16_t)local_as
-						: BGP_AS_TRANS);
+	stream_putw(s,
+		    (local_as <= BGP_AS_MAX) ? (u_int16_t)local_as
+					     : BGP_AS_TRANS);
 	stream_putw(s, send_holdtime);		/* Hold Time */
 	stream_put_in_addr(s, &peer->local_id); /* BGP Identifier */
 

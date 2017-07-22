@@ -53,9 +53,9 @@ struct ethaddr {
 
 
 /* length is the number of valuable bits of prefix structure
- * 18 bytes is current length in structure, if address is ipv4
- * 30 bytes is in case of ipv6
- */
+* 18 bytes is current length in structure, if address is ipv4
+* 30 bytes is in case of ipv6
+*/
 #define PREFIX_LEN_ROUTE_TYPE_5_IPV4 (18*8)
 #define PREFIX_LEN_ROUTE_TYPE_5_IPV6 (30*8)
 

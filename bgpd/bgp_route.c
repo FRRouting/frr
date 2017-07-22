@@ -1916,9 +1916,8 @@ int subgroup_process_announce_selected(struct update_subgroup *subgrp,
 						 : NULL);
 
 	/* First update is deferred until ORF or ROUTE-REFRESH is received */
-	if (onlypeer
-	    && CHECK_FLAG(onlypeer->af_sflags[afi][safi],
-			  PEER_STATUS_ORF_WAIT_REFRESH))
+	if (onlypeer && CHECK_FLAG(onlypeer->af_sflags[afi][safi],
+				   PEER_STATUS_ORF_WAIT_REFRESH))
 		return 0;
 
 	memset(&attr, 0, sizeof(struct attr));
@@ -3869,7 +3868,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 				 * an error SHOULD
 				 * be logged locally, and the prefix SHOULD be
 				 * ignored.
-				 */
+				  */
 				zlog_err(
 					"%s: IPv4 unicast NLRI is multicast address %s, ignoring",
 					peer->host, inet_ntoa(p.u.prefix4));
@@ -5210,16 +5209,14 @@ DEFUN (no_bgp_network_mask_natural,
 }
 
 ALIAS(no_bgp_network, no_bgp_network_label_index_cmd,
-      "no network A.B.C.D/M label-index (0-1048560)",
-      NO_STR
+      "no network A.B.C.D/M label-index (0-1048560)", NO_STR
       "Specify a network to announce via BGP\n"
       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
       "Label index to associate with the prefix\n"
       "Label index value\n")
 
 ALIAS(no_bgp_network, no_bgp_network_label_index_route_map_cmd,
-      "no network A.B.C.D/M label-index (0-1048560) route-map WORD",
-      NO_STR
+      "no network A.B.C.D/M label-index (0-1048560) route-map WORD", NO_STR
       "Specify a network to announce via BGP\n"
       "IP prefix\n"
       "Label index to associate with the prefix\n"
@@ -5301,16 +5298,14 @@ DEFUN (no_ipv6_bgp_network,
 }
 
 ALIAS(no_ipv6_bgp_network, no_ipv6_bgp_network_label_index_cmd,
-      "no network X:X::X:X/M label-index (0-1048560)",
-      NO_STR
+      "no network X:X::X:X/M label-index (0-1048560)", NO_STR
       "Specify a network to announce via BGP\n"
       "IPv6 prefix <network>/<length>\n"
       "Label index to associate with the prefix\n"
       "Label index value\n")
 
 ALIAS(no_ipv6_bgp_network, no_ipv6_bgp_network_label_index_route_map_cmd,
-      "no network X:X::X:X/M label-index (0-1048560) route-map WORD",
-      NO_STR
+      "no network X:X::X:X/M label-index (0-1048560) route-map WORD", NO_STR
       "Specify a network to announce via BGP\n"
       "IPv6 prefix\n"
       "Label index to associate with the prefix\n"
@@ -6510,10 +6505,11 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 						len = vty_out(
 							vty, "%s",
 							binfo->peer->conf_if);
-						len = 7 - len; /* len of IPv6
-								  addr + max
-								  len of def
-								  ifname */
+						len =
+							7 - len; /* len of IPv6
+								    addr + max
+								    len of def
+								    ifname */
 
 						if (len < 1)
 							vty_out(vty, "\n%*s",
@@ -7000,10 +6996,9 @@ static void damp_route_vty_out(struct vty *vty, struct prefix *p,
 		bgp_damp_reuse_time_vty(vty, binfo, timebuf, BGP_UPTIME_LEN,
 					use_json, json);
 	else
-		vty_out(vty, "%s ",
-			bgp_damp_reuse_time_vty(vty, binfo, timebuf,
-						BGP_UPTIME_LEN, use_json,
-						json));
+		vty_out(vty, "%s ", bgp_damp_reuse_time_vty(vty, binfo, timebuf,
+							    BGP_UPTIME_LEN,
+							    use_json, json));
 
 	/* Print attribute */
 	attr = binfo->attr;
@@ -7082,9 +7077,8 @@ static void flap_route_vty_out(struct vty *vty, struct prefix *p,
 		peer_uptime(bdi->start_time, timebuf, BGP_UPTIME_LEN, use_json,
 			    json);
 	else
-		vty_out(vty, "%s ",
-			peer_uptime(bdi->start_time, timebuf, BGP_UPTIME_LEN, 0,
-				    NULL));
+		vty_out(vty, "%s ", peer_uptime(bdi->start_time, timebuf,
+						BGP_UPTIME_LEN, 0, NULL));
 
 	if (CHECK_FLAG(binfo->flags, BGP_INFO_DAMPED)
 	    && !CHECK_FLAG(binfo->flags, BGP_INFO_HISTORY)) {
@@ -8604,9 +8598,8 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 		if (display)
 			json_object_object_add(json, "paths", json_paths);
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
 		if (!display) {
@@ -9276,20 +9269,21 @@ enum bgp_stats {
 };
 
 static const char *table_stats_strs[] = {
-	[BGP_STATS_PREFIXES] = "Total Prefixes",
-	[BGP_STATS_TOTPLEN] = "Average prefix length",
-	[BGP_STATS_RIB] = "Total Advertisements",
-	[BGP_STATS_UNAGGREGATEABLE] = "Unaggregateable prefixes",
-	[BGP_STATS_MAX_AGGREGATEABLE] = "Maximum aggregateable prefixes",
-	[BGP_STATS_AGGREGATES] = "BGP Aggregate advertisements",
-	[BGP_STATS_SPACE] = "Address space advertised",
-	[BGP_STATS_ASPATH_COUNT] = "Advertisements with paths",
-	[BGP_STATS_ASPATH_MAXHOPS] = "Longest AS-Path (hops)",
-	[BGP_STATS_ASPATH_MAXSIZE] = "Largest AS-Path (bytes)",
-	[BGP_STATS_ASPATH_TOTHOPS] = "Average AS-Path length (hops)",
-	[BGP_STATS_ASPATH_TOTSIZE] = "Average AS-Path size (bytes)",
-	[BGP_STATS_ASN_HIGHEST] = "Highest public ASN",
-	[BGP_STATS_MAX] = NULL,
+		[BGP_STATS_PREFIXES] = "Total Prefixes",
+		[BGP_STATS_TOTPLEN] = "Average prefix length",
+		[BGP_STATS_RIB] = "Total Advertisements",
+		[BGP_STATS_UNAGGREGATEABLE] = "Unaggregateable prefixes",
+		[BGP_STATS_MAX_AGGREGATEABLE] =
+			"Maximum aggregateable prefixes",
+		[BGP_STATS_AGGREGATES] = "BGP Aggregate advertisements",
+		[BGP_STATS_SPACE] = "Address space advertised",
+		[BGP_STATS_ASPATH_COUNT] = "Advertisements with paths",
+		[BGP_STATS_ASPATH_MAXHOPS] = "Longest AS-Path (hops)",
+		[BGP_STATS_ASPATH_MAXSIZE] = "Largest AS-Path (bytes)",
+		[BGP_STATS_ASPATH_TOTHOPS] = "Average AS-Path length (hops)",
+		[BGP_STATS_ASPATH_TOTSIZE] = "Average AS-Path size (bytes)",
+		[BGP_STATS_ASN_HIGHEST] = "Highest public ASN",
+		[BGP_STATS_MAX] = NULL,
 };
 
 struct bgp_table_stats {
@@ -9524,11 +9518,16 @@ enum bgp_pcounts {
 };
 
 static const char *pcount_strs[] = {
-	[PCOUNT_ADJ_IN] = "Adj-in",   [PCOUNT_DAMPED] = "Damped",
-	[PCOUNT_REMOVED] = "Removed", [PCOUNT_HISTORY] = "History",
-	[PCOUNT_STALE] = "Stale",     [PCOUNT_VALID] = "Valid",
-	[PCOUNT_ALL] = "All RIB",     [PCOUNT_COUNTED] = "PfxCt counted",
-	[PCOUNT_PFCNT] = "Useable",   [PCOUNT_MAX] = NULL,
+		[PCOUNT_ADJ_IN] = "Adj-in",
+		[PCOUNT_DAMPED] = "Damped",
+		[PCOUNT_REMOVED] = "Removed",
+		[PCOUNT_HISTORY] = "History",
+		[PCOUNT_STALE] = "Stale",
+		[PCOUNT_VALID] = "Valid",
+		[PCOUNT_ALL] = "All RIB",
+		[PCOUNT_COUNTED] = "PfxCt counted",
+		[PCOUNT_PFCNT] = "Useable",
+		[PCOUNT_MAX] = NULL,
 };
 
 struct peer_pcounts {
@@ -9629,9 +9628,9 @@ static int bgp_peer_counts(struct vty *vty, struct peer *peer, afi_t afi,
 	pcounts.table = peer->bgp->rib[afi][safi];
 
 	/* in-place call via thread subsystem so as to record execution time
-	 *    * stats for the thread-walk (i.e. ensure this can't be blamed on
-	 *       * on just vty_read()).
-	 *          */
+       *    * stats for the thread-walk (i.e. ensure this can't be blamed on
+       *       * on just vty_read()).
+       *          */
 	thread_execute(bm->master, bgp_peer_count_walker, &pcounts, 0);
 
 	if (use_json) {
@@ -9888,9 +9887,8 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 					       "bgpOriginatingDefaultNetwork",
 					       "0.0.0.0");
 		} else {
-			vty_out(vty,
-				"BGP table version is %" PRIu64
-				", local router ID is %s\n",
+			vty_out(vty, "BGP table version is %" PRIu64
+				     ", local router ID is %s\n",
 				table->version, inet_ntoa(bgp->router_id));
 			vty_out(vty, BGP_SHOW_SCODE_HEADER);
 			vty_out(vty, BGP_SHOW_OCODE_HEADER);

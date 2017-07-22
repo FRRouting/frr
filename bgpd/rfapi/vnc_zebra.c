@@ -375,9 +375,8 @@ static int vnc_zebra_read_ipv4(int command, struct zclient *zclient,
 				__func__, zebra_route_string(api.type),
 				inet_ntop(AF_INET, &p.prefix, buf[0],
 					  sizeof(buf[0])),
-				p.prefixlen,
-				inet_ntop(AF_INET, &nexthop, buf[1],
-					  sizeof(buf[1])),
+				p.prefixlen, inet_ntop(AF_INET, &nexthop,
+						       buf[1], sizeof(buf[1])),
 				api.metric);
 		}
 		vnc_redistribute_add((struct prefix *)&p, &nexthop, api.metric,
@@ -391,9 +390,8 @@ static int vnc_zebra_read_ipv4(int command, struct zclient *zclient,
 				__func__, zebra_route_string(api.type),
 				inet_ntop(AF_INET, &p.prefix, buf[0],
 					  sizeof(buf[0])),
-				p.prefixlen,
-				inet_ntop(AF_INET, &nexthop, buf[1],
-					  sizeof(buf[1])),
+				p.prefixlen, inet_ntop(AF_INET, &nexthop,
+						       buf[1], sizeof(buf[1])),
 				api.metric);
 		}
 		vnc_redistribute_delete((struct prefix *)&p, api.type);

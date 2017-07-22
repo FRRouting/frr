@@ -251,14 +251,13 @@ struct bgp {
 			       /* $FRR indent$ */
 			       /* clang-format off */
 #define BGP_MAXMED_ADMIN_UNCONFIGURED  0 /* Off by default */
-	u_int32_t maxmed_admin_value; /* Max-med value when administrative in on
+	u_int32_t
+		maxmed_admin_value; /* Max-med value when administrative in on
 				       */
-				      /* $FRR indent$ */
-				      /* clang-format off */
 #define BGP_MAXMED_VALUE_DEFAULT  4294967294 /* Maximum by default */
 
-	u_char maxmed_active;	 /* 1/0 if max-med is active or not */
-	u_int32_t maxmed_value;       /* Max-med value when its active */
+	u_char maxmed_active;   /* 1/0 if max-med is active or not */
+	u_int32_t maxmed_value; /* Max-med value when its active */
 
 	/* BGP update delay on startup */
 	struct thread *t_update_delay;

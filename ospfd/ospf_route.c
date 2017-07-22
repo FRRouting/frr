@@ -229,16 +229,18 @@ static void ospf_route_delete_uniq(struct route_table *rt,
 			    or->path_type == OSPF_PATH_INTER_AREA) {
 				if (or->type == OSPF_DESTINATION_NETWORK) {
 					if (!ospf_route_exist_new_table(
-						    cmprt, (struct prefix_ipv4
-								    *)&rn->p))
+						    cmprt,
+						    (struct prefix_ipv4 *)&rn
+							    ->p))
 						ospf_zebra_delete(
 							(struct prefix_ipv4
 								 *)&rn->p,
 							or);
 				} else if (or->type == OSPF_DESTINATION_DISCARD)
 					if (!ospf_route_exist_new_table(
-						    cmprt, (struct prefix_ipv4
-								    *)&rn->p))
+						    cmprt,
+						    (struct prefix_ipv4 *)&rn
+							    ->p))
 						ospf_zebra_delete_discard(
 							(struct prefix_ipv4
 								 *)&rn->p);

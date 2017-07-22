@@ -1270,9 +1270,7 @@ int isis_circuit_passwd_hmac_md5_set(struct isis_circuit *circuit,
 				       passwd);
 }
 struct cmd_node interface_node = {
-	INTERFACE_NODE,
-	"%s(config-if)# ",
-	1,
+	INTERFACE_NODE, "%s(config-if)# ", 1,
 };
 
 int isis_circuit_circ_type_set(struct isis_circuit *circuit, int circ_type)

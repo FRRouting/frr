@@ -1394,8 +1394,9 @@ static int bgp_establish(struct peer *peer)
 	}
 
 	if (other == peer)
-		ret = 1; /* bgp_establish specific code when xfer_conn
-			    happens. */
+		ret =
+			1; /* bgp_establish specific code when xfer_conn
+			      happens. */
 
 	/* Reset capability open status flag. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN))

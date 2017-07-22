@@ -1231,9 +1231,8 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 	}
 
 	if (use_json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 
@@ -1621,9 +1620,8 @@ static void vty_show_ip_route_summary(struct vty *vty,
 		"FIB", zvrf_name(((rib_table_info_t *)table->info)->zvrf));
 
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-		if ((rib_cnt[i] > 0)
-		    || (i == ZEBRA_ROUTE_BGP
-			&& rib_cnt[ZEBRA_ROUTE_IBGP] > 0)) {
+		if ((rib_cnt[i] > 0) || (i == ZEBRA_ROUTE_BGP
+					 && rib_cnt[ZEBRA_ROUTE_IBGP] > 0)) {
 			if (i == ZEBRA_ROUTE_BGP) {
 				vty_out(vty, "%-20s %-20d %-20d \n", "ebgp",
 					rib_cnt[ZEBRA_ROUTE_BGP],

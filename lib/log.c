@@ -411,7 +411,7 @@ void zlog_signal(int signo, const char *action
 		 ,
 		 siginfo_t *siginfo, void *program_counter
 #endif
-)
+		 )
 {
 	time_t now;
 	char buf[sizeof("DEFAULT: Received signal S at T (si_addr 0xP, PC 0xP); aborting...")
@@ -474,7 +474,7 @@ void zlog_signal(int signo, const char *action
 #else
 			       NULL
 #endif
-	);
+			       );
 
 	s = buf;
 	struct thread *tc;
@@ -1063,9 +1063,10 @@ void zlog_hexdump(const void *mem, unsigned int len)
 						 printing */
 					s += sprintf(s, " ");
 
-				else if (isprint((int)((const char *)mem)
-							 [j])) /* printable char
-								*/
+				else if (
+					isprint((int)((const char *)mem)
+							[j])) /* printable char
+								 */
 					s += sprintf(
 						s, "%c",
 						0xFF & ((const char *)mem)[j]);
