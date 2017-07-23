@@ -29,7 +29,7 @@
 
 #include "isisd/isisd.h"
 #include "isisd/isis_memory.h"
-#include "isisd/isis_tlvs2.h"
+#include "isisd/isis_tlvs.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_mt.h"
 #include "isisd/isis_misc.h"
@@ -39,7 +39,7 @@
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_te.h"
 
-DEFINE_MTYPE_STATIC(ISISD, ISIS_TLV2, "ISIS TLVs (new)")
+DEFINE_MTYPE_STATIC(ISISD, ISIS_TLV, "ISIS TLVs")
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SUBTLV, "ISIS Sub-TLVs")
 DEFINE_MTYPE_STATIC(ISISD, ISIS_MT_ITEM_LIST, "ISIS MT Item Lists")
 
@@ -269,7 +269,7 @@ static int unpack_tlvs(enum isis_tlv_context context, size_t avail_len,
 static struct isis_item *copy_item_area_address(struct isis_item *i)
 {
 	struct isis_area_address *addr = (struct isis_area_address *)i;
-	struct isis_area_address *rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	struct isis_area_address *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 
 	rv->len = addr->len;
 	memcpy(rv->addr, addr->addr, addr->len);
@@ -287,7 +287,7 @@ static void format_item_area_address(uint16_t mtid, struct isis_item *i,
 
 static void free_item_area_address(struct isis_item *i)
 {
-	XFREE(MTYPE_ISIS_TLV2, i);
+	XFREE(MTYPE_ISIS_TLV, i);
 }
 
 static int pack_item_area_address(struct isis_item *i, struct stream *s)
@@ -318,7 +318,7 @@ static int unpack_item_area_address(uint16_t mtid, uint8_t len,
 		goto out;
 	}
 
-	rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 	rv->len = stream_getc(s);
 
 	if (len < 1 + rv->len) {
@@ -342,7 +342,7 @@ static int unpack_item_area_address(uint16_t mtid, uint8_t len,
 	append_item(&tlvs->area_addresses, (struct isis_item *)rv);
 	return 0;
 out:
-	XFREE(MTYPE_ISIS_TLV2, rv);
+	XFREE(MTYPE_ISIS_TLV, rv);
 	return 1;
 }
 
@@ -350,7 +350,7 @@ out:
 static struct isis_item *copy_item_oldstyle_reach(struct isis_item *i)
 {
 	struct isis_oldstyle_reach *r = (struct isis_oldstyle_reach *)i;
-	struct isis_oldstyle_reach *rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	struct isis_oldstyle_reach *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 
 	memcpy(rv->id, r->id, 7);
 	rv->metric = r->metric;
@@ -368,7 +368,7 @@ static void format_item_oldstyle_reach(uint16_t mtid, struct isis_item *i,
 
 static void free_item_oldstyle_reach(struct isis_item *i)
 {
-	XFREE(MTYPE_ISIS_TLV2, i);
+	XFREE(MTYPE_ISIS_TLV, i);
 }
 
 static int pack_item_oldstyle_reach(struct isis_item *i, struct stream *s)
@@ -403,7 +403,7 @@ static int unpack_item_oldstyle_reach(uint16_t mtid, uint8_t len,
 		return 1;
 	}
 
-	struct isis_oldstyle_reach *rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	struct isis_oldstyle_reach *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 	rv->metric = stream_getc(s);
 	if ((rv->metric & 0x3f) != rv->metric) {
 		sbuf_push(log, indent, "Metric has unplausible format\n");
@@ -422,7 +422,7 @@ static int unpack_item_oldstyle_reach(uint16_t mtid, uint8_t len,
 static struct isis_item *copy_item_lan_neighbor(struct isis_item *i)
 {
 	struct isis_lan_neighbor *n = (struct isis_lan_neighbor *)i;
-	struct isis_lan_neighbor *rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	struct isis_lan_neighbor *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 
 	memcpy(rv->mac, n->mac, 6);
 	return (struct isis_item *)rv;
@@ -438,7 +438,7 @@ static void format_item_lan_neighbor(uint16_t mtid, struct isis_item *i,
 
 static void free_item_lan_neighbor(struct isis_item *i)
 {
-	XFREE(MTYPE_ISIS_TLV2, i);
+	XFREE(MTYPE_ISIS_TLV, i);
 }
 
 static int pack_item_lan_neighbor(struct isis_item *i, struct stream *s)
@@ -469,7 +469,7 @@ static int unpack_item_lan_neighbor(uint16_t mtid, uint8_t len,
 		return 1;
 	}
 
-	struct isis_lan_neighbor *rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	struct isis_lan_neighbor *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 	stream_get(rv->mac, s, 6);
 
 	format_item_lan_neighbor(mtid, (struct isis_item *)rv, log, indent + 2);
@@ -481,7 +481,7 @@ static int unpack_item_lan_neighbor(uint16_t mtid, uint8_t len,
 static struct isis_item *copy_item_lsp_entry(struct isis_item *i)
 {
 	struct isis_lsp_entry *e = (struct isis_lsp_entry *)i;
-	struct isis_lsp_entry *rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	struct isis_lsp_entry *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 
 	rv->rem_lifetime = e->rem_lifetime;
 	memcpy(rv->id, e->id, sizeof(rv->id));
@@ -504,7 +504,7 @@ static void format_item_lsp_entry(uint16_t mtid, struct isis_item *i,
 
 static void free_item_lsp_entry(struct isis_item *i)
 {
-	XFREE(MTYPE_ISIS_TLV2, i);
+	XFREE(MTYPE_ISIS_TLV, i);
 }
 
 static int pack_item_lsp_entry(struct isis_item *i, struct stream *s)
@@ -536,7 +536,7 @@ static int unpack_item_lsp_entry(uint16_t mtid, uint8_t len, struct stream *s,
 		return 1;
 	}
 
-	struct isis_lsp_entry *rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	struct isis_lsp_entry *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 	rv->rem_lifetime = stream_getw(s);
 	stream_get(rv->id, s, 8);
 	rv->seqno = stream_getl(s);
@@ -552,13 +552,13 @@ static int unpack_item_lsp_entry(uint16_t mtid, uint8_t len, struct stream *s,
 static struct isis_item *copy_item_extended_reach(struct isis_item *i)
 {
 	struct isis_extended_reach *r = (struct isis_extended_reach *)i;
-	struct isis_extended_reach *rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	struct isis_extended_reach *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 
 	memcpy(rv->id, r->id, 7);
 	rv->metric = r->metric;
 
 	if (r->subtlvs && r->subtlv_len) {
-		rv->subtlvs = XCALLOC(MTYPE_ISIS_TLV2, r->subtlv_len);
+		rv->subtlvs = XCALLOC(MTYPE_ISIS_TLV, r->subtlv_len);
 		memcpy(rv->subtlvs, r->subtlvs, r->subtlv_len);
 		rv->subtlv_len = r->subtlv_len;
 	}
@@ -585,8 +585,8 @@ static void format_item_extended_reach(uint16_t mtid, struct isis_item *i,
 static void free_item_extended_reach(struct isis_item *i)
 {
 	struct isis_extended_reach *item = (struct isis_extended_reach *)i;
-	XFREE(MTYPE_ISIS_TLV2, item->subtlvs);
-	XFREE(MTYPE_ISIS_TLV2, item);
+	XFREE(MTYPE_ISIS_TLV, item->subtlvs);
+	XFREE(MTYPE_ISIS_TLV, item);
 }
 
 static int pack_item_extended_reach(struct isis_item *i, struct stream *s)
@@ -628,7 +628,7 @@ static int unpack_item_extended_reach(uint16_t mtid, uint8_t len,
 		goto out;
 	}
 
-	rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 	stream_get(rv->id, s, 7);
 	rv->metric = stream_get3(s);
 	subtlv_len = stream_getc(s);
@@ -657,7 +657,7 @@ static int unpack_item_extended_reach(uint16_t mtid, uint8_t len,
 
 		stream_set_getp(s, subtlv_start);
 
-		rv->subtlvs = XCALLOC(MTYPE_ISIS_TLV2, subtlv_len);
+		rv->subtlvs = XCALLOC(MTYPE_ISIS_TLV, subtlv_len);
 		stream_get(rv->subtlvs, s, subtlv_len);
 		rv->subtlv_len = subtlv_len;
 	}
@@ -676,7 +676,7 @@ static struct isis_item *copy_item_oldstyle_ip_reach(struct isis_item *i)
 {
 	struct isis_oldstyle_ip_reach *r = (struct isis_oldstyle_ip_reach *)i;
 	struct isis_oldstyle_ip_reach *rv =
-		XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+		XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 
 	rv->metric = r->metric;
 	rv->prefix = r->prefix;
@@ -695,7 +695,7 @@ static void format_item_oldstyle_ip_reach(uint16_t mtid, struct isis_item *i,
 
 static void free_item_oldstyle_ip_reach(struct isis_item *i)
 {
-	XFREE(MTYPE_ISIS_TLV2, i);
+	XFREE(MTYPE_ISIS_TLV, i);
 }
 
 static int pack_item_oldstyle_ip_reach(struct isis_item *i, struct stream *s)
@@ -733,7 +733,7 @@ static int unpack_item_oldstyle_ip_reach(uint16_t mtid, uint8_t len,
 	}
 
 	struct isis_oldstyle_ip_reach *rv =
-		XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+		XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 	rv->metric = stream_getc(s);
 	if ((rv->metric & 0x7f) != rv->metric) {
 		sbuf_push(log, indent, "Metric has unplausible format\n");
@@ -762,7 +762,7 @@ static void copy_tlv_protocols_supported(struct isis_protocols_supported *src,
 	if (!src->protocols || !src->count)
 		return;
 	dest->count = src->count;
-	dest->protocols = XCALLOC(MTYPE_ISIS_TLV2, src->count);
+	dest->protocols = XCALLOC(MTYPE_ISIS_TLV, src->count);
 	memcpy(dest->protocols, src->protocols, src->count);
 }
 
@@ -782,7 +782,7 @@ static void format_tlv_protocols_supported(struct isis_protocols_supported *p,
 
 static void free_tlv_protocols_supported(struct isis_protocols_supported *p)
 {
-	XFREE(MTYPE_ISIS_TLV2, p->protocols);
+	XFREE(MTYPE_ISIS_TLV, p->protocols);
 }
 
 static int pack_tlv_protocols_supported(struct isis_protocols_supported *p,
@@ -821,7 +821,7 @@ static int unpack_tlv_protocols_supported(enum isis_tlv_context context,
 	}
 
 	tlvs->protocols_supported.count = tlv_len;
-	tlvs->protocols_supported.protocols = XCALLOC(MTYPE_ISIS_TLV2, tlv_len);
+	tlvs->protocols_supported.protocols = XCALLOC(MTYPE_ISIS_TLV, tlv_len);
 	stream_get(tlvs->protocols_supported.protocols, s, tlv_len);
 
 	format_tlv_protocols_supported(&tlvs->protocols_supported, log,
@@ -833,7 +833,7 @@ static int unpack_tlv_protocols_supported(enum isis_tlv_context context,
 static struct isis_item *copy_item_ipv4_address(struct isis_item *i)
 {
 	struct isis_ipv4_address *a = (struct isis_ipv4_address *)i;
-	struct isis_ipv4_address *rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	struct isis_ipv4_address *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 
 	rv->addr = a->addr;
 	return (struct isis_item *)rv;
@@ -851,7 +851,7 @@ static void format_item_ipv4_address(uint16_t mtid, struct isis_item *i,
 
 static void free_item_ipv4_address(struct isis_item *i)
 {
-	XFREE(MTYPE_ISIS_TLV2, i);
+	XFREE(MTYPE_ISIS_TLV, i);
 }
 
 static int pack_item_ipv4_address(struct isis_item *i, struct stream *s)
@@ -882,7 +882,7 @@ static int unpack_item_ipv4_address(uint16_t mtid, uint8_t len,
 		return 1;
 	}
 
-	struct isis_ipv4_address *rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	struct isis_ipv4_address *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 	stream_get(&rv->addr, s, 4);
 
 	format_item_ipv4_address(mtid, (struct isis_item *)rv, log, indent + 2);
@@ -895,7 +895,7 @@ static int unpack_item_ipv4_address(uint16_t mtid, uint8_t len,
 static struct isis_item *copy_item_ipv6_address(struct isis_item *i)
 {
 	struct isis_ipv6_address *a = (struct isis_ipv6_address *)i;
-	struct isis_ipv6_address *rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	struct isis_ipv6_address *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 
 	rv->addr = a->addr;
 	return (struct isis_item *)rv;
@@ -913,7 +913,7 @@ static void format_item_ipv6_address(uint16_t mtid, struct isis_item *i,
 
 static void free_item_ipv6_address(struct isis_item *i)
 {
-	XFREE(MTYPE_ISIS_TLV2, i);
+	XFREE(MTYPE_ISIS_TLV, i);
 }
 
 static int pack_item_ipv6_address(struct isis_item *i, struct stream *s)
@@ -944,7 +944,7 @@ static int unpack_item_ipv6_address(uint16_t mtid, uint8_t len,
 		return 1;
 	}
 
-	struct isis_ipv6_address *rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	struct isis_ipv6_address *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 	stream_get(&rv->addr, s, 16);
 
 	format_item_ipv6_address(mtid, (struct isis_item *)rv, log, indent + 2);
@@ -957,7 +957,7 @@ static int unpack_item_ipv6_address(uint16_t mtid, uint8_t len,
 static struct isis_item *copy_item_mt_router_info(struct isis_item *i)
 {
 	struct isis_mt_router_info *info = (struct isis_mt_router_info *)i;
-	struct isis_mt_router_info *rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	struct isis_mt_router_info *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 
 	rv->overload = info->overload;
 	rv->attached = info->attached;
@@ -978,7 +978,7 @@ static void format_item_mt_router_info(uint16_t mtid, struct isis_item *i,
 
 static void free_item_mt_router_info(struct isis_item *i)
 {
-	XFREE(MTYPE_ISIS_TLV2, i);
+	XFREE(MTYPE_ISIS_TLV, i);
 }
 
 static int pack_item_mt_router_info(struct isis_item *i, struct stream *s)
@@ -1016,7 +1016,7 @@ static int unpack_item_mt_router_info(uint16_t mtid, uint8_t len,
 		return 1;
 	}
 
-	struct isis_mt_router_info *rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	struct isis_mt_router_info *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 
 	uint16_t entry = stream_getw(s);
 	rv->overload = entry & ISIS_MT_OL_MASK;
@@ -1036,7 +1036,7 @@ static struct in_addr *copy_tlv_te_router_id(const struct in_addr *id)
 	if (!id)
 		return NULL;
 
-	struct in_addr *rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	struct in_addr *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 	memcpy(rv, id, sizeof(*rv));
 	return rv;
 }
@@ -1054,7 +1054,7 @@ static void format_tlv_te_router_id(const struct in_addr *id, struct sbuf *buf,
 
 static void free_tlv_te_router_id(struct in_addr *id)
 {
-	XFREE(MTYPE_ISIS_TLV2, id);
+	XFREE(MTYPE_ISIS_TLV, id);
 }
 
 static int pack_tlv_te_router_id(const struct in_addr *id, struct stream *s)
@@ -1091,7 +1091,7 @@ static int unpack_tlv_te_router_id(enum isis_tlv_context context,
 		return 0;
 	}
 
-	tlvs->te_router_id = XCALLOC(MTYPE_ISIS_TLV2, 4);
+	tlvs->te_router_id = XCALLOC(MTYPE_ISIS_TLV, 4);
 	stream_get(tlvs->te_router_id, s, 4);
 	format_tlv_te_router_id(tlvs->te_router_id, log, indent + 2);
 	return 0;
@@ -1104,7 +1104,7 @@ static struct isis_item *copy_item_extended_ip_reach(struct isis_item *i)
 {
 	struct isis_extended_ip_reach *r = (struct isis_extended_ip_reach *)i;
 	struct isis_extended_ip_reach *rv =
-		XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+		XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 
 	rv->metric = r->metric;
 	rv->down = r->down;
@@ -1132,7 +1132,7 @@ static void free_item_extended_ip_reach(struct isis_item *i)
 {
 	struct isis_extended_ip_reach *item =
 		(struct isis_extended_ip_reach *)i;
-	XFREE(MTYPE_ISIS_TLV2, item);
+	XFREE(MTYPE_ISIS_TLV, item);
 }
 
 static int pack_item_extended_ip_reach(struct isis_item *i, struct stream *s)
@@ -1181,7 +1181,7 @@ static int unpack_item_extended_ip_reach(uint16_t mtid, uint8_t len,
 		goto out;
 	}
 
-	rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 
 	rv->metric = stream_getl(s);
 	control = stream_getc(s);
@@ -1252,7 +1252,7 @@ static char *copy_tlv_dynamic_hostname(const char *hostname)
 	if (!hostname)
 		return NULL;
 
-	return XSTRDUP(MTYPE_ISIS_TLV2, hostname);
+	return XSTRDUP(MTYPE_ISIS_TLV, hostname);
 }
 
 static void format_tlv_dynamic_hostname(const char *hostname, struct sbuf *buf,
@@ -1266,7 +1266,7 @@ static void format_tlv_dynamic_hostname(const char *hostname, struct sbuf *buf,
 
 static void free_tlv_dynamic_hostname(char *hostname)
 {
-	XFREE(MTYPE_ISIS_TLV2, hostname);
+	XFREE(MTYPE_ISIS_TLV, hostname);
 }
 
 static int pack_tlv_dynamic_hostname(const char *hostname, struct stream *s)
@@ -1305,7 +1305,7 @@ static int unpack_tlv_dynamic_hostname(enum isis_tlv_context context,
 		return 0;
 	}
 
-	tlvs->hostname = XCALLOC(MTYPE_ISIS_TLV2, tlv_len + 1);
+	tlvs->hostname = XCALLOC(MTYPE_ISIS_TLV, tlv_len + 1);
 	stream_get(tlvs->hostname, s, tlv_len);
 	tlvs->hostname[tlv_len] = '\0';
 
@@ -1331,7 +1331,7 @@ static int unpack_tlv_dynamic_hostname(enum isis_tlv_context context,
 static struct isis_item *copy_item_ipv6_reach(struct isis_item *i)
 {
 	struct isis_ipv6_reach *r = (struct isis_ipv6_reach *)i;
-	struct isis_ipv6_reach *rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	struct isis_ipv6_reach *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 	rv->metric = r->metric;
 	rv->down = r->down;
 	rv->external = r->external;
@@ -1368,7 +1368,7 @@ static void free_item_ipv6_reach(struct isis_item *i)
 	struct isis_ipv6_reach *item = (struct isis_ipv6_reach *)i;
 
 	isis_free_subtlvs(item->subtlvs);
-	XFREE(MTYPE_ISIS_TLV2, item);
+	XFREE(MTYPE_ISIS_TLV, item);
 }
 
 static int pack_item_ipv6_reach(struct isis_item *i, struct stream *s)
@@ -1423,7 +1423,7 @@ static int unpack_item_ipv6_reach(uint16_t mtid, uint8_t len, struct stream *s,
 		goto out;
 	}
 
-	rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 
 	rv->metric = stream_getl(s);
 	control = stream_getc(s);
@@ -1495,7 +1495,7 @@ out:
 static struct isis_item *copy_item_auth(struct isis_item *i)
 {
 	struct isis_auth *auth = (struct isis_auth *)i;
-	struct isis_auth *rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	struct isis_auth *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 
 	rv->type = auth->type;
 	rv->length = auth->length;
@@ -1530,7 +1530,7 @@ static void format_item_auth(uint16_t mtid, struct isis_item *i,
 
 static void free_item_auth(struct isis_item *i)
 {
-	XFREE(MTYPE_ISIS_TLV2, i);
+	XFREE(MTYPE_ISIS_TLV, i);
 }
 
 static int pack_item_auth(struct isis_item *i, struct stream *s)
@@ -1575,7 +1575,7 @@ static int unpack_item_auth(uint16_t mtid, uint8_t len, struct stream *s,
 		return 1;
 	}
 
-	struct isis_auth *rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	struct isis_auth *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 
 	rv->type = stream_getc(s);
 	rv->length = len - 1;
@@ -1586,7 +1586,7 @@ static int unpack_item_auth(uint16_t mtid, uint8_t len, struct stream *s,
 			"Unexpected auth length for HMAC-MD5 (expected 16, got %" PRIu8
 			")\n",
 			rv->length);
-		XFREE(MTYPE_ISIS_TLV2, rv);
+		XFREE(MTYPE_ISIS_TLV, rv);
 		return 1;
 	}
 
@@ -1985,7 +1985,7 @@ struct isis_tlvs *isis_alloc_tlvs(void)
 {
 	struct isis_tlvs *result;
 
-	result = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*result));
+	result = XCALLOC(MTYPE_ISIS_TLV, sizeof(*result));
 
 	init_item_list(&result->isis_auth);
 	init_item_list(&result->area_addresses);
@@ -2009,7 +2009,7 @@ struct isis_tlvs *isis_alloc_tlvs(void)
 
 struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs)
 {
-	struct isis_tlvs *rv = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*rv));
+	struct isis_tlvs *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
 
 	copy_items(ISIS_CONTEXT_LSP, ISIS_TLV_AUTH, &tlvs->isis_auth,
 		   &rv->isis_auth);
@@ -2180,7 +2180,7 @@ void isis_free_tlvs(struct isis_tlvs *tlvs)
 	free_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_MT_IPV6_REACH,
 		      &tlvs->mt_ipv6_reach);
 
-	XFREE(MTYPE_ISIS_TLV2, tlvs);
+	XFREE(MTYPE_ISIS_TLV, tlvs);
 }
 
 static void add_padding(struct stream *s)
@@ -2594,7 +2594,7 @@ void isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd)
 	if (passwd->type == ISIS_PASSWD_TYPE_UNUSED)
 		return;
 
-	struct isis_auth *auth = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*auth));
+	struct isis_auth *auth = XCALLOC(MTYPE_ISIS_TLV, sizeof(*auth));
 
 	auth->type = passwd->type;
 
@@ -2619,7 +2619,7 @@ void isis_tlvs_add_area_addresses(struct isis_tlvs *tlvs,
 
 	for (ALL_LIST_ELEMENTS_RO(addresses, node, area_addr)) {
 		struct isis_area_address *a =
-			XCALLOC(MTYPE_ISIS_TLV2, sizeof(*a));
+			XCALLOC(MTYPE_ISIS_TLV, sizeof(*a));
 
 		a->len = area_addr->addr_len;
 		memcpy(a->addr, area_addr->area_addr, 20);
@@ -2634,7 +2634,7 @@ void isis_tlvs_add_lan_neighbors(struct isis_tlvs *tlvs, struct list *neighbors)
 
 	for (ALL_LIST_ELEMENTS_RO(neighbors, node, snpa)) {
 		struct isis_lan_neighbor *n =
-			XCALLOC(MTYPE_ISIS_TLV2, sizeof(*n));
+			XCALLOC(MTYPE_ISIS_TLV, sizeof(*n));
 
 		memcpy(n->mac, snpa, 6);
 		append_item(&tlvs->lan_neighbor, (struct isis_item *)n);
@@ -2646,10 +2646,10 @@ void isis_tlvs_set_protocols_supported(struct isis_tlvs *tlvs,
 {
 	tlvs->protocols_supported.count = nlpids->count;
 	if (tlvs->protocols_supported.protocols)
-		XFREE(MTYPE_ISIS_TLV2, tlvs->protocols_supported.protocols);
+		XFREE(MTYPE_ISIS_TLV, tlvs->protocols_supported.protocols);
 	if (nlpids->count) {
 		tlvs->protocols_supported.protocols =
-			XCALLOC(MTYPE_ISIS_TLV2, nlpids->count);
+			XCALLOC(MTYPE_ISIS_TLV, nlpids->count);
 		memcpy(tlvs->protocols_supported.protocols, nlpids->nlpids,
 		       nlpids->count);
 	} else {
@@ -2660,7 +2660,7 @@ void isis_tlvs_set_protocols_supported(struct isis_tlvs *tlvs,
 void isis_tlvs_add_mt_router_info(struct isis_tlvs *tlvs, uint16_t mtid,
 				  bool overload, bool attached)
 {
-	struct isis_mt_router_info *i = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*i));
+	struct isis_mt_router_info *i = XCALLOC(MTYPE_ISIS_TLV, sizeof(*i));
 
 	i->overload = overload;
 	i->attached = attached;
@@ -2670,7 +2670,7 @@ void isis_tlvs_add_mt_router_info(struct isis_tlvs *tlvs, uint16_t mtid,
 
 void isis_tlvs_add_ipv4_address(struct isis_tlvs *tlvs, struct in_addr *addr)
 {
-	struct isis_ipv4_address *a = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*a));
+	struct isis_ipv4_address *a = XCALLOC(MTYPE_ISIS_TLV, sizeof(*a));
 	a->addr = *addr;
 	append_item(&tlvs->ipv4_address, (struct isis_item *)a);
 }
@@ -2694,7 +2694,7 @@ void isis_tlvs_add_ipv6_addresses(struct isis_tlvs *tlvs,
 
 	for (ALL_LIST_ELEMENTS_RO(addresses, node, ip_addr)) {
 		struct isis_ipv6_address *a =
-			XCALLOC(MTYPE_ISIS_TLV2, sizeof(*a));
+			XCALLOC(MTYPE_ISIS_TLV, sizeof(*a));
 
 		a->addr = ip_addr->prefix;
 		append_item(&tlvs->ipv6_address, (struct isis_item *)a);
@@ -2944,7 +2944,7 @@ bool isis_tlvs_own_snpa_found(struct isis_tlvs *tlvs, uint8_t *snpa)
 
 void isis_tlvs_add_lsp_entry(struct isis_tlvs *tlvs, struct isis_lsp *lsp)
 {
-	struct isis_lsp_entry *entry = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*entry));
+	struct isis_lsp_entry *entry = XCALLOC(MTYPE_ISIS_TLV, sizeof(*entry));
 
 	entry->rem_lifetime = lsp->hdr.rem_lifetime;
 	memcpy(entry->id, lsp->hdr.lsp_id, ISIS_SYS_ID_LEN + 2);
@@ -2983,25 +2983,25 @@ void isis_tlvs_add_csnp_entries(struct isis_tlvs *tlvs, uint8_t *start_id,
 void isis_tlvs_set_dynamic_hostname(struct isis_tlvs *tlvs,
 				    const char *hostname)
 {
-	XFREE(MTYPE_ISIS_TLV2, tlvs->hostname);
+	XFREE(MTYPE_ISIS_TLV, tlvs->hostname);
 	if (hostname)
-		tlvs->hostname = XSTRDUP(MTYPE_ISIS_TLV2, hostname);
+		tlvs->hostname = XSTRDUP(MTYPE_ISIS_TLV, hostname);
 }
 
 void isis_tlvs_set_te_router_id(struct isis_tlvs *tlvs,
 				const struct in_addr *id)
 {
-	XFREE(MTYPE_ISIS_TLV2, tlvs->te_router_id);
+	XFREE(MTYPE_ISIS_TLV, tlvs->te_router_id);
 	if (!id)
 		return;
-	tlvs->te_router_id = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*id));
+	tlvs->te_router_id = XCALLOC(MTYPE_ISIS_TLV, sizeof(*id));
 	memcpy(tlvs->te_router_id, id, sizeof(*id));
 }
 
 void isis_tlvs_add_oldstyle_ip_reach(struct isis_tlvs *tlvs,
 				     struct prefix_ipv4 *dest, uint8_t metric)
 {
-	struct isis_oldstyle_ip_reach *r = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*r));
+	struct isis_oldstyle_ip_reach *r = XCALLOC(MTYPE_ISIS_TLV, sizeof(*r));
 
 	r->metric = metric;
 	memcpy(&r->prefix, dest, sizeof(*dest));
@@ -3012,7 +3012,7 @@ void isis_tlvs_add_oldstyle_ip_reach(struct isis_tlvs *tlvs,
 void isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs,
 				     struct prefix_ipv4 *dest, uint32_t metric)
 {
-	struct isis_extended_ip_reach *r = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*r));
+	struct isis_extended_ip_reach *r = XCALLOC(MTYPE_ISIS_TLV, sizeof(*r));
 
 	r->metric = metric;
 	memcpy(&r->prefix, dest, sizeof(*dest));
@@ -3023,7 +3023,7 @@ void isis_tlvs_add_extended_ip_reach(struct isis_tlvs *tlvs,
 void isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 			      struct prefix_ipv6 *dest, uint32_t metric)
 {
-	struct isis_ipv6_reach *r = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*r));
+	struct isis_ipv6_reach *r = XCALLOC(MTYPE_ISIS_TLV, sizeof(*r));
 
 	r->metric = metric;
 	memcpy(&r->prefix, dest, sizeof(*dest));
@@ -3039,7 +3039,7 @@ void isis_tlvs_add_ipv6_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 void isis_tlvs_add_oldstyle_reach(struct isis_tlvs *tlvs, uint8_t *id,
 				  uint8_t metric)
 {
-	struct isis_oldstyle_reach *r = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*r));
+	struct isis_oldstyle_reach *r = XCALLOC(MTYPE_ISIS_TLV, sizeof(*r));
 
 	r->metric = metric;
 	memcpy(r->id, id, sizeof(r->id));
@@ -3050,12 +3050,12 @@ void isis_tlvs_add_extended_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 				  uint8_t *id, uint32_t metric,
 				  uint8_t *subtlvs, uint8_t subtlv_len)
 {
-	struct isis_extended_reach *r = XCALLOC(MTYPE_ISIS_TLV2, sizeof(*r));
+	struct isis_extended_reach *r = XCALLOC(MTYPE_ISIS_TLV, sizeof(*r));
 
 	memcpy(r->id, id, sizeof(r->id));
 	r->metric = metric;
 	if (subtlvs && subtlv_len) {
-		r->subtlvs = XCALLOC(MTYPE_ISIS_TLV2, subtlv_len);
+		r->subtlvs = XCALLOC(MTYPE_ISIS_TLV, subtlv_len);
 		memcpy(r->subtlvs, subtlvs, subtlv_len);
 		r->subtlv_len = subtlv_len;
 	}

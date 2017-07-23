@@ -8,7 +8,7 @@
 #include "thread.h"
 
 #include "isisd/isis_circuit.h"
-#include "isisd/isis_tlvs2.h"
+#include "isisd/isis_tlvs.h"
 
 #define TEST_STREAM_SIZE 1500
 

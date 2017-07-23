@@ -51,7 +51,7 @@
 #include "isis_route.h"
 #include "isis_csm.h"
 #include "isis_mt.h"
-#include "isis_tlvs2.h"
+#include "isis_tlvs.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_RUN, "ISIS SPF Run Info");
 

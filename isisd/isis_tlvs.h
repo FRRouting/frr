@@ -20,8 +20,8 @@
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
  * 02111-1307, USA.
  */
-#ifndef ISIS_TLVS2_H
-#define ISIS_TLVS2_H
+#ifndef ISIS_TLVS_H
+#define ISIS_TLVS_H
 
 #include "openbsd-tree.h"
 #include "prefix.h"

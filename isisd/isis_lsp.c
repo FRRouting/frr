@@ -53,7 +53,7 @@
 #include "isisd/isis_spf.h"
 #include "isisd/isis_te.h"
 #include "isisd/isis_mt.h"
-#include "isisd/isis_tlvs2.h"
+#include "isisd/isis_tlvs.h"
 
 /* staticly assigned vars for printing purposes */
 char lsp_bits_string[200]; /* FIXME: enough ? */

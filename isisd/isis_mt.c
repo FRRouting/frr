@@ -27,7 +27,7 @@
 #include "isisd/isis_misc.h"
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_mt.h"
-#include "isisd/isis_tlvs2.h"
+#include "isisd/isis_tlvs.h"
 
 DEFINE_MTYPE_STATIC(ISISD, MT_AREA_SETTING, "ISIS MT Area Setting")
 DEFINE_MTYPE_STATIC(ISISD, MT_CIRCUIT_SETTING, "ISIS MT Circuit Setting")
