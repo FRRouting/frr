@@ -222,12 +222,8 @@ rbe_remove_color(const struct rb_type *t, struct rbt_tree *rbt,
 {
 	struct rb_entry *tmp;
 
-	/* Silence clang possible NULL deference warning. */
-	if (parent == NULL)
-		return;
-
 	while ((rbe == NULL || RBE_COLOR(rbe) == RB_BLACK) &&
-	    rbe != RBH_ROOT(rbt)) {
+	    rbe != RBH_ROOT(rbt) && parent) {
 		if (RBE_LEFT(parent) == rbe) {
 			tmp = RBE_RIGHT(parent);
 			if (RBE_COLOR(tmp) == RB_RED) {
