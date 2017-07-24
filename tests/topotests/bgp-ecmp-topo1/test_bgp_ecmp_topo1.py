@@ -26,6 +26,7 @@
 test_bgp_ecmp_topo1.py: Test BGP topology with ECMP (Equal Cost MultiPath).
 """
 
+import json
 import os
 import sys
 import pytest
@@ -113,6 +114,30 @@ def setup_module(module):
 def teardown_module(module):
     tgen = get_topogen()
     tgen.stop_topology()
+
+def test_bgp_convergence():
+    "Test for BGP topology convergence"
+    tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    topotest.sleep(20, 'waiting for bgp convergence')
+
+    # Expected result
+    reffile = os.path.join(CWD, 'r1/summary.txt')
+    expected = json.loads(open(reffile).read())
+
+    # Define test function and call it
+    router = tgen.gears['r1']
+    def _convergence_test():
+        output = router.vtysh_cmd('show ip bgp summary json', isjson=True)
+        return topotest.json_cmp(output, expected)
+
+    _, res = topotest.run_and_expect(_convergence_test, None, count=10, wait=1)
+    assertmsg = 'BGP router network did not converge'
+    assert res is None, assertmsg
 
 def test_bgp_ecmp():
     tgen = get_topogen()
