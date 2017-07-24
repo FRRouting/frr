@@ -32,6 +32,7 @@ import subprocess
 import tempfile
 import platform
 import difflib
+import time
 
 from lib.topolog import logger
 
@@ -41,8 +42,6 @@ from mininet.node import Node, OVSSwitch, Host
 from mininet.log import setLogLevel, info
 from mininet.cli import CLI
 from mininet.link import Intf
-
-from time import sleep
 
 class json_cmp_result(object):
     "json_cmp result class for better assertion messages"
@@ -159,7 +158,7 @@ def run_and_expect(func, what, count=20, wait=3):
     while count > 0:
         result = func()
         if result != what:
-            sleep(wait)
+            time.sleep(wait)
             count -= 1
             continue
         return (True, result)
@@ -363,6 +362,17 @@ def ip6_route(node):
             prev = column
 
     return result
+
+def sleep(amount, reason=None):
+    """
+    Sleep wrapper that registers in the log the amount of sleep
+    """
+    if reason is None:
+        logger.info('Sleeping for {} seconds'.format(amount))
+    else:
+        logger.info(reason + ' ({} seconds)'.format(amount))
+
+    time.sleep(amount)
 
 def checkAddressSanitizerError(output, router, component):
     "Checks for AddressSanitizer in output. If found, then logs it and returns true, false otherwise"
@@ -576,7 +586,7 @@ class Router(Node):
             ))
             self.waitOutput()
             logger.debug('{}: {} zebra started'.format(self, self.routertype))
-            sleep(1)
+            time.sleep(1)
         # Fix Link-Local Addresses
         # Somehow (on Mininet only), Zebra removes the IPv6 Link-Local addresses on start. Fix this
         self.cmd('for i in `ls /sys/class/net/` ; do mac=`cat /sys/class/net/$i/address`; IFS=\':\'; set $mac; unset IFS; ip address add dev $i scope link fe80::$(printf %02x $((0x$1 ^ 2)))$2:${3}ff:fe$4:$5$6/64; done')
