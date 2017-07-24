@@ -126,11 +126,15 @@ def test_bgp_convergence():
     topotest.sleep(20, 'waiting for bgp convergence')
 
     # Expected result
-    reffile = os.path.join(CWD, 'r1/summary.txt')
+    router = tgen.gears['r1']
+    if router.has_version('<', '3'):
+        reffile = os.path.join(CWD, 'r1/summary20.txt')
+    else:
+        reffile = os.path.join(CWD, 'r1/summary.txt')
+
     expected = json.loads(open(reffile).read())
 
     # Define test function and call it
-    router = tgen.gears['r1']
     def _convergence_test():
         output = router.vtysh_cmd('show ip bgp summary json', isjson=True)
         return topotest.json_cmp(output, expected)
