@@ -759,8 +759,9 @@ DEFUN  (ldp_clear_mpls_ldp_neighbor,
 	int		 idx = 0;
 	const char	*address = NULL;
 
-	if (argv_find(argv, argc, "neighbor", &idx))
-		address = argv[idx + 1]->arg;
+	if (argv_find(argv, argc, "A.B.C.D", &idx) ||
+	    argv_find(argv, argc, "X:X::X:X", &idx))
+		address = argv[idx]->arg;
 
 	return (ldp_vty_clear_nbr(vty, address));
 }
