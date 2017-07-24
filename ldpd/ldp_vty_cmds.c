@@ -25,59 +25,88 @@
 
 DEFUN_NOSH(ldp_mpls_ldp,
 	ldp_mpls_ldp_cmd,
-	"[no] mpls ldp",
+	"mpls ldp",
+	"Global MPLS configuration subcommands\n"
+	"Label Distribution Protocol\n")
+{
+	return (ldp_vty_mpls_ldp(vty, 0));
+}
+
+DEFUN  (no_ldp_mpls_ldp,
+	no_ldp_mpls_ldp_cmd,
+	"no mpls ldp",
 	"Negate a command or set its defaults\n"
 	"Global MPLS configuration subcommands\n"
 	"Label Distribution Protocol\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-
-	return (ldp_vty_mpls_ldp(vty, negate));
+	return (ldp_vty_mpls_ldp(vty, 1));
 }
 
 DEFUN_NOSH(ldp_l2vpn,
 	ldp_l2vpn_cmd,
-	"[no] l2vpn WORD type vpls",
-	"Negate a command or set its defaults\n"
+	"l2vpn WORD type vpls",
 	"Configure l2vpn commands\n"
 	"L2VPN name\n"
 	"L2VPN type\n"
 	"Virtual Private LAN Service\n")
 {
 	int		 idx = 0;
-	int		 negate = 0;
 	const char	*name;
 
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
 	argv_find(argv, argc, "WORD", &idx);
 	name = argv[idx]->arg;
 
-	return (ldp_vty_l2vpn(vty, negate, name));
+	return (ldp_vty_l2vpn(vty, 0, name));
+}
+
+DEFUN  (no_ldp_l2vpn,
+	no_ldp_l2vpn_cmd,
+	"no l2vpn WORD type vpls",
+	"Configure l2vpn commands\n"
+	"L2VPN name\n"
+	"L2VPN type\n"
+	"Virtual Private LAN Service\n")
+{
+	int		 idx = 0;
+	const char	*name;
+
+	argv_find(argv, argc, "WORD", &idx);
+	name = argv[idx]->arg;
+
+	return (ldp_vty_l2vpn(vty, 1, name));
 }
 
 DEFUN_NOSH(ldp_address_family,
 	ldp_address_family_cmd,
-	"[no] address-family <ipv4|ipv6>",
+	"address-family <ipv4|ipv6>",
+	"Configure Address Family and its parameters\n"
+	"IPv4\n"
+	"IPv6\n")
+{
+	int		 idx = 0;
+	const char	*af;
+
+	argv_find(argv, argc, "address-family", &idx);
+	af = argv[idx + 1]->text;
+
+	return (ldp_vty_address_family(vty, 0, af));
+}
+
+DEFUN  (no_ldp_address_family,
+	no_ldp_address_family_cmd,
+	"no address-family <ipv4|ipv6>",
 	"Negate a command or set its defaults\n"
 	"Configure Address Family and its parameters\n"
 	"IPv4\n"
 	"IPv6\n")
 {
 	int		 idx = 0;
-	int		 negate = 0;
 	const char	*af;
 
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
 	argv_find(argv, argc, "address-family", &idx);
 	af = argv[idx + 1]->text;
 
-	return (ldp_vty_address_family(vty, negate, af));
+	return (ldp_vty_address_family(vty, 1, af));
 }
 
 DEFUN_NOSH(ldp_exit_address_family,
@@ -494,21 +523,32 @@ DEFUN  (ldp_session_holdtime,
 
 DEFUN_NOSH(ldp_interface,
 	ldp_interface_cmd,
-	"[no] interface IFNAME",
-	"Negate a command or set its defaults\n"
+	"interface IFNAME",
 	"Enable LDP on an interface and enter interface submode\n"
 	"Interface's name\n")
 {
 	int		 idx = 0;
-	int		 negate = 0;
 	const char	*ifname;
 
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
 	argv_find(argv, argc, "IFNAME", &idx);
 	ifname = argv[idx]->arg;
 
-	return (ldp_vty_interface(vty, negate, ifname));
+	return (ldp_vty_interface(vty, 0, ifname));
+}
+
+DEFUN  (no_ldp_interface,
+	no_ldp_interface_cmd,
+	"no interface IFNAME",
+	"Enable LDP on an interface and enter interface submode\n"
+	"Interface's name\n")
+{
+	int		 idx = 0;
+	const char	*ifname;
+
+	argv_find(argv, argc, "IFNAME", &idx);
+	ifname = argv[idx]->arg;
+
+	return (ldp_vty_interface(vty, 1, ifname));
 }
 
 DEFUN  (ldp_neighbor_ipv4_targeted,
@@ -611,22 +651,35 @@ DEFUN  (ldp_member_interface,
 
 DEFUN_NOSH(ldp_member_pseudowire,
 	ldp_member_pseudowire_cmd,
-	"[no] member pseudowire IFNAME",
+	"member pseudowire IFNAME",
+	"L2VPN member configuration\n"
+	"Pseudowire interface\n"
+	"Interface's name\n")
+{
+	int		 idx = 0;
+	const char	*ifname;
+
+	argv_find(argv, argc, "IFNAME", &idx);
+	ifname = argv[idx]->arg;
+
+	return (ldp_vty_l2vpn_pseudowire(vty, 0, ifname));
+}
+
+DEFUN  (no_ldp_member_pseudowire,
+	no_ldp_member_pseudowire_cmd,
+	"no member pseudowire IFNAME",
 	"Negate a command or set its defaults\n"
 	"L2VPN member configuration\n"
 	"Pseudowire interface\n"
 	"Interface's name\n")
 {
 	int		 idx = 0;
-	int		 negate = 0;
 	const char	*ifname;
 
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
 	argv_find(argv, argc, "IFNAME", &idx);
 	ifname = argv[idx]->arg;
 
-	return (ldp_vty_l2vpn_pseudowire(vty, negate, ifname));
+	return (ldp_vty_l2vpn_pseudowire(vty, 1, ifname));
 }
 
 DEFUN  (ldp_vc_type,
@@ -1065,13 +1118,16 @@ ldp_vty_init (void)
 	install_default(LDP_PSEUDOWIRE_NODE);
 
 	install_element(CONFIG_NODE, &ldp_mpls_ldp_cmd);
+	install_element(CONFIG_NODE, &no_ldp_mpls_ldp_cmd);
 	install_element(CONFIG_NODE, &ldp_l2vpn_cmd);
+	install_element(CONFIG_NODE, &no_ldp_l2vpn_cmd);
 	install_element(CONFIG_NODE, &ldp_debug_mpls_ldp_discovery_hello_cmd);
 	install_element(CONFIG_NODE, &ldp_debug_mpls_ldp_type_cmd);
 	install_element(CONFIG_NODE, &ldp_debug_mpls_ldp_messages_recv_cmd);
 	install_element(CONFIG_NODE, &ldp_debug_mpls_ldp_messages_sent_cmd);
 
 	install_element(LDP_NODE, &ldp_address_family_cmd);
+	install_element(LDP_NODE, &no_ldp_address_family_cmd);
 	install_element(LDP_NODE, &ldp_discovery_holdtime_cmd);
 	install_element(LDP_NODE, &ldp_discovery_interval_cmd);
 	install_element(LDP_NODE, &ldp_dual_stack_transport_connection_prefer_ipv4_cmd);
@@ -1091,6 +1147,7 @@ ldp_vty_init (void)
 	install_element(LDP_IPV4_NODE, &ldp_label_remote_accept_cmd);
 	install_element(LDP_IPV4_NODE, &ldp_ttl_security_disable_cmd);
 	install_element(LDP_IPV4_NODE, &ldp_interface_cmd);
+	install_element(LDP_IPV4_NODE, &no_ldp_interface_cmd);
 	install_element(LDP_IPV4_NODE, &ldp_session_holdtime_cmd);
 	install_element(LDP_IPV4_NODE, &ldp_neighbor_ipv4_targeted_cmd);
 	install_element(LDP_IPV4_NODE, &ldp_exit_address_family_cmd);
@@ -1119,6 +1176,7 @@ ldp_vty_init (void)
 	install_element(LDP_L2VPN_NODE, &ldp_mtu_cmd);
 	install_element(LDP_L2VPN_NODE, &ldp_member_interface_cmd);
 	install_element(LDP_L2VPN_NODE, &ldp_member_pseudowire_cmd);
+	install_element(LDP_L2VPN_NODE, &no_ldp_member_pseudowire_cmd);
 	install_element(LDP_L2VPN_NODE, &ldp_vc_type_cmd);
 
 	install_element(LDP_PSEUDOWIRE_NODE, &ldp_control_word_cmd);
