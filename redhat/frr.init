@@ -64,10 +64,12 @@ started()
 }
 
 # Loads the config via vtysh -b if configured to do so.
+# To enable this, add "vtysh_enable=yes" to your daemons config file
+# You'll need to do this if you're using "service integrated-vtysh-config"
 vtysh_b ()
 {
         # Rember, that all variables have been incremented by 1 in convert_daemon_prios()
-        if [ "$vtysh_enable" = 2 -a -f $C_PATH/frr.conf ]; then
+        if [ "$vtysh_enable" -eq 2 ]; then
                 /usr/bin/vtysh -b -n
         fi
 }
