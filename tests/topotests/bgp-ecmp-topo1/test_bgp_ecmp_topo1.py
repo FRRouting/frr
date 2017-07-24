@@ -29,7 +29,6 @@ test_bgp_ecmp_topo1.py: Test BGP topology with ECMP (Equal Cost MultiPath).
 import os
 import sys
 import pytest
-from time import sleep
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -103,8 +102,7 @@ def setup_module(module):
         router.start()
 
     # Starting Hosts and init ExaBGP on each of them
-    logger.info('starting BGP on all {} Peers in 10s'.format(total_ebgp_peers))
-    sleep(10)
+    topotest.sleep(10, 'starting BGP on all {} peers'.format(total_ebgp_peers))
     peer_list = tgen.exabgp_peers()
     for pname, peer in peer_list.iteritems():
         peer_dir = os.path.join(CWD, pname)
