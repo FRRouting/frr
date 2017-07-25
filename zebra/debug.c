@@ -145,17 +145,15 @@ DEFUN (debug_zebra_packet,
 
 	if (argv_find(argv, argc, "send", &idx))
 		SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_SEND);
-	idx = 0;
-	if (argv_find(argv, argc, "recv", &idx))
+	else if (argv_find(argv, argc, "recv", &idx))
 		SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_RECV);
-	idx = 0;
-	if (argv_find(argv, argc, "detail", &idx))
-		SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_DETAIL);
-
-	if (!(zebra_debug_packet & ZEBRA_DEBUG_SEND & ZEBRA_DEBUG_RECV)) {
+	else {
 		SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_SEND);
 		SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_RECV);
 	}
+
+	if (argv_find(argv, argc, "detail", &idx))
+		SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_DETAIL);
 	return CMD_SUCCESS;
 }
 
