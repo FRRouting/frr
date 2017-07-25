@@ -582,11 +582,12 @@ ldp_vty_disc_interval(struct vty *vty, int disable, const char *hello_type_str,
 		if (disable) {
 			switch (hello_type) {
 			case HELLO_LINK:
-				vty_conf->lhello_interval = LINK_DFLT_HOLDTIME;
+				vty_conf->lhello_interval =
+				    DEFAULT_HELLO_INTERVAL;
 				break;
 			case HELLO_TARGETED:
 				vty_conf->thello_interval =
-				    TARGETED_DFLT_HOLDTIME;
+				    DEFAULT_HELLO_INTERVAL;
 				break;
 			}
 		} else {
