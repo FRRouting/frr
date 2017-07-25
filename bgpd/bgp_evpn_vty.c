@@ -1912,7 +1912,7 @@ DEFUN (show_bgp_l2vpn_evpn_summary,
        L2VPN_HELP_STR
        EVPN_HELP_STR
        "Summary of BGP neighbor status\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	return bgp_show_summary_vty(vty, NULL, AFI_L2VPN, SAFI_EVPN, uj);
@@ -2277,7 +2277,7 @@ ALIAS_HIDDEN(show_bgp_l2vpn_evpn_vni, show_bgp_evpn_vni_cmd,
 ALIAS_HIDDEN(show_bgp_l2vpn_evpn_summary, show_bgp_evpn_summary_cmd,
 	     "show bgp evpn summary [json]", SHOW_STR BGP_STR EVPN_HELP_STR
 	     "Summary of BGP neighbor status\n"
-	     "JavaScript Object Notation\n")
+	     JSON_STR)
 
 ALIAS_HIDDEN(show_bgp_l2vpn_evpn_route, show_bgp_evpn_route_cmd,
 	     "show bgp evpn route [type <macip|multicast>]",
