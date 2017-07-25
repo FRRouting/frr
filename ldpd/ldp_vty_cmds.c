@@ -22,6 +22,7 @@
 #include "command.h"
 #include "vty.h"
 #include "ldpd/ldp_vty.h"
+#include "ldpd/ldp_vty_cmds_clippy.c"
 
 DEFUN_NOSH(ldp_mpls_ldp,
 	ldp_mpls_ldp_cmd,
@@ -29,17 +30,17 @@ DEFUN_NOSH(ldp_mpls_ldp,
 	"Global MPLS configuration subcommands\n"
 	"Label Distribution Protocol\n")
 {
-	return (ldp_vty_mpls_ldp(vty, 0));
+	return (ldp_vty_mpls_ldp(vty, NULL));
 }
 
-DEFUN  (no_ldp_mpls_ldp,
+DEFPY  (no_ldp_mpls_ldp,
 	no_ldp_mpls_ldp_cmd,
 	"no mpls ldp",
 	"Negate a command or set its defaults\n"
 	"Global MPLS configuration subcommands\n"
 	"Label Distribution Protocol\n")
 {
-	return (ldp_vty_mpls_ldp(vty, 1));
+	return (ldp_vty_mpls_ldp(vty, "no"));
 }
 
 DEFUN_NOSH(ldp_l2vpn,
@@ -59,21 +60,16 @@ DEFUN_NOSH(ldp_l2vpn,
 	return (ldp_vty_l2vpn(vty, 0, name));
 }
 
-DEFUN  (no_ldp_l2vpn,
+DEFPY  (no_ldp_l2vpn,
 	no_ldp_l2vpn_cmd,
-	"no l2vpn WORD type vpls",
+	"no l2vpn WORD$name type vpls",
+	"Negate a command or set its defaults\n"
 	"Configure l2vpn commands\n"
 	"L2VPN name\n"
 	"L2VPN type\n"
 	"Virtual Private LAN Service\n")
 {
-	int		 idx = 0;
-	const char	*name;
-
-	argv_find(argv, argc, "WORD", &idx);
-	name = argv[idx]->arg;
-
-	return (ldp_vty_l2vpn(vty, 1, name));
+	return (ldp_vty_l2vpn(vty, "no", name));
 }
 
 DEFUN_NOSH(ldp_address_family,
@@ -92,21 +88,15 @@ DEFUN_NOSH(ldp_address_family,
 	return (ldp_vty_address_family(vty, 0, af));
 }
 
-DEFUN  (no_ldp_address_family,
+DEFPY  (no_ldp_address_family,
 	no_ldp_address_family_cmd,
-	"no address-family <ipv4|ipv6>",
+	"no address-family <ipv4|ipv6>$af",
 	"Negate a command or set its defaults\n"
 	"Configure Address Family and its parameters\n"
 	"IPv4\n"
 	"IPv6\n")
 {
-	int		 idx = 0;
-	const char	*af;
-
-	argv_find(argv, argc, "address-family", &idx);
-	af = argv[idx + 1]->text;
-
-	return (ldp_vty_address_family(vty, 1, af));
+	return (ldp_vty_address_family(vty, "no", af));
 }
 
 DEFUN_NOSH(ldp_exit_address_family,
@@ -119,9 +109,9 @@ DEFUN_NOSH(ldp_exit_address_family,
 	return CMD_SUCCESS;
 }
 
-DEFUN  (ldp_discovery_holdtime,
+DEFPY  (ldp_discovery_holdtime,
 	ldp_discovery_holdtime_cmd,
-	"[no] discovery <hello|targeted-hello> holdtime (1-65535)",
+	"[no] discovery <hello|targeted-hello>$hello_type holdtime (1-65535)$holdtime",
 	"Negate a command or set its defaults\n"
 	"Configure discovery parameters\n"
 	"LDP Link Hellos\n"
@@ -129,24 +119,12 @@ DEFUN  (ldp_discovery_holdtime,
 	"Hello holdtime\n"
 	"Time (seconds) - 65535 implies infinite\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*hello_type;
-	const char	*holdtime;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "discovery", &idx);
-	hello_type = argv[idx + 1]->text;
-	argv_find(argv, argc, "(1-65535)", &idx);
-	holdtime = argv[idx]->arg;
-
-	return (ldp_vty_disc_holdtime(vty, negate, hello_type, holdtime));
+	return (ldp_vty_disc_holdtime(vty, no, hello_type, holdtime));
 }
 
-DEFUN  (ldp_discovery_interval,
+DEFPY  (ldp_discovery_interval,
 	ldp_discovery_interval_cmd,
-	"[no] discovery <hello|targeted-hello> interval (1-65535)",
+	"[no] discovery <hello|targeted-hello>$hello_type interval (1-65535)$interval",
 	"Negate a command or set its defaults\n"
 	"Configure discovery parameters\n"
 	"LDP Link Hellos\n"
@@ -154,22 +132,10 @@ DEFUN  (ldp_discovery_interval,
 	"Hello interval\n"
 	"Time (seconds)\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*hello_type;
-	const char	*interval;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "discovery", &idx);
-	hello_type = argv[idx + 1]->text;
-	argv_find(argv, argc, "(1-65535)", &idx);
-	interval = argv[idx]->arg;
-
-	return (ldp_vty_disc_interval(vty, negate, hello_type, interval));
+	return (ldp_vty_disc_interval(vty, no, hello_type, interval));
 }
 
-DEFUN  (ldp_dual_stack_transport_connection_prefer_ipv4,
+DEFPY  (ldp_dual_stack_transport_connection_prefer_ipv4,
 	ldp_dual_stack_transport_connection_prefer_ipv4_cmd,
 	"[no] dual-stack transport-connection prefer ipv4",
 	"Negate a command or set its defaults\n"
@@ -178,58 +144,34 @@ DEFUN  (ldp_dual_stack_transport_connection_prefer_ipv4,
 	"Configure prefered address family for TCP transport connection with neighbor\n"
 	"IPv4\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-
-	return (ldp_vty_trans_pref_ipv4(vty, negate));
+	return (ldp_vty_trans_pref_ipv4(vty, no));
 }
 
-DEFUN  (ldp_dual_stack_cisco_interop,
+DEFPY  (ldp_dual_stack_cisco_interop,
 	ldp_dual_stack_cisco_interop_cmd,
 	"[no] dual-stack cisco-interop",
 	"Negate a command or set its defaults\n"
 	"Configure dual stack parameters\n"
 	"Use Cisco non-compliant format to send and interpret the Dual-Stack capability TLV\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-
-	return (ldp_vty_ds_cisco_interop(vty, negate));
+	return (ldp_vty_ds_cisco_interop(vty, no));
 }
 
-DEFUN  (ldp_neighbor_password,
+DEFPY  (ldp_neighbor_password,
 	ldp_neighbor_password_cmd,
-	"[no] neighbor A.B.C.D password WORD",
+	"[no] neighbor A.B.C.D$neighbor password WORD$password",
 	"Negate a command or set its defaults\n"
 	"Configure neighbor parameters\n"
 	"LDP Id of neighbor\n"
 	"Configure password for MD5 authentication\n"
 	"The password\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*neighbor;
-	const char	*password;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "A.B.C.D", &idx);
-	neighbor = argv[idx]->arg;
-	argv_find(argv, argc, "WORD", &idx);
-	password = argv[idx]->arg;
-
-	return (ldp_vty_neighbor_password(vty, negate, neighbor, password));
+	return (ldp_vty_neighbor_password(vty, no, neighbor, password));
 }
 
-DEFUN  (ldp_neighbor_session_holdtime,
+DEFPY  (ldp_neighbor_session_holdtime,
 	ldp_neighbor_session_holdtime_cmd,
-	"[no] neighbor A.B.C.D session holdtime (15-65535)",
+	"[no] neighbor A.B.C.D$neighbor session holdtime (15-65535)$holdtime",
 	"Negate a command or set its defaults\n"
 	"Configure neighbor parameters\n"
 	"LDP Id of neighbor\n"
@@ -237,24 +179,12 @@ DEFUN  (ldp_neighbor_session_holdtime,
 	"Configure session holdtime\n"
 	"Time (seconds)\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*neighbor;
-	const char	*holdtime;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "A.B.C.D", &idx);
-	neighbor = argv[idx]->arg;
-	argv_find(argv, argc, "(15-65535)", &idx);
-	holdtime = argv[idx]->arg;
-
-	return (ldp_vty_nbr_session_holdtime(vty, negate, neighbor, holdtime));
+	return (ldp_vty_nbr_session_holdtime(vty, no, neighbor, holdtime));
 }
 
-DEFUN  (ldp_neighbor_ttl_security,
+DEFPY  (ldp_neighbor_ttl_security,
 	ldp_neighbor_ttl_security_cmd,
-	"[no] neighbor A.B.C.D ttl-security <disable|hops (1-254)>",
+	"[no] neighbor A.B.C.D$neighbor ttl-security <disable|hops (1-254)$hops>",
 	"Negate a command or set its defaults\n"
 	"Configure neighbor parameters\n"
 	"LDP Id of neighbor\n"
@@ -263,43 +193,22 @@ DEFUN  (ldp_neighbor_ttl_security,
 	"IP hops\n"
 	"maximum number of hops\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*neighbor;
-	const char	*hops = NULL;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "A.B.C.D", &idx);
-	neighbor = argv[idx]->arg;
-	if (argv_find(argv, argc, "(1-254)", &idx))
-		hops = argv[idx]->arg;
-
-	return (ldp_vty_neighbor_ttl_security(vty, negate, neighbor, hops));
+	return (ldp_vty_neighbor_ttl_security(vty, no, neighbor, hops_str));
 }
 
-DEFUN  (ldp_router_id,
+DEFPY  (ldp_router_id,
 	ldp_router_id_cmd,
-	"[no] router-id A.B.C.D",
+	"[no] router-id A.B.C.D$address",
 	"Negate a command or set its defaults\n"
 	"Configure router Id\n"
 	"LSR Id (in form of an IPv4 address)\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*address;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "A.B.C.D", &idx);
-	address = argv[idx]->arg;
-
-	return (ldp_vty_router_id(vty, negate, address));
+	return (ldp_vty_router_id(vty, no, address));
 }
 
-DEFUN  (ldp_discovery_targeted_hello_accept,
+DEFPY  (ldp_discovery_targeted_hello_accept,
 	ldp_discovery_targeted_hello_accept_cmd,
-	"[no] discovery targeted-hello accept [from <(1-199)|(1300-2699)|WORD>]",
+	"[no] discovery targeted-hello accept [from <(1-199)|(1300-2699)|WORD>$from_acl]",
 	"Negate a command or set its defaults\n"
 	"Configure discovery parameters\n"
 	"LDP Targeted Hellos\n"
@@ -309,61 +218,34 @@ DEFUN  (ldp_discovery_targeted_hello_accept,
 	"IP access-list number (expanded range)\n"
 	"IP access-list name\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*from_acl = NULL;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	if (argv_find(argv, argc, "from", &idx))
-		from_acl = argv[idx + 1]->arg;
-
-	return (ldp_vty_targeted_hello_accept(vty, negate, from_acl));
+	return (ldp_vty_targeted_hello_accept(vty, no, from_acl));
 }
 
-DEFUN  (ldp_discovery_transport_address_ipv4,
+DEFPY  (ldp_discovery_transport_address_ipv4,
 	ldp_discovery_transport_address_ipv4_cmd,
-	"[no] discovery transport-address A.B.C.D",
+	"[no] discovery transport-address A.B.C.D$address",
 	"Negate a command or set its defaults\n"
 	"Configure discovery parameters\n"
 	"Specify transport address for TCP connection\n"
 	"IP address to be used as transport address\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*address;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "A.B.C.D", &idx);
-	address = argv[idx]->arg;
-
-	return (ldp_vty_trans_addr(vty, negate, address));
+	return (ldp_vty_trans_addr(vty, no, address_str));
 }
 
-DEFUN  (ldp_discovery_transport_address_ipv6,
+DEFPY  (ldp_discovery_transport_address_ipv6,
 	ldp_discovery_transport_address_ipv6_cmd,
-	"[no] discovery transport-address X:X::X:X",
+	"[no] discovery transport-address X:X::X:X$address",
 	"Negate a command or set its defaults\n"
 	"Configure discovery parameters\n"
 	"Specify transport address for TCP connection\n"
 	"IPv6 address to be used as transport address\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*address;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "X:X::X:X", &idx);
-	address = argv[idx]->arg;
-
-	return (ldp_vty_trans_addr(vty, negate, address));
+	return (ldp_vty_trans_addr(vty, no, address_str));
 }
 
-DEFUN  (ldp_label_local_advertise,
+DEFPY  (ldp_label_local_advertise,
 	ldp_label_local_advertise_cmd,
-	"[no] label local advertise [{to <(1-199)|(1300-2699)|WORD>|for <(1-199)|(1300-2699)|WORD>}]",
+	"[no] label local advertise [{to <(1-199)|(1300-2699)|WORD>$to_acl|for <(1-199)|(1300-2699)|WORD>$for_acl}]",
 	"Negate a command or set its defaults\n"
 	"Configure label control and policies\n"
 	"Configure local label control and policies\n"
@@ -377,27 +259,12 @@ DEFUN  (ldp_label_local_advertise,
 	"IP access-list number (expanded range)\n"
 	"IP access-list name\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*to_acl = NULL;
-	const char	*for_acl = NULL;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-
-	/* arguments within curly braces may be provided in any order */
-	if (argv_find(argv, argc, "to", &idx))
-		to_acl = argv[idx + 1]->arg;
-	idx = 0;
-	if (argv_find(argv, argc, "for", &idx))
-		for_acl = argv[idx + 1]->arg;
-
-	return (ldp_vty_label_advertise(vty, negate, to_acl, for_acl));
+	return (ldp_vty_label_advertise(vty, no, to_acl, for_acl));
 }
 
-DEFUN  (ldp_label_local_advertise_explicit_null,
+DEFPY  (ldp_label_local_advertise_explicit_null,
 	ldp_label_local_advertise_explicit_null_cmd,
-	"[no] label local advertise explicit-null [for <(1-199)|(1300-2699)|WORD>]",
+	"[no] label local advertise explicit-null [for <(1-199)|(1300-2699)|WORD>$for_acl]",
 	"Negate a command or set its defaults\n"
 	"Configure label control and policies\n"
 	"Configure local label control and policies\n"
@@ -408,21 +275,12 @@ DEFUN  (ldp_label_local_advertise_explicit_null,
 	"IP access-list number (expanded range)\n"
 	"IP access-list name\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*for_acl = NULL;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	if (argv_find(argv, argc, "for", &idx))
-		for_acl = argv[idx + 1]->arg;
-
-	return (ldp_vty_label_expnull(vty, negate, for_acl));
+	return (ldp_vty_label_expnull(vty, no, for_acl));
 }
 
-DEFUN  (ldp_label_local_allocate,
+DEFPY  (ldp_label_local_allocate,
 	ldp_label_local_allocate_cmd,
-	"[no] label local allocate <host-routes|for <(1-199)|(1300-2699)|WORD>>",
+	"[no] label local allocate <host-routes$host_routes|for <(1-199)|(1300-2699)|WORD>$for_acl>",
 	"Negate a command or set its defaults\n"
 	"Configure label control and policies\n"
 	"Configure local label control and policies\n"
@@ -433,27 +291,12 @@ DEFUN  (ldp_label_local_allocate,
 	"IP access-list number (expanded range)\n"
 	"IP access-list name\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	int		 host_routes = 0;
-	const char	*for_acl = NULL;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-
-	/* arguments within curly braces may be provided in any order */
-	if (argv_find(argv, argc, "host-routes", &idx))
-		host_routes = 1;
-	idx = 0;
-	if (argv_find(argv, argc, "for", &idx))
-		for_acl = argv[idx + 1]->arg;
-
-	return (ldp_vty_label_allocate(vty, negate, host_routes, for_acl));
+	return (ldp_vty_label_allocate(vty, no, host_routes, for_acl));
 }
 
-DEFUN  (ldp_label_remote_accept,
+DEFPY  (ldp_label_remote_accept,
 	ldp_label_remote_accept_cmd,
-	"[no] label remote accept {from <(1-199)|(1300-2699)|WORD>|for <(1-199)|(1300-2699)|WORD>}",
+	"[no] label remote accept {from <(1-199)|(1300-2699)|WORD>$from_acl|for <(1-199)|(1300-2699)|WORD>$for_acl}",
 	"Negate a command or set its defaults\n"
 	"Configure label control and policies\n"
 	"Configure remote/peer label control and policies\n"
@@ -467,58 +310,28 @@ DEFUN  (ldp_label_remote_accept,
 	"IP access-list number (expanded range)\n"
 	"IP access-list name\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*from_acl = NULL;
-	const char	*for_acl = NULL;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-
-	/* arguments within curly braces may be provided in any order */
-	if (argv_find(argv, argc, "from", &idx))
-		from_acl = argv[idx + 1]->arg;
-	idx = 0;
-	if (argv_find(argv, argc, "for", &idx))
-		for_acl = argv[idx + 1]->arg;
-
-	return (ldp_vty_label_accept(vty, negate, from_acl, for_acl));
+	return (ldp_vty_label_accept(vty, no, from_acl, for_acl));
 }
 
-DEFUN  (ldp_ttl_security_disable,
+DEFPY  (ldp_ttl_security_disable,
 	ldp_ttl_security_disable_cmd,
 	"[no] ttl-security disable",
 	"Negate a command or set its defaults\n"
 	"LDP ttl security check\n"
 	"Disable ttl security\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-
-	return (ldp_vty_ttl_security(vty, negate));
+	return (ldp_vty_ttl_security(vty, no));
 }
 
-DEFUN  (ldp_session_holdtime,
+DEFPY  (ldp_session_holdtime,
 	ldp_session_holdtime_cmd,
-	"[no] session holdtime (15-65535)",
+	"[no] session holdtime (15-65535)$holdtime",
 	"Negate a command or set its defaults\n"
 	"Configure session parameters\n"
 	"Configure session holdtime\n"
 	"Time (seconds)\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*holdtime;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "(15-65535)", &idx);
-	holdtime = argv[idx]->arg;
-
-	return (ldp_vty_af_session_holdtime(vty, negate, holdtime));
+	return (ldp_vty_af_session_holdtime(vty, no, holdtime));
 }
 
 DEFUN_NOSH(ldp_interface,
@@ -536,117 +349,67 @@ DEFUN_NOSH(ldp_interface,
 	return (ldp_vty_interface(vty, 0, ifname));
 }
 
-DEFUN  (no_ldp_interface,
+DEFPY  (no_ldp_interface,
 	no_ldp_interface_cmd,
-	"no interface IFNAME",
+	"no interface IFNAME$ifname",
+	"Negate a command or set its defaults\n"
 	"Enable LDP on an interface and enter interface submode\n"
 	"Interface's name\n")
 {
-	int		 idx = 0;
-	const char	*ifname;
-
-	argv_find(argv, argc, "IFNAME", &idx);
-	ifname = argv[idx]->arg;
-
-	return (ldp_vty_interface(vty, 1, ifname));
+	return (ldp_vty_interface(vty, "no", ifname));
 }
 
-DEFUN  (ldp_neighbor_ipv4_targeted,
+DEFPY  (ldp_neighbor_ipv4_targeted,
 	ldp_neighbor_ipv4_targeted_cmd,
-	"[no] neighbor A.B.C.D targeted",
+	"[no] neighbor A.B.C.D$address targeted",
 	"Negate a command or set its defaults\n"
 	"Configure neighbor parameters\n"
 	"IP address of neighbor\n"
 	"Establish targeted session\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*address;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "A.B.C.D", &idx);
-	address = argv[idx]->arg;
-
-	return (ldp_vty_neighbor_targeted(vty, negate, address));
+	return (ldp_vty_neighbor_targeted(vty, no, address_str));
 }
 
-DEFUN  (ldp_neighbor_ipv6_targeted,
+DEFPY  (ldp_neighbor_ipv6_targeted,
 	ldp_neighbor_ipv6_targeted_cmd,
-	"[no] neighbor X:X::X:X targeted",
+	"[no] neighbor X:X::X:X$address targeted",
 	"Negate a command or set its defaults\n"
 	"Configure neighbor parameters\n"
 	"IPv6 address of neighbor\n"
 	"Establish targeted session\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*address;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "X:X::X:X", &idx);
-	address = argv[idx]->arg;
-
-	return (ldp_vty_neighbor_targeted(vty, negate, address));
+	return (ldp_vty_neighbor_targeted(vty, no, address_str));
 }
 
-DEFUN  (ldp_bridge,
+DEFPY  (ldp_bridge,
 	ldp_bridge_cmd,
-	"[no] bridge IFNAME",
+	"[no] bridge IFNAME$ifname",
 	"Negate a command or set its defaults\n"
 	"Bridge interface\n"
 	"Interface's name\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*ifname;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "IFNAME", &idx);
-	ifname = argv[idx]->arg;
-
-	return (ldp_vty_l2vpn_bridge(vty, negate, ifname));
+	return (ldp_vty_l2vpn_bridge(vty, no, ifname));
 }
 
-DEFUN  (ldp_mtu,
+DEFPY  (ldp_mtu,
 	ldp_mtu_cmd,
-	"[no] mtu (1500-9180)",
+	"[no] mtu (1500-9180)$mtu",
 	"Negate a command or set its defaults\n"
 	"Set Maximum Transmission Unit\n"
 	"Maximum Transmission Unit value\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*mtu;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "(1500-9180)", &idx);
-	mtu = argv[idx]->arg;
-
-	return (ldp_vty_l2vpn_mtu(vty, negate, mtu));
+	return (ldp_vty_l2vpn_mtu(vty, no, mtu));
 }
 
-DEFUN  (ldp_member_interface,
+DEFPY  (ldp_member_interface,
 	ldp_member_interface_cmd,
-	"[no] member interface IFNAME",
+	"[no] member interface IFNAME$ifname",
 	"Negate a command or set its defaults\n"
 	"L2VPN member configuration\n"
 	"Local interface\n"
 	"Interface's name\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*ifname;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "IFNAME", &idx);
-	ifname = argv[idx]->arg;
-
-	return (ldp_vty_l2vpn_interface(vty, negate, ifname));
+	return (ldp_vty_l2vpn_interface(vty, no, ifname));
 }
 
 DEFUN_NOSH(ldp_member_pseudowire,
@@ -665,143 +428,86 @@ DEFUN_NOSH(ldp_member_pseudowire,
 	return (ldp_vty_l2vpn_pseudowire(vty, 0, ifname));
 }
 
-DEFUN  (no_ldp_member_pseudowire,
+DEFPY  (no_ldp_member_pseudowire,
 	no_ldp_member_pseudowire_cmd,
-	"no member pseudowire IFNAME",
+	"no member pseudowire IFNAME$ifname",
 	"Negate a command or set its defaults\n"
 	"L2VPN member configuration\n"
 	"Pseudowire interface\n"
 	"Interface's name\n")
 {
-	int		 idx = 0;
-	const char	*ifname;
-
-	argv_find(argv, argc, "IFNAME", &idx);
-	ifname = argv[idx]->arg;
-
-	return (ldp_vty_l2vpn_pseudowire(vty, 1, ifname));
+	return (ldp_vty_l2vpn_pseudowire(vty, "no", ifname));
 }
 
-DEFUN  (ldp_vc_type,
+DEFPY  (ldp_vc_type,
 	ldp_vc_type_cmd,
-	"[no] vc type <ethernet|ethernet-tagged>",
+	"[no] vc type <ethernet|ethernet-tagged>$vc_type",
 	"Negate a command or set its defaults\n"
 	"Virtual Circuit options\n"
 	"Virtual Circuit type to use\n"
 	"Ethernet (type 5)\n"
 	"Ethernet-tagged (type 4)\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*vc_type;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "type", &idx);
-	vc_type = argv[idx + 1]->text;
-
-	return (ldp_vty_l2vpn_pwtype(vty, negate, vc_type));
+	return (ldp_vty_l2vpn_pwtype(vty, no, vc_type));
 }
 
-DEFUN  (ldp_control_word,
+DEFPY  (ldp_control_word,
 	ldp_control_word_cmd,
-	"[no] control-word <exclude|include>",
+	"[no] control-word <exclude|include>$preference",
 	"Negate a command or set its defaults\n"
 	"Control-word options\n"
 	"Exclude control-word in pseudowire packets\n"
 	"Include control-word in pseudowire packets\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*preference;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "control-word", &idx);
-	preference = argv[idx + 1]->text;
-
-	return (ldp_vty_l2vpn_pw_cword(vty, negate, preference));
+	return (ldp_vty_l2vpn_pw_cword(vty, no, preference));
 }
 
-DEFUN  (ldp_neighbor_address,
+DEFPY  (ldp_neighbor_address,
 	ldp_neighbor_address_cmd,
-	"[no] neighbor address <A.B.C.D|X:X::X:X>",
+	"[no] neighbor address <A.B.C.D|X:X::X:X>$pw_address",
 	"Negate a command or set its defaults\n"
 	"Remote endpoint configuration\n"
 	"Specify the IPv4 or IPv6 address of the remote endpoint\n"
 	"IPv4 address\n"
 	"IPv6 address\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*address;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "address", &idx);
-	address = argv[idx + 1]->arg;
-
-	return (ldp_vty_l2vpn_pw_nbr_addr(vty, negate, address));
+	return (ldp_vty_l2vpn_pw_nbr_addr(vty, no, pw_address_str));
 }
 
-DEFUN  (ldp_neighbor_lsr_id,
+DEFPY  (ldp_neighbor_lsr_id,
 	ldp_neighbor_lsr_id_cmd,
-	"[no] neighbor lsr-id A.B.C.D",
+	"[no] neighbor lsr-id A.B.C.D$address",
 	"Negate a command or set its defaults\n"
 	"Remote endpoint configuration\n"
 	"Specify the LSR-ID of the remote endpoint\n"
 	"IPv4 address\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*address;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "A.B.C.D", &idx);
-	address = argv[idx]->arg;
-
-	return (ldp_vty_l2vpn_pw_nbr_id(vty, negate, address));
+	return (ldp_vty_l2vpn_pw_nbr_id(vty, no, address));
 }
 
-DEFUN  (ldp_pw_id,
+DEFPY  (ldp_pw_id,
 	ldp_pw_id_cmd,
-	"[no] pw-id (1-4294967295)",
+	"[no] pw-id (1-4294967295)$pwid",
 	"Negate a command or set its defaults\n"
 	"Set the Virtual Circuit ID\n"
 	"Virtual Circuit ID value\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*pwid;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "(1-4294967295)", &idx);
-	pwid = argv[idx]->arg;
-
-	return (ldp_vty_l2vpn_pw_pwid(vty, negate, pwid));
+	return (ldp_vty_l2vpn_pw_pwid(vty, no, pwid));
 }
 
-DEFUN  (ldp_pw_status_disable,
+DEFPY  (ldp_pw_status_disable,
 	ldp_pw_status_disable_cmd,
 	"[no] pw-status disable",
 	"Negate a command or set its defaults\n"
 	"Configure PW status\n"
 	"Disable PW status\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-
-	return (ldp_vty_l2vpn_pw_pwstatus(vty, negate));
+	return (ldp_vty_l2vpn_pw_pwstatus(vty, no));
 }
 
-DEFUN  (ldp_clear_mpls_ldp_neighbor,
+DEFPY  (ldp_clear_mpls_ldp_neighbor,
 	ldp_clear_mpls_ldp_neighbor_cmd,
-	"clear mpls ldp neighbor [<A.B.C.D|X:X::X:X>]",
+	"clear mpls ldp neighbor [<A.B.C.D|X:X::X:X>]$address",
 	"Reset functions\n"
 	"Reset MPLS statistical information\n"
 	"Clear LDP state\n"
@@ -809,19 +515,12 @@ DEFUN  (ldp_clear_mpls_ldp_neighbor,
 	"IPv4 address\n"
 	"IPv6 address\n")
 {
-	int		 idx = 0;
-	const char	*address = NULL;
-
-	if (argv_find(argv, argc, "A.B.C.D", &idx) ||
-	    argv_find(argv, argc, "X:X::X:X", &idx))
-		address = argv[idx]->arg;
-
-	return (ldp_vty_clear_nbr(vty, address));
+	return (ldp_vty_clear_nbr(vty, address_str));
 }
 
-DEFUN  (ldp_debug_mpls_ldp_discovery_hello,
+DEFPY  (ldp_debug_mpls_ldp_discovery_hello,
 	ldp_debug_mpls_ldp_discovery_hello_cmd,
-	"[no] debug mpls ldp discovery hello <recv|sent>",
+	"[no] debug mpls ldp discovery hello <recv|sent>$dir",
 	"Negate a command or set its defaults\n"
 	"Debugging functions\n"
 	"MPLS information\n"
@@ -831,21 +530,12 @@ DEFUN  (ldp_debug_mpls_ldp_discovery_hello,
 	"Received messages\n"
 	"Sent messages\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*dir;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "hello", &idx);
-	dir = argv[idx + 1]->text;
-
-	return (ldp_vty_debug(vty, negate, "discovery", dir, 0));
+	return (ldp_vty_debug(vty, no, "discovery", dir, NULL));
 }
 
-DEFUN  (ldp_debug_mpls_ldp_type,
+DEFPY  (ldp_debug_mpls_ldp_type,
 	ldp_debug_mpls_ldp_type_cmd,
-	"[no] debug mpls ldp <errors|event|zebra>",
+	"[no] debug mpls ldp <errors|event|zebra>$type",
 	"Negate a command or set its defaults\n"
 	"Debugging functions\n"
 	"MPLS information\n"
@@ -854,21 +544,12 @@ DEFUN  (ldp_debug_mpls_ldp_type,
 	"LDP event information\n"
 	"LDP zebra information\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	const char	*type;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	argv_find(argv, argc, "ldp", &idx);
-	type = argv[idx + 1]->text;
-
-	return (ldp_vty_debug(vty, negate, type, NULL, 0));
+	return (ldp_vty_debug(vty, no, type, NULL, NULL));
 }
 
-DEFUN  (ldp_debug_mpls_ldp_messages_recv,
+DEFPY  (ldp_debug_mpls_ldp_messages_recv,
 	ldp_debug_mpls_ldp_messages_recv_cmd,
-	"[no] debug mpls ldp messages recv [all]",
+	"[no] debug mpls ldp messages recv [all]$all",
 	"Negate a command or set its defaults\n"
 	"Debugging functions\n"
 	"MPLS information\n"
@@ -877,21 +558,12 @@ DEFUN  (ldp_debug_mpls_ldp_messages_recv,
 	"Received messages, excluding periodic Keep Alives\n"
 	"Received messages, including periodic Keep Alives\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	int		 all = 0;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	if (argv_find(argv, argc, "all", &idx))
-		all = 1;
-
-	return (ldp_vty_debug(vty, negate, "messages", "recv", all));
+	return (ldp_vty_debug(vty, no, "messages", "recv", all));
 }
 
-DEFUN  (ldp_debug_mpls_ldp_messages_sent,
+DEFPY  (ldp_debug_mpls_ldp_messages_sent,
 	ldp_debug_mpls_ldp_messages_sent_cmd,
-	"[no] debug mpls ldp messages sent [all]",
+	"[no] debug mpls ldp messages sent [all]$all",
 	"Negate a command or set its defaults\n"
 	"Debugging functions\n"
 	"MPLS information\n"
@@ -900,21 +572,12 @@ DEFUN  (ldp_debug_mpls_ldp_messages_sent,
 	"Sent messages, excluding periodic Keep Alives\n"
 	"Sent messages, including periodic Keep Alives\n")
 {
-	int		 idx = 0;
-	int		 negate = 0;
-	int		 all = 0;
-
-	if (argv_find(argv, argc, "no", &idx))
-		negate = 1;
-	if (argv_find(argv, argc, "all", &idx))
-		all = 1;
-
-	return (ldp_vty_debug(vty, negate, "messages", "sent", all));
+	return (ldp_vty_debug(vty, no, "messages", "sent", all));
 }
 
-DEFUN  (ldp_show_mpls_ldp_binding,
+DEFPY  (ldp_show_mpls_ldp_binding,
 	ldp_show_mpls_ldp_binding_cmd,
-	"show mpls ldp [<ipv4|ipv6>] binding [detail] [json]",
+	"show mpls ldp [<ipv4|ipv6>]$af binding [detail]$detail [json]$json",
 	"Show running system information\n"
 	"MPLS information\n"
 	"Label Distribution Protocol\n"
@@ -924,25 +587,12 @@ DEFUN  (ldp_show_mpls_ldp_binding,
 	"Show detailed information\n"
 	"JavaScript Object Notation\n")
 {
-	int		 idx = 0;
-	const char	*af = NULL;
-	int		 detail = 0;
-	int		 json = 0;
-
-	if (argv_find(argv, argc, "ipv4", &idx) ||
-	    argv_find(argv, argc, "ipv6", &idx))
-		af = argv[idx]->text;
-	if (argv_find(argv, argc, "detail", &idx))
-		detail = 1;
-	if (argv_find(argv, argc, "json", &idx))
-		json = 1;
-
 	return (ldp_vty_show_binding(vty, af, detail, json));
 }
 
-DEFUN  (ldp_show_mpls_ldp_discovery,
+DEFPY  (ldp_show_mpls_ldp_discovery,
 	ldp_show_mpls_ldp_discovery_cmd,
-	"show mpls ldp [<ipv4|ipv6>] discovery [detail] [json]",
+	"show mpls ldp [<ipv4|ipv6>]$af discovery [detail]$detail [json]$json",
 	"Show running system information\n"
 	"MPLS information\n"
 	"Label Distribution Protocol\n"
@@ -952,25 +602,12 @@ DEFUN  (ldp_show_mpls_ldp_discovery,
 	"Show detailed information\n"
 	"JavaScript Object Notation\n")
 {
-	int		 idx = 0;
-	const char	*af = NULL;
-	int		 detail = 0;
-	int		 json = 0;
-
-	if (argv_find(argv, argc, "ipv4", &idx) ||
-	    argv_find(argv, argc, "ipv6", &idx))
-		af = argv[idx]->text;
-	if (argv_find(argv, argc, "detail", &idx))
-		detail = 1;
-	if (argv_find(argv, argc, "json", &idx))
-		json = 1;
-
 	return (ldp_vty_show_discovery(vty, af, detail, json));
 }
 
-DEFUN  (ldp_show_mpls_ldp_interface,
+DEFPY  (ldp_show_mpls_ldp_interface,
 	ldp_show_mpls_ldp_interface_cmd,
-	"show mpls ldp [<ipv4|ipv6>] interface [json]",
+	"show mpls ldp [<ipv4|ipv6>]$af interface [json]$json",
 	"Show running system information\n"
 	"MPLS information\n"
 	"Label Distribution Protocol\n"
@@ -979,40 +616,24 @@ DEFUN  (ldp_show_mpls_ldp_interface,
 	"interface information\n"
 	"JavaScript Object Notation\n")
 {
-	int		 idx = 0;
-	const char	*af = NULL;
-	int		 json = 0;
-
-	if (argv_find(argv, argc, "ipv4", &idx) ||
-	    argv_find(argv, argc, "ipv6", &idx))
-		af = argv[idx]->text;
-	if (argv_find(argv, argc, "json", &idx))
-		json = 1;
-
 	return (ldp_vty_show_interface(vty, af, json));
 }
 
-DEFUN  (ldp_show_mpls_ldp_capabilities,
+DEFPY  (ldp_show_mpls_ldp_capabilities,
 	ldp_show_mpls_ldp_capabilities_cmd,
-	"show mpls ldp capabilities [json]",
+	"show mpls ldp capabilities [json]$json",
 	"Show running system information\n"
 	"MPLS information\n"
 	"Label Distribution Protocol\n"
 	"Display LDP Capabilities information\n"
 	"JavaScript Object Notation\n")
 {
-	int		 idx = 0;
-	int		 json = 0;
-
-	if (argv_find(argv, argc, "json", &idx))
-		json = 1;
-
 	return (ldp_vty_show_capabilities(vty, json));
 }
 
-DEFUN  (ldp_show_mpls_ldp_neighbor,
+DEFPY  (ldp_show_mpls_ldp_neighbor,
 	ldp_show_mpls_ldp_neighbor_cmd,
-	"show mpls ldp neighbor [detail] [json]",
+	"show mpls ldp neighbor [detail]$detail [json]$json",
 	"Show running system information\n"
 	"MPLS information\n"
 	"Label Distribution Protocol\n"
@@ -1020,21 +641,12 @@ DEFUN  (ldp_show_mpls_ldp_neighbor,
 	"Show detailed information\n"
 	"JavaScript Object Notation\n")
 {
-	int		 idx = 0;
-	int		 detail = 0;
-	int		 json = 0;
-
-	if (argv_find(argv, argc, "detail", &idx))
-		detail = 1;
-	if (argv_find(argv, argc, "json", &idx))
-		json = 1;
-
 	return (ldp_vty_show_neighbor(vty, 0, detail, json));
 }
 
-DEFUN  (ldp_show_mpls_ldp_neighbor_capabilities,
+DEFPY  (ldp_show_mpls_ldp_neighbor_capabilities,
 	ldp_show_mpls_ldp_neighbor_capabilities_cmd,
-	"show mpls ldp neighbor capabilities [json]",
+	"show mpls ldp neighbor capabilities [json]$json",
 	"Show running system information\n"
 	"MPLS information\n"
 	"Label Distribution Protocol\n"
@@ -1042,52 +654,34 @@ DEFUN  (ldp_show_mpls_ldp_neighbor_capabilities,
 	"Display neighbor capability information\n"
 	"JavaScript Object Notation\n")
 {
-	int		 idx = 0;
-	int		 json = 0;
-
-	if (argv_find(argv, argc, "json", &idx))
-		json = 1;
-
-	return (ldp_vty_show_neighbor(vty, 1, 0, json));
+	return (ldp_vty_show_neighbor(vty, 1, NULL, json));
 }
 
-DEFUN  (ldp_show_l2vpn_atom_binding,
+DEFPY  (ldp_show_l2vpn_atom_binding,
 	ldp_show_l2vpn_atom_binding_cmd,
-	"show l2vpn atom binding [json]",
+	"show l2vpn atom binding [json]$json",
 	"Show running system information\n"
 	"Show information about Layer2 VPN\n"
 	"Show Any Transport over MPLS information\n"
 	"Show AToM label binding information\n"
 	"JavaScript Object Notation\n")
 {
-	int		 idx = 0;
-	int		 json = 0;
-
-	if (argv_find(argv, argc, "json", &idx))
-		json = 1;
-
 	return (ldp_vty_show_atom_binding(vty, json));
 }
 
-DEFUN  (ldp_show_l2vpn_atom_vc,
+DEFPY  (ldp_show_l2vpn_atom_vc,
 	ldp_show_l2vpn_atom_vc_cmd,
-	"show l2vpn atom vc [json]",
+	"show l2vpn atom vc [json]$json",
 	"Show running system information\n"
 	"Show information about Layer2 VPN\n"
 	"Show Any Transport over MPLS information\n"
 	"Show AToM virtual circuit information\n"
 	"JavaScript Object Notation\n")
 {
-	int		 idx = 0;
-	int		 json = 0;
-
-	if (argv_find(argv, argc, "json", &idx))
-		json = 1;
-
 	return (ldp_vty_show_atom_vc(vty, json));
 }
 
-DEFUN  (ldp_show_debugging_mpls_ldp,
+DEFPY  (ldp_show_debugging_mpls_ldp,
 	ldp_show_debugging_mpls_ldp_cmd,
 	"show debugging mpls ldp",
 	"Show running system information\n"
