@@ -23,20 +23,20 @@ The master Git for FRRouting resides on Github at
 ![git branches continually merging to the left from 3 lanes; float-right](doc/git_branches.svg
 "git branch mechanics")
 
-There is one main branch for development and a release branch for each
-major release.
+There is one main branch for development and a release branch for each major
+release.
 
 New contributions are done against the head of the master branch. The CI
-systems will pick up the Github Pull Requests or the new patch from
-Patchwork, run some basic build and functional tests.
+systems will pick up the Github Pull Requests or the new patch from Patchwork,
+run some basic build and functional tests.
 
-For each major release (1.0, 1.1 etc) a new release branch is created based
-on the master.
+For each major release (1.0, 1.1 etc) a new release branch is created based on
+the master.
 
-There was an attempt to use a "develop" branch automatically maintained by
-the CI system.  This is not currently in active use, though the system is
-operational.  If the "develop" branch is in active use and this paragraph
-is still here, this document obviously wasn't updated.
+There was an attempt to use a "develop" branch automatically maintained by the
+CI system.  This is not currently in active use, though the system is
+operational.  If the "develop" branch is in active use and this paragraph is
+still here, this document obviously wasn't updated.
 
 
 ## Programming language, Tools and Libraries
@@ -52,8 +52,8 @@ highlight this in your description of the change. Also make sure it’s supporte
 by all FRRouting platform OSes or provide a way to build without the library
 (potentially without the new feature) on the other platforms.
 
-Documentation should be written in Tex (.texi) or Markdown (.md) format with
-a preference for Markdown.
+Documentation should be written in Tex (.texi) or Markdown (.md) format with a
+preference for Markdown.
 
 
 ## Mailing lists
@@ -150,22 +150,16 @@ the following:
 
 We've documented where we would like to have the different fixes applied at
 https://github.com/FRRouting/frr/wiki/Where-Do-I-create-a-Pull-Request-against%3F
-If you are unsure where your submission goes, look at that document or ask
-a project maintainer.
+If you are unsure where your submission goes, look at that document or ask a
+project maintainer.
 
 ### Github pull requests
 
 The preferred method of submitting changes is a Github pull request. Code
-submitted by pull request will have an email generated to the FRRouting-devel
-mailing list for review and the submission will be automatically tested by one
-or more CI systems. Only after this test succeeds it will be automatically merged into
-the develop branch. In case of failed tests, it is up to the submitter to
-either amend the request with further commits or close, fix and create a new
-pull request.
-
-Further (manual) code review and discussion happens after the merge into the
-develop branch.
-
+submitted by pull request will be automatically tested by one or more CI
+systems. Once the automated tests succeed, other developers will review your
+code for quality and correctness. After any concerns are resolved, your code
+will be merged into the branch it was submitted against.
 
 ### Patch submission via mailing list
 
@@ -393,13 +387,13 @@ document previously undocumented code.
 
 ### Compile-time conditional code
 
-Many users access FRR via binary packages from 3rd party sources;
-compile-time code puts inclusion/exclusion in the hands of the package
-maintainer.  Please think very carefully before making code conditional at
-compile time, as it increases regression testing, maintenance burdens, and user
-confusion. In particular, please avoid gratuitous `--enable-…` switches to the
-configure script - in general, code should be of high quality and in working
-condition, or it shouldn’t be in FRR at all.
+Many users access FRR via binary packages from 3rd party sources; compile-time
+code puts inclusion/exclusion in the hands of the package maintainer.  Please
+think very carefully before making code conditional at compile time, as it
+increases regression testing, maintenance burdens, and user confusion. In
+particular, please avoid gratuitous `--enable-…` switches to the configure
+script - in general, code should be of high quality and in working condition,
+or it shouldn’t be in FRR at all.
 
 When code must be compile-time conditional, try have the compiler make it
 conditional rather than the C pre-processor so that it will still be checked by
@@ -423,50 +417,47 @@ defined (watch your `AC_DEFINE`s).
 
 ### Debug-guards in code
 
-Debugging statements are an important methodology to allow developers to fix issues
-found in the code after it has been released.  The caveat here is
-that the developer must remember that people will be using the code
-at scale and in ways that can be unexpected for the original implementor.
-As such debugs **MUST** be guarded in such a way that they can be turned off.
-FRR has the ability to turn on/off debugs from the CLI and it is
-expected that the developer will use this convention to allow control
-of their debugs.
+Debugging statements are an important methodology to allow developers to fix
+issues found in the code after it has been released.  The caveat here is that
+the developer must remember that people will be using the code at scale and in
+ways that can be unexpected for the original implementor.  As such debugs
+**MUST** be guarded in such a way that they can be turned off.  FRR has the
+ability to turn on/off debugs from the CLI and it is expected that the
+developer will use this convention to allow control of their debugs.
 
 ### CLI changes
 
-CLI's are a complicated ugly beast.  Additions or changes to the CLI
-should use a DEFUN to encapsulate one setting as much as is possible.
-Additionally as new DEFUN's are added to the system, documentation
-should be provided for the new commands.
+CLI's are a complicated ugly beast.  Additions or changes to the CLI should use
+a DEFUN to encapsulate one setting as much as is possible.  Additionally as new
+DEFUN's are added to the system, documentation should be provided for the new
+commands.
 
 ### Backwards Compatibility
 
-As a general principle, changes to CLI and code in the lib/ directory
-should be made in a backwards compatible fashion. This means that
-changes that are purely stylistic in nature should be avoided, e.g.,
-renaming an existing macro or library function name without any
-functional change. When adding new parameters to common functions, it is
-also good to consider if this too should be done in a backward
-compatible fashion, e.g., by preserving the old form in addition to
+As a general principle, changes to CLI and code in the lib/ directory should be
+made in a backwards compatible fashion. This means that changes that are purely
+stylistic in nature should be avoided, e.g., renaming an existing macro or
+library function name without any functional change. When adding new parameters
+to common functions, it is also good to consider if this too should be done in
+a backward compatible fashion, e.g., by preserving the old form in addition to
 adding the new form.
 
-This is not to say that minor or even major functional changes to CLI
-and common code should be avoided, but rather that the benefit gained
-from a change should be weighed against the added cost/complexity to
-existing code.  Also, that when making such changes, it is good to
-preserve compatibility when possible to do so without introducing
-maintenance overhead/cost.  It is also important to keep in mind,
-existing code includes code that may reside in private repositories (and
-is yet to be submitted) or code that has yet to be migrated from Quagga
-to FRR.
+This is not to say that minor or even major functional changes to CLI and
+common code should be avoided, but rather that the benefit gained from a change
+should be weighed against the added cost/complexity to existing code.  Also,
+that when making such changes, it is good to preserve compatibility when
+possible to do so without introducing maintenance overhead/cost.  It is also
+important to keep in mind, existing code includes code that may reside in
+private repositories (and is yet to be submitted) or code that has yet to be
+migrated from Quagga to FRR.
 
 That said, compatibility measures can (and should) be removed when either:
 
-* they become a significant burden, e.g. when data structures change and
-  the compatibility measure would need a complex adaptation layer or becomes
+* they become a significant burden, e.g. when data structures change and the
+  compatibility measure would need a complex adaptation layer or becomes
   flat-out impossible
-* some measure of time (dependent on the specific case) has passed, so that
-  the compatibility grace period is considered expired.
+* some measure of time (dependent on the specific case) has passed, so that the
+  compatibility grace period is considered expired.
 
 In all cases, compatibility pieces should be marked with compiler/preprocessor
 annotations to print warnings at compile time, pointing to the appropriate
