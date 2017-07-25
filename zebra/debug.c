@@ -71,10 +71,10 @@ DEFUN (show_debugging_zebra,
 			"  Zebra kernel netlink message dumps (recv) are on\n");
 
 	/* Check here using flags as the 'macro' does an OR */
-	if (CHECK_FLAG(zebra_debug_rib, ZEBRA_DEBUG_RIB))
-		vty_out(vty, "  Zebra RIB debugging is on\n");
 	if (CHECK_FLAG(zebra_debug_rib, ZEBRA_DEBUG_RIB_DETAILED))
 		vty_out(vty, "  Zebra RIB detailed debugging is on\n");
+	else if (CHECK_FLAG(zebra_debug_rib, ZEBRA_DEBUG_RIB))
+		vty_out(vty, "  Zebra RIB debugging is on\n");
 
 	if (IS_ZEBRA_DEBUG_FPM)
 		vty_out(vty, "  Zebra FPM debugging is on\n");
@@ -145,17 +145,16 @@ DEFUN (debug_zebra_packet,
 
 	if (argv_find(argv, argc, "send", &idx))
 		SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_SEND);
-	idx = 0;
-	if (argv_find(argv, argc, "recv", &idx))
+	else if (argv_find(argv, argc, "recv", &idx))
 		SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_RECV);
-	idx = 0;
-	if (argv_find(argv, argc, "detail", &idx))
-		SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_DETAIL);
-
-	if (!(zebra_debug_packet & ZEBRA_DEBUG_SEND & ZEBRA_DEBUG_RECV)) {
+	else {
 		SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_SEND);
 		SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_RECV);
 	}
+
+	if (argv_find(argv, argc, "detail", &idx))
+		SET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_DETAIL);
+
 	return CMD_SUCCESS;
 }
 
@@ -167,6 +166,13 @@ DEFUN (debug_zebra_kernel,
        "Debug option set for zebra between kernel interface\n")
 {
 	SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL);
+
+	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV)
+		UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
+
+	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
+		UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
+
 	return CMD_SUCCESS;
 }
 
@@ -181,34 +187,41 @@ DEFUN (debug_zebra_kernel_msgdump,
        "Dump raw netlink messages sent\n")
 {
 	int idx = 0;
-	if (argc == 4 || argv_find(argv, argc, "recv", &idx))
+
+	if (argv_find(argv, argc, "recv", &idx)) {
 		SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
-	if (argc == 4 || argv_find(argv, argc, "send", &idx))
+
+		if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
+			UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
+
+	} else if (argv_find(argv, argc, "send", &idx)) {
 		SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
+
+		if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV)
+			UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
+
+	} else {
+		SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
+		SET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
+	}
 
 	return CMD_SUCCESS;
 }
 
 DEFUN (debug_zebra_rib,
        debug_zebra_rib_cmd,
-       "debug zebra rib",
-       DEBUG_STR
-       "Zebra configuration\n"
-       "Debug RIB events\n")
-{
-	SET_FLAG(zebra_debug_rib, ZEBRA_DEBUG_RIB);
-	return CMD_SUCCESS;
-}
-
-DEFUN (debug_zebra_rib_detailed,
-       debug_zebra_rib_detailed_cmd,
-       "debug zebra rib detailed",
+       "debug zebra rib [detailed]",
        DEBUG_STR
        "Zebra configuration\n"
        "Debug RIB events\n"
        "Detailed debugs\n")
 {
-	SET_FLAG(zebra_debug_rib, ZEBRA_DEBUG_RIB_DETAILED);
+	int idx = 0;
+	SET_FLAG(zebra_debug_rib, ZEBRA_DEBUG_RIB);
+
+	if (argv_find(argv, argc, "detailed", &idx))
+		SET_FLAG(zebra_debug_rib, ZEBRA_DEBUG_RIB_DETAILED);
+
 	return CMD_SUCCESS;
 }
 
@@ -273,19 +286,16 @@ DEFUN (no_debug_zebra_vxlan,
 
 DEFUN (no_debug_zebra_packet,
        no_debug_zebra_packet_cmd,
-       "no debug zebra packet [<recv|send>]",
+       "no debug zebra packet [<recv|send>] [detail]",
        NO_STR
        DEBUG_STR
        "Zebra configuration\n"
        "Debug option set for zebra packet\n"
        "Debug option set for receive packet\n"
-       "Debug option set for send packet\n")
+       "Debug option set for send packet\n"
+       "Debug option set for detailed info\n")
 {
-	int idx = 0;
-	if (argc == 4 || argv_find(argv, argc, "send", &idx))
-		UNSET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_SEND);
-	if (argc == 4 || argv_find(argv, argc, "recv", &idx))
-		UNSET_FLAG(zebra_debug_packet, ZEBRA_DEBUG_RECV);
+	zebra_debug_packet = 0;
 	return CMD_SUCCESS;
 }
 
@@ -297,7 +307,7 @@ DEFUN (no_debug_zebra_kernel,
        "Zebra configuration\n"
        "Debug option set for zebra between kernel interface\n")
 {
-	UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL);
+	zebra_debug_kernel = 0;
 	return CMD_SUCCESS;
 }
 
@@ -312,37 +322,20 @@ DEFUN (no_debug_zebra_kernel_msgdump,
        "Dump raw netlink messages received\n"
        "Dump raw netlink messages sent\n")
 {
-	int idx = 0;
-	if (argc == 5 || argv_find(argv, argc, "recv", &idx))
-		UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV);
-	if (argc == 5 || argv_find(argv, argc, "send", &idx))
-		UNSET_FLAG(zebra_debug_kernel, ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND);
-
+	zebra_debug_kernel = 0;
 	return CMD_SUCCESS;
 }
 
 DEFUN (no_debug_zebra_rib,
        no_debug_zebra_rib_cmd,
-       "no debug zebra rib",
-       NO_STR
-       DEBUG_STR
-       "Zebra configuration\n"
-       "Debug zebra RIB\n")
-{
-	zebra_debug_rib = 0;
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_debug_zebra_rib_detailed,
-       no_debug_zebra_rib_detailed_cmd,
-       "no debug zebra rib detailed",
+       "no debug zebra rib [detailed]",
        NO_STR
        DEBUG_STR
        "Zebra configuration\n"
        "Debug zebra RIB\n"
        "Detailed debugs\n")
 {
-	UNSET_FLAG(zebra_debug_rib, ZEBRA_DEBUG_RIB_DETAILED);
+	zebra_debug_rib = 0;
 	return CMD_SUCCESS;
 }
 
@@ -385,27 +378,31 @@ static int config_write_debug(struct vty *vty)
 			write++;
 		}
 	}
+
 	if (IS_ZEBRA_DEBUG_KERNEL) {
-		vty_out(vty, "debug zebra kernel\n");
-		write++;
+		if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND && IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV) {
+			vty_out(vty, "debug zebra kernel msgdump\n");
+			write++;
+		} else if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV) {
+			vty_out(vty, "debug zebra kernel msgdump recv\n");
+			write++;
+		} else if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND) {
+			vty_out(vty, "debug zebra kernel msgdump send\n");
+			write++;
+		} else {
+			vty_out(vty, "debug zebra kernel\n");
+			write++;
+		}
 	}
-	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV) {
-		vty_out(vty, "debug zebra kernel msgdump recv\n");
-		write++;
-	}
-	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND) {
-		vty_out(vty, "debug zebra kernel msgdump send\n");
-		write++;
-	}
-	/* Check here using flags as the 'macro' does an OR */
-	if (CHECK_FLAG(zebra_debug_rib, ZEBRA_DEBUG_RIB)) {
-		vty_out(vty, "debug zebra rib\n");
-		write++;
-	}
+
 	if (CHECK_FLAG(zebra_debug_rib, ZEBRA_DEBUG_RIB_DETAILED)) {
 		vty_out(vty, "debug zebra rib detailed\n");
 		write++;
+	} else if (CHECK_FLAG(zebra_debug_rib, ZEBRA_DEBUG_RIB)) {
+		vty_out(vty, "debug zebra rib\n");
+		write++;
 	}
+
 	if (IS_ZEBRA_DEBUG_FPM) {
 		vty_out(vty, "debug zebra fpm\n");
 		write++;
@@ -447,7 +444,6 @@ void zebra_debug_init(void)
 	install_element(ENABLE_NODE, &debug_zebra_kernel_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_kernel_msgdump_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_rib_cmd);
-	install_element(ENABLE_NODE, &debug_zebra_rib_detailed_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_fpm_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_events_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_nht_cmd);
@@ -457,7 +453,6 @@ void zebra_debug_init(void)
 	install_element(ENABLE_NODE, &no_debug_zebra_kernel_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_kernel_msgdump_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_rib_cmd);
-	install_element(ENABLE_NODE, &no_debug_zebra_rib_detailed_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_fpm_cmd);
 
 	install_element(CONFIG_NODE, &debug_zebra_events_cmd);
@@ -468,7 +463,6 @@ void zebra_debug_init(void)
 	install_element(CONFIG_NODE, &debug_zebra_kernel_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_kernel_msgdump_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_rib_cmd);
-	install_element(CONFIG_NODE, &debug_zebra_rib_detailed_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_fpm_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_events_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_nht_cmd);
@@ -478,6 +472,5 @@ void zebra_debug_init(void)
 	install_element(CONFIG_NODE, &no_debug_zebra_kernel_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_kernel_msgdump_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_rib_cmd);
-	install_element(CONFIG_NODE, &no_debug_zebra_rib_detailed_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_fpm_cmd);
 }
