@@ -128,8 +128,8 @@ int main(int argc, char **argv)
 
 	/* Library inits. */
 	master = frr_init();
-	nhrp_interface_init();
 	vrf_init(NULL, NULL, NULL, NULL);
+	nhrp_interface_init();
 	resolver_init();
 
 	/* Run with elevated capabilities, as for all netlink activity
