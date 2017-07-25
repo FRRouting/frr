@@ -3282,7 +3282,7 @@ DEFUN (show_ip_igmp_interface,
        "IGMP interface information\n"
        "Detailed output\n"
        "interface name\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
@@ -3310,7 +3310,7 @@ DEFUN (show_ip_igmp_interface_vrf_all,
        "IGMP interface information\n"
        "Detailed output\n"
        "interface name\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	int idx = 2;
 	u_char uj = use_json(argc, argv);
@@ -3401,7 +3401,7 @@ DEFUN (show_ip_igmp_groups,
        IGMP_STR
        VRF_CMD_HELP_STR
        IGMP_GROUP_STR
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
@@ -3423,7 +3423,7 @@ DEFUN (show_ip_igmp_groups_vrf_all,
        IGMP_STR
        VRF_CMD_HELP_STR
        IGMP_GROUP_STR
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	struct vrf *vrf;
@@ -3600,7 +3600,7 @@ DEFUN (show_ip_pim_interface,
        "PIM interface information\n"
        "Detailed output\n"
        "interface name\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
@@ -3628,7 +3628,7 @@ DEFUN (show_ip_pim_interface_vrf_all,
        "PIM interface information\n"
        "Detailed output\n"
        "interface name\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	int idx = 6;
 	u_char uj = use_json(argc, argv);
@@ -3746,7 +3746,7 @@ DEFUN (show_ip_pim_neighbor,
        "PIM neighbor information\n"
        "Detailed output\n"
        "Name of interface or neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
@@ -3774,7 +3774,7 @@ DEFUN (show_ip_pim_neighbor_vrf_all,
        "PIM neighbor information\n"
        "Detailed output\n"
        "Name of interface or neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	int idx = 2;
 	u_char uj = use_json(argc, argv);
@@ -3835,7 +3835,7 @@ DEFUN (show_ip_pim_state,
        "PIM state information\n"
        "Unicast or Multicast address\n"
        "Multicast address\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	const char *src_or_group = NULL;
 	const char *group = NULL;
@@ -3870,7 +3870,7 @@ DEFUN (show_ip_pim_state_vrf_all,
        "PIM state information\n"
        "Unicast or Multicast address\n"
        "Multicast address\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	const char *src_or_group = NULL;
 	const char *group = NULL;
@@ -3915,7 +3915,7 @@ DEFUN (show_ip_pim_upstream,
        PIM_STR
        VRF_CMD_HELP_STR
        "PIM upstream information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
@@ -3968,7 +3968,7 @@ DEFUN (show_ip_pim_upstream_join_desired,
        PIM_STR
        VRF_CMD_HELP_STR
        "PIM upstream join-desired\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
@@ -3990,7 +3990,7 @@ DEFUN (show_ip_pim_upstream_rpf,
        PIM_STR
        VRF_CMD_HELP_STR
        "PIM upstream source rpf\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
@@ -4012,7 +4012,7 @@ DEFUN (show_ip_pim_rp,
        PIM_STR
        VRF_CMD_HELP_STR
        "PIM RP information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
@@ -4034,7 +4034,7 @@ DEFUN (show_ip_pim_rp_vrf_all,
        PIM_STR
        VRF_CMD_HELP_STR
        "PIM RP information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	struct vrf *vrf;
@@ -4067,7 +4067,7 @@ DEFUN (show_ip_pim_rpf,
        PIM_STR
        VRF_CMD_HELP_STR
        "PIM cached source rpf information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
@@ -4089,7 +4089,7 @@ DEFUN (show_ip_pim_rpf_vrf_all,
        PIM_STR
        VRF_CMD_HELP_STR
        "PIM cached source rpf information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	struct vrf *vrf;
@@ -4229,7 +4229,7 @@ DEFUN (show_ip_pim_interface_traffic,
        "PIM interface information\n"
        "Protocol Packet counters\n"
        "Interface name\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
@@ -5422,7 +5422,7 @@ DEFUN (show_ip_pim_ssm_range,
        PIM_STR
        VRF_CMD_HELP_STR
        "PIM group type\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
@@ -5475,7 +5475,7 @@ DEFUN (show_ip_pim_group_type,
        VRF_CMD_HELP_STR
        "multicast group type\n"
        "group address\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
@@ -7679,7 +7679,7 @@ DEFUN (show_ip_msdp_mesh_group,
        MSDP_STR
        VRF_CMD_HELP_STR
        "MSDP mesh-group information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	int idx = 2;
@@ -7701,7 +7701,7 @@ DEFUN (show_ip_msdp_mesh_group_vrf_all,
        MSDP_STR
        VRF_CMD_HELP_STR
        "MSDP mesh-group information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	struct vrf *vrf;
@@ -7895,7 +7895,7 @@ DEFUN (show_ip_msdp_peer_detail,
        "MSDP peer information\n"
        "Detailed output\n"
        "peer ip address\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	int idx = 2;
@@ -7922,7 +7922,7 @@ DEFUN (show_ip_msdp_peer_detail_vrf_all,
        "MSDP peer information\n"
        "Detailed output\n"
        "peer ip address\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	int idx = 2;
 	u_char uj = use_json(argc, argv);
@@ -8130,7 +8130,7 @@ DEFUN (show_ip_msdp_sa_detail,
        VRF_CMD_HELP_STR
        "MSDP active-source information\n"
        "Detailed output\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	int idx = 2;
@@ -8153,7 +8153,7 @@ DEFUN (show_ip_msdp_sa_detail_vrf_all,
        VRF_CMD_HELP_STR
        "MSDP active-source information\n"
        "Detailed output\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	struct vrf *vrf;
@@ -8246,7 +8246,7 @@ DEFUN (show_ip_msdp_sa_sg,
        "MSDP active-source information\n"
        "source or group ip\n"
        "group ip\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	struct vrf *vrf;
