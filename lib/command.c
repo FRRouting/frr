@@ -42,7 +42,6 @@
 #include "command_graph.h"
 #include "qobj.h"
 #include "defaults.h"
-#include "termtable.h"
 
 DEFINE_MTYPE(LIB, HOST, "Host config")
 DEFINE_MTYPE(LIB, STRVEC, "String vector")
@@ -2431,16 +2430,19 @@ DEFUN(find,
       "Text to search for\n")
 {
 	char *text = argv_concat(argv, argc, 1);
+	const struct cmd_node *node;
+	const struct cmd_element *cli;
+	vector clis;
 
 	for (unsigned int i = 0; i < vector_active(cmdvec); i++) {
-		struct cmd_node *node = vector_slot(cmdvec, i);
+		node = vector_slot(cmdvec, i);
 		if (!node)
 			continue;
-		vector clis = node->cmd_vector;
+		clis = node->cmd_vector;
 		for (unsigned int j = 0; j < vector_active(clis); j++) {
-			struct cmd_element *cli = vector_slot(clis, j);
+			cli = vector_slot(clis, j);
 			if (strcasestr(cli->string, text))
-				vty_out(vty, "(%s)  %s",
+				vty_out(vty, "  (%s)  %s\n",
 					node_names[node->node], cli->string);
 		}
 	}

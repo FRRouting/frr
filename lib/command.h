@@ -68,7 +68,7 @@ struct host {
 	char *motdfile;
 };
 
-/* List of CLI nodes. Please remember to update the names array below. */
+/* List of CLI nodes. Please remember to update the name array in command.c. */
 enum node_type {
 	AUTH_NODE,		/* Authentication mode of vty interface. */
 	VIEW_NODE,		/* View node. Default mode of vty interface. */
@@ -138,6 +138,7 @@ enum node_type {
 	NODE_TYPE_MAX,		/* maximum */
 };
 
+extern vector cmdvec;
 extern const char *node_names[];
 
 /* Node which has some commands and prompt string and configuration
