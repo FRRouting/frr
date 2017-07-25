@@ -108,7 +108,7 @@ include a signed-off-by tag in every patch.
 `Signed-off-by:` this is a developer's certification that he or she has the
 right to submit the patch for inclusion into the project. It is an agreement to
 the Developer's Certificate of Origin (below). Code without a proper signoff
-cannot and will not be merged.
+can not and will not be merged.
 
 If you are unfamiliar with this process, you should read the [official policy
 at kernel.org](http://www.kernel.org/doc/Documentation/SubmittingPatches) and
@@ -203,8 +203,8 @@ merged in a timely manner.
       Patchwork at
       [https://patchwork.frrouting.org](https://patchwork.frrouting.org) (if
       submitted as patch to mailing list).
-    * Please notify development mailing list if you think something doesn’t
-      work
+    * Please notify the development mailing list if you think something doesn’t
+      work.
 * If the tests failed:
     * In general, expect the community to ignore the submission until the tests
       pass.
@@ -212,8 +212,8 @@ merged in a timely manner.
         * This includes fixing existing unit (“make test”) tests if your
           changes broke or changed them.
         * It also includes fixing distribution packages for the failing
-          platforms (ie if new libraries are required)
-        * Feel free to ask for help on development list
+          platforms (ie if new libraries are required).
+        * Feel free to ask for help on the development list.
     * Go back to the submission process and repeat until the tests pass.
 * If the tests pass:
     * Wait for reviewers. Someone will review your code or be assigned to
