@@ -505,6 +505,8 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 					}
 					resolved = 1;
 				}
+			if (resolved && set)
+				re->nexthop_mtu = match->mtu;
 			return resolved;
 		} else if (re->type == ZEBRA_ROUTE_STATIC) {
 			resolved = 0;
