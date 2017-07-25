@@ -932,6 +932,13 @@ vty_show_ip_route (struct vty *vty, struct route_node *rn, struct rib *rib,
                 break;
             }
 
+	  if (nexthop->nh_label && nexthop->nh_label->num_labels)
+	    {
+	      json_object_string_add(json_nexthop, "labels",
+				     mpls_label2str (nexthop->nh_label->num_labels,
+						     nexthop->nh_label->label, buf, BUFSIZ));
+	    }
+
           json_object_array_add(json_nexthops, json_nexthop);
         }
 
