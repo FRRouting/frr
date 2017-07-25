@@ -8617,8 +8617,14 @@ static int bgp_show_route(struct vty *vty, struct bgp *bgp, const char *ip_str,
 			  int prefix_check, enum bgp_path_type pathtype,
 			  u_char use_json)
 {
-	if (!bgp)
+	if (!bgp) {
 		bgp = bgp_get_default();
+		if (!bgp) {
+			if (!use_json)
+				vty_out(vty, "No BGP process is configured\n");
+			return CMD_WARNING;
+		}
+	}
 
 	/* labeled-unicast routes live in the unicast table */
 	if (safi == SAFI_LABELED_UNICAST)

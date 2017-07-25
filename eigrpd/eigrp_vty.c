@@ -237,6 +237,11 @@ DEFUN (no_router_eigrp,
 	struct eigrp *eigrp;
 
 	eigrp = eigrp_lookup();
+	if (eigrp == NULL) {
+		vty_out(vty, " EIGRP Routing Process not enabled\n");
+		return CMD_SUCCESS;
+	}
+
 	if (eigrp->AS != atoi(argv[3]->arg)) {
 		vty_out(vty, "%% Attempting to deconfigure non-existent AS\n");
 		return CMD_WARNING_CONFIG_FAILED;
