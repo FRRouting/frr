@@ -21,6 +21,7 @@
 
 #include "command.h"
 #include "vty.h"
+#include "ldpd/ldpd.h"
 #include "ldpd/ldp_vty.h"
 #include "ldpd/ldp_vty_cmds_clippy.c"
 
@@ -62,14 +63,14 @@ DEFUN_NOSH(ldp_l2vpn,
 
 DEFPY  (no_ldp_l2vpn,
 	no_ldp_l2vpn_cmd,
-	"no l2vpn WORD$name type vpls",
+	"no l2vpn WORD$l2vpn_name type vpls",
 	"Negate a command or set its defaults\n"
 	"Configure l2vpn commands\n"
 	"L2VPN name\n"
 	"L2VPN type\n"
 	"Virtual Private LAN Service\n")
 {
-	return (ldp_vty_l2vpn(vty, "no", name));
+	return (ldp_vty_l2vpn(vty, "no", l2vpn_name));
 }
 
 DEFUN_NOSH(ldp_address_family,
@@ -692,9 +693,30 @@ DEFPY  (ldp_show_debugging_mpls_ldp,
 	return (ldp_vty_show_debugging(vty));
 }
 
+static void
+l2vpn_autocomplete(vector comps, struct cmd_token *token)
+{
+	struct l2vpn	*l2vpn;
+
+	RB_FOREACH(l2vpn, l2vpn_head, &vty_conf->l2vpn_tree)
+		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, l2vpn->name));
+}
+
+static const struct cmd_variable_handler l2vpn_var_handlers[] = {
+	{
+		.varname = "l2vpn_name",
+		.completions = l2vpn_autocomplete
+	},
+	{
+		.completions = NULL
+	}
+};
+
 void
 ldp_vty_init (void)
 {
+	cmd_variable_handler_register(l2vpn_var_handlers);
+
 	install_node(&ldp_node, ldp_config_write);
 	install_node(&ldp_ipv4_node, NULL);
 	install_node(&ldp_ipv6_node, NULL);
