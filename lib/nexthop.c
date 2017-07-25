@@ -133,17 +133,17 @@ void copy_nexthops(struct nexthop **tnh, struct nexthop *nh,
 
 	for (nh1 = nh; nh1; nh1 = nh1->next) {
 		nexthop = nexthop_new();
-		nexthop->ifindex = nh->ifindex;
-		nexthop->type = nh->type;
-		nexthop->flags = nh->flags;
-		memcpy(&nexthop->gate, &nh->gate, sizeof(nh->gate));
-		memcpy(&nexthop->src, &nh->src, sizeof(nh->src));
-		memcpy(&nexthop->rmap_src, &nh->rmap_src, sizeof(nh->rmap_src));
+		nexthop->ifindex = nh1->ifindex;
+		nexthop->type = nh1->type;
+		nexthop->flags = nh1->flags;
+		memcpy(&nexthop->gate, &nh1->gate, sizeof(nh1->gate));
+		memcpy(&nexthop->src, &nh1->src, sizeof(nh1->src));
+		memcpy(&nexthop->rmap_src, &nh1->rmap_src, sizeof(nh1->rmap_src));
 		nexthop->rparent = rparent;
-		if (nh->nh_label)
-			nexthop_add_labels(nexthop, nh->nh_label_type,
-					   nh->nh_label->num_labels,
-					   &nh->nh_label->label[0]);
+		if (nh1->nh_label)
+			nexthop_add_labels(nexthop, nh1->nh_label_type,
+					   nh1->nh_label->num_labels,
+					   &nh1->nh_label->label[0]);
 		nexthop_add(tnh, nexthop);
 
 		if (CHECK_FLAG(nh1->flags, NEXTHOP_FLAG_RECURSIVE))
