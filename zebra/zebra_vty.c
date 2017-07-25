@@ -2304,7 +2304,7 @@ DEFUN (show_evpn_vni,
        SHOW_STR
        "EVPN\n"
        "VxLAN information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	struct zebra_vrf *zvrf;
 	u_char uj = use_json(argc, argv);
@@ -2321,7 +2321,7 @@ DEFUN (show_evpn_vni_vni,
        "EVPN\n"
        "VxLAN Network Identifier\n"
        "VNI number\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	struct zebra_vrf *zvrf;
 	vni_t vni;
@@ -2341,7 +2341,7 @@ DEFUN (show_evpn_mac_vni,
        "MAC addresses\n"
        "VxLAN Network Identifier\n"
        "VNI number\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	struct zebra_vrf *zvrf;
 	vni_t vni;
@@ -2361,7 +2361,7 @@ DEFUN (show_evpn_mac_vni_all,
        "MAC addresses\n"
        "VxLAN Network Identifier\n"
        "All VNIs\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	struct zebra_vrf *zvrf;
 	u_char uj = use_json(argc, argv);
@@ -2381,7 +2381,7 @@ DEFUN (show_evpn_mac_vni_all_vtep,
        "All VNIs\n"
        "Remote VTEP\n"
        "Remote VTEP IP address\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	struct zebra_vrf *zvrf;
 	struct in_addr vtep_ip;
@@ -2434,7 +2434,7 @@ DEFUN (show_evpn_mac_vni_vtep,
        "VNI number\n"
        "Remote VTEP\n"
        "Remote VTEP IP address\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	struct zebra_vrf *zvrf;
 	vni_t vni;
@@ -2461,7 +2461,7 @@ DEFUN (show_evpn_neigh_vni,
        "ARP and ND cache\n"
        "VxLAN Network Identifier\n"
        "VNI number\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	struct zebra_vrf *zvrf;
 	vni_t vni;
@@ -2481,7 +2481,7 @@ DEFUN (show_evpn_neigh_vni_all,
        "ARP and ND cache\n"
        "VxLAN Network Identifier\n"
        "All VNIs\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	struct zebra_vrf *zvrf;
 	u_char uj = use_json(argc, argv);
@@ -2501,7 +2501,7 @@ DEFUN (show_evpn_neigh_vni_neigh,
        "VNI number\n"
        "Neighbor\n"
        "Neighbor address (IPv4 or IPv6 address)\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	struct zebra_vrf *zvrf;
 	vni_t vni;
@@ -2529,7 +2529,7 @@ DEFUN (show_evpn_neigh_vni_vtep,
        "VNI number\n"
        "Remote VTEP\n"
        "Remote VTEP IP address\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	struct zebra_vrf *zvrf;
 	vni_t vni;
