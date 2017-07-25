@@ -1706,11 +1706,11 @@ static int netlink_macfdb_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 
 	if (RTA_PAYLOAD(tb[NDA_LLADDR]) != ETHER_ADDR_LEN) {
 		zlog_warn(
-			"%s family %s IF %s(%u) brIF %u - LLADDR is not MAC, len %ld",
+			"%s family %s IF %s(%u) brIF %u - LLADDR is not MAC, len %lu",
 			nl_msg_type_to_str(h->nlmsg_type),
 			nl_family_to_str(ndm->ndm_family), ifp->name,
 			ndm->ndm_ifindex, zif->brslave_info.bridge_ifindex,
-			RTA_PAYLOAD(tb[NDA_LLADDR]));
+			(unsigned long)RTA_PAYLOAD(tb[NDA_LLADDR]));
 		return 0;
 	}
 
@@ -2035,11 +2035,11 @@ static int netlink_ipneigh_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 		if (tb[NDA_LLADDR]) {
 			if (RTA_PAYLOAD(tb[NDA_LLADDR]) != ETHER_ADDR_LEN) {
 				zlog_warn(
-					"%s family %s IF %s(%u) - LLADDR is not MAC, len %ld",
+					"%s family %s IF %s(%u) - LLADDR is not MAC, len %lu",
 					nl_msg_type_to_str(h->nlmsg_type),
 					nl_family_to_str(ndm->ndm_family),
 					ifp->name, ndm->ndm_ifindex,
-					RTA_PAYLOAD(tb[NDA_LLADDR]));
+					(unsigned long)RTA_PAYLOAD(tb[NDA_LLADDR]));
 				return 0;
 			}
 
