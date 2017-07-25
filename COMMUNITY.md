@@ -226,7 +226,7 @@ merged in a timely manner.
 * Your submission is done once it is merged to the master branch.
 
 
-## Coding style requirements
+## Developer's Guidelines
 
 ### Source file header
 
@@ -335,11 +335,61 @@ BSD coding style applies to:
 
 * `ldpd/`
 
-#### Policy
 
-The above standards relate to code formatting. For other stylistic choices,
-such as use of `typedef`, variable naming, etc. refer to the Linux kernel style
-documentation.
+### Documentation
+
+FRRouting is a large and complex software project developed by many different
+people over a long period of time. Without adequate documentation, it can be
+exceedingly difficult to understand code segments, APIs and other interfaces.
+In the interest of keeping the project healthy and maintainable, you should
+make every effort to document your code so that other people can understand
+what it does without needing to closely read the code itself.
+
+Some specific guidelines that contributors should follow are:
+
+* Functions exposed in header files should have descriptive comments above
+  their signatures in the header file. At a minimum, a function comment should
+  contain information about the return value, parameters, and a general summary
+  of the function's purpose. Documentation on parameter values can be omitted
+  if it is (very) obvious what they are used for.
+
+  Function comments must follow the style for multiline comments laid out in
+  the kernel style guide.
+
+Example:
+
+```
+/*
+ * Determines whether or not a string is cool.
+ *
+ * @param text - the string to check for coolness
+ * @param is_clccfc - whether capslock is cruise control for cool
+ * @return 7 if the text is cool, 0 otherwise
+ */
+int check_coolness(const char *text, bool is_clccfc);
+```
+
+The Javadoc-style annotations are not required, but you should still strive to
+make it equally clear what parameters and return values are used for.
+
+* Static functions should have descriptive comments in the same form as above
+  if what they do is not immediately obvious. Use good engineering judgement
+  when deciding whether a comment is necessary. If you are unsure, document
+  your code.
+
+* Global variables, static or not, should have a comment describing their use.
+
+* **For new code in `lib/`, these guidelines are hard requirements.**
+
+
+If you are contributing code that adds significant user-visible functionality
+or introduces a new API, please document it in `doc/`.  Markdown and LaTeX are
+acceptable formats, although Markdown is currently preferred for new
+documentation. This may change in the near future.
+
+Finally, if you come across some code that is undocumented and feel like going
+above and beyond, document it! We absolutely appreciate and accept patches that
+document previously undocumented code.
 
 ### Compile-time conditional code
 
@@ -421,3 +471,8 @@ That said, compatibility measures can (and should) be removed when either:
 In all cases, compatibility pieces should be marked with compiler/preprocessor
 annotations to print warnings at compile time, pointing to the appropriate
 update path.  A `-Werror` build should fail if compatibility bits are used.
+
+### Miscellaneous
+
+When in doubt, follow the guidelines in the Linux kernel style guide, or ask on
+the development mailing list / public Slack instance.
