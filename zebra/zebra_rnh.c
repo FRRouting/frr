@@ -815,6 +815,7 @@ static void copy_state(struct rnh *rnh, struct route_entry *re,
 
 	state = XCALLOC(MTYPE_RE, sizeof(struct route_entry));
 	state->type = re->type;
+	state->distance = re->distance;
 	state->metric = re->metric;
 
 	route_entry_copy_nexthops(state, re->nexthop);
@@ -828,6 +829,9 @@ static int compare_state(struct route_entry *r1, struct route_entry *r2)
 		return 0;
 
 	if ((!r1 && r2) || (r1 && !r2))
+		return 1;
+
+	if (r1->distance != r2->distance)
 		return 1;
 
 	if (r1->metric != r2->metric)
