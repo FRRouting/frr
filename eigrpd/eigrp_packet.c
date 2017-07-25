@@ -886,6 +886,7 @@ void eigrp_packet_header_init(int type, struct eigrp_interface *ei,
 {
 	struct eigrp_header *eigrph;
 
+	stream_reset(s);
 	eigrph = (struct eigrp_header *)STREAM_DATA(s);
 
 	eigrph->version = (u_char)EIGRP_HEADER_VERSION;
