@@ -100,6 +100,7 @@ static void *if_list_clean(struct pim_interface *pim_ifp)
 struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
 {
 	struct pim_interface *pim_ifp;
+	char hash_name[64];
 
 	zassert(ifp);
 	zassert(!ifp->info);
@@ -182,8 +183,11 @@ struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
 	pim_ifp->pim_ifchannel_list->cmp =
 		(int (*)(void *, void *))pim_ifchannel_compare;
 
+	snprintf(hash_name, 64, "Pim Interface %s hash",
+		 ifp->name);
 	pim_ifp->pim_ifchannel_hash =
-		hash_create(pim_ifchannel_hash_key, pim_ifchannel_equal, NULL);
+		hash_create(pim_ifchannel_hash_key, pim_ifchannel_equal,
+			    hash_name);
 
 	ifp->info = pim_ifp;
 

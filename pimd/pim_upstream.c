@@ -1752,11 +1752,16 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 
 void pim_upstream_init(struct pim_instance *pim)
 {
+	char hash_name[64];
+
 	pim->upstream_sg_wheel =
 		wheel_init(master, 31000, 100, pim_upstream_hash_key,
 			   pim_upstream_sg_running);
+
+	snprintf(hash_name, 64, "PIM %s Upstream Hash",
+		 pim->vrf->name);
 	pim->upstream_hash = hash_create_size(8192, pim_upstream_hash_key,
-					      pim_upstream_equal, NULL);
+					      pim_upstream_equal, hash_name);
 
 	pim->upstream_list = list_new();
 	pim->upstream_list->del = (void (*)(void *))pim_upstream_free;

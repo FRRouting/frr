@@ -101,8 +101,13 @@ static unsigned int pim_oil_hash_key(void *arg)
 
 void pim_oil_init(struct pim_instance *pim)
 {
-	pim->channel_oil_hash =
-		hash_create_size(8192, pim_oil_hash_key, pim_oil_equal, NULL);
+	char hash_name[64];
+
+	snprintf(hash_name, 64, "PIM %s Oil Hash", pim->vrf->name);
+	pim->channel_oil_hash = hash_create_size(8192,
+						pim_oil_hash_key,
+						pim_oil_equal,
+						hash_name);
 
 	pim->channel_oil_list = list_new();
 	if (!pim->channel_oil_list) {
