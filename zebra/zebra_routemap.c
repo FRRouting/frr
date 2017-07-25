@@ -256,7 +256,7 @@ DEFUN (no_match_ip_nexthop_prefix_len,
 
 DEFUN (match_source_protocol,
        match_source_protocol_cmd,
-       "match source-protocol <bgp|ospf|rip|ripng|isis|ospf6|connected|system|kernel|static>",
+       "match source-protocol <bgp|ospf|rip|ripng|isis|ospf6|pim|nhrp|eigrp|babel|connected|system|kernel|static>",
        MATCH_STR
        "Match protocol via which the route was learnt\n"
        "BGP protocol\n"
@@ -265,6 +265,10 @@ DEFUN (match_source_protocol,
        "RIPNG protocol\n"
        "ISIS protocol\n"
        "OSPF6 protocol\n"
+       "PIM protocol\n"
+       "NHRP protocol\n"
+       "EIGRP protocol\n"
+       "BABEL protocol\n"
        "Routes from directly connected peer\n"
        "Routes from system configuration\n"
        "Routes from kernel\n"
@@ -284,7 +288,7 @@ DEFUN (match_source_protocol,
 
 DEFUN (no_match_source_protocol,
        no_match_source_protocol_cmd,
-       "no match source-protocol [<bgp|ospf|rip|ripng|isis|ospf6|connected|system|kernel|static>]",
+       "no match source-protocol [<bgp|ospf|rip|ripng|isis|ospf6|pim|nhrp|eigrp|babel|connected|system|kernel|static>]",
        NO_STR
        MATCH_STR
        "No match protocol via which the route was learnt\n"
@@ -294,6 +298,10 @@ DEFUN (no_match_source_protocol,
        "RIPNG protocol\n"
        "ISIS protocol\n"
        "OSPF6 protocol\n"
+       "PIM protocol\n"
+       "NHRP protocol\n"
+       "EIGRP protocol\n"
+       "BABEL protocol\n"
        "Routes from directly connected peer\n"
        "Routes from system configuration\n"
        "Routes from kernel\n"
