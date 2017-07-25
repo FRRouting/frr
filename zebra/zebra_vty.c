@@ -540,6 +540,9 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				break;
 			}
 
+			if (re->nexthop_mtu)
+				vty_out(vty, ", mtu %u", re->nexthop_mtu);
+
 			/* Label information */
 			if (nexthop->nh_label
 			    && nexthop->nh_label->num_labels) {
