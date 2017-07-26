@@ -19,6 +19,9 @@
  */
 
 #include <zebra.h>
+
+#ifndef HAVE_NETLINK
+
 #include <net/if_types.h>
 #ifdef __OpenBSD__
 #include <netmpls/mpls.h>
@@ -1376,3 +1379,5 @@ void kernel_terminate(struct zebra_ns *zns)
 {
 	return;
 }
+
+#endif /* !HAVE_NETLINK */

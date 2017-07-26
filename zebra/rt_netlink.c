@@ -19,6 +19,9 @@
  */
 
 #include <zebra.h>
+
+#ifdef HAVE_NETLINK
+
 #include <net/if_arp.h>
 
 /* Hack for GNU libc version 2. */
@@ -2442,3 +2445,5 @@ void clear_nhlfe_installed(zebra_lsp_t *lsp)
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 	}
 }
+
+#endif /* HAVE_NETLINK */

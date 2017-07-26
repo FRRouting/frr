@@ -19,6 +19,9 @@
  */
 
 #include <zebra.h>
+
+#ifdef OPEN_BSD
+
 #include <netmpls/mpls.h>
 #include "zebra/rt.h"
 #include "zebra/zebra_mpls.h"
@@ -358,3 +361,5 @@ int mpls_kernel_init(void)
 
 	return 0;
 }
+
+#endif /* OPEN_BSD */

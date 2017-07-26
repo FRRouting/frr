@@ -21,6 +21,8 @@
 
 #include <zebra.h>
 
+#ifdef OPEN_BSD
+
 #include "if.h"
 #include "sockunion.h"
 #include "prefix.h"
@@ -328,3 +330,5 @@ void interface_list(struct zebra_ns *zns)
 	ifaddr_proc_ipv6();
 #endif /* HAVE_PROC_NET_IF_INET6 */
 }
+
+#endif /* OPEN_BSD */

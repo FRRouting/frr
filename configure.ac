@@ -415,26 +415,6 @@ if test "${enable_rr_semantics}" != "no" ; then
   AC_DEFINE(HAVE_V6_RR_SEMANTICS,, Compile in v6 Route Replacement Semantics)
 fi
 
-dnl ----------
-dnl MPLS check
-dnl ----------
-AC_MSG_CHECKING(whether this OS has MPLS stack)
-case "$host" in
-  *-linux*)
-      MPLS_METHOD="zebra_mpls_netlink.o"
-      AC_MSG_RESULT(Linux MPLS)
-  ;;
-  *-openbsd*)
-      MPLS_METHOD="zebra_mpls_openbsd.o"
-      AC_MSG_RESULT(OpenBSD MPLS)
-  ;;
-  *)
-      MPLS_METHOD="zebra_mpls_null.o"
-      AC_MSG_RESULT(Unsupported kernel)
-  ;;
-esac
-AC_SUBST(MPLS_METHOD)
-
 if test "${enable_datacenter}" = "yes" ; then
   AC_DEFINE(HAVE_DATACENTER,,Compile extensions for a DataCenter)
   DFLT_NAME="datacenter"
@@ -850,50 +830,52 @@ FRR_INCLUDES
 
 dnl V6 headers are checked below, after we check for v6
 
-dnl Some systems (Solaris 2.x) require libnsl (Network Services Library)
-case "$host" in
-  [*-sunos5.[6-7]*] | [*-solaris2.[6-7]*])
-      opsys=sol2-6
-      AC_DEFINE(SUNOS_56, 1, SunOS 5.6 to 5.7)
-      AC_DEFINE(SUNOS_5, 1, SunOS 5)
-      AC_CHECK_LIB(xnet, main)
-      CURSES=-lcurses
-      SOLARIS="solaris"
-  ;;
-  [*-sunos5.[8-9]] \
-  | [*-sunos5.1[0-9]] \
-  | [*-sunos5.1[0-9].[0-9]] \
-  | [*-solaris2.[8-9]] \
-  | [*-solaris2.1[0-9]] \
-  | [*-solaris2.1[0-9].[0-9]])
-      opsys=sol8
-      AC_DEFINE(SUNOS_59, 1, [SunOS 5.8 up])
-      AC_DEFINE(SUNOS_5, 1, [SunOS 5])
-      AC_CHECK_LIB(socket, main)
-      AC_CHECK_LIB(nsl, main)
-      AC_CHECK_LIB(umem, main)
-      AC_CHECK_FUNCS([printstack],
-      	[AC_DEFINE([HAVE_PRINTSTACK],1,[Solaris printstack])
-      	 AC_DEFINE([HAVE_STACK_TRACE],1,[Stack symbols decode functionality])
-      	])
-      CURSES=-lcurses
-      SOLARIS="solaris"
-  ;;
-  *-sunos5* | *-solaris2*)
-      AC_DEFINE(SUNOS_5,,SunOS 5, Unknown SunOS)
-      AC_CHECK_LIB(socket, main)
-      AC_CHECK_LIB(nsl, main)
-      CURSES=-lcurses
-      SOLARIS="solaris"
-  ;;
-  *-linux*)
-      opsys=gnu-linux
-      AC_DEFINE(GNU_LINUX,,GNU Linux)
-  ;;
-  *-openbsd*)
-      opsys=openbsd
-      AC_DEFINE(OPEN_BSD,,OpenBSD)
-  ;;
+AC_MSG_CHECKING([which operating system interface to use])
+case "$host_os" in
+  sunos* | solaris2*)
+    AC_MSG_RESULT([Solaris])
+
+    AC_DEFINE(SUNOS_5, 1, [SunOS 5])
+    AC_DEFINE(SOLARIS_IPV6, 1, Solaris IPv6)
+
+    AC_CHECK_LIB(socket, main)
+    AC_CHECK_LIB(nsl, main)
+    AC_CHECK_LIB(umem, main)
+    AC_CHECK_FUNCS([printstack], [
+      AC_DEFINE([HAVE_PRINTSTACK],1,[Solaris printstack])
+      AC_DEFINE([HAVE_STACK_TRACE],1,[Stack symbols decode functionality])
+    ])
+    CURSES=-lcurses
+    SOLARIS="solaris"
+    ;;
+  linux*)
+    AC_MSG_RESULT([Linux])
+
+    AC_DEFINE(GNU_LINUX,,GNU Linux)
+    AC_DEFINE(HAVE_NETLINK,,netlink)
+    AC_DEFINE(LINUX_IPV6,1,Linux IPv6 stack)
+
+    dnl Linux has a compilation problem with mixing
+    dnl netinet/in.h and linux/in6.h they are not
+    dnl compatible.  There has been discussion on
+    dnl how to fix it but no real progress on implementation
+    dnl when they fix it, remove this
+    AC_DEFINE(IPV6_MINHOPCOUNT, 73, Linux ipv6 Min Hop Count)
+
+    AC_CHECK_DECLS([IFLA_INFO_SLAVE_KIND], [], [], [#include <linux/if_link.h>])
+    ;;
+  openbsd*)
+    AC_MSG_RESULT([OpenBSD])
+
+    AC_DEFINE(OPEN_BSD,,OpenBSD)
+    AC_DEFINE(KAME,1,KAME IPv6)
+    ;;
+  *)
+    AC_MSG_RESULT([BSD])
+
+    AC_DEFINE(HAVE_NET_RT_IFLIST,,NET_RT_IFLIST)
+    AC_DEFINE(KAME,1,KAME IPv6)
+    ;;
 esac
 
 AC_SYS_LARGEFILE
@@ -1049,26 +1031,6 @@ AC_CHECK_HEADER([asm-generic/unistd.h],
                  AC_CHECK_FUNCS(setns)]
                )
 
-dnl ------------------------------------
-dnl Determine routing get and set method
-dnl ------------------------------------
-AC_MSG_CHECKING(zebra between kernel interface method)
-if test x"$opsys" = x"gnu-linux"; then
-  AC_MSG_RESULT(netlink)
-  RT_METHOD=rt_netlink.o
-  KERNEL_METHOD=kernel_netlink.o
-  AC_DEFINE(HAVE_NETLINK,,netlink)
-  netlink=yes
-  AC_CHECK_DECLS([IFLA_INFO_SLAVE_KIND], [], [], [#include <linux/if_link.h>])
-else
-  AC_MSG_RESULT(Route socket)
-  KERNEL_METHOD="kernel_socket.o"
-  RT_METHOD="rt_socket.o"
-fi
-AC_SUBST(RT_METHOD)
-AC_SUBST(KERNEL_METHOD)
-AM_CONDITIONAL([HAVE_NETLINK], [test "x$netlink" = "xyes"])
-
 dnl --------------------------
 dnl Determine IS-IS I/O method
 dnl --------------------------
@@ -1078,27 +1040,32 @@ AC_DEFINE(ISIS_METHOD_BPF,	3, [ constant value for isis method bpf ])
 AC_CHECK_HEADER(net/bpf.h)
 AC_CHECK_HEADER(sys/dlpi.h)
 AC_MSG_CHECKING(zebra IS-IS I/O method)
-if test x"$opsys" = x"gnu-linux"; then
-  AC_MSG_RESULT(pfpacket)
-  ISIS_METHOD_MACRO="ISIS_METHOD_PFPACKET"
-elif test x"$opsys" = x"sol2-6" -o x"$opsys" = x"sol8"; then
-  AC_MSG_RESULT(DLPI)
-  ISIS_METHOD_MACRO="ISIS_METHOD_DLPI"
-else
-  if test $ac_cv_header_net_bpf_h = no; then
-    if test $ac_cv_header_sys_dlpi_h = no; then
-      AC_MSG_RESULT(none)
-      AC_MSG_WARN([*** IS-IS support will not be built ***])
-      ISISD=""
-    else
-      AC_MSG_RESULT(DLPI)
-    fi
+
+case "$host_os" in
+  linux*)
+    AC_MSG_RESULT(pfpacket)
+    ISIS_METHOD_MACRO="ISIS_METHOD_PFPACKET"
+    ;;
+  solaris* | sunos*)
+    AC_MSG_RESULT(DLPI)
     ISIS_METHOD_MACRO="ISIS_METHOD_DLPI"
-  else
-    AC_MSG_RESULT(BPF)
-    ISIS_METHOD_MACRO="ISIS_METHOD_BPF"
-  fi
-fi
+    ;;
+  *)
+    if test $ac_cv_header_net_bpf_h = no; then
+      if test $ac_cv_header_sys_dlpi_h = no; then
+        AC_MSG_RESULT(none)
+        AC_MSG_WARN([*** IS-IS support will not be built ***])
+        ISISD=""
+      else
+        AC_MSG_RESULT(DLPI)
+      fi
+      ISIS_METHOD_MACRO="ISIS_METHOD_DLPI"
+    else
+      AC_MSG_RESULT(BPF)
+      ISIS_METHOD_MACRO="ISIS_METHOD_BPF"
+    fi
+    ;;
+esac
 AC_DEFINE_UNQUOTED(ISIS_METHOD, $ISIS_METHOD_MACRO, [ selected method for isis, == one of the constants ])
 
 dnl ------------------------------------
@@ -1127,59 +1094,6 @@ main()
   exit (1);
 }]])],[AC_MSG_RESULT(yes - using workaround) AC_DEFINE(HAVE_BROKEN_CMSG_FIRSTHDR,,Broken CMSG_FIRSTHDR)],
 [AC_MSG_RESULT(no)],[AC_MSG_RESULT(no)])
-
-dnl ------------------------------
-dnl check kernel route read method
-dnl ------------------------------
-AC_CACHE_CHECK([route read method], [frr_cv_rtread_method],
-[if test "x$netlink" = xyes; then
-  frr_cv_rtread_method="netlink"
-else
-for frr_cv_rtread_method in /dev/ip /dev/null;
-do
-  test x`ls $frr_cv_rtread_method 2>/dev/null` = x"$frr_cv_rtread_method" && break
-done
-case $frr_cv_rtread_method in
-  "/dev/ip")
-                     case "$host" in
-                       *-freebsd*)    frr_cv_rtread_method="sysctl";;
-                       *)             frr_cv_rtread_method="getmsg";;
-                     esac;;
-	*)
-                     frr_cv_rtread_method="sysctl";;
-esac
-fi])
-RTREAD_METHOD=rtread_${frr_cv_rtread_method}.o
-AC_SUBST(RTREAD_METHOD)
-
-dnl -----------------------------
-dnl check interface lookup method
-dnl -----------------------------
-IOCTL_METHOD=ioctl.o
-AC_MSG_CHECKING(interface looking up method)
-if test "$netlink" = yes; then
-  AC_MSG_RESULT(netlink)
-  IF_METHOD=if_netlink.o
-elif test "$opsys" = "sol2-6";then
-  AC_MSG_RESULT(Solaris GIF)
-  IF_METHOD=if_ioctl.o
-elif test "$opsys" = "sol8";then
-  AC_MSG_RESULT(Solaris GLIF)
-  IF_METHOD=if_ioctl_solaris.o
-  IOCTL_METHOD=ioctl_solaris.o
-elif test "$opsys" = "openbsd";then
-  AC_MSG_RESULT(openbsd)
-  IF_METHOD=if_ioctl.o
-elif grep NET_RT_IFLIST /usr/include/sys/socket.h >/dev/null 2>&1; then
-  AC_MSG_RESULT(sysctl)
-    IF_METHOD=if_sysctl.o
-    AC_DEFINE(HAVE_NET_RT_IFLIST,,NET_RT_IFLIST)
-else
-    AC_MSG_RESULT(ioctl)
-    IF_METHOD=if_ioctl.o
-fi
-AC_SUBST(IF_METHOD)
-AC_SUBST(IOCTL_METHOD)
 
 dnl ---------------------------------------------------------------
 dnl figure out how to specify an interface in multicast sockets API
@@ -1276,70 +1190,10 @@ if test $ac_cv_have_decl_TCP_MD5SIG = no; then
        AC_CHECK_DECLS([TCP_MD5SIG], [], [], MD5_INCLUDES)])
 fi
 
-dnl -----------------------------
-dnl check ipforward detect method
-dnl -----------------------------
-AC_CACHE_CHECK([ipforward method], [frr_cv_ipforward_method],
-[if test x$cross_compiling = xyes; then
-  if test x"$opsys" = x"gnu-linux"; then
-    frr_cv_ipforward_method=/proc/net/snmp
-  else
-    frr_cv_ipforward_method=/dev/ip
-  fi
-else
-  for frr_cv_ipforward_method in /proc/net/snmp /dev/ip /dev/null;
-  do
-    test x`ls $frr_cv_ipforward_method 2>/dev/null` = x"$frr_cv_ipforward_method" && break
-  done
-fi
-case $frr_cv_ipforward_method in
-  "/proc/net/snmp")  frr_cv_ipforward_method="proc";;
-  "/dev/ip")         
-                     case "$host" in
-                       *-freebsd*)    frr_cv_ipforward_method="sysctl";;
-                       *)             frr_cv_ipforward_method="solaris";;
-                     esac;;
-  *)                 frr_cv_ipforward_method="sysctl";;
-esac])
-IPFORWARD=ipforward_${frr_cv_ipforward_method}.o
-AC_SUBST(IPFORWARD)
-
 dnl ----------------------------------------------------------------------------
 dnl figure out if domainname is available in the utsname struct (GNU extension).
 dnl ----------------------------------------------------------------------------
 AC_CHECK_MEMBERS([struct utsname.domainname], [], [], [#include <sys/utsname.h>])
-
-dnl ----------
-dnl IPv6 check
-dnl ----------
-AC_MSG_CHECKING(whether does this OS have IPv6 stack)
-dnl ---------
-dnl KAME IPv6
-dnl ---------
-  if grep WIDE /usr/include/netinet6/in6.h >/dev/null 2>&1; then
-    AC_DEFINE(KAME,1,KAME IPv6)
-    AC_MSG_RESULT(KAME)
-dnl ------------------------------------
-dnl Solaris 9, 10 and potentially higher
-dnl ------------------------------------
-  elif test x"$opsys" = x"sol8"; then
-    AC_DEFINE(SOLARIS_IPV6, 1, Solaris IPv6)
-    AC_MSG_RESULT(Solaris IPv6)
-dnl ----------
-dnl Linux IPv6
-dnl ----------
-  elif test x"$opsys" = x"gnu-linux"; then
-    AC_DEFINE(LINUX_IPV6,1,Linux IPv6 stack)
-    dnl Linux has a compilation problem with mixing
-    dnl netinet/in.h and linux/in6.h they are not
-    dnl compatible.  There has been discussion on
-    dnl how to fix it but no real progress on implementation
-    dnl when they fix it, remove this
-    AC_DEFINE(IPV6_MINHOPCOUNT, 73, Linux ipv6 Min Hop Count)
-    AC_MSG_RESULT(Linux IPv6)
-  else
-    AC_MSG_ERROR([Failed to detect IPv6 stack])
-  fi
 
 dnl ------------------
 dnl IPv6 header checks
@@ -1407,15 +1261,18 @@ fi
 AM_CONDITIONAL(LDPD, test "x$LDPD" = "xldpd")
 
 NHRPD=""
-if test "$opsys" = "gnu-linux"; then
-  if test "${enable_nhrpd}" != "no"; then
-    NHRPD="nhrpd"
-  fi
-else
-  if test "${enable_nhrpd}" = "yes"; then
-    AC_MSG_ERROR([nhrpd requires kernel APIs that are only present on Linux.])
-  fi
-fi
+case "$host_os" in
+  linux*)
+    if test "${enable_nhrpd}" != "no"; then
+      NHRPD="nhrpd"
+    fi
+    ;;
+  *)
+    if test "${enable_nhrpd}" = "yes"; then
+      AC_MSG_ERROR([nhrpd requires kernel APIs that are only present on Linux.])
+    fi
+    ;;
+esac
 AM_CONDITIONAL(NHRPD, test "x$NHRPD" = "xnhrpd")
 
 if test "${enable_eigrpd}" = "no";then

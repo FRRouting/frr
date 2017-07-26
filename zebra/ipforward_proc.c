@@ -21,6 +21,8 @@
 
 #include <zebra.h>
 
+#ifdef GNU_LINUX
+
 #include "log.h"
 #include "privs.h"
 
@@ -193,3 +195,5 @@ int ipforward_ipv6_off(void)
 
 	return ipforward_ipv6();
 }
+
+#endif /* GNU_LINUX */

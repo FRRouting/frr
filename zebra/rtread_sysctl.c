@@ -21,6 +21,8 @@
 
 #include <zebra.h>
 
+#if !defined(GNU_LINUX) && !defined(SUNOS_5)
+
 #include "memory.h"
 #include "zebra_memory.h"
 #include "log.h"
@@ -90,3 +92,5 @@ void neigh_read(struct zebra_ns *zns)
 void neigh_read_for_vlan(struct zebra_ns *zns, struct interface *vlan_if)
 {
 }
+
+#endif /* !defined(GNU_LINUX) && !defined(SUNOS_5) */

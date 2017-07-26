@@ -16,42 +16,41 @@ endif
 ## endif ZEBRA
 endif
 
-ipforward = @IPFORWARD@
-if_method = @IF_METHOD@
-rt_method = @RT_METHOD@
-rtread_method = @RTREAD_METHOD@
-kernel_method = @KERNEL_METHOD@
-ioctl_method = @IOCTL_METHOD@
-mpls_method = @MPLS_METHOD@
-
-otherobj = \
-	zebra/$(ioctl_method) \
-	zebra/$(ipforward) \
-	zebra/$(if_method) \
-	zebra/$(rt_method) \
-	zebra/$(rtread_method) \
-	zebra/$(kernel_method) \
-	zebra/$(mpls_method) \
-	# end
-
-zebra_zebra_LDADD = $(otherobj) lib/libfrr.la $(LIBCAP)
-zebra_zebra_DEPENDENCIES = $(otherobj) lib/libfrr.la
-
+zebra_zebra_LDADD = lib/libfrr.la $(LIBCAP)
 zebra_zebra_SOURCES = \
 	zebra/connected.c \
 	zebra/debug.c \
+	zebra/if_ioctl.c \
+	zebra/if_ioctl_solaris.c \
+	zebra/if_netlink.c \
+	zebra/if_sysctl.c \
 	zebra/interface.c \
+	zebra/ioctl.c \
+	zebra/ioctl_solaris.c \
+	zebra/ipforward_proc.c \
+	zebra/ipforward_solaris.c \
+	zebra/ipforward_sysctl.c \
 	zebra/irdp_interface.c \
 	zebra/irdp_main.c \
 	zebra/irdp_packet.c \
+	zebra/kernel_netlink.c \
+	zebra/kernel_socket.c \
 	zebra/label_manager.c \
 	zebra/main.c \
 	zebra/redistribute.c \
 	zebra/router-id.c \
+	zebra/rt_netlink.c \
+	zebra/rt_socket.c \
 	zebra/rtadv.c \
+	zebra/rtread_getmsg.c \
+	zebra/rtread_netlink.c \
+	zebra/rtread_sysctl.c \
 	zebra/zebra_l2.c \
 	zebra/zebra_memory.c \
 	zebra/zebra_mpls.c \
+	zebra/zebra_mpls_netlink.c \
+	zebra/zebra_mpls_openbsd.c \
+	zebra/zebra_mpls_null.c \
 	zebra/zebra_mpls_vty.c \
 	zebra/zebra_mroute.c \
 	zebra/zebra_ns.c \
@@ -112,9 +111,7 @@ zebra_zebra_snmp_la_LIBADD = lib/libfrrsnmp.la
 zebra_zebra_fpm_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 zebra_zebra_fpm_la_LIBADD = $(Q_FPM_PB_CLIENT_LDOPTS)
 zebra_zebra_fpm_la_SOURCES = zebra/zebra_fpm.c
-if HAVE_NETLINK
 zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_netlink.c
-endif
 if HAVE_PROTOBUF
 zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_protobuf.c
 if DEV_BUILD
@@ -125,25 +122,6 @@ endif
 EXTRA_DIST += \
 	zebra/GNOME-SMI \
 	zebra/GNOME-PRODUCT-ZEBRA-MIB \
-	zebra/if_ioctl.c \
-	zebra/if_ioctl_solaris.c \
-	zebra/if_netlink.c \
-	zebra/if_sysctl.c \
-	zebra/ioctl.c \
-	zebra/ioctl_solaris.c \
-	zebra/ipforward_proc.c \
-	zebra/ipforward_solaris.c \
-	zebra/ipforward_sysctl.c \
-	zebra/kernel_netlink.c \
-	zebra/kernel_socket.c \
-	zebra/rt_netlink.c \
-	zebra/rt_socket.c \
-	zebra/rtread_getmsg.c \
-	zebra/rtread_netlink.c \
-	zebra/rtread_sysctl.c \
-	zebra/zebra_mpls_netlink.c \
-	zebra/zebra_mpls_null.c \
-	zebra/zebra_mpls_openbsd.c \
 	# end
 
 # -- unmaintained --
