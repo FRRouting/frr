@@ -8257,6 +8257,8 @@ static int bgp_show(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 	if (bgp == NULL) {
 		if (!use_json)
 			vty_out(vty, "No BGP process is configured\n");
+		else
+			vty_out(vty, "{}\n");
 		return CMD_WARNING;
 	}
 
@@ -8622,6 +8624,8 @@ static int bgp_show_route(struct vty *vty, struct bgp *bgp, const char *ip_str,
 		if (!bgp) {
 			if (!use_json)
 				vty_out(vty, "No BGP process is configured\n");
+			else
+				vty_out(vty, "{}\n");
 			return CMD_WARNING;
 		}
 	}

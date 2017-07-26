@@ -4402,6 +4402,10 @@ static int show_ip_ospf_neighbor_id_common(struct vty *vty, struct ospf *ospf,
 	if (!ret) {
 		if (!use_json)
 			vty_out(vty, "Please specify Neighbor ID by A.B.C.D\n");
+		else {
+			vty_out(vty, "{}\n");
+			json_object_free(json);
+		}
 		return CMD_WARNING;
 	}
 
@@ -4682,6 +4686,10 @@ static int show_ip_ospf_neighbor_int_detail_common(struct vty *vty,
 	if (!ifp) {
 		if (!use_json)
 			vty_out(vty, "No such interface.\n");
+		else {
+			vty_out(vty, "{}\n");
+			json_object_free(json);
+		}
 		return CMD_WARNING;
 	}
 

@@ -374,6 +374,8 @@ int bgp_show_mpls_vpn(struct vty *vty, afi_t afi, struct prefix_rd *prd,
 	if (bgp == NULL) {
 		if (!use_json)
 			vty_out(vty, "No BGP process is configured\n");
+		else
+			vty_out(vty, "{}\n");
 		return CMD_WARNING;
 	}
 

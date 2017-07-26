@@ -51,6 +51,8 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 	if (bgp == NULL) {
 		if (!use_json)
 			vty_out(vty, "No BGP process is configured\n");
+		else
+			vty_out(vty, "{}\n");
 		return CMD_WARNING;
 	}
 
