@@ -17,6 +17,9 @@ CentOS 6 restrictions:
 - Zebra is unable to detect what bridge/vrf an interface is associcated
   with (IFLA_INFO_SLAVE_KIND does not exist in the kernel headers, you
   can use a newer kernel + headers to get this functionality)
+- frr_reload.py will not work, as this requires Python 2.7, and CentOS 6
+  only has 2.6.  You can install Python 2.7 via IUS, but it won't work
+  properly unless you compile and install the ipaddr package for it.
 
 Install required packages
 -------------------------
