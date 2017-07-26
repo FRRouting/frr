@@ -498,6 +498,29 @@ int vtysh_mark_file(const char *filename)
 		strcpy(vty_buf_copy, vty->buf);
 		vty_buf_trimmed = trim(vty_buf_copy);
 
+		switch (vty->node) {
+		case LDP_IPV4_IFACE_NODE:
+			if (strncmp(vty_buf_copy, "   ", 3)) {
+				fprintf(stdout, "  end\n");
+				vty->node = LDP_IPV4_NODE;
+			}
+			break;
+		case LDP_IPV6_IFACE_NODE:
+			if (strncmp(vty_buf_copy, "   ", 3)) {
+				fprintf(stdout, "  end\n");
+				vty->node = LDP_IPV6_NODE;
+			}
+			break;
+		case LDP_PSEUDOWIRE_NODE:
+			if (strncmp(vty_buf_copy, "  ", 2)) {
+				fprintf(stdout, " end\n");
+				vty->node = LDP_L2VPN_NODE;
+			}
+			break;
+		default:
+			break;
+		}
+
 		if (vty_buf_trimmed[0] == '!' || vty_buf_trimmed[0] == '#') {
 			fprintf(stdout, "%s", vty->buf);
 			continue;
