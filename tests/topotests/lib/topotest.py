@@ -687,13 +687,13 @@ class Router(Node):
         if not os.path.isfile(daemon_path):
             return False
         if (daemon == 'ldpd'):
-            kernel_version = re.search(r'([0-9]+)\.([0-9]+).*', platform.release())
-            if kernel_version:
-                if (float(kernel_version.group(1)) < 4 or
-                   (float(kernel_version.group(1)) == 4 and float(kernel_version.group(2)) < 5)):
-                    return False
-            else:
+            if version_cmp(platform.release(), '4.5') < 0:
                 return False
+            if self.cmd('/sbin/modprobe -n mpls-router' ) != "":
+                return False
+            if self.cmd('/sbin/modprobe -n mpls-iptunnel') != "":
+                return False
+
         return True
     def get_routertype(self):
         "Return the type of Router (frr or quagga)"
