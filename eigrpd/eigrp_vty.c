@@ -1005,9 +1005,11 @@ DEFUN (eigrp_redistribute_source_metric,
 
 	/* Get distribute source. */
 	argv_find(argv, argc, "redistribute", &idx);
-	source = proto_redistnum(AFI_IP, argv[idx + 1]->arg);
-	if (source < 0)
+	source = proto_redistnum(AFI_IP, argv[idx + 1]->text);
+	if (source < 0) {
+		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	/* Get metrics values */
 
@@ -1034,9 +1036,11 @@ DEFUN (no_eigrp_redistribute_source_metric,
 
 	/* Get distribute source. */
 	argv_find(argv, argc, "redistribute", &idx);
-	source = proto_redistnum(AFI_IP, argv[idx + 1]->arg);
-	if (source < 0)
+	source = proto_redistnum(AFI_IP, argv[idx + 1]->text);
+	if (source < 0) {
+		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	/* Get metrics values */
 
