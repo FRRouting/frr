@@ -700,6 +700,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 	int send_attr_printed = 0;
 	int num_pfx = 0;
 	int addpath_encode = 0;
+	int addpath_overhead = 0;
 	u_int32_t addpath_tx_id = 0;
 	struct prefix_rd *prd = NULL;
 	mpls_label_t label = MPLS_INVALID_LABEL;
@@ -721,6 +722,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 	bpacket_attr_vec_arr_reset(&vecarr);
 
 	addpath_encode = bgp_addpath_encode_tx(peer, afi, safi);
+	addpath_overhead = addpath_encode ? BGP_ADDPATH_ID_LEN : 0;
 
 	adv = BGP_ADV_FIFO_HEAD(&subgrp->sync->update);
 	while (adv) {
@@ -732,8 +734,8 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 
 		space_remaining = STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s))
 				  - BGP_MAX_PACKET_SIZE_OVERFLOW;
-		space_needed = BGP_NLRI_LENGTH + bgp_packet_mpattr_prefix_size(
-							 afi, safi, &rn->p);
+		space_needed = BGP_NLRI_LENGTH + addpath_overhead +
+			       bgp_packet_mpattr_prefix_size(afi, safi, &rn->p);
 
 		/* When remaining space can't include NLRI and it's length.  */
 		if (space_remaining < space_needed)
@@ -777,9 +779,9 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			space_remaining =
 				STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s))
 				- BGP_MAX_PACKET_SIZE_OVERFLOW;
-			space_needed =
-				BGP_NLRI_LENGTH + bgp_packet_mpattr_prefix_size(
-							  afi, safi, &rn->p);
+			space_needed = BGP_NLRI_LENGTH + addpath_overhead +
+				bgp_packet_mpattr_prefix_size(afi, safi,
+							      &rn->p);
 
 			/* If the attributes alone do not leave any room for
 			 * NLRI then
@@ -936,6 +938,7 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 	int space_needed = 0;
 	int num_pfx = 0;
 	int addpath_encode = 0;
+	int addpath_overhead = 0;
 	u_int32_t addpath_tx_id = 0;
 	struct prefix_rd *prd = NULL;
 
@@ -952,6 +955,7 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 	s = subgrp->work;
 	stream_reset(s);
 	addpath_encode = bgp_addpath_encode_tx(peer, afi, safi);
+	addpath_overhead = addpath_encode ? BGP_ADDPATH_ID_LEN : 0;
 
 	while ((adv = BGP_ADV_FIFO_HEAD(&subgrp->sync->withdraw)) != NULL) {
 		assert(adv->rn);
@@ -962,7 +966,7 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 		space_remaining =
 			STREAM_REMAIN(s) - BGP_MAX_PACKET_SIZE_OVERFLOW;
 		space_needed =
-			BGP_NLRI_LENGTH + BGP_TOTAL_ATTR_LEN
+			BGP_NLRI_LENGTH + addpath_overhead + BGP_TOTAL_ATTR_LEN
 			+ bgp_packet_mpattr_prefix_size(afi, safi, &rn->p);
 
 		if (space_remaining < space_needed)
