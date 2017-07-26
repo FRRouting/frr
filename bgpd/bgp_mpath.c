@@ -102,6 +102,7 @@ int bgp_maximum_paths_unset(struct bgp *bgp, afi_t afi, safi_t safi,
 int bgp_info_nexthop_cmp(struct bgp_info *bi1, struct bgp_info *bi2)
 {
 	int compare;
+	struct in6_addr addr1, addr2;
 
 	compare = IPV4_ADDR_CMP(&bi1->attr->nexthop, &bi2->attr->nexthop);
 	if (!compare) {
@@ -120,13 +121,18 @@ int bgp_info_nexthop_cmp(struct bgp_info *bi1, struct bgp_info *bi2)
 					&bi2->attr->mp_nexthop_global);
 				break;
 			case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
-				compare = IPV6_ADDR_CMP(
-					&bi1->attr->mp_nexthop_global,
-					&bi2->attr->mp_nexthop_global);
+				addr1 = (bi1->attr->mp_nexthop_prefer_global) ?
+					bi1->attr->mp_nexthop_global
+					: bi1->attr->mp_nexthop_local;
+				addr2 = (bi2->attr->mp_nexthop_prefer_global) ?
+					bi2->attr->mp_nexthop_global
+					: bi2->attr->mp_nexthop_local;
+
+				if (!bi1->attr->mp_nexthop_prefer_global &&
+				    !bi2->attr->mp_nexthop_prefer_global)
+					compare = !(bi1->peer->ifindex == bi2->peer->ifindex);
 				if (!compare)
-					compare = IPV6_ADDR_CMP(
-						&bi1->attr->mp_nexthop_local,
-						&bi2->attr->mp_nexthop_local);
+					compare = IPV6_ADDR_CMP(&addr1, &addr2);
 				break;
 			}
 		}
