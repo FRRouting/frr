@@ -1328,7 +1328,6 @@ lde_nbr_addr_update(struct lde_nbr *ln, struct lde_addr *lde_addr, int removed)
 	struct lde_map		*me;
 
 	RB_FOREACH(fec, fec_tree, &ln->recv_map) {
-		fn = (struct fec_node *)fec_find(&ft, fec);
 		switch (fec->type) {
 		case FEC_TYPE_IPV4:
 			if (lde_addr->af != AF_INET)
@@ -1341,6 +1340,11 @@ lde_nbr_addr_update(struct lde_nbr *ln, struct lde_addr *lde_addr, int removed)
 		default:
 			continue;
 		}
+
+		fn = (struct fec_node *)fec_find(&ft, fec);
+		if (fn == NULL)
+			/* shouldn't happen */
+			continue;
 
 		LIST_FOREACH(fnh, &fn->nexthops, entry) {
 			if (ldp_addrcmp(fnh->af, &fnh->nexthop,
