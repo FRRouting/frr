@@ -15,3 +15,4 @@ TAGS
 .arch-ids
 *~
 *.loT
+ldp_vty_cmds_clippy.c
