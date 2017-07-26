@@ -249,7 +249,6 @@ def test_ospf_json():
             'spfScheduleDelayMsecs': 0,
             'holdtimeMinMsecs': 50,
             'holdtimeMaxMsecs': 5000,
-            'spfLastDurationMsecs': 0,
             'lsaMinIntervalMsecs': 5000,
             'lsaMinArrivalMsecs': 1000,
             'writeMultiplier': 20,
