@@ -21,13 +21,14 @@
 #include "openbsd-queue.h"
 #include "imsg.h"
 
-int ibuf_realloc(struct ibuf *, size_t);
-void ibuf_enqueue(struct msgbuf *, struct ibuf *);
-void ibuf_dequeue(struct msgbuf *, struct ibuf *);
+int	ibuf_realloc(struct ibuf *, size_t);
+void	ibuf_enqueue(struct msgbuf *, struct ibuf *);
+void	ibuf_dequeue(struct msgbuf *, struct ibuf *);
 
-struct ibuf *ibuf_open(size_t len)
+struct ibuf *
+ibuf_open(size_t len)
 {
-	struct ibuf *buf;
+	struct ibuf	*buf;
 
 	if ((buf = calloc(1, sizeof(struct ibuf))) == NULL)
 		return (NULL);
@@ -41,9 +42,10 @@ struct ibuf *ibuf_open(size_t len)
 	return (buf);
 }
 
-struct ibuf *ibuf_dynamic(size_t len, size_t max)
+struct ibuf *
+ibuf_dynamic(size_t len, size_t max)
 {
-	struct ibuf *buf;
+	struct ibuf	*buf;
 
 	if (max < len)
 		return (NULL);
@@ -57,9 +59,10 @@ struct ibuf *ibuf_dynamic(size_t len, size_t max)
 	return (buf);
 }
 
-int ibuf_realloc(struct ibuf *buf, size_t len)
+int
+ibuf_realloc(struct ibuf *buf, size_t len)
 {
-	u_char *b;
+	u_char	*b;
 
 	/* on static buffers max is eq size and so the following fails */
 	if (buf->wpos + len > buf->max) {
@@ -76,7 +79,8 @@ int ibuf_realloc(struct ibuf *buf, size_t len)
 	return (0);
 }
 
-int ibuf_add(struct ibuf *buf, const void *data, size_t len)
+int
+ibuf_add(struct ibuf *buf, const void *data, size_t len)
 {
 	if (buf->wpos + len > buf->size)
 		if (ibuf_realloc(buf, len) == -1)
@@ -87,9 +91,10 @@ int ibuf_add(struct ibuf *buf, const void *data, size_t len)
 	return (0);
 }
 
-void *ibuf_reserve(struct ibuf *buf, size_t len)
+void *
+ibuf_reserve(struct ibuf *buf, size_t len)
 {
-	void *b;
+	void	*b;
 
 	if (buf->wpos + len > buf->size)
 		if (ibuf_realloc(buf, len) == -1)
@@ -100,7 +105,8 @@ void *ibuf_reserve(struct ibuf *buf, size_t len)
 	return (b);
 }
 
-void *ibuf_seek(struct ibuf *buf, size_t pos, size_t len)
+void *
+ibuf_seek(struct ibuf *buf, size_t pos, size_t len)
 {
 	/* only allowed to seek in already written parts */
 	if (pos + len > buf->wpos)
@@ -109,31 +115,34 @@ void *ibuf_seek(struct ibuf *buf, size_t pos, size_t len)
 	return (buf->buf + pos);
 }
 
-size_t ibuf_size(struct ibuf *buf)
+size_t
+ibuf_size(struct ibuf *buf)
 {
 	return (buf->wpos);
 }
 
-size_t ibuf_left(struct ibuf *buf)
+size_t
+ibuf_left(struct ibuf *buf)
 {
 	return (buf->max - buf->wpos);
 }
 
-void ibuf_close(struct msgbuf *msgbuf, struct ibuf *buf)
+void
+ibuf_close(struct msgbuf *msgbuf, struct ibuf *buf)
 {
 	ibuf_enqueue(msgbuf, buf);
 }
 
-int ibuf_write(struct msgbuf *msgbuf)
+int
+ibuf_write(struct msgbuf *msgbuf)
 {
-	struct iovec iov[IOV_MAX];
-	struct ibuf *buf;
-	unsigned int i = 0;
-	ssize_t n;
+	struct iovec	 iov[IOV_MAX];
+	struct ibuf	*buf;
+	unsigned int	 i = 0;
+	ssize_t	n;
 
 	memset(&iov, 0, sizeof(iov));
-	TAILQ_FOREACH(buf, &msgbuf->bufs, entry)
-	{
+	TAILQ_FOREACH(buf, &msgbuf->bufs, entry) {
 		if (i >= IOV_MAX)
 			break;
 		iov[i].iov_base = buf->buf + buf->rpos;
@@ -150,7 +159,7 @@ again:
 		return (-1);
 	}
 
-	if (n == 0) { /* connection closed */
+	if (n == 0) {			/* connection closed */
 		errno = 0;
 		return (0);
 	}
@@ -160,7 +169,8 @@ again:
 	return (1);
 }
 
-void ibuf_free(struct ibuf *buf)
+void
+ibuf_free(struct ibuf *buf)
 {
 	if (buf == NULL)
 		return;
@@ -168,19 +178,21 @@ void ibuf_free(struct ibuf *buf)
 	free(buf);
 }
 
-void msgbuf_init(struct msgbuf *msgbuf)
+void
+msgbuf_init(struct msgbuf *msgbuf)
 {
 	msgbuf->queued = 0;
 	msgbuf->fd = -1;
 	TAILQ_INIT(&msgbuf->bufs);
 }
 
-void msgbuf_drain(struct msgbuf *msgbuf, size_t n)
+void
+msgbuf_drain(struct msgbuf *msgbuf, size_t n)
 {
-	struct ibuf *buf, *next;
+	struct ibuf	*buf, *next;
 
 	for (buf = TAILQ_FIRST(&msgbuf->bufs); buf != NULL && n > 0;
-	     buf = next) {
+	    buf = next) {
 		next = TAILQ_NEXT(buf, entry);
 		if (buf->rpos + n >= buf->wpos) {
 			n -= buf->wpos - buf->rpos;
@@ -192,32 +204,33 @@ void msgbuf_drain(struct msgbuf *msgbuf, size_t n)
 	}
 }
 
-void msgbuf_clear(struct msgbuf *msgbuf)
+void
+msgbuf_clear(struct msgbuf *msgbuf)
 {
-	struct ibuf *buf;
+	struct ibuf	*buf;
 
 	while ((buf = TAILQ_FIRST(&msgbuf->bufs)) != NULL)
 		ibuf_dequeue(msgbuf, buf);
 }
 
-int msgbuf_write(struct msgbuf *msgbuf)
+int
+msgbuf_write(struct msgbuf *msgbuf)
 {
-	struct iovec iov[IOV_MAX];
-	struct ibuf *buf;
-	unsigned int i = 0;
-	ssize_t n;
-	struct msghdr msg;
-	struct cmsghdr *cmsg;
+	struct iovec	 iov[IOV_MAX];
+	struct ibuf	*buf;
+	unsigned int	 i = 0;
+	ssize_t		 n;
+	struct msghdr	 msg;
+	struct cmsghdr	*cmsg;
 	union {
-		struct cmsghdr hdr;
-		char buf[CMSG_SPACE(sizeof(int))];
+		struct cmsghdr	hdr;
+		char		buf[CMSG_SPACE(sizeof(int))];
 	} cmsgbuf;
 
 	memset(&iov, 0, sizeof(iov));
 	memset(&msg, 0, sizeof(msg));
 	memset(&cmsgbuf, 0, sizeof(cmsgbuf));
-	TAILQ_FOREACH(buf, &msgbuf->bufs, entry)
-	{
+	TAILQ_FOREACH(buf, &msgbuf->bufs, entry) {
 		if (i >= IOV_MAX)
 			break;
 		iov[i].iov_base = buf->buf + buf->rpos;
@@ -249,7 +262,7 @@ again:
 		return (-1);
 	}
 
-	if (n == 0) { /* connection closed */
+	if (n == 0) {			/* connection closed */
 		errno = 0;
 		return (0);
 	}
@@ -268,13 +281,15 @@ again:
 	return (1);
 }
 
-void ibuf_enqueue(struct msgbuf *msgbuf, struct ibuf *buf)
+void
+ibuf_enqueue(struct msgbuf *msgbuf, struct ibuf *buf)
 {
 	TAILQ_INSERT_TAIL(&msgbuf->bufs, buf, entry);
 	msgbuf->queued++;
 }
 
-void ibuf_dequeue(struct msgbuf *msgbuf, struct ibuf *buf)
+void
+ibuf_dequeue(struct msgbuf *msgbuf, struct ibuf *buf)
 {
 	TAILQ_REMOVE(&msgbuf->bufs, buf, entry);
 

@@ -1,4 +1,7 @@
-# Developing for PROJECT (DRAFT)
+Developing for FRRouting
+=========================
+
+## Table of Contents
 
 [TOC]
 
@@ -14,55 +17,57 @@ it's the document that needs to be updated, not reality.
 
 ## Git Structure
 
-The master Git for PROJECT resides on Github at
-[https://github.com/PROJECT/XXX](https://github.com/PROJECT/XXX)
+The master Git for FRRouting resides on Github at
+[https://github.com/frrouting/frr](https://github.com/FRRouting/frr)
 
 ![git branches continually merging to the left from 3 lanes; float-right](doc/git_branches.svg
 "git branch mechanics")
 
-There is one main branch for development and a release branch for each
-major release.
+There is one main branch for development and a release branch for each major
+release.
 
 New contributions are done against the head of the master branch. The CI
-systems will pick up the Github Pull Requests or the new patch from
-Patchwork, run some basic build and functional tests.
+systems will pick up the Github Pull Requests or the new patch from Patchwork,
+run some basic build and functional tests.
 
-For each major release (1.0, 1.1 etc) a new release branch is created based
-on the master.
+For each major release (1.0, 1.1 etc) a new release branch is created based on
+the master.
 
-There was an attempt to use a "develop" branch automatically maintained by
-the CI system.  This is not currently in active use, though the system is
-operational.  If the "develop" branch is in active use and this paragraph
-is still here, this document obviously wasn't updated.
+There was an attempt to use a "develop" branch automatically maintained by the
+CI system.  This is not currently in active use, though the system is
+operational.  If the "develop" branch is in active use and this paragraph is
+still here, this document obviously wasn't updated.
 
 
 ## Programming language, Tools and Libraries
 
-The core of PROJECT is written in C (gcc or clang supported). A few
-non-essential scripts are implemented in Perl and Python. PROJECT requires
-the following tools to build distribution packages: automake, autoconf,
-texinfo, libtool and gawk and various libraries (i.e. libpam and libjson-c).
+The core of FRRouting is written in C (gcc or clang supported) and makes use of
+GNU compiler extensions. A few non-essential scripts are implemented in Perl
+and Python. FRRouting requires the following tools to build distribution
+packages: automake, autoconf, texinfo, libtool and gawk and various libraries
+(i.e. libpam and libjson-c).
 
 If your contribution requires a new library or other tool, then please
-highlight this in your description of the change. Also make sure it’s
-supported by all PROJECT platform OSes or provide a way to build without the
-library (potentially without the new feature) on the other platforms.
+highlight this in your description of the change. Also make sure it’s supported
+by all FRRouting platform OSes or provide a way to build without the library
+(potentially without the new feature) on the other platforms.
 
-Documentation should be written in Tex (.texi) or Markdown (.md) format with
-preference on Markdown.
+Documentation should be written in Tex (.texi) or Markdown (.md) format with a
+preference for Markdown.
 
 
-## Before Submitting your changes
+## Mailing lists
 
-* Format code (see [Code Styling requirements](#code-styling-requirements))
-* Verify and acknowledge license (see [License for contributions](#license-for-contributions))
-* Test building with various configurations:
-    * `buildtest.sh`
-* Verify building source distribution:
-    * `make dist` (and try rebuilding from the resulting tar file)
-* Run DejaGNU unit tests:
-    * `make test`
-* Document Regression Runs and plans for continued maintenance of the feature
+Italicized lists are private.
+
+| Topic                          | List                         |
+|--------------------------------|------------------------------|
+| Development                    | dev@lists.frrouting.org      |
+| Users & Operators              | frog@lists.frrouting.org     |
+| Announcements                  | announce@lists.frrouting.org |
+| _Security_                     | security@lists.frrouting.org |
+| _Technical Steering Committee_ | tsc@lists.frrouting.org      |
+
 
 ### Changelog
 
@@ -75,16 +80,45 @@ for the release notes.
 
 ## Submitting Patches and Enhancements
 
+### Pre-submission Checklist
+
+* Format code (see [Coding style requirements](#coding-style-requirements))
+* Verify and acknowledge license (see [License for contributions](#license-for-contributions))
+* Ensure you have properly signed off (see [Signing Off](#signing-off))
+* Test building with various configurations:
+    * `buildtest.sh`
+* Verify building source distribution:
+    * `make dist` (and try rebuilding from the resulting tar file)
+* Run unit tests:
+    * `make test`
+* Document Regression Runs and plans for continued maintenance of the feature
+
 ### License for contributions
 
-PROJECT is under a “GPLv2 or later” license. Any code submitted must be
+FRRouting is under a “GPLv2 or later” license. Any code submitted must be
 released under the same license (preferred) or any license which allows
 redistribution under this GPLv2 license (eg MIT License).
 
-### Signed-off required
+### Signing Off
 
-Submissions to PROJECT require a “Signed-off” in the patch or git commit.
-We follow the same standard as the Linux Kernel Development.
+Code submitted to FRRouting must be signed off. We have the same requirements
+for using the signed-off-by process as the Linux kernel. In short, you must
+include a signed-off-by tag in every patch.
+
+`Signed-off-by:` this is a developer's certification that he or she has the
+right to submit the patch for inclusion into the project. It is an agreement to
+the Developer's Certificate of Origin (below). Code without a proper signoff
+can not and will not be merged.
+
+If you are unfamiliar with this process, you should read the [official policy
+at kernel.org](http://www.kernel.org/doc/Documentation/SubmittingPatches) and
+you might find this article about [participating in the Linux community on the
+Linux Foundation
+website](http://www.linuxfoundation.org/content/how-participate-linux-community-0)
+to be a helpful resource.
+
+In short, when you sign off on a commit, you assert your agreement to all of
+the following:
 
 > Developer's Certificate of Origin 1.1
 >
@@ -112,79 +146,46 @@ We follow the same standard as the Linux Kernel Development.
 >     maintained indefinitely and may be redistributed consistent with
 >     this project or the open source license(s) involved.
 
-#### Using this Process
-
-We have the same requirements for using the signed-off-by process as the Linux
-kernel. In short, you need to include a signed-off-by tag in every patch:
-
-* `Signed-off-by:` this is a developer's certification that he or she has the
-right to submit the patch for inclusion into the project. It is an agreement to
-the Developer's Certificate of Origin (above). Code without a proper signoff
-cannot be merged into the mainline.
-
-Please make sure to have a `Signed-off-by:` in each commit/patch or the patches
-will be rejected until this is added.
-
-If you are unfamiliar with this process, you should read the [official policy
-at kernel.org](http://www.kernel.org/doc/Documentation/SubmittingPatches) and
-you might find this article about [participating in the Linux community on the
-Linux Foundation
-website](http://www.linuxfoundation.org/content/how-participate-linux-community-0)
-to be a helpful resource.
-
-### Code submission - What do I submit my changes against?
+### What do I submit my changes against?
 
 We've documented where we would like to have the different fixes applied at
 https://github.com/FRRouting/frr/wiki/Where-Do-I-create-a-Pull-Request-against%3F
-If you are unsure where your submission goes, look at that document or ask
-the question of a maintainer.
+If you are unsure where your submission goes, look at that document or ask a
+project maintainer.
 
-### Code submission - Github Pull Request (Strongly Preferred)
+### Github pull requests
 
-Preferred submission of code is by using a Github Pull Request against the
-Develop branch. Code submitted by Pull Request will have an email generated to
-the PROJECT-devel mailing list for review and the submission will be
-automatically tested by one or more CI systems. Only after this test succeeds
-(and the submission is based on the head of the develop branch), then it will
-be automatically merged into the develop branch. In case of failed tests, it is
-up to the submitter to either amend the request with further commits or close,
-fix and create a new pull request.
+The preferred method of submitting changes is a Github pull request. Code
+submitted by pull request will be automatically tested by one or more CI
+systems. Once the automated tests succeed, other developers will review your
+code for quality and correctness. After any concerns are resolved, your code
+will be merged into the branch it was submitted against.
 
-Further (manual) code review and discussion happens after the merge into the
-develop branch.
+### Patch submission via mailing list
 
-
-### Code submission - Mailing Patch to PROJECT-Devel list
-
-As an alternative submission, a patch can be mailed to the PROJECT-Devel
-mailing list. Preferred way to send the patch is using git send-mail. Patches
-received on the mailing list will be picked up by Patchwork and tested against
-the latest develop branch. After a further ACK by someone on the mailing list,
-the patch is then merged into the develop branch.
-
-Further (manual) code review and discussion happens after the merge into the
-develop branch.
-
-#### Sending patch to mailing list
+As an alternative submission method, a patch can be mailed to the development
+mailing list. Patches received on the mailing list will be picked up by
+Patchwork and tested against the latest development branch.
 
 The recommended way to send the patch (or series of NN patches) to the list is
-by using ‘git send-email’ as follows (assuming they are the most recent NN
+by using `git send-email` as follows (assuming they are the N most recent
 commit(s) in your git history:
 
 ```
-git send-email -NN --annotate --to=XXX-Devel@XXX.org
+git send-email -NN --annotate --to=dev@lists.frrouting.org
 ```
 
 If your commits do not already contain a `Signed-off-by` line, then use the
-following version to add it (after making sure to be able to agree to the
-Developer Certificate of Origin as outlined above):
+following command to add it (after making sure you agree to the Developer
+Certificate of Origin as outlined above):
 
 ```
-git send-email -NN --annotate --signoff --to=XXX-Devel@XXX.org
+git send-email -NN --annotate --signoff --to=dev@lists.frrouting.org
 ```
 
-Submitting multi-commit patches as a Github Pull Request is strongly encouraged
-and will allow your changes to merge faster
+Submitting multi-commit patches as a Github pull request is **strongly
+encouraged** and increases the probability of your patch getting reviewed and
+merged in a timely manner.
 
 
 ## After submitting your changes
@@ -194,35 +195,34 @@ and will allow your changes to merge faster
       less than 2 hrs of the submission. If you don’t get the email, then check
       status on the github pull request (if submitted by pull request) or on
       Patchwork at
-      [https://patchwork.PROJECT.org](https://patchwork.PROJECT.org) (if
+      [https://patchwork.frrouting.org](https://patchwork.frrouting.org) (if
       submitted as patch to mailing list).
-    * Please notify PROJECT-Devel mailing list if you think something doesn’t
-      work
+    * Please notify the development mailing list if you think something doesn’t
+      work.
 * If the tests failed:
     * In general, expect the community to ignore the submission until the tests
       pass.
     * It is up to you to fix and resubmit.
-        * This includes fixing existing dejagnu (“make test”) tests if your
+        * This includes fixing existing unit (“make test”) tests if your
           changes broke or changed them.
         * It also includes fixing distribution packages for the failing
-          platforms (ie if new libraries are required)
-        * Feel free to ask for help on PROJECT-Devel list
+          platforms (ie if new libraries are required).
+        * Feel free to ask for help on the development list.
     * Go back to the submission process and repeat until the tests pass.
 * If the tests pass:
-    * If the changes are done as a pull request, then they should be
-      automatically merged to the develop branch.
-    * Changes sent to mailing list require a manual ACK to be merged and should
-      be merged within 2 weeks. If you don’t see the merge or any
-      reason/discussion on PROJECT-Devel, then please ask.
+    * Wait for reviewers. Someone will review your code or be assigned to
+      review your code.
+    * Respond to any comments or concerns the reviewer has.
+    * After all comments and concerns are addressed, expect your patch to be
+      merged.
 * Watch out for questions on the mailing list. At this time there will be a
   manual code review and further (longer) tests by various community members.
-* Your submission is done once it is merged to the master branch. (which should
-  happen every few weeks from the develop branch)
+* Your submission is done once it is merged to the master branch.
 
 
-## Code Styling requirements
+## Developer's Guidelines
 
-### File header required for new files added
+### Source file header
 
 New files need to have a Copyright header (see [License for
 contributions](#license-for-contributions) above) added to the file. Preferred
@@ -251,7 +251,7 @@ form of the header is as follows:
 #include <zebra.h>
 ```
 
-### Adding Copyright claims to already existing file
+### Adding copyright claims to existing files
 
 When adding copyright claims for modifications to an existing file, please
 preface the claim with "Portions: " on a line before it and indent the
@@ -264,95 +264,147 @@ Portions:
   Copyright (C) 2016 Your name [optional brief change description]
 ```
 
-### Code styling / format
+### Code formatting
 
-Coding style standards in FRR vary depending on location.  Pre-existing
-code uses GNU coding standards.  New code may use Linux kernel coding style.
+FRR uses Linux kernel style except where noted below. Code which does not
+comply with these style guidelines will not be accepted.
 
-GNU coding style apply to the following parts:
-
-* lib/
-* zebra/
-* bgpd/
-* ospfd/
-* ospf6d/
-* isisd/
-* ripd/
-* ripngd/
-* vtysh/
-
-Linux kernel coding style applies to:
-
-* nhrpd/
-* watchfrr/
-* pimd/
-* lib/{checksum,hook,imsg-buffer,imsg,libfrr,md5,module,monotime,queue}.[ch]
-
-BSD coding style applies to:
-
-* ldpd/
+To assist with compliance, in the project root there is a .clang-format
+configuration file which can be used with the `clang-format` tool from the LLVM
+project. In the `tools/` directory there is a Python script named `indent.py`
+that wraps clang-format and handles some edge cases specific to FRR. If you are
+submitting a new file, it is recommended to run that script over the new file
+after ensuring that the latest stable release of `clang-format` is in your
+PATH.
 
 **Whitespace changes in untouched parts of the code are not acceptable in
 patches that change actual code.**  To change/fix formatting issues, please
 create a separate patch that only does formatting changes and nothing else.
 
-It is acceptable to rewrap entire files to Linux kernel style, but this
-**MUST** come as a separate patch that does nothing other than this
-reformatting.
+#### Style documentation
+Kernel and BSD styles are documented externally:
 
+* [https://www.kernel.org/doc/html/latest/process/coding-style.html](https://www.kernel.org/doc/html/latest/process/coding-style.html)
+* [http://man.openbsd.org/style](http://man.openbsd.org/style)
 
-#### GNU style
-
-For GNU coding style, Indentation follows the result of invoking GNU indent:
+For GNU coding style, use `indent` with the following invocation:
 
 ```
 indent -nut -nfc1 file_for_submission.c
 ```
 
-Originally, tabs were used instead of spaces, with tabs are every 8 columns.
-However, tab interoperability issues mean space characters are now preferred for
-new changes. We generally only clean up whitespace when code is unmaintainable
-due to whitespace issues, to minimise merging conflicts.
+#### Exceptions
+
+FRR project code comes from a variety of sources, so there are some stylistic
+exceptions in place. They are organized here by branch.
+
+**For `master`:**
+
+BSD coding style applies to:
+
+* `ldpd/`
+
+`babeld` uses, approximately, the following style:
+
+* K&R style braces
+* Indents are 4 spaces
+* Function return types are on their own line
 
 
-#### Linux kernel & BSD style
+**For `stable/3.0` and `stable/2.0`:**
 
-These styles are documented externally:
+GNU coding style apply to the following parts:
 
-* [https://www.kernel.org/doc/Documentation/CodingStyle](https://www.kernel.org/doc/Documentation/CodingStyle).
-* [http://man.openbsd.org/style](http://man.openbsd.org/style)
+* `lib/`
+* `zebra/`
+* `bgpd/`
+* `ospfd/`
+* `ospf6d/`
+* `isisd/`
+* `ripd/`
+* `ripngd/`
+* `vtysh/`
 
-They are relatively similar but differ in details.
+BSD coding style applies to:
 
-pimd deviates from Linux kernel style in using 2 spaces for indentation, with
-Tabs replacing 8 spaces, as well as adding a line break between `}` and `else`.
-It is acceptable to convert indentation in pimd/ to Linux kernel style, but
-please convert an entire file at a time.  (Rationale: apart from 2-space
-indentation, the styles are sufficiently close to not upset when mixed.)
-
-Unlike GNU style, these styles use tabs, not spaces.
+* `ldpd/`
 
 
-### Compile-Time conditional code
+### Documentation
 
-Many users access PROJECT via binary packages from 3rd party sources;
-compile-time code puts inclusion/exclusion in the hands of the package
-maintainer.  Please think very carefully before making code conditional at
-compile time, as it increases regression testing, maintenance burdens, and user
-confusion. In particular, please avoid gratuitous --enable-… switches to the
-configure script - typically code should be good enough to be in PROJECT, or it
-shouldn’t be there at all.
+FRRouting is a large and complex software project developed by many different
+people over a long period of time. Without adequate documentation, it can be
+exceedingly difficult to understand code segments, APIs and other interfaces.
+In the interest of keeping the project healthy and maintainable, you should
+make every effort to document your code so that other people can understand
+what it does without needing to closely read the code itself.
+
+Some specific guidelines that contributors should follow are:
+
+* Functions exposed in header files should have descriptive comments above
+  their signatures in the header file. At a minimum, a function comment should
+  contain information about the return value, parameters, and a general summary
+  of the function's purpose. Documentation on parameter values can be omitted
+  if it is (very) obvious what they are used for.
+
+  Function comments must follow the style for multiline comments laid out in
+  the kernel style guide.
+
+Example:
+
+```
+/*
+ * Determines whether or not a string is cool.
+ *
+ * @param text - the string to check for coolness
+ * @param is_clccfc - whether capslock is cruise control for cool
+ * @return 7 if the text is cool, 0 otherwise
+ */
+int check_coolness(const char *text, bool is_clccfc);
+```
+
+The Javadoc-style annotations are not required, but you should still strive to
+make it equally clear what parameters and return values are used for.
+
+* Static functions should have descriptive comments in the same form as above
+  if what they do is not immediately obvious. Use good engineering judgement
+  when deciding whether a comment is necessary. If you are unsure, document
+  your code.
+
+* Global variables, static or not, should have a comment describing their use.
+
+* **For new code in `lib/`, these guidelines are hard requirements.**
+
+
+If you are contributing code that adds significant user-visible functionality
+or introduces a new API, please document it in `doc/`.  Markdown and LaTeX are
+acceptable formats, although Markdown is currently preferred for new
+documentation. This may change in the near future.
+
+Finally, if you come across some code that is undocumented and feel like going
+above and beyond, document it! We absolutely appreciate and accept patches that
+document previously undocumented code.
+
+### Compile-time conditional code
+
+Many users access FRR via binary packages from 3rd party sources; compile-time
+code puts inclusion/exclusion in the hands of the package maintainer.  Please
+think very carefully before making code conditional at compile time, as it
+increases regression testing, maintenance burdens, and user confusion. In
+particular, please avoid gratuitous `--enable-…` switches to the configure
+script - in general, code should be of high quality and in working condition,
+or it shouldn’t be in FRR at all.
 
 When code must be compile-time conditional, try have the compiler make it
-conditional rather than the C pre-processor - so that it will still be checked
-by the compiler, even if disabled. I.e. this:
+conditional rather than the C pre-processor so that it will still be checked by
+the compiler, even if disabled. For example,
 
 ```
 if (SOME_SYMBOL)
       frobnicate();
 ```
 
-rather than
+is preferred to
 
 ```
 #ifdef SOME_SYMBOL
@@ -363,53 +415,55 @@ frobnicate ();
 Note that the former approach requires ensuring that `SOME_SYMBOL` will be
 defined (watch your `AC_DEFINE`s).
 
-### Debug-Guards in code
+### Debug-guards in code
 
-Debugs are an important methodology to allow developers to fix issues
-found in the code after it has been released.  The caveat here is
-that the developer must remember that people will be using the code
-at scale and in ways that can be unexpected for the original implementor.
-As such debugs MUST be guarded in such a way that they can be turned off.
-This PROJECT has the ability to turn on/off debugs from the CLI and it is
-expected that the developer will use this convention to allow control
-of their debugs.
+Debugging statements are an important methodology to allow developers to fix
+issues found in the code after it has been released.  The caveat here is that
+the developer must remember that people will be using the code at scale and in
+ways that can be unexpected for the original implementor.  As such debugs
+**MUST** be guarded in such a way that they can be turned off.  FRR has the
+ability to turn on/off debugs from the CLI and it is expected that the
+developer will use this convention to allow control of their debugs.
 
-### CLI-Changes
+### CLI changes
 
-CLI's are a complicated ugly beast.  Additions or changes to the CLI
-should use a DEFUN to encapsulate one setting as much as is possible.
-Additionally as new DEFUN's are added to the system, documentation
-should be provided for the new commands.
+CLI's are a complicated ugly beast.  Additions or changes to the CLI should use
+a DEFUN to encapsulate one setting as much as is possible.  Additionally as new
+DEFUN's are added to the system, documentation should be provided for the new
+commands.
 
 ### Backwards Compatibility
 
-As a general principle, changes to CLI and code in the lib/ directory
-should be made in a backwards compatible fashion. This means that
-changes that are purely stylistic in nature should be avoided, e.g.,
-renaming an existing macro or library function name without any
-functional change. When adding new parameters to common functions, it is
-also good to consider if this too should be done in a backward
-compatible fashion, e.g., by preserving the old form in addition to
+As a general principle, changes to CLI and code in the lib/ directory should be
+made in a backwards compatible fashion. This means that changes that are purely
+stylistic in nature should be avoided, e.g., renaming an existing macro or
+library function name without any functional change. When adding new parameters
+to common functions, it is also good to consider if this too should be done in
+a backward compatible fashion, e.g., by preserving the old form in addition to
 adding the new form.
 
-This is not to say that minor or even major functional changes to CLI
-and common code should be avoided, but rather that the benefit gained
-from a change should be weighed against the added cost/complexity to
-existing code.  Also, that when making such changes, it is good to
-preserve compatibility when possible to do so without introducing
-maintenance overhead/cost.  It is also important to keep in mind,
-existing code includes code that may reside in private repositories (and
-is yet to be submitted) or code that has yet to be migrated from Quagga
-to FRR.
+This is not to say that minor or even major functional changes to CLI and
+common code should be avoided, but rather that the benefit gained from a change
+should be weighed against the added cost/complexity to existing code.  Also,
+that when making such changes, it is good to preserve compatibility when
+possible to do so without introducing maintenance overhead/cost.  It is also
+important to keep in mind, existing code includes code that may reside in
+private repositories (and is yet to be submitted) or code that has yet to be
+migrated from Quagga to FRR.
 
 That said, compatibility measures can (and should) be removed when either:
 
-* they become a significant burden, e.g. when data structures change and
-  the compatibility measure would need a complex adaptation layer or becomes
+* they become a significant burden, e.g. when data structures change and the
+  compatibility measure would need a complex adaptation layer or becomes
   flat-out impossible
-* some measure of time (dependent on the specific case) has passed, so that
-  the compatibility grace period is considered expired.
+* some measure of time (dependent on the specific case) has passed, so that the
+  compatibility grace period is considered expired.
 
 In all cases, compatibility pieces should be marked with compiler/preprocessor
 annotations to print warnings at compile time, pointing to the appropriate
 update path.  A `-Werror` build should fail if compatibility bits are used.
+
+### Miscellaneous
+
+When in doubt, follow the guidelines in the Linux kernel style guide, or ask on
+the development mailing list / public Slack instance.
