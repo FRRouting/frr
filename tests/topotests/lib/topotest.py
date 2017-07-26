@@ -570,6 +570,15 @@ class Router(Node):
                 logger.warning("LDP Test need Linux Kernel 4.5 minimum")
                 return "LDP Test need Linux Kernel 4.5 minimum"
 
+            # Check if required kernel modules are available with a dryrun modprobe
+            # Silent accept of modprobe command assumes ok status
+            if self.cmd('/sbin/modprobe -n mpls-router' ) != "":
+                logger.warning("LDP Test needs mpls-router kernel module")
+                return "LDP Test needs mpls-router kernel module"
+            if self.cmd('/sbin/modprobe -n mpls-iptunnel') != "":
+                logger.warning("LDP Test needs mpls-iptunnel kernel module")
+                return "LDP Test needs mpls-router kernel module"
+
             self.cmd('/sbin/modprobe mpls-router')
             self.cmd('/sbin/modprobe mpls-iptunnel')
             self.cmd('echo 100000 > /proc/sys/net/mpls/platform_labels')
