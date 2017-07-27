@@ -582,10 +582,10 @@ int inactivity_timer(struct thread *thread)
 static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on)
 {
 	char router_id[16];
-	char duration[16];
+	char duration[64];
 	struct timeval res;
 	char nstate[16];
-	char deadtime[16];
+	char deadtime[64];
 	long h, m, s;
 
 	/* Router-ID (Name) */
@@ -640,7 +640,7 @@ static void ospf6_neighbor_show_drchoice(struct vty *vty,
 {
 	char router_id[16];
 	char drouter[16], bdrouter[16];
-	char duration[16];
+	char duration[64];
 	struct timeval now, res;
 
 	/*
