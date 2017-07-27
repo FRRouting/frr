@@ -22,6 +22,7 @@
 #include "command.h"
 #include "vty.h"
 #include "ldpd/ldp_vty.h"
+#include "json.h"
 
 DEFUN_NOSH(ldp_mpls_ldp,
 	ldp_mpls_ldp_cmd,
@@ -858,7 +859,7 @@ DEFUN  (ldp_show_mpls_ldp_binding,
 	"IPv6 Address Family\n"
 	"Label Information Base (LIB) information\n"
 	"Show detailed information\n"
-	"JavaScript Object Notation\n")
+	JSON_STR)
 {
 	int		 idx = 0;
 	const char	*af = NULL;
@@ -886,7 +887,7 @@ DEFUN  (ldp_show_mpls_ldp_discovery,
 	"IPv6 Address Family\n"
 	"Discovery Hello Information\n"
 	"Show detailed information\n"
-	"JavaScript Object Notation\n")
+	JSON_STR)
 {
 	int		 idx = 0;
 	const char	*af = NULL;
@@ -913,7 +914,7 @@ DEFUN  (ldp_show_mpls_ldp_interface,
 	"IPv4 Address Family\n"
 	"IPv6 Address Family\n"
 	"interface information\n"
-	"JavaScript Object Notation\n")
+	JSON_STR)
 {
 	int		 idx = 0;
 	const char	*af = NULL;
@@ -935,7 +936,7 @@ DEFUN  (ldp_show_mpls_ldp_capabilities,
 	"MPLS information\n"
 	"Label Distribution Protocol\n"
 	"Display LDP Capabilities information\n"
-	"JavaScript Object Notation\n")
+	JSON_STR)
 {
 	int		 idx = 0;
 	int		 json = 0;
@@ -954,7 +955,7 @@ DEFUN  (ldp_show_mpls_ldp_neighbor,
 	"Label Distribution Protocol\n"
 	"Neighbor information\n"
 	"Show detailed information\n"
-	"JavaScript Object Notation\n")
+	JSON_STR)
 {
 	int		 idx = 0;
 	int		 detail = 0;
@@ -976,7 +977,7 @@ DEFUN  (ldp_show_mpls_ldp_neighbor_capabilities,
 	"Label Distribution Protocol\n"
 	"Neighbor information\n"
 	"Display neighbor capability information\n"
-	"JavaScript Object Notation\n")
+	JSON_STR)
 {
 	int		 idx = 0;
 	int		 json = 0;
@@ -994,7 +995,7 @@ DEFUN  (ldp_show_l2vpn_atom_binding,
 	"Show information about Layer2 VPN\n"
 	"Show Any Transport over MPLS information\n"
 	"Show AToM label binding information\n"
-	"JavaScript Object Notation\n")
+	JSON_STR)
 {
 	int		 idx = 0;
 	int		 json = 0;
@@ -1012,7 +1013,7 @@ DEFUN  (ldp_show_l2vpn_atom_vc,
 	"Show information about Layer2 VPN\n"
 	"Show Any Transport over MPLS information\n"
 	"Show AToM virtual circuit information\n"
-	"JavaScript Object Notation\n")
+	JSON_STR)
 {
 	int		 idx = 0;
 	int		 json = 0;
