@@ -84,9 +84,6 @@ struct ospf_external {
 	struct route_table *external_info;
 };
 
-/* Status of various sub function e.g. TE */
-typedef enum _status_t {disable, enable} status_t;
-
 /* OSPF master for system wide configuration and variables. */
 struct ospf_master {
 	/* OSPF instance. */
@@ -104,7 +101,7 @@ struct ospf_master {
 
 	/* Various OSPF global configuration. */
 	u_char options;
-#define OSPF_MASTER_SHUTDOWN (1 << 0) /* deferred-shutdown */  
+#define OSPF_MASTER_SHUTDOWN (1 << 0) /* deferred-shutdown */
 };
 
 struct ospf_redist {

@@ -337,7 +337,7 @@ struct te_link_subtlv {
 /* Following structure are internal use only. */
 struct ospf_mpls_te {
 	/* Status of MPLS-TE: enable or disbale */
-	status_t status;
+	bool enabled;
 
 	/* RFC5392 */
 	enum inter_as_mode inter_as;

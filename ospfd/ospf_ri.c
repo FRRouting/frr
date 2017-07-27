@@ -60,7 +60,7 @@
 
 /* Store Router Information PCE TLV and SubTLV in network byte order. */
 struct ospf_pce_info {
-	status_t status;
+	bool enabled;
 	struct ri_tlv_pce pce_header;
 	struct ri_pce_subtlv_address pce_address;
 	struct ri_pce_subtlv_path_scope pce_scope;
@@ -71,7 +71,7 @@ struct ospf_pce_info {
 
 /* Following structure are internal use only. */
 struct ospf_router_info {
-	status_t status;
+	bool enabled;
 
 	u_int8_t registered;
 	u_int8_t scope;
@@ -119,13 +119,13 @@ int ospf_router_info_init(void)
 {
 
 	memset(&OspfRI, 0, sizeof(struct ospf_router_info));
-	OspfRI.status = disable;
+	OspfRI.enabled = false;
 	OspfRI.registered = 0;
 	OspfRI.scope = OSPF_OPAQUE_AS_LSA;
 	OspfRI.flags = 0;
 
 	/* Initialize pce domain and neighbor list */
-	OspfRI.pce_info.status = disable;
+	OspfRI.pce_info.enabled = false;
 	OspfRI.pce_info.pce_domain = list_new();
 	OspfRI.pce_info.pce_domain->del = del_pce_info;
 	OspfRI.pce_info.pce_neighbor = list_new();
@@ -193,7 +193,7 @@ void ospf_router_info_term(void)
 
 	OspfRI.pce_info.pce_domain = NULL;
 	OspfRI.pce_info.pce_neighbor = NULL;
-	OspfRI.status = disable;
+	OspfRI.enabled = false;
 
 	ospf_router_info_unregister();
 
@@ -254,11 +254,11 @@ static int set_pce_header(struct ospf_pce_info *pce)
 	if (length != 0) {
 		pce->pce_header.header.type = htons(RI_TLV_PCE);
 		pce->pce_header.header.length = htons(length);
-		pce->status = enable;
+		pce->enabled = true;
 	} else {
 		pce->pce_header.header.type = 0;
 		pce->pce_header.header.length = 0;
-		pce->status = disable;
+		pce->enabled = false;
 	}
 
 	return length;
@@ -525,7 +525,7 @@ static void ospf_router_info_lsa_body_set(struct stream *s)
 	set_pce_header (&OspfRI.pce_info);
 
 	/* Add RI PCE TLV if it is set */
-	if (OspfRI.pce_info.status == enable) {
+	if (OspfRI.pce_info.enabled) {
 
 		/* Build PCE TLV */
 		build_tlv_header(s, &OspfRI.pce_info.pce_header.header);
@@ -686,7 +686,7 @@ static int ospf_router_info_lsa_originate(void *arg)
 
 	int rc = -1;
 
-	if (OspfRI.status == disable) {
+	if (!OspfRI.enabled) {
 		zlog_info(
 			"ospf_router_info_lsa_originate: ROUTER INFORMATION is disabled now.");
 		rc = 0; /* This is not an error case. */
@@ -694,8 +694,8 @@ static int ospf_router_info_lsa_originate(void *arg)
 	}
 
 	/* Check if Router Information LSA is already engaged */
-	if CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED) {
-		if CHECK_FLAG(OspfRI.flags, RIFLG_LSA_FORCED_REFRESH) {
+	if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED)) {
+		if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_FORCED_REFRESH)) {
 			UNSET_FLAG(OspfRI.flags, RIFLG_LSA_FORCED_REFRESH);
 			ospf_router_info_lsa_schedule(REFRESH_THIS_LSA);
 		}
@@ -718,7 +718,7 @@ static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa)
 	struct ospf_lsa *new = NULL;
 	struct ospf *top;
 
-	if (OspfRI.status == disable) {
+	if (!OspfRI.enabled) {
 		/*
 		 * This LSA must have flushed before due to ROUTER INFORMATION
 		 * status change.
@@ -1044,14 +1044,14 @@ static void ospf_router_info_config_write_router(struct vty *vty)
 	struct ri_pce_subtlv_neighbor *neighbor;
 	struct in_addr tmp;
 
-	if (OspfRI.status == enable) {
+	if (OspfRI.enabled) {
 		if (OspfRI.scope == OSPF_OPAQUE_AS_LSA)
 			vty_out(vty, " router-info as\n");
 		else
 			vty_out(vty, " router-info area %s\n",
 				inet_ntoa(OspfRI.area_id));
 
-		if (OspfRI.pce_info.status == enable) {
+		if (OspfRI.pce_info.enabled) {
 
 			if (pce->pce_address.header.type != 0)
 				vty_out(vty, "  pce address %s\n",
@@ -1112,7 +1112,7 @@ DEFUN (router_info,
 
 	u_int8_t scope;
 
-	if (OspfRI.status == enable)
+	if (OspfRI.enabled)
 		return CMD_SUCCESS;
 
 	/* Check and get Area value if present */
@@ -1135,7 +1135,7 @@ DEFUN (router_info,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	OspfRI.status = enable;
+	OspfRI.enabled = true;
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("RI-> Router Information (%s flooding): OFF -> ON",
@@ -1154,7 +1154,7 @@ DEFUN (router_info,
 	initialize_params(&OspfRI);
 
 	/* Refresh RI LSA if already engaged */
-	if CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED) {
+	if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED)) {
 		zlog_debug ("RI-> Refresh LSA following configuration");
 		ospf_router_info_lsa_schedule (REFRESH_THIS_LSA);
 	} else {
@@ -1172,26 +1172,26 @@ DEFUN (no_router_info,
        "Disable the Router Information functionality\n")
 {
 
-	if (OspfRI.status == disable)
+	if (!OspfRI.enabled)
 		return CMD_SUCCESS;
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("RI-> Router Information: ON -> OFF");
 
-	if CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED)
+	if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED))
 		ospf_router_info_lsa_schedule(FLUSH_THIS_LSA);
 
 	/* Unregister the callbacks */
 	ospf_router_info_unregister();
 
-	OspfRI.status = disable;
+	OspfRI.enabled = false;
 
 	return CMD_SUCCESS;
 }
 
 static int ospf_ri_enabled(struct vty *vty)
 {
-	if (OspfRI.status == enable)
+	if (OspfRI.enabled)
 		return 1;
 
 	if (vty)
@@ -1226,7 +1226,7 @@ DEFUN (pce_address,
 		set_pce_address(value, pi);
 
 		/* Refresh RI LSA if already engaged */
-		if CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED)
+		if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED))
 			ospf_router_info_lsa_schedule(REFRESH_THIS_LSA);
 	}
 
@@ -1245,7 +1245,7 @@ DEFUN (no_pce_address,
 	unset_param(&OspfRI.pce_info.pce_address.header);
 
 	/* Refresh RI LSA if already engaged */
-	if CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED)
+	if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED))
 		ospf_router_info_lsa_schedule(REFRESH_THIS_LSA);
 
 	return CMD_SUCCESS;
@@ -1276,7 +1276,7 @@ DEFUN (pce_path_scope,
 		set_pce_path_scope(scope, pi);
 
 		/* Refresh RI LSA if already engaged */
-		if CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED)
+		if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED))
 			ospf_router_info_lsa_schedule(REFRESH_THIS_LSA);
 	}
 
@@ -1295,7 +1295,7 @@ DEFUN (no_pce_path_scope,
 	unset_param(&OspfRI.pce_info.pce_address.header);
 
 	/* Refresh RI LSA if already engaged */
-	if CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED)
+	if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED))
 		ospf_router_info_lsa_schedule(REFRESH_THIS_LSA);
 
 	return CMD_SUCCESS;
@@ -1334,7 +1334,7 @@ DEFUN (pce_domain,
 	set_pce_domain(PCE_DOMAIN_TYPE_AS, as, pce);
 
 	/* Refresh RI LSA if already engaged */
-	if CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED)
+	if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED))
 		ospf_router_info_lsa_schedule(REFRESH_THIS_LSA);
 
 	return CMD_SUCCESS;
@@ -1364,7 +1364,7 @@ DEFUN (no_pce_domain,
 	unset_pce_domain(PCE_DOMAIN_TYPE_AS, as, pce);
 
 	/* Refresh RI LSA if already engaged */
-	if CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED)
+	if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED))
 		ospf_router_info_lsa_schedule(REFRESH_THIS_LSA);
 
 	return CMD_SUCCESS;
@@ -1404,7 +1404,7 @@ DEFUN (pce_neigbhor,
 	set_pce_neighbor(PCE_DOMAIN_TYPE_AS, as, pce);
 
 	/* Refresh RI LSA if already engaged */
-	if CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED)
+	if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED))
 		ospf_router_info_lsa_schedule(REFRESH_THIS_LSA);
 
 	return CMD_SUCCESS;
@@ -1434,7 +1434,7 @@ DEFUN (no_pce_neighbor,
 	unset_pce_neighbor(PCE_DOMAIN_TYPE_AS, as, pce);
 
 	/* Refresh RI LSA if already engaged */
-	if CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED)
+	if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED))
 		ospf_router_info_lsa_schedule(REFRESH_THIS_LSA);
 
 	return CMD_SUCCESS;
@@ -1466,7 +1466,7 @@ DEFUN (pce_cap_flag,
 		set_pce_cap_flag(cap, pce);
 
 		/* Refresh RI LSA if already engaged */
-		if CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED)
+		if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED))
 			ospf_router_info_lsa_schedule(REFRESH_THIS_LSA);
 	}
 
@@ -1484,7 +1484,7 @@ DEFUN (no_pce_cap_flag,
 	unset_param(&OspfRI.pce_info.pce_cap_flag.header);
 
 	/* Refresh RI LSA if already engaged */
-	if CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED)
+	if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED))
 		ospf_router_info_lsa_schedule(REFRESH_THIS_LSA);
 
 	return CMD_SUCCESS;
@@ -1499,7 +1499,7 @@ DEFUN (show_ip_ospf_router_info,
        "Router Information\n")
 {
 
-	if (OspfRI.status == enable) {
+	if (OspfRI.enabled) {
 		vty_out(vty, "--- Router Information parameters ---\n");
 		show_vty_router_cap(vty, &OspfRI.router_cap.header);
 	} else {
@@ -1525,7 +1525,7 @@ DEFUN (show_ip_opsf_router_info_pce,
 	struct ri_pce_subtlv_domain *domain;
 	struct ri_pce_subtlv_neighbor *neighbor;
 
-	if (OspfRI.status == enable) {
+	if (OspfRI.enabled) {
 		vty_out(vty, "--- PCE parameters ---\n");
 
 		if (pce->pce_address.header.type != 0)

@@ -108,7 +108,7 @@ int ospf_mpls_te_init(void)
 	}
 
 	memset(&OspfMplsTE, 0, sizeof(struct ospf_mpls_te));
-	OspfMplsTE.status = disable;
+	OspfMplsTE.enabled = false;
 	OspfMplsTE.inter_as = Off;
 	OspfMplsTE.iflist = list_new();
 	OspfMplsTE.iflist->del = del_mpls_te_link;
@@ -171,7 +171,7 @@ void ospf_mpls_te_term(void)
 
 	ospf_delete_opaque_functab(OSPF_OPAQUE_AREA_LSA,
 				   OPAQUE_TYPE_TRAFFIC_ENGINEERING_LSA);
-	OspfMplsTE.status = disable;
+	OspfMplsTE.enabled = false;
 
 	ospf_mpls_te_unregister();
 	OspfMplsTE.inter_as = Off;
@@ -243,8 +243,8 @@ static void ospf_mpls_te_foreach_area(void (*func)(struct mpls_te_link *lp,
 			continue;
 		if ((area = lp->area) == NULL)
 			continue;
-		if
-			CHECK_FLAG(lp->flags, LPFLG_LOOKUP_DONE) continue;
+		if (CHECK_FLAG(lp->flags, LPFLG_LOOKUP_DONE))
+			continue;
 
 		if (func != NULL)
 			(*func)(lp, sched_opcode);
@@ -937,20 +937,18 @@ void ospf_mpls_te_update_if(struct interface *ifp)
 
 		/* Finally Re-Originate or Refresh Opaque LSA if MPLS_TE is
 		 * enabled */
-		if (OspfMplsTE.status == enable)
+		if (OspfMplsTE.enabled)
 			if (lp->area != NULL) {
-				if
-					CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)
-				ospf_mpls_te_lsa_schedule(lp, REFRESH_THIS_LSA);
-				else ospf_mpls_te_lsa_schedule(
-					lp, REORIGINATE_THIS_LSA);
+				if (CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED))
+					ospf_mpls_te_lsa_schedule(lp, REFRESH_THIS_LSA);
+				else
+					ospf_mpls_te_lsa_schedule(lp, REORIGINATE_THIS_LSA);
 			}
 	} else {
 		/* If MPLS TE is disable on this interface, flush LSA if it is
 		 * already engaged */
-		if
-			CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)
-		ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
+		if (CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED))
+			ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
 		else
 			/* Reset Activity flag */
 			lp->flags = LPFLG_LSA_INACTIVE;
@@ -1028,20 +1026,18 @@ static void ospf_mpls_te_ism_change(struct ospf_interface *oi, int old_state)
 				!= ntohs(lp->link_id.header.type)
 			|| ntohl(old_id.value.s_addr)
 				   != ntohl(lp->link_id.value.s_addr))) {
-			if
-				CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)
-			ospf_mpls_te_lsa_schedule(lp, REFRESH_THIS_LSA);
-			else ospf_mpls_te_lsa_schedule(lp,
-						       REORIGINATE_THIS_LSA);
+			if (CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED))
+				ospf_mpls_te_lsa_schedule(lp, REFRESH_THIS_LSA);
+			else
+				ospf_mpls_te_lsa_schedule(lp, REORIGINATE_THIS_LSA);
 		}
 		break;
 	default:
 		lp->link_type.header.type = htons(0);
 		lp->link_id.header.type = htons(0);
 
-		if
-			CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)
-		ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
+		if (CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED))
+			ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
 		break;
 	}
 
@@ -1268,7 +1264,7 @@ static int ospf_mpls_te_lsa_originate_area(void *arg)
 	struct mpls_te_link *lp;
 	int rc = -1;
 
-	if (OspfMplsTE.status == disable) {
+	if (!OspfMplsTE.enabled) {
 		zlog_info(
 			"ospf_mpls_te_lsa_originate_area: MPLS-TE is disabled now.");
 		rc = 0; /* This is not an error case. */
@@ -1287,23 +1283,16 @@ static int ospf_mpls_te_lsa_originate_area(void *arg)
 		if (!IPV4_ADDR_SAME(&lp->area->area_id, &area->area_id))
 			continue;
 
-		if
-			CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)
-			{
-				if
-					CHECK_FLAG(lp->flags,
-						   LPFLG_LSA_FORCED_REFRESH)
-					{
-						UNSET_FLAG(
-							lp->flags,
-							LPFLG_LSA_FORCED_REFRESH);
-						zlog_warn(
-							"OSPF MPLS-TE (ospf_mpls_te_lsa_originate_area): Refresh instead of Originate");
-						ospf_mpls_te_lsa_schedule(
-							lp, REFRESH_THIS_LSA);
-					}
-				continue;
+		if (CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)) {
+			if (CHECK_FLAG(lp->flags, LPFLG_LSA_FORCED_REFRESH)) {
+				UNSET_FLAG(lp->flags, LPFLG_LSA_FORCED_REFRESH);
+				zlog_warn(
+					"OSPF MPLS-TE (ospf_mpls_te_lsa_originate_area): Refresh instead of Originate");
+				ospf_mpls_te_lsa_schedule(lp, REFRESH_THIS_LSA);
 			}
+			continue;
+		}
+
 		if (!is_mandated_params_set(lp)) {
 			zlog_warn(
 				"ospf_mpls_te_lsa_originate_area: Link(%s) lacks some mandated MPLS-TE parameters.",
@@ -1372,7 +1361,7 @@ static int ospf_mpls_te_lsa_originate_as(void *arg)
 	struct mpls_te_link *lp;
 	int rc = -1;
 
-	if ((OspfMplsTE.status == disable)
+	if ((!OspfMplsTE.enabled)
 	    || (OspfMplsTE.inter_as == Off)) {
 		zlog_info(
 			"ospf_mpls_te_lsa_originate_as: MPLS-TE Inter-AS is disabled for now.");
@@ -1386,21 +1375,14 @@ static int ospf_mpls_te_lsa_originate_as(void *arg)
 		    || !IS_INTER_AS(lp->type))
 			continue;
 
-		if
-			CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)
-			{
-				if
-					CHECK_FLAG(lp->flags,
-						   LPFLG_LSA_FORCED_REFRESH)
-					{
-						UNSET_FLAG(
-							lp->flags,
-							LPFLG_LSA_FORCED_REFRESH);
-						ospf_mpls_te_lsa_schedule(
-							lp, REFRESH_THIS_LSA);
-					}
-				continue;
+		if (CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)) {
+			if (CHECK_FLAG(lp->flags, LPFLG_LSA_FORCED_REFRESH)) {
+				UNSET_FLAG(lp->flags,LPFLG_LSA_FORCED_REFRESH);
+				ospf_mpls_te_lsa_schedule(lp, REFRESH_THIS_LSA);
 			}
+			continue;
+		}
+
 		if (!is_mandated_params_set(lp)) {
 			zlog_warn(
 				"ospf_mpls_te_lsa_originate_as: Link(%s) lacks some mandated MPLS-TE parameters.",
@@ -1436,7 +1418,7 @@ static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa)
 	struct ospf *top;
 	struct ospf_lsa *new = NULL;
 
-	if (OspfMplsTE.status == disable) {
+	if (!OspfMplsTE.enabled) {
 		/*
 		 * This LSA must have flushed before due to MPLS-TE status
 		 * change.
@@ -2172,7 +2154,7 @@ static void ospf_mpls_te_show_info(struct vty *vty, struct ospf_lsa *lsa)
 static void ospf_mpls_te_config_write_router(struct vty *vty)
 {
 
-	if (OspfMplsTE.status == enable) {
+	if (OspfMplsTE.enabled) {
 		vty_out(vty, " mpls-te on\n");
 		vty_out(vty, " mpls-te router-address %s\n",
 			inet_ntoa(OspfMplsTE.router_addr.value));
@@ -2201,13 +2183,13 @@ DEFUN (ospf_mpls_te_on,
 	struct listnode *node;
 	struct mpls_te_link *lp;
 
-	if (OspfMplsTE.status == enable)
+	if (OspfMplsTE.enabled)
 		return CMD_SUCCESS;
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("MPLS-TE: OFF -> ON");
 
-	OspfMplsTE.status = enable;
+	OspfMplsTE.enabled = true;
 
 	/* Reoriginate RFC3630 & RFC6827 Links */
 	ospf_mpls_te_foreach_area(ospf_mpls_te_lsa_schedule,
@@ -2237,18 +2219,17 @@ DEFUN (no_ospf_mpls_te,
 	struct listnode *node, *nnode;
 	struct mpls_te_link *lp;
 
-	if (OspfMplsTE.status == disable)
+	if (!OspfMplsTE.enabled)
 		return CMD_SUCCESS;
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("MPLS-TE: ON -> OFF");
 
-	OspfMplsTE.status = disable;
+	OspfMplsTE.enabled = false;
 
 	for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp))
-		if
-			CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)
-	ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
+		if (CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED))
+			ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
 
 	return CMD_SUCCESS;
 }
@@ -2279,7 +2260,7 @@ DEFUN (ospf_mpls_te_router_addr,
 
 		set_mpls_te_router_addr(value);
 
-		if (OspfMplsTE.status == disable)
+		if (!OspfMplsTE.enabled)
 			return CMD_SUCCESS;
 
 		for (ALL_LIST_ELEMENTS(OspfMplsTE.iflist, node, nnode, lp)) {
@@ -2318,7 +2299,7 @@ static int set_inter_as_mode(struct vty *vty, const char *mode_name,
 	struct mpls_te_link *lp;
 	int format;
 
-	if (OspfMplsTE.status == enable) {
+	if (OspfMplsTE.enabled) {
 
 		/* Read and Check inter_as mode */
 		if (strcmp(mode_name, "as") == 0)
@@ -2413,7 +2394,7 @@ DEFUN (no_ospf_mpls_te_inter_as,
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("MPLS-TE: Inter-AS support OFF");
 
-	if ((OspfMplsTE.status == enable)
+	if ((OspfMplsTE.enabled)
 	    && (OspfMplsTE.inter_as != Off)) {
 		OspfMplsTE.inter_as = Off;
 		/* Flush all Inter-AS LSA */
@@ -2438,7 +2419,7 @@ DEFUN (show_ip_ospf_mpls_te_router,
        "MPLS-TE information\n"
        "MPLS-TE Router parameters\n")
 {
-	if (OspfMplsTE.status == enable) {
+	if (OspfMplsTE.enabled) {
 		vty_out(vty, "--- MPLS-TE router parameters ---\n");
 
 		if (ntohs(OspfMplsTE.router_addr.header.type) != 0)
@@ -2454,7 +2435,7 @@ static void show_mpls_te_link_sub(struct vty *vty, struct interface *ifp)
 {
 	struct mpls_te_link *lp;
 
-	if ((OspfMplsTE.status == enable) && HAS_LINK_PARAMS(ifp)
+	if ((OspfMplsTE.enabled) && HAS_LINK_PARAMS(ifp)
 	    && !if_is_loopback(ifp) && if_is_up(ifp)
 	    && ((lp = lookup_linkparams_by_ifp(ifp)) != NULL)) {
 		/* Continue only if interface is not passive or support Inter-AS
