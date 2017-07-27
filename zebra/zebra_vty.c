@@ -2045,10 +2045,6 @@ int static_ipv6_func(struct vty *vty, int add_cmd, const char *dest_str,
 	if (tag_str)
 		tag = strtoul(tag_str, NULL, 10);
 
-	/* When gateway is valid IPv6 addrees, then gate is treated as
-	   nexthop address other case gate is treated as interface name. */
-	ret = inet_pton(AF_INET6, gate_str, &gate_addr);
-
 	/* VRF id */
 	zvrf = zebra_vrf_lookup_by_name(vrf_id_str);
 
@@ -2124,6 +2120,23 @@ int static_ipv6_func(struct vty *vty, int add_cmd, const char *dest_str,
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
+
+	if (gate_str == NULL) {
+		if (add_cmd)
+			static_add_route(AFI_IP6, SAFI_UNICAST, type, &p, src_p,
+					 NULL, ifindex, ifname, flag, tag,
+					 distance, zvrf, &snh_label);
+		else
+			static_delete_route(AFI_IP6, SAFI_UNICAST, type, &p,
+					    src_p, NULL, ifindex, tag, distance,
+					    zvrf, &snh_label);
+
+		return CMD_SUCCESS;
+	}
+
+	/* When gateway is valid IPv6 addrees, then gate is treated as
+	   nexthop address other case gate is treated as interface name. */
+	ret = inet_pton(AF_INET6, gate_str, &gate_addr);
 
 	if (ifname) {
 		/* When ifname is specified.  It must be come with gateway
@@ -2212,14 +2225,12 @@ DEFUN (ipv6_route,
 
 DEFUN (ipv6_route_flags,
        ipv6_route_flags_cmd,
-       "ipv6 route X:X::X:X/M [from X:X::X:X/M] <X:X::X:X|INTERFACE> <reject|blackhole> [{tag (1-4294967295)|(1-255)|vrf NAME}]",
+       "ipv6 route X:X::X:X/M [from X:X::X:X/M] <reject|blackhole> [{tag (1-4294967295)|(1-255)|vrf NAME}]",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 source-dest route\n"
        "IPv6 source prefix\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n"
        "Set tag for this route\n"
@@ -2228,21 +2239,18 @@ DEFUN (ipv6_route_flags,
        VRF_CMD_HELP_STR)
 {
 	int idx_ipv6_prefixlen = 2;
-	int idx_ipv6_ifname;
 	int idx_reject_blackhole;
 	int idx_curr;
 	char *src, *tag, *distance, *vrf;
 
 	if (strmatch(argv[3]->text, "from")) {
 		src = argv[4]->arg;
-		idx_ipv6_ifname = 5;
-		idx_reject_blackhole = 6;
-		idx_curr = 7;
+		idx_reject_blackhole = 5;
+		idx_curr = 6;
 	} else {
 		src = NULL;
-		idx_ipv6_ifname = 3;
-		idx_reject_blackhole = 4;
-		idx_curr = 5;
+		idx_reject_blackhole = 3;
+		idx_curr = 4;
 	}
 
 	tag = distance = vrf = NULL;
@@ -2250,9 +2258,8 @@ DEFUN (ipv6_route_flags,
 				      &vrf, NULL);
 
 	return static_ipv6_func(vty, 1, argv[idx_ipv6_prefixlen]->arg, src,
-				argv[idx_ipv6_ifname]->arg, NULL,
-				argv[idx_reject_blackhole]->arg, tag, distance,
-				vrf, NULL);
+				NULL, NULL, argv[idx_reject_blackhole]->arg,
+				tag, distance, vrf, NULL);
 }
 
 DEFUN (ipv6_route_ifname,
@@ -2295,54 +2302,6 @@ DEFUN (ipv6_route_ifname,
 	return static_ipv6_func(vty, 1, argv[idx_ipv6_prefixlen]->arg, src,
 				argv[idx_ipv6]->arg, argv[idx_interface]->arg,
 				NULL, tag, distance, vrf, NULL);
-}
-
-DEFUN (ipv6_route_ifname_flags,
-       ipv6_route_ifname_flags_cmd,
-       "ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X INTERFACE <reject|blackhole> [{tag (1-4294967295)|(1-255)|vrf NAME}]",
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 source-dest route\n"
-       "IPv6 source prefix\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
-{
-	int idx_ipv6_prefixlen = 2;
-	int idx_ipv6;
-	int idx_interface;
-	int idx_reject_blackhole;
-	int idx_curr;
-	char *src, *tag, *distance, *vrf;
-
-	if (strmatch(argv[3]->text, "from")) {
-		src = argv[4]->arg;
-		idx_ipv6 = 5;
-		idx_interface = 6;
-		idx_reject_blackhole = 7;
-		idx_curr = 8;
-	} else {
-		src = NULL;
-		idx_ipv6 = 3;
-		idx_interface = 4;
-		idx_reject_blackhole = 5;
-		idx_curr = 6;
-	}
-
-	tag = distance = vrf = NULL;
-	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
-				      &vrf, NULL);
-
-	return static_ipv6_func(vty, 1, argv[idx_ipv6_prefixlen]->arg, src,
-				argv[idx_ipv6]->arg, argv[idx_interface]->arg,
-				argv[idx_reject_blackhole]->arg, tag, distance,
-				vrf, NULL);
 }
 
 DEFUN (no_ipv6_route,
@@ -2388,15 +2347,13 @@ DEFUN (no_ipv6_route,
 
 DEFUN (no_ipv6_route_flags,
        no_ipv6_route_flags_cmd,
-       "no ipv6 route X:X::X:X/M [from X:X::X:X/M] <X:X::X:X|INTERFACE> <reject|blackhole> [{tag (1-4294967295)|(1-255)|vrf NAME}]",
+       "no ipv6 route X:X::X:X/M [from X:X::X:X/M] <reject|blackhole> [{tag (1-4294967295)|(1-255)|vrf NAME}]",
        NO_STR
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
        "IPv6 source-dest route\n"
        "IPv6 source prefix\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
        "Emit an ICMP unreachable when matched\n"
        "Silently discard pkts when matched\n"
        "Set tag for this route\n"
@@ -2405,21 +2362,18 @@ DEFUN (no_ipv6_route_flags,
        VRF_CMD_HELP_STR)
 {
 	int idx_ipv6_prefixlen = 3;
-	int idx_ipv6_ifname;
 	int idx_reject_blackhole;
 	int idx_curr;
 	char *src, *tag, *distance, *vrf;
 
 	if (strmatch(argv[4]->text, "from")) {
 		src = argv[5]->arg;
-		idx_ipv6_ifname = 6;
-		idx_reject_blackhole = 7;
-		idx_curr = 8;
+		idx_reject_blackhole = 6;
+		idx_curr = 7;
 	} else {
 		src = NULL;
-		idx_ipv6_ifname = 4;
-		idx_reject_blackhole = 5;
-		idx_curr = 6;
+		idx_reject_blackhole = 4;
+		idx_curr = 5;
 	}
 
 	tag = distance = vrf = NULL;
@@ -2427,9 +2381,8 @@ DEFUN (no_ipv6_route_flags,
 				      &vrf, NULL);
 
 	return static_ipv6_func(vty, 0, argv[idx_ipv6_prefixlen]->arg, src,
-				argv[idx_ipv6_ifname]->arg, NULL,
-				argv[idx_reject_blackhole]->arg, tag, distance,
-				vrf, NULL);
+				NULL, NULL, argv[idx_reject_blackhole]->arg,
+				tag, distance, vrf, NULL);
 }
 
 DEFUN (no_ipv6_route_ifname,
@@ -2473,55 +2426,6 @@ DEFUN (no_ipv6_route_ifname,
 	return static_ipv6_func(vty, 0, argv[idx_ipv6_prefixlen]->arg, src,
 				argv[idx_ipv6]->arg, argv[idx_interface]->arg,
 				NULL, tag, distance, vrf, NULL);
-}
-
-DEFUN (no_ipv6_route_ifname_flags,
-       no_ipv6_route_ifname_flags_cmd,
-       "no ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X INTERFACE <reject|blackhole> [{tag (1-4294967295)|(1-255)|vrf NAME}]",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-       "IPv6 source-dest route\n"
-       "IPv6 source prefix\n"
-       "IPv6 gateway address\n"
-       "IPv6 gateway interface name\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
-{
-	int idx_ipv6_prefixlen = 3;
-	int idx_ipv6;
-	int idx_interface;
-	int idx_reject_blackhole;
-	int idx_curr;
-	char *src, *tag, *distance, *vrf;
-
-	if (strmatch(argv[4]->text, "from")) {
-		src = argv[5]->arg;
-		idx_ipv6 = 6;
-		idx_interface = 7;
-		idx_reject_blackhole = 8;
-		idx_curr = 9;
-	} else {
-		src = NULL;
-		idx_ipv6 = 4;
-		idx_interface = 5;
-		idx_reject_blackhole = 6;
-		idx_curr = 7;
-	}
-
-	tag = distance = vrf = NULL;
-	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
-				      &vrf, NULL);
-
-	return static_ipv6_func(vty, 0, argv[idx_ipv6_prefixlen]->arg, src,
-				argv[idx_ipv6]->arg, argv[idx_interface]->arg,
-				argv[idx_reject_blackhole]->arg, tag, distance,
-				vrf, NULL);
 }
 
 DEFUN (show_ipv6_route,
@@ -3413,11 +3317,9 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &ipv6_route_cmd);
 	install_element(CONFIG_NODE, &ipv6_route_flags_cmd);
 	install_element(CONFIG_NODE, &ipv6_route_ifname_cmd);
-	install_element(CONFIG_NODE, &ipv6_route_ifname_flags_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_route_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_route_flags_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_route_ifname_cmd);
-	install_element(CONFIG_NODE, &no_ipv6_route_ifname_flags_cmd);
 	install_element(CONFIG_NODE, &ip_nht_default_route_cmd);
 	install_element(CONFIG_NODE, &no_ip_nht_default_route_cmd);
 	install_element(CONFIG_NODE, &ipv6_nht_default_route_cmd);
