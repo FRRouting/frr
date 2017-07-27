@@ -2151,9 +2151,9 @@ static int static_ipv6_func(struct vty *vty, int add_cmd, const char *dest_str,
 		if (!ifp) {
 			vty_out(vty, "%% Malformed Interface name %s\n",
 				ifname);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		ifindex = ifp->ifindex;
+			ifindex = IFINDEX_DELETED;
+		} else
+			ifindex = ifp->ifindex;
 	} else {
 		if (ret == 1) {
 			type = STATIC_IPV6_GATEWAY;
