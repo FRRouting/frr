@@ -969,6 +969,12 @@ def diagnose_env():
     if topotest.version_cmp(krel, '4.5') < 0:
         logger.info('LDPd tests will not run (have kernel "{}", but it requires 4.5)'.format(krel))
 
+    # Test for MPLS Kernel modules available
+    if os.system('/sbin/modprobe -n mpls-router') != 0:
+        logger.info('LDPd tests will not run (missing mpls-router kernel module)')
+    if os.system('/sbin/modprobe -n mpls-iptunnel') != 0:
+        logger.info('LDPd tests will not run (missing mpls-iptunnel kernel module)')
+
     # TODO remove me when we start supporting exabgp >= 4
     try:
         output = subprocess.check_output(['exabgp', '-v'])
