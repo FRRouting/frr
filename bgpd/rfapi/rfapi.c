@@ -205,7 +205,7 @@ static int rfapi_find_node(struct bgp *bgp, struct rfapi_ip_addr *vn_addr,
 	struct prefix p;
 	struct route_node *rn;
 	int rc;
-	int afi;
+	afi_t afi;
 
 	if (!bgp) {
 		return ENXIO;
@@ -2367,7 +2367,7 @@ int rfapi_register(void *handle, struct rfapi_ip_prefix *prefix,
 	struct prefix p;
 	struct prefix *pfx_ip = NULL;
 	struct prefix_rd prd;
-	int afi;
+	afi_t afi;
 	struct prefix pfx_mac_buf;
 	struct prefix *pfx_mac = NULL;
 	struct prefix pfx_vn_buf;

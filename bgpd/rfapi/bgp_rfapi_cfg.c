@@ -2503,7 +2503,7 @@ DEFUN (vnc_nve_group_prefix,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg);
 	struct prefix p;
-	int afi;
+	afi_t afi;
 	struct route_table *rt;
 	struct route_node *rn;
 	int is_un_prefix = 0;
@@ -3830,7 +3830,7 @@ void bgp_rfapi_cfg_init(void)
 struct rfapi_cfg *bgp_rfapi_cfg_new(struct rfapi_rfp_cfg *cfg)
 {
 	struct rfapi_cfg *h;
-	int afi;
+	afi_t afi;
 
 	h = (struct rfapi_cfg *)XCALLOC(MTYPE_RFAPI_CFG,
 					sizeof(struct rfapi_cfg));
@@ -3880,7 +3880,7 @@ struct rfapi_cfg *bgp_rfapi_cfg_new(struct rfapi_rfp_cfg *cfg)
 
 void bgp_rfapi_cfg_destroy(struct bgp *bgp, struct rfapi_cfg *h)
 {
-	int afi;
+	afi_t afi;
 	if (h == NULL)
 		return;
 
@@ -4571,7 +4571,8 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 void bgp_rfapi_show_summary(struct bgp *bgp, struct vty *vty)
 {
 	struct rfapi_cfg *hc = bgp->rfapi_cfg;
-	int afi, type, redist = 0;
+	afi_t afi;
+	int type, redist = 0;
 	char tmp[40];
 	if (hc == NULL)
 		return;

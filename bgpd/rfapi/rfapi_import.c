@@ -4248,7 +4248,7 @@ static void rfapiBgpTableFilteredImport(struct bgp *bgp,
 struct rfapi *bgp_rfapi_new(struct bgp *bgp)
 {
 	struct rfapi *h;
-	int afi;
+	afi_t afi;
 	struct rfapi_rfp_cfg *cfg = NULL;
 	struct rfapi_rfp_cb_methods *cbm = NULL;
 
@@ -4290,7 +4290,7 @@ struct rfapi *bgp_rfapi_new(struct bgp *bgp)
 
 void bgp_rfapi_destroy(struct bgp *bgp, struct rfapi *h)
 {
-	int afi;
+	afi_t afi;
 
 	if (bgp == NULL || h == NULL)
 		return;
