@@ -171,7 +171,7 @@ struct rfapi_global_stats {
  * check vn address to get exact match.
  */
 struct rfapi {
-	struct route_table un[AFI_MAX];
+	struct route_table *un[AFI_MAX];
 	struct rfapi_import_table *imports; /* IPv4, IPv6 */
 	struct list descriptors;	    /* debug & resolve-nve imports */
 

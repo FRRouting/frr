@@ -135,8 +135,8 @@ struct rfapi_cfg {
 	struct list *l2_groups; /* rfapi_l2_group_cfg list */
 	/* three views into the same collection of rfapi_nve_group_cfg */
 	struct list *nve_groups_sequential;
-	struct route_table nve_groups_vn[AFI_MAX];
-	struct route_table nve_groups_un[AFI_MAX];
+	struct route_table *nve_groups_vn[AFI_MAX];
+	struct route_table *nve_groups_un[AFI_MAX];
 
 	/*
 	 * For Single VRF export to ordinary routing protocols. This is
