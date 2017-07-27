@@ -6926,36 +6926,34 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 	bgp_config_write_filter(vty, peer, afi, safi, write);
 
 	/* atribute-unchanged. */
-	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_AS_PATH_UNCHANGED)
-	    || CHECK_FLAG(peer->af_flags[afi][safi],
-			  PEER_FLAG_NEXTHOP_UNCHANGED)
-	    || CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MED_UNCHANGED)) {
-		if (peergroup_af_flag_check(peer, afi, safi,
-					    PEER_FLAG_AS_PATH_UNCHANGED)
-		    && peergroup_af_flag_check(peer, afi, safi,
-					       PEER_FLAG_NEXTHOP_UNCHANGED)
-		    && peergroup_af_flag_check(peer, afi, safi,
-					       PEER_FLAG_MED_UNCHANGED)) {
-			afi_header_vty_out(
-				vty, afi, safi, write,
-				"  neighbor %s attribute-unchanged\n", addr);
-		} else {
+	if (peer_af_flag_check(peer, afi, safi, PEER_FLAG_AS_PATH_UNCHANGED) ||
+	    peer_af_flag_check(peer, afi, safi, PEER_FLAG_NEXTHOP_UNCHANGED) ||
+	    peer_af_flag_check(peer, afi, safi, PEER_FLAG_MED_UNCHANGED)) {
+
+		if (!peer_group_active(peer) ||
+		     peergroup_af_flag_check(peer, afi, safi,
+					     PEER_FLAG_AS_PATH_UNCHANGED) ||
+		     peergroup_af_flag_check(peer, afi, safi,
+					     PEER_FLAG_NEXTHOP_UNCHANGED) ||
+		     peergroup_af_flag_check(peer, afi, safi,
+					     PEER_FLAG_MED_UNCHANGED)) {
+
 			afi_header_vty_out(
 				vty, afi, safi, write,
 				"  neighbor %s attribute-unchanged%s%s%s\n",
 				addr,
-				peergroup_af_flag_check(
+				peer_af_flag_check(
 					peer, afi, safi,
 					PEER_FLAG_AS_PATH_UNCHANGED)
 					? " as-path"
 					: "",
-				peergroup_af_flag_check(
+				peer_af_flag_check(
 					peer, afi, safi,
 					PEER_FLAG_NEXTHOP_UNCHANGED)
 					? " next-hop"
 					: "",
-				peergroup_af_flag_check(peer, afi, safi,
-							PEER_FLAG_MED_UNCHANGED)
+				peer_af_flag_check(peer, afi, safi,
+						   PEER_FLAG_MED_UNCHANGED)
 					? " med"
 					: "");
 		}

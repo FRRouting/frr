@@ -4201,8 +4201,15 @@ DEFUN (neighbor_attr_unchanged,
        "Med attribute\n")
 {
 	int idx = 0;
-	char *peer = argv[1]->arg;
+	char *peer_str = argv[1]->arg;
+	struct peer *peer;
 	u_int16_t flags = 0;
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+
+	peer = peer_and_group_lookup_vty(vty, peer_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	if (argv_find(argv, argc, "as-path", &idx))
 		SET_FLAG(flags, PEER_FLAG_AS_PATH_UNCHANGED);
@@ -4213,15 +4220,35 @@ DEFUN (neighbor_attr_unchanged,
 	if (argv_find(argv, argc, "med", &idx))
 		SET_FLAG(flags, PEER_FLAG_MED_UNCHANGED);
 
-	if (!flags) // no flags means all of them!
-	{
+	/* no flags means all of them! */
+	if (!flags) {
 		SET_FLAG(flags, PEER_FLAG_AS_PATH_UNCHANGED);
 		SET_FLAG(flags, PEER_FLAG_NEXTHOP_UNCHANGED);
 		SET_FLAG(flags, PEER_FLAG_MED_UNCHANGED);
+	} else {
+		if (!CHECK_FLAG(flags, PEER_FLAG_AS_PATH_UNCHANGED) &&
+		    peer_af_flag_check(peer, afi, safi,
+				       PEER_FLAG_AS_PATH_UNCHANGED)) {
+			peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+					       PEER_FLAG_AS_PATH_UNCHANGED);
+		}
+
+		if (!CHECK_FLAG(flags, PEER_FLAG_NEXTHOP_UNCHANGED) &&
+		    peer_af_flag_check(peer, afi, safi,
+				       PEER_FLAG_NEXTHOP_UNCHANGED)) {
+			peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+					       PEER_FLAG_NEXTHOP_UNCHANGED);
+		}
+
+		if (!CHECK_FLAG(flags, PEER_FLAG_MED_UNCHANGED) &&
+		    peer_af_flag_check(peer, afi, safi,
+				       PEER_FLAG_MED_UNCHANGED)) {
+			peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+					       PEER_FLAG_MED_UNCHANGED);
+		}
 	}
 
-	return peer_af_flag_set_vty(vty, peer, bgp_node_afi(vty),
-				    bgp_node_safi(vty), flags);
+	return peer_af_flag_set_vty(vty, peer_str, afi, safi, flags);
 }
 
 ALIAS_HIDDEN(
