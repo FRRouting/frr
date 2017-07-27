@@ -32,6 +32,7 @@ struct static_nh_label {
 typedef enum {
 	STATIC_IFINDEX,
 	STATIC_IPV4_GATEWAY,
+	STATIC_IPV4_GATEWAY_IFINDEX,
 	STATIC_BLACKHOLE,
 	STATIC_IPV6_GATEWAY,
 	STATIC_IPV6_GATEWAY_IFINDEX,
@@ -57,11 +58,6 @@ struct static_route {
 
 	/*
 	 * Nexthop value.
-	 *
-	 * Under IPv4 addr and ifindex are
-	 * used independentyly.
-	 * STATIC_IPV4_GATEWAY uses addr
-	 * STATIC_IFINDEX uses ifindex
 	 */
 	union g_addr addr;
 	ifindex_t ifindex;

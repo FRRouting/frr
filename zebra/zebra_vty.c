@@ -201,8 +201,7 @@ static int zebra_static_ipv4(struct vty *vty, safi_t safi, int add_cmd,
 	if (gate_str == NULL && ifname == NULL)
 		type = STATIC_BLACKHOLE;
 	else if (gate_str && ifname)
-		/* TODO: not implemented yet */
-		return CMD_WARNING_CONFIG_FAILED;
+		type = STATIC_IPV4_GATEWAY_IFINDEX;
 	else if (ifname)
 		type = STATIC_IFINDEX;
 	else
@@ -457,6 +456,34 @@ DEFUN (ip_route_flags,
 		NULL, argv[idx_reject_blackhole]->arg, tag, distance, vrf, NULL);
 }
 
+DEFUN (ip_route_ifname,
+       ip_route_ifname_cmd,
+       "ip route A.B.C.D/M A.B.C.D INTERFACE [{tag (1-4294967295)|(1-255)|vrf NAME|label WORD}]",
+       IP_STR
+       "Establish static routes\n"
+       "IP destination prefix (e.g. 10.0.0.0/8)\n"
+       "IP gateway address\n"
+       "IP gateway interface name\n"
+       "Set tag for this route\n"
+       "Tag value\n"
+       "Distance value for this route\n"
+       VRF_CMD_HELP_STR
+       MPLS_LABEL_HELPSTR)
+{
+	int idx_ipv4_prefixlen = 2;
+	int idx_curr = 5;
+	char *gate = argv[3]->arg;
+	char *ifname = argv[4]->arg;
+	char *tag, *distance, *vrf, *label;
+
+	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
+				      &vrf, &label);
+
+	return zebra_static_ipv4(vty, SAFI_UNICAST, 1,
+				 argv[idx_ipv4_prefixlen]->arg, NULL, gate,
+				 ifname, NULL, tag, distance, vrf, label);
+}
+
 /* Mask as A.B.C.D format.  */
 DEFUN_HIDDEN (ip_route_mask,
               ip_route_mask_cmd,
@@ -485,6 +512,36 @@ DEFUN_HIDDEN (ip_route_mask,
 		gate = argv[4]->arg;
 	else
 		ifname = argv[4]->arg;
+
+	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
+				      &vrf, &label);
+
+	return zebra_static_ipv4(vty, SAFI_UNICAST, 1, argv[idx_ipv4]->arg,
+				 argv[idx_ipv4_2]->arg,
+				 gate, ifname, NULL, tag, distance, vrf, label);
+}
+
+DEFUN_HIDDEN (ip_route_mask_ifname,
+              ip_route_mask_ifname_cmd,
+              "ip route A.B.C.D A.B.C.D A.B.C.D INTERFACE [{tag (1-4294967295)|(1-255)|vrf NAME|label WORD}]",
+              IP_STR
+              "Establish static routes\n"
+              "IP destination prefix\n"
+              "IP destination prefix mask\n"
+              "IP gateway address\n"
+              "IP gateway interface name\n"
+              "Set tag for this route\n"
+              "Tag value\n"
+              "Distance value for this route\n"
+              VRF_CMD_HELP_STR
+              MPLS_LABEL_HELPSTR)
+{
+	int idx_ipv4 = 2;
+	int idx_ipv4_2 = 3;
+	int idx_curr = 6;
+	char *gate = argv[4]->arg;
+	char *ifname = argv[5]->arg;
+	char *tag, *distance, *vrf, *label;
 
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
 				      &vrf, &label);
@@ -558,6 +615,35 @@ DEFUN (no_ip_route,
 				 gate, ifname, NULL, tag, distance, vrf, label);
 }
 
+DEFUN (no_ip_route_ifname,
+       no_ip_route_ifname_cmd,
+       "no ip route A.B.C.D/M A.B.C.D INTERFACE [{tag (1-4294967295)|(1-255)|vrf NAME|label WORD}]",
+       NO_STR
+       IP_STR
+       "Establish static routes\n"
+       "IP destination prefix (e.g. 10.0.0.0/8)\n"
+       "IP gateway address\n"
+       "IP gateway interface name\n"
+       "Tag of this route\n"
+       "Tag value\n"
+       "Distance value for this route\n"
+       VRF_CMD_HELP_STR
+       MPLS_LABEL_HELPSTR)
+{
+	int idx_ipv4_prefixlen = 3;
+	int idx_curr = 6;
+	char *gate = argv[4]->arg;
+	char *ifname = argv[5]->arg;
+	char *tag, *distance, *vrf, *label;
+
+	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
+				      &vrf, &label);
+
+	return zebra_static_ipv4(vty, SAFI_UNICAST, 0,
+				 argv[idx_ipv4_prefixlen]->arg, NULL,
+				 gate, ifname, NULL, tag, distance, vrf, label);
+}
+
 DEFUN (no_ip_route_flags,
        no_ip_route_flags_cmd,
        "no ip route A.B.C.D/M <reject|blackhole> [{tag (1-4294967295)|(1-255)|vrf NAME}]",
@@ -612,6 +698,37 @@ DEFUN_HIDDEN (no_ip_route_mask,
 		gate = argv[5]->arg;
 	else
 		ifname = argv[5]->arg;
+
+	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
+				      &vrf, &label);
+
+	return zebra_static_ipv4(vty, SAFI_UNICAST, 0, argv[idx_ipv4]->arg,
+				 argv[idx_ipv4_2]->arg,
+				 gate, ifname, NULL, tag, distance, vrf, label);
+}
+
+DEFUN_HIDDEN (no_ip_route_mask_ifname,
+              no_ip_route_mask_ifname_cmd,
+              "no ip route A.B.C.D A.B.C.D A.B.C.D INTERFACE [{tag (1-4294967295)|(1-255)|vrf NAME|label WORD}]",
+              NO_STR
+              IP_STR
+              "Establish static routes\n"
+              "IP destination prefix\n"
+              "IP destination prefix mask\n"
+              "IP gateway address\n"
+              "IP gateway interface name\n"
+              "Tag of this route\n"
+              "Tag value\n"
+              "Distance value for this route\n"
+              VRF_CMD_HELP_STR
+              MPLS_LABEL_HELPSTR)
+{
+	int idx_ipv4 = 3;
+	int idx_ipv4_2 = 4;
+	int idx_curr = 7;
+	char *gate = argv[5]->arg;
+	char *ifname = argv[6]->arg;
+	char *tag, *distance, *vrf, *label;
 
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
 				      &vrf, &label);
@@ -1970,6 +2087,14 @@ static int static_config(struct vty *vty, afi_t afi, safi_t safi,
 					else
 						vty_out(vty, " Null0");
 					break;
+				case STATIC_IPV4_GATEWAY_IFINDEX:
+					vty_out(vty, " %s %s",
+						inet_ntop(AF_INET,
+							  &si->addr.ipv4, buf,
+							  sizeof buf),
+						ifindex2ifname(si->ifindex,
+							       si->vrf_id));
+					break;
 				case STATIC_IPV6_GATEWAY_IFINDEX:
 					vty_out(vty, " %s %s",
 						inet_ntop(AF_INET6,
@@ -3288,11 +3413,17 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &ip_multicast_mode_cmd);
 	install_element(CONFIG_NODE, &no_ip_multicast_mode_cmd);
 	install_element(CONFIG_NODE, &ip_route_cmd);
+	install_element(CONFIG_NODE, &ip_route_ifname_cmd);
 	install_element(CONFIG_NODE, &ip_route_flags_cmd);
 	install_element(CONFIG_NODE, &ip_route_mask_cmd);
+	install_element(CONFIG_NODE, &ip_route_mask_ifname_cmd);
 	install_element(CONFIG_NODE, &ip_route_mask_flags_cmd);
 	install_element(CONFIG_NODE, &no_ip_route_cmd);
+	install_element(CONFIG_NODE, &no_ip_route_flags_cmd);
+	install_element(CONFIG_NODE, &no_ip_route_ifname_cmd);
 	install_element(CONFIG_NODE, &no_ip_route_mask_cmd);
+	install_element(CONFIG_NODE, &no_ip_route_mask_flags_cmd);
+	install_element(CONFIG_NODE, &no_ip_route_mask_ifname_cmd);
 	install_element(CONFIG_NODE, &ip_zebra_import_table_distance_cmd);
 	install_element(CONFIG_NODE, &no_ip_zebra_import_table_cmd);
 
@@ -3309,11 +3440,6 @@ void zebra_vty_init(void)
 
 	install_element(VIEW_NODE, &show_ip_rpf_cmd);
 	install_element(VIEW_NODE, &show_ip_rpf_addr_cmd);
-
-	/* Commands for VRF */
-
-	install_element(CONFIG_NODE, &no_ip_route_flags_cmd);
-	install_element(CONFIG_NODE, &no_ip_route_mask_flags_cmd);
 
 	install_element(VIEW_NODE, &show_ip_route_vrf_all_addr_cmd);
 	install_element(VIEW_NODE, &show_ip_route_vrf_all_prefix_cmd);
