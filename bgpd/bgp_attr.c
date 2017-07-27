@@ -2039,7 +2039,7 @@ static int bgp_attr_encap(uint8_t type, struct peer *peer, /* IN */
 			}
 #endif
 		}
-		stlv_last->next = tlv;
+		stlv_last = tlv;
 	}
 
 	if (BGP_ATTR_ENCAP == type) {
