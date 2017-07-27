@@ -39,6 +39,10 @@ DEBUG_TOPO2LOGGING = {
     'critical': logging.CRITICAL,
 }
 
+class InfoFilter(logging.Filter):
+    def filter(self, rec):
+        return rec.levelno in (logging.DEBUG, logging.INFO)
+
 #
 # Logger class definition
 #
@@ -55,11 +59,21 @@ class Logger(object):
         # Create default global logger
         self.log_level = logging.INFO
         self.logger = logging.Logger('topolog', level=self.log_level)
-        handler = logging.StreamHandler()
-        handler.setFormatter(
+
+        handler_stdout = logging.StreamHandler(sys.stdout)
+        handler_stdout.setLevel(logging.DEBUG)
+        handler_stdout.addFilter(InfoFilter())
+        handler_stdout.setFormatter(
             logging.Formatter(fmt='%(asctime)s %(levelname)s: %(message)s')
         )
-        self.logger.addHandler(handler)
+        handler_stderr = logging.StreamHandler()
+        handler_stderr.setLevel(logging.WARNING)
+        handler_stderr.setFormatter(
+            logging.Formatter(fmt='%(asctime)s %(levelname)s: %(message)s')
+        )
+
+        self.logger.addHandler(handler_stdout)
+        self.logger.addHandler(handler_stderr)
 
         # Handle more loggers
         self.loggers = {'topolog': self.logger}
