@@ -63,21 +63,22 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 /* General function for static route. */
 static int zebra_static_ipv4(struct vty *vty, safi_t safi, int add_cmd,
 			     const char *dest_str, const char *mask_str,
-			     const char *gate_str, const char *flag_str,
-			     const char *tag_str, const char *distance_str,
-			     const char *vrf_id_str, const char *label_str)
+			     const char *gate_str, const char *ifname,
+			     const char *flag_str, const char *tag_str,
+			     const char *distance_str, const char *vrf_id_str,
+			     const char *label_str)
 {
 	int ret;
 	u_char distance;
 	struct prefix p;
 	struct in_addr gate;
+	struct in_addr *gatep = NULL;
 	struct in_addr mask;
 	u_char flag = 0;
 	route_tag_t tag = 0;
 	struct zebra_vrf *zvrf = NULL;
 	unsigned int ifindex = 0;
-	const char *ifname = NULL;
-	u_char type = STATIC_BLACKHOLE;
+	u_char type;
 	struct static_nh_label snh_label;
 
 	memset(&snh_label, 0, sizeof(struct static_nh_label));
@@ -149,22 +150,15 @@ static int zebra_static_ipv4(struct vty *vty, safi_t safi, int add_cmd,
 	}
 
 	/* Null0 static route.  */
-	if ((gate_str != NULL)
-	    && (strncasecmp(gate_str, "Null0", strlen(gate_str)) == 0)) {
+	if ((ifname != NULL)
+	    && (strncasecmp(ifname, "Null0", strlen(ifname)) == 0)) {
 		if (flag_str) {
 			vty_out(vty, "%% can not have flag %s with Null0\n",
 				flag_str);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		if (add_cmd)
-			static_add_route(AFI_IP, safi, type, &p, NULL, NULL,
-					 ifindex, ifname, ZEBRA_FLAG_BLACKHOLE,
-					 tag, distance, zvrf, &snh_label);
-		else
-			static_delete_route(AFI_IP, safi, type, &p, NULL, NULL,
-					    ifindex, tag, distance, zvrf,
-					    &snh_label);
-		return CMD_SUCCESS;
+		SET_FLAG(flag, ZEBRA_FLAG_BLACKHOLE);
+		ifname = NULL;
 	}
 
 	/* Route flags */
@@ -184,44 +178,44 @@ static int zebra_static_ipv4(struct vty *vty, safi_t safi, int add_cmd,
 		}
 	}
 
-	if (gate_str == NULL) {
-		if (add_cmd)
-			static_add_route(AFI_IP, safi, type, &p, NULL, NULL,
-					 ifindex, ifname, flag, tag, distance,
-					 zvrf, &snh_label);
-		else
-			static_delete_route(AFI_IP, safi, type, &p, NULL, NULL,
-					    ifindex, tag, distance, zvrf,
-					    &snh_label);
-
-		return CMD_SUCCESS;
+	if (gate_str) {
+		if (inet_pton(AF_INET, gate_str, &gate) != 1) {
+			vty_out(vty, "%% Malformed nexthop address %s\n",
+				gate_str);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		gatep = &gate;
 	}
 
-	/* When gateway is A.B.C.D format, gate is treated as nexthop
-	   address other case gate is treated as interface name. */
-	ret = inet_aton(gate_str, &gate);
-	if (!ret) {
-		struct interface *ifp =
-			if_lookup_by_name(gate_str, zvrf_id(zvrf));
+	if (ifname) {
+		struct interface *ifp;
+		ifp = if_lookup_by_name(ifname, zvrf_id(zvrf));
 		if (!ifp) {
-			vty_out(vty, "%% Unknown interface: %s\n", gate_str);
+			vty_out(vty, "%% Malformed Interface name %s\n",
+				ifname);
 			ifindex = IFINDEX_DELETED;
 		} else
 			ifindex = ifp->ifindex;
-		ifname = gate_str;
+	}
+
+	if (gate_str == NULL && ifname == NULL)
+		type = STATIC_BLACKHOLE;
+	else if (gate_str && ifname)
+		/* TODO: not implemented yet */
+		return CMD_WARNING_CONFIG_FAILED;
+	else if (ifname)
 		type = STATIC_IFINDEX;
-	} else
+	else
 		type = STATIC_IPV4_GATEWAY;
 
 	if (add_cmd)
 		static_add_route(AFI_IP, safi, type, &p, NULL,
-				 ifindex ? NULL : (union g_addr *)&gate,
-				 ifindex, ifname, flag, tag, distance, zvrf,
-				 &snh_label);
+				 (union g_addr *)gatep, ifindex, ifname, flag,
+				 tag, distance, zvrf, &snh_label);
 	else
 		static_delete_route(AFI_IP, safi, type, &p, NULL,
-				    ifindex ? NULL : (union g_addr *)&gate,
-				    ifindex, tag, distance, zvrf, &snh_label);
+				    (union g_addr *)gatep, ifindex, tag,
+				    distance, zvrf, &snh_label);
 
 	return CMD_SUCCESS;
 }
@@ -238,11 +232,17 @@ DEFUN (ip_mroute_dist,
        "Distance\n")
 {
 	char *destprefix = argv[2]->arg;
-	char *nexthop = argv[3]->arg;
+	char *gate = NULL;
+	char *ifname = NULL;
 	char *distance = (argc == 5) ? argv[4]->arg : NULL;
 
+	if (argv[3]->type == IPV4_TKN)
+		gate = argv[3]->arg;
+	else
+		ifname = argv[3]->arg;
+
 	return zebra_static_ipv4(vty, SAFI_MULTICAST, 1, destprefix, NULL,
-				 nexthop, NULL, NULL, distance, NULL, NULL);
+				 gate, ifname, NULL, NULL, distance, NULL, NULL);
 }
 
 DEFUN (no_ip_mroute_dist,
@@ -257,11 +257,17 @@ DEFUN (no_ip_mroute_dist,
        "Distance\n")
 {
 	char *destprefix = argv[3]->arg;
-	char *nexthop = argv[4]->arg;
+	char *gate = NULL;
+	char *ifname = NULL;
 	char *distance = (argc == 6) ? argv[5]->arg : NULL;
 
+	if (argv[4]->type == IPV4_TKN)
+		gate = argv[4]->arg;
+	else
+		ifname = argv[4]->arg;
+
 	return zebra_static_ipv4(vty, SAFI_MULTICAST, 0, destprefix, NULL,
-				 nexthop, NULL, NULL, distance, NULL, NULL);
+				 gate, ifname, NULL, NULL, distance, NULL, NULL);
 }
 
 DEFUN (ip_multicast_mode,
@@ -407,17 +413,22 @@ DEFUN (ip_route,
        MPLS_LABEL_HELPSTR)
 {
 	int idx_ipv4_prefixlen = 2;
-	int idx_ipv4_ifname_null = 3;
 	int idx_curr = 4;
+	char *gate = NULL;
+	char *ifname = NULL;
 	char *tag, *distance, *vrf, *label;
+
+	if (argv[3]->type == IPV4_TKN)
+		gate = argv[3]->arg;
+	else
+		ifname = argv[3]->arg;
 
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
 				      &vrf, &label);
 
 	return zebra_static_ipv4(vty, SAFI_UNICAST, 1,
-				 argv[idx_ipv4_prefixlen]->arg, NULL,
-				 argv[idx_ipv4_ifname_null]->arg, NULL, tag,
-				 distance, vrf, label);
+				 argv[idx_ipv4_prefixlen]->arg, NULL, gate,
+				 ifname, NULL, tag, distance, vrf, label);
 }
 
 DEFUN (ip_route_flags,
@@ -443,7 +454,7 @@ DEFUN (ip_route_flags,
 
 	return zebra_static_ipv4(
 		vty, SAFI_UNICAST, 1, argv[idx_ipv4_prefixlen]->arg, NULL, NULL,
-		argv[idx_reject_blackhole]->arg, tag, distance, vrf, NULL);
+		NULL, argv[idx_reject_blackhole]->arg, tag, distance, vrf, NULL);
 }
 
 /* Mask as A.B.C.D format.  */
@@ -465,17 +476,22 @@ DEFUN_HIDDEN (ip_route_mask,
 {
 	int idx_ipv4 = 2;
 	int idx_ipv4_2 = 3;
-	int idx_ipv4_ifname_null = 4;
 	int idx_curr = 5;
+	char *gate = NULL;
+	char *ifname = NULL;
 	char *tag, *distance, *vrf, *label;
+
+	if (argv[4]->type == IPV4_TKN)
+		gate = argv[4]->arg;
+	else
+		ifname = argv[4]->arg;
 
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
 				      &vrf, &label);
 
 	return zebra_static_ipv4(vty, SAFI_UNICAST, 1, argv[idx_ipv4]->arg,
 				 argv[idx_ipv4_2]->arg,
-				 argv[idx_ipv4_ifname_null]->arg, NULL, tag,
-				 distance, vrf, label);
+				 gate, ifname, NULL, tag, distance, vrf, label);
 }
 
 DEFUN_HIDDEN (ip_route_mask_flags,
@@ -502,7 +518,7 @@ DEFUN_HIDDEN (ip_route_mask_flags,
 				      &vrf, NULL);
 
 	return zebra_static_ipv4(vty, SAFI_UNICAST, 1, argv[idx_ipv4]->arg,
-				 argv[idx_ipv4_2]->arg, NULL,
+				 argv[idx_ipv4_2]->arg, NULL, NULL,
 				 argv[idx_reject_blackhole]->arg, tag, distance,
 				 vrf, NULL);
 }
@@ -524,17 +540,22 @@ DEFUN (no_ip_route,
        MPLS_LABEL_HELPSTR)
 {
 	int idx_ipv4_prefixlen = 3;
-	int idx_ipv4_ifname_null = 4;
 	int idx_curr = 5;
+	char *gate = NULL;
+	char *ifname = NULL;
 	char *tag, *distance, *vrf, *label;
+
+	if (argv[4]->type == IPV4_TKN)
+		gate = argv[4]->arg;
+	else
+		ifname = argv[4]->arg;
 
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
 				      &vrf, &label);
 
 	return zebra_static_ipv4(vty, SAFI_UNICAST, 0,
 				 argv[idx_ipv4_prefixlen]->arg, NULL,
-				 argv[idx_ipv4_ifname_null]->arg, NULL, tag,
-				 distance, vrf, label);
+				 gate, ifname, NULL, tag, distance, vrf, label);
 }
 
 DEFUN (no_ip_route_flags,
@@ -560,7 +581,7 @@ DEFUN (no_ip_route_flags,
 
 	return zebra_static_ipv4(vty, SAFI_UNICAST, 0,
 				 argv[idx_ipv4_prefixlen]->arg, NULL, NULL,
-				 NULL, tag, distance, vrf, NULL);
+				 NULL, NULL, tag, distance, vrf, NULL);
 }
 
 DEFUN_HIDDEN (no_ip_route_mask,
@@ -582,17 +603,22 @@ DEFUN_HIDDEN (no_ip_route_mask,
 {
 	int idx_ipv4 = 3;
 	int idx_ipv4_2 = 4;
-	int idx_ipv4_ifname_null = 5;
 	int idx_curr = 6;
+	char *gate = NULL;
+	char *ifname = NULL;
 	char *tag, *distance, *vrf, *label;
+
+	if (argv[5]->type == IPV4_TKN)
+		gate = argv[5]->arg;
+	else
+		ifname = argv[5]->arg;
 
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
 				      &vrf, &label);
 
 	return zebra_static_ipv4(vty, SAFI_UNICAST, 0, argv[idx_ipv4]->arg,
 				 argv[idx_ipv4_2]->arg,
-				 argv[idx_ipv4_ifname_null]->arg, NULL, tag,
-				 distance, vrf, label);
+				 gate, ifname, NULL, tag, distance, vrf, label);
 }
 
 DEFUN_HIDDEN (no_ip_route_mask_flags,
@@ -619,7 +645,7 @@ DEFUN_HIDDEN (no_ip_route_mask_flags,
 				      &vrf, NULL);
 
 	return zebra_static_ipv4(vty, SAFI_UNICAST, 0, argv[idx_ipv4]->arg,
-				 argv[idx_ipv4_2]->arg, NULL, NULL, tag,
+				 argv[idx_ipv4_2]->arg, NULL, NULL, NULL, tag,
 				 distance, vrf, NULL);
 }
 
@@ -2009,11 +2035,10 @@ static int static_ipv6_func(struct vty *vty, int add_cmd, const char *dest_str,
 	struct prefix_ipv6 *src_p = NULL;
 	struct in6_addr *gate = NULL;
 	struct in6_addr gate_addr;
-	u_char type = STATIC_BLACKHOLE;
+	u_char type;
 	u_char flag = 0;
 	route_tag_t tag = 0;
 	unsigned int ifindex = 0;
-	struct interface *ifp = NULL;
 	struct zebra_vrf *zvrf;
 	struct static_nh_label snh_label;
 
@@ -2085,23 +2110,15 @@ static int static_ipv6_func(struct vty *vty, int add_cmd, const char *dest_str,
 	}
 
 	/* Null0 static route.  */
-	if ((gate_str != NULL)
-	    && (strncasecmp(gate_str, "Null0", strlen(gate_str)) == 0)) {
+	if ((ifname != NULL)
+	    && (strncasecmp(ifname, "Null0", strlen(ifname)) == 0)) {
 		if (flag_str) {
 			vty_out(vty, "%% can not have flag %s with Null0\n",
 				flag_str);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		if (add_cmd)
-			static_add_route(AFI_IP6, SAFI_UNICAST, type, &p, src_p,
-					 NULL, ifindex, ifname,
-					 ZEBRA_FLAG_BLACKHOLE, tag, distance,
-					 zvrf, &snh_label);
-		else
-			static_delete_route(AFI_IP6, SAFI_UNICAST, type, &p,
-					    src_p, NULL, ifindex, tag, distance,
-					    zvrf, &snh_label);
-		return CMD_SUCCESS;
+		SET_FLAG(flag, ZEBRA_FLAG_BLACKHOLE);
+		ifname = NULL;
 	}
 
 	/* Route flags */
@@ -2121,32 +2138,17 @@ static int static_ipv6_func(struct vty *vty, int add_cmd, const char *dest_str,
 		}
 	}
 
-	if (gate_str == NULL) {
-		if (add_cmd)
-			static_add_route(AFI_IP6, SAFI_UNICAST, type, &p, src_p,
-					 NULL, ifindex, ifname, flag, tag,
-					 distance, zvrf, &snh_label);
-		else
-			static_delete_route(AFI_IP6, SAFI_UNICAST, type, &p,
-					    src_p, NULL, ifindex, tag, distance,
-					    zvrf, &snh_label);
-
-		return CMD_SUCCESS;
-	}
-
-	/* When gateway is valid IPv6 addrees, then gate is treated as
-	   nexthop address other case gate is treated as interface name. */
-	ret = inet_pton(AF_INET6, gate_str, &gate_addr);
-
-	if (ifname) {
-		/* When ifname is specified.  It must be come with gateway
-		   address. */
-		if (ret != 1) {
-			vty_out(vty, "%% Malformed address\n");
+	if (gate_str) {
+		if (inet_pton(AF_INET6, gate_str, &gate_addr) != 1) {
+			vty_out(vty, "%% Malformed nexthop address %s\n",
+				gate_str);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		type = STATIC_IPV6_GATEWAY_IFINDEX;
 		gate = &gate_addr;
+	}
+
+	if (ifname) {
+		struct interface *ifp;
 		ifp = if_lookup_by_name(ifname, zvrf_id(zvrf));
 		if (!ifp) {
 			vty_out(vty, "%% Malformed Interface name %s\n",
@@ -2154,22 +2156,16 @@ static int static_ipv6_func(struct vty *vty, int add_cmd, const char *dest_str,
 			ifindex = IFINDEX_DELETED;
 		} else
 			ifindex = ifp->ifindex;
-	} else {
-		if (ret == 1) {
-			type = STATIC_IPV6_GATEWAY;
-			gate = &gate_addr;
-		} else {
-			type = STATIC_IFINDEX;
-			ifp = if_lookup_by_name(gate_str, zvrf_id(zvrf));
-			if (!ifp) {
-				vty_out(vty, "%% Malformed Interface name %s\n",
-					gate_str);
-				ifindex = IFINDEX_DELETED;
-			} else
-				ifindex = ifp->ifindex;
-			ifname = gate_str;
-		}
 	}
+
+	if (gate_str == NULL && ifname == NULL)
+		type = STATIC_BLACKHOLE;
+	else if (gate_str && ifname)
+		type = STATIC_IPV6_GATEWAY_IFINDEX;
+	else if (ifname)
+		type = STATIC_IFINDEX;
+	else
+		type = STATIC_IPV6_GATEWAY;
 
 	if (add_cmd)
 		static_add_route(AFI_IP6, SAFI_UNICAST, type, &p, src_p,
@@ -2203,6 +2199,8 @@ DEFUN (ipv6_route,
 	int idx_ipv6_prefixlen = 2;
 	int idx_ipv6_ifname;
 	int idx_curr;
+	char *gate = NULL;
+	char *ifname = NULL;
 	char *src, *tag, *distance, *vrf, *label;
 
 	if (strmatch(argv[3]->text, "from")) {
@@ -2215,12 +2213,16 @@ DEFUN (ipv6_route,
 		idx_curr = 4;
 	}
 
+	if (argv[idx_ipv6_ifname]->type == IPV6_TKN)
+		gate = argv[idx_ipv6_ifname]->arg;
+	else
+		ifname = argv[idx_ipv6_ifname]->arg;
+
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
 				      &vrf, &label);
 
 	return static_ipv6_func(vty, 1, argv[idx_ipv6_prefixlen]->arg, src,
-				argv[idx_ipv6_ifname]->arg, NULL, NULL, tag,
-				distance, vrf, label);
+				gate, ifname, NULL, tag, distance, vrf, label);
 }
 
 DEFUN (ipv6_route_flags,
@@ -2324,6 +2326,8 @@ DEFUN (no_ipv6_route,
 	int idx_ipv6_prefixlen = 3;
 	int idx_ipv6_ifname;
 	int idx_curr;
+	char *gate = NULL;
+	char *ifname = NULL;
 	char *src, *tag, *distance, *vrf, *label;
 
 	if (strmatch(argv[4]->text, "from")) {
@@ -2336,12 +2340,16 @@ DEFUN (no_ipv6_route,
 		idx_curr = 5;
 	}
 
+	if (argv[idx_ipv6_ifname]->type == IPV6_TKN)
+		gate = argv[idx_ipv6_ifname]->arg;
+	else
+		ifname = argv[idx_ipv6_ifname]->arg;
+
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
 				      &vrf, &label);
 
 	return static_ipv6_func(vty, 0, argv[idx_ipv6_prefixlen]->arg, src,
-				argv[idx_ipv6_ifname]->arg, NULL, NULL, tag,
-				distance, vrf, label);
+				gate, ifname, NULL, tag, distance, vrf, label);
 }
 
 DEFUN (no_ipv6_route_flags,
