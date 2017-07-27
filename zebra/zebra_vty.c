@@ -61,11 +61,11 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 #define CMD_VNI_RANGE "(1-16777215)"
 
 /* General function for static route. */
-int zebra_static_ipv4(struct vty *vty, safi_t safi, int add_cmd,
-		      const char *dest_str, const char *mask_str,
-		      const char *gate_str, const char *flag_str,
-		      const char *tag_str, const char *distance_str,
-		      const char *vrf_id_str, const char *label_str)
+static int zebra_static_ipv4(struct vty *vty, safi_t safi, int add_cmd,
+			     const char *dest_str, const char *mask_str,
+			     const char *gate_str, const char *flag_str,
+			     const char *tag_str, const char *distance_str,
+			     const char *vrf_id_str, const char *label_str)
 {
 	int ret;
 	u_char distance;
@@ -362,7 +362,11 @@ static void zebra_vty_ip_route_tdv_helper(int argc, struct cmd_token *argv[],
 					  char **distance, char **vrf,
 					  char **labels)
 {
+	*tag = NULL;
 	*distance = NULL;
+	*vrf = NULL;
+	if (labels)
+		*labels = NULL;
 	while (idx_curr < argc) {
 		if (strmatch(argv[idx_curr]->text, "tag")) {
 			if (tag)
@@ -389,7 +393,7 @@ static void zebra_vty_ip_route_tdv_helper(int argc, struct cmd_token *argv[],
 /* Static route configuration.  */
 DEFUN (ip_route,
        ip_route_cmd,
-       "ip route A.B.C.D/M <A.B.C.D|INTERFACE|null0> [{tag (1-4294967295)|(1-255)|vrf NAME}]",
+       "ip route A.B.C.D/M <A.B.C.D|INTERFACE|null0> [{tag (1-4294967295)|(1-255)|vrf NAME|label WORD}]",
        IP_STR
        "Establish static routes\n"
        "IP destination prefix (e.g. 10.0.0.0/8)\n"
@@ -399,21 +403,21 @@ DEFUN (ip_route,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
+       VRF_CMD_HELP_STR
+       MPLS_LABEL_HELPSTR)
 {
 	int idx_ipv4_prefixlen = 2;
 	int idx_ipv4_ifname_null = 3;
 	int idx_curr = 4;
-	char *tag, *distance, *vrf;
+	char *tag, *distance, *vrf, *label;
 
-	tag = distance = vrf = NULL;
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
-				      &vrf, NULL);
+				      &vrf, &label);
 
 	return zebra_static_ipv4(vty, SAFI_UNICAST, 1,
 				 argv[idx_ipv4_prefixlen]->arg, NULL,
 				 argv[idx_ipv4_ifname_null]->arg, NULL, tag,
-				 distance, vrf, NULL);
+				 distance, vrf, label);
 }
 
 DEFUN (ip_route_flags,
@@ -434,7 +438,6 @@ DEFUN (ip_route_flags,
 	int idx_curr = 4;
 	char *tag, *distance, *vrf;
 
-	tag = distance = vrf = NULL;
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
 				      &vrf, NULL);
 
@@ -446,7 +449,7 @@ DEFUN (ip_route_flags,
 /* Mask as A.B.C.D format.  */
 DEFUN_HIDDEN (ip_route_mask,
               ip_route_mask_cmd,
-              "ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> [{tag (1-4294967295)|(1-255)|vrf NAME}]",
+              "ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> [{tag (1-4294967295)|(1-255)|vrf NAME|label WORD}]",
               IP_STR
               "Establish static routes\n"
               "IP destination prefix\n"
@@ -457,22 +460,22 @@ DEFUN_HIDDEN (ip_route_mask,
               "Set tag for this route\n"
               "Tag value\n"
               "Distance value for this route\n"
-              VRF_CMD_HELP_STR)
+              VRF_CMD_HELP_STR
+              MPLS_LABEL_HELPSTR)
 {
 	int idx_ipv4 = 2;
 	int idx_ipv4_2 = 3;
 	int idx_ipv4_ifname_null = 4;
 	int idx_curr = 5;
-	char *tag, *distance, *vrf;
+	char *tag, *distance, *vrf, *label;
 
-	tag = distance = vrf = NULL;
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
-				      &vrf, NULL);
+				      &vrf, &label);
 
 	return zebra_static_ipv4(vty, SAFI_UNICAST, 1, argv[idx_ipv4]->arg,
 				 argv[idx_ipv4_2]->arg,
 				 argv[idx_ipv4_ifname_null]->arg, NULL, tag,
-				 distance, vrf, NULL);
+				 distance, vrf, label);
 }
 
 DEFUN_HIDDEN (ip_route_mask_flags,
@@ -495,7 +498,6 @@ DEFUN_HIDDEN (ip_route_mask_flags,
 	int idx_curr = 5;
 	char *tag, *distance, *vrf;
 
-	tag = distance = vrf = NULL;
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
 				      &vrf, NULL);
 
@@ -507,7 +509,7 @@ DEFUN_HIDDEN (ip_route_mask_flags,
 
 DEFUN (no_ip_route,
        no_ip_route_cmd,
-       "no ip route A.B.C.D/M <A.B.C.D|INTERFACE|null0> [{tag (1-4294967295)|(1-255)|vrf NAME}]",
+       "no ip route A.B.C.D/M <A.B.C.D|INTERFACE|null0> [{tag (1-4294967295)|(1-255)|vrf NAME|label WORD}]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -518,21 +520,21 @@ DEFUN (no_ip_route,
        "Tag of this route\n"
        "Tag value\n"
        "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
+       VRF_CMD_HELP_STR
+       MPLS_LABEL_HELPSTR)
 {
 	int idx_ipv4_prefixlen = 3;
 	int idx_ipv4_ifname_null = 4;
 	int idx_curr = 5;
-	char *tag, *distance, *vrf;
+	char *tag, *distance, *vrf, *label;
 
-	tag = distance = vrf = NULL;
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
-				      &vrf, NULL);
+				      &vrf, &label);
 
 	return zebra_static_ipv4(vty, SAFI_UNICAST, 0,
 				 argv[idx_ipv4_prefixlen]->arg, NULL,
 				 argv[idx_ipv4_ifname_null]->arg, NULL, tag,
-				 distance, vrf, NULL);
+				 distance, vrf, label);
 }
 
 DEFUN (no_ip_route_flags,
@@ -553,7 +555,6 @@ DEFUN (no_ip_route_flags,
 	int idx_curr = 5;
 	char *tag, *distance, *vrf;
 
-	tag = distance = vrf = NULL;
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
 				      &vrf, NULL);
 
@@ -564,7 +565,7 @@ DEFUN (no_ip_route_flags,
 
 DEFUN_HIDDEN (no_ip_route_mask,
               no_ip_route_mask_cmd,
-              "no ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> [{tag (1-4294967295)|(1-255)|vrf NAME}]",
+              "no ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> [{tag (1-4294967295)|(1-255)|vrf NAME|label WORD}]",
               NO_STR
               IP_STR
               "Establish static routes\n"
@@ -576,22 +577,22 @@ DEFUN_HIDDEN (no_ip_route_mask,
               "Tag of this route\n"
               "Tag value\n"
               "Distance value for this route\n"
-              VRF_CMD_HELP_STR)
+              VRF_CMD_HELP_STR
+              MPLS_LABEL_HELPSTR)
 {
 	int idx_ipv4 = 3;
 	int idx_ipv4_2 = 4;
 	int idx_ipv4_ifname_null = 5;
 	int idx_curr = 6;
-	char *tag, *distance, *vrf;
+	char *tag, *distance, *vrf, *label;
 
-	tag = distance = vrf = NULL;
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
-				      &vrf, NULL);
+				      &vrf, &label);
 
 	return zebra_static_ipv4(vty, SAFI_UNICAST, 0, argv[idx_ipv4]->arg,
 				 argv[idx_ipv4_2]->arg,
 				 argv[idx_ipv4_ifname_null]->arg, NULL, tag,
-				 distance, vrf, NULL);
+				 distance, vrf, label);
 }
 
 DEFUN_HIDDEN (no_ip_route_mask_flags,
@@ -614,7 +615,6 @@ DEFUN_HIDDEN (no_ip_route_mask_flags,
 	int idx_curr = 6;
 	char *tag, *distance, *vrf;
 
-	tag = distance = vrf = NULL;
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
 				      &vrf, NULL);
 
@@ -1997,11 +1997,11 @@ static int static_config(struct vty *vty, afi_t afi, safi_t safi,
 }
 
 /* General fucntion for IPv6 static route. */
-int static_ipv6_func(struct vty *vty, int add_cmd, const char *dest_str,
-		     const char *src_str, const char *gate_str,
-		     const char *ifname, const char *flag_str,
-		     const char *tag_str, const char *distance_str,
-		     const char *vrf_id_str, const char *label_str)
+static int static_ipv6_func(struct vty *vty, int add_cmd, const char *dest_str,
+			    const char *src_str, const char *gate_str,
+			    const char *ifname, const char *flag_str,
+			    const char *tag_str, const char *distance_str,
+			    const char *vrf_id_str, const char *label_str)
 {
 	int ret;
 	u_char distance;
@@ -2185,7 +2185,7 @@ int static_ipv6_func(struct vty *vty, int add_cmd, const char *dest_str,
 
 DEFUN (ipv6_route,
        ipv6_route_cmd,
-       "ipv6 route X:X::X:X/M [from X:X::X:X/M] <X:X::X:X|INTERFACE|null0> [{tag (1-4294967295)|(1-255)|vrf NAME}]",
+       "ipv6 route X:X::X:X/M [from X:X::X:X/M] <X:X::X:X|INTERFACE|null0> [{tag (1-4294967295)|(1-255)|vrf NAME|label WORD}]",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
@@ -2197,12 +2197,13 @@ DEFUN (ipv6_route,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
+       VRF_CMD_HELP_STR
+       MPLS_LABEL_HELPSTR)
 {
 	int idx_ipv6_prefixlen = 2;
 	int idx_ipv6_ifname;
 	int idx_curr;
-	char *src, *tag, *distance, *vrf;
+	char *src, *tag, *distance, *vrf, *label;
 
 	if (strmatch(argv[3]->text, "from")) {
 		src = argv[4]->arg;
@@ -2214,13 +2215,12 @@ DEFUN (ipv6_route,
 		idx_curr = 4;
 	}
 
-	tag = distance = vrf = NULL;
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
-				      &vrf, NULL);
+				      &vrf, &label);
 
 	return static_ipv6_func(vty, 1, argv[idx_ipv6_prefixlen]->arg, src,
 				argv[idx_ipv6_ifname]->arg, NULL, NULL, tag,
-				distance, vrf, NULL);
+				distance, vrf, label);
 }
 
 DEFUN (ipv6_route_flags,
@@ -2253,7 +2253,6 @@ DEFUN (ipv6_route_flags,
 		idx_curr = 4;
 	}
 
-	tag = distance = vrf = NULL;
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
 				      &vrf, NULL);
 
@@ -2264,7 +2263,7 @@ DEFUN (ipv6_route_flags,
 
 DEFUN (ipv6_route_ifname,
        ipv6_route_ifname_cmd,
-       "ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X INTERFACE [{tag (1-4294967295)|(1-255)|vrf NAME}]",
+       "ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X INTERFACE [{tag (1-4294967295)|(1-255)|vrf NAME|label WORD}]",
        IP_STR
        "Establish static routes\n"
        "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
@@ -2275,13 +2274,14 @@ DEFUN (ipv6_route_ifname,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
+       VRF_CMD_HELP_STR
+       MPLS_LABEL_HELPSTR)
 {
 	int idx_ipv6_prefixlen = 2;
 	int idx_ipv6 = 3;
 	int idx_interface = 4;
 	int idx_curr = 5;
-	char *src, *tag, *distance, *vrf;
+	char *src, *tag, *distance, *vrf, *label;
 
 	if (strmatch(argv[3]->text, "from")) {
 		src = argv[4]->arg;
@@ -2295,18 +2295,17 @@ DEFUN (ipv6_route_ifname,
 		idx_curr = 5;
 	}
 
-	tag = distance = vrf = NULL;
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
-				      &vrf, NULL);
+				      &vrf, &label);
 
 	return static_ipv6_func(vty, 1, argv[idx_ipv6_prefixlen]->arg, src,
 				argv[idx_ipv6]->arg, argv[idx_interface]->arg,
-				NULL, tag, distance, vrf, NULL);
+				NULL, tag, distance, vrf, label);
 }
 
 DEFUN (no_ipv6_route,
        no_ipv6_route_cmd,
-       "no ipv6 route X:X::X:X/M [from X:X::X:X/M] <X:X::X:X|INTERFACE|null0> [{tag (1-4294967295)|(1-255)|vrf NAME}]",
+       "no ipv6 route X:X::X:X/M [from X:X::X:X/M] <X:X::X:X|INTERFACE|null0> [{tag (1-4294967295)|(1-255)|vrf NAME|label WORD}]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -2319,12 +2318,13 @@ DEFUN (no_ipv6_route,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
+       VRF_CMD_HELP_STR
+       MPLS_LABEL_HELPSTR)
 {
 	int idx_ipv6_prefixlen = 3;
 	int idx_ipv6_ifname;
 	int idx_curr;
-	char *src, *tag, *distance, *vrf;
+	char *src, *tag, *distance, *vrf, *label;
 
 	if (strmatch(argv[4]->text, "from")) {
 		src = argv[5]->arg;
@@ -2336,13 +2336,12 @@ DEFUN (no_ipv6_route,
 		idx_curr = 5;
 	}
 
-	tag = distance = vrf = NULL;
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
-				      &vrf, NULL);
+				      &vrf, &label);
 
 	return static_ipv6_func(vty, 0, argv[idx_ipv6_prefixlen]->arg, src,
 				argv[idx_ipv6_ifname]->arg, NULL, NULL, tag,
-				distance, vrf, NULL);
+				distance, vrf, label);
 }
 
 DEFUN (no_ipv6_route_flags,
@@ -2376,7 +2375,6 @@ DEFUN (no_ipv6_route_flags,
 		idx_curr = 5;
 	}
 
-	tag = distance = vrf = NULL;
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
 				      &vrf, NULL);
 
@@ -2387,7 +2385,7 @@ DEFUN (no_ipv6_route_flags,
 
 DEFUN (no_ipv6_route_ifname,
        no_ipv6_route_ifname_cmd,
-       "no ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X INTERFACE [{tag (1-4294967295)|(1-255)|vrf NAME}]",
+       "no ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X INTERFACE [{tag (1-4294967295)|(1-255)|vrf NAME|label WORD}]",
        NO_STR
        IP_STR
        "Establish static routes\n"
@@ -2399,13 +2397,14 @@ DEFUN (no_ipv6_route_ifname,
        "Set tag for this route\n"
        "Tag value\n"
        "Distance value for this prefix\n"
-       VRF_CMD_HELP_STR)
+       VRF_CMD_HELP_STR
+       MPLS_LABEL_HELPSTR)
 {
 	int idx_ipv6_prefixlen = 3;
 	int idx_ipv6;
 	int idx_interface;
 	int idx_curr;
-	char *src, *tag, *distance, *vrf;
+	char *src, *tag, *distance, *vrf, *label;
 
 	if (strmatch(argv[4]->text, "from")) {
 		src = argv[5]->arg;
@@ -2419,13 +2418,12 @@ DEFUN (no_ipv6_route_ifname,
 		idx_curr = 6;
 	}
 
-	tag = distance = vrf = NULL;
 	zebra_vty_ip_route_tdv_helper(argc, argv, idx_curr, &tag, &distance,
-				      &vrf, NULL);
+				      &vrf, &label);
 
 	return static_ipv6_func(vty, 0, argv[idx_ipv6_prefixlen]->arg, src,
 				argv[idx_ipv6]->arg, argv[idx_interface]->arg,
-				NULL, tag, distance, vrf, NULL);
+				NULL, tag, distance, vrf, label);
 }
 
 DEFUN (show_ipv6_route,
