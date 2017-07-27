@@ -2240,7 +2240,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 
 		if (same->type == re->type && same->instance == re->instance
 		    && same->table == re->table
-		    && same->type != ZEBRA_ROUTE_CONNECT)
+		    && !RIB_SYSTEM_ROUTE(same))
 			break;
 	}
 
@@ -2469,11 +2469,11 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 			continue;
 		if (re->instance != instance)
 			continue;
-		if (re->type != ZEBRA_ROUTE_CONNECT) {
+		if (!RIB_SYSTEM_ROUTE(re)) {
 			same = re;
 			break;
 		}
-		/* Duplicate connected route comes in. */
+		/* Duplicate system route comes in. */
 		else if ((nexthop = re->nexthop)
 			 && nexthop->type == NEXTHOP_TYPE_IFINDEX
 			 && nexthop->ifindex == ifindex
