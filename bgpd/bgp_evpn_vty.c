@@ -1788,7 +1788,7 @@ DEFUN (show_bgp_evpn_summary,
        BGP_STR
        "EVPN\n"
        "Summary of BGP neighbor status\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	return bgp_show_summary_vty(vty, NULL, AFI_L2VPN, SAFI_EVPN, uj);

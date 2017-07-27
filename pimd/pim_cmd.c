@@ -3198,7 +3198,7 @@ DEFUN (show_ip_igmp_interface,
        "IGMP interface information\n"
        "Detailed output\n"
        "interface name\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	int idx = 0;
@@ -3232,7 +3232,7 @@ DEFUN (show_ip_igmp_groups,
        IP_STR
        IGMP_STR
        IGMP_GROUP_STR
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	igmp_show_groups(vty, uj);
@@ -3342,7 +3342,7 @@ DEFUN (show_ip_pim_interface,
        "PIM interface information\n"
        "Detailed output\n"
        "interface name\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	int idx = 0;
@@ -3396,7 +3396,7 @@ DEFUN (show_ip_pim_neighbor,
        "PIM neighbor information\n"
        "Detailed output\n"
        "Name of interface or neighbor\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	int idx = 0;
@@ -3432,7 +3432,7 @@ DEFUN (show_ip_pim_state,
        "PIM state information\n"
        "Unicast or Multicast address\n"
        "Multicast address\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	const char *src_or_group = NULL;
 	const char *group = NULL;
@@ -3458,7 +3458,7 @@ DEFUN (show_ip_pim_upstream,
        IP_STR
        PIM_STR
        "PIM upstream information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	pim_show_upstream(vty, uj);
@@ -3473,7 +3473,7 @@ DEFUN (show_ip_pim_upstream_join_desired,
        IP_STR
        PIM_STR
        "PIM upstream join-desired\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	pim_show_join_desired(vty, uj);
@@ -3488,7 +3488,7 @@ DEFUN (show_ip_pim_upstream_rpf,
        IP_STR
        PIM_STR
        "PIM upstream source rpf\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	pim_show_upstream_rpf(vty, uj);
@@ -3503,7 +3503,7 @@ DEFUN (show_ip_pim_rp,
        IP_STR
        PIM_STR
        "PIM RP information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	pim_rp_show_information(vty, uj);
@@ -3518,7 +3518,7 @@ DEFUN (show_ip_pim_rpf,
        IP_STR
        PIM_STR
        "PIM cached source rpf information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	pim_show_rpf(vty, uj);
@@ -3624,7 +3624,7 @@ DEFUN (show_ip_pim_interface_traffic,
        "PIM interface information\n"
        "Protocol Packet counters\n"
        "Interface name\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	int idx = 0;
@@ -4647,7 +4647,7 @@ DEFUN (show_ip_pim_ssm_range,
        IP_STR
        PIM_STR
        "PIM group type\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	ip_pim_ssm_show_group_range(vty, uj);
@@ -4691,7 +4691,7 @@ DEFUN (show_ip_pim_group_type,
        PIM_STR
        "multicast group type\n"
        "group address\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	ip_pim_ssm_show_group_type(vty, uj, argv[0]->arg);
@@ -6803,7 +6803,7 @@ DEFUN (show_ip_msdp_mesh_group,
        IP_STR
        MSDP_STR
        "MSDP mesh-group information\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	ip_msdp_show_mesh_group(vty, uj);
@@ -6978,7 +6978,7 @@ DEFUN (show_ip_msdp_peer_detail,
        "MSDP peer information\n"
        "Detailed output\n"
        "peer ip address\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	if (uj)
@@ -7167,7 +7167,7 @@ DEFUN (show_ip_msdp_sa_detail,
        MSDP_STR
        "MSDP active-source information\n"
        "Detailed output\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 	ip_msdp_show_sa_detail(vty, uj);
@@ -7241,7 +7241,7 @@ DEFUN (show_ip_msdp_sa_sg,
        "MSDP active-source information\n"
        "source or group ip\n"
        "group ip\n"
-       "JavaScript Object Notation\n")
+       JSON_STR)
 {
 	u_char uj = use_json(argc, argv);
 
