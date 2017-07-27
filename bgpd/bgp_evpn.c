@@ -2620,11 +2620,9 @@ int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
 		char buf2[INET6_ADDRSTRLEN];
 
 		zlog_err(
-			"%u:Failed to create Type-2 route, VNI %u %s %s MAC %s IP %s",
+			"%u:Failed to create Type-2 route, VNI %u %s MAC %s IP %s",
 			bgp->vrf_id, vpn->vni,
-			CHECK_FLAG(flags, ZEBRA_MAC_TYPE_STICKY) ? "sticky "
-								 : "",
-			CHECK_FLAG(flags, ZEBRA_MAC_TYPE_STICKY) ? "gateway "
+			CHECK_FLAG(flags, ZEBRA_MAC_TYPE_STICKY) ? "sticky gateway"
 								 : "",
 			prefix_mac2str(mac, buf, sizeof(buf)),
 			ipaddr2str(ip, buf2, sizeof(buf2)));

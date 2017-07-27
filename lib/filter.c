@@ -90,7 +90,7 @@ struct access_master {
 	void (*delete_hook)(struct access_list *);
 };
 
-/* Static structure for IPv4 access_list's master. */
+/* Static structure for mac access_list's master. */
 static struct access_master access_master_mac = {
 	{NULL, NULL},
 	{NULL, NULL},
