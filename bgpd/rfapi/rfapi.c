@@ -224,7 +224,7 @@ static int rfapi_find_node(struct bgp *bgp, struct rfapi_ip_addr *vn_addr,
 	if ((rc = rfapiRaddr2Qprefix(un_addr, &p)))
 		return rc;
 
-	rn = route_node_lookup(&h->un[afi], &p);
+	rn = route_node_lookup(h->un[afi], &p);
 
 	if (!rn)
 		return ENOENT;
@@ -1415,7 +1415,7 @@ int rfapi_init_and_open(struct bgp *bgp, struct rfapi_descriptor *rfd,
 		assert(afi_vn && afi_un);
 		assert(!rfapiRaddr2Qprefix(&rfd->un_addr, &pfx_un));
 
-		rn = route_node_get(&(h->un[afi_un]), &pfx_un);
+		rn = route_node_get(h->un[afi_un], &pfx_un);
 		assert(rn);
 		rfd->next = rn->info;
 		rn->info = rfd;
