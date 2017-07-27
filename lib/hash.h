@@ -64,9 +64,6 @@ struct hash {
 	/* Hash table size. Must be power of 2 */
 	unsigned int size;
 
-	/* If expansion failed. */
-	int no_expand;
-
 	/* Key make function. */
 	unsigned int (*hash_key)(void *);
 

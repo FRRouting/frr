@@ -49,7 +49,6 @@ struct hash *hash_create_size(unsigned int size,
 	hash->index =
 		XCALLOC(MTYPE_HASH_INDEX, sizeof(struct hash_backet *) * size);
 	hash->size = size;
-	hash->no_expand = 0;
 	hash->hash_key = hash_key;
 	hash->hash_cmp = hash_cmp;
 	hash->count = 0;
@@ -91,7 +90,7 @@ void *hash_alloc_intern(void *arg)
 /* Expand hash if the chain length exceeds the threshold. */
 static void hash_expand(struct hash *hash)
 {
-	unsigned int i, new_size, losers;
+	unsigned int i, new_size;
 	struct hash_backet *hb, *hbnext, **new_index;
 
 	new_size = hash->size * 2;
@@ -128,22 +127,6 @@ static void hash_expand(struct hash *hash)
 	XFREE(MTYPE_HASH_INDEX, hash->index);
 	hash->size = new_size;
 	hash->index = new_index;
-
-	/* Ideally, new index should have chains half as long as the original.
-	 * If expansion didn't help, then not worth expanding again,
-	 * the problem is the hash function. */
-	losers = 0;
-	for (i = 0; i < hash->size; i++) {
-		unsigned int len = hash->index[i] ? hash->index[i]->len : 0;
-
-		if (len > HASH_THRESHOLD / 2)
-			++losers;
-		if (len >= HASH_THRESHOLD)
-			hash->no_expand = 1;
-	}
-
-	if (losers > hash->count / 2)
-		hash->no_expand = 1;
 }
 
 /* Lookup and return hash backet in hash.  If there is no
@@ -173,7 +156,7 @@ void *hash_get(struct hash *hash, void *data, void *(*alloc_func)(void *))
 		if (newdata == NULL)
 			return NULL;
 
-		if (len > HASH_THRESHOLD && !hash->no_expand) {
+		if (len > HASH_THRESHOLD) {
 			hash_expand(hash);
 			index = key & (hash->size - 1);
 		}
