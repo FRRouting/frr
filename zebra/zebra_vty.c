@@ -444,20 +444,20 @@ DEFUN (ip_route_flags,
 }
 
 /* Mask as A.B.C.D format.  */
-DEFUN (ip_route_mask,
-       ip_route_mask_cmd,
-       "ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
+DEFUN_HIDDEN (ip_route_mask,
+              ip_route_mask_cmd,
+              "ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+              IP_STR
+              "Establish static routes\n"
+              "IP destination prefix\n"
+              "IP destination prefix mask\n"
+              "IP gateway address\n"
+              "IP gateway interface name\n"
+              "Null interface\n"
+              "Set tag for this route\n"
+              "Tag value\n"
+              "Distance value for this route\n"
+              VRF_CMD_HELP_STR)
 {
 	int idx_ipv4 = 2;
 	int idx_ipv4_2 = 3;
@@ -475,19 +475,19 @@ DEFUN (ip_route_mask,
 				 distance, vrf, NULL);
 }
 
-DEFUN (ip_route_mask_flags,
-       ip_route_mask_flags_cmd,
-       "ip route A.B.C.D A.B.C.D <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Set tag for this route\n"
-       "Tag value\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
+DEFUN_HIDDEN (ip_route_mask_flags,
+              ip_route_mask_flags_cmd,
+              "ip route A.B.C.D A.B.C.D <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+              IP_STR
+              "Establish static routes\n"
+              "IP destination prefix\n"
+              "IP destination prefix mask\n"
+              "Emit an ICMP unreachable when matched\n"
+              "Silently discard pkts when matched\n"
+              "Set tag for this route\n"
+              "Tag value\n"
+              "Distance value for this route\n"
+              VRF_CMD_HELP_STR)
 {
 	int idx_ipv4 = 2;
 	int idx_ipv4_2 = 3;
@@ -562,21 +562,21 @@ DEFUN (no_ip_route_flags,
 				 NULL, tag, distance, vrf, NULL);
 }
 
-DEFUN (no_ip_route_mask,
-       no_ip_route_mask_cmd,
-       "no ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "IP gateway address\n"
-       "IP gateway interface name\n"
-       "Null interface\n"
-       "Tag of this route\n"
-       "Tag value\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
+DEFUN_HIDDEN (no_ip_route_mask,
+              no_ip_route_mask_cmd,
+              "no ip route A.B.C.D A.B.C.D <A.B.C.D|INTERFACE|null0> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+              NO_STR
+              IP_STR
+              "Establish static routes\n"
+              "IP destination prefix\n"
+              "IP destination prefix mask\n"
+              "IP gateway address\n"
+              "IP gateway interface name\n"
+              "Null interface\n"
+              "Tag of this route\n"
+              "Tag value\n"
+              "Distance value for this route\n"
+              VRF_CMD_HELP_STR)
 {
 	int idx_ipv4 = 3;
 	int idx_ipv4_2 = 4;
@@ -594,20 +594,20 @@ DEFUN (no_ip_route_mask,
 				 distance, vrf, NULL);
 }
 
-DEFUN (no_ip_route_mask_flags,
-       no_ip_route_mask_flags_cmd,
-       "no ip route A.B.C.D A.B.C.D <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
-       NO_STR
-       IP_STR
-       "Establish static routes\n"
-       "IP destination prefix\n"
-       "IP destination prefix mask\n"
-       "Emit an ICMP unreachable when matched\n"
-       "Silently discard pkts when matched\n"
-       "Tag of this route\n"
-       "Tag value\n"
-       "Distance value for this route\n"
-       VRF_CMD_HELP_STR)
+DEFUN_HIDDEN (no_ip_route_mask_flags,
+              no_ip_route_mask_flags_cmd,
+              "no ip route A.B.C.D A.B.C.D <reject|blackhole> [tag (1-4294967295)] [(1-255)] [vrf NAME]",
+              NO_STR
+              IP_STR
+              "Establish static routes\n"
+              "IP destination prefix\n"
+              "IP destination prefix mask\n"
+              "Emit an ICMP unreachable when matched\n"
+              "Silently discard pkts when matched\n"
+              "Tag of this route\n"
+              "Tag value\n"
+              "Distance value for this route\n"
+              VRF_CMD_HELP_STR)
 {
 	int idx_ipv4 = 3;
 	int idx_ipv4_2 = 4;
@@ -1937,8 +1937,12 @@ static int static_config(struct vty *vty, afi_t afi, safi_t safi,
 				case STATIC_IFINDEX:
 					vty_out(vty, " %s", si->ifname);
 					break;
+				/* blackhole and Null0 mean the same thing */
 				case STATIC_BLACKHOLE:
-					vty_out(vty, " Null0");
+					if (CHECK_FLAG(si->flags, ZEBRA_FLAG_REJECT))
+						vty_out(vty, " reject");
+					else
+						vty_out(vty, " Null0");
 					break;
 				case STATIC_IPV6_GATEWAY_IFINDEX:
 					vty_out(vty, " %s %s",
