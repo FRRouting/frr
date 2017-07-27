@@ -4,6 +4,7 @@ Topotest conftest.py file.
 
 from lib.topogen import get_topogen, diagnose_env
 from lib.topotest import json_cmp_result
+from lib.topolog import logger
 import pytest
 
 def pytest_addoption(parser):
@@ -45,3 +46,21 @@ def pytest_configure(config):
     "Assert that the environment is correctly configured."
     if not diagnose_env():
         pytest.exit('enviroment has errors, please read the logs')
+
+def pytest_runtest_makereport(item, call):
+    "Log all assert messages to default logger with error level"
+    # Nothing happened
+    if call.excinfo is None:
+        return
+
+    # Treat skips as non errors
+    if call.excinfo.typename != 'AssertionError':
+        logger.info('assert skipped at "{}": {}'.format(
+            item.name, call.excinfo.value))
+        return
+
+    # Handle assert failures
+    parent = item.parent
+    parent._previousfailed = item
+    logger.error('assert failed at "{}": {}'.format(
+        item.name, call.excinfo.value))
