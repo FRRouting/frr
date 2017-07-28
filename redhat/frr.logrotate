@@ -1,3 +1,11 @@
+/var/log/frr/frr.log {
+    notifempty
+    missingok
+    postrotate
+	/bin/kill -HUP `cat /var/run/*syslog*.pid 2> /dev/null` 2> /dev/null || true
+    endscript
+}
+
 /var/log/frr/zebra.log {
     notifempty
     missingok
