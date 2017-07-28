@@ -45,6 +45,7 @@
 #include "bgpd/bgp_encap_types.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_aspath.h"
+#include "bgpd/bgp_zebra.h"
 
 /*
  * Definitions and external declarations.
@@ -2724,6 +2725,10 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 	 * install them.
 	 */
 	install_routes_for_vni(bgp, vpn);
+
+	/* If we are advertising gateway mac-ip
+	   It needs to be conveyed again to zebra */
+	bgp_zebra_advertise_gw_macip(bgp, vpn->advertise_gw_macip, vpn->vni);
 
 	return 0;
 }
