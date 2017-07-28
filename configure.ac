@@ -1820,7 +1820,7 @@ AC_CACHE_VAL(ac_cv_htonl_works,
 )
 AC_MSG_RESULT($ac_cv_htonl_works)
 
-AC_CONFIG_FILES([Makefile qpb/Makefile ripd/Makefile
+AC_CONFIG_FILES([Makefile ripd/Makefile
 	  ripngd/Makefile bgpd/Makefile ospfd/Makefile watchfrr/Makefile
 	  ospf6d/Makefile ldpd/Makefile isisd/Makefile vtysh/Makefile
 	  doc/Makefile ospfclient/Makefile tests/Makefile m4/Makefile
@@ -1833,7 +1833,6 @@ AC_CONFIG_FILES([Makefile qpb/Makefile ripd/Makefile
 	  tools/Makefile
 	  pkgsrc/Makefile
 	  python/Makefile
-	  fpm/Makefile
 	  redhat/frr.spec
 	  snapcraft/Makefile
 	  snapcraft/snapcraft.yaml

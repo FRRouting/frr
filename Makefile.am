@@ -10,6 +10,7 @@ LIBCAP = @LIBCAP@
 
 EXTRA_DIST =
 BUILT_SOURCES =
+CLEANFILES =
 
 examplesdir = $(exampledir)
 
@@ -25,14 +26,16 @@ dist_examples_DATA =
 
 include lib/subdir.am
 include zebra/subdir.am
+include qpb/subdir.am
+include fpm/subdir.am
 
-SUBDIRS = . qpb fpm @LIBRFP@ @RFPTEST@ \
+SUBDIRS = . @LIBRFP@ @RFPTEST@ \
 	 @BGPD@ @RIPD@ @RIPNGD@ @OSPFD@ @OSPF6D@ @LDPD@ \
          @ISISD@ @PIMD@ @NHRPD@ @EIGRPD@ @BABELD@ \
 	 @WATCHFRR@ @VTYSH@ @OSPFCLIENT@ @DOC@ m4 @pkgsrcdir@ \
          redhat @SOLARIS@ tests tools snapcraft
 
-DIST_SUBDIRS = . qpb fpm bgpd ripd ripngd ospfd ospf6d ldpd \
+DIST_SUBDIRS = . bgpd ripd ripngd ospfd ospf6d ldpd \
 	  isisd watchfrr vtysh ospfclient doc m4 pkgsrc redhat tests \
 	  solaris pimd nhrpd eigrpd bgpd/rfp-example/librfp \
 	  bgpd/rfp-example/rfptest tools snapcraft babeld python \

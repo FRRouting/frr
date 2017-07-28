@@ -1,0 +1,23 @@
+if FPM
+lib_LTLIBRARIES += fpm/libfrrfpm_pb.la
+endif
+
+fpm_libfrrfpm_pb_la_LDFLAGS = -version-info 0:0:0
+fpm_libfrrfpm_pb_la_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir) -I$(top_builddir)/lib \
+	$(Q_PROTOBUF_C_CLIENT_INCLUDES)
+fpm_libfrrfpm_pb_la_SOURCES = \
+	fpm/fpm.h \
+	fpm/fpm_pb.h \
+	fpm/fpm_pb.c \
+	# end
+
+if HAVE_PROTOBUF
+nodist_fpm_libfrrfpm_pb_la_SOURCES = fpm/fpm.pb-c.c
+BUILT_SOURCES += fpm/fpm.pb-c.c
+CLEANFILES += \
+	fpm/fpm.pb-c.c \
+	fpm/fpm.pb-c.h \
+	# end
+endif
+
+EXTRA_DIST += fpm/fpm.proto
