@@ -37,6 +37,8 @@ zebra_SOURCES = \
 	zebra_vxlan.c \
 	# end
 
+zebra_vty.o: zebra_vty_clippy.c
+
 noinst_HEADERS = \
 	zebra_memory.h \
 	connected.h ioctl.h rib.h rt.h zserv.h redistribute.h debug.h rtadv.h \
