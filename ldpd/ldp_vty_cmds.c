@@ -80,6 +80,16 @@ DEFUN_NOSH(ldp_address_family,
 	return (ldp_vty_address_family(vty, negate, af));
 }
 
+DEFUN_NOSH(ldp_exit_address_family,
+       ldp_exit_address_family_cmd,
+       "exit-address-family",
+       "Exit from Address Family configuration mode\n")
+{
+	if (vty->node == LDP_IPV4_NODE || vty->node == LDP_IPV6_NODE)
+		vty->node = LDP_NODE;
+	return CMD_SUCCESS;
+}
+
 DEFUN  (ldp_discovery_holdtime,
 	ldp_discovery_holdtime_cmd,
 	"[no] discovery <hello|targeted-hello> holdtime (1-65535)",
@@ -1082,6 +1092,7 @@ ldp_vty_init (void)
 	install_element(LDP_IPV4_NODE, &ldp_interface_cmd);
 	install_element(LDP_IPV4_NODE, &ldp_session_holdtime_cmd);
 	install_element(LDP_IPV4_NODE, &ldp_neighbor_ipv4_targeted_cmd);
+	install_element(LDP_IPV4_NODE, &ldp_exit_address_family_cmd);
 
 	install_element(LDP_IPV6_NODE, &ldp_discovery_holdtime_cmd);
 	install_element(LDP_IPV6_NODE, &ldp_discovery_interval_cmd);
@@ -1095,6 +1106,7 @@ ldp_vty_init (void)
 	install_element(LDP_IPV6_NODE, &ldp_interface_cmd);
 	install_element(LDP_IPV6_NODE, &ldp_session_holdtime_cmd);
 	install_element(LDP_IPV6_NODE, &ldp_neighbor_ipv6_targeted_cmd);
+	install_element(LDP_IPV6_NODE, &ldp_exit_address_family_cmd);
 
 	install_element(LDP_IPV4_IFACE_NODE, &ldp_discovery_holdtime_cmd);
 	install_element(LDP_IPV4_IFACE_NODE, &ldp_discovery_interval_cmd);

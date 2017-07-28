@@ -303,7 +303,9 @@ static int vtysh_execute_func(const char *line, int pager)
 		     || saved_node == BGP_IPV4L_NODE
 		     || saved_node == BGP_IPV6L_NODE
 		     || saved_node == BGP_IPV6M_NODE
-		     || saved_node == BGP_EVPN_NODE)
+		     || saved_node == BGP_EVPN_NODE
+		     || saved_node == LDP_IPV4_NODE
+		     || saved_node == LDP_IPV6_NODE)
 		    && (tried == 1)) {
 			vtysh_execute("exit-address-family");
 		} else if ((saved_node == BGP_EVPN_VNI_NODE) && (tried == 1)) {
@@ -495,6 +497,29 @@ int vtysh_mark_file(const char *filename)
 		tried = 0;
 		strcpy(vty_buf_copy, vty->buf);
 		vty_buf_trimmed = trim(vty_buf_copy);
+
+		switch (vty->node) {
+		case LDP_IPV4_IFACE_NODE:
+			if (strncmp(vty_buf_copy, "   ", 3)) {
+				fprintf(stdout, "  end\n");
+				vty->node = LDP_IPV4_NODE;
+			}
+			break;
+		case LDP_IPV6_IFACE_NODE:
+			if (strncmp(vty_buf_copy, "   ", 3)) {
+				fprintf(stdout, "  end\n");
+				vty->node = LDP_IPV6_NODE;
+			}
+			break;
+		case LDP_PSEUDOWIRE_NODE:
+			if (strncmp(vty_buf_copy, "  ", 2)) {
+				fprintf(stdout, " end\n");
+				vty->node = LDP_L2VPN_NODE;
+			}
+			break;
+		default:
+			break;
+		}
 
 		if (vty_buf_trimmed[0] == '!' || vty_buf_trimmed[0] == '#') {
 			fprintf(stdout, "%s", vty->buf);
@@ -1265,6 +1290,14 @@ DEFUNSH(VTYSH_LDPD, ldp_address_family_ipv6, ldp_address_family_ipv6_cmd,
 	"IPv6\n")
 {
 	vty->node = LDP_IPV6_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_LDPD, ldp_exit_address_family, ldp_exit_address_family_cmd,
+	"exit-address-family", "Exit from Address Family configuration mode\n")
+{
+	if (vty->node == LDP_IPV4_NODE || vty->node == LDP_IPV6_NODE)
+		vty->node = LDP_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -2945,8 +2978,10 @@ void vtysh_init_vty(void)
 	install_element(LDP_NODE, &vtysh_quit_ldpd_cmd);
 	install_element(LDP_IPV4_NODE, &vtysh_exit_ldpd_cmd);
 	install_element(LDP_IPV4_NODE, &vtysh_quit_ldpd_cmd);
+	install_element(LDP_IPV4_NODE, &ldp_exit_address_family_cmd);
 	install_element(LDP_IPV6_NODE, &vtysh_exit_ldpd_cmd);
 	install_element(LDP_IPV6_NODE, &vtysh_quit_ldpd_cmd);
+	install_element(LDP_IPV6_NODE, &ldp_exit_address_family_cmd);
 	install_element(LDP_IPV4_IFACE_NODE, &vtysh_exit_ldpd_cmd);
 	install_element(LDP_IPV4_IFACE_NODE, &vtysh_quit_ldpd_cmd);
 	install_element(LDP_IPV6_IFACE_NODE, &vtysh_exit_ldpd_cmd);
