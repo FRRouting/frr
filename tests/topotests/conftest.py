@@ -53,14 +53,16 @@ def pytest_runtest_makereport(item, call):
     if call.excinfo is None:
         return
 
+    parent = item.parent
+    modname = parent.module.__name__
+
     # Treat skips as non errors
     if call.excinfo.typename != 'AssertionError':
-        logger.info('assert skipped at "{}": {}'.format(
-            item.name, call.excinfo.value))
+        logger.info('assert skipped at "{}/{}": {}'.format(
+            modname, item.name, call.excinfo.value))
         return
 
     # Handle assert failures
-    parent = item.parent
     parent._previousfailed = item
-    logger.error('assert failed at "{}": {}'.format(
-        item.name, call.excinfo.value))
+    logger.error('assert failed at "{}/{}": {}'.format(
+        modname, item.name, call.excinfo.value))
