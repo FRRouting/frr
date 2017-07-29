@@ -1,6 +1,6 @@
 [Unit]
 Description=FRRouting
-After=syslog.target networking.service
+After=networking.service
 OnFailure=heartbeat-failed@%n.service
 
 [Service]
