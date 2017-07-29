@@ -5,10 +5,11 @@ AM_CPPFLAGS = -I.. -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib $(Q
 PROTOBUF_INCLUDES=-I$(top_srcdir)
 PROTOBUF_PACKAGE = fpm
 
+if HAVE_PROTOBUF
+
 lib_LTLIBRARIES = libfrrfpm_pb.la
 libfrrfpm_pb_la_LDFLAGS = -version-info 0:0:0
 
-if HAVE_PROTOBUF
 protobuf_srcs =
 
 protobuf_srcs_nodist =				\
