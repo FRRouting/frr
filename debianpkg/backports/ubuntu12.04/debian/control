@@ -29,7 +29,7 @@ Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}, frr (= ${binary:Version})
 Priority: extra
 Section: debug
-Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon forked from Quagga (debug symbols)
+Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon (debug symbols)
  This package provides debugging symbols for all binary packages built 
  from frr source package. It's highly recommended to have this package
  installed before reporting any FRR crashes to either FRR developers or 
