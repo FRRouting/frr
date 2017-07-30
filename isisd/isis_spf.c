@@ -674,6 +674,12 @@ static int isis_spf_process_lsp(struct isis_spftree *spftree,
 	    && !mt_router_info)
 		return ISIS_OK;
 
+	/* RFC3787 section 4 SHOULD ignore overload bit in pseudo LSPs */
+	bool no_overload = (pseudo_lsp
+			    || (spftree->mtid == ISIS_MT_IPV4_UNICAST
+				&& !ISIS_MASK_LSP_OL_BIT(lsp->hdr.lsp_bits))
+			    || (mt_router_info && !mt_router_info->overload));
+
 lspfragloop:
 	if (lsp->hdr.seqno == 0) {
 		zlog_warn(
@@ -686,12 +692,7 @@ lspfragloop:
 		   print_sys_hostname(lsp->hdr.lsp_id));
 #endif /* EXTREME_DEBUG */
 
-	/* RFC3787 section 4 SHOULD ignore overload bit in pseudo LSPs */
-	if (pseudo_lsp || (spftree->mtid == ISIS_MT_IPV4_UNICAST
-			   && !ISIS_MASK_LSP_OL_BIT(lsp->hdr.lsp_bits))
-	    || (mt_router_info && !mt_router_info->overload))
-
-	{
+	if (no_overload) {
 		if (pseudo_lsp || spftree->mtid == ISIS_MT_IPV4_UNICAST) {
 			struct isis_oldstyle_reach *r;
 			for (r = (struct isis_oldstyle_reach *)
