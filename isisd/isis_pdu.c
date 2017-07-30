@@ -880,7 +880,8 @@ dontcheckadj:
 				if (comp == LSP_NEWER) {
 					lsp_update(lsp, &hdr, tlvs,
 						   circuit->rcv_stream,
-						   circuit->area, level);
+						   circuit->area, level,
+						   lsp_confusion);
 					tlvs = NULL;
 					/* ii */
 					lsp_set_all_srmflags(lsp);
@@ -1005,7 +1006,7 @@ dontcheckadj:
 			} else /* exists, so we overwrite */
 			{
 				lsp_update(lsp, &hdr, tlvs, circuit->rcv_stream,
-					   circuit->area, level);
+					   circuit->area, level, false);
 				tlvs = NULL;
 			}
 			/* ii */
@@ -1022,7 +1023,7 @@ dontcheckadj:
 		else if (comp == LSP_EQUAL) {
 			ISIS_CLEAR_FLAG(lsp->SRMflags, circuit);
 			lsp_update(lsp, &hdr, tlvs, circuit->rcv_stream,
-				   circuit->area, level);
+				   circuit->area, level, false);
 			tlvs = NULL;
 			if (circuit->circ_type != CIRCUIT_T_BROADCAST)
 				ISIS_SET_FLAG(lsp->SSNflags, circuit);
