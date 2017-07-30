@@ -2681,9 +2681,14 @@ void isis_tlvs_add_ipv4_addresses(struct isis_tlvs *tlvs,
 {
 	struct listnode *node;
 	struct prefix_ipv4 *ip_addr;
+	unsigned int addr_count = 0;
 
-	for (ALL_LIST_ELEMENTS_RO(addresses, node, ip_addr))
+	for (ALL_LIST_ELEMENTS_RO(addresses, node, ip_addr)) {
 		isis_tlvs_add_ipv4_address(tlvs, &ip_addr->prefix);
+		addr_count++;
+		if (addr_count >= 63)
+			break;
+	}
 }
 
 void isis_tlvs_add_ipv6_addresses(struct isis_tlvs *tlvs,
