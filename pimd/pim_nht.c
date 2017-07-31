@@ -850,12 +850,14 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 	num_ifindex = zclient_lookup_nexthop(pim, nexthop_tab, MULTIPATH_NUM,
 					     addr, PIM_NEXTHOP_LOOKUP_MAX);
 	if (num_ifindex < 1) {
-		char addr_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-		zlog_warn(
-			"%s %s: could not find nexthop ifindex for address %s(%s)",
-			__FILE__, __PRETTY_FUNCTION__, addr_str,
-			pim->vrf->name);
+		if (PIM_DEBUG_PIM_NHT) {
+			char addr_str[INET_ADDRSTRLEN];
+			pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
+			zlog_warn(
+				"%s: could not find nexthop ifindex for address %s(%s)",
+				__PRETTY_FUNCTION__, addr_str,
+				pim->vrf->name);
+		}
 		return 0;
 	}
 

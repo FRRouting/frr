@@ -192,8 +192,9 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 	nexthop_num = stream_getc(s);
 
 	if (nexthop_num < 1) {
-		zlog_err("%s: socket %d bad nexthop_num=%d", __func__,
-			 zlookup->sock, nexthop_num);
+		if (PIM_DEBUG_PIM_NHT_DETAIL)
+			zlog_debug("%s: socket %d bad nexthop_num=%d", __func__,
+				   zlookup->sock, nexthop_num);
 		return -6;
 	}
 
