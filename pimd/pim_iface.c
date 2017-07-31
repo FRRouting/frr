@@ -56,16 +56,12 @@ void pim_if_init(struct pim_instance *pim)
 
 	for (i = 0; i < MAXVIFS; i++)
 		pim->iface_vif_index[i] = 0;
-
-	pim->ifchannel_list = list_new();
-	pim->ifchannel_list->cmp =
-		(int (*)(void *, void *))pim_ifchannel_compare;
 }
 
 void pim_if_terminate(struct pim_instance *pim)
 {
-	if (pim->ifchannel_list)
-		list_free(pim->ifchannel_list);
+	// Nothing to do at this moment
+	return;
 }
 
 static void *if_list_clean(struct pim_interface *pim_ifp)

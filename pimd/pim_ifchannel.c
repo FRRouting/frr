@@ -196,7 +196,6 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 	*/
 	listnode_delete(pim_ifp->pim_ifchannel_list, ch);
 	hash_release(pim_ifp->pim_ifchannel_hash, ch);
-	listnode_delete(pim_ifp->pim->ifchannel_list, ch);
 
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug("%s: ifchannel entry %s is deleted ",
@@ -557,7 +556,6 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 	/* Attach to list */
 	listnode_add_sort(pim_ifp->pim_ifchannel_list, ch);
 	ch = hash_get(pim_ifp->pim_ifchannel_hash, ch, hash_alloc_intern);
-	listnode_add_sort(pim_ifp->pim->ifchannel_list, ch);
 
 	up = pim_upstream_add(pim_ifp->pim, sg, NULL, up_flags,
 			      __PRETTY_FUNCTION__, ch);
@@ -577,7 +575,6 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 
 		listnode_delete(pim_ifp->pim_ifchannel_list, ch);
 		hash_release(pim_ifp->pim_ifchannel_hash, ch);
-		listnode_delete(pim_ifp->pim->ifchannel_list, ch);
 		XFREE(MTYPE_PIM_IFCHANNEL, ch);
 		return NULL;
 	}

@@ -176,12 +176,46 @@ static void pim_if_membership_refresh(struct interface *ifp)
 	pim_ifchannel_delete_on_noinfo(ifp);
 }
 
+static void pim_show_assert_helper(struct vty *vty,
+				   struct pim_interface *pim_ifp,
+				   struct pim_ifchannel *ch,
+				   time_t now)
+{
+	char ch_src_str[INET_ADDRSTRLEN];
+	char ch_grp_str[INET_ADDRSTRLEN];
+	char winner_str[INET_ADDRSTRLEN];
+	struct in_addr ifaddr;
+	char uptime[10];
+	char timer[10];
+
+	ifaddr = pim_ifp->primary_address;
+
+	pim_inet4_dump("<ch_src?>", ch->sg.src, ch_src_str,
+		       sizeof(ch_src_str));
+	pim_inet4_dump("<ch_grp?>", ch->sg.grp, ch_grp_str,
+		       sizeof(ch_grp_str));
+	pim_inet4_dump("<assrt_win?>", ch->ifassert_winner, winner_str,
+		       sizeof(winner_str));
+
+	pim_time_uptime(uptime, sizeof(uptime),
+			now - ch->ifassert_creation);
+	pim_time_timer_to_mmss(timer, sizeof(timer),
+			       ch->t_ifassert_timer);
+
+	vty_out(vty, "%-9s %-15s %-15s %-15s %-6s %-15s %-8s %-5s\n",
+		ch->interface->name, inet_ntoa(ifaddr), ch_src_str,
+		ch_grp_str,
+		pim_ifchannel_ifassert_name(ch->ifassert_state),
+		winner_str, uptime, timer);
+}
+
 static void pim_show_assert(struct pim_instance *pim, struct vty *vty)
 {
 	struct pim_interface *pim_ifp;
 	struct pim_ifchannel *ch;
 	struct listnode *ch_node;
-	struct in_addr ifaddr;
+	struct listnode *if_node;
+	struct interface *ifp;
 	time_t now;
 
 	now = pim_time_monotonic_sec();
@@ -189,46 +223,51 @@ static void pim_show_assert(struct pim_instance *pim, struct vty *vty)
 	vty_out(vty,
 		"Interface Address         Source          Group           State  Winner          Uptime   Timer\n");
 
-	for (ALL_LIST_ELEMENTS_RO(pim->ifchannel_list, ch_node, ch)) {
-		char ch_src_str[INET_ADDRSTRLEN];
-		char ch_grp_str[INET_ADDRSTRLEN];
-		char winner_str[INET_ADDRSTRLEN];
-		char uptime[10];
-		char timer[10];
-
-		pim_ifp = ch->interface->info;
-
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), if_node, ifp)) {
+		pim_ifp = ifp->info;
 		if (!pim_ifp)
 			continue;
 
-		ifaddr = pim_ifp->primary_address;
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list,
+					  ch_node, ch)) {
+			pim_show_assert_helper(vty, pim_ifp, ch, now);
+		} /* scan interface channels */
+	}
+}
 
-		pim_inet4_dump("<ch_src?>", ch->sg.src, ch_src_str,
-			       sizeof(ch_src_str));
-		pim_inet4_dump("<ch_grp?>", ch->sg.grp, ch_grp_str,
-			       sizeof(ch_grp_str));
-		pim_inet4_dump("<assrt_win?>", ch->ifassert_winner, winner_str,
-			       sizeof(winner_str));
+static void pim_show_assert_internal_helper(struct vty *vty,
+					    struct pim_interface *pim_ifp,
+					    struct pim_ifchannel *ch)
+{
+	char ch_src_str[INET_ADDRSTRLEN];
+	char ch_grp_str[INET_ADDRSTRLEN];
+	struct in_addr ifaddr;
 
-		pim_time_uptime(uptime, sizeof(uptime),
-				now - ch->ifassert_creation);
-		pim_time_timer_to_mmss(timer, sizeof(timer),
-				       ch->t_ifassert_timer);
+	ifaddr = pim_ifp->primary_address;
 
-		vty_out(vty, "%-9s %-15s %-15s %-15s %-6s %-15s %-8s %-5s\n",
-			ch->interface->name, inet_ntoa(ifaddr), ch_src_str,
-			ch_grp_str,
-			pim_ifchannel_ifassert_name(ch->ifassert_state),
-			winner_str, uptime, timer);
-	} /* scan interface channels */
+	pim_inet4_dump("<ch_src?>", ch->sg.src, ch_src_str,
+		       sizeof(ch_src_str));
+	pim_inet4_dump("<ch_grp?>", ch->sg.grp, ch_grp_str,
+		       sizeof(ch_grp_str));
+	vty_out(vty, "%-9s %-15s %-15s %-15s %-3s %-3s %-3s %-4s\n",
+		ch->interface->name, inet_ntoa(ifaddr), ch_src_str,
+		ch_grp_str,
+		PIM_IF_FLAG_TEST_COULD_ASSERT(ch->flags) ? "yes" : "no",
+		pim_macro_ch_could_assert_eval(ch) ? "yes" : "no",
+		PIM_IF_FLAG_TEST_ASSERT_TRACKING_DESIRED(ch->flags)
+		? "yes"
+		: "no",
+		pim_macro_assert_tracking_desired_eval(ch) ? "yes"
+		: "no");
 }
 
 static void pim_show_assert_internal(struct pim_instance *pim, struct vty *vty)
 {
 	struct pim_interface *pim_ifp;
 	struct listnode *ch_node;
+	struct listnode *if_node;
 	struct pim_ifchannel *ch;
-	struct in_addr ifaddr;
+	struct interface *ifp;
 
 	vty_out(vty,
 		"CA:   CouldAssert\n"
@@ -238,127 +277,130 @@ static void pim_show_assert_internal(struct pim_instance *pim, struct vty *vty)
 
 	vty_out(vty,
 		"Interface Address         Source          Group           CA  eCA ATD eATD\n");
-
-	for (ALL_LIST_ELEMENTS_RO(pim->ifchannel_list, ch_node, ch)) {
-		pim_ifp = ch->interface->info;
-
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), if_node, ifp)) {
+		pim_ifp = ifp->info;
 		if (!pim_ifp)
 			continue;
 
-		ifaddr = pim_ifp->primary_address;
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list,
+					  ch_node, ch)) {
+			pim_show_assert_internal_helper(vty, pim_ifp, ch);
+		} /* scan interface channels */
+	}
+}
 
-		char ch_src_str[INET_ADDRSTRLEN];
-		char ch_grp_str[INET_ADDRSTRLEN];
+static void pim_show_assert_metric_helper(struct vty *vty,
+					  struct pim_interface *pim_ifp,
+					  struct pim_ifchannel *ch)
+{
+	char ch_src_str[INET_ADDRSTRLEN];
+	char ch_grp_str[INET_ADDRSTRLEN];
+	char addr_str[INET_ADDRSTRLEN];
+	struct pim_assert_metric am;
+	struct in_addr ifaddr;
 
-		pim_inet4_dump("<ch_src?>", ch->sg.src, ch_src_str,
-			       sizeof(ch_src_str));
-		pim_inet4_dump("<ch_grp?>", ch->sg.grp, ch_grp_str,
-			       sizeof(ch_grp_str));
-		vty_out(vty, "%-9s %-15s %-15s %-15s %-3s %-3s %-3s %-4s\n",
-			ch->interface->name, inet_ntoa(ifaddr), ch_src_str,
-			ch_grp_str,
-			PIM_IF_FLAG_TEST_COULD_ASSERT(ch->flags) ? "yes" : "no",
-			pim_macro_ch_could_assert_eval(ch) ? "yes" : "no",
-			PIM_IF_FLAG_TEST_ASSERT_TRACKING_DESIRED(ch->flags)
-				? "yes"
-				: "no",
-			pim_macro_assert_tracking_desired_eval(ch) ? "yes"
-								   : "no");
-	} /* scan interface channels */
+	ifaddr = pim_ifp->primary_address;
+
+	am = pim_macro_spt_assert_metric(&ch->upstream->rpf,
+					 pim_ifp->primary_address);
+
+	pim_inet4_dump("<ch_src?>", ch->sg.src, ch_src_str,
+		       sizeof(ch_src_str));
+	pim_inet4_dump("<ch_grp?>", ch->sg.grp, ch_grp_str,
+		       sizeof(ch_grp_str));
+	pim_inet4_dump("<addr?>", am.ip_address, addr_str,
+		       sizeof(addr_str));
+
+	vty_out(vty, "%-9s %-15s %-15s %-15s %-3s %4u %6u %-15s\n",
+		ch->interface->name, inet_ntoa(ifaddr), ch_src_str,
+		ch_grp_str, am.rpt_bit_flag ? "yes" : "no",
+		am.metric_preference, am.route_metric, addr_str);
 }
 
 static void pim_show_assert_metric(struct pim_instance *pim, struct vty *vty)
 {
 	struct pim_interface *pim_ifp;
-	struct listnode *ch_node;
+	struct listnode *ch_node, *if_node;
 	struct pim_ifchannel *ch;
-	struct in_addr ifaddr;
+	struct interface *ifp;
 
 	vty_out(vty,
 		"Interface Address         Source          Group           RPT Pref Metric Address        \n");
 
-	for (ALL_LIST_ELEMENTS_RO(pim->ifchannel_list, ch_node, ch)) {
-		pim_ifp = ch->interface->info;
-
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), if_node, ifp)) {
+		pim_ifp = ifp->info;
 		if (!pim_ifp)
 			continue;
 
-		ifaddr = pim_ifp->primary_address;
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list,
+					  ch_node, ch)) {
+			pim_show_assert_metric_helper(vty, pim_ifp, ch);
+		} /* scan interface channels */
+	}
+}
 
-		char ch_src_str[INET_ADDRSTRLEN];
-		char ch_grp_str[INET_ADDRSTRLEN];
-		char addr_str[INET_ADDRSTRLEN];
-		struct pim_assert_metric am;
+static void pim_show_assert_winner_metric_helper(struct vty *vty,
+						 struct pim_interface *pim_ifp,
+						 struct pim_ifchannel *ch)
+{
+	char ch_src_str[INET_ADDRSTRLEN];
+	char ch_grp_str[INET_ADDRSTRLEN];
+	char addr_str[INET_ADDRSTRLEN];
+	struct pim_assert_metric *am;
+	struct in_addr ifaddr;
+	char pref_str[5];
+	char metr_str[7];
 
-		am = pim_macro_spt_assert_metric(&ch->upstream->rpf,
-						 pim_ifp->primary_address);
+	ifaddr = pim_ifp->primary_address;
 
-		pim_inet4_dump("<ch_src?>", ch->sg.src, ch_src_str,
-			       sizeof(ch_src_str));
-		pim_inet4_dump("<ch_grp?>", ch->sg.grp, ch_grp_str,
-			       sizeof(ch_grp_str));
-		pim_inet4_dump("<addr?>", am.ip_address, addr_str,
-			       sizeof(addr_str));
+	am = &ch->ifassert_winner_metric;
 
-		vty_out(vty, "%-9s %-15s %-15s %-15s %-3s %4u %6u %-15s\n",
-			ch->interface->name, inet_ntoa(ifaddr), ch_src_str,
-			ch_grp_str, am.rpt_bit_flag ? "yes" : "no",
-			am.metric_preference, am.route_metric, addr_str);
-	} /* scan interface channels */
+	pim_inet4_dump("<ch_src?>", ch->sg.src, ch_src_str,
+		       sizeof(ch_src_str));
+	pim_inet4_dump("<ch_grp?>", ch->sg.grp, ch_grp_str,
+		       sizeof(ch_grp_str));
+	pim_inet4_dump("<addr?>", am->ip_address, addr_str,
+		       sizeof(addr_str));
+
+	if (am->metric_preference == PIM_ASSERT_METRIC_PREFERENCE_MAX)
+		snprintf(pref_str, sizeof(pref_str), "INFI");
+	else
+		snprintf(pref_str, sizeof(pref_str), "%4u",
+			 am->metric_preference);
+
+	if (am->route_metric == PIM_ASSERT_ROUTE_METRIC_MAX)
+		snprintf(metr_str, sizeof(metr_str), "INFI");
+	else
+		snprintf(metr_str, sizeof(metr_str), "%6u",
+			 am->route_metric);
+
+	vty_out(vty, "%-9s %-15s %-15s %-15s %-3s %-4s %-6s %-15s\n",
+		ch->interface->name, inet_ntoa(ifaddr), ch_src_str,
+		ch_grp_str, am->rpt_bit_flag ? "yes" : "no", pref_str,
+		metr_str, addr_str);
 }
 
 static void pim_show_assert_winner_metric(struct pim_instance *pim,
 					  struct vty *vty)
 {
+	struct listnode *ch_node, *if_node;
 	struct pim_interface *pim_ifp;
-	struct listnode *ch_node;
 	struct pim_ifchannel *ch;
-	struct in_addr ifaddr;
+	struct interface *ifp;
 
 	vty_out(vty,
 		"Interface Address         Source          Group           RPT Pref Metric Address        \n");
 
-	for (ALL_LIST_ELEMENTS_RO(pim->ifchannel_list, ch_node, ch)) {
-		pim_ifp = ch->interface->info;
-
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), if_node, ifp)) {
+		pim_ifp = ifp->info;
 		if (!pim_ifp)
 			continue;
 
-		ifaddr = pim_ifp->primary_address;
-
-		char ch_src_str[INET_ADDRSTRLEN];
-		char ch_grp_str[INET_ADDRSTRLEN];
-		char addr_str[INET_ADDRSTRLEN];
-		struct pim_assert_metric *am;
-		char pref_str[5];
-		char metr_str[7];
-
-		am = &ch->ifassert_winner_metric;
-
-		pim_inet4_dump("<ch_src?>", ch->sg.src, ch_src_str,
-			       sizeof(ch_src_str));
-		pim_inet4_dump("<ch_grp?>", ch->sg.grp, ch_grp_str,
-			       sizeof(ch_grp_str));
-		pim_inet4_dump("<addr?>", am->ip_address, addr_str,
-			       sizeof(addr_str));
-
-		if (am->metric_preference == PIM_ASSERT_METRIC_PREFERENCE_MAX)
-			snprintf(pref_str, sizeof(pref_str), "INFI");
-		else
-			snprintf(pref_str, sizeof(pref_str), "%4u",
-				 am->metric_preference);
-
-		if (am->route_metric == PIM_ASSERT_ROUTE_METRIC_MAX)
-			snprintf(metr_str, sizeof(metr_str), "INFI");
-		else
-			snprintf(metr_str, sizeof(metr_str), "%6u",
-				 am->route_metric);
-
-		vty_out(vty, "%-9s %-15s %-15s %-15s %-3s %-4s %-6s %-15s\n",
-			ch->interface->name, inet_ntoa(ifaddr), ch_src_str,
-			ch_grp_str, am->rpt_bit_flag ? "yes" : "no", pref_str,
-			metr_str, addr_str);
-	} /* scan interface channels */
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list,
+					  ch_node, ch)) {
+			pim_show_assert_winner_metric_helper(vty, pim_ifp, ch);
+		} /* scan interface channels */
+	}
 }
 
 static void json_object_pim_ifp_add(struct json_object *json,
@@ -392,55 +434,64 @@ static void json_object_pim_ifp_add(struct json_object *json,
 		json_object_boolean_true_add(json, "lanDelayEnabled");
 }
 
+static void pim_show_membership_helper(struct vty *vty,
+				       struct pim_interface *pim_ifp,
+				       struct pim_ifchannel *ch,
+				       struct json_object *json)
+{
+	char ch_src_str[INET_ADDRSTRLEN];
+	char ch_grp_str[INET_ADDRSTRLEN];
+	json_object *json_iface = NULL;
+	json_object *json_row = NULL;
+
+	pim_inet4_dump("<ch_src?>", ch->sg.src, ch_src_str,
+		       sizeof(ch_src_str));
+	pim_inet4_dump("<ch_grp?>", ch->sg.grp, ch_grp_str,
+		       sizeof(ch_grp_str));
+
+	json_object_object_get_ex(json, ch->interface->name,
+				  &json_iface);
+	if (!json_iface) {
+		json_iface = json_object_new_object();
+		json_object_pim_ifp_add(json_iface, ch->interface);
+		json_object_object_add(json, ch->interface->name,
+				       json_iface);
+	}
+
+	json_row = json_object_new_object();
+	json_object_string_add(json_row, "source", ch_src_str);
+	json_object_string_add(json_row, "group", ch_grp_str);
+	json_object_string_add(
+		json_row, "localMembership",
+		ch->local_ifmembership == PIM_IFMEMBERSHIP_NOINFO
+		? "NOINFO"
+		: "INCLUDE");
+	json_object_object_add(json_iface, ch_grp_str, json_row);
+
+}
 static void pim_show_membership(struct pim_instance *pim, struct vty *vty,
 				u_char uj)
 {
+	struct listnode *ch_node, *if_node;
 	struct pim_interface *pim_ifp;
-	struct listnode *ch_node;
 	struct pim_ifchannel *ch;
+	struct interface *ifp;
 	enum json_type type;
 	json_object *json = NULL;
-	json_object *json_iface = NULL;
-	json_object *json_row = NULL;
 	json_object *json_tmp = NULL;
 
 	json = json_object_new_object();
 
-	for (ALL_LIST_ELEMENTS_RO(pim->ifchannel_list, ch_node, ch)) {
-
-		pim_ifp = ch->interface->info;
-
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), if_node, ifp)) {
+		pim_ifp = ifp->info;
 		if (!pim_ifp)
 			continue;
 
-		char ch_src_str[INET_ADDRSTRLEN];
-		char ch_grp_str[INET_ADDRSTRLEN];
-
-		pim_inet4_dump("<ch_src?>", ch->sg.src, ch_src_str,
-			       sizeof(ch_src_str));
-		pim_inet4_dump("<ch_grp?>", ch->sg.grp, ch_grp_str,
-			       sizeof(ch_grp_str));
-
-		json_object_object_get_ex(json, ch->interface->name,
-					  &json_iface);
-
-		if (!json_iface) {
-			json_iface = json_object_new_object();
-			json_object_pim_ifp_add(json_iface, ch->interface);
-			json_object_object_add(json, ch->interface->name,
-					       json_iface);
-		}
-
-		json_row = json_object_new_object();
-		json_object_string_add(json_row, "source", ch_src_str);
-		json_object_string_add(json_row, "group", ch_grp_str);
-		json_object_string_add(
-			json_row, "localMembership",
-			ch->local_ifmembership == PIM_IFMEMBERSHIP_NOINFO
-				? "NOINFO"
-				: "INCLUDE");
-		json_object_object_add(json_iface, ch_grp_str, json_row);
-	} /* scan interface channels */
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list,
+					  ch_node, ch)) {
+			pim_show_membership_helper(vty, pim_ifp, ch, json);
+		} /* scan interface channels */
+	}
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
@@ -1553,17 +1604,92 @@ static void pim_show_interface_traffic_single(struct pim_instance *pim,
 	}
 }
 
-static void pim_show_join(struct pim_instance *pim, struct vty *vty, u_char uj)
+static void pim_show_join_helper(struct vty *vty,
+				 struct pim_interface *pim_ifp,
+				 struct pim_ifchannel *ch,
+				 json_object *json,
+				 time_t now,
+				 u_char uj)
 {
-	struct pim_interface *pim_ifp;
-	struct in_addr ifaddr;
-	struct listnode *ch_node;
-	struct pim_ifchannel *ch;
-	time_t now;
-	json_object *json = NULL;
+	char ch_src_str[INET_ADDRSTRLEN];
+	char ch_grp_str[INET_ADDRSTRLEN];
 	json_object *json_iface = NULL;
 	json_object *json_row = NULL;
 	json_object *json_grp = NULL;
+	struct in_addr ifaddr;
+	char uptime[10];
+	char expire[10];
+	char prune[10];
+
+	ifaddr = pim_ifp->primary_address;
+
+	pim_inet4_dump("<ch_src?>", ch->sg.src, ch_src_str,
+		       sizeof(ch_src_str));
+	pim_inet4_dump("<ch_grp?>", ch->sg.grp, ch_grp_str,
+		       sizeof(ch_grp_str));
+
+	pim_time_uptime_begin(uptime, sizeof(uptime), now,
+			      ch->ifjoin_creation);
+	pim_time_timer_to_mmss(expire, sizeof(expire),
+			       ch->t_ifjoin_expiry_timer);
+	pim_time_timer_to_mmss(prune, sizeof(prune),
+			       ch->t_ifjoin_prune_pending_timer);
+
+	if (uj) {
+		json_object_object_get_ex(json, ch->interface->name,
+					  &json_iface);
+
+		if (!json_iface) {
+			json_iface = json_object_new_object();
+			json_object_pim_ifp_add(json_iface,
+						ch->interface);
+			json_object_object_add(
+				json, ch->interface->name, json_iface);
+		}
+
+		json_row = json_object_new_object();
+		json_object_string_add(json_row, "source", ch_src_str);
+		json_object_string_add(json_row, "group", ch_grp_str);
+		json_object_string_add(json_row, "upTime", uptime);
+		json_object_string_add(json_row, "expire", expire);
+		json_object_string_add(json_row, "prune", prune);
+		json_object_string_add(
+			json_row, "channelJoinName",
+			pim_ifchannel_ifjoin_name(ch->ifjoin_state,
+						  ch->flags));
+		if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
+			json_object_int_add(json_row, "SGRpt", 1);
+
+		json_object_object_get_ex(json_iface, ch_grp_str,
+					  &json_grp);
+		if (!json_grp) {
+			json_grp = json_object_new_object();
+			json_object_object_add(json_grp, ch_src_str,
+					       json_row);
+			json_object_object_add(json_iface, ch_grp_str,
+					       json_grp);
+		} else
+			json_object_object_add(json_grp, ch_src_str,
+					       json_row);
+	} else {
+		vty_out(vty,
+			"%-9s %-15s %-15s %-15s %-6s %8s %-6s %5s\n",
+			ch->interface->name, inet_ntoa(ifaddr),
+			ch_src_str, ch_grp_str,
+			pim_ifchannel_ifjoin_name(ch->ifjoin_state,
+						  ch->flags),
+			uptime, expire, prune);
+	}
+}
+
+static void pim_show_join(struct pim_instance *pim, struct vty *vty, u_char uj)
+{
+	struct listnode *ch_node, *if_node;
+	struct pim_interface *pim_ifp;
+	struct pim_ifchannel *ch;
+	struct interface *ifp;
+	time_t now;
+	json_object *json = NULL;
 
 	now = pim_time_monotonic_sec();
 
@@ -1573,83 +1699,21 @@ static void pim_show_join(struct pim_instance *pim, struct vty *vty, u_char uj)
 		vty_out(vty,
 			"Interface Address         Source          Group           State  Uptime   Expire Prune\n");
 
-	for (ALL_LIST_ELEMENTS_RO(pim->ifchannel_list, ch_node, ch)) {
-
-		pim_ifp = ch->interface->info;
-
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), if_node, ifp)) {
+		pim_ifp = ifp->info;
 		if (!pim_ifp)
 			continue;
 
-		ifaddr = pim_ifp->primary_address;
-
-		char ch_src_str[INET_ADDRSTRLEN];
-		char ch_grp_str[INET_ADDRSTRLEN];
-		char uptime[10];
-		char expire[10];
-		char prune[10];
-
-		pim_inet4_dump("<ch_src?>", ch->sg.src, ch_src_str,
-			       sizeof(ch_src_str));
-		pim_inet4_dump("<ch_grp?>", ch->sg.grp, ch_grp_str,
-			       sizeof(ch_grp_str));
-
-		pim_time_uptime_begin(uptime, sizeof(uptime), now,
-				      ch->ifjoin_creation);
-		pim_time_timer_to_mmss(expire, sizeof(expire),
-				       ch->t_ifjoin_expiry_timer);
-		pim_time_timer_to_mmss(prune, sizeof(prune),
-				       ch->t_ifjoin_prune_pending_timer);
-
-		if (uj) {
-			json_object_object_get_ex(json, ch->interface->name,
-						  &json_iface);
-
-			if (!json_iface) {
-				json_iface = json_object_new_object();
-				json_object_pim_ifp_add(json_iface,
-							ch->interface);
-				json_object_object_add(
-					json, ch->interface->name, json_iface);
-			}
-
-			json_row = json_object_new_object();
-			json_object_string_add(json_row, "source", ch_src_str);
-			json_object_string_add(json_row, "group", ch_grp_str);
-			json_object_string_add(json_row, "upTime", uptime);
-			json_object_string_add(json_row, "expire", expire);
-			json_object_string_add(json_row, "prune", prune);
-			json_object_string_add(
-				json_row, "channelJoinName",
-				pim_ifchannel_ifjoin_name(ch->ifjoin_state,
-							  ch->flags));
-			if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
-				json_object_int_add(json_row, "SGRpt", 1);
-
-			json_object_object_get_ex(json_iface, ch_grp_str,
-						  &json_grp);
-			if (!json_grp) {
-				json_grp = json_object_new_object();
-				json_object_object_add(json_grp, ch_src_str,
-						       json_row);
-				json_object_object_add(json_iface, ch_grp_str,
-						       json_grp);
-			} else
-				json_object_object_add(json_grp, ch_src_str,
-						       json_row);
-		} else {
-			vty_out(vty,
-				"%-9s %-15s %-15s %-15s %-6s %8s %-6s %5s\n",
-				ch->interface->name, inet_ntoa(ifaddr),
-				ch_src_str, ch_grp_str,
-				pim_ifchannel_ifjoin_name(ch->ifjoin_state,
-							  ch->flags),
-				uptime, expire, prune);
-		}
-	} /* scan interface channels */
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list,
+					  ch_node, ch)) {
+			pim_show_join_helper(vty, pim_ifp,
+					     ch, json, now, uj);
+		} /* scan interface channels */
+	}
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
@@ -2382,17 +2446,81 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 	}
 }
 
+static void pim_show_join_desired_helper(struct pim_instance *pim,
+					 struct vty *vty,
+					 struct pim_interface *pim_ifp,
+					 struct pim_ifchannel *ch,
+					 json_object *json,
+					 u_char uj)
+{
+	struct pim_upstream *up = ch->upstream;
+	json_object *json_group = NULL;
+	char src_str[INET_ADDRSTRLEN];
+	char grp_str[INET_ADDRSTRLEN];
+	json_object *json_row = NULL;
+
+	pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
+	pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
+
+	if (uj) {
+		json_object_object_get_ex(json, grp_str, &json_group);
+
+		if (!json_group) {
+			json_group = json_object_new_object();
+			json_object_object_add(json, grp_str,
+					       json_group);
+		}
+
+		json_row = json_object_new_object();
+		json_object_pim_upstream_add(json_row, up);
+		json_object_string_add(json_row, "interface",
+				       ch->interface->name);
+		json_object_string_add(json_row, "source", src_str);
+		json_object_string_add(json_row, "group", grp_str);
+
+		if (pim_macro_ch_lost_assert(ch))
+			json_object_boolean_true_add(json_row,
+						     "lostAssert");
+
+		if (pim_macro_chisin_joins(ch))
+			json_object_boolean_true_add(json_row, "joins");
+
+		if (pim_macro_chisin_pim_include(ch))
+			json_object_boolean_true_add(json_row,
+						     "pimInclude");
+
+		if (pim_upstream_evaluate_join_desired(pim, up))
+			json_object_boolean_true_add(
+				json_row, "evaluateJoinDesired");
+
+		json_object_object_add(json_group, src_str, json_row);
+
+	} else {
+		vty_out(vty,
+			"%-9s %-15s %-15s %-10s %-5s %-10s %-11s %-6s\n",
+			ch->interface->name, src_str, grp_str,
+			pim_macro_ch_lost_assert(ch) ? "yes" : "no",
+			pim_macro_chisin_joins(ch) ? "yes" : "no",
+			pim_macro_chisin_pim_include(ch) ? "yes" : "no",
+			PIM_UPSTREAM_FLAG_TEST_DR_JOIN_DESIRED(
+				up->flags)
+			? "yes"
+			: "no",
+			pim_upstream_evaluate_join_desired(pim, up)
+			? "yes"
+			: "no");
+	}
+}
+
 static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
 				  u_char uj)
 {
-	struct listnode *chnode;
+	struct listnode *ch_node, *if_node;
 	struct pim_interface *pim_ifp;
 	struct pim_ifchannel *ch;
-	char src_str[INET_ADDRSTRLEN];
-	char grp_str[INET_ADDRSTRLEN];
+	struct interface *ifp;
+
 	json_object *json = NULL;
-	json_object *json_group = NULL;
-	json_object *json_row = NULL;
 
 	if (uj)
 		json = json_object_new_object();
@@ -2401,64 +2529,17 @@ static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
 			"Interface Source          Group           LostAssert Joins PimInclude JoinDesired EvalJD\n");
 
 	/* scan per-interface (S,G) state */
-	for (ALL_LIST_ELEMENTS_RO(pim->ifchannel_list, chnode, ch)) {
-		/* scan all interfaces */
-		pim_ifp = ch->interface->info;
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), if_node, ifp)) {
+		pim_ifp = ifp->info;
 		if (!pim_ifp)
 			continue;
 
-		struct pim_upstream *up = ch->upstream;
-
-		pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
-		pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
-
-		if (uj) {
-			json_object_object_get_ex(json, grp_str, &json_group);
-
-			if (!json_group) {
-				json_group = json_object_new_object();
-				json_object_object_add(json, grp_str,
-						       json_group);
-			}
-
-			json_row = json_object_new_object();
-			json_object_pim_upstream_add(json_row, up);
-			json_object_string_add(json_row, "interface",
-					       ch->interface->name);
-			json_object_string_add(json_row, "source", src_str);
-			json_object_string_add(json_row, "group", grp_str);
-
-			if (pim_macro_ch_lost_assert(ch))
-				json_object_boolean_true_add(json_row,
-							     "lostAssert");
-
-			if (pim_macro_chisin_joins(ch))
-				json_object_boolean_true_add(json_row, "joins");
-
-			if (pim_macro_chisin_pim_include(ch))
-				json_object_boolean_true_add(json_row,
-							     "pimInclude");
-
-			if (pim_upstream_evaluate_join_desired(pim, up))
-				json_object_boolean_true_add(
-					json_row, "evaluateJoinDesired");
-
-			json_object_object_add(json_group, src_str, json_row);
-
-		} else {
-			vty_out(vty,
-				"%-9s %-15s %-15s %-10s %-5s %-10s %-11s %-6s\n",
-				ch->interface->name, src_str, grp_str,
-				pim_macro_ch_lost_assert(ch) ? "yes" : "no",
-				pim_macro_chisin_joins(ch) ? "yes" : "no",
-				pim_macro_chisin_pim_include(ch) ? "yes" : "no",
-				PIM_UPSTREAM_FLAG_TEST_DR_JOIN_DESIRED(
-					up->flags)
-					? "yes"
-					: "no",
-				pim_upstream_evaluate_join_desired(pim, up)
-					? "yes"
-					: "no");
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_ifchannel_list,
+					  ch_node, ch)) {
+			/* scan all interfaces */
+			pim_show_join_desired_helper(pim, vty,
+						     pim_ifp, ch,
+						     json, uj);
 		}
 	}
 
