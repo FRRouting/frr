@@ -1852,7 +1852,7 @@ static void vty_serv_sock_addrinfo(const char *hostname, unsigned short port)
 	ret = getaddrinfo(hostname, port_str, &req, &ainfo);
 
 	if (ret != 0) {
-		fprintf(stderr, "getaddrinfo failed: %s\n", gai_strerror(ret));
+		zlog_err("getaddrinfo failed: %s", gai_strerror(ret));
 		exit(1);
 	}
 
@@ -2246,23 +2246,22 @@ static void vty_read_file(FILE *confp)
 
 	if (!((ret == CMD_SUCCESS) || (ret == CMD_ERR_NOTHING_TODO))) {
 		const char *message = NULL;
+		char *nl;
+
 		switch (ret) {
 		case CMD_ERR_AMBIGUOUS:
-			message =
-				"*** Error reading config: Ambiguous command.";
+			message = "Ambiguous command";
 			break;
 		case CMD_ERR_NO_MATCH:
-			message =
-				"*** Error reading config: There is no such command.";
+			message = "No such command";
 			break;
 		}
-		fprintf(stderr, "%s\n", message);
-		zlog_err("%s", message);
-		fprintf(stderr,
-			"*** Error occurred processing line %u, below:\n%s\n",
-			line_num, vty->error_buf);
-		zlog_err("*** Error occurred processing line %u, below:\n%s",
-			 line_num, vty->error_buf);
+
+		nl = strchr(vty->error_buf, '\n');
+		if (nl)
+			*nl = '\0';
+		zlog_err("ERROR: %s on config line %u: %s",
+			 message, line_num, vty->error_buf);
 	}
 
 	vty_close(vty);
@@ -2334,8 +2333,7 @@ void vty_read_config(const char *config_file, char *config_default_dir)
 	if (config_file != NULL) {
 		if (!IS_DIRECTORY_SEP(config_file[0])) {
 			if (getcwd(cwd, MAXPATHLEN) == NULL) {
-				fprintf(stderr,
-					"Failure to determine Current Working Directory %d!\n",
+				zlog_err("Failure to determine Current Working Directory %d!",
 					errno);
 				exit(1);
 			}
@@ -2349,17 +2347,14 @@ void vty_read_config(const char *config_file, char *config_default_dir)
 		confp = fopen(fullpath, "r");
 
 		if (confp == NULL) {
-			fprintf(stderr,
-				"%s: failed to open configuration file %s: %s\n",
+			zlog_err("%s: failed to open configuration file %s: %s",
 				__func__, fullpath, safe_strerror(errno));
 
 			confp = vty_use_backup_config(fullpath);
 			if (confp)
-				fprintf(stderr,
-					"WARNING: using backup configuration file!\n");
+				zlog_warn("WARNING: using backup configuration file!");
 			else {
-				fprintf(stderr,
-					"can't open configuration file [%s]\n",
+				zlog_err("can't open configuration file [%s]",
 					config_file);
 				exit(1);
 			}
@@ -2394,19 +2389,16 @@ void vty_read_config(const char *config_file, char *config_default_dir)
 #endif /* VTYSH */
 		confp = fopen(config_default_dir, "r");
 		if (confp == NULL) {
-			fprintf(stderr,
-				"%s: failed to open configuration file %s: %s\n",
+			zlog_err("%s: failed to open configuration file %s: %s",
 				__func__, config_default_dir,
 				safe_strerror(errno));
 
 			confp = vty_use_backup_config(config_default_dir);
 			if (confp) {
-				fprintf(stderr,
-					"WARNING: using backup configuration file!\n");
+				zlog_warn("WARNING: using backup configuration file!");
 				fullpath = config_default_dir;
 			} else {
-				fprintf(stderr,
-					"can't open configuration file [%s]\n",
+				zlog_err("can't open configuration file [%s]",
 					config_default_dir);
 				goto tmp_free_and_out;
 			}
@@ -2916,12 +2908,12 @@ static void vty_save_cwd(void)
 		 * Hence not worrying about it too much.
 		 */
 		if (!chdir(SYSCONFDIR)) {
-			fprintf(stderr, "Failure to chdir to %s, errno: %d\n",
+			zlog_err("Failure to chdir to %s, errno: %d",
 				SYSCONFDIR, errno);
 			exit(-1);
 		}
 		if (getcwd(cwd, MAXPATHLEN) == NULL) {
-			fprintf(stderr, "Failure to getcwd, errno: %d\n",
+			zlog_err("Failure to getcwd, errno: %d",
 				errno);
 			exit(-1);
 		}
