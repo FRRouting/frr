@@ -1315,7 +1315,7 @@ fi
 dnl ------------------
 dnl check Net-SNMP library
 dnl ------------------
-if test "${enable_snmp}" != ""; then
+if test "${enable_snmp}" != "" -a "${enable_snmp}" != "no"; then
    AC_PATH_TOOL([NETSNMP_CONFIG], [net-snmp-config], [no])
    if test x"$NETSNMP_CONFIG" = x"no"; then
       AC_MSG_ERROR([--enable-snmp given but unable to find net-snmp-config])
