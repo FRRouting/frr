@@ -778,6 +778,10 @@ int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr,
 	struct vifctl vc;
 	int err;
 
+	if (PIM_DEBUG_MROUTE)
+		zlog_debug("%s: Add Vif %d (%s)", __PRETTY_FUNCTION__,
+			   pim_ifp->mroute_vif_index, ifp->name);
+
 	memset(&vc, 0, sizeof(vc));
 	vc.vifc_vifi = pim_ifp->mroute_vif_index;
 #ifdef VIFF_USE_IFINDEX
@@ -811,8 +815,8 @@ int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr,
 			       sizeof(ifaddr_str));
 
 		zlog_warn(
-			"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_VIF,vif_index=%d,ifaddr=%s,flag=%d): errno=%d: %s",
-			__FILE__, __PRETTY_FUNCTION__,
+			"%s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_VIF,vif_index=%d,ifaddr=%s,flag=%d): errno=%d: %s",
+			__PRETTY_FUNCTION__,
 			pim_ifp->pim->mroute_socket, ifp->ifindex, ifaddr_str,
 			flags, errno, safe_strerror(errno));
 		return -2;
@@ -828,8 +832,8 @@ int pim_mroute_del_vif(struct interface *ifp)
 	int err;
 
 	if (PIM_DEBUG_MROUTE)
-		zlog_debug("%s %s: Del Vif %d (%s) ", __FILE__,
-			   __PRETTY_FUNCTION__, pim_ifp->mroute_vif_index,
+		zlog_debug("%s: Del Vif %d (%s)",  __PRETTY_FUNCTION__,
+			   pim_ifp->mroute_vif_index,
 			   ifp->name);
 
 	memset(&vc, 0, sizeof(vc));
