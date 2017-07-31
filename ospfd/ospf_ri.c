@@ -506,7 +506,7 @@ static void build_tlv(struct stream *s, struct tlv_header *tlvh)
 
 	if (ntohs(tlvh->type) != 0) {
 		build_tlv_header(s, tlvh);
-		stream_put(s, tlvh + 1, TLV_BODY_SIZE(tlvh));
+		stream_put(s, TLV_DATA(tlvh), TLV_BODY_SIZE(tlvh));
 	}
 	return;
 }

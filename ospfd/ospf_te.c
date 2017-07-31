@@ -1065,7 +1065,7 @@ static void build_router_tlv(struct stream *s)
 	struct tlv_header *tlvh = &OspfMplsTE.router_addr.header;
 	if (ntohs(tlvh->type) != 0) {
 		build_tlv_header(s, tlvh);
-		stream_put(s, tlvh + 1, TLV_BODY_SIZE(tlvh));
+		stream_put(s, TLV_DATA(tlvh), TLV_BODY_SIZE(tlvh));
 	}
 	return;
 }
@@ -1075,7 +1075,7 @@ static void build_link_subtlv(struct stream *s, struct tlv_header *tlvh)
 
 	if ((tlvh != NULL) && (ntohs(tlvh->type) != 0)) {
 		build_tlv_header(s, tlvh);
-		stream_put(s, tlvh + 1, TLV_BODY_SIZE(tlvh));
+		stream_put(s, TLV_DATA(tlvh), TLV_BODY_SIZE(tlvh));
 	}
 	return;
 }
@@ -2141,7 +2141,7 @@ static void ospf_mpls_te_show_info(struct vty *vty, struct ospf_lsa *lsa)
 		case TE_TLV_LINK:
 			sum += show_vty_link_header(vty, tlvh);
 			subfunc = ospf_mpls_te_show_link_subtlv;
-			next = tlvh + 1;
+			next = TLV_DATA(tlvh);
 			break;
 		default:
 			sum += show_vty_unknown_tlv(vty, tlvh);
