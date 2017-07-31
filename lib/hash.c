@@ -94,6 +94,10 @@ static void hash_expand(struct hash *hash)
 	struct hash_backet *hb, *hbnext, **new_index;
 
 	new_size = hash->size * 2;
+
+	if (hash->max_size && new_size > hash->max_size)
+		return;
+
 	new_index = XCALLOC(MTYPE_HASH_INDEX,
 			    sizeof(struct hash_backet *) * new_size);
 	if (new_index == NULL)

@@ -36,6 +36,7 @@
 #include "bitfield.h"
 
 #define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
+#define BGP_PEER_MAX_HASH_SIZE 16384
 
 /* Default interval for IPv6 RAs when triggered by BGP unnumbered neighbor. */
 #define BGP_UNNUM_DEFAULT_RA_INTERVAL 10

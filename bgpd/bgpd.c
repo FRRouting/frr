@@ -746,7 +746,7 @@ static unsigned int peer_hash_key_make(void *p)
 	return sockunion_hash(&peer->su);
 }
 
-static int peer_hash_cmp(const void *p1, const void *p2)
+static int peer_hash_same(const void *p1, const void *p2)
 {
 	const struct peer *peer1 = p1;
 	const struct peer *peer2 = p2;
@@ -2757,7 +2757,8 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		XSTRDUP(MTYPE_BGP_PEER_HOST, "Static announcement");
 	bgp->peer = list_new();
 	bgp->peer->cmp = (int (*)(void *, void *))peer_cmp;
-	bgp->peerhash = hash_create(peer_hash_key_make, peer_hash_cmp, NULL);
+	bgp->peerhash = hash_create(peer_hash_key_make, peer_hash_same, NULL);
+	bgp->peerhash->max_size = BGP_PEER_MAX_HASH_SIZE;
 
 	bgp->group = list_new();
 	bgp->group->cmp = (int (*)(void *, void *))peer_group_cmp;
