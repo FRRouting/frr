@@ -38,31 +38,31 @@ struct cmd_node ldp_debug_node =
 };
 
 int
-ldp_vty_debug(struct vty *vty, int disable, const char *type_str,
-    const char *dir_str, int all)
+ldp_vty_debug(struct vty *vty, const char *negate, const char *type_str,
+    const char *dir_str, const char *all)
 {
 	if (strcmp(type_str, "discovery") == 0) {
 		if (dir_str == NULL)
 			return (CMD_WARNING_CONFIG_FAILED);
 
 		if (dir_str[0] == 'r') {
-			if (disable)
+			if (negate)
 				DEBUG_OFF(hello, HELLO_RECV);
 			else
 				DEBUG_ON(hello, HELLO_RECV);
 		} else {
-			if (disable)
+			if (negate)
 				DEBUG_OFF(hello, HELLO_SEND);
 			else
 				DEBUG_ON(hello, HELLO_SEND);
 		}
 	} else if (strcmp(type_str, "errors") == 0) {
-		if (disable)
+		if (negate)
 			DEBUG_OFF(errors, ERRORS);
 		else
 			DEBUG_ON(errors, ERRORS);
 	} else if (strcmp(type_str, "event") == 0) {
-		if (disable)
+		if (negate)
 			DEBUG_OFF(event, EVENT);
 		else
 			DEBUG_ON(event, EVENT);
@@ -71,7 +71,7 @@ ldp_vty_debug(struct vty *vty, int disable, const char *type_str,
 			return (CMD_WARNING_CONFIG_FAILED);
 
 		if (dir_str[0] == 'r') {
-			if (disable) {
+			if (negate) {
 				DEBUG_OFF(msg, MSG_RECV);
 				DEBUG_OFF(msg, MSG_RECV_ALL);
 			} else {
@@ -80,7 +80,7 @@ ldp_vty_debug(struct vty *vty, int disable, const char *type_str,
 					DEBUG_ON(msg, MSG_RECV_ALL);
 			}
 		} else {
-			if (disable) {
+			if (negate) {
 				DEBUG_OFF(msg, MSG_SEND);
 				DEBUG_OFF(msg, MSG_SEND_ALL);
 			} else {
@@ -90,7 +90,7 @@ ldp_vty_debug(struct vty *vty, int disable, const char *type_str,
 			}
 		}
 	} else if (strcmp(type_str, "zebra") == 0) {
-		if (disable)
+		if (negate)
 			DEBUG_OFF(zebra, ZEBRA);
 		else
 			DEBUG_ON(zebra, ZEBRA);

@@ -407,9 +407,9 @@ ldp_iface_is_configured(struct ldpd_conf *xconf, const char *ifname)
 }
 
 int
-ldp_vty_mpls_ldp(struct vty *vty, int disable)
+ldp_vty_mpls_ldp(struct vty *vty, const char *negate)
 {
-	if (disable)
+	if (negate)
 		vty_conf->flags &= ~F_LDPD_ENABLED;
 	else {
 		vty->node = LDP_NODE;
@@ -422,7 +422,7 @@ ldp_vty_mpls_ldp(struct vty *vty, int disable)
 }
 
 int
-ldp_vty_address_family(struct vty *vty, int disable, const char *af_str)
+ldp_vty_address_family(struct vty *vty, const char *negate, const char *af_str)
 {
 	struct ldpd_af_conf	*af_conf;
 	int			 af;
@@ -436,7 +436,7 @@ ldp_vty_address_family(struct vty *vty, int disable, const char *af_str)
 	} else
 		return (CMD_WARNING_CONFIG_FAILED);
 
-	if (disable) {
+	if (negate) {
 		af_conf->flags &= ~F_LDPD_AF_ENABLED;
 		ldp_config_apply(vty, vty_conf);
 		return (CMD_SUCCESS);
@@ -460,22 +460,14 @@ ldp_vty_address_family(struct vty *vty, int disable, const char *af_str)
 }
 
 int
-ldp_vty_disc_holdtime(struct vty *vty, int disable, const char *hello_type_str,
-    const char *seconds_str)
+ldp_vty_disc_holdtime(struct vty *vty, const char *negate,
+    const char *hello_type_str, long secs)
 {
 	struct ldpd_af_conf	*af_conf;
 	struct iface		*iface;
 	struct iface_af		*ia;
 	int			 af;
-	char			*ep;
-	long int		 secs;
 	enum hello_type		 hello_type;
-
-	secs = strtol(seconds_str, &ep, 10);
-	if (*ep != '\0' || secs < MIN_HOLDTIME || secs > MAX_HOLDTIME) {
-		vty_out (vty, "%% Invalid holdtime\n");
-		return (CMD_WARNING_CONFIG_FAILED);
-	}
 
 	if (hello_type_str[0] == 'h')
 		hello_type = HELLO_LINK;
@@ -484,7 +476,7 @@ ldp_vty_disc_holdtime(struct vty *vty, int disable, const char *hello_type_str,
 
 	switch (vty->node) {
 	case LDP_NODE:
-		if (disable) {
+		if (negate) {
 			switch (hello_type) {
 			case HELLO_LINK:
 				vty_conf->lhello_holdtime = LINK_DFLT_HOLDTIME;
@@ -511,7 +503,7 @@ ldp_vty_disc_holdtime(struct vty *vty, int disable, const char *hello_type_str,
 		af = ldp_vty_get_af(vty);
 		af_conf = ldp_af_conf_get(vty_conf, af);
 
-		if (disable) {
+		if (negate) {
 			switch (hello_type) {
 			case HELLO_LINK:
 				af_conf->lhello_holdtime = 0;
@@ -539,7 +531,7 @@ ldp_vty_disc_holdtime(struct vty *vty, int disable, const char *hello_type_str,
 		VTY_CHECK_CONTEXT(iface);
 
 		ia = iface_af_get(iface, af);
-		if (disable)
+		if (negate)
 			ia->hello_holdtime = 0;
 		else
 			ia->hello_holdtime = secs;
@@ -554,23 +546,14 @@ ldp_vty_disc_holdtime(struct vty *vty, int disable, const char *hello_type_str,
 }
 
 int
-ldp_vty_disc_interval(struct vty *vty, int disable, const char *hello_type_str,
-    const char *seconds_str)
+ldp_vty_disc_interval(struct vty *vty, const char *negate,
+    const char *hello_type_str, long secs)
 {
 	struct ldpd_af_conf	*af_conf;
 	struct iface		*iface;
 	struct iface_af		*ia;
 	int			 af;
-	char			*ep;
-	long int		 secs;
 	enum hello_type		 hello_type;
-
-	secs = strtol(seconds_str, &ep, 10);
-	if (*ep != '\0' || secs < MIN_HELLO_INTERVAL ||
-	    secs > MAX_HELLO_INTERVAL) {
-		vty_out (vty, "%% Invalid interval\n");
-		return (CMD_WARNING_CONFIG_FAILED);
-	}
 
 	if (hello_type_str[0] == 'h')
 		hello_type = HELLO_LINK;
@@ -579,14 +562,15 @@ ldp_vty_disc_interval(struct vty *vty, int disable, const char *hello_type_str,
 
 	switch (vty->node) {
 	case LDP_NODE:
-		if (disable) {
+		if (negate) {
 			switch (hello_type) {
 			case HELLO_LINK:
-				vty_conf->lhello_interval = LINK_DFLT_HOLDTIME;
+				vty_conf->lhello_interval =
+				    DEFAULT_HELLO_INTERVAL;
 				break;
 			case HELLO_TARGETED:
 				vty_conf->thello_interval =
-				    TARGETED_DFLT_HOLDTIME;
+				    DEFAULT_HELLO_INTERVAL;
 				break;
 			}
 		} else {
@@ -606,7 +590,7 @@ ldp_vty_disc_interval(struct vty *vty, int disable, const char *hello_type_str,
 		af = ldp_vty_get_af(vty);
 		af_conf = ldp_af_conf_get(vty_conf, af);
 
-		if (disable) {
+		if (negate) {
 			switch (hello_type) {
 			case HELLO_LINK:
 				af_conf->lhello_interval = 0;
@@ -634,7 +618,7 @@ ldp_vty_disc_interval(struct vty *vty, int disable, const char *hello_type_str,
 		VTY_CHECK_CONTEXT(iface);
 
 		ia = iface_af_get(iface, af);
-		if (disable)
+		if (negate)
 			ia->hello_interval = 0;
 		else
 			ia->hello_interval = secs;
@@ -649,7 +633,7 @@ ldp_vty_disc_interval(struct vty *vty, int disable, const char *hello_type_str,
 }
 
 int
-ldp_vty_targeted_hello_accept(struct vty *vty, int disable,
+ldp_vty_targeted_hello_accept(struct vty *vty, const char *negate,
     const char *acl_from_str)
 {
 	struct ldpd_af_conf	*af_conf;
@@ -658,7 +642,7 @@ ldp_vty_targeted_hello_accept(struct vty *vty, int disable,
 	af = ldp_vty_get_af(vty);
 	af_conf = ldp_af_conf_get(vty_conf, af);
 
-	if (disable) {
+	if (negate) {
 		af_conf->flags &= ~F_LDPD_AF_THELLO_ACCEPT;
 		af_conf->acl_thello_accept_from[0] = '\0';
 	} else {
@@ -676,29 +660,19 @@ ldp_vty_targeted_hello_accept(struct vty *vty, int disable,
 }
 
 int
-ldp_vty_nbr_session_holdtime(struct vty *vty, int disable,
-    const char *lsr_id_str, const char *seconds_str)
+ldp_vty_nbr_session_holdtime(struct vty *vty, const char *negate,
+    struct in_addr lsr_id, long secs)
 {
-	char			*ep;
-	long int		 secs;
-	struct in_addr		 lsr_id;
 	struct nbr_params	*nbrp;
 
-	if (inet_pton(AF_INET, lsr_id_str, &lsr_id) != 1 ||
-	    bad_addr_v4(lsr_id)) {
+	if (bad_addr_v4(lsr_id)) {
 		vty_out (vty, "%% Malformed address\n");
 		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
-	secs = strtol(seconds_str, &ep, 10);
-	if (*ep != '\0' || secs < MIN_KEEPALIVE || secs > MAX_KEEPALIVE) {
-		vty_out (vty, "%% Invalid holdtime\n");
-		return (CMD_SUCCESS);
-	}
-
 	nbrp = nbr_params_find(vty_conf, lsr_id);
 
-	if (disable) {
+	if (negate) {
 		if (nbrp == NULL)
 			return (CMD_SUCCESS);
 
@@ -722,24 +696,15 @@ ldp_vty_nbr_session_holdtime(struct vty *vty, int disable,
 }
 
 int
-ldp_vty_af_session_holdtime(struct vty *vty, int disable,
-    const char *seconds_str)
+ldp_vty_af_session_holdtime(struct vty *vty, const char *negate, long secs)
 {
 	struct ldpd_af_conf	*af_conf;
 	int			 af;
-	char			*ep;
-	long int		 secs;
-
-	secs = strtol(seconds_str, &ep, 10);
-	if (*ep != '\0' || secs < MIN_KEEPALIVE || secs > MAX_KEEPALIVE) {
-		vty_out (vty, "%% Invalid holdtime\n");
-		return (CMD_SUCCESS);
-	}
 
 	af = ldp_vty_get_af(vty);
 	af_conf = ldp_af_conf_get(vty_conf, af);
 
-	if (disable)
+	if (negate)
 		af_conf->keepalive = DEFAULT_KEEPALIVE;
 	else
 		af_conf->keepalive = secs;
@@ -750,7 +715,7 @@ ldp_vty_af_session_holdtime(struct vty *vty, int disable,
 }
 
 int
-ldp_vty_interface(struct vty *vty, int disable, const char *ifname)
+ldp_vty_interface(struct vty *vty, const char *negate, const char *ifname)
 {
 	int			 af;
 	struct iface		*iface;
@@ -759,7 +724,7 @@ ldp_vty_interface(struct vty *vty, int disable, const char *ifname)
 	af = ldp_vty_get_af(vty);
 	iface = if_lookup_name(vty_conf, ifname);
 
-	if (disable) {
+	if (negate) {
 		if (iface == NULL)
 			return (CMD_SUCCESS);
 
@@ -812,7 +777,7 @@ ldp_vty_interface(struct vty *vty, int disable, const char *ifname)
 }
 
 int
-ldp_vty_trans_addr(struct vty *vty, int disable, const char *addr_str)
+ldp_vty_trans_addr(struct vty *vty, const char *negate, const char *addr_str)
 {
 	struct ldpd_af_conf	*af_conf;
 	int			 af;
@@ -820,7 +785,7 @@ ldp_vty_trans_addr(struct vty *vty, int disable, const char *addr_str)
 	af = ldp_vty_get_af(vty);
 	af_conf = ldp_af_conf_get(vty_conf, af);
 
-	if (disable)
+	if (negate)
 		memset(&af_conf->trans_addr, 0, sizeof(af_conf->trans_addr));
 	else {
 		if (inet_pton(af, addr_str, &af_conf->trans_addr) != 1 ||
@@ -836,7 +801,7 @@ ldp_vty_trans_addr(struct vty *vty, int disable, const char *addr_str)
 }
 
 int
-ldp_vty_neighbor_targeted(struct vty *vty, int disable, const char *addr_str)
+ldp_vty_neighbor_targeted(struct vty *vty, const char *negate, const char *addr_str)
 {
 	int			 af;
 	union ldpd_addr		 addr;
@@ -856,7 +821,7 @@ ldp_vty_neighbor_targeted(struct vty *vty, int disable, const char *addr_str)
 
 	tnbr = tnbr_find(vty_conf, af, &addr);
 
-	if (disable) {
+	if (negate) {
 		if (tnbr == NULL)
 			return (CMD_SUCCESS);
 
@@ -883,7 +848,7 @@ ldp_vty_neighbor_targeted(struct vty *vty, int disable, const char *addr_str)
 }
 
 int
-ldp_vty_label_advertise(struct vty *vty, int disable, const char *acl_to_str,
+ldp_vty_label_advertise(struct vty *vty, const char *negate, const char *acl_to_str,
     const char *acl_for_str)
 {
 	struct ldpd_af_conf	*af_conf;
@@ -892,7 +857,7 @@ ldp_vty_label_advertise(struct vty *vty, int disable, const char *acl_to_str,
 	af = ldp_vty_get_af(vty);
 	af_conf = ldp_af_conf_get(vty_conf, af);
 
-	if (disable) {
+	if (negate) {
 		af_conf->acl_label_advertise_to[0] = '\0';
 		af_conf->acl_label_advertise_for[0] = '\0';
 	} else {
@@ -914,7 +879,7 @@ ldp_vty_label_advertise(struct vty *vty, int disable, const char *acl_to_str,
 }
 
 int
-ldp_vty_label_allocate(struct vty *vty, int disable, int host_routes,
+ldp_vty_label_allocate(struct vty *vty, const char *negate, const char *host_routes,
     const char *acl_for_str)
 {
 	struct ldpd_af_conf	*af_conf;
@@ -925,7 +890,7 @@ ldp_vty_label_allocate(struct vty *vty, int disable, int host_routes,
 
 	af_conf->flags &= ~F_LDPD_AF_ALLOCHOSTONLY;
 	af_conf->acl_label_allocate_for[0] = '\0';
-	if (!disable) {
+	if (!negate) {
 		if (host_routes)
 			af_conf->flags |= F_LDPD_AF_ALLOCHOSTONLY;
 		else
@@ -939,7 +904,7 @@ ldp_vty_label_allocate(struct vty *vty, int disable, int host_routes,
 }
 
 int
-ldp_vty_label_expnull(struct vty *vty, int disable, const char *acl_for_str)
+ldp_vty_label_expnull(struct vty *vty, const char *negate, const char *acl_for_str)
 {
 	struct ldpd_af_conf	*af_conf;
 	int			 af;
@@ -947,7 +912,7 @@ ldp_vty_label_expnull(struct vty *vty, int disable, const char *acl_for_str)
 	af = ldp_vty_get_af(vty);
 	af_conf = ldp_af_conf_get(vty_conf, af);
 
-	if (disable) {
+	if (negate) {
 		af_conf->flags &= ~F_LDPD_AF_EXPNULL;
 		af_conf->acl_label_expnull_for[0] = '\0';
 	} else {
@@ -965,7 +930,7 @@ ldp_vty_label_expnull(struct vty *vty, int disable, const char *acl_for_str)
 }
 
 int
-ldp_vty_label_accept(struct vty *vty, int disable, const char *acl_from_str,
+ldp_vty_label_accept(struct vty *vty, const char *negate, const char *acl_from_str,
     const char *acl_for_str)
 {
 	struct ldpd_af_conf	*af_conf;
@@ -974,7 +939,7 @@ ldp_vty_label_accept(struct vty *vty, int disable, const char *acl_from_str,
 	af = ldp_vty_get_af(vty);
 	af_conf = ldp_af_conf_get(vty_conf, af);
 
-	if (disable) {
+	if (negate) {
 		af_conf->acl_label_accept_from[0] = '\0';
 		af_conf->acl_label_accept_for[0] = '\0';
 	} else {
@@ -996,7 +961,7 @@ ldp_vty_label_accept(struct vty *vty, int disable, const char *acl_from_str,
 }
 
 int
-ldp_vty_ttl_security(struct vty *vty, int disable)
+ldp_vty_ttl_security(struct vty *vty, const char *negate)
 {
 	struct ldpd_af_conf	*af_conf;
 	int			 af;
@@ -1004,7 +969,7 @@ ldp_vty_ttl_security(struct vty *vty, int disable)
 	af = ldp_vty_get_af(vty);
 	af_conf = ldp_af_conf_get(vty_conf, af);
 
-	if (disable)
+	if (negate)
 		af_conf->flags &= ~F_LDPD_AF_NO_GTSM;
 	else
 		af_conf->flags |= F_LDPD_AF_NO_GTSM;
@@ -1015,16 +980,16 @@ ldp_vty_ttl_security(struct vty *vty, int disable)
 }
 
 int
-ldp_vty_router_id(struct vty *vty, int disable, const char *addr_str)
+ldp_vty_router_id(struct vty *vty, const char *negate, struct in_addr address)
 {
-	if (disable)
+	if (negate)
 		vty_conf->rtr_id.s_addr = INADDR_ANY;
 	else {
-		if (inet_pton(AF_INET, addr_str, &vty_conf->rtr_id) != 1 ||
-		    bad_addr_v4(vty_conf->rtr_id)) {
+		if (bad_addr_v4(address)) {
 			vty_out (vty, "%% Malformed address\n");
 			return (CMD_SUCCESS);
 		}
+		vty_conf->rtr_id = address;
 	}
 
 	ldp_config_apply(vty, vty_conf);
@@ -1033,9 +998,9 @@ ldp_vty_router_id(struct vty *vty, int disable, const char *addr_str)
 }
 
 int
-ldp_vty_ds_cisco_interop(struct vty *vty, int disable)
+ldp_vty_ds_cisco_interop(struct vty *vty, const char * negate)
 {
-	if (disable)
+	if (negate)
 		vty_conf->flags &= ~F_LDPD_DS_CISCO_INTEROP;
 	else
 		vty_conf->flags |= F_LDPD_DS_CISCO_INTEROP;
@@ -1046,9 +1011,9 @@ ldp_vty_ds_cisco_interop(struct vty *vty, int disable)
 }
 
 int
-ldp_vty_trans_pref_ipv4(struct vty *vty, int disable)
+ldp_vty_trans_pref_ipv4(struct vty *vty, const char *negate)
 {
-	if (disable)
+	if (negate)
 		vty_conf->trans_pref = DUAL_STACK_LDPOV6;
 	else
 		vty_conf->trans_pref = DUAL_STACK_LDPOV4;
@@ -1059,22 +1024,20 @@ ldp_vty_trans_pref_ipv4(struct vty *vty, int disable)
 }
 
 int
-ldp_vty_neighbor_password(struct vty *vty, int disable, const char *lsr_id_str,
+ldp_vty_neighbor_password(struct vty *vty, const char *negate, struct in_addr lsr_id,
     const char *password_str)
 {
-	struct in_addr		 lsr_id;
 	size_t			 password_len;
 	struct nbr_params	*nbrp;
 
-	if (inet_pton(AF_INET, lsr_id_str, &lsr_id) != 1 ||
-	    bad_addr_v4(lsr_id)) {
+	if (bad_addr_v4(lsr_id)) {
 		vty_out (vty, "%% Malformed address\n");
 		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
 	nbrp = nbr_params_find(vty_conf, lsr_id);
 
-	if (disable) {
+	if (negate) {
 		if (nbrp == NULL)
 			return (CMD_SUCCESS);
 
@@ -1104,16 +1067,14 @@ ldp_vty_neighbor_password(struct vty *vty, int disable, const char *lsr_id_str,
 }
 
 int
-ldp_vty_neighbor_ttl_security(struct vty *vty, int disable,
-    const char *lsr_id_str, const char *hops_str)
+ldp_vty_neighbor_ttl_security(struct vty *vty, const char *negate,
+    struct in_addr lsr_id, const char *hops_str)
 {
-	struct in_addr		 lsr_id;
 	struct nbr_params	*nbrp;
 	long int		 hops = 0;
 	char			*ep;
 
-	if (inet_pton(AF_INET, lsr_id_str, &lsr_id) != 1 ||
-	    bad_addr_v4(lsr_id)) {
+	if (bad_addr_v4(lsr_id)) {
 		vty_out (vty, "%% Malformed address\n");
 		return (CMD_WARNING_CONFIG_FAILED);
 	}
@@ -1128,7 +1089,7 @@ ldp_vty_neighbor_ttl_security(struct vty *vty, int disable,
 
 	nbrp = nbr_params_find(vty_conf, lsr_id);
 
-	if (disable) {
+	if (negate) {
 		if (nbrp == NULL)
 			return (CMD_SUCCESS);
 
@@ -1158,7 +1119,7 @@ ldp_vty_neighbor_ttl_security(struct vty *vty, int disable,
 }
 
 int
-ldp_vty_l2vpn(struct vty *vty, int disable, const char *name_str)
+ldp_vty_l2vpn(struct vty *vty, const char *negate, const char *name_str)
 {
 	struct l2vpn		*l2vpn;
 	struct l2vpn_if		*lif;
@@ -1166,7 +1127,7 @@ ldp_vty_l2vpn(struct vty *vty, int disable, const char *name_str)
 
 	l2vpn = l2vpn_find(vty_conf, name_str);
 
-	if (disable) {
+	if (negate) {
 		if (l2vpn == NULL)
 			return (CMD_SUCCESS);
 
@@ -1203,11 +1164,11 @@ ldp_vty_l2vpn(struct vty *vty, int disable, const char *name_str)
 }
 
 int
-ldp_vty_l2vpn_bridge(struct vty *vty, int disable, const char *ifname)
+ldp_vty_l2vpn_bridge(struct vty *vty, const char *negate, const char *ifname)
 {
 	VTY_DECLVAR_CONTEXT(l2vpn, l2vpn);
 
-	if (disable)
+	if (negate)
 		memset(l2vpn->br_ifname, 0, sizeof(l2vpn->br_ifname));
 	else
 		strlcpy(l2vpn->br_ifname, ifname, sizeof(l2vpn->br_ifname));
@@ -1218,19 +1179,11 @@ ldp_vty_l2vpn_bridge(struct vty *vty, int disable, const char *ifname)
 }
 
 int
-ldp_vty_l2vpn_mtu(struct vty *vty, int disable, const char *mtu_str)
+ldp_vty_l2vpn_mtu(struct vty *vty, const char *negate, long mtu)
 {
 	VTY_DECLVAR_CONTEXT(l2vpn, l2vpn);
-	char			*ep;
-	int			 mtu;
 
-	mtu = strtol(mtu_str, &ep, 10);
-	if (*ep != '\0' || mtu < MIN_L2VPN_MTU || mtu > MAX_L2VPN_MTU) {
-		vty_out (vty, "%% Invalid MTU\n");
-		return (CMD_WARNING_CONFIG_FAILED);
-	}
-
-	if (disable)
+	if (negate)
 		l2vpn->mtu = DEFAULT_L2VPN_MTU;
 	else
 		l2vpn->mtu = mtu;
@@ -1241,7 +1194,7 @@ ldp_vty_l2vpn_mtu(struct vty *vty, int disable, const char *mtu_str)
 }
 
 int
-ldp_vty_l2vpn_pwtype(struct vty *vty, int disable, const char *type_str)
+ldp_vty_l2vpn_pwtype(struct vty *vty, const char *negate, const char *type_str)
 {
 	VTY_DECLVAR_CONTEXT(l2vpn, l2vpn);
 	int			 pw_type;
@@ -1251,7 +1204,7 @@ ldp_vty_l2vpn_pwtype(struct vty *vty, int disable, const char *type_str)
 	else
 		pw_type = PW_TYPE_ETHERNET_TAGGED;
 
-	if (disable)
+	if (negate)
 		l2vpn->pw_type = DEFAULT_PW_TYPE;
 	else
 		l2vpn->pw_type = pw_type;
@@ -1262,14 +1215,14 @@ ldp_vty_l2vpn_pwtype(struct vty *vty, int disable, const char *type_str)
 }
 
 int
-ldp_vty_l2vpn_interface(struct vty *vty, int disable, const char *ifname)
+ldp_vty_l2vpn_interface(struct vty *vty, const char *negate, const char *ifname)
 {
 	VTY_DECLVAR_CONTEXT(l2vpn, l2vpn);
 	struct l2vpn_if		*lif;
 
 	lif = l2vpn_if_find(l2vpn, ifname);
 
-	if (disable) {
+	if (negate) {
 		if (lif == NULL)
 			return (CMD_SUCCESS);
 
@@ -1300,14 +1253,14 @@ ldp_vty_l2vpn_interface(struct vty *vty, int disable, const char *ifname)
 }
 
 int
-ldp_vty_l2vpn_pseudowire(struct vty *vty, int disable, const char *ifname)
+ldp_vty_l2vpn_pseudowire(struct vty *vty, const char *negate, const char *ifname)
 {
 	VTY_DECLVAR_CONTEXT(l2vpn, l2vpn);
 	struct l2vpn_pw		*pw;
 
 	pw = l2vpn_pw_find(l2vpn, ifname);
 
-	if (disable) {
+	if (negate) {
 		if (pw == NULL)
 			return (CMD_SUCCESS);
 
@@ -1346,11 +1299,11 @@ ldp_vty_l2vpn_pseudowire(struct vty *vty, int disable, const char *ifname)
 }
 
 int
-ldp_vty_l2vpn_pw_cword(struct vty *vty, int disable, const char *preference_str)
+ldp_vty_l2vpn_pw_cword(struct vty *vty, const char *negate, const char *preference_str)
 {
 	VTY_DECLVAR_CONTEXT_SUB(l2vpn_pw, pw);
 
-	if (disable)
+	if (negate)
 		pw->flags |= F_PW_CWORD_CONF;
 	else {
 		if (preference_str[0] == 'e')
@@ -1365,7 +1318,7 @@ ldp_vty_l2vpn_pw_cword(struct vty *vty, int disable, const char *preference_str)
 }
 
 int
-ldp_vty_l2vpn_pw_nbr_addr(struct vty *vty, int disable, const char *addr_str)
+ldp_vty_l2vpn_pw_nbr_addr(struct vty *vty, const char *negate, const char *addr_str)
 {
 	VTY_DECLVAR_CONTEXT_SUB(l2vpn_pw, pw);
 	int			 af;
@@ -1377,7 +1330,7 @@ ldp_vty_l2vpn_pw_nbr_addr(struct vty *vty, int disable, const char *addr_str)
 		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
-	if (disable) {
+	if (negate) {
 		pw->af = AF_UNSPEC;
 		memset(&pw->addr, 0, sizeof(pw->addr));
 		pw->flags &= ~F_PW_STATIC_NBR_ADDR;
@@ -1393,18 +1346,16 @@ ldp_vty_l2vpn_pw_nbr_addr(struct vty *vty, int disable, const char *addr_str)
 }
 
 int
-ldp_vty_l2vpn_pw_nbr_id(struct vty *vty, int disable, const char *lsr_id_str)
+ldp_vty_l2vpn_pw_nbr_id(struct vty *vty, const char *negate, struct in_addr lsr_id)
 {
 	VTY_DECLVAR_CONTEXT_SUB(l2vpn_pw, pw);
-	struct in_addr		 lsr_id;
 
-	if (inet_pton(AF_INET, lsr_id_str, &lsr_id) != 1 ||
-	    bad_addr_v4(lsr_id)) {
+	if (bad_addr_v4(lsr_id)) {
 		vty_out (vty, "%% Malformed address\n");
 		return (CMD_WARNING_CONFIG_FAILED);
 	}
 
-	if (disable)
+	if (negate)
 		pw->lsr_id.s_addr = INADDR_ANY;
 	else
 		pw->lsr_id = lsr_id;
@@ -1415,19 +1366,11 @@ ldp_vty_l2vpn_pw_nbr_id(struct vty *vty, int disable, const char *lsr_id_str)
 }
 
 int
-ldp_vty_l2vpn_pw_pwid(struct vty *vty, int disable, const char *pwid_str)
+ldp_vty_l2vpn_pw_pwid(struct vty *vty, const char *negate, long pwid)
 {
 	VTY_DECLVAR_CONTEXT_SUB(l2vpn_pw, pw);
-	char			*ep;
-	uint32_t		 pwid;
 
-	pwid = strtol(pwid_str, &ep, 10);
-	if (*ep != '\0' || pwid < MIN_PWID_ID || pwid > MAX_PWID_ID) {
-		vty_out (vty, "%% Invalid pw-id\n");
-		return (CMD_WARNING_CONFIG_FAILED);
-	}
-
-	if (disable)
+	if (negate)
 		pw->pwid = 0;
 	else
 		pw->pwid = pwid;
@@ -1438,11 +1381,11 @@ ldp_vty_l2vpn_pw_pwid(struct vty *vty, int disable, const char *pwid_str)
 }
 
 int
-ldp_vty_l2vpn_pw_pwstatus(struct vty *vty, int disable)
+ldp_vty_l2vpn_pw_pwstatus(struct vty *vty, const char *negate)
 {
 	VTY_DECLVAR_CONTEXT_SUB(l2vpn_pw, pw);
 
-	if (disable)
+	if (negate)
 		pw->flags |= F_PW_STATUSTLV_CONF;
 	else
 		pw->flags &= ~F_PW_STATUSTLV_CONF;

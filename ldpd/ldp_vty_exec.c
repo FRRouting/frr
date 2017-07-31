@@ -1565,7 +1565,7 @@ ldp_vty_get_af(const char *str, int *af)
 }
 
 int
-ldp_vty_show_binding(struct vty *vty, const char *af_str, int detail, int json)
+ldp_vty_show_binding(struct vty *vty, const char *af_str, const char *detail, const char *json)
 {
 	struct imsgbuf		 ibuf;
 	struct show_params	 params;
@@ -1579,8 +1579,8 @@ ldp_vty_show_binding(struct vty *vty, const char *af_str, int detail, int json)
 
 	memset(&params, 0, sizeof(params));
 	params.family = af;
-	params.detail = detail;
-	params.json = json;
+	params.detail = (detail) ? 1 : 0;
+	params.json = (json) ? 1 : 0;
 
 	if (!params.detail && !params.json)
 		vty_out (vty, "%-4s %-20s %-15s %-11s %-13s %6s\n", "AF",
@@ -1592,8 +1592,8 @@ ldp_vty_show_binding(struct vty *vty, const char *af_str, int detail, int json)
 }
 
 int
-ldp_vty_show_discovery(struct vty *vty, const char *af_str, int detail,
-    int json)
+ldp_vty_show_discovery(struct vty *vty, const char *af_str, const char *detail,
+    const char *json)
 {
 	struct imsgbuf		 ibuf;
 	struct show_params	 params;
@@ -1607,8 +1607,8 @@ ldp_vty_show_discovery(struct vty *vty, const char *af_str, int detail,
 
 	memset(&params, 0, sizeof(params));
 	params.family = af;
-	params.detail = detail;
-	params.json = json;
+	params.detail = (detail) ? 1 : 0;
+	params.json = (json) ? 1 : 0;
 
 	if (!params.detail && !params.json)
 		vty_out (vty, "%-4s %-15s %-8s %-15s %9s\n",
@@ -1623,7 +1623,7 @@ ldp_vty_show_discovery(struct vty *vty, const char *af_str, int detail,
 }
 
 int
-ldp_vty_show_interface(struct vty *vty, const char *af_str, int json)
+ldp_vty_show_interface(struct vty *vty, const char *af_str, const char *json)
 {
 	struct imsgbuf		 ibuf;
 	struct show_params	 params;
@@ -1638,7 +1638,7 @@ ldp_vty_show_interface(struct vty *vty, const char *af_str, int json)
 
 	memset(&params, 0, sizeof(params));
 	params.family = af;
-	params.json = json;
+	params.json = (json) ? 1 : 0;
 
 	/* header */
 	if (!params.json) {
@@ -1652,7 +1652,7 @@ ldp_vty_show_interface(struct vty *vty, const char *af_str, int json)
 }
 
 int
-ldp_vty_show_capabilities(struct vty *vty, int json)
+ldp_vty_show_capabilities(struct vty *vty, const char *json)
 {
 	if (json) {
 		json_object	*json;
@@ -1703,7 +1703,7 @@ ldp_vty_show_capabilities(struct vty *vty, int json)
 }
 
 int
-ldp_vty_show_neighbor(struct vty *vty, int capabilities, int detail, int json)
+ldp_vty_show_neighbor(struct vty *vty, int capabilities, const char *detail, const char *json)
 {
 	struct imsgbuf		 ibuf;
 	struct show_params	 params;
@@ -1713,8 +1713,8 @@ ldp_vty_show_neighbor(struct vty *vty, int capabilities, int detail, int json)
 
 	memset(&params, 0, sizeof(params));
 	params.capabilities = capabilities;
-	params.detail = detail;
-	params.json = json;
+	params.detail = (detail) ? 1 : 0;
+	params.json = (json) ? 1 : 0;
 
 	if (params.capabilities)
 		params.detail = 1;
@@ -1728,7 +1728,7 @@ ldp_vty_show_neighbor(struct vty *vty, int capabilities, int detail, int json)
 }
 
 int
-ldp_vty_show_atom_binding(struct vty *vty, int json)
+ldp_vty_show_atom_binding(struct vty *vty, const char *json)
 {
 	struct imsgbuf		 ibuf;
 	struct show_params	 params;
@@ -1737,14 +1737,14 @@ ldp_vty_show_atom_binding(struct vty *vty, int json)
 		return (CMD_WARNING);
 
 	memset(&params, 0, sizeof(params));
-	params.json = json;
+	params.json = (json) ? 1 : 0;
 
 	imsg_compose(&ibuf, IMSG_CTL_SHOW_L2VPN_BINDING, 0, 0, -1, NULL, 0);
 	return (ldp_vty_dispatch(vty, &ibuf, SHOW_L2VPN_BINDING, &params));
 }
 
 int
-ldp_vty_show_atom_vc(struct vty *vty, int json)
+ldp_vty_show_atom_vc(struct vty *vty, const char *json)
 {
 	struct imsgbuf		 ibuf;
 	struct show_params	 params;
@@ -1753,7 +1753,7 @@ ldp_vty_show_atom_vc(struct vty *vty, int json)
 		return (CMD_WARNING);
 
 	memset(&params, 0, sizeof(params));
-	params.json = json;
+	params.json = (json) ? 1 : 0;
 
 	if (!params.json) {
 		/* header */
