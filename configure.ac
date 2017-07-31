@@ -75,14 +75,13 @@ AC_SUBST(exampledir)
 
 dnl default is to match previous behavior
 pkgsrcrcdir=""
-pkgsrcdir=""
 AC_ARG_ENABLE([pkgsrcrcdir],
 	  AS_HELP_STRING([--enable-pkgsrcrcdir],
 			 [specify directory for rc.d scripts]),
-			 pkgsrcrcdir="$enableval"; pkgsrcdir="pkgsrc",)
+			 pkgsrcrcdir="$enableval",)
 dnl XXX add --pkgsrcrcdir to autoconf standard directory list somehow
-AC_SUBST(pkgsrcdir)
 AC_SUBST(pkgsrcrcdir)
+AM_CONDITIONAL([PKGSRC], [test "x$pkgsrcrcdir" != "x"])
 
 AC_ARG_WITH([moduledir], [AS_HELP_STRING([--with-moduledir=DIR], [module directory (${libdir}/frr/modules)])], [
 	moduledir="$withval"
@@ -1823,18 +1822,14 @@ AC_MSG_RESULT($ac_cv_htonl_works)
 AC_CONFIG_FILES([Makefile ripd/Makefile
 	  ripngd/Makefile bgpd/Makefile ospfd/Makefile watchfrr/Makefile
 	  ospf6d/Makefile ldpd/Makefile isisd/Makefile vtysh/Makefile
-	  doc/Makefile ospfclient/Makefile tests/Makefile m4/Makefile
+	  doc/Makefile ospfclient/Makefile tests/Makefile
 	  bgpd/rfp-example/rfptest/Makefile bgpd/rfp-example/librfp/Makefile
 	  babeld/Makefile
 	  pimd/Makefile
 	  eigrpd/Makefile
 	  nhrpd/Makefile
-	  redhat/Makefile
 	  tools/Makefile
-	  pkgsrc/Makefile
-	  python/Makefile
 	  redhat/frr.spec
-	  snapcraft/Makefile
 	  snapcraft/snapcraft.yaml
 	  lib/version.h
 	  tests/lib/cli/test_cli.refout
