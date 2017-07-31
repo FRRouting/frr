@@ -2615,9 +2615,39 @@ DEFUN (config_list,
 	return cmd_list_cmds(vty, argc == 2);
 }
 
+DEFUN(find,
+      find_cmd,
+      "find COMMAND...",
+      "Find CLI command containing text\n"
+      "Text to search for\n")
+{
+	char *text = argv_concat(argv, argc, 1);
+	const struct cmd_node *node;
+	const struct cmd_element *cli;
+	vector clis;
+
+	for (unsigned int i = 0; i < vector_active(cmdvec); i++) {
+		node = vector_slot(cmdvec, i);
+		if (!node)
+			continue;
+		clis = node->cmd_vector;
+		for (unsigned int j = 0; j < vector_active(clis); j++) {
+			cli = vector_slot(clis, j);
+			if (strcasestr(cli->string, text))
+				fprintf(stdout, "  (%s)  %s\n",
+					node_names[node->node], cli->string);
+		}
+	}
+
+	XFREE(MTYPE_TMP, text);
+
+	return CMD_SUCCESS;
+}
+
 static void vtysh_install_default(enum node_type node)
 {
 	install_element(node, &config_list_cmd);
+	install_element(node, &find_cmd);
 }
 
 /* Making connection to protocol daemon. */
@@ -2909,48 +2939,13 @@ void vtysh_init_vty(void)
 	install_node(&isis_node, NULL);
 	install_node(&vty_node, NULL);
 
-	vtysh_install_default(VIEW_NODE);
-	vtysh_install_default(CONFIG_NODE);
-	vtysh_install_default(BGP_NODE);
-	vtysh_install_default(RIP_NODE);
-	vtysh_install_default(INTERFACE_NODE);
-	vtysh_install_default(LINK_PARAMS_NODE);
-	vtysh_install_default(NS_NODE);
-	vtysh_install_default(VRF_NODE);
-	vtysh_install_default(RMAP_NODE);
-	vtysh_install_default(ZEBRA_NODE);
-	vtysh_install_default(BGP_VPNV4_NODE);
-	vtysh_install_default(BGP_VPNV6_NODE);
-	vtysh_install_default(BGP_IPV4_NODE);
-	vtysh_install_default(BGP_IPV4M_NODE);
-	vtysh_install_default(BGP_IPV4L_NODE);
-	vtysh_install_default(BGP_IPV6_NODE);
-	vtysh_install_default(BGP_IPV6M_NODE);
-	vtysh_install_default(BGP_EVPN_NODE);
-	vtysh_install_default(BGP_EVPN_VNI_NODE);
-	vtysh_install_default(BGP_IPV6L_NODE);
-#if ENABLE_BGP_VNC
-	vtysh_install_default(BGP_VRF_POLICY_NODE);
-	vtysh_install_default(BGP_VNC_DEFAULTS_NODE);
-	vtysh_install_default(BGP_VNC_NVE_GROUP_NODE);
-	vtysh_install_default(BGP_VNC_L2_GROUP_NODE);
-#endif
-	vtysh_install_default(OSPF_NODE);
-	vtysh_install_default(EIGRP_NODE);
-	vtysh_install_default(BABEL_NODE);
-	vtysh_install_default(RIPNG_NODE);
-	vtysh_install_default(OSPF6_NODE);
-	vtysh_install_default(LDP_NODE);
-	vtysh_install_default(LDP_IPV4_NODE);
-	vtysh_install_default(LDP_IPV6_NODE);
-	vtysh_install_default(LDP_IPV4_IFACE_NODE);
-	vtysh_install_default(LDP_IPV6_IFACE_NODE);
-	vtysh_install_default(LDP_L2VPN_NODE);
-	vtysh_install_default(LDP_PSEUDOWIRE_NODE);
-	vtysh_install_default(ISIS_NODE);
-	vtysh_install_default(KEYCHAIN_NODE);
-	vtysh_install_default(KEYCHAIN_KEY_NODE);
-	vtysh_install_default(VTY_NODE);
+	struct cmd_node *node;
+	for (unsigned int i = 0; i < vector_active(cmdvec); i++) {
+		node = vector_slot(cmdvec, i);
+		if (!node || node->node == VIEW_NODE)
+			continue;
+		vtysh_install_default(node->node);
+	}
 
 	install_element(VIEW_NODE, &vtysh_enable_cmd);
 	install_element(ENABLE_NODE, &vtysh_config_terminal_cmd);

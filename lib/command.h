@@ -68,7 +68,7 @@ struct host {
 	char *motdfile;
 };
 
-/* There are some command levels which called from command node. */
+/* List of CLI nodes. Please remember to update the name array in command.c. */
 enum node_type {
 	AUTH_NODE,		/* Authentication mode of vty interface. */
 	VIEW_NODE,		/* View node. Default mode of vty interface. */
@@ -135,7 +135,11 @@ enum node_type {
 	VTY_NODE,		/* Vty node. */
 	LINK_PARAMS_NODE,       /* Link-parameters node */
 	BGP_EVPN_VNI_NODE,      /* BGP EVPN VNI */
+	NODE_TYPE_MAX,		/* maximum */
 };
+
+extern vector cmdvec;
+extern const char *node_names[];
 
 /* Node which has some commands and prompt string and configuration
    function pointer . */
