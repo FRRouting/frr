@@ -693,6 +693,9 @@ void frr_run(struct thread_master *master)
 		daemon_ctl_sock = -1;
 	}
 
+	/* end fixed stderr startup logging */
+	zlog_startup_stderr = false;
+
 	struct thread thread;
 	while (thread_fetch(master, &thread))
 		thread_call(&thread);

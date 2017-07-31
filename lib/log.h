@@ -24,6 +24,7 @@
 
 #include <syslog.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 /* Here is some guidance on logging levels to use:
@@ -53,6 +54,8 @@ typedef enum {
 	ZLOG_DEST_FILE
 } zlog_dest_t;
 #define ZLOG_NUM_DESTS		(ZLOG_DEST_FILE+1)
+
+extern bool zlog_startup_stderr;
 
 /* Message structure. */
 struct message {

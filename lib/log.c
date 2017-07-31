@@ -41,6 +41,7 @@ DEFINE_MTYPE_STATIC(LIB, ZLOG, "Logging")
 static int logfile_fd = -1; /* Used in signal handler. */
 
 struct zlog *zlog_default = NULL;
+bool zlog_startup_stderr = true;
 
 const char *zlog_priority[] = {
 	"emergencies",   "alerts",	"critical",  "errors", "warnings",
@@ -172,6 +173,25 @@ static void time_print(FILE *fp, struct timestamp_control *ctl)
 }
 
 
+static void vzlog_file(struct zlog *zl, struct timestamp_control *tsctl,
+		       const char *proto_str, int record_priority,
+		       int priority, FILE *fp, const char *format,
+		       va_list args)
+{
+	va_list ac;
+
+	time_print(fp, tsctl);
+	if (record_priority)
+		fprintf(fp, "%s: ", zlog_priority[priority]);
+
+	fprintf(fp, "%s", proto_str);
+	va_copy(ac, args);
+	vfprintf(fp, format, ac);
+	va_end(ac);
+	fprintf(fp, "\n");
+	fflush(fp);
+}
+
 /* va_list version of zlog. */
 void vzlog(int priority, const char *format, va_list args)
 {
@@ -210,32 +230,21 @@ void vzlog(int priority, const char *format, va_list args)
 		sprintf(proto_str, "%s: ", zl->protoname);
 
 	/* File output. */
-	if ((priority <= zl->maxlvl[ZLOG_DEST_FILE]) && zl->fp) {
-		va_list ac;
-		time_print(zl->fp, &tsctl);
-		if (zl->record_priority)
-			fprintf(zl->fp, "%s: ", zlog_priority[priority]);
-		fprintf(zl->fp, "%s", proto_str);
-		va_copy(ac, args);
-		vfprintf(zl->fp, format, ac);
-		va_end(ac);
-		fprintf(zl->fp, "\n");
-		fflush(zl->fp);
-	}
+	if ((priority <= zl->maxlvl[ZLOG_DEST_FILE]) && zl->fp)
+		vzlog_file(zl, &tsctl, proto_str, zl->record_priority,
+				priority, zl->fp, format, args);
 
-	/* stdout output. */
-	if (priority <= zl->maxlvl[ZLOG_DEST_STDOUT]) {
-		va_list ac;
-		time_print(stdout, &tsctl);
-		if (zl->record_priority)
-			fprintf(stdout, "%s: ", zlog_priority[priority]);
-		fprintf(stdout, "%s", proto_str);
-		va_copy(ac, args);
-		vfprintf(stdout, format, ac);
-		va_end(ac);
-		fprintf(stdout, "\n");
-		fflush(stdout);
-	}
+	/* fixed-config logging to stderr while we're stating up & haven't
+	 * daemonized / reached mainloop yet
+	 *
+	 * note the "else" on stdout output -- we don't want to print the same
+	 * message to both stderr and stdout. */
+	if (zlog_startup_stderr && priority <= LOG_WARNING)
+		vzlog_file(zl, &tsctl, proto_str, 1,
+				priority, stderr, format, args);
+	else if (priority <= zl->maxlvl[ZLOG_DEST_STDOUT])
+		vzlog_file(zl, &tsctl, proto_str, zl->record_priority,
+				priority, stdout, format, args);
 
 	/* Terminal monitor. */
 	if (priority <= zl->maxlvl[ZLOG_DEST_MONITOR])
