@@ -214,14 +214,14 @@ static int ospf6_zebra_read_ipv6(int command, struct zclient *zclient,
 	struct zapi_ipv6 api;
 	unsigned long ifindex;
 	struct prefix p, src_p;
-	struct in6_addr nexthop;
+	struct in6_addr *nexthop;
 
 	if (ospf6 == NULL)
 		return 0;
 
 	s = zclient->ibuf;
 	ifindex = 0;
-	memset(&nexthop, 0, sizeof(struct in6_addr));
+	nexthop = NULL;
 	memset(&api, 0, sizeof(api));
 
 	/* Type, flags, message. */
@@ -250,7 +250,10 @@ static int ospf6_zebra_read_ipv6(int command, struct zclient *zclient,
 	/* Nexthop, ifindex, distance, metric. */
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)) {
 		api.nexthop_num = stream_getc(s);
-		stream_get(&nexthop, s, IPV6_MAX_BYTELEN);
+		nexthop = (struct in6_addr *)malloc(api.nexthop_num
+						    * sizeof(struct in6_addr));
+		stream_get(nexthop, s,
+			   api.nexthop_num * sizeof(struct in6_addr));
 	}
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_IFINDEX)) {
 		api.ifindex_num = stream_getc(s);
@@ -273,9 +276,9 @@ static int ospf6_zebra_read_ipv6(int command, struct zclient *zclient,
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV)) {
 		char prefixstr[PREFIX2STR_BUFFER], nexthopstr[128];
 		prefix2str((struct prefix *)&p, prefixstr, sizeof(prefixstr));
-		if (api.nexthop_num)
-			inet_ntop(AF_INET6, &nexthop, nexthopstr,
-				   sizeof(nexthopstr));
+		if (nexthop)
+			inet_ntop(AF_INET6, nexthop, nexthopstr,
+				  sizeof(nexthopstr));
 		else
 			snprintf(nexthopstr, sizeof(nexthopstr), "::");
 
@@ -289,10 +292,12 @@ static int ospf6_zebra_read_ipv6(int command, struct zclient *zclient,
 
 	if (command == ZEBRA_REDISTRIBUTE_IPV6_ADD)
 		ospf6_asbr_redistribute_add(api.type, ifindex, &p,
-					    api.nexthop_num, &nexthop, api.tag);
+					    api.nexthop_num, nexthop, api.tag);
 	else
 		ospf6_asbr_redistribute_remove(api.type, ifindex, &p);
 
+	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP))
+		free(nexthop);
 
 	return 0;
 }

@@ -351,7 +351,7 @@ void ospf6_route_delete(struct ospf6_route *route)
 {
 	if (route) {
 		if (route->nh_list)
-			list_free(route->nh_list);
+			list_delete(route->nh_list);
 		XFREE(MTYPE_OSPF6_ROUTE, route);
 	}
 }
@@ -630,7 +630,7 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 	if (prev || next) {
 		if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
 			zlog_debug(
-				"%s %p: route add %p: another path: prev %p, next %p node lock %u",
+				"%s %p: route add %p: another path: prev %p, next %p node refcount %u",
 				ospf6_route_table_name(table), (void *)table,
 				(void *)route, (void *)prev, (void *)next,
 				node->lock);
@@ -758,7 +758,7 @@ void ospf6_route_remove(struct ospf6_route *route,
 		prefix2str(&route->prefix, buf, sizeof(buf));
 
 	if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
-		zlog_debug("%s %p: route remove %p: %s rnode lock %u",
+		zlog_debug("%s %p: route remove %p: %s rnode refcount %u",
 			   ospf6_route_table_name(table), (void *)table,
 			   (void *)route, buf, route->rnode->lock);
 	else if (IS_OSPF6_DEBUG_ROUTE(TABLE))

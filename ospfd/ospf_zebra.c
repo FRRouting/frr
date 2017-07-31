@@ -51,6 +51,9 @@
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_te.h"
 
+DEFINE_MTYPE_STATIC(OSPFD, OSPF_EXTERNAL, "OSPF External route table")
+DEFINE_MTYPE_STATIC(OSPFD, OSPF_REDISTRIBUTE, "OSPF Redistriute")
+
 DEFINE_HOOK(ospf_if_update, (struct interface * ifp), (ifp))
 DEFINE_HOOK(ospf_if_delete, (struct interface * ifp), (ifp))
 
