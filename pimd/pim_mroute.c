@@ -779,8 +779,9 @@ int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr,
 	int err;
 
 	if (PIM_DEBUG_MROUTE)
-		zlog_debug("%s: Add Vif %d (%s)", __PRETTY_FUNCTION__,
-			   pim_ifp->mroute_vif_index, ifp->name);
+		zlog_debug("%s: Add Vif %d (%s[%s])", __PRETTY_FUNCTION__,
+			   pim_ifp->mroute_vif_index,
+			   ifp->name, pim_ifp->pim->vrf->name);
 
 	memset(&vc, 0, sizeof(vc));
 	vc.vifc_vifi = pim_ifp->mroute_vif_index;
@@ -832,9 +833,9 @@ int pim_mroute_del_vif(struct interface *ifp)
 	int err;
 
 	if (PIM_DEBUG_MROUTE)
-		zlog_debug("%s: Del Vif %d (%s)",  __PRETTY_FUNCTION__,
+		zlog_debug("%s: Del Vif %d (%s[%s])",  __PRETTY_FUNCTION__,
 			   pim_ifp->mroute_vif_index,
-			   ifp->name);
+			   ifp->name, pim_ifp->pim->vrf->name);
 
 	memset(&vc, 0, sizeof(vc));
 	vc.vifc_vifi = pim_ifp->mroute_vif_index;
@@ -920,7 +921,8 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 
 	if (PIM_DEBUG_MROUTE) {
 		char buf[1000];
-		zlog_debug("%s(%s), Added Route: %s", __PRETTY_FUNCTION__, name,
+		zlog_debug("%s(%s), vrf %s Added Route: %s", __PRETTY_FUNCTION__, name,
+			   pim->vrf->name,
 			   pim_channel_oil_dump(c_oil, buf, sizeof(buf)));
 	}
 
@@ -962,8 +964,9 @@ int pim_mroute_del(struct channel_oil *c_oil, const char *name)
 
 	if (PIM_DEBUG_MROUTE) {
 		char buf[1000];
-		zlog_debug("%s(%s), Deleted Route: %s", __PRETTY_FUNCTION__,
-			   name, pim_channel_oil_dump(c_oil, buf, sizeof(buf)));
+		zlog_debug("%s(%s), vrf %s Deleted Route: %s", __PRETTY_FUNCTION__,
+			   name, pim->vrf->name,
+			   pim_channel_oil_dump(c_oil, buf, sizeof(buf)));
 	}
 
 	// Reset kernel installed flag
