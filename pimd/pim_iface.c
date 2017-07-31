@@ -66,6 +66,8 @@ void pim_if_terminate(struct pim_instance *pim)
 
 static void *if_list_clean(struct pim_interface *pim_ifp)
 {
+	struct pim_ifchannel *ch;
+
 	if (pim_ifp->igmp_join_list) {
 		list_delete(pim_ifp->igmp_join_list);
 	}
@@ -81,11 +83,9 @@ static void *if_list_clean(struct pim_interface *pim_ifp)
 	if (pim_ifp->upstream_switch_list)
 		list_delete(pim_ifp->upstream_switch_list);
 
-	if (pim_ifp->ifchannel_list)
-		list_delete(pim_ifp->ifchannel_list);
-
-	if (pim_ifp->pim_ifchannel_hash)
-		hash_free(pim_ifp->pim_ifchannel_hash);
+	while ((ch = RB_ROOT(pim_ifchannel_rb,
+			     &pim_ifp->ifchannel_rb)) != NULL)
+		pim_ifchannel_delete(ch);
 
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
 
@@ -95,7 +95,6 @@ static void *if_list_clean(struct pim_interface *pim_ifp)
 struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
 {
 	struct pim_interface *pim_ifp;
-	char hash_name[64];
 
 	zassert(ifp);
 	zassert(!ifp->info);
@@ -138,8 +137,6 @@ struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
 	pim_ifp->igmp_socket_list = NULL;
 	pim_ifp->pim_neighbor_list = NULL;
 	pim_ifp->upstream_switch_list = NULL;
-	pim_ifp->ifchannel_list = NULL;
-	pim_ifp->pim_ifchannel_hash = NULL;
 	pim_ifp->pim_generation_id = 0;
 
 	/* list of struct igmp_sock */
@@ -167,22 +164,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
 		return if_list_clean(pim_ifp);
 	}
 
-	/* list of struct pim_ifchannel */
-	pim_ifp->ifchannel_list = list_new();
-	if (!pim_ifp->ifchannel_list) {
-		zlog_err("%s %s: failure: pim_ifchannel_list=list_new()",
-			 __FILE__, __PRETTY_FUNCTION__);
-		return if_list_clean(pim_ifp);
-	}
-	pim_ifp->ifchannel_list->del = (void (*)(void *))pim_ifchannel_free;
-	pim_ifp->ifchannel_list->cmp =
-		(int (*)(void *, void *))pim_ifchannel_compare;
-
-	snprintf(hash_name, 64, "Pim Interface %s hash",
-		 ifp->name);
-	pim_ifp->pim_ifchannel_hash =
-		hash_create(pim_ifchannel_hash_key, pim_ifchannel_equal,
-			    hash_name);
+	RB_INIT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb);
 
 	ifp->info = pim_ifp;
 
@@ -196,6 +178,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
 void pim_if_delete(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
+	struct pim_ifchannel *ch;
 
 	zassert(ifp);
 	pim_ifp = ifp->info;
@@ -215,9 +198,10 @@ void pim_if_delete(struct interface *ifp)
 	list_delete(pim_ifp->igmp_socket_list);
 	list_delete(pim_ifp->pim_neighbor_list);
 	list_delete(pim_ifp->upstream_switch_list);
-	list_delete(pim_ifp->ifchannel_list);
 
-	hash_free(pim_ifp->pim_ifchannel_hash);
+	while ((ch = RB_ROOT(pim_ifchannel_rb,
+			     &pim_ifp->ifchannel_rb)) != NULL)
+		pim_ifchannel_delete(ch);
 
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
 
@@ -227,15 +211,12 @@ void pim_if_delete(struct interface *ifp)
 void pim_if_update_could_assert(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
-	struct listnode *node;
-	struct listnode *next_node;
 	struct pim_ifchannel *ch;
 
 	pim_ifp = ifp->info;
 	zassert(pim_ifp);
 
-	for (ALL_LIST_ELEMENTS(pim_ifp->ifchannel_list, node, next_node,
-			       ch)) {
+	RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		pim_ifchannel_update_could_assert(ch);
 	}
 }
@@ -243,15 +224,12 @@ void pim_if_update_could_assert(struct interface *ifp)
 static void pim_if_update_my_assert_metric(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
-	struct listnode *node;
-	struct listnode *next_node;
 	struct pim_ifchannel *ch;
 
 	pim_ifp = ifp->info;
 	zassert(pim_ifp);
 
-	for (ALL_LIST_ELEMENTS(pim_ifp->ifchannel_list, node, next_node,
-			       ch)) {
+	RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		pim_ifchannel_update_my_assert_metric(ch);
 	}
 }
@@ -1472,15 +1450,12 @@ void pim_if_assert_on_neighbor_down(struct interface *ifp,
 				    struct in_addr neigh_addr)
 {
 	struct pim_interface *pim_ifp;
-	struct listnode *node;
-	struct listnode *next_node;
 	struct pim_ifchannel *ch;
 
 	pim_ifp = ifp->info;
 	zassert(pim_ifp);
 
-	for (ALL_LIST_ELEMENTS(pim_ifp->ifchannel_list, node, next_node,
-			       ch)) {
+	RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		/* Is (S,G,I) assert loser ? */
 		if (ch->ifassert_state != PIM_IFASSERT_I_AM_LOSER)
 			continue;
@@ -1494,17 +1469,16 @@ void pim_if_assert_on_neighbor_down(struct interface *ifp,
 
 void pim_if_update_join_desired(struct pim_interface *pim_ifp)
 {
-	struct listnode *ch_node;
 	struct pim_ifchannel *ch;
 
 	/* clear off flag from interface's upstreams */
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->ifchannel_list, ch_node, ch)) {
+	RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED_UPDATED(
 			ch->upstream->flags);
 	}
 
 	/* scan per-interface (S,G,I) state on this I interface */
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->ifchannel_list, ch_node, ch)) {
+	RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		struct pim_upstream *up = ch->upstream;
 
 		if (PIM_UPSTREAM_FLAG_TEST_DR_JOIN_DESIRED_UPDATED(up->flags))
@@ -1519,16 +1493,13 @@ void pim_if_update_join_desired(struct pim_interface *pim_ifp)
 void pim_if_update_assert_tracking_desired(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
-	struct listnode *node;
-	struct listnode *next_node;
 	struct pim_ifchannel *ch;
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp)
 		return;
 
-	for (ALL_LIST_ELEMENTS(pim_ifp->ifchannel_list, node, next_node,
-			       ch)) {
+	RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		pim_ifchannel_update_assert_tracking_desired(ch);
 	}
 }
@@ -1602,4 +1573,16 @@ int pim_if_is_vrf_device(struct interface *ifp)
 	}
 
 	return 0;
+}
+
+int pim_if_ifchannel_count(struct pim_interface *pim_ifp)
+{
+	struct pim_ifchannel *ch;
+	int count = 0;
+
+	RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
+		count++;
+	}
+
+	return count;
 }

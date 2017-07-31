@@ -43,7 +43,11 @@
 #include "pim_upstream.h"
 #include "pim_ssm.h"
 
-int pim_ifchannel_compare(struct pim_ifchannel *ch1, struct pim_ifchannel *ch2)
+RB_GENERATE(pim_ifchannel_rb, pim_ifchannel,
+	    pim_ifp_rb, pim_ifchannel_compare);
+
+int pim_ifchannel_compare(const struct pim_ifchannel *ch1,
+			  const struct pim_ifchannel *ch2)
 {
 	struct pim_interface *pim_ifp1;
 	struct pim_interface *pim_ifp2;
@@ -100,7 +104,6 @@ static void pim_ifchannel_find_new_children(struct pim_ifchannel *ch)
 {
 	struct pim_interface *pim_ifp = ch->interface->info;
 	struct pim_ifchannel *child;
-	struct listnode *ch_node;
 
 	// Basic Sanity that we are not being silly
 	if ((ch->sg.src.s_addr != INADDR_ANY)
@@ -111,8 +114,7 @@ static void pim_ifchannel_find_new_children(struct pim_ifchannel *ch)
 	    && (ch->sg.grp.s_addr == INADDR_ANY))
 		return;
 
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->ifchannel_list, ch_node,
-				  child)) {
+	RB_FOREACH(child, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		if ((ch->sg.grp.s_addr != INADDR_ANY)
 		    && (child->sg.grp.s_addr == ch->sg.grp.s_addr)
 		    && (child != ch)) {
@@ -189,13 +191,8 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 		listnode_delete(ch->parent->sources, ch);
 		ch->parent = NULL;
 	}
-	/*
-	  notice that listnode_delete() can't be moved
-	  into pim_ifchannel_free() because the later is
-	  called by list_delete_all_node()
-	*/
-	listnode_delete(pim_ifp->ifchannel_list, ch);
-	hash_release(pim_ifp->pim_ifchannel_hash, ch);
+
+	RB_REMOVE(pim_ifchannel_rb, &pim_ifp->ifchannel_rb, ch);
 
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug("%s: ifchannel entry %s is deleted ",
@@ -207,17 +204,15 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 void pim_ifchannel_delete_all(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
-	struct listnode *ifchannel_node;
-	struct listnode *ifchannel_nextnode;
-	struct pim_ifchannel *ifchannel;
+	struct pim_ifchannel *ch;
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp)
 		return;
 
-	for (ALL_LIST_ELEMENTS(pim_ifp->ifchannel_list, ifchannel_node,
-			       ifchannel_nextnode, ifchannel)) {
-		pim_ifchannel_delete(ifchannel);
+	while ((ch = RB_ROOT(pim_ifchannel_rb,
+			     &pim_ifp->ifchannel_rb)) != NULL) {
+		pim_ifchannel_delete(ch);
 	}
 }
 
@@ -423,7 +418,8 @@ struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
 	}
 
 	lookup.sg = *sg;
-	ch = hash_lookup(pim_ifp->pim_ifchannel_hash, &lookup);
+	lookup.interface = ifp;
+	ch = RB_FIND(pim_ifchannel_rb, &pim_ifp->ifchannel_rb, &lookup);
 
 	return ch;
 }
@@ -455,30 +451,25 @@ static void ifmembership_set(struct pim_ifchannel *ch,
 void pim_ifchannel_membership_clear(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
-	struct listnode *ch_node;
 	struct pim_ifchannel *ch;
 
 	pim_ifp = ifp->info;
 	zassert(pim_ifp);
 
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->ifchannel_list, ch_node, ch))
+	RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb)
 		ifmembership_set(ch, PIM_IFMEMBERSHIP_NOINFO);
 }
 
 void pim_ifchannel_delete_on_noinfo(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
-	struct listnode *node;
-	struct listnode *next_node;
-	struct pim_ifchannel *ch;
+	struct pim_ifchannel *ch, *ch_tmp;
 
 	pim_ifp = ifp->info;
 	zassert(pim_ifp);
 
-	for (ALL_LIST_ELEMENTS(pim_ifp->ifchannel_list, node, next_node,
-			       ch)) {
+	RB_FOREACH_SAFE(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb, ch_tmp)
 		delete_on_noinfo(ch);
-	}
 }
 
 /*
@@ -552,9 +543,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 	ch->t_ifjoin_prune_pending_timer = NULL;
 	ch->ifjoin_creation = 0;
 
-	/* Attach to list */
-	listnode_add_sort(pim_ifp->ifchannel_list, ch);
-	ch = hash_get(pim_ifp->pim_ifchannel_hash, ch, hash_alloc_intern);
+	RB_INSERT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb, ch);
 
 	up = pim_upstream_add(pim_ifp->pim, sg, NULL, up_flags,
 			      __PRETTY_FUNCTION__, ch);
@@ -572,8 +561,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 		THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
 		THREAD_OFF(ch->t_ifassert_timer);
 
-		listnode_delete(pim_ifp->ifchannel_list, ch);
-		hash_release(pim_ifp->pim_ifchannel_hash, ch);
+		RB_REMOVE(pim_ifchannel_rb, &pim_ifp->ifchannel_rb, ch);
 		XFREE(MTYPE_PIM_IFCHANNEL, ch);
 		return NULL;
 	}
@@ -1285,14 +1273,13 @@ void pim_ifchannel_update_assert_tracking_desired(struct pim_ifchannel *ch)
  */
 void pim_ifchannel_scan_forward_start(struct interface *new_ifp)
 {
-	struct listnode *ifnode;
-	struct interface *ifp;
 	struct pim_interface *new_pim_ifp = new_ifp->info;
 	struct pim_instance *pim = new_pim_ifp->pim;
+	struct listnode *ifnode;
+	struct interface *ifp;
 
 	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), ifnode, ifp)) {
 		struct pim_interface *loop_pim_ifp = ifp->info;
-		struct listnode *ch_node;
 		struct pim_ifchannel *ch;
 
 		if (!loop_pim_ifp)
@@ -1301,8 +1288,7 @@ void pim_ifchannel_scan_forward_start(struct interface *new_ifp)
 		if (new_pim_ifp == loop_pim_ifp)
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(loop_pim_ifp->ifchannel_list,
-					  ch_node, ch)) {
+		RB_FOREACH(ch, pim_ifchannel_rb, &loop_pim_ifp->ifchannel_rb) {
 			if (ch->ifjoin_state == PIM_IFJOIN_JOIN) {
 				struct pim_upstream *up = ch->upstream;
 				if ((!up->channel_oil)
@@ -1394,16 +1380,4 @@ unsigned int pim_ifchannel_hash_key(void *arg)
 	struct pim_ifchannel *ch = (struct pim_ifchannel *)arg;
 
 	return jhash_2words(ch->sg.src.s_addr, ch->sg.grp.s_addr, 0);
-}
-
-int pim_ifchannel_equal(const void *arg1, const void *arg2)
-{
-	const struct pim_ifchannel *ch1 = (const struct pim_ifchannel *)arg1;
-	const struct pim_ifchannel *ch2 = (const struct pim_ifchannel *)arg2;
-
-	if ((ch1->sg.grp.s_addr == ch2->sg.grp.s_addr)
-	    && (ch1->sg.src.s_addr == ch2->sg.src.s_addr))
-		return 1;
-
-	return 0;
 }

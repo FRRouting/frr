@@ -106,8 +106,7 @@ struct pim_interface {
 	uint16_t pim_override_interval_msec; /* config */
 	struct list *pim_neighbor_list;      /* list of struct pim_neighbor */
 	struct list *upstream_switch_list;
-	struct list *ifchannel_list;
-	struct hash *pim_ifchannel_hash;
+	struct pim_ifchannel_rb ifchannel_rb;
 
 	/* neighbors without lan_delay */
 	int pim_number_of_nonlandelay_neighbors;
@@ -208,4 +207,6 @@ int pim_update_source_set(struct interface *ifp, struct in_addr source);
 int pim_if_is_loopback(struct pim_instance *pim, struct interface *ifp);
 
 int pim_if_is_vrf_device(struct interface *ifp);
+
+int pim_if_ifchannel_count(struct pim_interface *pim_ifp);
 #endif /* PIM_IFACE_H */

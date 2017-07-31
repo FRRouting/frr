@@ -213,7 +213,6 @@ static void pim_show_assert(struct pim_instance *pim, struct vty *vty)
 {
 	struct pim_interface *pim_ifp;
 	struct pim_ifchannel *ch;
-	struct listnode *ch_node;
 	struct listnode *if_node;
 	struct interface *ifp;
 	time_t now;
@@ -228,8 +227,7 @@ static void pim_show_assert(struct pim_instance *pim, struct vty *vty)
 		if (!pim_ifp)
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->ifchannel_list,
-					  ch_node, ch)) {
+		RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 			pim_show_assert_helper(vty, pim_ifp, ch, now);
 		} /* scan interface channels */
 	}
@@ -264,7 +262,6 @@ static void pim_show_assert_internal_helper(struct vty *vty,
 static void pim_show_assert_internal(struct pim_instance *pim, struct vty *vty)
 {
 	struct pim_interface *pim_ifp;
-	struct listnode *ch_node;
 	struct listnode *if_node;
 	struct pim_ifchannel *ch;
 	struct interface *ifp;
@@ -282,8 +279,7 @@ static void pim_show_assert_internal(struct pim_instance *pim, struct vty *vty)
 		if (!pim_ifp)
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->ifchannel_list,
-					  ch_node, ch)) {
+		RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 			pim_show_assert_internal_helper(vty, pim_ifp, ch);
 		} /* scan interface channels */
 	}
@@ -320,7 +316,7 @@ static void pim_show_assert_metric_helper(struct vty *vty,
 static void pim_show_assert_metric(struct pim_instance *pim, struct vty *vty)
 {
 	struct pim_interface *pim_ifp;
-	struct listnode *ch_node, *if_node;
+	struct listnode *if_node;
 	struct pim_ifchannel *ch;
 	struct interface *ifp;
 
@@ -332,8 +328,7 @@ static void pim_show_assert_metric(struct pim_instance *pim, struct vty *vty)
 		if (!pim_ifp)
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->ifchannel_list,
-					  ch_node, ch)) {
+		RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 			pim_show_assert_metric_helper(vty, pim_ifp, ch);
 		} /* scan interface channels */
 	}
@@ -383,7 +378,7 @@ static void pim_show_assert_winner_metric_helper(struct vty *vty,
 static void pim_show_assert_winner_metric(struct pim_instance *pim,
 					  struct vty *vty)
 {
-	struct listnode *ch_node, *if_node;
+	struct listnode *if_node;
 	struct pim_interface *pim_ifp;
 	struct pim_ifchannel *ch;
 	struct interface *ifp;
@@ -396,8 +391,7 @@ static void pim_show_assert_winner_metric(struct pim_instance *pim,
 		if (!pim_ifp)
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->ifchannel_list,
-					  ch_node, ch)) {
+		RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 			pim_show_assert_winner_metric_helper(vty, pim_ifp, ch);
 		} /* scan interface channels */
 	}
@@ -472,7 +466,7 @@ static void pim_show_membership_helper(struct vty *vty,
 static void pim_show_membership(struct pim_instance *pim, struct vty *vty,
 				u_char uj)
 {
-	struct listnode *ch_node, *if_node;
+	struct listnode *if_node;
 	struct pim_interface *pim_ifp;
 	struct pim_ifchannel *ch;
 	struct interface *ifp;
@@ -487,8 +481,7 @@ static void pim_show_membership(struct pim_instance *pim, struct vty *vty,
 		if (!pim_ifp)
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->ifchannel_list,
-					  ch_node, ch)) {
+		RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 			pim_show_membership_helper(vty, pim_ifp, ch, json);
 		} /* scan interface channels */
 	}
@@ -1364,7 +1357,7 @@ static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
 			continue;
 
 		pim_nbrs = pim_ifp->pim_neighbor_list->count;
-		pim_ifchannels = pim_ifp->ifchannel_list->count;
+		pim_ifchannels = pim_if_ifchannel_count(pim_ifp);
 		fhr = 0;
 
 		for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode, up))
@@ -1684,7 +1677,7 @@ static void pim_show_join_helper(struct vty *vty,
 
 static void pim_show_join(struct pim_instance *pim, struct vty *vty, u_char uj)
 {
-	struct listnode *ch_node, *if_node;
+	struct listnode *if_node;
 	struct pim_interface *pim_ifp;
 	struct pim_ifchannel *ch;
 	struct interface *ifp;
@@ -1704,8 +1697,7 @@ static void pim_show_join(struct pim_instance *pim, struct vty *vty, u_char uj)
 		if (!pim_ifp)
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->ifchannel_list,
-					  ch_node, ch)) {
+		RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 			pim_show_join_helper(vty, pim_ifp,
 					     ch, json, now, uj);
 		} /* scan interface channels */
@@ -2515,7 +2507,7 @@ static void pim_show_join_desired_helper(struct pim_instance *pim,
 static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
 				  u_char uj)
 {
-	struct listnode *ch_node, *if_node;
+	struct listnode *if_node;
 	struct pim_interface *pim_ifp;
 	struct pim_ifchannel *ch;
 	struct interface *ifp;
@@ -2534,8 +2526,8 @@ static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
 		if (!pim_ifp)
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->ifchannel_list,
-					  ch_node, ch)) {
+
+		RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 			/* scan all interfaces */
 			pim_show_join_desired_helper(pim, vty,
 						     pim_ifp, ch,
