@@ -59,7 +59,7 @@ const char *node_names[] = {
 	"vnc debug",		    // DEBUG_VNC_NODE,
 	"aaa",			    // AAA_NODE,
 	"keychain",		    // KEYCHAIN_NODE,
-	"leychain key",		    // KEYCHAIN_KEY_NODE,
+	"keychain key",		    // KEYCHAIN_KEY_NODE,
 	"logical-router",	    // NS_NODE,
 	"vrf",			    // VRF_NODE,
 	"interface",		    // INTERFACE_NODE,
