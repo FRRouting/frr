@@ -73,6 +73,7 @@ lib_libfrr_la_SOURCES = \
 	lib/zclient.c \
 	# end
 
+lib/plist_clippy.c: $(CLIPPY_DEPS)
 lib/plist.lo: lib/plist_clippy.c
 
 pkginclude_HEADERS += \
@@ -220,12 +221,18 @@ BUILT_SOURCES += \
 	lib/route_types.h \
 	# end
 
+## force route_types.h
+$(lib_clippy_OBJECTS): lib/route_types.h
+$(lib_libfrr_la_OBJECTS): lib/route_types.h
+
 AM_YFLAGS = -d -Dapi.prefix=@BISON_OPENBRACE@cmd_yy@BISON_CLOSEBRACE@ @BISON_VERBOSE@
 
 lib/command_lex.h: lib/command_lex.c
 	@if test ! -f $@; then rm -f "lib/command_lex.c"; else :; fi
 	@if test ! -f $@; then $(MAKE) $(AM_MAKEFLAGS) "lib/command_lex.c"; else :; fi
+lib/command_lex.lo: lib/command_parse.h
 lib/command_parse.lo: lib/command_lex.h
+lib/lib_clippy-command_lex.$(OBJEXT): lib/command_parse.h
 lib/lib_clippy-command_parse.$(OBJEXT): lib/command_lex.h
 
 lib/route_types.h: $(top_srcdir)/lib/route_types.txt $(top_srcdir)/lib/route_types.pl

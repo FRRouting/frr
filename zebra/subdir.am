@@ -66,6 +66,7 @@ zebra_zebra_SOURCES = \
 	zebra/zserv.c \
 	# end
 
+zebra/zebra_vty_clippy.c: $(CLIPPY_DEPS)
 zebra/zebra_vty.$(OBJEXT): zebra/zebra_vty_clippy.c
 
 noinst_HEADERS += \
