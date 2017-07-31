@@ -1437,7 +1437,7 @@ static void ospf6_brouter_debug_print(struct ospf6_route *brouter)
 	char brouter_name[16];
 	char area_name[16];
 	char destination[64];
-	char installed[16], changed[16];
+	char installed[64], changed[64];
 	struct timeval now, res;
 	char id[16], adv_router[16];
 	char capa[16], options[16];
