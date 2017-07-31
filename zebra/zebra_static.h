@@ -32,6 +32,7 @@ struct static_nh_label {
 typedef enum {
 	STATIC_IFINDEX,
 	STATIC_IPV4_GATEWAY,
+	STATIC_IPV4_GATEWAY_IFINDEX,
 	STATIC_BLACKHOLE,
 	STATIC_IPV6_GATEWAY,
 	STATIC_IPV6_GATEWAY_IFINDEX,
@@ -57,11 +58,6 @@ struct static_route {
 
 	/*
 	 * Nexthop value.
-	 *
-	 * Under IPv4 addr and ifindex are
-	 * used independentyly.
-	 * STATIC_IPV4_GATEWAY uses addr
-	 * STATIC_IFINDEX uses ifindex
 	 */
 	union g_addr addr;
 	ifindex_t ifindex;
@@ -99,17 +95,5 @@ extern int static_delete_route(afi_t, safi_t safi, u_char type,
 			       route_tag_t tag, u_char distance,
 			       struct zebra_vrf *zvrf,
 			       struct static_nh_label *snh_label);
-
-int zebra_static_ipv4(struct vty *vty, safi_t safi, int add_cmd,
-		      const char *dest_str, const char *mask_str,
-		      const char *gate_str, const char *flag_str,
-		      const char *tag_str, const char *distance_str,
-		      const char *vrf_id_str, const char *label_str);
-
-int static_ipv6_func(struct vty *vty, int add_cmd, const char *dest_str,
-		     const char *src_str, const char *gate_str,
-		     const char *ifname, const char *flag_str,
-		     const char *tag_str, const char *distance_str,
-		     const char *vrf_id_str, const char *label_str);
 
 #endif
