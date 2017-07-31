@@ -2453,7 +2453,7 @@ DEFUN (vtysh_show_daemons,
 
 /* Execute command in child process. */
 static void execute_command(const char *command, int argc,
-			    struct cmd_token *arg1, const char *arg2)
+			    const char *arg1, const char *arg2)
 {
 	pid_t pid;
 	int status;
@@ -2498,7 +2498,10 @@ DEFUN (vtysh_ping,
        "Send echo messages\n"
        "Ping destination address or hostname\n")
 {
-	execute_command("ping", 1, argv[0], NULL);
+	int idx = 1;
+
+	argv_find(argv, argc, "WORD", &idx);
+	execute_command("ping", 1, argv[idx]->arg, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -2513,7 +2516,10 @@ DEFUN (vtysh_traceroute,
        "Trace route to destination\n"
        "Trace route to destination address or hostname\n")
 {
-	execute_command("traceroute", 1, argv[0], NULL);
+	int idx = 1;
+
+	argv_find(argv, argc, "WORD", &idx);
+	execute_command("traceroute", 1, argv[idx]->arg, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -2529,7 +2535,7 @@ DEFUN (vtysh_ping6,
        "IPv6 echo\n"
        "Ping destination address or hostname\n")
 {
-	execute_command("ping6", 1, argv[0], NULL);
+	execute_command("ping6", 1, argv[2]->arg, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -2540,7 +2546,7 @@ DEFUN (vtysh_traceroute6,
        "IPv6 trace\n"
        "Trace route to destination address or hostname\n")
 {
-	execute_command("traceroute6", 1, argv[0], NULL);
+	execute_command("traceroute6", 1, argv[2]->arg, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -2551,7 +2557,7 @@ DEFUN (vtysh_telnet,
        "Open a telnet connection\n"
        "IP address or hostname of a remote system\n")
 {
-	execute_command("telnet", 1, argv[0], NULL);
+	execute_command("telnet", 1, argv[1]->arg, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -2562,7 +2568,7 @@ DEFUN (vtysh_telnet_port,
        "IP address or hostname of a remote system\n"
        "TCP Port number\n")
 {
-	execute_command("telnet", 2, argv[0], argv[1]);
+	execute_command("telnet", 2, argv[1]->arg, argv[2]->arg);
 	return CMD_SUCCESS;
 }
 
@@ -2572,7 +2578,7 @@ DEFUN (vtysh_ssh,
        "Open an ssh connection\n"
        "[user@]host\n")
 {
-	execute_command("ssh", 1, argv[0], NULL);
+	execute_command("ssh", 1, argv[1]->arg, NULL);
 	return CMD_SUCCESS;
 }
 
