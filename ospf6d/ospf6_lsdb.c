@@ -92,8 +92,7 @@ _lsdb_count_assert (struct ospf6_lsdb *lsdb)
              lsdb, lsdb->count, num);
   for (debug = ospf6_lsdb_head (lsdb); debug;
        debug = ospf6_lsdb_next (debug))
-    zlog_debug ("%p %p %s lsdb[%p]", debug->prev, debug->next, debug->name,
-               debug->lsdb);
+    zlog_debug ("%s lsdb[%p]", debug->name, debug->lsdb);
   zlog_debug ("DUMP END");
 
   assert (num == lsdb->count);
