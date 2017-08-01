@@ -302,6 +302,9 @@ DEFUN (zebra_ptm_enable_if,
 	int old_ptm_enable;
 	int send_linkdown = 0;
 
+	if_data = ifp->info;
+	if_data->ptm_enable = ZEBRA_IF_PTM_ENABLE_UNSPEC;
+
 	if (ifp->ifindex == IFINDEX_INTERNAL) {
 		return CMD_SUCCESS;
 	}
@@ -320,9 +323,6 @@ DEFUN (zebra_ptm_enable_if,
 			if_down(ifp);
 		}
 	}
-
-	if_data = ifp->info;
-	if_data->ptm_enable = ZEBRA_IF_PTM_ENABLE_UNSPEC;
 
 	return CMD_SUCCESS;
 }
