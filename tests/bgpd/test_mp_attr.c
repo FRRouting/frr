@@ -1059,7 +1059,7 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 		parse_ret = bgp_mp_unreach_parse(&attr_args, &nlri);
 	if (!parse_ret) {
 		iana_afi_t pkt_afi;
-		safi_t pkt_safi;
+		iana_safi_t pkt_safi;
 
 		/* Convert AFI, SAFI to internal values, check. */
 		if (bgp_map_afi_safi_int2iana(nlri.afi, nlri.safi, &pkt_afi,

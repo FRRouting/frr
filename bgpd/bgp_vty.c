@@ -78,6 +78,10 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 		case SAFI_MPLS_VPN:
 			return BGP_VPNV4_NODE;
 			break;
+		default:
+			/* not expected */
+			return BGP_IPV4_NODE;
+			break;
 		}
 		break;
 	case AFI_IP6:
@@ -93,6 +97,10 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 			break;
 		case SAFI_MPLS_VPN:
 			return BGP_VPNV6_NODE;
+			break;
+		default:
+			/* not expected */
+			return BGP_IPV4_NODE;
 			break;
 		}
 		break;
@@ -7079,12 +7087,6 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 						 json);
 			}
 			safi++;
-			if (safi == SAFI_RESERVED_4
-			    || safi
-				       == SAFI_RESERVED_5) /* handle special
-							      cases to match
-							      zebra.h */
-				safi++;
 			if (!safi_wildcard)
 				safi = SAFI_MAX;
 		}

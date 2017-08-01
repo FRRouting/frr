@@ -3872,6 +3872,10 @@ rfapiBgpInfoFilteredImportFunction(safi_t safi)
 
 	case SAFI_ENCAP:
 		return rfapiBgpInfoFilteredImportEncap;
+
+	default:
+		/* not expected */
+		return NULL;
 	}
 	zlog_err("%s: bad safi %d", __func__, safi);
 	return NULL;

@@ -611,8 +611,8 @@ int bgp_listen_limit_unset(struct bgp *bgp)
 	return 0;
 }
 
-int bgp_map_afi_safi_iana2int(iana_afi_t pkt_afi, safi_t pkt_safi, afi_t *afi,
-			      safi_t *safi)
+int bgp_map_afi_safi_iana2int(iana_afi_t pkt_afi, iana_safi_t pkt_safi,
+			      afi_t *afi, safi_t *safi)
 {
 	/* Map from IANA values to internal values, return error if
 	 * values are unrecognized.
@@ -626,7 +626,7 @@ int bgp_map_afi_safi_iana2int(iana_afi_t pkt_afi, safi_t pkt_safi, afi_t *afi,
 }
 
 int bgp_map_afi_safi_int2iana(afi_t afi, safi_t safi, iana_afi_t *pkt_afi,
-			      safi_t *pkt_safi)
+			      iana_safi_t *pkt_safi)
 {
 	/* Map from internal values to IANA values, return error if
 	 * internal values are bad (unexpected).
@@ -1842,7 +1842,7 @@ static void peer_nsf_stop(struct peer *peer)
 	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_RESERVED_4; safi++)
+		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++)
 			peer->nsf[afi][safi] = 0;
 
 	if (peer->t_gr_restart) {
