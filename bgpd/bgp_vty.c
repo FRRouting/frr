@@ -7079,12 +7079,6 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 						 json);
 			}
 			safi++;
-			if (safi == SAFI_RESERVED_4
-			    || safi
-				       == SAFI_RESERVED_5) /* handle special
-							      cases to match
-							      zebra.h */
-				safi++;
 			if (!safi_wildcard)
 				safi = SAFI_MAX;
 		}

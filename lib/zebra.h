@@ -419,19 +419,10 @@ typedef enum { AFI_IP = 1, AFI_IP6 = 2, AFI_L2VPN = 3, AFI_MAX = 4 } afi_t;
 #define SAFI_UNICAST              1
 #define SAFI_MULTICAST            2
 #define SAFI_MPLS_VPN             3
-#define SAFI_RESERVED_4           4
-#define SAFI_ENCAP		  5
-#define SAFI_RESERVED_5           5
-#define SAFI_EVPN                 6
-#define SAFI_LABELED_UNICAST      7
-#define SAFI_MAX                  8
-
-#define IANA_SAFI_RESERVED            0
-#define IANA_SAFI_UNICAST             1
-#define IANA_SAFI_MULTICAST           2
-#define IANA_SAFI_LABELED_UNICAST     4
-#define IANA_SAFI_ENCAP               7
-#define IANA_SAFI_MPLS_VPN            128
+#define SAFI_ENCAP		  4
+#define SAFI_EVPN                 5
+#define SAFI_LABELED_UNICAST      6
+#define SAFI_MAX                  7
 
 /*
  * The above AFI and SAFI definitions are for internal use. The protocol
@@ -454,6 +445,7 @@ typedef enum {
 #define IANA_SAFI_RESERVED            0
 #define IANA_SAFI_UNICAST             1
 #define IANA_SAFI_MULTICAST           2
+#define IANA_SAFI_LABELED_UNICAST     4
 #define IANA_SAFI_ENCAP               7
 #define IANA_SAFI_EVPN                70
 #define IANA_SAFI_MPLS_VPN            128
