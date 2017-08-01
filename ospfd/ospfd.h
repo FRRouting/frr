@@ -101,7 +101,7 @@ struct ospf_master {
 
 	/* Various OSPF global configuration. */
 	u_char options;
-#define OSPF_MASTER_SHUTDOWN (1 << 0) /* deferred-shutdown */  
+#define OSPF_MASTER_SHUTDOWN (1 << 0) /* deferred-shutdown */
 };
 
 struct ospf_redist {
