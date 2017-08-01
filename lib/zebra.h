@@ -126,6 +126,13 @@ typedef unsigned char u_int8_t;
 #define __APPLE_USE_RFC_3542
 #endif
 
+#ifndef HAVE_LIBCRYPT
+#   ifdef HAVE_LIBCRYPTO
+#      include <openssl/des.h>
+#      define crypt DES_crypt
+#   endif
+#endif
+
 #include "openbsd-tree.h"
 
 #include <netinet/in.h>

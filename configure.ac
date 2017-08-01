@@ -1377,7 +1377,8 @@ AC_SUBST(VTYSH)
 AC_SUBST(CURSES)
 AC_SUBST(OSPFCLIENT)
 AC_SUBST(OSPFAPI)
-AC_CHECK_LIB(crypt, crypt)
+AC_CHECK_LIB(crypt, crypt, [],
+		    [AC_CHECK_LIB(crypto, DES_crypt)])
 AC_CHECK_LIB(resolv, res_init)
 
 dnl ---------------------------
