@@ -486,58 +486,70 @@ typedef uint32_t route_tag_t;
 
 static inline afi_t afi_iana2int(iana_afi_t afi)
 {
-	if (afi == IANA_AFI_IPV4)
+	switch (afi) {
+	case IANA_AFI_IPV4:
 		return AFI_IP;
-	if (afi == IANA_AFI_IPV6)
+	case IANA_AFI_IPV6:
 		return AFI_IP6;
-	if (afi == IANA_AFI_L2VPN)
+	case IANA_AFI_L2VPN:
 		return AFI_L2VPN;
-	return AFI_MAX;
+	default:
+		return AFI_MAX;
+	}
 }
 
 static inline iana_afi_t afi_int2iana(afi_t afi)
 {
-	if (afi == AFI_IP)
+	switch (afi) {
+	case AFI_IP:
 		return IANA_AFI_IPV4;
-	if (afi == AFI_IP6)
+	case AFI_IP6:
 		return IANA_AFI_IPV6;
-	if (afi == AFI_L2VPN)
+	case AFI_L2VPN:
 		return IANA_AFI_L2VPN;
-	return IANA_AFI_RESERVED;
+	default:
+		return IANA_AFI_RESERVED;
+	}
 }
 
 static inline safi_t safi_iana2int(iana_safi_t safi)
 {
-	if (safi == IANA_SAFI_UNICAST)
+	switch (safi) {
+	case IANA_SAFI_UNICAST:
 		return SAFI_UNICAST;
-	if (safi == IANA_SAFI_MULTICAST)
+	case IANA_SAFI_MULTICAST:
 		return SAFI_MULTICAST;
-	if (safi == IANA_SAFI_MPLS_VPN)
+	case IANA_SAFI_MPLS_VPN:
 		return SAFI_MPLS_VPN;
-	if (safi == IANA_SAFI_ENCAP)
+	case IANA_SAFI_ENCAP:
 		return SAFI_ENCAP;
-	if (safi == IANA_SAFI_EVPN)
+	case IANA_SAFI_EVPN:
 		return SAFI_EVPN;
-	if (safi == IANA_SAFI_LABELED_UNICAST)
+	case IANA_SAFI_LABELED_UNICAST:
 		return SAFI_LABELED_UNICAST;
-	return SAFI_MAX;
+	default:
+		return SAFI_MAX;
+	}
 }
 
 static inline iana_safi_t safi_int2iana(safi_t safi)
 {
-	if (safi == SAFI_UNICAST)
+	switch (safi) {
+	case SAFI_UNICAST:
 		return IANA_SAFI_UNICAST;
-	if (safi == SAFI_MULTICAST)
+	case SAFI_MULTICAST:
 		return IANA_SAFI_MULTICAST;
-	if (safi == SAFI_MPLS_VPN)
+	case SAFI_MPLS_VPN:
 		return IANA_SAFI_MPLS_VPN;
-	if (safi == SAFI_ENCAP)
+	case SAFI_ENCAP:
 		return IANA_SAFI_ENCAP;
-	if (safi == SAFI_EVPN)
+	case SAFI_EVPN:
 		return IANA_SAFI_EVPN;
-	if (safi == SAFI_LABELED_UNICAST)
+	case SAFI_LABELED_UNICAST:
 		return IANA_SAFI_LABELED_UNICAST;
-	return IANA_SAFI_RESERVED;
+	default:
+		return IANA_SAFI_RESERVED;
+	}
 }
 
 #endif /* _ZEBRA_H */
