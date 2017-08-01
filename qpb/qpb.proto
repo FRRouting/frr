@@ -20,6 +20,8 @@
  * CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+syntax = "proto2";
+
 /*
  * Protobuf definitions pertaining to the Quagga/FRR Protobuf component.
  */

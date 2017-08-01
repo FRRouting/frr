@@ -20,6 +20,9 @@
  */
 
 #include <zebra.h>
+
+#ifndef HAVE_NETLINK
+
 #ifdef __OpenBSD__
 #include <netmpls/mpls.h>
 #endif
@@ -443,3 +446,5 @@ int kernel_del_neigh(struct interface *ifp, struct ipaddr *ip)
 {
 	return 0;
 }
+
+#endif /* !HAVE_NETLINK */

@@ -1,0 +1,26 @@
+if HAVE_PROTOBUF
+lib_LTLIBRARIES += qpb/libfrr_pb.la
+endif
+
+qpb_libfrr_pb_la_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir) -I$(top_builddir)/lib \
+	$(Q_PROTOBUF_C_CLIENT_INCLUDES)
+qpb_libfrr_pb_la_LDFLAGS = -version-info 0:0:0
+
+qpb_libfrr_pb_la_SOURCES = \
+	qpb/linear_allocator.h \
+	qpb/qpb.h \
+	qpb/qpb.c \
+	qpb/qpb_allocator.h \
+	# end
+
+if HAVE_PROTOBUF
+qpb_libfrr_pb_la_SOURCES += qpb/qpb_allocator.c
+nodist_qpb_libfrr_pb_la_SOURCES = qpb/qpb.pb-c.c
+BUILT_SOURCES += qpb/qpb.pb-c.c
+CLEANFILES += \
+	qpb/qpb.pb-c.c \
+	qpb/qpb.pb-c.h \
+	# end
+endif
+
+EXTRA_DIST += qpb/qpb.proto

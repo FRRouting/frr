@@ -19,6 +19,9 @@
  */
 
 #include <zebra.h>
+
+#ifdef HAVE_NETLINK
+
 #include "zebra/rt.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/zebra_mpls.h"
@@ -105,3 +108,5 @@ int mpls_kernel_init(void)
 
 	return 0;
 };
+
+#endif /* HAVE_NETLINK */

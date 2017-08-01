@@ -33,6 +33,8 @@
 #include "zebra/rt.h"
 #include "zebra/interface.h"
 
+#ifndef SUNOS_5
+
 #ifdef HAVE_BSD_LINK_DETECT
 #include <net/if_media.h>
 #endif /* HAVE_BSD_LINK_DETECT*/
@@ -563,3 +565,5 @@ int if_prefix_delete_ipv6(struct interface *ifp, struct connected *ifc)
 #endif /* HAVE_STRUCT_IN6_ALIASREQ */
 
 #endif /* LINUX_IPV6 */
+
+#endif /* !SUNOS_5 */

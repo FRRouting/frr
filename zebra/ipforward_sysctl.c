@@ -19,6 +19,9 @@
  */
 
 #include <zebra.h>
+
+#if !defined(GNU_LINUX) && !defined(SUNOS_5)
+
 #include "privs.h"
 #include "zebra/ipforward.h"
 
@@ -147,3 +150,5 @@ int ipforward_ipv6_off(void)
 		zlog_err("Can't lower privileges");
 	return ip6forwarding;
 }
+
+#endif /* !defined(GNU_LINUX) && !defined(SUNOS_5) */

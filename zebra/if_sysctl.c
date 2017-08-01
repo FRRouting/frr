@@ -21,6 +21,8 @@
 
 #include <zebra.h>
 
+#if !defined(GNU_LINUX) && !defined(OPEN_BSD) && !defined(SUNOS_5)
+
 #include "if.h"
 #include "sockunion.h"
 #include "prefix.h"
@@ -134,3 +136,5 @@ void interface_list(struct zebra_ns *zns)
 	/* Free sysctl buffer. */
 	XFREE(MTYPE_TMP, ref);
 }
+
+#endif /* !defined(GNU_LINUX) && !defined(OPEN_BSD) && !defined(SUNOS_5) */
