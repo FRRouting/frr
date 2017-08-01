@@ -170,7 +170,7 @@ static struct test_segment mp_segments[] = {
 	/* 8 */
 	{
 		"MP6",
-		"MP IP4/MPLS-laveled VPN",
+		"MP IP4/MPLS-labeled VPN",
 		{CAPABILITY_CODE_MP, 0x4, 0x0, 0x1, 0x0, 0x80},
 		6,
 		SHOULD_PARSE,
