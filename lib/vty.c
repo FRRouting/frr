@@ -684,6 +684,7 @@ static void vty_end_config(struct vty *vty)
 		break;
 	case CONFIG_NODE:
 	case INTERFACE_NODE:
+	case PW_NODE:
 	case ZEBRA_NODE:
 	case RIP_NODE:
 	case RIPNG_NODE:
@@ -1094,6 +1095,7 @@ static void vty_stop_input(struct vty *vty)
 		break;
 	case CONFIG_NODE:
 	case INTERFACE_NODE:
+	case PW_NODE:
 	case ZEBRA_NODE:
 	case RIP_NODE:
 	case RIPNG_NODE:

@@ -92,6 +92,7 @@ struct zebra_vrf {
 
 	/* Pseudowires. */
 	struct zebra_pw_head pseudowires;
+	struct zebra_static_pw_head static_pseudowires;
 
 	/* MPLS processing flags */
 	u_int16_t mpls_flags;
