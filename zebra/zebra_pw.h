@@ -24,11 +24,12 @@
 #include <netinet/in.h>
 
 #include "hook.h"
+#include "qobj.h"
 
 #define PW_INSTALL_RETRY_INTERVAL	30
 
 struct zebra_pw {
-	RB_ENTRY(zebra_pw) entry;
+	RB_ENTRY(zebra_pw) pw_entry, static_pw_entry;
 	vrf_id_t vrf_id;
 	char ifname[IF_NAMESIZE];
 	ifindex_t ifindex;
@@ -45,10 +46,15 @@ struct zebra_pw {
 	struct zserv *client;
 	struct rnh *rnh;
 	struct thread *install_retry_timer;
+	QOBJ_FIELDS
 };
+DECLARE_QOBJ_TYPE(zebra_pw)
 
 RB_HEAD(zebra_pw_head, zebra_pw);
-RB_PROTOTYPE(zebra_pw_head, zebra_pw, entry, zebra_pw_compare);
+RB_PROTOTYPE(zebra_pw_head, zebra_pw, pw_entry, zebra_pw_compare);
+
+RB_HEAD(zebra_static_pw_head, zebra_pw);
+RB_PROTOTYPE(zebra_static_pw_head, zebra_pw, static_pw_entry, zebra_pw_compare);
 
 DECLARE_HOOK(pw_install, (struct zebra_pw * pw), (pw))
 DECLARE_HOOK(pw_uninstall, (struct zebra_pw * pw), (pw))
@@ -64,5 +70,6 @@ void zebra_pw_install_failure(struct zebra_pw *);
 void zebra_pw_client_close(struct zserv *);
 void zebra_pw_init(struct zebra_vrf *);
 void zebra_pw_exit(struct zebra_vrf *);
+void zebra_pw_vty_init(void);
 
-#endif				/* ZEBRA_PW_H_ */
+#endif /* ZEBRA_PW_H_ */

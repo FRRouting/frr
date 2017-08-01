@@ -348,7 +348,7 @@ zebra_deregister_rnh_pseudowire (vrf_id_t vrf_id, struct zebra_pw *pw)
 {
   struct rnh *rnh;
 
-  rnh =pw->rnh;
+  rnh = pw->rnh;
   if (!rnh)
     return;
 
