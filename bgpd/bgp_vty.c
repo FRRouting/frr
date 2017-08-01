@@ -78,6 +78,10 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 		case SAFI_MPLS_VPN:
 			return BGP_VPNV4_NODE;
 			break;
+		default:
+			/* not expected */
+			return BGP_IPV4_NODE;
+			break;
 		}
 		break;
 	case AFI_IP6:
@@ -93,6 +97,10 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 			break;
 		case SAFI_MPLS_VPN:
 			return BGP_VPNV6_NODE;
+			break;
+		default:
+			/* not expected */
+			return BGP_IPV4_NODE;
 			break;
 		}
 		break;

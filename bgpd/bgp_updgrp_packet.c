@@ -845,7 +845,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 					   send_attr_str);
 				if (!stream_empty(snlri)) {
 					iana_afi_t pkt_afi;
-					safi_t pkt_safi;
+					iana_safi_t pkt_safi;
 
 					pkt_afi = afi_int2iana(afi);
 					pkt_safi = safi_int2iana(safi);
@@ -989,7 +989,7 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 			/* If first time, format the MP_UNREACH header */
 			if (first_time) {
 				iana_afi_t pkt_afi;
-				safi_t pkt_safi;
+				iana_safi_t pkt_safi;
 
 				pkt_afi = afi_int2iana(afi);
 				pkt_safi = safi_int2iana(safi);

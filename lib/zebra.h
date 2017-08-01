@@ -416,13 +416,15 @@ extern const char *zserv_command_string(unsigned int command);
 typedef enum { AFI_IP = 1, AFI_IP6 = 2, AFI_L2VPN = 3, AFI_MAX = 4 } afi_t;
 
 /* Subsequent Address Family Identifier. */
-#define SAFI_UNICAST              1
-#define SAFI_MULTICAST            2
-#define SAFI_MPLS_VPN             3
-#define SAFI_ENCAP		  4
-#define SAFI_EVPN                 5
-#define SAFI_LABELED_UNICAST      6
-#define SAFI_MAX                  7
+typedef enum {
+	SAFI_UNICAST = 1,
+	SAFI_MULTICAST = 2,
+	SAFI_MPLS_VPN = 3,
+	SAFI_ENCAP = 4,
+	SAFI_EVPN = 5,
+	SAFI_LABELED_UNICAST = 6,
+	SAFI_MAX = 7
+} safi_t;
 
 /*
  * The above AFI and SAFI definitions are for internal use. The protocol
@@ -442,13 +444,15 @@ typedef enum {
 	IANA_AFI_IP6MR = 129
 } iana_afi_t;
 
-#define IANA_SAFI_RESERVED            0
-#define IANA_SAFI_UNICAST             1
-#define IANA_SAFI_MULTICAST           2
-#define IANA_SAFI_LABELED_UNICAST     4
-#define IANA_SAFI_ENCAP               7
-#define IANA_SAFI_EVPN                70
-#define IANA_SAFI_MPLS_VPN            128
+typedef enum {
+	IANA_SAFI_RESERVED = 0,
+	IANA_SAFI_UNICAST = 1,
+	IANA_SAFI_MULTICAST = 2,
+	IANA_SAFI_LABELED_UNICAST = 4,
+	IANA_SAFI_ENCAP = 7,
+	IANA_SAFI_EVPN = 70,
+	IANA_SAFI_MPLS_VPN = 128
+} iana_safi_t;
 
 /* Default Administrative Distance of each protocol. */
 #define ZEBRA_KERNEL_DISTANCE_DEFAULT      0
@@ -468,8 +472,6 @@ typedef enum {
 #define SET_FLAG(V,F)        (V) |= (F)
 #define UNSET_FLAG(V,F)      (V) &= ~(F)
 #define RESET_FLAG(V)        (V) = 0
-
-typedef u_int8_t safi_t;
 
 /* Zebra types. Used in Zserv message header. */
 typedef u_int16_t zebra_size_t;
@@ -504,7 +506,7 @@ static inline iana_afi_t afi_int2iana(afi_t afi)
 	return IANA_AFI_RESERVED;
 }
 
-static inline safi_t safi_iana2int(safi_t safi)
+static inline safi_t safi_iana2int(iana_safi_t safi)
 {
 	if (safi == IANA_SAFI_UNICAST)
 		return SAFI_UNICAST;
@@ -521,7 +523,7 @@ static inline safi_t safi_iana2int(safi_t safi)
 	return SAFI_MAX;
 }
 
-static inline safi_t safi_int2iana(safi_t safi)
+static inline iana_safi_t safi_int2iana(safi_t safi)
 {
 	if (safi == SAFI_UNICAST)
 		return IANA_SAFI_UNICAST;

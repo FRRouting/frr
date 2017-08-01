@@ -507,8 +507,9 @@ const char *safi2str(safi_t safi)
 		return "evpn";
 	case SAFI_LABELED_UNICAST:
 		return "labeled-unicast";
+	default:
+		return "unknown";
 	}
-	return NULL;
 }
 
 /* If n includes p prefix then return 1 else return 0. */

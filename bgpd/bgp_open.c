@@ -298,7 +298,8 @@ static int bgp_capability_orf_entry(struct peer *peer,
 	u_char num;
 	iana_afi_t pkt_afi;
 	afi_t afi;
-	safi_t pkt_safi, safi;
+	iana_safi_t pkt_safi;
+	safi_t safi;
 	u_char type;
 	u_char mode;
 	u_int16_t sm_cap = 0; /* capability send-mode receive */
@@ -466,7 +467,7 @@ static int bgp_capability_restart(struct peer *peer,
 		afi_t afi;
 		safi_t safi;
 		iana_afi_t pkt_afi = stream_getw(s);
-		safi_t pkt_safi = stream_getc(s);
+		iana_safi_t pkt_safi = stream_getc(s);
 		u_char flag = stream_getc(s);
 
 		/* Convert AFI, SAFI to internal values, check. */
@@ -543,7 +544,7 @@ static int bgp_capability_addpath(struct peer *peer,
 		afi_t afi;
 		safi_t safi;
 		iana_afi_t pkt_afi = stream_getw(s);
-		safi_t pkt_safi = stream_getc(s);
+		iana_safi_t pkt_safi = stream_getc(s);
 		u_char send_receive = stream_getc(s);
 
 		if (bgp_debug_neighbor_events(peer))
@@ -600,7 +601,8 @@ static int bgp_capability_enhe(struct peer *peer, struct capability_header *hdr)
 	while (stream_get_getp(s) + 6 <= end) {
 		iana_afi_t pkt_afi = stream_getw(s);
 		afi_t afi;
-		safi_t safi, pkt_safi = stream_getw(s);
+		iana_safi_t pkt_safi = stream_getw(s);
+		safi_t safi;
 		iana_afi_t pkt_nh_afi = stream_getw(s);
 		afi_t nh_afi;
 
@@ -1199,7 +1201,7 @@ static void bgp_open_capability_orf(struct stream *s, struct peer *peer,
 	unsigned long numberp;
 	int number_of_orfs = 0;
 	iana_afi_t pkt_afi;
-	safi_t pkt_safi;
+	iana_safi_t pkt_safi;
 
 	/* Convert AFI, SAFI to values for packet. */
 	bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
@@ -1264,7 +1266,8 @@ void bgp_open_capability(struct stream *s, struct peer *peer)
 	unsigned long cp, capp, rcapp;
 	iana_afi_t pkt_afi;
 	afi_t afi;
-	safi_t safi, pkt_safi;
+	safi_t safi;
+	iana_safi_t pkt_safi;
 	as_t local_as;
 	u_int32_t restart_time;
 	u_char afi_safi_count = 0;

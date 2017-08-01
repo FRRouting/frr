@@ -31,7 +31,7 @@ struct capability_header {
 struct capability_mp_data {
 	iana_afi_t afi;
 	u_char reserved;
-	safi_t safi;
+	iana_safi_t safi;
 };
 
 struct capability_as4 {
