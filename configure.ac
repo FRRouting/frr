@@ -378,7 +378,7 @@ AC_ARG_ENABLE([oldvpn_commands],
   AS_HELP_STRING([--enable-oldvpn-commands], [Keep old vpn commands]))
 
 AC_CHECK_HEADERS(json-c/json.h)
-AC_CHECK_LIB(json-c, json_object_get, LIBS="$LIBS -ljson-c")
+AC_CHECK_LIB(json-c, json_object_get, LIBS="$LIBS -ljson-c", [], [-lm])
 if test $ac_cv_lib_json_c_json_object_get = no; then
   AC_CHECK_LIB(json, json_object_get, LIBS="$LIBS -ljson")
   if test $ac_cv_lib_json_json_object_get = no; then
