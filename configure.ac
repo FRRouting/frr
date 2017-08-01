@@ -868,6 +868,16 @@ case "$host_os" in
 
     AC_DEFINE(OPEN_BSD,,OpenBSD)
     AC_DEFINE(KAME,1,KAME IPv6)
+
+    if test "x${enable_pimd}" != "xno"; then
+      case "$host_os" in
+      openbsd6.0)
+        ;;
+      openbsd[6-9]*)
+        AC_MSG_FAILURE([pimd cannot be enabled as PIM support has been removed from OpenBSD 6.1])
+        ;;
+      esac
+    fi
     ;;
   *)
     AC_MSG_RESULT([BSD])
