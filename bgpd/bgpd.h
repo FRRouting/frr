@@ -922,10 +922,10 @@ DECLARE_QOBJ_TYPE(peer)
    stream. */
 struct bgp_nlri {
 	/* AFI.  */
-	afi_t afi;
+	uint16_t afi; /* iana_afi_t */
 
 	/* SAFI.  */
-	safi_t safi;
+	uint8_t safi; /* iana_safi_t */
 
 	/* Pointer to NLRI byte stream.  */
 	u_char *nlri;
