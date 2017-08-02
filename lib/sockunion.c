@@ -354,13 +354,19 @@ int sockopt_ttl(int family, int sock, int ttl)
 	return 0;
 }
 
+/*
+ * This function called setsockopt(.., TCP_CORK,...)
+ * Which on linux is a no-op since it is enabled by
+ * default and on BSD it uses TCP_NOPUSH to do
+ * the same thing( which it was not configured to
+ * use).  This cleanup of the api occured on 8/1/17
+ * I imagine if after more than 1 year of no-one
+ * complaining, and a major upgrade release we
+ * can deprecate and remove this function call
+ */
 int sockopt_cork(int sock, int onoff)
 {
-#ifdef TCP_CORK
-	return setsockopt(sock, IPPROTO_TCP, TCP_CORK, &onoff, sizeof(onoff));
-#else
 	return 0;
-#endif
 }
 
 int sockopt_mark_default(int sock, int mark, struct zebra_privs_t *cap)
