@@ -35,7 +35,7 @@
 # group "frrvty" and set to ug=rw,o= though. Check /etc/pam.d/frr, too.
 #
 watchfrr_enable=no
-watchfrr_options=("-Az" "-b_" "-r/etc/init.d/frr_restart_%s" "-s/etc/init.d/frr_start_%s" "-k/etc/init.d/frr_stop_%s")
+watchfrr_options=("-b_" "-r/etc/init.d/frr_restart_%s" "-s/etc/init.d/frr_start_%s" "-k/etc/init.d/frr_stop_%s")
 #
 zebra=no
 bgpd=no
