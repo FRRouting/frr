@@ -251,7 +251,7 @@ GITH=lib/gitversion.h
 lib/gitversion.h.tmp: $(top_srcdir)/.git
 	@PERL@ $(top_srcdir)/lib/gitversion.pl $(top_srcdir) > ${GITH}.tmp
 lib/gitversion.h: lib/gitversion.h.tmp
-	{ test -f ${GITH} && diff -s -q ${GITH}.tmp ${GITH}; } || cp -v ${GITH}.tmp ${GITH}
+	{ test -f ${GITH} && diff -s -q ${GITH}.tmp ${GITH}; } || cp ${GITH}.tmp ${GITH}
 
 else
 .PHONY: lib/gitversion.h
