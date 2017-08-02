@@ -50,21 +50,12 @@
 #define DEFAULT_LOGLEVEL	LOG_INFO
 #define DEFAULT_MIN_RESTART	60
 #define DEFAULT_MAX_RESTART	600
-#ifdef PATH_WATCHFRR_PID
-#define DEFAULT_PIDFILE		PATH_WATCHFRR_PID
-#else
-#define DEFAULT_PIDFILE		STATEDIR "/watchfrr.pid"
-#endif
-#ifdef DAEMON_VTY_DIR
-#define VTYDIR			DAEMON_VTY_DIR
-#else
-#define VTYDIR			STATEDIR
-#endif
 
 #define PING_TOKEN	"PING"
 
 /* Needs to be global, referenced somewhere inside libfrr. */
 struct thread_master *master;
+static char pidfile_default[256];
 
 static bool watch_only = false;
 
@@ -118,7 +109,7 @@ static struct global_state {
 	int numdown; /* # of daemons that are not UP or UNRESPONSIVE */
 } gs = {
 	.phase = PHASE_NONE,
-	.vtydir = VTYDIR,
+	.vtydir = frr_vtydir,
 	.period = 1000 * DEFAULT_PERIOD,
 	.timeout = DEFAULT_TIMEOUT,
 	.restart_timeout = DEFAULT_RESTART_TIMEOUT,
@@ -245,9 +236,9 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
 		passing command-line arguments with embedded spaces.\n\
 -v, --version	Print program version\n\
 -h, --help	Display this help and exit\n",
-		VTYDIR, DEFAULT_LOGLEVEL, LOG_EMERG, LOG_DEBUG, LOG_DEBUG,
+		frr_vtydir, DEFAULT_LOGLEVEL, LOG_EMERG, LOG_DEBUG, LOG_DEBUG,
 		DEFAULT_MIN_RESTART, DEFAULT_MAX_RESTART, DEFAULT_PERIOD,
-		DEFAULT_TIMEOUT, DEFAULT_RESTART_TIMEOUT, DEFAULT_PIDFILE);
+		DEFAULT_TIMEOUT, DEFAULT_RESTART_TIMEOUT, pidfile_default);
 }
 
 static pid_t run_background(char *shell_cmd)
@@ -976,9 +967,12 @@ FRR_DAEMON_INFO(watchfrr, WATCHFRR,
 int main(int argc, char **argv)
 {
 	int opt;
-	const char *pidfile = DEFAULT_PIDFILE;
+	const char *pidfile = pidfile_default;
 	const char *special = "zebra";
 	const char *blankstr = NULL;
+
+	snprintf(pidfile_default, sizeof(pidfile_default), "%s/watchfrr.pid",
+		 frr_vtydir);
 
 	frr_preinit(&watchfrr_di, argc, argv);
 	progname = watchfrr_di.progname;
