@@ -1248,13 +1248,7 @@ fi
 AM_CONDITIONAL(BGPD, test "x$BGPD" = "xbgpd")
 
 AM_CONDITIONAL(RIPD, test "${enable_ripd}" != "no")
-
-if test "${enable_ospfd}" = "no";then
-  OSPFD=""
-else
-  OSPFD="ospfd"
-fi
-AM_CONDITIONAL(OSPFD, test "x$OSPFD" = "xospfd")
+AM_CONDITIONAL(OSPFD, test "${enable_ospfd}" != "no")
 
 if test "${enable_ldpd}" = "no";then
   LDPD=""
@@ -1312,11 +1306,7 @@ case "${enable_babeld}" in
 esac
 AM_CONDITIONAL(BABELD, test "x$BABELD" = "xbabeld")
 
-case "${enable_ospf6d}" in
-  "no" ) OSPF6D="";;
-  *    ) OSPF6D="ospf6d";;
-esac
-AM_CONDITIONAL(OSPF6D, test "x$OSPF6D" = "xospf6d")
+AM_CONDITIONAL(OSPF6D, test "${enable_ospf6d}" != "no")
 
 case "${enable_isisd}" in
   "no" ) ISISD="";;
@@ -1363,8 +1353,6 @@ AC_SUBST(LIBRFP)
 AC_SUBST(RFPINC)
 AC_SUBST(BABELD)
 AC_SUBST(BGPD)
-AC_SUBST(OSPFD)
-AC_SUBST(OSPF6D)
 AC_SUBST(LDPD)
 AC_SUBST(NHRPD)
 AC_SUBST(EIGRPD)
@@ -1374,8 +1362,6 @@ AC_SUBST(PIMD)
 AC_SUBST(SOLARIS)
 AC_SUBST(VTYSH)
 AC_SUBST(CURSES)
-AC_SUBST(OSPFCLIENT)
-AC_SUBST(OSPFAPI)
 AC_CHECK_LIB(crypt, crypt, [],
 		    [AC_CHECK_LIB(crypto, DES_crypt)])
 AC_CHECK_LIB(resolv, res_init)
@@ -1820,9 +1806,9 @@ AC_CACHE_VAL(ac_cv_htonl_works,
 AC_MSG_RESULT($ac_cv_htonl_works)
 
 AC_CONFIG_FILES([Makefile
-	  bgpd/Makefile ospfd/Makefile watchfrr/Makefile
-	  ospf6d/Makefile ldpd/Makefile isisd/Makefile vtysh/Makefile
-	  doc/Makefile ospfclient/Makefile tests/Makefile
+	  bgpd/Makefile watchfrr/Makefile
+	  ldpd/Makefile isisd/Makefile vtysh/Makefile
+	  doc/Makefile tests/Makefile
 	  bgpd/rfp-example/rfptest/Makefile bgpd/rfp-example/librfp/Makefile
 	  babeld/Makefile
 	  pimd/Makefile

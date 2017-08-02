@@ -31,15 +31,18 @@ include fpm/subdir.am
 
 include ripd/subdir.am
 include ripngd/subdir.am
+include ospfd/subdir.am
+include ospf6d/subdir.am
+include ospfclient/subdir.am
 
 SUBDIRS = . @LIBRFP@ @RFPTEST@ \
-	 @BGPD@ @OSPFD@ @OSPF6D@ @LDPD@ \
+	 @BGPD@ @LDPD@ \
          @ISISD@ @PIMD@ @NHRPD@ @EIGRPD@ @BABELD@ \
-	 @WATCHFRR@ @VTYSH@ @OSPFCLIENT@ @DOC@ \
+	 @WATCHFRR@ @VTYSH@ @DOC@ \
          @SOLARIS@ tests tools
 
-DIST_SUBDIRS = . bgpd ospfd ospf6d ldpd \
-	  isisd watchfrr vtysh ospfclient doc tests \
+DIST_SUBDIRS = . bgpd ldpd \
+	  isisd watchfrr vtysh doc tests \
 	  solaris pimd nhrpd eigrpd bgpd/rfp-example/librfp \
 	  bgpd/rfp-example/rfptest tools babeld \
 	  # end

@@ -1,0 +1,93 @@
+#
+# ospfd
+#
+
+if OSPFD
+noinst_LIBRARIES += ospfd/libfrrospf.a
+sbin_PROGRAMS += ospfd/ospfd
+dist_examples_DATA += ospfd/ospfd.conf.sample
+if SNMP
+module_LTLIBRARIES += ospfd/ospfd_snmp.la
+endif
+endif
+
+ospfd_libfrrospf_a_SOURCES = \
+	ospfd/ospf_abr.c \
+	ospfd/ospf_api.c \
+	ospfd/ospf_apiserver.c \
+	ospfd/ospf_asbr.c \
+	ospfd/ospf_ase.c \
+	ospfd/ospf_bfd.c \
+	ospfd/ospf_dump.c \
+	ospfd/ospf_dump_api.c \
+	ospfd/ospf_flood.c \
+	ospfd/ospf_ia.c \
+	ospfd/ospf_interface.c \
+	ospfd/ospf_ism.c \
+	ospfd/ospf_lsa.c \
+	ospfd/ospf_lsdb.c \
+	ospfd/ospf_memory.c \
+	ospfd/ospf_neighbor.c \
+	ospfd/ospf_network.c \
+	ospfd/ospf_nsm.c \
+	ospfd/ospf_opaque.c \
+	ospfd/ospf_packet.c \
+	ospfd/ospf_ri.c \
+	ospfd/ospf_route.c \
+	ospfd/ospf_routemap.c \
+	ospfd/ospf_spf.c \
+	ospfd/ospf_te.c \
+	ospfd/ospf_vty.c \
+	ospfd/ospf_zebra.c \
+	ospfd/ospfd.c \
+	# end
+
+if OSPFD
+ospfdheaderdir = $(pkgincludedir)/ospfd
+ospfdheader_HEADERS = \
+	ospfd/ospf_api.h \
+	ospfd/ospf_asbr.h \
+	ospfd/ospf_dump.h \
+	ospfd/ospf_dump_api.h \
+	ospfd/ospf_ism.h \
+	ospfd/ospf_lsa.h \
+	ospfd/ospf_lsdb.h \
+	ospfd/ospf_nsm.h \
+	ospfd/ospf_opaque.h \
+	ospfd/ospfd.h \
+	# end
+endif
+
+noinst_HEADERS += \
+	ospfd/ospf_abr.h \
+	ospfd/ospf_apiserver.h \
+	ospfd/ospf_ase.h \
+	ospfd/ospf_bfd.h \
+	ospfd/ospf_flood.h \
+	ospfd/ospf_ia.h \
+	ospfd/ospf_interface.h \
+	ospfd/ospf_memory.h \
+	ospfd/ospf_neighbor.h \
+	ospfd/ospf_network.h \
+	ospfd/ospf_packet.h \
+	ospfd/ospf_ri.h \
+	ospfd/ospf_route.h \
+	ospfd/ospf_spf.h \
+	ospfd/ospf_te.h \
+	ospfd/ospf_vty.h \
+	ospfd/ospf_zebra.h \
+	# end
+
+ospfd_ospfd_LDADD = ospfd/libfrrospf.a lib/libfrr.la @LIBCAP@ @LIBM@
+ospfd_ospfd_SOURCES = ospfd/ospf_main.c
+
+ospfd_ospfd_snmp_la_SOURCES = ospfd/ospf_snmp.c
+ospfd_ospfd_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS)
+ospfd_ospfd_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+ospfd_ospfd_snmp_la_LIBADD = lib/libfrrsnmp.la
+
+EXTRA_DIST += \
+	ospfd/ChangeLog.opaque.txt \
+	ospfd/OSPF-MIB.txt \
+	ospfd/OSPF-TRAP-MIB.txt \
+	# end
