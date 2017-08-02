@@ -1261,7 +1261,7 @@ static void pim_msdp_mg_free(struct pim_instance *pim, struct pim_msdp_mg *mg)
 		XFREE(MTYPE_PIM_MSDP_MG_NAME, mg->mesh_group_name);
 
 	if (mg->mbr_list)
-		list_free(mg->mbr_list);
+		list_delete(mg->mbr_list);
 
 	XFREE(MTYPE_PIM_MSDP_MG, mg);
 	pim->msdp.mg = NULL;

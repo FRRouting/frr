@@ -44,6 +44,7 @@
 #include "pim_ssmpingd.h"
 #include "pim_rp.h"
 #include "pim_nht.h"
+#include "pim_jp_agg.h"
 
 static void pim_if_igmp_join_del_all(struct interface *ifp);
 static int igmp_join_sock(const char *ifname, ifindex_t ifindex,
@@ -82,6 +83,9 @@ static void *if_list_clean(struct pim_interface *pim_ifp)
 
 	if (pim_ifp->upstream_switch_list)
 		list_delete(pim_ifp->upstream_switch_list);
+
+	if (pim_ifp->sec_addr_list)
+		list_delete(pim_ifp->sec_addr_list);
 
 	while ((ch = RB_ROOT(pim_ifchannel_rb,
 			     &pim_ifp->ifchannel_rb)) != NULL)
@@ -163,6 +167,9 @@ struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
 			 __FILE__, __PRETTY_FUNCTION__);
 		return if_list_clean(pim_ifp);
 	}
+	pim_ifp->upstream_switch_list->del =
+		(void (*)(void *))pim_jp_agg_group_list_free;
+	pim_ifp->upstream_switch_list->cmp = pim_jp_agg_group_list_cmp;
 
 	RB_INIT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb);
 
@@ -198,6 +205,7 @@ void pim_if_delete(struct interface *ifp)
 	list_delete(pim_ifp->igmp_socket_list);
 	list_delete(pim_ifp->pim_neighbor_list);
 	list_delete(pim_ifp->upstream_switch_list);
+	list_delete(pim_ifp->sec_addr_list);
 
 	while ((ch = RB_ROOT(pim_ifchannel_rb,
 			     &pim_ifp->ifchannel_rb)) != NULL)

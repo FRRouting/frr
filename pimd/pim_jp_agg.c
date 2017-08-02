@@ -108,6 +108,7 @@ void pim_jp_agg_clear_group(struct list *group)
 			js->up = NULL;
 			XFREE(MTYPE_PIM_JP_AGG_SOURCE, js);
 		}
+		list_delete(jag->sources);
 		jag->sources = NULL;
 		listnode_delete(group, jag);
 		XFREE(MTYPE_PIM_JP_AGG_GROUP, jag);
