@@ -45,8 +45,20 @@
 #include "pim_nht.h"
 
 
-static struct list *qpim_rp_list = NULL;
-static struct rp_info *tail = NULL;
+/* Cleanup pim->rpf_hash each node data */
+void pim_rp_list_hash_clean(void *data)
+{
+	struct pim_nexthop_cache *pnc = (struct pim_nexthop_cache *)data;
+
+	list_delete(pnc->rp_list);
+	pnc->rp_list = NULL;
+
+	hash_clean(pnc->upstream_hash, NULL);
+	hash_free(pnc->upstream_hash);
+	pnc->upstream_hash = NULL;
+
+	XFREE(MTYPE_PIM_NEXTHOP_CACHE, pnc);
+}
 
 static void pim_rp_info_free(struct rp_info *rp_info)
 {
@@ -81,46 +93,49 @@ int pim_rp_list_cmp(void *v1, void *v2)
 	return 0;
 }
 
-void pim_rp_init(void)
+void pim_rp_init(struct pim_instance *pim)
 {
 	struct rp_info *rp_info;
 
-	qpim_rp_list = list_new();
-	qpim_rp_list->del = (void (*)(void *))pim_rp_info_free;
-	qpim_rp_list->cmp = pim_rp_list_cmp;
+	pim->rp_list = list_new();
+	pim->rp_list->del = (void (*)(void *))pim_rp_info_free;
+	pim->rp_list->cmp = pim_rp_list_cmp;
 
 	rp_info = XCALLOC(MTYPE_PIM_RP, sizeof(*rp_info));
 
 	if (!rp_info)
 		return;
 
-	str2prefix("224.0.0.0/4", &rp_info->group);
+	if (!str2prefix("224.0.0.0/4", &rp_info->group)) {
+		XFREE(MTYPE_PIM_RP, rp_info);
+		return;
+	}
 	rp_info->group.family = AF_INET;
 	rp_info->rp.rpf_addr.family = AF_INET;
 	rp_info->rp.rpf_addr.prefixlen = IPV4_MAX_PREFIXLEN;
 	rp_info->rp.rpf_addr.u.prefix4.s_addr = INADDR_NONE;
-	tail = rp_info;
 
-	listnode_add(qpim_rp_list, rp_info);
+	listnode_add(pim->rp_list, rp_info);
 }
 
-void pim_rp_free(void)
+void pim_rp_free(struct pim_instance *pim)
 {
-	if (qpim_rp_list)
-		list_delete(qpim_rp_list);
-	qpim_rp_list = NULL;
+	if (pim->rp_list)
+		list_delete(pim->rp_list);
+	pim->rp_list = NULL;
 }
 
 /*
  * Given an RP's prefix-list, return the RP's rp_info for that prefix-list
  */
-static struct rp_info *pim_rp_find_prefix_list(struct in_addr rp,
+static struct rp_info *pim_rp_find_prefix_list(struct pim_instance *pim,
+					       struct in_addr rp,
 					       const char *plist)
 {
 	struct listnode *node;
 	struct rp_info *rp_info;
 
-	for (ALL_LIST_ELEMENTS_RO(qpim_rp_list, node, rp_info)) {
+	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (rp.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr
 		    && rp_info->plist && strcmp(rp_info->plist, plist) == 0) {
 			return rp_info;
@@ -133,12 +148,12 @@ static struct rp_info *pim_rp_find_prefix_list(struct in_addr rp,
 /*
  * Return true if plist is used by any rp_info
  */
-static int pim_rp_prefix_list_used(const char *plist)
+static int pim_rp_prefix_list_used(struct pim_instance *pim, const char *plist)
 {
 	struct listnode *node;
 	struct rp_info *rp_info;
 
-	for (ALL_LIST_ELEMENTS_RO(qpim_rp_list, node, rp_info)) {
+	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (rp_info->plist && strcmp(rp_info->plist, plist) == 0) {
 			return 1;
 		}
@@ -151,13 +166,14 @@ static int pim_rp_prefix_list_used(const char *plist)
  * Given an RP's address, return the RP's rp_info that is an exact match for
  * 'group'
  */
-static struct rp_info *pim_rp_find_exact(struct in_addr rp,
+static struct rp_info *pim_rp_find_exact(struct pim_instance *pim,
+					 struct in_addr rp,
 					 struct prefix *group)
 {
 	struct listnode *node;
 	struct rp_info *rp_info;
 
-	for (ALL_LIST_ELEMENTS_RO(qpim_rp_list, node, rp_info)) {
+	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (rp.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr
 		    && prefix_same(&rp_info->group, group))
 			return rp_info;
@@ -169,13 +185,14 @@ static struct rp_info *pim_rp_find_exact(struct in_addr rp,
 /*
  * Given a group, return the rp_info for that group
  */
-static struct rp_info *pim_rp_find_match_group(struct prefix *group)
+static struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
+					       struct prefix *group)
 {
 	struct listnode *node;
 	struct rp_info *rp_info;
 	struct prefix_list *plist;
 
-	for (ALL_LIST_ELEMENTS_RO(qpim_rp_list, node, rp_info)) {
+	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (rp_info->plist) {
 			plist = prefix_list_lookup(AFI_IP, rp_info->plist);
 
@@ -198,18 +215,19 @@ static struct rp_info *pim_rp_find_match_group(struct prefix *group)
  *
  * This is a placeholder function for now.
  */
-static void pim_rp_refresh_group_to_rp_mapping()
+static void pim_rp_refresh_group_to_rp_mapping(struct pim_instance *pim)
 {
-	pim_msdp_i_am_rp_changed();
+	pim_msdp_i_am_rp_changed(pim);
 }
 
-void pim_rp_prefix_list_update(struct prefix_list *plist)
+void pim_rp_prefix_list_update(struct pim_instance *pim,
+			       struct prefix_list *plist)
 {
 	struct listnode *node;
 	struct rp_info *rp_info;
 	int refresh_needed = 0;
 
-	for (ALL_LIST_ELEMENTS_RO(qpim_rp_list, node, rp_info)) {
+	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (rp_info->plist
 		    && strcmp(rp_info->plist, prefix_list_name(plist)) == 0) {
 			refresh_needed = 1;
@@ -218,7 +236,7 @@ void pim_rp_prefix_list_update(struct prefix_list *plist)
 	}
 
 	if (refresh_needed)
-		pim_rp_refresh_group_to_rp_mapping();
+		pim_rp_refresh_group_to_rp_mapping(pim);
 }
 
 static int pim_rp_check_interface_addrs(struct rp_info *rp_info,
@@ -244,13 +262,14 @@ static int pim_rp_check_interface_addrs(struct rp_info *rp_info,
 	return 0;
 }
 
-static void pim_rp_check_interfaces(struct rp_info *rp_info)
+static void pim_rp_check_interfaces(struct pim_instance *pim,
+				    struct rp_info *rp_info)
 {
 	struct listnode *node;
 	struct interface *ifp;
 
 	rp_info->i_am_rp = 0;
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), node, ifp)) {
 		struct pim_interface *pim_ifp = ifp->info;
 
 		if (!pim_ifp)
@@ -262,7 +281,8 @@ static void pim_rp_check_interfaces(struct rp_info *rp_info)
 	}
 }
 
-int pim_rp_new(const char *rp, const char *group_range, const char *plist)
+int pim_rp_new(struct pim_instance *pim, const char *rp,
+	       const char *group_range, const char *plist)
 {
 	int result = 0;
 	struct rp_info *rp_info;
@@ -302,7 +322,7 @@ int pim_rp_new(const char *rp, const char *group_range, const char *plist)
 		/*
 		 * Return if the prefix-list is already configured for this RP
 		 */
-		if (pim_rp_find_prefix_list(rp_info->rp.rpf_addr.u.prefix4,
+		if (pim_rp_find_prefix_list(pim, rp_info->rp.rpf_addr.u.prefix4,
 					    plist)) {
 			XFREE(MTYPE_PIM_RP, rp_info);
 			return PIM_SUCCESS;
@@ -311,7 +331,7 @@ int pim_rp_new(const char *rp, const char *group_range, const char *plist)
 		/*
 		 * Barf if the prefix-list is already configured for an RP
 		 */
-		if (pim_rp_prefix_list_used(plist)) {
+		if (pim_rp_prefix_list_used(pim, plist)) {
 			XFREE(MTYPE_PIM_RP, rp_info);
 			return PIM_RP_PFXLIST_IN_USE;
 		}
@@ -319,16 +339,16 @@ int pim_rp_new(const char *rp, const char *group_range, const char *plist)
 		/*
 		 * Free any existing rp_info entries for this RP
 		 */
-		for (ALL_LIST_ELEMENTS(qpim_rp_list, node, nnode,
+		for (ALL_LIST_ELEMENTS(pim->rp_list, node, nnode,
 				       tmp_rp_info)) {
 			if (rp_info->rp.rpf_addr.u.prefix4.s_addr
 			    == tmp_rp_info->rp.rpf_addr.u.prefix4.s_addr) {
 				if (tmp_rp_info->plist)
-					pim_rp_del(rp, NULL,
+					pim_rp_del(pim, rp, NULL,
 						   tmp_rp_info->plist);
 				else
 					pim_rp_del(
-						rp,
+						pim, rp,
 						prefix2str(&tmp_rp_info->group,
 							   buffer, BUFSIZ),
 						NULL);
@@ -337,8 +357,11 @@ int pim_rp_new(const char *rp, const char *group_range, const char *plist)
 
 		rp_info->plist = XSTRDUP(MTYPE_PIM_FILTER_NAME, plist);
 	} else {
-		str2prefix("224.0.0.0/4", &group_all);
-		rp_all = pim_rp_find_match_group(&group_all);
+		if (!str2prefix("224.0.0.0/4", &group_all)) {
+			XFREE(MTYPE_PIM_RP, rp_info);
+			return PIM_GROUP_BAD_ADDRESS;
+		}
+		rp_all = pim_rp_find_match_group(pim, &group_all);
 
 		/*
 		 * Barf if group is a non-multicast subnet
@@ -351,13 +374,13 @@ int pim_rp_new(const char *rp, const char *group_range, const char *plist)
 		/*
 		 * Remove any prefix-list rp_info entries for this RP
 		 */
-		for (ALL_LIST_ELEMENTS(qpim_rp_list, node, nnode,
+		for (ALL_LIST_ELEMENTS(pim->rp_list, node, nnode,
 				       tmp_rp_info)) {
 			if (tmp_rp_info->plist
 			    && rp_info->rp.rpf_addr.u.prefix4.s_addr
 				       == tmp_rp_info->rp.rpf_addr.u.prefix4
 						  .s_addr) {
-				pim_rp_del(rp, NULL, tmp_rp_info->plist);
+				pim_rp_del(pim, rp, NULL, tmp_rp_info->plist);
 			}
 		}
 
@@ -384,31 +407,29 @@ int pim_rp_new(const char *rp, const char *group_range, const char *plist)
 					__PRETTY_FUNCTION__, buf, buf1);
 			}
 			memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-			if ((pim_find_or_track_nexthop(&nht_p, NULL, rp_all,
-						       &pnc))
-			    == 1) {
-				// Compute PIM RPF using Cached nexthop
-				if ((pim_ecmp_nexthop_search(
-					    &pnc, &rp_all->rp.source_nexthop,
-					    &nht_p, &rp_all->group, 1))
-				    != 0)
+			if (pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_all,
+						      &pnc)) {
+				if (!pim_ecmp_nexthop_search(
+					    pim, &pnc,
+					    &rp_all->rp.source_nexthop, &nht_p,
+					    &rp_all->group, 1))
 					return PIM_RP_NO_PATH;
 			} else {
 				if (pim_nexthop_lookup(
-					    &rp_all->rp.source_nexthop,
+					    pim, &rp_all->rp.source_nexthop,
 					    rp_all->rp.rpf_addr.u.prefix4, 1)
 				    != 0)
 					return PIM_RP_NO_PATH;
 			}
-			pim_rp_check_interfaces(rp_all);
-			pim_rp_refresh_group_to_rp_mapping();
+			pim_rp_check_interfaces(pim, rp_all);
+			pim_rp_refresh_group_to_rp_mapping(pim);
 			return PIM_SUCCESS;
 		}
 
 		/*
 		 * Return if the group is already configured for this RP
 		 */
-		if (pim_rp_find_exact(rp_info->rp.rpf_addr.u.prefix4,
+		if (pim_rp_find_exact(pim, rp_info->rp.rpf_addr.u.prefix4,
 				      &rp_info->group)) {
 			XFREE(MTYPE_PIM_RP, rp_info);
 			return PIM_SUCCESS;
@@ -417,7 +438,7 @@ int pim_rp_new(const char *rp, const char *group_range, const char *plist)
 		/*
 		 * Barf if this group is already covered by some other RP
 		 */
-		tmp_rp_info = pim_rp_find_match_group(&rp_info->group);
+		tmp_rp_info = pim_rp_find_match_group(pim, &rp_info->group);
 
 		if (tmp_rp_info) {
 			if (tmp_rp_info->plist) {
@@ -440,7 +461,7 @@ int pim_rp_new(const char *rp, const char *group_range, const char *plist)
 		}
 	}
 
-	listnode_add_sort(qpim_rp_list, rp_info);
+	listnode_add_sort(pim->rp_list, rp_info);
 
 	/* Register addr with Zebra NHT */
 	nht_p.family = AF_INET;
@@ -456,25 +477,25 @@ int pim_rp_new(const char *rp, const char *group_range, const char *plist)
 	}
 
 	memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-	if ((pim_find_or_track_nexthop(&nht_p, NULL, rp_info, &pnc)) == 1) {
-		// Compute PIM RPF using Cached nexthop
-		if (pim_ecmp_nexthop_search(&pnc, &rp_info->rp.source_nexthop,
-					    &nht_p, &rp_info->group, 1)
-		    != 0)
+	if (pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info, &pnc)) {
+		if (!pim_ecmp_nexthop_search(pim, &pnc,
+					     &rp_info->rp.source_nexthop,
+					     &nht_p, &rp_info->group, 1))
 			return PIM_RP_NO_PATH;
 	} else {
-		if (pim_nexthop_lookup(&rp_info->rp.source_nexthop,
+		if (pim_nexthop_lookup(pim, &rp_info->rp.source_nexthop,
 				       rp_info->rp.rpf_addr.u.prefix4, 1)
 		    != 0)
 			return PIM_RP_NO_PATH;
 	}
 
-	pim_rp_check_interfaces(rp_info);
-	pim_rp_refresh_group_to_rp_mapping();
+	pim_rp_check_interfaces(pim, rp_info);
+	pim_rp_refresh_group_to_rp_mapping(pim);
 	return PIM_SUCCESS;
 }
 
-int pim_rp_del(const char *rp, const char *group_range, const char *plist)
+int pim_rp_del(struct pim_instance *pim, const char *rp,
+	       const char *group_range, const char *plist)
 {
 	struct prefix group;
 	struct in_addr rp_addr;
@@ -497,9 +518,9 @@ int pim_rp_del(const char *rp, const char *group_range, const char *plist)
 		return PIM_RP_BAD_ADDRESS;
 
 	if (plist)
-		rp_info = pim_rp_find_prefix_list(rp_addr, plist);
+		rp_info = pim_rp_find_prefix_list(pim, rp_addr, plist);
 	else
-		rp_info = pim_rp_find_exact(rp_addr, &group);
+		rp_info = pim_rp_find_exact(pim, rp_addr, &group);
 
 	if (!rp_info)
 		return PIM_RP_NOT_FOUND;
@@ -519,10 +540,10 @@ int pim_rp_del(const char *rp, const char *group_range, const char *plist)
 		zlog_debug("%s: Deregister RP addr %s with Zebra ",
 			   __PRETTY_FUNCTION__, buf);
 	}
-	pim_delete_tracked_nexthop(&nht_p, NULL, rp_info);
+	pim_delete_tracked_nexthop(pim, &nht_p, NULL, rp_info);
 
 	str2prefix("224.0.0.0/4", &g_all);
-	rp_all = pim_rp_find_match_group(&g_all);
+	rp_all = pim_rp_find_match_group(pim, &g_all);
 
 	if (rp_all == rp_info) {
 		rp_all->rp.rpf_addr.family = AF_INET;
@@ -531,20 +552,19 @@ int pim_rp_del(const char *rp, const char *group_range, const char *plist)
 		return PIM_SUCCESS;
 	}
 
-	listnode_delete(qpim_rp_list, rp_info);
-	pim_rp_refresh_group_to_rp_mapping();
+	listnode_delete(pim->rp_list, rp_info);
+	pim_rp_refresh_group_to_rp_mapping(pim);
 	return PIM_SUCCESS;
 }
 
-int pim_rp_setup(void)
+void pim_rp_setup(struct pim_instance *pim)
 {
 	struct listnode *node;
 	struct rp_info *rp_info;
-	int ret = 0;
 	struct prefix nht_p;
 	struct pim_nexthop_cache pnc;
 
-	for (ALL_LIST_ELEMENTS_RO(qpim_rp_list, node, rp_info)) {
+	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (rp_info->rp.rpf_addr.u.prefix4.s_addr == INADDR_NONE)
 			continue;
 
@@ -552,15 +572,11 @@ int pim_rp_setup(void)
 		nht_p.prefixlen = IPV4_MAX_BITLEN;
 		nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
 		memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-		if ((pim_find_or_track_nexthop(&nht_p, NULL, rp_info, &pnc))
-		    == 1) {
-			// Compute PIM RPF using Cached nexthop
-			if ((pim_ecmp_nexthop_search(
-				    &pnc, &rp_info->rp.source_nexthop, &nht_p,
-				    &rp_info->group, 1))
-			    != 0)
-				ret++;
-		} else {
+		if (pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info, &pnc))
+			pim_ecmp_nexthop_search(pim, &pnc,
+						&rp_info->rp.source_nexthop,
+						&nht_p, &rp_info->group, 1);
+		else {
 			if (PIM_DEBUG_ZEBRA) {
 				char buf[PREFIX2STR_BUFFER];
 				prefix2str(&nht_p, buf, sizeof(buf));
@@ -568,22 +584,14 @@ int pim_rp_setup(void)
 					"%s: NHT Local Nexthop not found for RP %s ",
 					__PRETTY_FUNCTION__, buf);
 			}
-			if (pim_nexthop_lookup(&rp_info->rp.source_nexthop,
-					       rp_info->rp.rpf_addr.u.prefix4,
-					       1)
-			    != 0) {
+			if (!pim_nexthop_lookup(
+				    pim, &rp_info->rp.source_nexthop,
+				    rp_info->rp.rpf_addr.u.prefix4, 1))
 				if (PIM_DEBUG_PIM_TRACE)
 					zlog_debug(
 						"Unable to lookup nexthop for rp specified");
-				ret++;
-			}
 		}
 	}
-
-	if (ret)
-		return 0;
-
-	return 1;
 }
 
 /*
@@ -595,11 +603,12 @@ void pim_rp_check_on_if_add(struct pim_interface *pim_ifp)
 	struct listnode *node;
 	struct rp_info *rp_info;
 	bool i_am_rp_changed = false;
+	struct pim_instance *pim = pim_ifp->pim;
 
-	if (qpim_rp_list == NULL)
+	if (pim->rp_list == NULL)
 		return;
 
-	for (ALL_LIST_ELEMENTS_RO(qpim_rp_list, node, rp_info)) {
+	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (pim_rpf_addr_is_inaddr_none(&rp_info->rp))
 			continue;
 
@@ -623,29 +632,29 @@ void pim_rp_check_on_if_add(struct pim_interface *pim_ifp)
 	}
 
 	if (i_am_rp_changed) {
-		pim_msdp_i_am_rp_changed();
+		pim_msdp_i_am_rp_changed(pim);
 	}
 }
 
 /* up-optimized re-evaluation of "i_am_rp". this is used when ifaddresses
  * are removed. Removing numbers is an uncommon event in an active network
  * so I have made no attempt to optimize it. */
-void pim_i_am_rp_re_evaluate(void)
+void pim_i_am_rp_re_evaluate(struct pim_instance *pim)
 {
 	struct listnode *node;
 	struct rp_info *rp_info;
 	bool i_am_rp_changed = false;
 	int old_i_am_rp;
 
-	if (qpim_rp_list == NULL)
+	if (pim->rp_list == NULL)
 		return;
 
-	for (ALL_LIST_ELEMENTS_RO(qpim_rp_list, node, rp_info)) {
+	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (pim_rpf_addr_is_inaddr_none(&rp_info->rp))
 			continue;
 
 		old_i_am_rp = rp_info->i_am_rp;
-		pim_rp_check_interfaces(rp_info);
+		pim_rp_check_interfaces(pim, rp_info);
 
 		if (old_i_am_rp != rp_info->i_am_rp) {
 			i_am_rp_changed = true;
@@ -665,7 +674,7 @@ void pim_i_am_rp_re_evaluate(void)
 	}
 
 	if (i_am_rp_changed) {
-		pim_msdp_i_am_rp_changed();
+		pim_msdp_i_am_rp_changed(pim);
 	}
 }
 
@@ -675,7 +684,7 @@ void pim_i_am_rp_re_evaluate(void)
  *
  * Since we only have static RP, all groups are part of this RP
  */
-int pim_rp_i_am_rp(struct in_addr group)
+int pim_rp_i_am_rp(struct pim_instance *pim, struct in_addr group)
 {
 	struct prefix g;
 	struct rp_info *rp_info;
@@ -685,7 +694,7 @@ int pim_rp_i_am_rp(struct in_addr group)
 	g.prefixlen = 32;
 	g.u.prefix4 = group;
 
-	rp_info = pim_rp_find_match_group(&g);
+	rp_info = pim_rp_find_match_group(pim, &g);
 
 	if (rp_info)
 		return rp_info->i_am_rp;
@@ -698,7 +707,7 @@ int pim_rp_i_am_rp(struct in_addr group)
  *
  * Return the RP that the Group belongs too.
  */
-struct pim_rpf *pim_rp_g(struct in_addr group)
+struct pim_rpf *pim_rp_g(struct pim_instance *pim, struct in_addr group)
 {
 	struct prefix g;
 	struct rp_info *rp_info;
@@ -708,7 +717,7 @@ struct pim_rpf *pim_rp_g(struct in_addr group)
 	g.prefixlen = 32;
 	g.u.prefix4 = group;
 
-	rp_info = pim_rp_find_match_group(&g);
+	rp_info = pim_rp_find_match_group(pim, &g);
 
 	if (rp_info) {
 		struct prefix nht_p;
@@ -727,13 +736,11 @@ struct pim_rpf *pim_rp_g(struct in_addr group)
 				__PRETTY_FUNCTION__, buf, buf1);
 		}
 		memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-		if ((pim_find_or_track_nexthop(&nht_p, NULL, rp_info, &pnc))
-		    == 1) {
-			// Compute PIM RPF using Cached nexthop
-			pim_ecmp_nexthop_search(&pnc,
+		if (pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info, &pnc))
+			pim_ecmp_nexthop_search(pim, &pnc,
 						&rp_info->rp.source_nexthop,
 						&nht_p, &rp_info->group, 1);
-		} else {
+		else {
 			if (PIM_DEBUG_ZEBRA) {
 				char buf[PREFIX2STR_BUFFER];
 				char buf1[PREFIX2STR_BUFFER];
@@ -744,7 +751,7 @@ struct pim_rpf *pim_rp_g(struct in_addr group)
 					__PRETTY_FUNCTION__, buf, buf1);
 			}
 			pim_rpf_set_refresh_time();
-			pim_nexthop_lookup(&rp_info->rp.source_nexthop,
+			pim_nexthop_lookup(pim, &rp_info->rp.source_nexthop,
 					   rp_info->rp.rpf_addr.u.prefix4, 1);
 		}
 		return (&rp_info->rp);
@@ -762,8 +769,8 @@ struct pim_rpf *pim_rp_g(struct in_addr group)
  * then return failure.
  *
  */
-int pim_rp_set_upstream_addr(struct in_addr *up, struct in_addr source,
-			     struct in_addr group)
+int pim_rp_set_upstream_addr(struct pim_instance *pim, struct in_addr *up,
+			     struct in_addr source, struct in_addr group)
 {
 	struct rp_info *rp_info;
 	struct prefix g;
@@ -773,7 +780,7 @@ int pim_rp_set_upstream_addr(struct in_addr *up, struct in_addr source,
 	g.prefixlen = 32;
 	g.u.prefix4 = group;
 
-	rp_info = pim_rp_find_match_group(&g);
+	rp_info = pim_rp_find_match_group(pim, &g);
 
 	if ((pim_rpf_addr_is_inaddr_none(&rp_info->rp))
 	    && (source.s_addr == INADDR_ANY)) {
@@ -789,7 +796,8 @@ int pim_rp_set_upstream_addr(struct in_addr *up, struct in_addr source,
 	return 1;
 }
 
-int pim_rp_config_write(struct vty *vty)
+int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
+			const char *spaces)
 {
 	struct listnode *node;
 	struct rp_info *rp_info;
@@ -797,18 +805,18 @@ int pim_rp_config_write(struct vty *vty)
 	char group_buffer[32];
 	int count = 0;
 
-	for (ALL_LIST_ELEMENTS_RO(qpim_rp_list, node, rp_info)) {
+	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (pim_rpf_addr_is_inaddr_none(&rp_info->rp))
 			continue;
 
 		if (rp_info->plist)
-			vty_out(vty, "ip pim rp %s prefix-list %s\n",
+			vty_out(vty, "%sip pim rp %s prefix-list %s\n", spaces,
 				inet_ntop(AF_INET,
 					  &rp_info->rp.rpf_addr.u.prefix4,
 					  rp_buffer, 32),
 				rp_info->plist);
 		else
-			vty_out(vty, "ip pim rp %s %s\n",
+			vty_out(vty, "%sip pim rp %s %s\n", spaces,
 				inet_ntop(AF_INET,
 					  &rp_info->rp.rpf_addr.u.prefix4,
 					  rp_buffer, 32),
@@ -819,7 +827,8 @@ int pim_rp_config_write(struct vty *vty)
 	return count;
 }
 
-int pim_rp_check_is_my_ip_address(struct in_addr group,
+int pim_rp_check_is_my_ip_address(struct pim_instance *pim,
+				  struct in_addr group,
 				  struct in_addr dest_addr)
 {
 	struct rp_info *rp_info;
@@ -830,25 +839,26 @@ int pim_rp_check_is_my_ip_address(struct in_addr group,
 	g.prefixlen = 32;
 	g.u.prefix4 = group;
 
-	rp_info = pim_rp_find_match_group(&g);
+	rp_info = pim_rp_find_match_group(pim, &g);
 	/*
 	 * See if we can short-cut some?
 	 * This might not make sense if we ever leave a static RP
 	 * type of configuration.
 	 * Note - Premature optimization might bite our patooeys' here.
 	 */
-	if (I_am_RP(group)) {
+	if (I_am_RP(pim, group)) {
 		if (dest_addr.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr)
 			return 1;
 	}
 
-	if (if_lookup_exact_address(&dest_addr, AF_INET, VRF_DEFAULT))
+	if (if_lookup_exact_address(&dest_addr, AF_INET, pim->vrf_id))
 		return 1;
 
 	return 0;
 }
 
-void pim_rp_show_information(struct vty *vty, u_char uj)
+void pim_rp_show_information(struct pim_instance *pim, struct vty *vty,
+			     u_char uj)
 {
 	struct rp_info *rp_info;
 	struct rp_info *prev_rp_info = NULL;
@@ -864,7 +874,7 @@ void pim_rp_show_information(struct vty *vty, u_char uj)
 		vty_out(vty,
 			"RP address       group/prefix-list   OIF         I am RP\n");
 
-	for (ALL_LIST_ELEMENTS_RO(qpim_rp_list, node, rp_info)) {
+	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (!pim_rpf_addr_is_inaddr_none(&rp_info->rp)) {
 			char buf[48];
 
@@ -954,7 +964,7 @@ void pim_rp_show_information(struct vty *vty, u_char uj)
 	}
 }
 
-void pim_resolve_rp_nh(void)
+void pim_resolve_rp_nh(struct pim_instance *pim)
 {
 	struct listnode *node = NULL;
 	struct rp_info *rp_info = NULL;
@@ -963,7 +973,7 @@ void pim_resolve_rp_nh(void)
 	struct pim_nexthop_cache pnc;
 	struct pim_neighbor *nbr = NULL;
 
-	for (ALL_LIST_ELEMENTS_RO(qpim_rp_list, node, rp_info)) {
+	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (rp_info->rp.rpf_addr.u.prefix4.s_addr == INADDR_NONE)
 			continue;
 
@@ -971,43 +981,32 @@ void pim_resolve_rp_nh(void)
 		nht_p.prefixlen = IPV4_MAX_BITLEN;
 		nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
 		memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-		if ((pim_find_or_track_nexthop(&nht_p, NULL, rp_info, &pnc))
-		    == 1) {
-			for (nh_node = pnc.nexthop; nh_node;
-			     nh_node = nh_node->next) {
-				if (nh_node->gate.ipv4.s_addr == 0) {
-					nbr = pim_neighbor_find_if(
-						if_lookup_by_index(
-							nh_node->ifindex,
-							VRF_DEFAULT));
-					if (nbr) {
-						nh_node->gate.ipv4 =
-							nbr->source_addr;
-						if (PIM_DEBUG_TRACE) {
-							char str[PREFIX_STRLEN];
-							char str1
-								[INET_ADDRSTRLEN];
-							struct interface *ifp1 =
-								if_lookup_by_index(
-									nh_node->ifindex,
-									VRF_DEFAULT);
-							pim_inet4_dump(
-								"<nht_nbr?>",
-								nbr->source_addr,
-								str1,
-								sizeof(str1));
-							pim_addr_dump(
-								"<nht_addr?>",
-								&nht_p, str,
-								sizeof(str));
-							zlog_debug(
-								"%s: addr %s new nexthop addr %s interface %s",
-								__PRETTY_FUNCTION__,
-								str, str1,
-								ifp1->name);
-						}
-					}
-				}
+		if (!pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info,
+					       &pnc))
+			continue;
+
+		for (nh_node = pnc.nexthop; nh_node; nh_node = nh_node->next) {
+			if (nh_node->gate.ipv4.s_addr != 0)
+				continue;
+
+			struct interface *ifp1 = if_lookup_by_index(
+				nh_node->ifindex, pim->vrf_id);
+			nbr = pim_neighbor_find_if(ifp1);
+			if (!nbr)
+				continue;
+
+			nh_node->gate.ipv4 = nbr->source_addr;
+			if (PIM_DEBUG_TRACE) {
+				char str[PREFIX_STRLEN];
+				char str1[INET_ADDRSTRLEN];
+				pim_inet4_dump("<nht_nbr?>", nbr->source_addr,
+					       str1, sizeof(str1));
+				pim_addr_dump("<nht_addr?>", &nht_p, str,
+					      sizeof(str));
+				zlog_debug(
+					"%s: addr %s new nexthop addr %s interface %s",
+					__PRETTY_FUNCTION__, str, str1,
+					ifp1->name);
 			}
 		}
 	}

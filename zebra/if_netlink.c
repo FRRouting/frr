@@ -770,6 +770,33 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 	return 0;
 }
 
+int kernel_interface_set_master(struct interface *master,
+				struct interface *slave)
+{
+	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifa;
+		char buf[NL_PKT_BUF_SIZE];
+	} req;
+
+	memset(&req, 0, sizeof req);
+
+	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req.n.nlmsg_flags = NLM_F_REQUEST;
+	req.n.nlmsg_type = RTM_SETLINK;
+	req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
+
+	req.ifa.ifi_index = slave->ifindex;
+
+	addattr_l(&req.n, sizeof req, IFLA_MASTER, &master->ifindex, 4);
+	addattr_l(&req.n, sizeof req, IFLA_LINK, &slave->ifindex, 4);
+
+	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
+			    0);
+}
+
 /* Interface address modification. */
 static int netlink_address(int cmd, int family, struct interface *ifp,
 			   struct connected *ifc)

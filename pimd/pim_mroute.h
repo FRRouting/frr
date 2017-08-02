@@ -67,6 +67,10 @@
 #define MRT_PIM      (MRT_BASE+8)    /* enable PIM code      */
 #endif
 
+#ifndef MRT_TABLE
+#define MRT_TABLE    (209)           /* Specify mroute table ID */
+#endif
+
 #ifndef HAVE_VIFI_T
 typedef unsigned short vifi_t;
 #endif
@@ -163,17 +167,15 @@ struct igmpmsg {
   Above: from <linux/mroute.h>
 */
 
-int pim_mroute_socket_enable(void);
-int pim_mroute_socket_disable(void);
+int pim_mroute_socket_enable(struct pim_instance *pim);
+int pim_mroute_socket_disable(struct pim_instance *pim);
 
 int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr,
 		       unsigned char flags);
-int pim_mroute_del_vif(int vif_index);
+int pim_mroute_del_vif(struct interface *ifp);
 
 int pim_mroute_add(struct channel_oil *c_oil, const char *name);
 int pim_mroute_del(struct channel_oil *c_oil, const char *name);
-
-int pim_mroute_msg(int fd, const char *buf, int buf_size);
 
 void pim_mroute_update_counters(struct channel_oil *c_oil);
 #endif /* PIM_MROUTE_H */

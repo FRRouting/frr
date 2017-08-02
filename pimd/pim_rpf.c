@@ -24,6 +24,7 @@
 #include "log.h"
 #include "prefix.h"
 #include "memory.h"
+#include "jhash.h"
 
 #include "pimd.h"
 #include "pim_rpf.h"
@@ -34,6 +35,7 @@
 #include "pim_ifchannel.h"
 #include "pim_time.h"
 #include "pim_nht.h"
+#include "pim_oil.h"
 
 static long long last_route_change_time = -1;
 long long nexthop_lookups_avoided = 0;
@@ -48,8 +50,8 @@ void pim_rpf_set_refresh_time(void)
 			   __PRETTY_FUNCTION__, last_route_change_time);
 }
 
-int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr,
-		       int neighbor_needed)
+int pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
+		       struct in_addr addr, int neighbor_needed)
 {
 	struct pim_zlookup_nexthop nexthop_tab[MULTIPATH_NUM];
 	struct pim_neighbor *nbr = NULL;
@@ -91,8 +93,8 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr,
 
 	memset(nexthop_tab, 0,
 	       sizeof(struct pim_zlookup_nexthop) * MULTIPATH_NUM);
-	num_ifindex = zclient_lookup_nexthop(nexthop_tab, MULTIPATH_NUM, addr,
-					     PIM_NEXTHOP_LOOKUP_MAX);
+	num_ifindex = zclient_lookup_nexthop(pim, nexthop_tab, MULTIPATH_NUM,
+					     addr, PIM_NEXTHOP_LOOKUP_MAX);
 	if (num_ifindex < 1) {
 		char addr_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
@@ -105,7 +107,7 @@ int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr,
 	while (!found && (i < num_ifindex)) {
 		first_ifindex = nexthop_tab[i].ifindex;
 
-		ifp = if_lookup_by_index(first_ifindex, VRF_DEFAULT);
+		ifp = if_lookup_by_index(first_ifindex, pim->vrf_id);
 		if (!ifp) {
 			if (PIM_DEBUG_ZEBRA) {
 				char addr_str[INET_ADDRSTRLEN];
@@ -186,14 +188,14 @@ static int nexthop_mismatch(const struct pim_nexthop *nh1,
 	       || (nh1->mrib_route_metric != nh2->mrib_route_metric);
 }
 
-enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct pim_rpf *old,
+enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
+				   struct pim_upstream *up, struct pim_rpf *old,
 				   uint8_t is_new)
 {
 	struct pim_rpf *rpf = &up->rpf;
 	struct pim_rpf saved;
 	struct prefix nht_p;
 	struct pim_nexthop_cache pnc;
-	int ret = 0;
 	struct prefix src, grp;
 
 	saved.source_nexthop = rpf->source_nexthop;
@@ -218,27 +220,23 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct pim_rpf *old,
 	grp.prefixlen = IPV4_MAX_BITLEN;
 	grp.u.prefix4 = up->sg.grp;
 	memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-	if ((ret = pim_find_or_track_nexthop(&nht_p, up, NULL, &pnc)) == 1) {
+	if (pim_find_or_track_nexthop(pim, &nht_p, up, NULL, &pnc)) {
 		if (pnc.nexthop_num) {
-			// Compute PIM RPF using Cached nexthop
-			if (pim_ecmp_nexthop_search(
-				    &pnc, &up->rpf.source_nexthop, &src, &grp,
+			if (!pim_ecmp_nexthop_search(
+				    pim, &pnc, &up->rpf.source_nexthop, &src,
+				    &grp,
 				    !PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)
 					    && !PIM_UPSTREAM_FLAG_TEST_SRC_IGMP(
 						       up->flags)))
-
-			{
 				return PIM_RPF_FAILURE;
-			}
 		}
 	} else {
-		if (pim_ecmp_nexthop_lookup(
-			    &rpf->source_nexthop, up->upstream_addr, &src, &grp,
-			    !PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)
-				    && !PIM_UPSTREAM_FLAG_TEST_SRC_IGMP(
-					       up->flags))) {
+		if (!pim_ecmp_nexthop_lookup(
+			    pim, &rpf->source_nexthop, up->upstream_addr, &src,
+			    &grp, !PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)
+					  && !PIM_UPSTREAM_FLAG_TEST_SRC_IGMP(
+						     up->flags)))
 			return PIM_RPF_FAILURE;
-		}
 	}
 
 	rpf->rpf_addr.family = AF_INET;
@@ -267,7 +265,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct pim_rpf *old,
 		 rpf->source_nexthop.mrib_route_metric);
 		}
 
-		pim_upstream_update_join_desired(up);
+		pim_upstream_update_join_desired(pim, up);
 		pim_upstream_update_could_assert(up);
 		pim_upstream_update_my_assert_metric(up);
 	}
@@ -395,4 +393,21 @@ int pim_rpf_is_same(struct pim_rpf *rpf1, struct pim_rpf *rpf2)
 		return 1;
 
 	return 0;
+}
+
+unsigned int pim_rpf_hash_key(void *arg)
+{
+	struct pim_nexthop_cache *r = (struct pim_nexthop_cache *)arg;
+
+	return jhash_1word(r->rpf.rpf_addr.u.prefix4.s_addr, 0);
+}
+
+int pim_rpf_equal(const void *arg1, const void *arg2)
+{
+	const struct pim_nexthop_cache *r1 =
+		(const struct pim_nexthop_cache *)arg1;
+	const struct pim_nexthop_cache *r2 =
+		(const struct pim_nexthop_cache *)arg2;
+
+	return prefix_same(&r1->rpf.rpf_addr, &r2->rpf.rpf_addr);
 }

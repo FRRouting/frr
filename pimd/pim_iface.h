@@ -73,6 +73,8 @@ struct pim_secondary_addr {
 struct pim_interface {
 	uint32_t options; /* bit vector */
 	ifindex_t mroute_vif_index;
+	struct pim_instance *pim;
+
 	struct in_addr primary_address; /* remember addr to detect change */
 	struct list *sec_addr_list;     /* list of struct pim_secondary_addr */
 	struct in_addr update_source;   /* user can statically set the primary
@@ -104,8 +106,7 @@ struct pim_interface {
 	uint16_t pim_override_interval_msec; /* config */
 	struct list *pim_neighbor_list;      /* list of struct pim_neighbor */
 	struct list *upstream_switch_list;
-	struct list *pim_ifchannel_list; /* list of struct pim_ifchannel */
-	struct hash *pim_ifchannel_hash;
+	struct pim_ifchannel_rb ifchannel_rb;
 
 	/* neighbors without lan_delay */
 	int pim_number_of_nonlandelay_neighbors;
@@ -138,8 +139,6 @@ struct pim_interface {
 	struct bfd_info *bfd_info;
 };
 
-extern struct interface *pim_regiface;
-extern struct list *pim_ifchannel_list;
 /*
   if default_holdtime is set (>= 0), use it;
   otherwise default_holdtime is 3.5 * hello_period
@@ -149,8 +148,8 @@ extern struct list *pim_ifchannel_list;
 		 ? ((pim_ifp)->pim_hello_period * 7 / 2)                       \
 		 : ((pim_ifp)->pim_default_holdtime))
 
-void pim_if_init(void);
-void pim_if_terminate(void);
+void pim_if_init(struct pim_instance *pim);
+void pim_if_terminate(struct pim_instance *pim);
 
 struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim);
 void pim_if_delete(struct interface *ifp);
@@ -161,16 +160,15 @@ void pim_if_addr_del_all(struct interface *ifp);
 void pim_if_addr_del_all_igmp(struct interface *ifp);
 void pim_if_addr_del_all_pim(struct interface *ifp);
 
-struct interface *pim_if_lookup_address_vrf(struct in_addr src,
-					    vrf_id_t vrf_id);
-
 int pim_if_add_vif(struct interface *ifp);
 int pim_if_del_vif(struct interface *ifp);
-void pim_if_add_vif_all(void);
-void pim_if_del_vif_all(void);
+void pim_if_add_vif_all(struct pim_instance *pim);
+void pim_if_del_vif_all(struct pim_instance *pim);
 
-struct interface *pim_if_find_by_vif_index(ifindex_t vif_index);
-int pim_if_find_vifindex_by_ifindex(ifindex_t ifindex);
+struct interface *pim_if_find_by_vif_index(struct pim_instance *pim,
+					   ifindex_t vif_index);
+int pim_if_find_vifindex_by_ifindex(struct pim_instance *pim,
+				    ifindex_t ifindex);
 
 int pim_if_lan_delay_enabled(struct interface *ifp);
 uint16_t pim_if_effective_propagation_delay_msec(struct interface *ifp);
@@ -201,9 +199,14 @@ void pim_if_update_join_desired(struct pim_interface *pim_ifp);
 
 void pim_if_update_assert_tracking_desired(struct interface *ifp);
 
-void pim_if_create_pimreg(void);
+void pim_if_create_pimreg(struct pim_instance *pim);
 
 int pim_if_connected_to_source(struct interface *ifp, struct in_addr src);
 int pim_update_source_set(struct interface *ifp, struct in_addr source);
 
+int pim_if_is_loopback(struct pim_instance *pim, struct interface *ifp);
+
+int pim_if_is_vrf_device(struct interface *ifp);
+
+int pim_if_ifchannel_count(struct pim_interface *pim_ifp);
 #endif /* PIM_IFACE_H */

@@ -409,7 +409,7 @@ int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,
 	return 0;
 }
 
-extern int kernel_get_ipmr_sg_stats(void *mroute)
+extern int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *mroute)
 {
 	return 0;
 }
@@ -443,6 +443,12 @@ int kernel_add_neigh(struct interface *ifp, struct ipaddr *ip,
 }
 
 int kernel_del_neigh(struct interface *ifp, struct ipaddr *ip)
+{
+	return 0;
+}
+
+extern int kernel_interface_set_master(struct interface *master,
+				       struct interface *slave)
 {
 	return 0;
 }

@@ -58,9 +58,13 @@ struct pim_upstream;
 
 extern long long nexthop_lookups_avoided;
 
-int pim_nexthop_lookup(struct pim_nexthop *nexthop, struct in_addr addr,
-		       int neighbor_needed);
-enum pim_rpf_result pim_rpf_update(struct pim_upstream *up, struct pim_rpf *old,
+unsigned int pim_rpf_hash_key(void *arg);
+int pim_rpf_equal(const void *arg1, const void *arg2);
+
+int pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
+		       struct in_addr addr, int neighbor_needed);
+enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
+				   struct pim_upstream *up, struct pim_rpf *old,
 				   uint8_t is_new);
 
 int pim_rpf_addr_is_inaddr_none(struct pim_rpf *rpf);

@@ -27,6 +27,7 @@
 #include "vty.h"
 #include "plist.h"
 
+#include "pim_instance.h"
 #include "pim_str.h"
 #include "pim_memory.h"
 #include "pim_assert.h"
@@ -106,6 +107,8 @@
 #define PIM_MASK_MSDP_EVENTS         (1 << 19)
 #define PIM_MASK_MSDP_PACKETS        (1 << 20)
 #define PIM_MASK_MSDP_INTERNAL       (1 << 21)
+#define PIM_MASK_PIM_NHT             (1 << 22)
+#define PIM_MASK_PIM_NHT_DETAIL      (1 << 23)
 
 /* PIM error codes */
 #define PIM_SUCCESS                0
@@ -128,8 +131,6 @@ const char *const PIM_ALL_IGMP_ROUTERS;
 extern struct thread_master *master;
 extern struct zebra_privs_t pimd_privs;
 uint32_t qpim_debugs;
-int qpim_mroute_socket_fd;
-int64_t qpim_mroute_socket_creation; /* timestamp of creation */
 struct in_addr qpim_all_pim_routers_addr;
 int qpim_t_periodic; /* Period between Join/Prune Messages */
 struct pim_assert_metric qpim_infinite_assert_metric;
@@ -138,18 +139,9 @@ struct thread *qpim_rpf_cache_refresher;
 int64_t qpim_rpf_cache_refresh_requests;
 int64_t qpim_rpf_cache_refresh_events;
 int64_t qpim_rpf_cache_refresh_last;
-struct list *qpim_ssmpingd_list; /* list of struct ssmpingd_sock */
-struct in_addr qpim_ssmpingd_group_addr;
 int64_t qpim_scan_oil_events;
 int64_t qpim_scan_oil_last;
-int64_t qpim_mroute_add_events;
-int64_t qpim_mroute_add_last;
-int64_t qpim_mroute_del_events;
-int64_t qpim_mroute_del_last;
 int64_t qpim_nexthop_lookups;
-struct list *qpim_static_route_list; /* list of routes added statically */
-extern unsigned int qpim_keep_alive_time;
-extern signed int qpim_rp_keep_alive_time;
 extern int qpim_packet_process;
 extern uint8_t qpim_ecmp_enable;
 extern uint8_t qpim_ecmp_rebalance_enable;
@@ -189,6 +181,8 @@ extern int32_t qpim_register_probe_time;
 #define PIM_DEBUG_MSDP_EVENTS         (qpim_debugs & PIM_MASK_MSDP_EVENTS)
 #define PIM_DEBUG_MSDP_PACKETS        (qpim_debugs & PIM_MASK_MSDP_PACKETS)
 #define PIM_DEBUG_MSDP_INTERNAL       (qpim_debugs & PIM_MASK_MSDP_INTERNAL)
+#define PIM_DEBUG_PIM_NHT             (qpim_debugs & PIM_MASK_PIM_NHT)
+#define PIM_DEBUG_PIM_NHT_DETAIL      (qpim_debugs & PIM_MASK_PIM_NHT_DETAIL)
 
 #define PIM_DEBUG_EVENTS       (qpim_debugs & (PIM_MASK_PIM_EVENTS | PIM_MASK_IGMP_EVENTS | PIM_MASK_MSDP_EVENTS))
 #define PIM_DEBUG_PACKETS      (qpim_debugs & (PIM_MASK_PIM_PACKETS | PIM_MASK_IGMP_PACKETS | PIM_MASK_MSDP_PACKETS))
@@ -199,6 +193,7 @@ extern int32_t qpim_register_probe_time;
 #define PIM_DO_DEBUG_PIM_PACKETDUMP_SEND (qpim_debugs |= PIM_MASK_PIM_PACKETDUMP_SEND)
 #define PIM_DO_DEBUG_PIM_PACKETDUMP_RECV (qpim_debugs |= PIM_MASK_PIM_PACKETDUMP_RECV)
 #define PIM_DO_DEBUG_PIM_TRACE           (qpim_debugs |= PIM_MASK_PIM_TRACE)
+#define PIM_DO_DEBUG_PIM_TRACE_DETAIL    (qpim_debugs |= PIM_MASK_PIM_TRACE_DETAIL)
 #define PIM_DO_DEBUG_IGMP_EVENTS         (qpim_debugs |= PIM_MASK_IGMP_EVENTS)
 #define PIM_DO_DEBUG_IGMP_PACKETS        (qpim_debugs |= PIM_MASK_IGMP_PACKETS)
 #define PIM_DO_DEBUG_IGMP_TRACE          (qpim_debugs |= PIM_MASK_IGMP_TRACE)
@@ -214,12 +209,14 @@ extern int32_t qpim_register_probe_time;
 #define PIM_DO_DEBUG_MSDP_EVENTS         (qpim_debugs |= PIM_MASK_MSDP_EVENTS)
 #define PIM_DO_DEBUG_MSDP_PACKETS        (qpim_debugs |= PIM_MASK_MSDP_PACKETS)
 #define PIM_DO_DEBUG_MSDP_INTERNAL       (qpim_debugs |= PIM_MASK_MSDP_INTERNAL)
+#define PIM_DO_DEBUG_PIM_NHT             (qpim_debugs |= PIM_MASK_PIM_NHT)
 
 #define PIM_DONT_DEBUG_PIM_EVENTS          (qpim_debugs &= ~PIM_MASK_PIM_EVENTS)
 #define PIM_DONT_DEBUG_PIM_PACKETS         (qpim_debugs &= ~PIM_MASK_PIM_PACKETS)
 #define PIM_DONT_DEBUG_PIM_PACKETDUMP_SEND (qpim_debugs &= ~PIM_MASK_PIM_PACKETDUMP_SEND)
 #define PIM_DONT_DEBUG_PIM_PACKETDUMP_RECV (qpim_debugs &= ~PIM_MASK_PIM_PACKETDUMP_RECV)
 #define PIM_DONT_DEBUG_PIM_TRACE           (qpim_debugs &= ~PIM_MASK_PIM_TRACE)
+#define PIM_DONT_DEBUG_PIM_TRACE_DETAIL    (qpim_debugs &= ~PIM_MASK_PIM_TRACE_DETAIL)
 #define PIM_DONT_DEBUG_IGMP_EVENTS         (qpim_debugs &= ~PIM_MASK_IGMP_EVENTS)
 #define PIM_DONT_DEBUG_IGMP_PACKETS        (qpim_debugs &= ~PIM_MASK_IGMP_PACKETS)
 #define PIM_DONT_DEBUG_IGMP_TRACE          (qpim_debugs &= ~PIM_MASK_IGMP_TRACE)
@@ -235,37 +232,13 @@ extern int32_t qpim_register_probe_time;
 #define PIM_DONT_DEBUG_MSDP_EVENTS         (qpim_debugs &= ~PIM_MASK_MSDP_EVENTS)
 #define PIM_DONT_DEBUG_MSDP_PACKETS        (qpim_debugs &= ~PIM_MASK_MSDP_PACKETS)
 #define PIM_DONT_DEBUG_MSDP_INTERNAL       (qpim_debugs &= ~PIM_MASK_MSDP_INTERNAL)
-
-enum pim_spt_switchover {
-	PIM_SPT_IMMEDIATE,
-	PIM_SPT_INFINITY,
-};
-
-/* Per VRF PIM DB */
-struct pim_instance {
-	afi_t afi;
-	vrf_id_t vrf_id;
-
-	struct {
-		enum pim_spt_switchover switchover;
-		char *plist;
-	} spt;
-
-	struct hash *rpf_hash;
-
-	void *ssm_info; /* per-vrf SSM configuration */
-
-	int send_v6_secondary;
-};
-
-extern struct pim_instance *pimg; // Pim Global Instance
+#define PIM_DONT_DEBUG_PIM_NHT             (qpim_debugs &= ~PIM_MASK_PIM_NHT)
 
 void pim_init(void);
 void pim_terminate(void);
 
 extern void pim_route_map_init(void);
 extern void pim_route_map_terminate(void);
-void pim_vrf_init(void);
 void pim_prefix_list_update(struct prefix_list *plist);
 
 #endif /* PIMD_H */

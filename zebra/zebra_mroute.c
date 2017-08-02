@@ -30,6 +30,7 @@
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_mroute.h"
 #include "zebra/rt.h"
+#include "zebra/debug.h"
 
 int zebra_ipmr_route_stats(struct zserv *client, int fd, u_short length,
 			   struct zebra_vrf *zvrf)
@@ -38,18 +39,22 @@ int zebra_ipmr_route_stats(struct zserv *client, int fd, u_short length,
 	struct stream *s;
 	int suc;
 
-	char sbuf[40];
-	char gbuf[40];
-
 	memset(&mroute, 0, sizeof(mroute));
 	stream_get(&mroute.sg.src, client->ibuf, 4);
 	stream_get(&mroute.sg.grp, client->ibuf, 4);
 	mroute.ifindex = stream_getl(client->ibuf);
 
-	strcpy(sbuf, inet_ntoa(mroute.sg.src));
-	strcpy(gbuf, inet_ntoa(mroute.sg.grp));
+	if (IS_ZEBRA_DEBUG_KERNEL) {
+		char sbuf[40];
+		char gbuf[40];
 
-	suc = kernel_get_ipmr_sg_stats(&mroute);
+		strcpy(sbuf, inet_ntoa(mroute.sg.src));
+		strcpy(gbuf, inet_ntoa(mroute.sg.grp));
+
+		zlog_debug("Asking for (%s,%s) mroute information", sbuf, gbuf);
+	}
+
+	suc = kernel_get_ipmr_sg_stats(zvrf, &mroute);
 
 	s = client->obuf;
 

@@ -545,7 +545,7 @@ pim_neighbor_add(struct interface *ifp, struct in_addr source_addr,
 	else
 		pim_hello_restart_triggered(neigh->interface);
 
-	pim_upstream_find_new_rpf();
+	pim_upstream_find_new_rpf(pim_ifp->pim);
 
 	/* RNH can send nexthop update prior to PIM neibhor UP
 	   in that case nexthop cache would not consider this neighbor
@@ -553,9 +553,9 @@ pim_neighbor_add(struct interface *ifp, struct in_addr source_addr,
 	   Upon PIM neighbor UP, iterate all RPs and update
 	   nexthop cache with this neighbor.
 	 */
-	pim_resolve_rp_nh();
+	pim_resolve_rp_nh(pim_ifp->pim);
 
-	pim_rp_setup();
+	pim_rp_setup(pim_ifp->pim);
 
 	pim_neighbor_rpf_update();
 	return neigh;

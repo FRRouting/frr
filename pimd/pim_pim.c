@@ -238,7 +238,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 					 pim_msg_len - PIM_MSG_HEADER_LEN);
 		break;
 	case PIM_MSG_TYPE_REG_STOP:
-		return pim_register_stop_recv(pim_msg + PIM_MSG_HEADER_LEN,
+		return pim_register_stop_recv(ifp, pim_msg + PIM_MSG_HEADER_LEN,
 					      pim_msg_len - PIM_MSG_HEADER_LEN);
 		break;
 	case PIM_MSG_TYPE_JOIN_PRUNE:
@@ -286,7 +286,7 @@ static void pim_sock_read_on(struct interface *ifp);
 
 static int pim_sock_read(struct thread *t)
 {
-	struct interface *ifp;
+	struct interface *ifp, *orig_ifp;
 	struct pim_interface *pim_ifp;
 	int fd;
 	struct sockaddr_in from;
@@ -300,7 +300,7 @@ static int pim_sock_read(struct thread *t)
 	static long long count = 0;
 	int cont = 1;
 
-	ifp = THREAD_ARG(t);
+	orig_ifp = ifp = THREAD_ARG(t);
 	fd = THREAD_FD(t);
 
 	pim_ifp = ifp->info;
@@ -320,36 +320,20 @@ static int pim_sock_read(struct thread *t)
 			goto done;
 		}
 
-#ifdef PIM_CHECK_RECV_IFINDEX_SANITY
-		/* ifindex sanity check */
-		if (ifindex != (int)ifp->ifindex) {
-			char from_str[INET_ADDRSTRLEN];
-			char to_str[INET_ADDRSTRLEN];
-			struct interface *recv_ifp;
-
-			if (!inet_ntop(AF_INET, &from.sin_addr, from_str,
-				       sizeof(from_str)))
-				sprintf(from_str, "<from?>");
-			if (!inet_ntop(AF_INET, &to.sin_addr, to_str,
-				       sizeof(to_str)))
-				sprintf(to_str, "<to?>");
-
-			recv_ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
-			if (recv_ifp) {
-				zassert(ifindex == (int)recv_ifp->ifindex);
-			}
-
-#ifdef PIM_REPORT_RECV_IFINDEX_MISMATCH
-			zlog_warn(
-				"Interface mismatch: recv PIM pkt from %s to %s on fd=%d: recv_ifindex=%d (%s) sock_ifindex=%d (%s)",
-				from_str, to_str, fd, ifindex,
-				recv_ifp ? recv_ifp->name : "<if-notfound>",
-				ifp->ifindex, ifp->name);
-#endif
+		/*
+		 * What?  So with vrf's the incoming packet is received
+		 * on the vrf interface but recvfromto above returns
+		 * the right ifindex, so just use it.  We know
+		 * it's the right interface because we bind to it
+		 */
+		ifp = if_lookup_by_index(ifindex, pim_ifp->pim->vrf_id);
+		if (!ifp || !ifp->info) {
+			if (PIM_DEBUG_PIM_PACKETS)
+				zlog_debug(
+					"%s: Received incoming pim packet on interface not yet configured for pim",
+					__PRETTY_FUNCTION__);
 			goto done;
 		}
-#endif
-
 		int fail = pim_pim_packet(ifp, buf, len);
 		if (fail) {
 			if (PIM_DEBUG_PIM_PACKETS)
@@ -366,7 +350,7 @@ static int pim_sock_read(struct thread *t)
 	result = 0; /* good */
 
 done:
-	pim_sock_read_on(ifp);
+	pim_sock_read_on(orig_ifp);
 
 	if (result) {
 		++pim_ifp->pim_ifstat_hello_recvfail;
@@ -667,13 +651,9 @@ static int hello_send(struct interface *ifp, uint16_t holdtime)
 
 static int pim_hello_send(struct interface *ifp, uint16_t holdtime)
 {
-	struct pim_interface *pim_ifp;
+	struct pim_interface *pim_ifp = ifp->info;
 
-	zassert(ifp);
-	pim_ifp = ifp->info;
-	zassert(pim_ifp);
-
-	if (if_is_loopback(ifp))
+	if (pim_if_is_loopback(pim_ifp->pim, ifp))
 		return 0;
 
 	if (hello_send(ifp, holdtime)) {
@@ -695,9 +675,7 @@ static void hello_resched(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 
-	zassert(ifp);
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
 
 	if (PIM_DEBUG_PIM_HELLO) {
 		zlog_debug("Rescheduling %d sec hello on interface %s",
@@ -718,7 +696,6 @@ static int on_pim_hello_send(struct thread *t)
 	struct interface *ifp;
 
 	ifp = THREAD_ARG(t);
-
 	pim_ifp = ifp->info;
 
 	/*
@@ -745,9 +722,7 @@ void pim_hello_restart_now(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 
-	zassert(ifp);
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
 
 	/*
 	 * Reset next hello timer
@@ -775,9 +750,13 @@ void pim_hello_restart_triggered(struct interface *ifp)
 	int triggered_hello_delay_msec;
 	int random_msec;
 
-	zassert(ifp);
 	pim_ifp = ifp->info;
-	zassert(pim_ifp);
+
+	/*
+	 * No need to ever start loopback or vrf device hello's
+	 */
+	if (pim_if_is_loopback(pim_ifp->pim, ifp))
+		return;
 
 	/*
 	 * There exists situations where we have the a RPF out this

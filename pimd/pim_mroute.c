@@ -24,6 +24,7 @@
 #include "prefix.h"
 #include "vty.h"
 #include "plist.h"
+#include "sockopt.h"
 
 #include "pimd.h"
 #include "pim_rpf.h"
@@ -39,49 +40,82 @@
 #include "pim_ifchannel.h"
 #include "pim_zlookup.h"
 #include "pim_ssm.h"
+#include "pim_sock.h"
 
-/* GLOBAL VARS */
-static struct thread *qpim_mroute_socket_reader = NULL;
+static void mroute_read_on(struct pim_instance *pim);
 
-static void mroute_read_on(void);
-
-static int pim_mroute_set(int fd, int enable)
+static int pim_mroute_set(struct pim_instance *pim, int enable)
 {
 	int err;
-	int opt = enable ? MRT_INIT : MRT_DONE;
+	int opt;
 	socklen_t opt_len = sizeof(opt);
-	int rcvbuf = 1024 * 1024 * 8;
 	long flags;
 
-	err = setsockopt(fd, IPPROTO_IP, opt, &opt, opt_len);
+	/*
+	 * We need to create the VRF table for the pim mroute_socket
+	 */
+	if (pim->vrf_id != VRF_DEFAULT) {
+		if (pimd_privs.change(ZPRIVS_RAISE))
+			zlog_err(
+				"pim_mroute_socket_enable: could not raise privs, %s",
+				safe_strerror(errno));
+
+		opt = pim->vrf->data.l.table_id;
+		err = setsockopt(pim->mroute_socket, IPPROTO_IP, MRT_TABLE,
+				 &opt, opt_len);
+		if (err) {
+			zlog_warn(
+				"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP, MRT_TABLE=%d): errno=%d: %s",
+				__FILE__, __PRETTY_FUNCTION__,
+				pim->mroute_socket, opt, errno,
+				safe_strerror(errno));
+			return -1;
+		}
+
+		if (pimd_privs.change(ZPRIVS_LOWER))
+			zlog_err(
+				"pim_mroute_socket_enable: could not lower privs, %s",
+				safe_strerror(errno));
+	}
+
+	opt = enable ? MRT_INIT : MRT_DONE;
+	err = setsockopt(pim->mroute_socket, IPPROTO_IP, opt, &opt, opt_len);
 	if (err) {
 		zlog_warn(
 			"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,%s=%d): errno=%d: %s",
-			__FILE__, __PRETTY_FUNCTION__, fd,
+			__FILE__, __PRETTY_FUNCTION__, pim->mroute_socket,
 			enable ? "MRT_INIT" : "MRT_DONE", opt, errno,
 			safe_strerror(errno));
 		return -1;
 	}
 
-	err = setsockopt(fd, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof(rcvbuf));
-	if (err) {
-		zlog_warn(
-			"%s: failure: setsockopt(fd=%d, SOL_SOCKET, %d): errno=%d: %s",
-			__PRETTY_FUNCTION__, fd, rcvbuf, errno,
-			safe_strerror(errno));
+#if defined(HAVE_IP_PKTINFO)
+	if (enable) {
+		/* Linux and Solaris IP_PKTINFO */
+		opt = 1;
+		if (setsockopt(pim->mroute_socket, IPPROTO_IP, IP_PKTINFO, &opt,
+			       sizeof(opt))) {
+			zlog_warn(
+				"Could not set IP_PKTINFO on socket fd=%d: errno=%d: %s",
+				pim->mroute_socket, errno,
+				safe_strerror(errno));
+		}
 	}
+#endif
 
-	flags = fcntl(fd, F_GETFL, 0);
+	setsockopt_so_recvbuf(pim->mroute_socket, 1024 * 1024 * 8);
+
+	flags = fcntl(pim->mroute_socket, F_GETFL, 0);
 	if (flags < 0) {
-		zlog_warn("Could not get flags on socket fd:%d %d %s", fd,
-			  errno, safe_strerror(errno));
-		close(fd);
+		zlog_warn("Could not get flags on socket fd:%d %d %s",
+			  pim->mroute_socket, errno, safe_strerror(errno));
+		close(pim->mroute_socket);
 		return -1;
 	}
-	if (fcntl(fd, F_SETFL, flags | O_NONBLOCK)) {
-		zlog_warn("Could not set O_NONBLOCK on socket fd:%d %d %s", fd,
-			  errno, safe_strerror(errno));
-		close(fd);
+	if (fcntl(pim->mroute_socket, F_SETFL, flags | O_NONBLOCK)) {
+		zlog_warn("Could not set O_NONBLOCK on socket fd:%d %d %s",
+			  pim->mroute_socket, errno, safe_strerror(errno));
+		close(pim->mroute_socket);
 		return -1;
 	}
 
@@ -90,7 +124,7 @@ static int pim_mroute_set(int fd, int enable)
 		int upcalls = IGMPMSG_WRVIFWHOLE;
 		opt = MRT_PIM;
 
-		err = setsockopt(fd, IPPROTO_IP, opt, &upcalls,
+		err = setsockopt(pim->mroute_socket, IPPROTO_IP, opt, &upcalls,
 				 sizeof(upcalls));
 		if (err) {
 			zlog_warn(
@@ -118,7 +152,7 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	struct pim_rpf *rpg;
 	struct prefix_sg sg;
 
-	rpg = RP(msg->im_dst);
+	rpg = RP(pim_ifp->pim, msg->im_dst);
 	/*
 	 * If the incoming interface is unknown OR
 	 * the Interface type is SSM we don't need to
@@ -170,7 +204,7 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	}
 
 	PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
-	pim_upstream_keep_alive_timer_start(up, qpim_keep_alive_time);
+	pim_upstream_keep_alive_timer_start(up, pim_ifp->pim->keep_alive_time);
 
 	up->channel_oil->cc.pktcnt++;
 	PIM_UPSTREAM_FLAG_SET_FHR(up->flags);
@@ -178,6 +212,7 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	if (up->channel_oil->oil.mfcc_parent >= MAXVIFS) {
 		int vif_index = 0;
 		vif_index = pim_if_find_vifindex_by_ifindex(
+			pim_ifp->pim,
 			up->rpf.source_nexthop.interface->ifindex);
 		up->channel_oil->oil.mfcc_parent = vif_index;
 	}
@@ -195,23 +230,25 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 	const struct ip *ip_hdr;
 	struct pim_upstream *up;
 
+	pim_ifp = ifp->info;
+
 	ip_hdr = (const struct ip *)buf;
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
 	sg.src = ip_hdr->ip_src;
 	sg.grp = ip_hdr->ip_dst;
 
-	up = pim_upstream_find(&sg);
+	up = pim_upstream_find(pim_ifp->pim, &sg);
 	if (!up) {
 		struct prefix_sg star = sg;
 		star.src.s_addr = INADDR_ANY;
 
-		up = pim_upstream_find(&star);
+		up = pim_upstream_find(pim_ifp->pim, &star);
 
 		if (up && PIM_UPSTREAM_FLAG_TEST_SRC_IGMP(up->flags)) {
-			up = pim_upstream_add(&sg, ifp,
+			up = pim_upstream_add(pim_ifp->pim, &sg, ifp,
 					      PIM_UPSTREAM_FLAG_MASK_SRC_LHR,
-					      __PRETTY_FUNCTION__);
+					      __PRETTY_FUNCTION__, NULL);
 			if (!up) {
 				if (PIM_DEBUG_MROUTE)
 					zlog_debug(
@@ -221,9 +258,10 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 				return 0;
 			}
 			pim_upstream_keep_alive_timer_start(
-				up, qpim_keep_alive_time);
-			pim_upstream_inherited_olist(up);
-			pim_upstream_switch(up, PIM_UPSTREAM_JOINED);
+				up, pim_ifp->pim->keep_alive_time);
+			pim_upstream_inherited_olist(pim_ifp->pim, up);
+			pim_upstream_switch(pim_ifp->pim, up,
+					    PIM_UPSTREAM_JOINED);
 
 			if (PIM_DEBUG_MROUTE)
 				zlog_debug("%s: Creating %s upstream on LHR",
@@ -240,7 +278,7 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 
 	pim_ifp = up->rpf.source_nexthop.interface->info;
 
-	rpg = RP(sg.grp);
+	rpg = RP(pim_ifp->pim, sg.grp);
 
 	if ((pim_rpf_addr_is_inaddr_none(rpg)) || (!pim_ifp)
 	    || (!(PIM_I_am_DR(pim_ifp)))) {
@@ -255,7 +293,7 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 	 * If we've received a register suppress
 	 */
 	if (!up->t_rs_timer) {
-		if (pim_is_grp_ssm(sg.grp)) {
+		if (pim_is_grp_ssm(pim_ifp->pim, sg.grp)) {
 			if (PIM_DEBUG_PIM_REG)
 				zlog_debug(
 					"%s register forward skipped as group is SSM",
@@ -386,6 +424,8 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 	struct prefix_sg sg;
 	struct channel_oil *oil;
 
+	pim_ifp = ifp->info;
+
 	memset(&sg, 0, sizeof(struct prefix_sg));
 	sg.src = ip_hdr->ip_src;
 	sg.grp = ip_hdr->ip_dst;
@@ -412,11 +452,11 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
     }
 #endif
 
-	up = pim_upstream_find(&sg);
+	up = pim_upstream_find(pim_ifp->pim, &sg);
 	if (up) {
 		struct pim_upstream *parent;
 		struct pim_nexthop source;
-		struct pim_rpf *rpf = RP(sg.grp);
+		struct pim_rpf *rpf = RP(pim_ifp->pim, sg.grp);
 		if (!rpf || !rpf->source_nexthop.interface)
 			return 0;
 
@@ -426,7 +466,7 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 		 * tree, let's check and if so we can safely drop
 		 * it.
 		 */
-		parent = pim_upstream_find(&star_g);
+		parent = pim_upstream_find(pim_ifp->pim, &star_g);
 		if (parent && parent->rpf.source_nexthop.interface == ifp)
 			return 0;
 
@@ -439,23 +479,25 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 		 */
 		if (!PIM_UPSTREAM_FLAG_TEST_FHR(up->flags)) {
 			// No if channel, but upstream we are at the RP.
-			if (pim_nexthop_lookup(&source, up->upstream_register,
-					       0)
-			    == 0)
+			if (pim_nexthop_lookup(pim_ifp->pim, &source,
+					       up->upstream_register, 0)
+			    == 0) {
 				pim_register_stop_send(source.interface, &sg,
 						       pim_ifp->primary_address,
 						       up->upstream_register);
+				up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
+			}
 			if (!up->channel_oil)
 				up->channel_oil = pim_channel_oil_add(
-					&sg, pim_ifp->mroute_vif_index);
-			pim_upstream_inherited_olist(up);
+					pim_ifp->pim, &sg,
+					pim_ifp->mroute_vif_index);
+			pim_upstream_inherited_olist(pim_ifp->pim, up);
 			if (!up->channel_oil->installed)
 				pim_mroute_add(up->channel_oil,
 					       __PRETTY_FUNCTION__);
-			pim_upstream_set_sptbit(up, ifp);
 		} else {
-			if (I_am_RP(up->sg.grp)) {
-				if (pim_nexthop_lookup(&source,
+			if (I_am_RP(pim_ifp->pim, up->sg.grp)) {
+				if (pim_nexthop_lookup(pim_ifp->pim, &source,
 						       up->upstream_register, 0)
 				    == 0)
 					pim_register_stop_send(
@@ -465,20 +507,21 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 				up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
 			}
 			pim_upstream_keep_alive_timer_start(
-				up, qpim_keep_alive_time);
-			pim_upstream_inherited_olist(up);
+				up, pim_ifp->pim->keep_alive_time);
+			pim_upstream_inherited_olist(pim_ifp->pim, up);
 			pim_mroute_msg_wholepkt(fd, ifp, buf);
 		}
 		return 0;
 	}
 
 	pim_ifp = ifp->info;
-	oil = pim_channel_oil_add(&sg, pim_ifp->mroute_vif_index);
+	oil = pim_channel_oil_add(pim_ifp->pim, &sg, pim_ifp->mroute_vif_index);
 	if (!oil->installed)
 		pim_mroute_add(oil, __PRETTY_FUNCTION__);
 	if (pim_if_connected_to_source(ifp, sg.src)) {
-		up = pim_upstream_add(&sg, ifp, PIM_UPSTREAM_FLAG_MASK_FHR,
-				      __PRETTY_FUNCTION__);
+		up = pim_upstream_add(pim_ifp->pim, &sg, ifp,
+				      PIM_UPSTREAM_FLAG_MASK_FHR,
+				      __PRETTY_FUNCTION__, NULL);
 		if (!up) {
 			if (PIM_DEBUG_MROUTE)
 				zlog_debug(
@@ -487,11 +530,11 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 			return -2;
 		}
 		PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
-		pim_upstream_keep_alive_timer_start(up, qpim_keep_alive_time);
+		pim_upstream_keep_alive_timer_start(up, pim_ifp->pim->keep_alive_time);
 		up->channel_oil = oil;
 		up->channel_oil->cc.pktcnt++;
 		pim_register_join(up);
-		pim_upstream_inherited_olist(up);
+		pim_upstream_inherited_olist(pim_ifp->pim, up);
 
 		// Send the packet to the RP
 		pim_mroute_msg_wholepkt(fd, ifp, buf);
@@ -500,7 +543,8 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 	return 0;
 }
 
-int pim_mroute_msg(int fd, const char *buf, int buf_size)
+static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
+			  int buf_size, ifindex_t ifindex)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -523,22 +567,11 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
 		 * the source
 		 * of the IP packet.
 		 */
-		ifp = pim_if_lookup_address_vrf(ip_hdr->ip_src, VRF_DEFAULT);
+		ifp = if_lookup_by_index(ifindex, pim->vrf_id);
 
-		if (!ifp) {
-			if (PIM_DEBUG_MROUTE_DETAIL) {
-				pim_inet4_dump("<src?>", ip_hdr->ip_src,
-					       ip_src_str, sizeof(ip_src_str));
-				pim_inet4_dump("<dst?>", ip_hdr->ip_dst,
-					       ip_dst_str, sizeof(ip_dst_str));
-
-				zlog_warn(
-					"%s: igmp kernel upcall could not find usable interface for %s -> %s",
-					__PRETTY_FUNCTION__, ip_src_str,
-					ip_dst_str);
-			}
+		if (!ifp || !ifp->info)
 			return 0;
-		}
+
 		pim_ifp = ifp->info;
 		ifaddr = pim_find_primary_addr(ifp);
 		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list,
@@ -551,9 +584,9 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
 				       sizeof(ip_dst_str));
 
 			zlog_warn(
-				"%s: igmp kernel upcall on %s(%p) for %s -> %s",
-				__PRETTY_FUNCTION__, ifp->name, igmp,
-				ip_src_str, ip_dst_str);
+				"%s(%s): igmp kernel upcall on %s(%p) for %s -> %s",
+				__PRETTY_FUNCTION__, pim->vrf->name, ifp->name,
+				igmp, ip_src_str, ip_dst_str);
 		}
 		if (igmp)
 			pim_igmp_packet(igmp, (char *)buf, buf_size);
@@ -573,7 +606,7 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
 	} else {
 		msg = (const struct igmpmsg *)buf;
 
-		ifp = pim_if_find_by_vif_index(msg->im_vif);
+		ifp = pim_if_find_by_vif_index(pim, msg->im_vif);
 
 		if (!ifp)
 			return 0;
@@ -586,24 +619,27 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
 				"%s: pim kernel upcall %s type=%d ip_p=%d from fd=%d for (S,G)=(%s,%s) on %s vifi=%d  size=%d",
 				__PRETTY_FUNCTION__,
 				igmpmsgtype2str[msg->im_msgtype],
-				msg->im_msgtype, ip_hdr->ip_p, fd, src_str,
-				grp_str, ifp->name, msg->im_vif, buf_size);
+				msg->im_msgtype, ip_hdr->ip_p,
+				pim->mroute_socket, src_str, grp_str, ifp->name,
+				msg->im_vif, buf_size);
 		}
 
 		switch (msg->im_msgtype) {
 		case IGMPMSG_WRONGVIF:
-			return pim_mroute_msg_wrongvif(fd, ifp, msg);
+			return pim_mroute_msg_wrongvif(pim->mroute_socket, ifp,
+						       msg);
 			break;
 		case IGMPMSG_NOCACHE:
-			return pim_mroute_msg_nocache(fd, ifp, msg);
+			return pim_mroute_msg_nocache(pim->mroute_socket, ifp,
+						      msg);
 			break;
 		case IGMPMSG_WHOLEPKT:
-			return pim_mroute_msg_wholepkt(fd, ifp,
+			return pim_mroute_msg_wholepkt(pim->mroute_socket, ifp,
 						       (const char *)msg);
 			break;
 		case IGMPMSG_WRVIFWHOLE:
-			return pim_mroute_msg_wrvifwhole(fd, ifp,
-							 (const char *)msg);
+			return pim_mroute_msg_wrvifwhole(
+				pim->mroute_socket, ifp, (const char *)msg);
 			break;
 		default:
 			break;
@@ -615,18 +651,20 @@ int pim_mroute_msg(int fd, const char *buf, int buf_size)
 
 static int mroute_read(struct thread *t)
 {
+	struct pim_instance *pim;
 	static long long count;
 	char buf[10000];
 	int result = 0;
 	int cont = 1;
-	int fd;
 	int rd;
-
-	fd = THREAD_FD(t);
+	ifindex_t ifindex;
+	pim = THREAD_ARG(t);
 
 	while (cont) {
-		rd = read(fd, buf, sizeof(buf));
-		if (rd < 0) {
+		rd = pim_socket_recvfromto(pim->mroute_socket, (uint8_t *)buf,
+					   sizeof(buf), NULL, NULL, NULL, NULL,
+					   &ifindex);
+		if (rd <= 0) {
 			if (errno == EINTR)
 				continue;
 			if (errno == EWOULDBLOCK || errno == EAGAIN)
@@ -634,13 +672,14 @@ static int mroute_read(struct thread *t)
 
 			if (PIM_DEBUG_MROUTE)
 				zlog_warn(
-					"%s: failure reading fd=%d: errno=%d: %s",
-					__PRETTY_FUNCTION__, fd, errno,
+					"%s: failure reading rd=%d: fd=%d: errno=%d: %s",
+					__PRETTY_FUNCTION__, rd,
+					pim->mroute_socket, errno,
 					safe_strerror(errno));
 			goto done;
 		}
 
-		result = pim_mroute_msg(fd, buf, rd);
+		result = pim_mroute_msg(pim, buf, rd, ifindex);
 
 		count++;
 		if (count % qpim_packet_process == 0)
@@ -648,23 +687,23 @@ static int mroute_read(struct thread *t)
 	}
 /* Keep reading */
 done:
-	mroute_read_on();
+	mroute_read_on(pim);
 
 	return result;
 }
 
-static void mroute_read_on()
+static void mroute_read_on(struct pim_instance *pim)
 {
-	thread_add_read(master, mroute_read, 0, qpim_mroute_socket_fd,
-			&qpim_mroute_socket_reader);
+	thread_add_read(master, mroute_read, pim, pim->mroute_socket,
+			&pim->thread);
 }
 
-static void mroute_read_off()
+static void mroute_read_off(struct pim_instance *pim)
 {
-	THREAD_OFF(qpim_mroute_socket_reader);
+	THREAD_OFF(pim->thread);
 }
 
-int pim_mroute_socket_enable()
+int pim_mroute_socket_enable(struct pim_instance *pim)
 {
 	int fd;
 
@@ -673,6 +712,11 @@ int pim_mroute_socket_enable()
 			 safe_strerror(errno));
 
 	fd = socket(AF_INET, SOCK_RAW, IPPROTO_IGMP);
+
+#ifdef SO_BINDTODEVICE
+	setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, pim->vrf->name,
+		   strlen(pim->vrf->name));
+#endif
 
 	if (pimd_privs.change(ZPRIVS_LOWER))
 		zlog_err("pim_mroute_socket_enable: could not lower privs, %s",
@@ -684,39 +728,40 @@ int pim_mroute_socket_enable()
 		return -2;
 	}
 
-	if (pim_mroute_set(fd, 1)) {
+	pim->mroute_socket = fd;
+	if (pim_mroute_set(pim, 1)) {
 		zlog_warn(
 			"Could not enable mroute on socket fd=%d: errno=%d: %s",
 			fd, errno, safe_strerror(errno));
 		close(fd);
+		pim->mroute_socket = -1;
 		return -3;
 	}
 
-	qpim_mroute_socket_fd = fd;
+	pim->mroute_socket_creation = pim_time_monotonic_sec();
 
-	qpim_mroute_socket_creation = pim_time_monotonic_sec();
-	mroute_read_on();
+	mroute_read_on(pim);
 
 	return 0;
 }
 
-int pim_mroute_socket_disable()
+int pim_mroute_socket_disable(struct pim_instance *pim)
 {
-	if (pim_mroute_set(qpim_mroute_socket_fd, 0)) {
+	if (pim_mroute_set(pim, 0)) {
 		zlog_warn(
 			"Could not disable mroute on socket fd=%d: errno=%d: %s",
-			qpim_mroute_socket_fd, errno, safe_strerror(errno));
+			pim->mroute_socket, errno, safe_strerror(errno));
 		return -2;
 	}
 
-	if (close(qpim_mroute_socket_fd)) {
+	if (close(pim->mroute_socket)) {
 		zlog_warn("Failure closing mroute socket: fd=%d errno=%d: %s",
-			  qpim_mroute_socket_fd, errno, safe_strerror(errno));
+			  pim->mroute_socket, errno, safe_strerror(errno));
 		return -3;
 	}
 
-	mroute_read_off();
-	qpim_mroute_socket_fd = -1;
+	mroute_read_off(pim);
+	pim->mroute_socket = -1;
 
 	return 0;
 }
@@ -732,6 +777,11 @@ int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr,
 	struct pim_interface *pim_ifp = ifp->info;
 	struct vifctl vc;
 	int err;
+
+	if (PIM_DEBUG_MROUTE)
+		zlog_debug("%s: Add Vif %d (%s[%s])", __PRETTY_FUNCTION__,
+			   pim_ifp->mroute_vif_index,
+			   ifp->name, pim_ifp->pim->vrf->name);
 
 	memset(&vc, 0, sizeof(vc));
 	vc.vifc_vifi = pim_ifp->mroute_vif_index;
@@ -757,7 +807,7 @@ int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr,
 	}
 #endif
 
-	err = setsockopt(qpim_mroute_socket_fd, IPPROTO_IP, MRT_ADD_VIF,
+	err = setsockopt(pim_ifp->pim->mroute_socket, IPPROTO_IP, MRT_ADD_VIF,
 			 (void *)&vc, sizeof(vc));
 	if (err) {
 		char ifaddr_str[INET_ADDRSTRLEN];
@@ -766,38 +816,38 @@ int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr,
 			       sizeof(ifaddr_str));
 
 		zlog_warn(
-			"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_VIF,vif_index=%d,ifaddr=%s,flag=%d): errno=%d: %s",
-			__FILE__, __PRETTY_FUNCTION__, qpim_mroute_socket_fd,
-			ifp->ifindex, ifaddr_str, flags, errno,
-			safe_strerror(errno));
+			"%s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_VIF,vif_index=%d,ifaddr=%s,flag=%d): errno=%d: %s",
+			__PRETTY_FUNCTION__,
+			pim_ifp->pim->mroute_socket, ifp->ifindex, ifaddr_str,
+			flags, errno, safe_strerror(errno));
 		return -2;
 	}
 
 	return 0;
 }
 
-int pim_mroute_del_vif(int vif_index)
+int pim_mroute_del_vif(struct interface *ifp)
 {
+	struct pim_interface *pim_ifp = ifp->info;
 	struct vifctl vc;
 	int err;
 
-	if (PIM_DEBUG_MROUTE) {
-		struct interface *ifp = pim_if_find_by_vif_index(vif_index);
-		zlog_debug("%s %s: Del Vif %d (%s) ", __FILE__,
-			   __PRETTY_FUNCTION__, vif_index,
-			   ifp ? ifp->name : "NULL");
-	}
+	if (PIM_DEBUG_MROUTE)
+		zlog_debug("%s: Del Vif %d (%s[%s])",  __PRETTY_FUNCTION__,
+			   pim_ifp->mroute_vif_index,
+			   ifp->name, pim_ifp->pim->vrf->name);
 
 	memset(&vc, 0, sizeof(vc));
-	vc.vifc_vifi = vif_index;
+	vc.vifc_vifi = pim_ifp->mroute_vif_index;
 
-	err = setsockopt(qpim_mroute_socket_fd, IPPROTO_IP, MRT_DEL_VIF,
+	err = setsockopt(pim_ifp->pim->mroute_socket, IPPROTO_IP, MRT_DEL_VIF,
 			 (void *)&vc, sizeof(vc));
 	if (err) {
 		zlog_warn(
 			"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_DEL_VIF,vif_index=%d): errno=%d: %s",
-			__FILE__, __PRETTY_FUNCTION__, qpim_mroute_socket_fd,
-			vif_index, errno, safe_strerror(errno));
+			__FILE__, __PRETTY_FUNCTION__,
+			pim_ifp->pim->mroute_socket, pim_ifp->mroute_vif_index,
+			errno, safe_strerror(errno));
 		return -2;
 	}
 
@@ -806,12 +856,13 @@ int pim_mroute_del_vif(int vif_index)
 
 int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 {
+	struct pim_instance *pim = c_oil->pim;
 	int err;
 	int orig = 0;
 	int orig_iif_vif = 0;
 
-	qpim_mroute_add_last = pim_time_monotonic_sec();
-	++qpim_mroute_add_events;
+	pim->mroute_add_last = pim_time_monotonic_sec();
+	++pim->mroute_add_events;
 
 	/* Do not install route if incoming interface is undefined. */
 	if (c_oil->oil.mfcc_parent >= MAXVIFS) {
@@ -846,14 +897,14 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 		orig_iif_vif = c_oil->oil.mfcc_parent;
 		c_oil->oil.mfcc_parent = 0;
 	}
-	err = setsockopt(qpim_mroute_socket_fd, IPPROTO_IP, MRT_ADD_MFC,
+	err = setsockopt(pim->mroute_socket, IPPROTO_IP, MRT_ADD_MFC,
 			 &c_oil->oil, sizeof(c_oil->oil));
 
 	if (!err && !c_oil->installed
 	    && c_oil->oil.mfcc_origin.s_addr != INADDR_ANY
 	    && orig_iif_vif != 0) {
 		c_oil->oil.mfcc_parent = orig_iif_vif;
-		err = setsockopt(qpim_mroute_socket_fd, IPPROTO_IP, MRT_ADD_MFC,
+		err = setsockopt(pim->mroute_socket, IPPROTO_IP, MRT_ADD_MFC,
 				 &c_oil->oil, sizeof(c_oil->oil));
 	}
 
@@ -863,14 +914,15 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 	if (err) {
 		zlog_warn(
 			"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_MFC): errno=%d: %s",
-			__FILE__, __PRETTY_FUNCTION__, qpim_mroute_socket_fd,
+			__FILE__, __PRETTY_FUNCTION__, pim->mroute_socket,
 			errno, safe_strerror(errno));
 		return -2;
 	}
 
 	if (PIM_DEBUG_MROUTE) {
 		char buf[1000];
-		zlog_debug("%s(%s), Added Route: %s", __PRETTY_FUNCTION__, name,
+		zlog_debug("%s(%s), vrf %s Added Route: %s", __PRETTY_FUNCTION__, name,
+			   pim->vrf->name,
 			   pim_channel_oil_dump(c_oil, buf, sizeof(buf)));
 	}
 
@@ -880,10 +932,11 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 
 int pim_mroute_del(struct channel_oil *c_oil, const char *name)
 {
+	struct pim_instance *pim = c_oil->pim;
 	int err;
 
-	qpim_mroute_del_last = pim_time_monotonic_sec();
-	++qpim_mroute_del_events;
+	pim->mroute_del_last = pim_time_monotonic_sec();
+	++pim->mroute_del_events;
 
 	if (!c_oil->installed) {
 		if (PIM_DEBUG_MROUTE) {
@@ -897,22 +950,23 @@ int pim_mroute_del(struct channel_oil *c_oil, const char *name)
 		return -2;
 	}
 
-	err = setsockopt(qpim_mroute_socket_fd, IPPROTO_IP, MRT_DEL_MFC,
+	err = setsockopt(pim->mroute_socket, IPPROTO_IP, MRT_DEL_MFC,
 			 &c_oil->oil, sizeof(c_oil->oil));
 	if (err) {
 		if (PIM_DEBUG_MROUTE)
 			zlog_warn(
 				"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_DEL_MFC): errno=%d: %s",
 				__FILE__, __PRETTY_FUNCTION__,
-				qpim_mroute_socket_fd, errno,
+				pim->mroute_socket, errno,
 				safe_strerror(errno));
 		return -2;
 	}
 
 	if (PIM_DEBUG_MROUTE) {
 		char buf[1000];
-		zlog_debug("%s(%s), Deleted Route: %s", __PRETTY_FUNCTION__,
-			   name, pim_channel_oil_dump(c_oil, buf, sizeof(buf)));
+		zlog_debug("%s(%s), vrf %s Deleted Route: %s", __PRETTY_FUNCTION__,
+			   name, pim->vrf->name,
+			   pim_channel_oil_dump(c_oil, buf, sizeof(buf)));
 	}
 
 	// Reset kernel installed flag
@@ -923,6 +977,7 @@ int pim_mroute_del(struct channel_oil *c_oil, const char *name)
 
 void pim_mroute_update_counters(struct channel_oil *c_oil)
 {
+	struct pim_instance *pim = c_oil->pim;
 	struct sioc_sg_req sgreq;
 
 	c_oil->cc.oldpktcnt = c_oil->cc.pktcnt;
@@ -930,7 +985,7 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 	c_oil->cc.oldwrong_if = c_oil->cc.wrong_if;
 
 	if (!c_oil->installed) {
-		c_oil->cc.lastused = 100 * qpim_keep_alive_time;
+		c_oil->cc.lastused = 100 * pim->keep_alive_time;
 		if (PIM_DEBUG_MROUTE) {
 			struct prefix_sg sg;
 
@@ -949,7 +1004,7 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 	sgreq.grp = c_oil->oil.mfcc_mcastgrp;
 
 	pim_zlookup_sg_statistics(c_oil);
-	if (ioctl(qpim_mroute_socket_fd, SIOCGETSGCNT, &sgreq)) {
+	if (ioctl(pim->mroute_socket, SIOCGETSGCNT, &sgreq)) {
 		if (PIM_DEBUG_MROUTE) {
 			struct prefix_sg sg;
 

@@ -2184,3 +2184,23 @@ void zclient_serv_path_set(char *path)
 	/* it seems that path is unix socket */
 	zclient_serv_path = path;
 }
+
+void zclient_interface_set_master(struct zclient *client,
+				  struct interface *master,
+				  struct interface *slave)
+{
+	struct stream *s;
+
+	s = client->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_INTERFACE_SET_MASTER, master->vrf_id);
+
+	stream_putw(s, master->vrf_id);
+	stream_putl(s, master->ifindex);
+	stream_putw(s, slave->vrf_id);
+	stream_putl(s, slave->ifindex);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(client);
+}

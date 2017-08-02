@@ -80,6 +80,8 @@ struct pim_assert_metric {
   Per-interface (S,G) state
 */
 struct pim_ifchannel {
+	RB_ENTRY(rb_ifchannel) pim_ifp_rb;
+
 	struct pim_ifchannel *parent;
 	struct list *sources;
 	struct prefix_sg sg;
@@ -108,6 +110,10 @@ struct pim_ifchannel {
 	struct pim_upstream *upstream;
 };
 
+RB_HEAD(pim_ifchannel_rb, pim_ifchannel);
+RB_PROTOTYPE(pim_ifchannel_rb, pim_ifchannel,
+	     pim_ifp_rb, pim_ifchannel_compare);
+
 void pim_ifchannel_free(struct pim_ifchannel *ch);
 void pim_ifchannel_delete(struct pim_ifchannel *ch);
 void pim_ifchannel_delete_all(struct interface *ifp);
@@ -116,7 +122,8 @@ void pim_ifchannel_delete_on_noinfo(struct interface *ifp);
 struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
 					 struct prefix_sg *sg);
 struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
-					struct prefix_sg *sg, int flags);
+					struct prefix_sg *sg, uint8_t ch_flags,
+					int up_flags);
 void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 			    struct in_addr upstream, struct prefix_sg *sg,
 			    uint8_t source_flags, uint16_t holdtime);
@@ -147,8 +154,8 @@ void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
 					 uint8_t source_flags, uint8_t join,
 					 uint8_t starg_alone);
 
-int pim_ifchannel_compare(struct pim_ifchannel *ch1, struct pim_ifchannel *ch2);
+int pim_ifchannel_compare(const struct pim_ifchannel *ch1,
+			  const struct pim_ifchannel *ch2);
 
 unsigned int pim_ifchannel_hash_key(void *arg);
-int pim_ifchannel_equal(const void *arg1, const void *arg2);
 #endif /* PIM_IFCHANNEL_H */

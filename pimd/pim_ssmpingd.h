@@ -27,6 +27,8 @@
 #include "pim_iface.h"
 
 struct ssmpingd_sock {
+	struct pim_instance *pim;
+
 	int sock_fd;		    /* socket */
 	struct thread *t_sock_read; /* thread for reading socket */
 	struct in_addr source_addr; /* source address */
@@ -34,9 +36,9 @@ struct ssmpingd_sock {
 	int64_t requests;	   /* counter */
 };
 
-void pim_ssmpingd_init(void);
-void pim_ssmpingd_destroy(void);
-int pim_ssmpingd_start(struct in_addr source_addr);
-int pim_ssmpingd_stop(struct in_addr source_addr);
+void pim_ssmpingd_init(struct pim_instance *pim);
+void pim_ssmpingd_destroy(struct pim_instance *pim);
+int pim_ssmpingd_start(struct pim_instance *pim, struct in_addr source_addr);
+int pim_ssmpingd_stop(struct pim_instance *pim, struct in_addr source_addr);
 
 #endif /* PIM_SSMPINGD_H */

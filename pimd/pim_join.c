@@ -64,9 +64,9 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 		zlog_warn(
 			"%s: join (S,G)=%s rpt=%d wc=%d upstream=%s holdtime=%d from %s on %s",
 			__PRETTY_FUNCTION__, pim_str_sg_dump(sg),
-			source_flags & PIM_RPT_BIT_MASK,
-			source_flags & PIM_WILDCARD_BIT_MASK, up_str, holdtime,
-			neigh_str, ifp->name);
+			!!(source_flags & PIM_RPT_BIT_MASK),
+			!!(source_flags & PIM_WILDCARD_BIT_MASK), up_str,
+			holdtime, neigh_str, ifp->name);
 	}
 
 	pim_ifp = ifp->info;
@@ -80,14 +80,26 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 	 */
 	if ((source_flags & PIM_RPT_BIT_MASK)
 	    && (source_flags & PIM_WILDCARD_BIT_MASK)) {
-		struct pim_rpf *rp = RP(sg->grp);
+		struct pim_rpf *rp = RP(pim_ifp->pim, sg->grp);
 
 		/*
 		 * If the RP sent in the message is not
 		 * our RP for the group, drop the message
 		 */
-		if (sg->src.s_addr != rp->rpf_addr.u.prefix4.s_addr)
+		if (sg->src.s_addr != rp->rpf_addr.u.prefix4.s_addr) {
+			char received_rp[INET_ADDRSTRLEN];
+			char local_rp[INET_ADDRSTRLEN];
+			pim_inet4_dump("<received?>", sg->src, received_rp,
+				       sizeof(received_rp));
+			pim_inet4_dump("<local?>", rp->rpf_addr.u.prefix4,
+				       local_rp, sizeof(local_rp));
+			if (PIM_DEBUG_PIM_TRACE)
+				zlog_warn(
+					"%s: Specified RP(%s) in join is different than our configured RP(%s)",
+					__PRETTY_FUNCTION__, received_rp,
+					local_rp);
 			return;
+		}
 
 		sg->src.s_addr = INADDR_ANY;
 	}
@@ -124,7 +136,7 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 
 	if ((source_flags & PIM_RPT_BIT_MASK)
 	    && (source_flags & PIM_WILDCARD_BIT_MASK)) {
-		struct pim_rpf *rp = RP(sg->grp);
+		struct pim_rpf *rp = RP(pim_ifp->pim, sg->grp);
 
 		// Ignoring Prune *,G's at the moment.
 		if (sg->src.s_addr != rp->rpf_addr.u.prefix4.s_addr)
