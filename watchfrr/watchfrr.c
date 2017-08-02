@@ -1107,9 +1107,8 @@ int main(int argc, char **argv)
 
 	if (watch_only
 	    && (gs.start_command || gs.stop_command || gs.restart_command)) {
-		fputs("Options -r/-s/-k make no sense combined with -D.\n",
+		fputs("Options -r/-s/-k are not used when --dry is active.\n",
 		      stderr);
-		frr_help_exit(1);
 	}
 	if (!watch_only
 	    && (!gs.restart_command || !gs.start_command || !gs.stop_command)) {
