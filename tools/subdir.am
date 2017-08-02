@@ -1,0 +1,27 @@
+#
+# tools
+#
+
+noinst_PROGRAMS += tools/permutations
+sbin_PROGRAMS += tools/ssd
+sbin_SCRIPTS += \
+	tools/frr-reload.py \
+	tools/frr \
+	# end
+
+tools_permutations_SOURCES = tools/permutations.c
+tools_permutations_LDADD = lib/libfrr.la
+
+tools_ssd_SOURCES = tools/start-stop-daemon.c
+
+EXTRA_DIST += \
+	tools/etc \
+	tools/frr \
+	tools/frr-reload.py \
+	tools/frr.service \
+	tools/multiple-bgpd.sh \
+	tools/rrcheck.pl \
+	tools/rrlookup.pl \
+	tools/zc.pl \
+	tools/zebra.el \
+	# end

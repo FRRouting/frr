@@ -1337,8 +1337,6 @@ AC_SUBST(RFPTEST)
 AC_SUBST(LIBRFP)
 AC_SUBST(RFPINC)
 AC_SUBST(BGPD)
-AC_SUBST(WATCHFRR)
-AC_SUBST(ISISD)
 AC_SUBST(PIMD)
 AC_SUBST(SOLARIS)
 AC_SUBST(VTYSH)
@@ -1812,12 +1810,11 @@ AC_CACHE_VAL(ac_cv_htonl_works,
 AC_MSG_RESULT($ac_cv_htonl_works)
 
 AC_CONFIG_FILES([Makefile
-	  bgpd/Makefile watchfrr/Makefile
+	  bgpd/Makefile
 	  vtysh/Makefile
 	  doc/Makefile tests/Makefile
 	  bgpd/rfp-example/rfptest/Makefile bgpd/rfp-example/librfp/Makefile
 	  pimd/Makefile
-	  tools/Makefile
 	  redhat/frr.spec
 	  snapcraft/snapcraft.yaml
 	  lib/version.h
