@@ -3272,9 +3272,6 @@ int zebra_vxlan_remote_macip_add(struct zserv *client, int sock, u_short length,
 				/* Is this MAC created for a MACIP? */
 				if (ipa_len)
 					SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
-			} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)) {
-				/* Moving from local to remote, issue delete. */
-				zvni_mac_uninstall(zvni, mac, 1);
 			}
 
 			/* Set "auto" and "remote" forwarding info. */
