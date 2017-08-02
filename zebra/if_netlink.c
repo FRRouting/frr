@@ -21,6 +21,8 @@
 
 #include <zebra.h>
 
+#ifdef GNU_LINUX
+
 /* The following definition is to workaround an issue in the Linux kernel
  * header files with redefinition of 'struct in6_addr' in both
  * netinet/in.h and linux/in6.h.
@@ -1245,3 +1247,5 @@ void interface_list(struct zebra_ns *zns)
 {
 	interface_lookup_netlink(zns);
 }
+
+#endif /* GNU_LINUX */

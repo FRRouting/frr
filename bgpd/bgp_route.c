@@ -2078,7 +2078,7 @@ static wq_item_status bgp_process_main(struct work_queue *wq, void *data)
 			vnc_import_bgp_add_route(bgp, p, old_select);
 			vnc_import_bgp_exterior_add_route(bgp, p, old_select);
 #endif
-			if (bgp_fibupd_safi(safi) && !bgp->name
+			if (bgp_fibupd_safi(safi)
 			    && !bgp_option_check(BGP_OPT_NO_FIB)
 			    && new_select->type == ZEBRA_ROUTE_BGP
 			    && new_select->sub_type == BGP_ROUTE_NORMAL)
@@ -2288,7 +2288,7 @@ int bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 				int always)
 {
 	iana_afi_t pkt_afi;
-	safi_t pkt_safi;
+	iana_safi_t pkt_safi;
 
 	if (!CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX))
 		return 0;
@@ -8257,6 +8257,8 @@ static int bgp_show(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 	if (bgp == NULL) {
 		if (!use_json)
 			vty_out(vty, "No BGP process is configured\n");
+		else
+			vty_out(vty, "{}\n");
 		return CMD_WARNING;
 	}
 
@@ -8617,8 +8619,16 @@ static int bgp_show_route(struct vty *vty, struct bgp *bgp, const char *ip_str,
 			  int prefix_check, enum bgp_path_type pathtype,
 			  u_char use_json)
 {
-	if (!bgp)
+	if (!bgp) {
 		bgp = bgp_get_default();
+		if (!bgp) {
+			if (!use_json)
+				vty_out(vty, "No BGP process is configured\n");
+			else
+				vty_out(vty, "{}\n");
+			return CMD_WARNING;
+		}
+	}
 
 	/* labeled-unicast routes live in the unicast table */
 	if (safi == SAFI_LABELED_UNICAST)

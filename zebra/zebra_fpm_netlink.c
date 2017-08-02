@@ -24,6 +24,8 @@
 
 #include <zebra.h>
 
+#ifdef HAVE_NETLINK
+
 #include "log.h"
 #include "rib.h"
 #include "vty.h"
@@ -457,3 +459,5 @@ int zfpm_netlink_encode_route(int cmd, rib_dest_t *dest, struct route_entry *re,
 
 	return netlink_route_info_encode(ri, in_buf, in_buf_len);
 }
+
+#endif /* HAVE_NETLINK */

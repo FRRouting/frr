@@ -77,6 +77,44 @@
 	((ntohs((lsahdr)->length) >= sizeof(struct lsa_header))                \
 	 && ((ntohs((lsahdr)->length) % sizeof(u_int32_t)) == 0))
 
+/*
+ * Following section defines generic TLV (type, length, value) macros,
+ * used for various LSA opaque usage e.g. Traffic Engineering.
+ */
+struct tlv_header {
+	u_int16_t type;		/* Type of Value */
+	u_int16_t length;	/* Length of Value portion only, in bytes */
+};
+
+#define TLV_HDR_SIZE	(sizeof(struct tlv_header))
+
+#define TLV_BODY_SIZE(tlvh) \
+	(ROUNDUP(ntohs((tlvh)->length), sizeof(u_int32_t)))
+
+#define TLV_SIZE(tlvh)	(TLV_HDR_SIZE + TLV_BODY_SIZE(tlvh))
+
+#define TLV_HDR_TOP(lsah) \
+	(struct tlv_header *)((char *)(lsah) + OSPF_LSA_HEADER_SIZE)
+
+#define TLV_HDR_NEXT(tlvh) \
+	(struct tlv_header *)((char *)(tlvh) + TLV_SIZE(tlvh))
+
+#define TLV_HDR_SUBTLV(tlvh) \
+	(struct tlv_header *)((char *)(tlvh) + TLV_HDR_SIZE)
+
+#define TLV_DATA(tlvh)	(void *)((char *)(tlvh) + TLV_HDR_SIZE)
+
+#define TLV_TYPE(tlvh)	tlvh.header.type
+#define TLV_LEN(tlvh)	tlvh.header.length
+#define TLV_HDR(tlvh)	tlvh.header
+
+/* Following declaration concerns the Opaque LSA management */
+enum lsa_opcode {
+	REORIGINATE_THIS_LSA,
+	REFRESH_THIS_LSA,
+	FLUSH_THIS_LSA
+};
+
 /* Prototypes. */
 
 extern void ospf_opaque_init(void);
@@ -108,7 +146,7 @@ extern int ospf_opaque_new_if(struct interface *ifp);
 extern int ospf_opaque_del_if(struct interface *ifp);
 extern void ospf_opaque_ism_change(struct ospf_interface *oi, int old_status);
 extern void ospf_opaque_nsm_change(struct ospf_neighbor *nbr, int old_status);
-extern void ospf_opaque_config_write_router(struct vty *vty, struct ospf *);
+extern void ospf_opaque_config_write_router(struct vty *vty, struct ospf *ospf);
 extern void ospf_opaque_config_write_if(struct vty *vty, struct interface *ifp);
 extern void ospf_opaque_config_write_debug(struct vty *vty);
 extern void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa);
@@ -116,7 +154,7 @@ extern void ospf_opaque_lsa_dump(struct stream *s, u_int16_t length);
 
 extern void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi,
 					       int *init_delay);
-extern struct ospf_lsa *ospf_opaque_lsa_install(struct ospf_lsa *,
+extern struct ospf_lsa *ospf_opaque_lsa_install(struct ospf_lsa *lsa,
 						int rt_recalc);
 extern struct ospf_lsa *ospf_opaque_lsa_refresh(struct ospf_lsa *lsa);
 

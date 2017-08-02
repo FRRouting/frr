@@ -976,9 +976,13 @@ int ospf_network_unset(struct ospf *ospf, struct prefix_ipv4 *p,
 	rn->info = NULL;
 	route_unlock_node(rn); /* initial reference */
 
-	/* Find interfaces that not configured already.  */
+	/* Find interfaces that are not configured already.  */
 	for (ALL_LIST_ELEMENTS(ospf->oiflist, node, nnode, oi)) {
-		ospf_network_run_subnet(ospf, oi->connected, NULL, NULL);
+
+	  if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
+	    continue;
+
+	  ospf_network_run_subnet(ospf, oi->connected, NULL, NULL);
 	}
 
 	/* Update connected redistribute. */

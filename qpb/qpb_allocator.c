@@ -42,8 +42,7 @@ static void _qpb_free(void *allocator_data, void *ptr)
 	linear_allocator_free(allocator_data, ptr);
 }
 
-static ProtobufCAllocator allocator_template = {_qpb_alloc, _qpb_free, NULL,
-						8192, NULL};
+static ProtobufCAllocator allocator_template = {_qpb_alloc, _qpb_free, NULL};
 
 /*
  * qpb_allocator_init_linear

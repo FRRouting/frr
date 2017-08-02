@@ -21,6 +21,8 @@
 
 #include <zebra.h>
 
+#ifdef SUNOS_5
+
 #include "prefix.h"
 #include "log.h"
 #include "if.h"
@@ -258,3 +260,5 @@ void neigh_read(struct zebra_ns *zns)
 void neigh_read_for_vlan(struct zebra_ns *zns, struct interface *vlan_if)
 {
 }
+
+#endif /* SUNOS_5 */

@@ -303,7 +303,9 @@ static int vtysh_execute_func(const char *line, int pager)
 		     || saved_node == BGP_IPV4L_NODE
 		     || saved_node == BGP_IPV6L_NODE
 		     || saved_node == BGP_IPV6M_NODE
-		     || saved_node == BGP_EVPN_NODE)
+		     || saved_node == BGP_EVPN_NODE
+		     || saved_node == LDP_IPV4_NODE
+		     || saved_node == LDP_IPV6_NODE)
 		    && (tried == 1)) {
 			vtysh_execute("exit-address-family");
 		} else if ((saved_node == BGP_EVPN_VNI_NODE) && (tried == 1)) {
@@ -495,6 +497,29 @@ int vtysh_mark_file(const char *filename)
 		tried = 0;
 		strcpy(vty_buf_copy, vty->buf);
 		vty_buf_trimmed = trim(vty_buf_copy);
+
+		switch (vty->node) {
+		case LDP_IPV4_IFACE_NODE:
+			if (strncmp(vty_buf_copy, "   ", 3)) {
+				fprintf(stdout, "  end\n");
+				vty->node = LDP_IPV4_NODE;
+			}
+			break;
+		case LDP_IPV6_IFACE_NODE:
+			if (strncmp(vty_buf_copy, "   ", 3)) {
+				fprintf(stdout, "  end\n");
+				vty->node = LDP_IPV6_NODE;
+			}
+			break;
+		case LDP_PSEUDOWIRE_NODE:
+			if (strncmp(vty_buf_copy, "  ", 2)) {
+				fprintf(stdout, " end\n");
+				vty->node = LDP_L2VPN_NODE;
+			}
+			break;
+		default:
+			break;
+		}
 
 		if (vty_buf_trimmed[0] == '!' || vty_buf_trimmed[0] == '#') {
 			fprintf(stdout, "%s", vty->buf);
@@ -1265,6 +1290,14 @@ DEFUNSH(VTYSH_LDPD, ldp_address_family_ipv6, ldp_address_family_ipv6_cmd,
 	"IPv6\n")
 {
 	vty->node = LDP_IPV6_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_LDPD, ldp_exit_address_family, ldp_exit_address_family_cmd,
+	"exit-address-family", "Exit from Address Family configuration mode\n")
+{
+	if (vty->node == LDP_IPV4_NODE || vty->node == LDP_IPV6_NODE)
+		vty->node = LDP_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -2420,7 +2453,7 @@ DEFUN (vtysh_show_daemons,
 
 /* Execute command in child process. */
 static void execute_command(const char *command, int argc,
-			    struct cmd_token *arg1, const char *arg2)
+			    const char *arg1, const char *arg2)
 {
 	pid_t pid;
 	int status;
@@ -2465,7 +2498,10 @@ DEFUN (vtysh_ping,
        "Send echo messages\n"
        "Ping destination address or hostname\n")
 {
-	execute_command("ping", 1, argv[0], NULL);
+	int idx = 1;
+
+	argv_find(argv, argc, "WORD", &idx);
+	execute_command("ping", 1, argv[idx]->arg, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -2480,7 +2516,10 @@ DEFUN (vtysh_traceroute,
        "Trace route to destination\n"
        "Trace route to destination address or hostname\n")
 {
-	execute_command("traceroute", 1, argv[0], NULL);
+	int idx = 1;
+
+	argv_find(argv, argc, "WORD", &idx);
+	execute_command("traceroute", 1, argv[idx]->arg, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -2496,7 +2535,7 @@ DEFUN (vtysh_ping6,
        "IPv6 echo\n"
        "Ping destination address or hostname\n")
 {
-	execute_command("ping6", 1, argv[0], NULL);
+	execute_command("ping6", 1, argv[2]->arg, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -2507,7 +2546,7 @@ DEFUN (vtysh_traceroute6,
        "IPv6 trace\n"
        "Trace route to destination address or hostname\n")
 {
-	execute_command("traceroute6", 1, argv[0], NULL);
+	execute_command("traceroute6", 1, argv[2]->arg, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -2518,7 +2557,7 @@ DEFUN (vtysh_telnet,
        "Open a telnet connection\n"
        "IP address or hostname of a remote system\n")
 {
-	execute_command("telnet", 1, argv[0], NULL);
+	execute_command("telnet", 1, argv[1]->arg, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -2529,7 +2568,7 @@ DEFUN (vtysh_telnet_port,
        "IP address or hostname of a remote system\n"
        "TCP Port number\n")
 {
-	execute_command("telnet", 2, argv[0], argv[1]);
+	execute_command("telnet", 2, argv[1]->arg, argv[2]->arg);
 	return CMD_SUCCESS;
 }
 
@@ -2539,7 +2578,7 @@ DEFUN (vtysh_ssh,
        "Open an ssh connection\n"
        "[user@]host\n")
 {
-	execute_command("ssh", 1, argv[0], NULL);
+	execute_command("ssh", 1, argv[1]->arg, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -2582,9 +2621,39 @@ DEFUN (config_list,
 	return cmd_list_cmds(vty, argc == 2);
 }
 
+DEFUN(find,
+      find_cmd,
+      "find COMMAND...",
+      "Find CLI command containing text\n"
+      "Text to search for\n")
+{
+	char *text = argv_concat(argv, argc, 1);
+	const struct cmd_node *node;
+	const struct cmd_element *cli;
+	vector clis;
+
+	for (unsigned int i = 0; i < vector_active(cmdvec); i++) {
+		node = vector_slot(cmdvec, i);
+		if (!node)
+			continue;
+		clis = node->cmd_vector;
+		for (unsigned int j = 0; j < vector_active(clis); j++) {
+			cli = vector_slot(clis, j);
+			if (strcasestr(cli->string, text))
+				fprintf(stdout, "  (%s)  %s\n",
+					node_names[node->node], cli->string);
+		}
+	}
+
+	XFREE(MTYPE_TMP, text);
+
+	return CMD_SUCCESS;
+}
+
 static void vtysh_install_default(enum node_type node)
 {
 	install_element(node, &config_list_cmd);
+	install_element(node, &find_cmd);
 }
 
 /* Making connection to protocol daemon. */
@@ -2876,48 +2945,13 @@ void vtysh_init_vty(void)
 	install_node(&isis_node, NULL);
 	install_node(&vty_node, NULL);
 
-	vtysh_install_default(VIEW_NODE);
-	vtysh_install_default(CONFIG_NODE);
-	vtysh_install_default(BGP_NODE);
-	vtysh_install_default(RIP_NODE);
-	vtysh_install_default(INTERFACE_NODE);
-	vtysh_install_default(LINK_PARAMS_NODE);
-	vtysh_install_default(NS_NODE);
-	vtysh_install_default(VRF_NODE);
-	vtysh_install_default(RMAP_NODE);
-	vtysh_install_default(ZEBRA_NODE);
-	vtysh_install_default(BGP_VPNV4_NODE);
-	vtysh_install_default(BGP_VPNV6_NODE);
-	vtysh_install_default(BGP_IPV4_NODE);
-	vtysh_install_default(BGP_IPV4M_NODE);
-	vtysh_install_default(BGP_IPV4L_NODE);
-	vtysh_install_default(BGP_IPV6_NODE);
-	vtysh_install_default(BGP_IPV6M_NODE);
-	vtysh_install_default(BGP_EVPN_NODE);
-	vtysh_install_default(BGP_EVPN_VNI_NODE);
-	vtysh_install_default(BGP_IPV6L_NODE);
-#if ENABLE_BGP_VNC
-	vtysh_install_default(BGP_VRF_POLICY_NODE);
-	vtysh_install_default(BGP_VNC_DEFAULTS_NODE);
-	vtysh_install_default(BGP_VNC_NVE_GROUP_NODE);
-	vtysh_install_default(BGP_VNC_L2_GROUP_NODE);
-#endif
-	vtysh_install_default(OSPF_NODE);
-	vtysh_install_default(EIGRP_NODE);
-	vtysh_install_default(BABEL_NODE);
-	vtysh_install_default(RIPNG_NODE);
-	vtysh_install_default(OSPF6_NODE);
-	vtysh_install_default(LDP_NODE);
-	vtysh_install_default(LDP_IPV4_NODE);
-	vtysh_install_default(LDP_IPV6_NODE);
-	vtysh_install_default(LDP_IPV4_IFACE_NODE);
-	vtysh_install_default(LDP_IPV6_IFACE_NODE);
-	vtysh_install_default(LDP_L2VPN_NODE);
-	vtysh_install_default(LDP_PSEUDOWIRE_NODE);
-	vtysh_install_default(ISIS_NODE);
-	vtysh_install_default(KEYCHAIN_NODE);
-	vtysh_install_default(KEYCHAIN_KEY_NODE);
-	vtysh_install_default(VTY_NODE);
+	struct cmd_node *node;
+	for (unsigned int i = 0; i < vector_active(cmdvec); i++) {
+		node = vector_slot(cmdvec, i);
+		if (!node || node->node == VIEW_NODE)
+			continue;
+		vtysh_install_default(node->node);
+	}
 
 	install_element(VIEW_NODE, &vtysh_enable_cmd);
 	install_element(ENABLE_NODE, &vtysh_config_terminal_cmd);
@@ -2945,8 +2979,10 @@ void vtysh_init_vty(void)
 	install_element(LDP_NODE, &vtysh_quit_ldpd_cmd);
 	install_element(LDP_IPV4_NODE, &vtysh_exit_ldpd_cmd);
 	install_element(LDP_IPV4_NODE, &vtysh_quit_ldpd_cmd);
+	install_element(LDP_IPV4_NODE, &ldp_exit_address_family_cmd);
 	install_element(LDP_IPV6_NODE, &vtysh_exit_ldpd_cmd);
 	install_element(LDP_IPV6_NODE, &vtysh_quit_ldpd_cmd);
+	install_element(LDP_IPV6_NODE, &ldp_exit_address_family_cmd);
 	install_element(LDP_IPV4_IFACE_NODE, &vtysh_exit_ldpd_cmd);
 	install_element(LDP_IPV4_IFACE_NODE, &vtysh_quit_ldpd_cmd);
 	install_element(LDP_IPV6_IFACE_NODE, &vtysh_exit_ldpd_cmd);

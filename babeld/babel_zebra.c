@@ -55,25 +55,6 @@ static struct {
     {0, 0, NULL}
 };
 
-static struct {
-    int str_min_len;
-    const char *str;
-} proto_redistnum_type[ZEBRA_ROUTE_MAX] = {
-    [ZEBRA_ROUTE_BABEL]   = {2, "babel"},
-    [ZEBRA_ROUTE_BGP]     = {2, "bgp"},
-    [ZEBRA_ROUTE_CONNECT] = {1, "connected"},
-    [ZEBRA_ROUTE_HSLS]    = {1, "hsls"},
-    [ZEBRA_ROUTE_ISIS]    = {1, "isis"},
-    [ZEBRA_ROUTE_KERNEL]  = {1, "kernel"},
-    [ZEBRA_ROUTE_OLSR]    = {2, "olsr"},
-    [ZEBRA_ROUTE_OSPF]    = {2, "ospf"},
-    [ZEBRA_ROUTE_OSPF6]   = {5, "ospf6"},
-    [ZEBRA_ROUTE_RIP]     = {1, "rip"},
-    [ZEBRA_ROUTE_RIPNG]   = {4, "ripng"},
-    [ZEBRA_ROUTE_STATIC]  = {2, "static"},
-    [ZEBRA_ROUTE_SYSTEM]  = {2, "system"},
-};
-
 /* Zebra node structure. */
 struct cmd_node zebra_node =
 {
@@ -191,66 +172,46 @@ babel_zebra_read_ipv4 (int command, struct zclient *zclient,
     return 0;
 }
 
-static int
-babel_proto_redistnum(const char *s)
-{
-    int i;
-    if (! s)
-        return -1;
-    int len = strlen(s);
-
-    for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
-        if (len <= (int)strlen(proto_redistnum_type[i].str) &&
-            strncmp(proto_redistnum_type[i].str, s,
-                    proto_redistnum_type[i].str_min_len) == 0) {
-            return i;
-        }
-    }
-
-    return -1;
-}
-
 /* [Babel Command] */
 DEFUN (babel_redistribute_type,
        babel_redistribute_type_cmd,
-       "redistribute " FRR_REDIST_STR_BABELD,
-       "Redistribute\n"
-       FRR_REDIST_HELP_STR_BABELD)
-{
-    int type;
-
-    type = babel_proto_redistnum(argv[1]->arg);
-
-    if (type < 0) {
-        vty_out (vty, "Invalid type %s\n", argv[1]->arg);
-        return CMD_WARNING_CONFIG_FAILED;
-    }
-
-    zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, type, 0, VRF_DEFAULT);
-    zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6, type, 0, VRF_DEFAULT);
-    return CMD_SUCCESS;
-}
-
-/* [Babel Command] */
-DEFUN (no_babel_redistribute_type,
-       no_babel_redistribute_type_cmd,
-       "no redistribute " FRR_REDIST_STR_BABELD,
+       "[no] redistribute <ipv4 " FRR_IP_REDIST_STR_BABELD "|ipv6 " FRR_IP6_REDIST_STR_BABELD ">",
        NO_STR
        "Redistribute\n"
-       FRR_REDIST_HELP_STR_BABELD)
+       "Redistribute IPv4 routes\n"
+       FRR_IP_REDIST_HELP_STR_BABELD
+       "Redistribute IPv6 routes\n"
+       FRR_IP6_REDIST_HELP_STR_BABELD)
 {
+    int negate = 0;
+    int family;
+    int afi;
     int type;
+    int idx = 0;
 
-    type = babel_proto_redistnum(argv[2]->arg);
+    if (argv_find(argv, argc, "no", &idx))
+        negate = 1;
+    argv_find(argv, argc, "redistribute", &idx);
+    family = str2family(argv[idx + 1]->text);
+    if (family < 0)
+        return CMD_WARNING_CONFIG_FAILED;
 
+    afi = family2afi(family);
+    if (!afi)
+        return CMD_WARNING_CONFIG_FAILED;
+
+    type = proto_redistnum(afi, argv[idx + 2]->text);
     if (type < 0) {
-        vty_out (vty, "Invalid type %s\n", argv[2]->arg);
+        vty_out (vty, "Invalid type %s\n", argv[idx + 2]->arg);
         return CMD_WARNING_CONFIG_FAILED;
     }
 
-    zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP, type, 0, VRF_DEFAULT);
-    zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP6, type, 0, VRF_DEFAULT);
-    /* perhaps should we remove xroutes having the same type... */
+    if (!negate)
+        zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type, 0, VRF_DEFAULT);
+    else {
+        zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, afi, type, 0, VRF_DEFAULT);
+        /* perhaps should we remove xroutes having the same type... */
+    }
     return CMD_SUCCESS;
 }
 
@@ -374,7 +335,6 @@ void babelz_zebra_init(void)
 
     install_node (&zebra_node, zebra_config_write);
     install_element(BABEL_NODE, &babel_redistribute_type_cmd);
-    install_element(BABEL_NODE, &no_babel_redistribute_type_cmd);
     install_element(ENABLE_NODE, &debug_babel_cmd);
     install_element(ENABLE_NODE, &no_debug_babel_cmd);
     install_element(CONFIG_NODE, &debug_babel_cmd);

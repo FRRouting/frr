@@ -205,7 +205,7 @@ static int rfapi_find_node(struct bgp *bgp, struct rfapi_ip_addr *vn_addr,
 	struct prefix p;
 	struct route_node *rn;
 	int rc;
-	int afi;
+	afi_t afi;
 
 	if (!bgp) {
 		return ENXIO;
@@ -224,7 +224,7 @@ static int rfapi_find_node(struct bgp *bgp, struct rfapi_ip_addr *vn_addr,
 	if ((rc = rfapiRaddr2Qprefix(un_addr, &p)))
 		return rc;
 
-	rn = route_node_lookup(&h->un[afi], &p);
+	rn = route_node_lookup(h->un[afi], &p);
 
 	if (!rn)
 		return ENOENT;
@@ -1415,7 +1415,7 @@ int rfapi_init_and_open(struct bgp *bgp, struct rfapi_descriptor *rfd,
 		assert(afi_vn && afi_un);
 		assert(!rfapiRaddr2Qprefix(&rfd->un_addr, &pfx_un));
 
-		rn = route_node_get(&(h->un[afi_un]), &pfx_un);
+		rn = route_node_get(h->un[afi_un], &pfx_un);
 		assert(rn);
 		rfd->next = rn->info;
 		rn->info = rfd;
@@ -2367,7 +2367,7 @@ int rfapi_register(void *handle, struct rfapi_ip_prefix *prefix,
 	struct prefix p;
 	struct prefix *pfx_ip = NULL;
 	struct prefix_rd prd;
-	int afi;
+	afi_t afi;
 	struct prefix pfx_mac_buf;
 	struct prefix *pfx_mac = NULL;
 	struct prefix pfx_vn_buf;

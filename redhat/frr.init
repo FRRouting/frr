@@ -515,6 +515,18 @@ case "$1" in
         if [ -z "$dmn" -o "$dmn" = "zebra" ]; then
             echo "Removing all routes made by zebra."
             ip route flush proto zebra
+            # At least in CentOS/RHEL 6, iproute2 doesn't know
+            # about the new protocol names, so we have to flush them
+            # by number (it also doesn't support rt_protos.d
+            ip route flush proto 186
+            ip route flush proto 187
+            ip route flush proto 188
+            ip route flush proto 189
+            ip route flush proto 190
+            ip route flush proto 191
+            ip route flush proto 192
+            ip route flush proto 193
+            ip route flush proto 194
         else
             [ -n "$dmn" ] && eval "${dmn/-/_}=0"
             start_watchfrr

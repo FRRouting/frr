@@ -49,8 +49,8 @@ RANGE           \({NUMBER}[ ]?\-[ ]?{NUMBER}\)
 %option noyywrap
 %option nounput
 %option noinput
-%option outfile="command_lex.c"
-%option header-file="command_lex.h"
+%option outfile="lib/command_lex.c"
+%option header-file="lib/command_lex.h"
 %option prefix="cmd_yy"
 %option reentrant
 %option bison-bridge

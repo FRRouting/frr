@@ -20,6 +20,9 @@
  */
 
 #include <zebra.h>
+
+#ifndef HAVE_NETLINK
+
 #ifdef __OpenBSD__
 #include <netmpls/mpls.h>
 #endif
@@ -449,3 +452,5 @@ extern int kernel_interface_set_master(struct interface *master,
 {
 	return 0;
 }
+
+#endif /* !HAVE_NETLINK */

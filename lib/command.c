@@ -47,6 +47,74 @@ DEFINE_MTYPE(LIB, HOST, "Host config")
 DEFINE_MTYPE(LIB, STRVEC, "String vector")
 DEFINE_MTYPE(LIB, COMPLETION, "Completion item")
 
+const char *node_names[] = {
+	"auth",			    // AUTH_NODE,
+	"view",			    // VIEW_NODE,
+	"auth enable",		    // AUTH_ENABLE_NODE,
+	"enable",		    // ENABLE_NODE,
+	"config",		    // CONFIG_NODE,
+	"service",		    // SERVICE_NODE,
+	"debug",		    // DEBUG_NODE,
+	"vrf debug",		    // VRF_DEBUG_NODE,
+	"vnc debug",		    // DEBUG_VNC_NODE,
+	"aaa",			    // AAA_NODE,
+	"keychain",		    // KEYCHAIN_NODE,
+	"keychain key",		    // KEYCHAIN_KEY_NODE,
+	"logical-router",	    // NS_NODE,
+	"vrf",			    // VRF_NODE,
+	"interface",		    // INTERFACE_NODE,
+	"zebra",		    // ZEBRA_NODE,
+	"table",		    // TABLE_NODE,
+	"rip",			    // RIP_NODE,
+	"ripng",		    // RIPNG_NODE,
+	"babel",		    // BABEL_NODE,
+	"eigrp",		    // EIGRP_NODE,
+	"bgp",			    // BGP_NODE,
+	"bgp vpnv4",		    // BGP_VPNV4_NODE,
+	"bgp vpnv6",		    // BGP_VPNV6_NODE,
+	"bgp ipv4 unicast",         // BGP_IPV4_NODE,
+	"bgp ipv4 multicast",       // BGP_IPV4M_NODE,
+	"bgp ipv4 labeled unicast", // BGP_IPV4L_NODE,
+	"bgp ipv6",		    // BGP_IPV6_NODE,
+	"bgp ipv6 multicast",       // BGP_IPV6M_NODE,
+	"bgp ipv6 labeled unicast", // BGP_IPV6L_NODE,
+	"bgp vrf policy",	    // BGP_VRF_POLICY_NODE,
+	"bgp vnc defaults",         // BGP_VNC_DEFAULTS_NODE,
+	"bgp vnc nve",		    // BGP_VNC_NVE_GROUP_NODE,
+	"bgp vnc l2",		    // BGP_VNC_L2_GROUP_NODE,
+	"rfp defaults",		    // RFP_DEFAULTS_NODE,
+	"bgp evpn",		    // BGP_EVPN_NODE,
+	"ospf",			    // OSPF_NODE,
+	"ospf6",		    // OSPF6_NODE,
+	"ldp",			    // LDP_NODE,
+	"ldp ipv4",		    // LDP_IPV4_NODE,
+	"ldp ipv6",		    // LDP_IPV6_NODE,
+	"ldp ipv4 interface",       // LDP_IPV4_IFACE_NODE,
+	"ldp ipv6 interface",       // LDP_IPV6_IFACE_NODE,
+	"ldp l2vpn",		    // LDP_L2VPN_NODE,
+	"ldp",			    // LDP_PSEUDOWIRE_NODE,
+	"isis",			    // ISIS_NODE,
+	"pim",			    // PIM_NODE,
+	"masc",			    // MASC_NODE,
+	"irdp",			    // IRDP_NODE,
+	"static ip",		    // IP_NODE,
+	"ipv4 access list",         // ACCESS_NODE,
+	"ipv4 prefix list",         // PREFIX_NODE,
+	"ipv6 access list",         // ACCESS_IPV6_NODE,
+	"ipv6 prefix list",         // PREFIX_IPV6_NODE,
+	"as list",		    // AS_LIST_NODE,
+	"community list",	    // COMMUNITY_LIST_NODE,
+	"routemap",		    // RMAP_NODE,
+	"smux",			    // SMUX_NODE,
+	"dump",			    // DUMP_NODE,
+	"forwarding",		    // FORWARDING_NODE,
+	"protocol",		    // PROTOCOL_NODE,
+	"mpls",			    // MPLS_NODE,
+	"vty",			    // VTY_NODE,
+	"link-params",		    // LINK_PARAMS_NODE,
+	"bgp evpn vni",		    // BGP_EVPN_VNI_NODE,
+};
+
 /* Command vector which includes some level of command lists. Normally
    each daemon maintains each own cmdvec. */
 vector cmdvec = NULL;
@@ -2355,6 +2423,35 @@ DEFUN (no_banner_motd,
 	return CMD_SUCCESS;
 }
 
+DEFUN(find,
+      find_cmd,
+      "find COMMAND...",
+      "Find CLI command containing text\n"
+      "Text to search for\n")
+{
+	char *text = argv_concat(argv, argc, 1);
+	const struct cmd_node *node;
+	const struct cmd_element *cli;
+	vector clis;
+
+	for (unsigned int i = 0; i < vector_active(cmdvec); i++) {
+		node = vector_slot(cmdvec, i);
+		if (!node)
+			continue;
+		clis = node->cmd_vector;
+		for (unsigned int j = 0; j < vector_active(clis); j++) {
+			cli = vector_slot(clis, j);
+			if (strcasestr(cli->string, text))
+				vty_out(vty, "  (%s)  %s\n",
+					node_names[node->node], cli->string);
+		}
+	}
+
+	XFREE(MTYPE_TMP, text);
+
+	return CMD_SUCCESS;
+}
+
 /* Set config filename.  Called from vty.c */
 void host_config_set(const char *filename)
 {
@@ -2375,6 +2472,7 @@ void install_default(enum node_type node)
 	install_element(node, &config_end_cmd);
 	install_element(node, &config_help_cmd);
 	install_element(node, &config_list_cmd);
+	install_element(node, &find_cmd);
 
 	install_element(node, &config_write_cmd);
 	install_element(node, &show_running_config_cmd);
@@ -2389,6 +2487,9 @@ void install_default(enum node_type node)
  * terminal = -1 -- watchfrr / no logging, but minimal config control */
 void cmd_init(int terminal)
 {
+	if (array_size(node_names) != NODE_TYPE_MAX)
+		assert(!"Update the CLI node description array!");
+
 	qobj_init();
 
 	varhandlers = list_new();
@@ -2416,6 +2517,8 @@ void cmd_init(int terminal)
 
 	/* Each node's basic commands. */
 	install_element(VIEW_NODE, &show_version_cmd);
+	install_element(ENABLE_NODE, &show_startup_config_cmd);
+
 	if (terminal) {
 		install_element(VIEW_NODE, &config_list_cmd);
 		install_element(VIEW_NODE, &config_exit_cmd);
@@ -2428,20 +2531,16 @@ void cmd_init(int terminal)
 		install_element(VIEW_NODE, &show_commandtree_cmd);
 		install_element(VIEW_NODE, &echo_cmd);
 		install_element(VIEW_NODE, &autocomplete_cmd);
-	}
+		install_element(VIEW_NODE, &find_cmd);
 
-	if (terminal) {
 		install_element(ENABLE_NODE, &config_end_cmd);
 		install_element(ENABLE_NODE, &config_disable_cmd);
 		install_element(ENABLE_NODE, &config_terminal_cmd);
 		install_element(ENABLE_NODE, &copy_runningconf_startupconf_cmd);
 		install_element(ENABLE_NODE, &config_write_cmd);
 		install_element(ENABLE_NODE, &show_running_config_cmd);
-	}
-	install_element(ENABLE_NODE, &show_startup_config_cmd);
-
-	if (terminal) {
 		install_element(ENABLE_NODE, &config_logmsg_cmd);
+
 		install_default(CONFIG_NODE);
 
 		thread_cmd_init();

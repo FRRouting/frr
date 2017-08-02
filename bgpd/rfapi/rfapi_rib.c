@@ -2236,9 +2236,12 @@ void rfapiRibShowResponsesSummary(void *stream)
 	struct rfapi_descriptor *rfd;
 	struct listnode *node;
 
-
 	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
 		return;
+	if (!bgp) {
+		fp(out, "Unable to find default BGP instance\n");
+		return;
+	}
 
 	fp(out, "%-24s ", "Responses: (Prefixes)");
 	fp(out, "%-8s %-8u ", "Active:", bgp->rfapi->rib_prefix_count_total);
@@ -2388,6 +2391,11 @@ void rfapiRibShowResponses(void *stream, struct prefix *pfx_match,
 
 	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
 		return;
+	if (!bgp) {
+		fp(out, "Unable to find default BGP instance\n");
+		return;
+	}
+
 	/*
 	 * loop over NVEs
 	 */

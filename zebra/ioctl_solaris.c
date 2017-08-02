@@ -21,6 +21,8 @@
 
 #include <zebra.h>
 
+#ifdef SUNOS_5
+
 #include "linklist.h"
 #include "if.h"
 #include "prefix.h"
@@ -398,3 +400,5 @@ int if_prefix_delete_ipv6(struct interface *ifp, struct connected *ifc)
 
 	return 0;
 }
+
+#endif /* SUNOS_5 */

@@ -207,8 +207,6 @@ main(int argc, char **argv)
 
     schedule_neighbours_check(5000, 1);
 
-    zlog_notice ("BABELd %s starting: vty@%d", BABEL_VERSION, babel_vty_port);
-
     frr_config_fork();
     frr_run(master);
 

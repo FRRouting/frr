@@ -135,10 +135,10 @@ struct rfapi_nve_group_cfg *bgp_rfapi_cfg_match_group(struct rfapi_cfg *hc,
 
 	switch (vn->family) {
 	case AF_INET:
-		rt_vn = &(hc->nve_groups_vn[AFI_IP]);
+		rt_vn = hc->nve_groups_vn[AFI_IP];
 		break;
 	case AF_INET6:
-		rt_vn = &(hc->nve_groups_vn[AFI_IP6]);
+		rt_vn = hc->nve_groups_vn[AFI_IP6];
 		break;
 	default:
 		return NULL;
@@ -146,10 +146,10 @@ struct rfapi_nve_group_cfg *bgp_rfapi_cfg_match_group(struct rfapi_cfg *hc,
 
 	switch (un->family) {
 	case AF_INET:
-		rt_un = &(hc->nve_groups_un[AFI_IP]);
+		rt_un = hc->nve_groups_un[AFI_IP];
 		break;
 	case AF_INET6:
-		rt_un = &(hc->nve_groups_un[AFI_IP6]);
+		rt_un = hc->nve_groups_un[AFI_IP6];
 		break;
 	default:
 		return NULL;
@@ -2503,7 +2503,7 @@ DEFUN (vnc_nve_group_prefix,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg);
 	struct prefix p;
-	int afi;
+	afi_t afi;
 	struct route_table *rt;
 	struct route_node *rn;
 	int is_un_prefix = 0;
@@ -2527,10 +2527,10 @@ DEFUN (vnc_nve_group_prefix,
 	}
 
 	if (argv[1]->arg[0] == 'u') {
-		rt = &(bgp->rfapi_cfg->nve_groups_un[afi]);
+		rt = bgp->rfapi_cfg->nve_groups_un[afi];
 		is_un_prefix = 1;
 	} else {
-		rt = &(bgp->rfapi_cfg->nve_groups_vn[afi]);
+		rt = bgp->rfapi_cfg->nve_groups_vn[afi];
 	}
 
 	rn = route_node_get(rt, &p); /* NB locks node */
@@ -3830,7 +3830,7 @@ void bgp_rfapi_cfg_init(void)
 struct rfapi_cfg *bgp_rfapi_cfg_new(struct rfapi_rfp_cfg *cfg)
 {
 	struct rfapi_cfg *h;
-	int afi;
+	afi_t afi;
 
 	h = (struct rfapi_cfg *)XCALLOC(MTYPE_RFAPI_CFG,
 					sizeof(struct rfapi_cfg));
@@ -3838,14 +3838,9 @@ struct rfapi_cfg *bgp_rfapi_cfg_new(struct rfapi_rfp_cfg *cfg)
 
 	h->nve_groups_sequential = list_new();
 	assert(h->nve_groups_sequential);
-
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		/* ugly, to deal with addition of delegates, part of 0.99.24.1
-		 * merge */
-		h->nve_groups_vn[afi].delegate =
-			route_table_get_default_delegate();
-		h->nve_groups_un[afi].delegate =
-			route_table_get_default_delegate();
+		h->nve_groups_vn[afi] = route_table_init();
+		h->nve_groups_un[afi] = route_table_init();
 	}
 	h->default_response_lifetime =
 		BGP_VNC_DEFAULT_RESPONSE_LIFETIME_DEFAULT;
@@ -3885,6 +3880,7 @@ struct rfapi_cfg *bgp_rfapi_cfg_new(struct rfapi_rfp_cfg *cfg)
 
 void bgp_rfapi_cfg_destroy(struct bgp *bgp, struct rfapi_cfg *h)
 {
+	afi_t afi;
 	if (h == NULL)
 		return;
 
@@ -3901,6 +3897,10 @@ void bgp_rfapi_cfg_destroy(struct bgp *bgp, struct rfapi_cfg *h)
 		ecommunity_free(&h->default_rt_import_list);
 	if (h->default_rfp_cfg)
 		XFREE(MTYPE_RFAPI_RFP_GROUP_CFG, h->default_rfp_cfg);
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		route_table_finish(h->nve_groups_vn[afi]);
+		route_table_finish(h->nve_groups_un[afi]);
+	}
 	XFREE(MTYPE_RFAPI_CFG, h);
 }
 
@@ -4571,7 +4571,8 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 void bgp_rfapi_show_summary(struct bgp *bgp, struct vty *vty)
 {
 	struct rfapi_cfg *hc = bgp->rfapi_cfg;
-	int afi, type, redist = 0;
+	afi_t afi;
+	int type, redist = 0;
 	char tmp[40];
 	if (hc == NULL)
 		return;

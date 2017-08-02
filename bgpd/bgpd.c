@@ -611,8 +611,8 @@ int bgp_listen_limit_unset(struct bgp *bgp)
 	return 0;
 }
 
-int bgp_map_afi_safi_iana2int(iana_afi_t pkt_afi, safi_t pkt_safi, afi_t *afi,
-			      safi_t *safi)
+int bgp_map_afi_safi_iana2int(iana_afi_t pkt_afi, iana_safi_t pkt_safi,
+			      afi_t *afi, safi_t *safi)
 {
 	/* Map from IANA values to internal values, return error if
 	 * values are unrecognized.
@@ -626,7 +626,7 @@ int bgp_map_afi_safi_iana2int(iana_afi_t pkt_afi, safi_t pkt_safi, afi_t *afi,
 }
 
 int bgp_map_afi_safi_int2iana(afi_t afi, safi_t safi, iana_afi_t *pkt_afi,
-			      safi_t *pkt_safi)
+			      iana_safi_t *pkt_safi)
 {
 	/* Map from internal values to IANA values, return error if
 	 * internal values are bad (unexpected).
@@ -746,7 +746,7 @@ static unsigned int peer_hash_key_make(void *p)
 	return sockunion_hash(&peer->su);
 }
 
-static int peer_hash_cmp(const void *p1, const void *p2)
+static int peer_hash_same(const void *p1, const void *p2)
 {
 	const struct peer *peer1 = p1;
 	const struct peer *peer2 = p2;
@@ -1842,7 +1842,7 @@ static void peer_nsf_stop(struct peer *peer)
 	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_RESERVED_4; safi++)
+		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++)
 			peer->nsf[afi][safi] = 0;
 
 	if (peer->t_gr_restart) {
@@ -2757,7 +2757,8 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		XSTRDUP(MTYPE_BGP_PEER_HOST, "Static announcement");
 	bgp->peer = list_new();
 	bgp->peer->cmp = (int (*)(void *, void *))peer_cmp;
-	bgp->peerhash = hash_create(peer_hash_key_make, peer_hash_cmp, NULL);
+	bgp->peerhash = hash_create(peer_hash_key_make, peer_hash_same, NULL);
+	bgp->peerhash->max_size = BGP_PEER_MAX_HASH_SIZE;
 
 	bgp->group = list_new();
 	bgp->group->cmp = (int (*)(void *, void *))peer_group_cmp;
@@ -6926,36 +6927,34 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 	bgp_config_write_filter(vty, peer, afi, safi, write);
 
 	/* atribute-unchanged. */
-	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_AS_PATH_UNCHANGED)
-	    || CHECK_FLAG(peer->af_flags[afi][safi],
-			  PEER_FLAG_NEXTHOP_UNCHANGED)
-	    || CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MED_UNCHANGED)) {
-		if (peergroup_af_flag_check(peer, afi, safi,
-					    PEER_FLAG_AS_PATH_UNCHANGED)
-		    && peergroup_af_flag_check(peer, afi, safi,
-					       PEER_FLAG_NEXTHOP_UNCHANGED)
-		    && peergroup_af_flag_check(peer, afi, safi,
-					       PEER_FLAG_MED_UNCHANGED)) {
-			afi_header_vty_out(
-				vty, afi, safi, write,
-				"  neighbor %s attribute-unchanged\n", addr);
-		} else {
+	if (peer_af_flag_check(peer, afi, safi, PEER_FLAG_AS_PATH_UNCHANGED) ||
+	    peer_af_flag_check(peer, afi, safi, PEER_FLAG_NEXTHOP_UNCHANGED) ||
+	    peer_af_flag_check(peer, afi, safi, PEER_FLAG_MED_UNCHANGED)) {
+
+		if (!peer_group_active(peer) ||
+		     peergroup_af_flag_check(peer, afi, safi,
+					     PEER_FLAG_AS_PATH_UNCHANGED) ||
+		     peergroup_af_flag_check(peer, afi, safi,
+					     PEER_FLAG_NEXTHOP_UNCHANGED) ||
+		     peergroup_af_flag_check(peer, afi, safi,
+					     PEER_FLAG_MED_UNCHANGED)) {
+
 			afi_header_vty_out(
 				vty, afi, safi, write,
 				"  neighbor %s attribute-unchanged%s%s%s\n",
 				addr,
-				peergroup_af_flag_check(
+				peer_af_flag_check(
 					peer, afi, safi,
 					PEER_FLAG_AS_PATH_UNCHANGED)
 					? " as-path"
 					: "",
-				peergroup_af_flag_check(
+				peer_af_flag_check(
 					peer, afi, safi,
 					PEER_FLAG_NEXTHOP_UNCHANGED)
 					? " next-hop"
 					: "",
-				peergroup_af_flag_check(peer, afi, safi,
-							PEER_FLAG_MED_UNCHANGED)
+				peer_af_flag_check(peer, afi, safi,
+						   PEER_FLAG_MED_UNCHANGED)
 					? " med"
 					: "");
 		}

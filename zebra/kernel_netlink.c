@@ -20,6 +20,8 @@
 
 #include <zebra.h>
 
+#ifdef HAVE_NETLINK
+
 #include "linklist.h"
 #include "if.h"
 #include "log.h"
@@ -826,3 +828,5 @@ void kernel_terminate(struct zebra_ns *zns)
 		zns->netlink_cmd.sock = -1;
 	}
 }
+
+#endif /* HAVE_NETLINK */

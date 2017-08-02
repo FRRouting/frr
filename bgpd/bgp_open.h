@@ -29,9 +29,9 @@ struct capability_header {
 
 /* Generic MP capability data */
 struct capability_mp_data {
-	iana_afi_t afi;
+	uint16_t afi; /* iana_afi_t */
 	u_char reserved;
-	safi_t safi;
+	uint8_t safi; /* iana_safi_t */
 };
 
 struct capability_as4 {

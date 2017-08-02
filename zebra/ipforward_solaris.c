@@ -20,6 +20,9 @@
  */
 
 #include <zebra.h>
+
+#ifdef SUNOS_5
+
 #include "log.h"
 #include "prefix.h"
 
@@ -153,3 +156,5 @@ int ipforward_ipv6_off(void)
 	(void)solaris_nd_set("ip6_forwarding", 0);
 	return ipforward_ipv6();
 }
+
+#endif /* SUNOS_5 */

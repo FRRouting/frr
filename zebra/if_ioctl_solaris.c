@@ -21,6 +21,8 @@
 
 #include <zebra.h>
 
+#ifdef SUNOS_5
+
 #include "if.h"
 #include "sockunion.h"
 #include "prefix.h"
@@ -358,3 +360,5 @@ struct connected *if_lookup_linklocal(struct interface *ifp)
 
 	return NULL;
 }
+
+#endif /* SUNOS_5 */
