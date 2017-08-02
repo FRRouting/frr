@@ -6424,6 +6424,59 @@ DEFUN (show_bgp_vrfs,
 	return CMD_SUCCESS;
 }
 
+static void show_address_entry(struct hash_backet *backet, void *args)
+{
+	struct vty	*vty = (struct vty *) args;
+	struct bgp_addr	*addr = (struct bgp_addr *) backet->data;
+
+	vty_out(vty, "addr: %s, count: %d\n",
+		inet_ntoa(addr->addr),
+		addr->refcnt);
+}
+
+static void show_tip_entry(struct hash_backet *backet, void *args)
+{
+	struct vty	*vty = (struct vty *)args;
+	struct tip_addr *tip = (struct tip_addr *) backet->data;
+
+	vty_out(vty, "addr: %s, count: %d\n",
+		inet_ntoa(tip->addr),
+		tip->refcnt);
+}
+
+static void bgp_show_martian_nexthops(struct vty *vty, struct bgp *bgp)
+{
+	vty_out(vty, "self nexthop database:\n");
+	hash_iterate(bgp->address_hash,
+		     (void (*)(struct hash_backet *, void *))show_address_entry,
+		     vty);
+
+	vty_out(vty, "Tunnel-ip database:\n");
+	hash_iterate(bgp->tip_hash,
+		     (void (*)(struct hash_backet *, void *))show_tip_entry,
+		     vty);
+}
+
+DEFUN (show_bgp_martian_nexthop_db,
+       show_bgp_martian_nexthop_db_cmd,
+       "show bgp martian next-hop",
+       SHOW_STR
+       BGP_STR
+       "martian next-hops\n"
+       "martian next-hop database\n")
+{
+	struct bgp		*bgp = NULL;
+
+	bgp = bgp_get_default();
+	if (!bgp) {
+		vty_out(vty, "%% No BGP process is configured\n");
+		return CMD_WARNING;
+	}
+	bgp_show_martian_nexthops(vty, bgp);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_bgp_memory,
        show_bgp_memory_cmd,
        "show [ip] bgp memory",
@@ -12284,6 +12337,9 @@ void bgp_vty_init(void)
 
 	/* "show [ip] bgp memory" commands. */
 	install_element(VIEW_NODE, &show_bgp_memory_cmd);
+
+	/* "show bgp martian next-hop" */
+	install_element(VIEW_NODE, &show_bgp_martian_nexthop_db_cmd);
 
 	/* "show [ip] bgp views" commands. */
 	install_element(VIEW_NODE, &show_bgp_views_cmd);
