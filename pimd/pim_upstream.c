@@ -153,6 +153,7 @@ static void upstream_channel_oil_detach(struct pim_upstream *up)
 		/* Detaching from channel_oil, channel_oil may exist post del,
 		   but upstream would not keep reference of it
 		 */
+		up->channel_oil->up = NULL;
 		pim_channel_oil_del(up->channel_oil);
 		up->channel_oil = NULL;
 	}
