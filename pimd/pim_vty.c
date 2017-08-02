@@ -183,6 +183,11 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 			pim->keep_alive_time);
 		++writes;
 	}
+	if (pim->rp_keep_alive_time != (unsigned int)PIM_RP_KEEPALIVE_PERIOD) {
+		vty_out(vty, "%sip pim rp keep-alive-timer %d\n", spaces,
+			pim->rp_keep_alive_time);
+		++writes;
+	}
 	if (qpim_packet_process != PIM_DEFAULT_PACKET_PROCESS) {
 		vty_out(vty, "%sip pim packets %d\n", spaces,
 			qpim_packet_process);

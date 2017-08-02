@@ -5225,6 +5225,35 @@ DEFUN (no_ip_pim_register_suppress,
 	return CMD_SUCCESS;
 }
 
+DEFUN (ip_pim_rp_keep_alive,
+       ip_pim_rp_keep_alive_cmd,
+       "ip pim rp keep-alive-timer (31-60000)",
+       IP_STR
+       "pim multicast routing\n"
+       "Rendevous Point\n"
+       "Keep alive Timer\n"
+       "Seconds\n")
+{
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	pim->rp_keep_alive_time = atoi(argv[3]->arg);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_pim_rp_keep_alive,
+       no_ip_pim_rp_keep_alive_cmd,
+       "no ip pim rp keep-alive-timer (31-60000)",
+       NO_STR
+       IP_STR
+       "pim multicast routing\n"
+       "Rendevous Point\n"
+       "Keep alive Timer\n"
+       "Seconds\n")
+{
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	pim->rp_keep_alive_time = PIM_KEEPALIVE_PERIOD;
+	return CMD_SUCCESS;
+}
+
 DEFUN (ip_pim_keep_alive,
        ip_pim_keep_alive_cmd,
        "ip pim keep-alive-timer (31-60000)",
@@ -8397,8 +8426,12 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &no_ip_pim_joinprune_time_cmd);
 	install_element(CONFIG_NODE, &ip_pim_keep_alive_cmd);
 	install_element(VRF_NODE, &ip_pim_keep_alive_cmd);
+	install_element(CONFIG_NODE, &ip_pim_rp_keep_alive_cmd);
+	install_element(VRF_NODE, &ip_pim_rp_keep_alive_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_keep_alive_cmd);
 	install_element(VRF_NODE, &no_ip_pim_keep_alive_cmd);
+	install_element(CONFIG_NODE, &no_ip_pim_rp_keep_alive_cmd);
+	install_element(VRF_NODE, &no_ip_pim_rp_keep_alive_cmd);
 	install_element(CONFIG_NODE, &ip_pim_packets_cmd);
 	install_element(VRF_NODE, &ip_pim_packets_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_packets_cmd);
