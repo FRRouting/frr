@@ -70,6 +70,7 @@ struct cancel_req {
 struct thread_master {
 	char *name;
 
+	int tick_since_io;
 	struct thread **read;
 	struct thread **write;
 	struct pqueue *timer;
