@@ -1,0 +1,42 @@
+#
+# ripd
+#
+
+if RIPD
+noinst_LIBRARIES += ripd/librip.a
+sbin_PROGRAMS += ripd/ripd
+dist_examples_DATA += ripd/ripd.conf.sample
+if SNMP
+module_LTLIBRARIES += ripd/ripd_snmp.la
+endif
+endif
+
+ripd_librip_a_SOURCES = \
+	ripd/rip_debug.c \
+	ripd/rip_interface.c \
+	ripd/rip_memory.c \
+	ripd/rip_offset.c \
+	ripd/rip_peer.c \
+	ripd/rip_routemap.c \
+	ripd/rip_zebra.c \
+	ripd/ripd.c \
+	# end
+
+noinst_HEADERS += \
+	ripd/rip_debug.h \
+	ripd/rip_interface.h \
+	ripd/rip_memory.h \
+	ripd/ripd.h \
+	# end
+
+ripd_ripd_LDADD = ripd/librip.a lib/libfrr.la @LIBCAP@
+ripd_ripd_SOURCES = \
+	ripd/rip_main.c \
+	# end
+
+ripd_ripd_snmp_la_SOURCES = ripd/rip_snmp.c
+ripd_ripd_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS)
+ripd_ripd_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+ripd_ripd_snmp_la_LIBADD = lib/libfrrsnmp.la
+
+EXTRA_DIST += ripd/RIPv2-MIB.txt

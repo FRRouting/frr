@@ -1247,12 +1247,7 @@ else
 fi
 AM_CONDITIONAL(BGPD, test "x$BGPD" = "xbgpd")
 
-if test "${enable_ripd}" = "no";then
-  RIPD=""
-else
-  RIPD="ripd"
-fi
-AM_CONDITIONAL(RIPD, test "x$RIPD" = "xripd")
+AM_CONDITIONAL(RIPD, test "${enable_ripd}" != "no")
 
 if test "${enable_ospfd}" = "no";then
   OSPFD=""
@@ -1309,11 +1304,7 @@ fi
 
 AM_CONDITIONAL(OSPFCLIENT, test "x$OSPFCLIENT" = "xospfclient")
 
-case "${enable_ripngd}" in
-  "no" ) RIPNGD="";;
-  *    ) RIPNGD="ripngd";;
-esac
-AM_CONDITIONAL(RIPNGD, test "x$RIPNGD" = "xripngd")
+AM_CONDITIONAL(RIPNGD, test "${enable_ripngd}" != "no")
 
 case "${enable_babeld}" in
   "no" ) BABELD="";;
@@ -1372,8 +1363,6 @@ AC_SUBST(LIBRFP)
 AC_SUBST(RFPINC)
 AC_SUBST(BABELD)
 AC_SUBST(BGPD)
-AC_SUBST(RIPD)
-AC_SUBST(RIPNGD)
 AC_SUBST(OSPFD)
 AC_SUBST(OSPF6D)
 AC_SUBST(LDPD)
@@ -1830,8 +1819,8 @@ AC_CACHE_VAL(ac_cv_htonl_works,
 )
 AC_MSG_RESULT($ac_cv_htonl_works)
 
-AC_CONFIG_FILES([Makefile ripd/Makefile
-	  ripngd/Makefile bgpd/Makefile ospfd/Makefile watchfrr/Makefile
+AC_CONFIG_FILES([Makefile
+	  bgpd/Makefile ospfd/Makefile watchfrr/Makefile
 	  ospf6d/Makefile ldpd/Makefile isisd/Makefile vtysh/Makefile
 	  doc/Makefile ospfclient/Makefile tests/Makefile
 	  bgpd/rfp-example/rfptest/Makefile bgpd/rfp-example/librfp/Makefile

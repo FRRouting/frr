@@ -29,13 +29,16 @@ include zebra/subdir.am
 include qpb/subdir.am
 include fpm/subdir.am
 
+include ripd/subdir.am
+include ripngd/subdir.am
+
 SUBDIRS = . @LIBRFP@ @RFPTEST@ \
-	 @BGPD@ @RIPD@ @RIPNGD@ @OSPFD@ @OSPF6D@ @LDPD@ \
+	 @BGPD@ @OSPFD@ @OSPF6D@ @LDPD@ \
          @ISISD@ @PIMD@ @NHRPD@ @EIGRPD@ @BABELD@ \
 	 @WATCHFRR@ @VTYSH@ @OSPFCLIENT@ @DOC@ \
          @SOLARIS@ tests tools
 
-DIST_SUBDIRS = . bgpd ripd ripngd ospfd ospf6d ldpd \
+DIST_SUBDIRS = . bgpd ospfd ospf6d ldpd \
 	  isisd watchfrr vtysh ospfclient doc tests \
 	  solaris pimd nhrpd eigrpd bgpd/rfp-example/librfp \
 	  bgpd/rfp-example/rfptest tools babeld \
