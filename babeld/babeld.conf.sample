@@ -9,8 +9,8 @@ debug babel common
 router babel
 ! network wlan0
 ! network eth0
-! redistribute kernel
-! no redistribute static
+! redistribute ipv4 kernel
+! no redistribute ipv6 static
 
 ! The defaults are fine for a wireless interface
 
