@@ -47,6 +47,9 @@ DEFINE_MTYPE_STATIC(LIB, THREAD_STATS, "Thread stats")
 		write(m->io_pipe[1], &wakebyte, 1);                            \
 	} while (0);
 
+/* max # of thread_fetch() calls before we force a poll() */
+#define MAX_TICK_IO 1000
+
 /* control variable for initializer */
 pthread_once_t init_once = PTHREAD_ONCE_INIT;
 pthread_key_t thread_current;
@@ -1355,30 +1358,42 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 		memcpy(m->handler.copy, m->handler.pfds,
 		       m->handler.copycount * sizeof(struct pollfd));
 
-		pthread_mutex_unlock(&m->mtx);
-		{
-			num = fd_poll(m, m->handler.copy, m->handler.pfdsize,
-				      m->handler.copycount, tw);
-		}
-		pthread_mutex_lock(&m->mtx);
+		/*
+		 * Attempt to flush ready queue before going into poll().
+		 * This is performance-critical. Think twice before modifying.
+		 */
+		if (m->ready.count == 0 || m->tick_since_io >= MAX_TICK_IO) {
+			pthread_mutex_unlock(&m->mtx);
+			{
+				m->tick_since_io = 0;
+				num = fd_poll(m, m->handler.copy,
+					      m->handler.pfdsize,
+					      m->handler.copycount, tw);
+			}
+			pthread_mutex_lock(&m->mtx);
 
-		/* Handle any errors received in poll() */
-		if (num < 0) {
-			if (errno == EINTR) {
+			/* Handle any errors received in poll() */
+			if (num < 0) {
+				if (errno == EINTR) {
+					pthread_mutex_unlock(&m->mtx);
+					/* loop around to signal handler */
+					continue;
+				}
+
+				/* else die */
+				zlog_warn("poll() error: %s",
+					  safe_strerror(errno));
 				pthread_mutex_unlock(&m->mtx);
-				continue; /* loop around to signal handler */
+				fetch = NULL;
+				break;
 			}
 
-			/* else die */
-			zlog_warn("poll() error: %s", safe_strerror(errno));
-			pthread_mutex_unlock(&m->mtx);
-			fetch = NULL;
-			break;
-		}
+			/* Since we could have received more cancellation
+			 * requests during poll(), process those */
+			do_thread_cancel(m);
 
-		/* Since we could have received more cancellation requests
-		 * during poll(), process those */
-		do_thread_cancel(m);
+		} else
+			m->tick_since_io++;
 
 		/* Post timers to ready queue. */
 		monotime(&now);
