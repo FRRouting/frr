@@ -2078,7 +2078,7 @@ static wq_item_status bgp_process_main(struct work_queue *wq, void *data)
 			vnc_import_bgp_add_route(bgp, p, old_select);
 			vnc_import_bgp_exterior_add_route(bgp, p, old_select);
 #endif
-			if (bgp_fibupd_safi(safi) && !bgp->name
+			if (bgp_fibupd_safi(safi)
 			    && !bgp_option_check(BGP_OPT_NO_FIB)
 			    && new_select->type == ZEBRA_ROUTE_BGP
 			    && new_select->sub_type == BGP_ROUTE_NORMAL)
