@@ -179,8 +179,8 @@ The default is 4@dmn{s}.
 @node Babel redistribution, Show Babel information, Babel configuration, Babel
 @section Babel redistribution
 
-@deffn {Babel command} {redistribute @var{kind}}
-@deffnx {Babel command} {no redistribute @var{kind}}
+@deffn {Babel command} {redistribute @var{<ipv4|ipv6>} @var{kind}}
+@deffnx {Babel command} {no redistribute @var{<ipv4|ipv6>} @var{kind}}
 Specify which kind of routes should be redistributed into Babel.
 @end deffn
 
