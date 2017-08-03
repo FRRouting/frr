@@ -306,13 +306,19 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 				return -8;
 			}
 
-			sg_ch = pim_ifchannel_find(ifp, &sg);
-
 			buf += addr_offset;
 			starg_alone = 0;
 			recv_prune(ifp, neigh, msg_holdtime,
 				   msg_upstream_addr.u.prefix4, &sg,
 				   msg_source_flags);
+
+			/*
+			 * So if we are receiving a S,G,RPT prune
+			 * before we have any data for that S,G
+			 * We need to retrieve the sg_ch after
+			 * we parse the prune.
+			 */
+			sg_ch = pim_ifchannel_find(ifp, &sg);
 
 			/* Received SG-RPT Prune delete oif from specific S,G */
 			if (starg_ch && sg_ch
