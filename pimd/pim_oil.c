@@ -123,7 +123,7 @@ void pim_oil_init(struct pim_instance *pim)
 void pim_oil_terminate(struct pim_instance *pim)
 {
 	if (pim->channel_oil_list)
-		list_free(pim->channel_oil_list);
+		list_delete(pim->channel_oil_list);
 	pim->channel_oil_list = NULL;
 
 	if (pim->channel_oil_hash)
