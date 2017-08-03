@@ -776,18 +776,9 @@ static void zvni_install_neigh_hash(struct hash_backet *backet, void *ctxt)
 static unsigned int mac_hash_keymake(void *p)
 {
 	zebra_mac_t *pmac = p;
-	char *pnt = (char *)pmac->macaddr.octet;
-	unsigned int key = 0;
-	int c = 0;
+	const void *pnt = (void *)pmac->macaddr.octet;
 
-	key += pnt[c];
-	key += pnt[c + 1];
-	key += pnt[c + 2];
-	key += pnt[c + 3];
-	key += pnt[c + 4];
-	key += pnt[c + 5];
-
-	return (key);
+	return jhash(pnt, ETHER_ADDR_LEN, 0xa5a5a55a);
 }
 
 /*
