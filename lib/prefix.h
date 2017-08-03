@@ -323,6 +323,8 @@ extern const char *inet6_ntoa(struct in6_addr);
 extern int prefix_str2mac(const char *str, struct ethaddr *mac);
 extern char *prefix_mac2str(const struct ethaddr *mac, char *buf, int size);
 
+extern unsigned prefix_hash_key(void *pp);
+
 static inline int ipv6_martian(struct in6_addr *addr)
 {
 	struct in6_addr localhost_addr;
