@@ -308,7 +308,7 @@ int rfapiGetL2o(struct attr *attr, struct rfapi_l2address_option *l2o)
 					if (pEncap->value[1] == 14) {
 						memcpy(l2o->macaddr.octet,
 						       pEncap->value + 2,
-						       ETHER_ADDR_LEN);
+						       ETH_ALEN);
 						l2o->label =
 							((pEncap->value[10]
 							  >> 4)
@@ -1327,7 +1327,7 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 		vo->type = RFAPI_VN_OPTION_TYPE_L2ADDR;
 
 		memcpy(&vo->v.l2addr.macaddr, &rn->p.u.prefix_eth.octet,
-		       ETHER_ADDR_LEN);
+		       ETH_ALEN);
 		/* only low 3 bytes of this are significant */
 		if (bi->attr) {
 			(void)rfapiEcommunityGetLNI(

@@ -1568,7 +1568,7 @@ rfapi_query_inner(void *handle, struct rfapi_ip_addr *target,
 
 	if (l2o) {
 		if (!memcmp(l2o->macaddr.octet, rfapi_ethaddr0.octet,
-			    ETHER_ADDR_LEN)) {
+			    ETH_ALEN)) {
 			eth_is_0 = 1;
 		}
 		/* per t/c Paul/Lou 151022 */
@@ -3416,7 +3416,7 @@ DEFUN (debug_rfapi_query_vn_un_l2o,
 	/* construct option chain */
 
 	memset(valbuf, 0, sizeof(valbuf));
-	memcpy(valbuf, &l2o_buf.macaddr.octet, ETHER_ADDR_LEN);
+	memcpy(valbuf, &l2o_buf.macaddr.octet, ETH_ALEN);
 	valbuf[11] = (l2o_buf.logical_net_id >> 16) & 0xff;
 	valbuf[12] = (l2o_buf.logical_net_id >> 8) & 0xff;
 	valbuf[13] = l2o_buf.logical_net_id & 0xff;

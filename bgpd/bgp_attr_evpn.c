@@ -42,7 +42,7 @@ void bgp_add_routermac_ecom(struct attr *attr, struct ethaddr *routermac)
 	memset(&routermac_ecom, 0, sizeof(struct ecommunity_val));
 	routermac_ecom.val[0] = ECOMMUNITY_ENCODE_EVPN;
 	routermac_ecom.val[1] = ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC;
-	memcpy(&routermac_ecom.val[2], routermac->octet, ETHER_ADDR_LEN);
+	memcpy(&routermac_ecom.val[2], routermac->octet, ETH_ALEN);
 	if (!attr->ecommunity)
 		attr->ecommunity = ecommunity_new();
 	ecommunity_add_val(attr->ecommunity, &routermac_ecom);

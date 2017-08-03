@@ -98,7 +98,7 @@ void decode_rd_vnc_eth(u_char *pnt, struct rd_vnc_eth *rd_vnc_eth)
 {
 	rd_vnc_eth->type = RD_TYPE_VNC_ETH;
 	rd_vnc_eth->local_nve_id = pnt[1];
-	memcpy(rd_vnc_eth->macaddr.octet, pnt + 2, ETHER_ADDR_LEN);
+	memcpy(rd_vnc_eth->macaddr.octet, pnt + 2, ETH_ALEN);
 }
 #endif
 

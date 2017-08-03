@@ -3092,7 +3092,7 @@ static int rfapiDeleteLocalPrefixesByRFD(struct rfapi_local_reg_delete_arg *cda,
 					if (memcmp(cda->l2o.o.macaddr.octet,
 						   adb->u.s.prefix_eth.u
 							   .prefix_eth.octet,
-						   ETHER_ADDR_LEN)) {
+						   ETH_ALEN)) {
 #if DEBUG_L2_EXTRA
 						vnc_zlog_debug_verbose(
 							"%s: adb=%p, macaddr doesn't match, skipping",
@@ -3211,7 +3211,7 @@ static int rfapiDeleteLocalPrefixesByRFD(struct rfapi_local_reg_delete_arg *cda,
 							   adb->u.s.prefix_eth.u
 								   .prefix_eth
 								   .octet,
-							   ETHER_ADDR_LEN)) {
+							   ETH_ALEN)) {
 
 							continue;
 						}

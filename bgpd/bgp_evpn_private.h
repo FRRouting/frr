@@ -174,7 +174,7 @@ static inline void build_evpn_type2_prefix(struct prefix_evpn *p,
 	p->family = AF_ETHERNET;
 	p->prefixlen = EVPN_TYPE_2_ROUTE_PREFIXLEN;
 	p->prefix.route_type = BGP_EVPN_MAC_IP_ROUTE;
-	memcpy(&p->prefix.mac.octet, mac->octet, ETHER_ADDR_LEN);
+	memcpy(&p->prefix.mac.octet, mac->octet, ETH_ALEN);
 	p->prefix.ip.ipa_type = IPADDR_NONE;
 	if (ip)
 		memcpy(&p->prefix.ip, ip, sizeof(*ip));
