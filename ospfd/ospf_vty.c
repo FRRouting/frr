@@ -175,8 +175,9 @@ DEFUN (no_router_ospf,
 	if (argc > 3)
 		instance = strtoul(argv[3]->arg, NULL, 10);
 
-	if ((ospf = ospf_lookup_instance(instance)) == NULL)
-		return CMD_SUCCESS;
+	ospf = ospf_lookup_instance(instance);
+	if (ospf == NULL)
+		return CMD_NOT_MY_INSTANCE;
 
 	ospf_finish(ospf);
 
@@ -3218,8 +3219,11 @@ DEFUN (show_ip_ospf_instance,
 	u_char uj = use_json(argc, argv);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if ((ospf = ospf_lookup_instance(instance)) == NULL
-	    || !ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (ospf == NULL)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (!ospf->oi_running)
 		return CMD_SUCCESS;
 
 	return (show_ip_ospf_common(vty, ospf, uj));
@@ -3654,8 +3658,11 @@ DEFUN (show_ip_ospf_instance_interface,
 	u_char uj = use_json(argc, argv);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if ((ospf = ospf_lookup_instance(instance)) == NULL
-	    || !ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (ospf == NULL)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (!ospf->oi_running)
 		return CMD_SUCCESS;
 
 	if (uj)
@@ -3861,8 +3868,11 @@ DEFUN (show_ip_ospf_instance_neighbor,
 	u_char uj = use_json(argc, argv);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if ((ospf = ospf_lookup_instance(instance)) == NULL
-	    || !ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (ospf == NULL)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (!ospf->oi_running)
 		return CMD_SUCCESS;
 
 	return show_ip_ospf_neighbor_common(vty, ospf, uj);
@@ -3982,8 +3992,11 @@ DEFUN (show_ip_ospf_instance_neighbor_all,
 	u_char uj = use_json(argc, argv);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if ((ospf = ospf_lookup_instance(instance)) == NULL
-	    || !ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (ospf == NULL)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (!ospf->oi_running)
 		return CMD_SUCCESS;
 
 	return show_ip_ospf_neighbor_all_common(vty, ospf, uj);
@@ -4075,8 +4088,11 @@ DEFUN (show_ip_ospf_instance_neighbor_int,
 	u_char uj = use_json(argc, argv);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if ((ospf = ospf_lookup_instance(instance)) == NULL
-	    || !ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (ospf == NULL)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (!ospf->oi_running)
 		return CMD_SUCCESS;
 
 	return show_ip_ospf_neighbor_int_common(vty, ospf, 1, argv, uj);
@@ -4462,8 +4478,11 @@ DEFUN (show_ip_ospf_instance_neighbor_id,
 	u_char uj = use_json(argc, argv);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if ((ospf = ospf_lookup_instance(instance)) == NULL
-	    || !ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (ospf == NULL)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (!ospf->oi_running)
 		return CMD_SUCCESS;
 
 	return show_ip_ospf_neighbor_id_common(vty, ospf, 1, argv, uj);
@@ -4551,8 +4570,11 @@ DEFUN (show_ip_ospf_instance_neighbor_detail,
 	u_char uj = use_json(argc, argv);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if ((ospf = ospf_lookup_instance(instance)) == NULL
-	    || !ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (ospf == NULL)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (!ospf->oi_running)
 		return CMD_SUCCESS;
 
 	return show_ip_ospf_neighbor_detail_common(vty, ospf, uj);
@@ -4652,8 +4674,11 @@ DEFUN (show_ip_ospf_instance_neighbor_detail_all,
 	u_char uj = use_json(argc, argv);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if ((ospf = ospf_lookup_instance(instance)) == NULL
-	    || !ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (ospf == NULL)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (!ospf->oi_running)
 		return CMD_SUCCESS;
 
 	return show_ip_ospf_neighbor_detail_all_common(vty, ospf, uj);
@@ -4757,8 +4782,11 @@ DEFUN (show_ip_ospf_instance_neighbor_int_detail,
 	u_char uj = use_json(argc, argv);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if ((ospf = ospf_lookup_instance(instance)) == NULL
-	    || !ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (ospf == NULL)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (!ospf->oi_running)
 		return CMD_SUCCESS;
 
 	return show_ip_ospf_neighbor_int_detail_common(vty, ospf, 1, argv, uj);
@@ -5446,6 +5474,8 @@ DEFUN (show_ip_ospf_instance_database,
 	if (argv_find(argv, argc, "(1-65535)", &idx)) {
 		instance = strtoul(argv[idx]->arg, NULL, 10);
 		ospf = ospf_lookup_instance(instance);
+		if (ospf == NULL)
+			return CMD_NOT_MY_INSTANCE;
 	} else {
 		ospf = ospf_lookup();
 	}
@@ -5474,8 +5504,11 @@ DEFUN (show_ip_ospf_instance_database_max,
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 
-	if ((ospf = ospf_lookup_instance(instance)) == NULL
-	    || !ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (ospf == NULL)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (!ospf->oi_running)
 		return CMD_SUCCESS;
 
 	return (show_ip_ospf_database_common(vty, ospf, 1, argc, argv));
@@ -5553,6 +5586,8 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 	if (argv_find(argv, argc, "(1-65535)", &idx)) {
 		instance = strtoul(argv[idx]->arg, NULL, 10);
 		ospf = ospf_lookup_instance(instance);
+		if (ospf == NULL)
+			return CMD_NOT_MY_INSTANCE;
 	} else
 		ospf = ospf_lookup();
 
@@ -6922,7 +6957,7 @@ DEFUN (ip_ospf_area,
 			ospf = ospf_lookup();
 			ospf->if_ospf_cli_count--;
 		}
-		return CMD_SUCCESS;
+		return CMD_NOT_MY_INSTANCE;
 	}
 
 	ret = str2area_id(areaid, &area_id, &format);
@@ -6995,8 +7030,9 @@ DEFUN (no_ip_ospf_area,
 	if (argv_find(argv, argc, "(1-65535)", &idx))
 		instance = strtol(argv[idx]->arg, NULL, 10);
 
-	if ((ospf = ospf_lookup_instance(instance)) == NULL)
-		return CMD_SUCCESS;
+	ospf = ospf_lookup_instance(instance);
+	if (ospf == NULL)
+		return CMD_NOT_MY_INSTANCE;
 
 	argv_find(argv, argc, "area", &idx);
 
@@ -8034,8 +8070,11 @@ DEFUN (show_ip_ospf_instance_border_routers,
 	u_short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if ((ospf = ospf_lookup_instance(instance)) == NULL
-	    || !ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (ospf == NULL)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (!ospf->oi_running)
 		return CMD_SUCCESS;
 
 	return show_ip_ospf_border_routers_common(vty, ospf);
@@ -8095,8 +8134,11 @@ DEFUN (show_ip_ospf_instance_route,
 	u_short instance = 0;
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
-	if ((ospf = ospf_lookup_instance(instance)) == NULL
-	    || !ospf->oi_running)
+	ospf = ospf_lookup_instance(instance);
+	if (ospf == NULL)
+		return CMD_NOT_MY_INSTANCE;
+
+	if (!ospf->oi_running)
 		return CMD_SUCCESS;
 
 	return show_ip_ospf_route_common(vty, ospf);

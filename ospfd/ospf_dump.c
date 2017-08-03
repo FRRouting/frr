@@ -626,7 +626,7 @@ DEFUN (debug_ospf_packet,
 	if (inst) // user passed instance ID
 	{
 		if (!ospf_lookup_instance(strtoul(argv[2]->arg, NULL, 10)))
-			return CMD_SUCCESS;
+			return CMD_NOT_MY_INSTANCE;
 	}
 
 	int type = 0;
@@ -702,7 +702,7 @@ DEFUN (no_debug_ospf_packet,
 	if (inst) // user passed instance ID
 	{
 		if (!ospf_lookup_instance(strtoul(argv[3]->arg, NULL, 10)))
-			return CMD_SUCCESS;
+			return CMD_NOT_MY_INSTANCE;
 	}
 
 	int type = 0;
@@ -773,7 +773,7 @@ DEFUN (debug_ospf_ism,
 	if (inst) // user passed instance ID
 	{
 		if (!ospf_lookup_instance(strtoul(argv[2]->arg, NULL, 10)))
-			return CMD_SUCCESS;
+			return CMD_NOT_MY_INSTANCE;
 	}
 
 	if (vty->node == CONFIG_NODE) {
@@ -824,7 +824,7 @@ DEFUN (no_debug_ospf_ism,
 	if (inst) // user passed instance ID
 	{
 		if (!ospf_lookup_instance(strtoul(argv[3]->arg, NULL, 10)))
-			return CMD_SUCCESS;
+			return CMD_NOT_MY_INSTANCE;
 	}
 
 	if (vty->node == CONFIG_NODE) {
@@ -991,7 +991,7 @@ DEFUN (no_debug_ospf_instance_nsm,
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	if (!ospf_lookup_instance(instance))
-		return CMD_SUCCESS;
+		return CMD_NOT_MY_INSTANCE;
 
 	return no_debug_ospf_nsm_common(vty, 5, argc, argv);
 }
@@ -1065,7 +1065,7 @@ DEFUN (debug_ospf_instance_lsa,
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	if (!ospf_lookup_instance(instance))
-		return CMD_SUCCESS;
+		return CMD_NOT_MY_INSTANCE;
 
 	return debug_ospf_lsa_common(vty, 4, argc, argv);
 }
@@ -1141,7 +1141,7 @@ DEFUN (no_debug_ospf_instance_lsa,
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	if (!ospf_lookup_instance(instance))
-		return CMD_SUCCESS;
+		return CMD_NOT_MY_INSTANCE;
 
 	return no_debug_ospf_lsa_common(vty, 5, argc, argv);
 }
@@ -1203,7 +1203,7 @@ DEFUN (debug_ospf_instance_zebra,
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	if (!ospf_lookup_instance(instance))
-		return CMD_SUCCESS;
+		return CMD_NOT_MY_INSTANCE;
 
 	return debug_ospf_zebra_common(vty, 4, argc, argv);
 }
