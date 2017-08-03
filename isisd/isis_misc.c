@@ -601,3 +601,24 @@ void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
 
 	XFREE(MTYPE_TMP, p);
 }
+
+void vty_out_timestr(struct vty *vty, time_t uptime)
+{
+	struct tm *tm;
+	time_t difftime = time(NULL);
+	difftime -= uptime;
+	tm = gmtime(&difftime);
+
+#define ONE_DAY_SECOND 60*60*24
+#define ONE_WEEK_SECOND 60*60*24*7
+	if (difftime < ONE_DAY_SECOND)
+		vty_out(vty, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
+			tm->tm_sec);
+	else if (difftime < ONE_WEEK_SECOND)
+		vty_out(vty, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
+			tm->tm_min);
+	else
+		vty_out(vty, "%02dw%dd%02dh", tm->tm_yday / 7,
+			tm->tm_yday - ((tm->tm_yday / 7) * 7), tm->tm_hour);
+	vty_out(vty, " ago");
+}

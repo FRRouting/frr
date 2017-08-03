@@ -1231,27 +1231,6 @@ DEFUN (show_hostname,
 	return CMD_SUCCESS;
 }
 
-static void vty_out_timestr(struct vty *vty, time_t uptime)
-{
-	struct tm *tm;
-	time_t difftime = time(NULL);
-	difftime -= uptime;
-	tm = gmtime(&difftime);
-
-#define ONE_DAY_SECOND 60*60*24
-#define ONE_WEEK_SECOND 60*60*24*7
-	if (difftime < ONE_DAY_SECOND)
-		vty_out(vty, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
-			tm->tm_sec);
-	else if (difftime < ONE_WEEK_SECOND)
-		vty_out(vty, "%dd%02dh%02dm", tm->tm_yday, tm->tm_hour,
-			tm->tm_min);
-	else
-		vty_out(vty, "%02dw%dd%02dh", tm->tm_yday / 7,
-			tm->tm_yday - ((tm->tm_yday / 7) * 7), tm->tm_hour);
-	vty_out(vty, " ago");
-}
-
 DEFUN (show_isis_spf_ietf,
        show_isis_spf_ietf_cmd,
        "show isis spf-delay-ietf",
@@ -1308,7 +1287,6 @@ DEFUN (show_isis_summary,
 {
 	struct listnode *node, *node2;
 	struct isis_area *area;
-	struct isis_spftree *spftree;
 	int level;
 
 	if (isis == NULL) {
@@ -1349,7 +1327,6 @@ DEFUN (show_isis_summary,
 				continue;
 
 			vty_out(vty, "  Level-%d:\n", level);
-			spftree = area->spftree[level - 1];
 			if (area->spf_timer[level - 1])
 				vty_out(vty, "    SPF: (pending)\n");
 			else
@@ -1363,28 +1340,10 @@ DEFUN (show_isis_summary,
 			vty_out(vty, "\n");
 
 			vty_out(vty, "    IPv4 route computation:\n");
-			vty_out(vty, "      last run elapsed  : ");
-			vty_out_timestr(vty, spftree->last_run_timestamp);
-			vty_out(vty, "\n");
+			isis_spf_print(area->spftree[level - 1], vty);
 
-			vty_out(vty, "      last run duration : %u usec\n",
-				(u_int32_t)spftree->last_run_duration);
-
-			vty_out(vty, "      run count         : %d\n",
-				spftree->runcount);
-
-			spftree = area->spftree6[level - 1];
 			vty_out(vty, "    IPv6 route computation:\n");
-
-			vty_out(vty, "      last run elapsed  : ");
-			vty_out_timestr(vty, spftree->last_run_timestamp);
-			vty_out(vty, "\n");
-
-			vty_out(vty, "      last run duration : %llu msec\n",
-				(unsigned long long)spftree->last_run_duration);
-
-			vty_out(vty, "      run count         : %d\n",
-				spftree->runcount);
+			isis_spf_print(area->spftree6[level - 1], vty);
 		}
 	}
 	vty_out(vty, "\n");

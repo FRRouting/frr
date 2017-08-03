@@ -55,6 +55,55 @@
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_SPF_RUN, "ISIS SPF Run Info");
 
+enum vertextype {
+	VTYPE_PSEUDO_IS = 1,
+	VTYPE_PSEUDO_TE_IS,
+	VTYPE_NONPSEUDO_IS,
+	VTYPE_NONPSEUDO_TE_IS,
+	VTYPE_ES,
+	VTYPE_IPREACH_INTERNAL,
+	VTYPE_IPREACH_EXTERNAL,
+	VTYPE_IPREACH_TE,
+	VTYPE_IP6REACH_INTERNAL,
+	VTYPE_IP6REACH_EXTERNAL
+};
+
+#define VTYPE_IS(t) ((t) >= VTYPE_PSEUDO_IS && (t) <= VTYPE_NONPSEUDO_TE_IS)
+#define VTYPE_ES(t) ((t) == VTYPE_ES)
+#define VTYPE_IP(t) ((t) >= VTYPE_IPREACH_INTERNAL && (t) <= VTYPE_IP6REACH_EXTERNAL)
+
+/*
+ * Triple <N, d(N), {Adj(N)}>
+ */
+struct isis_vertex {
+	enum vertextype type;
+
+	union {
+		u_char id[ISIS_SYS_ID_LEN + 1];
+		struct prefix prefix;
+	} N;
+
+	u_int32_t d_N;	 /* d(N) Distance from this IS      */
+	u_int16_t depth;       /* The depth in the imaginary tree */
+	struct list *Adj_N;    /* {Adj(N)} next hop or neighbor list */
+	struct list *parents;  /* list of parents for ECMP */
+	struct list *children; /* list of children used for tree dump */
+};
+
+struct isis_spftree {
+	struct list *paths;	/* the SPT */
+	struct list *tents;	/* TENT */
+	struct isis_area *area;    /* back pointer to area */
+	unsigned int runcount;     /* number of runs since uptime */
+	time_t last_run_timestamp; /* last run timestamp for scheduling */
+	time_t last_run_duration;  /* last run duration in msec */
+
+	uint16_t mtid;
+	int family;
+	int level;
+};
+
+
 /*
  *  supports the given af ?
  */
@@ -1429,4 +1478,17 @@ DEFUN (show_isis_topology,
 void isis_spf_cmds_init()
 {
 	install_element(VIEW_NODE, &show_isis_topology_cmd);
+}
+
+void isis_spf_print(struct isis_spftree *spftree, struct vty *vty)
+{
+	vty_out(vty, "      last run elapsed  : ");
+	vty_out_timestr(vty, spftree->last_run_timestamp);
+	vty_out(vty, "\n");
+
+	vty_out(vty, "      last run duration : %u usec\n",
+		(u_int32_t)spftree->last_run_duration);
+
+	vty_out(vty, "      run count         : %u\n",
+		spftree->runcount);
 }
