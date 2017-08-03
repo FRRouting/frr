@@ -688,8 +688,15 @@ void frr_run(struct thread_master *master)
 			thread_add_read(master, frr_daemon_ctl, NULL,
 					daemon_ctl_sock, &daemon_ctl_thread);
 		}
-	} else if (daemon_ctl_sock != -1) {
-		close(daemon_ctl_sock);
+	} else {
+		int nullfd = open("/dev/null", O_RDONLY | O_NOCTTY);
+		dup2(nullfd, 0);
+		dup2(nullfd, 1);
+		dup2(nullfd, 2);
+		close(nullfd);
+
+		if (daemon_ctl_sock != -1)
+			close(daemon_ctl_sock);
 		daemon_ctl_sock = -1;
 	}
 
