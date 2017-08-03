@@ -1063,8 +1063,11 @@ case "$host_os" in
     if test $ac_cv_header_net_bpf_h = no; then
       if test $ac_cv_header_sys_dlpi_h = no; then
         AC_MSG_RESULT(none)
+        if test "${enable_isisd}" = yes; then
+          AC_MSG_FAILURE([IS-IS support requested but no packet backend found])
+        fi
         AC_MSG_WARN([*** IS-IS support will not be built ***])
-        ISISD=""
+        enable_isisd="no"
       else
         AC_MSG_RESULT(DLPI)
       fi
@@ -1307,12 +1310,7 @@ esac
 AM_CONDITIONAL(BABELD, test "x$BABELD" = "xbabeld")
 
 AM_CONDITIONAL(OSPF6D, test "${enable_ospf6d}" != "no")
-
-case "${enable_isisd}" in
-  "no" ) ISISD="";;
-  *    ) ISISD="isisd";;
-esac
-AM_CONDITIONAL(ISISD, test "x$ISISD" = "xisisd")
+AM_CONDITIONAL(ISISD, test "${enable_isisd}" != "no")
 
 case "${enable_pimd}" in
   "no" ) PIMD="";;
@@ -1807,7 +1805,7 @@ AC_MSG_RESULT($ac_cv_htonl_works)
 
 AC_CONFIG_FILES([Makefile
 	  bgpd/Makefile watchfrr/Makefile
-	  ldpd/Makefile isisd/Makefile vtysh/Makefile
+	  ldpd/Makefile vtysh/Makefile
 	  doc/Makefile tests/Makefile
 	  bgpd/rfp-example/rfptest/Makefile bgpd/rfp-example/librfp/Makefile
 	  babeld/Makefile
