@@ -469,7 +469,7 @@ static int zvni_macip_send_msg_to_client(struct zebra_vrf *zvrf, vni_t vni,
 
 	zserv_create_header(s, cmd, zvrf_id(zvrf));
 	stream_putl(s, vni);
-	stream_put(s, macaddr->octet, ETHER_ADDR_LEN);
+	stream_put(s, macaddr->octet, ETH_ALEN);
 	if (ip) {
 		ipa_len = 0;
 		if (IS_IPADDR_V4(ip))
@@ -778,7 +778,7 @@ static unsigned int mac_hash_keymake(void *p)
 	zebra_mac_t *pmac = p;
 	const void *pnt = (void *)pmac->macaddr.octet;
 
-	return jhash(pnt, ETHER_ADDR_LEN, 0xa5a5a55a);
+	return jhash(pnt, ETH_ALEN, 0xa5a5a55a);
 }
 
 /*
@@ -796,7 +796,7 @@ static int mac_cmp(const void *p1, const void *p2)
 		return 0;
 
 	return (memcmp(pmac1->macaddr.octet, pmac2->macaddr.octet,
-		       ETHER_ADDR_LEN)
+		       ETH_ALEN)
 		== 0);
 }
 
@@ -823,7 +823,7 @@ static zebra_mac_t *zvni_mac_add(zebra_vni_t *zvni, struct ethaddr *macaddr)
 	zebra_mac_t *mac = NULL;
 
 	memset(&tmp_mac, 0, sizeof(zebra_mac_t));
-	memcpy(&tmp_mac.macaddr, macaddr, ETHER_ADDR_LEN);
+	memcpy(&tmp_mac.macaddr, macaddr, ETH_ALEN);
 	mac = hash_get(zvni->mac_table, &tmp_mac, zvni_mac_alloc);
 	assert(mac);
 
@@ -931,7 +931,7 @@ static zebra_mac_t *zvni_mac_lookup(zebra_vni_t *zvni, struct ethaddr *mac)
 	zebra_mac_t *pmac;
 
 	memset(&tmp, 0, sizeof(tmp));
-	memcpy(&tmp.macaddr, mac, ETHER_ADDR_LEN);
+	memcpy(&tmp.macaddr, mac, ETH_ALEN);
 	pmac = hash_lookup(zvni->mac_table, &tmp);
 
 	return pmac;
@@ -1967,7 +1967,7 @@ int zebra_vxlan_local_neigh_add_update(struct interface *ifp,
 	if (n) {
 		if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
 			if (memcmp(n->emac.octet, macaddr->octet,
-				   ETHER_ADDR_LEN)
+				   ETH_ALEN)
 			    == 0) {
 				if (n->ifindex == ifp->ifindex)
 					/* we're not interested in whatever has
@@ -2013,7 +2013,7 @@ int zebra_vxlan_local_neigh_add_update(struct interface *ifp,
 
 	/* Set "local" forwarding info. */
 	SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
-	memcpy(&n->emac, macaddr, ETHER_ADDR_LEN);
+	memcpy(&n->emac, macaddr, ETH_ALEN);
 	n->ifindex = ifp->ifindex;
 
 	/* Inform BGP if required. */
@@ -2053,14 +2053,14 @@ int zebra_vxlan_remote_macip_del(struct zserv *client, int sock, u_short length,
 		n = NULL;
 		memset(&ip, 0, sizeof(ip));
 		vni = (vni_t)stream_getl(s);
-		stream_get(&macaddr.octet, s, ETHER_ADDR_LEN);
+		stream_get(&macaddr.octet, s, ETH_ALEN);
 		ipa_len = stream_getl(s);
 		if (ipa_len) {
 			ip.ipa_type = (ipa_len == IPV4_MAX_BYTELEN) ? IPADDR_V4
 								    : IPADDR_V6;
 			stream_get(&ip.ip.addr, s, ipa_len);
 		}
-		l += 4 + ETHER_ADDR_LEN + 4 + ipa_len;
+		l += 4 + ETH_ALEN + 4 + ipa_len;
 		vtep_ip.s_addr = stream_get_ipv4(s);
 		l += IPV4_MAX_BYTELEN;
 
@@ -2139,7 +2139,7 @@ int zebra_vxlan_remote_macip_del(struct zserv *client, int sock, u_short length,
 			 */
 			if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)
 			    && (memcmp(n->emac.octet, macaddr.octet,
-				       ETHER_ADDR_LEN)
+				       ETH_ALEN)
 				== 0)) {
 				zvni_neigh_uninstall(zvni, n);
 				zvni_neigh_del(zvni, n);
@@ -2196,14 +2196,14 @@ int zebra_vxlan_remote_macip_add(struct zserv *client, int sock, u_short length,
 		n = NULL;
 		memset(&ip, 0, sizeof(ip));
 		vni = (vni_t)stream_getl(s);
-		stream_get(&macaddr.octet, s, ETHER_ADDR_LEN);
+		stream_get(&macaddr.octet, s, ETH_ALEN);
 		ipa_len = stream_getl(s);
 		if (ipa_len) {
 			ip.ipa_type = (ipa_len == IPV4_MAX_BYTELEN) ? IPADDR_V4
 								    : IPADDR_V6;
 			stream_get(&ip.ip.addr, s, ipa_len);
 		}
-		l += 4 + ETHER_ADDR_LEN + 4 + ipa_len;
+		l += 4 + ETH_ALEN + 4 + ipa_len;
 		vtep_ip.s_addr = stream_get_ipv4(s);
 		l += IPV4_MAX_BYTELEN;
 
@@ -2354,7 +2354,7 @@ int zebra_vxlan_remote_macip_add(struct zserv *client, int sock, u_short length,
 			/* Set "remote" forwarding info. */
 			UNSET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
 			/* TODO: Handle MAC change. */
-			memcpy(&n->emac, &macaddr, ETHER_ADDR_LEN);
+			memcpy(&n->emac, &macaddr, ETH_ALEN);
 			n->r_vtep_ip = vtep_ip;
 			SET_FLAG(n->flags, ZEBRA_NEIGH_REMOTE);
 

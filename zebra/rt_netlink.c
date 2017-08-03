@@ -1704,7 +1704,7 @@ static int netlink_macfdb_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 		return 0;
 	}
 
-	if (RTA_PAYLOAD(tb[NDA_LLADDR]) != ETHER_ADDR_LEN) {
+	if (RTA_PAYLOAD(tb[NDA_LLADDR]) != ETH_ALEN) {
 		zlog_warn(
 			"%s family %s IF %s(%u) brIF %u - LLADDR is not MAC, len %ld",
 			nl_msg_type_to_str(h->nlmsg_type),
@@ -1714,7 +1714,7 @@ static int netlink_macfdb_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 		return 0;
 	}
 
-	memcpy(&mac, RTA_DATA(tb[NDA_LLADDR]), ETHER_ADDR_LEN);
+	memcpy(&mac, RTA_DATA(tb[NDA_LLADDR]), ETH_ALEN);
 
 	if ((NDA_VLAN <= NDA_MAX) && tb[NDA_VLAN]) {
 		vid_present = 1;
@@ -2033,7 +2033,7 @@ static int netlink_ipneigh_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 
 	if (h->nlmsg_type == RTM_NEWNEIGH) {
 		if (tb[NDA_LLADDR]) {
-			if (RTA_PAYLOAD(tb[NDA_LLADDR]) != ETHER_ADDR_LEN) {
+			if (RTA_PAYLOAD(tb[NDA_LLADDR]) != ETH_ALEN) {
 				zlog_warn(
 					"%s family %s IF %s(%u) - LLADDR is not MAC, len %ld",
 					nl_msg_type_to_str(h->nlmsg_type),
@@ -2044,7 +2044,7 @@ static int netlink_ipneigh_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 			}
 
 			mac_present = 1;
-			memcpy(&mac, RTA_DATA(tb[NDA_LLADDR]), ETHER_ADDR_LEN);
+			memcpy(&mac, RTA_DATA(tb[NDA_LLADDR]), ETH_ALEN);
 		}
 
 		ext_learned = (ndm->ndm_flags & NTF_EXT_LEARNED) ? 1 : 0;
