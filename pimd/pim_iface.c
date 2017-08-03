@@ -69,17 +69,14 @@ static void *if_list_clean(struct pim_interface *pim_ifp)
 {
 	struct pim_ifchannel *ch;
 
-	if (pim_ifp->igmp_join_list) {
+	if (pim_ifp->igmp_join_list)
 		list_delete(pim_ifp->igmp_join_list);
-	}
 
-	if (pim_ifp->igmp_socket_list) {
+	if (pim_ifp->igmp_socket_list)
 		list_delete(pim_ifp->igmp_socket_list);
-	}
 
-	if (pim_ifp->pim_neighbor_list) {
+	if (pim_ifp->pim_neighbor_list)
 		list_delete(pim_ifp->pim_neighbor_list);
-	}
 
 	if (pim_ifp->upstream_switch_list)
 		list_delete(pim_ifp->upstream_switch_list);
@@ -92,6 +89,38 @@ static void *if_list_clean(struct pim_interface *pim_ifp)
 		pim_ifchannel_delete(ch);
 
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
+
+	return 0;
+}
+
+static void pim_sec_addr_free(struct pim_secondary_addr *sec_addr)
+{
+	XFREE(MTYPE_PIM_SEC_ADDR, sec_addr);
+}
+
+static int pim_sec_addr_comp(const void *p1, const void *p2)
+{
+	const struct pim_secondary_addr *sec1 = p1;
+	const struct pim_secondary_addr *sec2 = p2;
+
+	if (sec1->addr.family == AF_INET && sec2->addr.family == AF_INET6)
+		return -1;
+
+	if (sec1->addr.family == AF_INET6 && sec2->addr.family == AF_INET)
+		return 1;
+
+	if (sec1->addr.family == AF_INET) {
+		if (ntohl(sec1->addr.u.prefix4.s_addr)
+		    < ntohl(sec2->addr.u.prefix4.s_addr))
+			return -1;
+
+		if (ntohl(sec1->addr.u.prefix4.s_addr)
+		    > ntohl(sec2->addr.u.prefix4.s_addr))
+			return 1;
+	} else {
+		return memcmp(&sec1->addr.u.prefix6, &sec2->addr.u.prefix6,
+			      sizeof(struct in6_addr));
+	}
 
 	return 0;
 }
@@ -146,8 +175,8 @@ struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
 	/* list of struct igmp_sock */
 	pim_ifp->igmp_socket_list = list_new();
 	if (!pim_ifp->igmp_socket_list) {
-		zlog_err("%s %s: failure: igmp_socket_list=list_new()",
-			 __FILE__, __PRETTY_FUNCTION__);
+		zlog_err("%s: failure: igmp_socket_list=list_new()",
+			 __PRETTY_FUNCTION__);
 		return if_list_clean(pim_ifp);
 	}
 	pim_ifp->igmp_socket_list->del = (void (*)(void *))igmp_sock_free;
@@ -155,21 +184,30 @@ struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
 	/* list of struct pim_neighbor */
 	pim_ifp->pim_neighbor_list = list_new();
 	if (!pim_ifp->pim_neighbor_list) {
-		zlog_err("%s %s: failure: pim_neighbor_list=list_new()",
-			 __FILE__, __PRETTY_FUNCTION__);
+		zlog_err("%s: failure: pim_neighbor_list=list_new()",
+			 __PRETTY_FUNCTION__);
 		return if_list_clean(pim_ifp);
 	}
 	pim_ifp->pim_neighbor_list->del = (void (*)(void *))pim_neighbor_free;
 
 	pim_ifp->upstream_switch_list = list_new();
 	if (!pim_ifp->upstream_switch_list) {
-		zlog_err("%s %s: failure: upstream_switch_list=list_new()",
-			 __FILE__, __PRETTY_FUNCTION__);
+		zlog_err("%s: failure: upstream_switch_list=list_new()",
+			 __PRETTY_FUNCTION__);
 		return if_list_clean(pim_ifp);
 	}
 	pim_ifp->upstream_switch_list->del =
 		(void (*)(void *))pim_jp_agg_group_list_free;
 	pim_ifp->upstream_switch_list->cmp = pim_jp_agg_group_list_cmp;
+
+	pim_ifp->sec_addr_list = list_new();
+	if (!pim_ifp->sec_addr_list) {
+		zlog_err("%s: failure: secondary addresslist",
+			 __PRETTY_FUNCTION__);
+	}
+	pim_ifp->sec_addr_list->del = (void (*)(void *))pim_sec_addr_free;
+	pim_ifp->sec_addr_list->cmp =
+		(int (*)(void *, void *))pim_sec_addr_comp;
 
 	RB_INIT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb);
 
@@ -314,47 +352,11 @@ static int detect_primary_address_change(struct interface *ifp,
 	return changed;
 }
 
-static int pim_sec_addr_comp(const void *p1, const void *p2)
-{
-	const struct pim_secondary_addr *sec1 = p1;
-	const struct pim_secondary_addr *sec2 = p2;
-
-	if (sec1->addr.family == AF_INET && sec2->addr.family == AF_INET6)
-		return -1;
-
-	if (sec1->addr.family == AF_INET6 && sec2->addr.family == AF_INET)
-		return 1;
-
-	if (sec1->addr.family == AF_INET) {
-		if (ntohl(sec1->addr.u.prefix4.s_addr)
-		    < ntohl(sec2->addr.u.prefix4.s_addr))
-			return -1;
-
-		if (ntohl(sec1->addr.u.prefix4.s_addr)
-		    > ntohl(sec2->addr.u.prefix4.s_addr))
-			return 1;
-	} else {
-		return memcmp(&sec1->addr.u.prefix6, &sec2->addr.u.prefix6,
-			      sizeof(struct in6_addr));
-	}
-
-	return 0;
-}
-
-static void pim_sec_addr_free(struct pim_secondary_addr *sec_addr)
-{
-	XFREE(MTYPE_PIM_SEC_ADDR, sec_addr);
-}
-
 static struct pim_secondary_addr *
 pim_sec_addr_find(struct pim_interface *pim_ifp, struct prefix *addr)
 {
 	struct pim_secondary_addr *sec_addr;
 	struct listnode *node;
-
-	if (!pim_ifp->sec_addr_list) {
-		return NULL;
-	}
 
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, node, sec_addr)) {
 		if (prefix_cmp(&sec_addr->addr, addr)) {
@@ -383,22 +385,9 @@ static int pim_sec_addr_add(struct pim_interface *pim_ifp, struct prefix *addr)
 		return changed;
 	}
 
-	if (!pim_ifp->sec_addr_list) {
-		pim_ifp->sec_addr_list = list_new();
-		pim_ifp->sec_addr_list->del =
-			(void (*)(void *))pim_sec_addr_free;
-		pim_ifp->sec_addr_list->cmp =
-			(int (*)(void *, void *))pim_sec_addr_comp;
-	}
-
 	sec_addr = XCALLOC(MTYPE_PIM_SEC_ADDR, sizeof(*sec_addr));
-	if (!sec_addr) {
-		if (list_isempty(pim_ifp->sec_addr_list)) {
-			list_free(pim_ifp->sec_addr_list);
-			pim_ifp->sec_addr_list = NULL;
-		}
+	if (!sec_addr)
 		return changed;
-	}
 
 	changed = 1;
 	sec_addr->addr = *addr;
@@ -411,15 +400,10 @@ static int pim_sec_addr_del_all(struct pim_interface *pim_ifp)
 {
 	int changed = 0;
 
-	if (!pim_ifp->sec_addr_list) {
-		return changed;
-	}
 	if (!list_isempty(pim_ifp->sec_addr_list)) {
 		changed = 1;
 		/* remove all nodes and free up the list itself */
 		list_delete_all_node(pim_ifp->sec_addr_list);
-		list_free(pim_ifp->sec_addr_list);
-		pim_ifp->sec_addr_list = NULL;
 	}
 
 	return changed;
@@ -434,11 +418,9 @@ static int pim_sec_addr_update(struct interface *ifp)
 	struct pim_secondary_addr *sec_addr;
 	int changed = 0;
 
-	if (pim_ifp->sec_addr_list) {
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, node,
-					  sec_addr)) {
-			sec_addr->flags |= PIM_SEC_ADDRF_STALE;
-		}
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->sec_addr_list, node,
+				  sec_addr)) {
+		sec_addr->flags |= PIM_SEC_ADDRF_STALE;
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
@@ -459,20 +441,12 @@ static int pim_sec_addr_update(struct interface *ifp)
 		}
 	}
 
-	if (pim_ifp->sec_addr_list) {
-		/* Drop stale entries */
-		for (ALL_LIST_ELEMENTS(pim_ifp->sec_addr_list, node, nextnode,
-				       sec_addr)) {
-			if (sec_addr->flags & PIM_SEC_ADDRF_STALE) {
-				pim_sec_addr_del(pim_ifp, sec_addr);
-				changed = 1;
-			}
-		}
-
-		/* If the list went empty free it up */
-		if (list_isempty(pim_ifp->sec_addr_list)) {
-			list_free(pim_ifp->sec_addr_list);
-			pim_ifp->sec_addr_list = NULL;
+	/* Drop stale entries */
+	for (ALL_LIST_ELEMENTS(pim_ifp->sec_addr_list, node, nextnode,
+			       sec_addr)) {
+		if (sec_addr->flags & PIM_SEC_ADDRF_STALE) {
+			pim_sec_addr_del(pim_ifp, sec_addr);
+			changed = 1;
 		}
 	}
 
