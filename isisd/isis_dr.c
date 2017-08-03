@@ -42,7 +42,6 @@
 #include "isisd/isis_adjacency.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_pdu.h"
-#include "isisd/isis_tlv.h"
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_dr.h"
 #include "isisd/isis_events.h"

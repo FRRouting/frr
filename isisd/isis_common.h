@@ -47,16 +47,6 @@ struct isis_passwd {
 };
 
 /*
- * (Dynamic) Hostname
- * one struct for cache list
- * one struct for LSP TLV
- */
-struct hostname {
-	u_char namelen;
-	u_char name[255];
-};
-
-/*
  * Supported Protocol IDs
  */
 struct nlpids {

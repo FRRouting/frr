@@ -44,7 +44,9 @@ const char *isonet_print(const u_char *, int len);
 const char *sysid_print(const u_char *);
 const char *snpa_print(const u_char *);
 const char *rawlspid_print(const u_char *);
+const char *isis_format_id(const uint8_t *id, size_t len);
 const char *time2string(u_int32_t);
+const char *nlpid2str(uint8_t nlpid);
 /* typedef struct nlpids nlpids; */
 char *nlpid2string(struct nlpids *);
 const char *print_sys_hostname(const u_char *sysid);
@@ -53,7 +55,6 @@ void zlog_dump_data(void *data, int len);
 /*
  * misc functions
  */
-int speaks(struct nlpids *nlpids, int family);
 unsigned long isis_jitter(unsigned long timer, unsigned long jitter);
 const char *unix_hostname(void);
 
@@ -77,4 +78,10 @@ enum { ISIS_UI_LEVEL_BRIEF,
        ISIS_UI_LEVEL_EXTENSIVE,
 };
 
+#include "lib/log.h"
+void log_multiline(int priority, const char *prefix, const char *format, ...)
+	PRINTF_ATTRIBUTE(3, 4);
+struct vty;
+void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
+	PRINTF_ATTRIBUTE(3, 4);
 #endif

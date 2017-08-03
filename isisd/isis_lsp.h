@@ -24,19 +24,19 @@
 #ifndef _ZEBRA_ISIS_LSP_H
 #define _ZEBRA_ISIS_LSP_H
 
+#include "isisd/isis_pdu.h"
+
 /* Structure for isis_lsp, this structure will only support the fixed
  * System ID (Currently 6) (atleast for now). In order to support more
  * We will have to split the header into two parts, and for readability
  * sake it should better be avoided */
 struct isis_lsp {
-	struct isis_fixed_hdr *isis_header;     /* normally equals pdu */
-	struct isis_link_state_hdr *lsp_header; /* pdu + isis_header_len */
-	struct stream *pdu;			/* full pdu lsp */
+	struct isis_lsp_hdr hdr;
+	struct stream *pdu; /* full pdu lsp */
 	union {
 		struct list *frags;
 		struct isis_lsp *zero_lsp;
 	} lspu;
-	u_int32_t auth_tlv_offset; /* authentication TLV position in the pdu */
 	u_int32_t SRMflags[ISIS_MAX_CIRCUITS];
 	u_int32_t SSNflags[ISIS_MAX_CIRCUITS];
 	int level;     /* L1 or L2? */
@@ -47,7 +47,7 @@ struct isis_lsp {
 	/* used for 60 second counting when rem_lifetime is zero */
 	int age_out;
 	struct isis_area *area;
-	struct tlvs tlv_data; /* Simplifies TLV access */
+	struct isis_tlvs *tlvs;
 };
 
 dict_t *lsp_db_init(void);
@@ -59,13 +59,13 @@ int lsp_regenerate_schedule(struct isis_area *area, int level, int all_pseudo);
 int lsp_generate_pseudo(struct isis_circuit *circuit, int level);
 int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level);
 
-struct isis_lsp *lsp_new(struct isis_area *area, u_char *lsp_id,
-			 u_int16_t rem_lifetime, u_int32_t seq_num,
-			 u_int8_t lsp_bits, u_int16_t checksum, int level);
-struct isis_lsp *lsp_new_from_stream_ptr(struct stream *stream,
-					 u_int16_t pdu_len,
-					 struct isis_lsp *lsp0,
-					 struct isis_area *area, int level);
+struct isis_lsp *lsp_new(struct isis_area *area, uint8_t *lsp_id,
+			 uint16_t rem_lifetime, uint32_t seq_num,
+			 uint8_t lsp_bits, uint16_t checksum, int level);
+struct isis_lsp *lsp_new_from_recv(struct isis_lsp_hdr *hdr,
+				   struct isis_tlvs *tlvs,
+				   struct stream *stream, struct isis_lsp *lsp0,
+				   struct isis_area *area, int level);
 void lsp_insert(struct isis_lsp *lsp, dict_t *lspdb);
 struct isis_lsp *lsp_search(u_char *id, dict_t *lspdb);
 
@@ -73,12 +73,9 @@ void lsp_build_list(u_char *start_id, u_char *stop_id, u_char num_lsps,
 		    struct list *list, dict_t *lspdb);
 void lsp_build_list_nonzero_ht(u_char *start_id, u_char *stop_id,
 			       struct list *list, dict_t *lspdb);
-void lsp_build_list_ssn(struct isis_circuit *circuit, u_char num_lsps,
-			struct list *list, dict_t *lspdb);
-
 void lsp_search_and_destroy(u_char *id, dict_t *lspdb);
 void lsp_purge_pseudo(u_char *id, struct isis_circuit *circuit, int level);
-void lsp_purge_non_exist(int level, struct isis_link_state_hdr *lsp_hdr,
+void lsp_purge_non_exist(int level, struct isis_lsp_hdr *hdr,
 			 struct isis_area *area);
 
 #define LSP_EQUAL 1
@@ -92,16 +89,15 @@ void lsp_purge_non_exist(int level, struct isis_link_state_hdr *lsp_hdr,
 	(I)[ISIS_SYS_ID_LEN] = 0;                                              \
 	(I)[ISIS_SYS_ID_LEN + 1] = 0
 int lsp_id_cmp(u_char *id1, u_char *id2);
-int lsp_compare(char *areatag, struct isis_lsp *lsp, u_int32_t seq_num,
-		u_int16_t checksum, u_int16_t rem_lifetime);
-void lsp_update(struct isis_lsp *lsp, struct stream *stream,
-		struct isis_area *area, int level);
-void lsp_inc_seqnum(struct isis_lsp *lsp, u_int32_t seq_num);
+int lsp_compare(char *areatag, struct isis_lsp *lsp, uint32_t seqno,
+		uint16_t checksum, uint16_t rem_lifetime);
+void lsp_update(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
+		struct isis_tlvs *tlvs, struct stream *stream,
+		struct isis_area *area, int level, bool confusion);
+void lsp_inc_seqno(struct isis_lsp *lsp, uint32_t seqno);
 void lsp_print(struct isis_lsp *lsp, struct vty *vty, char dynhost);
 void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty, char dynhost);
 int lsp_print_all(struct vty *vty, dict_t *lspdb, char detail, char dynhost);
-const char *lsp_bits2string(u_char *);
-
 /* sets SRMflags for all active circuits of an lsp */
 void lsp_set_all_srmflags(struct isis_lsp *lsp);
 

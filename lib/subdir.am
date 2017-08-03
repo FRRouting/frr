@@ -51,6 +51,7 @@ lib_libfrr_la_SOURCES = \
 	lib/ptm_lib.c \
 	lib/qobj.c \
 	lib/routemap.c \
+	lib/sbuf.c \
 	lib/sha256.c \
 	lib/sigevent.c \
 	lib/skiplist.c \
@@ -125,6 +126,7 @@ pkginclude_HEADERS += \
 	lib/qobj.h \
 	lib/route_types.h \
 	lib/routemap.h \
+	lib/sbuf.h \
 	lib/sha256.h \
 	lib/sigevent.h \
 	lib/skiplist.h \

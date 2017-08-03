@@ -42,7 +42,6 @@
 #include "isis_misc.h"
 #include "isis_adjacency.h"
 #include "isis_circuit.h"
-#include "isis_tlv.h"
 #include "isis_pdu.h"
 #include "isis_lsp.h"
 #include "isis_spf.h"

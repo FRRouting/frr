@@ -28,6 +28,7 @@
 #include "hash.h"
 #include "if.h"
 #include "command.h"
+#include "log_int.h"
 
 #include "isisd/dict.h"
 #include "isisd/isis_constants.h"
@@ -38,7 +39,6 @@
 #include "isisd/isisd.h"
 #include "isisd/isis_misc.h"
 
-#include "isisd/isis_tlv.h"
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_constants.h"
 #include "isisd/isis_adjacency.h"
@@ -46,15 +46,9 @@
 
 /* staticly assigned vars for printing purposes */
 struct in_addr new_prefix;
-/* len of xxxx.xxxx.xxxx + place for #0 termination */
-char sysid[15];
-/* len of xxxx.xxxx.xxxx + place for #0 termination */
-char snpa[15];
 /* len of xx.xxxx.xxxx.xxxx.xxxx.xxxx.xxxx.xxxx.xxxx.xxxx.xx */
-char isonet[51];
 /* + place for #0 termination */
-/* len of xxxx.xxxx.xxxx.xx.xx + place for #0 termination */
-char lspid[21];
+char isonet[51];
 /* len of xxYxxMxWxdxxhxxmxxs + place for #0 termination */
 char datestring[20];
 char nlpidstring[30];
@@ -179,6 +173,26 @@ int sysid2buff(u_char *buff, const char *dotted)
 	return len;
 }
 
+const char *nlpid2str(uint8_t nlpid)
+{
+	static char buf[4];
+	switch (nlpid) {
+	case NLPID_IP:
+		return "IPv4";
+	case NLPID_IPV6:
+		return "IPv6";
+	case NLPID_SNAP:
+		return "SNAP";
+	case NLPID_CLNP:
+		return "CLNP";
+	case NLPID_ESIS:
+		return "ES-IS";
+	default:
+		snprintf(buf, sizeof(buf), "%" PRIu8, nlpid);
+		return buf;
+	}
+}
+
 /*
  * converts the nlpids struct (filled by TLV #129)
  * into a string
@@ -190,26 +204,7 @@ char *nlpid2string(struct nlpids *nlpids)
 	int i;
 
 	for (i = 0; i < nlpids->count; i++) {
-		switch (nlpids->nlpids[i]) {
-		case NLPID_IP:
-			pos += sprintf(pos, "IPv4");
-			break;
-		case NLPID_IPV6:
-			pos += sprintf(pos, "IPv6");
-			break;
-		case NLPID_SNAP:
-			pos += sprintf(pos, "SNAP");
-			break;
-		case NLPID_CLNP:
-			pos += sprintf(pos, "CLNP");
-			break;
-		case NLPID_ESIS:
-			pos += sprintf(pos, "ES-IS");
-			break;
-		default:
-			pos += sprintf(pos, "unknown");
-			break;
-		}
+		pos += sprintf(pos, "%s", nlpid2str(nlpids->nlpids[i]));
 		if (nlpids->count - i > 1)
 			pos += sprintf(pos, ", ");
 	}
@@ -217,25 +212,6 @@ char *nlpid2string(struct nlpids *nlpids)
 	*(pos) = '\0';
 
 	return nlpidstring;
-}
-
-/*
- *  supports the given af ?
- */
-int speaks(struct nlpids *nlpids, int family)
-{
-	int i, speaks = 0;
-
-	if (nlpids == (struct nlpids *)NULL)
-		return speaks;
-	for (i = 0; i < nlpids->count; i++) {
-		if (family == AF_INET && nlpids->nlpids[i] == NLPID_IP)
-			speaks = 1;
-		if (family == AF_INET6 && nlpids->nlpids[i] == NLPID_IPV6)
-			speaks = 1;
-	}
-
-	return speaks;
 }
 
 /*
@@ -330,71 +306,53 @@ const char *syst2string(int type)
  */
 const char *snpa_print(const u_char *from)
 {
-	int i = 0;
-	u_char *pos = (u_char *)snpa;
-
-	if (!from)
-		return "unknown";
-
-	while (i < ETH_ALEN - 1) {
-		if (i & 1) {
-			sprintf((char *)pos, "%02x.", *(from + i));
-			pos += 3;
-		} else {
-			sprintf((char *)pos, "%02x", *(from + i));
-			pos += 2;
-		}
-		i++;
-	}
-
-	sprintf((char *)pos, "%02x", *(from + (ISIS_SYS_ID_LEN - 1)));
-	pos += 2;
-	*(pos) = '\0';
-
-	return snpa;
+	return isis_format_id(from, ISIS_SYS_ID_LEN);
 }
 
 const char *sysid_print(const u_char *from)
 {
-	int i = 0;
-	char *pos = sysid;
-
-	if (!from)
-		return "unknown";
-
-	while (i < ISIS_SYS_ID_LEN - 1) {
-		if (i & 1) {
-			sprintf(pos, "%02x.", *(from + i));
-			pos += 3;
-		} else {
-			sprintf(pos, "%02x", *(from + i));
-			pos += 2;
-		}
-		i++;
-	}
-
-	sprintf(pos, "%02x", *(from + (ISIS_SYS_ID_LEN - 1)));
-	pos += 2;
-	*(pos) = '\0';
-
-	return sysid;
+	return isis_format_id(from, ISIS_SYS_ID_LEN);
 }
 
 const char *rawlspid_print(const u_char *from)
 {
-	char *pos = lspid;
-	if (!from)
-		return "unknown";
-	memcpy(pos, sysid_print(from), 15);
-	pos += 14;
-	sprintf(pos, ".%02x", LSP_PSEUDO_ID(from));
-	pos += 3;
-	sprintf(pos, "-%02x", LSP_FRAGMENT(from));
-	pos += 3;
+	return isis_format_id(from, 8);
+}
 
-	*(pos) = '\0';
+#define FORMAT_ID_SIZE sizeof("0000.0000.0000.00-00")
+const char *isis_format_id(const uint8_t *id, size_t len)
+{
+#define FORMAT_BUF_COUNT 4
+	static char buf_ring[FORMAT_BUF_COUNT][FORMAT_ID_SIZE];
+	static size_t cur_buf = 0;
 
-	return lspid;
+	char *rv;
+
+	cur_buf++;
+	if (cur_buf >= FORMAT_BUF_COUNT)
+		cur_buf = 0;
+
+	rv = buf_ring[cur_buf];
+
+	if (!id) {
+		snprintf(rv, FORMAT_ID_SIZE, "unknown");
+		return rv;
+	}
+
+	if (len < 6) {
+		snprintf(rv, FORMAT_ID_SIZE, "Short ID");
+		return rv;
+	}
+
+	snprintf(rv, FORMAT_ID_SIZE, "%02x%02x.%02x%02x.%02x%02x", id[0], id[1],
+		 id[2], id[3], id[4], id[5]);
+
+	if (len > 6)
+		snprintf(rv + 14, FORMAT_ID_SIZE - 14, ".%02x", id[6]);
+	if (len > 7)
+		snprintf(rv + 17, FORMAT_ID_SIZE - 17, "-%02x", id[7]);
+
+	return rv;
 }
 
 const char *time2string(u_int32_t time)
@@ -508,7 +466,7 @@ const char *print_sys_hostname(const u_char *sysid)
 
 	dyn = dynhn_find_by_id(sysid);
 	if (dyn)
-		return (const char *)dyn->name.name;
+		return dyn->hostname;
 
 	return sysid_print(sysid);
 }
@@ -571,4 +529,75 @@ void zlog_dump_data(void *data, int len)
 	if (strlen(hexstr) > 0)
 		zlog_debug("[%8.8s]   %-50.50s  %s", addrstr, hexstr, charstr);
 	return;
+}
+
+static char *qasprintf(const char *format, va_list ap)
+{
+	va_list aq;
+	va_copy(aq, ap);
+
+	int size = 0;
+	char *p = NULL;
+
+	size = vsnprintf(p, size, format, ap);
+
+	if (size < 0) {
+		va_end(aq);
+		return NULL;
+	}
+
+	size++;
+	p = XMALLOC(MTYPE_TMP, size);
+
+	size = vsnprintf(p, size, format, aq);
+	va_end(aq);
+
+	if (size < 0) {
+		XFREE(MTYPE_TMP, p);
+		return NULL;
+	}
+
+	return p;
+}
+
+void log_multiline(int priority, const char *prefix, const char *format, ...)
+{
+	va_list ap;
+	char *p;
+
+	va_start(ap, format);
+	p = qasprintf(format, ap);
+	va_end(ap);
+
+	if (!p)
+		return;
+
+	char *saveptr = NULL;
+	for (char *line = strtok_r(p, "\n", &saveptr); line;
+	     line = strtok_r(NULL, "\n", &saveptr)) {
+		zlog(priority, "%s%s", prefix, line);
+	}
+
+	XFREE(MTYPE_TMP, p);
+}
+
+void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
+{
+	va_list ap;
+	char *p;
+
+	va_start(ap, format);
+	p = qasprintf(format, ap);
+	va_end(ap);
+
+	if (!p)
+		return;
+
+	char *saveptr = NULL;
+	for (char *line = strtok_r(p, "\n", &saveptr); line;
+	     line = strtok_r(NULL, "\n", &saveptr)) {
+		vty_out(vty, "%s%s\n", prefix, line);
+	}
+
+	XFREE(MTYPE_TMP, p);
 }

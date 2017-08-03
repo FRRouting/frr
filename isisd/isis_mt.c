@@ -24,19 +24,14 @@
 #include "isisd/isis_memory.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_adjacency.h"
-#include "isisd/isis_tlv.h"
 #include "isisd/isis_misc.h"
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_mt.h"
+#include "isisd/isis_tlvs.h"
 
 DEFINE_MTYPE_STATIC(ISISD, MT_AREA_SETTING, "ISIS MT Area Setting")
 DEFINE_MTYPE_STATIC(ISISD, MT_CIRCUIT_SETTING, "ISIS MT Circuit Setting")
 DEFINE_MTYPE_STATIC(ISISD, MT_ADJ_INFO, "ISIS MT Adjacency Info")
-DEFINE_MTYPE_STATIC(ISISD, MT_NEIGHBORS, "ISIS MT Neighbors for TLV")
-DEFINE_MTYPE_STATIC(ISISD, MT_IPV4_REACHS,
-		    "ISIS MT IPv4 Reachabilities for TLV")
-DEFINE_MTYPE_STATIC(ISISD, MT_IPV6_REACHS,
-		    "ISIS MT IPv6 Reachabilities for TLV")
 
 uint16_t isis_area_ipv6_topology(struct isis_area *area)
 {
@@ -367,7 +362,7 @@ static void adj_mt_set(struct isis_adjacency *adj, unsigned int index,
 	adj->mt_set[index] = mtid;
 }
 
-bool tlvs_to_adj_mt_set(struct tlvs *tlvs, bool v4_usable, bool v6_usable,
+bool tlvs_to_adj_mt_set(struct isis_tlvs *tlvs, bool v4_usable, bool v6_usable,
 			struct isis_adjacency *adj)
 {
 	struct isis_circuit_mt_setting **mt_settings;
@@ -388,17 +383,20 @@ bool tlvs_to_adj_mt_set(struct tlvs *tlvs, bool v4_usable, bool v6_usable,
 
 	mt_settings = circuit_mt_settings(adj->circuit, &circuit_mt_count);
 	for (unsigned int i = 0; i < circuit_mt_count; i++) {
-		if (!tlvs->mt_router_info) {
+		if (!tlvs->mt_router_info.count
+		    && !tlvs->mt_router_info_empty) {
 			/* Other end does not have MT enabled */
 			if (mt_settings[i]->mtid == ISIS_MT_IPV4_UNICAST
 			    && v4_usable)
 				adj_mt_set(adj, intersect_count++,
 					   ISIS_MT_IPV4_UNICAST);
 		} else {
-			struct listnode *node;
-			struct mt_router_info *info;
-			for (ALL_LIST_ELEMENTS_RO(tlvs->mt_router_info, node,
-						  info)) {
+			struct isis_mt_router_info *info_head;
+
+			info_head = (struct isis_mt_router_info *)
+					    tlvs->mt_router_info.head;
+			for (struct isis_mt_router_info *info = info_head; info;
+			     info = info->next) {
 				if (mt_settings[i]->mtid == info->mtid) {
 					bool usable;
 					switch (info->mtid) {
@@ -456,153 +454,6 @@ void adj_mt_finish(struct isis_adjacency *adj)
 	adj->mt_count = 0;
 }
 
-/* TLV Router info api */
-struct mt_router_info *tlvs_lookup_mt_router_info(struct tlvs *tlvs,
-						  uint16_t mtid)
-{
-	return lookup_mt_setting(tlvs->mt_router_info, mtid);
-}
-
-/* TLV MT Neighbors api */
-struct tlv_mt_neighbors *tlvs_lookup_mt_neighbors(struct tlvs *tlvs,
-						  uint16_t mtid)
-{
-	return lookup_mt_setting(tlvs->mt_is_neighs, mtid);
-}
-
-static struct tlv_mt_neighbors *tlvs_new_mt_neighbors(uint16_t mtid)
-{
-	struct tlv_mt_neighbors *rv;
-
-	rv = XCALLOC(MTYPE_MT_NEIGHBORS, sizeof(*rv));
-	rv->mtid = mtid;
-	rv->list = list_new();
-
-	return rv;
-};
-
-static void tlvs_free_mt_neighbors(void *arg)
-{
-	struct tlv_mt_neighbors *neighbors = arg;
-
-	if (neighbors && neighbors->list)
-		list_delete(neighbors->list);
-	XFREE(MTYPE_MT_NEIGHBORS, neighbors);
-}
-
-static void tlvs_add_mt_neighbors(struct tlvs *tlvs,
-				  struct tlv_mt_neighbors *neighbors)
-{
-	add_mt_setting(&tlvs->mt_is_neighs, neighbors);
-	tlvs->mt_is_neighs->del = tlvs_free_mt_neighbors;
-}
-
-struct tlv_mt_neighbors *tlvs_get_mt_neighbors(struct tlvs *tlvs, uint16_t mtid)
-{
-	struct tlv_mt_neighbors *neighbors;
-
-	neighbors = tlvs_lookup_mt_neighbors(tlvs, mtid);
-	if (!neighbors) {
-		neighbors = tlvs_new_mt_neighbors(mtid);
-		tlvs_add_mt_neighbors(tlvs, neighbors);
-	}
-	return neighbors;
-}
-
-/* TLV MT IPv4 reach api */
-struct tlv_mt_ipv4_reachs *tlvs_lookup_mt_ipv4_reachs(struct tlvs *tlvs,
-						      uint16_t mtid)
-{
-	return lookup_mt_setting(tlvs->mt_ipv4_reachs, mtid);
-}
-
-static struct tlv_mt_ipv4_reachs *tlvs_new_mt_ipv4_reachs(uint16_t mtid)
-{
-	struct tlv_mt_ipv4_reachs *rv;
-
-	rv = XCALLOC(MTYPE_MT_IPV4_REACHS, sizeof(*rv));
-	rv->mtid = mtid;
-	rv->list = list_new();
-
-	return rv;
-};
-
-static void tlvs_free_mt_ipv4_reachs(void *arg)
-{
-	struct tlv_mt_ipv4_reachs *reachs = arg;
-
-	if (reachs && reachs->list)
-		list_delete(reachs->list);
-	XFREE(MTYPE_MT_IPV4_REACHS, reachs);
-}
-
-static void tlvs_add_mt_ipv4_reachs(struct tlvs *tlvs,
-				    struct tlv_mt_ipv4_reachs *reachs)
-{
-	add_mt_setting(&tlvs->mt_ipv4_reachs, reachs);
-	tlvs->mt_ipv4_reachs->del = tlvs_free_mt_ipv4_reachs;
-}
-
-struct tlv_mt_ipv4_reachs *tlvs_get_mt_ipv4_reachs(struct tlvs *tlvs,
-						   uint16_t mtid)
-{
-	struct tlv_mt_ipv4_reachs *reachs;
-
-	reachs = tlvs_lookup_mt_ipv4_reachs(tlvs, mtid);
-	if (!reachs) {
-		reachs = tlvs_new_mt_ipv4_reachs(mtid);
-		tlvs_add_mt_ipv4_reachs(tlvs, reachs);
-	}
-	return reachs;
-}
-
-/* TLV MT IPv6 reach api */
-struct tlv_mt_ipv6_reachs *tlvs_lookup_mt_ipv6_reachs(struct tlvs *tlvs,
-						      uint16_t mtid)
-{
-	return lookup_mt_setting(tlvs->mt_ipv6_reachs, mtid);
-}
-
-static struct tlv_mt_ipv6_reachs *tlvs_new_mt_ipv6_reachs(uint16_t mtid)
-{
-	struct tlv_mt_ipv6_reachs *rv;
-
-	rv = XCALLOC(MTYPE_MT_IPV6_REACHS, sizeof(*rv));
-	rv->mtid = mtid;
-	rv->list = list_new();
-
-	return rv;
-};
-
-static void tlvs_free_mt_ipv6_reachs(void *arg)
-{
-	struct tlv_mt_ipv6_reachs *reachs = arg;
-
-	if (reachs && reachs->list)
-		list_delete(reachs->list);
-	XFREE(MTYPE_MT_IPV6_REACHS, reachs);
-}
-
-static void tlvs_add_mt_ipv6_reachs(struct tlvs *tlvs,
-				    struct tlv_mt_ipv6_reachs *reachs)
-{
-	add_mt_setting(&tlvs->mt_ipv6_reachs, reachs);
-	tlvs->mt_ipv6_reachs->del = tlvs_free_mt_ipv6_reachs;
-}
-
-struct tlv_mt_ipv6_reachs *tlvs_get_mt_ipv6_reachs(struct tlvs *tlvs,
-						   uint16_t mtid)
-{
-	struct tlv_mt_ipv6_reachs *reachs;
-
-	reachs = tlvs_lookup_mt_ipv6_reachs(tlvs, mtid);
-	if (!reachs) {
-		reachs = tlvs_new_mt_ipv6_reachs(mtid);
-		tlvs_add_mt_ipv6_reachs(tlvs, reachs);
-	}
-	return reachs;
-}
-
 static void mt_set_add(uint16_t **mt_set, unsigned int *size,
 		       unsigned int *index, uint16_t mtid)
 {
@@ -647,51 +498,46 @@ static uint16_t *circuit_bcast_mt_set(struct isis_circuit *circuit, int level,
 	return rv;
 }
 
-static void tlvs_add_mt_set(struct isis_area *area, struct tlvs *tlvs,
+static void tlvs_add_mt_set(struct isis_area *area, struct isis_tlvs *tlvs,
 			    unsigned int mt_count, uint16_t *mt_set,
-			    struct te_is_neigh *neigh)
+			    uint8_t *id, uint32_t metric, uint8_t *subtlvs,
+			    uint8_t subtlv_len)
 {
 	for (unsigned int i = 0; i < mt_count; i++) {
 		uint16_t mtid = mt_set[i];
-		struct te_is_neigh *ne_copy;
-
-		ne_copy = XCALLOC(MTYPE_ISIS_TLV, sizeof(*ne_copy));
-		memcpy(ne_copy, neigh, sizeof(*ne_copy));
-
 		if (mt_set[i] == ISIS_MT_IPV4_UNICAST) {
-			listnode_add(tlvs->te_is_neighs, ne_copy);
 			lsp_debug(
 				"ISIS (%s): Adding %s.%02x as te-style neighbor",
-				area->area_tag, sysid_print(ne_copy->neigh_id),
-				LSP_PSEUDO_ID(ne_copy->neigh_id));
+				area->area_tag, sysid_print(id),
+				LSP_PSEUDO_ID(id));
 		} else {
-			struct tlv_mt_neighbors *neighbors;
-
-			neighbors = tlvs_get_mt_neighbors(tlvs, mtid);
-			neighbors->list->del = free_tlv;
-			listnode_add(neighbors->list, ne_copy);
 			lsp_debug(
 				"ISIS (%s): Adding %s.%02x as mt-style neighbor for %s",
-				area->area_tag, sysid_print(ne_copy->neigh_id),
-				LSP_PSEUDO_ID(ne_copy->neigh_id),
-				isis_mtid2str(mtid));
+				area->area_tag, sysid_print(id),
+				LSP_PSEUDO_ID(id), isis_mtid2str(mtid));
 		}
+		isis_tlvs_add_extended_reach(tlvs, mtid, id, metric, subtlvs,
+					     subtlv_len);
 	}
 }
 
-void tlvs_add_mt_bcast(struct tlvs *tlvs, struct isis_circuit *circuit,
-		       int level, struct te_is_neigh *neigh)
+void tlvs_add_mt_bcast(struct isis_tlvs *tlvs, struct isis_circuit *circuit,
+		       int level, uint8_t *id, uint32_t metric,
+		       uint8_t *subtlvs, uint8_t subtlv_len)
 {
 	unsigned int mt_count;
 	uint16_t *mt_set = circuit_bcast_mt_set(circuit, level, &mt_count);
 
-	tlvs_add_mt_set(circuit->area, tlvs, mt_count, mt_set, neigh);
+	tlvs_add_mt_set(circuit->area, tlvs, mt_count, mt_set, id, metric,
+			subtlvs, subtlv_len);
 }
 
-void tlvs_add_mt_p2p(struct tlvs *tlvs, struct isis_circuit *circuit,
-		     struct te_is_neigh *neigh)
+void tlvs_add_mt_p2p(struct isis_tlvs *tlvs, struct isis_circuit *circuit,
+		     uint8_t *id, uint32_t metric, uint8_t *subtlvs,
+		     uint8_t subtlv_len)
 {
 	struct isis_adjacency *adj = circuit->u.p2p.neighbor;
 
-	tlvs_add_mt_set(circuit->area, tlvs, adj->mt_count, adj->mt_set, neigh);
+	tlvs_add_mt_set(circuit->area, tlvs, adj->mt_count, adj->mt_set, id,
+			metric, subtlvs, subtlv_len);
 }

@@ -73,13 +73,16 @@ struct isis_adjacency {
 	int dischanges[ISIS_LEVELS];       /* how many DIS changes ? */
 	/* an array of N levels for M records */
 	struct isis_dis_record dis_record[DIS_RECORDS * ISIS_LEVELS];
-	enum isis_adj_state adj_state; /* adjacencyState */
-	enum isis_adj_usage adj_usage; /* adjacencyUsage */
-	struct list *area_addrs;       /* areaAdressesOfNeighbour */
-	struct nlpids nlpids;	  /* protocols spoken ... */
-	struct list *ipv4_addrs;
+	enum isis_adj_state adj_state;    /* adjacencyState */
+	enum isis_adj_usage adj_usage;    /* adjacencyUsage */
+	struct area_addr *area_addresses; /* areaAdressesOfNeighbour */
+	unsigned int area_address_count;
+	struct nlpids nlpids; /* protocols spoken ... */
+	struct in_addr *ipv4_addresses;
+	unsigned int ipv4_address_count;
 	struct in_addr router_address;
-	struct list *ipv6_addrs;
+	struct in6_addr *ipv6_addresses;
+	unsigned int ipv6_address_count;
 	struct in6_addr router_address6;
 	u_char prio[ISIS_LEVELS];       /* priorityOfNeighbour for DIS */
 	int circuit_t;			/* from hello PDU hdr */
