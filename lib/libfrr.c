@@ -399,12 +399,15 @@ struct thread_master *frr_init(void)
 	zlog_set_level(ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
 #endif
 
-	if (!di->pid_file || !di->vty_path)
-		frr_mkdir(frr_vtydir, false);
-	if (di->pid_file)
-		frr_mkdir(di->pid_file, true);
-	if (di->vty_path)
-		frr_mkdir(di->vty_path, true);
+	/* don't mkdir these as root... */
+	if (!(di->flags & FRR_NO_PRIVSEP)) {
+		if (!di->pid_file || !di->vty_path)
+			frr_mkdir(frr_vtydir, false);
+		if (di->pid_file)
+			frr_mkdir(di->pid_file, true);
+		if (di->vty_path)
+			frr_mkdir(di->vty_path, true);
+	}
 
 	frrmod_init(di->module);
 	while (modules) {
