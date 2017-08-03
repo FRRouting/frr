@@ -289,7 +289,7 @@ int nhrp_cache_update_binding(struct nhrp_cache *c, enum nhrp_cache_type type, i
 		if (holding_time > 0)
 			c->new.expires = monotime(NULL) + holding_time;
 		else if (holding_time < 0)
-			c->new.type = NHRP_CACHE_INVALID;
+			nhrp_cache_reset_new(c);
 
 		if (c->new.type == NHRP_CACHE_INVALID ||
 		    c->new.type >= NHRP_CACHE_STATIC ||
