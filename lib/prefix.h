@@ -34,21 +34,39 @@
 #include "sockunion.h"
 #include "ipaddr.h"
 
-#ifndef ETHER_ADDR_LEN
-#ifdef ETHERADDRL
-#define ETHER_ADDR_LEN  ETHERADDRL
-#else
-#define ETHER_ADDR_LEN 6
-#endif
+#ifndef ETH_ALEN
+#define ETH_ALEN 6
 #endif
 
-#define ETHER_ADDR_STRLEN (3*ETHER_ADDR_LEN)
+/* for compatibility */
+#if defined(__ICC)
+#define CPP_WARN_STR(X) #X
+#define CPP_WARN(text) _Pragma(CPP_WARN_STR(message __FILE__ ": " text))
+
+#elif (defined(__GNUC__)                                                       \
+       && (__GNUC__ >= 5 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 8)))           \
+	|| (defined(__clang__)                                                 \
+	    && (__clang_major__ >= 4                                           \
+		|| (__clang_major__ == 3 && __clang_minor__ >= 5)))
+#define CPP_WARN_STR(X) #X
+#define CPP_WARN(text) _Pragma(CPP_WARN_STR(GCC warning text))
+
+#else
+#define CPP_WARN(text)
+#endif
+
+#ifdef ETHER_ADDR_LEN
+#undef ETHER_ADDR_LEN
+#endif
+#define ETHER_ADDR_LEN 6 CPP_WARN("ETHER_ADDR_LEN is being replaced by ETH_ALEN.\\n")
+
+#define ETHER_ADDR_STRLEN (3*ETH_ALEN)
 /*
  * there isn't a portable ethernet address type. We define our
  * own to simplify internal handling
  */
 struct ethaddr {
-	u_char octet[ETHER_ADDR_LEN];
+	u_char octet[ETH_ALEN];
 } __attribute__((packed));
 
 
