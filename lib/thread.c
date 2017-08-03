@@ -1315,16 +1315,16 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 		/* Process any pending cancellation requests */
 		do_thread_cancel(m);
 
-		/* Post events to ready queue. This must come before the
-		 * following block
-		 * since events should occur immediately */
+		/*
+		 * Post events to ready queue. This must come before the
+		 * following block since events should occur immediately
+		 */
 		thread_process(&m->event);
 
-		/* If there are no tasks on the ready queue, we will poll()
-		 * until a timer
-		 * expires or we receive I/O, whichever comes first. The
-		 * strategy for doing
-		 * this is:
+		/*
+		 * If there are no tasks on the ready queue, we will poll()
+		 * until a timer expires or we receive I/O, whichever comes
+		 * first. The strategy for doing this is:
 		 *
 		 * - If there are events pending, set the poll() timeout to zero
 		 * - If there are no events pending, but there are timers
@@ -1336,9 +1336,8 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 		 * - If nothing is pending, it's time for the application to die
 		 *
 		 * In every case except the last, we need to hit poll() at least
-		 * once per
-		 * loop to avoid starvation by events */
-
+		 * once per loop to avoid starvation by events
+		 */
 		if (m->ready.count == 0)
 			tw = thread_timer_wait(m->timer, &tv);
 
@@ -1351,9 +1350,10 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 			break;
 		}
 
-		/* Copy pollfd array + # active pollfds in it. Not necessary to
-		 * copy
-		 * the array size as this is fixed. */
+		/*
+		 * Copy pollfd array + # active pollfds in it. Not necessary to
+		 * copy the array size as this is fixed.
+		 */
 		m->handler.copycount = m->handler.pfdcount;
 		memcpy(m->handler.copy, m->handler.pfds,
 		       m->handler.copycount * sizeof(struct pollfd));
@@ -1388,12 +1388,15 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 				break;
 			}
 
-			/* Since we could have received more cancellation
-			 * requests during poll(), process those */
+			/*
+			 * Since we could have received more cancellation
+			 * requests during poll(), process those
+			 */
 			do_thread_cancel(m);
 
-		} else
+		} else {
 			m->tick_since_io++;
+		}
 
 		/* Post timers to ready queue. */
 		monotime(&now);
@@ -1403,8 +1406,7 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 		if (num > 0)
 			thread_process_io(m, num);
 
-		/* If we have a ready task, break the loop and return it to the
-		 * caller */
+		/* have a ready task ==> return it to caller */
 		if ((thread = thread_trim_head(&m->ready))) {
 			fetch = thread_run(m, thread, fetch);
 			if (fetch->ref)
