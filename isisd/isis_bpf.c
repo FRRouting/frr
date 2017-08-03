@@ -250,8 +250,8 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, u_char *ssnpa)
 		     bpf_hdr->bh_caplen - LLC_LEN - ETHER_HDR_LEN);
 	stream_set_getp(circuit->rcv_stream, 0);
 
-	memcpy(ssnpa, readbuff + bpf_hdr->bh_hdrlen + ETHER_ADDR_LEN,
-	       ETHER_ADDR_LEN);
+	memcpy(ssnpa, readbuff + bpf_hdr->bh_hdrlen + ETH_ALEN,
+	       ETH_ALEN);
 
 	if (ioctl(circuit->fd, BIOCFLUSH, &one) < 0)
 		zlog_warn("Flushing failed: %s", safe_strerror(errno));
@@ -281,10 +281,10 @@ int isis_send_pdu_bcast(struct isis_circuit *circuit, int level)
 	 */
 	eth = (struct ether_header *)sock_buff;
 	if (level == 1)
-		memcpy(eth->ether_dhost, ALL_L1_ISS, ETHER_ADDR_LEN);
+		memcpy(eth->ether_dhost, ALL_L1_ISS, ETH_ALEN);
 	else
-		memcpy(eth->ether_dhost, ALL_L2_ISS, ETHER_ADDR_LEN);
-	memcpy(eth->ether_shost, circuit->u.bc.snpa, ETHER_ADDR_LEN);
+		memcpy(eth->ether_dhost, ALL_L2_ISS, ETH_ALEN);
+	memcpy(eth->ether_shost, circuit->u.bc.snpa, ETH_ALEN);
 	size_t frame_size = stream_get_endp(circuit->snd_stream) + LLC_LEN;
 	eth->ether_type = htons(isis_ethertype(frame_size));
 
