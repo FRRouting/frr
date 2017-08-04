@@ -124,7 +124,6 @@ pkginclude_HEADERS += \
 	lib/privs.h \
 	lib/ptm_lib.h \
 	lib/qobj.h \
-	lib/route_types.h \
 	lib/routemap.h \
 	lib/sbuf.h \
 	lib/sha256.h \
@@ -141,7 +140,6 @@ pkginclude_HEADERS += \
 	lib/termtable.h \
 	lib/thread.h \
 	lib/vector.h \
-	lib/version.h \
 	lib/vlan.h \
 	lib/vrf.h \
 	lib/vrf_int.h \
@@ -152,6 +150,11 @@ pkginclude_HEADERS += \
 	lib/zassert.h \
 	lib/zclient.h \
 	lib/zebra.h \
+	# end
+
+nodist_pkginclude_HEADERS += \
+	lib/route_types.h \
+	lib/version.h \
 	# end
 
 noinst_HEADERS += \
@@ -216,6 +219,7 @@ lib_clippy_SOURCES = \
 #
 EXTRA_DIST += \
 	lib/command_lex.h \
+	lib/command_parse.h \
 	lib/gitversion.pl \
 	lib/queue.h \
 	lib/route_types.pl \
@@ -223,8 +227,6 @@ EXTRA_DIST += \
 	# end
 
 BUILT_SOURCES += \
-	lib/command_lex.h \
-	lib/command_parse.h \
 	lib/gitversion.h \
 	lib/route_types.h \
 	# end

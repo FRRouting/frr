@@ -85,9 +85,7 @@ lib/cli/test_commands_defun.c: ../vtysh/vtysh_cmd.c
 
 isisd/test_fuzz_isis_tlv_tests.h: $(top_srcdir)/tests/isisd/test_fuzz_isis_tlv_tests.h.gz
 	gzip -d < $(top_srcdir)/tests/isisd/test_fuzz_isis_tlv_tests.h.gz > "$@"
-
-BUILT_SOURCES = \
-	lib/cli/test_commands_defun.c \
+isisd/isisd_test_fuzz_isis_tlv-test_fuzz_isis_tlv.$(OBJEXT): \
 	isisd/test_fuzz_isis_tlv_tests.h
 
 noinst_HEADERS = \

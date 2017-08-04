@@ -22,6 +22,7 @@ noinst_LIBRARIES =
 lib_LTLIBRARIES =
 module_LTLIBRARIES =
 pkginclude_HEADERS =
+nodist_pkginclude_HEADERS =
 dist_examples_DATA =
 
 include lib/subdir.am

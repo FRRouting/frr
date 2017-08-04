@@ -13,7 +13,6 @@ fpm_libfrrfpm_pb_la_SOURCES = \
 
 if HAVE_PROTOBUF
 nodist_fpm_libfrrfpm_pb_la_SOURCES = fpm/fpm.pb-c.c
-BUILT_SOURCES += fpm/fpm.pb-c.c
 CLEANFILES += \
 	fpm/fpm.pb-c.c \
 	fpm/fpm.pb-c.h \

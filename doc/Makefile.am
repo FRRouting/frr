@@ -45,17 +45,19 @@ figures_txt = $(figures_names_parts:%=fig%.txt)
 # provided by automake. If you are an automake wizard, please feel free to
 # compact it somehow.
 
-# Built from defines.texi.in
-BUILT_SOURCES = defines.texi
-
 info_TEXINFOS = frr.texi
 
 # Have to manually specify the frr.pdf rule in order to allow
 # us to have a generic automatic .pdf rule to build the figure sources
 # because it cant just work from the png's directly it seems - contrary
 # to the documentation...
-frr.pdf: $(info_TEXINFOS) $(figures_pdf) $(frr_TEXINFOS)
+frr.pdf: $(info_TEXINFOS) $(figures_pdf) $(frr_TEXINFOS) defines.texi
 	$(TEXI2PDF) -o "$@" $< || true
+
+# don't ask me why the info file is in srcdir
+$(srcdir)/frr.info: defines.texi
+frr.dvi: defines.texi
+frr.html: defines.texi
 
 frr_TEXINFOS = appendix.texi basic.texi bgpd.texi isisd.texi filter.texi \
 	vnc.texi \
@@ -65,7 +67,7 @@ frr_TEXINFOS = appendix.texi basic.texi bgpd.texi isisd.texi filter.texi \
 	eigrpd.texi \
 	ospf6d.texi ospfd.texi \
 	overview.texi protocol.texi ripd.texi ripngd.texi routemap.texi \
-	snmp.texi vtysh.texi routeserver.texi defines.texi $(figures_png) \
+	snmp.texi vtysh.texi routeserver.texi $(figures_png) \
 	snmptrap.texi ospf_fundamentals.texi isisd.texi $(figures_txt)
 
 .png.eps:
