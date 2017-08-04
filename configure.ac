@@ -1352,7 +1352,6 @@ AC_SUBST(RFPINC)
 AC_SUBST(BABELD)
 AC_SUBST(BGPD)
 AC_SUBST(LDPD)
-AC_SUBST(NHRPD)
 AC_SUBST(EIGRPD)
 AC_SUBST(WATCHFRR)
 AC_SUBST(ISISD)
@@ -1811,7 +1810,6 @@ AC_CONFIG_FILES([Makefile
 	  babeld/Makefile
 	  pimd/Makefile
 	  eigrpd/Makefile
-	  nhrpd/Makefile
 	  tools/Makefile
 	  redhat/frr.spec
 	  snapcraft/snapcraft.yaml
