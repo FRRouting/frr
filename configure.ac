@@ -1840,6 +1840,34 @@ AC_CONFIG_FILES([solaris/Makefile])
 
 AC_CONFIG_FILES([vtysh/extract.pl],[chmod +x vtysh/extract.pl])
 
+AC_CONFIG_COMMANDS([lib/route_types.h], [
+	dst="${ac_abs_top_builddir}/lib/route_types.h"
+	${PERL} "${ac_abs_top_srcdir}/lib/route_types.pl" \
+		< "${ac_abs_top_srcdir}/lib/route_types.txt" \
+		> "${dst}.tmp"
+	test -f "${dst}" \
+		&& diff "${dst}.tmp" "${dst}" >/dev/null 2>/dev/null \
+		&& rm "${dst}.tmp" \
+		|| mv "${dst}.tmp" "${dst}"
+], [
+	PERL="$PERL"
+])
+
+AS_IF([test "x$with_pkg_git_version" = "xyes"], [
+    AC_CONFIG_COMMANDS([lib/gitversion.h], [
+	dst="${ac_abs_top_builddir}/lib/gitversion.h"
+	${PERL} "${ac_abs_top_srcdir}/lib/gitversion.pl" \
+		"${ac_abs_top_srcdir}" \
+		> "${dst}.tmp"
+	test -f "${dst}" \
+		&& diff "${dst}.tmp" "${dst}" >/dev/null 2>/dev/null \
+		&& rm "${dst}.tmp" \
+		|| mv "${dst}.tmp" "${dst}"
+    ], [
+	PERL="$PERL"
+    ])
+])
+
 ## Hack, but working solution to avoid rebuilding of frr.info.
 ## It's already in CVS until texinfo 4.7 is more common.
 AC_OUTPUT
