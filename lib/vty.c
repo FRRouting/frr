@@ -306,6 +306,7 @@ struct vty *vty_new()
 {
 	struct vty *new = XCALLOC(MTYPE_VTY, sizeof(struct vty));
 
+	new->fd = new->wfd = -1;
 	new->obuf = buffer_new(0); /* Use default buffer size. */
 	new->buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
 	new->error_buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
@@ -2129,16 +2130,21 @@ void vty_close(struct vty *vty)
 			XFREE(MTYPE_VTY_HIST, vty->hist[i]);
 
 	/* Unset vector. */
-	vector_unset(vtyvec, vty->fd);
+	if (vty->fd != -1)
+		vector_unset(vtyvec, vty->fd);
 
 	if (vty->wfd > 0 && vty->type == VTY_FILE)
 		fsync(vty->wfd);
 
-	/* Close socket. */
-	if (vty->fd > 0) {
+	/* Close socket.
+	 * note check is for fd > STDERR_FILENO, not fd != -1.
+	 * We never close stdin/stdout/stderr here, because we may be
+	 * running in foreground mode with logging to stdout.  Also,
+	 * additionally, we'd need to replace these fds with /dev/null. */
+	if (vty->wfd > STDERR_FILENO && vty->wfd != vty->fd)
+		close(vty->wfd);
+	if (vty->fd > STDERR_FILENO) {
 		close(vty->fd);
-		if (vty->wfd > 0 && vty->wfd != vty->fd)
-			close(vty->wfd);
 	} else
 		was_stdio = true;
 
@@ -2186,13 +2192,14 @@ static void vty_read_file(FILE *confp)
 	unsigned int line_num = 0;
 
 	vty = vty_new();
-	vty->wfd = dup(STDERR_FILENO); /* vty_close() will close this */
-	if (vty->wfd < 0) {
-		/* Fine, we couldn't make a new fd. vty_close doesn't close
-		 * stdout. */
-		vty->wfd = STDOUT_FILENO;
-	}
-	vty->fd = STDIN_FILENO;
+	/* vty_close won't close stderr;  if some config command prints
+	 * something it'll end up there.  (not ideal; it'd be beter if output
+	 * from a file-load went to logging instead.  Also note that if this
+	 * function is called after daemonizing, stderr will be /dev/null.)
+	 *
+	 * vty->fd will be -1 from vty_new()
+	 */
+	vty->wfd = STDERR_FILENO;
 	vty->type = VTY_FILE;
 	vty->node = CONFIG_NODE;
 
@@ -2200,7 +2207,7 @@ static void vty_read_file(FILE *confp)
 	ret = config_from_file(vty, confp, &line_num);
 
 	/* Flush any previous errors before printing messages below */
-	buffer_flush_all(vty->obuf, vty->fd);
+	buffer_flush_all(vty->obuf, vty->wfd);
 
 	if (!((ret == CMD_SUCCESS) || (ret == CMD_ERR_NOTHING_TODO))) {
 		const char *message = NULL;
