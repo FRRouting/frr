@@ -566,12 +566,6 @@ unsigned int attrhash_key_make(void *p)
 	MIX(attr->nexthop.s_addr);
 	MIX(attr->med);
 	MIX(attr->local_pref);
-
-	key += attr->origin;
-	key += attr->nexthop.s_addr;
-	key += attr->med;
-	key += attr->local_pref;
-
 	MIX(attr->aggregator_as);
 	MIX(attr->aggregator_addr.s_addr);
 	MIX(attr->weight);
