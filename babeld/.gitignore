@@ -2,6 +2,7 @@
 !*.c
 !*.h
 !LICENCE
-!Makefile.am
+!Makefile
+!subdir.am
 !babeld.conf.sample
 !.gitignore

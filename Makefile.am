@@ -38,17 +38,19 @@ include ospfclient/subdir.am
 include isisd/subdir.am
 include nhrpd/subdir.am
 include ldpd/subdir.am
+include babeld/subdir.am
+include eigrpd/subdir.am
 
 SUBDIRS = . @LIBRFP@ @RFPTEST@ \
 	 @BGPD@ \
-         @PIMD@ @EIGRPD@ @BABELD@ \
+         @PIMD@ \
 	 @WATCHFRR@ @VTYSH@ @DOC@ \
          @SOLARIS@ tests tools
 
 DIST_SUBDIRS = . bgpd \
 	  watchfrr vtysh doc tests \
-	  solaris pimd eigrpd bgpd/rfp-example/librfp \
-	  bgpd/rfp-example/rfptest tools babeld \
+	  solaris pimd bgpd/rfp-example/librfp \
+	  bgpd/rfp-example/rfptest tools \
 	  # end
 
 if PKGSRC

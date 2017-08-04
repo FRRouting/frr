@@ -1,0 +1,47 @@
+#
+# babeld
+#
+
+if BABELD
+noinst_LIBRARIES += babeld/libbabel.a
+sbin_PROGRAMS += babeld/babeld
+dist_examples_DATA += babeld/babeld.conf.sample
+endif
+
+babeld_libbabel_a_SOURCES = \
+	babeld/babel_filter.c \
+	babeld/babel_interface.c \
+	babeld/babel_memory.c \
+	babeld/babel_zebra.c \
+	babeld/babeld.c \
+	babeld/kernel.c \
+	babeld/message.c \
+	babeld/neighbour.c \
+	babeld/net.c \
+	babeld/resend.c \
+	babeld/route.c \
+	babeld/source.c \
+	babeld/util.c \
+	babeld/xroute.c \
+	# end
+
+noinst_HEADERS += \
+	babeld/babel_filter.h \
+	babeld/babel_interface.h \
+	babeld/babel_main.h \
+	babeld/babel_memory.h \
+	babeld/babel_zebra.h \
+	babeld/babeld.h \
+	babeld/kernel.h \
+	babeld/message.h \
+	babeld/neighbour.h \
+	babeld/net.h \
+	babeld/resend.h \
+	babeld/route.h \
+	babeld/source.h \
+	babeld/util.h \
+	babeld/xroute.h \
+	# end
+
+babeld_babeld_SOURCES = babeld/babel_main.c
+babeld_babeld_LDADD = babeld/libbabel.a lib/libfrr.la @LIBCAP@

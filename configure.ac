@@ -1274,12 +1274,7 @@ case "$host_os" in
 esac
 AM_CONDITIONAL(NHRPD, test "x$NHRPD" = "xnhrpd")
 
-if test "${enable_eigrpd}" = "no";then
-  EIGRPD=""
-else
-  EIGRPD="eigrpd"
-fi
-AM_CONDITIONAL(EIGRPD, test "x$EIGRPD" = "xeigrpd")
+AM_CONDITIONAL(EIGRPD, test "${enable_eigrpd}" != "no")
 
 if test "${enable_watchfrr}" = "no";then
   WATCHFRR=""
@@ -1298,15 +1293,8 @@ if test "${enable_ospfapi}" != "no";then
 fi
 
 AM_CONDITIONAL(OSPFCLIENT, test "x$OSPFCLIENT" = "xospfclient")
-
 AM_CONDITIONAL(RIPNGD, test "${enable_ripngd}" != "no")
-
-case "${enable_babeld}" in
-  "no" ) BABELD="";;
-  *    ) BABELD="babeld";;
-esac
-AM_CONDITIONAL(BABELD, test "x$BABELD" = "xbabeld")
-
+AM_CONDITIONAL(BABELD, test "${enable_babeld}" != "no")
 AM_CONDITIONAL(OSPF6D, test "${enable_ospf6d}" != "no")
 AM_CONDITIONAL(ISISD, test "${enable_isisd}" != "no")
 
@@ -1347,9 +1335,7 @@ AC_SUBST(DOC)
 AC_SUBST(RFPTEST)
 AC_SUBST(LIBRFP)
 AC_SUBST(RFPINC)
-AC_SUBST(BABELD)
 AC_SUBST(BGPD)
-AC_SUBST(EIGRPD)
 AC_SUBST(WATCHFRR)
 AC_SUBST(ISISD)
 AC_SUBST(PIMD)
@@ -1804,9 +1790,7 @@ AC_CONFIG_FILES([Makefile
 	  vtysh/Makefile
 	  doc/Makefile tests/Makefile
 	  bgpd/rfp-example/rfptest/Makefile bgpd/rfp-example/librfp/Makefile
-	  babeld/Makefile
 	  pimd/Makefile
-	  eigrpd/Makefile
 	  tools/Makefile
 	  redhat/frr.spec
 	  snapcraft/snapcraft.yaml
