@@ -27,25 +27,12 @@
 #include "table.h"
 #include "memory.h"
 #include "sockunion.h"
-#include "jhash.h"
 
 DEFINE_MTYPE(LIB, ROUTE_TABLE, "Route table")
 DEFINE_MTYPE(LIB, ROUTE_NODE, "Route node")
 
 static void route_node_delete(struct route_node *);
 static void route_table_free(struct route_table *);
-
-static unsigned route_table_hash_key(void *pp)
-{
-	struct prefix copy;
-
-	/* make sure *all* unused bits are zero, particularly including
-	 * alignment /
-	 * padding and unused prefix bytes. */
-	memset(&copy, 0, sizeof(copy));
-	prefix_copy(&copy, (struct prefix *)pp);
-	return jhash(&copy, sizeof(copy), 0x55aa5a5a);
-}
 
 static int route_table_hash_cmp(const void *a, const void *b)
 {
@@ -63,7 +50,7 @@ route_table_init_with_delegate(route_table_delegate_t *delegate)
 
 	rt = XCALLOC(MTYPE_ROUTE_TABLE, sizeof(struct route_table));
 	rt->delegate = delegate;
-	rt->hash = hash_create(route_table_hash_key, route_table_hash_cmp,
+	rt->hash = hash_create(prefix_hash_key, route_table_hash_cmp,
 			       "route table hash");
 	return rt;
 }

@@ -358,33 +358,26 @@ DEFUN(show_hash_stats,
 
 	/* Summary statistics calculated are:
 	 *
-	 * - Load factor: This is the number of elements in the table divided by
-	 * the
-	 *   number of buckets. Since this hash table implementation uses
-	 * chaining,
-	 *   this value can be greater than 1. This number provides information
-	 * on
-	 *   how 'full' the table is, but does not provide information on how
-	 * evenly
-	 *   distributed the elements are. Notably, a load factor >= 1 does not
-	 * imply
-	 *   that every bucket has an element; with a pathological hash
-	 * function, all
-	 *   elements could be in a single bucket.
+	 * - Load factor: This is the number of elements in the table divided
+	 *   by the number of buckets. Since this hash table implementation
+	 *   uses chaining, this value can be greater than 1.
+	 *   This number provides information on how 'full' the table is, but
+	 *   does not provide information on how evenly distributed the
+	 *   elements are.
+	 *   Notably, a load factor >= 1 does not imply that every bucket has
+	 *   an element; with a pathological hash function, all elements could
+	 *   be in a single bucket.
 	 *
 	 * - Full load factor: this is the number of elements in the table
-	 * divided by
-	 *   the number of buckets that have some elements in them.
+	 *   divided by the number of buckets that have some elements in them.
 	 *
 	 * - Std. Dev.: This is the standard deviation calculated from the
-	 * relevant
-	 *   load factor. If the load factor is the mean of number of elements
-	 * per
-	 *   bucket, the standard deviation measures how much any particular
-	 * bucket
-	 *   is likely to deviate from the mean. As a rule of thumb this number
-	 *   should be less than 2, and ideally <= 1 for optimal performance. A
-	 *   number larger than 3 generally indicates a poor hash function.
+	 *   relevant load factor. If the load factor is the mean of number of
+	 *   elements per bucket, the standard deviation measures how much any
+	 *   particular bucket is likely to deviate from the mean.
+	 *   As a rule of thumb this number should be less than 2, and ideally
+	 *   <= 1 for optimal performance. A number larger than 3 generally
+	 *   indicates a poor hash function.
 	 */
 
 	double lf;    // load factor

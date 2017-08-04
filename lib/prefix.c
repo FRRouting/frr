@@ -26,6 +26,7 @@
 #include "sockunion.h"
 #include "memory.h"
 #include "log.h"
+#include "jhash.h"
 
 DEFINE_MTYPE_STATIC(LIB, PREFIX, "Prefix")
 
@@ -1334,4 +1335,16 @@ char *prefix_mac2str(const struct ethaddr *mac, char *buf, int size)
 		 (uint8_t)mac->octet[2], (uint8_t)mac->octet[3],
 		 (uint8_t)mac->octet[4], (uint8_t)mac->octet[5]);
 	return ptr;
+}
+
+unsigned prefix_hash_key(void *pp)
+{
+	struct prefix copy;
+
+	/* make sure *all* unused bits are zero, particularly including
+	 * alignment /
+	 * padding and unused prefix bytes. */
+	memset(&copy, 0, sizeof(copy));
+	prefix_copy(&copy, (struct prefix *)pp);
+	return jhash(&copy, sizeof(copy), 0x55aa5a5a);
 }
