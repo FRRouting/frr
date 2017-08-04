@@ -478,59 +478,48 @@ static uint16_t bgp_read(struct peer *peer)
 
 	nbytes = stream_read_try(peer->ibuf_work, peer->fd, readsize);
 
-	if (nbytes <= 0) // handle errors
-	{
-		switch (nbytes) {
-		case -1: // fatal error; tear down the session
-			zlog_err("%s [Error] bgp_read_packet error: %s",
-				 peer->host, safe_strerror(errno));
+	switch (nbytes) {
+	/* Fatal error; tear down session */
+	case -1:
+		zlog_err("%s [Error] bgp_read_packet error: %s", peer->host,
+			 safe_strerror(errno));
 
-			if (peer->status == Established) {
-				if (CHECK_FLAG(peer->sflags,
-					       PEER_STATUS_NSF_MODE)) {
-					peer->last_reset =
-					    PEER_DOWN_NSF_CLOSE_SESSION;
-					SET_FLAG(peer->sflags,
-						 PEER_STATUS_NSF_WAIT);
-				} else
-					peer->last_reset =
-					    PEER_DOWN_CLOSE_SESSION;
-			}
-
-			BGP_EVENT_ADD(peer, TCP_fatal_error);
-			SET_FLAG(status, BGP_IO_FATAL_ERR);
-			break;
-
-		case 0: // TCP session closed
-			if (bgp_debug_neighbor_events(peer))
-				zlog_debug(
-				    "%s [Event] BGP connection closed fd %d",
-				    peer->host, peer->fd);
-
-			if (peer->status == Established) {
-				if (CHECK_FLAG(peer->sflags,
-					       PEER_STATUS_NSF_MODE)) {
-					peer->last_reset =
-					    PEER_DOWN_NSF_CLOSE_SESSION;
-					SET_FLAG(peer->sflags,
-						 PEER_STATUS_NSF_WAIT);
-				} else
-					peer->last_reset =
-					    PEER_DOWN_CLOSE_SESSION;
-			}
-
-			BGP_EVENT_ADD(peer, TCP_connection_closed);
-			SET_FLAG(status, BGP_IO_FATAL_ERR);
-			break;
-
-		case -2: // temporary error; come back later
-			SET_FLAG(status, BGP_IO_TRANS_ERR);
-			break;
-		default:
-			break;
+		if (peer->status == Established) {
+			if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)) {
+				peer->last_reset = PEER_DOWN_NSF_CLOSE_SESSION;
+				SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
+			} else
+				peer->last_reset = PEER_DOWN_CLOSE_SESSION;
 		}
 
-		return status;
+		BGP_EVENT_ADD(peer, TCP_fatal_error);
+		SET_FLAG(status, BGP_IO_FATAL_ERR);
+		break;
+
+	/* Received EOF / TCP session closed */
+	case 0:
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s [Event] BGP connection closed fd %d",
+				   peer->host, peer->fd);
+
+		if (peer->status == Established) {
+			if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_MODE)) {
+				peer->last_reset = PEER_DOWN_NSF_CLOSE_SESSION;
+				SET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
+			} else
+				peer->last_reset = PEER_DOWN_CLOSE_SESSION;
+		}
+
+		BGP_EVENT_ADD(peer, TCP_connection_closed);
+		SET_FLAG(status, BGP_IO_FATAL_ERR);
+		break;
+
+	/* EAGAIN or EWOULDBLOCK; come back later */
+	case -2:
+		SET_FLAG(status, BGP_IO_TRANS_ERR);
+		break;
+	default:
+		break;
 	}
 
 	return status;
