@@ -404,7 +404,7 @@ DEFUN(show_hash_stats,
 			continue;
 
 		ssq = (long double)h->stats.ssq;
-		x2 = powl(h->count, 2.0);
+		x2 = h->count * h->count;
 		ldc = (long double)h->count;
 		full = h->size - h->stats.empty;
 		lf = h->count / (double)h->size;
