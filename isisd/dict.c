@@ -174,6 +174,7 @@ static int verify_bintree(dict_t *dict)
  * subtree is not red-black.
  */
 
+#ifdef EXTREME_DICT_DEBUG
 static unsigned int verify_redblack(dnode_t *nil, dnode_t *root)
 {
 	unsigned height_left, height_right;
@@ -198,6 +199,7 @@ static unsigned int verify_redblack(dnode_t *nil, dnode_t *root)
 	}
 	return 1;
 }
+#endif
 
 /*
  * Compute the actual count of nodes by traversing the tree and
@@ -205,6 +207,7 @@ static unsigned int verify_redblack(dnode_t *nil, dnode_t *root)
  * detect a mismatch.
  */
 
+#ifdef EXTREME_DICT_DEBUG
 static dictcount_t verify_node_count(dnode_t *nil, dnode_t *root)
 {
 	if (root == nil)
@@ -213,6 +216,7 @@ static dictcount_t verify_node_count(dnode_t *nil, dnode_t *root)
 		return 1 + verify_node_count(nil, root->left)
 		       + verify_node_count(nil, root->right);
 }
+#endif
 
 /*
  * Verify that the tree contains the given node. This is done by
@@ -369,6 +373,7 @@ static void dict_clear(dict_t *dict)
 
 int dict_verify(dict_t *dict)
 {
+#ifdef EXTREME_DICT_DEBUG
 	dnode_t *nil = dict_nil(dict), *root = dict_root(dict);
 
 	/* check that the sentinel node and root node are black */
@@ -389,6 +394,7 @@ int dict_verify(dict_t *dict)
 		return 0;
 	if (verify_node_count(nil, root) != dict_count(dict))
 		return 0;
+#endif
 	return 1;
 }
 
