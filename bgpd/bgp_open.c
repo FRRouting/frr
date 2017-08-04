@@ -271,7 +271,7 @@ static int bgp_capability_mp(struct peer *peer, struct capability_header *hdr)
 }
 
 static void bgp_capability_orf_not_support(struct peer *peer, iana_afi_t afi,
-					   safi_t safi, u_char type,
+					   iana_safi_t safi, u_char type,
 					   u_char mode)
 {
 	if (bgp_debug_neighbor_events(peer))
