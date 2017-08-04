@@ -256,7 +256,6 @@ extern void ospf6_linkstate_prefix2str(struct prefix *prefix, char *buf,
 
 extern struct ospf6_nexthop *ospf6_nexthop_create(void);
 extern void ospf6_nexthop_delete(struct ospf6_nexthop *nh);
-extern void ospf6_free_nexthops(struct list *nh_list);
 extern void ospf6_clear_nexthops(struct list *nh_list);
 extern int ospf6_num_nexthops(struct list *nh_list);
 extern void ospf6_copy_nexthops(struct list *dst, struct list *src);

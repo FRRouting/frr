@@ -178,17 +178,6 @@ void ospf6_nexthop_delete(struct ospf6_nexthop *nh)
 		XFREE(MTYPE_OSPF6_NEXTHOP, nh);
 }
 
-void ospf6_free_nexthops(struct list *nh_list)
-{
-	struct ospf6_nexthop *nh;
-	struct listnode *node, *nnode;
-
-	if (nh_list) {
-		for (ALL_LIST_ELEMENTS(nh_list, node, nnode, nh))
-			ospf6_nexthop_delete(nh);
-	}
-}
-
 void ospf6_clear_nexthops(struct list *nh_list)
 {
 	struct listnode *node;
@@ -340,19 +329,29 @@ int ospf6_route_get_first_nh_index(struct ospf6_route *route)
 	return (-1);
 }
 
+static int ospf6_nexthop_cmp(struct ospf6_nexthop *a, struct ospf6_nexthop *b)
+{
+	if ((a)->ifindex == (b)->ifindex &&
+	    IN6_ARE_ADDR_EQUAL(&(a)->address, &(b)->address))
+		return 1;
+	return 0;
+}
+
 struct ospf6_route *ospf6_route_create(void)
 {
 	struct ospf6_route *route;
 	route = XCALLOC(MTYPE_OSPF6_ROUTE, sizeof(struct ospf6_route));
 	route->nh_list = list_new();
+	route->nh_list->cmp = (int (*)(void *, void *))ospf6_nexthop_cmp;
+	route->nh_list->del = (void (*) (void *))ospf6_nexthop_delete;
 	return route;
 }
 
 void ospf6_route_delete(struct ospf6_route *route)
 {
 	if (route) {
-		ospf6_free_nexthops(route->nh_list);
-		list_free(route->nh_list);
+		if (route->nh_list)
+			list_delete(route->nh_list);
 		XFREE(MTYPE_OSPF6_ROUTE, route);
 	}
 }
@@ -439,6 +438,7 @@ struct ospf6_route *ospf6_route_lookup(struct prefix *prefix,
 		return NULL;
 
 	route = (struct ospf6_route *)node->info;
+	route_unlock_node(node); /* to free the lookup lock */
 	return route;
 }
 
@@ -583,6 +583,8 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 			SET_FLAG(old->flag, OSPF6_ROUTE_ADD);
 			ospf6_route_table_assert(table);
 
+			/* to free the lookup lock */
+			route_unlock_node(node);
 			return old;
 		}
 
@@ -628,9 +630,10 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 	if (prev || next) {
 		if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
 			zlog_debug(
-				"%s %p: route add %p: another path: prev %p, next %p",
+				"%s %p: route add %p: another path: prev %p, next %p node refcount %u",
 				ospf6_route_table_name(table), (void *)table,
-				(void *)route, (void *)prev, (void *)next);
+				(void *)route, (void *)prev, (void *)next,
+				node->lock);
 		else if (IS_OSPF6_DEBUG_ROUTE(TABLE))
 			zlog_debug("%s: route add: another path found",
 				   ospf6_route_table_name(table));
@@ -755,9 +758,9 @@ void ospf6_route_remove(struct ospf6_route *route,
 		prefix2str(&route->prefix, buf, sizeof(buf));
 
 	if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
-		zlog_debug("%s %p: route remove %p: %s",
+		zlog_debug("%s %p: route remove %p: %s rnode refcount %u",
 			   ospf6_route_table_name(table), (void *)table,
-			   (void *)route, buf);
+			   (void *)route, buf, route->rnode->lock);
 	else if (IS_OSPF6_DEBUG_ROUTE(TABLE))
 		zlog_debug("%s: route remove: %s",
 			   ospf6_route_table_name(table), buf);
@@ -768,11 +771,9 @@ void ospf6_route_remove(struct ospf6_route *route,
 	/* find the route to remove, making sure that the route pointer
 	   is from the route table. */
 	current = node->info;
-	while (current && ospf6_route_is_same(current, route)) {
-		if (current == route)
-			break;
+	while (current && current != route)
 		current = current->next;
-	}
+
 	assert(current == route);
 
 	/* adjust doubly linked list */
@@ -785,10 +786,14 @@ void ospf6_route_remove(struct ospf6_route *route,
 		if (route->next && route->next->rnode == node) {
 			node->info = route->next;
 			SET_FLAG(route->next->flag, OSPF6_ROUTE_BEST);
-		} else
-			node->info = NULL; /* should unlock route_node here ? */
+		} else {
+			node->info = NULL;
+			route->rnode = NULL;
+			route_unlock_node(node); /* to free the original lock */
+		}
 	}
 
+	route_unlock_node(node); /* to free the lookup lock */
 	table->count--;
 	ospf6_route_table_assert(table);
 
@@ -935,6 +940,7 @@ struct ospf6_route_table *ospf6_route_table_create(int s, int t)
 void ospf6_route_table_delete(struct ospf6_route_table *table)
 {
 	ospf6_route_remove_all(table);
+	bf_free(table->idspace);
 	route_table_finish(table->table);
 	XFREE(MTYPE_OSPF6_ROUTE, table);
 }
@@ -1062,6 +1068,7 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route)
 	vty_out(vty, "Metric: %d (%d)\n", route->path.cost,
 		route->path.u.cost_e2);
 
+	vty_out(vty, "Nexthop count: %u\n", route->nh_list->count);
 	/* Nexthops */
 	vty_out(vty, "Nexthop:\n");
 	for (ALL_LIST_ELEMENTS_RO(route->nh_list, node, nh)) {

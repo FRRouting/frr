@@ -590,6 +590,7 @@ static void ospf_finish_final(struct ospf *ospf)
 			route_unlock_node(rn);
 		}
 	}
+	route_table_finish(ospf->networks);
 
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
 		listnode_delete(ospf->areas, area);
@@ -655,6 +656,8 @@ static void ospf_finish_final(struct ospf *ospf)
 	}
 
 	list_delete(ospf->areas);
+	list_delete(ospf->oi_write_q);
+	list_delete(ospf->oiflist);
 
 	for (i = ZEBRA_ROUTE_SYSTEM; i <= ZEBRA_ROUTE_MAX; i++) {
 		struct list *ext_list;
@@ -752,6 +755,7 @@ static void ospf_area_free(struct ospf_area *area)
 	LSDB_LOOP(OPAQUE_LINK_LSDB(area), rn, lsa)
 	ospf_discard_from_db(area->ospf, area->lsdb, lsa);
 
+	ospf_opaque_type10_lsa_term(area);
 	ospf_lsdb_delete_all(area->lsdb);
 	ospf_lsdb_free(area->lsdb);
 
