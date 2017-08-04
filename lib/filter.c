@@ -156,29 +156,6 @@ static const char *filter_type_str(struct filter *filter)
 	}
 }
 
-/*
- * mac filter match
- * n is of type struct prefix_eth
- * p can be of type struct ethaddr
- */
-static int mac_filter_match(struct prefix *n, struct ethaddr *p)
-{
-	if (!n && !p)
-		return 1;
-
-	if (!n || !p)
-		return 0;
-
-	/* check if we are matching on any mac */
-	if (is_zero_mac(&(n->u.prefix_eth)))
-		return 1;
-
-	if (memcmp(&(n->u.prefix), p, sizeof(struct ethaddr)) == 0)
-		return 1;
-
-	return 0;
-}
-
 /* If filter match to the prefix then return 1. */
 static int filter_match_cisco(struct filter *mfilter, struct prefix *p)
 {
@@ -204,24 +181,19 @@ static int filter_match_cisco(struct filter *mfilter, struct prefix *p)
 }
 
 /* If filter match to the prefix then return 1. */
-static int filter_match_zebra(struct filter *mfilter, void *obj)
+static int filter_match_zebra(struct filter *mfilter, struct prefix *p)
 {
 	struct filter_zebra *filter = NULL;
 
 	filter = &mfilter->u.zfilter;
 
 	if (filter->prefix.family == AF_ETHERNET) {
-		struct ethaddr *p = NULL;
-
-		p = (struct ethaddr *)obj;
-		return mac_filter_match(&filter->prefix, p);
+		return prefix_match(&filter->prefix, p);
 	}
 
 	if (filter->prefix.family == AF_INET
 	    || filter->prefix.family == AF_INET6) {
-		struct prefix *p = NULL;
 
-		p = (struct prefix *)obj;
 		if (filter->prefix.family == p->family) {
 			if (filter->exact) {
 				if (filter->prefix.prefixlen == p->prefixlen)
@@ -413,9 +385,7 @@ static struct access_list *access_list_get(afi_t afi, const char *name)
 enum filter_type access_list_apply(struct access_list *access, void *object)
 {
 	struct filter *filter;
-	struct prefix *p;
-
-	p = (struct prefix *)object;
+	struct prefix *p = (struct prefix *)object;
 
 	if (access == NULL)
 		return FILTER_DENY;
@@ -425,7 +395,7 @@ enum filter_type access_list_apply(struct access_list *access, void *object)
 			if (filter_match_cisco(filter, p))
 				return filter->type;
 		} else {
-			if (filter_match_zebra(filter, object))
+			if (filter_match_zebra(filter, p))
 				return filter->type;
 		}
 	}
@@ -566,16 +536,8 @@ static struct filter *filter_lookup_zebra(struct access_list *access,
 
 		if (filter->exact == new->exact
 		    && mfilter->type == mnew->type) {
-			if (new->prefix.family == AF_ETHERNET) {
-				if (prefix_eth_same(
-					    (struct prefix_eth *)&filter
-						    ->prefix,
-					    (struct prefix_eth *)&new->prefix))
-					return mfilter;
-			} else {
-				if (prefix_same(&filter->prefix, &new->prefix))
-					return mfilter;
-			}
+			if (prefix_same(&filter->prefix, &new->prefix))
+				return mfilter;
 		}
 	}
 	return NULL;

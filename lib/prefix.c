@@ -301,7 +301,7 @@ static const struct in6_addr maskbytes6[] = {
 
 #define MASKBIT(offset)  ((0xff << (PNBBY - (offset))) & 0xff)
 
-int is_zero_mac(struct ethaddr *mac)
+int is_zero_mac(const struct ethaddr *mac)
 {
 	int i = 0;
 
@@ -477,24 +477,6 @@ void prefix_copy(struct prefix *dest, const struct prefix *src)
 			 src->family);
 		assert(0);
 	}
-}
-
-/* check if the two prefix_eth struct are same*/
-int prefix_eth_same(struct prefix_eth *p1, struct prefix_eth *p2)
-{
-	if (!p1 && !p2)
-		return 1;
-
-	if (p1 && !p2)
-		return 0;
-
-	if (!p1 && p2)
-		return 0;
-
-	if (memcmp(p1, p2, sizeof(struct prefix_eth)) == 0)
-		return 1;
-
-	return 0;
 }
 
 /*
@@ -699,6 +681,7 @@ int str2prefix_eth(const char *str, struct prefix_eth *p)
 	const char *str_addr = str;
 	unsigned int a[6];
 	int i;
+	bool slash = false;
 
 	/* Find slash inside string. */
 	pnt = strchr(str, '/');
@@ -716,6 +699,7 @@ int str2prefix_eth(const char *str, struct prefix_eth *p)
 		*(cp + (pnt - str)) = '\0';
 
 		str_addr = cp;
+		slash = true;
 	}
 
 	/* Convert string to prefix. */
@@ -730,6 +714,15 @@ int str2prefix_eth(const char *str, struct prefix_eth *p)
 	}
 	p->prefixlen = plen;
 	p->family = AF_ETHERNET;
+
+	/*
+	 * special case to allow old configurations to work
+	 * Since all zero's is implicitly meant to allow
+	 * a comparison to zero, let's assume
+	 */
+	if (!slash && is_zero_mac(&(p->eth_addr)))
+	    p->prefixlen = 0;
+
 	ret = 1;
 
 done:

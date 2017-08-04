@@ -585,6 +585,7 @@ static route_map_result_t route_match_mac_address(void *rule,
 						  void *object)
 {
 	struct access_list *alist;
+	struct prefix p;
 
 	if (type == RMAP_BGP) {
 		alist = access_list_lookup(AFI_L2VPN, (char *)rule);
@@ -594,7 +595,11 @@ static route_map_result_t route_match_mac_address(void *rule,
 		if (prefix->u.prefix_evpn.route_type != BGP_EVPN_MAC_IP_ROUTE)
 			return RMAP_NOMATCH;
 
-		return (access_list_apply(alist, &(prefix->u.prefix_evpn.mac))
+		p.family = AF_ETHERNET;
+		p.prefixlen = ETH_ALEN * 8;
+		p.u.prefix_eth = prefix->u.prefix_evpn.mac;
+
+		return (access_list_apply(alist, &p)
 					== FILTER_DENY
 				? RMAP_NOMATCH
 				: RMAP_MATCH);

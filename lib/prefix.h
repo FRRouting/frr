@@ -276,7 +276,7 @@ union prefixconstptr {
 #endif /*s6_addr32*/
 
 /* Prototypes. */
-extern int is_zero_mac(struct ethaddr *mac);
+extern int is_zero_mac(const struct ethaddr *mac);
 extern int str2family(const char *);
 extern int afi2family(afi_t);
 extern afi_t family2afi(int);
@@ -305,7 +305,6 @@ extern int prefix_cmp(const struct prefix *, const struct prefix *);
 extern int prefix_common_bits(const struct prefix *, const struct prefix *);
 extern void prefix_copy(struct prefix *dest, const struct prefix *src);
 extern void apply_mask(struct prefix *);
-extern int prefix_eth_same(struct prefix_eth *p1, struct prefix_eth *p2);
 
 extern struct prefix *sockunion2prefix(const union sockunion *dest,
 				       const union sockunion *mask);
