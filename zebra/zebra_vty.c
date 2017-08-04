@@ -540,6 +540,9 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				break;
 			}
 
+			if (re->nexthop_mtu)
+				vty_out(vty, ", mtu %u", re->nexthop_mtu);
+
 			/* Label information */
 			if (nexthop->nh_label
 			    && nexthop->nh_label->num_labels) {
@@ -586,8 +589,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
 			json_object_boolean_true_add(json_route, "selected");
 
-		if (re->type != ZEBRA_ROUTE_CONNECT
-		    && re->type != ZEBRA_ROUTE_KERNEL) {
+		if (re->type != ZEBRA_ROUTE_CONNECT) {
 			json_object_int_add(json_route, "distance",
 					    re->distance);
 			json_object_int_add(json_route, "metric", re->metric);
@@ -774,8 +776,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				srcdest_rnode2str(rn, buf, sizeof buf));
 
 			/* Distance and metric display. */
-			if (re->type != ZEBRA_ROUTE_CONNECT
-			    && re->type != ZEBRA_ROUTE_KERNEL)
+			if (re->type != ZEBRA_ROUTE_CONNECT)
 				len += vty_out(vty, " [%d/%d]", re->distance,
 					       re->metric);
 		} else

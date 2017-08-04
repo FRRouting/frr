@@ -505,6 +505,8 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 					}
 					resolved = 1;
 				}
+			if (resolved && set)
+				re->nexthop_mtu = match->mtu;
 			return resolved;
 		} else if (re->type == ZEBRA_ROUTE_STATIC) {
 			resolved = 0;
@@ -2237,13 +2239,12 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 			continue;
 
 		if (same->type == re->type && same->instance == re->instance
-		    && same->table == re->table
-		    && same->type != ZEBRA_ROUTE_CONNECT)
+		    && same->table == re->table && !RIB_SYSTEM_ROUTE(same))
 			break;
 	}
 
 	/* If this route is kernel route, set FIB flag to the route. */
-	if (re->type == ZEBRA_ROUTE_KERNEL || re->type == ZEBRA_ROUTE_CONNECT)
+	if (RIB_SYSTEM_ROUTE(re))
 		for (nexthop = re->nexthop; nexthop; nexthop = nexthop->next)
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 
@@ -2467,11 +2468,11 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 			continue;
 		if (re->instance != instance)
 			continue;
-		if (re->type != ZEBRA_ROUTE_CONNECT) {
+		if (!RIB_SYSTEM_ROUTE(re)) {
 			same = re;
 			break;
 		}
-		/* Duplicate connected route comes in. */
+		/* Duplicate system route comes in. */
 		else if ((nexthop = re->nexthop)
 			 && nexthop->type == NEXTHOP_TYPE_IFINDEX
 			 && nexthop->ifindex == ifindex
@@ -2515,7 +2516,7 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 		route_entry_nexthop_ifindex_add(re, ifindex);
 
 	/* If this route is kernel route, set FIB flag to the route. */
-	if (type == ZEBRA_ROUTE_KERNEL || type == ZEBRA_ROUTE_CONNECT)
+	if (RIB_SYSTEM_ROUTE(re))
 		for (nexthop = re->nexthop; nexthop; nexthop = nexthop->next)
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 

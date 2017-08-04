@@ -684,9 +684,11 @@ static void daemon_send_ready(void)
 
 		fp = fopen(DAEMON_VTY_DIR "/watchfrr.started", "w");
 		fclose(fp);
+#if defined HAVE_SYSTEMD
 		zlog_notice(
 			"Watchfrr: Notifying Systemd we are up and running");
 		systemd_send_started(master, 0);
+#endif
 		sent = 1;
 	}
 }
