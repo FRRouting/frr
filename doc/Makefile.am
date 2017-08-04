@@ -55,9 +55,9 @@ frr.pdf: $(info_TEXINFOS) $(figures_pdf) $(frr_TEXINFOS) defines.texi
 	$(TEXI2PDF) -o "$@" $< || true
 
 # don't ask me why the info file is in srcdir
-$(srcdir)/frr.info: defines.texi
-frr.dvi: defines.texi
-frr.html: defines.texi
+$(srcdir)/frr.info: $(frr_TEXINFOS) defines.texi
+frr.dvi: $(frr_TEXINFOS) defines.texi
+frr.html: $(frr_TEXINFOS) defines.texi
 
 frr_TEXINFOS = appendix.texi basic.texi bgpd.texi isisd.texi filter.texi \
 	vnc.texi \

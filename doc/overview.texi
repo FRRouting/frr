@@ -2,7 +2,7 @@
 @chapter Overview
 @cindex Overview
 
-  @uref{http://www.frrouting.org,,Frr} is a routing software package that
+  @uref{@value{PACKAGE_URL},,Frr} is a routing software package that
 provides TCP/IP based routing services with routing protocols support such
 as RIPv1, RIPv2, RIPng, OSPFv2, OSPFv3, IS-IS, BGP-4, and BGP-4+ (@pxref{Supported
 RFCs}). Frr also supports special BGP Route Reflector and Route Server
@@ -275,12 +275,12 @@ November 1995.}
 
 The official Frr web-site is located at:
 
-@uref{http://www.frrouting.org/}
+@uref{@value{PACKAGE_URL}}
 
 and contains further information, as well as links to additional
 resources. 
 
-@uref{http://www.frrouting.org/,Frr} is a fork of Quagga, whose
+@uref{@value{PACKAGE_URL},Frr} is a fork of Quagga, whose
 web-site is located at:
 
 @uref{http://www.quagga.net/}.
@@ -296,12 +296,12 @@ web-site is located at:
 There is a mailing list for discussions about Frr.  If you have any
 comments or suggestions to Frr, please subscribe to:
 
-@uref{http://lists.nox.tf/listinfo/frr-users}.
+@uref{https://lists.frrouting.org/listinfo/frog}.
 
-The @uref{http://www.frrouting.org/,,Frr} site has further information on
+The @uref{@value{PACKAGE_URL},,Frr} site has further information on
 the available mailing lists, see:
 
-	@uref{http://lists.nox.tf/lists.php}
+	@uref{https://lists.frrouting.org/}
 
 @node Bug Reports
 @section Bug Reports
