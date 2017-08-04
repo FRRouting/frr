@@ -1,0 +1,55 @@
+#
+# ldpd
+#
+
+if LDPD
+noinst_LIBRARIES += ldpd/libldp.a
+sbin_PROGRAMS += ldpd/ldpd
+dist_examples_DATA += ldpd/ldpd.conf.sample
+endif
+
+ldpd_libldp_a_SOURCES = \
+	ldpd/accept.c \
+	ldpd/address.c \
+	ldpd/adjacency.c \
+	ldpd/control.c \
+	ldpd/hello.c \
+	ldpd/init.c \
+	ldpd/interface.c \
+	ldpd/keepalive.c \
+	ldpd/l2vpn.c \
+	ldpd/labelmapping.c \
+	ldpd/lde.c \
+	ldpd/lde_lib.c \
+	ldpd/ldp_debug.c \
+	ldpd/ldp_vty_cmds.c \
+	ldpd/ldp_vty_conf.c \
+	ldpd/ldp_vty_exec.c \
+	ldpd/ldp_zebra.c \
+	ldpd/ldpd.c \
+	ldpd/ldpe.c \
+	ldpd/log.c \
+	ldpd/logmsg.c \
+	ldpd/neighbor.c \
+	ldpd/notification.c \
+	ldpd/packet.c \
+	ldpd/pfkey.c \
+	ldpd/socket.c \
+	ldpd/util.c \
+	# end
+
+ldpd/ldp_vty_cmds.$(OBJEXT): ldpd/ldp_vty_cmds_clippy.c
+
+noinst_HEADERS += \
+	ldpd/control.h \
+	ldpd/lde.h \
+	ldpd/ldp.h \
+	ldpd/ldp_debug.h \
+	ldpd/ldp_vty.h \
+	ldpd/ldpd.h \
+	ldpd/ldpe.h \
+	ldpd/log.h \
+	# end
+
+ldpd_ldpd_SOURCES = ldpd/ldpd.c
+ldpd_ldpd_LDADD = ldpd/libldp.a lib/libfrr.la @LIBCAP@

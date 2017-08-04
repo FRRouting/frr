@@ -1253,14 +1253,11 @@ AM_CONDITIONAL(BGPD, test "x$BGPD" = "xbgpd")
 
 AM_CONDITIONAL(RIPD, test "${enable_ripd}" != "no")
 AM_CONDITIONAL(OSPFD, test "${enable_ospfd}" != "no")
+AM_CONDITIONAL(LDPD, test "${enable_ldpd}" != "no")
 
-if test "${enable_ldpd}" = "no";then
-  LDPD=""
-else
-  LDPD="ldpd"
+AS_IF([test "${enable_ldpd}" != "no"], [
   AC_DEFINE(HAVE_LDPD, 1, ldpd)
-fi
-AM_CONDITIONAL(LDPD, test "x$LDPD" = "xldpd")
+])
 
 NHRPD=""
 case "$host_os" in
@@ -1352,7 +1349,6 @@ AC_SUBST(LIBRFP)
 AC_SUBST(RFPINC)
 AC_SUBST(BABELD)
 AC_SUBST(BGPD)
-AC_SUBST(LDPD)
 AC_SUBST(EIGRPD)
 AC_SUBST(WATCHFRR)
 AC_SUBST(ISISD)
@@ -1805,7 +1801,7 @@ AC_MSG_RESULT($ac_cv_htonl_works)
 
 AC_CONFIG_FILES([Makefile
 	  bgpd/Makefile watchfrr/Makefile
-	  ldpd/Makefile vtysh/Makefile
+	  vtysh/Makefile
 	  doc/Makefile tests/Makefile
 	  bgpd/rfp-example/rfptest/Makefile bgpd/rfp-example/librfp/Makefile
 	  babeld/Makefile
