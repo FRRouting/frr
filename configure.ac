@@ -378,7 +378,7 @@ AC_ARG_ENABLE([oldvpn_commands],
   AS_HELP_STRING([--enable-oldvpn-commands], [Keep old vpn commands]))
 
 AC_CHECK_HEADERS(json-c/json.h)
-AC_CHECK_LIB(json-c, json_object_get, LIBS="$LIBS -ljson-c")
+AC_CHECK_LIB(json-c, json_object_get, LIBS="$LIBS -ljson-c", [], [-lm])
 if test $ac_cv_lib_json_c_json_object_get = no; then
   AC_CHECK_LIB(json, json_object_get, LIBS="$LIBS -ljson")
   if test $ac_cv_lib_json_json_object_get = no; then
@@ -868,6 +868,16 @@ case "$host_os" in
 
     AC_DEFINE(OPEN_BSD,,OpenBSD)
     AC_DEFINE(KAME,1,KAME IPv6)
+
+    if test "x${enable_pimd}" != "xno"; then
+      case "$host_os" in
+      openbsd6.0)
+        ;;
+      openbsd[6-9]*)
+        AC_MSG_FAILURE([pimd cannot be enabled as PIM support has been removed from OpenBSD 6.1])
+        ;;
+      esac
+    fi
     ;;
   *)
     AC_MSG_RESULT([BSD])
@@ -1377,7 +1387,8 @@ AC_SUBST(VTYSH)
 AC_SUBST(CURSES)
 AC_SUBST(OSPFCLIENT)
 AC_SUBST(OSPFAPI)
-AC_CHECK_LIB(crypt, crypt)
+AC_CHECK_LIB(crypt, crypt, [],
+		    [AC_CHECK_LIB(crypto, DES_crypt)])
 AC_CHECK_LIB(resolv, res_init)
 
 dnl ---------------------------
