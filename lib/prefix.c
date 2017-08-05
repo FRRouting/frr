@@ -1062,7 +1062,7 @@ int prefix_blen(const struct prefix *p)
 		return IPV6_MAX_BYTELEN;
 		break;
 	case AF_ETHERNET:
-		return ETHER_ADDR_LEN;
+		return ETH_ALEN;
 	}
 	return 0;
 }

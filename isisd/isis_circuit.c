@@ -26,10 +26,6 @@
 #include <netinet/if_ether.h>
 #endif
 
-#ifndef ETHER_ADDR_LEN
-#define	ETHER_ADDR_LEN	ETHERADDRL
-#endif
-
 #include "log.h"
 #include "memory.h"
 #include "vrf.h"

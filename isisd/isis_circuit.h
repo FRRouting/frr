@@ -26,6 +26,7 @@
 #include "vty.h"
 #include "if.h"
 #include "qobj.h"
+#include "prefix.h"
 
 #include "isis_constants.h"
 #include "isis_common.h"

@@ -687,7 +687,7 @@ static void rfapiRibBi2Ri(struct bgp_info *bi, struct rfapi_info *ri,
 		/* copy from RD already stored in bi, so we don't need it_node
 		 */
 		memcpy(&vo->v.l2addr.macaddr, bi->extra->vnc.import.rd.val + 2,
-		       ETHER_ADDR_LEN);
+		       ETH_ALEN);
 
 		if (bi->attr) {
 			(void)rfapiEcommunityGetLNI(

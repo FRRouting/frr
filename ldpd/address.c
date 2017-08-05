@@ -160,7 +160,7 @@ send_mac_withdrawal(struct nbr *nbr, struct map *fec, uint8_t *mac)
 	size = LDP_HDR_SIZE + LDP_MSG_SIZE + ADDR_LIST_SIZE + len_fec_tlv(fec) +
 	    TLV_HDR_SIZE;
 	if (mac)
-		size += ETHER_ADDR_LEN;
+		size += ETH_ALEN;
 
 	if ((buf = ibuf_open(size)) == NULL)
 		fatal(__func__);
@@ -372,10 +372,10 @@ gen_mac_list_tlv(struct ibuf *buf, uint8_t *mac)
 	memset(&tlv, 0, sizeof(tlv));
 	tlv.type = htons(TLV_TYPE_MAC_LIST);
 	if (mac)
-		tlv.length = htons(ETHER_ADDR_LEN);
+		tlv.length = htons(ETH_ALEN);
 	err = ibuf_add(buf, &tlv, sizeof(tlv));
 	if (mac)
-		err |= ibuf_add(buf, mac, ETHER_ADDR_LEN);
+		err |= ibuf_add(buf, mac, ETH_ALEN);
 
 	return (err);
 }

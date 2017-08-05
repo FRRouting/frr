@@ -351,7 +351,7 @@ static int bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn,
 		s, add ? ZEBRA_REMOTE_MACIP_ADD : ZEBRA_REMOTE_MACIP_DEL,
 		bgp->vrf_id);
 	stream_putl(s, vpn->vni);
-	stream_put(s, &p->prefix.mac.octet, ETHER_ADDR_LEN); /* Mac Addr */
+	stream_put(s, &p->prefix.mac.octet, ETH_ALEN); /* Mac Addr */
 	/* IP address length and IP address, if any. */
 	if (IS_EVPN_PREFIX_IPADDR_NONE(p))
 		stream_putl(s, 0);
@@ -1812,9 +1812,9 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 	macaddr_len = *pfx++;
 
 	/* Get the MAC Addr */
-	if (macaddr_len == (ETHER_ADDR_LEN * 8)) {
-		memcpy(&p.prefix.mac.octet, pfx, ETHER_ADDR_LEN);
-		pfx += ETHER_ADDR_LEN;
+	if (macaddr_len == (ETH_ALEN * 8)) {
+		memcpy(&p.prefix.mac.octet, pfx, ETH_ALEN);
+		pfx += ETH_ALEN;
 	} else {
 		zlog_err(
 			"%u:%s - Rx EVPN Type-2 NLRI with unsupported MAC address length %d",
@@ -2186,7 +2186,7 @@ char *bgp_evpn_route2str(struct prefix_evpn *p, char *buf, int len)
 	} else if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
 		if (IS_EVPN_PREFIX_IPADDR_NONE(p))
 			snprintf(buf, len, "[%d]:[0]:[0]:[%d]:[%s]",
-				 p->prefix.route_type, 8 * ETHER_ADDR_LEN,
+				 p->prefix.route_type, 8 * ETH_ALEN,
 				 prefix_mac2str(&p->prefix.mac, buf1,
 						sizeof(buf1)));
 		else {
@@ -2195,7 +2195,7 @@ char *bgp_evpn_route2str(struct prefix_evpn *p, char *buf, int len)
 			family = IS_EVPN_PREFIX_IPADDR_V4(p) ? AF_INET
 							     : AF_INET6;
 			snprintf(buf, len, "[%d]:[0]:[0]:[%d]:[%s]:[%d]:[%s]",
-				 p->prefix.route_type, 8 * ETHER_ADDR_LEN,
+				 p->prefix.route_type, 8 * ETH_ALEN,
 				 prefix_mac2str(&p->prefix.mac, buf1,
 						sizeof(buf1)),
 				 family == AF_INET ? IPV4_MAX_BITLEN
@@ -2237,7 +2237,7 @@ void bgp_evpn_encode_prefix(struct stream *s, struct prefix *p,
 		stream_put(s, prd->val, 8);	 /* RD */
 		stream_put(s, 0, 10);		    /* ESI */
 		stream_putl(s, 0);		    /* Ethernet Tag ID */
-		stream_putc(s, 8 * ETHER_ADDR_LEN); /* Mac Addr Len - bits */
+		stream_putc(s, 8 * ETH_ALEN); /* Mac Addr Len - bits */
 		stream_put(s, evp->prefix.mac.octet, 6); /* Mac Addr */
 		stream_putc(s, 8 * ipa_len);		 /* IP address Length */
 		if (ipa_len)

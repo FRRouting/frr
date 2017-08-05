@@ -167,10 +167,6 @@
 	((if_is_broadcast((C)->interface)) ? (C->interface->mtu - LLC_LEN)     \
 					   : (C->interface->mtu))
 
-#ifndef ETH_ALEN
-#define ETH_ALEN 6
-#endif
-
 #define MAX_LLC_LEN 0x5ff
 #define ETHERTYPE_EXT_LLC 0x8870
 

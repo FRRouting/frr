@@ -389,7 +389,7 @@ struct l2vpn_if {
 	char			 ifname[IF_NAMESIZE];
 	unsigned int		 ifindex;
 	int			 operative;
-	uint8_t			 mac[ETHER_ADDR_LEN];
+	uint8_t			 mac[ETH_ALEN];
 	QOBJ_FIELDS
 };
 RB_HEAD(l2vpn_if_head, l2vpn_if);
@@ -566,7 +566,7 @@ struct kif {
 	unsigned short		 ifindex;
 	int			 flags;
 	int			 operative;
-	uint8_t			 mac[ETHER_ADDR_LEN];
+	uint8_t			 mac[ETH_ALEN];
 	int			 mtu;
 };
 

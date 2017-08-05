@@ -2125,7 +2125,7 @@ static int bgp_zebra_process_local_macip(int command, struct zclient *zclient,
 	memset(&ip, 0, sizeof(ip));
 	s = zclient->ibuf;
 	vni = stream_getl(s);
-	stream_get(&mac.octet, s, ETHER_ADDR_LEN);
+	stream_get(&mac.octet, s, ETH_ALEN);
 	ipa_len = stream_getl(s);
 	if (ipa_len != 0 && ipa_len != IPV4_MAX_BYTELEN
 	    && ipa_len != IPV6_MAX_BYTELEN) {
