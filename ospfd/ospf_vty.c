@@ -135,6 +135,7 @@ DEFUN_NOSH (router_ospf,
 {
 	struct ospf *ospf;
 	u_short instance = 0;
+	int ret = CMD_SUCCESS;
 
 	ospf = ospf_lookup();
 	if (!ospf) {
@@ -147,9 +148,10 @@ DEFUN_NOSH (router_ospf,
 
 	/* The following logic to set the vty qobj index is in place to be able
 	   to ignore the commands which dont belong to this instance. */
-	if (ospf->instance != instance)
+	if (ospf->instance != instance) {
 		VTY_PUSH_CONTEXT_NULL(OSPF_NODE);
-	else {
+		ret = CMD_NOT_MY_INSTANCE;
+	} else {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("Config command 'router ospf %d' received",
 				   instance);
@@ -158,7 +160,7 @@ DEFUN_NOSH (router_ospf,
 		ospf_router_id_update(ospf);
 	}
 
-	return CMD_SUCCESS;
+	return ret;
 }
 
 DEFUN (no_router_ospf,
