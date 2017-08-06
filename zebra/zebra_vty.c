@@ -80,7 +80,6 @@ static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
 	u_char flag = 0;
 	route_tag_t tag = 0;
 	struct zebra_vrf *zvrf;
-	unsigned int ifindex = 0;
 	u_char type;
 	struct static_nh_label snh_label;
 
@@ -207,17 +206,6 @@ static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
 		gatep = &gate;
 	}
 
-	if (ifname) {
-		struct interface *ifp;
-		ifp = if_lookup_by_name(ifname, zvrf_id(zvrf));
-		if (!ifp) {
-			vty_out(vty, "%% Malformed Interface name %s\n",
-				ifname);
-			ifindex = IFINDEX_DELETED;
-		} else
-			ifindex = ifp->ifindex;
-	}
-
 	if (gate_str == NULL && ifname == NULL)
 		type = STATIC_BLACKHOLE;
 	else if (gate_str && ifname) {
@@ -235,10 +223,10 @@ static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
 	}
 
 	if (!negate)
-		static_add_route(afi, safi, type, &p, src_p, gatep, ifindex,
-				 ifname, flag, tag, distance, zvrf, &snh_label);
+		static_add_route(afi, safi, type, &p, src_p, gatep, ifname,
+				    flag, tag, distance, zvrf, &snh_label);
 	else
-		static_delete_route(afi, safi, type, &p, src_p, gatep, ifindex,
+		static_delete_route(afi, safi, type, &p, src_p, gatep, ifname,
 				    tag, distance, zvrf, &snh_label);
 
 	return CMD_SUCCESS;
