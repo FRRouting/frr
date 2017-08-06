@@ -193,7 +193,7 @@ zebra_static_ipv4 (struct vty *vty, safi_t safi, int add_cmd,
       else
         ifindex = ifp->ifindex;
       ifname = gate_str;
-      type = STATIC_IFINDEX;
+      type = STATIC_IFNAME;
     }
   else
     type = STATIC_IPV4_GATEWAY;
@@ -2280,7 +2280,7 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
               case STATIC_IPV4_GATEWAY:
                 vty_out (vty, " %s", inet_ntoa (si->addr.ipv4));
                 break;
-              case STATIC_IFINDEX:
+              case STATIC_IFNAME:
                 vty_out (vty, " %s", si->ifname);
                 break;
               case STATIC_BLACKHOLE:
@@ -2289,7 +2289,7 @@ static_config_ipv4 (struct vty *vty, safi_t safi, const char *cmd)
 	      case STATIC_IPV6_GATEWAY:
 		vty_out (vty, " %s", inet_ntop (AF_INET6, &si->addr.ipv6, buf, BUFSIZ));
 		break;
-	      case STATIC_IPV6_GATEWAY_IFINDEX:
+	      case STATIC_IPV6_GATEWAY_IFNAME:
 		vty_out (vty, " %s %s",
 			 inet_ntop (AF_INET6, &si->addr.ipv6, buf, BUFSIZ),
 			 ifindex2ifname (si->ifindex, si->vrf_id));
@@ -2457,7 +2457,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
           vty_out (vty, "%% Malformed address%s", VTY_NEWLINE);
           return CMD_WARNING;
         }
-      type = STATIC_IPV6_GATEWAY_IFINDEX;
+      type = STATIC_IPV6_GATEWAY_IFNAME;
       gate = &gate_addr;
       ifp = if_lookup_by_name (ifname, zvrf_id (zvrf));
       if (!ifp)
@@ -2476,7 +2476,7 @@ static_ipv6_func (struct vty *vty, int add_cmd, const char *dest_str,
         }
       else
         {
-          type = STATIC_IFINDEX;
+          type = STATIC_IFNAME;
           ifp = if_lookup_by_name (gate_str, zvrf_id (zvrf));
           if (!ifp)
             {
@@ -3773,13 +3773,13 @@ static_config_ipv6 (struct vty *vty)
 	      case STATIC_IPV6_GATEWAY:
 		vty_out (vty, " %s", inet_ntop (AF_INET6, &si->addr.ipv6, buf, BUFSIZ));
 		break;
-	      case STATIC_IFINDEX:
+	      case STATIC_IFNAME:
 		vty_out (vty, " %s", si->ifname);
 		break;
 	      case STATIC_BLACKHOLE:
 		vty_out (vty, " Null0" );
 		break;
-	      case STATIC_IPV6_GATEWAY_IFINDEX:
+	      case STATIC_IPV6_GATEWAY_IFNAME:
 		vty_out (vty, " %s %s",
 			 inet_ntop (AF_INET6, &si->addr.ipv6, buf, BUFSIZ),
 			 ifindex2ifname (si->ifindex, si->vrf_id));

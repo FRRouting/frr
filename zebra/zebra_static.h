@@ -32,11 +32,11 @@ struct static_nh_label
 };
 
 typedef enum {
-  STATIC_IFINDEX,
+  STATIC_IFNAME,
   STATIC_IPV4_GATEWAY,
   STATIC_BLACKHOLE,
   STATIC_IPV6_GATEWAY,
-  STATIC_IPV6_GATEWAY_IFINDEX,
+  STATIC_IPV6_GATEWAY_IFNAME,
 } zebra_static_types;
 
 /* Static route information. */
@@ -64,7 +64,7 @@ struct static_route
    * Under IPv4 addr and ifindex are
    * used independentyly.
    * STATIC_IPV4_GATEWAY uses addr
-   * STATIC_IFINDEX uses ifindex
+   * STATIC_IFNAME uses ifindex
    */
   union g_addr addr;
   ifindex_t ifindex;
