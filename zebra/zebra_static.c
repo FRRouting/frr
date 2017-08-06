@@ -81,11 +81,11 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 			nh_p.u.prefix4 = si->addr.ipv4;
 			zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
 			break;
-		case STATIC_IPV4_GATEWAY_IFINDEX:
+		case STATIC_IPV4_GATEWAY_IFNAME:
 			nexthop = route_entry_nexthop_ipv4_ifindex_add(
 				re, &si->addr.ipv4, NULL, si->ifindex);
 			break;
-		case STATIC_IFINDEX:
+		case STATIC_IFNAME:
 			nexthop = route_entry_nexthop_ifindex_add(re,
 								  si->ifindex);
 			break;
@@ -100,7 +100,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 			nh_p.u.prefix6 = si->addr.ipv6;
 			zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
 			break;
-		case STATIC_IPV6_GATEWAY_IFINDEX:
+		case STATIC_IPV6_GATEWAY_IFNAME:
 			nexthop = route_entry_nexthop_ipv6_ifindex_add(
 				re, &si->addr.ipv6, si->ifindex);
 			break;
@@ -156,11 +156,11 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 			nh_p.u.prefix4 = si->addr.ipv4;
 			zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
 			break;
-		case STATIC_IPV4_GATEWAY_IFINDEX:
+		case STATIC_IPV4_GATEWAY_IFNAME:
 			nexthop = route_entry_nexthop_ipv4_ifindex_add(
 				re, &si->addr.ipv4, NULL, si->ifindex);
 			break;
-		case STATIC_IFINDEX:
+		case STATIC_IFNAME:
 			nexthop = route_entry_nexthop_ifindex_add(re,
 								  si->ifindex);
 			break;
@@ -175,7 +175,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 			nh_p.u.prefix6 = si->addr.ipv6;
 			zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
 			break;
-		case STATIC_IPV6_GATEWAY_IFINDEX:
+		case STATIC_IPV6_GATEWAY_IFNAME:
 			nexthop = route_entry_nexthop_ipv6_ifindex_add(
 				re, &si->addr.ipv6, si->ifindex);
 			break;
@@ -225,12 +225,12 @@ static int static_nexthop_same(struct nexthop *nexthop, struct static_route *si)
 	    && IPV4_ADDR_SAME(&nexthop->gate.ipv4, &si->addr.ipv4))
 		return 1;
 	else if (nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX
-		 && si->type == STATIC_IPV4_GATEWAY_IFINDEX
+		 && si->type == STATIC_IPV4_GATEWAY_IFNAME
 		 && IPV4_ADDR_SAME(&nexthop->gate.ipv4, &si->addr.ipv4)
 		 && nexthop->ifindex == si->ifindex)
 		return 1;
 	else if (nexthop->type == NEXTHOP_TYPE_IFINDEX
-		 && si->type == STATIC_IFINDEX
+		 && si->type == STATIC_IFNAME
 		 && nexthop->ifindex == si->ifindex)
 		return 1;
 	else if (nexthop->type == NEXTHOP_TYPE_IPV6
@@ -238,7 +238,7 @@ static int static_nexthop_same(struct nexthop *nexthop, struct static_route *si)
 		 && IPV6_ADDR_SAME(&nexthop->gate.ipv6, &si->addr.ipv6))
 		return 1;
 	else if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX
-		 && si->type == STATIC_IPV6_GATEWAY_IFINDEX
+		 && si->type == STATIC_IPV6_GATEWAY_IFNAME
 		 && IPV6_ADDR_SAME(&nexthop->gate.ipv6, &si->addr.ipv6)
 		 && nexthop->ifindex == si->ifindex)
 		return 1;
@@ -376,15 +376,15 @@ int static_add_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 
 	if (!gate
 	    && (type == STATIC_IPV4_GATEWAY
-		|| type == STATIC_IPV4_GATEWAY_IFINDEX
+		|| type == STATIC_IPV4_GATEWAY_IFNAME
 		|| type == STATIC_IPV6_GATEWAY
-		|| type == STATIC_IPV6_GATEWAY_IFINDEX))
+		|| type == STATIC_IPV6_GATEWAY_IFNAME))
 		return -1;
 
 	if (!ifindex
-	    && (type == STATIC_IFINDEX
-		|| type == STATIC_IPV4_GATEWAY_IFINDEX
-		|| type == STATIC_IPV6_GATEWAY_IFINDEX))
+	    && (type == STATIC_IFNAME
+		|| type == STATIC_IPV4_GATEWAY_IFNAME
+		|| type == STATIC_IPV6_GATEWAY_IFNAME))
 		return -1;
 
 	/* Lookup static route prefix. */
@@ -429,14 +429,14 @@ int static_add_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 
 	switch (type) {
 	case STATIC_IPV4_GATEWAY:
-	case STATIC_IPV4_GATEWAY_IFINDEX:
+	case STATIC_IPV4_GATEWAY_IFNAME:
 		si->addr.ipv4 = gate->ipv4;
 		break;
 	case STATIC_IPV6_GATEWAY:
-	case STATIC_IPV6_GATEWAY_IFINDEX:
+	case STATIC_IPV6_GATEWAY_IFNAME:
 		si->addr.ipv6 = gate->ipv6;
 		break;
-	case STATIC_IFINDEX:
+	case STATIC_IFNAME:
 		break;
 	}
 

@@ -222,11 +222,11 @@ static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
 		type = STATIC_BLACKHOLE;
 	else if (gate_str && ifname) {
 		if (afi == AFI_IP)
-			type = STATIC_IPV4_GATEWAY_IFINDEX;
+			type = STATIC_IPV4_GATEWAY_IFNAME;
 		else
-			type = STATIC_IPV6_GATEWAY_IFINDEX;
+			type = STATIC_IPV6_GATEWAY_IFNAME;
 	} else if (ifname)
-		type = STATIC_IFINDEX;
+		type = STATIC_IFNAME;
 	else {
 		if (afi == AFI_IP)
 			type = STATIC_IPV4_GATEWAY;
@@ -1705,7 +1705,7 @@ static int static_config(struct vty *vty, afi_t afi, safi_t safi,
 							  &si->addr.ipv6, buf,
 							  sizeof buf));
 					break;
-				case STATIC_IFINDEX:
+				case STATIC_IFNAME:
 					vty_out(vty, " %s", si->ifname);
 					break;
 				/* blackhole and Null0 mean the same thing */
@@ -1715,7 +1715,7 @@ static int static_config(struct vty *vty, afi_t afi, safi_t safi,
 					else
 						vty_out(vty, " Null0");
 					break;
-				case STATIC_IPV4_GATEWAY_IFINDEX:
+				case STATIC_IPV4_GATEWAY_IFNAME:
 					vty_out(vty, " %s %s",
 						inet_ntop(AF_INET,
 							  &si->addr.ipv4, buf,
@@ -1723,7 +1723,7 @@ static int static_config(struct vty *vty, afi_t afi, safi_t safi,
 						ifindex2ifname(si->ifindex,
 							       si->vrf_id));
 					break;
-				case STATIC_IPV6_GATEWAY_IFINDEX:
+				case STATIC_IPV6_GATEWAY_IFNAME:
 					vty_out(vty, " %s %s",
 						inet_ntop(AF_INET6,
 							  &si->addr.ipv6, buf,
