@@ -172,6 +172,8 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	/* it only makes sense for this to be called on a clean exit */
 	assert(status == 0);
 
+	frr_early_fini();
+
 	bfd_gbl_exit();
 
 	bgp_close();
@@ -214,21 +216,15 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	community_list_terminate(bgp_clist);
 
 	bgp_vrf_terminate();
-	cmd_terminate();
-	vty_terminate();
 #if ENABLE_BGP_VNC
 	vnc_zebra_destroy();
 #endif
 	bgp_zebra_destroy();
 
-	/* reverse bgp_master_init */
-	if (bm->master)
-		thread_master_free(bm->master);
-
-	closezlog();
-
 	list_delete(bm->bgp);
 	memset(bm, 0, sizeof(*bm));
+
+	frr_fini();
 
 	if (bgp_debug_count())
 		log_memstats_stderr("bgpd");

@@ -125,6 +125,7 @@ static void sigint(void)
 
 	zlog_notice("Terminating on signal");
 
+	frr_early_fini();
 #ifdef HAVE_IRDP
 	irdp_finish();
 #endif
@@ -147,17 +148,14 @@ static void sigint(void)
 	access_list_reset();
 	prefix_list_reset();
 	route_map_finish();
-	cmd_terminate();
-	vty_terminate();
-	zprivs_terminate(&zserv_privs);
+
 	list_delete(zebrad.client_list);
 	work_queue_free(zebrad.ribq);
 	if (zebrad.lsp_process_q)
 		work_queue_free(zebrad.lsp_process_q);
 	meta_queue_free(zebrad.mq);
-	thread_master_free(zebrad.master);
-	closezlog();
 
+	frr_fini();
 	exit(0);
 }
 
