@@ -235,7 +235,7 @@ static int vtysh_client_run_all(struct vtysh_client *head_client,
 	}
 	if (wrong_instance && !correct_instance && fp) {
 		fprintf(fp,
-			"%% [%s]: command ignored as it targets an instance that is not running",
+			"%% [%s]: command ignored as it targets an instance that is not running\n",
 			head_client->name);
 		rc_all = CMD_WARNING_CONFIG_FAILED;
 	}
