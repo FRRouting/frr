@@ -48,6 +48,7 @@
 #include "zebra/zebra_ptm.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/interface.h"
+#include "zebra/zebra_static.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -520,6 +521,7 @@ if_add_update (struct interface *ifp)
       if (IS_ZEBRA_DEBUG_KERNEL)
 	zlog_debug ("interface %s vrf %u index %d becomes active.",
 		    ifp->name, ifp->vrf_id, ifp->ifindex);
+      static_ifindex_update(ifp, true);
     }
   else
     {
@@ -694,6 +696,8 @@ if_delete_update (struct interface *ifp)
   if (IS_ZEBRA_DEBUG_KERNEL)
     zlog_debug ("interface %s vrf %u index %d is now inactive.",
                 ifp->name, ifp->vrf_id, ifp->ifindex);
+
+  static_ifindex_update(ifp, false);
 
   /* Delete connected routes from the kernel. */
   if_delete_connected (ifp);
