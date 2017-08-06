@@ -35,8 +35,6 @@
 
 #include <zebra.h>
 
-#ifdef HAVE_IRDP
-
 #include "if.h"
 #include "vty.h"
 #include "sockunion.h"
@@ -691,5 +689,3 @@ void irdp_if_init()
 	install_element(INTERFACE_NODE, &ip_irdp_debug_packet_cmd);
 	install_element(INTERFACE_NODE, &ip_irdp_debug_disable_cmd);
 }
-
-#endif /* HAVE_IRDP */

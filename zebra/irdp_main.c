@@ -35,8 +35,6 @@
 
 #include <zebra.h>
 
-#ifdef HAVE_IRDP
-
 #include "if.h"
 #include "vty.h"
 #include "sockunion.h"
@@ -53,6 +51,7 @@
 #include "thread.h"
 #include "privs.h"
 #include "libfrr.h"
+#include "version.h"
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
 #include "zebra/rib.h"
@@ -341,11 +340,23 @@ static int irdp_finish(void)
 	return 0;
 }
 
-void irdp_init(void)
+static int irdp_init(struct thread_master *master)
 {
 	irdp_if_init();
 
 	hook_register(frr_early_fini, irdp_finish);
+	return 0;
 }
 
-#endif /* HAVE_IRDP */
+static int irdp_module_init(void)
+{
+	hook_register(frr_late_init, irdp_init);
+	return 0;
+}
+
+FRR_MODULE_SETUP(
+	.name = "zebra_irdp",
+	.version = FRR_VERSION,
+	.description = "zebra IRDP module",
+	.init = irdp_module_init,
+)

@@ -138,7 +138,6 @@ struct Adv {
 	int pref;
 };
 
-extern void irdp_init(void);
 extern void irdp_if_init(void);
 extern int irdp_sock_init(void);
 extern int irdp_config_write(struct vty *, struct interface *);

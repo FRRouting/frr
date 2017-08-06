@@ -344,7 +344,7 @@ AC_ARG_ENABLE(shell_access,
 AC_ARG_ENABLE(rtadv,
   AS_HELP_STRING([--disable-rtadv], [disable IPV6 router advertisement feature]))
 AC_ARG_ENABLE(irdp,
-  AS_HELP_STRING([--enable-irdp], [enable IRDP server support in zebra]))
+  AS_HELP_STRING([--disable-irdp], [enable IRDP server support in zebra (default if supported)]))
 AC_ARG_ENABLE(capabilities,
   AS_HELP_STRING([--disable-capabilities], [disable using POSIX capabilities]))
 AC_ARG_ENABLE(rusage,
@@ -568,10 +568,6 @@ if test "${enable_rtadv}" != "no"; then
   AC_DEFINE(HAVE_RTADV,,Enable IPv6 Routing Advertisement support)
 else
   AC_MSG_RESULT(no)
-fi
-
-if test "${enable_irdp}" = "yes"; then
-  AC_DEFINE(HAVE_IRDP,, IRDP )
 fi
 
 if test x"${enable_user}" = x"no"; then
@@ -1479,17 +1475,27 @@ AC_CHECK_MEMBERS([struct sockaddr.sa_len,
 dnl ---------------------------
 dnl IRDP/pktinfo/icmphdr checks
 dnl ---------------------------
-AC_CHECK_TYPES([struct in_pktinfo], 
- [AC_CHECK_TYPES([struct icmphdr],
-   [if test "${enable_irdp}" != "no"; then
-      AC_DEFINE(HAVE_IRDP,, IRDP)
-    fi],
-   [if test "${enable_irdp}" = "yes"; then
-      AC_MSG_ERROR(['IRDP requires in_pktinfo at the moment!'])
-    fi], [FRR_INCLUDES])],
- [if test "${enable_irdp}" = "yes"; then
-    AC_MSG_ERROR(['IRDP requires in_pktinfo at the moment!'])
-  fi], [FRR_INCLUDES])
+
+AC_CHECK_TYPES([struct in_pktinfo], [
+  AC_CHECK_TYPES([struct icmphdr], [
+    IRDP=true
+  ], [
+    IRDP=false
+  ], [FRR_INCLUDES])
+], [
+  IRDP=false
+], [FRR_INCLUDES])
+
+case "${enable_irdp}" in
+yes)
+  $IRDP || AC_MSG_ERROR(['IRDP requires in_pktinfo at the moment!'])
+  ;;
+no)
+  IRDP=false
+  ;;
+esac
+
+AM_CONDITIONAL(IRDP, $IRDP)
 
 dnl -----------------------
 dnl checking for IP_PKTINFO

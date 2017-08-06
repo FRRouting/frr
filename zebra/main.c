@@ -292,9 +292,6 @@ int main(int argc, char **argv)
 #if defined(HAVE_RTADV)
 	rtadv_cmd_init();
 #endif
-#ifdef HAVE_IRDP
-	irdp_init();
-#endif
 /* PTM socket */
 #ifdef ZEBRA_PTM_SUPPORT
 	zebra_ptm_init();

@@ -36,8 +36,6 @@
 #include <zebra.h>
 
 
-#ifdef HAVE_IRDP
-
 #include "if.h"
 #include "vty.h"
 #include "sockunion.h"
@@ -353,6 +351,3 @@ void send_packet(struct interface *ifp, struct stream *s, u_int32_t dst,
 	}
 	/*   printf("TX on %s idx %d\n", ifp->name, ifp->ifindex); */
 }
-
-
-#endif /* HAVE_IRDP */
