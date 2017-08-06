@@ -119,8 +119,6 @@ if_zebra_new_hook (struct interface *ifp)
   zebra_if->ipv4_subnets = route_table_init_with_delegate (&zebra_if_table_delegate);
 
   ifp->info = zebra_if;
-
-  zebra_vrf_static_route_interface_fixup (ifp);
   return 0;
 }
 
@@ -727,6 +725,8 @@ if_handle_vrf_change (struct interface *ifp, vrf_id_t vrf_id)
 
   old_vrf_id = ifp->vrf_id;
 
+  static_ifindex_update(ifp, false);
+
   /* Uninstall connected routes. */
   if_uninstall_connected (ifp);
 
@@ -750,6 +750,8 @@ if_handle_vrf_change (struct interface *ifp, vrf_id_t vrf_id)
   /* Install connected routes (in new VRF). */
   if_install_connected (ifp);
 
+  static_ifindex_update(ifp, true);
+
   /* Due to connected route change, schedule RIB processing for both old
    * and new VRF.
    */
@@ -758,8 +760,6 @@ if_handle_vrf_change (struct interface *ifp, vrf_id_t vrf_id)
                 ifp->vrf_id, ifp->name);
   rib_update (old_vrf_id, RIB_UPDATE_IF_CHANGE);
   rib_update (ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
-
-  zebra_vrf_static_route_interface_fixup (ifp);
 }
 
 static void
@@ -866,8 +866,6 @@ if_up (struct interface *ifp)
     zlog_debug ("%u: IF %s up, scheduling RIB processing",
                 ifp->vrf_id, ifp->name);
   rib_update (ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
-
-  zebra_vrf_static_route_interface_fixup (ifp);
 }
 
 /* Interface goes down.  We have to manage different behavior of based
