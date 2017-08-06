@@ -52,6 +52,7 @@
 #include "zclient.h"
 #include "thread.h"
 #include "privs.h"
+#include "libfrr.h"
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
 #include "zebra/rib.h"
@@ -143,7 +144,7 @@ static int make_advertisement_packet(struct interface *ifp, struct prefix *p,
 				     struct stream *s)
 {
 	struct zebra_if *zi = ifp->info;
-	struct irdp_interface *irdp = &zi->irdp;
+	struct irdp_interface *irdp = zi->irdp;
 	int size;
 	int pref;
 	u_int16_t checksum;
@@ -175,11 +176,13 @@ static int make_advertisement_packet(struct interface *ifp, struct prefix *p,
 static void irdp_send(struct interface *ifp, struct prefix *p, struct stream *s)
 {
 	struct zebra_if *zi = ifp->info;
-	struct irdp_interface *irdp = &zi->irdp;
+	struct irdp_interface *irdp = zi->irdp;
 	char buf[PREFIX_STRLEN];
 	u_int32_t dst;
 	u_int32_t ttl = 1;
 
+	if (!irdp)
+		return;
 	if (!(ifp->flags & IFF_UP))
 		return;
 
@@ -211,10 +214,13 @@ int irdp_send_thread(struct thread *t_advert)
 	u_int32_t timer, tmp;
 	struct interface *ifp = THREAD_ARG(t_advert);
 	struct zebra_if *zi = ifp->info;
-	struct irdp_interface *irdp = &zi->irdp;
+	struct irdp_interface *irdp = zi->irdp;
 	struct prefix *p;
 	struct listnode *node, *nnode;
 	struct connected *ifc;
+
+	if (!irdp)
+		return 0;
 
 	irdp->flags &= ~IF_SOLICIT;
 
@@ -250,11 +256,14 @@ int irdp_send_thread(struct thread *t_advert)
 void irdp_advert_off(struct interface *ifp)
 {
 	struct zebra_if *zi = ifp->info;
-	struct irdp_interface *irdp = &zi->irdp;
+	struct irdp_interface *irdp = zi->irdp;
 	struct listnode *node, *nnode;
 	int i;
 	struct connected *ifc;
 	struct prefix *p;
+
+	if (!irdp)
+		return;
 
 	if (irdp->t_advertise)
 		thread_cancel(irdp->t_advertise);
@@ -279,8 +288,11 @@ void irdp_advert_off(struct interface *ifp)
 void process_solicit(struct interface *ifp)
 {
 	struct zebra_if *zi = ifp->info;
-	struct irdp_interface *irdp = &zi->irdp;
+	struct irdp_interface *irdp = zi->irdp;
 	u_int32_t timer;
+
+	if (!irdp)
+		return;
 
 	/* When SOLICIT is active we reject further incoming solicits
 	   this keeps down the answering rate so we don't have think
@@ -317,7 +329,7 @@ static int irdp_finish(void)
 
 		if (!zi)
 			continue;
-		irdp = &zi->irdp;
+		irdp = zi->irdp;
 		if (!irdp)
 			continue;
 
@@ -326,6 +338,7 @@ static int irdp_finish(void)
 			irdp_advert_off(ifp);
 		}
 	}
+	return 0;
 }
 
 void irdp_init(void)

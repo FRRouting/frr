@@ -84,7 +84,7 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 	if (!zi)
 		return;
 
-	irdp = &zi->irdp;
+	irdp = zi->irdp;
 	if (!irdp)
 		return;
 
@@ -240,7 +240,7 @@ int irdp_read_raw(struct thread *r)
 	if (!zi)
 		return ret;
 
-	irdp = &zi->irdp;
+	irdp = zi->irdp;
 	if (!irdp)
 		return ret;
 
