@@ -316,7 +316,7 @@ static void irdp_if_no_shutdown(struct interface *ifp)
 
 /* Write configuration to user */
 
-void irdp_config_write(struct vty *vty, struct interface *ifp)
+int irdp_config_write(struct vty *vty, struct interface *ifp)
 {
 	struct zebra_if *zi = ifp->info;
 	struct irdp_interface *irdp = &zi->irdp;
@@ -348,6 +348,7 @@ void irdp_config_write(struct vty *vty, struct interface *ifp)
 		vty_out(vty, " ip irdp maxadvertinterval %ld\n",
 			irdp->MaxAdvertInterval);
 	}
+	return 0;
 }
 
 
@@ -678,8 +679,10 @@ DEFUN (ip_irdp_debug_disable,
 	return CMD_SUCCESS;
 }
 
-void irdp_init()
+void irdp_if_init()
 {
+	hook_register(zebra_if_config_wr, irdp_config_write);
+
 	install_element(INTERFACE_NODE, &ip_irdp_broadcast_cmd);
 	install_element(INTERFACE_NODE, &ip_irdp_multicast_cmd);
 	install_element(INTERFACE_NODE, &no_ip_irdp_cmd);

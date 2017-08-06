@@ -126,9 +126,6 @@ static void sigint(void)
 	zlog_notice("Terminating on signal");
 
 	frr_early_fini();
-#ifdef HAVE_IRDP
-	irdp_finish();
-#endif
 
 	zebra_ptm_finish();
 	list_delete_all_node(zebrad.client_list);

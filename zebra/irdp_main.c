@@ -301,7 +301,7 @@ void process_solicit(struct interface *ifp)
 			 &irdp->t_advertise);
 }
 
-void irdp_finish()
+static int irdp_finish(void)
 {
 	struct vrf *vrf;
 	struct listnode *node, *nnode;
@@ -326,6 +326,13 @@ void irdp_finish()
 			irdp_advert_off(ifp);
 		}
 	}
+}
+
+void irdp_init(void)
+{
+	irdp_if_init();
+
+	hook_register(frr_early_fini, irdp_finish);
 }
 
 #endif /* HAVE_IRDP */

@@ -52,11 +52,10 @@
 
 #define ZEBRA_PTM_SUPPORT
 
-#if defined(HAVE_RTADV)
-/* Order is intentional.  Matches RFC4191.  This array is also used for
-   command matching, so only modify with care. */
-const char *rtadv_pref_strs[] = {"medium", "high", "INVALID", "low", 0};
-#endif /* HAVE_RTADV */
+DEFINE_HOOK(zebra_if_extra_info, (struct vty *vty, struct interface *ifp),
+				 (vty, ifp))
+DEFINE_HOOK(zebra_if_config_wr, (struct vty *vty, struct interface *ifp),
+				(vty, ifp))
 
 static void if_down_del_nbr_connected(struct interface *ifp);
 
@@ -996,74 +995,6 @@ static void nbr_connected_dump_vty(struct vty *vty,
 	vty_out(vty, "\n");
 }
 
-#if defined(HAVE_RTADV)
-/* Dump interface ND information to vty. */
-static void nd_dump_vty(struct vty *vty, struct interface *ifp)
-{
-	struct zebra_if *zif;
-	struct rtadvconf *rtadv;
-	int interval;
-
-	zif = (struct zebra_if *)ifp->info;
-	rtadv = &zif->rtadv;
-
-	if (rtadv->AdvSendAdvertisements) {
-		vty_out(vty,
-			"  ND advertised reachable time is %d milliseconds\n",
-			rtadv->AdvReachableTime);
-		vty_out(vty,
-			"  ND advertised retransmit interval is %d milliseconds\n",
-			rtadv->AdvRetransTimer);
-		vty_out(vty, "  ND router advertisements sent: %d rcvd: %d\n",
-			zif->ra_sent, zif->ra_rcvd);
-		interval = rtadv->MaxRtrAdvInterval;
-		if (interval % 1000)
-			vty_out(vty,
-				"  ND router advertisements are sent every "
-				"%d milliseconds\n",
-				interval);
-		else
-			vty_out(vty,
-				"  ND router advertisements are sent every "
-				"%d seconds\n",
-				interval / 1000);
-		if (rtadv->AdvDefaultLifetime != -1)
-			vty_out(vty,
-				"  ND router advertisements live for %d seconds\n",
-				rtadv->AdvDefaultLifetime);
-		else
-			vty_out(vty,
-				"  ND router advertisements lifetime tracks ra-interval\n");
-		vty_out(vty,
-			"  ND router advertisement default router preference is "
-			"%s\n",
-			rtadv_pref_strs[rtadv->DefaultPreference]);
-		if (rtadv->AdvManagedFlag)
-			vty_out(vty,
-				"  Hosts use DHCP to obtain routable addresses.\n");
-		else
-			vty_out(vty,
-				"  Hosts use stateless autoconfig for addresses.\n");
-		if (rtadv->AdvHomeAgentFlag) {
-			vty_out(vty,
-				"  ND router advertisements with Home Agent flag bit set.\n");
-			if (rtadv->HomeAgentLifetime != -1)
-				vty_out(vty,
-					"  Home Agent lifetime is %u seconds\n",
-					rtadv->HomeAgentLifetime);
-			else
-				vty_out(vty,
-					"  Home Agent lifetime tracks ra-lifetime\n");
-			vty_out(vty, "  Home Agent preference is %u\n",
-				rtadv->HomeAgentPreference);
-		}
-		if (rtadv->AdvIntervalOption)
-			vty_out(vty,
-				"  ND router advertisements with Adv. Interval option.\n");
-	}
-}
-#endif /* HAVE_RTADV */
-
 static const char *zebra_ziftype_2str(zebra_iftype_t zif_type)
 {
 	switch (zif_type) {
@@ -1277,12 +1208,8 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 				inet_ntoa(iflp->rmt_ip), iflp->rmt_as);
 	}
 
-#ifdef RTADV
-	nd_dump_vty(vty, ifp);
-#endif /* RTADV */
-#if defined(HAVE_RTADV)
-	nd_dump_vty(vty, ifp);
-#endif /* HAVE_RTADV */
+	hook_call(zebra_if_extra_info, vty, ifp);
+
 	if (listhead(ifp->nbr_connected))
 		vty_out(vty, "  Neighbor address(s):\n");
 	for (ALL_LIST_ELEMENTS_RO(ifp->nbr_connected, node, nbr_connected))
@@ -2911,13 +2838,7 @@ static int if_config_write(struct vty *vty)
 						: "no ");
 		}
 
-#if defined(HAVE_RTADV)
-		rtadv_config_write(vty, ifp);
-#endif /* HAVE_RTADV */
-
-#ifdef HAVE_IRDP
-		irdp_config_write(vty, ifp);
-#endif /* IRDP */
+		hook_call(zebra_if_config_wr, vty, ifp);
 
 		link_params_config_write(vty, ifp);
 
