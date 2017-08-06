@@ -218,14 +218,26 @@ static int vtysh_client_run_all(struct vtysh_client *head_client,
 {
 	struct vtysh_client *client;
 	int rc, rc_all = CMD_SUCCESS;
+	int correct_instance = 0, wrong_instance = 0;
 
 	for (client = head_client; client; client = client->next) {
 		rc = vtysh_client_run(client, line, fp, callback, cbarg);
+		if (rc == CMD_NOT_MY_INSTANCE) {
+			wrong_instance++;
+			continue;
+		}
+		correct_instance++;
 		if (rc != CMD_SUCCESS) {
 			if (!continue_on_err)
 				return rc;
 			rc_all = rc;
 		}
+	}
+	if (wrong_instance && !correct_instance && fp) {
+		fprintf(fp,
+			"%% [%s]: command ignored as it targets an instance that is not running",
+			head_client->name);
+		rc_all = CMD_WARNING_CONFIG_FAILED;
 	}
 	return rc_all;
 }
