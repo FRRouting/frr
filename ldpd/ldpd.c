@@ -256,7 +256,7 @@ main(int argc, char *argv[])
 	strlcpy(init.user, ldpd_privs.user, sizeof(init.user));
 	strlcpy(init.group, ldpd_privs.group, sizeof(init.group));
 	strlcpy(init.ctl_sock_path, ctl_sock_path, sizeof(init.ctl_sock_path));
-	strlcpy(init.zclient_serv_path, zclient_serv_path_get(),
+	strlcpy(init.zclient_serv_path, frr_zclientpath,
 	    sizeof(init.zclient_serv_path));
 
 	argc -= optind;

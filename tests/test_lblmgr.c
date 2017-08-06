@@ -113,8 +113,7 @@ static int zebra_send_release_label_chunk(uint32_t start, uint32_t end)
 
 void init_zclient(struct thread_master *master, char *lm_zserv_path)
 {
-	if (lm_zserv_path)
-		zclient_serv_path_set(lm_zserv_path);
+	frr_zclient_addr(&zclient_addr, &zclient_addr_len, lm_zserv_path);
 
 	zclient = zclient_new(master);
 	/* zclient_init(zclient, ZEBRA_LABEL_MANAGER, 0); */

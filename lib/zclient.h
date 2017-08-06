@@ -36,6 +36,14 @@
 /* Zebra header size. */
 #define ZEBRA_HEADER_SIZE             8
 
+/* special socket path name to use TCP
+ * @ is used as first character because that's abstract socket names on Linux
+ */
+#define ZAPI_TCP_PATHNAME             "@tcp"
+
+extern struct sockaddr_storage zclient_addr;
+extern socklen_t zclient_addr_len;
+
 /* Zebra message types. */
 typedef enum {
 	ZEBRA_INTERFACE_ADD,
@@ -275,8 +283,6 @@ extern void zclient_reset(struct zclient *);
 extern void zclient_free(struct zclient *);
 
 extern int zclient_socket_connect(struct zclient *);
-extern void zclient_serv_path_set(char *path);
-extern const char *zclient_serv_path_get(void);
 
 extern u_short *redist_check_instance(struct redist_proto *, u_short);
 extern void redist_add_instance(struct redist_proto *, u_short);

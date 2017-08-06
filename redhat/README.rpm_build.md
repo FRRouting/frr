@@ -52,7 +52,6 @@ Building your own FRRouting RPM
     
         ############### FRRouting (FRR) configure options #################
         # with-feature options
-        %{!?with_tcp_zebra:     %global  with_tcp_zebra     0 }
         %{!?with_pam:           %global  with_pam           0 }
         %{!?with_ospfclient:    %global  with_ospfclient    1 }
         %{!?with_ospfapi:       %global  with_ospfapi       1 }

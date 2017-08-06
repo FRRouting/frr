@@ -186,11 +186,7 @@ int main(int argc, char **argv)
 	/* Establish connection to zebra. */
 	zclient = zclient_new(master);
 	zclient->enable = 1;
-#ifdef HAVE_TCP_ZEBRA
-	zclient->sock = zclient_socket();
-#else
-	zclient->sock = zclient_socket_un(ZEBRA_SERV_PATH);
-#endif /* HAVE_TCP_ZEBRA */
+	zclient_socket_connect(zclient);
 
 	/* Open simulation file. */
 	fp = fopen(argv[1], "r");

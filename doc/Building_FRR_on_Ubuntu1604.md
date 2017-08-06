@@ -54,7 +54,6 @@ an example.)
         --enable-configfile-mask=0640 \
         --enable-logfile-mask=0640 \
         --enable-rtadv \
-        --enable-tcp-zebra \
         --enable-fpm \
 	--enable-systemd=yes \
         --with-pkg-git-version \
