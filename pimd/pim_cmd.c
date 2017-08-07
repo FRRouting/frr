@@ -5235,7 +5235,7 @@ DEFUN (ip_pim_rp_keep_alive,
        "Seconds\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	pim->rp_keep_alive_time = atoi(argv[3]->arg);
+	pim->rp_keep_alive_time = atoi(argv[4]->arg);
 	return CMD_SUCCESS;
 }
 
@@ -5461,7 +5461,7 @@ DEFUN (ip_pim_ssm_prefix_list,
        "Name of a prefix-list\n")
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
-	return pim_ssm_cmd_worker(pim, vty, argv[0]->arg);
+	return pim_ssm_cmd_worker(pim, vty, argv[4]->arg);
 }
 
 DEFUN (no_ip_pim_ssm_prefix_list,
@@ -5490,10 +5490,10 @@ DEFUN (no_ip_pim_ssm_prefix_list_name,
 	PIM_DECLVAR_CONTEXT(vrf, pim);
 	struct pim_ssm *ssm = pim->ssm_info;
 
-	if (ssm->plist_name && !strcmp(ssm->plist_name, argv[0]->arg))
+	if (ssm->plist_name && !strcmp(ssm->plist_name, argv[5]->arg))
 		return pim_ssm_cmd_worker(pim, vty, NULL);
 
-	vty_out(vty, "%% pim ssm prefix-list %s doesn't exist\n", argv[0]->arg);
+	vty_out(vty, "%% pim ssm prefix-list %s doesn't exist\n", argv[5]->arg);
 
 	return CMD_WARNING_CONFIG_FAILED;
 }
