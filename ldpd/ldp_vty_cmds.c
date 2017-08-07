@@ -37,7 +37,7 @@ DEFUN_NOSH(ldp_mpls_ldp,
 DEFPY  (no_ldp_mpls_ldp,
 	no_ldp_mpls_ldp_cmd,
 	"no mpls ldp",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Global MPLS configuration subcommands\n"
 	"Label Distribution Protocol\n")
 {
@@ -64,7 +64,7 @@ DEFUN_NOSH(ldp_l2vpn,
 DEFPY  (no_ldp_l2vpn,
 	no_ldp_l2vpn_cmd,
 	"no l2vpn WORD$l2vpn_name type vpls",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure l2vpn commands\n"
 	"L2VPN name\n"
 	"L2VPN type\n"
@@ -92,7 +92,7 @@ DEFUN_NOSH(ldp_address_family,
 DEFPY  (no_ldp_address_family,
 	no_ldp_address_family_cmd,
 	"no address-family <ipv4|ipv6>$af",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure Address Family and its parameters\n"
 	"IPv4\n"
 	"IPv6\n")
@@ -113,7 +113,7 @@ DEFUN_NOSH(ldp_exit_address_family,
 DEFPY  (ldp_discovery_holdtime,
 	ldp_discovery_holdtime_cmd,
 	"[no] discovery <hello|targeted-hello>$hello_type holdtime (1-65535)$holdtime",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure discovery parameters\n"
 	"LDP Link Hellos\n"
 	"LDP Targeted Hellos\n"
@@ -126,7 +126,7 @@ DEFPY  (ldp_discovery_holdtime,
 DEFPY  (ldp_discovery_interval,
 	ldp_discovery_interval_cmd,
 	"[no] discovery <hello|targeted-hello>$hello_type interval (1-65535)$interval",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure discovery parameters\n"
 	"LDP Link Hellos\n"
 	"LDP Targeted Hellos\n"
@@ -139,7 +139,7 @@ DEFPY  (ldp_discovery_interval,
 DEFPY  (ldp_dual_stack_transport_connection_prefer_ipv4,
 	ldp_dual_stack_transport_connection_prefer_ipv4_cmd,
 	"[no] dual-stack transport-connection prefer ipv4",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure dual stack parameters\n"
 	"Configure TCP transport parameters\n"
 	"Configure prefered address family for TCP transport connection with neighbor\n"
@@ -151,7 +151,7 @@ DEFPY  (ldp_dual_stack_transport_connection_prefer_ipv4,
 DEFPY  (ldp_dual_stack_cisco_interop,
 	ldp_dual_stack_cisco_interop_cmd,
 	"[no] dual-stack cisco-interop",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure dual stack parameters\n"
 	"Use Cisco non-compliant format to send and interpret the Dual-Stack capability TLV\n")
 {
@@ -161,7 +161,7 @@ DEFPY  (ldp_dual_stack_cisco_interop,
 DEFPY  (ldp_neighbor_password,
 	ldp_neighbor_password_cmd,
 	"[no] neighbor A.B.C.D$neighbor password WORD$password",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure neighbor parameters\n"
 	"LDP Id of neighbor\n"
 	"Configure password for MD5 authentication\n"
@@ -173,7 +173,7 @@ DEFPY  (ldp_neighbor_password,
 DEFPY  (ldp_neighbor_session_holdtime,
 	ldp_neighbor_session_holdtime_cmd,
 	"[no] neighbor A.B.C.D$neighbor session holdtime (15-65535)$holdtime",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure neighbor parameters\n"
 	"LDP Id of neighbor\n"
 	"Configure session parameters\n"
@@ -186,7 +186,7 @@ DEFPY  (ldp_neighbor_session_holdtime,
 DEFPY  (ldp_neighbor_ttl_security,
 	ldp_neighbor_ttl_security_cmd,
 	"[no] neighbor A.B.C.D$neighbor ttl-security <disable|hops (1-254)$hops>",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure neighbor parameters\n"
 	"LDP Id of neighbor\n"
 	"LDP ttl security check\n"
@@ -200,7 +200,7 @@ DEFPY  (ldp_neighbor_ttl_security,
 DEFPY  (ldp_router_id,
 	ldp_router_id_cmd,
 	"[no] router-id A.B.C.D$address",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure router Id\n"
 	"LSR Id (in form of an IPv4 address)\n")
 {
@@ -210,7 +210,7 @@ DEFPY  (ldp_router_id,
 DEFPY  (ldp_discovery_targeted_hello_accept,
 	ldp_discovery_targeted_hello_accept_cmd,
 	"[no] discovery targeted-hello accept [from <(1-199)|(1300-2699)|WORD>$from_acl]",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure discovery parameters\n"
 	"LDP Targeted Hellos\n"
 	"Accept and respond to targeted hellos\n"
@@ -225,7 +225,7 @@ DEFPY  (ldp_discovery_targeted_hello_accept,
 DEFPY  (ldp_discovery_transport_address_ipv4,
 	ldp_discovery_transport_address_ipv4_cmd,
 	"[no] discovery transport-address A.B.C.D$address",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure discovery parameters\n"
 	"Specify transport address for TCP connection\n"
 	"IP address to be used as transport address\n")
@@ -236,7 +236,7 @@ DEFPY  (ldp_discovery_transport_address_ipv4,
 DEFPY  (ldp_discovery_transport_address_ipv6,
 	ldp_discovery_transport_address_ipv6_cmd,
 	"[no] discovery transport-address X:X::X:X$address",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure discovery parameters\n"
 	"Specify transport address for TCP connection\n"
 	"IPv6 address to be used as transport address\n")
@@ -247,7 +247,7 @@ DEFPY  (ldp_discovery_transport_address_ipv6,
 DEFPY  (ldp_label_local_advertise,
 	ldp_label_local_advertise_cmd,
 	"[no] label local advertise [{to <(1-199)|(1300-2699)|WORD>$to_acl|for <(1-199)|(1300-2699)|WORD>$for_acl}]",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure label control and policies\n"
 	"Configure local label control and policies\n"
 	"Configure outbound label advertisement control\n"
@@ -266,7 +266,7 @@ DEFPY  (ldp_label_local_advertise,
 DEFPY  (ldp_label_local_advertise_explicit_null,
 	ldp_label_local_advertise_explicit_null_cmd,
 	"[no] label local advertise explicit-null [for <(1-199)|(1300-2699)|WORD>$for_acl]",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure label control and policies\n"
 	"Configure local label control and policies\n"
 	"Configure outbound label advertisement control\n"
@@ -282,7 +282,7 @@ DEFPY  (ldp_label_local_advertise_explicit_null,
 DEFPY  (ldp_label_local_allocate,
 	ldp_label_local_allocate_cmd,
 	"[no] label local allocate <host-routes$host_routes|for <(1-199)|(1300-2699)|WORD>$for_acl>",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure label control and policies\n"
 	"Configure local label control and policies\n"
 	"Configure label allocation control\n"
@@ -298,7 +298,7 @@ DEFPY  (ldp_label_local_allocate,
 DEFPY  (ldp_label_remote_accept,
 	ldp_label_remote_accept_cmd,
 	"[no] label remote accept {from <(1-199)|(1300-2699)|WORD>$from_acl|for <(1-199)|(1300-2699)|WORD>$for_acl}",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure label control and policies\n"
 	"Configure remote/peer label control and policies\n"
 	"Configure inbound label acceptance control\n"
@@ -317,7 +317,7 @@ DEFPY  (ldp_label_remote_accept,
 DEFPY  (ldp_ttl_security_disable,
 	ldp_ttl_security_disable_cmd,
 	"[no] ttl-security disable",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"LDP ttl security check\n"
 	"Disable ttl security\n")
 {
@@ -327,7 +327,7 @@ DEFPY  (ldp_ttl_security_disable,
 DEFPY  (ldp_session_holdtime,
 	ldp_session_holdtime_cmd,
 	"[no] session holdtime (15-65535)$holdtime",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure session parameters\n"
 	"Configure session holdtime\n"
 	"Time (seconds)\n")
@@ -353,7 +353,7 @@ DEFUN_NOSH(ldp_interface,
 DEFPY  (no_ldp_interface,
 	no_ldp_interface_cmd,
 	"no interface IFNAME$ifname",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Enable LDP on an interface and enter interface submode\n"
 	"Interface's name\n")
 {
@@ -363,7 +363,7 @@ DEFPY  (no_ldp_interface,
 DEFPY  (ldp_neighbor_ipv4_targeted,
 	ldp_neighbor_ipv4_targeted_cmd,
 	"[no] neighbor A.B.C.D$address targeted",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure neighbor parameters\n"
 	"IP address of neighbor\n"
 	"Establish targeted session\n")
@@ -374,7 +374,7 @@ DEFPY  (ldp_neighbor_ipv4_targeted,
 DEFPY  (ldp_neighbor_ipv6_targeted,
 	ldp_neighbor_ipv6_targeted_cmd,
 	"[no] neighbor X:X::X:X$address targeted",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure neighbor parameters\n"
 	"IPv6 address of neighbor\n"
 	"Establish targeted session\n")
@@ -385,7 +385,7 @@ DEFPY  (ldp_neighbor_ipv6_targeted,
 DEFPY  (ldp_bridge,
 	ldp_bridge_cmd,
 	"[no] bridge IFNAME$ifname",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Bridge interface\n"
 	"Interface's name\n")
 {
@@ -395,7 +395,7 @@ DEFPY  (ldp_bridge,
 DEFPY  (ldp_mtu,
 	ldp_mtu_cmd,
 	"[no] mtu (1500-9180)$mtu",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Set Maximum Transmission Unit\n"
 	"Maximum Transmission Unit value\n")
 {
@@ -405,7 +405,7 @@ DEFPY  (ldp_mtu,
 DEFPY  (ldp_member_interface,
 	ldp_member_interface_cmd,
 	"[no] member interface IFNAME$ifname",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"L2VPN member configuration\n"
 	"Local interface\n"
 	"Interface's name\n")
@@ -432,7 +432,7 @@ DEFUN_NOSH(ldp_member_pseudowire,
 DEFPY  (no_ldp_member_pseudowire,
 	no_ldp_member_pseudowire_cmd,
 	"no member pseudowire IFNAME$ifname",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"L2VPN member configuration\n"
 	"Pseudowire interface\n"
 	"Interface's name\n")
@@ -443,7 +443,7 @@ DEFPY  (no_ldp_member_pseudowire,
 DEFPY  (ldp_vc_type,
 	ldp_vc_type_cmd,
 	"[no] vc type <ethernet|ethernet-tagged>$vc_type",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Virtual Circuit options\n"
 	"Virtual Circuit type to use\n"
 	"Ethernet (type 5)\n"
@@ -455,7 +455,7 @@ DEFPY  (ldp_vc_type,
 DEFPY  (ldp_control_word,
 	ldp_control_word_cmd,
 	"[no] control-word <exclude|include>$preference",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Control-word options\n"
 	"Exclude control-word in pseudowire packets\n"
 	"Include control-word in pseudowire packets\n")
@@ -466,7 +466,7 @@ DEFPY  (ldp_control_word,
 DEFPY  (ldp_neighbor_address,
 	ldp_neighbor_address_cmd,
 	"[no] neighbor address <A.B.C.D|X:X::X:X>$pw_address",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Remote endpoint configuration\n"
 	"Specify the IPv4 or IPv6 address of the remote endpoint\n"
 	"IPv4 address\n"
@@ -478,7 +478,7 @@ DEFPY  (ldp_neighbor_address,
 DEFPY  (ldp_neighbor_lsr_id,
 	ldp_neighbor_lsr_id_cmd,
 	"[no] neighbor lsr-id A.B.C.D$address",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Remote endpoint configuration\n"
 	"Specify the LSR-ID of the remote endpoint\n"
 	"IPv4 address\n")
@@ -489,7 +489,7 @@ DEFPY  (ldp_neighbor_lsr_id,
 DEFPY  (ldp_pw_id,
 	ldp_pw_id_cmd,
 	"[no] pw-id (1-4294967295)$pwid",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Set the Virtual Circuit ID\n"
 	"Virtual Circuit ID value\n")
 {
@@ -499,7 +499,7 @@ DEFPY  (ldp_pw_id,
 DEFPY  (ldp_pw_status_disable,
 	ldp_pw_status_disable_cmd,
 	"[no] pw-status disable",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Configure PW status\n"
 	"Disable PW status\n")
 {
@@ -522,7 +522,7 @@ DEFPY  (ldp_clear_mpls_ldp_neighbor,
 DEFPY  (ldp_debug_mpls_ldp_discovery_hello,
 	ldp_debug_mpls_ldp_discovery_hello_cmd,
 	"[no] debug mpls ldp discovery hello <recv|sent>$dir",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Debugging functions\n"
 	"MPLS information\n"
 	"Label Distribution Protocol\n"
@@ -537,7 +537,7 @@ DEFPY  (ldp_debug_mpls_ldp_discovery_hello,
 DEFPY  (ldp_debug_mpls_ldp_type,
 	ldp_debug_mpls_ldp_type_cmd,
 	"[no] debug mpls ldp <errors|event|zebra>$type",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Debugging functions\n"
 	"MPLS information\n"
 	"Label Distribution Protocol\n"
@@ -551,7 +551,7 @@ DEFPY  (ldp_debug_mpls_ldp_type,
 DEFPY  (ldp_debug_mpls_ldp_messages_recv,
 	ldp_debug_mpls_ldp_messages_recv_cmd,
 	"[no] debug mpls ldp messages recv [all]$all",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Debugging functions\n"
 	"MPLS information\n"
 	"Label Distribution Protocol\n"
@@ -565,7 +565,7 @@ DEFPY  (ldp_debug_mpls_ldp_messages_recv,
 DEFPY  (ldp_debug_mpls_ldp_messages_sent,
 	ldp_debug_mpls_ldp_messages_sent_cmd,
 	"[no] debug mpls ldp messages sent [all]$all",
-	"Negate a command or set its defaults\n"
+	NO_STR
 	"Debugging functions\n"
 	"MPLS information\n"
 	"Label Distribution Protocol\n"
