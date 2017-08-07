@@ -8651,6 +8651,46 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 					json_cap, "multiprotocolExtensions",
 					json_multi);
 
+				/* Hostname capabilities */
+				json_object	*json_hname = NULL;
+
+				json_hname = json_object_new_object();
+
+				if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_ADV)) {
+					json_object_string_add(
+						json_hname,
+						"advHostName",
+						bgp->peer_self->hostname ?
+							bgp->peer_self->hostname
+							: "n/a");
+					json_object_string_add(
+						json_hname,
+						"advDomainName",
+						bgp->peer_self->domainname ?
+							bgp->peer_self->domainname
+							: "n/a");
+				}
+
+
+				if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_RCV)) {
+					json_object_string_add(
+						json_hname,
+						"rcvHostName",
+						p->hostname ?
+							p->hostname :
+							"n/a");
+					json_object_string_add(
+						json_hname,
+						"rcvDomainName",
+						p->domainname ?
+							p->domainname :
+							"n/a");
+				}
+
+				json_object_object_add(json_cap,
+						       "hostName",
+						       json_hname);
+
 				/* Gracefull Restart */
 				if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)
 				    || CHECK_FLAG(p->cap,
@@ -8984,24 +9024,34 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 						}
 
 				/* Hostname capability */
-				if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_ADV)
-				    || CHECK_FLAG(p->cap,
-						  PEER_CAP_HOSTNAME_RCV)) {
-					vty_out(vty,
-						"    Hostname Capability:");
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_HOSTNAME_ADV))
-						vty_out(vty, " advertised");
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_HOSTNAME_RCV))
-						vty_out(vty, " %sreceived",
-							CHECK_FLAG(
-								p->cap,
-								PEER_CAP_HOSTNAME_ADV)
-								? "and "
-								: "");
-					vty_out(vty, "\n");
+				vty_out(vty,
+					"    Hostname Capability:");
+
+				if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_ADV)) {
+					vty_out(vty, " advertised (name: %s, "
+						"domain name: %s)",
+						bgp->peer_self->hostname ?
+							bgp->peer_self->hostname
+							: "n/a",
+						bgp->peer_self->domainname ?
+							bgp->peer_self->domainname
+							: "n/a");
+				} else {
+					vty_out(vty, " not advertised");
 				}
+
+				if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_RCV)) {
+					vty_out(vty, " received (name: %s, "
+						"domain name: %s)",
+						p->hostname ?
+							p->hostname : "n/a",
+						p->domainname ?
+							p->domainname : "n/a");
+				} else {
+					vty_out(vty, " not received");
+				}
+
+				vty_out(vty, "\n");
 
 				/* Gracefull Restart */
 				if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)
