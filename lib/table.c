@@ -31,7 +31,6 @@
 DEFINE_MTYPE(LIB, ROUTE_TABLE, "Route table")
 DEFINE_MTYPE(LIB, ROUTE_NODE, "Route node")
 
-static void route_node_delete(struct route_node *);
 static void route_table_free(struct route_table *);
 
 static int route_table_hash_cmp(const void *a, const void *b)
@@ -187,23 +186,6 @@ static void set_link(struct route_node *node, struct route_node *new)
 	new->parent = node;
 }
 
-/* Lock node. */
-struct route_node *route_lock_node(struct route_node *node)
-{
-	node->lock++;
-	return node;
-}
-
-/* Unlock node. */
-void route_unlock_node(struct route_node *node)
-{
-	assert(node->lock > 0);
-	node->lock--;
-
-	if (node->lock == 0)
-		route_node_delete(node);
-}
-
 /* Find matched prefix. */
 struct route_node *route_node_match(const struct route_table *table,
 				    union prefixconstptr pu)
@@ -348,7 +330,7 @@ struct route_node *route_node_get(struct route_table *const table,
 }
 
 /* Delete node from the routing table. */
-static void route_node_delete(struct route_node *node)
+void route_node_delete(struct route_node *node)
 {
 	struct route_node *child;
 	struct route_node *parent;
