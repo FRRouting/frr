@@ -18,7 +18,7 @@
 
 #include <zebra.h>
 
-#include "openbsd-queue.h"
+#include "queue.h"
 #include "imsg.h"
 
 int	 imsg_fd_overhead = 0;
