@@ -395,11 +395,11 @@ DEFUN (debug_eigrp_transmit,
 		flag = EIGRP_DEBUG_SEND;
 	else if (argv_find(argv, argc, "recv", &idx))
 		flag = EIGRP_DEBUG_RECV;
-	else if (argv_find(argv, argc, "all", &idx) == 0)
+	else if (argv_find(argv, argc, "all", &idx))
 		flag = EIGRP_DEBUG_SEND_RECV;
 
 	/* detail option */
-	if (argv_find(argv, argc, "detail", &idx) == 0)
+	if (argv_find(argv, argc, "detail", &idx))
 		flag = EIGRP_DEBUG_PACKET_DETAIL;
 
 	if (vty->node == CONFIG_NODE)
@@ -426,15 +426,15 @@ DEFUN (no_debug_eigrp_transmit,
 	int idx = 3;
 
 	/* send or recv. */
-	if (argv_find(argv, argc, "send", &idx) == 0)
+	if (argv_find(argv, argc, "send", &idx))
 		flag = EIGRP_DEBUG_SEND;
-	else if (argv_find(argv, argc, "recv", &idx) == 0)
+	else if (argv_find(argv, argc, "recv", &idx))
 		flag = EIGRP_DEBUG_RECV;
-	else if (argv_find(argv, argc, "all", &idx) == 0)
+	else if (argv_find(argv, argc, "all", &idx))
 		flag = EIGRP_DEBUG_SEND_RECV;
 
 	/* detail option */
-	if (argv_find(argv, argc, "detail", &idx) == 0)
+	if (argv_find(argv, argc, "detail", &idx))
 		flag = EIGRP_DEBUG_PACKET_DETAIL;
 
 	if (vty->node == CONFIG_NODE)
@@ -474,27 +474,27 @@ DEFUN (debug_eigrp_packets,
 	int idx = 0;
 
 	/* Check packet type. */
-	if (argv_find(argv, argc, "hello", &idx) == 0)
+	if (argv_find(argv, argc, "hello", &idx))
 		type = EIGRP_DEBUG_HELLO;
-	if (argv_find(argv, argc, "update", &idx) == 0)
+	if (argv_find(argv, argc, "update", &idx))
 		type = EIGRP_DEBUG_UPDATE;
-	if (argv_find(argv, argc, "query", &idx) == 0)
+	if (argv_find(argv, argc, "query", &idx))
 		type = EIGRP_DEBUG_QUERY;
-	if (argv_find(argv, argc, "ack", &idx) == 0)
+	if (argv_find(argv, argc, "ack", &idx))
 		type = EIGRP_DEBUG_ACK;
-	if (argv_find(argv, argc, "probe", &idx) == 0)
+	if (argv_find(argv, argc, "probe", &idx))
 		type = EIGRP_DEBUG_PROBE;
-	if (argv_find(argv, argc, "stub", &idx) == 0)
+	if (argv_find(argv, argc, "stub", &idx))
 		type = EIGRP_DEBUG_STUB;
-	if (argv_find(argv, argc, "reply", &idx) == 0)
+	if (argv_find(argv, argc, "reply", &idx))
 		type = EIGRP_DEBUG_REPLY;
-	if (argv_find(argv, argc, "request", &idx) == 0)
+	if (argv_find(argv, argc, "request", &idx))
 		type = EIGRP_DEBUG_REQUEST;
-	if (argv_find(argv, argc, "siaquery", &idx) == 0)
+	if (argv_find(argv, argc, "siaquery", &idx))
 		type = EIGRP_DEBUG_SIAQUERY;
-	if (argv_find(argv, argc, "siareply", &idx) == 0)
+	if (argv_find(argv, argc, "siareply", &idx))
 		type = EIGRP_DEBUG_SIAREPLY;
-	if (argv_find(argv, argc, "all", &idx) == 0)
+	if (argv_find(argv, argc, "all", &idx))
 		type = EIGRP_DEBUG_PACKETS_ALL;
 
 
@@ -502,13 +502,13 @@ DEFUN (debug_eigrp_packets,
 	flag = EIGRP_DEBUG_SEND_RECV;
 
 	/* send or recv. */
-	if (argv_find(argv, argc, "s", &idx) == 0)
+	if (argv_find(argv, argc, "s", &idx))
 		flag = EIGRP_DEBUG_SEND;
-	else if (argv_find(argv, argc, "r", &idx) == 0)
+	else if (argv_find(argv, argc, "r", &idx))
 		flag = EIGRP_DEBUG_RECV;
 
 	/* detail. */
-	if (argv_find(argv, argc, "detail", &idx) == 0)
+	if (argv_find(argv, argc, "detail", &idx))
 		flag |= EIGRP_DEBUG_PACKET_DETAIL;
 
 	for (i = 0; i < 11; i++)
@@ -552,38 +552,38 @@ DEFUN (no_debug_eigrp_packets,
 	int idx = 0;
 
 	/* Check packet type. */
-	if (argv_find(argv, argc, "hello", &idx) == 0)
+	if (argv_find(argv, argc, "hello", &idx))
 		type = EIGRP_DEBUG_HELLO;
-	if (argv_find(argv, argc, "update", &idx) == 0)
+	if (argv_find(argv, argc, "update", &idx))
 		type = EIGRP_DEBUG_UPDATE;
-	if (argv_find(argv, argc, "query", &idx) == 0)
+	if (argv_find(argv, argc, "query", &idx))
 		type = EIGRP_DEBUG_QUERY;
-	if (argv_find(argv, argc, "ack", &idx) == 0)
+	if (argv_find(argv, argc, "ack", &idx))
 		type = EIGRP_DEBUG_ACK;
-	if (argv_find(argv, argc, "probe", &idx) == 0)
+	if (argv_find(argv, argc, "probe", &idx))
 		type = EIGRP_DEBUG_PROBE;
-	if (argv_find(argv, argc, "stub", &idx) == 0)
+	if (argv_find(argv, argc, "stub", &idx))
 		type = EIGRP_DEBUG_STUB;
-	if (argv_find(argv, argc, "reply", &idx) == 0)
+	if (argv_find(argv, argc, "reply", &idx))
 		type = EIGRP_DEBUG_REPLY;
-	if (argv_find(argv, argc, "request", &idx) == 0)
+	if (argv_find(argv, argc, "request", &idx))
 		type = EIGRP_DEBUG_REQUEST;
-	if (argv_find(argv, argc, "siaquery", &idx) == 0)
+	if (argv_find(argv, argc, "siaquery", &idx))
 		type = EIGRP_DEBUG_SIAQUERY;
-	if (argv_find(argv, argc, "siareply", &idx) == 0)
+	if (argv_find(argv, argc, "siareply", &idx))
 		type = EIGRP_DEBUG_SIAREPLY;
 
 	/* Default, both send and recv. */
 	flag = EIGRP_DEBUG_SEND_RECV;
 
 	/* send or recv. */
-	if (argv_find(argv, argc, "send", &idx) == 0)
+	if (argv_find(argv, argc, "send", &idx))
 		flag = EIGRP_DEBUG_SEND;
-	else if (argv_find(argv, argc, "reply", &idx) == 0)
+	else if (argv_find(argv, argc, "reply", &idx))
 		flag = EIGRP_DEBUG_RECV;
 
 	/* detail. */
-	if (argv_find(argv, argc, "detail", &idx) == 0)
+	if (argv_find(argv, argc, "detail", &idx))
 		flag |= EIGRP_DEBUG_PACKET_DETAIL;
 
 	for (i = 0; i < 11; i++)
