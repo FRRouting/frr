@@ -168,7 +168,8 @@ Requires(pre):      initscripts >= 5.60
 %endif
 Provides:           routingdaemon = %{version}-%{release}
 BuildRoot:          %{_tmppath}/%{name}-%{version}-root
-Obsoletes:          bird gated mrt zebra frr-sysvinit
+Obsoletes:          gated mrt zebra frr-sysvinit
+Conflicts:          bird
 
 %description
 FRRouting is a free software that manages TCP/IP based routing
