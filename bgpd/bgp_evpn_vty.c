@@ -174,7 +174,7 @@ static void show_import_rt_entry(struct hash_backet *backet, void *args[])
 	vty = args[0];
 	json = args[1];
 
-	display_import_rt(vty, irt);
+	display_import_rt(vty, irt, json);
 
 	return;
 }
