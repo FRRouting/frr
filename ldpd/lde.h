@@ -21,7 +21,7 @@
 #ifndef _LDE_H_
 #define _LDE_H_
 
-#include "openbsd-queue.h"
+#include "queue.h"
 #include "openbsd-tree.h"
 #include "if.h"
 

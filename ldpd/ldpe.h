@@ -21,7 +21,7 @@
 #ifndef _LDPE_H_
 #define _LDPE_H_
 
-#include "openbsd-queue.h"
+#include "queue.h"
 #include "openbsd-tree.h"
 #ifdef __OpenBSD__
 #include <net/pfkeyv2.h>
