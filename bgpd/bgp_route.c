@@ -2248,8 +2248,7 @@ void bgp_process(struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
 	/* all unlocked in bgp_processq_del */
 	bgp_table_lock(bgp_node_table(rn));
 	pqnode->rn = bgp_lock_node(rn);
-	pqnode->bgp = bgp;
-	bgp_lock(bgp);
+	pqnode->bgp = bgp_lock(bgp);
 	pqnode->afi = afi;
 	pqnode->safi = safi;
 	work_queue_add(bm->process_main_queue, pqnode);
