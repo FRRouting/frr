@@ -385,7 +385,6 @@ static void cmd_node_names(struct graph_node *gn, struct graph_node *join,
 		break;
 
 	case START_TKN:
-	case END_TKN:
 	case JOIN_TKN:
 		/* "<foo|bar> WORD" -> word is not "bar" or "foo" */
 		prevname = NULL;
@@ -405,6 +404,9 @@ static void cmd_node_names(struct graph_node *gn, struct graph_node *join,
 			cmd_token_varname_set(tailtok, jointok->varname);
 		}
 		break;
+
+	case END_TKN:
+		return;
 	}
 
 	for (i = 0; i < vector_active(gn->to); i++) {
