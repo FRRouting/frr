@@ -543,8 +543,6 @@ static const char *bgp_get_reuse_time(unsigned int penalty, char *buf,
 		reuse_time = 0;
 
 /* Making formatted timer strings. */
-#define ONE_DAY_SECOND 60*60*24
-#define ONE_WEEK_SECOND 60*60*24*7
 	if (reuse_time == 0) {
 		if (use_json)
 			json_object_int_add(json, "reuseTimerMsecs", 0);

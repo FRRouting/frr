@@ -6110,11 +6110,6 @@ char *peer_uptime(time_t uptime2, char *buf, size_t len, u_char use_json,
 	uptime1 -= uptime2;
 	tm = gmtime(&uptime1);
 
-/* Making formatted timer strings. */
-#define ONE_DAY_SECOND 60*60*24
-#define ONE_WEEK_SECOND ONE_DAY_SECOND*7
-#define ONE_YEAR_SECOND ONE_DAY_SECOND*365
-
 	if (uptime1 < ONE_DAY_SECOND)
 		snprintf(buf, len, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
 			 tm->tm_sec);

@@ -151,10 +151,6 @@ static char *ripng_peer_uptime(struct ripng_peer *peer, char *buf, size_t len)
 	uptime -= peer->uptime;
 	tm = gmtime(&uptime);
 
-/* Making formatted timer strings. */
-#define ONE_DAY_SECOND 60*60*24
-#define ONE_WEEK_SECOND 60*60*24*7
-
 	if (uptime < ONE_DAY_SECOND)
 		snprintf(buf, len, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
 			 tm->tm_sec);
