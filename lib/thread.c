@@ -340,9 +340,6 @@ static void cancelreq_del(void *cr)
 /* initializer, only ever called once */
 static void initializer()
 {
-	if (!masters)
-		masters = list_new();
-
 	pthread_key_create(&thread_current, NULL);
 }
 
@@ -415,9 +412,12 @@ struct thread_master *thread_master_create(const char *name)
 	rv->handler.copy = XCALLOC(MTYPE_THREAD_MASTER,
 				   sizeof(struct pollfd) * rv->handler.pfdsize);
 
-	/* add to list */
+	/* add to list of threadmasters */
 	pthread_mutex_lock(&masters_mtx);
 	{
+		if (!masters)
+			masters = list_new();
+
 		listnode_add(masters, rv);
 	}
 	pthread_mutex_unlock(&masters_mtx);
@@ -551,6 +551,10 @@ void thread_master_free(struct thread_master *m)
 	pthread_mutex_lock(&masters_mtx);
 	{
 		listnode_delete(masters, m);
+		if (masters->count == 0) {
+			list_free (masters);
+			masters = NULL;
+		}
 	}
 	pthread_mutex_unlock(&masters_mtx);
 
