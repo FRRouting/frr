@@ -334,6 +334,8 @@ int str2family(const char *string)
 		return AF_INET6;
 	else if (!strcmp("ethernet", string))
 		return AF_ETHERNET;
+	else if (!strcmp("evpn", string))
+		return AF_EVPN;
 	return -1;
 }
 
@@ -346,6 +348,7 @@ int afi2family(afi_t afi)
 		return AF_INET6;
 	else if (afi == AFI_L2VPN)
 		return AF_ETHERNET;
+	/* NOTE: EVPN code should NOT use this interface. */
 	return 0;
 }
 
@@ -355,7 +358,7 @@ afi_t family2afi(int family)
 		return AFI_IP;
 	else if (family == AF_INET6)
 		return AFI_IP6;
-	else if (family == AF_ETHERNET)
+	else if (family == AF_ETHERNET || family == AF_EVPN)
 		return AFI_L2VPN;
 	return 0;
 }
@@ -461,6 +464,9 @@ void prefix_copy(struct prefix *dest, const struct prefix *src)
 	else if (src->family == AF_INET6)
 		dest->u.prefix6 = src->u.prefix6;
 	else if (src->family == AF_ETHERNET) {
+		memcpy(&dest->u.prefix_eth, &src->u.prefix_eth,
+		       sizeof(struct ethaddr));
+	} else if (src->family == AF_EVPN) {
 		memcpy(&dest->u.prefix_evpn, &src->u.prefix_evpn,
 		       sizeof(struct evpn_addr));
 	} else if (src->family == AF_UNSPEC) {
@@ -517,6 +523,10 @@ int prefix_same(const struct prefix *p1, const struct prefix *p2)
 					   &p2->u.prefix6.s6_addr))
 				return 1;
 		if (p1->family == AF_ETHERNET)
+			if (!memcmp(&p1->u.prefix_eth, &p2->u.prefix_eth,
+				    sizeof(struct ethaddr)))
+				return 1;
+		if (p1->family == AF_EVPN)
 			if (!memcmp(&p1->u.prefix_evpn, &p2->u.prefix_evpn,
 				    sizeof(struct evpn_addr)))
 				return 1;
@@ -581,6 +591,8 @@ int prefix_common_bits(const struct prefix *p1, const struct prefix *p2)
 	if (p1->family == AF_INET6)
 		length = IPV6_MAX_BYTELEN;
 	if (p1->family == AF_ETHERNET)
+		length = ETH_ALEN;
+	if (p1->family == AF_EVPN)
 		length = 8 * sizeof(struct evpn_addr);
 
 	if (p1->family != p2->family || !length)
@@ -609,6 +621,8 @@ const char *prefix_family_str(const struct prefix *p)
 		return "inet6";
 	if (p->family == AF_ETHERNET)
 		return "ether";
+	if (p->family == AF_EVPN)
+		return "evpn";
 	return "unspec";
 }
 
@@ -965,6 +979,7 @@ int prefix_blen(const struct prefix *p)
 		break;
 	case AF_ETHERNET:
 		return ETH_ALEN;
+		break;
 	}
 	return 0;
 }
@@ -992,7 +1007,7 @@ int str2prefix(const char *str, struct prefix *p)
 	return 0;
 }
 
-static const char *prefixeth2str(const struct prefix *p, char *str, int size)
+static const char *prefixevpn2str(const struct prefix *p, char *str, int size)
 {
 	u_char family;
 	char buf[PREFIX2STR_BUFFER];
@@ -1036,12 +1051,8 @@ static const char *prefixeth2str(const struct prefix *p, char *str, int size)
 				   PREFIX2STR_BUFFER),
 			 p->prefixlen);
 	} else {
-		sprintf(str, "UNK AF_ETHER prefix");
-		snprintf(str, size, "%02x:%02x:%02x:%02x:%02x:%02x/%d",
-			 p->u.prefix_eth.octet[0], p->u.prefix_eth.octet[1],
-			 p->u.prefix_eth.octet[2], p->u.prefix_eth.octet[3],
-			 p->u.prefix_eth.octet[4], p->u.prefix_eth.octet[5],
-			 p->prefixlen);
+		sprintf(str, "Unsupported EVPN route type %d",
+			 p->u.prefix_evpn.route_type);
 	}
 
 	return str;
@@ -1061,7 +1072,13 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 		break;
 
 	case AF_ETHERNET:
-		prefixeth2str(p, str, size);
+		snprintf(str, size, "%s/%d",
+			 prefix_mac2str(&p->u.prefix_eth, buf, sizeof(buf)),
+			 p->prefixlen);
+		break;
+
+	case AF_EVPN:
+		prefixevpn2str(p, str, size);
 		break;
 
 	default:

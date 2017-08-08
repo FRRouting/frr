@@ -1807,7 +1807,7 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 
 	/* Make EVPN prefix. */
 	memset(&p, 0, sizeof(struct prefix_evpn));
-	p.family = AF_ETHERNET;
+	p.family = AF_EVPN;
 	p.prefixlen = EVPN_TYPE_2_ROUTE_PREFIXLEN;
 	p.prefix.route_type = BGP_EVPN_MAC_IP_ROUTE;
 
@@ -1896,7 +1896,7 @@ static int process_type3_route(struct peer *peer, afi_t afi, safi_t safi,
 
 	/* Make EVPN prefix. */
 	memset(&p, 0, sizeof(struct prefix_evpn));
-	p.family = AF_ETHERNET;
+	p.family = AF_EVPN;
 	p.prefixlen = EVPN_TYPE_3_ROUTE_PREFIXLEN;
 	p.prefix.route_type = BGP_EVPN_IMET_ROUTE;
 
@@ -1961,7 +1961,7 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 
 	/* Make EVPN prefix. */
 	memset(&p, 0, sizeof(struct prefix_evpn));
-	p.family = AF_ETHERNET;
+	p.family = AF_EVPN;
 	p.prefix.route_type = BGP_EVPN_IP_PREFIX_ROUTE;
 
 	/* Additional information outside of prefix - ESI and GW IP */
@@ -2030,7 +2030,7 @@ static void evpn_mpattr_encode_type5(struct stream *s, struct prefix *p,
 	struct evpn_addr *p_evpn_p;
 
 	memset(&temp, 0, 16);
-	if (p->family != AF_ETHERNET)
+	if (p->family != AF_EVPN)
 		return;
 	p_evpn_p = &(p->u.prefix_evpn);
 
@@ -2213,7 +2213,7 @@ char *bgp_evpn_route2str(struct prefix_evpn *p, char *buf, int len)
 					   PREFIX2STR_BUFFER));
 		}
 	} else {
-		/* Currently, this is to cater to other AF_ETHERNET code. */
+		/* For EVPN route types not supported yet. */
 	}
 
 	return (buf);

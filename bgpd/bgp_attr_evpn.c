@@ -169,7 +169,7 @@ extern int bgp_build_evpn_prefix(int evpn_type, uint32_t eth_tag,
 	prefix_copy(src, dst);
 	memset(dst, 0, sizeof(struct prefix));
 	p_evpn_p = &(dst->u.prefix_evpn);
-	dst->family = AF_ETHERNET;
+	dst->family = AF_EVPN;
 	p_evpn_p->route_type = evpn_type;
 	if (evpn_type == BGP_EVPN_IP_PREFIX_ROUTE) {
 		p_evpn_p->eth_tag = eth_tag;
