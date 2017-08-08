@@ -1336,8 +1336,8 @@ int isis_if_delete_hook(struct interface *ifp)
 void isis_circuit_init()
 {
 	/* Initialize Zebra interface data structure */
-	if_add_hook(IF_NEW_HOOK, isis_if_new_hook);
-	if_add_hook(IF_DELETE_HOOK, isis_if_delete_hook);
+	hook_register_prio(if_add, 0, isis_if_new_hook);
+	hook_register_prio(if_del, 0, isis_if_delete_hook);
 
 	/* Install interface node */
 	install_node(&interface_node, isis_interface_config_write);

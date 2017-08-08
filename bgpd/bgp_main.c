@@ -178,9 +178,6 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 
 	bgp_close();
 
-	if (retain_mode)
-		if_add_hook(IF_DELETE_HOOK, NULL);
-
 	/* reverse bgp_master_init */
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
 		bgp_delete(bgp);

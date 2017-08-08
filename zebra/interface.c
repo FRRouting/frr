@@ -2930,8 +2930,8 @@ static int if_config_write(struct vty *vty)
 void zebra_if_init(void)
 {
 	/* Initialize interface and new hook. */
-	if_add_hook(IF_NEW_HOOK, if_zebra_new_hook);
-	if_add_hook(IF_DELETE_HOOK, if_zebra_delete_hook);
+	hook_register_prio(if_add, 0, if_zebra_new_hook);
+	hook_register_prio(if_del, 0, if_zebra_delete_hook);
 
 	/* Install configuration write function. */
 	install_node(&interface_node, if_config_write);

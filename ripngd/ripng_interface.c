@@ -1121,8 +1121,8 @@ static struct cmd_node interface_node = {
 void ripng_if_init()
 {
 	/* Interface initialize. */
-	if_add_hook(IF_NEW_HOOK, ripng_if_new_hook);
-	if_add_hook(IF_DELETE_HOOK, ripng_if_delete_hook);
+	hook_register_prio(if_add, 0, ripng_if_new_hook);
+	hook_register_prio(if_del, 0, ripng_if_delete_hook);
 
 	/* RIPng enable network init. */
 	ripng_enable_network = route_table_init();

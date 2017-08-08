@@ -150,8 +150,8 @@ struct list *eigrp_iflist;
 void eigrp_if_init()
 {
 	/* Initialize Zebra interface data structure. */
-	if_add_hook(IF_NEW_HOOK, eigrp_if_new_hook);
-	if_add_hook(IF_DELETE_HOOK, eigrp_if_delete_hook);
+	hook_register_prio(if_add, 0, eigrp_if_new_hook);
+	hook_register_prio(if_del, 0, eigrp_if_delete_hook);
 }
 
 int eigrp_if_new_hook(struct interface *ifp)

@@ -42,16 +42,11 @@ DEFINE_MTYPE_STATIC(LIB, IF_LINK_PARAMS, "Informational Link Parameters")
 
 DEFINE_QOBJ_TYPE(interface)
 
+DEFINE_HOOK(if_add, (struct interface *ifp), (ifp))
+DEFINE_KOOH(if_del, (struct interface *ifp), (ifp))
+
 /* List of interfaces in only the default VRF */
 int ptm_enable = 0;
-
-/* One for each program.  This structure is needed to store hooks. */
-struct if_master {
-	int (*if_new_hook)(struct interface *);
-	int (*if_delete_hook)(struct interface *);
-} if_master = {
-	0,
-};
 
 /* Compare interface names, returning an integer greater than, equal to, or
  * less than 0, (following the strcmp convention), according to the
@@ -150,10 +145,7 @@ struct interface *if_create(const char *name, int namelen, vrf_id_t vrf_id)
 	SET_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION);
 
 	QOBJ_REG(ifp, interface);
-
-	if (if_master.if_new_hook)
-		(*if_master.if_new_hook)(ifp);
-
+        hook_call(if_add, ifp);
 	return ifp;
 }
 
@@ -182,9 +174,7 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 /* Delete interface structure. */
 void if_delete_retain(struct interface *ifp)
 {
-	if (if_master.if_delete_hook)
-		(*if_master.if_delete_hook)(ifp);
-
+        hook_call(if_del, ifp);
 	QOBJ_UNREG(ifp);
 
 	/* Free connected address list */
@@ -207,21 +197,6 @@ void if_delete(struct interface *ifp)
 	if_link_params_free(ifp);
 
 	XFREE(MTYPE_IF, ifp);
-}
-
-/* Add hook to interface master. */
-void if_add_hook(int type, int (*func)(struct interface *ifp))
-{
-	switch (type) {
-	case IF_NEW_HOOK:
-		if_master.if_new_hook = func;
-		break;
-	case IF_DELETE_HOOK:
-		if_master.if_delete_hook = func;
-		break;
-	default:
-		break;
-	}
 }
 
 /* Interface existance check by index. */
