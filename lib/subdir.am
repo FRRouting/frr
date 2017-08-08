@@ -90,6 +90,7 @@ pkginclude_HEADERS += \
 	lib/event_counter.h \
 	lib/fifo.h \
 	lib/filter.h \
+	lib/freebsd-queue.h \
 	lib/frr_pthread.h \
 	lib/frratomic.h \
 	lib/getopt.h \
@@ -124,6 +125,7 @@ pkginclude_HEADERS += \
 	lib/privs.h \
 	lib/ptm_lib.h \
 	lib/qobj.h \
+	lib/queue.h \
 	lib/route_types.h \
 	lib/routemap.h \
 	lib/sbuf.h \
@@ -211,7 +213,6 @@ lib_clippy_SOURCES = \
 EXTRA_DIST += \
 	lib/command_lex.h \
 	lib/gitversion.pl \
-	lib/queue.h \
 	lib/route_types.pl \
 	lib/route_types.txt \
 	# end

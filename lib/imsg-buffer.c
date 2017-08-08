@@ -18,7 +18,7 @@
 
 #include <zebra.h>
 
-#include "openbsd-queue.h"
+#include "queue.h"
 #include "imsg.h"
 
 int	ibuf_realloc(struct ibuf *, size_t);

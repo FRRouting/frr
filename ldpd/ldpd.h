@@ -22,7 +22,7 @@
 #ifndef _LDPD_H_
 #define _LDPD_H_
 
-#include "openbsd-queue.h"
+#include "queue.h"
 #include "openbsd-tree.h"
 #include "imsg.h"
 #include "thread.h"

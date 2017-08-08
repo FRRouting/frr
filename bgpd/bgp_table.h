@@ -23,6 +23,7 @@
 
 #include "mpls.h"
 #include "table.h"
+#include "queue.h"
 
 struct bgp_table {
 	/* afi/safi of this table */
@@ -51,6 +52,10 @@ struct bgp_node {
 	struct bgp_adj_in *adj_in;
 
 	struct bgp_node *prn;
+
+	STAILQ_ENTRY(bgp_node) pq;
+	afi_t afi;
+	safi_t safi;
 
 	mpls_label_t local_label;
 

@@ -1993,18 +1993,15 @@ int bgp_zebra_has_route_changed(struct bgp_node *rn, struct bgp_info *selected)
 
 struct bgp_process_queue {
 	struct bgp *bgp;
-	struct bgp_node *rn;
-	afi_t afi;
-	safi_t safi;
+	STAILQ_HEAD(, bgp_node)pqueue;
+#define BGP_PROCESS_QUEUE_EOIU_MARKER		(1 << 0)
+	unsigned int flags;
+	unsigned int queued;
 };
 
-static wq_item_status bgp_process_main(struct work_queue *wq, void *data)
+static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
+				 afi_t afi, safi_t safi)
 {
-	struct bgp_process_queue *pq = data;
-	struct bgp *bgp = pq->bgp;
-	struct bgp_node *rn = pq->rn;
-	afi_t afi = pq->afi;
-	safi_t safi = pq->safi;
 	struct prefix *p = &rn->p;
 	struct bgp_info *new_select;
 	struct bgp_info *old_select;
@@ -2025,7 +2022,7 @@ static wq_item_status bgp_process_main(struct work_queue *wq, void *data)
 		bgp->main_peers_update_hold = 0;
 
 		bgp_start_routeadv(bgp);
-		return WQ_SUCCESS;
+		return;
 	}
 
 	/* Best path selection. */
@@ -2106,7 +2103,7 @@ static wq_item_status bgp_process_main(struct work_queue *wq, void *data)
 		}
 
 		UNSET_FLAG(rn->flags, BGP_NODE_PROCESS_SCHEDULED);
-		return WQ_SUCCESS;
+		return;
 	}
 
 	/* If the user did "clear ip bgp prefix x.x.x.x" this flag will be set
@@ -2184,21 +2181,42 @@ static wq_item_status bgp_process_main(struct work_queue *wq, void *data)
 		bgp_info_reap(rn, old_select);
 
 	UNSET_FLAG(rn->flags, BGP_NODE_PROCESS_SCHEDULED);
+	return;
+}
+
+static wq_item_status bgp_process_wq(struct work_queue *wq, void *data)
+{
+	struct bgp_process_queue *pqnode = data;
+	struct bgp *bgp = pqnode->bgp;
+	struct bgp_table *table;
+	struct bgp_node *rn;
+
+	/* eoiu marker */
+	if (CHECK_FLAG(pqnode->flags, BGP_PROCESS_QUEUE_EOIU_MARKER)) {
+		bgp_process_main_one(bgp, NULL, 0, 0);
+
+		return WQ_SUCCESS;
+	}
+
+	STAILQ_FOREACH(rn, &pqnode->pqueue, pq) {
+		table = bgp_node_table(rn);
+
+		bgp_process_main_one(bgp, rn, rn->afi, rn->safi);
+
+		bgp_unlock_node(rn);
+		bgp_table_unlock(table);
+	}
+
 	return WQ_SUCCESS;
 }
 
 static void bgp_processq_del(struct work_queue *wq, void *data)
 {
-	struct bgp_process_queue *pq = data;
-	struct bgp_table *table;
+	struct bgp_process_queue *pqnode = data;
 
-	bgp_unlock(pq->bgp);
-	if (pq->rn) {
-		table = bgp_node_table(pq->rn);
-		bgp_unlock_node(pq->rn);
-		bgp_table_unlock(table);
-	}
-	XFREE(MTYPE_BGP_PROCESS_QUEUE, pq);
+	bgp_unlock(pqnode->bgp);
+
+	XFREE(MTYPE_BGP_PROCESS_QUEUE, pqnode);
 }
 
 void bgp_process_queue_init(void)
@@ -2213,7 +2231,7 @@ void bgp_process_queue_init(void)
 		}
 	}
 
-	bm->process_main_queue->spec.workfunc = &bgp_process_main;
+	bm->process_main_queue->spec.workfunc = &bgp_process_wq;
 	bm->process_main_queue->spec.del_item_data = &bgp_processq_del;
 	bm->process_main_queue->spec.max_retries = 0;
 	bm->process_main_queue->spec.hold = 50;
@@ -2221,31 +2239,57 @@ void bgp_process_queue_init(void)
 	bm->process_main_queue->spec.yield = 50 * 1000L;
 }
 
+static struct bgp_process_queue *bgp_process_queue_work(struct work_queue *wq,
+							struct bgp *bgp)
+{
+	struct bgp_process_queue *pqnode;
+
+	pqnode = XCALLOC(MTYPE_BGP_PROCESS_QUEUE, sizeof(struct bgp_process_queue));
+
+	/* unlocked in bgp_processq_del */
+	pqnode->bgp = bgp;
+	bgp_lock(bgp);
+	STAILQ_INIT(&pqnode->pqueue);
+
+	work_queue_add(wq, pqnode);
+
+	return pqnode;
+}
+
 void bgp_process(struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
 {
+#define ARBITRARY_PROCESS_QLEN		10000
+	struct work_queue *wq = bm->process_main_queue;
 	struct bgp_process_queue *pqnode;
 
 	/* already scheduled for processing? */
 	if (CHECK_FLAG(rn->flags, BGP_NODE_PROCESS_SCHEDULED))
 		return;
 
-	if (bm->process_main_queue == NULL)
+	if (wq == NULL)
 		return;
 
-	pqnode = XCALLOC(MTYPE_BGP_PROCESS_QUEUE,
-			 sizeof(struct bgp_process_queue));
-	if (!pqnode)
-		return;
+	/* Add route nodes to an existing work queue item until reaching the
+	   limit only if is from the same BGP view and it's not an EOIU marker */
+	if (listcount(wq->items)) {
+		struct work_queue_item *item = listgetdata(listtail(wq->items));
+		pqnode = item->data;
 
-	/* all unlocked in bgp_processq_del */
+		if (CHECK_FLAG(pqnode->flags, BGP_PROCESS_QUEUE_EOIU_MARKER) ||
+		    pqnode->bgp != bgp || pqnode->queued >= ARBITRARY_PROCESS_QLEN)
+			pqnode = bgp_process_queue_work(wq, bgp);
+	} else
+		pqnode = bgp_process_queue_work(wq, bgp);
+
+	/* all unlocked in bgp_process_wq */
 	bgp_table_lock(bgp_node_table(rn));
-	pqnode->rn = bgp_lock_node(rn);
-	pqnode->bgp = bgp;
-	bgp_lock(bgp);
-	pqnode->afi = afi;
-	pqnode->safi = safi;
-	work_queue_add(bm->process_main_queue, pqnode);
+	rn->afi = afi;
+	rn->safi = safi;
 	SET_FLAG(rn->flags, BGP_NODE_PROCESS_SCHEDULED);
+
+	STAILQ_INSERT_TAIL(&pqnode->pqueue, bgp_lock_node(rn), pq);
+	pqnode->queued++;
+
 	return;
 }
 
@@ -2256,15 +2300,9 @@ void bgp_add_eoiu_mark(struct bgp *bgp)
 	if (bm->process_main_queue == NULL)
 		return;
 
-	pqnode = XCALLOC(MTYPE_BGP_PROCESS_QUEUE,
-			 sizeof(struct bgp_process_queue));
-	if (!pqnode)
-		return;
+	pqnode = bgp_process_queue_work(bm->process_main_queue, bgp);
 
-	pqnode->rn = NULL;
-	pqnode->bgp = bgp;
-	bgp_lock(bgp);
-	work_queue_add(bm->process_main_queue, pqnode);
+	SET_FLAG(pqnode->flags, BGP_PROCESS_QUEUE_EOIU_MARKER);
 }
 
 static int bgp_maximum_prefix_restart_timer(struct thread *thread)
