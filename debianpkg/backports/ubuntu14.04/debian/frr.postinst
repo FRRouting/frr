@@ -32,8 +32,6 @@ if [ "$1" = "abort-upgrade" ]; then
   exit 0
 fi
 
-db_stop
-
 update-rc.d frr defaults > /dev/null
 
 #DEBHELPER#
