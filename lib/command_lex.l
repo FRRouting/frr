@@ -40,6 +40,8 @@ IPV4            A\.B\.C\.D
 IPV4_PREFIX     A\.B\.C\.D\/M
 IPV6            X:X::X:X
 IPV6_PREFIX     X:X::X:X\/M
+MAC             M:A:C
+MAC_PREFIX      M:A:C\/M
 VARIABLE        [A-Z][-_a-zA-Z:0-9]+
 NUMBER          (\-|\+)?[0-9]{1,20}
 RANGE           \({NUMBER}[ ]?\-[ ]?{NUMBER}\)
@@ -67,6 +69,8 @@ RANGE           \({NUMBER}[ ]?\-[ ]?{NUMBER}\)
 {IPV4_PREFIX}   {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return IPV4_PREFIX;}
 {IPV6}          {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return IPV6;}
 {IPV6_PREFIX}   {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return IPV6_PREFIX;}
+{MAC}           {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return MAC;}
+{MAC_PREFIX}    {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return MAC_PREFIX;}
 {VARIABLE}      {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return VARIABLE;}
 {RANGE}         {yylval->string = XSTRDUP(MTYPE_LEX, yytext); return RANGE;}
 .               {return yytext[0];}

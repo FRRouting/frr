@@ -379,6 +379,8 @@ static void cmd_node_names(struct graph_node *gn, struct graph_node *join,
 	case IPV4_PREFIX_TKN:
 	case IPV6_TKN:
 	case IPV6_PREFIX_TKN:
+	case MAC_TKN:
+	case MAC_PREFIX_TKN:
 		if (!tok->varname && prevname)
 			cmd_token_varname_set(tok, prevname);
 		prevname = NULL;

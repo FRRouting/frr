@@ -78,6 +78,8 @@ static enum match_type match_word(struct cmd_token *, const char *);
 
 static enum match_type match_variable(struct cmd_token *, const char *);
 
+static enum match_type match_mac(const char *, bool);
+
 /* matching functions */
 static enum matcher_rv matcher_rv;
 
@@ -537,6 +539,8 @@ static int score_precedence(enum cmd_token_type type)
 	case IPV4_PREFIX_TKN:
 	case IPV6_TKN:
 	case IPV6_PREFIX_TKN:
+	case MAC_TKN:
+	case MAC_PREFIX_TKN:
 	case RANGE_TKN:
 		return 2;
 	case WORD_TKN:
@@ -658,6 +662,10 @@ static enum match_type match_token(struct cmd_token *token, char *input_token)
 		return match_range(token, input_token);
 	case VARIABLE_TKN:
 		return match_variable(token, input_token);
+	case MAC_TKN:
+		return match_mac(input_token, false);
+	case MAC_PREFIX_TKN:
+		return match_mac(input_token, true);
 	case END_TKN:
 	default:
 		return no_match;
@@ -962,5 +970,52 @@ static enum match_type match_word(struct cmd_token *token, const char *word)
 static enum match_type match_variable(struct cmd_token *token, const char *word)
 {
 	assert(token->type == VARIABLE_TKN);
+	return exact_match;
+}
+
+#define MAC_CHARS "ABCDEFabcdef0123456789:"
+
+static enum match_type match_mac(const char *word, bool prefix)
+{
+	/* 6 2-digit hex numbers separated by 5 colons */
+	size_t mac_explen = 6 * 2 + 5;
+	/* '/' + 2-digit integer */
+	size_t mask_len = 1 + 2;
+	unsigned int i;
+	char *eptr;
+	unsigned int maskval;
+
+	/* length check */
+	if (strlen(word) > mac_explen + (prefix ? mask_len : 0))
+		return no_match;
+
+	/* address check */
+	for (i = 0; i < mac_explen; i++) {
+		if (word[i] == '\0' || !strchr(MAC_CHARS, word[i]))
+			break;
+		if (((i + 1) % 3 == 0) != (word[i] == ':'))
+			return no_match;
+	}
+
+	/* incomplete address */
+	if (i < mac_explen && word[i] == '\0')
+		return partly_match;
+	else if (i < mac_explen)
+		return no_match;
+
+	/* mask check */
+	if (prefix && word[i] == '/') {
+		if (word[++i] == '\0')
+			return partly_match;
+
+		maskval = strtoul(&word[i], &eptr, 10);
+		if (*eptr != '\0' || maskval > 48)
+			return no_match;
+	} else if (prefix && word[i] == '\0') {
+		return partly_match;
+	} else if (prefix) {
+		return no_match;
+	}
+
 	return exact_match;
 }
