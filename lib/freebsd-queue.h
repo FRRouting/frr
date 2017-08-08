@@ -302,7 +302,7 @@ struct qm_trace {
 	(STAILQ_EMPTY((head))                                                  \
 		 ? NULL                                                        \
 		 : ((struct type *)(void *)((char *)((head)->stqh_last)        \
-					    - __offsetof(struct type,          \
+					    - offsetof(struct type,            \
 							 field))))
 
 #define	STAILQ_NEXT(elm, field)	((elm)->field.stqe_next)
