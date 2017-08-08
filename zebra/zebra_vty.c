@@ -55,9 +55,6 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				     int mcast);
 
-#define ONE_DAY_SECOND 60*60*24
-#define ONE_WEEK_SECOND 60*60*24*7
-
 /* VNI range as per RFC 7432 */
 #define CMD_VNI_RANGE "(1-16777215)"
 
