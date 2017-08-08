@@ -138,6 +138,7 @@ bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 		path = ZEBRA_SERV_PATH;
 
 	if (!strncmp(path, ZAPI_TCP_PATHNAME, strlen(ZAPI_TCP_PATHNAME))) {
+		/* note: this functionality is disabled at bottom */
 		int af;
 		int port = ZEBRA_PORT;
 		char *err = NULL;
@@ -193,6 +194,21 @@ bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
 #endif
 			break;
 		}
+
+#if 1
+		/* force-disable this path, because tcp-zebra is a
+		 * SECURITY ISSUE.  there are no checks at all against
+		 * untrusted users on the local system connecting on TCP
+		 * and injecting bogus routing data into the entire routing
+		 * domain.
+		 *
+		 * The functionality is only left here because it may be
+		 * useful during development, in order to be able to get
+		 * tcpdump or wireshark watching ZAPI as TCP.  If you want
+		 * to do that, flip the #if 1 above to #if 0. */
+		memset(sa, 0, sizeof(*sa));
+		return false;
+#endif
 	} else {
 		/* "sun" is a #define on solaris */
 		struct sockaddr_un *suna = (struct sockaddr_un *)sa;

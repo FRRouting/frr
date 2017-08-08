@@ -104,14 +104,6 @@ It should thus be loaded with \fB-M fpm:netlink\fR or \fB-M fpm:protobuf\fR.
 Use the specified path to open the zebra API socket on.
 The default is \fB\fI@CFG_STATE@/zserv.api\fR.  This option must be given with
 the same value to all FRR protocol daemons.
-
-For debugging purposes (using tcpdump or wireshark to trace cross-daemon
-communication), a TCP socket can be used by specifying \fI@tcp[46][:port]\fR.
-It is intentionally not possible to bind this to anything other than localhost
-since zebra and the other daemons need to be running on the same host.  Using
-this feature \fBCREATES A SECURITY ISSUE\fR since nothing prevents other users
-on the local system from connecting to zebra and injecting bogus routing
-information.
 .TP
 \fB\-v\fR, \fB\-\-version\fR
 Print the version and exit.
