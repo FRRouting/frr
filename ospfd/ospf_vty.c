@@ -2185,48 +2185,6 @@ DEFUN (no_ospf_timers_min_ls_interval,
 	return CMD_SUCCESS;
 }
 
-
-DEFUN (ospf_timers_min_ls_arrival,
-       ospf_timers_min_ls_arrival_cmd,
-       "timers lsa arrival (0-1000)",
-       "Adjust routing timers\n"
-       "Throttling link state advertisement delays\n"
-       "OSPF minimum arrival interval delay\n"
-       "Delay (msec) between accepted LSAs\n")
-{
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx_number = 3;
-	unsigned int arrival;
-
-	if (argc < 4) {
-		vty_out(vty, "Insufficient arguments\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	arrival = strtoul(argv[idx_number]->arg, NULL, 10);
-
-	ospf->min_ls_arrival = arrival;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ospf_timers_min_ls_arrival,
-       no_ospf_timers_min_ls_arrival_cmd,
-       "no timers lsa arrival [(0-1000)]",
-       NO_STR
-       "Adjust routing timers\n"
-       "Throttling link state advertisement delays\n"
-       "OSPF minimum arrival interval delay\n"
-       "Delay (msec) between accepted LSAs\n")
-{
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-
-	ospf->min_ls_arrival = OSPF_MIN_LS_ARRIVAL;
-
-	return CMD_SUCCESS;
-}
-
-
 DEFUN (ospf_timers_throttle_spf,
        ospf_timers_throttle_spf_cmd,
        "timers throttle spf (0-600000) (0-600000) (0-600000)",
@@ -2271,8 +2229,8 @@ DEFUN (no_ospf_timers_throttle_spf,
 }
 
 
-DEFUN (ospf_timers_lsa,
-       ospf_timers_lsa_cmd,
+DEFUN (ospf_timers_lsa_min_arrival,
+       ospf_timers_lsa_min_arrival_cmd,
        "timers lsa min-arrival (0-600000)",
        "Adjust routing timers\n"
        "OSPF LSA timers\n"
@@ -2280,23 +2238,12 @@ DEFUN (ospf_timers_lsa,
        "Delay in milliseconds\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx_number = 3;
-	unsigned int minarrival;
-
-	if (argc < 4) {
-		vty_out(vty, "Insufficient number of arguments\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	minarrival = strtoul(argv[idx_number]->arg, NULL, 10);
-
-	ospf->min_ls_arrival = minarrival;
-
+	ospf->min_ls_arrival = strtoul(argv[argc - 1]->arg, NULL, 10);
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_ospf_timers_lsa,
-       no_ospf_timers_lsa_cmd,
+DEFUN (no_ospf_timers_lsa_min_arrival,
+       no_ospf_timers_lsa_min_arrival_cmd,
        "no timers lsa min-arrival [(0-600000)]",
        NO_STR
        "Adjust routing timers\n"
@@ -2308,7 +2255,7 @@ DEFUN (no_ospf_timers_lsa,
 	unsigned int minarrival;
 
 	if (argc > 4) {
-		minarrival = strtoul(argv[4]->arg, NULL, 10);
+		minarrival = strtoul(argv[argc - 1]->arg, NULL, 10);
 
 		if (ospf->min_ls_arrival != minarrival
 		    || minarrival == OSPF_MIN_LS_ARRIVAL)
@@ -2319,6 +2266,26 @@ DEFUN (no_ospf_timers_lsa,
 
 	return CMD_SUCCESS;
 }
+
+/* Deprecated: 08/07/2017 */
+ALIAS_HIDDEN (ospf_timers_lsa_min_arrival,
+              ospf_timers_lsa_arrival_cmd,
+              "timers lsa arrival (0-1000)",
+              "adjust routing timers\n"
+              "throttling link state advertisement delays\n"
+              "ospf minimum arrival interval delay\n"
+              "delay (msec) between accepted lsas\n");
+
+/* Deprecated: 08/07/2017 */
+ALIAS_HIDDEN (no_ospf_timers_lsa_min_arrival,
+              no_ospf_timers_lsa_arrival_cmd,
+              "no timers lsa arrival (0-1000)",
+              NO_STR
+              "adjust routing timers\n"
+              "throttling link state advertisement delays\n"
+              "ospf minimum arrival interval delay\n"
+              "delay (msec) between accepted lsas\n");
+
 
 DEFUN (ospf_neighbor,
        ospf_neighbor_cmd,
@@ -9185,10 +9152,10 @@ void ospf_vty_init(void)
 	/* LSA timers commands */
 	install_element(OSPF_NODE, &ospf_timers_min_ls_interval_cmd);
 	install_element(OSPF_NODE, &no_ospf_timers_min_ls_interval_cmd);
-	install_element(OSPF_NODE, &ospf_timers_min_ls_arrival_cmd);
-	install_element(OSPF_NODE, &no_ospf_timers_min_ls_arrival_cmd);
-	install_element(OSPF_NODE, &ospf_timers_lsa_cmd);
-	install_element(OSPF_NODE, &no_ospf_timers_lsa_cmd);
+	install_element(OSPF_NODE, &ospf_timers_lsa_min_arrival_cmd);
+	install_element(OSPF_NODE, &no_ospf_timers_lsa_min_arrival_cmd);
+	install_element(OSPF_NODE, &ospf_timers_lsa_arrival_cmd);
+	install_element(OSPF_NODE, &no_ospf_timers_lsa_arrival_cmd);
 
 	/* refresh timer commands */
 	install_element(OSPF_NODE, &ospf_refresh_timer_cmd);
