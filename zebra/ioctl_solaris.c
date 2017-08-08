@@ -402,3 +402,9 @@ int if_prefix_delete_ipv6(struct interface *ifp, struct connected *ifc)
 }
 
 #endif /* SUNOS_5 */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

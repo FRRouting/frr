@@ -346,3 +346,9 @@ void nhrp_cache_notify_del(struct nhrp_cache *c, struct notifier_block *n)
 {
 	notifier_del(n);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

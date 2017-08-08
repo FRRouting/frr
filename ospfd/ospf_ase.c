@@ -845,3 +845,9 @@ void ospf_ase_incremental_update(struct ospf *ospf, struct ospf_lsa *lsa)
 
 	route_table_finish(tmp_old);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

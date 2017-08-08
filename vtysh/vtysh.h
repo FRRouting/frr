@@ -101,3 +101,9 @@ extern struct vty *vty;
 extern const char *vty_sock_path;
 
 #endif /* VTYSH_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

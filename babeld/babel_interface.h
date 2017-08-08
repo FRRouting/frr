@@ -142,3 +142,9 @@ extern int babel_enable_if_config_write (struct vty *);
 
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

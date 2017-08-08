@@ -210,3 +210,9 @@ int pim_if_is_vrf_device(struct interface *ifp);
 
 int pim_if_ifchannel_count(struct pim_interface *pim_ifp);
 #endif /* PIM_IFACE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

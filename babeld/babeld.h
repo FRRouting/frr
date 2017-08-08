@@ -126,3 +126,9 @@ extern void schedule_neighbours_check(int msecs, int override);
 
 
 #endif /* BABEL_BABELD_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

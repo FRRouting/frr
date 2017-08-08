@@ -339,3 +339,9 @@ struct pw_status_tlv {
 #define	NO_LABEL		UINT32_MAX
 
 #endif /* !_LDP_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

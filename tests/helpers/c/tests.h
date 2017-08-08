@@ -28,3 +28,9 @@ extern void test_init(void);
 extern void test_init_cmd(void);
 
 #endif /* _QUAGGA_TESTS_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

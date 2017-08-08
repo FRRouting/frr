@@ -1576,3 +1576,9 @@ void isis_spf_print(struct isis_spftree *spftree, struct vty *vty)
 	vty_out(vty, "      run count         : %u\n",
 		spftree->runcount);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

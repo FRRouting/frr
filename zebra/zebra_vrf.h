@@ -135,3 +135,9 @@ extern struct route_table *
 zebra_vrf_other_route_table(afi_t afi, u_int32_t table_id, vrf_id_t vrf_id);
 extern void zebra_vrf_init(void);
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

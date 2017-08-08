@@ -903,3 +903,9 @@ log_msg_mapping(int out, uint16_t msg_type, struct nbr *nbr, struct map *map)
 	debug_msg(out, "%s: lsr-id %s, fec %s, label %s", msg_name(msg_type),
 	    inet_ntoa(nbr->id), log_map(map), log_label(map->label));
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

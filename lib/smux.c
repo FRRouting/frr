@@ -1400,3 +1400,9 @@ void smux_start(void)
 	smux_event(SMUX_SCHEDULE, 0);
 }
 #endif /* SNMP_SMUX */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

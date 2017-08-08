@@ -111,3 +111,9 @@ extern void zebra_vxlan_init_tables(struct zebra_vrf *zvrf);
 extern void zebra_vxlan_close_tables(struct zebra_vrf *);
 
 #endif /* _ZEBRA_VXLAN_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

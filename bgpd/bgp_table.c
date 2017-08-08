@@ -109,3 +109,9 @@ struct bgp_table *bgp_table_init(afi_t afi, safi_t safi)
 
 	return rt;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

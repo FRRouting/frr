@@ -276,3 +276,9 @@ int netlink_configure_arp(unsigned int ifindex, int pf)
 
 	return r;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

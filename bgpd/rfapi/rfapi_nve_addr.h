@@ -36,3 +36,9 @@ extern void rfapiNveAddr2Str(struct rfapi_nve_addr *na, char *buf, int bufsize);
 
 
 #endif /* _QUAGGA_BGP_RFAPI_NVE_ADDR_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

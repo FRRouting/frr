@@ -159,3 +159,9 @@ const char *bgp_notify_admin_message(char *buf, size_t bufsz, u_char *data,
 				     size_t datalen);
 
 #endif /* _QUAGGA_BGP_DEBUG_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -32,3 +32,9 @@ extern int ospf_if_ipmulticast(struct ospf *, struct prefix *, ifindex_t);
 extern int ospf_sock_init(void);
 
 #endif /* _ZEBRA_OSPF_NETWORK_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

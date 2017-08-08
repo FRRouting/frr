@@ -75,3 +75,9 @@ int flags_any_set(u_int32_t *flags)
 
 	return bcmp(flags, zero, ISIS_MAX_CIRCUITS * 4);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

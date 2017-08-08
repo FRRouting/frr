@@ -117,3 +117,9 @@ u_int16_t fletcher_checksum(u_char *buffer, const size_t len,
 
 	return checksum;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

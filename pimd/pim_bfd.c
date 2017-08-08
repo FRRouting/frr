@@ -336,3 +336,9 @@ void pim_bfd_init(void)
 	zclient->interface_bfd_dest_update = pim_bfd_interface_dest_update;
 	zclient->bfd_dest_replay = pim_bfd_nbr_replay;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

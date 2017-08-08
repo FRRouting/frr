@@ -67,3 +67,9 @@ void bgp_unlink_nexthop_by_peer(struct peer *);
 extern void bgp_delete_connected_nexthop(afi_t afi, struct peer *peer);
 
 #endif /* _BGP_NHT_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

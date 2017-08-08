@@ -382,3 +382,9 @@ void nhrp_zebra_terminate(void)
 	route_table_finish(zebra_rib[AFI_IP6]);
 }
 
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -485,3 +485,9 @@ char *ttable_dump(struct ttable *tt, const char *newline)
 
 	return buf;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

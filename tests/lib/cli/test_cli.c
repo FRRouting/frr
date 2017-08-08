@@ -85,3 +85,9 @@ void test_init(int argc, char **argv)
 	install_element(ENABLE_NODE, &cmd14_cmd);
 	install_element(ENABLE_NODE, &magic_test_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

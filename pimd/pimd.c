@@ -140,3 +140,9 @@ void pim_terminate()
 		zclient_free(zclient);
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

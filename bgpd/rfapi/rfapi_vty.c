@@ -5021,3 +5021,9 @@ void rfapi_vty_init()
 	install_element(VIEW_NODE, &vnc_show_responses_some_pfx_cmd);
 	install_element(VIEW_NODE, &show_vnc_queries_pfx_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

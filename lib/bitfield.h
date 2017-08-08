@@ -154,3 +154,9 @@ typedef unsigned int word_t;
 	} while (0)
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

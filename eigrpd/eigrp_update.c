@@ -1143,3 +1143,9 @@ void eigrp_update_send_process_GR(struct eigrp *eigrp, enum GR_type gr_type,
 		eigrp_update_send_interface_GR(ei, gr_type, vty);
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

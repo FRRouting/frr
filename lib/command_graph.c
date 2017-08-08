@@ -455,3 +455,9 @@ void cmd_graph_names(struct graph *graph)
 
 	cmd_node_names(start, NULL, NULL);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

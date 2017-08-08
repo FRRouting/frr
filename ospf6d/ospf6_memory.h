@@ -43,3 +43,9 @@ DECLARE_MTYPE(OSPF6_EXTERNAL_INFO)
 DECLARE_MTYPE(OSPF6_OTHER)
 
 #endif /* _QUAGGA_OSPF6_MEMORY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

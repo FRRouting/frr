@@ -370,3 +370,9 @@ int pim_interface_config_write(struct vty *vty)
 
 	return writes;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

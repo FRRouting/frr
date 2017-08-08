@@ -110,3 +110,9 @@ int	 imsg_flush(struct imsgbuf *);
 void	 imsg_clear(struct imsgbuf *);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

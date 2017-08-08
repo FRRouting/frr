@@ -72,3 +72,9 @@ extern void vnc_direct_bgp_rh_del_route(struct bgp *bgp, afi_t afi,
 extern void vnc_direct_bgp_reexport(struct bgp *bgp, afi_t afi);
 
 #endif /* _QUAGGA_RFAPI_VNC_EXPORT_BGP_P_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

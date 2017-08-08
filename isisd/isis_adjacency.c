@@ -535,3 +535,9 @@ int isis_adj_usage2levels(enum isis_adj_usage usage)
 	}
 	return 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

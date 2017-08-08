@@ -34,3 +34,9 @@ void isis_zebra_redistribute_set(afi_t afi, int type);
 void isis_zebra_redistribute_unset(afi_t afi, int type);
 
 #endif /* _ZEBRA_ISIS_ZEBRA_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

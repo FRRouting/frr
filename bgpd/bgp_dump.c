@@ -872,3 +872,9 @@ void bgp_dump_finish(void)
 	stream_free(bgp_dump_obuf);
 	bgp_dump_obuf = NULL;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

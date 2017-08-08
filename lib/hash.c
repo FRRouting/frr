@@ -451,3 +451,9 @@ void hash_cmd_init()
 {
 	install_element(ENABLE_NODE, &show_hash_stats_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -242,3 +242,9 @@ extern void pim_route_map_terminate(void);
 void pim_prefix_list_update(struct prefix_list *plist);
 
 #endif /* PIMD_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

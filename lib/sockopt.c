@@ -675,3 +675,9 @@ int sockopt_tcp_signature(int sock, union sockunion *su, const char *password)
 	return -2;
 #endif /* !HAVE_TCP_MD5SIG */
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

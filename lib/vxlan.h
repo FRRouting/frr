@@ -27,3 +27,9 @@ typedef u_int32_t vni_t;
 #define VNI_MAX 16777215 /* (2^24 - 1) */
 
 #endif /* __VXLAN_H__ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

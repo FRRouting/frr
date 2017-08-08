@@ -86,3 +86,9 @@ void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
 	PRINTF_ATTRIBUTE(3, 4);
 void vty_out_timestr(struct vty *vty, time_t uptime);
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

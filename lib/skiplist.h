@@ -123,3 +123,9 @@ extern void skiplist_debug(struct vty *vty, struct skiplist *l);
 extern void skiplist_test(struct vty *vty);
 
 #endif /* _ZEBRA_SKIPLIST_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

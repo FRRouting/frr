@@ -100,3 +100,9 @@ extern buffer_status_t buffer_flush_window(struct buffer *, int fd, int width,
 					   int height, int erase, int no_more);
 
 #endif /* _ZEBRA_BUFFER_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

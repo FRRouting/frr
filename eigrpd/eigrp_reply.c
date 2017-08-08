@@ -257,3 +257,9 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 	}
 	eigrp_hello_send_ack(nbr);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

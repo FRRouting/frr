@@ -1033,3 +1033,9 @@ int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim,
 
 	return vif_index;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

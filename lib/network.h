@@ -42,3 +42,9 @@ extern float htonf(float);
 extern float ntohf(float);
 
 #endif /* _ZEBRA_NETWORK_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

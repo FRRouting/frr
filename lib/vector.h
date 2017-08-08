@@ -61,3 +61,9 @@ extern void *vector_lookup(vector, unsigned int);
 extern void *vector_lookup_ensure(vector, unsigned int);
 
 #endif /* _ZEBRA_VECTOR_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

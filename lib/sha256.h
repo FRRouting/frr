@@ -56,3 +56,9 @@ void PBKDF2_SHA256(const uint8_t *, size_t, const uint8_t *, size_t, uint64_t,
 		   uint8_t *, size_t);
 
 #endif /* !_SHA256_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

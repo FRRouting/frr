@@ -74,3 +74,9 @@ void ospf6_options_printbuf(u_char *options, char *buf, int size)
 	v6 = (OSPF6_OPT_ISSET(options, OSPF6_OPT_V6) ? "V6" : "--");
 	snprintf(buf, size, "%s|%s|%s|%s|%s|%s", dc, r, n, mc, e, v6);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

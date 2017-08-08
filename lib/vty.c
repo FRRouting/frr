@@ -2970,3 +2970,9 @@ void vty_terminate(void)
 		Vvty_serv_thread = NULL;
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

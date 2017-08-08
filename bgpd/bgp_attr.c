@@ -3502,3 +3502,9 @@ void bgp_dump_routes_attr(struct stream *s, struct attr *attr,
 	len = stream_get_endp(s) - cp - 2;
 	stream_putw_at(s, cp, len);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

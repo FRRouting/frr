@@ -1313,3 +1313,9 @@ void bpacket_attr_vec_arr_set_vec(struct bpacket_attr_vec_arr *vecarr,
 	if (attr)
 		bpacket_vec_arr_inherit_attr_flags(vecarr, type, attr);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

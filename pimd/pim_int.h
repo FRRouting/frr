@@ -26,3 +26,9 @@ uint32_t pim_read_uint32_host(const uint8_t *buf);
 void pim_write_uint32(uint8_t *buf, uint32_t val_host);
 
 #endif /* PIM_INT_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

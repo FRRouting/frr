@@ -40,3 +40,9 @@ extern int eigrp_redistribute_unset(struct eigrp *, int);
 extern int eigrp_is_type_redistributed(int);
 
 #endif /* _ZEBRA_EIGRP_ZEBRA_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

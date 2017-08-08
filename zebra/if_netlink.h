@@ -32,3 +32,9 @@ extern int interface_lookup_netlink(struct zebra_ns *zns);
 #endif /* HAVE_NETLINK */
 
 #endif /* _ZEBRA_IF_NETLINK_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

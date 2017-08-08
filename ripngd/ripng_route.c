@@ -165,3 +165,9 @@ int ripng_aggregate_delete(struct prefix *p)
 
 	return 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

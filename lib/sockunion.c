@@ -686,3 +686,9 @@ void sockunion_init(union sockunion *su)
 {
 	memset(su, 0, sizeof(union sockunion));
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

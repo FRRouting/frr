@@ -100,3 +100,9 @@ int pim_channel_oil_empty(struct channel_oil *c_oil);
 
 char *pim_channel_oil_dump(struct channel_oil *c_oil, char *buf, size_t size);
 #endif /* PIM_OIL_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

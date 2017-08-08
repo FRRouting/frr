@@ -511,3 +511,9 @@ buffer_status_t buffer_write(struct buffer *b, int fd, const void *p,
 	}
 	return b->head ? BUFFER_PENDING : BUFFER_EMPTY;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

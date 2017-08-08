@@ -149,3 +149,9 @@ int wheel_remove_item(struct timer_wheel *wheel, void *item)
 
 	return 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

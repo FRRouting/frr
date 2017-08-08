@@ -117,3 +117,9 @@ void tlvs_add_mt_p2p(struct isis_tlvs *tlvs, struct isis_circuit *circuit,
 		     uint8_t *id, uint32_t metric, uint8_t *subtlvs,
 		     uint8_t subtlv_len);
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

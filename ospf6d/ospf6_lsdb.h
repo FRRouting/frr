@@ -94,3 +94,9 @@ extern u_int32_t ospf6_new_ls_seqnum(u_int16_t type, u_int32_t id,
 extern int ospf6_lsdb_maxage_remover(struct ospf6_lsdb *lsdb);
 
 #endif /* OSPF6_LSDB_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

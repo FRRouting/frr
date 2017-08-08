@@ -3183,3 +3183,9 @@ void zebra_vxlan_close_tables(struct zebra_vrf *zvrf)
 {
 	hash_iterate(zvrf->vni_table, zvni_cleanup_all, zvrf);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

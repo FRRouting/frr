@@ -99,3 +99,9 @@ void handle_request(struct neighbour *neigh, const unsigned char *prefix,
                     unsigned short seqno, const unsigned char *id);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -3056,3 +3056,9 @@ void zebra_zserv_socket_init(char *path)
 	zebra_serv_un(path ? path : ZEBRA_SERV_PATH);
 #endif /* HAVE_TCP_ZEBRA */
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

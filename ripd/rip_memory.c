@@ -32,3 +32,9 @@ DEFINE_MTYPE(RIPD, RIP_INTERFACE, "RIP interface")
 DEFINE_MTYPE(RIPD, RIP_PEER, "RIP peer")
 DEFINE_MTYPE(RIPD, RIP_OFFSET_LIST, "RIP offset list")
 DEFINE_MTYPE(RIPD, RIP_DISTANCE, "RIP distance")
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

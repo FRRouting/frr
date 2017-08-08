@@ -133,3 +133,9 @@ extern int config_write_ospf6_debug_message(struct vty *);
 extern void install_element_ospf6_debug_message(void);
 
 #endif /* OSPF6_MESSAGE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

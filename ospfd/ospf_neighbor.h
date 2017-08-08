@@ -115,3 +115,9 @@ extern struct ospf_neighbor *ospf_nbr_lookup_by_routerid(struct route_table *,
 extern void ospf_renegotiate_optional_capabilities(struct ospf *top);
 
 #endif /* _ZEBRA_OSPF_NEIGHBOR_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

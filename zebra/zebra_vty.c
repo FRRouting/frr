@@ -2703,3 +2703,9 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_neigh_cmd);
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_vtep_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

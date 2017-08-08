@@ -143,3 +143,9 @@ void frr_pthread_stop_all(void);
 unsigned int frr_pthread_get_id(void);
 
 #endif /* _FRR_PTHREAD_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -178,3 +178,9 @@ static inline char *label2str(mpls_label_t label, char *buf, size_t len)
 #define MPLS_LABEL_MAX		((1 << 20) - 1)
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

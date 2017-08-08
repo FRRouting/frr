@@ -461,3 +461,9 @@ pfkey_init(void)
 	return (fd);
 }
 #endif /* __OpenBSD__ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

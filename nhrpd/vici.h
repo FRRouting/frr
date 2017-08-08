@@ -22,3 +22,9 @@ enum vici_operation_t {
 };
 
 #define VICI_MAX_MSGLEN		(512*1024)
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

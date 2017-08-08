@@ -54,3 +54,9 @@ int pim_socket_mcastloop_get(int fd);
 int pim_socket_getsockname(int fd, struct sockaddr *name, socklen_t *namelen);
 
 #endif /* PIM_SOCK_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

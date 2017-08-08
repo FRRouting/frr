@@ -68,3 +68,9 @@ extern int bgp_packet_set_size(struct stream *s);
 extern void bgp_packet_add(struct peer *peer, struct stream *s);
 
 #endif /* _QUAGGA_BGP_PACKET_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

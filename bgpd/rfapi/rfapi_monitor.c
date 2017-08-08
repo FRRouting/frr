@@ -1588,3 +1588,9 @@ void rfapiMonitorCallbacksOn(struct bgp *bgp)
 		rfapiMonitorEthAttachImportHd(bgp, rfd);
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

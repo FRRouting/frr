@@ -466,3 +466,9 @@ int pim_socket_getsockname(int fd, struct sockaddr *name, socklen_t *namelen)
 
 	return PIM_SOCK_ERR_NONE;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

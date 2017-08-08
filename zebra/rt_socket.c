@@ -454,3 +454,9 @@ extern int kernel_interface_set_master(struct interface *master,
 }
 
 #endif /* !HAVE_NETLINK */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -462,3 +462,9 @@ void ptm_lib_deregister(ptm_lib_handle_t *hdl)
 		free(hdl);
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

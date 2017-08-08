@@ -32,3 +32,9 @@ int zebra_ipmr_route_stats(struct zserv *client, int sock, u_short length,
 			   struct zebra_vrf *zvf);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

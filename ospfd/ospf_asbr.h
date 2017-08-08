@@ -77,3 +77,9 @@ extern struct ospf_lsa *ospf_external_info_find_lsa(struct ospf *,
 						    struct prefix_ipv4 *p);
 
 #endif /* _ZEBRA_OSPF_ASBR_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

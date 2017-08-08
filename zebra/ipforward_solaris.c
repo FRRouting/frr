@@ -158,3 +158,9 @@ int ipforward_ipv6_off(void)
 }
 
 #endif /* SUNOS_5 */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

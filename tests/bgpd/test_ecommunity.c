@@ -147,3 +147,9 @@ int main(void)
 	return failed;
 	// return (failed + aspath_count());
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

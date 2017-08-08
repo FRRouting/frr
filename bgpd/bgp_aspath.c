@@ -2070,3 +2070,9 @@ void aspath_print_all_vty(struct vty *vty)
 				       void *))aspath_show_all_iterator,
 		     vty);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

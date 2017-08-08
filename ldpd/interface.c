@@ -573,3 +573,9 @@ if_leave_ipv6_group(struct iface *iface, struct in6_addr *addr)
 
 	return (0);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

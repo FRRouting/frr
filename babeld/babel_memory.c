@@ -28,3 +28,9 @@
 DEFINE_MGROUP(BABELD, "babeld")
 DEFINE_MTYPE(BABELD, BABEL,             "Babel Structure")
 DEFINE_MTYPE(BABELD, BABEL_IF,          "Babel Interface")
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

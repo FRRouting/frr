@@ -53,3 +53,9 @@ DEFINE_MTYPE(OSPFD, OSPF_IF_PARAMS, "OSPF if params")
 DEFINE_MTYPE(OSPFD, OSPF_MESSAGE, "OSPF message")
 DEFINE_MTYPE(OSPFD, OSPF_MPLS_TE, "OSPF MPLS parameters")
 DEFINE_MTYPE(OSPFD, OSPF_PCE_PARAMS, "OSPF PCE parameters")
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -115,3 +115,9 @@ void isis_adj_build_up_list(struct list *adjdb, struct list *list);
 int isis_adj_usage2levels(enum isis_adj_usage usage);
 
 #endif /* ISIS_ADJACENCY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

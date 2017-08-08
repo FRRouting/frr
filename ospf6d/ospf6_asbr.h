@@ -95,3 +95,9 @@ extern int config_write_ospf6_debug_asbr(struct vty *vty);
 extern void install_element_ospf6_debug_asbr(void);
 
 #endif /* OSPF6_ASBR_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

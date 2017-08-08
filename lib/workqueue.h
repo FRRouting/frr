@@ -131,3 +131,9 @@ extern int work_queue_run(struct thread *);
 extern void workqueue_cmd_init(void);
 
 #endif /* _QUAGGA_WORK_QUEUE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

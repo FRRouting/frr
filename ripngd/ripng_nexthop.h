@@ -62,3 +62,9 @@ static inline int addr6_cmp(struct in6_addr *A, struct in6_addr *B)
 }
 
 #endif /* _ZEBRA_RIPNG_RIPNG_NEXTHOP_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

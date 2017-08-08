@@ -943,3 +943,9 @@ static int bgp_snmp_module_init(void)
 FRR_MODULE_SETUP(.name = "bgpd_snmp", .version = FRR_VERSION,
 		 .description = "bgpd AgentX SNMP module",
 		 .init = bgp_snmp_module_init)
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

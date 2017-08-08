@@ -51,3 +51,9 @@ extern void connected_down_ipv6(struct interface *ifp, struct connected *);
 extern int connected_is_unnumbered(struct interface *);
 
 #endif /*_ZEBRA_CONNECTED_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

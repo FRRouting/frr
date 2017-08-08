@@ -185,3 +185,9 @@ void pqueue_remove(void *data, struct pqueue *queue)
 		if (queue->array[i] == data)
 			pqueue_remove_at(i, queue);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

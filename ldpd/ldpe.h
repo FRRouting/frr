@@ -308,3 +308,9 @@ void	ldpe_l2vpn_pw_init(struct l2vpn_pw *);
 void	ldpe_l2vpn_pw_exit(struct l2vpn_pw *);
 
 #endif	/* _LDPE_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

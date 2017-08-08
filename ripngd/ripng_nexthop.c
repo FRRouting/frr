@@ -221,3 +221,9 @@ void ripng_rte_send(struct list *ripng_rte_list, struct interface *ifp,
 		stream_reset(s);
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -75,3 +75,9 @@ extern void zebra_import_table_rm_update(void);
 extern int is_default(struct prefix *);
 
 #endif /* _ZEBRA_REDISTRIBUTE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

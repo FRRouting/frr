@@ -90,3 +90,9 @@ extern void ns_terminate(void);
 extern int ns_socket(int, int, int, ns_id_t);
 
 #endif /*_ZEBRA_NS_H*/
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -25,3 +25,9 @@
 const char *const PIMD_VERSION;
 
 #endif /* PIM_VERSION_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

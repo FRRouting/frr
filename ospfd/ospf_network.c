@@ -232,3 +232,9 @@ int ospf_sock_init(void)
 
 	return ospf_sock;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

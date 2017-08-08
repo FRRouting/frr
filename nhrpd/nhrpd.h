@@ -414,3 +414,9 @@ void nhrp_peer_send(struct nhrp_peer *p, struct zbuf *zb);
 void nhrp_peer_send_indication(struct interface *ifp, uint16_t, struct zbuf *);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

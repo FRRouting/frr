@@ -99,3 +99,9 @@ extern int sockopt_tcp_rtt(int);
 extern int sockopt_tcp_signature(int sock, union sockunion *su,
 				 const char *password);
 #endif /*_ZEBRA_SOCKOPT_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

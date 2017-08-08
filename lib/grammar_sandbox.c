@@ -664,3 +664,9 @@ void init_cmdgraph(struct vty *vty, struct graph **graph)
 	if (vty)
 		vty_out(vty, "initialized graph\n");
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

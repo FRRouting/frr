@@ -704,3 +704,9 @@ void ospf_ia_routing(struct ospf *ospf, struct route_table *rt,
 			OSPF_EXAMINE_SUMMARIES_ALL(area, rt, rtrs);
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

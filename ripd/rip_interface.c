@@ -1928,3 +1928,9 @@ void rip_if_init(void)
 	install_element(INTERFACE_NODE,
 			&no_ip_rip_split_horizon_poisoned_reverse_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

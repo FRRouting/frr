@@ -362,3 +362,9 @@ struct connected *if_lookup_linklocal(struct interface *ifp)
 }
 
 #endif /* SUNOS_5 */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

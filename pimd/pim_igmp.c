@@ -1159,3 +1159,9 @@ void igmp_send_query(int igmp_version, struct igmp_group *group, int fd,
 				   group_addr, query_max_response_time_dsec);
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

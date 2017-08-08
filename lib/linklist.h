@@ -136,3 +136,9 @@ extern void list_add_list(struct list *, struct list *);
 	} while (0)
 
 #endif /* _ZEBRA_LINKLIST_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

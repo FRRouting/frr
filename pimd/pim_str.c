@@ -86,3 +86,9 @@ char *pim_str_sg_set(const struct prefix_sg *sg, char *sg_str)
 
 	return sg_str;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

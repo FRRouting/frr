@@ -68,3 +68,9 @@ extern void vnc_direct_bgp_rh_vpn_disable(struct bgp *bgp, afi_t afi);
 #endif /* ENABLE_BGP_VNC */
 
 #endif /* _QUAGGA_BGP_RFAPI_BACKEND_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

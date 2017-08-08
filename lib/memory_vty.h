@@ -29,3 +29,9 @@ extern void memory_init(void);
 #define MTYPE_MEMSTR_LEN 20
 extern const char *mtype_memstr(char *, size_t, unsigned long);
 #endif /* _ZEBRA_MEMORY_VTY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

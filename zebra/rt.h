@@ -60,3 +60,9 @@ extern int kernel_add_neigh(struct interface *ifp, struct ipaddr *ip,
 extern int kernel_del_neigh(struct interface *ifp, struct ipaddr *ip);
 
 #endif /* _ZEBRA_RT_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

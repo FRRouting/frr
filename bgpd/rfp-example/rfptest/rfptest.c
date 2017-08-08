@@ -28,3 +28,9 @@ int main()
 	printf("Your test code goes here.\n");
 	exit(1);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

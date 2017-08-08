@@ -297,3 +297,9 @@ static inline int fpm_msg_ok(const fpm_msg_hdr_t *hdr, size_t len)
 #define TCP_MIN_PORT   1
 
 #endif /* _FPM_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -49,3 +49,9 @@ extern void vnc_debug_init(void);
 #endif /* ENABLE_BGP_VNC */
 
 #endif /* _QUAGGA_BGP_VNC_DEBUG_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

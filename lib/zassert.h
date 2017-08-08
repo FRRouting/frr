@@ -42,3 +42,9 @@ extern void _zlog_assert_failed(const char *assertion, const char *file,
 #define assert(EX) zassert(EX)
 
 #endif /* _QUAGGA_ASSERT_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

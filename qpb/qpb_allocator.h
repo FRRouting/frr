@@ -105,3 +105,9 @@ extern void qpb_allocator_init_linear(qpb_allocator_t *,
 	} while (0)
 
 #endif /* _QPB_ALLOCATOR_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

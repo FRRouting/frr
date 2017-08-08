@@ -217,3 +217,9 @@ void fill_fixed_hdr(uint8_t pdu_type, struct stream *stream);
 int send_hello(struct isis_circuit *circuit, int level);
 
 #endif /* _ZEBRA_ISIS_PDU_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

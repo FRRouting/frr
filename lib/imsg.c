@@ -333,3 +333,9 @@ imsg_clear(struct imsgbuf *ibuf)
 	while ((fd = imsg_get_fd(ibuf)) != -1)
 		close(fd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

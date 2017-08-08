@@ -583,3 +583,9 @@ static inline int advertise_list_is_empty(struct update_subgroup *subgrp)
 }
 
 #endif /* _QUAGGA_BGP_UPDGRP_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -162,3 +162,9 @@ check_sources_released(void)
                     (int)src->route_count);
     }
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

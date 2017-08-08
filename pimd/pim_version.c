@@ -22,3 +22,9 @@
 #include "pim_version.h"
 
 const char *const PIMD_VERSION = PIMD_VERSION_STR;
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

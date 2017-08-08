@@ -556,3 +556,9 @@ int rfapiApDelete(struct bgp *bgp, struct rfapi_descriptor *rfd,
 
 	return 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

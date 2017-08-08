@@ -323,3 +323,9 @@ log_msg_notification(int out, struct nbr *nbr, struct notify_msg *nm)
 		debug_msg(out, "notification:   pw-status %s",
 		    (nm->pw_status) ? "not forwarding" : "forwarding");
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

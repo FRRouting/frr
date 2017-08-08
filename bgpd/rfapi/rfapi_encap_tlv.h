@@ -33,3 +33,9 @@ extern void rfapi_print_tunneltype_option(void *stream, int column_offset,
 
 
 #endif /* _QUAGGA_BGP_RFAPI_ENCAP_TLV_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -188,3 +188,9 @@ extern void rfapiMonitorEthDel(struct bgp *bgp, struct rfapi_descriptor *rfd,
 			       uint32_t logical_net_id);
 
 #endif /* QUAGGA_HGP_RFAPI_MONITOR_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

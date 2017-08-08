@@ -836,3 +836,9 @@ void pim_neighbor_update(struct pim_neighbor *neigh,
 	 */
 	neigh->hello_options = hello_options;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

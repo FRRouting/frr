@@ -37,3 +37,9 @@ void systemd_send_stopping(void);
  *                process?
  */
 void systemd_send_started(struct thread_master *master, int the_process);
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

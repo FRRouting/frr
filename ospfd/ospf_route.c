@@ -1015,3 +1015,9 @@ void ospf_delete_discard_route(struct route_table *rt, struct prefix_ipv4 *p)
 
 	return;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -211,3 +211,9 @@ extern struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 				    struct in_addr originator_ip);
 extern void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn);
 #endif /* _BGP_EVPN_PRIVATE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -44,3 +44,9 @@ void babel_load_state_file(void);
 void show_babel_main_configuration (struct vty *vty);
 
 #endif /* BABEL_MAIN_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -2988,3 +2988,9 @@ void zebra_if_init(void)
 	install_element(LINK_PARAMS_NODE, &no_link_params_use_bw_cmd);
 	install_element(LINK_PARAMS_NODE, &exit_link_params_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

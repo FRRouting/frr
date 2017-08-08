@@ -107,3 +107,9 @@ int pim_parse_addr_source(struct prefix_sg *sg, uint8_t *flags,
 			  const uint8_t *buf, int buf_size);
 
 #endif /* PIM_TLV_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

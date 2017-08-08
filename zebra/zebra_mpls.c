@@ -2841,3 +2841,9 @@ void zebra_mpls_init(void)
 	if (!mpls_processq_init(&zebrad))
 		mpls_enabled = 1;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

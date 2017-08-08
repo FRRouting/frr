@@ -4017,3 +4017,9 @@ void rip_init(void)
 	/* Distance control. */
 	rip_distance_table = route_table_init();
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

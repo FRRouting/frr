@@ -1005,3 +1005,9 @@ static void print_rnh(struct route_node *rn, struct vty *vty)
 			rnh->filtered[ZEBRA_ROUTE_STATIC] ? "(filtered)" : "");
 	vty_out(vty, "\n");
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

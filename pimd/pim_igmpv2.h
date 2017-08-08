@@ -33,3 +33,9 @@ int igmp_v2_recv_leave(struct igmp_sock *igmp, struct in_addr from,
 		       const char *from_str, char *igmp_msg, int igmp_msg_len);
 
 #endif /* PIM_IGMPV2_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

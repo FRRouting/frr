@@ -3698,3 +3698,9 @@ int ospf_lsa_refresh_walker(struct thread *t)
 
 	return 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

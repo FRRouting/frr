@@ -65,3 +65,9 @@ int flags_any_set(u_int32_t *flags);
 	}
 
 #endif /* _ZEBRA_ISIS_FLAGS_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

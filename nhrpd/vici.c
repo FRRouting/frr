@@ -503,3 +503,9 @@ int sock_open_unix(const char *path)
 
 	return fd;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

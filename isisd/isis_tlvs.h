@@ -306,3 +306,9 @@ void isis_tlvs_add_extended_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 struct isis_mt_router_info *
 isis_tlvs_lookup_mt_router_info(struct isis_tlvs *tlvs, uint16_t mtid);
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -71,3 +71,9 @@ extern u_int32_t eigrp_scaled_to_delay(u_int32_t);
 
 
 #endif /* ZEBRA_EIGRP_INTERFACE_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

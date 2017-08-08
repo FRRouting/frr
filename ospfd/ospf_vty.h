@@ -55,3 +55,9 @@ extern int str2area_id(const char *, struct in_addr *, int *);
 extern void area_id2str(char *, int, struct in_addr *, int);
 
 #endif /* _QUAGGA_OSPF_VTY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

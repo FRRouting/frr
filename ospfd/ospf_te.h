@@ -414,3 +414,9 @@ extern void set_linkparams_lrrid(struct mpls_te_link *, struct in_addr,
 				 struct in_addr);
 
 #endif /* _ZEBRA_OSPF_MPLS_TE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

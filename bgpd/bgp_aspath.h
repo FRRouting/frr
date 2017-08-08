@@ -129,3 +129,9 @@ extern unsigned int aspath_has_as4(struct aspath *);
 extern u_char *aspath_snmp_pathseg(struct aspath *, size_t *);
 
 #endif /* _QUAGGA_BGP_ASPATH_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

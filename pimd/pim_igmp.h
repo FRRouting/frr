@@ -190,3 +190,9 @@ void igmp_send_query(int igmp_version, struct igmp_group *group, int fd,
 		     uint8_t querier_robustness_variable,
 		     uint16_t querier_query_interval);
 #endif /* PIM_IGMP_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

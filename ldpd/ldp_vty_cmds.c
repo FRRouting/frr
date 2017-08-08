@@ -817,3 +817,9 @@ ldp_vty_init (void)
 	install_element(VIEW_NODE, &ldp_show_l2vpn_atom_vc_cmd);
 	install_element(VIEW_NODE, &ldp_show_debugging_mpls_ldp_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

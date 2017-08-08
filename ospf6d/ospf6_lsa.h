@@ -247,3 +247,9 @@ extern int config_write_ospf6_debug_lsa(struct vty *vty);
 extern void install_element_ospf6_debug_lsa(void);
 
 #endif /* OSPF6_LSA_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

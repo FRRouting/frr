@@ -411,3 +411,9 @@ extern int rfapi_init_and_open(struct bgp *bgp, struct rfapi_descriptor *rfd,
 			       struct rfapi_nve_group_cfg *rfg);
 
 #endif /* _QUAGGA_BGP_RFAPI_PRIVATE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -62,3 +62,9 @@ extern int bgp_zebra_advertise_all_vni(struct bgp *, int);
 extern int bgp_zebra_num_connects(void);
 
 #endif /* _QUAGGA_BGP_ZEBRA_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

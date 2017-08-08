@@ -845,3 +845,9 @@ void update_group_announce_rrclients(struct bgp *bgp)
 {
 	update_group_walk(bgp, update_group_announce_rrc_walkcb, NULL);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

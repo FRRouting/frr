@@ -126,3 +126,9 @@ struct nhrp_cisco_authentication_extension {
 } __attribute__((packed));
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

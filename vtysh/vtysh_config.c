@@ -435,3 +435,9 @@ void vtysh_config_init()
 	config_top->del = (void (*)(void *))line_del;
 	configvec = vector_init(1);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

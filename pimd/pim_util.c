@@ -137,3 +137,9 @@ int pim_is_group_224_4(struct in_addr group_addr)
 
 	return prefix_match(&group_all, &group);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

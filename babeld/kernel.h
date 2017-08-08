@@ -45,3 +45,9 @@ int gettime(struct timeval *tv);
 int read_random_bytes(void *buf, size_t len);
 
 #endif /* BABEL_KERNEL_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -86,3 +86,9 @@ static inline char *ipaddr2str(struct ipaddr *ip, char *buf, int size)
 	return buf;
 }
 #endif /* __IPADDR_H__ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

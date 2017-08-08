@@ -35,3 +35,9 @@ int isis_send_pdu_bcast(struct isis_circuit *circuit, int level);
 int isis_send_pdu_p2p(struct isis_circuit *circuit, int level);
 
 #endif /* _ZEBRA_ISIS_NETWORK_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

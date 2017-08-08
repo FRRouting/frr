@@ -60,3 +60,9 @@ extern enum filter_type distribute_apply_out(struct interface *,
 					     struct prefix *);
 
 #endif /* _ZEBRA_DISTRIBUTE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

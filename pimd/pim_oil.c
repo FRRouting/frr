@@ -517,3 +517,9 @@ int pim_channel_oil_empty(struct channel_oil *c_oil)
 
 	return !memcmp(c_oil->oif_flags, zero, MAXVIFS * sizeof(uint32_t));
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

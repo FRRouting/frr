@@ -1093,3 +1093,9 @@ void stream_fifo_free(struct stream_fifo *fifo)
 	stream_fifo_clean(fifo);
 	XFREE(MTYPE_STREAM_FIFO, fifo);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

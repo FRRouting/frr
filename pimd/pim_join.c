@@ -598,3 +598,9 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 	}
 	return 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

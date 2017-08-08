@@ -34,3 +34,9 @@ void pim_pkt_dump(const char *label, const uint8_t *buf, int size);
 int pim_is_group_224_0_0_0_24(struct in_addr group_addr);
 int pim_is_group_224_4(struct in_addr group_addr);
 #endif /* PIM_UTIL_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

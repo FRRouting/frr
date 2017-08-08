@@ -799,3 +799,9 @@ void route_table_iter_cleanup(route_table_iter_t *iter)
 	 */
 	iter->state = RT_ITER_STATE_DONE;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

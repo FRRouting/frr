@@ -1926,3 +1926,9 @@ int bgp_addpath_tx_path(struct peer *peer, afi_t afi, safi_t safi,
 
 	return 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

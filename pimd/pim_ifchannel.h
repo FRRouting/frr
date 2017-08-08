@@ -159,3 +159,9 @@ int pim_ifchannel_compare(const struct pim_ifchannel *ch1,
 
 unsigned int pim_ifchannel_hash_key(void *arg);
 #endif /* PIM_IFCHANNEL_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

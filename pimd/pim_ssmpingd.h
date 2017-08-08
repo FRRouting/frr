@@ -42,3 +42,9 @@ int pim_ssmpingd_start(struct pim_instance *pim, struct in_addr source_addr);
 int pim_ssmpingd_stop(struct pim_instance *pim, struct in_addr source_addr);
 
 #endif /* PIM_SSMPINGD_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

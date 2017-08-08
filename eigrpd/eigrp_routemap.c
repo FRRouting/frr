@@ -1139,3 +1139,9 @@ void eigrp_route_map_init()
 	  install_element (RMAP_NODE, &no_set_tag_cmd);
 	  install_element (RMAP_NODE, &no_set_tag_val_cmd);*/
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

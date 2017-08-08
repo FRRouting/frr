@@ -967,3 +967,9 @@ void nhrp_config_init(void)
 	install_element(INTERFACE_NODE, &if_nhrp_nhs_cmd);
 	install_element(INTERFACE_NODE, &if_no_nhrp_nhs_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

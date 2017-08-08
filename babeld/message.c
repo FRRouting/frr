@@ -1800,3 +1800,9 @@ handle_request(struct neighbour *neigh, const unsigned char *prefix,
     record_resend(RESEND_REQUEST, prefix, plen, seqno, id,
                   neigh->ifp, 0);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

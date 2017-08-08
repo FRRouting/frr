@@ -65,3 +65,9 @@ int ptm_lib_append_msg(ptm_lib_handle_t *, void *, const char *, const char *);
 int ptm_lib_complete_msg(ptm_lib_handle_t *, void *, char *, int *);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

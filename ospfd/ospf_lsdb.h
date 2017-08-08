@@ -82,3 +82,9 @@ extern unsigned int ospf_lsdb_checksum(struct ospf_lsdb *, int);
 extern unsigned long ospf_lsdb_isempty(struct ospf_lsdb *);
 
 #endif /* _ZEBRA_OSPF_LSDB_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

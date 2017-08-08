@@ -2235,3 +2235,9 @@ void isis_init()
 
 	spf_backoff_cmd_init();
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

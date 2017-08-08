@@ -86,3 +86,9 @@ int json_object_object_get_ex(struct json_object *obj, const char *key,
 	return 0;
 }
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

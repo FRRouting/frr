@@ -44,3 +44,9 @@ extern u_int32_t jhash_2words(u_int32_t a, u_int32_t b, u_int32_t initval);
 extern u_int32_t jhash_1word(u_int32_t a, u_int32_t initval);
 
 #endif /* _QUAGGA_JHASH_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

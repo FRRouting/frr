@@ -743,3 +743,9 @@ void rfapi_print_tunneltype_option(void *stream, int column_offset,
 		assert(0);
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

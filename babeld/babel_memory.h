@@ -30,3 +30,9 @@ DECLARE_MTYPE(BABEL)
 DECLARE_MTYPE(BABEL_IF)
 
 #endif /* _FRR_BABELD_MEMORY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

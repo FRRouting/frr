@@ -1143,3 +1143,9 @@ void ospf6_abr_init(void)
 	ospf6_install_lsa_handler(&inter_prefix_handler);
 	ospf6_install_lsa_handler(&inter_router_handler);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -311,3 +311,9 @@ int nhrp_packet_init(void)
 	thread_add_read(master, nhrp_packet_recvraw, 0, os_socket(), NULL);
 	return 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

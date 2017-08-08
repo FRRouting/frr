@@ -27,3 +27,9 @@ extern pid_t integrated_write_pid;
 extern void integrated_write_sigchld(int status);
 
 #endif /* FRR_WATCHFRR_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

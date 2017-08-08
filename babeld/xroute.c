@@ -238,3 +238,9 @@ xroute_add_new_route(unsigned char prefix[16], unsigned char plen,
     }
     return 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

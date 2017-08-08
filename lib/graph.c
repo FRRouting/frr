@@ -136,3 +136,9 @@ void graph_delete_graph(struct graph *graph)
 	vector_free(graph->nodes);
 	XFREE(MTYPE_GRAPH, graph);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

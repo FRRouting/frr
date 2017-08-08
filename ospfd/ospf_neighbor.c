@@ -483,3 +483,9 @@ struct ospf_neighbor *ospf_nbr_get(struct ospf_interface *oi,
 
 	return nbr;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

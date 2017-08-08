@@ -761,3 +761,9 @@ void zebra_interface_parameters_update(struct interface *ifp)
 		if (client->ifinfo)
 			zsend_interface_link_params(client, ifp);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -81,3 +81,9 @@ static inline int64_t monotime_until(const struct timeval *ref,
 }
 
 #endif /* _FRR_MONOTIME_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -2458,3 +2458,9 @@ void clear_nhlfe_installed(zebra_lsp_t *lsp)
 }
 
 #endif /* HAVE_NETLINK */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

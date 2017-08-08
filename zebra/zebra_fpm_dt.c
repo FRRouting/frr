@@ -269,3 +269,9 @@ int zfpm_dt_benchmark_protobuf_decode(int argc, const char **argv)
 }
 
 #endif /* HAVE_PROTOBUF */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

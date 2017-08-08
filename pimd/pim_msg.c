@@ -241,3 +241,9 @@ size_t pim_msg_build_jp_groups(struct pim_jp_groups *grp,
 
 	return size;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

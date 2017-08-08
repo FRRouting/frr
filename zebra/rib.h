@@ -435,3 +435,9 @@ DECLARE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	     (rn, reason))
 
 #endif /*_ZEBRA_RIB_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

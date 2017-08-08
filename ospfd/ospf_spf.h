@@ -73,3 +73,9 @@ extern void ospf_rtrs_free(struct route_table *);
 
 /* void ospf_spf_calculate_timer_add (); */
 #endif /* _QUAGGA_OSPF_SPF_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -185,3 +185,9 @@ u_int32_t jhash_1word(u_int32_t a, u_int32_t initval)
 {
 	return jhash_3words(a, 0, 0, initval);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

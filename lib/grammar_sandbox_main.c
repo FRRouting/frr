@@ -62,3 +62,9 @@ int main(int argc, char **argv)
 	/* Not reached. */
 	exit(0);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -302,3 +302,9 @@ int zfpm_protobuf_encode_route(rib_dest_t *dest, struct route_entry *re,
 	QPB_RESET_STACK_ALLOCATOR(allocator);
 	return len;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -170,3 +170,9 @@ extern int ospf_router_info_init(void);
 extern void ospf_router_info_term(void);
 
 #endif /* _ZEBRA_OSPF_ROUTER_INFO_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

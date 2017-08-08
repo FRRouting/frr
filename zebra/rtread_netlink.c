@@ -54,3 +54,9 @@ void neigh_read_for_vlan(struct zebra_ns *zns, struct interface *vlan_if)
 }
 
 #endif /* GNU_LINUX */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

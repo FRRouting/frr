@@ -110,3 +110,9 @@ extern void zebra_interface_radv_set(struct zserv *client, int sock,
 				     int enable);
 
 #endif /* _ZEBRA_RTADV_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

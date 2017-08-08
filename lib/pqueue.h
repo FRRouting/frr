@@ -44,3 +44,9 @@ extern void trickle_down(int index, struct pqueue *queue);
 extern void trickle_up(int index, struct pqueue *queue);
 
 #endif /* _ZEBRA_PQUEUE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

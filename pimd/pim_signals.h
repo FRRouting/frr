@@ -24,3 +24,9 @@
 extern struct quagga_signal_t pimd_signals[];
 
 #endif /* PIM_SIGNALS_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

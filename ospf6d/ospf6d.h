@@ -104,3 +104,9 @@ extern void ospf6_debug(void);
 extern void ospf6_init(void);
 
 #endif /* OSPF6D_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

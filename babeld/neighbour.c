@@ -364,3 +364,9 @@ valid_rtt(struct neighbour *neigh)
 {
     return (timeval_minus_msec(&babel_now, &neigh->rtt_time) < 180000) ? 1 : 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

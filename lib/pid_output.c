@@ -74,3 +74,9 @@ pid_t pid_output(const char *path)
 	}
 	return pid;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

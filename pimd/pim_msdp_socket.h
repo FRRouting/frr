@@ -22,3 +22,9 @@
 int pim_msdp_sock_listen(struct pim_instance *pim);
 int pim_msdp_sock_connect(struct pim_msdp_peer *mp);
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

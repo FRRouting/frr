@@ -61,3 +61,9 @@ void isis_route_invalidate_table(struct isis_area *area,
 void isis_route_invalidate(struct isis_area *area);
 
 #endif /* _ZEBRA_ISIS_ROUTE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

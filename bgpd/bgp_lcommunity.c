@@ -537,3 +537,9 @@ void lcommunity_del_val(struct lcommunity *lcom, u_char *ptr)
 		i++;
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

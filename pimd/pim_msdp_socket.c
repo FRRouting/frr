@@ -260,3 +260,9 @@ int pim_msdp_sock_connect(struct pim_msdp_peer *mp)
 	return (sockunion_connect(mp->fd, &mp->su_peer,
 				  htons(PIM_MSDP_TCP_PORT), 0));
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -23,3 +23,9 @@
 #define _RFPTEST_H
 
 #endif /* _RFPTEST_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -1671,3 +1671,9 @@ static int zebra_fpm_module_init(void)
 FRR_MODULE_SETUP(.name = "zebra_fpm", .version = FRR_VERSION,
 		 .description = "zebra FPM (Forwarding Plane Manager) module",
 		 .init = zebra_fpm_module_init, )
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

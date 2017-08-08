@@ -216,3 +216,9 @@ void pim_vrf_terminate(void)
 {
 	vrf_terminate();
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

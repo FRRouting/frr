@@ -48,3 +48,9 @@ extern int dump_args(struct vty *vty, const char *descr, int argc,
 	}
 
 #endif /* _COMMON_CLI_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

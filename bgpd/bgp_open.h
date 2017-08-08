@@ -100,3 +100,9 @@ extern void bgp_capability_vty_out(struct vty *, struct peer *, u_char,
 extern as_t peek_for_as4_capability(struct peer *, u_char);
 
 #endif /* _QUAGGA_BGP_OPEN_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

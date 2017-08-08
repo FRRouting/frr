@@ -670,3 +670,9 @@ void bgp_filter_reset(void)
 	assert(as_list_master.str.head == NULL);
 	assert(as_list_master.str.tail == NULL);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

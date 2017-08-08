@@ -207,3 +207,9 @@ char *prefix_rd2str(struct prefix_rd *prd, char *buf, size_t size)
 #endif
 	return NULL;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -293,3 +293,9 @@ static inline int route_table_iter_started(route_table_iter_t *iter)
 }
 
 #endif /* _ZEBRA_TABLE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

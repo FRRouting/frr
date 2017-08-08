@@ -87,3 +87,9 @@ extern void zebra_l2if_update_bridge_slave(struct interface *ifp,
 					   ifindex_t bridge_ifindex);
 
 #endif /* _ZEBRA_L2_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

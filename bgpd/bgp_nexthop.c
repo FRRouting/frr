@@ -551,3 +551,9 @@ void bgp_scan_finish(struct bgp *bgp)
 		bgp->import_check_table[afi] = NULL;
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

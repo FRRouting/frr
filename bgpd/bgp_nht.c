@@ -735,3 +735,9 @@ static void path_nh_map(struct bgp_info *path, struct bgp_nexthop_cache *bnc,
 		path->nexthop->path_count++;
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -219,3 +219,9 @@ void vtysh_user_init(void)
 	install_element(CONFIG_NODE, &username_nopassword_cmd);
 	install_element(CONFIG_NODE, &vtysh_banner_motd_file_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

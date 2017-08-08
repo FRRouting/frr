@@ -194,3 +194,9 @@ static inline void linear_allocator_free(linear_allocator_t *allocator,
 		assert(0);
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

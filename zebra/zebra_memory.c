@@ -34,3 +34,9 @@ DEFINE_MTYPE(ZEBRA, STATIC_ROUTE, "Static route")
 DEFINE_MTYPE(ZEBRA, RIB_DEST, "RIB destination")
 DEFINE_MTYPE(ZEBRA, RIB_TABLE_INFO, "RIB table info")
 DEFINE_MTYPE(ZEBRA, RNH, "Nexthop tracking object")
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -365,3 +365,9 @@ void signal_init(struct thread_master *m, int sigc,
 			 QUAGGA_SIGNAL_TIMER_INTERVAL, &sigmaster.t);
 #endif /* SIGEVENT_SCHEDULE_THREAD */
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

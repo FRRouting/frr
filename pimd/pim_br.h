@@ -30,3 +30,9 @@ void pim_br_init(void);
 extern struct in_addr pim_br_unknown;
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

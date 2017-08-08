@@ -146,3 +146,9 @@ extern const char *bgp_damp_reuse_time_vty(struct vty *, struct bgp_info *,
 extern int bgp_show_dampening_parameters(struct vty *vty, afi_t, safi_t);
 
 #endif /* _QUAGGA_BGP_DAMP_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

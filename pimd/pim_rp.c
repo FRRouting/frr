@@ -1011,3 +1011,9 @@ void pim_resolve_rp_nh(struct pim_instance *pim)
 		}
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

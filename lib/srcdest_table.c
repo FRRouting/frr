@@ -295,3 +295,9 @@ const char *srcdest_rnode2str(struct route_node *rn, char *str, int size)
 			 : "");
 	return str;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

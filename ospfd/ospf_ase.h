@@ -38,3 +38,9 @@ extern void ospf_ase_register_external_lsa(struct ospf_lsa *, struct ospf *);
 extern void ospf_ase_unregister_external_lsa(struct ospf_lsa *, struct ospf *);
 
 #endif /* _ZEBRA_OSPF_ASE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

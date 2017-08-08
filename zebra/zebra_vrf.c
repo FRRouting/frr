@@ -484,3 +484,9 @@ void zebra_vrf_init(void)
 
 	vrf_cmd_init(vrf_config_write);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

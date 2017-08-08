@@ -8649,3 +8649,9 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &no_ip_pim_bfd_cmd);
 	install_element(INTERFACE_NODE, &no_ip_pim_bfd_param_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

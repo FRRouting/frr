@@ -50,3 +50,9 @@ struct xroute *xroute_stream_next(struct xroute_stream *stream);
 void xroute_stream_done(struct xroute_stream *stream);
 
 #endif /* BABEL_XROUTE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

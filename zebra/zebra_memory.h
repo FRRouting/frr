@@ -36,3 +36,9 @@ DECLARE_MTYPE(RIB_TABLE_INFO)
 DECLARE_MTYPE(RNH)
 
 #endif /* _QUAGGA_ZEBRA_MEMORY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

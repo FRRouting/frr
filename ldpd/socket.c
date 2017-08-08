@@ -506,3 +506,9 @@ sock_set_ipv6_mcast_loop(int fd)
 
 	return (0);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

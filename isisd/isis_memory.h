@@ -46,3 +46,9 @@ DECLARE_MTYPE(ISIS_EXT_INFO)
 DECLARE_MTYPE(ISIS_MPLS_TE)
 
 #endif /* _QUAGGA_ISIS_MEMORY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

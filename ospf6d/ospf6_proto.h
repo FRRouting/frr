@@ -97,3 +97,9 @@ extern void ospf6_capability_printbuf(char capability, char *buf, int size);
 extern void ospf6_options_printbuf(u_char *options, char *buf, int size);
 
 #endif /* OSPF6_PROTO_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

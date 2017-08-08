@@ -339,3 +339,9 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 
 	return 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

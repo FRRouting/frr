@@ -418,3 +418,9 @@ int pim_macro_assert_tracking_desired_eval(const struct pim_ifchannel *ch)
 
 	return 0; /* false */
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

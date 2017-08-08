@@ -42,3 +42,9 @@ vnc_import_bgp_exterior_redist_enable_it(struct bgp *bgp, afi_t afi,
 					 struct rfapi_import_table *it_only);
 
 #endif /* _QUAGGA_RFAPI_VNC_IMPORT_BGP_P_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

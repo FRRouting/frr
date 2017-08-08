@@ -1228,3 +1228,9 @@ void if_link_params_free(struct interface *ifp)
 	XFREE(MTYPE_IF_LINK_PARAMS, ifp->link_params);
 	ifp->link_params = NULL;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

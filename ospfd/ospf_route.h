@@ -153,3 +153,9 @@ extern int ospf_route_match_same(struct route_table *, struct prefix_ipv4 *,
 				 struct ospf_route *);
 
 #endif /* _ZEBRA_OSPF_ROUTE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

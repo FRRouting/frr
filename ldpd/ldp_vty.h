@@ -81,3 +81,9 @@ int	 ldp_vty_show_debugging(struct vty *);
 void	 ldp_vty_init(void);
 
 #endif	/* _LDP_VTY_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

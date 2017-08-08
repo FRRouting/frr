@@ -162,3 +162,9 @@ static inline void debugf(int level, const char *format, ...) { return; }
 #endif /* NO_DEBUG */
 
 #endif /* BABEL_UTIL_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

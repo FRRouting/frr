@@ -187,3 +187,9 @@ extern int zebra_server_send_message(struct zserv *client);
 extern struct zserv *zebra_find_client(u_char proto);
 
 #endif /* _ZEBRA_ZEBRA_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

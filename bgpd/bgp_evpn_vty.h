@@ -29,3 +29,9 @@ extern void bgp_ethernetvpn_init(void);
 #define EVPN_HELP_STR        "Ethernet Virtual Private Network\n"
 
 #endif /* _QUAGGA_BGP_EVPN_VTY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

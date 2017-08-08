@@ -2036,3 +2036,9 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 
 	return 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

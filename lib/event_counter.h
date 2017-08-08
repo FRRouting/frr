@@ -52,3 +52,9 @@ void event_counter_inc(struct event_counter *counter);
 const char *event_counter_format(const struct event_counter *counter);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

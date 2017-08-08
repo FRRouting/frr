@@ -62,3 +62,9 @@ extern int netlink_neigh_read_for_vlan(struct zebra_ns *zns,
 #endif /* HAVE_NETLINK */
 
 #endif /* _ZEBRA_RT_NETLINK_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

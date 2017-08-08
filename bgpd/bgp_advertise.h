@@ -191,3 +191,9 @@ extern void bgp_advertise_unintern(struct hash *hash,
 				   struct bgp_advertise_attr *baa);
 
 #endif /* _QUAGGA_BGP_ADVERTISE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -2204,3 +2204,9 @@ void zclient_interface_set_master(struct zclient *client,
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zclient_send_message(client);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

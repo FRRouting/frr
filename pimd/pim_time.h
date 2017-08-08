@@ -36,3 +36,9 @@ void pim_time_uptime_begin(char *buf, int buf_size, int64_t now, int64_t begin);
 long pim_time_timer_remain_msec(struct thread *t_timer);
 
 #endif /* PIM_TIME_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

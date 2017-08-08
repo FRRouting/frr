@@ -193,3 +193,9 @@ void resolver_resolve(struct resolver_query *query, int af, const char *hostname
 	ares_gethostbyname(state.channel, hostname, af, ares_address_cb, query);
 	resolver_update_timeouts(&state);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

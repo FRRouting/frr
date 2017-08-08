@@ -219,3 +219,9 @@ void eigrp_send_query(struct eigrp_interface *ei)
 	if (!ep_saved)
 		eigrp_packet_free(ep);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -577,3 +577,9 @@ void rip_route_map_init()
 	route_map_install_set(&route_set_ip_nexthop_cmd);
 	route_map_install_set(&route_set_tag_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

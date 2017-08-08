@@ -844,3 +844,9 @@ void ospf_check_nbr_loading(struct ospf_neighbor *nbr)
 			ospf_ls_req_event(nbr);
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

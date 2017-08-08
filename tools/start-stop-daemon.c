@@ -1057,3 +1057,9 @@ int main(int argc, char **argv)
 	execv(startas, argv);
 	fatal("Unable to start %s: %s", startas, strerror(errno));
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -40,3 +40,9 @@ static inline void debugf(int level, const char *format, ...) { }
 
 #endif
 
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

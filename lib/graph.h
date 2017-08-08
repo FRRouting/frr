@@ -92,3 +92,9 @@ void graph_remove_edge(struct graph_node *from, struct graph_node *to);
 void graph_delete_graph(struct graph *graph);
 
 #endif /* _ZEBRA_COMMAND_GRAPH_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -134,3 +134,9 @@ void ospf_lsa_header_dump(struct lsa_header *lsah)
 	zlog_debug("    LS checksum 0x%x", ntohs(lsah->checksum));
 	zlog_debug("    length %d", ntohs(lsah->length));
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

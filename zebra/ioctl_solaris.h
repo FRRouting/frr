@@ -26,3 +26,9 @@ void lifreq_set_name(struct lifreq *, const char *);
 int if_get_flags_direct(const char *, uint64_t *, unsigned int af);
 
 #endif /* _ZEBRA_IF_IOCTL_SOLARIS_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

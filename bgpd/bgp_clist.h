@@ -164,3 +164,9 @@ extern struct lcommunity *
 lcommunity_list_match_delete(struct lcommunity *lcom,
 			     struct community_list *list);
 #endif /* _QUAGGA_BGP_CLIST_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

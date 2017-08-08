@@ -2858,3 +2858,9 @@ void route_map_init(void)
 	install_element(RMAP_NODE, &set_tag_cmd);
 	install_element(RMAP_NODE, &no_set_tag_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

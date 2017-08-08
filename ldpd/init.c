@@ -437,3 +437,9 @@ gen_cap_unotif_tlv(struct ibuf *buf, int enable)
 
 	return (ibuf_add(buf, &cap, CAP_TLV_UNOTIF_SIZE));
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

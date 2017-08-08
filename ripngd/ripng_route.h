@@ -53,3 +53,9 @@ extern int ripng_aggregate_delete(struct prefix *p);
 extern void ripng_aggregate_free(struct ripng_aggregate *aggregate);
 
 #endif /* _ZEBRA_RIPNG_ROUTE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

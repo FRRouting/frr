@@ -40,3 +40,9 @@ DEFINE_MTYPE(EIGRPD, EIGRP_AUTH_SHA256_TLV, "EIGRP SHA TLV")
 DEFINE_MTYPE(EIGRPD, EIGRP_PREFIX_ENTRY, "EIGRP Prefix")
 DEFINE_MTYPE(EIGRPD, EIGRP_NEIGHBOR_ENTRY, "EIGRP Neighbor Entry")
 DEFINE_MTYPE(EIGRPD, EIGRP_FSM_MSG, "EIGRP FSM Message")
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

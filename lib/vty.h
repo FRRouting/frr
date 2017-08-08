@@ -278,3 +278,9 @@ extern void vty_hello(struct vty *);
 extern void vty_log_fixed(char *buf, size_t len);
 
 #endif /* _ZEBRA_VTY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

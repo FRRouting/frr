@@ -54,3 +54,9 @@ extern int vnc_redistribute_set(struct bgp *bgp, afi_t afi, int type);
 extern int vnc_redistribute_unset(struct bgp *bgp, afi_t afi, int type);
 
 #endif /* _QUAGGA_BGP_VNC_ZEBRA_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

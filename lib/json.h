@@ -53,3 +53,9 @@ extern void json_object_free(struct json_object *obj);
 #define JSON_STR "JavaScript Object Notation\n"
 
 #endif /* _QUAGGA_JSON_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

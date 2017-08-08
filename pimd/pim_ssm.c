@@ -146,3 +146,9 @@ void pim_ssm_terminate(struct pim_ssm *ssm)
 	if (ssm && ssm->plist_name)
 		XFREE(MTYPE_PIM_FILTER_NAME, ssm->plist_name);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -80,3 +80,9 @@ extern int ospf6_abr_config_write(struct vty *vty);
 extern void ospf6_abr_init(void);
 
 #endif /*OSPF6_ABR_H*/
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

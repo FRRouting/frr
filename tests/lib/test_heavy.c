@@ -103,3 +103,9 @@ void test_init()
 {
 	slow_vty_init();
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

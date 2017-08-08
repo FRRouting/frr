@@ -65,3 +65,9 @@ static int pim_igmp_join_source(int fd, ifindex_t ifindex,
 }
 
 #endif /* PIM_IGMP_JOIN_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -3048,3 +3048,9 @@ void ripng_init()
 	if_rmap_hook_add(ripng_if_rmap_update);
 	if_rmap_hook_delete(ripng_if_rmap_update);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

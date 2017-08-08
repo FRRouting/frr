@@ -333,3 +333,9 @@ extern void ospf6_route_init(void);
 extern void ospf6_clean(void);
 
 #endif /* OSPF6_ROUTE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

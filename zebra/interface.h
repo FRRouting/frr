@@ -343,3 +343,9 @@ extern int ifaddr_proc_ipv6(void);
 #endif /* HAVE_PROC_NET_IF_INET6 */
 
 #endif /* _ZEBRA_INTERFACE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -43,3 +43,9 @@ char *pim_str_sg_dump(const struct prefix_sg *sg);
 char *pim_str_sg_set(const struct prefix_sg *sg, char *sg_str);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

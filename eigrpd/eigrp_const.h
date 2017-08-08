@@ -426,3 +426,9 @@ enum eigrp_fsm_states {
 #define EIGRP_HSROLE_SPOKE 		0x02
 
 #endif /* _ZEBRA_EIGRP_CONST_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

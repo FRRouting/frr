@@ -917,3 +917,9 @@ void ospf6_spf_init(void)
 	install_element(OSPF6_NODE, &ospf6_timers_throttle_spf_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_timers_throttle_spf_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -149,3 +149,9 @@ void dynhn_print_all(struct vty *vty)
 		unix_hostname());
 	return;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

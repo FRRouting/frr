@@ -189,3 +189,9 @@ extern int bgp_build_evpn_prefix(int evpn_type, uint32_t eth_tag,
 		return -1;
 	return 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

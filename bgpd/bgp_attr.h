@@ -334,3 +334,9 @@ static inline u_int32_t mac_mobility_seqnum(struct attr *attr)
 }
 
 #endif /* _QUAGGA_BGP_ATTR_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

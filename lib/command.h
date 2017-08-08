@@ -426,3 +426,9 @@ cmd_variable_handler_register(const struct cmd_variable_handler *cvh);
 extern char *cmd_variable_comp2str(vector comps, unsigned short cols);
 
 #endif /* _ZEBRA_COMMAND_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

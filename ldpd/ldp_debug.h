@@ -135,3 +135,9 @@ do {									\
 } while (0)
 
 #endif /* _LDP_DEBUG_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

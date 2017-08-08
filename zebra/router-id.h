@@ -38,3 +38,9 @@ extern void router_id_write(struct vty *);
 extern void router_id_get(struct prefix *, vrf_id_t);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

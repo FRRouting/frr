@@ -362,3 +362,9 @@ static inline int qpb__if_identifier__get(Qpb__IfIdentifier *if_id,
 }
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

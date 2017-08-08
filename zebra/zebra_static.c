@@ -597,3 +597,9 @@ void static_ifindex_update(struct interface *ifp, bool up)
 	static_ifindex_update_af(ifp, up, AFI_IP6, SAFI_UNICAST);
 	static_ifindex_update_af(ifp, up, AFI_IP6, SAFI_MULTICAST);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

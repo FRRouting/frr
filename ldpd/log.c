@@ -147,3 +147,9 @@ fatalx(const char *emsg)
 	errno = 0;
 	fatal(emsg);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

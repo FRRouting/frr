@@ -52,3 +52,9 @@ DEFINE_MTYPE(PIMD, PIM_PIM_INSTANCE, "PIM global state")
 DEFINE_MTYPE(PIMD, PIM_NEXTHOP_CACHE, "PIM nexthop cache state")
 DEFINE_MTYPE(PIMD, PIM_SSM_INFO, "PIM SSM configuration")
 DEFINE_MTYPE(PIMD, PIM_SPT_PLIST_NAME, "PIM SPT Prefix List Name")
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

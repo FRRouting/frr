@@ -290,3 +290,9 @@ control_imsg_relay(struct imsg *imsg)
 	return (imsg_compose_event(&c->iev, imsg->hdr.type, 0, imsg->hdr.pid,
 	    -1, imsg->data, imsg->hdr.len - IMSG_HEADER_SIZE));
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

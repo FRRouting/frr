@@ -1132,3 +1132,9 @@ int main(void)
 	printf("failures: %d\n", failed);
 	return failed;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

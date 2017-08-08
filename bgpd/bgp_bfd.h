@@ -40,3 +40,9 @@ extern void bgp_bfd_show_info(struct vty *vty, struct peer *peer,
 extern int bgp_bfd_is_peer_multihop(struct peer *peer);
 
 #endif /* _QUAGGA_BGP_BFD_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

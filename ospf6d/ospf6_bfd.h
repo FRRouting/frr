@@ -40,3 +40,9 @@ extern void ospf6_bfd_show_info(struct vty *vty, void *bfd_info,
 
 extern void ospf6_bfd_reg_dereg_nbr(struct ospf6_neighbor *on, int command);
 #endif /* OSPF6_BFD_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

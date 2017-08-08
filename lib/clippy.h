@@ -26,3 +26,9 @@ extern PyObject *clippy_parse(PyObject *self, PyObject *args);
 extern PyMODINIT_FUNC command_py_init(void);
 
 #endif /* _FRR_CLIPPY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

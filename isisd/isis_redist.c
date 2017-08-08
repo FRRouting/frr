@@ -795,3 +795,9 @@ void isis_redist_init(void)
 	install_element(ISIS_NODE, &isis_default_originate_cmd);
 	install_element(ISIS_NODE, &no_isis_default_originate_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

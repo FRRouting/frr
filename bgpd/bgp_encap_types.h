@@ -229,3 +229,9 @@ static inline void encode_encap_extcomm(bgp_encap_types tnl_type,
 }
 
 #endif /* _QUAGGA_BGP_ENCAP_TYPES_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

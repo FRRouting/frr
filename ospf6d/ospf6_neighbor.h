@@ -173,3 +173,9 @@ DECLARE_HOOK(ospf6_neighbor_change,
 	     (on, state, next_state))
 
 #endif /* OSPF6_NEIGHBOR_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

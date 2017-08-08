@@ -226,3 +226,9 @@ void pim_upstream_spt_prefix_list_update(struct pim_instance *pim,
 unsigned int pim_upstream_hash_key(void *arg);
 int pim_upstream_equal(const void *arg1, const void *arg2);
 #endif /* PIM_UPSTREAM_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

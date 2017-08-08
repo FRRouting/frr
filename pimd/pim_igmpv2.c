@@ -187,3 +187,9 @@ int igmp_v2_recv_leave(struct igmp_sock *igmp, struct in_addr from,
 
 	return 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

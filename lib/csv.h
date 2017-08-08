@@ -186,3 +186,9 @@ void csv_clone_record(csv_t *csv, csv_record_t *in_rec, csv_record_t **out_rec);
 int csv_num_records(csv_t *csv);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -178,3 +178,9 @@ static inline uint16_t isis_ethertype(size_t len)
 }
 
 #endif /* ISIS_CONSTANTS_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

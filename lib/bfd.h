@@ -104,3 +104,9 @@ extern void bfd_gbl_init(void);
 extern void bfd_gbl_exit(void);
 
 #endif /* _ZEBRA_BFD_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -34,3 +34,9 @@ extern regex_t *bgp_regcomp(const char *str);
 extern int bgp_regexec(regex_t *regex, struct aspath *aspath);
 
 #endif /* _QUAGGA_BGP_REGEX_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

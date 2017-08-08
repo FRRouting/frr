@@ -1348,3 +1348,9 @@ unsigned prefix_hash_key(void *pp)
 	prefix_copy(&copy, (struct prefix *)pp);
 	return jhash(&copy, sizeof(copy), 0x55aa5a5a);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

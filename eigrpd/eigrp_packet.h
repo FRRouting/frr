@@ -162,3 +162,9 @@ extern const struct message eigrp_packet_type_str[];
 extern const size_t eigrp_packet_type_str_max;
 
 #endif /* _ZEBRA_EIGRP_PACKET_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -1431,3 +1431,9 @@ babel_interface_free (babel_interface_nfo *babel_ifp)
 {
     XFREE(MTYPE_BABEL_IF, babel_ifp);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

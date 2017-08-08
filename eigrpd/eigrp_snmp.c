@@ -1405,3 +1405,9 @@ void eigrp_snmp_init()
 	REGISTER_MIB("ciscoEigrpMIB", eigrp_variables, variable, eigrp_oid);
 }
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -16,3 +16,9 @@ extern void eigrp_routemap_update_redistribute(void);
 extern void eigrp_rmap_update(const char *);
 
 #endif /* EIGRPD_EIGRP_ROUTEMAP_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

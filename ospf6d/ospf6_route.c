@@ -1524,3 +1524,9 @@ void install_element_ospf6_debug_route(void)
 	install_element(CONFIG_NODE, &debug_ospf6_route_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf6_route_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

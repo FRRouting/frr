@@ -47,3 +47,9 @@ extern void ospf_bfd_show_info(struct vty *vty, void *bfd_info,
 extern void ospf_bfd_info_free(void **bfd_info);
 
 #endif /* _ZEBRA_OSPF_BFD_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

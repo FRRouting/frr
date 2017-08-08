@@ -1463,3 +1463,9 @@ void ospf_spf_calculate_schedule(struct ospf *ospf, ospf_spf_reason_t reason)
 	thread_add_timer_msec(master, ospf_spf_calculate_timer, ospf, delay,
 			      &ospf->t_spf_calc);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -28,3 +28,9 @@ extern int bgp_rfp_cfg_write(void *vty, void *bgp);
 void rfp_clear_vnc_nve_all(void);
 
 #endif /* _RFP_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

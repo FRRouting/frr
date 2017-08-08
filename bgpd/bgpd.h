@@ -1558,3 +1558,9 @@ extern void bgp_update_redist_vrf_bitmaps(struct bgp *, vrf_id_t);
 extern struct peer *peer_new(struct bgp *bgp);
 
 #endif /* _QUAGGA_BGPD_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

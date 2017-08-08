@@ -75,3 +75,9 @@ struct quagga_signal_t pimd_signals[] = {
 		.handler = &pim_sigterm,
 	},
 };
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

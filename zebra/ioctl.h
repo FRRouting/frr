@@ -53,3 +53,9 @@ extern struct connected *if_lookup_linklocal(struct interface *);
 #endif /* SOLARIS_IPV6 */
 
 #endif /* _ZEBRA_IOCTL_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

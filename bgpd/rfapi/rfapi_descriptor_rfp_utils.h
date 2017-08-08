@@ -36,3 +36,9 @@ extern void *rfapi_create_generic(struct rfapi_ip_addr *vn,
  *
  *------------------------------------------*/
 extern void rfapi_free_generic(void *grfd);
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -99,3 +99,9 @@ enum matcher_rv command_complete(struct graph *cmdgraph, vector vline,
 				 struct list **completions);
 
 #endif /* _ZEBRA_COMMAND_MATCH_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

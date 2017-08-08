@@ -879,3 +879,9 @@ void zprivs_get_ids(struct zprivs_ids_t *ids)
 
 	return;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

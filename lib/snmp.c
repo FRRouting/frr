@@ -120,3 +120,9 @@ int smux_header_table(struct variable *v, oid *name, size_t *length, int exact,
 
 	return MATCH_SUCCEEDED;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

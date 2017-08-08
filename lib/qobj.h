@@ -128,3 +128,9 @@ void qobj_init(void);
 void qobj_finish(void);
 
 #endif /* _QOBJ_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

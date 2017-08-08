@@ -285,3 +285,9 @@ void evmgr_notify(const char *name, struct nhrp_cache *c, void (*cb)(struct nhrp
 	evmgr_submit(evmgr, zb);
 }
 
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

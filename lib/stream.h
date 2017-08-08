@@ -240,3 +240,9 @@ extern void stream_fifo_clean(struct stream_fifo *fifo);
 extern void stream_fifo_free(struct stream_fifo *fifo);
 
 #endif /* _ZEBRA_STREAM_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -461,3 +461,9 @@ int zfpm_netlink_encode_route(int cmd, rib_dest_t *dest, struct route_entry *re,
 }
 
 #endif /* HAVE_NETLINK */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

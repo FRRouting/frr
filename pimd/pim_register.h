@@ -44,3 +44,9 @@ void pim_register_stop_send(struct interface *ifp, struct prefix_sg *sg,
 void pim_register_join(struct pim_upstream *up);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

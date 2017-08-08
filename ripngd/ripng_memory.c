@@ -32,3 +32,9 @@ DEFINE_MTYPE(RIPNGD, RIPNG_AGGREGATE, "RIPng aggregate")
 DEFINE_MTYPE(RIPNGD, RIPNG_PEER, "RIPng peer")
 DEFINE_MTYPE(RIPNGD, RIPNG_OFFSET_LIST, "RIPng offset lst")
 DEFINE_MTYPE(RIPNGD, RIPNG_RTE_DATA, "RIPng rte data")
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

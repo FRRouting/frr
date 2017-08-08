@@ -916,3 +916,9 @@ extern void *rfapi_get_rfp_start_val_by_bgp(struct bgp *bgp);
 #endif /* ENABLE_BGP_VNC */
 
 #endif /* _QUAGGA_BGP_RFAPI_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

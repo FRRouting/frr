@@ -54,3 +54,9 @@ extern struct eigrp_neighbor *eigrp_nbr_lookup_by_addr_process(struct eigrp *,
 extern void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *vty);
 
 #endif /* _ZEBRA_EIGRP_NEIGHBOR_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

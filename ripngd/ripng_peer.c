@@ -188,3 +188,9 @@ void ripng_peer_init()
 	peer_list = list_new();
 	peer_list->cmp = (int (*)(void *, void *))ripng_peer_list_cmp;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

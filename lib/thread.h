@@ -232,3 +232,9 @@ extern unsigned long thread_consumed_time(RUSAGE_T *after, RUSAGE_T *before,
 extern pthread_key_t thread_current;
 
 #endif /* _ZEBRA_THREAD_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

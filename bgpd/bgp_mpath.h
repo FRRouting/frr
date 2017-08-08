@@ -74,3 +74,9 @@ extern u_int32_t bgp_info_mpath_count(struct bgp_info *);
 extern struct attr *bgp_info_mpath_attr(struct bgp_info *);
 
 #endif /* _QUAGGA_BGP_MPATH_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

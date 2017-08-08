@@ -30,3 +30,9 @@ extern int rip_interface_address_delete(int, struct zclient *, zebra_size_t,
 					vrf_id_t);
 
 #endif /* _QUAGGA_RIP_INTERFACE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */
