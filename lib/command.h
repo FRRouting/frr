@@ -130,6 +130,7 @@ enum node_type
   FORWARDING_NODE,              /* IP forwarding node. */
   PROTOCOL_NODE,                /* protocol filtering node */
   MPLS_NODE,                    /* MPLS config node */
+  PW_NODE,                      /* Pseudowire config node */
   VTY_NODE,                     /* Vty node. */
   LINK_PARAMS_NODE,             /* Link-parameters node */
 };

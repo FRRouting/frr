@@ -73,6 +73,7 @@ pkginclude_HEADERS = \
 	module.h \
 	hook.h \
 	libfrr.h \
+	pw.h \
 	# end
 
 noinst_HEADERS = \
