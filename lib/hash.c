@@ -49,6 +49,7 @@ struct hash *hash_create_size(unsigned int size,
 	hash->index =
 		XCALLOC(MTYPE_HASH_INDEX, sizeof(struct hash_backet *) * size);
 	hash->size = size;
+	hash->max_size = size<<8;
 	hash->hash_key = hash_key;
 	hash->hash_cmp = hash_cmp;
 	hash->count = 0;
