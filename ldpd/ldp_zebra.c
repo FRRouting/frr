@@ -52,6 +52,8 @@ static int	 ldp_interface_address_delete(int, struct zclient *,
 		    zebra_size_t, vrf_id_t);
 static int	 ldp_zebra_read_route(int, struct zclient *, zebra_size_t,
 		    vrf_id_t);
+static int	 ldp_zebra_read_pw_status_update(int, struct zclient *,
+		    zebra_size_t, vrf_id_t);
 static void	 ldp_zebra_connected(struct zclient *);
 
 static struct zclient	*zclient;
@@ -90,6 +92,25 @@ ifc2kaddr(struct interface *ifp, struct connected *ifc, struct kaddr *ka)
 	default:
 		break;
 	}
+}
+
+void
+pw2zpw(struct l2vpn_pw *pw, struct zapi_pw *zpw)
+{
+	memset(zpw, 0, sizeof(*zpw));
+	strlcpy(zpw->ifname, pw->ifname, sizeof(zpw->ifname));
+	zpw->ifindex = pw->ifindex;
+	zpw->type = pw->l2vpn->pw_type;
+	zpw->af = pw->af;
+	zpw->nexthop.ipv6 = pw->addr.v6;
+	zpw->local_label = NO_LABEL;
+	zpw->remote_label = NO_LABEL;
+	if (pw->flags & F_PW_CWORD)
+		zpw->flags = F_PSEUDOWIRE_CWORD;
+	zpw->data.ldp.lsr_id = pw->lsr_id;
+	zpw->data.ldp.pwid = pw->pwid;
+	strlcpy(zpw->data.ldp.vpn_name, pw->l2vpn->name,
+	    sizeof(zpw->data.ldp.vpn_name));
 }
 
 static int
@@ -152,17 +173,40 @@ kr_delete(struct kroute *kr)
 }
 
 int
-kmpw_set(struct kpw *kpw)
+kmpw_add(struct zapi_pw *zpw)
 {
-	/* TODO */
-	return (0);
+	debug_zebra_out("pseudowire %s nexthop %s (add)",
+	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
+
+	return (zebra_send_pw(zclient, ZEBRA_PW_ADD, zpw));
 }
 
 int
-kmpw_unset(struct kpw *kpw)
+kmpw_del(struct zapi_pw *zpw)
 {
-	/* TODO */
-	return (0);
+	debug_zebra_out("pseudowire %s nexthop %s (del)",
+	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
+
+	return (zebra_send_pw(zclient, ZEBRA_PW_DELETE, zpw));
+}
+
+int
+kmpw_set(struct zapi_pw *zpw)
+{
+	debug_zebra_out("pseudowire %s nexthop %s labels %u/%u (set)",
+	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop),
+	    zpw->local_label, zpw->remote_label);
+
+	return (zebra_send_pw(zclient, ZEBRA_PW_SET, zpw));
+}
+
+int
+kmpw_unset(struct zapi_pw *zpw)
+{
+	debug_zebra_out("pseudowire %s nexthop %s (unset)",
+	    zpw->ifname, log_addr(zpw->af, (union ldpd_addr *)&zpw->nexthop));
+
+	return (zebra_send_pw(zclient, ZEBRA_PW_UNSET, zpw));
 }
 
 void
@@ -464,6 +508,25 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 	return (0);
 }
 
+/*
+ * Receive PW status update from Zebra and send it to LDE process.
+ */
+static int
+ldp_zebra_read_pw_status_update(int command, struct zclient *zclient,
+    zebra_size_t length, vrf_id_t vrf_id)
+{
+	struct zapi_pw_status	 zpw;
+
+	zebra_read_pw_status_update(command, zclient, length, vrf_id, &zpw);
+
+	debug_zebra_in("pseudowire %s status %s", zpw.ifname,
+	    (zpw.status == PW_STATUS_UP) ? "up" : "down");
+
+	main_imsg_compose_lde(IMSG_PW_UPDATE, 0, &zpw, sizeof(zpw));
+
+	return (0);
+}
+
 static void
 ldp_zebra_connected(struct zclient *zclient)
 {
@@ -494,6 +557,7 @@ ldp_zebra_init(struct thread_master *master)
 	zclient->redistribute_route_ipv4_del = ldp_zebra_read_route;
 	zclient->redistribute_route_ipv6_add = ldp_zebra_read_route;
 	zclient->redistribute_route_ipv6_del = ldp_zebra_read_route;
+	zclient->pw_status_update = ldp_zebra_read_pw_status_update;
 }
 
 void

@@ -30,6 +30,8 @@
 #include "prefix.h"
 #include "filter.h"
 #include "vty.h"
+#include "pw.h"
+#include "zclient.h"
 
 #include "ldp.h"
 
@@ -44,7 +46,6 @@
 #define LDPD_OPT_NOACTION	0x00000004
 
 #define TCP_MD5_KEY_LEN		80
-#define L2VPN_NAME_LEN		32
 
 #define	RT_BUF_SIZE		16384
 #define	MAX_RTSOCK_BUF		128 * 1024
@@ -102,8 +103,10 @@ enum imsg_type {
 	IMSG_CTL_LOG_VERBOSE,
 	IMSG_KLABEL_CHANGE,
 	IMSG_KLABEL_DELETE,
-	IMSG_KPWLABEL_CHANGE,
-	IMSG_KPWLABEL_DELETE,
+	IMSG_KPW_ADD,
+	IMSG_KPW_DELETE,
+	IMSG_KPW_SET,
+	IMSG_KPW_UNSET,
 	IMSG_IFSTATUS,
 	IMSG_NEWADDR,
 	IMSG_DELADDR,
@@ -147,7 +150,8 @@ enum imsg_type {
 	IMSG_DEBUG_UPDATE,
 	IMSG_LOG,
 	IMSG_ACL_CHECK,
-	IMSG_INIT
+	IMSG_INIT,
+	IMSG_PW_UPDATE
 };
 
 struct ldpd_init {
@@ -407,6 +411,7 @@ struct l2vpn_pw {
 	unsigned int		 ifindex;
 	uint32_t		 remote_group;
 	uint16_t		 remote_mtu;
+	uint32_t		 local_status;
 	uint32_t		 remote_status;
 	uint8_t			 flags;
 	QOBJ_FIELDS
@@ -418,8 +423,7 @@ DECLARE_QOBJ_TYPE(l2vpn_pw)
 #define F_PW_STATUSTLV		0x02	/* status tlv negotiated */
 #define F_PW_CWORD_CONF		0x04	/* control word configured */
 #define F_PW_CWORD		0x08	/* control word negotiated */
-#define F_PW_STATUS_UP		0x10	/* pseudowire is operational */
-#define F_PW_STATIC_NBR_ADDR	0x20	/* static neighbor address configured */
+#define F_PW_STATIC_NBR_ADDR	0x10	/* static neighbor address configured */
 
 struct l2vpn {
 	RB_ENTRY(l2vpn)		 entry;
@@ -542,16 +546,6 @@ struct kroute {
 	uint16_t		 flags;
 };
 
-struct kpw {
-	unsigned short		 ifindex;
-	int			 pw_type;
-	int			 af;
-	union ldpd_addr		 nexthop;
-	uint32_t		 local_label;
-	uint32_t		 remote_label;
-	uint8_t			 flags;
-};
-
 struct kaddr {
 	char			 ifname[IF_NAMESIZE];
 	unsigned short		 ifindex;
@@ -668,11 +662,14 @@ struct ldpd_conf	*parse_config(char *);
 int			 cmdline_symset(char *);
 
 /* kroute.c */
+void		 pw2zpw(struct l2vpn_pw *, struct zapi_pw *);
 void		 kif_redistribute(const char *);
 int		 kr_change(struct kroute *);
 int		 kr_delete(struct kroute *);
-int		 kmpw_set(struct kpw *);
-int		 kmpw_unset(struct kpw *);
+int		 kmpw_add(struct zapi_pw *);
+int		 kmpw_del(struct zapi_pw *);
+int		 kmpw_set(struct zapi_pw *);
+int		 kmpw_unset(struct zapi_pw *);
 
 /* util.c */
 uint8_t		 mask2prefixlen(in_addr_t);

@@ -609,8 +609,6 @@ void vty_out_timestr(struct vty *vty, time_t uptime)
 	difftime -= uptime;
 	tm = gmtime(&difftime);
 
-#define ONE_DAY_SECOND 60*60*24
-#define ONE_WEEK_SECOND 60*60*24*7
 	if (difftime < ONE_DAY_SECOND)
 		vty_out(vty, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,
 			tm->tm_sec);

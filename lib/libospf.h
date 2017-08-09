@@ -34,7 +34,7 @@
 
 /* Architectual Constants */
 #ifdef DEBUG
-#define OSPF_LS_REFRESH_TIME                    60
+#define OSPF_LS_REFRESH_TIME                   120
 #else
 #define OSPF_LS_REFRESH_TIME                  1800
 #endif

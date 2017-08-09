@@ -698,8 +698,11 @@ This command is deprecated and may be removed in a future release. Its
 use should be avoided.
 @end deffn
 
-@deffn {BGP} {neighbor @var{peer} next-hop-self [all]} {}
-@deffnx {BGP} {no neighbor @var{peer} next-hop-self [all]} {}
+@c for some reason, using [all] here triggers a bug in texinfo...
+@deffn {BGP} {neighbor @var{peer} next-hop-self} {}
+@deffnx {BGP} {no neighbor @var{peer} next-hop-self} {}
+@deffnx {BGP} {neighbor @var{peer} next-hop-self all} {}
+@deffnx {BGP} {no neighbor @var{peer} next-hop-self all} {}
 This command specifies an announced route's nexthop as being equivalent
 to the address of the bgp router if it is learned via eBGP.
 If the optional keyword @code{all} is specified the modifiation is done

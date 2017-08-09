@@ -7,12 +7,8 @@
 @setfilename frr.info
 @c Set variables - sourced from defines.texi
 @include defines.texi
-@settitle @uref{http://www.frrouting.org,,@value{PACKAGE_NAME}}
+@settitle @uref{@value{PACKAGE_URL},,@value{PACKAGE_NAME}}
 @c %**end of header
-
-@c automake will automatically generate version.texi
-@c and set EDITION, VERSION, UPDATED and UPDATED-MONTH
-@include version.texi
 
 @copying
 @value{COPYRIGHT_STR}
@@ -44,21 +40,18 @@ approved by Kunihiro Ishiguro.
 @c @smallbook
 
 @ifinfo
-This file documents the Frr Software Routing Suite which manages common
-TCP/IP routing protocols.
+This file documents the @uref{@value{PACKAGE_URL},,Frr Software Routing Suite}
+which manages common TCP/IP routing protocols.
 
-This is Edition @value{EDITION}, last updated @value{UPDATED} of
-@cite{The Frr Manual}, for @uref{http://www.frrouting.org/,,@value{PACKAGE_NAME}}
-Version @value{VERSION}.
+This document was generated for version @value{PACKAGE_VERSION}.
 
 @insertcopying
 @end ifinfo
 
 @titlepage
-@title @uref{http://www.frrouting.org,,Frr}
+@title @uref{@value{PACKAGE_URL},,Frr}
 @subtitle A routing software package for TCP/IP networks
-@subtitle @uref{http://www.frrouting.org,,@value{PACKAGE_NAME}} @value{VERSION}
-@subtitle @value{UPDATED-MONTH}
+@subtitle @uref{@value{PACKAGE_URL},,@value{PACKAGE_NAME}} @value{PACKAGE_VERSION}
 @author @value{AUTHORS}
 
 @page
@@ -72,9 +65,9 @@ Version @value{VERSION}.
 @node Top
 @top Frr -- With Virtual Network Control
 		     
-@uref{http://www.frrouting.org,,Frr} is an advanced routing software package
+@uref{@value{PACKAGE_URL},,Frr} is an advanced routing software package
 that provides a suite of TCP/IP based routing protocols.  This is the Manual
-for @value{PACKAGE_STRING}. @uref{http://www.frrouting.org,,Frr} is a fork of 
+for @value{PACKAGE_STRING}. @uref{@value{PACKAGE_URL},,Frr} is a fork of 
 @uref{http://www.quagga.net,,Quagga}.
 
 @insertcopying

@@ -89,6 +89,7 @@ struct route_entry {
 #define ROUTE_ENTRY_NEXTHOPS_CHANGED 0x2
 #define ROUTE_ENTRY_CHANGED          0x4
 #define ROUTE_ENTRY_SELECTED_FIB     0x8
+#define ROUTE_ENTRY_LABELS_CHANGED   0x10
 
 	/* Nexthop information. */
 	u_char nexthop_num;

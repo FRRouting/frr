@@ -95,51 +95,6 @@ static int zebra_vrf_new(struct vrf *vrf)
 	return 0;
 }
 
-/*
- * Moving an interface amongst different vrf's
- * causes the interface to get a new ifindex
- * so we need to find static routes with
- * the old ifindex and replace with new
- * ifindex to insert back into the table
- */
-void zebra_vrf_static_route_interface_fixup(struct interface *ifp)
-{
-	afi_t afi;
-	safi_t safi;
-	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
-	struct route_table *stable = NULL;
-	struct route_node *rn = NULL;
-	struct static_route *si = NULL;
-
-	if (!zvrf)
-		return;
-
-	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			stable = zvrf->stable[afi][safi];
-			if (stable)
-				for (rn = route_top(stable); rn;
-				     rn = route_next(rn)) {
-					if (rn->info) {
-						si = rn->info;
-						if ((strcmp(si->ifname,
-							    ifp->name)
-						     == 0)
-						    && (si->ifindex
-							!= ifp->ifindex)) {
-							si->ifindex =
-								ifp->ifindex;
-							static_install_route(
-								afi, safi,
-								&rn->p, NULL,
-								si);
-						}
-					}
-				}
-		}
-	}
-}
-
 /* Callback upon enabling a VRF. */
 static int zebra_vrf_enable(struct vrf *vrf)
 {
@@ -248,6 +203,7 @@ static int zebra_vrf_delete(struct vrf *vrf)
 		zebra_vxlan_close_tables(zvrf);
 
 		zebra_mpls_close_tables(zvrf);
+		zebra_pw_exit(zvrf);
 
 		for (ALL_LIST_ELEMENTS_RO(vrf->iflist, node, ifp))
 			if_nbr_ipv6ll_to_ipv4ll_neigh_del_all(ifp);
@@ -417,6 +373,7 @@ struct zebra_vrf *zebra_vrf_alloc(void)
 
 	zebra_vxlan_init_tables(zvrf);
 	zebra_mpls_init_tables(zvrf);
+	zebra_pw_init(zvrf);
 
 	return zvrf;
 }

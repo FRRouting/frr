@@ -49,6 +49,7 @@ struct frr_daemon_info {
 	char *vty_sock_path;
 	bool dryrun;
 	bool daemon_mode;
+	bool terminal;
 	const char *config_file;
 	const char *pid_file;
 	const char *vty_path;

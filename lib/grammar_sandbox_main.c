@@ -26,10 +26,11 @@
 #include "command.h"
 #include "memory_vty.h"
 
-static void vty_do_exit(void)
+static void vty_do_exit(int isexit)
 {
 	printf("\nend.\n");
-	exit(0);
+	if (!isexit)
+		exit(0);
 }
 
 struct thread_master *master;

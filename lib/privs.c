@@ -696,13 +696,10 @@ static int getgrouplist(const char *user, gid_t group, gid_t *groups,
 }
 #endif /* HAVE_GETGROUPLIST */
 
-void zprivs_init(struct zebra_privs_t *zprivs)
+void zprivs_preinit(struct zebra_privs_t *zprivs)
 {
 	struct passwd *pwentry = NULL;
 	struct group *grentry = NULL;
-	gid_t groups[NGROUPS_MAX];
-	int i, ngroups = 0;
-	int found = 0;
 
 	if (!zprivs) {
 		fprintf(stderr, "zprivs_init: called with NULL arg!\n");
@@ -751,6 +748,18 @@ void zprivs_init(struct zebra_privs_t *zprivs)
 
 		zprivs_state.zgid = grentry->gr_gid;
 	}
+}
+
+void zprivs_init(struct zebra_privs_t *zprivs)
+{
+	gid_t groups[NGROUPS_MAX];
+	int i, ngroups = 0;
+	int found = 0;
+
+	/* NULL privs */
+	if (!(zprivs->user || zprivs->group || zprivs->cap_num_p
+	      || zprivs->cap_num_i))
+		return;
 
 	if (zprivs->user) {
 		ngroups = sizeof(groups);

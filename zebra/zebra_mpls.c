@@ -2222,7 +2222,7 @@ found:
 		return 0;
 
 	SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
-	SET_FLAG(re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
+	SET_FLAG(re->status, ROUTE_ENTRY_LABELS_CHANGED);
 	rib_queue_add(rn);
 
 	return 0;
@@ -2405,7 +2405,7 @@ void mpls_ldp_ftn_uninstall_all(struct zebra_vrf *zvrf, int afi)
 				nexthop_del_labels(nexthop);
 				SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 				SET_FLAG(re->status,
-					 ROUTE_ENTRY_NEXTHOPS_CHANGED);
+					 ROUTE_ENTRY_LABELS_CHANGED);
 				update = 1;
 			}
 

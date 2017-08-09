@@ -616,5 +616,6 @@ void eigrp_debug_init()
 	install_element(CONFIG_NODE, &show_debugging_eigrp_cmd);
 	install_element(CONFIG_NODE, &debug_eigrp_packets_all_cmd);
 	install_element(CONFIG_NODE, &no_debug_eigrp_packets_all_cmd);
+	install_element(CONFIG_NODE, &debug_eigrp_transmit_cmd);
 	install_element(CONFIG_NODE, &no_debug_eigrp_transmit_cmd);
 }

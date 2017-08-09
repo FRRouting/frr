@@ -1,0 +1,71 @@
+#
+# isisd
+#
+
+if ISISD
+noinst_LIBRARIES += isisd/libisis.a
+sbin_PROGRAMS += isisd/isisd
+dist_examples_DATA += isisd/isisd.conf.sample
+endif
+
+isisd_libisis_a_SOURCES = \
+	isisd/dict.c \
+	isisd/isis_adjacency.c \
+	isisd/isis_circuit.c \
+	isisd/isis_csm.c \
+	isisd/isis_dr.c \
+	isisd/isis_dynhn.c \
+	isisd/isis_events.c \
+	isisd/isis_flags.c \
+	isisd/isis_lsp.c \
+	isisd/isis_memory.c \
+	isisd/isis_misc.c \
+	isisd/isis_mt.c \
+	isisd/isis_pdu.c \
+	isisd/isis_redist.c \
+	isisd/isis_route.c \
+	isisd/isis_routemap.c \
+	isisd/isis_spf.c \
+	isisd/isis_te.c \
+	isisd/isis_tlvs.c \
+	isisd/isis_vty.c \
+	isisd/isis_zebra.c \
+	isisd/isisd.c \
+	isisd/iso_checksum.c \
+	# end
+
+noinst_HEADERS += \
+	isisd/dict.h \
+	isisd/isis_adjacency.h \
+	isisd/isis_circuit.h \
+	isisd/isis_common.h \
+	isisd/isis_constants.h \
+	isisd/isis_csm.h \
+	isisd/isis_dr.h \
+	isisd/isis_dynhn.h \
+	isisd/isis_events.h \
+	isisd/isis_flags.h \
+	isisd/isis_lsp.h \
+	isisd/isis_memory.h \
+	isisd/isis_misc.h \
+	isisd/isis_mt.h \
+	isisd/isis_network.h \
+	isisd/isis_pdu.h \
+	isisd/isis_redist.h \
+	isisd/isis_route.h \
+	isisd/isis_routemap.h \
+	isisd/isis_spf.h \
+	isisd/isis_te.h \
+	isisd/isis_tlvs.h \
+	isisd/isis_zebra.h \
+	isisd/isisd.h \
+	isisd/iso_checksum.h \
+	# end
+
+isisd_isisd_LDADD = isisd/libisis.a lib/libfrr.la @LIBCAP@
+isisd_isisd_SOURCES = \
+	isisd/isis_bpf.c \
+	isisd/isis_dlpi.c \
+	isisd/isis_main.c \
+	isisd/isis_pfpacket.c \
+	# end

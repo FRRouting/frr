@@ -1,8 +1,6 @@
 ## Process this file with Automake to create Makefile.in
 
 AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir)/lib
-DEFS = @DEFS@ -DSTATEDIR=\"$(localstatedir)/\"
-
 AM_CFLAGS = $(WERROR)
 
 sbin_PROGRAMS = watchfrr

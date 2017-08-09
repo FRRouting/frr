@@ -1,0 +1,59 @@
+#
+# eigrpd
+#
+
+if EIGRPD
+noinst_LIBRARIES += eigrpd/libeigrp.a
+sbin_PROGRAMS += eigrpd/eigrpd
+dist_examples_DATA += eigrpd/eigrpd.conf.sample
+endif
+
+eigrpd_libeigrp_a_SOURCES = \
+	eigrpd/eigrp_dump.c \
+	eigrpd/eigrp_filter.c \
+	eigrpd/eigrp_fsm.c \
+	eigrpd/eigrp_hello.c \
+	eigrpd/eigrp_interface.c \
+	eigrpd/eigrp_memory.c \
+	eigrpd/eigrp_neighbor.c \
+	eigrpd/eigrp_network.c \
+	eigrpd/eigrp_packet.c \
+	eigrpd/eigrp_query.c \
+	eigrpd/eigrp_reply.c \
+	eigrpd/eigrp_siaquery.c \
+	eigrpd/eigrp_siareply.c \
+	eigrpd/eigrp_snmp.c \
+	eigrpd/eigrp_topology.c \
+	eigrpd/eigrp_update.c \
+	eigrpd/eigrp_vty.c \
+	eigrpd/eigrp_zebra.c \
+	eigrpd/eigrpd.c \
+	# end
+
+eigrpdheaderdir = $(pkgincludedir)/eigrpd
+eigrpdheader_HEADERS = \
+	eigrpd/eigrp_dump.h \
+	eigrpd/eigrp_topology.h \
+	eigrpd/eigrpd.h \
+	# end
+
+noinst_HEADERS += \
+	eigrpd/eigrp_const.h \
+	eigrpd/eigrp_filter.h \
+	eigrpd/eigrp_fsm.h \
+	eigrpd/eigrp_interface.h \
+	eigrpd/eigrp_macros.h \
+	eigrpd/eigrp_memory.h \
+	eigrpd/eigrp_neighbor.h \
+	eigrpd/eigrp_network.h \
+	eigrpd/eigrp_packet.h \
+	eigrpd/eigrp_snmp.h \
+	eigrpd/eigrp_structs.h \
+	eigrpd/eigrp_vty.h \
+	eigrpd/eigrp_zebra.h \
+	# end
+
+eigrpd_eigrpd_SOURCES = eigrpd/eigrp_main.c
+eigrpd_eigrpd_LDADD = eigrpd/libeigrp.a lib/libfrr.la @LIBCAP@
+
+EXTRA_DIST += eigrpd/EIGRP-MIB.txt

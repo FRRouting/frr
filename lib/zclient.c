@@ -1778,6 +1778,69 @@ int lm_release_label_chunk(struct zclient *zclient, uint32_t start,
 	return 0;
 }
 
+int zebra_send_pw(struct zclient *zclient, int command, struct zapi_pw *pw)
+{
+	struct stream *s;
+
+	/* Reset stream. */
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, command, VRF_DEFAULT);
+	stream_write(s, pw->ifname, IF_NAMESIZE);
+	stream_putl(s, pw->ifindex);
+
+	/* Put type */
+	stream_putl(s, pw->type);
+
+	/* Put nexthop */
+	stream_putl(s, pw->af);
+	switch (pw->af) {
+	case AF_INET:
+		stream_put_in_addr(s, &pw->nexthop.ipv4);
+		break;
+	case AF_INET6:
+		stream_write(s, (u_char *)&pw->nexthop.ipv6, 16);
+		break;
+	default:
+		zlog_err("%s: unknown af", __func__);
+		return -1;
+	}
+
+	/* Put labels */
+	stream_putl(s, pw->local_label);
+	stream_putl(s, pw->remote_label);
+
+	/* Put flags */
+	stream_putc(s, pw->flags);
+
+	/* Protocol specific fields */
+	stream_write(s, &pw->data, sizeof(union pw_protocol_fields));
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
+}
+
+/*
+ * Receive PW status update from Zebra and send it to LDE process.
+ */
+void zebra_read_pw_status_update(int command, struct zclient *zclient,
+				 zebra_size_t length, vrf_id_t vrf_id,
+				 struct zapi_pw_status *pw)
+{
+	struct stream *s;
+
+	memset(pw, 0, sizeof(struct zapi_pw_status));
+	s = zclient->ibuf;
+
+	/* Get data. */
+	stream_get(pw->ifname, s, IF_NAMESIZE);
+	pw->ifindex = stream_getl(s);
+	pw->status = stream_getl(s);
+}
+
 /* Zebra client message read function. */
 static int zclient_read(struct thread *thread)
 {
@@ -2004,6 +2067,11 @@ static int zclient_read(struct thread *thread)
 		if (zclient->local_macip_del)
 			(*zclient->local_macip_del)(command, zclient, length,
 						    vrf_id);
+		break;
+	case ZEBRA_PW_STATUS_UPDATE:
+		if (zclient->pw_status_update)
+			(*zclient->pw_status_update)(command, zclient, length,
+						     vrf_id);
 		break;
 	default:
 		break;

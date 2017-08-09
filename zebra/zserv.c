@@ -1087,6 +1087,27 @@ int zsend_router_id_update(struct zserv *client, struct prefix *p,
 	return zebra_server_send_message(client);
 }
 
+/*
+ * Function used by Zebra to send a PW status update to LDP daemon
+ */
+int zsend_pw_update(struct zserv *client, struct zebra_pw *pw)
+{
+	struct stream *s;
+
+	s = client->obuf;
+	stream_reset(s);
+
+	zserv_create_header(s, ZEBRA_PW_STATUS_UPDATE, pw->vrf_id);
+	stream_write(s, pw->ifname, IF_NAMESIZE);
+	stream_putl(s, pw->ifindex);
+	stream_putl(s, pw->status);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zebra_server_send_message(client);
+}
+
 /* Register zebra server interface information.  Send current all
    interface and address information. */
 static int zread_interface_add(struct zserv *client, u_short length,
@@ -1879,14 +1900,12 @@ static void zread_mpls_labels(int command, struct zserv *client, u_short length,
 	if (command == ZEBRA_MPLS_LABELS_ADD) {
 		mpls_lsp_install(zvrf, type, in_label, out_label, gtype, &gate,
 				 ifindex);
-		if (out_label != MPLS_IMP_NULL_LABEL)
-			mpls_ftn_update(1, zvrf, type, &prefix, gtype, &gate,
-					ifindex, distance, out_label);
+		mpls_ftn_update(1, zvrf, type, &prefix, gtype, &gate, ifindex,
+				distance, out_label);
 	} else if (command == ZEBRA_MPLS_LABELS_DELETE) {
 		mpls_lsp_uninstall(zvrf, type, in_label, gtype, &gate, ifindex);
-		if (out_label != MPLS_IMP_NULL_LABEL)
-			mpls_ftn_update(0, zvrf, type, &prefix, gtype, &gate,
-					ifindex, distance, out_label);
+		mpls_ftn_update(0, zvrf, type, &prefix, gtype, &gate, ifindex,
+				distance, out_label);
 	}
 }
 /* Send response to a label manager connect request to client */
@@ -2041,6 +2060,97 @@ static void zread_label_manager_request(int cmd, struct zserv *client,
 	}
 }
 
+static int zread_pseudowire(int command, struct zserv *client, u_short length,
+			    vrf_id_t vrf_id)
+{
+	struct stream *s;
+	struct zebra_vrf *zvrf;
+	char ifname[IF_NAMESIZE];
+	ifindex_t ifindex;
+	int type;
+	int af;
+	union g_addr nexthop;
+	uint32_t local_label;
+	uint32_t remote_label;
+	uint8_t flags;
+	union pw_protocol_fields data;
+	uint8_t protocol;
+	struct zebra_pw *pw;
+
+	zvrf = vrf_info_lookup(vrf_id);
+	if (!zvrf)
+		return -1;
+
+	/* Get input stream.  */
+	s = client->ibuf;
+
+	/* Get data. */
+	stream_get(ifname, s, IF_NAMESIZE);
+	ifindex = stream_getl(s);
+	type = stream_getl(s);
+	af = stream_getl(s);
+	switch (af) {
+	case AF_INET:
+		nexthop.ipv4.s_addr = stream_get_ipv4(s);
+		break;
+	case AF_INET6:
+		stream_get(&nexthop.ipv6, s, 16);
+		break;
+	default:
+		return -1;
+	}
+	local_label = stream_getl(s);
+	remote_label = stream_getl(s);
+	flags = stream_getc(s);
+	stream_get(&data, s, sizeof(data));
+	protocol = client->proto;
+
+	pw = zebra_pw_find(zvrf, ifname);
+	switch (command) {
+	case ZEBRA_PW_ADD:
+		if (pw) {
+			zlog_warn("%s: pseudowire %s already exists [%s]",
+				  __func__, ifname,
+				  zserv_command_string(command));
+			return -1;
+		}
+
+		zebra_pw_add(zvrf, ifname, protocol, client);
+		break;
+	case ZEBRA_PW_DELETE:
+		if (!pw) {
+			zlog_warn("%s: pseudowire %s not found [%s]", __func__,
+				  ifname, zserv_command_string(command));
+			return -1;
+		}
+
+		zebra_pw_del(zvrf, pw);
+		break;
+	case ZEBRA_PW_SET:
+	case ZEBRA_PW_UNSET:
+		if (!pw) {
+			zlog_warn("%s: pseudowire %s not found [%s]", __func__,
+				  ifname, zserv_command_string(command));
+			return -1;
+		}
+
+		switch (command) {
+		case ZEBRA_PW_SET:
+			pw->enabled = 1;
+			break;
+		case ZEBRA_PW_UNSET:
+			pw->enabled = 0;
+			break;
+		}
+
+		zebra_pw_change(pw, ifindex, type, af, &nexthop, local_label,
+				remote_label, flags, &data);
+		break;
+	}
+
+	return 0;
+}
+
 /* Cleanup registered nexthops (across VRFs) upon client disconnect. */
 static void zebra_client_close_cleanup_rnh(struct zserv *client)
 {
@@ -2084,6 +2194,9 @@ static void zebra_client_close(struct zserv *client)
 	/* Cleanup any FECs registered by this client. */
 	zebra_mpls_cleanup_fecs_for_client(vrf_info_lookup(VRF_DEFAULT),
 					   client);
+
+	/* Remove pseudowires associated with this client */
+	zebra_pw_client_close(client);
 
 	/* Close file descriptor. */
 	if (client->sock) {
@@ -2438,6 +2551,12 @@ static int zebra_client_read(struct thread *thread)
 	case ZEBRA_INTERFACE_SET_MASTER:
 		zread_interface_set_master(client, sock, length);
 		break;
+	case ZEBRA_PW_ADD:
+	case ZEBRA_PW_DELETE:
+	case ZEBRA_PW_SET:
+	case ZEBRA_PW_UNSET:
+		zread_pseudowire(command, client, length, vrf_id);
+		break;
 	default:
 		zlog_info("Zebra received unknown command %d", command);
 		break;
@@ -2590,10 +2709,6 @@ static char *zserv_time_buf(time_t *time1, char *buf, int buflen)
 	now = monotime(NULL);
 	now -= *time1;
 	tm = gmtime(&now);
-
-/* Making formatted timer strings. */
-#define ONE_DAY_SECOND 60*60*24
-#define ONE_WEEK_SECOND 60*60*24*7
 
 	if (now < ONE_DAY_SECOND)
 		snprintf(buf, buflen, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min,

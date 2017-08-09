@@ -48,6 +48,7 @@
 #include "zebra/rt_netlink.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_static.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -119,8 +120,6 @@ static int if_zebra_new_hook(struct interface *ifp)
 		route_table_init_with_delegate(&zebra_if_table_delegate);
 
 	ifp->info = zebra_if;
-
-	zebra_vrf_static_route_interface_fixup(ifp);
 	return 0;
 }
 
@@ -510,6 +509,8 @@ void if_add_update(struct interface *ifp)
 			zlog_debug(
 				"interface %s vrf %u index %d becomes active.",
 				ifp->name, ifp->vrf_id, ifp->ifindex);
+
+		static_ifindex_update(ifp, true);
 	} else {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("interface %s vrf %u index %d is added.",
@@ -675,6 +676,8 @@ void if_delete_update(struct interface *ifp)
 		zlog_debug("interface %s vrf %u index %d is now inactive.",
 			   ifp->name, ifp->vrf_id, ifp->ifindex);
 
+	static_ifindex_update(ifp, false);
+
 	/* Delete connected routes from the kernel. */
 	if_delete_connected(ifp);
 
@@ -714,6 +717,8 @@ void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id)
 
 	old_vrf_id = ifp->vrf_id;
 
+	static_ifindex_update(ifp, false);
+
 	/* Uninstall connected routes. */
 	if_uninstall_connected(ifp);
 
@@ -737,6 +742,8 @@ void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id)
 	/* Install connected routes (in new VRF). */
 	if_install_connected(ifp);
 
+	static_ifindex_update(ifp, true);
+
 	/* Due to connected route change, schedule RIB processing for both old
 	 * and new VRF.
 	 */
@@ -745,8 +752,6 @@ void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id)
 			   ifp->vrf_id, ifp->name);
 	rib_update(old_vrf_id, RIB_UPDATE_IF_CHANGE);
 	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
-
-	zebra_vrf_static_route_interface_fixup(ifp);
 }
 
 static void ipv6_ll_address_to_mac(struct in6_addr *address, u_char *mac)
@@ -858,8 +863,6 @@ void if_up(struct interface *ifp)
 		zlog_debug("%u: IF %s up, scheduling RIB processing",
 			   ifp->vrf_id, ifp->name);
 	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
-
-	zebra_vrf_static_route_interface_fixup(ifp);
 
 	/* Handle interface up for specific types for EVPN. Non-VxLAN interfaces
 	 * are checked to see if (remote) neighbor entries need to be installed

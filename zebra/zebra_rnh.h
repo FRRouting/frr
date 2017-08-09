@@ -42,6 +42,8 @@ struct rnh {
 	struct list *
 		zebra_static_route_list; /* static routes dependent on this NH
 					    */
+	struct list
+		*zebra_pseudowire_list; /* pseudowires dependent on this NH */
 	struct route_node *node;
 	int filtered[ZEBRA_ROUTE_MAX]; /* if this has been filtered for client
 					  */
@@ -67,6 +69,8 @@ extern void zebra_deregister_rnh_static_nexthops(vrf_id_t,
 						 struct route_node *rn);
 extern void zebra_deregister_rnh_static_nh(vrf_id_t, struct prefix *,
 					   struct route_node *);
+extern void zebra_register_rnh_pseudowire(vrf_id_t, struct zebra_pw *);
+extern void zebra_deregister_rnh_pseudowire(vrf_id_t, struct zebra_pw *);
 extern void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client,
 				    rnh_type_t type);
 extern void zebra_evaluate_rnh(vrf_id_t vrfid, int family, int force,

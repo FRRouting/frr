@@ -1,0 +1,36 @@
+#
+# ripngd
+#
+
+if RIPNGD
+noinst_LIBRARIES += ripngd/libripng.a
+sbin_PROGRAMS += ripngd/ripngd
+endif
+
+ripngd_libripng_a_SOURCES = \
+	ripngd/ripng_debug.c \
+	ripngd/ripng_interface.c \
+	ripngd/ripng_memory.c \
+	ripngd/ripng_nexthop.c \
+	ripngd/ripng_offset.c \
+	ripngd/ripng_peer.c \
+	ripngd/ripng_route.c \
+	ripngd/ripng_routemap.c \
+	ripngd/ripng_zebra.c \
+	ripngd/ripngd.c \
+	# end
+
+noinst_HEADERS += \
+	ripngd/ripng_debug.h \
+	ripngd/ripng_memory.h \
+	ripngd/ripng_nexthop.h \
+	ripngd/ripng_route.h \
+	ripngd/ripngd.h \
+	# end
+
+ripngd_ripngd_LDADD = ripngd/libripng.a lib/libfrr.la @LIBCAP@
+ripngd_ripngd_SOURCES = \
+	ripngd/ripng_main.c \
+	# end
+
+dist_examples_DATA += ripngd/ripngd.conf.sample

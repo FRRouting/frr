@@ -578,21 +578,36 @@ main_dispatch_lde(struct thread *thread)
 			if (kr_delete(imsg.data))
 				log_warnx("%s: error deleting route", __func__);
 			break;
-		case IMSG_KPWLABEL_CHANGE:
+		case IMSG_KPW_ADD:
+		case IMSG_KPW_DELETE:
+		case IMSG_KPW_SET:
+		case IMSG_KPW_UNSET:
 			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
-			    sizeof(struct kpw))
+			    sizeof(struct zapi_pw))
 				fatalx("invalid size of IMSG_KPWLABEL_CHANGE");
-			if (kmpw_set(imsg.data))
-				log_warnx("%s: error changing pseudowire",
-				    __func__);
-			break;
-		case IMSG_KPWLABEL_DELETE:
-			if (imsg.hdr.len - IMSG_HEADER_SIZE !=
-			    sizeof(struct kpw))
-				fatalx("invalid size of IMSG_KPWLABEL_DELETE");
-			if (kmpw_unset(imsg.data))
-				log_warnx("%s: error unsetting pseudowire",
-				    __func__);
+
+			switch (imsg.hdr.type) {
+			case IMSG_KPW_ADD:
+				if (kmpw_add(imsg.data))
+					log_warnx("%s: error adding "
+					    "pseudowire", __func__);
+				break;
+			case IMSG_KPW_DELETE:
+				if (kmpw_del(imsg.data))
+					log_warnx("%s: error deleting "
+					    "pseudowire", __func__);
+				break;
+			case IMSG_KPW_SET:
+				if (kmpw_set(imsg.data))
+					log_warnx("%s: error setting "
+					    "pseudowire", __func__);
+				break;
+			case IMSG_KPW_UNSET:
+				if (kmpw_unset(imsg.data))
+					log_warnx("%s: error unsetting "
+					    "pseudowire", __func__);
+				break;
+			}
 			break;
 		case IMSG_ACL_CHECK:
 			if (imsg.hdr.len != IMSG_HEADER_SIZE +
