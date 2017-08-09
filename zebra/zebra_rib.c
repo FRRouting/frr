@@ -2274,7 +2274,8 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		u_short instance, int flags, struct prefix *p,
 		struct prefix_ipv6 *src_p, union g_addr *gate,
-		ifindex_t ifindex, u_int32_t table_id)
+		ifindex_t ifindex, u_int32_t table_id,
+		u_int32_t metric)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -2327,6 +2328,9 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		if (re->type != type)
 			continue;
 		if (re->instance != instance)
+			continue;
+		if (re->type == ZEBRA_ROUTE_KERNEL &&
+		    re->metric != metric)
 			continue;
 		if (re->type == ZEBRA_ROUTE_CONNECT && (nexthop = re->nexthop)
 		    && nexthop->type == NEXTHOP_TYPE_IFINDEX) {
@@ -2467,6 +2471,9 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 		if (re->type != type)
 			continue;
 		if (re->instance != instance)
+			continue;
+		if (re->type == ZEBRA_ROUTE_KERNEL &&
+		    re->metric != metric)
 			continue;
 		if (!RIB_SYSTEM_ROUTE(re)) {
 			same = re;

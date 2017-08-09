@@ -308,21 +308,19 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 	if (tb[RTA_GATEWAY])
 		gate = RTA_DATA(tb[RTA_GATEWAY]);
 
-	if (h->nlmsg_type == RTM_NEWROUTE) {
-		if (tb[RTA_PRIORITY])
-			metric = *(int *)RTA_DATA(tb[RTA_PRIORITY]);
+	if (tb[RTA_PRIORITY])
+		metric = *(int *)RTA_DATA(tb[RTA_PRIORITY]);
 
-		if (tb[RTA_METRICS]) {
-			struct rtattr *mxrta[RTAX_MAX + 1];
+	if (tb[RTA_METRICS]) {
+		struct rtattr *mxrta[RTAX_MAX + 1];
 
-			memset(mxrta, 0, sizeof mxrta);
-			netlink_parse_rtattr(mxrta, RTAX_MAX,
-					     RTA_DATA(tb[RTA_METRICS]),
-					     RTA_PAYLOAD(tb[RTA_METRICS]));
+		memset(mxrta, 0, sizeof mxrta);
+		netlink_parse_rtattr(mxrta, RTAX_MAX,
+				     RTA_DATA(tb[RTA_METRICS]),
+				     RTA_PAYLOAD(tb[RTA_METRICS]));
 
-			if (mxrta[RTAX_MTU])
-				mtu = *(u_int32_t *)RTA_DATA(mxrta[RTAX_MTU]);
-		}
+		if (mxrta[RTAX_MTU])
+			mtu = *(u_int32_t *)RTA_DATA(mxrta[RTAX_MTU]);
 	}
 
 	if (rtm->rtm_family == AF_INET) {
@@ -449,7 +447,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 		if (!tb[RTA_MULTIPATH])
 			rib_delete(afi, SAFI_UNICAST, vrf_id,
 				   ZEBRA_ROUTE_KERNEL, 0, flags, &p, NULL, gate,
-				   index, table);
+				   index, table, metric);
 		else {
 			struct rtnexthop *rtnh =
 				(struct rtnexthop *)RTA_DATA(tb[RTA_MULTIPATH]);
@@ -476,7 +474,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 					rib_delete(afi, SAFI_UNICAST, vrf_id,
 						   ZEBRA_ROUTE_KERNEL, 0, flags,
 						   &p, NULL, gate, index,
-						   table);
+						   table, metric);
 
 				len -= NLMSG_ALIGN(rtnh->rtnh_len);
 				rtnh = RTNH_NEXT(rtnh);

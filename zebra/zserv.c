@@ -1363,7 +1363,8 @@ static int zread_ipv4_delete(struct zserv *client, u_short length,
 	table_id = zvrf->table_id;
 
 	rib_delete(AFI_IP, api.safi, zvrf_id(zvrf), api.type, api.instance,
-		   api.flags, &p, NULL, nexthop_p, ifindex, table_id);
+		   api.flags, &p, NULL, nexthop_p, ifindex, table_id,
+		   api.metric);
 	client->v4_route_del_cnt++;
 	return 0;
 }
@@ -1761,11 +1762,11 @@ static int zread_ipv6_delete(struct zserv *client, u_short length,
 	if (IN6_IS_ADDR_UNSPECIFIED(&nexthop))
 		rib_delete(AFI_IP6, api.safi, zvrf_id(zvrf), api.type,
 			   api.instance, api.flags, &p, src_pp, NULL, ifindex,
-			   client->rtm_table);
+			   client->rtm_table, api.metric);
 	else
 		rib_delete(AFI_IP6, api.safi, zvrf_id(zvrf), api.type,
 			   api.instance, api.flags, &p, src_pp, pnexthop,
-			   ifindex, client->rtm_table);
+			   ifindex, client->rtm_table, api.metric);
 
 	client->v6_route_del_cnt++;
 	return 0;
