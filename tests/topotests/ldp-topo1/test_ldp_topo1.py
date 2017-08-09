@@ -553,11 +553,11 @@ def test_zebra_ipv4_routingTable():
             # Mask out label - all LDP labels should be >= 10 (2-digit)
             #   leaving the implicit labels unmasked
             actual = re.sub(r" label [0-9][0-9]+", " label xxx", actual)
-            #   and translating remaining implicit (single-digit) labels to label y
-            actual = re.sub(r" label [0-9]+", " label y", actual)
+            #   and translating remaining implicit (single-digit) labels to label implicit-null
+            actual = re.sub(r" label [0-9]+", " label implicit-null", actual)
             # Check if we have implicit labels - if not, then remove them from reference
-            if (not re.search(r" label y", actual)):
-		expected = re.sub(r", label y", "", expected)
+            if (not re.search(r" label implicit-null", actual)):
+                expected = re.sub(r", label implicit-null", "", expected)
 
             # now fix newlines of expected (make them all the same)
             expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
