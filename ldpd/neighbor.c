@@ -289,6 +289,8 @@ nbr_new(struct in_addr id, int af, int ds_tlv, union ldpd_addr *addr,
 void
 nbr_del(struct nbr *nbr)
 {
+	struct adj		*adj;
+
 	log_debug("%s: lsr-id %s", __func__, inet_ntoa(nbr->id));
 
 	nbr_fsm(nbr, NBR_EVT_CLOSE_SESSION);
@@ -313,6 +315,11 @@ nbr_del(struct nbr *nbr)
 	mapping_list_clr(&nbr->request_list);
 	mapping_list_clr(&nbr->release_list);
 	mapping_list_clr(&nbr->abortreq_list);
+
+	while ((adj = RB_ROOT(nbr_adj_head, &nbr->adj_tree)) != NULL) {
+		adj->nbr = NULL;
+		RB_REMOVE(nbr_adj_head, &nbr->adj_tree, adj);
+	}
 
 	if (nbr->peerid)
 		RB_REMOVE(nbr_pid_head, &nbrs_by_pid, nbr);

@@ -181,6 +181,8 @@ void vtysh_config_parse_line(void *arg, const char *line)
 	default:
 		if (strncmp(line, "interface", strlen("interface")) == 0)
 			config = config_get(INTERFACE_NODE, line);
+		else if (strncmp(line, "pseudowire", strlen("pseudowire")) == 0)
+			config = config_get(PW_NODE, line);
 		else if (strncmp(line, "logical-router", strlen("ns")) == 0)
 			config = config_get(NS_NODE, line);
 		else if (strncmp(line, "vrf", strlen("vrf")) == 0)

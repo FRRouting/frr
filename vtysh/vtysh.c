@@ -923,6 +923,10 @@ static struct cmd_node interface_node = {
 	INTERFACE_NODE, "%s(config-if)# ",
 };
 
+static struct cmd_node pw_node = {
+	PW_NODE, "%s(config-pw)# ",
+};
+
 static struct cmd_node ns_node = {
 	NS_NODE, "%s(config-logical-router)# ",
 };
@@ -1418,6 +1422,7 @@ static int vtysh_exit(struct vty *vty)
 		vty->node = ENABLE_NODE;
 		break;
 	case INTERFACE_NODE:
+	case PW_NODE:
 	case NS_NODE:
 	case VRF_NODE:
 	case ZEBRA_NODE:
@@ -1668,6 +1673,15 @@ DEFUNSH(VTYSH_INTERFACE, vtysh_interface, vtysh_interface_cmd,
 	"Interface's name\n" VRF_CMD_HELP_STR)
 {
 	vty->node = INTERFACE_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ZEBRA, vtysh_pseudowire, vtysh_pseudowire_cmd,
+	"pseudowire IFNAME",
+	"Static pseudowire configuration\n"
+	"Pseudowire name\n")
+{
+	vty->node = PW_NODE;
 	return CMD_SUCCESS;
 }
 
@@ -2921,6 +2935,7 @@ void vtysh_init_vty(void)
 	install_node(&bgp_node, NULL);
 	install_node(&rip_node, NULL);
 	install_node(&interface_node, NULL);
+	install_node(&pw_node, NULL);
 	install_node(&link_params_node, NULL);
 	install_node(&ns_node, NULL);
 	install_node(&vrf_node, NULL);
@@ -3093,6 +3108,10 @@ void vtysh_init_vty(void)
 	install_element(LINK_PARAMS_NODE, &vtysh_exit_interface_cmd);
 	install_element(INTERFACE_NODE, &vtysh_quit_interface_cmd);
 
+	install_element(PW_NODE, &vtysh_end_all_cmd);
+	install_element(PW_NODE, &vtysh_exit_interface_cmd);
+	install_element(PW_NODE, &vtysh_quit_interface_cmd);
+
 	install_element(NS_NODE, &vtysh_end_all_cmd);
 
 	install_element(CONFIG_NODE, &vtysh_ns_cmd);
@@ -3168,6 +3187,7 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &vtysh_interface_cmd);
 	install_element(CONFIG_NODE, &vtysh_no_interface_cmd);
 	install_element(CONFIG_NODE, &vtysh_no_interface_vrf_cmd);
+	install_element(CONFIG_NODE, &vtysh_pseudowire_cmd);
 	install_element(INTERFACE_NODE, &vtysh_link_params_cmd);
 	install_element(ENABLE_NODE, &vtysh_show_running_config_cmd);
 	install_element(ENABLE_NODE, &vtysh_copy_running_config_cmd);

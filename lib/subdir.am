@@ -123,6 +123,7 @@ pkginclude_HEADERS += \
 	lib/prefix.h \
 	lib/privs.h \
 	lib/ptm_lib.h \
+	lib/pw.h \
 	lib/qobj.h \
 	lib/route_types.h \
 	lib/routemap.h \

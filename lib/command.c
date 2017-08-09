@@ -110,6 +110,7 @@ const char *node_names[] = {
 	"forwarding",		    // FORWARDING_NODE,
 	"protocol",		    // PROTOCOL_NODE,
 	"mpls",			    // MPLS_NODE,
+	"pw",			    // PW_NODE,
 	"vty",			    // VTY_NODE,
 	"link-params",		    // LINK_PARAMS_NODE,
 	"bgp evpn vni",		    // BGP_EVPN_VNI_NODE,
@@ -1253,6 +1254,7 @@ void cmd_exit(struct vty *vty)
 		vty_config_unlock(vty);
 		break;
 	case INTERFACE_NODE:
+	case PW_NODE:
 	case NS_NODE:
 	case VRF_NODE:
 	case ZEBRA_NODE:
@@ -1338,6 +1340,7 @@ DEFUN (config_end,
 		break;
 	case CONFIG_NODE:
 	case INTERFACE_NODE:
+	case PW_NODE:
 	case NS_NODE:
 	case VRF_NODE:
 	case ZEBRA_NODE:

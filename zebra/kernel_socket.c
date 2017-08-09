@@ -627,6 +627,7 @@ int ifm_read(struct if_msghdr *ifm)
 #ifdef HAVE_NET_RT_IFLIST
 	ifp->stats = ifm->ifm_data;
 #endif /* HAVE_NET_RT_IFLIST */
+	ifp->speed = ifm->ifm_data.ifi_baudrate / 1000000;
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug("%s: interface %s index %d", __func__, ifp->name,
