@@ -76,3 +76,4 @@ GPATH
 *.la
 *.lo
 compile_commands.json
+.dirstamp
