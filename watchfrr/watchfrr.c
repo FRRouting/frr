@@ -964,6 +964,8 @@ FRR_DAEMON_INFO(watchfrr, WATCHFRR,
 
 		.privs = &watchfrr_privs, )
 
+#define DEPRECATED_OPTIONS "aAezR:"
+
 int main(int argc, char **argv)
 {
 	int opt;
@@ -977,10 +979,18 @@ int main(int argc, char **argv)
 	frr_preinit(&watchfrr_di, argc, argv);
 	progname = watchfrr_di.progname;
 
-	frr_opt_add("b:dk:l:i:p:r:S:s:t:T:", longopts, "");
+	frr_opt_add("b:dk:l:i:p:r:S:s:t:T:" DEPRECATED_OPTIONS, longopts, "");
 
 	gs.restart.name = "all";
 	while ((opt = frr_getopt(argc, argv, NULL)) != EOF) {
+		if (opt && opt < 128 && strchr(DEPRECATED_OPTIONS, opt)) {
+			fprintf(stderr,
+				"The -%c option no longer exists.\n"
+				"Please refer to the watchfrr(8) man page.\n",
+				opt);
+			exit(1);
+		}
+
 		switch (opt) {
 		case 0:
 			break;

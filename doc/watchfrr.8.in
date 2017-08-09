@@ -127,6 +127,20 @@ Display the version information and exit.
 .TP
 .BR \-h ", " \-\-help
 Display the usage information and exit.
+.SH PREVIOUS OPTIONS
+Prior versions of \fBwatchfrr\fR supported some additional options that no
+longer exist:
+.IP
+.BR \-a ,\  \-A ,\  \-e ,\  \-R ,\  \-z
+.PP
+The \fB-a\fR, \fB-A\fR and \fB-R\fR options were used to select alternate
+monitoring modes that offered different patterns of restarting daemons.  The
+"correct" mode (phased restart) is now the default. The \fB-e\fR and \fB-z\fR
+options used to disable some monitoring aspects, watchfrr now always has all
+monitoring features enabled.
+.PP
+Removing these options should result in correct operation, if it does not
+please file a bug report.
 .SH SEE ALSO
 .BR zebra (8),
 .BR bgpd (8),
