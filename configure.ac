@@ -9,6 +9,7 @@ AC_PREREQ(2.60)
 
 AC_INIT(frr, 3.1-dev, [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
+AC_SUBST(PACKAGE_URL)
 PACKAGE_FULLNAME="FRRouting"
 AC_SUBST(PACKAGE_FULLNAME)
 
@@ -1070,8 +1071,11 @@ case "$host_os" in
     if test $ac_cv_header_net_bpf_h = no; then
       if test $ac_cv_header_sys_dlpi_h = no; then
         AC_MSG_RESULT(none)
+        if test "${enable_isisd}" = yes; then
+          AC_MSG_FAILURE([IS-IS support requested but no packet backend found])
+        fi
         AC_MSG_WARN([*** IS-IS support will not be built ***])
-        ISISD=""
+        enable_isisd="no"
       else
         AC_MSG_RESULT(DLPI)
       fi
@@ -1254,27 +1258,13 @@ else
 fi
 AM_CONDITIONAL(BGPD, test "x$BGPD" = "xbgpd")
 
-if test "${enable_ripd}" = "no";then
-  RIPD=""
-else
-  RIPD="ripd"
-fi
-AM_CONDITIONAL(RIPD, test "x$RIPD" = "xripd")
+AM_CONDITIONAL(RIPD, test "${enable_ripd}" != "no")
+AM_CONDITIONAL(OSPFD, test "${enable_ospfd}" != "no")
+AM_CONDITIONAL(LDPD, test "${enable_ldpd}" != "no")
 
-if test "${enable_ospfd}" = "no";then
-  OSPFD=""
-else
-  OSPFD="ospfd"
-fi
-AM_CONDITIONAL(OSPFD, test "x$OSPFD" = "xospfd")
-
-if test "${enable_ldpd}" = "no";then
-  LDPD=""
-else
-  LDPD="ldpd"
+AS_IF([test "${enable_ldpd}" != "no"], [
   AC_DEFINE(HAVE_LDPD, 1, ldpd)
-fi
-AM_CONDITIONAL(LDPD, test "x$LDPD" = "xldpd")
+])
 
 NHRPD=""
 case "$host_os" in
@@ -1291,12 +1281,7 @@ case "$host_os" in
 esac
 AM_CONDITIONAL(NHRPD, test "x$NHRPD" = "xnhrpd")
 
-if test "${enable_eigrpd}" = "no";then
-  EIGRPD=""
-else
-  EIGRPD="eigrpd"
-fi
-AM_CONDITIONAL(EIGRPD, test "x$EIGRPD" = "xeigrpd")
+AM_CONDITIONAL(EIGRPD, test "${enable_eigrpd}" != "no")
 
 if test "${enable_watchfrr}" = "no";then
   WATCHFRR=""
@@ -1315,30 +1300,10 @@ if test "${enable_ospfapi}" != "no";then
 fi
 
 AM_CONDITIONAL(OSPFCLIENT, test "x$OSPFCLIENT" = "xospfclient")
-
-case "${enable_ripngd}" in
-  "no" ) RIPNGD="";;
-  *    ) RIPNGD="ripngd";;
-esac
-AM_CONDITIONAL(RIPNGD, test "x$RIPNGD" = "xripngd")
-
-case "${enable_babeld}" in
-  "no" ) BABELD="";;
-  *    ) BABELD="babeld";;
-esac
-AM_CONDITIONAL(BABELD, test "x$BABELD" = "xbabeld")
-
-case "${enable_ospf6d}" in
-  "no" ) OSPF6D="";;
-  *    ) OSPF6D="ospf6d";;
-esac
-AM_CONDITIONAL(OSPF6D, test "x$OSPF6D" = "xospf6d")
-
-case "${enable_isisd}" in
-  "no" ) ISISD="";;
-  *    ) ISISD="isisd";;
-esac
-AM_CONDITIONAL(ISISD, test "x$ISISD" = "xisisd")
+AM_CONDITIONAL(RIPNGD, test "${enable_ripngd}" != "no")
+AM_CONDITIONAL(BABELD, test "${enable_babeld}" != "no")
+AM_CONDITIONAL(OSPF6D, test "${enable_ospf6d}" != "no")
+AM_CONDITIONAL(ISISD, test "${enable_isisd}" != "no")
 
 case "${enable_pimd}" in
   "no" ) PIMD="";;
@@ -1377,23 +1342,13 @@ AC_SUBST(DOC)
 AC_SUBST(RFPTEST)
 AC_SUBST(LIBRFP)
 AC_SUBST(RFPINC)
-AC_SUBST(BABELD)
 AC_SUBST(BGPD)
-AC_SUBST(RIPD)
-AC_SUBST(RIPNGD)
-AC_SUBST(OSPFD)
-AC_SUBST(OSPF6D)
-AC_SUBST(LDPD)
-AC_SUBST(NHRPD)
-AC_SUBST(EIGRPD)
 AC_SUBST(WATCHFRR)
 AC_SUBST(ISISD)
 AC_SUBST(PIMD)
 AC_SUBST(SOLARIS)
 AC_SUBST(VTYSH)
 AC_SUBST(CURSES)
-AC_SUBST(OSPFCLIENT)
-AC_SUBST(OSPFAPI)
 AC_CHECK_LIB(crypt, crypt, [],
 		    [AC_CHECK_LIB(crypto, DES_crypt)])
 AC_CHECK_LIB(resolv, res_init)
@@ -1837,15 +1792,12 @@ AC_CACHE_VAL(ac_cv_htonl_works,
 )
 AC_MSG_RESULT($ac_cv_htonl_works)
 
-AC_CONFIG_FILES([Makefile ripd/Makefile
-	  ripngd/Makefile bgpd/Makefile ospfd/Makefile watchfrr/Makefile
-	  ospf6d/Makefile ldpd/Makefile isisd/Makefile vtysh/Makefile
-	  doc/Makefile ospfclient/Makefile tests/Makefile
+AC_CONFIG_FILES([Makefile
+	  bgpd/Makefile watchfrr/Makefile
+	  vtysh/Makefile
+	  doc/Makefile tests/Makefile
 	  bgpd/rfp-example/rfptest/Makefile bgpd/rfp-example/librfp/Makefile
-	  babeld/Makefile
 	  pimd/Makefile
-	  eigrpd/Makefile
-	  nhrpd/Makefile
 	  tools/Makefile
 	  redhat/frr.spec
 	  snapcraft/snapcraft.yaml
@@ -1875,6 +1827,34 @@ AC_CONFIG_FILES([Makefile ripd/Makefile
 AC_CONFIG_FILES([solaris/Makefile])
 
 AC_CONFIG_FILES([vtysh/extract.pl],[chmod +x vtysh/extract.pl])
+
+AC_CONFIG_COMMANDS([lib/route_types.h], [
+	dst="${ac_abs_top_builddir}/lib/route_types.h"
+	${PERL} "${ac_abs_top_srcdir}/lib/route_types.pl" \
+		< "${ac_abs_top_srcdir}/lib/route_types.txt" \
+		> "${dst}.tmp"
+	test -f "${dst}" \
+		&& diff "${dst}.tmp" "${dst}" >/dev/null 2>/dev/null \
+		&& rm "${dst}.tmp" \
+		|| mv "${dst}.tmp" "${dst}"
+], [
+	PERL="$PERL"
+])
+
+AS_IF([test "x$with_pkg_git_version" = "xyes"], [
+    AC_CONFIG_COMMANDS([lib/gitversion.h], [
+	dst="${ac_abs_top_builddir}/lib/gitversion.h"
+	${PERL} "${ac_abs_top_srcdir}/lib/gitversion.pl" \
+		"${ac_abs_top_srcdir}" \
+		> "${dst}.tmp"
+	test -f "${dst}" \
+		&& diff "${dst}.tmp" "${dst}" >/dev/null 2>/dev/null \
+		&& rm "${dst}.tmp" \
+		|| mv "${dst}.tmp" "${dst}"
+    ], [
+	PERL="$PERL"
+    ])
+])
 
 ## Hack, but working solution to avoid rebuilding of frr.info.
 ## It's already in CVS until texinfo 4.7 is more common.

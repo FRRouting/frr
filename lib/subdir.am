@@ -125,7 +125,6 @@ pkginclude_HEADERS += \
 	lib/ptm_lib.h \
 	lib/pw.h \
 	lib/qobj.h \
-	lib/route_types.h \
 	lib/routemap.h \
 	lib/sbuf.h \
 	lib/sha256.h \
@@ -142,7 +141,6 @@ pkginclude_HEADERS += \
 	lib/termtable.h \
 	lib/thread.h \
 	lib/vector.h \
-	lib/version.h \
 	lib/vlan.h \
 	lib/vrf.h \
 	lib/vrf_int.h \
@@ -153,6 +151,11 @@ pkginclude_HEADERS += \
 	lib/zassert.h \
 	lib/zclient.h \
 	lib/zebra.h \
+	# end
+
+nodist_pkginclude_HEADERS += \
+	lib/route_types.h \
+	lib/version.h \
 	# end
 
 noinst_HEADERS += \
@@ -181,16 +184,22 @@ lib_libfrrsnmp_la_SOURCES = \
 # CLI utilities
 #
 noinst_PROGRAMS += \
-	lib/clippy \
 	lib/grammar_sandbox \
 	# end
+
+if BUILD_CLIPPY
+noinst_PROGRAMS += lib/clippy
+else
+$(HOSTTOOLS)lib/clippy:
+	@$(MAKE) -C $(top_builddir)/$(HOSTTOOLS) lib/route_types.h lib/clippy
+endif
 
 lib_grammar_sandbox_SOURCES = \
 	lib/grammar_sandbox_main.c
 lib_grammar_sandbox_LDADD = \
 	lib/libfrr.la
 
-lib_clippy_CPPFLAGS = -D_GNU_SOURCE -I$(top_srcdir)/lib
+lib_clippy_CPPFLAGS = $(AM_CPPFLAGS) -D_GNU_SOURCE
 lib_clippy_CFLAGS = $(PYTHON_CFLAGS)
 lib_clippy_LDADD = $(PYTHON_LIBS)
 lib_clippy_SOURCES = \
@@ -211,6 +220,7 @@ lib_clippy_SOURCES = \
 #
 EXTRA_DIST += \
 	lib/command_lex.h \
+	lib/command_parse.h \
 	lib/gitversion.pl \
 	lib/queue.h \
 	lib/route_types.pl \
@@ -218,8 +228,6 @@ EXTRA_DIST += \
 	# end
 
 BUILT_SOURCES += \
-	lib/command_lex.h \
-	lib/command_parse.h \
 	lib/gitversion.h \
 	lib/route_types.h \
 	# end

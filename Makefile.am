@@ -22,6 +22,7 @@ noinst_LIBRARIES =
 lib_LTLIBRARIES =
 module_LTLIBRARIES =
 pkginclude_HEADERS =
+nodist_pkginclude_HEADERS =
 dist_examples_DATA =
 
 include lib/subdir.am
@@ -29,16 +30,27 @@ include zebra/subdir.am
 include qpb/subdir.am
 include fpm/subdir.am
 
+include ripd/subdir.am
+include ripngd/subdir.am
+include ospfd/subdir.am
+include ospf6d/subdir.am
+include ospfclient/subdir.am
+include isisd/subdir.am
+include nhrpd/subdir.am
+include ldpd/subdir.am
+include babeld/subdir.am
+include eigrpd/subdir.am
+
 SUBDIRS = . @LIBRFP@ @RFPTEST@ \
-	 @BGPD@ @RIPD@ @RIPNGD@ @OSPFD@ @OSPF6D@ @LDPD@ \
-         @ISISD@ @PIMD@ @NHRPD@ @EIGRPD@ @BABELD@ \
-	 @WATCHFRR@ @VTYSH@ @OSPFCLIENT@ @DOC@ \
+	 @BGPD@ \
+         @PIMD@ \
+	 @WATCHFRR@ @VTYSH@ @DOC@ \
          @SOLARIS@ tests tools
 
-DIST_SUBDIRS = . bgpd ripd ripngd ospfd ospf6d ldpd \
-	  isisd watchfrr vtysh ospfclient doc tests \
-	  solaris pimd nhrpd eigrpd bgpd/rfp-example/librfp \
-	  bgpd/rfp-example/rfptest tools babeld \
+DIST_SUBDIRS = . bgpd \
+	  watchfrr vtysh doc tests \
+	  solaris pimd bgpd/rfp-example/librfp \
+	  bgpd/rfp-example/rfptest tools \
 	  # end
 
 if PKGSRC

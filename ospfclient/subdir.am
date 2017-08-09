@@ -1,0 +1,30 @@
+#
+# ospfclient
+#
+
+if OSPFCLIENT
+lib_LTLIBRARIES += ospfclient/libfrrospfapiclient.la
+sbin_PROGRAMS += ospfclient/ospfclient
+endif
+
+ospfclient_libfrrospfapiclient_la_LDFLAGS = -version-info 0:0:0
+ospfclient_libfrrospfapiclient_la_LIBADD = lib/libfrr.la
+ospfclient_libfrrospfapiclient_la_SOURCES = \
+	ospfclient/ospf_apiclient.c \
+	# end
+
+if OSPFCLIENT
+ospfapiheaderdir = $(pkgincludedir)/ospfapi
+ospfapiheader_HEADERS = \
+	ospfclient/ospf_apiclient.h \
+	# end
+endif
+
+ospfclient_ospfclient_LDADD = \
+	ospfclient/libfrrospfapiclient.la \
+	lib/libfrr.la \
+	@LIBCAP@ \
+	# end
+ospfclient_ospfclient_SOURCES = \
+	ospfclient/ospfclient.c \
+	# end

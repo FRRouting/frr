@@ -16,7 +16,6 @@ qpb_libfrr_pb_la_SOURCES = \
 if HAVE_PROTOBUF
 qpb_libfrr_pb_la_SOURCES += qpb/qpb_allocator.c
 nodist_qpb_libfrr_pb_la_SOURCES = qpb/qpb.pb-c.c
-BUILT_SOURCES += qpb/qpb.pb-c.c
 CLEANFILES += \
 	qpb/qpb.pb-c.c \
 	qpb/qpb.pb-c.h \

@@ -450,7 +450,7 @@ Trying 127.0.0.1...
 Connected to localhost.
 Escape character is '^]'.
 
-Hello, this is @value{PACKAGE_NAME} (version @value{VERSION})
+Hello, this is @value{PACKAGE_NAME} (version @value{PACKAGE_VERSION})
 @value{COPYRIGHT_STR}
 
 User Access Verification

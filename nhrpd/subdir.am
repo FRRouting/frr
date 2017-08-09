@@ -1,0 +1,43 @@
+#
+# nhrpd
+#
+
+if NHRPD
+sbin_PROGRAMS += nhrpd/nhrpd
+endif
+
+nhrpd_nhrpd_LDADD = lib/libfrr.la @LIBCAP@ @CARES_LIBS@
+nhrpd_nhrpd_CFLAGS = $(AM_CFLAGS) @CARES_CFLAGS@
+nhrpd_nhrpd_SOURCES = \
+	nhrpd/linux.c \
+	nhrpd/netlink_arp.c \
+	nhrpd/netlink_gre.c \
+	nhrpd/nhrp_cache.c \
+	nhrpd/nhrp_event.c \
+	nhrpd/nhrp_interface.c \
+	nhrpd/nhrp_main.c \
+	nhrpd/nhrp_nhs.c \
+	nhrpd/nhrp_packet.c \
+	nhrpd/nhrp_peer.c \
+	nhrpd/nhrp_route.c \
+	nhrpd/nhrp_shortcut.c \
+	nhrpd/nhrp_vc.c \
+	nhrpd/nhrp_vty.c \
+	nhrpd/reqid.c \
+	nhrpd/resolver.c \
+	nhrpd/vici.c \
+	nhrpd/zbuf.c \
+	nhrpd/znl.c \
+	# end
+
+noinst_HEADERS += \
+	nhrpd/debug.h \
+	nhrpd/list.h \
+	nhrpd/netlink.h \
+	nhrpd/nhrp_protocol.h \
+	nhrpd/nhrpd.h \
+	nhrpd/os.h \
+	nhrpd/vici.h \
+	nhrpd/zbuf.h \
+	nhrpd/znl.h \
+	# end
