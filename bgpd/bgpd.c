@@ -2523,7 +2523,8 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 		if (peer_group_active(peer)) {
 
 			/* The peer is already bound to the peer-group,
-			 * nothing to do */
+			 * nothing to do
+			 */
 			if (strcmp(peer->group->name, group->name) == 0)
 				return 0;
 			else
