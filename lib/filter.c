@@ -187,26 +187,16 @@ static int filter_match_zebra(struct filter *mfilter, struct prefix *p)
 
 	filter = &mfilter->u.zfilter;
 
-	if (filter->prefix.family == AF_ETHERNET) {
-		return prefix_match(&filter->prefix, p);
-	}
-
-	if (filter->prefix.family == AF_INET
-	    || filter->prefix.family == AF_INET6) {
-
-		if (filter->prefix.family == p->family) {
-			if (filter->exact) {
-				if (filter->prefix.prefixlen == p->prefixlen)
-					return prefix_match(&filter->prefix, p);
-				else
-					return 0;
-			} else
+	if (filter->prefix.family == p->family) {
+		if (filter->exact) {
+			if (filter->prefix.prefixlen == p->prefixlen)
 				return prefix_match(&filter->prefix, p);
+			else
+				return 0;
 		} else
-			return 0;
-	}
-
-	return 0;
+			return prefix_match(&filter->prefix, p);
+	} else
+		return 0;
 }
 
 /* Allocate new access list structure. */
@@ -1755,9 +1745,9 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi)
 								  : "Standard")
 						       : "Zebra",
 					(afi == AFI_IP)
-						? ("")
-						: ((afi == AFI_IP6) ? ("ipv6 ")
-								    : ("mac ")),
+						? ("IP")
+						: ((afi == AFI_IP6) ? ("IPv6 ")
+								    : ("MAC ")),
 					access->name);
 				write = 0;
 			}
@@ -1802,9 +1792,9 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi)
 								  : "Standard")
 						       : "Zebra",
 					(afi == AFI_IP)
-						? ("")
-						: ((afi == AFI_IP6) ? ("ipv6 ")
-								    : ("mac ")),
+						? ("IP")
+						: ((afi == AFI_IP6) ? ("IPv6 ")
+								    : ("MAC ")),
 					access->name);
 				write = 0;
 			}
@@ -1960,7 +1950,7 @@ void config_write_access_zebra(struct vty *vty, struct filter *mfilter)
 			inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
 			p->prefixlen, filter->exact ? " exact-match" : "");
 	else if (p->family == AF_ETHERNET) {
-		if (is_zero_mac(&(p->u.prefix_eth)))
+		if (p->prefixlen == 0)
 			vty_out(vty, " any");
 		else
 			vty_out(vty, " %s", prefix_mac2str(&(p->u.prefix_eth),

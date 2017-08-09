@@ -301,7 +301,7 @@ static const struct in6_addr maskbytes6[] = {
 
 #define MASKBIT(offset)  ((0xff << (PNBBY - (offset))) & 0xff)
 
-int is_zero_mac(const struct ethaddr *mac)
+static int is_zero_mac(const struct ethaddr *mac)
 {
 	int i = 0;
 
@@ -682,6 +682,12 @@ int str2prefix_eth(const char *str, struct prefix_eth *p)
 	unsigned int a[6];
 	int i;
 	bool slash = false;
+
+	if (!strcmp(str, "any")) {
+		memset(p, 0, sizeof(*p));
+		p->family = AF_ETHERNET;
+		return 1;
+	}
 
 	/* Find slash inside string. */
 	pnt = strchr(str, '/');
