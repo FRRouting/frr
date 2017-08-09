@@ -39,6 +39,8 @@ DEFINE_QOBJ_TYPE(zebra_pw)
 DEFINE_HOOK(pw_install, (struct zebra_pw * pw), (pw))
 DEFINE_HOOK(pw_uninstall, (struct zebra_pw * pw), (pw))
 
+#define MPLS_NO_LABEL MPLS_INVALID_LABEL
+
 extern struct zebra_t zebrad;
 
 static int zebra_pw_enabled(struct zebra_pw *);
@@ -210,9 +212,8 @@ void zebra_pw_install_failure(struct zebra_pw *pw)
 
 	/* schedule to retry later */
 	THREAD_TIMER_OFF(pw->install_retry_timer);
-	pw->install_retry_timer =
-		thread_add_timer(zebrad.master, zebra_pw_install_retry, pw,
-				 PW_INSTALL_RETRY_INTERVAL);
+	thread_add_timer(zebrad.master, zebra_pw_install_retry, pw,
+			 PW_INSTALL_RETRY_INTERVAL, &pw->install_retry_timer);
 
 	zebra_pw_update_status(pw, PW_STATUS_DOWN);
 }
@@ -236,16 +237,15 @@ static void zebra_pw_update_status(struct zebra_pw *pw, int status)
 
 static int zebra_pw_check_reachability(struct zebra_pw *pw)
 {
-	struct rib *rib;
-	struct nexthop *nexthop, *tnexthop;
-	int recursing;
+	struct route_entry *re;
+	struct nexthop *nexthop;
 
 	/* TODO: consider GRE/L2TPv3 tunnels in addition to MPLS LSPs */
 
 	/* find route to the remote end of the pseudowire */
-	rib = rib_match(family2afi(pw->af), SAFI_UNICAST, pw->vrf_id,
-			&pw->nexthop, NULL);
-	if (!rib) {
+	re = rib_match(family2afi(pw->af), SAFI_UNICAST, pw->vrf_id,
+		       &pw->nexthop, NULL);
+	if (!re) {
 		if (IS_ZEBRA_DEBUG_PW)
 			zlog_warn("%s: no route found for %s", __func__,
 				  pw->ifname);
@@ -256,7 +256,7 @@ static int zebra_pw_check_reachability(struct zebra_pw *pw)
 	 * Need to ensure that there's a label binding for all nexthops.
 	 * Otherwise, ECMP for this route could render the pseudowire unusable.
 	 */
-	for (ALL_NEXTHOPS_RO(rib->nexthop, nexthop, tnexthop, recursing)) {
+	for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
 		if (!nexthop->nh_label) {
 			if (IS_ZEBRA_DEBUG_PW)
 				zlog_warn("%s: unlabeled route for %s",
@@ -288,15 +288,15 @@ void zebra_pw_client_close(struct zserv *client)
 
 void zebra_pw_init(struct zebra_vrf *zvrf)
 {
-	RB_INIT(&zvrf->pseudowires);
-	RB_INIT(&zvrf->static_pseudowires);
+	RB_INIT(zebra_pw_head, &zvrf->pseudowires);
+	RB_INIT(zebra_static_pw_head, &zvrf->static_pseudowires);
 }
 
 void zebra_pw_exit(struct zebra_vrf *zvrf)
 {
 	struct zebra_pw *pw;
 
-	while ((pw = RB_ROOT(&zvrf->pseudowires)) != NULL)
+	while ((pw = RB_ROOT(zebra_pw_head, &zvrf->pseudowires)) != NULL)
 		zebra_pw_del(zvrf, pw);
 }
 
@@ -320,7 +320,7 @@ DEFUN_NOSH (pseudowire_if,
 	ifname = argv[idx]->arg;
 	pw = zebra_pw_find(zvrf, ifname);
 	if (pw && pw->protocol != ZEBRA_ROUTE_STATIC) {
-		vty_out(vty, "%% Pseudowire is not static%s", VTY_NEWLINE);
+		vty_out(vty, "%% Pseudowire is not static\n");
 		return CMD_WARNING;
 	}
 
@@ -394,7 +394,7 @@ DEFUN (pseudowire_neighbor,
 		else if (inet_pton(AF_INET6, address, &nexthop.ipv6) == 1)
 			af = AF_INET6;
 		else {
-			vty_out(vty, "%% Malformed address%s", VTY_NEWLINE);
+			vty_out(vty, "%% Malformed address\n");
 			return CMD_WARNING;
 		}
 	}
@@ -445,8 +445,8 @@ DEFUN (show_pseudowires,
 	if (!zvrf)
 		return 0;
 
-	vty_out(vty, "%-16s %-24s %-12s %-8s %-10s%s", "Interface", "Neighbor",
-		"Labels", "Protocol", "Status", VTY_NEWLINE);
+	vty_out(vty, "%-16s %-24s %-12s %-8s %-10s\n", "Interface", "Neighbor",
+		"Labels", "Protocol", "Status");
 
 	RB_FOREACH(pw, zebra_pw_head, &zvrf->pseudowires)
 	{
@@ -462,13 +462,12 @@ DEFUN (show_pseudowires,
 		else
 			snprintf(buf_labels, sizeof(buf_labels), "-");
 
-		vty_out(vty, "%-16s %-24s %-12s %-8s %-10s%s", pw->ifname,
+		vty_out(vty, "%-16s %-24s %-12s %-8s %-10s\n", pw->ifname,
 			(pw->af != AF_UNSPEC) ? buf_nbr : "-", buf_labels,
 			zebra_route_string(pw->protocol),
 			(zebra_pw_enabled(pw) && pw->status == PW_STATUS_UP)
 				? "UP"
-				: "DOWN",
-			VTY_NEWLINE);
+				: "DOWN");
 	}
 
 	return CMD_SUCCESS;
@@ -487,31 +486,29 @@ static int zebra_pw_config(struct vty *vty)
 
 	RB_FOREACH(pw, zebra_static_pw_head, &zvrf->static_pseudowires)
 	{
-		vty_out(vty, "pseudowire %s%s", pw->ifname, VTY_NEWLINE);
+		vty_out(vty, "pseudowire %s\n", pw->ifname);
 		if (pw->local_label != MPLS_NO_LABEL
 		    && pw->remote_label != MPLS_NO_LABEL)
-			vty_out(vty, " mpls label local %u remote %u%s",
-				pw->local_label, pw->remote_label, VTY_NEWLINE);
+			vty_out(vty, " mpls label local %u remote %u\n",
+				pw->local_label, pw->remote_label);
 		else
 			vty_out(vty,
 				" ! Incomplete config, specify the static "
-				"MPLS labels%s",
-				VTY_NEWLINE);
+				"MPLS labels\n");
 
 		if (pw->af != AF_UNSPEC) {
 			char buf[INET6_ADDRSTRLEN];
 			inet_ntop(pw->af, &pw->nexthop, buf, sizeof(buf));
-			vty_out(vty, " neighbor %s%s", buf, VTY_NEWLINE);
+			vty_out(vty, " neighbor %s\n", buf);
 		} else
 			vty_out(vty,
 				" ! Incomplete config, specify a neighbor "
-				"address%s",
-				VTY_NEWLINE);
+				"address\n");
 
 		if (!(pw->flags & F_PSEUDOWIRE_CWORD))
-			vty_out(vty, " control-word exclude%s", VTY_NEWLINE);
+			vty_out(vty, " control-word exclude\n");
 
-		vty_out(vty, "!%s", VTY_NEWLINE);
+		vty_out(vty, "!\n");
 		write = 1;
 	}
 

@@ -316,7 +316,7 @@ nbr_del(struct nbr *nbr)
 	mapping_list_clr(&nbr->release_list);
 	mapping_list_clr(&nbr->abortreq_list);
 
-	while ((adj = RB_ROOT(&nbr->adj_tree)) != NULL) {
+	while ((adj = RB_ROOT(nbr_adj_head, &nbr->adj_tree)) != NULL) {
 		adj->nbr = NULL;
 		RB_REMOVE(nbr_adj_head, &nbr->adj_tree, adj);
 	}

@@ -438,7 +438,7 @@ static int config_write_debug(struct vty *vty)
 		write++;
 	}
 	if (IS_ZEBRA_DEBUG_PW) {
-		vty_out(vty, "debug zebra pseudowires%s", VTY_NEWLINE);
+		vty_out(vty, "debug zebra pseudowires\n");
 		write++;
 	}
 	return write;
