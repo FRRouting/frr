@@ -141,18 +141,15 @@ void *hash_get(struct hash *hash, void *data, void *(*alloc_func)(void *))
 	unsigned int key;
 	unsigned int index;
 	void *newdata;
-	unsigned int len;
 	struct hash_backet *backet;
 
 	key = (*hash->hash_key)(data);
 	index = key & (hash->size - 1);
-	len = 0;
 
 	for (backet = hash->index[index]; backet != NULL;
 	     backet = backet->next) {
 		if (backet->key == key && (*hash->hash_cmp)(backet->data, data))
 			return backet->data;
-		++len;
 	}
 
 	if (alloc_func) {
@@ -160,7 +157,7 @@ void *hash_get(struct hash *hash, void *data, void *(*alloc_func)(void *))
 		if (newdata == NULL)
 			return NULL;
 
-		if (len > HASH_THRESHOLD) {
+		if (HASH_THRESHOLD(hash->count + 1, hash->size)) {
 			hash_expand(hash);
 			index = key & (hash->size - 1);
 		}
