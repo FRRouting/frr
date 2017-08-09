@@ -28,8 +28,9 @@ DECLARE_MTYPE(HASH)
 DECLARE_MTYPE(HASH_BACKET)
 
 /* Default hash table size.  */
-#define HASH_INITIAL_SIZE     256	/* initial number of backets. */
-#define HASH_THRESHOLD	      10	/* expand when backet. */
+#define HASH_INITIAL_SIZE 256
+/* Expansion threshold */
+#define HASH_THRESHOLD(used, size) ((used) > (size))
 
 #define HASHWALK_CONTINUE 0
 #define HASHWALK_ABORT -1
