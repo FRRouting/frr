@@ -307,6 +307,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* Initialization */
+	zprivs_preinit(&ospfd_privs);
 	zprivs_init(&ospfd_privs);
 	master = thread_master_create(NULL);
 

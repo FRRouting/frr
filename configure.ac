@@ -1025,6 +1025,13 @@ fi
 LIBS="$TMPLIBS"
 AC_SUBST(LIBM)
 
+AC_CHECK_FUNCS([ppoll], [
+  AC_DEFINE([HAVE_PPOLL], 1, [have Linux/BSD ppoll()])
+])
+AC_CHECK_FUNCS([pollts], [
+  AC_DEFINE([HAVE_POLLTS], 1, [have NetBSD pollts()])
+])
+
 dnl ---------------
 dnl other functions
 dnl ---------------

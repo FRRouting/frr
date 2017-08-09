@@ -50,37 +50,14 @@
 #define DEFAULT_LOGLEVEL	LOG_INFO
 #define DEFAULT_MIN_RESTART	60
 #define DEFAULT_MAX_RESTART	600
-#ifdef PATH_WATCHFRR_PID
-#define DEFAULT_PIDFILE		PATH_WATCHFRR_PID
-#else
-#define DEFAULT_PIDFILE		STATEDIR "/watchfrr.pid"
-#endif
-#ifdef DAEMON_VTY_DIR
-#define VTYDIR			DAEMON_VTY_DIR
-#else
-#define VTYDIR			STATEDIR
-#endif
 
 #define PING_TOKEN	"PING"
 
 /* Needs to be global, referenced somewhere inside libfrr. */
 struct thread_master *master;
+static char pidfile_default[256];
 
-typedef enum {
-	MODE_MONITOR = 0,
-	MODE_GLOBAL_RESTART,
-	MODE_SEPARATE_RESTART,
-	MODE_PHASED_ZEBRA_RESTART,
-	MODE_PHASED_ALL_RESTART
-} watch_mode_t;
-
-static const char *mode_str[] = {
-	"monitor",
-	"global restart",
-	"individual daemon restart",
-	"phased zebra restart",
-	"phased global restart for any failure",
-};
+static bool watch_only = false;
 
 typedef enum {
 	PHASE_NONE = 0,
@@ -112,7 +89,6 @@ struct restart_info {
 };
 
 static struct global_state {
-	watch_mode_t mode;
 	restart_phase_t phase;
 	struct thread *t_phase_hanging;
 	const char *vtydir;
@@ -121,29 +97,25 @@ static struct global_state {
 	long restart_timeout;
 	long min_restart_interval;
 	long max_restart_interval;
-	int do_ping;
 	struct daemon *daemons;
 	const char *restart_command;
 	const char *start_command;
 	const char *stop_command;
 	struct restart_info restart;
-	int unresponsive_restart;
 	int loglevel;
 	struct daemon *special; /* points to zebra when doing phased restart */
 	int numdaemons;
 	int numpids;
 	int numdown; /* # of daemons that are not UP or UNRESPONSIVE */
 } gs = {
-	.mode = MODE_MONITOR,
 	.phase = PHASE_NONE,
-	.vtydir = VTYDIR,
+	.vtydir = frr_vtydir,
 	.period = 1000 * DEFAULT_PERIOD,
 	.timeout = DEFAULT_TIMEOUT,
 	.restart_timeout = DEFAULT_RESTART_TIMEOUT,
 	.loglevel = DEFAULT_LOGLEVEL,
 	.min_restart_interval = DEFAULT_MIN_RESTART,
 	.max_restart_interval = DEFAULT_MAX_RESTART,
-	.do_ping = 1,
 };
 
 typedef enum {
@@ -176,11 +148,11 @@ struct daemon {
 
 #define OPTION_MINRESTART 2000
 #define OPTION_MAXRESTART 2001
+#define OPTION_DRY        2002
 
 static const struct option longopts[] = {
 	{"daemon", no_argument, NULL, 'd'},
 	{"statedir", required_argument, NULL, 'S'},
-	{"no-echo", no_argument, NULL, 'e'},
 	{"loglevel", required_argument, NULL, 'l'},
 	{"interval", required_argument, NULL, 'i'},
 	{"timeout", required_argument, NULL, 't'},
@@ -188,10 +160,7 @@ static const struct option longopts[] = {
 	{"restart", required_argument, NULL, 'r'},
 	{"start-command", required_argument, NULL, 's'},
 	{"kill-command", required_argument, NULL, 'k'},
-	{"restart-all", required_argument, NULL, 'R'},
-	{"all-restart", no_argument, NULL, 'a'},
-	{"always-all-restart", no_argument, NULL, 'A'},
-	{"unresponsive-restart", no_argument, NULL, 'z'},
+	{"dry", no_argument, NULL, OPTION_DRY},
 	{"min-restart-interval", required_argument, NULL, OPTION_MINRESTART},
 	{"max-restart-interval", required_argument, NULL, OPTION_MAXRESTART},
 	{"pid-file", required_argument, NULL, 'p'},
@@ -217,55 +186,19 @@ It then repeatedly sends echo commands over that socket to determine whether\n\
 the daemon is responsive.  If the daemon crashes, we will receive an EOF\n\
 on the socket connection and know immediately that the daemon is down.\n\n\
 The daemons to be monitored should be listed on the command line.\n\n\
-This program can run in one of 5 modes:\n\n\
-0. Mode: %s.\n\
-  Just monitor and report on status changes.  Example:\n\
-    %s -d zebra ospfd bgpd\n\n\
-1. Mode: %s.\n\
-  Whenever any daemon hangs or crashes, use the given command to restart\n\
-  them all.  Example:\n\
-    %s -dz \\\n\
-      -R '/sbin/service zebra restart; /sbin/service ospfd restart' \\\n\
-      zebra ospfd\n\n\
-2. Mode: %s.\n\
-  When any single daemon hangs or crashes, restart only the daemon that's\n\
-  in trouble using the supplied restart command.  Example:\n\
-    %s -dz -r '/sbin/service %%s restart' zebra ospfd bgpd\n\n\
-3. Mode: %s.\n\
-  The same as the previous mode, except that there is special treatment when\n\
-  the zebra daemon is in trouble.  In that case, a phased restart approach\n\
-  is used: 1. stop all other daemons; 2. restart zebra; 3. start the other\n\
-  daemons.  Example:\n\
-    %s -adz -r '/sbin/service %%s restart' \\\n\
-      -s '/sbin/service %%s start' \\\n\
-      -k '/sbin/service %%s stop' zebra ospfd bgpd\n\n\
-4. Mode: %s.\n\
-  This is the same as the previous mode, except that the phased restart\n\
-  procedure is used whenever any of the daemons hangs or crashes.  Example:\n\
-    %s -Adz -r '/sbin/service %%s restart' \\\n\
-      -s '/sbin/service %%s start' \\\n\
-      -k '/sbin/service %%s stop' zebra ospfd bgpd\n\n\
-As of this writing, it is believed that mode 2 [%s]\n\
-is not safe, and mode 3 [%s] may not be safe with some of the\n\
-routing daemons.\n\n\
 In order to avoid attempting to restart the daemons in a fast loop,\n\
 the -m and -M options allow you to control the minimum delay between\n\
 restart commands.  The minimum restart delay is recalculated each time\n\
 a restart is attempted: if the time since the last restart attempt exceeds\n\
 twice the -M value, then the restart delay is set to the -m value.\n\
 Otherwise, the interval is doubled (but capped at the -M value).\n\n",
-		progname, mode_str[0], progname, mode_str[1], progname,
-		mode_str[2], progname, mode_str[3], progname, mode_str[4],
-		progname, mode_str[2], mode_str[3]);
+		progname);
 
 	fprintf(target,
 		"Options:\n\
 -d, --daemon	Run in daemon mode.  In this mode, error messages are sent\n\
 		to syslog instead of stdout.\n\
 -S, --statedir	Set the vty socket directory (default is %s)\n\
--e, --no-echo	Do not ping the daemons to test responsiveness (this\n\
-		option is necessary if the daemons do not support the\n\
-		echo command)\n\
 -l, --loglevel	Set the logging level (default is %d).\n\
 		The value should range from %d (LOG_EMERG) to %d (LOG_DEBUG),\n\
 		but it can be set higher than %d if extra-verbose debugging\n\
@@ -285,7 +218,6 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
 -r, --restart	Supply a Bourne shell command to use to restart a single\n\
 		daemon.  The command string should include '%%s' where the\n\
 		name of the daemon should be substituted.\n\
-		Note that -r and -R are incompatible.\n\
 -s, --start-command\n\
 		Supply a Bourne shell to command to use to start a single\n\
 		daemon.  The command string should include '%%s' where the\n\
@@ -294,33 +226,19 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
 		Supply a Bourne shell to command to use to stop a single\n\
 		daemon.  The command string should include '%%s' where the\n\
 		name of the daemon should be substituted.\n\
--R, --restart-all\n\
-		When one or more daemons is down, try to restart everything\n\
-		using the Bourne shell command supplied as the argument.\n\
-		Note that -r and -R are incompatible.\n\
--z, --unresponsive-restart\n\
-		When a daemon is unresponsive, treat it as being down for\n\
-		restart purposes.\n\
--a, --all-restart\n\
-		When zebra hangs or crashes, restart all daemons using\n\
-		this phased approach: 1. stop all other daemons; 2. restart\n\
-		zebra; 3. start other daemons.  Requires -r, -s, and -k.\n\
--A, --always-all-restart\n\
-		When any daemon (not just zebra) hangs or crashes, use the\n\
-		same phased restart mechanism described above for -a.\n\
-		Requires -r, -s, and -k.\n\
+    --dry	Do not start or restart anything, just log.\n\
 -p, --pid-file	Set process identifier file name\n\
 		(default is %s).\n\
 -b, --blank-string\n\
 		When the supplied argument string is found in any of the\n\
-		various shell command arguments (-r, -s, -k, or -R), replace\n\
+		various shell command arguments (-r, -s, or -k), replace\n\
 		it with a space.  This is an ugly hack to circumvent problems\n\
 		passing command-line arguments with embedded spaces.\n\
 -v, --version	Print program version\n\
 -h, --help	Display this help and exit\n",
-		VTYDIR, DEFAULT_LOGLEVEL, LOG_EMERG, LOG_DEBUG, LOG_DEBUG,
+		frr_vtydir, DEFAULT_LOGLEVEL, LOG_EMERG, LOG_DEBUG, LOG_DEBUG,
 		DEFAULT_MIN_RESTART, DEFAULT_MAX_RESTART, DEFAULT_PERIOD,
-		DEFAULT_TIMEOUT, DEFAULT_RESTART_TIMEOUT, DEFAULT_PIDFILE);
+		DEFAULT_TIMEOUT, DEFAULT_RESTART_TIMEOUT, pidfile_default);
 }
 
 static pid_t run_background(char *shell_cmd)
@@ -390,15 +308,10 @@ static int restart_kill(struct thread *t_kill)
 
 static struct restart_info *find_child(pid_t child)
 {
-	if (gs.mode == MODE_GLOBAL_RESTART) {
-		if (gs.restart.pid == child)
-			return &gs.restart;
-	} else {
-		struct daemon *dmn;
-		for (dmn = gs.daemons; dmn; dmn = dmn->next) {
-			if (dmn->restart.pid == child)
-				return &dmn->restart;
-		}
+	struct daemon *dmn;
+	for (dmn = gs.daemons; dmn; dmn = dmn->next) {
+		if (dmn->restart.pid == child)
+			return &dmn->restart;
 	}
 	return NULL;
 }
@@ -700,8 +613,7 @@ static void daemon_up(struct daemon *dmn, const char *why)
 	dmn->connect_tries = 0;
 	zlog_notice("%s state -> up : %s", dmn->name, why);
 	daemon_send_ready();
-	if (gs.do_ping)
-		SET_WAKEUP_ECHO(dmn);
+	SET_WAKEUP_ECHO(dmn);
 	phase_check();
 }
 
@@ -889,61 +801,46 @@ static void phase_check(void)
 
 static void try_restart(struct daemon *dmn)
 {
-	switch (gs.mode) {
-	case MODE_MONITOR:
+	if (watch_only)
 		return;
-	case MODE_GLOBAL_RESTART:
-		run_job(&gs.restart, "restart", gs.restart_command, 0, 1);
-		break;
-	case MODE_SEPARATE_RESTART:
-		run_job(&dmn->restart, "restart", gs.restart_command, 0, 1);
-		break;
-	case MODE_PHASED_ZEBRA_RESTART:
-		if (dmn != gs.special) {
-			if ((gs.special->state == DAEMON_UP)
-			    && (gs.phase == PHASE_NONE))
-				run_job(&dmn->restart, "restart",
-					gs.restart_command, 0, 1);
-			else
-				zlog_debug(
-					"%s: postponing restart attempt because master %s daemon "
-					"not up [%s], or phased restart in progress",
-					dmn->name, gs.special->name,
-					state_str[gs.special->state]);
-			break;
-		}
 
-	/*FALLTHRU*/
-	case MODE_PHASED_ALL_RESTART:
-		if ((gs.phase != PHASE_NONE) || gs.numpids) {
+	if (dmn != gs.special) {
+		if ((gs.special->state == DAEMON_UP)
+		    && (gs.phase == PHASE_NONE))
+			run_job(&dmn->restart, "restart", gs.restart_command, 0,
+				1);
+		else
+			zlog_debug(
+				"%s: postponing restart attempt because master %s daemon "
+				"not up [%s], or phased restart in progress",
+				dmn->name, gs.special->name,
+				state_str[gs.special->state]);
+		return;
+	}
+
+	if ((gs.phase != PHASE_NONE) || gs.numpids) {
+		if (gs.loglevel > LOG_DEBUG + 1)
+			zlog_debug(
+				"postponing phased global restart: restart already in "
+				"progress [%s], or outstanding child processes [%d]",
+				phase_str[gs.phase], gs.numpids);
+		return;
+	}
+	/* Is it too soon for a restart? */
+	{
+		struct timeval delay;
+		if (time_elapsed(&delay, &gs.special->restart.time)->tv_sec
+		    < gs.special->restart.interval) {
 			if (gs.loglevel > LOG_DEBUG + 1)
 				zlog_debug(
-					"postponing phased global restart: restart already in "
-					"progress [%s], or outstanding child processes [%d]",
-					phase_str[gs.phase], gs.numpids);
-			break;
+					"postponing phased global restart: "
+					"elapsed time %ld < retry interval %ld",
+					(long)delay.tv_sec,
+					gs.special->restart.interval);
+			return;
 		}
-		/* Is it too soon for a restart? */
-		{
-			struct timeval delay;
-			if (time_elapsed(&delay, &gs.special->restart.time)
-				    ->tv_sec
-			    < gs.special->restart.interval) {
-				if (gs.loglevel > LOG_DEBUG + 1)
-					zlog_debug(
-						"postponing phased global restart: "
-						"elapsed time %ld < retry interval %ld",
-						(long)delay.tv_sec,
-						gs.special->restart.interval);
-				break;
-			}
-		}
-		run_job(&gs.restart, "restart", gs.restart_command, 0, 1);
-		break;
-	default:
-		zlog_err("error: unknown restart mode %d", gs.mode);
-		break;
 	}
+	run_job(&gs.restart, "restart", gs.restart_command, 0, 1);
 }
 
 static int wakeup_unresponsive(struct thread *t_wakeup)
@@ -973,10 +870,8 @@ static int wakeup_no_answer(struct thread *t_wakeup)
 		"%s state -> unresponsive : no response yet to ping "
 		"sent %ld seconds ago",
 		dmn->name, gs.timeout);
-	if (gs.unresponsive_restart) {
-		SET_WAKEUP_UNRESPONSIVE(dmn);
-		try_restart(dmn);
-	}
+	SET_WAKEUP_UNRESPONSIVE(dmn);
+	try_restart(dmn);
 	return 0;
 }
 
@@ -1071,46 +966,41 @@ FRR_DAEMON_INFO(watchfrr, WATCHFRR,
 
 		.privs = &watchfrr_privs, )
 
+#define DEPRECATED_OPTIONS "aAezR:"
+
 int main(int argc, char **argv)
 {
 	int opt;
-	const char *pidfile = DEFAULT_PIDFILE;
+	const char *pidfile = pidfile_default;
 	const char *special = "zebra";
 	const char *blankstr = NULL;
+
+	snprintf(pidfile_default, sizeof(pidfile_default), "%s/watchfrr.pid",
+		 frr_vtydir);
 
 	frr_preinit(&watchfrr_di, argc, argv);
 	progname = watchfrr_di.progname;
 
-	frr_opt_add("aAb:dek:l:i:p:r:R:S:s:t:T:z", longopts, "");
+	frr_opt_add("b:dk:l:i:p:r:S:s:t:T:" DEPRECATED_OPTIONS, longopts, "");
 
 	gs.restart.name = "all";
 	while ((opt = frr_getopt(argc, argv, NULL)) != EOF) {
+		if (opt && opt < 128 && strchr(DEPRECATED_OPTIONS, opt)) {
+			fprintf(stderr,
+				"The -%c option no longer exists.\n"
+				"Please refer to the watchfrr(8) man page.\n",
+				opt);
+			exit(1);
+		}
+
 		switch (opt) {
 		case 0:
-			break;
-		case 'a':
-			if ((gs.mode != MODE_MONITOR)
-			    && (gs.mode != MODE_SEPARATE_RESTART)) {
-				fputs("Ambiguous operating mode selected.\n",
-				      stderr);
-				frr_help_exit(1);
-			}
-			gs.mode = MODE_PHASED_ZEBRA_RESTART;
-			break;
-		case 'A':
-			if ((gs.mode != MODE_MONITOR)
-			    && (gs.mode != MODE_SEPARATE_RESTART)) {
-				fputs("Ambiguous operating mode selected.\n",
-				      stderr);
-				frr_help_exit(1);
-			}
-			gs.mode = MODE_PHASED_ALL_RESTART;
 			break;
 		case 'b':
 			blankstr = optarg;
 			break;
-		case 'e':
-			gs.do_ping = 0;
+		case OPTION_DRY:
+			watch_only = true;
 			break;
 		case 'k':
 			if (!valid_command(optarg)) {
@@ -1172,12 +1062,6 @@ int main(int argc, char **argv)
 			pidfile = optarg;
 			break;
 		case 'r':
-			if ((gs.mode == MODE_GLOBAL_RESTART)
-			    || (gs.mode == MODE_SEPARATE_RESTART)) {
-				fputs("Ambiguous operating mode selected.\n",
-				      stderr);
-				frr_help_exit(1);
-			}
 			if (!valid_command(optarg)) {
 				fprintf(stderr,
 					"Invalid restart command, must contain '%%s': %s\n",
@@ -1185,23 +1069,6 @@ int main(int argc, char **argv)
 				frr_help_exit(1);
 			}
 			gs.restart_command = optarg;
-			if (gs.mode == MODE_MONITOR)
-				gs.mode = MODE_SEPARATE_RESTART;
-			break;
-		case 'R':
-			if (gs.mode != MODE_MONITOR) {
-				fputs("Ambiguous operating mode selected.\n",
-				      stderr);
-				frr_help_exit(1);
-			}
-			if (strchr(optarg, '%')) {
-				fprintf(stderr,
-					"Invalid restart-all arg, must not contain '%%s': %s\n",
-					optarg);
-				frr_help_exit(1);
-			}
-			gs.restart_command = optarg;
-			gs.mode = MODE_GLOBAL_RESTART;
 			break;
 		case 's':
 			if (!valid_command(optarg)) {
@@ -1238,49 +1105,22 @@ int main(int argc, char **argv)
 				frr_help_exit(1);
 			}
 		} break;
-		case 'z':
-			gs.unresponsive_restart = 1;
-			break;
 		default:
 			fputs("Invalid option.\n", stderr);
 			frr_help_exit(1);
 		}
 	}
 
-	if (gs.unresponsive_restart && (gs.mode == MODE_MONITOR)) {
-		fputs("Option -z requires a -r or -R restart option.\n",
+	if (watch_only
+	    && (gs.start_command || gs.stop_command || gs.restart_command)) {
+		fputs("Options -r/-s/-k are not used when --dry is active.\n",
 		      stderr);
-		frr_help_exit(1);
 	}
-	switch (gs.mode) {
-	case MODE_MONITOR:
-		if (gs.restart_command || gs.start_command || gs.stop_command) {
-			fprintf(stderr,
-				"No kill/(re)start commands needed for %s mode.\n",
-				mode_str[gs.mode]);
-			frr_help_exit(1);
-		}
-		break;
-	case MODE_GLOBAL_RESTART:
-	case MODE_SEPARATE_RESTART:
-		if (!gs.restart_command || gs.start_command
-		    || gs.stop_command) {
-			fprintf(stderr,
-				"No start/kill commands needed in [%s] mode.\n",
-				mode_str[gs.mode]);
-			frr_help_exit(1);
-		}
-		break;
-	case MODE_PHASED_ZEBRA_RESTART:
-	case MODE_PHASED_ALL_RESTART:
-		if (!gs.restart_command || !gs.start_command
-		    || !gs.stop_command) {
-			fprintf(stderr,
-				"Need start, kill, and restart commands in [%s] mode.\n",
-				mode_str[gs.mode]);
-			frr_help_exit(1);
-		}
-		break;
+	if (!watch_only
+	    && (!gs.restart_command || !gs.start_command || !gs.stop_command)) {
+		fprintf(stderr,
+			"Options -s (start), -k (kill), and -r (restart) are required.\n");
+		frr_help_exit(1);
 	}
 
 	if (blankstr) {
@@ -1343,9 +1183,7 @@ int main(int argc, char **argv)
 				gs.daemons = dmn;
 			tail = dmn;
 
-			if (((gs.mode == MODE_PHASED_ZEBRA_RESTART)
-			     || (gs.mode == MODE_PHASED_ALL_RESTART))
-			    && !strcmp(dmn->name, special))
+			if (!strcmp(dmn->name, special))
 				gs.special = dmn;
 		}
 	}
@@ -1353,12 +1191,9 @@ int main(int argc, char **argv)
 		fputs("Must specify one or more daemons to monitor.\n", stderr);
 		frr_help_exit(1);
 	}
-	if (((gs.mode == MODE_PHASED_ZEBRA_RESTART)
-	     || (gs.mode == MODE_PHASED_ALL_RESTART))
-	    && !gs.special) {
-		fprintf(stderr,
-			"In mode [%s], but cannot find master daemon %s\n",
-			mode_str[gs.mode], special);
+	if (!watch_only && !gs.special) {
+		fprintf(stderr, "\"%s\" daemon must be in daemon list\n",
+			special);
 		frr_help_exit(1);
 	}
 
@@ -1383,8 +1218,9 @@ int main(int argc, char **argv)
 				strcpy(p, dmn->name);
 				p += strlen(p);
 			}
-			zlog_notice("%s %s watching [%s], mode [%s]", progname,
-				    FRR_VERSION, buf, mode_str[gs.mode]);
+			zlog_notice("%s %s watching [%s]%s", progname,
+				    FRR_VERSION, buf,
+				    watch_only ? ", monitor mode" : "");
 		}
 	}
 

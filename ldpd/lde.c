@@ -164,6 +164,7 @@ lde_init(struct ldpd_init *init)
 	/* drop privileges */
 	lde_privs.user = init->user;
 	lde_privs.group = init->group;
+	zprivs_preinit(&lde_privs);
 	zprivs_init(&lde_privs);
 
 	/* start the LIB garbage collector */

@@ -4,7 +4,7 @@ use strict;
 my $dir = shift;
 chdir $dir || die "$dir: $!\n";
 
-my $gitdesc = `git describe --always --dirty || echo -- \"0-gUNKNOWN\"`;
+my $gitdesc = `git describe --always --first-parent --tags --dirty --match 'frr-*' || echo -- \"0-gUNKNOWN\"`;
 chomp $gitdesc;
 my $gitsuffix = ($gitdesc =~ /([0-9a-fA-F]{7}(-dirty)?)$/) ? "-g$1" : "-gUNKNOWN";
 

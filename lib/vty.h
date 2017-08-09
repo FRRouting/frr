@@ -257,7 +257,7 @@ extern void vty_init_vtysh(void);
 extern void vty_terminate(void);
 extern void vty_reset(void);
 extern struct vty *vty_new(void);
-extern struct vty *vty_stdio(void (*atclose)(void));
+extern struct vty *vty_stdio(void (*atclose)(int isexit));
 extern int vty_out(struct vty *, const char *, ...) PRINTF_ATTRIBUTE(2, 3);
 extern void vty_read_config(const char *, char *);
 extern void vty_time_print(struct vty *, int);
@@ -272,6 +272,11 @@ extern void vty_config_lockless(void);
 extern int vty_shell(struct vty *);
 extern int vty_shell_serv(struct vty *);
 extern void vty_hello(struct vty *);
+
+/* ^Z / SIGTSTP handling */
+extern void vty_stdio_suspend(void);
+extern void vty_stdio_resume(void);
+extern void vty_stdio_close(void);
 
 /* Send a fixed-size message to all vty terminal monitors; this should be
    an async-signal-safe function. */

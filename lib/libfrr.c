@@ -20,8 +20,12 @@
 
 #include <zebra.h>
 
+#include <sys/types.h>
+#include <sys/wait.h>
+
 #include "libfrr.h"
 #include "getopt.h"
+#include "privs.h"
 #include "vty.h"
 #include "command.h"
 #include "version.h"
@@ -29,6 +33,7 @@
 #include "zclient.h"
 #include "log_int.h"
 #include "module.h"
+#include "network.h"
 
 DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
 
@@ -91,12 +96,15 @@ static const struct option lo_cfg_pid_dry[] = {
 	{"pid_file", required_argument, NULL, 'i'},
 	{"config_file", required_argument, NULL, 'f'},
 	{"dryrun", no_argument, NULL, 'C'},
+	{"terminal", no_argument, NULL, 't'},
 	{NULL}};
 static const struct optspec os_cfg_pid_dry = {
-	"f:i:C",
+	"f:i:Ct",
 	"  -f, --config_file  Set configuration file name\n"
 	"  -i, --pid_file     Set process identifier file name\n"
-	"  -C, --dryrun       Check configuration for validity and exit\n",
+	"  -C, --dryrun       Check configuration for validity and exit\n"
+	"  -t, --terminal     Open terminal session on stdio\n"
+	"  -d -t              Daemonize after terminal session ends\n",
 	lo_cfg_pid_dry};
 
 
@@ -230,6 +238,11 @@ static int frr_opt(int opt)
 			return 1;
 		di->dryrun = 1;
 		break;
+	case 't':
+		if (di->flags & FRR_NO_CFG_PID_DRY)
+			return 1;
+		di->terminal = 1;
+		break;
 	case 'z':
 		if (di->flags & FRR_NO_ZCLIENT)
 			return 1;
@@ -320,6 +333,49 @@ int frr_getopt(int argc, char *const argv[], int *longindex)
 	return opt;
 }
 
+static void frr_mkdir(const char *path, bool strip)
+{
+	char buf[256];
+	mode_t prev;
+	int ret;
+	struct zprivs_ids_t ids;
+
+	if (strip) {
+		char *slash = strrchr(path, '/');
+		size_t plen;
+		if (!slash)
+			return;
+		plen = slash - path;
+		if (plen > sizeof(buf) - 1)
+			return;
+		memcpy(buf, path, plen);
+		buf[plen] = '\0';
+		path = buf;
+	}
+
+	/* o+rx (..5) is needed for the frrvty group to work properly;
+	 * without it, users in the frrvty group can't access the vty sockets.
+	 */
+	prev = umask(0022);
+	ret = mkdir(path, 0755);
+	umask(prev);
+
+	if (ret != 0) {
+		/* if EEXIST, return without touching the permissions,
+		 * so user-set custom permissions are left in place
+		 */
+		if (errno == EEXIST)
+			return;
+
+		zlog_warn("failed to mkdir \"%s\": %s", path, strerror(errno));
+		return;
+	}
+
+	zprivs_get_ids(&ids);
+	if (chown(path, ids.uid_normal, ids.gid_normal))
+		zlog_warn("failed to chown \"%s\": %s", path, strerror(errno));
+}
+
 static struct thread_master *master;
 struct thread_master *frr_init(void)
 {
@@ -335,11 +391,23 @@ struct thread_master *frr_init(void)
 		snprintf(frr_protonameinst, sizeof(frr_protonameinst), "%s[%u]",
 			 di->logname, di->instance);
 
+	zprivs_preinit(di->privs);
+
 	openzlog(di->progname, di->logname, di->instance,
 		 LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
 #if defined(HAVE_CUMULUS)
 	zlog_set_level(ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
 #endif
+
+	/* don't mkdir these as root... */
+	if (!(di->flags & FRR_NO_PRIVSEP)) {
+		if (!di->pid_file || !di->vty_path)
+			frr_mkdir(frr_vtydir, false);
+		if (di->pid_file)
+			frr_mkdir(di->pid_file, true);
+		if (di->vty_path)
+			frr_mkdir(di->vty_path, true);
+	}
 
 	frrmod_init(di->module);
 	while (modules) {
@@ -367,6 +435,134 @@ struct thread_master *frr_init(void)
 	return master;
 }
 
+static int rcvd_signal = 0;
+
+static void rcv_signal(int signum)
+{
+	rcvd_signal = signum;
+	/* poll() is interrupted by the signal; handled below */
+}
+
+static void frr_daemon_wait(int fd)
+{
+	struct pollfd pfd[1];
+	int ret;
+	pid_t exitpid;
+	int exitstat;
+	sigset_t sigs, prevsigs;
+
+	sigemptyset(&sigs);
+	sigaddset(&sigs, SIGTSTP);
+	sigaddset(&sigs, SIGQUIT);
+	sigaddset(&sigs, SIGINT);
+	sigprocmask(SIG_BLOCK, &sigs, &prevsigs);
+
+	struct sigaction sa = {
+		.sa_handler = rcv_signal, .sa_flags = SA_RESETHAND,
+	};
+	sigemptyset(&sa.sa_mask);
+	sigaction(SIGTSTP, &sa, NULL);
+	sigaction(SIGQUIT, &sa, NULL);
+	sigaction(SIGINT, &sa, NULL);
+
+	do {
+		char buf[1];
+		ssize_t nrecv;
+
+		pfd[0].fd = fd;
+		pfd[0].events = POLLIN;
+
+		rcvd_signal = 0;
+
+#if   defined(HAVE_PPOLL)
+		ret = ppoll(pfd, 1, NULL, &prevsigs);
+#elif defined(HAVE_POLLTS)
+		ret = pollts(pfd, 1, NULL, &prevsigs);
+#else
+		/* racy -- only used on FreeBSD 9 */
+		sigset_t tmpsigs;
+		sigprocmask(SIG_SETMASK, &prevsigs, &tmpsigs);
+		ret = poll(pfd, 1, -1);
+		sigprocmask(SIG_SETMASK, &tmpsigs, NULL);
+#endif
+		if (ret < 0 && errno != EINTR && errno != EAGAIN) {
+			perror("poll()");
+			exit(1);
+		}
+		switch (rcvd_signal) {
+		case SIGTSTP:
+			send(fd, "S", 1, 0);
+			do {
+				nrecv = recv(fd, buf, sizeof(buf), 0);
+			} while (nrecv == -1
+				 && (errno == EINTR || errno == EAGAIN));
+
+			raise(SIGTSTP);
+			sigaction(SIGTSTP, &sa, NULL);
+			send(fd, "R", 1, 0);
+			break;
+		case SIGINT:
+			send(fd, "I", 1, 0);
+			break;
+		case SIGQUIT:
+			send(fd, "Q", 1, 0);
+			break;
+		}
+	} while (ret <= 0);
+
+	exitpid = waitpid(-1, &exitstat, WNOHANG);
+	if (exitpid == 0)
+		/* child successfully went to main loop & closed socket */
+		exit(0);
+
+	/* child failed one way or another ... */
+	if (WIFEXITED(exitstat))
+		fprintf(stderr, "%s failed to start, exited %d\n", di->name,
+			WEXITSTATUS(exitstat));
+	else if (WIFSIGNALED(exitstat))
+		fprintf(stderr, "%s crashed in startup, signal %d\n", di->name,
+			WTERMSIG(exitstat));
+	else
+		fprintf(stderr, "%s failed to start, unknown problem\n",
+			di->name);
+	exit(1);
+}
+
+static int daemon_ctl_sock = -1;
+
+static void frr_daemonize(void)
+{
+	int fds[2];
+	pid_t pid;
+
+	if (socketpair(AF_UNIX, SOCK_STREAM, 0, fds)) {
+		perror("socketpair() for daemon control");
+		exit(1);
+	}
+	set_cloexec(fds[0]);
+	set_cloexec(fds[1]);
+
+	pid = fork();
+	if (pid < 0) {
+		perror("fork()");
+		exit(1);
+	}
+	if (pid == 0) {
+		/* child */
+		close(fds[0]);
+		if (setsid() < 0) {
+			perror("setsid()");
+			exit(1);
+		}
+
+		daemon_ctl_sock = fds[1];
+		return;
+	}
+
+	close(fds[1]);
+	frr_daemon_wait(fds[0]);
+}
+
 void frr_config_fork(void)
 {
 	hook_call(frr_late_init, master);
@@ -385,11 +581,8 @@ void frr_config_fork(void)
 	if (di->dryrun)
 		exit(0);
 
-	/* Daemonize. */
-	if (di->daemon_mode && daemon(0, 0) < 0) {
-		zlog_err("Zebra daemon failed: %s", strerror(errno));
-		exit(1);
-	}
+	if (di->daemon_mode || di->terminal)
+		frr_daemonize();
 
 	if (!di->pid_file)
 		di->pid_file = pidfile_default;
@@ -417,6 +610,67 @@ void frr_vty_serv(void)
 	vty_serv_sock(di->vty_addr, di->vty_port, di->vty_path);
 }
 
+static void frr_terminal_close(int isexit)
+{
+	if (daemon_ctl_sock != -1) {
+		close(daemon_ctl_sock);
+		daemon_ctl_sock = -1;
+	}
+
+	if (!di->daemon_mode || isexit) {
+		printf("\n%s exiting\n", di->name);
+		if (!isexit)
+			raise(SIGINT);
+		return;
+	} else {
+		printf("\n%s daemonizing\n", di->name);
+		fflush(stdout);
+	}
+
+	int nullfd = open("/dev/null", O_RDONLY | O_NOCTTY);
+	dup2(nullfd, 0);
+	dup2(nullfd, 1);
+	dup2(nullfd, 2);
+	close(nullfd);
+}
+
+static struct thread *daemon_ctl_thread = NULL;
+
+static int frr_daemon_ctl(struct thread *t)
+{
+	char buf[1];
+	ssize_t nr;
+
+	nr = recv(daemon_ctl_sock, buf, sizeof(buf), 0);
+	if (nr < 0 && (errno == EINTR || errno == EAGAIN))
+		goto out;
+	if (nr <= 0)
+		return 0;
+
+	switch (buf[0]) {
+	case 'S':	/* SIGTSTP */
+		vty_stdio_suspend();
+		send(daemon_ctl_sock, "s", 1, 0);
+		break;
+	case 'R':	/* SIGTCNT [implicit] */
+		vty_stdio_resume();
+		break;
+	case 'I':	/* SIGINT */
+		di->daemon_mode = false;
+		raise(SIGINT);
+		break;
+	case 'Q':	/* SIGQUIT */
+		di->daemon_mode = true;
+		vty_stdio_close();
+		break;
+	}
+
+out:
+	thread_add_read(master, frr_daemon_ctl, NULL, daemon_ctl_sock,
+			&daemon_ctl_thread);
+	return 0;
+}
+
 void frr_run(struct thread_master *master)
 {
 	char instanceinfo[64] = "";
@@ -429,6 +683,28 @@ void frr_run(struct thread_master *master)
 
 	zlog_notice("%s %s starting: %svty@%d%s", di->name, FRR_VERSION,
 		    instanceinfo, di->vty_port, di->startinfo);
+
+	if (di->terminal) {
+		vty_stdio(frr_terminal_close);
+		if (daemon_ctl_sock != -1) {
+			set_nonblocking(daemon_ctl_sock);
+			thread_add_read(master, frr_daemon_ctl, NULL,
+					daemon_ctl_sock, &daemon_ctl_thread);
+		}
+	} else {
+		int nullfd = open("/dev/null", O_RDONLY | O_NOCTTY);
+		dup2(nullfd, 0);
+		dup2(nullfd, 1);
+		dup2(nullfd, 2);
+		close(nullfd);
+
+		if (daemon_ctl_sock != -1)
+			close(daemon_ctl_sock);
+		daemon_ctl_sock = -1;
+	}
+
+	/* end fixed stderr startup logging */
+	zlog_startup_stderr = false;
 
 	struct thread thread;
 	while (thread_fetch(master, &thread))
