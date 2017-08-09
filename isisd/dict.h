@@ -121,3 +121,9 @@ extern void dict_merge(dict_t *, dict_t *);
 #endif
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -134,3 +134,9 @@ void log_memstats_stderr(const char *prefix)
 	struct exit_dump_args eda = {.prefix = prefix, .error = 0};
 	qmem_walk(qmem_exit_walker, &eda);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

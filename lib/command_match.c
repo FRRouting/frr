@@ -964,3 +964,9 @@ static enum match_type match_variable(struct cmd_token *token, const char *word)
 	assert(token->type == VARIABLE_TKN);
 	return exact_match;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

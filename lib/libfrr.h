@@ -110,3 +110,9 @@ extern char frr_protoname[];
 extern char frr_protonameinst[];
 
 #endif /* _ZEBRA_FRR_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -42,3 +42,9 @@ DEFINE_MTYPE(OSPF6D, OSPF6_SPFTREE, "OSPF6 SPF tree")
 DEFINE_MTYPE(OSPF6D, OSPF6_NEXTHOP, "OSPF6 nexthop")
 DEFINE_MTYPE(OSPF6D, OSPF6_EXTERNAL_INFO, "OSPF6 ext. info")
 DEFINE_MTYPE(OSPF6D, OSPF6_OTHER, "OSPF6 other")
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

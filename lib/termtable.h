@@ -295,3 +295,9 @@ void ttable_rowseps(struct ttable *tt, unsigned int row,
 char *ttable_dump(struct ttable *tt, const char *newline);
 
 #endif /* _TERMTABLE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -27,3 +27,9 @@ struct rtattr *znl_rta_pull(struct zbuf *zb, struct zbuf *payload);
 
 int znl_open(int protocol, int groups);
 
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

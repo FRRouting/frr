@@ -182,3 +182,9 @@ struct timestamp_control {
 	"Local use\n"
 
 #endif /* _ZEBRA_LOG_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

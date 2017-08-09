@@ -411,3 +411,9 @@ int pim_rpf_equal(const void *arg1, const void *arg2)
 
 	return prefix_same(&r1->rpf.rpf_addr, &r2->rpf.rpf_addr);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

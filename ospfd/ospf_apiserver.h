@@ -204,3 +204,9 @@ extern void ospf_apiserver_clients_lsa_change_notify(u_char msgtype,
 						     struct ospf_lsa *lsa);
 
 #endif /* _OSPF_APISERVER_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

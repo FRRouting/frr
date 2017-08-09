@@ -844,3 +844,9 @@ extern int ecommunity_strip(struct ecommunity *ecom, uint8_t type,
 	ecom->val = p;
 	return 1;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

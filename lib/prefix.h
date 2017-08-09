@@ -383,3 +383,9 @@ static inline int is_default_prefix(struct prefix *p)
 }
 
 #endif /* _ZEBRA_PREFIX_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -537,3 +537,9 @@ void vrf_cmd_init(int (*writefunc)(struct vty *vty))
 	install_node(&vrf_node, writefunc);
 	install_default(VRF_NODE);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

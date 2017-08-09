@@ -92,3 +92,9 @@ static inline void *srcdest_rnode_table_info(struct route_node *rn)
 }
 
 #endif /* _ZEBRA_SRC_DEST_TABLE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

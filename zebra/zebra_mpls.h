@@ -475,3 +475,9 @@ static inline int mpls_should_lsps_be_processed(struct zebra_vrf *zvrf)
 extern int mpls_enabled;
 
 #endif /*_ZEBRA_MPLS_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

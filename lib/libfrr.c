@@ -710,3 +710,9 @@ void frr_run(struct thread_master *master)
 	while (thread_fetch(master, &thread))
 		thread_call(&thread);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

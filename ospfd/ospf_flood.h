@@ -66,3 +66,9 @@ extern struct external_info *ospf_external_info_check(struct ospf_lsa *);
 extern void ospf_lsdb_init(struct ospf_lsdb *);
 
 #endif /* _ZEBRA_OSPF_FLOOD_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

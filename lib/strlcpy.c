@@ -51,3 +51,9 @@ size_t strlcpy(char *__restrict dest, const char *__restrict src, size_t size)
 	return src_length;
 }
 #endif /* HAVE_STRLCPY */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

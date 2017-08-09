@@ -560,3 +560,9 @@ void pim_hello_require(struct interface *ifp)
 
 	pim_hello_restart_now(ifp); /* Send hello and restart timer */
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

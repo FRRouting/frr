@@ -180,3 +180,9 @@ ldp_debug_config_write(struct vty *vty)
 
 	return (write);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

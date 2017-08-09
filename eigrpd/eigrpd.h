@@ -52,3 +52,9 @@ extern struct eigrp *eigrp_lookup(void);
 extern void eigrp_router_id_update(struct eigrp *);
 
 #endif /* _ZEBRA_EIGRPD_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

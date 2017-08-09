@@ -322,3 +322,9 @@ extern struct ospf_lsa *ospf_translated_nssa_originate(struct ospf *,
 						       struct ospf_lsa *);
 
 #endif /* _ZEBRA_OSPF_LSA_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

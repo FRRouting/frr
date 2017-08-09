@@ -98,3 +98,9 @@ void pim_vrf_terminate(void);
 struct pim_instance *pim_get_pim_instance(vrf_id_t vrf_id);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

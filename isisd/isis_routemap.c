@@ -247,3 +247,9 @@ void isis_route_map_init(void)
 	route_map_install_match(&route_match_ipv6_address_prefix_list_cmd);
 	route_map_install_set(&route_set_metric_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

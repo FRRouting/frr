@@ -340,3 +340,9 @@ extern void *route_map_rule_tag_compile(const char *arg);
 extern void route_map_rule_tag_free(void *rule);
 
 #endif /* _ZEBRA_ROUTEMAP_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

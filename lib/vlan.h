@@ -27,3 +27,9 @@ typedef u_int16_t vlanid_t;
 #define VLANID_MAX 4095
 
 #endif /* __VLAN_H__ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

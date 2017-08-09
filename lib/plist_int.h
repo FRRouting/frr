@@ -69,3 +69,9 @@ struct prefix_list_entry {
 };
 
 #endif /* _QUAGGA_PLIST_INT_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

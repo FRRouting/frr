@@ -70,3 +70,9 @@ int zebra_ipmr_route_stats(struct zserv *client, int fd, u_short length,
 	zebra_server_send_message(client);
 	return 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

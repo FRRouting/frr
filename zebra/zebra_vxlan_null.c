@@ -183,3 +183,9 @@ void zebra_vxlan_init_tables(struct zebra_vrf *zvrf)
 void zebra_vxlan_close_tables(struct zebra_vrf *zvrf)
 {
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

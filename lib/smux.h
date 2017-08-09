@@ -104,3 +104,9 @@ extern void *oid_copy(void *, const void *, size_t);
 extern void oid_copy_addr(oid[], struct in_addr *, int);
 
 #endif /* _ZEBRA_SNMP_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

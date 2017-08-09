@@ -560,3 +560,9 @@ static inline iana_safi_t safi_int2iana(safi_t safi)
 }
 
 #endif /* _ZEBRA_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

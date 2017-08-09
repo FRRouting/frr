@@ -381,3 +381,9 @@ void nhrp_nhs_foreach(struct interface *ifp, afi_t afi, void (*cb)(struct nhrp_n
 			cb(nhs, 0, ctx);
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

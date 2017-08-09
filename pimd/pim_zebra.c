@@ -1319,3 +1319,9 @@ struct zclient *pim_zebra_zclient_get(void)
 	else
 		return NULL;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -967,3 +967,9 @@ mapping_list_clr(struct mapping_head *mh)
 		free(me);
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

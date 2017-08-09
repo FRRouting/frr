@@ -1545,3 +1545,9 @@ void ospf_zebra_init(struct thread_master *master, u_short instance)
 	prefix_list_add_hook(ospf_prefix_list_update);
 	prefix_list_delete_hook(ospf_prefix_list_update);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

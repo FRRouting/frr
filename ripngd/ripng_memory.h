@@ -33,3 +33,9 @@ DECLARE_MTYPE(RIPNG_OFFSET_LIST)
 DECLARE_MTYPE(RIPNG_RTE_DATA)
 
 #endif /* _QUAGGA_RIPNG_MEMORY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

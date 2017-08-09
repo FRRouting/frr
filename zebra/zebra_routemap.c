@@ -1449,3 +1449,9 @@ void zebra_route_map_init()
 	install_element(RMAP_NODE, &set_src_cmd);
 	install_element(RMAP_NODE, &no_set_src_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

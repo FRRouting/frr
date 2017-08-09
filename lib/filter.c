@@ -2057,3 +2057,9 @@ void access_list_reset()
 	access_list_reset_ipv4();
 	access_list_reset_ipv6();
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

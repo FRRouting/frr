@@ -2216,3 +2216,9 @@ int bgp_zebra_num_connects(void)
 {
 	return zclient_num_connects;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

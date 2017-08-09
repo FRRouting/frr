@@ -99,3 +99,9 @@ extern int static_delete_route(afi_t, safi_t safi, u_char type,
 extern void static_ifindex_update(struct interface *ifp, bool up);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

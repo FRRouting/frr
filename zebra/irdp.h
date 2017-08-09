@@ -151,3 +151,9 @@ extern void send_packet(struct interface *ifp, struct stream *s, u_int32_t dst,
 
 
 #endif /* _IRDP_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

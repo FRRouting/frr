@@ -192,3 +192,9 @@ const char *mtype_memstr(char *buf, size_t len, unsigned long bytes)
 
 	return buf;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -323,3 +323,9 @@ DECLARE_HOOK(ospf_vl_add, (struct ospf_vl_data * vd), (vd))
 DECLARE_HOOK(ospf_vl_delete, (struct ospf_vl_data * vd), (vd))
 
 #endif /* _ZEBRA_OSPF_INTERFACE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

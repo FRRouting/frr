@@ -394,3 +394,9 @@ adj_to_ctl(struct adj *adj)
 
 	return (&actl);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

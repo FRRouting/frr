@@ -34,3 +34,9 @@ extern int ospf6_recvmsg(struct in6_addr *, struct in6_addr *, ifindex_t *,
 			 struct iovec *);
 
 #endif /* OSPF6_NETWORK_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

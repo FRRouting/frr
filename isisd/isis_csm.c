@@ -212,3 +212,9 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 
 	return circuit;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

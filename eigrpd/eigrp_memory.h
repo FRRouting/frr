@@ -41,3 +41,9 @@ DECLARE_MTYPE(EIGRP_NEIGHBOR_ENTRY)
 DECLARE_MTYPE(EIGRP_FSM_MSG)
 
 #endif /* _FRR_EIGRP_MEMORY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -63,3 +63,9 @@ int zebra_ns_init(void);
 int zebra_ns_enable(ns_id_t ns_id, void **info);
 int zebra_ns_disable(ns_id_t ns_id, void **info);
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

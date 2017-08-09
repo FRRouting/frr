@@ -169,3 +169,9 @@ extern void ospf_opaque_self_originated_lsa_received(struct ospf_neighbor *nbr,
 extern struct ospf *oi_to_top(struct ospf_interface *oi);
 
 #endif /* _ZEBRA_OSPF_OPAQUE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

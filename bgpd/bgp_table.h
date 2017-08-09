@@ -304,3 +304,9 @@ static inline uint64_t bgp_table_version(struct bgp_table *table)
 }
 
 #endif /* _QUAGGA_BGP_TABLE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

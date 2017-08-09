@@ -756,3 +756,9 @@ static void assert_action_a6(struct pim_ifchannel *ch,
 				__PRETTY_FUNCTION__, ch->sg_str);
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

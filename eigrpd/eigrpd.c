@@ -306,3 +306,9 @@ struct eigrp *eigrp_lookup(void)
 
 	return listgetdata(listhead(eigrp_om->eigrp));
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

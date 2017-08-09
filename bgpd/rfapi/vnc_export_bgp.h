@@ -39,3 +39,9 @@ extern void vnc_export_bgp_enable(struct bgp *bgp, afi_t afi);
 extern void vnc_export_bgp_disable(struct bgp *bgp, afi_t afi);
 
 #endif /* _QUAGGA_RFAPI_VNC_EXPORT_BGP_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

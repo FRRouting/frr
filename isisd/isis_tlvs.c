@@ -3088,3 +3088,9 @@ isis_tlvs_lookup_mt_router_info(struct isis_tlvs *tlvs, uint16_t mtid)
 
 	return NULL;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

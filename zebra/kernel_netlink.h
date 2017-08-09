@@ -59,3 +59,9 @@ extern int netlink_request(struct nlsock *nl, struct nlmsghdr *n);
 #endif /* HAVE_NETLINK */
 
 #endif /* _ZEBRA_KERNEL_NETLINK_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

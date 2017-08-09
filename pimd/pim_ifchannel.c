@@ -1381,3 +1381,9 @@ unsigned int pim_ifchannel_hash_key(void *arg)
 
 	return jhash_2words(ch->sg.src.s_addr, ch->sg.grp.s_addr, 0);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

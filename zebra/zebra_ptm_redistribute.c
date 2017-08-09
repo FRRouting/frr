@@ -123,3 +123,9 @@ void zebra_bfd_peer_replay_req(void)
 		zsend_bfd_peer_replay(ZEBRA_BFD_DEST_REPLAY, client);
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

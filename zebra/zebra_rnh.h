@@ -81,3 +81,9 @@ extern char *rnh_str(struct rnh *rnh, char *buf, int size);
 extern int zebra_cleanup_rnh_client(vrf_id_t vrf, int family,
 				    struct zserv *client, rnh_type_t type);
 #endif /*_ZEBRA_RNH_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

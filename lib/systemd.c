@@ -116,3 +116,9 @@ void systemd_send_started(struct thread_master *m, int the_process)
 	if (wsecs != 0)
 		thread_add_timer(m, systemd_send_watchdog, m, wsecs, NULL);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

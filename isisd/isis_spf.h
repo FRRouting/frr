@@ -35,3 +35,9 @@ int isis_spf_schedule(struct isis_area *area, int level);
 void isis_spf_cmds_init(void);
 void isis_spf_print(struct isis_spftree *spftree, struct vty *vty);
 #endif /* _ZEBRA_ISIS_SPF_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -82,3 +82,9 @@ extern void zprivs_terminate(struct zebra_privs_t *);
 extern void zprivs_get_ids(struct zprivs_ids_t *);
 
 #endif /* _ZEBRA_PRIVS_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

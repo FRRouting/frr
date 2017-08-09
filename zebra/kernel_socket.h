@@ -39,3 +39,9 @@ extern int rtm_write(int, union sockunion *, union sockunion *,
 extern const struct message rtm_type_str[];
 
 #endif /* __ZEBRA_KERNEL_SOCKET_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

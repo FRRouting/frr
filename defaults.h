@@ -52,3 +52,9 @@
 #endif /* !HAVE_DATACENTER */
 
 #endif /* _FRR_DEFAULTS_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

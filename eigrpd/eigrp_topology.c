@@ -526,3 +526,9 @@ void eigrp_update_topology_table_prefix(struct list *table,
 		eigrp_prefix_entry_delete(table, prefix);
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

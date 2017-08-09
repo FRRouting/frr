@@ -475,3 +475,9 @@ void zebra_mpls_vty_init(void)
 	install_element(VIEW_NODE, &show_mpls_table_lsp_cmd);
 	install_element(VIEW_NODE, &show_mpls_fec_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

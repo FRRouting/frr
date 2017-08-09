@@ -4875,3 +4875,9 @@ uint32_t rfapiGetHolddownFromLifetime(uint32_t lifetime)
 	else
 		return RFAPI_LIFETIME_INFINITE_WITHDRAW_DELAY;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

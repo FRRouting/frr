@@ -2864,3 +2864,9 @@ struct route_table *rib_tables_iter_next(rib_tables_iter_t *iter)
 
 	return table;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -1959,3 +1959,9 @@ void lsp_set_all_srmflags(struct isis_lsp *lsp)
 		}
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -406,3 +406,9 @@ void nhrp_interface_set_source(struct interface *ifp, const char *ifname)
 
 	nhrp_interface_update_nbma(ifp);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

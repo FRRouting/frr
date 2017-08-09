@@ -103,3 +103,9 @@ size_t pim_msg_get_jp_group_size(struct list *sources);
 size_t pim_msg_build_jp_groups(struct pim_jp_groups *grp,
 			       struct pim_jp_agg_group *sgs, size_t size);
 #endif /* PIM_MSG_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

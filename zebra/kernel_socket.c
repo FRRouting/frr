@@ -1382,3 +1382,9 @@ void kernel_terminate(struct zebra_ns *zns)
 }
 
 #endif /* !HAVE_NETLINK */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

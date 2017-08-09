@@ -68,3 +68,9 @@ extern void eigrp_update_topology_table_prefix(struct list *,
 					       struct eigrp_prefix_entry *);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

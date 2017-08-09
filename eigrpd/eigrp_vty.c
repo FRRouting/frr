@@ -1516,3 +1516,9 @@ void eigrp_vty_init(void)
 
 	eigrp_vty_zebra_init();
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

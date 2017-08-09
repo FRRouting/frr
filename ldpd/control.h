@@ -35,3 +35,9 @@ void	control_cleanup(char *);
 int	control_imsg_relay(struct imsg *);
 
 #endif	/* _CONTROL_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

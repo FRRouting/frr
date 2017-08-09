@@ -155,3 +155,9 @@ void frrmod_unload(struct frrmod_runtime *module)
 {
 }
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

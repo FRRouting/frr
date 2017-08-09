@@ -1219,3 +1219,9 @@ void ospf6_clean(void)
 	if (ospf6->brouter_table)
 		ospf6_route_remove_all(ospf6->brouter_table);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

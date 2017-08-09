@@ -413,3 +413,9 @@ extern struct ripng_info *ripng_ecmp_replace(struct ripng_info *);
 extern struct ripng_info *ripng_ecmp_delete(struct ripng_info *);
 
 #endif /* _ZEBRA_RIPNG_RIPNGD_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

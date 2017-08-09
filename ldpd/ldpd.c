@@ -1810,3 +1810,9 @@ config_clear(struct ldpd_conf *conf)
 	free(xconf);
 	free(conf);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

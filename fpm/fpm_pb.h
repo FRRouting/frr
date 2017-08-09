@@ -58,3 +58,9 @@ static inline Fpm__RouteKey *fpm__route_key__create(qpb_allocator_t *allocator,
 }
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

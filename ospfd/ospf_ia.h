@@ -42,3 +42,9 @@ extern void ospf_ia_routing(struct ospf *, struct route_table *,
 extern int ospf_area_is_transit(struct ospf_area *);
 
 #endif /* _ZEBRA_OSPF_IA_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

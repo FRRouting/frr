@@ -580,3 +580,9 @@ static int zebra_snmp_module_init(void)
 FRR_MODULE_SETUP(.name = "zebra_snmp", .version = FRR_VERSION,
 		 .description = "zebra AgentX SNMP module",
 		 .init = zebra_snmp_module_init, )
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

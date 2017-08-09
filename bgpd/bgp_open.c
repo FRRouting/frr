@@ -1538,3 +1538,9 @@ void bgp_open_capability(struct stream *s, struct peer *peer)
 	len = stream_get_endp(s) - cp - 1;
 	stream_putc_at(s, cp, len);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

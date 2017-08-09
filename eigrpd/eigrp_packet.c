@@ -1386,3 +1386,9 @@ struct TLV_Sequence_Type *eigrp_SequenceTLV_new()
 
 	return new;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

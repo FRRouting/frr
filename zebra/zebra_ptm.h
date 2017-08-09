@@ -75,3 +75,9 @@ void zebra_ptm_if_set_ptm_state(struct interface *ifp,
 void zebra_ptm_if_write(struct vty *vty, struct zebra_if *zebra_ifp);
 void zebra_ptm_bfd_client_deregister(int proto);
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

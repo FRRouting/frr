@@ -72,3 +72,9 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty,
 void pim_resolve_rp_nh(struct pim_instance *pim);
 int pim_rp_list_cmp(void *v1, void *v2);
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

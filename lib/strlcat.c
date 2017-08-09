@@ -67,3 +67,9 @@ size_t strlcat(char *__restrict dest, const char *__restrict src, size_t size)
 	return dest_length + src_length;
 }
 #endif /* HAVE_STRLCAT */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

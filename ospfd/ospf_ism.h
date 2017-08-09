@@ -104,3 +104,9 @@ DECLARE_HOOK(ospf_ism_change,
 	     (oi, state, oldstate))
 
 #endif /* _ZEBRA_OSPF_ISM_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

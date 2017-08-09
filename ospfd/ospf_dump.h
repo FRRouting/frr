@@ -138,3 +138,9 @@ extern void debug_init(void);
 #define OSPF_TIME_DUMP_SIZE	16
 
 #endif /* _ZEBRA_OSPF_DUMP_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

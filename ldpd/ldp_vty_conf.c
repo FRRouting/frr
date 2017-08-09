@@ -1554,3 +1554,9 @@ l2vpn_pw_del_api(struct l2vpn *l2vpn, struct l2vpn_pw *pw)
 	RB_REMOVE(l2vpn_pw_head, &l2vpn->pw_inactive_tree, pw);
 	free(pw);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

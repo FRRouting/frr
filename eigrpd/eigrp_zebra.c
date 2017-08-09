@@ -529,3 +529,9 @@ int eigrp_redistribute_unset(struct eigrp *eigrp, int type)
 
 	return CMD_SUCCESS;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -53,3 +53,9 @@ extern int vrf_enable(struct vrf *);
 extern void vrf_delete(struct vrf *);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

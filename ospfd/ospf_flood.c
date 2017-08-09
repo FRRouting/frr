@@ -998,3 +998,9 @@ void ospf_lsa_flush(struct ospf *ospf, struct ospf_lsa *lsa)
 		break;
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

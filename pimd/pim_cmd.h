@@ -76,3 +76,9 @@ void pim_cmd_init(void);
 	vrf = (vrf) ? vrf : pim->vrf;
 
 #endif /* PIM_CMD_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

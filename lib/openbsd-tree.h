@@ -546,3 +546,9 @@ RB_GENERATE_INTERNAL(_name, _type, _field, _cmp, _name##_RB_AUGMENT)
 	     (_e) = (_n))
 
 #endif	/* _SYS_TREE_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

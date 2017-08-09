@@ -421,3 +421,9 @@ log_msg_mac_withdrawal(int out, struct nbr *nbr, uint8_t *mac)
 	    (mac) ? prefix_mac2str((struct ethaddr *)mac, buf, sizeof(buf)) :
 	    "wildcard");
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

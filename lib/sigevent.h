@@ -48,3 +48,9 @@ extern void signal_init(struct thread_master *m, int sigc,
 extern int quagga_sigevent_process(void);
 
 #endif /* _QUAGGA_SIGNAL_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

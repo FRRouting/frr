@@ -313,3 +313,9 @@ int isis_send_pdu_bcast(struct isis_circuit *circuit, int level)
 }
 
 #endif /* ISIS_METHOD == ISIS_METHOD_BPF */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

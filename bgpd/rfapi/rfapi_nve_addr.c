@@ -156,3 +156,9 @@ void rfapiNveAddr2Str(struct rfapi_nve_addr *na, char *buf, int bufsize)
 done:
 	buf[bufsize - 1] = 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -87,3 +87,9 @@ void bgp_regex_free(regex_t *regex)
 	regfree(regex);
 	XFREE(MTYPE_BGP_REGEXP, regex);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

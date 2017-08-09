@@ -26,3 +26,9 @@
 #include "bgpd/rfapi/rfapi.h"
 
 #endif /* _RFP_INTERNAL_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

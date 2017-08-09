@@ -3263,3 +3263,9 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &vtysh_enable_password_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_enable_password_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

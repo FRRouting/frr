@@ -48,3 +48,9 @@ void pim_jp_agg_switch_interface(struct pim_rpf *orpf, struct pim_rpf *nrpf,
 void pim_jp_agg_single_upstream_send(struct pim_rpf *rpf,
 				     struct pim_upstream *up, bool is_join);
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

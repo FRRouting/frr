@@ -151,3 +151,9 @@ int os_configure_dmvpn(unsigned int ifindex, const char *ifname, int af)
 
 	return ret;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

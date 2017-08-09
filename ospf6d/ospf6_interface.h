@@ -185,3 +185,9 @@ DECLARE_HOOK(ospf6_interface_change,
 	     (oi, state, old_state))
 
 #endif /* OSPF6_INTERFACE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

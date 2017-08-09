@@ -1768,3 +1768,9 @@ void pim_upstream_init(struct pim_instance *pim)
 	pim->upstream_list->del = (void (*)(void *))pim_upstream_free;
 	pim->upstream_list->cmp = pim_upstream_compare;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

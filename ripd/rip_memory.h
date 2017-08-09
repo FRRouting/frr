@@ -33,3 +33,9 @@ DECLARE_MTYPE(RIP_OFFSET_LIST)
 DECLARE_MTYPE(RIP_DISTANCE)
 
 #endif /* _QUAGGA_RIP_MEMORY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -54,3 +54,9 @@ DECLARE_MTYPE(OSPF_MPLS_TE)
 DECLARE_MTYPE(OSPF_PCE_PARAMS)
 
 #endif /* _QUAGGA_OSPF_MEMORY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

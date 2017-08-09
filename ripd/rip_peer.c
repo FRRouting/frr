@@ -180,3 +180,9 @@ void rip_peer_init(void)
 	peer_list = list_new();
 	peer_list->cmp = (int (*)(void *, void *))rip_peer_list_cmp;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

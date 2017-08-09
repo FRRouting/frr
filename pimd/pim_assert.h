@@ -65,3 +65,9 @@ void assert_action_a4(struct pim_ifchannel *ch);
 void assert_action_a5(struct pim_ifchannel *ch);
 
 #endif /* PIM_ASSERT_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

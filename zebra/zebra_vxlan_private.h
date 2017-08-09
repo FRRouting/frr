@@ -189,3 +189,9 @@ struct neigh_walk_ctx {
 };
 
 #endif /* _ZEBRA_VXLAN_PRIVATE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

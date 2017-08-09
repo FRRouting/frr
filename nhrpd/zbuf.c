@@ -218,3 +218,9 @@ void zbuf_copy(struct zbuf *zdst, struct zbuf *zsrc, size_t len)
 	if (!dst || !src) return;
 	memcpy(dst, src, len);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -250,3 +250,9 @@ void test_init(int argc, char **argv)
 	install_element(ENABLE_NODE, &lsdb_walk_type_adv_cmd);
 	install_element(ENABLE_NODE, &lsdb_get_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

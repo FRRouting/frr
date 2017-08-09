@@ -136,3 +136,9 @@ extern const char *nexthop2str(struct nexthop *nexthop, char *str, int size);
 extern struct nexthop *nexthop_next(struct nexthop *nexthop);
 extern unsigned int nexthop_level(struct nexthop *nexthop);
 #endif /*_LIB_NEXTHOP_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

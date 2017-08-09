@@ -168,3 +168,9 @@ void test_init()
 	install_element(VIEW_NODE, &clear_foo_cmd);
 	heavy_wq_init();
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

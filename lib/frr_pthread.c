@@ -182,3 +182,9 @@ unsigned int frr_pthread_get_id()
 {
 	return next_id++;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

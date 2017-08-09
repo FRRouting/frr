@@ -425,3 +425,9 @@ int isis_send_pdu_p2p(struct isis_circuit *circuit, int level)
 }
 
 #endif /* ISIS_METHOD == ISIS_METHOD_PFPACKET */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -55,3 +55,9 @@ extern void bgp_dump_state(struct peer *, int, int);
 extern void bgp_dump_packet(struct peer *, int, struct stream *);
 
 #endif /* _QUAGGA_BGP_DUMP_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

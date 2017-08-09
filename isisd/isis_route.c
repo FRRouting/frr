@@ -637,3 +637,9 @@ void isis_route_invalidate(struct isis_area *area)
 	if (area->is_type & IS_LEVEL_2)
 		isis_route_invalidate_table(area, area->route_table[1]);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

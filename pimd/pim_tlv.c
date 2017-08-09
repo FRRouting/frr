@@ -792,3 +792,9 @@ int pim_tlv_parse_addr_list(const char *ifname, struct in_addr src_addr,
 
 	return 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

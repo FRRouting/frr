@@ -775,3 +775,9 @@ void eigrp_hello_send(struct eigrp_interface *ei, u_char flags,
 		}
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

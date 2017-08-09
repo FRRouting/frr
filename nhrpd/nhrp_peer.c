@@ -879,3 +879,9 @@ drop:
 	if (peer) nhrp_peer_unref(peer);
 	zbuf_free(zb);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

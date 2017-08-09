@@ -2045,3 +2045,9 @@ void vnc_direct_bgp_reexport(struct bgp *bgp, afi_t afi)
 	vnc_export_bgp_disable(bgp, afi);
 	vnc_export_bgp_enable(bgp, afi);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

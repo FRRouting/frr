@@ -620,3 +620,9 @@ void vty_out_timestr(struct vty *vty, time_t uptime)
 			tm->tm_yday - ((tm->tm_yday / 7) * 7), tm->tm_hour);
 	vty_out(vty, " ago");
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -266,3 +266,9 @@ void isis_event_auth_failure(char *area_tag, const char *error_string,
 
 	return;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

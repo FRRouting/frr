@@ -692,3 +692,9 @@ int main()
 	log_verbose("Mem: %ld\n", get_memory_usage(getpid()));
 }
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

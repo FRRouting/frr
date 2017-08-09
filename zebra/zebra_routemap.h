@@ -45,3 +45,9 @@ zebra_nht_route_map_check(int family, int client_proto, struct prefix *p,
 
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

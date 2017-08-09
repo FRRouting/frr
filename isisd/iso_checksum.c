@@ -71,3 +71,9 @@ int iso_csum_verify(u_char *buffer, int len, uint16_t csum, int offset)
 		return 0;
 	return 1;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

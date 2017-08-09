@@ -38,3 +38,9 @@ extern void eigrp_vty_show_init(void);
 extern void eigrp_vty_if_init(void);
 
 #endif /* _Quagga_EIGRP_VTY_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

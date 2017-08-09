@@ -117,3 +117,9 @@ DEFINE_MTYPE(BGPD, LCOMMUNITY_VAL, "Large Community value")
 DEFINE_MTYPE(BGPD, BGP_EVPN, "BGP EVPN Information")
 DEFINE_MTYPE(BGPD, BGP_EVPN_IMPORT_RT, "BGP EVPN Import RT")
 DEFINE_MTYPE(BGPD, BGP_EVPN_MACIP, "BGP EVPN MAC IP")
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

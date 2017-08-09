@@ -4169,3 +4169,9 @@ rfapi_rfp_get_l2_group_config_ptr_lni(void *rfp_start_val,
 	}
 	return NULL;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -1633,3 +1633,9 @@ void pim_msdp_exit(struct pim_instance *pim)
 		pim->msdp.sa_list = NULL;
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

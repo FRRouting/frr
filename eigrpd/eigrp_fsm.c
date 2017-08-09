@@ -577,3 +577,9 @@ int eigrp_fsm_event_qact(struct eigrp_fsm_action_message *msg)
 	list_delete(successors);
 	return 1;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

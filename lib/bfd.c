@@ -469,3 +469,9 @@ void bfd_client_sendmsg(struct zclient *zclient, int command)
 
 	return;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

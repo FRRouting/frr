@@ -83,3 +83,9 @@ extern int rfapiApDelete(struct bgp *bgp, struct rfapi_descriptor *rfd,
 
 
 #endif /* _QUAGGA_BGP_RFAPI_AP_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

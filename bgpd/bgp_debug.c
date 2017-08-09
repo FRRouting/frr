@@ -2075,3 +2075,9 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 
 	return str;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -179,3 +179,9 @@ int pim_mroute_del(struct channel_oil *c_oil, const char *name);
 
 void pim_mroute_update_counters(struct channel_oil *c_oil);
 #endif /* PIM_MROUTE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

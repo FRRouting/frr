@@ -28,3 +28,9 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty);
 int pim_interface_config_write(struct vty *vty);
 
 #endif /* PIM_VTY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

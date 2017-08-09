@@ -233,3 +233,9 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 	if (zif->zif_type == ZEBRA_IF_VXLAN)
 		zebra_vxlan_if_update(ifp, ZEBRA_VXLIF_MASTER_CHANGE);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

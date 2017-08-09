@@ -101,3 +101,9 @@ int ospf_apiclient_lsa_delete(struct ospf_apiclient *oclient,
 int ospf_apiclient_handle_async(struct ospf_apiclient *oclient);
 
 #endif /* _OSPF_APICLIENT_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -942,3 +942,9 @@ lde_gc_stop_timer(void)
 {
 	THREAD_TIMER_OFF(gc_timer);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

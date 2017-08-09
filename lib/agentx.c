@@ -314,3 +314,9 @@ int smux_trap(struct variable *vp, size_t vp_len, const oid *ename,
 }
 
 #endif /* SNMP_AGENTX */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -38,3 +38,9 @@ void pim_bfd_info_nbr_create(struct pim_interface *pim_ifp,
 			     struct pim_neighbor *neigh);
 void pim_bfd_info_free(void **bfd_info);
 #endif /* _PIM_BFD_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

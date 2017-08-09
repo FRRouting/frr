@@ -75,3 +75,9 @@ void sbuf_push(struct sbuf *buf, int indent, const char *format, ...)
 	PRINTF_ATTRIBUTE(3, 4);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

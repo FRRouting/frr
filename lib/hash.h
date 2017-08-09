@@ -110,3 +110,9 @@ extern unsigned int string_hash_make(const char *);
 extern void hash_cmd_init(void);
 
 #endif /* _ZEBRA_HASH_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

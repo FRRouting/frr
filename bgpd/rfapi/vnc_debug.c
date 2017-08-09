@@ -191,3 +191,9 @@ void vnc_debug_init(void)
 
 	install_element(ENABLE_NODE, &no_debug_bgp_vnc_all_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

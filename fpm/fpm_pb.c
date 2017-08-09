@@ -25,3 +25,9 @@
 /*
  * Main file for the fpm_pb library.
  */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

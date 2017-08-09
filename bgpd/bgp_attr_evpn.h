@@ -64,3 +64,9 @@ extern u_int32_t bgp_attr_mac_mobility_seqnum(struct attr *attr,
 					      u_char *sticky);
 
 #endif /* _QUAGGA_BGP_ATTR_EVPN_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

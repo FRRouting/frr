@@ -546,3 +546,9 @@ void ospf_route_map_init(void)
 	install_element(RMAP_NODE, &set_metric_type_cmd);
 	install_element(RMAP_NODE, &no_set_metric_type_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

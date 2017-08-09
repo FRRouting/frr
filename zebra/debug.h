@@ -83,3 +83,9 @@ extern unsigned long zebra_debug_pw;
 extern void zebra_debug_init(void);
 
 #endif /* _ZEBRA_DEBUG_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -451,3 +451,9 @@ u_char eigrp_metrics_is_same(struct eigrp_metrics metric1,
 void eigrp_external_routes_refresh(struct eigrp *eigrp, int type)
 {
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

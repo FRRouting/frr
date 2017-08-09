@@ -4700,3 +4700,9 @@ struct rfapi_cfg *bgp_rfapi_get_config(struct bgp *bgp)
 }
 
 #endif /* ENABLE_BGP_VNC */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

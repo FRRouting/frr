@@ -132,3 +132,9 @@ extern int tlv_to_bgp_encap_type_pbb(
 	struct bgp_encap_type_pbb *bet);    /* caller-allocated */
 
 #endif /* _QUAGGA_BGP_ENCAP_TLV_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

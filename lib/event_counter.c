@@ -69,3 +69,9 @@ const char *event_counter_format(const struct event_counter *counter)
 		 counter->last ? timebuf : "(never)");
 	return rv;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

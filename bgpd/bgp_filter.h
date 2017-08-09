@@ -33,3 +33,9 @@ extern void as_list_add_hook(void (*func)(char *));
 extern void as_list_delete_hook(void (*func)(const char *));
 
 #endif /* _QUAGGA_BGP_FILTER_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

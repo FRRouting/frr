@@ -31,3 +31,9 @@ int babel_send(int s,
 int tcp_server_socket(int port, int local);
 
 #endif /* BABEL_NET_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

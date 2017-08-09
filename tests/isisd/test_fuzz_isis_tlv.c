@@ -186,3 +186,9 @@ static int test(FILE *input, FILE *output)
 
 	return 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

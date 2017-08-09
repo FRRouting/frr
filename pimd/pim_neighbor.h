@@ -74,3 +74,9 @@ struct prefix *pim_neighbor_find_secondary(struct pim_neighbor *neigh,
 int pim_if_dr_election(struct interface *ifp);
 
 #endif /* PIM_NEIGHBOR_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

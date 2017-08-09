@@ -41,3 +41,9 @@ extern int eigrp_distribute_timer_process(struct thread *);
 extern int eigrp_distribute_timer_interface(struct thread *);
 
 #endif /* EIGRPD_EIGRP_FILTER_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

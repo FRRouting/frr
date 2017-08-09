@@ -50,3 +50,9 @@ extern void rip_debug_init(void);
 extern void rip_debug_reset(void);
 
 #endif /* _ZEBRA_RIP_DEBUG_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

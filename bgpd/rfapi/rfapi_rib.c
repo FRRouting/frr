@@ -2496,3 +2496,9 @@ void rfapiRibShowResponses(void *stream, struct prefix *pfx_match,
 		fp(out, "\n");
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

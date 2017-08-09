@@ -650,3 +650,9 @@ struct msg *new_msg_lsa_change_notify(u_char msgtype, u_int32_t seqnum,
 }
 
 #endif /* SUPPORT_OSPF_API */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

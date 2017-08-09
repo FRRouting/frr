@@ -265,3 +265,9 @@ enum pim_msdp_err pim_msdp_mg_src_add(struct pim_instance *pim,
 enum pim_msdp_err pim_msdp_mg_del(struct pim_instance *pim,
 				  const char *mesh_group_name);
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

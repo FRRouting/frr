@@ -161,3 +161,9 @@ void eigrp_send_siaquery(struct eigrp_neighbor *nbr,
 	} else
 		eigrp_packet_free(ep);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

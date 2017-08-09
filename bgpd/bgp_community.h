@@ -79,3 +79,9 @@ extern struct hash *community_hash(void);
 extern u_int32_t community_val_get(struct community *com, int i);
 
 #endif /* _QUAGGA_BGP_COMMUNITY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

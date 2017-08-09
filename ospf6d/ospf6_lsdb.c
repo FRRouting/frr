@@ -444,3 +444,9 @@ u_int32_t ospf6_new_ls_seqnum(u_int16_t type, u_int32_t id,
 
 	return ((u_int32_t)htonl(seqnum));
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

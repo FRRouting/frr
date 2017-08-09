@@ -1693,3 +1693,9 @@ void rtadv_cmd_init(void)
 	/* Empty.*/;
 }
 #endif /* HAVE_RTADV */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

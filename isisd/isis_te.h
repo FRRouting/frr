@@ -320,3 +320,9 @@ void isis_mpls_te_update(struct interface *);
 void isis_mpls_te_config_write_router(struct vty *);
 
 #endif /* _ZEBRA_ISIS_MPLS_TE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

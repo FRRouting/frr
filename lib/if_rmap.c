@@ -301,3 +301,9 @@ void if_rmap_init(int node)
 		install_element(RIP_NODE, &no_if_rmap_cmd);
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

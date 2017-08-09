@@ -45,3 +45,9 @@ void	 fatalx(const char *)
 		__attribute__((__format__ (printf, 1, 0)));
 
 #endif /* LOG_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

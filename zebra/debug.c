@@ -499,3 +499,9 @@ void zebra_debug_init(void)
 	install_element(CONFIG_NODE, &no_debug_zebra_rib_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_fpm_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

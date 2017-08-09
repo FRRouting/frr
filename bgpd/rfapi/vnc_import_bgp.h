@@ -72,3 +72,9 @@ extern void vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
 	struct bgp_info *bi);			/* old VPN host route */
 
 #endif /* _QUAGGA_RFAPI_VNC_IMPORT_BGP_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

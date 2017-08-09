@@ -72,3 +72,9 @@ int release_daemon_chunks(u_char proto, u_short instance);
 void label_manager_close(void);
 
 #endif /* _LABEL_MANAGER_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

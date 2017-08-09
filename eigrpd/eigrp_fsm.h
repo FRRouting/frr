@@ -33,3 +33,9 @@ extern int eigrp_fsm_event(struct eigrp_fsm_action_message *, int);
 
 
 #endif /* _ZEBRA_EIGRP_DUAL_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

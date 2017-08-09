@@ -453,3 +453,9 @@ int mpls_kernel_init(void)
 }
 
 #endif /* OPEN_BSD */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

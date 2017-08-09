@@ -550,3 +550,9 @@ void distribute_list_init(int node)
 	 *   install_element (node, &no_ipv6_as_v4_distribute_list_prefix_cmd);
 	   }*/
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

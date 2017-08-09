@@ -28,3 +28,9 @@ extern int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 			      u_char use_json);
 
 #endif /* _QUAGGA_BGP_VPN_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

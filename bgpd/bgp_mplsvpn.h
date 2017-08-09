@@ -76,3 +76,9 @@ extern int bgp_show_mpls_vpn(struct vty *vty, afi_t afi, struct prefix_rd *prd,
 			     int tags, u_char use_json);
 
 #endif /* _QUAGGA_BGP_MPLSVPN_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

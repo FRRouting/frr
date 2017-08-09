@@ -33,3 +33,9 @@ extern int bgp_md5_unset(struct peer *);
 extern int bgp_set_socket_ttl(struct peer *, int fd);
 
 #endif /* _QUAGGA_BGP_NETWORK_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

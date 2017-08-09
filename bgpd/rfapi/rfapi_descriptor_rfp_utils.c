@@ -124,3 +124,9 @@ int rfapi_compare_rfds(void *rfd1, void *rfd2)
 	}
 	return match;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

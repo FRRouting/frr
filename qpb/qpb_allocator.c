@@ -55,3 +55,9 @@ void qpb_allocator_init_linear(qpb_allocator_t *allocator,
 	*allocator = allocator_template;
 	allocator->allocator_data = linear_allocator;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

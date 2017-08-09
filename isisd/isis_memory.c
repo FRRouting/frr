@@ -45,3 +45,9 @@ DEFINE_MTYPE(ISISD, ISIS_DICT_NODE, "ISIS dictionary node")
 DEFINE_MTYPE(ISISD, ISIS_EXT_ROUTE, "ISIS redistributed route")
 DEFINE_MTYPE(ISISD, ISIS_EXT_INFO, "ISIS redistributed route info")
 DEFINE_MTYPE(ISISD, ISIS_MPLS_TE, "ISIS MPLS_TE parameters")
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

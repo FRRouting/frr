@@ -244,3 +244,9 @@ extern void rfapiCountAllItRoutes(int *pALRcount, /* active local routes */
 extern uint32_t rfapiGetHolddownFromLifetime(uint32_t lifetime);
 
 #endif /* QUAGGA_HGP_RFAPI_IMPORT_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

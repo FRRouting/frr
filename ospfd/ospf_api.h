@@ -333,3 +333,9 @@ extern const char *ospf_api_errname(int errcode);
 extern const char *ospf_api_typename(int msgtype);
 
 #endif /* _OSPF_API_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

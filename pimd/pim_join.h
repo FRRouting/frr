@@ -33,3 +33,9 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 int pim_joinprune_send(struct pim_rpf *nexthop, struct list *groups);
 
 #endif /* PIM_JOIN_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

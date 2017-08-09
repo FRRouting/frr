@@ -1056,3 +1056,9 @@ void vnc_zebra_destroy(void)
 	zclient_free(zclient_vnc);
 	zclient_vnc = NULL;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -126,3 +126,9 @@ extern void ospf6_area_config_write(struct vty *vty);
 extern void ospf6_area_init(void);
 
 #endif /* OSPF_AREA_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -473,3 +473,9 @@ int main(void)
 	printf("Total pass/fail: %d/%d\n", pass_count, fail_count);
 	return fail_count;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

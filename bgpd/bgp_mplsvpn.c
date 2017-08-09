@@ -1068,3 +1068,9 @@ void bgp_mplsvpn_init(void)
 			&show_ip_bgp_vpn_rd_neighbor_advertised_routes_cmd);
 #endif /* KEEP_OLD_VPN_COMMANDS */
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

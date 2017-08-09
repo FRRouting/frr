@@ -60,3 +60,9 @@ extern void prefix_bgp_orf_remove_all(afi_t, char *);
 extern int prefix_bgp_show_prefix_list(struct vty *, afi_t, char *, u_char);
 
 #endif /* _QUAGGA_PLIST_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

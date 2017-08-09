@@ -1008,3 +1008,9 @@ int tlv_to_bgp_encap_type_pbb(
 	}
 	return rc;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

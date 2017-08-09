@@ -481,3 +481,9 @@ struct if_link_params *if_link_params_get(struct interface *);
 void if_link_params_free(struct interface *);
 
 #endif /* _ZEBRA_IF_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

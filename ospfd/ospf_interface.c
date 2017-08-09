@@ -1166,3 +1166,9 @@ void ospf_if_init()
 	if_add_hook(IF_NEW_HOOK, ospf_if_new_hook);
 	if_add_hook(IF_DELETE_HOOK, ospf_if_delete_hook);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -108,3 +108,9 @@ void qobj_finish(void)
 	nodes = NULL;
 	pthread_rwlock_destroy(&nodes_lock);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

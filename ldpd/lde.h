@@ -243,3 +243,9 @@ void		 l2vpn_pw_ctl(pid_t);
 void		 l2vpn_binding_ctl(pid_t);
 
 #endif	/* _LDE_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

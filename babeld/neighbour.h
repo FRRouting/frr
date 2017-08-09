@@ -62,3 +62,9 @@ unsigned neighbour_cost(struct neighbour *neigh);
 int valid_rtt(struct neighbour *neigh);
 
 #endif /* BABEL_NEIGHBOUR_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

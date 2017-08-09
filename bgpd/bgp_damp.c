@@ -692,3 +692,9 @@ int bgp_show_dampening_parameters(struct vty *vty, afi_t afi, safi_t safi)
 
 	return CMD_SUCCESS;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

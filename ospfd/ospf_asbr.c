@@ -310,3 +310,9 @@ void ospf_redistribute_withdraw(struct ospf *ospf, u_char type,
 					rn->info = NULL;
 				}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

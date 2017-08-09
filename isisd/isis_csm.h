@@ -44,3 +44,9 @@ struct isis_circuit *
 isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg);
 
 #endif /* _ZEBRA_ISIS_CSM_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -102,3 +102,9 @@ int lsp_print_all(struct vty *vty, dict_t *lspdb, char detail, char dynhost);
 void lsp_set_all_srmflags(struct isis_lsp *lsp);
 
 #endif /* ISIS_LSP */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

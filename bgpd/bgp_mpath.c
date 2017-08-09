@@ -769,3 +769,9 @@ void bgp_info_mpath_aggregate_update(struct bgp_info *new_best,
 	} else
 		bgp_attr_unintern(&new_attr);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

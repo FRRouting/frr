@@ -106,3 +106,9 @@ void pim_br_init(void)
 		return;
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

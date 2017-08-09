@@ -696,3 +696,9 @@ void bgp_bfd_init(void)
 	install_element(BGP_NODE, &no_neighbor_bfd_cmd);
 	install_element(BGP_NODE, &no_neighbor_bfd_type_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

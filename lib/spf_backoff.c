@@ -314,3 +314,9 @@ long spf_backoff_timetolearn(struct spf_backoff *backoff)
 {
 	return backoff->timetolearn;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

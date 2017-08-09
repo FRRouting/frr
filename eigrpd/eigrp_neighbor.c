@@ -357,3 +357,9 @@ void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *vty)
 	/* delete neighbor */
 	eigrp_nbr_delete(nbr);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

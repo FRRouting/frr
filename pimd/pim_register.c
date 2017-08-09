@@ -447,3 +447,9 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 
 	return 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

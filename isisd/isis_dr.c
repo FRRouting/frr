@@ -349,3 +349,9 @@ int isis_dr_commence(struct isis_circuit *circuit, int level)
 
 	return ISIS_OK;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

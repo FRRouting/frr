@@ -879,3 +879,9 @@ void install_element_ospf6_debug_zebra(void)
 	install_element(CONFIG_NODE, &debug_ospf6_zebra_sendrecv_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf6_zebra_sendrecv_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

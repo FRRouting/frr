@@ -105,3 +105,9 @@ void sbuf_push(struct sbuf *buf, int indent, const char *format, ...)
 	if (buf->pos == buf->size)
 		assert(!"Buffer filled up!");
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

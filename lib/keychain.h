@@ -58,3 +58,9 @@ extern struct key *key_match_for_accept(const struct keychain *, const char *);
 extern struct key *key_lookup_for_send(const struct keychain *);
 
 #endif /* _ZEBRA_KEYCHAIN_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

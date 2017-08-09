@@ -82,3 +82,9 @@ DECLARE_HOOK(ospf_if_update, (struct interface * ifp), (ifp))
 DECLARE_HOOK(ospf_if_delete, (struct interface * ifp), (ifp))
 
 #endif /* _ZEBRA_OSPF_ZEBRA_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

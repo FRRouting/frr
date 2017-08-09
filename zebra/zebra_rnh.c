@@ -1078,3 +1078,9 @@ static void print_rnh(struct route_node *rn, struct vty *vty)
 		vty_out(vty, " zebra[pseudowires]");
 	vty_out(vty, "\n");
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

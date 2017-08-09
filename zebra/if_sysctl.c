@@ -138,3 +138,9 @@ void interface_list(struct zebra_ns *zns)
 }
 
 #endif /* !defined(GNU_LINUX) && !defined(OPEN_BSD) && !defined(SUNOS_5) */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -13305,3 +13305,9 @@ static void community_list_vty(void)
 	install_element(VIEW_NODE, &show_ip_lcommunity_list_cmd);
 	install_element(VIEW_NODE, &show_ip_lcommunity_list_arg_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

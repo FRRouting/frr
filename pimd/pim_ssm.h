@@ -40,3 +40,9 @@ int pim_ssm_range_set(struct pim_instance *pim, vrf_id_t vrf_id,
 void *pim_ssm_init(void);
 void pim_ssm_terminate(struct pim_ssm *ssm);
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

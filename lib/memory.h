@@ -199,3 +199,9 @@ extern void log_memstats_stderr(const char *);
 extern void memory_oom(size_t size, const char *name);
 
 #endif /* _QUAGGA_MEMORY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

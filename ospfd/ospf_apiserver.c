@@ -2476,3 +2476,9 @@ int ospf_apiserver_lsa_delete(struct ospf_lsa *lsa)
 }
 
 #endif /* SUPPORT_OSPF_API */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

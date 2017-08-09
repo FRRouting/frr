@@ -84,3 +84,9 @@ extern void bgp_address_init(struct bgp *bgp);
 extern void bgp_address_destroy(struct bgp *bgp);
 
 #endif /* _QUAGGA_BGP_NEXTHOP_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

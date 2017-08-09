@@ -375,3 +375,9 @@ void label_manager_close()
 {
 	list_delete(lbl_mgr.lc_list);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -449,3 +449,9 @@ uint8_t *digest;			   /* caller digest to be filled in */
 						* hash */
 	MD5Final((uint8_t *)digest, &context); /* finish up 2nd pass */
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -1798,3 +1798,9 @@ ldp_vty_clear_nbr(struct vty *vty, const char *addr_str)
 
 	return (CMD_SUCCESS);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

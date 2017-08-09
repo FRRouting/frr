@@ -38,3 +38,9 @@ extern struct if_rmap *if_rmap_lookup(const char *);
 extern int config_write_if_rmap(struct vty *);
 
 #endif /* _ZEBRA_IF_RMAP_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

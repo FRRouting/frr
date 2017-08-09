@@ -114,3 +114,9 @@ extern void cmd_graph_merge(struct graph *old, struct graph *new,
 			    int direction);
 
 #endif /* _FRR_COMMAND_GRAPH_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

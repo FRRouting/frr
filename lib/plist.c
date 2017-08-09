@@ -2085,3 +2085,9 @@ void prefix_list_reset()
 	prefix_list_reset_afi(AFI_IP, 1);
 	prefix_list_reset_afi(AFI_IP6, 1);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

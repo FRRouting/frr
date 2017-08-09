@@ -246,3 +246,9 @@ void rip_debug_init(void)
 	install_element(CONFIG_NODE, &no_debug_rip_packet_direct_cmd);
 	install_element(CONFIG_NODE, &no_debug_rip_zebra_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

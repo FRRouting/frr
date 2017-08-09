@@ -250,3 +250,9 @@ void ripng_debug_init()
 	install_element(CONFIG_NODE, &no_debug_ripng_packet_direct_cmd);
 	install_element(CONFIG_NODE, &no_debug_ripng_zebra_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

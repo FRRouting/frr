@@ -181,3 +181,9 @@ int main(int argc, char **argv)
 	/* delete table */
 	ttable_del(tt);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -200,3 +200,9 @@ extern struct thread_master *master;
 #define IS_DEBUG_ISIS(x)                 (isis->debugs & x)
 
 #endif /* ISISD_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -336,3 +336,9 @@ PyMODINIT_FUNC command_py_init(void)
 	PyModule_AddObject(pymod, "Graph", (PyObject *)&typeobj_graph);
 	initret(pymod);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

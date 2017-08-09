@@ -9191,3 +9191,9 @@ void ospf_vty_init(void)
 	/* Init zebra related vty commands. */
 	ospf_vty_zebra_init();
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

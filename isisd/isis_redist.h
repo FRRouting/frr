@@ -55,3 +55,9 @@ void isis_redist_init(void);
 void isis_redist_area_finish(struct isis_area *area);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

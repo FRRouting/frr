@@ -114,3 +114,9 @@ DECLARE_MTYPE(BGP_EVPN)
 DECLARE_MTYPE(BGP_EVPN_IMPORT_RT)
 DECLARE_MTYPE(BGP_EVPN_MACIP)
 #endif /* _QUAGGA_BGP_MEMORY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

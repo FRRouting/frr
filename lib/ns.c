@@ -452,3 +452,9 @@ int ns_socket(int domain, int type, int protocol, ns_id_t ns_id)
 
 	return ret;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

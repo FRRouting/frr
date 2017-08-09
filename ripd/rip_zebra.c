@@ -711,3 +711,9 @@ void rip_zclient_stop(void)
 	zclient_stop(zclient);
 	zclient_free(zclient);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

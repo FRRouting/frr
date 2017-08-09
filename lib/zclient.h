@@ -417,3 +417,9 @@ extern int zapi_route(u_char cmd, struct zclient *zclient, struct prefix *p,
 		      struct prefix_ipv6 *src_p, struct zapi_route *api);
 
 #endif /* _ZEBRA_ZCLIENT_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

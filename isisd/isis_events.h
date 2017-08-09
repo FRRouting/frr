@@ -46,3 +46,9 @@ void isis_event_auth_failure(char *area_tag, const char *error_string,
 			     u_char *sysid);
 
 #endif /* _ZEBRA_ISIS_EVENTS_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

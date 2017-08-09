@@ -31,3 +31,9 @@ int babel_filter(int output, const unsigned char *prefix, unsigned short plen,
                  unsigned int index);
 
 #endif /* BABELD_BABEL_FILTER_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

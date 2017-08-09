@@ -84,3 +84,9 @@
 	thread_add_event(master, eigrp_fsm_event, (I), (E))
 
 #endif /* _ZEBRA_EIGRP_MACROS_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -22,3 +22,9 @@ void netlink_set_nflog_group(int nlgroup);
 
 void netlink_gre_get_info(unsigned int ifindex, uint32_t *gre_key, unsigned int *link_index, struct in_addr *saddr);
 void netlink_gre_set_link(unsigned int ifindex, unsigned int link_index);
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

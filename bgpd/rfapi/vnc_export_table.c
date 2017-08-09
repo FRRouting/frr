@@ -190,3 +190,9 @@ struct vnc_export_info *vnc_eti_checktimer(struct bgp *bgp,
 
 	return NULL;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

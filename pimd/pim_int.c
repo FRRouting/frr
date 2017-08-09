@@ -42,3 +42,9 @@ void pim_write_uint32(uint8_t *buf, uint32_t val_host)
 	/* val_host is in netorder */
 	memcpy(buf, &val_host, sizeof(val_host));
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

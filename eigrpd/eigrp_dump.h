@@ -162,3 +162,9 @@ extern void show_ip_eigrp_neighbor_entry(struct vty *, struct eigrp *,
 extern void eigrp_debug_init(void);
 
 #endif /* _ZEBRA_EIGRPD_DUMP_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

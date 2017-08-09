@@ -41,3 +41,9 @@ extern char *ospf_options_dump(u_char);
 extern void ospf_lsa_header_dump(struct lsa_header *);
 
 #endif /* _ZEBRA_OSPF_DUMP_API_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

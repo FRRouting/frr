@@ -11344,3 +11344,9 @@ void bgp_route_finish(void)
 			bgp_distance_table[afi][safi] = NULL;
 		}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

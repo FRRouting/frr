@@ -999,3 +999,9 @@ void ospf6_area_init(void)
 	install_element(OSPF6_NODE, &area_filter_list_cmd);
 	install_element(OSPF6_NODE, &no_area_filter_list_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

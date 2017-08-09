@@ -1860,3 +1860,9 @@ void ospf_master_init(struct thread_master *master)
 	om->ospf = list_new();
 	om->master = master;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

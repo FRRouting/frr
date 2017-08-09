@@ -290,3 +290,9 @@ void list_add_list(struct list *l, struct list *m)
 	for (n = listhead(m); n; n = listnextnode(n))
 		listnode_add(l, n->data);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

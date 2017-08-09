@@ -30,3 +30,9 @@ extern int ipforward_ipv6_on(void);
 extern int ipforward_ipv6_off(void);
 
 #endif /* _ZEBRA_IPFORWARD_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

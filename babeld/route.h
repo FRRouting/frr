@@ -124,3 +124,9 @@ void route_lost(struct source *src, unsigned oldmetric);
 void expire_routes(void);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

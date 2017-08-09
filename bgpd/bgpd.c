@@ -7498,3 +7498,9 @@ void bgp_terminate(void)
 	if (bm->t_rmap_update)
 		BGP_TIMER_OFF(bm->t_rmap_update);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

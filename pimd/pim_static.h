@@ -46,3 +46,9 @@ int pim_static_write_mroute(struct pim_instance *pim, struct vty *vty,
 			    struct interface *ifp);
 
 #endif /* PIM_STATIC_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

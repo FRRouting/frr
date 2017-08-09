@@ -2180,3 +2180,9 @@ void isis_vty_init(void)
 	install_element(ISIS_NODE, &spf_delay_ietf_cmd);
 	install_element(ISIS_NODE, &no_spf_delay_ietf_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

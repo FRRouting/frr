@@ -514,3 +514,9 @@ struct eigrp_fsm_action_message {
 };
 
 #endif /* _ZEBRA_EIGRP_STRUCTURES_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

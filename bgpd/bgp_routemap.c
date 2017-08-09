@@ -4467,3 +4467,9 @@ void bgp_route_map_terminate(void)
 	route_map_event_hook(NULL);
 	route_map_finish();
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

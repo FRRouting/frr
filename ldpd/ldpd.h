@@ -814,3 +814,9 @@ void		 ldp_zebra_destroy(void);
 #endif
 
 #endif	/* _LDPD_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

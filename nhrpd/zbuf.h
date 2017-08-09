@@ -187,3 +187,9 @@ void zbufq_queue(struct zbuf_queue *, struct zbuf *);
 int zbufq_write(struct zbuf_queue *, int);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

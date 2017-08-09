@@ -60,3 +60,9 @@ int pim_msg_send(int fd, struct in_addr src, struct in_addr dst,
 		 uint8_t *pim_msg, int pim_msg_size, const char *ifname);
 
 #endif /* PIM_PIM_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

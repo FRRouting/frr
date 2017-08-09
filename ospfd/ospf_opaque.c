@@ -2160,3 +2160,9 @@ struct ospf *oi_to_top(struct ospf_interface *oi)
 
 	return top;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

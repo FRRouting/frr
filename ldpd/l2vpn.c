@@ -662,3 +662,9 @@ ldpe_l2vpn_pw_exit(struct l2vpn_pw *pw)
 		tnbr_check(leconf, tnbr);
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

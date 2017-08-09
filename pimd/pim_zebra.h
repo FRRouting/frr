@@ -47,3 +47,9 @@ void pim_forward_stop(struct pim_ifchannel *ch, bool install_it);
 void sched_rpf_cache_refresh(void);
 struct zclient *pim_zebra_zclient_get(void);
 #endif /* PIM_ZEBRA_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

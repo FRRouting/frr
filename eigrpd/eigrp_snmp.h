@@ -33,3 +33,9 @@ extern void eigrp_snmp_init(void);
 
 
 #endif /* _ZEBRA_EIGRP_SNMP_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -280,3 +280,9 @@ void rfp_clear_vnc_nve_all(void)
 {
 	return;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -68,3 +68,9 @@ extern int str2prefix_rd(const char *, struct prefix_rd *);
 extern char *prefix_rd2str(struct prefix_rd *, char *, size_t);
 
 #endif /* _QUAGGA_BGP_RD_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

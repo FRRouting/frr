@@ -169,3 +169,9 @@ extern const size_t ospf_packet_type_str_max;
 extern void ospf_proactively_arp(struct ospf_neighbor *);
 
 #endif /* _ZEBRA_OSPF_PACKET_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

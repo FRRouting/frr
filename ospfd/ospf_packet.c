@@ -4085,3 +4085,9 @@ void ospf_proactively_arp(struct ospf_neighbor *nbr)
 		zlog_debug("Executed %s %s", ping_nbr,
 			   ((ret == 0) ? "successfully" : "but failed"));
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

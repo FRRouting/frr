@@ -142,3 +142,9 @@ int main(int argc, char *argv[])
 
 	return 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

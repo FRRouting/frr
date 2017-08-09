@@ -407,3 +407,9 @@ void nhrp_shortcut_prefix_change(const struct prefix *p, int deleted)
 	nhrp_shortcut_foreach(family2afi(PREFIX_FAMILY(p)), nhrp_shortcut_purge_prefix, &pctx);
 }
 
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

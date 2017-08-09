@@ -38,3 +38,9 @@ struct bgp_vnc_subtlv_unaddr {
 
 #endif /* ENABLE_BGP_VNC */
 #endif /* _QUAGGA_BGP_VNC_TYPES_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

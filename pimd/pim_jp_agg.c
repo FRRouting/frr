@@ -347,3 +347,9 @@ void pim_jp_agg_single_upstream_send(struct pim_rpf *rpf,
 
 	pim_joinprune_send(rpf, groups);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

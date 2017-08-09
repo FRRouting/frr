@@ -38,3 +38,9 @@ struct isis_dynhn *dynhn_find_by_name(const char *hostname);
 void dynhn_print_all(struct vty *vty);
 
 #endif /* _ZEBRA_ISIS_DYNHN_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

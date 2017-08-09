@@ -217,3 +217,9 @@ void nhrp_vc_terminate(void)
 	nhrp_vc_reset();
 	hash_clean(nhrp_vc_hash, nhrp_vc_free);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

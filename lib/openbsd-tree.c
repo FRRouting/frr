@@ -638,3 +638,9 @@ _rb_check(const struct rb_type *t, void *node, unsigned long poison)
 	    (unsigned long)RBE_LEFT(rbe) == poison &&
 	    (unsigned long)RBE_RIGHT(rbe) == poison);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

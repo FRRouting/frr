@@ -1857,3 +1857,9 @@ void ospf_schedule_abr_task(struct ospf *ospf)
 	thread_add_timer(master, ospf_abr_task_timer, ospf, OSPF_ABR_TASK_DELAY,
 			 &ospf->t_abr_task);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -309,3 +309,9 @@ int main(int argc, char **argv)
 	test_run_prng();
 	printf("PRNG test passed.\n");
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -643,3 +643,9 @@ void community_finish(void)
 	hash_free(comhash);
 	comhash = NULL;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

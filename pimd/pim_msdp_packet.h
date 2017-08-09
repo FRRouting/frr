@@ -69,3 +69,9 @@ void pim_msdp_pkt_sa_tx_one(struct pim_msdp_sa *sa);
 void pim_msdp_pkt_sa_tx_to_one_peer(struct pim_msdp_peer *mp);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

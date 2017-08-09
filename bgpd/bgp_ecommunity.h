@@ -151,3 +151,9 @@ extern int ecommunity_strip(struct ecommunity *ecom, uint8_t type,
 			    uint8_t subtype);
 extern struct ecommunity *ecommunity_new(void);
 #endif /* _QUAGGA_BGP_ECOMMUNITY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

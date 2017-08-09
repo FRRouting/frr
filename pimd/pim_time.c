@@ -172,3 +172,9 @@ long pim_time_timer_remain_msec(struct thread *t_timer)
 
 	return t_timer ? 1000 * thread_timer_remain_second(t_timer) : 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

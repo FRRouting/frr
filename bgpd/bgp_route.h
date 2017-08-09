@@ -441,3 +441,9 @@ extern void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 				 afi_t afi, safi_t safi,
 				 json_object *json_paths);
 #endif /* _QUAGGA_BGP_ROUTE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

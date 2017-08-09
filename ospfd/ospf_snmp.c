@@ -2722,3 +2722,9 @@ static int ospf_snmp_module_init(void)
 FRR_MODULE_SETUP(.name = "ospfd_snmp", .version = FRR_VERSION,
 		 .description = "ospfd AgentX SNMP module",
 		 .init = ospf_snmp_module_init, )
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

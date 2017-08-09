@@ -1201,3 +1201,9 @@ void community_list_terminate(struct community_list_handler *ch)
 
 	XFREE(MTYPE_COMMUNITY_LIST_HANDLER, ch);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

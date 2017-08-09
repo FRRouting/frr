@@ -1129,3 +1129,9 @@ void zebra_ptm_if_write(struct vty *vty, struct zebra_if *zebra_ifp)
 	if (zebra_ifp->ptm_enable == ZEBRA_IF_PTM_ENABLE_OFF)
 		vty_out(vty, " no ptm-enable\n");
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

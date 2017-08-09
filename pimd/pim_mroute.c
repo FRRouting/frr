@@ -1026,3 +1026,9 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 
 	return;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

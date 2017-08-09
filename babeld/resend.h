@@ -63,3 +63,9 @@ void recompute_resend_time(void);
 void do_resend(void);
 
 #endif /* BABEL_RESEND_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

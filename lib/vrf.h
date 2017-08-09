@@ -189,3 +189,9 @@ extern int vrf_socket(int, int, int, vrf_id_t);
  */
 extern void vrf_install_commands(void);
 #endif /*_ZEBRA_VRF_H*/
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

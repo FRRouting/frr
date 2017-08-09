@@ -1122,3 +1122,9 @@ const char *zlog_sanitize(char *buf, size_t bufsz, const void *in, size_t inlen)
 	}
 	return buf;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

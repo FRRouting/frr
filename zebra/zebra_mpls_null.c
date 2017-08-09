@@ -42,3 +42,9 @@ int mpls_kernel_init(void)
 };
 
 #endif /* !defined(HAVE_NETLINK) && !defined(OPEN_BSD) */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

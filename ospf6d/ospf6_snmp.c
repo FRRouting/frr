@@ -1410,3 +1410,9 @@ static int ospf6_snmp_module_init(void)
 FRR_MODULE_SETUP(.name = "ospf6d_snmp", .version = FRR_VERSION,
 		 .description = "ospf6d AgentX SNMP module",
 		 .init = ospf6_snmp_module_init, )
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

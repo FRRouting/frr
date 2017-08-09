@@ -152,3 +152,9 @@ extern int rfapi_rib_key_cmp(void *k1, void *k2);
 extern void rfapiAdbFree(struct rfapi_adb *adb);
 
 #endif /* QUAGGA_HGP_RFAPI_RIB_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

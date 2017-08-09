@@ -121,3 +121,9 @@ static inline u_char label_bos(mpls_label_t *label)
 };
 
 #endif /* _BGP_LABEL_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

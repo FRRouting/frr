@@ -250,3 +250,9 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 	}
 	return CMD_SUCCESS;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -40,3 +40,9 @@ int pim_macro_chisin_oiflist(const struct pim_ifchannel *ch);
 int pim_macro_assert_tracking_desired_eval(const struct pim_ifchannel *ch);
 
 #endif /* PIM_MACRO_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

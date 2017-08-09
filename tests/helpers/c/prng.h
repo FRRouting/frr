@@ -33,3 +33,9 @@ const char *prng_fuzz(struct prng *, const char *string, const char *charset,
 void prng_free(struct prng *);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

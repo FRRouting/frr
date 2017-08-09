@@ -87,3 +87,9 @@ DECLARE_HOOK(ospf_nsm_change,
 	     (on, state, oldstate))
 
 #endif /* _ZEBRA_OSPF_NSM_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

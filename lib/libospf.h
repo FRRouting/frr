@@ -95,3 +95,9 @@
 #define OSPF_LSA_MAXAGE_REMOVE_DELAY_DEFAULT	60
 
 #endif /* _LIBOSPFD_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

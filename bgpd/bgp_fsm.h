@@ -115,3 +115,9 @@ DECLARE_HOOK(peer_backward_transition, (struct peer * peer), (peer))
 DECLARE_HOOK(peer_established, (struct peer * peer), (peer))
 
 #endif /* _QUAGGA_BGP_FSM_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

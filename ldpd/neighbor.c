@@ -854,3 +854,9 @@ nbr_clear_ctl(struct ctl_nbr *nctl)
 		session_shutdown(nbr, S_SHUTDOWN, 0, 0);
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

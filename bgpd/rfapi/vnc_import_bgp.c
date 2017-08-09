@@ -3022,3 +3022,9 @@ void vnc_import_bgp_exterior_redist_disable(struct bgp *bgp, afi_t afi)
 	bgp->rfapi_cfg->redist[afi][ZEBRA_ROUTE_BGP_DIRECT_EXT] = 0;
 	vnc_zlog_debug_verbose("%s: return", __func__);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

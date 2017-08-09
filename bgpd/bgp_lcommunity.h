@@ -72,3 +72,9 @@ extern char *lcommunity_str(struct lcommunity *);
 extern int lcommunity_include(struct lcommunity *lcom, u_char *ptr);
 extern void lcommunity_del_val(struct lcommunity *lcom, u_char *ptr);
 #endif /* _QUAGGA_BGP_LCOMMUNITY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

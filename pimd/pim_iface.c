@@ -1568,3 +1568,9 @@ int pim_if_ifchannel_count(struct pim_interface *pim_ifp)
 
 	return count;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -62,3 +62,9 @@ extern int zfpm_protobuf_encode_route(rib_dest_t *dest, struct route_entry *re,
 
 extern struct route_entry *zfpm_route_for_update(rib_dest_t *dest);
 #endif /* _ZEBRA_FPM_PRIVATE_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

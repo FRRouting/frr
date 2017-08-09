@@ -1546,3 +1546,9 @@ void funcname_thread_execute(struct thread_master *m,
 
 	thread_call(&dummy);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

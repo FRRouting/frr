@@ -485,3 +485,9 @@ pw_type_name(uint16_t pw_type)
 		return (buf);
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

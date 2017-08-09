@@ -287,3 +287,9 @@ void router_id_init(struct zebra_vrf *zvrf)
 	zvrf->rid_user_assigned.family = AF_INET;
 	zvrf->rid_user_assigned.prefixlen = 32;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

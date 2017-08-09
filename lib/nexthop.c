@@ -268,3 +268,9 @@ unsigned int nexthop_level(struct nexthop *nexthop)
 
 	return rv;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

@@ -313,3 +313,9 @@ bgp_rfapi_get_labellist_by_lni_label(struct bgp *bgp, uint32_t logical_net_id,
 #endif /* ENABLE_BGP_VNC */
 
 #endif /* _QUAGGA_BGP_RFAPI_CFG_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

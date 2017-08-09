@@ -590,3 +590,9 @@ u_int32_t eigrp_scaled_to_delay(u_int32_t scaled)
 {
 	return scaled / 256;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

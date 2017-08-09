@@ -302,3 +302,9 @@ unsigned long ospf_lsdb_isempty(struct ospf_lsdb *lsdb)
 {
 	return (lsdb->total == 0);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

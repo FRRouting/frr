@@ -135,3 +135,9 @@ void watchfrr_vty_init(void)
 	integrated_write_pid = -1;
 	install_element(ENABLE_NODE, &config_write_integrated_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

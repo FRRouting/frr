@@ -567,3 +567,9 @@ extern void ospf_route_map_init(void);
 extern void ospf_master_init(struct thread_master *master);
 
 #endif /* _ZEBRA_OSPFD_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

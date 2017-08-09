@@ -53,3 +53,9 @@ DECLARE_MTYPE(PIM_SSM_INFO)
 DECLARE_MTYPE(PIM_SPT_PLIST_NAME);
 
 #endif /* _QUAGGA_PIM_MEMORY_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

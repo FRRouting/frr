@@ -1065,3 +1065,9 @@ void keychain_init()
 	install_element(KEYCHAIN_KEY_NODE,
 			&send_lifetime_duration_month_day_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

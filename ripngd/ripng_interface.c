@@ -1147,3 +1147,9 @@ void ripng_if_init()
 			&ipv6_ripng_split_horizon_poisoned_reverse_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_ripng_split_horizon_cmd);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

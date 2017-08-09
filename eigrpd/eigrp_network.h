@@ -50,3 +50,9 @@ extern u_char eigrp_metrics_is_same(struct eigrp_metrics, struct eigrp_metrics);
 extern void eigrp_external_routes_refresh(struct eigrp *, int);
 
 #endif /* EIGRP_NETWORK_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

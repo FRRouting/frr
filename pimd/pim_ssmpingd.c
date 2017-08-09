@@ -452,3 +452,9 @@ int pim_ssmpingd_stop(struct pim_instance *pim, struct in_addr source_addr)
 
 	return 0;
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

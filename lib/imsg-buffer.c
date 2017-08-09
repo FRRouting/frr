@@ -299,3 +299,9 @@ ibuf_dequeue(struct msgbuf *msgbuf, struct ibuf *buf)
 	msgbuf->queued--;
 	ibuf_free(buf);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

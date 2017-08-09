@@ -150,3 +150,9 @@ extern void ospf6_spf_init(void);
 extern void ospf6_spf_reason_string(unsigned int reason, char *buf, int size);
 
 #endif /* OSPF6_SPF_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

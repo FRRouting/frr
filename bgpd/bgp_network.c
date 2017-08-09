@@ -762,3 +762,9 @@ void bgp_close(void)
 		XFREE(MTYPE_BGP_LISTENER, listener);
 	}
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

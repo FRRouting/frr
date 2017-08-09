@@ -99,3 +99,9 @@ extern void sockunion_free(union sockunion *);
 extern void sockunion_init(union sockunion *);
 
 #endif /* _ZEBRA_SOCKUNION_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

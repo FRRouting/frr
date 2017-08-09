@@ -36,3 +36,9 @@ int pim_hello_build_tlv(struct interface *ifp, uint8_t *tlv_buf,
 void pim_hello_require(struct interface *ifp);
 
 #endif /* PIM_HELLO_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

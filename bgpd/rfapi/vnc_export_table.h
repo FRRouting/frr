@@ -64,3 +64,9 @@ vnc_eti_checktimer(struct bgp *bgp, vnc_export_type_t etype, struct prefix *p,
 
 
 #endif /* _QUAGGA_VNC_VNC_EXPORT_TABLE_H_ */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

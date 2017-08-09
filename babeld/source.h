@@ -49,3 +49,9 @@ void expire_sources(void);
 void check_sources_released(void);
 
 #endif
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

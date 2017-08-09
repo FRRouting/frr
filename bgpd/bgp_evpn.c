@@ -2760,3 +2760,9 @@ void bgp_evpn_init(struct bgp *bgp)
 	/*assign 0th index in the bitfield, so that we start with id 1*/
 	bf_assign_zero_index(bgp->rd_idspace);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

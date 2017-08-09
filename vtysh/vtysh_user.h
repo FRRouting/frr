@@ -28,3 +28,9 @@ void user_config_write(void);
 char *vtysh_get_home(void);
 
 #endif /* _VTYSH_USER_H */
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */

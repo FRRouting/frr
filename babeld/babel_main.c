@@ -394,3 +394,9 @@ show_babel_main_configuration (struct vty *vty)
             format_eui64(myid),
             kernel_metric);
 }
+
+/* For Emacs:          */
+/* Local Variables:    */
+/* indent-tabs-mode: t */
+/* c-basic-offset: 8   */
+/* End:                */
