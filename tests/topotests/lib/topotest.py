@@ -201,7 +201,7 @@ def pid_exists(pid):
 def get_textdiff(text1, text2, title1="", title2=""):
     "Returns empty string if same or formatted diff"
 
-    diff = '\n'.join(difflib.context_diff(text1, text2,
+    diff = '\n'.join(difflib.unified_diff(text1, text2,
            fromfile=title1, tofile=title2))
     # Clean up line endings
     diff = os.linesep.join([s for s in diff.splitlines() if s])
