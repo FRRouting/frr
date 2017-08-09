@@ -37,6 +37,7 @@
 #include "zclient.h"
 #include "stream.h"
 #include "network.h"
+#include "libfrr.h"
 
 static void		 lde_shutdown(void);
 static int		 lde_dispatch_imsg(struct thread *);
@@ -171,7 +172,8 @@ lde_init(struct ldpd_init *init)
 	lde_gc_start_timer();
 
 	/* Init synchronous zclient and label list */
-	zclient_serv_path_set(init->zclient_serv_path);
+	frr_zclient_addr(&zclient_addr, &zclient_addr_len,
+			 init->zclient_serv_path);
 	zclient_sync_init(init->instance);
 	lde_label_list_init();
 }

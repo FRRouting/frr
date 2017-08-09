@@ -10,7 +10,6 @@
 
 #################### FRRouting (FRR) configure options #####################
 # with-feature options
-%{!?with_tcp_zebra:     %global  with_tcp_zebra     0 }
 %{!?with_pam:           %global  with_pam           0 }
 %{!?with_ospfclient:    %global  with_ospfclient    1 }
 %{!?with_ospfapi:       %global  with_ospfapi       1 }
@@ -73,12 +72,6 @@
 # if CentOS / RedHat and version < 7, then disable PIMd (too old, won't work)
 %if 0%{?rhel} && 0%{?rhel} < 7
     %global  with_pimd  0
-%endif
-
-# if FPM is enabled, then enable tcp_zebra as well 
-#
-%if %{with_fpm}
-    %global with_tcp_zebra  1
 %endif
 
 # misc internal defines
@@ -233,9 +226,6 @@ developing OSPF-API and frr applications.
 %endif
 %if %{with_multipath}
     --enable-multipath=%{with_multipath} \
-%endif
-%if %{with_tcp_zebra}
-    --enable-tcp-zebra \
 %endif
     --enable-vtysh \
 %if %{with_ospfclient}

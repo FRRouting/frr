@@ -101,7 +101,11 @@ extern void frr_vty_serv(void);
 /* note: contains call to frr_vty_serv() */
 extern void frr_run(struct thread_master *master);
 
+extern bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
+			     const char *path);
+
 extern char config_default[256];
+extern char frr_zclientpath[256];
 extern const char frr_sysconfdir[];
 extern const char frr_vtydir[];
 extern const char frr_moduledir[];

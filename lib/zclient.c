@@ -45,7 +45,8 @@ enum event { ZCLIENT_SCHEDULE, ZCLIENT_READ, ZCLIENT_CONNECT };
 /* Prototype for event manager. */
 static void zclient_event(enum event, struct zclient *);
 
-const char *zclient_serv_path = NULL;
+struct sockaddr_storage zclient_addr;
+socklen_t zclient_addr_len;
 
 /* This file local debug flag. */
 int zclient_debug = 0;
@@ -183,81 +184,6 @@ void zclient_reset(struct zclient *zclient)
 	zclient_init(zclient, zclient->redist_default, zclient->instance);
 }
 
-#ifdef HAVE_TCP_ZEBRA
-
-/* Make socket to zebra daemon. Return zebra socket. */
-static int zclient_socket(void)
-{
-	int sock;
-	int ret;
-	struct sockaddr_in serv;
-
-	/* We should think about IPv6 connection. */
-	sock = socket(AF_INET, SOCK_STREAM, 0);
-	if (sock < 0)
-		return -1;
-
-	/* Make server socket. */
-	memset(&serv, 0, sizeof(struct sockaddr_in));
-	serv.sin_family = AF_INET;
-	serv.sin_port = htons(ZEBRA_PORT);
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	serv.sin_len = sizeof(struct sockaddr_in);
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-	serv.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-
-	/* Connect to zebra. */
-	ret = connect(sock, (struct sockaddr *)&serv, sizeof(serv));
-	if (ret < 0) {
-		if (zclient_debug)
-			zlog_warn("%s connect failure: %d(%s)",
-				  __PRETTY_FUNCTION__, errno,
-				  safe_strerror(errno));
-		close(sock);
-		return -1;
-	}
-	return sock;
-}
-
-#else
-
-/* For sockaddr_un. */
-#include <sys/un.h>
-
-static int zclient_socket_un(const char *path)
-{
-	int ret;
-	int sock, len;
-	struct sockaddr_un addr;
-
-	sock = socket(AF_UNIX, SOCK_STREAM, 0);
-	if (sock < 0)
-		return -1;
-
-	/* Make server socket. */
-	memset(&addr, 0, sizeof(struct sockaddr_un));
-	addr.sun_family = AF_UNIX;
-	strncpy(addr.sun_path, path, strlen(path));
-#ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
-	len = addr.sun_len = SUN_LEN(&addr);
-#else
-	len = sizeof(addr.sun_family) + strlen(addr.sun_path);
-#endif /* HAVE_STRUCT_SOCKADDR_UN_SUN_LEN */
-
-	ret = connect(sock, (struct sockaddr *)&addr, len);
-	if (ret < 0) {
-		if (zclient_debug)
-			zlog_warn("%s connect failure: %d(%s)",
-				  __PRETTY_FUNCTION__, errno,
-				  safe_strerror(errno));
-		close(sock);
-		return -1;
-	}
-	return sock;
-}
-
-#endif /* HAVE_TCP_ZEBRA */
-
 /**
  * Connect to zebra daemon.
  * @param zclient a pointer to zclient structure
@@ -267,12 +193,30 @@ static int zclient_socket_un(const char *path)
  */
 int zclient_socket_connect(struct zclient *zclient)
 {
-#ifdef HAVE_TCP_ZEBRA
-	zclient->sock = zclient_socket();
-#else
-	zclient->sock = zclient_socket_un(zclient_serv_path_get());
-#endif
-	return zclient->sock;
+	int sock;
+	int ret;
+
+	/* We should think about IPv6 connection. */
+	sock = socket(zclient_addr.ss_family, SOCK_STREAM, 0);
+	if (sock < 0)
+		return -1;
+
+	set_cloexec(sock);
+
+	/* Connect to zebra. */
+	ret = connect(sock, (struct sockaddr *)&zclient_addr,
+			zclient_addr_len);
+	if (ret < 0) {
+		if (zclient_debug)
+			zlog_warn("%s connect failure: %d(%s)",
+				  __PRETTY_FUNCTION__, errno,
+				  safe_strerror(errno));
+		close(sock);
+		return -1;
+	}
+
+	zclient->sock = sock;
+	return sock;
 }
 
 static int zclient_failed(struct zclient *zclient)
@@ -2223,34 +2167,6 @@ static void zclient_event(enum event event, struct zclient *zclient)
 				zclient->sock, &zclient->t_read);
 		break;
 	}
-}
-
-const char *zclient_serv_path_get()
-{
-	return zclient_serv_path ? zclient_serv_path : ZEBRA_SERV_PATH;
-}
-
-void zclient_serv_path_set(char *path)
-{
-	struct stat sb;
-
-	/* reset */
-	zclient_serv_path = NULL;
-
-	/* test if `path' is socket. don't set it otherwise. */
-	if (stat(path, &sb) == -1) {
-		zlog_warn("%s: zebra socket `%s' does not exist", __func__,
-			  path);
-		return;
-	}
-
-	if ((sb.st_mode & S_IFMT) != S_IFSOCK) {
-		zlog_warn("%s: `%s' is not unix socket, sir", __func__, path);
-		return;
-	}
-
-	/* it seems that path is unix socket */
-	zclient_serv_path = path;
 }
 
 void zclient_interface_set_master(struct zclient *client,

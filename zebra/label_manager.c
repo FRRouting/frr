@@ -33,6 +33,7 @@
 #include "lib/network.h"
 #include "lib/stream.h"
 #include "lib/zclient.h"
+#include "lib/libfrr.h"
 
 #include "label_manager.h"
 
@@ -216,7 +217,8 @@ static int lm_zclient_connect(struct thread *t)
 static void lm_zclient_init(char *lm_zserv_path)
 {
 	if (lm_zserv_path)
-		zclient_serv_path_set(lm_zserv_path);
+		frr_zclient_addr(&zclient_addr, &zclient_addr_len,
+				 lm_zserv_path);
 
 	/* Set default values. */
 	zclient = zclient_new(zebrad.master);

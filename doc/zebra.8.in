@@ -26,6 +26,9 @@ zebra \- a routing manager for use with associated @PACKAGE_FULLNAME@ components
 ] [
 .B \-M
 .I module:options
+] [
+.B \-z
+.I socketpath
 ]
 .SH DESCRIPTION
 .B zebra 
@@ -96,6 +99,11 @@ available for \fBzebra\fR, if the package was built with SNMP and FPM support
 respectively.  The \fBfpm\fR module takes an additional colon-separated
 argument specifying the encapsulation, either \fBnetlink\fR or \fBprotobuf\fR.
 It should thus be loaded with \fB-M fpm:netlink\fR or \fB-M fpm:protobuf\fR.
+.TP
+\fB\-z\fR, \fB\-\-socket \fR\fIsocketpath\fR
+Use the specified path to open the zebra API socket on.
+The default is \fB\fI@CFG_STATE@/zserv.api\fR.  This option must be given with
+the same value to all FRR protocol daemons.
 .TP
 \fB\-v\fR, \fB\-\-version\fR
 Print the version and exit.

@@ -60,7 +60,9 @@ restart pimd.  The default is \fB\fI@CFG_STATE@/pimd.pid\fR.
 .TP
 \fB\-z\fR, \fB\-\-socket \fR\fIpath\fR
 Specify the socket path for contacting the zebra daemon.
-The default is \fB\fI@CFG_STATE@/zserv.api\fR.
+The default is \fB\fI@CFG_STATE@/zserv.api\fR.  The value of this option
+must be the same as the one given when starting zebra.  Refer to the \fBzebra
+(8)\fR man page for more information.
 .TP
 \fB\-P\fR, \fB\-\-vty_port \fR\fIport-number\fR 
 Specify the port that the pimd VTY will listen on. This defaults to

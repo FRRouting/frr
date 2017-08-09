@@ -204,6 +204,8 @@ int main(int argc, char **argv)
 	char *zserv_path = NULL;
 	/* Socket to external label manager */
 	char *lblmgr_path = NULL;
+	struct sockaddr_storage dummy;
+	socklen_t dummylen;
 
 	frr_preinit(&zebra_di, argc, argv);
 
@@ -256,6 +258,12 @@ int main(int argc, char **argv)
 			break;
 		case 'z':
 			zserv_path = optarg;
+			if (!frr_zclient_addr(&dummy, &dummylen, optarg)) {
+				fprintf(stderr,
+					"Invalid zserv socket path: %s\n",
+					optarg);
+				exit(1);
+			}
 			break;
 		case 'l':
 			lblmgr_path = optarg;

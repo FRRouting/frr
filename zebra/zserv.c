@@ -19,6 +19,7 @@
  */
 
 #include <zebra.h>
+#include <sys/un.h>
 
 #include "prefix.h"
 #include "command.h"
@@ -38,6 +39,7 @@
 #include "buffer.h"
 #include "nexthop.h"
 #include "vrf.h"
+#include "libfrr.h"
 
 #include "zebra/zserv.h"
 #include "zebra/zebra_ns.h"
@@ -2605,116 +2607,59 @@ static int zebra_accept(struct thread *thread)
 	return 0;
 }
 
-#ifdef HAVE_TCP_ZEBRA
-/* Make zebra's server socket. */
-static void zebra_serv()
+/* Make zebra server socket, wiping any existing one (see bug #403). */
+void zebra_zserv_socket_init(char *path)
 {
 	int ret;
-	int accept_sock;
-	struct sockaddr_in addr;
-
-	accept_sock = socket(AF_INET, SOCK_STREAM, 0);
-
-	if (accept_sock < 0) {
-		zlog_warn("Can't create zserv stream socket: %s",
-			  safe_strerror(errno));
-		zlog_warn(
-			"zebra can't provice full functionality due to above error");
-		return;
-	}
-
-	memset(&addr, 0, sizeof(struct sockaddr_in));
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(ZEBRA_PORT);
-#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
-	addr.sin_len = sizeof(struct sockaddr_in);
-#endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
-	addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-
-	sockopt_reuseaddr(accept_sock);
-	sockopt_reuseport(accept_sock);
-
-	if (zserv_privs.change(ZPRIVS_RAISE))
-		zlog_err("Can't raise privileges");
-
-	ret = bind(accept_sock, (struct sockaddr *)&addr,
-		   sizeof(struct sockaddr_in));
-	if (ret < 0) {
-		zlog_warn("Can't bind to stream socket: %s",
-			  safe_strerror(errno));
-		zlog_warn(
-			"zebra can't provice full functionality due to above error");
-		close(accept_sock); /* Avoid sd leak. */
-		return;
-	}
-
-	if (zserv_privs.change(ZPRIVS_LOWER))
-		zlog_err("Can't lower privileges");
-
-	ret = listen(accept_sock, 1);
-	if (ret < 0) {
-		zlog_warn("Can't listen to stream socket: %s",
-			  safe_strerror(errno));
-		zlog_warn(
-			"zebra can't provice full functionality due to above error");
-		close(accept_sock); /* Avoid sd leak. */
-		return;
-	}
-
-	zebra_event(ZEBRA_SERV, accept_sock, NULL);
-}
-#else /* HAVE_TCP_ZEBRA */
-
-/* For sockaddr_un. */
-#include <sys/un.h>
-
-/* zebra server UNIX domain socket. */
-static void zebra_serv_un(const char *path)
-{
-	int ret;
-	int sock, len;
-	struct sockaddr_un serv;
+	int sock;
 	mode_t old_mask;
+	struct sockaddr_storage sa;
+	socklen_t sa_len;
 
-	/* First of all, unlink existing socket */
-	unlink(path);
+	if (!frr_zclient_addr(&sa, &sa_len, path))
+		/* should be caught in zebra main() */
+		return;
 
 	/* Set umask */
 	old_mask = umask(0077);
 
 	/* Make UNIX domain socket. */
-	sock = socket(AF_UNIX, SOCK_STREAM, 0);
+	sock = socket(sa.ss_family, SOCK_STREAM, 0);
 	if (sock < 0) {
-		zlog_warn("Can't create zserv unix socket: %s",
+		zlog_warn("Can't create zserv socket: %s",
 			  safe_strerror(errno));
 		zlog_warn(
 			"zebra can't provide full functionality due to above error");
 		return;
 	}
 
-	/* Make server socket. */
-	memset(&serv, 0, sizeof(struct sockaddr_un));
-	serv.sun_family = AF_UNIX;
-	strncpy(serv.sun_path, path, strlen(path));
-#ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
-	len = serv.sun_len = SUN_LEN(&serv);
-#else
-	len = sizeof(serv.sun_family) + strlen(serv.sun_path);
-#endif /* HAVE_STRUCT_SOCKADDR_UN_SUN_LEN */
+	if (sa.ss_family != AF_UNIX) {
+		sockopt_reuseaddr(sock);
+		sockopt_reuseport(sock);
+	} else {
+		struct sockaddr_un *suna = (struct sockaddr_un *)&sa;
+		if (suna->sun_path[0])
+			unlink(suna->sun_path);
+	}
 
-	ret = bind(sock, (struct sockaddr *)&serv, len);
+	if (zserv_privs.change(ZPRIVS_RAISE))
+		zlog_err("Can't raise privileges");
+
+	ret = bind(sock, (struct sockaddr *)&sa, sa_len);
 	if (ret < 0) {
-		zlog_warn("Can't bind to unix socket %s: %s", path,
+		zlog_warn("Can't bind zserv socket on %s: %s", path,
 			  safe_strerror(errno));
 		zlog_warn(
 			"zebra can't provide full functionality due to above error");
 		close(sock);
 		return;
 	}
+	if (zserv_privs.change(ZPRIVS_LOWER))
+		zlog_err("Can't lower privileges");
 
 	ret = listen(sock, 5);
 	if (ret < 0) {
-		zlog_warn("Can't listen to unix socket %s: %s", path,
+		zlog_warn("Can't listen to zserv socket %s: %s", path,
 			  safe_strerror(errno));
 		zlog_warn(
 			"zebra can't provide full functionality due to above error");
@@ -2726,7 +2671,6 @@ static void zebra_serv_un(const char *path)
 
 	zebra_event(ZEBRA_SERV, sock, NULL);
 }
-#endif /* HAVE_TCP_ZEBRA */
 
 
 static void zebra_event(enum event event, int sock, struct zserv *client)
@@ -3164,14 +3108,4 @@ void zebra_init(void)
 
 	/* Route-map */
 	zebra_route_map_init();
-}
-
-/* Make zebra server socket, wiping any existing one (see bug #403). */
-void zebra_zserv_socket_init(char *path)
-{
-#ifdef HAVE_TCP_ZEBRA
-	zebra_serv();
-#else
-	zebra_serv_un(path ? path : ZEBRA_SERV_PATH);
-#endif /* HAVE_TCP_ZEBRA */
 }

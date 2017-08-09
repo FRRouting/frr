@@ -19,6 +19,7 @@
  */
 
 #include <zebra.h>
+#include <sys/un.h>
 
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -45,6 +46,7 @@ char frr_protoname[256] = "NONE";
 char frr_protonameinst[256] = "NONE";
 
 char config_default[256];
+char frr_zclientpath[256];
 static char pidfile_default[256];
 static char vtypath_default[256];
 
@@ -135,6 +137,116 @@ static const struct optspec os_user = {"u:g:",
 				       lo_user};
 
 
+bool frr_zclient_addr(struct sockaddr_storage *sa, socklen_t *sa_len,
+		      const char *path)
+{
+	memset(sa, 0, sizeof(*sa));
+
+	if (!path)
+		path = ZEBRA_SERV_PATH;
+
+	if (!strncmp(path, ZAPI_TCP_PATHNAME, strlen(ZAPI_TCP_PATHNAME))) {
+		/* note: this functionality is disabled at bottom */
+		int af;
+		int port = ZEBRA_PORT;
+		char *err = NULL;
+		struct sockaddr_in *sin = NULL;
+		struct sockaddr_in6 *sin6 = NULL;
+
+		path += strlen(ZAPI_TCP_PATHNAME);
+
+		switch (path[0]) {
+		case '4':
+			path++;
+			af = AF_INET;
+			break;
+		case '6':
+			path++;
+			/* fallthrough */
+		default:
+			af = AF_INET6;
+			break;
+		}
+
+		switch (path[0]) {
+		case '\0':
+			break;
+		case ':':
+			path++;
+			port = strtoul(path, &err, 10);
+			if (*err || !*path)
+				return false;
+			break;
+		default:
+			return false;
+		}
+
+		sa->ss_family = af;
+		switch (af) {
+		case AF_INET:
+			sin = (struct sockaddr_in *)sa;
+			sin->sin_port = htons(port);
+			sin->sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+			*sa_len = sizeof(struct sockaddr_in);
+#ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
+			sin->sin_len = *sa_len;
+#endif
+			break;
+		case AF_INET6:
+			sin6 = (struct sockaddr_in6 *)sa;
+			sin6->sin6_port = htons(port);
+			inet_pton(AF_INET6, "::1", &sin6->sin6_addr);
+			*sa_len = sizeof(struct sockaddr_in6);
+#ifdef SIN6_LEN
+			sin6->sin6_len = *sa_len;
+#endif
+			break;
+		}
+
+#if 1
+		/* force-disable this path, because tcp-zebra is a
+		 * SECURITY ISSUE.  there are no checks at all against
+		 * untrusted users on the local system connecting on TCP
+		 * and injecting bogus routing data into the entire routing
+		 * domain.
+		 *
+		 * The functionality is only left here because it may be
+		 * useful during development, in order to be able to get
+		 * tcpdump or wireshark watching ZAPI as TCP.  If you want
+		 * to do that, flip the #if 1 above to #if 0. */
+		memset(sa, 0, sizeof(*sa));
+		return false;
+#endif
+	} else {
+		/* "sun" is a #define on solaris */
+		struct sockaddr_un *suna = (struct sockaddr_un *)sa;
+
+		suna->sun_family = AF_UNIX;
+		strlcpy(suna->sun_path, path, sizeof(suna->sun_path));
+#ifdef HAVE_STRUCT_SOCKADDR_UN_SUN_LEN
+		*sa_len = suna->sun_len = SUN_LEN(suna);
+#else
+		*sa_len = sizeof(suna->sun_family) + strlen(suna->sun_path);
+#endif /* HAVE_STRUCT_SOCKADDR_UN_SUN_LEN */
+#if 0
+		/* this is left here for future reference;  Linux abstract
+		 * socket namespace support can be enabled by replacing
+		 * above #if 0 with #ifdef GNU_LINUX.
+		 *
+		 * THIS IS A SECURITY ISSUE, the abstract socket namespace
+		 * does not have user/group permission control on sockets.
+		 * we'd need to implement SCM_CREDENTIALS support first to
+		 * check that only proper users can connect to abstract
+		 * sockets. (same problem as tcp-zebra, except there is a
+		 * fix with SCM_CREDENTIALS.  tcp-zebra has no such fix.)
+		 */
+		if (suna->sun_path[0] == '@')
+			suna->sun_path[0] = '\0';
+#endif
+	}
+	return true;
+}
+
 static struct frr_daemon_info *di = NULL;
 
 void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
@@ -164,6 +276,8 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 
 	strlcpy(frr_protoname, di->logname, sizeof(frr_protoname));
 	strlcpy(frr_protonameinst, di->logname, sizeof(frr_protonameinst));
+
+	strlcpy(frr_zclientpath, ZEBRA_SERV_PATH, sizeof(frr_zclientpath));
 }
 
 void frr_opt_add(const char *optstr, const struct option *longopts,
@@ -246,7 +360,7 @@ static int frr_opt(int opt)
 	case 'z':
 		if (di->flags & FRR_NO_ZCLIENT)
 			return 1;
-		zclient_serv_path_set(optarg);
+		strlcpy(frr_zclientpath, optarg, sizeof(frr_zclientpath));
 		break;
 	case 'A':
 		if (di->flags & FRR_NO_TCPVTY)
@@ -398,6 +512,13 @@ struct thread_master *frr_init(void)
 #if defined(HAVE_CUMULUS)
 	zlog_set_level(ZLOG_DEST_SYSLOG, zlog_default->default_lvl);
 #endif
+
+	if (!frr_zclient_addr(&zclient_addr, &zclient_addr_len,
+			      frr_zclientpath)) {
+		fprintf(stderr, "Invalid zserv socket path: %s\n",
+			frr_zclientpath);
+		exit(1);
+	}
 
 	/* don't mkdir these as root... */
 	if (!(di->flags & FRR_NO_PRIVSEP)) {
