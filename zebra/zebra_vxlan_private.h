@@ -114,8 +114,6 @@ struct zebra_mac_t_ {
 		struct in_addr r_vtep_ip;
 	} fwd_info;
 
-	u_int32_t neigh_refcnt;
-
 	/* List of neigh associated with this mac */
 	struct list *neigh_list;
 };

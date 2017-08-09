@@ -384,8 +384,8 @@ static void zvni_print_mac(zebra_mac_t *mac, void *ctxt)
 	} else if (CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO)) {
 		vty_out(vty, " Auto Mac ");
 	}
-	vty_out(vty, " ARP ref: %u\n", mac->neigh_refcnt);
 
+	vty_out(vty, "\n");
 	/* print all the associated neigh */
 	vty_out(vty, " Neighbors:\n");
 	if (!listcount(mac->neigh_list))
@@ -1355,9 +1355,6 @@ static int zvni_gw_macip_add(struct interface *ifp, zebra_vni_t *zvni,
 	memcpy(&n->emac, macaddr, ETH_ALEN);
 	n->ifindex = ifp->ifindex;
 
-	/* We have a neigh associated to mac increment the refcnt*/
-	mac->neigh_refcnt++;
-
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug(
 			"%u:SVI %s(%u) VNI %u, sending GW MAC %s IP %s add to BGP",
@@ -1943,10 +1940,8 @@ static void zvni_install_mac_hash(struct hash_backet *backet, void *ctxt)
 static void zvni_deref_ip2mac(zebra_vni_t *zvni, zebra_mac_t *mac,
 			      int uninstall)
 {
-	if (mac->neigh_refcnt)
-		mac->neigh_refcnt--;
-
-	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO) || mac->neigh_refcnt > 0)
+	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO) ||
+	    !list_isempty(mac->neigh_list))
 		return;
 
 	if (uninstall)
@@ -3132,7 +3127,7 @@ int zebra_vxlan_remote_macip_del(struct zserv *client, int sock, u_short length,
 				zvni_process_neigh_on_remote_mac_del(zvrf, zvni,
 								     mac);
 
-				if (!mac->neigh_refcnt) {
+				if (list_isempty(mac->neigh_list)) {
 					zvni_mac_uninstall(zvni, mac, 0);
 					zvni_mac_del(zvni, mac);
 				} else
@@ -3323,16 +3318,16 @@ int zebra_vxlan_remote_macip_add(struct zserv *client, int sock, u_short length,
 					return -1;
 				}
 
-				/* New neighbor referring to this MAC. */
-				mac->neigh_refcnt++;
 			} else if (memcmp(&n->emac, &macaddr, sizeof(macaddr))
 				   != 0) {
-				/* MAC change, update ref counts for old and new
-				 * MAC. */
+				/* MAC change, update neigh list for old and new
+				 * mac */
 				old_mac = zvni_mac_lookup(zvni, &n->emac);
-				if (old_mac)
+				if (old_mac) {
+					listnode_delete(old_mac->neigh_list, n);
 					zvni_deref_ip2mac(zvni, old_mac, 1);
-				mac->neigh_refcnt++;
+				}
+				listnode_add_sort(mac->neigh_list, n);
 				memcpy(&n->emac, &macaddr, ETH_ALEN);
 			}
 
