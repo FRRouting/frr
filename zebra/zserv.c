@@ -2533,6 +2533,9 @@ static int zebra_client_read(struct thread *thread)
 	case ZEBRA_FEC_UNREGISTER:
 		zserv_fec_unregister(client, sock, length);
 		break;
+	case ZEBRA_ADVERTISE_DEFAULT_GW:
+		zebra_vxlan_advertise_gw_macip(client, sock, length, zvrf);
+		break;
 	case ZEBRA_ADVERTISE_ALL_VNI:
 		zebra_vxlan_advertise_all_vni(client, sock, length, zvrf);
 		break;

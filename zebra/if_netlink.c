@@ -251,6 +251,8 @@ static void netlink_determine_zebra_iftype(char *kind, zebra_iftype_t *zif_type)
 		*zif_type = ZEBRA_IF_VLAN;
 	else if (strcmp(kind, "vxlan") == 0)
 		*zif_type = ZEBRA_IF_VXLAN;
+	else if (strcmp(kind, "macvlan") == 0)
+		*zif_type = ZEBRA_IF_MACVLAN;
 }
 
 // Temporary Assignments to compile on older platforms.
@@ -401,16 +403,19 @@ static int get_iflink_speed(const char *ifname)
 	/* use ioctl to get IP address of an interface */
 	sd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
 	if (sd < 0) {
-		zlog_debug("Failure to read interface %s speed: %d %s", ifname,
-			   errno, safe_strerror(errno));
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("Failure to read interface %s speed: %d %s",
+				   ifname, errno, safe_strerror(errno));
 		return 0;
 	}
 
 	/* Get the current link state for the interface */
 	rc = ioctl(sd, SIOCETHTOOL, (char *)&ifdata);
 	if (rc < 0) {
-		zlog_debug("IOCTL failure to read interface %s speed: %d %s",
-			   ifname, errno, safe_strerror(errno));
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug(
+				"IOCTL failure to read interface %s speed: %d %s",
+				ifname, errno, safe_strerror(errno));
 		ecmd.speed_hi = 0;
 		ecmd.speed = 0;
 	}

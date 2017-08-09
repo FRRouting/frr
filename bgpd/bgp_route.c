@@ -1580,10 +1580,18 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
 	/* Route map & unsuppress-map apply. */
 	if (ROUTE_MAP_OUT_NAME(filter) || (ri->extra && ri->extra->suppress)) {
 		struct bgp_info info;
+		struct bgp_info_extra dummy_info_extra;
 		struct attr dummy_attr;
 
 		info.peer = peer;
 		info.attr = attr;
+
+		if (ri->extra) {
+			memcpy(&dummy_info_extra, ri->extra,
+			       sizeof(struct bgp_info_extra));
+			info.extra = &dummy_info_extra;
+		}
+
 		/* don't confuse inbound and outbound setting */
 		RESET_FLAG(attr->rmap_change_flags);
 
@@ -6238,6 +6246,9 @@ static void route_vty_out_route(struct prefix *p, struct vty *vty)
 		} else
 			len += vty_out(vty, "/%d", p->prefixlen);
 	} else if (p->family == AF_ETHERNET) {
+		prefix2str(p, buf, PREFIX_STRLEN);
+		len = vty_out(vty, "%s", buf);
+	} else if (p->family == AF_EVPN) {
 #if defined(HAVE_CUMULUS)
 		len = vty_out(vty, "%s",
 			      bgp_evpn_route2str((struct prefix_evpn *)p, buf,
@@ -6505,15 +6516,14 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 						len = vty_out(
 							vty, "%s",
 							binfo->peer->conf_if);
-						len =
-							7 - len; /* len of IPv6
-								    addr + max
-								    len of def
-								    ifname */
+						len = 16 - len; /* len of IPv6
+								   addr + max
+								   len of def
+								   ifname */
 
 						if (len < 1)
 							vty_out(vty, "\n%*s",
-								45, " ");
+								36, " ");
 						else
 							vty_out(vty, "%*s", len,
 								" ");
@@ -6801,7 +6811,7 @@ void route_vty_out_tag(struct vty *vty, struct prefix *p,
 	if (attr) {
 		if (((p->family == AF_INET)
 		     && ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)))
-		    || (safi == SAFI_EVPN && p->family == AF_ETHERNET
+		    || (safi == SAFI_EVPN
 			&& !BGP_ATTR_NEXTHOP_AFI_IP6(attr))
 		    || (!BGP_ATTR_NEXTHOP_AFI_IP6(attr))) {
 			if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
@@ -6826,7 +6836,7 @@ void route_vty_out_tag(struct vty *vty, struct prefix *p,
 			}
 		} else if (((p->family == AF_INET6)
 			    && ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)))
-			   || (safi == SAFI_EVPN && p->family == AF_ETHERNET
+			   || (safi == SAFI_EVPN
 			       && BGP_ATTR_NEXTHOP_AFI_IP6(attr))
 			   || (BGP_ATTR_NEXTHOP_AFI_IP6(attr))) {
 			char buf_a[BUFSIZ];
@@ -7326,7 +7336,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 
 		/* Line2 display Next-hop, Neighbor, Router-id */
 		/* Display the nexthop */
-		if ((p->family == AF_INET || p->family == AF_ETHERNET)
+		if ((p->family == AF_INET || p->family == AF_ETHERNET ||
+		     p->family == AF_EVPN)
 		    && (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
 			|| safi == SAFI_EVPN
 			|| !BGP_ATTR_NEXTHOP_AFI_IP6(attr))) {
@@ -10232,6 +10243,10 @@ static int bgp_show_neighbor_route(struct vty *vty, struct peer *peer,
 				   afi_t afi, safi_t safi,
 				   enum bgp_show_type type, u_char use_json)
 {
+	/* labeled-unicast routes live in the unicast table */
+	if (safi == SAFI_LABELED_UNICAST)
+		safi = SAFI_UNICAST;
+
 	if (!peer || !peer->afc[afi][safi]) {
 		if (use_json) {
 			json_object *json_no = NULL;

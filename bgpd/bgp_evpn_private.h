@@ -58,6 +58,9 @@ struct bgpevpn {
 #define VNI_FLAG_IMPRT_CFGD        0x8  /* Import RT is user configured */
 #define VNI_FLAG_EXPRT_CFGD        0x10 /* Export RT is user configured */
 
+	/* Flag to indicate if we are advertising the g/w mac ip for this VNI*/
+	u_int8_t advertise_gw_macip;
+
 	/* Id for deriving the RD automatically for this VNI */
 	u_int16_t rd_id;
 
@@ -171,7 +174,7 @@ static inline void build_evpn_type2_prefix(struct prefix_evpn *p,
 					   struct ipaddr *ip)
 {
 	memset(p, 0, sizeof(struct prefix_evpn));
-	p->family = AF_ETHERNET;
+	p->family = AF_EVPN;
 	p->prefixlen = EVPN_TYPE_2_ROUTE_PREFIXLEN;
 	p->prefix.route_type = BGP_EVPN_MAC_IP_ROUTE;
 	memcpy(&p->prefix.mac.octet, mac->octet, ETH_ALEN);
@@ -184,7 +187,7 @@ static inline void build_evpn_type3_prefix(struct prefix_evpn *p,
 					   struct in_addr originator_ip)
 {
 	memset(p, 0, sizeof(struct prefix_evpn));
-	p->family = AF_ETHERNET;
+	p->family = AF_EVPN;
 	p->prefixlen = EVPN_TYPE_3_ROUTE_PREFIXLEN;
 	p->prefix.route_type = BGP_EVPN_IMET_ROUTE;
 	p->prefix.ip.ipa_type = IPADDR_V4;

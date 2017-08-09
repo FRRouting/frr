@@ -123,6 +123,7 @@ enum node_type {
 	ACCESS_NODE,		/* Access list node. */
 	PREFIX_NODE,		/* Prefix list node. */
 	ACCESS_IPV6_NODE,       /* Access list node. */
+	ACCESS_MAC_NODE,	/* MAC access list node*/
 	PREFIX_IPV6_NODE,       /* Prefix list node. */
 	AS_LIST_NODE,		/* AS list node. */
 	COMMUNITY_LIST_NODE,    /* Community list node. */

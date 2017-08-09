@@ -224,6 +224,10 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				 strlen("ipv6 access-list"))
 			 == 0)
 			config = config_get(ACCESS_IPV6_NODE, line);
+		else if (strncmp(line, "mac access-list",
+				 strlen("mac access-list"))
+			 == 0)
+			config = config_get(ACCESS_MAC_NODE, line);
 		else if (strncmp(line, "ip prefix-list",
 				 strlen("ip prefix-list"))
 			 == 0)
@@ -302,9 +306,10 @@ void vtysh_config_parse_line(void *arg, const char *line)
 #define NO_DELIMITER(I)                                                        \
 	((I) == ACCESS_NODE || (I) == PREFIX_NODE || (I) == IP_NODE            \
 	 || (I) == AS_LIST_NODE || (I) == COMMUNITY_LIST_NODE                  \
-	 || (I) == ACCESS_IPV6_NODE || (I) == PREFIX_IPV6_NODE                 \
-	 || (I) == SERVICE_NODE || (I) == FORWARDING_NODE || (I) == DEBUG_NODE \
-	 || (I) == AAA_NODE || (I) == VRF_DEBUG_NODE || (I) == MPLS_NODE)
+	 || (I) == ACCESS_IPV6_NODE || (I) == ACCESS_MAC_NODE                  \
+	 || (I) == PREFIX_IPV6_NODE || (I) == SERVICE_NODE                     \
+	 || (I) == FORWARDING_NODE || (I) == DEBUG_NODE || (I) == AAA_NODE     \
+	 || (I) == VRF_DEBUG_NODE || (I) == MPLS_NODE)
 
 /* Display configuration to file pointer. */
 void vtysh_config_dump(FILE *fp)

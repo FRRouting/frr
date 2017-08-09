@@ -116,7 +116,18 @@ struct evpn_addr {
 #endif
 #endif
 
-/* IPv4 and IPv6 unified prefix structure. */
+/* The 'family' in the prefix structure is internal to FRR and need not
+ * map to standard OS AF_ definitions except where needed for interacting
+ * with the kernel. However, AF_ definitions are currently in use and
+ * prevalent across the code. Define a new FRR-specific AF for EVPN to
+ * distinguish between 'ethernet' (MAC-only) and 'evpn' prefixes and
+ * ensure it does not conflict with any OS AF_ definition.
+ */
+#if !defined(AF_EVPN)
+#define AF_EVPN (AF_MAX + 1)
+#endif
+
+/* FRR generic prefix structure. */
 struct prefix {
 	u_char family;
 	u_char prefixlen;
@@ -131,7 +142,7 @@ struct prefix {
 		struct ethaddr prefix_eth; /* AF_ETHERNET */
 		u_char val[8];
 		uintptr_t ptr;
-		struct evpn_addr prefix_evpn;
+		struct evpn_addr prefix_evpn; /* AF_EVPN */
 	} u __attribute__((aligned(8)));
 };
 
@@ -356,6 +367,7 @@ static inline int ipv6_martian(struct in6_addr *addr)
 }
 
 extern int all_digit(const char *);
+extern int macstr2prefix_evpn(const char *str, struct prefix_evpn *p);
 
 /* NOTE: This routine expects the address argument in network byte order. */
 static inline int ipv4_martian(struct in_addr *addr)

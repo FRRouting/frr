@@ -63,6 +63,9 @@ struct zebra_vni_t_ {
 	/* VNI - key */
 	vni_t vni;
 
+	/* Flag for advertising gw macip */
+	u_int8_t advertise_gw_macip;
+
 	/* Corresponding VxLAN interface. */
 	struct interface *vxlan_if;
 
@@ -112,6 +115,9 @@ struct zebra_mac_t_ {
 	} fwd_info;
 
 	u_int32_t neigh_refcnt;
+
+	/* List of neigh associated with this mac */
+	struct list *neigh_list;
 };
 
 /*
@@ -132,9 +138,20 @@ struct mac_walk_ctx {
 
 	struct in_addr r_vtep_ip; /* To walk MACs from specific VTEP */
 
-	struct vty *vty; /* Used by VTY handlers */
-	u_int32_t count; /* Used by VTY handlers */
+	struct vty *vty;	  /* Used by VTY handlers */
+	u_int32_t count;	  /* Used by VTY handlers */
+	struct json_object *json; /* Used for JSON Output */
 };
+
+enum zebra_neigh_state { ZEBRA_NEIGH_INACTIVE = 0, ZEBRA_NEIGH_ACTIVE = 1 };
+
+#define IS_ZEBRA_NEIGH_ACTIVE(n) n->state == ZEBRA_NEIGH_ACTIVE
+
+#define IS_ZEBRA_NEIGH_INACTIVE(n) n->state == ZEBRA_NEIGH_INACTIVE
+
+#define ZEBRA_NEIGH_SET_ACTIVE(n) n->state = ZEBRA_NEIGH_ACTIVE
+
+#define ZEBRA_NEIGH_SET_INACTIVE(n) n->state = ZEBRA_NEIGH_INACTIVE
 
 /*
  * Neighbor hash table.
@@ -158,8 +175,10 @@ struct zebra_neigh_t_ {
 	ifindex_t ifindex;
 
 	u_int32_t flags;
-#define ZEBRA_NEIGH_LOCAL   0x01
-#define ZEBRA_NEIGH_REMOTE  0x02
+#define ZEBRA_NEIGH_LOCAL     0x01
+#define ZEBRA_NEIGH_REMOTE    0x02
+
+	enum zebra_neigh_state state;
 
 	/* Remote VTEP IP - applicable only for remote neighbors. */
 	struct in_addr r_vtep_ip;
@@ -183,9 +202,10 @@ struct neigh_walk_ctx {
 
 	struct in_addr r_vtep_ip; /* To walk neighbors from specific VTEP */
 
-	struct vty *vty;   /* Used by VTY handlers */
-	u_int32_t count;   /* Used by VTY handlers */
-	u_char addr_width; /* Used by VTY handlers */
+	struct vty *vty;	  /* Used by VTY handlers */
+	u_int32_t count;	  /* Used by VTY handlers */
+	u_char addr_width;	/* Used by VTY handlers */
+	struct json_object *json; /* Used for JSON Output */
 };
 
 #endif /* _ZEBRA_VXLAN_PRIVATE_H */

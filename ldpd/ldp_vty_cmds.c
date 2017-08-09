@@ -21,6 +21,8 @@
 
 #include "command.h"
 #include "vty.h"
+#include "json.h"
+
 #include "ldpd/ldpd.h"
 #include "ldpd/ldp_vty.h"
 #include "ldpd/ldp_vty_cmds_clippy.c"
@@ -586,7 +588,7 @@ DEFPY  (ldp_show_mpls_ldp_binding,
 	"IPv6 Address Family\n"
 	"Label Information Base (LIB) information\n"
 	"Show detailed information\n"
-	"JavaScript Object Notation\n")
+	JSON_STR)
 {
 	return (ldp_vty_show_binding(vty, af, detail, json));
 }
@@ -601,7 +603,7 @@ DEFPY  (ldp_show_mpls_ldp_discovery,
 	"IPv6 Address Family\n"
 	"Discovery Hello Information\n"
 	"Show detailed information\n"
-	"JavaScript Object Notation\n")
+	JSON_STR)
 {
 	return (ldp_vty_show_discovery(vty, af, detail, json));
 }
@@ -615,7 +617,7 @@ DEFPY  (ldp_show_mpls_ldp_interface,
 	"IPv4 Address Family\n"
 	"IPv6 Address Family\n"
 	"interface information\n"
-	"JavaScript Object Notation\n")
+	JSON_STR)
 {
 	return (ldp_vty_show_interface(vty, af, json));
 }
@@ -627,7 +629,7 @@ DEFPY  (ldp_show_mpls_ldp_capabilities,
 	"MPLS information\n"
 	"Label Distribution Protocol\n"
 	"Display LDP Capabilities information\n"
-	"JavaScript Object Notation\n")
+	JSON_STR)
 {
 	return (ldp_vty_show_capabilities(vty, json));
 }
@@ -640,7 +642,7 @@ DEFPY  (ldp_show_mpls_ldp_neighbor,
 	"Label Distribution Protocol\n"
 	"Neighbor information\n"
 	"Show detailed information\n"
-	"JavaScript Object Notation\n")
+	JSON_STR)
 {
 	return (ldp_vty_show_neighbor(vty, 0, detail, json));
 }
@@ -653,7 +655,7 @@ DEFPY  (ldp_show_mpls_ldp_neighbor_capabilities,
 	"Label Distribution Protocol\n"
 	"Neighbor information\n"
 	"Display neighbor capability information\n"
-	"JavaScript Object Notation\n")
+	JSON_STR)
 {
 	return (ldp_vty_show_neighbor(vty, 1, NULL, json));
 }
@@ -665,7 +667,7 @@ DEFPY  (ldp_show_l2vpn_atom_binding,
 	"Show information about Layer2 VPN\n"
 	"Show Any Transport over MPLS information\n"
 	"Show AToM label binding information\n"
-	"JavaScript Object Notation\n")
+	JSON_STR)
 {
 	return (ldp_vty_show_atom_binding(vty, json));
 }
@@ -677,7 +679,7 @@ DEFPY  (ldp_show_l2vpn_atom_vc,
 	"Show information about Layer2 VPN\n"
 	"Show Any Transport over MPLS information\n"
 	"Show AToM virtual circuit information\n"
-	"JavaScript Object Notation\n")
+	JSON_STR)
 {
 	return (ldp_vty_show_atom_vc(vty, json));
 }

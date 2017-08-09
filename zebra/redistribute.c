@@ -41,6 +41,7 @@
 #include "zebra/debug.h"
 #include "zebra/router-id.h"
 #include "zebra/zebra_memory.h"
+#include "zebra/zebra_vxlan.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -402,6 +403,8 @@ void zebra_interface_address_add_update(struct interface *ifp,
 		zlog_warn(
 			"WARNING: advertising address to clients that is not yet usable.");
 
+	zebra_vxlan_add_del_gw_macip(ifp, ifc->address, 1);
+
 	router_id_add_address(ifc);
 
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client))
@@ -427,6 +430,8 @@ void zebra_interface_address_delete_update(struct interface *ifp,
 		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADDRESS_DELETE %s on %s",
 			   prefix2str(p, buf, sizeof(buf)), ifc->ifp->name);
 	}
+
+	zebra_vxlan_add_del_gw_macip(ifp, ifc->address, 0);
 
 	router_id_del_address(ifc);
 

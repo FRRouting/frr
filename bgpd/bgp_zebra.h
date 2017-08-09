@@ -21,6 +21,8 @@
 #ifndef _QUAGGA_BGP_ZEBRA_H
 #define _QUAGGA_BGP_ZEBRA_H
 
+#include "vxlan.h"
+
 extern void bgp_zebra_init(struct thread_master *master);
 extern void bgp_zebra_destroy(void);
 extern int bgp_if_update_all(void);
@@ -57,6 +59,7 @@ extern struct interface *if_lookup_by_ipv6(struct in6_addr *, ifindex_t,
 extern struct interface *if_lookup_by_ipv6_exact(struct in6_addr *, ifindex_t,
 						 vrf_id_t);
 
+extern int bgp_zebra_advertise_gw_macip(struct bgp *, int, vni_t);
 extern int bgp_zebra_advertise_all_vni(struct bgp *, int);
 
 extern int bgp_zebra_num_connects(void);
