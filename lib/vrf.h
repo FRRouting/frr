@@ -38,11 +38,7 @@
 
 /* Pending: May need to refine this. */
 #ifndef IFLA_VRF_MAX
-enum {
-        IFLA_VRF_UNSPEC,
-        IFLA_VRF_TABLE,
-        __IFLA_VRF_MAX
-};
+enum { IFLA_VRF_UNSPEC, IFLA_VRF_TABLE, __IFLA_VRF_MAX };
 
 #define IFLA_VRF_MAX (__IFLA_VRF_MAX - 1)
 #endif
@@ -66,32 +62,31 @@ enum {
 #define VRF_ENABLE_HOOK     2   /* a VRF is ready to use */
 #define VRF_DISABLE_HOOK    3   /* a VRF is to be unusable */
 
-struct vrf
-{
-  RB_ENTRY(vrf) id_entry, name_entry;
+struct vrf {
+	RB_ENTRY(vrf) id_entry, name_entry;
 
-  /* Identifier, same as the vector index */
-  vrf_id_t vrf_id;
+	/* Identifier, same as the vector index */
+	vrf_id_t vrf_id;
 
-  /* Name */
-  char name[VRF_NAMSIZ + 1];
+	/* Name */
+	char name[VRF_NAMSIZ + 1];
 
-  /* Zebra internal VRF status */
-  u_char status;
+	/* Zebra internal VRF status */
+	u_char status;
 #define VRF_ACTIVE     (1 << 0)
 
-  /* Master list of interfaces belonging to this VRF */
-  struct list *iflist;
+	/* Master list of interfaces belonging to this VRF */
+	struct list *iflist;
 
-  /* User data */
-  void *info;
+	/* User data */
+	void *info;
 
-  QOBJ_FIELDS
+	QOBJ_FIELDS
 };
-RB_HEAD (vrf_id_head, vrf);
-RB_PROTOTYPE (vrf_id_head, vrf, id_entry, vrf_id_compare)
-RB_HEAD (vrf_name_head, vrf);
-RB_PROTOTYPE (vrf_name_head, vrf, name_entry, vrf_name_compare)
+RB_HEAD(vrf_id_head, vrf);
+RB_PROTOTYPE(vrf_id_head, vrf, id_entry, vrf_id_compare)
+RB_HEAD(vrf_name_head, vrf);
+RB_PROTOTYPE(vrf_name_head, vrf, name_entry, vrf_name_compare)
 DECLARE_QOBJ_TYPE(vrf)
 
 
@@ -106,85 +101,84 @@ extern struct vrf_name_head vrfs_by_name;
  *          - param 2: the address of the user data pointer (the user data
  *                     can be stored in or freed from there)
  */
-extern void vrf_add_hook (int, int (*)(struct vrf *));
+extern void vrf_add_hook(int, int (*)(struct vrf *));
 
-extern struct vrf *vrf_lookup_by_id (vrf_id_t);
-extern struct vrf *vrf_lookup_by_name (const char *);
-extern struct vrf *vrf_get (vrf_id_t, const char *);
-extern void vrf_delete (struct vrf *);
-extern int vrf_enable (struct vrf *);
-extern vrf_id_t vrf_name_to_id (const char *);
+extern struct vrf *vrf_lookup_by_id(vrf_id_t);
+extern struct vrf *vrf_lookup_by_name(const char *);
+extern struct vrf *vrf_get(vrf_id_t, const char *);
+extern void vrf_delete(struct vrf *);
+extern int vrf_enable(struct vrf *);
+extern vrf_id_t vrf_name_to_id(const char *);
 
-#define VRF_GET_ID(V,NAME)      \
-  do {                          \
-      struct vrf *vrf; \
-      if (!(vrf = vrf_lookup_by_name(NAME))) \
-        {                                                           \
-          vty_out (vty, "%% VRF %s not found%s", NAME, VTY_NEWLINE);\
-          return CMD_WARNING;                                       \
-        }                                               \
-      if (vrf->vrf_id == VRF_UNKNOWN) \
-        { \
-          vty_out (vty, "%% VRF %s not active%s", NAME, VTY_NEWLINE);\
-          return CMD_WARNING;                                       \
-        } \
-      (V) = vrf->vrf_id; \
-  } while (0)
+#define VRF_GET_ID(V, NAME)                                                    \
+	do {                                                                   \
+		struct vrf *vrf;                                               \
+		if (!(vrf = vrf_lookup_by_name(NAME))) {                       \
+			vty_out(vty, "%% VRF %s not found%s", NAME,            \
+				VTY_NEWLINE);                                  \
+			return CMD_WARNING;                                    \
+		}                                                              \
+		if (vrf->vrf_id == VRF_UNKNOWN) {                              \
+			vty_out(vty, "%% VRF %s not active%s", NAME,           \
+				VTY_NEWLINE);                                  \
+			return CMD_WARNING;                                    \
+		}                                                              \
+		(V) = vrf->vrf_id;                                             \
+	} while (0)
 
 /*
  * Utilities to obtain the user data
  */
 
 /* Get the data pointer of the specified VRF. If not found, create one. */
-extern void *vrf_info_get (vrf_id_t);
+extern void *vrf_info_get(vrf_id_t);
 /* Look up the data pointer of the specified VRF. */
-extern void *vrf_info_lookup (vrf_id_t);
+extern void *vrf_info_lookup(vrf_id_t);
 
 /*
  * Utilities to obtain the interface list
  */
 
 /* Look up the interface list of the specified VRF. */
-extern struct list *vrf_iflist (vrf_id_t);
+extern struct list *vrf_iflist(vrf_id_t);
 /* Get the interface list of the specified VRF. Create one if not find. */
-extern struct list *vrf_iflist_get (vrf_id_t);
+extern struct list *vrf_iflist_get(vrf_id_t);
 /* Create the interface list for the specified VRF, if needed. */
-extern void vrf_iflist_create (vrf_id_t vrf_id);
+extern void vrf_iflist_create(vrf_id_t vrf_id);
 /* Free the interface list of the specified VRF. */
-extern void vrf_iflist_terminate (vrf_id_t vrf_id);
+extern void vrf_iflist_terminate(vrf_id_t vrf_id);
 
 /*
  * VRF bit-map: maintaining flags, one bit per VRF ID
  */
 
-typedef void *              vrf_bitmap_t;
+typedef void *vrf_bitmap_t;
 #define VRF_BITMAP_NULL     NULL
 
-extern vrf_bitmap_t vrf_bitmap_init (void);
-extern void vrf_bitmap_free (vrf_bitmap_t);
-extern void vrf_bitmap_set (vrf_bitmap_t, vrf_id_t);
-extern void vrf_bitmap_unset (vrf_bitmap_t, vrf_id_t);
-extern int vrf_bitmap_check (vrf_bitmap_t, vrf_id_t);
+extern vrf_bitmap_t vrf_bitmap_init(void);
+extern void vrf_bitmap_free(vrf_bitmap_t);
+extern void vrf_bitmap_set(vrf_bitmap_t, vrf_id_t);
+extern void vrf_bitmap_unset(vrf_bitmap_t, vrf_id_t);
+extern int vrf_bitmap_check(vrf_bitmap_t, vrf_id_t);
 
 /*
  * VRF initializer/destructor
  */
 /* Please add hooks before calling vrf_init(). */
-extern void vrf_init (void);
-extern void vrf_terminate (void);
+extern void vrf_init(void);
+extern void vrf_terminate(void);
 
-extern void vrf_cmd_init (int (*writefunc)(struct vty *vty));
+extern void vrf_cmd_init(int (*writefunc)(struct vty *vty));
 
 /*
  * VRF utilities
  */
 
 /* Create a socket serving for the given VRF */
-extern int vrf_socket (int, int, int, vrf_id_t);
+extern int vrf_socket(int, int, int, vrf_id_t);
 
 /*
  * VRF Debugging
  */
-extern void vrf_install_commands (void);
+extern void vrf_install_commands(void);
 #endif /*_ZEBRA_VRF_H*/
-

@@ -11,7 +11,7 @@
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
   General Public License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with this program; see the file COPYING; if not, write to the
   Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
@@ -23,6 +23,6 @@
 
 #define PIMD_VERSION_STR "0.166"
 
-const char * const PIMD_VERSION;
+const char *const PIMD_VERSION;
 
 #endif /* PIM_VERSION_H */

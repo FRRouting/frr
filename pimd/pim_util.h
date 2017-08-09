@@ -11,7 +11,7 @@
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
   General Public License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with this program; see the file COPYING; if not, write to the
   Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
@@ -32,6 +32,6 @@ uint16_t igmp_msg_decode8to16(uint8_t code);
 
 void pim_pkt_dump(const char *label, const uint8_t *buf, int size);
 
-int pim_is_group_224_0_0_0_24 (struct in_addr group_addr);
-int pim_is_group_224_4 (struct in_addr group_addr);
+int pim_is_group_224_0_0_0_24(struct in_addr group_addr);
+int pim_is_group_224_4(struct in_addr group_addr);
 #endif /* PIM_UTIL_H */

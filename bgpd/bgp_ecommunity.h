@@ -53,50 +53,53 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define ECOMMUNITY_FLAG_NON_TRANSITIVE      0x40  
 
 /* Extended Communities attribute.  */
-struct ecommunity
-{
-  /* Reference counter.  */
-  unsigned long refcnt;
+struct ecommunity {
+	/* Reference counter.  */
+	unsigned long refcnt;
 
-  /* Size of Extended Communities attribute.  */
-  int size;
+	/* Size of Extended Communities attribute.  */
+	int size;
 
-  /* Extended Communities value.  */
-  u_int8_t *val;
+	/* Extended Communities value.  */
+	u_int8_t *val;
 
-  /* Human readable format string.  */
-  char *str;
+	/* Human readable format string.  */
+	char *str;
 };
 
 /* Extended community value is eight octet.  */
-struct ecommunity_val
-{
-  char val[ECOMMUNITY_SIZE];
+struct ecommunity_val {
+	char val[ECOMMUNITY_SIZE];
 };
 
 #define ecom_length(X)    ((X)->size * ECOMMUNITY_SIZE)
 
-extern void ecommunity_init (void);
-extern void ecommunity_finish (void);
-extern void ecommunity_free (struct ecommunity **);
-extern struct ecommunity *ecommunity_parse (u_int8_t *, u_short);
-extern struct ecommunity *ecommunity_dup (struct ecommunity *);
-extern struct ecommunity *ecommunity_merge (struct ecommunity *, struct ecommunity *);
-extern struct ecommunity *ecommunity_uniq_sort (struct ecommunity *);
-extern struct ecommunity *ecommunity_intern (struct ecommunity *);
-extern int ecommunity_cmp (const void *, const void *);
-extern void ecommunity_unintern (struct ecommunity **);
-extern unsigned int ecommunity_hash_make (void *);
-extern struct ecommunity *ecommunity_str2com (const char *, int, int);
-extern char *ecommunity_ecom2str (struct ecommunity *, int, int);
-extern int ecommunity_match (const struct ecommunity *, const struct ecommunity *);
-extern char *ecommunity_str (struct ecommunity *);
-extern struct ecommunity_val *ecommunity_lookup (const struct ecommunity *, uint8_t, uint8_t );
-extern int ecommunity_add_val (struct ecommunity *ecom, struct ecommunity_val *eval);
+extern void ecommunity_init(void);
+extern void ecommunity_finish(void);
+extern void ecommunity_free(struct ecommunity **);
+extern struct ecommunity *ecommunity_parse(u_int8_t *, u_short);
+extern struct ecommunity *ecommunity_dup(struct ecommunity *);
+extern struct ecommunity *ecommunity_merge(struct ecommunity *,
+					   struct ecommunity *);
+extern struct ecommunity *ecommunity_uniq_sort(struct ecommunity *);
+extern struct ecommunity *ecommunity_intern(struct ecommunity *);
+extern int ecommunity_cmp(const void *, const void *);
+extern void ecommunity_unintern(struct ecommunity **);
+extern unsigned int ecommunity_hash_make(void *);
+extern struct ecommunity *ecommunity_str2com(const char *, int, int);
+extern char *ecommunity_ecom2str(struct ecommunity *, int, int);
+extern int ecommunity_match(const struct ecommunity *,
+			    const struct ecommunity *);
+extern char *ecommunity_str(struct ecommunity *);
+extern struct ecommunity_val *ecommunity_lookup(const struct ecommunity *,
+						uint8_t, uint8_t);
+extern int ecommunity_add_val(struct ecommunity *ecom,
+			      struct ecommunity_val *eval);
 
 /* for vpn */
-extern struct ecommunity *ecommunity_new (void);
-extern int ecommunity_add_val (struct ecommunity *, struct ecommunity_val *);
-extern int ecommunity_strip (struct ecommunity *ecom, uint8_t type, uint8_t subtype);
-extern struct ecommunity *ecommunity_new (void);
+extern struct ecommunity *ecommunity_new(void);
+extern int ecommunity_add_val(struct ecommunity *, struct ecommunity_val *);
+extern int ecommunity_strip(struct ecommunity *ecom, uint8_t type,
+			    uint8_t subtype);
+extern struct ecommunity *ecommunity_new(void);
 #endif /* _QUAGGA_BGP_ECOMMUNITY_H */

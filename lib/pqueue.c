@@ -23,7 +23,7 @@ Boston, MA 02111-1307, USA.  */
 #include "memory.h"
 #include "pqueue.h"
 
-DEFINE_MTYPE_STATIC(LIB, PQUEUE,      "Priority queue")
+DEFINE_MTYPE_STATIC(LIB, PQUEUE, "Priority queue")
 DEFINE_MTYPE_STATIC(LIB, PQUEUE_DATA, "Priority queue data")
 
 /* priority queue using heap sort */
@@ -45,146 +45,136 @@ DEFINE_MTYPE_STATIC(LIB, PQUEUE_DATA, "Priority queue data")
 #define RIGHT_OF(x) (2 * x + 2)
 #define HAVE_CHILD(x,q) (x < (q)->size / 2)
 
-void
-trickle_up (int index, struct pqueue *queue)
+void trickle_up(int index, struct pqueue *queue)
 {
-  void *tmp;
+	void *tmp;
 
-  /* Save current node as tmp node.  */
-  tmp = queue->array[index];
+	/* Save current node as tmp node.  */
+	tmp = queue->array[index];
 
-  /* Continue until the node reaches top or the place where the parent
-     node should be upper than the tmp node.  */
-  while (index > 0 &&
-         (*queue->cmp) (tmp, queue->array[PARENT_OF (index)]) < 0)
-    {
-      /* actually trickle up */
-      queue->array[index] = queue->array[PARENT_OF (index)];
-      if (queue->update != NULL)
-	(*queue->update) (queue->array[index], index);
-      index = PARENT_OF (index);
-    }
+	/* Continue until the node reaches top or the place where the parent
+	   node should be upper than the tmp node.  */
+	while (index > 0
+	       && (*queue->cmp)(tmp, queue->array[PARENT_OF(index)]) < 0) {
+		/* actually trickle up */
+		queue->array[index] = queue->array[PARENT_OF(index)];
+		if (queue->update != NULL)
+			(*queue->update)(queue->array[index], index);
+		index = PARENT_OF(index);
+	}
 
-  /* Restore the tmp node to appropriate place.  */
-  queue->array[index] = tmp;
-  if (queue->update != NULL)
-    (*queue->update) (tmp, index);
+	/* Restore the tmp node to appropriate place.  */
+	queue->array[index] = tmp;
+	if (queue->update != NULL)
+		(*queue->update)(tmp, index);
 }
 
-void
-trickle_down (int index, struct pqueue *queue)
+void trickle_down(int index, struct pqueue *queue)
 {
-  void *tmp;
-  int which;
+	void *tmp;
+	int which;
 
-  /* Save current node as tmp node.  */
-  tmp = queue->array[index];
+	/* Save current node as tmp node.  */
+	tmp = queue->array[index];
 
-  /* Continue until the node have at least one (left) child.  */
-  while (HAVE_CHILD (index, queue))
-    {
-      /* If right child exists, and if the right child is more proper
-         to be moved upper.  */
-      if (RIGHT_OF (index) < queue->size &&
-          (*queue->cmp) (queue->array[LEFT_OF (index)],
-                         queue->array[RIGHT_OF (index)]) > 0)
-        which = RIGHT_OF (index);
-      else
-        which = LEFT_OF (index);
+	/* Continue until the node have at least one (left) child.  */
+	while (HAVE_CHILD(index, queue)) {
+		/* If right child exists, and if the right child is more proper
+		   to be moved upper.  */
+		if (RIGHT_OF(index) < queue->size
+		    && (*queue->cmp)(queue->array[LEFT_OF(index)],
+				     queue->array[RIGHT_OF(index)])
+			       > 0)
+			which = RIGHT_OF(index);
+		else
+			which = LEFT_OF(index);
 
-      /* If the tmp node should be upper than the child, break.  */
-      if ((*queue->cmp) (queue->array[which], tmp) > 0)
-        break;
+		/* If the tmp node should be upper than the child, break.  */
+		if ((*queue->cmp)(queue->array[which], tmp) > 0)
+			break;
 
-      /* Actually trickle down the tmp node.  */
-      queue->array[index] = queue->array[which];
-       if (queue->update != NULL)
-	 (*queue->update) (queue->array[index], index);
-      index = which;
-    }
+		/* Actually trickle down the tmp node.  */
+		queue->array[index] = queue->array[which];
+		if (queue->update != NULL)
+			(*queue->update)(queue->array[index], index);
+		index = which;
+	}
 
-  /* Restore the tmp node to appropriate place.  */
-  queue->array[index] = tmp;
-  if (queue->update != NULL)
-    (*queue->update) (tmp, index);
+	/* Restore the tmp node to appropriate place.  */
+	queue->array[index] = tmp;
+	if (queue->update != NULL)
+		(*queue->update)(tmp, index);
 }
 
-struct pqueue *
-pqueue_create (void)
+struct pqueue *pqueue_create(void)
 {
-  struct pqueue *queue;
+	struct pqueue *queue;
 
-  queue = XCALLOC (MTYPE_PQUEUE, sizeof (struct pqueue));
+	queue = XCALLOC(MTYPE_PQUEUE, sizeof(struct pqueue));
 
-  queue->array = XCALLOC (MTYPE_PQUEUE_DATA, 
-                          DATA_SIZE * PQUEUE_INIT_ARRAYSIZE);
-  queue->array_size = PQUEUE_INIT_ARRAYSIZE;
+	queue->array =
+		XCALLOC(MTYPE_PQUEUE_DATA, DATA_SIZE * PQUEUE_INIT_ARRAYSIZE);
+	queue->array_size = PQUEUE_INIT_ARRAYSIZE;
 
-  /* By default we want nothing to happen when a node changes. */
-  queue->update = NULL;
-  return queue;
+	/* By default we want nothing to happen when a node changes. */
+	queue->update = NULL;
+	return queue;
 }
 
-void
-pqueue_delete (struct pqueue *queue)
+void pqueue_delete(struct pqueue *queue)
 {
-  XFREE (MTYPE_PQUEUE_DATA, queue->array);
-  XFREE (MTYPE_PQUEUE, queue);
+	XFREE(MTYPE_PQUEUE_DATA, queue->array);
+	XFREE(MTYPE_PQUEUE, queue);
 }
 
-static int
-pqueue_expand (struct pqueue *queue)
+static int pqueue_expand(struct pqueue *queue)
 {
-  void **newarray;
+	void **newarray;
 
-  newarray = XCALLOC (MTYPE_PQUEUE_DATA, queue->array_size * DATA_SIZE * 2);
-  if (newarray == NULL)
-    return 0;
+	newarray =
+		XCALLOC(MTYPE_PQUEUE_DATA, queue->array_size * DATA_SIZE * 2);
+	if (newarray == NULL)
+		return 0;
 
-  memcpy (newarray, queue->array, queue->array_size * DATA_SIZE);
+	memcpy(newarray, queue->array, queue->array_size * DATA_SIZE);
 
-  XFREE (MTYPE_PQUEUE_DATA, queue->array);
-  queue->array = newarray;
-  queue->array_size *= 2;
+	XFREE(MTYPE_PQUEUE_DATA, queue->array);
+	queue->array = newarray;
+	queue->array_size *= 2;
 
-  return 1;
+	return 1;
 }
 
-void
-pqueue_enqueue (void *data, struct pqueue *queue)
+void pqueue_enqueue(void *data, struct pqueue *queue)
 {
-  if (queue->size + 2 >= queue->array_size && ! pqueue_expand (queue))
-    return;
+	if (queue->size + 2 >= queue->array_size && !pqueue_expand(queue))
+		return;
 
-  queue->array[queue->size] = data;
-  if (queue->update != NULL)
-    (*queue->update) (data, queue->size);
-  trickle_up (queue->size, queue);
-  queue->size ++;
+	queue->array[queue->size] = data;
+	if (queue->update != NULL)
+		(*queue->update)(data, queue->size);
+	trickle_up(queue->size, queue);
+	queue->size++;
 }
 
-void *
-pqueue_dequeue (struct pqueue *queue)
+void *pqueue_dequeue(struct pqueue *queue)
 {
-  void *data = queue->array[0];
-  queue->array[0] =  queue->array[--queue->size];
-  trickle_down (0, queue);
-  return data;
+	void *data = queue->array[0];
+	queue->array[0] = queue->array[--queue->size];
+	trickle_down(0, queue);
+	return data;
 }
 
-void
-pqueue_remove_at (int index, struct pqueue *queue)
+void pqueue_remove_at(int index, struct pqueue *queue)
 {
-  queue->array[index] = queue->array[--queue->size];
+	queue->array[index] = queue->array[--queue->size];
 
-  if (index > 0
-      && (*queue->cmp) (queue->array[index],
-                        queue->array[PARENT_OF(index)]) < 0)
-    {
-      trickle_up (index, queue);
-    }
-  else
-    {
-      trickle_down (index, queue);
-    }
+	if (index > 0
+	    && (*queue->cmp)(queue->array[index],
+			     queue->array[PARENT_OF(index)])
+		       < 0) {
+		trickle_up(index, queue);
+	} else {
+		trickle_down(index, queue);
+	}
 }

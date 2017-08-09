@@ -1,4 +1,4 @@
-/* 
+/*
  * Quagga Signal handling header.
  *
  * Copyright (C) 2004 Paul Jakma.
@@ -18,7 +18,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Quagga; see the file COPYING.  If not, write to the Free
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * 02111-1307, USA.
  */
 
 #ifndef _QUAGGA_SIGNAL_H
@@ -28,12 +28,11 @@
 
 #define QUAGGA_SIGNAL_TIMER_INTERVAL 2L
 
-struct quagga_signal_t
-{
-  int signal;                     /* signal number    */
-  void (*handler) (void);         /* handler to call  */
+struct quagga_signal_t {
+	int signal;	    /* signal number    */
+	void (*handler)(void); /* handler to call  */
 
-  volatile sig_atomic_t caught;   /* private member   */
+	volatile sig_atomic_t caught; /* private member   */
 };
 
 /* initialise sigevent system
@@ -43,10 +42,10 @@ struct quagga_signal_t
  * - array of quagga_signal_t's describing signals to handle
  *   and handlers to use for each signal
  */
-extern void signal_init (struct thread_master *m, int sigc, 
-                         struct quagga_signal_t *signals);
+extern void signal_init(struct thread_master *m, int sigc,
+			struct quagga_signal_t *signals);
 
 /* check whether there are signals to handle, process any found */
-extern int quagga_sigevent_process (void);
+extern int quagga_sigevent_process(void);
 
 #endif /* _QUAGGA_SIGNAL_H */

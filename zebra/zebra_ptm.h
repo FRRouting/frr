@@ -30,23 +30,22 @@ extern const char ZEBRA_PTM_SOCK_NAME[];
 #define ZEBRA_PTM_BFD_CLIENT_FLAG_REG   (1 << 1) /* client registered with BFD */
 
 /* Zebra ptm context block */
-struct zebra_ptm_cb
-{
-  int ptm_sock; /* ptm file descriptor. */
+struct zebra_ptm_cb {
+	int ptm_sock; /* ptm file descriptor. */
 
-  struct buffer *wb; /* Buffer of data waiting to be written to ptm. */
+	struct buffer *wb; /* Buffer of data waiting to be written to ptm. */
 
-  struct thread *t_read; /* Thread for read */
-  struct thread *t_write; /* Thread for write */
-  struct thread *t_timer; /* Thread for timer */
+	struct thread *t_read;  /* Thread for read */
+	struct thread *t_write; /* Thread for write */
+	struct thread *t_timer; /* Thread for timer */
 
-  char *out_data;
-  char *in_data;
-  int reconnect_time;
+	char *out_data;
+	char *in_data;
+	int reconnect_time;
 
-  int ptm_enable;
-  int pid;
-  u_int8_t client_flags[ZEBRA_ROUTE_MAX];
+	int ptm_enable;
+	int pid;
+	u_int8_t client_flags[ZEBRA_ROUTE_MAX];
 };
 
 #define ZEBRA_PTM_STATUS_DOWN 0
@@ -58,22 +57,22 @@ struct zebra_ptm_cb
 #define ZEBRA_IF_PTM_ENABLE_ON     1
 #define ZEBRA_IF_PTM_ENABLE_UNSPEC 2
 
-void zebra_ptm_init (void);
+void zebra_ptm_init(void);
 void zebra_ptm_finish(void);
-int zebra_ptm_connect (struct thread *t);
-void zebra_ptm_write (struct vty *vty);
+int zebra_ptm_connect(struct thread *t);
+void zebra_ptm_write(struct vty *vty);
 int zebra_ptm_get_enable_state(void);
 
-int zebra_ptm_bfd_dst_register (struct zserv *client, int sock, u_short length,
-                                  int command, struct zebra_vrf *zvrf);
-int zebra_ptm_bfd_dst_deregister (struct zserv *client, int sock,
-                                  u_short length, struct zebra_vrf *zvrf);
-void
-zebra_ptm_show_status(struct vty *vty, struct interface *ifp);
-int zebra_ptm_bfd_client_register (struct zserv *client, int sock,
-                                    u_short length);
+int zebra_ptm_bfd_dst_register(struct zserv *client, int sock, u_short length,
+			       int command, struct zebra_vrf *zvrf);
+int zebra_ptm_bfd_dst_deregister(struct zserv *client, int sock, u_short length,
+				 struct zebra_vrf *zvrf);
+void zebra_ptm_show_status(struct vty *vty, struct interface *ifp);
+int zebra_ptm_bfd_client_register(struct zserv *client, int sock,
+				  u_short length);
 void zebra_ptm_if_init(struct zebra_if *zebra_ifp);
-void zebra_ptm_if_set_ptm_state(struct interface *ifp, struct zebra_if *zebra_ifp);
-void zebra_ptm_if_write (struct vty *vty, struct zebra_if *zebra_ifp);
-void zebra_ptm_bfd_client_deregister (int proto);
+void zebra_ptm_if_set_ptm_state(struct interface *ifp,
+				struct zebra_if *zebra_ifp);
+void zebra_ptm_if_write(struct vty *vty, struct zebra_if *zebra_ifp);
+void zebra_ptm_bfd_client_deregister(int proto);
 #endif

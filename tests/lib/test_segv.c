@@ -29,32 +29,29 @@
 #include "lib/log.h"
 #include "lib/memory.h"
 
-struct quagga_signal_t sigs[] = 
-{
-};
+struct quagga_signal_t sigs[] = {};
 
 struct thread_master *master;
 
-static int
-threadfunc (struct thread *thread)
+static int threadfunc(struct thread *thread)
 {
-  int *null = NULL;
-  *null += 1;
-  return 0;
+	int *null = NULL;
+	*null += 1;
+	return 0;
 }
 
-int
-main (void)
+int main(void)
 {
-  master = thread_master_create ();
-  signal_init (master, array_size(sigs), sigs);
+	master = thread_master_create();
+	signal_init(master, array_size(sigs), sigs);
 
-  openzlog("testsegv", "NONE", 0, LOG_CONS | LOG_NDELAY | LOG_PID, LOG_DAEMON);
-  zlog_set_level(ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
-  zlog_set_level(ZLOG_DEST_STDOUT, LOG_DEBUG);
-  zlog_set_level(ZLOG_DEST_MONITOR, ZLOG_DISABLED);
+	openzlog("testsegv", "NONE", 0, LOG_CONS | LOG_NDELAY | LOG_PID,
+		 LOG_DAEMON);
+	zlog_set_level(ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
+	zlog_set_level(ZLOG_DEST_STDOUT, LOG_DEBUG);
+	zlog_set_level(ZLOG_DEST_MONITOR, ZLOG_DISABLED);
 
-  thread_execute (master, threadfunc, 0, 0);
+	thread_execute(master, threadfunc, 0, 0);
 
-  exit (0);
+	exit(0);
 }

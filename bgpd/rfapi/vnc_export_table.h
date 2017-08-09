@@ -1,4 +1,4 @@
-/* 
+/*
  *
  * Copyright 2009-2016, LabN Consulting, L.L.C.
  *
@@ -31,55 +31,37 @@
 #define VNC_EXPORT_TYPE_BGP	1
 #define VNC_EXPORT_TYPE_ZEBRA	2
 
-typedef enum vnc_export_type
-{
-  EXPORT_TYPE_BGP,
-  EXPORT_TYPE_ZEBRA
+typedef enum vnc_export_type {
+	EXPORT_TYPE_BGP,
+	EXPORT_TYPE_ZEBRA
 } vnc_export_type_t;
 
-struct vnc_export_info
-{
-  struct vnc_export_info	*next;
-  struct route_node		*node;
-  struct peer			*peer;
-  u_char			type;
-  u_char			subtype;
-  uint32_t			lifetime;
-  struct thread			*timer;
+struct vnc_export_info {
+	struct vnc_export_info *next;
+	struct route_node *node;
+	struct peer *peer;
+	u_char type;
+	u_char subtype;
+	uint32_t lifetime;
+	struct thread *timer;
 };
 
-extern struct route_node *
-vnc_etn_get (
-    struct bgp		*bgp,
-    vnc_export_type_t	type,
-    struct prefix	*p);
+extern struct route_node *vnc_etn_get(struct bgp *bgp, vnc_export_type_t type,
+				      struct prefix *p);
 
 extern struct route_node *
-vnc_etn_lookup (
-    struct bgp		*bgp,
-    vnc_export_type_t	type,
-    struct prefix	*p);
+vnc_etn_lookup(struct bgp *bgp, vnc_export_type_t type, struct prefix *p);
+
+extern struct vnc_export_info *vnc_eti_get(struct bgp *bgp,
+					   vnc_export_type_t etype,
+					   struct prefix *p, struct peer *peer,
+					   uint8_t type, uint8_t subtype);
+
+extern void vnc_eti_delete(struct vnc_export_info *goner);
 
 extern struct vnc_export_info *
-vnc_eti_get (
-    struct bgp		*bgp,
-    vnc_export_type_t	etype,
-    struct prefix	*p,
-    struct peer		*peer,
-    uint8_t		type,
-    uint8_t		subtype);
-
-extern void
-vnc_eti_delete (struct vnc_export_info *goner);
-
-extern struct vnc_export_info *
-vnc_eti_checktimer (
-    struct bgp		*bgp,
-    vnc_export_type_t	etype,
-    struct prefix	*p,
-    struct peer		*peer,
-    uint8_t		type,
-    uint8_t		subtype);
+vnc_eti_checktimer(struct bgp *bgp, vnc_export_type_t etype, struct prefix *p,
+		   struct peer *peer, uint8_t type, uint8_t subtype);
 
 
 #endif /* _QUAGGA_VNC_VNC_EXPORT_TABLE_H_ */

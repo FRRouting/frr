@@ -3,21 +3,21 @@
  *                             IS-IS TLV related routines
  *
  * Copyright (C) 2001,2002   Sampo Saaristo
- *                           Tampere University of Technology      
+ *                           Tampere University of Technology
  *                           Institute of Communications Engineering
  *
- * This program is free software; you can redistribute it and/or modify it 
- * under the terms of the GNU General Public Licenseas published by the Free 
- * Software Foundation; either version 2 of the License, or (at your option) 
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public Licenseas published by the Free
+ * Software Foundation; either version 2 of the License, or (at your option)
  * any later version.
  *
- * This program is distributed in the hope that it will be useful,but WITHOUT 
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or 
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for 
+ * This program is distributed in the hope that it will be useful,but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
  * more details.
  *
- * You should have received a copy of the GNU General Public License along 
- * with this program; if not, write to the Free Software Foundation, Inc., 
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
@@ -128,54 +128,49 @@
 #define MAX_SUBTLV_SIZE         256
 
 /* struct for neighbor */
-struct is_neigh
-{
-  struct metric metrics;
-  u_char neigh_id[ISIS_SYS_ID_LEN + 1];
+struct is_neigh {
+	struct metric metrics;
+	u_char neigh_id[ISIS_SYS_ID_LEN + 1];
 };
 
 /* struct for te metric */
-struct te_is_neigh
-{
-  u_char neigh_id[ISIS_SYS_ID_LEN + 1];
-  u_char te_metric[3];
-  u_char sub_tlvs_length;
-  /* Theorical Maximum SubTLVs is 256 because the sub_tlvs_length is 8 bits */
-  /* Practically, 118 bytes are necessary to store all supported TE parameters */
-  /* FIXME: A pointer will use less memory, but need to be free */
-  /* which is hard to fix, especially within free_tlvs() function */
-  /* and malloc() / free() as a CPU cost compared to the memory usage */
-  u_char sub_tlvs[MAX_SUBTLV_SIZE];      /* SUB TLVs storage */
+struct te_is_neigh {
+	u_char neigh_id[ISIS_SYS_ID_LEN + 1];
+	u_char te_metric[3];
+	u_char sub_tlvs_length;
+	/* Theorical Maximum SubTLVs is 256 because the sub_tlvs_length is 8
+	 * bits */
+	/* Practically, 118 bytes are necessary to store all supported TE
+	 * parameters */
+	/* FIXME: A pointer will use less memory, but need to be free */
+	/* which is hard to fix, especially within free_tlvs() function */
+	/* and malloc() / free() as a CPU cost compared to the memory usage */
+	u_char sub_tlvs[MAX_SUBTLV_SIZE]; /* SUB TLVs storage */
 };
 
 /* Decode and encode three-octet metric into host byte order integer */
-#define GET_TE_METRIC(t) \
-  (((unsigned)(t)->te_metric[0]<<16) | ((t)->te_metric[1]<<8) | \
-   (t)->te_metric[2])
-#define SET_TE_METRIC(t, m) \
-  (((t)->te_metric[0] = (m) >> 16), \
-   ((t)->te_metric[1] = (m) >> 8), \
-   ((t)->te_metric[2] = (m)))
+#define GET_TE_METRIC(t)                                                       \
+	(((unsigned)(t)->te_metric[0] << 16) | ((t)->te_metric[1] << 8)        \
+	 | (t)->te_metric[2])
+#define SET_TE_METRIC(t, m)                                                    \
+	(((t)->te_metric[0] = (m) >> 16), ((t)->te_metric[1] = (m) >> 8),      \
+	 ((t)->te_metric[2] = (m)))
 
 /* struct for es neighbors */
-struct es_neigh
-{
-  struct metric metrics;
-  /* approximate position of first, we use the
-   * length ((uchar*)metric-1) to know all     */
-  u_char first_es_neigh[ISIS_SYS_ID_LEN];
-
+struct es_neigh {
+	struct metric metrics;
+	/* approximate position of first, we use the
+	 * length ((uchar*)metric-1) to know all     */
+	u_char first_es_neigh[ISIS_SYS_ID_LEN];
 };
 
-struct partition_desig_level2_is
-{
-  struct list *isis_system_ids;
+struct partition_desig_level2_is {
+	struct list *isis_system_ids;
 };
 
 /* struct for lan neighbors */
-struct lan_neigh
-{
-  u_char LAN_addr[6];
+struct lan_neigh {
+	u_char LAN_addr[6];
 };
 
 #ifdef __SUNPRO_C
@@ -183,60 +178,54 @@ struct lan_neigh
 #endif
 
 /* struct for LSP entry */
-struct lsp_entry
-{
-  u_int16_t rem_lifetime;
-  u_char lsp_id[ISIS_SYS_ID_LEN + 2];
-  u_int32_t seq_num;
-  u_int16_t checksum;
-} __attribute__ ((packed));
+struct lsp_entry {
+	u_int16_t rem_lifetime;
+	u_char lsp_id[ISIS_SYS_ID_LEN + 2];
+	u_int32_t seq_num;
+	u_int16_t checksum;
+} __attribute__((packed));
 
 #ifdef __SUNPRO_C
 #pragma pack()
 #endif
 
 /* struct for checksum */
-struct checksum
-{
-  u_int16_t checksum;
+struct checksum {
+	u_int16_t checksum;
 };
 
 /* ipv4 reachability */
-struct ipv4_reachability
-{
-  struct metric metrics;
-  struct in_addr prefix;
-  struct in_addr mask;
+struct ipv4_reachability {
+	struct metric metrics;
+	struct in_addr prefix;
+	struct in_addr mask;
 };
 
 /* te router id */
-struct te_router_id
-{
-  struct in_addr id;
+struct te_router_id {
+	struct in_addr id;
 };
 
 /* te ipv4 reachability */
-struct te_ipv4_reachability
-{
-  u_int32_t te_metric;
-  u_char control;
-  u_char prefix_start;		/* since this is variable length by nature it only */
-};				/* points to an approximate location */
+struct te_ipv4_reachability {
+	u_int32_t te_metric;
+	u_char control;
+	u_char prefix_start; /* since this is variable length by nature it only
+				*/
+};			     /* points to an approximate location */
 
 #define TE_IPV4_HAS_SUBTLV (0x40)
 
-struct idrp_info
-{
-  u_char len;
-  u_char *value;
+struct idrp_info {
+	u_char len;
+	u_char *value;
 };
 
-struct ipv6_reachability
-{
-  u_int32_t metric;
-  u_char control_info;
-  u_char prefix_len;
-  u_char prefix[16];
+struct ipv6_reachability {
+	u_int32_t metric;
+	u_char control_info;
+	u_char prefix_len;
+	u_char prefix[16];
 };
 
 /* bits in control_info */
@@ -253,26 +242,25 @@ struct ipv6_reachability
 /*
  * Pointer to each tlv type, filled by parse_tlvs()
  */
-struct tlvs
-{
-  struct checksum *checksum;
-  struct hostname *hostname;
-  struct nlpids *nlpids;
-  struct te_router_id *router_id;
-  struct list *area_addrs;
-  struct list *is_neighs;
-  struct list *te_is_neighs;
-  struct list *es_neighs;
-  struct list *lsp_entries;
-  struct list *prefix_neighs;
-  struct list *lan_neighs;
-  struct list *ipv4_addrs;
-  struct list *ipv4_int_reachs;
-  struct list *ipv4_ext_reachs;
-  struct list *te_ipv4_reachs;
-  struct list *ipv6_addrs;
-  struct list *ipv6_reachs;
-  struct isis_passwd auth_info;
+struct tlvs {
+	struct checksum *checksum;
+	struct hostname *hostname;
+	struct nlpids *nlpids;
+	struct te_router_id *router_id;
+	struct list *area_addrs;
+	struct list *is_neighs;
+	struct list *te_is_neighs;
+	struct list *es_neighs;
+	struct list *lsp_entries;
+	struct list *prefix_neighs;
+	struct list *lan_neighs;
+	struct list *ipv4_addrs;
+	struct list *ipv4_int_reachs;
+	struct list *ipv4_ext_reachs;
+	struct list *te_ipv4_reachs;
+	struct list *ipv6_addrs;
+	struct list *ipv6_reachs;
+	struct isis_passwd auth_info;
 };
 
 /*
@@ -302,33 +290,31 @@ struct tlvs
 #define TLVFLAG_CHECKSUM                  (1<<20)
 #define TLVFLAG_GRACEFUL_RESTART          (1<<21)
 
-void init_tlvs (struct tlvs *tlvs, uint32_t expected);
-void free_tlvs (struct tlvs *tlvs);
-int parse_tlvs (char *areatag, u_char * stream, int size,
-		u_int32_t * expected, u_int32_t * found, struct tlvs *tlvs,
-                u_int32_t * auth_tlv_offset);
-int add_tlv (u_char, u_char, u_char *, struct stream *);
-void free_tlv (void *val);
+void init_tlvs(struct tlvs *tlvs, uint32_t expected);
+void free_tlvs(struct tlvs *tlvs);
+int parse_tlvs(char *areatag, u_char *stream, int size, u_int32_t *expected,
+	       u_int32_t *found, struct tlvs *tlvs, u_int32_t *auth_tlv_offset);
+int add_tlv(u_char, u_char, u_char *, struct stream *);
+void free_tlv(void *val);
 
-int tlv_add_area_addrs (struct list *area_addrs, struct stream *stream);
-int tlv_add_is_neighs (struct list *is_neighs, struct stream *stream);
-int tlv_add_te_is_neighs (struct list *te_is_neighs, struct stream *stream);
-int tlv_add_lan_neighs (struct list *lan_neighs, struct stream *stream);
-int tlv_add_nlpid (struct nlpids *nlpids, struct stream *stream);
-int tlv_add_checksum (struct checksum *checksum, struct stream *stream);
-int tlv_add_authinfo (u_char auth_type, u_char authlen, u_char *auth_value,
-		      struct stream *stream);
-int tlv_add_ip_addrs (struct list *ip_addrs, struct stream *stream);
-int tlv_add_in_addr (struct in_addr *, struct stream *stream, u_char tag);
-int tlv_add_dynamic_hostname (struct hostname *hostname,
-			      struct stream *stream);
-int tlv_add_lsp_entries (struct list *lsps, struct stream *stream);
-int tlv_add_ipv4_int_reachs (struct list *ipv4_reachs, struct stream *stream);
-int tlv_add_ipv4_ext_reachs (struct list *ipv4_reachs, struct stream *stream);
-int tlv_add_te_ipv4_reachs (struct list *te_ipv4_reachs, struct stream *stream);
-int tlv_add_ipv6_addrs (struct list *ipv6_addrs, struct stream *stream);
-int tlv_add_ipv6_reachs (struct list *ipv6_reachs, struct stream *stream);
+int tlv_add_area_addrs(struct list *area_addrs, struct stream *stream);
+int tlv_add_is_neighs(struct list *is_neighs, struct stream *stream);
+int tlv_add_te_is_neighs(struct list *te_is_neighs, struct stream *stream);
+int tlv_add_lan_neighs(struct list *lan_neighs, struct stream *stream);
+int tlv_add_nlpid(struct nlpids *nlpids, struct stream *stream);
+int tlv_add_checksum(struct checksum *checksum, struct stream *stream);
+int tlv_add_authinfo(u_char auth_type, u_char authlen, u_char *auth_value,
+		     struct stream *stream);
+int tlv_add_ip_addrs(struct list *ip_addrs, struct stream *stream);
+int tlv_add_in_addr(struct in_addr *, struct stream *stream, u_char tag);
+int tlv_add_dynamic_hostname(struct hostname *hostname, struct stream *stream);
+int tlv_add_lsp_entries(struct list *lsps, struct stream *stream);
+int tlv_add_ipv4_int_reachs(struct list *ipv4_reachs, struct stream *stream);
+int tlv_add_ipv4_ext_reachs(struct list *ipv4_reachs, struct stream *stream);
+int tlv_add_te_ipv4_reachs(struct list *te_ipv4_reachs, struct stream *stream);
+int tlv_add_ipv6_addrs(struct list *ipv6_addrs, struct stream *stream);
+int tlv_add_ipv6_reachs(struct list *ipv6_reachs, struct stream *stream);
 
-int tlv_add_padding (struct stream *stream);
+int tlv_add_padding(struct stream *stream);
 
 #endif /* _ZEBRA_ISIS_TLV_H */

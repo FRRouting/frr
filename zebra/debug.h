@@ -15,9 +15,9 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the 
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330, 
- * Boston, MA 02111-1307, USA.  
+ * along with GNU Zebra; see the file COPYING.  If not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 
 #ifndef _ZEBRA_DEBUG_H
@@ -54,13 +54,13 @@
 #define IS_ZEBRA_DEBUG_DETAIL (zebra_debug_packet & ZEBRA_DEBUG_DETAIL)
 
 #define IS_ZEBRA_DEBUG_KERNEL (zebra_debug_kernel & ZEBRA_DEBUG_KERNEL)
-#define IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND \
-        (zebra_debug_kernel & ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
-#define IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV \
-        (zebra_debug_kernel & ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV)
+#define IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND                                     \
+	(zebra_debug_kernel & ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
+#define IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV                                     \
+	(zebra_debug_kernel & ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV)
 
-#define IS_ZEBRA_DEBUG_RIB \
-        (zebra_debug_rib & (ZEBRA_DEBUG_RIB | ZEBRA_DEBUG_RIB_DETAILED))
+#define IS_ZEBRA_DEBUG_RIB                                                     \
+	(zebra_debug_rib & (ZEBRA_DEBUG_RIB | ZEBRA_DEBUG_RIB_DETAILED))
 #define IS_ZEBRA_DEBUG_RIB_DETAILED  (zebra_debug_rib & ZEBRA_DEBUG_RIB_DETAILED)
 
 #define IS_ZEBRA_DEBUG_FPM (zebra_debug_fpm & ZEBRA_DEBUG_FPM)
@@ -77,6 +77,6 @@ extern unsigned long zebra_debug_nht;
 extern unsigned long zebra_debug_mpls;
 extern unsigned long zebra_debug_pw;
 
-extern void zebra_debug_init (void);
+extern void zebra_debug_init(void);
 
 #endif /* _ZEBRA_DEBUG_H */

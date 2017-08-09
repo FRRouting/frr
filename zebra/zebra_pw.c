@@ -36,8 +36,8 @@ DEFINE_MTYPE_STATIC(LIB, PW, "Pseudowire")
 
 DEFINE_QOBJ_TYPE(zebra_pw)
 
-DEFINE_HOOK(pw_install, (struct zebra_pw *pw), (pw))
-DEFINE_HOOK(pw_uninstall, (struct zebra_pw *pw), (pw))
+DEFINE_HOOK(pw_install, (struct zebra_pw * pw), (pw))
+DEFINE_HOOK(pw_uninstall, (struct zebra_pw * pw), (pw))
 
 extern struct zebra_t zebrad;
 
@@ -140,8 +140,7 @@ static int zebra_pw_enabled(struct zebra_pw *pw)
 {
 	if (pw->protocol == ZEBRA_ROUTE_STATIC) {
 		if (pw->local_label == MPLS_NO_LABEL
-		    || pw->remote_label == MPLS_NO_LABEL
-		    || pw->af == AF_UNSPEC)
+		    || pw->remote_label == MPLS_NO_LABEL || pw->af == AF_UNSPEC)
 			return 0;
 		return 1;
 	} else
@@ -204,15 +203,16 @@ static void zebra_pw_uninstall(struct zebra_pw *pw)
 void zebra_pw_install_failure(struct zebra_pw *pw)
 {
 	if (IS_ZEBRA_DEBUG_PW)
-		zlog_debug("%u: failed installing pseudowire %s, "
-			   "scheduling retry in %u seconds", pw->vrf_id,
-			   pw->ifname, PW_INSTALL_RETRY_INTERVAL);
+		zlog_debug(
+			"%u: failed installing pseudowire %s, "
+			"scheduling retry in %u seconds",
+			pw->vrf_id, pw->ifname, PW_INSTALL_RETRY_INTERVAL);
 
 	/* schedule to retry later */
 	THREAD_TIMER_OFF(pw->install_retry_timer);
 	pw->install_retry_timer =
-		thread_add_timer(zebrad.master, zebra_pw_install_retry,
-		pw, PW_INSTALL_RETRY_INTERVAL);
+		thread_add_timer(zebrad.master, zebra_pw_install_retry, pw,
+				 PW_INSTALL_RETRY_INTERVAL);
 
 	zebra_pw_update_status(pw, PW_STATUS_DOWN);
 }
@@ -268,16 +268,17 @@ static int zebra_pw_check_reachability(struct zebra_pw *pw)
 	return 0;
 }
 
-void
-zebra_pw_client_close(struct zserv *client)
+void zebra_pw_client_close(struct zserv *client)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 	struct zebra_pw *pw, *tmp;
 
-	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id) {
+	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id)
+	{
 		zvrf = vrf->info;
-		RB_FOREACH_SAFE(pw, zebra_pw_head, &zvrf->pseudowires, tmp) {
+		RB_FOREACH_SAFE(pw, zebra_pw_head, &zvrf->pseudowires, tmp)
+		{
 			if (pw->client != client)
 				continue;
 			zebra_pw_del(zvrf, pw);
@@ -444,11 +445,11 @@ DEFUN (show_pseudowires,
 	if (!zvrf)
 		return 0;
 
-	vty_out(vty, "%-16s %-24s %-12s %-8s %-10s%s",
-		"Interface", "Neighbor", "Labels", "Protocol", "Status",
-		VTY_NEWLINE);
+	vty_out(vty, "%-16s %-24s %-12s %-8s %-10s%s", "Interface", "Neighbor",
+		"Labels", "Protocol", "Status", VTY_NEWLINE);
 
-	RB_FOREACH(pw, zebra_pw_head, &zvrf->pseudowires) {
+	RB_FOREACH(pw, zebra_pw_head, &zvrf->pseudowires)
+	{
 		char buf_nbr[INET6_ADDRSTRLEN];
 		char buf_labels[64];
 
@@ -461,11 +462,13 @@ DEFUN (show_pseudowires,
 		else
 			snprintf(buf_labels, sizeof(buf_labels), "-");
 
-		vty_out(vty, "%-16s %-24s %-12s %-8s %-10s%s",
-			pw->ifname, (pw->af != AF_UNSPEC) ? buf_nbr : "-",
-			buf_labels, zebra_route_string(pw->protocol),
-			(zebra_pw_enabled(pw) && pw->status == PW_STATUS_UP) ?
-			"UP" : "DOWN", VTY_NEWLINE);
+		vty_out(vty, "%-16s %-24s %-12s %-8s %-10s%s", pw->ifname,
+			(pw->af != AF_UNSPEC) ? buf_nbr : "-", buf_labels,
+			zebra_route_string(pw->protocol),
+			(zebra_pw_enabled(pw) && pw->status == PW_STATUS_UP)
+				? "UP"
+				: "DOWN",
+			VTY_NEWLINE);
 	}
 
 	return CMD_SUCCESS;
@@ -482,24 +485,28 @@ static int zebra_pw_config(struct vty *vty)
 	if (!zvrf)
 		return 0;
 
-	RB_FOREACH(pw, zebra_static_pw_head, &zvrf->static_pseudowires) {
+	RB_FOREACH(pw, zebra_static_pw_head, &zvrf->static_pseudowires)
+	{
 		vty_out(vty, "pseudowire %s%s", pw->ifname, VTY_NEWLINE);
 		if (pw->local_label != MPLS_NO_LABEL
 		    && pw->remote_label != MPLS_NO_LABEL)
 			vty_out(vty, " mpls label local %u remote %u%s",
-				pw->local_label, pw->remote_label,
-				VTY_NEWLINE);
+				pw->local_label, pw->remote_label, VTY_NEWLINE);
 		else
-			vty_out(vty, " ! Incomplete config, specify the static "
-				"MPLS labels%s", VTY_NEWLINE);
+			vty_out(vty,
+				" ! Incomplete config, specify the static "
+				"MPLS labels%s",
+				VTY_NEWLINE);
 
 		if (pw->af != AF_UNSPEC) {
 			char buf[INET6_ADDRSTRLEN];
 			inet_ntop(pw->af, &pw->nexthop, buf, sizeof(buf));
 			vty_out(vty, " neighbor %s%s", buf, VTY_NEWLINE);
 		} else
-			vty_out(vty, " ! Incomplete config, specify a neighbor "
-				"address%s", VTY_NEWLINE);
+			vty_out(vty,
+				" ! Incomplete config, specify a neighbor "
+				"address%s",
+				VTY_NEWLINE);
 
 		if (!(pw->flags & F_PSEUDOWIRE_CWORD))
 			vty_out(vty, " control-word exclude%s", VTY_NEWLINE);
@@ -511,11 +518,8 @@ static int zebra_pw_config(struct vty *vty)
 	return write;
 }
 
-static struct cmd_node pw_node =
-{
-	PW_NODE,
-	"%s(config-pw)# ",
-	1,
+static struct cmd_node pw_node = {
+	PW_NODE, "%s(config-pw)# ", 1,
 };
 
 void zebra_pw_vty_init(void)

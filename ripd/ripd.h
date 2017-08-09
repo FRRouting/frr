@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with GNU Zebra; see the file COPYING.  If not, write to the Free
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * 02111-1307, USA.
  */
 
 #ifndef _ZEBRA_RIP_H
@@ -99,255 +99,245 @@
 #define RIP_AUTH_MD5_COMPAT_SIZE        RIP_RTE_SIZE
 
 /* RIP structure. */
-struct rip 
-{
-  /* RIP socket. */
-  int sock;
+struct rip {
+	/* RIP socket. */
+	int sock;
 
-  /* Default version of rip instance. */
-  int version_send;	/* version 1 or 2 (but not both) */
-  int version_recv;	/* version 1 or 2 or both */
+	/* Default version of rip instance. */
+	int version_send; /* version 1 or 2 (but not both) */
+	int version_recv; /* version 1 or 2 or both */
 
-  /* Output buffer of RIP. */
-  struct stream *obuf;
+	/* Output buffer of RIP. */
+	struct stream *obuf;
 
-  /* RIP routing information base. */
-  struct route_table *table;
+	/* RIP routing information base. */
+	struct route_table *table;
 
-  /* RIP only static routing information. */
-  struct route_table *route;
-  
-  /* RIP neighbor. */
-  struct route_table *neighbor;
-  
-  /* RIP threads. */
-  struct thread *t_read;
+	/* RIP only static routing information. */
+	struct route_table *route;
 
-  /* Update and garbage timer. */
-  struct thread *t_update;
+	/* RIP neighbor. */
+	struct route_table *neighbor;
 
-  /* Triggered update hack. */
-  int trigger;
-  struct thread *t_triggered_update;
-  struct thread *t_triggered_interval;
+	/* RIP threads. */
+	struct thread *t_read;
 
-  /* RIP timer values. */
-  unsigned long update_time;
-  unsigned long timeout_time;
-  unsigned long garbage_time;
+	/* Update and garbage timer. */
+	struct thread *t_update;
 
-  /* RIP default metric. */
-  int default_metric;
+	/* Triggered update hack. */
+	int trigger;
+	struct thread *t_triggered_update;
+	struct thread *t_triggered_interval;
 
-  /* RIP default-information originate. */
-  u_char default_information;
-  char *default_information_route_map;
+	/* RIP timer values. */
+	unsigned long update_time;
+	unsigned long timeout_time;
+	unsigned long garbage_time;
 
-  /* RIP default distance. */
-  u_char distance;
-  struct route_table *distance_table;
+	/* RIP default metric. */
+	int default_metric;
 
-  /* RIP ECMP flag */
-  unsigned int ecmp;
+	/* RIP default-information originate. */
+	u_char default_information;
+	char *default_information_route_map;
 
-  /* For redistribute route map. */
-  struct
-  {
-    char *name;
-    struct route_map *map;
-    int metric_config;
-    u_int32_t metric;
-  } route_map[ZEBRA_ROUTE_MAX];
+	/* RIP default distance. */
+	u_char distance;
+	struct route_table *distance_table;
 
-  QOBJ_FIELDS
+	/* RIP ECMP flag */
+	unsigned int ecmp;
+
+	/* For redistribute route map. */
+	struct {
+		char *name;
+		struct route_map *map;
+		int metric_config;
+		u_int32_t metric;
+	} route_map[ZEBRA_ROUTE_MAX];
+
+	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(rip)
 
 /* RIP routing table entry which belong to rip_packet. */
-struct rte
-{
-  u_int16_t family;		/* Address family of this route. */
-  u_int16_t tag;		/* Route Tag which included in RIP2 packet. */
-  struct in_addr prefix;	/* Prefix of rip route. */
-  struct in_addr mask;		/* Netmask of rip route. */
-  struct in_addr nexthop;	/* Next hop of rip route. */
-  u_int32_t metric;		/* Metric value of rip route. */
+struct rte {
+	u_int16_t family;       /* Address family of this route. */
+	u_int16_t tag;		/* Route Tag which included in RIP2 packet. */
+	struct in_addr prefix;  /* Prefix of rip route. */
+	struct in_addr mask;    /* Netmask of rip route. */
+	struct in_addr nexthop; /* Next hop of rip route. */
+	u_int32_t metric;       /* Metric value of rip route. */
 };
 
 /* RIP packet structure. */
-struct rip_packet
-{
-  unsigned char command;	/* Command type of RIP packet. */
-  unsigned char version;	/* RIP version which coming from peer. */
-  unsigned char pad1;		/* Padding of RIP packet header. */
-  unsigned char pad2;		/* Same as above. */
-  struct rte rte[1];		/* Address structure. */
+struct rip_packet {
+	unsigned char command; /* Command type of RIP packet. */
+	unsigned char version; /* RIP version which coming from peer. */
+	unsigned char pad1;    /* Padding of RIP packet header. */
+	unsigned char pad2;    /* Same as above. */
+	struct rte rte[1];     /* Address structure. */
 };
 
 /* Buffer to read RIP packet. */
-union rip_buf
-{
-  struct rip_packet rip_packet;
-  char buf[RIP_PACKET_MAXSIZ];
+union rip_buf {
+	struct rip_packet rip_packet;
+	char buf[RIP_PACKET_MAXSIZ];
 };
 
 /* RIP route information. */
-struct rip_info
-{
-  /* This route's type. */
-  int type;
+struct rip_info {
+	/* This route's type. */
+	int type;
 
-  /* Sub type. */
-  int sub_type;
+	/* Sub type. */
+	int sub_type;
 
-  /* RIP nexthop. */
-  struct in_addr nexthop;
-  struct in_addr from;
+	/* RIP nexthop. */
+	struct in_addr nexthop;
+	struct in_addr from;
 
-  /* Which interface does this route come from. */
-  ifindex_t ifindex;
+	/* Which interface does this route come from. */
+	ifindex_t ifindex;
 
-  /* Metric of this route. */
-  u_int32_t metric;
+	/* Metric of this route. */
+	u_int32_t metric;
 
-  /* External metric of this route. 
-     if learnt from an externalm proto */
-  u_int32_t external_metric;
+	/* External metric of this route.
+	   if learnt from an externalm proto */
+	u_int32_t external_metric;
 
-  /* Tag information of this route. */
-  u_int16_t tag;
+	/* Tag information of this route. */
+	u_int16_t tag;
 
-  /* Flags of RIP route. */
+/* Flags of RIP route. */
 #define RIP_RTF_FIB      1
 #define RIP_RTF_CHANGED  2
-  u_char flags;
+	u_char flags;
 
-  /* Garbage collect timer. */
-  struct thread *t_timeout;
-  struct thread *t_garbage_collect;
+	/* Garbage collect timer. */
+	struct thread *t_timeout;
+	struct thread *t_garbage_collect;
 
-  /* Route-map futures - this variables can be changed. */
-  struct in_addr nexthop_out;
-  u_char metric_set;
-  u_int32_t metric_out;
-  u_int16_t tag_out;
-  ifindex_t ifindex_out;
+	/* Route-map futures - this variables can be changed. */
+	struct in_addr nexthop_out;
+	u_char metric_set;
+	u_int32_t metric_out;
+	u_int16_t tag_out;
+	ifindex_t ifindex_out;
 
-  struct route_node *rp;
+	struct route_node *rp;
 
-  u_char distance;
+	u_char distance;
 
 #ifdef NEW_RIP_TABLE
-  struct rip_info *next;
-  struct rip_info *prev;
+	struct rip_info *next;
+	struct rip_info *prev;
 #endif /* NEW_RIP_TABLE */
 };
 
 typedef enum {
-  RIP_NO_SPLIT_HORIZON = 0,
-  RIP_SPLIT_HORIZON,
-  RIP_SPLIT_HORIZON_POISONED_REVERSE
+	RIP_NO_SPLIT_HORIZON = 0,
+	RIP_SPLIT_HORIZON,
+	RIP_SPLIT_HORIZON_POISONED_REVERSE
 } split_horizon_policy_t;
 
 /* RIP specific interface configuration. */
-struct rip_interface
-{
-  /* RIP is enabled on this interface. */
-  int enable_network;
-  int enable_interface;
+struct rip_interface {
+	/* RIP is enabled on this interface. */
+	int enable_network;
+	int enable_interface;
 
-  /* RIP is running on this interface. */
-  int running;
+	/* RIP is running on this interface. */
+	int running;
 
-  /* RIP version control. */
-  int ri_send;
-  int ri_receive;
+	/* RIP version control. */
+	int ri_send;
+	int ri_receive;
 
-  /* RIPv2 broadcast mode */
-  int v2_broadcast;
+	/* RIPv2 broadcast mode */
+	int v2_broadcast;
 
-  /* RIPv2 authentication type. */
-  int auth_type;
+	/* RIPv2 authentication type. */
+	int auth_type;
 
-  /* RIPv2 authentication string. */
-  char *auth_str;
+	/* RIPv2 authentication string. */
+	char *auth_str;
 
-  /* RIPv2 authentication key chain. */
-  char *key_chain;
+	/* RIPv2 authentication key chain. */
+	char *key_chain;
 
-  /* value to use for md5->auth_len */
-  u_int8_t md5_auth_len;
+	/* value to use for md5->auth_len */
+	u_int8_t md5_auth_len;
 
-  /* Split horizon flag. */
-  split_horizon_policy_t split_horizon;
-  split_horizon_policy_t split_horizon_default;
+	/* Split horizon flag. */
+	split_horizon_policy_t split_horizon;
+	split_horizon_policy_t split_horizon_default;
 
-  /* For filter type slot. */
+/* For filter type slot. */
 #define RIP_FILTER_IN  0
 #define RIP_FILTER_OUT 1
 #define RIP_FILTER_MAX 2
 
-  /* Access-list. */
-  struct access_list *list[RIP_FILTER_MAX];
+	/* Access-list. */
+	struct access_list *list[RIP_FILTER_MAX];
 
-  /* Prefix-list. */
-  struct prefix_list *prefix[RIP_FILTER_MAX];
+	/* Prefix-list. */
+	struct prefix_list *prefix[RIP_FILTER_MAX];
 
-  /* Route-map. */
-  struct route_map *routemap[RIP_FILTER_MAX];
+	/* Route-map. */
+	struct route_map *routemap[RIP_FILTER_MAX];
 
-  /* Wake up thread. */
-  struct thread *t_wakeup;
+	/* Wake up thread. */
+	struct thread *t_wakeup;
 
-  /* Interface statistics. */
-  int recv_badpackets;
-  int recv_badroutes;
-  int sent_updates;
+	/* Interface statistics. */
+	int recv_badpackets;
+	int recv_badroutes;
+	int sent_updates;
 
-  /* Passive interface. */
-  int passive;
+	/* Passive interface. */
+	int passive;
 };
 
 /* RIP peer information. */
-struct rip_peer
-{
-  /* Peer address. */
-  struct in_addr addr;
+struct rip_peer {
+	/* Peer address. */
+	struct in_addr addr;
 
-  /* Peer RIP tag value. */
-  int domain;
+	/* Peer RIP tag value. */
+	int domain;
 
-  /* Last update time. */
-  time_t uptime;
+	/* Last update time. */
+	time_t uptime;
 
-  /* Peer RIP version. */
-  u_char version;
+	/* Peer RIP version. */
+	u_char version;
 
-  /* Statistics. */
-  int recv_badpackets;
-  int recv_badroutes;
+	/* Statistics. */
+	int recv_badpackets;
+	int recv_badroutes;
 
-  /* Timeout thread. */
-  struct thread *t_timeout;
+	/* Timeout thread. */
+	struct thread *t_timeout;
 };
 
-struct rip_md5_info
-{
-  u_int16_t family;
-  u_int16_t type;
-  u_int16_t packet_len;
-  u_char keyid;
-  u_char auth_len;
-  u_int32_t sequence;
-  u_int32_t reserv1;
-  u_int32_t reserv2;
+struct rip_md5_info {
+	u_int16_t family;
+	u_int16_t type;
+	u_int16_t packet_len;
+	u_char keyid;
+	u_char auth_len;
+	u_int32_t sequence;
+	u_int32_t reserv1;
+	u_int32_t reserv2;
 };
 
-struct rip_md5_data
-{
-  u_int16_t family;
-  u_int16_t type;
-  u_char digest[16];
+struct rip_md5_data {
+	u_int16_t family;
+	u_int16_t type;
+	u_char digest[16];
 };
 
 /* RIP accepet/announce methods. */
@@ -363,79 +353,80 @@ struct rip_md5_data
 #define RIP_DEFAULT_METRIC_DEFAULT         1
 
 /* RIP event. */
-enum rip_event 
-{
-  RIP_READ,
-  RIP_UPDATE_EVENT,
-  RIP_TRIGGERED_UPDATE,
+enum rip_event {
+	RIP_READ,
+	RIP_UPDATE_EVENT,
+	RIP_TRIGGERED_UPDATE,
 };
 
 /* Macro for timer turn on. */
-#define RIP_TIMER_ON(T,F,V) \
-  do { \
-    if (!(T)) \
-      (T) = thread_add_timer (master, (F), rinfo, (V)); \
-  } while (0)
+#define RIP_TIMER_ON(T, F, V)                                                  \
+	do {                                                                   \
+		if (!(T))                                                      \
+			(T) = thread_add_timer(master, (F), rinfo, (V));       \
+	} while (0)
 
 /* Macro for timer turn off. */
 #define RIP_TIMER_OFF(X) THREAD_TIMER_OFF(X)
 
 /* Prototypes. */
-extern void rip_init (void);
-extern void rip_reset (void);
-extern void rip_clean (void);
-extern void rip_clean_network (void);
-extern void rip_interfaces_clean (void);
-extern void rip_interfaces_reset (void);
-extern void rip_passive_nondefault_clean (void);
-extern void rip_if_init (void);
-extern void rip_if_down_all (void);
-extern void rip_route_map_init (void);
-extern void rip_route_map_reset (void);
+extern void rip_init(void);
+extern void rip_reset(void);
+extern void rip_clean(void);
+extern void rip_clean_network(void);
+extern void rip_interfaces_clean(void);
+extern void rip_interfaces_reset(void);
+extern void rip_passive_nondefault_clean(void);
+extern void rip_if_init(void);
+extern void rip_if_down_all(void);
+extern void rip_route_map_init(void);
+extern void rip_route_map_reset(void);
 extern void rip_zclient_init(struct thread_master *);
-extern void rip_zclient_reset (void);
-extern void rip_offset_init (void);
-extern int if_check_address (struct in_addr addr);
+extern void rip_zclient_reset(void);
+extern void rip_offset_init(void);
+extern int if_check_address(struct in_addr addr);
 
-extern int rip_request_send (struct sockaddr_in *, struct interface *, u_char,
-                      struct connected *);
-extern int rip_neighbor_lookup (struct sockaddr_in *);
+extern int rip_request_send(struct sockaddr_in *, struct interface *, u_char,
+			    struct connected *);
+extern int rip_neighbor_lookup(struct sockaddr_in *);
 
-extern int rip_redistribute_check (int);
-extern void rip_redistribute_add (int, int, struct prefix_ipv4 *, ifindex_t,
-			   struct in_addr *, unsigned int, unsigned char,
-			   route_tag_t);
-extern void rip_redistribute_delete (int, int, struct prefix_ipv4 *, ifindex_t);
-extern void rip_redistribute_withdraw (int);
-extern void rip_zebra_ipv4_add (struct route_node *);
-extern void rip_zebra_ipv4_delete (struct route_node *);
-extern void rip_interface_multicast_set (int, struct connected *);
-extern void rip_distribute_update_interface (struct interface *);
-extern void rip_if_rmap_update_interface (struct interface *);
+extern int rip_redistribute_check(int);
+extern void rip_redistribute_add(int, int, struct prefix_ipv4 *, ifindex_t,
+				 struct in_addr *, unsigned int, unsigned char,
+				 route_tag_t);
+extern void rip_redistribute_delete(int, int, struct prefix_ipv4 *, ifindex_t);
+extern void rip_redistribute_withdraw(int);
+extern void rip_zebra_ipv4_add(struct route_node *);
+extern void rip_zebra_ipv4_delete(struct route_node *);
+extern void rip_interface_multicast_set(int, struct connected *);
+extern void rip_distribute_update_interface(struct interface *);
+extern void rip_if_rmap_update_interface(struct interface *);
 
-extern int config_write_rip_network (struct vty *, int);
-extern int config_write_rip_offset_list (struct vty *);
-extern int config_write_rip_redistribute (struct vty *, int);
+extern int config_write_rip_network(struct vty *, int);
+extern int config_write_rip_offset_list(struct vty *);
+extern int config_write_rip_redistribute(struct vty *, int);
 
-extern void rip_peer_init (void);
-extern void rip_peer_update (struct sockaddr_in *, u_char);
-extern void rip_peer_bad_route (struct sockaddr_in *);
-extern void rip_peer_bad_packet (struct sockaddr_in *);
-extern void rip_peer_display (struct vty *);
-extern struct rip_peer *rip_peer_lookup (struct in_addr *);
-extern struct rip_peer *rip_peer_lookup_next (struct in_addr *);
+extern void rip_peer_init(void);
+extern void rip_peer_update(struct sockaddr_in *, u_char);
+extern void rip_peer_bad_route(struct sockaddr_in *);
+extern void rip_peer_bad_packet(struct sockaddr_in *);
+extern void rip_peer_display(struct vty *);
+extern struct rip_peer *rip_peer_lookup(struct in_addr *);
+extern struct rip_peer *rip_peer_lookup_next(struct in_addr *);
 
-extern int rip_offset_list_apply_in (struct prefix_ipv4 *, struct interface *, u_int32_t *);
-extern int rip_offset_list_apply_out (struct prefix_ipv4 *, struct interface *, u_int32_t *);
-extern void rip_offset_clean (void);
+extern int rip_offset_list_apply_in(struct prefix_ipv4 *, struct interface *,
+				    u_int32_t *);
+extern int rip_offset_list_apply_out(struct prefix_ipv4 *, struct interface *,
+				     u_int32_t *);
+extern void rip_offset_clean(void);
 
-extern void rip_info_free (struct rip_info *);
-extern u_char rip_distance_apply (struct rip_info *);
-extern void rip_redistribute_clean (void);
+extern void rip_info_free(struct rip_info *);
+extern u_char rip_distance_apply(struct rip_info *);
+extern void rip_redistribute_clean(void);
 
-extern struct rip_info *rip_ecmp_add (struct rip_info *);
-extern struct rip_info *rip_ecmp_replace (struct rip_info *);
-extern struct rip_info *rip_ecmp_delete (struct rip_info *);
+extern struct rip_info *rip_ecmp_add(struct rip_info *);
+extern struct rip_info *rip_ecmp_replace(struct rip_info *);
+extern struct rip_info *rip_ecmp_delete(struct rip_info *);
 
 /* There is only one rip strucutre. */
 extern struct rip *rip;
@@ -447,7 +438,7 @@ extern struct thread_master *master;
 extern long rip_global_route_changes;
 extern long rip_global_queries;
 
-DECLARE_HOOK(rip_ifaddr_add, (struct connected *ifc), (ifc))
-DECLARE_HOOK(rip_ifaddr_del, (struct connected *ifc), (ifc))
+DECLARE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc))
+DECLARE_HOOK(rip_ifaddr_del, (struct connected * ifc), (ifc))
 
 #endif /* _ZEBRA_RIP_H */

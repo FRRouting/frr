@@ -53,7 +53,8 @@ extern int str2esi(const char *str, struct eth_segment_id *id);
 extern char *esi2str(struct eth_segment_id *id);
 extern char *ecom_mac2str(char *ecom_mac);
 
-extern void bgp_add_routermac_ecom(struct attr *attr, struct ethaddr *routermac);
+extern void bgp_add_routermac_ecom(struct attr *attr,
+				   struct ethaddr *routermac);
 extern int bgp_build_evpn_prefix(int type, uint32_t eth_tag,
 				 struct prefix *dst);
-#endif				/* _QUAGGA_BGP_ATTR_EVPN_H */
+#endif /* _QUAGGA_BGP_ATTR_EVPN_H */

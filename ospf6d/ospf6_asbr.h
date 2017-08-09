@@ -14,9 +14,9 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the 
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330, 
- * Boston, MA 02111-1307, USA.  
+ * along with GNU Zebra; see the file COPYING.  If not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 
 #ifndef OSPF6_ASBR_H
@@ -31,38 +31,33 @@
 
 /* Debug option */
 extern unsigned char conf_debug_ospf6_asbr;
-#define OSPF6_DEBUG_ASBR_ON() \
-  (conf_debug_ospf6_asbr = 1)
-#define OSPF6_DEBUG_ASBR_OFF() \
-  (conf_debug_ospf6_asbr = 0)
-#define IS_OSPF6_DEBUG_ASBR \
-  (conf_debug_ospf6_asbr)
+#define OSPF6_DEBUG_ASBR_ON() (conf_debug_ospf6_asbr = 1)
+#define OSPF6_DEBUG_ASBR_OFF() (conf_debug_ospf6_asbr = 0)
+#define IS_OSPF6_DEBUG_ASBR (conf_debug_ospf6_asbr)
 
-struct ospf6_external_info
-{
-  /* External route type */
-  int type;
+struct ospf6_external_info {
+	/* External route type */
+	int type;
 
-  /* Originating Link State ID */
-  u_int32_t id;
+	/* Originating Link State ID */
+	u_int32_t id;
 
-  struct in6_addr forwarding;
+	struct in6_addr forwarding;
 
-  route_tag_t tag;
+	route_tag_t tag;
 
-  ifindex_t ifindex;
+	ifindex_t ifindex;
 };
 
 /* AS-External-LSA */
 #define OSPF6_AS_EXTERNAL_LSA_MIN_SIZE         4U /* w/o IPv6 prefix */
-struct ospf6_as_external_lsa
-{
-  u_int32_t bits_metric;
+struct ospf6_as_external_lsa {
+	u_int32_t bits_metric;
 
-  struct ospf6_prefix prefix;
-  /* followed by none or one forwarding address */
-  /* followed by none or one external route tag */
-  /* followed by none or one referenced LS-ID */
+	struct ospf6_prefix prefix;
+	/* followed by none or one forwarding address */
+	/* followed by none or one external route tag */
+	/* followed by none or one referenced LS-ID */
 };
 
 #define OSPF6_ASBR_BIT_T  ntohl (0x01000000)
@@ -70,32 +65,34 @@ struct ospf6_as_external_lsa
 #define OSPF6_ASBR_BIT_E  ntohl (0x04000000)
 
 #define OSPF6_ASBR_METRIC(E) (ntohl ((E)->bits_metric & htonl (0x00ffffff)))
-#define OSPF6_ASBR_METRIC_SET(E,C) \
-  { (E)->bits_metric &= htonl (0xff000000); \
-    (E)->bits_metric |= htonl (0x00ffffff) & htonl (C); }
+#define OSPF6_ASBR_METRIC_SET(E, C)                                            \
+	{                                                                      \
+		(E)->bits_metric &= htonl(0xff000000);                         \
+		(E)->bits_metric |= htonl(0x00ffffff) & htonl(C);              \
+	}
 
-extern void ospf6_asbr_lsa_add (struct ospf6_lsa *lsa);
-extern void ospf6_asbr_lsa_remove (struct ospf6_lsa *lsa);
-extern void ospf6_asbr_lsentry_add (struct ospf6_route *asbr_entry);
-extern void ospf6_asbr_lsentry_remove (struct ospf6_route *asbr_entry);
+extern void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa);
+extern void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa);
+extern void ospf6_asbr_lsentry_add(struct ospf6_route *asbr_entry);
+extern void ospf6_asbr_lsentry_remove(struct ospf6_route *asbr_entry);
 
-extern int ospf6_asbr_is_asbr (struct ospf6 *o);
-extern void ospf6_asbr_redistribute_add (int type, ifindex_t ifindex,
-                                         struct prefix *prefix,
-                                         u_int nexthop_num,
-                                         struct in6_addr *nexthop,
-                                         route_tag_t tag);
-extern void ospf6_asbr_redistribute_remove (int type, ifindex_t ifindex,
-                                            struct prefix *prefix);
+extern int ospf6_asbr_is_asbr(struct ospf6 *o);
+extern void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
+					struct prefix *prefix,
+					u_int nexthop_num,
+					struct in6_addr *nexthop,
+					route_tag_t tag);
+extern void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
+					   struct prefix *prefix);
 
-extern int ospf6_redistribute_config_write (struct vty *vty);
+extern int ospf6_redistribute_config_write(struct vty *vty);
 
-extern void ospf6_asbr_init (void);
-extern void ospf6_asbr_redistribute_reset (void);
-extern void ospf6_asbr_terminate (void);
-extern void ospf6_asbr_send_externals_to_area (struct ospf6_area *);
+extern void ospf6_asbr_init(void);
+extern void ospf6_asbr_redistribute_reset(void);
+extern void ospf6_asbr_terminate(void);
+extern void ospf6_asbr_send_externals_to_area(struct ospf6_area *);
 
-extern int config_write_ospf6_debug_asbr (struct vty *vty);
-extern void install_element_ospf6_debug_asbr (void);
+extern int config_write_ospf6_debug_asbr(struct vty *vty);
+extern void install_element_ospf6_debug_asbr(void);
 
 #endif /* OSPF6_ASBR_H */

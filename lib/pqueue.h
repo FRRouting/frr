@@ -21,26 +21,25 @@ Boston, MA 02111-1307, USA.  */
 #ifndef _ZEBRA_PQUEUE_H
 #define _ZEBRA_PQUEUE_H
 
-struct pqueue
-{
-  void **array;
-  int array_size;
-  int size;
+struct pqueue {
+	void **array;
+	int array_size;
+	int size;
 
-  int (*cmp) (void *, void *);
-  void (*update) (void * node, int actual_position);
+	int (*cmp)(void *, void *);
+	void (*update)(void *node, int actual_position);
 };
 
 #define PQUEUE_INIT_ARRAYSIZE  32
 
-extern struct pqueue *pqueue_create (void);
-extern void pqueue_delete (struct pqueue *queue);
+extern struct pqueue *pqueue_create(void);
+extern void pqueue_delete(struct pqueue *queue);
 
-extern void pqueue_enqueue (void *data, struct pqueue *queue);
-extern void *pqueue_dequeue (struct pqueue *queue);
-extern void pqueue_remove_at (int index, struct pqueue *queue);
+extern void pqueue_enqueue(void *data, struct pqueue *queue);
+extern void *pqueue_dequeue(struct pqueue *queue);
+extern void pqueue_remove_at(int index, struct pqueue *queue);
 
-extern void trickle_down (int index, struct pqueue *queue);
-extern void trickle_up (int index, struct pqueue *queue);
+extern void trickle_down(int index, struct pqueue *queue);
+extern void trickle_up(int index, struct pqueue *queue);
 
 #endif /* _ZEBRA_PQUEUE_H */

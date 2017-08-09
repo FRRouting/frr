@@ -24,15 +24,15 @@
 
 #include "common_cli.h"
 
-DUMMY_DEFUN(cmd0,  "arg ipv4 A.B.C.D");
-DUMMY_DEFUN(cmd1,  "arg ipv4m A.B.C.D/M");
-DUMMY_DEFUN(cmd2,  "arg ipv6 X:X::X:X");
-DUMMY_DEFUN(cmd3,  "arg ipv6m X:X::X:X/M");
-DUMMY_DEFUN(cmd4,  "arg range (5-15)");
-DUMMY_DEFUN(cmd5,  "pat a < a|b>");
-DUMMY_DEFUN(cmd7,  "pat c <a | b|c> A.B.C.D");
-DUMMY_DEFUN(cmd8,  "pat d {  foo A.B.C.D|bar   X:X::X:X| baz }");
-DUMMY_DEFUN(cmd9,  "pat e [ WORD ]");
+DUMMY_DEFUN(cmd0, "arg ipv4 A.B.C.D");
+DUMMY_DEFUN(cmd1, "arg ipv4m A.B.C.D/M");
+DUMMY_DEFUN(cmd2, "arg ipv6 X:X::X:X");
+DUMMY_DEFUN(cmd3, "arg ipv6m X:X::X:X/M");
+DUMMY_DEFUN(cmd4, "arg range (5-15)");
+DUMMY_DEFUN(cmd5, "pat a < a|b>");
+DUMMY_DEFUN(cmd7, "pat c <a | b|c> A.B.C.D");
+DUMMY_DEFUN(cmd8, "pat d {  foo A.B.C.D|bar   X:X::X:X| baz }");
+DUMMY_DEFUN(cmd9, "pat e [ WORD ]");
 DUMMY_DEFUN(cmd10, "pat f [key]");
 DUMMY_DEFUN(cmd11, "alt a WORD");
 DUMMY_DEFUN(cmd12, "alt a A.B.C.D");
@@ -40,27 +40,27 @@ DUMMY_DEFUN(cmd13, "alt a X:X::X:X");
 
 void test_init(int argc, char **argv)
 {
-  size_t repeat = argc > 1 ? strtoul(argv[1], NULL, 0) : 223;
+	size_t repeat = argc > 1 ? strtoul(argv[1], NULL, 0) : 223;
 
-  install_element (ENABLE_NODE, &cmd0_cmd);
-  install_element (ENABLE_NODE, &cmd1_cmd);
-  install_element (ENABLE_NODE, &cmd2_cmd);
-  install_element (ENABLE_NODE, &cmd3_cmd);
-  install_element (ENABLE_NODE, &cmd4_cmd);
-  install_element (ENABLE_NODE, &cmd5_cmd);
-  install_element (ENABLE_NODE, &cmd7_cmd);
-  install_element (ENABLE_NODE, &cmd8_cmd);
-  install_element (ENABLE_NODE, &cmd9_cmd);
-  install_element (ENABLE_NODE, &cmd10_cmd);
-  install_element (ENABLE_NODE, &cmd11_cmd);
-  install_element (ENABLE_NODE, &cmd12_cmd);
-  install_element (ENABLE_NODE, &cmd13_cmd);
-  for (size_t i = 0; i < repeat; i++) {
-    uninstall_element (ENABLE_NODE, &cmd5_cmd);
-    install_element (ENABLE_NODE, &cmd5_cmd);
-  }
-  for (size_t i = 0; i < repeat; i++) {
-    uninstall_element (ENABLE_NODE, &cmd13_cmd);
-    install_element (ENABLE_NODE, &cmd13_cmd);
-  }
+	install_element(ENABLE_NODE, &cmd0_cmd);
+	install_element(ENABLE_NODE, &cmd1_cmd);
+	install_element(ENABLE_NODE, &cmd2_cmd);
+	install_element(ENABLE_NODE, &cmd3_cmd);
+	install_element(ENABLE_NODE, &cmd4_cmd);
+	install_element(ENABLE_NODE, &cmd5_cmd);
+	install_element(ENABLE_NODE, &cmd7_cmd);
+	install_element(ENABLE_NODE, &cmd8_cmd);
+	install_element(ENABLE_NODE, &cmd9_cmd);
+	install_element(ENABLE_NODE, &cmd10_cmd);
+	install_element(ENABLE_NODE, &cmd11_cmd);
+	install_element(ENABLE_NODE, &cmd12_cmd);
+	install_element(ENABLE_NODE, &cmd13_cmd);
+	for (size_t i = 0; i < repeat; i++) {
+		uninstall_element(ENABLE_NODE, &cmd5_cmd);
+		install_element(ENABLE_NODE, &cmd5_cmd);
+	}
+	for (size_t i = 0; i < repeat; i++) {
+		uninstall_element(ENABLE_NODE, &cmd13_cmd);
+		install_element(ENABLE_NODE, &cmd13_cmd);
+	}
 }

@@ -1,4 +1,4 @@
-/* 
+/*
  *
  * Copyright 2009-2016, LabN Consulting, L.L.C.
  *
@@ -57,44 +57,30 @@
 #include "rfapi_rib.h"
 
 
-extern void
-rfapiApInit (struct rfapi_advertised_prefixes *ap);
+extern void rfapiApInit(struct rfapi_advertised_prefixes *ap);
 
-extern void
-rfapiApRelease (struct rfapi_advertised_prefixes *ap);
+extern void rfapiApRelease(struct rfapi_advertised_prefixes *ap);
 
-extern int
-rfapiApCount (struct rfapi_descriptor *rfd);
+extern int rfapiApCount(struct rfapi_descriptor *rfd);
 
 
-extern int
-rfapiApCountAll (struct bgp *bgp);
+extern int rfapiApCountAll(struct bgp *bgp);
 
-extern void
-rfapiApReadvertiseAll (struct bgp *bgp, struct rfapi_descriptor *rfd);
+extern void rfapiApReadvertiseAll(struct bgp *bgp,
+				  struct rfapi_descriptor *rfd);
 
-extern void
-rfapiApWithdrawAll (struct bgp *bgp, struct rfapi_descriptor *rfd);
+extern void rfapiApWithdrawAll(struct bgp *bgp, struct rfapi_descriptor *rfd);
 
 extern int
-rfapiApAdd (
-  struct bgp			*bgp,
-  struct rfapi_descriptor	*rfd,
-  struct prefix			*pfx_ip,
-  struct prefix			*pfx_eth,
-  struct prefix_rd		*prd,
-  uint32_t			lifetime,
-  uint8_t			cost,
-  struct rfapi_l2address_option	*l2o);       /* other options TBD */
+rfapiApAdd(struct bgp *bgp, struct rfapi_descriptor *rfd, struct prefix *pfx_ip,
+	   struct prefix *pfx_eth, struct prefix_rd *prd, uint32_t lifetime,
+	   uint8_t cost,
+	   struct rfapi_l2address_option *l2o); /* other options TBD */
 
-extern int
-rfapiApDelete (
-  struct bgp			*bgp,
-  struct rfapi_descriptor	*rfd,
-  struct prefix			*pfx_ip,
-  struct prefix			*pfx_eth,
-  struct prefix_rd		*prd,
-  int				*advertise_tunnel); /* out */
+extern int rfapiApDelete(struct bgp *bgp, struct rfapi_descriptor *rfd,
+			 struct prefix *pfx_ip, struct prefix *pfx_eth,
+			 struct prefix_rd *prd,
+			 int *advertise_tunnel); /* out */
 
 
 #endif /* _QUAGGA_BGP_RFAPI_AP_H */

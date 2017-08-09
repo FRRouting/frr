@@ -26,4 +26,4 @@ extern void bgp_ethernetvpn_init(void);
 #define L2VPN_HELP_STR        "Layer 2 Virtual Private Network\n"
 #define EVPN_HELP_STR        "Ethernet Virtual Private Network\n"
 
-#endif				/* _QUAGGA_BGP_EVPN_VTY_H */
+#endif /* _QUAGGA_BGP_EVPN_VTY_H */

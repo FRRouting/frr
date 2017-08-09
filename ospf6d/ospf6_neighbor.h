@@ -14,9 +14,9 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the 
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330, 
- * Boston, MA 02111-1307, USA.  
+ * along with GNU Zebra; see the file COPYING.  If not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 
 #ifndef OSPF6_NEIGHBOR_H
@@ -28,79 +28,76 @@
 extern unsigned char conf_debug_ospf6_neighbor;
 #define OSPF6_DEBUG_NEIGHBOR_STATE   0x01
 #define OSPF6_DEBUG_NEIGHBOR_EVENT   0x02
-#define OSPF6_DEBUG_NEIGHBOR_ON(level) \
-  (conf_debug_ospf6_neighbor |= (level))
-#define OSPF6_DEBUG_NEIGHBOR_OFF(level) \
-  (conf_debug_ospf6_neighbor &= ~(level))
-#define IS_OSPF6_DEBUG_NEIGHBOR(level) \
-  (conf_debug_ospf6_neighbor & OSPF6_DEBUG_NEIGHBOR_ ## level)
+#define OSPF6_DEBUG_NEIGHBOR_ON(level) (conf_debug_ospf6_neighbor |= (level))
+#define OSPF6_DEBUG_NEIGHBOR_OFF(level) (conf_debug_ospf6_neighbor &= ~(level))
+#define IS_OSPF6_DEBUG_NEIGHBOR(level)                                         \
+	(conf_debug_ospf6_neighbor & OSPF6_DEBUG_NEIGHBOR_##level)
 
 /* Neighbor structure */
-struct ospf6_neighbor
-{
-  /* Neighbor Router ID String */
-  char name[32];
+struct ospf6_neighbor {
+	/* Neighbor Router ID String */
+	char name[32];
 
-  /* OSPFv3 Interface this neighbor belongs to */
-  struct ospf6_interface *ospf6_if;
+	/* OSPFv3 Interface this neighbor belongs to */
+	struct ospf6_interface *ospf6_if;
 
-  /* Neighbor state */
-  u_char state;
+	/* Neighbor state */
+	u_char state;
 
-  /* timestamp of last changing state */
-  u_int32_t state_change;
-  struct timeval last_changed;
+	/* timestamp of last changing state */
+	u_int32_t state_change;
+	struct timeval last_changed;
 
-  /* Neighbor Router ID */
-  u_int32_t router_id;
+	/* Neighbor Router ID */
+	u_int32_t router_id;
 
-  /* Neighbor Interface ID */
-  ifindex_t ifindex;
+	/* Neighbor Interface ID */
+	ifindex_t ifindex;
 
-  /* Router Priority of this neighbor */
-  u_char priority;
+	/* Router Priority of this neighbor */
+	u_char priority;
 
-  u_int32_t drouter;
-  u_int32_t bdrouter;
-  u_int32_t prev_drouter;
-  u_int32_t prev_bdrouter;
+	u_int32_t drouter;
+	u_int32_t bdrouter;
+	u_int32_t prev_drouter;
+	u_int32_t prev_bdrouter;
 
-  /* Options field (Capability) */
-  char options[3];
+	/* Options field (Capability) */
+	char options[3];
 
-  /* IPaddr of I/F on our side link */
-  struct in6_addr linklocal_addr;
+	/* IPaddr of I/F on our side link */
+	struct in6_addr linklocal_addr;
 
-  /* For Database Exchange */
-  u_char               dbdesc_bits;
-  u_int32_t            dbdesc_seqnum;
-  /* Last received Database Description packet */
-  struct ospf6_dbdesc  dbdesc_last;
+	/* For Database Exchange */
+	u_char dbdesc_bits;
+	u_int32_t dbdesc_seqnum;
+	/* Last received Database Description packet */
+	struct ospf6_dbdesc dbdesc_last;
 
-  /* LS-list */
-  struct ospf6_lsdb *summary_list;
-  struct ospf6_lsdb *request_list;
-  struct ospf6_lsdb *retrans_list;
+	/* LS-list */
+	struct ospf6_lsdb *summary_list;
+	struct ospf6_lsdb *request_list;
+	struct ospf6_lsdb *retrans_list;
 
-  /* LSA list for message transmission */
-  struct ospf6_lsdb *dbdesc_list;
-  struct ospf6_lsdb *lsreq_list;
-  struct ospf6_lsdb *lsupdate_list;
-  struct ospf6_lsdb *lsack_list;
+	/* LSA list for message transmission */
+	struct ospf6_lsdb *dbdesc_list;
+	struct ospf6_lsdb *lsreq_list;
+	struct ospf6_lsdb *lsupdate_list;
+	struct ospf6_lsdb *lsack_list;
 
-  struct ospf6_lsa *last_ls_req;
+	struct ospf6_lsa *last_ls_req;
 
-  /* Inactivity timer */
-  struct thread *inactivity_timer;
+	/* Inactivity timer */
+	struct thread *inactivity_timer;
 
-  /* Thread for sending message */
-  struct thread *thread_send_dbdesc;
-  struct thread *thread_send_lsreq;
-  struct thread *thread_send_lsupdate;
-  struct thread *thread_send_lsack;
+	/* Thread for sending message */
+	struct thread *thread_send_dbdesc;
+	struct thread *thread_send_lsreq;
+	struct thread *thread_send_lsupdate;
+	struct thread *thread_send_lsack;
 
-  /* BFD information */
-  void *bfd_info;
+	/* BFD information */
+	void *bfd_info;
 };
 
 /* Neighbor state */
@@ -127,62 +124,53 @@ struct ospf6_neighbor
 #define OSPF6_NEIGHBOR_EVENT_INACTIVITY_TIMER    10
 #define OSPF6_NEIGHBOR_EVENT_MAX_EVENT           11
 
-static const char *ospf6_neighbor_event_str[] =
-  {
-    "NoEvent",
-    "HelloReceived",
-    "2-WayReceived",
-    "NegotiationDone",
-    "ExchangeDone",
-    "LoadingDone",
-    "AdjOK?",
-    "SeqNumberMismatch",
-    "BadLSReq",
-    "1-WayReceived",
-    "InactivityTimer",
-  };
+static const char *ospf6_neighbor_event_str[] = {
+	"NoEvent",      "HelloReceived", "2-WayReceived",   "NegotiationDone",
+	"ExchangeDone", "LoadingDone",   "AdjOK?",	  "SeqNumberMismatch",
+	"BadLSReq",     "1-WayReceived", "InactivityTimer",
+};
 
-static inline const char *ospf6_neighbor_event_string (int event)
+static inline const char *ospf6_neighbor_event_string(int event)
 {
-  #define OSPF6_NEIGHBOR_UNKNOWN_EVENT_STRING "UnknownEvent"
+#define OSPF6_NEIGHBOR_UNKNOWN_EVENT_STRING "UnknownEvent"
 
-  if (event < OSPF6_NEIGHBOR_EVENT_MAX_EVENT)
-      return ospf6_neighbor_event_str[event];
-  return OSPF6_NEIGHBOR_UNKNOWN_EVENT_STRING;
+	if (event < OSPF6_NEIGHBOR_EVENT_MAX_EVENT)
+		return ospf6_neighbor_event_str[event];
+	return OSPF6_NEIGHBOR_UNKNOWN_EVENT_STRING;
 }
 
 extern const char *ospf6_neighbor_state_str[];
 
 
 /* Function Prototypes */
-int ospf6_neighbor_cmp (void *va, void *vb);
-void ospf6_neighbor_dbex_init (struct ospf6_neighbor *on);
+int ospf6_neighbor_cmp(void *va, void *vb);
+void ospf6_neighbor_dbex_init(struct ospf6_neighbor *on);
 
-struct ospf6_neighbor *ospf6_neighbor_lookup (u_int32_t,
-                                              struct ospf6_interface *);
-struct ospf6_neighbor *ospf6_neighbor_create (u_int32_t,
-                                              struct ospf6_interface *);
-void ospf6_neighbor_delete (struct ospf6_neighbor *);
+struct ospf6_neighbor *ospf6_neighbor_lookup(u_int32_t,
+					     struct ospf6_interface *);
+struct ospf6_neighbor *ospf6_neighbor_create(u_int32_t,
+					     struct ospf6_interface *);
+void ospf6_neighbor_delete(struct ospf6_neighbor *);
 
 /* Neighbor event */
-extern int hello_received (struct thread *);
-extern int twoway_received (struct thread *);
-extern int negotiation_done (struct thread *);
-extern int exchange_done (struct thread *);
-extern int loading_done (struct thread *);
-extern int adj_ok (struct thread *);
-extern int seqnumber_mismatch (struct thread *);
-extern int bad_lsreq (struct thread *);
-extern int oneway_received (struct thread *);
-extern int inactivity_timer (struct thread *);
-extern void ospf6_check_nbr_loading (struct ospf6_neighbor *);
+extern int hello_received(struct thread *);
+extern int twoway_received(struct thread *);
+extern int negotiation_done(struct thread *);
+extern int exchange_done(struct thread *);
+extern int loading_done(struct thread *);
+extern int adj_ok(struct thread *);
+extern int seqnumber_mismatch(struct thread *);
+extern int bad_lsreq(struct thread *);
+extern int oneway_received(struct thread *);
+extern int inactivity_timer(struct thread *);
+extern void ospf6_check_nbr_loading(struct ospf6_neighbor *);
 
-extern void ospf6_neighbor_init (void);
-extern int config_write_ospf6_debug_neighbor (struct vty *vty);
-extern void install_element_ospf6_debug_neighbor (void);
+extern void ospf6_neighbor_init(void);
+extern int config_write_ospf6_debug_neighbor(struct vty *vty);
+extern void install_element_ospf6_debug_neighbor(void);
 
 DECLARE_HOOK(ospf6_neighbor_change,
-		(struct ospf6_neighbor *on, int state, int next_state),
-		(on, state, next_state))
+	     (struct ospf6_neighbor * on, int state, int next_state),
+	     (on, state, next_state))
 
 #endif /* OSPF6_NEIGHBOR_H */

@@ -27,74 +27,66 @@
 
 #define USAGE "usage: permutations <cmdstr>"
 
-void
-permute (struct graph_node *);
-void
-pretty_print_graph (struct graph_node *start, int level);
+void permute(struct graph_node *);
+void pretty_print_graph(struct graph_node *start, int level);
 
-int main (int argc, char *argv[])
+int main(int argc, char *argv[])
 {
-  if (argc < 2)
-  {
-    fprintf(stdout, USAGE"\n");
-    exit(EXIT_SUCCESS);
-  }
-  struct cmd_element *cmd = calloc (1, sizeof (struct cmd_element));
-  cmd->string = strdup(argv[1]);
+	if (argc < 2) {
+		fprintf(stdout, USAGE "\n");
+		exit(EXIT_SUCCESS);
+	}
+	struct cmd_element *cmd = calloc(1, sizeof(struct cmd_element));
+	cmd->string = strdup(argv[1]);
 
-  struct graph *graph = graph_new();
-  struct cmd_token *token = new_cmd_token (START_TKN, cmd->attr, NULL, NULL);
-  graph_new_node (graph, token, NULL);
-  command_parse_format (graph, cmd);
+	struct graph *graph = graph_new();
+	struct cmd_token *token =
+		new_cmd_token(START_TKN, cmd->attr, NULL, NULL);
+	graph_new_node(graph, token, NULL);
+	command_parse_format(graph, cmd);
 
-  permute (vector_slot (graph->nodes, 0));
+	permute(vector_slot(graph->nodes, 0));
 }
 
-void
-permute (struct graph_node *start)
+void permute(struct graph_node *start)
 {
-  static struct list *position = NULL;
-  if (!position) position = list_new ();
+	static struct list *position = NULL;
+	if (!position)
+		position = list_new();
 
-  struct cmd_token *stok = start->data;
-  struct graph_node *gnn;
-  struct listnode *ln;
+	struct cmd_token *stok = start->data;
+	struct graph_node *gnn;
+	struct listnode *ln;
 
-  // recursive dfs
-  listnode_add (position, start);
-  for (unsigned int i = 0; i < vector_active (start->to); i++)
-  {
-    struct graph_node *gn = vector_slot (start->to, i);
-    struct cmd_token *tok = gn->data;
-    if (tok->attr == CMD_ATTR_HIDDEN ||
-        tok->attr == CMD_ATTR_DEPRECATED)
-      continue;
-    else if (tok->type == END_TKN || gn == start)
-    {
-      fprintf (stdout, " ");
-      for (ALL_LIST_ELEMENTS_RO (position,ln,gnn))
-      {
-        struct cmd_token *tt = gnn->data;
-        if (tt->type < SPECIAL_TKN)
-          fprintf (stdout, " %s", tt->text);
-      }
-      if (gn == start)
-        fprintf (stdout, "...");
-      fprintf (stdout, "\n");
-    }
-    else
-    {
-      bool skip = false;
-      if (stok->type == FORK_TKN && tok->type != FORK_TKN)
-        for (ALL_LIST_ELEMENTS_RO (position, ln, gnn))
-           if (gnn == gn)
-           { 
-             skip = true;
-             break;
-           }
-      if (!skip)
-        permute (gn);
-    }
-  }
-  list_delete_node (position, listtail(position));
+	// recursive dfs
+	listnode_add(position, start);
+	for (unsigned int i = 0; i < vector_active(start->to); i++) {
+		struct graph_node *gn = vector_slot(start->to, i);
+		struct cmd_token *tok = gn->data;
+		if (tok->attr == CMD_ATTR_HIDDEN
+		    || tok->attr == CMD_ATTR_DEPRECATED)
+			continue;
+		else if (tok->type == END_TKN || gn == start) {
+			fprintf(stdout, " ");
+			for (ALL_LIST_ELEMENTS_RO(position, ln, gnn)) {
+				struct cmd_token *tt = gnn->data;
+				if (tt->type < SPECIAL_TKN)
+					fprintf(stdout, " %s", tt->text);
+			}
+			if (gn == start)
+				fprintf(stdout, "...");
+			fprintf(stdout, "\n");
+		} else {
+			bool skip = false;
+			if (stok->type == FORK_TKN && tok->type != FORK_TKN)
+				for (ALL_LIST_ELEMENTS_RO(position, ln, gnn))
+					if (gnn == gn) {
+						skip = true;
+						break;
+					}
+			if (!skip)
+				permute(gn);
+		}
+	}
+	list_delete_node(position, listtail(position));
 }

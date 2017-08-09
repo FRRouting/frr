@@ -38,31 +38,33 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define ORF_COMMON_PART_DENY       0x20 
 
 /* Packet send and receive function prototypes. */
-extern int bgp_read (struct thread *);
-extern int bgp_write (struct thread *);
-extern int bgp_connect_check (struct peer *, int change_state);
+extern int bgp_read(struct thread *);
+extern int bgp_write(struct thread *);
+extern int bgp_connect_check(struct peer *, int change_state);
 
-extern void bgp_keepalive_send (struct peer *);
-extern void bgp_open_send (struct peer *);
-extern void bgp_notify_send (struct peer *, u_int8_t, u_int8_t);
-extern void bgp_notify_send_with_data (struct peer *, u_int8_t, u_int8_t, 
-                                u_int8_t *, size_t);
-extern void bgp_route_refresh_send (struct peer *, afi_t, safi_t, u_char, u_char, int);
-extern void bgp_capability_send (struct peer *, afi_t, safi_t, int, int);
-extern void bgp_default_update_send (struct peer *, struct attr *,
-			      afi_t, safi_t, struct peer *);
-extern void bgp_default_withdraw_send (struct peer *, afi_t, safi_t);
+extern void bgp_keepalive_send(struct peer *);
+extern void bgp_open_send(struct peer *);
+extern void bgp_notify_send(struct peer *, u_int8_t, u_int8_t);
+extern void bgp_notify_send_with_data(struct peer *, u_int8_t, u_int8_t,
+				      u_int8_t *, size_t);
+extern void bgp_route_refresh_send(struct peer *, afi_t, safi_t, u_char, u_char,
+				   int);
+extern void bgp_capability_send(struct peer *, afi_t, safi_t, int, int);
+extern void bgp_default_update_send(struct peer *, struct attr *, afi_t, safi_t,
+				    struct peer *);
+extern void bgp_default_withdraw_send(struct peer *, afi_t, safi_t);
 
-extern int bgp_capability_receive (struct peer *, bgp_size_t);
+extern int bgp_capability_receive(struct peer *, bgp_size_t);
 
-extern int bgp_nlri_parse (struct peer *, struct attr *, struct bgp_nlri *, int mp_withdraw);
+extern int bgp_nlri_parse(struct peer *, struct attr *, struct bgp_nlri *,
+			  int mp_withdraw);
 
-extern void bgp_update_restarted_peers (struct peer *);
-extern void bgp_update_implicit_eors (struct peer *);
-extern void bgp_check_update_delay (struct bgp *);
+extern void bgp_update_restarted_peers(struct peer *);
+extern void bgp_update_implicit_eors(struct peer *);
+extern void bgp_check_update_delay(struct bgp *);
 
-extern int bgp_packet_set_marker (struct stream *s, u_char type);
-extern int bgp_packet_set_size (struct stream *s);
-extern void bgp_packet_add (struct peer *peer, struct stream *s);
+extern int bgp_packet_set_marker(struct stream *s, u_char type);
+extern int bgp_packet_set_size(struct stream *s);
+extern void bgp_packet_add(struct peer *peer, struct stream *s);
 
 #endif /* _QUAGGA_BGP_PACKET_H */

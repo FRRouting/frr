@@ -35,9 +35,8 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_evpn.h"
 
-int
-bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
-		    struct bgp_nlri *packet, int withdraw)
+int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
+			struct bgp_nlri *packet, int withdraw)
 {
 	u_char *pnt;
 	u_char *lim;
@@ -75,8 +74,8 @@ bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 		/* simply ignore. goto next route type if any */
 		if (route_type != EVPN_IP_PREFIX) {
 			if (pnt + route_length > lim) {
-				zlog_err
-				    ("not enough bytes for New Route Type left in NLRI?");
+				zlog_err(
+					"not enough bytes for New Route Type left in NLRI?");
 				return -1;
 			}
 			pnt += route_length;
@@ -122,8 +121,8 @@ bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 				return -1;
 			}
 			/* determine IPv4 or IPv6 prefix */
-			if (route_length - 4 - 10 - 8 -
-			    3 /* label to be read */  >= 32) {
+			if (route_length - 4 - 10 - 8 - 3 /* label to be read */
+			    >= 32) {
 				p_evpn_p->flags = IP_PREFIX_V6;
 				memcpy(&(p_evpn_p->ip.v6_addr), pnt, 16);
 				pnt += 16;
@@ -139,7 +138,7 @@ bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 			p.family = AFI_L2VPN;
 			if (p_evpn_p->flags == IP_PREFIX_V4)
 				p.prefixlen =
-				    (u_char) PREFIX_LEN_ROUTE_TYPE_5_IPV4;
+					(u_char)PREFIX_LEN_ROUTE_TYPE_5_IPV4;
 			else
 				p.prefixlen = PREFIX_LEN_ROUTE_TYPE_5_IPV6;
 			p.family = AF_ETHERNET;
@@ -171,10 +170,9 @@ bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 	return 0;
 }
 
-void
-bgp_packet_mpattr_route_type_5(struct stream *s,
-			       struct prefix *p, struct prefix_rd *prd,
-			       u_char * label, struct attr *attr)
+void bgp_packet_mpattr_route_type_5(struct stream *s, struct prefix *p,
+				    struct prefix_rd *prd, u_char *label,
+				    struct attr *attr)
 {
 	int len;
 	char temp[16];
@@ -185,13 +183,13 @@ bgp_packet_mpattr_route_type_5(struct stream *s,
 		return;
 	p_evpn_p = &(p->u.prefix_evpn);
 	if (p_evpn_p->flags & IP_PREFIX_V4)
-		len = 8;	/* ipv4 */
+		len = 8; /* ipv4 */
 	else
-		len = 32;	/* ipv6 */
+		len = 32; /* ipv6 */
 	stream_putc(s, EVPN_IP_PREFIX);
 	stream_putc(s,
-		    8 /* RD */  + 10 /* ESI */  + 4 /* EthTag */  + 1 + len +
-		    3 /* label */ );
+		    8 /* RD */ + 10 /* ESI */ + 4 /* EthTag */ + 1 + len
+			    + 3 /* label */);
 	stream_put(s, prd->val, 8);
 	if (attr && attr->extra)
 		stream_put(s, &(attr->extra->evpn_overlay.eth_s_id), 10);
@@ -205,9 +203,8 @@ bgp_packet_mpattr_route_type_5(struct stream *s,
 		stream_put(s, &p_evpn_p->ip.v6_addr, 16);
 	if (attr && attr->extra) {
 		if (p_evpn_p->flags & IP_PREFIX_V4)
-			stream_put_ipv4(s,
-					attr->extra->evpn_overlay.gw_ip.ipv4.
-					s_addr);
+			stream_put_ipv4(
+				s, attr->extra->evpn_overlay.gw_ip.ipv4.s_addr);
 		else
 			stream_put(s, &(attr->extra->evpn_overlay.gw_ip.ipv6),
 				   16);

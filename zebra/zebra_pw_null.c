@@ -25,5 +25,9 @@
 #include "zebra/zserv.h"
 #include "zebra/zebra_vrf.h"
 
-void zebra_pw_init(struct zebra_vrf *zvrf) {}
-void zebra_pw_exit(struct zebra_vrf *zvrf) {}
+void zebra_pw_init(struct zebra_vrf *zvrf)
+{
+}
+void zebra_pw_exit(struct zebra_vrf *zvrf)
+{
+}

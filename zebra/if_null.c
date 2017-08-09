@@ -28,5 +28,7 @@
 #include <rtadv.h>
 #include <zebra_ns.h>
 
-void interface_list (struct zebra_ns *zns)
-{ return; }
+void interface_list(struct zebra_ns *zns)
+{
+	return;
+}

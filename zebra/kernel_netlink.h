@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with GNU Zebra; see the file COPYING.  If not, write to the Free
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * 02111-1307, USA.
  */
 
 #ifndef _ZEBRA_KERNEL_NETLINK_H
@@ -26,34 +26,34 @@
 
 #define NL_PKT_BUF_SIZE         8192
 
-extern void netlink_parse_rtattr (struct rtattr **tb, int max,
-                                  struct rtattr *rta, int len);
-extern int addattr_l (struct nlmsghdr *n, unsigned int maxlen,
-                      int type, void *data, unsigned int alen);
-extern int rta_addattr_l (struct rtattr *rta, unsigned int maxlen,
-                          int type, void *data, unsigned int alen);
-extern int addattr32 (struct nlmsghdr *n, unsigned int maxlen,
-                      int type, int data);
+extern void netlink_parse_rtattr(struct rtattr **tb, int max,
+				 struct rtattr *rta, int len);
+extern int addattr_l(struct nlmsghdr *n, unsigned int maxlen, int type,
+		     void *data, unsigned int alen);
+extern int rta_addattr_l(struct rtattr *rta, unsigned int maxlen, int type,
+			 void *data, unsigned int alen);
+extern int addattr32(struct nlmsghdr *n, unsigned int maxlen, int type,
+		     int data);
 extern struct rtattr *addattr_nest(struct nlmsghdr *n, int maxlen, int type);
 extern int addattr_nest_end(struct nlmsghdr *n, struct rtattr *nest);
-extern struct rtattr * rta_nest(struct rtattr *rta, int maxlen, int type);
+extern struct rtattr *rta_nest(struct rtattr *rta, int maxlen, int type);
 extern int rta_nest_end(struct rtattr *rta, struct rtattr *nest);
-extern const char * nl_msg_type_to_str (uint16_t msg_type);
-extern const char * nl_rtproto_to_str (u_char rtproto);
-extern const char * nl_family_to_str (u_char family);
-extern const char * nl_rttype_to_str (u_char rttype);
+extern const char *nl_msg_type_to_str(uint16_t msg_type);
+extern const char *nl_rtproto_to_str(u_char rtproto);
+extern const char *nl_family_to_str(u_char family);
+extern const char *nl_rttype_to_str(u_char rttype);
 
-extern int netlink_parse_info (int (*filter) (struct sockaddr_nl *,
-                                              struct nlmsghdr *, ns_id_t, int),
-                               struct nlsock *nl, struct zebra_ns *zns,
-                               int count, int startup);
-extern int netlink_talk_filter (struct sockaddr_nl *, struct nlmsghdr *,
-				ns_id_t, int startup);
-extern int netlink_talk (int (*filter) (struct sockaddr_nl *, struct nlmsghdr *,
-					ns_id_t, int startup),
-			 struct nlmsghdr *n, struct nlsock *nl,
-                         struct zebra_ns *zns, int startup);
-extern int netlink_request (int family, int type, struct nlsock *nl);
+extern int netlink_parse_info(int (*filter)(struct sockaddr_nl *,
+					    struct nlmsghdr *, ns_id_t, int),
+			      struct nlsock *nl, struct zebra_ns *zns,
+			      int count, int startup);
+extern int netlink_talk_filter(struct sockaddr_nl *, struct nlmsghdr *, ns_id_t,
+			       int startup);
+extern int netlink_talk(int (*filter)(struct sockaddr_nl *, struct nlmsghdr *,
+				      ns_id_t, int startup),
+			struct nlmsghdr *n, struct nlsock *nl,
+			struct zebra_ns *zns, int startup);
+extern int netlink_request(int family, int type, struct nlsock *nl);
 
 #endif /* HAVE_NETLINK */
 

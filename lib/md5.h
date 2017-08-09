@@ -46,8 +46,8 @@
 
 typedef struct {
 	union {
-		uint32_t	md5_state32[4];
-		uint8_t	md5_state8[16];
+		uint32_t md5_state32[4];
+		uint8_t md5_state8[16];
 	} md5_st;
 
 #define md5_sta		md5_st.md5_state32[0]
@@ -57,33 +57,33 @@ typedef struct {
 #define md5_st8		md5_st.md5_state8
 
 	union {
-		uint64_t	md5_count64;
-		uint8_t	md5_count8[8];
+		uint64_t md5_count64;
+		uint8_t md5_count8[8];
 	} md5_count;
 #define md5_n	md5_count.md5_count64
 #define md5_n8	md5_count.md5_count8
 
-	uint	md5_i;
-	uint8_t	md5_buf[MD5_BUFLEN];
+	uint md5_i;
+	uint8_t md5_buf[MD5_BUFLEN];
 } md5_ctxt;
 
-extern void md5_init (md5_ctxt *);
-extern void md5_loop (md5_ctxt *, const void *, u_int);
-extern void md5_pad (md5_ctxt *);
-extern void md5_result (uint8_t *, md5_ctxt *);
+extern void md5_init(md5_ctxt *);
+extern void md5_loop(md5_ctxt *, const void *, u_int);
+extern void md5_pad(md5_ctxt *);
+extern void md5_result(uint8_t *, md5_ctxt *);
 
 /* compatibility */
 #define MD5_CTX		md5_ctxt
 #define MD5Init(x)	md5_init((x))
 #define MD5Update(x, y, z)	md5_loop((x), (y), (z))
-#define MD5Final(x, y) \
-do {				\
-	md5_pad((y));		\
-	md5_result((x), (y));	\
-} while (0)
+#define MD5Final(x, y)                                                         \
+	do {                                                                   \
+		md5_pad((y));                                                  \
+		md5_result((x), (y));                                          \
+	} while (0)
 
 /* From RFC 2104 */
-void hmac_md5(unsigned char* text, int text_len, unsigned char* key,
-              int key_len, uint8_t *digest);
+void hmac_md5(unsigned char *text, int text_len, unsigned char *key,
+	      int key_len, uint8_t *digest);
 
 #endif /* ! _LIBZEBRA_MD5_H_*/

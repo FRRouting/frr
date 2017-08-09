@@ -11,7 +11,7 @@
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
   General Public License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with this program; see the file COPYING; if not, write to the
   Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
@@ -28,11 +28,11 @@
 #include "pim_iface.h"
 
 struct ssmpingd_sock {
-  int            sock_fd;     /* socket */
-  struct thread *t_sock_read; /* thread for reading socket */
-  struct in_addr source_addr; /* source address */
-  int64_t        creation;    /* timestamp of socket creation */
-  int64_t        requests;    /* counter */
+	int sock_fd;		    /* socket */
+	struct thread *t_sock_read; /* thread for reading socket */
+	struct in_addr source_addr; /* source address */
+	int64_t creation;	   /* timestamp of socket creation */
+	int64_t requests;	   /* counter */
 };
 
 void pim_ssmpingd_init(void);

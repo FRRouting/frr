@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with GNU Zebra; see the file COPYING.  If not, write to the Free
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * 02111-1307, USA.
  */
 
 #include <zebra.h>
@@ -32,55 +32,44 @@
 #include "zebra/kernel_socket.h"
 
 /* Kernel routing table read up by sysctl function. */
-void
-route_read (struct zebra_ns *zns)
+void route_read(struct zebra_ns *zns)
 {
-  caddr_t buf, end, ref;
-  size_t bufsiz;
-  struct rt_msghdr *rtm;
-  
+	caddr_t buf, end, ref;
+	size_t bufsiz;
+	struct rt_msghdr *rtm;
+
 #define MIBSIZ 6
-  int mib[MIBSIZ] = 
-  {
-    CTL_NET,
-    PF_ROUTE,
-    0,
-    0,
-    NET_RT_DUMP,
-    0
-  };
+	int mib[MIBSIZ] = {CTL_NET, PF_ROUTE, 0, 0, NET_RT_DUMP, 0};
 
-  if (zns->ns_id != NS_DEFAULT)
-    return;
+	if (zns->ns_id != NS_DEFAULT)
+		return;
 
-  /* Get buffer size. */
-  if (sysctl (mib, MIBSIZ, NULL, &bufsiz, NULL, 0) < 0) 
-    {
-      zlog_warn ("sysctl fail: %s", safe_strerror (errno));
-      return;
-    }
+	/* Get buffer size. */
+	if (sysctl(mib, MIBSIZ, NULL, &bufsiz, NULL, 0) < 0) {
+		zlog_warn("sysctl fail: %s", safe_strerror(errno));
+		return;
+	}
 
-  /* Allocate buffer. */
-  ref = buf = XMALLOC (MTYPE_TMP, bufsiz);
-  
-  /* Read routing table information by calling sysctl(). */
-  if (sysctl (mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) 
-    {
-      zlog_warn ("sysctl() fail by %s", safe_strerror (errno));
-      XFREE(MTYPE_TMP, ref);
-      return;
-    }
+	/* Allocate buffer. */
+	ref = buf = XMALLOC(MTYPE_TMP, bufsiz);
 
-  for (end = buf + bufsiz; buf < end; buf += rtm->rtm_msglen) 
-    {
-      rtm = (struct rt_msghdr *) buf;
-      /* We must set RTF_DONE here, so rtm_read() doesn't ignore the message. */
-      SET_FLAG (rtm->rtm_flags, RTF_DONE);
-      rtm_read (rtm);
-    }
+	/* Read routing table information by calling sysctl(). */
+	if (sysctl(mib, MIBSIZ, buf, &bufsiz, NULL, 0) < 0) {
+		zlog_warn("sysctl() fail by %s", safe_strerror(errno));
+		XFREE(MTYPE_TMP, ref);
+		return;
+	}
 
-  /* Free buffer. */
-  XFREE (MTYPE_TMP, ref);
+	for (end = buf + bufsiz; buf < end; buf += rtm->rtm_msglen) {
+		rtm = (struct rt_msghdr *)buf;
+		/* We must set RTF_DONE here, so rtm_read() doesn't ignore the
+		 * message. */
+		SET_FLAG(rtm->rtm_flags, RTF_DONE);
+		rtm_read(rtm);
+	}
 
-  return;
+	/* Free buffer. */
+	XFREE(MTYPE_TMP, ref);
+
+	return;
 }

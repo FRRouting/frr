@@ -29,76 +29,66 @@
  * is the *last* keyword on the line no matter
  * what.
  */
-int
-use_json (const int argc, struct cmd_token *argv[])
+int use_json(const int argc, struct cmd_token *argv[])
 {
-  if (argc == 0)
-    return 0;
+	if (argc == 0)
+		return 0;
 
-  if (argv[argc-1]->arg && strcmp(argv[argc-1]->arg, "json") == 0)
-    return 1;
+	if (argv[argc - 1]->arg && strcmp(argv[argc - 1]->arg, "json") == 0)
+		return 1;
 
-  return 0;
+	return 0;
 }
 
-void
-json_object_string_add(struct json_object* obj, const char *key,
-                       const char *s)
+void json_object_string_add(struct json_object *obj, const char *key,
+			    const char *s)
 {
-  json_object_object_add(obj, key, json_object_new_string(s));
+	json_object_object_add(obj, key, json_object_new_string(s));
 }
 
-void
-json_object_int_add(struct json_object* obj, const char *key, int32_t i)
+void json_object_int_add(struct json_object *obj, const char *key, int32_t i)
 {
-  json_object_object_add(obj, key, json_object_new_int(i));
+	json_object_object_add(obj, key, json_object_new_int(i));
 }
 
-void
-json_object_long_add(struct json_object* obj, const char *key, int64_t i)
+void json_object_long_add(struct json_object *obj, const char *key, int64_t i)
 {
 #if defined(HAVE_JSON_C_JSON_H)
-  json_object_object_add(obj, key, json_object_new_int64(i));
+	json_object_object_add(obj, key, json_object_new_int64(i));
 #else
-  json_object_object_add(obj, key, json_object_new_int((int)i));
+	json_object_object_add(obj, key, json_object_new_int((int)i));
 #endif
 }
 
-void
-json_object_boolean_false_add(struct json_object* obj, const char *key)
+void json_object_boolean_false_add(struct json_object *obj, const char *key)
 {
-  json_object_object_add(obj, key, json_object_new_boolean(0));
+	json_object_object_add(obj, key, json_object_new_boolean(0));
 }
 
-void
-json_object_boolean_true_add(struct json_object* obj, const char *key)
+void json_object_boolean_true_add(struct json_object *obj, const char *key)
 {
-  json_object_object_add(obj, key, json_object_new_boolean(1));
+	json_object_object_add(obj, key, json_object_new_boolean(1));
 }
 
-struct json_object*
-json_object_lock(struct json_object *obj)
+struct json_object *json_object_lock(struct json_object *obj)
 {
-  return json_object_get(obj);
+	return json_object_get(obj);
 }
 
-void
-json_object_free(struct json_object *obj)
+void json_object_free(struct json_object *obj)
 {
-  json_object_put(obj);
+	json_object_put(obj);
 }
 
 #if !defined(HAVE_JSON_C_JSON_H)
-int
-json_object_object_get_ex(struct json_object *obj,
-			  const char *key,
-			  struct json_object **value)
+int json_object_object_get_ex(struct json_object *obj, const char *key,
+			      struct json_object **value)
 {
-  *value = json_object_object_get(obj, key);
+	*value = json_object_object_get(obj, key);
 
-  if (*value)
-    return 1;
+	if (*value)
+		return 1;
 
-  return 0;
+	return 0;
 }
 #endif

@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with GNU Zebra; see the file COPYING.  If not, write to the Free
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * 02111-1307, USA.
  */
 
 #ifndef _ZEBRA_RIPNG_DEBUG_H
@@ -45,7 +45,7 @@ extern unsigned long ripng_debug_event;
 extern unsigned long ripng_debug_packet;
 extern unsigned long ripng_debug_zebra;
 
-extern void ripng_debug_init (void);
-extern void ripng_debug_reset (void);
+extern void ripng_debug_init(void);
+extern void ripng_debug_reset(void);
 
 #endif /* _ZEBRA_RIPNG_DEBUG_H */

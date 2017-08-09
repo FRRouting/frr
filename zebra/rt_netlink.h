@@ -28,14 +28,12 @@
 
 #define NL_DEFAULT_ROUTE_METRIC 20
 
-extern void
-clear_nhlfe_installed (zebra_lsp_t *lsp);
-extern int
-netlink_mpls_multipath (int cmd, zebra_lsp_t *lsp);
+extern void clear_nhlfe_installed(zebra_lsp_t *lsp);
+extern int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp);
 
-extern int netlink_route_change (struct sockaddr_nl *snl, struct nlmsghdr *h,
-                                 ns_id_t ns_id, int startup);
-extern int netlink_route_read (struct zebra_ns *zns);
+extern int netlink_route_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
+				ns_id_t ns_id, int startup);
+extern int netlink_route_read(struct zebra_ns *zns);
 
 #endif /* HAVE_NETLINK */
 

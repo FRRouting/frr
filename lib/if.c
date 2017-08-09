@@ -1,10 +1,10 @@
 
-/* 
+/*
  * Interface functions.
  * Copyright (C) 1997, 98 Kunihiro Ishiguro
  *
  * This file is part of GNU Zebra.
- * 
+ *
  * GNU Zebra is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published
  * by the Free Software Foundation; either version 2, or (at your
@@ -36,11 +36,11 @@
 #include "buffer.h"
 #include "log.h"
 
-DEFINE_MTYPE(       LIB, IF,              "Interface")
-DEFINE_MTYPE_STATIC(LIB, CONNECTED,       "Connected")
-DEFINE_MTYPE_STATIC(LIB, NBR_CONNECTED,   "Neighbor Connected")
-DEFINE_MTYPE(       LIB, CONNECTED_LABEL, "Connected interface label")
-DEFINE_MTYPE_STATIC(LIB, IF_LINK_PARAMS,  "Informational Link Parameters")
+DEFINE_MTYPE(LIB, IF, "Interface")
+DEFINE_MTYPE_STATIC(LIB, CONNECTED, "Connected")
+DEFINE_MTYPE_STATIC(LIB, NBR_CONNECTED, "Neighbor Connected")
+DEFINE_MTYPE(LIB, CONNECTED_LABEL, "Connected interface label")
+DEFINE_MTYPE_STATIC(LIB, IF_LINK_PARAMS, "Informational Link Parameters")
 
 DEFINE_QOBJ_TYPE(interface)
 
@@ -48,11 +48,12 @@ DEFINE_QOBJ_TYPE(interface)
 int ptm_enable = 0;
 
 /* One for each program.  This structure is needed to store hooks. */
-struct if_master
-{
-  int (*if_new_hook) (struct interface *);
-  int (*if_delete_hook) (struct interface *);
-} if_master = {0,};
+struct if_master {
+	int (*if_new_hook)(struct interface *);
+	int (*if_delete_hook)(struct interface *);
+} if_master = {
+	0,
+};
 
 /* Compare interface names, returning an integer greater than, equal to, or
  * less than 0, (following the strcmp convention), according to the
@@ -61,548 +62,521 @@ struct if_master
  * lexicographic by name, and then numeric by number.  No number sorts
  * before all numbers.  Examples: de0 < de1, de100 < fxp0 < xl0, devpty <
  * devpty0, de0 < del0
- */         
-int
-if_cmp_name_func (char *p1, char *p2)
+ */
+int if_cmp_name_func(char *p1, char *p2)
 {
-  unsigned int l1, l2;
-  long int x1, x2;
-  int res;
+	unsigned int l1, l2;
+	long int x1, x2;
+	int res;
 
-  while (*p1 && *p2) {
-    /* look up to any number */
-    l1 = strcspn(p1, "0123456789");
-    l2 = strcspn(p2, "0123456789");
+	while (*p1 && *p2) {
+		/* look up to any number */
+		l1 = strcspn(p1, "0123456789");
+		l2 = strcspn(p2, "0123456789");
 
-    /* name lengths are different -> compare names */
-    if (l1 != l2)
-      return (strcmp(p1, p2));
+		/* name lengths are different -> compare names */
+		if (l1 != l2)
+			return (strcmp(p1, p2));
 
-    /* Note that this relies on all numbers being less than all letters, so
-     * that de0 < del0.
-     */
-    res = strncmp(p1, p2, l1);
+		/* Note that this relies on all numbers being less than all
+		 * letters, so
+		 * that de0 < del0.
+		 */
+		res = strncmp(p1, p2, l1);
 
-    /* names are different -> compare them */
-    if (res)
-      return res;
+		/* names are different -> compare them */
+		if (res)
+			return res;
 
-    /* with identical name part, go to numeric part */
-    p1 += l1;
-    p2 += l1;
+		/* with identical name part, go to numeric part */
+		p1 += l1;
+		p2 += l1;
 
-    if (!*p1) 
-      return -1;
-    if (!*p2) 
-      return 1;
+		if (!*p1)
+			return -1;
+		if (!*p2)
+			return 1;
 
-    x1 = strtol(p1, &p1, 10);
-    x2 = strtol(p2, &p2, 10);
+		x1 = strtol(p1, &p1, 10);
+		x2 = strtol(p2, &p2, 10);
 
-    /* let's compare numbers now */
-    if (x1 < x2)
-      return -1;
-    if (x1 > x2)
-      return 1;
+		/* let's compare numbers now */
+		if (x1 < x2)
+			return -1;
+		if (x1 > x2)
+			return 1;
 
-    /* numbers were equal, lets do it again..
-    (it happens with name like "eth123.456:789") */
-  }
-  if (*p1)
-    return 1;
-  if (*p2)
-    return -1;
-  return 0;
+		/* numbers were equal, lets do it again..
+		(it happens with name like "eth123.456:789") */
+	}
+	if (*p1)
+		return 1;
+	if (*p2)
+		return -1;
+	return 0;
 }
 
-static int
-if_cmp_func (struct interface *ifp1, struct interface *ifp2)
+static int if_cmp_func(struct interface *ifp1, struct interface *ifp2)
 {
-  return if_cmp_name_func (ifp1->name, ifp2->name);
-}
-
-/* Create new interface structure. */
-struct interface *
-if_create (const char *name, int namelen, vrf_id_t vrf_id)
-{
-  struct interface *ifp;
-  struct list *intf_list = vrf_iflist_get (vrf_id);
-
-  ifp = XCALLOC (MTYPE_IF, sizeof (struct interface));
-  ifp->ifindex = IFINDEX_INTERNAL;
-  
-  assert (name);
-  assert (namelen <= INTERFACE_NAMSIZ);	/* Need space for '\0' at end. */
-  strncpy (ifp->name, name, namelen);
-  ifp->name[namelen] = '\0';
-  ifp->vrf_id = vrf_id;
-  if (if_lookup_by_name (ifp->name, vrf_id) == NULL)
-    listnode_add_sort (intf_list, ifp);
-  else
-    zlog_err("if_create(%s): corruption detected -- interface with this "
-             "name exists already in VRF %u!", ifp->name, vrf_id);
-  ifp->connected = list_new ();
-  ifp->connected->del = (void (*) (void *)) connected_free;
-
-  ifp->nbr_connected = list_new ();
-  ifp->nbr_connected->del = (void (*) (void *)) nbr_connected_free;
-
-  /* Enable Link-detection by default */
-  SET_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION);
-
-  QOBJ_REG (ifp, interface);
-
-  if (if_master.if_new_hook)
-    (*if_master.if_new_hook) (ifp);
-
-  return ifp;
+	return if_cmp_name_func(ifp1->name, ifp2->name);
 }
 
 /* Create new interface structure. */
-void
-if_update (struct interface *ifp, const char *name, int namelen, vrf_id_t vrf_id)
+struct interface *if_create(const char *name, int namelen, vrf_id_t vrf_id)
 {
-  struct list *intf_list = vrf_iflist_get (vrf_id);
+	struct interface *ifp;
+	struct list *intf_list = vrf_iflist_get(vrf_id);
 
-  /* remove interface from old master vrf list */
-  if (vrf_iflist (ifp->vrf_id))
-    listnode_delete (vrf_iflist (ifp->vrf_id), ifp);
+	ifp = XCALLOC(MTYPE_IF, sizeof(struct interface));
+	ifp->ifindex = IFINDEX_INTERNAL;
 
-  assert (name);
-  assert (namelen <= INTERFACE_NAMSIZ);	/* Need space for '\0' at end. */
-  strncpy (ifp->name, name, namelen);
-  ifp->name[namelen] = '\0';
-  ifp->vrf_id = vrf_id;
-  if (if_lookup_by_name (ifp->name, vrf_id) == NULL)
-    listnode_add_sort (intf_list, ifp);
-  else
-    zlog_err("if_create(%s): corruption detected -- interface with this "
-             "name exists already in VRF %u!", ifp->name, vrf_id);
+	assert(name);
+	assert(namelen <= INTERFACE_NAMSIZ); /* Need space for '\0' at end. */
+	strncpy(ifp->name, name, namelen);
+	ifp->name[namelen] = '\0';
+	ifp->vrf_id = vrf_id;
+	if (if_lookup_by_name(ifp->name, vrf_id) == NULL)
+		listnode_add_sort(intf_list, ifp);
+	else
+		zlog_err(
+			"if_create(%s): corruption detected -- interface with this "
+			"name exists already in VRF %u!",
+			ifp->name, vrf_id);
+	ifp->connected = list_new();
+	ifp->connected->del = (void (*)(void *))connected_free;
 
-  return;
+	ifp->nbr_connected = list_new();
+	ifp->nbr_connected->del = (void (*)(void *))nbr_connected_free;
+
+	/* Enable Link-detection by default */
+	SET_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION);
+
+	QOBJ_REG(ifp, interface);
+
+	if (if_master.if_new_hook)
+		(*if_master.if_new_hook)(ifp);
+
+	return ifp;
+}
+
+/* Create new interface structure. */
+void if_update(struct interface *ifp, const char *name, int namelen,
+	       vrf_id_t vrf_id)
+{
+	struct list *intf_list = vrf_iflist_get(vrf_id);
+
+	/* remove interface from old master vrf list */
+	if (vrf_iflist(ifp->vrf_id))
+		listnode_delete(vrf_iflist(ifp->vrf_id), ifp);
+
+	assert(name);
+	assert(namelen <= INTERFACE_NAMSIZ); /* Need space for '\0' at end. */
+	strncpy(ifp->name, name, namelen);
+	ifp->name[namelen] = '\0';
+	ifp->vrf_id = vrf_id;
+	if (if_lookup_by_name(ifp->name, vrf_id) == NULL)
+		listnode_add_sort(intf_list, ifp);
+	else
+		zlog_err(
+			"if_create(%s): corruption detected -- interface with this "
+			"name exists already in VRF %u!",
+			ifp->name, vrf_id);
+
+	return;
 }
 
 
 /* Delete interface structure. */
-void
-if_delete_retain (struct interface *ifp)
+void if_delete_retain(struct interface *ifp)
 {
-  if (if_master.if_delete_hook)
-    (*if_master.if_delete_hook) (ifp);
+	if (if_master.if_delete_hook)
+		(*if_master.if_delete_hook)(ifp);
 
-  QOBJ_UNREG (ifp);
+	QOBJ_UNREG(ifp);
 
-  /* Free connected address list */
-  list_delete_all_node (ifp->connected);
+	/* Free connected address list */
+	list_delete_all_node(ifp->connected);
 
-  /* Free connected nbr address list */
-  list_delete_all_node (ifp->nbr_connected);
+	/* Free connected nbr address list */
+	list_delete_all_node(ifp->nbr_connected);
 }
 
 /* Delete and free interface structure. */
-void
-if_delete (struct interface *ifp)
+void if_delete(struct interface *ifp)
 {
-  listnode_delete (vrf_iflist (ifp->vrf_id), ifp);
+	listnode_delete(vrf_iflist(ifp->vrf_id), ifp);
 
-  if_delete_retain(ifp);
+	if_delete_retain(ifp);
 
-  list_free (ifp->connected);
-  list_free (ifp->nbr_connected);
+	list_free(ifp->connected);
+	list_free(ifp->nbr_connected);
 
-  if_link_params_free (ifp);
+	if_link_params_free(ifp);
 
-  XFREE (MTYPE_IF, ifp);
+	XFREE(MTYPE_IF, ifp);
 }
 
 /* Add hook to interface master. */
-void
-if_add_hook (int type, int (*func)(struct interface *ifp))
+void if_add_hook(int type, int (*func)(struct interface *ifp))
 {
-  switch (type) {
-  case IF_NEW_HOOK:
-    if_master.if_new_hook = func;
-    break;
-  case IF_DELETE_HOOK:
-    if_master.if_delete_hook = func;
-    break;
-  default:
-    break;
-  }
+	switch (type) {
+	case IF_NEW_HOOK:
+		if_master.if_new_hook = func;
+		break;
+	case IF_DELETE_HOOK:
+		if_master.if_delete_hook = func;
+		break;
+	default:
+		break;
+	}
 }
 
 /* Interface existance check by index. */
-struct interface *
-if_lookup_by_index (ifindex_t ifindex, vrf_id_t vrf_id)
+struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id)
 {
-  struct listnode *node;
-  struct interface *ifp;
+	struct listnode *node;
+	struct interface *ifp;
 
-  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), node, ifp))
-    {
-      if (ifp->ifindex == ifindex)
-	return ifp;
-    }
-  return NULL;
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), node, ifp)) {
+		if (ifp->ifindex == ifindex)
+			return ifp;
+	}
+	return NULL;
 }
 
-const char *
-ifindex2ifname (ifindex_t ifindex, vrf_id_t vrf_id)
+const char *ifindex2ifname(ifindex_t ifindex, vrf_id_t vrf_id)
 {
-  struct interface *ifp;
+	struct interface *ifp;
 
-  return ((ifp = if_lookup_by_index (ifindex, vrf_id)) != NULL) ?
-  	 ifp->name : "unknown";
+	return ((ifp = if_lookup_by_index(ifindex, vrf_id)) != NULL)
+		       ? ifp->name
+		       : "unknown";
 }
 
-ifindex_t
-ifname2ifindex (const char *name, vrf_id_t vrf_id)
+ifindex_t ifname2ifindex(const char *name, vrf_id_t vrf_id)
 {
-  struct interface *ifp;
+	struct interface *ifp;
 
-  return ((ifp = if_lookup_by_name (name, vrf_id)) != NULL) ? ifp->ifindex
-                                                   : IFINDEX_INTERNAL;
+	return ((ifp = if_lookup_by_name(name, vrf_id)) != NULL)
+		       ? ifp->ifindex
+		       : IFINDEX_INTERNAL;
 }
 
 /* Interface existance check by interface name. */
-struct interface *
-if_lookup_by_name (const char *name, vrf_id_t vrf_id)
+struct interface *if_lookup_by_name(const char *name, vrf_id_t vrf_id)
 {
-  struct listnode *node;
-  struct interface *ifp;
-  
-  if (name)
-    for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), node, ifp))
-      {
-        if (strcmp(name, ifp->name) == 0)
-          return ifp;
-      }
-  return NULL;
+	struct listnode *node;
+	struct interface *ifp;
+
+	if (name)
+		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), node, ifp)) {
+			if (strcmp(name, ifp->name) == 0)
+				return ifp;
+		}
+	return NULL;
 }
 
-struct interface *
-if_lookup_by_name_all_vrf (const char *name)
+struct interface *if_lookup_by_name_all_vrf(const char *name)
 {
-  struct vrf *vrf;
-  struct interface *ifp;
+	struct vrf *vrf;
+	struct interface *ifp;
 
-  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
-    {
-      ifp = if_lookup_by_name (name, vrf->vrf_id);
-      if (ifp)
-	return ifp;
-    }
+	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id)
+	{
+		ifp = if_lookup_by_name(name, vrf->vrf_id);
+		if (ifp)
+			return ifp;
+	}
 
-  return NULL;
+	return NULL;
 }
 
-struct interface *
-if_lookup_by_name_len (const char *name, size_t namelen, vrf_id_t vrf_id)
+struct interface *if_lookup_by_name_len(const char *name, size_t namelen,
+					vrf_id_t vrf_id)
 {
-  struct listnode *node;
-  struct interface *ifp;
+	struct listnode *node;
+	struct interface *ifp;
 
-  if (namelen > INTERFACE_NAMSIZ)
-    return NULL;
+	if (namelen > INTERFACE_NAMSIZ)
+		return NULL;
 
-  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), node, ifp))
-    {
-      if (!memcmp(name, ifp->name, namelen) && (ifp->name[namelen] == '\0'))
-	return ifp;
-    }
-  return NULL;
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), node, ifp)) {
+		if (!memcmp(name, ifp->name, namelen)
+		    && (ifp->name[namelen] == '\0'))
+			return ifp;
+	}
+	return NULL;
 }
 
 /* Lookup interface by IPv4 address. */
-struct interface *
-if_lookup_exact_address (void *src, int family, vrf_id_t vrf_id)
+struct interface *if_lookup_exact_address(void *src, int family,
+					  vrf_id_t vrf_id)
 {
-  struct listnode *node;
-  struct listnode *cnode;
-  struct interface *ifp;
-  struct prefix *p;
-  struct connected *c;
+	struct listnode *node;
+	struct listnode *cnode;
+	struct interface *ifp;
+	struct prefix *p;
+	struct connected *c;
 
-  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), node, ifp))
-    {
-      for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, c))
-	{
-	  p = c->address;
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), node, ifp)) {
+		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+			p = c->address;
 
-	  if (p && (p->family == family))
-	    {
-	      if (family == AF_INET)
-		{
-		  if (IPV4_ADDR_SAME (&p->u.prefix4, (struct in_addr *)src))
-		    return ifp;
+			if (p && (p->family == family)) {
+				if (family == AF_INET) {
+					if (IPV4_ADDR_SAME(
+						    &p->u.prefix4,
+						    (struct in_addr *)src))
+						return ifp;
+				} else if (family == AF_INET6) {
+					if (IPV6_ADDR_SAME(
+						    &p->u.prefix6,
+						    (struct in6_addr *)src))
+						return ifp;
+				}
+			}
 		}
-	      else if (family == AF_INET6)
-		{
-		  if (IPV6_ADDR_SAME (&p->u.prefix6, (struct in6_addr *)src))
-		    return ifp;
-		}
-	    }
 	}
-    }
-  return NULL;
+	return NULL;
 }
 
 /* Lookup interface by IPv4 address. */
-struct connected *
-if_lookup_address (void *matchaddr, int family, vrf_id_t vrf_id)
+struct connected *if_lookup_address(void *matchaddr, int family,
+				    vrf_id_t vrf_id)
 {
-  struct listnode *node;
-  struct prefix addr;
-  int bestlen = 0;
-  struct listnode *cnode;
-  struct interface *ifp;
-  struct connected *c;
-  struct connected *match;
+	struct listnode *node;
+	struct prefix addr;
+	int bestlen = 0;
+	struct listnode *cnode;
+	struct interface *ifp;
+	struct connected *c;
+	struct connected *match;
 
-  if (family == AF_INET)
-    {
-      addr.family = AF_INET;
-      addr.u.prefix4 = *((struct in_addr *)matchaddr);
-      addr.prefixlen = IPV4_MAX_BITLEN;
-    }
-  else if (family == AF_INET6)
-    {
-      addr.family = AF_INET6;
-      addr.u.prefix6 = *((struct in6_addr *)matchaddr);
-      addr.prefixlen = IPV6_MAX_BITLEN;
-    }
-
-  match = NULL;
-
-  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), node, ifp))
-    {
-      for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, c))
-	{
-	  if (c->address && (c->address->family == AF_INET) &&
-	      prefix_match(CONNECTED_PREFIX(c), &addr) &&
-	      (c->address->prefixlen > bestlen))
-	    {
-	      bestlen = c->address->prefixlen;
-	      match = c;
-	    }
+	if (family == AF_INET) {
+		addr.family = AF_INET;
+		addr.u.prefix4 = *((struct in_addr *)matchaddr);
+		addr.prefixlen = IPV4_MAX_BITLEN;
+	} else if (family == AF_INET6) {
+		addr.family = AF_INET6;
+		addr.u.prefix6 = *((struct in6_addr *)matchaddr);
+		addr.prefixlen = IPV6_MAX_BITLEN;
 	}
-    }
-  return match;
+
+	match = NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), node, ifp)) {
+		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+			if (c->address && (c->address->family == AF_INET)
+			    && prefix_match(CONNECTED_PREFIX(c), &addr)
+			    && (c->address->prefixlen > bestlen)) {
+				bestlen = c->address->prefixlen;
+				match = c;
+			}
+		}
+	}
+	return match;
 }
 
 /* Lookup interface by prefix */
-struct interface *
-if_lookup_prefix (struct prefix *prefix, vrf_id_t vrf_id)
+struct interface *if_lookup_prefix(struct prefix *prefix, vrf_id_t vrf_id)
 {
-  struct listnode *node;
-  struct listnode *cnode;
-  struct interface *ifp;
-  struct connected *c;
+	struct listnode *node;
+	struct listnode *cnode;
+	struct interface *ifp;
+	struct connected *c;
 
-  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), node, ifp))
-    {
-      for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, c))
-        {
-          if (prefix_cmp(c->address, prefix) == 0)
-            {
-              return ifp;
-            }
-        }
-    }
-  return NULL;
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), node, ifp)) {
+		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+			if (prefix_cmp(c->address, prefix) == 0) {
+				return ifp;
+			}
+		}
+	}
+	return NULL;
 }
 
 /* Get interface by name if given name interface doesn't exist create
    one. */
-struct interface *
-if_get_by_name (const char *name, vrf_id_t vrf_id)
+struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id)
 {
-  struct interface *ifp;
+	struct interface *ifp;
 
-  return ((ifp = if_lookup_by_name (name, vrf_id)) != NULL) ? ifp :
-         if_create (name, strlen(name), vrf_id);
+	return ((ifp = if_lookup_by_name(name, vrf_id)) != NULL)
+		       ? ifp
+		       : if_create(name, strlen(name), vrf_id);
 }
 
-struct interface *
-if_get_by_name_len (const char *name, size_t namelen, vrf_id_t vrf_id, int vty)
+struct interface *if_get_by_name_len(const char *name, size_t namelen,
+				     vrf_id_t vrf_id, int vty)
 {
-  struct interface *ifp;
-  struct vrf *vrf;
-  struct listnode *node;
+	struct interface *ifp;
+	struct vrf *vrf;
+	struct listnode *node;
 
-  ifp = if_lookup_by_name_len (name, namelen, vrf_id);
-  if (ifp)
-    return ifp;
+	ifp = if_lookup_by_name_len(name, namelen, vrf_id);
+	if (ifp)
+		return ifp;
 
-  /* Didn't find the interface on that vrf. Defined on a different one? */ 
-  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
-    {
-      for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf->vrf_id), node, ifp))
+	/* Didn't find the interface on that vrf. Defined on a different one? */
+	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id)
 	{
-	  if (!memcmp(name, ifp->name, namelen) && (ifp->name[namelen] == '\0'))
-	    {
-	      /* Found a match.  If the interface command was entered in vty without a 
-	       * VRF (passed as VRF_DEFAULT), accept the ifp we found.   If a vrf was
-	       * entered and there is a mismatch, reject it if from vty. If it came 
-	       * from the kernel by way of zclient,  believe it and update
-	       * the ifp accordingly.
-	       */
-              if (vty)
-                {
-                  if (vrf_id == VRF_DEFAULT)
-                    return ifp;
-                  return NULL;
-                }
-	      else
-		{
-		  if_update (ifp, name, namelen, vrf_id);
-		  return ifp;
+		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf->vrf_id), node, ifp)) {
+			if (!memcmp(name, ifp->name, namelen)
+			    && (ifp->name[namelen] == '\0')) {
+				/* Found a match.  If the interface command was
+				 * entered in vty without a
+				 * VRF (passed as VRF_DEFAULT), accept the ifp
+				 * we found.   If a vrf was
+				 * entered and there is a mismatch, reject it if
+				 * from vty. If it came
+				 * from the kernel by way of zclient,  believe
+				 * it and update
+				 * the ifp accordingly.
+				 */
+				if (vty) {
+					if (vrf_id == VRF_DEFAULT)
+						return ifp;
+					return NULL;
+				} else {
+					if_update(ifp, name, namelen, vrf_id);
+					return ifp;
+				}
+			}
 		}
-	    }
 	}
-    }
-  return (if_create (name, namelen, vrf_id));
+	return (if_create(name, namelen, vrf_id));
 }
 
 /* Does interface up ? */
-int
-if_is_up (struct interface *ifp)
+int if_is_up(struct interface *ifp)
 {
-  return ifp->flags & IFF_UP;
+	return ifp->flags & IFF_UP;
 }
 
 /* Is interface running? */
-int
-if_is_running (struct interface *ifp)
+int if_is_running(struct interface *ifp)
 {
-  return ifp->flags & IFF_RUNNING;
+	return ifp->flags & IFF_RUNNING;
 }
 
 /* Is the interface operative, eg. either UP & RUNNING
    or UP & !ZEBRA_INTERFACE_LINK_DETECTION and
    if ptm checking is enabled, then ptm check has passed */
-int
-if_is_operative (struct interface *ifp)
+int if_is_operative(struct interface *ifp)
 {
-  return ((ifp->flags & IFF_UP) &&
-	  (((ifp->flags & IFF_RUNNING) &&
-	    (ifp->ptm_status || !ifp->ptm_enable)) ||
-	   !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION)));
+	return ((ifp->flags & IFF_UP)
+		&& (((ifp->flags & IFF_RUNNING)
+		     && (ifp->ptm_status || !ifp->ptm_enable))
+		    || !CHECK_FLAG(ifp->status,
+				   ZEBRA_INTERFACE_LINKDETECTION)));
 }
 
 /* Is the interface operative, eg. either UP & RUNNING
    or UP & !ZEBRA_INTERFACE_LINK_DETECTION, without PTM check */
-int
-if_is_no_ptm_operative (struct interface *ifp)
+int if_is_no_ptm_operative(struct interface *ifp)
 {
-  return ((ifp->flags & IFF_UP) &&
-	  ((ifp->flags & IFF_RUNNING) ||
-	   !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION)));
+	return ((ifp->flags & IFF_UP)
+		&& ((ifp->flags & IFF_RUNNING)
+		    || !CHECK_FLAG(ifp->status,
+				   ZEBRA_INTERFACE_LINKDETECTION)));
 }
 
 /* Is this loopback interface ? */
-int
-if_is_loopback (struct interface *ifp)
+int if_is_loopback(struct interface *ifp)
 {
-  /* XXX: Do this better, eg what if IFF_WHATEVER means X on platform M
-   * but Y on platform N?
-   */
-  return (ifp->flags & (IFF_LOOPBACK|IFF_NOXMIT|IFF_VIRTUAL));
+	/* XXX: Do this better, eg what if IFF_WHATEVER means X on platform M
+	 * but Y on platform N?
+	 */
+	return (ifp->flags & (IFF_LOOPBACK | IFF_NOXMIT | IFF_VIRTUAL));
 }
 
 /* Does this interface support broadcast ? */
-int
-if_is_broadcast (struct interface *ifp)
+int if_is_broadcast(struct interface *ifp)
 {
-  return ifp->flags & IFF_BROADCAST;
+	return ifp->flags & IFF_BROADCAST;
 }
 
 /* Does this interface support broadcast ? */
-int
-if_is_pointopoint (struct interface *ifp)
+int if_is_pointopoint(struct interface *ifp)
 {
-  return ifp->flags & IFF_POINTOPOINT;
+	return ifp->flags & IFF_POINTOPOINT;
 }
 
 /* Does this interface support multicast ? */
-int
-if_is_multicast (struct interface *ifp)
+int if_is_multicast(struct interface *ifp)
 {
-  return ifp->flags & IFF_MULTICAST;
+	return ifp->flags & IFF_MULTICAST;
 }
 
 /* Printout flag information into log */
-const char *
-if_flag_dump (unsigned long flag)
+const char *if_flag_dump(unsigned long flag)
 {
-  int separator = 0;
-  static char logbuf[BUFSIZ];
+	int separator = 0;
+	static char logbuf[BUFSIZ];
 
-#define IFF_OUT_LOG(X,STR) \
-  if (flag & (X)) \
-    { \
-      if (separator) \
-	strlcat (logbuf, ",", BUFSIZ); \
-      else \
-	separator = 1; \
-      strlcat (logbuf, STR, BUFSIZ); \
-    }
+#define IFF_OUT_LOG(X, STR)                                                    \
+	if (flag & (X)) {                                                      \
+		if (separator)                                                 \
+			strlcat(logbuf, ",", BUFSIZ);                          \
+		else                                                           \
+			separator = 1;                                         \
+		strlcat(logbuf, STR, BUFSIZ);                                  \
+	}
 
-  strlcpy (logbuf, "<", BUFSIZ);
-  IFF_OUT_LOG (IFF_UP, "UP");
-  IFF_OUT_LOG (IFF_BROADCAST, "BROADCAST");
-  IFF_OUT_LOG (IFF_DEBUG, "DEBUG");
-  IFF_OUT_LOG (IFF_LOOPBACK, "LOOPBACK");
-  IFF_OUT_LOG (IFF_POINTOPOINT, "POINTOPOINT");
-  IFF_OUT_LOG (IFF_NOTRAILERS, "NOTRAILERS");
-  IFF_OUT_LOG (IFF_RUNNING, "RUNNING");
-  IFF_OUT_LOG (IFF_NOARP, "NOARP");
-  IFF_OUT_LOG (IFF_PROMISC, "PROMISC");
-  IFF_OUT_LOG (IFF_ALLMULTI, "ALLMULTI");
-  IFF_OUT_LOG (IFF_OACTIVE, "OACTIVE");
-  IFF_OUT_LOG (IFF_SIMPLEX, "SIMPLEX");
-  IFF_OUT_LOG (IFF_LINK0, "LINK0");
-  IFF_OUT_LOG (IFF_LINK1, "LINK1");
-  IFF_OUT_LOG (IFF_LINK2, "LINK2");
-  IFF_OUT_LOG (IFF_MULTICAST, "MULTICAST");
-  IFF_OUT_LOG (IFF_NOXMIT, "NOXMIT");
-  IFF_OUT_LOG (IFF_NORTEXCH, "NORTEXCH");
-  IFF_OUT_LOG (IFF_VIRTUAL, "VIRTUAL");
-  IFF_OUT_LOG (IFF_IPV4, "IPv4");
-  IFF_OUT_LOG (IFF_IPV6, "IPv6");
+	strlcpy(logbuf, "<", BUFSIZ);
+	IFF_OUT_LOG(IFF_UP, "UP");
+	IFF_OUT_LOG(IFF_BROADCAST, "BROADCAST");
+	IFF_OUT_LOG(IFF_DEBUG, "DEBUG");
+	IFF_OUT_LOG(IFF_LOOPBACK, "LOOPBACK");
+	IFF_OUT_LOG(IFF_POINTOPOINT, "POINTOPOINT");
+	IFF_OUT_LOG(IFF_NOTRAILERS, "NOTRAILERS");
+	IFF_OUT_LOG(IFF_RUNNING, "RUNNING");
+	IFF_OUT_LOG(IFF_NOARP, "NOARP");
+	IFF_OUT_LOG(IFF_PROMISC, "PROMISC");
+	IFF_OUT_LOG(IFF_ALLMULTI, "ALLMULTI");
+	IFF_OUT_LOG(IFF_OACTIVE, "OACTIVE");
+	IFF_OUT_LOG(IFF_SIMPLEX, "SIMPLEX");
+	IFF_OUT_LOG(IFF_LINK0, "LINK0");
+	IFF_OUT_LOG(IFF_LINK1, "LINK1");
+	IFF_OUT_LOG(IFF_LINK2, "LINK2");
+	IFF_OUT_LOG(IFF_MULTICAST, "MULTICAST");
+	IFF_OUT_LOG(IFF_NOXMIT, "NOXMIT");
+	IFF_OUT_LOG(IFF_NORTEXCH, "NORTEXCH");
+	IFF_OUT_LOG(IFF_VIRTUAL, "VIRTUAL");
+	IFF_OUT_LOG(IFF_IPV4, "IPv4");
+	IFF_OUT_LOG(IFF_IPV6, "IPv6");
 
-  strlcat (logbuf, ">", BUFSIZ);
+	strlcat(logbuf, ">", BUFSIZ);
 
-  return logbuf;
+	return logbuf;
 #undef IFF_OUT_LOG
 }
 
 /* For debugging */
-static void
-if_dump (const struct interface *ifp)
+static void if_dump(const struct interface *ifp)
 {
-  struct listnode *node;
-  struct connected *c __attribute__((unused));
+	struct listnode *node;
+	struct connected *c __attribute__((unused));
 
-  for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, c))
-    zlog_info ("Interface %s vrf %u index %d metric %d mtu %d "
-               "mtu6 %d %s",
-               ifp->name, ifp->vrf_id, ifp->ifindex, ifp->metric, ifp->mtu,
-               ifp->mtu6, if_flag_dump (ifp->flags));
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, c))
+		zlog_info(
+			"Interface %s vrf %u index %d metric %d mtu %d "
+			"mtu6 %d %s",
+			ifp->name, ifp->vrf_id, ifp->ifindex, ifp->metric,
+			ifp->mtu, ifp->mtu6, if_flag_dump(ifp->flags));
 }
 
 /* Interface printing for all interface. */
-void
-if_dump_all (void)
+void if_dump_all(void)
 {
-  struct vrf *vrf;
-  struct listnode *node;
-  void *p;
+	struct vrf *vrf;
+	struct listnode *node;
+	void *p;
 
-  RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
-    if (vrf->iflist != NULL)
-      for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, p))
-        if_dump (p);
+	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id)
+	if (vrf->iflist != NULL)
+		for (ALL_LIST_ELEMENTS_RO(vrf->iflist, node, p))
+			if_dump(p);
 }
 
 DEFUN (interface_desc,
@@ -611,14 +585,14 @@ DEFUN (interface_desc,
        "Interface specific description\n"
        "Characters describing this interface\n")
 {
-  int idx_line = 1;
-  VTY_DECLVAR_CONTEXT (interface, ifp);
+	int idx_line = 1;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
-  if (ifp->desc)
-    XFREE (MTYPE_TMP, ifp->desc);
-  ifp->desc = argv_concat(argv, argc, idx_line);
+	if (ifp->desc)
+		XFREE(MTYPE_TMP, ifp->desc);
+	ifp->desc = argv_concat(argv, argc, idx_line);
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN (no_interface_desc,
@@ -627,13 +601,13 @@ DEFUN (no_interface_desc,
        NO_STR
        "Interface specific description\n")
 {
-  VTY_DECLVAR_CONTEXT (interface, ifp);
+	VTY_DECLVAR_CONTEXT(interface, ifp);
 
-  if (ifp->desc)
-    XFREE (MTYPE_TMP, ifp->desc);
-  ifp->desc = NULL;
+	if (ifp->desc)
+		XFREE(MTYPE_TMP, ifp->desc);
+	ifp->desc = NULL;
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 #ifdef SUNOS_5
@@ -657,24 +631,24 @@ DEFUN (no_interface_desc,
  *     if not:
  *     - no idea, just get the name in its entirety.
  */
-static struct interface *
-if_sunwzebra_get (const char *name, size_t nlen, vrf_id_t vrf_id)
+static struct interface *if_sunwzebra_get(const char *name, size_t nlen,
+					  vrf_id_t vrf_id)
 {
-  struct interface *ifp;
-  size_t seppos = 0;
+	struct interface *ifp;
+	size_t seppos = 0;
 
-  if ( (ifp = if_lookup_by_name_len (name, nlen, vrf_id)) != NULL)
-    return ifp;
-  
-  /* hunt the primary interface name... */
-  while (seppos < nlen && name[seppos] != ':')
-    seppos++;
-  
-  /* Wont catch seperator as last char, e.g. 'foo0:' but thats invalid */
-  if (seppos < nlen)
-    return if_get_by_name_len (name, seppos, vrf_id, 1);
-  else
-    return if_get_by_name_len (name, nlen, vrf_id, 1);
+	if ((ifp = if_lookup_by_name_len(name, nlen, vrf_id)) != NULL)
+		return ifp;
+
+	/* hunt the primary interface name... */
+	while (seppos < nlen && name[seppos] != ':')
+		seppos++;
+
+	/* Wont catch seperator as last char, e.g. 'foo0:' but thats invalid */
+	if (seppos < nlen)
+		return if_get_by_name_len(name, seppos, vrf_id, 1);
+	else
+		return if_get_by_name_len(name, nlen, vrf_id, 1);
 }
 #endif /* SUNOS_5 */
 
@@ -685,42 +659,42 @@ DEFUN (interface,
        "Interface's name\n"
        VRF_CMD_HELP_STR)
 {
-  int idx_ifname = 1;
-  int idx_vrf = 3;
-  const char *ifname = argv[idx_ifname]->arg;
-  const char *vrfname = (argc > 2) ? argv[idx_vrf]->arg : NULL;
+	int idx_ifname = 1;
+	int idx_vrf = 3;
+	const char *ifname = argv[idx_ifname]->arg;
+	const char *vrfname = (argc > 2) ? argv[idx_vrf]->arg : NULL;
 
-  struct interface *ifp;
-  size_t sl;
-  vrf_id_t vrf_id = VRF_DEFAULT;
+	struct interface *ifp;
+	size_t sl;
+	vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if ((sl = strlen(ifname)) > INTERFACE_NAMSIZ)
-    {
-      vty_out (vty, "%% Interface name %s is invalid: length exceeds "
-		    "%d characters%s",
-	       ifname, INTERFACE_NAMSIZ, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+	if ((sl = strlen(ifname)) > INTERFACE_NAMSIZ) {
+		vty_out(vty,
+			"%% Interface name %s is invalid: length exceeds "
+			"%d characters%s",
+			ifname, INTERFACE_NAMSIZ, VTY_NEWLINE);
+		return CMD_WARNING;
+	}
 
-/*Pending: need proper vrf name based lookup/(possible creation of VRF)
- Imagine forward reference of a vrf by name in this interface config */
-  if (vrfname)
-    VRF_GET_ID (vrf_id, vrfname);
+	/*Pending: need proper vrf name based lookup/(possible creation of VRF)
+	 Imagine forward reference of a vrf by name in this interface config */
+	if (vrfname)
+		VRF_GET_ID(vrf_id, vrfname);
 
 #ifdef SUNOS_5
-  ifp = if_sunwzebra_get (ifname, sl, vrf_id);
+	ifp = if_sunwzebra_get(ifname, sl, vrf_id);
 #else
-  ifp = if_get_by_name_len (ifname, sl, vrf_id, 1);
+	ifp = if_get_by_name_len(ifname, sl, vrf_id, 1);
 #endif /* SUNOS_5 */
 
-  if (!ifp)
-    {
-      vty_out (vty, "%% interface %s not in %s%s", ifname, vrfname, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
-  VTY_PUSH_CONTEXT (INTERFACE_NODE, ifp);
+	if (!ifp) {
+		vty_out(vty, "%% interface %s not in %s%s", ifname, vrfname,
+			VTY_NEWLINE);
+		return CMD_WARNING;
+	}
+	VTY_PUSH_CONTEXT(INTERFACE_NODE, ifp);
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN_NOSH (no_interface,
@@ -731,45 +705,43 @@ DEFUN_NOSH (no_interface,
            "Interface's name\n"
            VRF_CMD_HELP_STR)
 {
-  const char *ifname = argv[2]->arg;
-  const char *vrfname = (argc > 3) ? argv[3]->arg : NULL;
+	const char *ifname = argv[2]->arg;
+	const char *vrfname = (argc > 3) ? argv[3]->arg : NULL;
 
-  // deleting interface
-  struct interface *ifp;
-  vrf_id_t vrf_id = VRF_DEFAULT;
+	// deleting interface
+	struct interface *ifp;
+	vrf_id_t vrf_id = VRF_DEFAULT;
 
-  if (argc > 3)
-    VRF_GET_ID (vrf_id, vrfname);
+	if (argc > 3)
+		VRF_GET_ID(vrf_id, vrfname);
 
-  ifp = if_lookup_by_name (ifname, vrf_id);
+	ifp = if_lookup_by_name(ifname, vrf_id);
 
-  if (ifp == NULL)
-    {
-      vty_out (vty, "%% Interface %s does not exist%s", ifname, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+	if (ifp == NULL) {
+		vty_out(vty, "%% Interface %s does not exist%s", ifname,
+			VTY_NEWLINE);
+		return CMD_WARNING;
+	}
 
-  if (CHECK_FLAG (ifp->status, ZEBRA_INTERFACE_ACTIVE)) 
-    {
-      vty_out (vty, "%% Only inactive interfaces can be deleted%s",
-	      VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+	if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
+		vty_out(vty, "%% Only inactive interfaces can be deleted%s",
+			VTY_NEWLINE);
+		return CMD_WARNING;
+	}
 
-  if_delete(ifp);
+	if_delete(ifp);
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
-void
-if_cmd_init (void)
+void if_cmd_init(void)
 {
-  install_element (CONFIG_NODE, &interface_cmd);
-  install_element (CONFIG_NODE, &no_interface_cmd);
+	install_element(CONFIG_NODE, &interface_cmd);
+	install_element(CONFIG_NODE, &no_interface_cmd);
 
-  install_default (INTERFACE_NODE);
-  install_element (INTERFACE_NODE, &interface_desc_cmd);
-  install_element (INTERFACE_NODE, &no_interface_desc_cmd);
+	install_default(INTERFACE_NODE);
+	install_element(INTERFACE_NODE, &interface_desc_cmd);
+	install_element(INTERFACE_NODE, &no_interface_desc_cmd);
 }
 
 #if 0
@@ -845,212 +817,199 @@ DEFUN (show_address_vrf_all,
 #endif
 
 /* Allocate connected structure. */
-struct connected *
-connected_new (void)
+struct connected *connected_new(void)
 {
-  return XCALLOC (MTYPE_CONNECTED, sizeof (struct connected));
+	return XCALLOC(MTYPE_CONNECTED, sizeof(struct connected));
 }
 
 /* Allocate nbr connected structure. */
-struct nbr_connected *
-nbr_connected_new (void)
+struct nbr_connected *nbr_connected_new(void)
 {
-  return XCALLOC (MTYPE_NBR_CONNECTED, sizeof (struct nbr_connected));
+	return XCALLOC(MTYPE_NBR_CONNECTED, sizeof(struct nbr_connected));
 }
 
 /* Free connected structure. */
-void
-connected_free (struct connected *connected)
+void connected_free(struct connected *connected)
 {
-  if (connected->address)
-    prefix_free (connected->address);
+	if (connected->address)
+		prefix_free(connected->address);
 
-  if (connected->destination)
-    prefix_free (connected->destination);
+	if (connected->destination)
+		prefix_free(connected->destination);
 
-  if (connected->label)
-    XFREE (MTYPE_CONNECTED_LABEL, connected->label);
+	if (connected->label)
+		XFREE(MTYPE_CONNECTED_LABEL, connected->label);
 
-  XFREE (MTYPE_CONNECTED, connected);
+	XFREE(MTYPE_CONNECTED, connected);
 }
 
 /* Free nbr connected structure. */
-void
-nbr_connected_free (struct nbr_connected *connected)
+void nbr_connected_free(struct nbr_connected *connected)
 {
-  if (connected->address)
-    prefix_free (connected->address);
+	if (connected->address)
+		prefix_free(connected->address);
 
-  XFREE (MTYPE_NBR_CONNECTED, connected);
+	XFREE(MTYPE_NBR_CONNECTED, connected);
 }
 
 /* If same interface nbr address already exists... */
-struct nbr_connected *
-nbr_connected_check (struct interface *ifp, struct prefix *p)
+struct nbr_connected *nbr_connected_check(struct interface *ifp,
+					  struct prefix *p)
 {
-  struct nbr_connected *ifc;
-  struct listnode *node;
+	struct nbr_connected *ifc;
+	struct listnode *node;
 
-  for (ALL_LIST_ELEMENTS_RO (ifp->nbr_connected, node, ifc))
-    if (prefix_same (ifc->address, p))
-      return ifc;
+	for (ALL_LIST_ELEMENTS_RO(ifp->nbr_connected, node, ifc))
+		if (prefix_same(ifc->address, p))
+			return ifc;
 
-  return NULL;
+	return NULL;
 }
 
 /* Print if_addr structure. */
-static void __attribute__ ((unused))
-connected_log (struct connected *connected, char *str)
+static void __attribute__((unused))
+connected_log(struct connected *connected, char *str)
 {
-  struct prefix *p;
-  struct interface *ifp;
-  char logbuf[BUFSIZ];
-  char buf[BUFSIZ];
-  
-  ifp = connected->ifp;
-  p = connected->address;
+	struct prefix *p;
+	struct interface *ifp;
+	char logbuf[BUFSIZ];
+	char buf[BUFSIZ];
 
-  snprintf (logbuf, BUFSIZ, "%s interface %s vrf %u %s %s/%d ",
-	    str, ifp->name, ifp->vrf_id, prefix_family_str (p),
-	    inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
-	    p->prefixlen);
+	ifp = connected->ifp;
+	p = connected->address;
 
-  p = connected->destination;
-  if (p)
-    {
-      strncat (logbuf, inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
-	       BUFSIZ - strlen(logbuf));
-    }
-  zlog_info("%s", logbuf);
+	snprintf(logbuf, BUFSIZ, "%s interface %s vrf %u %s %s/%d ", str,
+		 ifp->name, ifp->vrf_id, prefix_family_str(p),
+		 inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ), p->prefixlen);
+
+	p = connected->destination;
+	if (p) {
+		strncat(logbuf, inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
+			BUFSIZ - strlen(logbuf));
+	}
+	zlog_info("%s", logbuf);
 }
 
 /* Print if_addr structure. */
-static void __attribute__ ((unused))
-nbr_connected_log (struct nbr_connected *connected, char *str)
+static void __attribute__((unused))
+nbr_connected_log(struct nbr_connected *connected, char *str)
 {
-  struct prefix *p;
-  struct interface *ifp;
-  char logbuf[BUFSIZ];
-  char buf[BUFSIZ];
+	struct prefix *p;
+	struct interface *ifp;
+	char logbuf[BUFSIZ];
+	char buf[BUFSIZ];
 
-  ifp = connected->ifp;
-  p = connected->address;
+	ifp = connected->ifp;
+	p = connected->address;
 
-  snprintf (logbuf, BUFSIZ, "%s interface %s %s %s/%d ",
-	    str, ifp->name, prefix_family_str (p),
-	    inet_ntop (p->family, &p->u.prefix, buf, BUFSIZ),
-	    p->prefixlen);
+	snprintf(logbuf, BUFSIZ, "%s interface %s %s %s/%d ", str, ifp->name,
+		 prefix_family_str(p),
+		 inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ), p->prefixlen);
 
-  zlog_info("%s", logbuf);
+	zlog_info("%s", logbuf);
 }
 
 /* If two connected address has same prefix return 1. */
-static int
-connected_same_prefix (struct prefix *p1, struct prefix *p2)
+static int connected_same_prefix(struct prefix *p1, struct prefix *p2)
 {
-  if (p1->family == p2->family)
-    {
-      if (p1->family == AF_INET &&
-	  IPV4_ADDR_SAME (&p1->u.prefix4, &p2->u.prefix4))
-	return 1;
-      if (p1->family == AF_INET6 &&
-	  IPV6_ADDR_SAME (&p1->u.prefix6, &p2->u.prefix6))
-	return 1;
-    }
-  return 0;
-}
-
-struct connected *
-connected_lookup_prefix_exact (struct interface *ifp, struct prefix *p)
-{
-  struct listnode *node;
-  struct listnode *next;
-  struct connected *ifc;
-
-  for (node = listhead (ifp->connected); node; node = next)
-    {
-      ifc = listgetdata (node);
-      next = node->next;
-
-      if (connected_same_prefix (ifc->address, p))
-        return ifc;
-    }
-  return NULL;
-}
-
-struct connected *
-connected_delete_by_prefix (struct interface *ifp, struct prefix *p)
-{
-  struct listnode *node;
-  struct listnode *next;
-  struct connected *ifc;
-
-  /* In case of same prefix come, replace it with new one. */
-  for (node = listhead (ifp->connected); node; node = next)
-    {
-      ifc = listgetdata (node);
-      next = node->next;
-
-      if (connected_same_prefix (ifc->address, p))
-	{
-	  listnode_delete (ifp->connected, ifc);
-	  return ifc;
+	if (p1->family == p2->family) {
+		if (p1->family == AF_INET
+		    && IPV4_ADDR_SAME(&p1->u.prefix4, &p2->u.prefix4))
+			return 1;
+		if (p1->family == AF_INET6
+		    && IPV6_ADDR_SAME(&p1->u.prefix6, &p2->u.prefix6))
+			return 1;
 	}
-    }
-  return NULL;
+	return 0;
+}
+
+struct connected *connected_lookup_prefix_exact(struct interface *ifp,
+						struct prefix *p)
+{
+	struct listnode *node;
+	struct listnode *next;
+	struct connected *ifc;
+
+	for (node = listhead(ifp->connected); node; node = next) {
+		ifc = listgetdata(node);
+		next = node->next;
+
+		if (connected_same_prefix(ifc->address, p))
+			return ifc;
+	}
+	return NULL;
+}
+
+struct connected *connected_delete_by_prefix(struct interface *ifp,
+					     struct prefix *p)
+{
+	struct listnode *node;
+	struct listnode *next;
+	struct connected *ifc;
+
+	/* In case of same prefix come, replace it with new one. */
+	for (node = listhead(ifp->connected); node; node = next) {
+		ifc = listgetdata(node);
+		next = node->next;
+
+		if (connected_same_prefix(ifc->address, p)) {
+			listnode_delete(ifp->connected, ifc);
+			return ifc;
+		}
+	}
+	return NULL;
 }
 
 /* Find the address on our side that will be used when packets
    are sent to dst. */
-struct connected *
-connected_lookup_prefix (struct interface *ifp, struct prefix *addr)
+struct connected *connected_lookup_prefix(struct interface *ifp,
+					  struct prefix *addr)
 {
-  struct listnode *cnode;
-  struct connected *c;
-  struct connected *match;
+	struct listnode *cnode;
+	struct connected *c;
+	struct connected *match;
 
-  match = NULL;
+	match = NULL;
 
-  for (ALL_LIST_ELEMENTS_RO (ifp->connected, cnode, c))
-    {
-      if (c->address && (c->address->family == addr->family) &&
-	  prefix_match(CONNECTED_PREFIX(c), addr) &&
-	  (!match || (c->address->prefixlen > match->address->prefixlen)))
-	match = c;
-    }
-  return match;
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
+		if (c->address && (c->address->family == addr->family)
+		    && prefix_match(CONNECTED_PREFIX(c), addr)
+		    && (!match
+			|| (c->address->prefixlen > match->address->prefixlen)))
+			match = c;
+	}
+	return match;
 }
 
-struct connected *
-connected_add_by_prefix (struct interface *ifp, struct prefix *p, 
-                         struct prefix *destination)
+struct connected *connected_add_by_prefix(struct interface *ifp,
+					  struct prefix *p,
+					  struct prefix *destination)
 {
-  struct connected *ifc;
+	struct connected *ifc;
 
-  /* Allocate new connected address. */
-  ifc = connected_new ();
-  ifc->ifp = ifp;
+	/* Allocate new connected address. */
+	ifc = connected_new();
+	ifc->ifp = ifp;
 
-  /* Fetch interface address */
-  ifc->address = prefix_new();
-  memcpy (ifc->address, p, sizeof(struct prefix));
+	/* Fetch interface address */
+	ifc->address = prefix_new();
+	memcpy(ifc->address, p, sizeof(struct prefix));
 
-  /* Fetch dest address */
-  if (destination)
-    {
-      ifc->destination = prefix_new();
-      memcpy (ifc->destination, destination, sizeof(struct prefix));
-    }
+	/* Fetch dest address */
+	if (destination) {
+		ifc->destination = prefix_new();
+		memcpy(ifc->destination, destination, sizeof(struct prefix));
+	}
 
-  /* Add connected address to the interface. */
-  listnode_add (ifp->connected, ifc);
-  return ifc;
+	/* Add connected address to the interface. */
+	listnode_add(ifp->connected, ifc);
+	return ifc;
 }
 
-#if 0 /* this route_table of struct connected's is unused
-       * however, it would be good to use a route_table rather than
-       * a list..
-       */
+#if 0  /* this route_table of struct connected's is unused                     \
+	* however, it would be good to use a route_table rather than           \
+	* a list..                                                             \
+	*/
 /* Interface looking up by interface's address. */
 /* Interface's IPv4 address reverse lookup table. */
 struct route_table *ifaddr_ipv4_table;
@@ -1127,139 +1086,135 @@ ifaddr_ipv4_lookup (struct in_addr *addr, ifindex_t ifindex)
 #endif /* ifaddr_ipv4_table */
 
 /* Initialize interface list. */
-void
-if_init (struct list **intf_list)
+void if_init(struct list **intf_list)
 {
-  *intf_list = list_new ();
+	*intf_list = list_new();
 #if 0
   ifaddr_ipv4_table = route_table_init ();
 #endif /* ifaddr_ipv4_table */
 
-  (*intf_list)->cmp = (int (*)(void *, void *))if_cmp_func;
+	(*intf_list)->cmp = (int (*)(void *, void *))if_cmp_func;
 }
 
-void
-if_terminate (struct list **intf_list)
+void if_terminate(struct list **intf_list)
 {
-  for (;;)
-    {
-      struct interface *ifp;
+	for (;;) {
+		struct interface *ifp;
 
-      ifp = listnode_head (*intf_list);
-      if (ifp == NULL)
-	break;
+		ifp = listnode_head(*intf_list);
+		if (ifp == NULL)
+			break;
 
-      if (ifp->node)
-        {
-          ifp->node->info = NULL;
-          route_unlock_node (ifp->node);
-        }
+		if (ifp->node) {
+			ifp->node->info = NULL;
+			route_unlock_node(ifp->node);
+		}
 
-      if_delete (ifp);
-    }
+		if_delete(ifp);
+	}
 
-  list_delete (*intf_list);
-  *intf_list = NULL;
+	list_delete(*intf_list);
+	*intf_list = NULL;
 }
 
-const char *
-if_link_type_str (enum zebra_link_type llt)
+const char *if_link_type_str(enum zebra_link_type llt)
 {
-  switch (llt)
-    {
+	switch (llt) {
 #define llts(T,S) case (T): return (S)
-      llts(ZEBRA_LLT_UNKNOWN,               "Unknown");
-      llts(ZEBRA_LLT_ETHER,                 "Ethernet");
-      llts(ZEBRA_LLT_EETHER,                "Experimental Ethernet");
-      llts(ZEBRA_LLT_AX25,                  "AX.25 Level 2");
-      llts(ZEBRA_LLT_PRONET,                "PROnet token ring");
-      llts(ZEBRA_LLT_IEEE802,               "IEEE 802.2 Ethernet/TR/TB");
-      llts(ZEBRA_LLT_ARCNET,                "ARCnet");
-      llts(ZEBRA_LLT_APPLETLK,              "AppleTalk");
-      llts(ZEBRA_LLT_DLCI,                  "Frame Relay DLCI");
-      llts(ZEBRA_LLT_ATM,                   "ATM");
-      llts(ZEBRA_LLT_METRICOM,              "Metricom STRIP");
-      llts(ZEBRA_LLT_IEEE1394,              "IEEE 1394 IPv4");
-      llts(ZEBRA_LLT_EUI64,                 "EUI-64");
-      llts(ZEBRA_LLT_INFINIBAND,            "InfiniBand");
-      llts(ZEBRA_LLT_SLIP,                  "SLIP");
-      llts(ZEBRA_LLT_CSLIP,                 "Compressed SLIP");
-      llts(ZEBRA_LLT_SLIP6,                 "SLIPv6");
-      llts(ZEBRA_LLT_CSLIP6,                "Compressed SLIPv6");
-      llts(ZEBRA_LLT_ROSE,                  "ROSE packet radio");
-      llts(ZEBRA_LLT_X25,                   "CCITT X.25");
-      llts(ZEBRA_LLT_PPP,                   "PPP");
-      llts(ZEBRA_LLT_CHDLC,                 "Cisco HDLC");
-      llts(ZEBRA_LLT_RAWHDLC,               "Raw HDLC");
-      llts(ZEBRA_LLT_LAPB,                  "LAPB");
-      llts(ZEBRA_LLT_IPIP,                  "IPIP Tunnel");
-      llts(ZEBRA_LLT_IPIP6,                 "IPIP6 Tunnel");
-      llts(ZEBRA_LLT_FRAD,                  "FRAD");
-      llts(ZEBRA_LLT_SKIP,                  "SKIP vif");
-      llts(ZEBRA_LLT_LOOPBACK,              "Loopback");
-      llts(ZEBRA_LLT_LOCALTLK,              "Localtalk");
-      llts(ZEBRA_LLT_FDDI,                  "FDDI");
-      llts(ZEBRA_LLT_SIT,                   "IPv6-in-IPv4 SIT");
-      llts(ZEBRA_LLT_IPDDP,                 "IP-in-DDP tunnel");
-      llts(ZEBRA_LLT_IPGRE,                 "GRE over IP");
-      llts(ZEBRA_LLT_PIMREG,                "PIMSM registration");
-      llts(ZEBRA_LLT_HIPPI,                 "HiPPI");
-      llts(ZEBRA_LLT_IRDA,                  "IrDA");
-      llts(ZEBRA_LLT_FCPP,                  "Fibre-Channel PtP");
-      llts(ZEBRA_LLT_FCAL,                  "Fibre-Channel Arbitrated Loop");
-      llts(ZEBRA_LLT_FCPL,                  "Fibre-Channel Public Loop");
-      llts(ZEBRA_LLT_FCFABRIC,              "Fibre-Channel Fabric");
-      llts(ZEBRA_LLT_IEEE802_TR,            "IEEE 802.2 Token Ring");
-      llts(ZEBRA_LLT_IEEE80211,             "IEEE 802.11");
-      llts(ZEBRA_LLT_IEEE80211_RADIOTAP,    "IEEE 802.11 Radiotap");
-      llts(ZEBRA_LLT_IEEE802154,            "IEEE 802.15.4");
-      llts(ZEBRA_LLT_IEEE802154_PHY,        "IEEE 802.15.4 Phy");
-      default:
-        zlog_warn ("Unknown value %d", llt);
-        return "Unknown type!";
+		llts(ZEBRA_LLT_UNKNOWN, "Unknown");
+		llts(ZEBRA_LLT_ETHER, "Ethernet");
+		llts(ZEBRA_LLT_EETHER, "Experimental Ethernet");
+		llts(ZEBRA_LLT_AX25, "AX.25 Level 2");
+		llts(ZEBRA_LLT_PRONET, "PROnet token ring");
+		llts(ZEBRA_LLT_IEEE802, "IEEE 802.2 Ethernet/TR/TB");
+		llts(ZEBRA_LLT_ARCNET, "ARCnet");
+		llts(ZEBRA_LLT_APPLETLK, "AppleTalk");
+		llts(ZEBRA_LLT_DLCI, "Frame Relay DLCI");
+		llts(ZEBRA_LLT_ATM, "ATM");
+		llts(ZEBRA_LLT_METRICOM, "Metricom STRIP");
+		llts(ZEBRA_LLT_IEEE1394, "IEEE 1394 IPv4");
+		llts(ZEBRA_LLT_EUI64, "EUI-64");
+		llts(ZEBRA_LLT_INFINIBAND, "InfiniBand");
+		llts(ZEBRA_LLT_SLIP, "SLIP");
+		llts(ZEBRA_LLT_CSLIP, "Compressed SLIP");
+		llts(ZEBRA_LLT_SLIP6, "SLIPv6");
+		llts(ZEBRA_LLT_CSLIP6, "Compressed SLIPv6");
+		llts(ZEBRA_LLT_ROSE, "ROSE packet radio");
+		llts(ZEBRA_LLT_X25, "CCITT X.25");
+		llts(ZEBRA_LLT_PPP, "PPP");
+		llts(ZEBRA_LLT_CHDLC, "Cisco HDLC");
+		llts(ZEBRA_LLT_RAWHDLC, "Raw HDLC");
+		llts(ZEBRA_LLT_LAPB, "LAPB");
+		llts(ZEBRA_LLT_IPIP, "IPIP Tunnel");
+		llts(ZEBRA_LLT_IPIP6, "IPIP6 Tunnel");
+		llts(ZEBRA_LLT_FRAD, "FRAD");
+		llts(ZEBRA_LLT_SKIP, "SKIP vif");
+		llts(ZEBRA_LLT_LOOPBACK, "Loopback");
+		llts(ZEBRA_LLT_LOCALTLK, "Localtalk");
+		llts(ZEBRA_LLT_FDDI, "FDDI");
+		llts(ZEBRA_LLT_SIT, "IPv6-in-IPv4 SIT");
+		llts(ZEBRA_LLT_IPDDP, "IP-in-DDP tunnel");
+		llts(ZEBRA_LLT_IPGRE, "GRE over IP");
+		llts(ZEBRA_LLT_PIMREG, "PIMSM registration");
+		llts(ZEBRA_LLT_HIPPI, "HiPPI");
+		llts(ZEBRA_LLT_IRDA, "IrDA");
+		llts(ZEBRA_LLT_FCPP, "Fibre-Channel PtP");
+		llts(ZEBRA_LLT_FCAL, "Fibre-Channel Arbitrated Loop");
+		llts(ZEBRA_LLT_FCPL, "Fibre-Channel Public Loop");
+		llts(ZEBRA_LLT_FCFABRIC, "Fibre-Channel Fabric");
+		llts(ZEBRA_LLT_IEEE802_TR, "IEEE 802.2 Token Ring");
+		llts(ZEBRA_LLT_IEEE80211, "IEEE 802.11");
+		llts(ZEBRA_LLT_IEEE80211_RADIOTAP, "IEEE 802.11 Radiotap");
+		llts(ZEBRA_LLT_IEEE802154, "IEEE 802.15.4");
+		llts(ZEBRA_LLT_IEEE802154_PHY, "IEEE 802.15.4 Phy");
+	default:
+		zlog_warn("Unknown value %d", llt);
+		return "Unknown type!";
 #undef llts
-    }
-  return NULL;
+	}
+	return NULL;
 }
 
-struct if_link_params *
-if_link_params_get (struct interface *ifp)
+struct if_link_params *if_link_params_get(struct interface *ifp)
 {
-  int i;
+	int i;
 
-  if (ifp->link_params != NULL)
-    return ifp->link_params;
+	if (ifp->link_params != NULL)
+		return ifp->link_params;
 
-  struct if_link_params *iflp = XCALLOC(MTYPE_IF_LINK_PARAMS,
-                                      sizeof (struct if_link_params));
-  if (iflp == NULL) return NULL;
+	struct if_link_params *iflp =
+		XCALLOC(MTYPE_IF_LINK_PARAMS, sizeof(struct if_link_params));
+	if (iflp == NULL)
+		return NULL;
 
-  /* Set TE metric equal to standard metric */
-  iflp->te_metric = ifp->metric;
+	/* Set TE metric equal to standard metric */
+	iflp->te_metric = ifp->metric;
 
-  /* Compute default bandwidth based on interface */
-  iflp->default_bw = ((ifp->bandwidth ? ifp->bandwidth : DEFAULT_BANDWIDTH)
-		      * TE_KILO_BIT / TE_BYTE);
+	/* Compute default bandwidth based on interface */
+	iflp->default_bw =
+		((ifp->bandwidth ? ifp->bandwidth : DEFAULT_BANDWIDTH)
+		 * TE_KILO_BIT / TE_BYTE);
 
-  /* Set Max, Reservable and Unreserved Bandwidth */
-  iflp->max_bw = iflp->default_bw;
-  iflp->max_rsv_bw = iflp->default_bw;
-  for (i = 0; i < MAX_CLASS_TYPE; i++)
-    iflp->unrsv_bw[i] = iflp->default_bw;
+	/* Set Max, Reservable and Unreserved Bandwidth */
+	iflp->max_bw = iflp->default_bw;
+	iflp->max_rsv_bw = iflp->default_bw;
+	for (i = 0; i < MAX_CLASS_TYPE; i++)
+		iflp->unrsv_bw[i] = iflp->default_bw;
 
-  /* Update Link parameters status */
-  iflp->lp_status = LP_TE_METRIC | LP_MAX_BW | LP_MAX_RSV_BW | LP_UNRSV_BW;
+	/* Update Link parameters status */
+	iflp->lp_status =
+		LP_TE_METRIC | LP_MAX_BW | LP_MAX_RSV_BW | LP_UNRSV_BW;
 
-  /* Finally attach newly created Link Parameters */
-  ifp->link_params = iflp;
+	/* Finally attach newly created Link Parameters */
+	ifp->link_params = iflp;
 
-  return iflp;
+	return iflp;
 }
 
-void
-if_link_params_free (struct interface *ifp)
+void if_link_params_free(struct interface *ifp)
 {
-  if (ifp->link_params == NULL) return;
-  XFREE(MTYPE_IF_LINK_PARAMS, ifp->link_params);
-  ifp->link_params = NULL;
+	if (ifp->link_params == NULL)
+		return;
+	XFREE(MTYPE_IF_LINK_PARAMS, ifp->link_params);
+	ifp->link_params = NULL;
 }

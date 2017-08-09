@@ -33,57 +33,50 @@ extern void test_init();
 
 struct thread_master *master;
 
-struct option longopts[] = 
-{
-  { "daemon",      no_argument,       NULL, 'd'},
-  { "config_file", required_argument, NULL, 'f'},
-  { "help",        no_argument,       NULL, 'h'},
-  { "vty_addr",    required_argument, NULL, 'A'},
-  { "vty_port",    required_argument, NULL, 'P'},
-  { "version",     no_argument,       NULL, 'v'},
-  { 0 }
-};
+struct option longopts[] = {{"daemon", no_argument, NULL, 'd'},
+			    {"config_file", required_argument, NULL, 'f'},
+			    {"help", no_argument, NULL, 'h'},
+			    {"vty_addr", required_argument, NULL, 'A'},
+			    {"vty_port", required_argument, NULL, 'P'},
+			    {"version", no_argument, NULL, 'v'},
+			    {0}};
 
 DEFUN (daemon_exit,
        daemon_exit_cmd,
        "daemon-exit",
        "Make the daemon exit\n")
 {
-  exit(0);
+	exit(0);
 }
 
 static int timer_count;
-static int
-test_timer (struct thread *thread)
+static int test_timer(struct thread *thread)
 {
-  int *count = THREAD_ARG(thread);
-  
-  printf ("run %d of timer\n", (*count)++);
-  thread_add_timer (master, test_timer, count, 5);
-  return 0;
+	int *count = THREAD_ARG(thread);
+
+	printf("run %d of timer\n", (*count)++);
+	thread_add_timer(master, test_timer, count, 5);
+	return 0;
 }
 
-static void
-test_timer_init()
+static void test_timer_init()
 {
-  thread_add_timer (master, test_timer, &timer_count, 10);
+	thread_add_timer(master, test_timer, &timer_count, 10);
 }
 
-static void
-test_vty_init()
+static void test_vty_init()
 {
-  install_element (VIEW_NODE, &daemon_exit_cmd);
+	install_element(VIEW_NODE, &daemon_exit_cmd);
 }
 
 /* Help information display. */
-static void
-usage (char *progname, int status)
+static void usage(char *progname, int status)
 {
-  if (status != 0)
-    fprintf (stderr, "Try `%s --help' for more information.\n", progname);
-  else
-    {    
-      printf ("Usage : %s [OPTION...]\n\
+	if (status != 0)
+		fprintf(stderr, "Try `%s --help' for more information.\n",
+			progname);
+	else {
+		printf("Usage : %s [OPTION...]\n\
 Daemon which does 'slow' things.\n\n\
 -d, --daemon       Runs in daemon mode\n\
 -f, --config_file  Set configuration file name\n\
@@ -92,110 +85,105 @@ Daemon which does 'slow' things.\n\n\
 -v, --version      Print program version\n\
 -h, --help         Display this help and exit\n\
 \n\
-Report bugs to %s\n", progname, FRR_BUG_ADDRESS);
-    }
-  exit (status);
+Report bugs to %s\n",
+		       progname, FRR_BUG_ADDRESS);
+	}
+	exit(status);
 }
 
 
 /* main routine. */
-int
-main (int argc, char **argv)
+int main(int argc, char **argv)
 {
-  char *p;
-  char *vty_addr = NULL;
-  int vty_port = 4000;
-  int daemon_mode = 0;
-  char *progname;
-  struct thread thread;
-  char *config_file = NULL;
-  
-  /* Set umask before anything for security */
-  umask (0027);
+	char *p;
+	char *vty_addr = NULL;
+	int vty_port = 4000;
+	int daemon_mode = 0;
+	char *progname;
+	struct thread thread;
+	char *config_file = NULL;
 
-  /* get program name */
-  progname = ((p = strrchr (argv[0], '/')) ? ++p : argv[0]);
+	/* Set umask before anything for security */
+	umask(0027);
 
-  /* master init. */
-  master = thread_master_create ();
+	/* get program name */
+	progname = ((p = strrchr(argv[0], '/')) ? ++p : argv[0]);
 
-  while (1) 
-    {
-      int opt;
+	/* master init. */
+	master = thread_master_create();
 
-      opt = getopt_long (argc, argv, "dhf:A:P:v", longopts, 0);
-    
-      if (opt == EOF)
-	break;
+	while (1) {
+		int opt;
 
-      switch (opt) 
-	{
-	case 0:
-	  break;
-        case 'f':
-          config_file = optarg;
-          break;
-	case 'd':
-	  daemon_mode = 1;
-	  break;
-	case 'A':
-	  vty_addr = optarg;
-	  break;
-	case 'P':
-          /* Deal with atoi() returning 0 on failure */
-          if (strcmp(optarg, "0") == 0)
-            {
-              vty_port = 0;
-              break;
-            } 
-          vty_port = atoi (optarg);
-          vty_port = (vty_port ? vty_port : 4000);
-  	  break;
-	case 'v':
-	  print_version (progname);
-	  exit (0);
-	  break;
-	case 'h':
-	  usage (progname, 0);
-	  break;
-	default:
-	  usage (progname, 1);
-	  break;
+		opt = getopt_long(argc, argv, "dhf:A:P:v", longopts, 0);
+
+		if (opt == EOF)
+			break;
+
+		switch (opt) {
+		case 0:
+			break;
+		case 'f':
+			config_file = optarg;
+			break;
+		case 'd':
+			daemon_mode = 1;
+			break;
+		case 'A':
+			vty_addr = optarg;
+			break;
+		case 'P':
+			/* Deal with atoi() returning 0 on failure */
+			if (strcmp(optarg, "0") == 0) {
+				vty_port = 0;
+				break;
+			}
+			vty_port = atoi(optarg);
+			vty_port = (vty_port ? vty_port : 4000);
+			break;
+		case 'v':
+			print_version(progname);
+			exit(0);
+			break;
+		case 'h':
+			usage(progname, 0);
+			break;
+		default:
+			usage(progname, 1);
+			break;
+		}
 	}
-    }
 
-  /* Library inits. */
-  cmd_init (1);
-  vty_init (master);
-  memory_init ();
+	/* Library inits. */
+	cmd_init(1);
+	vty_init(master);
+	memory_init();
 
-  /* OSPF vty inits. */
-  test_vty_init ();
+	/* OSPF vty inits. */
+	test_vty_init();
 
-  /* Change to the daemon program. */
-  if (daemon_mode && daemon (0, 0) < 0)
-    {
-      fprintf(stderr, "daemon failed: %s", strerror(errno));
-      exit (1);
-    }
+	/* Change to the daemon program. */
+	if (daemon_mode && daemon(0, 0) < 0) {
+		fprintf(stderr, "daemon failed: %s", strerror(errno));
+		exit(1);
+	}
 
-  /* Create VTY socket */
-  vty_serv_sock (vty_addr, vty_port, "/tmp/.heavy.sock");
-  
-  /* Configuration file read*/
-  if (!config_file)
-    usage (progname, 1);
-  vty_read_config (config_file, NULL);
-  
-  test_timer_init();
-  
-  test_init();  
-  
-  /* Fetch next active thread. */
-  while (thread_fetch (master, &thread))
-    thread_call (&thread);
+	/* Create VTY socket */
+	vty_serv_sock(vty_addr, vty_port, "/tmp/.heavy.sock");
 
-  /* Not reached. */
-  exit (0);
+	/* Configuration file read*/
+	if (!config_file)
+		usage(progname, 1);
+	vty_read_config(config_file, NULL);
+
+	test_timer_init();
+
+	test_init();
+
+	/* Fetch next active thread. */
+	while (thread_fetch(master, &thread))
+		thread_call(&thread);
+
+	/* Not reached. */
+	exit(0);
 }
-

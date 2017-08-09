@@ -15,9 +15,9 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the 
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330, 
- * Boston, MA 02111-1307, USA.  
+ * along with GNU Zebra; see the file COPYING.  If not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 
 #ifndef OSPF6_PROTO_H
@@ -53,17 +53,16 @@
 
 /* OSPF6 Prefix */
 #define OSPF6_PREFIX_MIN_SIZE                  4U /* .length == 0 */
-struct ospf6_prefix
-{
-  u_int8_t prefix_length;
-  u_int8_t prefix_options;
-  union {
-    u_int16_t _prefix_metric;
-    u_int16_t _prefix_referenced_lstype;
-  } u;
+struct ospf6_prefix {
+	u_int8_t prefix_length;
+	u_int8_t prefix_options;
+	union {
+		u_int16_t _prefix_metric;
+		u_int16_t _prefix_referenced_lstype;
+	} u;
 #define prefix_metric        u._prefix_metric
 #define prefix_refer_lstype  u._prefix_referenced_lstype
-  /* followed by one address_prefix */
+	/* followed by one address_prefix */
 };
 
 #define OSPF6_PREFIX_OPTION_NU (1 << 0)  /* No Unicast */
@@ -78,24 +77,24 @@ struct ospf6_prefix
 #define OSPF6_PREFIX_SPACE(x) ((((x) + 31) / 32) * 4)
 
 /* size_t OSPF6_PREFIX_SIZE (struct ospf6_prefix *); */
-#define OSPF6_PREFIX_SIZE(x) \
-   (OSPF6_PREFIX_SPACE ((x)->prefix_length) + sizeof (struct ospf6_prefix))
+#define OSPF6_PREFIX_SIZE(x)                                                   \
+	(OSPF6_PREFIX_SPACE((x)->prefix_length) + sizeof(struct ospf6_prefix))
 
 /* struct ospf6_prefix *OSPF6_PREFIX_NEXT (struct ospf6_prefix *); */
-#define OSPF6_PREFIX_NEXT(x) \
-   ((struct ospf6_prefix *)((caddr_t)(x) + OSPF6_PREFIX_SIZE (x)))
+#define OSPF6_PREFIX_NEXT(x)                                                   \
+	((struct ospf6_prefix *)((caddr_t)(x) + OSPF6_PREFIX_SIZE(x)))
 
-#define ospf6_prefix_in6_addr(in6, op)                         \
-do {                                                           \
-  memset (in6, 0, sizeof (struct in6_addr));                   \
-  memcpy (in6, (caddr_t) (op) + sizeof (struct ospf6_prefix),  \
-          OSPF6_PREFIX_SPACE ((op)->prefix_length));           \
-} while (0)
+#define ospf6_prefix_in6_addr(in6, op)                                         \
+	do {                                                                   \
+		memset(in6, 0, sizeof(struct in6_addr));                       \
+		memcpy(in6, (caddr_t)(op) + sizeof(struct ospf6_prefix),       \
+		       OSPF6_PREFIX_SPACE((op)->prefix_length));               \
+	} while (0)
 
-extern void ospf6_prefix_apply_mask (struct ospf6_prefix *op);
-extern void ospf6_prefix_options_printbuf (u_int8_t prefix_options,
-                                           char *buf, int size);
-extern void ospf6_capability_printbuf (char capability, char *buf, int size);
-extern void ospf6_options_printbuf (u_char *options, char *buf, int size);
+extern void ospf6_prefix_apply_mask(struct ospf6_prefix *op);
+extern void ospf6_prefix_options_printbuf(u_int8_t prefix_options, char *buf,
+					  int size);
+extern void ospf6_capability_printbuf(char capability, char *buf, int size);
+extern void ospf6_options_printbuf(u_char *options, char *buf, int size);
 
 #endif /* OSPF6_PROTO_H */

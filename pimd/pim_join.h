@@ -11,7 +11,7 @@
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
   General Public License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with this program; see the file COPYING; if not, write to the
   Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
@@ -27,12 +27,10 @@
 
 #include "pim_neighbor.h"
 
-int pim_joinprune_recv(struct interface *ifp,
-		       struct pim_neighbor *neigh,
-		       struct in_addr src_addr,
-		       uint8_t *tlv_buf, int tlv_buf_size);
+int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
+		       struct in_addr src_addr, uint8_t *tlv_buf,
+		       int tlv_buf_size);
 
-int pim_joinprune_send(struct pim_rpf *nexthop,
-                       struct list *groups);
+int pim_joinprune_send(struct pim_rpf *nexthop, struct list *groups);
 
 #endif /* PIM_JOIN_H */

@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with GNU Zebra; see the file COPYING.  If not, write to the Free
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * 02111-1307, USA.
  */
 
 #ifndef _ZEBRA_RT_H
@@ -29,17 +29,17 @@
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_mpls.h"
 
-extern int kernel_route_rib (struct prefix *, struct prefix *,
-                             struct rib *, struct rib *);
+extern int kernel_route_rib(struct prefix *, struct prefix *, struct rib *,
+			    struct rib *);
 
-extern int kernel_address_add_ipv4 (struct interface *, struct connected *);
-extern int kernel_address_delete_ipv4 (struct interface *, struct connected *);
-extern int kernel_neigh_update (int, int, uint32_t, char *, int);
+extern int kernel_address_add_ipv4(struct interface *, struct connected *);
+extern int kernel_address_delete_ipv4(struct interface *, struct connected *);
+extern int kernel_neigh_update(int, int, uint32_t, char *, int);
 
-extern int kernel_add_lsp (zebra_lsp_t *);
-extern int kernel_upd_lsp (zebra_lsp_t *);
-extern int kernel_del_lsp (zebra_lsp_t *);
-extern int mpls_kernel_init (void);
+extern int kernel_add_lsp(zebra_lsp_t *);
+extern int kernel_upd_lsp(zebra_lsp_t *);
+extern int kernel_del_lsp(zebra_lsp_t *);
+extern int mpls_kernel_init(void);
 
-extern int kernel_get_ipmr_sg_stats (void *mroute);
+extern int kernel_get_ipmr_sg_stats(void *mroute);
 #endif /* _ZEBRA_RT_H */

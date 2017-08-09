@@ -43,87 +43,89 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 /* Transition 16Bit AS as defined by IANA */
 #define BGP_AS_TRANS		 23456U
 
-#define BGP_AS_IS_PRIVATE(ASN) \
-    (((ASN) >= BGP_PRIVATE_AS_MIN && (ASN) <= BGP_PRIVATE_AS_MAX) || \
-     ((ASN) >= BGP_PRIVATE_AS4_MIN && (ASN) <= BGP_PRIVATE_AS4_MAX))
+#define BGP_AS_IS_PRIVATE(ASN)                                                 \
+	(((ASN) >= BGP_PRIVATE_AS_MIN && (ASN) <= BGP_PRIVATE_AS_MAX)          \
+	 || ((ASN) >= BGP_PRIVATE_AS4_MIN && (ASN) <= BGP_PRIVATE_AS4_MAX))
 
 /* AS_PATH segment data in abstracted form, no limit is placed on length */
-struct assegment
-{
-  struct assegment *next;
-  as_t *as;
-  u_short length;
-  u_char type;
+struct assegment {
+	struct assegment *next;
+	as_t *as;
+	u_short length;
+	u_char type;
 };
 
 /* AS path may be include some AsSegments.  */
-struct aspath 
-{
-  /* Reference count to this aspath.  */
-  unsigned long refcnt;
+struct aspath {
+	/* Reference count to this aspath.  */
+	unsigned long refcnt;
 
-  /* segment data */
-  struct assegment *segments;
-  
-  /* AS path as a json object */
-  json_object *json;
+	/* segment data */
+	struct assegment *segments;
 
-  /* String expression of AS path.  This string is used by vty output
-     and AS path regular expression match.  */
-  char *str;
-  unsigned short str_len;
+	/* AS path as a json object */
+	json_object *json;
+
+	/* String expression of AS path.  This string is used by vty output
+	   and AS path regular expression match.  */
+	char *str;
+	unsigned short str_len;
 };
 
 #define ASPATH_STR_DEFAULT_LEN 32
 
 /* Prototypes. */
-extern void aspath_init (void);
-extern void aspath_finish (void);
-extern struct aspath *aspath_parse (struct stream *, size_t, int);
-extern struct aspath *aspath_dup (struct aspath *);
-extern struct aspath *aspath_aggregate (struct aspath *, struct aspath *);
-extern struct aspath *aspath_prepend (struct aspath *, struct aspath *);
-extern struct aspath *aspath_filter_exclude (struct aspath *, struct aspath *);
-extern struct aspath *aspath_add_seq_n (struct aspath *, as_t, unsigned);
-extern struct aspath *aspath_add_seq (struct aspath *, as_t);
-extern struct aspath *aspath_add_confed_seq (struct aspath *, as_t);
-extern int aspath_cmp (const void *, const void *);
-extern int aspath_cmp_left (const struct aspath *, const struct aspath *);
-extern int aspath_cmp_left_confed (const struct aspath *, const struct aspath *);
-extern struct aspath *aspath_delete_confed_seq (struct aspath *);
-extern struct aspath *aspath_empty (void);
-extern struct aspath *aspath_empty_get (void);
-extern struct aspath *aspath_str2aspath (const char *);
-extern void aspath_free (struct aspath *);
-extern struct aspath *aspath_intern (struct aspath *);
-extern void aspath_unintern (struct aspath **);
-extern const char *aspath_print (struct aspath *);
-extern void aspath_print_vty (struct vty *, const char *, struct aspath *, const char *);
-extern void aspath_print_all_vty (struct vty *);
-extern unsigned int aspath_key_make (void *);
-extern unsigned int aspath_get_first_as (struct aspath *);
-extern unsigned int aspath_get_last_as (struct aspath *);
-extern int aspath_loop_check (struct aspath *, as_t);
-extern int aspath_private_as_check (struct aspath *);
-extern int aspath_single_asn_check (struct aspath *, as_t asn);
-extern struct aspath *aspath_replace_specific_asn (struct aspath *aspath, as_t target_asn, as_t our_asn);
-extern struct aspath *aspath_replace_private_asns(struct aspath *aspath, as_t asn);
-extern struct aspath *aspath_remove_private_asns (struct aspath *aspath);
-extern int aspath_firstas_check (struct aspath *, as_t);
-extern int aspath_confed_check (struct aspath *);
-extern int aspath_left_confed_check (struct aspath *);
-extern unsigned long aspath_count (void);
-extern unsigned int aspath_count_hops (const struct aspath *);
-extern unsigned int aspath_count_confeds (struct aspath *);
-extern unsigned int aspath_size (struct aspath *);
-extern as_t aspath_highest (struct aspath *);
-extern as_t aspath_leftmost (struct aspath *);
-extern size_t aspath_put (struct stream *, struct aspath *, int);
+extern void aspath_init(void);
+extern void aspath_finish(void);
+extern struct aspath *aspath_parse(struct stream *, size_t, int);
+extern struct aspath *aspath_dup(struct aspath *);
+extern struct aspath *aspath_aggregate(struct aspath *, struct aspath *);
+extern struct aspath *aspath_prepend(struct aspath *, struct aspath *);
+extern struct aspath *aspath_filter_exclude(struct aspath *, struct aspath *);
+extern struct aspath *aspath_add_seq_n(struct aspath *, as_t, unsigned);
+extern struct aspath *aspath_add_seq(struct aspath *, as_t);
+extern struct aspath *aspath_add_confed_seq(struct aspath *, as_t);
+extern int aspath_cmp(const void *, const void *);
+extern int aspath_cmp_left(const struct aspath *, const struct aspath *);
+extern int aspath_cmp_left_confed(const struct aspath *, const struct aspath *);
+extern struct aspath *aspath_delete_confed_seq(struct aspath *);
+extern struct aspath *aspath_empty(void);
+extern struct aspath *aspath_empty_get(void);
+extern struct aspath *aspath_str2aspath(const char *);
+extern void aspath_free(struct aspath *);
+extern struct aspath *aspath_intern(struct aspath *);
+extern void aspath_unintern(struct aspath **);
+extern const char *aspath_print(struct aspath *);
+extern void aspath_print_vty(struct vty *, const char *, struct aspath *,
+			     const char *);
+extern void aspath_print_all_vty(struct vty *);
+extern unsigned int aspath_key_make(void *);
+extern unsigned int aspath_get_first_as(struct aspath *);
+extern unsigned int aspath_get_last_as(struct aspath *);
+extern int aspath_loop_check(struct aspath *, as_t);
+extern int aspath_private_as_check(struct aspath *);
+extern int aspath_single_asn_check(struct aspath *, as_t asn);
+extern struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
+						  as_t target_asn,
+						  as_t our_asn);
+extern struct aspath *aspath_replace_private_asns(struct aspath *aspath,
+						  as_t asn);
+extern struct aspath *aspath_remove_private_asns(struct aspath *aspath);
+extern int aspath_firstas_check(struct aspath *, as_t);
+extern int aspath_confed_check(struct aspath *);
+extern int aspath_left_confed_check(struct aspath *);
+extern unsigned long aspath_count(void);
+extern unsigned int aspath_count_hops(const struct aspath *);
+extern unsigned int aspath_count_confeds(struct aspath *);
+extern unsigned int aspath_size(struct aspath *);
+extern as_t aspath_highest(struct aspath *);
+extern as_t aspath_leftmost(struct aspath *);
+extern size_t aspath_put(struct stream *, struct aspath *, int);
 
-extern struct aspath *aspath_reconcile_as4 (struct aspath *, struct aspath *);
-extern unsigned int aspath_has_as4 (struct aspath *);
+extern struct aspath *aspath_reconcile_as4(struct aspath *, struct aspath *);
+extern unsigned int aspath_has_as4(struct aspath *);
 
 /* For SNMP BGP4PATHATTRASPATHSEGMENT, might be useful for debug */
-extern u_char *aspath_snmp_pathseg (struct aspath *, size_t *);
+extern u_char *aspath_snmp_pathseg(struct aspath *, size_t *);
 
 #endif /* _QUAGGA_BGP_ASPATH_H */

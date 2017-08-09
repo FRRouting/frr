@@ -42,11 +42,12 @@ void bgp_add_routermac_ecom(struct attr *attr, struct ethaddr *routermac)
 		memset(&routermac_ecom, 0, sizeof(struct ecommunity_val));
 		routermac_ecom.val[0] = ECOMMUNITY_ENCODE_EVPN;
 		routermac_ecom.val[1] = ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC;
-		memcpy(&routermac_ecom.val[2], routermac->octet, ETHER_ADDR_LEN);
+		memcpy(&routermac_ecom.val[2], routermac->octet,
+		       ETHER_ADDR_LEN);
 		if (!attr->extra->ecommunity)
 			attr->extra->ecommunity = ecommunity_new();
 		ecommunity_add_val(attr->extra->ecommunity, &routermac_ecom);
-		ecommunity_str (attr->extra->ecommunity);
+		ecommunity_str(attr->extra->ecommunity);
 	}
 }
 
@@ -62,10 +63,9 @@ int str2esi(const char *str, struct eth_segment_id *id)
 
 	if (!str)
 		return 0;
-	if (sscanf (str, "%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x",
-                    a + 0, a + 1, a + 2, a + 3, a + 4, a + 5,
-                    a + 6, a + 7, a + 8, a + 9) != ESI_LEN)
-	{
+	if (sscanf(str, "%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x:%2x", a + 0, a + 1,
+		   a + 2, a + 3, a + 4, a + 5, a + 6, a + 7, a + 8, a + 9)
+	    != ESI_LEN) {
 		/* error in incoming str length */
 		return 0;
 	}
@@ -86,12 +86,13 @@ char *esi2str(struct eth_segment_id *id)
 		return NULL;
 
 	val = id->val;
-	ptr = (char *)XMALLOC(MTYPE_TMP, (ESI_LEN * 2 + ESI_LEN - 1 + 1) * sizeof(char));
+	ptr = (char *)XMALLOC(MTYPE_TMP,
+			      (ESI_LEN * 2 + ESI_LEN - 1 + 1) * sizeof(char));
 
 	snprintf(ptr, (ESI_LEN * 2 + ESI_LEN - 1 + 1),
-		 "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
-		 val[0], val[1], val[2], val[3], val[4],
-		 val[5], val[6], val[7], val[8], val[9]);
+		 "%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x", val[0],
+		 val[1], val[2], val[3], val[4], val[5], val[6], val[7], val[8],
+		 val[9]);
 
 	return ptr;
 }
@@ -102,12 +103,12 @@ char *ecom_mac2str(char *ecom_mac)
 
 	en = ecom_mac;
 	en += 2;
-        return prefix_mac2str((struct ethaddr *)en, NULL, 0);
+	return prefix_mac2str((struct ethaddr *)en, NULL, 0);
 }
 
 /* dst prefix must be AF_INET or AF_INET6 prefix, to forge EVPN prefix */
-extern int
-bgp_build_evpn_prefix(int evpn_type, uint32_t eth_tag, struct prefix *dst)
+extern int bgp_build_evpn_prefix(int evpn_type, uint32_t eth_tag,
+				 struct prefix *dst)
 {
 	struct evpn_addr *p_evpn_p;
 	struct prefix p2;
@@ -128,12 +129,12 @@ bgp_build_evpn_prefix(int evpn_type, uint32_t eth_tag, struct prefix *dst)
 			p_evpn_p->flags = IP_PREFIX_V4;
 			memcpy(&p_evpn_p->ip.v4_addr, &src->u.prefix4,
 			       sizeof(struct in_addr));
-			dst->prefixlen = (u_char) PREFIX_LEN_ROUTE_TYPE_5_IPV4;
+			dst->prefixlen = (u_char)PREFIX_LEN_ROUTE_TYPE_5_IPV4;
 		} else {
 			p_evpn_p->flags = IP_PREFIX_V6;
 			memcpy(&p_evpn_p->ip.v6_addr, &src->u.prefix6,
 			       sizeof(struct in6_addr));
-			dst->prefixlen = (u_char) PREFIX_LEN_ROUTE_TYPE_5_IPV6;
+			dst->prefixlen = (u_char)PREFIX_LEN_ROUTE_TYPE_5_IPV6;
 		}
 	} else
 		return -1;

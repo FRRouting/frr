@@ -41,42 +41,41 @@
  */
 #define LINEAR_ALLOCATOR_ALIGNMENT        8
 
-#define LINEAR_ALLOCATOR_ALIGN(value)					\
-  (((value) + LINEAR_ALLOCATOR_ALIGNMENT - 1) & ~(LINEAR_ALLOCATOR_ALIGNMENT - 1));
+#define LINEAR_ALLOCATOR_ALIGN(value)                                          \
+	(((value) + LINEAR_ALLOCATOR_ALIGNMENT - 1)                            \
+	 & ~(LINEAR_ALLOCATOR_ALIGNMENT - 1));
 
 /*
  * linear_allocator_align_ptr
  */
-static inline char *
-linear_allocator_align_ptr (char *ptr)
+static inline char *linear_allocator_align_ptr(char *ptr)
 {
-  return (char *) LINEAR_ALLOCATOR_ALIGN ((intptr_t) ptr);
+	return (char *)LINEAR_ALLOCATOR_ALIGN((intptr_t)ptr);
 }
 
-typedef struct linear_allocator_t_
-{
-  char *buf;
+typedef struct linear_allocator_t_ {
+	char *buf;
 
-  /*
-   * Current location in the buffer.
-   */
-  char *cur;
+	/*
+	 * Current location in the buffer.
+	 */
+	char *cur;
 
-  /*
-   * End of buffer.
-   */
-  char *end;
+	/*
+	 * End of buffer.
+	 */
+	char *end;
 
-  /*
-   * Version number of the allocator, this is bumped up when the allocator
-   * is reset and helps identifies bad frees.
-   */
-  uint32_t version;
+	/*
+	 * Version number of the allocator, this is bumped up when the allocator
+	 * is reset and helps identifies bad frees.
+	 */
+	uint32_t version;
 
-  /*
-   * The number of blocks that are currently allocated.
-   */
-  int num_allocated;
+	/*
+	 * The number of blocks that are currently allocated.
+	 */
+	int num_allocated;
 } linear_allocator_t;
 
 /*
@@ -84,15 +83,14 @@ typedef struct linear_allocator_t_
  *
  * Header structure at the begining of each block.
  */
-typedef struct linear_allocator_block_t_
-{
-  uint32_t flags;
+typedef struct linear_allocator_block_t_ {
+	uint32_t flags;
 
-  /*
-   * The version of the allocator when this block was allocated.
-   */
-  uint32_t version;
-  char data[0];
+	/*
+	 * The version of the allocator when this block was allocated.
+	 */
+	uint32_t version;
+	char data[0];
 } linear_allocator_block_t;
 
 #define LINEAR_ALLOCATOR_BLOCK_IN_USE 0x01
@@ -105,36 +103,33 @@ typedef struct linear_allocator_block_t_
  * The total amount of space a block will take in the buffer,
  * including the size of the header.
  */
-static inline size_t
-linear_allocator_block_size (size_t user_size)
+static inline size_t linear_allocator_block_size(size_t user_size)
 {
-  return LINEAR_ALLOCATOR_ALIGN (LINEAR_ALLOCATOR_HDR_SIZE + user_size);
+	return LINEAR_ALLOCATOR_ALIGN(LINEAR_ALLOCATOR_HDR_SIZE + user_size);
 }
 
 /*
  * linear_allocator_ptr_to_block
  */
-static inline linear_allocator_block_t *
-linear_allocator_ptr_to_block (void *ptr)
+static inline linear_allocator_block_t *linear_allocator_ptr_to_block(void *ptr)
 {
-  void *block_ptr;
-  block_ptr = ((char *) ptr) - offsetof (linear_allocator_block_t, data);
-  return block_ptr;
+	void *block_ptr;
+	block_ptr = ((char *)ptr) - offsetof(linear_allocator_block_t, data);
+	return block_ptr;
 }
 
 /*
  * linear_allocator_init
  */
-static inline void
-linear_allocator_init (linear_allocator_t * allocator, char *buf,
-		       size_t buf_len)
+static inline void linear_allocator_init(linear_allocator_t *allocator,
+					 char *buf, size_t buf_len)
 {
-  memset (allocator, 0, sizeof (*allocator));
+	memset(allocator, 0, sizeof(*allocator));
 
-  assert (linear_allocator_align_ptr (buf) == buf);
-  allocator->buf = buf;
-  allocator->cur = buf;
-  allocator->end = buf + buf_len;
+	assert(linear_allocator_align_ptr(buf) == buf);
+	allocator->buf = buf;
+	allocator->cur = buf;
+	allocator->end = buf + buf_len;
 }
 
 /*
@@ -144,64 +139,59 @@ linear_allocator_init (linear_allocator_t * allocator, char *buf,
  *
  * *** NOTE ** This implicitly frees all the blocks in the allocator.
  */
-static inline void
-linear_allocator_reset (linear_allocator_t *allocator)
+static inline void linear_allocator_reset(linear_allocator_t *allocator)
 {
-  allocator->num_allocated = 0;
-  allocator->version++;
-  allocator->cur = allocator->buf;
+	allocator->num_allocated = 0;
+	allocator->version++;
+	allocator->cur = allocator->buf;
 }
 
 /*
  * linear_allocator_alloc
  */
-static inline void *
-linear_allocator_alloc (linear_allocator_t *allocator, size_t user_size)
+static inline void *linear_allocator_alloc(linear_allocator_t *allocator,
+					   size_t user_size)
 {
-  size_t block_size;
-  linear_allocator_block_t *block;
+	size_t block_size;
+	linear_allocator_block_t *block;
 
-  block_size = linear_allocator_block_size (user_size);
+	block_size = linear_allocator_block_size(user_size);
 
-  if (allocator->cur + block_size > allocator->end)
-    {
-      return NULL;
-    }
+	if (allocator->cur + block_size > allocator->end) {
+		return NULL;
+	}
 
-  block = (linear_allocator_block_t *) allocator->cur;
-  allocator->cur += block_size;
+	block = (linear_allocator_block_t *)allocator->cur;
+	allocator->cur += block_size;
 
-  block->flags = LINEAR_ALLOCATOR_BLOCK_IN_USE;
-  block->version = allocator->version;
-  allocator->num_allocated++;
-  return block->data;
+	block->flags = LINEAR_ALLOCATOR_BLOCK_IN_USE;
+	block->version = allocator->version;
+	allocator->num_allocated++;
+	return block->data;
 }
 
 /*
  * linear_allocator_free
  */
-static inline void
-linear_allocator_free (linear_allocator_t *allocator, void *ptr)
+static inline void linear_allocator_free(linear_allocator_t *allocator,
+					 void *ptr)
 {
-  linear_allocator_block_t *block;
+	linear_allocator_block_t *block;
 
-  if (((char *) ptr) < allocator->buf || ((char *) ptr) >= allocator->end)
-    {
-      assert (0);
-      return;
-    }
+	if (((char *)ptr) < allocator->buf || ((char *)ptr) >= allocator->end) {
+		assert(0);
+		return;
+	}
 
-  block = linear_allocator_ptr_to_block (ptr);
-  if (block->version != allocator->version)
-    {
-      assert (0);
-      return;
-    }
+	block = linear_allocator_ptr_to_block(ptr);
+	if (block->version != allocator->version) {
+		assert(0);
+		return;
+	}
 
-  block->flags = block->flags & ~LINEAR_ALLOCATOR_BLOCK_IN_USE;
+	block->flags = block->flags & ~LINEAR_ALLOCATOR_BLOCK_IN_USE;
 
-  if (--allocator->num_allocated < 0)
-    {
-      assert (0);
-    }
+	if (--allocator->num_allocated < 0) {
+		assert(0);
+	}
 }

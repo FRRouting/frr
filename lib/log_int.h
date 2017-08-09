@@ -25,21 +25,20 @@
 
 #include "log.h"
 
-struct zlog
-{
-  const char *ident;	/* daemon name (first arg to openlog) */
-  const char *protoname;
-  u_short instance;
-  int maxlvl[ZLOG_NUM_DESTS];   /* maximum priority to send to associated
-                                   logging destination */
-  int default_lvl;      /* maxlvl to use if none is specified */
-  FILE *fp;
-  char *filename;
-  int facility;         /* as per syslog facility */
-  int record_priority;  /* should messages logged through stdio include the
-                           priority of the message? */
-  int syslog_options;   /* 2nd arg to openlog */
-  int timestamp_precision;      /* # of digits of subsecond precision */
+struct zlog {
+	const char *ident; /* daemon name (first arg to openlog) */
+	const char *protoname;
+	u_short instance;
+	int maxlvl[ZLOG_NUM_DESTS]; /* maximum priority to send to associated
+				       logging destination */
+	int default_lvl;	    /* maxlvl to use if none is specified */
+	FILE *fp;
+	char *filename;
+	int facility;	/* as per syslog facility */
+	int record_priority; /* should messages logged through stdio include the
+				priority of the message? */
+	int syslog_options;  /* 2nd arg to openlog */
+	int timestamp_precision; /* # of digits of subsecond precision */
 };
 
 /* Default logging strucutre. */
@@ -48,10 +47,7 @@ extern struct zlog *zlog_default;
 extern const char *zlog_priority[];
 
 /* Generic function for zlog. */
-extern void vzlog (int priority, const char *format, va_list args);
-extern void zlog (int priority, const char *format, ...)
-  PRINTF_ATTRIBUTE(2, 3);
+extern void vzlog(int priority, const char *format, va_list args);
+extern void zlog(int priority, const char *format, ...) PRINTF_ATTRIBUTE(2, 3);
 
 #endif /* _ZEBRA_LOG_PRIVATE_H */
-
-

@@ -11,7 +11,7 @@
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
   General Public License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with this program; see the file COPYING; if not, write to the
   Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
@@ -54,70 +54,75 @@
 #define PIM_I_am_DR(pim_ifp) (pim_ifp)->pim_dr_addr.s_addr == (pim_ifp)->primary_address.s_addr
 
 struct pim_iface_upstream_switch {
-  struct in_addr address;
-  struct list *us;
+	struct in_addr address;
+	struct list *us;
 };
 
 enum pim_secondary_addr_flags {
-  PIM_SEC_ADDRF_NONE = 0,
-  PIM_SEC_ADDRF_STALE = (1 << 0)
+	PIM_SEC_ADDRF_NONE = 0,
+	PIM_SEC_ADDRF_STALE = (1 << 0)
 };
 
 struct pim_secondary_addr {
-  struct in_addr addr;
-  enum pim_secondary_addr_flags flags;
+	struct in_addr addr;
+	enum pim_secondary_addr_flags flags;
 };
 
 struct pim_interface {
-  uint32_t       options;                            /* bit vector */
-  ifindex_t      mroute_vif_index;
-  struct in_addr primary_address; /* remember addr to detect change */
-  struct list    *sec_addr_list; /* list of struct pim_secondary_addr */
-  struct in_addr update_source;  /* user can statically set the primary
-                                  * address of the interface */
+	uint32_t options; /* bit vector */
+	ifindex_t mroute_vif_index;
+	struct in_addr primary_address; /* remember addr to detect change */
+	struct list *sec_addr_list;     /* list of struct pim_secondary_addr */
+	struct in_addr update_source;   /* user can statically set the primary
+					 * address of the interface */
 
-  int          igmp_version;                                /* IGMP version */
-  int          igmp_default_robustness_variable;            /* IGMPv3 QRV */
-  int          igmp_default_query_interval;                 /* IGMPv3 secs between general queries */
-  int          igmp_query_max_response_time_dsec;           /* IGMPv3 Max Response Time in dsecs for general queries */
-  int          igmp_specific_query_max_response_time_dsec;  /* IGMPv3 Max Response Time in dsecs for specific queries */
-  struct list *igmp_socket_list;                            /* list of struct igmp_sock */
-  struct list *igmp_join_list;                              /* list of struct igmp_join */
+	int igmp_version;		      /* IGMP version */
+	int igmp_default_robustness_variable; /* IGMPv3 QRV */
+	int
+		igmp_default_query_interval;   /* IGMPv3 secs between general
+						  queries */
+	int igmp_query_max_response_time_dsec; /* IGMPv3 Max Response Time in
+						  dsecs for general queries */
+	int igmp_specific_query_max_response_time_dsec; /* IGMPv3 Max Response
+							   Time in dsecs for
+							   specific queries */
+	struct list *igmp_socket_list; /* list of struct igmp_sock */
+	struct list *igmp_join_list;   /* list of struct igmp_join */
 
-  int            pim_sock_fd;       /* PIM socket file descriptor */
-  struct thread *t_pim_sock_read;   /* thread for reading PIM socket */
-  int64_t        pim_sock_creation; /* timestamp of PIM socket creation */
+	int pim_sock_fd;		/* PIM socket file descriptor */
+	struct thread *t_pim_sock_read; /* thread for reading PIM socket */
+	int64_t pim_sock_creation;      /* timestamp of PIM socket creation */
 
-  struct thread *t_pim_hello_timer;
-  int            pim_hello_period;
-  int            pim_default_holdtime;
-  int            pim_triggered_hello_delay;
-  uint32_t       pim_generation_id;
-  uint16_t       pim_propagation_delay_msec; /* config */
-  uint16_t       pim_override_interval_msec; /* config */
-  struct list   *pim_neighbor_list; /* list of struct pim_neighbor */
-  struct list   *upstream_switch_list;
-  struct list   *pim_ifchannel_list; /* list of struct pim_ifchannel */
-  struct hash   *pim_ifchannel_hash;
+	struct thread *t_pim_hello_timer;
+	int pim_hello_period;
+	int pim_default_holdtime;
+	int pim_triggered_hello_delay;
+	uint32_t pim_generation_id;
+	uint16_t pim_propagation_delay_msec; /* config */
+	uint16_t pim_override_interval_msec; /* config */
+	struct list *pim_neighbor_list;      /* list of struct pim_neighbor */
+	struct list *upstream_switch_list;
+	struct list *pim_ifchannel_list; /* list of struct pim_ifchannel */
+	struct hash *pim_ifchannel_hash;
 
-  /* neighbors without lan_delay */
-  int            pim_number_of_nonlandelay_neighbors;
-  uint16_t       pim_neighbors_highest_propagation_delay_msec;
-  uint16_t       pim_neighbors_highest_override_interval_msec;
+	/* neighbors without lan_delay */
+	int pim_number_of_nonlandelay_neighbors;
+	uint16_t pim_neighbors_highest_propagation_delay_msec;
+	uint16_t pim_neighbors_highest_override_interval_msec;
 
-  /* DR Election */
-  int64_t        pim_dr_election_last; /* timestamp */
-  int            pim_dr_election_count;
-  int            pim_dr_election_changes;
-  struct in_addr pim_dr_addr;
-  uint32_t       pim_dr_priority;            /* config */
-  int            pim_dr_num_nondrpri_neighbors; /* neighbors without dr_pri */
+	/* DR Election */
+	int64_t pim_dr_election_last; /* timestamp */
+	int pim_dr_election_count;
+	int pim_dr_election_changes;
+	struct in_addr pim_dr_addr;
+	uint32_t pim_dr_priority;	  /* config */
+	int pim_dr_num_nondrpri_neighbors; /* neighbors without dr_pri */
 
-  int64_t        pim_ifstat_start; /* start timestamp for stats */
-  uint32_t       pim_ifstat_hello_sent;
-  uint32_t       pim_ifstat_hello_sendfail;
-  uint32_t       pim_ifstat_hello_recv;
-  uint32_t       pim_ifstat_hello_recvfail;
+	int64_t pim_ifstat_start; /* start timestamp for stats */
+	uint32_t pim_ifstat_hello_sent;
+	uint32_t pim_ifstat_hello_sendfail;
+	uint32_t pim_ifstat_hello_recv;
+	uint32_t pim_ifstat_hello_recvfail;
 };
 
 extern struct interface *pim_regiface;
@@ -126,16 +131,16 @@ extern struct list *pim_ifchannel_list;
   if default_holdtime is set (>= 0), use it;
   otherwise default_holdtime is 3.5 * hello_period
  */
-#define PIM_IF_DEFAULT_HOLDTIME(pim_ifp) \
-  (((pim_ifp)->pim_default_holdtime < 0) ? \
-  ((pim_ifp)->pim_hello_period * 7 / 2) : \
-  ((pim_ifp)->pim_default_holdtime))
+#define PIM_IF_DEFAULT_HOLDTIME(pim_ifp)                                       \
+	(((pim_ifp)->pim_default_holdtime < 0)                                 \
+		 ? ((pim_ifp)->pim_hello_period * 7 / 2)                       \
+		 : ((pim_ifp)->pim_default_holdtime))
 
 void pim_if_init(void);
-void pim_if_terminate (void);
+void pim_if_terminate(void);
 
 struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim);
-void                  pim_if_delete(struct interface *ifp);
+void pim_if_delete(struct interface *ifp);
 void pim_if_addr_add(struct connected *ifc);
 void pim_if_addr_del(struct connected *ifc, int force_prim_as_any);
 void pim_if_addr_add_all(struct interface *ifp);
@@ -143,7 +148,8 @@ void pim_if_addr_del_all(struct interface *ifp);
 void pim_if_addr_del_all_igmp(struct interface *ifp);
 void pim_if_addr_del_all_pim(struct interface *ifp);
 
-struct interface *pim_if_lookup_address_vrf (struct in_addr src, vrf_id_t vrf_id);
+struct interface *pim_if_lookup_address_vrf(struct in_addr src,
+					    vrf_id_t vrf_id);
 
 int pim_if_add_vif(struct interface *ifp);
 int pim_if_del_vif(struct interface *ifp);
@@ -165,11 +171,9 @@ int pim_if_t_override_msec(struct interface *ifp);
 
 struct in_addr pim_find_primary_addr(struct interface *ifp);
 
-int pim_if_igmp_join_add(struct interface *ifp,
-			 struct in_addr group_addr,
+int pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
 			 struct in_addr source_addr);
-int pim_if_igmp_join_del(struct interface *ifp,
-			 struct in_addr group_addr,
+int pim_if_igmp_join_del(struct interface *ifp, struct in_addr group_addr,
 			 struct in_addr source_addr);
 
 void pim_if_update_could_assert(struct interface *ifp);
@@ -186,7 +190,7 @@ void pim_if_update_assert_tracking_desired(struct interface *ifp);
 
 void pim_if_create_pimreg(void);
 
-int pim_if_connected_to_source (struct interface *ifp, struct in_addr src);
+int pim_if_connected_to_source(struct interface *ifp, struct in_addr src);
 int pim_update_source_set(struct interface *ifp, struct in_addr source);
 
 #endif /* PIM_IFACE_H */

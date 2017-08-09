@@ -22,48 +22,42 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define _QUAGGA_BGP_OPEN_H
 
 /* Standard header for capability TLV */
-struct capability_header
-{
-  u_char code;
-  u_char length;
+struct capability_header {
+	u_char code;
+	u_char length;
 };
 
 /* Generic MP capability data */
-struct capability_mp_data
-{
-  iana_afi_t afi;
-  u_char reserved;
-  safi_t safi;
+struct capability_mp_data {
+	iana_afi_t afi;
+	u_char reserved;
+	safi_t safi;
 };
 
 #pragma pack(1)
-struct capability_orf_entry 
-{
-  struct capability_mp_data mpc;
-  u_char num;
-  struct {
-    u_char type;
-    u_char mode;
-  } orfs[];
-} __attribute__ ((packed));
+struct capability_orf_entry {
+	struct capability_mp_data mpc;
+	u_char num;
+	struct {
+		u_char type;
+		u_char mode;
+	} orfs[];
+} __attribute__((packed));
 #pragma pack()
 
-struct capability_as4
-{
-  uint32_t as4;
+struct capability_as4 {
+	uint32_t as4;
 };
 
-struct graceful_restart_af
-{
-  afi_t afi;
-  safi_t safi;
-  u_char flag;
+struct graceful_restart_af {
+	afi_t afi;
+	safi_t safi;
+	u_char flag;
 };
 
-struct capability_gr
-{
-  u_int16_t restart_flag_time;
-  struct graceful_restart_af gr[];
+struct capability_gr {
+	u_int16_t restart_flag_time;
+	struct graceful_restart_af gr[];
 };
 
 /* Capability Code */
@@ -79,7 +73,6 @@ struct capability_gr
 #define CAPABILITY_CODE_ENHE            5 /* Extended Next Hop Encoding */
 #define CAPABILITY_CODE_REFRESH_OLD   128 /* Route Refresh Capability(cisco) */
 #define CAPABILITY_CODE_ORF_OLD       130 /* Cooperative Route Filtering Capability(cisco) */
-
 
 /* Capability Length */
 #define CAPABILITY_CODE_MP_LEN          4
@@ -111,9 +104,10 @@ struct capability_gr
 #define RESTART_R_BIT              0x8000
 #define RESTART_F_BIT              0x80
 
-extern int bgp_open_option_parse (struct peer *, u_char, int *);
-extern void bgp_open_capability (struct stream *, struct peer *);
-extern void bgp_capability_vty_out (struct vty *, struct peer *, u_char, json_object *);
-extern as_t peek_for_as4_capability (struct peer *, u_char);
+extern int bgp_open_option_parse(struct peer *, u_char, int *);
+extern void bgp_open_capability(struct stream *, struct peer *);
+extern void bgp_capability_vty_out(struct vty *, struct peer *, u_char,
+				   json_object *);
+extern as_t peek_for_as4_capability(struct peer *, u_char);
 
 #endif /* _QUAGGA_BGP_OPEN_H */

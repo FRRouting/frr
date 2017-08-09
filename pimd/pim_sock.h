@@ -11,7 +11,7 @@
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
   General Public License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with this program; see the file COPYING; if not, write to the
   Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
@@ -36,16 +36,15 @@
 #define PIM_SOCK_ERR_NAME    (-10) /* Socket name (getsockname) */
 #define PIM_SOCK_ERR_BIND    (-11) /* Can't bind to interface */
 
-int pim_socket_bind (int fd, struct interface *ifp);
-int pim_socket_ip_hdr (int fd);
+int pim_socket_bind(int fd, struct interface *ifp);
+int pim_socket_ip_hdr(int fd);
 int pim_socket_raw(int protocol);
-int pim_socket_mcast(int protocol, struct in_addr ifaddr, struct interface *ifp, u_char loop);
-int pim_socket_join(int fd, struct in_addr group,
-		    struct in_addr ifaddr, ifindex_t ifindex);
-int pim_socket_join_source(int fd, ifindex_t ifindex,
-			   struct in_addr group_addr,
-			   struct in_addr source_addr,
-			   const char *ifname);
+int pim_socket_mcast(int protocol, struct in_addr ifaddr, struct interface *ifp,
+		     u_char loop);
+int pim_socket_join(int fd, struct in_addr group, struct in_addr ifaddr,
+		    ifindex_t ifindex);
+int pim_socket_join_source(int fd, ifindex_t ifindex, struct in_addr group_addr,
+			   struct in_addr source_addr, const char *ifname);
 int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
 			  struct sockaddr_in *from, socklen_t *fromlen,
 			  struct sockaddr_in *to, socklen_t *tolen,

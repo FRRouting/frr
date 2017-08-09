@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (C) 2006 Sun Microsystems, Inc.
  *
  * This file is part of Quagga.
@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Quagga; see the file COPYING.  If not, write to the Free
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * 02111-1307, USA.
  */
 
 #include <zebra.h>
@@ -26,11 +26,23 @@
 #include "zebra/irdp.h"
 #include "zebra/interface.h"
 
-void rtadv_config_write (struct vty *vty, struct interface *ifp) { return; }
-void irdp_config_write (struct vty *vty, struct interface *ifp) { return; }
+void rtadv_config_write(struct vty *vty, struct interface *ifp)
+{
+	return;
+}
+void irdp_config_write(struct vty *vty, struct interface *ifp)
+{
+	return;
+}
 #ifdef HAVE_PROC_NET_DEV
-void ifstat_update_proc (void) { return; }
+void ifstat_update_proc(void)
+{
+	return;
+}
 #endif
 #ifdef HAVE_NET_RT_IFLIST
-void ifstat_update_sysctl (void) { return; }
+void ifstat_update_sysctl(void)
+{
+	return;
+}
 #endif

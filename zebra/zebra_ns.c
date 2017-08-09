@@ -31,58 +31,54 @@
 #include "zebra_vrf.h"
 #include "zebra_memory.h"
 
-DEFINE_MTYPE(ZEBRA, ZEBRA_NS,       "Zebra Name Space")
+DEFINE_MTYPE(ZEBRA, ZEBRA_NS, "Zebra Name Space")
 
 struct zebra_ns *dzns;
 
-struct zebra_ns *
-zebra_ns_lookup (ns_id_t ns_id)
+struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id)
 {
-  return dzns;
+	return dzns;
 }
 
-int
-zebra_ns_enable (ns_id_t ns_id, void **info)
+int zebra_ns_enable(ns_id_t ns_id, void **info)
 {
-  struct zebra_ns *zns = (struct zebra_ns *) (*info);
+	struct zebra_ns *zns = (struct zebra_ns *)(*info);
 
-#if defined (HAVE_RTADV)
-  rtadv_init (zns);
+#if defined(HAVE_RTADV)
+	rtadv_init(zns);
 #endif
 
-  zns->if_table = route_table_init ();
-  kernel_init (zns);
-  interface_list (zns);
-  route_read (zns);
+	zns->if_table = route_table_init();
+	kernel_init(zns);
+	interface_list(zns);
+	route_read(zns);
 
-  return 0;
+	return 0;
 }
 
-int
-zebra_ns_disable (ns_id_t ns_id, void **info)
+int zebra_ns_disable(ns_id_t ns_id, void **info)
 {
-  struct zebra_ns *zns = (struct zebra_ns *) (*info);
+	struct zebra_ns *zns = (struct zebra_ns *)(*info);
 
-  route_table_finish (zns->if_table);
-#if defined (HAVE_RTADV)
-  rtadv_terminate (zns);
+	route_table_finish(zns->if_table);
+#if defined(HAVE_RTADV)
+	rtadv_terminate(zns);
 #endif
 
-  kernel_terminate (zns);
+	kernel_terminate(zns);
 
-  return 0;
+	return 0;
 }
 
-int
-zebra_ns_init (void)
+int zebra_ns_init(void)
 {
-  dzns = XCALLOC (MTYPE_ZEBRA_NS, sizeof (struct zebra_ns));
+	dzns = XCALLOC(MTYPE_ZEBRA_NS, sizeof(struct zebra_ns));
 
-  ns_init ();
+	ns_init();
 
-  zebra_vrf_init ();
+	zebra_vrf_init();
 
-  zebra_ns_enable (0, (void **)&dzns);
+	zebra_ns_enable(0, (void **)&dzns);
 
-  return 0;
+	return 0;
 }

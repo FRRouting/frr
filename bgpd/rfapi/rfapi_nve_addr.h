@@ -1,4 +1,4 @@
-/* 
+/*
  *
  * Copyright 2009-2016, LabN Consulting, L.L.C.
  *
@@ -24,20 +24,16 @@
 
 #include "rfapi.h"
 
-struct rfapi_nve_addr
-{
-  struct rfapi_ip_addr vn;
-  struct rfapi_ip_addr un;
-  void *info;
+struct rfapi_nve_addr {
+	struct rfapi_ip_addr vn;
+	struct rfapi_ip_addr un;
+	void *info;
 };
 
 
-extern int
-rfapi_nve_addr_cmp (void *k1, void *k2);
+extern int rfapi_nve_addr_cmp(void *k1, void *k2);
 
-extern void
-rfapiNveAddr2Str (struct rfapi_nve_addr *na, char *buf, int bufsize);
-
+extern void rfapiNveAddr2Str(struct rfapi_nve_addr *na, char *buf, int bufsize);
 
 
 #endif /* _QUAGGA_BGP_RFAPI_NVE_ADDR_H */

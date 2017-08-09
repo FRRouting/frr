@@ -72,14 +72,14 @@ static int relay_response_back(struct zserv *zserv)
 	stream_reset(src);
 
 	ret = zclient_read_header(src, zclient->sock, &size, &marker, &version,
-							  &vrf_id, &resp_cmd);
+				  &vrf_id, &resp_cmd);
 	if (ret < 0 && errno != EAGAIN) {
-		zlog_err("%s: Error reading Label Manager response: %s", __func__,
-				 strerror(errno));
+		zlog_err("%s: Error reading Label Manager response: %s",
+			 __func__, strerror(errno));
 		return -1;
 	}
 	zlog_debug("%s: Label Manager response received, %d bytes", __func__,
-			   size);
+		   size);
 	if (size == 0)
 		return -1;
 
@@ -88,11 +88,11 @@ static int relay_response_back(struct zserv *zserv)
 	ret = writen(zserv->sock, dst->data, stream_get_endp(dst));
 	if (ret <= 0) {
 		zlog_err("%s: Error sending Label Manager response back: %s",
-				 __func__, strerror(errno));
+			 __func__, strerror(errno));
 		return -1;
 	}
 	zlog_debug("%s: Label Manager response (%d bytes) sent back", __func__,
-			   ret);
+		   ret);
 
 	return 0;
 }
@@ -112,23 +112,22 @@ static int lm_zclient_read(struct thread *t)
 	return ret;
 }
 
-static int reply_error (int cmd, struct zserv *zserv, vrf_id_t vrf_id)
+static int reply_error(int cmd, struct zserv *zserv, vrf_id_t vrf_id)
 {
 	struct stream *s;
 
 	s = zserv->obuf;
-	stream_reset (s);
+	stream_reset(s);
 
-	zserv_create_header (s, cmd, vrf_id);
+	zserv_create_header(s, cmd, vrf_id);
 
 	/* result */
-	stream_putc (s, 1);
+	stream_putc(s, 1);
 
 	/* Write packet size. */
-	stream_putw_at (s, 0, stream_get_endp (s));
+	stream_putw_at(s, 0, stream_get_endp(s));
 
-	return writen (zserv->sock, s->data, stream_get_endp (s));
-
+	return writen(zserv->sock, s->data, stream_get_endp(s));
 }
 /**
  * Receive a request to get or release a label chunk and forward it to external
@@ -141,15 +140,17 @@ static int reply_error (int cmd, struct zserv *zserv, vrf_id_t vrf_id)
  * @param zserv
  * @return 0 on success, -1 otherwise
  */
-int zread_relay_label_manager_request(int cmd, struct zserv *zserv, vrf_id_t vrf_id)
+int zread_relay_label_manager_request(int cmd, struct zserv *zserv,
+				      vrf_id_t vrf_id)
 {
 	struct stream *src, *dst;
 	int ret = 0;
 
 	if (zclient->sock < 0) {
-		zlog_err("%s: Error relaying label chunk request: no zclient socket",
-				 __func__);
-		reply_error (cmd, zserv, vrf_id);
+		zlog_err(
+			"%s: Error relaying label chunk request: no zclient socket",
+			__func__);
+		reply_error(cmd, zserv, vrf_id);
 		return -1;
 	}
 
@@ -167,7 +168,7 @@ int zread_relay_label_manager_request(int cmd, struct zserv *zserv, vrf_id_t vrf
 	if (ret <= 0) {
 		zlog_err("%s: Error relaying label chunk request: %s", __func__,
 			 strerror(errno));
-		reply_error (cmd, zserv, vrf_id);
+		reply_error(cmd, zserv, vrf_id);
 		return -1;
 	}
 	zlog_debug("%s: Label chunk request relayed. %d bytes sent", __func__,
@@ -179,8 +180,8 @@ int zread_relay_label_manager_request(int cmd, struct zserv *zserv, vrf_id_t vrf
 
 	/* make sure we listen to the response */
 	if (!zclient->t_read)
-		zclient->t_read =
-			thread_add_read(zclient->master, lm_zclient_read, zserv, zclient->sock);
+		zclient->t_read = thread_add_read(
+			zclient->master, lm_zclient_read, zserv, zclient->sock);
 
 	return 0;
 }
@@ -195,14 +196,14 @@ static int lm_zclient_connect(struct thread *t)
 	if (zclient_socket_connect(zclient) < 0) {
 		zlog_err("Error connecting synchronous zclient!");
 		THREAD_TIMER_ON(zebrad.master, zclient->t_connect,
-						lm_zclient_connect,
-						zclient, CONNECTION_DELAY);
+				lm_zclient_connect, zclient, CONNECTION_DELAY);
 		return -1;
 	}
 
 	/* make socket non-blocking */
 	if (set_nonblocking(zclient->sock) < 0)
-		zlog_warn("%s: set_nonblocking(%d) failed", __func__, zclient->sock);
+		zlog_warn("%s: set_nonblocking(%d) failed", __func__,
+			  zclient->sock);
 
 	return 0;
 }
@@ -236,7 +237,7 @@ void label_manager_init(char *lm_zserv_path)
 		lm_is_external = false;
 		lbl_mgr.lc_list = list_new();
 		lbl_mgr.lc_list->del = delete_label_chunk;
-	} else {		/* it's acting just as a proxy */
+	} else { /* it's acting just as a proxy */
 		zlog_debug("Initializing external label manager at %s",
 			   lm_zserv_path);
 		lm_is_external = true;
@@ -264,7 +265,8 @@ struct label_manager_chunk *assign_label_chunk(u_char proto, u_short instance,
 
 	/* first check if there's one available */
 	for (ALL_LIST_ELEMENTS_RO(lbl_mgr.lc_list, node, lmc)) {
-		if (lmc->proto == NO_PROTO && lmc->end - lmc->start + 1 == size) {
+		if (lmc->proto == NO_PROTO
+		    && lmc->end - lmc->start + 1 == size) {
 			lmc->proto = proto;
 			lmc->instance = instance;
 			lmc->keep = keep;
@@ -279,12 +281,14 @@ struct label_manager_chunk *assign_label_chunk(u_char proto, u_short instance,
 	if (list_isempty(lbl_mgr.lc_list))
 		lmc->start = MPLS_MIN_UNRESERVED_LABEL;
 	else
-		lmc->start = ((struct label_manager_chunk *)
-			      listgetdata(listtail(lbl_mgr.lc_list)))->end + 1;
+		lmc->start = ((struct label_manager_chunk *)listgetdata(
+				      listtail(lbl_mgr.lc_list)))
+				     ->end
+			     + 1;
 	if (lmc->start > MPLS_MAX_UNRESERVED_LABEL - size + 1) {
 		zlog_err("Reached max labels. Start: %u, size: %u", lmc->start,
 			 size);
-                XFREE(MTYPE_LM_CHUNK, lmc);
+		XFREE(MTYPE_LM_CHUNK, lmc);
 		return NULL;
 	}
 	lmc->end = lmc->start + size - 1;
@@ -305,9 +309,8 @@ struct label_manager_chunk *assign_label_chunk(u_char proto, u_short instance,
  * @param end Last label of the chunk
  * @return 0 on success, -1 otherwise
  */
-int
-release_label_chunk(u_char proto, u_short instance, uint32_t start,
-		    uint32_t end)
+int release_label_chunk(u_char proto, u_short instance, uint32_t start,
+			uint32_t end)
 {
 	struct listnode *node;
 	struct label_manager_chunk *lmc;
@@ -357,9 +360,8 @@ int release_daemon_chunks(u_char proto, u_short instance)
 	for (ALL_LIST_ELEMENTS_RO(lbl_mgr.lc_list, node, lmc)) {
 		if (lmc->proto == proto && lmc->instance == instance
 		    && lmc->keep == 0) {
-			ret =
-			    release_label_chunk(lmc->proto, lmc->instance,
-						lmc->start, lmc->end);
+			ret = release_label_chunk(lmc->proto, lmc->instance,
+						  lmc->start, lmc->end);
 			if (ret == 0)
 				count++;
 		}

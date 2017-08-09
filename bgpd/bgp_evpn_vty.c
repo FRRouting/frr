@@ -36,10 +36,9 @@ Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
 #define SHOW_DISPLAY_TAGS 1
 #define SHOW_DISPLAY_OVERLAY 2
 
-static int
-bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
-		      enum bgp_show_type type, void *output_arg, int option,
-		      u_char use_json)
+static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
+				 enum bgp_show_type type, void *output_arg,
+				 int option, u_char use_json)
 {
 	afi_t afi = AFI_L2VPN;
 	struct bgp *bgp;
@@ -50,11 +49,11 @@ bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 	int rd_header;
 	int header = 1;
 	char v4_header[] =
-	    "   Network          Next Hop            Metric LocPrf Weight Path%s";
+		"   Network          Next Hop            Metric LocPrf Weight Path%s";
 	char v4_header_tag[] =
-	    "   Network          Next Hop      In tag/Out tag%s";
+		"   Network          Next Hop      In tag/Out tag%s";
 	char v4_header_overlay[] =
-	    "   Network          Next Hop      EthTag    Overlay Index   RouterMac%s";
+		"   Network          Next Hop      EthTag    Overlay Index   RouterMac%s";
 
 	unsigned long output_count = 0;
 	unsigned long total_count = 0;
@@ -93,7 +92,7 @@ bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 	for (rn = bgp_table_top(bgp->rib[afi][SAFI_EVPN]); rn;
 	     rn = bgp_route_next(rn)) {
 		if (use_json)
-			continue;	/* XXX json TODO */
+			continue; /* XXX json TODO */
 
 		if (prd && memcmp(rn->p.u.val, prd->val, 8) != 0)
 			continue;
@@ -107,55 +106,53 @@ bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 					total_count++;
 					if (type == bgp_show_type_neighbor) {
 						union sockunion *su =
-						    output_arg;
+							output_arg;
 
 						if (ri->peer->su_remote == NULL
-						    || !sockunion_same(ri->
-								       peer->
-								       su_remote,
-								       su))
+						    || !sockunion_same(
+							       ri->peer->su_remote,
+							       su))
 							continue;
 					}
 					if (header == 0) {
 						if (use_json) {
-							if (option ==
-							    SHOW_DISPLAY_TAGS) {
-								json_object_int_add
-								    (json,
-								     "bgpTableVersion",
-								     0);
-								json_object_string_add
-								    (json,
-								     "bgpLocalRouterId",
-								     inet_ntoa
-								     (bgp->
-								      router_id));
-								json_object_object_add
-								    (json,
-								     "bgpStatusCodes",
-								     json_scode);
-								json_object_object_add
-								    (json,
-								     "bgpOriginCodes",
-								     json_ocode);
+							if (option
+							    == SHOW_DISPLAY_TAGS) {
+								json_object_int_add(
+									json,
+									"bgpTableVersion",
+									0);
+								json_object_string_add(
+									json,
+									"bgpLocalRouterId",
+									inet_ntoa(
+										bgp->router_id));
+								json_object_object_add(
+									json,
+									"bgpStatusCodes",
+									json_scode);
+								json_object_object_add(
+									json,
+									"bgpOriginCodes",
+									json_ocode);
 							}
 						} else {
-							if (option ==
-							    SHOW_DISPLAY_TAGS)
+							if (option
+							    == SHOW_DISPLAY_TAGS)
 								vty_out(vty,
 									v4_header_tag,
 									VTY_NEWLINE);
-							else if (option ==
-								 SHOW_DISPLAY_OVERLAY)
+							else if (
+								option
+								== SHOW_DISPLAY_OVERLAY)
 								vty_out(vty,
 									v4_header_overlay,
 									VTY_NEWLINE);
 							else {
 								vty_out(vty,
 									"BGP table version is 0, local router ID is %s%s",
-									inet_ntoa
-									(bgp->
-									 router_id),
+									inet_ntoa(
+										bgp->router_id),
 									VTY_NEWLINE);
 								vty_out(vty,
 									"Status codes: s suppressed, d damped, h history, * valid, > best, i - internal%s",
@@ -194,54 +191,43 @@ bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 						if (use_json) {
 							char buffer[BUFSIZ];
 							if (type == RD_TYPE_AS
-							    || type ==
-							    RD_TYPE_AS4)
+							    || type == RD_TYPE_AS4)
 								sprintf(buffer,
 									"%u:%d",
-									rd_as.
-									as,
-									rd_as.
-									val);
-							else if (type ==
-								 RD_TYPE_IP)
+									rd_as.as,
+									rd_as.val);
+							else if (type
+								 == RD_TYPE_IP)
 								sprintf(buffer,
 									"%s:%d",
-									inet_ntoa
-									(rd_ip.
-									 ip),
-									rd_ip.
-									val);
-							json_object_string_add
-							    (json_nroute,
-							     "routeDistinguisher",
-							     buffer);
+									inet_ntoa(
+										rd_ip.ip),
+									rd_ip.val);
+							json_object_string_add(
+								json_nroute,
+								"routeDistinguisher",
+								buffer);
 						} else {
 							vty_out(vty,
 								"Route Distinguisher: ");
 							if (type == RD_TYPE_AS)
 								vty_out(vty,
 									"as2 %u:%d",
-									rd_as.
-									as,
-									rd_as.
-									val);
-							else if (type ==
-								 RD_TYPE_AS4)
+									rd_as.as,
+									rd_as.val);
+							else if (type
+								 == RD_TYPE_AS4)
 								vty_out(vty,
 									"as4 %u:%d",
-									rd_as.
-									as,
-									rd_as.
-									val);
-							else if (type ==
-								 RD_TYPE_IP)
+									rd_as.as,
+									rd_as.val);
+							else if (type
+								 == RD_TYPE_IP)
 								vty_out(vty,
 									"ip %s:%d",
-									inet_ntoa
-									(rd_ip.
-									 ip),
-									rd_ip.
-									val);
+									inet_ntoa(
+										rd_ip.ip),
+									rd_ip.val);
 							vty_out(vty, "%s",
 								VTY_NEWLINE);
 						}
@@ -249,19 +235,17 @@ bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 					}
 					if (use_json)
 						json_array =
-						    json_object_new_array();
+							json_object_new_array();
 					else
 						json_array = NULL;
 					if (option == SHOW_DISPLAY_TAGS)
-						route_vty_out_tag(vty, &rm->p,
-								  ri, 0,
-								  SAFI_EVPN,
-								  json_array);
+						route_vty_out_tag(
+							vty, &rm->p, ri, 0,
+							SAFI_EVPN, json_array);
 					else if (option == SHOW_DISPLAY_OVERLAY)
-						route_vty_out_overlay(vty,
-								      &rm->p,
-								      ri, 0,
-								      json_array);
+						route_vty_out_overlay(
+							vty, &rm->p, ri, 0,
+							json_array);
 					else
 						route_vty_out(vty, &rm->p, ri,
 							      0, SAFI_EVPN,
@@ -304,7 +288,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd,
 	int ret;
 	struct prefix_rd prd;
 
-	argv_find (argv, argc, "ASN:nn_or_IP-address:nn", &idx_ext_community);
+	argv_find(argv, argc, "ASN:nn_or_IP-address:nn", &idx_ext_community);
 
 	ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
 	if (!ret) {
@@ -345,7 +329,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_tags,
 	int ret;
 	struct prefix_rd prd;
 
-	argv_find (argv, argc, "ASN:nn_or_IP-address:nn", &idx_ext_community);
+	argv_find(argv, argc, "ASN:nn_or_IP-address:nn", &idx_ext_community);
 
 	ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
 	if (!ret) {
@@ -375,7 +359,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_all_neighbor_routes,
 	int ret;
 	u_char uj = use_json(argc, argv);
 
-	argv_find (argv, argc, "A.B.C.D", &idx_ipv4);
+	argv_find(argv, argc, "A.B.C.D", &idx_ipv4);
 
 	ret = str2sockunion(argv[idx_ipv4]->arg, &su);
 	if (ret < 0) {
@@ -399,8 +383,9 @@ DEFUN(show_ip_bgp_l2vpn_evpn_all_neighbor_routes,
 		if (uj) {
 			json_object *json_no = NULL;
 			json_no = json_object_new_object();
-			json_object_string_add(json_no, "warning",
-					       "No such neighbor or address family");
+			json_object_string_add(
+				json_no, "warning",
+				"No such neighbor or address family");
 			vty_out(vty, "%s%s",
 				json_object_to_json_string(json_no),
 				VTY_NEWLINE);
@@ -437,8 +422,8 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_routes,
 	struct prefix_rd prd;
 	u_char uj = use_json(argc, argv);
 
-	argv_find (argv, argc, "ASN:nn_or_IP-address:nn", &idx_ext_community);
-	argv_find (argv, argc, "A.B.C.D", &idx_ipv4);
+	argv_find(argv, argc, "ASN:nn_or_IP-address:nn", &idx_ext_community);
+	argv_find(argv, argc, "A.B.C.D", &idx_ipv4);
 
 	ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
 	if (!ret) {
@@ -479,8 +464,9 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_routes,
 		if (uj) {
 			json_object *json_no = NULL;
 			json_no = json_object_new_object();
-			json_object_string_add(json_no, "warning",
-					       "No such neighbor or address family");
+			json_object_string_add(
+				json_no, "warning",
+				"No such neighbor or address family");
 			vty_out(vty, "%s%s",
 				json_object_to_json_string(json_no),
 				VTY_NEWLINE);
@@ -514,7 +500,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_all_neighbor_advertised_routes,
 	union sockunion su;
 	u_char uj = use_json(argc, argv);
 
-	argv_find (argv, argc, "A.B.C.D", &idx_ipv4);
+	argv_find(argv, argc, "A.B.C.D", &idx_ipv4);
 
 	ret = str2sockunion(argv[idx_ipv4]->arg, &su);
 	if (ret < 0) {
@@ -537,8 +523,9 @@ DEFUN(show_ip_bgp_l2vpn_evpn_all_neighbor_advertised_routes,
 		if (uj) {
 			json_object *json_no = NULL;
 			json_no = json_object_new_object();
-			json_object_string_add(json_no, "warning",
-					       "No such neighbor or address family");
+			json_object_string_add(
+				json_no, "warning",
+				"No such neighbor or address family");
 			vty_out(vty, "%s%s",
 				json_object_to_json_string(json_no),
 				VTY_NEWLINE);
@@ -574,8 +561,8 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes,
 	union sockunion su;
 	u_char uj = use_json(argc, argv);
 
-	argv_find (argv, argc, "ASN:nn_or_IP-address:nn", &idx_ext_community);
-	argv_find (argv, argc, "A.B.C.D", &idx_ipv4);
+	argv_find(argv, argc, "ASN:nn_or_IP-address:nn", &idx_ext_community);
+	argv_find(argv, argc, "A.B.C.D", &idx_ipv4);
 
 	ret = str2sockunion(argv[idx_ipv4]->arg, &su);
 	if (ret < 0) {
@@ -598,8 +585,9 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes,
 		if (uj) {
 			json_object *json_no = NULL;
 			json_no = json_object_new_object();
-			json_object_string_add(json_no, "warning",
-					       "No such neighbor or address family");
+			json_object_string_add(
+				json_no, "warning",
+				"No such neighbor or address family");
 			vty_out(vty, "%s%s",
 				json_object_to_json_string(json_no),
 				VTY_NEWLINE);
@@ -642,8 +630,8 @@ DEFUN(show_ip_bgp_l2vpn_evpn_all_overlay,
       "Display BGP Overlay Information for prefixes\n")
 {
 	return bgp_show_ethernet_vpn(vty, NULL, bgp_show_type_normal, NULL,
-				     SHOW_DISPLAY_OVERLAY, use_json(argc,
-								    argv));
+				     SHOW_DISPLAY_OVERLAY,
+				     use_json(argc, argv));
 }
 
 DEFUN(show_ip_bgp_evpn_rd_overlay,
@@ -662,7 +650,7 @@ DEFUN(show_ip_bgp_evpn_rd_overlay,
 	int ret;
 	struct prefix_rd prd;
 
-	argv_find (argv, argc, "ASN:nn_or_IP-address:nn", &idx_ext_community);
+	argv_find(argv, argc, "ASN:nn_or_IP-address:nn", &idx_ext_community);
 
 	ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
 	if (!ret) {
@@ -670,8 +658,8 @@ DEFUN(show_ip_bgp_evpn_rd_overlay,
 		return CMD_WARNING;
 	}
 	return bgp_show_ethernet_vpn(vty, &prd, bgp_show_type_normal, NULL,
-				     SHOW_DISPLAY_OVERLAY, use_json(argc,
-								    argv));
+				     SHOW_DISPLAY_OVERLAY,
+				     use_json(argc, argv));
 }
 
 /* For testing purpose, static route of MPLS-VPN. */
@@ -705,14 +693,12 @@ DEFUN(evpnrt5_network,
 	int idx_ethtag = 5;
 	int idx_routermac = 13;
 	int idx_rmap = 15;
-	return bgp_static_set_safi(AFI_L2VPN, SAFI_EVPN, vty,
-				   argv[idx_ipv4_prefixlen]->arg,
-				   argv[idx_ext_community]->arg,
-				   argv[idx_word]->arg,
-				   argv[idx_rmap] ? argv[idx_gwip]->arg : NULL,
-				   EVPN_IP_PREFIX, argv[idx_esi]->arg,
-				   argv[idx_gwip]->arg, argv[idx_ethtag]->arg,
-				   argv[idx_routermac]->arg);
+	return bgp_static_set_safi(
+		AFI_L2VPN, SAFI_EVPN, vty, argv[idx_ipv4_prefixlen]->arg,
+		argv[idx_ext_community]->arg, argv[idx_word]->arg,
+		argv[idx_rmap] ? argv[idx_gwip]->arg : NULL, EVPN_IP_PREFIX,
+		argv[idx_esi]->arg, argv[idx_gwip]->arg, argv[idx_ethtag]->arg,
+		argv[idx_routermac]->arg);
 }
 
 /* For testing purpose, static route of MPLS-VPN. */
@@ -739,12 +725,11 @@ DEFUN(no_evpnrt5_network,
 	int idx_ethtag = 6;
 	int idx_esi = 10;
 	int idx_gwip = 12;
-	return bgp_static_unset_safi(AFI_L2VPN, SAFI_EVPN, vty,
-				     argv[idx_ipv4_prefixlen]->arg,
-				     argv[idx_ext_community]->arg,
-				     argv[idx_label]->arg, EVPN_IP_PREFIX,
-				     argv[idx_esi]->arg, argv[idx_gwip]->arg,
-				     argv[idx_ethtag]->arg);
+	return bgp_static_unset_safi(
+		AFI_L2VPN, SAFI_EVPN, vty, argv[idx_ipv4_prefixlen]->arg,
+		argv[idx_ext_community]->arg, argv[idx_label]->arg,
+		EVPN_IP_PREFIX, argv[idx_esi]->arg, argv[idx_gwip]->arg,
+		argv[idx_ethtag]->arg);
 }
 
 void bgp_ethernetvpn_init(void)
@@ -757,10 +742,12 @@ void bgp_ethernetvpn_init(void)
 			&show_ip_bgp_l2vpn_evpn_all_neighbor_routes_cmd);
 	install_element(VIEW_NODE,
 			&show_ip_bgp_l2vpn_evpn_rd_neighbor_routes_cmd);
-	install_element(VIEW_NODE,
-			&show_ip_bgp_l2vpn_evpn_all_neighbor_advertised_routes_cmd);
-	install_element(VIEW_NODE,
-			&show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes_cmd);
+	install_element(
+		VIEW_NODE,
+		&show_ip_bgp_l2vpn_evpn_all_neighbor_advertised_routes_cmd);
+	install_element(
+		VIEW_NODE,
+		&show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_evpn_rd_overlay_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_all_overlay_cmd);
 	install_element(BGP_EVPN_NODE, &no_evpnrt5_network_cmd);

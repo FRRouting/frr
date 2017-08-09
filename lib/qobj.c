@@ -29,57 +29,56 @@
 
 static struct hash *nodes = NULL;
 
-static unsigned int qobj_key (void *data)
+static unsigned int qobj_key(void *data)
 {
-  struct qobj_node *node = data;
-  return (unsigned int)node->nid;
+	struct qobj_node *node = data;
+	return (unsigned int)node->nid;
 }
 
-static int qobj_cmp (const void *a, const void *b)
+static int qobj_cmp(const void *a, const void *b)
 {
-  const struct qobj_node *na = a, *nb = b;
-  return na->nid == nb->nid;
+	const struct qobj_node *na = a, *nb = b;
+	return na->nid == nb->nid;
 }
 
 void qobj_reg(struct qobj_node *node, struct qobj_nodetype *type)
 {
-  node->type = type;
-  do
-    {
-      node->nid  = (uint64_t)random();
-      node->nid ^= (uint64_t)random() << 32;
-    }
-  while (!node->nid || hash_get (nodes, node, hash_alloc_intern) != node);
+	node->type = type;
+	do {
+		node->nid = (uint64_t)random();
+		node->nid ^= (uint64_t)random() << 32;
+	} while (!node->nid
+		 || hash_get(nodes, node, hash_alloc_intern) != node);
 }
 
 void qobj_unreg(struct qobj_node *node)
 {
-  hash_release (nodes, node);
+	hash_release(nodes, node);
 }
 
 struct qobj_node *qobj_get(uint64_t id)
 {
-  struct qobj_node dummy = { .nid = id };
-  return hash_lookup (nodes, &dummy);
+	struct qobj_node dummy = {.nid = id};
+	return hash_lookup(nodes, &dummy);
 }
 
 void *qobj_get_typed(uint64_t id, struct qobj_nodetype *type)
 {
-  struct qobj_node *node = qobj_get(id);
-  if (!node || node->type != type)
-    return NULL;
-  return (char *)node - node->type->node_member_offset;
+	struct qobj_node *node = qobj_get(id);
+	if (!node || node->type != type)
+		return NULL;
+	return (char *)node - node->type->node_member_offset;
 }
 
-void qobj_init (void)
+void qobj_init(void)
 {
-  if (!nodes)
-    nodes = hash_create (qobj_key, qobj_cmp);
+	if (!nodes)
+		nodes = hash_create(qobj_key, qobj_cmp);
 }
 
-void qobj_finish (void)
+void qobj_finish(void)
 {
-  hash_clean (nodes, NULL);
-  hash_free (nodes);
-  nodes = NULL;
+	hash_clean(nodes, NULL);
+	hash_free(nodes);
+	nodes = NULL;
 }

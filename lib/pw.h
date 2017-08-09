@@ -38,16 +38,15 @@
 /*
  * Protocol-specific information about the pseudowire.
  */
-union pw_protocol_fields
-{
-  struct {
-      struct in_addr lsr_id;
-      uint32_t pwid;
-      char vpn_name[L2VPN_NAME_LEN];
-  } ldp;
-  struct {
-      /* TODO */
-  } bgp;
+union pw_protocol_fields {
+	struct {
+		struct in_addr lsr_id;
+		uint32_t pwid;
+		char vpn_name[L2VPN_NAME_LEN];
+	} ldp;
+	struct {
+		/* TODO */
+	} bgp;
 };
 
 #endif /* _FRR_PW_H */

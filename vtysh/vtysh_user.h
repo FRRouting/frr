@@ -16,16 +16,16 @@
  * You should have received a copy of the GNU General Public License
  * along with GNU Zebra; see the file COPYING.  If not, write to the Free
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * 02111-1307, USA.
  */
 
 #ifndef _VTYSH_USER_H
 #define _VTYSH_USER_H
 
-int vtysh_auth (void);
-void vtysh_user_init (void);
+int vtysh_auth(void);
+void vtysh_user_init(void);
 void user_config_write(void);
 
-char *vtysh_get_home (void);
+char *vtysh_get_home(void);
 
 #endif /* _VTYSH_USER_H */

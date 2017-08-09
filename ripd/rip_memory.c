@@ -27,9 +27,9 @@
 #include "rip_memory.h"
 
 DEFINE_MGROUP(RIPD, "ripd")
-DEFINE_MTYPE(RIPD, RIP,             "RIP structure")
-DEFINE_MTYPE(RIPD, RIP_INFO,        "RIP route info")
-DEFINE_MTYPE(RIPD, RIP_INTERFACE,   "RIP interface")
-DEFINE_MTYPE(RIPD, RIP_PEER,        "RIP peer")
+DEFINE_MTYPE(RIPD, RIP, "RIP structure")
+DEFINE_MTYPE(RIPD, RIP_INFO, "RIP route info")
+DEFINE_MTYPE(RIPD, RIP_INTERFACE, "RIP interface")
+DEFINE_MTYPE(RIPD, RIP_PEER, "RIP peer")
 DEFINE_MTYPE(RIPD, RIP_OFFSET_LIST, "RIP offset list")
-DEFINE_MTYPE(RIPD, RIP_DISTANCE,    "RIP distance")
+DEFINE_MTYPE(RIPD, RIP_DISTANCE, "RIP distance")

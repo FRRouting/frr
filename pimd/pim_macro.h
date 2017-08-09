@@ -11,7 +11,7 @@
   WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
   General Public License for more details.
-  
+
   You should have received a copy of the GNU General Public License
   along with this program; see the file COPYING; if not, write to the
   Free Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston,
@@ -35,7 +35,8 @@ int pim_macro_chisin_joins_or_include(const struct pim_ifchannel *ch);
 int pim_macro_ch_could_assert_eval(const struct pim_ifchannel *ch);
 struct pim_assert_metric pim_macro_spt_assert_metric(const struct pim_rpf *rpf,
 						     struct in_addr ifaddr);
-struct pim_assert_metric pim_macro_ch_my_assert_metric_eval(const struct pim_ifchannel *ch);
+struct pim_assert_metric
+pim_macro_ch_my_assert_metric_eval(const struct pim_ifchannel *ch);
 int pim_macro_chisin_oiflist(const struct pim_ifchannel *ch);
 int pim_macro_assert_tracking_desired_eval(const struct pim_ifchannel *ch);
 

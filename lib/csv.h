@@ -79,7 +79,7 @@ typedef struct _csv_t_ csv_t;
  * Initialize the CSV structure (if necessary, allocate first). Point to
  * the passed string buffer.
  */
-csv_t * csv_init(csv_t *csv, char *buf, int buflen);
+csv_t *csv_init(csv_t *csv, char *buf, int buflen);
 
 /**
  * Encode the variable list of arguments as CSV fields. The csv structure
@@ -100,8 +100,7 @@ csv_record_t *csv_encode(csv_t *csv, int count, ...);
  * processes/nodes - e.g. the message header record can be rewritten AFTER
  * encoding all other records, with new information such as total length.
  */
-csv_record_t *csv_encode_record(csv_t *csv, csv_record_t *rec,
-				int count, ...);
+csv_record_t *csv_encode_record(csv_t *csv, csv_record_t *rec, int count, ...);
 
 /**
  * Decode a CSV formatted string. The csv structure should have been
@@ -150,7 +149,7 @@ int csv_is_record_valid(csv_t *csv, csv_record_t *in_rec);
  * rec1 and rec2 are removed
  */
 csv_record_t *csv_concat_record(csv_t *csv, csv_record_t *rec1,
-                               csv_record_t *rec2);
+				csv_record_t *rec2);
 
 /**
  * Remove a record from csv
@@ -168,8 +167,7 @@ void csv_insert_record(csv_t *csv, csv_record_t *rec);
  * append fields to a record
  * Only works when csv has discrete record bufs
  */
-csv_record_t *
-csv_append_record (csv_t *csv, csv_record_t *rec, int count, ...);
+csv_record_t *csv_append_record(csv_t *csv, csv_record_t *rec, int count, ...);
 
 /**
  * Serialize contents of csv into string
@@ -181,11 +179,11 @@ int csv_serialize(csv_t *csv, char *msgbuf, int msglen);
  * Clone a record.
  * Only works when csv has discrete record bufs
  */
-void csv_clone_record (csv_t *csv, csv_record_t *in_rec, csv_record_t **out_rec);
+void csv_clone_record(csv_t *csv, csv_record_t *in_rec, csv_record_t **out_rec);
 
 /**
  * Return number of records
  */
-int csv_num_records (csv_t *csv);
+int csv_num_records(csv_t *csv);
 
 #endif

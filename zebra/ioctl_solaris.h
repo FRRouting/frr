@@ -23,7 +23,7 @@
 #ifndef _ZEBRA_IF_IOCTL_SOLARIS_H
 #define _ZEBRA_IF_IOCTL_SOLARIS_H
 
-void lifreq_set_name (struct lifreq *, const char *);
-int if_get_flags_direct (const char *, uint64_t *, unsigned int af);
+void lifreq_set_name(struct lifreq *, const char *);
+int if_get_flags_direct(const char *, uint64_t *, unsigned int af);
 
 #endif /* _ZEBRA_IF_IOCTL_SOLARIS_H */

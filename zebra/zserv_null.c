@@ -30,11 +30,17 @@
 #include <zebra_vrf.h>
 #include <router-id.h>
 
-int zsend_vrf_delete (struct zserv *zserv, struct zebra_vrf *zvrf)
-{ return 0; }
+int zsend_vrf_delete(struct zserv *zserv, struct zebra_vrf *zvrf)
+{
+	return 0;
+}
 
-int zsend_vrf_add (struct zserv *zserv, struct zebra_vrf *zvrf)
-{ return 0; }
+int zsend_vrf_add(struct zserv *zserv, struct zebra_vrf *zvrf)
+{
+	return 0;
+}
 
-void router_id_init (struct zebra_vrf *zvrf)
-{ return; }
+void router_id_init(struct zebra_vrf *zvrf)
+{
+	return;
+}

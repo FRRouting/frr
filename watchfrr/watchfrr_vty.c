@@ -66,13 +66,17 @@ DEFUN(config_write_integrated,
 		return CMD_WARNING;
 	}
 	if (child != 0) {
-		/* note: the VTY won't write a command return value to vtysh;  the
-		 * session temporarily enters an intentional "hang" state.  This is
+		/* note: the VTY won't write a command return value to vtysh;
+		 * the
+		 * session temporarily enters an intentional "hang" state.  This
+		 * is
 		 * to make sure latency in vtysh doing the config write (several
-		 * seconds is not rare to see) does not interfere with watchfrr's
+		 * seconds is not rare to see) does not interfere with
+		 * watchfrr's
 		 * supervisor job.
 		 *
-		 * The fd is duplicated here so we don't need to hold a vty pointer
+		 * The fd is duplicated here so we don't need to hold a vty
+		 * pointer
 		 * (which could become invalid in the meantime).
 		 */
 		integrated_write_pid = child;
@@ -92,15 +96,15 @@ DEFUN(config_write_integrated,
 
 	/* unbuffered write; we just messed with stdout... */
 	char msg[512];
-	snprintf(msg, sizeof(msg), "error executing %s: %s\n",
-		 VTYSH_BIN_PATH, safe_strerror(errno));
+	snprintf(msg, sizeof(msg), "error executing %s: %s\n", VTYSH_BIN_PATH,
+		 safe_strerror(errno));
 	write(1, msg, strlen(msg));
 	exit(1);
 }
 
 void integrated_write_sigchld(int status)
 {
-	uint8_t reply[4] = { 0, 0, 0, CMD_WARNING };
+	uint8_t reply[4] = {0, 0, 0, CMD_WARNING};
 
 	if (WIFEXITED(status)) {
 		zlog_info("configuration write completed with exit code %d",

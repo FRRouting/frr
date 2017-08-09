@@ -30,19 +30,19 @@
 #include "memory.h"
 #include "command.h"
 
-DEFINE_MTYPE_STATIC(LIB, VRF,        "VRF")
+DEFINE_MTYPE_STATIC(LIB, VRF, "VRF")
 DEFINE_MTYPE_STATIC(LIB, VRF_BITMAP, "VRF bit-map")
 
 DEFINE_QOBJ_TYPE(vrf)
 
-static __inline int vrf_id_compare (struct vrf *, struct vrf *);
-static __inline int vrf_name_compare (struct vrf *, struct vrf *);
+static __inline int vrf_id_compare(struct vrf *, struct vrf *);
+static __inline int vrf_name_compare(struct vrf *, struct vrf *);
 
-RB_GENERATE (vrf_id_head, vrf, id_entry, vrf_id_compare)
-RB_GENERATE (vrf_name_head, vrf, name_entry, vrf_name_compare)
+RB_GENERATE(vrf_id_head, vrf, id_entry, vrf_id_compare)
+RB_GENERATE(vrf_name_head, vrf, name_entry, vrf_name_compare)
 
-struct vrf_id_head vrfs_by_id = RB_INITIALIZER (&vrfs_by_id);
-struct vrf_name_head vrfs_by_name = RB_INITIALIZER (&vrfs_by_name);
+struct vrf_id_head vrfs_by_id = RB_INITIALIZER(&vrfs_by_id);
+struct vrf_name_head vrfs_by_name = RB_INITIALIZER(&vrfs_by_name);
 
 /*
  * Turn on/off debug code
@@ -51,36 +51,34 @@ struct vrf_name_head vrfs_by_name = RB_INITIALIZER (&vrfs_by_name);
 int debug_vrf = 0;
 
 /* Holding VRF hooks  */
-struct vrf_master
-{
-  int (*vrf_new_hook) (struct vrf *);
-  int (*vrf_delete_hook) (struct vrf *);
-  int (*vrf_enable_hook) (struct vrf *);
-  int (*vrf_disable_hook) (struct vrf *);
-} vrf_master = {0,};
+struct vrf_master {
+	int (*vrf_new_hook)(struct vrf *);
+	int (*vrf_delete_hook)(struct vrf *);
+	int (*vrf_enable_hook)(struct vrf *);
+	int (*vrf_disable_hook)(struct vrf *);
+} vrf_master = {
+	0,
+};
 
-static int vrf_is_enabled (struct vrf *vrf);
-static void vrf_disable (struct vrf *vrf);
+static int vrf_is_enabled(struct vrf *vrf);
+static void vrf_disable(struct vrf *vrf);
 
 /* VRF list existance check by name. */
-struct vrf *
-vrf_lookup_by_name (const char *name)
+struct vrf *vrf_lookup_by_name(const char *name)
 {
-  struct vrf vrf;
-  strlcpy (vrf.name, name, sizeof (vrf.name));
-  return (RB_FIND (vrf_name_head, &vrfs_by_name, &vrf));
+	struct vrf vrf;
+	strlcpy(vrf.name, name, sizeof(vrf.name));
+	return (RB_FIND(vrf_name_head, &vrfs_by_name, &vrf));
 }
 
-static __inline int
-vrf_id_compare (struct vrf *a, struct vrf *b)
+static __inline int vrf_id_compare(struct vrf *a, struct vrf *b)
 {
-  return (a->vrf_id - b->vrf_id);
+	return (a->vrf_id - b->vrf_id);
 }
 
-static int
-vrf_name_compare (struct vrf *a, struct vrf *b)
+static int vrf_name_compare(struct vrf *a, struct vrf *b)
 {
-  return strcmp (a->name, b->name);
+	return strcmp(a->name, b->name);
 }
 
 /* Get a VRF. If not found, create one.
@@ -90,104 +88,95 @@ vrf_name_compare (struct vrf *a, struct vrf *b)
  * Description: Please note that this routine can be called with just the name
  * and 0 vrf-id
  */
-struct vrf *
-vrf_get (vrf_id_t vrf_id, const char *name)
+struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 {
-  struct vrf *vrf = NULL;
-  int new = 0;
+	struct vrf *vrf = NULL;
+	int new = 0;
 
-  if (debug_vrf)
-    zlog_debug ("VRF_GET: %s(%d)", name, vrf_id);
+	if (debug_vrf)
+		zlog_debug("VRF_GET: %s(%d)", name, vrf_id);
 
-  /* Nothing to see, move along here */
-  if (!name && vrf_id == VRF_UNKNOWN)
-    return NULL;
+	/* Nothing to see, move along here */
+	if (!name && vrf_id == VRF_UNKNOWN)
+		return NULL;
 
-  /* Try to find VRF both by ID and name */
-  if (vrf_id != VRF_UNKNOWN)
-    vrf = vrf_lookup_by_id (vrf_id);
-  if (! vrf && name)
-    vrf = vrf_lookup_by_name (name);
+	/* Try to find VRF both by ID and name */
+	if (vrf_id != VRF_UNKNOWN)
+		vrf = vrf_lookup_by_id(vrf_id);
+	if (!vrf && name)
+		vrf = vrf_lookup_by_name(name);
 
-  if (vrf == NULL)
-    {
-      vrf = XCALLOC (MTYPE_VRF, sizeof (struct vrf));
-      vrf->vrf_id = VRF_UNKNOWN;
-      if_init (&vrf->iflist);
-      QOBJ_REG (vrf, vrf);
-      new = 1;
+	if (vrf == NULL) {
+		vrf = XCALLOC(MTYPE_VRF, sizeof(struct vrf));
+		vrf->vrf_id = VRF_UNKNOWN;
+		if_init(&vrf->iflist);
+		QOBJ_REG(vrf, vrf);
+		new = 1;
 
-      if (debug_vrf)
-	zlog_debug ("VRF(%u) %s is created.",
-		    vrf_id, (name) ? name : "(NULL)");
-    }
+		if (debug_vrf)
+			zlog_debug("VRF(%u) %s is created.", vrf_id,
+				   (name) ? name : "(NULL)");
+	}
 
-  /* Set identifier */
-  if (vrf_id != VRF_UNKNOWN && vrf->vrf_id == VRF_UNKNOWN)
-    {
-      vrf->vrf_id = vrf_id;
-      RB_INSERT (vrf_id_head, &vrfs_by_id, vrf);
-    }
+	/* Set identifier */
+	if (vrf_id != VRF_UNKNOWN && vrf->vrf_id == VRF_UNKNOWN) {
+		vrf->vrf_id = vrf_id;
+		RB_INSERT(vrf_id_head, &vrfs_by_id, vrf);
+	}
 
-  /* Set name */
-  if (name && vrf->name[0] != '\0' && strcmp (name, vrf->name))
-    {
-      RB_REMOVE (vrf_name_head, &vrfs_by_name, vrf);
-      strlcpy (vrf->name, name, sizeof (vrf->name));
-      RB_INSERT (vrf_name_head, &vrfs_by_name, vrf);
-    }
-  else if (name && vrf->name[0] == '\0')
-    {
-      strlcpy (vrf->name, name, sizeof (vrf->name));
-      RB_INSERT (vrf_name_head, &vrfs_by_name, vrf);
-    }
+	/* Set name */
+	if (name && vrf->name[0] != '\0' && strcmp(name, vrf->name)) {
+		RB_REMOVE(vrf_name_head, &vrfs_by_name, vrf);
+		strlcpy(vrf->name, name, sizeof(vrf->name));
+		RB_INSERT(vrf_name_head, &vrfs_by_name, vrf);
+	} else if (name && vrf->name[0] == '\0') {
+		strlcpy(vrf->name, name, sizeof(vrf->name));
+		RB_INSERT(vrf_name_head, &vrfs_by_name, vrf);
+	}
 
-  if (new && vrf_master.vrf_new_hook)
-    (*vrf_master.vrf_new_hook) (vrf);
+	if (new &&vrf_master.vrf_new_hook)
+		(*vrf_master.vrf_new_hook)(vrf);
 
-  return vrf;
+	return vrf;
 }
 
 /* Delete a VRF. This is called in vrf_terminate(). */
-void
-vrf_delete (struct vrf *vrf)
+void vrf_delete(struct vrf *vrf)
 {
-  if (debug_vrf)
-    zlog_debug ("VRF %u is to be deleted.", vrf->vrf_id);
+	if (debug_vrf)
+		zlog_debug("VRF %u is to be deleted.", vrf->vrf_id);
 
-  if (vrf_is_enabled (vrf))
-    vrf_disable (vrf);
+	if (vrf_is_enabled(vrf))
+		vrf_disable(vrf);
 
-  if (vrf_master.vrf_delete_hook)
-    (*vrf_master.vrf_delete_hook) (vrf);
+	if (vrf_master.vrf_delete_hook)
+		(*vrf_master.vrf_delete_hook)(vrf);
 
-  QOBJ_UNREG (vrf);
-  if_terminate (&vrf->iflist);
+	QOBJ_UNREG(vrf);
+	if_terminate(&vrf->iflist);
 
-  if (vrf->vrf_id != VRF_UNKNOWN)
-    RB_REMOVE (vrf_id_head, &vrfs_by_id, vrf);
-  if (vrf->name[0] != '\0')
-    RB_REMOVE (vrf_name_head, &vrfs_by_name, vrf);
+	if (vrf->vrf_id != VRF_UNKNOWN)
+		RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
+	if (vrf->name[0] != '\0')
+		RB_REMOVE(vrf_name_head, &vrfs_by_name, vrf);
 
-  XFREE (MTYPE_VRF, vrf);
+	XFREE(MTYPE_VRF, vrf);
 }
 
 /* Look up a VRF by identifier. */
-struct vrf *
-vrf_lookup_by_id (vrf_id_t vrf_id)
+struct vrf *vrf_lookup_by_id(vrf_id_t vrf_id)
 {
-  struct vrf vrf;
-  vrf.vrf_id = vrf_id;
-  return (RB_FIND (vrf_id_head, &vrfs_by_id, &vrf));
+	struct vrf vrf;
+	vrf.vrf_id = vrf_id;
+	return (RB_FIND(vrf_id_head, &vrfs_by_id, &vrf));
 }
 
 /*
  * Check whether the VRF is enabled.
  */
-static int
-vrf_is_enabled (struct vrf *vrf)
+static int vrf_is_enabled(struct vrf *vrf)
 {
-  return vrf && CHECK_FLAG (vrf->status, VRF_ACTIVE);
+	return vrf && CHECK_FLAG(vrf->status, VRF_ACTIVE);
 }
 
 /*
@@ -197,21 +186,20 @@ vrf_is_enabled (struct vrf *vrf)
  *
  * RETURN: 1 - enabled successfully; otherwise, 0.
  */
-int
-vrf_enable (struct vrf *vrf)
+int vrf_enable(struct vrf *vrf)
 {
-  if (vrf_is_enabled (vrf))
-    return 1;
+	if (vrf_is_enabled(vrf))
+		return 1;
 
-  if (debug_vrf)
-    zlog_debug ("VRF %u is enabled.", vrf->vrf_id);
+	if (debug_vrf)
+		zlog_debug("VRF %u is enabled.", vrf->vrf_id);
 
-  SET_FLAG (vrf->status, VRF_ACTIVE);
+	SET_FLAG(vrf->status, VRF_ACTIVE);
 
-  if (vrf_master.vrf_enable_hook)
-    (*vrf_master.vrf_enable_hook) (vrf);
+	if (vrf_master.vrf_enable_hook)
+		(*vrf_master.vrf_enable_hook)(vrf);
 
-  return 1;
+	return 1;
 }
 
 /*
@@ -219,112 +207,104 @@ vrf_enable (struct vrf *vrf)
  * The VRF_DELETE_HOOK callback will be called to inform
  * that they must release the resources in the VRF.
  */
-static void
-vrf_disable (struct vrf *vrf)
+static void vrf_disable(struct vrf *vrf)
 {
-  if (! vrf_is_enabled (vrf))
-    return;
+	if (!vrf_is_enabled(vrf))
+		return;
 
-  UNSET_FLAG (vrf->status, VRF_ACTIVE);
+	UNSET_FLAG(vrf->status, VRF_ACTIVE);
 
-  if (debug_vrf)
-    zlog_debug ("VRF %u is to be disabled.", vrf->vrf_id);
+	if (debug_vrf)
+		zlog_debug("VRF %u is to be disabled.", vrf->vrf_id);
 
-  /* Till now, nothing to be done for the default VRF. */
-  //Pending: see why this statement.
+	/* Till now, nothing to be done for the default VRF. */
+	// Pending: see why this statement.
 
-  if (vrf_master.vrf_disable_hook)
-    (*vrf_master.vrf_disable_hook) (vrf);
+	if (vrf_master.vrf_disable_hook)
+		(*vrf_master.vrf_disable_hook)(vrf);
 }
 
 
 /* Add a VRF hook. Please add hooks before calling vrf_init(). */
-void
-vrf_add_hook (int type, int (*func)(struct vrf *))
+void vrf_add_hook(int type, int (*func)(struct vrf *))
 {
-  if (debug_vrf)
-    zlog_debug ("%s: Add Hook %d to function %p",  __PRETTY_FUNCTION__,
-		type, func);
+	if (debug_vrf)
+		zlog_debug("%s: Add Hook %d to function %p",
+			   __PRETTY_FUNCTION__, type, func);
 
-  switch (type) {
-  case VRF_NEW_HOOK:
-    vrf_master.vrf_new_hook = func;
-    break;
-  case VRF_DELETE_HOOK:
-    vrf_master.vrf_delete_hook = func;
-    break;
-  case VRF_ENABLE_HOOK:
-    vrf_master.vrf_enable_hook = func;
-    break;
-  case VRF_DISABLE_HOOK:
-    vrf_master.vrf_disable_hook = func;
-    break;
-  default:
-    break;
-  }
+	switch (type) {
+	case VRF_NEW_HOOK:
+		vrf_master.vrf_new_hook = func;
+		break;
+	case VRF_DELETE_HOOK:
+		vrf_master.vrf_delete_hook = func;
+		break;
+	case VRF_ENABLE_HOOK:
+		vrf_master.vrf_enable_hook = func;
+		break;
+	case VRF_DISABLE_HOOK:
+		vrf_master.vrf_disable_hook = func;
+		break;
+	default:
+		break;
+	}
 }
 
-vrf_id_t
-vrf_name_to_id (const char *name)
+vrf_id_t vrf_name_to_id(const char *name)
 {
-  struct vrf *vrf;
-  vrf_id_t vrf_id = VRF_DEFAULT; //Pending: need a way to return invalid id/ routine not used.
+	struct vrf *vrf;
+	vrf_id_t vrf_id = VRF_DEFAULT; // Pending: need a way to return invalid
+				       // id/ routine not used.
 
-  vrf = vrf_lookup_by_name (name);
-  if (vrf)
-    vrf_id = vrf->vrf_id;
+	vrf = vrf_lookup_by_name(name);
+	if (vrf)
+		vrf_id = vrf->vrf_id;
 
-  return vrf_id;
+	return vrf_id;
 }
 
 /* Get the data pointer of the specified VRF. If not found, create one. */
-void *
-vrf_info_get (vrf_id_t vrf_id)
+void *vrf_info_get(vrf_id_t vrf_id)
 {
-  struct vrf *vrf = vrf_get (vrf_id, NULL);
-  return vrf->info;
+	struct vrf *vrf = vrf_get(vrf_id, NULL);
+	return vrf->info;
 }
 
 /* Look up the data pointer of the specified VRF. */
-void *
-vrf_info_lookup (vrf_id_t vrf_id)
+void *vrf_info_lookup(vrf_id_t vrf_id)
 {
-  struct vrf *vrf = vrf_lookup_by_id (vrf_id);
-  return vrf ? vrf->info : NULL;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+	return vrf ? vrf->info : NULL;
 }
 
 /* Look up the interface list in a VRF. */
-struct list *
-vrf_iflist (vrf_id_t vrf_id)
+struct list *vrf_iflist(vrf_id_t vrf_id)
 {
-   struct vrf * vrf = vrf_lookup_by_id (vrf_id);
-   return vrf ? vrf->iflist : NULL;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+	return vrf ? vrf->iflist : NULL;
 }
 
 /* Get the interface list of the specified VRF. Create one if not find. */
-struct list *
-vrf_iflist_get (vrf_id_t vrf_id)
+struct list *vrf_iflist_get(vrf_id_t vrf_id)
 {
-   struct vrf * vrf = vrf_get (vrf_id, NULL);
-   return vrf->iflist;
+	struct vrf *vrf = vrf_get(vrf_id, NULL);
+	return vrf->iflist;
 }
 
 /* Create the interface list for the specified VRF, if needed. */
-void
-vrf_iflist_create (vrf_id_t vrf_id)
+void vrf_iflist_create(vrf_id_t vrf_id)
 {
-   struct vrf * vrf = vrf_lookup_by_id (vrf_id);
-   if (vrf && !vrf->iflist)
-     if_init (&vrf->iflist);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+	if (vrf && !vrf->iflist)
+		if_init(&vrf->iflist);
 }
 
 /* Free the interface list of the specified VRF. */
-void
-vrf_iflist_terminate (vrf_id_t vrf_id)
+void vrf_iflist_terminate(vrf_id_t vrf_id)
 {
-   struct vrf * vrf = vrf_lookup_by_id (vrf_id);
-   if (vrf && vrf->iflist)
-     if_terminate (&vrf->iflist);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+	if (vrf && vrf->iflist)
+		if_terminate(&vrf->iflist);
 }
 
 /*
@@ -332,145 +312,134 @@ vrf_iflist_terminate (vrf_id_t vrf_id)
  */
 
 #define VRF_BITMAP_NUM_OF_GROUPS            8
-#define VRF_BITMAP_NUM_OF_BITS_IN_GROUP \
-    (UINT16_MAX / VRF_BITMAP_NUM_OF_GROUPS)
-#define VRF_BITMAP_NUM_OF_BYTES_IN_GROUP \
-    (VRF_BITMAP_NUM_OF_BITS_IN_GROUP / CHAR_BIT + 1) /* +1 for ensure */
+#define VRF_BITMAP_NUM_OF_BITS_IN_GROUP (UINT16_MAX / VRF_BITMAP_NUM_OF_GROUPS)
+#define VRF_BITMAP_NUM_OF_BYTES_IN_GROUP                                       \
+	(VRF_BITMAP_NUM_OF_BITS_IN_GROUP / CHAR_BIT + 1) /* +1 for ensure */
 
-#define VRF_BITMAP_GROUP(_id) \
-    ((_id) / VRF_BITMAP_NUM_OF_BITS_IN_GROUP)
-#define VRF_BITMAP_BIT_OFFSET(_id) \
-    ((_id) % VRF_BITMAP_NUM_OF_BITS_IN_GROUP)
+#define VRF_BITMAP_GROUP(_id) ((_id) / VRF_BITMAP_NUM_OF_BITS_IN_GROUP)
+#define VRF_BITMAP_BIT_OFFSET(_id) ((_id) % VRF_BITMAP_NUM_OF_BITS_IN_GROUP)
 
-#define VRF_BITMAP_INDEX_IN_GROUP(_bit_offset) \
-    ((_bit_offset) / CHAR_BIT)
-#define VRF_BITMAP_FLAG(_bit_offset) \
-    (((u_char)1) << ((_bit_offset) % CHAR_BIT))
+#define VRF_BITMAP_INDEX_IN_GROUP(_bit_offset) ((_bit_offset) / CHAR_BIT)
+#define VRF_BITMAP_FLAG(_bit_offset) (((u_char)1) << ((_bit_offset) % CHAR_BIT))
 
-struct vrf_bitmap
-{
-  u_char *groups[VRF_BITMAP_NUM_OF_GROUPS];
+struct vrf_bitmap {
+	u_char *groups[VRF_BITMAP_NUM_OF_GROUPS];
 };
 
-vrf_bitmap_t
-vrf_bitmap_init (void)
+vrf_bitmap_t vrf_bitmap_init(void)
 {
-  return (vrf_bitmap_t) XCALLOC (MTYPE_VRF_BITMAP, sizeof (struct vrf_bitmap));
+	return (vrf_bitmap_t)XCALLOC(MTYPE_VRF_BITMAP,
+				     sizeof(struct vrf_bitmap));
 }
 
-void
-vrf_bitmap_free (vrf_bitmap_t bmap)
+void vrf_bitmap_free(vrf_bitmap_t bmap)
 {
-  struct vrf_bitmap *bm = (struct vrf_bitmap *) bmap;
-  int i;
+	struct vrf_bitmap *bm = (struct vrf_bitmap *)bmap;
+	int i;
 
-  if (bmap == VRF_BITMAP_NULL)
-    return;
+	if (bmap == VRF_BITMAP_NULL)
+		return;
 
-  for (i = 0; i < VRF_BITMAP_NUM_OF_GROUPS; i++)
-    if (bm->groups[i])
-      XFREE (MTYPE_VRF_BITMAP, bm->groups[i]);
+	for (i = 0; i < VRF_BITMAP_NUM_OF_GROUPS; i++)
+		if (bm->groups[i])
+			XFREE(MTYPE_VRF_BITMAP, bm->groups[i]);
 
-  XFREE (MTYPE_VRF_BITMAP, bm);
+	XFREE(MTYPE_VRF_BITMAP, bm);
 }
 
-void
-vrf_bitmap_set (vrf_bitmap_t bmap, vrf_id_t vrf_id)
+void vrf_bitmap_set(vrf_bitmap_t bmap, vrf_id_t vrf_id)
 {
-  struct vrf_bitmap *bm = (struct vrf_bitmap *) bmap;
-  u_char group = VRF_BITMAP_GROUP (vrf_id);
-  u_char offset = VRF_BITMAP_BIT_OFFSET (vrf_id);
+	struct vrf_bitmap *bm = (struct vrf_bitmap *)bmap;
+	u_char group = VRF_BITMAP_GROUP(vrf_id);
+	u_char offset = VRF_BITMAP_BIT_OFFSET(vrf_id);
 
-  if (bmap == VRF_BITMAP_NULL || vrf_id == VRF_UNKNOWN)
-    return;
+	if (bmap == VRF_BITMAP_NULL || vrf_id == VRF_UNKNOWN)
+		return;
 
-  if (bm->groups[group] == NULL)
-    bm->groups[group] = XCALLOC (MTYPE_VRF_BITMAP,
-                                 VRF_BITMAP_NUM_OF_BYTES_IN_GROUP);
+	if (bm->groups[group] == NULL)
+		bm->groups[group] = XCALLOC(MTYPE_VRF_BITMAP,
+					    VRF_BITMAP_NUM_OF_BYTES_IN_GROUP);
 
-  SET_FLAG (bm->groups[group][VRF_BITMAP_INDEX_IN_GROUP (offset)],
-            VRF_BITMAP_FLAG (offset));
+	SET_FLAG(bm->groups[group][VRF_BITMAP_INDEX_IN_GROUP(offset)],
+		 VRF_BITMAP_FLAG(offset));
 }
 
-void
-vrf_bitmap_unset (vrf_bitmap_t bmap, vrf_id_t vrf_id)
+void vrf_bitmap_unset(vrf_bitmap_t bmap, vrf_id_t vrf_id)
 {
-  struct vrf_bitmap *bm = (struct vrf_bitmap *) bmap;
-  u_char group = VRF_BITMAP_GROUP (vrf_id);
-  u_char offset = VRF_BITMAP_BIT_OFFSET (vrf_id);
+	struct vrf_bitmap *bm = (struct vrf_bitmap *)bmap;
+	u_char group = VRF_BITMAP_GROUP(vrf_id);
+	u_char offset = VRF_BITMAP_BIT_OFFSET(vrf_id);
 
-  if (bmap == VRF_BITMAP_NULL || vrf_id == VRF_UNKNOWN ||
-      bm->groups[group] == NULL)
-    return;
+	if (bmap == VRF_BITMAP_NULL || vrf_id == VRF_UNKNOWN
+	    || bm->groups[group] == NULL)
+		return;
 
-  UNSET_FLAG (bm->groups[group][VRF_BITMAP_INDEX_IN_GROUP (offset)],
-              VRF_BITMAP_FLAG (offset));
+	UNSET_FLAG(bm->groups[group][VRF_BITMAP_INDEX_IN_GROUP(offset)],
+		   VRF_BITMAP_FLAG(offset));
 }
 
-int
-vrf_bitmap_check (vrf_bitmap_t bmap, vrf_id_t vrf_id)
+int vrf_bitmap_check(vrf_bitmap_t bmap, vrf_id_t vrf_id)
 {
-  struct vrf_bitmap *bm = (struct vrf_bitmap *) bmap;
-  u_char group = VRF_BITMAP_GROUP (vrf_id);
-  u_char offset = VRF_BITMAP_BIT_OFFSET (vrf_id);
+	struct vrf_bitmap *bm = (struct vrf_bitmap *)bmap;
+	u_char group = VRF_BITMAP_GROUP(vrf_id);
+	u_char offset = VRF_BITMAP_BIT_OFFSET(vrf_id);
 
-  if (bmap == VRF_BITMAP_NULL || vrf_id == VRF_UNKNOWN ||
-      bm->groups[group] == NULL)
-    return 0;
+	if (bmap == VRF_BITMAP_NULL || vrf_id == VRF_UNKNOWN
+	    || bm->groups[group] == NULL)
+		return 0;
 
-  return CHECK_FLAG (bm->groups[group][VRF_BITMAP_INDEX_IN_GROUP (offset)],
-                     VRF_BITMAP_FLAG (offset)) ? 1 : 0;
+	return CHECK_FLAG(bm->groups[group][VRF_BITMAP_INDEX_IN_GROUP(offset)],
+			  VRF_BITMAP_FLAG(offset))
+		       ? 1
+		       : 0;
 }
 
 /* Initialize VRF module. */
-void
-vrf_init (void)
+void vrf_init(void)
 {
-  struct vrf *default_vrf;
+	struct vrf *default_vrf;
 
-  if (debug_vrf)
-    zlog_debug ("%s: Initializing VRF subsystem", __PRETTY_FUNCTION__);
+	if (debug_vrf)
+		zlog_debug("%s: Initializing VRF subsystem",
+			   __PRETTY_FUNCTION__);
 
-  /* The default VRF always exists. */
-  default_vrf = vrf_get (VRF_DEFAULT, VRF_DEFAULT_NAME);
-  if (!default_vrf)
-    {
-      zlog_err ("vrf_init: failed to create the default VRF!");
-      exit (1);
-    }
+	/* The default VRF always exists. */
+	default_vrf = vrf_get(VRF_DEFAULT, VRF_DEFAULT_NAME);
+	if (!default_vrf) {
+		zlog_err("vrf_init: failed to create the default VRF!");
+		exit(1);
+	}
 
-  /* Enable the default VRF. */
-  if (!vrf_enable (default_vrf))
-    {
-      zlog_err ("vrf_init: failed to enable the default VRF!");
-      exit (1);
-    }
+	/* Enable the default VRF. */
+	if (!vrf_enable(default_vrf)) {
+		zlog_err("vrf_init: failed to enable the default VRF!");
+		exit(1);
+	}
 }
 
 /* Terminate VRF module. */
-void
-vrf_terminate (void)
+void vrf_terminate(void)
 {
-  struct vrf *vrf;
+	struct vrf *vrf;
 
-  if (debug_vrf)
-    zlog_debug ("%s: Shutting down vrf subsystem", __PRETTY_FUNCTION__);
+	if (debug_vrf)
+		zlog_debug("%s: Shutting down vrf subsystem",
+			   __PRETTY_FUNCTION__);
 
-  while ((vrf = RB_ROOT (&vrfs_by_id)) != NULL)
-    vrf_delete (vrf);
-  while ((vrf = RB_ROOT (&vrfs_by_name)) != NULL)
-    vrf_delete (vrf);
+	while ((vrf = RB_ROOT(&vrfs_by_id)) != NULL)
+		vrf_delete(vrf);
+	while ((vrf = RB_ROOT(&vrfs_by_name)) != NULL)
+		vrf_delete(vrf);
 }
 
 /* Create a socket for the VRF. */
-int
-vrf_socket (int domain, int type, int protocol, vrf_id_t vrf_id)
+int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id)
 {
-  int ret = -1;
+	int ret = -1;
 
-  ret = socket (domain, type, protocol);
+	ret = socket(domain, type, protocol);
 
-  return ret;
+	return ret;
 }
 
 /* vrf CLI commands */
@@ -480,23 +449,23 @@ DEFUN_NOSH (vrf,
        "Select a VRF to configure\n"
        "VRF's name\n")
 {
-  int idx_name = 1;
-  const char *vrfname = argv[idx_name]->arg;
-  struct vrf *vrfp;
+	int idx_name = 1;
+	const char *vrfname = argv[idx_name]->arg;
+	struct vrf *vrfp;
 
-  if (strlen(vrfname) > VRF_NAMSIZ)
-    {
-      vty_out (vty, "%% VRF name %s is invalid: length exceeds "
-                    "%d characters%s",
-               vrfname, VRF_NAMSIZ, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+	if (strlen(vrfname) > VRF_NAMSIZ) {
+		vty_out(vty,
+			"%% VRF name %s is invalid: length exceeds "
+			"%d characters%s",
+			vrfname, VRF_NAMSIZ, VTY_NEWLINE);
+		return CMD_WARNING;
+	}
 
-  vrfp = vrf_get (VRF_UNKNOWN, vrfname);
+	vrfp = vrf_get(VRF_UNKNOWN, vrfname);
 
-  VTY_PUSH_CONTEXT (VRF_NODE, vrfp);
+	VTY_PUSH_CONTEXT(VRF_NODE, vrfp);
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN_NOSH (no_vrf,
@@ -506,37 +475,31 @@ DEFUN_NOSH (no_vrf,
            "Delete a pseudo VRF's configuration\n"
            "VRF's name\n")
 {
-  const char *vrfname = argv[2]->arg;
+	const char *vrfname = argv[2]->arg;
 
-  struct vrf *vrfp;
+	struct vrf *vrfp;
 
-  vrfp = vrf_lookup_by_name (vrfname);
+	vrfp = vrf_lookup_by_name(vrfname);
 
-  if (vrfp == NULL)
-    {
-      vty_out (vty, "%% VRF %s does not exist%s", vrfname, VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+	if (vrfp == NULL) {
+		vty_out(vty, "%% VRF %s does not exist%s", vrfname,
+			VTY_NEWLINE);
+		return CMD_WARNING;
+	}
 
-  if (CHECK_FLAG (vrfp->status, VRF_ACTIVE))
-    {
-      vty_out (vty, "%% Only inactive VRFs can be deleted%s",
-              VTY_NEWLINE);
-      return CMD_WARNING;
-    }
+	if (CHECK_FLAG(vrfp->status, VRF_ACTIVE)) {
+		vty_out(vty, "%% Only inactive VRFs can be deleted%s",
+			VTY_NEWLINE);
+		return CMD_WARNING;
+	}
 
-  vrf_delete(vrfp);
+	vrf_delete(vrfp);
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 
-struct cmd_node vrf_node =
-{
-  VRF_NODE,
-  "%s(config-vrf)# ",
-  1
-};
+struct cmd_node vrf_node = {VRF_NODE, "%s(config-vrf)# ", 1};
 
 /*
  * Debug CLI for vrf's
@@ -547,9 +510,9 @@ DEFUN (vrf_debug,
       DEBUG_STR
       "VRF Debugging\n")
 {
-  debug_vrf = 1;
+	debug_vrf = 1;
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFUN (no_vrf_debug,
@@ -559,43 +522,35 @@ DEFUN (no_vrf_debug,
       DEBUG_STR
       "VRF Debugging\n")
 {
-  debug_vrf = 0;
+	debug_vrf = 0;
 
-  return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
-static int
-vrf_write_host (struct vty *vty)
+static int vrf_write_host(struct vty *vty)
 {
-  if (debug_vrf)
-    vty_out (vty, "debug vrf%s", VTY_NEWLINE);
+	if (debug_vrf)
+		vty_out(vty, "debug vrf%s", VTY_NEWLINE);
 
-  return 1;
+	return 1;
 }
 
-static struct cmd_node vrf_debug_node =
-{
-  VRF_DEBUG_NODE,
-  "",
-  1
-};
+static struct cmd_node vrf_debug_node = {VRF_DEBUG_NODE, "", 1};
 
-void
-vrf_install_commands (void)
+void vrf_install_commands(void)
 {
-  install_node (&vrf_debug_node, vrf_write_host);
+	install_node(&vrf_debug_node, vrf_write_host);
 
-  install_element (CONFIG_NODE, &vrf_debug_cmd);
-  install_element (ENABLE_NODE, &vrf_debug_cmd);
-  install_element (CONFIG_NODE, &no_vrf_debug_cmd);
-  install_element (ENABLE_NODE, &no_vrf_debug_cmd);
+	install_element(CONFIG_NODE, &vrf_debug_cmd);
+	install_element(ENABLE_NODE, &vrf_debug_cmd);
+	install_element(CONFIG_NODE, &no_vrf_debug_cmd);
+	install_element(ENABLE_NODE, &no_vrf_debug_cmd);
 }
 
-void
-vrf_cmd_init (int (*writefunc)(struct vty *vty))
+void vrf_cmd_init(int (*writefunc)(struct vty *vty))
 {
-  install_element (CONFIG_NODE, &vrf_cmd);
-  install_element (CONFIG_NODE, &no_vrf_cmd);
-  install_node (&vrf_node, writefunc);
-  install_default (VRF_NODE);
+	install_element(CONFIG_NODE, &vrf_cmd);
+	install_element(CONFIG_NODE, &no_vrf_cmd);
+	install_node(&vrf_node, writefunc);
+	install_default(VRF_NODE);
 }

@@ -28,37 +28,37 @@
 
 static void vty_do_exit(void)
 {
-  printf ("\nend.\n");
-  exit (0);
+	printf("\nend.\n");
+	exit(0);
 }
 
 struct thread_master *master;
 
 int main(int argc, char **argv)
 {
-  struct thread thread;
+	struct thread thread;
 
-  master = thread_master_create ();
+	master = thread_master_create();
 
-  openzlog ("grammar_sandbox", "NONE", 0,
-                           LOG_CONS|LOG_NDELAY|LOG_PID, LOG_DAEMON);
-  zlog_set_level (ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
-  zlog_set_level (ZLOG_DEST_STDOUT, LOG_DEBUG);
-  zlog_set_level (ZLOG_DEST_MONITOR, ZLOG_DISABLED);
+	openzlog("grammar_sandbox", "NONE", 0, LOG_CONS | LOG_NDELAY | LOG_PID,
+		 LOG_DAEMON);
+	zlog_set_level(ZLOG_DEST_SYSLOG, ZLOG_DISABLED);
+	zlog_set_level(ZLOG_DEST_STDOUT, LOG_DEBUG);
+	zlog_set_level(ZLOG_DEST_MONITOR, ZLOG_DISABLED);
 
-  /* Library inits. */
-  cmd_init (1);
-  host.name = strdup ("test");
+	/* Library inits. */
+	cmd_init(1);
+	host.name = strdup("test");
 
-  vty_init (master);
-  memory_init ();
+	vty_init(master);
+	memory_init();
 
-  vty_stdio (vty_do_exit);
+	vty_stdio(vty_do_exit);
 
-  /* Fetch next active thread. */
-  while (thread_fetch (master, &thread))
-    thread_call (&thread);
+	/* Fetch next active thread. */
+	while (thread_fetch(master, &thread))
+		thread_call(&thread);
 
-  /* Not reached. */
-  exit (0);
+	/* Not reached. */
+	exit(0);
 }

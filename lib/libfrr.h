@@ -74,30 +74,25 @@ struct frr_daemon_info {
  * upcoming module support) that need to place some per-daemon things.  Each
  * daemon should have one of these.
  */
-#define FRR_DAEMON_INFO(execname, constname, ...) \
-	static struct frr_daemon_info execname ##_di = { \
-		.name = # execname, \
-		.logname = # constname, \
-		.module = THIS_MODULE, \
-		__VA_ARGS__ \
-	}; \
-	FRR_COREMOD_SETUP( \
-		.name = # execname, \
-		.description = # execname " daemon", \
-                .version = FRR_VERSION, \
-	) \
-	/* end */
+#define FRR_DAEMON_INFO(execname, constname, ...)                              \
+	static struct frr_daemon_info execname##_di = {.name = #execname,      \
+						       .logname = #constname,  \
+						       .module = THIS_MODULE,  \
+						       __VA_ARGS__};           \
+	FRR_COREMOD_SETUP(.name = #execname,                                   \
+			  .description = #execname " daemon",                  \
+			  .version = FRR_VERSION, )                            \
+/* end */
 
-extern void frr_preinit(struct frr_daemon_info *daemon,
-		int argc, char **argv);
-extern void frr_opt_add(const char *optstr,
-		const struct option *longopts, const char *helpstr);
-extern int frr_getopt(int argc, char * const argv[], int *longindex);
+extern void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv);
+extern void frr_opt_add(const char *optstr, const struct option *longopts,
+			const char *helpstr);
+extern int frr_getopt(int argc, char *const argv[], int *longindex);
 extern void frr_help_exit(int status);
 
 extern struct thread_master *frr_init(void);
 
-DECLARE_HOOK(frr_late_init, (struct thread_master *tm), (tm))
+DECLARE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
 extern void frr_config_fork(void);
 
 extern void frr_vty_serv(void);

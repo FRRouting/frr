@@ -34,29 +34,26 @@
 static struct hash *lcomhash;
 
 /* Allocate a new lcommunities.  */
-static struct lcommunity *
-lcommunity_new (void)
+static struct lcommunity *lcommunity_new(void)
 {
-  return (struct lcommunity *) XCALLOC (MTYPE_LCOMMUNITY,
-					sizeof (struct lcommunity));
+	return (struct lcommunity *)XCALLOC(MTYPE_LCOMMUNITY,
+					    sizeof(struct lcommunity));
 }
 
 /* Allocate lcommunities.  */
-void
-lcommunity_free (struct lcommunity **lcom)
+void lcommunity_free(struct lcommunity **lcom)
 {
-  if ((*lcom)->val)
-    XFREE (MTYPE_LCOMMUNITY_VAL, (*lcom)->val);
-  if ((*lcom)->str)
-    XFREE (MTYPE_LCOMMUNITY_STR, (*lcom)->str);
-  XFREE (MTYPE_LCOMMUNITY, *lcom);
-  lcom = NULL;
+	if ((*lcom)->val)
+		XFREE(MTYPE_LCOMMUNITY_VAL, (*lcom)->val);
+	if ((*lcom)->str)
+		XFREE(MTYPE_LCOMMUNITY_STR, (*lcom)->str);
+	XFREE(MTYPE_LCOMMUNITY, *lcom);
+	lcom = NULL;
 }
 
-static void
-lcommunity_hash_free (struct lcommunity *lcom)
+static void lcommunity_hash_free(struct lcommunity *lcom)
 {
-  lcommunity_free (&lcom);
+	lcommunity_free(&lcom);
 }
 
 /* Add a new Large Communities value to Large Communities
@@ -64,329 +61,308 @@ lcommunity_hash_free (struct lcommunity *lcom)
    structure, we don't add the value.  Newly added value is sorted by
    numerical order.  When the value is added to the structure return 1
    else return 0.  */
-static int
-lcommunity_add_val (struct lcommunity *lcom, struct lcommunity_val *lval)
+static int lcommunity_add_val(struct lcommunity *lcom,
+			      struct lcommunity_val *lval)
 {
-  u_int8_t *p;
-  int ret;
-  int c;
+	u_int8_t *p;
+	int ret;
+	int c;
 
-  /* When this is fist value, just add it.  */
-  if (lcom->val == NULL)
-    {
-      lcom->size++;
-      lcom->val = XMALLOC (MTYPE_LCOMMUNITY_VAL, lcom_length (lcom));
-      memcpy (lcom->val, lval->val, LCOMMUNITY_SIZE);
-      return 1;
-    }
+	/* When this is fist value, just add it.  */
+	if (lcom->val == NULL) {
+		lcom->size++;
+		lcom->val = XMALLOC(MTYPE_LCOMMUNITY_VAL, lcom_length(lcom));
+		memcpy(lcom->val, lval->val, LCOMMUNITY_SIZE);
+		return 1;
+	}
 
-  /* If the value already exists in the structure return 0.  */
-  c = 0;
-  for (p = lcom->val; c < lcom->size; p += LCOMMUNITY_SIZE, c++)
-    {
-      ret = memcmp (p, lval->val, LCOMMUNITY_SIZE);
-      if (ret == 0)
-        return 0;
-      if (ret > 0)
-        break;
-    }
+	/* If the value already exists in the structure return 0.  */
+	c = 0;
+	for (p = lcom->val; c < lcom->size; p += LCOMMUNITY_SIZE, c++) {
+		ret = memcmp(p, lval->val, LCOMMUNITY_SIZE);
+		if (ret == 0)
+			return 0;
+		if (ret > 0)
+			break;
+	}
 
-  /* Add the value to the structure with numerical sorting.  */
-  lcom->size++;
-  lcom->val = XREALLOC (MTYPE_LCOMMUNITY_VAL, lcom->val, lcom_length (lcom));
+	/* Add the value to the structure with numerical sorting.  */
+	lcom->size++;
+	lcom->val =
+		XREALLOC(MTYPE_LCOMMUNITY_VAL, lcom->val, lcom_length(lcom));
 
-  memmove (lcom->val + (c + 1) * LCOMMUNITY_SIZE,
-	   lcom->val + c * LCOMMUNITY_SIZE,
-	   (lcom->size - 1 - c) * LCOMMUNITY_SIZE);
-  memcpy (lcom->val + c * LCOMMUNITY_SIZE, lval->val, LCOMMUNITY_SIZE);
+	memmove(lcom->val + (c + 1) * LCOMMUNITY_SIZE,
+		lcom->val + c * LCOMMUNITY_SIZE,
+		(lcom->size - 1 - c) * LCOMMUNITY_SIZE);
+	memcpy(lcom->val + c * LCOMMUNITY_SIZE, lval->val, LCOMMUNITY_SIZE);
 
-  return 1;
+	return 1;
 }
 
 /* This function takes pointer to Large Communites strucutre then
    create a new Large Communities structure by uniq and sort each
    Large Communities value.  */
-struct lcommunity *
-lcommunity_uniq_sort (struct lcommunity *lcom)
+struct lcommunity *lcommunity_uniq_sort(struct lcommunity *lcom)
 {
-  int i;
-  struct lcommunity *new;
-  struct lcommunity_val *lval;
+	int i;
+	struct lcommunity *new;
+	struct lcommunity_val *lval;
 
-  if (! lcom)
-    return NULL;
+	if (!lcom)
+		return NULL;
 
-  new = lcommunity_new ();
+	new = lcommunity_new();
 
-  for (i = 0; i < lcom->size; i++)
-    {
-      lval = (struct lcommunity_val *) (lcom->val + (i * LCOMMUNITY_SIZE));
-      lcommunity_add_val (new, lval);
-    }
-  return new;
+	for (i = 0; i < lcom->size; i++) {
+		lval = (struct lcommunity_val *)(lcom->val
+						 + (i * LCOMMUNITY_SIZE));
+		lcommunity_add_val(new, lval);
+	}
+	return new;
 }
 
 /* Parse Large Communites Attribute in BGP packet.  */
-struct lcommunity *
-lcommunity_parse (u_int8_t *pnt, u_short length)
+struct lcommunity *lcommunity_parse(u_int8_t *pnt, u_short length)
 {
-  struct lcommunity tmp;
-  struct lcommunity *new;
+	struct lcommunity tmp;
+	struct lcommunity *new;
 
-  /* Length check.  */
-  if (length % LCOMMUNITY_SIZE)
-    return NULL;
+	/* Length check.  */
+	if (length % LCOMMUNITY_SIZE)
+		return NULL;
 
-  /* Prepare tmporary structure for making a new Large Communities
-     Attribute.  */
-  tmp.size = length / LCOMMUNITY_SIZE;
-  tmp.val = pnt;
+	/* Prepare tmporary structure for making a new Large Communities
+	   Attribute.  */
+	tmp.size = length / LCOMMUNITY_SIZE;
+	tmp.val = pnt;
 
-  /* Create a new Large Communities Attribute by uniq and sort each
-     Large Communities value  */
-  new = lcommunity_uniq_sort (&tmp);
+	/* Create a new Large Communities Attribute by uniq and sort each
+	   Large Communities value  */
+	new = lcommunity_uniq_sort(&tmp);
 
-  return lcommunity_intern (new);
+	return lcommunity_intern(new);
 }
 
 /* Duplicate the Large Communities Attribute structure.  */
-struct lcommunity *
-lcommunity_dup (struct lcommunity *lcom)
+struct lcommunity *lcommunity_dup(struct lcommunity *lcom)
 {
-  struct lcommunity *new;
+	struct lcommunity *new;
 
-  new = XCALLOC (MTYPE_LCOMMUNITY, sizeof (struct lcommunity));
-  new->size = lcom->size;
-  if (new->size)
-    {
-      new->val = XMALLOC (MTYPE_LCOMMUNITY_VAL, lcom->size * LCOMMUNITY_SIZE);
-      memcpy (new->val, lcom->val, lcom->size * LCOMMUNITY_SIZE);
-    }
-  else
-    new->val = NULL;
-  return new;
+	new = XCALLOC(MTYPE_LCOMMUNITY, sizeof(struct lcommunity));
+	new->size = lcom->size;
+	if (new->size) {
+		new->val = XMALLOC(MTYPE_LCOMMUNITY_VAL,
+				   lcom->size * LCOMMUNITY_SIZE);
+		memcpy(new->val, lcom->val, lcom->size * LCOMMUNITY_SIZE);
+	} else
+		new->val = NULL;
+	return new;
 }
 
 /* Retrun string representation of communities attribute. */
-char *
-lcommunity_str (struct lcommunity *lcom)
+char *lcommunity_str(struct lcommunity *lcom)
 {
-  if (! lcom->str)
-    lcom->str = lcommunity_lcom2str (lcom, LCOMMUNITY_FORMAT_DISPLAY);
-  return lcom->str;
+	if (!lcom->str)
+		lcom->str =
+			lcommunity_lcom2str(lcom, LCOMMUNITY_FORMAT_DISPLAY);
+	return lcom->str;
 }
 
 /* Merge two Large Communities Attribute structure.  */
-struct lcommunity *
-lcommunity_merge (struct lcommunity *lcom1, struct lcommunity *lcom2)
+struct lcommunity *lcommunity_merge(struct lcommunity *lcom1,
+				    struct lcommunity *lcom2)
 {
-  if (lcom1->val)
-    lcom1->val = XREALLOC (MTYPE_LCOMMUNITY_VAL, lcom1->val,
-			   (lcom1->size + lcom2->size) * LCOMMUNITY_SIZE);
-  else
-    lcom1->val = XMALLOC (MTYPE_LCOMMUNITY_VAL,
-			  (lcom1->size + lcom2->size) * LCOMMUNITY_SIZE);
+	if (lcom1->val)
+		lcom1->val =
+			XREALLOC(MTYPE_LCOMMUNITY_VAL, lcom1->val,
+				 (lcom1->size + lcom2->size) * LCOMMUNITY_SIZE);
+	else
+		lcom1->val =
+			XMALLOC(MTYPE_LCOMMUNITY_VAL,
+				(lcom1->size + lcom2->size) * LCOMMUNITY_SIZE);
 
-  memcpy (lcom1->val + (lcom1->size * LCOMMUNITY_SIZE),
-	  lcom2->val, lcom2->size * LCOMMUNITY_SIZE);
-  lcom1->size += lcom2->size;
+	memcpy(lcom1->val + (lcom1->size * LCOMMUNITY_SIZE), lcom2->val,
+	       lcom2->size * LCOMMUNITY_SIZE);
+	lcom1->size += lcom2->size;
 
-  return lcom1;
+	return lcom1;
 }
 
 /* Intern Large Communities Attribute.  */
-struct lcommunity *
-lcommunity_intern (struct lcommunity *lcom)
+struct lcommunity *lcommunity_intern(struct lcommunity *lcom)
 {
-  struct lcommunity *find;
+	struct lcommunity *find;
 
-  assert (lcom->refcnt == 0);
+	assert(lcom->refcnt == 0);
 
-  find = (struct lcommunity *) hash_get (lcomhash, lcom, hash_alloc_intern);
+	find = (struct lcommunity *)hash_get(lcomhash, lcom, hash_alloc_intern);
 
-  if (find != lcom)
-    lcommunity_free (&lcom);
+	if (find != lcom)
+		lcommunity_free(&lcom);
 
-  find->refcnt++;
+	find->refcnt++;
 
-  if (! find->str)
-    find->str = lcommunity_lcom2str (find, LCOMMUNITY_FORMAT_DISPLAY);
+	if (!find->str)
+		find->str =
+			lcommunity_lcom2str(find, LCOMMUNITY_FORMAT_DISPLAY);
 
-  return find;
+	return find;
 }
 
 /* Unintern Large Communities Attribute.  */
-void
-lcommunity_unintern (struct lcommunity **lcom)
+void lcommunity_unintern(struct lcommunity **lcom)
 {
-  struct lcommunity *ret;
+	struct lcommunity *ret;
 
-  if ((*lcom)->refcnt)
-    (*lcom)->refcnt--;
+	if ((*lcom)->refcnt)
+		(*lcom)->refcnt--;
 
-  /* Pull off from hash.  */
-  if ((*lcom)->refcnt == 0)
-    {
-      /* Large community must be in the hash.  */
-      ret = (struct lcommunity *) hash_release (lcomhash, *lcom);
-      assert (ret != NULL);
+	/* Pull off from hash.  */
+	if ((*lcom)->refcnt == 0) {
+		/* Large community must be in the hash.  */
+		ret = (struct lcommunity *)hash_release(lcomhash, *lcom);
+		assert(ret != NULL);
 
-      lcommunity_free (lcom);
-    }
+		lcommunity_free(lcom);
+	}
 }
 
 /* Utility function to make hash key.  */
-unsigned int
-lcommunity_hash_make (void *arg)
+unsigned int lcommunity_hash_make(void *arg)
 {
-  const struct lcommunity *lcom = arg;
-  int size = lcom->size * LCOMMUNITY_SIZE;
-  u_int8_t *pnt = lcom->val;
-  unsigned int key = 0;
-  int c;
+	const struct lcommunity *lcom = arg;
+	int size = lcom->size * LCOMMUNITY_SIZE;
+	u_int8_t *pnt = lcom->val;
+	unsigned int key = 0;
+	int c;
 
-  for (c = 0; c < size; c += LCOMMUNITY_SIZE)
-    {
-      key += pnt[c];
-      key += pnt[c + 1];
-      key += pnt[c + 2];
-      key += pnt[c + 3];
-      key += pnt[c + 4];
-      key += pnt[c + 5];
-      key += pnt[c + 6];
-      key += pnt[c + 7];
-      key += pnt[c + 8];
-      key += pnt[c + 9];
-      key += pnt[c + 10];
-      key += pnt[c + 11];
-    }
+	for (c = 0; c < size; c += LCOMMUNITY_SIZE) {
+		key += pnt[c];
+		key += pnt[c + 1];
+		key += pnt[c + 2];
+		key += pnt[c + 3];
+		key += pnt[c + 4];
+		key += pnt[c + 5];
+		key += pnt[c + 6];
+		key += pnt[c + 7];
+		key += pnt[c + 8];
+		key += pnt[c + 9];
+		key += pnt[c + 10];
+		key += pnt[c + 11];
+	}
 
-  return key;
+	return key;
 }
 
 /* Compare two Large Communities Attribute structure.  */
-int
-lcommunity_cmp (const void *arg1, const void *arg2)
+int lcommunity_cmp(const void *arg1, const void *arg2)
 {
-  const struct lcommunity *lcom1 = arg1;
-  const struct lcommunity *lcom2 = arg2;
+	const struct lcommunity *lcom1 = arg1;
+	const struct lcommunity *lcom2 = arg2;
 
-  return (lcom1->size == lcom2->size
-	  && memcmp (lcom1->val, lcom2->val, lcom1->size * LCOMMUNITY_SIZE) == 0);
+	return (lcom1->size == lcom2->size
+		&& memcmp(lcom1->val, lcom2->val, lcom1->size * LCOMMUNITY_SIZE)
+			   == 0);
 }
 
 /* Return communities hash.  */
-struct hash *
-lcommunity_hash (void)
+struct hash *lcommunity_hash(void)
 {
-  return lcomhash;
+	return lcomhash;
 }
 
 /* Initialize Large Comminities related hash. */
-void
-lcommunity_init (void)
+void lcommunity_init(void)
 {
-  lcomhash = hash_create (lcommunity_hash_make, lcommunity_cmp);
+	lcomhash = hash_create(lcommunity_hash_make, lcommunity_cmp);
 }
 
-void
-lcommunity_finish (void)
+void lcommunity_finish(void)
 {
-  hash_clean (lcomhash, (void (*)(void *))lcommunity_hash_free);
-  hash_free (lcomhash);
-  lcomhash = NULL;
+	hash_clean(lcomhash, (void (*)(void *))lcommunity_hash_free);
+	hash_free(lcomhash);
+	lcomhash = NULL;
 }
 
 /* Large Communities token enum. */
-enum lcommunity_token
-{
-  lcommunity_token_unknown = 0,
-  lcommunity_token_val,
+enum lcommunity_token {
+	lcommunity_token_unknown = 0,
+	lcommunity_token_val,
 };
 
 /* Get next Large Communities token from the string. */
-static const char *
-lcommunity_gettoken (const char *str, struct lcommunity_val *lval,
-		     enum lcommunity_token *token)
+static const char *lcommunity_gettoken(const char *str,
+				       struct lcommunity_val *lval,
+				       enum lcommunity_token *token)
 {
-  const char *p = str;
+	const char *p = str;
 
-  /* Skip white space. */
-  while (isspace ((int) *p))
-    {
-      p++;
-      str++;
-    }
-
-  /* Check the end of the line. */
-  if (*p == '\0')
-    return NULL;
-
-  /* Community value. */
-  if (isdigit ((int) *p))
-    {
-      int separator = 0;
-      int digit = 0;
-      u_int32_t globaladmin = 0;
-      u_int32_t localdata1 = 0;
-      u_int32_t localdata2 = 0;
-
-      while (isdigit ((int) *p) || *p == ':')
-	{
-	  if (*p == ':')
-	    {
-	      if (separator == 2)
-		{
-		  *token = lcommunity_token_unknown;
-		  return NULL;
-		}
-	      else
-		{
-		  separator++;
-		  digit = 0;
-		  if (separator == 1) {
-		    globaladmin = localdata2;
-		  } else {
-		    localdata1 = localdata2;
-		  }
-		  localdata2 = 0;
-		}
-	    }
-	  else
-	    {
-	      digit = 1;
-	      localdata2 *= 10;
-	      localdata2 += (*p - '0');
-	    }
-	  p++;
-	}
-      if (! digit)
-	{
-	  *token = lcommunity_token_unknown;
-	  return NULL;
+	/* Skip white space. */
+	while (isspace((int)*p)) {
+		p++;
+		str++;
 	}
 
-      /*
-       * Copy the large comm.
-       */
-      lval->val[0] = (globaladmin >> 24) & 0xff;
-      lval->val[1] = (globaladmin >> 16) & 0xff;
-      lval->val[2] = (globaladmin >> 8) & 0xff;
-      lval->val[3] = globaladmin & 0xff;
-      lval->val[4] = (localdata1 >> 24) & 0xff;
-      lval->val[5] = (localdata1 >> 16) & 0xff;
-      lval->val[6] = (localdata1 >> 8) & 0xff;
-      lval->val[7] = localdata1 & 0xff;
-      lval->val[8] = (localdata2 >> 24) & 0xff;
-      lval->val[9] = (localdata2 >> 16) & 0xff;
-      lval->val[10] = (localdata2 >> 8) & 0xff;
-      lval->val[11] = localdata2 & 0xff;
+	/* Check the end of the line. */
+	if (*p == '\0')
+		return NULL;
 
-      *token = lcommunity_token_val;
-      return p;
-    }
-  *token = lcommunity_token_unknown;
-  return p;
+	/* Community value. */
+	if (isdigit((int)*p)) {
+		int separator = 0;
+		int digit = 0;
+		u_int32_t globaladmin = 0;
+		u_int32_t localdata1 = 0;
+		u_int32_t localdata2 = 0;
+
+		while (isdigit((int)*p) || *p == ':') {
+			if (*p == ':') {
+				if (separator == 2) {
+					*token = lcommunity_token_unknown;
+					return NULL;
+				} else {
+					separator++;
+					digit = 0;
+					if (separator == 1) {
+						globaladmin = localdata2;
+					} else {
+						localdata1 = localdata2;
+					}
+					localdata2 = 0;
+				}
+			} else {
+				digit = 1;
+				localdata2 *= 10;
+				localdata2 += (*p - '0');
+			}
+			p++;
+		}
+		if (!digit) {
+			*token = lcommunity_token_unknown;
+			return NULL;
+		}
+
+		/*
+		 * Copy the large comm.
+		 */
+		lval->val[0] = (globaladmin >> 24) & 0xff;
+		lval->val[1] = (globaladmin >> 16) & 0xff;
+		lval->val[2] = (globaladmin >> 8) & 0xff;
+		lval->val[3] = globaladmin & 0xff;
+		lval->val[4] = (localdata1 >> 24) & 0xff;
+		lval->val[5] = (localdata1 >> 16) & 0xff;
+		lval->val[6] = (localdata1 >> 8) & 0xff;
+		lval->val[7] = localdata1 & 0xff;
+		lval->val[8] = (localdata2 >> 24) & 0xff;
+		lval->val[9] = (localdata2 >> 16) & 0xff;
+		lval->val[10] = (localdata2 >> 8) & 0xff;
+		lval->val[11] = localdata2 & 0xff;
+
+		*token = lcommunity_token_val;
+		return p;
+	}
+	*token = lcommunity_token_unknown;
+	return p;
 }
 
 /*
@@ -396,174 +372,168 @@ lcommunity_gettoken (const char *str, struct lcommunity_val *lval,
   When string includes keyword for each large community value.
   Please specify keyword_included as non-zero value.
 */
-struct lcommunity *
-lcommunity_str2com (const char *str)
+struct lcommunity *lcommunity_str2com(const char *str)
 {
-    struct lcommunity *lcom = NULL;
-    enum lcommunity_token token = lcommunity_token_unknown;
-    struct lcommunity_val lval;
+	struct lcommunity *lcom = NULL;
+	enum lcommunity_token token = lcommunity_token_unknown;
+	struct lcommunity_val lval;
 
-    while ((str = lcommunity_gettoken (str, &lval, &token)))
-    {
-        switch (token)
-        {
-            case lcommunity_token_val:
-                if (lcom == NULL)
-                    lcom = lcommunity_new ();
-                lcommunity_add_val (lcom, &lval);
-                break;
-            case lcommunity_token_unknown:
-            default:
-                if (lcom)
-                    lcommunity_free (&lcom);
-                return NULL;
-        }
-    }
-    return lcom;
+	while ((str = lcommunity_gettoken(str, &lval, &token))) {
+		switch (token) {
+		case lcommunity_token_val:
+			if (lcom == NULL)
+				lcom = lcommunity_new();
+			lcommunity_add_val(lcom, &lval);
+			break;
+		case lcommunity_token_unknown:
+		default:
+			if (lcom)
+				lcommunity_free(&lcom);
+			return NULL;
+		}
+	}
+	return lcom;
 }
 
-int
-lcommunity_include (struct lcommunity *lcom, u_char *ptr)
+int lcommunity_include(struct lcommunity *lcom, u_char *ptr)
 {
-  int i;
-  u_char *lcom_ptr;
+	int i;
+	u_char *lcom_ptr;
 
-  lcom_ptr = lcom->val;
-  for (i = 0; i < lcom->size; i++) {
-    lcom_ptr += (i * LCOMMUNITY_SIZE);
-    if (memcmp (ptr, lcom_ptr, LCOMMUNITY_SIZE) == 0)
-      return 1;
-  }
-  return 0;
+	lcom_ptr = lcom->val;
+	for (i = 0; i < lcom->size; i++) {
+		lcom_ptr += (i * LCOMMUNITY_SIZE);
+		if (memcmp(ptr, lcom_ptr, LCOMMUNITY_SIZE) == 0)
+			return 1;
+	}
+	return 0;
 }
 
 /* Convert large community attribute to string.
    The large coms will be in 65535:65531:0 format.
 */
-char *
-lcommunity_lcom2str (struct lcommunity *lcom, int format)
+char *lcommunity_lcom2str(struct lcommunity *lcom, int format)
 {
-  int i;
-  u_int8_t *pnt;
+	int i;
+	u_int8_t *pnt;
 #define LCOMMUNITY_STR_DEFAULT_LEN  40
-  int str_size;
-  int str_pnt;
-  char *str_buf;
-  int len = 0;
-  int first = 1;
-  u_int32_t  globaladmin, localdata1, localdata2;
+	int str_size;
+	int str_pnt;
+	char *str_buf;
+	int len = 0;
+	int first = 1;
+	u_int32_t globaladmin, localdata1, localdata2;
 
-  if (lcom->size == 0)
-    {
-      str_buf = XMALLOC (MTYPE_LCOMMUNITY_STR, 1);
-      str_buf[0] = '\0';
-      return str_buf;
-    }
-
-  /* Prepare buffer.  */
-  str_buf = XMALLOC (MTYPE_LCOMMUNITY_STR, LCOMMUNITY_STR_DEFAULT_LEN + 1);
-  str_size = LCOMMUNITY_STR_DEFAULT_LEN + 1;
-  str_pnt = 0;
-
-  for (i = 0; i < lcom->size; i++)
-    {
-      /* Make it sure size is enough.  */
-      while (str_pnt + LCOMMUNITY_STR_DEFAULT_LEN >= str_size)
-	{
-	  str_size *= 2;
-	  str_buf = XREALLOC (MTYPE_LCOMMUNITY_STR, str_buf, str_size);
+	if (lcom->size == 0) {
+		str_buf = XMALLOC(MTYPE_LCOMMUNITY_STR, 1);
+		str_buf[0] = '\0';
+		return str_buf;
 	}
 
-      /* Space between each value.  */
-      if (! first)
-	str_buf[str_pnt++] = ' ';
+	/* Prepare buffer.  */
+	str_buf = XMALLOC(MTYPE_LCOMMUNITY_STR, LCOMMUNITY_STR_DEFAULT_LEN + 1);
+	str_size = LCOMMUNITY_STR_DEFAULT_LEN + 1;
+	str_pnt = 0;
 
-      pnt = lcom->val + (i * 12);
+	for (i = 0; i < lcom->size; i++) {
+		/* Make it sure size is enough.  */
+		while (str_pnt + LCOMMUNITY_STR_DEFAULT_LEN >= str_size) {
+			str_size *= 2;
+			str_buf = XREALLOC(MTYPE_LCOMMUNITY_STR, str_buf,
+					   str_size);
+		}
 
-      globaladmin = (*pnt++ << 24);
-      globaladmin |= (*pnt++ << 16);
-      globaladmin |= (*pnt++ << 8);
-      globaladmin |= (*pnt++);
+		/* Space between each value.  */
+		if (!first)
+			str_buf[str_pnt++] = ' ';
 
-      localdata1 = (*pnt++ << 24);
-      localdata1 |= (*pnt++ << 16);
-      localdata1 |= (*pnt++ << 8);
-      localdata1 |= (*pnt++);
+		pnt = lcom->val + (i * 12);
 
-      localdata2 = (*pnt++ << 24);
-      localdata2 |= (*pnt++ << 16);
-      localdata2 |= (*pnt++ << 8);
-      localdata2 |= (*pnt++);
+		globaladmin = (*pnt++ << 24);
+		globaladmin |= (*pnt++ << 16);
+		globaladmin |= (*pnt++ << 8);
+		globaladmin |= (*pnt++);
 
-      len = sprintf( str_buf + str_pnt, "%u:%u:%u", globaladmin,
-		     localdata1, localdata2);
-      str_pnt += len;
-      first = 0;
-    }
-  return str_buf;
+		localdata1 = (*pnt++ << 24);
+		localdata1 |= (*pnt++ << 16);
+		localdata1 |= (*pnt++ << 8);
+		localdata1 |= (*pnt++);
+
+		localdata2 = (*pnt++ << 24);
+		localdata2 |= (*pnt++ << 16);
+		localdata2 |= (*pnt++ << 8);
+		localdata2 |= (*pnt++);
+
+		len = sprintf(str_buf + str_pnt, "%u:%u:%u", globaladmin,
+			      localdata1, localdata2);
+		str_pnt += len;
+		first = 0;
+	}
+	return str_buf;
 }
 
-int
-lcommunity_match (const struct lcommunity *lcom1,
-                  const struct lcommunity *lcom2)
+int lcommunity_match(const struct lcommunity *lcom1,
+		     const struct lcommunity *lcom2)
 {
-  int i = 0;
-  int j = 0;
+	int i = 0;
+	int j = 0;
 
-  if (lcom1 == NULL && lcom2 == NULL)
-    return 1;
+	if (lcom1 == NULL && lcom2 == NULL)
+		return 1;
 
-  if (lcom1 == NULL || lcom2 == NULL)
-    return 0;
+	if (lcom1 == NULL || lcom2 == NULL)
+		return 0;
 
-  if (lcom1->size < lcom2->size)
-    return 0;
+	if (lcom1->size < lcom2->size)
+		return 0;
 
-  /* Every community on com2 needs to be on com1 for this to match */
-  while (i < lcom1->size && j < lcom2->size)
-    {
-      if (memcmp (lcom1->val + (i*12), lcom2->val + (j*12), LCOMMUNITY_SIZE) == 0)
-        j++;
-      i++;
-    }
+	/* Every community on com2 needs to be on com1 for this to match */
+	while (i < lcom1->size && j < lcom2->size) {
+		if (memcmp(lcom1->val + (i * 12), lcom2->val + (j * 12),
+			   LCOMMUNITY_SIZE)
+		    == 0)
+			j++;
+		i++;
+	}
 
-  if (j == lcom2->size)
-    return 1;
-  else
-    return 0;
+	if (j == lcom2->size)
+		return 1;
+	else
+		return 0;
 }
 
 /* Delete one lcommunity. */
-void
-lcommunity_del_val (struct lcommunity *lcom, u_char *ptr)
+void lcommunity_del_val(struct lcommunity *lcom, u_char *ptr)
 {
-  int i = 0;
-  int c = 0;
+	int i = 0;
+	int c = 0;
 
-  if (! lcom->val)
-    return;
+	if (!lcom->val)
+		return;
 
-  while (i < lcom->size)
-    {
-      if (memcmp (lcom->val + i*LCOMMUNITY_SIZE, ptr, LCOMMUNITY_SIZE) == 0)
-	{
-	  c = lcom->size -i -1;
+	while (i < lcom->size) {
+		if (memcmp(lcom->val + i * LCOMMUNITY_SIZE, ptr,
+			   LCOMMUNITY_SIZE)
+		    == 0) {
+			c = lcom->size - i - 1;
 
-	  if (c > 0)
-	    memmove (lcom->val + i*LCOMMUNITY_SIZE, lcom->val + (i + 1)*LCOMMUNITY_SIZE, c * LCOMMUNITY_SIZE);
+			if (c > 0)
+				memmove(lcom->val + i * LCOMMUNITY_SIZE,
+					lcom->val + (i + 1) * LCOMMUNITY_SIZE,
+					c * LCOMMUNITY_SIZE);
 
-	  lcom->size--;
+			lcom->size--;
 
-	  if (lcom->size > 0)
-	    lcom->val = XREALLOC (MTYPE_COMMUNITY_VAL, lcom->val,
-				 lcom_length (lcom));
-	  else
-	    {
-	      XFREE (MTYPE_COMMUNITY_VAL, lcom->val);
-	      lcom->val = NULL;
-	    }
-	  return;
+			if (lcom->size > 0)
+				lcom->val =
+					XREALLOC(MTYPE_COMMUNITY_VAL, lcom->val,
+						 lcom_length(lcom));
+			else {
+				XFREE(MTYPE_COMMUNITY_VAL, lcom->val);
+				lcom->val = NULL;
+			}
+			return;
+		}
+		i++;
 	}
-      i++;
-    }
 }

@@ -16,15 +16,15 @@
  * You should have received a copy of the GNU General Public License
  * along with Quagga; see the file COPYING.  If not, write to the Free
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * 02111-1307, USA.
  */
 
 #ifndef _QUAGGA_ASSERT_H
 #define _QUAGGA_ASSERT_H
 
-extern void _zlog_assert_failed (const char *assertion, const char *file,
-				 unsigned int line, const char *function)
-				 __attribute__ ((noreturn));
+extern void _zlog_assert_failed(const char *assertion, const char *file,
+				unsigned int line, const char *function)
+	__attribute__((noreturn));
 
 #if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
 #define __ASSERT_FUNCTION    __func__
@@ -34,9 +34,10 @@ extern void _zlog_assert_failed (const char *assertion, const char *file,
 #define __ASSERT_FUNCTION    NULL
 #endif
 
-#define zassert(EX) ((void)((EX) ?  0 :	\
-			    (_zlog_assert_failed(#EX, __FILE__, __LINE__, \
-						 __ASSERT_FUNCTION), 0)))
+#define zassert(EX)                                                            \
+	((void)((EX) ? 0 : (_zlog_assert_failed(#EX, __FILE__, __LINE__,       \
+						__ASSERT_FUNCTION),            \
+			    0)))
 
 #undef assert
 #define assert(EX) zassert(EX)

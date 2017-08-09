@@ -23,22 +23,20 @@
 #define PIM_SSM_STANDARD_RANGE "232.0.0.0/8"
 
 /* SSM error codes */
-enum pim_ssm_err
-{
-  PIM_SSM_ERR_NONE = 0,
-  PIM_SSM_ERR_NO_VRF = -1,
-  PIM_SSM_ERR_DUP = -2,
+enum pim_ssm_err {
+	PIM_SSM_ERR_NONE = 0,
+	PIM_SSM_ERR_NO_VRF = -1,
+	PIM_SSM_ERR_DUP = -2,
 };
 
-struct pim_ssm
-{
-  vrf_id_t vrf_id;
-  char *plist_name; /* prefix list of group ranges */
+struct pim_ssm {
+	vrf_id_t vrf_id;
+	char *plist_name; /* prefix list of group ranges */
 };
 
-void pim_ssm_prefix_list_update (struct prefix_list *plist);
-int pim_is_grp_ssm (struct in_addr group_addr);
-int pim_ssm_range_set (vrf_id_t vrf_id, const char *plist_name);
-void *pim_ssm_init (vrf_id_t vrf_id);
-void pim_ssm_terminate (struct pim_ssm *ssm);
+void pim_ssm_prefix_list_update(struct prefix_list *plist);
+int pim_is_grp_ssm(struct in_addr group_addr);
+int pim_ssm_range_set(vrf_id_t vrf_id, const char *plist_name);
+void *pim_ssm_init(vrf_id_t vrf_id);
+void pim_ssm_terminate(struct pim_ssm *ssm);
 #endif

@@ -45,29 +45,28 @@
 
 #include "event_counter.h"
 
-void
-event_counter_inc (struct event_counter *counter)
+void event_counter_inc(struct event_counter *counter)
 {
-  counter->count++;
-  counter->last = time (NULL);
+	counter->count++;
+	counter->last = time(NULL);
 }
 
-const char *
-event_counter_format (const struct event_counter *counter)
+const char *event_counter_format(const struct event_counter *counter)
 {
-  struct tm last_change_store;
-  struct tm *last_change;
-  char timebuf[sizeof ("Thu, 01 Jan 1970 00:00:00 +0000")];
-  static char rv[20 + sizeof ("  last: ") + sizeof (timebuf)];
+	struct tm last_change_store;
+	struct tm *last_change;
+	char timebuf[sizeof("Thu, 01 Jan 1970 00:00:00 +0000")];
+	static char rv[20 + sizeof("  last: ") + sizeof(timebuf)];
 
-  last_change = localtime_r (&counter->last, &last_change_store);
-  if (!last_change || strftime (timebuf, sizeof (timebuf),
-                                "%a, %d %b %Y %T %z", last_change) == 0)
-    {
-      strncpy (timebuf, "???", sizeof (timebuf));
-    }
+	last_change = localtime_r(&counter->last, &last_change_store);
+	if (!last_change
+	    || strftime(timebuf, sizeof(timebuf), "%a, %d %b %Y %T %z",
+			last_change)
+		       == 0) {
+		strncpy(timebuf, "???", sizeof(timebuf));
+	}
 
-  snprintf (rv, sizeof (rv), "%5llu  last: %s", counter->count,
-            counter->last ? timebuf : "(never)");
-  return rv;
+	snprintf(rv, sizeof(rv), "%5llu  last: %s", counter->count,
+		 counter->last ? timebuf : "(never)");
+	return rv;
 }

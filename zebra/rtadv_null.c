@@ -24,12 +24,18 @@
 #include <rtadv.h>
 #include <zebra_ns.h>
 
-void zebra_interface_radv_set (struct zserv *client, int sock, u_short length,
-                          struct zebra_vrf *zvrf, int enable)
-{ return; }
+void zebra_interface_radv_set(struct zserv *client, int sock, u_short length,
+			      struct zebra_vrf *zvrf, int enable)
+{
+	return;
+}
 
-void rtadv_init (struct zebra_ns *zns)
-{ return; }
+void rtadv_init(struct zebra_ns *zns)
+{
+	return;
+}
 
-void rtadv_terminate (struct zebra_ns *zns)
-{ return; }
+void rtadv_terminate(struct zebra_ns *zns)
+{
+	return;
+}

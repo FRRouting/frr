@@ -14,9 +14,9 @@
  * General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with GNU Zebra; see the file COPYING.  If not, write to the 
- * Free Software Foundation, Inc., 59 Temple Place - Suite 330, 
- * Boston, MA 02111-1307, USA.  
+ * along with GNU Zebra; see the file COPYING.  If not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place - Suite 330,
+ * Boston, MA 02111-1307, USA.
  */
 
 #ifndef OSPF6D_H
@@ -58,31 +58,31 @@ extern struct thread_master *master;
 #define OSPF6_NEIGHBOR(x) ((struct ospf6_neighbor *) (x))
 
 /* operation on timeval structure */
-#define timerstring(tv, buf, size)                      \
-  do {                                                  \
-    if ((tv)->tv_sec / 60 / 60 / 24)                    \
-      snprintf (buf, size, "%lldd%02lld:%02lld:%02lld", \
-                (tv)->tv_sec / 60LL / 60 / 24,          \
-                (tv)->tv_sec / 60LL / 60 % 24,          \
-                (tv)->tv_sec / 60LL % 60,               \
-                (tv)->tv_sec % 60LL);                   \
-    else                                                \
-      snprintf (buf, size, "%02lld:%02lld:%02lld",      \
-                (tv)->tv_sec / 60LL / 60 % 24,          \
-                (tv)->tv_sec / 60LL % 60,               \
-                (tv)->tv_sec % 60LL);                   \
-  } while (0)
+#define timerstring(tv, buf, size)                                             \
+	do {                                                                   \
+		if ((tv)->tv_sec / 60 / 60 / 24)                               \
+			snprintf(buf, size, "%lldd%02lld:%02lld:%02lld",       \
+				 (tv)->tv_sec / 60LL / 60 / 24,                \
+				 (tv)->tv_sec / 60LL / 60 % 24,                \
+				 (tv)->tv_sec / 60LL % 60,                     \
+				 (tv)->tv_sec % 60LL);                         \
+		else                                                           \
+			snprintf(buf, size, "%02lld:%02lld:%02lld",            \
+				 (tv)->tv_sec / 60LL / 60 % 24,                \
+				 (tv)->tv_sec / 60LL % 60,                     \
+				 (tv)->tv_sec % 60LL);                         \
+	} while (0)
 
-#define threadtimer_string(now, t, buf, size)                         \
-  do {                                                                \
-    struct timeval result;                                            \
-    if (!t)                                                           \
-      snprintf(buf, size, "inactive");				      \
-    else {                                                            \
-      timersub(&t->u.sands, &now, &result);                           \
-      timerstring(&result, buf, size);                                \
-    }                                                                 \
-} while (0)
+#define threadtimer_string(now, t, buf, size)                                  \
+	do {                                                                   \
+		struct timeval result;                                         \
+		if (!t)                                                        \
+			snprintf(buf, size, "inactive");                       \
+		else {                                                         \
+			timersub(&t->u.sands, &now, &result);                  \
+			timerstring(&result, buf, size);                       \
+		}                                                              \
+	} while (0)
 
 /* for commands */
 #define OSPF6_AREA_STR      "Area information\n"
@@ -92,20 +92,17 @@ extern struct thread_master *master;
 #define OSPF6_LS_ID_STR     "Specify Link State ID\n"
 
 #define VNL VTY_NEWLINE
-#define OSPF6_CMD_CHECK_RUNNING() \
-  if (ospf6 == NULL) \
-    { \
-      vty_out (vty, "OSPFv3 is not running%s", VTY_NEWLINE); \
-      return CMD_SUCCESS; \
-    }
+#define OSPF6_CMD_CHECK_RUNNING()                                              \
+	if (ospf6 == NULL) {                                                   \
+		vty_out(vty, "OSPFv3 is not running%s", VTY_NEWLINE);          \
+		return CMD_SUCCESS;                                            \
+	}
 
 
 /* Function Prototypes */
-extern struct route_node *route_prev (struct route_node *node);
+extern struct route_node *route_prev(struct route_node *node);
 
-extern void ospf6_debug (void);
-extern void ospf6_init (void);
+extern void ospf6_debug(void);
+extern void ospf6_init(void);
 
 #endif /* OSPF6D_H */
-
-

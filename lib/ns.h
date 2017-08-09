@@ -34,27 +34,26 @@ typedef u_int16_t ns_id_t;
 /* Default netns directory (Linux) */
 #define NS_RUN_DIR         "/var/run/netns"
 
-struct ns
-{
-  RB_ENTRY(ns) entry;
+struct ns {
+	RB_ENTRY(ns) entry;
 
-  /* Identifier, same as the vector index */
-  ns_id_t ns_id;
+	/* Identifier, same as the vector index */
+	ns_id_t ns_id;
 
-  /* Name */
-  char *name;
+	/* Name */
+	char *name;
 
-  /* File descriptor */
-  int fd;
+	/* File descriptor */
+	int fd;
 
-  /* Master list of interfaces belonging to this NS */
-  struct list *iflist;
+	/* Master list of interfaces belonging to this NS */
+	struct list *iflist;
 
-  /* User data */
-  void *info;
+	/* User data */
+	void *info;
 };
-RB_HEAD (ns_head, ns);
-RB_PROTOTYPE (ns_head, ns, entry, ns_compare)
+RB_HEAD(ns_head, ns);
+RB_PROTOTYPE(ns_head, ns, entry, ns_compare)
 
 extern struct ns_head ns_tree;
 
@@ -75,21 +74,20 @@ extern struct ns_head ns_tree;
  *          - param 2: the address of the user data pointer (the user data
  *                     can be stored in or freed from there)
  */
-extern void ns_add_hook (int, int (*)(ns_id_t, void **));
+extern void ns_add_hook(int, int (*)(ns_id_t, void **));
 
 /*
  * NS initializer/destructor
  */
 /* Please add hooks before calling ns_init(). */
-extern void ns_init (void);
-extern void ns_terminate (void);
+extern void ns_init(void);
+extern void ns_terminate(void);
 
 /*
  * NS utilities
  */
 
 /* Create a socket serving for the given NS */
-extern int ns_socket (int, int, int, ns_id_t);
+extern int ns_socket(int, int, int, ns_id_t);
 
 #endif /*_ZEBRA_NS_H*/
-

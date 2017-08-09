@@ -23,56 +23,50 @@
 #ifndef _QUAGGA_PLIST_INT_H
 #define _QUAGGA_PLIST_INT_H
 
-enum prefix_name_type
-{
-  PREFIX_TYPE_STRING,
-  PREFIX_TYPE_NUMBER
-};
+enum prefix_name_type { PREFIX_TYPE_STRING, PREFIX_TYPE_NUMBER };
 
 struct pltrie_table;
 
-struct prefix_list
-{
-  char *name;
-  char *desc;
+struct prefix_list {
+	char *name;
+	char *desc;
 
-  struct prefix_master *master;
+	struct prefix_master *master;
 
-  enum prefix_name_type type;
+	enum prefix_name_type type;
 
-  int count;
-  int rangecount;
+	int count;
+	int rangecount;
 
-  struct prefix_list_entry *head;
-  struct prefix_list_entry *tail;
+	struct prefix_list_entry *head;
+	struct prefix_list_entry *tail;
 
-  struct pltrie_table *trie;
+	struct pltrie_table *trie;
 
-  struct prefix_list *next;
-  struct prefix_list *prev;
+	struct prefix_list *next;
+	struct prefix_list *prev;
 };
 
 /* Each prefix-list's entry. */
-struct prefix_list_entry
-{
-  int seq;
+struct prefix_list_entry {
+	int seq;
 
-  int le;
-  int ge;
+	int le;
+	int ge;
 
-  enum prefix_list_type type;
+	enum prefix_list_type type;
 
-  int any;
-  struct prefix prefix;
+	int any;
+	struct prefix prefix;
 
-  unsigned long refcnt;
-  unsigned long hitcnt;
+	unsigned long refcnt;
+	unsigned long hitcnt;
 
-  struct prefix_list_entry *next;
-  struct prefix_list_entry *prev;
+	struct prefix_list_entry *next;
+	struct prefix_list_entry *prev;
 
-  /* up the chain for best match search */
-  struct prefix_list_entry *next_best;
+	/* up the chain for best match search */
+	struct prefix_list_entry *next_best;
 };
 
 #endif /* _QUAGGA_PLIST_INT_H */

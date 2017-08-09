@@ -1,4 +1,4 @@
-/* 
+/*
  *
  * Copyright 2015-2016, LabN Consulting, L.L.C.
  *
@@ -24,9 +24,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "rfptest.h"
-int
-main ()
+int main()
 {
-  printf ("Your test code goes here.\n");
-  exit (1);
+	printf("Your test code goes here.\n");
+	exit(1);
 }

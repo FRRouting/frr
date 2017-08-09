@@ -17,41 +17,40 @@
  * You should have received a copy of the GNU General Public License
  * along with GNU Zebra; see the file COPYING.  If not, write to the Free
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * 02111-1307, USA.
  */
 
 #ifndef _ZEBRA_RIPNG_ROUTE_H
 #define _ZEBRA_RIPNG_ROUTE_H
 
-struct ripng_aggregate
-{
-  /* Aggregate route count. */
-  unsigned int count;
+struct ripng_aggregate {
+	/* Aggregate route count. */
+	unsigned int count;
 
-  /* Suppressed route count. */
-  unsigned int suppress;
+	/* Suppressed route count. */
+	unsigned int suppress;
 
-  /* Metric of this route.  */
-  u_char metric;		
+	/* Metric of this route.  */
+	u_char metric;
 
-  /* Tag field of RIPng packet.*/
-  u_int16_t tag;
+	/* Tag field of RIPng packet.*/
+	u_int16_t tag;
 
-  /* Route-map futures - this variables can be changed. */
-  struct in6_addr nexthop_out;
-  u_char metric_set;
-  u_char metric_out;
-  u_int16_t tag_out;
+	/* Route-map futures - this variables can be changed. */
+	struct in6_addr nexthop_out;
+	u_char metric_set;
+	u_char metric_out;
+	u_int16_t tag_out;
 };
 
-extern void ripng_aggregate_increment (struct route_node *rp,
-                                       struct ripng_info *rinfo);
-extern void ripng_aggregate_decrement (struct route_node *rp,
-                                       struct ripng_info *rinfo);
-extern void ripng_aggregate_decrement_list (struct route_node *rp,
-                                       struct list *list);
-extern int ripng_aggregate_add (struct prefix *p);
-extern int ripng_aggregate_delete (struct prefix *p);
-extern void ripng_aggregate_free (struct ripng_aggregate *aggregate);
+extern void ripng_aggregate_increment(struct route_node *rp,
+				      struct ripng_info *rinfo);
+extern void ripng_aggregate_decrement(struct route_node *rp,
+				      struct ripng_info *rinfo);
+extern void ripng_aggregate_decrement_list(struct route_node *rp,
+					   struct list *list);
+extern int ripng_aggregate_add(struct prefix *p);
+extern int ripng_aggregate_delete(struct prefix *p);
+extern void ripng_aggregate_free(struct ripng_aggregate *aggregate);
 
 #endif /* _ZEBRA_RIPNG_ROUTE_H */

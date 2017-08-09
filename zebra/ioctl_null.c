@@ -1,4 +1,4 @@
-/* 
+/*
  * Copyright (C) 2006 Sun Microsystems, Inc.
  *
  * This file is part of Quagga.
@@ -16,7 +16,7 @@
  * You should have received a copy of the GNU General Public License
  * along with Quagga; see the file COPYING.  If not, write to the Free
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * 02111-1307, USA.
  */
 
 #include <zebra.h>
@@ -25,38 +25,62 @@
 #include "zebra/rt.h"
 #include "zebra/ioctl.h"
 
-void ifreq_set_name (struct ifreq *a, struct interface *b) { return; }
-
-int if_set_prefix (struct interface *a, struct connected *b)
-{ 
-  kernel_address_add_ipv4 (a, b);
-  return 0;
+void ifreq_set_name(struct ifreq *a, struct interface *b)
+{
+	return;
 }
 
-int if_unset_prefix (struct interface *a, struct connected *b)
-{ 
-  kernel_address_delete_ipv4 (a, b);
-  return 0;
+int if_set_prefix(struct interface *a, struct connected *b)
+{
+	kernel_address_add_ipv4(a, b);
+	return 0;
 }
 
-int if_prefix_add_ipv6 (struct interface *a, struct connected *b) { return 0; }
-int if_prefix_delete_ipv6 (struct interface *a, struct connected *b) { return 0; }
+int if_unset_prefix(struct interface *a, struct connected *b)
+{
+	kernel_address_delete_ipv4(a, b);
+	return 0;
+}
 
-int if_ioctl (u_long a, caddr_t b) { return 0; }
+int if_prefix_add_ipv6(struct interface *a, struct connected *b)
+{
+	return 0;
+}
+int if_prefix_delete_ipv6(struct interface *a, struct connected *b)
+{
+	return 0;
+}
 
-int if_set_flags (struct interface *a, uint64_t b) { return 0; }
-int if_unset_flags (struct interface *a, uint64_t b) { return 0; }
+int if_ioctl(u_long a, caddr_t b)
+{
+	return 0;
+}
 
-void if_get_flags (struct interface *a) { return; }
+int if_set_flags(struct interface *a, uint64_t b)
+{
+	return 0;
+}
+int if_unset_flags(struct interface *a, uint64_t b)
+{
+	return 0;
+}
+
+void if_get_flags(struct interface *a)
+{
+	return;
+}
 
 #ifdef SOLARIS_IPV6
 #pragma weak if_ioctl_ipv6 = if_ioctl
-struct connected *if_lookup_linklocal(struct interface *a) { return 0; }
+struct connected *if_lookup_linklocal(struct interface *a)
+{
+	return 0;
+}
 
-#define AF_IOCTL(af, request, buffer) \
-        ((af) == AF_INET? if_ioctl(request, buffer) : \
-                          if_ioctl_ipv6(request, buffer))
-#else /* SOLARIS_IPV6 */
+#define AF_IOCTL(af, request, buffer)                                          \
+	((af) == AF_INET ? if_ioctl(request, buffer)                           \
+			 : if_ioctl_ipv6(request, buffer))
+#else  /* SOLARIS_IPV6 */
 
 #define AF_IOCTL(af, request, buffer)  if_ioctl(request, buffer)
 

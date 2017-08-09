@@ -17,7 +17,7 @@
  * You should have received a copy of the GNU General Public License
  * along with GNU Zebra; see the file COPYING.  If not, write to the Free
  * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.  
+ * 02111-1307, USA.
  */
 
 #ifndef _ZEBRA_SOCKUNION_H
@@ -29,22 +29,16 @@
 #include <netmpls/mpls.h>
 #endif
 
-union sockunion 
-{
-  struct sockaddr sa;
-  struct sockaddr_in sin;
-  struct sockaddr_in6 sin6;
+union sockunion {
+	struct sockaddr sa;
+	struct sockaddr_in sin;
+	struct sockaddr_in6 sin6;
 #ifdef __OpenBSD__
-  struct sockaddr_mpls smpls;
+	struct sockaddr_mpls smpls;
 #endif
 };
 
-enum connect_result
-{
-  connect_error,
-  connect_success,
-  connect_in_progress
-};
+enum connect_result { connect_error, connect_success, connect_in_progress };
 
 /* Default address family. */
 #define AF_INET_UNION AF_INET6
@@ -56,11 +50,11 @@ enum connect_result
    stack. */
 #ifdef KAME
 #define	IN6_LINKLOCAL_IFINDEX(a)  ((a).s6_addr[2] << 8 | (a).s6_addr[3])
-#define SET_IN6_LINKLOCAL_IFINDEX(a, i) \
-  do { \
-    (a).s6_addr[2] = ((i) >> 8) & 0xff; \
-    (a).s6_addr[3] = (i) & 0xff; \
-  } while (0)
+#define SET_IN6_LINKLOCAL_IFINDEX(a, i)                                        \
+	do {                                                                   \
+		(a).s6_addr[2] = ((i) >> 8) & 0xff;                            \
+		(a).s6_addr[3] = (i)&0xff;                                     \
+	} while (0)
 #else
 #define	IN6_LINKLOCAL_IFINDEX(a)
 #define SET_IN6_LINKLOCAL_IFINDEX(a, i)
@@ -71,38 +65,38 @@ enum connect_result
 #define sockunion2ip(X)      (X)->sin.sin_addr.s_addr
 
 /* Prototypes. */
-extern int str2sockunion (const char *, union sockunion *);
-extern const char *sockunion2str (const union sockunion *, char *, size_t);
-extern int sockunion_cmp (const union sockunion *, const union sockunion *);
-extern int sockunion_same (const union sockunion *, const union sockunion *);
-extern unsigned int sockunion_hash (const union sockunion *);
+extern int str2sockunion(const char *, union sockunion *);
+extern const char *sockunion2str(const union sockunion *, char *, size_t);
+extern int sockunion_cmp(const union sockunion *, const union sockunion *);
+extern int sockunion_same(const union sockunion *, const union sockunion *);
+extern unsigned int sockunion_hash(const union sockunion *);
 
 extern size_t family2addrsize(int family);
 extern size_t sockunion_get_addrlen(const union sockunion *);
 extern const u_char *sockunion_get_addr(const union sockunion *);
-extern void sockunion_set(union sockunion *, int family, const u_char *addr, size_t bytes);
+extern void sockunion_set(union sockunion *, int family, const u_char *addr,
+			  size_t bytes);
 
-extern union sockunion *sockunion_str2su (const char *str);
-extern int sockunion_accept (int sock, union sockunion *);
-extern int sockunion_stream_socket (union sockunion *);
-extern int sockopt_reuseaddr (int);
-extern int sockopt_reuseport (int);
-extern int sockopt_v6only (int family, int sock);
-extern int sockunion_bind (int sock, union sockunion *, 
-                           unsigned short, union sockunion *);
-extern int sockopt_ttl (int family, int sock, int ttl);
-extern int sockopt_minttl (int family, int sock, int minttl);
-extern int sockopt_cork (int sock, int onoff);
+extern union sockunion *sockunion_str2su(const char *str);
+extern int sockunion_accept(int sock, union sockunion *);
+extern int sockunion_stream_socket(union sockunion *);
+extern int sockopt_reuseaddr(int);
+extern int sockopt_reuseport(int);
+extern int sockopt_v6only(int family, int sock);
+extern int sockunion_bind(int sock, union sockunion *, unsigned short,
+			  union sockunion *);
+extern int sockopt_ttl(int family, int sock, int ttl);
+extern int sockopt_minttl(int family, int sock, int minttl);
+extern int sockopt_cork(int sock, int onoff);
 extern int sockopt_mark_default(int sock, int mark, struct zebra_privs_t *);
-extern int sockunion_socket (const union sockunion *su);
-extern const char *inet_sutop (const union sockunion *su, char *str);
-extern enum connect_result sockunion_connect (int fd, const union sockunion *su, 
-                                              unsigned short port,
-                                              ifindex_t);
-extern union sockunion *sockunion_getsockname (int);
-extern union sockunion *sockunion_getpeername (int);
-extern union sockunion *sockunion_dup (const union sockunion *);
-extern void sockunion_free (union sockunion *);
-extern void sockunion_init (union sockunion *);
+extern int sockunion_socket(const union sockunion *su);
+extern const char *inet_sutop(const union sockunion *su, char *str);
+extern enum connect_result sockunion_connect(int fd, const union sockunion *su,
+					     unsigned short port, ifindex_t);
+extern union sockunion *sockunion_getsockname(int);
+extern union sockunion *sockunion_getpeername(int);
+extern union sockunion *sockunion_dup(const union sockunion *);
+extern void sockunion_free(union sockunion *);
+extern void sockunion_init(union sockunion *);
 
 #endif /* _ZEBRA_SOCKUNION_H */

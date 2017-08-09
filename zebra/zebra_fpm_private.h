@@ -29,33 +29,36 @@
 
 #if defined __STDC_VERSION__ && __STDC_VERSION__ >= 199901L
 
-#define zfpm_debug(...)						\
-  do {								\
-    if (IS_ZEBRA_DEBUG_FPM) zlog_debug("FPM: " __VA_ARGS__);	\
-  } while(0)
+#define zfpm_debug(...)                                                        \
+	do {                                                                   \
+		if (IS_ZEBRA_DEBUG_FPM)                                        \
+			zlog_debug("FPM: " __VA_ARGS__);                       \
+	} while (0)
 
 #elif defined __GNUC__
 
-#define zfpm_debug(_args...)				\
-  do {							\
-    if (IS_ZEBRA_DEBUG_FPM) zlog_debug("FPM: " _args);	\
-  } while(0)
+#define zfpm_debug(_args...)                                                   \
+	do {                                                                   \
+		if (IS_ZEBRA_DEBUG_FPM)                                        \
+			zlog_debug("FPM: " _args);                             \
+	} while (0)
 
 #else
-static inline void zfpm_debug(const char *format, ...) { return; }
+static inline void zfpm_debug(const char *format, ...)
+{
+	return;
+}
 #endif
 
 
 /*
  * Externs
  */
-extern int
-zfpm_netlink_encode_route (int cmd, rib_dest_t *dest, struct rib *rib,
-			   char *in_buf, size_t in_buf_len);
+extern int zfpm_netlink_encode_route(int cmd, rib_dest_t *dest, struct rib *rib,
+				     char *in_buf, size_t in_buf_len);
 
-extern int
-zfpm_protobuf_encode_route (rib_dest_t *dest, struct rib *rib,
-			    uint8_t *in_buf, size_t in_buf_len);
+extern int zfpm_protobuf_encode_route(rib_dest_t *dest, struct rib *rib,
+				      uint8_t *in_buf, size_t in_buf_len);
 
-extern struct rib *zfpm_route_for_update (rib_dest_t *dest);
+extern struct rib *zfpm_route_for_update(rib_dest_t *dest);
 #endif /* _ZEBRA_FPM_PRIVATE_H */

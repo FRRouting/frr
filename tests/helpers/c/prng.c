@@ -31,102 +31,92 @@
 
 #include "prng.h"
 
-struct prng
-{
-  unsigned long long state1;
-  unsigned long long state2;
+struct prng {
+	unsigned long long state1;
+	unsigned long long state2;
 };
 
-static char
-prng_bit(struct prng *prng)
+static char prng_bit(struct prng *prng)
 {
-  prng->state1 *= 2416;
-  prng->state1 += 374441;
-  prng->state1 %= 1771875;
+	prng->state1 *= 2416;
+	prng->state1 += 374441;
+	prng->state1 %= 1771875;
 
-  if (prng->state1 % 2)
-    {
-      prng->state2 *= 84589;
-      prng->state2 += 45989;
-      prng->state2 %= 217728;
-    }
+	if (prng->state1 % 2) {
+		prng->state2 *= 84589;
+		prng->state2 += 45989;
+		prng->state2 %= 217728;
+	}
 
-  return prng->state2 % 2;
+	return prng->state2 % 2;
 }
 
-struct prng*
-prng_new(unsigned long long seed)
+struct prng *prng_new(unsigned long long seed)
 {
-  struct prng *rv = calloc(sizeof(*rv), 1);
-  assert(rv);
+	struct prng *rv = calloc(sizeof(*rv), 1);
+	assert(rv);
 
-  rv->state1 = rv->state2 = seed;
+	rv->state1 = rv->state2 = seed;
 
-  return rv;
+	return rv;
 }
 
-unsigned int
-prng_rand(struct prng *prng)
+unsigned int prng_rand(struct prng *prng)
 {
-  unsigned int i, rv = 0;
+	unsigned int i, rv = 0;
 
-  for (i = 0; i < 32; i++)
-    {
-      rv |= prng_bit(prng);
-      rv <<= 1;
-    }
-  return rv;
+	for (i = 0; i < 32; i++) {
+		rv |= prng_bit(prng);
+		rv <<= 1;
+	}
+	return rv;
 }
 
-const char *
-prng_fuzz(struct prng *prng,
-          const char *string,
-          const char *charset,
-          unsigned int operations)
+const char *prng_fuzz(struct prng *prng, const char *string,
+		      const char *charset, unsigned int operations)
 {
-  static char buf[256];
-  unsigned int charset_len;
-  unsigned int i;
-  unsigned int offset;
-  unsigned int op;
-  unsigned int character;
+	static char buf[256];
+	unsigned int charset_len;
+	unsigned int i;
+	unsigned int offset;
+	unsigned int op;
+	unsigned int character;
 
-  assert(strlen(string) < sizeof(buf));
+	assert(strlen(string) < sizeof(buf));
 
-  strncpy(buf, string, sizeof(buf));
-  charset_len = strlen(charset);
+	strncpy(buf, string, sizeof(buf));
+	charset_len = strlen(charset);
 
-  for (i = 0; i < operations; i++)
-    {
-      offset = prng_rand(prng) % strlen(buf);
-      op = prng_rand(prng) % 3;
+	for (i = 0; i < operations; i++) {
+		offset = prng_rand(prng) % strlen(buf);
+		op = prng_rand(prng) % 3;
 
-      switch (op)
-        {
-        case 0:
-          /* replace */
-          character = prng_rand(prng) % charset_len;
-          buf[offset] = charset[character];
-          break;
-        case 1:
-          /* remove */
-          memmove(buf + offset, buf + offset + 1, strlen(buf) - offset);
-          break;
-        case 2:
-          /* insert */
-          assert(strlen(buf) + 1 < sizeof(buf));
+		switch (op) {
+		case 0:
+			/* replace */
+			character = prng_rand(prng) % charset_len;
+			buf[offset] = charset[character];
+			break;
+		case 1:
+			/* remove */
+			memmove(buf + offset, buf + offset + 1,
+				strlen(buf) - offset);
+			break;
+		case 2:
+			/* insert */
+			assert(strlen(buf) + 1 < sizeof(buf));
 
-          memmove(buf + offset + 1, buf + offset, strlen(buf) + 1 - offset);
-          character = prng_rand(prng) % charset_len;
-          buf[offset] = charset[character];
-          break;
-        }
-    }
-  return buf;
+			memmove(buf + offset + 1, buf + offset,
+				strlen(buf) + 1 - offset);
+			character = prng_rand(prng) % charset_len;
+			buf[offset] = charset[character];
+			break;
+		}
+	}
+	return buf;
 }
 
-void
-prng_free(struct prng *prng)
+void prng_free(struct prng *prng)
 {
-  free(prng);
+	free(prng);
 }
