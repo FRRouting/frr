@@ -2044,11 +2044,12 @@ static wq_item_status bgp_process_main(struct work_queue *wq, void *data)
 
 	/* Do we need to allocate or free labels?
 	 * Right now, since we only deal with per-prefix labels, it is not
-	 * necessary
-	 * to do this upon changes to best path except of the label index
-	 * changes.
+	 * necessary to do this upon changes to best path except if the label
+	 * index changes.
+	 * NOTE: This is only relevant for the default instance.
 	 */
-	if (safi == SAFI_UNICAST) {
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
+	    && safi == SAFI_UNICAST) {
 		if (new_select) {
 			if (!old_select
 			    || bgp_label_index_differs(new_select, old_select)
