@@ -1062,7 +1062,8 @@ int cmd_execute_command(vector vline, struct vty *vty,
 	if (vtysh)
 		return saved_ret;
 
-	if (ret != CMD_SUCCESS && ret != CMD_WARNING) {
+	if (ret != CMD_SUCCESS && ret != CMD_WARNING
+	    && ret != CMD_NOT_MY_INSTANCE && ret != CMD_WARNING_CONFIG_FAILED) {
 		/* This assumes all nodes above CONFIG_NODE are childs of
 		 * CONFIG_NODE */
 		while (vty->node > CONFIG_NODE) {
@@ -1070,7 +1071,9 @@ int cmd_execute_command(vector vline, struct vty *vty,
 			vty->node = try_node;
 			ret = cmd_execute_command_real(vline, FILTER_RELAXED,
 						       vty, cmd);
-			if (ret == CMD_SUCCESS || ret == CMD_WARNING)
+			if (ret == CMD_SUCCESS || ret == CMD_WARNING
+			    || ret == CMD_NOT_MY_INSTANCE
+			    || ret == CMD_WARNING_CONFIG_FAILED)
 				return ret;
 		}
 		/* no command succeeded, reset the vty to the original node */
@@ -1134,6 +1137,8 @@ int command_config_read_one_line(struct vty *vty,
 	if (!(use_daemon && ret == CMD_SUCCESS_DAEMON)
 	    && !(!use_daemon && ret == CMD_ERR_NOTHING_TODO)
 	    && ret != CMD_SUCCESS && ret != CMD_WARNING
+	    && ret != CMD_NOT_MY_INSTANCE
+	    && ret != CMD_WARNING_CONFIG_FAILED
 	    && vty->node != CONFIG_NODE) {
 
 		saved_node = vty->node;
