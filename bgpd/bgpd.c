@@ -2518,11 +2518,18 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 
 	/* The peer exist, bind it to the peer-group */
 	if (peer) {
-		/* When the peer already belongs to peer group, check the
+		/* When the peer already belongs to a peer-group, check the
 		 * consistency.  */
-		if (peer_group_active(peer)
-		    && strcmp(peer->group->name, group->name) != 0)
-			return BGP_ERR_PEER_GROUP_CANT_CHANGE;
+		if (peer_group_active(peer)) {
+
+			/* The peer is already bound to the peer-group,
+			 * nothing to do
+			 */
+			if (strcmp(peer->group->name, group->name) == 0)
+				return 0;
+			else
+				return BGP_ERR_PEER_GROUP_CANT_CHANGE;
+		}
 
 		/* The peer has not specified a remote-as, inherit it from the
 		 * peer-group */
