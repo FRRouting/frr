@@ -1817,6 +1817,11 @@ AC_CONFIG_FILES([Makefile
 	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh
 	  pkgsrc/eigrpd.sh])
 
+if test "${enable_bgp_vnc}" != "no"; then
+   if test "${with_rfp_path}" != "bgpd/rfp-example" ; then
+      AC_CONFIG_FILES([${with_rfp_path}/rfptest/Makefile ${with_rfp_path}/librfp/Makefile])
+   fi
+fi
 
 AC_CONFIG_FILES([solaris/Makefile])
 
