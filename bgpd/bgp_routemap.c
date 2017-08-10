@@ -3517,14 +3517,20 @@ DEFUN (set_ip_nexthop_peer,
 
 DEFUN (set_ip_nexthop_unchanged,
        set_ip_nexthop_unchanged_cmd,
-       "set ip next-hop unchanged",
+       "[no] set ip next-hop unchanged",
+       NO_STR
        SET_STR
        IP_STR
        "Next hop address\n"
        "Don't modify existing Next hop address\n")
 {
-	return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
-			       "ip next-hop", "unchanged");
+	int (*func)(struct vty *, struct route_map_index *, const char *,
+		     const char *) = strmatch(argv[0]->text, "no")
+					     ? generic_set_delete
+					     : generic_set_add;
+
+	return func(vty, VTY_GET_CONTEXT(route_map_index), "ip next-hop",
+		    "unchanged");
 }
 
 
