@@ -252,7 +252,10 @@ void show_ip_eigrp_neighbor_sub(struct vty *vty, struct eigrp_neighbor *nbr,
 
 	vty_out(vty, "%-3u %-17s %-21s", 0, eigrp_neigh_ip_string(nbr),
 		eigrp_if_name_string(nbr->ei));
-	vty_out(vty, "%-7lu", thread_timer_remain_second(nbr->t_holddown));
+	if (nbr->t_holddown)
+		vty_out(vty, "%-7lu", thread_timer_remain_second(nbr->t_holddown));
+	else
+		vty_out(vty, "-      ");
 	vty_out(vty, "%-8u %-6u %-5u", 0, 0, EIGRP_PACKET_RETRANS_TIME);
 	vty_out(vty, "%-7lu", nbr->retrans_queue->count);
 	vty_out(vty, "%u\n", nbr->recv_sequence_number);
