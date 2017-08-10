@@ -74,7 +74,7 @@ static int nhrp_vty_return(struct vty *vty, int ret)
 	if (ret == NHRP_OK)
 		return CMD_SUCCESS;
 
-	if (ret > 0 && ret <= (int)ZEBRA_NUM_OF(errmsgs))
+	if (ret > 0 && ret <= NHRP_ERR_MAX)
 		if (errmsgs[ret])
 			str = errmsgs[ret];
 

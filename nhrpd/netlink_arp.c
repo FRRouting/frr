@@ -230,20 +230,27 @@ void netlink_set_nflog_group(int nlgroup)
 	netlink_nflog_group = nlgroup;
 	if (nlgroup) {
 		netlink_log_fd = znl_open(NETLINK_NETFILTER,  0);
+		if (netlink_log_fd < 0)
+			return;
+
 		netlink_log_register(netlink_log_fd, nlgroup);
 		thread_add_read(master, netlink_log_recv, 0, netlink_log_fd,
 				&netlink_log_thread);
 	}
 }
 
-int netlink_init(void)
+void netlink_init(void)
 {
 	netlink_req_fd = znl_open(NETLINK_ROUTE, 0);
+	if (netlink_req_fd < 0)
+		return;
+
 	netlink_listen_fd = znl_open(NETLINK_ROUTE, RTMGRP_NEIGH);
+	if (netlink_listen_fd < 0)
+		return;
+
 	thread_add_read(master, netlink_route_recv, 0, netlink_listen_fd,
 			NULL);
-
-	return 0;
 }
 
 int netlink_configure_arp(unsigned int ifindex, int pf)
