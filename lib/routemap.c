@@ -2194,24 +2194,24 @@ DEFUN (set_ip_nexthop,
 
 DEFUN (no_set_ip_nexthop,
        no_set_ip_nexthop_cmd,
-       "no set ip next-hop [<peer-address|A.B.C.D>]",
+       "no set ip next-hop [A.B.C.D]",
        NO_STR
        SET_STR
        IP_STR
        "Next hop address\n"
-       "Use peer address (for BGP only)\n"
        "IP address of next hop\n")
 {
-	int idx_peer = 4;
+	int idx;
 	VTY_DECLVAR_CONTEXT(route_map_index, index);
+	const char *arg = NULL;
 
-	if (rmap_match_set_hook.no_set_ip_nexthop) {
-		if (argc <= idx_peer)
-			return rmap_match_set_hook.no_set_ip_nexthop(
-				vty, index, "ip next-hop", NULL);
+	if (argv_find(argv, argc, "A.B.C.D", &idx))
+		arg = argv[idx]->arg;
+
+	if (rmap_match_set_hook.no_set_ip_nexthop)
 		return rmap_match_set_hook.no_set_ip_nexthop(
-			vty, index, "ip next-hop", argv[idx_peer]->arg);
-	}
+			vty, index, "ip next-hop", arg);
+
 	return CMD_SUCCESS;
 }
 
