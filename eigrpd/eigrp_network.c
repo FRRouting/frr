@@ -392,9 +392,9 @@ u_int32_t eigrp_calculate_metrics(struct eigrp *eigrp,
 	// {K1*BW+[(K2*BW)/(256-load)]+(K3*delay)}*{K5/(reliability+K4)}
 
 	if (eigrp->k_values[0])
-		temp_metric += (eigrp->k_values[0] * metric.bandwith);
+		temp_metric += (eigrp->k_values[0] * metric.bandwidth);
 	if (eigrp->k_values[1])
-		temp_metric += ((eigrp->k_values[1] * metric.bandwith)
+		temp_metric += ((eigrp->k_values[1] * metric.bandwidth)
 				/ (256 - metric.load));
 	if (eigrp->k_values[2])
 		temp_metric += (eigrp->k_values[2] * metric.delay);
@@ -425,9 +425,9 @@ u_int32_t eigrp_calculate_total_metrics(struct eigrp *eigrp,
 
 	u_int32_t bw =
 		eigrp_bandwidth_to_scaled(EIGRP_IF_PARAM(entry->ei, bandwidth));
-	entry->total_metric.bandwith = entry->total_metric.bandwith > bw
+	entry->total_metric.bandwidth = entry->total_metric.bandwidth > bw
 					       ? bw
-					       : entry->total_metric.bandwith;
+					       : entry->total_metric.bandwidth;
 
 	return eigrp_calculate_metrics(eigrp, entry->total_metric);
 }
@@ -435,7 +435,7 @@ u_int32_t eigrp_calculate_total_metrics(struct eigrp *eigrp,
 u_char eigrp_metrics_is_same(struct eigrp_metrics metric1,
 			     struct eigrp_metrics metric2)
 {
-	if ((metric1.bandwith == metric2.bandwith)
+	if ((metric1.bandwidth == metric2.bandwidth)
 	    && (metric1.delay == metric2.delay)
 	    && (metric1.hop_count == metric2.hop_count)
 	    && (metric1.load == metric2.load)
