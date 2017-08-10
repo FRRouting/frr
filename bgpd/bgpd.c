@@ -3031,6 +3031,9 @@ void bgp_instance_down(struct bgp *bgp)
 
 	/* Purge network and redistributed routes. */
 	bgp_purge_static_redist_routes(bgp);
+
+	/* Cleanup registered nexthops (flags) */
+	bgp_cleanup_nexthops(bgp);
 }
 
 /* Delete BGP instance. */
