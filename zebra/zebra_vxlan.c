@@ -2876,8 +2876,9 @@ int zebra_vxlan_local_neigh_del(struct interface *ifp,
 }
 
 /*
- * Handle neighbor add or update (on a VLAN device / L3 interface)
- * from the kernel.
+ * Handle neighbor add or update from the kernel. This is typically
+ * for a local neighbor on a VLAN device (L3 interface) but can also
+ * be the ageout notification for a remote neighbor.
  */
 int zebra_vxlan_local_neigh_add_update(struct interface *ifp,
 				       struct interface *link_if,
@@ -2963,7 +2964,9 @@ int zebra_vxlan_local_neigh_add_update(struct interface *ifp,
 		/* The neighbor is remote and that is the notification we got.
 		   */
 		{
-			/* TODO: Evaluate if we need to do anything here. */
+			/* If the kernel has aged this entry, re-install. */
+			if (state & NUD_STALE)
+				zvni_neigh_install(zvni, n);
 			return 0;
 		} else
 		/* Neighbor has moved from remote to local. */
