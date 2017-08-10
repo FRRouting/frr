@@ -248,12 +248,11 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 }
 
 /* Update RP nexthop info based on Nexthop update received from Zebra.*/
-static int pim_update_rp_nh(struct pim_instance *pim,
-			    struct pim_nexthop_cache *pnc)
+static void pim_update_rp_nh(struct pim_instance *pim,
+			     struct pim_nexthop_cache *pnc)
 {
 	struct listnode *node = NULL;
 	struct rp_info *rp_info = NULL;
-	int ret = 0;
 
 	/*Traverse RP list and update each RP Nexthop info */
 	for (ALL_LIST_ELEMENTS_RO(pnc->rp_list, node, rp_info)) {
@@ -261,12 +260,11 @@ static int pim_update_rp_nh(struct pim_instance *pim,
 			continue;
 
 		// Compute PIM RPF using cached nexthop
-		ret = pim_ecmp_nexthop_search(
-			pim, pnc, &rp_info->rp.source_nexthop,
-			&rp_info->rp.rpf_addr, &rp_info->group, 1);
+		pim_ecmp_nexthop_search(pim, pnc,
+					&rp_info->rp.source_nexthop,
+					&rp_info->rp.rpf_addr,
+					&rp_info->group, 1);
 	}
-
-	return !ret;
 }
 
 /* This API is used to traverse nexthop cache of RPF addr
@@ -320,8 +318,10 @@ static int pim_update_upstream_nh_helper(struct hash_backet *backet, void *arg)
 
 	old.source_nexthop.interface = up->rpf.source_nexthop.interface;
 	rpf_result = pim_rpf_update(pim, up, &old, 0);
-	if (rpf_result == PIM_RPF_FAILURE)
+	if (rpf_result == PIM_RPF_FAILURE) {
+		pim_mroute_del(up->channel_oil, __PRETTY_FUNCTION__);
 		return HASHWALK_CONTINUE;
+	}
 
 	/* update kernel multicast forwarding cache (MFC) */
 	if (up->channel_oil) {
@@ -525,7 +525,7 @@ int pim_ecmp_nexthop_search(struct pim_instance *pim,
 							pim->vrf->name,
 							nexthop->interface->name);
 					}
-					return 0;
+					return 1;
 				}
 			}
 		}
