@@ -98,14 +98,16 @@ static const struct option lo_cfg_pid_dry[] = {
 	{"pid_file", required_argument, NULL, 'i'},
 	{"config_file", required_argument, NULL, 'f'},
 	{"dryrun", no_argument, NULL, 'C'},
+	{"stdio", no_argument, NULL, 'I'},
 	{"terminal", no_argument, NULL, 't'},
 	{NULL}};
 static const struct optspec os_cfg_pid_dry = {
-	"f:i:Ct",
+	"f:i:CtI",
 	"  -f, --config_file  Set configuration file name\n"
 	"  -i, --pid_file     Set process identifier file name\n"
 	"  -C, --dryrun       Check configuration for validity and exit\n"
-	"  -t, --terminal     Open terminal session on stdio\n"
+	"  -I, --stdio        Keep standard I/O channels open\n"
+	"  -t, --terminal     Open terminal session on stdio, keeps I/O channels open\n"
 	"  -d -t              Daemonize after terminal session ends\n",
 	lo_cfg_pid_dry};
 
@@ -351,6 +353,11 @@ static int frr_opt(int opt)
 		if (di->flags & FRR_NO_CFG_PID_DRY)
 			return 1;
 		di->dryrun = 1;
+		break;
+	case 'I':
+		if (di->flags & FRR_NO_CFG_PID_DRY)
+			return 1;
+		di->stdio = 1;
 		break;
 	case 't':
 		if (di->flags & FRR_NO_CFG_PID_DRY)
@@ -812,7 +819,7 @@ void frr_run(struct thread_master *master)
 			thread_add_read(master, frr_daemon_ctl, NULL,
 					daemon_ctl_sock, &daemon_ctl_thread);
 		}
-	} else {
+	} else if (!di->stdio) {
 		int nullfd = open("/dev/null", O_RDONLY | O_NOCTTY);
 		dup2(nullfd, 0);
 		dup2(nullfd, 1);
