@@ -1359,12 +1359,15 @@ DEFUN (no_debug_bgp_update,
        BGP_STR
        "BGP updates\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct listnode *ln;
+	struct bgp *bgp;
+
 	bgp_debug_list_free(bgp_debug_update_in_peers);
 	bgp_debug_list_free(bgp_debug_update_out_peers);
 	bgp_debug_list_free(bgp_debug_update_prefixes);
 
-	bgp_debug_clear_updgrp_update_dbg(bgp);
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, ln, bgp))
+		bgp_debug_clear_updgrp_update_dbg(bgp);
 
 	if (vty->node == CONFIG_NODE) {
 		DEBUG_OFF(update, UPDATE_IN);
@@ -1583,7 +1586,9 @@ DEFUN (no_debug_bgp,
        DEBUG_STR
        BGP_STR)
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	struct bgp *bgp;
+	struct listnode *ln;
+
 	bgp_debug_list_free(bgp_debug_neighbor_events_peers);
 	bgp_debug_list_free(bgp_debug_keepalive_peers);
 	bgp_debug_list_free(bgp_debug_update_in_peers);
@@ -1592,7 +1597,8 @@ DEFUN (no_debug_bgp,
 	bgp_debug_list_free(bgp_debug_bestpath_prefixes);
 	bgp_debug_list_free(bgp_debug_zebra_prefixes);
 
-	bgp_debug_clear_updgrp_update_dbg(bgp);
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, ln, bgp))
+		bgp_debug_clear_updgrp_update_dbg(bgp);
 
 	TERM_DEBUG_OFF(keepalive, KEEPALIVE);
 	TERM_DEBUG_OFF(update, UPDATE_IN);
