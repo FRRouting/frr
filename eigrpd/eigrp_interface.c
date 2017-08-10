@@ -265,7 +265,7 @@ int eigrp_if_up(struct eigrp_interface *ei)
 	thread_add_event(master, eigrp_hello_timer, ei, (1), NULL);
 
 	/*Prepare metrics*/
-	metric.bandwith =
+	metric.bandwidth =
 		eigrp_bandwidth_to_scaled(EIGRP_IF_PARAM(ei, bandwidth));
 	metric.delay = eigrp_delay_to_scaled(EIGRP_IF_PARAM(ei, delay));
 	metric.load = EIGRP_IF_PARAM(ei, load);
