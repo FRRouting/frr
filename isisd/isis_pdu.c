@@ -1235,10 +1235,26 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 			if (entry->rem_lifetime && entry->checksum
 			    && entry->seqno && memcmp(entry->id, isis->sysid,
 						      ISIS_SYS_ID_LEN)) {
+				struct isis_lsp *lsp0 = NULL;
+
+				if (LSP_FRAGMENT(entry->id)) {
+					uint8_t lspid[ISIS_SYS_ID_LEN + 2];
+
+					memcpy(lspid, entry->id,
+					       ISIS_SYS_ID_LEN + 1);
+					LSP_FRAGMENT(lspid) = 0;
+					lsp0 = lsp_search(
+						  lspid,
+						  circuit->area->lspdb[level - 1]);
+					if (!lsp0) {
+						zlog_debug("Got lsp frag in snp, while zero not in database");
+						continue;
+					}
+				}
 				struct isis_lsp *lsp =
 					lsp_new(circuit->area, entry->id,
 						entry->rem_lifetime, 0, 0,
-						entry->checksum, level);
+						entry->checksum, lsp0, level);
 				lsp_insert(lsp,
 					   circuit->area->lspdb[level - 1]);
 				ISIS_FLAGS_CLEAR_ALL(lsp->SRMflags);
