@@ -27,13 +27,13 @@ struct blob {
 
 static int blob_equal(const struct blob *b, const char *str)
 {
-	if (b->len != (int) strlen(str)) return 0;
+	if (!b || b->len != (int) strlen(str)) return 0;
 	return memcmp(b->ptr, str, b->len) == 0;
 }
 
 static int blob2buf(const struct blob *b, char *buf, size_t n)
 {
-	if (b->len >= (int) n) return 0;
+	if (!b || b->len >= (int) n) return 0;
 	memcpy(buf, b->ptr, b->len);
 	buf[b->len] = 0;
 	return 1;
@@ -82,8 +82,8 @@ static void vici_parse_message(
 	struct vici_message_ctx *ctx)
 {
 	uint8_t *type;
-	struct blob key;
-	struct blob val;
+	struct blob key = { 0 };
+	struct blob val = { 0 };
 
 	while ((type = zbuf_may_pull(msg, uint8_t)) != NULL) {
 		switch (*type) {
@@ -178,6 +178,9 @@ static void parse_sa_message(
 		}
 		break;
 	default:
+		if (!key)
+			break;
+
 		switch (key->ptr[0]) {
 		case 'l':
 			if (blob_equal(key, "local-host") && ctx->nsections == 1) {
