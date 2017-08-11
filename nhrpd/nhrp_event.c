@@ -59,8 +59,10 @@ static void evmgr_recv_message(struct event_manager *evmgr, struct zbuf *zb)
 		buf[len] = 0;
 
 		debugf(NHRP_DEBUG_EVENT, "evmgr: msg: %s", buf);
-		sscanf(buf, "eventid=%d", &eventid);
-		sscanf(buf, "result=%63s", result);
+		if (sscanf(buf, "eventid=%d", &eventid) != 1)
+			continue;
+		if (sscanf(buf, "result=%63s", result) != 1)
+			continue;
 	}
 	debugf(NHRP_DEBUG_EVENT, "evmgr: received: eventid=%d result=%s", eventid, result);
 	if (eventid && result[0]) {

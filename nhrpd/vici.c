@@ -27,13 +27,13 @@ struct blob {
 
 static int blob_equal(const struct blob *b, const char *str)
 {
-	if (b->len != (int) strlen(str)) return 0;
+	if (!b || b->len != (int) strlen(str)) return 0;
 	return memcmp(b->ptr, str, b->len) == 0;
 }
 
 static int blob2buf(const struct blob *b, char *buf, size_t n)
 {
-	if (b->len >= (int) n) return 0;
+	if (!b || b->len >= (int) n) return 0;
 	memcpy(buf, b->ptr, b->len);
 	buf[b->len] = 0;
 	return 1;
@@ -82,8 +82,8 @@ static void vici_parse_message(
 	struct vici_message_ctx *ctx)
 {
 	uint8_t *type;
-	struct blob key;
-	struct blob val;
+	struct blob key = { 0 };
+	struct blob val = { 0 };
 
 	while ((type = zbuf_may_pull(msg, uint8_t)) != NULL) {
 		switch (*type) {
@@ -178,11 +178,15 @@ static void parse_sa_message(
 		}
 		break;
 	default:
+		if (!key)
+			break;
+
 		switch (key->ptr[0]) {
 		case 'l':
 			if (blob_equal(key, "local-host") && ctx->nsections == 1) {
 				if (blob2buf(val, buf, sizeof(buf)))
-					str2sockunion(buf, &sactx->local.host);
+					if (str2sockunion(buf, &sactx->local.host) < 0)
+						zlog_err("VICI: bad strongSwan local-host: %s", buf);
 			} else if (blob_equal(key, "local-id") && ctx->nsections == 1) {
 				sactx->local.id = *val;
 			} else if (blob_equal(key, "local-cert-data") && ctx->nsections == 1) {
@@ -192,7 +196,8 @@ static void parse_sa_message(
 		case 'r':
 			if (blob_equal(key, "remote-host") && ctx->nsections == 1) {
 				if (blob2buf(val, buf, sizeof(buf)))
-					str2sockunion(buf, &sactx->remote.host);
+					if (str2sockunion(buf, &sactx->remote.host) < 0)
+						zlog_err("VICI: bad strongSwan remote-host: %s", buf);
 			} else if (blob_equal(key, "remote-id") && ctx->nsections == 1) {
 				sactx->remote.id = *val;
 			} else if (blob_equal(key, "remote-cert-data") && ctx->nsections == 1) {
@@ -261,6 +266,7 @@ static void vici_recv_message(struct vici_conn *vici, struct zbuf *msg)
 	uint32_t msglen;
 	uint8_t msgtype;
 	struct blob name;
+	struct vici_message_ctx ctx;
 
 	msglen = zbuf_get_be32(msg);
 	msgtype = zbuf_get8(msg);
@@ -283,7 +289,7 @@ static void vici_recv_message(struct vici_conn *vici, struct zbuf *msg)
 			vici_recv_sa(vici, msg, 2);
 		break;
 	case VICI_CMD_RESPONSE:
-		vici_parse_message(vici, msg, parse_cmd_response, 0);
+		vici_parse_message(vici, msg, parse_cmd_response, &ctx);
 		break;
 	case VICI_EVENT_UNKNOWN:
 	case VICI_CMD_UNKNOWN:
@@ -380,8 +386,6 @@ static void vici_submit_request(struct vici_conn *vici, const char *name, ...)
 			len = va_arg(va, size_t);
 			zbuf_put_be16(obuf, len);
 			zbuf_put(obuf, va_arg(va, void *), len);
-			break;
-		case VICI_END:
 			break;
 		default:
 			break;
@@ -491,7 +495,7 @@ int sock_open_unix(const char *path)
 
 	memset(&addr, 0, sizeof (struct sockaddr_un));
 	addr.sun_family = AF_UNIX;
-	strncpy(addr.sun_path, path, strlen (path));
+	strncpy(addr.sun_path, path, sizeof(addr.sun_path) - 1);
 
 	ret = connect(fd, (struct sockaddr *) &addr, sizeof(addr.sun_family) + strlen(addr.sun_path));
 	if (ret < 0) {
@@ -499,7 +503,11 @@ int sock_open_unix(const char *path)
 		return -1;
 	}
 
-	fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
+	ret = fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) | O_NONBLOCK);
+	if (ret < 0) {
+		close(fd);
+		return -1;
+	}
 
 	return fd;
 }
