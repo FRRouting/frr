@@ -538,7 +538,8 @@ static void trie_install_fn(struct prefix_list_entry *object,
 			return;
 		if ((*updptr)->prefix.prefixlen < object->prefix.prefixlen)
 			break;
-		if ((*updptr)->seq > object->seq)
+		if ((*updptr)->prefix.prefixlen == object->prefix.prefixlen
+		    && (*updptr)->seq > object->seq)
 			break;
 		updptr = &(*updptr)->next_best;
 	}
