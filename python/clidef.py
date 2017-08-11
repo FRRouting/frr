@@ -59,7 +59,7 @@ class PrefixBase(RenderHandler):
     def combine(self, other):
         if type(self) == type(other):
             return other
-        if type(other) in [Prefix4Handler, Prefix6Handler, PrefixGenHandler]:
+        if isinstance(other, PrefixBase):
             return PrefixGenHandler(None)
         return StringHandler(None)
     deref = '&'
@@ -71,6 +71,10 @@ class Prefix6Handler(PrefixBase):
     argtype = 'const struct prefix_ipv6 *'
     decl = Template('struct prefix_ipv6 $varname = { };')
     code = Template('_fail = !str2prefix_ipv6(argv[_i]->arg, &$varname);')
+class PrefixEthHandler(PrefixBase):
+    argtype = 'struct prefix_eth *'
+    decl = Template('struct prefix_eth $varname = { };')
+    code = Template('_fail = !str2prefix_eth(argv[_i]->arg, &$varname);')
 class PrefixGenHandler(PrefixBase):
     argtype = 'const struct prefix *'
     decl = Template('struct prefix $varname = { };')
@@ -121,6 +125,8 @@ handlers = {
     'IPV4_PREFIX_TKN':  Prefix4Handler,
     'IPV6_TKN':         IP6Handler,
     'IPV6_PREFIX_TKN':  Prefix6Handler,
+    'MAC_TKN':          PrefixEthHandler,
+    'MAC_PREFIX_TKN':   PrefixEthHandler,
 }
 
 # core template invoked for each occurence of DEFPY.
