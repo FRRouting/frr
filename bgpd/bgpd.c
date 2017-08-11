@@ -6142,27 +6142,11 @@ char *peer_uptime(time_t uptime2, char *buf, size_t len, u_char use_json,
 	return buf;
 }
 
-static void afi_header_vty_out(struct vty *vty, afi_t afi, safi_t safi,
-			       int *write, const char *format, ...)
-{
-	va_list args;
-	int len = 0;
-	char buf[1024];
-
-	bgp_config_write_family_header(vty, afi, safi, write);
-
-	if (vty_shell(vty)) {
-		va_start(args, format);
-		vprintf(format, args);
-		va_end(args);
-	} else {
-		va_start(args, format);
-		len = vsnprintf(buf, sizeof(buf), format, args);
-		va_end(args);
-
-		buffer_put(vty->obuf, (u_char *)buf, len);
-	}
-}
+#define afi_header_vty_out(vty, afi, safi, write, format, ...) \
+	do { \
+		bgp_config_write_family_header(vty, afi, safi, write); \
+		vty_out(vty, format, ## __VA_ARGS__); \
+	} while (0)
 
 static void bgp_config_write_filter(struct vty *vty, struct peer *peer,
 				    afi_t afi, safi_t safi, int *write)

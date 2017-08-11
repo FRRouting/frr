@@ -812,7 +812,7 @@ void frr_run(struct thread_master *master)
 			thread_add_read(master, frr_daemon_ctl, NULL,
 					daemon_ctl_sock, &daemon_ctl_thread);
 		}
-	} else {
+	} else if (di->daemon_mode) {
 		int nullfd = open("/dev/null", O_RDONLY | O_NOCTTY);
 		dup2(nullfd, 0);
 		dup2(nullfd, 1);
