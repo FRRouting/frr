@@ -401,6 +401,8 @@ static void ospf_spf_flush_parents(struct vertex *w)
 	/* delete the existing nexthops */
 	for (ALL_LIST_ELEMENTS(w->parents, ln, nn, vp)) {
 		list_delete_node(w->parents, ln);
+		if (vp->nexthop)
+			vertex_nexthop_free(vp->nexthop);
 		vertex_parent_free(vp);
 	}
 }
