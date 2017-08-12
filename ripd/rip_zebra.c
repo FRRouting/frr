@@ -48,73 +48,70 @@ static void rip_zebra_ipv4_send(struct route_node *rp, u_char cmd)
 	struct rip_info *rinfo = NULL;
 	int count = 0;
 
-	if (vrf_bitmap_check(zclient->redist[AFI_IP][ZEBRA_ROUTE_RIP],
-			     VRF_DEFAULT)) {
-		api.vrf_id = VRF_DEFAULT;
-		api.type = ZEBRA_ROUTE_RIP;
-		api.instance = 0;
-		api.flags = 0;
-		api.message = 0;
-		api.safi = SAFI_UNICAST;
+	if (!vrf_bitmap_check(zclient->redist[AFI_IP][ZEBRA_ROUTE_RIP],
+			      VRF_DEFAULT))
+		return;
 
-		if (nexthops_len < listcount(list)) {
-			nexthops_len = listcount(list);
-			nexthops = XREALLOC(MTYPE_TMP, nexthops,
-					    nexthops_len
-						    * sizeof(struct in_addr *));
-		}
+	api.vrf_id = VRF_DEFAULT;
+	api.type = ZEBRA_ROUTE_RIP;
+	api.instance = 0;
+	api.flags = 0;
+	api.message = 0;
+	api.safi = SAFI_UNICAST;
 
-		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-		for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
-			nexthops[count++] = &rinfo->nexthop;
-			if (cmd == ZEBRA_IPV4_ROUTE_ADD)
-				SET_FLAG(rinfo->flags, RIP_RTF_FIB);
-			else
-				UNSET_FLAG(rinfo->flags, RIP_RTF_FIB);
-		}
-
-		api.nexthop = nexthops;
-		api.nexthop_num = count;
-		api.ifindex_num = 0;
-
-		rinfo = listgetdata(listhead(list));
-
-		SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
-		api.metric = rinfo->metric;
-
-		if (rinfo->distance
-		    && rinfo->distance != ZEBRA_RIP_DISTANCE_DEFAULT) {
-			SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
-			api.distance = rinfo->distance;
-		}
-
-		if (rinfo->tag) {
-			SET_FLAG(api.message, ZAPI_MESSAGE_TAG);
-			api.tag = rinfo->tag;
-		}
-
-		zapi_ipv4_route(cmd, zclient, (struct prefix_ipv4 *)&rp->p,
-				&api);
-
-		if (IS_RIP_DEBUG_ZEBRA) {
-			if (rip->ecmp)
-				zlog_debug("%s: %s/%d nexthops %d",
-					   (cmd == ZEBRA_IPV4_ROUTE_ADD)
-						   ? "Install into zebra"
-						   : "Delete from zebra",
-					   inet_ntoa(rp->p.u.prefix4),
-					   rp->p.prefixlen, count);
-			else
-				zlog_debug("%s: %s/%d",
-					   (cmd == ZEBRA_IPV4_ROUTE_ADD)
-						   ? "Install into zebra"
-						   : "Delete from zebra",
-					   inet_ntoa(rp->p.u.prefix4),
-					   rp->p.prefixlen);
-		}
-
-		rip_global_route_changes++;
+	if (nexthops_len < listcount(list)) {
+		nexthops_len = listcount(list);
+		nexthops = XREALLOC(MTYPE_TMP, nexthops,
+				    nexthops_len * sizeof(struct in_addr *));
 	}
+
+	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+	for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
+		nexthops[count++] = &rinfo->nexthop;
+		if (cmd == ZEBRA_IPV4_ROUTE_ADD)
+			SET_FLAG(rinfo->flags, RIP_RTF_FIB);
+		else
+			UNSET_FLAG(rinfo->flags, RIP_RTF_FIB);
+	}
+
+	api.nexthop = nexthops;
+	api.nexthop_num = count;
+	api.ifindex_num = 0;
+
+	rinfo = listgetdata(listhead(list));
+
+	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
+	api.metric = rinfo->metric;
+
+	if (rinfo->distance && rinfo->distance != ZEBRA_RIP_DISTANCE_DEFAULT) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
+		api.distance = rinfo->distance;
+	}
+
+	if (rinfo->tag) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_TAG);
+		api.tag = rinfo->tag;
+	}
+
+	zapi_ipv4_route(cmd, zclient, (struct prefix_ipv4 *)&rp->p, &api);
+
+	if (IS_RIP_DEBUG_ZEBRA) {
+		if (rip->ecmp)
+			zlog_debug("%s: %s/%d nexthops %d",
+				   (cmd == ZEBRA_IPV4_ROUTE_ADD)
+					   ? "Install into zebra"
+					   : "Delete from zebra",
+				   inet_ntoa(rp->p.u.prefix4), rp->p.prefixlen,
+				   count);
+		else
+			zlog_debug("%s: %s/%d",
+				   (cmd == ZEBRA_IPV4_ROUTE_ADD)
+					   ? "Install into zebra"
+					   : "Delete from zebra",
+				   inet_ntoa(rp->p.u.prefix4), rp->p.prefixlen);
+	}
+
+	rip_global_route_changes++;
 }
 
 /* Add/update ECMP routes to zebra. */
@@ -623,39 +620,39 @@ int config_write_rip_redistribute(struct vty *vty, int config_mode)
 {
 	int i;
 
-	for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-		if (i != zclient->redist_default
-		    && vrf_bitmap_check(zclient->redist[AFI_IP][i],
-					VRF_DEFAULT)) {
-			if (config_mode) {
-				if (rip->route_map[i].metric_config) {
-					if (rip->route_map[i].name)
-						vty_out(vty,
-							" redistribute %s metric %d route-map %s\n",
-							zebra_route_string(i),
-							rip->route_map[i]
-								.metric,
-							rip->route_map[i].name);
-					else
-						vty_out(vty,
-							" redistribute %s metric %d\n",
-							zebra_route_string(i),
-							rip->route_map[i]
-								.metric);
-				} else {
-					if (rip->route_map[i].name)
-						vty_out(vty,
-							" redistribute %s route-map %s\n",
-							zebra_route_string(i),
-							rip->route_map[i].name);
-					else
-						vty_out(vty,
-							" redistribute %s\n",
-							zebra_route_string(i));
-				}
-			} else
-				vty_out(vty, " %s", zebra_route_string(i));
+	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+		if (i == zclient->redist_default
+		    || !vrf_bitmap_check(zclient->redist[AFI_IP][i],
+					 VRF_DEFAULT))
+			continue;
+
+		if (!config_mode) {
+			vty_out(vty, " %s", zebra_route_string(i));
+			continue;
 		}
+
+		if (rip->route_map[i].metric_config) {
+			if (rip->route_map[i].name)
+				vty_out(vty,
+					" redistribute %s metric %d route-map %s\n",
+					zebra_route_string(i),
+					rip->route_map[i].metric,
+					rip->route_map[i].name);
+			else
+				vty_out(vty, " redistribute %s metric %d\n",
+					zebra_route_string(i),
+					rip->route_map[i].metric);
+		} else {
+			if (rip->route_map[i].name)
+				vty_out(vty, " redistribute %s route-map %s\n",
+					zebra_route_string(i),
+					rip->route_map[i].name);
+			else
+				vty_out(vty, " redistribute %s\n",
+					zebra_route_string(i));
+		}
+	}
+
 	return 0;
 }
 

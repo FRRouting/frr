@@ -258,63 +258,62 @@ static void isis_zebra_route_add_ipv4(struct prefix *prefix,
 	if (CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
 		return;
 
-	if (vrf_bitmap_check(zclient->redist[AFI_IP][ZEBRA_ROUTE_ISIS],
-			     VRF_DEFAULT)) {
-		message = 0;
-		flags = 0;
+	if (!vrf_bitmap_check(zclient->redist[AFI_IP][ZEBRA_ROUTE_ISIS],
+			      VRF_DEFAULT))
+		return;
 
-		SET_FLAG(message, ZAPI_MESSAGE_NEXTHOP);
-		SET_FLAG(message, ZAPI_MESSAGE_METRIC);
+	message = 0;
+	flags = 0;
+
+	SET_FLAG(message, ZAPI_MESSAGE_NEXTHOP);
+	SET_FLAG(message, ZAPI_MESSAGE_METRIC);
 #if 0
-      SET_FLAG (message, ZAPI_MESSAGE_DISTANCE);
+	SET_FLAG (message, ZAPI_MESSAGE_DISTANCE);
 #endif
 
-		stream = zclient->obuf;
-		stream_reset(stream);
-		zclient_create_header(stream, ZEBRA_IPV4_ROUTE_ADD,
-				      VRF_DEFAULT);
-		/* type */
-		stream_putc(stream, ZEBRA_ROUTE_ISIS);
-		/* instance */
-		stream_putw(stream, 0);
-		/* flags */
-		stream_putl(stream, flags);
-		/* message */
-		stream_putc(stream, message);
-		/* SAFI */
-		stream_putw(stream, SAFI_UNICAST);
-		/* prefix information */
-		psize = PSIZE(prefix->prefixlen);
-		stream_putc(stream, prefix->prefixlen);
-		stream_write(stream, (u_char *)&prefix->u.prefix4, psize);
+	stream = zclient->obuf;
+	stream_reset(stream);
+	zclient_create_header(stream, ZEBRA_IPV4_ROUTE_ADD, VRF_DEFAULT);
+	/* type */
+	stream_putc(stream, ZEBRA_ROUTE_ISIS);
+	/* instance */
+	stream_putw(stream, 0);
+	/* flags */
+	stream_putl(stream, flags);
+	/* message */
+	stream_putc(stream, message);
+	/* SAFI */
+	stream_putw(stream, SAFI_UNICAST);
+	/* prefix information */
+	psize = PSIZE(prefix->prefixlen);
+	stream_putc(stream, prefix->prefixlen);
+	stream_write(stream, (u_char *)&prefix->u.prefix4, psize);
 
-		stream_putc(stream, listcount(route_info->nexthops));
+	stream_putc(stream, listcount(route_info->nexthops));
 
-		/* Nexthop, ifindex, distance and metric information */
-		for (ALL_LIST_ELEMENTS_RO(route_info->nexthops, node,
-					  nexthop)) {
-			/* FIXME: can it be ? */
-			if (nexthop->ip.s_addr != INADDR_ANY) {
-				stream_putc(stream, NEXTHOP_TYPE_IPV4_IFINDEX);
-				stream_put_in_addr(stream, &nexthop->ip);
-				stream_putl(stream, nexthop->ifindex);
-			} else {
-				stream_putc(stream, NEXTHOP_TYPE_IFINDEX);
-				stream_putl(stream, nexthop->ifindex);
-			}
+	/* Nexthop, ifindex, distance and metric information */
+	for (ALL_LIST_ELEMENTS_RO(route_info->nexthops, node, nexthop)) {
+		/* FIXME: can it be ? */
+		if (nexthop->ip.s_addr != INADDR_ANY) {
+			stream_putc(stream, NEXTHOP_TYPE_IPV4_IFINDEX);
+			stream_put_in_addr(stream, &nexthop->ip);
+			stream_putl(stream, nexthop->ifindex);
+		} else {
+			stream_putc(stream, NEXTHOP_TYPE_IFINDEX);
+			stream_putl(stream, nexthop->ifindex);
 		}
-#if 0
-      if (CHECK_FLAG (message, ZAPI_MESSAGE_DISTANCE))
-	stream_putc (stream, route_info->depth);
-#endif
-		if (CHECK_FLAG(message, ZAPI_MESSAGE_METRIC))
-			stream_putl(stream, route_info->cost);
-
-		stream_putw_at(stream, 0, stream_get_endp(stream));
-		zclient_send_message(zclient);
-		SET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
-		UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
 	}
+#if 0
+	if (CHECK_FLAG (message, ZAPI_MESSAGE_DISTANCE))
+		stream_putc (stream, route_info->depth);
+#endif
+	if (CHECK_FLAG(message, ZAPI_MESSAGE_METRIC))
+		stream_putl(stream, route_info->cost);
+
+	stream_putw_at(stream, 0, stream_get_endp(stream));
+	zclient_send_message(zclient);
+	SET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
+	UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
 }
 
 static void isis_zebra_route_del_ipv4(struct prefix *prefix,
@@ -323,23 +322,22 @@ static void isis_zebra_route_del_ipv4(struct prefix *prefix,
 	struct zapi_ipv4 api;
 	struct prefix_ipv4 prefix4;
 
-	if (vrf_bitmap_check(zclient->redist[AFI_IP][ZEBRA_ROUTE_ISIS],
-			     VRF_DEFAULT)) {
-		api.vrf_id = VRF_DEFAULT;
-		api.type = ZEBRA_ROUTE_ISIS;
-		api.instance = 0;
-		api.flags = 0;
-		api.message = 0;
-		api.safi = SAFI_UNICAST;
-		prefix4.family = AF_INET;
-		prefix4.prefixlen = prefix->prefixlen;
-		prefix4.prefix = prefix->u.prefix4;
-		zapi_ipv4_route(ZEBRA_IPV4_ROUTE_DELETE, zclient, &prefix4,
-				&api);
-	}
 	UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 
-	return;
+	if (!vrf_bitmap_check(zclient->redist[AFI_IP][ZEBRA_ROUTE_ISIS],
+			      VRF_DEFAULT))
+		return;
+
+	api.vrf_id = VRF_DEFAULT;
+	api.type = ZEBRA_ROUTE_ISIS;
+	api.instance = 0;
+	api.flags = 0;
+	api.message = 0;
+	api.safi = SAFI_UNICAST;
+	prefix4.family = AF_INET;
+	prefix4.prefixlen = prefix->prefixlen;
+	prefix4.prefix = prefix->u.prefix4;
+	zapi_ipv4_route(ZEBRA_IPV4_ROUTE_DELETE, zclient, &prefix4, &api);
 }
 
 static void isis_zebra_route_add_ipv6(struct prefix *prefix,
@@ -367,8 +365,8 @@ static void isis_zebra_route_add_ipv6(struct prefix *prefix,
 	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
 	api.metric = route_info->cost;
 #if 0
-  SET_FLAG (api.message, ZAPI_MESSAGE_DISTANCE);
-  api.distance = route_info->depth;
+	SET_FLAG (api.message, ZAPI_MESSAGE_DISTANCE);
+	api.distance = route_info->depth;
 #endif
 	api.nexthop_num = listcount(route_info->nexthops6);
 	api.ifindex_num = listcount(route_info->nexthops6);
