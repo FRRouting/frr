@@ -2645,7 +2645,7 @@ void zebra_zserv_socket_init(char *path)
 			unlink(suna->sun_path);
 	}
 
-	if (zserv_privs.change(ZPRIVS_RAISE))
+	if (sa.ss_family != AF_UNIX && zserv_privs.change(ZPRIVS_RAISE))
 		zlog_err("Can't raise privileges");
 
 	ret = bind(sock, (struct sockaddr *)&sa, sa_len);
@@ -2657,7 +2657,7 @@ void zebra_zserv_socket_init(char *path)
 		close(sock);
 		return;
 	}
-	if (zserv_privs.change(ZPRIVS_LOWER))
+	if (sa.ss_family != AF_UNIX && zserv_privs.change(ZPRIVS_LOWER))
 		zlog_err("Can't lower privileges");
 
 	ret = listen(sock, 5);
