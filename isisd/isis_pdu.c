@@ -1832,10 +1832,26 @@ static int process_snp(int snp_type, int level, struct isis_circuit *circuit,
 				    && entry->seq_num
 				    && memcmp(entry->lsp_id, isis->sysid,
 					      ISIS_SYS_ID_LEN)) {
+					struct isis_lsp *lsp0 = NULL;
+
+					if (LSP_FRAGMENT(entry->lsp_id)) {
+						uint8_t lspid[ISIS_SYS_ID_LEN + 2];
+
+						memcpy(lspid, entry->lsp_id,
+						       ISIS_SYS_ID_LEN + 1);
+						LSP_FRAGMENT(lspid) = 0;
+						lsp0 = lsp_search(
+							  lspid,
+							  circuit->area->lspdb[level - 1]);
+						if (!lsp0) {
+							zlog_debug("Got lsp frag in snp, while zero not in database");
+							continue;
+						}
+					}
 					lsp = lsp_new(
 						circuit->area, entry->lsp_id,
 						ntohs(entry->rem_lifetime), 0,
-						0, entry->checksum, level);
+						0, entry->checksum, lsp0, level);
 					lsp_insert(lsp,
 						   circuit->area
 							   ->lspdb[level - 1]);

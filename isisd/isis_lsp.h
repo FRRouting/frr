@@ -61,7 +61,8 @@ int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level);
 
 struct isis_lsp *lsp_new(struct isis_area *area, u_char *lsp_id,
 			 u_int16_t rem_lifetime, u_int32_t seq_num,
-			 u_int8_t lsp_bits, u_int16_t checksum, int level);
+			 u_int8_t lsp_bits, u_int16_t checksum,
+			 struct isis_lsp *lsp0, int level);
 struct isis_lsp *lsp_new_from_stream_ptr(struct stream *stream,
 					 u_int16_t pdu_len,
 					 struct isis_lsp *lsp0,
