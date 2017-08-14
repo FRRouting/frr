@@ -6142,11 +6142,15 @@ static void bgp_config_write_filter(struct vty *vty, struct peer *peer,
 					   VTY_NEWLINE);
 		}
 
-	if (filter->plist[out].name && !gfilter) {
-		afi_header_vty_out(vty, afi, safi, write,
-				   "  neighbor %s prefix-list %s out%s", addr,
-				   filter->plist[out].name, VTY_NEWLINE);
-	}
+	if (filter->plist[out].name)
+		if (!gfilter || !gfilter->plist[out].name
+		    || strcmp(filter->plist[out].name, gfilter->plist[out].name)
+		    != 0) {
+			afi_header_vty_out(vty, afi, safi, write,
+					   "  neighbor %s prefix-list %s out%s",
+					   addr, filter->plist[out].name,
+					   VTY_NEWLINE);
+		}
 
 	/* route-map. */
 	if (filter->map[RMAP_IN].name)
