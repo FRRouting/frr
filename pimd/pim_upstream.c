@@ -1111,8 +1111,15 @@ static int pim_upstream_keep_alive_timer(struct thread *t)
 		PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(up->flags);
 		pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
 	} else if (PIM_UPSTREAM_FLAG_TEST_SRC_LHR(up->flags)) {
+		struct pim_upstream *parent = up->parent;
+
 		PIM_UPSTREAM_FLAG_UNSET_SRC_LHR(up->flags);
 		pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
+
+		if (parent) {
+			pim_jp_agg_single_upstream_send(&parent->rpf,
+							parent, true);
+		}
 	}
 
 	return 0;
