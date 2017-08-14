@@ -553,6 +553,9 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 			"%s: could not attach upstream (S,G)=%s on interface %s",
 			__PRETTY_FUNCTION__, pim_str_sg_dump(sg), ifp->name);
 
+		if (ch->parent)
+			listnode_delete(ch->parent->sources, ch);
+
 		pim_ifchannel_remove_children(ch);
 		if (ch->sources)
 			list_delete(ch->sources);
