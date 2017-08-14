@@ -545,6 +545,19 @@ void lsp_update(struct isis_lsp *lsp, struct stream *stream,
 	lsp_insert(lsp, area->lspdb[level - 1]);
 }
 
+static void lsp_link_fragment(struct isis_lsp *lsp, struct isis_lsp *lsp0)
+{
+	if (!LSP_FRAGMENT(lsp->lsp_header->lsp_id)) {
+		/* zero lsp -> create list to store fragments */
+		lsp->lspu.frags = list_new();
+	} else {
+		/* fragment -> set backpointer and add to zero lsps list */
+		assert(lsp0);
+		lsp->lspu.zero_lsp = lsp0;
+		listnode_add(lsp0->lspu.frags, lsp);
+	}
+}
+
 /* creation of LSP directly from what we received */
 struct isis_lsp *lsp_new_from_stream_ptr(struct stream *stream,
 					 u_int16_t pdu_len,
@@ -555,27 +568,15 @@ struct isis_lsp *lsp_new_from_stream_ptr(struct stream *stream,
 
 	lsp = XCALLOC(MTYPE_ISIS_LSP, sizeof(struct isis_lsp));
 	lsp_update_data(lsp, stream, area, level);
-
-	if (lsp0 == NULL) {
-		/*
-		 * zero lsp -> create the list for fragments
-		 */
-		lsp->lspu.frags = list_new();
-	} else {
-		/*
-		 * a fragment -> set the backpointer and add this to zero lsps
-		 * frag list
-		 */
-		lsp->lspu.zero_lsp = lsp0;
-		listnode_add(lsp0->lspu.frags, lsp);
-	}
+	lsp_link_fragment(lsp, lsp0);
 
 	return lsp;
 }
 
 struct isis_lsp *lsp_new(struct isis_area *area, u_char *lsp_id,
 			 u_int16_t rem_lifetime, u_int32_t seq_num,
-			 u_int8_t lsp_bits, u_int16_t checksum, int level)
+			 u_int8_t lsp_bits, u_int16_t checksum,
+			 struct isis_lsp *lsp0, int level)
 {
 	struct isis_lsp *lsp;
 
@@ -583,8 +584,6 @@ struct isis_lsp *lsp_new(struct isis_area *area, u_char *lsp_id,
 	lsp->area = area;
 
 	lsp->pdu = stream_new(LLC_LEN + area->lsp_mtu);
-	if (LSP_FRAGMENT(lsp_id) == 0)
-		lsp->lspu.frags = list_new();
 	lsp->isis_header = (struct isis_fixed_hdr *)(STREAM_DATA(lsp->pdu));
 	lsp->lsp_header = (struct isis_link_state_hdr *)(STREAM_DATA(lsp->pdu)
 							 + ISIS_FIXED_HDR_LEN);
@@ -605,6 +604,7 @@ struct isis_lsp *lsp_new(struct isis_area *area, u_char *lsp_id,
 	lsp->age_out = ZERO_AGE_LIFETIME;
 
 	stream_forward_endp(lsp->pdu, ISIS_FIXED_HDR_LEN + ISIS_LSP_HDR_LEN);
+	lsp_link_fragment(lsp, lsp0);
 
 	if (isis->debugs & DEBUG_EVENTS)
 		zlog_debug("New LSP with ID %s-%02x-%02x len %d seqnum %08x",
@@ -1167,12 +1167,10 @@ static struct isis_lsp *lsp_next_frag(u_char frag_num, struct isis_lsp *lsp0,
 	lsp = lsp_new(area, frag_id, ntohs(lsp0->lsp_header->rem_lifetime), 0,
 		      lsp_bits_generate(level, area->overload_bit,
 					area->attached_bit),
-		      0, level);
+		      0, lsp0, level);
 	lsp->area = area;
 	lsp->own_lsp = 1;
 	lsp_insert(lsp, area->lspdb[level - 1]);
-	listnode_add(lsp0->lspu.frags, lsp);
-	lsp->lspu.zero_lsp = lsp0;
 	return lsp;
 }
 
@@ -1933,7 +1931,7 @@ int lsp_generate(struct isis_area *area, int level)
 	newlsp =
 		lsp_new(area, lspid, rem_lifetime, seq_num,
 			area->is_type | area->overload_bit | area->attached_bit,
-			0, level);
+			0, NULL, level);
 	newlsp->area = area;
 	newlsp->own_lsp = 1;
 
@@ -2387,7 +2385,7 @@ int lsp_generate_pseudo(struct isis_circuit *circuit, int level)
 	/* RFC3787  section 4 SHOULD not set overload bit in pseudo LSPs */
 	lsp = lsp_new(circuit->area, lsp_id, rem_lifetime, 1,
 		      circuit->area->is_type | circuit->area->attached_bit, 0,
-		      level);
+		      NULL, level);
 	lsp->area = circuit->area;
 
 	lsp_build_pseudo(lsp, circuit, level);
