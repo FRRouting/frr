@@ -225,17 +225,17 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 
 	/* Set up or remove link with master */
 	if (bridge_ifindex != IFINDEX_INTERNAL) {
-		zebra_l2_map_slave_to_bridge (&zif->brslave_info);
+		zebra_l2_map_slave_to_bridge(&zif->brslave_info);
 		/* In the case of VxLAN, invoke the handler for EVPN. */
 		if (zif->zif_type == ZEBRA_IF_VXLAN)
-			zebra_vxlan_if_update (ifp, ZEBRA_VXLIF_MASTER_CHANGE);
+			zebra_vxlan_if_update(ifp, ZEBRA_VXLIF_MASTER_CHANGE);
 	} else if (old_bridge_ifindex != IFINDEX_INTERNAL) {
-		/* In the case of VxLAN, invoke the handler for EVPN. Note that
-		 * this should be done *prior* to unmapping the interface from the
-		 * bridge.
+		/* In the case of VxLAN, invoke the handler for EVPN.
+		 * Note that this should be done *prior* to unmapping the interface
+		 * from the bridge.
 		 */
 		if (zif->zif_type == ZEBRA_IF_VXLAN)
-			zebra_vxlan_if_update (ifp, ZEBRA_VXLIF_MASTER_CHANGE);
-		zebra_l2_unmap_slave_from_bridge (&zif->brslave_info);
+			zebra_vxlan_if_update(ifp, ZEBRA_VXLIF_MASTER_CHANGE);
+		zebra_l2_unmap_slave_from_bridge(&zif->brslave_info);
 	}
 }

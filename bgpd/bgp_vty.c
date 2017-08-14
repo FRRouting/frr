@@ -9040,8 +9040,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 					"    Hostname Capability:");
 
 				if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_ADV)) {
-					vty_out(vty, " advertised (name: %s, "
-						"domain name: %s)",
+					vty_out(vty, " advertised (name: %s,domain name: %s)",
 						bgp->peer_self->hostname ?
 							bgp->peer_self->hostname
 							: "n/a",
@@ -9053,8 +9052,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 				}
 
 				if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_RCV)) {
-					vty_out(vty, " received (name: %s, "
-						"domain name: %s)",
+					vty_out(vty, " received (name: %s,domain name: %s)",
 						p->hostname ?
 							p->hostname : "n/a",
 						p->domainname ?

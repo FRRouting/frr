@@ -6246,7 +6246,8 @@ static void route_vty_out_route(struct prefix *p, struct vty *vty,
 			    || (IN_CLASSB(destination) && p->prefixlen == 16)
 			    || (IN_CLASSA(destination) && p->prefixlen == 8)
 			    || p->u.prefix4.s_addr == 0) {
-				/* When mask is natural, mask is not displayed. */
+				/* When mask is natural,
+				   mask is not displayed. */
 			} else
 				len += vty_out(vty, "/%d", p->prefixlen);
 		} else {
@@ -6261,12 +6262,12 @@ static void route_vty_out_route(struct prefix *p, struct vty *vty,
 		len = vty_out(vty, "%s", buf);
 	} else if (p->family == AF_EVPN) {
 #if defined(HAVE_CUMULUS)
-        if (!json)
-          len = vty_out (vty, "%s",
-                         bgp_evpn_route2str((struct prefix_evpn *)p,
-					    buf, BUFSIZ));
-        else
-          bgp_evpn_route2json ( (struct prefix_evpn *) p, json);
+	if (!json)
+		len = vty_out(vty, "%s",
+			      bgp_evpn_route2str((struct prefix_evpn *)p,
+						 buf, BUFSIZ));
+	else
+		bgp_evpn_route2json((struct prefix_evpn *) p, json);
 #else
 		prefix2str(p, buf, PREFIX_STRLEN);
 		len = vty_out(vty, "%s", buf);
@@ -6393,7 +6394,7 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 		else
 			vty_out(vty, "%*s", 17, " ");
 	} else {
-		route_vty_out_route (p, vty, json_path);
+		route_vty_out_route(p, vty, json_path);
 	}
 
 	/* Print attribute */
@@ -8379,9 +8380,9 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 		if (has_valid_label)
 			json_object_int_add(json, "localLabel", label);
 
-		json_object_string_add (json, "prefix",
-					prefix2str (p, prefix_str,
-						    sizeof (prefix_str)));
+		json_object_string_add(json, "prefix",
+				       prefix2str(p, prefix_str,
+						  sizeof(prefix_str)));
 	} else {
 #if defined(HAVE_CUMULUS)
 		if (safi == SAFI_EVPN)

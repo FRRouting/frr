@@ -76,8 +76,8 @@ static void display_import_rt(struct vty *vty, struct irt_node *irt,
 	char rt_buf[RT_ADDRSTRLEN];
 
 	if (json) {
-		json_rt = json_object_new_object ();
-		json_vnis = json_object_new_array ();
+		json_rt = json_object_new_object();
+		json_vnis = json_object_new_array();
 	}
 
 	/* TODO: This needs to go into a function */
@@ -521,6 +521,7 @@ static void show_vni_entry(struct hash_backet *backet, void *args[])
 
 	if (json) {
 		char vni_str[VNI_STR_LEN];
+
 		json_object_object_add(json_vni, "exportRTs", json_export_rtl);
 		snprintf(vni_str, VNI_STR_LEN, "%u", vpn->vni);
 		json_object_object_add(json, vni_str, json_vni);
