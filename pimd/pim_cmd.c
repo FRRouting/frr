@@ -7328,8 +7328,14 @@ DEFUN (ip_pim_bfd,
 	struct pim_interface *pim_ifp = ifp->info;
 	struct bfd_info *bfd_info = NULL;
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
+	if (!pim_ifp) {
+		if (!pim_cmd_interface_add(ifp)) {
+			vty_out(vty, "Could not enable PIM SM on interface\n");
+			return CMD_WARNING;
+		}
+	}
+	pim_ifp = ifp->info;
+
 	bfd_info = pim_ifp->bfd_info;
 
 	if (!bfd_info || !CHECK_FLAG(bfd_info->flags, BFD_FLAG_PARAM_CFG))
@@ -7350,8 +7356,10 @@ DEFUN (no_ip_pim_bfd,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct pim_interface *pim_ifp = ifp->info;
 
-	if (!pim_ifp)
-		return CMD_SUCCESS;
+	if (!pim_ifp) {
+		vty_out(vty, "Pim not enabled on this interface\n");
+		return CMD_WARNING;
+	}
 
 	if (pim_ifp->bfd_info) {
 		pim_bfd_reg_dereg_all_nbr(ifp, ZEBRA_BFD_DEST_DEREGISTER);
@@ -7379,7 +7387,14 @@ DEFUN (ip_pim_bfd_param,
 	u_int32_t tx_val;
 	u_int8_t dm_val;
 	int ret;
+	struct pim_interface *pim_ifp = ifp->info;
 
+	if (!pim_ifp) {
+		if (!pim_cmd_interface_add(ifp)) {
+			vty_out(vty, "Could not enable PIM SM on interface\n");
+			return CMD_WARNING;
+		}
+	}
 
 	if ((ret = bfd_validate_param(
 		     vty, argv[idx_number]->arg, argv[idx_number_2]->arg,
