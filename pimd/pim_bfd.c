@@ -295,31 +295,39 @@ static int pim_bfd_nbr_replay(int command, struct zclient *zclient,
 	struct listnode *node;
 	struct listnode *neigh_node;
 	struct listnode *neigh_nextnode;
+	struct vrf *vrf = NULL;
 
 	/* Send the client registration */
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
-		pim_ifp = ifp->info;
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
+		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf->vrf_id), node, ifp)) {
+			pim_ifp = ifp->info;
 
-		if (!pim_ifp)
-			continue;
-
-		if (pim_ifp->pim_sock_fd < 0)
-			continue;
-
-		for (ALL_LIST_ELEMENTS(pim_ifp->pim_neighbor_list, neigh_node,
-				       neigh_nextnode, neigh)) {
-			if (!neigh->bfd_info)
+			if (!pim_ifp)
 				continue;
-			if (PIM_DEBUG_PIM_TRACE) {
-				char str[INET_ADDRSTRLEN];
-				pim_inet4_dump("<bfd_nbr?>", neigh->source_addr,
-					       str, sizeof(str));
-				zlog_debug("%s: Replaying Pim Neigh %s to BFD",
-					   __PRETTY_FUNCTION__, str);
+
+			if (pim_ifp->pim_sock_fd < 0)
+				continue;
+
+			for (ALL_LIST_ELEMENTS(pim_ifp->pim_neighbor_list,
+					       neigh_node, neigh_nextnode,
+					       neigh)) {
+				if (!neigh->bfd_info)
+					continue;
+				if (PIM_DEBUG_PIM_TRACE) {
+					char str[INET_ADDRSTRLEN];
+
+					pim_inet4_dump("<bfd_nbr?>",
+						       neigh->source_addr,
+						       str, sizeof(str));
+					zlog_debug("%s: Replaying Pim Neigh %s to BFD vrf_id %u",
+						   __PRETTY_FUNCTION__, str,
+						   vrf->vrf_id);
+				}
+				pim_bfd_reg_dereg_nbr(neigh,
+						      ZEBRA_BFD_DEST_UPDATE);
 			}
-			pim_bfd_reg_dereg_nbr(neigh, ZEBRA_BFD_DEST_UPDATE);
 		}
 	}
 	return 0;
