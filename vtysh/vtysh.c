@@ -250,6 +250,13 @@ static int vtysh_client_execute(struct vtysh_client *head_client,
 
 static void vtysh_client_config(struct vtysh_client *head_client, char *line)
 {
+	/* watchfrr currently doesn't load any config, and has some hardcoded
+	 * settings that show up in "show run".  skip it here (for now at
+	 * least) so we don't get that mangled up in config-write.
+	 */
+	if (head_client->flag == VTYSH_WATCHFRR)
+		return;
+
 	vtysh_client_run_all(head_client, line, 1, NULL,
 			     vtysh_config_parse_line, NULL);
 }
