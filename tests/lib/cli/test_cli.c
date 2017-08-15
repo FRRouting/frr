@@ -41,7 +41,7 @@ DUMMY_DEFUN(cmd13, "alt a X:X::X:X");
 DUMMY_DEFUN(cmd14,
 	    "pat g {  foo A.B.C.D$foo|foo|bar   X:X::X:X$bar| baz } [final]");
 
-#include "tests/lib/cli/test_cli_clippy.c"
+#include "lib/cli/test_cli_clippy.c"
 
 DEFPY(magic_test, magic_test_cmd,
 	"magic (0-100) {ipv4net A.B.C.D/M|X:X::X:X$ipv6}",
