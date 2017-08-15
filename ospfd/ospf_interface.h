@@ -66,6 +66,8 @@ struct ospf_if_params {
 	DECLARE_IF_PARAM(u_char, priority); /* OSPF Interface priority */
 	/* Enable OSPF on this interface with area if_area */
 	DECLARE_IF_PARAM(struct in_addr, if_area);
+	u_int32_t if_area_id_fmt;
+
 	DECLARE_IF_PARAM(u_char, type); /* type of interface */
 #define OSPF_IF_ACTIVE                  0
 #define OSPF_IF_PASSIVE		        1
