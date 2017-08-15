@@ -6190,11 +6190,14 @@ static void bgp_config_write_filter(struct vty *vty, struct peer *peer,
 					   addr, filter->plist[in].name);
 		}
 
-	if (filter->plist[out].name && !gfilter) {
-		afi_header_vty_out(vty, afi, safi, write,
-				   "  neighbor %s prefix-list %s out\n", addr,
-				   filter->plist[out].name);
-	}
+    	if (filter->plist[out].name)
+        	if (!gfilter || !gfilter->plist[out].name
+            	    || strcmp(filter->plist[out].name, gfilter->plist[out].name)
+                               != 0) {
+            		afi_header_vty_out(vty, afi, safi, write,
+                                           "  neighbor %s prefix-list %s out\n",
+                                           addr, filter->plist[out].name);
+                }
 
 	/* route-map. */
 	if (filter->map[RMAP_IN].name)
