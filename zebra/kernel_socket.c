@@ -1019,7 +1019,7 @@ void rtm_read(struct rt_msghdr *rtm)
 		if (rtm->rtm_type == RTM_CHANGE)
 			rib_delete(AFI_IP, SAFI_UNICAST, VRF_DEFAULT,
 				   ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
-				   NULL, 0, 0);
+				   NULL, 0, 0, 0);
 
 		union g_addr ggate = {.ipv4 = gate.sin.sin_addr};
 		if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
@@ -1030,7 +1030,7 @@ void rtm_read(struct rt_msghdr *rtm)
 		else
 			rib_delete(AFI_IP, SAFI_UNICAST, VRF_DEFAULT,
 				   ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
-				   &ggate, 0, 0);
+				   &ggate, 0, 0, 0);
 	}
 	if (dest.sa.sa_family == AF_INET6) {
 		/* One day we might have a debug section here like one in the
@@ -1061,7 +1061,7 @@ void rtm_read(struct rt_msghdr *rtm)
 		if (rtm->rtm_type == RTM_CHANGE)
 			rib_delete(AFI_IP6, SAFI_UNICAST, VRF_DEFAULT,
 				   ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
-				   NULL, 0, 0);
+				   NULL, 0, 0, 0);
 
 		union g_addr ggate = {.ipv6 = gate.sin6.sin6_addr};
 		if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
@@ -1072,7 +1072,7 @@ void rtm_read(struct rt_msghdr *rtm)
 		else
 			rib_delete(AFI_IP6, SAFI_UNICAST, VRF_DEFAULT,
 				   ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
-				   &ggate, ifindex, 0);
+				   &ggate, ifindex, 0, 0);
 	}
 }
 

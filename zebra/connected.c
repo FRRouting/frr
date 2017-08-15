@@ -323,10 +323,10 @@ void connected_down_ipv4(struct interface *ifp, struct connected *ifc)
 	/* Same logic as for connected_up_ipv4(): push the changes into the
 	 * head. */
 	rib_delete(AFI_IP, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
-		   &p, NULL, NULL, ifp->ifindex, 0);
+		   &p, NULL, NULL, ifp->ifindex, 0, 0);
 
 	rib_delete(AFI_IP, SAFI_MULTICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
-		   0, &p, NULL, NULL, ifp->ifindex, 0);
+		   0, &p, NULL, NULL, ifp->ifindex, 0, 0);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug(
@@ -501,7 +501,7 @@ void connected_down_ipv6(struct interface *ifp, struct connected *ifc)
 		return;
 
 	rib_delete(AFI_IP6, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
-		   0, &p, NULL, NULL, ifp->ifindex, 0);
+		   0, &p, NULL, NULL, ifp->ifindex, 0, 0);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug(

@@ -578,7 +578,7 @@ int zebra_del_import_table_entry(struct route_node *rn, struct route_entry *re)
 
 		rib_delete(AFI_IP, SAFI_UNICAST, re->vrf_id, ZEBRA_ROUTE_TABLE,
 			   re->table, re->flags, &p, NULL, NULL, 0,
-			   zebrad.rtm_table_default);
+			   zebrad.rtm_table_default, re->metric);
 	}
 	/* DD: Add IPv6 code */
 
