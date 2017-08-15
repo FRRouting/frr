@@ -7308,11 +7308,12 @@ DEFUN (interface_pim_use_source,
 
 DEFUN (interface_no_pim_use_source,
        interface_no_pim_use_source_cmd,
-       "no ip pim use-source",
+       "no ip pim use-source [A.B.C.D]",
        NO_STR
        IP_STR
        "pim multicast routing\n"
-       "Delete source IP address\n")
+       "Delete source IP address\n"
+       "source ip address\n")
 {
 	return interface_pim_use_src_cmd_worker(vty, "0.0.0.0");
 }
