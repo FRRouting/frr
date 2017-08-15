@@ -80,8 +80,6 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
-fatal_error = ""
-
 class TemplateTopo(Topo):
     "Test topology builder"
     def build(self, *_args, **_opts):
@@ -174,79 +172,90 @@ def router_compare_json_output(rname, command, reference):
     result, diff = topotest.run_and_expect(test_func, None, count=20, wait=3)
     assert result, '"{}" JSON output mismatches the expected result'.format(rname)
 
-def test_router_running():
-    global fatal_error
-
-    logger.info("Test: check if FRR is running on each Router node")
-
-    tgen = get_topogen()
-    sleep(5)
-
-    # Make sure that all daemons are running
-    for router in ['ce1', 'ce2', 'ce3', 'r1', 'r2', 'r3']:
-        fatal_error = tgen.net[router].checkRouterRunning()
-        assert fatal_error == "", fatal_error
-
-@pytest.mark.skipif(fatal_error != "", reason="fatal error")
 def test_ospf_convergence():
     logger.info("Test: check OSPF adjacencies")
     tgen = get_topogen()
 
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     for rname in ['r1', 'r2', 'r3']:
         router_compare_json_output(rname, "show ip ospf neighbor json", "show_ip_ospf_neighbor.ref")
 
-@pytest.mark.skipif(fatal_error != "", reason="fatal error")
 def test_rib():
     logger.info("Test: verify RIB")
     tgen = get_topogen()
 
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     for rname in ['r1', 'r2', 'r3']:
         router_compare_json_output(rname, "show ip route json", "show_ip_route.ref")
 
-@pytest.mark.skipif(fatal_error != "", reason="fatal error")
 def test_ldp_adjacencies():
     logger.info("Test: verify LDP adjacencies")
     tgen = get_topogen()
 
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     for rname in ['r1', 'r2', 'r3']:
         router_compare_json_output(rname, "show mpls ldp discovery json", "show_ldp_discovery.ref")
 
-@pytest.mark.skipif(fatal_error != "", reason="fatal error")
 def test_ldp_neighbors():
     logger.info("Test: verify LDP neighbors")
     tgen = get_topogen()
 
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     for rname in ['r1', 'r2', 'r3']:
         router_compare_json_output(rname, "show mpls ldp neighbor json", "show_ldp_neighbor.ref")
 
-@pytest.mark.skipif(fatal_error != "", reason="fatal error")
 def test_ldp_bindings():
     logger.info("Test: verify LDP bindings")
     tgen = get_topogen()
 
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     for rname in ['r1', 'r2', 'r3']:
         router_compare_json_output(rname, "show mpls ldp binding json", "show_ldp_binding.ref")
 
-@pytest.mark.skipif(fatal_error != "", reason="fatal error")
 def test_ldp_pwid_bindings():
     logger.info("Test: verify LDP PW-ID bindings")
     tgen = get_topogen()
 
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     for rname in ['r1', 'r2', 'r3']:
         router_compare_json_output(rname, "show l2vpn atom binding json", "show_l2vpn_binding.ref")
 
-@pytest.mark.skipif(fatal_error != "", reason="fatal error")
 def test_ldp_pseudowires():
     logger.info("Test: verify LDP pseudowires")
     tgen = get_topogen()
 
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     for rname in ['r1', 'r2', 'r3']:
         router_compare_json_output(rname, "show l2vpn atom vc json", "show_l2vpn_vc.ref")
 
-@pytest.mark.skipif(fatal_error != "", reason="fatal error")
 def test_ldp_pseudowires_after_link_down():
     logger.info("Test: verify LDP pseudowires after r1-r2 link goes down")
     tgen = get_topogen()
+
+    # Skip if previous fatal error condition is raised
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     # Shut down r1-r2 link */
     tgen = get_topogen()
