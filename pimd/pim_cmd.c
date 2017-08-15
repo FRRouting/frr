@@ -1369,7 +1369,7 @@ static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
 		json_object_pim_ifp_add(json_row, ifp);
 		json_object_int_add(json_row, "pimNeighbors", pim_nbrs);
 		json_object_int_add(json_row, "pimIfChannels", pim_ifchannels);
-		json_object_int_add(json_row, "firstHopRouter", fhr);
+		json_object_int_add(json_row, "firstHopRouterCount", fhr);
 		json_object_string_add(json_row, "pimDesignatedRouter",
 				       inet_ntoa(pim_ifp->pim_dr_addr));
 
