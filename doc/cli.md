@@ -30,15 +30,17 @@ Characters allowed in each token type:
 Tokens
 ------
 * `WORD`        -- A token that begins with +, -, or a lowercase letter. It is
-                  an unchanging part of the command and will only match itself.
-                  Example: "show ip bgp", every token is a WORD.
+                   an unchanging part of the command and will only match itself.
+                   Example: "show ip bgp", every token is a WORD.
 * `IPV4`        -- 'A.B.C.D', matches an IPv4 address.
 * `IPV6`        -- 'X:X::X:X', matches an IPv6 address.
 * `IPV4_PREFIX` -- 'A.B.C.D/M', matches an IPv4 prefix in CIDR notation.
 * `IPV6_PREFIX` -- 'X:X::X:X/M', matches an IPv6 prefix in CIDR notation.
+* `MAC`         -- 'M:A:C', matches a 48-bit mac address
+* `MAC_PREFIX`  -- 'M:A:C/M', matches a 48-bit mac address with a mask
 * `VARIABLE`    -- Begins with a capital letter. Matches any input.
 * `RANGE`       -- Numeric range delimited by parentheses, e.g. (-100 - 100) or
-                 (10-20). Will only match numbers in the range.
+                   (10-20). Will only match numbers in the range.
 
 Rules
 -----

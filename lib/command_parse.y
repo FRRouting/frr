@@ -101,6 +101,8 @@
 %token <string> IPV6_PREFIX
 %token <string> VARIABLE
 %token <string> RANGE
+%token <string> MAC
+%token <string> MAC_PREFIX
 
 /* union types for parsed rules */
 %type <node> start
@@ -271,6 +273,16 @@ placeholder_token_real:
   // validate range
   if (token->min > token->max) cmd_yyerror (&@1, ctx, "Invalid range.");
 
+  XFREE (MTYPE_LEX, $1);
+}
+| MAC
+{
+  $$ = new_token_node (ctx, MAC_TKN, $1, doc_next(ctx));
+  XFREE (MTYPE_LEX, $1);
+}
+| MAC_PREFIX
+{
+  $$ = new_token_node (ctx, MAC_PREFIX_TKN, $1, doc_next(ctx));
   XFREE (MTYPE_LEX, $1);
 }
 

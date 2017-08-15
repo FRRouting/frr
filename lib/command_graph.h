@@ -42,14 +42,17 @@ struct vty;
  * The type determines what kind of data the token can match (in the
  * matching use case) or hold (in the argv use case).
  */
+/* clang-format off */
 enum cmd_token_type {
-	WORD_TKN,	// words
+	WORD_TKN,        // words
 	VARIABLE_TKN,    // almost anything
 	RANGE_TKN,       // integer range
-	IPV4_TKN,	// IPV4 addresses
+	IPV4_TKN,        // IPV4 addresses
 	IPV4_PREFIX_TKN, // IPV4 network prefixes
-	IPV6_TKN,	// IPV6 prefixes
+	IPV6_TKN,        // IPV6 prefixes
 	IPV6_PREFIX_TKN, // IPV6 network prefixes
+	MAC_TKN,         // Ethernet address
+	MAC_PREFIX_TKN,  // Ethernet address w/ CIDR mask
 
 	/* plumbing types */
 	FORK_TKN,  // marks subgraph beginning
@@ -59,6 +62,7 @@ enum cmd_token_type {
 
 	SPECIAL_TKN = FORK_TKN,
 };
+/* clang-format on */
 
 #define IS_VARYING_TOKEN(x) ((x) >= VARIABLE_TKN && (x) < FORK_TKN)
 
