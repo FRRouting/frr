@@ -29,7 +29,7 @@
 #include "ospf6d/ospf6_lsdb.h"
 
 #include "tests/lib/cli/common_cli.h"
-#include "tests/ospf6d/test_lsdb_clippy.c"
+#include "ospf6d/test_lsdb_clippy.c"
 
 static struct ospf6_lsdb *lsdb;
 
