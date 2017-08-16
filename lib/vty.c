@@ -2827,11 +2827,11 @@ DEFUN_NOSH (show_history,
 /* vty login. */
 DEFUN (log_commands,
        log_commands_cmd,
-       "log commands",
+       "[no] log commands",
        "Logging control\n"
-       "Log all commands (can't be unset without restart)\n")
+       "Log all commands")
 {
-	do_log_commands = 1;
+	do_log_commands = !strmatch(argv[0]->text, "no");
 	return CMD_SUCCESS;
 }
 
