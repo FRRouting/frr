@@ -451,7 +451,7 @@ class Router(Node):
         self.routertype = 'frr'
         self.daemons = {'zebra': 0, 'ripd': 0, 'ripngd': 0, 'ospfd': 0,
                         'ospf6d': 0, 'isisd': 0, 'bgpd': 0, 'pimd': 0,
-                        'ldpd': 0}
+                        'ldpd': 0, 'eigrpd': 0, 'nhrpd': 0}
 
     def _config_frr(self, **params):
         "Configure FRR binaries"
