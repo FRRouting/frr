@@ -185,6 +185,7 @@ int eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 	struct eigrp_prefix_entry *prefix = msg->prefix;
 	struct eigrp_neighbor_entry *entry = msg->entry;
 	u_char actual_state = prefix->state;
+	enum metric_change change;
 
 	if (entry == NULL) {
 		entry = eigrp_neighbor_entry_new();
@@ -194,19 +195,18 @@ int eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 		msg->entry = entry;
 	}
 
-	// Dividing by actual state of prefix's FSM
+	/*
+	 * Calculate resultant metrics and insert to correct position
+	 * in entries list
+	 */
+	change = eigrp_topology_update_distance(msg);
+
 	switch (actual_state) {
 	case EIGRP_FSM_STATE_PASSIVE: {
-		// Calculate resultant metrics and insert to correct position in
-		// entries list
-		eigrp_topology_update_distance(msg);
-
 		struct eigrp_neighbor_entry *head =
 			(struct eigrp_neighbor_entry *)
 				entry->prefix->entries->head->data;
-		// zlog_info ("flag: %d rdist: %u dist: %u pfdist: %u pdist:
-		// %u", head->flags, head->reported_distance, head->distance,
-		// prefix->fdistance, prefix->distance);
+
 		if (head->reported_distance < prefix->fdistance) {
 			return EIGRP_FSM_KEEP_STATE;
 		}
@@ -215,34 +215,31 @@ int eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 		 * move to active state
 		 * dependently if it was query from successor
 		 */
-		else {
-			if (msg->packet_type == EIGRP_OPC_QUERY) {
-				return EIGRP_FSM_EVENT_Q_FCN;
-			} else {
-				return EIGRP_FSM_EVENT_NQ_FCN;
-			}
+		if (msg->packet_type == EIGRP_OPC_QUERY) {
+			return EIGRP_FSM_EVENT_Q_FCN;
+		} else {
+			return EIGRP_FSM_EVENT_NQ_FCN;
 		}
 
 		break;
 	}
 	case EIGRP_FSM_STATE_ACTIVE_0: {
-		eigrp_topology_update_distance(msg);
-
 		if (msg->packet_type == EIGRP_OPC_REPLY) {
-			listnode_delete(prefix->rij, entry->adv_router);
-			if (prefix->rij->count) {
-				return EIGRP_FSM_KEEP_STATE;
-			} else {
-				zlog_info("All reply received\n");
-				if (((struct eigrp_neighbor_entry *)
-					     prefix->entries->head->data)
-					    ->reported_distance
-				    < prefix->fdistance) {
-					return EIGRP_FSM_EVENT_LR_FCS;
-				}
+			struct eigrp_neighbor_entry *head =
+				(struct eigrp_neighbor_entry *)
+				entry->prefix->entries->head->data;
 
-				return EIGRP_FSM_EVENT_LR_FCN;
+			listnode_delete(prefix->rij, entry->adv_router);
+			if (prefix->rij->count)
+				return EIGRP_FSM_KEEP_STATE;
+
+			zlog_info("All reply received\n");
+			if (head->reported_distance
+			    < prefix->fdistance) {
+				return EIGRP_FSM_EVENT_LR_FCS;
 			}
+
+			return EIGRP_FSM_EVENT_LR_FCN;
 		} else if (msg->packet_type == EIGRP_OPC_QUERY
 			   && (entry->flags
 			       & EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG)) {
@@ -254,15 +251,13 @@ int eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 		break;
 	}
 	case EIGRP_FSM_STATE_ACTIVE_1: {
-		int change = eigrp_topology_update_distance(msg);
-
 		if (msg->packet_type == EIGRP_OPC_QUERY
 		    && (entry->flags & EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG)) {
 			return EIGRP_FSM_EVENT_QACT;
 		} else if (msg->packet_type == EIGRP_OPC_REPLY) {
 			listnode_delete(prefix->rij, entry->adv_router);
 
-			if (change == 1
+			if (change == METRIC_INCREASE
 			    && (entry->flags
 				& EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG)) {
 				return EIGRP_FSM_EVENT_DINC;
@@ -282,17 +277,17 @@ int eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 		break;
 	}
 	case EIGRP_FSM_STATE_ACTIVE_2: {
-		eigrp_topology_update_distance(msg);
-
 		if (msg->packet_type == EIGRP_OPC_REPLY) {
+			struct eigrp_neighbor_entry *head =
+				(struct eigrp_neighbor_entry *)
+				prefix->entries->head->data;
+
 			listnode_delete(prefix->rij, entry->adv_router);
 			if (prefix->rij->count) {
 				return EIGRP_FSM_KEEP_STATE;
 			} else {
 				zlog_info("All reply received\n");
-				if (((struct eigrp_neighbor_entry *)
-					     prefix->entries->head->data)
-					    ->reported_distance
+				if (head->reported_distance
 				    < prefix->fdistance) {
 					return EIGRP_FSM_EVENT_LR_FCS;
 				}
@@ -305,12 +300,10 @@ int eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 		break;
 	}
 	case EIGRP_FSM_STATE_ACTIVE_3: {
-		int change = eigrp_topology_update_distance(msg);
-
 		if (msg->packet_type == EIGRP_OPC_REPLY) {
 			listnode_delete(prefix->rij, entry->adv_router);
 
-			if (change == 1
+			if (change == METRIC_INCREASE
 			    && (entry->flags
 				& EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG)) {
 				return EIGRP_FSM_EVENT_DINC;

@@ -374,42 +374,42 @@ struct list *eigrp_neighbor_prefixes_lookup(struct eigrp *eigrp,
 	return prefixes;
 }
 
-int eigrp_topology_update_distance(struct eigrp_fsm_action_message *msg)
+enum metric_change eigrp_topology_update_distance(struct eigrp_fsm_action_message *msg)
 {
 	struct eigrp *eigrp = msg->eigrp;
 	struct eigrp_prefix_entry *prefix = msg->prefix;
 	struct eigrp_neighbor_entry *entry = msg->entry;
-	int change = 0;
+	enum metric_change change = METRIC_SAME;
 	assert(entry);
 
 	struct TLV_IPv4_External_type *ext_data = NULL;
 	struct TLV_IPv4_Internal_type *int_data = NULL;
 	if (msg->data_type == EIGRP_TLV_IPv4_INT) {
+		u_int32_t new_reported_distance;
+
 		int_data = msg->data.ipv4_int_type;
 		if (eigrp_metrics_is_same(int_data->metric,
 					  entry->reported_metric)) {
-			return 0; // No change
+			return change; // No change
 		}
-		change = entry->reported_distance
-					 < eigrp_calculate_metrics(
-						   eigrp, int_data->metric)
-				 ? 1
-				 : entry->reported_distance
-						   > eigrp_calculate_metrics(
-							     eigrp,
-							     int_data->metric)
-					   ? 2
-					   : 3; // Increase : Decrease : No
-						// change
+
+		new_reported_distance = eigrp_calculate_metrics(eigrp,
+								int_data->metric);
+
+		if (entry->reported_distance  < new_reported_distance)
+			change = METRIC_INCREASE;
+		else
+			change = METRIC_DECREASE;
+
 		entry->reported_metric = int_data->metric;
-		entry->reported_distance =
+		entry->reported_distance = new_reported_distance;
 			eigrp_calculate_metrics(eigrp, int_data->metric);
 		entry->distance = eigrp_calculate_total_metrics(eigrp, entry);
 	} else {
 		ext_data = msg->data.ipv4_ext_data;
 		if (eigrp_metrics_is_same(ext_data->metric,
 					  entry->reported_metric))
-			return 0;
+			return change;
 	}
 	/*
 	 * Move to correct position in list according to new distance
