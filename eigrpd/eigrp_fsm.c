@@ -215,32 +215,31 @@ int eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 		 * move to active state
 		 * dependently if it was query from successor
 		 */
-		else {
-			if (msg->packet_type == EIGRP_OPC_QUERY) {
-				return EIGRP_FSM_EVENT_Q_FCN;
-			} else {
-				return EIGRP_FSM_EVENT_NQ_FCN;
-			}
+		if (msg->packet_type == EIGRP_OPC_QUERY) {
+			return EIGRP_FSM_EVENT_Q_FCN;
+		} else {
+			return EIGRP_FSM_EVENT_NQ_FCN;
 		}
 
 		break;
 	}
 	case EIGRP_FSM_STATE_ACTIVE_0: {
 		if (msg->packet_type == EIGRP_OPC_REPLY) {
-			listnode_delete(prefix->rij, entry->adv_router);
-			if (prefix->rij->count) {
-				return EIGRP_FSM_KEEP_STATE;
-			} else {
-				zlog_info("All reply received\n");
-				if (((struct eigrp_neighbor_entry *)
-					     prefix->entries->head->data)
-					    ->reported_distance
-				    < prefix->fdistance) {
-					return EIGRP_FSM_EVENT_LR_FCS;
-				}
+			struct eigrp_neighbor_entry *head =
+				(struct eigrp_neighbor_entry *)
+				entry->prefix->entries->head->data;
 
-				return EIGRP_FSM_EVENT_LR_FCN;
+			listnode_delete(prefix->rij, entry->adv_router);
+			if (prefix->rij->count)
+				return EIGRP_FSM_KEEP_STATE;
+
+			zlog_info("All reply received\n");
+			if (head->reported_distance
+			    < prefix->fdistance) {
+				return EIGRP_FSM_EVENT_LR_FCS;
 			}
+
+			return EIGRP_FSM_EVENT_LR_FCN;
 		} else if (msg->packet_type == EIGRP_OPC_QUERY
 			   && (entry->flags
 			       & EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG)) {
@@ -279,14 +278,16 @@ int eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 	}
 	case EIGRP_FSM_STATE_ACTIVE_2: {
 		if (msg->packet_type == EIGRP_OPC_REPLY) {
+			struct eigrp_neighbor_entry *head =
+				(struct eigrp_neighbor_entry *)
+				prefix->entries->head->data;
+
 			listnode_delete(prefix->rij, entry->adv_router);
 			if (prefix->rij->count) {
 				return EIGRP_FSM_KEEP_STATE;
 			} else {
 				zlog_info("All reply received\n");
-				if (((struct eigrp_neighbor_entry *)
-					     prefix->entries->head->data)
-					    ->reported_distance
+				if (head->reported_distance
 				    < prefix->fdistance) {
 					return EIGRP_FSM_EVENT_LR_FCS;
 				}
