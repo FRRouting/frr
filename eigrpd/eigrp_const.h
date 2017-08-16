@@ -94,6 +94,11 @@
 #define EIGRP_MULTICAST_ADDRESS            0xe000000A /*224.0.0.10*/
 
 #define EIGRP_MAX_METRIC                   0xffffffffU    /*4294967295*/
+enum metric_change {
+	METRIC_DECREASE,
+	METRIC_SAME,
+	METRIC_INCREASE
+};
 
 #define DEFAULT_ROUTE               ZEBRA_ROUTE_MAX
 #define DEFAULT_ROUTE_TYPE(T) ((T) == DEFAULT_ROUTE)
