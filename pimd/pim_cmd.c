@@ -1369,7 +1369,7 @@ static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
 		json_object_pim_ifp_add(json_row, ifp);
 		json_object_int_add(json_row, "pimNeighbors", pim_nbrs);
 		json_object_int_add(json_row, "pimIfChannels", pim_ifchannels);
-		json_object_int_add(json_row, "firstHopRouter", fhr);
+		json_object_int_add(json_row, "firstHopRouterCount", fhr);
 		json_object_string_add(json_row, "pimDesignatedRouter",
 				       inet_ntoa(pim_ifp->pim_dr_addr));
 
@@ -7308,11 +7308,12 @@ DEFUN (interface_pim_use_source,
 
 DEFUN (interface_no_pim_use_source,
        interface_no_pim_use_source_cmd,
-       "no ip pim use-source",
+       "no ip pim use-source [A.B.C.D]",
        NO_STR
        IP_STR
        "pim multicast routing\n"
-       "Delete source IP address\n")
+       "Delete source IP address\n"
+       "source ip address\n")
 {
 	return interface_pim_use_src_cmd_worker(vty, "0.0.0.0");
 }
@@ -8397,6 +8398,54 @@ DEFUN (show_ip_msdp_sa_sg,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_ip_msdp_sa_sg_vrf_all,
+       show_ip_msdp_sa_sg_vrf_all_cmd,
+       "show ip msdp vrf all sa [A.B.C.D [A.B.C.D]] [json]",
+       SHOW_STR
+       IP_STR
+       MSDP_STR
+       VRF_CMD_HELP_STR
+       "MSDP active-source information\n"
+       "source or group ip\n"
+       "group ip\n"
+       JSON_STR)
+{
+	u_char uj = use_json(argc, argv);
+	struct vrf *vrf;
+	bool first = true;
+	int idx = 2;
+
+	char *src_ip = argv_find(argv, argc, "A.B.C.D", &idx) ? argv[idx++]->arg
+		: NULL;
+	char *grp_ip = idx < argc && argv_find(argv, argc, "A.B.C.D", &idx)
+		? argv[idx]->arg
+		: NULL;
+
+	if (uj)
+		vty_out(vty, "{ ");
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
+		if (uj) {
+			if (!first)
+				vty_out(vty, ", ");
+			vty_out(vty, " \"%s\": ", vrf->name);
+			first = false;
+		} else
+			vty_out(vty, "VRF: %s\n", vrf->name);
+
+		if (src_ip && grp_ip)
+			ip_msdp_show_sa_sg(vrf->info, vty, src_ip, grp_ip, uj);
+		else if (src_ip)
+			ip_msdp_show_sa_addr(vrf->info, vty, src_ip, uj);
+		else
+			ip_msdp_show_sa(vrf->info, vty, uj);
+	}
+	if (uj)
+		vty_out(vty, "}\n");
+
+	return CMD_SUCCESS;
+}
+
+
 void pim_cmd_init(void)
 {
 	install_node(&pim_global_node, pim_global_config_write); /* PIM_NODE */
@@ -8652,6 +8701,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_msdp_sa_detail_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_sa_detail_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_sa_sg_cmd);
+	install_element(VIEW_NODE, &show_ip_msdp_sa_sg_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_mesh_group_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_mesh_group_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_ssm_range_cmd);

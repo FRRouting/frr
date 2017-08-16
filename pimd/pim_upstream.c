@@ -167,8 +167,9 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 
 	if (PIM_DEBUG_TRACE)
 		zlog_debug(
-			"%s(%s): Delete %s ref count: %d , flags: %d c_oil ref count %d (Pre decrement)",
-			__PRETTY_FUNCTION__, name, up->sg_str, up->ref_count,
+			"%s(%s): Delete %s[%s] ref count: %d , flags: %d c_oil ref count %d (Pre decrement)",
+			__PRETTY_FUNCTION__, name, up->sg_str,
+			pim->vrf->name, up->ref_count,
 			up->flags, up->channel_oil->oil_ref_count);
 
 	--up->ref_count;
@@ -948,8 +949,8 @@ void pim_upstream_rpf_genid_changed(struct pim_instance *pim,
 			pim_addr_dump("<rpf?>", &up->rpf.rpf_addr, rpf_addr_str,
 				      sizeof(rpf_addr_str));
 			zlog_debug(
-				"%s: matching neigh=%s against upstream (S,G)=%s joined=%d rpf_addr=%s",
-				__PRETTY_FUNCTION__, neigh_str, up->sg_str,
+				"%s: matching neigh=%s against upstream (S,G)=%s[%s] joined=%d rpf_addr=%s",
+				__PRETTY_FUNCTION__, neigh_str, up->sg_str, pim->vrf->name,
 				up->join_state == PIM_UPSTREAM_JOINED,
 				rpf_addr_str);
 		}
@@ -1106,8 +1107,8 @@ static int pim_upstream_keep_alive_timer(struct thread *t)
 	if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
 		pim_upstream_fhr_kat_expiry(pim, up);
 		if (PIM_DEBUG_TRACE)
-			zlog_debug("kat expired on %s; remove stream reference",
-				   up->sg_str);
+			zlog_debug("kat expired on %s[%s]; remove stream reference",
+				   up->sg_str, pim->vrf->name);
 		PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(up->flags);
 		pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
 	} else if (PIM_UPSTREAM_FLAG_TEST_SRC_LHR(up->flags)) {
@@ -1334,8 +1335,8 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 
 	if (PIM_DEBUG_TRACE) {
 		char state_str[PIM_REG_STATE_STR_LEN];
-		zlog_debug("%s: (S,G)=%s upstream register stop timer %s",
-			   __PRETTY_FUNCTION__, up->sg_str,
+		zlog_debug("%s: (S,G)=%s[%s] upstream register stop timer %s",
+			   __PRETTY_FUNCTION__, up->sg_str, pim->vrf->name,
 			   pim_reg_state2str(up->reg_state, state_str));
 	}
 
@@ -1637,8 +1638,8 @@ static void pim_upstream_sg_running(void *arg)
 	if (up->channel_oil->oil_inherited_rescan) {
 		if (PIM_DEBUG_TRACE)
 			zlog_debug(
-				"%s: Handling unscanned inherited_olist for %s",
-				__PRETTY_FUNCTION__, up->sg_str);
+				"%s: Handling unscanned inherited_olist for %s[%s]",
+				__PRETTY_FUNCTION__, up->sg_str, pim->vrf->name);
 		pim_upstream_inherited_olist_decide(pim, up);
 		up->channel_oil->oil_inherited_rescan = 0;
 	}
@@ -1649,8 +1650,8 @@ static void pim_upstream_sg_running(void *arg)
 	    && (up->channel_oil->cc.lastused / 100 > 30)) {
 		if (PIM_DEBUG_TRACE) {
 			zlog_debug(
-				"%s: %s old packet count is equal or lastused is greater than 30, (%ld,%ld,%lld)",
-				__PRETTY_FUNCTION__, up->sg_str,
+				"%s[%s]: %s old packet count is equal or lastused is greater than 30, (%ld,%ld,%lld)",
+				__PRETTY_FUNCTION__, up->sg_str, pim->vrf->name,
 				up->channel_oil->cc.oldpktcnt,
 				up->channel_oil->cc.pktcnt,
 				up->channel_oil->cc.lastused / 100);
@@ -1664,8 +1665,8 @@ static void pim_upstream_sg_running(void *arg)
 		if (!PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
 			if (PIM_DEBUG_TRACE)
 				zlog_debug(
-					"source reference created on kat restart %s",
-					up->sg_str);
+					"source reference created on kat restart %s[%s]",
+					up->sg_str, pim->vrf->name);
 
 			pim_upstream_ref(up, PIM_UPSTREAM_FLAG_MASK_SRC_STREAM,
 					 __PRETTY_FUNCTION__);
