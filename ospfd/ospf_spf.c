@@ -136,8 +136,10 @@ static void ospf_canonical_nexthops_free(struct vertex *root)
 
 		/* Free child nexthops pointing back to this root vertex */
 		for (ALL_LIST_ELEMENTS(child->parents, n2, nn2, vp))
-			if (vp->parent == root && vp->nexthop)
+			if (vp->parent == root && vp->nexthop) {
 				vertex_nexthop_free(vp->nexthop);
+				vp->nexthop = NULL;
+			}
 	}
 }
 
@@ -401,8 +403,6 @@ static void ospf_spf_flush_parents(struct vertex *w)
 	/* delete the existing nexthops */
 	for (ALL_LIST_ELEMENTS(w->parents, ln, nn, vp)) {
 		list_delete_node(w->parents, ln);
-		if (vp->nexthop)
-			vertex_nexthop_free(vp->nexthop);
 		vertex_parent_free(vp);
 	}
 }
