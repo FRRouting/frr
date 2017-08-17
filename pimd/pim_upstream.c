@@ -698,6 +698,8 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 		if (up->sources)
 			list_delete(up->sources);
 
+		list_delete(up->ifchannels);
+
 		hash_release(pim->upstream_hash, up);
 		XFREE(MTYPE_PIM_UPSTREAM, up);
 		return NULL;
