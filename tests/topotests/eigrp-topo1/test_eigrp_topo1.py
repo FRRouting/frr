@@ -30,24 +30,20 @@ test_eigrp_topo1.py: Testing EIGRP
 import os
 import re
 import sys
-import difflib
 import pytest
-from time import sleep
 
-from mininet.topo import Topo
-from mininet.net import Mininet
-from mininet.node import Node, OVSSwitch, Host
-from mininet.log import setLogLevel, info
-from mininet.cli import CLI
-from mininet.link import Intf
+# Save the Current Working Directory to find configuration files.
+CWD = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(CWD, '../'))
 
-from functools import partial
-
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# pylint: disable=C0413
+# Import topogen and topotest helpers
 from lib import topotest
+from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topolog import logger
 
-fatal_error = ""
-
+# Required to instantiate the topology builder class.
+from mininet.topo import Topo
 
 #####################################################
 ##
@@ -59,38 +55,32 @@ class NetworkTopo(Topo):
     "EIGRP Topology 1"
 
     def build(self, **_opts):
+        "Build function"
 
-        # Setup Routers
-        router = {}
-        #
-        # Setup Main Router
-        router[1] = topotest.addRouter(self, 'r1')
-        #
-        # Setup EIGRP Routers
-        for i in range(2, 4):
-            router[i] = topotest.addRouter(self, 'r%s' % i)
-        #
-        # Setup Switches
-        switch = {}
-        #
+        tgen = get_topogen(self)
+
+        for routern in range(1, 4):
+            tgen.add_router('r{}'.format(routern))
+
         # On main router
         # First switch is for a dummy interface (for local network)
-        switch[1] = self.addSwitch('sw1', cls=topotest.LegacySwitch)
-        self.addLink(switch[1], router[1], intfName2='r1-eth0')
-        #
+        switch = tgen.add_switch('sw1')
+        switch.add_link(tgen.gears['r1'])
+
         # Switches for EIGRP
         # switch 2 switch is for connection to EIGRP router
-        switch[2] = self.addSwitch('sw2', cls=topotest.LegacySwitch)
-        self.addLink(switch[2], router[1], intfName2='r1-eth1')
-        self.addLink(switch[2], router[2], intfName2='r2-eth0')
-        # switch 3 is between EIGRP routers
-        switch[3] = self.addSwitch('sw3', cls=topotest.LegacySwitch)
-        self.addLink(switch[3], router[2], intfName2='r2-eth1')
-        self.addLink(switch[3], router[3], intfName2='r3-eth1')
-        # switch 4 is stub on remote EIGRP router
-        switch[4] = self.addSwitch('sw4', cls=topotest.LegacySwitch)
-        self.addLink(switch[4], router[3], intfName2='r3-eth0')
+        switch = tgen.add_switch('sw2')
+        switch.add_link(tgen.gears['r1'])
+        switch.add_link(tgen.gears['r2'])
 
+        # switch 4 is stub on remote EIGRP router
+        switch = tgen.add_switch('sw4')
+        switch.add_link(tgen.gears['r3'])
+
+        # switch 3 is between EIGRP routers
+        switch = tgen.add_switch('sw3')
+        switch.add_link(tgen.gears['r2'])
+        switch.add_link(tgen.gears['r3'])
 
 
 #####################################################
@@ -100,217 +90,139 @@ class NetworkTopo(Topo):
 #####################################################
 
 def setup_module(module):
-    global topo, net
+    "Setup topology"
+    tgen = Topogen(NetworkTopo, module.__name__)
+    tgen.start_topology()
 
-    print("\n\n** %s: Setup Topology" % module.__name__)
-    print("******************************************\n")
+    # This is a sample of configuration loading.
+    router_list = tgen.routers()
+    for rname, router in router_list.iteritems():
+        router.load_config(
+            TopoRouter.RD_ZEBRA,
+            os.path.join(CWD, '{}/zebra.conf'.format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_EIGRP,
+            os.path.join(CWD, '{}/eigrpd.conf'.format(rname))
+        )
 
-    print("Cleanup old Mininet runs")
-    os.system('sudo mn -c > /dev/null 2>&1')
-
-    thisDir = os.path.dirname(os.path.realpath(__file__))
-    topo = NetworkTopo()
-
-    net = Mininet(controller=None, topo=topo)
-    net.start()
-
-    # Starting Routers
-    #
-    for i in range(1, 4):
-        net['r%s' % i].loadConf('zebra', '%s/r%s/zebra.conf' % (thisDir, i))
-        net['r%s' % i].loadConf('eigrpd', '%s/r%s/eigrpd.conf' % (thisDir, i))
-        net['r%s' % i].startRouter()
-
-    # For debugging after starting Quagga/FRR daemons, uncomment the next line
-    # CLI(net)
+    tgen.start_router()
 
 
-def teardown_module(module):
-    global net
+def teardown_module(_mod):
+    "Teardown the pytest environment"
+    tgen = get_topogen()
 
-    print("\n\n** %s: Shutdown Topology" % module.__name__)
-    print("******************************************\n")
-
-    # End - Shutdown network
-    net.stop()
-
-
-def test_router_running():
-    global fatal_error
-    global net
-
-    # Skip if previous fatal error condition is raised
-    if (fatal_error != ""):
-        pytest.skip(fatal_error)
-
-    print("\n\n** Check if FRR/Quagga is running on each Router node")
-    print("******************************************\n")
-    sleep(5)
-
-    # Make sure that all daemons are running
-    for i in range(1, 4):
-        fatal_error = net['r%s' % i].checkRouterRunning()
-        assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
-    # CLI(net)
+    # This function tears down the whole topology.
+    tgen.stop_topology()
 
 
 def test_converge_protocols():
-    global fatal_error
-    global net
+    "Wait for protocol convergence"
 
-    # Skip if previous fatal error condition is raised
-    if (fatal_error != ""):
-        pytest.skip(fatal_error)
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
-    thisDir = os.path.dirname(os.path.realpath(__file__))
-
-    print("\n\n** Waiting for protocols convergence")
-    print("******************************************\n")
-
-    # Not really implemented yet - just sleep 60 secs for now
-    sleep(5)
-
-    # Make sure that all daemons are still running
-    for i in range(1, 4):
-        fatal_error = net['r%s' % i].checkRouterRunning()
-        assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
-    # CLI(net)
+    topotest.sleep(5, 'Waiting for EIGRP convergence')
 
 
 def test_eigrp_routes():
-    global fatal_error
-    global net
+    "Test EIGRP 'show ip eigrp'"
 
-    # Skip if previous fatal error condition is raised
-    if (fatal_error != ""):
-        pytest.skip(fatal_error)
-
-    thisDir = os.path.dirname(os.path.realpath(__file__))
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     # Verify EIGRP Status
-    print("\n\n** Verifing EIGRP routes")
-    print("******************************************\n")
+    logger.info("Verifying EIGRP routes")
+
     failures = 0
-    for i in range(1, 4):
-        refTableFile = '%s/r%s/show_ip_eigrp.ref' % (thisDir, i)
-        if os.path.isfile(refTableFile):
-            # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
-            # Fix newlines (make them all the same)
-            expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
+    router_list = tgen.routers().values()
+    for router in router_list:
+        refTableFile = '{}/{}/show_ip_eigrp.ref'.format(CWD, router.name)
 
-            # Actual output from router
-            actual = net['r%s' % i].cmd('vtysh -c "show ip eigrp topo" 2> /dev/null').rstrip()
-            # Drop Time
-            actual = re.sub(r"[0-9][0-9]:[0-5][0-9]", "XX:XX", actual)
-            # Fix newlines (make them all the same)
-            actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
+        # Read expected result from file
+        expected = open(refTableFile).read().rstrip()
 
-            # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual SHOW IP EIGRP", 
-                tofile="expected SHOW IP EIGRP"))
+        # Actual output from router
+        actual = router.vtysh_cmd('show ip eigrp topo').rstrip()
+        # Drop Time
+        actual = re.sub(r"[0-9][0-9]:[0-5][0-9]", "XX:XX", actual)
 
-            # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
-                sys.stderr.write('r%s failed SHOW IP EIGRP check:\n%s\n' % (i, diff))
-                failures += 1
-            else:
-                print("r%s ok" % i)
+        # Generate Diff
+        diff = topotest.difflines(actual, expected,
+                                  title1="actual SHOW IP EIGRP",
+                                  title2="expected SHOW IP EIGRP")
 
-            assert failures == 0, "SHOW IP EIGRP failed for router r%s:\n%s" % (i, diff)
+        # Empty string if it matches, otherwise diff contains unified diff
+        if diff:
+            failures += 1
+        else:
+            logger.info('{} ok'.format(router.name))
 
-    # Make sure that all daemons are still running
-    for i in range(1, 4):
-        fatal_error = net['r%s' % i].checkRouterRunning()
-        assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
-    # CLI(net)
+        assert failures == 0, 'SHOW IP EIGRP failed for router {}:\n{}'.format(router.name, diff)
 
 
 def test_zebra_ipv4_routingTable():
-    global fatal_error
-    global net
+    "Test 'show ip route'"
 
-    # Skip if previous fatal error condition is raised
-    if (fatal_error != ""):
-        pytest.skip(fatal_error)
-
-    thisDir = os.path.dirname(os.path.realpath(__file__))
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     # Verify OSPFv3 Routing Table
-    print("\n\n** Verifing Zebra IPv4 Routing Table")
-    print("******************************************\n")
+    logger.info("Verifying Zebra IPv4 Routing Table")
+
     failures = 0
-    for i in range(1, 4):
-        refTableFile = '%s/r%s/show_ip_route.ref' % (thisDir, i)
-        if os.path.isfile(refTableFile):
-            # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
-            # Fix newlines (make them all the same)
-            expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
+    router_list = tgen.routers().values()
+    for router in router_list:
+        refTableFile = '{}/{}/show_ip_route.ref'.format(CWD, router.name)
 
-            # Actual output from router
-            actual = net['r%s' % i].cmd('vtysh -c "show ip route"').rstrip()
-            # Fix newlines (make them all the same)
-            actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
+        # Read expected result from file
+        expected = open(refTableFile).read().rstrip()
 
-            # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual Zebra IPv4 routing table", 
-                tofile="expected Zebra IPv4 routing table"))
+        # Actual output from router
+        actual = router.vtysh_cmd('show ip route').rstrip()
 
-            # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
-                sys.stderr.write('r%s failed Zebra IPv4 Routing Table Check:\n%s\n' % (i, diff))
-                failures += 1
-            else:
-                print("r%s ok" % i)
+        # Generate Diff
+        diff = topotest.difflines(actual, expected,
+                                  title1="actual Zebra IPv4 routing table",
+                                  title2="expected Zebra IPv4 routing table")
 
-            assert failures == 0, "Zebra IPv4 Routing Table verification failed for router r%s:\n%s" % (i, diff)
+        # Empty string if it matches, otherwise diff contains unified diff
+        if diff:
+            failures += 1
+        else:
+            logger.info('{} ok'.format(router.name))
 
-    # Make sure that all daemons are still running
-    for i in range(1, 4):
-        fatal_error = net['r%s' % i].checkRouterRunning()
-        assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
-    # CLI(net)
+        assert failures == 0, 'Zebra IPv4 Routing Table verification failed for router {}:\n{}'.format(router.name, diff)
 
 
 def test_shutdown_check_stderr():
-    global fatal_error
-    global net
-
-    # Skip if previous fatal error condition is raised
-    if (fatal_error != ""):
-        pytest.skip(fatal_error)
-
     if os.environ.get('TOPOTESTS_CHECK_STDERR') is None:
         pytest.skip('Skipping test for Stderr output and memory leaks')
 
-    thisDir = os.path.dirname(os.path.realpath(__file__))
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
-    print("\n\n** Verifing unexpected STDERR output from daemons")
-    print("******************************************\n")
+    logger.info("Verifying unexpected STDERR output from daemons")
 
-    net['r1'].stopRouter()
+    router_list = tgen.routers().values()
+    for router in router_list:
+        router.stop()
 
-    log = net['r1'].getStdErr('eigrpd')
-    print("\nEIGRPd StdErr Log:\n" + log)
-    log = net['r1'].getStdErr('zebra')
-    print("\nZebra StdErr Log:\n" + log)
+        log = tgen.net[router.name].getStdErr('eigrpd')
+        logger.error('EIGRPd StdErr Log:' + log)
+        log = tgen.net[router.name].getStdErr('zebra')
+        logger.error('Zebra StdErr Log:' + log)
 
 
 if __name__ == '__main__':
-
-    setLogLevel('info')
-    # To suppress tracebacks, either use the following pytest call or add "--tb=no" to cli
-    # retval = pytest.main(["-s", "--tb=no"])
-    retval = pytest.main(["-s"])
-    sys.exit(retval)
+    args = ["-s"] + sys.argv[1:]
+    sys.exit(pytest.main(args))
