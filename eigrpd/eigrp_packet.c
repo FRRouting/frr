@@ -299,18 +299,6 @@ int eigrp_check_sha256_digest(struct stream *s,
 	return 1;
 }
 
-/*
- * eigrp_packet_dump
- *
- * This routing dumps the contents of the IP packet either received or
- * built by EIGRP.
- */
-static void eigrp_packet_dump(struct stream *s)
-{
-	// not yet...
-	return;
-}
-
 int eigrp_write(struct thread *thread)
 {
 	struct eigrp *eigrp = THREAD_ARG(thread);
@@ -322,6 +310,7 @@ int eigrp_write(struct thread *thread)
 	struct msghdr msg;
 	struct iovec iov[2];
 	u_int16_t opcode = 0;
+	u_int32_t seqno, ack;
 
 	int ret;
 	int flags = 0;
@@ -356,6 +345,25 @@ int eigrp_write(struct thread *thread)
 
 	memset(&iph, 0, sizeof(struct ip));
 	memset(&sa_dst, 0, sizeof(sa_dst));
+
+	/*
+	 * We build and schedule packets to go out
+	 * in the future.  In the mean time we may
+	 * process some update packets from the
+	 * neighbor, thus making it necessary
+	 * to update the ack we are using for
+	 * this outgoing packet.
+	 */
+	eigrph = (struct eigrp_header *)STREAM_DATA(ep->s);
+	opcode = eigrph->opcode;
+	seqno = ntohl(eigrph->sequence);
+	ack = ntohl(eigrph->ack);
+	if (ep->nbr && (ack != ep->nbr->recv_sequence_number)) {
+		eigrph->ack = htonl(ep->nbr->recv_sequence_number);
+		ack = ep->nbr->recv_sequence_number;
+		eigrph->checksum = 0;
+		eigrp_packet_checksum(ei, ep->s, ep->length);
+	}
 
 	sa_dst.sin_family = AF_INET;
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
@@ -412,8 +420,9 @@ int eigrp_write(struct thread *thread)
 	if (IS_DEBUG_EIGRP_TRANSMIT(0, SEND)) {
 		eigrph = (struct eigrp_header *)STREAM_DATA(ep->s);
 		opcode = eigrph->opcode;
-		zlog_debug("Sending [%s] to [%s] via [%s] ret [%d].",
+		zlog_debug("Sending [%s][%d/%d] to [%s] via [%s] ret [%d].",
 			   lookup_msg(eigrp_packet_type_str, opcode, NULL),
+			   seqno, ack,
 			   inet_ntoa(ep->dst), IF_NAME(ei), ret);
 	}
 
@@ -424,18 +433,6 @@ int eigrp_write(struct thread *thread)
 			inet_ntoa(iph.ip_dst), iph.ip_id, iph.ip_off,
 			iph.ip_len, ei->ifp->name, ei->ifp->mtu,
 			safe_strerror(errno));
-
-	/* Show debug sending packet. */
-	if (IS_DEBUG_EIGRP_TRANSMIT(0, SEND)
-	    && (IS_DEBUG_EIGRP_TRANSMIT(0, PACKET_DETAIL))) {
-		zlog_debug(
-			"-----------------------------------------------------");
-		eigrp_ip_header_dump(&iph);
-		stream_set_getp(ep->s, 0);
-		eigrp_packet_dump(ep->s);
-		zlog_debug(
-			"-----------------------------------------------------");
-	}
 
 	/* Now delete packet from queue. */
 	eigrp_packet_delete(ei);
@@ -615,12 +612,16 @@ int eigrp_read(struct thread *thread)
 	   start of the eigrp TLVs */
 	opcode = eigrph->opcode;
 
-	if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
-		zlog_debug(
-			"Received [%s] length [%u] via [%s] src [%s] dst [%s]",
-			lookup_msg(eigrp_packet_type_str, opcode, NULL), length,
-			IF_NAME(ei), inet_ntoa(iph->ip_src),
-			inet_ntoa(iph->ip_dst));
+	if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV)) {
+		char src[100], dst[100];
+
+		strcpy(src, inet_ntoa(iph->ip_src));
+		strcpy(dst, inet_ntoa(iph->ip_dst));
+		zlog_debug("Received [%s][%d/%d] length [%u] via [%s] src [%s] dst [%s]",
+			   lookup_msg(eigrp_packet_type_str, opcode, NULL),
+			   ntohl(eigrph->sequence), ntohl(eigrph->ack), length,
+			   IF_NAME(ei), src, dst);
+	}
 
 	/* Read rest of the packet and call each sort of packet routine. */
 	stream_forward_getp(ibuf, EIGRP_HEADER_LEN);
