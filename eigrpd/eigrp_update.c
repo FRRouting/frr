@@ -762,8 +762,6 @@ void eigrp_update_send_all(struct eigrp *eigrp,
 			pe->req_action &= ~EIGRP_FSM_NEED_UPDATE;
 			listnode_delete(eigrp->topology_changes_internalIPV4,
 					pe);
-			zlog_debug("UPDATE COUNT: %d",
-				   eigrp->topology_changes_internalIPV4->count);
 		}
 	}
 }

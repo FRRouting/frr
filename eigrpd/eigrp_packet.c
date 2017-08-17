@@ -903,7 +903,7 @@ void eigrp_packet_header_init(int type, struct eigrp_interface *ei,
 	//    eigrph->sequence = htonl(3);
 	eigrph->flags = htonl(flags);
 
-	if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
+	if (IS_DEBUG_EIGRP_TRANSMIT(0, PACKET_DETAIL))
 		zlog_debug("Packet Header Init Seq [%u] Ack [%u]",
 			   htonl(eigrph->sequence), htonl(eigrph->ack));
 
