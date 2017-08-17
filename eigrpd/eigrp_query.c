@@ -159,7 +159,7 @@ void eigrp_send_query(struct eigrp_interface *ei)
 	char has_tlv;
 	bool ep_saved = false;
 
-	ep = eigrp_packet_new(ei->ifp->mtu);
+	ep = eigrp_packet_new(ei->ifp->mtu, NULL);
 
 	/* Prepare EIGRP INIT UPDATE header */
 	eigrp_packet_header_init(EIGRP_OPC_QUERY, ei, ep->s, 0,

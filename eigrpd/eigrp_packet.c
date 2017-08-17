@@ -826,13 +826,14 @@ void eigrp_fifo_reset(struct eigrp_fifo *fifo)
 	fifo->count = 0;
 }
 
-struct eigrp_packet *eigrp_packet_new(size_t size)
+struct eigrp_packet *eigrp_packet_new(size_t size, struct eigrp_neighbor *nbr)
 {
 	struct eigrp_packet *new;
 
 	new = XCALLOC(MTYPE_EIGRP_PACKET, sizeof(struct eigrp_packet));
 	new->s = stream_new(size);
 	new->retrans_counter = 0;
+	new->nbr = nbr;
 
 	return new;
 }
@@ -1121,7 +1122,7 @@ struct eigrp_packet *eigrp_packet_duplicate(struct eigrp_packet *old,
 {
 	struct eigrp_packet *new;
 
-	new = eigrp_packet_new(nbr->ei->ifp->mtu);
+	new = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
 	new->length = old->length;
 	new->retrans_counter = old->retrans_counter;
 	new->dst = old->dst;

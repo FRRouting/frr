@@ -36,7 +36,7 @@
 extern int eigrp_read(struct thread *);
 extern int eigrp_write(struct thread *);
 
-extern struct eigrp_packet *eigrp_packet_new(size_t);
+extern struct eigrp_packet *eigrp_packet_new(size_t, struct eigrp_neighbor *);
 extern struct eigrp_packet *eigrp_packet_duplicate(struct eigrp_packet *,
 						   struct eigrp_neighbor *);
 extern void eigrp_packet_free(struct eigrp_packet *);

@@ -122,7 +122,7 @@ void eigrp_send_siareply(struct eigrp_neighbor *nbr,
 	struct eigrp_packet *ep;
 	u_int16_t length = EIGRP_HEADER_LEN;
 
-	ep = eigrp_packet_new(nbr->ei->ifp->mtu);
+	ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
 
 	/* Prepare EIGRP INIT UPDATE header */
 	eigrp_packet_header_init(EIGRP_OPC_SIAREPLY, nbr->ei, ep->s, 0,
