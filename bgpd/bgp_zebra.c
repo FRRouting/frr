@@ -2107,10 +2107,10 @@ static void bgp_zebra_connected(struct zclient *zclient)
 static int bgp_zebra_process_local_vni(int command, struct zclient *zclient,
 				       zebra_size_t length, vrf_id_t vrf_id)
 {
-	struct stream *s;
-	vni_t vni;
-	struct bgp *bgp;
-	struct in_addr vtep_ip;
+	struct stream		*s;
+	vni_t			vni;
+	struct bgp		*bgp;
+	struct in_addr		vtep_ip;
 
 	s = zclient->ibuf;
 	vni = stream_getl(s);

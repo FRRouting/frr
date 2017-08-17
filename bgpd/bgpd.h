@@ -318,6 +318,10 @@ struct bgp {
 
 	struct hash *address_hash;
 
+	/* DB for all local tunnel-ips - used mainly for martian checks
+	   Currently it only has all VxLan tunnel IPs*/
+	struct hash *tip_hash;
+
 	/* Static route configuration.  */
 	struct bgp_table *route[AFI_MAX][SAFI_MAX];
 

@@ -2384,7 +2384,7 @@ int bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 /* Unconditionally remove the route from the RIB, without taking
  * damping into consideration (eg, because the session went down)
  */
-static void bgp_rib_remove(struct bgp_node *rn, struct bgp_info *ri,
+void bgp_rib_remove(struct bgp_node *rn, struct bgp_info *ri,
 			   struct peer *peer, afi_t afi, safi_t safi)
 {
 	bgp_aggregate_decrement(peer->bgp, &rn->p, ri, afi, safi);

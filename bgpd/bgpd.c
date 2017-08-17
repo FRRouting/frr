@@ -2934,6 +2934,7 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	bgp = bgp_create(as, name, inst_type);
 	bgp_router_id_set(bgp, &bgp->router_id_zebra);
 	bgp_address_init(bgp);
+	bgp_tip_hash_init(bgp);
 	bgp_scan_init(bgp);
 	*bgp_val = bgp;
 
@@ -3158,6 +3159,7 @@ static void bgp_free(struct bgp *bgp)
 
 	bgp_scan_finish(bgp);
 	bgp_address_destroy(bgp);
+	bgp_tip_hash_destroy(bgp);
 
 	bgp_evpn_cleanup(bgp);
 
