@@ -644,8 +644,8 @@ int eigrp_read(struct thread *thread)
 					== nbr->init_sequence_number)) {
 					eigrp_nbr_state_set(nbr,
 							    EIGRP_NEIGHBOR_UP);
-					zlog_info(
-						"Neighbor adjacency became full");
+					zlog_info("Neighbor(%s) adjacency became full",
+						  inet_ntoa(nbr->src));
 					nbr->init_sequence_number = 0;
 					nbr->recv_sequence_number =
 						ntohl(eigrph->sequence);

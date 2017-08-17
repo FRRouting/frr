@@ -684,13 +684,9 @@ void eigrp_update_send(struct eigrp_interface *ei)
 				&& prefix_list_apply(plist_i,
 						     (struct prefix *)dest_addr)
 					   == PREFIX_DENY)) {
-				zlog_info("PROC OUT: Skipping");
 				// pe->reported_metric.delay = EIGRP_MAX_METRIC;
-				zlog_info("PROC OUT Prefix: %s",
-					  inet_ntoa(dest_addr->prefix));
 				continue;
 			} else {
-				zlog_info("PROC OUT: NENastavujem metriku ");
 				length += eigrp_add_internalTLV_to_stream(ep->s,
 									  pe);
 				has_tlv = 1;
