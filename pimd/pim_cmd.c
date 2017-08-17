@@ -5066,7 +5066,7 @@ static int pim_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
 
 	if (result == PIM_RP_NO_PATH) {
 		vty_out(vty, "%% No Path to RP address specified: %s\n", rp);
-		return CMD_WARNING_CONFIG_FAILED;
+		return CMD_WARNING;
 	}
 
 	if (result == PIM_GROUP_OVERLAP) {
