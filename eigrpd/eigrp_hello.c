@@ -707,7 +707,7 @@ void eigrp_hello_send_ack(struct eigrp_neighbor *nbr)
 				   inet_ntoa(nbr->src));
 
 		/* Add packet to the top of the interface output queue*/
-		eigrp_fifo_push_head(nbr->ei->obuf, ep);
+		eigrp_fifo_push(nbr->ei->obuf, ep);
 
 		/* Hook thread to write packet. */
 		if (nbr->ei->on_write_q == 0) {
@@ -755,7 +755,7 @@ void eigrp_hello_send(struct eigrp_interface *ei, u_char flags,
 
 	if (ep) {
 		// Add packet to the top of the interface output queue
-		eigrp_fifo_push_head(ei->obuf, ep);
+		eigrp_fifo_push(ei->obuf, ep);
 
 		/* Hook thread to write packet. */
 		if (ei->on_write_q == 0) {

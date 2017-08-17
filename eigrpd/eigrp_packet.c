@@ -336,7 +336,7 @@ int eigrp_write(struct thread *thread)
 #endif /* WANT_EIGRP_WRITE_FRAGMENT */
 
 	/* Get one packet from queue. */
-	ep = eigrp_fifo_head(ei->obuf);
+	ep = eigrp_fifo_next(ei->obuf);
 	assert(ep);
 	assert(ep->length >= EIGRP_HEADER_LEN);
 
@@ -437,7 +437,7 @@ int eigrp_write(struct thread *thread)
 	/* Now delete packet from queue. */
 	eigrp_packet_delete(ei);
 
-	if (eigrp_fifo_head(ei->obuf) == NULL) {
+	if (eigrp_fifo_next(ei->obuf) == NULL) {
 		ei->on_write_q = 0;
 		list_delete_node(eigrp->oi_write_q, node);
 	}
@@ -636,7 +636,7 @@ int eigrp_read(struct thread *thread)
 
 		struct eigrp_packet *ep;
 
-		ep = eigrp_fifo_tail(nbr->retrans_queue);
+		ep = eigrp_fifo_next(nbr->retrans_queue);
 		if (ep) {
 			if (ntohl(eigrph->ack) == ep->sequence_number) {
 				if ((nbr->state == EIGRP_NEIGHBOR_PENDING)
@@ -651,17 +651,17 @@ int eigrp_read(struct thread *thread)
 						ntohl(eigrph->sequence);
 					eigrp_update_send_EOT(nbr);
 				}
-				ep = eigrp_fifo_pop_tail(nbr->retrans_queue);
+				ep = eigrp_fifo_pop(nbr->retrans_queue);
 				eigrp_packet_free(ep);
 				if (nbr->retrans_queue->count > 0) {
 					eigrp_send_packet_reliably(nbr);
 				}
 			}
 		}
-		ep = eigrp_fifo_tail(nbr->multicast_queue);
+		ep = eigrp_fifo_next(nbr->multicast_queue);
 		if (ep) {
 			if (ntohl(eigrph->ack) == ep->sequence_number) {
-				ep = eigrp_fifo_pop_tail(nbr->multicast_queue);
+				ep = eigrp_fifo_pop(nbr->multicast_queue);
 				eigrp_packet_free(ep);
 				if (nbr->multicast_queue->count > 0) {
 					eigrp_send_packet_reliably(nbr);
@@ -843,13 +843,13 @@ void eigrp_send_packet_reliably(struct eigrp_neighbor *nbr)
 {
 	struct eigrp_packet *ep;
 
-	ep = eigrp_fifo_tail(nbr->retrans_queue);
+	ep = eigrp_fifo_next(nbr->retrans_queue);
 
 	if (ep) {
 		struct eigrp_packet *duplicate;
 		duplicate = eigrp_packet_duplicate(ep, nbr);
 		/* Add packet to the top of the interface output queue*/
-		eigrp_fifo_push_head(nbr->ei->obuf, duplicate);
+		eigrp_fifo_push(nbr->ei->obuf, duplicate);
 
 		/*Start retransmission timer*/
 		thread_add_timer(master, eigrp_unack_packet_retrans, nbr,
@@ -911,7 +911,7 @@ void eigrp_packet_header_init(int type, struct eigrp_interface *ei,
 }
 
 /* Add new packet to head of fifo. */
-void eigrp_fifo_push_head(struct eigrp_fifo *fifo, struct eigrp_packet *ep)
+void eigrp_fifo_push(struct eigrp_fifo *fifo, struct eigrp_packet *ep)
 {
 	ep->next = fifo->head;
 	ep->previous = NULL;
@@ -927,14 +927,8 @@ void eigrp_fifo_push_head(struct eigrp_fifo *fifo, struct eigrp_packet *ep)
 	fifo->count++;
 }
 
-/* Return first fifo entry. */
-struct eigrp_packet *eigrp_fifo_head(struct eigrp_fifo *fifo)
-{
-	return fifo->head;
-}
-
 /* Return last fifo entry. */
-struct eigrp_packet *eigrp_fifo_tail(struct eigrp_fifo *fifo)
+struct eigrp_packet *eigrp_fifo_next(struct eigrp_fifo *fifo)
 {
 	return fifo->tail;
 }
@@ -947,27 +941,6 @@ void eigrp_packet_delete(struct eigrp_interface *ei)
 
 	if (ep)
 		eigrp_packet_free(ep);
-}
-
-/* Delete first packet from fifo. */
-struct eigrp_packet *eigrp_fifo_pop(struct eigrp_fifo *fifo)
-{
-	struct eigrp_packet *ep;
-
-	ep = fifo->head;
-
-	if (ep) {
-		fifo->head = ep->next;
-
-		if (fifo->head == NULL)
-			fifo->tail = NULL;
-		else
-			fifo->head->previous = NULL;
-
-		fifo->count--;
-	}
-
-	return ep;
 }
 
 void eigrp_packet_free(struct eigrp_packet *ep)
@@ -1030,14 +1003,14 @@ int eigrp_unack_packet_retrans(struct thread *thread)
 	nbr = (struct eigrp_neighbor *)THREAD_ARG(thread);
 
 	struct eigrp_packet *ep;
-	ep = eigrp_fifo_tail(nbr->retrans_queue);
+	ep = eigrp_fifo_next(nbr->retrans_queue);
 
 	if (ep) {
 		struct eigrp_packet *duplicate;
 		duplicate = eigrp_packet_duplicate(ep, nbr);
 
 		/* Add packet to the top of the interface output queue*/
-		eigrp_fifo_push_head(nbr->ei->obuf, duplicate);
+		eigrp_fifo_push(nbr->ei->obuf, duplicate);
 
 		ep->retrans_counter++;
 		if (ep->retrans_counter == EIGRP_PACKET_RETRANS_MAX)
@@ -1067,13 +1040,13 @@ int eigrp_unack_multicast_packet_retrans(struct thread *thread)
 	nbr = (struct eigrp_neighbor *)THREAD_ARG(thread);
 
 	struct eigrp_packet *ep;
-	ep = eigrp_fifo_tail(nbr->multicast_queue);
+	ep = eigrp_fifo_next(nbr->multicast_queue);
 
 	if (ep) {
 		struct eigrp_packet *duplicate;
 		duplicate = eigrp_packet_duplicate(ep, nbr);
 		/* Add packet to the top of the interface output queue*/
-		eigrp_fifo_push_head(nbr->ei->obuf, duplicate);
+		eigrp_fifo_push(nbr->ei->obuf, duplicate);
 
 		ep->retrans_counter++;
 		if (ep->retrans_counter == EIGRP_PACKET_RETRANS_MAX)
@@ -1098,7 +1071,7 @@ int eigrp_unack_multicast_packet_retrans(struct thread *thread)
 }
 
 /* Get packet from tail of fifo. */
-struct eigrp_packet *eigrp_fifo_pop_tail(struct eigrp_fifo *fifo)
+struct eigrp_packet *eigrp_fifo_pop(struct eigrp_fifo *fifo)
 {
 	struct eigrp_packet *ep;
 

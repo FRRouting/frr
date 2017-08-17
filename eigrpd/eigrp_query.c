@@ -207,7 +207,7 @@ void eigrp_send_query(struct eigrp_interface *ei)
 	for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
 		if (nbr->state == EIGRP_NEIGHBOR_UP) {
 			/*Put packet to retransmission queue*/
-			eigrp_fifo_push_head(nbr->retrans_queue, ep);
+			eigrp_fifo_push(nbr->retrans_queue, ep);
 			ep_saved = true;
 
 			if (nbr->retrans_queue->count == 1) {
