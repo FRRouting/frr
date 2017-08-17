@@ -4032,12 +4032,13 @@ DEFUN (show_ip_ospf_neighbor_int,
        JSON_STR)
 {
 	struct ospf *ospf;
+	int idx_ifname = 4;
 	u_char uj = use_json(argc, argv);
 
 	if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
 		return CMD_SUCCESS;
 
-	return show_ip_ospf_neighbor_int_common(vty, ospf, 0, argv, uj);
+	return show_ip_ospf_neighbor_int_common(vty, ospf, idx_ifname, argv, uj);
 }
 
 DEFUN (show_ip_ospf_instance_neighbor_int,
@@ -4052,6 +4053,7 @@ DEFUN (show_ip_ospf_instance_neighbor_int,
        JSON_STR)
 {
 	int idx_number = 3;
+	int idx_ifname = 5;
 	struct ospf *ospf;
 	u_short instance = 0;
 	u_char uj = use_json(argc, argv);
@@ -4064,7 +4066,7 @@ DEFUN (show_ip_ospf_instance_neighbor_int,
 	if (!ospf->oi_running)
 		return CMD_SUCCESS;
 
-	return show_ip_ospf_neighbor_int_common(vty, ospf, 1, argv, uj);
+	return show_ip_ospf_neighbor_int_common(vty, ospf, idx_ifname, argv, uj);
 }
 
 static void show_ip_ospf_nbr_nbma_detail_sub(struct vty *vty,
@@ -4422,12 +4424,13 @@ DEFUN (show_ip_ospf_neighbor_id,
        JSON_STR)
 {
 	struct ospf *ospf;
+	int idx_router_id = 4;
 	u_char uj = use_json(argc, argv);
 
 	if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
 		return CMD_SUCCESS;
 
-	return show_ip_ospf_neighbor_id_common(vty, ospf, 0, argv, uj);
+	return show_ip_ospf_neighbor_id_common(vty, ospf, idx_router_id, argv, uj);
 }
 
 DEFUN (show_ip_ospf_instance_neighbor_id,
@@ -4442,6 +4445,7 @@ DEFUN (show_ip_ospf_instance_neighbor_id,
        JSON_STR)
 {
 	int idx_number = 3;
+	int idx_router_id = 5;
 	struct ospf *ospf;
 	u_short instance = 0;
 	u_char uj = use_json(argc, argv);
@@ -4454,7 +4458,7 @@ DEFUN (show_ip_ospf_instance_neighbor_id,
 	if (!ospf->oi_running)
 		return CMD_SUCCESS;
 
-	return show_ip_ospf_neighbor_id_common(vty, ospf, 1, argv, uj);
+	return show_ip_ospf_neighbor_id_common(vty, ospf, idx_router_id, argv, uj);
 }
 
 static int show_ip_ospf_neighbor_detail_common(struct vty *vty,
@@ -4725,12 +4729,13 @@ DEFUN (show_ip_ospf_neighbor_int_detail,
        JSON_STR)
 {
 	struct ospf *ospf;
+	int idx_ifname = 4;
 	u_char uj = use_json(argc, argv);
 
 	if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
 		return CMD_SUCCESS;
 
-	return show_ip_ospf_neighbor_int_detail_common(vty, ospf, 0, argv, uj);
+	return show_ip_ospf_neighbor_int_detail_common(vty, ospf, idx_ifname, argv, uj);
 }
 
 DEFUN (show_ip_ospf_instance_neighbor_int_detail,
@@ -4746,6 +4751,7 @@ DEFUN (show_ip_ospf_instance_neighbor_int_detail,
        JSON_STR)
 {
 	int idx_number = 3;
+	int idx_ifname = 5;
 	struct ospf *ospf;
 	u_short instance = 0;
 	u_char uj = use_json(argc, argv);
@@ -4758,7 +4764,7 @@ DEFUN (show_ip_ospf_instance_neighbor_int_detail,
 	if (!ospf->oi_running)
 		return CMD_SUCCESS;
 
-	return show_ip_ospf_neighbor_int_detail_common(vty, ospf, 1, argv, uj);
+	return show_ip_ospf_neighbor_int_detail_common(vty, ospf, idx_ifname, argv, uj);
 }
 
 /* Show functions */
