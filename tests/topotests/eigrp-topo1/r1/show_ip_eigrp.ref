@@ -1,10 +1,10 @@
-Codes: R - RIP, C - connected, S - Static, O - OSPF, B - BGP
-Sub-codes:
-      (n) - normal, (s) - static, (d) - default, (r) - redistribute,
-      (i) - interface
 
-     Network            Next Hop         Metric From            Tag Time
-R(n) 192.168.2.0/24     193.1.1.2             3 193.1.1.2         0 XX:XX
-R(n) 192.168.3.0/24     193.1.1.2             3 193.1.1.2         0 XX:XX
-C(i) 193.1.1.0/26       0.0.0.0               1 self              0
-R(n) 193.1.2.0/24       193.1.1.2             2 193.1.1.2         0 XX:XX
+EIGRP Topology Table for AS(1)/ID(193.1.1.1)
+
+Codes: P - Passive, A - Active, U - Update, Q - Query, R - Reply
+       r - reply Status, s - sia Status
+
+P  193.1.1.0/26, 1 successors, FD is 28160, serno: 0 
+       via Connected, r1-eth1
+P  193.1.2.0/24, 1 successors, FD is 30720, serno: 0 
+       via 193.1.1.2 (30720/28160), r1-eth1

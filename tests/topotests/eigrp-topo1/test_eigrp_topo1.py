@@ -122,7 +122,7 @@ def setup_module(module):
         net['r%s' % i].startRouter()
 
     # For debugging after starting Quagga/FRR daemons, uncomment the next line
-    CLI(net)
+    # CLI(net)
 
 
 def teardown_module(module):
@@ -170,61 +170,7 @@ def test_converge_protocols():
     print("******************************************\n")
 
     # Not really implemented yet - just sleep 60 secs for now
-    sleep(60)
-
-    # Make sure that all daemons are still running
-    for i in range(1, 4):
-        fatal_error = net['r%s' % i].checkRouterRunning()
-        assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR/Quagga daemons, uncomment the next line
-    # CLI(net)
-
-
-def test_eigrp_status():
-    global fatal_error
-    global net
-
-    # Skip if previous fatal error condition is raised
-    if (fatal_error != ""):
-        pytest.skip(fatal_error)
-
-    thisDir = os.path.dirname(os.path.realpath(__file__))
-
-    # Verify EIGRP Status
-    print("\n\n** Verifing EIGRP status")
-    print("******************************************\n")
-    failures = 0
-    for i in range(1, 4):
-        refTableFile = '%s/r%s/eigrp_status.ref' % (thisDir, i)
-        if os.path.isfile(refTableFile):
-            # Read expected result from file
-            expected = open(refTableFile).read().rstrip()
-            # Fix newlines (make them all the same)
-            expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
-
-            # Actual output from router
-            actual = net['r%s' % i].cmd('vtysh -c "show ip eigrp topo" 2> /dev/null').rstrip()
-            # Drop time in next due 
-            actual = re.sub(r"in [0-9]+ seconds", "in XX seconds", actual)
-            # Drop time in last update
-            actual = re.sub(r" [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", " XX:XX:XX", actual)
-            # Fix newlines (make them all the same)
-            actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
-
-            # Generate Diff
-            diff = ''.join(difflib.context_diff(actual, expected, 
-                fromfile="actual IP EIGRP status", 
-                tofile="expected IP EIGRP status"))
-
-            # Empty string if it matches, otherwise diff contains unified diff
-            if diff:
-                sys.stderr.write('r%s failed IP EIGRP status check:\n%s\n' % (i, diff))
-                failures += 1
-            else:
-                print("r%s ok" % i)
-
-            assert failures == 0, "IP EIGRP status failed for router r%s:\n%s" % (i, diff)
+    sleep(5)
 
     # Make sure that all daemons are still running
     for i in range(1, 4):
@@ -258,7 +204,7 @@ def test_eigrp_routes():
             expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
 
             # Actual output from router
-            actual = net['r%s' % i].cmd('vtysh -c "show ip eigrp" 2> /dev/null').rstrip()
+            actual = net['r%s' % i].cmd('vtysh -c "show ip eigrp topo" 2> /dev/null').rstrip()
             # Drop Time
             actual = re.sub(r"[0-9][0-9]:[0-5][0-9]", "XX:XX", actual)
             # Fix newlines (make them all the same)
@@ -310,9 +256,7 @@ def test_zebra_ipv4_routingTable():
             expected = ('\n'.join(expected.splitlines()) + '\n').splitlines(1)
 
             # Actual output from router
-            actual = net['r%s' % i].cmd('vtysh -c "show ip route" 2> /dev/null | grep "^R"').rstrip()
-            # Drop timers on end of line (older Quagga Versions)
-            actual = re.sub(r", [0-2][0-9]:[0-5][0-9]:[0-5][0-9]", "", actual)
+            actual = net['r%s' % i].cmd('vtysh -c "show ip route"').rstrip()
             # Fix newlines (make them all the same)
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
 
