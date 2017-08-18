@@ -72,6 +72,11 @@ vtysh_b ()
 # returns:      0=ok, 1=error
 check_daemon()
 {
+        if [ $1 != "watchfrr" -a $1 != "vtysh_enable" ]; then
+          # check for daemon binary
+          if [ ! -x "$D_PATH/$1" ]; then return 1; fi
+        fi
+
         # If the integrated config file is used the others are not checked.
         if [ -r "$C_PATH/frr.conf" ]; then
           return 0
@@ -80,9 +85,6 @@ check_daemon()
         # vtysh_enable has no config file nor binary so skip check.
         # (Not sure why vtysh_enable is in this list but does not hurt)
         if [ $1 != "watchfrr" -a $1 != "vtysh_enable" ]; then
-          # check for daemon binary
-          if [ ! -x "$D_PATH/$1" ]; then return 1; fi
-
           # check for config file
           if [ -n "$2" ]; then
            if [ ! -r "$C_PATH/$1-$2.conf" ]; then
