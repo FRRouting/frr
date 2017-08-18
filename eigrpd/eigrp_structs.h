@@ -311,6 +311,8 @@ struct eigrp_packet {
 
 	/* EIGRP packet length. */
 	u_int16_t length;
+
+	struct eigrp_neighbor *nbr;
 };
 
 struct eigrp_fifo {

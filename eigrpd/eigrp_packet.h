@@ -36,7 +36,7 @@
 extern int eigrp_read(struct thread *);
 extern int eigrp_write(struct thread *);
 
-extern struct eigrp_packet *eigrp_packet_new(size_t);
+extern struct eigrp_packet *eigrp_packet_new(size_t, struct eigrp_neighbor *);
 extern struct eigrp_packet *eigrp_packet_duplicate(struct eigrp_packet *,
 						   struct eigrp_neighbor *);
 extern void eigrp_packet_free(struct eigrp_packet *);
@@ -48,11 +48,9 @@ extern void eigrp_packet_checksum(struct eigrp_interface *, struct stream *,
 				  u_int16_t);
 
 extern struct eigrp_fifo *eigrp_fifo_new(void);
-extern struct eigrp_packet *eigrp_fifo_head(struct eigrp_fifo *);
-extern struct eigrp_packet *eigrp_fifo_tail(struct eigrp_fifo *);
+extern struct eigrp_packet *eigrp_fifo_next(struct eigrp_fifo *);
 extern struct eigrp_packet *eigrp_fifo_pop(struct eigrp_fifo *);
-extern struct eigrp_packet *eigrp_fifo_pop_tail(struct eigrp_fifo *);
-extern void eigrp_fifo_push_head(struct eigrp_fifo *, struct eigrp_packet *);
+extern void eigrp_fifo_push(struct eigrp_fifo *, struct eigrp_packet *);
 extern void eigrp_fifo_free(struct eigrp_fifo *);
 extern void eigrp_fifo_reset(struct eigrp_fifo *);
 

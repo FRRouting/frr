@@ -123,7 +123,7 @@ void eigrp_send_siaquery(struct eigrp_neighbor *nbr,
 	struct eigrp_packet *ep;
 	u_int16_t length = EIGRP_HEADER_LEN;
 
-	ep = eigrp_packet_new(nbr->ei->ifp->mtu);
+	ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
 
 	/* Prepare EIGRP INIT UPDATE header */
 	eigrp_packet_header_init(EIGRP_OPC_SIAQUERY, nbr->ei, ep->s, 0,
@@ -153,7 +153,7 @@ void eigrp_send_siaquery(struct eigrp_neighbor *nbr,
 
 	if (nbr->state == EIGRP_NEIGHBOR_UP) {
 		/*Put packet to retransmission queue*/
-		eigrp_fifo_push_head(nbr->retrans_queue, ep);
+		eigrp_fifo_push(nbr->retrans_queue, ep);
 
 		if (nbr->retrans_queue->count == 1) {
 			eigrp_send_packet_reliably(nbr);

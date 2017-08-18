@@ -333,7 +333,7 @@ int eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
  */
 int eigrp_fsm_event(struct eigrp_fsm_action_message *msg, int event)
 {
-	zlog_info("EIGRP AS: %d State: %d  Event: %d Network: %s\n",
+	zlog_info("EIGRP AS: %d State: %d  Event: %d Network: %s",
 		  msg->eigrp->AS, msg->prefix->state, event,
 		  eigrp_topology_ip_string(msg->prefix));
 	(*(NSM[msg->prefix->state][event].func))(msg);

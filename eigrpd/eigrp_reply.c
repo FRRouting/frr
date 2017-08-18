@@ -84,9 +84,7 @@ void eigrp_send_reply(struct eigrp_neighbor *nbr, struct eigrp_prefix_entry *pe)
 	plist = e->prefix[EIGRP_FILTER_OUT];
 	alist_i = nbr->ei->list[EIGRP_FILTER_OUT];
 	plist_i = nbr->ei->prefix[EIGRP_FILTER_OUT];
-	zlog_info("REPLY Send: Filtering");
 
-	zlog_info("REPLY SEND Prefix: %s", inet_ntoa(nbr->src));
 	/* Check if any list fits */
 	if ((alist
 	     && access_list_apply(alist, (struct prefix *)pe2->destination_ipv4)
@@ -106,15 +104,13 @@ void eigrp_send_reply(struct eigrp_neighbor *nbr, struct eigrp_prefix_entry *pe)
 		zlog_info("REPLY SEND: Setting Metric to max");
 		pe2->reported_metric.delay = EIGRP_MAX_METRIC;
 
-	} else {
-		zlog_info("REPLY SEND: Not setting metric");
 	}
 
 	/*
 	 * End of filtering
 	 */
 
-	ep = eigrp_packet_new(nbr->ei->ifp->mtu);
+	ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
 
 	/* Prepare EIGRP INIT UPDATE header */
 	eigrp_packet_header_init(EIGRP_OPC_REPLY, nbr->ei, ep->s, 0,
@@ -144,7 +140,7 @@ void eigrp_send_reply(struct eigrp_neighbor *nbr, struct eigrp_prefix_entry *pe)
 	ep->sequence_number = nbr->ei->eigrp->sequence_number;
 
 	/*Put packet to retransmission queue*/
-	eigrp_fifo_push_head(nbr->retrans_queue, ep);
+	eigrp_fifo_push(nbr->retrans_queue, ep);
 
 	if (nbr->retrans_queue->count == 1) {
 		eigrp_send_packet_reliably(nbr);

@@ -159,7 +159,7 @@ void eigrp_send_query(struct eigrp_interface *ei)
 	char has_tlv;
 	bool ep_saved = false;
 
-	ep = eigrp_packet_new(ei->ifp->mtu);
+	ep = eigrp_packet_new(ei->ifp->mtu, NULL);
 
 	/* Prepare EIGRP INIT UPDATE header */
 	eigrp_packet_header_init(EIGRP_OPC_QUERY, ei, ep->s, 0,
@@ -207,7 +207,7 @@ void eigrp_send_query(struct eigrp_interface *ei)
 	for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
 		if (nbr->state == EIGRP_NEIGHBOR_UP) {
 			/*Put packet to retransmission queue*/
-			eigrp_fifo_push_head(nbr->retrans_queue, ep);
+			eigrp_fifo_push(nbr->retrans_queue, ep);
 			ep_saved = true;
 
 			if (nbr->retrans_queue->count == 1) {

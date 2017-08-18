@@ -463,7 +463,7 @@ void eigrp_update_send_init(struct eigrp_neighbor *nbr)
 	struct eigrp_packet *ep;
 	u_int16_t length = EIGRP_HEADER_LEN;
 
-	ep = eigrp_packet_new(nbr->ei->ifp->mtu);
+	ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
 
 	/* Prepare EIGRP INIT UPDATE header */
 	if (IS_DEBUG_EIGRP_PACKET(0, RECV))
@@ -497,7 +497,7 @@ void eigrp_update_send_init(struct eigrp_neighbor *nbr)
 			   ep->length, ep->sequence_number, inet_ntoa(ep->dst));
 
 	/*Put packet to retransmission queue*/
-	eigrp_fifo_push_head(nbr->retrans_queue, ep);
+	eigrp_fifo_push(nbr->retrans_queue, ep);
 
 	if (nbr->retrans_queue->count == 1) {
 		eigrp_send_packet_reliably(nbr);
@@ -528,7 +528,7 @@ static void eigrp_update_place_on_nbr_queue(struct eigrp_neighbor *nbr,
 			   ep->length, ep->sequence_number, inet_ntoa(ep->dst));
 
 	/*Put packet to retransmission queue*/
-	eigrp_fifo_push_head(nbr->retrans_queue, ep);
+	eigrp_fifo_push(nbr->retrans_queue, ep);
 }
 
 void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
@@ -546,7 +546,7 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 	struct prefix_ipv4 *dest_addr;
 	u_int32_t seq_no = nbr->ei->eigrp->sequence_number;
 
-	ep = eigrp_packet_new(nbr->ei->ifp->mtu);
+	ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
 
 	/* Prepare EIGRP EOT UPDATE header */
 	eigrp_packet_header_init(EIGRP_OPC_UPDATE, nbr->ei, ep->s, EIGRP_EOT_FLAG,
@@ -571,7 +571,7 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 				seq_no++;
 
 				length = EIGRP_HEADER_LEN;
-				ep = eigrp_packet_new(nbr->ei->ifp->mtu);
+				ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
 				eigrp_packet_header_init(EIGRP_OPC_UPDATE, nbr->ei, ep->s, EIGRP_EOT_FLAG,
 							 seq_no, nbr->recv_sequence_number);
 
@@ -635,7 +635,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 
 	u_int16_t length = EIGRP_HEADER_LEN;
 
-	ep = eigrp_packet_new(ei->ifp->mtu);
+	ep = eigrp_packet_new(ei->ifp->mtu, NULL);
 
 	/* Prepare EIGRP INIT UPDATE header */
 	eigrp_packet_header_init(EIGRP_OPC_UPDATE, ei, ep->s, 0,
@@ -684,13 +684,9 @@ void eigrp_update_send(struct eigrp_interface *ei)
 				&& prefix_list_apply(plist_i,
 						     (struct prefix *)dest_addr)
 					   == PREFIX_DENY)) {
-				zlog_info("PROC OUT: Skipping");
 				// pe->reported_metric.delay = EIGRP_MAX_METRIC;
-				zlog_info("PROC OUT Prefix: %s",
-					  inet_ntoa(dest_addr->prefix));
 				continue;
 			} else {
-				zlog_info("PROC OUT: NENastavujem metriku ");
 				length += eigrp_add_internalTLV_to_stream(ep->s,
 									  pe);
 				has_tlv = 1;
@@ -731,7 +727,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 		if (nbr->state == EIGRP_NEIGHBOR_UP) {
 			packet_sent = true;
 			/*Put packet to retransmission queue*/
-			eigrp_fifo_push_head(nbr->retrans_queue, ep);
+			eigrp_fifo_push(nbr->retrans_queue, ep);
 
 			if (nbr->retrans_queue->count == 1) {
 				eigrp_send_packet_reliably(nbr);
@@ -762,8 +758,6 @@ void eigrp_update_send_all(struct eigrp *eigrp,
 			pe->req_action &= ~EIGRP_FSM_NEED_UPDATE;
 			listnode_delete(eigrp->topology_changes_internalIPV4,
 					pe);
-			zlog_debug("UPDATE COUNT: %d",
-				   eigrp->topology_changes_internalIPV4->count);
 		}
 	}
 }
@@ -835,7 +829,7 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 		}
 	}
 
-	ep = eigrp_packet_new(nbr->ei->ifp->mtu);
+	ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
 
 	/* Prepare EIGRP Graceful restart UPDATE header */
 	eigrp_packet_header_init(EIGRP_OPC_UPDATE, nbr->ei, ep->s, flags,
@@ -980,7 +974,7 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 			   ep->length, ep->sequence_number, inet_ntoa(ep->dst));
 
 	/*Put packet to retransmission queue*/
-	eigrp_fifo_push_head(nbr->retrans_queue, ep);
+	eigrp_fifo_push(nbr->retrans_queue, ep);
 
 	if (nbr->retrans_queue->count == 1) {
 		eigrp_send_packet_reliably(nbr);
