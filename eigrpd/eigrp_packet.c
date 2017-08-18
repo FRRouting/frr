@@ -628,35 +628,30 @@ int eigrp_read(struct thread *thread)
 
 	/* New testing block of code for handling Acks */
 	if (ntohl(eigrph->ack) != 0) {
+		struct eigrp_packet *ep = NULL;
+
 		nbr = eigrp_nbr_get(ei, eigrph, iph);
 
-		/* neighbor must be valid, eigrp_nbr_get creates if none existed
-		 */
+		// neighbor must be valid, eigrp_nbr_get creates if none existed
 		assert(nbr);
 
-		struct eigrp_packet *ep;
-
 		ep = eigrp_fifo_next(nbr->retrans_queue);
-		if (ep) {
-			if (ntohl(eigrph->ack) == ep->sequence_number) {
-				if ((nbr->state == EIGRP_NEIGHBOR_PENDING)
-				    && (ntohl(eigrph->ack)
-					== nbr->init_sequence_number)) {
-					eigrp_nbr_state_set(nbr,
-							    EIGRP_NEIGHBOR_UP);
-					zlog_info("Neighbor(%s) adjacency became full",
-						  inet_ntoa(nbr->src));
-					nbr->init_sequence_number = 0;
-					nbr->recv_sequence_number =
-						ntohl(eigrph->sequence);
-					eigrp_update_send_EOT(nbr);
-				}
-				ep = eigrp_fifo_pop(nbr->retrans_queue);
-				eigrp_packet_free(ep);
-				if (nbr->retrans_queue->count > 0) {
-					eigrp_send_packet_reliably(nbr);
-				}
+		if ((ep) && (ntohl(eigrph->ack) == ep->sequence_number)) {
+			ep = eigrp_fifo_pop(nbr->retrans_queue);
+			eigrp_packet_free(ep);
+
+			if ((nbr->state == EIGRP_NEIGHBOR_PENDING)
+			    && (ntohl(eigrph->ack) == nbr->init_sequence_number)) {
+				eigrp_nbr_state_set(nbr, EIGRP_NEIGHBOR_UP);
+				zlog_info("Neighbor(%s) adjacency became full",
+					  inet_ntoa(nbr->src));
+				nbr->init_sequence_number = 0;
+				nbr->recv_sequence_number =
+					ntohl(eigrph->sequence);
+				eigrp_update_send_EOT(nbr);
 			}
+			else
+				eigrp_send_packet_reliably(nbr);
 		}
 		ep = eigrp_fifo_next(nbr->multicast_queue);
 		if (ep) {
@@ -1073,7 +1068,7 @@ int eigrp_unack_multicast_packet_retrans(struct thread *thread)
 /* Get packet from tail of fifo. */
 struct eigrp_packet *eigrp_fifo_pop(struct eigrp_fifo *fifo)
 {
-	struct eigrp_packet *ep;
+	struct eigrp_packet *ep = NULL;
 
 	ep = fifo->tail;
 
