@@ -1941,20 +1941,8 @@ DEFUN (vtysh_show_logging,
        SHOW_STR
        "Show current logging configuration\n")
 {
-	unsigned int i;
-	int ret = CMD_SUCCESS;
-	char line[] = "do show logging\n";
-
-	for (i = 0; i < array_size(vtysh_client); i++)
-		if (vtysh_client[i].fd >= 0) {
-			fprintf(stdout, "Logging configuration for %s:\n",
-				vtysh_client[i].name);
-			ret = vtysh_client_execute(&vtysh_client[i], line,
-						   stdout);
-			fprintf(stdout, "\n");
-		}
-
-	return ret;
+	return show_per_daemon("do show logging\n",
+			       "Logging configuration for %s:\n");
 }
 
 DEFUNSH(VTYSH_ALL, vtysh_log_stdout, vtysh_log_stdout_cmd, "log stdout",
