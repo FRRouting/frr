@@ -1914,6 +1914,16 @@ static int show_per_daemon(const char *line, const char *headline)
 	return ret;
 }
 
+DEFUN (vtysh_show_debugging,
+       vtysh_show_debugging_cmd,
+       "show debugging",
+       SHOW_STR
+       DEBUG_STR)
+{
+	return show_per_daemon("do show debugging\n",
+			       "Debugging Information for %s:\n");
+}
+
 /* Memory */
 DEFUN (vtysh_show_memory,
        vtysh_show_memory_cmd,
@@ -1921,7 +1931,8 @@ DEFUN (vtysh_show_memory,
        SHOW_STR
        "Memory statistics\n")
 {
-	return show_per_daemon("show memory\n", "Memory statistics for %s:\n");
+	return show_per_daemon("show memory\n",
+			       "Memory statistics for %s:\n");
 }
 
 DEFUN (vtysh_show_modules,
@@ -3220,6 +3231,7 @@ void vtysh_init_vty(void)
 	install_element(ENABLE_NODE, &vtysh_start_zsh_cmd);
 #endif
 
+	install_element(VIEW_NODE, &vtysh_show_debugging_cmd);
 	install_element(VIEW_NODE, &vtysh_show_memory_cmd);
 	install_element(VIEW_NODE, &vtysh_show_modules_cmd);
 

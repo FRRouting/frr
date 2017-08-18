@@ -758,17 +758,18 @@ void print_debug(struct vty *vty, int flags, int onoff)
 		vty_out(vty, "IS-IS LSP scheduling debugging is %s\n", onoffs);
 }
 
-DEFUN (show_debugging,
-       show_debugging_isis_cmd,
-       "show debugging isis",
-       SHOW_STR
-       "State of each debugging option\n"
-       ISIS_STR)
+DEFUN_NOSH (show_debugging,
+	    show_debugging_isis_cmd,
+	    "show debugging [isis]",
+	    SHOW_STR
+	    "State of each debugging option\n"
+	    ISIS_STR)
 {
-	if (isis->debugs) {
-		vty_out(vty, "IS-IS:\n");
+	vty_out (vty, "IS-IS debugging status:\n");
+
+	if (isis->debugs)
 		print_debug(vty, isis->debugs, 1);
-	}
+
 	return CMD_SUCCESS;
 }
 

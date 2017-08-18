@@ -310,6 +310,20 @@ debug_babel_config_write (struct vty * vty)
 #endif /* NO_DEBUG */
 }
 
+DEFUN_NOSH (show_debugging_babel,
+	    show_debugging_babel_cmd,
+	    "show debugging [babel]",
+	    SHOW_STR
+	    DEBUG_STR
+	    "Babel")
+{
+	vty_out(vty, "BABEL debugging status\n");
+
+	debug_babel_config_write(vty);
+
+	return CMD_SUCCESS;
+}
+
 static void
 babel_zebra_connected (struct zclient *zclient)
 {
@@ -339,6 +353,8 @@ void babelz_zebra_init(void)
     install_element(ENABLE_NODE, &no_debug_babel_cmd);
     install_element(CONFIG_NODE, &debug_babel_cmd);
     install_element(CONFIG_NODE, &no_debug_babel_cmd);
+
+    install_element(VIEW_NODE, &show_debugging_babel_cmd);
 }
 
 static int
