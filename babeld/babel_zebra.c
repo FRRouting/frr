@@ -37,7 +37,6 @@ void babelz_zebra_init(void);
 
 /* we must use a pointer because of zclient.c's functions (new, free). */
 struct zclient *zclient;
-static int zebra_config_write (struct vty *vty);
 
 /* Debug types */
 static struct {
@@ -54,15 +53,6 @@ static struct {
     {BABEL_DEBUG_ALL,     1, "all"},
     {0, 0, NULL}
 };
-
-/* Zebra node structure. */
-struct cmd_node zebra_node =
-{
-    ZEBRA_NODE,
-    "%s(config-router)# ",
-    1 /* vtysh? yes */
-};
-
 
 /* Zebra route add and delete treatment (ipv6). */
 static int
@@ -347,7 +337,6 @@ void babelz_zebra_init(void)
     zclient->redistribute_route_ipv6_add = babel_zebra_read_ipv6;
     zclient->redistribute_route_ipv6_del = babel_zebra_read_ipv6;
 
-    install_node (&zebra_node, zebra_config_write);
     install_element(BABEL_NODE, &babel_redistribute_type_cmd);
     install_element(ENABLE_NODE, &debug_babel_cmd);
     install_element(ENABLE_NODE, &no_debug_babel_cmd);
@@ -355,23 +344,6 @@ void babelz_zebra_init(void)
     install_element(CONFIG_NODE, &no_debug_babel_cmd);
 
     install_element(VIEW_NODE, &show_debugging_babel_cmd);
-}
-
-static int
-zebra_config_write (struct vty *vty)
-{
-    if (! zclient->enable)
-    {
-        vty_out (vty, "no router zebra\n");
-        return 1;
-    }
-    else if (! vrf_bitmap_check (zclient->redist[AFI_IP][ZEBRA_ROUTE_BABEL], VRF_DEFAULT))
-    {
-        vty_out (vty, "router zebra\n");
-        vty_out (vty, " no redistribute babel\n");
-        return 1;
-    }
-    return 0;
 }
 
 void

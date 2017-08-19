@@ -1169,14 +1169,6 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	if (!bgp_install_info_to_zebra(bgp))
 		return;
 
-	if ((p->family == AF_INET
-	     && !vrf_bitmap_check(zclient->redist[AFI_IP][ZEBRA_ROUTE_BGP],
-				  bgp->vrf_id))
-	    || (p->family == AF_INET6
-		&& !vrf_bitmap_check(zclient->redist[AFI_IP6][ZEBRA_ROUTE_BGP],
-				     bgp->vrf_id)))
-		return;
-
 	if (bgp->main_zebra_update_hold)
 		return;
 
@@ -1588,14 +1580,6 @@ void bgp_zebra_withdraw(struct prefix *p, struct bgp_info *info, safi_t safi)
 	 * know of this instance.
 	 */
 	if (!bgp_install_info_to_zebra(peer->bgp))
-		return;
-
-	if ((p->family == AF_INET
-	     && !vrf_bitmap_check(zclient->redist[AFI_IP][ZEBRA_ROUTE_BGP],
-				  peer->bgp->vrf_id))
-	    || (p->family == AF_INET6
-		&& !vrf_bitmap_check(zclient->redist[AFI_IP6][ZEBRA_ROUTE_BGP],
-				     peer->bgp->vrf_id)))
 		return;
 
 	flags = 0;

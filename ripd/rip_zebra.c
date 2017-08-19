@@ -48,10 +48,6 @@ static void rip_zebra_ipv4_send(struct route_node *rp, u_char cmd)
 	struct rip_info *rinfo = NULL;
 	int count = 0;
 
-	if (!vrf_bitmap_check(zclient->redist[AFI_IP][ZEBRA_ROUTE_RIP],
-			      VRF_DEFAULT))
-		return;
-
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_RIP;
 	api.instance = 0;
@@ -293,27 +289,6 @@ void rip_redistribute_clean(void)
 			rip_redistribute_withdraw(redist_type[i].type);
 		}
 	}
-}
-
-DEFUN (rip_redistribute_rip,
-       rip_redistribute_rip_cmd,
-       "redistribute rip",
-       "Redistribute information from another routing protocol\n"
-       "Routing Information Protocol (RIP)\n")
-{
-	vrf_bitmap_set(zclient->redist[AFI_IP][ZEBRA_ROUTE_RIP], VRF_DEFAULT);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_rip_redistribute_rip,
-       no_rip_redistribute_rip_cmd,
-       "no redistribute rip",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "Routing Information Protocol (RIP)\n")
-{
-	vrf_bitmap_unset(zclient->redist[AFI_IP][ZEBRA_ROUTE_RIP], VRF_DEFAULT);
-	return CMD_SUCCESS;
 }
 
 DEFUN (rip_redistribute_type,
@@ -601,21 +576,6 @@ DEFUN (no_rip_default_information_originate,
 	return CMD_SUCCESS;
 }
 
-/* RIP configuration write function. */
-static int config_write_zebra(struct vty *vty)
-{
-	if (!zclient->enable) {
-		vty_out(vty, "no router zebra\n");
-		return 1;
-	} else if (!vrf_bitmap_check(zclient->redist[AFI_IP][ZEBRA_ROUTE_RIP],
-				     VRF_DEFAULT)) {
-		vty_out(vty, "router zebra\n");
-		vty_out(vty, " no redistribute rip\n");
-		return 1;
-	}
-	return 0;
-}
-
 int config_write_rip_redistribute(struct vty *vty, int config_mode)
 {
 	int i;
@@ -656,11 +616,6 @@ int config_write_rip_redistribute(struct vty *vty, int config_mode)
 	return 0;
 }
 
-/* Zebra node structure. */
-static struct cmd_node zebra_node = {
-	ZEBRA_NODE, "%s(config-router)# ",
-};
-
 static void rip_zebra_connected(struct zclient *zclient)
 {
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
@@ -680,14 +635,6 @@ void rip_zclient_init(struct thread_master *master)
 	zclient->interface_down = rip_interface_down;
 	zclient->redistribute_route_ipv4_add = rip_zebra_read_ipv4;
 	zclient->redistribute_route_ipv4_del = rip_zebra_read_ipv4;
-
-	/* Install zebra node. */
-	install_node(&zebra_node, config_write_zebra);
-
-	/* Install command elements to zebra node. */
-	install_default(ZEBRA_NODE);
-	install_element(ZEBRA_NODE, &rip_redistribute_rip_cmd);
-	install_element(ZEBRA_NODE, &no_rip_redistribute_rip_cmd);
 
 	/* Install command elements to rip node. */
 	install_element(RIP_NODE, &rip_redistribute_type_cmd);

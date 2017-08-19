@@ -342,14 +342,6 @@ void ospf_zebra_add(struct prefix_ipv4 *p, struct ospf_route * or)
 	struct listnode *node;
 	struct ospf *ospf = ospf_lookup();
 
-	if (!(ospf->instance
-	      && redist_check_instance(
-			 &zclient->mi_redist[AFI_IP][ZEBRA_ROUTE_OSPF],
-			 ospf->instance))
-	    && !vrf_bitmap_check(zclient->redist[AFI_IP][ZEBRA_ROUTE_OSPF],
-				 VRF_DEFAULT))
-		return;
-
 	message = 0;
 	flags = 0;
 
@@ -465,14 +457,6 @@ void ospf_zebra_delete(struct prefix_ipv4 *p, struct ospf_route * or)
 	struct listnode *node;
 	struct ospf *ospf = ospf_lookup();
 
-	if (!(ospf->instance
-	      && redist_check_instance(
-			 &zclient->mi_redist[AFI_IP][ZEBRA_ROUTE_OSPF],
-			 ospf->instance))
-	    && !vrf_bitmap_check(zclient->redist[AFI_IP][ZEBRA_ROUTE_OSPF],
-				 VRF_DEFAULT))
-		return;
-
 	message = 0;
 	flags = 0;
 	/* Distance value. */
@@ -543,14 +527,6 @@ void ospf_zebra_add_discard(struct prefix_ipv4 *p)
 	struct zapi_ipv4 api;
 	struct ospf *ospf = ospf_lookup();
 
-	if (!(ospf->instance
-	      && redist_check_instance(
-			 &zclient->mi_redist[AFI_IP][ZEBRA_ROUTE_OSPF],
-			 ospf->instance))
-	    && !vrf_bitmap_check(zclient->redist[AFI_IP][ZEBRA_ROUTE_OSPF],
-				 VRF_DEFAULT))
-		return;
-
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_OSPF;
 	api.instance = ospf->instance;
@@ -573,14 +549,6 @@ void ospf_zebra_delete_discard(struct prefix_ipv4 *p)
 {
 	struct zapi_ipv4 api;
 	struct ospf *ospf = ospf_lookup();
-
-	if (!(ospf->instance
-	      && redist_check_instance(
-			 &zclient->mi_redist[AFI_IP][ZEBRA_ROUTE_OSPF],
-			 ospf->instance))
-	    && !vrf_bitmap_check(zclient->redist[AFI_IP][ZEBRA_ROUTE_OSPF],
-				 VRF_DEFAULT))
-		return;
 
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_OSPF;

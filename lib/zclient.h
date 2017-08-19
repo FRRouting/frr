@@ -137,10 +137,6 @@ struct zclient {
 	/* Socket to zebra daemon. */
 	int sock;
 
-	/* Flag of communication to zebra is enabled or not.  Default is on.
-	   This flag is disabled by `no router zebra' statement. */
-	int enable;
-
 	/* Connection failure count. */
 	int fail;
 

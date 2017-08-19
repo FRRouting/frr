@@ -352,10 +352,6 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 	int i;
 	afi_t afi;
 
-	/* zclient is disabled. */
-	if (!zclient->enable)
-		return;
-
 	/* If not connected to the zebra yet. */
 	if (zclient->sock < 0)
 		return;
@@ -417,10 +413,6 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 {
 	int i;
 	afi_t afi;
-
-	/* zclient is disabled. */
-	if (!zclient->enable)
-		return;
 
 	/* If not connected to the zebra yet. */
 	if (zclient->sock < 0)
@@ -485,10 +477,6 @@ void zclient_send_interface_radv_req(struct zclient *zclient, vrf_id_t vrf_id,
 {
 	struct stream *s;
 
-	/* zclient is disabled. */
-	if (!zclient->enable)
-		return;
-
 	/* If not connected to the zebra yet. */
 	if (zclient->sock < 0)
 		return;
@@ -515,10 +503,6 @@ int zclient_start(struct zclient *zclient)
 {
 	if (zclient_debug)
 		zlog_info("zclient_start is called");
-
-	/* zclient is disabled. */
-	if (!zclient->enable)
-		return 0;
 
 	/* If already connected to the zebra. */
 	if (zclient->sock >= 0)
@@ -563,9 +547,6 @@ int zclient_start(struct zclient *zclient)
 void zclient_init(struct zclient *zclient, int redist_default, u_short instance)
 {
 	int afi, i;
-
-	/* Enable zebra client connection by default. */
-	zclient->enable = 1;
 
 	/* Set -1 to the default socket value. */
 	zclient->sock = -1;

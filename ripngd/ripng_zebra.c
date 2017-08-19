@@ -49,10 +49,6 @@ static void ripng_zebra_ipv6_send(struct route_node *rp, u_char cmd)
 	struct ripng_info *rinfo = NULL;
 	int count = 0;
 
-	if (!vrf_bitmap_check(zclient->redist[AFI_IP6][ZEBRA_ROUTE_RIPNG],
-			      VRF_DEFAULT))
-		return;
-
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_RIPNG;
 	api.instance = 0;
@@ -292,29 +288,6 @@ void ripng_redistribute_clean()
 	}
 }
 
-DEFUN (ripng_redistribute_ripng,
-       ripng_redistribute_ripng_cmd,
-       "redistribute ripng",
-       "Redistribute information from another routing protocol\n"
-       "RIPng route\n")
-{
-	vrf_bitmap_set(zclient->redist[AFI_IP6][ZEBRA_ROUTE_RIPNG],
-		       VRF_DEFAULT);
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_ripng_redistribute_ripng,
-       no_ripng_redistribute_ripng_cmd,
-       "no redistribute ripng",
-       NO_STR
-       "Redistribute information from another routing protocol\n"
-       "RIPng route\n")
-{
-	vrf_bitmap_unset(zclient->redist[AFI_IP6][ZEBRA_ROUTE_RIPNG],
-			 VRF_DEFAULT);
-	return CMD_SUCCESS;
-}
-
 DEFUN (ripng_redistribute_type,
        ripng_redistribute_type_cmd,
        "redistribute " FRR_REDIST_STR_RIPNGD,
@@ -484,27 +457,6 @@ void ripng_redistribute_write(struct vty *vty, int config_mode)
 	}
 }
 
-/* RIPng configuration write function. */
-static int zebra_config_write(struct vty *vty)
-{
-	if (!zclient->enable) {
-		vty_out(vty, "no router zebra\n");
-		return 1;
-	} else if (!vrf_bitmap_check(
-			   zclient->redist[AFI_IP6][ZEBRA_ROUTE_RIPNG],
-			   VRF_DEFAULT)) {
-		vty_out(vty, "router zebra\n");
-		vty_out(vty, " no redistribute ripng\n");
-		return 1;
-	}
-	return 0;
-}
-
-/* Zebra node structure. */
-static struct cmd_node zebra_node = {
-	ZEBRA_NODE, "%s(config-router)# ",
-};
-
 static void ripng_zebra_connected(struct zclient *zclient)
 {
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
@@ -526,14 +478,6 @@ void zebra_init(struct thread_master *master)
 	zclient->interface_address_delete = ripng_interface_address_delete;
 	zclient->redistribute_route_ipv6_add = ripng_zebra_read_ipv6;
 	zclient->redistribute_route_ipv6_del = ripng_zebra_read_ipv6;
-
-	/* Install zebra node. */
-	install_node(&zebra_node, zebra_config_write);
-
-	/* Install command element for zebra node. */
-	install_default(ZEBRA_NODE);
-	install_element(ZEBRA_NODE, &ripng_redistribute_ripng_cmd);
-	install_element(ZEBRA_NODE, &no_ripng_redistribute_ripng_cmd);
 
 	/* Install command elements to ripng node */
 	install_element(RIPNG_NODE, &ripng_redistribute_type_cmd);

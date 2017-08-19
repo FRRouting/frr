@@ -317,7 +317,7 @@ DEFUN (show_zebra,
 	}
 
 	vty_out(vty, "Zebra Infomation\n");
-	vty_out(vty, "  enable: %d fail: %d\n", zclient->enable, zclient->fail);
+	vty_out(vty, "  fail: %d\n", zclient->fail);
 	vty_out(vty, "  redistribute default: %d\n",
 		vrf_bitmap_check(zclient->default_information, VRF_DEFAULT));
 	vty_out(vty, "  redistribute:");
@@ -328,27 +328,6 @@ DEFUN (show_zebra,
 	vty_out(vty, "\n");
 	return CMD_SUCCESS;
 }
-
-/* Zebra configuration write function. */
-static int config_write_ospf6_zebra(struct vty *vty)
-{
-	if (!zclient->enable) {
-		vty_out(vty, "no router zebra\n");
-		vty_out(vty, "!\n");
-	} else if (!vrf_bitmap_check(
-			   zclient->redist[AFI_IP6][ZEBRA_ROUTE_OSPF6],
-			   VRF_DEFAULT)) {
-		vty_out(vty, "router zebra\n");
-		vty_out(vty, " no redistribute ospf6\n");
-		vty_out(vty, "!\n");
-	}
-	return 0;
-}
-
-/* Zebra node structure. */
-static struct cmd_node zebra_node = {
-	ZEBRA_NODE, "%s(config-zebra)# ",
-};
 
 #define ADD    0
 #define REM    1
@@ -471,23 +450,11 @@ static void ospf6_zebra_route_update(int type, struct ospf6_route *request)
 
 void ospf6_zebra_route_update_add(struct ospf6_route *request)
 {
-	if (!vrf_bitmap_check(zclient->redist[AFI_IP6][ZEBRA_ROUTE_OSPF6],
-			      VRF_DEFAULT)) {
-		ospf6->route_table->hook_add = NULL;
-		ospf6->route_table->hook_remove = NULL;
-		return;
-	}
 	ospf6_zebra_route_update(ADD, request);
 }
 
 void ospf6_zebra_route_update_remove(struct ospf6_route *request)
 {
-	if (!vrf_bitmap_check(zclient->redist[AFI_IP6][ZEBRA_ROUTE_OSPF6],
-			      VRF_DEFAULT)) {
-		ospf6->route_table->hook_add = NULL;
-		ospf6->route_table->hook_remove = NULL;
-		return;
-	}
 	ospf6_zebra_route_update(REM, request);
 }
 
@@ -496,10 +463,6 @@ void ospf6_zebra_add_discard(struct ospf6_route *request)
 	struct zapi_ipv6 api;
 	char buf[INET6_ADDRSTRLEN];
 	struct prefix_ipv6 *dest;
-
-	if (!vrf_bitmap_check(zclient->redist[AFI_IP6][ZEBRA_ROUTE_OSPF6],
-			      VRF_DEFAULT))
-		return;
 
 	if (!CHECK_FLAG(request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED)) {
 		api.vrf_id = VRF_DEFAULT;
@@ -542,10 +505,6 @@ void ospf6_zebra_delete_discard(struct ospf6_route *request)
 	char buf[INET6_ADDRSTRLEN];
 	struct prefix_ipv6 *dest;
 
-	if (!vrf_bitmap_check(zclient->redist[AFI_IP6][ZEBRA_ROUTE_OSPF6],
-			      VRF_DEFAULT))
-		return;
-
 	if (CHECK_FLAG(request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED)) {
 		api.vrf_id = VRF_DEFAULT;
 		api.type = ZEBRA_ROUTE_OSPF6;
@@ -578,65 +537,6 @@ void ospf6_zebra_delete_discard(struct ospf6_route *request)
 					  INET6_ADDRSTRLEN),
 				dest->prefixlen);
 	}
-}
-
-DEFUN (redistribute_ospf6,
-       redistribute_ospf6_cmd,
-       "redistribute ospf6",
-       "Redistribute control\n"
-       "OSPF6 route\n")
-{
-	struct ospf6_route *route;
-
-	if (vrf_bitmap_check(zclient->redist[AFI_IP6][ZEBRA_ROUTE_OSPF6],
-			     VRF_DEFAULT))
-		return CMD_SUCCESS;
-
-	vrf_bitmap_set(zclient->redist[AFI_IP6][ZEBRA_ROUTE_OSPF6],
-		       VRF_DEFAULT);
-
-	if (ospf6 == NULL)
-		return CMD_SUCCESS;
-
-	/* send ospf6 route to zebra route table */
-	for (route = ospf6_route_head(ospf6->route_table); route;
-	     route = ospf6_route_next(route))
-		ospf6_zebra_route_update_add(route);
-
-	ospf6->route_table->hook_add = ospf6_zebra_route_update_add;
-	ospf6->route_table->hook_remove = ospf6_zebra_route_update_remove;
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (no_redistribute_ospf6,
-       no_redistribute_ospf6_cmd,
-       "no redistribute ospf6",
-       NO_STR
-       "Redistribute control\n"
-       "OSPF6 route\n")
-{
-	struct ospf6_route *route;
-
-	if (!vrf_bitmap_check(zclient->redist[AFI_IP6][ZEBRA_ROUTE_OSPF6],
-			      VRF_DEFAULT))
-		return CMD_SUCCESS;
-
-	vrf_bitmap_unset(zclient->redist[AFI_IP6][ZEBRA_ROUTE_OSPF6],
-			 VRF_DEFAULT);
-
-	if (ospf6 == NULL)
-		return CMD_SUCCESS;
-
-	ospf6->route_table->hook_add = NULL;
-	ospf6->route_table->hook_remove = NULL;
-
-	/* withdraw ospf6 route from zebra route table */
-	for (route = ospf6_route_head(ospf6->route_table); route;
-	     route = ospf6_route_next(route))
-		ospf6_zebra_route_update_remove(route);
-
-	return CMD_SUCCESS;
 }
 
 static struct ospf6_distance *ospf6_distance_new(void)
@@ -794,19 +694,8 @@ void ospf6_zebra_init(struct thread_master *master)
 	zclient->redistribute_route_ipv6_add = ospf6_zebra_read_ipv6;
 	zclient->redistribute_route_ipv6_del = ospf6_zebra_read_ipv6;
 
-	/* redistribute connected route by default */
-	/* ospf6_zebra_redistribute (ZEBRA_ROUTE_CONNECT); */
-
-	/* Install zebra node. */
-	install_node(&zebra_node, config_write_ospf6_zebra);
-
 	/* Install command element for zebra node. */
 	install_element(VIEW_NODE, &show_ospf6_zebra_cmd);
-	install_default(ZEBRA_NODE);
-	install_element(ZEBRA_NODE, &redistribute_ospf6_cmd);
-	install_element(ZEBRA_NODE, &no_redistribute_ospf6_cmd);
-
-	return;
 }
 
 /* Debug */

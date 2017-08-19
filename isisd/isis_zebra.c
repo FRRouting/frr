@@ -258,10 +258,6 @@ static void isis_zebra_route_add_ipv4(struct prefix *prefix,
 	if (CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
 		return;
 
-	if (!vrf_bitmap_check(zclient->redist[AFI_IP][ZEBRA_ROUTE_ISIS],
-			      VRF_DEFAULT))
-		return;
-
 	message = 0;
 	flags = 0;
 
@@ -323,10 +319,6 @@ static void isis_zebra_route_del_ipv4(struct prefix *prefix,
 	struct prefix_ipv4 prefix4;
 
 	UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
-
-	if (!vrf_bitmap_check(zclient->redist[AFI_IP][ZEBRA_ROUTE_ISIS],
-			      VRF_DEFAULT))
-		return;
 
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_ISIS;
@@ -503,14 +495,6 @@ void isis_zebra_route_update(struct prefix *prefix,
 			     struct isis_route_info *route_info)
 {
 	if (zclient->sock < 0)
-		return;
-
-	if ((prefix->family == AF_INET
-	     && !vrf_bitmap_check(zclient->redist[AFI_IP][ZEBRA_ROUTE_ISIS],
-				  VRF_DEFAULT))
-	    || (prefix->family == AF_INET6
-		&& !vrf_bitmap_check(zclient->redist[AFI_IP6][ZEBRA_ROUTE_ISIS],
-				     VRF_DEFAULT)))
 		return;
 
 	if (CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ACTIVE)) {
