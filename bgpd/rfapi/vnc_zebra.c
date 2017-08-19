@@ -527,8 +527,8 @@ static void vnc_zebra_route_msg(struct prefix *p, int nhp_count, void *nhp_ary,
 				p->prefixlen, nhp_count);
 		}
 
-		zapi_ipv4_route((add ? ZEBRA_IPV4_NEXTHOP_ADD
-				     : ZEBRA_IPV4_NEXTHOP_DELETE),
+		zapi_ipv4_route((add ? ZEBRA_IPV4_ROUTE_ADD
+				     : ZEBRA_IPV4_ROUTE_DELETE),
 				zclient_vnc, (struct prefix_ipv4 *)p, &api);
 
 	} else if (p->family == AF_INET6) {
@@ -561,8 +561,8 @@ static void vnc_zebra_route_msg(struct prefix *p, int nhp_count, void *nhp_ary,
 				p->prefixlen, nhp_count);
 		}
 
-		zapi_ipv6_route((add ? ZEBRA_IPV6_NEXTHOP_ADD
-				     : ZEBRA_IPV6_NEXTHOP_DELETE),
+		zapi_ipv6_route((add ? ZEBRA_IPV6_ROUTE_ADD
+				     : ZEBRA_IPV6_ROUTE_DELETE),
 				zclient_vnc, (struct prefix_ipv6 *)p, NULL,
 				&api);
 	} else {
