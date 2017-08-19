@@ -79,7 +79,7 @@ babel_zebra_read_ipv6 (int command, struct zclient *zclient,
 
     /* IPv6 prefix. */
     prefix.family = AF_INET6;
-    prefix.prefixlen = stream_getc (s);
+    prefix.prefixlen = MIN (IPV6_MAX_PREFIXLEN, stream_getc (s));
     stream_get (&prefix.prefix, s, PSIZE (prefix.prefixlen));
 
     memset(&src_p, 0, sizeof(src_p));
@@ -140,9 +140,9 @@ babel_zebra_read_ipv4 (int command, struct zclient *zclient,
     api.flags = stream_getl (s);
     api.message = stream_getc (s);
 
-    /* IPv6 prefix. */
+    /* IPv4 prefix. */
     prefix.family = AF_INET;
-    prefix.prefixlen = stream_getc (s);
+    prefix.prefixlen = MIN (IPV4_MAX_PREFIXLEN, stream_getc (s));
     stream_get (&prefix.prefix, s, PSIZE (prefix.prefixlen));
 
     /* Nexthop, ifindex, distance, metric. */

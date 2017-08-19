@@ -215,16 +215,17 @@ int nhrp_route_read(int cmd, struct zclient *zclient, zebra_size_t length, vrf_i
 	case ZEBRA_REDISTRIBUTE_IPV4_ADD:
 	case ZEBRA_REDISTRIBUTE_IPV4_DEL:
 		prefix.family = AF_INET;
+		prefix.prefixlen = MIN(IPV4_MAX_PREFIXLEN, stream_getc(s));
 		break;
 	case ZEBRA_REDISTRIBUTE_IPV6_ADD:
 	case ZEBRA_REDISTRIBUTE_IPV6_DEL:
 		prefix.family = AF_INET6;
+		prefix.prefixlen = MIN(IPV6_MAX_PREFIXLEN, stream_getc(s));
 		break;
 	default:
 		return -1;
 	}
 	afaddrlen = family2addrsize(prefix.family);
-	prefix.prefixlen = stream_getc(s);
 	stream_get(&prefix.u.val, s, PSIZE(prefix.prefixlen));
 
 	memset(&src_p, 0, sizeof(src_p));

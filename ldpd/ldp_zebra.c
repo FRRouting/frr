@@ -427,17 +427,18 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 	case ZEBRA_REDISTRIBUTE_IPV4_ADD:
 	case ZEBRA_REDISTRIBUTE_IPV4_DEL:
 		kr.af = AF_INET;
+		kr.prefixlen = MIN(IPV4_MAX_PREFIXLEN, stream_getc(s));
 		nhlen = sizeof(struct in_addr);
 		break;
 	case ZEBRA_REDISTRIBUTE_IPV6_ADD:
 	case ZEBRA_REDISTRIBUTE_IPV6_DEL:
 		kr.af = AF_INET6;
+		kr.prefixlen = MIN(IPV6_MAX_PREFIXLEN, stream_getc(s));
 		nhlen = sizeof(struct in6_addr);
 		break;
 	default:
 		fatalx("ldp_zebra_read_route: unknown command");
 	}
-	kr.prefixlen = stream_getc(s);
 	stream_get(&kr.prefix, s, PSIZE(kr.prefixlen));
 
 	if (bad_addr(kr.af, &kr.prefix) ||
