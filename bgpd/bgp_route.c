@@ -8358,7 +8358,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 #if defined(HAVE_CUMULUS)
 	char buf3[EVPN_ROUTE_STRLEN];
 #endif
-	char  prefix_str[BUFSIZ];
+	char prefix_str[BUFSIZ];
 	int count = 0;
 	int best = 0;
 	int suppress = 0;

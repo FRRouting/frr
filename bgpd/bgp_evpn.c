@@ -1400,12 +1400,12 @@ static int install_uninstall_routes_for_vni(struct bgp *bgp,
 					    bgp_evpn_route_type rtype,
 					    int install)
 {
-	afi_t			afi;
-	safi_t			safi;
-	struct bgp_node		*rd_rn, *rn;
-	struct bgp_table	*table;
-	struct bgp_info		*ri;
-	int			ret;
+	afi_t afi;
+	safi_t safi;
+	struct bgp_node *rd_rn, *rn;
+	struct bgp_table *table;
+	struct bgp_info *ri;
+	int ret;
 
 	afi = AFI_L2VPN;
 	safi = SAFI_EVPN;
@@ -2639,11 +2639,11 @@ int bgp_evpn_unimport_route(struct bgp *bgp, afi_t afi, safi_t safi,
 /* filter routes which have martian next hops */
 int bgp_filter_evpn_routes_upon_martian_nh_change(struct bgp *bgp)
 {
-	afi_t			afi;
-	safi_t			safi;
-	struct bgp_node		*rd_rn, *rn;
-	struct bgp_table	*table;
-	struct bgp_info		*ri;
+	afi_t afi;
+	safi_t safi;
+	struct bgp_node *rd_rn, *rn;
+	struct bgp_table *table;
+	struct bgp_info *ri;
 
 	afi = AFI_L2VPN;
 	safi = SAFI_EVPN;

@@ -2735,10 +2735,10 @@ static int bgp_startup_timer_expire(struct thread *thread)
 static struct bgp *bgp_create(as_t *as, const char *name,
 			      enum bgp_instance_type inst_type)
 {
-	struct bgp		*bgp;
-	afi_t			afi;
-	safi_t			safi;
-	struct utsname		names;
+	struct bgp *bgp;
+	afi_t afi;
+	safi_t safi;
+	struct utsname names;
 
 	uname(&names);
 

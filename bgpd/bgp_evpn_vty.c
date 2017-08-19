@@ -2505,16 +2505,16 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd_macip,
       "IP address (IPv4 or IPv6)\n"
       JSON_STR)
 {
-	struct bgp		*bgp;
-	int			ret;
-	struct prefix_rd	prd;
-	struct ethaddr		mac;
-	struct ipaddr		ip;
-	int			rd_idx = 0;
-	int			mac_idx = 0;
-	int			ip_idx = 0;
-	int			uj = 0;
-	json_object		*json = NULL;
+	struct bgp *bgp;
+	int ret;
+	struct prefix_rd prd;
+	struct ethaddr mac;
+	struct ipaddr ip;
+	int rd_idx = 0;
+	int mac_idx = 0;
+	int ip_idx = 0;
+	int uj = 0;
+	json_object *json = NULL;
 
 	memset(&mac, 0, sizeof(struct ethaddr));
 	memset(&ip, 0, sizeof(struct ipaddr));

@@ -90,8 +90,8 @@ static void bgp_nexthop_cache_reset(struct bgp_table *table)
 
 static void *bgp_tip_hash_alloc(void *p)
 {
-	const struct in_addr	*val = (const struct in_addr *)p;
-	struct tip_addr		*addr;
+	const struct in_addr *val = (const struct in_addr *)p;
+	struct tip_addr *addr;
 
 	addr = XMALLOC(MTYPE_TIP_ADDR, sizeof(struct tip_addr));
 	addr->refcnt = 0;
@@ -107,15 +107,15 @@ static void bgp_tip_hash_free(void *addr)
 
 static unsigned int bgp_tip_hash_key_make(void *p)
 {
-	const struct tip_addr	*addr = p;
+	const struct tip_addr *addr = p;
 
 	return jhash_1word(addr->addr.s_addr, 0);
 }
 
 static int bgp_tip_hash_cmp(const void *p1, const void *p2)
 {
-	const struct tip_addr	*addr1 = p1;
-	const struct tip_addr	*addr2 = p2;
+	const struct tip_addr *addr1 = p1;
+	const struct tip_addr *addr2 = p2;
 
 	return addr1->addr.s_addr == addr2->addr.s_addr;
 }
@@ -137,8 +137,8 @@ void bgp_tip_hash_destroy(struct bgp *bgp)
 
 void bgp_tip_add(struct bgp *bgp, struct in_addr *tip)
 {
-	struct tip_addr		tmp;
-	struct tip_addr		*addr;
+	struct tip_addr tmp;
+	struct tip_addr *addr;
 
 	tmp.addr = *tip;
 
@@ -151,8 +151,8 @@ void bgp_tip_add(struct bgp *bgp, struct in_addr *tip)
 
 void bgp_tip_del(struct bgp *bgp, struct in_addr *tip)
 {
-	struct tip_addr		tmp;
-	struct tip_addr		*addr;
+	struct tip_addr tmp;
+	struct tip_addr *addr;
 
 	tmp.addr = *tip;
 
