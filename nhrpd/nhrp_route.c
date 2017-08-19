@@ -193,6 +193,7 @@ int nhrp_route_read(int cmd, struct zclient *zclient, zebra_size_t length, vrf_i
 	struct stream *s;
 	struct interface *ifp = NULL;
 	struct prefix prefix;
+	struct prefix_ipv6 src_p;
 	union sockunion nexthop_addr;
 	unsigned char message, nexthop_num, ifindex_num;
 	unsigned ifindex;
@@ -225,6 +226,17 @@ int nhrp_route_read(int cmd, struct zclient *zclient, zebra_size_t length, vrf_i
 	afaddrlen = family2addrsize(prefix.family);
 	prefix.prefixlen = stream_getc(s);
 	stream_get(&prefix.u.val, s, PSIZE(prefix.prefixlen));
+
+	memset(&src_p, 0, sizeof(src_p));
+	if (prefix.family == AF_INET6 &&
+	    CHECK_FLAG(message, ZAPI_MESSAGE_SRCPFX)) {
+		src_p.family = AF_INET6;
+		src_p.prefixlen = stream_getc(s);
+		stream_get(&src_p.prefix, s, PSIZE(src_p.prefixlen));
+	}
+	if (src_p.prefixlen)
+		/* we completely ignore srcdest routes for now. */
+		return 0;
 
 	/* Nexthop, ifindex, distance, metric. */
 	if (CHECK_FLAG(message, ZAPI_MESSAGE_NEXTHOP|ZAPI_MESSAGE_IFINDEX)) {

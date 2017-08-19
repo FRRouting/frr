@@ -63,7 +63,7 @@ babel_zebra_read_ipv6 (int command, struct zclient *zclient,
     struct zapi_ipv6 api;
     unsigned long ifindex = -1;
     struct in6_addr nexthop;
-    struct prefix_ipv6 prefix;
+    struct prefix_ipv6 prefix, src_p;
 
     s = zclient->ibuf;
     ifindex = 0;
@@ -81,6 +81,16 @@ babel_zebra_read_ipv6 (int command, struct zclient *zclient,
     prefix.family = AF_INET6;
     prefix.prefixlen = stream_getc (s);
     stream_get (&prefix.prefix, s, PSIZE (prefix.prefixlen));
+
+    memset(&src_p, 0, sizeof(src_p));
+    if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX)) {
+        src_p.family = AF_INET6;
+        src_p.prefixlen = stream_getc(s);
+        stream_get(&src_p.prefix, s, PSIZE(src_p.prefixlen));
+    }
+    if (src_p.prefixlen)
+        /* we completely ignore srcdest routes for now. */
+        return 0;
 
     /* Nexthop, ifindex, distance, metric. */
     if (CHECK_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP)) {
