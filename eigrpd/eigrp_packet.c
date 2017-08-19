@@ -877,7 +877,7 @@ void eigrp_packet_checksum(struct eigrp_interface *ei, struct stream *s,
 }
 
 /* Make EIGRP header. */
-void eigrp_packet_header_init(int type, struct eigrp_interface *ei,
+void eigrp_packet_header_init(int type, struct eigrp *eigrp,
 			      struct stream *s, u_int32_t flags,
 			      u_int32_t sequence, u_int32_t ack)
 {
@@ -890,8 +890,8 @@ void eigrp_packet_header_init(int type, struct eigrp_interface *ei,
 	eigrph->opcode = (u_char)type;
 	eigrph->checksum = 0;
 
-	eigrph->vrid = htons(ei->eigrp->vrid);
-	eigrph->ASNumber = htons(ei->eigrp->AS);
+	eigrph->vrid = htons(eigrp->vrid);
+	eigrph->ASNumber = htons(eigrp->AS);
 	eigrph->ack = htonl(ack);
 	eigrph->sequence = htonl(sequence);
 	//  if(flags == EIGRP_INIT_FLAG)

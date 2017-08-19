@@ -471,9 +471,10 @@ void eigrp_update_send_init(struct eigrp_neighbor *nbr)
 			   nbr->ei->eigrp->sequence_number,
 			   nbr->recv_sequence_number);
 
-	eigrp_packet_header_init(
-		EIGRP_OPC_UPDATE, nbr->ei, ep->s, EIGRP_INIT_FLAG,
-		nbr->ei->eigrp->sequence_number, nbr->recv_sequence_number);
+	eigrp_packet_header_init(EIGRP_OPC_UPDATE, nbr->ei->eigrp,
+				 ep->s, EIGRP_INIT_FLAG,
+				 nbr->ei->eigrp->sequence_number,
+				 nbr->recv_sequence_number);
 
 	// encode Authentication TLV, if needed
 	if ((IF_DEF_PARAMS(nbr->ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
@@ -584,9 +585,9 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 	ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
 
 	/* Prepare EIGRP EOT UPDATE header */
-	eigrp_packet_header_init(EIGRP_OPC_UPDATE, nbr->ei, ep->s, EIGRP_EOT_FLAG,
-				 seq_no,
-				 nbr->recv_sequence_number);
+	eigrp_packet_header_init(EIGRP_OPC_UPDATE, nbr->ei->eigrp,
+				 ep->s, EIGRP_EOT_FLAG,
+				 seq_no, nbr->recv_sequence_number);
 
 	// encode Authentication TLV, if needed
 	if((IF_DEF_PARAMS (nbr->ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5) &&
@@ -606,7 +607,8 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 
 				length = EIGRP_HEADER_LEN;
 				ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
-				eigrp_packet_header_init(EIGRP_OPC_UPDATE, nbr->ei, ep->s, EIGRP_EOT_FLAG,
+				eigrp_packet_header_init(EIGRP_OPC_UPDATE, nbr->ei->eigrp,
+							 ep->s, EIGRP_EOT_FLAG,
 							 seq_no, nbr->recv_sequence_number);
 
 				if((IF_DEF_PARAMS (nbr->ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5) &&
@@ -674,8 +676,8 @@ void eigrp_update_send(struct eigrp_interface *ei)
 	ep = eigrp_packet_new(ei->ifp->mtu, NULL);
 
 	/* Prepare EIGRP INIT UPDATE header */
-	eigrp_packet_header_init(EIGRP_OPC_UPDATE, ei, ep->s, 0,
-				 seq_no, 0);
+	eigrp_packet_header_init(EIGRP_OPC_UPDATE, ei->eigrp,
+				 ep->s, 0, seq_no, 0);
 
 	// encode Authentication TLV, if needed
 	if ((IF_DEF_PARAMS(ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
@@ -707,8 +709,8 @@ void eigrp_update_send(struct eigrp_interface *ei)
 
 			length = EIGRP_HEADER_LEN;
 			ep = eigrp_packet_new(ei->ifp->mtu, NULL);
-			eigrp_packet_header_init(EIGRP_OPC_UPDATE, ei, ep->s, 0,
-						 seq_no, 0);
+			eigrp_packet_header_init(EIGRP_OPC_UPDATE, ei->eigrp,
+						 ep->s, 0, seq_no, 0);
 			if ((IF_DEF_PARAMS(ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
 			    && (IF_DEF_PARAMS(ei->ifp)->auth_keychain != NULL)) {
 				length += eigrp_add_authTLV_MD5_to_stream(ep->s, ei);
@@ -875,7 +877,7 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 	ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
 
 	/* Prepare EIGRP Graceful restart UPDATE header */
-	eigrp_packet_header_init(EIGRP_OPC_UPDATE, nbr->ei, ep->s, flags,
+	eigrp_packet_header_init(EIGRP_OPC_UPDATE, nbr->ei->eigrp, ep->s, flags,
 				 nbr->ei->eigrp->sequence_number,
 				 nbr->recv_sequence_number);
 

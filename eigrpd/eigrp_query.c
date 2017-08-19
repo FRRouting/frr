@@ -162,7 +162,7 @@ void eigrp_send_query(struct eigrp_interface *ei)
 	ep = eigrp_packet_new(ei->ifp->mtu, NULL);
 
 	/* Prepare EIGRP INIT UPDATE header */
-	eigrp_packet_header_init(EIGRP_OPC_QUERY, ei, ep->s, 0,
+	eigrp_packet_header_init(EIGRP_OPC_QUERY, ei->eigrp, ep->s, 0,
 				 ei->eigrp->sequence_number, 0);
 
 	// encode Authentication TLV, if needed

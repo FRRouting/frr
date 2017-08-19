@@ -125,7 +125,7 @@ void eigrp_send_siareply(struct eigrp_neighbor *nbr,
 	ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
 
 	/* Prepare EIGRP INIT UPDATE header */
-	eigrp_packet_header_init(EIGRP_OPC_SIAREPLY, nbr->ei, ep->s, 0,
+	eigrp_packet_header_init(EIGRP_OPC_SIAREPLY, nbr->ei->eigrp, ep->s, 0,
 				 nbr->ei->eigrp->sequence_number, 0);
 
 	// encode Authentication TLV, if needed
