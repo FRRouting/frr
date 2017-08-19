@@ -1534,6 +1534,7 @@ static int zread_ipv6_add(struct zserv *client, u_short length,
 	unsigned int i;
 	struct stream *s;
 	struct in6_addr nhop_addr;
+	ifindex_t ifindex;
 	struct route_entry *re;
 	u_char message;
 	u_char nexthop_num;
@@ -1608,6 +1609,12 @@ static int zread_ipv6_add(struct zserv *client, u_short length,
 					}
 					nexthops[nh_count++] = nhop_addr;
 				}
+				break;
+			case NEXTHOP_TYPE_IPV6_IFINDEX:
+				stream_get(&nhop_addr, s, 16);
+				ifindex = stream_getl(s);
+				route_entry_nexthop_ipv6_ifindex_add(
+					re, &nhop_addr, ifindex);
 				break;
 			case NEXTHOP_TYPE_IFINDEX:
 				if (if_count < multipath_num) {
