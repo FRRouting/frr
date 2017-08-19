@@ -367,7 +367,7 @@ static int vnc_zebra_read_ipv4(int command, struct zclient *zclient,
 	else
 		api.metric = 0;
 
-	if (command == ZEBRA_IPV4_ROUTE_ADD) {
+	if (command == ZEBRA_REDISTRIBUTE_IPV4_ADD) {
 		if (BGP_DEBUG(zebra, ZEBRA)) {
 			char buf[2][INET_ADDRSTRLEN];
 			vnc_zlog_debug_verbose(
@@ -456,7 +456,7 @@ static int vnc_zebra_read_ipv6(int command, struct zclient *zclient,
 	if (IN6_IS_ADDR_LINKLOCAL(&p.prefix))
 		return 0;
 
-	if (command == ZEBRA_IPV6_ROUTE_ADD) {
+	if (command == ZEBRA_REDISTRIBUTE_IPV6_ADD) {
 		if (BGP_DEBUG(zebra, ZEBRA)) {
 			char buf[INET6_ADDRSTRLEN];
 			vnc_zlog_debug_verbose(

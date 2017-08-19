@@ -162,9 +162,9 @@ static int eigrp_zebra_read_ipv4(int command, struct zclient *zclient,
 	if (eigrp == NULL)
 		return 0;
 
-	if (command == ZEBRA_IPV4_ROUTE_ADD) {
+	if (command == ZEBRA_REDISTRIBUTE_IPV4_ADD) {
 
-	} else /* if (command == ZEBRA_IPV4_ROUTE_DELETE) */
+	} else /* if (command == ZEBRA_REDISTRIBUTE_IPV4_DEL) */
 	{
 	}
 

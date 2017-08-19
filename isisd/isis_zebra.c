@@ -568,7 +568,7 @@ static int isis_zebra_read_ipv4(int command, struct zclient *zclient,
 	 * without this check)
 	 */
 	if (p.prefixlen == 0 && api.type == ZEBRA_ROUTE_ISIS)
-		command = ZEBRA_IPV4_ROUTE_DELETE;
+		command = ZEBRA_REDISTRIBUTE_IPV4_DEL;
 
 	if (command == ZEBRA_REDISTRIBUTE_IPV4_ADD)
 		isis_redist_add(api.type, p_generic, api.distance, api.metric);
@@ -637,7 +637,7 @@ static int isis_zebra_read_ipv6(int command, struct zclient *zclient,
 	 * without this check)
 	 */
 	if (p.prefixlen == 0 && api.type == ZEBRA_ROUTE_ISIS)
-		command = ZEBRA_IPV6_ROUTE_DELETE;
+		command = ZEBRA_REDISTRIBUTE_IPV6_DEL;
 
 	if (command == ZEBRA_REDISTRIBUTE_IPV6_ADD)
 		isis_redist_add(api.type, p_generic, api.distance, api.metric);
