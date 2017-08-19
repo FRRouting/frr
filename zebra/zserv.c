@@ -1176,6 +1176,7 @@ static int zread_ipv4_add(struct zserv *client, u_short length,
 	ifindex_t ifindex;
 	safi_t safi;
 	int ret;
+	enum lsp_types_t label_type;
 	mpls_label_t label;
 	struct nexthop *nexthop;
 
@@ -1208,6 +1209,9 @@ static int zread_ipv4_add(struct zserv *client, u_short length,
 		zserv_nexthop_num_warn(__func__, (const struct prefix *)&p,
 				       nexthop_num);
 
+		if (CHECK_FLAG(message, ZAPI_MESSAGE_LABEL))
+			label_type = lsp_type_from_re_type(client->proto);
+
 		for (i = 0; i < nexthop_num; i++) {
 			nexthop_type = stream_getc(s);
 
@@ -1224,9 +1228,8 @@ static int zread_ipv4_add(struct zserv *client, u_short length,
 				 * by label. */
 				if (CHECK_FLAG(message, ZAPI_MESSAGE_LABEL)) {
 					label = (mpls_label_t)stream_getl(s);
-					nexthop_add_labels(
-						nexthop, nexthop->nh_label_type,
-						1, &label);
+					nexthop_add_labels(nexthop, label_type,
+							   1, &label);
 				}
 				break;
 			case NEXTHOP_TYPE_IPV4_IFINDEX:
@@ -1339,6 +1342,7 @@ static int zread_ipv4_route_ipv6_nexthop_add(struct zserv *client,
 	static unsigned int ifindices[MULTIPATH_NUM];
 	int ret;
 	static mpls_label_t labels[MULTIPATH_NUM];
+	enum lsp_types_t label_type;
 	mpls_label_t label;
 	struct nexthop *nexthop;
 
@@ -1379,6 +1383,10 @@ static int zread_ipv4_route_ipv6_nexthop_add(struct zserv *client,
 		nexthop_num = stream_getc(s);
 		zserv_nexthop_num_warn(__func__, (const struct prefix *)&p,
 				       nexthop_num);
+
+		if (CHECK_FLAG(message, ZAPI_MESSAGE_LABEL))
+			label_type = lsp_type_from_re_type(client->proto);
+
 		for (i = 0; i < nexthop_num; i++) {
 			nexthop_type = stream_getc(s);
 
@@ -1423,9 +1431,8 @@ static int zread_ipv4_route_ipv6_nexthop_add(struct zserv *client,
 						re, &nexthops[i]);
 
 				if (CHECK_FLAG(message, ZAPI_MESSAGE_LABEL))
-					nexthop_add_labels(
-						nexthop, nexthop->nh_label_type,
-						1, &labels[i]);
+					nexthop_add_labels(nexthop, label_type,
+							   1, &labels[i]);
 			} else {
 				if ((i < if_count) && ifindices[i])
 					route_entry_nexthop_ifindex_add(
@@ -1484,6 +1491,7 @@ static int zread_ipv6_add(struct zserv *client, u_short length,
 	static unsigned int ifindices[MULTIPATH_NUM];
 	int ret;
 	static mpls_label_t labels[MULTIPATH_NUM];
+	enum lsp_types_t label_type;
 	mpls_label_t label;
 	struct nexthop *nexthop;
 
@@ -1530,6 +1538,10 @@ static int zread_ipv6_add(struct zserv *client, u_short length,
 		nexthop_num = stream_getc(s);
 		zserv_nexthop_num_warn(__func__, (const struct prefix *)&p,
 				       nexthop_num);
+
+		if (CHECK_FLAG(message, ZAPI_MESSAGE_LABEL))
+			label_type = lsp_type_from_re_type(client->proto);
+
 		for (i = 0; i < nexthop_num; i++) {
 			nexthop_type = stream_getc(s);
 
@@ -1578,9 +1590,8 @@ static int zread_ipv6_add(struct zserv *client, u_short length,
 					nexthop = route_entry_nexthop_ipv6_add(
 						re, &nexthops[i]);
 				if (CHECK_FLAG(message, ZAPI_MESSAGE_LABEL))
-					nexthop_add_labels(
-						nexthop, nexthop->nh_label_type,
-						1, &labels[i]);
+					nexthop_add_labels(nexthop, label_type,
+							   1, &labels[i]);
 			} else {
 				if ((i < if_count) && ifindices[i])
 					route_entry_nexthop_ifindex_add(
