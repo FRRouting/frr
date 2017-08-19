@@ -2191,8 +2191,7 @@ char *bgp_evpn_label2str(mpls_label_t *label, char *buf, int len)
  * Function to convert evpn route to json format.
  * NOTE: We don't use prefix2str as the output here is a bit different.
  */
-void
-bgp_evpn_route2json(struct prefix_evpn *p, json_object *json)
+void bgp_evpn_route2json(struct prefix_evpn *p, json_object *json)
 {
 	char buf1[ETHER_ADDR_STRLEN];
 	char buf2[PREFIX2STR_BUFFER];
@@ -2203,55 +2202,55 @@ bgp_evpn_route2json(struct prefix_evpn *p, json_object *json)
 	if (p->prefix.route_type == BGP_EVPN_IMET_ROUTE) {
 		json_object_int_add(json, "routeType", p->prefix.route_type);
 		json_object_int_add(json, "ethTag", 0);
-		json_object_int_add(json,
-				    "ipLen",
-				    IS_EVPN_PREFIX_IPADDR_V4 (p) ?
-					IPV4_MAX_BITLEN : IPV6_MAX_BITLEN);
+		json_object_int_add(json, "ipLen",
+				    IS_EVPN_PREFIX_IPADDR_V4(p)
+					    ? IPV4_MAX_BITLEN
+					    : IPV6_MAX_BITLEN);
 		json_object_string_add(json, "ip",
-				       inet_ntoa (p->prefix.ip.ipaddr_v4));
-	}
-	else if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
+				       inet_ntoa(p->prefix.ip.ipaddr_v4));
+	} else if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
 		if (IS_EVPN_PREFIX_IPADDR_NONE(p)) {
-		  json_object_int_add(json, "routeType", p->prefix.route_type);
-		  json_object_int_add(json, "esi", 0); /* TODO: we don't support esi yet */
-		  json_object_int_add(json, "ethTag", 0);
-		  json_object_int_add(json, "macLen", 8 * ETH_ALEN);
-		  json_object_string_add(json, "mac",
-					 prefix_mac2str (&p->prefix.mac,
-							 buf1, sizeof (buf1)));
+			json_object_int_add(json, "routeType",
+					    p->prefix.route_type);
+			json_object_int_add(
+				json, "esi",
+				0); /* TODO: we don't support esi yet */
+			json_object_int_add(json, "ethTag", 0);
+			json_object_int_add(json, "macLen", 8 * ETH_ALEN);
+			json_object_string_add(json, "mac",
+					       prefix_mac2str(&p->prefix.mac,
+							      buf1,
+							      sizeof(buf1)));
 		} else {
 			u_char family;
 
-			family = IS_EVPN_PREFIX_IPADDR_V4(p) ? \
-			   AF_INET : AF_INET6;
+			family = IS_EVPN_PREFIX_IPADDR_V4(p) ? AF_INET
+							     : AF_INET6;
 
 			json_object_int_add(json, "routeType",
-					     p->prefix.route_type);
-			json_object_int_add(json, "esi", 0); /* TODO: we don't support esi yet */
+					    p->prefix.route_type);
+			json_object_int_add(
+				json, "esi",
+				0); /* TODO: we don't support esi yet */
 			json_object_int_add(json, "ethTag", 0);
-			json_object_int_add(json, "macLen",
-					    8 * ETH_ALEN);
+			json_object_int_add(json, "macLen", 8 * ETH_ALEN);
 			json_object_string_add(json, "mac",
-					       prefix_mac2str (&p->prefix.mac,
-							       buf1,
-							       sizeof (buf1)));
+					       prefix_mac2str(&p->prefix.mac,
+							      buf1,
+							      sizeof(buf1)));
 			json_object_int_add(json, "ipLen",
-					    IS_EVPN_PREFIX_IPADDR_V4 (p) ?
-						IPV4_MAX_BITLEN :
-						IPV6_MAX_BITLEN);
-			json_object_string_add(json, "ip",
-					       inet_ntop (family,
-							  &p->prefix.ip.ip.addr,
-							  buf2,
-							  PREFIX2STR_BUFFER));
+					    IS_EVPN_PREFIX_IPADDR_V4(p)
+						    ? IPV4_MAX_BITLEN
+						    : IPV6_MAX_BITLEN);
+			json_object_string_add(
+				json, "ip",
+				inet_ntop(family, &p->prefix.ip.ip.addr, buf2,
+					  PREFIX2STR_BUFFER));
 		}
 	} else {
 		/* Currently, this is to cater to other AF_ETHERNET code. */
 	}
-
-  return;
 }
-
 
 /*
  * Function to convert evpn route to string.

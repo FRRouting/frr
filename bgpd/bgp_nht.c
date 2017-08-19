@@ -498,7 +498,8 @@ void bgp_cleanup_nexthops(struct bgp *bgp)
 
 		for (rn = bgp_table_top(bgp->nexthop_cache_table[afi]); rn;
 		     rn = bgp_route_next(rn)) {
-			if ((bnc = rn->info) == NULL)
+			bnc = rn->info;
+			if (!bnc)
 				continue;
 
 			/* Clear relevant flags. */

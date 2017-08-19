@@ -2950,30 +2950,30 @@ int zebra_vxlan_local_neigh_add_update(struct interface *ifp,
 				 */
 				n->ifindex = ifp->ifindex;
 				return 0;
-			} else {
-				/* If the MAC has changed,
-				 * need to issue a delete first
-				 * as this means a different MACIP route.
-				 * Also, need to do some unlinking/relinking.
-				 */
-				zvni_neigh_send_del_to_client(zvrf, zvni->vni,
-							      &n->ip, &n->emac,
-							      0);
-				old_zmac = zvni_mac_lookup(zvni, &n->emac);
-				if (old_zmac) {
-					listnode_delete(old_zmac->neigh_list,
-							n);
-					zvni_deref_ip2mac(zvni, old_zmac, 0);
-				}
-
-				/* Set "local" forwarding info. */
-				SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
-				n->ifindex = ifp->ifindex;
-				memcpy(&n->emac, macaddr, ETH_ALEN);
-
-				/* Link to new MAC */
-				listnode_add_sort(zmac->neigh_list, n);
 			}
+
+			/* If the MAC has changed,
+			 * need to issue a delete first
+			 * as this means a different MACIP route.
+			 * Also, need to do some unlinking/relinking.
+			 */
+			zvni_neigh_send_del_to_client(zvrf, zvni->vni,
+						      &n->ip, &n->emac,
+						      0);
+			old_zmac = zvni_mac_lookup(zvni, &n->emac);
+			if (old_zmac) {
+				listnode_delete(old_zmac->neigh_list,
+						n);
+				zvni_deref_ip2mac(zvni, old_zmac, 0);
+			}
+
+			/* Set "local" forwarding info. */
+			SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
+			n->ifindex = ifp->ifindex;
+			memcpy(&n->emac, macaddr, ETH_ALEN);
+
+			/* Link to new MAC */
+			listnode_add_sort(zmac->neigh_list, n);
 		} else if (ext_learned)
 		/* The neighbor is remote and that is the notification we got.
 		   */

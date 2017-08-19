@@ -6262,12 +6262,12 @@ static void route_vty_out_route(struct prefix *p, struct vty *vty,
 		len = vty_out(vty, "%s", buf);
 	} else if (p->family == AF_EVPN) {
 #if defined(HAVE_CUMULUS)
-	if (!json)
-		len = vty_out(vty, "%s",
-			      bgp_evpn_route2str((struct prefix_evpn *)p,
-						 buf, BUFSIZ));
-	else
-		bgp_evpn_route2json((struct prefix_evpn *) p, json);
+		if (!json)
+			len = vty_out(vty, "%s",
+				bgp_evpn_route2str((struct prefix_evpn *)p,
+						   buf, BUFSIZ));
+		else
+			bgp_evpn_route2json((struct prefix_evpn *) p, json);
 #else
 		prefix2str(p, buf, PREFIX_STRLEN);
 		len = vty_out(vty, "%s", buf);

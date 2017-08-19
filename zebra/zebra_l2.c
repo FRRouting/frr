@@ -230,9 +230,10 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 		if (zif->zif_type == ZEBRA_IF_VXLAN)
 			zebra_vxlan_if_update(ifp, ZEBRA_VXLIF_MASTER_CHANGE);
 	} else if (old_bridge_ifindex != IFINDEX_INTERNAL) {
-		/* In the case of VxLAN, invoke the handler for EVPN.
-		 * Note that this should be done *prior* to unmapping the interface
-		 * from the bridge.
+		/*
+		 * In the case of VxLAN, invoke the handler for EVPN.
+		 * Note that this should be done *prior*
+		 * to unmapping the interface from the bridge.
 		 */
 		if (zif->zif_type == ZEBRA_IF_VXLAN)
 			zebra_vxlan_if_update(ifp, ZEBRA_VXLIF_MASTER_CHANGE);
