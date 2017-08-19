@@ -534,6 +534,38 @@ static void eigrp_update_place_on_nbr_queue(struct eigrp_neighbor *nbr,
 		eigrp_send_packet_reliably(nbr);
 }
 
+static void eigrp_update_send_to_all_nbrs(struct eigrp_interface *ei,
+					  struct eigrp_packet *ep)
+{
+	struct listnode *node, *nnode;
+	struct eigrp_neighbor *nbr;
+	bool packet_sent = false;
+
+	for (ALL_LIST_ELEMENTS(ei->nbrs, node, nnode, nbr)) {
+		struct eigrp_packet *ep_dup;
+
+		if (nbr->state != EIGRP_NEIGHBOR_UP)
+			continue;
+
+		if (packet_sent)
+			ep_dup = eigrp_packet_duplicate(ep, NULL);
+		else
+			ep_dup = ep;
+
+		ep_dup->nbr = nbr;
+		packet_sent = true;
+		/*Put packet to retransmission queue*/
+		eigrp_fifo_push(nbr->retrans_queue, ep_dup);
+
+		if (nbr->retrans_queue->count == 1) {
+			eigrp_send_packet_reliably(nbr);
+		}
+	}
+
+	if (!packet_sent)
+		eigrp_packet_free(ep);
+}
+
 void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 {
 	struct eigrp_packet *ep;
@@ -617,13 +649,13 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 	}
 
 	eigrp_update_place_on_nbr_queue (nbr, ep, seq_no, length);
+	nbr->ei->eigrp->sequence_number = seq_no++;
 }
 
 void eigrp_update_send(struct eigrp_interface *ei)
 {
 	struct eigrp_packet *ep;
 	struct listnode *node, *nnode;
-	struct eigrp_neighbor *nbr;
 	struct eigrp_prefix_entry *pe;
 	u_char has_tlv;
 	struct access_list *alist;
@@ -632,7 +664,10 @@ void eigrp_update_send(struct eigrp_interface *ei)
 	struct prefix_list *plist_i;
 	struct eigrp *e;
 	struct prefix_ipv4 *dest_addr;
-	bool packet_sent = false;
+	u_int32_t seq_no = ei->eigrp->sequence_number;
+
+	if (ei->nbrs->count == 0)
+		return;
 
 	u_int16_t length = EIGRP_HEADER_LEN;
 
@@ -640,7 +675,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 
 	/* Prepare EIGRP INIT UPDATE header */
 	eigrp_packet_header_init(EIGRP_OPC_UPDATE, ei, ep->s, 0,
-				 ei->eigrp->sequence_number, 0);
+				 seq_no, 0);
 
 	// encode Authentication TLV, if needed
 	if ((IF_DEF_PARAMS(ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
@@ -655,6 +690,31 @@ void eigrp_update_send(struct eigrp_interface *ei)
 		if (!(pe->req_action & EIGRP_FSM_NEED_UPDATE))
 			continue;
 
+		if ((length + 0x001D) > (u_int16_t)ei->ifp->mtu) {
+			if ((IF_DEF_PARAMS(ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
+			    && (IF_DEF_PARAMS(ei->ifp)->auth_keychain != NULL)) {
+				eigrp_make_md5_digest(ei, ep->s, EIGRP_AUTH_UPDATE_FLAG);
+			}
+
+			eigrp_packet_checksum(ei, ep->s, length);
+			ep->length = length;
+
+			ep->dst.s_addr = htonl(EIGRP_MULTICAST_ADDRESS);
+
+			ep->sequence_number = seq_no;
+			seq_no++;
+			eigrp_update_send_to_all_nbrs(ei, ep);
+
+			length = EIGRP_HEADER_LEN;
+			ep = eigrp_packet_new(ei->ifp->mtu, NULL);
+			eigrp_packet_header_init(EIGRP_OPC_UPDATE, ei, ep->s, 0,
+						 seq_no, 0);
+			if ((IF_DEF_PARAMS(ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
+			    && (IF_DEF_PARAMS(ei->ifp)->auth_keychain != NULL)) {
+				length += eigrp_add_authTLV_MD5_to_stream(ep->s, ei);
+			}
+			has_tlv = 0;
+		}
 		/* Get destination address from prefix */
 		dest_addr = pe->destination_ipv4;
 
@@ -718,28 +778,8 @@ void eigrp_update_send(struct eigrp_interface *ei)
 		zlog_debug("Enqueuing Update length[%u] Seq [%u]", length,
 			   ep->sequence_number);
 
-	for (ALL_LIST_ELEMENTS(ei->nbrs, node, nnode, nbr)) {
-		struct eigrp_packet *ep_dup;
-
-		if (nbr->state != EIGRP_NEIGHBOR_UP)
-			continue;
-
-		if (packet_sent)
-			ep_dup = eigrp_packet_duplicate(ep);
-		else
-			ep_dup = ep;
-
-		packet_sent = true;
-		/*Put packet to retransmission queue*/
-		eigrp_fifo_push(nbr->retrans_queue, ep_dup);
-
-		if (nbr->retrans_queue->count == 1) {
-			eigrp_send_packet_reliably(nbr);
-		}
-	}
-
-	if (!packet_sent)
-		eigrp_packet_free(ep);
+	eigrp_update_send_to_all_nbrs(ei, ep);
+	ei->eigrp->sequence_number = seq_no++;
 }
 
 void eigrp_update_send_all(struct eigrp *eigrp,
