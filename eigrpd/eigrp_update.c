@@ -529,6 +529,9 @@ static void eigrp_update_place_on_nbr_queue(struct eigrp_neighbor *nbr,
 
 	/*Put packet to retransmission queue*/
 	eigrp_fifo_push(nbr->retrans_queue, ep);
+
+	if (nbr->retrans_queue->count == 1)
+		eigrp_send_packet_reliably(nbr);
 }
 
 void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
@@ -567,7 +570,6 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 
 			if ((length + 0x001D) > (u_int16_t)nbr->ei->ifp->mtu) {
 				eigrp_update_place_on_nbr_queue (nbr, ep, seq_no, length);
-				eigrp_send_packet_reliably(nbr);
 				seq_no++;
 
 				length = EIGRP_HEADER_LEN;
@@ -615,7 +617,6 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 	}
 
 	eigrp_update_place_on_nbr_queue (nbr, ep, seq_no, length);
-	eigrp_send_packet_reliably(nbr);
 }
 
 void eigrp_update_send(struct eigrp_interface *ei)
