@@ -204,12 +204,17 @@ static void zvni_print_neigh(zebra_neigh_t *n, void *ctxt, json_object *json)
 		if (json == NULL) {
 			vty_out(vty, " Remote VTEP: %s",
 				inet_ntoa(n->r_vtep_ip));
-			vty_out(vty, " State: %s", IS_ZEBRA_NEIGH_ACTIVE(n)
-							   ? "Active"
-							   : "Inactive");
 		} else
 			json_object_string_add(json, "remoteVtep",
 					       inet_ntoa(n->r_vtep_ip));
+	}
+	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
+		if (!json) {
+			vty_out(vty, "\n");
+			vty_out(vty, " State: %s",
+				IS_ZEBRA_NEIGH_ACTIVE(n) ? "Active"
+							 : "Inactive");
+		}
 	}
 	if (json == NULL)
 		vty_out(vty, "\n");
@@ -2869,7 +2874,7 @@ int zebra_vxlan_local_neigh_del(struct interface *ifp,
 
 	/* see if the AUTO mac needs to be deleted */
 	if (CHECK_FLAG(zmac->flags, ZEBRA_MAC_AUTO)
-	    || !listcount(zmac->neigh_list))
+	    && !listcount(zmac->neigh_list))
 		zvni_mac_del(zvni, zmac);
 
 	return 0;
