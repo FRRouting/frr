@@ -1281,21 +1281,12 @@ static int zread_ipv4_add(struct zserv *client, u_short length,
 static int zread_ipv4_delete(struct zserv *client, u_short length,
 			     struct zebra_vrf *zvrf)
 {
-	int i;
 	struct stream *s;
 	struct zapi_ipv4 api;
-	struct in_addr nexthop;
-	union g_addr *nexthop_p;
-	unsigned long ifindex;
 	struct prefix p;
-	u_char nexthop_num;
-	u_char nexthop_type;
 	u_int32_t table_id;
 
 	s = client->ibuf;
-	ifindex = 0;
-	nexthop.s_addr = 0;
-	nexthop_p = NULL;
 
 	/* Type, flags, message. */
 	api.type = stream_getc(s);
@@ -1310,63 +1301,10 @@ static int zread_ipv4_delete(struct zserv *client, u_short length,
 	p.prefixlen = stream_getc(s);
 	stream_get(&p.u.prefix4, s, PSIZE(p.prefixlen));
 
-	/* Nexthop, ifindex, distance, metric. */
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)) {
-		nexthop_num = stream_getc(s);
-
-		for (i = 0; i < nexthop_num; i++) {
-			nexthop_type = stream_getc(s);
-
-			switch (nexthop_type) {
-			case NEXTHOP_TYPE_IFINDEX:
-				ifindex = stream_getl(s);
-				break;
-			case NEXTHOP_TYPE_IPV4:
-				nexthop.s_addr = stream_get_ipv4(s);
-				/* For labeled-unicast, each nexthop is followed
-				 * by label, but
-				 * we don't care for delete.
-				 */
-				if (CHECK_FLAG(api.message, ZAPI_MESSAGE_LABEL))
-					stream_forward_getp(s,
-							    sizeof(u_int32_t));
-				nexthop_p = (union g_addr *)&nexthop;
-				break;
-			case NEXTHOP_TYPE_IPV4_IFINDEX:
-				nexthop.s_addr = stream_get_ipv4(s);
-				nexthop_p = (union g_addr *)&nexthop;
-				ifindex = stream_getl(s);
-				break;
-			case NEXTHOP_TYPE_IPV6:
-				stream_forward_getp(s, IPV6_MAX_BYTELEN);
-				break;
-			}
-		}
-	}
-
-	/* Distance. */
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_DISTANCE))
-		api.distance = stream_getc(s);
-	else
-		api.distance = 0;
-
-	/* Metric. */
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_METRIC))
-		api.metric = stream_getl(s);
-	else
-		api.metric = 0;
-
-	/* tag */
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_TAG))
-		api.tag = stream_getl(s);
-	else
-		api.tag = 0;
-
 	table_id = zvrf->table_id;
 
 	rib_delete(AFI_IP, api.safi, zvrf_id(zvrf), api.type, api.instance,
-		   api.flags, &p, NULL, nexthop_p, ifindex, table_id,
-		   api.metric);
+		   api.flags, &p, NULL, NULL, 0, table_id, 0);
 	client->v4_route_del_cnt++;
 	return 0;
 }
@@ -1688,18 +1626,12 @@ static int zread_ipv6_add(struct zserv *client, u_short length,
 static int zread_ipv6_delete(struct zserv *client, u_short length,
 			     struct zebra_vrf *zvrf)
 {
-	int i;
 	struct stream *s;
 	struct zapi_ipv6 api;
-	struct in6_addr nexthop;
-	union g_addr *pnexthop = NULL;
-	unsigned long ifindex;
 	struct prefix p;
 	struct prefix_ipv6 src_p, *src_pp;
 
 	s = client->ibuf;
-	ifindex = 0;
-	memset(&nexthop, 0, sizeof(struct in6_addr));
 
 	/* Type, flags, message. */
 	api.type = stream_getc(s);
@@ -1723,59 +1655,8 @@ static int zread_ipv6_delete(struct zserv *client, u_short length,
 	} else
 		src_pp = NULL;
 
-	/* Nexthop, ifindex, distance, metric. */
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)) {
-		u_char nexthop_type;
-
-		api.nexthop_num = stream_getc(s);
-		for (i = 0; i < api.nexthop_num; i++) {
-			nexthop_type = stream_getc(s);
-
-			switch (nexthop_type) {
-			case NEXTHOP_TYPE_IPV6:
-				stream_get(&nexthop, s, 16);
-				/* For labeled-unicast, each nexthop is followed
-				 * by label, but
-				 * we don't care for delete.
-				 */
-				if (CHECK_FLAG(api.message, ZAPI_MESSAGE_LABEL))
-					stream_forward_getp(s,
-							    sizeof(u_int32_t));
-				pnexthop = (union g_addr *)&nexthop;
-				break;
-			case NEXTHOP_TYPE_IFINDEX:
-				ifindex = stream_getl(s);
-				break;
-			}
-		}
-	}
-
-	/* Distance. */
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_DISTANCE))
-		api.distance = stream_getc(s);
-	else
-		api.distance = 0;
-
-	/* Metric. */
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_METRIC))
-		api.metric = stream_getl(s);
-	else
-		api.metric = 0;
-
-	/* tag */
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_TAG))
-		api.tag = stream_getl(s);
-	else
-		api.tag = 0;
-
-	if (IN6_IS_ADDR_UNSPECIFIED(&nexthop))
-		rib_delete(AFI_IP6, api.safi, zvrf_id(zvrf), api.type,
-			   api.instance, api.flags, &p, src_pp, NULL, ifindex,
-			   client->rtm_table, api.metric);
-	else
-		rib_delete(AFI_IP6, api.safi, zvrf_id(zvrf), api.type,
-			   api.instance, api.flags, &p, src_pp, pnexthop,
-			   ifindex, client->rtm_table, api.metric);
+	rib_delete(AFI_IP6, api.safi, zvrf_id(zvrf), api.type, api.instance,
+		   api.flags, &p, src_pp, NULL, 0, client->rtm_table, 0);
 
 	client->v6_route_del_cnt++;
 	return 0;
