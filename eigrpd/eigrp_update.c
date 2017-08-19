@@ -651,53 +651,47 @@ void eigrp_update_send(struct eigrp_interface *ei)
 	has_tlv = 0;
 	for (ALL_LIST_ELEMENTS(ei->eigrp->topology_changes_internalIPV4, node,
 			       nnode, pe)) {
-		if (pe->req_action & EIGRP_FSM_NEED_UPDATE) {
-			/* Get destination address from prefix */
-			dest_addr = pe->destination_ipv4;
 
-			/*
-			 * Filtering
-			 */
-			// TODO: Work in progress
-			/* get list from eigrp process */
-			e = eigrp_lookup();
-			/* Get access-lists and prefix-lists from process and
-			 * interface */
-			alist = e->list[EIGRP_FILTER_OUT];
-			plist = e->prefix[EIGRP_FILTER_OUT];
-			alist_i = ei->list[EIGRP_FILTER_OUT];
-			plist_i = ei->prefix[EIGRP_FILTER_OUT];
+		if (!(pe->req_action & EIGRP_FSM_NEED_UPDATE))
+			continue;
 
-			/* Check if any list fits */
-			if ((alist
-			     && access_list_apply(alist,
-						  (struct prefix *)dest_addr)
-					== FILTER_DENY)
-			    || (plist
-				&& prefix_list_apply(plist,
-						     (struct prefix *)dest_addr)
-					   == PREFIX_DENY)
-			    || (alist_i
-				&& access_list_apply(alist_i,
-						     (struct prefix *)dest_addr)
-					   == FILTER_DENY)
-			    || (plist_i
-				&& prefix_list_apply(plist_i,
-						     (struct prefix *)dest_addr)
-					   == PREFIX_DENY)) {
-				// pe->reported_metric.delay = EIGRP_MAX_METRIC;
-				continue;
-			} else {
-				length += eigrp_add_internalTLV_to_stream(ep->s,
-									  pe);
-				has_tlv = 1;
-			}
-			/*
-			 * End of filtering
-			 */
+		/* Get destination address from prefix */
+		dest_addr = pe->destination_ipv4;
 
-			/* NULL the pointer */
-			dest_addr = NULL;
+		/*
+		 * Filtering
+		 */
+		e = eigrp_lookup();
+		/* Get access-lists and prefix-lists from process and
+		 * interface */
+		alist = e->list[EIGRP_FILTER_OUT];
+		plist = e->prefix[EIGRP_FILTER_OUT];
+		alist_i = ei->list[EIGRP_FILTER_OUT];
+		plist_i = ei->prefix[EIGRP_FILTER_OUT];
+
+		/* Check if any list fits */
+		if ((alist
+		     && access_list_apply(alist,
+					  (struct prefix *)dest_addr)
+		     == FILTER_DENY)
+		    || (plist
+			&& prefix_list_apply(plist,
+					     (struct prefix *)dest_addr)
+			== PREFIX_DENY)
+		    || (alist_i
+			&& access_list_apply(alist_i,
+					     (struct prefix *)dest_addr)
+			== FILTER_DENY)
+		    || (plist_i
+			&& prefix_list_apply(plist_i,
+					     (struct prefix *)dest_addr)
+			== PREFIX_DENY)) {
+			// pe->reported_metric.delay = EIGRP_MAX_METRIC;
+			continue;
+		} else {
+			length += eigrp_add_internalTLV_to_stream(ep->s,
+								  pe);
+			has_tlv = 1;
 		}
 	}
 
@@ -725,14 +719,22 @@ void eigrp_update_send(struct eigrp_interface *ei)
 			   ep->sequence_number);
 
 	for (ALL_LIST_ELEMENTS(ei->nbrs, node, nnode, nbr)) {
-		if (nbr->state == EIGRP_NEIGHBOR_UP) {
-			packet_sent = true;
-			/*Put packet to retransmission queue*/
-			eigrp_fifo_push(nbr->retrans_queue, ep);
+		struct eigrp_packet *ep_dup;
 
-			if (nbr->retrans_queue->count == 1) {
-				eigrp_send_packet_reliably(nbr);
-			}
+		if (nbr->state != EIGRP_NEIGHBOR_UP)
+			continue;
+
+		if (packet_sent)
+			ep_dup = eigrp_packet_duplicate(ep);
+		else
+			ep_dup = ep;
+
+		packet_sent = true;
+		/*Put packet to retransmission queue*/
+		eigrp_fifo_push(nbr->retrans_queue, ep_dup);
+
+		if (nbr->retrans_queue->count == 1) {
+			eigrp_send_packet_reliably(nbr);
 		}
 	}
 
