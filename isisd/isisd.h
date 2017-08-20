@@ -25,8 +25,6 @@
 
 #include "vty.h"
 
-#define ISISD_VERSION "0.0.7"
-
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
 #include "isisd/isis_redist.h"
