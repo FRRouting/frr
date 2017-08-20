@@ -144,15 +144,15 @@ kernel_route_v4(int add,
                 const unsigned char *gate, int ifindex, unsigned int metric)
 {
     struct zapi_route api;               /* quagga's communication system */
+    struct zapi_nexthop *api_nh;         /* next router to go - no ECMP */
     struct prefix quagga_prefix;         /* quagga's prefix */
     struct in_addr babel_prefix_addr;    /* babeld's prefix addr */
-    struct nexthop nexthop;              /* next router to go */
-    struct nexthop *nexthop_pointer = &nexthop; /* it's an array! */
+
+    api_nh = &api.nexthops[0];
 
     /* convert to be understandable by quagga */
     /* convert given addresses */
     uchar_to_inaddr(&babel_prefix_addr, pref);
-    uchar_to_inaddr(&nexthop.gate.ipv4, gate);
 
     /* make prefix structure */
     memset (&quagga_prefix, 0, sizeof(quagga_prefix));
@@ -168,6 +168,7 @@ kernel_route_v4(int add,
     api.instance = 0;
     api.safi = SAFI_UNICAST;
     api.vrf_id = VRF_DEFAULT;
+    api.prefix = quagga_prefix;
 
     SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
     if(metric >= KERNEL_INFINITY) {
@@ -175,13 +176,13 @@ kernel_route_v4(int add,
         api.nexthop_num = 0;
     } else {
         api.nexthop_num = 1;
-        api.nexthop = &nexthop_pointer;
-        nexthop.ifindex = ifindex;
-        if (IPV4_ADDR_SAME (&nexthop.gate.ipv4, &quagga_prefix.u.prefix4) &&
+        api_nh->ifindex = ifindex;
+        uchar_to_inaddr(&api_nh->gate.ipv4, gate);
+        if (IPV4_ADDR_SAME (&api_nh->gate.ipv4, &quagga_prefix.u.prefix4) &&
                 quagga_prefix.prefixlen == 32) {
-            nexthop.type = NEXTHOP_TYPE_IFINDEX;
+            api_nh->type = NEXTHOP_TYPE_IFINDEX;
         } else {
-            nexthop.type = NEXTHOP_TYPE_IPV4_IFINDEX;
+            api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
         }
         SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
         api.metric = metric;
@@ -191,7 +192,7 @@ kernel_route_v4(int add,
            add ? "adding" : "removing" );
     return zapi_route (add ? ZEBRA_IPV4_ROUTE_ADD :
                        ZEBRA_IPV4_ROUTE_DELETE,
-                       zclient, &quagga_prefix, NULL, &api);
+                       zclient, &api);
 }
 
 static int
@@ -199,15 +200,15 @@ kernel_route_v6(int add, const unsigned char *pref, unsigned short plen,
                 const unsigned char *gate, int ifindex, unsigned int metric)
 {
     struct zapi_route api;              /* quagga's communication system */
+    struct zapi_nexthop *api_nh;        /* next router to go - no ECMP */
     struct prefix quagga_prefix;        /* quagga's prefix */
     struct in6_addr babel_prefix_addr;  /* babeld's prefix addr */
-    struct nexthop nexthop;             /* next router to go */
-    struct nexthop *nexthop_pointer = &nexthop;
+
+    api_nh = &api.nexthops[0];
 
     /* convert to be understandable by quagga */
     /* convert given addresses */
     uchar_to_in6addr(&babel_prefix_addr, pref);
-    uchar_to_in6addr(&nexthop.gate.ipv6, gate);
 
     /* make prefix structure */
     memset (&quagga_prefix, 0, sizeof(quagga_prefix));
@@ -223,6 +224,7 @@ kernel_route_v6(int add, const unsigned char *pref, unsigned short plen,
     api.instance = 0;
     api.safi = SAFI_UNICAST;
     api.vrf_id = VRF_DEFAULT;
+    api.prefix = quagga_prefix;
 
     if(metric >= KERNEL_INFINITY) {
         api.flags = ZEBRA_FLAG_REJECT;
@@ -230,10 +232,10 @@ kernel_route_v6(int add, const unsigned char *pref, unsigned short plen,
     } else {
         SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
         api.nexthop_num = 1;
-        api.nexthop = &nexthop_pointer;
-        nexthop.ifindex = ifindex;
+        api_nh->ifindex = ifindex;
+        uchar_to_in6addr(&api_nh->gate.ipv6, gate);
         /* difference to IPv4: always leave the linklocal as nexthop */
-        nexthop.type = NEXTHOP_TYPE_IPV6_IFINDEX;
+        api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
         SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
         api.metric = metric;
     }
@@ -242,7 +244,7 @@ kernel_route_v6(int add, const unsigned char *pref, unsigned short plen,
            add ? "adding" : "removing" );
     return zapi_route (add ? ZEBRA_IPV6_ROUTE_ADD :
                        ZEBRA_IPV6_ROUTE_DELETE,
-                       zclient, &quagga_prefix, NULL, &api);
+                       zclient, &api);
 }
 
 int

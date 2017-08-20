@@ -892,16 +892,12 @@ int zapi_ipv6_route(u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
 	return zclient_send_message(zclient);
 }
 
-int zapi_route(u_char cmd, struct zclient *zclient, struct prefix *p,
-	       struct prefix_ipv6 *src_p, struct zapi_route *api)
+int zapi_route(u_char cmd, struct zclient *zclient, struct zapi_route *api)
 {
 	int i;
 	int psize;
 	struct stream *s;
-
-	/* either we have !SRCPFX && src_p == NULL, or SRCPFX && src_p != NULL
-	 */
-	assert(!(api->message & ZAPI_MESSAGE_SRCPFX) == !src_p);
+	struct zapi_nexthop *api_nh;
 
 	/* Reset stream. */
 	s = zclient->obuf;
@@ -917,69 +913,63 @@ int zapi_route(u_char cmd, struct zclient *zclient, struct prefix *p,
 	stream_putw(s, api->safi);
 
 	/* Put prefix information. */
-	psize = PSIZE(p->prefixlen);
-	stream_putc(s, p->prefixlen);
-	stream_write(s, (u_char *)&p->u.prefix, psize);
+	psize = PSIZE(api->prefix.prefixlen);
+	stream_putc(s, api->prefix.prefixlen);
+	stream_write(s, (u_char *)&api->prefix.u.prefix, psize);
 
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_SRCPFX)) {
-		psize = PSIZE(src_p->prefixlen);
-		stream_putc(s, src_p->prefixlen);
-		stream_write(s, (u_char *)&src_p->prefix, psize);
+		psize = PSIZE(api->src_prefix.prefixlen);
+		stream_putc(s, api->src_prefix.prefixlen);
+		stream_write(s, (u_char *)&api->src_prefix.prefix, psize);
 	}
 
 	/* Nexthop, ifindex, distance and metric information. */
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP)) {
+		/* limit the number of nexthops if necessary */
+		if (api->nexthop_num > MULTIPATH_NUM) {
+			char buf[PREFIX2STR_BUFFER];
+
+			prefix2str(&api->prefix, buf, sizeof(buf));
+			zlog_warn(
+				"%s: prefix %s: encoding %u nexthops out of %u",
+				__func__, buf, MULTIPATH_NUM, api->nexthop_num);
+			api->nexthop_num = MULTIPATH_NUM;
+		}
+
 		stream_putc(s, api->nexthop_num);
 
 		for (i = 0; i < api->nexthop_num; i++) {
-			stream_putc(s, api->nexthop[i]->type);
-			switch (api->nexthop[i]->type) {
+			api_nh = &api->nexthops[i];
+
+			stream_putc(s, api_nh->type);
+			switch (api_nh->type) {
 			case NEXTHOP_TYPE_BLACKHOLE:
 				break;
 			case NEXTHOP_TYPE_IPV4:
-				stream_put_in_addr(s,
-						   &api->nexthop[i]->gate.ipv4);
-
-				/* For labeled-unicast, each nexthop is followed
-				 * by label. */
-				if (CHECK_FLAG(api->message,
-					       ZAPI_MESSAGE_LABEL))
-					stream_putl(
-						s,
-						api->nexthop[i]
-							->nh_label->label[0]);
+				stream_put_in_addr(s, &api_nh->gate.ipv4);
 				break;
 			case NEXTHOP_TYPE_IPV4_IFINDEX:
-				stream_put_in_addr(s,
-						   &api->nexthop[i]->gate.ipv4);
-				stream_putl(s, api->nexthop[i]->ifindex);
+				stream_put_in_addr(s, &api_nh->gate.ipv4);
+				stream_putl(s, api_nh->ifindex);
 				break;
 			case NEXTHOP_TYPE_IFINDEX:
-				stream_putl(s, api->nexthop[i]->ifindex);
+				stream_putl(s, api_nh->ifindex);
 				break;
 			case NEXTHOP_TYPE_IPV6:
-				stream_write(
-					s,
-					(u_char *)&api->nexthop[i]->gate.ipv6,
-					16);
-
-				/* For labeled-unicast, each nexthop is followed
-				 * by label. */
-				if (CHECK_FLAG(api->message,
-					       ZAPI_MESSAGE_LABEL))
-					stream_putl(
-						s,
-						api->nexthop[i]
-							->nh_label->label[0]);
+				stream_write(s, (u_char *)&api_nh->gate.ipv6,
+					     16);
 				break;
 			case NEXTHOP_TYPE_IPV6_IFINDEX:
-				stream_write(
-					s,
-					(u_char *)&api->nexthop[i]->gate.ipv6,
-					16);
-				stream_putl(s, api->nexthop[i]->ifindex);
+				stream_write(s, (u_char *)&api_nh->gate.ipv6,
+					     16);
+				stream_putl(s, api_nh->ifindex);
 				break;
 			}
+
+			/* For labeled-unicast, each nexthop is followed
+			 * by label. */
+			if (CHECK_FLAG(api->message, ZAPI_MESSAGE_LABEL))
+				stream_putl(s, api_nh->label);
 		}
 	}
 

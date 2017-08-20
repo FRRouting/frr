@@ -224,6 +224,13 @@ struct zserv_header {
 	uint16_t command;
 };
 
+struct zapi_nexthop {
+	enum nexthop_types_t type;
+	ifindex_t ifindex;
+	union g_addr gate;
+	mpls_label_t label;
+};
+
 struct zapi_route {
 	u_char type;
 	u_short instance;
@@ -234,8 +241,11 @@ struct zapi_route {
 
 	safi_t safi;
 
+	struct prefix prefix;
+	struct prefix_ipv6 src_prefix;
+
 	u_char nexthop_num;
-	struct nexthop **nexthop;
+	struct zapi_nexthop nexthops[MULTIPATH_NUM];
 
 	u_char distance;
 
@@ -416,7 +426,7 @@ extern int zapi_ipv6_route(u_char cmd, struct zclient *zclient,
 extern int zapi_ipv4_route_ipv6_nexthop(u_char, struct zclient *,
 					struct prefix_ipv4 *,
 					struct zapi_ipv6 *);
-extern int zapi_route(u_char cmd, struct zclient *zclient, struct prefix *p,
-		      struct prefix_ipv6 *src_p, struct zapi_route *api);
+extern int zapi_route(u_char cmd, struct zclient *zclient,
+		      struct zapi_route *api);
 
 #endif /* _ZEBRA_ZCLIENT_H */
