@@ -44,8 +44,6 @@
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
 
-char ospf6_daemon_version[] = OSPF6_DAEMON_VERSION;
-
 struct route_node *route_prev(struct route_node *node)
 {
 	struct route_node *end;
@@ -68,21 +66,6 @@ struct route_node *route_prev(struct route_node *node)
 		route_lock_node(prev);
 
 	return prev;
-}
-
-
-/* show database functions */
-DEFUN (show_version_ospf6,
-       show_version_ospf6_cmd,
-       "show version ospf6",
-       SHOW_STR
-       "Display version\n"
-       "Display ospf6d version\n"
-      )
-{
-	vty_out(vty, "Zebra OSPF6d Version: %s\n", ospf6_daemon_version);
-
-	return CMD_SUCCESS;
 }
 
 static struct cmd_node debug_node = {
@@ -1173,8 +1156,6 @@ void ospf6_init(void)
 	install_element_ospf6_debug_flood();
 
 	install_element_ospf6_clear_interface();
-
-	install_element(VIEW_NODE, &show_version_ospf6_cmd);
 
 	install_element(VIEW_NODE, &show_ipv6_ospf6_border_routers_cmd);
 
