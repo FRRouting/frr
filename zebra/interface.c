@@ -874,7 +874,8 @@ void if_up(struct interface *ifp)
 		link_if = ifp;
 		zebra_vxlan_svi_up(ifp, link_if);
 	} else if (IS_ZEBRA_IF_VLAN(ifp)) {
-		link_if = zif->link;
+		link_if = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
+						    zif->link_ifindex);
 		if (link_if)
 			zebra_vxlan_svi_up(ifp, link_if);
 	}
@@ -902,7 +903,8 @@ void if_down(struct interface *ifp)
 		link_if = ifp;
 		zebra_vxlan_svi_down(ifp, link_if);
 	} else if (IS_ZEBRA_IF_VLAN(ifp)) {
-		link_if = zif->link;
+		link_if = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
+						    zif->link_ifindex);
 		if (link_if)
 			zebra_vxlan_svi_down(ifp, link_if);
 	}
