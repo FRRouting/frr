@@ -230,7 +230,10 @@ struct zapi_nexthop {
 	enum nexthop_types_t type;
 	ifindex_t ifindex;
 	union g_addr gate;
-	mpls_label_t label;
+
+	/* MPLS labels for BGP-LU or Segment Routing */
+	uint8_t label_num;
+	mpls_label_t labels[MPLS_MAX_LABELS];
 };
 
 struct zapi_route {

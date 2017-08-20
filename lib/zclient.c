@@ -970,10 +970,26 @@ int zapi_route_encode(u_char cmd, struct stream *s, struct zapi_route *api)
 				break;
 			}
 
-			/* For labeled-unicast, each nexthop is followed
-			 * by label. */
-			if (CHECK_FLAG(api->message, ZAPI_MESSAGE_LABEL))
-				stream_putl(s, api_nh->label);
+			/* MPLS labels for BGP-LU or Segment Routing */
+			if (CHECK_FLAG(api->message, ZAPI_MESSAGE_LABEL)) {
+				if (api_nh->label_num > MPLS_MAX_LABELS) {
+					char buf[PREFIX2STR_BUFFER];
+					prefix2str(&api->prefix, buf,
+						   sizeof(buf));
+					zlog_err(
+						"%s: prefix %s: can't encode "
+						"%u labels (maximum is %u)",
+						__func__, buf,
+						api_nh->label_num,
+						MPLS_MAX_LABELS);
+					return -1;
+				}
+
+				stream_putc(s, api_nh->label_num);
+				stream_put(s, &api_nh->labels[0],
+					   api_nh->label_num
+						   * sizeof(mpls_label_t));
+			}
 		}
 	}
 
@@ -1064,11 +1080,21 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 				break;
 			}
 
-			/* For labeled-unicast, each nexthop is followed
-			 * by label. */
+			/* MPLS labels for BGP-LU or Segment Routing */
 			if (CHECK_FLAG(api->message, ZAPI_MESSAGE_LABEL)) {
-				stream_get(&api_nh->label, s,
-					   sizeof(api_nh->label));
+				api_nh->label_num = stream_getc(s);
+
+				if (api_nh->label_num > MPLS_MAX_LABELS) {
+					zlog_warn(
+						"%s: invalid number of MPLS "
+						"labels (%u)",
+						__func__, api_nh->label_num);
+					return -1;
+				}
+
+				stream_get(&api_nh->labels[0], s,
+					   api_nh->label_num
+						   * sizeof(mpls_label_t));
 			}
 		}
 	}

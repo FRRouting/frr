@@ -1222,8 +1222,9 @@ static int zread_route_add(struct zserv *client, u_short length,
 
 				label_type =
 					lsp_type_from_re_type(client->proto);
-				nexthop_add_labels(nexthop, label_type, 1,
-						   &api_nh->label);
+				nexthop_add_labels(nexthop, label_type,
+						   api_nh->label_num,
+						   &api_nh->labels[0]);
 			}
 		}
 	}
