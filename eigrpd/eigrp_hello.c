@@ -405,6 +405,20 @@ void eigrp_hello_receive(struct eigrp *eigrp, struct ip *iph,
 			   inet_ntoa(nbr->src));
 }
 
+u_int32_t FRR_MAJOR;
+u_int32_t FRR_MINOR;
+
+void eigrp_sw_version_initialize(void)
+{
+	char ver_string[] = VERSION;
+	char *dash = strstr(ver_string, "-");
+
+	if (dash)
+		dash[0] = '\0';
+
+	sscanf(ver_string, "%d.%d", &FRR_MAJOR, &FRR_MINOR);
+}
+
 /**
  * @fn eigrp_sw_version_encode
  *
@@ -427,8 +441,8 @@ static u_int16_t eigrp_sw_version_encode(struct stream *s)
 
 	// encode the version of quagga we're running
 	// DVS: need to figure out a cleaner way to do this
-	stream_putc(s, 0);  //!< major os version
-	stream_putc(s, 99); //!< minor os version
+	stream_putc(s, FRR_MAJOR);  //!< major os version
+	stream_putc(s, FRR_MINOR); //!< minor os version
 
 	/* and the core eigrp version */
 	stream_putc(s, EIGRP_MAJOR_VERSION);
