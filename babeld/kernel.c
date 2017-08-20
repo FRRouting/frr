@@ -190,9 +190,8 @@ kernel_route_v4(int add,
 
     debugf(BABEL_DEBUG_ROUTE, "%s route (ipv4) to zebra",
            add ? "adding" : "removing" );
-    return zapi_route (add ? ZEBRA_IPV4_ROUTE_ADD :
-                       ZEBRA_IPV4_ROUTE_DELETE,
-                       zclient, &api);
+    return zclient_route_send (add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
+                               zclient, &api);
 }
 
 static int
@@ -242,9 +241,8 @@ kernel_route_v6(int add, const unsigned char *pref, unsigned short plen,
 
     debugf(BABEL_DEBUG_ROUTE, "%s route (ipv6) to zebra",
            add ? "adding" : "removing" );
-    return zapi_route (add ? ZEBRA_IPV6_ROUTE_ADD :
-                       ZEBRA_IPV6_ROUTE_DELETE,
-                       zclient, &api);
+    return zclient_route_send (add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
+                               zclient, &api);
 }
 
 int

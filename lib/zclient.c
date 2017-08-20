@@ -892,20 +892,23 @@ int zapi_ipv6_route(u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
 	return zclient_send_message(zclient);
 }
 
-int zapi_route(u_char cmd, struct zclient *zclient, struct zapi_route *api)
+int zclient_route_send(u_char cmd, struct zclient *zclient,
+		       struct zapi_route *api)
 {
+	if (zapi_route_encode(cmd, zclient->obuf, api) < 0)
+		return -1;
+	return zclient_send_message(zclient);
+}
+
+int zapi_route_encode(u_char cmd, struct stream *s, struct zapi_route *api)
+{
+	struct zapi_nexthop *api_nh;
 	int i;
 	int psize;
-	struct stream *s;
-	struct zapi_nexthop *api_nh;
 
-	/* Reset stream. */
-	s = zclient->obuf;
 	stream_reset(s);
-
 	zclient_create_header(s, cmd, api->vrf_id);
 
-	/* Put type and nexthop. */
 	stream_putc(s, api->type);
 	stream_putw(s, api->instance);
 	stream_putl(s, api->flags);
@@ -913,6 +916,7 @@ int zapi_route(u_char cmd, struct zclient *zclient, struct zapi_route *api)
 	stream_putw(s, api->safi);
 
 	/* Put prefix information. */
+	stream_putc(s, api->prefix.family);
 	psize = PSIZE(api->prefix.prefixlen);
 	stream_putc(s, api->prefix.prefixlen);
 	stream_write(s, (u_char *)&api->prefix.u.prefix, psize);
@@ -923,7 +927,7 @@ int zapi_route(u_char cmd, struct zclient *zclient, struct zapi_route *api)
 		stream_write(s, (u_char *)&api->src_prefix.prefix, psize);
 	}
 
-	/* Nexthop, ifindex, distance and metric information. */
+	/* Nexthops.  */
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP)) {
 		/* limit the number of nexthops if necessary */
 		if (api->nexthop_num > MULTIPATH_NUM) {
@@ -973,6 +977,7 @@ int zapi_route(u_char cmd, struct zclient *zclient, struct zapi_route *api)
 		}
 	}
 
+	/* Attributes. */
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_DISTANCE))
 		stream_putc(s, api->distance);
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_METRIC))
@@ -985,7 +990,100 @@ int zapi_route(u_char cmd, struct zclient *zclient, struct zapi_route *api)
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	return zclient_send_message(zclient);
+	return 0;
+}
+
+int zapi_route_decode(struct stream *s, struct zapi_route *api)
+{
+	struct zapi_nexthop *api_nh;
+	int i;
+
+	memset(api, 0, sizeof(*api));
+
+	/* Type, flags, message. */
+	api->type = stream_getc(s);
+	api->instance = stream_getw(s);
+	api->flags = stream_getl(s);
+	api->message = stream_getc(s);
+	api->safi = stream_getw(s);
+
+	/* Prefix. */
+	api->prefix.family = stream_getc(s);
+	switch (api->prefix.family) {
+	case AF_INET:
+		api->prefix.prefixlen = MIN(IPV4_MAX_PREFIXLEN, stream_getc(s));
+		break;
+	case AF_INET6:
+		api->prefix.prefixlen = MIN(IPV6_MAX_PREFIXLEN, stream_getc(s));
+		break;
+	}
+	stream_get(&api->prefix.u.prefix, s, PSIZE(api->prefix.prefixlen));
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_SRCPFX)) {
+		api->src_prefix.family = AF_INET6;
+		api->src_prefix.prefixlen = stream_getc(s);
+		stream_get(&api->src_prefix.prefix, s,
+			   PSIZE(api->src_prefix.prefixlen));
+
+		if (api->prefix.family != AF_INET6
+		    || api->src_prefix.prefixlen == 0)
+			UNSET_FLAG(api->message, ZAPI_MESSAGE_SRCPFX);
+	}
+
+	/* Nexthops. */
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP)) {
+		api->nexthop_num = stream_getc(s);
+		if (api->nexthop_num > MULTIPATH_NUM) {
+			zlog_warn("%s: invalid number of nexthops (%u)",
+				  __func__, api->nexthop_num);
+			return -1;
+		}
+
+		for (i = 0; i < api->nexthop_num; i++) {
+			api_nh = &api->nexthops[i];
+
+			api_nh->type = stream_getc(s);
+			switch (api_nh->type) {
+			case NEXTHOP_TYPE_BLACKHOLE:
+				break;
+			case NEXTHOP_TYPE_IPV4:
+				api_nh->gate.ipv4.s_addr = stream_get_ipv4(s);
+				break;
+			case NEXTHOP_TYPE_IPV4_IFINDEX:
+				api_nh->gate.ipv4.s_addr = stream_get_ipv4(s);
+				api_nh->ifindex = stream_getl(s);
+				break;
+			case NEXTHOP_TYPE_IFINDEX:
+				api_nh->ifindex = stream_getl(s);
+				break;
+			case NEXTHOP_TYPE_IPV6:
+				stream_get(&api_nh->gate.ipv6, s, 16);
+				break;
+			case NEXTHOP_TYPE_IPV6_IFINDEX:
+				stream_get(&api_nh->gate.ipv6, s, 16);
+				api_nh->ifindex = stream_getl(s);
+				break;
+			}
+
+			/* For labeled-unicast, each nexthop is followed
+			 * by label. */
+			if (CHECK_FLAG(api->message, ZAPI_MESSAGE_LABEL)) {
+				stream_get(&api_nh->label, s,
+					   sizeof(api_nh->label));
+			}
+		}
+	}
+
+	/* Attributes. */
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_DISTANCE))
+		api->distance = stream_getc(s);
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_METRIC))
+		api->metric = stream_getl(s);
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_TAG))
+		api->tag = stream_getl(s);
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_MTU))
+		api->mtu = stream_getl(s);
+
+	return 0;
 }
 
 /*

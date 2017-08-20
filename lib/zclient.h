@@ -59,6 +59,8 @@ typedef enum {
 	ZEBRA_INTERFACE_UP,
 	ZEBRA_INTERFACE_DOWN,
 	ZEBRA_INTERFACE_SET_MASTER,
+	ZEBRA_ROUTE_ADD,
+	ZEBRA_ROUTE_DELETE,
 	ZEBRA_IPV4_ROUTE_ADD,
 	ZEBRA_IPV4_ROUTE_DELETE,
 	ZEBRA_IPV6_ROUTE_ADD,
@@ -426,7 +428,8 @@ extern int zapi_ipv6_route(u_char cmd, struct zclient *zclient,
 extern int zapi_ipv4_route_ipv6_nexthop(u_char, struct zclient *,
 					struct prefix_ipv4 *,
 					struct zapi_ipv6 *);
-extern int zapi_route(u_char cmd, struct zclient *zclient,
-		      struct zapi_route *api);
+extern int zclient_route_send(u_char, struct zclient *, struct zapi_route *);
+extern int zapi_route_encode(u_char, struct stream *, struct zapi_route *);
+extern int zapi_route_decode(struct stream *, struct zapi_route *);
 
 #endif /* _ZEBRA_ZCLIENT_H */

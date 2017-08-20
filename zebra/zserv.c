@@ -1157,6 +1157,144 @@ void zserv_nexthop_num_warn(const char *caller, const struct prefix *p,
 	}
 }
 
+static int zread_route_add(struct zserv *client, u_short length,
+			   struct zebra_vrf *zvrf)
+{
+	struct stream *s;
+	struct zapi_route api;
+	struct zapi_nexthop *api_nh;
+	afi_t afi;
+	struct prefix_ipv6 *src_p = NULL;
+	struct route_entry *re;
+	struct nexthop *nexthop;
+	int i, ret;
+
+	s = client->ibuf;
+	if (zapi_route_decode(s, &api) < 0)
+		return -1;
+
+	/* Allocate new route. */
+	re = XCALLOC(MTYPE_RE, sizeof(struct route_entry));
+	re->type = api.type;
+	re->instance = api.instance;
+	re->flags = api.flags;
+	re->uptime = time(NULL);
+	re->vrf_id = zvrf_id(zvrf);
+	re->table = zvrf->table_id;
+
+	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)) {
+		for (i = 0; i < api.nexthop_num; i++) {
+			api_nh = &api.nexthops[i];
+
+			switch (api_nh->type) {
+			case NEXTHOP_TYPE_IFINDEX:
+				route_entry_nexthop_ifindex_add(
+					re, api_nh->ifindex);
+				break;
+			case NEXTHOP_TYPE_IPV4:
+				nexthop = route_entry_nexthop_ipv4_add(
+					re, &api_nh->gate.ipv4, NULL);
+				break;
+			case NEXTHOP_TYPE_IPV4_IFINDEX:
+				nexthop = route_entry_nexthop_ipv4_ifindex_add(
+					re, &api_nh->gate.ipv4, NULL,
+					api_nh->ifindex);
+				break;
+			case NEXTHOP_TYPE_IPV6:
+				nexthop = route_entry_nexthop_ipv6_add(
+					re, &api_nh->gate.ipv6);
+				break;
+			case NEXTHOP_TYPE_IPV6_IFINDEX:
+				nexthop = route_entry_nexthop_ipv6_ifindex_add(
+					re, &api_nh->gate.ipv6,
+					api_nh->ifindex);
+				break;
+			case NEXTHOP_TYPE_BLACKHOLE:
+				route_entry_nexthop_blackhole_add(re);
+				break;
+			}
+
+			/* MPLS labels for BGP-LU or Segment Routing */
+			if (CHECK_FLAG(api.message, ZAPI_MESSAGE_LABEL)
+			    && api_nh->type != NEXTHOP_TYPE_IFINDEX
+			    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE) {
+				enum lsp_types_t label_type;
+
+				label_type =
+					lsp_type_from_re_type(client->proto);
+				nexthop_add_labels(nexthop, label_type, 1,
+						   &api_nh->label);
+			}
+		}
+	}
+
+	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_DISTANCE))
+		re->distance = api.distance;
+	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_METRIC))
+		re->metric = api.metric;
+	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_TAG))
+		re->tag = api.tag;
+	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_MTU))
+		re->mtu = api.mtu;
+
+	afi = family2afi(api.prefix.family);
+	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
+		src_p = &api.src_prefix;
+
+	ret = rib_add_multipath(afi, api.safi, &api.prefix, src_p, re);
+
+	/* Stats */
+	switch (api.prefix.family) {
+	case AF_INET:
+		if (ret > 0)
+			client->v4_route_add_cnt++;
+		else if (ret < 0)
+			client->v4_route_upd8_cnt++;
+		break;
+	case AF_INET6:
+		if (ret > 0)
+			client->v6_route_add_cnt++;
+		else if (ret < 0)
+			client->v6_route_upd8_cnt++;
+		break;
+	}
+
+	return 0;
+}
+
+static int zread_route_del(struct zserv *client, u_short length,
+			   struct zebra_vrf *zvrf)
+{
+	struct stream *s;
+	struct zapi_route api;
+	afi_t afi;
+	struct prefix_ipv6 *src_p = NULL;
+
+	s = client->ibuf;
+	if (zapi_route_decode(s, &api) < 0)
+		return -1;
+
+	afi = family2afi(api.prefix.family);
+	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
+		src_p = &api.src_prefix;
+
+	rib_delete(afi, api.safi, zvrf_id(zvrf), api.type, api.instance,
+		   api.flags, &api.prefix, src_p, NULL, 0, zvrf->table_id,
+		   api.metric);
+
+	/* Stats */
+	switch (api.prefix.family) {
+	case AF_INET:
+		client->v4_route_del_cnt++;
+		break;
+	case AF_INET6:
+		client->v6_route_del_cnt++;
+		break;
+	}
+
+	return 0;
+}
+
 /* This function support multiple nexthop. */
 /*
  * Parse the ZEBRA_IPV4_ROUTE_ADD sent from client. Update re and
@@ -2333,6 +2471,12 @@ static int zebra_client_read(struct thread *thread)
 		break;
 	case ZEBRA_INTERFACE_DELETE:
 		zread_interface_delete(client, length, zvrf);
+		break;
+	case ZEBRA_ROUTE_ADD:
+		zread_route_add(client, length, zvrf);
+		break;
+	case ZEBRA_ROUTE_DELETE:
+		zread_route_del(client, length, zvrf);
 		break;
 	case ZEBRA_IPV4_ROUTE_ADD:
 		zread_ipv4_add(client, length, zvrf);
