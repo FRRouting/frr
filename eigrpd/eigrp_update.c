@@ -169,9 +169,11 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 	struct eigrp_neighbor_entry *ne;
 	u_int32_t flags;
 	u_int16_t type;
+	u_int16_t length;
 	u_char same;
 	struct access_list *alist;
 	struct prefix_list *plist;
+	struct prefix_ipv4 dest_addr;
 	struct eigrp *e;
 	u_char graceful_restart;
 	u_char graceful_restart_final;
@@ -287,9 +289,8 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 	/*If there is topology information*/
 	while (s->endp > s->getp) {
 		type = stream_getw(s);
-		if (type == EIGRP_TLV_IPv4_INT) {
-			struct prefix_ipv4 dest_addr;
-
+		switch (type) {
+		case EIGRP_TLV_IPv4_INT:
 			stream_set_getp(s, s->getp - sizeof(u_int16_t));
 
 			tlv = eigrp_read_ipv4_tlv(s);
@@ -436,6 +437,18 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 					pe);
 			}
 			eigrp_IPv4_InternalTLV_free(tlv);
+			break;
+
+		case EIGRP_TLV_IPv4_EXT:
+			/* DVS: processing of external routes needs packet and fsm work.
+			 *      for now, lets just not creash the box
+			 */
+		default:
+			length = stream_getw(s);
+			// -2 for type, -2 for len
+			for (length-=4; length ; length--) {
+				(void)stream_getc(s);
+			}
 		}
 	}
 
