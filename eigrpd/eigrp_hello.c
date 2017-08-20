@@ -439,8 +439,6 @@ static u_int16_t eigrp_sw_version_encode(struct stream *s)
 	stream_putw(s, EIGRP_TLV_SW_VERSION);
 	stream_putw(s, length);
 
-	// encode the version of quagga we're running
-	// DVS: need to figure out a cleaner way to do this
 	stream_putc(s, FRR_MAJOR);  //!< major os version
 	stream_putc(s, FRR_MINOR); //!< minor os version
 
