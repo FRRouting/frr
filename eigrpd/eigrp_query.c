@@ -91,8 +91,10 @@ void eigrp_query_receive(struct eigrp *eigrp, struct ip *iph,
 {
 	struct eigrp_neighbor *nbr;
 	struct TLV_IPv4_Internal_type *tlv;
+	struct prefix_ipv4 dest_addr;
 
 	u_int16_t type;
+	u_int16_t length;
 
 	/* increment statistics. */
 	ei->query_in++;
@@ -107,9 +109,8 @@ void eigrp_query_receive(struct eigrp *eigrp, struct ip *iph,
 
 	while (s->endp > s->getp) {
 		type = stream_getw(s);
-		if (type == EIGRP_TLV_IPv4_INT) {
-			struct prefix_ipv4 dest_addr;
-
+		switch (type) {
+		case EIGRP_TLV_IPv4_INT:
 			stream_set_getp(s, s->getp - sizeof(u_int16_t));
 
 			tlv = eigrp_read_ipv4_tlv(s);
@@ -142,6 +143,18 @@ void eigrp_query_receive(struct eigrp *eigrp, struct ip *iph,
 				eigrp_fsm_event(msg, event);
 			}
 			eigrp_IPv4_InternalTLV_free(tlv);
+			break;
+
+		case EIGRP_TLV_IPv4_EXT:
+			/* DVS: processing of external routes needs packet and fsm work.
+			 *      for now, lets just not creash the box
+			 */
+		default:
+			length = stream_getw(s);
+			// -2 for type, -2 for len
+			for (length-=4; length ; length--) {
+				(void)stream_getc(s);
+			}
 		}
 	}
 	eigrp_hello_send_ack(nbr);
