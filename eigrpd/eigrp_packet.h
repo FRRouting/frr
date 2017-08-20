@@ -41,7 +41,7 @@ extern struct eigrp_packet *eigrp_packet_duplicate(struct eigrp_packet *,
 						   struct eigrp_neighbor *);
 extern void eigrp_packet_free(struct eigrp_packet *);
 extern void eigrp_packet_delete(struct eigrp_interface *);
-extern void eigrp_packet_header_init(int, struct eigrp_interface *,
+extern void eigrp_packet_header_init(int, struct eigrp *,
 				     struct stream *, u_int32_t, u_int32_t,
 				     u_int32_t);
 extern void eigrp_packet_checksum(struct eigrp_interface *, struct stream *,

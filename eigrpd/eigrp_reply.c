@@ -113,7 +113,7 @@ void eigrp_send_reply(struct eigrp_neighbor *nbr, struct eigrp_prefix_entry *pe)
 	ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
 
 	/* Prepare EIGRP INIT UPDATE header */
-	eigrp_packet_header_init(EIGRP_OPC_REPLY, nbr->ei, ep->s, 0,
+	eigrp_packet_header_init(EIGRP_OPC_REPLY, e, ep->s, 0,
 				 nbr->ei->eigrp->sequence_number, 0);
 
 	// encode Authentication TLV, if needed
