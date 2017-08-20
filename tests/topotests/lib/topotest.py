@@ -582,6 +582,13 @@ class Router(Node):
             self.cmd('/sbin/modprobe mpls-router')
             self.cmd('/sbin/modprobe mpls-iptunnel')
             self.cmd('echo 100000 > /proc/sys/net/mpls/platform_labels')
+
+        if self.daemons['eigrpd'] == 1:
+            eigrpd_path = os.path.join(self.daemondir, 'eigrpd')
+            if not os.path.isfile(eigrpd_path):
+                logger.warning("EIGRP Test, but no eigrpd compiled or installed")
+                return "EIGRP Test, but no eigrpd compiled or installed"
+
         # Init done - now restarting daemons
         self.restartRouter()
         return ""
