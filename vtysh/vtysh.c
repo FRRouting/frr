@@ -752,6 +752,7 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 							lineno, cmd_stat,
 							vtysh_client[i].name,
 							vty->buf);
+						retcode = cmd_stat;
 						break;
 					}
 				}
