@@ -22,6 +22,7 @@
 #define OSPF6_ROUTE_H
 
 #include "command.h"
+#include "zclient.h"
 
 #define OSPF6_MULTI_PATH_LIMIT    4
 
@@ -266,8 +267,7 @@ extern int ospf6_num_nexthops(struct list *nh_list);
 extern int ospf6_route_cmp_nexthops(struct ospf6_route *a,
 				    struct ospf6_route *b);
 extern void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
-					    ifindex_t *ifindices,
-					    struct in6_addr **addr,
+					    struct zapi_nexthop nexthops[],
 					    int entries);
 extern int ospf6_route_get_first_nh_index(struct ospf6_route *route);
 

@@ -285,8 +285,7 @@ void ospf6_add_nexthop(struct list *nh_list, int ifindex, struct in6_addr *addr)
 }
 
 void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
-				     ifindex_t *ifindexes,
-				     struct in6_addr **nexthop_addr,
+				     struct zapi_nexthop nexthops[],
 				     int entries)
 {
 	struct ospf6_nexthop *nh;
@@ -307,8 +306,9 @@ void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
 					   IFNAMSIZ, ifname, nh->ifindex);
 			}
 			if (i < entries) {
-				nexthop_addr[i] = &nh->address;
-				ifindexes[i] = nh->ifindex;
+				nexthops[i].gate.ipv6 = nh->address;
+				nexthops[i].ifindex = nh->ifindex;
+				nexthops[i].type = NEXTHOP_TYPE_IPV6_IFINDEX;
 				i++;
 			} else {
 				return;

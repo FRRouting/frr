@@ -333,13 +333,11 @@ DEFUN (show_zebra,
 #define REM    1
 static void ospf6_zebra_route_update(int type, struct ospf6_route *request)
 {
-	struct zapi_ipv6 api;
+	struct zapi_route api;
 	char buf[PREFIX2STR_BUFFER];
 	int nhcount;
-	struct in6_addr **nexthops;
-	ifindex_t *ifindexes;
 	int ret = 0;
-	struct prefix_ipv6 *dest;
+	struct prefix *dest;
 
 	if (IS_OSPF6_DEBUG_ZEBRA(SEND)) {
 		prefix2str(&request->prefix, buf, sizeof(buf));
@@ -387,36 +385,16 @@ static void ospf6_zebra_route_update(int type, struct ospf6_route *request)
 		return;
 	}
 
-	/* allocate memory for nexthop_list */
-	nexthops =
-		XCALLOC(MTYPE_OSPF6_OTHER, nhcount * sizeof(struct in6_addr *));
-	if (nexthops == NULL) {
-		zlog_warn("Can't send route to zebra: malloc failed");
-		return;
-	}
+	dest = &request->prefix;
 
-	/* allocate memory for ifindex_list */
-	ifindexes = XCALLOC(MTYPE_OSPF6_OTHER, nhcount * sizeof(ifindex_t));
-	if (ifindexes == NULL) {
-		zlog_warn("Can't send route to zebra: malloc failed");
-		XFREE(MTYPE_OSPF6_OTHER, nexthops);
-		return;
-	}
-
-	ospf6_route_zebra_copy_nexthops(request, ifindexes, nexthops, nhcount);
-
+	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_OSPF6;
-	api.instance = 0;
-	api.flags = 0;
-	api.message = 0;
 	api.safi = SAFI_UNICAST;
+	api.prefix = *dest;
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 	api.nexthop_num = nhcount;
-	api.nexthop = nexthops;
-	SET_FLAG(api.message, ZAPI_MESSAGE_IFINDEX);
-	api.ifindex_num = nhcount;
-	api.ifindex = ifindexes;
+	ospf6_route_zebra_copy_nexthops(request, api.nexthops, nhcount);
 	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
 	api.metric = (request->path.metric_type == 2 ? request->path.u.cost_e2
 						     : request->path.cost);
@@ -425,25 +403,19 @@ static void ospf6_zebra_route_update(int type, struct ospf6_route *request)
 		api.tag = request->path.tag;
 	}
 
-	dest = (struct prefix_ipv6 *)&request->prefix;
-
 	SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
-	api.distance = ospf6_distance_apply(dest, request);
+	api.distance =
+		ospf6_distance_apply((struct prefix_ipv6 *)dest, request);
 
 	if (type == REM)
-		ret = zapi_ipv6_route(ZEBRA_IPV6_ROUTE_DELETE, zclient, dest,
-				      NULL, &api);
+		ret = zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 	else
-		ret = zapi_ipv6_route(ZEBRA_IPV6_ROUTE_ADD, zclient, dest, NULL,
-				      &api);
+		ret = zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 
 	if (ret < 0)
-		zlog_err("zapi_ipv6_route() %s failed: %s",
+		zlog_err("zclient_route_send() %s failed: %s",
 			 (type == REM ? "delete" : "add"),
 			 safe_strerror(errno));
-
-	XFREE(MTYPE_OSPF6_OTHER, nexthops);
-	XFREE(MTYPE_OSPF6_OTHER, ifindexes);
 
 	return;
 }
@@ -460,40 +432,32 @@ void ospf6_zebra_route_update_remove(struct ospf6_route *request)
 
 void ospf6_zebra_add_discard(struct ospf6_route *request)
 {
-	struct zapi_ipv6 api;
+	struct zapi_route api;
 	char buf[INET6_ADDRSTRLEN];
-	struct prefix_ipv6 *dest;
+	struct prefix *dest = &request->prefix;
 
 	if (!CHECK_FLAG(request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED)) {
+		memset(&api, 0, sizeof(api));
 		api.vrf_id = VRF_DEFAULT;
 		api.type = ZEBRA_ROUTE_OSPF6;
 		api.flags = ZEBRA_FLAG_BLACKHOLE;
-		api.instance = 0;
-		api.message = 0;
 		api.safi = SAFI_UNICAST;
-		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-		api.nexthop_num = 0;
-		api.ifindex_num = 0;
+		api.prefix = *dest;
 
-		dest = (struct prefix_ipv6 *)&request->prefix;
-
-		zapi_ipv6_route(ZEBRA_IPV6_ROUTE_ADD, zclient, dest, NULL,
-				&api);
+		zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 
 		if (IS_OSPF6_DEBUG_ZEBRA(SEND))
 			zlog_debug("Zebra: Route add discard %s/%d",
-				   inet_ntop(AF_INET6, &dest->prefix, buf,
+				   inet_ntop(AF_INET6, &dest->u.prefix6, buf,
 					     INET6_ADDRSTRLEN),
 				   dest->prefixlen);
 
 		SET_FLAG(request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED);
 	} else {
-		dest = (struct prefix_ipv6 *)&request->prefix;
-
 		if (IS_OSPF6_DEBUG_ZEBRA(SEND))
 			zlog_debug(
 				"Zebra: Blackhole route present already %s/%d",
-				inet_ntop(AF_INET6, &dest->prefix, buf,
+				inet_ntop(AF_INET6, &dest->u.prefix6, buf,
 					  INET6_ADDRSTRLEN),
 				dest->prefixlen);
 	}
@@ -501,39 +465,32 @@ void ospf6_zebra_add_discard(struct ospf6_route *request)
 
 void ospf6_zebra_delete_discard(struct ospf6_route *request)
 {
-	struct zapi_ipv6 api;
+	struct zapi_route api;
 	char buf[INET6_ADDRSTRLEN];
-	struct prefix_ipv6 *dest;
+	struct prefix *dest = &request->prefix;
 
 	if (CHECK_FLAG(request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED)) {
+		memset(&api, 0, sizeof(api));
 		api.vrf_id = VRF_DEFAULT;
 		api.type = ZEBRA_ROUTE_OSPF6;
 		api.flags = ZEBRA_FLAG_BLACKHOLE;
-		api.instance = 0;
-		api.message = 0;
 		api.safi = SAFI_UNICAST;
-		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-		api.nexthop_num = 0;
-		api.ifindex_num = 0;
+		api.prefix = *dest;
 
-		dest = (struct prefix_ipv6 *)&request->prefix;
-
-		zapi_ipv6_route(ZEBRA_IPV6_ROUTE_DELETE, zclient, dest, NULL,
-				&api);
+		zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 
 		if (IS_OSPF6_DEBUG_ZEBRA(SEND))
 			zlog_debug("Zebra: Route delete discard %s/%d",
-				   inet_ntop(AF_INET6, &dest->prefix, buf,
+				   inet_ntop(AF_INET6, &dest->u.prefix6, buf,
 					     INET6_ADDRSTRLEN),
 				   dest->prefixlen);
 
 		UNSET_FLAG(request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED);
 	} else {
-		dest = (struct prefix_ipv6 *)&request->prefix;
 		if (IS_OSPF6_DEBUG_ZEBRA(SEND))
 			zlog_debug(
 				"Zebra: Blackhole route already deleted %s/%d",
-				inet_ntop(AF_INET6, &dest->prefix, buf,
+				inet_ntop(AF_INET6, &dest->u.prefix6, buf,
 					  INET6_ADDRSTRLEN),
 				dest->prefixlen);
 	}
