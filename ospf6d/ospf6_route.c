@@ -305,14 +305,16 @@ void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
 				zlog_debug("  nexthop: %s%%%.*s(%d)", buf,
 					   IFNAMSIZ, ifname, nh->ifindex);
 			}
-			if (i < entries) {
-				nexthops[i].gate.ipv6 = nh->address;
-				nexthops[i].ifindex = nh->ifindex;
-				nexthops[i].type = NEXTHOP_TYPE_IPV6_IFINDEX;
-				i++;
-			} else {
+			if (i >= entries)
 				return;
-			}
+
+			nexthops[i].ifindex = nh->ifindex;
+			if (!IN6_IS_ADDR_UNSPECIFIED(&nh->address)) {
+				nexthops[i].gate.ipv6 = nh->address;
+				nexthops[i].type = NEXTHOP_TYPE_IPV6_IFINDEX;
+			} else
+				nexthops[i].type = NEXTHOP_TYPE_IFINDEX;
+			i++;
 		}
 	}
 }
