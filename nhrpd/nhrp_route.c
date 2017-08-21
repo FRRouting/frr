@@ -108,24 +108,27 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix
 	SET_FLAG(flags, ZEBRA_FLAG_INTERNAL);
 
 	if (p->family == AF_INET) {
-		struct in_addr *nexthop_ipv4;
-		struct zapi_ipv4 api;
+		struct zapi_route api;
+		struct zapi_nexthop *api_nh = &api.nexthops[0];;
 
 		memset(&api, 0, sizeof(api));
 		api.flags = flags;
 		api.type = ZEBRA_ROUTE_NHRP;
 		api.safi = SAFI_UNICAST;
+		api.prefix = *p;
 
 		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+		api.nexthop_num = 1;
 		if (nexthop) {
-			nexthop_ipv4 = (struct in_addr *) sockunion_get_addr(nexthop);
-			api.nexthop_num = 1;
-			api.nexthop = &nexthop_ipv4;
+			api_nh->gate.ipv4 = nexthop->sin.sin_addr;
+			api_nh->type = NEXTHOP_TYPE_IPV4;
 		}
 		if (ifp) {
-			SET_FLAG(api.message, ZAPI_MESSAGE_IFINDEX);
-			api.ifindex_num = 1;
-			api.ifindex = &ifp->ifindex;
+			api_nh->ifindex = ifp->ifindex;
+			if (api_nh->type == NEXTHOP_TYPE_IPV4)
+				api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+			else
+				api_nh->type = NEXTHOP_TYPE_IFINDEX;
 		}
 		if (mtu) {
 			SET_FLAG(api.message, ZAPI_MESSAGE_MTU);
@@ -139,32 +142,34 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix
 				add ? "add" : "del",
 				inet_ntop(AF_INET, &p->u.prefix4, buf[0], sizeof(buf[0])),
 				p->prefixlen,
-				nexthop ? inet_ntop(AF_INET, api.nexthop[0], buf[1], sizeof(buf[1])) : "<onlink>",
+				nexthop ? inet_ntop(AF_INET, &api_nh->gate.ipv4, buf[1], sizeof(buf[1])) : "<onlink>",
 				api.metric, api.nexthop_num, ifp->name);
 		}
 
-		zapi_ipv4_route(
-			add ? ZEBRA_IPV4_ROUTE_ADD : ZEBRA_IPV4_ROUTE_DELETE,
-			zclient, (struct prefix_ipv4 *) p, &api);
+		zclient_route_send(add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
+				   zclient, &api);
 	} else if (p->family == AF_INET6) {
-		struct in6_addr *nexthop_ipv6;
-		struct zapi_ipv6 api;
+		struct zapi_route api;
+		struct zapi_nexthop *api_nh = &api.nexthops[0];;
 
 		memset(&api, 0, sizeof(api));
 		api.flags = flags;
 		api.type = ZEBRA_ROUTE_NHRP;
 		api.safi = SAFI_UNICAST;
+		api.prefix = *p;
 
 		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+		api.nexthop_num = 1;
 		if (nexthop) {
-			nexthop_ipv6 = (struct in6_addr *) sockunion_get_addr(nexthop);
-			api.nexthop_num = 1;
-			api.nexthop = &nexthop_ipv6;
+			api_nh->gate.ipv6 = nexthop->sin6.sin6_addr;
+			api_nh->type = NEXTHOP_TYPE_IPV6;
 		}
 		if (ifp) {
-			SET_FLAG(api.message, ZAPI_MESSAGE_IFINDEX);
-			api.ifindex_num = 1;
-			api.ifindex = &ifp->ifindex;
+			api_nh->ifindex = ifp->ifindex;
+			if (api_nh->type == NEXTHOP_TYPE_IPV6)
+				api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
+			else
+				api_nh->type = NEXTHOP_TYPE_IFINDEX;
 		}
 		if (mtu) {
 			SET_FLAG(api.message, ZAPI_MESSAGE_MTU);
@@ -178,13 +183,12 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix
 				add ? "add" : "del",
 				inet_ntop(AF_INET6, &p->u.prefix6, buf[0], sizeof(buf[0])),
 				p->prefixlen,
-				nexthop ? inet_ntop(AF_INET6, api.nexthop[0], buf[1], sizeof(buf[1])) : "<onlink>",
+				nexthop ? inet_ntop(AF_INET6, &api_nh->gate.ipv6, buf[1], sizeof(buf[1])) : "<onlink>",
 				api.metric, api.nexthop_num, ifp->name);
 		}
 
-		zapi_ipv6_route(
-			add ? ZEBRA_IPV6_ROUTE_ADD : ZEBRA_IPV6_ROUTE_DELETE,
-			zclient, (struct prefix_ipv6 *) p, NULL, &api);
+		zclient_route_send(add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
+				   zclient, &api);
 	}
 }
 
