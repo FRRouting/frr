@@ -411,6 +411,7 @@ static void zprivs_caps_terminate(void)
 	}
 
 	cap_free(zprivs_state.caps);
+	zprivs_state.caps = NULL;
 }
 #elif defined(HAVE_SOLARIS_CAPABILITIES) /* !HAVE_LCAPS */
 
