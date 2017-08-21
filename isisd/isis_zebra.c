@@ -248,66 +248,47 @@ static int isis_zebra_link_params(int command, struct zclient *zclient,
 static void isis_zebra_route_add_ipv4(struct prefix *prefix,
 				      struct isis_route_info *route_info)
 {
-	u_char message;
-	u_int32_t flags;
-	int psize;
-	struct stream *stream;
+	struct zapi_route api;
+	struct zapi_nexthop *api_nh;
 	struct isis_nexthop *nexthop;
 	struct listnode *node;
+	int count = 0;
 
 	if (CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
 		return;
 
-	message = 0;
-	flags = 0;
-
-	SET_FLAG(message, ZAPI_MESSAGE_NEXTHOP);
-	SET_FLAG(message, ZAPI_MESSAGE_METRIC);
+	memset(&api, 0, sizeof(api));
+	api.vrf_id = VRF_DEFAULT;
+	api.type = ZEBRA_ROUTE_ISIS;
+	api.safi = SAFI_UNICAST;
+	api.prefix = *prefix;
+	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
+	api.metric = route_info->cost;
 #if 0
-	SET_FLAG (message, ZAPI_MESSAGE_DISTANCE);
+	SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
+	api.distance = route_info->depth;
 #endif
-
-	stream = zclient->obuf;
-	stream_reset(stream);
-	zclient_create_header(stream, ZEBRA_IPV4_ROUTE_ADD, VRF_DEFAULT);
-	/* type */
-	stream_putc(stream, ZEBRA_ROUTE_ISIS);
-	/* instance */
-	stream_putw(stream, 0);
-	/* flags */
-	stream_putl(stream, flags);
-	/* message */
-	stream_putc(stream, message);
-	/* SAFI */
-	stream_putw(stream, SAFI_UNICAST);
-	/* prefix information */
-	psize = PSIZE(prefix->prefixlen);
-	stream_putc(stream, prefix->prefixlen);
-	stream_write(stream, (u_char *)&prefix->u.prefix4, psize);
-
-	stream_putc(stream, listcount(route_info->nexthops));
 
 	/* Nexthop, ifindex, distance and metric information */
 	for (ALL_LIST_ELEMENTS_RO(route_info->nexthops, node, nexthop)) {
+		api_nh = &api.nexthops[count];
 		/* FIXME: can it be ? */
 		if (nexthop->ip.s_addr != INADDR_ANY) {
-			stream_putc(stream, NEXTHOP_TYPE_IPV4_IFINDEX);
-			stream_put_in_addr(stream, &nexthop->ip);
-			stream_putl(stream, nexthop->ifindex);
+			api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+			api_nh->gate.ipv4 = nexthop->ip;
 		} else {
-			stream_putc(stream, NEXTHOP_TYPE_IFINDEX);
-			stream_putl(stream, nexthop->ifindex);
+			api_nh->type = NEXTHOP_TYPE_IFINDEX;
 		}
+		api_nh->ifindex = nexthop->ifindex;
+		count++;
 	}
-#if 0
-	if (CHECK_FLAG (message, ZAPI_MESSAGE_DISTANCE))
-		stream_putc (stream, route_info->depth);
-#endif
-	if (CHECK_FLAG(message, ZAPI_MESSAGE_METRIC))
-		stream_putl(stream, route_info->cost);
+	if (!count)
+		return;
 
-	stream_putw_at(stream, 0, stream_get_endp(stream));
-	zclient_send_message(zclient);
+	api.nexthop_num = count;
+
+	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 	SET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 	UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
 }
@@ -315,180 +296,83 @@ static void isis_zebra_route_add_ipv4(struct prefix *prefix,
 static void isis_zebra_route_del_ipv4(struct prefix *prefix,
 				      struct isis_route_info *route_info)
 {
-	struct zapi_ipv4 api;
-	struct prefix_ipv4 prefix4;
+	struct zapi_route api;
 
 	UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 
+	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_ISIS;
-	api.instance = 0;
-	api.flags = 0;
-	api.message = 0;
 	api.safi = SAFI_UNICAST;
-	prefix4.family = AF_INET;
-	prefix4.prefixlen = prefix->prefixlen;
-	prefix4.prefix = prefix->u.prefix4;
-	zapi_ipv4_route(ZEBRA_IPV4_ROUTE_DELETE, zclient, &prefix4, &api);
+	api.prefix = *prefix;
+
+	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 }
 
 static void isis_zebra_route_add_ipv6(struct prefix *prefix,
 				      struct isis_route_info *route_info)
 {
-	struct zapi_ipv6 api;
-	struct in6_addr **nexthop_list;
-	ifindex_t *ifindex_list;
+	struct zapi_route api;
+	struct zapi_nexthop *api_nh;
 	struct isis_nexthop6 *nexthop6;
-	int i, size;
 	struct listnode *node;
-	struct prefix_ipv6 prefix6;
+	int count = 0;
 
 	if (CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
 		return;
 
+	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_ISIS;
-	api.instance = 0;
-	api.flags = 0;
-	api.message = 0;
 	api.safi = SAFI_UNICAST;
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-	SET_FLAG(api.message, ZAPI_MESSAGE_IFINDEX);
 	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
 	api.metric = route_info->cost;
 #if 0
-	SET_FLAG (api.message, ZAPI_MESSAGE_DISTANCE);
+	SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
 	api.distance = route_info->depth;
 #endif
-	api.nexthop_num = listcount(route_info->nexthops6);
-	api.ifindex_num = listcount(route_info->nexthops6);
-
-	/* allocate memory for nexthop_list */
-	size = sizeof(struct isis_nexthop6 *)
-	       * listcount(route_info->nexthops6);
-	nexthop_list = (struct in6_addr **)XMALLOC(MTYPE_ISIS_TMP, size);
-	if (!nexthop_list) {
-		zlog_err("isis_zebra_add_route_ipv6: out of memory!");
-		return;
-	}
-
-	/* allocate memory for ifindex_list */
-	size = sizeof(unsigned int) * listcount(route_info->nexthops6);
-	ifindex_list = (ifindex_t *)XMALLOC(MTYPE_ISIS_TMP, size);
-	if (!ifindex_list) {
-		zlog_err("isis_zebra_add_route_ipv6: out of memory!");
-		XFREE(MTYPE_ISIS_TMP, nexthop_list);
-		return;
-	}
+	api.prefix = *prefix;
 
 	/* for each nexthop */
-	i = 0;
 	for (ALL_LIST_ELEMENTS_RO(route_info->nexthops6, node, nexthop6)) {
 		if (!IN6_IS_ADDR_LINKLOCAL(&nexthop6->ip6)
 		    && !IN6_IS_ADDR_UNSPECIFIED(&nexthop6->ip6)) {
-			api.nexthop_num--;
-			api.ifindex_num--;
 			continue;
 		}
 
-		nexthop_list[i] = &nexthop6->ip6;
-		ifindex_list[i] = nexthop6->ifindex;
-		i++;
+		api_nh = &api.nexthops[count];
+		api_nh->gate.ipv6 = nexthop6->ip6;
+		api_nh->ifindex = nexthop6->ifindex;
+		api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
+		count++;
 	}
+	if (!count)
+		return;
 
-	api.nexthop = nexthop_list;
-	api.ifindex = ifindex_list;
+	api.nexthop_num = count;
 
-	if (api.nexthop_num && api.ifindex_num) {
-		prefix6.family = AF_INET6;
-		prefix6.prefixlen = prefix->prefixlen;
-		memcpy(&prefix6.prefix, &prefix->u.prefix6,
-		       sizeof(struct in6_addr));
-		zapi_ipv6_route(ZEBRA_IPV6_ROUTE_ADD, zclient, &prefix6, NULL,
-				&api);
-		SET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
-		UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
-	}
-
-	XFREE(MTYPE_ISIS_TMP, nexthop_list);
-	XFREE(MTYPE_ISIS_TMP, ifindex_list);
-
-	return;
+	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
+	SET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
+	UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_RESYNC);
 }
 
 static void isis_zebra_route_del_ipv6(struct prefix *prefix,
 				      struct isis_route_info *route_info)
 {
-	struct zapi_ipv6 api;
-	struct in6_addr **nexthop_list;
-	ifindex_t *ifindex_list;
-	struct isis_nexthop6 *nexthop6;
-	int i, size;
-	struct listnode *node;
-	struct prefix_ipv6 prefix6;
+	struct zapi_route api;
 
 	if (!CHECK_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED))
 		return;
 
+	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_ISIS;
-	api.instance = 0;
-	api.flags = 0;
-	api.message = 0;
 	api.safi = SAFI_UNICAST;
-	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-	SET_FLAG(api.message, ZAPI_MESSAGE_IFINDEX);
-	api.nexthop_num = listcount(route_info->nexthops6);
-	api.ifindex_num = listcount(route_info->nexthops6);
+	api.prefix = *prefix;
 
-	/* allocate memory for nexthop_list */
-	size = sizeof(struct isis_nexthop6 *)
-	       * listcount(route_info->nexthops6);
-	nexthop_list = (struct in6_addr **)XMALLOC(MTYPE_ISIS_TMP, size);
-	if (!nexthop_list) {
-		zlog_err("isis_zebra_route_del_ipv6: out of memory!");
-		return;
-	}
-
-	/* allocate memory for ifindex_list */
-	size = sizeof(unsigned int) * listcount(route_info->nexthops6);
-	ifindex_list = (ifindex_t *)XMALLOC(MTYPE_ISIS_TMP, size);
-	if (!ifindex_list) {
-		zlog_err("isis_zebra_route_del_ipv6: out of memory!");
-		XFREE(MTYPE_ISIS_TMP, nexthop_list);
-		return;
-	}
-
-	/* for each nexthop */
-	i = 0;
-	for (ALL_LIST_ELEMENTS_RO(route_info->nexthops6, node, nexthop6)) {
-		if (!IN6_IS_ADDR_LINKLOCAL(&nexthop6->ip6)
-		    && !IN6_IS_ADDR_UNSPECIFIED(&nexthop6->ip6)) {
-			api.nexthop_num--;
-			api.ifindex_num--;
-			continue;
-		}
-
-		nexthop_list[i] = &nexthop6->ip6;
-		ifindex_list[i] = nexthop6->ifindex;
-		i++;
-	}
-
-	api.nexthop = nexthop_list;
-	api.ifindex = ifindex_list;
-
-	if (api.nexthop_num && api.ifindex_num) {
-		prefix6.family = AF_INET6;
-		prefix6.prefixlen = prefix->prefixlen;
-		memcpy(&prefix6.prefix, &prefix->u.prefix6,
-		       sizeof(struct in6_addr));
-		zapi_ipv6_route(ZEBRA_IPV6_ROUTE_DELETE, zclient, &prefix6,
-				NULL, &api);
-		UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
-	}
-
-	XFREE(MTYPE_ISIS_TMP, nexthop_list);
-	XFREE(MTYPE_ISIS_TMP, ifindex_list);
+	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
+	UNSET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 }
 
 void isis_zebra_route_update(struct prefix *prefix,
