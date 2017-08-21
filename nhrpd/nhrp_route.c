@@ -86,14 +86,20 @@ void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp)
 
 void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix *p, struct interface *ifp, const union sockunion *nexthop, uint32_t mtu)
 {
-	int flags = 0;
+	struct zapi_route api;
+	struct zapi_nexthop *api_nh;
 
 	if (zclient->sock < 0)
 		return;
 
+	memset(&api, 0, sizeof(api));
+	api.type = ZEBRA_ROUTE_NHRP;
+	api.safi = SAFI_UNICAST;
+	api.prefix = *p;
+
 	switch (type) {
 	case NHRP_CACHE_NEGATIVE:
-		SET_FLAG(flags, ZEBRA_FLAG_REJECT);
+		SET_FLAG(api.flags, ZEBRA_FLAG_REJECT);
 		break;
 	case NHRP_CACHE_DYNAMIC:
 	case NHRP_CACHE_NHS:
@@ -102,23 +108,17 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix
 		 * to other routing daemons */
 		break;
 	default:
-		SET_FLAG(flags, ZEBRA_FLAG_FIB_OVERRIDE);
+		SET_FLAG(api.flags, ZEBRA_FLAG_FIB_OVERRIDE);
 		break;
 	}
-	SET_FLAG(flags, ZEBRA_FLAG_INTERNAL);
+	SET_FLAG(api.flags, ZEBRA_FLAG_INTERNAL);
 
-	if (p->family == AF_INET) {
-		struct zapi_route api;
-		struct zapi_nexthop *api_nh = &api.nexthops[0];;
+	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+	api.nexthop_num = 1;
+	api_nh = &api.nexthops[0];
 
-		memset(&api, 0, sizeof(api));
-		api.flags = flags;
-		api.type = ZEBRA_ROUTE_NHRP;
-		api.safi = SAFI_UNICAST;
-		api.prefix = *p;
-
-		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-		api.nexthop_num = 1;
+	switch (api.prefix.family) {
+	case AF_INET:
 		if (nexthop) {
 			api_nh->gate.ipv4 = nexthop->sin.sin_addr;
 			api_nh->type = NEXTHOP_TYPE_IPV4;
@@ -130,36 +130,8 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix
 			else
 				api_nh->type = NEXTHOP_TYPE_IFINDEX;
 		}
-		if (mtu) {
-			SET_FLAG(api.message, ZAPI_MESSAGE_MTU);
-			api.mtu = mtu;
-		}
-
-		if (unlikely(debug_flags & NHRP_DEBUG_ROUTE)) {
-			char buf[2][INET_ADDRSTRLEN];
-			zlog_debug("Zebra send: IPv4 route %s %s/%d nexthop %s metric %u"
-				" count %d dev %s",
-				add ? "add" : "del",
-				inet_ntop(AF_INET, &p->u.prefix4, buf[0], sizeof(buf[0])),
-				p->prefixlen,
-				nexthop ? inet_ntop(AF_INET, &api_nh->gate.ipv4, buf[1], sizeof(buf[1])) : "<onlink>",
-				api.metric, api.nexthop_num, ifp->name);
-		}
-
-		zclient_route_send(add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
-				   zclient, &api);
-	} else if (p->family == AF_INET6) {
-		struct zapi_route api;
-		struct zapi_nexthop *api_nh = &api.nexthops[0];;
-
-		memset(&api, 0, sizeof(api));
-		api.flags = flags;
-		api.type = ZEBRA_ROUTE_NHRP;
-		api.safi = SAFI_UNICAST;
-		api.prefix = *p;
-
-		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-		api.nexthop_num = 1;
+		break;
+	case AF_INET6:
 		if (nexthop) {
 			api_nh->gate.ipv6 = nexthop->sin6.sin6_addr;
 			api_nh->type = NEXTHOP_TYPE_IPV6;
@@ -171,25 +143,26 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix
 			else
 				api_nh->type = NEXTHOP_TYPE_IFINDEX;
 		}
-		if (mtu) {
-			SET_FLAG(api.message, ZAPI_MESSAGE_MTU);
-			api.mtu = mtu;
-		}
-
-		if (unlikely(debug_flags & NHRP_DEBUG_ROUTE)) {
-			char buf[2][INET6_ADDRSTRLEN];
-			zlog_debug("Zebra send: IPv6 route %s %s/%d nexthop %s metric %u"
-				" count %d dev %s",
-				add ? "add" : "del",
-				inet_ntop(AF_INET6, &p->u.prefix6, buf[0], sizeof(buf[0])),
-				p->prefixlen,
-				nexthop ? inet_ntop(AF_INET6, &api_nh->gate.ipv6, buf[1], sizeof(buf[1])) : "<onlink>",
-				api.metric, api.nexthop_num, ifp->name);
-		}
-
-		zclient_route_send(add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
-				   zclient, &api);
+		break;
 	}
+	if (mtu) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_MTU);
+		api.mtu = mtu;
+	}
+
+	if (unlikely(debug_flags & NHRP_DEBUG_ROUTE)) {
+		char buf[2][PREFIX_STRLEN];
+
+		prefix2str(&api.prefix, buf[0], sizeof(buf[0]));
+		zlog_debug("Zebra send: route %s %s nexthop %s metric %u"
+			" count %d dev %s",
+			add ? "add" : "del", buf[0],
+			nexthop ? inet_ntop(api.prefix.family, &api_nh->gate, buf[1], sizeof(buf[1])) : "<onlink>",
+			api.metric, api.nexthop_num, ifp->name);
+	}
+
+	zclient_route_send(add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE, zclient,
+			   &api);
 }
 
 int nhrp_route_read(int cmd, struct zclient *zclient, zebra_size_t length, vrf_id_t vrf_id)
