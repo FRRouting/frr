@@ -85,8 +85,22 @@ static int config_write_ospf6_debug(struct vty *vty)
 	config_write_ospf6_debug_asbr(vty);
 	config_write_ospf6_debug_abr(vty);
 	config_write_ospf6_debug_flood(vty);
-	vty_out(vty, "!\n");
+
 	return 0;
+}
+
+DEFUN_NOSH (show_debugging_ospf6,
+	    show_debugging_ospf6_cmd,
+	    "show debugging [ospf6]",
+	    SHOW_STR
+	    DEBUG_STR
+	    OSPF6_STR)
+{
+	vty_out(vty, "OSPF6 debugging status:");
+
+	config_write_ospf6_debug(vty);
+
+	return CMD_SUCCESS;
 }
 
 #define AREA_LSDB_TITLE_FORMAT                                                 \
@@ -1156,6 +1170,8 @@ void ospf6_init(void)
 	install_element_ospf6_debug_flood();
 
 	install_element_ospf6_clear_interface();
+
+	install_element(VIEW_NODE, &show_debugging_ospf6_cmd);
 
 	install_element(VIEW_NODE, &show_ipv6_ospf6_border_routers_cmd);
 

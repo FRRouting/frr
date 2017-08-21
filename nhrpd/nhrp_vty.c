@@ -110,11 +110,11 @@ static int toggle_flag(
 
 #ifndef NO_DEBUG
 
-DEFUN(show_debugging_nhrp, show_debugging_nhrp_cmd,
-	"show debugging nhrp",
-	SHOW_STR
-	"Debugging information\n"
-	"NHRP configuration\n")
+DEFUN_NOSH(show_debugging_nhrp, show_debugging_nhrp_cmd,
+	   "show debugging [nhrp]",
+	   SHOW_STR
+	   "Debugging information\n"
+	   "NHRP configuration\n")
 {
 	int i;
 

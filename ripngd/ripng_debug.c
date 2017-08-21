@@ -28,12 +28,12 @@ unsigned long ripng_debug_event = 0;
 unsigned long ripng_debug_packet = 0;
 unsigned long ripng_debug_zebra = 0;
 
-DEFUN (show_debugging_ripng,
-       show_debugging_ripng_cmd,
-       "show debugging ripng",
-       SHOW_STR
-       DEBUG_STR
-       "RIPng configuration\n")
+DEFUN_NOSH (show_debugging_ripng,
+	    show_debugging_ripng_cmd,
+	    "show debugging [ripng]",
+	    SHOW_STR
+	    DEBUG_STR
+	    "RIPng configuration\n")
 {
 	vty_out(vty, "RIPng debugging status:\n");
 

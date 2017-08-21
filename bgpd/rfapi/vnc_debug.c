@@ -142,13 +142,13 @@ DEFUN (no_debug_bgp_vnc_all,
  *	show/save
  ***********************************************************************/
 
-DEFUN (show_debugging_bgp_vnc,
-       show_debugging_bgp_vnc_cmd,
-       "show debugging bgp vnc",
-       SHOW_STR
-       DEBUG_STR
-       BGP_STR
-       VNC_STR)
+DEFUN_NOSH (show_debugging_bgp_vnc,
+	    show_debugging_bgp_vnc_cmd,
+	    "show debugging bgp vnc",
+	    SHOW_STR
+	    DEBUG_STR
+	    BGP_STR
+	    VNC_STR)
 {
 	size_t i;
 

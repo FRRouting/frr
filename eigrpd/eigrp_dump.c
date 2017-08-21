@@ -323,12 +323,12 @@ void show_ip_eigrp_neighbor_entry(struct vty *vty, struct eigrp *eigrp,
 }
 
 
-DEFUN (show_debugging_eigrp,
-       show_debugging_eigrp_cmd,
-       "show debugging eigrp",
-       SHOW_STR
-       DEBUG_STR
-       EIGRP_STR)
+DEFUN_NOSH (show_debugging_eigrp,
+	    show_debugging_eigrp_cmd,
+	    "show debugging [eigrp]",
+	    SHOW_STR
+	    DEBUG_STR
+	    EIGRP_STR)
 {
 	int i;
 

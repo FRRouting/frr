@@ -7254,14 +7254,17 @@ DEFUN (no_debug_msdp_packets,
 ALIAS(no_debug_msdp_packets, undebug_msdp_packets_cmd, "undebug msdp packets",
       UNDEBUG_STR DEBUG_MSDP_STR DEBUG_MSDP_PACKETS_STR)
 
-DEFUN (show_debugging_pim,
-       show_debugging_pim_cmd,
-       "show debugging pim",
-       SHOW_STR
-       DEBUG_STR
-       PIM_STR)
+DEFUN_NOSH (show_debugging_pim,
+	    show_debugging_pim_cmd,
+	    "show debugging [pim]",
+	    SHOW_STR
+	    DEBUG_STR
+	    PIM_STR)
 {
+	vty_out(vty, "PIM debugging status\n");
+
 	pim_debug_config_write(vty);
+
 	return CMD_SUCCESS;
 }
 
