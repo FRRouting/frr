@@ -27,6 +27,7 @@ aclocal.m4
 Makefile.in
 *.tar.gz
 *.tar.gz.asc
+*.tar.?z
 .nfs*
 libtool
 .arch-inventory
@@ -55,6 +56,10 @@ debian/quagga.prerm.debhelper
 debian/quagga.substvars
 debian/quagga/
 debian/tmp/
+*.deb
+*.ddeb
+*.dsc
+*.changes
 *.swp
 cscope.*
 *.pb.h

@@ -1,0 +1,28 @@
+This directory contains the debian directories for backports to other debian
+platforms.  These are built via the `3.0 (custom)' source format, which
+allows one to build a source package directly out of tarballs (e.g. an
+orig.tar.gz tarball and a debian.tar.gz file), at which point the format can
+be changed to a real format (e.g. `3.0 (quilt)').
+
+Source packages are assembled via targets of the same name as the system to
+which the backport is done (e.g. `precise'), included in debian/rules.
+
+To create a new debian backport:
+
+* Add its name to `KNOWN_BACKPORTS', defined in debian/rules.
+* Create a directory of the same name in debian/backports.
+* Add the files `exclude', `versionext', and `debian/source/format' under
+  this directory:
+  * `exclude' contains whitespace-separated paths (relative to the root of
+    the source dir) that should be excluded from the source package (e.g.
+    debian/patches).
+  * `versionext' contains the suffix added to the version number for this
+    backport's build.  Distributions often have guidelines for what this
+    should be. If left empty, no new debian/changelog entry is created.
+  * `debian/source/format' should contain the source format of the resulting
+    source package.  As of of the writing of this document the only supported
+    format is `3.0 (quilt)'.
+* Add appropriate files under the `debian/' subdirectory.  These will be
+  included in the source package, overriding any top-level `debian/' files
+  with equivalent paths.
+
