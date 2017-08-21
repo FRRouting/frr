@@ -82,6 +82,8 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 	struct listnode *node;
 	struct interface *ifp;
 
+	frr_early_fini();
+
 	if (ospf6)
 		ospf6_delete(ospf6);
 
@@ -96,19 +98,13 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 	ospf6_lsa_terminate();
 
 	vrf_terminate();
-	vty_terminate();
-	cmd_terminate();
 
 	if (zclient) {
 		zclient_stop(zclient);
 		zclient_free(zclient);
 	}
 
-	if (master)
-		thread_master_free(master);
-
-	closezlog();
-
+	frr_fini();
 	exit(status);
 }
 

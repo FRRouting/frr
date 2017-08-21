@@ -81,6 +81,7 @@ static void nhrp_sigusr1(void)
 static void nhrp_request_stop(void)
 {
 	debugf(NHRP_DEBUG_COMMON, "Exiting...");
+	frr_early_fini();
 
 	nhrp_shortcut_terminate();
 	nhrp_nhs_terminate();
@@ -89,15 +90,9 @@ static void nhrp_request_stop(void)
 	evmgr_terminate();
 	nhrp_vc_terminate();
 	vrf_terminate();
-	/* memory_terminate(); */
-	/* vty_terminate(); */
-	cmd_terminate();
-	/* signal_terminate(); */
-	zprivs_terminate(&nhrpd_privs);
 
 	debugf(NHRP_DEBUG_COMMON, "Done.");
-
-	closezlog();
+	frr_fini();
 
 	exit(0);
 }

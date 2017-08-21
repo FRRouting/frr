@@ -55,8 +55,6 @@ struct rtadv_prefix {
 #endif
 };
 
-extern void rtadv_config_write(struct vty *, struct interface *);
-
 /* RFC4584 Extension to Sockets API for Mobile IPv6 */
 
 #ifndef ND_OPT_ADV_INTERVAL

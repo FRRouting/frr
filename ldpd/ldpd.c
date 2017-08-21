@@ -392,6 +392,8 @@ ldpd_shutdown(void)
 	pid_t		 pid;
 	int		 status;
 
+	frr_early_fini();
+
 	/* close pipes */
 	msgbuf_clear(&iev_ldpe->ibuf.w);
 	close(iev_ldpe->ibuf.fd);
@@ -423,13 +425,9 @@ ldpd_shutdown(void)
 
 	vrf_terminate();
 	access_list_reset();
-	cmd_terminate();
-	vty_terminate();
 	ldp_zebra_destroy();
-	zprivs_terminate(&ldpd_privs);
-	thread_master_free(master);
-	closezlog();
 
+	frr_fini();
 	exit(0);
 }
 

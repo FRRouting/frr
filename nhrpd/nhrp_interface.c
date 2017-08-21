@@ -48,8 +48,8 @@ static int nhrp_if_delete_hook(struct interface *ifp)
 
 void nhrp_interface_init(void)
 {
-	if_add_hook(IF_NEW_HOOK,    nhrp_if_new_hook);
-	if_add_hook(IF_DELETE_HOOK, nhrp_if_delete_hook);
+	hook_register_prio(if_add, 0, nhrp_if_new_hook);
+	hook_register_prio(if_del, 0, nhrp_if_delete_hook);
 }
 
 void nhrp_interface_update_mtu(struct interface *ifp, afi_t afi)

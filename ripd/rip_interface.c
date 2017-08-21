@@ -1877,8 +1877,8 @@ static int rip_interface_delete_hook(struct interface *ifp)
 void rip_if_init(void)
 {
 	/* Default initial size of interface vector. */
-	if_add_hook(IF_NEW_HOOK, rip_interface_new_hook);
-	if_add_hook(IF_DELETE_HOOK, rip_interface_delete_hook);
+	hook_register_prio(if_add, 0, rip_interface_new_hook);
+	hook_register_prio(if_del, 0, rip_interface_delete_hook);
 
 	/* RIP network init. */
 	rip_enable_interface = vector_init(1);

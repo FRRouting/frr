@@ -37,6 +37,8 @@
 #include "network.h"
 
 DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
+DEFINE_KOOH(frr_early_fini, (), ())
+DEFINE_KOOH(frr_fini, (), ())
 
 const char frr_sysconfdir[] = SYSCONFDIR;
 const char frr_vtydir[] = DAEMON_VTY_DIR;
@@ -830,4 +832,23 @@ void frr_run(struct thread_master *master)
 	struct thread thread;
 	while (thread_fetch(master, &thread))
 		thread_call(&thread);
+}
+
+void frr_early_fini(void)
+{
+	hook_call(frr_early_fini);
+}
+
+void frr_fini(void)
+{
+	hook_call(frr_fini);
+
+	/* memory_init -> nothing needed */
+	vty_terminate();
+	cmd_terminate();
+	zprivs_terminate(di->privs);
+	/* signal_init -> nothing needed */
+	thread_master_free(master);
+	closezlog();
+	/* frrmod_init -> nothing needed / hooks */
 }

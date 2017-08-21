@@ -23,10 +23,7 @@
 
 #include "redistribute.h"
 #include "vrf.h"
-
-#ifdef HAVE_IRDP
-#include "zebra/irdp.h"
-#endif
+#include "hook.h"
 
 #include "zebra/zebra_l2.h"
 
@@ -202,6 +199,8 @@ typedef enum {
 	ZEBRA_IF_SLAVE_OTHER,  /* Something else - e.g., bond slave */
 } zebra_slave_iftype_t;
 
+struct irdp_interface;
+
 /* `zebra' daemon local interface structure. */
 struct zebra_if {
 	/* Shutdown configuration. */
@@ -227,9 +226,7 @@ struct zebra_if {
 	unsigned int ra_sent, ra_rcvd;
 #endif /* HAVE_RTADV */
 
-#ifdef HAVE_IRDP
-	struct irdp_interface irdp;
-#endif
+	struct irdp_interface *irdp;
 
 #ifdef HAVE_STRUCT_SOCKADDR_DL
 	union {
@@ -272,6 +269,11 @@ struct zebra_if {
 	ifindex_t link_ifindex;
 	struct interface *link;
 };
+
+DECLARE_HOOK(zebra_if_extra_info, (struct vty *vty, struct interface *ifp),
+				  (vty, ifp))
+DECLARE_HOOK(zebra_if_config_wr, (struct vty *vty, struct interface *ifp),
+				 (vty, ifp))
 
 static inline void zebra_if_set_ziftype(struct interface *ifp,
 					zebra_iftype_t zif_type,
