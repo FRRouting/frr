@@ -494,89 +494,57 @@ static int vnc_zebra_read_ipv6(int command, struct zclient *zclient,
 static void vnc_zebra_route_msg(struct prefix *p, int nhp_count, void *nhp_ary,
 				int add) /* 1 = add, 0 = del */
 {
+	struct zapi_route api;
+	struct zapi_nexthop *api_nh;
+	int i;
+
 	if (!nhp_count) {
 		vnc_zlog_debug_verbose("%s: empty nexthop list, skipping",
 				       __func__);
 		return;
 	}
 
-	if (p->family == AF_INET) {
-		struct zapi_route api;
-		struct zapi_nexthop *api_nh;
-		struct in_addr *nhp_ary4 = nhp_ary;
-		int i;
+	memset(&api, 0, sizeof(api));
+	api.vrf_id = VRF_DEFAULT;
+	api.type = ZEBRA_ROUTE_VNC;
+	api.safi = SAFI_UNICAST;
+	api.prefix = *p;
 
-		memset(&api, 0, sizeof(api));
-		api.vrf_id = VRF_DEFAULT;
-		api.type = ZEBRA_ROUTE_VNC;
-		api.prefix = *p;
-		api.safi = SAFI_UNICAST;
+	/* Nexthops */
+	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+	api.nexthop_num = nhp_count;
+	for (i = 0; i < nhp_count; i++) {
+		struct in_addr *nhp_ary4;
+		struct in6_addr *nhp_ary6;
 
-		/* Nexthops */
-		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-		api.nexthop_num = nhp_count;
-		for (i = 0; i < nhp_count; i++) {
-			api_nh = &api.nexthops[i];
+		api_nh = &api.nexthops[i];
+		switch (p->family) {
+		case AF_INET:
+			nhp_ary4 = nhp_ary;
 			memcpy(&api_nh->gate.ipv4, &nhp_ary4[i],
 			       sizeof(api_nh->gate.ipv4));
 			api_nh->type = NEXTHOP_TYPE_IPV4;
-		}
-
-		if (BGP_DEBUG(zebra, ZEBRA)) {
-
-			char buf[INET_ADDRSTRLEN];
-			vnc_zlog_debug_verbose(
-				"%s: Zebra send: IPv4 route %s %s/%d, nhp_count=%d",
-				__func__, (add ? "add" : "del"),
-				inet_ntop(AF_INET, &p->u.prefix4, buf,
-					  sizeof(buf)),
-				p->prefixlen, nhp_count);
-		}
-
-		zclient_route_send((add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE),
-				   zclient_vnc, &api);
-
-	} else if (p->family == AF_INET6) {
-		struct zapi_route api;
-		struct zapi_nexthop *api_nh;
-		struct in6_addr *nhp_ary6 = nhp_ary;
-		int i;
-
-		memset(&api, 0, sizeof(api));
-		api.vrf_id = VRF_DEFAULT;
-		api.type = ZEBRA_ROUTE_VNC;
-		api.prefix = *p;
-		api.safi = SAFI_UNICAST;
-
-		/* Nexthops */
-		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-		api.nexthop_num = nhp_count;
-		for (i = 0; i < nhp_count; i++) {
-			api_nh = &api.nexthops[i];
+			break;
+		case AF_INET6:
+			nhp_ary6 = nhp_ary;
 			memcpy(&api_nh->gate.ipv6, &nhp_ary6[i],
 			       sizeof(api_nh->gate.ipv6));
 			api_nh->type = NEXTHOP_TYPE_IPV6;
+			break;
 		}
-
-		if (BGP_DEBUG(zebra, ZEBRA)) {
-
-			char buf[INET6_ADDRSTRLEN];
-			vnc_zlog_debug_verbose(
-				"%s: Zebra send: IPv6 route %s %s/%d nhp_count=%d",
-				__func__, (add ? "add" : "del"),
-				inet_ntop(AF_INET6, &p->u.prefix6, buf,
-					  sizeof(buf)),
-				p->prefixlen, nhp_count);
-		}
-
-		zclient_route_send((add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE),
-				   zclient_vnc, &api);
-	} else {
-		vnc_zlog_debug_verbose(
-			"%s: unknown prefix address family, skipping",
-			__func__);
-		return;
 	}
+
+	if (BGP_DEBUG(zebra, ZEBRA)) {
+		char buf[PREFIX_STRLEN];
+
+		prefix2str(&api.prefix, buf, sizeof(buf));
+		vnc_zlog_debug_verbose(
+			"%s: Zebra send: route %s %s, nhp_count=%d", __func__,
+			(add ? "add" : "del"), buf, nhp_count);
+	}
+
+	zclient_route_send((add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE),
+			   zclient_vnc, &api);
 }
 
 
