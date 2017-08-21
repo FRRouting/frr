@@ -39,47 +39,33 @@ struct zclient *zclient = NULL;
 /* Send ECMP routes to zebra. */
 static void ripng_zebra_ipv6_send(struct route_node *rp, u_char cmd)
 {
-	static struct in6_addr **nexthops = NULL;
-	static ifindex_t *ifindexes = NULL;
-	static unsigned int nexthops_len = 0;
-
 	struct list *list = (struct list *)rp->info;
-	struct zapi_ipv6 api;
+	struct zapi_route api;
+	struct zapi_nexthop *api_nh;
 	struct listnode *listnode = NULL;
 	struct ripng_info *rinfo = NULL;
 	int count = 0;
 
+	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_RIPNG;
-	api.instance = 0;
-	api.flags = 0;
-	api.message = 0;
 	api.safi = SAFI_UNICAST;
-
-	if (nexthops_len < listcount(list)) {
-		nexthops_len = listcount(list);
-		nexthops = XREALLOC(MTYPE_TMP, nexthops,
-				    nexthops_len * sizeof(struct in6_addr *));
-		ifindexes = XREALLOC(MTYPE_TMP, ifindexes,
-				     nexthops_len * sizeof(unsigned int));
-	}
+	api.prefix = rp->p;
 
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-	SET_FLAG(api.message, ZAPI_MESSAGE_IFINDEX);
 	for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
-		nexthops[count] = &rinfo->nexthop;
-		ifindexes[count] = rinfo->ifindex;
+		api_nh = &api.nexthops[count];
+		api_nh->gate.ipv6 = rinfo->nexthop;
+		api_nh->ifindex = rinfo->ifindex;
+		api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
 		count++;
-		if (cmd == ZEBRA_IPV6_ROUTE_ADD)
+		if (cmd == ZEBRA_ROUTE_ADD)
 			SET_FLAG(rinfo->flags, RIPNG_RTF_FIB);
 		else
 			UNSET_FLAG(rinfo->flags, RIPNG_RTF_FIB);
 	}
 
-	api.nexthop = nexthops;
 	api.nexthop_num = count;
-	api.ifindex = ifindexes;
-	api.ifindex_num = count;
 
 	rinfo = listgetdata(listhead(list));
 
@@ -91,36 +77,35 @@ static void ripng_zebra_ipv6_send(struct route_node *rp, u_char cmd)
 		api.tag = rinfo->tag;
 	}
 
-	zapi_ipv6_route(cmd, zclient, (struct prefix_ipv6 *)&rp->p, NULL, &api);
+	zclient_route_send(cmd, zclient, &api);
 
 	if (IS_RIPNG_DEBUG_ZEBRA) {
 		if (ripng->ecmp)
 			zlog_debug("%s: %s/%d nexthops %d",
-				   (cmd == ZEBRA_IPV6_ROUTE_ADD)
+				   (cmd == ZEBRA_ROUTE_ADD)
 					   ? "Install into zebra"
 					   : "Delete from zebra",
 				   inet6_ntoa(rp->p.u.prefix6), rp->p.prefixlen,
 				   count);
 		else
-			zlog_debug("%s: %s/%d",
-				   (cmd == ZEBRA_IPV6_ROUTE_ADD)
-					   ? "Install into zebra"
-					   : "Delete from zebra",
-				   inet6_ntoa(rp->p.u.prefix6),
-				   rp->p.prefixlen);
+			zlog_debug(
+				"%s: %s/%d",
+				(cmd == ZEBRA_ROUTE_ADD) ? "Install into zebra"
+							 : "Delete from zebra",
+				inet6_ntoa(rp->p.u.prefix6), rp->p.prefixlen);
 	}
 }
 
 /* Add/update ECMP routes to zebra. */
 void ripng_zebra_ipv6_add(struct route_node *rp)
 {
-	ripng_zebra_ipv6_send(rp, ZEBRA_IPV6_ROUTE_ADD);
+	ripng_zebra_ipv6_send(rp, ZEBRA_ROUTE_ADD);
 }
 
 /* Delete ECMP routes from zebra. */
 void ripng_zebra_ipv6_delete(struct route_node *rp)
 {
-	ripng_zebra_ipv6_send(rp, ZEBRA_IPV6_ROUTE_DELETE);
+	ripng_zebra_ipv6_send(rp, ZEBRA_ROUTE_DELETE);
 }
 
 /* Zebra route add and delete treatment. */

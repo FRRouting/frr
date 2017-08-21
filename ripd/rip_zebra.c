@@ -39,40 +39,32 @@ struct zclient *zclient = NULL;
 /* Send ECMP routes to zebra. */
 static void rip_zebra_ipv4_send(struct route_node *rp, u_char cmd)
 {
-	static struct in_addr **nexthops = NULL;
-	static unsigned int nexthops_len = 0;
-
 	struct list *list = (struct list *)rp->info;
-	struct zapi_ipv4 api;
+	struct zapi_route api;
+	struct zapi_nexthop *api_nh;
 	struct listnode *listnode = NULL;
 	struct rip_info *rinfo = NULL;
 	int count = 0;
 
+	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_RIP;
-	api.instance = 0;
-	api.flags = 0;
-	api.message = 0;
 	api.safi = SAFI_UNICAST;
-
-	if (nexthops_len < listcount(list)) {
-		nexthops_len = listcount(list);
-		nexthops = XREALLOC(MTYPE_TMP, nexthops,
-				    nexthops_len * sizeof(struct in_addr *));
-	}
 
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 	for (ALL_LIST_ELEMENTS_RO(list, listnode, rinfo)) {
-		nexthops[count++] = &rinfo->nexthop;
-		if (cmd == ZEBRA_IPV4_ROUTE_ADD)
+		api_nh = &api.nexthops[count];
+		api_nh->gate.ipv4 = rinfo->nexthop;
+		api_nh->type = NEXTHOP_TYPE_IPV4;
+		if (cmd == ZEBRA_ROUTE_ADD)
 			SET_FLAG(rinfo->flags, RIP_RTF_FIB);
 		else
 			UNSET_FLAG(rinfo->flags, RIP_RTF_FIB);
+		count++;
 	}
 
-	api.nexthop = nexthops;
+	api.prefix = rp->p;
 	api.nexthop_num = count;
-	api.ifindex_num = 0;
 
 	rinfo = listgetdata(listhead(list));
 
@@ -89,19 +81,19 @@ static void rip_zebra_ipv4_send(struct route_node *rp, u_char cmd)
 		api.tag = rinfo->tag;
 	}
 
-	zapi_ipv4_route(cmd, zclient, (struct prefix_ipv4 *)&rp->p, &api);
+	zclient_route_send(cmd, zclient, &api);
 
 	if (IS_RIP_DEBUG_ZEBRA) {
 		if (rip->ecmp)
 			zlog_debug("%s: %s/%d nexthops %d",
-				   (cmd == ZEBRA_IPV4_ROUTE_ADD)
+				   (cmd == ZEBRA_ROUTE_ADD)
 					   ? "Install into zebra"
 					   : "Delete from zebra",
 				   inet_ntoa(rp->p.u.prefix4), rp->p.prefixlen,
 				   count);
 		else
 			zlog_debug("%s: %s/%d",
-				   (cmd == ZEBRA_IPV4_ROUTE_ADD)
+				   (cmd == ZEBRA_ROUTE_ADD)
 					   ? "Install into zebra"
 					   : "Delete from zebra",
 				   inet_ntoa(rp->p.u.prefix4), rp->p.prefixlen);
@@ -113,13 +105,13 @@ static void rip_zebra_ipv4_send(struct route_node *rp, u_char cmd)
 /* Add/update ECMP routes to zebra. */
 void rip_zebra_ipv4_add(struct route_node *rp)
 {
-	rip_zebra_ipv4_send(rp, ZEBRA_IPV4_ROUTE_ADD);
+	rip_zebra_ipv4_send(rp, ZEBRA_ROUTE_ADD);
 }
 
 /* Delete ECMP routes from zebra. */
 void rip_zebra_ipv4_delete(struct route_node *rp)
 {
-	rip_zebra_ipv4_send(rp, ZEBRA_IPV4_ROUTE_DELETE);
+	rip_zebra_ipv4_send(rp, ZEBRA_ROUTE_DELETE);
 }
 
 /* Zebra route add and delete treatment. */
