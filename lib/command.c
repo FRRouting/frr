@@ -124,6 +124,23 @@ vector cmdvec = NULL;
 /* Host information structure. */
 struct host host;
 
+/*
+ * Returns host.name if any, otherwise
+ * it returns the system hostname.
+ */
+const char *hostname_get(void)
+{
+	return host.name;
+}
+
+/*
+ * Returns unix domainname
+ */
+const char *domainname_get(void)
+{
+	return host.domainname;
+}
+
 /* Standard command node structures. */
 static struct cmd_node auth_node = {
 	AUTH_NODE, "Password: ",
@@ -470,8 +487,8 @@ static char *zencrypt(const char *passwd)
 /* This function write configuration of this host. */
 static int config_write_host(struct vty *vty)
 {
-	if (host.name)
-		vty_out(vty, "hostname %s\n", host.name);
+	if (hostname_get())
+		vty_out(vty, "hostname %s\n", hostname_get());
 
 	if (host.encrypt) {
 		if (host.password_encrypt)
@@ -1403,7 +1420,7 @@ DEFUN (show_version,
        "Displays zebra version\n")
 {
 	vty_out(vty, "%s %s (%s).\n", FRR_FULL_NAME, FRR_VERSION,
-		host.name ? host.name : "");
+		hostname_get() ? hostname_get() : "");
 	vty_out(vty, "%s%s\n", FRR_COPYRIGHT, GIT_INFO);
 	vty_out(vty, "configured with:\n    %s\n", FRR_CONFIG_ARGS);
 
@@ -2496,9 +2513,12 @@ void install_default(enum node_type node)
  * terminal = -1 -- watchfrr / no logging, but minimal config control */
 void cmd_init(int terminal)
 {
+	struct utsname names;
+
 	if (array_size(node_names) != NODE_TYPE_MAX)
 		assert(!"Update the CLI node description array!");
 
+	uname(&names);
 	qobj_init();
 
 	varhandlers = list_new();
@@ -2507,7 +2527,12 @@ void cmd_init(int terminal)
 	cmdvec = vector_init(VECTOR_MIN_SIZE);
 
 	/* Default host value settings. */
-	host.name = NULL;
+	host.name = XSTRDUP(MTYPE_HOST, names.nodename);
+#ifdef HAVE_STRUCT_UTSNAME_DOMAINNAME
+	host.domainname = XSTRDUP(MTYPE_HOST, names.domainname);
+#else
+	host.domainname = NULL;
+#endif
 	host.password = NULL;
 	host.enable = NULL;
 	host.logfile = NULL;
@@ -2623,6 +2648,8 @@ void cmd_terminate()
 
 	if (host.name)
 		XFREE(MTYPE_HOST, host.name);
+	if (host.domainname)
+		XFREE(MTYPE_HOST, host.domainname);
 	if (host.password)
 		XFREE(MTYPE_HOST, host.password);
 	if (host.password_encrypt)

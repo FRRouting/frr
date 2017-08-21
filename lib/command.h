@@ -41,6 +41,9 @@ struct host {
 	/* Host name of this router. */
 	char *name;
 
+	/* Domain name of this router */
+	char *domainname;
+
 	/* Password for vty interface. */
 	char *password;
 	char *password_encrypt;
@@ -399,6 +402,8 @@ extern void cmd_exit(struct vty *vty);
 extern int cmd_list_cmds(struct vty *vty, int do_permute);
 
 extern int cmd_hostname_set(const char *hostname);
+extern const char *hostname_get(void);
+extern const char *domainname_get(void);
 
 /* NOT safe for general use; call this only if DEV_BUILD! */
 extern void grammar_sandbox_init(void);

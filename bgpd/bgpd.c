@@ -2738,9 +2738,6 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	struct bgp *bgp;
 	afi_t afi;
 	safi_t safi;
-	struct utsname names;
-
-	uname(&names);
 
 	if ((bgp = XCALLOC(MTYPE_BGP, sizeof(struct bgp))) == NULL)
 		return NULL;
@@ -2769,16 +2766,15 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->hostname);
 		bgp->peer_self->hostname = NULL;
 	}
-	bgp->peer_self->hostname = XSTRDUP(MTYPE_BGP_PEER_HOST, names.nodename);
+	bgp->peer_self->hostname = XSTRDUP(MTYPE_BGP_PEER_HOST,
+					   hostname_get());
 
 	if (bgp->peer_self->domainname != NULL) {
 		XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->domainname);
 		bgp->peer_self->domainname = NULL;
 	}
-#ifdef HAVE_STRUCT_UTSNAME_DOMAINNAME
 	bgp->peer_self->domainname = XSTRDUP(MTYPE_BGP_PEER_HOST,
-					     names.domainname);
-#endif
+					     domainname_get());
 	bgp->peer = list_new();
 	bgp->peer->cmp = (int (*)(void *, void *))peer_cmp;
 	bgp->peerhash = hash_create(peer_hash_key_make, peer_hash_same, NULL);

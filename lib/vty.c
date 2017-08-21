@@ -250,16 +250,9 @@ void vty_hello(struct vty *vty)
 /* Put out prompt and wait input from user. */
 static void vty_prompt(struct vty *vty)
 {
-	struct utsname names;
-	const char *hostname;
-
 	if (vty->type == VTY_TERM) {
-		hostname = host.name;
-		if (!hostname) {
-			uname(&names);
-			hostname = names.nodename;
-		}
-		vty_out(vty, cmd_prompt(vty->node), hostname);
+		vty_out(vty, cmd_prompt(vty->node),
+			hostname_get());
 	}
 }
 

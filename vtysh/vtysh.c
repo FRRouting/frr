@@ -2879,21 +2879,9 @@ void vtysh_readline_init(void)
 
 char *vtysh_prompt(void)
 {
-	static struct utsname names;
 	static char buf[100];
-	const char *hostname;
-	extern struct host host;
 
-	hostname = host.name;
-
-	if (!hostname) {
-		if (!names.nodename[0])
-			uname(&names);
-		hostname = names.nodename;
-	}
-
-	snprintf(buf, sizeof buf, cmd_prompt(vty->node), hostname);
-
+	snprintf(buf, sizeof buf, cmd_prompt(vty->node), hostname_get());
 	return buf;
 }
 
