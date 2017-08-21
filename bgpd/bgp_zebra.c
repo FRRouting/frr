@@ -58,11 +58,6 @@
 /* All information about zebra. */
 struct zclient *zclient = NULL;
 
-/* Growable buffer for nexthops sent to zebra */
-struct stream *bgp_nexthop_buf = NULL;
-struct stream *bgp_ifindices_buf = NULL;
-struct stream *bgp_label_buf = NULL;
-
 /* These array buffers are used in making a copy of the attributes for
    route-map apply. Arrays are being used here to minimize mallocs and
    frees for the temporary copy of the attributes.
@@ -1153,7 +1148,10 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 			struct bgp_info *info, struct bgp *bgp, afi_t afi,
 			safi_t safi)
 {
-	u_int32_t flags;
+	struct zapi_route api;
+	struct zapi_nexthop *api_nh;
+	int valid_nh_count = 0;
+
 	u_char distance;
 	struct peer *peer;
 	struct bgp_info *mpinfo;
@@ -1172,7 +1170,14 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	if (bgp->main_zebra_update_hold)
 		return;
 
-	flags = 0;
+	/* Make Zebra API structure. */
+	memset(&api, 0, sizeof(api));
+	api.vrf_id = bgp->vrf_id;
+	api.type = ZEBRA_ROUTE_BGP;
+	api.safi = safi;
+	api.prefix = *p;
+	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+
 	peer = info->peer;
 
 	tag = info->attr->tag;
@@ -1181,32 +1186,26 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	 * in
 	 * the RIB */
 	if (info->sub_type == BGP_ROUTE_AGGREGATE)
-		SET_FLAG(flags, ZEBRA_FLAG_BLACKHOLE);
+		SET_FLAG(api.flags, ZEBRA_FLAG_BLACKHOLE);
 
 	if (peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED
 	    || info->sub_type == BGP_ROUTE_AGGREGATE) {
-		SET_FLAG(flags, ZEBRA_FLAG_IBGP);
-		SET_FLAG(flags, ZEBRA_FLAG_INTERNAL);
+		SET_FLAG(api.flags, ZEBRA_FLAG_IBGP);
+		SET_FLAG(api.flags, ZEBRA_FLAG_INTERNAL);
 	}
 
 	if ((peer->sort == BGP_PEER_EBGP && peer->ttl != 1)
 	    || CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
 	    || bgp_flag_check(bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 
-		SET_FLAG(flags, ZEBRA_FLAG_INTERNAL);
+		SET_FLAG(api.flags, ZEBRA_FLAG_INTERNAL);
 
 	if (p->family == AF_INET && !BGP_ATTR_NEXTHOP_AFI_IP6(info->attr)) {
-		struct zapi_ipv4 api;
 		struct in_addr *nexthop;
 		char buf[2][INET_ADDRSTRLEN];
-		int valid_nh_count = 0;
 		int has_valid_label = 0;
 
-		/* resize nexthop buffer size if necessary */
-		stream_reset(bgp_nexthop_buf);
 		nexthop = NULL;
-
-		stream_reset(bgp_label_buf);
 
 		if (bgp->table_map[afi][safi].name)
 			BGP_INFO_ATTR_BUF_INIT();
@@ -1240,25 +1239,20 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 			if (nexthop == NULL)
 				continue;
 
-			stream_put(bgp_nexthop_buf, &nexthop,
-				   sizeof(struct in_addr *));
+			api_nh = &api.nexthops[valid_nh_count];
+			api_nh->gate.ipv4 = *nexthop;
+			api_nh->type = NEXTHOP_TYPE_IPV4;
+
 			if (mpinfo->extra
 			    && bgp_is_valid_label(&mpinfo->extra->label)) {
 				has_valid_label = 1;
 				label = label_pton(&mpinfo->extra->label);
-				stream_put(bgp_label_buf, &label,
-					   sizeof(mpls_label_t));
+
+				api_nh->label_num = 1;
+				api_nh->labels[0] = label;
 			}
 			valid_nh_count++;
 		}
-
-		api.vrf_id = bgp->vrf_id;
-		api.flags = flags;
-		api.type = ZEBRA_ROUTE_BGP;
-		api.instance = 0;
-		api.message = 0;
-		api.safi = safi;
-		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 
 		if (has_valid_label)
 			SET_FLAG(api.message, ZAPI_MESSAGE_LABEL);
@@ -1272,24 +1266,15 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 		 * do not want to also encode the 0.0.0.0 nexthop for the
 		 * aggregate route.
 		 */
-		if (CHECK_FLAG(flags, ZEBRA_FLAG_BLACKHOLE))
+		if (CHECK_FLAG(api.flags, ZEBRA_FLAG_BLACKHOLE))
 			api.nexthop_num = 0;
 		else
 			api.nexthop_num = valid_nh_count;
 
-		api.nexthop = (struct in_addr **)STREAM_DATA(bgp_nexthop_buf);
-		if (has_valid_label) {
-			api.label_num = valid_nh_count;
-			api.label = (unsigned int *)STREAM_DATA(bgp_label_buf);
-		} else {
-			api.label_num = 0;
-			api.label = NULL;
-		}
-		api.ifindex_num = 0;
 		SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
 		api.metric = metric;
-		api.tag = 0;
 
+		api.tag = 0;
 		if (tag) {
 			SET_FLAG(api.message, ZAPI_MESSAGE_TAG);
 			api.tag = tag;
@@ -1313,20 +1298,23 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 				p->prefixlen, api.metric, api.tag,
 				api.nexthop_num);
 			for (i = 0; i < api.nexthop_num; i++) {
+				api_nh = &api.nexthops[i];
+
 				label_buf[0] = '\0';
 				if (has_valid_label)
 					sprintf(label_buf, "label %u",
-						api.label[i]);
+						api_nh->labels[0]);
 				zlog_debug("  nhop [%d]: %s %s", i + 1,
-					   inet_ntop(AF_INET, api.nexthop[i],
-						     buf[1], sizeof(buf[1])),
+					   inet_ntop(AF_INET,
+						     &api_nh->gate.ipv4, buf[1],
+						     sizeof(buf[1])),
 					   label_buf);
 			}
 		}
 
-		zapi_ipv4_route(valid_nh_count ? ZEBRA_IPV4_ROUTE_ADD
-					       : ZEBRA_IPV4_ROUTE_DELETE,
-				zclient, (struct prefix_ipv4 *)p, &api);
+		zclient_route_send(valid_nh_count ? ZEBRA_ROUTE_ADD
+						  : ZEBRA_ROUTE_DELETE,
+				   zclient, &api);
 	}
 
 	/* We have to think about a IPv6 link-local address curse. */
@@ -1334,14 +1322,8 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	    || (p->family == AF_INET && BGP_ATTR_NEXTHOP_AFI_IP6(info->attr))) {
 		ifindex_t ifindex;
 		struct in6_addr *nexthop;
-		struct zapi_ipv6 api;
-		int valid_nh_count = 0;
 		char buf[2][INET6_ADDRSTRLEN];
 		int has_valid_label = 0;
-
-		stream_reset(bgp_nexthop_buf);
-		stream_reset(bgp_ifindices_buf);
-		stream_reset(bgp_label_buf);
 
 		ifindex = 0;
 		nexthop = NULL;
@@ -1399,29 +1381,21 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 			if (ifindex == 0)
 				continue;
 
-			stream_put(bgp_nexthop_buf, &nexthop,
-				   sizeof(struct in6_addr *));
-			stream_put(bgp_ifindices_buf, &ifindex,
-				   sizeof(unsigned int));
+			api_nh = &api.nexthops[valid_nh_count];
+			api_nh->gate.ipv6 = *nexthop;
+			api_nh->ifindex = ifindex;
+			api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
 
 			if (mpinfo->extra
 			    && bgp_is_valid_label(&mpinfo->extra->label)) {
 				has_valid_label = 1;
 				label = label_pton(&mpinfo->extra->label);
-				stream_put(bgp_label_buf, &label,
-					   sizeof(mpls_label_t));
+
+				api_nh->label_num = 1;
+				api_nh->labels[0] = label;
 			}
 			valid_nh_count++;
 		}
-
-		/* Make Zebra API structure. */
-		api.vrf_id = bgp->vrf_id;
-		api.flags = flags;
-		api.type = ZEBRA_ROUTE_BGP;
-		api.instance = 0;
-		api.message = 0;
-		api.safi = safi;
-		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 
 		if (has_valid_label)
 			SET_FLAG(api.message, ZAPI_MESSAGE_LABEL);
@@ -1435,26 +1409,15 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 		 * do not want to also encode the :: nexthop for the aggregate
 		 * route.
 		 */
-		if (CHECK_FLAG(flags, ZEBRA_FLAG_BLACKHOLE))
+		if (CHECK_FLAG(api.flags, ZEBRA_FLAG_BLACKHOLE))
 			api.nexthop_num = 0;
 		else
 			api.nexthop_num = valid_nh_count;
 
-		api.nexthop = (struct in6_addr **)STREAM_DATA(bgp_nexthop_buf);
-		SET_FLAG(api.message, ZAPI_MESSAGE_IFINDEX);
-		api.ifindex_num = valid_nh_count;
-		api.ifindex = (ifindex_t *)STREAM_DATA(bgp_ifindices_buf);
-		if (has_valid_label) {
-			api.label_num = valid_nh_count;
-			api.label = (unsigned int *)STREAM_DATA(bgp_label_buf);
-		} else {
-			api.label_num = 0;
-			api.label = NULL;
-		}
 		SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
 		api.metric = metric;
-		api.tag = 0;
 
+		api.tag = 0;
 		if (tag) {
 			SET_FLAG(api.message, ZAPI_MESSAGE_TAG);
 			api.tag = tag;
@@ -1478,33 +1441,31 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 						  buf[0], sizeof(buf[0])),
 					p->prefixlen, api.metric, api.tag);
 				for (i = 0; i < api.nexthop_num; i++) {
+					api_nh = &api.nexthops[i];
+
 					label_buf[0] = '\0';
 					if (has_valid_label)
 						sprintf(label_buf, "label %u",
-							api.label[i]);
+							api_nh->labels[0]);
 					zlog_debug(
 						"  nhop [%d]: %s if %s %s",
 						i + 1,
 						inet_ntop(AF_INET6,
-							  api.nexthop[i],
+							  &api_nh->gate.ipv6,
 							  buf[1],
 							  sizeof(buf[1])),
-						ifindex2ifname(api.ifindex[i],
+						ifindex2ifname(api_nh->ifindex,
 							       bgp->vrf_id),
 						label_buf);
 				}
 			}
 
 			if (valid_nh_count)
-				zapi_ipv4_route_ipv6_nexthop(
-					ZEBRA_IPV4_ROUTE_IPV6_NEXTHOP_ADD,
-					zclient, (struct prefix_ipv4 *)p,
-					(struct zapi_ipv6 *)&api);
+				zclient_route_send(ZEBRA_ROUTE_ADD, zclient,
+						   &api);
 			else
-				zapi_ipv4_route(ZEBRA_IPV4_ROUTE_DELETE,
-						zclient,
-						(struct prefix_ipv4 *)p,
-						(struct zapi_ipv4 *)&api);
+				zclient_route_send(ZEBRA_ROUTE_DELETE, zclient,
+						   &api);
 		} else {
 			if (bgp_debug_zebra(p)) {
 				int i;
@@ -1517,27 +1478,28 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 						  buf[0], sizeof(buf[0])),
 					p->prefixlen, api.metric, api.tag);
 				for (i = 0; i < api.nexthop_num; i++) {
+					api_nh = &api.nexthops[i];
+
 					label_buf[0] = '\0';
 					if (has_valid_label)
 						sprintf(label_buf, "label %u",
-							api.label[i]);
+							api_nh->labels[0]);
 					zlog_debug(
 						"  nhop [%d]: %s if %s %s",
 						i + 1,
 						inet_ntop(AF_INET6,
-							  api.nexthop[i],
+							  &api_nh->gate.ipv6,
 							  buf[1],
 							  sizeof(buf[1])),
-						ifindex2ifname(api.ifindex[i],
+						ifindex2ifname(api_nh->ifindex,
 							       bgp->vrf_id),
 						label_buf);
 				}
 			}
 
-			zapi_ipv6_route(
-				valid_nh_count ? ZEBRA_IPV6_ROUTE_ADD
-					       : ZEBRA_IPV6_ROUTE_DELETE,
-				zclient, (struct prefix_ipv6 *)p, NULL, &api);
+			zclient_route_send(valid_nh_count ? ZEBRA_ROUTE_ADD
+							  : ZEBRA_ROUTE_DELETE,
+					   zclient, &api);
 		}
 	}
 }
@@ -1595,79 +1557,47 @@ void bgp_zebra_withdraw(struct prefix *p, struct bgp_info *info, safi_t safi)
 		SET_FLAG(flags, ZEBRA_FLAG_INTERNAL);
 
 	if (p->family == AF_INET) {
-		struct zapi_ipv4 api;
+		struct zapi_route api;
 
+		memset(&api, 0, sizeof(api));
 		api.vrf_id = peer->bgp->vrf_id;
 		api.flags = flags;
-
 		api.type = ZEBRA_ROUTE_BGP;
-		api.instance = 0;
-		api.message = 0;
 		api.safi = safi;
-		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-		api.nexthop_num = 0;
-		api.nexthop = NULL;
-		api.label_num = 0;
-		api.label = NULL;
-		api.ifindex_num = 0;
-		SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
-		api.metric = info->attr->med;
-		api.tag = 0;
-
-		if (info->attr->tag != 0) {
-			SET_FLAG(api.message, ZAPI_MESSAGE_TAG);
-			api.tag = info->attr->tag;
-		}
+		api.prefix = *p;
 
 		if (bgp_debug_zebra(p)) {
 			char buf[2][INET_ADDRSTRLEN];
-			zlog_debug(
-				"Tx IPv4 route delete VRF %u %s/%d metric %u tag %" ROUTE_TAG_PRI,
-				peer->bgp->vrf_id,
-				inet_ntop(AF_INET, &p->u.prefix4, buf[0],
-					  sizeof(buf[0])),
-				p->prefixlen, api.metric, api.tag);
+			zlog_debug("Tx IPv4 route delete VRF %u %s/%d",
+				   peer->bgp->vrf_id,
+				   inet_ntop(AF_INET, &p->u.prefix4, buf[0],
+					     sizeof(buf[0])),
+				   p->prefixlen);
 		}
 
-		zapi_ipv4_route(ZEBRA_IPV4_ROUTE_DELETE, zclient,
-				(struct prefix_ipv4 *)p, &api);
+		zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 	}
 	/* We have to think about a IPv6 link-local address curse. */
 	if (p->family == AF_INET6) {
-		struct zapi_ipv6 api;
+		struct zapi_route api;
 
+		memset(&api, 0, sizeof(api));
 		api.vrf_id = peer->bgp->vrf_id;
 		api.flags = flags;
 		api.type = ZEBRA_ROUTE_BGP;
-		api.instance = 0;
-		api.message = 0;
 		api.safi = safi;
-		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-		api.nexthop_num = 0;
-		api.nexthop = NULL;
-		api.ifindex_num = 0;
-		api.label_num = 0;
-		SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
-		api.metric = info->attr->med;
-		api.tag = 0;
-
-		if (info->attr->tag != 0) {
-			SET_FLAG(api.message, ZAPI_MESSAGE_TAG);
-			api.tag = info->attr->tag;
-		}
+		api.prefix = *p;
 
 		if (bgp_debug_zebra(p)) {
 			char buf[2][INET6_ADDRSTRLEN];
-			zlog_debug(
-				"Tx IPv6 route delete VRF %u %s/%d metric %u tag %" ROUTE_TAG_PRI,
-				peer->bgp->vrf_id,
-				inet_ntop(AF_INET6, &p->u.prefix6, buf[0],
-					  sizeof(buf[0])),
-				p->prefixlen, api.metric, api.tag);
+			zlog_debug("Tx IPv6 route delete VRF %u %s/%d",
+				   peer->bgp->vrf_id,
+				   inet_ntop(AF_INET6, &p->u.prefix6, buf[0],
+					     sizeof(buf[0])),
+				   p->prefixlen);
 		}
 
-		zapi_ipv6_route(ZEBRA_IPV6_ROUTE_DELETE, zclient,
-				(struct prefix_ipv6 *)p, NULL, &api);
+		zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 	}
 }
 
@@ -2195,22 +2125,10 @@ void bgp_zebra_init(struct thread_master *master)
 	zclient->local_vni_del = bgp_zebra_process_local_vni;
 	zclient->local_macip_add = bgp_zebra_process_local_macip;
 	zclient->local_macip_del = bgp_zebra_process_local_macip;
-
-	bgp_nexthop_buf = stream_new(multipath_num * sizeof(struct in6_addr));
-	bgp_ifindices_buf = stream_new(multipath_num * sizeof(unsigned int));
-	bgp_label_buf = stream_new(multipath_num * sizeof(unsigned int));
 }
 
 void bgp_zebra_destroy(void)
 {
-
-	if (bgp_nexthop_buf)
-		stream_free(bgp_nexthop_buf);
-	if (bgp_ifindices_buf)
-		stream_free(bgp_ifindices_buf);
-	if (bgp_label_buf)
-		stream_free(bgp_label_buf);
-
 	if (zclient == NULL)
 		return;
 	zclient_stop(zclient);

@@ -501,20 +501,26 @@ static void vnc_zebra_route_msg(struct prefix *p, int nhp_count, void *nhp_ary,
 	}
 
 	if (p->family == AF_INET) {
+		struct zapi_route api;
+		struct zapi_nexthop *api_nh;
+		struct in_addr *nhp_ary4 = nhp_ary;
+		int i;
 
-		struct zapi_ipv4 api;
-
-		api.flags = 0;
+		memset(&api, 0, sizeof(api));
 		api.vrf_id = VRF_DEFAULT;
 		api.type = ZEBRA_ROUTE_VNC;
-		api.message = 0;
-		SET_FLAG(api.message,
-			 ZAPI_MESSAGE_NEXTHOP); /* TBD what's it mean? */
-		api.nexthop_num = nhp_count;
-		api.nexthop = nhp_ary;
-		api.ifindex_num = 0;
-		api.instance = 0;
+		api.prefix = *p;
 		api.safi = SAFI_UNICAST;
+
+		/* Nexthops */
+		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+		api.nexthop_num = nhp_count;
+		for (i = 0; i < nhp_count; i++) {
+			api_nh = &api.nexthops[i];
+			memcpy(&api_nh->gate.ipv4, &nhp_ary4[i],
+			       sizeof(api_nh->gate.ipv4));
+			api_nh->type = NEXTHOP_TYPE_IPV4;
+		}
 
 		if (BGP_DEBUG(zebra, ZEBRA)) {
 
@@ -527,28 +533,30 @@ static void vnc_zebra_route_msg(struct prefix *p, int nhp_count, void *nhp_ary,
 				p->prefixlen, nhp_count);
 		}
 
-		zapi_ipv4_route((add ? ZEBRA_IPV4_ROUTE_ADD
-				     : ZEBRA_IPV4_ROUTE_DELETE),
-				zclient_vnc, (struct prefix_ipv4 *)p, &api);
+		zclient_route_send((add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE),
+				   zclient_vnc, &api);
 
 	} else if (p->family == AF_INET6) {
+		struct zapi_route api;
+		struct zapi_nexthop *api_nh;
+		struct in6_addr *nhp_ary6 = nhp_ary;
+		int i;
 
-		struct zapi_ipv6 api;
-		ifindex_t ifindex = 0;
-
-		/* Make Zebra API structure. */
-		api.flags = 0;
+		memset(&api, 0, sizeof(api));
 		api.vrf_id = VRF_DEFAULT;
 		api.type = ZEBRA_ROUTE_VNC;
-		api.message = 0;
-		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP); /* TBD means? */
-		api.nexthop_num = nhp_count;
-		api.nexthop = nhp_ary;
-		SET_FLAG(api.message, ZAPI_MESSAGE_IFINDEX);
-		api.ifindex_num = 1;
-		api.ifindex = &ifindex;
-		api.instance = 0;
+		api.prefix = *p;
 		api.safi = SAFI_UNICAST;
+
+		/* Nexthops */
+		SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+		api.nexthop_num = nhp_count;
+		for (i = 0; i < nhp_count; i++) {
+			api_nh = &api.nexthops[i];
+			memcpy(&api_nh->gate.ipv6, &nhp_ary6[i],
+			       sizeof(api_nh->gate.ipv6));
+			api_nh->type = NEXTHOP_TYPE_IPV6;
+		}
 
 		if (BGP_DEBUG(zebra, ZEBRA)) {
 
@@ -561,10 +569,8 @@ static void vnc_zebra_route_msg(struct prefix *p, int nhp_count, void *nhp_ary,
 				p->prefixlen, nhp_count);
 		}
 
-		zapi_ipv6_route((add ? ZEBRA_IPV6_ROUTE_ADD
-				     : ZEBRA_IPV6_ROUTE_DELETE),
-				zclient_vnc, (struct prefix_ipv6 *)p, NULL,
-				&api);
+		zclient_route_send((add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE),
+				   zclient_vnc, &api);
 	} else {
 		vnc_zlog_debug_verbose(
 			"%s: unknown prefix address family, skipping",
