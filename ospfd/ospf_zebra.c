@@ -333,87 +333,68 @@ static int ospf_interface_link_params(int command, struct zclient *zclient,
 
 void ospf_zebra_add(struct prefix_ipv4 *p, struct ospf_route * or)
 {
-	u_char message;
+	struct zapi_route api;
+	struct zapi_nexthop *api_nh;
 	u_char distance;
-	u_int32_t flags;
-	int psize;
-	struct stream *s;
 	struct ospf_path *path;
 	struct listnode *node;
 	struct ospf *ospf = ospf_lookup();
+	int count = 0;
 
-	message = 0;
-	flags = 0;
+	memset(&api, 0, sizeof(api));
+	api.vrf_id = VRF_DEFAULT;
+	api.type = ZEBRA_ROUTE_OSPF;
+	api.instance = ospf->instance;
+	api.safi = SAFI_UNICAST;
 
-	/* OSPF pass nexthop and metric */
-	SET_FLAG(message, ZAPI_MESSAGE_NEXTHOP);
-	SET_FLAG(message, ZAPI_MESSAGE_METRIC);
+	memcpy(&api.prefix, p, sizeof(*p));
+	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+	api.nexthop_num = or->paths->count;
 
-	/* Distance value. */
-	distance = ospf_distance_apply(p, or);
-	if (distance)
-		SET_FLAG(message, ZAPI_MESSAGE_DISTANCE);
+	/* Metric value. */
+	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
+	if (or->path_type == OSPF_PATH_TYPE1_EXTERNAL)
+		api.metric = or->cost + or->u.ext.type2_cost;
+	else if (or->path_type == OSPF_PATH_TYPE2_EXTERNAL)
+		api.metric = or->u.ext.type2_cost;
+	else
+		api.metric = or->cost;
 
 	/* Check if path type is ASE */
 	if (((or->path_type == OSPF_PATH_TYPE1_EXTERNAL)
 	     || (or->path_type == OSPF_PATH_TYPE2_EXTERNAL))
-	    && (or->u.ext.tag > 0) && (or->u.ext.tag <= ROUTE_TAG_MAX))
-		SET_FLAG(message, ZAPI_MESSAGE_TAG);
+	    && (or->u.ext.tag > 0) && (or->u.ext.tag <= ROUTE_TAG_MAX)) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_TAG);
+		api.tag = or->u.ext.tag;
+	}
 
-	/* Make packet. */
-	s = zclient->obuf;
-	stream_reset(s);
-
-	/* Put command, type, flags, message. */
-	zclient_create_header(s, ZEBRA_IPV4_ROUTE_ADD, VRF_DEFAULT);
-	stream_putc(s, ZEBRA_ROUTE_OSPF);
-	stream_putw(s, ospf->instance);
-	stream_putl(s, flags);
-	stream_putc(s, message);
-	stream_putw(s, SAFI_UNICAST);
-
-	/* Put prefix information. */
-	psize = PSIZE(p->prefixlen);
-	stream_putc(s, p->prefixlen);
-	stream_write(s, (u_char *)&p->prefix, psize);
-
-	/* Nexthop count. */
-	stream_putc(s, or->paths->count);
+	/* Distance value. */
+	distance = ospf_distance_apply(p, or);
+	if (distance) {
+		SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
+		api.distance = distance;
+	}
 
 	/* Nexthop, ifindex, distance and metric information. */
 	for (ALL_LIST_ELEMENTS_RO(or->paths, node, path)) {
+		api_nh = &api.nexthops[count];
 #ifdef HAVE_NETLINK
 		if (path->unnumbered || (path->nexthop.s_addr != INADDR_ANY
 					 && path->ifindex != 0)) {
-			stream_putc(s, NEXTHOP_TYPE_IPV4_IFINDEX);
-			stream_put_in_addr(s, &path->nexthop);
-			stream_putl(s, path->ifindex);
-		} else if (path->nexthop.s_addr != INADDR_ANY) {
-			stream_putc(s, NEXTHOP_TYPE_IPV4);
-			stream_put_in_addr(s, &path->nexthop);
-		} else {
-			stream_putc(s, NEXTHOP_TYPE_IFINDEX);
-			if (path->ifindex)
-				stream_putl(s, path->ifindex);
-			else
-				stream_putl(s, 0);
-		}
 #else  /* HAVE_NETLINK */
 		if (path->nexthop.s_addr != INADDR_ANY && path->ifindex != 0) {
-			stream_putc(s, NEXTHOP_TYPE_IPV4_IFINDEX);
-			stream_put_in_addr(s, &path->nexthop);
-			stream_putl(s, path->ifindex);
-		} else if (path->nexthop.s_addr != INADDR_ANY) {
-			stream_putc(s, NEXTHOP_TYPE_IPV4);
-			stream_put_in_addr(s, &path->nexthop);
-		} else {
-			stream_putc(s, NEXTHOP_TYPE_IFINDEX);
-			if (path->ifindex)
-				stream_putl(s, path->ifindex);
-			else
-				stream_putl(s, 0);
-		}
 #endif /* HAVE_NETLINK */
+			api_nh->gate.ipv4 = path->nexthop;
+			api_nh->ifindex = path->ifindex;
+			api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+		} else if (path->nexthop.s_addr != INADDR_ANY) {
+			api_nh->gate.ipv4 = path->nexthop;
+			api_nh->type = NEXTHOP_TYPE_IPV4;
+		} else {
+			api_nh->ifindex = path->ifindex;
+			api_nh->type = NEXTHOP_TYPE_IFINDEX;
+		}
+		count++;
 
 		if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
 			char buf[2][INET_ADDRSTRLEN];
@@ -427,118 +408,45 @@ void ospf_zebra_add(struct prefix_ipv4 *p, struct ospf_route * or)
 		}
 	}
 
-	if (CHECK_FLAG(message, ZAPI_MESSAGE_DISTANCE))
-		stream_putc(s, distance);
-	if (CHECK_FLAG(message, ZAPI_MESSAGE_METRIC)) {
-		if (or->path_type == OSPF_PATH_TYPE1_EXTERNAL)
-			stream_putl(s, or->cost + or->u.ext.type2_cost);
-		else if (or->path_type == OSPF_PATH_TYPE2_EXTERNAL)
-			stream_putl(s, or->u.ext.type2_cost);
-		else
-			stream_putl(s, or->cost);
-	}
-
-	if (CHECK_FLAG(message, ZAPI_MESSAGE_TAG))
-		stream_putl(s, or->u.ext.tag);
-
-	stream_putw_at(s, 0, stream_get_endp(s));
-
-	zclient_send_message(zclient);
+	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 }
 
 void ospf_zebra_delete(struct prefix_ipv4 *p, struct ospf_route * or)
 {
-	u_char message;
-	u_char distance;
-	u_int32_t flags;
-	int psize;
-	struct stream *s;
-	struct ospf_path *path;
-	struct listnode *node;
+	struct zapi_route api;
 	struct ospf *ospf = ospf_lookup();
 
-	message = 0;
-	flags = 0;
-	/* Distance value. */
-	distance = ospf_distance_apply(p, or);
-	/* Make packet. */
-	s = zclient->obuf;
-	stream_reset(s);
+	memset(&api, 0, sizeof(api));
+	api.vrf_id = VRF_DEFAULT;
+	api.type = ZEBRA_ROUTE_OSPF;
+	api.instance = ospf->instance;
+	api.safi = SAFI_UNICAST;
+	memcpy(&api.prefix, p, sizeof(*p));
 
-	/* Put command, type, flags, message. */
-	zclient_create_header(s, ZEBRA_IPV4_ROUTE_DELETE, VRF_DEFAULT);
-	stream_putc(s, ZEBRA_ROUTE_OSPF);
-	stream_putw(s, ospf->instance);
-	stream_putl(s, flags);
-	stream_putc(s, message);
-	stream_putw(s, SAFI_UNICAST);
-
-	/* Put prefix information. */
-	psize = PSIZE(p->prefixlen);
-	stream_putc(s, p->prefixlen);
-	stream_write(s, (u_char *)&p->prefix, psize);
-
-	/* Nexthop count. */
-	stream_putc(s, or->paths->count);
-
-	/* Nexthop, ifindex, distance and metric information. */
-	for (ALL_LIST_ELEMENTS_RO(or->paths, node, path)) {
-		if (path->nexthop.s_addr != INADDR_ANY && path->ifindex != 0) {
-			stream_putc(s, NEXTHOP_TYPE_IPV4_IFINDEX);
-			stream_put_in_addr(s, &path->nexthop);
-			stream_putl(s, path->ifindex);
-		} else if (path->nexthop.s_addr != INADDR_ANY) {
-			stream_putc(s, NEXTHOP_TYPE_IPV4);
-			stream_put_in_addr(s, &path->nexthop);
-		} else {
-			stream_putc(s, NEXTHOP_TYPE_IFINDEX);
-			stream_putl(s, path->ifindex);
-		}
-
-		if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
-			char buf[2][INET_ADDRSTRLEN];
-			zlog_debug("Zebra: Route delete %s/%d nexthop %s",
-				   inet_ntop(AF_INET, &p->prefix, buf[0],
-					     sizeof(buf[0])),
-				   p->prefixlen,
-				   inet_ntop(AF_INET, &path->nexthop, buf[1],
-					     sizeof(buf[1])));
-		}
+	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
+		char buf[INET_ADDRSTRLEN];
+		zlog_debug("Zebra: Route delete %s/%d",
+			   inet_ntop(AF_INET, &p->prefix, buf, sizeof(buf[0])),
+			   p->prefixlen);
 	}
 
-	if (CHECK_FLAG(message, ZAPI_MESSAGE_DISTANCE))
-		stream_putc(s, distance);
-	if (CHECK_FLAG(message, ZAPI_MESSAGE_METRIC)) {
-		if (or->path_type == OSPF_PATH_TYPE1_EXTERNAL)
-			stream_putl(s, or->cost + or->u.ext.type2_cost);
-		else if (or->path_type == OSPF_PATH_TYPE2_EXTERNAL)
-			stream_putl(s, or->u.ext.type2_cost);
-		else
-			stream_putl(s, or->cost);
-	}
-
-	stream_putw_at(s, 0, stream_get_endp(s));
-
-	zclient_send_message(zclient);
+	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 }
 
 void ospf_zebra_add_discard(struct prefix_ipv4 *p)
 {
-	struct zapi_ipv4 api;
+	struct zapi_route api;
 	struct ospf *ospf = ospf_lookup();
 
+	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_OSPF;
 	api.instance = ospf->instance;
 	api.flags = ZEBRA_FLAG_BLACKHOLE;
-	api.message = 0;
 	api.safi = SAFI_UNICAST;
-	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-	api.nexthop_num = 0;
-	api.ifindex_num = 0;
-	api.tag = 0;
+	memcpy(&api.prefix, p, sizeof(*p));
 
-	zapi_ipv4_route(ZEBRA_IPV4_ROUTE_ADD, zclient, p, &api);
+	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
 		zlog_debug("Zebra: Route add discard %s/%d",
@@ -547,21 +455,18 @@ void ospf_zebra_add_discard(struct prefix_ipv4 *p)
 
 void ospf_zebra_delete_discard(struct prefix_ipv4 *p)
 {
-	struct zapi_ipv4 api;
+	struct zapi_route api;
 	struct ospf *ospf = ospf_lookup();
 
+	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_OSPF;
 	api.instance = ospf->instance;
 	api.flags = ZEBRA_FLAG_BLACKHOLE;
-	api.message = 0;
 	api.safi = SAFI_UNICAST;
-	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-	api.nexthop_num = 0;
-	api.ifindex_num = 0;
-	api.tag = 0;
+	memcpy(&api.prefix, p, sizeof(*p));
 
-	zapi_ipv4_route(ZEBRA_IPV4_ROUTE_DELETE, zclient, p, &api);
+	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
 		zlog_debug("Zebra: Route delete discard %s/%d",
