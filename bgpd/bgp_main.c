@@ -142,8 +142,6 @@ __attribute__((__noreturn__)) void sigint(void)
 
 	if (!retain_mode) {
 		bgp_terminate();
-		if (bgpd_privs.user) /* NULL if skip_runas flag set */
-			zprivs_terminate(&bgpd_privs);
 	}
 
 	bgp_exit(0);

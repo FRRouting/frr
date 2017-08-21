@@ -856,7 +856,8 @@ void zprivs_terminate(struct zebra_privs_t *zprivs)
 	}
 
 #ifdef HAVE_CAPABILITIES
-	zprivs_caps_terminate();
+	if (zprivs->user) /* NULL if skip_runas flag set */
+		zprivs_caps_terminate();
 #else  /* !HAVE_CAPABILITIES */
 	/* only change uid if we don't have the correct one */
 	if ((zprivs_state.zuid) && (zprivs_state.zsuid != zprivs_state.zuid)) {
