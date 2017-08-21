@@ -41,7 +41,7 @@ struct host {
 	/* Host name of this router. */
 	char *name;
 
-	/* Domain name of this router */
+	/* Domainname of this router */
 	char *domainname;
 
 	/* Password for vty interface. */
