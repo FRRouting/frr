@@ -21,7 +21,7 @@
 #ifndef _ZEBRA_ZCLIENT_H
 #define _ZEBRA_ZCLIENT_H
 
-/* For struct zapi_ipv{4,6}. */
+/* For struct zapi_route. */
 #include "prefix.h"
 
 /* For struct interface and struct connected. */
@@ -87,10 +87,8 @@ typedef enum {
 	ZEBRA_BFD_DEST_DEREGISTER,
 	ZEBRA_BFD_DEST_UPDATE,
 	ZEBRA_BFD_DEST_REPLAY,
-	ZEBRA_REDISTRIBUTE_IPV4_ADD,
-	ZEBRA_REDISTRIBUTE_IPV4_DEL,
-	ZEBRA_REDISTRIBUTE_IPV6_ADD,
-	ZEBRA_REDISTRIBUTE_IPV6_DEL,
+	ZEBRA_REDISTRIBUTE_ROUTE_ADD,
+	ZEBRA_REDISTRIBUTE_ROUTE_DEL,
 	ZEBRA_VRF_UNREGISTER,
 	ZEBRA_VRF_ADD,
 	ZEBRA_VRF_DELETE,
@@ -188,14 +186,10 @@ struct zclient {
 	int (*nexthop_update)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*import_check_update)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*bfd_dest_replay)(int, struct zclient *, uint16_t, vrf_id_t);
-	int (*redistribute_route_ipv4_add)(int, struct zclient *, uint16_t,
-					   vrf_id_t);
-	int (*redistribute_route_ipv4_del)(int, struct zclient *, uint16_t,
-					   vrf_id_t);
-	int (*redistribute_route_ipv6_add)(int, struct zclient *, uint16_t,
-					   vrf_id_t);
-	int (*redistribute_route_ipv6_del)(int, struct zclient *, uint16_t,
-					   vrf_id_t);
+	int (*redistribute_route_add)(int, struct zclient *, uint16_t,
+				      vrf_id_t);
+	int (*redistribute_route_del)(int, struct zclient *, uint16_t,
+				      vrf_id_t);
 	int (*fec_update)(int, struct zclient *, uint16_t);
 	int (*local_vni_add)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*local_vni_del)(int, struct zclient *, uint16_t, vrf_id_t);
@@ -206,13 +200,12 @@ struct zclient {
 
 /* Zebra API message flag. */
 #define ZAPI_MESSAGE_NEXTHOP  0x01
-#define ZAPI_MESSAGE_IFINDEX  0x02
-#define ZAPI_MESSAGE_DISTANCE 0x04
-#define ZAPI_MESSAGE_METRIC   0x08
-#define ZAPI_MESSAGE_TAG      0x10
-#define ZAPI_MESSAGE_MTU      0x20
-#define ZAPI_MESSAGE_SRCPFX   0x40
-#define ZAPI_MESSAGE_LABEL    0x80
+#define ZAPI_MESSAGE_DISTANCE 0x02
+#define ZAPI_MESSAGE_METRIC   0x04
+#define ZAPI_MESSAGE_TAG      0x08
+#define ZAPI_MESSAGE_MTU      0x10
+#define ZAPI_MESSAGE_SRCPFX   0x20
+#define ZAPI_MESSAGE_LABEL    0x40
 
 /* Zserv protocol message header */
 struct zserv_header {

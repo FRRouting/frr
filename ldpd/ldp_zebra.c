@@ -396,19 +396,34 @@ static int
 ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
     vrf_id_t vrf_id)
 {
-	struct stream		*s;
-	u_char			 type;
-	u_char			 message_flags;
+	struct zapi_route	 api;
+	struct zapi_nexthop	*api_nh;
 	struct kroute		 kr;
-	int			 nhnum = 0, nhlen;
-	size_t			 nhmark;
-	int			 add = 0;
+	int			 i, add = 0;
+
+	if (zapi_route_decode(zclient->ibuf, &api) < 0)
+		return -1;
+
+	/* we completely ignore srcdest routes for now. */
+	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
+		return (0);
 
 	memset(&kr, 0, sizeof(kr));
-	s = zclient->ibuf;
+	kr.af = api.prefix.family;
+	switch (kr.af) {
+	case AF_INET:
+		kr.prefix.v4 = api.prefix.u.prefix4;
+		break;
+	case AF_INET6:
+		kr.prefix.v6 = api.prefix.u.prefix6;
+		break;
+	default:
+		break;
+	}
+	kr.prefixlen = api.prefix.prefixlen;
+	kr.priority = api.distance;
 
-	type = stream_getc(s);
-	switch (type) {
+	switch (api.type) {
 	case ZEBRA_ROUTE_CONNECT:
 		kr.flags |= F_CONNECTED;
 		break;
@@ -419,85 +434,38 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 		break;
 	}
 
-	stream_getl(s); /* flags, unused */
-	stream_getw(s); /* instance, unused */
-	message_flags = stream_getc(s);
-
-	switch (command) {
-	case ZEBRA_REDISTRIBUTE_IPV4_ADD:
-	case ZEBRA_REDISTRIBUTE_IPV4_DEL:
-		kr.af = AF_INET;
-		kr.prefixlen = MIN(IPV4_MAX_PREFIXLEN, stream_getc(s));
-		nhlen = sizeof(struct in_addr);
-		break;
-	case ZEBRA_REDISTRIBUTE_IPV6_ADD:
-	case ZEBRA_REDISTRIBUTE_IPV6_DEL:
-		kr.af = AF_INET6;
-		kr.prefixlen = MIN(IPV6_MAX_PREFIXLEN, stream_getc(s));
-		nhlen = sizeof(struct in6_addr);
-		break;
-	default:
-		fatalx("ldp_zebra_read_route: unknown command");
-	}
-	stream_get(&kr.prefix, s, PSIZE(kr.prefixlen));
-
 	if (bad_addr(kr.af, &kr.prefix) ||
 	    (kr.af == AF_INET6 && IN6_IS_SCOPE_EMBED(&kr.prefix.v6)))
 		return (0);
 
-	if (kr.af == AF_INET6 &&
-	    CHECK_FLAG(message_flags, ZAPI_MESSAGE_SRCPFX)) {
-		uint8_t src_prefixlen;
-
-		src_prefixlen = stream_getc(s);
-
-		/* we completely ignore srcdest routes for now. */
-		if (src_prefixlen)
-			return (0);
-	}
-
-	if (CHECK_FLAG(message_flags, ZAPI_MESSAGE_NEXTHOP)) {
-		nhnum = stream_getc(s);
-		nhmark = stream_get_getp(s);
-		stream_set_getp(s, nhmark + nhnum * (nhlen + 5));
-	}
-
-	if (CHECK_FLAG(message_flags, ZAPI_MESSAGE_DISTANCE))
-		kr.priority = stream_getc(s);
-	if (CHECK_FLAG(message_flags, ZAPI_MESSAGE_METRIC))
-		stream_getl(s);	/* metric, not used */
-
-	if (CHECK_FLAG(message_flags, ZAPI_MESSAGE_NEXTHOP))
-		stream_set_getp(s, nhmark);
-
-	if (command == ZEBRA_REDISTRIBUTE_IPV4_ADD ||
-	    command == ZEBRA_REDISTRIBUTE_IPV6_ADD)
+	if (command == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
 		add = 1;
 
-	if (nhnum == 0)
+	if (api.nexthop_num == 0)
 		debug_zebra_in("route %s %s/%d (%s)", (add) ? "add" : "delete",
 		    log_addr(kr.af, &kr.prefix), kr.prefixlen,
-		    zebra_route_string(type));
+		    zebra_route_string(api.type));
 
 	/* loop through all the nexthops */
-	for (; nhnum > 0; nhnum--) {
+	for (i = 0; i < api.nexthop_num; i++) {
+		api_nh = &api.nexthops[i];
+
 		switch (kr.af) {
 		case AF_INET:
-			kr.nexthop.v4.s_addr = stream_get_ipv4(s);
+			kr.nexthop.v4 = api_nh->gate.ipv4;
 			break;
 		case AF_INET6:
-			stream_get(&kr.nexthop.v6, s, sizeof(kr.nexthop.v6));
+			kr.nexthop.v6 = api_nh->gate.ipv6;
 			break;
 		default:
 			break;
 		}
-		stream_getc(s);	/* ifindex_num, unused. */
-		kr.ifindex = stream_getl(s);
+		kr.ifindex = api_nh->ifindex;;
 
 		debug_zebra_in("route %s %s/%d nexthop %s ifindex %u (%s)",
 		    (add) ? "add" : "delete", log_addr(kr.af, &kr.prefix),
 		    kr.prefixlen, log_addr(kr.af, &kr.nexthop), kr.ifindex,
-		    zebra_route_string(type));
+		    zebra_route_string(api.type));
 
 		if (add)
 			main_imsg_compose_lde(IMSG_NETWORK_ADD, 0, &kr,
@@ -554,10 +522,8 @@ ldp_zebra_init(struct thread_master *master)
 	zclient->interface_down = ldp_interface_status_change;
 	zclient->interface_address_add = ldp_interface_address_add;
 	zclient->interface_address_delete = ldp_interface_address_delete;
-	zclient->redistribute_route_ipv4_add = ldp_zebra_read_route;
-	zclient->redistribute_route_ipv4_del = ldp_zebra_read_route;
-	zclient->redistribute_route_ipv6_add = ldp_zebra_read_route;
-	zclient->redistribute_route_ipv6_del = ldp_zebra_read_route;
+	zclient->redistribute_route_add = ldp_zebra_read_route;
+	zclient->redistribute_route_del = ldp_zebra_read_route;
 	zclient->pw_status_update = ldp_zebra_read_pw_status_update;
 }
 

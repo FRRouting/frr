@@ -6086,8 +6086,7 @@ DEFUN (no_ipv6_aggregate_address,
 
 /* Redistribute route treatment. */
 void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
-			  const struct in_addr *nexthop,
-			  const struct in6_addr *nexthop6, unsigned int ifindex,
+			  const union g_addr *nexthop, unsigned int ifindex,
 			  u_int32_t metric, u_char type, u_short instance,
 			  route_tag_t tag)
 {
@@ -6103,14 +6102,17 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 
 	/* Make default attribute. */
 	bgp_attr_default_set(&attr, BGP_ORIGIN_INCOMPLETE);
-	if (nexthop)
-		attr.nexthop = *nexthop;
-	attr.nh_ifindex = ifindex;
-
-	if (nexthop6) {
-		attr.mp_nexthop_global = *nexthop6;
-		attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
+	if (nexthop) {
+		switch (p->family) {
+		case AF_INET:
+			attr.nexthop = nexthop->ipv4;
+			break;
+		case AF_INET6:
+			attr.mp_nexthop_global = nexthop->ipv6;
+			attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
+		}
 	}
+	attr.nh_ifindex = ifindex;
 
 	attr.med = metric;
 	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);

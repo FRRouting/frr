@@ -54,119 +54,24 @@ static struct {
     {0, 0, NULL}
 };
 
-/* Zebra route add and delete treatment (ipv6). */
+/* Zebra route add and delete treatment. */
 static int
-babel_zebra_read_ipv6 (int command, struct zclient *zclient,
-		       zebra_size_t length, vrf_id_t vrf)
+babel_zebra_read_route (int command, struct zclient *zclient,
+		        zebra_size_t length, vrf_id_t vrf)
 {
-    struct stream *s;
-    struct zapi_ipv6 api;
-    unsigned long ifindex = -1;
-    struct in6_addr nexthop;
-    struct prefix_ipv6 prefix, src_p;
+    struct zapi_route api;
 
-    s = zclient->ibuf;
-    ifindex = 0;
-    memset (&nexthop, 0, sizeof (struct in6_addr));
-    memset (&api, 0, sizeof(struct zapi_ipv6));
-    memset (&prefix, 0, sizeof (struct prefix_ipv6));
+    if (zapi_route_decode(zclient->ibuf, &api) < 0)
+        return -1;
 
-    /* Type, flags, message. */
-    api.type = stream_getc (s);
-    api.instance = stream_getw (s);
-    api.flags = stream_getl (s);
-    api.message = stream_getc (s);
-
-    /* IPv6 prefix. */
-    prefix.family = AF_INET6;
-    prefix.prefixlen = MIN (IPV6_MAX_PREFIXLEN, stream_getc (s));
-    stream_get (&prefix.prefix, s, PSIZE (prefix.prefixlen));
-
-    memset(&src_p, 0, sizeof(src_p));
-    if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX)) {
-        src_p.family = AF_INET6;
-        src_p.prefixlen = stream_getc(s);
-        stream_get(&src_p.prefix, s, PSIZE(src_p.prefixlen));
-    }
-    if (src_p.prefixlen)
-        /* we completely ignore srcdest routes for now. */
+    /* we completely ignore srcdest routes for now. */
+    if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
         return 0;
 
-    /* Nexthop, ifindex, distance, metric. */
-    if (CHECK_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP)) {
-        api.nexthop_num = stream_getc (s);
-        stream_get (&nexthop, s, sizeof(nexthop));
-    }
-    if (CHECK_FLAG (api.message, ZAPI_MESSAGE_IFINDEX)) {
-        api.ifindex_num = stream_getc (s);
-        ifindex = stream_getl (s);
-    }
-    if (CHECK_FLAG (api.message, ZAPI_MESSAGE_DISTANCE))
-        api.distance = stream_getc (s);
-    else
-        api.distance = 0;
-    if (CHECK_FLAG (api.message, ZAPI_MESSAGE_METRIC))
-        api.metric = stream_getl (s);
-    else
-        api.metric = 0;
-
-    if (command == ZEBRA_REDISTRIBUTE_IPV6_ADD)
-        babel_ipv6_route_add(&api, &prefix, ifindex, &nexthop);
-    else
-        babel_ipv6_route_delete(&api, &prefix, ifindex);
-
-    return 0;
-}
-
-static int
-babel_zebra_read_ipv4 (int command, struct zclient *zclient,
-		       zebra_size_t length, vrf_id_t vrf)
-{
-    struct stream *s;
-    struct zapi_ipv4 api;
-    unsigned long ifindex = -1;
-    struct in_addr nexthop;
-    struct prefix_ipv4 prefix;
-
-    s = zclient->ibuf;
-    ifindex = 0;
-    memset (&nexthop, 0, sizeof (struct in_addr));
-    memset (&api, 0, sizeof(struct zapi_ipv4));
-    memset (&prefix, 0, sizeof (struct prefix_ipv4));
-
-    /* Type, flags, message. */
-    api.type = stream_getc (s);
-    api.instance = stream_getw (s);
-    api.flags = stream_getl (s);
-    api.message = stream_getc (s);
-
-    /* IPv4 prefix. */
-    prefix.family = AF_INET;
-    prefix.prefixlen = MIN (IPV4_MAX_PREFIXLEN, stream_getc (s));
-    stream_get (&prefix.prefix, s, PSIZE (prefix.prefixlen));
-
-    /* Nexthop, ifindex, distance, metric. */
-    if (CHECK_FLAG (api.message, ZAPI_MESSAGE_NEXTHOP)) {
-        api.nexthop_num = stream_getc (s);
-        stream_get (&nexthop, s, sizeof(nexthop));
-    }
-    if (CHECK_FLAG (api.message, ZAPI_MESSAGE_IFINDEX)) {
-        api.ifindex_num = stream_getc (s);
-        ifindex = stream_getl (s);
-    }
-    if (CHECK_FLAG (api.message, ZAPI_MESSAGE_DISTANCE))
-        api.distance = stream_getc (s);
-    else
-        api.distance = 0;
-    if (CHECK_FLAG (api.message, ZAPI_MESSAGE_METRIC))
-        api.metric = stream_getl (s);
-    else
-        api.metric = 0;
-
-    if (command == ZEBRA_REDISTRIBUTE_IPV4_ADD) {
-        babel_ipv4_route_add(&api, &prefix, ifindex, &nexthop);
+    if (command == ZEBRA_REDISTRIBUTE_ROUTE_ADD) {
+        babel_route_add(&api);
     } else {
-        babel_ipv4_route_delete(&api, &prefix, ifindex);
+        babel_route_delete(&api);
     }
 
     return 0;
@@ -342,10 +247,8 @@ void babelz_zebra_init(void)
     zclient->interface_down = babel_interface_down;
     zclient->interface_address_add = babel_interface_address_add;
     zclient->interface_address_delete = babel_interface_address_delete;
-    zclient->redistribute_route_ipv4_add = babel_zebra_read_ipv4;
-    zclient->redistribute_route_ipv4_del = babel_zebra_read_ipv4;
-    zclient->redistribute_route_ipv6_add = babel_zebra_read_ipv6;
-    zclient->redistribute_route_ipv6_del = babel_zebra_read_ipv6;
+    zclient->redistribute_route_add = babel_zebra_read_route;
+    zclient->redistribute_route_del = babel_zebra_read_route;
 
     install_element(BABEL_NODE, &babel_redistribute_type_cmd);
     install_element(ENABLE_NODE, &debug_babel_cmd);

@@ -207,75 +207,30 @@ static int ospf6_zebra_if_address_update_delete(int command,
 	return 0;
 }
 
-static int ospf6_zebra_read_ipv6(int command, struct zclient *zclient,
-				 zebra_size_t length, vrf_id_t vrf_id)
+static int ospf6_zebra_read_route(int command, struct zclient *zclient,
+				  zebra_size_t length, vrf_id_t vrf_id)
 {
-	struct stream *s;
-	struct zapi_ipv6 api;
+	struct zapi_route api;
 	unsigned long ifindex;
-	struct prefix p, src_p;
 	struct in6_addr *nexthop;
 
 	if (ospf6 == NULL)
 		return 0;
 
-	s = zclient->ibuf;
-	ifindex = 0;
-	nexthop = NULL;
-	memset(&api, 0, sizeof(api));
+	if (zapi_route_decode(zclient->ibuf, &api) < 0)
+		return -1;
 
-	/* Type, flags, message. */
-	api.type = stream_getc(s);
-	api.instance = stream_getw(s);
-	api.flags = stream_getl(s);
-	api.message = stream_getc(s);
-
-	/* IPv6 prefix. */
-	memset(&p, 0, sizeof(struct prefix));
-	p.family = AF_INET6;
-	p.prefixlen = MIN(IPV6_MAX_PREFIXLEN, stream_getc(s));
-	stream_get(&p.u.prefix6, s, PSIZE(p.prefixlen));
-
-	memset(&src_p, 0, sizeof(struct prefix));
-	src_p.family = AF_INET6;
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX)) {
-		src_p.prefixlen = stream_getc(s);
-		stream_get(&src_p.u.prefix6, s, PSIZE(src_p.prefixlen));
-	}
-
-	if (src_p.prefixlen)
-		/* we completely ignore srcdest routes for now. */
+	/* we completely ignore srcdest routes for now. */
+	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
 		return 0;
 
-	/* Nexthop, ifindex, distance, metric. */
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)) {
-		api.nexthop_num = stream_getc(s);
-		nexthop = (struct in6_addr *)malloc(api.nexthop_num
-						    * sizeof(struct in6_addr));
-		stream_get(nexthop, s,
-			   api.nexthop_num * sizeof(struct in6_addr));
-	}
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_IFINDEX)) {
-		api.ifindex_num = stream_getc(s);
-		ifindex = stream_getl(s);
-	}
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_DISTANCE))
-		api.distance = stream_getc(s);
-	else
-		api.distance = 0;
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_METRIC))
-		api.metric = stream_getl(s);
-	else
-		api.metric = 0;
-
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_TAG))
-		api.tag = stream_getl(s);
-	else
-		api.tag = 0;
+	ifindex = api.nexthops[0].ifindex;
+	nexthop = &api.nexthops[0].gate.ipv6;
 
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV)) {
 		char prefixstr[PREFIX2STR_BUFFER], nexthopstr[128];
-		prefix2str((struct prefix *)&p, prefixstr, sizeof(prefixstr));
+		prefix2str((struct prefix *)&api.prefix, prefixstr,
+			   sizeof(prefixstr));
 		if (nexthop)
 			inet_ntop(AF_INET6, nexthop, nexthopstr,
 				  sizeof(nexthopstr));
@@ -284,20 +239,17 @@ static int ospf6_zebra_read_ipv6(int command, struct zclient *zclient,
 
 		zlog_debug(
 			"Zebra Receive route %s: %s %s nexthop %s ifindex %ld tag %" ROUTE_TAG_PRI,
-			(command == ZEBRA_REDISTRIBUTE_IPV6_ADD ? "add"
-								: "delete"),
+			(command == ZEBRA_REDISTRIBUTE_ROUTE_ADD ? "add"
+								 : "delete"),
 			zebra_route_string(api.type), prefixstr, nexthopstr,
 			ifindex, api.tag);
 	}
 
-	if (command == ZEBRA_REDISTRIBUTE_IPV6_ADD)
-		ospf6_asbr_redistribute_add(api.type, ifindex, &p,
+	if (command == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
+		ospf6_asbr_redistribute_add(api.type, ifindex, &api.prefix,
 					    api.nexthop_num, nexthop, api.tag);
 	else
-		ospf6_asbr_redistribute_remove(api.type, ifindex, &p);
-
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP))
-		free(nexthop);
+		ospf6_asbr_redistribute_remove(api.type, ifindex, &api.prefix);
 
 	return 0;
 }
@@ -646,10 +598,8 @@ void ospf6_zebra_init(struct thread_master *master)
 	zclient->interface_address_add = ospf6_zebra_if_address_update_add;
 	zclient->interface_address_delete =
 		ospf6_zebra_if_address_update_delete;
-	zclient->redistribute_route_ipv4_add = NULL;
-	zclient->redistribute_route_ipv4_del = NULL;
-	zclient->redistribute_route_ipv6_add = ospf6_zebra_read_ipv6;
-	zclient->redistribute_route_ipv6_del = ospf6_zebra_read_ipv6;
+	zclient->redistribute_route_add = ospf6_zebra_read_route;
+	zclient->redistribute_route_del = ospf6_zebra_read_route;
 
 	/* Install command element for zebra node. */
 	install_element(VIEW_NODE, &show_ospf6_zebra_cmd);

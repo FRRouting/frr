@@ -2112,25 +2112,15 @@ static int zclient_read(struct thread *thread)
 			(*zclient->bfd_dest_replay)(command, zclient, length,
 						    vrf_id);
 		break;
-	case ZEBRA_REDISTRIBUTE_IPV4_ADD:
-		if (zclient->redistribute_route_ipv4_add)
-			(*zclient->redistribute_route_ipv4_add)(
-				command, zclient, length, vrf_id);
+	case ZEBRA_REDISTRIBUTE_ROUTE_ADD:
+		if (zclient->redistribute_route_add)
+			(*zclient->redistribute_route_add)(command, zclient,
+							   length, vrf_id);
 		break;
-	case ZEBRA_REDISTRIBUTE_IPV4_DEL:
-		if (zclient->redistribute_route_ipv4_del)
-			(*zclient->redistribute_route_ipv4_del)(
-				command, zclient, length, vrf_id);
-		break;
-	case ZEBRA_REDISTRIBUTE_IPV6_ADD:
-		if (zclient->redistribute_route_ipv6_add)
-			(*zclient->redistribute_route_ipv6_add)(
-				command, zclient, length, vrf_id);
-		break;
-	case ZEBRA_REDISTRIBUTE_IPV6_DEL:
-		if (zclient->redistribute_route_ipv6_del)
-			(*zclient->redistribute_route_ipv6_del)(
-				command, zclient, length, vrf_id);
+	case ZEBRA_REDISTRIBUTE_ROUTE_DEL:
+		if (zclient->redistribute_route_del)
+			(*zclient->redistribute_route_del)(command, zclient,
+							   length, vrf_id);
 		break;
 	case ZEBRA_INTERFACE_LINK_PARAMS:
 		if (zclient->interface_link_params)

@@ -873,61 +873,32 @@ void ospf_routemap_unset(struct ospf_redist *red)
 }
 
 /* Zebra route add and delete treatment. */
-static int ospf_zebra_read_ipv4(int command, struct zclient *zclient,
-				zebra_size_t length, vrf_id_t vrf_id)
+static int ospf_zebra_read_route(int command, struct zclient *zclient,
+				 zebra_size_t length, vrf_id_t vrf_id)
 {
-	struct stream *s;
-	struct zapi_ipv4 api;
+	struct zapi_route api;
+	struct prefix_ipv4 p;
 	unsigned long ifindex;
 	struct in_addr nexthop;
-	struct prefix_ipv4 p;
 	struct external_info *ei;
 	struct ospf *ospf;
 	int i;
-
-	s = zclient->ibuf;
-	ifindex = 0;
-	nexthop.s_addr = 0;
-
-	/* Type, flags, message. */
-	api.type = stream_getc(s);
-	api.instance = stream_getw(s);
-	api.flags = stream_getl(s);
-	api.message = stream_getc(s);
-
-	/* IPv4 prefix. */
-	memset(&p, 0, sizeof(struct prefix_ipv4));
-	p.family = AF_INET;
-	p.prefixlen = MIN(IPV4_MAX_PREFIXLEN, stream_getc(s));
-	stream_get(&p.prefix, s, PSIZE(p.prefixlen));
-
-	if (IPV4_NET127(ntohl(p.prefix.s_addr)))
-		return 0;
-
-	/* Nexthop, ifindex, distance, metric. */
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)) {
-		api.nexthop_num = stream_getc(s);
-		nexthop.s_addr = stream_get_ipv4(s);
-	}
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_IFINDEX)) {
-		api.ifindex_num = stream_getc(s);
-		/* XXX assert(api.ifindex_num == 1); */
-		ifindex = stream_getl(s);
-	}
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_DISTANCE))
-		api.distance = stream_getc(s);
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_METRIC))
-		api.metric = stream_getl(s);
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_TAG))
-		api.tag = stream_getl(s);
-	else
-		api.tag = 0;
 
 	ospf = ospf_lookup();
 	if (ospf == NULL)
 		return 0;
 
-	if (command == ZEBRA_REDISTRIBUTE_IPV4_ADD) {
+	if (zapi_route_decode(zclient->ibuf, &api) < 0)
+		return -1;
+
+	ifindex = api.nexthops[0].ifindex;
+	nexthop = api.nexthops[0].gate.ipv4;
+
+	memcpy(&p, &api.prefix, sizeof(p));
+	if (IPV4_NET127(ntohl(p.prefix.s_addr)))
+		return 0;
+
+	if (command == ZEBRA_REDISTRIBUTE_ROUTE_ADD) {
 		/* XXX|HACK|TODO|FIXME:
 		 * Maybe we should ignore reject/blackhole routes? Testing shows
 		 * that
@@ -942,7 +913,7 @@ static int ospf_zebra_read_ipv4(int command, struct zclient *zclient,
 		 * return 0;
 		 */
 
-		/* Protocol tag overwrites all other tag value send by zebra */
+		/* Protocol tag overwrites all other tag value sent by zebra */
 		if (ospf->dtag[api.type] > 0)
 			api.tag = ospf->dtag[api.type];
 
@@ -984,7 +955,7 @@ static int ospf_zebra_read_ipv4(int command, struct zclient *zclient,
 							    zebra,
 							    ZEBRA_REDISTRIBUTE))
 							zlog_debug(
-								"ospf_zebra_read_ipv4() : %s refreshing LSA",
+								"ospf_zebra_read_route() : %s refreshing LSA",
 								inet_ntoa(
 									p.prefix));
 						ospf_external_lsa_refresh(
@@ -994,7 +965,7 @@ static int ospf_zebra_read_ipv4(int command, struct zclient *zclient,
 				}
 			}
 		}
-	} else /* if (command == ZEBRA_REDISTRIBUTE_IPV4_DEL) */
+	} else /* if (command == ZEBRA_REDISTRIBUTE_ROUTE_DEL) */
 	{
 		ospf_external_info_delete(api.type, api.instance, p);
 		if (is_prefix_default(&p))
@@ -1410,8 +1381,8 @@ void ospf_zebra_init(struct thread_master *master, u_short instance)
 	zclient->interface_address_delete = ospf_interface_address_delete;
 	zclient->interface_link_params = ospf_interface_link_params;
 
-	zclient->redistribute_route_ipv4_add = ospf_zebra_read_ipv4;
-	zclient->redistribute_route_ipv4_del = ospf_zebra_read_ipv4;
+	zclient->redistribute_route_add = ospf_zebra_read_route;
+	zclient->redistribute_route_del = ospf_zebra_read_route;
 
 	access_list_add_hook(ospf_filter_update);
 	access_list_delete_hook(ospf_filter_update);

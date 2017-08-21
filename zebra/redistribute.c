@@ -95,8 +95,8 @@ static void zebra_redistribute_default(struct zserv *client, vrf_id_t vrf_id)
 		RNODE_FOREACH_RE(rn, newre)
 		if (CHECK_FLAG(newre->flags, ZEBRA_FLAG_SELECTED)
 		    && newre->distance != DISTANCE_INFINITY)
-			zsend_redistribute_route(1, client, &rn->p, NULL,
-						 newre);
+			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_ADD,
+						 client, &rn->p, NULL, newre);
 
 		route_unlock_node(rn);
 	}
@@ -141,8 +141,8 @@ static void zebra_redistribute(struct zserv *client, int type, u_short instance,
 			if (!zebra_check_addr(dst_p))
 				continue;
 
-			zsend_redistribute_route(1, client, dst_p, src_p,
-						 newre);
+			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_ADD,
+						 client, dst_p, src_p, newre);
 		}
 }
 
@@ -191,7 +191,8 @@ void redistribute_update(struct prefix *p, struct prefix *src_p,
 			send_redistribute = 1;
 
 		if (send_redistribute) {
-			zsend_redistribute_route(1, client, p, src_p, re);
+			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_ADD,
+						 client, p, src_p, re);
 		} else if (prev_re
 			   && ((re->instance
 				&& redist_check_instance(
@@ -201,7 +202,8 @@ void redistribute_update(struct prefix *p, struct prefix *src_p,
 			       || vrf_bitmap_check(
 					  client->redist[afi][prev_re->type],
 					  re->vrf_id))) {
-			zsend_redistribute_route(0, client, p, src_p, prev_re);
+			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_DEL,
+						 client, p, src_p, prev_re);
 		}
 	}
 }
@@ -242,7 +244,8 @@ void redistribute_delete(struct prefix *p, struct prefix *src_p,
 				   re->instance))
 		    || vrf_bitmap_check(client->redist[afi][re->type],
 					re->vrf_id)) {
-			zsend_redistribute_route(0, client, p, src_p, re);
+			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_DEL,
+						 client, p, src_p, re);
 		}
 	}
 }

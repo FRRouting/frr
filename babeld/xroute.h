@@ -36,14 +36,8 @@ struct xroute_stream;
 
 struct xroute *find_xroute(const unsigned char *prefix, unsigned char plen);
 void flush_xroute(struct xroute *xroute);
-int babel_ipv4_route_add (struct zapi_ipv4 *api, struct prefix_ipv4 *prefix,
-                          unsigned int ifindex, struct in_addr *nexthop);
-int babel_ipv4_route_delete (struct zapi_ipv4 *api, struct prefix_ipv4 *prefix,
-                             unsigned int ifindex);
-int babel_ipv6_route_add (struct zapi_ipv6 *api, struct prefix_ipv6 *prefix,
-                          unsigned int ifindex, struct in6_addr *nexthop);
-int babel_ipv6_route_delete (struct zapi_ipv6 *api, struct prefix_ipv6 *prefix,
-                             unsigned int ifindex);
+int babel_route_add (struct zapi_route *api);
+int babel_route_delete (struct zapi_route *api);
 int xroutes_estimate(void);
 struct xroute_stream *xroute_stream(void);
 struct xroute *xroute_stream_next(struct xroute_stream *stream);

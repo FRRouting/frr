@@ -167,83 +167,47 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix
 
 int nhrp_route_read(int cmd, struct zclient *zclient, zebra_size_t length, vrf_id_t vrf_id)
 {
-	struct stream *s;
+	struct zapi_route api;
+	struct zapi_nexthop *api_nh;
 	struct interface *ifp = NULL;
-	struct prefix prefix;
-	struct prefix_ipv6 src_p;
 	union sockunion nexthop_addr;
-	unsigned char message, nexthop_num, ifindex_num;
-	unsigned ifindex;
 	char buf[2][PREFIX_STRLEN];
-	int i, afaddrlen, added;
+	int added;
 
-	s = zclient->ibuf;
-	memset(&prefix, 0, sizeof(prefix));
-	sockunion_family(&nexthop_addr) = AF_UNSPEC;
-
-	/* Type, flags, message. */
-	/*type =*/ stream_getc(s);
-	/*instance =*/ stream_getw(s);
-	/*flags =*/ stream_getl(s);
-	message = stream_getc(s);
-
-	/* Prefix */
-	switch (cmd) {
-	case ZEBRA_REDISTRIBUTE_IPV4_ADD:
-	case ZEBRA_REDISTRIBUTE_IPV4_DEL:
-		prefix.family = AF_INET;
-		prefix.prefixlen = MIN(IPV4_MAX_PREFIXLEN, stream_getc(s));
-		break;
-	case ZEBRA_REDISTRIBUTE_IPV6_ADD:
-	case ZEBRA_REDISTRIBUTE_IPV6_DEL:
-		prefix.family = AF_INET6;
-		prefix.prefixlen = MIN(IPV6_MAX_PREFIXLEN, stream_getc(s));
-		break;
-	default:
+	if (zapi_route_decode(zclient->ibuf, &api) < 0)
 		return -1;
-	}
-	afaddrlen = family2addrsize(prefix.family);
-	stream_get(&prefix.u.val, s, PSIZE(prefix.prefixlen));
 
-	memset(&src_p, 0, sizeof(src_p));
-	if (prefix.family == AF_INET6 &&
-	    CHECK_FLAG(message, ZAPI_MESSAGE_SRCPFX)) {
-		src_p.family = AF_INET6;
-		src_p.prefixlen = stream_getc(s);
-		stream_get(&src_p.prefix, s, PSIZE(src_p.prefixlen));
-	}
-	if (src_p.prefixlen)
-		/* we completely ignore srcdest routes for now. */
+	/* we completely ignore srcdest routes for now. */
+	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_SRCPFX))
 		return 0;
 
-	/* Nexthop, ifindex, distance, metric. */
-	if (CHECK_FLAG(message, ZAPI_MESSAGE_NEXTHOP|ZAPI_MESSAGE_IFINDEX)) {
-		nexthop_num = stream_getc(s);
-		for (i = 0; i < nexthop_num; i++) {
-			stream_get(buf[0], s, afaddrlen);
-			if (i == 0) sockunion_set(&nexthop_addr, prefix.family, (u_char*) buf[0], afaddrlen);
-		}
-		ifindex_num = stream_getc(s);
-		for (i = 0; i < ifindex_num; i++) {
-			ifindex = stream_getl(s);
-			if (i == 0 && ifindex != IFINDEX_INTERNAL)
-                          ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
-		}
-	}
-	if (CHECK_FLAG(message, ZAPI_MESSAGE_DISTANCE))
-		/*distance =*/ stream_getc(s);
-	if (CHECK_FLAG(message, ZAPI_MESSAGE_METRIC))
-		/*metric =*/ stream_getl(s);
+	sockunion_family(&nexthop_addr) = AF_UNSPEC;
+	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)) {
+		api_nh = &api.nexthops[0];
 
-	added = (cmd == ZEBRA_REDISTRIBUTE_IPV4_ADD || cmd == ZEBRA_REDISTRIBUTE_IPV6_ADD);
+		nexthop_addr.sa.sa_family = api.prefix.family;
+		switch (nexthop_addr.sa.sa_family) {
+		case AF_INET:
+			nexthop_addr.sin.sin_addr = api_nh->gate.ipv4;
+			break;
+		case AF_INET6:
+			nexthop_addr.sin6.sin6_addr = api_nh->gate.ipv6;
+			break;
+		}
+
+		if (api_nh->ifindex != IFINDEX_INTERNAL)
+                       	ifp = if_lookup_by_index(api_nh->ifindex, VRF_DEFAULT);
+	}
+
+	added = (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD);
 	debugf(NHRP_DEBUG_ROUTE, "if-route-%s: %s via %s dev %s",
 		added ? "add" : "del",
-		prefix2str(&prefix, buf[0], sizeof buf[0]),
+		prefix2str(&api.prefix, buf[0], sizeof buf[0]),
 		sockunion2str(&nexthop_addr, buf[1], sizeof buf[1]),
 		ifp ? ifp->name : "(none)");
 
-	nhrp_route_update_zebra(&prefix, &nexthop_addr, ifp);
-	nhrp_shortcut_prefix_change(&prefix, !added);
+	nhrp_route_update_zebra(&api.prefix, &nexthop_addr, ifp);
+	nhrp_shortcut_prefix_change(&api.prefix, !added);
 
 	return 0;
 }
@@ -356,10 +320,8 @@ void nhrp_zebra_init(void)
 	zclient->interface_down = nhrp_interface_down;
 	zclient->interface_address_add = nhrp_interface_address_add;
 	zclient->interface_address_delete = nhrp_interface_address_delete;
-	zclient->redistribute_route_ipv4_add = nhrp_route_read;
-	zclient->redistribute_route_ipv4_del = nhrp_route_read;
-	zclient->redistribute_route_ipv6_add = nhrp_route_read;
-	zclient->redistribute_route_ipv6_del = nhrp_route_read;
+	zclient->redistribute_route_add = nhrp_route_read;
+	zclient->redistribute_route_del = nhrp_route_read;
 
 	zclient_init(zclient, ZEBRA_ROUTE_NHRP, 0);
 }
@@ -371,4 +333,3 @@ void nhrp_zebra_terminate(void)
 	route_table_finish(zebra_rib[AFI_IP]);
 	route_table_finish(zebra_rib[AFI_IP6]);
 }
-

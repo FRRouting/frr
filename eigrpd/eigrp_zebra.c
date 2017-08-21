@@ -66,8 +66,8 @@ static int eigrp_interface_state_down(int, struct zclient *, zebra_size_t,
 				      vrf_id_t vrf_id);
 static struct interface *zebra_interface_if_lookup(struct stream *);
 
-static int eigrp_zebra_read_ipv4(int, struct zclient *, zebra_size_t,
-				 vrf_id_t vrf_id);
+static int eigrp_zebra_read_route(int, struct zclient *, zebra_size_t,
+				  vrf_id_t vrf_id);
 
 /* Zebra structure to hold current status. */
 struct zclient *zclient = NULL;
@@ -112,59 +112,31 @@ void eigrp_zebra_init(void)
 	zclient->interface_down = eigrp_interface_state_down;
 	zclient->interface_address_add = eigrp_interface_address_add;
 	zclient->interface_address_delete = eigrp_interface_address_delete;
-	zclient->redistribute_route_ipv4_add = eigrp_zebra_read_ipv4;
-	zclient->redistribute_route_ipv4_del = eigrp_zebra_read_ipv4;
+	zclient->redistribute_route_add = eigrp_zebra_read_route;
+	zclient->redistribute_route_del = eigrp_zebra_read_route;
 }
 
 
 /* Zebra route add and delete treatment. */
-static int eigrp_zebra_read_ipv4(int command, struct zclient *zclient,
-				 zebra_size_t length, vrf_id_t vrf_id)
+static int eigrp_zebra_read_route(int command, struct zclient *zclient,
+				  zebra_size_t length, vrf_id_t vrf_id)
 {
-	struct stream *s;
-	struct zapi_ipv4 api;
-	struct prefix_ipv4 p;
+	struct zapi_route api;
 	struct eigrp *eigrp;
 
-	s = zclient->ibuf;
+	if (zapi_route_decode(zclient->ibuf, &api) < 0)
+		return -1;
 
-	/* Type, flags, message. */
-	api.type = stream_getc(s);
-	api.instance = stream_getw(s);
-	api.flags = stream_getc(s);
-	api.message = stream_getc(s);
-
-	/* IPv4 prefix. */
-	memset(&p, 0, sizeof(struct prefix_ipv4));
-	p.family = AF_INET;
-	p.prefixlen = MIN(IPV4_MAX_PREFIXLEN, stream_getc(s));
-	stream_get(&p.prefix, s, PSIZE(p.prefixlen));
-
-	if (IPV4_NET127(ntohl(p.prefix.s_addr)))
+	if (IPV4_NET127(ntohl(api.prefix.u.prefix4.s_addr)))
 		return 0;
-
-	/* Nexthop, ifindex, distance, metric. */
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)) {
-		api.nexthop_num = stream_getc(s);
-		stream_get_ipv4(s);
-	}
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_IFINDEX)) {
-		api.ifindex_num = stream_getc(s);
-		/* XXX assert(api.ifindex_num == 1); */
-		stream_getl(s); /* ifindex, unused */
-	}
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_DISTANCE))
-		api.distance = stream_getc(s);
-	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_METRIC))
-		api.metric = stream_getl(s);
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL)
 		return 0;
 
-	if (command == ZEBRA_REDISTRIBUTE_IPV4_ADD) {
+	if (command == ZEBRA_REDISTRIBUTE_ROUTE_ADD) {
 
-	} else /* if (command == ZEBRA_REDISTRIBUTE_IPV4_DEL) */
+	} else /* if (command == ZEBRA_REDISTRIBUTE_ROUTE_DEL) */
 	{
 	}
 
