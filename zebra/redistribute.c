@@ -114,7 +114,7 @@ static void zebra_redistribute(struct zserv *client, int type, u_short instance,
 	if (!table)
 		return;
 
-	for (rn = route_top(table); rn; rn = route_next(rn))
+	for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
 		RNODE_FOREACH_RE(rn, newre)
 		{
 			struct prefix *dst_p, *src_p;
