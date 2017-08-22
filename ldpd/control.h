@@ -19,7 +19,7 @@
 #ifndef _CONTROL_H_
 #define	_CONTROL_H_
 
-#include "openbsd-queue.h"
+#include "queue.h"
 
 struct ctl_conn {
 	TAILQ_ENTRY(ctl_conn)	entry;

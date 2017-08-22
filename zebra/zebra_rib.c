@@ -1820,7 +1820,7 @@ void rib_queue_add(struct route_node *rn)
 	 * holder, if necessary, then push the work into it in any case.
 	 * This semantics was introduced after 0.99.9 release.
 	 */
-	if (!zebrad.ribq->items->count)
+	if (work_queue_empty(zebrad.ribq))
 		work_queue_add(zebrad.ribq, zebrad.mq);
 
 	rib_meta_queue_add(zebrad.mq, rn);
@@ -2352,7 +2352,7 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 				break;
 			}
 			for (ALL_NEXTHOPS(re->nexthop, nexthop))
-				if (IPV4_ADDR_SAME(&nexthop->gate.ipv4, gate)
+				if (IPV4_ADDR_SAME(&nexthop->gate.ipv4, &gate->ipv4)
 				    || IPV6_ADDR_SAME(&nexthop->gate.ipv6,
 						      gate)) {
 					same = re;

@@ -90,6 +90,7 @@ pkginclude_HEADERS += \
 	lib/event_counter.h \
 	lib/fifo.h \
 	lib/filter.h \
+	lib/freebsd-queue.h \
 	lib/frr_pthread.h \
 	lib/frratomic.h \
 	lib/getopt.h \
@@ -125,6 +126,7 @@ pkginclude_HEADERS += \
 	lib/ptm_lib.h \
 	lib/pw.h \
 	lib/qobj.h \
+	lib/queue.h \
 	lib/routemap.h \
 	lib/sbuf.h \
 	lib/sha256.h \
@@ -222,7 +224,6 @@ EXTRA_DIST += \
 	lib/command_lex.h \
 	lib/command_parse.h \
 	lib/gitversion.pl \
-	lib/queue.h \
 	lib/route_types.pl \
 	lib/route_types.txt \
 	# end

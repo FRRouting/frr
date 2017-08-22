@@ -241,8 +241,20 @@ union prefixconstptr {
 #define IPV4_MAX_BITLEN    32
 #define IPV4_MAX_PREFIXLEN 32
 #define IPV4_ADDR_CMP(D,S)   memcmp ((D), (S), IPV4_MAX_BYTELEN)
-#define IPV4_ADDR_SAME(D,S)  (memcmp ((D), (S), IPV4_MAX_BYTELEN) == 0)
-#define IPV4_ADDR_COPY(D,S)  memcpy ((D), (S), IPV4_MAX_BYTELEN)
+
+static inline bool ipv4_addr_same(const struct in_addr *a,
+				  const struct in_addr *b)
+{
+	return (a->s_addr == b->s_addr);
+}
+#define IPV4_ADDR_SAME(A,B)  ipv4_addr_same((A), (B))
+
+static inline void ipv4_addr_copy(struct in_addr *dst,
+				  const struct in_addr *src)
+{
+	dst->s_addr = src->s_addr;
+}
+#define IPV4_ADDR_COPY(D,S)  ipv4_addr_copy((D), (S))
 
 #define IPV4_NET0(a)    ((((u_int32_t) (a)) & 0xff000000) == 0x00000000)
 #define IPV4_NET127(a)  ((((u_int32_t) (a)) & 0xff000000) == 0x7f000000)

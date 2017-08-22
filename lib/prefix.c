@@ -497,8 +497,7 @@ int prefix_same(const struct prefix *p1, const struct prefix *p2)
 
 	if (p1->family == p2->family && p1->prefixlen == p2->prefixlen) {
 		if (p1->family == AF_INET)
-			if (IPV4_ADDR_SAME(&p1->u.prefix4.s_addr,
-					   &p2->u.prefix4.s_addr))
+			if (IPV4_ADDR_SAME(&p1->u.prefix4, &p2->u.prefix4))
 				return 1;
 		if (p1->family == AF_INET6)
 			if (IPV6_ADDR_SAME(&p1->u.prefix6.s6_addr,

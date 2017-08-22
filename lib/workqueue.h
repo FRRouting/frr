@@ -24,6 +24,7 @@
 #define _QUAGGA_WORK_QUEUE_H
 
 #include "memory.h"
+#include "queue.h"
 DECLARE_MTYPE(WORK_QUEUE)
 
 /* Hold time for the initial schedule of a queue run, in  millisec */
@@ -43,6 +44,7 @@ typedef enum {
 
 /* A single work queue item, unsurprisingly */
 struct work_queue_item {
+	STAILQ_ENTRY(work_queue_item) wq;
 	void *data;	 /* opaque data */
 	unsigned short ran; /* # of times item has been run */
 };
@@ -91,7 +93,8 @@ struct work_queue {
 	} spec;
 
 	/* remaining fields should be opaque to users */
-	struct list *items;   /* queue item list */
+	STAILQ_HEAD(work_queue_items, work_queue_item) items; /* queue item list */
+	int item_count; /* queued items */
 	unsigned long runs;   /* runs count */
 	unsigned long yields; /* yields count */
 
@@ -106,6 +109,37 @@ struct work_queue {
 };
 
 /* User API */
+
+static inline int work_queue_item_count(struct work_queue *wq)
+{
+	return wq->item_count;
+}
+
+static inline bool work_queue_empty(struct work_queue *wq)
+{
+	return (wq->item_count == 0) ? true : false;
+}
+
+static inline struct work_queue_item *work_queue_last_item(struct work_queue *wq)
+{
+	return STAILQ_LAST(&wq->items, work_queue_item, wq);
+}
+
+static inline void work_queue_item_enqueue(struct work_queue *wq,
+					   struct work_queue_item *item)
+{
+	STAILQ_INSERT_TAIL(&wq->items, item, wq);
+	wq->item_count++;
+}
+
+static inline void work_queue_item_dequeue(struct work_queue *wq,
+					   struct work_queue_item *item)
+{
+	assert(wq->item_count > 0);
+
+	wq->item_count--;
+	STAILQ_REMOVE(&wq->items, item, work_queue_item, wq);
+}
 
 /* create a new work queue, of given name.
  * user must fill in the spec of the returned work queue before adding

@@ -1116,9 +1116,8 @@ struct peer *peer_new(struct bgp *bgp)
 	peer->status = Idle;
 	peer->ostatus = Idle;
 	peer->cur_event = peer->last_event = peer->last_major_event = 0;
-	peer->bgp = bgp;
+	peer->bgp = bgp_lock(bgp);
 	peer = peer_lock(peer); /* initial reference */
-	bgp_lock(bgp);
 	peer->password = NULL;
 
 	/* Set default flags.  */
@@ -3106,21 +3105,7 @@ int bgp_delete(struct bgp *bgp)
 	return 0;
 }
 
-static void bgp_free(struct bgp *);
-
-void bgp_lock(struct bgp *bgp)
-{
-	++bgp->lock;
-}
-
-void bgp_unlock(struct bgp *bgp)
-{
-	assert(bgp->lock > 0);
-	if (--bgp->lock == 0)
-		bgp_free(bgp);
-}
-
-static void bgp_free(struct bgp *bgp)
+void bgp_free(struct bgp *bgp)
 {
 	afi_t afi;
 	safi_t safi;
