@@ -71,6 +71,27 @@ static int sin_masklen(struct in_addr mask)
 }
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
+#ifdef __OpenBSD__
+static int kernel_rtm_add_labels(struct nexthop_label *nh_label,
+				 struct sockaddr_mpls *smpls)
+{
+	if (nh_label->num_labels > 1) {
+		zlog_warn(
+			"%s: can't push %u labels at "
+			"once (maximum is 1)",
+			__func__, nh_label->num_labels);
+		return -1;
+	}
+
+	memset(smpls, 0, sizeof(*smpls));
+	smpls->smpls_len = sizeof(*smpls);
+	smpls->smpls_family = AF_MPLS;
+	smpls->smpls_label = htonl(nh_label->label[0] << MPLS_LABEL_OFFSET);
+
+	return 0;
+}
+#endif
+
 /* Interface between zebra message and rtm message. */
 static int kernel_rtm_ipv4(int cmd, struct prefix *p, struct route_entry *re)
 
@@ -150,15 +171,11 @@ static int kernel_rtm_ipv4(int cmd, struct prefix *p, struct route_entry *re)
 			}
 
 #ifdef __OpenBSD__
-			if (nexthop->nh_label) {
-				memset(&smpls, 0, sizeof(smpls));
-				smpls.smpls_len = sizeof(smpls);
-				smpls.smpls_family = AF_MPLS;
-				smpls.smpls_label =
-					htonl(nexthop->nh_label->label[0]
-					      << MPLS_LABEL_OFFSET);
-				smplsp = (union sockunion *)&smpls;
-			}
+			if (nexthop->nh_label
+			    && !kernel_rtm_add_labels(nexthop->nh_label,
+						      &smpls))
+				continue;
+			smplsp = (union sockunion *)&smpls;
 #endif
 
 			error = rtm_write(
@@ -266,6 +283,10 @@ static int kernel_rtm_ipv6(int cmd, struct prefix *p, struct route_entry *re)
 {
 	struct sockaddr_in6 *mask;
 	struct sockaddr_in6 sin_dest, sin_mask, sin_gate;
+#ifdef __OpenBSD__
+	struct sockaddr_mpls smpls;
+#endif
+	union sockunion *smplsp = NULL;
 	struct nexthop *nexthop;
 	int nexthop_num = 0;
 	ifindex_t ifindex = 0;
@@ -338,10 +359,17 @@ static int kernel_rtm_ipv6(int cmd, struct prefix *p, struct route_entry *re)
 			mask = &sin_mask;
 		}
 
+#ifdef __OpenBSD__
+		if (nexthop->nh_label
+		    && !kernel_rtm_add_labels(nexthop->nh_label, &smpls))
+			continue;
+		smplsp = (union sockunion *)&smpls;
+#endif
+
 		error = rtm_write(cmd, (union sockunion *)&sin_dest,
 				  (union sockunion *)mask,
 				  gate ? (union sockunion *)&sin_gate : NULL,
-				  NULL, ifindex, re->flags, re->metric);
+				  smplsp, ifindex, re->flags, re->metric);
 
 #if 0
       if (error)

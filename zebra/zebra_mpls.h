@@ -37,7 +37,7 @@
 
 /* Definitions and macros. */
 
-#define MPLS_MAX_LABELS 2  /* Maximum # labels that can be pushed. */
+#define MPLS_MAX_LABELS 16  /* Maximum # labels that can be pushed. */
 
 #define NHLFE_FAMILY(nhlfe)                                                    \
 	(((nhlfe)->nexthop->type == NEXTHOP_TYPE_IPV6                          \
