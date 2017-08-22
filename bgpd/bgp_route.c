@@ -2045,7 +2045,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 	 * to do this upon changes to best path except of the label index
 	 * changes.
 	 */
-	if (safi == SAFI_UNICAST) {
+	if (bgp->allocate_mpls_labels[afi][safi]) {
 		if (new_select) {
 			if (!old_select
 			    || bgp_label_index_differs(new_select, old_select)
@@ -2066,8 +2066,11 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 				} else
 					bgp_register_for_label(rn, new_select);
 			}
-		} else if (CHECK_FLAG(rn->flags, BGP_NODE_REGISTERED_FOR_LABEL))
+		} else if (CHECK_FLAG(rn->flags, BGP_NODE_REGISTERED_FOR_LABEL)) {
 			bgp_unregister_for_label(rn);
+		}
+	} else if (CHECK_FLAG(rn->flags, BGP_NODE_REGISTERED_FOR_LABEL)) {
+		bgp_unregister_for_label(rn);
 	}
 
 	/* If best route remains the same and this is not due to user-initiated
