@@ -624,6 +624,9 @@ class TopoRouter(TopoGear):
             self.vtysh_cmd('configure terminal\nlog file {}/{}-{}.log'.format(
                 self.logdir, self.name, daemon), daemon=daemon)
 
+        if result != '':
+            self.tgen.set_error(result)
+
         return result
 
     def stop(self):
