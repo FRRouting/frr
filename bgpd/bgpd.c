@@ -3201,6 +3201,8 @@ bgp_delete (struct bgp *bgp)
    * routes to be processed still referencing the struct bgp.
    */
   listnode_delete (bm->bgp, bgp);
+  if (list_isempty(bm->bgp))
+    bgp_close();
 
   /* Deregister from Zebra, if needed */
   if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
