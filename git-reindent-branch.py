@@ -11,14 +11,28 @@ def run(cmd):
     proc.wait()
     return rv
 
+clangfmt = run(['git', 'show', 'master:.clang-format'])
+
 argp = argparse.ArgumentParser(description = 'git whitespace-fixing tool')
 argp.add_argument('branch', metavar='BRANCH', type = str, nargs = '?', default = 'HEAD')
 args = argp.parse_args()
 
 branch = args.branch
 commit   = run(['git', 'rev-list', '-n', '1', branch, '--']).strip()
-beforeid = run(['git', 'rev-list', '-n', '1', 'reindent-master-before', '--']).strip()
-afterid  = run(['git', 'rev-list', '-n', '1', 'reindent-master-after', '--']).strip()
+
+# frr-3.1-dev = first commit that is on master but not on stable/3.0
+masterid = run(['git', 'rev-list', '-n', '1', 'frr-3.1-dev', '--']).strip()
+masterbase = run(['git', 'merge-base', commit, masterid]).strip()
+
+if masterbase == masterid:
+    refbranch = 'master'
+else:
+    refbranch = '3.0'
+
+sys.stderr.write('autodetected base: %s (can be 3.0 or master)\n' % refbranch)
+
+beforeid = run(['git', 'rev-list', '-n', '1', 'reindent-%s-before' % refbranch, '--']).strip()
+afterid  = run(['git', 'rev-list', '-n', '1', 'reindent-%s-after' % refbranch, '--']).strip()
 
 beforebase = run(['git', 'merge-base', commit, beforeid]).strip()
 afterbase  = run(['git', 'merge-base', commit, afterid]).strip()
@@ -28,10 +42,10 @@ if afterbase == afterid:
     sys.exit(1)
 
 if beforebase != beforeid:
-    sys.stderr.write('you need to rebase your branch onto the tag "reindent-master-before"\n')
+    sys.stderr.write('you need to rebase your branch onto the tag "reindent-%s-before"\n' % refbranch)
     sys.exit(1)
 
-revs = run(['git', 'rev-list', 'reindent-master-before..%s' % commit]).strip().split('\n')
+revs = run(['git', 'rev-list', 'reindent-%s-before..%s' % (refbranch, commit)]).strip().split('\n')
 revs.reverse()
 
 srcdir = os.getcwd()
@@ -39,8 +53,11 @@ tmpdir = tempfile.mkdtemp('frrindent')
 os.chdir(tmpdir)
 
 sys.stderr.write('using temporary directory %s; %d revisions\n' % (tmpdir, len(revs)))
-run(['git', 'clone', '-s', '-b', 'reindent-master-after', srcdir, 'repo'])
+run(['git', 'clone', '-s', '-b', 'reindent-%s-after' % refbranch, srcdir, 'repo'])
 os.chdir('repo')
+
+with open('.clang-format', 'w') as fd:
+    fd.write(clangfmt)
 
 prev = beforeid
 for rev in revs:
