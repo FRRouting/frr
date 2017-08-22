@@ -1925,6 +1925,18 @@ DEFUN (vtysh_show_debugging,
 			       "Debugging Information for %s:\n");
 }
 
+DEFUN (vtysh_show_debugging_hashtable,
+       vtysh_show_debugging_hashtable_cmd,
+       "show debugging hashtable [statistics]",
+       SHOW_STR
+       DEBUG_STR
+       "Statistics about hash tables\n"
+       "Statistics about hash tables\n")
+{
+	return show_per_daemon("do show debugging hashtable\n",
+			       "Hashtable statistics for %s:\n");
+}
+
 /* Memory */
 DEFUN (vtysh_show_memory,
        vtysh_show_memory_cmd,
@@ -3233,6 +3245,7 @@ void vtysh_init_vty(void)
 #endif
 
 	install_element(VIEW_NODE, &vtysh_show_debugging_cmd);
+	install_element(VIEW_NODE, &vtysh_show_debugging_hashtable_cmd);
 	install_element(VIEW_NODE, &vtysh_show_memory_cmd);
 	install_element(VIEW_NODE, &vtysh_show_modules_cmd);
 
