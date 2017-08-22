@@ -714,10 +714,16 @@ class TopoRouter(TopoGear):
         "Get equipment information from 'show version'."
         output = self.vtysh_cmd('show version').split('\n')[0]
         columns = topotest.normalize_text(output).split(' ')
-        return {
-            'type': columns[0],
-            'version': columns[1],
-        }
+        try:
+            return {
+                'type': columns[0],
+                'version': columns[1],
+            }
+        except IndexError:
+            return {
+                'type': None,
+                'version': None,
+            }
 
     def has_version(self, cmpop, version):
         """
@@ -732,6 +738,9 @@ class TopoRouter(TopoGear):
         Usage example: router.has_version('>', '1.0')
         """
         rversion = self.version_info()['version']
+        if rversion is None:
+            return False
+
         result = topotest.version_cmp(rversion, version)
         if cmpop == '>=':
             return result >= 0
