@@ -514,10 +514,7 @@ struct eigrp_fsm_action_message {
 	struct eigrp_neighbor_entry *entry;
 	struct eigrp_prefix_entry *prefix;
 	msg_data_t data_type; // internal or external tlv type
-	union {
-		struct TLV_IPv4_External_type *ipv4_ext_data;
-		struct TLV_IPv4_Internal_type *ipv4_int_type;
-	} data;
+	struct eigrp_metrics metrics;
 };
 
 #endif /* _ZEBRA_EIGRP_STRUCTURES_H_ */

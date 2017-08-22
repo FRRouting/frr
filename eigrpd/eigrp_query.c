@@ -133,7 +133,7 @@ void eigrp_query_receive(struct eigrp *eigrp, struct ip *iph,
 				msg.eigrp = eigrp;
 				msg.data_type = EIGRP_INT;
 				msg.adv_router = nbr;
-				msg.data.ipv4_int_type = tlv;
+				msg.metrics = tlv->metric;
 				msg.entry = entry;
 				msg.prefix = dest;
 				eigrp_fsm_event(&msg);

@@ -141,7 +141,7 @@ static void eigrp_update_receive_GR_ask(struct eigrp *eigrp,
 		fsm_msg.eigrp = eigrp;
 		fsm_msg.data_type = EIGRP_INT;
 		fsm_msg.adv_router = nbr;
-		fsm_msg.data.ipv4_int_type = tlv_max;
+		fsm_msg.metrics = tlv_max->metric;
 		fsm_msg.entry = entry;
 		fsm_msg.prefix = prefix;
 
@@ -317,7 +317,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 				msg.eigrp = eigrp;
 				msg.data_type = EIGRP_INT;
 				msg.adv_router = nbr;
-				msg.data.ipv4_int_type = tlv;
+				msg.metrics = tlv->metric;
 				msg.entry = entry;
 				msg.prefix = dest;
 				eigrp_fsm_event(&msg);
@@ -980,7 +980,7 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 			fsm_msg.eigrp = e;
 			fsm_msg.data_type = EIGRP_INT;
 			fsm_msg.adv_router = nbr;
-			fsm_msg.data.ipv4_int_type = tlv_max;
+			fsm_msg.metrics = tlv_max->metric;
 			fsm_msg.entry = entry;
 			fsm_msg.prefix = pe;
 

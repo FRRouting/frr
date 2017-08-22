@@ -380,50 +380,45 @@ enum metric_change eigrp_topology_update_distance(struct eigrp_fsm_action_messag
 	struct eigrp_prefix_entry *prefix = msg->prefix;
 	struct eigrp_neighbor_entry *entry = msg->entry;
 	enum metric_change change = METRIC_SAME;
+	u_int32_t new_reported_distance;
+
 	assert(entry);
 
-	struct TLV_IPv4_External_type *ext_data = NULL;
-	struct TLV_IPv4_Internal_type *int_data = NULL;
 	switch(msg->data_type) {
 	case EIGRP_CONNECTED:
+		if (prefix->nt == EIGRP_TOPOLOGY_TYPE_CONNECTED)
+			return change;
+
+		change = METRIC_DECREASE;
 		break;
 	case EIGRP_INT:
-		{
-			u_int32_t new_reported_distance;
-
-			int_data = msg->data.ipv4_int_type;
-			if (eigrp_metrics_is_same(int_data->metric,
-						  entry->reported_metric)) {
-				return change; // No change
-			}
-
-			new_reported_distance = eigrp_calculate_metrics(eigrp,
-									int_data->metric);
-
-			if (entry->reported_distance  < new_reported_distance)
-				change = METRIC_INCREASE;
-			else
-				change = METRIC_DECREASE;
-
-			entry->reported_metric = int_data->metric;
-			entry->reported_distance = new_reported_distance;
-			eigrp_calculate_metrics(eigrp, int_data->metric);
-			entry->distance = eigrp_calculate_total_metrics(eigrp, entry);
-			break;
+		if (eigrp_metrics_is_same(msg->metrics,
+					  entry->reported_metric)) {
+			return change; // No change
 		}
+
+		new_reported_distance = eigrp_calculate_metrics(eigrp,
+								msg->metrics);
+
+		if (entry->reported_distance  < new_reported_distance)
+			change = METRIC_INCREASE;
+		else
+			change = METRIC_DECREASE;
+
+		entry->reported_metric = msg->metrics;
+		entry->reported_distance = new_reported_distance;
+		eigrp_calculate_metrics(eigrp, msg->metrics);
+		entry->distance = eigrp_calculate_total_metrics(eigrp, entry);
+		break;
 	case EIGRP_EXT:
-		{
-			ext_data = msg->data.ipv4_ext_data;
-
-			if (prefix->nt == EIGRP_TOPOLOGY_TYPE_REMOTE_EXTERNAL) {
-				if (eigrp_metrics_is_same(ext_data->metric,
-							  entry->reported_metric))
-					return change;
-			} else
-				change = METRIC_INCREASE;
+		if (prefix->nt == EIGRP_TOPOLOGY_TYPE_REMOTE_EXTERNAL) {
+			if (eigrp_metrics_is_same(msg->metrics,
+						  entry->reported_metric))
+				return change;
+		} else
+			change = METRIC_INCREASE;
 
 			break;
-		}
 	default:
 		zlog_err("%s: Please implement handler", __PRETTY_FUNCTION__);
 		break;
@@ -511,7 +506,7 @@ void eigrp_topology_neighbor_down(struct eigrp *eigrp,
 				msg.eigrp = eigrp;
 				msg.data_type = EIGRP_INT;
 				msg.adv_router = nbr;
-				msg.data.ipv4_int_type = tlv;
+				msg.metrics = tlv->metric;
 				msg.entry = entry;
 				msg.prefix = prefix;
 				eigrp_fsm_event(&msg);
