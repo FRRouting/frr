@@ -240,8 +240,6 @@ AC_ARG_ENABLE(snmp,
   AS_HELP_STRING([--enable-snmp=ARG], [enable SNMP support (smux or agentx)]))
 AC_ARG_WITH(libpam,
   AS_HELP_STRING([--with-libpam], [use libpam for PAM support in vtysh]))
-AC_ARG_ENABLE(tcp-zebra,
-  AS_HELP_STRING([--enable-tcp-zebra], [enable TCP/IP socket connection between zebra and protocol daemon]))
 AC_ARG_ENABLE(ospfapi,
   AS_HELP_STRING([--disable-ospfapi], [do not build OSPFAPI to access the OSPF LSA Database]))
 AC_ARG_ENABLE(ospfclient,
@@ -425,10 +423,6 @@ AM_CONDITIONAL([HAVE_PROTOBUF], [test "x$have_protobuf" = "xyes"])
 #
 # End of logic for protobuf support.
 #
-
-if test "${enable_tcp_zebra}" = "yes"; then
-  AC_DEFINE(HAVE_TCP_ZEBRA,,Use TCP for zebra communication)
-fi
 
 if test "${enable_linux24_tcp_md5}" = "yes"; then
   AC_DEFINE(HAVE_TCP_MD5_LINUX24,,Old Linux 2.4 TCP MD5 Signature Patch)
@@ -1321,7 +1315,7 @@ fi
 dnl ------------------
 dnl check Net-SNMP library
 dnl ------------------
-if test "${enable_snmp}" != ""; then
+if test "${enable_snmp}" != "" -a "${enable_snmp}" != "no"; then
    AC_PATH_TOOL([NETSNMP_CONFIG], [net-snmp-config], [no])
    if test x"$NETSNMP_CONFIG" = x"no"; then
       AC_MSG_ERROR([--enable-snmp given but unable to find net-snmp-config])
