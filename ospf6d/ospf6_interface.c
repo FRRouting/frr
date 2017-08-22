@@ -1291,8 +1291,7 @@ DEFUN (ipv6_ospf6_hellointerval,
        IP6_STR
        OSPF6_STR
        "Time between HELLO packets\n"
-       SECONDS_STR
-       )
+       SECONDS_STR)
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_number = 3;
@@ -1304,9 +1303,20 @@ DEFUN (ipv6_ospf6_hellointerval,
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
 
-	oi->hello_interval = strtol(argv[idx_number]->arg, NULL, 10);
+	oi->hello_interval = strmatch(argv[0]->text, "no")
+				     ? OSPF_HELLO_INTERVAL_DEFAULT
+				     : strtoul(argv[idx_number]->arg, NULL, 10);
 	return CMD_SUCCESS;
 }
+
+ALIAS (ipv6_ospf6_hellointerval,
+       no_ipv6_ospf6_hellointerval_cmd,
+       "no ipv6 ospf6 hello-interval [(1-65535)]",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Time between HELLO packets\n"
+       SECONDS_STR)
 
 /* interface variable set command */
 DEFUN (ipv6_ospf6_deadinterval,
@@ -1315,8 +1325,7 @@ DEFUN (ipv6_ospf6_deadinterval,
        IP6_STR
        OSPF6_STR
        "Interval time after which a neighbor is declared down\n"
-       SECONDS_STR
-       )
+       SECONDS_STR)
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_number = 3;
@@ -1328,9 +1337,20 @@ DEFUN (ipv6_ospf6_deadinterval,
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
 
-	oi->dead_interval = strtol(argv[idx_number]->arg, NULL, 10);
+	oi->dead_interval = strmatch(argv[0]->arg, "no")
+				    ? OSPF_ROUTER_DEAD_INTERVAL_DEFAULT
+				    : strtoul(argv[idx_number]->arg, NULL, 10);
 	return CMD_SUCCESS;
 }
+
+ALIAS (ipv6_ospf6_deadinterval,
+       no_ipv6_ospf6_deadinterval_cmd,
+       "no ipv6 ospf6 dead-interval [(1-65535)]",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Interval time after which a neighbor is declared down\n"
+       SECONDS_STR)
 
 /* interface variable set command */
 DEFUN (ipv6_ospf6_transmitdelay,
@@ -1351,9 +1371,20 @@ DEFUN (ipv6_ospf6_transmitdelay,
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
 
-	oi->transdelay = strtol(argv[idx_number]->arg, NULL, 10);
+	oi->transdelay = strmatch(argv[0]->text, "no")
+				 ? OSPF6_INTERFACE_TRANSDELAY
+				 : strtoul(argv[idx_number]->arg, NULL, 10);
 	return CMD_SUCCESS;
 }
+
+ALIAS (ipv6_ospf6_transmitdelay,
+       no_ipv6_ospf6_transmitdelay_cmd,
+       "no ipv6 ospf6 transmit-delay [(1-3600)]",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Link state transmit delay\n"
+       SECONDS_STR)
 
 /* interface variable set command */
 DEFUN (ipv6_ospf6_retransmitinterval,
@@ -1362,8 +1393,7 @@ DEFUN (ipv6_ospf6_retransmitinterval,
        IP6_STR
        OSPF6_STR
        "Time between retransmitting lost link state advertisements\n"
-       SECONDS_STR
-       )
+       SECONDS_STR)
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_number = 3;
@@ -1375,9 +1405,20 @@ DEFUN (ipv6_ospf6_retransmitinterval,
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
 
-	oi->rxmt_interval = strtol(argv[idx_number]->arg, NULL, 10);
+	oi->rxmt_interval = strmatch(argv[0]->text, "no")
+				    ? OSPF_RETRANSMIT_INTERVAL_DEFAULT
+				    : strtoul(argv[idx_number]->arg, NULL, 10);
 	return CMD_SUCCESS;
 }
+
+ALIAS (ipv6_ospf6_retransmitinterval,
+       no_ipv6_ospf6_retransmitinterval_cmd,
+       "no ipv6 ospf6 retransmit-interval [(1-65535)]",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Time between retransmitting lost link state advertisements\n"
+       SECONDS_STR)
 
 /* interface variable set command */
 DEFUN (ipv6_ospf6_priority,
@@ -1386,8 +1427,7 @@ DEFUN (ipv6_ospf6_priority,
        IP6_STR
        OSPF6_STR
        "Router priority\n"
-       "Priority value\n"
-       )
+       "Priority value\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_number = 3;
@@ -1399,7 +1439,9 @@ DEFUN (ipv6_ospf6_priority,
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
 
-	oi->priority = strtol(argv[idx_number]->arg, NULL, 10);
+	oi->priority = strmatch(argv[0]->text, "no")
+			       ? OSPF6_INTERFACE_PRIORITY
+			       : strtoul(argv[idx_number]->arg, NULL, 10);
 
 	if (oi->area && (oi->state == OSPF6_INTERFACE_DROTHER
 			 || oi->state == OSPF6_INTERFACE_BDR
@@ -1409,14 +1451,22 @@ DEFUN (ipv6_ospf6_priority,
 	return CMD_SUCCESS;
 }
 
+ALIAS (ipv6_ospf6_priority,
+       no_ipv6_ospf6_priority_cmd,
+       "no ipv6 ospf6 priority [(0-255)]",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Router priority\n"
+       "Priority value\n")
+
 DEFUN (ipv6_ospf6_instance,
        ipv6_ospf6_instance_cmd,
        "ipv6 ospf6 instance-id (0-255)",
        IP6_STR
        OSPF6_STR
        "Instance ID for this interface\n"
-       "Instance ID value\n"
-       )
+       "Instance ID value\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_number = 3;
@@ -1428,9 +1478,20 @@ DEFUN (ipv6_ospf6_instance,
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
 
-	oi->instance_id = strtol(argv[idx_number]->arg, NULL, 10);
+	oi->instance_id = strmatch(argv[0]->text, "no")
+				  ? OSPF6_INTERFACE_INSTANCE_ID
+				  : strtoul(argv[idx_number]->arg, NULL, 10);
 	return CMD_SUCCESS;
 }
+
+ALIAS (ipv6_ospf6_instance,
+       no_ipv6_ospf6_instance_cmd,
+       "no ipv6 ospf6 instance-id [(0-255)]",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Instance ID for this interface\n"
+       "Instance ID value\n")
 
 DEFUN (ipv6_ospf6_passive,
        ipv6_ospf6_passive_cmd,
@@ -1575,13 +1636,13 @@ DEFUN (ipv6_ospf6_advertise_prefix_list,
 
 DEFUN (no_ipv6_ospf6_advertise_prefix_list,
        no_ipv6_ospf6_advertise_prefix_list_cmd,
-       "no ipv6 ospf6 advertise prefix-list",
+       "no ipv6 ospf6 advertise prefix-list [WORD]",
        NO_STR
        IP6_STR
        OSPF6_STR
        "Advertising options\n"
        "Filter prefix using prefix-list\n"
-       )
+       "Prefix list name\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi;
@@ -1592,10 +1653,8 @@ DEFUN (no_ipv6_ospf6_advertise_prefix_list,
 		oi = ospf6_interface_create(ifp);
 	assert(oi);
 
-	if (oi->plist_name) {
+	if (oi->plist_name)
 		XFREE(MTYPE_CFG_PLIST_NAME, oi->plist_name);
-		oi->plist_name = NULL;
-	}
 
 	ospf6_interface_connected_route_update(oi->interface);
 
@@ -1773,12 +1832,19 @@ void ospf6_interface_init(void)
 	install_element(INTERFACE_NODE, &no_ipv6_ospf6_cost_cmd);
 	install_element(INTERFACE_NODE, &ipv6_ospf6_ifmtu_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_ospf6_ifmtu_cmd);
+
 	install_element(INTERFACE_NODE, &ipv6_ospf6_deadinterval_cmd);
 	install_element(INTERFACE_NODE, &ipv6_ospf6_hellointerval_cmd);
 	install_element(INTERFACE_NODE, &ipv6_ospf6_priority_cmd);
 	install_element(INTERFACE_NODE, &ipv6_ospf6_retransmitinterval_cmd);
 	install_element(INTERFACE_NODE, &ipv6_ospf6_transmitdelay_cmd);
 	install_element(INTERFACE_NODE, &ipv6_ospf6_instance_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_ospf6_deadinterval_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_ospf6_hellointerval_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_ospf6_priority_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_ospf6_retransmitinterval_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_ospf6_transmitdelay_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_ospf6_instance_cmd);
 
 	install_element(INTERFACE_NODE, &ipv6_ospf6_passive_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_ospf6_passive_cmd);
