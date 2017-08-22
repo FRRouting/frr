@@ -357,3 +357,11 @@ void eigrp_nbr_hard_restart(struct eigrp_neighbor *nbr, struct vty *vty)
 	/* delete neighbor */
 	eigrp_nbr_delete(nbr);
 }
+
+int eigrp_nbr_split_horizon_check(struct eigrp_neighbor_entry *ne, struct eigrp_interface *ei)
+{
+	if (ne->distance == EIGRP_MAX_METRIC)
+		return 0;
+
+	return (ne->ei == ei);
+}

@@ -610,8 +610,7 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 
 	for (ALL_LIST_ELEMENTS(nbr->ei->eigrp->topology_table, node, nnode, pe)) {
 		for (ALL_LIST_ELEMENTS(pe->entries, node2, nnode2, te)) {
-			if ((te->ei == nbr->ei)
-			    && (te->prefix->nt == EIGRP_TOPOLOGY_TYPE_REMOTE))
+			if (eigrp_nbr_split_horizon_check(te, nbr->ei))
 				continue;
 
 			if ((length + 0x001D) > (u_int16_t)nbr->ei->ifp->mtu) {
@@ -701,8 +700,13 @@ void eigrp_update_send(struct eigrp_interface *ei)
 	has_tlv = 0;
 	for (ALL_LIST_ELEMENTS(ei->eigrp->topology_changes_internalIPV4, node,
 			       nnode, pe)) {
+		struct eigrp_neighbor_entry *ne;
 
 		if (!(pe->req_action & EIGRP_FSM_NEED_UPDATE))
+			continue;
+
+		ne = listnode_head(pe->entries);
+		if (eigrp_nbr_split_horizon_check(ne, ei))
 			continue;
 
 		if ((length + 0x001D) > (u_int16_t)ei->ifp->mtu) {
