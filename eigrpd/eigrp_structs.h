@@ -499,6 +499,11 @@ struct eigrp_neighbor_entry {
 };
 
 //---------------------------------------------------------------------------------------------------------------------------------------------
+typedef enum {
+	EIGRP_CONNECTED,
+	EIGRP_INT,
+	EIGRP_EXT,
+} msg_data_t;
 
 /* EIGRP Finite State Machine */
 
@@ -508,7 +513,7 @@ struct eigrp_fsm_action_message {
 	struct eigrp_neighbor *adv_router; // advertising neighbor
 	struct eigrp_neighbor_entry *entry;
 	struct eigrp_prefix_entry *prefix;
-	int data_type; // internal or external tlv type
+	msg_data_t data_type; // internal or external tlv type
 	union {
 		struct TLV_IPv4_External_type *ipv4_ext_data;
 		struct TLV_IPv4_Internal_type *ipv4_int_type;

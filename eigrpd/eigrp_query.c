@@ -131,7 +131,7 @@ void eigrp_query_receive(struct eigrp *eigrp, struct ip *iph,
 								  nbr);
 				msg.packet_type = EIGRP_OPC_QUERY;
 				msg.eigrp = eigrp;
-				msg.data_type = EIGRP_TLV_IPv4_INT;
+				msg.data_type = EIGRP_INT;
 				msg.adv_router = nbr;
 				msg.data.ipv4_int_type = tlv;
 				msg.entry = entry;

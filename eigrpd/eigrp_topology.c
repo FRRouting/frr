@@ -384,32 +384,45 @@ enum metric_change eigrp_topology_update_distance(struct eigrp_fsm_action_messag
 
 	struct TLV_IPv4_External_type *ext_data = NULL;
 	struct TLV_IPv4_Internal_type *int_data = NULL;
-	if (msg->data_type == EIGRP_TLV_IPv4_INT) {
-		u_int32_t new_reported_distance;
+	switch(msg->data_type) {
+	case EIGRP_CONNECTED:
+		break;
+	case EIGRP_INT:
+		{
+			u_int32_t new_reported_distance;
 
-		int_data = msg->data.ipv4_int_type;
-		if (eigrp_metrics_is_same(int_data->metric,
-					  entry->reported_metric)) {
-			return change; // No change
-		}
+			int_data = msg->data.ipv4_int_type;
+			if (eigrp_metrics_is_same(int_data->metric,
+						  entry->reported_metric)) {
+				return change; // No change
+			}
 
-		new_reported_distance = eigrp_calculate_metrics(eigrp,
-								int_data->metric);
+			new_reported_distance = eigrp_calculate_metrics(eigrp,
+									int_data->metric);
 
-		if (entry->reported_distance  < new_reported_distance)
-			change = METRIC_INCREASE;
-		else
-			change = METRIC_DECREASE;
+			if (entry->reported_distance  < new_reported_distance)
+				change = METRIC_INCREASE;
+			else
+				change = METRIC_DECREASE;
 
-		entry->reported_metric = int_data->metric;
-		entry->reported_distance = new_reported_distance;
+			entry->reported_metric = int_data->metric;
+			entry->reported_distance = new_reported_distance;
 			eigrp_calculate_metrics(eigrp, int_data->metric);
-		entry->distance = eigrp_calculate_total_metrics(eigrp, entry);
-	} else {
-		ext_data = msg->data.ipv4_ext_data;
-		if (eigrp_metrics_is_same(ext_data->metric,
-					  entry->reported_metric))
-			return change;
+			entry->distance = eigrp_calculate_total_metrics(eigrp, entry);
+			break;
+		}
+	case EIGRP_EXT:
+		{
+			ext_data = msg->data.ipv4_ext_data;
+			if (eigrp_metrics_is_same(ext_data->metric,
+						  entry->reported_metric))
+				return change;
+
+			break;
+		}
+	default:
+		zlog_err("%s: Please implement handler", __PRETTY_FUNCTION__);
+		break;
 	}
 	/*
 	 * Move to correct position in list according to new distance
@@ -492,7 +505,7 @@ void eigrp_topology_neighbor_down(struct eigrp *eigrp,
 				tlv->metric.delay = EIGRP_MAX_METRIC;
 				msg.packet_type = EIGRP_OPC_UPDATE;
 				msg.eigrp = eigrp;
-				msg.data_type = EIGRP_TLV_IPv4_INT;
+				msg.data_type = EIGRP_INT;
 				msg.adv_router = nbr;
 				msg.data.ipv4_int_type = tlv;
 				msg.entry = entry;
