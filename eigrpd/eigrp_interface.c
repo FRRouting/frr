@@ -315,9 +315,7 @@ int eigrp_if_up(struct eigrp_interface *ei)
 	eigrp_neighbor_entry_add(pe, ne);
 
 	for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei2)) {
-		if (ei2->nbrs->count != 0) {
-			eigrp_update_send(ei2);
-		}
+		eigrp_update_send(ei2);
 	}
 
 	pe->req_action &= ~EIGRP_FSM_NEED_UPDATE;
