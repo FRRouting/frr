@@ -178,7 +178,7 @@ struct {
  * Return number of occurred event (arrow in diagram).
  *
  */
-int eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
+static int eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 {
 	// Loading base information from message
 	// struct eigrp *eigrp = msg->eigrp;
@@ -328,8 +328,9 @@ int eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
  * Function made to execute in separate thread.
  * Load argument from thread and execute proper NSM function
  */
-int eigrp_fsm_event(struct eigrp_fsm_action_message *msg, int event)
+int eigrp_fsm_event(struct eigrp_fsm_action_message *msg)
 {
+	int event = eigrp_get_fsm_event(msg);
 	zlog_info("EIGRP AS: %d State: %d  Event: %d Network: %s",
 		  msg->eigrp->AS, msg->prefix->state, event,
 		  eigrp_topology_ip_string(msg->prefix));

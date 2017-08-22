@@ -497,8 +497,7 @@ void eigrp_topology_neighbor_down(struct eigrp *eigrp,
 				msg.data.ipv4_int_type = tlv;
 				msg.entry = entry;
 				msg.prefix = prefix;
-				int event = eigrp_get_fsm_event(&msg);
-				eigrp_fsm_event(&msg, event);
+				eigrp_fsm_event(&msg);
 			}
 		}
 	}

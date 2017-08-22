@@ -146,8 +146,7 @@ static void eigrp_update_receive_GR_ask(struct eigrp *eigrp,
 		fsm_msg.prefix = prefix;
 
 		/* send message to FSM */
-		int event = eigrp_get_fsm_event(&fsm_msg);
-		eigrp_fsm_event(&fsm_msg, event);
+		eigrp_fsm_event(&fsm_msg);
 
 		/* free memory used by TLV */
 		eigrp_IPv4_InternalTLV_free(tlv_max);
@@ -321,8 +320,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 				msg.data.ipv4_int_type = tlv;
 				msg.entry = entry;
 				msg.prefix = dest;
-				int event = eigrp_get_fsm_event(&msg);
-				eigrp_fsm_event(&msg, event);
+				eigrp_fsm_event(&msg);
 			} else {
 				/*Here comes topology information save*/
 				pe = eigrp_prefix_entry_new();
@@ -987,8 +985,7 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 			fsm_msg.prefix = pe;
 
 			/* send message to FSM */
-			int event = eigrp_get_fsm_event(&fsm_msg);
-			eigrp_fsm_event(&fsm_msg, event);
+			eigrp_fsm_event(&fsm_msg);
 
 			/* free memory used by TLV */
 			eigrp_IPv4_InternalTLV_free(tlv_max);
