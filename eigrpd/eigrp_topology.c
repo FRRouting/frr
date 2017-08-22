@@ -486,22 +486,19 @@ void eigrp_topology_neighbor_down(struct eigrp *eigrp,
 	for (ALL_LIST_ELEMENTS(eigrp->topology_table, node1, node11, prefix)) {
 		for (ALL_LIST_ELEMENTS(prefix->entries, node2, node22, entry)) {
 			if (entry->adv_router == nbr) {
-				struct eigrp_fsm_action_message *msg;
-				msg = XCALLOC(MTYPE_EIGRP_FSM_MSG,
-					      sizeof(struct
-						     eigrp_fsm_action_message));
+				struct eigrp_fsm_action_message msg;
 				struct TLV_IPv4_Internal_type *tlv =
 					eigrp_IPv4_InternalTLV_new();
 				tlv->metric.delay = EIGRP_MAX_METRIC;
-				msg->packet_type = EIGRP_OPC_UPDATE;
-				msg->eigrp = eigrp;
-				msg->data_type = EIGRP_TLV_IPv4_INT;
-				msg->adv_router = nbr;
-				msg->data.ipv4_int_type = tlv;
-				msg->entry = entry;
-				msg->prefix = prefix;
-				int event = eigrp_get_fsm_event(msg);
-				eigrp_fsm_event(msg, event);
+				msg.packet_type = EIGRP_OPC_UPDATE;
+				msg.eigrp = eigrp;
+				msg.data_type = EIGRP_TLV_IPv4_INT;
+				msg.adv_router = nbr;
+				msg.data.ipv4_int_type = tlv;
+				msg.entry = entry;
+				msg.prefix = prefix;
+				int event = eigrp_get_fsm_event(&msg);
+				eigrp_fsm_event(&msg, event);
 			}
 		}
 	}

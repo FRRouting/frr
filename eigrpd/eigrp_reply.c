@@ -196,9 +196,7 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 			 */
 			assert(dest);
 
-			struct eigrp_fsm_action_message *msg;
-			msg = XCALLOC(MTYPE_EIGRP_FSM_MSG,
-				      sizeof(struct eigrp_fsm_action_message));
+			struct eigrp_fsm_action_message msg;
 			struct eigrp_neighbor_entry *entry =
 				eigrp_prefix_entry_lookup(dest->entries, nbr);
 
@@ -237,15 +235,15 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 			 * End of filtering
 			 */
 
-			msg->packet_type = EIGRP_OPC_REPLY;
-			msg->eigrp = eigrp;
-			msg->data_type = EIGRP_TLV_IPv4_INT;
-			msg->adv_router = nbr;
-			msg->data.ipv4_int_type = tlv;
-			msg->entry = entry;
-			msg->prefix = dest;
-			int event = eigrp_get_fsm_event(msg);
-			eigrp_fsm_event(msg, event);
+			msg.packet_type = EIGRP_OPC_REPLY;
+			msg.eigrp = eigrp;
+			msg.data_type = EIGRP_TLV_IPv4_INT;
+			msg.adv_router = nbr;
+			msg.data.ipv4_int_type = tlv;
+			msg.entry = entry;
+			msg.prefix = dest;
+			int event = eigrp_get_fsm_event(&msg);
+			eigrp_fsm_event(&msg, event);
 
 
 			eigrp_IPv4_InternalTLV_free(tlv);
