@@ -414,9 +414,13 @@ enum metric_change eigrp_topology_update_distance(struct eigrp_fsm_action_messag
 	case EIGRP_EXT:
 		{
 			ext_data = msg->data.ipv4_ext_data;
-			if (eigrp_metrics_is_same(ext_data->metric,
-						  entry->reported_metric))
-				return change;
+
+			if (prefix->nt == EIGRP_TOPOLOGY_TYPE_REMOTE_EXTERNAL) {
+				if (eigrp_metrics_is_same(ext_data->metric,
+							  entry->reported_metric))
+					return change;
+			} else
+				change = METRIC_INCREASE;
 
 			break;
 		}
