@@ -159,6 +159,8 @@ int main(int argc, char **argv, char **envp)
 		}
 	}
 
+	eigrp_sw_version_initialize();
+
 	/* EIGRP master init. */
 	eigrp_master_init();
 	eigrp_om->master = frr_init();

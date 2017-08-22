@@ -71,6 +71,7 @@ extern int eigrp_unack_multicast_packet_retrans(struct thread *);
  * untill there is reason to have their own header, these externs are found in
  * eigrp_hello.c
  */
+extern void eigrp_sw_version_initialize(void);
 extern void eigrp_hello_send(struct eigrp_interface *, u_char,
 			     struct in_addr *);
 extern void eigrp_hello_send_ack(struct eigrp_neighbor *);
