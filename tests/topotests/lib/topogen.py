@@ -109,7 +109,8 @@ class Topogen(object):
         self.routern = 1
         self.switchn = 1
         self.modname = modname
-        self.errors = {}
+        self.errorsd = {}
+        self.errors = ''
         self.peern = 1
         self._init_topo(cls)
         logger.info('loading topology: {}'.format(self.modname))
@@ -357,13 +358,14 @@ class Topogen(object):
 
         # If no code is defined use a sequential number
         if code is None:
-            code = len(self.errors)
+            code = len(self.errorsd)
 
-        self.errors[code] = message
+        self.errorsd[code] = message
+        self.errors += '\n{}: {}'.format(code, message)
 
     def has_errors(self):
         "Returns whether errors exist or not."
-        return len(self.errors) > 0
+        return len(self.errorsd) > 0
 
     def routers_have_failure(self):
         "Runs an assertion to make sure that all routers are running."
