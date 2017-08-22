@@ -8020,7 +8020,8 @@ static int bgp_show_community_list(struct vty *vty, struct bgp *bgp,
 static int bgp_show_prefix_longer(struct vty *vty, struct bgp *bgp,
 				  const char *prefix, afi_t afi, safi_t safi,
 				  enum bgp_show_type type);
-static int bgp_show_regexp(struct vty *vty, const char *regstr, afi_t afi,
+static int bgp_show_regexp(struct vty *vty, struct bgp *bgp,
+			   const char *regstr, afi_t afi,
 			   safi_t safi, enum bgp_show_type type);
 static int bgp_show_community(struct vty *vty, struct bgp *bgp, int argc,
 			      struct cmd_token **argv, int exact, afi_t afi,
@@ -9109,7 +9110,7 @@ DEFUN (show_ip_bgp_regexp,
 	idx++;
 
 	char *regstr = argv_concat(argv, argc, idx);
-	int rc = bgp_show_regexp(vty, (const char *)regstr, afi, safi,
+	int rc = bgp_show_regexp(vty, bgp, (const char *)regstr, afi, safi,
 				 bgp_show_type_regexp);
 	XFREE(MTYPE_TMP, regstr);
 	return rc;
@@ -9144,7 +9145,8 @@ DEFUN (show_ip_bgp_instance_all,
 	return CMD_SUCCESS;
 }
 
-static int bgp_show_regexp(struct vty *vty, const char *regstr, afi_t afi,
+static int bgp_show_regexp(struct vty *vty, struct bgp *bgp,
+			   const char *regstr, afi_t afi,
 			   safi_t safi, enum bgp_show_type type)
 {
 	regex_t *regex;
@@ -9156,7 +9158,7 @@ static int bgp_show_regexp(struct vty *vty, const char *regstr, afi_t afi,
 		return CMD_WARNING;
 	}
 
-	rc = bgp_show(vty, NULL, afi, safi, type, regex, 0);
+	rc = bgp_show(vty, bgp, afi, safi, type, regex, 0);
 	bgp_regex_free(regex);
 	return rc;
 }
