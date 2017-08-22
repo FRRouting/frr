@@ -146,7 +146,7 @@ def setup_module(mod):
     tgen.start_router()
     for router in router_list.values():
         if router.has_version('<', '3'):
-            pytest.exit('unsupported version')
+            tgen.set_error('unsupported version')
 
 def teardown_module(mod):
     "Teardown the pytest environment"
