@@ -1171,8 +1171,7 @@ DEFUN (ipv6_ospf6_cost,
        IP6_STR
        OSPF6_STR
        "Interface cost\n"
-       "Outgoing metric of this interface\n"
-       )
+       "Outgoing metric of this interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_number = 3;
@@ -1206,12 +1205,12 @@ DEFUN (ipv6_ospf6_cost,
 
 DEFUN (no_ipv6_ospf6_cost,
        no_ipv6_ospf6_cost_cmd,
-       "no ipv6 ospf6 cost",
+       "no ipv6 ospf6 cost [(1-65535)]",
        NO_STR
        IP6_STR
        OSPF6_STR
        "Calculate interface cost from bandwidth\n"
-       )
+       "Outgoing metric of this interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi;
@@ -1654,11 +1653,13 @@ DEFUN (ipv6_ospf6_network,
 
 DEFUN (no_ipv6_ospf6_network,
        no_ipv6_ospf6_network_cmd,
-       "no ipv6 ospf6 network",
+       "no ipv6 ospf6 network [<broadcast|point-to-point>]",
        NO_STR
        IP6_STR
        OSPF6_STR
-       "Set default network type\n")
+       "Set default network type\n"
+       "Specify OSPF6 broadcast network\n"
+       "Specify OSPF6 point-to-point network\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct ospf6_interface *oi;
