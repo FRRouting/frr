@@ -112,7 +112,7 @@ static void eigrp_update_receive_GR_ask(struct eigrp *eigrp,
 {
 	struct listnode *node1;
 	struct eigrp_prefix_entry *prefix;
-	struct TLV_IPv4_Internal_type *tlv_max;
+	struct eigrp_fsm_action_message fsm_msg;
 
 	/* iterate over all prefixes which weren't advertised by neighbor */
 	for (ALL_LIST_ELEMENTS_RO(nbr_prefixes, node1, prefix)) {
@@ -120,19 +120,9 @@ static void eigrp_update_receive_GR_ask(struct eigrp *eigrp,
 			   inet_ntoa(prefix->destination_ipv4->prefix),
 			   prefix->destination_ipv4->prefixlen);
 
-		/* create internal IPv4 TLV with infinite delay */
-		tlv_max = eigrp_IPv4_InternalTLV_new();
-		tlv_max->type = EIGRP_TLV_IPv4_INT;
-		tlv_max->length = 28U;
-		tlv_max->metric = prefix->reported_metric;
+		fsm_msg.metrics = prefix->reported_metric;
 		/* set delay to MAX */
-		tlv_max->metric.delay = EIGRP_MAX_METRIC;
-		tlv_max->destination = prefix->destination_ipv4->prefix;
-		tlv_max->prefix_length = prefix->destination_ipv4->prefixlen;
-
-
-		/* prepare message for FSM */
-		struct eigrp_fsm_action_message fsm_msg;
+		fsm_msg.metrics.delay = EIGRP_MAX_METRIC;
 
 		struct eigrp_neighbor_entry *entry =
 			eigrp_prefix_entry_lookup(prefix->entries, nbr);
@@ -141,15 +131,11 @@ static void eigrp_update_receive_GR_ask(struct eigrp *eigrp,
 		fsm_msg.eigrp = eigrp;
 		fsm_msg.data_type = EIGRP_INT;
 		fsm_msg.adv_router = nbr;
-		fsm_msg.metrics = tlv_max->metric;
 		fsm_msg.entry = entry;
 		fsm_msg.prefix = prefix;
 
 		/* send message to FSM */
 		eigrp_fsm_event(&fsm_msg);
-
-		/* free memory used by TLV */
-		eigrp_IPv4_InternalTLV_free(tlv_max);
 	}
 }
 
@@ -845,7 +831,6 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 	struct list *prefixes;
 	u_int32_t flags;
 	unsigned int send_prefixes;
-	struct TLV_IPv4_Internal_type *tlv_max;
 
 	/* get prefixes to send to neighbor */
 	prefixes = nbr->nbr_gr_prefixes_send;
@@ -960,16 +945,6 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 			zlog_info("Filtered prefix %s will be removed.",
 				  inet_ntoa(dest_addr->prefix));
 
-			tlv_max = eigrp_IPv4_InternalTLV_new();
-			tlv_max->type = EIGRP_TLV_IPv4_INT;
-			tlv_max->length = 28U;
-			tlv_max->metric = pe->reported_metric;
-			/* set delay to MAX */
-			tlv_max->metric.delay = EIGRP_MAX_METRIC;
-			tlv_max->destination = pe->destination_ipv4->prefix;
-			tlv_max->prefix_length =
-				pe->destination_ipv4->prefixlen;
-
 			/* prepare message for FSM */
 			struct eigrp_fsm_action_message fsm_msg;
 
@@ -980,15 +955,14 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 			fsm_msg.eigrp = e;
 			fsm_msg.data_type = EIGRP_INT;
 			fsm_msg.adv_router = nbr;
-			fsm_msg.metrics = tlv_max->metric;
+			fsm_msg.metrics = pe->reported_metric;
+			/* Set delay to MAX */
+			fsm_msg.metrics.delay = EIGRP_MAX_METRIC;
 			fsm_msg.entry = entry;
 			fsm_msg.prefix = pe;
 
 			/* send message to FSM */
 			eigrp_fsm_event(&fsm_msg);
-
-			/* free memory used by TLV */
-			eigrp_IPv4_InternalTLV_free(tlv_max);
 		}
 		/*
 		 * End of filtering
