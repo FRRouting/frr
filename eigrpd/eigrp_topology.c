@@ -196,8 +196,7 @@ void eigrp_neighbor_entry_add(struct eigrp_prefix_entry *node,
 		listnode_add_sort(node->entries, entry);
 		entry->prefix = node;
 
-		eigrp_zebra_route_add((struct prefix_ipv4 *)
-				      node->destination, l);
+		eigrp_zebra_route_add(node->destination, l);
 	}
 
 	list_delete(l);
@@ -222,8 +221,7 @@ void eigrp_prefix_entry_delete(struct list *topology,
 		list_free(node->entries);
 		list_free(node->rij);
 		listnode_delete(topology, node);
-		eigrp_zebra_route_delete((struct prefix_ipv4 *)
-					 node->destination);
+		eigrp_zebra_route_delete(node->destination);
 		XFREE(MTYPE_EIGRP_PREFIX_ENTRY, node);
 	}
 }
@@ -236,8 +234,7 @@ void eigrp_neighbor_entry_delete(struct eigrp_prefix_entry *node,
 {
 	if (listnode_lookup(node->entries, entry) != NULL) {
 		listnode_delete(node->entries, entry);
-		eigrp_zebra_route_delete((struct prefix_ipv4 *)
-					 node->destination);
+		eigrp_zebra_route_delete(node->destination);
 		XFREE(MTYPE_EIGRP_NEIGHBOR_ENTRY, entry);
 	}
 }
@@ -467,16 +464,14 @@ void eigrp_update_routing_table(struct eigrp_prefix_entry *prefix)
 	struct eigrp_neighbor_entry *entry;
 
 	if (successors) {
-		eigrp_zebra_route_add((struct prefix_ipv4 *)
-				      prefix->destination,
+		eigrp_zebra_route_add(prefix->destination,
 				      successors);
 		for (ALL_LIST_ELEMENTS_RO(successors, node, entry))
 			entry->flags |= EIGRP_NEIGHBOR_ENTRY_INTABLE_FLAG;
 
 		list_delete(successors);
 	} else {
-		eigrp_zebra_route_delete((struct prefix_ipv4 *)
-					 prefix->destination);
+		eigrp_zebra_route_delete(prefix->destination);
 		for (ALL_LIST_ELEMENTS_RO(prefix->entries, node, entry))
 			entry->flags &= ~EIGRP_NEIGHBOR_ENTRY_INTABLE_FLAG;
 	}

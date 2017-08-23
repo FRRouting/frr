@@ -361,7 +361,7 @@ static struct interface *zebra_interface_if_lookup(struct stream *s)
 		ifname_tmp, strnlen(ifname_tmp, INTERFACE_NAMSIZ), VRF_DEFAULT);
 }
 
-void eigrp_zebra_route_add(struct prefix_ipv4 *p, struct list *successors)
+void eigrp_zebra_route_add(struct prefix *p, struct list *successors)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -395,18 +395,16 @@ void eigrp_zebra_route_add(struct prefix_ipv4 *p, struct list *successors)
 	}
 
 	if (IS_DEBUG_EIGRP(zebra, ZEBRA_REDISTRIBUTE)) {
-		char buf[2][INET_ADDRSTRLEN];
-		zlog_debug(
-			"Zebra: Route add %s/%d nexthop %s",
-			inet_ntop(AF_INET, &p->prefix, buf[0], sizeof(buf[0])),
-			p->prefixlen, inet_ntop(AF_INET, 0 /*&p->nexthop*/,
-						buf[1], sizeof(buf[1])));
+		char buf[2][PREFIX_STRLEN];
+		zlog_debug("Zebra: Route add %s nexthop %s",
+			   prefix2str(p, buf[0], PREFIX_STRLEN),
+			   inet_ntop(AF_INET, 0, buf[1], PREFIX_STRLEN));
 	}
 
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 }
 
-void eigrp_zebra_route_delete(struct prefix_ipv4 *p)
+void eigrp_zebra_route_delete(struct prefix *p)
 {
 	struct zapi_route api;
 
@@ -421,10 +419,9 @@ void eigrp_zebra_route_delete(struct prefix_ipv4 *p)
 	zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
 
 	if (IS_DEBUG_EIGRP(zebra, ZEBRA_REDISTRIBUTE)) {
-		char buf[INET_ADDRSTRLEN];
-		zlog_debug("Zebra: Route del %s/%d",
-			   inet_ntop(AF_INET, &p->prefix, buf, sizeof(buf)),
-			   p->prefixlen);
+		char buf[PREFIX_STRLEN];
+		zlog_debug("Zebra: Route del %s",
+			   prefix2str(p, buf, PREFIX_STRLEN));
 	}
 
 	return;
