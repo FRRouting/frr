@@ -18,6 +18,7 @@
 #define _QUAGGA_MEMORY_H
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <frratomic.h>
 
 #define array_size(ar) (sizeof(ar) / sizeof(ar[0]))
@@ -194,7 +195,8 @@ static inline size_t mtype_stats_alloc(struct memtype *mt)
  * last value from qmem_walk_fn. */
 typedef int qmem_walk_fn(void *arg, struct memgroup *mg, struct memtype *mt);
 extern int qmem_walk(qmem_walk_fn *func, void *arg);
-extern void log_memstats_stderr(const char *);
+extern int log_memstats(FILE *fp, const char *);
+#define log_memstats_stderr(prefix) log_memstats(stderr, prefix)
 
 extern void memory_oom(size_t size, const char *name);
 

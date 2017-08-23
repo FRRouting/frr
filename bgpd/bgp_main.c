@@ -219,9 +219,6 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	memset(bm, 0, sizeof(*bm));
 
 	frr_fini();
-
-	if (bgp_debug_count())
-		log_memstats_stderr("bgpd");
 	exit(status);
 }
 
