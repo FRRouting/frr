@@ -369,7 +369,7 @@ extern struct interface *zebra_interface_vrf_update_read(struct stream *s,
 extern void zebra_interface_if_set_value(struct stream *, struct interface *);
 extern void zebra_router_id_update_read(struct stream *s, struct prefix *rid);
 extern int zapi_ipv4_route(u_char, struct zclient *, struct prefix_ipv4 *,
-			   struct zapi_ipv4 *);
+			   struct zapi_ipv4 *) __attribute__((deprecated));
 
 extern struct interface *zebra_interface_link_params_read(struct stream *);
 extern size_t zebra_interface_link_params_write(struct stream *,
@@ -420,10 +420,11 @@ struct zapi_ipv6 {
 
 extern int zapi_ipv6_route(u_char cmd, struct zclient *zclient,
 			   struct prefix_ipv6 *p, struct prefix_ipv6 *src_p,
-			   struct zapi_ipv6 *api);
+			   struct zapi_ipv6 *api) __attribute__((deprecated));
 extern int zapi_ipv4_route_ipv6_nexthop(u_char, struct zclient *,
 					struct prefix_ipv4 *,
-					struct zapi_ipv6 *);
+					struct zapi_ipv6 *)
+	__attribute__((deprecated));
 extern int zclient_route_send(u_char, struct zclient *, struct zapi_route *);
 extern int zapi_route_encode(u_char, struct stream *, struct zapi_route *);
 extern int zapi_route_decode(struct stream *, struct zapi_route *);
