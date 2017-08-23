@@ -242,7 +242,7 @@ int eigrp_network_set(struct eigrp *eigrp, struct prefix *p)
 		return 0;
 	}
 
-	struct prefix_ipv4 *pref = prefix_ipv4_new();
+	struct prefix *pref = prefix_new();
 	PREFIX_COPY_IPV4(pref, p);
 	rn->info = (void *)pref;
 
@@ -253,7 +253,7 @@ int eigrp_network_set(struct eigrp *eigrp, struct prefix *p)
 	/* Get target interface. */
 	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
 		zlog_debug("Setting up %s", ifp->name);
-		eigrp_network_run_interface(eigrp, (struct prefix *)p, ifp);
+		eigrp_network_run_interface(eigrp, p, ifp);
 	}
 	return 1;
 }
