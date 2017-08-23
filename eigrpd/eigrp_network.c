@@ -229,7 +229,7 @@ int eigrp_if_drop_allspfrouters(struct eigrp *top, struct prefix *p,
 	return ret;
 }
 
-int eigrp_network_set(struct eigrp *eigrp, struct prefix_ipv4 *p)
+int eigrp_network_set(struct eigrp *eigrp, struct prefix *p)
 {
 	struct route_node *rn;
 	struct interface *ifp;
@@ -334,21 +334,21 @@ void eigrp_if_update(struct interface *ifp)
 	}
 }
 
-int eigrp_network_unset(struct eigrp *eigrp, struct prefix_ipv4 *p)
+int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p)
 {
 	struct route_node *rn;
 	struct listnode *node, *nnode;
 	struct eigrp_interface *ei;
 	struct prefix *pref;
 
-	rn = route_node_lookup(eigrp->networks, (struct prefix *)p);
+	rn = route_node_lookup(eigrp->networks, p);
 	if (rn == NULL)
 		return 0;
 
 	pref = rn->info;
 	route_unlock_node(rn);
 
-	if (!IPV4_ADDR_SAME(&pref->u.prefix4, &p->prefix))
+	if (!IPV4_ADDR_SAME(&pref->u.prefix4, &p->u.prefix4))
 		return 0;
 
 	prefix_ipv4_free(rn->info);
