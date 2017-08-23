@@ -641,7 +641,10 @@ static void frr_daemon_wait(int fd)
 		exit(0);
 
 	/* child failed one way or another ... */
-	if (WIFEXITED(exitstat))
+	if (WIFEXITED(exitstat) && WEXITSTATUS(exitstat) == 0)
+		/* can happen in --terminal case if exit is fast enough */
+		(void)0;
+	else if (WIFEXITED(exitstat))
 		fprintf(stderr, "%s failed to start, exited %d\n", di->name,
 			WEXITSTATUS(exitstat));
 	else if (WIFSIGNALED(exitstat))
