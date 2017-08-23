@@ -53,6 +53,7 @@
 #include "eigrpd/eigrp_network.h"
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_memory.h"
+#include "eigrpd/eigrp_fsm.h"
 
 static void eigrp_delete_from_if(struct interface *, struct eigrp_interface *);
 
@@ -279,6 +280,15 @@ int eigrp_if_up(struct eigrp_interface *ei)
 
 	/*Add connected entry to topology table*/
 
+	ne = eigrp_neighbor_entry_new();
+	ne->ei = ei;
+	ne->reported_metric = metric;
+	ne->total_metric = metric;
+	ne->distance = eigrp_calculate_metrics(eigrp, metric);
+	ne->reported_distance = 0;
+	ne->adv_router = eigrp->neighbor_self;
+	ne->flags = EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG;
+
 	struct prefix_ipv4 dest_addr;
 
 	dest_addr.family = AF_INET;
@@ -297,29 +307,36 @@ int eigrp_if_up(struct eigrp_interface *ei)
 		pe->af = AF_INET;
 		pe->nt = EIGRP_TOPOLOGY_TYPE_CONNECTED;
 
+		ne->prefix = pe;
 		pe->state = EIGRP_FSM_STATE_PASSIVE;
 		pe->fdistance = eigrp_calculate_metrics(eigrp, metric);
 		pe->req_action |= EIGRP_FSM_NEED_UPDATE;
 		eigrp_prefix_entry_add(eigrp->topology_table, pe);
 		listnode_add(eigrp->topology_changes_internalIPV4, pe);
-	}
-	ne = eigrp_neighbor_entry_new();
-	ne->ei = ei;
-	ne->reported_metric = metric;
-	ne->total_metric = metric;
-	ne->distance = eigrp_calculate_metrics(eigrp, metric);
-	ne->reported_distance = 0;
-	ne->prefix = pe;
-	ne->adv_router = eigrp->neighbor_self;
-	ne->flags = EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG;
-	eigrp_neighbor_entry_add(pe, ne);
 
-	for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei2)) {
-		eigrp_update_send(ei2);
-	}
+		eigrp_neighbor_entry_add(pe, ne);
 
-	pe->req_action &= ~EIGRP_FSM_NEED_UPDATE;
-	listnode_delete(eigrp->topology_changes_internalIPV4, pe);
+		for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei2)) {
+			eigrp_update_send(ei2);
+		}
+
+		pe->req_action &= ~EIGRP_FSM_NEED_UPDATE;
+		listnode_delete(eigrp->topology_changes_internalIPV4, pe);
+	} else {
+		struct eigrp_fsm_action_message msg;
+
+		ne->prefix = pe;
+		eigrp_neighbor_entry_add(pe, ne);
+
+		msg.packet_type = EIGRP_OPC_UPDATE;
+		msg.eigrp = eigrp;
+		msg.data_type = EIGRP_CONNECTED;
+		msg.adv_router = NULL;
+		msg.entry = ne;
+		msg.prefix = pe;
+
+		eigrp_fsm_event(&msg);
+	}
 
 	return 1;
 }
