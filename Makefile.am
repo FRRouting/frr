@@ -5,7 +5,7 @@ include common.am
 
 AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir) -I$(top_builddir)/lib
 AM_CFLAGS = $(WERROR)
-DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
+DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\" -DCONFDATE=$(CONFDATE)
 LIBCAP = @LIBCAP@
 
 EXTRA_DIST =
