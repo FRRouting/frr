@@ -91,7 +91,7 @@ void eigrp_query_receive(struct eigrp *eigrp, struct ip *iph,
 {
 	struct eigrp_neighbor *nbr;
 	struct TLV_IPv4_Internal_type *tlv;
-	struct prefix_ipv4 dest_addr;
+	struct prefix dest_addr;
 
 	u_int16_t type;
 	u_int16_t length;
@@ -116,7 +116,7 @@ void eigrp_query_receive(struct eigrp *eigrp, struct ip *iph,
 			tlv = eigrp_read_ipv4_tlv(s);
 
 			dest_addr.family = AF_INET;
-			dest_addr.prefix = tlv->destination;
+			dest_addr.u.prefix4 = tlv->destination;
 			dest_addr.prefixlen = tlv->prefix_length;
 			struct eigrp_prefix_entry *dest =
 				eigrp_topology_table_lookup_ipv4(

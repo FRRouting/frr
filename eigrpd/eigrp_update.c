@@ -157,7 +157,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 	u_char same;
 	struct access_list *alist;
 	struct prefix_list *plist;
-	struct prefix_ipv4 dest_addr;
+	struct prefix dest_addr;
 	struct eigrp *e;
 	u_char graceful_restart;
 	u_char graceful_restart_final;
@@ -281,7 +281,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 
 			/*searching if destination exists */
 			dest_addr.family = AF_INET;
-			dest_addr.prefix = tlv->destination;
+			dest_addr.u.prefix4 = tlv->destination;
 			dest_addr.prefixlen = tlv->prefix_length;
 			struct eigrp_prefix_entry *dest =
 				eigrp_topology_table_lookup_ipv4(
@@ -314,7 +314,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 				pe->serno = eigrp->serno;
 				pe->destination = (struct prefix *)prefix_ipv4_new();
 				prefix_copy(pe->destination,
-					(struct prefix *)&dest_addr);
+					    &dest_addr);
 				pe->af = AF_INET;
 				pe->state = EIGRP_FSM_STATE_PASSIVE;
 				pe->nt = EIGRP_TOPOLOGY_TYPE_REMOTE;
@@ -338,9 +338,8 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 
 				/* Check if access-list fits */
 				if (alist
-				    && access_list_apply(
-					       alist,
-					       (struct prefix *)&dest_addr)
+				    && access_list_apply(alist,
+							 &dest_addr)
 					       == FILTER_DENY) {
 					/* If yes, set reported metric to Max */
 					ne->reported_metric.delay =
@@ -355,9 +354,8 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 
 				/* Check if prefix-list fits */
 				if (plist
-				    && prefix_list_apply(
-					       plist,
-					       (struct prefix *)&dest_addr)
+				    && prefix_list_apply(plist,
+							 &dest_addr)
 					       == PREFIX_DENY) {
 					/* If yes, set reported metric to Max */
 					ne->reported_metric.delay =
@@ -369,9 +367,8 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 
 				/* Check if access-list fits */
 				if (alist
-				    && access_list_apply(
-					       alist,
-					       (struct prefix *)&dest_addr)
+				    && access_list_apply(alist,
+							 &dest_addr)
 					       == FILTER_DENY) {
 					/* If yes, set reported metric to Max */
 					ne->reported_metric.delay =
@@ -382,9 +379,8 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 
 				/* Check if prefix-list fits */
 				if (plist
-				    && prefix_list_apply(
-					       plist,
-					       (struct prefix *)&dest_addr)
+				    && prefix_list_apply(plist,
+							 &dest_addr)
 					       == PREFIX_DENY) {
 					/* If yes, set reported metric to Max */
 					ne->reported_metric.delay =
@@ -626,13 +622,13 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 			/* Check if any list fits */
 			if ((alist
 			     && access_list_apply (alist,
-						   (struct prefix *) dest_addr) == FILTER_DENY)||
+						   dest_addr) == FILTER_DENY)||
 			    (plist && prefix_list_apply (plist,
-							 (struct prefix *) dest_addr) == PREFIX_DENY)||
+							 dest_addr) == PREFIX_DENY)||
 			    (alist_i && access_list_apply (alist_i,
-							   (struct prefix *) dest_addr) == FILTER_DENY)||
+							   dest_addr) == FILTER_DENY)||
 			    (plist_i && prefix_list_apply (plist_i,
-							   (struct prefix *) dest_addr) == PREFIX_DENY)) {
+							   dest_addr) == PREFIX_DENY)) {
 				//pe->reported_metric.delay = EIGRP_MAX_METRIC;
 				continue;
 			} else {
@@ -730,19 +726,19 @@ void eigrp_update_send(struct eigrp_interface *ei)
 		/* Check if any list fits */
 		if ((alist
 		     && access_list_apply(alist,
-					  (struct prefix *)dest_addr)
+					  dest_addr)
 		     == FILTER_DENY)
 		    || (plist
 			&& prefix_list_apply(plist,
-					     (struct prefix *)dest_addr)
+					     dest_addr)
 			== PREFIX_DENY)
 		    || (alist_i
 			&& access_list_apply(alist_i,
-					     (struct prefix *)dest_addr)
+					     dest_addr)
 			== FILTER_DENY)
 		    || (plist_i
 			&& prefix_list_apply(plist_i,
-					     (struct prefix *)dest_addr)
+					     dest_addr)
 			== PREFIX_DENY)) {
 			// pe->reported_metric.delay = EIGRP_MAX_METRIC;
 			continue;

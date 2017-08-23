@@ -261,13 +261,12 @@ unsigned int eigrp_topology_table_isempty(struct list *topology)
 
 struct eigrp_prefix_entry *
 eigrp_topology_table_lookup_ipv4(struct list *topology_table,
-				 struct prefix_ipv4 *address)
+				 struct prefix *address)
 {
 	struct eigrp_prefix_entry *data;
 	struct listnode *node;
 	for (ALL_LIST_ELEMENTS_RO(topology_table, node, data)) {
-		if (prefix_same(data->destination,
-				(struct prefix *)address))
+		if (prefix_same(data->destination, address))
 			return data;
 	}
 
