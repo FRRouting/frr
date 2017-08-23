@@ -171,6 +171,7 @@ static void ospf_add_to_if(struct interface *ifp, struct ospf_interface *oi)
 
 	p = *oi->address;
 	p.prefixlen = IPV4_MAX_PREFIXLEN;
+	apply_mask(&p);
 
 	rn = route_node_get(IF_OIFS(ifp), &p);
 	/* rn->info should either be NULL or equal to this oi
@@ -562,6 +563,7 @@ struct ospf_if_params *ospf_get_if_params(struct interface *ifp,
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_PREFIXLEN;
 	p.prefix = addr;
+	apply_mask_ipv4(&p);
 
 	rn = route_node_get(IF_OIFS_PARAMS(ifp), (struct prefix *)&p);
 
