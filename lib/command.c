@@ -360,21 +360,23 @@ void install_element(enum node_type ntype, struct cmd_element *cmd)
 		return;
 	}
 
-	cnode = vector_slot(cmdvec, ntype);
+	cnode = vector_lookup(cmdvec, ntype);
 
 	if (cnode == NULL) {
 		fprintf(stderr,
-			"Command node %d doesn't exist, please check it\n",
-			ntype);
-		fprintf(stderr,
-			"Have you called install_node before this install_element?\n");
+			"%s[%s]:\n"
+			"\tnode %d (%s) does not exist.\n"
+			"\tplease call install_node() before install_element()\n",
+			cmd->name, cmd->string, ntype, node_names[ntype]);
 		exit(EXIT_FAILURE);
 	}
 
 	if (hash_lookup(cnode->cmd_hash, cmd) != NULL) {
 		fprintf(stderr,
-			"Multiple command installs to node %d of command:\n%s\n",
-			ntype, cmd->string);
+			"%s[%s]:\n"
+			"\tnode %d (%s) already has this command installed.\n"
+			"\tduplicate install_element call?\n",
+			cmd->name, cmd->string, ntype, node_names[ntype]);
 		return;
 	}
 
@@ -407,21 +409,23 @@ void uninstall_element(enum node_type ntype, struct cmd_element *cmd)
 		return;
 	}
 
-	cnode = vector_slot(cmdvec, ntype);
+	cnode = vector_lookup(cmdvec, ntype);
 
 	if (cnode == NULL) {
 		fprintf(stderr,
-			"Command node %d doesn't exist, please check it\n",
-			ntype);
-		fprintf(stderr,
-			"Have you called install_node before this install_element?\n");
+			"%s[%s]:\n"
+			"\tnode %d (%s) does not exist.\n"
+			"\tplease call install_node() before uninstall_element()\n",
+			cmd->name, cmd->string, ntype, node_names[ntype]);
 		exit(EXIT_FAILURE);
 	}
 
 	if (hash_release(cnode->cmd_hash, cmd) == NULL) {
 		fprintf(stderr,
-			"Trying to uninstall non-installed command (node %d):\n%s\n",
-			ntype, cmd->string);
+			"%s[%s]:\n"
+			"\tnode %d (%s) does not have this command installed.\n"
+			"\tduplicate uninstall_element call?\n",
+			cmd->name, cmd->string, ntype, node_names[ntype]);
 		return;
 	}
 
