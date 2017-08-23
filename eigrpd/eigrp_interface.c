@@ -225,14 +225,14 @@ void eigrp_del_if_params(struct eigrp_if_params *eip)
 struct eigrp_if_params *eigrp_lookup_if_params(struct interface *ifp,
 					       struct in_addr addr)
 {
-	struct prefix_ipv4 p;
+	struct prefix p;
 	struct route_node *rn;
 
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_PREFIXLEN;
-	p.prefix = addr;
+	p.u.prefix4 = addr;
 
-	rn = route_node_lookup(IF_OIFS_PARAMS(ifp), (struct prefix *)&p);
+	rn = route_node_lookup(IF_OIFS_PARAMS(ifp), &p);
 
 	if (rn) {
 		route_unlock_node(rn);
@@ -544,11 +544,11 @@ struct eigrp_interface *eigrp_if_lookup_recv_if(struct eigrp *eigrp,
 						struct interface *ifp)
 {
 	struct route_node *rn;
-	struct prefix_ipv4 addr;
+	struct prefix addr;
 	struct eigrp_interface *ei, *match;
 
 	addr.family = AF_INET;
-	addr.prefix = src;
+	addr.u.prefix4 = src;
 	addr.prefixlen = IPV4_MAX_BITLEN;
 
 	match = NULL;
@@ -563,7 +563,7 @@ struct eigrp_interface *eigrp_if_lookup_recv_if(struct eigrp *eigrp,
 			continue;
 
 		if (prefix_match(CONNECTED_PREFIX(ei->connected),
-				 (struct prefix *)&addr)) {
+				 &addr)) {
 			if ((match == NULL) || (match->address->prefixlen
 						< ei->address->prefixlen))
 				match = ei;
