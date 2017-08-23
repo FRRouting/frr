@@ -1589,8 +1589,10 @@ static int fpm_remote_srv_write(struct vty *vty)
 
 	in.s_addr = zfpm_g->fpm_server;
 
-	if (zfpm_g->fpm_server != FPM_DEFAULT_IP
-	    || zfpm_g->fpm_port != FPM_DEFAULT_PORT)
+	if ((zfpm_g->fpm_server != FPM_DEFAULT_IP
+		&& zfpm_g->fpm_server != INADDR_ANY)
+	    || (zfpm_g->fpm_port != FPM_DEFAULT_PORT
+		&& zfpm_g->fpm_port != 0))
 		vty_out(vty, "fpm connection ip %s port %d\n", inet_ntoa(in),
 			zfpm_g->fpm_port);
 
