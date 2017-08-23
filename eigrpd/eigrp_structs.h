@@ -469,10 +469,7 @@ struct eigrp_prefix_entry {
 	u_char af;	 // address family
 	u_char req_action; // required action
 
-	struct prefix_ipv4
-		*destination_ipv4; // pointer to struct with ipv4 address
-	struct prefix_ipv6
-		*destination_ipv6; // pointer to struct with ipv6 address
+	struct prefix *destination;
 
 	// If network type is REMOTE_EXTERNAL, pointer will have reference to
 	// its external TLV

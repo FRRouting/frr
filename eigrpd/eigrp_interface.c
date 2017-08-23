@@ -289,21 +289,20 @@ int eigrp_if_up(struct eigrp_interface *ei)
 	ne->adv_router = eigrp->neighbor_self;
 	ne->flags = EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG;
 
-	struct prefix_ipv4 dest_addr;
+	struct prefix dest_addr;
 
 	dest_addr.family = AF_INET;
-	dest_addr.prefix = ei->connected->address->u.prefix4;
+	dest_addr.u.prefix4 = ei->connected->address->u.prefix4;
 	dest_addr.prefixlen = ei->connected->address->prefixlen;
-	apply_mask_ipv4(&dest_addr);
+	apply_mask(&dest_addr);
 	pe = eigrp_topology_table_lookup_ipv4(eigrp->topology_table,
-					      &dest_addr);
+					      (struct prefix_ipv4 *)&dest_addr);
 
 	if (pe == NULL) {
 		pe = eigrp_prefix_entry_new();
 		pe->serno = eigrp->serno;
-		pe->destination_ipv4 = prefix_ipv4_new();
-		prefix_copy((struct prefix *)pe->destination_ipv4,
-			    (struct prefix *)&dest_addr);
+		pe->destination = (struct prefix *)prefix_ipv4_new();
+		prefix_copy(pe->destination, &dest_addr);
 		pe->af = AF_INET;
 		pe->nt = EIGRP_TOPOLOGY_TYPE_CONNECTED;
 

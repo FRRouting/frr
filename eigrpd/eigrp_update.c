@@ -116,9 +116,10 @@ static void eigrp_update_receive_GR_ask(struct eigrp *eigrp,
 
 	/* iterate over all prefixes which weren't advertised by neighbor */
 	for (ALL_LIST_ELEMENTS_RO(nbr_prefixes, node1, prefix)) {
-		zlog_debug("GR receive: Neighbor not advertised %s/%d",
-			   inet_ntoa(prefix->destination_ipv4->prefix),
-			   prefix->destination_ipv4->prefixlen);
+		char buffer[PREFIX_STRLEN];
+		zlog_debug("GR receive: Neighbor not advertised %s",
+			   prefix2str(prefix->destination,
+				      buffer, PREFIX_STRLEN));
 
 		fsm_msg.metrics = prefix->reported_metric;
 		/* set delay to MAX */
@@ -311,9 +312,8 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 				/*Here comes topology information save*/
 				pe = eigrp_prefix_entry_new();
 				pe->serno = eigrp->serno;
-				pe->destination_ipv4 = prefix_ipv4_new();
-				prefix_copy(
-					(struct prefix *)pe->destination_ipv4,
+				pe->destination = (struct prefix *)prefix_ipv4_new();
+				prefix_copy(pe->destination,
 					(struct prefix *)&dest_addr);
 				pe->af = AF_INET;
 				pe->state = EIGRP_FSM_STATE_PASSIVE;
@@ -571,7 +571,7 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 	struct access_list *alist_i;
 	struct prefix_list *plist_i;
 	struct eigrp *e;
-	struct prefix_ipv4 *dest_addr;
+	struct prefix *dest_addr;
 	u_int32_t seq_no = nbr->ei->eigrp->sequence_number;
 
 	ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
@@ -609,7 +609,7 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 				}
 			}
 			/* Get destination address from prefix */
-			dest_addr = pe->destination_ipv4;
+			dest_addr = pe->destination;
 
 			/*
 			 * Filtering
@@ -656,7 +656,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 	struct access_list *alist_i;
 	struct prefix_list *plist_i;
 	struct eigrp *e;
-	struct prefix_ipv4 *dest_addr;
+	struct prefix *dest_addr;
 	u_int32_t seq_no = ei->eigrp->sequence_number;
 
 	if (ei->nbrs->count == 0)
@@ -714,7 +714,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 			has_tlv = 0;
 		}
 		/* Get destination address from prefix */
-		dest_addr = pe->destination_ipv4;
+		dest_addr = pe->destination;
 
 		/*
 		 * Filtering
@@ -824,7 +824,7 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 	u_int16_t length = EIGRP_HEADER_LEN;
 	struct listnode *node, *nnode;
 	struct eigrp_prefix_entry *pe;
-	struct prefix_ipv4 *dest_addr;
+	struct prefix *dest_addr;
 	struct eigrp *e;
 	struct access_list *alist, *alist_i;
 	struct prefix_list *plist, *plist_i;
@@ -887,7 +887,7 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 		/*
 		 * Filtering
 		 */
-		dest_addr = pe->destination_ipv4;
+		dest_addr = pe->destination;
 		/* get list from eigrp process */
 		e = eigrp_lookup();
 		/* Get access-lists and prefix-lists from process and interface
@@ -899,22 +899,20 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 
 		/* Check if any list fits */
 		if ((alist
-		     && access_list_apply(alist, (struct prefix *)dest_addr)
+		     && access_list_apply(alist, dest_addr)
 				== FILTER_DENY)
 		    || (plist
-			&& prefix_list_apply(plist, (struct prefix *)dest_addr)
+			&& prefix_list_apply(plist, dest_addr)
 				   == PREFIX_DENY)
 		    || (alist_i
-			&& access_list_apply(alist_i,
-					     (struct prefix *)dest_addr)
+			&& access_list_apply(alist_i, dest_addr)
 				   == FILTER_DENY)
 		    || (plist_i
-			&& prefix_list_apply(plist_i,
-					     (struct prefix *)dest_addr)
+			&& prefix_list_apply(plist_i, dest_addr)
 				   == PREFIX_DENY)) {
 			/* do not send filtered route */
 			zlog_info("Filtered prefix %s won't be sent out.",
-				  inet_ntoa(dest_addr->prefix));
+				  inet_ntoa(dest_addr->u.prefix4));
 		} else {
 			/* sending route which wasn't filtered */
 			length += eigrp_add_internalTLV_to_stream(ep->s, pe);
@@ -928,22 +926,20 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 
 		/* Check if any list fits */
 		if ((alist
-		     && access_list_apply(alist, (struct prefix *)dest_addr)
+		     && access_list_apply(alist, dest_addr)
 				== FILTER_DENY)
 		    || (plist
-			&& prefix_list_apply(plist, (struct prefix *)dest_addr)
+			&& prefix_list_apply(plist, dest_addr)
 				   == PREFIX_DENY)
 		    || (alist_i
-			&& access_list_apply(alist_i,
-					     (struct prefix *)dest_addr)
+			&& access_list_apply(alist_i, dest_addr)
 				   == FILTER_DENY)
 		    || (plist_i
-			&& prefix_list_apply(plist_i,
-					     (struct prefix *)dest_addr)
+			&& prefix_list_apply(plist_i, dest_addr)
 				   == PREFIX_DENY)) {
 			/* do not send filtered route */
 			zlog_info("Filtered prefix %s will be removed.",
-				  inet_ntoa(dest_addr->prefix));
+				  inet_ntoa(dest_addr->u.prefix4));
 
 			/* prepare message for FSM */
 			struct eigrp_fsm_action_message fsm_msg;

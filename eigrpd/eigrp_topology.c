@@ -81,25 +81,18 @@ static int eigrp_prefix_entry_cmp(struct eigrp_prefix_entry *node1,
 {
 	if (node1->af == AF_INET) {
 		if (node2->af == AF_INET) {
-			if (node1->destination_ipv4->prefix.s_addr
-			    < node2->destination_ipv4->prefix.s_addr) {
-				return -1; // if it belong above node2
-			} else {
-				if (node1->destination_ipv4->prefix.s_addr
-				    > node2->destination_ipv4->prefix.s_addr) {
-					return 1; // if it belongs under node2
-				} else {
-					return 0; // same value... ERROR...in
-						  // case of adding same prefix
-						  // again
-				}
-			}
-		} else {
+			if (node1->destination->u.prefix4.s_addr
+			    < node2->destination->u.prefix4.s_addr)
+				return -1;
+			if (node1->destination->u.prefix4.s_addr
+			    > node2->destination->u.prefix4.s_addr)
+				return 1;
+			else
+				return 0;
+		} else
 			return 1;
-		}
-	} else {	  // TODO check if the prefix dont exists
-		return 1; // add to end
-	}
+	} else
+		return 1;
 }
 
 /*
@@ -125,8 +118,7 @@ struct eigrp_prefix_entry *eigrp_prefix_entry_new()
 	new->rij = list_new();
 	new->entries->cmp = (int (*)(void *, void *))eigrp_neighbor_entry_cmp;
 	new->distance = new->fdistance = new->rdistance = EIGRP_MAX_METRIC;
-	new->destination_ipv4 = NULL;
-	new->destination_ipv6 = NULL;
+	new->destination = NULL;
 
 	return new;
 }
@@ -137,9 +129,8 @@ struct eigrp_prefix_entry *eigrp_prefix_entry_new()
 static int eigrp_neighbor_entry_cmp(struct eigrp_neighbor_entry *entry1,
 				    struct eigrp_neighbor_entry *entry2)
 {
-	if (entry1->distance
-	    < entry2->distance) // parameter used in list_add_sort ()
-		return -1;      // actually set to sort by distance
+	if (entry1->distance < entry2->distance)
+		return -1;
 	if (entry1->distance > entry2->distance)
 		return 1;
 
@@ -205,7 +196,8 @@ void eigrp_neighbor_entry_add(struct eigrp_prefix_entry *node,
 		listnode_add_sort(node->entries, entry);
 		entry->prefix = node;
 
-		eigrp_zebra_route_add(node->destination_ipv4, l);
+		eigrp_zebra_route_add((struct prefix_ipv4 *)
+				      node->destination, l);
 	}
 
 	list_delete(l);
@@ -230,7 +222,8 @@ void eigrp_prefix_entry_delete(struct list *topology,
 		list_free(node->entries);
 		list_free(node->rij);
 		listnode_delete(topology, node);
-		eigrp_zebra_route_delete(node->destination_ipv4);
+		eigrp_zebra_route_delete((struct prefix_ipv4 *)
+					 node->destination);
 		XFREE(MTYPE_EIGRP_PREFIX_ENTRY, node);
 	}
 }
@@ -243,7 +236,8 @@ void eigrp_neighbor_entry_delete(struct eigrp_prefix_entry *node,
 {
 	if (listnode_lookup(node->entries, entry) != NULL) {
 		listnode_delete(node->entries, entry);
-		eigrp_zebra_route_delete(node->destination_ipv4);
+		eigrp_zebra_route_delete((struct prefix_ipv4 *)
+					 node->destination);
 		XFREE(MTYPE_EIGRP_NEIGHBOR_ENTRY, entry);
 	}
 }
@@ -275,11 +269,8 @@ eigrp_topology_table_lookup_ipv4(struct list *topology_table,
 	struct eigrp_prefix_entry *data;
 	struct listnode *node;
 	for (ALL_LIST_ELEMENTS_RO(topology_table, node, data)) {
-		if ((data->af == AF_INET)
-		    && (data->destination_ipv4->prefix.s_addr
-			== address->prefix.s_addr)
-		    && (data->destination_ipv4->prefixlen
-			== address->prefixlen))
+		if (prefix_same(data->destination,
+				(struct prefix *)address))
 			return data;
 	}
 
@@ -476,13 +467,16 @@ void eigrp_update_routing_table(struct eigrp_prefix_entry *prefix)
 	struct eigrp_neighbor_entry *entry;
 
 	if (successors) {
-		eigrp_zebra_route_add(prefix->destination_ipv4, successors);
+		eigrp_zebra_route_add((struct prefix_ipv4 *)
+				      prefix->destination,
+				      successors);
 		for (ALL_LIST_ELEMENTS_RO(successors, node, entry))
 			entry->flags |= EIGRP_NEIGHBOR_ENTRY_INTABLE_FLAG;
 
 		list_delete(successors);
 	} else {
-		eigrp_zebra_route_delete(prefix->destination_ipv4);
+		eigrp_zebra_route_delete((struct prefix_ipv4 *)
+					 prefix->destination);
 		for (ALL_LIST_ELEMENTS_RO(prefix->entries, node, entry))
 			entry->flags &= ~EIGRP_NEIGHBOR_ENTRY_INTABLE_FLAG;
 	}

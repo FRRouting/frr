@@ -87,19 +87,19 @@ void eigrp_send_reply(struct eigrp_neighbor *nbr, struct eigrp_prefix_entry *pe)
 
 	/* Check if any list fits */
 	if ((alist
-	     && access_list_apply(alist, (struct prefix *)pe2->destination_ipv4)
+	     && access_list_apply(alist, pe2->destination)
 			== FILTER_DENY)
 	    || (plist
 		&& prefix_list_apply(plist,
-				     (struct prefix *)pe2->destination_ipv4)
+				     pe2->destination)
 			   == PREFIX_DENY)
 	    || (alist_i
 		&& access_list_apply(alist_i,
-				     (struct prefix *)pe2->destination_ipv4)
+				     pe2->destination)
 			   == FILTER_DENY)
 	    || (plist_i
 		&& prefix_list_apply(plist_i,
-				     (struct prefix *)pe2->destination_ipv4)
+				     pe2->destination)
 			   == PREFIX_DENY)) {
 		zlog_info("REPLY SEND: Setting Metric to max");
 		pe2->reported_metric.delay = EIGRP_MAX_METRIC;
