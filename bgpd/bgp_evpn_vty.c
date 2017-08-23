@@ -2347,7 +2347,7 @@ DEFUN(show_bgp_l2vpn_evpn_route,
       JSON_STR)
 {
 	struct bgp *bgp;
-	int type_idx;
+	int type_idx = 0;
 	int type = 0;
 	u_char uj = 0;
 	json_object *json = NULL;
