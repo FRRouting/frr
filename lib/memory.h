@@ -18,7 +18,9 @@
 #define _QUAGGA_MEMORY_H
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <frratomic.h>
+#include "compiler.h"
 
 #define array_size(ar) (sizeof(ar) / sizeof(ar[0]))
 
@@ -35,41 +37,6 @@ struct memgroup {
 	struct memtype *types, **insert;
 	const char *name;
 };
-
-#if defined(__clang__)
-#if __clang_major__ > 3 || (__clang_major__ == 3 && __clang_minor__ >= 5)
-#  define _RET_NONNULL  , returns_nonnull
-#endif
-# define _CONSTRUCTOR(x) constructor(x)
-#elif defined(__GNUC__)
-#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 9)
-#  define _RET_NONNULL  , returns_nonnull
-#endif
-#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
-#  define _CONSTRUCTOR(x) constructor(x)
-#  define _DESTRUCTOR(x)  destructor(x)
-#  define _ALLOC_SIZE(x)  alloc_size(x)
-#endif
-#endif
-
-#ifdef __sun
-/* Solaris doesn't do constructor priorities due to linker restrictions */
-#undef _CONSTRUCTOR
-#undef _DESTRUCTOR
-#endif
-
-#ifndef _RET_NONNULL
-# define _RET_NONNULL
-#endif
-#ifndef _CONSTRUCTOR
-# define _CONSTRUCTOR(x) constructor
-#endif
-#ifndef _DESTRUCTOR
-# define _DESTRUCTOR(x) destructor
-#endif
-#ifndef _ALLOC_SIZE
-# define _ALLOC_SIZE(x)
-#endif
 
 /* macro usage:
  *
@@ -194,7 +161,8 @@ static inline size_t mtype_stats_alloc(struct memtype *mt)
  * last value from qmem_walk_fn. */
 typedef int qmem_walk_fn(void *arg, struct memgroup *mg, struct memtype *mt);
 extern int qmem_walk(qmem_walk_fn *func, void *arg);
-extern void log_memstats_stderr(const char *);
+extern int log_memstats(FILE *fp, const char *);
+#define log_memstats_stderr(prefix) log_memstats(stderr, prefix)
 
 extern void memory_oom(size_t size, const char *name);
 

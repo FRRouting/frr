@@ -1263,5 +1263,6 @@ unsigned prefix_hash_key(void *pp)
 	 * padding and unused prefix bytes. */
 	memset(&copy, 0, sizeof(copy));
 	prefix_copy(&copy, (struct prefix *)pp);
-	return jhash(&copy, sizeof(copy), 0x55aa5a5a);
+	return jhash(&copy, offsetof(struct prefix, u.prefix)
+		     + PSIZE(copy.prefixlen), 0x55aa5a5a);
 }

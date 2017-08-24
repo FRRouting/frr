@@ -701,7 +701,7 @@ void _zlog_assert_failed(const char *assertion, const char *file,
 	     assertion, file, line, (function ? function : "?"));
 	zlog_backtrace(LOG_CRIT);
 	zlog_thread_info(LOG_CRIT);
-	log_memstats_stderr("log");
+	log_memstats(stderr, "log");
 	abort();
 }
 

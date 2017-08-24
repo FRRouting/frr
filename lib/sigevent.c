@@ -245,7 +245,7 @@ core_handler(int signo
 #endif
 			    );
 	/* dump memory stats on core */
-	log_memstats_stderr("core_handler");
+	log_memstats(stderr, "core_handler");
 	abort();
 }
 

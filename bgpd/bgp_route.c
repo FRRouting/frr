@@ -20,6 +20,7 @@
  */
 
 #include <zebra.h>
+#include <math.h>
 
 #include "prefix.h"
 #include "linklist.h"
@@ -9349,6 +9350,7 @@ static const char *table_stats_strs[] = {
 struct bgp_table_stats {
 	struct bgp_table *table;
 	unsigned long long counts[BGP_STATS_MAX];
+	double total_space;
 };
 
 #if 0
@@ -9417,8 +9419,8 @@ static int bgp_table_stats_walker(struct thread *t)
 			ts->counts[BGP_STATS_UNAGGREGATEABLE]++;
 			/* announced address space */
 			if (space)
-				ts->counts[BGP_STATS_SPACE] +=
-					1 << (space - rn->p.prefixlen);
+				ts->total_space += pow(2.0,
+						       space - rn->p.prefixlen);
 		} else if (prn->info)
 			ts->counts[BGP_STATS_MAX_AGGREGATEABLE]++;
 
@@ -9528,31 +9530,26 @@ static int bgp_table_stats(struct vty *vty, struct bgp *bgp, afi_t afi,
 			break;
 		case BGP_STATS_SPACE:
 			vty_out(vty, "%-30s: ", table_stats_strs[i]);
-			vty_out(vty, "%12llu\n", ts.counts[i]);
-			if (ts.counts[BGP_STATS_MAXBITLEN] < 9)
-				break;
-			vty_out(vty, "%30s: ", "%% announced ");
-			vty_out(vty, "%12.2f\n",
-				100 * (float)ts.counts[BGP_STATS_SPACE]
-					/ (float)((uint64_t)1UL
-						  << ts.counts
-							     [BGP_STATS_MAXBITLEN]));
-			vty_out(vty, "%30s: ", "/8 equivalent ");
-			vty_out(vty, "%12.2f\n",
-				(float)ts.counts[BGP_STATS_SPACE]
-					/ (float)(1UL
-						  << (ts.counts
-							      [BGP_STATS_MAXBITLEN]
-						      - 8)));
-			if (ts.counts[BGP_STATS_MAXBITLEN] < 25)
-				break;
-			vty_out(vty, "%30s: ", "/24 equivalent ");
-			vty_out(vty, "%12.2f",
-				(float)ts.counts[BGP_STATS_SPACE]
-					/ (float)(1UL
-						  << (ts.counts
-							      [BGP_STATS_MAXBITLEN]
-						      - 24)));
+			vty_out(vty, "%12g\n", ts.total_space);
+
+			if (afi == AFI_IP6) {
+				vty_out(vty, "%30s: ", "/32 equivalent ");
+				vty_out(vty, "%12g\n",
+					ts.total_space * pow(2.0, -128+32));
+				vty_out(vty, "%30s: ", "/48 equivalent ");
+				vty_out(vty, "%12g\n",
+					ts.total_space * pow(2.0, -128+48));
+			} else {
+				vty_out(vty, "%30s: ", "% announced ");
+				vty_out(vty, "%12.2f\n",
+					ts.total_space * 100. * pow(2.0, -32));
+				vty_out(vty, "%30s: ", "/8 equivalent ");
+				vty_out(vty, "%12.2f\n",
+					ts.total_space * pow(2.0, -32+8));
+				vty_out(vty, "%30s: ", "/24 equivalent ");
+				vty_out(vty, "%12.2f\n",
+					ts.total_space * pow(2.0, -32+24));
+			}
 			break;
 		default:
 			vty_out(vty, "%-30s: ", table_stats_strs[i]);

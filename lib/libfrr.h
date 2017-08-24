@@ -121,4 +121,6 @@ extern const char frr_moduledir[];
 extern char frr_protoname[];
 extern char frr_protonameinst[];
 
+extern bool debug_memstats_at_exit;
+
 #endif /* _ZEBRA_FRR_H */

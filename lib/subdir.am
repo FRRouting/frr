@@ -85,6 +85,7 @@ pkginclude_HEADERS += \
 	lib/command.h \
 	lib/command_graph.h \
 	lib/command_match.h \
+	lib/compiler.h \
 	lib/csv.h \
 	lib/distribute.h \
 	lib/event_counter.h \
