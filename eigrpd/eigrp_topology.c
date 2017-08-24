@@ -402,10 +402,10 @@ enum metric_change eigrp_topology_update_distance(struct eigrp_fsm_action_messag
 			if (eigrp_metrics_is_same(msg->metrics,
 						  entry->reported_metric))
 				return change;
-		} else
+		} else {
 			change = METRIC_INCREASE;
-
-			break;
+		}
+		break;
 	default:
 		zlog_err("%s: Please implement handler", __PRETTY_FUNCTION__);
 		break;
