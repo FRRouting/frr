@@ -940,7 +940,7 @@ int zapi_route_encode(u_char cmd, struct stream *s, struct zapi_route *api)
 			api->nexthop_num = MULTIPATH_NUM;
 		}
 
-		stream_putc(s, api->nexthop_num);
+		stream_putw(s, api->nexthop_num);
 
 		for (i = 0; i < api->nexthop_num; i++) {
 			api_nh = &api->nexthops[i];
@@ -1047,7 +1047,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 
 	/* Nexthops. */
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP)) {
-		api->nexthop_num = stream_getc(s);
+		api->nexthop_num = stream_getw(s);
 		if (api->nexthop_num > MULTIPATH_NUM) {
 			zlog_warn("%s: invalid number of nexthops (%u)",
 				  __func__, api->nexthop_num);

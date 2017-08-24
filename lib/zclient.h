@@ -242,7 +242,7 @@ struct zapi_route {
 	struct prefix prefix;
 	struct prefix_ipv6 src_prefix;
 
-	u_char nexthop_num;
+	u_int16_t nexthop_num;
 	struct zapi_nexthop nexthops[MULTIPATH_NUM];
 
 	u_char distance;
