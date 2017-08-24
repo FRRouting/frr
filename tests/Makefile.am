@@ -72,6 +72,12 @@ check_PROGRAMS = \
 	$(TESTS_OSPF6D) \
 	# end
 
+if ZEROMQ
+check_PROGRAMS += \
+	lib/test_zmq \
+	# end
+endif
+
 ../vtysh/vtysh_cmd.c:
 	$(MAKE) -C ../vtysh vtysh_cmd.c
 
@@ -112,6 +118,7 @@ lib_test_timer_correctness_SOURCES = lib/test_timer_correctness.c \
 lib_test_timer_performance_SOURCES = lib/test_timer_performance.c \
                                      helpers/c/prng.c
 lib_test_ttable_SOURCES = lib/test_ttable.c
+lib_test_zmq_SOURCES = lib/test_zmq.c
 lib_cli_test_cli_SOURCES = lib/cli/test_cli.c lib/cli/common_cli.c
 lib_cli_test_commands_SOURCES = lib/cli/test_commands_defun.c \
                                 lib/cli/test_commands.c \
@@ -147,6 +154,7 @@ lib_test_table_LDADD = $(ALL_TESTS_LDADD) -lm
 lib_test_timer_correctness_LDADD = $(ALL_TESTS_LDADD)
 lib_test_timer_performance_LDADD = $(ALL_TESTS_LDADD)
 lib_test_ttable_LDADD = $(ALL_TESTS_LDADD)
+lib_test_zmq_LDADD = $(ALL_TESTS_LDADD) ../lib/libfrrzmq.la
 lib_cli_test_cli_LDADD = $(ALL_TESTS_LDADD)
 lib_cli_test_commands_LDADD = $(ALL_TESTS_LDADD)
 bgpd_test_aspath_LDADD = $(BGP_TEST_LDADD)
