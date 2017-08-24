@@ -1049,7 +1049,7 @@ static int zread_route_add(struct zserv *client, u_short length,
 	afi_t afi;
 	struct prefix_ipv6 *src_p = NULL;
 	struct route_entry *re;
-	struct nexthop *nexthop;
+	struct nexthop *nexthop = NULL;
 	int i, ret;
 
 	s = client->ibuf;
@@ -1364,7 +1364,7 @@ static int zread_ipv4_route_ipv6_nexthop_add(struct zserv *client,
 	static unsigned int ifindices[MULTIPATH_NUM];
 	int ret;
 	static mpls_label_t labels[MULTIPATH_NUM];
-	enum lsp_types_t label_type;
+	enum lsp_types_t label_type = ZEBRA_LSP_NONE;
 	mpls_label_t label;
 	struct nexthop *nexthop;
 
@@ -1513,7 +1513,7 @@ static int zread_ipv6_add(struct zserv *client, u_short length,
 	static unsigned int ifindices[MULTIPATH_NUM];
 	int ret;
 	static mpls_label_t labels[MULTIPATH_NUM];
-	enum lsp_types_t label_type;
+	enum lsp_types_t label_type = ZEBRA_LSP_NONE;
 	mpls_label_t label;
 	struct nexthop *nexthop;
 
