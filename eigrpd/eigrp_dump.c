@@ -295,11 +295,13 @@ void show_ip_eigrp_prefix_entry(struct vty *vty, struct eigrp_prefix_entry *tn)
 
 	vty_out(vty, "%s, ",
 		prefix2str(tn->destination, buffer, PREFIX_STRLEN));
-	vty_out(vty, "%u successors, ", successors->count);
+	vty_out(vty, "%u successors, ",
+		(successors) ? successors->count : 0);
 	vty_out(vty, "FD is %u, serno: %" PRIu64 " \n", tn->fdistance,
 		tn->serno);
 
-	list_delete(successors);
+	if (successors)
+		list_delete(successors);
 }
 
 void show_ip_eigrp_neighbor_entry(struct vty *vty, struct eigrp *eigrp,

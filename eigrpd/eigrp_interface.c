@@ -249,15 +249,14 @@ int eigrp_if_up(struct eigrp_interface *ei)
 	struct eigrp_metrics metric;
 	struct eigrp_interface *ei2;
 	struct listnode *node, *nnode;
-	struct eigrp *eigrp = eigrp_lookup();
+	struct eigrp *eigrp;
 
 	if (ei == NULL)
 		return 0;
 
-	if (eigrp != NULL)
-		eigrp_adjust_sndbuflen(eigrp, ei->ifp->mtu);
-	else
-		zlog_warn("%s: eigrp_lookup () returned NULL", __func__);
+	eigrp = ei->eigrp;
+	eigrp_adjust_sndbuflen(eigrp, ei->ifp->mtu);
+
 	eigrp_if_stream_set(ei);
 
 	/* Set multicast memberships appropriately for new state. */
