@@ -379,6 +379,10 @@ enum metric_change eigrp_topology_update_distance(struct eigrp_fsm_action_messag
 		change = METRIC_DECREASE;
 		break;
 	case EIGRP_INT:
+		if (prefix->nt == EIGRP_TOPOLOGY_TYPE_CONNECTED) {
+			change = METRIC_INCREASE;
+			goto distance_done;
+		}
 		if (eigrp_metrics_is_same(msg->metrics,
 					  entry->reported_metric)) {
 			return change; // No change
@@ -387,9 +391,10 @@ enum metric_change eigrp_topology_update_distance(struct eigrp_fsm_action_messag
 		new_reported_distance = eigrp_calculate_metrics(eigrp,
 								msg->metrics);
 
-		if (entry->reported_distance  < new_reported_distance)
+		if (entry->reported_distance < new_reported_distance) {
 			change = METRIC_INCREASE;
-		else
+			goto distance_done;
+		} else
 			change = METRIC_DECREASE;
 
 		entry->reported_metric = msg->metrics;
@@ -404,12 +409,14 @@ enum metric_change eigrp_topology_update_distance(struct eigrp_fsm_action_messag
 				return change;
 		} else {
 			change = METRIC_INCREASE;
+			goto distance_done;
 		}
 		break;
 	default:
 		zlog_err("%s: Please implement handler", __PRETTY_FUNCTION__);
 		break;
 	}
+ distance_done:
 	/*
 	 * Move to correct position in list according to new distance
 	 */
