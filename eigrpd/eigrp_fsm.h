@@ -28,8 +28,7 @@
 #ifndef _ZEBRA_EIGRP_FSM_H
 #define _ZEBRA_EIGRP_FSM_H
 
-extern int eigrp_get_fsm_event(struct eigrp_fsm_action_message *);
-extern int eigrp_fsm_event(struct eigrp_fsm_action_message *, int);
+extern int eigrp_fsm_event(struct eigrp_fsm_action_message *msg);
 
 
 #endif /* _ZEBRA_EIGRP_DUAL_H */

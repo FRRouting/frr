@@ -469,10 +469,7 @@ struct eigrp_prefix_entry {
 	u_char af;	 // address family
 	u_char req_action; // required action
 
-	struct prefix_ipv4
-		*destination_ipv4; // pointer to struct with ipv4 address
-	struct prefix_ipv6
-		*destination_ipv6; // pointer to struct with ipv6 address
+	struct prefix *destination;
 
 	// If network type is REMOTE_EXTERNAL, pointer will have reference to
 	// its external TLV
@@ -499,6 +496,11 @@ struct eigrp_neighbor_entry {
 };
 
 //---------------------------------------------------------------------------------------------------------------------------------------------
+typedef enum {
+	EIGRP_CONNECTED,
+	EIGRP_INT,
+	EIGRP_EXT,
+} msg_data_t;
 
 /* EIGRP Finite State Machine */
 
@@ -508,11 +510,8 @@ struct eigrp_fsm_action_message {
 	struct eigrp_neighbor *adv_router; // advertising neighbor
 	struct eigrp_neighbor_entry *entry;
 	struct eigrp_prefix_entry *prefix;
-	int data_type; // internal or external tlv type
-	union {
-		struct TLV_IPv4_External_type *ipv4_ext_data;
-		struct TLV_IPv4_Internal_type *ipv4_int_type;
-	} data;
+	msg_data_t data_type; // internal or external tlv type
+	struct eigrp_metrics metrics;
 };
 
 #endif /* _ZEBRA_EIGRP_STRUCTURES_H_ */

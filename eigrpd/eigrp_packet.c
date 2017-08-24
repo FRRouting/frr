@@ -1101,6 +1101,16 @@ struct eigrp_packet *eigrp_packet_duplicate(struct eigrp_packet *old,
 	return new;
 }
 
+static struct TLV_IPv4_Internal_type *eigrp_IPv4_InternalTLV_new()
+{
+	struct TLV_IPv4_Internal_type *new;
+
+	new = XCALLOC(MTYPE_EIGRP_IPV4_INT_TLV,
+		      sizeof(struct TLV_IPv4_Internal_type));
+
+	return new;
+}
+
 struct TLV_IPv4_Internal_type *eigrp_read_ipv4_tlv(struct stream *s)
 {
 	struct TLV_IPv4_Internal_type *tlv;
@@ -1157,21 +1167,21 @@ u_int16_t eigrp_add_internalTLV_to_stream(struct stream *s,
 	u_int16_t length;
 
 	stream_putw(s, EIGRP_TLV_IPv4_INT);
-	if (pe->destination_ipv4->prefixlen <= 8) {
+	if (pe->destination->prefixlen <= 8) {
 		stream_putw(s, 0x001A);
 		length = 0x001A;
 	}
-	if ((pe->destination_ipv4->prefixlen > 8)
-	    && (pe->destination_ipv4->prefixlen <= 16)) {
+	if ((pe->destination->prefixlen > 8)
+	    && (pe->destination->prefixlen <= 16)) {
 		stream_putw(s, 0x001B);
 		length = 0x001B;
 	}
-	if ((pe->destination_ipv4->prefixlen > 16)
-	    && (pe->destination_ipv4->prefixlen <= 24)) {
+	if ((pe->destination->prefixlen > 16)
+	    && (pe->destination->prefixlen <= 24)) {
 		stream_putw(s, 0x001C);
 		length = 0x001C;
 	}
-	if (pe->destination_ipv4->prefixlen > 24) {
+	if (pe->destination->prefixlen > 24) {
 		stream_putw(s, 0x001D);
 		length = 0x001D;
 	}
@@ -1190,34 +1200,18 @@ u_int16_t eigrp_add_internalTLV_to_stream(struct stream *s,
 	stream_putc(s, pe->reported_metric.tag);
 	stream_putc(s, pe->reported_metric.flags);
 
-	stream_putc(s, pe->destination_ipv4->prefixlen);
+	stream_putc(s, pe->destination->prefixlen);
 
-	if (pe->destination_ipv4->prefixlen <= 8) {
-		stream_putc(s, pe->destination_ipv4->prefix.s_addr & 0xFF);
-	}
-	if ((pe->destination_ipv4->prefixlen > 8)
-	    && (pe->destination_ipv4->prefixlen <= 16)) {
-		stream_putc(s, pe->destination_ipv4->prefix.s_addr & 0xFF);
+	stream_putc(s, pe->destination->u.prefix4.s_addr & 0xFF);
+	if (pe->destination->prefixlen > 8)
 		stream_putc(s,
-			    (pe->destination_ipv4->prefix.s_addr >> 8) & 0xFF);
-	}
-	if ((pe->destination_ipv4->prefixlen > 16)
-	    && (pe->destination_ipv4->prefixlen <= 24)) {
-		stream_putc(s, pe->destination_ipv4->prefix.s_addr & 0xFF);
+			    (pe->destination->u.prefix4.s_addr >> 8) & 0xFF);
+	if (pe->destination->prefixlen > 16)
 		stream_putc(s,
-			    (pe->destination_ipv4->prefix.s_addr >> 8) & 0xFF);
+			    (pe->destination->u.prefix4.s_addr >> 16) & 0xFF);
+	if (pe->destination->prefixlen > 24)
 		stream_putc(s,
-			    (pe->destination_ipv4->prefix.s_addr >> 16) & 0xFF);
-	}
-	if (pe->destination_ipv4->prefixlen > 24) {
-		stream_putc(s, pe->destination_ipv4->prefix.s_addr & 0xFF);
-		stream_putc(s,
-			    (pe->destination_ipv4->prefix.s_addr >> 8) & 0xFF);
-		stream_putc(s,
-			    (pe->destination_ipv4->prefix.s_addr >> 16) & 0xFF);
-		stream_putc(s,
-			    (pe->destination_ipv4->prefix.s_addr >> 24) & 0xFF);
-	}
+			    (pe->destination->u.prefix4.s_addr >> 24) & 0xFF);
 
 	return length;
 }
@@ -1330,16 +1324,6 @@ struct TLV_SHA256_Authentication_Type *eigrp_authTLV_SHA256_new()
 void eigrp_authTLV_SHA256_free(struct TLV_SHA256_Authentication_Type *authTLV)
 {
 	XFREE(MTYPE_EIGRP_AUTH_SHA256_TLV, authTLV);
-}
-
-struct TLV_IPv4_Internal_type *eigrp_IPv4_InternalTLV_new()
-{
-	struct TLV_IPv4_Internal_type *new;
-
-	new = XCALLOC(MTYPE_EIGRP_IPV4_INT_TLV,
-		      sizeof(struct TLV_IPv4_Internal_type));
-
-	return new;
 }
 
 void eigrp_IPv4_InternalTLV_free(

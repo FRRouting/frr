@@ -78,14 +78,14 @@ void eigrp_siaquery_receive(struct eigrp *eigrp, struct ip *iph,
 	while (s->endp > s->getp) {
 		type = stream_getw(s);
 		if (type == EIGRP_TLV_IPv4_INT) {
-			struct prefix_ipv4 dest_addr;
+			struct prefix dest_addr;
 
 			stream_set_getp(s, s->getp - sizeof(u_int16_t));
 
 			tlv = eigrp_read_ipv4_tlv(s);
 
 			dest_addr.family = AFI_IP;
-			dest_addr.prefix = tlv->destination;
+			dest_addr.u.prefix4 = tlv->destination;
 			dest_addr.prefixlen = tlv->prefix_length;
 			struct eigrp_prefix_entry *dest =
 				eigrp_topology_table_lookup_ipv4(
@@ -94,22 +94,18 @@ void eigrp_siaquery_receive(struct eigrp *eigrp, struct ip *iph,
 			/* If the destination exists (it should, but one never
 			 * know)*/
 			if (dest != NULL) {
-				struct eigrp_fsm_action_message *msg;
-				msg = XCALLOC(MTYPE_EIGRP_FSM_MSG,
-					      sizeof(struct
-						     eigrp_fsm_action_message));
+				struct eigrp_fsm_action_message msg;
 				struct eigrp_neighbor_entry *entry =
 					eigrp_prefix_entry_lookup(dest->entries,
 								  nbr);
-				msg->packet_type = EIGRP_OPC_SIAQUERY;
-				msg->eigrp = eigrp;
-				msg->data_type = EIGRP_TLV_IPv4_INT;
-				msg->adv_router = nbr;
-				msg->data.ipv4_int_type = tlv;
-				msg->entry = entry;
-				msg->prefix = dest;
-				int event = eigrp_get_fsm_event(msg);
-				eigrp_fsm_event(msg, event);
+				msg.packet_type = EIGRP_OPC_SIAQUERY;
+				msg.eigrp = eigrp;
+				msg.data_type = EIGRP_INT;
+				msg.adv_router = nbr;
+				msg.metrics = tlv->metric;
+				msg.entry = entry;
+				msg.prefix = dest;
+				eigrp_fsm_event(&msg);
 			}
 			eigrp_IPv4_InternalTLV_free(tlv);
 		}

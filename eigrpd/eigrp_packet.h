@@ -152,7 +152,6 @@ extern int eigrp_check_sha256_digest(struct stream *,
 				     struct eigrp_neighbor *, u_char);
 
 
-extern struct TLV_IPv4_Internal_type *eigrp_IPv4_InternalTLV_new(void);
 extern void eigrp_IPv4_InternalTLV_free(struct TLV_IPv4_Internal_type *);
 
 extern struct TLV_Sequence_Type *eigrp_SequenceTLV_new(void);

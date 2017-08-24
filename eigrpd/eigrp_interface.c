@@ -53,6 +53,7 @@
 #include "eigrpd/eigrp_network.h"
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_memory.h"
+#include "eigrpd/eigrp_fsm.h"
 
 static void eigrp_delete_from_if(struct interface *, struct eigrp_interface *);
 
@@ -224,14 +225,14 @@ void eigrp_del_if_params(struct eigrp_if_params *eip)
 struct eigrp_if_params *eigrp_lookup_if_params(struct interface *ifp,
 					       struct in_addr addr)
 {
-	struct prefix_ipv4 p;
+	struct prefix p;
 	struct route_node *rn;
 
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_PREFIXLEN;
-	p.prefix = addr;
+	p.u.prefix4 = addr;
 
-	rn = route_node_lookup(IF_OIFS_PARAMS(ifp), (struct prefix *)&p);
+	rn = route_node_lookup(IF_OIFS_PARAMS(ifp), &p);
 
 	if (rn) {
 		route_unlock_node(rn);
@@ -279,49 +280,62 @@ int eigrp_if_up(struct eigrp_interface *ei)
 
 	/*Add connected entry to topology table*/
 
-	struct prefix_ipv4 dest_addr;
-
-	dest_addr.family = AF_INET;
-	dest_addr.prefix = ei->connected->address->u.prefix4;
-	dest_addr.prefixlen = ei->connected->address->prefixlen;
-	apply_mask_ipv4(&dest_addr);
-	pe = eigrp_topology_table_lookup_ipv4(eigrp->topology_table,
-					      &dest_addr);
-
-	if (pe == NULL) {
-		pe = eigrp_prefix_entry_new();
-		pe->serno = eigrp->serno;
-		pe->destination_ipv4 = prefix_ipv4_new();
-		prefix_copy((struct prefix *)pe->destination_ipv4,
-			    (struct prefix *)&dest_addr);
-		pe->af = AF_INET;
-		pe->nt = EIGRP_TOPOLOGY_TYPE_CONNECTED;
-
-		pe->state = EIGRP_FSM_STATE_PASSIVE;
-		pe->fdistance = eigrp_calculate_metrics(eigrp, metric);
-		pe->req_action |= EIGRP_FSM_NEED_UPDATE;
-		eigrp_prefix_entry_add(eigrp->topology_table, pe);
-		listnode_add(eigrp->topology_changes_internalIPV4, pe);
-	}
 	ne = eigrp_neighbor_entry_new();
 	ne->ei = ei;
 	ne->reported_metric = metric;
 	ne->total_metric = metric;
 	ne->distance = eigrp_calculate_metrics(eigrp, metric);
 	ne->reported_distance = 0;
-	ne->prefix = pe;
 	ne->adv_router = eigrp->neighbor_self;
 	ne->flags = EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG;
-	eigrp_neighbor_entry_add(pe, ne);
 
-	for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei2)) {
-		if (ei2->nbrs->count != 0) {
+	struct prefix dest_addr;
+
+	dest_addr.family = AF_INET;
+	dest_addr.u.prefix4 = ei->connected->address->u.prefix4;
+	dest_addr.prefixlen = ei->connected->address->prefixlen;
+	apply_mask(&dest_addr);
+	pe = eigrp_topology_table_lookup_ipv4(eigrp->topology_table,
+					      &dest_addr);
+
+	if (pe == NULL) {
+		pe = eigrp_prefix_entry_new();
+		pe->serno = eigrp->serno;
+		pe->destination = (struct prefix *)prefix_ipv4_new();
+		prefix_copy(pe->destination, &dest_addr);
+		pe->af = AF_INET;
+		pe->nt = EIGRP_TOPOLOGY_TYPE_CONNECTED;
+
+		ne->prefix = pe;
+		pe->state = EIGRP_FSM_STATE_PASSIVE;
+		pe->fdistance = eigrp_calculate_metrics(eigrp, metric);
+		pe->req_action |= EIGRP_FSM_NEED_UPDATE;
+		eigrp_prefix_entry_add(eigrp->topology_table, pe);
+		listnode_add(eigrp->topology_changes_internalIPV4, pe);
+
+		eigrp_neighbor_entry_add(pe, ne);
+
+		for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei2)) {
 			eigrp_update_send(ei2);
 		}
-	}
 
-	pe->req_action &= ~EIGRP_FSM_NEED_UPDATE;
-	listnode_delete(eigrp->topology_changes_internalIPV4, pe);
+		pe->req_action &= ~EIGRP_FSM_NEED_UPDATE;
+		listnode_delete(eigrp->topology_changes_internalIPV4, pe);
+	} else {
+		struct eigrp_fsm_action_message msg;
+
+		ne->prefix = pe;
+		eigrp_neighbor_entry_add(pe, ne);
+
+		msg.packet_type = EIGRP_OPC_UPDATE;
+		msg.eigrp = eigrp;
+		msg.data_type = EIGRP_CONNECTED;
+		msg.adv_router = NULL;
+		msg.entry = ne;
+		msg.prefix = pe;
+
+		eigrp_fsm_event(&msg);
+	}
 
 	return 1;
 }
@@ -416,7 +430,7 @@ u_char eigrp_default_iftype(struct interface *ifp)
 
 void eigrp_if_free(struct eigrp_interface *ei, int source)
 {
-	struct prefix_ipv4 dest_addr;
+	struct prefix dest_addr;
 	struct eigrp_prefix_entry *pe;
 	struct eigrp *eigrp = eigrp_lookup();
 
@@ -425,10 +439,8 @@ void eigrp_if_free(struct eigrp_interface *ei, int source)
 		eigrp_hello_send(ei, EIGRP_HELLO_GRACEFUL_SHUTDOWN, NULL);
 	}
 
-	dest_addr.family = AF_INET;
-	dest_addr.prefix = ei->connected->address->u.prefix4;
-	dest_addr.prefixlen = ei->connected->address->prefixlen;
-	apply_mask_ipv4(&dest_addr);
+	dest_addr = *ei->connected->address;
+	apply_mask(&dest_addr);
 	pe = eigrp_topology_table_lookup_ipv4(eigrp->topology_table,
 					      &dest_addr);
 	if (pe)
@@ -532,11 +544,11 @@ struct eigrp_interface *eigrp_if_lookup_recv_if(struct eigrp *eigrp,
 						struct interface *ifp)
 {
 	struct route_node *rn;
-	struct prefix_ipv4 addr;
+	struct prefix addr;
 	struct eigrp_interface *ei, *match;
 
 	addr.family = AF_INET;
-	addr.prefix = src;
+	addr.u.prefix4 = src;
 	addr.prefixlen = IPV4_MAX_BITLEN;
 
 	match = NULL;
@@ -551,7 +563,7 @@ struct eigrp_interface *eigrp_if_lookup_recv_if(struct eigrp *eigrp,
 			continue;
 
 		if (prefix_match(CONNECTED_PREFIX(ei->connected),
-				 (struct prefix *)&addr)) {
+				 &addr)) {
 			if ((match == NULL) || (match->address->prefixlen
 						< ei->address->prefixlen))
 				match = ei;

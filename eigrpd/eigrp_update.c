@@ -112,47 +112,31 @@ static void eigrp_update_receive_GR_ask(struct eigrp *eigrp,
 {
 	struct listnode *node1;
 	struct eigrp_prefix_entry *prefix;
-	struct TLV_IPv4_Internal_type *tlv_max;
+	struct eigrp_fsm_action_message fsm_msg;
 
 	/* iterate over all prefixes which weren't advertised by neighbor */
 	for (ALL_LIST_ELEMENTS_RO(nbr_prefixes, node1, prefix)) {
-		zlog_debug("GR receive: Neighbor not advertised %s/%d",
-			   inet_ntoa(prefix->destination_ipv4->prefix),
-			   prefix->destination_ipv4->prefixlen);
+		char buffer[PREFIX_STRLEN];
+		zlog_debug("GR receive: Neighbor not advertised %s",
+			   prefix2str(prefix->destination,
+				      buffer, PREFIX_STRLEN));
 
-		/* create internal IPv4 TLV with infinite delay */
-		tlv_max = eigrp_IPv4_InternalTLV_new();
-		tlv_max->type = EIGRP_TLV_IPv4_INT;
-		tlv_max->length = 28U;
-		tlv_max->metric = prefix->reported_metric;
+		fsm_msg.metrics = prefix->reported_metric;
 		/* set delay to MAX */
-		tlv_max->metric.delay = EIGRP_MAX_METRIC;
-		tlv_max->destination = prefix->destination_ipv4->prefix;
-		tlv_max->prefix_length = prefix->destination_ipv4->prefixlen;
-
-
-		/* prepare message for FSM */
-		struct eigrp_fsm_action_message *fsm_msg;
-		fsm_msg = XCALLOC(MTYPE_EIGRP_FSM_MSG,
-				  sizeof(struct eigrp_fsm_action_message));
+		fsm_msg.metrics.delay = EIGRP_MAX_METRIC;
 
 		struct eigrp_neighbor_entry *entry =
 			eigrp_prefix_entry_lookup(prefix->entries, nbr);
 
-		fsm_msg->packet_type = EIGRP_OPC_UPDATE;
-		fsm_msg->eigrp = eigrp;
-		fsm_msg->data_type = EIGRP_TLV_IPv4_INT;
-		fsm_msg->adv_router = nbr;
-		fsm_msg->data.ipv4_int_type = tlv_max;
-		fsm_msg->entry = entry;
-		fsm_msg->prefix = prefix;
+		fsm_msg.packet_type = EIGRP_OPC_UPDATE;
+		fsm_msg.eigrp = eigrp;
+		fsm_msg.data_type = EIGRP_INT;
+		fsm_msg.adv_router = nbr;
+		fsm_msg.entry = entry;
+		fsm_msg.prefix = prefix;
 
 		/* send message to FSM */
-		int event = eigrp_get_fsm_event(fsm_msg);
-		eigrp_fsm_event(fsm_msg, event);
-
-		/* free memory used by TLV */
-		eigrp_IPv4_InternalTLV_free(tlv_max);
+		eigrp_fsm_event(&fsm_msg);
 	}
 }
 
@@ -173,7 +157,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 	u_char same;
 	struct access_list *alist;
 	struct prefix_list *plist;
-	struct prefix_ipv4 dest_addr;
+	struct prefix dest_addr;
 	struct eigrp *e;
 	u_char graceful_restart;
 	u_char graceful_restart_final;
@@ -297,7 +281,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 
 			/*searching if destination exists */
 			dest_addr.family = AF_INET;
-			dest_addr.prefix = tlv->destination;
+			dest_addr.u.prefix4 = tlv->destination;
 			dest_addr.prefixlen = tlv->prefix_length;
 			struct eigrp_prefix_entry *dest =
 				eigrp_topology_table_lookup_ipv4(
@@ -311,31 +295,26 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 					remove_received_prefix_gr(nbr_prefixes,
 								  dest);
 
-				struct eigrp_fsm_action_message *msg;
-				msg = XCALLOC(MTYPE_EIGRP_FSM_MSG,
-					      sizeof(struct
-						     eigrp_fsm_action_message));
+				struct eigrp_fsm_action_message msg;
 				struct eigrp_neighbor_entry *entry =
 					eigrp_prefix_entry_lookup(dest->entries,
 								  nbr);
 
-				msg->packet_type = EIGRP_OPC_UPDATE;
-				msg->eigrp = eigrp;
-				msg->data_type = EIGRP_TLV_IPv4_INT;
-				msg->adv_router = nbr;
-				msg->data.ipv4_int_type = tlv;
-				msg->entry = entry;
-				msg->prefix = dest;
-				int event = eigrp_get_fsm_event(msg);
-				eigrp_fsm_event(msg, event);
+				msg.packet_type = EIGRP_OPC_UPDATE;
+				msg.eigrp = eigrp;
+				msg.data_type = EIGRP_INT;
+				msg.adv_router = nbr;
+				msg.metrics = tlv->metric;
+				msg.entry = entry;
+				msg.prefix = dest;
+				eigrp_fsm_event(&msg);
 			} else {
 				/*Here comes topology information save*/
 				pe = eigrp_prefix_entry_new();
 				pe->serno = eigrp->serno;
-				pe->destination_ipv4 = prefix_ipv4_new();
-				prefix_copy(
-					(struct prefix *)pe->destination_ipv4,
-					(struct prefix *)&dest_addr);
+				pe->destination = (struct prefix *)prefix_ipv4_new();
+				prefix_copy(pe->destination,
+					    &dest_addr);
 				pe->af = AF_INET;
 				pe->state = EIGRP_FSM_STATE_PASSIVE;
 				pe->nt = EIGRP_TOPOLOGY_TYPE_REMOTE;
@@ -359,9 +338,8 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 
 				/* Check if access-list fits */
 				if (alist
-				    && access_list_apply(
-					       alist,
-					       (struct prefix *)&dest_addr)
+				    && access_list_apply(alist,
+							 &dest_addr)
 					       == FILTER_DENY) {
 					/* If yes, set reported metric to Max */
 					ne->reported_metric.delay =
@@ -376,9 +354,8 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 
 				/* Check if prefix-list fits */
 				if (plist
-				    && prefix_list_apply(
-					       plist,
-					       (struct prefix *)&dest_addr)
+				    && prefix_list_apply(plist,
+							 &dest_addr)
 					       == PREFIX_DENY) {
 					/* If yes, set reported metric to Max */
 					ne->reported_metric.delay =
@@ -390,9 +367,8 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 
 				/* Check if access-list fits */
 				if (alist
-				    && access_list_apply(
-					       alist,
-					       (struct prefix *)&dest_addr)
+				    && access_list_apply(alist,
+							 &dest_addr)
 					       == FILTER_DENY) {
 					/* If yes, set reported metric to Max */
 					ne->reported_metric.delay =
@@ -403,9 +379,8 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 
 				/* Check if prefix-list fits */
 				if (plist
-				    && prefix_list_apply(
-					       plist,
-					       (struct prefix *)&dest_addr)
+				    && prefix_list_apply(plist,
+							 &dest_addr)
 					       == PREFIX_DENY) {
 					/* If yes, set reported metric to Max */
 					ne->reported_metric.delay =
@@ -592,7 +567,7 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 	struct access_list *alist_i;
 	struct prefix_list *plist_i;
 	struct eigrp *e;
-	struct prefix_ipv4 *dest_addr;
+	struct prefix *dest_addr;
 	u_int32_t seq_no = nbr->ei->eigrp->sequence_number;
 
 	ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
@@ -610,8 +585,7 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 
 	for (ALL_LIST_ELEMENTS(nbr->ei->eigrp->topology_table, node, nnode, pe)) {
 		for (ALL_LIST_ELEMENTS(pe->entries, node2, nnode2, te)) {
-			if ((te->ei == nbr->ei)
-			    && (te->prefix->nt == EIGRP_TOPOLOGY_TYPE_REMOTE))
+			if (eigrp_nbr_split_horizon_check(te, nbr->ei))
 				continue;
 
 			if ((length + 0x001D) > (u_int16_t)nbr->ei->ifp->mtu) {
@@ -631,7 +605,7 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 				}
 			}
 			/* Get destination address from prefix */
-			dest_addr = pe->destination_ipv4;
+			dest_addr = pe->destination;
 
 			/*
 			 * Filtering
@@ -648,13 +622,13 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 			/* Check if any list fits */
 			if ((alist
 			     && access_list_apply (alist,
-						   (struct prefix *) dest_addr) == FILTER_DENY)||
+						   dest_addr) == FILTER_DENY)||
 			    (plist && prefix_list_apply (plist,
-							 (struct prefix *) dest_addr) == PREFIX_DENY)||
+							 dest_addr) == PREFIX_DENY)||
 			    (alist_i && access_list_apply (alist_i,
-							   (struct prefix *) dest_addr) == FILTER_DENY)||
+							   dest_addr) == FILTER_DENY)||
 			    (plist_i && prefix_list_apply (plist_i,
-							   (struct prefix *) dest_addr) == PREFIX_DENY)) {
+							   dest_addr) == PREFIX_DENY)) {
 				//pe->reported_metric.delay = EIGRP_MAX_METRIC;
 				continue;
 			} else {
@@ -678,7 +652,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 	struct access_list *alist_i;
 	struct prefix_list *plist_i;
 	struct eigrp *e;
-	struct prefix_ipv4 *dest_addr;
+	struct prefix *dest_addr;
 	u_int32_t seq_no = ei->eigrp->sequence_number;
 
 	if (ei->nbrs->count == 0)
@@ -701,8 +675,13 @@ void eigrp_update_send(struct eigrp_interface *ei)
 	has_tlv = 0;
 	for (ALL_LIST_ELEMENTS(ei->eigrp->topology_changes_internalIPV4, node,
 			       nnode, pe)) {
+		struct eigrp_neighbor_entry *ne;
 
 		if (!(pe->req_action & EIGRP_FSM_NEED_UPDATE))
+			continue;
+
+		ne = listnode_head(pe->entries);
+		if (eigrp_nbr_split_horizon_check(ne, ei))
 			continue;
 
 		if ((length + 0x001D) > (u_int16_t)ei->ifp->mtu) {
@@ -731,7 +710,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 			has_tlv = 0;
 		}
 		/* Get destination address from prefix */
-		dest_addr = pe->destination_ipv4;
+		dest_addr = pe->destination;
 
 		/*
 		 * Filtering
@@ -747,19 +726,19 @@ void eigrp_update_send(struct eigrp_interface *ei)
 		/* Check if any list fits */
 		if ((alist
 		     && access_list_apply(alist,
-					  (struct prefix *)dest_addr)
+					  dest_addr)
 		     == FILTER_DENY)
 		    || (plist
 			&& prefix_list_apply(plist,
-					     (struct prefix *)dest_addr)
+					     dest_addr)
 			== PREFIX_DENY)
 		    || (alist_i
 			&& access_list_apply(alist_i,
-					     (struct prefix *)dest_addr)
+					     dest_addr)
 			== FILTER_DENY)
 		    || (plist_i
 			&& prefix_list_apply(plist_i,
-					     (struct prefix *)dest_addr)
+					     dest_addr)
 			== PREFIX_DENY)) {
 			// pe->reported_metric.delay = EIGRP_MAX_METRIC;
 			continue;
@@ -841,14 +820,13 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 	u_int16_t length = EIGRP_HEADER_LEN;
 	struct listnode *node, *nnode;
 	struct eigrp_prefix_entry *pe;
-	struct prefix_ipv4 *dest_addr;
+	struct prefix *dest_addr;
 	struct eigrp *e;
 	struct access_list *alist, *alist_i;
 	struct prefix_list *plist, *plist_i;
 	struct list *prefixes;
 	u_int32_t flags;
 	unsigned int send_prefixes;
-	struct TLV_IPv4_Internal_type *tlv_max;
 
 	/* get prefixes to send to neighbor */
 	prefixes = nbr->nbr_gr_prefixes_send;
@@ -905,7 +883,7 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 		/*
 		 * Filtering
 		 */
-		dest_addr = pe->destination_ipv4;
+		dest_addr = pe->destination;
 		/* get list from eigrp process */
 		e = eigrp_lookup();
 		/* Get access-lists and prefix-lists from process and interface
@@ -917,22 +895,20 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 
 		/* Check if any list fits */
 		if ((alist
-		     && access_list_apply(alist, (struct prefix *)dest_addr)
+		     && access_list_apply(alist, dest_addr)
 				== FILTER_DENY)
 		    || (plist
-			&& prefix_list_apply(plist, (struct prefix *)dest_addr)
+			&& prefix_list_apply(plist, dest_addr)
 				   == PREFIX_DENY)
 		    || (alist_i
-			&& access_list_apply(alist_i,
-					     (struct prefix *)dest_addr)
+			&& access_list_apply(alist_i, dest_addr)
 				   == FILTER_DENY)
 		    || (plist_i
-			&& prefix_list_apply(plist_i,
-					     (struct prefix *)dest_addr)
+			&& prefix_list_apply(plist_i, dest_addr)
 				   == PREFIX_DENY)) {
 			/* do not send filtered route */
 			zlog_info("Filtered prefix %s won't be sent out.",
-				  inet_ntoa(dest_addr->prefix));
+				  inet_ntoa(dest_addr->u.prefix4));
 		} else {
 			/* sending route which wasn't filtered */
 			length += eigrp_add_internalTLV_to_stream(ep->s, pe);
@@ -946,56 +922,39 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 
 		/* Check if any list fits */
 		if ((alist
-		     && access_list_apply(alist, (struct prefix *)dest_addr)
+		     && access_list_apply(alist, dest_addr)
 				== FILTER_DENY)
 		    || (plist
-			&& prefix_list_apply(plist, (struct prefix *)dest_addr)
+			&& prefix_list_apply(plist, dest_addr)
 				   == PREFIX_DENY)
 		    || (alist_i
-			&& access_list_apply(alist_i,
-					     (struct prefix *)dest_addr)
+			&& access_list_apply(alist_i, dest_addr)
 				   == FILTER_DENY)
 		    || (plist_i
-			&& prefix_list_apply(plist_i,
-					     (struct prefix *)dest_addr)
+			&& prefix_list_apply(plist_i, dest_addr)
 				   == PREFIX_DENY)) {
 			/* do not send filtered route */
 			zlog_info("Filtered prefix %s will be removed.",
-				  inet_ntoa(dest_addr->prefix));
-
-			tlv_max = eigrp_IPv4_InternalTLV_new();
-			tlv_max->type = EIGRP_TLV_IPv4_INT;
-			tlv_max->length = 28U;
-			tlv_max->metric = pe->reported_metric;
-			/* set delay to MAX */
-			tlv_max->metric.delay = EIGRP_MAX_METRIC;
-			tlv_max->destination = pe->destination_ipv4->prefix;
-			tlv_max->prefix_length =
-				pe->destination_ipv4->prefixlen;
+				  inet_ntoa(dest_addr->u.prefix4));
 
 			/* prepare message for FSM */
-			struct eigrp_fsm_action_message *fsm_msg;
-			fsm_msg = XCALLOC(
-				MTYPE_EIGRP_FSM_MSG,
-				sizeof(struct eigrp_fsm_action_message));
+			struct eigrp_fsm_action_message fsm_msg;
 
 			struct eigrp_neighbor_entry *entry =
 				eigrp_prefix_entry_lookup(pe->entries, nbr);
 
-			fsm_msg->packet_type = EIGRP_OPC_UPDATE;
-			fsm_msg->eigrp = e;
-			fsm_msg->data_type = EIGRP_TLV_IPv4_INT;
-			fsm_msg->adv_router = nbr;
-			fsm_msg->data.ipv4_int_type = tlv_max;
-			fsm_msg->entry = entry;
-			fsm_msg->prefix = pe;
+			fsm_msg.packet_type = EIGRP_OPC_UPDATE;
+			fsm_msg.eigrp = e;
+			fsm_msg.data_type = EIGRP_INT;
+			fsm_msg.adv_router = nbr;
+			fsm_msg.metrics = pe->reported_metric;
+			/* Set delay to MAX */
+			fsm_msg.metrics.delay = EIGRP_MAX_METRIC;
+			fsm_msg.entry = entry;
+			fsm_msg.prefix = pe;
 
 			/* send message to FSM */
-			int event = eigrp_get_fsm_event(fsm_msg);
-			eigrp_fsm_event(fsm_msg, event);
-
-			/* free memory used by TLV */
-			eigrp_IPv4_InternalTLV_free(tlv_max);
+			eigrp_fsm_event(&fsm_msg);
 		}
 		/*
 		 * End of filtering
