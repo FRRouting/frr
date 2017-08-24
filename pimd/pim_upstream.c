@@ -1624,8 +1624,9 @@ static void pim_upstream_sg_running(void *arg)
 	// No packet can have arrived here if this is the case
 	if (!up->channel_oil->installed) {
 		if (PIM_DEBUG_TRACE)
-			zlog_debug("%s: %s is not installed in mroute",
-				   __PRETTY_FUNCTION__, up->sg_str);
+			zlog_debug("%s: %s[%s] is not installed in mroute",
+				   __PRETTY_FUNCTION__,
+				   up->sg_str, pim->vrf->name);
 		return;
 	}
 
