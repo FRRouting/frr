@@ -81,9 +81,6 @@ static enum match_type match_variable(struct cmd_token *, const char *);
 
 static enum match_type match_mac(const char *, bool);
 
-/* matching functions */
-static enum matcher_rv matcher_rv;
-
 enum matcher_rv command_match(struct graph *cmdgraph, vector vline,
 			      struct list **argv, const struct cmd_element **el)
 {
@@ -446,12 +443,12 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
 	 * next     = set of all nodes reachable from all nodes in `matched`
 	 */
 
-	matcher_rv = idx == vector_active(vline) && next->count
-			     ? MATCHER_OK
-			     : MATCHER_NO_MATCH;
+	enum matcher_rv mrv = idx == vector_active(vline) && next->count
+				      ? MATCHER_OK
+				      : MATCHER_NO_MATCH;
 
 	*completions = NULL;
-	if (!MATCHER_ERROR(matcher_rv)) {
+	if (!MATCHER_ERROR(mrv)) {
 		// extract cmd_token into list
 		*completions = list_new();
 		for (ALL_LIST_ELEMENTS_RO(next, node, gstack)) {
@@ -462,7 +459,7 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
 	list_delete(current);
 	list_delete(next);
 
-	return matcher_rv;
+	return mrv;
 }
 
 /**
