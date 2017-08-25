@@ -840,7 +840,7 @@ static void lsp_schedule(struct hash_backet *backet, void *ctxt)
 	zebra_lsp_t *lsp;
 
 	lsp = (zebra_lsp_t *)backet->data;
-	lsp_processq_add(lsp);
+	(void)lsp_processq_add(lsp);
 }
 
 /*
@@ -2718,10 +2718,10 @@ int zebra_mpls_write_lsp_config(struct vty *vty, struct zebra_vrf *zvrf)
 	for (ALL_LIST_ELEMENTS_RO(slsp_list, node, slsp)) {
 		for (snhlfe = slsp->snhlfe_list; snhlfe;
 		     snhlfe = snhlfe->next) {
-			char buf[INET6_ADDRSTRLEN];
+			char buf[BUFSIZ];
 			char lstr[30];
 
-			snhlfe2str(snhlfe, buf, BUFSIZ);
+			snhlfe2str(snhlfe, buf, sizeof(buf));
 			switch (snhlfe->out_label) {
 			case MPLS_V4_EXP_NULL_LABEL:
 			case MPLS_V6_EXP_NULL_LABEL:

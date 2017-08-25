@@ -2201,7 +2201,7 @@ DEFUN (no_set_ip_nexthop,
        "Next hop address\n"
        "IP address of next hop\n")
 {
-	int idx;
+	int idx = 0;
 	VTY_DECLVAR_CONTEXT(route_map_index, index);
 	const char *arg = NULL;
 

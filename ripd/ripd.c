@@ -1685,6 +1685,7 @@ int rip_recvmsg(int sock, u_char *buf, int size, struct sockaddr_in *from,
 	struct cmsghdr *ptr;
 	char adata[1024];
 
+	memset(&msg, 0, sizeof(msg));
 	msg.msg_name = (void *)from;
 	msg.msg_namelen = sizeof(struct sockaddr_in);
 	msg.msg_iov = &iov;

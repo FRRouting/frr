@@ -231,11 +231,7 @@ static int ospf6_zebra_read_route(int command, struct zclient *zclient,
 		char prefixstr[PREFIX2STR_BUFFER], nexthopstr[128];
 		prefix2str((struct prefix *)&api.prefix, prefixstr,
 			   sizeof(prefixstr));
-		if (nexthop)
-			inet_ntop(AF_INET6, nexthop, nexthopstr,
-				  sizeof(nexthopstr));
-		else
-			snprintf(nexthopstr, sizeof(nexthopstr), "::");
+		inet_ntop(AF_INET6, nexthop, nexthopstr, sizeof(nexthopstr));
 
 		zlog_debug(
 			"Zebra Receive route %s: %s %s nexthop %s ifindex %ld tag %" ROUTE_TAG_PRI,

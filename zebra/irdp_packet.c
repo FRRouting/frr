@@ -182,6 +182,7 @@ static int irdp_recvmsg(int sock, u_char *buf, int size, int *ifindex)
 	char adata[CMSG_SPACE(SOPT_SIZE_CMSG_PKTINFO_IPV4())];
 	int ret;
 
+	memset(&msg, 0, sizeof(msg));
 	msg.msg_name = (void *)0;
 	msg.msg_namelen = 0;
 	msg.msg_iov = &iov;

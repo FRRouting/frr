@@ -176,6 +176,7 @@ int ripng_send_packet(caddr_t buf, int bufsize, struct sockaddr_in6 *to,
 		addr.sin6_port = htons(RIPNG_PORT_DEFAULT);
 	}
 
+	memset(&msg, 0, sizeof(msg));
 	msg.msg_name = (void *)&addr;
 	msg.msg_namelen = sizeof(struct sockaddr_in6);
 	msg.msg_iov = &iov;
@@ -228,6 +229,7 @@ static int ripng_recv_packet(int sock, u_char *buf, int bufsize,
 	char adata[1024];
 
 	/* Fill in message and iovec. */
+	memset(&msg, 0, sizeof(msg));
 	msg.msg_name = (void *)from;
 	msg.msg_namelen = sizeof(struct sockaddr_in6);
 	msg.msg_iov = &iov;

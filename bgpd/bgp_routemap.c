@@ -658,8 +658,10 @@ static void *route_match_vni_compile(const char *arg)
 		return NULL;
 
 	*vni = strtoul(arg, &end, 10);
-	if (*end != '\0')
+	if (*end != '\0') {
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, vni);
 		return NULL;
+	}
 
 	return vni;
 }
