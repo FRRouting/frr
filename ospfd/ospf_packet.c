@@ -907,9 +907,10 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("Packet %s [Hello:RECV]: Options %s",
+		zlog_debug("Packet %s [Hello:RECV]: Options %s vrf %s",
 			   inet_ntoa(ospfh->router_id),
-			   ospf_options_dump(hello->options));
+			   ospf_options_dump(hello->options),
+			   ospf_vrf_id_to_name(oi->ospf->vrf_id));
 
 /* Compare options. */
 #define REJECT_IF_TBIT_ON	1 /* XXX */
@@ -1556,7 +1557,8 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 		}
 
 		/* Search proper LSA in LSDB. */
-		find = ospf_lsa_lookup(oi->area, ls_type, ls_id, adv_router);
+		find = ospf_lsa_lookup(oi->ospf, oi->area, ls_type, ls_id,
+				       adv_router);
 		if (find == NULL) {
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_BadLSReq);
 			list_delete(ls_upd);
@@ -1696,6 +1698,7 @@ static struct list *ospf_ls_upd_list_lsa(struct ospf_neighbor *nbr,
 		/* Create OSPF LSA instance. */
 		lsa = ospf_lsa_new();
 
+		lsa->vrf_id = oi->ospf->vrf_id;
 		/* We may wish to put some error checking if type NSSA comes in
 		   and area not in NSSA mode */
 		switch (lsah->type) {
@@ -2173,6 +2176,7 @@ static void ospf_ls_ack(struct ip *iph, struct ospf_header *ospfh,
 
 		lsa = ospf_lsa_new();
 		lsa->data = (struct lsa_header *)STREAM_PNT(s);
+		lsa->vrf_id = oi->ospf->vrf_id;
 
 		/* lsah = (struct lsa_header *) STREAM_PNT (s); */
 		size -= OSPF_LSA_HEADER_SIZE;
@@ -2197,7 +2201,8 @@ static void ospf_ls_ack(struct ip *iph, struct ospf_header *ospfh,
 	return;
 }
 
-static struct stream *ospf_recv_packet(int fd, struct interface **ifp,
+static struct stream *ospf_recv_packet(struct ospf *ospf, int fd,
+				       struct interface **ifp,
 				       struct stream *ibuf)
 {
 	int ret;
@@ -2265,7 +2270,7 @@ static struct stream *ospf_recv_packet(int fd, struct interface **ifp,
 
 	ifindex = getsockopt_ifindex(AF_INET, &msgh);
 
-	*ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
+	*ifp = if_lookup_by_index(ifindex, ospf->vrf_id);
 
 	if (ret != ip_len) {
 		zlog_warn(
@@ -2833,7 +2838,7 @@ int ospf_read(struct thread *thread)
 	struct ip *iph;
 	struct ospf_header *ospfh;
 	u_int16_t length;
-	struct interface *ifp;
+	struct interface *ifp = NULL;
 	struct connected *c;
 
 	/* first of all get interface pointer. */
@@ -2844,7 +2849,8 @@ int ospf_read(struct thread *thread)
 	thread_add_read(master, ospf_read, ospf, ospf->fd, &ospf->t_read);
 
 	stream_reset(ospf->ibuf);
-	if (!(ibuf = ospf_recv_packet(ospf->fd, &ifp, ospf->ibuf)))
+	ibuf = ospf_recv_packet(ospf, ospf->fd, &ifp, ospf->ibuf);
+	if (ibuf == NULL)
 		return -1;
 	/* This raw packet is known to be at least as big as its IP header. */
 
@@ -2861,7 +2867,7 @@ int ospf_read(struct thread *thread)
 		   ifindex
 		   retrieval but do not. */
 		c = if_lookup_address((void *)&iph->ip_src, AF_INET,
-				      VRF_DEFAULT);
+				      ospf->vrf_id);
 		if (c)
 			ifp = c->ifp;
 		if (ifp == NULL)
@@ -3487,6 +3493,13 @@ static void ospf_hello_send_sub(struct ospf_interface *oi, in_addr_t addr)
 
 	op->dst.s_addr = addr;
 
+	if (IS_DEBUG_OSPF_EVENT) {
+		if (oi->ospf->vrf_id)
+			zlog_debug("%s: Hello Tx interface %s ospf vrf %s id %u",
+				    __PRETTY_FUNCTION__, oi->ifp->name,
+				    ospf_vrf_id_to_name(oi->ospf->vrf_id),
+				    oi->ospf->vrf_id);
+	}
 	/* Add packet to the top of the interface output queue, so that they
 	 * can't get delayed by things like long queues of LS Update packets
 	 */

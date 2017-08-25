@@ -41,21 +41,24 @@ struct ospf_distance {
 };
 
 /* Prototypes */
-extern void ospf_zebra_add(struct prefix_ipv4 *, struct ospf_route *);
-extern void ospf_zebra_delete(struct prefix_ipv4 *, struct ospf_route *);
+extern void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *,
+			   struct ospf_route *);
+extern void ospf_zebra_delete(struct ospf *ospf, struct prefix_ipv4 *,
+			      struct ospf_route *);
 
-extern void ospf_zebra_add_discard(struct prefix_ipv4 *);
-extern void ospf_zebra_delete_discard(struct prefix_ipv4 *);
+extern void ospf_zebra_add_discard(struct ospf *ospf, struct prefix_ipv4 *);
+extern void ospf_zebra_delete_discard(struct ospf *ospf, struct prefix_ipv4 *);
 
 extern int ospf_redistribute_check(struct ospf *, struct external_info *,
 				   int *);
 extern int ospf_distribute_check_connected(struct ospf *,
 					   struct external_info *);
-extern void ospf_distribute_list_update(struct ospf *, uintptr_t, u_short);
+extern void ospf_distribute_list_update(struct ospf *, int, u_short);
 
-extern int ospf_is_type_redistributed(int, u_short);
+extern int ospf_is_type_redistributed(struct ospf *, int, u_short);
 extern void ospf_distance_reset(struct ospf *);
-extern u_char ospf_distance_apply(struct prefix_ipv4 *, struct ospf_route *);
+extern u_char ospf_distance_apply(struct ospf *ospf, struct prefix_ipv4 *,
+				  struct ospf_route *);
 extern struct ospf_external *ospf_external_lookup(u_char, u_short);
 extern struct ospf_external *ospf_external_add(u_char, u_short);
 extern void ospf_external_del(u_char, u_short);
@@ -77,6 +80,8 @@ extern int ospf_distance_set(struct vty *, struct ospf *, const char *,
 extern int ospf_distance_unset(struct vty *, struct ospf *, const char *,
 			       const char *, const char *);
 extern void ospf_zebra_init(struct thread_master *, u_short);
+extern void ospf_zebra_vrf_register(struct ospf *ospf);
+extern void ospf_zebra_vrf_deregister(struct ospf *ospf);
 
 DECLARE_HOOK(ospf_if_update, (struct interface * ifp), (ifp))
 DECLARE_HOOK(ospf_if_delete, (struct interface * ifp), (ifp))
