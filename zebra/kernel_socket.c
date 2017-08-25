@@ -88,13 +88,10 @@ extern struct zebra_privs_t zserv_privs;
 #if !defined(ROUNDUP)
 
 /*
- * It's a bug for a platform not to define rounding/alignment for
- * sockaddrs on the routing socket.  This warning really is
- * intentional, to provoke filing bug reports with operating systems
- * that don't define RT_ROUNDUP or equivalent.
+ * If you're porting to a platform that changed RT_ROUNDUP but doesn't
+ * have it in its headers, this will break rather obviously and you'll
+ * have to fix it here.
  */
-#warning                                                                       \
-	"net/route.h does not define RT_ROUNDUP; making unwarranted assumptions!"
 
 /* OS X (Xcode as of 2014-12) is known not to define RT_ROUNDUP */
 #ifdef __APPLE__
