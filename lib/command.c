@@ -147,8 +147,10 @@ const char *domainname_get(void)
 	struct utsname names;
 
 	if (!host.name || !host.domainname) {
+#ifdef HAVE_STRUCT_UTSNAME_DOMAINNAME
 		uname(&names);
 		host.domainname = XSTRDUP(MTYPE_HOST, names.domainname);
+#endif
 	}
 	return host.domainname;
 }
