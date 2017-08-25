@@ -36,12 +36,14 @@ class RenderHandler(object):
 
     deref = ''
     drop_str = False
+    canfail = True
 
 class StringHandler(RenderHandler):
     argtype = 'const char *'
     decl = Template('const char *$varname = NULL;')
     code = Template('$varname = argv[_i]->arg;')
     drop_str = True
+    canfail = False
 
 class LongHandler(RenderHandler):
     argtype = 'long'
@@ -130,6 +132,10 @@ handlers = {
 }
 
 # core template invoked for each occurence of DEFPY.
+#
+# the "#if $..." bits are there to keep this template unified into one
+# common form, without requiring a more advanced template engine (e.g.
+# jinja2)
 templ = Template('''/* $fnname => "$cmddef" */
 DEFUN_CMD_FUNC_DECL($fnname)
 #define funcdecl_$fnname static int ${fnname}_magic(\\
@@ -140,20 +146,31 @@ DEFUN_CMD_FUNC_DECL($fnname)
 funcdecl_$fnname;
 DEFUN_CMD_FUNC_TEXT($fnname)
 {
+#if $nonempty /* anything to parse? */
 	int _i;
+#if $canfail /* anything that can fail? */
 	unsigned _fail = 0, _failcnt = 0;
+#endif
 $argdecls
 	for (_i = 0; _i < argc; _i++) {
 		if (!argv[_i]->varname)
 			continue;
-		_fail = 0;$argblocks
+#if $canfail /* anything that can fail? */
+		_fail = 0;
+#endif
+$argblocks
+#if $canfail /* anything that can fail? */
 		if (_fail)
 			vty_out (vty, "%% invalid input for %s: %s\\n",
 				   argv[_i]->varname, argv[_i]->arg);
 		_failcnt += _fail;
+#endif
 	}
+#if $canfail /* anything that can fail? */
 	if (_failcnt)
 		return CMD_WARNING;
+#endif
+#endif
 	return ${fnname}_magic(self, vty, argc, argv$arglist);
 }
 
@@ -196,6 +213,7 @@ def process_file(fn, ofd, dumpfd, all_defun):
             arglist = []
             argblocks = []
             doc = []
+            canfail = 0
 
             def do_add(handler, varname, attr = ''):
                 argdefs.append(',\\\n\t%s %s%s' % (handler.argtype, varname, attr))
@@ -213,6 +231,8 @@ def process_file(fn, ofd, dumpfd, all_defun):
                 if handler is None: continue
                 do_add(handler, varname)
                 code = handler.code.substitute({'varname': varname}).replace('\n', '\n\t\t\t')
+                if handler.canfail:
+                    canfail = 1
                 strblock = ''
                 if not handler.drop_str:
                     do_add(StringHandler(None), '%s_str' % (varname), ' __attribute__ ((unused))')
@@ -229,6 +249,8 @@ def process_file(fn, ofd, dumpfd, all_defun):
             params['argdecls'] = ''.join(argdecls)
             params['arglist'] = ''.join(arglist)
             params['argblocks'] = ''.join(argblocks)
+            params['canfail'] = canfail
+            params['nonempty'] = len(argblocks)
             ofd.write(templ.substitute(params))
 
 if __name__ == '__main__':
