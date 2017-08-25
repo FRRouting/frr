@@ -1198,7 +1198,7 @@ static int zread_ipv4_add(struct zserv *client, u_short length,
 	ifindex_t ifindex;
 	safi_t safi;
 	int ret;
-	enum lsp_types_t label_type;
+	enum lsp_types_t label_type = ZEBRA_LSP_NONE;
 	mpls_label_t label;
 	struct nexthop *nexthop;
 

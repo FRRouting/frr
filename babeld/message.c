@@ -391,7 +391,7 @@ parse_packet(const unsigned char *from, struct interface *ifp,
         } else if(type == MESSAGE_HELLO) {
             unsigned short seqno, interval;
             int changed;
-            unsigned int timestamp;
+            unsigned int timestamp = 0;
             DO_NTOHS(seqno, message + 4);
             DO_NTOHS(interval, message + 6);
             debugf(BABEL_DEBUG_COMMON,"Received hello %d (%d) from %s on %s.",

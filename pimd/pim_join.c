@@ -414,7 +414,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 	struct pim_jp_agg_group *group;
 	struct pim_interface *pim_ifp = NULL;
 	struct pim_jp_groups *grp = NULL;
-	struct pim_jp *msg;
+	struct pim_jp *msg = NULL;
 	struct listnode *node, *nnode;
 	uint8_t pim_msg[10000];
 	uint8_t *curr_ptr = pim_msg;
