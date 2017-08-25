@@ -412,11 +412,15 @@ void eigrp_sw_version_initialize(void)
 {
 	char ver_string[] = VERSION;
 	char *dash = strstr(ver_string, "-");
+	int ret;
 
 	if (dash)
 		dash[0] = '\0';
 
-	sscanf(ver_string, "%d.%d", &FRR_MAJOR, &FRR_MINOR);
+	ret = sscanf(ver_string, "%d.%d", &FRR_MAJOR, &FRR_MINOR);
+	if (ret != 2)
+		zlog_err("Did not Properly parse %s, please fix VERSION string",
+			 VERSION);
 }
 
 /**

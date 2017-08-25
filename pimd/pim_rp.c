@@ -542,7 +542,9 @@ int pim_rp_del(struct pim_instance *pim, const char *rp,
 	}
 	pim_delete_tracked_nexthop(pim, &nht_p, NULL, rp_info);
 
-	str2prefix("224.0.0.0/4", &g_all);
+	if (!str2prefix("224.0.0.0/4", &g_all))
+		return PIM_RP_BAD_ADDRESS;
+
 	rp_all = pim_rp_find_match_group(pim, &g_all);
 
 	if (rp_all == rp_info) {

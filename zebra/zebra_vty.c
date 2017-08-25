@@ -1181,7 +1181,10 @@ DEFUN (show_ip_route,
 		tag = strtoul(argv[idx + 1]->arg, NULL, 10);
 
 	else if (argv_find(argv, argc, "A.B.C.D/M", &idx)) {
-		str2prefix(argv[idx]->arg, &p);
+		if (str2prefix(argv[idx]->arg, &p) <= 0) {
+			vty_out(vty, "%% Malformed prefix\n");
+			return CMD_WARNING;
+		}
 		longer_prefixes = true;
 	}
 
@@ -1834,7 +1837,10 @@ DEFUN (show_ipv6_route,
 		tag = strtoul(argv[idx + 1]->arg, NULL, 10);
 
 	else if (argv_find(argv, argc, "X:X::X:X/M", &idx)) {
-		str2prefix(argv[idx]->arg, &p);
+		if (str2prefix(argv[idx]->arg, &p) <= 0) {
+			vty_out(vty, "%% Malformed prefix\n");
+			return CMD_WARNING;
+		}
 		longer_prefixes = true;
 	}
 
@@ -2572,6 +2578,8 @@ DEFUN (ip_zebra_import_table_distance,
 		vty_out(vty,
 			"Invalid routing table ID, %d. Must be in range 1-252\n",
 			table_id);
+		if (rmap)
+			XFREE(MTYPE_ROUTE_MAP_NAME, rmap);
 		return CMD_WARNING;
 	}
 
@@ -2579,6 +2587,8 @@ DEFUN (ip_zebra_import_table_distance,
 		vty_out(vty,
 			"Invalid routing table ID, %d. Must be non-default table\n",
 			table_id);
+		if (rmap)
+			XFREE(MTYPE_ROUTE_MAP_NAME, rmap);
 		return CMD_WARNING;
 	}
 

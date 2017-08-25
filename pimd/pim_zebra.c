@@ -184,6 +184,13 @@ static int pim_zebra_if_state_up(int command, struct zclient *zclient,
 			    && (ifp->vrf_id != vrf->vrf_id)) {
 				struct interface *master = if_lookup_by_name(
 					vrf->name, vrf->vrf_id);
+
+				if (!master) {
+					zlog_debug("%s: Unable to find Master interface for %s",
+						   __PRETTY_FUNCTION__,
+						   vrf->name);
+					return 0;
+				}
 				zclient_interface_set_master(zclient, master,
 							     ifp);
 			}

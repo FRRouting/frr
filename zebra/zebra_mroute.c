@@ -48,8 +48,8 @@ int zebra_ipmr_route_stats(struct zserv *client, int fd, u_short length,
 		char sbuf[40];
 		char gbuf[40];
 
-		strcpy(sbuf, inet_ntoa(mroute.sg.src));
-		strcpy(gbuf, inet_ntoa(mroute.sg.grp));
+		strlcpy(sbuf, inet_ntoa(mroute.sg.src), sizeof(sbuf));
+		strlcpy(gbuf, inet_ntoa(mroute.sg.grp), sizeof(gbuf));
 
 		zlog_debug("Asking for (%s,%s) mroute information", sbuf, gbuf);
 	}

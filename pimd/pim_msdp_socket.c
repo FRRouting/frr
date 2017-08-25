@@ -156,9 +156,15 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 		if (!ifp) {
 			zlog_err("%s: Unable to lookup vrf interface: %s",
 				 __PRETTY_FUNCTION__, pim->vrf->name);
+			close(sock);
 			return -1;
 		}
-		pim_socket_bind(sock, ifp);
+		if (pim_socket_bind(sock, ifp)) {
+			zlog_err("%s: Unable to bind to socket: %s",
+				 __PRETTY_FUNCTION__, safe_strerror(errno));
+			close(sock);
+			return -1;
+		}
 	}
 
 	if (pimd_privs.change(ZPRIVS_RAISE)) {
@@ -236,7 +242,13 @@ int pim_msdp_sock_connect(struct pim_msdp_peer *mp)
 				 __PRETTY_FUNCTION__, mp->pim->vrf->name);
 			return -1;
 		}
-		pim_socket_bind(mp->fd, ifp);
+		if (pim_socket_bind(mp->fd, ifp)) {
+			zlog_err("%s: Unable to bind to socket: %s",
+				 __PRETTY_FUNCTION__, safe_strerror(errno));
+			close(mp->fd);
+			mp->fd = -1;
+			return -1;
+		}
 	}
 
 	set_nonblocking(mp->fd);

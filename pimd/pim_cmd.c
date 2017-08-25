@@ -4895,6 +4895,9 @@ DEFUN (show_ip_mroute_count,
 	int idx = 2;
 	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
 
+	if (!vrf)
+		return CMD_WARNING;
+
 	show_mroute_count(vrf->info, vty);
 	return CMD_SUCCESS;
 }

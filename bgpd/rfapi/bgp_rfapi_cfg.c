@@ -2977,11 +2977,6 @@ DEFUN_NOSH (vnc_vrf_policy,
 	struct rfapi_nve_group_cfg *rfg;
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	if (!bgp) {
-		vty_out(vty, "No BGP process is configured\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	/* Search for name */
 	rfg = bgp_rfapi_cfg_match_byname(bgp, argv[1]->arg,
 					 RFAPI_GROUP_CFG_VRF);
@@ -3012,10 +3007,6 @@ DEFUN (vnc_no_vrf_policy,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	if (!bgp) {
-		vty_out(vty, "No BGP process is configured\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 	return bgp_rfapi_delete_named_nve_group(vty, bgp, argv[2]->arg,
 						RFAPI_GROUP_CFG_VRF);
 }
@@ -3030,11 +3021,6 @@ DEFUN (vnc_vrf_policy_label,
 
 	uint32_t label;
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	if (!bgp) {
-		vty_out(vty, "No BGP process is configured\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	/* make sure it's still in list */
 	if (!listnode_lookup(bgp->rfapi_cfg->nve_groups_sequential, rfg)) {
@@ -3145,11 +3131,6 @@ DEFUN (vnc_vrf_policy_rt_import,
 	int is_export_bgp = 0;
 	int is_export_zebra = 0;
 
-	if (!bgp) {
-		vty_out(vty, "No BGP process is configured\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	/* make sure it's still in list */
 	if (!listnode_lookup(bgp->rfapi_cfg->nve_groups_sequential, rfg)) {
 		/* Not in list anymore */
@@ -3213,11 +3194,6 @@ DEFUN (vnc_vrf_policy_rt_export,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int rc;
 
-	if (!bgp) {
-		vty_out(vty, "No BGP process is configured\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	/* make sure it's still in list */
 	if (!listnode_lookup(bgp->rfapi_cfg->nve_groups_sequential, rfg)) {
 		/* Not in list anymore */
@@ -3252,11 +3228,6 @@ DEFUN (vnc_vrf_policy_rt_both,
 	int is_export_zebra = 0;
 	struct listnode *node;
 	struct rfapi_rfg_name *rfgn;
-
-	if (!bgp) {
-		vty_out(vty, "No BGP process is configured\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	/* make sure it's still in list */
 	if (!listnode_lookup(bgp->rfapi_cfg->nve_groups_sequential, rfg)) {
@@ -3332,11 +3303,6 @@ DEFUN (vnc_vrf_policy_rd,
 	struct prefix_rd prd;
 	VTY_DECLVAR_CONTEXT_SUB(rfapi_nve_group_cfg, rfg);
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	if (!bgp) {
-		vty_out(vty, "No BGP process is configured\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	/* make sure it's still in list */
 	if (!listnode_lookup(bgp->rfapi_cfg->nve_groups_sequential, rfg)) {
@@ -3420,11 +3386,6 @@ DEFUN_NOSH (vnc_l2_group,
 	struct rfapi_l2_group_cfg *rfg;
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	if (!bgp) {
-		vty_out(vty, "No BGP process is configured\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	/* Search for name */
 	rfg = rfapi_l2_group_lookup_byname(bgp, argv[1]->arg);
 
@@ -3505,10 +3466,6 @@ DEFUN (vnc_no_l2_group,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
-	if (!bgp) {
-		vty_out(vty, "No BGP process is configured\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 	return bgp_rfapi_delete_named_l2_group(vty, bgp, argv[3]->arg);
 }
 
@@ -3521,11 +3478,6 @@ DEFUN (vnc_l2_group_lni,
 {
 	VTY_DECLVAR_CONTEXT_SUB(rfapi_l2_group_cfg, rfg);
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
-
-	if (!bgp) {
-		vty_out(vty, "No BGP process is configured\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	/* make sure it's still in list */
 	if (!listnode_lookup(bgp->rfapi_cfg->l2_groups, rfg)) {
@@ -3548,11 +3500,6 @@ DEFUN (vnc_l2_group_labels,
 	VTY_DECLVAR_CONTEXT_SUB(rfapi_l2_group_cfg, rfg);
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	struct list *ll;
-
-	if (!bgp) {
-		vty_out(vty, "No BGP process is configured\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	/* make sure it's still in list */
 	if (!listnode_lookup(bgp->rfapi_cfg->l2_groups, rfg)) {
@@ -3588,11 +3535,6 @@ DEFUN (vnc_l2_group_no_labels,
 	VTY_DECLVAR_CONTEXT_SUB(rfapi_l2_group_cfg, rfg);
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	struct list *ll;
-
-	if (!bgp) {
-		vty_out(vty, "No BGP process is configured\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	/* make sure it's still in list */
 	if (!listnode_lookup(bgp->rfapi_cfg->l2_groups, rfg)) {
@@ -3645,10 +3587,6 @@ DEFUN (vnc_l2_group_rt,
 	default:
 		vty_out(vty, "Unknown option, %s\n", argv[1]->arg);
 		return CMD_ERR_NO_MATCH;
-	}
-	if (!bgp) {
-		vty_out(vty, "No BGP process is configured\n");
-		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	/* make sure it's still in list */

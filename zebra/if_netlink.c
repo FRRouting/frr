@@ -393,7 +393,7 @@ static int get_iflink_speed(const char *ifname)
 	memset(&ifdata, 0, sizeof(ifdata));
 
 	/* set interface name */
-	strcpy(ifdata.ifr_name, ifname);
+	strlcpy(ifdata.ifr_name, ifname, sizeof(ifdata.ifr_name));
 
 	/* initialize ethtool interface */
 	memset(&ecmd, 0, sizeof(ecmd));
