@@ -848,8 +848,22 @@ struct attr *bgp_attr_aggregate_intern(struct bgp *bgp, u_char origin,
 	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
 
 	if (community) {
+		u_int32_t gshut = COMMUNITY_GSHUT;
+
+		/* If we are not shutting down ourselves and we are
+		 * aggregating a route that contains the GSHUT community we
+		 * need to remove that community when creating the aggregate */
+		if (!bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN) &&
+		    community_include(community, gshut)) {
+			community_del_val(community, &gshut);
+		}
+
 		attr.community = community;
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
+	}
+
+	if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
+		bgp_attr_add_gshut_community(&attr);
 	}
 
 	attr.label_index = BGP_INVALID_LABEL_INDEX;
@@ -1400,7 +1414,7 @@ bgp_attr_local_pref(struct bgp_attr_parser_args *args)
 
 	attr->local_pref = stream_getl(peer->ibuf);
 
-	/* Set atomic aggregate flag. */
+	/* Set the local-pref flag. */
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
 
 	return BGP_ATTR_PARSE_PROCEED;

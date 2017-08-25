@@ -691,6 +691,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 
 	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
 	aspath = attr.aspath;
+
 	attr.local_pref = bgp->default_local_pref;
 
 	if (afi == AFI_IP)
@@ -749,6 +750,11 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	} else {
 		if (!CHECK_FLAG(subgrp->sflags,
 				SUBGRP_STATUS_DEFAULT_ORIGINATE)) {
+
+			if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
+				bgp_attr_add_gshut_community(&attr);
+			}
+
 			SET_FLAG(subgrp->sflags,
 				 SUBGRP_STATUS_DEFAULT_ORIGINATE);
 			subgroup_default_update_packet(subgrp, &attr, from);

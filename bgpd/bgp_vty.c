@@ -1804,6 +1804,69 @@ DEFUN (no_bgp_graceful_restart_preserve_fw,
 	return CMD_SUCCESS;
 }
 
+static void bgp_redistribute_redo(struct bgp *bgp)
+{
+	afi_t afi;
+	int i;
+	struct list *red_list;
+	struct listnode *node;
+	struct bgp_redist *red;
+
+        for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+                for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+
+                        red_list = bgp->redist[afi][i];
+                        if (!red_list)
+                                continue;
+
+                        for (ALL_LIST_ELEMENTS_RO(red_list, node, red)) {
+				bgp_redistribute_resend(bgp, afi, i,
+							red->instance);
+			}
+		}
+	}
+}
+
+/* "bgp graceful-shutdown" configuration */
+DEFUN (bgp_graceful_shutdown,
+       bgp_graceful_shutdown_cmd,
+       "bgp graceful-shutdown",
+       BGP_STR
+       "Graceful shutdown parameters\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (!bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
+		bgp_flag_set(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN);
+		bgp_static_redo_import_check(bgp);
+		bgp_redistribute_redo(bgp);
+		bgp_clear_star_soft_out(vty, bgp->name);
+		bgp_clear_star_soft_in(vty, bgp->name);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_graceful_shutdown,
+       no_bgp_graceful_shutdown_cmd,
+       "no bgp graceful-shutdown",
+       NO_STR
+       BGP_STR
+       "Graceful shutdown parameters\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
+		bgp_flag_unset(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN);
+		bgp_static_redo_import_check(bgp);
+		bgp_redistribute_redo(bgp);
+		bgp_clear_star_soft_out(vty, bgp->name);
+		bgp_clear_star_soft_in(vty, bgp->name);
+	}
+
+	return CMD_SUCCESS;
+}
+
 /* "bgp fast-external-failover" configuration. */
 DEFUN (bgp_fast_external_failover,
        bgp_fast_external_failover_cmd,
@@ -10459,6 +10522,7 @@ DEFUN (bgp_redistribute_ipv4,
 		vty_out(vty, "%% Invalid route type\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
 	bgp_redist_add(bgp, AFI_IP, type, 0);
 	return bgp_redistribute_set(bgp, AFI_IP, type, 0);
 }
@@ -11334,6 +11398,10 @@ void bgp_vty_init(void)
 
 	install_element(BGP_NODE, &bgp_graceful_restart_preserve_fw_cmd);
 	install_element(BGP_NODE, &no_bgp_graceful_restart_preserve_fw_cmd);
+
+	/* "bgp graceful-shutdown" commands */
+	install_element(BGP_NODE, &bgp_graceful_shutdown_cmd);
+	install_element(BGP_NODE, &no_bgp_graceful_shutdown_cmd);
 
 	/* "bgp fast-external-failover" commands */
 	install_element(BGP_NODE, &bgp_fast_external_failover_cmd);

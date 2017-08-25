@@ -7190,6 +7190,10 @@ int bgp_config_write(struct vty *vty)
 		if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_RESTART))
 			vty_out(vty, " bgp graceful-restart\n");
 
+		/* BGP graceful-shutdown */
+		if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN))
+			vty_out(vty, " bgp graceful-shutdown\n");
+
 		/* BGP graceful-restart Preserve State F bit. */
 		if (bgp_flag_check(bgp, BGP_FLAG_GR_PRESERVE_FWD))
 			vty_out(vty,

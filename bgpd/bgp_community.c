@@ -191,6 +191,7 @@ struct community *community_uniq_sort(struct community *com)
    0xFFFFFF01      "no-export"
    0xFFFFFF02      "no-advertise"
    0xFFFFFF03      "local-AS"
+   0xFFFF0000      "graceful-shutdown"
 
    For other values, "AS:VAL" format is used.  */
 static void set_community_string(struct community *com)
@@ -244,6 +245,9 @@ static void set_community_string(struct community *com)
 		case COMMUNITY_LOCAL_AS:
 			len += strlen(" local-AS");
 			break;
+		case COMMUNITY_GSHUT:
+			len += strlen(" graceful-shutdown");
+			break;
 		default:
 			len += strlen(" 65536:65535");
 			break;
@@ -287,6 +291,12 @@ static void set_community_string(struct community *com)
 			strcpy(pnt, "local-AS");
 			pnt += strlen("local-AS");
 			json_string = json_object_new_string("localAs");
+			json_object_array_add(json_community_list, json_string);
+			break;
+		case COMMUNITY_GSHUT:
+			strcpy(pnt, "graceful-shutdown");
+			pnt += strlen("graceful-shutdown");
+			json_string = json_object_new_string("gracefulShutdown");
 			json_object_array_add(json_community_list, json_string);
 			break;
 		default:
@@ -480,6 +490,7 @@ enum community_token {
 	community_token_no_export,
 	community_token_no_advertise,
 	community_token_local_as,
+	community_token_gshut,
 	community_token_unknown
 };
 
@@ -521,6 +532,12 @@ community_gettoken(const char *buf, enum community_token *token, u_int32_t *val)
 			*val = COMMUNITY_LOCAL_AS;
 			*token = community_token_local_as;
 			p += strlen("local-AS");
+			return p;
+		}
+		if (strncmp(p, "graceful-shutdown", strlen("graceful-shutdown")) == 0) {
+			*val = COMMUNITY_GSHUT;
+			*token = community_token_gshut;
+			p += strlen("graceful-shutdown");
 			return p;
 		}
 
@@ -595,6 +612,7 @@ struct community *community_str2com(const char *str)
 		case community_token_no_export:
 		case community_token_no_advertise:
 		case community_token_local_as:
+		case community_token_gshut:
 			if (com == NULL) {
 				com = community_new();
 				com->json = NULL;
