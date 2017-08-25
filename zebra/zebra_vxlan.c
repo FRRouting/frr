@@ -1155,13 +1155,14 @@ static int zvni_neigh_uninstall(zebra_vni_t *zvni, zebra_neigh_t *n)
 	if (!(n->flags & ZEBRA_NEIGH_REMOTE))
 		return 0;
 
-	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
-	assert(zvrf);
 	if (!zvni->vxlan_if) {
 		zlog_err("VNI %u hash %p couldn't be uninstalled - no intf",
 			 zvni->vni, zvni);
 		return -1;
 	}
+
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
+	assert(zvrf);
 
 	zif = zvni->vxlan_if->info;
 	if (!zif)
@@ -1361,7 +1362,7 @@ static int zvni_gw_macip_add(struct interface *ifp, zebra_vni_t *zvni,
 		zlog_debug(
 			"%u:SVI %s(%u) VNI %u, sending GW MAC %s IP %s add to BGP",
 			ifp->vrf_id, ifp->name, ifp->ifindex, zvni->vni,
-			prefix_mac2str(macaddr, NULL, ETHER_ADDR_STRLEN),
+			prefix_mac2str(macaddr, buf, sizeof(buf)),
 			ipaddr2str(ip, buf2, sizeof(buf2)));
 
 	zvni_neigh_send_add_to_client(zvrf, zvni->vni, ip, macaddr,
@@ -1420,7 +1421,8 @@ static int zvni_gw_macip_del(struct interface *ifp, zebra_vni_t *zvni,
 	zvni_neigh_del(zvni, n);
 
 	/* see if the mac needs to be deleted as well*/
-	zvni_deref_ip2mac(zvni, mac, 0);
+	if (mac)
+		zvni_deref_ip2mac(zvni, mac, 0);
 
 	return 0;
 }
