@@ -985,21 +985,20 @@ static struct route_map_rule_cmd ospf6_routemap_rule_set_tag_cmd = {
 
 static int route_map_command_status(struct vty *vty, int ret)
 {
-	if (!ret)
-		return CMD_SUCCESS;
-
 	switch (ret) {
 	case RMAP_RULE_MISSING:
 		vty_out(vty, "OSPF6 Can't find rule.\n");
+		return CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_ERROR:
 		vty_out(vty, "OSPF6 Argument is malformed.\n");
+		return CMD_WARNING_CONFIG_FAILED;
 		break;
-	default:
-		vty_out(vty, "OSPF6 route-map add set failed.\n");
+	case RMAP_COMPILE_SUCCESS:
 		break;
 	}
-	return CMD_WARNING_CONFIG_FAILED;
+
+	return CMD_SUCCESS;
 }
 
 /* add "set metric-type" */

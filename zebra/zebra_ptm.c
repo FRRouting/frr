@@ -156,7 +156,7 @@ void zebra_ptm_finish(void)
 	if (ptm_cb.wb)
 		buffer_free(ptm_cb.wb);
 
-	if (ptm_cb.ptm_sock != -1)
+	if (ptm_cb.ptm_sock >= 0)
 		close(ptm_cb.ptm_sock);
 }
 

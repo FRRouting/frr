@@ -2745,23 +2745,26 @@ unsigned long rib_score_proto(u_char proto, u_short instance)
 void rib_close_table(struct route_table *table)
 {
 	struct route_node *rn;
-	rib_table_info_t *info = table->info;
+	rib_table_info_t *info;
 	struct route_entry *re;
 
-	if (table)
-		for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
-			RNODE_FOREACH_RE(rn, re)
-			{
-				if (!CHECK_FLAG(re->status,
-						ROUTE_ENTRY_SELECTED_FIB))
-					continue;
+	assert(table);
 
-				if (info->safi == SAFI_UNICAST)
-					hook_call(rib_update, rn, NULL);
+	info = table->info;
 
-				if (!RIB_SYSTEM_ROUTE(re))
-					rib_uninstall_kernel(rn, re);
-			}
+	for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
+		RNODE_FOREACH_RE(rn, re)
+		{
+			if (!CHECK_FLAG(re->status,
+					ROUTE_ENTRY_SELECTED_FIB))
+				continue;
+
+			if (info->safi == SAFI_UNICAST)
+				hook_call(rib_update, rn, NULL);
+
+			if (!RIB_SYSTEM_ROUTE(re))
+				rib_uninstall_kernel(rn, re);
+		}
 }
 
 /* Routing information base initialize. */

@@ -1674,7 +1674,7 @@ static int zread_ipv6_delete(struct zserv *client, u_short length,
 	api.safi = stream_getw(s);
 
 	/* IPv4 prefix. */
-	memset(&p, 0, sizeof(struct prefix_ipv6));
+	memset(&p, 0, sizeof(struct prefix));
 	p.family = AF_INET6;
 	p.prefixlen = stream_getc(s);
 	stream_get(&p.u.prefix6, s, PSIZE(p.prefixlen));
