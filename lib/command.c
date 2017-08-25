@@ -130,6 +130,12 @@ struct host host;
  */
 const char *hostname_get(void)
 {
+	struct utsname names;
+
+	if (!host.name) {
+		uname(&names);
+		host.name = XSTRDUP(MTYPE_HOST, names.nodename);
+	}
 	return host.name;
 }
 
@@ -138,6 +144,12 @@ const char *hostname_get(void)
  */
 const char *domainname_get(void)
 {
+	struct utsname names;
+
+	if (!host.name || !host.domainname) {
+		uname(&names);
+		host.domainname = XSTRDUP(MTYPE_HOST, names.domainname);
+	}
 	return host.domainname;
 }
 
