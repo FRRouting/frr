@@ -72,7 +72,7 @@ struct bgp_attr_encap_subtlv {
 	unsigned long refcnt;
 	uint16_t type;
 	uint16_t length;
-	uint8_t value[1]; /* will be extended */
+	uint8_t value[0]; /* will be extended */
 };
 
 #if ENABLE_BGP_VNC
