@@ -2669,25 +2669,27 @@ static int bgp_route_match_add(struct vty *vty, const char *command,
 			       const char *arg, route_map_event_t type)
 {
 	VTY_DECLVAR_CONTEXT(route_map_index, index);
+	int retval = CMD_SUCCESS;
 	int ret;
 
 	ret = route_map_add_match(index, command, arg);
-	if (ret) {
-		switch (ret) {
-		case RMAP_RULE_MISSING:
-			vty_out(vty, "%% BGP Can't find rule.\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		case RMAP_COMPILE_ERROR:
-			vty_out(vty, "%% BGP Argument is malformed.\n");
-			return CMD_WARNING_CONFIG_FAILED;
+	switch (ret) {
+	case RMAP_RULE_MISSING:
+		vty_out(vty, "%% BGP Can't find rule.\n");
+		retval = CMD_WARNING_CONFIG_FAILED;
+		break;
+	case RMAP_COMPILE_ERROR:
+		vty_out(vty, "%% BGP Argument is malformed.\n");
+		retval = CMD_WARNING_CONFIG_FAILED;
+		break;
+	case RMAP_COMPILE_SUCCESS:
+		if (type != RMAP_EVENT_MATCH_ADDED) {
+			route_map_upd8_dependency(type, arg, index->map->name);
 		}
+		break;
 	}
 
-	if (type != RMAP_EVENT_MATCH_ADDED) {
-		route_map_upd8_dependency(type, arg, index->map->name);
-	}
-
-	return CMD_SUCCESS;
+	return retval;
 }
 
 /* Delete bgp route map rule. */
@@ -2696,6 +2698,7 @@ static int bgp_route_match_delete(struct vty *vty, const char *command,
 {
 	VTY_DECLVAR_CONTEXT(route_map_index, index);
 	int ret;
+	int retval = CMD_SUCCESS;
 	char *dep_name = NULL;
 	const char *tmpstr;
 	char *rmap_name = NULL;
@@ -2714,31 +2717,27 @@ static int bgp_route_match_delete(struct vty *vty, const char *command,
 	}
 
 	ret = route_map_delete_match(index, command, dep_name);
-	if (ret) {
-		switch (ret) {
-		case RMAP_RULE_MISSING:
-			vty_out(vty, "%% BGP Can't find rule.\n");
-			break;
-		case RMAP_COMPILE_ERROR:
-			vty_out(vty, "%% BGP Argument is malformed.\n");
-			break;
-		}
-		if (dep_name)
-			XFREE(MTYPE_ROUTE_MAP_RULE, dep_name);
-		if (rmap_name)
-			XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
-		return CMD_WARNING_CONFIG_FAILED;
+	switch (ret) {
+	case RMAP_RULE_MISSING:
+		vty_out(vty, "%% BGP Can't find rule.\n");
+		retval = CMD_WARNING_CONFIG_FAILED;
+		break;
+	case RMAP_COMPILE_ERROR:
+		vty_out(vty, "%% BGP Argument is malformed.\n");
+		retval = CMD_WARNING_CONFIG_FAILED;
+		break;
+	case RMAP_COMPILE_SUCCESS:
+		if (type != RMAP_EVENT_MATCH_DELETED && dep_name)
+			route_map_upd8_dependency(type, dep_name, rmap_name);
+		break;
 	}
-
-	if (type != RMAP_EVENT_MATCH_DELETED && dep_name)
-		route_map_upd8_dependency(type, dep_name, rmap_name);
 
 	if (dep_name)
 		XFREE(MTYPE_ROUTE_MAP_RULE, dep_name);
 	if (rmap_name)
 		XFREE(MTYPE_ROUTE_MAP_NAME, rmap_name);
 
-	return CMD_SUCCESS;
+	return retval;
 }
 
 /*
