@@ -629,7 +629,6 @@ static int rtadv_make_socket(void)
 			 safe_strerror(errno));
 
 	if (sock < 0) {
-		close(sock);
 		return -1;
 	}
 

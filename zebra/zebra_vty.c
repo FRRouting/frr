@@ -1181,7 +1181,11 @@ DEFUN (show_ip_route,
 		tag = strtoul(argv[idx + 1]->arg, NULL, 10);
 
 	else if (argv_find(argv, argc, "A.B.C.D/M", &idx)) {
-		str2prefix(argv[idx]->arg, &p);
+		if (!str2prefix(argv[idx]->arg, &p)) {
+			vty_out(vty, "Unknown IP Prefix Specified: %s",
+				argv[idx]->arg);
+			return CMD_WARNING;
+		}
 		longer_prefixes = true;
 	}
 
@@ -1834,7 +1838,11 @@ DEFUN (show_ipv6_route,
 		tag = strtoul(argv[idx + 1]->arg, NULL, 10);
 
 	else if (argv_find(argv, argc, "X:X::X:X/M", &idx)) {
-		str2prefix(argv[idx]->arg, &p);
+		if (!str2prefix(argv[idx]->arg, &p)) {
+			vty_out(vty, "Unknown Prefix specified: %s",
+				argv[idx]->arg);
+			return CMD_WARNING;
+		}
 		longer_prefixes = true;
 	}
 
@@ -2563,7 +2571,7 @@ DEFUN (ip_zebra_import_table_distance,
 		strmatch(argv[argc - 2]->text, "route-map")
 			? XSTRDUP(MTYPE_ROUTE_MAP_NAME, argv[argc - 1]->arg)
 			: NULL;
-	int ret;
+	int ret = CMD_WARNING;
 
 	if (argc == 7 || (argc == 5 && !rmap))
 		distance = strtoul(argv[4]->arg, NULL, 10);
@@ -2572,17 +2580,18 @@ DEFUN (ip_zebra_import_table_distance,
 		vty_out(vty,
 			"Invalid routing table ID, %d. Must be in range 1-252\n",
 			table_id);
-		return CMD_WARNING;
+		goto rmap_done;
 	}
 
 	if (is_zebra_main_routing_table(table_id)) {
 		vty_out(vty,
 			"Invalid routing table ID, %d. Must be non-default table\n",
 			table_id);
-		return CMD_WARNING;
+		goto rmap_done;
 	}
 
 	ret = zebra_import_table(AFI_IP, table_id, distance, rmap, 1);
+rmap_done:
 	if (rmap)
 		XFREE(MTYPE_ROUTE_MAP_NAME, rmap);
 

@@ -1155,13 +1155,14 @@ static int zvni_neigh_uninstall(zebra_vni_t *zvni, zebra_neigh_t *n)
 	if (!(n->flags & ZEBRA_NEIGH_REMOTE))
 		return 0;
 
-	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
-	assert(zvrf);
 	if (!zvni->vxlan_if) {
 		zlog_err("VNI %u hash %p couldn't be uninstalled - no intf",
 			 zvni->vni, zvni);
 		return -1;
 	}
+
+	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
+	assert(zvrf);
 
 	zif = zvni->vxlan_if->info;
 	if (!zif)
@@ -1343,8 +1344,7 @@ static int zvni_gw_macip_add(struct interface *ifp, zebra_vni_t *zvni,
 			zlog_err(
 				"%u:Failed to add neighbor %s MAC %s intf %s(%u) -> VNI %u",
 				ifp->vrf_id, ipaddr2str(ip, buf2, sizeof(buf2)),
-				prefix_mac2str(macaddr, NULL,
-					       ETHER_ADDR_STRLEN),
+				prefix_mac2str(macaddr, buf, ETHER_ADDR_STRLEN),
 				ifp->name, ifp->ifindex, zvni->vni);
 			return -1;
 		}
@@ -1362,7 +1362,7 @@ static int zvni_gw_macip_add(struct interface *ifp, zebra_vni_t *zvni,
 		zlog_debug(
 			"%u:SVI %s(%u) VNI %u, sending GW MAC %s IP %s add to BGP",
 			ifp->vrf_id, ifp->name, ifp->ifindex, zvni->vni,
-			prefix_mac2str(macaddr, NULL, ETHER_ADDR_STRLEN),
+			prefix_mac2str(macaddr, buf, ETHER_ADDR_STRLEN),
 			ipaddr2str(ip, buf2, sizeof(buf2)));
 
 	zvni_neigh_send_add_to_client(zvrf, zvni->vni, ip, macaddr,
@@ -1380,6 +1380,7 @@ static int zvni_gw_macip_del(struct interface *ifp, zebra_vni_t *zvni,
 	struct zebra_vrf *zvrf = NULL;
 	zebra_neigh_t *n = NULL;
 	zebra_mac_t *mac = NULL;
+	char buf[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
 
 	zvrf = vrf_info_lookup(zvni->vxlan_if->vrf_id);
@@ -1396,7 +1397,7 @@ static int zvni_gw_macip_del(struct interface *ifp, zebra_vni_t *zvni,
 	if (!mac)
 		zlog_err("%u: MAC %s doesnt exsists for neigh %s on VNI %u",
 			 ifp->vrf_id,
-			 prefix_mac2str(&n->emac, NULL, ETHER_ADDR_STRLEN),
+			 prefix_mac2str(&n->emac, buf, ETHER_ADDR_STRLEN),
 			 ipaddr2str(ip, buf2, sizeof(buf2)), zvni->vni);
 
 	/* If the entry is not local nothing to do*/
@@ -1407,7 +1408,7 @@ static int zvni_gw_macip_del(struct interface *ifp, zebra_vni_t *zvni,
 		zlog_debug(
 			"%u:SVI %s(%u) VNI %u, sending GW MAC %s IP %s del to BGP",
 			ifp->vrf_id, ifp->name, ifp->ifindex, zvni->vni,
-			prefix_mac2str(&(n->emac), NULL, ETHER_ADDR_STRLEN),
+			prefix_mac2str(&(n->emac), buf, ETHER_ADDR_STRLEN),
 			ipaddr2str(ip, buf2, sizeof(buf2)));
 
 	/* Remove neighbor from BGP. */
@@ -1418,7 +1419,8 @@ static int zvni_gw_macip_del(struct interface *ifp, zebra_vni_t *zvni,
 	zvni_neigh_del(zvni, n);
 
 	/* see if the mac needs to be deleted as well*/
-	zvni_deref_ip2mac(zvni, mac, 0);
+	if (mac)
+		zvni_deref_ip2mac(zvni, mac, 0);
 
 	return 0;
 }
