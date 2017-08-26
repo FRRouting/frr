@@ -307,6 +307,7 @@ int eigrp_if_up(struct eigrp_interface *ei)
 		pe->nt = EIGRP_TOPOLOGY_TYPE_CONNECTED;
 
 		ne->prefix = pe;
+		pe->reported_metric = metric;
 		pe->state = EIGRP_FSM_STATE_PASSIVE;
 		pe->fdistance = eigrp_calculate_metrics(eigrp, metric);
 		pe->req_action |= EIGRP_FSM_NEED_UPDATE;
