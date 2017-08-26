@@ -158,7 +158,6 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 	struct access_list *alist;
 	struct prefix_list *plist;
 	struct prefix dest_addr;
-	struct eigrp *e;
 	u_char graceful_restart;
 	u_char graceful_restart_final;
 	struct list *nbr_prefixes = NULL;
@@ -328,13 +327,12 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 				/*
 				 * Filtering
 				 */
-				e = eigrp_lookup();
 				/*
 				 * Check if there is any access-list on
 				 * interface (IN direction)
 				 *  and set distance to max
 				 */
-				alist = ei->list[EIGRP_FILTER_IN];
+				alist = eigrp->list[EIGRP_FILTER_IN];
 
 				/* Check if access-list fits */
 				if (alist
@@ -350,7 +348,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 							eigrp, ne);
 				}
 
-				plist = e->prefix[EIGRP_FILTER_IN];
+				plist = eigrp->prefix[EIGRP_FILTER_IN];
 
 				/* Check if prefix-list fits */
 				if (plist
