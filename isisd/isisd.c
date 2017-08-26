@@ -1260,8 +1260,8 @@ DEFUN (show_isis_spf_ietf,
 			if (area->spf_timer[level - 1]) {
 				struct timeval remain = thread_timer_remain(
 					area->spf_timer[level - 1]);
-				vty_out(vty, "Pending, due in %ld msec\n",
-					remain.tv_sec * 1000
+				vty_out(vty, "Pending, due in %lld msec\n",
+					(long long)remain.tv_sec * 1000
 						+ remain.tv_usec / 1000);
 			} else {
 				vty_out(vty, "Not scheduled\n");

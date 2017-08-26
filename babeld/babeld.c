@@ -331,8 +331,8 @@ babel_main_loop(struct thread *thread)
         /* if there is no timeout, we must wait. */
         if(timeval_compare(&tv, &babel_now) > 0) {
             timeval_minus(&tv, &tv, &babel_now);
-            debugf(BABEL_DEBUG_TIMEOUT, "babel main loop : timeout: %ld msecs",
-                   tv.tv_sec * 1000 + tv.tv_usec / 1000);
+            debugf(BABEL_DEBUG_TIMEOUT, "babel main loop : timeout: %lld msecs",
+                   (long long)tv.tv_sec * 1000 + tv.tv_usec / 1000);
             /* it happens often to have less than 1 ms, it's bad. */
             timeval_add_msec(&tv, &tv, 300);
             babel_set_timer(&tv);

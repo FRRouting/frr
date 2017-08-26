@@ -125,7 +125,7 @@ struct prefix {
 			struct in_addr adv_router;
 		} lp;
 		struct ethaddr prefix_eth; /* AF_ETHERNET */
-		u_char val[8];
+		u_char val[16];
 		uintptr_t ptr;
 		struct evpn_addr prefix_evpn; /* AF_EVPN */
 	} u __attribute__((aligned(8)));
