@@ -63,6 +63,32 @@
 #include "eigrpd/eigrp_network.h"
 #include "eigrpd/eigrp_memory.h"
 
+bool eigrp_update_prefix_apply(struct eigrp *eigrp,
+			       struct eigrp_interface *ei,
+			       int in, struct prefix *prefix)
+{
+	struct access_list *alist;
+	struct prefix_list *plist;
+
+	alist = eigrp->list[in];
+	if (alist && access_list_apply(alist, prefix) == FILTER_DENY)
+		return true;
+
+	plist = eigrp->prefix[in];
+	if (plist && prefix_list_apply(plist, prefix) == PREFIX_DENY)
+		return true;
+
+	alist = ei->list[in];
+	if (alist && access_list_apply(alist, prefix) == FILTER_DENY)
+		return true;
+
+	plist = ei->prefix[in];
+	if (plist && prefix_list_apply(plist, prefix) == PREFIX_DENY)
+		return true;
+
+	return false;
+}
+
 /**
  * @fn remove_received_prefix_gr
  *
@@ -155,8 +181,6 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 	u_int16_t type;
 	u_int16_t length;
 	u_char same;
-	struct access_list *alist;
-	struct prefix_list *plist;
 	struct prefix dest_addr;
 	u_char graceful_restart;
 	u_char graceful_restart_final;
@@ -327,66 +351,10 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 				/*
 				 * Filtering
 				 */
-				/*
-				 * Check if there is any access-list on
-				 * interface (IN direction)
-				 *  and set distance to max
-				 */
-				alist = eigrp->list[EIGRP_FILTER_IN];
-
-				/* Check if access-list fits */
-				if (alist
-				    && access_list_apply(alist,
-							 &dest_addr)
-					       == FILTER_DENY) {
-					/* If yes, set reported metric to Max */
-					ne->reported_metric.delay =
-						EIGRP_MAX_METRIC;
-				} else {
-					ne->distance =
-						eigrp_calculate_total_metrics(
-							eigrp, ne);
-				}
-
-				plist = eigrp->prefix[EIGRP_FILTER_IN];
-
-				/* Check if prefix-list fits */
-				if (plist
-				    && prefix_list_apply(plist,
-							 &dest_addr)
-					       == PREFIX_DENY) {
-					/* If yes, set reported metric to Max */
-					ne->reported_metric.delay =
-						EIGRP_MAX_METRIC;
-				}
-
-				/*Get access-list from current interface */
-				alist = ei->list[EIGRP_FILTER_IN];
-
-				/* Check if access-list fits */
-				if (alist
-				    && access_list_apply(alist,
-							 &dest_addr)
-					       == FILTER_DENY) {
-					/* If yes, set reported metric to Max */
-					ne->reported_metric.delay =
-						EIGRP_MAX_METRIC;
-				}
-
-				plist = ei->prefix[EIGRP_FILTER_IN];
-
-				/* Check if prefix-list fits */
-				if (plist
-				    && prefix_list_apply(plist,
-							 &dest_addr)
-					       == PREFIX_DENY) {
-					/* If yes, set reported metric to Max */
-					ne->reported_metric.delay =
-						EIGRP_MAX_METRIC;
-				}
-				/*
-				 * End of filtering
-				 */
+				if (eigrp_update_prefix_apply(eigrp, ei,
+							      EIGRP_FILTER_IN,
+							      &dest_addr))
+					ne->reported_metric.delay = EIGRP_MAX_METRIC;
 
 				ne->distance = eigrp_calculate_total_metrics(
 					eigrp, ne);
@@ -560,10 +528,6 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 	struct eigrp_neighbor_entry *te;
 	struct eigrp_prefix_entry *pe;
 	struct listnode *node, *node2, *nnode, *nnode2;
-	struct access_list *alist;
-	struct prefix_list *plist;
-	struct access_list *alist_i;
-	struct prefix_list *plist_i;
 	struct eigrp_interface *ei = nbr->ei;
 	struct eigrp *eigrp = ei->eigrp;
 	struct prefix *dest_addr;
@@ -606,28 +570,12 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 			/* Get destination address from prefix */
 			dest_addr = pe->destination;
 
-			/*
-			 * Filtering
-			 */
-			//TODO: Work in progress
-			/* Get access-lists and prefix-lists from process and interface */
-			alist = eigrp->list[EIGRP_FILTER_OUT];
-			plist = eigrp->prefix[EIGRP_FILTER_OUT];
-			alist_i = ei->list[EIGRP_FILTER_OUT];
-			plist_i = ei->prefix[EIGRP_FILTER_OUT];
-
 			/* Check if any list fits */
-			if ((alist
-			     && access_list_apply (alist,
-						   dest_addr) == FILTER_DENY)||
-			    (plist && prefix_list_apply (plist,
-							 dest_addr) == PREFIX_DENY)||
-			    (alist_i && access_list_apply (alist_i,
-							   dest_addr) == FILTER_DENY)||
-			    (plist_i && prefix_list_apply (plist_i,
-							   dest_addr) == PREFIX_DENY)) {
+			if (eigrp_update_prefix_apply(eigrp, ei,
+						      EIGRP_FILTER_OUT,
+						      dest_addr))
 				continue;
-			} else {
+			else {
 				length += eigrp_add_internalTLV_to_stream(ep->s, pe);
 			}
 		}
@@ -643,10 +591,6 @@ void eigrp_update_send(struct eigrp_interface *ei)
 	struct listnode *node, *nnode;
 	struct eigrp_prefix_entry *pe;
 	u_char has_tlv;
-	struct access_list *alist;
-	struct prefix_list *plist;
-	struct access_list *alist_i;
-	struct prefix_list *plist_i;
 	struct eigrp *eigrp = ei->eigrp;
 	struct prefix *dest_addr;
 	u_int32_t seq_no = eigrp->sequence_number;
@@ -708,33 +652,9 @@ void eigrp_update_send(struct eigrp_interface *ei)
 		/* Get destination address from prefix */
 		dest_addr = pe->destination;
 
-		/*
-		 * Filtering
-		 */
-		/* Get access-lists and prefix-lists from process and
-		 * interface */
-		alist = eigrp->list[EIGRP_FILTER_OUT];
-		plist = eigrp->prefix[EIGRP_FILTER_OUT];
-		alist_i = ei->list[EIGRP_FILTER_OUT];
-		plist_i = ei->prefix[EIGRP_FILTER_OUT];
-
-		/* Check if any list fits */
-		if ((alist
-		     && access_list_apply(alist,
-					  dest_addr)
-		     == FILTER_DENY)
-		    || (plist
-			&& prefix_list_apply(plist,
-					     dest_addr)
-			== PREFIX_DENY)
-		    || (alist_i
-			&& access_list_apply(alist_i,
-					     dest_addr)
-			== FILTER_DENY)
-		    || (plist_i
-			&& prefix_list_apply(plist_i,
-					     dest_addr)
-			== PREFIX_DENY)) {
+		if (eigrp_update_prefix_apply(eigrp, ei,
+					      EIGRP_FILTER_OUT,
+					      dest_addr)) {
 			// pe->reported_metric.delay = EIGRP_MAX_METRIC;
 			continue;
 		} else {
@@ -818,8 +738,6 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 	struct prefix *dest_addr;
 	struct eigrp_interface *ei = nbr->ei;
 	struct eigrp *eigrp = ei->eigrp;
-	struct access_list *alist, *alist_i;
-	struct prefix_list *plist, *plist_i;
 	struct list *prefixes;
 	u_int32_t flags;
 	unsigned int send_prefixes;
@@ -879,26 +797,10 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 		 * Filtering
 		 */
 		dest_addr = pe->destination;
-		/* Get access-lists and prefix-lists from process and interface
-		 */
-		alist = eigrp->list[EIGRP_FILTER_OUT];
-		plist = eigrp->prefix[EIGRP_FILTER_OUT];
-		alist_i = ei->list[EIGRP_FILTER_OUT];
-		plist_i = ei->prefix[EIGRP_FILTER_OUT];
 
-		/* Check if any list fits */
-		if ((alist
-		     && access_list_apply(alist, dest_addr)
-				== FILTER_DENY)
-		    || (plist
-			&& prefix_list_apply(plist, dest_addr)
-				   == PREFIX_DENY)
-		    || (alist_i
-			&& access_list_apply(alist_i, dest_addr)
-				   == FILTER_DENY)
-		    || (plist_i
-			&& prefix_list_apply(plist_i, dest_addr)
-				   == PREFIX_DENY)) {
+		if (eigrp_update_prefix_apply(eigrp, ei,
+					      EIGRP_FILTER_OUT,
+					      dest_addr)) {
 			/* do not send filtered route */
 			zlog_info("Filtered prefix %s won't be sent out.",
 				  inet_ntoa(dest_addr->u.prefix4));
@@ -908,24 +810,13 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 			send_prefixes++;
 		}
 
-		alist = eigrp->list[EIGRP_FILTER_IN];
-		plist = eigrp->prefix[EIGRP_FILTER_IN];
-		alist_i = ei->list[EIGRP_FILTER_IN];
-		plist_i = ei->prefix[EIGRP_FILTER_IN];
-
-		/* Check if any list fits */
-		if ((alist
-		     && access_list_apply(alist, dest_addr)
-				== FILTER_DENY)
-		    || (plist
-			&& prefix_list_apply(plist, dest_addr)
-				   == PREFIX_DENY)
-		    || (alist_i
-			&& access_list_apply(alist_i, dest_addr)
-				   == FILTER_DENY)
-		    || (plist_i
-			&& prefix_list_apply(plist_i, dest_addr)
-				   == PREFIX_DENY)) {
+		/*
+		 * This makes no sense, Filter out then filter in???
+		 * Look into this more - DBS
+		 */
+		if (eigrp_update_prefix_apply(eigrp, ei,
+					      EIGRP_FILTER_IN,
+					      dest_addr)) {
 			/* do not send filtered route */
 			zlog_info("Filtered prefix %s will be removed.",
 				  inet_ntoa(dest_addr->u.prefix4));
@@ -949,9 +840,6 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 			/* send message to FSM */
 			eigrp_fsm_event(&fsm_msg);
 		}
-		/*
-		 * End of filtering
-		 */
 
 		/* NULL the pointer */
 		dest_addr = NULL;
