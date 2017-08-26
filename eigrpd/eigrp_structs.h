@@ -480,7 +480,7 @@ struct eigrp_prefix_entry {
 };
 
 /* EIGRP Topology table record structure */
-struct eigrp_neighbor_entry {
+struct eigrp_nexthop_entry {
 	struct eigrp_prefix_entry *prefix;
 	u_int32_t reported_distance; // distance reported by neighbor
 	u_int32_t distance; // sum of reported distance and link cost to
@@ -508,7 +508,7 @@ struct eigrp_fsm_action_message {
 	u_char packet_type;		   // UPDATE, QUERY, SIAQUERY, SIAREPLY
 	struct eigrp *eigrp;		   // which thread sent mesg
 	struct eigrp_neighbor *adv_router; // advertising neighbor
-	struct eigrp_neighbor_entry *entry;
+	struct eigrp_nexthop_entry *entry;
 	struct eigrp_prefix_entry *prefix;
 	msg_data_t data_type; // internal or external tlv type
 	struct eigrp_metrics metrics;

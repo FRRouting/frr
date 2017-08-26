@@ -151,7 +151,7 @@ static void eigrp_update_receive_GR_ask(struct eigrp *eigrp,
 		/* set delay to MAX */
 		fsm_msg.metrics.delay = EIGRP_MAX_METRIC;
 
-		struct eigrp_neighbor_entry *entry =
+		struct eigrp_nexthop_entry *entry =
 			eigrp_prefix_entry_lookup(prefix->entries, nbr);
 
 		fsm_msg.packet_type = EIGRP_OPC_UPDATE;
@@ -176,7 +176,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 	struct eigrp_neighbor *nbr;
 	struct TLV_IPv4_Internal_type *tlv;
 	struct eigrp_prefix_entry *pe;
-	struct eigrp_neighbor_entry *ne;
+	struct eigrp_nexthop_entry *ne;
 	u_int32_t flags;
 	u_int16_t type;
 	u_int16_t length;
@@ -319,7 +319,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 								  dest);
 
 				struct eigrp_fsm_action_message msg;
-				struct eigrp_neighbor_entry *entry =
+				struct eigrp_nexthop_entry *entry =
 					eigrp_prefix_entry_lookup(dest->entries,
 								  nbr);
 
@@ -342,7 +342,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 				pe->state = EIGRP_FSM_STATE_PASSIVE;
 				pe->nt = EIGRP_TOPOLOGY_TYPE_REMOTE;
 
-				ne = eigrp_neighbor_entry_new();
+				ne = eigrp_nexthop_entry_new();
 				ne->ei = ei;
 				ne->adv_router = nbr;
 				ne->reported_metric = tlv->metric;
@@ -362,11 +362,11 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 				pe->fdistance = pe->distance = pe->rdistance =
 					ne->distance;
 				ne->prefix = pe;
-				ne->flags = EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG;
+				ne->flags = EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG;
 
 				eigrp_prefix_entry_add(eigrp->topology_table,
 						       pe);
-				eigrp_neighbor_entry_add(pe, ne);
+				eigrp_nexthop_entry_add(pe, ne);
 				pe->distance = pe->fdistance = pe->rdistance =
 					ne->distance;
 				pe->reported_metric = ne->total_metric;
@@ -525,7 +525,7 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 {
 	struct eigrp_packet *ep;
 	u_int16_t length = EIGRP_HEADER_LEN;
-	struct eigrp_neighbor_entry *te;
+	struct eigrp_nexthop_entry *te;
 	struct eigrp_prefix_entry *pe;
 	struct listnode *node, *node2, *nnode, *nnode2;
 	struct eigrp_interface *ei = nbr->ei;
@@ -615,7 +615,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 	has_tlv = 0;
 	for (ALL_LIST_ELEMENTS(ei->eigrp->topology_changes_internalIPV4, node,
 			       nnode, pe)) {
-		struct eigrp_neighbor_entry *ne;
+		struct eigrp_nexthop_entry *ne;
 
 		if (!(pe->req_action & EIGRP_FSM_NEED_UPDATE))
 			continue;
@@ -824,7 +824,7 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 			/* prepare message for FSM */
 			struct eigrp_fsm_action_message fsm_msg;
 
-			struct eigrp_neighbor_entry *entry =
+			struct eigrp_nexthop_entry *entry =
 				eigrp_prefix_entry_lookup(pe->entries, nbr);
 
 			fsm_msg.packet_type = EIGRP_OPC_UPDATE;

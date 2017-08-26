@@ -413,7 +413,7 @@ u_int32_t eigrp_calculate_metrics(struct eigrp *eigrp,
 }
 
 u_int32_t eigrp_calculate_total_metrics(struct eigrp *eigrp,
-					struct eigrp_neighbor_entry *entry)
+					struct eigrp_nexthop_entry *entry)
 {
 	entry->total_metric = entry->reported_metric;
 	uint64_t temp_delay = (uint64_t)entry->total_metric.delay

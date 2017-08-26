@@ -464,7 +464,7 @@ DEFUN (show_ip_eigrp_topology,
 	struct eigrp *eigrp;
 	struct listnode *node, *node2;
 	struct eigrp_prefix_entry *tn;
-	struct eigrp_neighbor_entry *te;
+	struct eigrp_nexthop_entry *te;
 	int first;
 
 	eigrp = eigrp_lookup();
@@ -480,12 +480,12 @@ DEFUN (show_ip_eigrp_topology,
 		for (ALL_LIST_ELEMENTS_RO(tn->entries, node2, te)) {
 			if (argc == 5
 			    || (((te->flags
-				  & EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG)
-				 == EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG)
+				  & EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)
+				 == EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)
 				|| ((te->flags
-				     & EIGRP_NEIGHBOR_ENTRY_FSUCCESSOR_FLAG)
-				    == EIGRP_NEIGHBOR_ENTRY_FSUCCESSOR_FLAG))) {
-				show_ip_eigrp_neighbor_entry(vty, eigrp, te,
+				     & EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG)
+				    == EIGRP_NEXTHOP_ENTRY_FSUCCESSOR_FLAG))) {
+				show_ip_eigrp_nexthop_entry(vty, eigrp, te,
 							     &first);
 				first = 0;
 			}

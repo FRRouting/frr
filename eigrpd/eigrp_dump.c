@@ -302,8 +302,8 @@ void show_ip_eigrp_prefix_entry(struct vty *vty, struct eigrp_prefix_entry *tn)
 	list_delete(successors);
 }
 
-void show_ip_eigrp_neighbor_entry(struct vty *vty, struct eigrp *eigrp,
-				  struct eigrp_neighbor_entry *te, int *first)
+void show_ip_eigrp_nexthop_entry(struct vty *vty, struct eigrp *eigrp,
+				  struct eigrp_nexthop_entry *te, int *first)
 {
 	if (te->reported_distance == EIGRP_MAX_METRIC)
 		return;
