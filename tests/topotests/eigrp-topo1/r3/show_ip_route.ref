@@ -3,7 +3,9 @@ Codes: K - kernel route, C - connected, S - static, R - RIP,
        T - Table, v - VNC, V - VNC-Direct, A - Babel,
        > - selected route, * - FIB route
 
+E>* 192.168.1.0/24 [0/0] via 193.1.2.1, r3-eth1
 S>* 192.168.2.0/24 [1/0] via 192.168.3.10, r3-eth0
+E   192.168.3.0/24 [0/0] is directly connected, r3-eth0
 C>* 192.168.3.0/24 is directly connected, r3-eth0
 E>* 193.1.1.0/26 [0/0] via 193.1.2.1, r3-eth1
 E   193.1.2.0/24 [0/0] is directly connected, r3-eth1
