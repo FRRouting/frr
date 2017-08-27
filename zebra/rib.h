@@ -294,18 +294,17 @@ extern int rib_uninstall_kernel(struct route_node *rn, struct route_entry *re);
  * also implicitly withdraw equal prefix of same type. */
 extern int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		   u_short instance, int flags, struct prefix *p,
-		   struct prefix_ipv6 *src_p, union g_addr *gate,
-		   union g_addr *src, ifindex_t ifindex, u_int32_t table_id,
-		   u_int32_t metric, u_int32_t mtu, u_char distance);
+		   struct prefix_ipv6 *src_p, const struct nexthop *nh,
+		   u_int32_t table_id, u_int32_t metric, u_int32_t mtu,
+		   u_char distance);
 
 extern int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *,
 			     struct prefix_ipv6 *src_p, struct route_entry *);
 
 extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		       u_short instance, int flags, struct prefix *p,
-		       struct prefix_ipv6 *src_p, union g_addr *gate,
-		       ifindex_t ifindex, u_int32_t table_id,
-		       u_int32_t metric);
+		       struct prefix_ipv6 *src_p, const struct nexthop *nh,
+		       u_int32_t table_id, u_int32_t metric);
 
 extern struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t,
 				     union g_addr *,

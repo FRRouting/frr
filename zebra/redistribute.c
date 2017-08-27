@@ -496,8 +496,6 @@ int zebra_add_import_table_entry(struct route_node *rn, struct route_entry *re,
 	struct route_entry *newre;
 	struct route_entry *same;
 	struct prefix p;
-	struct nexthop *nhop;
-	union g_addr *gate;
 	route_map_result_t ret = RMAP_MATCH;
 
 	if (rmap_name)
@@ -529,17 +527,10 @@ int zebra_add_import_table_entry(struct route_node *rn, struct route_entry *re,
 
 
 			if (re->nexthop_num == 1) {
-				nhop = re->nexthop;
-				if (nhop->type == NEXTHOP_TYPE_IFINDEX)
-					gate = NULL;
-				else
-					gate = (union g_addr *)&nhop->gate.ipv4;
-
 				rib_add(AFI_IP, SAFI_UNICAST, re->vrf_id,
 					ZEBRA_ROUTE_TABLE, re->table, 0, &p,
-					NULL, gate,
-					(union g_addr *)&nhop->src.ipv4,
-					nhop->ifindex, zebrad.rtm_table_default,
+					NULL, re->nexthop,
+					zebrad.rtm_table_default,
 					re->metric, re->mtu,
 					zebra_import_table_distance[AFI_IP]
 								   [re->table]);
@@ -580,7 +571,7 @@ int zebra_del_import_table_entry(struct route_node *rn, struct route_entry *re)
 		p.u.prefix4 = rn->p.u.prefix4;
 
 		rib_delete(AFI_IP, SAFI_UNICAST, re->vrf_id, ZEBRA_ROUTE_TABLE,
-			   re->table, re->flags, &p, NULL, NULL, 0,
+			   re->table, re->flags, &p, NULL, NULL,
 			   zebrad.rtm_table_default, re->metric);
 	}
 	/* DD: Add IPv6 code */

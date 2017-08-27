@@ -2273,16 +2273,15 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 
 void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		u_short instance, int flags, struct prefix *p,
-		struct prefix_ipv6 *src_p, union g_addr *gate,
-		ifindex_t ifindex, u_int32_t table_id,
-		u_int32_t metric)
+		struct prefix_ipv6 *src_p, const struct nexthop *nh,
+		u_int32_t table_id, u_int32_t metric)
 {
 	struct route_table *table;
 	struct route_node *rn;
 	struct route_entry *re;
 	struct route_entry *fib = NULL;
 	struct route_entry *same = NULL;
-	struct nexthop *nexthop;
+	struct nexthop *rtnh;
 	char buf2[INET6_ADDRSTRLEN];
 
 	assert(!src_p || afi == AFI_IP6);
@@ -2332,9 +2331,9 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		if (re->type == ZEBRA_ROUTE_KERNEL &&
 		    re->metric != metric)
 			continue;
-		if (re->type == ZEBRA_ROUTE_CONNECT && (nexthop = re->nexthop)
-		    && nexthop->type == NEXTHOP_TYPE_IFINDEX) {
-			if (nexthop->ifindex != ifindex)
+		if (re->type == ZEBRA_ROUTE_CONNECT && (rtnh = re->nexthop)
+		    && rtnh->type == NEXTHOP_TYPE_IFINDEX && nh) {
+			if (rtnh->ifindex != nh->ifindex)
 				continue;
 			if (re->refcnt) {
 				re->refcnt--;
@@ -2347,14 +2346,12 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		}
 		/* Make sure that the route found has the same gateway. */
 		else {
-			if (gate == NULL) {
+			if (nh == NULL) {
 				same = re;
 				break;
 			}
-			for (ALL_NEXTHOPS(re->nexthop, nexthop))
-				if (IPV4_ADDR_SAME(&nexthop->gate.ipv4, &gate->ipv4)
-				    || IPV6_ADDR_SAME(&nexthop->gate.ipv6,
-						      gate)) {
+			for (ALL_NEXTHOPS(re->nexthop, rtnh))
+				if (nexthop_same_no_recurse(rtnh, nh)) {
 					same = re;
 					break;
 				}
@@ -2375,9 +2372,9 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 			}
 			if (allow_delete) {
 				/* Unset flags. */
-				for (nexthop = fib->nexthop; nexthop;
-				     nexthop = nexthop->next)
-					UNSET_FLAG(nexthop->flags,
+				for (rtnh = fib->nexthop; rtnh;
+				     rtnh = rtnh->next)
+					UNSET_FLAG(rtnh->flags,
 						   NEXTHOP_FLAG_FIB);
 
 				UNSET_FLAG(fib->status,
@@ -2391,22 +2388,22 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 			}
 		} else {
 			if (IS_ZEBRA_DEBUG_RIB) {
-				if (gate)
+				if (nh)
 					rnode_debug(
 						rn, vrf_id,
 						"via %s ifindex %d type %d "
 						"doesn't exist in rib",
 						inet_ntop(
-							family2afi(afi), gate,
+							family2afi(afi), &nh->gate,
 							buf2,
 							INET_ADDRSTRLEN), /* FIXME
 									     */
-						ifindex, type);
+						nh->ifindex, type);
 				else
 					rnode_debug(
 						rn, vrf_id,
-						"ifindex %d type %d doesn't exist in rib",
-						ifindex, type);
+						"type %d doesn't exist in rib",
+						type);
 			}
 			route_unlock_node(rn);
 			return;
@@ -2423,15 +2420,14 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 
 int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 	    int flags, struct prefix *p, struct prefix_ipv6 *src_p,
-	    union g_addr *gate, union g_addr *src, ifindex_t ifindex,
-	    u_int32_t table_id, u_int32_t metric, u_int32_t mtu,
-	    u_char distance)
+	    const struct nexthop *nh, u_int32_t table_id, u_int32_t metric,
+	    u_int32_t mtu, u_char distance)
 {
 	struct route_entry *re;
 	struct route_entry *same = NULL;
 	struct route_table *table;
 	struct route_node *rn;
-	struct nexthop *nexthop;
+	struct nexthop *rtnh;
 
 	assert(!src_p || afi == AFI_IP6);
 
@@ -2480,9 +2476,9 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 			break;
 		}
 		/* Duplicate system route comes in. */
-		else if ((nexthop = re->nexthop)
-			 && nexthop->type == NEXTHOP_TYPE_IFINDEX
-			 && nexthop->ifindex == ifindex
+		else if ((rtnh = re->nexthop)
+			 && rtnh->type == NEXTHOP_TYPE_IFINDEX
+			 && rtnh->ifindex == nh->ifindex
 			 && !CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
 			re->refcnt++;
 			return 0;
@@ -2503,29 +2499,14 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 	re->nexthop_num = 0;
 	re->uptime = time(NULL);
 
-	/* Nexthop settings. */
-	if (gate) {
-		if (afi == AFI_IP6) {
-			if (ifindex)
-				route_entry_nexthop_ipv6_ifindex_add(
-					re, &gate->ipv6, ifindex);
-			else
-				route_entry_nexthop_ipv6_add(re, &gate->ipv6);
-		} else {
-			if (ifindex)
-				route_entry_nexthop_ipv4_ifindex_add(
-					re, &gate->ipv4, &src->ipv4, ifindex);
-			else
-				route_entry_nexthop_ipv4_add(re, &gate->ipv4,
-							     &src->ipv4);
-		}
-	} else
-		route_entry_nexthop_ifindex_add(re, ifindex);
+	rtnh = nexthop_new();
+	*rtnh = *nh;
+	route_entry_nexthop_add(re, rtnh);
 
 	/* If this route is kernel route, set FIB flag to the route. */
 	if (RIB_SYSTEM_ROUTE(re))
-		for (nexthop = re->nexthop; nexthop; nexthop = nexthop->next)
-			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+		for (rtnh = re->nexthop; rtnh; rtnh = rtnh->next)
+			SET_FLAG(rtnh->flags, NEXTHOP_FLAG_FIB);
 
 	/* Link new rib to node.*/
 	if (IS_ZEBRA_DEBUG_RIB) {

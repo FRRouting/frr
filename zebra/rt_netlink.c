@@ -365,11 +365,31 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 		afi = AFI_IP6;
 
 	if (h->nlmsg_type == RTM_NEWROUTE) {
-		if (!tb[RTA_MULTIPATH])
+		if (!tb[RTA_MULTIPATH]) {
+			struct nexthop nh;
+			size_t sz = (afi == AFI_IP) ? 4 : 16;
+
+			memset(&nh, 0, sizeof(nh));
+			if (index && !gate)
+				nh.type = NEXTHOP_TYPE_IFINDEX;
+			else if (index && gate)
+				nh.type = (afi == AFI_IP)
+					? NEXTHOP_TYPE_IPV4_IFINDEX
+					: NEXTHOP_TYPE_IPV6_IFINDEX;
+			else if (!index && gate)
+				nh.type = (afi == AFI_IP)
+					? NEXTHOP_TYPE_IPV4
+					: NEXTHOP_TYPE_IPV6;
+			else
+				nh.type = NEXTHOP_TYPE_BLACKHOLE;
+			nh.ifindex = index;
+			if (prefsrc)
+				memcpy(&nh.src, prefsrc, sz);
+			if (gate)
+				memcpy(&nh.gate, gate, sz);
 			rib_add(afi, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL,
-				0, flags, &p, NULL, gate, prefsrc, index, table,
-				metric, mtu, 0);
-		else {
+				0, flags, &p, NULL, &nh, table, metric, mtu, 0);
+		} else {
 			/* This is a multipath route */
 
 			struct route_entry *re;
@@ -444,41 +464,35 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 						  NULL, re);
 		}
 	} else {
-		if (!tb[RTA_MULTIPATH])
+		if (!tb[RTA_MULTIPATH]) {
+			struct nexthop nh;
+			size_t sz = (afi == AFI_IP) ? 4 : 16;
+
+			memset(&nh, 0, sizeof(nh));
+			if (index && !gate)
+				nh.type = NEXTHOP_TYPE_IFINDEX;
+			else if (index && gate)
+				nh.type = (afi == AFI_IP)
+					? NEXTHOP_TYPE_IPV4_IFINDEX
+					: NEXTHOP_TYPE_IPV6_IFINDEX;
+			else if (!index && gate)
+				nh.type = (afi == AFI_IP)
+					? NEXTHOP_TYPE_IPV4
+					: NEXTHOP_TYPE_IPV6;
+			else
+				nh.type = NEXTHOP_TYPE_BLACKHOLE;
+			nh.ifindex = index;
+			if (gate)
+				memcpy(&nh.gate, gate, sz);
 			rib_delete(afi, SAFI_UNICAST, vrf_id,
-				   ZEBRA_ROUTE_KERNEL, 0, flags, &p, NULL, gate,
-				   index, table, metric);
-		else {
-			struct rtnexthop *rtnh =
-				(struct rtnexthop *)RTA_DATA(tb[RTA_MULTIPATH]);
-
-			len = RTA_PAYLOAD(tb[RTA_MULTIPATH]);
-
-			for (;;) {
-				if (len < (int)sizeof(*rtnh)
-				    || rtnh->rtnh_len > len)
-					break;
-
-				gate = NULL;
-				if (rtnh->rtnh_len > sizeof(*rtnh)) {
-					memset(tb, 0, sizeof(tb));
-					netlink_parse_rtattr(
-						tb, RTA_MAX, RTNH_DATA(rtnh),
-						rtnh->rtnh_len - sizeof(*rtnh));
-					if (tb[RTA_GATEWAY])
-						gate = RTA_DATA(
-							tb[RTA_GATEWAY]);
-				}
-
-				if (gate)
-					rib_delete(afi, SAFI_UNICAST, vrf_id,
-						   ZEBRA_ROUTE_KERNEL, 0, flags,
-						   &p, NULL, gate, index,
-						   table, metric);
-
-				len -= NLMSG_ALIGN(rtnh->rtnh_len);
-				rtnh = RTNH_NEXT(rtnh);
-			}
+				   ZEBRA_ROUTE_KERNEL, 0, flags, &p, NULL, &nh,
+				   table, metric);
+		} else {
+			/* XXX: need to compare the entire list of nexthops
+			 * here for NLM_F_APPEND stupidity */
+			rib_delete(afi, SAFI_UNICAST, vrf_id,
+				   ZEBRA_ROUTE_KERNEL, 0, flags, &p, NULL,
+				   NULL, table, metric);
 		}
 	}
 
