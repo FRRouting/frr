@@ -2046,7 +2046,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 	 * to do this upon changes to best path except of the label index
 	 * changes.
 	 */
-	if (safi == SAFI_UNICAST) {
+	if (bgp->allocate_mpls_labels[afi][safi]) {
 		if (new_select) {
 			if (!old_select
 			    || bgp_label_index_differs(new_select, old_select)
@@ -2067,8 +2067,11 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 				} else
 					bgp_register_for_label(rn, new_select);
 			}
-		} else if (CHECK_FLAG(rn->flags, BGP_NODE_REGISTERED_FOR_LABEL))
+		} else if (CHECK_FLAG(rn->flags, BGP_NODE_REGISTERED_FOR_LABEL)) {
 			bgp_unregister_for_label(rn);
+		}
+	} else if (CHECK_FLAG(rn->flags, BGP_NODE_REGISTERED_FOR_LABEL)) {
+		bgp_unregister_for_label(rn);
 	}
 
 	/* If best route remains the same and this is not due to user-initiated
@@ -8020,7 +8023,8 @@ static int bgp_show_community_list(struct vty *vty, struct bgp *bgp,
 static int bgp_show_prefix_longer(struct vty *vty, struct bgp *bgp,
 				  const char *prefix, afi_t afi, safi_t safi,
 				  enum bgp_show_type type);
-static int bgp_show_regexp(struct vty *vty, const char *regstr, afi_t afi,
+static int bgp_show_regexp(struct vty *vty, struct bgp *bgp,
+			   const char *regstr, afi_t afi,
 			   safi_t safi, enum bgp_show_type type);
 static int bgp_show_community(struct vty *vty, struct bgp *bgp, int argc,
 			      struct cmd_token **argv, int exact, afi_t afi,
@@ -8838,32 +8842,28 @@ DEFUN (show_ip_bgp_large_community,
 static int bgp_table_stats(struct vty *vty, struct bgp *bgp, afi_t afi,
 			   safi_t safi);
 
-/* BGP route print out function. */
+
+/* BGP route print out function without JSON */
 DEFUN (show_ip_bgp,
        show_ip_bgp_cmd,
        "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]]\
-          [<\
-             cidr-only\
-             |dampening <flap-statistics|dampened-paths|parameters>\
-             |route-map WORD\
-             |prefix-list WORD\
-             |filter-list WORD\
-             |statistics\
-             |community [<AA:NN|local-AS|no-advertise|no-export> [exact-match]]\
-             |community-list <(1-500)|WORD> [exact-match]\
-             |A.B.C.D/M longer-prefixes\
-             |X:X::X:X/M longer-prefixes>\
-          ] [json]",
+          <dampening <parameters>\
+           |route-map WORD\
+           |prefix-list WORD\
+           |filter-list WORD\
+           |statistics\
+           |community <AA:NN|local-AS|no-advertise|no-export> [exact-match]\
+           |community-list <(1-500)|WORD> [exact-match]\
+           |A.B.C.D/M longer-prefixes\
+           |X:X::X:X/M longer-prefixes\
+	  >",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        BGP_AFI_HELP_STR
        BGP_SAFI_WITH_LABEL_HELP_STR
-       "Display only routes with non-natural netmasks\n"
        "Display detailed information about dampening\n"
-       "Display flap statistics of routes\n"
-       "Display paths suppressed due to dampening\n"
        "Display detail of configured dampening parameters\n"
        "Display routes matching the route-map\n"
        "A route-map to match on\n"
@@ -8885,13 +8885,11 @@ DEFUN (show_ip_bgp,
        "IPv4 prefix\n"
        "Display route and more specific routes\n"
        "IPv6 prefix\n"
-       "Display route and more specific routes\n"
-       JSON_STR)
+       "Display route and more specific routes\n")
 {
 	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
 	int exact_match = 0;
-	enum bgp_show_type sh_type = bgp_show_type_normal;
 	struct bgp *bgp = NULL;
 	int idx = 0;
 
@@ -8900,23 +8898,8 @@ DEFUN (show_ip_bgp,
 	if (!idx)
 		return CMD_WARNING;
 
-	int uj = use_json(argc, argv);
-	if (uj)
-		argc--;
-
-	if (argv_find(argv, argc, "cidr-only", &idx))
-		return bgp_show(vty, bgp, afi, safi, bgp_show_type_cidr_only,
-				NULL, uj);
-
 	if (argv_find(argv, argc, "dampening", &idx)) {
-		if (argv_find(argv, argc, "dampened-paths", &idx))
-			return bgp_show(vty, bgp, afi, safi,
-					bgp_show_type_dampend_paths, NULL, uj);
-		else if (argv_find(argv, argc, "flap-statistics", &idx))
-			return bgp_show(vty, bgp, afi, safi,
-					bgp_show_type_flap_statistics, NULL,
-					uj);
-		else if (argv_find(argv, argc, "parameters", &idx))
+		if (argv_find(argv, argc, "parameters", &idx))
 			return bgp_show_dampening_parameters(vty, afi, safi);
 	}
 
@@ -8945,10 +8928,6 @@ DEFUN (show_ip_bgp,
 			return bgp_show_community(vty, bgp, argc, argv,
 						  exact_match, afi, safi);
 		}
-		/* show all communities */
-		else
-			return bgp_show(vty, bgp, afi, safi,
-					bgp_show_type_community_all, NULL, uj);
 	}
 
 	if (argv_find(argv, argc, "community-list", &idx)) {
@@ -8964,6 +8943,66 @@ DEFUN (show_ip_bgp,
 		return bgp_show_prefix_longer(vty, bgp, argv[idx]->arg, afi,
 					      safi,
 					      bgp_show_type_prefix_longer);
+
+	return CMD_WARNING;
+}
+
+/* BGP route print out function with JSON */
+DEFUN (show_ip_bgp_json,
+       show_ip_bgp_json_cmd,
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]]\
+          [<\
+             cidr-only\
+             |dampening <flap-statistics|dampened-paths>\
+             |community \
+          >] [json]",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_HELP_STR
+       BGP_AFI_HELP_STR
+       BGP_SAFI_WITH_LABEL_HELP_STR
+       "Display only routes with non-natural netmasks\n"
+       "Display detailed information about dampening\n"
+       "Display flap statistics of routes\n"
+       "Display paths suppressed due to dampening\n"
+       "Display routes matching the communities\n"
+       JSON_STR)
+{
+	afi_t afi = AFI_IP6;
+	safi_t safi = SAFI_UNICAST;
+	enum bgp_show_type sh_type = bgp_show_type_normal;
+	struct bgp *bgp = NULL;
+	int idx = 0;
+
+	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
+					    &bgp);
+	if (!idx)
+		return CMD_WARNING;
+
+	int uj = use_json(argc, argv);
+	if (uj)
+		argc--;
+
+	if (argv_find(argv, argc, "cidr-only", &idx))
+		return bgp_show(vty, bgp, afi, safi, bgp_show_type_cidr_only,
+				NULL, uj);
+
+	if (argv_find(argv, argc, "dampening", &idx)) {
+		if (argv_find(argv, argc, "dampened-paths", &idx))
+			return bgp_show(vty, bgp, afi, safi,
+					bgp_show_type_dampend_paths, NULL, uj);
+		else if (argv_find(argv, argc, "flap-statistics", &idx))
+			return bgp_show(vty, bgp, afi, safi,
+					bgp_show_type_flap_statistics, NULL,
+					uj);
+	}
+
+	if (argv_find(argv, argc, "community", &idx)) {
+		/* show all communities */
+		return bgp_show(vty, bgp, afi, safi,
+				bgp_show_type_community_all, NULL, uj);
+	}
 
 	if (safi == SAFI_MPLS_VPN)
 		return bgp_show_mpls_vpn(vty, afi, NULL, bgp_show_type_normal,
@@ -9074,7 +9113,7 @@ DEFUN (show_ip_bgp_regexp,
 	idx++;
 
 	char *regstr = argv_concat(argv, argc, idx);
-	int rc = bgp_show_regexp(vty, (const char *)regstr, afi, safi,
+	int rc = bgp_show_regexp(vty, bgp, (const char *)regstr, afi, safi,
 				 bgp_show_type_regexp);
 	XFREE(MTYPE_TMP, regstr);
 	return rc;
@@ -9109,7 +9148,8 @@ DEFUN (show_ip_bgp_instance_all,
 	return CMD_SUCCESS;
 }
 
-static int bgp_show_regexp(struct vty *vty, const char *regstr, afi_t afi,
+static int bgp_show_regexp(struct vty *vty, struct bgp *bgp,
+			   const char *regstr, afi_t afi,
 			   safi_t safi, enum bgp_show_type type)
 {
 	regex_t *regex;
@@ -9121,7 +9161,7 @@ static int bgp_show_regexp(struct vty *vty, const char *regstr, afi_t afi,
 		return CMD_WARNING;
 	}
 
-	rc = bgp_show(vty, NULL, afi, safi, type, regex, 0);
+	rc = bgp_show(vty, bgp, afi, safi, type, regex, 0);
 	bgp_regex_free(regex);
 	return rc;
 }
@@ -11279,6 +11319,7 @@ void bgp_route_init(void)
 	/* IPv4 labeled-unicast configuration.  */
 	install_element(VIEW_NODE, &show_ip_bgp_instance_all_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_cmd);
+	install_element(VIEW_NODE, &show_ip_bgp_json_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_route_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_regexp_cmd);
 

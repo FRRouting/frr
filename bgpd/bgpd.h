@@ -333,6 +333,9 @@ struct bgp {
 	/* BGP redistribute configuration. */
 	struct list *redist[AFI_MAX][ZEBRA_ROUTE_MAX];
 
+	/* Allocate MPLS labels */
+	u_char allocate_mpls_labels[AFI_MAX][SAFI_MAX];
+
 	/* timer to re-evaluate neighbor default-originate route-maps */
 	struct thread *t_rmap_def_originate_eval;
 #define RMAP_DEFAULT_ORIGINATE_EVAL_TIMER 5
@@ -1280,6 +1283,7 @@ extern int bgp_listen_limit_unset(struct bgp *);
 
 extern int bgp_update_delay_active(struct bgp *);
 extern int bgp_update_delay_configured(struct bgp *);
+extern int bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi);
 extern void peer_as_change(struct peer *, as_t, int);
 extern int peer_remote_as(struct bgp *, union sockunion *, const char *, as_t *,
 			  int, afi_t, safi_t);
