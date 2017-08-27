@@ -101,13 +101,15 @@ static const struct optspec os_always = {
 static const struct option lo_cfg_pid_dry[] = {
 	{"pid_file", required_argument, NULL, 'i'},
 	{"config_file", required_argument, NULL, 'f'},
+	{"pathspace", required_argument, NULL, 'N'},
 	{"dryrun", no_argument, NULL, 'C'},
 	{"terminal", no_argument, NULL, 't'},
 	{NULL}};
 static const struct optspec os_cfg_pid_dry = {
-	"f:i:Ct",
+	"f:i:CtN:",
 	"  -f, --config_file  Set configuration file name\n"
 	"  -i, --pid_file     Set process identifier file name\n"
+	"  -N, --pathspace    Insert prefix into config & socket paths\n"
 	"  -C, --dryrun       Check configuration for validity and exit\n"
 	"  -t, --terminal     Open terminal session on stdio\n"
 	"  -d -t              Daemonize after terminal session ends\n",
@@ -351,6 +353,23 @@ static int frr_opt(int opt)
 			return 1;
 		di->config_file = optarg;
 		break;
+	case 'N':
+		if (di->flags & FRR_NO_CFG_PID_DRY)
+			return 1;
+		if (di->pathspace) {
+			fprintf(stderr,
+				"-N/--pathspace option specified more than once!\n");
+			errors++;
+			break;
+		}
+		if (strchr(optarg, '/') || strchr(optarg, '.')) {
+			fprintf(stderr,
+				"slashes or dots are not permitted in the --pathspace option.\n");
+			errors++;
+			break;
+		}
+		di->pathspace = optarg;
+		break;
 	case 'C':
 		if (di->flags & FRR_NO_CFG_PID_DRY)
 			return 1;
@@ -500,14 +519,25 @@ struct thread_master *frr_init(void)
 	struct option_chain *oc;
 	struct frrmod_runtime *module;
 	char moderr[256];
+	char p_instance[16] = "", p_pathspace[256] = "";
 	const char *dir;
 	dir = di->module_path ? di->module_path : frr_moduledir;
 
 	srandom(time(NULL));
 
-	if (di->instance)
+	if (di->instance) {
 		snprintf(frr_protonameinst, sizeof(frr_protonameinst), "%s[%u]",
 			 di->logname, di->instance);
+		snprintf(p_instance, sizeof(p_instance), "-%d", di->instance);
+	}
+	if (di->pathspace)
+		snprintf(p_pathspace, sizeof(p_pathspace), "/%s",
+			 di->pathspace);
+
+	snprintf(config_default, sizeof(config_default), "%s%s/%s%s.conf",
+		 frr_sysconfdir, p_pathspace, di->name, p_instance);
+	snprintf(pidfile_default, sizeof(pidfile_default), "%s%s/%s%s.pid",
+		 frr_vtydir, p_pathspace, di->name, p_instance);
 
 	zprivs_preinit(di->privs);
 
@@ -695,14 +725,6 @@ void frr_config_fork(void)
 {
 	hook_call(frr_late_init, master);
 
-	if (di->instance) {
-		snprintf(config_default, sizeof(config_default),
-			 "%s/%s-%d.conf", frr_sysconfdir, di->name,
-			 di->instance);
-		snprintf(pidfile_default, sizeof(pidfile_default),
-			 "%s/%s-%d.pid", frr_vtydir, di->name, di->instance);
-	}
-
 	vty_read_config(di->config_file, config_default);
 
 	/* Don't start execution if we are in dry-run mode */
@@ -723,7 +745,13 @@ void frr_vty_serv(void)
 	 * (not currently set anywhere) */
 	if (!di->vty_path) {
 		const char *dir;
-		dir = di->vty_sock_path ? di->vty_sock_path : frr_vtydir;
+		char defvtydir[256];
+
+		snprintf(defvtydir, sizeof(defvtydir), "%s%s%s", frr_vtydir,
+			 di->pathspace ? "/" : "",
+			 di->pathspace ? di->pathspace : "");
+
+		dir = di->vty_sock_path ? di->vty_sock_path : defvtydir;
 
 		if (di->instance)
 			snprintf(vtypath_default, sizeof(vtypath_default),

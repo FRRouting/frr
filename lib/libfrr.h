@@ -54,6 +54,7 @@ struct frr_daemon_info {
 	const char *pid_file;
 	const char *vty_path;
 	const char *module_path;
+	const char *pathspace;
 
 	const char *proghelp;
 	void (*printhelp)(FILE *target);
