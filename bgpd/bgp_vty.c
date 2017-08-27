@@ -1279,7 +1279,7 @@ static int bgp_update_delay_deconfig_vty(struct vty *vty)
 	return CMD_SUCCESS;
 }
 
-int bgp_config_write_update_delay(struct vty *vty, struct bgp *bgp)
+void bgp_config_write_update_delay(struct vty *vty, struct bgp *bgp)
 {
 	if (bgp->v_update_delay != BGP_UPDATE_DELAY_DEF) {
 		vty_out(vty, " update-delay %d", bgp->v_update_delay);
@@ -1287,8 +1287,6 @@ int bgp_config_write_update_delay(struct vty *vty, struct bgp *bgp)
 			vty_out(vty, " %d", bgp->v_establish_wait);
 		vty_out(vty, "\n");
 	}
-
-	return 0;
 }
 
 
@@ -1342,12 +1340,10 @@ static int bgp_wpkt_quanta_config_vty(struct vty *vty, const char *num,
 	return CMD_SUCCESS;
 }
 
-int bgp_config_write_wpkt_quanta(struct vty *vty, struct bgp *bgp)
+void bgp_config_write_wpkt_quanta(struct vty *vty, struct bgp *bgp)
 {
 	if (bgp->wpkt_quanta != BGP_WRITE_PACKET_MAX)
 		vty_out(vty, " write-quanta %d\n", bgp->wpkt_quanta);
-
-	return 0;
 }
 
 
@@ -1374,12 +1370,10 @@ DEFUN (no_bgp_wpkt_quanta,
 	return bgp_wpkt_quanta_config_vty(vty, argv[idx_number]->arg, 0);
 }
 
-int bgp_config_write_coalesce_time(struct vty *vty, struct bgp *bgp)
+void bgp_config_write_coalesce_time(struct vty *vty, struct bgp *bgp)
 {
 	if (bgp->coalesce_time != BGP_DEFAULT_SUBGROUP_COALESCE_TIME)
 		vty_out(vty, " coalesce-time %u\n", bgp->coalesce_time);
-
-	return 0;
 }
 
 
@@ -1503,17 +1497,15 @@ ALIAS_HIDDEN(no_bgp_maxpaths_ibgp, no_bgp_maxpaths_ibgp_hidden_cmd,
 	     "Number of paths\n"
 	     "Match the cluster length\n")
 
-int bgp_config_write_maxpaths(struct vty *vty, struct bgp *bgp, afi_t afi,
-			      safi_t safi, int *write)
+void bgp_config_write_maxpaths(struct vty *vty, struct bgp *bgp, afi_t afi,
+			      safi_t safi)
 {
 	if (bgp->maxpaths[afi][safi].maxpaths_ebgp != MULTIPATH_NUM) {
-		bgp_config_write_family_header(vty, afi, safi, write);
 		vty_out(vty, "  maximum-paths %d\n",
 			bgp->maxpaths[afi][safi].maxpaths_ebgp);
 	}
 
 	if (bgp->maxpaths[afi][safi].maxpaths_ibgp != MULTIPATH_NUM) {
-		bgp_config_write_family_header(vty, afi, safi, write);
 		vty_out(vty, "  maximum-paths ibgp %d",
 			bgp->maxpaths[afi][safi].maxpaths_ibgp);
 		if (CHECK_FLAG(bgp->maxpaths[afi][safi].ibgp_flags,
@@ -1521,8 +1513,6 @@ int bgp_config_write_maxpaths(struct vty *vty, struct bgp *bgp, afi_t afi,
 			vty_out(vty, " equal-cluster-length");
 		vty_out(vty, "\n");
 	}
-
-	return 0;
 }
 
 /* BGP timers.  */
@@ -2459,7 +2449,7 @@ DEFUN (no_bgp_listen_range,
 	return bgp_vty_return(vty, ret);
 }
 
-int bgp_config_write_listen(struct vty *vty, struct bgp *bgp)
+void bgp_config_write_listen(struct vty *vty, struct bgp *bgp)
 {
 	struct peer_group *group;
 	struct listnode *node, *nnode, *rnode, *nrnode;
@@ -2482,8 +2472,6 @@ int bgp_config_write_listen(struct vty *vty, struct bgp *bgp)
 			}
 		}
 	}
-
-	return 0;
 }
 
 
@@ -11041,14 +11029,14 @@ DEFUN (no_bgp_redistribute_ipv6,
 	return bgp_redistribute_unset(bgp, AFI_IP6, type, 0);
 }
 
-int bgp_config_write_redistribute(struct vty *vty, struct bgp *bgp, afi_t afi,
-				  safi_t safi, int *write)
+void bgp_config_write_redistribute(struct vty *vty, struct bgp *bgp, afi_t afi,
+				  safi_t safi)
 {
 	int i;
 
 	/* Unicast redistribution only.  */
 	if (safi != SAFI_UNICAST)
-		return 0;
+		return;
 
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		/* Redistribute BGP does not make sense.  */
@@ -11062,11 +11050,6 @@ int bgp_config_write_redistribute(struct vty *vty, struct bgp *bgp, afi_t afi,
 				continue;
 
 			for (ALL_LIST_ELEMENTS_RO(red_list, node, red)) {
-				/* Display "address-family" when it is not yet
-				 * diplayed.  */
-				bgp_config_write_family_header(vty, afi, safi,
-							       write);
-
 				/* "redistribute" configuration.  */
 				vty_out(vty, "  redistribute %s",
 					zebra_route_string(i));
@@ -11082,7 +11065,6 @@ int bgp_config_write_redistribute(struct vty *vty, struct bgp *bgp, afi_t afi,
 			}
 		}
 	}
-	return *write;
 }
 
 /* BGP node structure. */

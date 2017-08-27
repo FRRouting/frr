@@ -48,11 +48,6 @@ struct vni_walk_ctx {
 	struct in_addr vtep_ip;
 };
 
-struct evpn_config_write {
-	int write;
-	struct vty *vty;
-};
-
 #if defined(HAVE_CUMULUS)
 static void display_import_rt(struct vty *vty, struct irt_node *irt)
 {
@@ -1709,17 +1704,14 @@ static void evpn_unset_advertise_all_vni(struct bgp *bgp)
 }
 #endif /* HAVE_CUMULUS */
 
-static void write_vni_config(struct vty *vty, struct bgpevpn *vpn, int *write)
+static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 {
 	char buf1[INET6_ADDRSTRLEN];
-	afi_t afi = AFI_L2VPN;
-	safi_t safi = SAFI_EVPN;
 	char *ecom_str;
 	struct listnode *node, *nnode;
 	struct ecommunity *ecom;
 
 	if (is_vni_configured(vpn)) {
-		bgp_config_write_family_header(vty, afi, safi, write);
 		vty_out(vty, "  vni %d\n", vpn->vni);
 		if (is_rd_configured(vpn))
 			vty_out(vty, "   rd %s\n",
@@ -1755,10 +1747,10 @@ static void write_vni_config(struct vty *vty, struct bgpevpn *vpn, int *write)
 }
 
 static void write_vni_config_for_entry(struct hash_backet *backet,
-				       struct evpn_config_write *cfg)
+				       struct vty *vty)
 {
 	struct bgpevpn *vpn = (struct bgpevpn *)backet->data;
-	write_vni_config(cfg->vty, vpn, &cfg->write);
+	write_vni_config(vty, vpn);
 }
 
 #if defined(HAVE_CUMULUS)
@@ -2741,29 +2733,19 @@ DEFUN (no_bgp_evpn_vni_rt_without_val,
  * Output EVPN configuration information.
  */
 void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
-				safi_t safi, int *write)
+				safi_t safi)
 {
-	struct evpn_config_write cfg;
-
-	if (bgp->vnihash) {
-		cfg.write = *write;
-		cfg.vty = vty;
+	if (bgp->vnihash)
 		hash_iterate(bgp->vnihash,
 			     (void (*)(struct hash_backet *,
 				       void *))write_vni_config_for_entry,
-			     &cfg);
-		*write = cfg.write;
-	}
+			     vty);
 
-	if (bgp->advertise_all_vni) {
-		bgp_config_write_family_header(vty, afi, safi, write);
+	if (bgp->advertise_all_vni)
 		vty_out(vty, "  advertise-all-vni\n");
-	}
 
-	if (bgp->advertise_gw_macip) {
-		bgp_config_write_family_header(vty, afi, safi, write);
+	if (bgp->advertise_gw_macip)
 		vty_out(vty, "  advertise-default-gw\n");
-	}
 }
 
 void bgp_ethernetvpn_init(void)

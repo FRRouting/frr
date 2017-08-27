@@ -4947,16 +4947,13 @@ static int bgp_table_map_unset(struct vty *vty, afi_t afi, safi_t safi,
 	return CMD_SUCCESS;
 }
 
-int bgp_config_write_table_map(struct vty *vty, struct bgp *bgp, afi_t afi,
-			       safi_t safi, int *write)
+void bgp_config_write_table_map(struct vty *vty, struct bgp *bgp, afi_t afi,
+			       safi_t safi)
 {
 	if (bgp->table_map[afi][safi].name) {
-		bgp_config_write_family_header(vty, afi, safi, write);
 		vty_out(vty, "  table-map %s\n",
 			bgp->table_map[afi][safi].name);
 	}
-
-	return 0;
 }
 
 DEFUN (bgp_table_map,
@@ -10978,8 +10975,8 @@ DEFUN (clear_ip_bgp_dampening_address_mask,
 }
 
 /* also used for encap safi */
-static int bgp_config_write_network_vpn(struct vty *vty, struct bgp *bgp,
-					afi_t afi, safi_t safi, int *write)
+static void bgp_config_write_network_vpn(struct vty *vty, struct bgp *bgp,
+					 afi_t afi, safi_t safi)
 {
 	struct bgp_node *prn;
 	struct bgp_node *rn;
@@ -11000,10 +10997,6 @@ static int bgp_config_write_network_vpn(struct vty *vty, struct bgp *bgp,
 				if ((bgp_static = rn->info) != NULL) {
 					p = &rn->p;
 					prd = (struct prefix_rd *)&prn->p;
-
-					/* "address-family" display.  */
-					bgp_config_write_family_header(
-						vty, afi, safi, write);
 
 					/* "network" configuration display.  */
 					prefix_rd2str(prd, rdbuf,
@@ -11030,11 +11023,10 @@ static int bgp_config_write_network_vpn(struct vty *vty, struct bgp *bgp,
 					}
 					vty_out(vty, "\n");
 				}
-	return 0;
 }
 
-static int bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
-					 afi_t afi, safi_t safi, int *write)
+static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
+					  afi_t afi, safi_t safi)
 {
 	struct bgp_node *prn;
 	struct bgp_node *rn;
@@ -11066,10 +11058,6 @@ static int bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 					p = &rn->p;
 					prd = (struct prefix_rd *)&prn->p;
 
-					/* "address-family" display.  */
-					bgp_config_write_family_header(
-						vty, afi, safi, write);
-
 					/* "network" configuration display.  */
 					prefix_rd2str(prd, rdbuf,
 						      RD_ADDRSTRLEN);
@@ -11094,13 +11082,12 @@ static int bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 					if (esi)
 						XFREE(MTYPE_TMP, esi);
 				}
-	return 0;
 }
 
 /* Configuration of static route announcement and aggregate
    information. */
-int bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
-			     safi_t safi, int *write)
+void bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
+			      safi_t safi)
 {
 	struct bgp_node *rn;
 	struct prefix *p;
@@ -11108,21 +11095,21 @@ int bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
 	struct bgp_aggregate *bgp_aggregate;
 	char buf[SU_ADDRSTRLEN];
 
-	if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP))
-		return bgp_config_write_network_vpn(vty, bgp, afi, safi, write);
+	if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)) {
+		bgp_config_write_network_vpn(vty, bgp, afi, safi);
+		return;
+	}
 
-	if (afi == AFI_L2VPN && safi == SAFI_EVPN)
-		return bgp_config_write_network_evpn(vty, bgp, afi, safi,
-						     write);
+	if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
+		bgp_config_write_network_evpn(vty, bgp, afi, safi);
+		return;
+	}
 
 	/* Network configuration. */
 	for (rn = bgp_table_top(bgp->route[afi][safi]); rn;
 	     rn = bgp_route_next(rn))
 		if ((bgp_static = rn->info) != NULL) {
 			p = &rn->p;
-
-			/* "address-family" display.  */
-			bgp_config_write_family_header(vty, afi, safi, write);
 
 			/* "network" configuration display.  */
 			if (bgp_option_check(BGP_OPT_CONFIG_CISCO)
@@ -11175,9 +11162,6 @@ int bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
 		if ((bgp_aggregate = rn->info) != NULL) {
 			p = &rn->p;
 
-			/* "address-family" display.  */
-			bgp_config_write_family_header(vty, afi, safi, write);
-
 			if (bgp_option_check(BGP_OPT_CONFIG_CISCO)
 			    && afi == AFI_IP) {
 				struct in_addr netmask;
@@ -11202,12 +11186,10 @@ int bgp_config_write_network(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 			vty_out(vty, "\n");
 		}
-
-	return 0;
 }
 
-int bgp_config_write_distance(struct vty *vty, struct bgp *bgp, afi_t afi,
-			      safi_t safi, int *write)
+void bgp_config_write_distance(struct vty *vty, struct bgp *bgp, afi_t afi,
+			      safi_t safi)
 {
 	struct bgp_node *rn;
 	struct bgp_distance *bdistance;
@@ -11219,7 +11201,6 @@ int bgp_config_write_distance(struct vty *vty, struct bgp *bgp, afi_t afi,
 		|| bgp->distance_ibgp[afi][safi] != ZEBRA_IBGP_DISTANCE_DEFAULT
 		|| bgp->distance_local[afi][safi]
 			   != ZEBRA_IBGP_DISTANCE_DEFAULT)) {
-		bgp_config_write_family_header(vty, afi, safi, write);
 		vty_out(vty, "  distance bgp %d %d %d\n",
 			bgp->distance_ebgp[afi][safi],
 			bgp->distance_ibgp[afi][safi],
@@ -11231,15 +11212,12 @@ int bgp_config_write_distance(struct vty *vty, struct bgp *bgp, afi_t afi,
 		if ((bdistance = rn->info) != NULL) {
 			char buf[PREFIX_STRLEN];
 
-			bgp_config_write_family_header(vty, afi, safi, write);
 			vty_out(vty, "  distance %d %s %s\n",
 				bdistance->distance,
 				prefix2str(&rn->p, buf, sizeof(buf)),
 				bdistance->access_list ? bdistance->access_list
 						       : "");
 		}
-
-	return *write;
 }
 
 /* Allocate routing table structure and install commands. */

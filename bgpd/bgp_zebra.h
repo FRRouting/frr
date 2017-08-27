@@ -26,10 +26,10 @@
 extern void bgp_zebra_init(struct thread_master *master);
 extern void bgp_zebra_destroy(void);
 extern int bgp_if_update_all(void);
-extern int bgp_config_write_maxpaths(struct vty *, struct bgp *, afi_t, safi_t,
-				     int *);
-extern int bgp_config_write_redistribute(struct vty *, struct bgp *, afi_t,
-					 safi_t, int *);
+extern void bgp_config_write_maxpaths(struct vty *, struct bgp *, afi_t,
+				      safi_t);
+extern void bgp_config_write_redistribute(struct vty *, struct bgp *, afi_t,
+					  safi_t);
 extern void bgp_zebra_announce(struct bgp_node *, struct prefix *,
 			       struct bgp_info *, struct bgp *, afi_t, safi_t);
 extern void bgp_zebra_announce_table(struct bgp *, afi_t, safi_t);

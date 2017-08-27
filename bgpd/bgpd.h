@@ -1234,7 +1234,6 @@ extern void peer_xfer_config(struct peer *dst, struct peer *src);
 extern char *peer_uptime(time_t, char *, size_t, u_char, json_object *);
 
 extern int bgp_config_write(struct vty *);
-extern void bgp_config_write_family_header(struct vty *, afi_t, safi_t, int *);
 
 extern void bgp_master_init(struct thread_master *master);
 
