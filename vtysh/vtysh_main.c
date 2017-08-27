@@ -44,6 +44,10 @@
 /* VTY shell program name. */
 char *progname;
 
+/* SUID mode */
+static uid_t elevuid, realuid;
+static gid_t elevgid, realgid;
+
 /* Configuration file name and directory. */
 static char vtysh_config_always[MAXPATHLEN] = SYSCONFDIR VTYSH_DEFAULT_CONFIG;
 static char quagga_config_default[MAXPATHLEN] = SYSCONFDIR FRR_DEFAULT_CONFIG;
@@ -249,6 +253,30 @@ static void vtysh_unflock_config(void)
 	close(flock_fd);
 }
 
+void suid_on(void)
+{
+	if (elevuid != realuid && seteuid(elevuid)) {
+		perror("seteuid(on)");
+		exit(1);
+	}
+	if (elevgid != realgid && setegid(elevgid)) {
+		perror("setegid(on)");
+		exit(1);
+	}
+}
+
+void suid_off(void)
+{
+	if (elevuid != realuid && seteuid(realuid)) {
+		perror("seteuid(off)");
+		exit(1);
+	}
+	if (elevgid != realgid && setegid(realgid)) {
+		perror("setegid(off)");
+		exit(1);
+	}
+}
+
 /* VTY shell main routine. */
 int main(int argc, char **argv, char **env)
 {
@@ -270,16 +298,17 @@ int main(int argc, char **argv, char **env)
 	int writeconfig = 0;
 	int ret = 0;
 	char *homedir = NULL;
+	int ditch_suid = 0;
 
-	/* check for restricted functionality if vtysh is run setuid */
-	int restricted = (getuid() != geteuid()) || (getgid() != getegid());
+	/* SUID: drop down to calling user & go back up when needed */
+	elevuid = geteuid();
+	elevgid = getegid();
+	realuid = getuid();
+	realgid = getgid();
+	suid_off();
 
 	/* Preserve name of myself. */
 	progname = ((p = strrchr(argv[0], '/')) ? ++p : argv[0]);
-
-	/* if logging open now */
-	if ((p = getenv("VTYSH_LOG")) != NULL)
-		logfile = fopen(p, "a");
 
 	/* Option handling. */
 	while (1) {
@@ -307,17 +336,11 @@ int main(int argc, char **argv, char **env)
 			tail = cr;
 		} break;
 		case OPTION_VTYSOCK:
+			ditch_suid = 1; /* option disables SUID */
 			vty_sock_path = optarg;
 			break;
 		case OPTION_CONFDIR:
-			/*
-			 * Skip option for Config Directory if setuid
-			 */
-			if (restricted) {
-				fprintf(stderr,
-					"Overriding of Config Directory blocked for vtysh with setuid");
-				return 1;
-			}
+			ditch_suid = 1; /* option disables SUID */
 			/*
 			 * Overwrite location for vtysh.conf
 			 */
@@ -395,6 +418,11 @@ int main(int argc, char **argv, char **env)
 		}
 	}
 
+	if (ditch_suid) {
+		elevuid = realuid;
+		elevgid = realgid;
+	}
+
 	if (!vty_sock_path)
 		vty_sock_path = frr_vtydir;
 
@@ -425,8 +453,11 @@ int main(int argc, char **argv, char **env)
 
 	vty_init_vtysh();
 
-	/* Read vtysh configuration file before connecting to daemons. */
+	/* Read vtysh configuration file before connecting to daemons.
+	 * (file may not be readable to calling user in SUID mode) */
+	suid_on();
 	vtysh_read_config(vtysh_config_always);
+	suid_off();
 
 	if (markfile) {
 		if (!inputfile) {
@@ -486,6 +517,9 @@ int main(int argc, char **argv, char **env)
 		}
 	}
 
+	/* SUID: go back up elevated privs */
+	suid_on();
+
 	/* Make sure we pass authentication before proceeding. */
 	vtysh_auth();
 
@@ -497,6 +531,9 @@ int main(int argc, char **argv, char **env)
 		else
 			exit(1);
 	}
+
+	/* SUID: back down, don't need privs further on */
+	suid_off();
 
 	if (writeconfig) {
 		vtysh_execute("enable");
@@ -528,6 +565,17 @@ int main(int argc, char **argv, char **env)
 				close(fp);
 
 			read_history(history_file);
+		}
+	}
+
+	if (getenv("VTYSH_LOG")) {
+		const char *logpath = getenv("VTYSH_LOG");
+
+		logfile = fopen(logpath, "a");
+		if (!logfile) {
+			fprintf(stderr, "Failed to open logfile (%s): %s\n",
+				logpath, strerror(errno));
+			exit(1);
 		}
 	}
 
