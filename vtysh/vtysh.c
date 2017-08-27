@@ -2295,12 +2295,12 @@ int vtysh_write_config_integrated(void)
 
 	fprintf(stdout, "Building Configuration...\n");
 
-	backup_config_file(quagga_config);
-	fp = fopen(quagga_config, "w");
+	backup_config_file(frr_config);
+	fp = fopen(frr_config, "w");
 	if (fp == NULL) {
 		fprintf(stdout,
 			"%% Error: failed to open configuration file %s: %s\n",
-			quagga_config, safe_strerror(errno));
+			frr_config, safe_strerror(errno));
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	fd = fileno(fp);
@@ -2313,7 +2313,7 @@ int vtysh_write_config_integrated(void)
 
 	if (fchmod(fd, CONFIGFILE_MASK) != 0) {
 		printf("%% Warning: can't chmod configuration file %s: %s\n",
-		       quagga_config, safe_strerror(errno));
+		       frr_config, safe_strerror(errno));
 		err++;
 	}
 
@@ -2345,18 +2345,18 @@ int vtysh_write_config_integrated(void)
 		if ((uid != (uid_t)-1 || gid != (gid_t)-1)
 		    && fchown(fd, uid, gid)) {
 			printf("%% Warning: can't chown configuration file %s: %s\n",
-			       quagga_config, safe_strerror(errno));
+			       frr_config, safe_strerror(errno));
 			err++;
 		}
 	} else {
-		printf("%% Warning: stat() failed on %s: %s\n", quagga_config,
+		printf("%% Warning: stat() failed on %s: %s\n", frr_config,
 		       safe_strerror(errno));
 		err++;
 	}
 
 	fclose(fp);
 
-	printf("Integrated configuration saved to %s\n", quagga_config);
+	printf("Integrated configuration saved to %s\n", frr_config);
 	if (err)
 		return CMD_WARNING;
 
@@ -2370,7 +2370,7 @@ static bool want_config_integrated(void)
 
 	switch (vtysh_write_integrated) {
 	case WRITE_INTEGRATED_UNSPECIFIED:
-		if (stat(quagga_config, &s) && errno == ENOENT)
+		if (stat(frr_config, &s) && errno == ENOENT)
 			return false;
 		return true;
 	case WRITE_INTEGRATED_NO:
@@ -2712,7 +2712,7 @@ static int vtysh_connect(struct vtysh_client *vclient)
 
 	if (!vclient->path[0])
 		snprintf(vclient->path, sizeof(vclient->path), "%s/%s.vty",
-			 vty_sock_path, vclient->name);
+			 vtydir, vclient->name);
 	path = vclient->path;
 
 	/* Stat socket to see if we have permission to access it. */
@@ -2806,7 +2806,7 @@ static void vtysh_update_all_insances(struct vtysh_client *head_client)
 		return;
 
 	/* ls vty_sock_dir and look for all files ending in .vty */
-	dir = opendir(vty_sock_path);
+	dir = opendir(vtydir);
 	if (dir) {
 		while ((file = readdir(dir)) != NULL) {
 			if (begins_with(file->d_name, "ospfd-")
@@ -2814,7 +2814,7 @@ static void vtysh_update_all_insances(struct vtysh_client *head_client)
 				if (n == MAXIMUM_INSTANCES) {
 					fprintf(stderr,
 						"Parsing %s, client limit(%d) reached!\n",
-						vty_sock_path, n);
+						vtydir, n);
 					break;
 				}
 				client = (struct vtysh_client *)malloc(
@@ -2823,7 +2823,7 @@ static void vtysh_update_all_insances(struct vtysh_client *head_client)
 				client->name = "ospfd";
 				client->flag = VTYSH_OSPFD;
 				snprintf(client->path, sizeof(client->path),
-					 "%s/%s", vty_sock_path, file->d_name);
+					 "%s/%s", vtydir, file->d_name);
 				client->next = NULL;
 				vtysh_client_sorted_insert(head_client, client);
 				n++;
