@@ -6610,367 +6610,368 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
 			continue;
 
-		if (peer->afc[afi][safi]) {
-			if (!count) {
-				unsigned long ents;
-				char memstrbuf[MTYPE_MEMSTR_LEN];
-				int vrf_id_ui;
+		if (!peer->afc[afi][safi])
+			continue;
 
-				vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN)
-						    ? -1
-						    : bgp->vrf_id;
+		if (!count) {
+			unsigned long ents;
+			char memstrbuf[MTYPE_MEMSTR_LEN];
+			int vrf_id_ui;
 
-				/* Usage summary and header */
+			vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN)
+					    ? -1
+					    : bgp->vrf_id;
+
+			/* Usage summary and header */
+			if (use_json) {
+				json_object_string_add(
+					json, "routerId",
+					inet_ntoa(bgp->router_id));
+				json_object_int_add(json, "as",
+						    bgp->as);
+				json_object_int_add(json, "vrfId",
+						    vrf_id_ui);
+				json_object_string_add(
+					json, "vrfName",
+					(bgp->inst_type
+					 == BGP_INSTANCE_TYPE_DEFAULT)
+						? "Default"
+						: bgp->name);
+			} else {
+				vty_out(vty,
+					"BGP router identifier %s, local AS number %u vrf-id %d",
+					inet_ntoa(bgp->router_id),
+					bgp->as, vrf_id_ui);
+				vty_out(vty, "\n");
+			}
+
+			if (bgp_update_delay_configured(bgp)) {
 				if (use_json) {
-					json_object_string_add(
-						json, "routerId",
-						inet_ntoa(bgp->router_id));
-					json_object_int_add(json, "as",
-							    bgp->as);
-					json_object_int_add(json, "vrfId",
-							    vrf_id_ui);
-					json_object_string_add(
-						json, "vrfName",
-						(bgp->inst_type
-						 == BGP_INSTANCE_TYPE_DEFAULT)
-							? "Default"
-							: bgp->name);
-				} else {
-					vty_out(vty,
-						"BGP router identifier %s, local AS number %u vrf-id %d",
-						inet_ntoa(bgp->router_id),
-						bgp->as, vrf_id_ui);
-					vty_out(vty, "\n");
-				}
+					json_object_int_add(
+						json,
+						"updateDelayLimit",
+						bgp->v_update_delay);
 
-				if (bgp_update_delay_configured(bgp)) {
-					if (use_json) {
+					if (bgp->v_update_delay
+					    != bgp->v_establish_wait)
 						json_object_int_add(
 							json,
-							"updateDelayLimit",
-							bgp->v_update_delay);
+							"updateDelayEstablishWait",
+							bgp->v_establish_wait);
 
-						if (bgp->v_update_delay
-						    != bgp->v_establish_wait)
-							json_object_int_add(
-								json,
-								"updateDelayEstablishWait",
-								bgp->v_establish_wait);
-
-						if (bgp_update_delay_active(
-							    bgp)) {
+					if (bgp_update_delay_active(
+						    bgp)) {
+						json_object_string_add(
+							json,
+							"updateDelayFirstNeighbor",
+							bgp->update_delay_begin_time);
+						json_object_boolean_true_add(
+							json,
+							"updateDelayInProgress");
+					} else {
+						if (bgp->update_delay_over) {
 							json_object_string_add(
 								json,
 								"updateDelayFirstNeighbor",
 								bgp->update_delay_begin_time);
-							json_object_boolean_true_add(
+							json_object_string_add(
 								json,
-								"updateDelayInProgress");
-						} else {
-							if (bgp->update_delay_over) {
-								json_object_string_add(
-									json,
-									"updateDelayFirstNeighbor",
-									bgp->update_delay_begin_time);
-								json_object_string_add(
-									json,
-									"updateDelayBestpathResumed",
-									bgp->update_delay_end_time);
-								json_object_string_add(
-									json,
-									"updateDelayZebraUpdateResume",
-									bgp->update_delay_zebra_resume_time);
-								json_object_string_add(
-									json,
-									"updateDelayPeerUpdateResume",
-									bgp->update_delay_peers_resume_time);
-							}
+								"updateDelayBestpathResumed",
+								bgp->update_delay_end_time);
+							json_object_string_add(
+								json,
+								"updateDelayZebraUpdateResume",
+								bgp->update_delay_zebra_resume_time);
+							json_object_string_add(
+								json,
+								"updateDelayPeerUpdateResume",
+								bgp->update_delay_peers_resume_time);
 						}
-					} else {
+					}
+				} else {
+					vty_out(vty,
+						"Read-only mode update-delay limit: %d seconds\n",
+						bgp->v_update_delay);
+					if (bgp->v_update_delay
+					    != bgp->v_establish_wait)
 						vty_out(vty,
-							"Read-only mode update-delay limit: %d seconds\n",
-							bgp->v_update_delay);
-						if (bgp->v_update_delay
-						    != bgp->v_establish_wait)
-							vty_out(vty,
-								"                   Establish wait: %d seconds\n",
-								bgp->v_establish_wait);
+							"                   Establish wait: %d seconds\n",
+							bgp->v_establish_wait);
 
-						if (bgp_update_delay_active(
-							    bgp)) {
+					if (bgp_update_delay_active(
+						    bgp)) {
+						vty_out(vty,
+							"  First neighbor established: %s\n",
+							bgp->update_delay_begin_time);
+						vty_out(vty,
+							"  Delay in progress\n");
+					} else {
+						if (bgp->update_delay_over) {
 							vty_out(vty,
 								"  First neighbor established: %s\n",
 								bgp->update_delay_begin_time);
 							vty_out(vty,
-								"  Delay in progress\n");
-						} else {
-							if (bgp->update_delay_over) {
-								vty_out(vty,
-									"  First neighbor established: %s\n",
-									bgp->update_delay_begin_time);
-								vty_out(vty,
-									"          Best-paths resumed: %s\n",
-									bgp->update_delay_end_time);
-								vty_out(vty,
-									"        zebra update resumed: %s\n",
-									bgp->update_delay_zebra_resume_time);
-								vty_out(vty,
-									"        peers update resumed: %s\n",
-									bgp->update_delay_peers_resume_time);
-							}
+								"          Best-paths resumed: %s\n",
+								bgp->update_delay_end_time);
+							vty_out(vty,
+								"        zebra update resumed: %s\n",
+								bgp->update_delay_zebra_resume_time);
+							vty_out(vty,
+								"        peers update resumed: %s\n",
+								bgp->update_delay_peers_resume_time);
 						}
 					}
 				}
-
-				if (use_json) {
-					if (bgp_maxmed_onstartup_configured(bgp)
-					    && bgp->maxmed_active)
-						json_object_boolean_true_add(
-							json,
-							"maxMedOnStartup");
-					if (bgp->v_maxmed_admin)
-						json_object_boolean_true_add(
-							json,
-							"maxMedAdministrative");
-
-					json_object_int_add(
-						json, "tableVersion",
-						bgp_table_version(
-							bgp->rib[afi][safi]));
-
-					ents = bgp_table_count(
-						bgp->rib[afi][safi]);
-					json_object_int_add(json, "ribCount",
-							    ents);
-					json_object_int_add(
-						json, "ribMemory",
-						ents * sizeof(struct bgp_node));
-
-					ents = listcount(bgp->peer);
-					json_object_int_add(json, "peerCount",
-							    ents);
-					json_object_int_add(
-						json, "peerMemory",
-						ents * sizeof(struct peer));
-
-					if ((ents = listcount(bgp->group))) {
-						json_object_int_add(
-							json, "peerGroupCount",
-							ents);
-						json_object_int_add(
-							json, "peerGroupMemory",
-							ents * sizeof(struct
-								      peer_group));
-					}
-
-					if (CHECK_FLAG(bgp->af_flags[afi][safi],
-						       BGP_CONFIG_DAMPENING))
-						json_object_boolean_true_add(
-							json,
-							"dampeningEnabled");
-				} else {
-					if (bgp_maxmed_onstartup_configured(bgp)
-					    && bgp->maxmed_active)
-						vty_out(vty,
-							"Max-med on-startup active\n");
-					if (bgp->v_maxmed_admin)
-						vty_out(vty,
-							"Max-med administrative active\n");
-
-					vty_out(vty,
-						"BGP table version %" PRIu64
-						"\n",
-						bgp_table_version(
-							bgp->rib[afi][safi]));
-
-					ents = bgp_table_count(
-						bgp->rib[afi][safi]);
-					vty_out(vty,
-						"RIB entries %ld, using %s of memory\n",
-						ents,
-						mtype_memstr(
-							memstrbuf,
-							sizeof(memstrbuf),
-							ents * sizeof(struct
-								      bgp_node)));
-
-					/* Peer related usage */
-					ents = listcount(bgp->peer);
-					vty_out(vty,
-						"Peers %ld, using %s of memory\n",
-						ents,
-						mtype_memstr(
-							memstrbuf,
-							sizeof(memstrbuf),
-							ents * sizeof(struct
-								      peer)));
-
-					if ((ents = listcount(bgp->group)))
-						vty_out(vty,
-							"Peer groups %ld, using %s of memory\n",
-							ents,
-							mtype_memstr(
-								memstrbuf,
-								sizeof(memstrbuf),
-								ents * sizeof(struct
-									      peer_group)));
-
-					if (CHECK_FLAG(bgp->af_flags[afi][safi],
-						       BGP_CONFIG_DAMPENING))
-						vty_out(vty,
-							"Dampening enabled.\n");
-					vty_out(vty, "\n");
-
-					/* Subtract 8 here because 'Neighbor' is
-					 * 8 characters */
-					vty_out(vty, "Neighbor");
-					vty_out(vty, "%*s",
-						max_neighbor_width - 8, " ");
-					vty_out(vty,
-						"V         AS MsgRcvd MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd\n");
-				}
 			}
-
-			count++;
 
 			if (use_json) {
-				json_peer = json_object_new_object();
-
-				if (peer_dynamic_neighbor(peer))
+				if (bgp_maxmed_onstartup_configured(bgp)
+				    && bgp->maxmed_active)
 					json_object_boolean_true_add(
-						json_peer, "dynamicPeer");
+						json,
+						"maxMedOnStartup");
+				if (bgp->v_maxmed_admin)
+					json_object_boolean_true_add(
+						json,
+						"maxMedAdministrative");
 
-				if (peer->hostname)
-					json_object_string_add(json_peer,
-							       "hostname",
-							       peer->hostname);
-
-				if (peer->domainname)
-					json_object_string_add(
-						json_peer, "domainname",
-						peer->domainname);
-
-				json_object_int_add(json_peer, "remoteAs",
-						    peer->as);
-				json_object_int_add(json_peer, "version", 4);
 				json_object_int_add(
-					json_peer, "msgRcvd",
-					peer->open_in + peer->update_in
-						+ peer->keepalive_in
-						+ peer->notify_in
-						+ peer->refresh_in
-						+ peer->dynamic_cap_in);
+					json, "tableVersion",
+					bgp_table_version(
+						bgp->rib[afi][safi]));
+
+				ents = bgp_table_count(
+					bgp->rib[afi][safi]);
+				json_object_int_add(json, "ribCount",
+						    ents);
 				json_object_int_add(
-					json_peer, "msgSent",
-					peer->open_out + peer->update_out
-						+ peer->keepalive_out
-						+ peer->notify_out
-						+ peer->refresh_out
-						+ peer->dynamic_cap_out);
+					json, "ribMemory",
+					ents * sizeof(struct bgp_node));
 
-				json_object_int_add(json_peer, "tableVersion",
-						    peer->version[afi][safi]);
-				json_object_int_add(json_peer, "outq",
-						    peer->obuf->count);
-				json_object_int_add(json_peer, "inq", 0);
-				peer_uptime(peer->uptime, timebuf,
-					    BGP_UPTIME_LEN, use_json,
-					    json_peer);
+				ents = listcount(bgp->peer);
+				json_object_int_add(json, "peerCount",
+						    ents);
 				json_object_int_add(
-					json_peer, "prefixReceivedCount",
-					peer->pcount[afi][pfx_rcd_safi]);
+					json, "peerMemory",
+					ents * sizeof(struct peer));
 
-				if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
-					json_object_string_add(json_peer,
-							       "state",
-							       "Idle (Admin)");
-				else if (CHECK_FLAG(
-						 peer->sflags,
-						 PEER_STATUS_PREFIX_OVERFLOW))
-					json_object_string_add(json_peer,
-							       "state",
-							       "Idle (PfxCt)");
-				else
-					json_object_string_add(
-						json_peer, "state",
-						lookup_msg(bgp_status_msg,
-							   peer->status, NULL));
+				if ((ents = listcount(bgp->group))) {
+					json_object_int_add(
+						json, "peerGroupCount",
+						ents);
+					json_object_int_add(
+						json, "peerGroupMemory",
+						ents * sizeof(struct
+							      peer_group));
+				}
 
-				if (peer->conf_if)
-					json_object_string_add(json_peer,
-							       "idType",
-							       "interface");
-				else if (peer->su.sa.sa_family == AF_INET)
-					json_object_string_add(
-						json_peer, "idType", "ipv4");
-				else if (peer->su.sa.sa_family == AF_INET6)
-					json_object_string_add(
-						json_peer, "idType", "ipv6");
-
-				json_object_object_add(json_peers, peer->host,
-						       json_peer);
+				if (CHECK_FLAG(bgp->af_flags[afi][safi],
+					       BGP_CONFIG_DAMPENING))
+					json_object_boolean_true_add(
+						json,
+						"dampeningEnabled");
 			} else {
-				memset(dn_flag, '\0', sizeof(dn_flag));
-				if (peer_dynamic_neighbor(peer)) {
-					dn_count++;
-					dn_flag[0] = '*';
-				}
+				if (bgp_maxmed_onstartup_configured(bgp)
+				    && bgp->maxmed_active)
+					vty_out(vty,
+						"Max-med on-startup active\n");
+				if (bgp->v_maxmed_admin)
+					vty_out(vty,
+						"Max-med administrative active\n");
 
-				if (peer->hostname
-				    && bgp_flag_check(bgp,
-						      BGP_FLAG_SHOW_HOSTNAME))
-					len = vty_out(vty, "%s%s(%s)", dn_flag,
-						      peer->hostname,
-						      peer->host);
-				else
-					len = vty_out(vty, "%s%s", dn_flag,
-						      peer->host);
+				vty_out(vty,
+					"BGP table version %" PRIu64
+					"\n",
+					bgp_table_version(
+						bgp->rib[afi][safi]));
 
-				/* pad the neighbor column with spaces */
-				if (len < max_neighbor_width)
-					vty_out(vty, "%*s",
-						max_neighbor_width - len, " ");
+				ents = bgp_table_count(
+					bgp->rib[afi][safi]);
+				vty_out(vty,
+					"RIB entries %ld, using %s of memory\n",
+					ents,
+					mtype_memstr(
+						memstrbuf,
+						sizeof(memstrbuf),
+						ents * sizeof(struct
+							      bgp_node)));
 
-				vty_out(vty, "4 %10u %7d %7d %8" PRIu64
-					     " %4d %4zd %8s",
-					peer->as,
-					peer->open_in + peer->update_in
-						+ peer->keepalive_in
-						+ peer->notify_in
-						+ peer->refresh_in
-						+ peer->dynamic_cap_in,
-					peer->open_out + peer->update_out
-						+ peer->keepalive_out
-						+ peer->notify_out
-						+ peer->refresh_out
-						+ peer->dynamic_cap_out,
-					peer->version[afi][safi], 0,
-					peer->obuf->count,
-					peer_uptime(peer->uptime, timebuf,
-						    BGP_UPTIME_LEN, 0, NULL));
+				/* Peer related usage */
+				ents = listcount(bgp->peer);
+				vty_out(vty,
+					"Peers %ld, using %s of memory\n",
+					ents,
+					mtype_memstr(
+						memstrbuf,
+						sizeof(memstrbuf),
+						ents * sizeof(struct
+							      peer)));
 
-				if (peer->status == Established)
-					vty_out(vty, " %12ld",
-						peer->pcount[afi]
-							    [pfx_rcd_safi]);
-				else {
-					if (CHECK_FLAG(peer->flags,
-						       PEER_FLAG_SHUTDOWN))
-						vty_out(vty, " Idle (Admin)");
-					else if (
-						CHECK_FLAG(
-							peer->sflags,
-							PEER_STATUS_PREFIX_OVERFLOW))
-						vty_out(vty, " Idle (PfxCt)");
-					else
-						vty_out(vty, " %12s",
-							lookup_msg(
-								bgp_status_msg,
-								peer->status,
-								NULL));
-				}
+				if ((ents = listcount(bgp->group)))
+					vty_out(vty,
+						"Peer groups %ld, using %s of memory\n",
+						ents,
+						mtype_memstr(
+							memstrbuf,
+							sizeof(memstrbuf),
+							ents * sizeof(struct
+								      peer_group)));
+
+				if (CHECK_FLAG(bgp->af_flags[afi][safi],
+					       BGP_CONFIG_DAMPENING))
+					vty_out(vty,
+						"Dampening enabled.\n");
 				vty_out(vty, "\n");
+
+				/* Subtract 8 here because 'Neighbor' is
+				 * 8 characters */
+				vty_out(vty, "Neighbor");
+				vty_out(vty, "%*s",
+					max_neighbor_width - 8, " ");
+				vty_out(vty,
+					"V         AS MsgRcvd MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd\n");
 			}
+		}
+
+		count++;
+
+		if (use_json) {
+			json_peer = json_object_new_object();
+
+			if (peer_dynamic_neighbor(peer))
+				json_object_boolean_true_add(
+					json_peer, "dynamicPeer");
+
+			if (peer->hostname)
+				json_object_string_add(json_peer,
+						       "hostname",
+						       peer->hostname);
+
+			if (peer->domainname)
+				json_object_string_add(
+					json_peer, "domainname",
+					peer->domainname);
+
+			json_object_int_add(json_peer, "remoteAs",
+					    peer->as);
+			json_object_int_add(json_peer, "version", 4);
+			json_object_int_add(
+				json_peer, "msgRcvd",
+				peer->open_in + peer->update_in
+					+ peer->keepalive_in
+					+ peer->notify_in
+					+ peer->refresh_in
+					+ peer->dynamic_cap_in);
+			json_object_int_add(
+				json_peer, "msgSent",
+				peer->open_out + peer->update_out
+					+ peer->keepalive_out
+					+ peer->notify_out
+					+ peer->refresh_out
+					+ peer->dynamic_cap_out);
+
+			json_object_int_add(json_peer, "tableVersion",
+					    peer->version[afi][safi]);
+			json_object_int_add(json_peer, "outq",
+					    peer->obuf->count);
+			json_object_int_add(json_peer, "inq", 0);
+			peer_uptime(peer->uptime, timebuf,
+				    BGP_UPTIME_LEN, use_json,
+				    json_peer);
+			json_object_int_add(
+				json_peer, "prefixReceivedCount",
+				peer->pcount[afi][pfx_rcd_safi]);
+
+			if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
+				json_object_string_add(json_peer,
+						       "state",
+						       "Idle (Admin)");
+			else if (CHECK_FLAG(
+					 peer->sflags,
+					 PEER_STATUS_PREFIX_OVERFLOW))
+				json_object_string_add(json_peer,
+						       "state",
+						       "Idle (PfxCt)");
+			else
+				json_object_string_add(
+					json_peer, "state",
+					lookup_msg(bgp_status_msg,
+						   peer->status, NULL));
+
+			if (peer->conf_if)
+				json_object_string_add(json_peer,
+						       "idType",
+						       "interface");
+			else if (peer->su.sa.sa_family == AF_INET)
+				json_object_string_add(
+					json_peer, "idType", "ipv4");
+			else if (peer->su.sa.sa_family == AF_INET6)
+				json_object_string_add(
+					json_peer, "idType", "ipv6");
+
+			json_object_object_add(json_peers, peer->host,
+					       json_peer);
+		} else {
+			memset(dn_flag, '\0', sizeof(dn_flag));
+			if (peer_dynamic_neighbor(peer)) {
+				dn_count++;
+				dn_flag[0] = '*';
+			}
+
+			if (peer->hostname
+			    && bgp_flag_check(bgp,
+					      BGP_FLAG_SHOW_HOSTNAME))
+				len = vty_out(vty, "%s%s(%s)", dn_flag,
+					      peer->hostname,
+					      peer->host);
+			else
+				len = vty_out(vty, "%s%s", dn_flag,
+					      peer->host);
+
+			/* pad the neighbor column with spaces */
+			if (len < max_neighbor_width)
+				vty_out(vty, "%*s",
+					max_neighbor_width - len, " ");
+
+			vty_out(vty, "4 %10u %7d %7d %8" PRIu64
+				     " %4d %4zd %8s",
+				peer->as,
+				peer->open_in + peer->update_in
+					+ peer->keepalive_in
+					+ peer->notify_in
+					+ peer->refresh_in
+					+ peer->dynamic_cap_in,
+				peer->open_out + peer->update_out
+					+ peer->keepalive_out
+					+ peer->notify_out
+					+ peer->refresh_out
+					+ peer->dynamic_cap_out,
+				peer->version[afi][safi], 0,
+				peer->obuf->count,
+				peer_uptime(peer->uptime, timebuf,
+					    BGP_UPTIME_LEN, 0, NULL));
+
+			if (peer->status == Established)
+				vty_out(vty, " %12ld",
+					peer->pcount[afi]
+						    [pfx_rcd_safi]);
+			else {
+				if (CHECK_FLAG(peer->flags,
+					       PEER_FLAG_SHUTDOWN))
+					vty_out(vty, " Idle (Admin)");
+				else if (
+					CHECK_FLAG(
+						peer->sflags,
+						PEER_STATUS_PREFIX_OVERFLOW))
+					vty_out(vty, " Idle (PfxCt)");
+				else
+					vty_out(vty, " %12s",
+						lookup_msg(
+							bgp_status_msg,
+							peer->status,
+							NULL));
+			}
+			vty_out(vty, "\n");
 		}
 	}
 
