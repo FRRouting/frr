@@ -149,6 +149,7 @@ static void usage(int status)
 		       "-m, --markfile           Mark input file with context end\n"
 		       "    --vty_socket         Override vty socket path\n"
 		       "    --config_dir         Override config directory path\n"
+		       "-N  --pathspace          Insert prefix into config & socket paths\n"
 		       "-w, --writeconfig        Write integrated config (frr.conf) and exit\n"
 		       "-h, --help               Display this help and exit\n\n"
 		       "Note that multiple commands may be executed from the command\n"
@@ -178,6 +179,7 @@ struct option longopts[] = {
 	{"noerror", no_argument, NULL, 'n'},
 	{"mark", no_argument, NULL, 'm'},
 	{"writeconfig", no_argument, NULL, 'w'},
+	{"pathspace", no_argument, NULL, 'N'},
 	{0}};
 
 /* Read a string, and return a pointer to it.  Returns NULL on EOF. */
@@ -299,6 +301,7 @@ int main(int argc, char **argv, char **env)
 	char *homedir = NULL;
 	int ditch_suid = 0;
 	char sysconfdir[MAXPATHLEN];
+	char pathspace[MAXPATHLEN] = "";
 
 	/* SUID: drop down to calling user & go back up when needed */
 	elevuid = geteuid();
@@ -345,6 +348,14 @@ int main(int argc, char **argv, char **env)
 		case OPTION_CONFDIR:
 			ditch_suid = 1; /* option disables SUID */
 			strlcpy(sysconfdir, optarg, sizeof(sysconfdir));
+			break;
+		case 'N':
+			if (strchr(optarg, '/') || strchr(optarg, '.')) {
+				fprintf(stderr,
+					"slashes or dots are not permitted in the --pathspace option.\n");
+				exit(1);
+			}
+			snprintf(pathspace, sizeof(pathspace), "/%s", optarg);
 			break;
 		case 'd':
 			daemon_name = optarg;
@@ -393,10 +404,11 @@ int main(int argc, char **argv, char **env)
 			"NOT SUPPORTED since its\nresults are inconsistent!\n");
 	}
 
-	snprintf(vtysh_config, sizeof(vtysh_config), "%s/%s",
-		 sysconfdir, VTYSH_CONFIG_NAME);
-	snprintf(frr_config, sizeof(frr_config), "%s/%s",
-		 sysconfdir, FRR_CONFIG_NAME);
+	snprintf(vtysh_config, sizeof(vtysh_config), "%s%s/%s",
+		 sysconfdir, pathspace, VTYSH_CONFIG_NAME);
+	snprintf(frr_config, sizeof(frr_config), "%s%s/%s",
+		 sysconfdir, pathspace, FRR_CONFIG_NAME);
+	strlcat(vtydir, pathspace, sizeof(vtydir));
 
 	/* Initialize user input buffer. */
 	line_read = NULL;
