@@ -214,7 +214,7 @@ static int if_getaddrs(void)
 
 			dest_pnt = NULL;
 
-			if (ifap->ifa_dstaddr
+			if (if_is_pointopoint(ifp) && ifap->ifa_dstaddr
 			    && !IPV4_ADDR_SAME(&addr->sin_addr,
 					       &((struct sockaddr_in *)
 							 ifap->ifa_dstaddr)
@@ -239,34 +239,11 @@ static int if_getaddrs(void)
 		if (ifap->ifa_addr->sa_family == AF_INET6) {
 			struct sockaddr_in6 *addr;
 			struct sockaddr_in6 *mask;
-			struct sockaddr_in6 *dest;
-			struct in6_addr *dest_pnt;
 			int flags = 0;
 
 			addr = (struct sockaddr_in6 *)ifap->ifa_addr;
 			mask = (struct sockaddr_in6 *)ifap->ifa_netmask;
 			prefixlen = ip6_masklen(mask->sin6_addr);
-
-			dest_pnt = NULL;
-
-			if (ifap->ifa_dstaddr
-			    && !IPV6_ADDR_SAME(&addr->sin6_addr,
-					       &((struct sockaddr_in6 *)
-							 ifap->ifa_dstaddr)
-							->sin6_addr)) {
-				dest = (struct sockaddr_in6 *)ifap->ifa_dstaddr;
-				dest_pnt = &dest->sin6_addr;
-				flags = ZEBRA_IFA_PEER;
-			} else if (ifap->ifa_broadaddr
-				   && !IPV6_ADDR_SAME(
-					      &addr->sin6_addr,
-					      &((struct sockaddr_in6 *)
-							ifap->ifa_broadaddr)
-						       ->sin6_addr)) {
-				dest = (struct sockaddr_in6 *)
-					       ifap->ifa_broadaddr;
-				dest_pnt = &dest->sin6_addr;
-			}
 
 #if defined(KAME)
 			if (IN6_IS_ADDR_LINKLOCAL(&addr->sin6_addr)) {
@@ -279,7 +256,7 @@ static int if_getaddrs(void)
 #endif
 
 			connected_add_ipv6(ifp, flags, &addr->sin6_addr,
-					   prefixlen, dest_pnt, NULL);
+					   prefixlen, NULL);
 		}
 	}
 

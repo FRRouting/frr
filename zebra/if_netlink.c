@@ -1001,12 +1001,10 @@ int netlink_interface_addr(struct sockaddr_nl *snl, struct nlmsghdr *h,
 			      & (IFA_F_DADFAILED | IFA_F_TENTATIVE)))
 				connected_add_ipv6(
 					ifp, flags, (struct in6_addr *)addr,
-					ifa->ifa_prefixlen,
-					(struct in6_addr *)broad, label);
+					ifa->ifa_prefixlen, label);
 		} else
 			connected_delete_ipv6(ifp, (struct in6_addr *)addr,
-					      ifa->ifa_prefixlen,
-					      (struct in6_addr *)broad);
+					      ifa->ifa_prefixlen);
 	}
 
 	return 0;

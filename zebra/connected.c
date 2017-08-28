@@ -463,8 +463,7 @@ void connected_up_ipv6(struct interface *ifp, struct connected *ifc)
 
 /* Add connected IPv6 route to the interface. */
 void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
-			u_char prefixlen, struct in6_addr *broad,
-			const char *label)
+			u_char prefixlen, const char *label)
 {
 	struct prefix_ipv6 *p;
 	struct connected *ifc;
@@ -486,29 +485,6 @@ void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
 	IPV6_ADDR_COPY(&p->prefix, addr);
 	p->prefixlen = prefixlen;
 	ifc->address = (struct prefix *)p;
-
-	/* If there is broadcast or peer address. */
-	if (broad) {
-		if (IN6_IS_ADDR_UNSPECIFIED(broad))
-			zlog_warn(
-				"warning: %s called for interface %s with unspecified "
-				"destination address; ignoring!",
-				__func__, ifp->name);
-		else {
-			p = prefix_ipv6_new();
-			p->family = AF_INET6;
-			IPV6_ADDR_COPY(&p->prefix, broad);
-			p->prefixlen = prefixlen;
-			ifc->destination = (struct prefix *)p;
-		}
-	}
-	if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_PEER) && !ifc->destination) {
-		zlog_warn(
-			"warning: %s called for interface %s "
-			"with peer flag set, but no peer address supplied",
-			__func__, ifp->name);
-		UNSET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
-	}
 
 	/* Label of this address. */
 	if (label)
@@ -562,7 +538,7 @@ void connected_down_ipv6(struct interface *ifp, struct connected *ifc)
 }
 
 void connected_delete_ipv6(struct interface *ifp, struct in6_addr *address,
-			   u_char prefixlen, struct in6_addr *broad)
+			   u_char prefixlen)
 {
 	struct prefix_ipv6 p;
 	struct connected *ifc;
