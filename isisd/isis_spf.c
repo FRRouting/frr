@@ -1294,10 +1294,10 @@ static int isis_run_spf(struct isis_area *area, int level, int family,
 	/*
 	 * C.2.7 Step 2
 	 */
-	if (isis_vertex_queue_count(&spftree->tents) == 0) {
+	if (!isis_vertex_queue_count(&spftree->tents)
+	    && (isis->debugs & DEBUG_SPF_EVENTS)) {
 		zlog_warn("ISIS-Spf: TENT is empty SPF-root:%s",
 			  print_sys_hostname(sysid));
-		goto out;
 	}
 
 	while (isis_vertex_queue_count(&spftree->tents)) {
