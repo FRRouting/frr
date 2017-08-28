@@ -2251,8 +2251,7 @@ void bgp_process_queue_init(void)
 	bm->process_main_queue->spec.yield = 50 * 1000L;
 }
 
-static struct bgp_process_queue *bgp_process_queue_work(struct work_queue *wq,
-							struct bgp *bgp)
+static struct bgp_process_queue *bgp_processq_alloc(struct bgp *bgp)
 {
 	struct bgp_process_queue *pqnode;
 
@@ -2262,8 +2261,6 @@ static struct bgp_process_queue *bgp_process_queue_work(struct work_queue *wq,
 	pqnode->bgp = bgp_lock(bgp);
 	STAILQ_INIT(&pqnode->pqueue);
 
-	work_queue_add(wq, pqnode);
-
 	return pqnode;
 }
 
@@ -2272,6 +2269,7 @@ void bgp_process(struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
 #define ARBITRARY_PROCESS_QLEN		10000
 	struct work_queue *wq = bm->process_main_queue;
 	struct bgp_process_queue *pqnode;
+	int pqnode_reuse = 0;
 
 	/* already scheduled for processing? */
 	if (CHECK_FLAG(rn->flags, BGP_NODE_PROCESS_SCHEDULED))
@@ -2288,10 +2286,11 @@ void bgp_process(struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
 
 		if (CHECK_FLAG(pqnode->flags, BGP_PROCESS_QUEUE_EOIU_MARKER) ||
 		    pqnode->bgp != bgp || pqnode->queued >= ARBITRARY_PROCESS_QLEN)
-			pqnode = bgp_process_queue_work(wq, bgp);
+			pqnode = bgp_processq_alloc(bgp);
+		else
+			pqnode_reuse = 1;
 	} else
-		pqnode = bgp_process_queue_work(wq, bgp);
-
+		pqnode = bgp_processq_alloc(bgp);
 	/* all unlocked in bgp_process_wq */
 	bgp_table_lock(bgp_node_table(rn));
 
@@ -2300,6 +2299,9 @@ void bgp_process(struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
 
 	STAILQ_INSERT_TAIL(&pqnode->pqueue, rn, pq);
 	pqnode->queued++;
+
+	if (!pqnode_reuse)
+		work_queue_add(wq, pqnode);
 
 	return;
 }
@@ -2311,9 +2313,10 @@ void bgp_add_eoiu_mark(struct bgp *bgp)
 	if (bm->process_main_queue == NULL)
 		return;
 
-	pqnode = bgp_process_queue_work(bm->process_main_queue, bgp);
+	pqnode = bgp_processq_alloc(bgp);
 
 	SET_FLAG(pqnode->flags, BGP_PROCESS_QUEUE_EOIU_MARKER);
+	work_queue_add(bm->process_main_queue, pqnode);
 }
 
 static int bgp_maximum_prefix_restart_timer(struct thread *thread)
