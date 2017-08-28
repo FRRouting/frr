@@ -1819,6 +1819,7 @@ AC_CONFIG_FILES([Makefile
 	  doc/watchfrr.8
 	  doc/zebra.8
 	  doc/frr.1
+	  doc/frr-args.8
 	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh
 	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh
 	  pkgsrc/eigrpd.sh])
