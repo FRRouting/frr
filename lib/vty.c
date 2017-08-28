@@ -252,7 +252,7 @@ static void vty_prompt(struct vty *vty)
 {
 	if (vty->type == VTY_TERM) {
 		vty_out(vty, cmd_prompt(vty->node),
-			hostname_get());
+			cmd_hostname_get());
 	}
 }
 

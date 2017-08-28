@@ -401,9 +401,10 @@ extern void cmd_terminate(void);
 extern void cmd_exit(struct vty *vty);
 extern int cmd_list_cmds(struct vty *vty, int do_permute);
 
+extern int cmd_domainname_set(const char *domainname);
 extern int cmd_hostname_set(const char *hostname);
-extern const char *hostname_get(void);
-extern const char *domainname_get(void);
+extern const char *cmd_hostname_get(void);
+extern const char *cmd_domainname_get(void);
 
 /* NOT safe for general use; call this only if DEV_BUILD! */
 extern void grammar_sandbox_init(void);

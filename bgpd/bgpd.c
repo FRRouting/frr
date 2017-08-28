@@ -2766,17 +2766,17 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->hostname);
 		bgp->peer_self->hostname = NULL;
 	}
-	if (hostname_get())
+	if (cmd_hostname_get())
 		bgp->peer_self->hostname = XSTRDUP(MTYPE_BGP_PEER_HOST,
-						   hostname_get());
+						   cmd_hostname_get());
 
 	if (bgp->peer_self->domainname != NULL) {
 		XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->domainname);
 		bgp->peer_self->domainname = NULL;
 	}
-	if (domainname_get())
+	if (cmd_domainname_get())
 		bgp->peer_self->domainname = XSTRDUP(MTYPE_BGP_PEER_HOST,
-						     domainname_get());
+						     cmd_domainname_get());
 	bgp->peer = list_new();
 	bgp->peer->cmp = (int (*)(void *, void *))peer_cmp;
 	bgp->peerhash = hash_create(peer_hash_key_make, peer_hash_same, NULL);

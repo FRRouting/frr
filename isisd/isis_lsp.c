@@ -600,7 +600,7 @@ static void lspid_print(u_char *lsp_id, u_char *trg, char dynhost, char frag)
 	if (dyn)
 		sprintf((char *)id, "%.14s", dyn->hostname);
 	else if (!memcmp(isis->sysid, lsp_id, ISIS_SYS_ID_LEN) && dynhost)
-		sprintf((char *)id, "%.14s", hostname_get());
+		sprintf((char *)id, "%.14s", cmd_hostname_get());
 	else
 		memcpy(id, sysid_print(lsp_id), 15);
 	if (frag)
@@ -880,9 +880,9 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	}
 	/* Dynamic Hostname */
 	if (area->dynhostname) {
-		isis_tlvs_set_dynamic_hostname(lsp->tlvs, hostname_get());
+		isis_tlvs_set_dynamic_hostname(lsp->tlvs, cmd_hostname_get());
 		lsp_debug("ISIS (%s): Adding dynamic hostname '%s'",
-			  area->area_tag, hostname_get());
+			  area->area_tag, cmd_hostname_get());
 	} else {
 		lsp_debug("ISIS (%s): Not adding dynamic hostname (disabled)",
 			  area->area_tag);

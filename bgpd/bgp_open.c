@@ -1440,7 +1440,7 @@ void bgp_open_capability(struct stream *s, struct peer *peer)
 	}
 
 	/* Hostname capability */
-	if (hostname_get()) {
+	if (cmd_hostname_get()) {
 		SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_ADV);
 		stream_putc(s, BGP_OPEN_OPT_CAP);
 		rcapp = stream_get_endp(s); /* Ptr to length placeholder */
@@ -1448,20 +1448,19 @@ void bgp_open_capability(struct stream *s, struct peer *peer)
 		stream_putc(s, CAPABILITY_CODE_FQDN);
 		capp = stream_get_endp(s);
 		stream_putc(s, 0); /* dummy len for now */
-		len = strlen(hostname_get());
+		len = strlen(cmd_hostname_get());
 		if (len > BGP_MAX_HOSTNAME)
 			len = BGP_MAX_HOSTNAME;
 
 		stream_putc(s, len);
-		stream_put(s, hostname_get(), len);
-		if ((host.domainname)
-		    && (strcmp(host.domainname, "(none)") != 0)) {
-			len = strlen(host.domainname);
+		stream_put(s, cmd_hostname_get(), len);
+		if (cmd_domainname_get()) {
+			len = strlen(cmd_domainname_get());
 			if (len > BGP_MAX_HOSTNAME)
 				len = BGP_MAX_HOSTNAME;
 
 			stream_putc(s, len);
-			stream_put(s, host.domainname, len);
+			stream_put(s, cmd_domainname_get(), len);
 		} else
 			stream_putc(s, 0); /* 0 length */
 
@@ -1474,7 +1473,8 @@ void bgp_open_capability(struct stream *s, struct peer *peer)
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
 				"%s Sending hostname cap with hn = %s, dn = %s",
-				peer->host, hostname_get(), host.domainname);
+				peer->host, cmd_hostname_get(),
+				cmd_domainname_get());
 	}
 
 	/* Sending base graceful-restart capability irrespective of the config

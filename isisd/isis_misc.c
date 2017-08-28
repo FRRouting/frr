@@ -444,7 +444,7 @@ const char *print_sys_hostname(const u_char *sysid)
 
 	/* For our system ID return our host name */
 	if (memcmp(sysid, isis->sysid, ISIS_SYS_ID_LEN) == 0)
-		return hostname_get();
+		return cmd_hostname_get();
 
 	dyn = dynhn_find_by_id(sysid);
 	if (dyn)

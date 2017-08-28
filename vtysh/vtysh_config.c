@@ -421,8 +421,8 @@ void vtysh_config_write()
 {
 	char line[81];
 
-	if (hostname_get()) {
-		sprintf(line, "hostname %s", hostname_get());
+	if (cmd_hostname_get()) {
+		sprintf(line, "hostname %s", cmd_hostname_get());
 		vtysh_config_parse_line(NULL, line);
 	}
 	if (vtysh_write_integrated == WRITE_INTEGRATED_NO)
