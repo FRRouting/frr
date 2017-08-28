@@ -184,6 +184,21 @@ lib_libfrrsnmp_la_SOURCES = \
 	# end
 
 #
+# ZeroMQ support
+#
+if ZEROMQ
+lib_LTLIBRARIES += lib/libfrrzmq.la
+pkginclude_HEADERS += lib/frr_zmq.h
+endif
+
+lib_libfrrzmq_la_CFLAGS = $(WERROR) $(ZEROMQ_CFLAGS)
+lib_libfrrzmq_la_LDFLAGS = -version-info 0:0:0
+lib_libfrrzmq_la_LIBADD = lib/libfrr.la $(ZEROMQ_LIBS)
+lib_libfrrzmq_la_SOURCES = \
+	lib/frr_zmq.c \
+	#end
+
+#
 # CLI utilities
 #
 noinst_PROGRAMS += \
