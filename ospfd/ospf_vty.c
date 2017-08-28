@@ -1897,7 +1897,8 @@ DEFUN (no_ospf_area_filter_list,
 
 DEFUN (ospf_area_authentication_message_digest,
        ospf_area_authentication_message_digest_cmd,
-       "area <A.B.C.D|(0-4294967295)> authentication message-digest",
+       "[no] area <A.B.C.D|(0-4294967295)> authentication message-digest",
+       NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -1914,7 +1915,7 @@ DEFUN (ospf_area_authentication_message_digest,
 
 	area = ospf_area_get(ospf, area_id);
 	ospf_area_display_format_set(ospf, area, format);
-	area->auth_type = OSPF_AUTH_CRYPTOGRAPHIC;
+	area->auth_type = strmatch(argv[0]->text, "no") ? OSPF_AUTH_NULL : OSPF_AUTH_CRYPTOGRAPHIC;
 
 	return CMD_SUCCESS;
 }
@@ -6887,10 +6888,12 @@ DEFUN (no_ip_ospf_transmit_delay,
 
 DEFUN_HIDDEN (no_ospf_transmit_delay,
               no_ospf_transmit_delay_cmd,
-              "no ospf transmit-delay",
+              "no ospf transmit-delay [(1-65535) [A.B.C.D]]",
               NO_STR
               "OSPF interface commands\n"
-              "Link state transmit delay\n")
+              "Link state transmit delay\n"
+              "Seconds\n"
+              "Address of interface")
 {
 	return no_ip_ospf_transmit_delay(self, vty, argc, argv);
 }

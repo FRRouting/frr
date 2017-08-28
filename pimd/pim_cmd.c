@@ -1666,7 +1666,7 @@ static void pim_show_join_helper(struct vty *vty,
 					       json_row);
 	} else {
 		vty_out(vty,
-			"%-9s %-15s %-15s %-15s %-6s %8s %-6s %5s\n",
+			"%-9s %-15s %-15s %-15s %-10s %8s %-6s %5s\n",
 			ch->interface->name, inet_ntoa(ifaddr),
 			ch_src_str, ch_grp_str,
 			pim_ifchannel_ifjoin_name(ch->ifjoin_state,
@@ -1690,7 +1690,7 @@ static void pim_show_join(struct pim_instance *pim, struct vty *vty, u_char uj)
 		json = json_object_new_object();
 	else
 		vty_out(vty,
-			"Interface Address         Source          Group           State  Uptime   Expire Prune\n");
+			"Interface Address         Source          Group           State      Uptime   Expire Prune\n");
 
 	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), if_node, ifp)) {
 		pim_ifp = ifp->info;

@@ -386,27 +386,20 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 	}
 
 	/* Check filter-list */
-	if (PREFIX_NAME_OUT(area)) {
-		if (PREFIX_LIST_OUT(area) == NULL)
-			PREFIX_LIST_OUT(area) = prefix_list_lookup(
-				AFI_IP6, PREFIX_NAME_OUT(area));
-
-		if (PREFIX_LIST_OUT(area))
-			if (prefix_list_apply(PREFIX_LIST_OUT(area),
-					      &route->prefix)
-			    != PREFIX_PERMIT) {
-				if (is_debug) {
-					inet_ntop(AF_INET,
-						  &(ADV_ROUTER_IN_PREFIX(
-							  &route->prefix)),
-						  buf, sizeof(buf));
-					zlog_debug(
-						"prefix %s was denied by filter-list out",
-						buf);
-				}
-				return 0;
+	if (PREFIX_LIST_OUT(area))
+		if (prefix_list_apply(PREFIX_LIST_OUT(area), &route->prefix)
+		    != PREFIX_PERMIT) {
+			if (is_debug) {
+				inet_ntop(AF_INET,
+					  &(ADV_ROUTER_IN_PREFIX(
+						  &route->prefix)),
+					  buf, sizeof(buf));
+				zlog_debug(
+					"prefix %s was denied by filter-list out",
+					buf);
 			}
-	}
+			return 0;
+		}
 
 	/* the route is going to be originated. store it in area's summary_table
 	 */
@@ -873,22 +866,16 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 	}
 
 	/* Check input prefix-list */
-	if (PREFIX_NAME_IN(oa)) {
-		if (PREFIX_LIST_IN(oa) == NULL)
-			PREFIX_LIST_IN(oa) =
-				prefix_list_lookup(AFI_IP6, PREFIX_NAME_IN(oa));
-
-		if (PREFIX_LIST_IN(oa))
-			if (prefix_list_apply(PREFIX_LIST_IN(oa), &prefix)
-			    != PREFIX_PERMIT) {
-				if (is_debug)
-					zlog_debug(
-						"Prefix was denied by prefix-list");
-				if (old)
-					ospf6_route_remove(old, table);
-				return;
-			}
-	}
+	if (PREFIX_LIST_IN(oa))
+		if (prefix_list_apply(PREFIX_LIST_IN(oa), &prefix)
+		    != PREFIX_PERMIT) {
+			if (is_debug)
+				zlog_debug(
+					"Prefix was denied by prefix-list");
+			if (old)
+				ospf6_route_remove(old, table);
+			return;
+		}
 
 	/* (5),(6): the path preference is handled by the sorting
 	   in the routing table. Always install the path by substituting

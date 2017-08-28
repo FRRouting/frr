@@ -51,13 +51,8 @@ THE SOFTWARE.
 
 
 static int
-kernel_route_v4(int add, const unsigned char *pref, unsigned short plen,
-                const unsigned char *gate, int ifindex,
-                unsigned int metric);
-static int
-kernel_route_v6(int add, const unsigned char *pref, unsigned short plen,
-                const unsigned char *gate, int ifindex,
-                unsigned int metric);
+zebra_route(int add, int familt, const unsigned char *pref, unsigned short plen,
+            const unsigned char *gate, int ifindex, unsigned int metric);
 
 int
 kernel_interface_operational(struct interface *interface)
@@ -84,7 +79,7 @@ kernel_route(int operation, const unsigned char *pref, unsigned short plen,
              unsigned int newmetric)
 {
     int rc;
-    int ipv4;
+    int family;
 
     /* Check that the protocol family is consistent. */
     if(plen >= 96 && v4mapped(pref)) {
@@ -92,46 +87,37 @@ kernel_route(int operation, const unsigned char *pref, unsigned short plen,
             errno = EINVAL;
             return -1;
         }
-        ipv4 = 1;
+        family = AF_INET;
     } else {
         if(v4mapped(gate)) {
             errno = EINVAL;
             return -1;
         }
-        ipv4 = 0;
+        family = AF_INET6;
     }
 
     switch (operation) {
         case ROUTE_ADD:
-            return ipv4 ?
-                   kernel_route_v4(1, pref, plen, gate, ifindex, metric):
-                   kernel_route_v6(1, pref, plen, gate, ifindex, metric);
+            return zebra_route(1, family, pref, plen, gate, ifindex, metric);
             break;
         case ROUTE_FLUSH:
-            return ipv4 ?
-                   kernel_route_v4(0, pref, plen, gate, ifindex, metric):
-                   kernel_route_v6(0, pref, plen, gate, ifindex, metric);
+            return zebra_route(0, family, pref, plen, gate, ifindex, metric);
             break;
         case ROUTE_MODIFY:
             if(newmetric == metric && memcmp(newgate, gate, 16) == 0 &&
                newifindex == ifindex)
                 return 0;
             debugf(BABEL_DEBUG_ROUTE, "Modify route: delete old; add new.");
-            rc = ipv4 ?
-                kernel_route_v4(0, pref, plen, gate, ifindex, metric):
-                kernel_route_v6(0, pref, plen, gate, ifindex, metric);
-
+            rc = zebra_route(0, family, pref, plen, gate, ifindex, metric);
             if (rc < 0)
                 return -1;
 
-            rc = ipv4 ?
-                kernel_route_v4(1, pref, plen, newgate, newifindex, newmetric):
-                kernel_route_v6(1, pref, plen, newgate, newifindex, newmetric);
-
+            rc = zebra_route(1, family, pref, plen, newgate, newifindex,
+                             newmetric);
             return rc;
             break;
         default:
-            zlog_err("this should never appens (false value - kernel_route)");
+            zlog_err("this should never happen (false value - kernel_route)");
             assert(0);
             exit(1);
             break;
@@ -139,110 +125,81 @@ kernel_route(int operation, const unsigned char *pref, unsigned short plen,
 }
 
 static int
-kernel_route_v4(int add,
-                const unsigned char *pref, unsigned short plen,
-                const unsigned char *gate, int ifindex, unsigned int metric)
+zebra_route(int add, int family, const unsigned char *pref, unsigned short plen,
+            const unsigned char *gate, int ifindex, unsigned int metric)
 {
     struct zapi_route api;               /* quagga's communication system */
     struct prefix quagga_prefix;         /* quagga's prefix */
-    struct in_addr babel_prefix_addr;    /* babeld's prefix addr */
-    struct nexthop nexthop;              /* next router to go */
-    struct nexthop *nexthop_pointer = &nexthop; /* it's an array! */
+    union g_addr babel_prefix_addr;      /* babeld's prefix addr */
+    struct zapi_nexthop *api_nh;         /* next router to go - no ECMP */
+
+    api_nh = &api.nexthops[0];
 
     /* convert to be understandable by quagga */
     /* convert given addresses */
-    uchar_to_inaddr(&babel_prefix_addr, pref);
-    uchar_to_inaddr(&nexthop.gate.ipv4, gate);
+    switch (family) {
+    case AF_INET:
+        uchar_to_inaddr(&babel_prefix_addr.ipv4, pref);
+        break;
+    case AF_INET6:
+        uchar_to_in6addr(&babel_prefix_addr.ipv6, pref);
+        break;
+    }
 
     /* make prefix structure */
     memset (&quagga_prefix, 0, sizeof(quagga_prefix));
-    quagga_prefix.family = AF_INET;
-    IPV4_ADDR_COPY (&quagga_prefix.u.prefix4, &babel_prefix_addr);
-    quagga_prefix.prefixlen = plen - 96; /* our plen is for v4mapped's addr */
+    quagga_prefix.family = family;
+    switch (family) {
+    case AF_INET:
+        IPV4_ADDR_COPY (&quagga_prefix.u.prefix4, &babel_prefix_addr.ipv4);
+        /* our plen is for v4mapped's addr */
+        quagga_prefix.prefixlen = plen - 96;
+        break;
+    case AF_INET6:
+        IPV6_ADDR_COPY (&quagga_prefix.u.prefix6, &babel_prefix_addr.ipv6);
+        quagga_prefix.prefixlen = plen;
+        break;
+    }
     apply_mask(&quagga_prefix);
 
     memset(&api, 0, sizeof(api));
     api.type  = ZEBRA_ROUTE_BABEL;
-    api.flags = 0;
-    api.message = 0;
-    api.instance = 0;
     api.safi = SAFI_UNICAST;
     api.vrf_id = VRF_DEFAULT;
+    api.prefix = quagga_prefix;
 
-    SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
     if(metric >= KERNEL_INFINITY) {
         api.flags = ZEBRA_FLAG_REJECT;
-        api.nexthop_num = 0;
     } else {
+        SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
         api.nexthop_num = 1;
-        api.nexthop = &nexthop_pointer;
-        nexthop.ifindex = ifindex;
-        if (IPV4_ADDR_SAME (&nexthop.gate.ipv4, &quagga_prefix.u.prefix4) &&
-                quagga_prefix.prefixlen == 32) {
-            nexthop.type = NEXTHOP_TYPE_IFINDEX;
-        } else {
-            nexthop.type = NEXTHOP_TYPE_IPV4_IFINDEX;
+        api_nh->ifindex = ifindex;
+
+        switch (family) {
+        case AF_INET:
+            uchar_to_inaddr(&api_nh->gate.ipv4, gate);
+            if (IPV4_ADDR_SAME (&api_nh->gate.ipv4, &quagga_prefix.u.prefix4) &&
+                    quagga_prefix.prefixlen == 32) {
+                api_nh->type = NEXTHOP_TYPE_IFINDEX;
+            } else {
+                api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+            }
+            break;
+        case AF_INET6:
+            uchar_to_in6addr(&api_nh->gate.ipv6, gate);
+            /* difference to IPv4: always leave the linklocal as nexthop */
+            api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
+            break;
         }
         SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
         api.metric = metric;
     }
 
-    debugf(BABEL_DEBUG_ROUTE, "%s route (ipv4) to zebra",
-           add ? "adding" : "removing" );
-    return zapi_route (add ? ZEBRA_IPV4_ROUTE_ADD :
-                       ZEBRA_IPV4_ROUTE_DELETE,
-                       zclient, &quagga_prefix, NULL, &api);
-}
-
-static int
-kernel_route_v6(int add, const unsigned char *pref, unsigned short plen,
-                const unsigned char *gate, int ifindex, unsigned int metric)
-{
-    struct zapi_route api;              /* quagga's communication system */
-    struct prefix quagga_prefix;        /* quagga's prefix */
-    struct in6_addr babel_prefix_addr;  /* babeld's prefix addr */
-    struct nexthop nexthop;             /* next router to go */
-    struct nexthop *nexthop_pointer = &nexthop;
-
-    /* convert to be understandable by quagga */
-    /* convert given addresses */
-    uchar_to_in6addr(&babel_prefix_addr, pref);
-    uchar_to_in6addr(&nexthop.gate.ipv6, gate);
-
-    /* make prefix structure */
-    memset (&quagga_prefix, 0, sizeof(quagga_prefix));
-    quagga_prefix.family = AF_INET6;
-    IPV6_ADDR_COPY (&quagga_prefix.u.prefix6, &babel_prefix_addr);
-    quagga_prefix.prefixlen = plen;
-    apply_mask(&quagga_prefix);
-
-    memset(&api, 0, sizeof(api));
-    api.type  = ZEBRA_ROUTE_BABEL;
-    api.flags = 0;
-    api.message = 0;
-    api.instance = 0;
-    api.safi = SAFI_UNICAST;
-    api.vrf_id = VRF_DEFAULT;
-
-    if(metric >= KERNEL_INFINITY) {
-        api.flags = ZEBRA_FLAG_REJECT;
-        api.nexthop_num = 0;
-    } else {
-        SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-        api.nexthop_num = 1;
-        api.nexthop = &nexthop_pointer;
-        nexthop.ifindex = ifindex;
-        /* difference to IPv4: always leave the linklocal as nexthop */
-        nexthop.type = NEXTHOP_TYPE_IPV6_IFINDEX;
-        SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
-        api.metric = metric;
-    }
-
-    debugf(BABEL_DEBUG_ROUTE, "%s route (ipv6) to zebra",
-           add ? "adding" : "removing" );
-    return zapi_route (add ? ZEBRA_IPV6_ROUTE_ADD :
-                       ZEBRA_IPV6_ROUTE_DELETE,
-                       zclient, &quagga_prefix, NULL, &api);
+    debugf(BABEL_DEBUG_ROUTE, "%s route (%s) to zebra",
+           add ? "adding" : "removing",
+           (family == AF_INET) ? "ipv4" : "ipv6");
+    return zclient_route_send (add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE,
+                               zclient, &api);
 }
 
 int

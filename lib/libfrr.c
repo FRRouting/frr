@@ -52,6 +52,8 @@ char frr_zclientpath[256];
 static char pidfile_default[256];
 static char vtypath_default[256];
 
+bool debug_memstats_at_exit = 0;
+
 static char comb_optstr[256];
 static struct option comb_lo[64];
 static struct option *comb_next_lo = &comb_lo[0];
@@ -639,7 +641,10 @@ static void frr_daemon_wait(int fd)
 		exit(0);
 
 	/* child failed one way or another ... */
-	if (WIFEXITED(exitstat))
+	if (WIFEXITED(exitstat) && WEXITSTATUS(exitstat) == 0)
+		/* can happen in --terminal case if exit is fast enough */
+		(void)0;
+	else if (WIFEXITED(exitstat))
 		fprintf(stderr, "%s failed to start, exited %d\n", di->name,
 			WEXITSTATUS(exitstat));
 	else if (WIFSIGNALED(exitstat))
@@ -841,6 +846,10 @@ void frr_early_fini(void)
 
 void frr_fini(void)
 {
+	FILE *fp;
+	char filename[128];
+	int have_leftovers;
+
 	hook_call(frr_fini);
 
 	/* memory_init -> nothing needed */
@@ -851,4 +860,28 @@ void frr_fini(void)
 	thread_master_free(master);
 	closezlog();
 	/* frrmod_init -> nothing needed / hooks */
+
+	if (!debug_memstats_at_exit)
+		return;
+
+	have_leftovers = log_memstats(stderr, di->name);
+
+	/* in case we decide at runtime that we want exit-memstats for
+	 * a daemon, but it has no stderr because it's daemonized
+	 * (only do this if we actually have something to print though)
+	 */
+	if (!have_leftovers)
+		return;
+
+	snprintf(filename, sizeof(filename),
+		 "/tmp/frr-memstats-%s-%llu-%llu",
+		 di->name,
+		 (unsigned long long)getpid(),
+		 (unsigned long long)time(NULL));
+
+	fp = fopen(filename, "w");
+	if (fp) {
+		log_memstats(fp, di->name);
+		fclose(fp);
+	}
 }

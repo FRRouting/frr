@@ -151,8 +151,7 @@ void pim_ifchannel_update_assert_tracking_desired(struct pim_ifchannel *ch);
 
 void pim_ifchannel_scan_forward_start(struct interface *new_ifp);
 void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
-					 uint8_t source_flags, uint8_t join,
-					 uint8_t starg_alone);
+					 uint8_t join);
 
 int pim_ifchannel_compare(const struct pim_ifchannel *ch1,
 			  const struct pim_ifchannel *ch2);

@@ -44,6 +44,9 @@
 #define MPLS_DEFAULT_MIN_SRGB_LABEL        16000
 #define MPLS_DEFAULT_MAX_SRGB_LABEL        23999
 
+/* Maximum # labels that can be pushed. */
+#define MPLS_MAX_LABELS                    16
+
 #define IS_MPLS_RESERVED_LABEL(label)                                          \
 	(label >= MPLS_MIN_RESERVED_LABEL && label <= MPLS_MAX_RESERVED_LABEL)
 

@@ -46,8 +46,9 @@ DEFINE_MTYPE_STATIC(LIB, CMD_MATCHSTACK, "Command Match Stack")
 static int add_nexthops(struct list *, struct graph_node *,
 			struct graph_node **, size_t);
 
-static struct list *command_match_r(struct graph_node *, vector, unsigned int,
-				    struct graph_node **);
+static enum matcher_rv command_match_r(struct graph_node *, vector,
+				       unsigned int, struct graph_node **,
+				       struct list **);
 
 static int score_precedence(enum cmd_token_type);
 
@@ -80,14 +81,12 @@ static enum match_type match_variable(struct cmd_token *, const char *);
 
 static enum match_type match_mac(const char *, bool);
 
-/* matching functions */
-static enum matcher_rv matcher_rv;
-
 enum matcher_rv command_match(struct graph *cmdgraph, vector vline,
 			      struct list **argv, const struct cmd_element **el)
 {
 	struct graph_node *stack[MAXDEPTH];
-	matcher_rv = MATCHER_NO_MATCH;
+	enum matcher_rv status;
+	*argv = NULL;
 
 	// prepend a dummy token to match that pesky start node
 	vector vvline = vector_init(vline->alloced + 1);
@@ -97,9 +96,8 @@ enum matcher_rv command_match(struct graph *cmdgraph, vector vline,
 	vvline->active = vline->active + 1;
 
 	struct graph_node *start = vector_slot(cmdgraph->nodes, 0);
-	if ((*argv = command_match_r(start, vvline, 0,
-				     stack))) // successful match
-	{
+	status = command_match_r(start, vvline, 0, stack, argv);
+	if (status == MATCHER_OK) { // successful match
 		struct listnode *head = listhead(*argv);
 		struct listnode *tail = listtail(*argv);
 
@@ -115,6 +113,9 @@ enum matcher_rv command_match(struct graph *cmdgraph, vector vline,
 		// input, with each cmd_token->arg holding the corresponding
 		// input
 		assert(*el);
+	} else if (*argv) {
+		del_arglist(*argv);
+		*argv = NULL;
 	}
 
 	if (!*el) {
@@ -129,7 +130,7 @@ enum matcher_rv command_match(struct graph *cmdgraph, vector vline,
 	// free vector
 	vector_free(vvline);
 
-	return matcher_rv;
+	return status;
 }
 
 /**
@@ -183,10 +184,14 @@ enum matcher_rv command_match(struct graph *cmdgraph, vector vline,
  *
  * If no match was found, the return value is NULL.
  */
-static struct list *command_match_r(struct graph_node *start, vector vline,
-				    unsigned int n, struct graph_node **stack)
+static enum matcher_rv command_match_r(struct graph_node *start, vector vline,
+				       unsigned int n,
+				       struct graph_node **stack,
+				       struct list **currbest)
 {
 	assert(n < vector_active(vline));
+
+	enum matcher_rv status = MATCHER_NO_MATCH;
 
 	// get the minimum match level that can count as a full match
 	struct cmd_token *token = start->data;
@@ -196,11 +201,11 @@ static struct list *command_match_r(struct graph_node *start, vector vline,
 	 * this disallows matching the same one more than once if there is a
 	 * circle in the graph (used for keyword arguments) */
 	if (n == MAXDEPTH)
-		return NULL;
+		return MATCHER_NO_MATCH;
 	if (!token->allowrepeat)
 		for (size_t s = 0; s < n; s++)
 			if (stack[s] == start)
-				return NULL;
+				return MATCHER_NO_MATCH;
 
 	// get the current operating input token
 	char *input_token = vector_slot(vline, n);
@@ -231,7 +236,7 @@ static struct list *command_match_r(struct graph_node *start, vector vline,
 
 	// if we don't match this node, die
 	if (match_token(token, input_token) < minmatch)
-		return NULL;
+		return MATCHER_NO_MATCH;
 
 	stack[n] = start;
 
@@ -244,86 +249,92 @@ static struct list *command_match_r(struct graph_node *start, vector vline,
 	add_nexthops(next, start, NULL, 0);
 
 	// determine the best match
-	int ambiguous = 0;
-	struct list *currbest = NULL;
 	for (ALL_LIST_ELEMENTS_RO(next, ln, gn)) {
 		// if we've matched all input we're looking for END_TKN
 		if (n + 1 == vector_active(vline)) {
 			struct cmd_token *tok = gn->data;
 			if (tok->type == END_TKN) {
-				if (currbest) // there is more than one END_TKN
-					      // in the follow set
-				{
-					ambiguous = 1;
+				// if more than one END_TKN in the follow set
+				if (*currbest) {
+					status = MATCHER_AMBIGUOUS;
 					break;
+				} else {
+					status = MATCHER_OK;
 				}
-				currbest = list_new();
+				*currbest = list_new();
 				// node should have one child node with the
 				// element
 				struct graph_node *leaf =
 					vector_slot(gn->to, 0);
 				// last node in the list will hold the
-				// cmd_element;
-				// this is important because list_delete()
-				// expects
-				// that all nodes have the same data type, so
-				// when
-				// deleting this list the last node must be
-				// manually deleted
+				// cmd_element; this is important because
+				// list_delete() expects that all nodes have
+				// the same data type, so when deleting this
+				// list the last node must be manually deleted
 				struct cmd_element *el = leaf->data;
-				listnode_add(currbest, el);
-				currbest->del =
+				listnode_add(*currbest, el);
+				(*currbest)->del =
 					(void (*)(void *)) & cmd_token_del;
 				// do not break immediately; continue walking
-				// through the follow set
-				// to ensure that there is exactly one END_TKN
+				// through the follow set to ensure that there
+				// is exactly one END_TKN
 			}
 			continue;
 		}
 
 		// else recurse on candidate child node
-		struct list *result = command_match_r(gn, vline, n + 1, stack);
+		struct list *result = NULL;
+		enum matcher_rv rstat =
+			command_match_r(gn, vline, n + 1, stack, &result);
 
 		// save the best match
-		if (result && currbest) {
+		if (result && *currbest) {
 			// pick the best of two matches
 			struct list *newbest =
-				disambiguate(currbest, result, vline, n + 1);
-			// set ambiguity flag
-			ambiguous =
-				!newbest || (ambiguous && newbest == currbest);
+				disambiguate(*currbest, result, vline, n + 1);
+
+			// current best and result are ambiguous
+			if (!newbest)
+				status = MATCHER_AMBIGUOUS;
+			// current best is still the best, but ambiguous
+			else if (newbest == *currbest
+				 && status == MATCHER_AMBIGUOUS)
+				status = MATCHER_AMBIGUOUS;
+			// result is better, but also ambiguous
+			else if (newbest == result
+				 && rstat == MATCHER_AMBIGUOUS)
+				status = MATCHER_AMBIGUOUS;
+			// one or the other is superior and not ambiguous
+			else
+				status = MATCHER_OK;
+
 			// delete the unnecessary result
 			struct list *todelete =
-				((newbest && newbest == result) ? currbest
+				((newbest && newbest == result) ? *currbest
 								: result);
 			del_arglist(todelete);
 
-			currbest = newbest ? newbest : currbest;
-		} else if (result)
-			currbest = result;
-	}
-
-	if (currbest) {
-		if (ambiguous) {
-			del_arglist(currbest);
-			currbest = NULL;
-			matcher_rv = MATCHER_AMBIGUOUS;
-		} else {
-			// copy token, set arg and prepend to currbest
-			struct cmd_token *token = start->data;
-			struct cmd_token *copy = cmd_token_dup(token);
-			copy->arg = XSTRDUP(MTYPE_CMD_ARG, input_token);
-			listnode_add_before(currbest, currbest->head, copy);
-			matcher_rv = MATCHER_OK;
+			*currbest = newbest ? newbest : *currbest;
+		} else if (result) {
+			status = rstat;
+			*currbest = result;
+		} else if (!*currbest) {
+			status = MAX(rstat, status);
 		}
-	} else if (n + 1 == vector_active(vline)
-		   && matcher_rv == MATCHER_NO_MATCH)
-		matcher_rv = MATCHER_INCOMPLETE;
+	}
+	if (*currbest) {
+		// copy token, set arg and prepend to currbest
+		struct cmd_token *token = start->data;
+		struct cmd_token *copy = cmd_token_dup(token);
+		copy->arg = XSTRDUP(MTYPE_CMD_ARG, input_token);
+		listnode_add_before(*currbest, (*currbest)->head, copy);
+	} else if (n + 1 == vector_active(vline) && status == MATCHER_NO_MATCH)
+		status = MATCHER_INCOMPLETE;
 
 	// cleanup
 	list_delete(next);
 
-	return currbest;
+	return status;
 }
 
 static void stack_del(void *val)
@@ -432,12 +443,12 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
 	 * next     = set of all nodes reachable from all nodes in `matched`
 	 */
 
-	matcher_rv = idx == vector_active(vline) && next->count
-			     ? MATCHER_OK
-			     : MATCHER_NO_MATCH;
+	enum matcher_rv mrv = idx == vector_active(vline) && next->count
+				      ? MATCHER_OK
+				      : MATCHER_NO_MATCH;
 
 	*completions = NULL;
-	if (!MATCHER_ERROR(matcher_rv)) {
+	if (!MATCHER_ERROR(mrv)) {
 		// extract cmd_token into list
 		*completions = list_new();
 		for (ALL_LIST_ELEMENTS_RO(next, node, gstack)) {
@@ -448,7 +459,7 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
 	list_delete(current);
 	list_delete(next);
 
-	return matcher_rv;
+	return mrv;
 }
 
 /**

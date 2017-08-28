@@ -53,7 +53,7 @@ static void vty_do_exit(int isexit)
 	thread_master_free(master);
 	closezlog();
 
-	log_memstats_stderr("testcli");
+	log_memstats(stderr, "testcli");
 	if (!isexit)
 		exit(0);
 }

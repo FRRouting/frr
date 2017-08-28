@@ -1705,16 +1705,14 @@ static int static_config(struct vty *vty, afi_t afi, safi_t safi,
 						inet_ntop(AF_INET,
 							  &si->addr.ipv4, buf,
 							  sizeof buf),
-						ifindex2ifname(si->ifindex,
-							       si->vrf_id));
+						si->ifname);
 					break;
 				case STATIC_IPV6_GATEWAY_IFNAME:
 					vty_out(vty, " %s %s",
 						inet_ntop(AF_INET6,
 							  &si->addr.ipv6, buf,
 							  sizeof buf),
-						ifindex2ifname(si->ifindex,
-							       si->vrf_id));
+						si->ifname);
 					break;
 				}
 

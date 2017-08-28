@@ -24,6 +24,7 @@
 #include "linklist.h"
 #include "vty.h"
 #include "command.h"
+#include "plist.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_network.h"
@@ -1139,6 +1140,20 @@ DEFUN (show_ipv6_ospf6_linkstate_detail,
 	return CMD_SUCCESS;
 }
 
+static void ospf6_plist_add(struct prefix_list *plist)
+{
+	if (prefix_list_afi(plist) != AFI_IP6)
+		return;
+	ospf6_area_plist_update(plist, 1);
+}
+
+static void ospf6_plist_del(struct prefix_list *plist)
+{
+	if (prefix_list_afi(plist) != AFI_IP6)
+		return;
+	ospf6_area_plist_update(plist, 0);
+}
+
 /* Install ospf related commands. */
 void ospf6_init(void)
 {
@@ -1153,6 +1168,9 @@ void ospf6_init(void)
 	ospf6_intra_init();
 	ospf6_asbr_init();
 	ospf6_abr_init();
+
+	prefix_list_add_hook(ospf6_plist_add);
+	prefix_list_delete_hook(ospf6_plist_del);
 
 	ospf6_bfd_init();
 	install_node(&debug_node, config_write_ospf6_debug);

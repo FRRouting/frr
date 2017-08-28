@@ -391,10 +391,10 @@ DEFUN (eigrp_network,
        "EIGRP network prefix\n")
 {
 	VTY_DECLVAR_CONTEXT(eigrp, eigrp);
-	struct prefix_ipv4 p;
+	struct prefix p;
 	int ret;
 
-	str2prefix_ipv4(argv[1]->arg, &p);
+	str2prefix(argv[1]->arg, &p);
 
 	ret = eigrp_network_set(eigrp, &p);
 
@@ -414,10 +414,10 @@ DEFUN (no_eigrp_network,
        "EIGRP network prefix\n")
 {
 	VTY_DECLVAR_CONTEXT(eigrp, eigrp);
-	struct prefix_ipv4 p;
+	struct prefix p;
 	int ret;
 
-	str2prefix_ipv4(argv[2]->arg, &p);
+	str2prefix(argv[2]->arg, &p);
 
 	ret = eigrp_network_unset(eigrp, &p);
 

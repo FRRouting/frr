@@ -347,14 +347,14 @@ int area_net_title(struct vty *vty, const char *net_title)
 			"area address must be at least 8..20 octets long (%d)\n",
 			addr->addr_len);
 		XFREE(MTYPE_ISIS_AREA_ADDR, addr);
-		return CMD_ERR_AMBIGUOUS;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	if (addr->area_addr[addr->addr_len - 1] != 0) {
 		vty_out(vty,
 			"nsel byte (last byte) in area address must be 0\n");
 		XFREE(MTYPE_ISIS_AREA_ADDR, addr);
-		return CMD_ERR_AMBIGUOUS;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	if (isis->sysid_set == 0) {
@@ -374,7 +374,7 @@ int area_net_title(struct vty *vty, const char *net_title)
 			vty_out(vty,
 				"System ID must not change when defining additional area addresses\n");
 			XFREE(MTYPE_ISIS_AREA_ADDR, addr);
-			return CMD_ERR_AMBIGUOUS;
+			return CMD_WARNING_CONFIG_FAILED;
 		}
 
 		/* now we see that we don't already have this address */
@@ -419,7 +419,7 @@ int area_clear_net_title(struct vty *vty, const char *net_title)
 		vty_out(vty,
 			"Unsupported area address length %d, should be 8...20 \n",
 			addr.addr_len);
-		return CMD_ERR_AMBIGUOUS;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	memcpy(addr.area_addr, buff, (int)addr.addr_len);
@@ -1260,8 +1260,8 @@ DEFUN (show_isis_spf_ietf,
 			if (area->spf_timer[level - 1]) {
 				struct timeval remain = thread_timer_remain(
 					area->spf_timer[level - 1]);
-				vty_out(vty, "Pending, due in %ld msec\n",
-					remain.tv_sec * 1000
+				vty_out(vty, "Pending, due in %lld msec\n",
+					(long long)remain.tv_sec * 1000
 						+ remain.tv_usec / 1000);
 			} else {
 				vty_out(vty, "Not scheduled\n");
@@ -1405,7 +1405,7 @@ static int show_isis_database(struct vty *vty, const char *argv, int ui_level)
 				(u_char)strtol((char *)number, NULL, 16);
 			pos -= 4;
 			if (strncmp(pos, ".", 1) != 0)
-				return CMD_ERR_AMBIGUOUS;
+				return CMD_WARNING;
 		}
 		if (strncmp(pos, ".", 1) == 0) {
 			memcpy(number, ++pos, 2);
@@ -1570,16 +1570,16 @@ DEFUN (isis_topology,
 	if (area->oldmetric) {
 		vty_out(vty,
 			"Multi topology IS-IS can only be used with wide metrics\n");
-		return CMD_ERR_AMBIGUOUS;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	if (mtid == (uint16_t)-1) {
 		vty_out(vty, "Don't know topology '%s'\n", arg);
-		return CMD_ERR_AMBIGUOUS;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 	if (mtid == ISIS_MT_IPV4_UNICAST) {
 		vty_out(vty, "Cannot configure IPv4 unicast topology\n");
-		return CMD_ERR_AMBIGUOUS;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	area_set_mt_enabled(area, mtid, true);
@@ -1603,16 +1603,16 @@ DEFUN (no_isis_topology,
 	if (area->oldmetric) {
 		vty_out(vty,
 			"Multi topology IS-IS can only be used with wide metrics\n");
-		return CMD_ERR_AMBIGUOUS;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	if (mtid == (uint16_t)-1) {
 		vty_out(vty, "Don't know topology '%s'\n", arg);
-		return CMD_ERR_AMBIGUOUS;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 	if (mtid == ISIS_MT_IPV4_UNICAST) {
 		vty_out(vty, "Cannot configure IPv4 unicast topology\n");
-		return CMD_ERR_AMBIGUOUS;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	area_set_mt_enabled(area, mtid, false);

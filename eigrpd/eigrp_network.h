@@ -32,8 +32,8 @@
 
 extern int eigrp_sock_init(void);
 extern int eigrp_if_ipmulticast(struct eigrp *, struct prefix *, unsigned int);
-extern int eigrp_network_set(struct eigrp *, struct prefix_ipv4 *);
-extern int eigrp_network_unset(struct eigrp *eigrp, struct prefix_ipv4 *p);
+extern int eigrp_network_set(struct eigrp *eigrp, struct prefix *p);
+extern int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p);
 
 extern int eigrp_hello_timer(struct thread *);
 extern void eigrp_if_update(struct interface *);
