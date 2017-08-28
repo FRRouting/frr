@@ -928,6 +928,7 @@ int zapi_route_encode(u_char cmd, struct stream *s, struct zapi_route *api)
 			stream_putc(s, api_nh->type);
 			switch (api_nh->type) {
 			case NEXTHOP_TYPE_BLACKHOLE:
+				stream_putc(s, api_nh->bh_type);
 				break;
 			case NEXTHOP_TYPE_IPV4:
 				stream_put_in_addr(s, &api_nh->gate.ipv4);
@@ -1040,6 +1041,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 			api_nh->type = stream_getc(s);
 			switch (api_nh->type) {
 			case NEXTHOP_TYPE_BLACKHOLE:
+				api_nh->bh_type = stream_getc(s);
 				break;
 			case NEXTHOP_TYPE_IPV4:
 				api_nh->gate.ipv4.s_addr = stream_get_ipv4(s);

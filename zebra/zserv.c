@@ -626,6 +626,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client, struct prefix *p,
 		api_nh->type = nexthop->type;
 		switch (nexthop->type) {
 		case NEXTHOP_TYPE_BLACKHOLE:
+			api_nh->bh_type = nexthop->bh_type;
 			break;
 		case NEXTHOP_TYPE_IPV4:
 			api_nh->gate.ipv4 = nexthop->gate.ipv4;
@@ -1051,7 +1052,6 @@ static int zread_route_add(struct zserv *client, u_short length,
 	struct route_entry *re;
 	struct nexthop *nexthop = NULL;
 	int i, ret;
-	enum blackhole_type bh_type = BLACKHOLE_NULL;
 
 	s = client->ibuf;
 	if (zapi_route_decode(s, &api) < 0)
@@ -1094,7 +1094,8 @@ static int zread_route_add(struct zserv *client, u_short length,
 					api_nh->ifindex);
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
-				route_entry_nexthop_blackhole_add(re, bh_type);
+				route_entry_nexthop_blackhole_add(re,
+					api_nh->bh_type);
 				break;
 			}
 
