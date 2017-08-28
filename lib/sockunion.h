@@ -34,6 +34,7 @@ union sockunion {
 	struct sockaddr_in6 sin6;
 #ifdef __OpenBSD__
 	struct sockaddr_mpls smpls;
+	struct sockaddr_rtlabel rtlabel;
 #endif
 };
 
