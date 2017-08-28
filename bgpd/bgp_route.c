@@ -2201,18 +2201,20 @@ static wq_item_status bgp_process_wq(struct work_queue *wq, void *data)
 	struct bgp_process_queue *pqnode = data;
 	struct bgp *bgp = pqnode->bgp;
 	struct bgp_table *table;
-	struct bgp_node *rn, *nrn;
+	struct bgp_node *rn;
 
 	/* eoiu marker */
 	if (CHECK_FLAG(pqnode->flags, BGP_PROCESS_QUEUE_EOIU_MARKER)) {
 		bgp_process_main_one(bgp, NULL, 0, 0);
-
+		assert(STAILQ_FIRST(&pqnode->pqueue) == NULL); /* should always have dedicated wq call */
 		return WQ_SUCCESS;
 	}
 
-	STAILQ_FOREACH_SAFE(rn, &pqnode->pqueue, pq, nrn) {
+	while (!STAILQ_EMPTY(&pqnode->pqueue)) {
+		rn = STAILQ_FIRST(&pqnode->pqueue);
+		STAILQ_REMOVE_HEAD(&pqnode->pqueue, pq);
 		table = bgp_node_table(rn);
-
+		/* note, new RNs may be added as part of processing */
 		bgp_process_main_one(bgp, rn, table->afi, table->safi);
 
 		bgp_unlock_node(rn);
