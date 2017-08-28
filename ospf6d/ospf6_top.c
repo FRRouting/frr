@@ -308,19 +308,24 @@ DEFUN (no_router_ospf6,
 /* change Router_ID commands. */
 DEFUN (ospf6_router_id,
        ospf6_router_id_cmd,
-       "router-id A.B.C.D",
-       "Configure OSPF Router-ID\n"
+       "ospf6 router-id A.B.C.D",
+       OSPF6_STR
+       "Configure OSPF6 Router-ID\n"
        V4NOTATION_STR)
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
-	int idx_ipv4 = 1;
+	int idx = 0;
 	int ret;
+	const char *router_id_str;
 	u_int32_t router_id;
 
-	ret = inet_pton(AF_INET, argv[idx_ipv4]->arg, &router_id);
+	argv_find(argv, argc, "A.B.C.D", &idx);
+	router_id_str = argv[idx]->arg;
+
+	ret = inet_pton(AF_INET, router_id_str, &router_id);
 	if (ret == 0) {
 		vty_out(vty, "malformed OSPF Router-ID: %s\n",
-			argv[idx_ipv4]->arg);
+			router_id_str);
 		return CMD_SUCCESS;
 	}
 
@@ -330,6 +335,40 @@ DEFUN (ospf6_router_id,
 
 	return CMD_SUCCESS;
 }
+
+DEFUN (no_ospf6_router_id,
+       no_ospf6_router_id_cmd,
+       "no ospf6 router-id [A.B.C.D]",
+       NO_STR
+       OSPF6_STR
+       "Configure OSPF6 Router-ID\n"
+       V4NOTATION_STR)
+{
+	VTY_DECLVAR_CONTEXT(ospf6, o);
+	o->router_id_static = 0;
+	o->router_id = 0;
+
+	return CMD_SUCCESS;
+}
+
+#if CONFDATE > 20180828
+CPP_NOTICE("ospf6: `router-id A.B.C.D` deprecated 2017/08/28")
+#endif
+ALIAS_HIDDEN(ospf6_router_id,
+	     ospf6_router_id_hdn_cmd,
+	     "router-id A.B.C.D",
+	     "Configure OSPF6 Router-ID\n"
+	     V4NOTATION_STR)
+
+#if CONFDATE > 20180828
+CPP_NOTICE("ospf6: `no router-id A.B.C.D` deprecated 2017/08/28")
+#endif
+ALIAS_HIDDEN(no_ospf6_router_id,
+	     no_ospf6_router_id_hdn_cmd,
+	     "no router-id [A.B.C.D]",
+	     NO_STR
+	     "Configure OSPF6 Router-ID\n"
+	     V4NOTATION_STR)
 
 DEFUN (ospf6_log_adjacency_changes,
        ospf6_log_adjacency_changes_cmd,
@@ -974,7 +1013,7 @@ static int config_write_ospf6(struct vty *vty)
 		  sizeof(router_id));
 	vty_out(vty, "router ospf6\n");
 	if (ospf6->router_id_static != 0)
-		vty_out(vty, " router-id %s\n", router_id);
+		vty_out(vty, " ospf6 router-id %s\n", router_id);
 
 	/* log-adjacency-changes flag print. */
 	if (CHECK_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES)) {
@@ -1032,6 +1071,9 @@ void ospf6_top_init(void)
 
 	install_default(OSPF6_NODE);
 	install_element(OSPF6_NODE, &ospf6_router_id_cmd);
+	install_element(OSPF6_NODE, &no_ospf6_router_id_cmd);
+	install_element(OSPF6_NODE, &ospf6_router_id_hdn_cmd);
+	install_element(OSPF6_NODE, &no_ospf6_router_id_hdn_cmd);
 	install_element(OSPF6_NODE, &ospf6_log_adjacency_changes_cmd);
 	install_element(OSPF6_NODE, &ospf6_log_adjacency_changes_detail_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_log_adjacency_changes_cmd);
