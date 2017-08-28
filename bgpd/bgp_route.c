@@ -2206,7 +2206,7 @@ static wq_item_status bgp_process_wq(struct work_queue *wq, void *data)
 	/* eoiu marker */
 	if (CHECK_FLAG(pqnode->flags, BGP_PROCESS_QUEUE_EOIU_MARKER)) {
 		bgp_process_main_one(bgp, NULL, 0, 0);
-
+		assert(STAILQ_FIRST(&pqnode->pqueue) == NULL); /* should always have dedicated wq call */
 		return WQ_SUCCESS;
 	}
 
@@ -2280,6 +2280,7 @@ void bgp_process(struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
 
 	/* Add route nodes to an existing work queue item until reaching the
 	   limit only if is from the same BGP view and it's not an EOIU marker */
+#if 0				/* hack to avoid issue #1052 */
 	if (work_queue_item_count(wq)) {
 		struct work_queue_item *item = work_queue_last_item(wq);
 		pqnode = item->data;
@@ -2290,6 +2291,7 @@ void bgp_process(struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
 		else
 			pqnode_reuse = 1;
 	} else
+#endif
 		pqnode = bgp_processq_alloc(bgp);
 	/* all unlocked in bgp_process_wq */
 	bgp_table_lock(bgp_node_table(rn));
