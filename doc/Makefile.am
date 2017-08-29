@@ -52,7 +52,7 @@ info_TEXINFOS = frr.texi
 # because it cant just work from the png's directly it seems - contrary
 # to the documentation...
 frr.pdf: $(info_TEXINFOS) $(figures_pdf) $(frr_TEXINFOS) defines.texi
-	$(TEXI2PDF) -o "$@" $<
+	$(TEXI2PDF) -o "$@" $< || true
 
 # don't ask me why the info file is in srcdir
 $(srcdir)/frr.info: $(frr_TEXINFOS) defines.texi
