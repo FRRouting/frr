@@ -290,12 +290,21 @@ int lsp_compare(char *areatag, struct isis_lsp *lsp, uint32_t seqno,
 	return LSP_OLDER;
 }
 
-static void put_lsp_hdr(struct isis_lsp *lsp, size_t *len_pointer)
+static void put_lsp_hdr(struct isis_lsp *lsp, size_t *len_pointer, bool keep)
 {
 	uint8_t pdu_type =
 		(lsp->level == IS_LEVEL_1) ? L1_LINK_STATE : L2_LINK_STATE;
 	struct isis_lsp_hdr *hdr = &lsp->hdr;
 	struct stream *stream = lsp->pdu;
+	size_t orig_getp, orig_endp;
+
+	if (keep) {
+		orig_getp = stream_get_getp(lsp->pdu);
+		orig_endp = stream_get_endp(lsp->pdu);
+	}
+
+	stream_set_getp(lsp->pdu, 0);
+	stream_set_endp(lsp->pdu, 0);
 
 	fill_fixed_hdr(pdu_type, stream);
 
@@ -307,6 +316,11 @@ static void put_lsp_hdr(struct isis_lsp *lsp, size_t *len_pointer)
 	stream_putl(stream, hdr->seqno);
 	stream_putw(stream, hdr->checksum);
 	stream_putc(stream, hdr->lsp_bits);
+
+	if (keep) {
+		stream_set_endp(lsp->pdu, orig_endp);
+		stream_set_getp(lsp->pdu, orig_getp);
+	}
 }
 
 static void lsp_add_auth(struct isis_lsp *lsp)
@@ -325,8 +339,7 @@ static void lsp_pack_pdu(struct isis_lsp *lsp)
 	lsp_add_auth(lsp);
 
 	size_t len_pointer;
-	stream_reset(lsp->pdu);
-	put_lsp_hdr(lsp, &len_pointer);
+	put_lsp_hdr(lsp, &len_pointer, false);
 	isis_pack_tlvs(lsp->tlvs, lsp->pdu, len_pointer, false, true);
 
 	lsp->hdr.pdu_len = stream_get_endp(lsp->pdu);
@@ -457,16 +470,10 @@ void lsp_update(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 		lsp->own_lsp = 0;
 	}
 
+	lsp_update_data(lsp, hdr, tlvs, stream, area, level);
 	if (confusion) {
-		lsp_clear_data(lsp);
-		if (lsp->pdu != NULL)
-			stream_free(lsp->pdu);
-		lsp->pdu = stream_new(LLC_LEN + area->lsp_mtu);
-		lsp->age_out = ZERO_AGE_LIFETIME;
-		lsp->hdr.rem_lifetime = 0;
-		lsp_pack_pdu(lsp);
-	} else {
-		lsp_update_data(lsp, hdr, tlvs, stream, area, level);
+		lsp->hdr.rem_lifetime = hdr->rem_lifetime = 0;
+		put_lsp_hdr(lsp, NULL, true);
 	}
 
 	/* insert the lsp back into the database */
@@ -523,7 +530,7 @@ struct isis_lsp *lsp_new(struct isis_area *area, u_char *lsp_id,
 	lsp->level = level;
 	lsp->age_out = ZERO_AGE_LIFETIME;
 	lsp_link_fragment(lsp, lsp0);
-	put_lsp_hdr(lsp, NULL);
+	put_lsp_hdr(lsp, NULL, false);
 
 	if (isis->debugs & DEBUG_EVENTS)
 		zlog_debug("New LSP with ID %s-%02x-%02x len %d seqnum %08x",
