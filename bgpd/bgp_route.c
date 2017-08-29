@@ -2213,6 +2213,7 @@ static wq_item_status bgp_process_wq(struct work_queue *wq, void *data)
 	while (!STAILQ_EMPTY(&pqnode->pqueue)) {
 		rn = STAILQ_FIRST(&pqnode->pqueue);
 		STAILQ_REMOVE_HEAD(&pqnode->pqueue, pq);
+		STAILQ_NEXT(rn, pq) = NULL; /* complete unlink */
 		table = bgp_node_table(rn);
 		/* note, new RNs may be added as part of processing */
 		bgp_process_main_one(bgp, rn, table->afi, table->safi);
@@ -2299,6 +2300,7 @@ void bgp_process(struct bgp *bgp, struct bgp_node *rn, afi_t afi, safi_t safi)
 	SET_FLAG(rn->flags, BGP_NODE_PROCESS_SCHEDULED);
 	bgp_lock_node(rn);
 
+	assert(STAILQ_NEXT(rn, pq) == NULL); /* can't be enqueued twice */
 	STAILQ_INSERT_TAIL(&pqnode->pqueue, rn, pq);
 	pqnode->queued++;
 
