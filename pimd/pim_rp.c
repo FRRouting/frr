@@ -198,23 +198,35 @@ static struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 					       struct prefix *group)
 {
 	struct listnode *node;
+	struct rp_info *best = NULL;
 	struct rp_info *rp_info;
 	struct prefix_list *plist;
+	struct prefix *p, *bp;
 
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (rp_info->plist) {
 			plist = prefix_list_lookup(AFI_IP, rp_info->plist);
 
-			if (plist
-			    && prefix_list_apply(plist, group) == PREFIX_PERMIT)
-				return rp_info;
+			if (prefix_list_apply_which_prefix(plist, &p, group) == PREFIX_DENY)
+				continue;
+
+			if (!best) {
+				best = rp_info;
+				bp = p;
+				continue;
+			}
+
+			if (bp->prefixlen < p->prefixlen) {
+				best = rp_info;
+				bp = p;
+			}
 		} else {
 			if (prefix_match(&rp_info->group, group))
 				return rp_info;
 		}
 	}
 
-	return NULL;
+	return best;
 }
 
 /*
