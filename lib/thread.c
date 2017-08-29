@@ -47,9 +47,6 @@ DEFINE_MTYPE_STATIC(LIB, THREAD_STATS, "Thread stats")
 		write(m->io_pipe[1], &wakebyte, 1);                            \
 	} while (0);
 
-/* max # of thread_fetch() calls before we force a poll() */
-#define MAX_TICK_IO 1000
-
 /* control variable for initializer */
 pthread_once_t init_once = PTHREAD_ONCE_INIT;
 pthread_key_t thread_current;
@@ -552,7 +549,7 @@ void thread_master_free(struct thread_master *m)
 	{
 		listnode_delete(masters, m);
 		if (masters->count == 0) {
-			list_free (masters);
+			list_free(masters);
 			masters = NULL;
 		}
 	}
@@ -1320,6 +1317,20 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 		do_thread_cancel(m);
 
 		/*
+		 * Attempt to flush ready queue before going into poll().
+		 * This is performance-critical. Think twice before modifying.
+		 */
+		if ((thread = thread_trim_head(&m->ready))) {
+			fetch = thread_run(m, thread, fetch);
+			if (fetch->ref)
+				*fetch->ref = NULL;
+			pthread_mutex_unlock(&m->mtx);
+			break;
+		}
+
+		/* otherwise, tick through scheduling sequence */
+
+		/*
 		 * Post events to ready queue. This must come before the
 		 * following block since events should occur immediately
 		 */
@@ -1362,44 +1373,26 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 		memcpy(m->handler.copy, m->handler.pfds,
 		       m->handler.copycount * sizeof(struct pollfd));
 
-		/*
-		 * Attempt to flush ready queue before going into poll().
-		 * This is performance-critical. Think twice before modifying.
-		 */
-		if (m->ready.count == 0 || m->tick_since_io >= MAX_TICK_IO) {
-			pthread_mutex_unlock(&m->mtx);
-			{
-				m->tick_since_io = 0;
-				num = fd_poll(m, m->handler.copy,
-					      m->handler.pfdsize,
-					      m->handler.copycount, tw);
-			}
-			pthread_mutex_lock(&m->mtx);
+		pthread_mutex_unlock(&m->mtx);
+		{
+			num = fd_poll(m, m->handler.copy, m->handler.pfdsize,
+				      m->handler.copycount, tw);
+		}
+		pthread_mutex_lock(&m->mtx);
 
-			/* Handle any errors received in poll() */
-			if (num < 0) {
-				if (errno == EINTR) {
-					pthread_mutex_unlock(&m->mtx);
-					/* loop around to signal handler */
-					continue;
-				}
-
-				/* else die */
-				zlog_warn("poll() error: %s",
-					  safe_strerror(errno));
+		/* Handle any errors received in poll() */
+		if (num < 0) {
+			if (errno == EINTR) {
 				pthread_mutex_unlock(&m->mtx);
-				fetch = NULL;
-				break;
+				/* loop around to signal handler */
+				continue;
 			}
 
-			/*
-			 * Since we could have received more cancellation
-			 * requests during poll(), process those
-			 */
-			do_thread_cancel(m);
-
-		} else {
-			m->tick_since_io++;
+			/* else die */
+			zlog_warn("poll() error: %s", safe_strerror(errno));
+			pthread_mutex_unlock(&m->mtx);
+			fetch = NULL;
+			break;
 		}
 
 		/* Post timers to ready queue. */
@@ -1409,13 +1402,6 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 		/* Post I/O to ready queue. */
 		if (num > 0)
 			thread_process_io(m, num);
-
-		/* have a ready task ==> return it to caller */
-		if ((thread = thread_trim_head(&m->ready))) {
-			fetch = thread_run(m, thread, fetch);
-			if (fetch->ref)
-				*fetch->ref = NULL;
-		}
 
 		pthread_mutex_unlock(&m->mtx);
 
