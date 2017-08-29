@@ -336,6 +336,10 @@ static struct route_map_rule_cmd route_match_tag_cmd = {
 	route_map_rule_tag_free,
 };
 
+struct ospf_metric {
+	bool used;
+	u_int32_t metric;
+};
 
 /* `set metric METRIC' */
 /* Set metric to attribute. */
@@ -343,7 +347,7 @@ static route_map_result_t route_set_metric(void *rule, struct prefix *prefix,
 					   route_map_object_t type,
 					   void *object)
 {
-	u_int32_t *metric;
+	struct ospf_metric *metric;
 	struct external_info *ei;
 
 	if (type == RMAP_OSPF) {
@@ -352,7 +356,8 @@ static route_map_result_t route_set_metric(void *rule, struct prefix *prefix,
 		ei = object;
 
 		/* Set metric out value. */
-		ei->route_map_set.metric = *metric;
+		if (metric->used)
+			ei->route_map_set.metric = metric->metric;
 	}
 	return RMAP_OKAY;
 }
@@ -360,7 +365,10 @@ static route_map_result_t route_set_metric(void *rule, struct prefix *prefix,
 /* set metric compilation. */
 static void *route_set_metric_compile(const char *arg)
 {
-	u_int32_t *metric;
+	struct ospf_metric *metric;
+
+	metric = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(u_int32_t));
+	metric->used = false;
 
 	/* OSPF doesn't support the +/- in
 	   set metric <+/-metric> check
@@ -373,11 +381,12 @@ static void *route_set_metric_compile(const char *arg)
 			if (strmatch(arg, "+rtt") || strmatch(arg, "-rtt"))
 				zlog_warn(
 					"OSPF does not support 'set metric +rtt / -rtt'");
-			return NULL;
+
+			return metric;
 		}
 	}
-	metric = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(u_int32_t));
-	*metric = strtoul(arg, NULL, 10);
+	metric->metric = strtoul(arg, NULL, 10);
+	metric->used = true;
 
 	return metric;
 }
