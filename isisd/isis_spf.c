@@ -1153,7 +1153,8 @@ static int isis_run_spf(struct isis_area *area, int level, int family,
 	/*              b) */
 	retval = isis_spf_preload_tent(spftree, level, family, sysid,
 				       root_vertex);
-	if (retval != ISIS_OK) {
+	if (retval != ISIS_OK
+	    && (isis->debugs & DEBUG_SPF_EVENTS)) {
 		zlog_warn("ISIS-Spf: failed to load TENT SPF-root:%s",
 			  print_sys_hostname(sysid));
 		goto out;
