@@ -92,10 +92,7 @@ static void connected_announce(struct interface *ifp, struct connected *ifc)
 	zebra_interface_address_add_update(ifp, ifc);
 
 	if (if_is_operative(ifp)) {
-		if (ifc->address->family == AF_INET)
-			connected_up_ipv4(ifp, ifc);
-		else
-			connected_up_ipv6(ifp, ifc);
+		connected_up(ifp, ifc);
 	}
 }
 
@@ -204,8 +201,9 @@ static void connected_update(struct interface *ifp, struct connected *ifc)
 }
 
 /* Called from if_up(). */
-void connected_up_ipv4(struct interface *ifp, struct connected *ifc)
+void connected_up(struct interface *ifp, struct connected *ifc)
 {
+	afi_t afi;
 	struct prefix p;
 	struct nexthop nh = {
 		.type = NEXTHOP_TYPE_IFINDEX, .ifindex = ifp->ifindex,
@@ -214,34 +212,59 @@ void connected_up_ipv4(struct interface *ifp, struct connected *ifc)
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
 		return;
 
-	PREFIX_COPY_IPV4((struct prefix_ipv4 *)&p, CONNECTED_PREFIX(ifc));
+	PREFIX_COPY(&p, CONNECTED_PREFIX(ifc));
 
 	/* Apply mask to the network. */
 	apply_mask(&p);
 
-	/* In case of connected address is 0.0.0.0/0 we treat it tunnel
-	   address. */
-	if (prefix_ipv4_any((struct prefix_ipv4 *)&p))
+	afi = family2afi(p.family);
+
+	switch (afi) {
+	case AFI_IP:
+		/*
+		 * In case of connected address is 0.0.0.0/0 we treat it tunnel
+		 * address.
+		 */
+		if (prefix_ipv4_any((struct prefix_ipv4 *)&p))
+			return;
+		break;
+	case AFI_IP6:
+#ifndef LINUX
+		/* XXX: It is already done by rib_bogus_ipv6 within rib_add */
+		if (IN6_IS_ADDR_UNSPECIFIED(&p.u.prefix6))
+			return;
+#endif
+		break;
+	default:
+		zlog_warn("Received unknown AFI: %s", afi2str(afi));
 		return;
+		break;
+	}
 
-	rib_add(AFI_IP, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
+	rib_add(afi, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
 		&p, NULL, &nh, RT_TABLE_MAIN, ifp->metric, 0, 0);
 
-	rib_add(AFI_IP, SAFI_MULTICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
+	rib_add(afi, SAFI_MULTICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
 		&p, NULL, &nh, RT_TABLE_MAIN, ifp->metric, 0, 0);
 
-	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug(
-			"%u: IF %s IPv4 address add/up, scheduling RIB processing",
-			ifp->vrf_id, ifp->name);
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+		char buf[PREFIX_STRLEN];
+
+		zlog_debug("%u: IF %s address %s add/up, scheduling RIB processing",
+			   ifp->vrf_id, ifp->name,
+			   prefix2str(&p, buf, sizeof(buf)));
+	}
 	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (ifp->vrf_id == VRF_DEFAULT) {
-		if (IS_ZEBRA_DEBUG_MPLS)
-			zlog_debug(
-				"%u: IF %s IPv4 address add/up, scheduling MPLS processing",
-				ifp->vrf_id, ifp->name);
+		if (IS_ZEBRA_DEBUG_MPLS) {
+			char buf[PREFIX_STRLEN];
+
+			zlog_debug("%u: IF %s IP %s address add/up, scheduling MPLS processing",
+				   ifp->vrf_id, ifp->name,
+				   prefix2str(&p, buf, sizeof(buf)));
+		}
 		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id));
 	}
 }
@@ -355,7 +378,7 @@ void connected_down_ipv4(struct interface *ifp, struct connected *ifc)
 	if (prefix_ipv4_any((struct prefix_ipv4 *)&p))
 		return;
 
-	/* Same logic as for connected_up_ipv4(): push the changes into the
+	/* Same logic as for connected_up(): push the changes into the
 	 * head. */
 	rib_delete(AFI_IP, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
 		   &p, NULL, &nh, 0, 0);
@@ -412,47 +435,6 @@ void connected_delete_ipv4(struct interface *ifp, int flags,
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug(
 			"%u: IF %s IPv4 address del, scheduling RIB processing",
-			ifp->vrf_id, ifp->name);
-
-	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
-
-	/* Schedule LSP forwarding entries for processing, if appropriate. */
-	if (ifp->vrf_id == VRF_DEFAULT) {
-		if (IS_ZEBRA_DEBUG_MPLS)
-			zlog_debug(
-				"%u: IF %s IPv4 address add/up, scheduling MPLS processing",
-				ifp->vrf_id, ifp->name);
-		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id));
-	}
-}
-
-void connected_up_ipv6(struct interface *ifp, struct connected *ifc)
-{
-	struct prefix p;
-	struct nexthop nh = {
-		.type = NEXTHOP_TYPE_IFINDEX, .ifindex = ifp->ifindex,
-	};
-
-	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
-		return;
-
-	PREFIX_COPY_IPV6((struct prefix_ipv6 *)&p, CONNECTED_PREFIX(ifc));
-
-	/* Apply mask to the network. */
-	apply_mask(&p);
-
-#ifndef LINUX
-	/* XXX: It is already done by rib_bogus_ipv6 within rib_add */
-	if (IN6_IS_ADDR_UNSPECIFIED(&p.u.prefix6))
-		return;
-#endif
-
-	rib_add(AFI_IP6, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
-		&p, NULL, &nh, RT_TABLE_MAIN, ifp->metric, 0, 0);
-
-	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug(
-			"%u: IF %s IPv6 address down, scheduling RIB processing",
 			ifp->vrf_id, ifp->name);
 
 	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);

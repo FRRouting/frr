@@ -527,18 +527,13 @@ static void if_install_connected(struct interface *ifp)
 	struct listnode *node;
 	struct listnode *next;
 	struct connected *ifc;
-	struct prefix *p;
 
 	if (ifp->connected) {
 		for (ALL_LIST_ELEMENTS(ifp->connected, node, next, ifc)) {
 			if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
 				zebra_interface_address_add_update(ifp, ifc);
 
-			p = ifc->address;
-			if (p->family == AF_INET)
-				connected_up_ipv4(ifp, ifc);
-			else if (p->family == AF_INET6)
-				connected_up_ipv6(ifp, ifc);
+			connected_up(ifp, ifc);
 		}
 	}
 }
