@@ -441,6 +441,12 @@ int ifm_read(struct if_msghdr *ifm)
 	RTA_ADDR_GET(NULL, RTA_IFA, ifm->ifm_addrs, cp);
 	RTA_ADDR_GET(NULL, RTA_AUTHOR, ifm->ifm_addrs, cp);
 	RTA_ADDR_GET(NULL, RTA_BRD, ifm->ifm_addrs, cp);
+#ifdef RTA_LABEL
+	RTA_ATTR_GET(NULL, RTA_LABEL, ifm->ifm_addrs, cp);
+#endif
+#ifdef RTA_SRC
+	RTA_ADDR_GET(NULL, RTA_SRC, ifm->ifm_addrs, cp);
+#endif
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug("%s: sdl ifname %s", __func__,
@@ -661,6 +667,12 @@ static void ifam_read_mesg(struct ifa_msghdr *ifm, union sockunion *addr,
 	RTA_ADDR_GET(addr, RTA_IFA, ifm->ifam_addrs, pnt);
 	RTA_ADDR_GET(NULL, RTA_AUTHOR, ifm->ifam_addrs, pnt);
 	RTA_ADDR_GET(brd, RTA_BRD, ifm->ifam_addrs, pnt);
+#ifdef RTA_LABEL
+	RTA_ATTR_GET(NULL, RTA_LABEL, ifm->ifam_addrs, pnt);
+#endif
+#ifdef RTA_SRC
+	RTA_ADDR_GET(NULL, RTA_SRC, ifm->ifam_addrs, pnt);
+#endif
 
 	if (IS_ZEBRA_DEBUG_KERNEL) {
 		int family = sockunion_family(addr);
@@ -762,12 +774,10 @@ int ifam_read(struct ifa_msghdr *ifam)
 		if (ifam->ifam_type == RTM_NEWADDR)
 			connected_add_ipv6(ifp, flags, &addr.sin6.sin6_addr,
 					   ip6_masklen(mask.sin6.sin6_addr),
-					   &brd.sin6.sin6_addr,
 					   (isalias ? ifname : NULL));
 		else
 			connected_delete_ipv6(ifp, &addr.sin6.sin6_addr,
-					      ip6_masklen(mask.sin6.sin6_addr),
-					      &brd.sin6.sin6_addr);
+					      ip6_masklen(mask.sin6.sin6_addr));
 		break;
 	default:
 		/* Unsupported family silently ignore... */
@@ -829,6 +839,17 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 	RTA_ADDR_GET(NULL, RTA_IFA, rtm->rtm_addrs, pnt);
 	RTA_ADDR_GET(NULL, RTA_AUTHOR, rtm->rtm_addrs, pnt);
 	RTA_ADDR_GET(NULL, RTA_BRD, rtm->rtm_addrs, pnt);
+#ifdef RTA_LABEL
+#if 0
+	union sockunion label;
+	memset(&label, 0, sizeof(label));
+	RTA_ATTR_GET(&label, RTA_LABEL, rtm->rtm_addrs, pnt);
+#endif
+	RTA_ATTR_GET(NULL, RTA_LABEL, rtm->rtm_addrs, pnt);
+#endif
+#ifdef RTA_SRC
+	RTA_ADDR_GET(NULL, RTA_SRC, rtm->rtm_addrs, pnt);
+#endif
 
 	/* If there is netmask information set it's family same as
 	   destination family*/

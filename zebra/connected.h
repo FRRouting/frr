@@ -23,7 +23,10 @@
 #define _ZEBRA_CONNECTED_H
 
 extern struct connected *connected_check(struct interface *ifp,
-					 struct prefix *p);
+					 union prefixconstptr p);
+extern struct connected *connected_check_ptp(struct interface *ifp,
+					     union prefixconstptr p,
+					     union prefixconstptr d);
 
 extern void connected_add_ipv4(struct interface *ifp, int flags,
 			       struct in_addr *addr, u_char prefixlen,
@@ -40,10 +43,9 @@ extern void connected_down_ipv4(struct interface *, struct connected *);
 
 extern void connected_add_ipv6(struct interface *ifp, int flags,
 			       struct in6_addr *address, u_char prefixlen,
-			       struct in6_addr *broad, const char *label);
+			       const char *label);
 extern void connected_delete_ipv6(struct interface *ifp,
-				  struct in6_addr *address, u_char prefixlen,
-				  struct in6_addr *broad);
+				  struct in6_addr *address, u_char prefixlen);
 
 extern void connected_up_ipv6(struct interface *, struct connected *);
 extern void connected_down_ipv6(struct interface *ifp, struct connected *);

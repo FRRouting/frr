@@ -183,12 +183,12 @@ struct rtadvconf {
 
 /* Zebra interface type - ones of interest. */
 typedef enum {
-	ZEBRA_IF_VXLAN,   /* VxLAN interface */
-	ZEBRA_IF_VRF,     /* VRF device */
-	ZEBRA_IF_BRIDGE,  /* bridge device */
-	ZEBRA_IF_VLAN,    /* VLAN sub-interface */
-	ZEBRA_IF_MACVLAN, /* MAC VLAN interface*/
-	ZEBRA_IF_OTHER,   /* Anything else */
+	ZEBRA_IF_OTHER = 0, /* Anything else */
+	ZEBRA_IF_VXLAN,     /* VxLAN interface */
+	ZEBRA_IF_VRF,       /* VRF device */
+	ZEBRA_IF_BRIDGE,    /* bridge device */
+	ZEBRA_IF_VLAN,      /* VLAN sub-interface */
+	ZEBRA_IF_MACVLAN,   /* MAC VLAN interface*/
 } zebra_iftype_t;
 
 /* Zebra "slave" interface type */

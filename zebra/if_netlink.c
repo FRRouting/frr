@@ -830,17 +830,23 @@ static int netlink_address(int cmd, int family, struct interface *ifp,
 	req.ifa.ifa_family = family;
 
 	req.ifa.ifa_index = ifp->ifindex;
-	req.ifa.ifa_prefixlen = p->prefixlen;
 
 	addattr_l(&req.n, sizeof req, IFA_LOCAL, &p->u.prefix, bytelen);
 
-	if (family == AF_INET && cmd == RTM_NEWADDR) {
-		if (!CONNECTED_PEER(ifc) && ifc->destination) {
+	if (family == AF_INET) {
+		if (CONNECTED_PEER(ifc)) {
+			p = ifc->destination;
+			addattr_l(&req.n, sizeof req, IFA_ADDRESS,
+				  &p->u.prefix, bytelen);
+		} else if (cmd == RTM_NEWADDR && ifc->destination) {
 			p = ifc->destination;
 			addattr_l(&req.n, sizeof req, IFA_BROADCAST,
 				  &p->u.prefix, bytelen);
 		}
 	}
+
+	/* p is now either ifc->address or ifc->destination */
+	req.ifa.ifa_prefixlen = p->prefixlen;
 
 	if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY))
 		SET_FLAG(req.ifa.ifa_flags, IFA_F_SECONDARY);
@@ -995,12 +1001,10 @@ int netlink_interface_addr(struct sockaddr_nl *snl, struct nlmsghdr *h,
 			      & (IFA_F_DADFAILED | IFA_F_TENTATIVE)))
 				connected_add_ipv6(
 					ifp, flags, (struct in6_addr *)addr,
-					ifa->ifa_prefixlen,
-					(struct in6_addr *)broad, label);
+					ifa->ifa_prefixlen, label);
 		} else
 			connected_delete_ipv6(ifp, (struct in6_addr *)addr,
-					      ifa->ifa_prefixlen,
-					      (struct in6_addr *)broad);
+					      ifa->ifa_prefixlen);
 	}
 
 	return 0;
