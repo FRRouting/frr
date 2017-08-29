@@ -141,7 +141,6 @@ static Fpm__AddRoute *create_add_route_message(qpb_allocator_t *allocator,
 					       struct route_entry *re)
 {
 	Fpm__AddRoute *msg;
-	int discard;
 	struct nexthop *nexthop;
 	uint num_nhs, u;
 	struct nexthop *nexthops[MULTIPATH_NUM];
@@ -164,26 +163,7 @@ static Fpm__AddRoute *create_add_route_message(qpb_allocator_t *allocator,
 	msg->sub_address_family = QPB__SUB_ADDRESS_FAMILY__UNICAST;
 	msg->key = fpm_route_key_create(allocator, rib_dest_prefix(dest));
 	qpb_protocol_set(&msg->protocol, re->type);
-
-	if ((re->flags & ZEBRA_FLAG_BLACKHOLE)
-	    || (re->flags & ZEBRA_FLAG_REJECT))
-		discard = 1;
-	else
-		discard = 0;
-
-	if (discard) {
-		if (re->flags & ZEBRA_FLAG_BLACKHOLE) {
-			msg->route_type = FPM__ROUTE_TYPE__BLACKHOLE;
-		} else if (re->flags & ZEBRA_FLAG_REJECT) {
-			msg->route_type = FPM__ROUTE_TYPE__UNREACHABLE;
-		} else {
-			assert(0);
-		}
-		return msg;
-	} else {
-		msg->route_type = FPM__ROUTE_TYPE__NORMAL;
-	}
-
+	msg->route_type = FPM__ROUTE_TYPE__NORMAL;
 	msg->metric = re->metric;
 
 	/*
@@ -196,6 +176,19 @@ static Fpm__AddRoute *create_add_route_message(qpb_allocator_t *allocator,
 
 		if (num_nhs >= ZEBRA_NUM_OF(nexthops))
 			break;
+
+		if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
+			switch (nexthop->bh_type) {
+			case BLACKHOLE_REJECT:
+				msg->route_type = FPM__ROUTE_TYPE__UNREACHABLE;
+				break;
+			case BLACKHOLE_NULL:
+			default:
+				msg->route_type = FPM__ROUTE_TYPE__BLACKHOLE;
+				break;
+			}
+			return msg;
+		}
 
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 			continue;

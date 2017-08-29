@@ -74,7 +74,7 @@ static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
 	union g_addr gate;
 	union g_addr *gatep = NULL;
 	struct in_addr mask;
-	u_char flag = 0;
+	enum blackhole_type bh_type = 0;
 	route_tag_t tag = 0;
 	struct zebra_vrf *zvrf;
 	u_char type;
@@ -165,28 +165,18 @@ static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
 		}
 	}
 
-	/* Null0 static route.  */
-	if ((ifname != NULL)
-	    && (strncasecmp(ifname, "Null0", strlen(ifname)) == 0)) {
-		if (flag_str) {
-			vty_out(vty, "%% can not have flag %s with Null0\n",
-				flag_str);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-		SET_FLAG(flag, ZEBRA_FLAG_BLACKHOLE);
-		ifname = NULL;
-	}
-
 	/* Route flags */
 	if (flag_str) {
 		switch (flag_str[0]) {
 		case 'r':
 		case 'R': /* XXX */
-			SET_FLAG(flag, ZEBRA_FLAG_REJECT);
+			bh_type = BLACKHOLE_REJECT;
 			break;
+		case 'n':
+		case 'N' /* XXX */:
 		case 'b':
 		case 'B': /* XXX */
-			SET_FLAG(flag, ZEBRA_FLAG_BLACKHOLE);
+			bh_type = BLACKHOLE_NULL;
 			break;
 		default:
 			vty_out(vty, "%% Malformed flag %s \n", flag_str);
@@ -221,7 +211,7 @@ static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
 
 	if (!negate)
 		static_add_route(afi, safi, type, &p, src_p, gatep, ifname,
-				    flag, tag, distance, zvrf, &snh_label);
+				    bh_type, tag, distance, zvrf, &snh_label);
 	else
 		static_delete_route(afi, safi, type, &p, src_p, gatep, ifname,
 				    tag, distance, zvrf, &snh_label);
@@ -346,8 +336,7 @@ DEFPY (ip_route,
           <A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask>\
           <\
             {A.B.C.D$gate|INTERFACE$ifname}\
-            |null0$ifname\
-            |<reject|blackhole>$flag\
+            |<null0|reject|blackhole>$flag\
           >\
           [{\
             tag (1-4294967295)\
@@ -417,10 +406,6 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 			vty_out(vty, ", best");
 		if (re->refcnt)
 			vty_out(vty, ", refcnt %ld", re->refcnt);
-		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_BLACKHOLE))
-			vty_out(vty, ", blackhole");
-		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_REJECT))
-			vty_out(vty, ", reject");
 		vty_out(vty, "\n");
 
 		if (re->type == ZEBRA_ROUTE_RIP || re->type == ZEBRA_ROUTE_OSPF
@@ -485,7 +470,20 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 						       re->vrf_id));
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
-				vty_out(vty, " directly connected, Null0");
+				vty_out(vty, " unreachable");
+				switch (nexthop->bh_type) {
+				case BLACKHOLE_REJECT:
+					vty_out(vty, " (ICMP unreachable)");
+					break;
+				case BLACKHOLE_ADMINPROHIB:
+					vty_out(vty, " (ICMP admin-prohibited)");
+					break;
+				case BLACKHOLE_NULL:
+					vty_out(vty, " (blackhole)");
+					break;
+				case BLACKHOLE_UNSPEC:
+					break;
+				}
 				break;
 			default:
 				break;
@@ -580,12 +578,6 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			json_object_int_add(json_route, "metric", re->metric);
 		}
 
-		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_BLACKHOLE))
-			json_object_boolean_true_add(json_route, "blackhole");
-
-		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_REJECT))
-			json_object_boolean_true_add(json_route, "reject");
-
 		if (re->type == ZEBRA_ROUTE_RIP || re->type == ZEBRA_ROUTE_OSPF
 		    || re->type == ZEBRA_ROUTE_ISIS
 		    || re->type == ZEBRA_ROUTE_NHRP
@@ -671,7 +663,26 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
 				json_object_boolean_true_add(json_nexthop,
-							     "blackhole");
+							     "unreachable");
+				switch (nexthop->bh_type) {
+				case BLACKHOLE_REJECT:
+					json_object_boolean_true_add(
+							json_nexthop,
+							"reject");
+					break;
+				case BLACKHOLE_ADMINPROHIB:
+					json_object_boolean_true_add(
+							json_nexthop,
+							"admin-prohibited");
+					break;
+				case BLACKHOLE_NULL:
+					json_object_boolean_true_add(
+							json_nexthop,
+							"blackhole");
+					break;
+				case BLACKHOLE_UNSPEC:
+					break;
+				}
 				break;
 			default:
 				break;
@@ -796,7 +807,20 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				ifindex2ifname(nexthop->ifindex, re->vrf_id));
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:
-			vty_out(vty, " is directly connected, Null0");
+			vty_out(vty, " unreachable");
+			switch (nexthop->bh_type) {
+			case BLACKHOLE_REJECT:
+				vty_out(vty, " (ICMP unreachable)");
+				break;
+			case BLACKHOLE_ADMINPROHIB:
+				vty_out(vty, " (ICMP admin-prohibited)");
+				break;
+			case BLACKHOLE_NULL:
+				vty_out(vty, " (blackhole)");
+				break;
+			case BLACKHOLE_UNSPEC:
+				break;
+			}
 			break;
 		default:
 			break;
@@ -838,11 +862,6 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 					       nexthop->nh_label->label, buf,
 					       sizeof buf, 1));
 		}
-
-		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_BLACKHOLE))
-			vty_out(vty, ", bh");
-		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_REJECT))
-			vty_out(vty, ", rej");
 
 		if (re->type == ZEBRA_ROUTE_RIP || re->type == ZEBRA_ROUTE_OSPF
 		    || re->type == ZEBRA_ROUTE_ISIS
@@ -1693,12 +1712,15 @@ static int static_config(struct vty *vty, afi_t afi, safi_t safi,
 				case STATIC_IFNAME:
 					vty_out(vty, " %s", si->ifname);
 					break;
-				/* blackhole and Null0 mean the same thing */
 				case STATIC_BLACKHOLE:
-					if (CHECK_FLAG(si->flags, ZEBRA_FLAG_REJECT))
+					switch (si->bh_type) {
+					case BLACKHOLE_REJECT:
 						vty_out(vty, " reject");
-					else
-						vty_out(vty, " Null0");
+						break;
+					default:
+						vty_out(vty, " blackhole");
+						break;
+					}
 					break;
 				case STATIC_IPV4_GATEWAY_IFNAME:
 					vty_out(vty, " %s %s",
@@ -1714,19 +1736,6 @@ static int static_config(struct vty *vty, afi_t afi, safi_t safi,
 							  sizeof buf),
 						si->ifname);
 					break;
-				}
-
-				/* flags are incompatible with STATIC_BLACKHOLE
-				 */
-				if (si->type != STATIC_BLACKHOLE) {
-					if (CHECK_FLAG(si->flags,
-						       ZEBRA_FLAG_REJECT))
-						vty_out(vty, " %s", "reject");
-
-					if (CHECK_FLAG(si->flags,
-						       ZEBRA_FLAG_BLACKHOLE))
-						vty_out(vty, " %s",
-							"blackhole");
 				}
 
 				if (si->tag)
@@ -1763,8 +1772,7 @@ DEFPY (ipv6_route,
        "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M]\
           <\
             {X:X::X:X$gate|INTERFACE$ifname}\
-            |null0$ifname\
-            |<reject|blackhole>$flag\
+            |<null0|reject|blackhole>$flag\
           >\
           [{\
             tag (1-4294967295)\

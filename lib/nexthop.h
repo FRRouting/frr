@@ -43,6 +43,13 @@ enum nexthop_types_t {
 	NEXTHOP_TYPE_BLACKHOLE,    /* Null0 nexthop.  */
 };
 
+enum blackhole_type {
+	BLACKHOLE_UNSPEC = 0,
+	BLACKHOLE_NULL,
+	BLACKHOLE_REJECT,
+	BLACKHOLE_ADMINPROHIB,
+};
+
 /* Nexthop label structure. */
 struct nexthop_label {
 	u_int8_t num_labels;
@@ -69,7 +76,10 @@ struct nexthop {
 #define NEXTHOP_FLAG_FILTERED   (1 << 5) /* rmap filtered, used by static only */
 
 	/* Nexthop address */
-	union g_addr gate;
+	union {
+		union g_addr gate;
+		enum blackhole_type bh_type;
+	};
 	union g_addr src;
 	union g_addr rmap_src; /* Src is set via routemap */
 
@@ -128,8 +138,8 @@ void nexthop_add_labels(struct nexthop *, enum lsp_types_t, u_int8_t,
 void nexthop_del_labels(struct nexthop *);
 
 extern const char *nexthop_type_to_str(enum nexthop_types_t nh_type);
-extern int nexthop_same_no_recurse(struct nexthop *next1,
-				   struct nexthop *next2);
+extern int nexthop_same_no_recurse(const struct nexthop *next1,
+				   const struct nexthop *next2);
 extern int nexthop_labels_match(struct nexthop *nh1, struct nexthop *nh2);
 
 extern const char *nexthop2str(struct nexthop *nexthop, char *str, int size);

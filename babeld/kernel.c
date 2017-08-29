@@ -169,7 +169,7 @@ zebra_route(int add, int family, const unsigned char *pref, unsigned short plen,
     api.prefix = quagga_prefix;
 
     if(metric >= KERNEL_INFINITY) {
-        api.flags = ZEBRA_FLAG_REJECT;
+	zapi_route_set_blackhole(&api, BLACKHOLE_REJECT);
     } else {
         SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
         api.nexthop_num = 1;

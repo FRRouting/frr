@@ -36,7 +36,8 @@ DEFINE_MTYPE_STATIC(LIB, NEXTHOP, "Nexthop")
 DEFINE_MTYPE_STATIC(LIB, NH_LABEL, "Nexthop label")
 
 /* check if nexthops are same, non-recursive */
-int nexthop_same_no_recurse(struct nexthop *next1, struct nexthop *next2)
+int nexthop_same_no_recurse(const struct nexthop *next1,
+			    const struct nexthop *next2)
 {
 	if (next1->type != next2->type)
 		return 0;

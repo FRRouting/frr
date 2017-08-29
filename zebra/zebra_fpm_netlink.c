@@ -222,7 +222,6 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 				   rib_dest_t *dest, struct route_entry *re)
 {
 	struct nexthop *nexthop;
-	int discard;
 
 	memset(ri, 0, sizeof(*ri));
 
@@ -247,29 +246,8 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 	}
 
 	ri->rtm_protocol = netlink_proto_from_route_type(re->type);
-
-	if ((re->flags & ZEBRA_FLAG_BLACKHOLE)
-	    || (re->flags & ZEBRA_FLAG_REJECT))
-		discard = 1;
-	else
-		discard = 0;
-
-	if (cmd == RTM_NEWROUTE) {
-		if (discard) {
-			if (re->flags & ZEBRA_FLAG_BLACKHOLE)
-				ri->rtm_type = RTN_BLACKHOLE;
-			else if (re->flags & ZEBRA_FLAG_REJECT)
-				ri->rtm_type = RTN_UNREACHABLE;
-			else
-				assert(0);
-		} else
-			ri->rtm_type = RTN_UNICAST;
-	}
-
+	ri->rtm_type = RTN_UNICAST;
 	ri->metric = &re->metric;
-
-	if (discard)
-		return 1;
 
 	for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
 		if (ri->num_nhs >= multipath_num)
@@ -277,6 +255,22 @@ static int netlink_route_info_fill(netlink_route_info_t *ri, int cmd,
 
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 			continue;
+
+		if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
+			switch (nexthop->bh_type) {
+			case BLACKHOLE_ADMINPROHIB:
+				ri->rtm_type = RTN_PROHIBIT;
+				break;
+			case BLACKHOLE_REJECT:
+				ri->rtm_type = RTN_UNREACHABLE;
+				break;
+			case BLACKHOLE_NULL:
+			default:
+				ri->rtm_type = RTN_BLACKHOLE;
+				break;
+			}
+			return 1;
+		}
 
 		if ((cmd == RTM_NEWROUTE
 		     && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))

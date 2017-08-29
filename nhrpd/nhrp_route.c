@@ -99,7 +99,9 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix
 
 	switch (type) {
 	case NHRP_CACHE_NEGATIVE:
-		SET_FLAG(api.flags, ZEBRA_FLAG_REJECT);
+		zapi_route_set_blackhole(&api, BLACKHOLE_REJECT);
+		ifp = NULL;
+		nexthop = NULL;
 		break;
 	case NHRP_CACHE_DYNAMIC:
 	case NHRP_CACHE_NHS:
@@ -158,7 +160,7 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix
 			" count %d dev %s",
 			add ? "add" : "del", buf[0],
 			nexthop ? inet_ntop(api.prefix.family, &api_nh->gate, buf[1], sizeof(buf[1])) : "<onlink>",
-			api.metric, api.nexthop_num, ifp->name);
+			api.metric, api.nexthop_num, ifp ? ifp->name : "none");
 	}
 
 	zclient_route_send(add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE, zclient,

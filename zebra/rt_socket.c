@@ -42,11 +42,6 @@
 
 extern struct zebra_privs_t zserv_privs;
 
-/* kernel socket export */
-extern int rtm_write(int message, union sockunion *dest, union sockunion *mask,
-		     union sockunion *gate, union sockunion *mpls,
-		     unsigned int index, int zebra_flags, int metric);
-
 #ifdef HAVE_STRUCT_SOCKADDR_IN_SIN_LEN
 /* Adjust netmask socket length. Return value is a adjusted sin_len
    value. */
@@ -108,6 +103,7 @@ static int kernel_rtm_ipv4(int cmd, struct prefix *p, struct route_entry *re)
 	int gate = 0;
 	int error;
 	char prefix_buf[PREFIX_STRLEN];
+	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
 
 	if (IS_ZEBRA_DEBUG_RIB)
 		prefix2str(p, prefix_buf, sizeof(prefix_buf));
@@ -155,6 +151,7 @@ static int kernel_rtm_ipv4(int cmd, struct prefix *p, struct route_entry *re)
 				struct in_addr loopback;
 				loopback.s_addr = htonl(INADDR_LOOPBACK);
 				sin_gate.sin_addr = loopback;
+				bh_type = nexthop->bh_type;
 				gate = 1;
 			}
 
@@ -182,7 +179,7 @@ static int kernel_rtm_ipv4(int cmd, struct prefix *p, struct route_entry *re)
 				cmd, (union sockunion *)&sin_dest,
 				(union sockunion *)mask,
 				gate ? (union sockunion *)&sin_gate : NULL,
-				smplsp, ifindex, re->flags, re->metric);
+				smplsp, ifindex, bh_type, re->metric);
 
 			if (IS_ZEBRA_DEBUG_RIB) {
 				if (!gate) {
@@ -292,6 +289,7 @@ static int kernel_rtm_ipv6(int cmd, struct prefix *p, struct route_entry *re)
 	ifindex_t ifindex = 0;
 	int gate = 0;
 	int error;
+	enum blackhole_type bh_type = BLACKHOLE_UNSPEC;
 
 	memset(&sin_dest, 0, sizeof(struct sockaddr_in6));
 	sin_dest.sin6_family = AF_INET6;
@@ -331,6 +329,9 @@ static int kernel_rtm_ipv6(int cmd, struct prefix *p, struct route_entry *re)
 			    || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
 				ifindex = nexthop->ifindex;
 
+			if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
+				bh_type = nexthop->bh_type;
+
 			if (cmd == RTM_ADD)
 				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		}
@@ -369,7 +370,7 @@ static int kernel_rtm_ipv6(int cmd, struct prefix *p, struct route_entry *re)
 		error = rtm_write(cmd, (union sockunion *)&sin_dest,
 				  (union sockunion *)mask,
 				  gate ? (union sockunion *)&sin_gate : NULL,
-				  smplsp, ifindex, re->flags, re->metric);
+				  smplsp, ifindex, bh_type, re->metric);
 
 #if 0
       if (error)

@@ -34,8 +34,8 @@ extern void rtm_read(struct rt_msghdr *);
 extern int ifam_read(struct ifa_msghdr *);
 extern int ifm_read(struct if_msghdr *);
 extern int rtm_write(int, union sockunion *, union sockunion *,
-		     union sockunion *, union sockunion *, unsigned int, int,
-		     int);
+		     union sockunion *, union sockunion *, unsigned int,
+		     enum blackhole_type, int);
 extern const struct message rtm_type_str[];
 
 #endif /* __ZEBRA_KERNEL_SOCKET_H */

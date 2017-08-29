@@ -177,6 +177,10 @@ static void connected_update(struct interface *ifp, struct connected *ifc)
 void connected_up_ipv4(struct interface *ifp, struct connected *ifc)
 {
 	struct prefix p;
+	struct nexthop nh = {
+		.type = NEXTHOP_TYPE_IFINDEX,
+		.ifindex = ifp->ifindex,
+	};
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
 		return;
@@ -192,12 +196,10 @@ void connected_up_ipv4(struct interface *ifp, struct connected *ifc)
 		return;
 
 	rib_add(AFI_IP, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
-		&p, NULL, NULL, NULL, ifp->ifindex, RT_TABLE_MAIN, ifp->metric,
-		0, 0);
+		&p, NULL, &nh, RT_TABLE_MAIN, ifp->metric, 0, 0);
 
 	rib_add(AFI_IP, SAFI_MULTICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
-		&p, NULL, NULL, NULL, ifp->ifindex, RT_TABLE_MAIN, ifp->metric,
-		0, 0);
+		&p, NULL, &nh, RT_TABLE_MAIN, ifp->metric, 0, 0);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug(
@@ -306,6 +308,10 @@ void connected_add_ipv4(struct interface *ifp, int flags, struct in_addr *addr,
 void connected_down_ipv4(struct interface *ifp, struct connected *ifc)
 {
 	struct prefix p;
+	struct nexthop nh = {
+		.type = NEXTHOP_TYPE_IFINDEX,
+		.ifindex = ifp->ifindex,
+	};
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
 		return;
@@ -323,10 +329,10 @@ void connected_down_ipv4(struct interface *ifp, struct connected *ifc)
 	/* Same logic as for connected_up_ipv4(): push the changes into the
 	 * head. */
 	rib_delete(AFI_IP, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
-		   &p, NULL, NULL, ifp->ifindex, 0, 0);
+		   &p, NULL, &nh, 0, 0);
 
 	rib_delete(AFI_IP, SAFI_MULTICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
-		   0, &p, NULL, NULL, ifp->ifindex, 0, 0);
+		   0, &p, NULL, &nh, 0, 0);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug(
@@ -384,6 +390,10 @@ void connected_delete_ipv4(struct interface *ifp, int flags,
 void connected_up_ipv6(struct interface *ifp, struct connected *ifc)
 {
 	struct prefix p;
+	struct nexthop nh = {
+		.type = NEXTHOP_TYPE_IFINDEX,
+		.ifindex = ifp->ifindex,
+	};
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
 		return;
@@ -400,8 +410,7 @@ void connected_up_ipv6(struct interface *ifp, struct connected *ifc)
 #endif
 
 	rib_add(AFI_IP6, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
-		&p, NULL, NULL, NULL, ifp->ifindex, RT_TABLE_MAIN, ifp->metric,
-		0, 0);
+		&p, NULL, &nh, RT_TABLE_MAIN, ifp->metric, 0, 0);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug(
@@ -489,6 +498,10 @@ void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
 void connected_down_ipv6(struct interface *ifp, struct connected *ifc)
 {
 	struct prefix p;
+	struct nexthop nh = {
+		.type = NEXTHOP_TYPE_IFINDEX,
+		.ifindex = ifp->ifindex,
+	};
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
 		return;
@@ -501,7 +514,7 @@ void connected_down_ipv6(struct interface *ifp, struct connected *ifc)
 		return;
 
 	rib_delete(AFI_IP6, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
-		   0, &p, NULL, NULL, ifp->ifindex, 0, 0);
+		   0, &p, NULL, &nh, 0, 0);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug(
