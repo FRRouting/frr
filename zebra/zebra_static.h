@@ -22,11 +22,13 @@
 #ifndef __ZEBRA_STATIC_H__
 #define __ZEBRA_STATIC_H__
 
+#include "zebra/zebra_mpls.h"
+
 /* Static route label information */
 struct static_nh_label {
 	u_int8_t num_labels;
 	u_int8_t reserved[3];
-	mpls_label_t label[2];
+	mpls_label_t label[MPLS_MAX_LABELS];
 };
 
 typedef enum {

@@ -5,7 +5,7 @@ include common.am
 
 AM_CPPFLAGS = -I$(top_srcdir) -I$(top_srcdir)/lib -I$(top_builddir) -I$(top_builddir)/lib
 AM_CFLAGS = $(WERROR)
-DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\"
+DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\" -DCONFDATE=$(CONFDATE)
 LIBCAP = @LIBCAP@
 
 EXTRA_DIST =
@@ -24,6 +24,14 @@ module_LTLIBRARIES =
 pkginclude_HEADERS =
 nodist_pkginclude_HEADERS =
 dist_examples_DATA =
+
+## libtool, the self-made GNU scourge
+## ... this should fix relinking
+## ... and AUTOMAKE_DUMMY is needed to prevent automake from treating this
+##     as overriding the normal targets...
+$(AUTOMAKE_DUMMY)install-moduleLTLIBRARIES: install-libLTLIBRARIES
+$(AUTOMAKE_DUMMY)install-binPROGRAMS: install-libLTLIBRARIES
+$(AUTOMAKE_DUMMY)install-sbinPROGRAMS: install-libLTLIBRARIES
 
 include lib/subdir.am
 include zebra/subdir.am

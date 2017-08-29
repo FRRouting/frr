@@ -72,14 +72,7 @@ struct work_queue *work_queue_new(struct thread_master *m,
 	new->master = m;
 	SET_FLAG(new->flags, WQ_UNPLUGGED);
 
-	if ((new->items = list_new()) == NULL) {
-		XFREE(MTYPE_WORK_QUEUE_NAME, new->name);
-		XFREE(MTYPE_WORK_QUEUE, new);
-
-		return NULL;
-	}
-
-	new->items->del = (void (*)(void *))work_queue_item_free;
+	STAILQ_INIT(&new->items);
 
 	listnode_add(work_queues, new);
 
@@ -97,8 +90,6 @@ void work_queue_free(struct work_queue *wq)
 	if (wq->thread != NULL)
 		thread_cancel(wq->thread);
 
-	/* list_delete frees items via callback */
-	list_delete(wq->items);
 	listnode_delete(work_queues, wq);
 
 	XFREE(MTYPE_WORK_QUEUE_NAME, wq->name);
@@ -114,8 +105,8 @@ bool work_queue_is_scheduled(struct work_queue *wq)
 static int work_queue_schedule(struct work_queue *wq, unsigned int delay)
 {
 	/* if appropriate, schedule work queue thread */
-	if (CHECK_FLAG(wq->flags, WQ_UNPLUGGED) && (wq->thread == NULL)
-	    && (listcount(wq->items) > 0)) {
+	if (CHECK_FLAG(wq->flags, WQ_UNPLUGGED) && (wq->thread == NULL) &&
+	    !work_queue_empty(wq)) {
 		wq->thread = NULL;
 		thread_add_timer_msec(wq->master, work_queue_run, wq, delay,
 				      &wq->thread);
@@ -139,33 +130,35 @@ void work_queue_add(struct work_queue *wq, void *data)
 	}
 
 	item->data = data;
-	listnode_add(wq->items, item);
+	work_queue_item_enqueue(wq, item);
 
 	work_queue_schedule(wq, wq->spec.hold);
 
 	return;
 }
 
-static void work_queue_item_remove(struct work_queue *wq, struct listnode *ln)
+static void work_queue_item_remove(struct work_queue *wq,
+				   struct work_queue_item *item)
 {
-	struct work_queue_item *item = listgetdata(ln);
-
 	assert(item && item->data);
 
 	/* call private data deletion callback if needed */
 	if (wq->spec.del_item_data)
 		wq->spec.del_item_data(wq, item->data);
 
-	list_delete_node(wq->items, ln);
+	work_queue_item_dequeue(wq, item);
+
 	work_queue_item_free(item);
 
 	return;
 }
 
-static void work_queue_item_requeue(struct work_queue *wq, struct listnode *ln)
+static void work_queue_item_requeue(struct work_queue *wq, struct work_queue_item *item)
 {
-	LISTNODE_DETACH(wq->items, ln);
-	LISTNODE_ATTACH(wq->items, ln); /* attach to end of list */
+	work_queue_item_dequeue(wq, item);
+
+	/* attach to end of list */
+	work_queue_item_enqueue(wq, item);
 }
 
 DEFUN (show_work_queues,
@@ -186,7 +179,7 @@ DEFUN (show_work_queues,
 	for (ALL_LIST_ELEMENTS_RO(work_queues, node, wq)) {
 		vty_out(vty, "%c %8d %5d %8ld %8ld %7d %6d %8ld %6u %s\n",
 			(CHECK_FLAG(wq->flags, WQ_UNPLUGGED) ? ' ' : 'P'),
-			listcount(wq->items), wq->spec.hold, wq->runs,
+			work_queue_item_count(wq), wq->spec.hold, wq->runs,
 			wq->yields, wq->cycles.best, wq->cycles.granularity,
 			wq->cycles.total,
 			(wq->runs) ? (unsigned int)(wq->cycles.total / wq->runs)
@@ -233,16 +226,15 @@ void work_queue_unplug(struct work_queue *wq)
 int work_queue_run(struct thread *thread)
 {
 	struct work_queue *wq;
-	struct work_queue_item *item;
+	struct work_queue_item *item, *titem;
 	wq_item_status ret;
 	unsigned int cycles = 0;
-	struct listnode *node, *nnode;
 	char yielded = 0;
 
 	wq = THREAD_ARG(thread);
 	wq->thread = NULL;
 
-	assert(wq && wq->items);
+	assert(wq);
 
 	/* calculate cycle granularity:
 	 * list iteration == 1 run
@@ -266,7 +258,7 @@ int work_queue_run(struct thread *thread)
 	if (wq->cycles.granularity == 0)
 		wq->cycles.granularity = WORK_QUEUE_MIN_GRANULARITY;
 
-	for (ALL_LIST_ELEMENTS(wq->items, node, nnode, item)) {
+	STAILQ_FOREACH_SAFE(item, &wq->items, wq, titem) {
 		assert(item && item->data);
 
 		/* dont run items which are past their allowed retries */
@@ -274,7 +266,7 @@ int work_queue_run(struct thread *thread)
 			/* run error handler, if any */
 			if (wq->spec.errorfunc)
 				wq->spec.errorfunc(wq, item->data);
-			work_queue_item_remove(wq, node);
+			work_queue_item_remove(wq, item);
 			continue;
 		}
 
@@ -298,7 +290,7 @@ int work_queue_run(struct thread *thread)
 		}
 		case WQ_REQUEUE: {
 			item->ran--;
-			work_queue_item_requeue(wq, node);
+			work_queue_item_requeue(wq, item);
 			/* If a single node is being used with a meta-queue
 			 * (e.g., zebra),
 			 * update the next node as we don't want to exit the
@@ -309,8 +301,8 @@ int work_queue_run(struct thread *thread)
 			 * will kick in
 			 * to terminate the thread when time has exceeded.
 			 */
-			if (nnode == NULL)
-				nnode = node;
+			if (titem == NULL)
+				titem = item;
 			break;
 		}
 		case WQ_RETRY_NOW:
@@ -323,7 +315,7 @@ int work_queue_run(struct thread *thread)
 		/* fallthru */
 		case WQ_SUCCESS:
 		default: {
-			work_queue_item_remove(wq, node);
+			work_queue_item_remove(wq, item);
 			break;
 		}
 		}
@@ -376,7 +368,7 @@ stats:
 #endif
 
 	/* Is the queue done yet? If it is, call the completion callback. */
-	if (listcount(wq->items) > 0)
+	if (!work_queue_empty(wq))
 		work_queue_schedule(wq, 0);
 	else if (wq->spec.completion_func)
 		wq->spec.completion_func(wq);

@@ -195,6 +195,7 @@ fi
 
 dnl always want these CFLAGS
 AC_C_FLAG([-fno-omit-frame-pointer])
+AC_C_FLAG([-funwind-tables])
 AC_C_FLAG([-Wall])
 AC_C_FLAG([-Wextra])
 AC_C_FLAG([-Wmissing-prototypes])
@@ -320,6 +321,8 @@ AC_ARG_WITH(rfp-path,
   AS_HELP_STRING([--with-rfp-path[=DIR]],[path to replaced stub RFP used with BGP VNC]))
 AC_ARG_ENABLE(snmp,
   AS_HELP_STRING([--enable-snmp=ARG], [enable SNMP support (smux or agentx)]))
+AC_ARG_ENABLE(zeromq,
+  AS_HELP_STRING([--enable-zeromq], [enable ZeroMQ handler (libfrrzmq)]))
 AC_ARG_WITH(libpam,
   AS_HELP_STRING([--with-libpam], [use libpam for PAM support in vtysh]))
 AC_ARG_ENABLE(ospfapi,
@@ -344,7 +347,7 @@ AC_ARG_ENABLE(shell_access,
 AC_ARG_ENABLE(rtadv,
   AS_HELP_STRING([--disable-rtadv], [disable IPV6 router advertisement feature]))
 AC_ARG_ENABLE(irdp,
-  AS_HELP_STRING([--enable-irdp], [enable IRDP server support in zebra]))
+  AS_HELP_STRING([--disable-irdp], [enable IRDP server support in zebra (default if supported)]))
 AC_ARG_ENABLE(capabilities,
   AS_HELP_STRING([--disable-capabilities], [disable using POSIX capabilities]))
 AC_ARG_ENABLE(rusage,
@@ -568,10 +571,6 @@ if test "${enable_rtadv}" != "no"; then
   AC_DEFINE(HAVE_RTADV,,Enable IPv6 Routing Advertisement support)
 else
   AC_MSG_RESULT(no)
-fi
-
-if test "${enable_irdp}" = "yes"; then
-  AC_DEFINE(HAVE_IRDP,, IRDP )
 fi
 
 if test x"${enable_user}" = x"no"; then
@@ -1370,7 +1369,7 @@ fi
 dnl ------------------
 dnl check Net-SNMP library
 dnl ------------------
-if test "${enable_snmp}" != ""; then
+if test "${enable_snmp}" != "" -a "${enable_snmp}" != "no"; then
    AC_PATH_TOOL([NETSNMP_CONFIG], [net-snmp-config], [no])
    if test x"$NETSNMP_CONFIG" = x"no"; then
       AC_MSG_ERROR([--enable-snmp given but unable to find net-snmp-config])
@@ -1479,17 +1478,27 @@ AC_CHECK_MEMBERS([struct sockaddr.sa_len,
 dnl ---------------------------
 dnl IRDP/pktinfo/icmphdr checks
 dnl ---------------------------
-AC_CHECK_TYPES([struct in_pktinfo], 
- [AC_CHECK_TYPES([struct icmphdr],
-   [if test "${enable_irdp}" != "no"; then
-      AC_DEFINE(HAVE_IRDP,, IRDP)
-    fi],
-   [if test "${enable_irdp}" = "yes"; then
-      AC_MSG_ERROR(['IRDP requires in_pktinfo at the moment!'])
-    fi], [FRR_INCLUDES])],
- [if test "${enable_irdp}" = "yes"; then
-    AC_MSG_ERROR(['IRDP requires in_pktinfo at the moment!'])
-  fi], [FRR_INCLUDES])
+
+AC_CHECK_TYPES([struct in_pktinfo], [
+  AC_CHECK_TYPES([struct icmphdr], [
+    IRDP=true
+  ], [
+    IRDP=false
+  ], [FRR_INCLUDES])
+], [
+  IRDP=false
+], [FRR_INCLUDES])
+
+case "${enable_irdp}" in
+yes)
+  $IRDP || AC_MSG_ERROR(['IRDP requires in_pktinfo at the moment!'])
+  ;;
+no)
+  IRDP=false
+  ;;
+esac
+
+AM_CONDITIONAL(IRDP, $IRDP)
 
 dnl -----------------------
 dnl checking for IP_PKTINFO
@@ -1707,6 +1716,21 @@ AC_CHECK_HEADER([malloc.h],
        AC_MSG_RESULT(no)
   )
  ], [], FRR_INCLUDES)
+
+dnl ------
+dnl ZeroMQ
+dnl ------
+if test "x$enable_zeromq" != "xno"; then
+  PKG_CHECK_MODULES(ZEROMQ, [libzmq >= 4.0.0], [
+    AC_DEFINE(HAVE_ZEROMQ, 1, [Enable ZeroMQ support])
+    ZEROMQ=true
+  ], [
+    if test "x$enable_zeromq" = "xyes"; then
+      AC_MSG_ERROR([configuration specifies --enable-zeromq but libzmq was not found])
+    fi
+  ])
+fi
+AM_CONDITIONAL([ZEROMQ], test "x$ZEROMQ" = "xtrue")
 
 dnl ----------
 dnl configure date

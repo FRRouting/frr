@@ -434,8 +434,9 @@ DEFUN (pseudowire_control_word,
 
 DEFUN (show_pseudowires,
        show_pseudowires_cmd,
-       "show pseudowires",
+       "show mpls pseudowires",
        SHOW_STR
+       MPLS_STR
        "Pseudowires")
 {
 	struct zebra_vrf *zvrf;

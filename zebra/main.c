@@ -125,9 +125,7 @@ static void sigint(void)
 
 	zlog_notice("Terminating on signal");
 
-#ifdef HAVE_IRDP
-	irdp_finish();
-#endif
+	frr_early_fini();
 
 	zebra_ptm_finish();
 	list_delete_all_node(zebrad.client_list);
@@ -147,17 +145,14 @@ static void sigint(void)
 	access_list_reset();
 	prefix_list_reset();
 	route_map_finish();
-	cmd_terminate();
-	vty_terminate();
-	zprivs_terminate(&zserv_privs);
+
 	list_delete(zebrad.client_list);
 	work_queue_free(zebrad.ribq);
 	if (zebrad.lsp_process_q)
 		work_queue_free(zebrad.lsp_process_q);
 	meta_queue_free(zebrad.mq);
-	thread_master_free(zebrad.master);
-	closezlog();
 
+	frr_fini();
 	exit(0);
 }
 
@@ -296,9 +291,6 @@ int main(int argc, char **argv)
 	prefix_list_init();
 #if defined(HAVE_RTADV)
 	rtadv_cmd_init();
-#endif
-#ifdef HAVE_IRDP
-	irdp_init();
 #endif
 /* PTM socket */
 #ifdef ZEBRA_PTM_SUPPORT

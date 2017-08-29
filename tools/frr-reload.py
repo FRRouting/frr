@@ -1162,19 +1162,11 @@ if __name__ == '__main__':
                         for line in lines_to_configure:
                             fh.write(line + '\n')
 
-                    output = subprocess.check_output(['/usr/bin/vtysh', '-f', filename])
-
-                    # exit non-zero if we see these errors
-                    for x in ('BGP instance name and AS number mismatch',
-                              'BGP instance is already running',
-                              '% not a local address'):
-                        for line in output.splitlines():
-                            if x in line:
-                                msg = "ERROR: %s" % x
-                                log.error(msg)
-                                print msg
-                                reload_ok = False
-
+                    try:
+                        subprocess.check_output(['/usr/bin/vtysh', '-f', filename])
+                    except subprocess.CalledProcessError as e:
+                        log.warning("frr-reload.py failed due to\n%s" % e.output)
+                        reload_ok = False
                     os.unlink(filename)
 
         # Make these changes persistent

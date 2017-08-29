@@ -1597,12 +1597,12 @@ static int show_debugging_ospf_common(struct vty *vty, struct ospf *ospf)
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_debugging_ospf,
-       show_debugging_ospf_cmd,
-       "show debugging ospf",
-       SHOW_STR
-       DEBUG_STR
-       OSPF_STR)
+DEFUN_NOSH (show_debugging_ospf,
+	    show_debugging_ospf_cmd,
+	    "show debugging [ospf]",
+	    SHOW_STR
+	    DEBUG_STR
+	    OSPF_STR)
 {
 	struct ospf *ospf;
 
@@ -1612,13 +1612,13 @@ DEFUN (show_debugging_ospf,
 	return show_debugging_ospf_common(vty, ospf);
 }
 
-DEFUN (show_debugging_ospf_instance,
-       show_debugging_ospf_instance_cmd,
-       "show debugging ospf (1-65535)",
-       SHOW_STR
-       DEBUG_STR
-       OSPF_STR
-       "Instance ID\n")
+DEFUN_NOSH (show_debugging_ospf_instance,
+	    show_debugging_ospf_instance_cmd,
+	    "show debugging ospf (1-65535)",
+	    SHOW_STR
+	    DEBUG_STR
+	    OSPF_STR
+	    "Instance ID\n")
 {
 	int idx_number = 3;
 	struct ospf *ospf;

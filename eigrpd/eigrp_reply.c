@@ -84,40 +84,36 @@ void eigrp_send_reply(struct eigrp_neighbor *nbr, struct eigrp_prefix_entry *pe)
 	plist = e->prefix[EIGRP_FILTER_OUT];
 	alist_i = nbr->ei->list[EIGRP_FILTER_OUT];
 	plist_i = nbr->ei->prefix[EIGRP_FILTER_OUT];
-	zlog_info("REPLY Send: Filtering");
 
-	zlog_info("REPLY SEND Prefix: %s", inet_ntoa(nbr->src));
 	/* Check if any list fits */
 	if ((alist
-	     && access_list_apply(alist, (struct prefix *)pe2->destination_ipv4)
+	     && access_list_apply(alist, pe2->destination)
 			== FILTER_DENY)
 	    || (plist
 		&& prefix_list_apply(plist,
-				     (struct prefix *)pe2->destination_ipv4)
+				     pe2->destination)
 			   == PREFIX_DENY)
 	    || (alist_i
 		&& access_list_apply(alist_i,
-				     (struct prefix *)pe2->destination_ipv4)
+				     pe2->destination)
 			   == FILTER_DENY)
 	    || (plist_i
 		&& prefix_list_apply(plist_i,
-				     (struct prefix *)pe2->destination_ipv4)
+				     pe2->destination)
 			   == PREFIX_DENY)) {
 		zlog_info("REPLY SEND: Setting Metric to max");
 		pe2->reported_metric.delay = EIGRP_MAX_METRIC;
 
-	} else {
-		zlog_info("REPLY SEND: Not setting metric");
 	}
 
 	/*
 	 * End of filtering
 	 */
 
-	ep = eigrp_packet_new(nbr->ei->ifp->mtu);
+	ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
 
 	/* Prepare EIGRP INIT UPDATE header */
-	eigrp_packet_header_init(EIGRP_OPC_REPLY, nbr->ei, ep->s, 0,
+	eigrp_packet_header_init(EIGRP_OPC_REPLY, e, ep->s, 0,
 				 nbr->ei->eigrp->sequence_number, 0);
 
 	// encode Authentication TLV, if needed
@@ -144,7 +140,7 @@ void eigrp_send_reply(struct eigrp_neighbor *nbr, struct eigrp_prefix_entry *pe)
 	ep->sequence_number = nbr->ei->eigrp->sequence_number;
 
 	/*Put packet to retransmission queue*/
-	eigrp_fifo_push_head(nbr->retrans_queue, ep);
+	eigrp_fifo_push(nbr->retrans_queue, ep);
 
 	if (nbr->retrans_queue->count == 1) {
 		eigrp_send_packet_reliably(nbr);
@@ -183,14 +179,14 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 	while (s->endp > s->getp) {
 		type = stream_getw(s);
 		if (type == EIGRP_TLV_IPv4_INT) {
-			struct prefix_ipv4 dest_addr;
+			struct prefix dest_addr;
 
 			stream_set_getp(s, s->getp - sizeof(u_int16_t));
 
 			tlv = eigrp_read_ipv4_tlv(s);
 
 			dest_addr.family = AF_INET;
-			dest_addr.prefix = tlv->destination;
+			dest_addr.u.prefix4 = tlv->destination;
 			dest_addr.prefixlen = tlv->prefix_length;
 			struct eigrp_prefix_entry *dest =
 				eigrp_topology_table_lookup_ipv4(
@@ -200,9 +196,7 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 			 */
 			assert(dest);
 
-			struct eigrp_fsm_action_message *msg;
-			msg = XCALLOC(MTYPE_EIGRP_FSM_MSG,
-				      sizeof(struct eigrp_fsm_action_message));
+			struct eigrp_fsm_action_message msg;
 			struct eigrp_neighbor_entry *entry =
 				eigrp_prefix_entry_lookup(dest->entries, nbr);
 
@@ -241,15 +235,14 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 			 * End of filtering
 			 */
 
-			msg->packet_type = EIGRP_OPC_REPLY;
-			msg->eigrp = eigrp;
-			msg->data_type = EIGRP_TLV_IPv4_INT;
-			msg->adv_router = nbr;
-			msg->data.ipv4_int_type = tlv;
-			msg->entry = entry;
-			msg->prefix = dest;
-			int event = eigrp_get_fsm_event(msg);
-			eigrp_fsm_event(msg, event);
+			msg.packet_type = EIGRP_OPC_REPLY;
+			msg.eigrp = eigrp;
+			msg.data_type = EIGRP_INT;
+			msg.adv_router = nbr;
+			msg.metrics = tlv->metric;
+			msg.entry = entry;
+			msg.prefix = dest;
+			eigrp_fsm_event(&msg);
 
 
 			eigrp_IPv4_InternalTLV_free(tlv);

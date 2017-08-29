@@ -36,8 +36,6 @@
 #include <zebra.h>
 
 
-#ifdef HAVE_IRDP
-
 #include "if.h"
 #include "vty.h"
 #include "sockunion.h"
@@ -84,7 +82,7 @@ static void parse_irdp_packet(char *p, int len, struct interface *ifp)
 	if (!zi)
 		return;
 
-	irdp = &zi->irdp;
+	irdp = zi->irdp;
 	if (!irdp)
 		return;
 
@@ -240,7 +238,7 @@ int irdp_read_raw(struct thread *r)
 	if (!zi)
 		return ret;
 
-	irdp = &zi->irdp;
+	irdp = zi->irdp;
 	if (!irdp)
 		return ret;
 
@@ -353,6 +351,3 @@ void send_packet(struct interface *ifp, struct stream *s, u_int32_t dst,
 	}
 	/*   printf("TX on %s idx %d\n", ifp->name, ifp->ifindex); */
 }
-
-
-#endif /* HAVE_IRDP */

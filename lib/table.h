@@ -182,7 +182,6 @@ route_table_init_with_delegate(route_table_delegate_t *);
 extern route_table_delegate_t *route_table_get_default_delegate(void);
 
 extern void route_table_finish(struct route_table *);
-extern void route_unlock_node(struct route_node *node);
 extern struct route_node *route_top(struct route_table *);
 extern struct route_node *route_next(struct route_node *);
 extern struct route_node *route_next_until(struct route_node *,
@@ -193,7 +192,6 @@ extern struct route_node *route_node_lookup(const struct route_table *,
 					    union prefixconstptr);
 extern struct route_node *route_node_lookup_maynull(const struct route_table *,
 						    union prefixconstptr);
-extern struct route_node *route_lock_node(struct route_node *node);
 extern struct route_node *route_node_match(const struct route_table *,
 					   union prefixconstptr);
 extern struct route_node *route_node_match_ipv4(const struct route_table *,
@@ -205,6 +203,7 @@ extern unsigned long route_table_count(const struct route_table *);
 
 extern struct route_node *route_node_create(route_table_delegate_t *,
 					    struct route_table *);
+extern void route_node_delete(struct route_node *);
 extern void route_node_destroy(route_table_delegate_t *, struct route_table *,
 			       struct route_node *);
 
@@ -224,6 +223,23 @@ extern void route_table_iter_cleanup(route_table_iter_t *iter);
 /*
  * Inline functions.
  */
+
+/* Lock node. */
+static inline struct route_node *route_lock_node(struct route_node *node)
+{
+	(*(unsigned *)&node->lock)++;
+	return node;
+}
+
+/* Unlock node. */
+static inline void route_unlock_node(struct route_node *node)
+{
+	assert(node->lock > 0);
+	(*(unsigned *)&node->lock)--;
+
+	if (node->lock == 0)
+		route_node_delete(node);
+}
 
 /*
  * route_table_iter_next

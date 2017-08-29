@@ -398,7 +398,7 @@ int static_add_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	for (si = rn->info; si; si = si->next) {
 		if (type == si->type
 		    && (!gate || ((afi == AFI_IP
-				   && IPV4_ADDR_SAME(gate, &si->addr.ipv4))
+				   && IPV4_ADDR_SAME(&gate->ipv4, &si->addr.ipv4))
 				  || (afi == AFI_IP6
 				      && IPV6_ADDR_SAME(gate, &si->addr.ipv6))))
 		    && (!strcmp (ifname ? ifname : "", si->ifname))) {
@@ -515,7 +515,7 @@ int static_delete_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	for (si = rn->info; si; si = si->next)
 		if (type == si->type
 		    && (!gate || ((afi == AFI_IP
-				   && IPV4_ADDR_SAME(gate, &si->addr.ipv4))
+				   && IPV4_ADDR_SAME(&gate->ipv4, &si->addr.ipv4))
 				  || (afi == AFI_IP6
 				      && IPV6_ADDR_SAME(gate, &si->addr.ipv6))))
 		    && (!strcmp(ifname ? ifname : "", si->ifname))

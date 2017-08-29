@@ -23,7 +23,7 @@ static bool atexit_registered;
 
 static void show_meminfo_at_exit(void)
 {
-	log_memstats_stderr("isis fuzztest");
+	log_memstats(stderr, "isis fuzztest");
 }
 
 static int comp_line(const void *p1, const void *p2)

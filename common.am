@@ -13,8 +13,7 @@ CLIPPY_DEPS = $(HOSTTOOLS)lib/clippy $(top_srcdir)/python/clidef.py
 SUFFIXES = _clippy.c .proto .pb-c.c .pb-c.h .pb.h
 .c_clippy.c:
 	@{ test -x $(top_builddir)/$(HOSTTOOLS)lib/clippy || $(MAKE) -C $(top_builddir)/$(HOSTTOOLS) lib/clippy; }
-	$(AM_V_CLIPPY)$(top_builddir)/$(HOSTTOOLS)lib/clippy $(top_srcdir)/python/clidef.py $< > $@.tmp
-	@{ test -f $@ && diff $@.tmp $@ >/dev/null 2>/dev/null; } && rm $@.tmp || mv $@.tmp $@
+	$(AM_V_CLIPPY)$(top_builddir)/$(HOSTTOOLS)lib/clippy $(top_srcdir)/python/clidef.py -o $@ $<
 
 ## automake's "ylwrap" is a great piece of GNU software... not. 
 .l.c:

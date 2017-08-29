@@ -140,11 +140,8 @@ __attribute__((__noreturn__)) void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 
-	if (!retain_mode) {
+	if (!retain_mode)
 		bgp_terminate();
-		if (bgpd_privs.user) /* NULL if skip_runas flag set */
-			zprivs_terminate(&bgpd_privs);
-	}
 
 	bgp_exit(0);
 
@@ -172,12 +169,11 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	/* it only makes sense for this to be called on a clean exit */
 	assert(status == 0);
 
+	frr_early_fini();
+
 	bfd_gbl_exit();
 
 	bgp_close();
-
-	if (retain_mode)
-		if_add_hook(IF_DELETE_HOOK, NULL);
 
 	/* reverse bgp_master_init */
 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
@@ -214,24 +210,15 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 	community_list_terminate(bgp_clist);
 
 	bgp_vrf_terminate();
-	cmd_terminate();
-	vty_terminate();
 #if ENABLE_BGP_VNC
 	vnc_zebra_destroy();
 #endif
 	bgp_zebra_destroy();
 
-	/* reverse bgp_master_init */
-	if (bm->master)
-		thread_master_free(bm->master);
-
-	closezlog();
-
 	list_delete(bm->bgp);
 	memset(bm, 0, sizeof(*bm));
 
-	if (bgp_debug_count())
-		log_memstats_stderr("bgpd");
+	frr_fini();
 	exit(status);
 }
 

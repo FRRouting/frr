@@ -1224,8 +1224,8 @@ static int rfapiVpnBiSamePtUn(struct bgp_info *bi1, struct bgp_info *bi2)
 
 	switch (pfx_un1.family) {
 	case AF_INET:
-		if (!IPV4_ADDR_SAME(&pfx_un1.u.prefix4.s_addr,
-				    &pfx_un2.u.prefix4.s_addr))
+		if (!IPV4_ADDR_SAME(&pfx_un1.u.prefix4,
+				    &pfx_un2.u.prefix4))
 			return 0;
 		break;
 	case AF_INET6:

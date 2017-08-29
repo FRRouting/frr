@@ -16,6 +16,7 @@
 # with this program; see the file COPYING; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 
+import os, stat
 import _clippy
 from _clippy import parse, Graph, GraphNode
 
@@ -47,7 +48,7 @@ def dump(graph):
     for i, depth in graph_iterate(graph):
         print('\t%s%s %r' % ('  ' * (depth * 2), i.type, i.text))
 
-def wrdiff(filename, buf):
+def wrdiff(filename, buf, reffiles = []):
     '''write buffer to file if contents changed'''
 
     expl = ''
@@ -57,8 +58,16 @@ def wrdiff(filename, buf):
     try:    old = open(filename, 'r').read()
     except: pass
     if old == buf:
+        for reffile in reffiles:
+            # ensure output timestamp is newer than inputs, for make
+            reftime = os.stat(reffile)[stat.ST_MTIME]
+            outtime = os.stat(filename)[stat.ST_MTIME]
+            if outtime <= reftime:
+                os.utime(filename, (reftime + 1, reftime + 1))
         # sys.stderr.write('%s unchanged, not written\n' % (filename))
         return
-    with open('.new.' + filename, 'w') as out:
+
+    newname = '%s.new-%d' % (filename, os.getpid())
+    with open(newname, 'w') as out:
         out.write(buf)
-    os.rename('.new.' + filename, filename)
+    os.rename(newname, filename)

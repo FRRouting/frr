@@ -122,6 +122,14 @@ const char *prefix_list_name(struct prefix_list *plist)
 	return plist->name;
 }
 
+afi_t prefix_list_afi(struct prefix_list *plist)
+{
+	if (plist->master == &prefix_master_ipv4
+	    || plist->master == &prefix_master_orf_v4)
+		return AFI_IP;
+	return AFI_IP6;
+}
+
 /* Lookup prefix_list from list of prefix_list by name. */
 static struct prefix_list *prefix_list_lookup_do(afi_t afi, int orf,
 						 const char *name)

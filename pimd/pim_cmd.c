@@ -1666,7 +1666,7 @@ static void pim_show_join_helper(struct vty *vty,
 					       json_row);
 	} else {
 		vty_out(vty,
-			"%-9s %-15s %-15s %-15s %-6s %8s %-6s %5s\n",
+			"%-9s %-15s %-15s %-15s %-10s %8s %-6s %5s\n",
 			ch->interface->name, inet_ntoa(ifaddr),
 			ch_src_str, ch_grp_str,
 			pim_ifchannel_ifjoin_name(ch->ifjoin_state,
@@ -1690,7 +1690,7 @@ static void pim_show_join(struct pim_instance *pim, struct vty *vty, u_char uj)
 		json = json_object_new_object();
 	else
 		vty_out(vty,
-			"Interface Address         Source          Group           State  Uptime   Expire Prune\n");
+			"Interface Address         Source          Group           State      Uptime   Expire Prune\n");
 
 	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), if_node, ifp)) {
 		pim_ifp = ifp->info;
@@ -5066,7 +5066,7 @@ static int pim_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
 
 	if (result == PIM_RP_NO_PATH) {
 		vty_out(vty, "%% No Path to RP address specified: %s\n", rp);
-		return CMD_WARNING_CONFIG_FAILED;
+		return CMD_WARNING;
 	}
 
 	if (result == PIM_GROUP_OVERLAP) {
@@ -7254,14 +7254,17 @@ DEFUN (no_debug_msdp_packets,
 ALIAS(no_debug_msdp_packets, undebug_msdp_packets_cmd, "undebug msdp packets",
       UNDEBUG_STR DEBUG_MSDP_STR DEBUG_MSDP_PACKETS_STR)
 
-DEFUN (show_debugging_pim,
-       show_debugging_pim_cmd,
-       "show debugging pim",
-       SHOW_STR
-       DEBUG_STR
-       PIM_STR)
+DEFUN_NOSH (show_debugging_pim,
+	    show_debugging_pim_cmd,
+	    "show debugging [pim]",
+	    SHOW_STR
+	    DEBUG_STR
+	    PIM_STR)
 {
+	vty_out(vty, "PIM debugging status\n");
+
 	pim_debug_config_write(vty);
+
 	return CMD_SUCCESS;
 }
 

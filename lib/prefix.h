@@ -33,28 +33,13 @@
 #endif
 #include "sockunion.h"
 #include "ipaddr.h"
+#include "compiler.h"
 
 #ifndef ETH_ALEN
 #define ETH_ALEN 6
 #endif
 
 /* for compatibility */
-#if defined(__ICC)
-#define CPP_WARN_STR(X) #X
-#define CPP_WARN(text) _Pragma(CPP_WARN_STR(message __FILE__ ": " text))
-
-#elif (defined(__GNUC__)                                                       \
-       && (__GNUC__ >= 5 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 8)))           \
-	|| (defined(__clang__)                                                 \
-	    && (__clang_major__ >= 4                                           \
-		|| (__clang_major__ == 3 && __clang_minor__ >= 5)))
-#define CPP_WARN_STR(X) #X
-#define CPP_WARN(text) _Pragma(CPP_WARN_STR(GCC warning text))
-
-#else
-#define CPP_WARN(text)
-#endif
-
 #ifdef ETHER_ADDR_LEN
 #undef ETHER_ADDR_LEN
 #endif
@@ -140,7 +125,7 @@ struct prefix {
 			struct in_addr adv_router;
 		} lp;
 		struct ethaddr prefix_eth; /* AF_ETHERNET */
-		u_char val[8];
+		u_char val[16];
 		uintptr_t ptr;
 		struct evpn_addr prefix_evpn; /* AF_EVPN */
 	} u __attribute__((aligned(8)));
@@ -241,8 +226,20 @@ union prefixconstptr {
 #define IPV4_MAX_BITLEN    32
 #define IPV4_MAX_PREFIXLEN 32
 #define IPV4_ADDR_CMP(D,S)   memcmp ((D), (S), IPV4_MAX_BYTELEN)
-#define IPV4_ADDR_SAME(D,S)  (memcmp ((D), (S), IPV4_MAX_BYTELEN) == 0)
-#define IPV4_ADDR_COPY(D,S)  memcpy ((D), (S), IPV4_MAX_BYTELEN)
+
+static inline bool ipv4_addr_same(const struct in_addr *a,
+				  const struct in_addr *b)
+{
+	return (a->s_addr == b->s_addr);
+}
+#define IPV4_ADDR_SAME(A,B)  ipv4_addr_same((A), (B))
+
+static inline void ipv4_addr_copy(struct in_addr *dst,
+				  const struct in_addr *src)
+{
+	dst->s_addr = src->s_addr;
+}
+#define IPV4_ADDR_COPY(D,S)  ipv4_addr_copy((D), (S))
 
 #define IPV4_NET0(a)    ((((u_int32_t) (a)) & 0xff000000) == 0x00000000)
 #define IPV4_NET127(a)  ((((u_int32_t) (a)) & 0xff000000) == 0x7f000000)

@@ -1116,9 +1116,8 @@ struct peer *peer_new(struct bgp *bgp)
 	peer->status = Idle;
 	peer->ostatus = Idle;
 	peer->cur_event = peer->last_event = peer->last_major_event = 0;
-	peer->bgp = bgp;
+	peer->bgp = bgp_lock(bgp);
 	peer = peer_lock(peer); /* initial reference */
-	bgp_lock(bgp);
 	peer->password = NULL;
 
 	/* Set default flags.  */
@@ -1392,6 +1391,32 @@ void bgp_peer_conf_if_to_su_update(struct peer *peer)
 	hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
 }
 
+static void bgp_recalculate_afi_safi_bestpaths(struct bgp *bgp, afi_t afi,
+					       safi_t safi)
+{
+	struct bgp_node *rn, *nrn;
+
+	for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
+	     rn = bgp_route_next(rn)) {
+		if (rn->info != NULL) {
+			/* Special handling for 2-level routing
+			 * tables. */
+			if (safi == SAFI_MPLS_VPN
+			    || safi == SAFI_ENCAP
+			    || safi == SAFI_EVPN) {
+				for (nrn = bgp_table_top((
+					     struct bgp_table
+						     *)(rn->info));
+				     nrn;
+				     nrn = bgp_route_next(nrn))
+					bgp_process(bgp, nrn,
+						    afi, safi);
+			} else
+				bgp_process(bgp, rn, afi, safi);
+		}
+	}
+}
+
 /* Force a bestpath recalculation for all prefixes.  This is used
  * when 'bgp bestpath' commands are entered.
  */
@@ -1399,29 +1424,10 @@ void bgp_recalculate_all_bestpaths(struct bgp *bgp)
 {
 	afi_t afi;
 	safi_t safi;
-	struct bgp_node *rn, *nrn;
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
-			     rn = bgp_route_next(rn)) {
-				if (rn->info != NULL) {
-					/* Special handling for 2-level routing
-					 * tables. */
-					if (safi == SAFI_MPLS_VPN
-					    || safi == SAFI_ENCAP
-					    || safi == SAFI_EVPN) {
-						for (nrn = bgp_table_top((
-							     struct bgp_table
-								     *)(rn->info));
-						     nrn;
-						     nrn = bgp_route_next(nrn))
-							bgp_process(bgp, nrn,
-								    afi, safi);
-					} else
-						bgp_process(bgp, rn, afi, safi);
-				}
-			}
+			bgp_recalculate_afi_safi_bestpaths(bgp, afi, safi);
 		}
 	}
 }
@@ -1499,6 +1505,25 @@ struct peer *peer_create_accept(struct bgp *bgp)
 	listnode_add_sort(bgp->peer, peer);
 
 	return peer;
+}
+
+/*
+ * Return true if we have a peer configured to use this afi/safi
+ */
+int bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi)
+{
+	struct listnode *node;
+	struct peer *peer;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
+		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+			continue;
+
+		if (peer->afc[afi][safi])
+			return 1;
+	}
+
+	return 0;
 }
 
 /* Change peer's AS number.  */
@@ -1715,10 +1740,13 @@ int peer_activate(struct peer *peer, afi_t afi, safi_t safi)
 	struct peer_group *group;
 	struct listnode *node, *nnode;
 	struct peer *tmp_peer;
+	struct bgp *bgp;
 
 	/* Nothing to do if we've already activated this peer */
 	if (peer->afc[afi][safi])
 		return ret;
+
+	bgp = peer->bgp;
 
 	/* This is a peer-group so activate all of the members of the
 	 * peer-group as well */
@@ -1740,6 +1768,17 @@ int peer_activate(struct peer *peer, afi_t afi, safi_t safi)
 		}
 	} else {
 		ret |= non_peergroup_activate_af(peer, afi, safi);
+	}
+
+	/* If this is the first peer to be activated for this afi/labeled-unicast
+	 * recalc bestpaths to trigger label allocation */
+	if (safi == SAFI_LABELED_UNICAST && !bgp->allocate_mpls_labels[afi][SAFI_UNICAST]) {
+
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_info("peer(s) are now active for labeled-unicast, allocate MPLS labels");
+
+		bgp->allocate_mpls_labels[afi][SAFI_UNICAST] = 1;
+		bgp_recalculate_afi_safi_bestpaths(bgp, afi, SAFI_UNICAST);
 	}
 
 	return ret;
@@ -1799,6 +1838,7 @@ int peer_deactivate(struct peer *peer, afi_t afi, safi_t safi)
 	struct peer_group *group;
 	struct peer *tmp_peer;
 	struct listnode *node, *nnode;
+	struct bgp *bgp;
 
 	/* Nothing to do if we've already de-activated this peer */
 	if (!peer->afc[afi][safi])
@@ -1822,6 +1862,20 @@ int peer_deactivate(struct peer *peer, afi_t afi, safi_t safi)
 		ret |= non_peergroup_deactivate_af(peer, afi, safi);
 	}
 
+	bgp = peer->bgp;
+
+	/* If this is the last peer to be deactivated for this afi/labeled-unicast
+	 * recalc bestpaths to trigger label deallocation */
+	if (safi == SAFI_LABELED_UNICAST &&
+	    bgp->allocate_mpls_labels[afi][SAFI_UNICAST] &&
+	    !bgp_afi_safi_peer_exists(bgp, afi, safi)) {
+
+		if (BGP_DEBUG(zebra, ZEBRA))
+			zlog_info("peer(s) are no longer active for labeled-unicast, deallocate MPLS labels");
+
+		bgp->allocate_mpls_labels[afi][SAFI_UNICAST] = 0;
+		bgp_recalculate_afi_safi_bestpaths(bgp, afi, SAFI_UNICAST);
+	}
 	return ret;
 }
 
@@ -3107,6 +3161,8 @@ int bgp_delete(struct bgp *bgp)
 	 * routes to be processed still referencing the struct bgp.
 	 */
 	listnode_delete(bm->bgp, bgp);
+	if (list_isempty(bm->bgp))
+		bgp_close();
 
 	/* Deregister from Zebra, if needed */
 	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
@@ -3125,21 +3181,7 @@ int bgp_delete(struct bgp *bgp)
 	return 0;
 }
 
-static void bgp_free(struct bgp *);
-
-void bgp_lock(struct bgp *bgp)
-{
-	++bgp->lock;
-}
-
-void bgp_unlock(struct bgp *bgp)
-{
-	assert(bgp->lock > 0);
-	if (--bgp->lock == 0)
-		bgp_free(bgp);
-}
-
-static void bgp_free(struct bgp *bgp)
+void bgp_free(struct bgp *bgp)
 {
 	afi_t afi;
 	safi_t safi;

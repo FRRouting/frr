@@ -256,6 +256,15 @@ static int kernel_lsp_cmd(int action, zebra_lsp_t *lsp)
 		    || (action == RTM_DELETE
 			&& (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED)
 			    && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)))) {
+			if (nhlfe->nexthop->nh_label->num_labels > 1) {
+				zlog_warn(
+					"%s: can't push %u labels at once "
+					"(maximum is 1)",
+					__func__,
+					nhlfe->nexthop->nh_label->num_labels);
+				continue;
+			}
+
 			nexthop_num++;
 
 			switch (NHLFE_FAMILY(nhlfe)) {

@@ -684,13 +684,13 @@ DEFPY  (ldp_show_l2vpn_atom_vc,
 	return (ldp_vty_show_atom_vc(vty, json));
 }
 
-DEFPY  (ldp_show_debugging_mpls_ldp,
-	ldp_show_debugging_mpls_ldp_cmd,
-	"show debugging mpls ldp",
-	"Show running system information\n"
-	"Debugging functions\n"
-	"MPLS information\n"
-	"Label Distribution Protocol\n")
+DEFUN_NOSH (ldp_show_debugging_mpls_ldp,
+	    ldp_show_debugging_mpls_ldp_cmd,
+	    "show debugging [mpls ldp]",
+	    "Show running system information\n"
+	    "Debugging functions\n"
+	    "MPLS information\n"
+	    "Label Distribution Protocol\n")
 {
 	return (ldp_vty_show_debugging(vty));
 }

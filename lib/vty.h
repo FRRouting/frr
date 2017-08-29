@@ -25,6 +25,7 @@
 #include "log.h"
 #include "sockunion.h"
 #include "qobj.h"
+#include "compiler.h"
 
 #define VTY_BUFSIZ 4096
 #define VTY_MAXHIST 20
@@ -182,23 +183,11 @@ struct vty_arg {
 /* Integrated configuration file. */
 #define INTEGRATE_DEFAULT_CONFIG "frr.conf"
 
-/* for compatibility */
-#if defined(__ICC)
-#define CPP_WARN_STR(X) #X
-#define CPP_WARN(text) _Pragma(CPP_WARN_STR(message __FILE__ ": " text))
-
-#elif (defined(__GNUC__)                                                       \
-       && (__GNUC__ >= 5 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 8)))           \
-	|| (defined(__clang__)                                                 \
-	    && (__clang_major__ >= 4                                           \
-		|| (__clang_major__ == 3 && __clang_minor__ >= 5)))
-#define CPP_WARN_STR(X) #X
-#define CPP_WARN(text) _Pragma(CPP_WARN_STR(GCC warning text))
-
-#else
-#define CPP_WARN(text)
+#if CONFDATE > 20180401
+CPP_NOTICE("It's probably time to remove VTY_NEWLINE compatibility foo.")
 #endif
 
+/* for compatibility */
 #define VNL "\n" CPP_WARN("VNL has been replaced with \\n.")
 #define VTYNL "\n" CPP_WARN("VTYNL has been replaced with \\n.")
 #define VTY_NEWLINE "\n" CPP_WARN("VTY_NEWLINE has been replaced with \\n.")

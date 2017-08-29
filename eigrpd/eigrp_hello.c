@@ -405,6 +405,20 @@ void eigrp_hello_receive(struct eigrp *eigrp, struct ip *iph,
 			   inet_ntoa(nbr->src));
 }
 
+u_int32_t FRR_MAJOR;
+u_int32_t FRR_MINOR;
+
+void eigrp_sw_version_initialize(void)
+{
+	char ver_string[] = VERSION;
+	char *dash = strstr(ver_string, "-");
+
+	if (dash)
+		dash[0] = '\0';
+
+	sscanf(ver_string, "%d.%d", &FRR_MAJOR, &FRR_MINOR);
+}
+
 /**
  * @fn eigrp_sw_version_encode
  *
@@ -425,10 +439,8 @@ static u_int16_t eigrp_sw_version_encode(struct stream *s)
 	stream_putw(s, EIGRP_TLV_SW_VERSION);
 	stream_putw(s, length);
 
-	// encode the version of quagga we're running
-	// DVS: need to figure out a cleaner way to do this
-	stream_putc(s, 0);  //!< major os version
-	stream_putc(s, 99); //!< minor os version
+	stream_putc(s, FRR_MAJOR);  //!< major os version
+	stream_putc(s, FRR_MINOR); //!< minor os version
 
 	/* and the core eigrp version */
 	stream_putc(s, EIGRP_MAJOR_VERSION);
@@ -614,11 +626,11 @@ static struct eigrp_packet *eigrp_hello_encode(struct eigrp_interface *ei,
 	u_int16_t length = EIGRP_HEADER_LEN;
 
 	// allocate a new packet to be sent
-	ep = eigrp_packet_new(ei->ifp->mtu);
+	ep = eigrp_packet_new(ei->ifp->mtu, NULL);
 
 	if (ep) {
 		// encode common header feilds
-		eigrp_packet_header_init(EIGRP_OPC_HELLO, ei, ep->s, 0, 0, ack);
+		eigrp_packet_header_init(EIGRP_OPC_HELLO, ei->eigrp, ep->s, 0, 0, ack);
 
 		// encode Authentication TLV
 		if ((IF_DEF_PARAMS(ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
@@ -707,7 +719,7 @@ void eigrp_hello_send_ack(struct eigrp_neighbor *nbr)
 				   inet_ntoa(nbr->src));
 
 		/* Add packet to the top of the interface output queue*/
-		eigrp_fifo_push_head(nbr->ei->obuf, ep);
+		eigrp_fifo_push(nbr->ei->obuf, ep);
 
 		/* Hook thread to write packet. */
 		if (nbr->ei->on_write_q == 0) {
@@ -755,7 +767,7 @@ void eigrp_hello_send(struct eigrp_interface *ei, u_char flags,
 
 	if (ep) {
 		// Add packet to the top of the interface output queue
-		eigrp_fifo_push_head(ei->obuf, ep);
+		eigrp_fifo_push(ei->obuf, ep);
 
 		/* Hook thread to write packet. */
 		if (ei->on_write_q == 0) {

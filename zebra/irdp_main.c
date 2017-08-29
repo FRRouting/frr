@@ -35,8 +35,6 @@
 
 #include <zebra.h>
 
-#ifdef HAVE_IRDP
-
 #include "if.h"
 #include "vty.h"
 #include "sockunion.h"
@@ -52,6 +50,8 @@
 #include "zclient.h"
 #include "thread.h"
 #include "privs.h"
+#include "libfrr.h"
+#include "version.h"
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
 #include "zebra/rib.h"
@@ -143,7 +143,7 @@ static int make_advertisement_packet(struct interface *ifp, struct prefix *p,
 				     struct stream *s)
 {
 	struct zebra_if *zi = ifp->info;
-	struct irdp_interface *irdp = &zi->irdp;
+	struct irdp_interface *irdp = zi->irdp;
 	int size;
 	int pref;
 	u_int16_t checksum;
@@ -175,11 +175,13 @@ static int make_advertisement_packet(struct interface *ifp, struct prefix *p,
 static void irdp_send(struct interface *ifp, struct prefix *p, struct stream *s)
 {
 	struct zebra_if *zi = ifp->info;
-	struct irdp_interface *irdp = &zi->irdp;
+	struct irdp_interface *irdp = zi->irdp;
 	char buf[PREFIX_STRLEN];
 	u_int32_t dst;
 	u_int32_t ttl = 1;
 
+	if (!irdp)
+		return;
 	if (!(ifp->flags & IFF_UP))
 		return;
 
@@ -211,10 +213,13 @@ int irdp_send_thread(struct thread *t_advert)
 	u_int32_t timer, tmp;
 	struct interface *ifp = THREAD_ARG(t_advert);
 	struct zebra_if *zi = ifp->info;
-	struct irdp_interface *irdp = &zi->irdp;
+	struct irdp_interface *irdp = zi->irdp;
 	struct prefix *p;
 	struct listnode *node, *nnode;
 	struct connected *ifc;
+
+	if (!irdp)
+		return 0;
 
 	irdp->flags &= ~IF_SOLICIT;
 
@@ -250,11 +255,14 @@ int irdp_send_thread(struct thread *t_advert)
 void irdp_advert_off(struct interface *ifp)
 {
 	struct zebra_if *zi = ifp->info;
-	struct irdp_interface *irdp = &zi->irdp;
+	struct irdp_interface *irdp = zi->irdp;
 	struct listnode *node, *nnode;
 	int i;
 	struct connected *ifc;
 	struct prefix *p;
+
+	if (!irdp)
+		return;
 
 	if (irdp->t_advertise)
 		thread_cancel(irdp->t_advertise);
@@ -279,8 +287,11 @@ void irdp_advert_off(struct interface *ifp)
 void process_solicit(struct interface *ifp)
 {
 	struct zebra_if *zi = ifp->info;
-	struct irdp_interface *irdp = &zi->irdp;
+	struct irdp_interface *irdp = zi->irdp;
 	u_int32_t timer;
+
+	if (!irdp)
+		return;
 
 	/* When SOLICIT is active we reject further incoming solicits
 	   this keeps down the answering rate so we don't have think
@@ -301,7 +312,7 @@ void process_solicit(struct interface *ifp)
 			 &irdp->t_advertise);
 }
 
-void irdp_finish()
+static int irdp_finish(void)
 {
 	struct vrf *vrf;
 	struct listnode *node, *nnode;
@@ -317,7 +328,7 @@ void irdp_finish()
 
 		if (!zi)
 			continue;
-		irdp = &zi->irdp;
+		irdp = zi->irdp;
 		if (!irdp)
 			continue;
 
@@ -326,6 +337,26 @@ void irdp_finish()
 			irdp_advert_off(ifp);
 		}
 	}
+	return 0;
 }
 
-#endif /* HAVE_IRDP */
+static int irdp_init(struct thread_master *master)
+{
+	irdp_if_init();
+
+	hook_register(frr_early_fini, irdp_finish);
+	return 0;
+}
+
+static int irdp_module_init(void)
+{
+	hook_register(frr_late_init, irdp_init);
+	return 0;
+}
+
+FRR_MODULE_SETUP(
+	.name = "zebra_irdp",
+	.version = FRR_VERSION,
+	.description = "zebra IRDP module",
+	.init = irdp_module_init,
+)

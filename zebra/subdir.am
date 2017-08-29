@@ -6,6 +6,9 @@ if ZEBRA
 sbin_PROGRAMS += zebra/zebra
 dist_examples_DATA += zebra/zebra.conf.sample
 
+if IRDP
+module_LTLIBRARIES += zebra/zebra_irdp.la
+endif
 if SNMP
 module_LTLIBRARIES += zebra/zebra_snmp.la
 endif
@@ -30,9 +33,6 @@ zebra_zebra_SOURCES = \
 	zebra/ipforward_proc.c \
 	zebra/ipforward_solaris.c \
 	zebra/ipforward_sysctl.c \
-	zebra/irdp_interface.c \
-	zebra/irdp_main.c \
-	zebra/irdp_packet.c \
 	zebra/kernel_netlink.c \
 	zebra/kernel_socket.c \
 	zebra/label_manager.c \
@@ -105,6 +105,13 @@ noinst_HEADERS += \
 	zebra/zebra_vxlan_private.h \
 	zebra/zserv.h \
 	# end
+
+zebra_zebra_irdp_la_SOURCES = \
+	zebra/irdp_interface.c \
+	zebra/irdp_main.c \
+	zebra/irdp_packet.c \
+	# end
+zebra_zebra_irdp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
 
 zebra_zebra_snmp_la_SOURCES = zebra/zebra_snmp.c
 zebra_zebra_snmp_la_CFLAGS = $(WERROR) $(SNMP_CFLAGS)

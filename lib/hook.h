@@ -74,6 +74,29 @@
  *     hook_register_arg (some_update_event, event_handler, addonptr);
  *
  *   (addonptr isn't typesafe, but that should be manageable.)
+ *
+ * Hooks also support a "priority" value for ordering registered calls
+ * relative to each other.  The priority is a signed integer where lower
+ * values are called earlier.  There is also "Koohs", which is hooks with
+ * reverse priority ordering (for cleanup/deinit hooks, so you can use the
+ * same priority value).
+ *
+ * Recommended priority value ranges are:
+ *
+ *  -999 ...     0 ...  999 - main executable / daemon, or library
+ * -1999 ... -1000          - modules registering calls that should run before
+ *                            the daemon's bits
+ *            1000 ... 1999 - modules calls that should run after daemon's
+ *
+ * Note: the default value is 1000, based on the following 2 expectations:
+ * - most hook_register() usage will be in loadable modules
+ * - usage of hook_register() in the daemon itself may need relative ordering
+ *   to itself, making an explicit value the expected case
+ *
+ * The priority value is passed as extra argument on hook_register_prio() /
+ * hook_register_arg_prio().  Whether a hook runs in reverse is determined
+ * solely by the code defining / calling the hook.  (DECLARE_KOOH is actually
+ * the same thing as DECLARE_HOOK, it's just there to make it obvious.)
  */
 
 /* TODO:
@@ -94,6 +117,7 @@ struct hookent {
 	void *hookfn; /* actually a function pointer */
 	void *hookarg;
 	bool has_arg;
+	int priority;
 	struct frrmod_runtime *module;
 	const char *fnname;
 };
@@ -101,7 +125,10 @@ struct hookent {
 struct hook {
 	const char *name;
 	struct hookent *entries;
+	bool reverse;
 };
+
+#define HOOK_DEFAULT_PRIORITY 1000
 
 /* subscribe/add callback function to a hook
  *
@@ -110,14 +137,21 @@ struct hook {
  */
 extern void _hook_register(struct hook *hook, void *funcptr, void *arg,
 			   bool has_arg, struct frrmod_runtime *module,
-			   const char *funcname);
+			   const char *funcname, int priority);
 #define hook_register(hookname, func)                                          \
 	_hook_register(&_hook_##hookname, _hook_typecheck_##hookname(func),    \
-		       NULL, false, THIS_MODULE, #func)
+		       NULL, false, THIS_MODULE, #func, HOOK_DEFAULT_PRIORITY)
 #define hook_register_arg(hookname, func, arg)                                 \
 	_hook_register(&_hook_##hookname,                                      \
 		       _hook_typecheck_arg_##hookname(func), arg, true,        \
-		       THIS_MODULE, #func)
+		       THIS_MODULE, #func, HOOK_DEFAULT_PRIORITY)
+#define hook_register_prio(hookname, prio, func)                               \
+	_hook_register(&_hook_##hookname, _hook_typecheck_##hookname(func),    \
+		       NULL, false, THIS_MODULE, #func, prio)
+#define hook_register_arg_prio(hookname, prio, func, arg)                      \
+	_hook_register(&_hook_##hookname,                                      \
+		       _hook_typecheck_arg_##hookname(func),                   \
+		       arg, true, THIS_MODULE, #func, prio)
 
 extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 			     bool has_arg);
@@ -156,12 +190,14 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 	{                                                                      \
 		return (void *)funcptr;                                        \
 	}
+#define DECLARE_KOOH(hookname, arglist, passlist) \
+	DECLARE_HOOK(hookname, arglist, passlist)
 
 /* use in source file - contains hook-related definitions.
  */
-#define DEFINE_HOOK(hookname, arglist, passlist)                               \
+#define DEFINE_HOOK_INT(hookname, arglist, passlist, rev)                      \
 	struct hook _hook_##hookname = {                                       \
-		.name = #hookname, .entries = NULL,                            \
+		.name = #hookname, .entries = NULL, .reverse = rev,            \
 	};                                                                     \
 	static int hook_call_##hookname arglist                                \
 	{                                                                      \
@@ -183,5 +219,10 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 		}                                                              \
 		return hooksum;                                                \
 	}
+
+#define DEFINE_HOOK(hookname, arglist, passlist) \
+	DEFINE_HOOK_INT(hookname, arglist, passlist, false)
+#define DEFINE_KOOH(hookname, arglist, passlist) \
+	DEFINE_HOOK_INT(hookname, arglist, passlist, true)
 
 #endif /* _FRR_HOOK_H */

@@ -42,6 +42,7 @@
 #include "command_graph.h"
 #include "qobj.h"
 #include "defaults.h"
+#include "libfrr.h"
 
 DEFINE_MTYPE(LIB, HOST, "Host config")
 DEFINE_MTYPE(LIB, STRVEC, "String vector")
@@ -376,21 +377,23 @@ void install_element(enum node_type ntype, struct cmd_element *cmd)
 		return;
 	}
 
-	cnode = vector_slot(cmdvec, ntype);
+	cnode = vector_lookup(cmdvec, ntype);
 
 	if (cnode == NULL) {
 		fprintf(stderr,
-			"Command node %d doesn't exist, please check it\n",
-			ntype);
-		fprintf(stderr,
-			"Have you called install_node before this install_element?\n");
+			"%s[%s]:\n"
+			"\tnode %d (%s) does not exist.\n"
+			"\tplease call install_node() before install_element()\n",
+			cmd->name, cmd->string, ntype, node_names[ntype]);
 		exit(EXIT_FAILURE);
 	}
 
 	if (hash_lookup(cnode->cmd_hash, cmd) != NULL) {
 		fprintf(stderr,
-			"Multiple command installs to node %d of command:\n%s\n",
-			ntype, cmd->string);
+			"%s[%s]:\n"
+			"\tnode %d (%s) already has this command installed.\n"
+			"\tduplicate install_element call?\n",
+			cmd->name, cmd->string, ntype, node_names[ntype]);
 		return;
 	}
 
@@ -423,21 +426,23 @@ void uninstall_element(enum node_type ntype, struct cmd_element *cmd)
 		return;
 	}
 
-	cnode = vector_slot(cmdvec, ntype);
+	cnode = vector_lookup(cmdvec, ntype);
 
 	if (cnode == NULL) {
 		fprintf(stderr,
-			"Command node %d doesn't exist, please check it\n",
-			ntype);
-		fprintf(stderr,
-			"Have you called install_node before this install_element?\n");
+			"%s[%s]:\n"
+			"\tnode %d (%s) does not exist.\n"
+			"\tplease call install_node() before uninstall_element()\n",
+			cmd->name, cmd->string, ntype, node_names[ntype]);
 		exit(EXIT_FAILURE);
 	}
 
 	if (hash_release(cnode->cmd_hash, cmd) == NULL) {
 		fprintf(stderr,
-			"Trying to uninstall non-installed command (node %d):\n%s\n",
-			ntype, cmd->string);
+			"%s[%s]:\n"
+			"\tnode %d (%s) does not have this command installed.\n"
+			"\tduplicate uninstall_element call?\n",
+			cmd->name, cmd->string, ntype, node_names[ntype]);
 		return;
 	}
 
@@ -571,6 +576,9 @@ static int config_write_host(struct vty *vty)
 		vty_out(vty, "banner motd file %s\n", host.motdfile);
 	else if (!host.motd)
 		vty_out(vty, "no banner motd\n");
+
+	if (debug_memstats_at_exit)
+		vty_out(vty, "!\ndebug memstats-at-exit\n");
 
 	return 1;
 }
@@ -2417,6 +2425,17 @@ DEFUN (no_config_log_timestamp_precision,
 	return CMD_SUCCESS;
 }
 
+DEFUN (debug_memstats,
+       debug_memstats_cmd,
+       "[no] debug memstats-at-exit",
+       NO_STR
+       DEBUG_STR
+       "Print memory type statistics at exit\n")
+{
+	debug_memstats_at_exit = !!strcmp(argv[0]->text, "no");
+	return CMD_SUCCESS;
+}
+
 int cmd_banner_motd_file(const char *file)
 {
 	int success = CMD_SUCCESS;
@@ -2589,6 +2608,7 @@ void cmd_init(int terminal)
 	/* Each node's basic commands. */
 	install_element(VIEW_NODE, &show_version_cmd);
 	install_element(ENABLE_NODE, &show_startup_config_cmd);
+	install_element(ENABLE_NODE, &debug_memstats_cmd);
 
 	if (terminal) {
 		install_element(VIEW_NODE, &config_list_cmd);
@@ -2624,6 +2644,7 @@ void cmd_init(int terminal)
 	install_element(CONFIG_NODE, &domainname_cmd);
 	install_element(CONFIG_NODE, &no_domainname_cmd);
 	install_element(CONFIG_NODE, &frr_version_defaults_cmd);
+	install_element(CONFIG_NODE, &debug_memstats_cmd);
 
 	if (terminal > 0) {
 		install_element(CONFIG_NODE, &password_cmd);

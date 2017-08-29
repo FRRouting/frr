@@ -91,8 +91,10 @@ void eigrp_query_receive(struct eigrp *eigrp, struct ip *iph,
 {
 	struct eigrp_neighbor *nbr;
 	struct TLV_IPv4_Internal_type *tlv;
+	struct prefix dest_addr;
 
 	u_int16_t type;
+	u_int16_t length;
 
 	/* increment statistics. */
 	ei->query_in++;
@@ -107,15 +109,14 @@ void eigrp_query_receive(struct eigrp *eigrp, struct ip *iph,
 
 	while (s->endp > s->getp) {
 		type = stream_getw(s);
-		if (type == EIGRP_TLV_IPv4_INT) {
-			struct prefix_ipv4 dest_addr;
-
+		switch (type) {
+		case EIGRP_TLV_IPv4_INT:
 			stream_set_getp(s, s->getp - sizeof(u_int16_t));
 
 			tlv = eigrp_read_ipv4_tlv(s);
 
 			dest_addr.family = AF_INET;
-			dest_addr.prefix = tlv->destination;
+			dest_addr.u.prefix4 = tlv->destination;
 			dest_addr.prefixlen = tlv->prefix_length;
 			struct eigrp_prefix_entry *dest =
 				eigrp_topology_table_lookup_ipv4(
@@ -124,24 +125,32 @@ void eigrp_query_receive(struct eigrp *eigrp, struct ip *iph,
 			/* If the destination exists (it should, but one never
 			 * know)*/
 			if (dest != NULL) {
-				struct eigrp_fsm_action_message *msg;
-				msg = XCALLOC(MTYPE_EIGRP_FSM_MSG,
-					      sizeof(struct
-						     eigrp_fsm_action_message));
+				struct eigrp_fsm_action_message msg;
 				struct eigrp_neighbor_entry *entry =
 					eigrp_prefix_entry_lookup(dest->entries,
 								  nbr);
-				msg->packet_type = EIGRP_OPC_QUERY;
-				msg->eigrp = eigrp;
-				msg->data_type = EIGRP_TLV_IPv4_INT;
-				msg->adv_router = nbr;
-				msg->data.ipv4_int_type = tlv;
-				msg->entry = entry;
-				msg->prefix = dest;
-				int event = eigrp_get_fsm_event(msg);
-				eigrp_fsm_event(msg, event);
+				msg.packet_type = EIGRP_OPC_QUERY;
+				msg.eigrp = eigrp;
+				msg.data_type = EIGRP_INT;
+				msg.adv_router = nbr;
+				msg.metrics = tlv->metric;
+				msg.entry = entry;
+				msg.prefix = dest;
+				eigrp_fsm_event(&msg);
 			}
 			eigrp_IPv4_InternalTLV_free(tlv);
+			break;
+
+		case EIGRP_TLV_IPv4_EXT:
+			/* DVS: processing of external routes needs packet and fsm work.
+			 *      for now, lets just not creash the box
+			 */
+		default:
+			length = stream_getw(s);
+			// -2 for type, -2 for len
+			for (length-=4; length ; length--) {
+				(void)stream_getc(s);
+			}
 		}
 	}
 	eigrp_hello_send_ack(nbr);
@@ -159,10 +168,10 @@ void eigrp_send_query(struct eigrp_interface *ei)
 	char has_tlv;
 	bool ep_saved = false;
 
-	ep = eigrp_packet_new(ei->ifp->mtu);
+	ep = eigrp_packet_new(ei->ifp->mtu, NULL);
 
 	/* Prepare EIGRP INIT UPDATE header */
-	eigrp_packet_header_init(EIGRP_OPC_QUERY, ei, ep->s, 0,
+	eigrp_packet_header_init(EIGRP_OPC_QUERY, ei->eigrp, ep->s, 0,
 				 ei->eigrp->sequence_number, 0);
 
 	// encode Authentication TLV, if needed
@@ -207,7 +216,7 @@ void eigrp_send_query(struct eigrp_interface *ei)
 	for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
 		if (nbr->state == EIGRP_NEIGHBOR_UP) {
 			/*Put packet to retransmission queue*/
-			eigrp_fifo_push_head(nbr->retrans_queue, ep);
+			eigrp_fifo_push(nbr->retrans_queue, ep);
 			ep_saved = true;
 
 			if (nbr->retrans_queue->count == 1) {

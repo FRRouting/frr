@@ -337,6 +337,9 @@ struct bgp {
 	/* BGP redistribute configuration. */
 	struct list *redist[AFI_MAX][ZEBRA_ROUTE_MAX];
 
+	/* Allocate MPLS labels */
+	u_char allocate_mpls_labels[AFI_MAX][SAFI_MAX];
+
 	/* timer to re-evaluate neighbor default-originate route-maps */
 	struct thread *t_rmap_def_originate_eval;
 #define RMAP_DEFAULT_ORIGINATE_EVAL_TIMER 5
@@ -1256,9 +1259,6 @@ extern int bgp_flag_set(struct bgp *, int);
 extern int bgp_flag_unset(struct bgp *, int);
 extern int bgp_flag_check(struct bgp *, int);
 
-extern void bgp_lock(struct bgp *);
-extern void bgp_unlock(struct bgp *);
-
 extern void bgp_router_id_zebra_bump(vrf_id_t, const struct prefix *);
 extern int bgp_router_id_static_set(struct bgp *, struct in_addr);
 
@@ -1287,6 +1287,7 @@ extern int bgp_listen_limit_unset(struct bgp *);
 
 extern int bgp_update_delay_active(struct bgp *);
 extern int bgp_update_delay_configured(struct bgp *);
+extern int bgp_afi_safi_peer_exists(struct bgp *bgp, afi_t afi, safi_t safi);
 extern void peer_as_change(struct peer *, as_t, int);
 extern int peer_remote_as(struct bgp *, union sockunion *, const char *, as_t *,
 			  int, afi_t, safi_t);
@@ -1399,6 +1400,20 @@ extern struct peer_af *peer_af_find(struct peer *, afi_t, safi_t);
 extern int peer_af_delete(struct peer *, afi_t, safi_t);
 
 extern void bgp_close(void);
+extern void bgp_free(struct bgp *);
+
+static inline struct bgp *bgp_lock(struct bgp *bgp)
+{
+	bgp->lock++;
+	return bgp;
+}
+
+static inline void bgp_unlock(struct bgp *bgp)
+{
+	assert(bgp->lock > 0);
+	if (--bgp->lock == 0)
+		bgp_free(bgp);
+}
 
 static inline int afindex(afi_t afi, safi_t safi)
 {
@@ -1544,10 +1559,8 @@ static inline struct vrf *bgp_vrf_lookup_by_instance_type(struct bgp *bgp)
 static inline void bgp_vrf_link(struct bgp *bgp, struct vrf *vrf)
 {
 	bgp->vrf_id = vrf->vrf_id;
-	if (vrf->info != (void *)bgp) {
-		bgp_lock(bgp);
-		vrf->info = (void *)bgp;
-	}
+	if (vrf->info != (void *)bgp)
+		vrf->info = (void *)bgp_lock(bgp);
 }
 
 /* Unlink BGP instance from VRF. */

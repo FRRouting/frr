@@ -6145,6 +6145,8 @@ DEFUN (clear_ip_bgp_all,
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
+       BGP_AFI_HELP_STR
+       BGP_SAFI_WITH_LABEL_HELP_STR
        "Clear all peers\n"
        "BGP neighbor address to clear\n"
        "BGP IPv6 neighbor to clear\n"
@@ -6153,8 +6155,6 @@ DEFUN (clear_ip_bgp_all,
        "Clear all external peers\n"
        "Clear all members of peer-group\n"
        "BGP peer-group name\n"
-       BGP_AFI_HELP_STR
-       BGP_SAFI_WITH_LABEL_HELP_STR
        BGP_SOFT_STR
        BGP_SOFT_IN_STR
        BGP_SOFT_OUT_STR
@@ -7071,26 +7071,6 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 	return CMD_SUCCESS;
 }
 
-/*
- * Return if we have a peer configured to use this afi/safi
- */
-static int bgp_show_summary_afi_safi_peer_exists(struct bgp *bgp, int afi,
-						 int safi)
-{
-	struct listnode *node;
-	struct peer *peer;
-
-	for (ALL_LIST_ELEMENTS_RO(bgp->peer, node, peer)) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
-			continue;
-
-		if (peer->afc[afi][safi])
-			return 1;
-	}
-
-	return 0;
-}
-
 static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 				      int safi, u_char use_json,
 				      json_object *json)
@@ -7109,8 +7089,7 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 		if (safi_wildcard)
 			safi = 1; /* SAFI_UNICAST */
 		while (safi < SAFI_MAX) {
-			if (bgp_show_summary_afi_safi_peer_exists(bgp, afi,
-								  safi)) {
+			if (bgp_afi_safi_peer_exists(bgp, afi, safi)) {
 				json_output = true;
 				if (is_wildcard) {
 					/*

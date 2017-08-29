@@ -25,6 +25,7 @@
 #include "linklist.h"
 #include "memory.h"
 #include "qobj.h"
+#include "hook.h"
 
 DECLARE_MTYPE(IF)
 DECLARE_MTYPE(CONNECTED_LABEL)
@@ -283,6 +284,17 @@ struct interface {
 };
 DECLARE_QOBJ_TYPE(interface)
 
+/* called from the library code whenever interfaces are created/deleted
+ * note: interfaces may not be fully realized at that point; also they
+ * may not exist in the system (ifindex = IFINDEX_INTERNAL)
+ *
+ * priority values are important here, daemons should be at 0 while modules
+ * can use 1000+ so they run after the daemon has initialised daemon-specific
+ * interface data
+ */
+DECLARE_HOOK(if_add, (struct interface *ifp), (ifp))
+DECLARE_KOOH(if_del, (struct interface *ifp), (ifp))
+
 /* Connected address structure. */
 struct connected {
 	/* Attached interface. */
@@ -354,10 +366,6 @@ struct nbr_connected {
 	((CONNECTED_PEER(C) && !prefix_match((C)->destination, (C)->address))  \
 		 ? (C)->destination                                            \
 		 : (C)->address)
-
-/* Interface hook sort. */
-#define IF_NEW_HOOK   0
-#define IF_DELETE_HOOK 1
 
 /* There are some interface flags which are only supported by some
    operating system. */
@@ -442,7 +450,6 @@ extern int if_is_loopback(struct interface *);
 extern int if_is_broadcast(struct interface *);
 extern int if_is_pointopoint(struct interface *);
 extern int if_is_multicast(struct interface *);
-extern void if_add_hook(int, int (*)(struct interface *));
 extern void if_init(struct list **);
 extern void if_cmd_init(void);
 extern void if_terminate(struct list **);

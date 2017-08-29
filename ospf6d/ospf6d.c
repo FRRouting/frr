@@ -24,6 +24,7 @@
 #include "linklist.h"
 #include "vty.h"
 #include "command.h"
+#include "plist.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_network.h"
@@ -43,8 +44,6 @@
 #include "ospf6_flood.h"
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
-
-char ospf6_daemon_version[] = OSPF6_DAEMON_VERSION;
 
 struct route_node *route_prev(struct route_node *node)
 {
@@ -70,21 +69,6 @@ struct route_node *route_prev(struct route_node *node)
 	return prev;
 }
 
-
-/* show database functions */
-DEFUN (show_version_ospf6,
-       show_version_ospf6_cmd,
-       "show version ospf6",
-       SHOW_STR
-       "Display version\n"
-       "Display ospf6d version\n"
-      )
-{
-	vty_out(vty, "Zebra OSPF6d Version: %s\n", ospf6_daemon_version);
-
-	return CMD_SUCCESS;
-}
-
 static struct cmd_node debug_node = {
 	DEBUG_NODE, "", 1 /* VTYSH */
 };
@@ -102,8 +86,22 @@ static int config_write_ospf6_debug(struct vty *vty)
 	config_write_ospf6_debug_asbr(vty);
 	config_write_ospf6_debug_abr(vty);
 	config_write_ospf6_debug_flood(vty);
-	vty_out(vty, "!\n");
+
 	return 0;
+}
+
+DEFUN_NOSH (show_debugging_ospf6,
+	    show_debugging_ospf6_cmd,
+	    "show debugging [ospf6]",
+	    SHOW_STR
+	    DEBUG_STR
+	    OSPF6_STR)
+{
+	vty_out(vty, "OSPF6 debugging status:");
+
+	config_write_ospf6_debug(vty);
+
+	return CMD_SUCCESS;
 }
 
 #define AREA_LSDB_TITLE_FORMAT                                                 \
@@ -1142,6 +1140,20 @@ DEFUN (show_ipv6_ospf6_linkstate_detail,
 	return CMD_SUCCESS;
 }
 
+static void ospf6_plist_add(struct prefix_list *plist)
+{
+	if (prefix_list_afi(plist) != AFI_IP6)
+		return;
+	ospf6_area_plist_update(plist, 1);
+}
+
+static void ospf6_plist_del(struct prefix_list *plist)
+{
+	if (prefix_list_afi(plist) != AFI_IP6)
+		return;
+	ospf6_area_plist_update(plist, 0);
+}
+
 /* Install ospf related commands. */
 void ospf6_init(void)
 {
@@ -1156,6 +1168,9 @@ void ospf6_init(void)
 	ospf6_intra_init();
 	ospf6_asbr_init();
 	ospf6_abr_init();
+
+	prefix_list_add_hook(ospf6_plist_add);
+	prefix_list_delete_hook(ospf6_plist_del);
 
 	ospf6_bfd_init();
 	install_node(&debug_node, config_write_ospf6_debug);
@@ -1174,7 +1189,7 @@ void ospf6_init(void)
 
 	install_element_ospf6_clear_interface();
 
-	install_element(VIEW_NODE, &show_version_ospf6_cmd);
+	install_element(VIEW_NODE, &show_debugging_ospf6_cmd);
 
 	install_element(VIEW_NODE, &show_ipv6_ospf6_border_routers_cmd);
 

@@ -26,17 +26,25 @@
 DEFINE_MTYPE_STATIC(LIB, HOOK_ENTRY, "Hook entry")
 
 void _hook_register(struct hook *hook, void *funcptr, void *arg, bool has_arg,
-		    struct frrmod_runtime *module, const char *funcname)
+		    struct frrmod_runtime *module, const char *funcname,
+		    int priority)
 {
-	struct hookent *he = XCALLOC(MTYPE_HOOK_ENTRY, sizeof(*he));
+	struct hookent *he = XCALLOC(MTYPE_HOOK_ENTRY, sizeof(*he)), **pos;
 	he->hookfn = funcptr;
 	he->hookarg = arg;
 	he->has_arg = has_arg;
 	he->module = module;
 	he->fnname = funcname;
+	he->priority = priority;
 
-	he->next = hook->entries;
-	hook->entries = he;
+	for (pos = &hook->entries; *pos; pos = &(*pos)->next)
+		if (hook->reverse
+		    ? (*pos)->priority < priority
+		    : (*pos)->priority >= priority)
+			break;
+
+	he->next = *pos;
+	*pos = he;
 }
 
 void _hook_unregister(struct hook *hook, void *funcptr, void *arg, bool has_arg)

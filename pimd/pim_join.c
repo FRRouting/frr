@@ -231,7 +231,6 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 		uint16_t msg_num_pruned_sources;
 		int source;
 		struct pim_ifchannel *starg_ch = NULL, *sg_ch = NULL;
-		uint8_t starg_alone = 0;
 
 		memset(&sg, 0, sizeof(struct prefix_sg));
 		addr_offset = pim_parse_addr_group(&sg, buf, pastend - buf);
@@ -289,12 +288,10 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 				  msg_source_flags);
 
 			if (sg.src.s_addr == INADDR_ANY) {
-				starg_alone = 1;
 				starg_ch = pim_ifchannel_find(ifp, &sg);
 				if (starg_ch)
 					pim_ifchannel_set_star_g_join_state(
-						starg_ch, 0, msg_source_flags,
-						1, starg_alone);
+						starg_ch, 0, 1);
 			}
 		}
 
@@ -307,7 +304,6 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 			}
 
 			buf += addr_offset;
-			starg_alone = 0;
 			recv_prune(ifp, neigh, msg_holdtime,
 				   msg_upstream_addr.u.prefix4, &sg,
 				   msg_source_flags);
@@ -340,8 +336,7 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 			}
 		}
 		if (starg_ch)
-			pim_ifchannel_set_star_g_join_state(
-				starg_ch, 1, msg_source_flags, 0, starg_alone);
+			pim_ifchannel_set_star_g_join_state(starg_ch, 1, 0);
 		starg_ch = NULL;
 	} /* scan groups */
 
@@ -419,7 +414,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 	struct pim_jp_agg_group *group;
 	struct pim_interface *pim_ifp = NULL;
 	struct pim_jp_groups *grp = NULL;
-	struct pim_jp *msg;
+	struct pim_jp *msg = NULL;
 	struct listnode *node, *nnode;
 	uint8_t pim_msg[10000];
 	uint8_t *curr_ptr = pim_msg;

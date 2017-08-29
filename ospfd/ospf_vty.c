@@ -1897,7 +1897,8 @@ DEFUN (no_ospf_area_filter_list,
 
 DEFUN (ospf_area_authentication_message_digest,
        ospf_area_authentication_message_digest_cmd,
-       "area <A.B.C.D|(0-4294967295)> authentication message-digest",
+       "[no] area <A.B.C.D|(0-4294967295)> authentication message-digest",
+       NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -1914,7 +1915,7 @@ DEFUN (ospf_area_authentication_message_digest,
 
 	area = ospf_area_get(ospf, area_id);
 	ospf_area_display_format_set(ospf, area, format);
-	area->auth_type = OSPF_AUTH_CRYPTOGRAPHIC;
+	area->auth_type = strmatch(argv[0]->text, "no") ? OSPF_AUTH_NULL : OSPF_AUTH_CRYPTOGRAPHIC;
 
 	return CMD_SUCCESS;
 }
@@ -2267,7 +2268,9 @@ DEFUN (no_ospf_timers_lsa_min_arrival,
 	return CMD_SUCCESS;
 }
 
-/* Deprecated: 08/07/2017 */
+#if CONFDATE > 20180708
+CPP_NOTICE("ospf: `timers lsa arrival (0-1000)` deprecated 2017/07/08")
+#endif
 ALIAS_HIDDEN (ospf_timers_lsa_min_arrival,
               ospf_timers_lsa_arrival_cmd,
               "timers lsa arrival (0-1000)",
@@ -2276,7 +2279,9 @@ ALIAS_HIDDEN (ospf_timers_lsa_min_arrival,
               "ospf minimum arrival interval delay\n"
               "delay (msec) between accepted lsas\n");
 
-/* Deprecated: 08/07/2017 */
+#if CONFDATE > 20180708
+CPP_NOTICE("ospf: `no timers lsa arrival (0-1000)` deprecated 2017/07/08")
+#endif
 ALIAS_HIDDEN (no_ospf_timers_lsa_min_arrival,
               no_ospf_timers_lsa_arrival_cmd,
               "no timers lsa arrival (0-1000)",
@@ -4032,12 +4037,13 @@ DEFUN (show_ip_ospf_neighbor_int,
        JSON_STR)
 {
 	struct ospf *ospf;
+	int idx_ifname = 4;
 	u_char uj = use_json(argc, argv);
 
 	if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
 		return CMD_SUCCESS;
 
-	return show_ip_ospf_neighbor_int_common(vty, ospf, 0, argv, uj);
+	return show_ip_ospf_neighbor_int_common(vty, ospf, idx_ifname, argv, uj);
 }
 
 DEFUN (show_ip_ospf_instance_neighbor_int,
@@ -4052,6 +4058,7 @@ DEFUN (show_ip_ospf_instance_neighbor_int,
        JSON_STR)
 {
 	int idx_number = 3;
+	int idx_ifname = 5;
 	struct ospf *ospf;
 	u_short instance = 0;
 	u_char uj = use_json(argc, argv);
@@ -4064,7 +4071,7 @@ DEFUN (show_ip_ospf_instance_neighbor_int,
 	if (!ospf->oi_running)
 		return CMD_SUCCESS;
 
-	return show_ip_ospf_neighbor_int_common(vty, ospf, 1, argv, uj);
+	return show_ip_ospf_neighbor_int_common(vty, ospf, idx_ifname, argv, uj);
 }
 
 static void show_ip_ospf_nbr_nbma_detail_sub(struct vty *vty,
@@ -4422,12 +4429,13 @@ DEFUN (show_ip_ospf_neighbor_id,
        JSON_STR)
 {
 	struct ospf *ospf;
+	int idx_router_id = 4;
 	u_char uj = use_json(argc, argv);
 
 	if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
 		return CMD_SUCCESS;
 
-	return show_ip_ospf_neighbor_id_common(vty, ospf, 0, argv, uj);
+	return show_ip_ospf_neighbor_id_common(vty, ospf, idx_router_id, argv, uj);
 }
 
 DEFUN (show_ip_ospf_instance_neighbor_id,
@@ -4442,6 +4450,7 @@ DEFUN (show_ip_ospf_instance_neighbor_id,
        JSON_STR)
 {
 	int idx_number = 3;
+	int idx_router_id = 5;
 	struct ospf *ospf;
 	u_short instance = 0;
 	u_char uj = use_json(argc, argv);
@@ -4454,7 +4463,7 @@ DEFUN (show_ip_ospf_instance_neighbor_id,
 	if (!ospf->oi_running)
 		return CMD_SUCCESS;
 
-	return show_ip_ospf_neighbor_id_common(vty, ospf, 1, argv, uj);
+	return show_ip_ospf_neighbor_id_common(vty, ospf, idx_router_id, argv, uj);
 }
 
 static int show_ip_ospf_neighbor_detail_common(struct vty *vty,
@@ -4725,12 +4734,13 @@ DEFUN (show_ip_ospf_neighbor_int_detail,
        JSON_STR)
 {
 	struct ospf *ospf;
+	int idx_ifname = 4;
 	u_char uj = use_json(argc, argv);
 
 	if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
 		return CMD_SUCCESS;
 
-	return show_ip_ospf_neighbor_int_detail_common(vty, ospf, 0, argv, uj);
+	return show_ip_ospf_neighbor_int_detail_common(vty, ospf, idx_ifname, argv, uj);
 }
 
 DEFUN (show_ip_ospf_instance_neighbor_int_detail,
@@ -4746,6 +4756,7 @@ DEFUN (show_ip_ospf_instance_neighbor_int_detail,
        JSON_STR)
 {
 	int idx_number = 3;
+	int idx_ifname = 5;
 	struct ospf *ospf;
 	u_short instance = 0;
 	u_char uj = use_json(argc, argv);
@@ -4758,7 +4769,7 @@ DEFUN (show_ip_ospf_instance_neighbor_int_detail,
 	if (!ospf->oi_running)
 		return CMD_SUCCESS;
 
-	return show_ip_ospf_neighbor_int_detail_common(vty, ospf, 1, argv, uj);
+	return show_ip_ospf_neighbor_int_detail_common(vty, ospf, idx_ifname, argv, uj);
 }
 
 /* Show functions */
@@ -6881,10 +6892,12 @@ DEFUN (no_ip_ospf_transmit_delay,
 
 DEFUN_HIDDEN (no_ospf_transmit_delay,
               no_ospf_transmit_delay_cmd,
-              "no ospf transmit-delay",
+              "no ospf transmit-delay [(1-65535) [A.B.C.D]]",
               NO_STR
               "OSPF interface commands\n"
-              "Link state transmit delay\n")
+              "Link state transmit delay\n"
+              "Seconds\n"
+              "Address of interface")
 {
 	return no_ip_ospf_transmit_delay(self, vty, argc, argv);
 }

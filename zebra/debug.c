@@ -34,12 +34,12 @@ unsigned long zebra_debug_mpls;
 unsigned long zebra_debug_vxlan;
 unsigned long zebra_debug_pw;
 
-DEFUN (show_debugging_zebra,
-       show_debugging_zebra_cmd,
-       "show debugging zebra",
-       SHOW_STR
-       "Debugging information\n"
-       "Zebra configuration\n")
+DEFUN_NOSH (show_debugging_zebra,
+	    show_debugging_zebra_cmd,
+	    "show debugging [zebra]",
+	    SHOW_STR
+	    "Debugging information\n"
+	    "Zebra configuration\n")
 {
 	vty_out(vty, "Zebra debugging status:\n");
 

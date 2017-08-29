@@ -1256,8 +1256,8 @@ void
 babel_if_init ()
 {
     /* initialize interface list */
-    if_add_hook (IF_NEW_HOOK,    babel_if_new_hook);
-    if_add_hook (IF_DELETE_HOOK, babel_if_delete_hook);
+    hook_register_prio(if_add, 0, babel_if_new_hook);
+    hook_register_prio(if_del, 0, babel_if_delete_hook);
 
     babel_enable_if = vector_init (1);
 
