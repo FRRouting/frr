@@ -49,10 +49,6 @@ DECLARE_MGROUP(MVTYSH)
 #define VTYSH_NS          VTYSH_ZEBRA
 #define VTYSH_VRF	  VTYSH_ZEBRA|VTYSH_PIMD
 
-/* vtysh local configuration file. */
-#define VTYSH_DEFAULT_CONFIG "vtysh.conf"
-#define FRR_DEFAULT_CONFIG "frr.conf"
-
 enum vtysh_write_integrated {
 	WRITE_INTEGRATED_UNSPECIFIED,
 	WRITE_INTEGRATED_NO,
@@ -61,7 +57,8 @@ enum vtysh_write_integrated {
 
 extern enum vtysh_write_integrated vtysh_write_integrated;
 
-extern char *quagga_config;
+extern char frr_config[];
+extern char vtydir[];
 
 void vtysh_init_vty(void);
 void vtysh_init_cmd(void);
@@ -93,11 +90,12 @@ void vtysh_config_init(void);
 
 void vtysh_pager_init(void);
 
+void suid_on(void);
+void suid_off(void);
+
 /* Child process execution flag. */
 extern int execute_flag;
 
 extern struct vty *vty;
-
-extern const char *vty_sock_path;
 
 #endif /* VTYSH_H */

@@ -2793,7 +2793,7 @@ static int if_config_write(struct vty *vty)
 		vrf = vrf_lookup_by_id(ifp->vrf_id);
 
 		if (ifp->vrf_id == VRF_DEFAULT)
-			vty_out(vty, "interface %s\n", ifp->name);
+			vty_frame(vty, "interface %s\n", ifp->name);
 		else
 			vty_out(vty, "interface %s vrf %s\n", ifp->name,
 				vrf->name);
@@ -2844,7 +2844,7 @@ static int if_config_write(struct vty *vty)
 
 		link_params_config_write(vty, ifp);
 
-		vty_out(vty, "!\n");
+		vty_endframe(vty, "!\n");
 	}
 	return 0;
 }

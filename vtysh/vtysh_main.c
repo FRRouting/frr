@@ -44,17 +44,21 @@
 /* VTY shell program name. */
 char *progname;
 
+/* SUID mode */
+static uid_t elevuid, realuid;
+static gid_t elevgid, realgid;
+
+#define VTYSH_CONFIG_NAME "vtysh.conf"
+#define FRR_CONFIG_NAME "frr.conf"
+
 /* Configuration file name and directory. */
-static char vtysh_config_always[MAXPATHLEN] = SYSCONFDIR VTYSH_DEFAULT_CONFIG;
-static char quagga_config_default[MAXPATHLEN] = SYSCONFDIR FRR_DEFAULT_CONFIG;
-char *quagga_config = quagga_config_default;
-char history_file[MAXPATHLEN];
+static char vtysh_config[MAXPATHLEN];
+char frr_config[MAXPATHLEN];
+char vtydir[MAXPATHLEN];
+static char history_file[MAXPATHLEN];
 
 /* Flag for indicate executing child command. */
 int execute_flag = 0;
-
-/* VTY Socket prefix */
-const char *vty_sock_path = NULL;
 
 /* For sigsetjmp() & siglongjmp(). */
 static sigjmp_buf jmpbuf;
@@ -145,6 +149,7 @@ static void usage(int status)
 		       "-m, --markfile           Mark input file with context end\n"
 		       "    --vty_socket         Override vty socket path\n"
 		       "    --config_dir         Override config directory path\n"
+		       "-N  --pathspace          Insert prefix into config & socket paths\n"
 		       "-w, --writeconfig        Write integrated config (frr.conf) and exit\n"
 		       "-h, --help               Display this help and exit\n\n"
 		       "Note that multiple commands may be executed from the command\n"
@@ -174,6 +179,7 @@ struct option longopts[] = {
 	{"noerror", no_argument, NULL, 'n'},
 	{"mark", no_argument, NULL, 'm'},
 	{"writeconfig", no_argument, NULL, 'w'},
+	{"pathspace", no_argument, NULL, 'N'},
 	{0}};
 
 /* Read a string, and return a pointer to it.  Returns NULL on EOF. */
@@ -249,6 +255,30 @@ static void vtysh_unflock_config(void)
 	close(flock_fd);
 }
 
+void suid_on(void)
+{
+	if (elevuid != realuid && seteuid(elevuid)) {
+		perror("seteuid(on)");
+		exit(1);
+	}
+	if (elevgid != realgid && setegid(elevgid)) {
+		perror("setegid(on)");
+		exit(1);
+	}
+}
+
+void suid_off(void)
+{
+	if (elevuid != realuid && seteuid(realuid)) {
+		perror("seteuid(off)");
+		exit(1);
+	}
+	if (elevgid != realgid && setegid(realgid)) {
+		perror("setegid(off)");
+		exit(1);
+	}
+}
+
 /* VTY shell main routine. */
 int main(int argc, char **argv, char **env)
 {
@@ -258,7 +288,6 @@ int main(int argc, char **argv, char **env)
 	int boot_flag = 0;
 	const char *daemon_name = NULL;
 	const char *inputfile = NULL;
-	const char *vtysh_configfile_name;
 	struct cmd_rec {
 		char *line;
 		struct cmd_rec *next;
@@ -270,16 +299,22 @@ int main(int argc, char **argv, char **env)
 	int writeconfig = 0;
 	int ret = 0;
 	char *homedir = NULL;
+	int ditch_suid = 0;
+	char sysconfdir[MAXPATHLEN];
+	char pathspace[MAXPATHLEN] = "";
 
-	/* check for restricted functionality if vtysh is run setuid */
-	int restricted = (getuid() != geteuid()) || (getgid() != getegid());
+	/* SUID: drop down to calling user & go back up when needed */
+	elevuid = geteuid();
+	elevgid = getegid();
+	realuid = getuid();
+	realgid = getgid();
+	suid_off();
 
 	/* Preserve name of myself. */
 	progname = ((p = strrchr(argv[0], '/')) ? ++p : argv[0]);
 
-	/* if logging open now */
-	if ((p = getenv("VTYSH_LOG")) != NULL)
-		logfile = fopen(p, "a");
+	strlcpy(sysconfdir, frr_sysconfdir, sizeof(sysconfdir));
+	strlcpy(vtydir, frr_vtydir, sizeof(vtydir));
 
 	/* Option handling. */
 	while (1) {
@@ -307,63 +342,20 @@ int main(int argc, char **argv, char **env)
 			tail = cr;
 		} break;
 		case OPTION_VTYSOCK:
-			vty_sock_path = optarg;
+			ditch_suid = 1; /* option disables SUID */
+			strlcpy(vtydir, optarg, sizeof(vtydir));
 			break;
 		case OPTION_CONFDIR:
-			/*
-			 * Skip option for Config Directory if setuid
-			 */
-			if (restricted) {
+			ditch_suid = 1; /* option disables SUID */
+			strlcpy(sysconfdir, optarg, sizeof(sysconfdir));
+			break;
+		case 'N':
+			if (strchr(optarg, '/') || strchr(optarg, '.')) {
 				fprintf(stderr,
-					"Overriding of Config Directory blocked for vtysh with setuid");
-				return 1;
+					"slashes or dots are not permitted in the --pathspace option.\n");
+				exit(1);
 			}
-			/*
-			 * Overwrite location for vtysh.conf
-			 */
-			vtysh_configfile_name =
-				strrchr(VTYSH_DEFAULT_CONFIG, '/');
-			if (vtysh_configfile_name)
-				/* skip '/' */
-				vtysh_configfile_name++;
-			else
-				/*
-				 * VTYSH_DEFAULT_CONFIG configured with relative
-				 * path
-				 * during config? Should really never happen for
-				 * sensible config
-				 */
-				vtysh_configfile_name =
-					(char *)VTYSH_DEFAULT_CONFIG;
-			strlcpy(vtysh_config_always, optarg,
-				sizeof(vtysh_config_always));
-			strlcat(vtysh_config_always, "/",
-				sizeof(vtysh_config_always));
-			strlcat(vtysh_config_always, vtysh_configfile_name,
-				sizeof(vtysh_config_always));
-			/*
-			 * Overwrite location for frr.conf
-			 */
-			vtysh_configfile_name =
-				strrchr(FRR_DEFAULT_CONFIG, '/');
-			if (vtysh_configfile_name)
-				/* skip '/' */
-				vtysh_configfile_name++;
-			else
-				/*
-				 * FRR_DEFAULT_CONFIG configured with relative
-				 * path
-				 * during config? Should really never happen for
-				 * sensible config
-				 */
-				vtysh_configfile_name =
-					(char *)FRR_DEFAULT_CONFIG;
-			strlcpy(quagga_config_default, optarg,
-				sizeof(vtysh_config_always));
-			strlcat(quagga_config_default, "/",
-				sizeof(vtysh_config_always));
-			strlcat(quagga_config_default, vtysh_configfile_name,
-				sizeof(quagga_config_default));
+			snprintf(pathspace, sizeof(pathspace), "/%s", optarg);
 			break;
 		case 'd':
 			daemon_name = optarg;
@@ -395,8 +387,10 @@ int main(int argc, char **argv, char **env)
 		}
 	}
 
-	if (!vty_sock_path)
-		vty_sock_path = frr_vtydir;
+	if (ditch_suid) {
+		elevuid = realuid;
+		elevgid = realgid;
+	}
 
 	if (markfile + writeconfig + dryrun + boot_flag > 1) {
 		fprintf(stderr,
@@ -409,6 +403,12 @@ int main(int argc, char **argv, char **env)
 			"WARNING: Combinining the -f option with -b or -w is "
 			"NOT SUPPORTED since its\nresults are inconsistent!\n");
 	}
+
+	snprintf(vtysh_config, sizeof(vtysh_config), "%s%s/%s",
+		 sysconfdir, pathspace, VTYSH_CONFIG_NAME);
+	snprintf(frr_config, sizeof(frr_config), "%s%s/%s",
+		 sysconfdir, pathspace, FRR_CONFIG_NAME);
+	strlcat(vtydir, pathspace, sizeof(vtydir));
 
 	/* Initialize user input buffer. */
 	line_read = NULL;
@@ -425,8 +425,11 @@ int main(int argc, char **argv, char **env)
 
 	vty_init_vtysh();
 
-	/* Read vtysh configuration file before connecting to daemons. */
-	vtysh_read_config(vtysh_config_always);
+	/* Read vtysh configuration file before connecting to daemons.
+	 * (file may not be readable to calling user in SUID mode) */
+	suid_on();
+	vtysh_read_config(vtysh_config);
+	suid_off();
 
 	if (markfile) {
 		if (!inputfile) {
@@ -442,7 +445,7 @@ int main(int argc, char **argv, char **env)
 		if (inputfile) {
 			ret = vtysh_read_config(inputfile);
 		} else {
-			ret = vtysh_read_config(quagga_config_default);
+			ret = vtysh_read_config(frr_config);
 		}
 
 		exit(ret);
@@ -486,6 +489,9 @@ int main(int argc, char **argv, char **env)
 		}
 	}
 
+	/* SUID: go back up elevated privs */
+	suid_on();
+
 	/* Make sure we pass authentication before proceeding. */
 	vtysh_auth();
 
@@ -497,6 +503,9 @@ int main(int argc, char **argv, char **env)
 		else
 			exit(1);
 	}
+
+	/* SUID: back down, don't need privs further on */
+	suid_off();
 
 	if (writeconfig) {
 		vtysh_execute("enable");
@@ -528,6 +537,17 @@ int main(int argc, char **argv, char **env)
 				close(fp);
 
 			read_history(history_file);
+		}
+	}
+
+	if (getenv("VTYSH_LOG")) {
+		const char *logpath = getenv("VTYSH_LOG");
+
+		logfile = fopen(logpath, "a");
+		if (!logfile) {
+			fprintf(stderr, "Failed to open logfile (%s): %s\n",
+				logpath, strerror(errno));
+			exit(1);
 		}
 	}
 
@@ -592,13 +612,13 @@ int main(int argc, char **argv, char **env)
 
 	/* Boot startup configuration file. */
 	if (boot_flag) {
-		vtysh_flock_config(quagga_config);
-		int ret = vtysh_read_config(quagga_config);
+		vtysh_flock_config(frr_config);
+		int ret = vtysh_read_config(frr_config);
 		vtysh_unflock_config();
 		if (ret) {
 			fprintf(stderr,
 				"Configuration file[%s] processing failure: %d\n",
-				quagga_config, ret);
+				frr_config, ret);
 			if (no_error)
 				exit(0);
 			else

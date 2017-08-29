@@ -79,7 +79,7 @@ frr_TEXINFOS = appendix.texi basic.texi bgpd.texi isisd.texi filter.texi \
 .dia.png:
 	$(DIATOPNG) "$@" $<
 
-man_MANS = frr.1
+man_MANS = frr.1 frr-args.8
 
 if PIMD
 man_MANS += pimd.8

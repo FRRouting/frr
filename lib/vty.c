@@ -91,6 +91,25 @@ char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
 
 static int do_log_commands = 0;
 
+void vty_frame(struct vty *vty, const char *format, ...)
+{
+	va_list args;
+
+	va_start(args, format);
+	vsnprintf(vty->frame + vty->frame_pos,
+		  sizeof(vty->frame) - vty->frame_pos,
+		  format, args);
+	vty->frame_pos = strlen(vty->frame);
+	va_end(args);
+}
+
+void vty_endframe(struct vty *vty, const char *endtext)
+{
+	if (vty->frame_pos == 0 && endtext)
+		vty_out(vty, "%s", endtext);
+	vty->frame_pos = 0;
+}
+
 /* VTY standard output function. */
 int vty_out(struct vty *vty, const char *format, ...)
 {
@@ -99,6 +118,11 @@ int vty_out(struct vty *vty, const char *format, ...)
 	int size = 1024;
 	char buf[1024];
 	char *p = NULL;
+
+	if (vty->frame_pos) {
+		vty->frame_pos = 0;
+		vty_out(vty, "%s", vty->frame);
+	}
 
 	if (vty_shell(vty)) {
 		va_start(args, format);

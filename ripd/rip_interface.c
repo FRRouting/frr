@@ -1751,7 +1751,7 @@ static int rip_interface_config_write(struct vty *vty)
 		    && (!ri->auth_str) && (!ri->key_chain))
 			continue;
 
-		vty_out(vty, "interface %s\n", ifp->name);
+		vty_frame(vty, "interface %s\n", ifp->name);
 
 		if (ifp->desc)
 			vty_out(vty, " description %s\n", ifp->desc);
@@ -1807,7 +1807,7 @@ static int rip_interface_config_write(struct vty *vty)
 			vty_out(vty, " ip rip authentication key-chain %s\n",
 				ri->key_chain);
 
-		vty_out(vty, "!\n");
+		vty_endframe(vty, "!\n");
 	}
 	return 0;
 }

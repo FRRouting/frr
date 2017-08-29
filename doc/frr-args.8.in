@@ -1,0 +1,248 @@
+.TH frr-args 8 "28 August 2017" "@PACKAGE_FULLNAME@ general options" "Version @PACKAGE_VERSION@"
+.SH NAME
+frr-args \- common command line options for all @PACKAGE_FULLNAME@ daemons.
+.SH SYNOPSIS
+<\fBzebra\fR|\fBbgpd\fR|\fB...\fR>
+[\fB\-h\fR] [\fB\-v\fR]
+
+<\fBzebra\fR|\fBbgpd\fR|\fB...\fR>
+[\fB\-d\fR|\fB\-t\fR|\fB\-dt\fR]
+[\fB\-C\fR]
+[\fB\-f\fR \fIconfig-file\fR]
+[\fB\-i\fR \fIpid-file\fR]
+[\fB\-z\fR \fIzclient-path\fR]
+[\fB\-u\fR \fIuser\fR]
+[\fB\-g\fR \fIgroup\fR]
+[\fB\-A\fR \fIvty-addr\fR]
+[\fB\-P\fR \fIvty-port\fR]
+[\fB\-M\fR \fImodule\fR[\fB:\fIoptions\fR]]
+[\fB\-N\fR \fIpathspace\fR]
+[\fB\-\-vty_socket\fR \fIvty-path\fR]
+[\fB\-\-moduledir\fR \fImodule-path\fR]
+
+.SH DESCRIPTION
+@PACKAGE_NAME@ daemons share a large part of their command line options;
+this man page documents these.  For options on specific daemons please refer
+to their respective man pages.  Most of the common options are related to
+process control, configuration and common library functionality.
+
+.SH HELP AND VERSION
+.TP
+\fB\-h\fR, \fB\-\-help\fR
+Print a short description of the daemon's command line options.
+.TP
+\fB\-v\fR, \fB\-\-version\fR
+Print version and build information for the daemon.
+.PP
+Both of these options inhibit normal operation and will immediately exit.
+
+.SH PROCESS CONTROL
+These options control background operation:
+.TP
+\fB\-d\fR, \fB\-\-daemon\fR
+Launches the process in background/daemon mode, forking and detaching from
+the terminal.
+
+The parent process will delay its exit until the daemon/child has finished
+its initialization and has entered its main loop.  This is important for
+\fBzebra\fR startup because the other daemons will attempt to connect to
+\fBzebra\fR.  A return from \fBzebra -d\fR guarantees its readiness to
+accept these connections.
+.TP
+\fB\-t\fR, \fB\-\-terminal\fR
+Opens an interactive VTY session on the terminal, allowing for both state
+and configuration operations.  Note that the terminal starts operating after
+startup has completed and the configuration file has been loaded.
+
+The process will exit when end of file is detected on the terminal.  It is
+possible to daemonize a process started with \fB-t\fR (but without \fB-d\fR)
+by sending \fISIGQUIT\fR to the process (normally mapped to a \fI^\\\fR
+keypress.)
+.TP
+\fB\-dt\fR, \fB\-\-daemon \-\-terminal\fR
+This combination of the previous two options will delay the daemon from
+going into background until the terminal session ends (by end of file.)
+
+If the process receives \fISIGINT\fR (e.g. a \fI^C\fR keypress) in this
+mode, it will exit instead of daemonizing.
+.PP
+It is safe to suspend (\fISIGTSTP\fR / \fI^Z\fR) the terminal session
+opened by the previous two options;  this will only stop the terminal but
+not the protocol daemon itself (which runs in a separate second process.)
+
+.SH CONFIGURATION AND PATHS
+The following options control configuration and file system locations for
+@PACKAGE_NAME@ processes:
+.TP
+\fB\-f\fR, \fB\-\-config_file\fR \fIconfig-file\fR
+Specify a configuration file to be used instead of the default 
+\fB\fI@CFG_SYSCONF@/<daemon>.conf\fR file.
+
+Note that the daemon will attempt to write to this file if the
+\fIwrite file\fR command is issued on its VTY interface or through
+\fBvtysh\fR.
+.TP
+\fB\-C\fR, \fB\-\-dryrun\fR
+Load the configuration file and check its validity, then exit.
+.TP
+\fB\-i\fR, \fB\-\-pid_file\fR \fIpid-file\fR
+Output a pid file to a location other than the default 
+\fB\fI@CFG_STATE@/<daemon>.pid\fR.
+.TP
+\fB\-z\fR, \fB\-\-socket\fR \fIzclient-path\fR
+Override the path of the ZAPI socket used to communicate between \fBzebra\fR
+and the various protocol daemons. The default is
+\fB\fI@CFG_STATE@/zserv.api\fR.  The value of this option must be the same
+across all daemons.
+.TP
+\fB\-N\fR, \fB\-\-pathspace\fR \fIpathspace\fR
+Insert \fIpathspace\fR into all default paths, changing the defaults to:
+.IP
+\fB@CFG_SYSCONF@/\fIpathspace\fB/<daemon>.conf\fR
+.br
+\fB@CFG_STATE@/\fIpathspace\fB/<daemon>.pid\fR
+.br
+\fB@CFG_STATE@/\fIpathspace\fB/<daemon>.vty\fR
+.br
+\fB@CFG_STATE@/\fIpathspace\fB/zserv.api\fR
+
+\'.\' and \'/\' characters will not be accepted in \fIpathspace\fR, but the
+empty string will be accepted.
+
+Note that this only changes the respective defaults, it has no effect on
+the respective path if the \fB\-f\fR, \fB\-i\fR, \fB\-z\fR or
+\fB\-\-vty_socket\fR options are used.
+
+The purpose of this option is to easily group all file system related
+bits together for running multiple fully-separate "logical routers" on a
+system, particularly with Linux network namespaces.  Groups of daemons
+running with distinct \fIpathspace\fR values will be completely unaware
+of each other and not interact in any way.
+
+This option does not do any system setup (like network namespaces.) This
+must be done by the user, for example by running:
+.IP
+\fBip netns exec \fInamespace \fB<daemon> -N \fInamespace\fR
+
+.SH PROCESS CREDENTIALS
+.TP
+\fB\-u\fR, \fB\-\-user\fR \fIuser\fR
+(default: \fB@enable_user@\fR)
+.TP
+\fB\-g\fR, \fB\-\-group\fR \fIgroup\fR
+(default: \fB@enable_group@\fR)
+.IP
+Change the user/group which the daemon will switch to.
+.PP
+Note that there is an additional group, \fB@enable_vty_group@\fR, which
+controls group ownership of the VTY sockets.  The name of this group cannot
+currently be changed, and \fIuser\fR must be a member of this group.
+
+.SH VTY SETUP
+These following options control the daemon's VTY (interactive command line)
+interface.  The interface is available over TCP, using the telnet protocol,
+as well as through the \fBvtysh\fR frontend.
+.TP
+\fB\-A\fR, \fB--vty_addr\fR \fIvty-addr\fR
+Specify an IP/IPv6 address to bind the TCP VTY interface to.  It is
+generally recommended to specify \fI::1\fR or \fI127.0.0.1\fR.  For reasons
+of backwards compatibility, the default is to listen on all interfaces.
+.TP
+\fB\-P\fR, \fB--vty_port\fR \fIvty-port\fR
+Override the daemon's default TCP VTY port (each daemon has a different
+default value upwards of 2600, listed below.)  Specifying \fI0\fR disables
+the TCP VTY interface.
+
+Default ports are:
+
+.ta 16m
+zebra	2601
+.br
+ripd	2602
+.br
+ripngd	2603
+.br
+ospfd	2604
+.br
+bgpd	2605
+.br
+ospf6d	2606
+.br
+isisd	2608
+.br
+babeld	2609
+.br
+nhrpd	2610
+.br
+pimd	2611
+.br
+ldpd	2612
+.br
+eigrpd	2613
+
+Port 2607 is used for ospfd's Opaque LSA API, while port 2600 is used for
+the (insecure) TCP-ZEBRA interface.
+.TP
+\fB\-\-vty_socket\fR \fIvty-path\fR
+Overrides the directory used for the \fB<daemon>.vty\fR sockets.
+\fBvtysh\fR connects to these sockets in order to access each daemon's
+VTY.
+.br
+Default: \fB\fI@CFG_STATE@\fR[\fB/\fI<pathspace>\fR]
+
+NB: Unlike the other options, this option specifies a \fBdirectory\fR,
+not a full path.
+
+This option is primarily used by the SNAP packaging system, its semantics
+may change.  It should not be neccessary in most other scenarios.
+
+.SH MODULE LOADING
+@PACKAGE_NAME@ supports optional dynamically loadable modules, although
+these can only be loaded at startup.  The set of available modules may vary
+across distributions and packages, and modules may be available for
+installation as separate packages.
+.TP
+\fB\-M\fR, \fB\-\-module\fR \fImodule\fR[\fB:\fIoptions\fR]
+Load a module named \fImodule\fR, optionally passing \fIoptions\fR to it.
+
+If there is a \'/\' character in \fImodule\fR, the value is assumed to be
+a pathname to a module.
+
+If there is no \'/\' character, the module directory (see next option)
+is searched first for a module named "\fI<daemon>\fB_\fI<module>\fB.so\fR",
+then for "\fI<module>\fB.so\fR".
+This allows for a module to exist in variations appropriate for particular
+daemons, e.g. \fIzebra_snmp\fR and \fIbgp_snmp\fR, with the correct one
+selected by \fI\-M snmp\fR.
+
+The meaning of \fIoptions\fR is specific to the module being loaded.  Most
+modules currently ignore it.
+
+Modules are loaded in the order as listed on the command line.  This is
+not generally relevant.
+.TP
+\fB\-\-moduledir\fR \fImodule-path\fR
+Look for modules in the \fImodule-path\fR directory instead of the default
+\fI@CFG_MODULE@\fR.  (This path is \fBnot\fR affected by the \fB\-N\fR
+option.)
+.PP
+The list of loaded modules can be inspected at runtime with the
+\fBshow modules\fR VTY command.
+
+
+.SH "SEE ALSO"
+.BR zebra (8),
+.BR vtysh (1),
+.BR ripd (8),
+.BR ripngd (8),
+.BR ospfd (8),
+.BR ospf6d (8),
+.BR bgpd (8),
+.BR isisd (8),
+.BR babeld (8),
+.BR nhrpd (8),
+.BR pimd (8),
+.BR ldpd (8),
+.BR eigrpd (8)
+
+\fIhttps://frrouting.org/

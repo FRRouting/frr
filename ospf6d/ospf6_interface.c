@@ -1755,7 +1755,7 @@ static int config_write_ospf6_interface(struct vty *vty)
 		if (oi == NULL)
 			continue;
 
-		vty_out(vty, "interface %s\n", oi->interface->name);
+		vty_frame(vty, "interface %s\n", oi->interface->name);
 
 		if (ifp->desc)
 			vty_out(vty, " description %s\n", ifp->desc);
@@ -1808,7 +1808,7 @@ static int config_write_ospf6_interface(struct vty *vty)
 
 		ospf6_bfd_write_config(vty, oi);
 
-		vty_out(vty, "!\n");
+		vty_endframe(vty, "!\n");
 	}
 	return 0;
 }

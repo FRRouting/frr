@@ -8156,8 +8156,8 @@ static int config_write_interface(struct vty *vty)
 		if (ifp->ifindex == IFINDEX_DELETED)
 			continue;
 
-		vty_out(vty, "!\n");
-		vty_out(vty, "interface %s\n", ifp->name);
+		vty_frame(vty, "!\n");
+		vty_frame(vty, "interface %s\n", ifp->name);
 		if (ifp->desc)
 			vty_out(vty, " description %s\n", ifp->desc);
 
@@ -8371,6 +8371,8 @@ static int config_write_interface(struct vty *vty)
 		} while (rn);
 
 		ospf_opaque_config_write_if(vty, ifp);
+
+		vty_endframe(vty, NULL);
 	}
 
 	return write;

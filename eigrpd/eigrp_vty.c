@@ -93,7 +93,7 @@ static int config_write_interfaces(struct vty *vty, struct eigrp *eigrp)
 	struct listnode *node;
 
 	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
-		vty_out(vty, "interface %s\n", ei->ifp->name);
+		vty_frame(vty, "interface %s\n", ei->ifp->name);
 
 		if ((IF_DEF_PARAMS(ei->ifp)->auth_type)
 		    == EIGRP_AUTH_TYPE_MD5) {
@@ -128,7 +128,7 @@ static int config_write_interfaces(struct vty *vty, struct eigrp *eigrp)
 		}
 
 		/*Separate this EIGRP interface configuration from the others*/
-		vty_out(vty, "!\n");
+		vty_endframe(vty, "!\n");
 	}
 
 	return 0;
@@ -140,7 +140,7 @@ static int eigrp_write_interface(struct vty *vty)
 	struct interface *ifp;
 
 	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
-		vty_out(vty, "interface %s\n", ifp->name);
+		vty_frame(vty, "interface %s\n", ifp->name);
 
 		if (ifp->desc)
 			vty_out(vty, " description %s\n", ifp->desc);
@@ -157,7 +157,7 @@ static int eigrp_write_interface(struct vty *vty)
 			vty_out(vty, " ip hold-time eigrp %u\n",
 				IF_DEF_PARAMS(ifp)->v_wait);
 
-		vty_out(vty, "!\n");
+		vty_endframe(vty, "!\n");
 	}
 
 	return 0;
