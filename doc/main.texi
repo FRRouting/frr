@@ -65,6 +65,17 @@ Up or down the current interface.
 Set the IPv4 or IPv6 address/prefix for the interface.
 @end deffn
 
+@deffn {Interface Command} {ip address @var{local-addr} peer @var{peer-addr/prefix}} {}
+@deffnx {Interface Command} {no ip address @var{local-addr} peer @var{peer-addr/prefix}} {}
+Configure an IPv4 Pointopoint address on the interface.
+(The concept of PtP addressing does not exist for IPv6.)
+
+@var{local-addr} has no subnet mask since the local side in PtP
+addressing is always a single (/32) address.  @var{peer-addr/prefix}
+can be an arbitrary subnet behind the other end of the link (or even on the
+link in Point-to-Multipoint setups), though generally /32s are used.
+@end deffn
+
 @deffn {Interface Command} {ip address @var{address/prefix} secondary} {}
 @deffnx {Interface Command} {no ip address @var{address/prefix} secondary} {}
 Set the secondary flag for this address. This causes ospfd to not treat the
