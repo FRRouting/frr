@@ -6424,6 +6424,59 @@ DEFUN (show_bgp_vrfs,
 	return CMD_SUCCESS;
 }
 
+static void show_address_entry(struct hash_backet *backet, void *args)
+{
+	struct vty *vty = (struct vty *) args;
+	struct bgp_addr	*addr = (struct bgp_addr *) backet->data;
+
+	vty_out(vty, "addr: %s, count: %d\n",
+		inet_ntoa(addr->addr),
+		addr->refcnt);
+}
+
+static void show_tip_entry(struct hash_backet *backet, void *args)
+{
+	struct vty *vty = (struct vty *)args;
+	struct tip_addr *tip = (struct tip_addr *) backet->data;
+
+	vty_out(vty, "addr: %s, count: %d\n",
+		inet_ntoa(tip->addr),
+		tip->refcnt);
+}
+
+static void bgp_show_martian_nexthops(struct vty *vty, struct bgp *bgp)
+{
+	vty_out(vty, "self nexthop database:\n");
+	hash_iterate(bgp->address_hash,
+		     (void (*)(struct hash_backet *, void *))show_address_entry,
+		     vty);
+
+	vty_out(vty, "Tunnel-ip database:\n");
+	hash_iterate(bgp->tip_hash,
+		     (void (*)(struct hash_backet *, void *))show_tip_entry,
+		     vty);
+}
+
+DEFUN (show_bgp_martian_nexthop_db,
+       show_bgp_martian_nexthop_db_cmd,
+       "show bgp martian next-hop",
+       SHOW_STR
+       BGP_STR
+       "martian next-hops\n"
+       "martian next-hop database\n")
+{
+	struct bgp *bgp = NULL;
+
+	bgp = bgp_get_default();
+	if (!bgp) {
+		vty_out(vty, "%% No BGP process is configured\n");
+		return CMD_WARNING;
+	}
+	bgp_show_martian_nexthops(vty, bgp);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_bgp_memory,
        show_bgp_memory_cmd,
        "show [ip] bgp memory",
@@ -7528,6 +7581,12 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 							     "defaultNotSent");
 		}
 
+		if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
+			if (p->bgp->advertise_all_vni)
+				json_object_boolean_true_add(json_addr,
+							     "advertiseAllVnis");
+		}
+
 		if (filter->plist[FILTER_IN].name
 		    || filter->dlist[FILTER_IN].name
 		    || filter->aslist[FILTER_IN].name
@@ -7791,6 +7850,12 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 				vty_out(vty, " default sent\n");
 			else
 				vty_out(vty, " default not sent\n");
+		}
+
+		/* advertise-vni-all */
+		if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
+			if (p->bgp->advertise_all_vni)
+				vty_out(vty, "  advertise-all-vni\n");
 		}
 
 		if (filter->plist[FILTER_IN].name
@@ -8577,6 +8642,46 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 					json_cap, "multiprotocolExtensions",
 					json_multi);
 
+				/* Hostname capabilities */
+				json_object	*json_hname = NULL;
+
+				json_hname = json_object_new_object();
+
+				if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_ADV)) {
+					json_object_string_add(
+						json_hname,
+						"advHostName",
+						bgp->peer_self->hostname ?
+							bgp->peer_self->hostname
+							: "n/a");
+					json_object_string_add(
+						json_hname,
+						"advDomainName",
+						bgp->peer_self->domainname ?
+							bgp->peer_self->domainname
+							: "n/a");
+				}
+
+
+				if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_RCV)) {
+					json_object_string_add(
+						json_hname,
+						"rcvHostName",
+						p->hostname ?
+							p->hostname :
+							"n/a");
+					json_object_string_add(
+						json_hname,
+						"rcvDomainName",
+						p->domainname ?
+							p->domainname :
+							"n/a");
+				}
+
+				json_object_object_add(json_cap,
+						       "hostName",
+						       json_hname);
+
 				/* Gracefull Restart */
 				if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)
 				    || CHECK_FLAG(p->cap,
@@ -8910,24 +9015,34 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 						}
 
 				/* Hostname capability */
-				if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_ADV)
-				    || CHECK_FLAG(p->cap,
-						  PEER_CAP_HOSTNAME_RCV)) {
+				vty_out(vty,
+					"    Hostname Capability:");
+
+				if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_ADV)) {
 					vty_out(vty,
-						"    Hostname Capability:");
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_HOSTNAME_ADV))
-						vty_out(vty, " advertised");
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_HOSTNAME_RCV))
-						vty_out(vty, " %sreceived",
-							CHECK_FLAG(
-								p->cap,
-								PEER_CAP_HOSTNAME_ADV)
-								? "and "
-								: "");
-					vty_out(vty, "\n");
+						" advertised (name: %s,domain name: %s)",
+						bgp->peer_self->hostname ?
+							bgp->peer_self->hostname
+							: "n/a",
+						bgp->peer_self->domainname ?
+							bgp->peer_self->domainname
+							: "n/a");
+				} else {
+					vty_out(vty, " not advertised");
 				}
+
+				if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_RCV)) {
+					vty_out(vty,
+						" received (name: %s,domain name: %s)",
+						p->hostname ?
+							p->hostname : "n/a",
+						p->domainname ?
+							p->domainname : "n/a");
+				} else {
+					vty_out(vty, " not received");
+				}
+
+				vty_out(vty, "\n");
 
 				/* Gracefull Restart */
 				if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)
@@ -12263,6 +12378,9 @@ void bgp_vty_init(void)
 
 	/* "show [ip] bgp memory" commands. */
 	install_element(VIEW_NODE, &show_bgp_memory_cmd);
+
+	/* "show bgp martian next-hop" */
+	install_element(VIEW_NODE, &show_bgp_martian_nexthop_db_cmd);
 
 	/* "show [ip] bgp views" commands. */
 	install_element(VIEW_NODE, &show_bgp_views_cmd);

@@ -50,6 +50,7 @@ int main(int argc, char **argv)
 	/* Library inits. */
 	cmd_init(1);
 	host.name = strdup("test");
+	host.domainname = strdup("testdomainname");
 
 	vty_init(master);
 	memory_init();

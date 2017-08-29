@@ -146,6 +146,6 @@ void dynhn_print_all(struct vty *vty)
 	}
 
 	vty_out(vty, "     * %s %s\n", sysid_print(isis->sysid),
-		unix_hostname());
+		cmd_hostname_get());
 	return;
 }

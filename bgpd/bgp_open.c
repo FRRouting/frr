@@ -1271,7 +1271,6 @@ void bgp_open_capability(struct stream *s, struct peer *peer)
 	as_t local_as;
 	u_int32_t restart_time;
 	u_char afi_safi_count = 0;
-	struct utsname names;
 	int adv_addpath_tx = 0;
 
 	/* Remember current pointer for Opt Parm Len. */
@@ -1441,8 +1440,7 @@ void bgp_open_capability(struct stream *s, struct peer *peer)
 	}
 
 	/* Hostname capability */
-	uname(&names);
-	if (names.nodename[0] != '\0') {
+	if (cmd_hostname_get()) {
 		SET_FLAG(peer->cap, PEER_CAP_HOSTNAME_ADV);
 		stream_putc(s, BGP_OPEN_OPT_CAP);
 		rcapp = stream_get_endp(s); /* Ptr to length placeholder */
@@ -1450,26 +1448,21 @@ void bgp_open_capability(struct stream *s, struct peer *peer)
 		stream_putc(s, CAPABILITY_CODE_FQDN);
 		capp = stream_get_endp(s);
 		stream_putc(s, 0); /* dummy len for now */
-		len = strlen(names.nodename);
+		len = strlen(cmd_hostname_get());
 		if (len > BGP_MAX_HOSTNAME)
 			len = BGP_MAX_HOSTNAME;
 
 		stream_putc(s, len);
-		stream_put(s, names.nodename, len);
-#ifdef HAVE_STRUCT_UTSNAME_DOMAINNAME
-		if ((names.domainname[0] != '\0')
-		    && (strcmp(names.domainname, "(none)") != 0)) {
-			len = strlen(names.domainname);
+		stream_put(s, cmd_hostname_get(), len);
+		if (cmd_domainname_get()) {
+			len = strlen(cmd_domainname_get());
 			if (len > BGP_MAX_HOSTNAME)
 				len = BGP_MAX_HOSTNAME;
 
 			stream_putc(s, len);
-			stream_put(s, names.domainname, len);
+			stream_put(s, cmd_domainname_get(), len);
 		} else
-#endif
-		{
 			stream_putc(s, 0); /* 0 length */
-		}
 
 		/* Set the lengths straight */
 		len = stream_get_endp(s) - rcapp - 1;
@@ -1478,14 +1471,10 @@ void bgp_open_capability(struct stream *s, struct peer *peer)
 		stream_putc_at(s, capp, len);
 
 		if (bgp_debug_neighbor_events(peer))
-#ifdef HAVE_STRUCT_UTSNAME_DOMAINNAME
 			zlog_debug(
 				"%s Sending hostname cap with hn = %s, dn = %s",
-				peer->host, names.nodename, names.domainname);
-#else
-			zlog_debug("%s Sending hostname cap with hn = %s",
-				   peer->host, names.nodename);
-#endif
+				peer->host, cmd_hostname_get(),
+				cmd_domainname_get());
 	}
 
 	/* Sending base graceful-restart capability irrespective of the config

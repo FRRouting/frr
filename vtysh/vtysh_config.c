@@ -423,10 +423,9 @@ int vtysh_read_config(const char *config_default_dir)
 void vtysh_config_write()
 {
 	char line[81];
-	extern struct host host;
 
-	if (host.name) {
-		sprintf(line, "hostname %s", host.name);
+	if (cmd_hostname_get()) {
+		sprintf(line, "hostname %s", cmd_hostname_get());
 		vtysh_config_parse_line(NULL, line);
 	}
 	if (vtysh_write_integrated == WRITE_INTEGRATED_NO)

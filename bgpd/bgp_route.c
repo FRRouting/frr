@@ -2042,9 +2042,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 
 	/* Do we need to allocate or free labels?
 	 * Right now, since we only deal with per-prefix labels, it is not
-	 * necessary
-	 * to do this upon changes to best path except of the label index
-	 * changes.
+	 * necessary to do this upon changes to best path except if the label
+	 * index changes
 	 */
 	if (bgp->allocate_mpls_labels[afi][safi]) {
 		if (new_select) {
@@ -2425,7 +2424,7 @@ int bgp_maximum_prefix_overflow(struct peer *peer, afi_t afi, safi_t safi,
 /* Unconditionally remove the route from the RIB, without taking
  * damping into consideration (eg, because the session went down)
  */
-static void bgp_rib_remove(struct bgp_node *rn, struct bgp_info *ri,
+void bgp_rib_remove(struct bgp_node *rn, struct bgp_info *ri,
 			   struct peer *peer, afi_t afi, safi_t safi)
 {
 	bgp_aggregate_decrement(peer->bgp, &rn->p, ri, afi, safi);
@@ -6270,46 +6269,65 @@ void bgp_redistribute_withdraw(struct bgp *bgp, afi_t afi, int type,
 }
 
 /* Static function to display route. */
-static void route_vty_out_route(struct prefix *p, struct vty *vty)
+static void route_vty_out_route(struct prefix *p, struct vty *vty,
+				json_object *json)
 {
 	int len;
 	u_int32_t destination;
 	char buf[BUFSIZ];
 
 	if (p->family == AF_INET) {
-		len = vty_out(vty, "%s",
-			      inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ));
-		destination = ntohl(p->u.prefix4.s_addr);
+		if (!json) {
+			len = vty_out(vty, "%s",
+				      inet_ntop(p->family, &p->u.prefix, buf,
+						BUFSIZ));
+			destination = ntohl(p->u.prefix4.s_addr);
 
-		if ((IN_CLASSC(destination) && p->prefixlen == 24)
-		    || (IN_CLASSB(destination) && p->prefixlen == 16)
-		    || (IN_CLASSA(destination) && p->prefixlen == 8)
-		    || p->u.prefix4.s_addr == 0) {
-			/* When mask is natural, mask is not displayed. */
-		} else
-			len += vty_out(vty, "/%d", p->prefixlen);
+			if ((IN_CLASSC(destination) && p->prefixlen == 24)
+			    || (IN_CLASSB(destination) && p->prefixlen == 16)
+			    || (IN_CLASSA(destination) && p->prefixlen == 8)
+			    || p->u.prefix4.s_addr == 0) {
+				/* When mask is natural,
+				   mask is not displayed. */
+			} else
+				len += vty_out(vty, "/%d", p->prefixlen);
+		} else {
+			json_object_string_add(json, "prefix",
+					       inet_ntop(p->family,
+							 &p->u.prefix, buf,
+							 BUFSIZ));
+			json_object_int_add(json, "prefixLen", p->prefixlen);
+		}
 	} else if (p->family == AF_ETHERNET) {
 		prefix2str(p, buf, PREFIX_STRLEN);
 		len = vty_out(vty, "%s", buf);
 	} else if (p->family == AF_EVPN) {
 #if defined(HAVE_CUMULUS)
-		len = vty_out(vty, "%s",
-			      bgp_evpn_route2str((struct prefix_evpn *)p, buf,
-						 BUFSIZ));
+		if (!json)
+			len = vty_out(vty, "%s",
+				bgp_evpn_route2str((struct prefix_evpn *)p,
+						   buf, BUFSIZ));
+		else
+			bgp_evpn_route2json((struct prefix_evpn *) p, json);
 #else
 		prefix2str(p, buf, PREFIX_STRLEN);
 		len = vty_out(vty, "%s", buf);
 #endif
-	} else
-		len = vty_out(vty, "%s/%d",
-			      inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
-			      p->prefixlen);
+	} else {
+		if (!json)
+			len = vty_out(vty, "%s/%d",
+				      inet_ntop(p->family, &p->u.prefix, buf,
+						BUFSIZ),
+				      p->prefixlen);
+	}
 
-	len = 17 - len;
-	if (len < 1)
-		vty_out(vty, "\n%*s", 20, " ");
-	else
-		vty_out(vty, "%*s", len, " ");
+	if (!json) {
+		len = 17 - len;
+		if (len < 1)
+			vty_out(vty, "\n%*s", 20, " ");
+		else
+			vty_out(vty, "%*s", len, " ");
+	}
 }
 
 enum bgp_display_type {
@@ -6413,9 +6431,11 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 	if (!json_paths) {
 		/* print prefix and mask */
 		if (!display)
-			route_vty_out_route(p, vty);
+			route_vty_out_route(p, vty, json_path);
 		else
 			vty_out(vty, "%*s", 17, " ");
+	} else {
+		route_vty_out_route(p, vty, json_path);
 	}
 
 	/* Print attribute */
@@ -6711,7 +6731,7 @@ void route_vty_out_tmp(struct vty *vty, struct prefix *p, struct attr *attr,
 			json_net, "addrPrefix",
 			inet_ntop(p->family, &p->u.prefix, buff, BUFSIZ));
 	else
-		route_vty_out_route(p, vty);
+		route_vty_out_route(p, vty, NULL);
 
 	/* Print attribute */
 	if (attr) {
@@ -6844,7 +6864,7 @@ void route_vty_out_tag(struct vty *vty, struct prefix *p,
 	/* print prefix and mask */
 	if (json == NULL) {
 		if (!display)
-			route_vty_out_route(p, vty);
+			route_vty_out_route(p, vty, NULL);
 		else
 			vty_out(vty, "%*s", 17, " ");
 	}
@@ -6959,7 +6979,7 @@ void route_vty_out_overlay(struct vty *vty, struct prefix *p,
 
 	/* print prefix and mask */
 	if (!display)
-		route_vty_out_route(p, vty);
+		route_vty_out_route(p, vty, NULL);
 	else
 		vty_out(vty, "%*s", 17, " ");
 
@@ -7028,7 +7048,7 @@ static void damp_route_vty_out(struct vty *vty, struct prefix *p,
 	/* print prefix and mask */
 	if (!use_json) {
 		if (!display)
-			route_vty_out_route(p, vty);
+			route_vty_out_route(p, vty, NULL);
 		else
 			vty_out(vty, "%*s", 17, " ");
 	}
@@ -7097,7 +7117,7 @@ static void flap_route_vty_out(struct vty *vty, struct prefix *p,
 	/* print prefix and mask */
 	if (!use_json) {
 		if (!display)
-			route_vty_out_route(p, vty);
+			route_vty_out_route(p, vty, NULL);
 		else
 			vty_out(vty, "%*s", 17, " ");
 	}
@@ -8380,6 +8400,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 #if defined(HAVE_CUMULUS)
 	char buf3[EVPN_ROUTE_STRLEN];
 #endif
+	char prefix_str[BUFSIZ];
 	int count = 0;
 	int best = 0;
 	int suppress = 0;
@@ -8402,9 +8423,8 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 			json_object_int_add(json, "localLabel", label);
 
 		json_object_string_add(json, "prefix",
-				       inet_ntop(p->family, &p->u.prefix, buf2,
-						 INET6_ADDRSTRLEN));
-		json_object_int_add(json, "prefixlen", p->prefixlen);
+				       prefix2str(p, prefix_str,
+						  sizeof(prefix_str)));
 	} else {
 #if defined(HAVE_CUMULUS)
 		if (safi == SAFI_EVPN)

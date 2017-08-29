@@ -1441,7 +1441,7 @@ static int show_isis_database(struct vty *vty, const char *argv, int ui_level)
 						lsp = lsp_search(
 							lspid,
 							area->lspdb[level]);
-					} else if (strncmp(unix_hostname(),
+					} else if (strncmp(cmd_hostname_get(),
 							   sysid, 15)
 						   == 0) {
 						memcpy(lspid, isis->sysid,

@@ -28,6 +28,7 @@
 extern void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw);
 extern char *bgp_evpn_label2str(mpls_label_t *label, char *buf, int len);
 extern char *bgp_evpn_route2str(struct prefix_evpn *p, char *buf, int len);
+extern void bgp_evpn_route2json(struct prefix_evpn *p, json_object *json);
 extern void bgp_evpn_encode_prefix(struct stream *s, struct prefix *p,
 				   struct prefix_rd *prd, mpls_label_t *label,
 				   struct attr *attr, int addpath_encode,
@@ -38,6 +39,7 @@ extern int bgp_evpn_import_route(struct bgp *bgp, afi_t afi, safi_t safi,
 				 struct prefix *p, struct bgp_info *ri);
 extern int bgp_evpn_unimport_route(struct bgp *bgp, afi_t afi, safi_t safi,
 				   struct prefix *p, struct bgp_info *ri);
+extern int bgp_filter_evpn_routes_upon_martian_nh_change(struct bgp *bgp);
 extern int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni,
 				    struct ethaddr *mac, struct ipaddr *ip);
 extern int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni,

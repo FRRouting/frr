@@ -66,4 +66,10 @@ void bgp_unlink_nexthop_by_peer(struct peer *);
  */
 extern void bgp_delete_connected_nexthop(afi_t afi, struct peer *peer);
 
+/*
+ * Cleanup nexthop registration and status information for BGP nexthops
+ * pertaining to this VRF. This is invoked upon VRF deletion.
+ */
+extern void bgp_cleanup_nexthops(struct bgp *bgp);
+
 #endif /* _BGP_NHT_H */

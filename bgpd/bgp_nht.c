@@ -482,6 +482,34 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 	evaluate_paths(bnc);
 }
 
+/*
+ * Cleanup nexthop registration and status information for BGP nexthops
+ * pertaining to this VRF. This is invoked upon VRF deletion.
+ */
+void bgp_cleanup_nexthops(struct bgp *bgp)
+{
+	afi_t afi;
+	struct bgp_node *rn;
+	struct bgp_nexthop_cache *bnc;
+
+	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+		if (!bgp->nexthop_cache_table[afi])
+			continue;
+
+		for (rn = bgp_table_top(bgp->nexthop_cache_table[afi]); rn;
+		     rn = bgp_route_next(rn)) {
+			bnc = rn->info;
+			if (!bnc)
+				continue;
+
+			/* Clear relevant flags. */
+			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_VALID);
+			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
+			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
+		}
+	}
+}
+
 /**
  * make_prefix - make a prefix structure from the path (essentially
  * path's node.

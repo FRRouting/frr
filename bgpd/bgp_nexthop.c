@@ -88,11 +88,86 @@ static void bgp_nexthop_cache_reset(struct bgp_table *table)
 		}
 }
 
-/* BGP own address structure */
-struct bgp_addr {
-	struct in_addr addr;
-	int refcnt;
-};
+static void *bgp_tip_hash_alloc(void *p)
+{
+	const struct in_addr *val = (const struct in_addr *)p;
+	struct tip_addr *addr;
+
+	addr = XMALLOC(MTYPE_TIP_ADDR, sizeof(struct tip_addr));
+	addr->refcnt = 0;
+	addr->addr.s_addr = val->s_addr;
+
+	return addr;
+}
+
+static void bgp_tip_hash_free(void *addr)
+{
+	XFREE(MTYPE_TIP_ADDR, addr);
+}
+
+static unsigned int bgp_tip_hash_key_make(void *p)
+{
+	const struct tip_addr *addr = p;
+
+	return jhash_1word(addr->addr.s_addr, 0);
+}
+
+static int bgp_tip_hash_cmp(const void *p1, const void *p2)
+{
+	const struct tip_addr *addr1 = p1;
+	const struct tip_addr *addr2 = p2;
+
+	return addr1->addr.s_addr == addr2->addr.s_addr;
+}
+
+void bgp_tip_hash_init(struct bgp *bgp)
+{
+	bgp->tip_hash = hash_create(bgp_tip_hash_key_make,
+					bgp_tip_hash_cmp, NULL);
+}
+
+void bgp_tip_hash_destroy(struct bgp *bgp)
+{
+	if (bgp->tip_hash == NULL)
+		return;
+	hash_clean(bgp->tip_hash, bgp_tip_hash_free);
+	hash_free(bgp->tip_hash);
+	bgp->tip_hash = NULL;
+}
+
+void bgp_tip_add(struct bgp *bgp, struct in_addr *tip)
+{
+	struct tip_addr tmp;
+	struct tip_addr *addr;
+
+	tmp.addr = *tip;
+
+	addr = hash_get(bgp->tip_hash, &tmp, bgp_tip_hash_alloc);
+	if (!addr)
+		return;
+
+	addr->refcnt++;
+}
+
+void bgp_tip_del(struct bgp *bgp, struct in_addr *tip)
+{
+	struct tip_addr tmp;
+	struct tip_addr *addr;
+
+	tmp.addr = *tip;
+
+	addr = hash_lookup(bgp->tip_hash, &tmp);
+	/* may have been deleted earlier by bgp_interface_down() */
+	if (addr == NULL)
+		return;
+
+	addr->refcnt--;
+
+	if (addr->refcnt == 0) {
+		hash_release(bgp->tip_hash, addr);
+		XFREE(MTYPE_TIP_ADDR, addr);
+	}
+}
 
 static void *bgp_address_hash_alloc(void *p)
 {
@@ -304,11 +379,17 @@ void bgp_connected_delete(struct bgp *bgp, struct connected *ifc)
 int bgp_nexthop_self(struct bgp *bgp, struct in_addr nh_addr)
 {
 	struct bgp_addr tmp, *addr;
+	struct tip_addr tmp_tip, *tip;
 
 	tmp.addr = nh_addr;
 
 	addr = hash_lookup(bgp->address_hash, &tmp);
 	if (addr)
+		return 1;
+
+	tmp_tip.addr = nh_addr;
+	tip = hash_lookup(bgp->tip_hash, &tmp_tip);
+	if (tip)
 		return 1;
 
 	return 0;

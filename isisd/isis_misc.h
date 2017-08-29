@@ -56,7 +56,6 @@ void zlog_dump_data(void *data, int len);
  * misc functions
  */
 unsigned long isis_jitter(unsigned long timer, unsigned long jitter);
-const char *unix_hostname(void);
 
 /*
  * macros

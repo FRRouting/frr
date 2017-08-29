@@ -2014,7 +2014,8 @@ static int netlink_ipneigh_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	 * itself
 	 */
 	if (IS_ZEBRA_IF_VLAN(ifp)) {
-		link_if = zif->link;
+		link_if = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
+						    zif->link_ifindex);
 		if (!link_if)
 			return 0;
 	} else if (IS_ZEBRA_IF_BRIDGE(ifp))

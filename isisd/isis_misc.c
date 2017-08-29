@@ -432,24 +432,6 @@ struct in_addr newprefix2inaddr(u_char *prefix_start, u_char prefix_masklen)
 }
 
 /*
- * Returns host.name if any, otherwise
- * it returns the system hostname.
- */
-const char *unix_hostname(void)
-{
-	static struct utsname names;
-	const char *hostname;
-
-	hostname = host.name;
-	if (!hostname) {
-		uname(&names);
-		hostname = names.nodename;
-	}
-
-	return hostname;
-}
-
-/*
  * Returns the dynamic hostname associated with the passed system ID.
  * If no dynamic hostname found then returns formatted system ID.
  */
@@ -462,7 +444,7 @@ const char *print_sys_hostname(const u_char *sysid)
 
 	/* For our system ID return our host name */
 	if (memcmp(sysid, isis->sysid, ISIS_SYS_ID_LEN) == 0)
-		return unix_hostname();
+		return cmd_hostname_get();
 
 	dyn = dynhn_find_by_id(sysid);
 	if (dyn)

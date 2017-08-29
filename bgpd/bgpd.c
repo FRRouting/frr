@@ -2816,6 +2816,21 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 		XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->host);
 	bgp->peer_self->host =
 		XSTRDUP(MTYPE_BGP_PEER_HOST, "Static announcement");
+	if (bgp->peer_self->hostname != NULL) {
+		XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->hostname);
+		bgp->peer_self->hostname = NULL;
+	}
+	if (cmd_hostname_get())
+		bgp->peer_self->hostname = XSTRDUP(MTYPE_BGP_PEER_HOST,
+						   cmd_hostname_get());
+
+	if (bgp->peer_self->domainname != NULL) {
+		XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->domainname);
+		bgp->peer_self->domainname = NULL;
+	}
+	if (cmd_domainname_get())
+		bgp->peer_self->domainname = XSTRDUP(MTYPE_BGP_PEER_HOST,
+						     cmd_domainname_get());
 	bgp->peer = list_new();
 	bgp->peer->cmp = (int (*)(void *, void *))peer_cmp;
 	bgp->peerhash = hash_create(peer_hash_key_make, peer_hash_same, NULL);
@@ -2988,6 +3003,7 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	bgp = bgp_create(as, name, inst_type);
 	bgp_router_id_set(bgp, &bgp->router_id_zebra);
 	bgp_address_init(bgp);
+	bgp_tip_hash_init(bgp);
 	bgp_scan_init(bgp);
 	*bgp_val = bgp;
 
@@ -3069,6 +3085,9 @@ void bgp_instance_down(struct bgp *bgp)
 
 	/* Purge network and redistributed routes. */
 	bgp_purge_static_redist_routes(bgp);
+
+	/* Cleanup registered nexthops (flags) */
+	bgp_cleanup_nexthops(bgp);
 }
 
 /* Delete BGP instance. */
@@ -3200,6 +3219,7 @@ void bgp_free(struct bgp *bgp)
 
 	bgp_scan_finish(bgp);
 	bgp_address_destroy(bgp);
+	bgp_tip_hash_destroy(bgp);
 
 	bgp_evpn_cleanup(bgp);
 

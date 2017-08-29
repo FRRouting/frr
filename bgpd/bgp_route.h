@@ -294,6 +294,8 @@ static inline int bgp_fibupd_safi(safi_t safi)
 }
 
 /* Prototypes. */
+extern void bgp_rib_remove(struct bgp_node *rn, struct bgp_info *ri,
+			   struct peer *peer, afi_t afi, safi_t safi);
 extern void bgp_process_queue_init(void);
 extern void bgp_route_init(void);
 extern void bgp_route_finish(void);

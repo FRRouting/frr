@@ -66,6 +66,18 @@ struct bgp_nexthop_cache {
 	struct bgp *bgp;
 };
 
+/* BGP own address structure */
+struct bgp_addr {
+	struct in_addr addr;
+	int refcnt;
+};
+
+/* Own tunnel-ip address structure */
+struct tip_addr {
+	struct in_addr addr;
+	int refcnt;
+};
+
 extern int bgp_nexthop_lookup(afi_t, struct peer *peer, struct bgp_info *,
 			      int *, int *);
 extern void bgp_connected_add(struct bgp *bgp, struct connected *c);
@@ -82,5 +94,9 @@ extern void bgp_scan_finish(struct bgp *bgp);
 extern void bgp_scan_vty_init(void);
 extern void bgp_address_init(struct bgp *bgp);
 extern void bgp_address_destroy(struct bgp *bgp);
+extern void bgp_tip_add(struct bgp *bgp, struct in_addr *tip);
+extern void bgp_tip_del(struct bgp *bgp, struct in_addr *tip);
+extern void bgp_tip_hash_init(struct bgp *bgp);
+extern void bgp_tip_hash_destroy(struct bgp *bgp);
 
 #endif /* _QUAGGA_BGP_NEXTHOP_H */
