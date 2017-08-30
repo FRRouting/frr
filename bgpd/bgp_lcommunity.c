@@ -447,7 +447,7 @@ char *lcommunity_lcom2str(struct lcommunity *lcom, int format)
 		if (!first)
 			str_buf[str_pnt++] = ' ';
 
-		pnt = lcom->val + (i * 12);
+		pnt = lcom->val + (i * LCOMMUNITY_SIZE);
 
 		globaladmin = (*pnt++ << 24);
 		globaladmin |= (*pnt++ << 16);
@@ -489,7 +489,7 @@ int lcommunity_match(const struct lcommunity *lcom1,
 
 	/* Every community on com2 needs to be on com1 for this to match */
 	while (i < lcom1->size && j < lcom2->size) {
-		if (memcmp(lcom1->val + (i * 12), lcom2->val + (j * 12),
+		if (memcmp(lcom1->val + (i * LCOMMUNITY_SIZE), lcom2->val + (j * LCOMMUNITY_SIZE),
 			   LCOMMUNITY_SIZE)
 		    == 0)
 			j++;
