@@ -1364,7 +1364,7 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 		pim_upstream_start_register_stop_timer(up, 1);
 
 		if (((up->channel_oil->cc.lastused / 100)
-		     > PIM_KEEPALIVE_PERIOD)
+		     > pim->keep_alive_time)
 		    && (I_am_RP(pim_ifp->pim, up->sg.grp))) {
 			if (PIM_DEBUG_TRACE)
 				zlog_debug(
