@@ -943,9 +943,8 @@ struct lcommunity *lcommunity_list_match_delete(struct lcommunity *lcom,
 	}
 
 	/* Delete all of the communities we flagged for deletion */
-	ptr = lcom->val;
 	for (i = delete_index - 1; i >= 0; i--) {
-		ptr += (com_index_to_delete[i] * LCOMMUNITY_SIZE);
+		ptr = lcom->val + (com_index_to_delete[i] * LCOMMUNITY_SIZE);
 		lcommunity_del_val(lcom, ptr);
 	}
 
