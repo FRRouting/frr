@@ -38,7 +38,7 @@
 #define SHOW_DISPLAY_STANDARD 0
 #define SHOW_DISPLAY_TAGS 1
 #define SHOW_DISPLAY_OVERLAY 2
-#define VNI_STR_LEN          32
+#define VNI_STR_LEN 32
 
 /*
  * Context for VNI hash walk - used by callbacks.
@@ -157,7 +157,6 @@ static void display_import_rt(struct vty *vty, struct irt_node *irt,
 		json_object_object_add(json_rt, "vnis", json_vnis);
 		json_object_object_add(json, rt_buf, json_rt);
 	}
-
 }
 
 static void show_import_rt_entry(struct hash_backet *backet, void *args[])
@@ -587,18 +586,15 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 
 		rd_header = 1;
 
-		for (rm = bgp_table_top(table); rm;
-		     rm = bgp_route_next(rm))
+		for (rm = bgp_table_top(table); rm; rm = bgp_route_next(rm))
 			for (ri = rm->info; ri; ri = ri->next) {
 				total_count++;
 				if (type == bgp_show_type_neighbor) {
-					union sockunion *su =
-						output_arg;
+					union sockunion *su = output_arg;
 
 					if (ri->peer->su_remote == NULL
 					    || !sockunion_same(
-						       ri->peer->su_remote,
-						       su))
+						       ri->peer->su_remote, su))
 						continue;
 				}
 				if (header == 0) {
@@ -624,8 +620,7 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 								json_ocode);
 						}
 					} else {
-						if (option
-						    == SHOW_DISPLAY_TAGS)
+						if (option == SHOW_DISPLAY_TAGS)
 							vty_out(vty,
 								V4_HEADER_TAG);
 						else if (
@@ -642,8 +637,7 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 								"Status codes: s suppressed, d damped, h history, * valid, > best, i - internal\n");
 							vty_out(vty,
 								"Origin codes: i - IGP, e - EGP, ? - incomplete\n\n");
-							vty_out(vty,
-								V4_HEADER);
+							vty_out(vty, V4_HEADER);
 						}
 					}
 					header = 0;
@@ -669,14 +663,11 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 						char buffer[BUFSIZ];
 						if (type == RD_TYPE_AS
 						    || type == RD_TYPE_AS4)
-							sprintf(buffer,
-								"%u:%d",
+							sprintf(buffer, "%u:%d",
 								rd_as.as,
 								rd_as.val);
-						else if (type
-							 == RD_TYPE_IP)
-							sprintf(buffer,
-								"%s:%d",
+						else if (type == RD_TYPE_IP)
+							sprintf(buffer, "%s:%d",
 								inet_ntoa(
 									rd_ip.ip),
 								rd_ip.val);
@@ -692,16 +683,13 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 								"as2 %u:%d",
 								rd_as.as,
 								rd_as.val);
-						else if (type
-							 == RD_TYPE_AS4)
+						else if (type == RD_TYPE_AS4)
 							vty_out(vty,
 								"as4 %u:%d",
 								rd_as.as,
 								rd_as.val);
-						else if (type
-							 == RD_TYPE_IP)
-							vty_out(vty,
-								"ip %s:%d",
+						else if (type == RD_TYPE_IP)
+							vty_out(vty, "ip %s:%d",
 								inet_ntoa(
 									rd_ip.ip),
 								rd_ip.val);
@@ -1496,8 +1484,7 @@ static void evpn_show_import_rts(struct vty *vty, struct bgp *bgp,
  * Display EVPN routes for all VNIs - vty handler.
  */
 static void evpn_show_routes_vni_all(struct vty *vty, struct bgp *bgp,
-				     struct in_addr vtep_ip,
-				     json_object *json)
+				     struct in_addr vtep_ip, json_object *json)
 {
 	u_int32_t num_vnis;
 	struct vni_walk_ctx wctx;
@@ -2357,7 +2344,8 @@ DEFUN(show_bgp_l2vpn_evpn_summary,
 /*
  * Display global EVPN routing table.
  */
-DEFUN(show_bgp_l2vpn_evpn_route, show_bgp_l2vpn_evpn_route_cmd,
+DEFUN(show_bgp_l2vpn_evpn_route,
+      show_bgp_l2vpn_evpn_route_cmd,
       "show bgp l2vpn evpn route [type <macip|multicast>] [json]",
       SHOW_STR
       BGP_STR
@@ -2409,7 +2397,8 @@ DEFUN(show_bgp_l2vpn_evpn_route, show_bgp_l2vpn_evpn_route_cmd,
 /*
  * Display global EVPN routing table for specific RD.
  */
-DEFUN(show_bgp_l2vpn_evpn_route_rd, show_bgp_l2vpn_evpn_route_rd_cmd,
+DEFUN(show_bgp_l2vpn_evpn_route_rd,
+      show_bgp_l2vpn_evpn_route_rd_cmd,
       "show bgp l2vpn evpn route rd ASN:nn_or_IP-address:nn [type <macip|multicast>] [json]",
       SHOW_STR
       BGP_STR
@@ -2754,7 +2743,8 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_multicast,
 /*
  * Display per-VNI EVPN routing table - for all VNIs.
  */
-DEFUN(show_bgp_l2vpn_evpn_route_vni_all, show_bgp_l2vpn_evpn_route_vni_all_cmd,
+DEFUN(show_bgp_l2vpn_evpn_route_vni_all,
+      show_bgp_l2vpn_evpn_route_vni_all_cmd,
       "show bgp l2vpn evpn route vni all [vtep A.B.C.D] [json]",
       SHOW_STR
       BGP_STR
@@ -2808,7 +2798,8 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_all, show_bgp_l2vpn_evpn_route_vni_all_cmd,
 /*
  * Display EVPN import route-target hash table
  */
-DEFUN(show_bgp_l2vpn_evpn_import_rt, show_bgp_l2vpn_evpn_import_rt_cmd,
+DEFUN(show_bgp_l2vpn_evpn_import_rt,
+      show_bgp_l2vpn_evpn_import_rt_cmd,
       "show bgp l2vpn evpn import-rt [json]",
       SHOW_STR
       BGP_STR

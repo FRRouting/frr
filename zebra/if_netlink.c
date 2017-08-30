@@ -836,8 +836,8 @@ static int netlink_address(int cmd, int family, struct interface *ifp,
 	if (family == AF_INET) {
 		if (CONNECTED_PEER(ifc)) {
 			p = ifc->destination;
-			addattr_l(&req.n, sizeof req, IFA_ADDRESS,
-				  &p->u.prefix, bytelen);
+			addattr_l(&req.n, sizeof req, IFA_ADDRESS, &p->u.prefix,
+				  bytelen);
 		} else if (cmd == RTM_NEWADDR && ifc->destination) {
 			p = ifc->destination;
 			addattr_l(&req.n, sizeof req, IFA_BROADCAST,
@@ -999,9 +999,9 @@ int netlink_interface_addr(struct sockaddr_nl *snl, struct nlmsghdr *h,
 			 */
 			if (!(ifa->ifa_flags
 			      & (IFA_F_DADFAILED | IFA_F_TENTATIVE)))
-				connected_add_ipv6(
-					ifp, flags, (struct in6_addr *)addr,
-					ifa->ifa_prefixlen, label);
+				connected_add_ipv6(ifp, flags,
+						   (struct in6_addr *)addr,
+						   ifa->ifa_prefixlen, label);
 		} else
 			connected_delete_ipv6(ifp, (struct in6_addr *)addr,
 					      ifa->ifa_prefixlen);

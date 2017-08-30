@@ -1969,8 +1969,8 @@ static void zvni_install_mac_hash(struct hash_backet *backet, void *ctxt)
 static void zvni_deref_ip2mac(zebra_vni_t *zvni, zebra_mac_t *mac,
 			      int uninstall)
 {
-	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO) ||
-	    !list_isempty(mac->neigh_list))
+	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO)
+	    || !list_isempty(mac->neigh_list))
 		return;
 
 	if (uninstall)
@@ -2965,13 +2965,11 @@ int zebra_vxlan_local_neigh_add_update(struct interface *ifp,
 			 * as this means a different MACIP route.
 			 * Also, need to do some unlinking/relinking.
 			 */
-			zvni_neigh_send_del_to_client(zvrf, zvni->vni,
-						      &n->ip, &n->emac,
-						      0);
+			zvni_neigh_send_del_to_client(zvrf, zvni->vni, &n->ip,
+						      &n->emac, 0);
 			old_zmac = zvni_mac_lookup(zvni, &n->emac);
 			if (old_zmac) {
-				listnode_delete(old_zmac->neigh_list,
-						n);
+				listnode_delete(old_zmac->neigh_list, n);
 				zvni_deref_ip2mac(zvni, old_zmac, 0);
 			}
 
@@ -3026,15 +3024,13 @@ int zebra_vxlan_local_neigh_add_update(struct interface *ifp,
 
 	/* Inform BGP. */
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug(
-			"%u: neigh %s (MAC %s) is now ACTIVE on VNI %u",
-			ifp->vrf_id, ipaddr2str(ip, buf2, sizeof(buf2)),
-			prefix_mac2str(macaddr, buf, sizeof(buf)),
-			zvni->vni);
+		zlog_debug("%u: neigh %s (MAC %s) is now ACTIVE on VNI %u",
+			   ifp->vrf_id, ipaddr2str(ip, buf2, sizeof(buf2)),
+			   prefix_mac2str(macaddr, buf, sizeof(buf)),
+			   zvni->vni);
 
 	ZEBRA_NEIGH_SET_ACTIVE(n);
-	return zvni_neigh_send_add_to_client(zvrf, zvni->vni, ip,
-					     macaddr, 0);
+	return zvni_neigh_send_add_to_client(zvrf, zvni->vni, ip, macaddr, 0);
 }
 
 
@@ -3751,8 +3747,9 @@ int zebra_vxlan_remote_vtep_del(struct zserv *client, int sock, u_short length,
 
 		ifp = zvni->vxlan_if;
 		if (!ifp) {
-			zlog_err("VNI %u hash %p doesn't have intf upon remote VTEP DEL",
-				 zvni->vni, zvni);
+			zlog_err(
+				"VNI %u hash %p doesn't have intf upon remote VTEP DEL",
+				zvni->vni, zvni);
 			continue;
 		}
 		zif = ifp->info;
@@ -3910,9 +3907,8 @@ int zebra_vxlan_add_del_gw_macip(struct interface *ifp, struct prefix *p,
 			svi_if_zif = svi_if->info;
 			if (svi_if_zif) {
 				svi_if_link = if_lookup_by_index_per_ns(
-							zebra_ns_lookup(
-								NS_DEFAULT),
-							svi_if_zif->link_ifindex);
+					zebra_ns_lookup(NS_DEFAULT),
+					svi_if_zif->link_ifindex);
 				zvni = zvni_map_svi(svi_if, svi_if_link);
 			}
 		} else if (IS_ZEBRA_IF_BRIDGE(svi_if)) {
@@ -3929,9 +3925,8 @@ int zebra_vxlan_add_del_gw_macip(struct interface *ifp, struct prefix *p,
 			NULL; /* link info for the SVI = bridge info */
 
 		svi_if_zif = ifp->info;
-		svi_if_link =
-			if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
-						  svi_if_zif->link_ifindex);
+		svi_if_link = if_lookup_by_index_per_ns(
+			zebra_ns_lookup(NS_DEFAULT), svi_if_zif->link_ifindex);
 		if (svi_if_zif && svi_if_link)
 			zvni = zvni_map_svi(ifp, svi_if_link);
 	} else if (IS_ZEBRA_IF_BRIDGE(ifp)) {

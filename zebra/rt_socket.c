@@ -175,11 +175,11 @@ static int kernel_rtm_ipv4(int cmd, struct prefix *p, struct route_entry *re)
 			smplsp = (union sockunion *)&smpls;
 #endif
 
-			error = rtm_write(
-				cmd, (union sockunion *)&sin_dest,
-				(union sockunion *)mask,
-				gate ? (union sockunion *)&sin_gate : NULL,
-				smplsp, ifindex, bh_type, re->metric);
+			error = rtm_write(cmd, (union sockunion *)&sin_dest,
+					  (union sockunion *)mask,
+					  gate ? (union sockunion *)&sin_gate
+					       : NULL,
+					  smplsp, ifindex, bh_type, re->metric);
 
 			if (IS_ZEBRA_DEBUG_RIB) {
 				if (!gate) {

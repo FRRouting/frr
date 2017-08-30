@@ -369,9 +369,11 @@ extern void bgp_process(struct bgp *, struct bgp_node *, afi_t, safi_t);
  * queue element with NULL bgp node.
  */
 extern void bgp_add_eoiu_mark(struct bgp *);
-extern void bgp_config_write_table_map(struct vty *, struct bgp *, afi_t, safi_t);
+extern void bgp_config_write_table_map(struct vty *, struct bgp *, afi_t,
+				       safi_t);
 extern void bgp_config_write_network(struct vty *, struct bgp *, afi_t, safi_t);
-extern void bgp_config_write_distance(struct vty *, struct bgp *, afi_t, safi_t);
+extern void bgp_config_write_distance(struct vty *, struct bgp *, afi_t,
+				      safi_t);
 
 extern void bgp_aggregate_increment(struct bgp *, struct prefix *,
 				    struct bgp_info *, afi_t, safi_t);

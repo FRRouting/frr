@@ -433,7 +433,7 @@ extern int zapi_route_encode(u_char, struct stream *, struct zapi_route *);
 extern int zapi_route_decode(struct stream *, struct zapi_route *);
 
 static inline void zapi_route_set_blackhole(struct zapi_route *api,
-				     enum blackhole_type bh_type)
+					    enum blackhole_type bh_type)
 {
 	api->nexthop_num = 1;
 	api->nexthops[0].type = NEXTHOP_TYPE_BLACKHOLE;

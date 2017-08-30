@@ -1440,7 +1440,7 @@ static int install_uninstall_routes_for_vni(struct bgp *bgp,
 				if (is_route_matching_for_vni(bgp, vpn, ri)) {
 					if (install)
 						ret = install_evpn_route_entry(
-						bgp, vpn, evp, ri);
+							bgp, vpn, evp, ri);
 					else
 						ret = uninstall_evpn_route_entry(
 							bgp, vpn, evp, ri);
@@ -2670,8 +2670,7 @@ int bgp_filter_evpn_routes_upon_martian_nh_change(struct bgp *bgp)
 				      && ri->sub_type == BGP_ROUTE_NORMAL))
 					continue;
 
-				if (bgp_nexthop_self(bgp,
-					ri->attr->nexthop)) {
+				if (bgp_nexthop_self(bgp, ri->attr->nexthop)) {
 
 					char attr_str[BUFSIZ];
 					char pbuf[PREFIX_STRLEN];
@@ -2685,20 +2684,16 @@ int bgp_filter_evpn_routes_upon_martian_nh_change(struct bgp *bgp)
 							"%u: prefix %s with attr %s - DENIED due to martian or self nexthop",
 							bgp->vrf_id,
 							prefix2str(
-								&rn->p,
-								pbuf,
+								&rn->p, pbuf,
 								sizeof(pbuf)),
 							attr_str);
 
 					bgp_evpn_unimport_route(bgp, afi, safi,
 								&rn->p, ri);
 
-					bgp_rib_remove(rn, ri, ri->peer,
-						       afi, safi);
-
-
+					bgp_rib_remove(rn, ri, ri->peer, afi,
+						       safi);
 				}
-
 			}
 		}
 	}
@@ -2851,7 +2846,6 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 				bgp->vrf_id, vni);
 			return -1;
 		}
-
 	}
 
 	/* if the VNI is live already, there is nothing more to do */

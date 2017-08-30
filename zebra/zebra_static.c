@@ -91,8 +91,8 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 								  si->ifindex);
 			break;
 		case STATIC_BLACKHOLE:
-			nexthop = route_entry_nexthop_blackhole_add(re,
-								    si->bh_type);
+			nexthop = route_entry_nexthop_blackhole_add(
+				re, si->bh_type);
 			break;
 		case STATIC_IPV6_GATEWAY:
 			nexthop = route_entry_nexthop_ipv6_add(re,
@@ -167,8 +167,8 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 								  si->ifindex);
 			break;
 		case STATIC_BLACKHOLE:
-			nexthop = route_entry_nexthop_blackhole_add(re,
-								    si->bh_type);
+			nexthop = route_entry_nexthop_blackhole_add(
+				re, si->bh_type);
 			break;
 		case STATIC_IPV6_GATEWAY:
 			nexthop = route_entry_nexthop_ipv6_add(re,

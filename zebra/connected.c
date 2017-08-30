@@ -208,8 +208,7 @@ void connected_up_ipv4(struct interface *ifp, struct connected *ifc)
 {
 	struct prefix p;
 	struct nexthop nh = {
-		.type = NEXTHOP_TYPE_IFINDEX,
-		.ifindex = ifp->ifindex,
+		.type = NEXTHOP_TYPE_IFINDEX, .ifindex = ifp->ifindex,
 	};
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
@@ -340,8 +339,7 @@ void connected_down_ipv4(struct interface *ifp, struct connected *ifc)
 {
 	struct prefix p;
 	struct nexthop nh = {
-		.type = NEXTHOP_TYPE_IFINDEX,
-		.ifindex = ifp->ifindex,
+		.type = NEXTHOP_TYPE_IFINDEX, .ifindex = ifp->ifindex,
 	};
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
@@ -432,8 +430,7 @@ void connected_up_ipv6(struct interface *ifp, struct connected *ifc)
 {
 	struct prefix p;
 	struct nexthop nh = {
-		.type = NEXTHOP_TYPE_IFINDEX,
-		.ifindex = ifp->ifindex,
+		.type = NEXTHOP_TYPE_IFINDEX, .ifindex = ifp->ifindex,
 	};
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
@@ -516,8 +513,7 @@ void connected_down_ipv6(struct interface *ifp, struct connected *ifc)
 {
 	struct prefix p;
 	struct nexthop nh = {
-		.type = NEXTHOP_TYPE_IFINDEX,
-		.ifindex = ifp->ifindex,
+		.type = NEXTHOP_TYPE_IFINDEX, .ifindex = ifp->ifindex,
 	};
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))

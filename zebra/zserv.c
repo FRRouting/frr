@@ -1094,8 +1094,8 @@ static int zread_route_add(struct zserv *client, u_short length,
 					api_nh->ifindex);
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
-				route_entry_nexthop_blackhole_add(re,
-					api_nh->bh_type);
+				route_entry_nexthop_blackhole_add(
+					re, api_nh->bh_type);
 				break;
 			}
 

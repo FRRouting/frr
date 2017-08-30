@@ -1498,7 +1498,7 @@ ALIAS_HIDDEN(no_bgp_maxpaths_ibgp, no_bgp_maxpaths_ibgp_hidden_cmd,
 	     "Match the cluster length\n")
 
 void bgp_config_write_maxpaths(struct vty *vty, struct bgp *bgp, afi_t afi,
-			      safi_t safi)
+			       safi_t safi)
 {
 	if (bgp->maxpaths[afi][safi].maxpaths_ebgp != MULTIPATH_NUM) {
 		vty_out(vty, "  maximum-paths %d\n",
@@ -6414,21 +6414,19 @@ DEFUN (show_bgp_vrfs,
 
 static void show_address_entry(struct hash_backet *backet, void *args)
 {
-	struct vty *vty = (struct vty *) args;
-	struct bgp_addr	*addr = (struct bgp_addr *) backet->data;
+	struct vty *vty = (struct vty *)args;
+	struct bgp_addr *addr = (struct bgp_addr *)backet->data;
 
-	vty_out(vty, "addr: %s, count: %d\n",
-		inet_ntoa(addr->addr),
+	vty_out(vty, "addr: %s, count: %d\n", inet_ntoa(addr->addr),
 		addr->refcnt);
 }
 
 static void show_tip_entry(struct hash_backet *backet, void *args)
 {
 	struct vty *vty = (struct vty *)args;
-	struct tip_addr *tip = (struct tip_addr *) backet->data;
+	struct tip_addr *tip = (struct tip_addr *)backet->data;
 
-	vty_out(vty, "addr: %s, count: %d\n",
-		inet_ntoa(tip->addr),
+	vty_out(vty, "addr: %s, count: %d\n", inet_ntoa(tip->addr),
 		tip->refcnt);
 }
 
@@ -6445,13 +6443,13 @@ static void bgp_show_martian_nexthops(struct vty *vty, struct bgp *bgp)
 		     vty);
 }
 
-DEFUN (show_bgp_martian_nexthop_db,
-       show_bgp_martian_nexthop_db_cmd,
-       "show bgp martian next-hop",
-       SHOW_STR
-       BGP_STR
-       "martian next-hops\n"
-       "martian next-hop database\n")
+DEFUN(show_bgp_martian_nexthop_db,
+      show_bgp_martian_nexthop_db_cmd,
+      "show bgp martian next-hop",
+      SHOW_STR
+      BGP_STR
+      "martian next-hops\n"
+      "martian next-hop database\n")
 {
 	struct bgp *bgp = NULL;
 
@@ -6671,19 +6669,16 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			char memstrbuf[MTYPE_MEMSTR_LEN];
 			int vrf_id_ui;
 
-			vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN)
-					    ? -1
-					    : bgp->vrf_id;
+			vrf_id_ui =
+				(bgp->vrf_id == VRF_UNKNOWN) ? -1 : bgp->vrf_id;
 
 			/* Usage summary and header */
 			if (use_json) {
 				json_object_string_add(
 					json, "routerId",
 					inet_ntoa(bgp->router_id));
-				json_object_int_add(json, "as",
-						    bgp->as);
-				json_object_int_add(json, "vrfId",
-						    vrf_id_ui);
+				json_object_int_add(json, "as", bgp->as);
+				json_object_int_add(json, "vrfId", vrf_id_ui);
 				json_object_string_add(
 					json, "vrfName",
 					(bgp->inst_type
@@ -6693,16 +6688,15 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			} else {
 				vty_out(vty,
 					"BGP router identifier %s, local AS number %u vrf-id %d",
-					inet_ntoa(bgp->router_id),
-					bgp->as, vrf_id_ui);
+					inet_ntoa(bgp->router_id), bgp->as,
+					vrf_id_ui);
 				vty_out(vty, "\n");
 			}
 
 			if (bgp_update_delay_configured(bgp)) {
 				if (use_json) {
 					json_object_int_add(
-						json,
-						"updateDelayLimit",
+						json, "updateDelayLimit",
 						bgp->v_update_delay);
 
 					if (bgp->v_update_delay
@@ -6712,8 +6706,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 							"updateDelayEstablishWait",
 							bgp->v_establish_wait);
 
-					if (bgp_update_delay_active(
-						    bgp)) {
+					if (bgp_update_delay_active(bgp)) {
 						json_object_string_add(
 							json,
 							"updateDelayFirstNeighbor",
@@ -6751,8 +6744,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 							"                   Establish wait: %d seconds\n",
 							bgp->v_establish_wait);
 
-					if (bgp_update_delay_active(
-						    bgp)) {
+					if (bgp_update_delay_active(bgp)) {
 						vty_out(vty,
 							"  First neighbor established: %s\n",
 							bgp->update_delay_begin_time);
@@ -6781,37 +6773,29 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				if (bgp_maxmed_onstartup_configured(bgp)
 				    && bgp->maxmed_active)
 					json_object_boolean_true_add(
-						json,
-						"maxMedOnStartup");
+						json, "maxMedOnStartup");
 				if (bgp->v_maxmed_admin)
 					json_object_boolean_true_add(
-						json,
-						"maxMedAdministrative");
+						json, "maxMedAdministrative");
 
 				json_object_int_add(
 					json, "tableVersion",
-					bgp_table_version(
-						bgp->rib[afi][safi]));
+					bgp_table_version(bgp->rib[afi][safi]));
 
-				ents = bgp_table_count(
-					bgp->rib[afi][safi]);
-				json_object_int_add(json, "ribCount",
-						    ents);
+				ents = bgp_table_count(bgp->rib[afi][safi]);
+				json_object_int_add(json, "ribCount", ents);
 				json_object_int_add(
 					json, "ribMemory",
 					ents * sizeof(struct bgp_node));
 
 				ents = listcount(bgp->peer);
-				json_object_int_add(json, "peerCount",
-						    ents);
-				json_object_int_add(
-					json, "peerMemory",
-					ents * sizeof(struct peer));
+				json_object_int_add(json, "peerCount", ents);
+				json_object_int_add(json, "peerMemory",
+						    ents * sizeof(struct peer));
 
 				if ((ents = listcount(bgp->group))) {
 					json_object_int_add(
-						json, "peerGroupCount",
-						ents);
+						json, "peerGroupCount", ents);
 					json_object_int_add(
 						json, "peerGroupMemory",
 						ents * sizeof(struct
@@ -6821,8 +6805,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				if (CHECK_FLAG(bgp->af_flags[afi][safi],
 					       BGP_CONFIG_DAMPENING))
 					json_object_boolean_true_add(
-						json,
-						"dampeningEnabled");
+						json, "dampeningEnabled");
 			} else {
 				if (bgp_maxmed_onstartup_configured(bgp)
 				    && bgp->maxmed_active)
@@ -6832,33 +6815,25 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					vty_out(vty,
 						"Max-med administrative active\n");
 
-				vty_out(vty,
-					"BGP table version %" PRIu64
-					"\n",
-					bgp_table_version(
-						bgp->rib[afi][safi]));
+				vty_out(vty, "BGP table version %" PRIu64 "\n",
+					bgp_table_version(bgp->rib[afi][safi]));
 
-				ents = bgp_table_count(
-					bgp->rib[afi][safi]);
+				ents = bgp_table_count(bgp->rib[afi][safi]);
 				vty_out(vty,
 					"RIB entries %ld, using %s of memory\n",
 					ents,
-					mtype_memstr(
-						memstrbuf,
-						sizeof(memstrbuf),
-						ents * sizeof(struct
-							      bgp_node)));
+					mtype_memstr(memstrbuf,
+						     sizeof(memstrbuf),
+						     ents * sizeof(struct
+								   bgp_node)));
 
 				/* Peer related usage */
 				ents = listcount(bgp->peer);
-				vty_out(vty,
-					"Peers %ld, using %s of memory\n",
+				vty_out(vty, "Peers %ld, using %s of memory\n",
 					ents,
 					mtype_memstr(
-						memstrbuf,
-						sizeof(memstrbuf),
-						ents * sizeof(struct
-							      peer)));
+						memstrbuf, sizeof(memstrbuf),
+						ents * sizeof(struct peer)));
 
 				if ((ents = listcount(bgp->group)))
 					vty_out(vty,
@@ -6872,15 +6847,14 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 
 				if (CHECK_FLAG(bgp->af_flags[afi][safi],
 					       BGP_CONFIG_DAMPENING))
-					vty_out(vty,
-						"Dampening enabled.\n");
+					vty_out(vty, "Dampening enabled.\n");
 				vty_out(vty, "\n");
 
 				/* Subtract 8 here because 'Neighbor' is
 				 * 8 characters */
 				vty_out(vty, "Neighbor");
-				vty_out(vty, "%*s",
-					max_neighbor_width - 8, " ");
+				vty_out(vty, "%*s", max_neighbor_width - 8,
+					" ");
 				vty_out(vty,
 					"V         AS MsgRcvd MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd\n");
 			}
@@ -6892,75 +6866,64 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			json_peer = json_object_new_object();
 
 			if (peer_dynamic_neighbor(peer))
-				json_object_boolean_true_add(
-					json_peer, "dynamicPeer");
+				json_object_boolean_true_add(json_peer,
+							     "dynamicPeer");
 
 			if (peer->hostname)
-				json_object_string_add(json_peer,
-						       "hostname",
+				json_object_string_add(json_peer, "hostname",
 						       peer->hostname);
 
 			if (peer->domainname)
-				json_object_string_add(
-					json_peer, "domainname",
-					peer->domainname);
+				json_object_string_add(json_peer, "domainname",
+						       peer->domainname);
 
-			json_object_int_add(json_peer, "remoteAs",
-					    peer->as);
+			json_object_int_add(json_peer, "remoteAs", peer->as);
 			json_object_int_add(json_peer, "version", 4);
-			json_object_int_add(
-				json_peer, "msgRcvd",
-				peer->open_in + peer->update_in
-					+ peer->keepalive_in
-					+ peer->notify_in
-					+ peer->refresh_in
-					+ peer->dynamic_cap_in);
-			json_object_int_add(
-				json_peer, "msgSent",
-				peer->open_out + peer->update_out
-					+ peer->keepalive_out
-					+ peer->notify_out
-					+ peer->refresh_out
-					+ peer->dynamic_cap_out);
+			json_object_int_add(json_peer, "msgRcvd",
+					    peer->open_in + peer->update_in
+						    + peer->keepalive_in
+						    + peer->notify_in
+						    + peer->refresh_in
+						    + peer->dynamic_cap_in);
+			json_object_int_add(json_peer, "msgSent",
+					    peer->open_out + peer->update_out
+						    + peer->keepalive_out
+						    + peer->notify_out
+						    + peer->refresh_out
+						    + peer->dynamic_cap_out);
 
 			json_object_int_add(json_peer, "tableVersion",
 					    peer->version[afi][safi]);
 			json_object_int_add(json_peer, "outq",
 					    peer->obuf->count);
 			json_object_int_add(json_peer, "inq", 0);
-			peer_uptime(peer->uptime, timebuf,
-				    BGP_UPTIME_LEN, use_json,
-				    json_peer);
-			json_object_int_add(
-				json_peer, "prefixReceivedCount",
-				peer->pcount[afi][pfx_rcd_safi]);
+			peer_uptime(peer->uptime, timebuf, BGP_UPTIME_LEN,
+				    use_json, json_peer);
+			json_object_int_add(json_peer, "prefixReceivedCount",
+					    peer->pcount[afi][pfx_rcd_safi]);
 
 			if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
-				json_object_string_add(json_peer,
-						       "state",
+				json_object_string_add(json_peer, "state",
 						       "Idle (Admin)");
-			else if (CHECK_FLAG(
-					 peer->sflags,
-					 PEER_STATUS_PREFIX_OVERFLOW))
-				json_object_string_add(json_peer,
-						       "state",
+			else if (CHECK_FLAG(peer->sflags,
+					    PEER_STATUS_PREFIX_OVERFLOW))
+				json_object_string_add(json_peer, "state",
 						       "Idle (PfxCt)");
 			else
 				json_object_string_add(
 					json_peer, "state",
-					lookup_msg(bgp_status_msg,
-						   peer->status, NULL));
+					lookup_msg(bgp_status_msg, peer->status,
+						   NULL));
 
 			if (peer->conf_if)
-				json_object_string_add(json_peer,
-						       "idType",
+				json_object_string_add(json_peer, "idType",
 						       "interface");
 			else if (peer->su.sa.sa_family == AF_INET)
-				json_object_string_add(
-					json_peer, "idType", "ipv4");
+				json_object_string_add(json_peer, "idType",
+						       "ipv4");
 			else if (peer->su.sa.sa_family == AF_INET6)
-				json_object_string_add(
-					json_peer, "idType", "ipv6");
+				json_object_string_add(json_peer, "idType",
+						       "ipv6");
 
 			json_object_object_add(json_peers, peer->host,
 					       json_peer);
@@ -6972,57 +6935,45 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			}
 
 			if (peer->hostname
-			    && bgp_flag_check(bgp,
-					      BGP_FLAG_SHOW_HOSTNAME))
+			    && bgp_flag_check(bgp, BGP_FLAG_SHOW_HOSTNAME))
 				len = vty_out(vty, "%s%s(%s)", dn_flag,
-					      peer->hostname,
-					      peer->host);
+					      peer->hostname, peer->host);
 			else
-				len = vty_out(vty, "%s%s", dn_flag,
-					      peer->host);
+				len = vty_out(vty, "%s%s", dn_flag, peer->host);
 
 			/* pad the neighbor column with spaces */
 			if (len < max_neighbor_width)
-				vty_out(vty, "%*s",
-					max_neighbor_width - len, " ");
+				vty_out(vty, "%*s", max_neighbor_width - len,
+					" ");
 
-			vty_out(vty, "4 %10u %7d %7d %8" PRIu64
-				     " %4d %4zd %8s",
+			vty_out(vty, "4 %10u %7d %7d %8" PRIu64 " %4d %4zd %8s",
 				peer->as,
 				peer->open_in + peer->update_in
-					+ peer->keepalive_in
-					+ peer->notify_in
+					+ peer->keepalive_in + peer->notify_in
 					+ peer->refresh_in
 					+ peer->dynamic_cap_in,
 				peer->open_out + peer->update_out
-					+ peer->keepalive_out
-					+ peer->notify_out
+					+ peer->keepalive_out + peer->notify_out
 					+ peer->refresh_out
 					+ peer->dynamic_cap_out,
-				peer->version[afi][safi], 0,
-				peer->obuf->count,
+				peer->version[afi][safi], 0, peer->obuf->count,
 				peer_uptime(peer->uptime, timebuf,
 					    BGP_UPTIME_LEN, 0, NULL));
 
 			if (peer->status == Established)
 				vty_out(vty, " %12ld",
-					peer->pcount[afi]
-						    [pfx_rcd_safi]);
+					peer->pcount[afi][pfx_rcd_safi]);
 			else {
-				if (CHECK_FLAG(peer->flags,
-					       PEER_FLAG_SHUTDOWN))
+				if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
 					vty_out(vty, " Idle (Admin)");
-				else if (
-					CHECK_FLAG(
-						peer->sflags,
-						PEER_STATUS_PREFIX_OVERFLOW))
+				else if (CHECK_FLAG(
+						 peer->sflags,
+						 PEER_STATUS_PREFIX_OVERFLOW))
 					vty_out(vty, " Idle (PfxCt)");
 				else
 					vty_out(vty, " %12s",
-						lookup_msg(
-							bgp_status_msg,
-							peer->status,
-							NULL));
+						lookup_msg(bgp_status_msg,
+							   peer->status, NULL));
 			}
 			vty_out(vty, "\n");
 		}
@@ -7572,8 +7523,8 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 
 		if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
 			if (p->bgp->advertise_all_vni)
-				json_object_boolean_true_add(json_addr,
-							     "advertiseAllVnis");
+				json_object_boolean_true_add(
+					json_addr, "advertiseAllVnis");
 		}
 
 		if (filter->plist[FILTER_IN].name
@@ -8632,43 +8583,38 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 					json_multi);
 
 				/* Hostname capabilities */
-				json_object	*json_hname = NULL;
+				json_object *json_hname = NULL;
 
 				json_hname = json_object_new_object();
 
 				if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_ADV)) {
 					json_object_string_add(
-						json_hname,
-						"advHostName",
-						bgp->peer_self->hostname ?
-							bgp->peer_self->hostname
+						json_hname, "advHostName",
+						bgp->peer_self->hostname
+							? bgp->peer_self
+								  ->hostname
 							: "n/a");
 					json_object_string_add(
-						json_hname,
-						"advDomainName",
-						bgp->peer_self->domainname ?
-							bgp->peer_self->domainname
+						json_hname, "advDomainName",
+						bgp->peer_self->domainname
+							? bgp->peer_self
+								  ->domainname
 							: "n/a");
 				}
 
 
 				if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_RCV)) {
 					json_object_string_add(
-						json_hname,
-						"rcvHostName",
-						p->hostname ?
-							p->hostname :
-							"n/a");
+						json_hname, "rcvHostName",
+						p->hostname ? p->hostname
+							    : "n/a");
 					json_object_string_add(
-						json_hname,
-						"rcvDomainName",
-						p->domainname ?
-							p->domainname :
-							"n/a");
+						json_hname, "rcvDomainName",
+						p->domainname ? p->domainname
+							      : "n/a");
 				}
 
-				json_object_object_add(json_cap,
-						       "hostName",
+				json_object_object_add(json_cap, "hostName",
 						       json_hname);
 
 				/* Gracefull Restart */
@@ -9004,17 +8950,18 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 						}
 
 				/* Hostname capability */
-				vty_out(vty,
-					"    Hostname Capability:");
+				vty_out(vty, "    Hostname Capability:");
 
 				if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_ADV)) {
 					vty_out(vty,
 						" advertised (name: %s,domain name: %s)",
-						bgp->peer_self->hostname ?
-							bgp->peer_self->hostname
+						bgp->peer_self->hostname
+							? bgp->peer_self
+								  ->hostname
 							: "n/a",
-						bgp->peer_self->domainname ?
-							bgp->peer_self->domainname
+						bgp->peer_self->domainname
+							? bgp->peer_self
+								  ->domainname
 							: "n/a");
 				} else {
 					vty_out(vty, " not advertised");
@@ -9023,10 +8970,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 				if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_RCV)) {
 					vty_out(vty,
 						" received (name: %s,domain name: %s)",
-						p->hostname ?
-							p->hostname : "n/a",
-						p->domainname ?
-							p->domainname : "n/a");
+						p->hostname ? p->hostname
+							    : "n/a",
+						p->domainname ? p->domainname
+							      : "n/a");
 				} else {
 					vty_out(vty, " not received");
 				}
@@ -11146,7 +11093,7 @@ DEFUN (no_bgp_redistribute_ipv6,
 }
 
 void bgp_config_write_redistribute(struct vty *vty, struct bgp *bgp, afi_t afi,
-				  safi_t safi)
+				   safi_t safi)
 {
 	int i;
 

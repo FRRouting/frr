@@ -1770,11 +1770,11 @@ int cmd_domainname_set(const char *domainname)
 }
 
 /* Hostname configuration */
-DEFUN (config_domainname,
-       domainname_cmd,
-       "domainname WORD",
-       "Set system's domain name\n"
-       "This system's domain name\n")
+DEFUN(config_domainname,
+      domainname_cmd,
+      "domainname WORD",
+      "Set system's domain name\n"
+      "This system's domain name\n")
 {
 	struct cmd_token *word = argv[1];
 
@@ -1786,12 +1786,12 @@ DEFUN (config_domainname,
 	return cmd_domainname_set(word->arg);
 }
 
-DEFUN (config_no_domainname,
-       no_domainname_cmd,
-       "no domainname [DOMAINNAME]",
-       NO_STR
-       "Reset system's domain name\n"
-       "domain name of this router\n")
+DEFUN(config_no_domainname,
+      no_domainname_cmd,
+      "no domainname [DOMAINNAME]",
+      NO_STR
+      "Reset system's domain name\n"
+      "domain name of this router\n")
 {
 	return cmd_domainname_set(NULL);
 }

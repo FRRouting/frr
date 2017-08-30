@@ -388,12 +388,11 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 				nh.type = NEXTHOP_TYPE_IFINDEX;
 			else if (index && gate)
 				nh.type = (afi == AFI_IP)
-					? NEXTHOP_TYPE_IPV4_IFINDEX
-					: NEXTHOP_TYPE_IPV6_IFINDEX;
+						  ? NEXTHOP_TYPE_IPV4_IFINDEX
+						  : NEXTHOP_TYPE_IPV6_IFINDEX;
 			else if (!index && gate)
-				nh.type = (afi == AFI_IP)
-					? NEXTHOP_TYPE_IPV4
-					: NEXTHOP_TYPE_IPV6;
+				nh.type = (afi == AFI_IP) ? NEXTHOP_TYPE_IPV4
+							  : NEXTHOP_TYPE_IPV6;
 			else {
 				nh.type = NEXTHOP_TYPE_BLACKHOLE;
 				nh.bh_type = bh_type;
@@ -489,12 +488,11 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 				nh.type = NEXTHOP_TYPE_IFINDEX;
 			else if (index && gate)
 				nh.type = (afi == AFI_IP)
-					? NEXTHOP_TYPE_IPV4_IFINDEX
-					: NEXTHOP_TYPE_IPV6_IFINDEX;
+						  ? NEXTHOP_TYPE_IPV4_IFINDEX
+						  : NEXTHOP_TYPE_IPV6_IFINDEX;
 			else if (!index && gate)
-				nh.type = (afi == AFI_IP)
-					? NEXTHOP_TYPE_IPV4
-					: NEXTHOP_TYPE_IPV6;
+				nh.type = (afi == AFI_IP) ? NEXTHOP_TYPE_IPV4
+							  : NEXTHOP_TYPE_IPV6;
 			else
 				nh.type = NEXTHOP_TYPE_BLACKHOLE;
 			nh.ifindex = index;
@@ -507,8 +505,8 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 			/* XXX: need to compare the entire list of nexthops
 			 * here for NLM_F_APPEND stupidity */
 			rib_delete(afi, SAFI_UNICAST, vrf_id,
-				   ZEBRA_ROUTE_KERNEL, 0, flags, &p, NULL,
-				   NULL, table, metric);
+				   ZEBRA_ROUTE_KERNEL, 0, flags, &p, NULL, NULL,
+				   table, metric);
 		}
 	}
 
