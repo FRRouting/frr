@@ -907,9 +907,8 @@ struct lcommunity *lcommunity_list_match_delete(struct lcommunity *lcom,
 	 * community-list.  If we need to delete a community value add its index
 	 * to com_index_to_delete.
 	 */
-	ptr = lcom->val;
 	for (i = 0; i < lcom->size; i++) {
-		ptr += (i * LCOMMUNITY_SIZE);
+		ptr = lcom->val + (i * LCOMMUNITY_SIZE);
 		for (entry = list->head; entry; entry = entry->next) {
 			if (entry->any) {
 				if (entry->direct == COMMUNITY_PERMIT) {
