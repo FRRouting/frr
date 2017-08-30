@@ -1520,17 +1520,18 @@ static route_map_result_t route_set_lcommunity(void *rule,
 			merge = lcommunity_merge(lcommunity_dup(old),
 						 rcs->lcom);
 
-			/* HACK: if the old large-community is not intern'd,
-			 * we should free it here, or all reference to it may be
-			 * lost.
-			 * Really need to cleanup attribute caching sometime.
-			 */
-			if (old->refcnt == 0)
-				lcommunity_free(&old);
 			new = lcommunity_uniq_sort(merge);
 			lcommunity_free(&merge);
 		} else
 			new = lcommunity_dup(rcs->lcom);
+
+		/* HACK: if the old large-community is not intern'd,
+		 * we should free it here, or all reference to it may be
+		 * lost.
+		 * Really need to cleanup attribute caching sometime.
+		 */
+		if (old && old->refcnt == 0)
+			lcommunity_free(&old);
 
 		/* will be intern()'d or attr_flush()'d by bgp_update_main() */
 		(bgp_attr_extra_get(attr))->lcommunity = new;
