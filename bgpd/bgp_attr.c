@@ -3058,20 +3058,20 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	if (CHECK_FLAG(peer->af_flags[afi][safi],
 		       PEER_FLAG_SEND_LARGE_COMMUNITY)
 	    && (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES))) {
-		if (attr->lcommunity->size * LCOMMUNITY_SIZE > 255) {
+		if (lcom_length(attr->lcommunity) > 255) {
 			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL
 					       | BGP_ATTR_FLAG_TRANS
 					       | BGP_ATTR_FLAG_EXTLEN);
 			stream_putc(s, BGP_ATTR_LARGE_COMMUNITIES);
-			stream_putw(s, attr->lcommunity->size * LCOMMUNITY_SIZE);
+			stream_putw(s, lcom_length(attr->lcommunity));
 		} else {
 			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL
 					       | BGP_ATTR_FLAG_TRANS);
 			stream_putc(s, BGP_ATTR_LARGE_COMMUNITIES);
-			stream_putc(s, attr->lcommunity->size * LCOMMUNITY_SIZE);
+			stream_putc(s, lcom_length(attr->lcommunity));
 		}
 		stream_put(s, attr->lcommunity->val,
-			   attr->lcommunity->size * LCOMMUNITY_SIZE);
+			   lcom_length(attr->lcommunity));
 	}
 
 	/* Route Reflector. */
@@ -3422,21 +3422,20 @@ void bgp_dump_routes_attr(struct stream *s, struct attr *attr,
 
 	/* Large Community attribute. */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES)) {
-		if (attr->lcommunity->size * LCOMMUNITY_SIZE > 255) {
+		if (lcom_length(attr->lcommunity) > 255) {
 			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL
 					       | BGP_ATTR_FLAG_TRANS
 					       | BGP_ATTR_FLAG_EXTLEN);
 			stream_putc(s, BGP_ATTR_LARGE_COMMUNITIES);
-			stream_putw(s, attr->lcommunity->size * LCOMMUNITY_SIZE);
+			stream_putw(s, lcom_length(attr->lcommunity));
 		} else {
 			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL
 					       | BGP_ATTR_FLAG_TRANS);
 			stream_putc(s, BGP_ATTR_LARGE_COMMUNITIES);
-			stream_putc(s, attr->lcommunity->size * LCOMMUNITY_SIZE);
+			stream_putc(s, lcom_length(attr->lcommunity));
 		}
 
-		stream_put(s, attr->lcommunity->val,
-			   attr->lcommunity->size * LCOMMUNITY_SIZE);
+		stream_put(s, attr->lcommunity->val, lcom_length(attr->lcommunity));
 	}
 
 	/* Add a MP_NLRI attribute to dump the IPv6 next hop */

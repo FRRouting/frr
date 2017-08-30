@@ -151,9 +151,8 @@ struct lcommunity *lcommunity_dup(struct lcommunity *lcom)
 	new = XCALLOC(MTYPE_LCOMMUNITY, sizeof(struct lcommunity));
 	new->size = lcom->size;
 	if (new->size) {
-		new->val = XMALLOC(MTYPE_LCOMMUNITY_VAL,
-				   lcom->size * LCOMMUNITY_SIZE);
-		memcpy(new->val, lcom->val, lcom->size * LCOMMUNITY_SIZE);
+		new->val = XMALLOC(MTYPE_LCOMMUNITY_VAL, lcom_length(lcom));
+		memcpy(new->val, lcom->val, lcom_length(lcom));
 	} else
 		new->val = NULL;
 	return new;
@@ -175,14 +174,13 @@ struct lcommunity *lcommunity_merge(struct lcommunity *lcom1,
 	if (lcom1->val)
 		lcom1->val =
 			XREALLOC(MTYPE_LCOMMUNITY_VAL, lcom1->val,
-				 (lcom1->size + lcom2->size) * LCOMMUNITY_SIZE);
+				 lcom_length(lcom1) + lcom_length(lcom2));
 	else
 		lcom1->val =
 			XMALLOC(MTYPE_LCOMMUNITY_VAL,
-				(lcom1->size + lcom2->size) * LCOMMUNITY_SIZE);
+				lcom_length(lcom1) + lcom_length(lcom2));
 
-	memcpy(lcom1->val + (lcom1->size * LCOMMUNITY_SIZE), lcom2->val,
-	       lcom2->size * LCOMMUNITY_SIZE);
+	memcpy(lcom1->val + lcom_length(lcom1), lcom2->val, lcom_length(lcom2));
 	lcom1->size += lcom2->size;
 
 	return lcom1;
@@ -231,7 +229,7 @@ void lcommunity_unintern(struct lcommunity **lcom)
 unsigned int lcommunity_hash_make(void *arg)
 {
 	const struct lcommunity *lcom = arg;
-	int size = lcom->size * LCOMMUNITY_SIZE;
+	int size = lcom_length(lcom);
 	u_int8_t *pnt = lcom->val;
 	unsigned int key = 0;
 	int c;
@@ -261,7 +259,7 @@ int lcommunity_cmp(const void *arg1, const void *arg2)
 	const struct lcommunity *lcom2 = arg2;
 
 	return (lcom1->size == lcom2->size
-		&& memcmp(lcom1->val, lcom2->val, lcom1->size * LCOMMUNITY_SIZE)
+		&& memcmp(lcom1->val, lcom2->val, lcom_length(lcom1))
 			   == 0);
 }
 
