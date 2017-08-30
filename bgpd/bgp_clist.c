@@ -704,8 +704,7 @@ struct community *community_list_match_delete(struct community *com,
 
 	/* Loop over each community value and evaluate each against the
 	 * community-list.  If we need to delete a community value add its index
-	 * to
-	 * com_index_to_delete.
+	 * to com_index_to_delete.
 	 */
 	for (i = 0; i < com->size; i++) {
 		val = community_val_get(com, i);
@@ -906,8 +905,7 @@ struct lcommunity *lcommunity_list_match_delete(struct lcommunity *lcom,
 
 	/* Loop over each lcommunity value and evaluate each against the
 	 * community-list.  If we need to delete a community value add its index
-	 * to
-	 * com_index_to_delete.
+	 * to com_index_to_delete.
 	 */
 	ptr = lcom->val;
 	for (i = 0; i < lcom->size; i++) {
