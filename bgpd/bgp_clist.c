@@ -930,7 +930,7 @@ struct lcommunity *lcommunity_list_match_delete(struct lcommunity *lcom,
 				break;
 			}
 
-			else if ((entry->style == LARGE_COMMUNITY_LIST_STANDARD)
+			else if ((entry->style == LARGE_COMMUNITY_LIST_EXPANDED)
 				 && lcommunity_regexp_include(entry->reg, lcom,
 							      i)) {
 				if (entry->direct == COMMUNITY_PERMIT) {
