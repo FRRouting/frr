@@ -424,50 +424,62 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	}
 }
 
+static void connected_delete_helper(struct connected *ifc, struct prefix *p)
+{
+	struct interface *ifp;
+
+	if (!ifc)
+		return;
+	ifp = ifc->ifp;
+
+	connected_withdraw(ifc);
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+		char buf[PREFIX_STRLEN];
+
+		zlog_debug("%u: IF %s IP %s address del, scheduling RIB processing",
+			   ifp->vrf_id, ifp->name,
+			   prefix2str(p, buf, sizeof(buf)));
+	}
+	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
+
+	/* Schedule LSP forwarding entries for processing, if appropriate. */
+	if (ifp->vrf_id == VRF_DEFAULT) {
+		if (IS_ZEBRA_DEBUG_MPLS) {
+			char buf[PREFIX_STRLEN];
+
+			zlog_debug("%u: IF %s IP %s address add/up, scheduling MPLS processing",
+				   ifp->vrf_id, ifp->name,
+				   prefix2str(p, buf, sizeof(buf)));
+		}
+		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id));
+	}
+}
+
 /* Delete connected IPv4 route to the interface. */
 void connected_delete_ipv4(struct interface *ifp, int flags,
 			   struct in_addr *addr, u_char prefixlen,
 			   struct in_addr *broad)
 {
-	struct prefix_ipv4 p, d;
+	struct prefix p, d;
 	struct connected *ifc;
 
-	memset(&p, 0, sizeof(struct prefix_ipv4));
+	memset(&p, 0, sizeof(struct prefix));
 	p.family = AF_INET;
-	p.prefix = *addr;
+	p.u.prefix4 = *addr;
 	p.prefixlen = CHECK_FLAG(flags, ZEBRA_IFA_PEER) ? IPV4_MAX_PREFIXLEN
 							: prefixlen;
 
 	if (broad) {
-		memset(&d, 0, sizeof(struct prefix_ipv4));
+		memset(&d, 0, sizeof(struct prefix));
 		d.family = AF_INET;
-		d.prefix = *broad;
+		d.u.prefix4 = *broad;
 		d.prefixlen = prefixlen;
-		ifc = connected_check_ptp(ifp, (struct prefix *)&p,
-					  (struct prefix *)&d);
+		ifc = connected_check_ptp(ifp, &p, &d);
 	} else
-		ifc = connected_check_ptp(ifp, (struct prefix *)&p, NULL);
+		ifc = connected_check_ptp(ifp, &p, NULL);
 
-	if (!ifc)
-		return;
-
-	connected_withdraw(ifc);
-
-	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug(
-			"%u: IF %s IPv4 address del, scheduling RIB processing",
-			ifp->vrf_id, ifp->name);
-
-	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
-
-	/* Schedule LSP forwarding entries for processing, if appropriate. */
-	if (ifp->vrf_id == VRF_DEFAULT) {
-		if (IS_ZEBRA_DEBUG_MPLS)
-			zlog_debug(
-				"%u: IF %s IPv4 address add/up, scheduling MPLS processing",
-				ifp->vrf_id, ifp->name);
-		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id));
-	}
+	connected_delete_helper(ifc, &p);
 }
 
 /* Add connected IPv6 route to the interface. */
@@ -515,35 +527,17 @@ void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
 void connected_delete_ipv6(struct interface *ifp, struct in6_addr *address,
 			   u_char prefixlen)
 {
-	struct prefix_ipv6 p;
+	struct prefix p;
 	struct connected *ifc;
 
-	memset(&p, 0, sizeof(struct prefix_ipv6));
+	memset(&p, 0, sizeof(struct prefix));
 	p.family = AF_INET6;
-	memcpy(&p.prefix, address, sizeof(struct in6_addr));
+	memcpy(&p.u.prefix6, address, sizeof(struct in6_addr));
 	p.prefixlen = prefixlen;
 
-	ifc = connected_check(ifp, (struct prefix *)&p);
-	if (!ifc)
-		return;
+	ifc = connected_check(ifp, &p);
 
-	connected_withdraw(ifc);
-
-	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug(
-			"%u: IF %s IPv6 address del, scheduling RIB processing",
-			ifp->vrf_id, ifp->name);
-
-	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
-
-	/* Schedule LSP forwarding entries for processing, if appropriate. */
-	if (ifp->vrf_id == VRF_DEFAULT) {
-		if (IS_ZEBRA_DEBUG_MPLS)
-			zlog_debug(
-				"%u: IF %s IPv4 address add/up, scheduling MPLS processing",
-				ifp->vrf_id, ifp->name);
-		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id));
-	}
+	connected_delete_helper(ifc, &p);
 }
 
 int connected_is_unnumbered(struct interface *ifp)
