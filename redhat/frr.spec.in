@@ -326,7 +326,7 @@ rm -f %{buildroot}%{_libdir}/frr/modules/*.la
 # install /etc sources
 %if "%{initsystem}" == "systemd"
 mkdir -p %{buildroot}%{_unitdir}
-install %{zeb_rh_src}/frr.service \
+install -m644 %{zeb_rh_src}/frr.service \
     %{buildroot}%{_unitdir}/frr.service
 install %{zeb_rh_src}/frr.init \
     %{buildroot}%{_sbindir}/frr
