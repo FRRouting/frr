@@ -400,7 +400,7 @@ DEFUN (eigrp_network,
 
 	if (ret == 0) {
 		vty_out(vty, "There is already same network statement.\n");
-		return CMD_WARNING_CONFIG_FAILED;
+		return CMD_WARNING;
 	}
 
 	return CMD_SUCCESS;

@@ -2215,7 +2215,7 @@ DEFUN (ripng_route,
 	if (rp->info) {
 		vty_out(vty, "There is already same static route.\n");
 		route_unlock_node(rp);
-		return CMD_WARNING_CONFIG_FAILED;
+		return CMD_WARNING;
 	}
 	rp->info = (void *)1;
 
@@ -2283,7 +2283,7 @@ DEFUN (ripng_aggregate_address,
 	if (node->info) {
 		vty_out(vty, "There is already same aggregate route.\n");
 		route_unlock_node(node);
-		return CMD_WARNING_CONFIG_FAILED;
+		return CMD_WARNING;
 	}
 	node->info = (void *)1;
 
@@ -2619,7 +2619,7 @@ DEFUN (ripng_allow_ecmp,
 {
 	if (ripng->ecmp) {
 		vty_out(vty, "ECMP is already enabled.\n");
-		return CMD_WARNING_CONFIG_FAILED;
+		return CMD_WARNING;
 	}
 
 	ripng->ecmp = 1;
@@ -2635,7 +2635,7 @@ DEFUN (no_ripng_allow_ecmp,
 {
 	if (!ripng->ecmp) {
 		vty_out(vty, "ECMP is already disabled.\n");
-		return CMD_WARNING_CONFIG_FAILED;
+		return CMD_WARNING;
 	}
 
 	ripng->ecmp = 0;

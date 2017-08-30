@@ -507,7 +507,7 @@ DEFUN (ospf_network_area,
 	ret = ospf_network_set(ospf, &p, area_id, format);
 	if (ret == 0) {
 		vty_out(vty, "There is already same network statement.\n");
-		return CMD_WARNING_CONFIG_FAILED;
+		return CMD_WARNING;
 	}
 
 	return CMD_SUCCESS;
@@ -847,7 +847,7 @@ static int ospf_vl_set_security(struct ospf_vl_data *vl_data,
 		    != NULL) {
 			vty_out(vty, "OSPF: Key %d already exists\n",
 				vl_config->crypto_key_id);
-			return CMD_WARNING_CONFIG_FAILED;
+			return CMD_WARNING;
 		}
 		ck = ospf_crypt_key_new();
 		ck->key_id = vl_config->crypto_key_id;
@@ -5950,7 +5950,7 @@ DEFUN (ip_ospf_message_digest_key,
 	key_id = strtol(keyid, NULL, 10);
 	if (ospf_crypt_key_lookup(params->auth_crypt, key_id) != NULL) {
 		vty_out(vty, "OSPF: Key %d already exists\n", key_id);
-		return CMD_WARNING_CONFIG_FAILED;
+		return CMD_WARNING;
 	}
 
 	ck = ospf_crypt_key_new();
