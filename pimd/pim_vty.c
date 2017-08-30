@@ -257,8 +257,8 @@ int pim_interface_config_write(struct vty *vty)
 			if (vrf->vrf_id == VRF_DEFAULT)
 				vty_frame(vty, "interface %s\n", ifp->name);
 			else
-				vty_out(vty, "interface %s vrf %s\n", ifp->name,
-					vrf->name);
+				vty_frame(vty, "interface %s vrf %s\n",
+					  ifp->name, vrf->name);
 			++writes;
 
 			if (ifp->info) {
