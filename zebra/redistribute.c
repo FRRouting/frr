@@ -52,6 +52,12 @@ static u_int32_t zebra_import_table_distance[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 
 int is_zebra_import_table_enabled(afi_t afi, u_int32_t table_id)
 {
+	/*
+	 * Make sure that what we are called with actualy makes sense
+	 */
+	if (afi == AFI_MAX)
+		return 0;
+
 	if (is_zebra_valid_kernel_table(table_id))
 		return zebra_import_table_used[afi][table_id];
 	return 0;

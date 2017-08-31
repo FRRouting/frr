@@ -444,7 +444,7 @@ void eigrp_topology_update_node_flags(struct eigrp_prefix_entry *dest)
 
 	for (ALL_LIST_ELEMENTS_RO(dest->entries, node, entry)) {
 		if (((uint64_t)entry->distance
-		     <= (uint64_t)(dest->distance * eigrp->variance))
+		     <= (uint64_t)dest->distance * (uint64_t)eigrp->variance)
 		    && entry->distance != EIGRP_MAX_METRIC) // is successor
 		{
 			entry->flags |= EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG;

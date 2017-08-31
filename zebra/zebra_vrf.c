@@ -470,7 +470,11 @@ static int vrf_config_write(struct vty *vty)
 	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
 	{
 		zvrf = vrf->info;
-		if (!zvrf || strcmp(zvrf_name(zvrf), VRF_DEFAULT_NAME)) {
+
+		if (!zvrf)
+			continue;
+
+		if (strcmp(zvrf_name(zvrf), VRF_DEFAULT_NAME)) {
 			vty_out(vty, "vrf %s\n", zvrf_name(zvrf));
 			vty_out(vty, "!\n");
 		}

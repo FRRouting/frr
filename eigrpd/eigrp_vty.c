@@ -1267,7 +1267,11 @@ DEFUN (clear_ip_eigrp_neighbors_IP,
 	struct eigrp_neighbor *nbr;
 	struct in_addr nbr_addr;
 
-	inet_aton(argv[4]->arg, &nbr_addr);
+	if (!inet_aton(argv[4]->arg, &nbr_addr)) {
+		vty_out(vty, "Unable to parse %s",
+			argv[4]->arg);
+		return CMD_WARNING;
+	}
 
 	/* Check if eigrp process is enabled */
 	eigrp = eigrp_lookup();
@@ -1370,7 +1374,11 @@ DEFUN (clear_ip_eigrp_neighbors_IP_soft,
 	struct eigrp_neighbor *nbr;
 	struct in_addr nbr_addr;
 
-	inet_aton(argv[4]->arg, &nbr_addr);
+	if (!inet_aton(argv[4]->arg, &nbr_addr)) {
+		vty_out(vty, "Unable to parse: %s",
+			argv[4]->arg);
+		return CMD_WARNING;
+	}
 
 	/* Check if eigrp process is enabled */
 	eigrp = eigrp_lookup();

@@ -44,7 +44,7 @@ extern struct zebra_privs_t zserv_privs;
 /* clear and set interface name string */
 void ifreq_set_name(struct ifreq *ifreq, struct interface *ifp)
 {
-	strncpy(ifreq->ifr_name, ifp->name, IFNAMSIZ);
+	strlcpy(ifreq->ifr_name, ifp->name, sizeof(ifreq->ifr_name));
 }
 
 /* call ioctl system call */

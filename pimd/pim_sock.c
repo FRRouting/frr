@@ -65,22 +65,21 @@ int pim_socket_raw(int protocol)
 	return fd;
 }
 
-int pim_socket_ip_hdr(int fd)
+void pim_socket_ip_hdr(int fd)
 {
 	const int on = 1;
-	int ret;
 
 	if (pimd_privs.change(ZPRIVS_RAISE))
 		zlog_err("%s: could not raise privs, %s", __PRETTY_FUNCTION__,
 			 safe_strerror(errno));
 
-	ret = setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on));
+	if (setsockopt(fd, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on)))
+		zlog_err("%s: Could not turn on IP_HDRINCL option: %s",
+			 __PRETTY_FUNCTION__, safe_strerror(errno));
 
 	if (pimd_privs.change(ZPRIVS_LOWER))
 		zlog_err("%s: could not lower privs, %s", __PRETTY_FUNCTION__,
 			 safe_strerror(errno));
-
-	return ret;
 }
 
 /*

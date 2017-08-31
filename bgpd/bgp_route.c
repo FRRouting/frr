@@ -10345,10 +10345,6 @@ static int bgp_show_neighbor_route(struct vty *vty, struct peer *peer,
 		return CMD_WARNING;
 	}
 
-	/* labeled-unicast routes live in the unicast table */
-	if (safi == SAFI_LABELED_UNICAST)
-		safi = SAFI_UNICAST;
-
 	return bgp_show(vty, peer->bgp, afi, safi, type, &peer->su, use_json);
 }
 

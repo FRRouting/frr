@@ -588,8 +588,8 @@ static int netlink_route_change_read_multicast(struct sockaddr_nl *snl,
 
 	if (IS_ZEBRA_DEBUG_KERNEL) {
 		struct interface *ifp;
-		strcpy(sbuf, inet_ntoa(m->sg.src));
-		strcpy(gbuf, inet_ntoa(m->sg.grp));
+		strlcpy(sbuf, inet_ntoa(m->sg.src), sizeof(sbuf));
+		strlcpy(gbuf, inet_ntoa(m->sg.grp), sizeof(gbuf));
 		for (count = 0; count < oif_count; count++) {
 			ifp = if_lookup_by_index(oif[count], vrf);
 			char temp[256];
@@ -1562,6 +1562,8 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 int kernel_route_rib(struct prefix *p, struct prefix *src_p,
 		     struct route_entry *old, struct route_entry *new)
 {
+	assert(old || new);
+
 	if (!old && new)
 		return netlink_route_multipath(RTM_NEWROUTE, p, src_p, new, 0);
 	if (old && !new)

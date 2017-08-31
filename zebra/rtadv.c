@@ -107,6 +107,7 @@ static int rtadv_recv_packet(struct zebra_ns *zns, int sock, u_char *buf,
 	char adata[1024];
 
 	/* Fill in message and iovec. */
+	memset(&msg, 0, sizeof(msg));
 	msg.msg_name = (void *)from;
 	msg.msg_namelen = sizeof(struct sockaddr_in6);
 	msg.msg_iov = &iov;
@@ -629,7 +630,6 @@ static int rtadv_make_socket(void)
 			 safe_strerror(errno));
 
 	if (sock < 0) {
-		close(sock);
 		return -1;
 	}
 

@@ -497,7 +497,7 @@ void if_add_update(struct interface *ifp)
 	if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
 		SET_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE);
 
-		if (if_data && if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON) {
+		if (if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
 					"interface %s vrf %u index %d is shutdown. "

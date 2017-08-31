@@ -2425,7 +2425,7 @@ DEFUN (show_ip_ospf_mpls_te_router,
 		if (ntohs(OspfMplsTE.router_addr.header.type) != 0)
 			show_vty_router_addr(vty,
 					     &OspfMplsTE.router_addr.header);
-		else if (vty != NULL)
+		else
 			vty_out(vty, "  N/A\n");
 	}
 	return CMD_SUCCESS;

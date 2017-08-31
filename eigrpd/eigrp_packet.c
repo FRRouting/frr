@@ -193,6 +193,12 @@ int eigrp_check_md5_digest(struct stream *s,
 	if (keychain)
 		key = key_lookup_for_send(keychain);
 
+	if (!key) {
+		zlog_warn("Interface %s: Expected key value not found in config",
+			  nbr->ei->ifp->name);
+		return 0;
+	}
+
 	memset(&ctx, 0, sizeof(ctx));
 	MD5Init(&ctx);
 
@@ -229,8 +235,7 @@ int eigrp_check_md5_digest(struct stream *s,
 	}
 
 	/* save neighbor's crypt_seqnum */
-	if (nbr)
-		nbr->crypt_seqnum = authTLV->key_sequence;
+	nbr->crypt_seqnum = authTLV->key_sequence;
 
 	return 1;
 }
@@ -240,10 +245,11 @@ int eigrp_make_sha256_digest(struct eigrp_interface *ei, struct stream *s,
 {
 	struct key *key = NULL;
 	struct keychain *keychain;
-	char *source_ip;
+	char source_ip[PREFIX_STRLEN];
 
 	unsigned char digest[EIGRP_AUTH_TYPE_SHA256_LEN];
 	unsigned char buffer[1 + PLAINTEXT_LENGTH + 45 + 1] = {0};
+
 	HMAC_SHA256_CTX ctx;
 	void *ibuf;
 	size_t backup_get, backup_end;
@@ -263,11 +269,13 @@ int eigrp_make_sha256_digest(struct eigrp_interface *ei, struct stream *s,
 	if (keychain)
 		key = key_lookup_for_send(keychain);
 
-	//     saved_len[index] = strnzcpyn(saved_key[index], key,
-	//                             PLAINTEXT_LENGTH + 1);
+	if (!key) {
+		zlog_warn("Interface %s: Expected key value not found in config",
+			  ei->ifp->name);
+		return 0;
+	}
 
-	source_ip = calloc(16, sizeof(char));
-	inet_ntop(AF_INET, &ei->address->u.prefix4, source_ip, 16);
+	inet_ntop(AF_INET, &ei->address->u.prefix4, source_ip, PREFIX_STRLEN);
 
 	memset(&ctx, 0, sizeof(ctx));
 	buffer[0] = '\n';
@@ -287,7 +295,6 @@ int eigrp_make_sha256_digest(struct eigrp_interface *ei, struct stream *s,
 	stream_set_endp(s, backup_end);
 
 	eigrp_authTLV_SHA256_free(auth_TLV);
-	free(source_ip);
 
 	return EIGRP_AUTH_TYPE_SHA256_LEN;
 }
@@ -613,10 +620,10 @@ int eigrp_read(struct thread *thread)
 	opcode = eigrph->opcode;
 
 	if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV)) {
-		char src[100], dst[100];
+		char src[PREFIX_STRLEN], dst[PREFIX_STRLEN];
 
-		strcpy(src, inet_ntoa(iph->ip_src));
-		strcpy(dst, inet_ntoa(iph->ip_dst));
+		strncpy(src, inet_ntoa(iph->ip_src), PREFIX_STRLEN);
+		strncpy(dst, inet_ntoa(iph->ip_dst), PREFIX_STRLEN);
 		zlog_debug("Received [%s][%d/%d] length [%u] via [%s] src [%s] dst [%s]",
 			   lookup_msg(eigrp_packet_type_str, opcode, NULL),
 			   ntohl(eigrph->sequence), ntohl(eigrph->ack), length,

@@ -71,7 +71,10 @@ static int pim_is_grp_standard_ssm(struct prefix *group)
 	static struct prefix group_ssm;
 
 	if (first) {
-		str2prefix(PIM_SSM_STANDARD_RANGE, &group_ssm);
+		if (!str2prefix(PIM_SSM_STANDARD_RANGE, &group_ssm))
+			zlog_err("%s: Failure to Read Group Address: %s",
+				 __PRETTY_FUNCTION__, PIM_SSM_STANDARD_RANGE);
+
 		first = 0;
 	}
 

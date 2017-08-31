@@ -2051,7 +2051,7 @@ static void evpn_mpattr_encode_type5(struct stream *s, struct prefix *p,
 	/* Prefix contains RD, ESI, EthTag, IP length, IP, GWIP and VNI */
 	stream_putc(s, 8 + 10 + 4 + 1 + len + 3);
 	stream_put(s, prd->val, 8);
-	if (attr && attr)
+	if (attr)
 		stream_put(s, &(attr->evpn_overlay.eth_s_id), 10);
 	else
 		stream_put(s, &temp, 10);
@@ -2061,7 +2061,7 @@ static void evpn_mpattr_encode_type5(struct stream *s, struct prefix *p,
 		stream_put_ipv4(s, p_evpn_p->ip.ipaddr_v4.s_addr);
 	else
 		stream_put(s, &p_evpn_p->ip.ipaddr_v6, 16);
-	if (attr && attr) {
+	if (attr) {
 		if (IS_IPADDR_V4(&p_evpn_p->ip))
 			stream_put_ipv4(s,
 					attr->evpn_overlay.gw_ip.ipv4.s_addr);

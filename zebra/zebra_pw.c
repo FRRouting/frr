@@ -328,6 +328,7 @@ DEFUN_NOSH (pseudowire_if,
 		if (!pw)
 			return CMD_SUCCESS;
 		zebra_pw_del(zvrf, pw);
+		return CMD_SUCCESS;
 	}
 
 	if (!pw)
