@@ -876,22 +876,30 @@ def test_shutdown_check_stderr():
     net['r1'].stopRouter()
 
     log = net['r1'].getStdErr('ripd')
-    print("\nRIPd StdErr Log:\n" + log)
+    if log:
+        print("\nRIPd StdErr Log:\n" + log)
     log = net['r1'].getStdErr('ripngd')
-    print("\nRIPngd StdErr Log:\n" + log)
+    if log:
+        print("\nRIPngd StdErr Log:\n" + log)
     log = net['r1'].getStdErr('ospfd')
-    print("\nOSPFd StdErr Log:\n" + log)
+    if log:
+        print("\nOSPFd StdErr Log:\n" + log)
     log = net['r1'].getStdErr('ospf6d')
-    print("\nOSPF6d StdErr Log:\n" + log)
+    if log:
+        print("\nOSPF6d StdErr Log:\n" + log)
     log = net['r1'].getStdErr('isisd')
-    print("\nISISd StdErr Log:\n" + log)
+    if log:
+        print("\nISISd StdErr Log:\n" + log)
     log = net['r1'].getStdErr('bgpd')
-    print("\nBGPd StdErr Log:\n" + log)
+    if log:
+        print("\nBGPd StdErr Log:\n" + log)
     if (net['r1'].daemon_available('ldpd')):
         log = net['r1'].getStdErr('ldpd')
-        print("\nLDPd StdErr Log:\n" + log)
+        if log:
+            print("\nLDPd StdErr Log:\n" + log)
     log = net['r1'].getStdErr('zebra')
-    print("\nZebra StdErr Log:\n" + log)
+    if log:
+        print("\nZebra StdErr Log:\n" + log)
 
 
 def test_shutdown_check_memleak():

@@ -339,9 +339,11 @@ def test_shutdown_check_stderr():
     net['r1'].stopRouter()
 
     log = net['r1'].getStdErr('bgpd')
-    print("\nBGPd StdErr Log:\n" + log)
+    if log:
+        print("\nBGPd StdErr Log:\n" + log)
     log = net['r1'].getStdErr('zebra')
-    print("\nZebra StdErr Log:\n" + log)
+    if log:
+        print("\nZebra StdErr Log:\n" + log)
 
 
 def test_shutdown_check_memleak():

@@ -785,11 +785,14 @@ def test_shutdown_check_stderr():
     for i in range(1, 5):
         net['r%s' % i].stopRouter()
         log = net['r%s' % i].getStdErr('ldpd')
-        print("\nRouter r%s LDPd StdErr Log:\n%s" % (i, log))
+        if log:
+            print("\nRouter r%s LDPd StdErr Log:\n%s" % (i, log))
         log = net['r%s' % i].getStdErr('ospfd')
-        print("\nRouter r%s OSPFd StdErr Log:\n%s" % (i, log))
+        if log:
+            print("\nRouter r%s OSPFd StdErr Log:\n%s" % (i, log))
         log = net['r%s' % i].getStdErr('zebra')
-        print("\nRouter r%s Zebra StdErr Log:\n%s" % (i, log))
+        if log:
+            print("\nRouter r%s Zebra StdErr Log:\n%s" % (i, log))
 
 
 def test_shutdown_check_memleak():

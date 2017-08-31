@@ -357,9 +357,11 @@ def test_shutdown_check_stderr():
     net['r1'].stopRouter()
 
     log = net['r1'].getStdErr('ripd')
-    print("\nRIPd StdErr Log:\n" + log)
+    if log:
+        print("\nRIPd StdErr Log:\n" + log)
     log = net['r1'].getStdErr('zebra')
-    print("\nZebra StdErr Log:\n" + log)
+    if log:
+        print("\nZebra StdErr Log:\n" + log)
 
 
 if __name__ == '__main__':

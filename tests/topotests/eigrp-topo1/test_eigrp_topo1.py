@@ -218,9 +218,11 @@ def test_shutdown_check_stderr():
         router.stop()
 
         log = tgen.net[router.name].getStdErr('eigrpd')
-        logger.error('EIGRPd StdErr Log:' + log)
+        if log:
+            logger.error('EIGRPd StdErr Log:' + log)
         log = tgen.net[router.name].getStdErr('zebra')
-        logger.error('Zebra StdErr Log:' + log)
+        if log:
+            logger.error('Zebra StdErr Log:' + log)
 
 
 if __name__ == '__main__':
