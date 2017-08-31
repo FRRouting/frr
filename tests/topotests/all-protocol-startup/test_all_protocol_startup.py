@@ -178,12 +178,10 @@ def test_error_messages_vtysh():
         # Drop everything starting with "FRRouting X.xx" message
         vtystdout = re.sub(r"FRRouting [0-9]+.*", "", vtystdout, flags=re.DOTALL)
 
-        if (vtystdout != ''):
-            sys.stderr.write('\nr%s created some spurious VTYSH start StdOut messages:\n%s\n' % (i, vtystdout))
-        else:
+        if (vtystdout == ''):
             print("r%s StdOut ok" % i)
 
-        assert vtystdout == '', "Vtysh StdOut Output check failed for router r%s:\n%s" % (i, vtystdout)
+        assert vtystdout == '', "Vtysh StdOut Output check failed for router r%s" % i
 
         #
         # Second checking Standard Error
@@ -197,12 +195,10 @@ def test_error_messages_vtysh():
         # # Drop everything starting with "FRRouting X.xx" message
         # vtystderr = re.sub(r"FRRouting [0-9]+.*", "", vtystderr, flags=re.DOTALL) 
 
-        if (vtystderr != ''):
-            sys.stderr.write('\nr%s created some spurious VTYSH start StdErr messages:\n<%s>\n' % (i, vtystderr))
-        else:
+        if (vtystderr == ''):
             print("r%s StdErr ok" % i)
 
-        assert vtystderr == '', "Vtysh StdErr Output check failed for router r%s:\n%s" % (i, vtystderr)
+        assert vtystderr == '', "Vtysh StdErr Output check failed for router r%s" % i
 
     # Make sure that all daemons are running
     for i in range(1, 2):
