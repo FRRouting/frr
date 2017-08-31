@@ -2861,8 +2861,8 @@ static int if_config_write(struct vty *vty)
 		if (ifp->vrf_id == VRF_DEFAULT)
 			vty_frame(vty, "interface %s\n", ifp->name);
 		else
-			vty_out(vty, "interface %s vrf %s\n", ifp->name,
-				vrf->name);
+			vty_frame(vty, "interface %s vrf %s\n", ifp->name,
+				  vrf->name);
 
 		if (if_data) {
 			if (if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON)
