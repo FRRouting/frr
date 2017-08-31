@@ -98,15 +98,24 @@ void pim_rp_init(struct pim_instance *pim)
 	struct rp_info *rp_info;
 
 	pim->rp_list = list_new();
+	if (!pim->rp_list) {
+		zlog_err("Unable to alloc rp_list");
+		return;
+	}
 	pim->rp_list->del = (void (*)(void *))pim_rp_info_free;
 	pim->rp_list->cmp = pim_rp_list_cmp;
 
 	rp_info = XCALLOC(MTYPE_PIM_RP, sizeof(*rp_info));
 
-	if (!rp_info)
+	if (!rp_info) {
+		zlog_err("Unable to alloc rp_info");
+		list_delete(pim->rp_list);
 		return;
+	}
 
 	if (!str2prefix("224.0.0.0/4", &rp_info->group)) {
+		zlog_err("Unable to convert 224.0.0.0/4 to prefix");
+		list_delete(pim->rp_list);
 		XFREE(MTYPE_PIM_RP, rp_info);
 		return;
 	}
@@ -554,6 +563,8 @@ int pim_rp_del(struct pim_instance *pim, const char *rp,
 
 	listnode_delete(pim->rp_list, rp_info);
 	pim_rp_refresh_group_to_rp_mapping(pim);
+
+	XFREE(MTYPE_PIM_RP, rp_info);
 	return PIM_SUCCESS;
 }
 
