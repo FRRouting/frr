@@ -509,59 +509,58 @@ int zebra_add_import_table_entry(struct route_node *rn, struct route_entry *re,
 			AFI_IP, re->type, &rn->p, re->nexthop, re->vrf_id,
 			re->tag, rmap_name);
 
-	if (ret == RMAP_MATCH) {
-		if (rn->p.family == AF_INET) {
-			p.family = AF_INET;
-			p.prefixlen = rn->p.prefixlen;
-			p.u.prefix4 = rn->p.u.prefix4;
-
-			RNODE_FOREACH_RE(rn, same)
-			{
-				if (CHECK_FLAG(same->status,
-					       ROUTE_ENTRY_REMOVED))
-					continue;
-
-				if (same->type == re->type
-				    && same->instance == re->instance
-				    && same->table == re->table
-				    && same->type != ZEBRA_ROUTE_CONNECT)
-					break;
-			}
-
-			if (same)
-				zebra_del_import_table_entry(rn, same);
-
-
-			if (re->nexthop_num == 1) {
-				rib_add(AFI_IP, SAFI_UNICAST, re->vrf_id,
-					ZEBRA_ROUTE_TABLE, re->table, 0, &p,
-					NULL, re->nexthop,
-					zebrad.rtm_table_default, re->metric,
-					re->mtu,
-					zebra_import_table_distance[AFI_IP]
-								   [re->table]);
-			} else if (re->nexthop_num > 1) {
-				newre = XCALLOC(MTYPE_RE,
-						sizeof(struct route_entry));
-				newre->type = ZEBRA_ROUTE_TABLE;
-				newre->distance =
-					zebra_import_table_distance[AFI_IP]
-								   [re->table];
-				newre->flags = re->flags;
-				newre->metric = re->metric;
-				newre->mtu = re->mtu;
-				newre->table = zebrad.rtm_table_default;
-				newre->nexthop_num = 0;
-				newre->uptime = time(NULL);
-				newre->instance = re->table;
-				route_entry_copy_nexthops(newre, re->nexthop);
-
-				rib_add_multipath(AFI_IP, SAFI_UNICAST, &p,
-						  NULL, newre);
-			}
-		}
-	} else {
+	if (ret != RMAP_MATCH) {
 		zebra_del_import_table_entry(rn, re);
+		return 0;
+	}
+
+	if (rn->p.family == AF_INET) {
+		p.family = AF_INET;
+		p.prefixlen = rn->p.prefixlen;
+		p.u.prefix4 = rn->p.u.prefix4;
+
+		RNODE_FOREACH_RE(rn, same)
+		{
+			if (CHECK_FLAG(same->status,
+				       ROUTE_ENTRY_REMOVED))
+				continue;
+
+			if (same->type == re->type
+			    && same->instance == re->instance
+			    && same->table == re->table
+			    && same->type != ZEBRA_ROUTE_CONNECT)
+				break;
+		}
+
+		if (same)
+			zebra_del_import_table_entry(rn, same);
+
+		if (re->nexthop_num == 1) {
+			rib_add(AFI_IP, SAFI_UNICAST, re->vrf_id,
+				ZEBRA_ROUTE_TABLE, re->table, 0, &p,
+				NULL, re->nexthop,
+				zebrad.rtm_table_default, re->metric,
+				re->mtu,
+				zebra_import_table_distance[AFI_IP]
+				[re->table]);
+		} else if (re->nexthop_num > 1) {
+			newre = XCALLOC(MTYPE_RE,
+					sizeof(struct route_entry));
+			newre->type = ZEBRA_ROUTE_TABLE;
+			newre->distance =
+				zebra_import_table_distance[AFI_IP][re->table];
+			newre->flags = re->flags;
+			newre->metric = re->metric;
+			newre->mtu = re->mtu;
+			newre->table = zebrad.rtm_table_default;
+			newre->nexthop_num = 0;
+			newre->uptime = time(NULL);
+			newre->instance = re->table;
+			route_entry_copy_nexthops(newre, re->nexthop);
+
+			rib_add_multipath(AFI_IP, SAFI_UNICAST, &p,
+					  NULL, newre);
+		}
 	}
 	/* DD: Add IPv6 code */
 	return 0;
@@ -670,28 +669,27 @@ int zebra_import_table_config(struct vty *vty)
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 1; i < ZEBRA_KERNEL_TABLE_MAX; i++) {
-			if (is_zebra_import_table_enabled(afi, i)) {
-				if (zebra_import_table_distance[afi][i]
-				    != ZEBRA_TABLE_DISTANCE_DEFAULT) {
-					vty_out(vty,
-						"%s import-table %d distance %d",
-						afi_str[afi], i,
-						zebra_import_table_distance[afi]
-									   [i]);
-				} else {
-					vty_out(vty, "%s import-table %d",
-						afi_str[afi], i);
-				}
+			if (!is_zebra_import_table_enabled(afi, i))
+				continue;
 
-				rmap_name = zebra_get_import_table_route_map(
-					afi, i);
-				if (rmap_name)
-					vty_out(vty, " route-map %s",
-						rmap_name);
-
-				vty_out(vty, "\n");
-				write = 1;
+			if (zebra_import_table_distance[afi][i]
+			    != ZEBRA_TABLE_DISTANCE_DEFAULT) {
+				vty_out(vty,
+					"%s import-table %d distance %d",
+					afi_str[afi], i,
+					zebra_import_table_distance[afi][i]);
+			} else {
+				vty_out(vty, "%s import-table %d",
+					afi_str[afi], i);
 			}
+
+			rmap_name = zebra_get_import_table_route_map(afi, i);
+			if (rmap_name)
+				vty_out(vty, " route-map %s",
+					rmap_name);
+
+			vty_out(vty, "\n");
+			write = 1;
 		}
 	}
 
@@ -709,42 +707,43 @@ void zebra_import_table_rm_update()
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (i = 1; i < ZEBRA_KERNEL_TABLE_MAX; i++) {
-			if (is_zebra_import_table_enabled(afi, i)) {
-				rmap_name = zebra_get_import_table_route_map(
-					afi, i);
-				if (!rmap_name)
-					return;
+			if (!is_zebra_import_table_enabled(afi, i))
+				continue;
 
-				table = zebra_vrf_other_route_table(
-					afi, i, VRF_DEFAULT);
-				for (rn = route_top(table); rn;
-				     rn = route_next(rn)) {
-					/* For each entry in the non-default
-					 * routing table,
-					 * add the entry in the main table
-					 */
-					if (!rn->info)
+			rmap_name = zebra_get_import_table_route_map(afi, i);
+			if (!rmap_name)
+				return;
+
+			table = zebra_vrf_other_route_table(afi,
+							    i,
+							    VRF_DEFAULT);
+			for (rn = route_top(table); rn;
+			     rn = route_next(rn)) {
+				/* For each entry in the non-default
+				 * routing table,
+				 * add the entry in the main table
+				 */
+				if (!rn->info)
+					continue;
+
+				RNODE_FOREACH_RE(rn, re)
+				{
+					if (CHECK_FLAG(
+						    re->status,
+						    ROUTE_ENTRY_REMOVED))
 						continue;
-
-					RNODE_FOREACH_RE(rn, re)
-					{
-						if (CHECK_FLAG(
-							    re->status,
-							    ROUTE_ENTRY_REMOVED))
-							continue;
-						break;
-					}
-
-					if (!re)
-						continue;
-
-					if (((afi == AFI_IP)
-					     && (rn->p.family == AF_INET))
-					    || ((afi == AFI_IP6)
-						&& (rn->p.family == AF_INET6)))
-						zebra_add_import_table_entry(
-							rn, re, rmap_name);
+					break;
 				}
+
+				if (!re)
+					continue;
+
+				if (((afi == AFI_IP)
+				     && (rn->p.family == AF_INET))
+				    || ((afi == AFI_IP6)
+					&& (rn->p.family == AF_INET6)))
+					zebra_add_import_table_entry(
+						rn, re, rmap_name);
 			}
 		}
 	}
