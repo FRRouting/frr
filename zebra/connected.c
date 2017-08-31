@@ -54,10 +54,7 @@ static void connected_withdraw(struct connected *ifc)
 		if (ifc->address->family == AF_INET)
 			if_subnet_delete(ifc->ifp, ifc);
 
-		if (ifc->address->family == AF_INET)
-			connected_down_ipv4(ifc->ifp, ifc);
-		else
-			connected_down_ipv6(ifc->ifp, ifc);
+		connected_down(ifc->ifp, ifc);
 
 		UNSET_FLAG(ifc->conf, ZEBRA_IFC_REAL);
 	}
@@ -358,8 +355,9 @@ void connected_add_ipv4(struct interface *ifp, int flags, struct in_addr *addr,
 	connected_update(ifp, ifc);
 }
 
-void connected_down_ipv4(struct interface *ifp, struct connected *ifc)
+void connected_down(struct interface *ifp, struct connected *ifc)
 {
+	afi_t afi;
 	struct prefix p;
 	struct nexthop nh = {
 		.type = NEXTHOP_TYPE_IFINDEX, .ifindex = ifp->ifindex,
@@ -368,37 +366,60 @@ void connected_down_ipv4(struct interface *ifp, struct connected *ifc)
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
 		return;
 
-	PREFIX_COPY_IPV4(&p, CONNECTED_PREFIX(ifc));
+	PREFIX_COPY(&p, CONNECTED_PREFIX(ifc));
 
 	/* Apply mask to the network. */
 	apply_mask(&p);
 
-	/* In case of connected address is 0.0.0.0/0 we treat it tunnel
-	   address. */
-	if (prefix_ipv4_any((struct prefix_ipv4 *)&p))
-		return;
+	afi = family2afi(p.family);
 
-	/* Same logic as for connected_up(): push the changes into the
-	 * head. */
-	rib_delete(AFI_IP, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
+	switch (afi) {
+	case AFI_IP:
+		/*
+		 * In case of connected address is 0.0.0.0/0 we treat it tunnel
+		 *  address.
+		 */
+		if (prefix_ipv4_any((struct prefix_ipv4 *)&p))
+			return;
+		break;
+	case AFI_IP6:
+		if (IN6_IS_ADDR_UNSPECIFIED(&p.u.prefix6))
+			return;
+		break;
+	default:
+		zlog_info("Unknown AFI: %s", afi2str(afi));
+		break;
+	}
+
+	/*
+	 * Same logic as for connected_up(): push the changes into the
+	 * head.
+	 */
+	rib_delete(afi, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
 		   &p, NULL, &nh, 0, 0);
 
-	rib_delete(AFI_IP, SAFI_MULTICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
+	rib_delete(afi, SAFI_MULTICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
 		   0, &p, NULL, &nh, 0, 0);
 
-	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug(
-			"%u: IF %s IPv4 address down, scheduling RIB processing",
-			ifp->vrf_id, ifp->name);
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+		char buf[PREFIX_STRLEN];
+
+		zlog_debug("%u: IF %s IP %s address down, scheduling RIB processing",
+			   ifp->vrf_id, ifp->name,
+			   prefix2str(&p, buf, sizeof(buf)));
+	}
 
 	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (ifp->vrf_id == VRF_DEFAULT) {
-		if (IS_ZEBRA_DEBUG_MPLS)
-			zlog_debug(
-				"%u: IF %s IPv4 address add/up, scheduling MPLS processing",
-				ifp->vrf_id, ifp->name);
+		if (IS_ZEBRA_DEBUG_MPLS) {
+			char buf[PREFIX_STRLEN];
+
+			zlog_debug("%u: IF %s IP %s address add/up, scheduling MPLS processing",
+				   ifp->vrf_id, ifp->name,
+				   prefix2str(&p, buf, sizeof(buf)));
+		}
 		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id));
 	}
 }
@@ -489,43 +510,6 @@ void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
 	 */
 	SET_FLAG(ifc->conf, ZEBRA_IFC_REAL);
 	connected_update(ifp, ifc);
-}
-
-void connected_down_ipv6(struct interface *ifp, struct connected *ifc)
-{
-	struct prefix p;
-	struct nexthop nh = {
-		.type = NEXTHOP_TYPE_IFINDEX, .ifindex = ifp->ifindex,
-	};
-
-	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
-		return;
-
-	PREFIX_COPY_IPV6(&p, CONNECTED_PREFIX(ifc));
-
-	apply_mask(&p);
-
-	if (IN6_IS_ADDR_UNSPECIFIED(&p.u.prefix6))
-		return;
-
-	rib_delete(AFI_IP6, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
-		   0, &p, NULL, &nh, 0, 0);
-
-	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug(
-			"%u: IF %s IPv6 address down, scheduling RIB processing",
-			ifp->vrf_id, ifp->name);
-
-	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
-
-	/* Schedule LSP forwarding entries for processing, if appropriate. */
-	if (ifp->vrf_id == VRF_DEFAULT) {
-		if (IS_ZEBRA_DEBUG_MPLS)
-			zlog_debug(
-				"%u: IF %s IPv4 address add/up, scheduling MPLS processing",
-				ifp->vrf_id, ifp->name);
-		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id));
-	}
 }
 
 void connected_delete_ipv6(struct interface *ifp, struct in6_addr *address,

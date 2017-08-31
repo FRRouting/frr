@@ -544,17 +544,11 @@ static void if_uninstall_connected(struct interface *ifp)
 	struct listnode *node;
 	struct listnode *next;
 	struct connected *ifc;
-	struct prefix *p;
 
 	if (ifp->connected) {
 		for (ALL_LIST_ELEMENTS(ifp->connected, node, next, ifc)) {
-			p = ifc->address;
 			zebra_interface_address_delete_update(ifp, ifc);
-
-			if (p->family == AF_INET)
-				connected_down_ipv4(ifp, ifc);
-			else if (p->family == AF_INET6)
-				connected_down_ipv6(ifp, ifc);
+			connected_down(ifp, ifc);
 		}
 	}
 }
@@ -603,7 +597,7 @@ static void if_delete_connected(struct interface *ifp)
 					next = anode->next;
 
 					ifc = listgetdata(anode);
-					connected_down_ipv4(ifp, ifc);
+					connected_down(ifp, ifc);
 
 					/* XXX: We have to send notifications
 					 * here explicitly, because we destroy
@@ -637,7 +631,7 @@ static void if_delete_connected(struct interface *ifp)
 				rn->info = NULL;
 				route_unlock_node(rn);
 			} else if (cp.family == AF_INET6) {
-				connected_down_ipv6(ifp, ifc);
+				connected_down(ifp, ifc);
 
 				zebra_interface_address_delete_update(ifp, ifc);
 
