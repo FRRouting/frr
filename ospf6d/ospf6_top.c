@@ -306,12 +306,12 @@ DEFUN (no_router_ospf6,
 }
 
 /* change Router_ID commands. */
-DEFUN (ospf6_router_id,
-       ospf6_router_id_cmd,
-       "ospf6 router-id A.B.C.D",
-       OSPF6_STR
-       "Configure OSPF6 Router-ID\n"
-       V4NOTATION_STR)
+DEFUN(ospf6_router_id,
+      ospf6_router_id_cmd,
+      "ospf6 router-id A.B.C.D",
+      OSPF6_STR
+      "Configure OSPF6 Router-ID\n"
+      V4NOTATION_STR)
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
 	int idx = 0;
@@ -324,8 +324,7 @@ DEFUN (ospf6_router_id,
 
 	ret = inet_pton(AF_INET, router_id_str, &router_id);
 	if (ret == 0) {
-		vty_out(vty, "malformed OSPF Router-ID: %s\n",
-			router_id_str);
+		vty_out(vty, "malformed OSPF Router-ID: %s\n", router_id_str);
 		return CMD_SUCCESS;
 	}
 
@@ -336,13 +335,12 @@ DEFUN (ospf6_router_id,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_ospf6_router_id,
-       no_ospf6_router_id_cmd,
-       "no ospf6 router-id [A.B.C.D]",
-       NO_STR
-       OSPF6_STR
-       "Configure OSPF6 Router-ID\n"
-       V4NOTATION_STR)
+DEFUN(no_ospf6_router_id,
+      no_ospf6_router_id_cmd,
+      "no ospf6 router-id [A.B.C.D]",
+      NO_STR OSPF6_STR
+      "Configure OSPF6 Router-ID\n"
+      V4NOTATION_STR)
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
 	o->router_id_static = 0;

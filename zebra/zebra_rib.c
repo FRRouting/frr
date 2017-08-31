@@ -292,7 +292,7 @@ struct nexthop *route_entry_nexthop_ipv6_ifindex_add(struct route_entry *re,
 }
 
 struct nexthop *route_entry_nexthop_blackhole_add(struct route_entry *re,
-                                                  enum blackhole_type bh_type)
+						  enum blackhole_type bh_type)
 {
 	struct nexthop *nexthop;
 
@@ -2394,8 +2394,8 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 						"via %s ifindex %d type %d "
 						"doesn't exist in rib",
 						inet_ntop(
-							family2afi(afi), &nh->gate,
-							buf2,
+							family2afi(afi),
+							&nh->gate, buf2,
 							INET_ADDRSTRLEN), /* FIXME
 									     */
 						nh->ifindex, type);

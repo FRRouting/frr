@@ -122,8 +122,8 @@ static int bgp_tip_hash_cmp(const void *p1, const void *p2)
 
 void bgp_tip_hash_init(struct bgp *bgp)
 {
-	bgp->tip_hash = hash_create(bgp_tip_hash_key_make,
-					bgp_tip_hash_cmp, NULL);
+	bgp->tip_hash =
+		hash_create(bgp_tip_hash_key_make, bgp_tip_hash_cmp, NULL);
 }
 
 void bgp_tip_hash_destroy(struct bgp *bgp)

@@ -404,10 +404,10 @@ int main(int argc, char **argv, char **env)
 			"NOT SUPPORTED since its\nresults are inconsistent!\n");
 	}
 
-	snprintf(vtysh_config, sizeof(vtysh_config), "%s%s/%s",
-		 sysconfdir, pathspace, VTYSH_CONFIG_NAME);
-	snprintf(frr_config, sizeof(frr_config), "%s%s/%s",
-		 sysconfdir, pathspace, FRR_CONFIG_NAME);
+	snprintf(vtysh_config, sizeof(vtysh_config), "%s%s/%s", sysconfdir,
+		 pathspace, VTYSH_CONFIG_NAME);
+	snprintf(frr_config, sizeof(frr_config), "%s%s/%s", sysconfdir,
+		 pathspace, FRR_CONFIG_NAME);
 	strlcat(vtydir, pathspace, sizeof(vtydir));
 
 	/* Initialize user input buffer. */

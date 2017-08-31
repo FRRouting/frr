@@ -97,8 +97,7 @@ void vty_frame(struct vty *vty, const char *format, ...)
 
 	va_start(args, format);
 	vsnprintf(vty->frame + vty->frame_pos,
-		  sizeof(vty->frame) - vty->frame_pos,
-		  format, args);
+		  sizeof(vty->frame) - vty->frame_pos, format, args);
 	vty->frame_pos = strlen(vty->frame);
 	va_end(args);
 }
@@ -275,8 +274,7 @@ void vty_hello(struct vty *vty)
 static void vty_prompt(struct vty *vty)
 {
 	if (vty->type == VTY_TERM) {
-		vty_out(vty, cmd_prompt(vty->node),
-			cmd_hostname_get());
+		vty_out(vty, cmd_prompt(vty->node), cmd_hostname_get());
 	}
 }
 

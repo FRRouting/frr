@@ -536,8 +536,8 @@ int zebra_add_import_table_entry(struct route_node *rn, struct route_entry *re,
 				rib_add(AFI_IP, SAFI_UNICAST, re->vrf_id,
 					ZEBRA_ROUTE_TABLE, re->table, 0, &p,
 					NULL, re->nexthop,
-					zebrad.rtm_table_default,
-					re->metric, re->mtu,
+					zebrad.rtm_table_default, re->metric,
+					re->mtu,
 					zebra_import_table_distance[AFI_IP]
 								   [re->table]);
 			} else if (re->nexthop_num > 1) {
