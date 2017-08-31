@@ -185,14 +185,6 @@ CC="${CC% -std=c99}"
 
 AC_C_FLAG([-std=gnu11], [CC="$ac_cc"], [CC="$CC -std=gnu11"])
 
-dnl if the user specified any CFLAGS, we don't add "-g -Os/-O2" here
-if test "z$orig_cflags" = "z"; then
-  AC_C_FLAG([-g])
-  AC_C_FLAG([-Os], [
-    AC_C_FLAG([-O2])
-  ])
-fi
-
 dnl always want these CFLAGS
 AC_C_FLAG([-fno-omit-frame-pointer])
 AC_C_FLAG([-funwind-tables])
@@ -438,6 +430,16 @@ AM_CONDITIONAL([FPM], [test "x$enable_fpm" = "xyes"])
 
 if test "x${enable_dev_build}" = "xyes"; then
    AC_DEFINE(DEV_BUILD,,Build for development)
+   AC_C_FLAG([-g])
+   AC_C_FLAG([-O0])
+else
+   dnl if the user specified any CFLAGS, we don't add "-g -Os/-O2" here
+   if test "z$orig_cflags" = "z"; then
+     AC_C_FLAG([-g])
+     AC_C_FLAG([-Os], [
+       AC_C_FLAG([-O2])
+     ])
+   fi
 fi
 AM_CONDITIONAL([DEV_BUILD], [test "x$enable_dev_build" = "xyes"])
 
