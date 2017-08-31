@@ -2469,12 +2469,11 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 			break;
 		}
 		/* Duplicate system route comes in. */
-		else if ((rtnh = re->nexthop)
-			 && rtnh->type == NEXTHOP_TYPE_IFINDEX
-			 && rtnh->ifindex == nh->ifindex
-			 && !CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
+		rtnh = re->nexthop;
+		if (nexthop_same_no_recurse(rtnh, nh))
 			return 0;
-		}
+		else
+			same = re;
 	}
 
 	/* Allocate new re structure. */
