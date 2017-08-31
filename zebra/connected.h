@@ -38,17 +38,14 @@ extern void connected_delete_ipv4(struct interface *ifp, int flags,
 
 extern void connected_delete_ipv4_unnumbered(struct connected *ifc);
 
-extern void connected_up_ipv4(struct interface *, struct connected *);
-extern void connected_down_ipv4(struct interface *, struct connected *);
+extern void connected_up(struct interface *ifp, struct connected *ifc);
+extern void connected_down(struct interface *ifp, struct connected *ifc);
 
 extern void connected_add_ipv6(struct interface *ifp, int flags,
 			       struct in6_addr *address, u_char prefixlen,
 			       const char *label);
 extern void connected_delete_ipv6(struct interface *ifp,
 				  struct in6_addr *address, u_char prefixlen);
-
-extern void connected_up_ipv6(struct interface *, struct connected *);
-extern void connected_down_ipv6(struct interface *ifp, struct connected *);
 
 extern int connected_is_unnumbered(struct interface *);
 
