@@ -2881,7 +2881,7 @@ DEFUN (rip_route,
 	if (node->info) {
 		vty_out(vty, "There is already same static route.\n");
 		route_unlock_node(node);
-		return CMD_WARNING_CONFIG_FAILED;
+		return CMD_WARNING;
 	}
 
 	node->info = (void *)1;
@@ -3353,7 +3353,7 @@ DEFUN (rip_allow_ecmp,
 {
 	if (rip->ecmp) {
 		vty_out(vty, "ECMP is already enabled.\n");
-		return CMD_WARNING_CONFIG_FAILED;
+		return CMD_WARNING;
 	}
 
 	rip->ecmp = 1;
@@ -3369,7 +3369,7 @@ DEFUN (no_rip_allow_ecmp,
 {
 	if (!rip->ecmp) {
 		vty_out(vty, "ECMP is already disabled.\n");
-		return CMD_WARNING_CONFIG_FAILED;
+		return CMD_WARNING;
 	}
 
 	rip->ecmp = 0;
