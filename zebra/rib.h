@@ -45,9 +45,6 @@ struct route_entry {
 	/* Nexthop structure */
 	struct nexthop *nexthop;
 
-	/* Refrence count. */
-	unsigned long refcnt;
-
 	/* Tag */
 	route_tag_t tag;
 
