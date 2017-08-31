@@ -63,20 +63,6 @@ int is_zebra_import_table_enabled(afi_t afi, u_int32_t table_id)
 	return 0;
 }
 
-int is_default(struct prefix *p)
-{
-	if (p->family == AF_INET)
-		if (p->u.prefix4.s_addr == 0 && p->prefixlen == 0)
-			return 1;
-#if 0  /* IPv6 default separation is now pending until protocol daemon         \
-	  can handle that. */
-  if (p->family == AF_INET6)
-    if (IN6_IS_ADDR_UNSPECIFIED (&p->u.prefix6) && p->prefixlen == 0)
-      return 1;
-#endif /* 0 */
-	return 0;
-}
-
 static void zebra_redistribute_default(struct zserv *client, vrf_id_t vrf_id)
 {
 	int afi;
@@ -181,7 +167,7 @@ void redistribute_update(struct prefix *p, struct prefix *src_p,
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client)) {
 		send_redistribute = 0;
 
-		if (is_default(p)
+		if (is_default_prefix(p)
 		    && vrf_bitmap_check(client->redist_default, re->vrf_id))
 			send_redistribute = 1;
 		else if (vrf_bitmap_check(client->redist[afi][ZEBRA_ROUTE_ALL],
@@ -240,7 +226,7 @@ void redistribute_delete(struct prefix *p, struct prefix *src_p,
 	}
 
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client)) {
-		if ((is_default(p)
+		if ((is_default_prefix(p)
 		     && vrf_bitmap_check(client->redist_default, re->vrf_id))
 		    || vrf_bitmap_check(client->redist[afi][ZEBRA_ROUTE_ALL],
 					re->vrf_id)

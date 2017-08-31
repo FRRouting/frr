@@ -72,6 +72,4 @@ extern int zebra_import_table_config(struct vty *);
 
 extern void zebra_import_table_rm_update(void);
 
-extern int is_default(struct prefix *);
-
 #endif /* _ZEBRA_REDISTRIBUTE_H */
