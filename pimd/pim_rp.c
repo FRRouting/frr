@@ -30,6 +30,7 @@
 #include "vrf.h"
 #include "plist.h"
 #include "nexthop.h"
+#include "table.h"
 
 #include "pimd.h"
 #include "pim_vty.h"
@@ -96,6 +97,7 @@ int pim_rp_list_cmp(void *v1, void *v2)
 void pim_rp_init(struct pim_instance *pim)
 {
 	struct rp_info *rp_info;
+	struct route_node *rn;
 
 	pim->rp_list = list_new();
 	if (!pim->rp_list) {
@@ -105,10 +107,18 @@ void pim_rp_init(struct pim_instance *pim)
 	pim->rp_list->del = (void (*)(void *))pim_rp_info_free;
 	pim->rp_list->cmp = pim_rp_list_cmp;
 
+	pim->rp_table = route_table_init();
+	if (!pim->rp_table) {
+		zlog_err("Unable to alloc rp_table");
+		list_delete(pim->rp_list);
+		return;
+	}
+
 	rp_info = XCALLOC(MTYPE_PIM_RP, sizeof(*rp_info));
 
 	if (!rp_info) {
 		zlog_err("Unable to alloc rp_info");
+		route_table_finish(pim->rp_table);
 		list_delete(pim->rp_list);
 		return;
 	}
@@ -116,6 +126,7 @@ void pim_rp_init(struct pim_instance *pim)
 	if (!str2prefix("224.0.0.0/4", &rp_info->group)) {
 		zlog_err("Unable to convert 224.0.0.0/4 to prefix");
 		list_delete(pim->rp_list);
+		route_table_finish(pim->rp_table);
 		XFREE(MTYPE_PIM_RP, rp_info);
 		return;
 	}
@@ -125,6 +136,20 @@ void pim_rp_init(struct pim_instance *pim)
 	rp_info->rp.rpf_addr.u.prefix4.s_addr = INADDR_NONE;
 
 	listnode_add(pim->rp_list, rp_info);
+
+	rn = route_node_get(pim->rp_table, &rp_info->group);
+	if (!rn) {
+		zlog_err("Failure to get route node for pim->rp_table");
+		list_delete(pim->rp_list);
+		route_table_finish(pim->rp_table);
+		XFREE(MTYPE_PIM_RP, rp_info);
+		return;
+	}
+
+	rn->info = rp_info;
+	if (PIM_DEBUG_TRACE)
+		zlog_debug("Allocated: %p for rp_info: %p(224.0.0.0/4) Lock: %d",
+			   rn, rp_info, rn->lock);
 }
 
 void pim_rp_free(struct pim_instance *pim)
@@ -202,6 +227,7 @@ static struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 	struct rp_info *rp_info;
 	struct prefix_list *plist;
 	struct prefix *p, *bp;
+	struct route_node *rn;
 
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (rp_info->plist) {
@@ -220,11 +246,32 @@ static struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 				best = rp_info;
 				bp = p;
 			}
-		} else {
-			if (prefix_match(&rp_info->group, group))
-				return rp_info;
 		}
 	}
+
+	rn = route_node_match(pim->rp_table, group);
+	if (!rn) {
+		zlog_err("%s: BUG We should have found default group information\n",
+			 __PRETTY_FUNCTION__);
+		return best;
+	}
+
+	rp_info = rn->info;
+	if (PIM_DEBUG_TRACE) {
+		char buf[PREFIX_STRLEN];
+
+		route_unlock_node(rn);
+		zlog_debug("Lookedup: %p for rp_info: %p(%s) Lock: %d",
+			   rn, rp_info,
+			   prefix2str(&rp_info->group, buf, sizeof(buf)),
+			   rn->lock);
+	}
+
+	if (!best)
+		return rp_info;
+
+	if (rp_info->group.prefixlen < best->group.prefixlen)
+		best = rp_info;
 
 	return best;
 }
@@ -314,6 +361,7 @@ int pim_rp_new(struct pim_instance *pim, const char *rp,
 	char buffer[BUFSIZ];
 	struct prefix nht_p;
 	struct pim_nexthop_cache pnc;
+	struct route_node *rn;
 
 	rp_info = XCALLOC(MTYPE_PIM_RP, sizeof(*rp_info));
 	if (!rp_info)
@@ -378,6 +426,7 @@ int pim_rp_new(struct pim_instance *pim, const char *rp,
 
 		rp_info->plist = XSTRDUP(MTYPE_PIM_FILTER_NAME, plist);
 	} else {
+
 		if (!str2prefix("224.0.0.0/4", &group_all)) {
 			XFREE(MTYPE_PIM_RP, rp_info);
 			return PIM_GROUP_BAD_ADDRESS;
@@ -473,8 +522,8 @@ int pim_rp_new(struct pim_instance *pim, const char *rp,
 				 * For all others
 				 * though we must return PIM_GROUP_OVERLAP
 				 */
-				if (!prefix_same(&group_all,
-						 &tmp_rp_info->group)) {
+				if (prefix_same(&rp_info->group,
+						&tmp_rp_info->group)) {
 					XFREE(MTYPE_PIM_RP, rp_info);
 					return PIM_GROUP_OVERLAP;
 				}
@@ -483,6 +532,23 @@ int pim_rp_new(struct pim_instance *pim, const char *rp,
 	}
 
 	listnode_add_sort(pim->rp_list, rp_info);
+	rn = route_node_get(pim->rp_table, &rp_info->group);
+	if (!rn) {
+		char buf[PREFIX_STRLEN];
+		zlog_err("Failure to get route node for pim->rp_table: %s",
+			 prefix2str(&rp_info->group, buf, sizeof(buf)));
+		return PIM_MALLOC_FAIL;
+	}
+	rn->info = rp_info;
+
+	if (PIM_DEBUG_TRACE) {
+		char buf[PREFIX_STRLEN];
+
+		zlog_debug("Allocated: %p for rp_info: %p(%s) Lock: %d",
+			   rn, rp_info,
+			   prefix2str(&rp_info->group, buf, sizeof(buf)),
+			   rn->lock);
+	}
 
 	/* Register addr with Zebra NHT */
 	nht_p.family = AF_INET;
@@ -525,6 +591,8 @@ int pim_rp_del(struct pim_instance *pim, const char *rp,
 	struct rp_info *rp_all;
 	int result;
 	struct prefix nht_p;
+	struct route_node *rn;
+	bool was_plist = false;
 
 	if (group_range == NULL)
 		result = str2prefix("224.0.0.0/4", &group);
@@ -549,6 +617,7 @@ int pim_rp_del(struct pim_instance *pim, const char *rp,
 	if (rp_info->plist) {
 		XFREE(MTYPE_PIM_FILTER_NAME, rp_info->plist);
 		rp_info->plist = NULL;
+		was_plist = true;
 	}
 
 	/* Deregister addr with Zebra NHT */
@@ -574,6 +643,28 @@ int pim_rp_del(struct pim_instance *pim, const char *rp,
 	}
 
 	listnode_delete(pim->rp_list, rp_info);
+
+	if (!was_plist) {
+		rn = route_node_get(pim->rp_table, &rp_info->group);
+		if (rn) {
+			if (rn->info != rp_info)
+				zlog_err("WTF matey");
+
+			if (PIM_DEBUG_TRACE) {
+				char buf[PREFIX_STRLEN];
+
+				zlog_debug("%s:Found for Freeing: %p for rp_info: %p(%s) Lock: %d",
+					   __PRETTY_FUNCTION__,
+					   rn, rp_info,
+					   prefix2str(&rp_info->group, buf, sizeof(buf)),
+					   rn->lock);
+			}
+			rn->info = NULL;
+			route_unlock_node(rn);
+			route_unlock_node(rn);
+		}
+	}
+
 	pim_rp_refresh_group_to_rp_mapping(pim);
 
 	XFREE(MTYPE_PIM_RP, rp_info);

@@ -5070,7 +5070,7 @@ static int pim_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
 	}
 
 	if (result == PIM_GROUP_OVERLAP) {
-		vty_out(vty, "%% Group range specified cannot overlap\n");
+		vty_out(vty, "%% Group range specified cannot exact match another\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
