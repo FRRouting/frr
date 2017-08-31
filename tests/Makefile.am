@@ -25,8 +25,12 @@ TESTS_BGPD =
 endif
 
 if ISISD
+if SOLARIS
+TESTS_ISISD =
+else
 TESTS_ISISD = \
 	isisd/test_fuzz_isis_tlv
+endif
 else
 TESTS_ISISD =
 endif

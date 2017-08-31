@@ -880,6 +880,7 @@ case "$host_os" in
     AC_DEFINE(KAME,1,KAME IPv6)
     ;;
 esac
+AM_CONDITIONAL(SOLARIS, test "${SOLARIS}" = "solaris")
 
 AC_SYS_LARGEFILE
 
