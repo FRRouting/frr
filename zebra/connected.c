@@ -416,7 +416,7 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 		if (IS_ZEBRA_DEBUG_MPLS) {
 			char buf[PREFIX_STRLEN];
 
-			zlog_debug("%u: IF %s IP %s address add/up, scheduling MPLS processing",
+			zlog_debug("%u: IF %s IP %s address down, scheduling MPLS processing",
 				   ifp->vrf_id, ifp->name,
 				   prefix2str(&p, buf, sizeof(buf)));
 		}
@@ -448,7 +448,7 @@ static void connected_delete_helper(struct connected *ifc, struct prefix *p)
 		if (IS_ZEBRA_DEBUG_MPLS) {
 			char buf[PREFIX_STRLEN];
 
-			zlog_debug("%u: IF %s IP %s address add/up, scheduling MPLS processing",
+			zlog_debug("%u: IF %s IP %s address delete, scheduling MPLS processing",
 				   ifp->vrf_id, ifp->name,
 				   prefix2str(p, buf, sizeof(buf)));
 		}
