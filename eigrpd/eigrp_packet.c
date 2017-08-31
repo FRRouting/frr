@@ -272,6 +272,7 @@ int eigrp_make_sha256_digest(struct eigrp_interface *ei, struct stream *s,
 	if (!key) {
 		zlog_warn("Interface %s: Expected key value not found in config",
 			  ei->ifp->name);
+		eigrp_authTLV_SHA256_free(auth_TLV);
 		return 0;
 	}
 
@@ -622,8 +623,8 @@ int eigrp_read(struct thread *thread)
 	if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV)) {
 		char src[PREFIX_STRLEN], dst[PREFIX_STRLEN];
 
-		strncpy(src, inet_ntoa(iph->ip_src), PREFIX_STRLEN);
-		strncpy(dst, inet_ntoa(iph->ip_dst), PREFIX_STRLEN);
+		strlcpy(src, inet_ntoa(iph->ip_src), sizeof(src));
+		strlcpy(dst, inet_ntoa(iph->ip_dst), sizeof(dst));
 		zlog_debug("Received [%s][%d/%d] length [%u] via [%s] src [%s] dst [%s]",
 			   lookup_msg(eigrp_packet_type_str, opcode, NULL),
 			   ntohl(eigrph->sequence), ntohl(eigrph->ack), length,
