@@ -1440,9 +1440,7 @@ static void isis_print_paths(struct vty *vty, struct isis_vertex_queue *queue,
 			     u_char *root_sysid)
 {
 	struct listnode *node;
-	struct listnode *anode;
 	struct isis_vertex *vertex;
-	struct isis_adjacency *adj;
 	char buff[PREFIX2STR_BUFFER];
 
 	vty_out(vty,
@@ -1452,50 +1450,59 @@ static void isis_print_paths(struct vty *vty, struct isis_vertex_queue *queue,
 		if (memcmp(vertex->N.id, root_sysid, ISIS_SYS_ID_LEN) == 0) {
 			vty_out(vty, "%-20s %-12s %-6s",
 				print_sys_hostname(root_sysid), "", "");
-			vty_out(vty, "%-30s", "");
-		} else {
-			int rows = 0;
-			vty_out(vty, "%-20s %-12s %-6u ",
-				vid2string(vertex, buff, sizeof(buff)),
-				vtype2string(vertex->type), vertex->d_N);
-			for (ALL_LIST_ELEMENTS_RO(vertex->Adj_N, anode, adj)) {
-				if (adj) {
-					if (rows) {
-						vty_out(vty, "\n");
-						vty_out(vty,
-							"%-20s %-12s %-6s ", "",
-							"", "");
-					}
-					vty_out(vty, "%-20s %-9s ",
-						print_sys_hostname(adj->sysid),
-						adj->circuit->interface->name);
-					++rows;
-				}
-			}
-			if (rows == 0)
-				vty_out(vty, "%-30s ", "");
+			vty_out(vty, "%-30s\n", "");
+			continue;
 		}
 
-		/* Print list of parents for the ECMP DAG */
-		if (listcount(vertex->parents) > 0) {
-			struct listnode *pnode;
-			struct isis_vertex *pvertex;
-			int rows = 0;
-			for (ALL_LIST_ELEMENTS_RO(vertex->parents, pnode,
-						  pvertex)) {
-				if (rows) {
-					vty_out(vty, "\n");
-					vty_out(vty, "%-72s", "");
-				}
+		int rows = 0;
+		struct listnode *anode = listhead(vertex->Adj_N);
+		struct listnode *pnode = listhead(vertex->parents);
+		struct isis_adjacency *adj;
+		struct isis_vertex *pvertex;
+
+		vty_out(vty, "%-20s %-12s %-6u ",
+			vid2string(vertex, buff, sizeof(buff)),
+			vtype2string(vertex->type), vertex->d_N);
+		for (unsigned int i = 0;
+		     i < MAX(listcount(vertex->Adj_N),
+			     listcount(vertex->parents)); i++) {
+			if (anode) {
+				adj = listgetdata(anode);
+				anode = anode->next;
+			} else {
+				adj = NULL;
+			}
+
+			if (pnode) {
+				pvertex = listgetdata(pnode);
+				pnode = pnode->next;
+			} else {
+				pvertex = NULL;
+			}
+
+			if (rows) {
+				vty_out(vty, "\n");
+				vty_out(vty, "%-20s %-12s %-6s ", "", "", "");
+			}
+
+			if (adj) {
+				vty_out(vty, "%-20s %-9s ",
+					print_sys_hostname(adj->sysid),
+					adj->circuit->interface->name);
+			}
+
+			if (pvertex) {
+				if (!adj)
+					vty_out(vty, "%-20s %-9s ", "", "");
+
 				vty_out(vty, "%s(%d)",
-					vid2string(pvertex, buff, sizeof(buff)),
+					vid2string(pvertex, buff,
+						   sizeof(buff)),
 					pvertex->type);
-				++rows;
 			}
-		} else {
-			vty_out(vty, "  NULL ");
-		}
 
+			++rows;
+		}
 		vty_out(vty, "\n");
 	}
 }
