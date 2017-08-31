@@ -489,10 +489,12 @@ int zebra_add_import_table_entry(struct route_node *rn, struct route_entry *re,
 	struct route_entry *same;
 	struct prefix p;
 	route_map_result_t ret = RMAP_MATCH;
+	afi_t afi;
 
+	afi = family2afi(rn->p.family);
 	if (rmap_name)
 		ret = zebra_import_table_route_map_check(
-			AFI_IP, re->type, &rn->p, re->nexthop, re->vrf_id,
+			afi, re->type, &rn->p, re->nexthop, re->vrf_id,
 			re->tag, rmap_name);
 
 	if (ret != RMAP_MATCH) {
@@ -500,72 +502,64 @@ int zebra_add_import_table_entry(struct route_node *rn, struct route_entry *re,
 		return 0;
 	}
 
-	if (rn->p.family == AF_INET) {
-		p.family = AF_INET;
-		p.prefixlen = rn->p.prefixlen;
-		p.u.prefix4 = rn->p.u.prefix4;
+	prefix_copy(&p, &rn->p);
 
-		RNODE_FOREACH_RE(rn, same)
-		{
-			if (CHECK_FLAG(same->status,
-				       ROUTE_ENTRY_REMOVED))
-				continue;
+	RNODE_FOREACH_RE(rn, same)
+	{
+		if (CHECK_FLAG(same->status,
+			       ROUTE_ENTRY_REMOVED))
+			continue;
 
-			if (same->type == re->type
-			    && same->instance == re->instance
-			    && same->table == re->table
-			    && same->type != ZEBRA_ROUTE_CONNECT)
-				break;
-		}
-
-		if (same)
-			zebra_del_import_table_entry(rn, same);
-
-		if (re->nexthop_num == 1) {
-			rib_add(AFI_IP, SAFI_UNICAST, re->vrf_id,
-				ZEBRA_ROUTE_TABLE, re->table, 0, &p,
-				NULL, re->nexthop,
-				zebrad.rtm_table_default, re->metric,
-				re->mtu,
-				zebra_import_table_distance[AFI_IP]
-				[re->table]);
-		} else if (re->nexthop_num > 1) {
-			newre = XCALLOC(MTYPE_RE,
-					sizeof(struct route_entry));
-			newre->type = ZEBRA_ROUTE_TABLE;
-			newre->distance =
-				zebra_import_table_distance[AFI_IP][re->table];
-			newre->flags = re->flags;
-			newre->metric = re->metric;
-			newre->mtu = re->mtu;
-			newre->table = zebrad.rtm_table_default;
-			newre->nexthop_num = 0;
-			newre->uptime = time(NULL);
-			newre->instance = re->table;
-			route_entry_copy_nexthops(newre, re->nexthop);
-
-			rib_add_multipath(AFI_IP, SAFI_UNICAST, &p,
-					  NULL, newre);
-		}
+		if (same->type == re->type
+		    && same->instance == re->instance
+		    && same->table == re->table
+		    && same->type != ZEBRA_ROUTE_CONNECT)
+			break;
 	}
-	/* DD: Add IPv6 code */
+
+	if (same)
+		zebra_del_import_table_entry(rn, same);
+
+	if (re->nexthop_num == 1) {
+		rib_add(afi, SAFI_UNICAST, re->vrf_id,
+			ZEBRA_ROUTE_TABLE, re->table, 0, &p,
+			NULL, re->nexthop,
+			zebrad.rtm_table_default, re->metric,
+			re->mtu,
+			zebra_import_table_distance[afi]
+			[re->table]);
+	} else if (re->nexthop_num > 1) {
+		newre = XCALLOC(MTYPE_RE,
+				sizeof(struct route_entry));
+		newre->type = ZEBRA_ROUTE_TABLE;
+		newre->distance =
+			zebra_import_table_distance[afi][re->table];
+		newre->flags = re->flags;
+		newre->metric = re->metric;
+		newre->mtu = re->mtu;
+		newre->table = zebrad.rtm_table_default;
+		newre->nexthop_num = 0;
+		newre->uptime = time(NULL);
+		newre->instance = re->table;
+		route_entry_copy_nexthops(newre, re->nexthop);
+
+		rib_add_multipath(afi, SAFI_UNICAST, &p,
+				  NULL, newre);
+	}
 	return 0;
 }
 
 int zebra_del_import_table_entry(struct route_node *rn, struct route_entry *re)
 {
 	struct prefix p;
+	afi_t afi;
 
-	if (rn->p.family == AF_INET) {
-		p.family = AF_INET;
-		p.prefixlen = rn->p.prefixlen;
-		p.u.prefix4 = rn->p.u.prefix4;
+	afi = family2afi(rn->p.family);
+	prefix_copy(&p, &rn->p);
 
-		rib_delete(AFI_IP, SAFI_UNICAST, re->vrf_id, ZEBRA_ROUTE_TABLE,
-			   re->table, re->flags, &p, NULL, NULL,
-			   zebrad.rtm_table_default, re->metric);
-	}
-	/* DD: Add IPv6 code */
+	rib_delete(afi, SAFI_UNICAST, re->vrf_id, ZEBRA_ROUTE_TABLE,
+		   re->table, re->flags, &p, NULL, NULL,
+		   zebrad.rtm_table_default, re->metric);
 
 	return 0;
 }
