@@ -2472,7 +2472,12 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 		rtnh = re->nexthop;
 		if (nexthop_same_no_recurse(rtnh, nh))
 			return 0;
-		else
+		/*
+		 * Nexthop is different. Remove the old route unless it's
+		 * a link-local route.
+		 */
+		else if (afi != AFI_IP6
+			 || !IN6_IS_ADDR_LINKLOCAL(&p->u.prefix6))
 			same = re;
 	}
 
