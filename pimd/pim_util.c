@@ -21,6 +21,7 @@
 
 #include "log.h"
 #include "prefix.h"
+#include "plist.h"
 
 #include "pim_util.h"
 
@@ -114,7 +115,7 @@ int pim_is_group_224_0_0_0_24(struct in_addr group_addr)
 
 	group.family = AF_INET;
 	group.u.prefix4 = group_addr;
-	group.prefixlen = 32;
+	group.prefixlen = IPV4_MAX_PREFIXLEN;
 
 	return prefix_match(&group_224, &group);
 }
@@ -136,4 +137,20 @@ int pim_is_group_224_4(struct in_addr group_addr)
 	group.prefixlen = 32;
 
 	return prefix_match(&group_all, &group);
+}
+
+bool pim_is_group_filtered(struct pim_interface *pim_ifp, struct in_addr *grp)
+{
+	struct prefix grp_pfx;
+	struct prefix_list *pl;
+
+	if (!pim_ifp->boundary_oil_plist)
+		return false;
+
+	grp_pfx.family = AF_INET;
+	grp_pfx.prefixlen = 32;
+	grp_pfx.u.prefix4 = *grp;
+
+	pl = prefix_list_lookup(AFI_IP, pim_ifp->boundary_oil_plist);
+	return pl ? prefix_list_apply(pl, &grp_pfx) == PREFIX_DENY : false;
 }
