@@ -148,7 +148,7 @@ struct lcommunity *lcommunity_dup(struct lcommunity *lcom)
 {
 	struct lcommunity *new;
 
-	new = XCALLOC(MTYPE_LCOMMUNITY, sizeof(struct lcommunity));
+	new = lcommunity_new();
 	new->size = lcom->size;
 	if (new->size) {
 		new->val = XMALLOC(MTYPE_LCOMMUNITY_VAL, lcom_length(lcom));
