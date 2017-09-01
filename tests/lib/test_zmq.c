@@ -37,18 +37,18 @@ static int recv_delim(void *zmqsock)
 	/* receive delim */
 	zmq_msg_t zdelim;
 	int more;
-	zmq_msg_init (&zdelim);
+	zmq_msg_init(&zdelim);
 	zmq_msg_recv(&zdelim, zmqsock, 0);
 	more = zmq_msg_more(&zdelim);
 	zmq_msg_close(&zdelim);
 	return more;
 }
-static void send_delim (void *zmqsock)
+static void send_delim(void *zmqsock)
 {
 	/* Send delim */
 	zmq_msg_t zdelim;
-	zmq_msg_init (&zdelim);
-	zmq_msg_send (&zdelim, zmqsock, ZMQ_SNDMORE);
+	zmq_msg_init(&zdelim);
+	zmq_msg_send(&zdelim, zmqsock, ZMQ_SNDMORE);
 	zmq_msg_close(&zdelim);
 }
 static void run_client(int syncfd)
@@ -73,8 +73,8 @@ static void run_client(int syncfd)
 
 	/* single-part */
 	for (i = 0; i < 8; i++) {
-		snprintf(buf, sizeof(buf), "msg #%d %c%c%c",
-			 i, 'a' + i, 'b' + i, 'c' + i);
+		snprintf(buf, sizeof(buf), "msg #%d %c%c%c", i, 'a' + i,
+			 'b' + i, 'c' + i);
 		printf("client send: %s\n", buf);
 		fflush(stdout);
 		send_delim(zmqsock);
@@ -120,7 +120,7 @@ static void run_client(int syncfd)
 
 	/* write callback */
 	printf("---\n");
-	snprintf(buf, 32,  "Done receiving");
+	snprintf(buf, 32, "Done receiving");
 	printf("client send: %s\n", buf);
 	fflush(stdout);
 	send_delim(zmqsock);
@@ -150,10 +150,10 @@ static void recv_id_and_delim(void *zmqsock, zmq_msg_t *msg_id)
 	/* receive delim */
 	recv_delim(zmqsock);
 }
-static void send_id_and_delim (void *zmqsock, zmq_msg_t *msg_id)
+static void send_id_and_delim(void *zmqsock, zmq_msg_t *msg_id)
 {
 	/* Send Id */
-	zmq_msg_send (msg_id, zmqsock, ZMQ_SNDMORE);
+	zmq_msg_send(msg_id, zmqsock, ZMQ_SNDMORE);
 	send_delim(zmqsock);
 }
 static void serverwritefn(void *arg, void *zmqsock)
@@ -176,7 +176,7 @@ static void serverwritefn(void *arg, void *zmqsock)
 	XFREE(MTYPE_ZMQMSG, msg_id);
 }
 static void serverpartfn(void *arg, void *zmqsock, zmq_msg_t *msg,
-			unsigned partnum)
+			 unsigned partnum)
 {
 	static int num = 0;
 	int more = zmq_msg_more(msg);
@@ -200,7 +200,7 @@ static void serverpartfn(void *arg, void *zmqsock, zmq_msg_t *msg,
 
 	out = XMALLOC(MTYPE_TESTBUF, strlen(in) + 1);
 	for (i = 0; i < strlen(in); i++)
-			out[i] = toupper(in[i]);
+		out[i] = toupper(in[i]);
 	out[i] = '\0';
 	zmq_msg_init_data(&reply, out, strlen(out) + 1, msg_buf_free, NULL);
 	zmq_msg_send(&reply, zmqsock, ZMQ_SNDMORE);
@@ -255,7 +255,8 @@ static void serverfn(void *arg, void *zmqsock)
 	/* change to multipart callback */
 	frrzmq_thread_cancel(cb);
 
-	cb = frrzmq_thread_add_read_part(master, serverpartfn, NULL, NULL, zmqsock, NULL);
+	cb = frrzmq_thread_add_read_part(master, serverpartfn, NULL, NULL,
+					 zmqsock, NULL);
 }
 
 static void sigchld(void)
@@ -287,7 +288,8 @@ static void run_server(int syncfd)
 		exit(1);
 	}
 
-	cb = frrzmq_thread_add_read_msg(master, serverfn, NULL, NULL, zmqsock, NULL);
+	cb = frrzmq_thread_add_read_msg(master, serverfn, NULL, NULL, zmqsock,
+					NULL);
 
 	write(syncfd, &dummy, sizeof(dummy));
 	while (thread_fetch(master, &t))
