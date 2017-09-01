@@ -450,8 +450,7 @@ static char *lcommunity_str_get(struct lcommunity *lcom, int i)
 	u_char *ptr;
 	char *pnt;
 
-	ptr = lcom->val;
-	ptr += (i * LCOMMUNITY_SIZE);
+	ptr = lcom->val + (i * LCOMMUNITY_SIZE);
 
 	memcpy(&lcomval, ptr, LCOMMUNITY_SIZE);
 
