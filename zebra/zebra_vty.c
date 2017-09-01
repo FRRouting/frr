@@ -74,7 +74,7 @@ static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
 	union g_addr gate;
 	union g_addr *gatep = NULL;
 	struct in_addr mask;
-	enum blackhole_type bh_type = 0;
+	enum static_blackhole_type bh_type = 0;
 	route_tag_t tag = 0;
 	struct zebra_vrf *zvrf;
 	u_char type;
@@ -169,14 +169,13 @@ static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
 	if (flag_str) {
 		switch (flag_str[0]) {
 		case 'r':
-		case 'R': /* XXX */
-			bh_type = BLACKHOLE_REJECT;
+			bh_type = STATIC_BLACKHOLE_REJECT;
 			break;
 		case 'n':
-		case 'N' /* XXX */:
+			bh_type = STATIC_BLACKHOLE_NULL;
+			break;
 		case 'b':
-		case 'B': /* XXX */
-			bh_type = BLACKHOLE_NULL;
+			bh_type = STATIC_BLACKHOLE_DROP;
 			break;
 		default:
 			vty_out(vty, "%% Malformed flag %s \n", flag_str);
@@ -1712,11 +1711,14 @@ static int static_config(struct vty *vty, afi_t afi, safi_t safi,
 					break;
 				case STATIC_BLACKHOLE:
 					switch (si->bh_type) {
-					case BLACKHOLE_REJECT:
-						vty_out(vty, " reject");
-						break;
-					default:
+					case STATIC_BLACKHOLE_DROP:
 						vty_out(vty, " blackhole");
+						break;
+					case STATIC_BLACKHOLE_NULL:
+						vty_out(vty, " null0");
+						break;
+					case STATIC_BLACKHOLE_REJECT:
+						vty_out(vty, " reject");
 						break;
 					}
 					break;

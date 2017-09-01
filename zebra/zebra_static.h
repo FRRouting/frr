@@ -31,6 +31,12 @@ struct static_nh_label {
 	mpls_label_t label[MPLS_MAX_LABELS];
 };
 
+enum static_blackhole_type {
+	STATIC_BLACKHOLE_DROP = 0,
+	STATIC_BLACKHOLE_NULL,
+	STATIC_BLACKHOLE_REJECT
+};
+
 typedef enum {
 	STATIC_IFNAME,
 	STATIC_IPV4_GATEWAY,
@@ -61,7 +67,7 @@ struct static_route {
 	/*
 	 * Nexthop value.
 	 */
-	enum blackhole_type bh_type;
+	enum static_blackhole_type bh_type;
 	union g_addr addr;
 	ifindex_t ifindex;
 
@@ -80,9 +86,9 @@ extern void static_uninstall_route(afi_t afi, safi_t safi, struct prefix *p,
 
 extern int static_add_route(afi_t, safi_t safi, u_char type, struct prefix *p,
 			    struct prefix_ipv6 *src_p, union g_addr *gate,
-			    const char *ifname, enum blackhole_type bh_type,
-			    route_tag_t tag, u_char distance,
-			    struct zebra_vrf *zvrf,
+			    const char *ifname,
+			    enum static_blackhole_type bh_type, route_tag_t tag,
+			    u_char distance, struct zebra_vrf *zvrf,
 			    struct static_nh_label *snh_label);
 
 extern int static_delete_route(afi_t, safi_t safi, u_char type,
