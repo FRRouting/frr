@@ -491,17 +491,26 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 			size_t sz = (afi == AFI_IP) ? 4 : 16;
 
 			memset(&nh, 0, sizeof(nh));
-			if (index && !gate)
-				nh.type = NEXTHOP_TYPE_IFINDEX;
-			else if (index && gate)
-				nh.type = (afi == AFI_IP)
-						  ? NEXTHOP_TYPE_IPV4_IFINDEX
-						  : NEXTHOP_TYPE_IPV6_IFINDEX;
-			else if (!index && gate)
-				nh.type = (afi == AFI_IP) ? NEXTHOP_TYPE_IPV4
+			if (bh_type == BLACKHOLE_UNSPEC) {
+				if (index && !gate)
+					nh.type = NEXTHOP_TYPE_IFINDEX;
+				else if (index && gate)
+					nh.type =
+						(afi == AFI_IP)
+							? NEXTHOP_TYPE_IPV4_IFINDEX
+							: NEXTHOP_TYPE_IPV6_IFINDEX;
+				else if (!index && gate)
+					nh.type = (afi == AFI_IP)
+							  ? NEXTHOP_TYPE_IPV4
 							  : NEXTHOP_TYPE_IPV6;
-			else
+				else {
+					nh.type = NEXTHOP_TYPE_BLACKHOLE;
+					nh.bh_type = BLACKHOLE_UNSPEC;
+				}
+			} else {
 				nh.type = NEXTHOP_TYPE_BLACKHOLE;
+				nh.bh_type = bh_type;
+			}
 			nh.ifindex = index;
 			if (gate)
 				memcpy(&nh.gate, gate, sz);
