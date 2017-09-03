@@ -246,7 +246,9 @@ void bgp_sync_init(struct peer *peer)
 			BGP_ADV_FIFO_INIT(&sync->withdraw_low);
 			peer->sync[afi][safi] = sync;
 			peer->hash[afi][safi] =
-				hash_create(baa_hash_key, baa_hash_cmp, NULL);
+				hash_create(baa_hash_key,
+					    baa_hash_cmp,
+					    "BGP Sync Hash");
 		}
 }
 

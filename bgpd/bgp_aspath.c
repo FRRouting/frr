@@ -2019,7 +2019,10 @@ int aspath_cmp(const void *arg1, const void *arg2)
 /* AS path hash initialize. */
 void aspath_init(void)
 {
-	ashash = hash_create_size(32768, aspath_key_make, aspath_cmp, NULL);
+	ashash = hash_create_size(32768,
+				  aspath_key_make,
+				  aspath_cmp,
+				  "BGP AS Path");
 }
 
 void aspath_finish(void)

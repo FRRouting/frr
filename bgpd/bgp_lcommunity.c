@@ -25,6 +25,7 @@
 #include "prefix.h"
 #include "command.h"
 #include "filter.h"
+#include "jhash.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_lcommunity.h"
@@ -230,26 +231,8 @@ unsigned int lcommunity_hash_make(void *arg)
 {
 	const struct lcommunity *lcom = arg;
 	int size = lcom_length(lcom);
-	u_int8_t *pnt = lcom->val;
-	unsigned int key = 0;
-	int c;
 
-	for (c = 0; c < size; c += LCOMMUNITY_SIZE) {
-		key += pnt[c];
-		key += pnt[c + 1];
-		key += pnt[c + 2];
-		key += pnt[c + 3];
-		key += pnt[c + 4];
-		key += pnt[c + 5];
-		key += pnt[c + 6];
-		key += pnt[c + 7];
-		key += pnt[c + 8];
-		key += pnt[c + 9];
-		key += pnt[c + 10];
-		key += pnt[c + 11];
-	}
-
-	return key;
+	return jhash(lcom->val, size, 0xab125423);
 }
 
 /* Compare two Large Communities Attribute structure.  */
@@ -272,7 +255,9 @@ struct hash *lcommunity_hash(void)
 /* Initialize Large Comminities related hash. */
 void lcommunity_init(void)
 {
-	lcomhash = hash_create(lcommunity_hash_make, lcommunity_cmp, NULL);
+	lcomhash = hash_create(lcommunity_hash_make,
+			       lcommunity_cmp,
+			       "BGP lcommunity hash");
 }
 
 void lcommunity_finish(void)

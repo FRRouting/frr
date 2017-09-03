@@ -23,6 +23,7 @@
 #include "command.h"
 #include "hash.h"
 #include "memory.h"
+#include "jhash.h"
 
 #include "bgpd/bgp_memory.h"
 #include "bgpd/bgp_community.h"
@@ -409,19 +410,9 @@ char *community_str(struct community *com)
    hash package.*/
 unsigned int community_hash_make(struct community *com)
 {
-	unsigned char *pnt = (unsigned char *)com->val;
-	int size = com->size * 4;
-	unsigned int key = 0;
-	int c;
+	u_int32_t *pnt = (u_int32_t *)com->val;
 
-	for (c = 0; c < size; c += 4) {
-		key += pnt[c];
-		key += pnt[c + 1];
-		key += pnt[c + 2];
-		key += pnt[c + 3];
-	}
-
-	return key;
+	return jhash2(pnt, com->size, 0x43ea96c1);
 }
 
 int community_match(const struct community *com1, const struct community *com2)
@@ -653,7 +644,8 @@ void community_init(void)
 {
 	comhash = hash_create(
 		(unsigned int (*)(void *))community_hash_make,
-		(int (*)(const void *, const void *))community_cmp, NULL);
+		(int (*)(const void *, const void *))community_cmp,
+		"BGP Community Hash");
 }
 
 void community_finish(void)
