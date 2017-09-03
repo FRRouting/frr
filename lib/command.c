@@ -43,6 +43,7 @@
 #include "qobj.h"
 #include "defaults.h"
 #include "libfrr.h"
+#include "jhash.h"
 
 DEFINE_MTYPE(LIB, HOST, "Host config")
 DEFINE_MTYPE(LIB, STRVEC, "String vector")
@@ -278,7 +279,9 @@ int argv_find(struct cmd_token **argv, int argc, const char *text, int *index)
 
 static unsigned int cmd_hash_key(void *p)
 {
-	return (uintptr_t)p;
+	int size = sizeof(p);
+
+	return jhash(p, size, 0);
 }
 
 static int cmd_hash_cmp(const void *a, const void *b)
@@ -298,7 +301,9 @@ void install_node(struct cmd_node *node, int (*func)(struct vty *))
 		cmd_token_new(START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
 	graph_new_node(node->cmdgraph, token,
 		       (void (*)(void *)) & cmd_token_del);
-	node->cmd_hash = hash_create(cmd_hash_key, cmd_hash_cmp, NULL);
+	node->cmd_hash = hash_create_size(16, cmd_hash_key,
+					  cmd_hash_cmp,
+					  "Command Hash");
 }
 
 /**

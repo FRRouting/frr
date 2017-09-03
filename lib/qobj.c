@@ -25,6 +25,7 @@
 #include "hash.h"
 #include "log.h"
 #include "qobj.h"
+#include "jhash.h"
 
 static pthread_rwlock_t nodes_lock;
 static struct hash *nodes = NULL;
@@ -97,7 +98,9 @@ void qobj_init(void)
 {
 	if (!nodes) {
 		pthread_rwlock_init(&nodes_lock, NULL);
-		nodes = hash_create(qobj_key, qobj_cmp, NULL);
+		nodes = hash_create_size(16, qobj_key,
+					 qobj_cmp,
+					 "QOBJ Hash");
 	}
 }
 
