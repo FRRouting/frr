@@ -17,7 +17,9 @@ static int nhrp_reqid_cmp(const void *data, const void *key)
 uint32_t nhrp_reqid_alloc(struct nhrp_reqid_pool *p, struct nhrp_reqid *r, void (*cb)(struct nhrp_reqid *, void *))
 {
 	if (!p->reqid_hash) {
-		p->reqid_hash = hash_create(nhrp_reqid_key, nhrp_reqid_cmp, NULL);
+		p->reqid_hash = hash_create(nhrp_reqid_key,
+					    nhrp_reqid_cmp,
+					    "NHRP reqid Hash");
 		p->next_request_id = 1;
 	}
 

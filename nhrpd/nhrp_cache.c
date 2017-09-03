@@ -81,7 +81,9 @@ struct nhrp_cache *nhrp_cache_get(struct interface *ifp, union sockunion *remote
 	struct nhrp_cache key;
 
 	if (!nifp->cache_hash) {
-		nifp->cache_hash = hash_create(nhrp_cache_protocol_key, nhrp_cache_protocol_cmp, NULL);
+		nifp->cache_hash = hash_create(nhrp_cache_protocol_key,
+					       nhrp_cache_protocol_cmp,
+					       "NHRP Cache");
 		if (!nifp->cache_hash)
 			return NULL;
 	}
