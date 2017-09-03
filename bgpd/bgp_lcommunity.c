@@ -525,10 +525,10 @@ void lcommunity_del_val(struct lcommunity *lcom, u_char *ptr)
 
 			if (lcom->size > 0)
 				lcom->val =
-					XREALLOC(MTYPE_COMMUNITY_VAL, lcom->val,
+					XREALLOC(MTYPE_LCOMMUNITY_VAL, lcom->val,
 						 lcom_length(lcom));
 			else {
-				XFREE(MTYPE_COMMUNITY_VAL, lcom->val);
+				XFREE(MTYPE_LCOMMUNITY_VAL, lcom->val);
 				lcom->val = NULL;
 			}
 			return;
