@@ -402,8 +402,6 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		}
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
 			vty_out(vty, ", best");
-		if (re->refcnt)
-			vty_out(vty, ", refcnt %ld", re->refcnt);
 		vty_out(vty, "\n");
 
 		if (re->type == ZEBRA_ROUTE_RIP || re->type == ZEBRA_ROUTE_OSPF

@@ -2061,10 +2061,9 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 		   is_srcdst ? prefix2str(src_pp, srcaddr, sizeof(srcaddr))
 			     : "",
 		   re->vrf_id);
-	zlog_debug(
-		"%s: refcnt == %lu, uptime == %lu, type == %u, instance == %d, table == %d",
-		func, re->refcnt, (unsigned long)re->uptime, re->type,
-		re->instance, re->table);
+	zlog_debug("%s: uptime == %lu, type == %u, instance == %d, table == %d",
+		   func, (unsigned long)re->uptime, re->type, re->instance,
+		   re->table);
 	zlog_debug(
 		"%s: metric == %u, mtu == %u, distance == %u, flags == %u, status == %u",
 		func, re->metric, re->mtu, re->distance, re->flags, re->status);
@@ -2335,12 +2334,6 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		    && rtnh->type == NEXTHOP_TYPE_IFINDEX && nh) {
 			if (rtnh->ifindex != nh->ifindex)
 				continue;
-			if (re->refcnt) {
-				re->refcnt--;
-				route_unlock_node(rn);
-				route_unlock_node(rn);
-				return;
-			}
 			same = re;
 			break;
 		}
@@ -2476,13 +2469,16 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 			break;
 		}
 		/* Duplicate system route comes in. */
-		else if ((rtnh = re->nexthop)
-			 && rtnh->type == NEXTHOP_TYPE_IFINDEX
-			 && rtnh->ifindex == nh->ifindex
-			 && !CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
-			re->refcnt++;
+		rtnh = re->nexthop;
+		if (nexthop_same_no_recurse(rtnh, nh))
 			return 0;
-		}
+		/*
+		 * Nexthop is different. Remove the old route unless it's
+		 * a link-local route.
+		 */
+		else if (afi != AFI_IP6
+			 || !IN6_IS_ADDR_LINKLOCAL(&p->u.prefix6))
+			same = re;
 	}
 
 	/* Allocate new re structure. */
