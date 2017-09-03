@@ -400,9 +400,8 @@ int lcommunity_include(struct lcommunity *lcom, u_char *ptr)
 	int i;
 	u_char *lcom_ptr;
 
-	lcom_ptr = lcom->val;
 	for (i = 0; i < lcom->size; i++) {
-		lcom_ptr += (i * LCOMMUNITY_SIZE);
+		lcom_ptr = lcom->val + (i * LCOMMUNITY_SIZE);
 		if (memcmp(ptr, lcom_ptr, LCOMMUNITY_SIZE) == 0)
 			return 1;
 	}
@@ -526,10 +525,10 @@ void lcommunity_del_val(struct lcommunity *lcom, u_char *ptr)
 
 			if (lcom->size > 0)
 				lcom->val =
-					XREALLOC(MTYPE_COMMUNITY_VAL, lcom->val,
+					XREALLOC(MTYPE_LCOMMUNITY_VAL, lcom->val,
 						 lcom_length(lcom));
 			else {
-				XFREE(MTYPE_COMMUNITY_VAL, lcom->val);
+				XFREE(MTYPE_LCOMMUNITY_VAL, lcom->val);
 				lcom->val = NULL;
 			}
 			return;
