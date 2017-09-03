@@ -450,8 +450,7 @@ static char *lcommunity_str_get(struct lcommunity *lcom, int i)
 	u_char *ptr;
 	char *pnt;
 
-	ptr = lcom->val;
-	ptr += (i * LCOMMUNITY_SIZE);
+	ptr = lcom->val + (i * LCOMMUNITY_SIZE);
 
 	memcpy(&lcomval, ptr, LCOMMUNITY_SIZE);
 
@@ -704,8 +703,7 @@ struct community *community_list_match_delete(struct community *com,
 
 	/* Loop over each community value and evaluate each against the
 	 * community-list.  If we need to delete a community value add its index
-	 * to
-	 * com_index_to_delete.
+	 * to com_index_to_delete.
 	 */
 	for (i = 0; i < com->size; i++) {
 		val = community_val_get(com, i);
@@ -906,12 +904,10 @@ struct lcommunity *lcommunity_list_match_delete(struct lcommunity *lcom,
 
 	/* Loop over each lcommunity value and evaluate each against the
 	 * community-list.  If we need to delete a community value add its index
-	 * to
-	 * com_index_to_delete.
+	 * to com_index_to_delete.
 	 */
-	ptr = lcom->val;
 	for (i = 0; i < lcom->size; i++) {
-		ptr += (i * LCOMMUNITY_SIZE);
+		ptr = lcom->val + (i * LCOMMUNITY_SIZE);
 		for (entry = list->head; entry; entry = entry->next) {
 			if (entry->any) {
 				if (entry->direct == COMMUNITY_PERMIT) {
@@ -930,7 +926,7 @@ struct lcommunity *lcommunity_list_match_delete(struct lcommunity *lcom,
 				break;
 			}
 
-			else if ((entry->style == LARGE_COMMUNITY_LIST_STANDARD)
+			else if ((entry->style == LARGE_COMMUNITY_LIST_EXPANDED)
 				 && lcommunity_regexp_include(entry->reg, lcom,
 							      i)) {
 				if (entry->direct == COMMUNITY_PERMIT) {
@@ -943,9 +939,8 @@ struct lcommunity *lcommunity_list_match_delete(struct lcommunity *lcom,
 	}
 
 	/* Delete all of the communities we flagged for deletion */
-	ptr = lcom->val;
 	for (i = delete_index - 1; i >= 0; i--) {
-		ptr += (com_index_to_delete[i] * LCOMMUNITY_SIZE);
+		ptr = lcom->val + (com_index_to_delete[i] * LCOMMUNITY_SIZE);
 		lcommunity_del_val(lcom, ptr);
 	}
 

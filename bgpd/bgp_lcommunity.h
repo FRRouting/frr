@@ -37,14 +37,14 @@ struct lcommunity {
 	/* Size of Extended Communities attribute.  */
 	int size;
 
-	/* Extended Communities value.  */
+	/* Large Communities value.  */
 	u_int8_t *val;
 
 	/* Human readable format string.  */
 	char *str;
 };
 
-/* Extended community value is eight octet.  */
+/* Large community value is 12 octets.  */
 struct lcommunity_val {
 	char val[LCOMMUNITY_SIZE];
 };
