@@ -64,17 +64,6 @@ static afi_t afi_for_redist_protocol(int protocol)
 	return AFI_IP;
 }
 
-static int is_default(struct prefix *p)
-{
-	if (p->family == AF_INET)
-		if (p->u.prefix4.s_addr == 0 && p->prefixlen == 0)
-			return 1;
-	if (p->family == AF_INET6)
-		if (IN6_IS_ADDR_UNSPECIFIED(&p->u.prefix6) && p->prefixlen == 0)
-			return 1;
-	return 0;
-}
-
 static struct route_table *get_ext_info(struct isis *i, int family)
 {
 	int protocol = redist_protocol(family);
@@ -286,7 +275,7 @@ void isis_redist_add(int type, struct prefix *p, u_char distance,
 	info->distance = distance;
 	info->metric = metric;
 
-	if (is_default(p))
+	if (is_default_prefix(p))
 		type = DEFAULT_ROUTE;
 
 	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area))
@@ -316,7 +305,7 @@ void isis_redist_delete(int type, struct prefix *p)
 	zlog_debug("%s: Removing route %s from %s.", __func__, debug_buf,
 		   zebra_route_string(type));
 
-	if (is_default(p)) {
+	if (is_default_prefix(p)) {
 		/* Don't remove default route but add synthetic route for use
 		 * by "default-information originate always". Areas without the
 		 * "always" setting will ignore routes with origin
@@ -454,7 +443,7 @@ static void isis_redist_set(struct isis_area *area, int level, int family,
 		info = rn->info;
 
 		if (type == DEFAULT_ROUTE) {
-			if (!is_default(&rn->p))
+			if (!is_default_prefix(&rn->p))
 				continue;
 		} else {
 			if (info->origin != type)
@@ -490,7 +479,7 @@ static void isis_redist_unset(struct isis_area *area, int level, int family,
 		info = rn->info;
 
 		if (type == DEFAULT_ROUTE) {
-			if (!is_default(&rn->p))
+			if (!is_default_prefix(&rn->p))
 				continue;
 		} else {
 			if (info->origin != type)
