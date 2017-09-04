@@ -309,6 +309,8 @@ struct frrzmq_cb *funcname_frrzmq_thread_add_write(
 
 void frrzmq_thread_cancel(struct frrzmq_cb *cb)
 {
+	if (!cb)
+		return;
 	if (!cb->thread) {
 		/* canceling from within callback */
 		cb->cancelled = 1;
