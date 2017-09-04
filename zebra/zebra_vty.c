@@ -165,14 +165,18 @@ static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
 		}
 	}
 
+	/* Null0 static route.  */
+	if ((ifname != NULL)
+	    && (strncasecmp(ifname, "Null0", strlen(ifname)) == 0)) {
+		bh_type = STATIC_BLACKHOLE_NULL;
+		ifname = NULL;
+	}
+
 	/* Route flags */
 	if (flag_str) {
 		switch (flag_str[0]) {
 		case 'r':
 			bh_type = STATIC_BLACKHOLE_REJECT;
-			break;
-		case 'n':
-			bh_type = STATIC_BLACKHOLE_NULL;
 			break;
 		case 'b':
 			bh_type = STATIC_BLACKHOLE_DROP;
@@ -334,7 +338,8 @@ DEFPY(ip_route, ip_route_cmd,
           <A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask>\
           <\
             {A.B.C.D$gate|INTERFACE$ifname}\
-            |<null0|reject|blackhole>$flag\
+            |null0$ifname\
+            |<reject|blackhole>$flag\
           >\
           [{\
             tag (1-4294967295)\
@@ -1715,7 +1720,7 @@ static int static_config(struct vty *vty, afi_t afi, safi_t safi,
 						vty_out(vty, " blackhole");
 						break;
 					case STATIC_BLACKHOLE_NULL:
-						vty_out(vty, " null0");
+						vty_out(vty, " Null0");
 						break;
 					case STATIC_BLACKHOLE_REJECT:
 						vty_out(vty, " reject");
@@ -1772,7 +1777,8 @@ DEFPY(ipv6_route,
       "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M]\
           <\
             {X:X::X:X$gate|INTERFACE$ifname}\
-            |<null0|reject|blackhole>$flag\
+            |null0$ifname\
+            |<reject|blackhole>$flag\
           >\
           [{\
             tag (1-4294967295)\
