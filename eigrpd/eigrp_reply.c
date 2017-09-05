@@ -168,7 +168,7 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 			assert(dest);
 
 			struct eigrp_fsm_action_message msg;
-			struct eigrp_neighbor_entry *entry =
+			struct eigrp_nexthop_entry *entry =
 				eigrp_prefix_entry_lookup(dest->entries, nbr);
 
 			if (eigrp_update_prefix_apply(eigrp, ei,
