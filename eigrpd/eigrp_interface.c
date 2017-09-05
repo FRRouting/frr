@@ -245,7 +245,7 @@ struct eigrp_if_params *eigrp_lookup_if_params(struct interface *ifp,
 int eigrp_if_up(struct eigrp_interface *ei)
 {
 	struct eigrp_prefix_entry *pe;
-	struct eigrp_neighbor_entry *ne;
+	struct eigrp_nexthop_entry *ne;
 	struct eigrp_metrics metric;
 	struct eigrp_interface *ei2;
 	struct listnode *node, *nnode;
@@ -279,14 +279,14 @@ int eigrp_if_up(struct eigrp_interface *ei)
 
 	/*Add connected entry to topology table*/
 
-	ne = eigrp_neighbor_entry_new();
+	ne = eigrp_nexthop_entry_new();
 	ne->ei = ei;
 	ne->reported_metric = metric;
 	ne->total_metric = metric;
 	ne->distance = eigrp_calculate_metrics(eigrp, metric);
 	ne->reported_distance = 0;
 	ne->adv_router = eigrp->neighbor_self;
-	ne->flags = EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG;
+	ne->flags = EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG;
 
 	struct prefix dest_addr;
 
@@ -313,7 +313,7 @@ int eigrp_if_up(struct eigrp_interface *ei)
 		eigrp_prefix_entry_add(eigrp->topology_table, pe);
 		listnode_add(eigrp->topology_changes_internalIPV4, pe);
 
-		eigrp_neighbor_entry_add(pe, ne);
+		eigrp_nexthop_entry_add(pe, ne);
 
 		for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei2)) {
 			eigrp_update_send(ei2);
@@ -325,7 +325,7 @@ int eigrp_if_up(struct eigrp_interface *ei)
 		struct eigrp_fsm_action_message msg;
 
 		ne->prefix = pe;
-		eigrp_neighbor_entry_add(pe, ne);
+		eigrp_nexthop_entry_add(pe, ne);
 
 		msg.packet_type = EIGRP_OPC_UPDATE;
 		msg.eigrp = eigrp;

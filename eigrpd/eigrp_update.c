@@ -63,6 +63,32 @@
 #include "eigrpd/eigrp_network.h"
 #include "eigrpd/eigrp_memory.h"
 
+bool eigrp_update_prefix_apply(struct eigrp *eigrp,
+			       struct eigrp_interface *ei,
+			       int in, struct prefix *prefix)
+{
+	struct access_list *alist;
+	struct prefix_list *plist;
+
+	alist = eigrp->list[in];
+	if (alist && access_list_apply(alist, prefix) == FILTER_DENY)
+		return true;
+
+	plist = eigrp->prefix[in];
+	if (plist && prefix_list_apply(plist, prefix) == PREFIX_DENY)
+		return true;
+
+	alist = ei->list[in];
+	if (alist && access_list_apply(alist, prefix) == FILTER_DENY)
+		return true;
+
+	plist = ei->prefix[in];
+	if (plist && prefix_list_apply(plist, prefix) == PREFIX_DENY)
+		return true;
+
+	return false;
+}
+
 /**
  * @fn remove_received_prefix_gr
  *
@@ -125,7 +151,7 @@ static void eigrp_update_receive_GR_ask(struct eigrp *eigrp,
 		/* set delay to MAX */
 		fsm_msg.metrics.delay = EIGRP_MAX_METRIC;
 
-		struct eigrp_neighbor_entry *entry =
+		struct eigrp_nexthop_entry *entry =
 			eigrp_prefix_entry_lookup(prefix->entries, nbr);
 
 		fsm_msg.packet_type = EIGRP_OPC_UPDATE;
@@ -150,15 +176,12 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 	struct eigrp_neighbor *nbr;
 	struct TLV_IPv4_Internal_type *tlv;
 	struct eigrp_prefix_entry *pe;
-	struct eigrp_neighbor_entry *ne;
+	struct eigrp_nexthop_entry *ne;
 	u_int32_t flags;
 	u_int16_t type;
 	u_int16_t length;
 	u_char same;
-	struct access_list *alist;
-	struct prefix_list *plist;
 	struct prefix dest_addr;
-	struct eigrp *e;
 	u_char graceful_restart;
 	u_char graceful_restart_final;
 	struct list *nbr_prefixes = NULL;
@@ -296,7 +319,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 								  dest);
 
 				struct eigrp_fsm_action_message msg;
-				struct eigrp_neighbor_entry *entry =
+				struct eigrp_nexthop_entry *entry =
 					eigrp_prefix_entry_lookup(dest->entries,
 								  nbr);
 
@@ -319,7 +342,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 				pe->state = EIGRP_FSM_STATE_PASSIVE;
 				pe->nt = EIGRP_TOPOLOGY_TYPE_REMOTE;
 
-				ne = eigrp_neighbor_entry_new();
+				ne = eigrp_nexthop_entry_new();
 				ne->ei = ei;
 				ne->adv_router = nbr;
 				ne->reported_metric = tlv->metric;
@@ -328,67 +351,10 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 				/*
 				 * Filtering
 				 */
-				e = eigrp_lookup();
-				/*
-				 * Check if there is any access-list on
-				 * interface (IN direction)
-				 *  and set distance to max
-				 */
-				alist = ei->list[EIGRP_FILTER_IN];
-
-				/* Check if access-list fits */
-				if (alist
-				    && access_list_apply(alist,
-							 &dest_addr)
-					       == FILTER_DENY) {
-					/* If yes, set reported metric to Max */
-					ne->reported_metric.delay =
-						EIGRP_MAX_METRIC;
-				} else {
-					ne->distance =
-						eigrp_calculate_total_metrics(
-							eigrp, ne);
-				}
-
-				plist = e->prefix[EIGRP_FILTER_IN];
-
-				/* Check if prefix-list fits */
-				if (plist
-				    && prefix_list_apply(plist,
-							 &dest_addr)
-					       == PREFIX_DENY) {
-					/* If yes, set reported metric to Max */
-					ne->reported_metric.delay =
-						EIGRP_MAX_METRIC;
-				}
-
-				/*Get access-list from current interface */
-				alist = ei->list[EIGRP_FILTER_IN];
-
-				/* Check if access-list fits */
-				if (alist
-				    && access_list_apply(alist,
-							 &dest_addr)
-					       == FILTER_DENY) {
-					/* If yes, set reported metric to Max */
-					ne->reported_metric.delay =
-						EIGRP_MAX_METRIC;
-				}
-
-				plist = ei->prefix[EIGRP_FILTER_IN];
-
-				/* Check if prefix-list fits */
-				if (plist
-				    && prefix_list_apply(plist,
-							 &dest_addr)
-					       == PREFIX_DENY) {
-					/* If yes, set reported metric to Max */
-					ne->reported_metric.delay =
-						EIGRP_MAX_METRIC;
-				}
-				/*
-				 * End of filtering
-				 */
+				if (eigrp_update_prefix_apply(eigrp, ei,
+							      EIGRP_FILTER_IN,
+							      &dest_addr))
+					ne->reported_metric.delay = EIGRP_MAX_METRIC;
 
 				ne->distance = eigrp_calculate_total_metrics(
 					eigrp, ne);
@@ -396,11 +362,11 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 				pe->fdistance = pe->distance = pe->rdistance =
 					ne->distance;
 				ne->prefix = pe;
-				ne->flags = EIGRP_NEIGHBOR_ENTRY_SUCCESSOR_FLAG;
+				ne->flags = EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG;
 
 				eigrp_prefix_entry_add(eigrp->topology_table,
 						       pe);
-				eigrp_neighbor_entry_add(pe, ne);
+				eigrp_nexthop_entry_add(pe, ne);
 				pe->distance = pe->fdistance = pe->rdistance =
 					ne->distance;
 				pe->reported_metric = ne->total_metric;
@@ -562,86 +528,64 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 {
 	struct eigrp_packet *ep;
 	u_int16_t length = EIGRP_HEADER_LEN;
-	struct eigrp_neighbor_entry *te;
+	struct eigrp_nexthop_entry *te;
 	struct eigrp_prefix_entry *pe;
 	struct listnode *node, *node2, *nnode, *nnode2;
-	struct access_list *alist;
-	struct prefix_list *plist;
-	struct access_list *alist_i;
-	struct prefix_list *plist_i;
-	struct eigrp *e;
+	struct eigrp_interface *ei = nbr->ei;
+	struct eigrp *eigrp = ei->eigrp;
 	struct prefix *dest_addr;
-	u_int32_t seq_no = nbr->ei->eigrp->sequence_number;
+	u_int32_t seq_no = eigrp->sequence_number;
 
-	ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
+	ep = eigrp_packet_new(ei->ifp->mtu, nbr);
 
 	/* Prepare EIGRP EOT UPDATE header */
-	eigrp_packet_header_init(EIGRP_OPC_UPDATE, nbr->ei->eigrp,
+	eigrp_packet_header_init(EIGRP_OPC_UPDATE, eigrp,
 				 ep->s, EIGRP_EOT_FLAG,
 				 seq_no, nbr->recv_sequence_number);
 
 	// encode Authentication TLV, if needed
-	if((IF_DEF_PARAMS (nbr->ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5) &&
-	   (IF_DEF_PARAMS (nbr->ei->ifp)->auth_keychain != NULL)) {
-		length += eigrp_add_authTLV_MD5_to_stream(ep->s,nbr->ei);
+	if((IF_DEF_PARAMS (ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5) &&
+	   (IF_DEF_PARAMS (ei->ifp)->auth_keychain != NULL)) {
+		length += eigrp_add_authTLV_MD5_to_stream(ep->s,ei);
 	}
 
-	for (ALL_LIST_ELEMENTS(nbr->ei->eigrp->topology_table, node, nnode, pe)) {
+	for (ALL_LIST_ELEMENTS(eigrp->topology_table, node, nnode, pe)) {
 		for (ALL_LIST_ELEMENTS(pe->entries, node2, nnode2, te)) {
-			if (eigrp_nbr_split_horizon_check(te, nbr->ei))
+			if (eigrp_nbr_split_horizon_check(te, ei))
 				continue;
 
-			if ((length + 0x001D) > (u_int16_t)nbr->ei->ifp->mtu) {
+			if ((length + 0x001D) > (u_int16_t)ei->ifp->mtu) {
 				eigrp_update_place_on_nbr_queue (nbr, ep, seq_no, length);
 				seq_no++;
 
 				length = EIGRP_HEADER_LEN;
-				ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
-				eigrp_packet_header_init(EIGRP_OPC_UPDATE, nbr->ei->eigrp,
+				ep = eigrp_packet_new(ei->ifp->mtu, nbr);
+				eigrp_packet_header_init(EIGRP_OPC_UPDATE, eigrp,
 							 ep->s, EIGRP_EOT_FLAG,
 							 seq_no, nbr->recv_sequence_number);
 
-				if((IF_DEF_PARAMS (nbr->ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5) &&
-				   (IF_DEF_PARAMS (nbr->ei->ifp)->auth_keychain != NULL))
+				if((IF_DEF_PARAMS (ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5) &&
+				   (IF_DEF_PARAMS (ei->ifp)->auth_keychain != NULL))
 				{
-					length += eigrp_add_authTLV_MD5_to_stream(ep->s,nbr->ei);
+					length += eigrp_add_authTLV_MD5_to_stream(ep->s,ei);
 				}
 			}
 			/* Get destination address from prefix */
 			dest_addr = pe->destination;
 
-			/*
-			 * Filtering
-			 */
-			//TODO: Work in progress
-			/* get list from eigrp process */
-			e = eigrp_lookup();
-			/* Get access-lists and prefix-lists from process and interface */
-			alist = e->list[EIGRP_FILTER_OUT];
-			plist = e->prefix[EIGRP_FILTER_OUT];
-			alist_i = nbr->ei->list[EIGRP_FILTER_OUT];
-			plist_i = nbr->ei->prefix[EIGRP_FILTER_OUT];
-
 			/* Check if any list fits */
-			if ((alist
-			     && access_list_apply (alist,
-						   dest_addr) == FILTER_DENY)||
-			    (plist && prefix_list_apply (plist,
-							 dest_addr) == PREFIX_DENY)||
-			    (alist_i && access_list_apply (alist_i,
-							   dest_addr) == FILTER_DENY)||
-			    (plist_i && prefix_list_apply (plist_i,
-							   dest_addr) == PREFIX_DENY)) {
-				//pe->reported_metric.delay = EIGRP_MAX_METRIC;
+			if (eigrp_update_prefix_apply(eigrp, ei,
+						      EIGRP_FILTER_OUT,
+						      dest_addr))
 				continue;
-			} else {
+			else {
 				length += eigrp_add_internalTLV_to_stream(ep->s, pe);
 			}
 		}
 	}
 
 	eigrp_update_place_on_nbr_queue (nbr, ep, seq_no, length);
-	nbr->ei->eigrp->sequence_number = seq_no++;
+	eigrp->sequence_number = seq_no++;
 }
 
 void eigrp_update_send(struct eigrp_interface *ei)
@@ -650,13 +594,9 @@ void eigrp_update_send(struct eigrp_interface *ei)
 	struct listnode *node, *nnode;
 	struct eigrp_prefix_entry *pe;
 	u_char has_tlv;
-	struct access_list *alist;
-	struct prefix_list *plist;
-	struct access_list *alist_i;
-	struct prefix_list *plist_i;
-	struct eigrp *e;
+	struct eigrp *eigrp = ei->eigrp;
 	struct prefix *dest_addr;
-	u_int32_t seq_no = ei->eigrp->sequence_number;
+	u_int32_t seq_no = eigrp->sequence_number;
 
 	if (ei->nbrs->count == 0)
 		return;
@@ -666,7 +606,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 	ep = eigrp_packet_new(ei->ifp->mtu, NULL);
 
 	/* Prepare EIGRP INIT UPDATE header */
-	eigrp_packet_header_init(EIGRP_OPC_UPDATE, ei->eigrp,
+	eigrp_packet_header_init(EIGRP_OPC_UPDATE, eigrp,
 				 ep->s, 0, seq_no, 0);
 
 	// encode Authentication TLV, if needed
@@ -678,7 +618,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 	has_tlv = 0;
 	for (ALL_LIST_ELEMENTS(ei->eigrp->topology_changes_internalIPV4, node,
 			       nnode, pe)) {
-		struct eigrp_neighbor_entry *ne;
+		struct eigrp_nexthop_entry *ne;
 
 		if (!(pe->req_action & EIGRP_FSM_NEED_UPDATE))
 			continue;
@@ -704,7 +644,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 
 			length = EIGRP_HEADER_LEN;
 			ep = eigrp_packet_new(ei->ifp->mtu, NULL);
-			eigrp_packet_header_init(EIGRP_OPC_UPDATE, ei->eigrp,
+			eigrp_packet_header_init(EIGRP_OPC_UPDATE, eigrp,
 						 ep->s, 0, seq_no, 0);
 			if ((IF_DEF_PARAMS(ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
 			    && (IF_DEF_PARAMS(ei->ifp)->auth_keychain != NULL)) {
@@ -715,34 +655,9 @@ void eigrp_update_send(struct eigrp_interface *ei)
 		/* Get destination address from prefix */
 		dest_addr = pe->destination;
 
-		/*
-		 * Filtering
-		 */
-		e = eigrp_lookup();
-		/* Get access-lists and prefix-lists from process and
-		 * interface */
-		alist = e->list[EIGRP_FILTER_OUT];
-		plist = e->prefix[EIGRP_FILTER_OUT];
-		alist_i = ei->list[EIGRP_FILTER_OUT];
-		plist_i = ei->prefix[EIGRP_FILTER_OUT];
-
-		/* Check if any list fits */
-		if ((alist
-		     && access_list_apply(alist,
-					  dest_addr)
-		     == FILTER_DENY)
-		    || (plist
-			&& prefix_list_apply(plist,
-					     dest_addr)
-			== PREFIX_DENY)
-		    || (alist_i
-			&& access_list_apply(alist_i,
-					     dest_addr)
-			== FILTER_DENY)
-		    || (plist_i
-			&& prefix_list_apply(plist_i,
-					     dest_addr)
-			== PREFIX_DENY)) {
+		if (eigrp_update_prefix_apply(eigrp, ei,
+					      EIGRP_FILTER_OUT,
+					      dest_addr)) {
 			// pe->reported_metric.delay = EIGRP_MAX_METRIC;
 			continue;
 		} else {
@@ -769,7 +684,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 	ep->dst.s_addr = htonl(EIGRP_MULTICAST_ADDRESS);
 
 	/*This ack number we await from neighbor*/
-	ep->sequence_number = ei->eigrp->sequence_number;
+	ep->sequence_number = eigrp->sequence_number;
 
 	if (IS_DEBUG_EIGRP_PACKET(0, RECV))
 		zlog_debug("Enqueuing Update length[%u] Seq [%u]", length,
@@ -824,9 +739,8 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 	struct listnode *node, *nnode;
 	struct eigrp_prefix_entry *pe;
 	struct prefix *dest_addr;
-	struct eigrp *e;
-	struct access_list *alist, *alist_i;
-	struct prefix_list *plist, *plist_i;
+	struct eigrp_interface *ei = nbr->ei;
+	struct eigrp *eigrp = ei->eigrp;
 	struct list *prefixes;
 	u_int32_t flags;
 	unsigned int send_prefixes;
@@ -868,47 +782,28 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 		}
 	}
 
-	ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
+	ep = eigrp_packet_new(ei->ifp->mtu, nbr);
 
 	/* Prepare EIGRP Graceful restart UPDATE header */
-	eigrp_packet_header_init(EIGRP_OPC_UPDATE, nbr->ei->eigrp, ep->s, flags,
-				 nbr->ei->eigrp->sequence_number,
+	eigrp_packet_header_init(EIGRP_OPC_UPDATE, eigrp, ep->s, flags,
+				 eigrp->sequence_number,
 				 nbr->recv_sequence_number);
 
 	// encode Authentication TLV, if needed
-	if ((IF_DEF_PARAMS(nbr->ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
-	    && (IF_DEF_PARAMS(nbr->ei->ifp)->auth_keychain != NULL)) {
-		length += eigrp_add_authTLV_MD5_to_stream(ep->s, nbr->ei);
+	if ((IF_DEF_PARAMS(ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
+	    && (IF_DEF_PARAMS(ei->ifp)->auth_keychain != NULL)) {
+		length += eigrp_add_authTLV_MD5_to_stream(ep->s, ei);
 	}
 
-	for (ALL_LIST_ELEMENTS(nbr->ei->eigrp->topology_table, node, nnode,
-			       pe)) {
+	for (ALL_LIST_ELEMENTS(eigrp->topology_table, node, nnode, pe)) {
 		/*
 		 * Filtering
 		 */
 		dest_addr = pe->destination;
-		/* get list from eigrp process */
-		e = eigrp_lookup();
-		/* Get access-lists and prefix-lists from process and interface
-		 */
-		alist = e->list[EIGRP_FILTER_OUT];
-		plist = e->prefix[EIGRP_FILTER_OUT];
-		alist_i = nbr->ei->list[EIGRP_FILTER_OUT];
-		plist_i = nbr->ei->prefix[EIGRP_FILTER_OUT];
 
-		/* Check if any list fits */
-		if ((alist
-		     && access_list_apply(alist, dest_addr)
-				== FILTER_DENY)
-		    || (plist
-			&& prefix_list_apply(plist, dest_addr)
-				   == PREFIX_DENY)
-		    || (alist_i
-			&& access_list_apply(alist_i, dest_addr)
-				   == FILTER_DENY)
-		    || (plist_i
-			&& prefix_list_apply(plist_i, dest_addr)
-				   == PREFIX_DENY)) {
+		if (eigrp_update_prefix_apply(eigrp, ei,
+					      EIGRP_FILTER_OUT,
+					      dest_addr)) {
 			/* do not send filtered route */
 			zlog_info("Filtered prefix %s won't be sent out.",
 				  inet_ntoa(dest_addr->u.prefix4));
@@ -918,24 +813,13 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 			send_prefixes++;
 		}
 
-		alist = e->list[EIGRP_FILTER_IN];
-		plist = e->prefix[EIGRP_FILTER_IN];
-		alist_i = nbr->ei->list[EIGRP_FILTER_IN];
-		plist_i = nbr->ei->prefix[EIGRP_FILTER_IN];
-
-		/* Check if any list fits */
-		if ((alist
-		     && access_list_apply(alist, dest_addr)
-				== FILTER_DENY)
-		    || (plist
-			&& prefix_list_apply(plist, dest_addr)
-				   == PREFIX_DENY)
-		    || (alist_i
-			&& access_list_apply(alist_i, dest_addr)
-				   == FILTER_DENY)
-		    || (plist_i
-			&& prefix_list_apply(plist_i, dest_addr)
-				   == PREFIX_DENY)) {
+		/*
+		 * This makes no sense, Filter out then filter in???
+		 * Look into this more - DBS
+		 */
+		if (eigrp_update_prefix_apply(eigrp, ei,
+					      EIGRP_FILTER_IN,
+					      dest_addr)) {
 			/* do not send filtered route */
 			zlog_info("Filtered prefix %s will be removed.",
 				  inet_ntoa(dest_addr->u.prefix4));
@@ -943,11 +827,11 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 			/* prepare message for FSM */
 			struct eigrp_fsm_action_message fsm_msg;
 
-			struct eigrp_neighbor_entry *entry =
+			struct eigrp_nexthop_entry *entry =
 				eigrp_prefix_entry_lookup(pe->entries, nbr);
 
 			fsm_msg.packet_type = EIGRP_OPC_UPDATE;
-			fsm_msg.eigrp = e;
+			fsm_msg.eigrp = eigrp;
 			fsm_msg.data_type = EIGRP_INT;
 			fsm_msg.adv_router = nbr;
 			fsm_msg.metrics = pe->reported_metric;
@@ -959,9 +843,6 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 			/* send message to FSM */
 			eigrp_fsm_event(&fsm_msg);
 		}
-		/*
-		 * End of filtering
-		 */
 
 		/* NULL the pointer */
 		dest_addr = NULL;
@@ -975,19 +856,19 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 	}
 
 	/* compute Auth digest */
-	if ((IF_DEF_PARAMS(nbr->ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
-	    && (IF_DEF_PARAMS(nbr->ei->ifp)->auth_keychain != NULL)) {
-		eigrp_make_md5_digest(nbr->ei, ep->s, EIGRP_AUTH_UPDATE_FLAG);
+	if ((IF_DEF_PARAMS(ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
+	    && (IF_DEF_PARAMS(ei->ifp)->auth_keychain != NULL)) {
+		eigrp_make_md5_digest(ei, ep->s, EIGRP_AUTH_UPDATE_FLAG);
 	}
 
 	/* EIGRP Checksum */
-	eigrp_packet_checksum(nbr->ei, ep->s, length);
+	eigrp_packet_checksum(ei, ep->s, length);
 
 	ep->length = length;
 	ep->dst.s_addr = nbr->src.s_addr;
 
 	/*This ack number we await from neighbor*/
-	ep->sequence_number = nbr->ei->eigrp->sequence_number;
+	ep->sequence_number = eigrp->sequence_number;
 
 	if (IS_DEBUG_EIGRP_PACKET(0, RECV))
 		zlog_debug("Enqueuing Update Init Len [%u] Seq [%u] Dest [%s]",

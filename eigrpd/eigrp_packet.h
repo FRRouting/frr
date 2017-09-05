@@ -83,6 +83,10 @@ extern int eigrp_hello_timer(struct thread *);
 /*
  * These externs are found in eigrp_update.c
  */
+extern bool eigrp_update_prefix_apply(struct eigrp *eigrp,
+				      struct eigrp_interface *ei,
+				      int in,
+				      struct prefix *prefix);
 extern void eigrp_update_send(struct eigrp_interface *);
 extern void eigrp_update_receive(struct eigrp *, struct ip *,
 				 struct eigrp_header *, struct stream *,

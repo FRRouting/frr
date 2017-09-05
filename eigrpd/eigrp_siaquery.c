@@ -95,7 +95,7 @@ void eigrp_siaquery_receive(struct eigrp *eigrp, struct ip *iph,
 			 * know)*/
 			if (dest != NULL) {
 				struct eigrp_fsm_action_message msg;
-				struct eigrp_neighbor_entry *entry =
+				struct eigrp_nexthop_entry *entry =
 					eigrp_prefix_entry_lookup(dest->entries,
 								  nbr);
 				msg.packet_type = EIGRP_OPC_SIAQUERY;
