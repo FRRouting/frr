@@ -164,7 +164,8 @@ DEFUN (isis_passive,
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
-	isis_circuit_passive_set(circuit, 1);
+	CMD_FERR_RETURN(isis_circuit_passive_set(circuit, 1),
+			"Cannot set passive: $ERR");
 	return CMD_SUCCESS;
 }
 
@@ -179,12 +180,8 @@ DEFUN (no_isis_passive,
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
-	if (if_is_loopback(circuit->interface)) {
-		vty_out(vty, "Can't set no passive for loopback interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	isis_circuit_passive_set(circuit, 0);
+	CMD_FERR_RETURN(isis_circuit_passive_set(circuit, 0),
+			"Cannot set no passive: $ERR");
 	return CMD_SUCCESS;
 }
 
@@ -301,7 +298,8 @@ DEFUN (isis_passwd,
 	int idx_encryption = 2;
 	int idx_word = 3;
 	struct isis_circuit *circuit = isis_circuit_lookup(vty);
-	int rv;
+	ferr_r rv;
+
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
@@ -311,11 +309,8 @@ DEFUN (isis_passwd,
 	else
 		rv = isis_circuit_passwd_cleartext_set(circuit,
 						       argv[idx_word]->arg);
-	if (rv) {
-		vty_out(vty, "Too long circuit password (>254)\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
+	CMD_FERR_RETURN(rv, "Failed to set circuit password: $ERR");
 	return CMD_SUCCESS;
 }
 
@@ -333,8 +328,8 @@ DEFUN (no_isis_passwd,
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
-	isis_circuit_passwd_unset(circuit);
-
+	CMD_FERR_RETURN(isis_circuit_passwd_unset(circuit),
+			"Failed to unset circuit password: $ERR");
 	return CMD_SUCCESS;
 }
 
@@ -507,8 +502,10 @@ DEFUN (isis_metric,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	isis_circuit_metric_set(circuit, IS_LEVEL_1, met);
-	isis_circuit_metric_set(circuit, IS_LEVEL_2, met);
+	CMD_FERR_RETURN(isis_circuit_metric_set(circuit, IS_LEVEL_1, met),
+			"Failed to set L1 metric: $ERR");
+	CMD_FERR_RETURN(isis_circuit_metric_set(circuit, IS_LEVEL_2, met),
+			"Failed to set L2 metric: $ERR");
 	return CMD_SUCCESS;
 }
 
@@ -525,8 +522,12 @@ DEFUN (no_isis_metric,
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
-	isis_circuit_metric_set(circuit, IS_LEVEL_1, DEFAULT_CIRCUIT_METRIC);
-	isis_circuit_metric_set(circuit, IS_LEVEL_2, DEFAULT_CIRCUIT_METRIC);
+	CMD_FERR_RETURN(isis_circuit_metric_set(circuit, IS_LEVEL_1,
+						DEFAULT_CIRCUIT_METRIC),
+			"Failed to set L1 metric: $ERR");
+	CMD_FERR_RETURN(isis_circuit_metric_set(circuit, IS_LEVEL_2,
+						DEFAULT_CIRCUIT_METRIC),
+			"Failed to set L2 metric: $ERR");
 	return CMD_SUCCESS;
 }
 
@@ -546,28 +547,8 @@ DEFUN (isis_metric_l1,
 		return CMD_ERR_NO_MATCH;
 
 	met = atoi(argv[idx_number]->arg);
-
-	/* RFC3787 section 5.1 */
-	if (circuit->area && circuit->area->oldmetric == 1
-	    && met > MAX_NARROW_LINK_METRIC) {
-		vty_out(vty,
-			"Invalid metric %d - should be <0-63> "
-			"when narrow metric type enabled\n",
-			met);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* RFC4444 */
-	if (circuit->area && circuit->area->newmetric == 1
-	    && met > MAX_WIDE_LINK_METRIC) {
-		vty_out(vty,
-			"Invalid metric %d - should be <0-16777215> "
-			"when wide metric type enabled\n",
-			met);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	isis_circuit_metric_set(circuit, IS_LEVEL_1, met);
+	CMD_FERR_RETURN(isis_circuit_metric_set(circuit, IS_LEVEL_1, met),
+			"Failed to set L1 metric: $ERR");
 	return CMD_SUCCESS;
 }
 
@@ -585,7 +566,9 @@ DEFUN (no_isis_metric_l1,
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
-	isis_circuit_metric_set(circuit, IS_LEVEL_1, DEFAULT_CIRCUIT_METRIC);
+	CMD_FERR_RETURN(isis_circuit_metric_set(circuit, IS_LEVEL_1,
+						DEFAULT_CIRCUIT_METRIC),
+			"Failed to set L1 metric: $ERR");
 	return CMD_SUCCESS;
 }
 
@@ -605,28 +588,8 @@ DEFUN (isis_metric_l2,
 		return CMD_ERR_NO_MATCH;
 
 	met = atoi(argv[idx_number]->arg);
-
-	/* RFC3787 section 5.1 */
-	if (circuit->area && circuit->area->oldmetric == 1
-	    && met > MAX_NARROW_LINK_METRIC) {
-		vty_out(vty,
-			"Invalid metric %d - should be <0-63> "
-			"when narrow metric type enabled\n",
-			met);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	/* RFC4444 */
-	if (circuit->area && circuit->area->newmetric == 1
-	    && met > MAX_WIDE_LINK_METRIC) {
-		vty_out(vty,
-			"Invalid metric %d - should be <0-16777215> "
-			"when wide metric type enabled\n",
-			met);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	isis_circuit_metric_set(circuit, IS_LEVEL_2, met);
+	CMD_FERR_RETURN(isis_circuit_metric_set(circuit, IS_LEVEL_2, met),
+			"Failed to set L2 metric: $ERR");
 	return CMD_SUCCESS;
 }
 
@@ -644,7 +607,9 @@ DEFUN (no_isis_metric_l2,
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
-	isis_circuit_metric_set(circuit, IS_LEVEL_2, DEFAULT_CIRCUIT_METRIC);
+	CMD_FERR_RETURN(isis_circuit_metric_set(circuit, IS_LEVEL_2,
+						DEFAULT_CIRCUIT_METRIC),
+			"Failed to set L2 metric: $ERR");
 	return CMD_SUCCESS;
 }
 

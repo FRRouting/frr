@@ -1190,13 +1190,13 @@ void isis_circuit_af_set(struct isis_circuit *circuit, bool ip_router,
 		lsp_regenerate_schedule(circuit->area, circuit->is_type, 0);
 }
 
-int isis_circuit_passive_set(struct isis_circuit *circuit, bool passive)
+ferr_r isis_circuit_passive_set(struct isis_circuit *circuit, bool passive)
 {
 	if (circuit->is_passive == passive)
-		return 0;
+		return ferr_ok();
 
 	if (if_is_loopback(circuit->interface) && !passive)
-		return -1;
+		return ferr_cfg_invalid("loopback is always passive");
 
 	if (circuit->state != C_STATE_UP) {
 		circuit->is_passive = passive;
@@ -1207,30 +1207,33 @@ int isis_circuit_passive_set(struct isis_circuit *circuit, bool passive)
 		isis_csm_state_change(ISIS_ENABLE, circuit, area);
 	}
 
-	return 0;
+	return ferr_ok();
 }
 
-int isis_circuit_metric_set(struct isis_circuit *circuit, int level, int metric)
+ferr_r isis_circuit_metric_set(struct isis_circuit *circuit, int level,
+			       int metric)
 {
 	assert(level == IS_LEVEL_1 || level == IS_LEVEL_2);
 	if (metric > MAX_WIDE_LINK_METRIC)
-		return -1;
+		return ferr_cfg_invalid("metric %d too large for wide metric",
+					metric);
 	if (circuit->area && circuit->area->oldmetric
 	    && metric > MAX_NARROW_LINK_METRIC)
-		return -1;
+		return ferr_cfg_invalid("metric %d too large for narrow metric",
+					metric);
 
 	circuit->te_metric[level - 1] = metric;
 	circuit->metric[level - 1] = metric;
 
 	if (circuit->area)
 		lsp_regenerate_schedule(circuit->area, level, 0);
-	return 0;
+	return ferr_ok();
 }
 
-int isis_circuit_passwd_unset(struct isis_circuit *circuit)
+ferr_r isis_circuit_passwd_unset(struct isis_circuit *circuit)
 {
 	memset(&circuit->passwd, 0, sizeof(circuit->passwd));
-	return 0;
+	return ferr_ok();
 }
 
 static int isis_circuit_passwd_set(struct isis_circuit *circuit,
@@ -1239,49 +1242,49 @@ static int isis_circuit_passwd_set(struct isis_circuit *circuit,
 	int len;
 
 	if (!passwd)
-		return -1;
+		return ferr_code_bug("no circuit password given");
 
 	len = strlen(passwd);
 	if (len > 254)
-		return -1;
+		return ferr_code_bug(
+			"circuit password too long (max 254 chars)");
 
 	circuit->passwd.len = len;
 	strncpy((char *)circuit->passwd.passwd, passwd, 255);
 	circuit->passwd.type = passwd_type;
-	return 0;
+	return ferr_ok();
 }
 
-int isis_circuit_passwd_cleartext_set(struct isis_circuit *circuit,
-				      const char *passwd)
+ferr_r isis_circuit_passwd_cleartext_set(struct isis_circuit *circuit,
+					 const char *passwd)
 {
 	return isis_circuit_passwd_set(circuit, ISIS_PASSWD_TYPE_CLEARTXT,
 				       passwd);
 }
 
-int isis_circuit_passwd_hmac_md5_set(struct isis_circuit *circuit,
-				     const char *passwd)
+ferr_r isis_circuit_passwd_hmac_md5_set(struct isis_circuit *circuit,
+					const char *passwd)
 {
 	return isis_circuit_passwd_set(circuit, ISIS_PASSWD_TYPE_HMAC_MD5,
 				       passwd);
 }
+
 struct cmd_node interface_node = {
 	INTERFACE_NODE, "%s(config-if)# ", 1,
 };
 
-int isis_circuit_circ_type_set(struct isis_circuit *circuit, int circ_type)
+ferr_r isis_circuit_circ_type_set(struct isis_circuit *circuit, int circ_type)
 {
+	if (circuit->circ_type == circ_type)
+		return ferr_ok();
+
 	/* Changing the network type to/of loopback or unknown interfaces
 	 * is not supported. */
 	if (circ_type == CIRCUIT_T_UNKNOWN || circ_type == CIRCUIT_T_LOOPBACK
 	    || circuit->circ_type == CIRCUIT_T_LOOPBACK) {
-		if (circuit->circ_type != circ_type)
-			return -1;
-		else
-			return 0;
+		return ferr_cfg_invalid(
+			"cannot change network type on unknown interface");
 	}
-
-	if (circuit->circ_type == circ_type)
-		return 0;
 
 	if (circuit->state != C_STATE_UP) {
 		circuit->circ_type = circ_type;
@@ -1290,14 +1293,15 @@ int isis_circuit_circ_type_set(struct isis_circuit *circuit, int circ_type)
 		struct isis_area *area = circuit->area;
 		if (circ_type == CIRCUIT_T_BROADCAST
 		    && !if_is_broadcast(circuit->interface))
-			return -1;
+			return ferr_cfg_reality(
+				"cannot configure non-broadcast interface for broadcast operation");
 
 		isis_csm_state_change(ISIS_DISABLE, circuit, area);
 		circuit->circ_type = circ_type;
 		circuit->circ_type_config = circ_type;
 		isis_csm_state_change(ISIS_ENABLE, circuit, area);
 	}
-	return 0;
+	return ferr_ok();
 }
 
 int isis_circuit_mt_enabled_set(struct isis_circuit *circuit, uint16_t mtid,
