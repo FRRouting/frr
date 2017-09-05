@@ -1852,38 +1852,6 @@ DEFUN (vtysh_show_work_queues_daemon,
 	return ret;
 }
 
-DEFUN (vtysh_show_hashtable,
-       vtysh_show_hashtable_cmd,
-       "show hashtable [statistics]",
-       SHOW_STR
-       "Statistics about hash tables\n"
-       "Statistics about hash tables\n")
-{
-	char cmd[] = "do show hashtable statistics";
-	unsigned long i;
-	int ret = CMD_SUCCESS;
-
-	fprintf(stdout, "\n");
-	fprintf(stdout,
-		"Load factor (LF) - average number of elements across all buckets\n");
-	fprintf(stdout,
-		"Full load factor (FLF) - average number of elements across full buckets\n\n");
-
-	fprintf(stdout,
-		"Standard deviation (SD) is calculated for both the LF and FLF\n");
-	fprintf(stdout,
-		"and indicates the typical deviation of bucket chain length\n");
-	fprintf(stdout, "from the value in the corresponding load factor.\n\n");
-
-	for (i = 0; i < array_size(vtysh_client); i++)
-		if (vtysh_client[i].fd >= 0) {
-			ret = vtysh_client_execute(&vtysh_client[i], cmd,
-						   stdout);
-			fprintf(stdout, "\n");
-		}
-	return ret;
-}
-
 DEFUNSH(VTYSH_ZEBRA, vtysh_link_params, vtysh_link_params_cmd, "link-params",
 	LINK_PARAMS_STR)
 {
@@ -1933,6 +1901,17 @@ DEFUN (vtysh_show_debugging_hashtable,
        "Statistics about hash tables\n"
        "Statistics about hash tables\n")
 {
+	fprintf(stdout, "\n");
+	fprintf(stdout,
+		"Load factor (LF) - average number of elements across all buckets\n");
+	fprintf(stdout,
+		"Full load factor (FLF) - average number of elements across full buckets\n\n");
+	fprintf(stdout,
+		"Standard deviation (SD) is calculated for both the LF and FLF\n");
+	fprintf(stdout,
+		"and indicates the typical deviation of bucket chain length\n");
+	fprintf(stdout, "from the value in the corresponding load factor.\n\n");
+
 	return show_per_daemon("do show debugging hashtable\n",
 			       "Hashtable statistics for %s:\n");
 }
@@ -3239,8 +3218,6 @@ void vtysh_init_vty(void)
 
 	install_element(VIEW_NODE, &vtysh_show_work_queues_cmd);
 	install_element(VIEW_NODE, &vtysh_show_work_queues_daemon_cmd);
-
-	install_element(VIEW_NODE, &vtysh_show_hashtable_cmd);
 
 	install_element(VIEW_NODE, &vtysh_show_thread_cmd);
 
