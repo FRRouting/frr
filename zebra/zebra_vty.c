@@ -74,7 +74,7 @@ static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
 	union g_addr gate;
 	union g_addr *gatep = NULL;
 	struct in_addr mask;
-	enum blackhole_type bh_type = 0;
+	enum static_blackhole_type bh_type = 0;
 	route_tag_t tag = 0;
 	struct zebra_vrf *zvrf;
 	u_char type;
@@ -165,18 +165,21 @@ static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
 		}
 	}
 
+	/* Null0 static route.  */
+	if ((ifname != NULL)
+	    && (strncasecmp(ifname, "Null0", strlen(ifname)) == 0)) {
+		bh_type = STATIC_BLACKHOLE_NULL;
+		ifname = NULL;
+	}
+
 	/* Route flags */
 	if (flag_str) {
 		switch (flag_str[0]) {
 		case 'r':
-		case 'R': /* XXX */
-			bh_type = BLACKHOLE_REJECT;
+			bh_type = STATIC_BLACKHOLE_REJECT;
 			break;
-		case 'n':
-		case 'N' /* XXX */:
 		case 'b':
-		case 'B': /* XXX */
-			bh_type = BLACKHOLE_NULL;
+			bh_type = STATIC_BLACKHOLE_DROP;
 			break;
 		default:
 			vty_out(vty, "%% Malformed flag %s \n", flag_str);
@@ -335,7 +338,8 @@ DEFPY(ip_route, ip_route_cmd,
           <A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask>\
           <\
             {A.B.C.D$gate|INTERFACE$ifname}\
-            |<null0|reject|blackhole>$flag\
+            |null0$ifname\
+            |<reject|blackhole>$flag\
           >\
           [{\
             tag (1-4294967295)\
@@ -1712,11 +1716,14 @@ static int static_config(struct vty *vty, afi_t afi, safi_t safi,
 					break;
 				case STATIC_BLACKHOLE:
 					switch (si->bh_type) {
-					case BLACKHOLE_REJECT:
-						vty_out(vty, " reject");
-						break;
-					default:
+					case STATIC_BLACKHOLE_DROP:
 						vty_out(vty, " blackhole");
+						break;
+					case STATIC_BLACKHOLE_NULL:
+						vty_out(vty, " Null0");
+						break;
+					case STATIC_BLACKHOLE_REJECT:
+						vty_out(vty, " reject");
 						break;
 					}
 					break;
@@ -1770,7 +1777,8 @@ DEFPY(ipv6_route,
       "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M]\
           <\
             {X:X::X:X$gate|INTERFACE$ifname}\
-            |<null0|reject|blackhole>$flag\
+            |null0$ifname\
+            |<reject|blackhole>$flag\
           >\
           [{\
             tag (1-4294967295)\
