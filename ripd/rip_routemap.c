@@ -421,8 +421,7 @@ static void *route_set_metric_compile(const char *arg)
 	/* Convert string to integer. */
 	metric = strtol(pnt, &endptr, 10);
 
-	if (*endptr != '\0' || mod->metric < 0) {
-		metric = 0;
+	if (*endptr != '\0' || metric < 0) {
 		return mod;
 	}
 	if (metric > RIP_METRIC_INFINITY) {
