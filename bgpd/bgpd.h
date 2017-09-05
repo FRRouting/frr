@@ -303,6 +303,7 @@ struct bgp {
 #define BGP_FLAG_FORCE_STATIC_PROCESS     (1 << 18)
 #define BGP_FLAG_SHOW_HOSTNAME            (1 << 19)
 #define BGP_FLAG_GR_PRESERVE_FWD          (1 << 20)
+#define BGP_FLAG_GRACEFUL_SHUTDOWN        (1 << 21)
 
 	/* BGP Per AF flags */
 	u_int16_t af_flags[AFI_MAX][SAFI_MAX];
@@ -1097,6 +1098,10 @@ struct bgp_nlri {
 
 /* BGP default local preference.  */
 #define BGP_DEFAULT_LOCAL_PREF                 100
+
+/* BGP local-preference to send when 'bgp graceful-shutdown'
+ * is configured */
+#define BGP_GSHUT_LOCAL_PREF                     0
 
 /* BGP default subgroup packet queue max .  */
 #define BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX      40

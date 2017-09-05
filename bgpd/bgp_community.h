@@ -48,6 +48,7 @@ struct community {
 #define COMMUNITY_NO_ADVERTISE          0xFFFFFF02
 #define COMMUNITY_NO_EXPORT_SUBCONFED   0xFFFFFF03
 #define COMMUNITY_LOCAL_AS              0xFFFFFF03
+#define COMMUNITY_GSHUT                 0xFFFF0000
 
 /* Macros of community attribute.  */
 #define com_length(X)    ((X)->size * 4)

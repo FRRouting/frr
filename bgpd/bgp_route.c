@@ -1268,6 +1268,39 @@ static void bgp_peer_as_override(struct bgp *bgp, afi_t afi, safi_t safi,
 	}
 }
 
+void bgp_attr_add_gshut_community(struct attr *attr)
+{
+	struct community *old;
+	struct community *new;
+	struct community *merge;
+	struct community *gshut;
+
+	old = attr->community;
+	gshut = community_str2com("graceful-shutdown");
+
+	if (old) {
+		merge = community_merge(community_dup(old), gshut);
+
+		if (old->refcnt== 0)
+			community_free(old);
+
+		new = community_uniq_sort(merge);
+		community_free(merge);
+	} else {
+		new = community_dup(gshut);
+	}
+
+	community_free(gshut);
+	attr->community = new;
+	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
+
+	/* When we add the graceful-shutdown community we must also
+	 * lower the local-preference */
+	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
+	attr->local_pref = BGP_GSHUT_LOCAL_PREF;
+}
+
+
 static void subgroup_announce_reset_nhop(u_char family, struct attr *attr)
 {
 	if (family == AF_INET)
@@ -1621,6 +1654,15 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
 		if (ret == RMAP_DENYMATCH) {
 			bgp_attr_flush(attr);
 			return 0;
+		}
+	}
+
+	if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
+		if (peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED) {
+			attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
+			attr->local_pref = BGP_GSHUT_LOCAL_PREF;
+		} else {
+			bgp_attr_add_gshut_community(attr);
 		}
 	}
 
@@ -2735,6 +2777,22 @@ int bgp_update(struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 		reason = "route-map;";
 		bgp_attr_flush(&new_attr);
 		goto filtered;
+	}
+
+	if (peer->sort == BGP_PEER_EBGP) {
+
+		/* If we receive the graceful-shutdown community from an eBGP peer we
+		 * must lower local-preference */
+		if (new_attr.community &&
+		    community_include(new_attr.community, COMMUNITY_GSHUT)) {
+			new_attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
+			new_attr.local_pref = BGP_GSHUT_LOCAL_PREF;
+
+		/* If graceful-shutdown is configured then add the GSHUT community to
+		 * all paths received from eBGP peers */
+		} else if (bgp_flag_check(peer->bgp, BGP_FLAG_GRACEFUL_SHUTDOWN)) {
+			bgp_attr_add_gshut_community(&new_attr);
+		}
 	}
 
 	/* next hop check.  */
@@ -4057,9 +4115,18 @@ void bgp_static_update(struct bgp *bgp, struct prefix *p,
 			bgp_static_withdraw(bgp, p, afi, safi);
 			return;
 		}
+
+		if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN))
+			bgp_attr_add_gshut_community(&attr_tmp);
+
 		attr_new = bgp_attr_intern(&attr_tmp);
-	} else
+	} else {
+
+		if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN))
+			bgp_attr_add_gshut_community(&attr);
+
 		attr_new = bgp_attr_intern(&attr);
+	}
 
 	for (ri = rn->info; ri; ri = ri->next)
 		if (ri->peer == bgp->peer_self && ri->type == ZEBRA_ROUTE_BGP
@@ -6154,6 +6221,9 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 			}
 		}
 
+		if (bgp_flag_check(bgp, BGP_FLAG_GRACEFUL_SHUTDOWN))
+			bgp_attr_add_gshut_community(&attr_new);
+
 		bn = bgp_afi_node_get(bgp->rib[afi][SAFI_UNICAST], afi,
 				      SAFI_UNICAST, p, NULL);
 
@@ -8044,8 +8114,8 @@ static int bgp_show_prefix_longer(struct vty *vty, struct bgp *bgp,
 static int bgp_show_regexp(struct vty *vty, struct bgp *bgp,
 			   const char *regstr, afi_t afi,
 			   safi_t safi, enum bgp_show_type type);
-static int bgp_show_community(struct vty *vty, struct bgp *bgp, int argc,
-			      struct cmd_token **argv, int exact, afi_t afi,
+static int bgp_show_community(struct vty *vty, struct bgp *bgp,
+			      const char *comstr, int exact, afi_t afi,
 			      safi_t safi);
 
 static int bgp_show_table(struct vty *vty, struct bgp *bgp,
@@ -8860,7 +8930,7 @@ DEFUN (show_ip_bgp,
            |prefix-list WORD\
            |filter-list WORD\
            |statistics\
-           |community <AA:NN|local-AS|no-advertise|no-export> [exact-match]\
+           |community <AA:NN|local-AS|no-advertise|no-export|graceful-shutdown> [exact-match]\
            |community-list <(1-500)|WORD> [exact-match]\
            |A.B.C.D/M longer-prefixes\
            |X:X::X:X/M longer-prefixes\
@@ -8885,6 +8955,7 @@ DEFUN (show_ip_bgp,
        "Do not send outside local AS (well-known community)\n"
        "Do not advertise to any peer (well-known community)\n"
        "Do not export to next AS (well-known community)\n"
+       "Graceful shutdown (well-known community)\n"
        "Exact match of the communities\n"
        "Display routes matching the community-list\n"
        "community-list number\n"
@@ -8900,6 +8971,7 @@ DEFUN (show_ip_bgp,
 	int exact_match = 0;
 	struct bgp *bgp = NULL;
 	int idx = 0;
+	int idx_community_type = 0;
 
 	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
 					    &bgp);
@@ -8928,12 +9000,15 @@ DEFUN (show_ip_bgp,
 
 	if (argv_find(argv, argc, "community", &idx)) {
 		/* show a specific community */
-		if (argv_find(argv, argc, "local-AS", &idx)
-		    || argv_find(argv, argc, "no-advertise", &idx)
-		    || argv_find(argv, argc, "no-export", &idx)) {
-			if (argv_find(argv, argc, "exact_match", &idx))
+		if (argv_find(argv, argc, "local-AS", &idx_community_type)
+		    || argv_find(argv, argc, "no-advertise", &idx_community_type)
+		    || argv_find(argv, argc, "no-export", &idx_community_type)
+		    || argv_find(argv, argc, "graceful-shutdown", &idx_community_type)
+		    || argv_find(argv, argc, "AA:NN", &idx_community_type)) {
+
+			if (argv_find(argv, argc, "exact-match", &idx))
 				exact_match = 1;
-			return bgp_show_community(vty, bgp, argc, argv,
+			return bgp_show_community(vty, bgp, argv[idx_community_type]->arg,
 						  exact_match, afi, safi);
 		}
 	}
@@ -9221,39 +9296,16 @@ static int bgp_show_route_map(struct vty *vty, struct bgp *bgp,
 	return bgp_show(vty, bgp, afi, safi, type, rmap, 0);
 }
 
-static int bgp_show_community(struct vty *vty, struct bgp *bgp, int argc,
-			      struct cmd_token **argv, int exact, afi_t afi,
+static int bgp_show_community(struct vty *vty, struct bgp *bgp,
+			      const char *comstr, int exact, afi_t afi,
 			      safi_t safi)
 {
 	struct community *com;
-	struct buffer *b;
-	int i;
-	char *str;
-	int first = 0;
 	int ret = 0;
 
-	b = buffer_new(1024);
-	for (i = 0; i < argc; i++) {
-		if (first)
-			buffer_putc(b, ' ');
-		else {
-			if (strmatch(argv[i]->text, "unicast")
-			    || strmatch(argv[i]->text, "multicast"))
-				continue;
-			first = 1;
-		}
-
-		buffer_putstr(b, argv[i]->arg);
-	}
-	buffer_putc(b, '\0');
-
-	str = buffer_getstr(b);
-	buffer_free(b);
-
-	com = community_str2com(str);
-	XFREE(MTYPE_TMP, str);
+	com = community_str2com(comstr);
 	if (!com) {
-		vty_out(vty, "%% Community malformed: \n");
+		vty_out(vty, "%% Community malformed: %s\n", comstr);
 		return CMD_WARNING;
 	}
 

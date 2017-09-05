@@ -424,6 +424,7 @@ extern void bgp_info_restore(struct bgp_node *, struct bgp_info *);
 extern int bgp_info_cmp_compatible(struct bgp *, struct bgp_info *,
 				   struct bgp_info *, char *pfx_buf, afi_t afi,
 				   safi_t safi);
+extern void bgp_attr_add_gshut_community(struct attr *attr);
 
 extern void bgp_best_selection(struct bgp *bgp, struct bgp_node *rn,
 			       struct bgp_maxpaths_cfg *mpath_cfg,

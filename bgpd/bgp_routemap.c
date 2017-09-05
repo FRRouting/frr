@@ -3771,6 +3771,11 @@ DEFUN (set_community,
 			buffer_putstr(b, "no-export");
 			continue;
 		}
+		if (strncmp(argv[i]->arg, "graceful-shutdown", strlen(argv[i]->arg))
+		    == 0) {
+			buffer_putstr(b, "graceful-shutdown");
+			continue;
+		}
 		buffer_putstr(b, argv[i]->arg);
 	}
 	buffer_putc(b, '\0');

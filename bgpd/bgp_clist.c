@@ -355,6 +355,9 @@ static char *community_str_get(struct community *com, int i)
 	case COMMUNITY_LOCAL_AS:
 		len = strlen(" local-AS");
 		break;
+	case COMMUNITY_GSHUT:
+		len = strlen(" graceful-shutdown");
+		break;
 	default:
 		len = strlen(" 65536:65535");
 		break;
@@ -379,6 +382,10 @@ static char *community_str_get(struct community *com, int i)
 	case COMMUNITY_LOCAL_AS:
 		strcpy(pnt, "local-AS");
 		pnt += strlen("local-AS");
+		break;
+	case COMMUNITY_GSHUT:
+		strcpy(pnt, "graceful-shutdown");
+		pnt += strlen("graceful-shutdown");
 		break;
 	default:
 		as = (comval >> 16) & 0xFFFF;
