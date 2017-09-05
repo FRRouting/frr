@@ -2223,10 +2223,11 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	assert(!src_p || afi == AFI_IP6);
 
 	/* Lookup table.  */
-	table = zebra_vrf_table_with_table_id(afi, safi, re->vrf_id,
-					      re->table);
-	if (!table)
+	table = zebra_vrf_table_with_table_id(afi, safi, re->vrf_id, re->table);
+	if (!table) {
+		XFREE(MTYPE_RE, re);
 		return 0;
+	}
 
 	/* Make it sure prefixlen is applied to the prefix. */
 	apply_mask(p);
