@@ -2216,20 +2216,14 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	struct route_entry *same;
 	struct nexthop *nexthop;
 	int ret = 0;
-	int family;
 
 	if (!re)
 		return 0;
 
-	if (p->family == AF_INET)
-		family = AFI_IP;
-	else
-		family = AFI_IP6;
-
-	assert(!src_p || family == AFI_IP6);
+	assert(!src_p || afi == AFI_IP6);
 
 	/* Lookup table.  */
-	table = zebra_vrf_table_with_table_id(family, safi, re->vrf_id,
+	table = zebra_vrf_table_with_table_id(afi, safi, re->vrf_id,
 					      re->table);
 	if (!table)
 		return 0;

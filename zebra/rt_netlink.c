@@ -526,7 +526,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 			if (re->nexthop_num == 0)
 				XFREE(MTYPE_RE, re);
 			else
-				rib_add_multipath(AFI_IP, SAFI_UNICAST, &p,
+				rib_add_multipath(afi, SAFI_UNICAST, &p,
 						  NULL, re);
 		}
 	} else {
