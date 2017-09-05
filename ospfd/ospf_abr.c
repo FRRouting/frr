@@ -76,6 +76,7 @@ static void ospf_area_range_add(struct ospf_area *area,
 	p.family = AF_INET;
 	p.prefixlen = range->masklen;
 	p.prefix = range->addr;
+	apply_mask_ipv4(&p);
 
 	rn = route_node_get(area->ranges, (struct prefix *)&p);
 	if (rn->info)
@@ -123,6 +124,7 @@ struct ospf_area_range *ospf_area_range_lookup_next(struct ospf_area *area,
 	p.family = AF_INET;
 	p.prefixlen = IPV4_MAX_BITLEN;
 	p.prefix = *range_net;
+	apply_mask_ipv4(&p);
 
 	if (first)
 		rn = route_top(area->ranges);

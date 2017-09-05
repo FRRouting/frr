@@ -356,6 +356,7 @@ void ospf_intra_add_router(struct route_table *rt, struct vertex *v,
 	p.family = AF_INET;
 	p.prefix = v->id;
 	p.prefixlen = IPV4_MAX_BITLEN;
+	apply_mask_ipv4(&p);
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("ospf_intra_add_router: talking about %s/%d",

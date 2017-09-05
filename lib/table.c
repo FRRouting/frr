@@ -281,6 +281,7 @@ struct route_node *route_node_get(struct route_table *const table,
 	u_char prefixlen = p->prefixlen;
 	const u_char *prefix = &p->u.prefix;
 
+	apply_mask((struct prefix *)p);
 	node = hash_get(table->hash, (void *)p, NULL);
 	if (node && node->info)
 		return route_lock_node(node);
