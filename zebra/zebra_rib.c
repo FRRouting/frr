@@ -2253,8 +2253,14 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		if (CHECK_FLAG(same->status, ROUTE_ENTRY_REMOVED))
 			continue;
 
-		if (same->type == re->type && same->instance == re->instance
-		    && same->table == re->table && !RIB_SYSTEM_ROUTE(same))
+		if (same->type != re->type)
+			continue;
+		if (same->instance != re->instance)
+			continue;
+		if (same->type == ZEBRA_ROUTE_KERNEL &&
+		    same->metric != re->metric)
+			continue;
+		if (!RIB_SYSTEM_ROUTE(same))
 			break;
 	}
 
