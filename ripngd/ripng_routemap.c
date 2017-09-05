@@ -32,8 +32,8 @@
 
 struct rip_metric_modifier {
 	enum { metric_increment, metric_decrement, metric_absolute } type;
-
-	u_char metric;
+	bool used;
+	u_int8_t metric;
 };
 
 /* `match metric METRIC' */
@@ -168,6 +168,9 @@ static route_map_result_t route_set_metric(void *rule, struct prefix *prefix,
 		mod = rule;
 		rinfo = object;
 
+		if (!mod->used)
+			return RMAP_OKAY;
+
 		if (mod->type == metric_increment)
 			rinfo->metric_out += mod->metric;
 		else if (mod->type == metric_decrement)
@@ -190,7 +193,6 @@ static void *route_set_metric_compile(const char *arg)
 {
 	int len;
 	const char *pnt;
-	int type;
 	long metric;
 	char *endptr = NULL;
 	struct rip_metric_modifier *mod;
@@ -198,38 +200,42 @@ static void *route_set_metric_compile(const char *arg)
 	len = strlen(arg);
 	pnt = arg;
 
+	mod = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
+		      sizeof(struct rip_metric_modifier));
+	mod->used = false;
+
 	if (len == 0)
-		return NULL;
+		return mod;
 
 	/* Examine first character. */
 	if (arg[0] == '+') {
-		type = metric_increment;
+		mod->type = metric_increment;
 		pnt++;
 	} else if (arg[0] == '-') {
-		type = metric_decrement;
+		mod->type = metric_decrement;
 		pnt++;
 	} else
-		type = metric_absolute;
+		mod->type = metric_absolute;
 
 	/* Check beginning with digit string. */
 	if (*pnt < '0' || *pnt > '9')
-		return NULL;
+		return mod;
 
 	/* Convert string to integer. */
 	metric = strtol(pnt, &endptr, 10);
 
-	if (metric == LONG_MAX || *endptr != '\0')
-		return NULL;
-	/* Commented out by Hasso Tepper, to avoid problems in vtysh. */
-	/* if (metric < 0 || metric > RIPNG_METRIC_INFINITY) */
-	if (metric < 0)
-		return NULL;
+	if (*endptr != '\0' || metric < 0)
+		return mod;
 
-	mod = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
-		      sizeof(struct rip_metric_modifier));
-	mod->type = type;
-	mod->metric = metric;
+	if (metric > RIPNG_METRIC_INFINITY) {
+		zlog_info("%s: Metric specified: %ld is being converted into METRIC_INFINITY",
+			  __PRETTY_FUNCTION__,
+			  metric);
+		mod->metric = RIPNG_METRIC_INFINITY;
+	} else
+		mod->metric = metric;
 
+	mod->used = true;
 	return mod;
 }
 
