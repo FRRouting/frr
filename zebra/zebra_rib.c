@@ -2072,8 +2072,9 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 
 	for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
 		inet_ntop(p->family, &nexthop->gate, straddr, INET6_ADDRSTRLEN);
-		zlog_debug("%s: %s %s with flags %s%s%s", func,
+		zlog_debug("%s: %s %s[%u] with flags %s%s%s", func,
 			   (nexthop->rparent ? "  NH" : "NH"), straddr,
+			   nexthop->ifindex,
 			   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)
 				    ? "ACTIVE "
 				    : ""),
@@ -2644,23 +2645,50 @@ static void rib_sweep_table(struct route_table *table)
 	struct route_node *rn;
 	struct route_entry *re;
 	struct route_entry *next;
+	struct nexthop *nexthop;
 	int ret = 0;
 
-	if (table)
-		for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
-			RNODE_FOREACH_RE_SAFE(rn, re, next)
-			{
-				if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
-					continue;
+	if (!table)
+		return;
 
-				if (re->type == ZEBRA_ROUTE_KERNEL
-				    && CHECK_FLAG(re->flags,
-						  ZEBRA_FLAG_SELFROUTE)) {
-					ret = rib_uninstall_kernel(rn, re);
-					if (!ret)
-						rib_delnode(rn, re);
-				}
-			}
+	for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
+		RNODE_FOREACH_RE_SAFE(rn, re, next)
+		{
+			if (IS_ZEBRA_DEBUG_RIB)
+				route_entry_dump(&rn->p, NULL, re);
+
+			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
+				continue;
+
+			if (!CHECK_FLAG(re->flags, ZEBRA_FLAG_SELFROUTE))
+				continue;
+
+			/*
+			 * So we are starting up and have received
+			 * routes from the kernel that we have installed
+			 * from a previous run of zebra but not cleaned
+			 * up ( say a kill -9 )
+			 * But since we haven't actually installed
+			 * them yet( we received them from the kernel )
+			 * we don't think they are active.
+			 * So let's pretend they are active to actually
+			 * remove them.
+			 * In all honesty I'm not sure if we should
+			 * mark them as active when we receive them
+			 * This is startup only so probably ok.
+			 *
+			 * If we ever decide to move rib_sweep_table
+			 * to a different spot (ie startup )
+			 * this decision needs to be revisited
+			 */
+			for (ALL_NEXTHOPS(re->nexthop, nexthop))
+				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+
+			ret = rib_uninstall_kernel(rn, re);
+			if (!ret)
+				rib_delnode(rn, re);
+		}
+	}
 }
 
 /* Sweep all RIB tables.  */
@@ -2669,8 +2697,10 @@ void rib_sweep_route(void)
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 
-	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id)
-	if ((zvrf = vrf->info) != NULL) {
+	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id) {
+		if ((zvrf = vrf->info) == NULL)
+			continue;
+
 		rib_sweep_table(zvrf->table[AFI_IP][SAFI_UNICAST]);
 		rib_sweep_table(zvrf->table[AFI_IP6][SAFI_UNICAST]);
 	}

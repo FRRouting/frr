@@ -148,14 +148,15 @@ static inline int is_selfroute(int proto)
 	    || (proto == RTPROT_STATIC) || (proto == RTPROT_ZEBRA)
 	    || (proto == RTPROT_ISIS) || (proto == RTPROT_RIPNG)
 	    || (proto == RTPROT_NHRP) || (proto == RTPROT_EIGRP)
-	    || (proto == RTPROT_LDP) || (proto == RTPROT_BABEL)) {
+	    || (proto == RTPROT_LDP) || (proto == RTPROT_BABEL)
+	    || (proto == RTPROT_RIP)) {
 		return 1;
 	}
 
 	return 0;
 }
 
-static inline int get_rt_proto(int proto)
+static inline int zebra2proto(int proto)
 {
 	switch (proto) {
 	case ZEBRA_ROUTE_BABEL:
@@ -197,6 +198,47 @@ static inline int get_rt_proto(int proto)
 	return proto;
 }
 
+static inline int proto2zebra(int proto, int family)
+{
+	switch (proto) {
+	case RTPROT_BABEL:
+		proto = ZEBRA_ROUTE_BABEL;
+		break;
+	case RTPROT_BGP:
+		proto = ZEBRA_ROUTE_BGP;
+		break;
+	case RTPROT_OSPF:
+		proto = (family == AFI_IP) ?
+			ZEBRA_ROUTE_OSPF : ZEBRA_ROUTE_OSPF6;
+		break;
+	case RTPROT_ISIS:
+		proto = ZEBRA_ROUTE_ISIS;
+		break;
+	case RTPROT_RIP:
+		proto = ZEBRA_ROUTE_RIP;
+		break;
+	case RTPROT_RIPNG:
+		proto = ZEBRA_ROUTE_RIPNG;
+		break;
+	case RTPROT_NHRP:
+		proto = ZEBRA_ROUTE_NHRP;
+		break;
+	case RTPROT_EIGRP:
+		proto = ZEBRA_ROUTE_EIGRP;
+		break;
+	case RTPROT_LDP:
+		proto = ZEBRA_ROUTE_LDP;
+		break;
+	case RTPROT_STATIC:
+		proto = ZEBRA_ROUTE_STATIC;
+		break;
+	default:
+		proto = ZEBRA_ROUTE_KERNEL;
+		break;
+	}
+	return proto;
+}
+
 /*
 Pending: create an efficient table_id (in a tree/hash) based lookup)
  */
@@ -231,6 +273,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 
 	char anyaddr[16] = {0};
 
+	int proto = ZEBRA_ROUTE_KERNEL;
 	int index = 0;
 	int table;
 	int metric = 0;
@@ -300,9 +343,10 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 	}
 
 	/* Route which inserted by Zebra. */
-	if (is_selfroute(rtm->rtm_protocol))
+	if (is_selfroute(rtm->rtm_protocol)) {
 		flags |= ZEBRA_FLAG_SELFROUTE;
-
+		proto = proto2zebra(rtm->rtm_protocol, rtm->rtm_family);
+	}
 	if (tb[RTA_OIF])
 		index = *(int *)RTA_DATA(tb[RTA_OIF]);
 
@@ -409,7 +453,8 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 				memcpy(&nh.src, prefsrc, sz);
 			if (gate)
 				memcpy(&nh.gate, gate, sz);
-			rib_add(afi, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL,
+
+			rib_add(afi, SAFI_UNICAST, vrf_id, proto,
 				0, flags, &p, NULL, &nh, table, metric, mtu, 0);
 		} else {
 			/* This is a multipath route */
@@ -421,7 +466,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 			len = RTA_PAYLOAD(tb[RTA_MULTIPATH]);
 
 			re = XCALLOC(MTYPE_RE, sizeof(struct route_entry));
-			re->type = ZEBRA_ROUTE_KERNEL;
+			re->type = proto;
 			re->distance = 0;
 			re->flags = flags;
 			re->metric = metric;
@@ -515,13 +560,13 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 			if (gate)
 				memcpy(&nh.gate, gate, sz);
 			rib_delete(afi, SAFI_UNICAST, vrf_id,
-				   ZEBRA_ROUTE_KERNEL, 0, flags, &p, NULL, &nh,
+				   proto, 0, flags, &p, NULL, &nh,
 				   table, metric);
 		} else {
 			/* XXX: need to compare the entire list of nexthops
 			 * here for NLM_F_APPEND stupidity */
 			rib_delete(afi, SAFI_UNICAST, vrf_id,
-				   ZEBRA_ROUTE_KERNEL, 0, flags, &p, NULL, NULL,
+				   proto, 0, flags, &p, NULL, NULL,
 				   table, metric);
 		}
 	}
@@ -1272,7 +1317,7 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 	req.r.rtm_family = family;
 	req.r.rtm_dst_len = p->prefixlen;
 	req.r.rtm_src_len = src_p ? src_p->prefixlen : 0;
-	req.r.rtm_protocol = get_rt_proto(re->type);
+	req.r.rtm_protocol = zebra2proto(re->type);
 	req.r.rtm_scope = RT_SCOPE_UNIVERSE;
 	req.r.rtm_type = RTN_UNICAST;
 

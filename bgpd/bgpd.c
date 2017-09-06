@@ -3187,6 +3187,7 @@ void bgp_free(struct bgp *bgp)
 	safi_t safi;
 	struct bgp_table *table;
 	struct bgp_node *rn;
+	struct bgp_rmap *rmap;
 
 	QOBJ_UNREG(bgp);
 
@@ -3215,6 +3216,9 @@ void bgp_free(struct bgp *bgp)
 				bgp_table_finish(&bgp->aggregate[afi][safi]);
 			if (bgp->rib[afi][safi])
 				bgp_table_finish(&bgp->rib[afi][safi]);
+			rmap = &bgp->table_map[afi][safi];
+			if (rmap->name)
+				XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
 		}
 
 	bgp_scan_finish(bgp);
