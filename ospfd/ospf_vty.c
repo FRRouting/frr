@@ -8245,7 +8245,7 @@ static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
 	struct listnode *node;
 	struct ospf_path *path;
 
-	/*vty_out(vty, "============ OSPF router routing table =============\n");*/
+	vty_out(vty, "============ OSPF router routing table =============\n");
 	for (rn = route_top(rtrs); rn; rn = route_next(rn))
 		if (rn->info) {
 			int flag = 0;
@@ -8396,7 +8396,6 @@ DEFUN (show_ip_ospf_border_routers,
 	int ret = CMD_SUCCESS;
 	int inst = 0;
 	int idx_vrf = 0;
-	int count = 0;
 
 	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
 		vrf_name = argv[idx_vrf + 1]->arg;
@@ -8408,10 +8407,6 @@ DEFUN (show_ip_ospf_border_routers,
 			for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 				if (!ospf->oi_running)
 					continue;
-				count++;
-				if (count == 1)
-					vty_out(vty,
-						 "============ OSPF router routing table =============\n");
 
 				ret = show_ip_ospf_border_routers_common(vty,
 									 ospf);
@@ -8421,7 +8416,6 @@ DEFUN (show_ip_ospf_border_routers,
 			if (ospf == NULL || !ospf->oi_running)
 				return CMD_SUCCESS;
 
-			vty_out(vty, "============ OSPF router routing table =============\n");
 			ret = show_ip_ospf_border_routers_common(vty, ospf);
 		}
 	} else {
@@ -8429,7 +8423,6 @@ DEFUN (show_ip_ospf_border_routers,
 		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (ospf == NULL || !ospf->oi_running)
 			return CMD_SUCCESS;
-		vty_out(vty, "============ OSPF router routing table =============\n");
 		ret = show_ip_ospf_border_routers_common(vty, ospf);
 	}
 

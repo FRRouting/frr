@@ -1376,7 +1376,7 @@ struct ospf_lsa *ospf_apiserver_opaque_lsa_new(struct ospf_area *area,
 
 	struct ospf *ospf;
 
-	if (oi->ospf)
+	if (oi && oi->ospf)
 		ospf = oi->ospf;
 	else
 		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
