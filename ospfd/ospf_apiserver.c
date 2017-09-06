@@ -1376,7 +1376,11 @@ struct ospf_lsa *ospf_apiserver_opaque_lsa_new(struct ospf_area *area,
 
 	struct ospf *ospf;
 
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	if (oi->ospf)
+		ospf = oi->ospf;
+	else
+		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+
 	assert(ospf);
 
 	/* Create a stream for internal opaque LSA */
@@ -1431,7 +1435,7 @@ struct ospf_lsa *ospf_apiserver_opaque_lsa_new(struct ospf_area *area,
 
 	new->area = area;
 	new->oi = oi;
-	new->vrf_id = oi->ospf->vrf_id;
+	new->vrf_id = ospf->vrf_id;
 
 	SET_FLAG(new->flags, OSPF_LSA_SELF);
 	memcpy(new->data, newlsa, length);
