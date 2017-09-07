@@ -60,11 +60,11 @@ static int relay_response_back(struct zserv *zserv)
 {
 	int ret = 0;
 	struct stream *src, *dst;
-	u_int16_t size = 0;
-	u_char marker;
-	u_char version;
+	uint16_t size = 0;
+	unsigned char marker;
+	unsigned char version;
 	vrf_id_t vrf_id;
-	u_int16_t resp_cmd;
+	uint16_t resp_cmd;
 
 	src = zclient->ibuf;
 	dst = zserv->obuf;
@@ -258,8 +258,10 @@ void label_manager_init(char *lm_zserv_path)
  * @para size Size of the label chunk
  * @return Pointer to the assigned label chunk
  */
-struct label_manager_chunk *assign_label_chunk(u_char proto, u_short instance,
-					       u_char keep, uint32_t size)
+struct label_manager_chunk *assign_label_chunk(unsigned char proto,
+					       u_short instance,
+					       unsigned char keep,
+					       uint32_t size)
 {
 	struct label_manager_chunk *lmc;
 	struct listnode *node;
@@ -310,7 +312,7 @@ struct label_manager_chunk *assign_label_chunk(u_char proto, u_short instance,
  * @param end Last label of the chunk
  * @return 0 on success, -1 otherwise
  */
-int release_label_chunk(u_char proto, u_short instance, uint32_t start,
+int release_label_chunk(unsigned char proto, u_short instance, uint32_t start,
 			uint32_t end)
 {
 	struct listnode *node;
@@ -351,7 +353,7 @@ int release_label_chunk(u_char proto, u_short instance, uint32_t start,
  * @param instance Instance, to identify the owner
  * @return Number of chunks released
  */
-int release_daemon_chunks(u_char proto, u_short instance)
+int release_daemon_chunks(unsigned char proto, u_short instance)
 {
 	struct listnode *node;
 	struct label_manager_chunk *lmc;

@@ -57,20 +57,20 @@ struct bpf_insn llcfilter[] = {
 	/* check third byte */
 	BPF_STMT(BPF_LD + BPF_B + BPF_ABS, ETH_ALEN + 2),
 	BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x03, 0, 1),
-	BPF_STMT(BPF_RET + BPF_K, (u_int)-1),
+	BPF_STMT(BPF_RET + BPF_K, (unsigned int)-1),
 	BPF_STMT(BPF_RET + BPF_K, 0)};
-u_int readblen = 0;
-u_char *readbuff = NULL;
+unsigned int readblen = 0;
+unsigned char *readbuff = NULL;
 
 /*
  * Table 9 - Architectural constants for use with ISO 8802 subnetworks
  * ISO 10589 - 8.4.8
  */
 
-u_char ALL_L1_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x14};
-u_char ALL_L2_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x15};
-u_char ALL_ISS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x05};
-u_char ALL_ESS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x04};
+unsigned char ALL_L1_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x14};
+unsigned char ALL_L2_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x15};
+unsigned char ALL_ISS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x05};
+unsigned char ALL_ESS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x04};
 
 static char sock_buff[8192];
 
@@ -79,9 +79,9 @@ static int open_bpf_dev(struct isis_circuit *circuit)
 	int i = 0, fd;
 	char bpfdev[128];
 	struct ifreq ifr;
-	u_int blen, immediate;
+	unsigned int blen, immediate;
 #ifdef BIOCSSEESENT
-	u_int seesent;
+	unsigned int seesent;
 #endif
 	struct timeval timeout;
 	struct bpf_program bpf_prog;
@@ -217,7 +217,7 @@ end:
 	return retval;
 }
 
-int isis_recv_pdu_bcast(struct isis_circuit *circuit, u_char *ssnpa)
+int isis_recv_pdu_bcast(struct isis_circuit *circuit, unsigned char *ssnpa)
 {
 	int bytesread = 0, bytestoread, offset, one = 1;
 	struct bpf_hdr *bpf_hdr;

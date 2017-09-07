@@ -143,20 +143,20 @@ static void route_table_free(struct route_table *rt)
 }
 
 /* Utility mask array. */
-static const u_char maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
-				 0xf8, 0xfc, 0xfe, 0xff};
+static const unsigned char maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
+					0xf8, 0xfc, 0xfe, 0xff};
 
 /* Common prefix route genaration. */
 static void route_common(const struct prefix *n, const struct prefix *p,
 			 struct prefix *new)
 {
 	int i;
-	u_char diff;
-	u_char mask;
+	unsigned char diff;
+	unsigned char mask;
 
-	const u_char *np = (const u_char *)&n->u.prefix;
-	const u_char *pp = (const u_char *)&p->u.prefix;
-	u_char *newp = (u_char *)&new->u.prefix;
+	const unsigned char *np = (const unsigned char *)&n->u.prefix;
+	const unsigned char *pp = (const unsigned char *)&p->u.prefix;
+	unsigned char *newp = (unsigned char *)&new->u.prefix;
 
 	for (i = 0; i < p->prefixlen / 8; i++) {
 		if (np[i] == pp[i])
@@ -278,8 +278,8 @@ struct route_node *route_node_get(struct route_table *const table,
 	struct route_node *node;
 	struct route_node *match;
 	struct route_node *inserted;
-	u_char prefixlen = p->prefixlen;
-	const u_char *prefix = &p->u.prefix;
+	unsigned char prefixlen = p->prefixlen;
+	const unsigned char *prefix = &p->u.prefix;
 
 	apply_mask((struct prefix *)p);
 	node = hash_get(table->hash, (void *)p, NULL);

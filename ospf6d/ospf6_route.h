@@ -63,9 +63,9 @@ struct ospf6_nexthop {
 
 /* Path */
 struct ospf6_ls_origin {
-	u_int16_t type;
-	u_int32_t id;
-	u_int32_t adv_router;
+	uint16_t type;
+	uint32_t id;
+	uint32_t adv_router;
 };
 
 struct ospf6_path {
@@ -73,29 +73,30 @@ struct ospf6_path {
 	struct ospf6_ls_origin origin;
 
 	/* Router bits */
-	u_char router_bits;
+	unsigned char router_bits;
 
 	/* Optional Capabilities */
-	u_char options[3];
+	unsigned char options[3];
 
 	/* Prefix Options */
-	u_char prefix_options;
+	unsigned char prefix_options;
 
 	/* Associated Area */
-	u_int32_t area_id;
+	uint32_t area_id;
 
 	/* Path-type */
-	u_char type;
-	u_char subtype; /* only used for redistribute i.e ZEBRA_ROUTE_XXX */
+	unsigned char type;
+	unsigned char
+		subtype; /* only used for redistribute i.e ZEBRA_ROUTE_XXX */
 
 	/* Cost */
-	u_int8_t metric_type;
-	u_int32_t cost;
+	uint8_t metric_type;
+	uint32_t cost;
 	union {
-		u_int32_t cost_e2;
-		u_int32_t cost_config;
+		uint32_t cost_e2;
+		uint32_t cost_config;
 	} u;
-	u_int32_t tag;
+	uint32_t tag;
 };
 
 #define OSPF6_PATH_TYPE_NONE         0
@@ -123,7 +124,7 @@ struct ospf6_route {
 	unsigned int lock;
 
 	/* Destination Type */
-	u_char type;
+	unsigned char type;
 
 	/* XXX: It would likely be better to use separate struct in_addr's
 	 * for the advertising router-ID and prefix IDs, instead of stuffing
@@ -138,13 +139,13 @@ struct ospf6_route {
 	struct timeval changed;
 
 	/* flag */
-	u_char flag;
+	unsigned char flag;
 
 	/* route option */
 	void *route_option;
 
 	/* link state id for advertising */
-	u_int32_t linkstate_id;
+	uint32_t linkstate_id;
 
 	/* path */
 	struct ospf6_path path;
@@ -178,7 +179,7 @@ struct ospf6_route_table {
 	/* patricia tree */
 	struct route_table *table;
 
-	u_int32_t count;
+	uint32_t count;
 
 	bitfield_t idspace;
 
@@ -250,7 +251,7 @@ extern const char *ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX];
 #define ADV_ROUTER_IN_PREFIX(x) ((x)->u.lp.id.s_addr)
 
 /* Function prototype */
-extern void ospf6_linkstate_prefix(u_int32_t adv_router, u_int32_t id,
+extern void ospf6_linkstate_prefix(uint32_t adv_router, uint32_t id,
 				   struct prefix *prefix);
 extern void ospf6_linkstate_prefix2str(struct prefix *prefix, char *buf,
 				       int size);

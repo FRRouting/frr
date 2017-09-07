@@ -614,7 +614,7 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 {
 	struct ospf_interface *oi = nbr->oi;
 	struct ospf_area *vl_area = NULL;
-	u_char old_state;
+	unsigned char old_state;
 	int x;
 	int force = 1;
 

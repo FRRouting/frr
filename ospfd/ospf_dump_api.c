@@ -101,7 +101,7 @@ const struct message ospf_auth_type_str[] = {
 
 #define OSPF_OPTION_STR_MAXLEN		24
 
-char *ospf_options_dump(u_char options)
+char *ospf_options_dump(unsigned char options)
 {
 	static char buf[OSPF_OPTION_STR_MAXLEN];
 

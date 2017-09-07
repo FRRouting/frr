@@ -153,8 +153,8 @@ state received from peers?
 It seems that a struct bgp_info is kept for each prefix.  The "struct
 attr *" is interned, and variables within that are interned.  So, 40
 bytes are kept per received prefix, plus interned shared values.  This
-could be 36 if 'int suppress' where changed to a u_char and moved to
-be with the other u_chars.  Without MPLS, this could be 32 bytes.
+could be 36 if 'int suppress' where changed to a unsigned char and moved to
+be with the other unsigned chars.  Without MPLS, this could be 32 bytes.
 Note that 8 bytes of this is linked list overhead, meaning that 24
 bytes are the raw per-prefix storage requirements.
 

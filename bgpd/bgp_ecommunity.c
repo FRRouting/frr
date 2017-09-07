@@ -67,7 +67,7 @@ static void ecommunity_hash_free(struct ecommunity *ecom)
    else return 0.  */
 int ecommunity_add_val(struct ecommunity *ecom, struct ecommunity_val *eval)
 {
-	u_int8_t *p;
+	uint8_t *p;
 	int ret;
 	int c;
 
@@ -125,7 +125,7 @@ struct ecommunity *ecommunity_uniq_sort(struct ecommunity *ecom)
 }
 
 /* Parse Extended Communites Attribute in BGP packet.  */
-struct ecommunity *ecommunity_parse(u_int8_t *pnt, u_short length)
+struct ecommunity *ecommunity_parse(uint8_t *pnt, u_short length)
 {
 	struct ecommunity tmp;
 	struct ecommunity *new;
@@ -283,9 +283,9 @@ enum ecommunity_token {
  * Encode BGP extended community from passed values. Supports types
  * defined in RFC 4360 and well-known sub-types.
  */
-static int ecommunity_encode(u_char type, u_char sub_type, int trans, as_t as,
-			     struct in_addr ip, u_int32_t val,
-			     struct ecommunity_val *eval)
+static int ecommunity_encode(unsigned char type, unsigned char sub_type,
+			     int trans, as_t as, struct in_addr ip,
+			     uint32_t val, struct ecommunity_val *eval)
 {
 	assert(eval);
 	if (type == ECOMMUNITY_ENCODE_AS) {
@@ -338,8 +338,8 @@ static const char *ecommunity_gettoken(const char *str,
 	char *endptr;
 	struct in_addr ip;
 	as_t as = 0;
-	u_int32_t val = 0;
-	u_char ecomm_type;
+	uint32_t val = 0;
+	unsigned char ecomm_type;
 	char buf[INET_ADDRSTRLEN + 1];
 
 	/* Skip white space. */
@@ -547,7 +547,7 @@ struct ecommunity *ecommunity_str2com(const char *str, int type,
 	return ecom;
 }
 
-static int ecommunity_rt_soo_str(char *buf, u_int8_t *pnt, int type,
+static int ecommunity_rt_soo_str(char *buf, uint8_t *pnt, int type,
 				 int sub_type, int format)
 {
 	int len = 0;
@@ -556,12 +556,12 @@ static int ecommunity_rt_soo_str(char *buf, u_int8_t *pnt, int type,
 	/* For parse Extended Community attribute tupple. */
 	struct ecommunity_as {
 		as_t as;
-		u_int32_t val;
+		uint32_t val;
 	} eas;
 
 	struct ecommunity_ip {
 		struct in_addr ip;
-		u_int16_t val;
+		uint16_t val;
 	} eip;
 
 
@@ -641,7 +641,7 @@ static int ecommunity_rt_soo_str(char *buf, u_int8_t *pnt, int type,
 char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 {
 	int i;
-	u_int8_t *pnt;
+	uint8_t *pnt;
 	int type = 0;
 	int sub_type = 0;
 #define ECOMMUNITY_STR_DEFAULT_LEN  27
@@ -718,8 +718,8 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 					macaddr[3], macaddr[4], macaddr[5]);
 			} else if (*pnt
 				   == ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY) {
-				u_int32_t seqnum;
-				u_char flags = *++pnt;
+				uint32_t seqnum;
+				unsigned char flags = *++pnt;
 
 				memcpy(&seqnum, pnt + 2, 4);
 				seqnum = ntohl(seqnum);
@@ -780,7 +780,7 @@ int ecommunity_match(const struct ecommunity *ecom1,
 extern struct ecommunity_val *ecommunity_lookup(const struct ecommunity *ecom,
 						uint8_t type, uint8_t subtype)
 {
-	u_int8_t *p;
+	uint8_t *p;
 	int c;
 
 	/* If the value already exists in the structure return 0.  */
@@ -801,7 +801,7 @@ extern struct ecommunity_val *ecommunity_lookup(const struct ecommunity *ecom,
 extern int ecommunity_strip(struct ecommunity *ecom, uint8_t type,
 			    uint8_t subtype)
 {
-	u_int8_t *p;
+	uint8_t *p;
 	int c, found = 0;
 	/* When this is fist value, just add it.  */
 	if (ecom == NULL || ecom->val == NULL) {

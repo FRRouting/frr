@@ -52,43 +52,43 @@ struct eigrp_master {
 	time_t start_time;
 
 	/* Various EIGRP global configuration. */
-	u_char options;
+	unsigned char options;
 
 #define EIGRP_MASTER_SHUTDOWN (1 << 0) /* deferred-shutdown */
 };
 
 struct eigrp_metrics {
-	u_int32_t delay;
-	u_int32_t bandwidth;
+	uint32_t delay;
+	uint32_t bandwidth;
 	unsigned char mtu[3];
-	u_char hop_count;
-	u_char reliability;
-	u_char load;
-	u_char tag;
-	u_char flags;
+	unsigned char hop_count;
+	unsigned char reliability;
+	unsigned char load;
+	unsigned char tag;
+	unsigned char flags;
 };
 
 struct eigrp {
-	u_int16_t AS;       /* Autonomous system number */
-	u_int16_t vrid;     /* Virtual Router ID */
-	u_char k_values[6]; /*Array for K values configuration*/
-	u_char variance;    /*Metric variance multiplier*/
-	u_char max_paths;   /*Maximum allowed paths for 1 prefix*/
+	uint16_t AS;		   /* Autonomous system number */
+	uint16_t vrid;		   /* Virtual Router ID */
+	unsigned char k_values[6]; /*Array for K values configuration*/
+	unsigned char variance;    /*Metric variance multiplier*/
+	unsigned char max_paths;   /*Maximum allowed paths for 1 prefix*/
 
 	/*Name of this EIGRP instance*/
 	char *name;
 
 	/* EIGRP Router ID. */
-	u_int32_t router_id;	/* Configured automatically. */
-	u_int32_t router_id_static; /* Configured manually. */
+	uint32_t router_id;	/* Configured automatically. */
+	uint32_t router_id_static; /* Configured manually. */
 
 	struct list *eiflist;		  /* eigrp interfaces */
-	u_char passive_interface_default; /* passive-interface default */
+	unsigned char passive_interface_default; /* passive-interface default */
 
 	unsigned int fd;
 	unsigned int maxsndbuflen;
 
-	u_int32_t sequence_number; /*Global EIGRP sequence number*/
+	uint32_t sequence_number; /*Global EIGRP sequence number*/
 
 	struct stream *ibuf;
 	struct list *oi_write_q;
@@ -129,7 +129,7 @@ struct eigrp {
 		char *name;
 		struct route_map *map;
 		int metric_config;
-		u_int32_t metric;
+		uint32_t metric;
 	} route_map[ZEBRA_ROUTE_MAX];
 
 	QOBJ_FIELDS
@@ -153,10 +153,10 @@ struct eigrp_interface {
 	/* Configured varables. */
 	struct eigrp_if_params *params;
 
-	u_char multicast_memberships;
+	unsigned char multicast_memberships;
 
 	/* EIGRP Network Type. */
-	u_char type;
+	unsigned char type;
 
 	struct prefix *address;      /* Interface prefix */
 	struct connected *connected; /* Pointer to connected */
@@ -171,22 +171,22 @@ struct eigrp_interface {
 	int on_write_q;
 
 	/* Statistics fields. */
-	u_int32_t hello_in;   /* Hello message input count. */
-	u_int32_t update_in;  /* Update message input count. */
-	u_int32_t query_in;   /* Querry message input count. */
-	u_int32_t reply_in;   /* Reply message input count. */
-	u_int32_t hello_out;  /* Hello message output count. */
-	u_int32_t update_out; /* Update message output count. */
-	u_int32_t query_out;  /* Query message output count. */
-	u_int32_t reply_out;  /* Reply message output count. */
-	u_int32_t siaQuery_in;
-	u_int32_t siaQuery_out;
-	u_int32_t siaReply_in;
-	u_int32_t siaReply_out;
-	u_int32_t ack_out;
-	u_int32_t ack_in;
+	uint32_t hello_in;   /* Hello message input count. */
+	uint32_t update_in;  /* Update message input count. */
+	uint32_t query_in;   /* Querry message input count. */
+	uint32_t reply_in;   /* Reply message input count. */
+	uint32_t hello_out;  /* Hello message output count. */
+	uint32_t update_out; /* Update message output count. */
+	uint32_t query_out;  /* Query message output count. */
+	uint32_t reply_out;  /* Reply message output count. */
+	uint32_t siaQuery_in;
+	uint32_t siaQuery_out;
+	uint32_t siaReply_in;
+	uint32_t siaReply_out;
+	uint32_t ack_out;
+	uint32_t ack_in;
 
-	u_int32_t crypt_seqnum; /* Cryptographic Sequence Number */
+	uint32_t crypt_seqnum; /* Cryptographic Sequence Number */
 
 	/* Access-list. */
 	struct access_list *list[EIGRP_FILTER_MAX];
@@ -197,18 +197,19 @@ struct eigrp_interface {
 };
 
 struct eigrp_if_params {
-	DECLARE_IF_PARAM(u_char, passive_interface); /* EIGRP Interface is
-							passive: no sending or
-							receiving (no need to
-							join multicast groups)
-							*/
-	DECLARE_IF_PARAM(u_int32_t, v_hello);	/* Hello Interval */
-	DECLARE_IF_PARAM(u_int16_t, v_wait); /* Router Hold Time Interval */
-	DECLARE_IF_PARAM(u_char, type);      /* type of interface */
-	DECLARE_IF_PARAM(u_int32_t, bandwidth);
-	DECLARE_IF_PARAM(u_int32_t, delay);
-	DECLARE_IF_PARAM(u_char, reliability);
-	DECLARE_IF_PARAM(u_char, load);
+	DECLARE_IF_PARAM(unsigned char,
+			 passive_interface);   /* EIGRP Interface is
+					   passive: no sending or
+					   receiving (no need to
+					   join multicast groups)
+					   */
+	DECLARE_IF_PARAM(uint32_t, v_hello);   /* Hello Interval */
+	DECLARE_IF_PARAM(uint16_t, v_wait);    /* Router Hold Time Interval */
+	DECLARE_IF_PARAM(unsigned char, type); /* type of interface */
+	DECLARE_IF_PARAM(uint32_t, bandwidth);
+	DECLARE_IF_PARAM(uint32_t, delay);
+	DECLARE_IF_PARAM(unsigned char, reliability);
+	DECLARE_IF_PARAM(unsigned char, load);
 
 	DECLARE_IF_PARAM(char *,
 			 auth_keychain); /* Associated keychain with interface*/
@@ -245,30 +246,32 @@ struct eigrp_neighbor {
 	struct eigrp_interface *ei;
 
 	/* EIGRP neighbor Information */
-	u_char state; /* neigbor status. */
+	unsigned char state; /* neigbor status. */
 
-	u_int32_t recv_sequence_number; /* Last received sequence Number. */
-	u_int32_t init_sequence_number;
+	uint32_t recv_sequence_number; /* Last received sequence Number. */
+	uint32_t init_sequence_number;
 
 	/*If packet is unacknowledged, we try to send it again 16 times*/
-	u_char retrans_counter;
+	unsigned char retrans_counter;
 
 	struct in_addr src; /* Neighbor Src address. */
 
-	u_char os_rel_major;  // system version - just for show
-	u_char os_rel_minor;  // system version - just for show
-	u_char tlv_rel_major; // eigrp version - tells us what TLV format to use
-	u_char tlv_rel_minor; // eigrp version - tells us what TLV format to use
+	unsigned char os_rel_major;  // system version - just for show
+	unsigned char os_rel_minor;  // system version - just for show
+	unsigned char tlv_rel_major; // eigrp version - tells us what TLV format
+				     // to use
+	unsigned char tlv_rel_minor; // eigrp version - tells us what TLV format
+				     // to use
 
-	u_char K1;
-	u_char K2;
-	u_char K3;
-	u_char K4;
-	u_char K5;
-	u_char K6;
+	unsigned char K1;
+	unsigned char K2;
+	unsigned char K3;
+	unsigned char K4;
+	unsigned char K5;
+	unsigned char K6;
 
 	/* Timer values. */
-	u_int16_t v_holddown;
+	uint16_t v_holddown;
 
 	/* Threads. */
 	struct thread *t_holddown;
@@ -278,7 +281,7 @@ struct eigrp_neighbor {
 	struct eigrp_fifo *retrans_queue;
 	struct eigrp_fifo *multicast_queue;
 
-	u_int32_t crypt_seqnum; /* Cryptographic Sequence Number. */
+	uint32_t crypt_seqnum; /* Cryptographic Sequence Number. */
 
 	/* prefixes not received from neighbor during Graceful restart */
 	struct list *nbr_gr_prefixes;
@@ -305,12 +308,12 @@ struct eigrp_packet {
 	struct thread *t_retrans_timer;
 
 	/*Packet retransmission counter*/
-	u_char retrans_counter;
+	unsigned char retrans_counter;
 
-	u_int32_t sequence_number;
+	uint32_t sequence_number;
 
 	/* EIGRP packet length. */
-	u_int16_t length;
+	uint16_t length;
 
 	struct eigrp_neighbor *nbr;
 };
@@ -323,14 +326,14 @@ struct eigrp_fifo {
 };
 
 struct eigrp_header {
-	u_char version;
-	u_char opcode;
-	u_int16_t checksum;
-	u_int32_t flags;
-	u_int32_t sequence;
-	u_int32_t ack;
-	u_int16_t vrid;
-	u_int16_t ASNumber;
+	unsigned char version;
+	unsigned char opcode;
+	uint16_t checksum;
+	uint32_t flags;
+	uint32_t sequence;
+	uint32_t ack;
+	uint16_t vrid;
+	uint16_t ASNumber;
 	char *tlv[0];
 
 } __attribute__((packed));
@@ -346,109 +349,109 @@ struct eigrp_header {
  *      +-----+------------------+
  */
 struct eigrp_tlv_hdr_type {
-	u_int16_t type;
-	u_int16_t length;
+	uint16_t type;
+	uint16_t length;
 	uint8_t value[0];
 } __attribute__((packed));
 
 struct TLV_Parameter_Type {
-	u_int16_t type;
-	u_int16_t length;
-	u_char K1;
-	u_char K2;
-	u_char K3;
-	u_char K4;
-	u_char K5;
-	u_char K6;
-	u_int16_t hold_time;
+	uint16_t type;
+	uint16_t length;
+	unsigned char K1;
+	unsigned char K2;
+	unsigned char K3;
+	unsigned char K4;
+	unsigned char K5;
+	unsigned char K6;
+	uint16_t hold_time;
 } __attribute__((packed));
 
 struct TLV_MD5_Authentication_Type {
-	u_int16_t type;
-	u_int16_t length;
-	u_int16_t auth_type;
-	u_int16_t auth_length;
-	u_int32_t key_id;
-	u_int32_t key_sequence;
-	u_char Nullpad[8];
-	u_char digest[EIGRP_AUTH_TYPE_MD5_LEN];
+	uint16_t type;
+	uint16_t length;
+	uint16_t auth_type;
+	uint16_t auth_length;
+	uint32_t key_id;
+	uint32_t key_sequence;
+	unsigned char Nullpad[8];
+	unsigned char digest[EIGRP_AUTH_TYPE_MD5_LEN];
 
 } __attribute__((packed));
 
 struct TLV_SHA256_Authentication_Type {
-	u_int16_t type;
-	u_int16_t length;
-	u_int16_t auth_type;
-	u_int16_t auth_length;
-	u_int32_t key_id;
-	u_int32_t key_sequence;
-	u_char Nullpad[8];
-	u_char digest[EIGRP_AUTH_TYPE_SHA256_LEN];
+	uint16_t type;
+	uint16_t length;
+	uint16_t auth_type;
+	uint16_t auth_length;
+	uint32_t key_id;
+	uint32_t key_sequence;
+	unsigned char Nullpad[8];
+	unsigned char digest[EIGRP_AUTH_TYPE_SHA256_LEN];
 
 } __attribute__((packed));
 
 struct TLV_Sequence_Type {
-	u_int16_t type;
-	u_int16_t length;
-	u_char addr_length;
+	uint16_t type;
+	uint16_t length;
+	unsigned char addr_length;
 	struct in_addr *addresses;
 } __attribute__((packed));
 
 struct TLV_Next_Multicast_Sequence {
-	u_int16_t type;
-	u_int16_t length;
-	u_int32_t multicast_sequence;
+	uint16_t type;
+	uint16_t length;
+	uint32_t multicast_sequence;
 } __attribute__((packed));
 
 struct TLV_Software_Type {
-	u_int16_t type;
-	u_int16_t length;
-	u_char vender_major;
-	u_char vender_minor;
-	u_char eigrp_major;
-	u_char eigrp_minor;
+	uint16_t type;
+	uint16_t length;
+	unsigned char vender_major;
+	unsigned char vender_minor;
+	unsigned char eigrp_major;
+	unsigned char eigrp_minor;
 } __attribute__((packed));
 
 struct TLV_IPv4_Internal_type {
-	u_int16_t type;
-	u_int16_t length;
+	uint16_t type;
+	uint16_t length;
 	struct in_addr forward;
 
 	/*Metrics*/
 	struct eigrp_metrics metric;
 
-	u_char prefix_length;
+	unsigned char prefix_length;
 
 	unsigned char destination_part[4];
 	struct in_addr destination;
 } __attribute__((packed));
 
 struct TLV_IPv4_External_type {
-	u_int16_t type;
-	u_int16_t length;
+	uint16_t type;
+	uint16_t length;
 	struct in_addr next_hop;
 	struct in_addr originating_router;
-	u_int32_t originating_as;
-	u_int32_t administrative_tag;
-	u_int32_t external_metric;
-	u_int16_t reserved;
-	u_char external_protocol;
-	u_char external_flags;
+	uint32_t originating_as;
+	uint32_t administrative_tag;
+	uint32_t external_metric;
+	uint16_t reserved;
+	unsigned char external_protocol;
+	unsigned char external_flags;
 
 	/*Metrics*/
 	struct eigrp_metrics metric;
 
-	u_char prefix_length;
+	unsigned char prefix_length;
 	unsigned char destination_part[4];
 	struct in_addr destination;
 } __attribute__((packed));
 
 /* EIGRP Peer Termination TLV - used for hard restart */
 struct TLV_Peer_Termination_type {
-	u_int16_t type;
-	u_int16_t length;
-	u_char unknown;
-	u_int32_t neighbor_ip;
+	uint16_t type;
+	uint16_t length;
+	unsigned char unknown;
+	uint32_t neighbor_ip;
 } __attribute__((packed));
 
 /* Who executed Graceful restart */
@@ -459,15 +462,15 @@ enum GR_type { EIGRP_GR_MANUAL, EIGRP_GR_FILTER };
 /* EIGRP Topology table node structure */
 struct eigrp_prefix_entry {
 	struct list *entries, *rij;
-	u_int32_t fdistance;		      // FD
-	u_int32_t rdistance;		      // RD
-	u_int32_t distance;		      // D
+	uint32_t fdistance;		      // FD
+	uint32_t rdistance;		      // RD
+	uint32_t distance;		      // D
 	struct eigrp_metrics reported_metric; // RD for sending
 
-	u_char nt;	 // network type
-	u_char state;      // route fsm state
-	u_char af;	 // address family
-	u_char req_action; // required action
+	unsigned char nt;	 // network type
+	unsigned char state;      // route fsm state
+	unsigned char af;	 // address family
+	unsigned char req_action; // required action
 
 	struct prefix *destination;
 
@@ -482,15 +485,15 @@ struct eigrp_prefix_entry {
 /* EIGRP Topology table record structure */
 struct eigrp_nexthop_entry {
 	struct eigrp_prefix_entry *prefix;
-	u_int32_t reported_distance; // distance reported by neighbor
-	u_int32_t distance; // sum of reported distance and link cost to
-			    // advertised neighbor
+	uint32_t reported_distance; // distance reported by neighbor
+	uint32_t distance;	  // sum of reported distance and link cost to
+				    // advertised neighbor
 
 	struct eigrp_metrics reported_metric;
 	struct eigrp_metrics total_metric;
 
 	struct eigrp_neighbor *adv_router; // ip address of advertising neighbor
-	u_char flags;			   // used for marking successor and FS
+	unsigned char flags;		   // used for marking successor and FS
 
 	struct eigrp_interface *ei; // pointer for case of connected entry
 };
@@ -505,7 +508,7 @@ typedef enum {
 /* EIGRP Finite State Machine */
 
 struct eigrp_fsm_action_message {
-	u_char packet_type;		   // UPDATE, QUERY, SIAQUERY, SIAREPLY
+	unsigned char packet_type;	 // UPDATE, QUERY, SIAQUERY, SIAREPLY
 	struct eigrp *eigrp;		   // which thread sent mesg
 	struct eigrp_neighbor *adv_router; // advertising neighbor
 	struct eigrp_nexthop_entry *entry;

@@ -325,7 +325,7 @@ int area_net_title(struct vty *vty, const char *net_title)
 	struct area_addr *addrp;
 	struct listnode *node;
 
-	u_char buff[255];
+	unsigned char buff[255];
 
 	/* We check that we are not over the maximal number of addresses */
 	if (listcount(area->area_addrs) >= isis->max_area_addrs) {
@@ -412,7 +412,7 @@ int area_clear_net_title(struct vty *vty, const char *net_title)
 	VTY_DECLVAR_CONTEXT(isis_area, area);
 	struct area_addr addr, *addrp = NULL;
 	struct listnode *node;
-	u_char buff[255];
+	unsigned char buff[255];
 
 	addr.addr_len = dotformat2buff(buff, net_title);
 	if (addr.addr_len < 8 || addr.addr_len > 20) {
@@ -529,7 +529,7 @@ int show_isis_neighbor_common(struct vty *vty, const char *id, char detail)
 	struct list *adjdb;
 	struct isis_adjacency *adj;
 	struct isis_dynhn *dynhn;
-	u_char sysid[ISIS_SYS_ID_LEN];
+	unsigned char sysid[ISIS_SYS_ID_LEN];
 	int i;
 
 	if (!isis) {
@@ -598,7 +598,7 @@ int clear_isis_neighbor_common(struct vty *vty, const char *id)
 	struct list *adjdb;
 	struct isis_adjacency *adj;
 	struct isis_dynhn *dynhn;
-	u_char sysid[ISIS_SYS_ID_LEN];
+	unsigned char sysid[ISIS_SYS_ID_LEN];
 	int i;
 
 	if (!isis) {
@@ -1375,9 +1375,9 @@ static int show_isis_database(struct vty *vty, const char *argv, int ui_level)
 	struct isis_lsp *lsp;
 	struct isis_dynhn *dynhn;
 	const char *pos = argv;
-	u_char lspid[ISIS_SYS_ID_LEN + 2];
+	unsigned char lspid[ISIS_SYS_ID_LEN + 2];
 	char sysid[255];
-	u_char number[3];
+	unsigned char number[3];
 	int level, lsp_count;
 
 	if (isis->area_list->count == 0)
@@ -1402,7 +1402,7 @@ static int show_isis_database(struct vty *vty, const char *argv, int ui_level)
 		if (strncmp(pos, "-", 1) == 0) {
 			memcpy(number, ++pos, 2);
 			lspid[ISIS_SYS_ID_LEN + 1] =
-				(u_char)strtol((char *)number, NULL, 16);
+				(unsigned char)strtol((char *)number, NULL, 16);
 			pos -= 4;
 			if (strncmp(pos, ".", 1) != 0)
 				return CMD_WARNING;
@@ -1410,7 +1410,7 @@ static int show_isis_database(struct vty *vty, const char *argv, int ui_level)
 		if (strncmp(pos, ".", 1) == 0) {
 			memcpy(number, ++pos, 2);
 			lspid[ISIS_SYS_ID_LEN] =
-				(u_char)strtol((char *)number, NULL, 16);
+				(unsigned char)strtol((char *)number, NULL, 16);
 			sysid[pos - argv - 1] = '\0';
 		}
 	}
@@ -1627,8 +1627,8 @@ void isis_area_lsp_mtu_set(struct isis_area *area, unsigned int lsp_mtu)
 }
 
 static int isis_area_passwd_set(struct isis_area *area, int level,
-				u_char passwd_type, const char *passwd,
-				u_char snp_auth)
+				unsigned char passwd_type, const char *passwd,
+				unsigned char snp_auth)
 {
 	struct isis_passwd *dest;
 	struct isis_passwd modified;
@@ -1668,14 +1668,14 @@ int isis_area_passwd_unset(struct isis_area *area, int level)
 }
 
 int isis_area_passwd_cleartext_set(struct isis_area *area, int level,
-				   const char *passwd, u_char snp_auth)
+				   const char *passwd, unsigned char snp_auth)
 {
 	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_CLEARTXT,
 				    passwd, snp_auth);
 }
 
 int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
-				  const char *passwd, u_char snp_auth)
+				  const char *passwd, unsigned char snp_auth)
 {
 	return isis_area_passwd_set(area, level, ISIS_PASSWD_TYPE_HMAC_MD5,
 				    passwd, snp_auth);

@@ -38,7 +38,7 @@ u_long eth_tag_id;
 struct attr;
 
 struct eth_segment_id {
-	u_char val[ESI_LEN];
+	unsigned char val[ESI_LEN];
 };
 
 union gw_addr {
@@ -60,7 +60,7 @@ extern void bgp_add_routermac_ecom(struct attr *attr,
 extern int bgp_build_evpn_prefix(int type, uint32_t eth_tag,
 				 struct prefix *dst);
 
-extern u_int32_t bgp_attr_mac_mobility_seqnum(struct attr *attr,
-					      u_char *sticky);
+extern uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr,
+					     unsigned char *sticky);
 
 #endif /* _QUAGGA_BGP_ATTR_EVPN_H */

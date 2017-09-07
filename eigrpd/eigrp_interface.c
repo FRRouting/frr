@@ -167,22 +167,23 @@ int eigrp_if_new_hook(struct interface *ifp)
 	IF_DEF_PARAMS(ifp) = eigrp_new_if_params();
 
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), v_hello);
-	IF_DEF_PARAMS(ifp)->v_hello = (u_int32_t)EIGRP_HELLO_INTERVAL_DEFAULT;
+	IF_DEF_PARAMS(ifp)->v_hello = (uint32_t)EIGRP_HELLO_INTERVAL_DEFAULT;
 
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), v_wait);
-	IF_DEF_PARAMS(ifp)->v_wait = (u_int16_t)EIGRP_HOLD_INTERVAL_DEFAULT;
+	IF_DEF_PARAMS(ifp)->v_wait = (uint16_t)EIGRP_HOLD_INTERVAL_DEFAULT;
 
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), bandwidth);
-	IF_DEF_PARAMS(ifp)->bandwidth = (u_int32_t)EIGRP_BANDWIDTH_DEFAULT;
+	IF_DEF_PARAMS(ifp)->bandwidth = (uint32_t)EIGRP_BANDWIDTH_DEFAULT;
 
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), delay);
-	IF_DEF_PARAMS(ifp)->delay = (u_int32_t)EIGRP_DELAY_DEFAULT;
+	IF_DEF_PARAMS(ifp)->delay = (uint32_t)EIGRP_DELAY_DEFAULT;
 
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), reliability);
-	IF_DEF_PARAMS(ifp)->reliability = (u_char)EIGRP_RELIABILITY_DEFAULT;
+	IF_DEF_PARAMS(ifp)->reliability =
+		(unsigned char)EIGRP_RELIABILITY_DEFAULT;
 
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), load);
-	IF_DEF_PARAMS(ifp)->load = (u_char)EIGRP_LOAD_DEFAULT;
+	IF_DEF_PARAMS(ifp)->load = (unsigned char)EIGRP_LOAD_DEFAULT;
 
 	SET_IF_PARAM(IF_DEF_PARAMS(ifp), auth_type);
 	IF_DEF_PARAMS(ifp)->auth_type = EIGRP_AUTH_TYPE_NONE;
@@ -418,7 +419,7 @@ void eigrp_if_set_multicast(struct eigrp_interface *ei)
 	}
 }
 
-u_char eigrp_default_iftype(struct interface *ifp)
+unsigned char eigrp_default_iftype(struct interface *ifp)
 {
 	if (if_is_pointopoint(ifp))
 		return EIGRP_IFTYPE_POINTOPOINT;
@@ -573,32 +574,32 @@ struct eigrp_interface *eigrp_if_lookup_recv_if(struct eigrp *eigrp,
 	return match;
 }
 
-u_int32_t eigrp_bandwidth_to_scaled(u_int32_t bandwidth)
+uint32_t eigrp_bandwidth_to_scaled(uint32_t bandwidth)
 {
 	uint64_t temp_bandwidth = (256ull * 10000000) / bandwidth;
 
 	temp_bandwidth = temp_bandwidth < EIGRP_MAX_METRIC ? temp_bandwidth
 							   : EIGRP_MAX_METRIC;
 
-	return (u_int32_t)temp_bandwidth;
+	return (uint32_t)temp_bandwidth;
 }
 
-u_int32_t eigrp_scaled_to_bandwidth(u_int32_t scaled)
+uint32_t eigrp_scaled_to_bandwidth(uint32_t scaled)
 {
 	uint64_t temp_scaled = scaled * (256ull * 10000000);
 
 	temp_scaled =
 		temp_scaled < EIGRP_MAX_METRIC ? temp_scaled : EIGRP_MAX_METRIC;
 
-	return (u_int32_t)temp_scaled;
+	return (uint32_t)temp_scaled;
 }
 
-u_int32_t eigrp_delay_to_scaled(u_int32_t delay)
+uint32_t eigrp_delay_to_scaled(uint32_t delay)
 {
 	return delay * 256;
 }
 
-u_int32_t eigrp_scaled_to_delay(u_int32_t scaled)
+uint32_t eigrp_scaled_to_delay(uint32_t scaled)
 {
 	return scaled / 256;
 }

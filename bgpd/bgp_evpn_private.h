@@ -53,7 +53,7 @@ typedef enum {
  */
 struct bgpevpn {
 	vni_t vni;
-	u_int32_t flags;
+	uint32_t flags;
 #define VNI_FLAG_CFGD              0x1  /* VNI is user configured */
 #define VNI_FLAG_LIVE              0x2  /* VNI is "live" */
 #define VNI_FLAG_RD_CFGD           0x4  /* RD is user configured. */
@@ -61,10 +61,10 @@ struct bgpevpn {
 #define VNI_FLAG_EXPRT_CFGD        0x10 /* Export RT is user configured */
 
 	/* Flag to indicate if we are advertising the g/w mac ip for this VNI*/
-	u_int8_t advertise_gw_macip;
+	uint8_t advertise_gw_macip;
 
 	/* Id for deriving the RD automatically for this VNI */
-	u_int16_t rd_id;
+	uint16_t rd_id;
 
 	/* RD for this VNI. */
 	struct prefix_rd prd;
@@ -139,7 +139,7 @@ static inline int is_vni_param_configured(struct bgpevpn *vpn)
 
 static inline void vni2label(vni_t vni, mpls_label_t *label)
 {
-	u_char *tag = (u_char *)label;
+	unsigned char *tag = (unsigned char *)label;
 	tag[0] = (vni >> 16) & 0xFF;
 	tag[1] = (vni >> 8) & 0xFF;
 	tag[2] = vni & 0xFF;
@@ -147,17 +147,17 @@ static inline void vni2label(vni_t vni, mpls_label_t *label)
 
 static inline vni_t label2vni(mpls_label_t *label)
 {
-	u_char *tag = (u_char *)label;
+	unsigned char *tag = (unsigned char *)label;
 	vni_t vni;
 
-	vni = ((u_int32_t)*tag++ << 16);
-	vni |= (u_int32_t)*tag++ << 8;
-	vni |= (u_int32_t)(*tag & 0xFF);
+	vni = ((uint32_t)*tag++ << 16);
+	vni |= (uint32_t)*tag++ << 8;
+	vni |= (uint32_t)(*tag & 0xFF);
 
 	return vni;
 }
 
-static inline void encode_mac_mobility_extcomm(int static_mac, u_int32_t seq,
+static inline void encode_mac_mobility_extcomm(int static_mac, uint32_t seq,
 					       struct ecommunity_val *eval)
 {
 	memset(eval, 0, sizeof(*eval));

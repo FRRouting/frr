@@ -48,9 +48,9 @@
 /* array holding redistribute info about table redistribution */
 /* bit AFI is set if that AFI is redistributing routes from this table */
 static int zebra_import_table_used[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
-static u_int32_t zebra_import_table_distance[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
+static uint32_t zebra_import_table_distance[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 
-int is_zebra_import_table_enabled(afi_t afi, u_int32_t table_id)
+int is_zebra_import_table_enabled(afi_t afi, uint32_t table_id)
 {
 	/*
 	 * Make sure that what we are called with actualy makes sense
@@ -565,7 +565,7 @@ int zebra_del_import_table_entry(struct route_node *rn, struct route_entry *re)
 }
 
 /* Assuming no one calls this with the main routing table */
-int zebra_import_table(afi_t afi, u_int32_t table_id, u_int32_t distance,
+int zebra_import_table(afi_t afi, uint32_t table_id, uint32_t distance,
 		       const char *rmap_name, int add)
 {
 	struct route_table *table;

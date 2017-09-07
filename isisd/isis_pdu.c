@@ -60,7 +60,7 @@ static int ack_lsp(struct isis_lsp_hdr *hdr, struct isis_circuit *circuit,
 {
 	unsigned long lenp;
 	int retval;
-	u_int16_t length;
+	uint16_t length;
 	uint8_t pdu_type =
 		(level == IS_LEVEL_1) ? L1_PARTIAL_SEQ_NUM : L2_PARTIAL_SEQ_NUM;
 
@@ -80,7 +80,7 @@ static int ack_lsp(struct isis_lsp_hdr *hdr, struct isis_circuit *circuit,
 	stream_putl(circuit->snd_stream, hdr->seqno);
 	stream_putw(circuit->snd_stream, hdr->checksum);
 
-	length = (u_int16_t)stream_get_endp(circuit->snd_stream);
+	length = (uint16_t)stream_get_endp(circuit->snd_stream);
 	/* Update PDU length */
 	stream_putw_at(circuit->snd_stream, lenp, length);
 
@@ -99,7 +99,7 @@ static int ack_lsp(struct isis_lsp_hdr *hdr, struct isis_circuit *circuit,
 
 struct iih_info {
 	struct isis_circuit *circuit;
-	u_char *ssnpa;
+	unsigned char *ssnpa;
 	int level;
 
 	uint8_t circ_type;
@@ -458,9 +458,9 @@ static int process_lan_hello(struct iih_info *iih)
 	}
 
 	if (adj->dis_record[iih->level - 1].dis == ISIS_IS_DIS) {
-		u_char *dis = (iih->level == 1)
-				      ? iih->circuit->u.bc.l1_desig_is
-				      : iih->circuit->u.bc.l2_desig_is;
+		unsigned char *dis = (iih->level == 1)
+					     ? iih->circuit->u.bc.l1_desig_is
+					     : iih->circuit->u.bc.l2_desig_is;
 
 		if (memcmp(dis, iih->dis, ISIS_SYS_ID_LEN + 1)) {
 			thread_add_event(master, isis_event_dis_status_change,
@@ -534,7 +534,7 @@ static int pdu_len_validate(uint16_t pdu_len, struct isis_circuit *circuit)
 }
 
 static int process_hello(uint8_t pdu_type, struct isis_circuit *circuit,
-			 u_char *ssnpa)
+			 unsigned char *ssnpa)
 {
 	bool p2p_hello = (pdu_type == P2P_HELLO);
 	int level = p2p_hello ? 0
@@ -685,7 +685,7 @@ out:
  * Section 7.3.15.1 - Action on receipt of a link state PDU
  */
 static int process_lsp(uint8_t pdu_type, struct isis_circuit *circuit,
-		       const u_char *ssnpa)
+		       const unsigned char *ssnpa)
 {
 	int level = (pdu_type == L1_LINK_STATE) ? ISIS_LEVEL1 : ISIS_LEVEL2;
 
@@ -1049,7 +1049,7 @@ out:
  */
 
 static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
-		       const u_char *ssnpa)
+		       const unsigned char *ssnpa)
 {
 	bool is_csnp = (pdu_type == L1_COMPLETE_SEQ_NUM
 			|| pdu_type == L2_COMPLETE_SEQ_NUM);
@@ -1334,7 +1334,7 @@ static int pdu_size(uint8_t pdu_type, uint8_t *size)
  * PDU Dispatcher
  */
 
-static int isis_handle_pdu(struct isis_circuit *circuit, u_char *ssnpa)
+static int isis_handle_pdu(struct isis_circuit *circuit, unsigned char *ssnpa)
 {
 	int retval = ISIS_OK;
 
@@ -1442,7 +1442,7 @@ static int isis_handle_pdu(struct isis_circuit *circuit, u_char *ssnpa)
 int isis_receive(struct thread *thread)
 {
 	struct isis_circuit *circuit;
-	u_char ssnpa[ETH_ALEN];
+	unsigned char ssnpa[ETH_ALEN];
 	int retval;
 
 	/*
@@ -1517,9 +1517,9 @@ static void put_hello_hdr(struct isis_circuit *circuit, int level,
 	stream_putw(circuit->snd_stream, 0); /* length is filled in later */
 
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-		u_char *desig_is = (level == IS_LEVEL_1)
-					   ? circuit->u.bc.l1_desig_is
-					   : circuit->u.bc.l2_desig_is;
+		unsigned char *desig_is = (level == IS_LEVEL_1)
+						  ? circuit->u.bc.l1_desig_is
+						  : circuit->u.bc.l2_desig_is;
 		stream_putc(circuit->snd_stream, circuit->priority[level - 1]);
 		stream_put(circuit->snd_stream, desig_is, ISIS_SYS_ID_LEN + 1);
 	} else {
@@ -1823,7 +1823,7 @@ int send_csnp(struct isis_circuit *circuit, int level)
 		memcpy(start, stop, ISIS_SYS_ID_LEN + 2);
 		loop = 0;
 		for (int i = ISIS_SYS_ID_LEN + 1; i >= 0; --i) {
-			if (start[i] < (u_char)0xff) {
+			if (start[i] < (unsigned char)0xff) {
 				start[i] += 1;
 				loop = 1;
 				break;

@@ -57,7 +57,7 @@
 
 static inline struct bgp_adj_out *adj_lookup(struct bgp_node *rn,
 					     struct update_subgroup *subgrp,
-					     u_int32_t addpath_tx_id)
+					     uint32_t addpath_tx_id)
 {
 	struct bgp_adj_out *adj;
 	struct peer *peer;
@@ -200,7 +200,7 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 }
 
 static void subgrp_show_adjq_vty(struct update_subgroup *subgrp,
-				 struct vty *vty, u_int8_t flags)
+				 struct vty *vty, uint8_t flags)
 {
 	struct bgp_table *table;
 	struct bgp_adj_out *adj;
@@ -274,7 +274,7 @@ static int updgrp_show_adj_walkcb(struct update_group *updgrp, void *arg)
 }
 
 static void updgrp_show_adj(struct bgp *bgp, afi_t afi, safi_t safi,
-			    struct vty *vty, uint64_t id, u_int8_t flags)
+			    struct vty *vty, uint64_t id, uint8_t flags)
 {
 	struct updwalk_context ctx;
 	memset(&ctx, 0, sizeof(ctx));
@@ -367,7 +367,7 @@ static int update_group_announce_rrc_walkcb(struct update_group *updgrp,
  */
 struct bgp_adj_out *bgp_adj_out_alloc(struct update_subgroup *subgrp,
 				      struct bgp_node *rn,
-				      u_int32_t addpath_tx_id)
+				      uint32_t addpath_tx_id)
 {
 	struct bgp_adj_out *adj;
 
@@ -485,7 +485,7 @@ void bgp_adj_out_set_subgroup(struct bgp_node *rn,
  */
 void bgp_adj_out_unset_subgroup(struct bgp_node *rn,
 				struct update_subgroup *subgrp, char withdraw,
-				u_int32_t addpath_tx_id)
+				uint32_t addpath_tx_id)
 {
 	struct bgp_adj_out *adj;
 	struct bgp_advertise *adv;

@@ -108,7 +108,7 @@ int zebra_vxlan_remote_macip_del(struct zserv *client, int sock, u_short length,
 int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 				     struct interface *br_if,
 				     struct ethaddr *mac, vlanid_t vid,
-				     u_char sticky)
+				     unsigned char sticky)
 {
 	return 0;
 }
@@ -148,7 +148,7 @@ int zebra_vxlan_if_add(struct interface *ifp)
 	return 0;
 }
 
-int zebra_vxlan_if_update(struct interface *ifp, u_int16_t chgflags)
+int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags)
 {
 	return 0;
 }

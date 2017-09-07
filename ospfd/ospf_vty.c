@@ -284,7 +284,8 @@ DEFUN (no_ospf_router_id,
 }
 
 
-static void ospf_passive_interface_default(struct ospf *ospf, u_char newval)
+static void ospf_passive_interface_default(struct ospf *ospf,
+					   unsigned char newval)
 {
 	struct listnode *ln;
 	struct interface *ifp;
@@ -308,10 +309,10 @@ static void ospf_passive_interface_default(struct ospf *ospf, u_char newval)
 static void ospf_passive_interface_update_addr(struct ospf *ospf,
 					       struct interface *ifp,
 					       struct ospf_if_params *params,
-					       u_char value,
+					       unsigned char value,
 					       struct in_addr addr)
 {
-	u_char dflt;
+	unsigned char dflt;
 
 	params->passive_interface = value;
 	if (params != IF_DEF_PARAMS(ifp)) {
@@ -334,7 +335,7 @@ static void ospf_passive_interface_update_addr(struct ospf *ospf,
 static void ospf_passive_interface_update(struct ospf *ospf,
 					  struct interface *ifp,
 					  struct ospf_if_params *params,
-					  u_char value)
+					  unsigned char value)
 {
 	params->passive_interface = value;
 	if (params == IF_DEF_PARAMS(ifp)) {
@@ -569,7 +570,7 @@ DEFUN (ospf_area_range,
 	struct prefix_ipv4 p;
 	struct in_addr area_id;
 	int format;
-	u_int32_t cost;
+	uint32_t cost;
 
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
@@ -601,7 +602,7 @@ DEFUN (ospf_area_range_cost,
 	struct prefix_ipv4 p;
 	struct in_addr area_id;
 	int format;
-	u_int32_t cost;
+	uint32_t cost;
 
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
@@ -1611,7 +1612,7 @@ DEFUN (ospf_area_default_cost,
 	int idx_number = 3;
 	struct ospf_area *area;
 	struct in_addr area_id;
-	u_int32_t cost;
+	uint32_t cost;
 	int format;
 	struct prefix_ipv4 p;
 
@@ -1984,7 +1985,7 @@ DEFUN (ospf_abr_type,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_vendor = 2;
-	u_char abr_type = OSPF_ABR_UNKNOWN;
+	unsigned char abr_type = OSPF_ABR_UNKNOWN;
 
 	if (strncmp(argv[idx_vendor]->arg, "c", 1) == 0)
 		abr_type = OSPF_ABR_CISCO;
@@ -2019,7 +2020,7 @@ DEFUN (no_ospf_abr_type,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_vendor = 3;
-	u_char abr_type = OSPF_ABR_UNKNOWN;
+	unsigned char abr_type = OSPF_ABR_UNKNOWN;
 
 	if (strncmp(argv[idx_vendor]->arg, "c", 1) == 0)
 		abr_type = OSPF_ABR_CISCO;
@@ -2474,7 +2475,7 @@ DEFUN (ospf_auto_cost_reference_bandwidth,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_number = 2;
-	u_int32_t refbw;
+	uint32_t refbw;
 	struct listnode *node;
 	struct interface *ifp;
 
@@ -2530,7 +2531,7 @@ DEFUN (ospf_write_multiplier,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_number;
-	u_int32_t write_oi_count;
+	uint32_t write_oi_count;
 
 	if (argc == 3)
 		idx_number = 2;
@@ -2577,7 +2578,7 @@ const char *ospf_abr_type_descr_str[] = {"Unknown", "Standard (RFC2328)",
 const char *ospf_shortcut_mode_descr_str[] = {"Default", "Enabled", "Disabled"};
 
 static void show_ip_ospf_area(struct vty *vty, struct ospf_area *area,
-			      json_object *json_areas, u_char use_json)
+			      json_object *json_areas, unsigned char use_json)
 {
 	json_object *json_area = NULL;
 
@@ -2883,7 +2884,7 @@ static void show_ip_ospf_area(struct vty *vty, struct ospf_area *area,
 }
 
 static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
-			       u_char use_json)
+			       unsigned char use_json)
 {
 	struct listnode *node, *nnode;
 	struct ospf_area *area;
@@ -3182,7 +3183,7 @@ DEFUN (show_ip_ospf,
        JSON_STR)
 {
 	struct ospf *ospf;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
 		return CMD_SUCCESS;
@@ -3202,7 +3203,7 @@ DEFUN (show_ip_ospf_instance,
 	int idx_number = 3;
 	struct ospf *ospf;
 	u_short instance = 0;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	ospf = ospf_lookup_instance(instance);
@@ -3218,7 +3219,7 @@ DEFUN (show_ip_ospf_instance,
 static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 				       struct interface *ifp,
 				       json_object *json_interface_sub,
-				       u_char use_json)
+				       unsigned char use_json)
 {
 	int is_up;
 	struct ospf_neighbor *nbr;
@@ -3535,7 +3536,7 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 
 static int show_ip_ospf_interface_common(struct vty *vty, struct ospf *ospf,
 					 int argc, struct cmd_token **argv,
-					 int iface_argv, u_char use_json)
+					 int iface_argv, unsigned char use_json)
 {
 	struct interface *ifp;
 	struct listnode *node;
@@ -3616,7 +3617,7 @@ DEFUN (show_ip_ospf_interface,
        JSON_STR)
 {
 	struct ospf *ospf;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
 		return CMD_SUCCESS;
@@ -3641,7 +3642,7 @@ DEFUN (show_ip_ospf_instance_interface,
 	int idx_number = 3;
 	struct ospf *ospf;
 	u_short instance = 0;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	ospf = ospf_lookup_instance(instance);
@@ -3666,7 +3667,7 @@ static void show_ip_ospf_neighbour_header(struct vty *vty)
 
 static void show_ip_ospf_neighbor_sub(struct vty *vty,
 				      struct ospf_interface *oi,
-				      json_object *json, u_char use_json)
+				      json_object *json, unsigned char use_json)
 {
 	struct route_node *rn;
 	struct ospf_neighbor *nbr;
@@ -3787,7 +3788,7 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 }
 
 static int show_ip_ospf_neighbor_common(struct vty *vty, struct ospf *ospf,
-					u_char use_json)
+					unsigned char use_json)
 {
 	struct ospf_interface *oi;
 	struct listnode *node;
@@ -3829,7 +3830,7 @@ DEFUN (show_ip_ospf_neighbor,
        JSON_STR)
 {
 	struct ospf *ospf;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
 		return CMD_SUCCESS;
@@ -3851,7 +3852,7 @@ DEFUN (show_ip_ospf_instance_neighbor,
 	int idx_number = 3;
 	struct ospf *ospf;
 	u_short instance = 0;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	ospf = ospf_lookup_instance(instance);
@@ -3865,7 +3866,7 @@ DEFUN (show_ip_ospf_instance_neighbor,
 }
 
 static int show_ip_ospf_neighbor_all_common(struct vty *vty, struct ospf *ospf,
-					    u_char use_json)
+					    unsigned char use_json)
 {
 	struct listnode *node;
 	struct ospf_interface *oi;
@@ -3953,7 +3954,7 @@ DEFUN (show_ip_ospf_neighbor_all,
        JSON_STR)
 {
 	struct ospf *ospf;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
 		return CMD_SUCCESS;
@@ -3975,7 +3976,7 @@ DEFUN (show_ip_ospf_instance_neighbor_all,
 	int idx_number = 3;
 	struct ospf *ospf;
 	u_short instance = 0;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	ospf = ospf_lookup_instance(instance);
@@ -3991,7 +3992,7 @@ DEFUN (show_ip_ospf_instance_neighbor_all,
 static int show_ip_ospf_neighbor_int_common(struct vty *vty, struct ospf *ospf,
 					    int arg_base,
 					    struct cmd_token **argv,
-					    u_char use_json)
+					    unsigned char use_json)
 {
 	struct interface *ifp;
 	struct route_node *rn;
@@ -4050,7 +4051,7 @@ DEFUN (show_ip_ospf_neighbor_int,
 {
 	struct ospf *ospf;
 	int idx_ifname = 4;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
 		return CMD_SUCCESS;
@@ -4073,7 +4074,7 @@ DEFUN (show_ip_ospf_instance_neighbor_int,
 	int idx_ifname = 5;
 	struct ospf *ospf;
 	u_short instance = 0;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	ospf = ospf_lookup_instance(instance);
@@ -4089,7 +4090,8 @@ DEFUN (show_ip_ospf_instance_neighbor_int,
 static void show_ip_ospf_nbr_nbma_detail_sub(struct vty *vty,
 					     struct ospf_interface *oi,
 					     struct ospf_nbr_nbma *nbr_nbma,
-					     u_char use_json, json_object *json)
+					     unsigned char use_json,
+					     json_object *json)
 {
 	char timebuf[OSPF_TIME_DUMP_SIZE];
 	json_object *json_sub = NULL;
@@ -4166,7 +4168,8 @@ static void show_ip_ospf_nbr_nbma_detail_sub(struct vty *vty,
 static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 					     struct ospf_interface *oi,
 					     struct ospf_neighbor *nbr,
-					     u_char use_json, json_object *json)
+					     unsigned char use_json,
+					     json_object *json)
 {
 	char timebuf[OSPF_TIME_DUMP_SIZE];
 	json_object *json_sub = NULL;
@@ -4382,7 +4385,7 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 static int show_ip_ospf_neighbor_id_common(struct vty *vty, struct ospf *ospf,
 					   int arg_base,
 					   struct cmd_token **argv,
-					   u_char use_json)
+					   unsigned char use_json)
 {
 	struct listnode *node;
 	struct ospf_neighbor *nbr;
@@ -4442,7 +4445,7 @@ DEFUN (show_ip_ospf_neighbor_id,
 {
 	struct ospf *ospf;
 	int idx_router_id = 4;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
 		return CMD_SUCCESS;
@@ -4465,7 +4468,7 @@ DEFUN (show_ip_ospf_instance_neighbor_id,
 	int idx_router_id = 5;
 	struct ospf *ospf;
 	u_short instance = 0;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	ospf = ospf_lookup_instance(instance);
@@ -4480,7 +4483,7 @@ DEFUN (show_ip_ospf_instance_neighbor_id,
 
 static int show_ip_ospf_neighbor_detail_common(struct vty *vty,
 					       struct ospf *ospf,
-					       u_char use_json)
+					       unsigned char use_json)
 {
 	struct ospf_interface *oi;
 	struct listnode *node;
@@ -4535,7 +4538,7 @@ DEFUN (show_ip_ospf_neighbor_detail,
        JSON_STR)
 {
 	struct ospf *ospf;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
 		return CMD_SUCCESS;
@@ -4557,7 +4560,7 @@ DEFUN (show_ip_ospf_instance_neighbor_detail,
 	int idx_number = 3;
 	struct ospf *ospf;
 	u_short instance = 0;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	ospf = ospf_lookup_instance(instance);
@@ -4572,7 +4575,7 @@ DEFUN (show_ip_ospf_instance_neighbor_detail,
 
 static int show_ip_ospf_neighbor_detail_all_common(struct vty *vty,
 						   struct ospf *ospf,
-						   u_char use_json)
+						   unsigned char use_json)
 {
 	struct listnode *node;
 	struct ospf_interface *oi;
@@ -4638,7 +4641,7 @@ DEFUN (show_ip_ospf_neighbor_detail_all,
        JSON_STR)
 {
 	struct ospf *ospf;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
 		return CMD_SUCCESS;
@@ -4661,7 +4664,7 @@ DEFUN (show_ip_ospf_instance_neighbor_detail_all,
 	int idx_number = 3;
 	struct ospf *ospf;
 	u_short instance = 0;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	ospf = ospf_lookup_instance(instance);
@@ -4678,7 +4681,7 @@ static int show_ip_ospf_neighbor_int_detail_common(struct vty *vty,
 						   struct ospf *ospf,
 						   int arg_base,
 						   struct cmd_token **argv,
-						   u_char use_json)
+						   unsigned char use_json)
 {
 	struct ospf_interface *oi;
 	struct interface *ifp;
@@ -4747,7 +4750,7 @@ DEFUN (show_ip_ospf_neighbor_int_detail,
 {
 	struct ospf *ospf;
 	int idx_ifname = 4;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	if ((ospf = ospf_lookup()) == NULL || !ospf->oi_running)
 		return CMD_SUCCESS;
@@ -4771,7 +4774,7 @@ DEFUN (show_ip_ospf_instance_neighbor_int_detail,
 	int idx_ifname = 5;
 	struct ospf *ospf;
 	u_short instance = 0;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	instance = strtoul(argv[idx_number]->arg, NULL, 10);
 	ospf = ospf_lookup_instance(instance);
@@ -5940,7 +5943,7 @@ DEFUN (ip_ospf_message_digest_key,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct crypt_key *ck;
-	u_char key_id;
+	unsigned char key_id;
 	struct in_addr addr;
 	struct ospf_if_params *params;
 
@@ -5970,7 +5973,7 @@ DEFUN (ip_ospf_message_digest_key,
 	}
 
 	ck = ospf_crypt_key_new();
-	ck->key_id = (u_char)key_id;
+	ck->key_id = (unsigned char)key_id;
 	memset(ck->auth_key, 0, OSPF_AUTH_MD5_SIZE + 1);
 	strncpy((char *)ck->auth_key, cryptkey, OSPF_AUTH_MD5_SIZE);
 
@@ -6068,7 +6071,7 @@ DEFUN (ip_ospf_cost,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
-	u_int32_t cost;
+	uint32_t cost;
 	struct in_addr addr;
 	struct ospf_if_params *params;
 	params = IF_DEF_PARAMS(ifp);
@@ -6189,8 +6192,8 @@ static int ospf_vty_dead_interval_set(struct vty *vty, const char *interval_str,
 				      const char *fast_hello_str)
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	u_int32_t seconds;
-	u_char hellomult;
+	uint32_t seconds;
+	unsigned char hellomult;
 	struct in_addr addr;
 	int ret;
 	struct ospf_if_params *params;
@@ -6388,7 +6391,7 @@ DEFUN (ip_ospf_hello_interval,
 	struct in_addr addr;
 	struct ospf_if_params *params;
 	params = IF_DEF_PARAMS(ifp);
-	u_int32_t seconds = 0;
+	uint32_t seconds = 0;
 
 	argv_find(argv, argc, "(1-65535)", &idx);
 	seconds = strtol(argv[idx]->arg, NULL, 10);
@@ -6727,7 +6730,7 @@ DEFUN (ip_ospf_retransmit_interval,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
-	u_int32_t seconds;
+	uint32_t seconds;
 	struct in_addr addr;
 	struct ospf_if_params *params;
 	params = IF_DEF_PARAMS(ifp);
@@ -6826,7 +6829,7 @@ DEFUN (ip_ospf_transmit_delay,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
-	u_int32_t seconds;
+	uint32_t seconds;
 	struct in_addr addr;
 	struct ospf_if_params *params;
 
@@ -7227,7 +7230,7 @@ DEFUN (no_ospf_redistribute_instance_source,
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_ospf_table = 2;
 	int idx_number = 3;
-	u_int instance;
+	unsigned int instance;
 	struct ospf_redist *red;
 	int source;
 
@@ -8399,7 +8402,7 @@ static int config_write_interface(struct vty *vty)
 static int config_write_network_area(struct vty *vty, struct ospf *ospf)
 {
 	struct route_node *rn;
-	u_char buf[INET_ADDRSTRLEN];
+	unsigned char buf[INET_ADDRSTRLEN];
 
 	/* `network area' print. */
 	for (rn = route_top(ospf->networks); rn; rn = route_next(rn))
@@ -8430,7 +8433,7 @@ static int config_write_ospf_area(struct vty *vty, struct ospf *ospf)
 {
 	struct listnode *node;
 	struct ospf_area *area;
-	u_char buf[INET_ADDRSTRLEN];
+	unsigned char buf[INET_ADDRSTRLEN];
 
 	/* Area configuration print. */
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area)) {

@@ -1791,8 +1791,9 @@ static int config_write_prefix_afi(afi_t afi, struct vty *vty)
 }
 
 struct stream *prefix_bgp_orf_entry(struct stream *s, struct prefix_list *plist,
-				    u_char init_flag, u_char permit_flag,
-				    u_char deny_flag)
+				    unsigned char init_flag,
+				    unsigned char permit_flag,
+				    unsigned char deny_flag)
 {
 	struct prefix_list_entry *pentry;
 
@@ -1800,15 +1801,15 @@ struct stream *prefix_bgp_orf_entry(struct stream *s, struct prefix_list *plist,
 		return s;
 
 	for (pentry = plist->head; pentry; pentry = pentry->next) {
-		u_char flag = init_flag;
+		unsigned char flag = init_flag;
 		struct prefix *p = &pentry->prefix;
 
 		flag |= (pentry->type == PREFIX_PERMIT ? permit_flag
 						       : deny_flag);
 		stream_putc(s, flag);
-		stream_putl(s, (u_int32_t)pentry->seq);
-		stream_putc(s, (u_char)pentry->ge);
-		stream_putc(s, (u_char)pentry->le);
+		stream_putl(s, (uint32_t)pentry->seq);
+		stream_putc(s, (unsigned char)pentry->ge);
+		stream_putc(s, (unsigned char)pentry->le);
 		stream_put_prefix(s, p);
 	}
 
@@ -1872,7 +1873,7 @@ void prefix_bgp_orf_remove_all(afi_t afi, char *name)
 
 /* return prefix count */
 int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
-				u_char use_json)
+				unsigned char use_json)
 {
 	struct prefix_list *plist;
 	struct prefix_list_entry *pentry;

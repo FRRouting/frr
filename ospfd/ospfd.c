@@ -1789,7 +1789,7 @@ int ospf_nbr_nbma_unset(struct ospf *ospf, struct in_addr nbr_addr)
 }
 
 int ospf_nbr_nbma_priority_set(struct ospf *ospf, struct in_addr nbr_addr,
-			       u_char priority)
+			       unsigned char priority)
 {
 	struct ospf_nbr_nbma *nbr_nbma;
 

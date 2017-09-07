@@ -700,7 +700,7 @@ static int zserv_rnh_register(struct zserv *client, int sock, u_short length,
 	struct stream *s;
 	struct prefix p;
 	u_short l = 0;
-	u_char flags = 0;
+	unsigned char flags = 0;
 
 	if (IS_ZEBRA_DEBUG_NHT)
 		zlog_debug(
@@ -804,8 +804,8 @@ static int zserv_fec_register(struct zserv *client, int sock, u_short length)
 	struct zebra_vrf *zvrf;
 	u_short l = 0;
 	struct prefix p;
-	u_int16_t flags;
-	u_int32_t label_index = MPLS_INVALID_LABEL_INDEX;
+	uint16_t flags;
+	uint32_t label_index = MPLS_INVALID_LABEL_INDEX;
 
 	s = client->ibuf;
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
@@ -854,7 +854,7 @@ static int zserv_fec_unregister(struct zserv *client, int sock, u_short length)
 	struct zebra_vrf *zvrf;
 	u_short l = 0;
 	struct prefix p;
-	// u_int16_t flags;
+	// uint16_t flags;
 
 	s = client->ibuf;
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
@@ -904,7 +904,7 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 {
 	struct stream *s;
 	unsigned long nump;
-	u_char num;
+	unsigned char num;
 	struct nexthop *nexthop;
 
 	/* Get output stream. */
@@ -1192,10 +1192,10 @@ static int zread_ipv4_add(struct zserv *client, u_short length,
 	int i;
 	struct route_entry *re;
 	struct prefix p;
-	u_char message;
+	unsigned char message;
 	struct in_addr nhop_addr;
-	u_char nexthop_num;
-	u_char nexthop_type;
+	unsigned char nexthop_num;
+	unsigned char nexthop_type;
 	struct stream *s;
 	ifindex_t ifindex;
 	safi_t safi;
@@ -1312,7 +1312,7 @@ static int zread_ipv4_delete(struct zserv *client, u_short length,
 	struct stream *s;
 	struct zapi_ipv4 api;
 	struct prefix p;
-	u_int32_t table_id;
+	uint32_t table_id;
 
 	s = client->ibuf;
 
@@ -1358,9 +1358,9 @@ static int zread_ipv4_route_ipv6_nexthop_add(struct zserv *client,
 	struct stream *s;
 	struct in6_addr nhop_addr;
 	struct route_entry *re;
-	u_char message;
-	u_char nexthop_num;
-	u_char nexthop_type;
+	unsigned char message;
+	unsigned char nexthop_num;
+	unsigned char nexthop_type;
 	struct prefix p;
 	safi_t safi;
 	static struct in6_addr nexthops[MULTIPATH_NUM];
@@ -1507,9 +1507,9 @@ static int zread_ipv6_add(struct zserv *client, u_short length,
 	struct in6_addr nhop_addr;
 	ifindex_t ifindex;
 	struct route_entry *re;
-	u_char message;
-	u_char nexthop_num;
-	u_char nexthop_type;
+	unsigned char message;
+	unsigned char nexthop_num;
+	unsigned char nexthop_type;
 	struct prefix p;
 	struct prefix_ipv6 src_p, *src_pp;
 	safi_t safi;
@@ -1726,7 +1726,7 @@ static int zread_router_id_delete(struct zserv *client, u_short length,
 static void zread_hello(struct zserv *client)
 {
 	/* type of protocol (lib/zebra.h) */
-	u_char proto;
+	unsigned char proto;
 	u_short instance;
 
 	proto = stream_getc(client->ibuf);
@@ -1772,7 +1772,7 @@ static void zread_mpls_labels(int command, struct zserv *client, u_short length,
 	union g_addr gate;
 	ifindex_t ifindex;
 	mpls_label_t in_label, out_label;
-	u_int8_t distance;
+	uint8_t distance;
 	struct zebra_vrf *zvrf;
 
 	zvrf = vrf_info_lookup(vrf_id);
@@ -1859,7 +1859,7 @@ static void zread_label_manager_connect(struct zserv *client, vrf_id_t vrf_id)
 {
 	struct stream *s;
 	/* type of protocol (lib/zebra.h) */
-	u_char proto;
+	unsigned char proto;
 	u_short instance;
 
 	/* Get input stream.  */
@@ -1922,7 +1922,7 @@ static int zsend_assign_label_chunk_response(struct zserv *client,
 static void zread_get_label_chunk(struct zserv *client, vrf_id_t vrf_id)
 {
 	struct stream *s;
-	u_char keep;
+	unsigned char keep;
 	uint32_t size;
 	struct label_manager_chunk *lmc;
 
@@ -2732,7 +2732,7 @@ static void zebra_show_client_brief(struct vty *vty, struct zserv *client)
 		client->v6_route_del_cnt);
 }
 
-struct zserv *zebra_find_client(u_char proto)
+struct zserv *zebra_find_client(unsigned char proto)
 {
 	struct listnode *node, *nnode;
 	struct zserv *client;

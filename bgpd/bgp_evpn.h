@@ -32,7 +32,7 @@ extern void bgp_evpn_route2json(struct prefix_evpn *p, json_object *json);
 extern void bgp_evpn_encode_prefix(struct stream *s, struct prefix *p,
 				   struct prefix_rd *prd, mpls_label_t *label,
 				   struct attr *attr, int addpath_encode,
-				   u_int32_t addpath_tx_id);
+				   uint32_t addpath_tx_id);
 extern int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 			       struct bgp_nlri *packet, int withdraw);
 extern int bgp_evpn_import_route(struct bgp *bgp, afi_t afi, safi_t safi,
@@ -44,7 +44,7 @@ extern int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni,
 				    struct ethaddr *mac, struct ipaddr *ip);
 extern int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni,
 				    struct ethaddr *mac, struct ipaddr *ip,
-				    u_char flags);
+				    unsigned char flags);
 extern int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni);
 extern int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 				  struct in_addr originator_ip);

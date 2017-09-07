@@ -456,7 +456,7 @@ int if_unset_flags(struct interface *ifp, uint64_t flags)
 /* linux/include/net/ipv6.h */
 struct in6_ifreq {
 	struct in6_addr ifr6_addr;
-	u_int32_t ifr6_prefixlen;
+	uint32_t ifr6_prefixlen;
 	int ifr6_ifindex;
 };
 #endif /* _LINUX_IN6_H */

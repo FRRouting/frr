@@ -65,7 +65,7 @@ struct test_spec {
 static struct test_segment {
 	const char *name;
 	const char *desc;
-	const u_char asdata[1024];
+	const unsigned char asdata[1024];
 	int len;
 	struct test_spec sp;
 } test_segments[] = {
@@ -915,7 +915,8 @@ struct compare_tests {
 };
 
 /* make an aspath from a data stream */
-static struct aspath *make_aspath(const u_char *data, size_t len, int use32bit)
+static struct aspath *make_aspath(const unsigned char *data, size_t len,
+				  int use32bit)
 {
 	struct stream *s = NULL;
 	struct aspath *as;
@@ -932,7 +933,7 @@ static struct aspath *make_aspath(const u_char *data, size_t len, int use32bit)
 	return as;
 }
 
-static void printbytes(const u_char *bytes, int len)
+static void printbytes(const unsigned char *bytes, int len)
 {
 	int i = 0;
 	while (i < len) {
@@ -950,7 +951,7 @@ static int validate(struct aspath *as, const struct test_spec *sp)
 {
 	size_t bytes, bytes4;
 	int fails = 0;
-	const u_char *out;
+	const unsigned char *out;
 	static struct stream *s;
 	struct aspath *asinout, *asconfeddel, *asstr, *as4;
 

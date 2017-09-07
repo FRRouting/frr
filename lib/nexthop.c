@@ -175,7 +175,7 @@ void nexthops_free(struct nexthop *nexthop)
 
 /* Update nexthop with label information. */
 void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t type,
-			u_int8_t num_labels, mpls_label_t *label)
+			uint8_t num_labels, mpls_label_t *label)
 {
 	struct nexthop_label *nh_label;
 	int i;

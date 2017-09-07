@@ -317,7 +317,7 @@ static char *hex_append(char *s, int len, u_long x)
 		return str_append(s, len, "0");
 	*(t = &buf[sizeof(buf) - 1]) = '\0';
 	while (x && (t > buf)) {
-		u_int cc = (x % 16);
+		unsigned int cc = (x % 16);
 		*--t = ((cc < 10) ? ('0' + cc) : ('a' + cc - 10));
 		x /= 16;
 	}
@@ -720,7 +720,7 @@ void openzlog(const char *progname, const char *protoname, u_short instance,
 	      int syslog_flags, int syslog_facility)
 {
 	struct zlog *zl;
-	u_int i;
+	unsigned int i;
 
 	zl = XCALLOC(MTYPE_ZLOG, sizeof(struct zlog));
 
@@ -932,9 +932,9 @@ static const struct zebra_desc_table command_types[] = {
 
 static const struct zebra_desc_table unknown = {0, "unknown", '?'};
 
-static const struct zebra_desc_table *zroute_lookup(u_int zroute)
+static const struct zebra_desc_table *zroute_lookup(unsigned int zroute)
 {
-	u_int i;
+	unsigned int i;
 
 	if (zroute >= array_size(route_types)) {
 		zlog_err("unknown zebra route type: %u", zroute);
@@ -955,12 +955,12 @@ static const struct zebra_desc_table *zroute_lookup(u_int zroute)
 	return &unknown;
 }
 
-const char *zebra_route_string(u_int zroute)
+const char *zebra_route_string(unsigned int zroute)
 {
 	return zroute_lookup(zroute)->string;
 }
 
-char zebra_route_char(u_int zroute)
+char zebra_route_char(unsigned int zroute)
 {
 	return zroute_lookup(zroute)->chr;
 }

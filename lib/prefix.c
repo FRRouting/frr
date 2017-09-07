@@ -31,8 +31,8 @@
 DEFINE_MTYPE_STATIC(LIB, PREFIX, "Prefix")
 
 /* Maskbit. */
-static const u_char maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
-				 0xf8, 0xfc, 0xfe, 0xff};
+static const unsigned char maskbit[] = {0x00, 0x80, 0xc0, 0xe0, 0xf0,
+					0xf8, 0xfc, 0xfe, 0xff};
 
 static const struct in6_addr maskbytes6[] = {
 	/* /0   */ {{{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -313,7 +313,8 @@ static int is_zero_mac(const struct ethaddr *mac)
 	return 1;
 }
 
-unsigned int prefix_bit(const u_char *prefix, const u_char prefixlen)
+unsigned int prefix_bit(const unsigned char *prefix,
+			const unsigned char prefixlen)
 {
 	unsigned int offset = prefixlen / 8;
 	unsigned int shift = 7 - (prefixlen % 8);
@@ -321,9 +322,10 @@ unsigned int prefix_bit(const u_char *prefix, const u_char prefixlen)
 	return (prefix[offset] >> shift) & 1;
 }
 
-unsigned int prefix6_bit(const struct in6_addr *prefix, const u_char prefixlen)
+unsigned int prefix6_bit(const struct in6_addr *prefix,
+			 const unsigned char prefixlen)
 {
-	return prefix_bit((const u_char *)&prefix->s6_addr, prefixlen);
+	return prefix_bit((const unsigned char *)&prefix->s6_addr, prefixlen);
 }
 
 int str2family(const char *string)
@@ -405,15 +407,15 @@ int prefix_match(const struct prefix *n, const struct prefix *p)
 {
 	int offset;
 	int shift;
-	const u_char *np, *pp;
+	const unsigned char *np, *pp;
 
 	/* If n's prefix is longer than p's one return 0. */
 	if (n->prefixlen > p->prefixlen)
 		return 0;
 
 	/* Set both prefix's head pointer. */
-	np = (const u_char *)&n->u.prefix;
-	pp = (const u_char *)&p->u.prefix;
+	np = (const unsigned char *)&n->u.prefix;
+	pp = (const unsigned char *)&p->u.prefix;
 
 	offset = n->prefixlen / PNBBY;
 	shift = n->prefixlen % PNBBY;
@@ -434,11 +436,11 @@ int prefix_match_network_statement(const struct prefix *n,
 {
 	int offset;
 	int shift;
-	const u_char *np, *pp;
+	const unsigned char *np, *pp;
 
 	/* Set both prefix's head pointer. */
-	np = (const u_char *)&n->u.prefix;
-	pp = (const u_char *)&p->u.prefix;
+	np = (const unsigned char *)&n->u.prefix;
+	pp = (const unsigned char *)&p->u.prefix;
 
 	offset = n->prefixlen / PNBBY;
 	shift = n->prefixlen % PNBBY;
@@ -531,8 +533,8 @@ int prefix_cmp(const struct prefix *p1, const struct prefix *p2)
 	int shift;
 
 	/* Set both prefix's head pointer. */
-	const u_char *pp1 = (const u_char *)&p1->u.prefix;
-	const u_char *pp2 = (const u_char *)&p2->u.prefix;
+	const unsigned char *pp1 = (const unsigned char *)&p1->u.prefix;
+	const unsigned char *pp2 = (const unsigned char *)&p2->u.prefix;
 
 	if (p1->family != p2->family || p1->prefixlen != p2->prefixlen)
 		return 1;
@@ -561,11 +563,11 @@ int prefix_common_bits(const struct prefix *p1, const struct prefix *p2)
 {
 	int pos, bit;
 	int length = 0;
-	u_char xor ;
+	unsigned char xor ;
 
 	/* Set both prefix's head pointer. */
-	const u_char *pp1 = (const u_char *)&p1->u.prefix;
-	const u_char *pp2 = (const u_char *)&p2->u.prefix;
+	const unsigned char *pp1 = (const unsigned char *)&p1->u.prefix;
+	const unsigned char *pp2 = (const unsigned char *)&p2->u.prefix;
 
 	if (p1->family == AF_INET)
 		length = IPV4_MAX_BYTELEN;
@@ -659,7 +661,7 @@ int str2prefix_ipv4(const char *str, struct prefix_ipv4 *p)
 		XFREE(MTYPE_TMP, cp);
 
 		/* Get prefix length. */
-		plen = (u_char)atoi(++pnt);
+		plen = (unsigned char)atoi(++pnt);
 		if (plen > IPV4_MAX_PREFIXLEN)
 			return 0;
 
@@ -693,7 +695,7 @@ int str2prefix_eth(const char *str, struct prefix_eth *p)
 
 	if (pnt) {
 		/* Get prefix length. */
-		plen = (u_char)atoi(++pnt);
+		plen = (unsigned char)atoi(++pnt);
 		if (plen > 48) {
 			ret = 0;
 			goto done;
@@ -755,7 +757,7 @@ void masklen2ip(const int masklen, struct in_addr *netmask)
 
 /* Convert IP address's netmask into integer. We assume netmask is
    sequential one. Argument netmask should be network byte order. */
-u_char ip_masklen(struct in_addr netmask)
+unsigned char ip_masklen(struct in_addr netmask)
 {
 	uint32_t tmp = ~ntohl(netmask.s_addr);
 	if (tmp)
@@ -825,7 +827,7 @@ int str2prefix_ipv6(const char *str, struct prefix_ipv6 *p)
 		XFREE(MTYPE_TMP, cp);
 		if (ret == 0)
 			return 0;
-		plen = (u_char)atoi(++pnt);
+		plen = (unsigned char)atoi(++pnt);
 		if (plen > IPV6_MAX_BITLEN)
 			return 0;
 		p->prefixlen = plen;
@@ -836,7 +838,7 @@ int str2prefix_ipv6(const char *str, struct prefix_ipv6 *p)
 }
 
 /* Convert struct in6_addr netmask into integer.
- * FIXME return u_char as ip_maskleni() does. */
+ * FIXME return unsigned char as ip_maskleni() does. */
 int ip6_masklen(struct in6_addr netmask)
 {
 	int len = 0;
@@ -868,14 +870,14 @@ void masklen2ip6(const int masklen, struct in6_addr *netmask)
 
 void apply_mask_ipv6(struct prefix_ipv6 *p)
 {
-	u_char *pnt;
+	unsigned char *pnt;
 	int index;
 	int offset;
 
 	index = p->prefixlen / 8;
 
 	if (index < 16) {
-		pnt = (u_char *)&p->prefix;
+		pnt = (unsigned char *)&p->prefix;
 		offset = p->prefixlen % 8;
 
 		pnt[index] &= maskbit[offset];
@@ -1007,7 +1009,7 @@ int str2prefix(const char *str, struct prefix *p)
 
 static const char *prefixevpn2str(const struct prefix *p, char *str, int size)
 {
-	u_char family;
+	unsigned char family;
 	char buf[PREFIX2STR_BUFFER];
 	char buf2[ETHER_ADDR_STRLEN];
 
@@ -1116,7 +1118,7 @@ int all_digit(const char *str)
 void apply_classful_mask_ipv4(struct prefix_ipv4 *p)
 {
 
-	u_int32_t destination;
+	uint32_t destination;
 
 	destination = ntohl(p->prefix.s_addr);
 
@@ -1164,8 +1166,8 @@ int netmask_str2prefix_str(const char *net_str, const char *mask_str,
 {
 	struct in_addr network;
 	struct in_addr mask;
-	u_char prefixlen;
-	u_int32_t destination;
+	unsigned char prefixlen;
+	uint32_t destination;
 	int ret;
 
 	ret = inet_aton(net_str, &network);

@@ -103,7 +103,7 @@ static int nexthoplookup(struct list *nexthops, struct in_addr *ip,
 #ifdef EXTREME_DEBUG
 static void nexthop_print(struct isis_nexthop *nh)
 {
-	u_char buf[BUFSIZ];
+	unsigned char buf[BUFSIZ];
 
 	inet_ntop(AF_INET, &nh->ip, (char *)buf, BUFSIZ);
 
@@ -187,7 +187,7 @@ static int nexthop6lookup(struct list *nexthops6, struct in6_addr *ip6,
 #ifdef EXTREME_DEBUG
 static void nexthop6_print(struct isis_nexthop6 *nh6)
 {
-	u_char buf[BUFSIZ];
+	unsigned char buf[BUFSIZ];
 
 	inet_ntop(AF_INET6, &nh6->ip6, (char *)buf, BUFSIZ);
 
@@ -317,7 +317,8 @@ static int isis_route_info_same_attrib(struct isis_route_info *new,
 }
 
 static int isis_route_info_same(struct isis_route_info *new,
-				struct isis_route_info *old, u_char family)
+				struct isis_route_info *old,
+				unsigned char family)
 {
 	struct listnode *node;
 	struct isis_nexthop *nexthop;
@@ -361,15 +362,15 @@ static int isis_route_info_same(struct isis_route_info *new,
 	return 1;
 }
 
-struct isis_route_info *isis_route_create(struct prefix *prefix, u_int32_t cost,
-					  u_int32_t depth,
+struct isis_route_info *isis_route_create(struct prefix *prefix, uint32_t cost,
+					  uint32_t depth,
 					  struct list *adjacencies,
 					  struct isis_area *area, int level)
 {
 	struct route_node *route_node;
 	struct isis_route_info *rinfo_new, *rinfo_old, *route_info = NULL;
 	char buff[PREFIX2STR_BUFFER];
-	u_char family;
+	unsigned char family;
 
 	family = prefix->family;
 	/* for debugs */

@@ -251,7 +251,7 @@ rnh table:
 
         struct rnh
         {
-          u_char flags;
+          unsigned char flags;
           struct route_entry *state;
           struct list *client_list;
           struct route_node *node;

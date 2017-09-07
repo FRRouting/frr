@@ -124,7 +124,7 @@ static void keychain_delete(struct keychain *keychain)
 	keychain_free(keychain);
 }
 
-static struct key *key_lookup(const struct keychain *keychain, u_int32_t index)
+static struct key *key_lookup(const struct keychain *keychain, uint32_t index)
 {
 	struct listnode *node;
 	struct key *key;
@@ -137,7 +137,7 @@ static struct key *key_lookup(const struct keychain *keychain, u_int32_t index)
 }
 
 struct key *key_lookup_for_accept(const struct keychain *keychain,
-				  u_int32_t index)
+				  uint32_t index)
 {
 	struct listnode *node;
 	struct key *key;
@@ -197,7 +197,7 @@ struct key *key_lookup_for_send(const struct keychain *keychain)
 	return NULL;
 }
 
-static struct key *key_get(const struct keychain *keychain, u_int32_t index)
+static struct key *key_get(const struct keychain *keychain, uint32_t index)
 {
 	struct key *key;
 
@@ -270,7 +270,7 @@ DEFUN_NOSH (key,
 	int idx_number = 1;
 	VTY_DECLVAR_CONTEXT(keychain, keychain);
 	struct key *key;
-	u_int32_t index;
+	uint32_t index;
 
 	index = strtoul(argv[idx_number]->arg, NULL, 10);
 	key = key_get(keychain, index);
@@ -289,7 +289,7 @@ DEFUN (no_key,
 	int idx_number = 2;
 	VTY_DECLVAR_CONTEXT(keychain, keychain);
 	struct key *key;
-	u_int32_t index;
+	uint32_t index;
 
 	index = strtoul(argv[idx_number]->arg, NULL, 10);
 	key = key_lookup(keychain, index);
@@ -469,7 +469,7 @@ static int key_lifetime_duration_set(struct vty *vty, struct key_range *krange,
 				     const char *duration_str)
 {
 	time_t time_start;
-	u_int32_t duration;
+	uint32_t duration;
 
 	time_start = key_str2time(stime_str, sday_str, smonth_str, syear_str);
 	if (time_start < 0) {

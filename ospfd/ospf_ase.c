@@ -241,7 +241,7 @@ ospf_ase_calculate_asbr_route (struct ospf *ospf,
 
 static struct ospf_route *
 ospf_ase_calculate_new_route(struct ospf_lsa *lsa,
-			     struct ospf_route *asbr_route, u_int32_t metric)
+			     struct ospf_route *asbr_route, uint32_t metric)
 {
 	struct as_external_lsa *al;
 	struct ospf_route *new;
@@ -282,7 +282,7 @@ ospf_ase_calculate_new_route(struct ospf_lsa *lsa,
 
 int ospf_ase_calculate_route(struct ospf *ospf, struct ospf_lsa *lsa)
 {
-	u_int32_t metric;
+	uint32_t metric;
 	struct as_external_lsa *al;
 	struct ospf_route *asbr_route;
 	struct prefix_ipv4 asbr, p;

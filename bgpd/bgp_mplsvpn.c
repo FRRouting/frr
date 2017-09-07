@@ -59,20 +59,20 @@ extern int argv_find_and_parse_vpnvx(struct cmd_token **argv, int argc,
 	return ret;
 }
 
-u_int32_t decode_label(mpls_label_t *label_pnt)
+uint32_t decode_label(mpls_label_t *label_pnt)
 {
-	u_int32_t l;
-	u_char *pnt = (u_char *)label_pnt;
+	uint32_t l;
+	unsigned char *pnt = (unsigned char *)label_pnt;
 
-	l = ((u_int32_t)*pnt++ << 12);
-	l |= (u_int32_t)*pnt++ << 4;
-	l |= (u_int32_t)((*pnt & 0xf0) >> 4);
+	l = ((uint32_t)*pnt++ << 12);
+	l |= (uint32_t)*pnt++ << 4;
+	l |= (uint32_t)((*pnt & 0xf0) >> 4);
 	return l;
 }
 
 void encode_label(mpls_label_t label, mpls_label_t *label_pnt)
 {
-	u_char *pnt = (u_char *)label_pnt;
+	unsigned char *pnt = (unsigned char *)label_pnt;
 	if (pnt == NULL)
 		return;
 	*pnt++ = (label >> 12) & 0xff;
@@ -83,12 +83,12 @@ void encode_label(mpls_label_t label, mpls_label_t *label_pnt)
 int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 		       struct bgp_nlri *packet)
 {
-	u_char *pnt;
-	u_char *lim;
+	unsigned char *pnt;
+	unsigned char *lim;
 	struct prefix p;
 	int psize = 0;
 	int prefixlen;
-	u_int16_t type;
+	uint16_t type;
 	struct rd_as rd_as;
 	struct rd_ip rd_ip;
 	struct prefix_rd prd;
@@ -96,7 +96,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 	afi_t afi;
 	safi_t safi;
 	int addpath_encoded;
-	u_int32_t addpath_id;
+	uint32_t addpath_id;
 
 	/* Check peer status. */
 	if (peer->status != Established)
@@ -352,7 +352,7 @@ DEFUN (no_vpnv6_network,
 
 int bgp_show_mpls_vpn(struct vty *vty, afi_t afi, struct prefix_rd *prd,
 		      enum bgp_show_type type, void *output_arg, int tags,
-		      u_char use_json)
+		      unsigned char use_json)
 {
 	struct bgp *bgp;
 	struct bgp_table *table;
@@ -472,14 +472,14 @@ int bgp_show_mpls_vpn(struct vty *vty, afi_t afi, struct prefix_rd *prd,
 					}
 
 					if (rd_header) {
-						u_int16_t type;
+						uint16_t type;
 						struct rd_as rd_as;
 						struct rd_ip rd_ip = {0};
 #if ENABLE_BGP_VNC
 						struct rd_vnc_eth rd_vnc_eth = {
 							0};
 #endif
-						u_char *pnt;
+						unsigned char *pnt;
 
 						pnt = rn->p.u.val;
 
@@ -780,7 +780,7 @@ DEFUN (show_ip_bgp_vpn_all_neighbor_routes,
 	union sockunion su;
 	struct peer *peer;
 	int ret;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 	afi_t afi;
 	int idx = 0;
 
@@ -844,7 +844,7 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_routes,
 	union sockunion su;
 	struct peer *peer;
 	struct prefix_rd prd;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 	afi_t afi;
 	int idx = 0;
 
@@ -922,7 +922,7 @@ DEFUN (show_ip_bgp_vpn_all_neighbor_advertised_routes,
 	int ret;
 	struct peer *peer;
 	union sockunion su;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 	afi_t afi;
 	int idx = 0;
 
@@ -984,7 +984,7 @@ DEFUN (show_ip_bgp_vpn_rd_neighbor_advertised_routes,
 	struct peer *peer;
 	struct prefix_rd prd;
 	union sockunion su;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 	afi_t afi;
 	int idx = 0;
 

@@ -174,7 +174,7 @@ void buffer_put(struct buffer *b, const void *p, size_t size)
 }
 
 /* Insert character into the buffer. */
-void buffer_putc(struct buffer *b, u_char c)
+void buffer_putc(struct buffer *b, unsigned char c)
 {
 	buffer_put(b, &c, 1);
 }

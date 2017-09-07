@@ -609,7 +609,7 @@ struct timeval thread_timer_remain(struct thread *thread)
 }
 
 /* Get new thread.  */
-static struct thread *thread_get(struct thread_master *m, u_char type,
+static struct thread *thread_get(struct thread_master *m, unsigned char type,
 				 int (*func)(struct thread *), void *arg,
 				 debugargdef)
 {

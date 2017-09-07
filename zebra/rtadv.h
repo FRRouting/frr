@@ -34,7 +34,7 @@ struct rtadv_prefix {
 	struct prefix_ipv6 prefix;
 
 	/* The value to be placed in the Valid Lifetime in the Prefix */
-	u_int32_t AdvValidLifetime;
+	uint32_t AdvValidLifetime;
 #define RTADV_VALID_LIFETIME 2592000
 
 	/* The value to be placed in the on-link flag */
@@ -42,7 +42,7 @@ struct rtadv_prefix {
 
 	/* The value to be placed in the Preferred Lifetime in the Prefix
 	   Information option, in seconds.*/
-	u_int32_t AdvPreferredLifetime;
+	uint32_t AdvPreferredLifetime;
 #define RTADV_PREFERRED_LIFETIME 604800
 
 	/* The value to be placed in the Autonomous Flag. */
@@ -83,11 +83,11 @@ struct nd_opt_adv_interval { /* Advertisement interval option */
 
 #ifndef HAVE_STRUCT_ND_OPT_HOMEAGENT_INFO
 struct nd_opt_homeagent_info { /* Home Agent info */
-	u_int8_t nd_opt_hai_type;
-	u_int8_t nd_opt_hai_len;
-	u_int16_t nd_opt_hai_reserved;
-	u_int16_t nd_opt_hai_preference;
-	u_int16_t nd_opt_hai_lifetime;
+	uint8_t nd_opt_hai_type;
+	uint8_t nd_opt_hai_len;
+	uint16_t nd_opt_hai_reserved;
+	uint16_t nd_opt_hai_preference;
+	uint16_t nd_opt_hai_lifetime;
 } __attribute__((__packed__));
 #endif
 

@@ -48,7 +48,7 @@ int bgp_parse_fec_update(void)
 	struct bgp *bgp;
 	struct bgp_table *table;
 	struct prefix p;
-	u_int32_t label;
+	uint32_t label;
 	afi_t afi;
 	safi_t safi;
 
@@ -124,7 +124,7 @@ void bgp_reg_dereg_for_label(struct bgp_node *rn, struct bgp_info *ri, int reg)
 	struct stream *s;
 	struct prefix *p;
 	int command;
-	u_int16_t flags = 0;
+	uint16_t flags = 0;
 	size_t flags_pos = 0;
 
 	/* Check socket. */
@@ -159,13 +159,13 @@ void bgp_reg_dereg_for_label(struct bgp_node *rn, struct bgp_info *ri, int reg)
 	zclient_send_message(zclient);
 }
 
-static int bgp_nlri_get_labels(struct peer *peer, u_char *pnt, u_char plen,
-			       mpls_label_t *label)
+static int bgp_nlri_get_labels(struct peer *peer, unsigned char *pnt,
+			       unsigned char plen, mpls_label_t *label)
 {
-	u_char *data = pnt;
-	u_char *lim = pnt + plen;
-	u_char llen = 0;
-	u_char label_depth = 0;
+	unsigned char *data = pnt;
+	unsigned char *lim = pnt + plen;
+	unsigned char llen = 0;
+	unsigned char label_depth = 0;
 
 	for (; data < lim; data += BGP_LABEL_BYTES) {
 		memcpy(label, data, BGP_LABEL_BYTES);
@@ -195,17 +195,17 @@ static int bgp_nlri_get_labels(struct peer *peer, u_char *pnt, u_char plen,
 int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 			 struct bgp_nlri *packet)
 {
-	u_char *pnt;
-	u_char *lim;
+	unsigned char *pnt;
+	unsigned char *lim;
 	struct prefix p;
 	int psize = 0;
 	int prefixlen;
 	afi_t afi;
 	safi_t safi;
 	int addpath_encoded;
-	u_int32_t addpath_id;
+	uint32_t addpath_id;
 	mpls_label_t label = MPLS_INVALID_LABEL;
-	u_char llen;
+	unsigned char llen;
 
 	/* Check peer status. */
 	if (peer->status != Established)

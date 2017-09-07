@@ -37,7 +37,7 @@ enum ipaddr_type_t {
 struct ipaddr {
 	enum ipaddr_type_t ipa_type;
 	union {
-		u_char addr;
+		unsigned char addr;
 		struct in_addr _v4_addr;
 		struct in6_addr _v6_addr;
 	} ip;

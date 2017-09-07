@@ -37,8 +37,8 @@ struct isis_lsp {
 		struct list *frags;
 		struct isis_lsp *zero_lsp;
 	} lspu;
-	u_int32_t SRMflags[ISIS_MAX_CIRCUITS];
-	u_int32_t SSNflags[ISIS_MAX_CIRCUITS];
+	uint32_t SRMflags[ISIS_MAX_CIRCUITS];
+	uint32_t SSNflags[ISIS_MAX_CIRCUITS];
 	int level;     /* L1 or L2? */
 	int scheduled; /* scheduled for sending */
 	time_t installed;
@@ -68,14 +68,15 @@ struct isis_lsp *lsp_new_from_recv(struct isis_lsp_hdr *hdr,
 				   struct stream *stream, struct isis_lsp *lsp0,
 				   struct isis_area *area, int level);
 void lsp_insert(struct isis_lsp *lsp, dict_t *lspdb);
-struct isis_lsp *lsp_search(u_char *id, dict_t *lspdb);
+struct isis_lsp *lsp_search(unsigned char *id, dict_t *lspdb);
 
-void lsp_build_list(u_char *start_id, u_char *stop_id, u_char num_lsps,
-		    struct list *list, dict_t *lspdb);
-void lsp_build_list_nonzero_ht(u_char *start_id, u_char *stop_id,
+void lsp_build_list(unsigned char *start_id, unsigned char *stop_id,
+		    unsigned char num_lsps, struct list *list, dict_t *lspdb);
+void lsp_build_list_nonzero_ht(unsigned char *start_id, unsigned char *stop_id,
 			       struct list *list, dict_t *lspdb);
-void lsp_search_and_destroy(u_char *id, dict_t *lspdb);
-void lsp_purge_pseudo(u_char *id, struct isis_circuit *circuit, int level);
+void lsp_search_and_destroy(unsigned char *id, dict_t *lspdb);
+void lsp_purge_pseudo(unsigned char *id, struct isis_circuit *circuit,
+		      int level);
 void lsp_purge_non_exist(int level, struct isis_lsp_hdr *hdr,
 			 struct isis_area *area);
 
@@ -89,7 +90,7 @@ void lsp_purge_non_exist(int level, struct isis_lsp_hdr *hdr,
 	memcpy((I), isis->sysid, ISIS_SYS_ID_LEN);                             \
 	(I)[ISIS_SYS_ID_LEN] = 0;                                              \
 	(I)[ISIS_SYS_ID_LEN + 1] = 0
-int lsp_id_cmp(u_char *id1, u_char *id2);
+int lsp_id_cmp(unsigned char *id1, unsigned char *id2);
 int lsp_compare(char *areatag, struct isis_lsp *lsp, uint32_t seqno,
 		uint16_t checksum, uint16_t rem_lifetime);
 void lsp_update(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,

@@ -32,7 +32,8 @@ int /* return checksum in low-order 16 bits */
 	/* mop up an odd byte, if necessary */
 	if (nbytes == 1) {
 		oddbyte = 0; /* make sure top half is zero */
-		*((u_char *)&oddbyte) = *(u_char *)ptr; /* one byte only */
+		*((unsigned char *)&oddbyte) =
+			*(unsigned char *)ptr; /* one byte only */
 		sum += oddbyte;
 	}
 
@@ -53,13 +54,13 @@ int /* return checksum in low-order 16 bits */
    index required in the specification ISO 8473, Annex C.1 */
 /* calling with offset == FLETCHER_CHECKSUM_VALIDATE will validate the checksum
    without modifying the buffer; a valid checksum returns 0 */
-u_int16_t fletcher_checksum(u_char *buffer, const size_t len,
-			    const uint16_t offset)
+uint16_t fletcher_checksum(unsigned char *buffer, const size_t len,
+			   const uint16_t offset)
 {
-	u_int8_t *p;
+	uint8_t *p;
 	int x, y, c0, c1;
-	u_int16_t checksum = 0;
-	u_int16_t *csum;
+	uint16_t checksum = 0;
+	uint16_t *csum;
 	size_t partial_len, i, left = len;
 
 	if (offset != FLETCHER_CHECKSUM_VALIDATE)
@@ -67,7 +68,7 @@ u_int16_t fletcher_checksum(u_char *buffer, const size_t len,
 	{
 		assert(offset
 		       < (len - 1)); /* account for two bytes of checksum */
-		csum = (u_int16_t *)(buffer + offset);
+		csum = (uint16_t *)(buffer + offset);
 		*(csum) = 0;
 	}
 

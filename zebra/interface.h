@@ -95,7 +95,7 @@ struct rtadvconf {
 	   milliseconds (1 hour).
 
 	   Default: 0 */
-	u_int32_t AdvReachableTime;
+	uint32_t AdvReachableTime;
 #define RTADV_MAX_REACHABLE_TIME 3600000
 
 	/* The value to be placed in the Retrans Timer field in the Router
@@ -169,8 +169,8 @@ struct rtadvconf {
 	int DefaultPreference;
 #define RTADV_PREF_MEDIUM 0x0 /* Per RFC4191. */
 
-	u_char inFastRexmit; /* True if we're rexmits faster than usual */
-	u_char configured;   /* Has operator configured RA? */
+	unsigned char inFastRexmit; /* True if we're rexmits faster than usual */
+	unsigned char configured;   /* Has operator configured RA? */
 	int
 		NumFastReXmitsRemain; /* Loaded first with number of fast
 					 rexmits to do */
@@ -204,13 +204,13 @@ struct irdp_interface;
 /* `zebra' daemon local interface structure. */
 struct zebra_if {
 	/* Shutdown configuration. */
-	u_char shutdown;
+	unsigned char shutdown;
 
 	/* Multicast configuration. */
-	u_char multicast;
+	unsigned char multicast;
 
 	/* Router advertise configuration. */
-	u_char rtadv_enable;
+	unsigned char rtadv_enable;
 
 	/* Installed addresses chains tree. */
 	struct route_table *ipv4_subnets;
@@ -246,11 +246,11 @@ struct zebra_if {
 	 * down (but primary still plumbed) and primary having gone
 	 * ~IFF_UP, and all addresses gone.
 	 */
-	u_char primary_state;
+	unsigned char primary_state;
 #endif /* SUNOS_5 */
 
 	/* ptm enable configuration */
-	u_char ptm_enable;
+	unsigned char ptm_enable;
 
 	/* Zebra interface and "slave" interface type */
 	zebra_iftype_t zif_type;
@@ -309,7 +309,7 @@ static inline void zebra_if_set_ziftype(struct interface *ifp,
 	(((struct zebra_if *)(ifp->info))->zif_slave_type == ZEBRA_IF_SLAVE_VRF)
 
 extern struct interface *if_lookup_by_index_per_ns(struct zebra_ns *,
-						   u_int32_t);
+						   uint32_t);
 extern struct interface *if_lookup_by_name_per_ns(struct zebra_ns *,
 						  const char *);
 extern struct interface *if_link_per_ns(struct zebra_ns *, struct interface *);

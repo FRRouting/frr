@@ -64,7 +64,7 @@ struct zebra_vni_t_ {
 	vni_t vni;
 
 	/* Flag for advertising gw macip */
-	u_int8_t advertise_gw_macip;
+	uint8_t advertise_gw_macip;
 
 	/* Corresponding VxLAN interface. */
 	struct interface *vxlan_if;
@@ -98,7 +98,7 @@ struct zebra_mac_t_ {
 	/* MAC address. */
 	struct ethaddr macaddr;
 
-	u_int32_t flags;
+	uint32_t flags;
 #define ZEBRA_MAC_LOCAL   0x01
 #define ZEBRA_MAC_REMOTE  0x02
 #define ZEBRA_MAC_AUTO    0x04  /* Auto created for neighbor. */
@@ -127,7 +127,7 @@ struct mac_walk_ctx {
 	int uninstall;		/* uninstall from kernel? */
 	int upd_client;		/* uninstall from client? */
 
-	u_int32_t flags;
+	uint32_t flags;
 #define DEL_LOCAL_MAC                0x1
 #define DEL_REMOTE_MAC               0x2
 #define DEL_ALL_MAC                  (DEL_LOCAL_MAC | DEL_REMOTE_MAC)
@@ -137,7 +137,7 @@ struct mac_walk_ctx {
 	struct in_addr r_vtep_ip; /* To walk MACs from specific VTEP */
 
 	struct vty *vty;	  /* Used by VTY handlers */
-	u_int32_t count;	  /* Used by VTY handlers */
+	uint32_t count;		  /* Used by VTY handlers */
 	struct json_object *json; /* Used for JSON Output */
 };
 
@@ -172,7 +172,7 @@ struct zebra_neigh_t_ {
 	/* Underlying interface. */
 	ifindex_t ifindex;
 
-	u_int32_t flags;
+	uint32_t flags;
 #define ZEBRA_NEIGH_LOCAL     0x01
 #define ZEBRA_NEIGH_REMOTE    0x02
 
@@ -191,7 +191,7 @@ struct neigh_walk_ctx {
 	int uninstall;		/* uninstall from kernel? */
 	int upd_client;		/* uninstall from client? */
 
-	u_int32_t flags;
+	uint32_t flags;
 #define DEL_LOCAL_NEIGH              0x1
 #define DEL_REMOTE_NEIGH             0x2
 #define DEL_ALL_NEIGH                (DEL_LOCAL_NEIGH | DEL_REMOTE_NEIGH)
@@ -201,8 +201,8 @@ struct neigh_walk_ctx {
 	struct in_addr r_vtep_ip; /* To walk neighbors from specific VTEP */
 
 	struct vty *vty;	  /* Used by VTY handlers */
-	u_int32_t count;	  /* Used by VTY handlers */
-	u_char addr_width;	/* Used by VTY handlers */
+	uint32_t count;		  /* Used by VTY handlers */
+	unsigned char addr_width; /* Used by VTY handlers */
 	struct json_object *json; /* Used for JSON Output */
 };
 

@@ -501,7 +501,8 @@ int rfapiGetUnAddrOfVpnBi(struct bgp_info *bi, struct prefix *p)
  */
 static struct bgp_info *rfapiBgpInfoCreate(struct attr *attr, struct peer *peer,
 					   void *rfd, struct prefix_rd *prd,
-					   u_char type, u_char sub_type,
+					   unsigned char type,
+					   unsigned char sub_type,
 					   uint32_t *label)
 {
 	struct bgp_info *new;
@@ -2883,7 +2884,8 @@ typedef void(rfapi_bi_filtered_import_f)(struct rfapi_import_table *, int,
 					 struct peer *, void *, struct prefix *,
 					 struct prefix *, afi_t,
 					 struct prefix_rd *, struct attr *,
-					 u_char, u_char, uint32_t *);
+					 unsigned char, unsigned char,
+					 uint32_t *);
 
 
 static void rfapiExpireEncapNow(struct rfapi_import_table *it,
@@ -2935,10 +2937,10 @@ static void rfapiBgpInfoFilteredImportEncap(
 	struct prefix *p,
 	struct prefix *aux_prefix, /* Unused for encap routes */
 	afi_t afi, struct prefix_rd *prd,
-	struct attr *attr, /* part of bgp_info */
-	u_char type,       /* part of bgp_info */
-	u_char sub_type,   /* part of bgp_info */
-	uint32_t *label)   /* part of bgp_info */
+	struct attr *attr,      /* part of bgp_info */
+	unsigned char type,     /* part of bgp_info */
+	unsigned char sub_type, /* part of bgp_info */
+	uint32_t *label)	/* part of bgp_info */
 {
 	struct route_table *rt = NULL;
 	struct route_node *rn;
@@ -3394,10 +3396,10 @@ void rfapiBgpInfoFilteredImportVPN(
 	struct prefix *p,
 	struct prefix *aux_prefix, /* AFI_L2VPN: optional IP */
 	afi_t afi, struct prefix_rd *prd,
-	struct attr *attr, /* part of bgp_info */
-	u_char type,       /* part of bgp_info */
-	u_char sub_type,   /* part of bgp_info */
-	uint32_t *label)   /* part of bgp_info */
+	struct attr *attr,      /* part of bgp_info */
+	unsigned char type,     /* part of bgp_info */
+	unsigned char sub_type, /* part of bgp_info */
+	uint32_t *label)	/* part of bgp_info */
 {
 	struct route_table *rt = NULL;
 	struct route_node *rn;
@@ -3883,8 +3885,9 @@ rfapiBgpInfoFilteredImportFunction(safi_t safi)
 void rfapiProcessUpdate(struct peer *peer,
 			void *rfd, /* set when looped from RFP/RFAPI */
 			struct prefix *p, struct prefix_rd *prd,
-			struct attr *attr, afi_t afi, safi_t safi, u_char type,
-			u_char sub_type, uint32_t *label)
+			struct attr *attr, afi_t afi, safi_t safi,
+			unsigned char type, unsigned char sub_type,
+			uint32_t *label)
 {
 	struct bgp *bgp;
 	struct rfapi *h;
@@ -3971,7 +3974,7 @@ void rfapiProcessUpdate(struct peer *peer,
 
 void rfapiProcessWithdraw(struct peer *peer, void *rfd, struct prefix *p,
 			  struct prefix_rd *prd, struct attr *attr, afi_t afi,
-			  safi_t safi, u_char type, int kill)
+			  safi_t safi, unsigned char type, int kill)
 {
 	struct bgp *bgp;
 	struct rfapi *h;
@@ -4222,7 +4225,7 @@ static void rfapiBgpTableFilteredImport(struct bgp *bgp,
 				struct bgp_info *bi;
 
 				for (bi = rn2->info; bi; bi = bi->next) {
-					u_int32_t label = 0;
+					uint32_t label = 0;
 
 					if (CHECK_FLAG(bi->flags,
 						       BGP_INFO_REMOVED))

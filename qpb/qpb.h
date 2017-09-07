@@ -40,7 +40,7 @@
  */
 #define qpb_address_family_set qpb__address_family__set
 static inline int qpb__address_family__set(Qpb__AddressFamily *pb_family,
-					   u_char family)
+					   unsigned char family)
 {
 	switch (family) {
 	case AF_INET:
@@ -63,7 +63,7 @@ static inline int qpb__address_family__set(Qpb__AddressFamily *pb_family,
  */
 #define qpb_address_family_get qpb__address_family__get
 static inline int qpb__address_family__get(Qpb__AddressFamily pb_family,
-					   u_char *family)
+					   unsigned char *family)
 {
 
 	switch (pb_family) {
@@ -115,7 +115,8 @@ static inline Qpb__L3Prefix *qpb__l3_prefix__create(qpb_allocator_t *allocator,
  */
 #define qpb_l3_prefix_get qpb__l3_prefix__get
 static inline int qpb__l3_prefix__get(const Qpb__L3Prefix *pb_prefix,
-				      u_char family, struct prefix *prefix)
+				      unsigned char family,
+				      struct prefix *prefix)
 {
 
 	switch (family) {
@@ -262,7 +263,7 @@ static inline int qpb__ipv6_address__get(const Qpb__Ipv6Address *v6,
 #define qpb_l3_address_create qpb__l3_address__create
 static inline Qpb__L3Address *
 qpb__l3_address__create(qpb_allocator_t *allocator, union g_addr *addr,
-			u_char family)
+			unsigned char family)
 {
 	Qpb__L3Address *l3_addr;
 
@@ -298,7 +299,8 @@ qpb__l3_address__create(qpb_allocator_t *allocator, union g_addr *addr,
  */
 #define qpb_l3_address_get qpb__l3_address__get
 static inline int qpb__l3_address__get(const Qpb__L3Address *l3_addr,
-				       u_char *family, union g_addr *addr)
+				       unsigned char *family,
+				       union g_addr *addr)
 {
 	if (l3_addr->v4) {
 		qpb__ipv4_address__get(l3_addr->v4, &addr->ipv4);

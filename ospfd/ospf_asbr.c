@@ -94,7 +94,8 @@ struct ospf_route *ospf_external_route_lookup(struct ospf *ospf,
 
 
 /* Add an External info for AS-external-LSA. */
-struct external_info *ospf_external_info_new(u_char type, u_short instance)
+struct external_info *ospf_external_info_new(unsigned char type,
+					     u_short instance)
 {
 	struct external_info *new;
 
@@ -126,11 +127,10 @@ int ospf_route_map_set_compare(struct route_map_set_values *values1,
 }
 
 /* Add an External info for AS-external-LSA. */
-struct external_info *ospf_external_info_add(u_char type, u_short instance,
-					     struct prefix_ipv4 p,
-					     ifindex_t ifindex,
-					     struct in_addr nexthop,
-					     route_tag_t tag)
+struct external_info *
+ospf_external_info_add(unsigned char type, u_short instance,
+		       struct prefix_ipv4 p, ifindex_t ifindex,
+		       struct in_addr nexthop, route_tag_t tag)
 {
 	struct external_info *new;
 	struct route_node *rn;
@@ -185,7 +185,7 @@ struct external_info *ospf_external_info_add(u_char type, u_short instance,
 	return new;
 }
 
-void ospf_external_info_delete(u_char type, u_short instance,
+void ospf_external_info_delete(unsigned char type, u_short instance,
 			       struct prefix_ipv4 p)
 {
 	struct route_node *rn;
@@ -204,7 +204,8 @@ void ospf_external_info_delete(u_char type, u_short instance,
 	}
 }
 
-struct external_info *ospf_external_info_lookup(u_char type, u_short instance,
+struct external_info *ospf_external_info_lookup(unsigned char type,
+						u_short instance,
 						struct prefix_ipv4 *p)
 {
 	struct route_node *rn;
@@ -254,7 +255,7 @@ struct ospf_lsa *ospf_external_info_find_lsa(struct ospf *ospf,
 
 
 /* Update ASBR status. */
-void ospf_asbr_status_update(struct ospf *ospf, u_char status)
+void ospf_asbr_status_update(struct ospf *ospf, unsigned char status)
 {
 	zlog_info("ASBR[Status:%d]: Update", status);
 
@@ -280,7 +281,7 @@ void ospf_asbr_status_update(struct ospf *ospf, u_char status)
 	ospf_router_lsa_update(ospf);
 }
 
-void ospf_redistribute_withdraw(struct ospf *ospf, u_char type,
+void ospf_redistribute_withdraw(struct ospf *ospf, unsigned char type,
 				u_short instance)
 {
 	struct route_node *rn;

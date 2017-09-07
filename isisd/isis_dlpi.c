@@ -56,12 +56,12 @@ static t_uscalar_t dlpi_ctl[1024]; /* DLPI control messages */
  * ISO 10589 - 8.4.8
  */
 
-u_char ALL_L1_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x14};
-u_char ALL_L2_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x15};
-u_char ALL_ISS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x05};
-u_char ALL_ESS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x04};
+unsigned char ALL_L1_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x14};
+unsigned char ALL_L2_ISS[6] = {0x01, 0x80, 0xC2, 0x00, 0x00, 0x15};
+unsigned char ALL_ISS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x05};
+unsigned char ALL_ESS[6] = {0x09, 0x00, 0x2B, 0x00, 0x00, 0x04};
 
-static u_char sock_buff[8192];
+static unsigned char sock_buff[8192];
 
 static u_short pf_filter[] = {
 	ENF_PUSHWORD + 0,       /* Get the SSAP/DSAP values */
@@ -250,23 +250,23 @@ static int dlpibind(int fd)
 		return 0;
 }
 
-static int dlpimcast(int fd, const u_char *mcaddr)
+static int dlpimcast(int fd, const unsigned char *mcaddr)
 {
 	struct {
 		dl_enabmulti_req_t der;
-		u_char addr[ETHERADDRL];
+		unsigned char addr[ETHERADDRL];
 	} dler;
 
 	memset(&dler, 0, sizeof(dler));
 	dler.der.dl_primitive = DL_ENABMULTI_REQ;
 	dler.der.dl_addr_length = sizeof(dler.addr);
-	dler.der.dl_addr_offset = dler.addr - (u_char *)&dler;
+	dler.der.dl_addr_offset = dler.addr - (unsigned char *)&dler;
 	memcpy(dler.addr, mcaddr, sizeof(dler.addr));
 	dlpisend(fd, &dler, sizeof(dler), NULL, 0, 0);
 	return dlpiok(fd, dler.der.dl_primitive);
 }
 
-static int dlpiaddr(int fd, u_char *addr)
+static int dlpiaddr(int fd, unsigned char *addr)
 {
 	dl_phys_addr_req_t dpar;
 	dl_phys_addr_ack_t *dpaa = (dl_phys_addr_ack_t *)dlpi_ctl;
@@ -497,7 +497,7 @@ end:
 	return retval;
 }
 
-int isis_recv_pdu_bcast(struct isis_circuit *circuit, u_char *ssnpa)
+int isis_recv_pdu_bcast(struct isis_circuit *circuit, unsigned char *ssnpa)
 {
 	struct pollfd fds[1];
 	struct strbuf ctlbuf, databuf;

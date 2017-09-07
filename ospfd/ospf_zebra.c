@@ -335,7 +335,7 @@ void ospf_zebra_add(struct prefix_ipv4 *p, struct ospf_route * or)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
-	u_char distance;
+	unsigned char distance;
 	struct ospf_path *path;
 	struct listnode *node;
 	struct ospf *ospf = ospf_lookup();
@@ -473,7 +473,7 @@ void ospf_zebra_delete_discard(struct prefix_ipv4 *p)
 			   inet_ntoa(p->prefix), p->prefixlen);
 }
 
-struct ospf_external *ospf_external_lookup(u_char type, u_short instance)
+struct ospf_external *ospf_external_lookup(unsigned char type, u_short instance)
 {
 	struct list *ext_list;
 	struct listnode *node;
@@ -490,7 +490,7 @@ struct ospf_external *ospf_external_lookup(u_char type, u_short instance)
 	return NULL;
 }
 
-struct ospf_external *ospf_external_add(u_char type, u_short instance)
+struct ospf_external *ospf_external_add(unsigned char type, u_short instance)
 {
 	struct list *ext_list;
 	struct ospf_external *ext;
@@ -513,7 +513,7 @@ struct ospf_external *ospf_external_add(u_char type, u_short instance)
 	return ext;
 }
 
-void ospf_external_del(u_char type, u_short instance)
+void ospf_external_del(unsigned char type, u_short instance)
 {
 	struct ospf_external *ext;
 
@@ -532,7 +532,7 @@ void ospf_external_del(u_char type, u_short instance)
 	}
 }
 
-struct ospf_redist *ospf_redist_lookup(struct ospf *ospf, u_char type,
+struct ospf_redist *ospf_redist_lookup(struct ospf *ospf, unsigned char type,
 				       u_short instance)
 {
 	struct list *red_list;
@@ -550,7 +550,7 @@ struct ospf_redist *ospf_redist_lookup(struct ospf *ospf, u_char type,
 	return NULL;
 }
 
-struct ospf_redist *ospf_redist_add(struct ospf *ospf, u_char type,
+struct ospf_redist *ospf_redist_add(struct ospf *ospf, unsigned char type,
 				    u_short instance)
 {
 	struct list *red_list;
@@ -575,7 +575,7 @@ struct ospf_redist *ospf_redist_add(struct ospf *ospf, u_char type,
 	return red;
 }
 
-void ospf_redist_del(struct ospf *ospf, u_char type, u_short instance)
+void ospf_redist_del(struct ospf *ospf, unsigned char type, u_short instance)
 {
 	struct ospf_redist *red;
 
@@ -795,7 +795,8 @@ int ospf_redistribute_check(struct ospf *ospf, struct external_info *ei,
 	struct route_map_set_values save_values;
 	struct prefix_ipv4 *p = &ei->p;
 	struct ospf_redist *red;
-	u_char type = is_prefix_default(&ei->p) ? DEFAULT_ROUTE : ei->type;
+	unsigned char type =
+		is_prefix_default(&ei->p) ? DEFAULT_ROUTE : ei->type;
 	u_short instance = is_prefix_default(&ei->p) ? 0 : ei->instance;
 
 	if (changed)
@@ -1239,7 +1240,7 @@ int ospf_distance_set(struct vty *vty, struct ospf *ospf,
 {
 	int ret;
 	struct prefix_ipv4 p;
-	u_char distance;
+	unsigned char distance;
 	struct route_node *rn;
 	struct ospf_distance *odistance;
 
@@ -1324,7 +1325,7 @@ void ospf_distance_reset(struct ospf *ospf)
 		}
 }
 
-u_char ospf_distance_apply(struct prefix_ipv4 *p, struct ospf_route * or)
+unsigned char ospf_distance_apply(struct prefix_ipv4 *p, struct ospf_route * or)
 {
 	struct ospf *ospf;
 

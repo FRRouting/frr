@@ -29,7 +29,7 @@ struct update_subgroup;
 struct bgp_advertise_fifo {
 	struct bgp_advertise *next;
 	struct bgp_advertise *prev;
-	u_int32_t count;
+	uint32_t count;
 };
 
 /* BGP advertise attribute.  */
@@ -80,7 +80,7 @@ struct bgp_adj_out {
 	/* Prefix information.  */
 	struct bgp_node *rn;
 
-	u_int32_t addpath_tx_id;
+	uint32_t addpath_tx_id;
 
 	/* Advertised attribute.  */
 	struct attr *attr;
@@ -102,7 +102,7 @@ struct bgp_adj_in {
 	struct attr *attr;
 
 	/* Addpath identifier */
-	u_int32_t addpath_rx_id;
+	uint32_t addpath_rx_id;
 };
 
 /* BGP advertisement list.  */
@@ -168,10 +168,10 @@ struct bgp_synchronize {
 		 : (F)->next)
 
 /* Prototypes.  */
-extern int bgp_adj_out_lookup(struct peer *, struct bgp_node *, u_int32_t);
+extern int bgp_adj_out_lookup(struct peer *, struct bgp_node *, uint32_t);
 extern void bgp_adj_in_set(struct bgp_node *, struct peer *, struct attr *,
-			   u_int32_t);
-extern int bgp_adj_in_unset(struct bgp_node *, struct peer *, u_int32_t);
+			   uint32_t);
+extern int bgp_adj_in_unset(struct bgp_node *, struct peer *, uint32_t);
 extern void bgp_adj_in_remove(struct bgp_node *, struct bgp_adj_in *);
 
 extern void bgp_sync_init(struct peer *);

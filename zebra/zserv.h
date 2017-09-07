@@ -76,40 +76,40 @@ struct zserv {
 	vrf_bitmap_t ridinfo;
 
 	/* client's protocol */
-	u_char proto;
+	unsigned char proto;
 	u_short instance;
-	u_char is_synchronous;
+	unsigned char is_synchronous;
 
 	/* Statistics */
-	u_int32_t redist_v4_add_cnt;
-	u_int32_t redist_v4_del_cnt;
-	u_int32_t redist_v6_add_cnt;
-	u_int32_t redist_v6_del_cnt;
-	u_int32_t v4_route_add_cnt;
-	u_int32_t v4_route_upd8_cnt;
-	u_int32_t v4_route_del_cnt;
-	u_int32_t v6_route_add_cnt;
-	u_int32_t v6_route_del_cnt;
-	u_int32_t v6_route_upd8_cnt;
-	u_int32_t connected_rt_add_cnt;
-	u_int32_t connected_rt_del_cnt;
-	u_int32_t ifup_cnt;
-	u_int32_t ifdown_cnt;
-	u_int32_t ifadd_cnt;
-	u_int32_t ifdel_cnt;
-	u_int32_t if_bfd_cnt;
-	u_int32_t bfd_peer_add_cnt;
-	u_int32_t bfd_peer_upd8_cnt;
-	u_int32_t bfd_peer_del_cnt;
-	u_int32_t bfd_peer_replay_cnt;
-	u_int32_t vrfadd_cnt;
-	u_int32_t vrfdel_cnt;
-	u_int32_t if_vrfchg_cnt;
-	u_int32_t bfd_client_reg_cnt;
-	u_int32_t vniadd_cnt;
-	u_int32_t vnidel_cnt;
-	u_int32_t macipadd_cnt;
-	u_int32_t macipdel_cnt;
+	uint32_t redist_v4_add_cnt;
+	uint32_t redist_v4_del_cnt;
+	uint32_t redist_v6_add_cnt;
+	uint32_t redist_v6_del_cnt;
+	uint32_t v4_route_add_cnt;
+	uint32_t v4_route_upd8_cnt;
+	uint32_t v4_route_del_cnt;
+	uint32_t v6_route_add_cnt;
+	uint32_t v6_route_del_cnt;
+	uint32_t v6_route_upd8_cnt;
+	uint32_t connected_rt_add_cnt;
+	uint32_t connected_rt_del_cnt;
+	uint32_t ifup_cnt;
+	uint32_t ifdown_cnt;
+	uint32_t ifadd_cnt;
+	uint32_t ifdel_cnt;
+	uint32_t if_bfd_cnt;
+	uint32_t bfd_peer_add_cnt;
+	uint32_t bfd_peer_upd8_cnt;
+	uint32_t bfd_peer_del_cnt;
+	uint32_t bfd_peer_replay_cnt;
+	uint32_t vrfadd_cnt;
+	uint32_t vrfdel_cnt;
+	uint32_t if_vrfchg_cnt;
+	uint32_t bfd_client_reg_cnt;
+	uint32_t vniadd_cnt;
+	uint32_t vnidel_cnt;
+	uint32_t macipadd_cnt;
+	uint32_t macipdel_cnt;
 
 	time_t connect_time;
 	time_t last_read_time;
@@ -129,7 +129,7 @@ struct zebra_t {
 	struct list *client_list;
 
 	/* default table */
-	u_int32_t rtm_table_default;
+	uint32_t rtm_table_default;
 
 	/* rib work queue */
 	struct work_queue *ribq;
@@ -187,6 +187,6 @@ extern void zserv_nexthop_num_warn(const char *, const struct prefix *,
 				   const unsigned int);
 extern int zebra_server_send_message(struct zserv *client);
 
-extern struct zserv *zebra_find_client(u_char proto);
+extern struct zserv *zebra_find_client(unsigned char proto);
 
 #endif /* _ZEBRA_ZEBRA_H */

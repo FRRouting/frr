@@ -177,13 +177,13 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 	struct TLV_IPv4_Internal_type *tlv;
 	struct eigrp_prefix_entry *pe;
 	struct eigrp_nexthop_entry *ne;
-	u_int32_t flags;
-	u_int16_t type;
-	u_int16_t length;
-	u_char same;
+	uint32_t flags;
+	uint16_t type;
+	uint16_t length;
+	unsigned char same;
 	struct prefix dest_addr;
-	u_char graceful_restart;
-	u_char graceful_restart_final;
+	unsigned char graceful_restart;
+	unsigned char graceful_restart_final;
 	struct list *nbr_prefixes = NULL;
 
 	/* increment statistics. */
@@ -298,7 +298,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 		type = stream_getw(s);
 		switch (type) {
 		case EIGRP_TLV_IPv4_INT:
-			stream_set_getp(s, s->getp - sizeof(u_int16_t));
+			stream_set_getp(s, s->getp - sizeof(uint16_t));
 
 			tlv = eigrp_read_ipv4_tlv(s);
 
@@ -418,7 +418,7 @@ void eigrp_update_receive(struct eigrp *eigrp, struct ip *iph,
 void eigrp_update_send_init(struct eigrp_neighbor *nbr)
 {
 	struct eigrp_packet *ep;
-	u_int16_t length = EIGRP_HEADER_LEN;
+	uint16_t length = EIGRP_HEADER_LEN;
 
 	ep = eigrp_packet_new(nbr->ei->ifp->mtu, nbr);
 
@@ -464,8 +464,7 @@ void eigrp_update_send_init(struct eigrp_neighbor *nbr)
 
 static void eigrp_update_place_on_nbr_queue(struct eigrp_neighbor *nbr,
 					    struct eigrp_packet *ep,
-					    u_int32_t seq_no,
-					    int length)
+					    uint32_t seq_no, int length)
 {
 	if((IF_DEF_PARAMS (nbr->ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5) &&
 	   (IF_DEF_PARAMS (nbr->ei->ifp)->auth_keychain != NULL)) {
@@ -527,14 +526,14 @@ static void eigrp_update_send_to_all_nbrs(struct eigrp_interface *ei,
 void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 {
 	struct eigrp_packet *ep;
-	u_int16_t length = EIGRP_HEADER_LEN;
+	uint16_t length = EIGRP_HEADER_LEN;
 	struct eigrp_nexthop_entry *te;
 	struct eigrp_prefix_entry *pe;
 	struct listnode *node, *node2, *nnode, *nnode2;
 	struct eigrp_interface *ei = nbr->ei;
 	struct eigrp *eigrp = ei->eigrp;
 	struct prefix *dest_addr;
-	u_int32_t seq_no = eigrp->sequence_number;
+	uint32_t seq_no = eigrp->sequence_number;
 
 	ep = eigrp_packet_new(ei->ifp->mtu, nbr);
 
@@ -554,7 +553,7 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 			if (eigrp_nbr_split_horizon_check(te, ei))
 				continue;
 
-			if ((length + 0x001D) > (u_int16_t)ei->ifp->mtu) {
+			if ((length + 0x001D) > (uint16_t)ei->ifp->mtu) {
 				eigrp_update_place_on_nbr_queue (nbr, ep, seq_no, length);
 				seq_no++;
 
@@ -593,15 +592,15 @@ void eigrp_update_send(struct eigrp_interface *ei)
 	struct eigrp_packet *ep;
 	struct listnode *node, *nnode;
 	struct eigrp_prefix_entry *pe;
-	u_char has_tlv;
+	unsigned char has_tlv;
 	struct eigrp *eigrp = ei->eigrp;
 	struct prefix *dest_addr;
-	u_int32_t seq_no = eigrp->sequence_number;
+	uint32_t seq_no = eigrp->sequence_number;
 
 	if (ei->nbrs->count == 0)
 		return;
 
-	u_int16_t length = EIGRP_HEADER_LEN;
+	uint16_t length = EIGRP_HEADER_LEN;
 
 	ep = eigrp_packet_new(ei->ifp->mtu, NULL);
 
@@ -627,7 +626,7 @@ void eigrp_update_send(struct eigrp_interface *ei)
 		if (eigrp_nbr_split_horizon_check(ne, ei))
 			continue;
 
-		if ((length + 0x001D) > (u_int16_t)ei->ifp->mtu) {
+		if ((length + 0x001D) > (uint16_t)ei->ifp->mtu) {
 			if ((IF_DEF_PARAMS(ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
 			    && (IF_DEF_PARAMS(ei->ifp)->auth_keychain != NULL)) {
 				eigrp_make_md5_digest(ei, ep->s, EIGRP_AUTH_UPDATE_FLAG);
@@ -735,14 +734,14 @@ void eigrp_update_send_all(struct eigrp *eigrp,
 static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 {
 	struct eigrp_packet *ep;
-	u_int16_t length = EIGRP_HEADER_LEN;
+	uint16_t length = EIGRP_HEADER_LEN;
 	struct listnode *node, *nnode;
 	struct eigrp_prefix_entry *pe;
 	struct prefix *dest_addr;
 	struct eigrp_interface *ei = nbr->ei;
 	struct eigrp *eigrp = ei->eigrp;
 	struct list *prefixes;
-	u_int32_t flags;
+	uint32_t flags;
 	unsigned int send_prefixes;
 
 	/* get prefixes to send to neighbor */

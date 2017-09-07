@@ -52,7 +52,7 @@ struct assegment {
 	struct assegment *next;
 	as_t *as;
 	u_short length;
-	u_char type;
+	unsigned char type;
 };
 
 /* AS path may be include some AsSegments.  */
@@ -126,6 +126,6 @@ extern struct aspath *aspath_reconcile_as4(struct aspath *, struct aspath *);
 extern unsigned int aspath_has_as4(struct aspath *);
 
 /* For SNMP BGP4PATHATTRASPATHSEGMENT, might be useful for debug */
-extern u_char *aspath_snmp_pathseg(struct aspath *, size_t *);
+extern unsigned char *aspath_snmp_pathseg(struct aspath *, size_t *);
 
 #endif /* _QUAGGA_BGP_ASPATH_H */

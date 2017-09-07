@@ -47,11 +47,11 @@ vector ospf6_lsa_handler_vector;
 
 static int ospf6_unknown_lsa_show(struct vty *vty, struct ospf6_lsa *lsa)
 {
-	u_char *start, *end, *current;
+	unsigned char *start, *end, *current;
 	char byte[4];
 
-	start = (u_char *)lsa->header + sizeof(struct ospf6_lsa_header);
-	end = (u_char *)lsa->header + ntohs(lsa->header->length);
+	start = (unsigned char *)lsa->header + sizeof(struct ospf6_lsa_header);
+	end = (unsigned char *)lsa->header + ntohs(lsa->header->length);
 
 	vty_out(vty, "        Unknown contents:\n");
 	for (current = start; current < end; current++) {
@@ -78,7 +78,7 @@ void ospf6_install_lsa_handler(struct ospf6_lsa_handler *handler)
 	vector_set_index(ospf6_lsa_handler_vector, index, handler);
 }
 
-struct ospf6_lsa_handler *ospf6_get_lsa_handler(u_int16_t type)
+struct ospf6_lsa_handler *ospf6_get_lsa_handler(uint16_t type)
 {
 	struct ospf6_lsa_handler *handler = NULL;
 	unsigned int index = ntohs(type) & OSPF6_LSTYPE_FCODE_MASK;
@@ -94,7 +94,7 @@ struct ospf6_lsa_handler *ospf6_get_lsa_handler(u_int16_t type)
 	return handler;
 }
 
-const char *ospf6_lstype_name(u_int16_t type)
+const char *ospf6_lstype_name(uint16_t type)
 {
 	static char buf[8];
 	struct ospf6_lsa_handler *handler;
@@ -107,7 +107,7 @@ const char *ospf6_lstype_name(u_int16_t type)
 	return buf;
 }
 
-const char *ospf6_lstype_short_name(u_int16_t type)
+const char *ospf6_lstype_short_name(uint16_t type)
 {
 	static char buf[8];
 	struct ospf6_lsa_handler *handler;
@@ -120,7 +120,7 @@ const char *ospf6_lstype_short_name(u_int16_t type)
 	return buf;
 }
 
-u_char ospf6_lstype_debug(u_int16_t type)
+unsigned char ospf6_lstype_debug(uint16_t type)
 {
 	struct ospf6_lsa_handler *handler;
 	handler = ospf6_get_lsa_handler(type);
@@ -201,11 +201,11 @@ static void ospf6_lsa_age_set(struct ospf6_lsa *lsa)
 
 /* this function calculates current age from its birth,
    then update age field of LSA header. return value is current age */
-u_int16_t ospf6_lsa_age_current(struct ospf6_lsa *lsa)
+uint16_t ospf6_lsa_age_current(struct ospf6_lsa *lsa)
 {
 	struct timeval now;
-	u_int32_t ulage;
-	u_int16_t age;
+	uint32_t ulage;
+	uint16_t age;
 
 	assert(lsa);
 	assert(lsa->header);
@@ -231,7 +231,7 @@ u_int16_t ospf6_lsa_age_current(struct ospf6_lsa *lsa)
 }
 
 /* update age field of LSA header with adding InfTransDelay */
-void ospf6_lsa_age_update_to_send(struct ospf6_lsa *lsa, u_int32_t transdelay)
+void ospf6_lsa_age_update_to_send(struct ospf6_lsa *lsa, uint32_t transdelay)
 {
 	unsigned short age;
 
@@ -286,8 +286,8 @@ void ospf6_lsa_premature_aging(struct ospf6_lsa *lsa)
 int ospf6_lsa_compare(struct ospf6_lsa *a, struct ospf6_lsa *b)
 {
 	int32_t seqnuma, seqnumb;
-	u_int16_t cksuma, cksumb;
-	u_int16_t agea, ageb;
+	uint16_t cksuma, cksumb;
+	uint16_t agea, ageb;
 
 	assert(a && a->header);
 	assert(b && b->header);
@@ -411,11 +411,11 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa)
 
 void ospf6_lsa_show_dump(struct vty *vty, struct ospf6_lsa *lsa)
 {
-	u_char *start, *end, *current;
+	unsigned char *start, *end, *current;
 	char byte[4];
 
-	start = (u_char *)lsa->header;
-	end = (u_char *)lsa->header + ntohs(lsa->header->length);
+	start = (unsigned char *)lsa->header;
+	end = (unsigned char *)lsa->header + ntohs(lsa->header->length);
 
 	vty_out(vty, "\n");
 	vty_out(vty, "%s:\n", lsa->name);
@@ -502,7 +502,7 @@ struct ospf6_lsa *ospf6_lsa_create(struct ospf6_lsa_header *header)
 {
 	struct ospf6_lsa *lsa = NULL;
 	struct ospf6_lsa_header *new_header = NULL;
-	u_int16_t lsa_size = 0;
+	uint16_t lsa_size = 0;
 
 	/* size of the entire LSA */
 	lsa_size = ntohs(header->length); /* XXX vulnerable */
@@ -703,26 +703,28 @@ int ospf6_lsa_refresh(struct thread *thread)
    one-based. */
 unsigned short ospf6_lsa_checksum(struct ospf6_lsa_header *lsa_header)
 {
-	u_char *buffer = (u_char *)&lsa_header->type;
-	int type_offset = buffer - (u_char *)&lsa_header->age; /* should be 2 */
+	unsigned char *buffer = (unsigned char *)&lsa_header->type;
+	int type_offset =
+		buffer - (unsigned char *)&lsa_header->age; /* should be 2 */
 
 	/* Skip the AGE field */
-	u_int16_t len = ntohs(lsa_header->length) - type_offset;
+	uint16_t len = ntohs(lsa_header->length) - type_offset;
 
 	/* Checksum offset starts from "type" field, not the beginning of the
 	   lsa_header struct. The offset is 14, rather than 16. */
-	int checksum_offset = (u_char *)&lsa_header->checksum - buffer;
+	int checksum_offset = (unsigned char *)&lsa_header->checksum - buffer;
 
 	return (unsigned short)fletcher_checksum(buffer, len, checksum_offset);
 }
 
 int ospf6_lsa_checksum_valid(struct ospf6_lsa_header *lsa_header)
 {
-	u_char *buffer = (u_char *)&lsa_header->type;
-	int type_offset = buffer - (u_char *)&lsa_header->age; /* should be 2 */
+	unsigned char *buffer = (unsigned char *)&lsa_header->type;
+	int type_offset =
+		buffer - (unsigned char *)&lsa_header->age; /* should be 2 */
 
 	/* Skip the AGE field */
-	u_int16_t len = ntohs(lsa_header->length) - type_offset;
+	uint16_t len = ntohs(lsa_header->length) - type_offset;
 
 	return (fletcher_checksum(buffer, len, FLETCHER_CHECKSUM_VALIDATE)
 		== 0);
@@ -833,7 +835,7 @@ DEFUN (no_debug_ospf6_lsa_type,
 {
 	int idx_lsa = 4;
 	int idx_type = 5;
-	u_int i;
+	unsigned int i;
 	struct ospf6_lsa_handler *handler = NULL;
 
 	for (i = 0; i < vector_active(ospf6_lsa_handler_vector); i++) {
@@ -874,7 +876,7 @@ void install_element_ospf6_debug_lsa(void)
 
 int config_write_ospf6_debug_lsa(struct vty *vty)
 {
-	u_int i;
+	unsigned int i;
 	struct ospf6_lsa_handler *handler;
 
 	for (i = 0; i < vector_active(ospf6_lsa_handler_vector); i++) {

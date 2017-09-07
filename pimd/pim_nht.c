@@ -640,7 +640,7 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 	struct nexthop *nhlist_head = NULL;
 	struct nexthop *nhlist_tail = NULL;
 	uint32_t metric, distance;
-	u_char nexthop_num = 0;
+	unsigned char nexthop_num = 0;
 	int i;
 	struct pim_rpf rpf;
 	struct pim_nexthop_cache *pnc = NULL;

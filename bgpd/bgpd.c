@@ -335,7 +335,7 @@ time_t bgp_clock(void)
 }
 
 /* BGP timer configuration.  */
-int bgp_timers_set(struct bgp *bgp, u_int32_t keepalive, u_int32_t holdtime)
+int bgp_timers_set(struct bgp *bgp, uint32_t keepalive, uint32_t holdtime)
 {
 	bgp->default_keepalive =
 		(keepalive < holdtime / 3 ? keepalive : holdtime / 3);
@@ -548,7 +548,7 @@ int bgp_confederation_peers_remove(struct bgp *bgp, as_t as)
 }
 
 /* Local preference configuration.  */
-int bgp_default_local_preference_set(struct bgp *bgp, u_int32_t local_pref)
+int bgp_default_local_preference_set(struct bgp *bgp, uint32_t local_pref)
 {
 	if (!bgp)
 		return -1;
@@ -569,8 +569,7 @@ int bgp_default_local_preference_unset(struct bgp *bgp)
 }
 
 /* Local preference configuration.  */
-int bgp_default_subgroup_pkt_queue_max_set(struct bgp *bgp,
-					   u_int32_t queue_size)
+int bgp_default_subgroup_pkt_queue_max_set(struct bgp *bgp, uint32_t queue_size)
 {
 	if (!bgp)
 		return -1;
@@ -755,15 +754,14 @@ static int peer_hash_same(const void *p1, const void *p2)
 			   == CHECK_FLAG(peer2->flags, PEER_FLAG_CONFIG_NODE));
 }
 
-int peer_af_flag_check(struct peer *peer, afi_t afi, safi_t safi,
-		       u_int32_t flag)
+int peer_af_flag_check(struct peer *peer, afi_t afi, safi_t safi, uint32_t flag)
 {
 	return CHECK_FLAG(peer->af_flags[afi][safi], flag);
 }
 
 /* Return true if flag is set for the peer but not the peer-group */
 static int peergroup_af_flag_check(struct peer *peer, afi_t afi, safi_t safi,
-				   u_int32_t flag)
+				   uint32_t flag)
 {
 	struct peer *g_peer = NULL;
 
@@ -1266,7 +1264,7 @@ static int bgp_peer_conf_if_to_su_update_v4(struct peer *peer,
 {
 	struct connected *ifc;
 	struct prefix p;
-	u_int32_t addr;
+	uint32_t addr;
 	struct listnode *node;
 
 	/* If our IPv4 address on the interface is /30 or /31, we can derive the
@@ -3598,16 +3596,16 @@ static void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 
 struct peer_flag_action {
 	/* Peer's flag.  */
-	u_int32_t flag;
+	uint32_t flag;
 
 	/* This flag can be set for peer-group member.  */
-	u_char not_for_member;
+	unsigned char not_for_member;
 
 	/* Action when the flag is changed.  */
 	enum peer_change_type type;
 
 	/* Peer down cause */
-	u_char peer_down;
+	unsigned char peer_down;
 };
 
 static const struct peer_flag_action peer_flag_action_list[] = {
@@ -3654,7 +3652,7 @@ static const struct peer_flag_action peer_af_flag_action_list[] = {
 /* Proper action set. */
 static int peer_flag_action_set(const struct peer_flag_action *action_list,
 				int size, struct peer_flag_action *action,
-				u_int32_t flag)
+				uint32_t flag)
 {
 	int i;
 	int found = 0;
@@ -3698,7 +3696,7 @@ static int peer_flag_action_set(const struct peer_flag_action *action_list,
 	return found;
 }
 
-static void peer_flag_modify_action(struct peer *peer, u_int32_t flag)
+static void peer_flag_modify_action(struct peer *peer, uint32_t flag)
 {
 	if (flag == PEER_FLAG_SHUTDOWN) {
 		if (CHECK_FLAG(peer->flags, flag)) {
@@ -3729,7 +3727,7 @@ static void peer_flag_modify_action(struct peer *peer, u_int32_t flag)
 					msglen = 128;
 
 				if (msglen) {
-					u_char msgbuf[129];
+					unsigned char msgbuf[129];
 
 					msgbuf[0] = msglen;
 					memcpy(msgbuf + 1, msg, msglen);
@@ -3763,7 +3761,7 @@ static void peer_flag_modify_action(struct peer *peer, u_int32_t flag)
 }
 
 /* Change specified peer flag. */
-static int peer_flag_modify(struct peer *peer, u_int32_t flag, int set)
+static int peer_flag_modify(struct peer *peer, uint32_t flag, int set)
 {
 	int found;
 	int size;
@@ -3836,18 +3834,18 @@ static int peer_flag_modify(struct peer *peer, u_int32_t flag, int set)
 	return 0;
 }
 
-int peer_flag_set(struct peer *peer, u_int32_t flag)
+int peer_flag_set(struct peer *peer, uint32_t flag)
 {
 	return peer_flag_modify(peer, flag, 1);
 }
 
-int peer_flag_unset(struct peer *peer, u_int32_t flag)
+int peer_flag_unset(struct peer *peer, uint32_t flag)
 {
 	return peer_flag_modify(peer, flag, 0);
 }
 
 static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
-			       u_int32_t flag, int set)
+			       uint32_t flag, int set)
 {
 	int found;
 	int size;
@@ -4003,13 +4001,12 @@ static int peer_af_flag_modify(struct peer *peer, afi_t afi, safi_t safi,
 	return 0;
 }
 
-int peer_af_flag_set(struct peer *peer, afi_t afi, safi_t safi, u_int32_t flag)
+int peer_af_flag_set(struct peer *peer, afi_t afi, safi_t safi, uint32_t flag)
 {
 	return peer_af_flag_modify(peer, afi, safi, flag, 1);
 }
 
-int peer_af_flag_unset(struct peer *peer, afi_t afi, safi_t safi,
-		       u_int32_t flag)
+int peer_af_flag_unset(struct peer *peer, afi_t afi, safi_t safi, uint32_t flag)
 {
 	return peer_af_flag_modify(peer, afi, safi, flag, 0);
 }
@@ -4441,7 +4438,7 @@ int peer_default_originate_unset(struct peer *peer, afi_t afi, safi_t safi)
 	return 0;
 }
 
-int peer_port_set(struct peer *peer, u_int16_t port)
+int peer_port_set(struct peer *peer, uint16_t port)
 {
 	peer->port = port;
 	return 0;
@@ -4480,7 +4477,7 @@ static void peer_on_policy_change(struct peer *peer, afi_t afi, safi_t safi,
 
 
 /* neighbor weight. */
-int peer_weight_set(struct peer *peer, afi_t afi, safi_t safi, u_int16_t weight)
+int peer_weight_set(struct peer *peer, afi_t afi, safi_t safi, uint16_t weight)
 {
 	struct peer_group *group;
 	struct listnode *node, *nnode;
@@ -4560,7 +4557,7 @@ int peer_weight_unset(struct peer *peer, afi_t afi, safi_t safi)
 	return 0;
 }
 
-int peer_timers_set(struct peer *peer, u_int32_t keepalive, u_int32_t holdtime)
+int peer_timers_set(struct peer *peer, uint32_t keepalive, uint32_t holdtime)
 {
 	struct peer_group *group;
 	struct listnode *node, *nnode;
@@ -4619,7 +4616,7 @@ int peer_timers_unset(struct peer *peer)
 	return 0;
 }
 
-int peer_timers_connect_set(struct peer *peer, u_int32_t connect)
+int peer_timers_connect_set(struct peer *peer, uint32_t connect)
 {
 	struct peer_group *group;
 	struct listnode *node, *nnode;
@@ -4672,7 +4669,7 @@ int peer_timers_connect_unset(struct peer *peer)
 	return 0;
 }
 
-int peer_advertise_interval_set(struct peer *peer, u_int32_t routeadv)
+int peer_advertise_interval_set(struct peer *peer, uint32_t routeadv)
 {
 	struct peer_group *group;
 	struct listnode *node, *nnode;
@@ -5754,8 +5751,8 @@ int peer_unsuppress_map_unset(struct peer *peer, afi_t afi, safi_t safi)
 }
 
 int peer_maximum_prefix_set(struct peer *peer, afi_t afi, safi_t safi,
-			    u_int32_t max, u_char threshold, int warning,
-			    u_int16_t restart)
+			    uint32_t max, unsigned char threshold, int warning,
+			    uint16_t restart)
 {
 	struct peer_group *group;
 	struct listnode *node, *nnode;
@@ -6099,7 +6096,7 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 			|| CHECK_FLAG(peer->af_cap[afi][safi],
 				      PEER_CAP_ORF_PREFIX_RM_OLD_RCV))) {
 			struct bgp_filter *filter = &peer->filter[afi][safi];
-			u_char prefix_type;
+			unsigned char prefix_type;
 
 			if (CHECK_FLAG(peer->af_cap[afi][safi],
 				       PEER_CAP_ORF_PREFIX_RM_RCV))
@@ -6153,7 +6150,7 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 }
 
 /* Display peer uptime.*/
-char *peer_uptime(time_t uptime2, char *buf, size_t len, u_char use_json,
+char *peer_uptime(time_t uptime2, char *buf, size_t len, unsigned char use_json,
 		  json_object *json)
 {
 	time_t uptime1, epoch_tbuf;

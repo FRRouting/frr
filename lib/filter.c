@@ -161,8 +161,8 @@ static int filter_match_cisco(struct filter *mfilter, struct prefix *p)
 {
 	struct filter_cisco *filter;
 	struct in_addr mask;
-	u_int32_t check_addr;
-	u_int32_t check_mask;
+	uint32_t check_addr;
+	uint32_t check_mask;
 
 	filter = &mfilter->u.cfilter;
 	check_addr = p->u.prefix4.s_addr & ~filter->addr_mask.s_addr;

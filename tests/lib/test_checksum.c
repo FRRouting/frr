@@ -48,8 +48,8 @@ typedef uint16_t testoff_t;
 /* The final reduction phase.
  * This one should be the original ospfd version
  */
-static u_int16_t reduce_ospfd(struct csum_vals *vals, testsz_t len,
-			      testoff_t off)
+static uint16_t reduce_ospfd(struct csum_vals *vals, testsz_t len,
+			     testoff_t off)
 {
 #define x vals->x
 #define y vals->y
@@ -73,8 +73,8 @@ static u_int16_t reduce_ospfd(struct csum_vals *vals, testsz_t len,
 }
 
 /* slightly different concatenation */
-static u_int16_t reduce_ospfd1(struct csum_vals *vals, testsz_t len,
-			       testoff_t off)
+static uint16_t reduce_ospfd1(struct csum_vals *vals, testsz_t len,
+			      testoff_t off)
 {
 #define x vals->x
 #define y vals->y
@@ -97,14 +97,14 @@ static u_int16_t reduce_ospfd1(struct csum_vals *vals, testsz_t len,
 }
 
 /* original isisd version */
-static u_int16_t reduce_isisd(struct csum_vals *vals, testsz_t len,
-			      testoff_t off)
+static uint16_t reduce_isisd(struct csum_vals *vals, testsz_t len,
+			     testoff_t off)
 {
 #define x vals->x
 #define y vals->y
 #define c0 vals->a.c0
 #define c1 vals->a.c1
-	u_int32_t mul;
+	uint32_t mul;
 
 	mul = (len - off) * (c0);
 	x = mul - c0 - c1;
@@ -132,14 +132,14 @@ static u_int16_t reduce_isisd(struct csum_vals *vals, testsz_t len,
 }
 
 /* Is the -1 in y wrong perhaps? */
-static u_int16_t reduce_isisd_yfix(struct csum_vals *vals, testsz_t len,
-				   testoff_t off)
+static uint16_t reduce_isisd_yfix(struct csum_vals *vals, testsz_t len,
+				  testoff_t off)
 {
 #define x vals->x
 #define y vals->y
 #define c0 vals->a.c0
 #define c1 vals->a.c1
-	u_int32_t mul;
+	uint32_t mul;
 
 	mul = (len - off) * (c0);
 	x = mul - c0 - c1;
@@ -167,14 +167,14 @@ static u_int16_t reduce_isisd_yfix(struct csum_vals *vals, testsz_t len,
 }
 
 /* Move the mods yp */
-static u_int16_t reduce_isisd_mod(struct csum_vals *vals, testsz_t len,
-				  testoff_t off)
+static uint16_t reduce_isisd_mod(struct csum_vals *vals, testsz_t len,
+				 testoff_t off)
 {
 #define x vals->x
 #define y vals->y
 #define c0 vals->a.c0
 #define c1 vals->a.c1
-	u_int32_t mul;
+	uint32_t mul;
 
 	mul = (len - off) * (c0);
 	x = mul - c1 - c0;
@@ -202,14 +202,14 @@ static u_int16_t reduce_isisd_mod(struct csum_vals *vals, testsz_t len,
 }
 
 /* Move the mods up + fix y */
-static u_int16_t reduce_isisd_mody(struct csum_vals *vals, testsz_t len,
-				   testoff_t off)
+static uint16_t reduce_isisd_mody(struct csum_vals *vals, testsz_t len,
+				  testoff_t off)
 {
 #define x vals->x
 #define y vals->y
 #define c0 vals->a.c0
 #define c1 vals->a.c1
-	u_int32_t mul;
+	uint32_t mul;
 
 	mul = (len - off) * (c0);
 	x = mul - c0 - c1;
@@ -238,7 +238,7 @@ static u_int16_t reduce_isisd_mody(struct csum_vals *vals, testsz_t len,
 
 struct reductions_t {
 	const char *name;
-	u_int16_t (*f)(struct csum_vals *, testsz_t, testoff_t);
+	uint16_t (*f)(struct csum_vals *, testsz_t, testoff_t);
 } reducts[] = {
 	{.name = "ospfd", .f = reduce_ospfd},
 	{.name = "ospfd-1", .f = reduce_ospfd1},
@@ -250,14 +250,15 @@ struct reductions_t {
 };
 
 /* The original ospfd checksum */
-static u_int16_t ospfd_checksum(u_char *buffer, testsz_t len, testoff_t off)
+static uint16_t ospfd_checksum(unsigned char *buffer, testsz_t len,
+			       testoff_t off)
 {
-	u_char *sp, *ep, *p, *q;
+	unsigned char *sp, *ep, *p, *q;
 	int c0 = 0, c1 = 0;
 	int x, y;
-	u_int16_t checksum, *csum;
+	uint16_t checksum, *csum;
 
-	csum = (u_int16_t *)(buffer + off);
+	csum = (uint16_t *)(buffer + off);
 	*(csum) = 0;
 
 	sp = buffer;
@@ -301,21 +302,22 @@ static u_int16_t ospfd_checksum(u_char *buffer, testsz_t len, testoff_t off)
 }
 
 /* the original, broken isisd checksum */
-static u_int16_t iso_csum_create(u_char *buffer, testsz_t len, testoff_t off)
+static uint16_t iso_csum_create(unsigned char *buffer, testsz_t len,
+				testoff_t off)
 {
 
-	u_int8_t *p;
+	uint8_t *p;
 	int x;
 	int y;
-	u_int32_t mul;
-	u_int32_t c0;
-	u_int32_t c1;
-	u_int16_t checksum, *csum;
+	uint32_t mul;
+	uint32_t c0;
+	uint32_t c1;
+	uint16_t checksum, *csum;
 	int i, init_len, partial_len;
 
 	checksum = 0;
 
-	csum = (u_int16_t *)(buffer + off);
+	csum = (uint16_t *)(buffer + off);
 	*(csum) = checksum;
 
 	p = buffer;
@@ -369,11 +371,11 @@ static u_int16_t iso_csum_create(u_char *buffer, testsz_t len, testoff_t off)
 	return checksum;
 }
 
-static int verify(u_char *buffer, testsz_t len)
+static int verify(unsigned char *buffer, testsz_t len)
 {
-	u_int8_t *p;
-	u_int32_t c0;
-	u_int32_t c1;
+	uint8_t *p;
+	uint32_t c0;
+	uint32_t c1;
 	int i, partial_len;
 
 	p = buffer;
@@ -419,7 +421,7 @@ static int /* return checksum in low-order 16 bits */
 		sum += *++ptr;
 
 	if (nbytes & 1)			   /* Odd */
-		sum += *(u_char *)(++ptr); /* one byte only */
+		sum += *(unsigned char *)(++ptr); /* one byte only */
 
 	/*
 	 * Add back carry outs from top 16 bits to low 16 bits.
@@ -449,7 +451,7 @@ static int /* return checksum in low-order 16 bits */
 	}
 	/*  Add left-over byte, if any */
 	if (count > 0) {
-		sum += *(u_char *)addr;
+		sum += *(unsigned char *)addr;
 	}
 
 	/*  Fold 32-bit sum to 16 bits */
@@ -463,14 +465,14 @@ int main(int argc, char **argv)
 {
 /* 60017 65629 702179 */
 #define MAXDATALEN 60017
-#define BUFSIZE MAXDATALEN + sizeof(u_int16_t)
-	u_char buffer[BUFSIZE];
+#define BUFSIZE MAXDATALEN + sizeof(uint16_t)
+	unsigned char buffer[BUFSIZE];
 	int exercise = 0;
 #define EXERCISESTEP 257
 	srandom(time(NULL));
 
 	while (1) {
-		u_int16_t ospfd, isisd, lib, in_csum, in_csum_res, in_csum_rfc;
+		uint16_t ospfd, isisd, lib, in_csum, in_csum_res, in_csum_rfc;
 		int i, j;
 
 		exercise += EXERCISESTEP;
@@ -492,17 +494,17 @@ int main(int argc, char **argv)
 			       "in_csum_rfc %x, len:%d\n",
 			       in_csum, in_csum_res, in_csum_rfc, exercise);
 
-		ospfd = ospfd_checksum(buffer, exercise + sizeof(u_int16_t),
+		ospfd = ospfd_checksum(buffer, exercise + sizeof(uint16_t),
 				       exercise);
-		if (verify(buffer, exercise + sizeof(u_int16_t)))
+		if (verify(buffer, exercise + sizeof(uint16_t)))
 			printf("verify: ospfd failed\n");
-		isisd = iso_csum_create(buffer, exercise + sizeof(u_int16_t),
+		isisd = iso_csum_create(buffer, exercise + sizeof(uint16_t),
 					exercise);
-		if (verify(buffer, exercise + sizeof(u_int16_t)))
+		if (verify(buffer, exercise + sizeof(uint16_t)))
 			printf("verify: isisd failed\n");
-		lib = fletcher_checksum(buffer, exercise + sizeof(u_int16_t),
+		lib = fletcher_checksum(buffer, exercise + sizeof(uint16_t),
 					exercise);
-		if (verify(buffer, exercise + sizeof(u_int16_t)))
+		if (verify(buffer, exercise + sizeof(uint16_t)))
 			printf("verify: lib failed\n");
 
 		if (ospfd != lib) {
@@ -522,7 +524,7 @@ int main(int argc, char **argv)
 				for (i = 0; reducts[i].name != NULL; i++) {
 					ospfd = reducts[i].f(
 						&ospfd_vals,
-						exercise + sizeof(u_int16_t),
+						exercise + sizeof(uint16_t),
 						exercise);
 					printf("%20s: x: %02x, y %02x, checksum 0x%04x\n",
 					       reducts[i].name,
@@ -531,7 +533,7 @@ int main(int argc, char **argv)
 				}
 			}
 
-			printf("\n  u_char testdata [] = {\n  ");
+			printf("\n  unsigned char testdata [] = {\n  ");
 			for (i = 0; i < exercise; i++) {
 				printf("0x%02x,%s", buffer[i],
 				       (i + 1) % 8 ? " " : "\n  ");

@@ -185,7 +185,7 @@ static int rip_offset_list_unset(struct vty *vty, const char *alist,
 
 /* If metric is modifed return 1. */
 int rip_offset_list_apply_in(struct prefix_ipv4 *p, struct interface *ifp,
-			     u_int32_t *metric)
+			     uint32_t *metric)
 {
 	struct rip_offset_list *offset;
 	struct access_list *alist;
@@ -221,7 +221,7 @@ int rip_offset_list_apply_in(struct prefix_ipv4 *p, struct interface *ifp,
 
 /* If metric is modifed return 1. */
 int rip_offset_list_apply_out(struct prefix_ipv4 *p, struct interface *ifp,
-			      u_int32_t *metric)
+			      uint32_t *metric)
 {
 	struct rip_offset_list *offset;
 	struct access_list *alist;
