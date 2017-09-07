@@ -27,9 +27,6 @@
 
 #ifdef SUNOS_5
 #define _XPG4_2
-typedef unsigned int u_int32_t;
-typedef unsigned short u_int16_t;
-typedef unsigned char u_int8_t;
 #endif /* SUNOS_5 */
 
 #include <unistd.h>
@@ -481,11 +478,11 @@ typedef enum {
 #define RESET_FLAG(V)        (V) = 0
 
 /* Zebra types. Used in Zserv message header. */
-typedef u_int16_t zebra_size_t;
-typedef u_int16_t zebra_command_t;
+typedef uint16_t zebra_size_t;
+typedef uint16_t zebra_command_t;
 
 /* VRF ID type. */
-typedef u_int16_t vrf_id_t;
+typedef uint16_t vrf_id_t;
 
 typedef uint32_t route_tag_t;
 #define ROUTE_TAG_MAX UINT32_MAX

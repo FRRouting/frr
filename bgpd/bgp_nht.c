@@ -328,7 +328,7 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 	struct nexthop *nhlist_head = NULL;
 	struct nexthop *nhlist_tail = NULL;
 	uint32_t metric;
-	u_char nexthop_num;
+	unsigned char nexthop_num;
 	struct prefix p;
 	int i;
 	struct bgp *bgp;

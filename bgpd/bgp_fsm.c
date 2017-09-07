@@ -728,8 +728,8 @@ int bgp_maxmed_onstartup_active(struct bgp *bgp)
 
 void bgp_maxmed_update(struct bgp *bgp)
 {
-	u_char maxmed_active;
-	u_int32_t maxmed_value;
+	unsigned char maxmed_active;
+	uint32_t maxmed_value;
 
 	if (bgp->v_maxmed_admin) {
 		maxmed_active = 1;
@@ -1152,7 +1152,8 @@ static int bgp_stop_with_error(struct peer *peer)
 
 
 /* something went wrong, send notify and tear down */
-static int bgp_stop_with_notify(struct peer *peer, u_char code, u_char sub_code)
+static int bgp_stop_with_notify(struct peer *peer, unsigned char code,
+				unsigned char sub_code)
 {
 	/* Send notify to remote peer */
 	bgp_notify_send(peer, code, sub_code);

@@ -147,10 +147,10 @@ extern void rfapiBgpInfoFilteredImportVPN(
 	struct prefix *p,
 	struct prefix *aux_prefix, /* AFI_ETHER: optional IP */
 	afi_t afi, struct prefix_rd *prd,
-	struct attr *attr, /* part of bgp_info */
-	u_char type,       /* part of bgp_info */
-	u_char sub_type,   /* part of bgp_info */
-	uint32_t *label);  /* part of bgp_info */
+	struct attr *attr,      /* part of bgp_info */
+	unsigned char type,     /* part of bgp_info */
+	unsigned char sub_type, /* part of bgp_info */
+	uint32_t *label);       /* part of bgp_info */
 
 extern struct rfapi_next_hop_entry *rfapiEthRouteNode2NextHopList(
 	struct route_node *rn, struct rfapi_ip_prefix *rprefix,

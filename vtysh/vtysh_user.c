@@ -100,7 +100,7 @@ static int vtysh_pam(const char *user)
 
 struct vtysh_user {
 	char *name;
-	u_char nopassword;
+	unsigned char nopassword;
 };
 
 struct list *userlist;

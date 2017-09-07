@@ -95,7 +95,7 @@ void eigrp_router_id_update(struct eigrp *eigrp)
 {
 	struct interface *ifp;
 	struct listnode *node;
-	u_int32_t router_id, router_id_old;
+	uint32_t router_id, router_id_old;
 
 	router_id_old = eigrp->router_id;
 

@@ -44,9 +44,9 @@
  * the same proto and instance values)
  */
 struct label_manager_chunk {
-	u_char proto;
+	unsigned char proto;
 	u_short instance;
-	u_char keep;
+	unsigned char keep;
 	uint32_t start; /* First label of the chunk */
 	uint32_t end;   /* Last label of the chunk */
 };
@@ -64,11 +64,13 @@ bool lm_is_external;
 int zread_relay_label_manager_request(int cmd, struct zserv *zserv,
 				      vrf_id_t vrf_id);
 void label_manager_init(char *lm_zserv_path);
-struct label_manager_chunk *assign_label_chunk(u_char proto, u_short instance,
-					       u_char keep, uint32_t size);
-int release_label_chunk(u_char proto, u_short instance, uint32_t start,
+struct label_manager_chunk *assign_label_chunk(unsigned char proto,
+					       u_short instance,
+					       unsigned char keep,
+					       uint32_t size);
+int release_label_chunk(unsigned char proto, u_short instance, uint32_t start,
 			uint32_t end);
-int release_daemon_chunks(u_char proto, u_short instance);
+int release_daemon_chunks(unsigned char proto, u_short instance);
 void label_manager_close(void);
 
 #endif /* _LABEL_MANAGER_H */

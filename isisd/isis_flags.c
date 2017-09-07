@@ -68,9 +68,9 @@ void flags_free_index(struct flags *flags, long int index)
 	return;
 }
 
-int flags_any_set(u_int32_t *flags)
+int flags_any_set(uint32_t *flags)
 {
-	u_int32_t zero[ISIS_MAX_CIRCUITS];
+	uint32_t zero[ISIS_MAX_CIRCUITS];
 	memset(zero, 0x00, ISIS_MAX_CIRCUITS * 4);
 
 	return bcmp(flags, zero, ISIS_MAX_CIRCUITS * 4);

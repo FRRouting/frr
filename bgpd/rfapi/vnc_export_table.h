@@ -39,8 +39,8 @@ struct vnc_export_info {
 	struct vnc_export_info *next;
 	struct route_node *node;
 	struct peer *peer;
-	u_char type;
-	u_char subtype;
+	unsigned char type;
+	unsigned char subtype;
 	uint32_t lifetime;
 	struct thread *timer;
 };

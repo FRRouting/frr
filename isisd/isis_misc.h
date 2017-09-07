@@ -29,27 +29,28 @@ const char *circuit_t2string(int);
 const char *circuit_state2string(int state);
 const char *circuit_type2string(int type);
 const char *syst2string(int);
-struct in_addr newprefix2inaddr(u_char *prefix_start, u_char prefix_masklen);
+struct in_addr newprefix2inaddr(unsigned char *prefix_start,
+				unsigned char prefix_masklen);
 /*
  * Converting input to memory stored format
  * return value of 0 indicates wrong input
  */
-int dotformat2buff(u_char *, const char *);
-int sysid2buff(u_char *, const char *);
+int dotformat2buff(unsigned char *, const char *);
+int sysid2buff(unsigned char *, const char *);
 
 /*
  * Printing functions
  */
-const char *isonet_print(const u_char *, int len);
-const char *sysid_print(const u_char *);
-const char *snpa_print(const u_char *);
-const char *rawlspid_print(const u_char *);
+const char *isonet_print(const unsigned char *, int len);
+const char *sysid_print(const unsigned char *);
+const char *snpa_print(const unsigned char *);
+const char *rawlspid_print(const unsigned char *);
 const char *isis_format_id(const uint8_t *id, size_t len);
-const char *time2string(u_int32_t);
+const char *time2string(uint32_t);
 const char *nlpid2str(uint8_t nlpid);
 /* typedef struct nlpids nlpids; */
 char *nlpid2string(struct nlpids *);
-const char *print_sys_hostname(const u_char *sysid);
+const char *print_sys_hostname(const unsigned char *sysid);
 void zlog_dump_data(void *data, int len);
 
 /*

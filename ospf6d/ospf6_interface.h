@@ -48,50 +48,50 @@ struct ospf6_interface {
 	/* Interface ID; use interface->ifindex */
 
 	/* ospf6 instance id */
-	u_char instance_id;
+	unsigned char instance_id;
 
 	/* I/F transmission delay */
-	u_int32_t transdelay;
+	uint32_t transdelay;
 
 	/* Network Type */
-	u_char type;
+	unsigned char type;
 
 	/* Router Priority */
-	u_char priority;
+	unsigned char priority;
 
 	/* Time Interval */
-	u_int16_t hello_interval;
-	u_int16_t dead_interval;
-	u_int32_t rxmt_interval;
+	uint16_t hello_interval;
+	uint16_t dead_interval;
+	uint32_t rxmt_interval;
 
-	u_int32_t state_change;
+	uint32_t state_change;
 
 	/* Cost */
-	u_int32_t cost;
+	uint32_t cost;
 
 	/* I/F MTU */
-	u_int32_t ifmtu;
+	uint32_t ifmtu;
 
 	/* Configured MTU */
-	u_int32_t c_ifmtu;
+	uint32_t c_ifmtu;
 
 	/* Interface State */
-	u_char state;
+	unsigned char state;
 
 	/* Interface socket setting trial counter, resets on success */
-	u_char sso_try_cnt;
+	unsigned char sso_try_cnt;
 
 	/* OSPF6 Interface flag */
 	char flag;
 
 	/* MTU mismatch check */
-	u_char mtu_ignore;
+	unsigned char mtu_ignore;
 
 	/* Decision of DR Election */
-	u_int32_t drouter;
-	u_int32_t bdrouter;
-	u_int32_t prev_drouter;
-	u_int32_t prev_bdrouter;
+	uint32_t drouter;
+	uint32_t bdrouter;
+	uint32_t prev_drouter;
+	uint32_t prev_bdrouter;
 
 	/* Linklocal LSA Database: includes Link-LSA */
 	struct ospf6_lsdb *lsdb;

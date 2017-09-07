@@ -152,7 +152,7 @@ void eigrp_adjust_sndbuflen(struct eigrp *eigrp, unsigned int buflen)
 int eigrp_if_ipmulticast(struct eigrp *top, struct prefix *p,
 			 unsigned int ifindex)
 {
-	u_char val;
+	unsigned char val;
 	int ret, len;
 
 	val = 0;
@@ -379,8 +379,8 @@ int eigrp_network_unset(struct eigrp *eigrp, struct prefix *p)
 	return 1;
 }
 
-u_int32_t eigrp_calculate_metrics(struct eigrp *eigrp,
-				  struct eigrp_metrics metric)
+uint32_t eigrp_calculate_metrics(struct eigrp *eigrp,
+				 struct eigrp_metrics metric)
 {
 	uint64_t temp_metric;
 	temp_metric = 0;
@@ -407,13 +407,13 @@ u_int32_t eigrp_calculate_metrics(struct eigrp *eigrp,
 				+ eigrp->k_values[3]);
 
 	if (temp_metric <= EIGRP_MAX_METRIC)
-		return (u_int32_t)temp_metric;
+		return (uint32_t)temp_metric;
 	else
 		return EIGRP_MAX_METRIC;
 }
 
-u_int32_t eigrp_calculate_total_metrics(struct eigrp *eigrp,
-					struct eigrp_nexthop_entry *entry)
+uint32_t eigrp_calculate_total_metrics(struct eigrp *eigrp,
+				       struct eigrp_nexthop_entry *entry)
 {
 	entry->total_metric = entry->reported_metric;
 	uint64_t temp_delay = (uint64_t)entry->total_metric.delay
@@ -421,9 +421,9 @@ u_int32_t eigrp_calculate_total_metrics(struct eigrp *eigrp,
 					EIGRP_IF_PARAM(entry->ei, delay));
 	entry->total_metric.delay = temp_delay > EIGRP_MAX_METRIC
 					    ? EIGRP_MAX_METRIC
-					    : (u_int32_t)temp_delay;
+					    : (uint32_t)temp_delay;
 
-	u_int32_t bw =
+	uint32_t bw =
 		eigrp_bandwidth_to_scaled(EIGRP_IF_PARAM(entry->ei, bandwidth));
 	entry->total_metric.bandwidth = entry->total_metric.bandwidth > bw
 					       ? bw
@@ -432,8 +432,8 @@ u_int32_t eigrp_calculate_total_metrics(struct eigrp *eigrp,
 	return eigrp_calculate_metrics(eigrp, entry->total_metric);
 }
 
-u_char eigrp_metrics_is_same(struct eigrp_metrics metric1,
-			     struct eigrp_metrics metric2)
+unsigned char eigrp_metrics_is_same(struct eigrp_metrics metric1,
+				    struct eigrp_metrics metric2)
 {
 	if ((metric1.bandwidth == metric2.bandwidth)
 	    && (metric1.delay == metric2.delay)

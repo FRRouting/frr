@@ -220,32 +220,32 @@ static oid ospf_trap_oid[] = {OSPF2MIB, 16, 2}; /* Not reverse mappable! */
 static struct in_addr ospf_empty_addr = {.s_addr = 0};
 
 /* Hook functions. */
-static u_char *ospfGeneralGroup(struct variable *, oid *, size_t *, int,
-				size_t *, WriteMethod **);
-static u_char *ospfAreaEntry(struct variable *, oid *, size_t *, int, size_t *,
-			     WriteMethod **);
-static u_char *ospfStubAreaEntry(struct variable *, oid *, size_t *, int,
-				 size_t *, WriteMethod **);
-static u_char *ospfLsdbEntry(struct variable *, oid *, size_t *, int, size_t *,
-			     WriteMethod **);
-static u_char *ospfAreaRangeEntry(struct variable *, oid *, size_t *, int,
+static unsigned char *ospfGeneralGroup(struct variable *, oid *, size_t *, int,
+				       size_t *, WriteMethod **);
+static unsigned char *ospfAreaEntry(struct variable *, oid *, size_t *, int,
+				    size_t *, WriteMethod **);
+static unsigned char *ospfStubAreaEntry(struct variable *, oid *, size_t *, int,
+					size_t *, WriteMethod **);
+static unsigned char *ospfLsdbEntry(struct variable *, oid *, size_t *, int,
+				    size_t *, WriteMethod **);
+static unsigned char *ospfAreaRangeEntry(struct variable *, oid *, size_t *,
+					 int, size_t *, WriteMethod **);
+static unsigned char *ospfHostEntry(struct variable *, oid *, size_t *, int,
+				    size_t *, WriteMethod **);
+static unsigned char *ospfIfEntry(struct variable *, oid *, size_t *, int,
 				  size_t *, WriteMethod **);
-static u_char *ospfHostEntry(struct variable *, oid *, size_t *, int, size_t *,
-			     WriteMethod **);
-static u_char *ospfIfEntry(struct variable *, oid *, size_t *, int, size_t *,
-			   WriteMethod **);
-static u_char *ospfIfMetricEntry(struct variable *, oid *, size_t *, int,
-				 size_t *, WriteMethod **);
-static u_char *ospfVirtIfEntry(struct variable *, oid *, size_t *, int,
-			       size_t *, WriteMethod **);
-static u_char *ospfNbrEntry(struct variable *, oid *, size_t *, int, size_t *,
-			    WriteMethod **);
-static u_char *ospfVirtNbrEntry(struct variable *, oid *, size_t *, int,
-				size_t *, WriteMethod **);
-static u_char *ospfExtLsdbEntry(struct variable *, oid *, size_t *, int,
-				size_t *, WriteMethod **);
-static u_char *ospfAreaAggregateEntry(struct variable *, oid *, size_t *, int,
+static unsigned char *ospfIfMetricEntry(struct variable *, oid *, size_t *, int,
+					size_t *, WriteMethod **);
+static unsigned char *ospfVirtIfEntry(struct variable *, oid *, size_t *, int,
 				      size_t *, WriteMethod **);
+static unsigned char *ospfNbrEntry(struct variable *, oid *, size_t *, int,
+				   size_t *, WriteMethod **);
+static unsigned char *ospfVirtNbrEntry(struct variable *, oid *, size_t *, int,
+				       size_t *, WriteMethod **);
+static unsigned char *ospfExtLsdbEntry(struct variable *, oid *, size_t *, int,
+				       size_t *, WriteMethod **);
+static unsigned char *ospfAreaAggregateEntry(struct variable *, oid *, size_t *,
+					     int, size_t *, WriteMethod **);
 
 static struct variable ospf_variables[] = {
 	/* OSPF general variables */
@@ -526,9 +526,10 @@ static int ospf_admin_stat(struct ospf *ospf)
 	return 0;
 }
 
-static u_char *ospfGeneralGroup(struct variable *v, oid *name, size_t *length,
-				int exact, size_t *var_len,
-				WriteMethod **write_method)
+static unsigned char *ospfGeneralGroup(struct variable *v, oid *name,
+				       size_t *length, int exact,
+				       size_t *var_len,
+				       WriteMethod **write_method)
 {
 	struct ospf *ospf;
 
@@ -695,9 +696,9 @@ static struct ospf_area *ospfAreaLookup(struct variable *v, oid name[],
 	return NULL;
 }
 
-static u_char *ospfAreaEntry(struct variable *v, oid *name, size_t *length,
-			     int exact, size_t *var_len,
-			     WriteMethod **write_method)
+static unsigned char *ospfAreaEntry(struct variable *v, oid *name,
+				    size_t *length, int exact, size_t *var_len,
+				    WriteMethod **write_method)
 {
 	struct ospf_area *area;
 	struct in_addr addr;
@@ -836,7 +837,7 @@ static struct ospf_area *ospfStubAreaLookup(struct variable *v, oid name[],
 	return NULL;
 }
 
-static u_char *ospfStubAreaEntry(struct variable *v, oid *name, size_t *length,
+static unsigned char *ospfStubAreaEntry(struct variable *v, oid *name, size_t *length,
 				 int exact, size_t *var_len,
 				 WriteMethod **write_method)
 {
@@ -885,7 +886,7 @@ static u_char *ospfStubAreaEntry(struct variable *v, oid *name, size_t *length,
 	return NULL;
 }
 
-static struct ospf_lsa *lsdb_lookup_next(struct ospf_area *area, u_char *type,
+static struct ospf_lsa *lsdb_lookup_next(struct ospf_area *area, unsigned char *type,
 					 int type_next, struct in_addr *ls_id,
 					 int ls_id_next,
 					 struct in_addr *router_id,
@@ -921,7 +922,7 @@ static struct ospf_lsa *lsdb_lookup_next(struct ospf_area *area, u_char *type,
 
 static struct ospf_lsa *ospfLsdbLookup(struct variable *v, oid *name,
 				       size_t *length, struct in_addr *area_id,
-				       u_char *type, struct in_addr *ls_id,
+				       unsigned char *type, struct in_addr *ls_id,
 				       struct in_addr *router_id, int exact)
 {
 	struct ospf *ospf;
@@ -1059,14 +1060,14 @@ static struct ospf_lsa *ospfLsdbLookup(struct variable *v, oid *name,
 	return NULL;
 }
 
-static u_char *ospfLsdbEntry(struct variable *v, oid *name, size_t *length,
+static unsigned char *ospfLsdbEntry(struct variable *v, oid *name, size_t *length,
 			     int exact, size_t *var_len,
 			     WriteMethod **write_method)
 {
 	struct ospf_lsa *lsa;
 	struct lsa_header *lsah;
 	struct in_addr area_id;
-	u_char type;
+	unsigned char type;
 	struct in_addr ls_id;
 	struct in_addr router_id;
 	struct ospf *ospf;
@@ -1120,7 +1121,7 @@ static u_char *ospfLsdbEntry(struct variable *v, oid *name, size_t *length,
 		break;
 	case OSPFLSDBADVERTISEMENT: /* 8 */
 		*var_len = ntohs(lsah->length);
-		return (u_char *)lsah;
+		return (unsigned char *)lsah;
 		break;
 	default:
 		return NULL;
@@ -1224,7 +1225,7 @@ static struct ospf_area_range *ospfAreaRangeLookup(struct variable *v,
 	return NULL;
 }
 
-static u_char *ospfAreaRangeEntry(struct variable *v, oid *name, size_t *length,
+static unsigned char *ospfAreaRangeEntry(struct variable *v, oid *name, size_t *length,
 				  int exact, size_t *var_len,
 				  WriteMethod **write_method)
 {
@@ -1333,7 +1334,7 @@ static struct ospf_nbr_nbma *ospfHostLookup(struct variable *v, oid *name,
 	return NULL;
 }
 
-static u_char *ospfHostEntry(struct variable *v, oid *name, size_t *length,
+static unsigned char *ospfHostEntry(struct variable *v, oid *name, size_t *length,
 			     int exact, size_t *var_len,
 			     WriteMethod **write_method)
 {
@@ -1658,7 +1659,7 @@ static struct ospf_interface *ospfIfLookup(struct variable *v, oid *name,
 	return NULL;
 }
 
-static u_char *ospfIfEntry(struct variable *v, oid *name, size_t *length,
+static unsigned char *ospfIfEntry(struct variable *v, oid *name, size_t *length,
 			   int exact, size_t *var_len,
 			   WriteMethod **write_method)
 {
@@ -1738,7 +1739,7 @@ static u_char *ospfIfEntry(struct variable *v, oid *name, size_t *length,
 		break;
 	case OSPFIFAUTHKEY: /* 16 */
 		*var_len = 0;
-		return (u_char *)OSPF_IF_PARAM(oi, auth_simple);
+		return (unsigned char *)OSPF_IF_PARAM(oi, auth_simple);
 		break;
 	case OSPFIFSTATUS: /* 17 */
 		return SNMP_INTEGER(SNMP_VALID);
@@ -1827,7 +1828,7 @@ static struct ospf_interface *ospfIfMetricLookup(struct variable *v, oid *name,
 	return NULL;
 }
 
-static u_char *ospfIfMetricEntry(struct variable *v, oid *name, size_t *length,
+static unsigned char *ospfIfMetricEntry(struct variable *v, oid *name, size_t *length,
 				 int exact, size_t *var_len,
 				 WriteMethod **write_method)
 {
@@ -2020,7 +2021,7 @@ ospfVirtIfLookup(struct variable *v, oid *name, size_t *length,
 	return NULL;
 }
 
-static u_char *ospfVirtIfEntry(struct variable *v, oid *name, size_t *length,
+static unsigned char *ospfVirtIfEntry(struct variable *v, oid *name, size_t *length,
 			       int exact, size_t *var_len,
 			       WriteMethod **write_method)
 {
@@ -2071,7 +2072,7 @@ static u_char *ospfVirtIfEntry(struct variable *v, oid *name, size_t *length,
 		break;
 	case OSPFVIRTIFAUTHKEY:
 		*var_len = 0;
-		return (u_char *)OSPF_IF_PARAM(oi, auth_simple);
+		return (unsigned char *)OSPF_IF_PARAM(oi, auth_simple);
 		break;
 	case OSPFVIRTIFSTATUS:
 		return SNMP_INTEGER(SNMP_VALID);
@@ -2221,7 +2222,7 @@ ospfNbrState OBJECT-TYPE
 		    full (8)
 		  }
 */
-static int32_t ospf_snmp_neighbor_state(u_char nst)
+static int32_t ospf_snmp_neighbor_state(unsigned char nst)
 {
 	switch (nst) {
 	case NSM_Attempt:
@@ -2243,7 +2244,7 @@ static int32_t ospf_snmp_neighbor_state(u_char nst)
 	}
 }
 
-static u_char *ospfNbrEntry(struct variable *v, oid *name, size_t *length,
+static unsigned char *ospfNbrEntry(struct variable *v, oid *name, size_t *length,
 			    int exact, size_t *var_len,
 			    WriteMethod **write_method)
 {
@@ -2308,7 +2309,7 @@ static u_char *ospfNbrEntry(struct variable *v, oid *name, size_t *length,
 	return NULL;
 }
 
-static u_char *ospfVirtNbrEntry(struct variable *v, oid *name, size_t *length,
+static unsigned char *ospfVirtNbrEntry(struct variable *v, oid *name, size_t *length,
 				int exact, size_t *var_len,
 				WriteMethod **write_method)
 {
@@ -2336,28 +2337,28 @@ static u_char *ospfVirtNbrEntry(struct variable *v, oid *name, size_t *length,
 	/* Return the current value of the variable */
 	switch (v->magic) {
 	case OSPFVIRTNBRAREA:
-		return (u_char *)NULL;
+		return (unsigned char *)NULL;
 		break;
 	case OSPFVIRTNBRRTRID:
-		return (u_char *)NULL;
+		return (unsigned char *)NULL;
 		break;
 	case OSPFVIRTNBRIPADDR:
-		return (u_char *)NULL;
+		return (unsigned char *)NULL;
 		break;
 	case OSPFVIRTNBROPTIONS:
-		return (u_char *)NULL;
+		return (unsigned char *)NULL;
 		break;
 	case OSPFVIRTNBRSTATE:
-		return (u_char *)NULL;
+		return (unsigned char *)NULL;
 		break;
 	case OSPFVIRTNBREVENTS:
-		return (u_char *)NULL;
+		return (unsigned char *)NULL;
 		break;
 	case OSPFVIRTNBRLSRETRANSQLEN:
-		return (u_char *)NULL;
+		return (unsigned char *)NULL;
 		break;
 	case OSPFVIRTNBRHELLOSUPPRESSED:
-		return (u_char *)NULL;
+		return (unsigned char *)NULL;
 		break;
 	default:
 		return NULL;
@@ -2367,14 +2368,14 @@ static u_char *ospfVirtNbrEntry(struct variable *v, oid *name, size_t *length,
 }
 
 static struct ospf_lsa *ospfExtLsdbLookup(struct variable *v, oid *name,
-					  size_t *length, u_char *type,
+					  size_t *length, unsigned char *type,
 					  struct in_addr *ls_id,
 					  struct in_addr *router_id, int exact)
 {
 	int first;
 	oid *offset;
 	int offsetlen;
-	u_char lsa_type;
+	unsigned char lsa_type;
 	unsigned int len;
 	struct ospf_lsa *lsa;
 	struct ospf *ospf;
@@ -2456,13 +2457,13 @@ static struct ospf_lsa *ospfExtLsdbLookup(struct variable *v, oid *name,
 	return NULL;
 }
 
-static u_char *ospfExtLsdbEntry(struct variable *v, oid *name, size_t *length,
+static unsigned char *ospfExtLsdbEntry(struct variable *v, oid *name, size_t *length,
 				int exact, size_t *var_len,
 				WriteMethod **write_method)
 {
 	struct ospf_lsa *lsa;
 	struct lsa_header *lsah;
-	u_char type;
+	unsigned char type;
 	struct in_addr ls_id;
 	struct in_addr router_id;
 	struct ospf *ospf;
@@ -2509,7 +2510,7 @@ static u_char *ospfExtLsdbEntry(struct variable *v, oid *name, size_t *length,
 		break;
 	case OSPFEXTLSDBADVERTISEMENT:
 		*var_len = ntohs(lsah->length);
-		return (u_char *)lsah;
+		return (unsigned char *)lsah;
 		break;
 	default:
 		return NULL;
@@ -2518,7 +2519,7 @@ static u_char *ospfExtLsdbEntry(struct variable *v, oid *name, size_t *length,
 	return NULL;
 }
 
-static u_char *ospfAreaAggregateEntry(struct variable *v, oid *name,
+static unsigned char *ospfAreaAggregateEntry(struct variable *v, oid *name,
 				      size_t *length, int exact,
 				      size_t *var_len,
 				      WriteMethod **write_method)
@@ -2530,22 +2531,22 @@ static u_char *ospfAreaAggregateEntry(struct variable *v, oid *name,
 	/* Return the current value of the variable */
 	switch (v->magic) {
 	case OSPFAREAAGGREGATEAREAID:
-		return (u_char *)NULL;
+		return (unsigned char *)NULL;
 		break;
 	case OSPFAREAAGGREGATELSDBTYPE:
-		return (u_char *)NULL;
+		return (unsigned char *)NULL;
 		break;
 	case OSPFAREAAGGREGATENET:
-		return (u_char *)NULL;
+		return (unsigned char *)NULL;
 		break;
 	case OSPFAREAAGGREGATEMASK:
-		return (u_char *)NULL;
+		return (unsigned char *)NULL;
 		break;
 	case OSPFAREAAGGREGATESTATUS:
-		return (u_char *)NULL;
+		return (unsigned char *)NULL;
 		break;
 	case OSPFAREAAGGREGATEEFFECT:
-		return (u_char *)NULL;
+		return (unsigned char *)NULL;
 		break;
 	default:
 		return NULL;

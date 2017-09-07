@@ -74,7 +74,7 @@ struct vrf {
 	char name[VRF_NAMSIZ + 1];
 
 	/* Zebra internal VRF status */
-	u_char status;
+	unsigned char status;
 #define VRF_ACTIVE     (1 << 0)
 
 	/* Master list of interfaces belonging to this VRF */

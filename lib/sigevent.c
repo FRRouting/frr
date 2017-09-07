@@ -284,7 +284,7 @@ static void trap_default_signals(void)
 	};
 	static const struct {
 		const int *sigs;
-		u_int nsigs;
+		unsigned int nsigs;
 		void (*handler)(int signo
 #ifdef SA_SIGINFO
 				,
@@ -296,10 +296,10 @@ static void trap_default_signals(void)
 		{exit_signals, array_size(exit_signals), exit_handler},
 		{ignore_signals, array_size(ignore_signals), NULL},
 	};
-	u_int i;
+	unsigned int i;
 
 	for (i = 0; i < array_size(sigmap); i++) {
-		u_int j;
+		unsigned int j;
 
 		for (j = 0; j < sigmap[i].nsigs; j++) {
 			struct sigaction oact;

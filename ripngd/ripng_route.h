@@ -30,16 +30,16 @@ struct ripng_aggregate {
 	unsigned int suppress;
 
 	/* Metric of this route.  */
-	u_char metric;
+	unsigned char metric;
 
 	/* Tag field of RIPng packet.*/
-	u_int16_t tag;
+	uint16_t tag;
 
 	/* Route-map futures - this variables can be changed. */
 	struct in6_addr nexthop_out;
-	u_char metric_set;
-	u_char metric_out;
-	u_int16_t tag_out;
+	unsigned char metric_set;
+	unsigned char metric_out;
+	uint16_t tag_out;
 };
 
 extern void ripng_aggregate_increment(struct route_node *rp,

@@ -146,7 +146,7 @@ static int make_advertisement_packet(struct interface *ifp, struct prefix *p,
 	struct irdp_interface *irdp = zi->irdp;
 	int size;
 	int pref;
-	u_int16_t checksum;
+	uint16_t checksum;
 
 	pref = get_pref(irdp, p);
 
@@ -177,8 +177,8 @@ static void irdp_send(struct interface *ifp, struct prefix *p, struct stream *s)
 	struct zebra_if *zi = ifp->info;
 	struct irdp_interface *irdp = zi->irdp;
 	char buf[PREFIX_STRLEN];
-	u_int32_t dst;
-	u_int32_t ttl = 1;
+	uint32_t dst;
+	uint32_t ttl = 1;
 
 	if (!irdp)
 		return;
@@ -210,7 +210,7 @@ static void irdp_advertisement(struct interface *ifp, struct prefix *p)
 
 int irdp_send_thread(struct thread *t_advert)
 {
-	u_int32_t timer, tmp;
+	uint32_t timer, tmp;
 	struct interface *ifp = THREAD_ARG(t_advert);
 	struct zebra_if *zi = ifp->info;
 	struct irdp_interface *irdp = zi->irdp;
@@ -288,7 +288,7 @@ void process_solicit(struct interface *ifp)
 {
 	struct zebra_if *zi = ifp->info;
 	struct irdp_interface *irdp = zi->irdp;
-	u_int32_t timer;
+	uint32_t timer;
 
 	if (!irdp)
 		return;

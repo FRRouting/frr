@@ -268,7 +268,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 
 /* Add connected IPv4 route to the interface. */
 void connected_add_ipv4(struct interface *ifp, int flags, struct in_addr *addr,
-			u_char prefixlen, struct in_addr *broad,
+			unsigned char prefixlen, struct in_addr *broad,
 			const char *label)
 {
 	struct prefix_ipv4 *p;
@@ -458,7 +458,7 @@ static void connected_delete_helper(struct connected *ifc, struct prefix *p)
 
 /* Delete connected IPv4 route to the interface. */
 void connected_delete_ipv4(struct interface *ifp, int flags,
-			   struct in_addr *addr, u_char prefixlen,
+			   struct in_addr *addr, unsigned char prefixlen,
 			   struct in_addr *broad)
 {
 	struct prefix p, d;
@@ -484,7 +484,7 @@ void connected_delete_ipv4(struct interface *ifp, int flags,
 
 /* Add connected IPv6 route to the interface. */
 void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
-			u_char prefixlen, const char *label)
+			unsigned char prefixlen, const char *label)
 {
 	struct prefix_ipv6 *p;
 	struct connected *ifc;
@@ -525,7 +525,7 @@ void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
 }
 
 void connected_delete_ipv6(struct interface *ifp, struct in6_addr *address,
-			   u_char prefixlen)
+			   unsigned char prefixlen)
 {
 	struct prefix p;
 	struct connected *ifc;

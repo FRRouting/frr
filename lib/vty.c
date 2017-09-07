@@ -160,9 +160,9 @@ int vty_out(struct vty *vty, const char *format, ...)
 
 		/* Pointer p must point out buffer. */
 		if (vty->type != VTY_TERM)
-			buffer_put(vty->obuf, (u_char *)p, len);
+			buffer_put(vty->obuf, (unsigned char *)p, len);
 		else
-			buffer_put_crlf(vty->obuf, (u_char *)p, len);
+			buffer_put_crlf(vty->obuf, (unsigned char *)p, len);
 
 		/* If p is not different with buf, it is allocated buffer.  */
 		if (p != buf)
@@ -2059,7 +2059,7 @@ static int vtysh_read(struct thread *thread)
 	struct vty *vty;
 	unsigned char buf[VTY_READ_BUFSIZ];
 	unsigned char *p;
-	u_char header[4] = {0, 0, 0, 0};
+	unsigned char header[4] = {0, 0, 0, 0};
 
 	sock = THREAD_FD(thread);
 	vty = THREAD_ARG(thread);

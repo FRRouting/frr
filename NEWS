@@ -1589,7 +1589,7 @@ netmask pair which host part bit is on, ignore the entry.
 
 * Changes in ripngd
 
-** Change CMSG_DATA cast from (u_char *) to (int *).  (u_char *) does
+** Change CMSG_DATA cast from (unsigned char *) to (int *).  (unsigned char *) does
 not work for NetBSD-currnet on SparcStation 10.
 
 * Changes in ospfd

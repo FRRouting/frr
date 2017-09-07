@@ -27,10 +27,10 @@
 /* OSPFv3 top level data structure */
 struct ospf6 {
 	/* my router id */
-	u_int32_t router_id;
+	uint32_t router_id;
 
 	/* static router id */
-	u_int32_t router_id_static;
+	uint32_t router_id_static;
 
 	/* start time */
 	struct timeval starttime;
@@ -48,7 +48,7 @@ struct ospf6 {
 
 	struct ospf6_route_table *external_table;
 	struct route_table *external_id_table;
-	u_int32_t external_id;
+	uint32_t external_id;
 
 	/* redistribute route-map */
 	struct {
@@ -56,10 +56,10 @@ struct ospf6 {
 		struct route_map *map;
 	} rmap[ZEBRA_ROUTE_MAX];
 
-	u_char flag;
+	unsigned char flag;
 
 	/* Configured flags */
-	u_char config_flags;
+	unsigned char config_flags;
 #define OSPF6_LOG_ADJACENCY_CHANGES      (1 << 0)
 #define OSPF6_LOG_ADJACENCY_DETAIL       (1 << 1)
 
@@ -83,13 +83,13 @@ struct ospf6 {
 	struct thread *t_ase_calc; /* ASE calculation timer. */
 	struct thread *maxage_remover;
 
-	u_int32_t ref_bandwidth;
+	uint32_t ref_bandwidth;
 
 	/* Distance parameters */
-	u_char distance_all;
-	u_char distance_intra;
-	u_char distance_inter;
-	u_char distance_external;
+	unsigned char distance_all;
+	unsigned char distance_intra;
+	unsigned char distance_inter;
+	unsigned char distance_external;
 
 	struct route_table *distance_table;
 

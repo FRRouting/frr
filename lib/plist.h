@@ -35,9 +35,9 @@ enum prefix_list_type {
 struct prefix_list;
 
 struct orf_prefix {
-	u_int32_t seq;
-	u_char ge;
-	u_char le;
+	uint32_t seq;
+	unsigned char ge;
+	unsigned char le;
 	struct prefix p;
 };
 
@@ -54,10 +54,11 @@ extern enum prefix_list_type prefix_list_apply(struct prefix_list *, void *);
 
 extern struct prefix_list *prefix_bgp_orf_lookup(afi_t, const char *);
 extern struct stream *prefix_bgp_orf_entry(struct stream *,
-					   struct prefix_list *, u_char, u_char,
-					   u_char);
+					   struct prefix_list *, unsigned char,
+					   unsigned char, unsigned char);
 extern int prefix_bgp_orf_set(char *, afi_t, struct orf_prefix *, int, int);
 extern void prefix_bgp_orf_remove_all(afi_t, char *);
-extern int prefix_bgp_show_prefix_list(struct vty *, afi_t, char *, u_char);
+extern int prefix_bgp_show_prefix_list(struct vty *, afi_t, char *,
+				       unsigned char);
 
 #endif /* _QUAGGA_PLIST_H */

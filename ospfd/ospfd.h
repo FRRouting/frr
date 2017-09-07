@@ -100,7 +100,7 @@ struct ospf_master {
 #define EXTERNAL_INFO(E)      (E->external_info)
 
 	/* Various OSPF global configuration. */
-	u_char options;
+	unsigned char options;
 #define OSPF_MASTER_SHUTDOWN (1 << 0) /* deferred-shutdown */
 };
 
@@ -127,7 +127,7 @@ struct ospf_redist {
 struct ospf {
 	/* OSPF's running state based on the '[no] router ospf [<instance>]'
 	 * config. */
-	u_char oi_running;
+	unsigned char oi_running;
 
 	/* OSPF instance ID  */
 	u_short instance;
@@ -137,12 +137,12 @@ struct ospf {
 	struct in_addr router_id_static; /* Configured manually. */
 
 	/* ABR/ASBR internal flags. */
-	u_char flags;
+	unsigned char flags;
 #define OSPF_FLAG_ABR           0x0001
 #define OSPF_FLAG_ASBR          0x0002
 
 	/* ABR type. */
-	u_char abr_type;
+	unsigned char abr_type;
 #define OSPF_ABR_UNKNOWN	0
 #define OSPF_ABR_STAND          1
 #define OSPF_ABR_IBM            2
@@ -151,17 +151,17 @@ struct ospf {
 #define OSPF_ABR_DEFAULT	OSPF_ABR_CISCO
 
 	/* NSSA ABR */
-	u_char anyNSSA; /* Bump for every NSSA attached. */
+	unsigned char anyNSSA; /* Bump for every NSSA attached. */
 
 	/* Configured variables. */
-	u_char config;
+	unsigned char config;
 #define OSPF_RFC1583_COMPATIBLE         (1 << 0)
 #define OSPF_OPAQUE_CAPABLE		(1 << 2)
 #define OSPF_LOG_ADJACENCY_CHANGES	(1 << 3)
 #define OSPF_LOG_ADJACENCY_DETAIL	(1 << 4)
 
 	/* Opaque-LSA administrative flags. */
-	u_char opaque;
+	unsigned char opaque;
 #define OPAQUE_OPERATION_READY_BIT	(1 << 0)
 
 	/* RFC3137 stub router. Configured time to stay stub / max-metric */
@@ -170,7 +170,7 @@ struct ospf {
 						/* $FRR indent$ */
 						/* clang-format off */
 #define OSPF_STUB_ROUTER_UNCONFIGURED	  0
-	u_char stub_router_admin_set;
+	unsigned char stub_router_admin_set;
 #define OSPF_STUB_ROUTER_ADMINISTRATIVE_SET     1
 #define OSPF_STUB_ROUTER_ADMINISTRATIVE_UNSET   0
 
@@ -194,7 +194,7 @@ struct ospf {
 #define DEFAULT_ORIGINATE_NONE		0
 #define DEFAULT_ORIGINATE_ZEBRA		1
 #define DEFAULT_ORIGINATE_ALWAYS	2
-	u_int32_t ref_bandwidth;      /* Reference Bandwidth (Kbps). */
+	uint32_t ref_bandwidth;      /* Reference Bandwidth (Kbps). */
 	struct route_table *networks; /* OSPF config networks. */
 	struct list *vlinks;	  /* Configured Virtual-Links. */
 	struct list *areas;	   /* OSPF areas. */
@@ -202,7 +202,7 @@ struct ospf {
 	struct ospf_area *backbone; /* Pointer to the Backbone Area. */
 
 	struct list *oiflist;		  /* ospf interfaces */
-	u_char passive_interface_default; /* passive-interface default */
+	unsigned char passive_interface_default; /* passive-interface default */
 
 	/* LSDB of AS-external-LSAs. */
 	struct ospf_lsdb *lsdb;
@@ -281,29 +281,29 @@ struct ospf {
 		 / OSPF_LSA_REFRESHER_GRANULARITY                              \
 	 + 1)
 	struct {
-		u_int16_t index;
+		uint16_t index;
 		struct list *qs[OSPF_LSA_REFRESHER_SLOTS];
 	} lsa_refresh_queue;
 
 	struct thread *t_lsa_refresher;
 	time_t lsa_refresher_started;
 #define OSPF_LSA_REFRESH_INTERVAL_DEFAULT 10
-	u_int16_t lsa_refresh_interval;
+	uint16_t lsa_refresh_interval;
 
 	/* Distance parameter. */
-	u_char distance_all;
-	u_char distance_intra;
-	u_char distance_inter;
-	u_char distance_external;
+	unsigned char distance_all;
+	unsigned char distance_intra;
+	unsigned char distance_inter;
+	unsigned char distance_external;
 
 	/* Statistics for LSA origination. */
-	u_int32_t lsa_originate_count;
+	uint32_t lsa_originate_count;
 
 	/* Statistics for LSA used for new instantiation. */
-	u_int32_t rx_lsa_count;
+	uint32_t rx_lsa_count;
 
 	/* Counter of "ip ospf area x.x.x.x" */
-	u_int32_t if_ospf_cli_count;
+	uint32_t if_ospf_cli_count;
 
 	struct route_table *distance_table;
 
@@ -340,24 +340,24 @@ struct ospf_area {
 #define OSPF_SHORTCUT_ENABLE	1
 #define OSPF_SHORTCUT_DISABLE	2
 	int shortcut_capability; /* Other ABRs agree on S-bit */
-	u_int32_t default_cost;  /* StubDefaultCost. */
+	uint32_t default_cost;  /* StubDefaultCost. */
 	int auth_type;		 /* Authentication type. */
 
 
-	u_char NSSATranslatorRole;  /* NSSA configured role */
+	unsigned char NSSATranslatorRole;  /* NSSA configured role */
 				    /* $FRR indent$ */
 				    /* clang-format off */
 #define OSPF_NSSA_ROLE_NEVER     0
 #define OSPF_NSSA_ROLE_CANDIDATE 1
 #define OSPF_NSSA_ROLE_ALWAYS    2
-	u_char NSSATranslatorState; /* NSSA operational role */
+	unsigned char NSSATranslatorState; /* NSSA operational role */
 				    /* $FRR indent$ */
 				    /* clang-format off */
 #define OSPF_NSSA_TRANSLATE_DISABLED 0
 #define OSPF_NSSA_TRANSLATE_ENABLED  1
 	int NSSATranslatorStabilityInterval;
 
-	u_char transit;		    /* TransitCapability. */
+	unsigned char transit;		    /* TransitCapability. */
 				    /* $FRR indent$ */
 				    /* clang-format off */
 #define OSPF_TRANSIT_FALSE      0
@@ -365,7 +365,7 @@ struct ospf_area {
 	struct route_table *ranges; /* Configured Area Ranges. */
 
 	/* RFC3137 stub router state flags for area */
-	u_char stub_router_state;
+	unsigned char stub_router_state;
 #define OSPF_AREA_ADMIN_STUB_ROUTED	(1 << 0) /* admin stub-router set */
 #define OSPF_AREA_IS_STUB_ROUTED	(1 << 1) /* stub-router active */
 #define OSPF_AREA_WAS_START_STUB_ROUTED	(1 << 2) /* startup SR was done */
@@ -415,19 +415,19 @@ struct ospf_area {
 	struct thread *t_opaque_lsa_self; /* Type-10 Opaque-LSAs origin. */
 
 	/* Statistics field. */
-	u_int32_t spf_calculation; /* SPF Calculation Count. */
+	uint32_t spf_calculation; /* SPF Calculation Count. */
 
 	/* Time stamps. */
 	struct timeval ts_spf; /* SPF calculation time stamp. */
 
 	/* Router count. */
-	u_int32_t abr_count;  /* ABR router in this area. */
-	u_int32_t asbr_count; /* ASBR router in this area. */
+	uint32_t abr_count;  /* ABR router in this area. */
+	uint32_t asbr_count; /* ASBR router in this area. */
 
 	/* Counters. */
-	u_int32_t act_ints;  /* Active interfaces. */
-	u_int32_t full_nbrs; /* Fully adjacent neighbors. */
-	u_int32_t full_vls;  /* Fully adjacent virtual neighbors. */
+	uint32_t act_ints;  /* Active interfaces. */
+	uint32_t full_nbrs; /* Fully adjacent neighbors. */
+	uint32_t full_vls;  /* Fully adjacent virtual neighbors. */
 };
 
 /* OSPF config network structure. */
@@ -449,16 +449,16 @@ struct ospf_nbr_nbma {
 	struct ospf_neighbor *nbr;
 
 	/* Neighbor priority. */
-	u_char priority;
+	unsigned char priority;
 
 	/* Poll timer value. */
-	u_int32_t v_poll;
+	uint32_t v_poll;
 
 	/* Poll timer thread. */
 	struct thread *t_poll;
 
 	/* State change. */
-	u_int32_t state_change;
+	uint32_t state_change;
 };
 
 /* Macro. */
@@ -502,7 +502,7 @@ extern struct thread_master *master;
 extern int ospf_zlog;
 
 /* Prototypes. */
-extern const char *ospf_redist_string(u_int route_type);
+extern const char *ospf_redist_string(unsigned int route_type);
 extern struct ospf *ospf_lookup(void);
 extern struct ospf *ospf_lookup_instance(u_short);
 extern struct ospf *ospf_get(void);
@@ -535,7 +535,7 @@ extern int ospf_timers_refresh_set(struct ospf *, int);
 extern int ospf_timers_refresh_unset(struct ospf *);
 extern int ospf_nbr_nbma_set(struct ospf *, struct in_addr);
 extern int ospf_nbr_nbma_unset(struct ospf *, struct in_addr);
-extern int ospf_nbr_nbma_priority_set(struct ospf *, struct in_addr, u_char);
+extern int ospf_nbr_nbma_priority_set(struct ospf *, struct in_addr, unsigned char);
 extern int ospf_nbr_nbma_priority_unset(struct ospf *, struct in_addr);
 extern int ospf_nbr_nbma_poll_interval_set(struct ospf *, struct in_addr,
 					   unsigned int);

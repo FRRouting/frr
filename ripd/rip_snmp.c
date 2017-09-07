@@ -88,14 +88,14 @@ static oid rip_oid[] = {RIPV2MIB};
 static struct route_table *rip_ifaddr_table;
 
 /* Hook functions. */
-static u_char *rip2Globals(struct variable *, oid[], size_t *, int, size_t *,
-			   WriteMethod **);
-static u_char *rip2IfStatEntry(struct variable *, oid[], size_t *, int,
-			       size_t *, WriteMethod **);
-static u_char *rip2IfConfAddress(struct variable *, oid[], size_t *, int,
-				 size_t *, WriteMethod **);
-static u_char *rip2PeerTable(struct variable *, oid[], size_t *, int, size_t *,
-			     WriteMethod **);
+static unsigned char *rip2Globals(struct variable *, oid[], size_t *, int,
+				  size_t *, WriteMethod **);
+static unsigned char *rip2IfStatEntry(struct variable *, oid[], size_t *, int,
+				      size_t *, WriteMethod **);
+static unsigned char *rip2IfConfAddress(struct variable *, oid[], size_t *, int,
+					size_t *, WriteMethod **);
+static unsigned char *rip2PeerTable(struct variable *, oid[], size_t *, int,
+				    size_t *, WriteMethod **);
 
 static struct variable rip_variables[] = {
 	/* RIP Global Counters. */
@@ -152,9 +152,9 @@ static struct variable rip_variables[] = {
 
 extern struct thread_master *master;
 
-static u_char *rip2Globals(struct variable *v, oid name[], size_t *length,
-			   int exact, size_t *var_len,
-			   WriteMethod **write_method)
+static unsigned char *rip2Globals(struct variable *v, oid name[],
+				  size_t *length, int exact, size_t *var_len,
+				  WriteMethod **write_method)
 {
 	if (smux_header_generic(v, name, length, exact, var_len, write_method)
 	    == MATCH_FAILED)
@@ -336,9 +336,10 @@ static struct rip_peer *rip2PeerLookup(struct variable *v, oid name[],
 	return NULL;
 }
 
-static u_char *rip2IfStatEntry(struct variable *v, oid name[], size_t *length,
-			       int exact, size_t *var_len,
-			       WriteMethod **write_method)
+static unsigned char *rip2IfStatEntry(struct variable *v, oid name[],
+				      size_t *length, int exact,
+				      size_t *var_len,
+				      WriteMethod **write_method)
 {
 	struct interface *ifp;
 	struct rip_interface *ri;
@@ -365,20 +366,20 @@ static u_char *rip2IfStatEntry(struct variable *v, oid name[], size_t *length,
 		break;
 	case RIP2IFSTATRCVBADPACKETS:
 		*var_len = sizeof(long);
-		return (u_char *)&ri->recv_badpackets;
+		return (unsigned char *)&ri->recv_badpackets;
 
 	case RIP2IFSTATRCVBADROUTES:
 		*var_len = sizeof(long);
-		return (u_char *)&ri->recv_badroutes;
+		return (unsigned char *)&ri->recv_badroutes;
 
 	case RIP2IFSTATSENTUPDATES:
 		*var_len = sizeof(long);
-		return (u_char *)&ri->sent_updates;
+		return (unsigned char *)&ri->sent_updates;
 
 	case RIP2IFSTATSTATUS:
 		*var_len = sizeof(long);
 		v->type = ASN_INTEGER;
-		return (u_char *)&valid;
+		return (unsigned char *)&valid;
 
 	default:
 		return NULL;
@@ -435,15 +436,16 @@ static long rip2IfConfReceive(struct rip_interface *ri)
 		return doNotReceive;
 }
 
-static u_char *rip2IfConfAddress(struct variable *v, oid name[], size_t *length,
-				 int exact, size_t *val_len,
-				 WriteMethod **write_method)
+static unsigned char *rip2IfConfAddress(struct variable *v, oid name[],
+					size_t *length, int exact,
+					size_t *val_len,
+					WriteMethod **write_method)
 {
 	static struct in_addr addr;
 	static long valid = SNMP_INVALID;
 	static long domain = 0;
 	static long config = 0;
-	static u_int auth = 0;
+	static unsigned int auth = 0;
 	struct interface *ifp;
 	struct rip_interface *ri;
 
@@ -464,43 +466,43 @@ static u_char *rip2IfConfAddress(struct variable *v, oid name[], size_t *length,
 	switch (v->magic) {
 	case RIP2IFCONFADDRESS:
 		*val_len = sizeof(struct in_addr);
-		return (u_char *)&addr;
+		return (unsigned char *)&addr;
 
 	case RIP2IFCONFDOMAIN:
 		*val_len = 2;
-		return (u_char *)&domain;
+		return (unsigned char *)&domain;
 
 	case RIP2IFCONFAUTHTYPE:
 		auth = ri->auth_type;
 		*val_len = sizeof(long);
 		v->type = ASN_INTEGER;
-		return (u_char *)&auth;
+		return (unsigned char *)&auth;
 
 	case RIP2IFCONFAUTHKEY:
 		*val_len = 0;
-		return (u_char *)&domain;
+		return (unsigned char *)&domain;
 	case RIP2IFCONFSEND:
 		config = rip2IfConfSend(ri);
 		*val_len = sizeof(long);
 		v->type = ASN_INTEGER;
-		return (u_char *)&config;
+		return (unsigned char *)&config;
 	case RIP2IFCONFRECEIVE:
 		config = rip2IfConfReceive(ri);
 		*val_len = sizeof(long);
 		v->type = ASN_INTEGER;
-		return (u_char *)&config;
+		return (unsigned char *)&config;
 
 	case RIP2IFCONFDEFAULTMETRIC:
 		*val_len = sizeof(long);
 		v->type = ASN_INTEGER;
-		return (u_char *)&ifp->metric;
+		return (unsigned char *)&ifp->metric;
 	case RIP2IFCONFSTATUS:
 		*val_len = sizeof(long);
 		v->type = ASN_INTEGER;
-		return (u_char *)&valid;
+		return (unsigned char *)&valid;
 	case RIP2IFCONFSRCADDRESS:
 		*val_len = sizeof(struct in_addr);
-		return (u_char *)&addr;
+		return (unsigned char *)&addr;
 
 	default:
 		return NULL;
@@ -508,9 +510,9 @@ static u_char *rip2IfConfAddress(struct variable *v, oid name[], size_t *length,
 	return NULL;
 }
 
-static u_char *rip2PeerTable(struct variable *v, oid name[], size_t *length,
-			     int exact, size_t *val_len,
-			     WriteMethod **write_method)
+static unsigned char *rip2PeerTable(struct variable *v, oid name[],
+				    size_t *length, int exact, size_t *val_len,
+				    WriteMethod **write_method)
 {
 	static struct in_addr addr;
 	static int domain = 0;
@@ -533,11 +535,11 @@ static u_char *rip2PeerTable(struct variable *v, oid name[], size_t *length,
 	switch (v->magic) {
 	case RIP2PEERADDRESS:
 		*val_len = sizeof(struct in_addr);
-		return (u_char *)&peer->addr;
+		return (unsigned char *)&peer->addr;
 
 	case RIP2PEERDOMAIN:
 		*val_len = 2;
-		return (u_char *)&domain;
+		return (unsigned char *)&domain;
 
 	case RIP2PEERLASTUPDATE:
 #if 0 
@@ -548,23 +550,23 @@ static u_char *rip2PeerTable(struct variable *v, oid name[], size_t *length,
        */
       *val_len = sizeof (time_t);
       uptime = peer->uptime; /* now - snmp_agent_startup - peer->uptime */
-      return (u_char *) &uptime;
+      return (unsigned char *) &uptime;
 #else
-		return (u_char *)NULL;
+		return (unsigned char *)NULL;
 #endif
 
 	case RIP2PEERVERSION:
 		*val_len = sizeof(int);
 		version = peer->version;
-		return (u_char *)&version;
+		return (unsigned char *)&version;
 
 	case RIP2PEERRCVBADPACKETS:
 		*val_len = sizeof(int);
-		return (u_char *)&peer->recv_badpackets;
+		return (unsigned char *)&peer->recv_badpackets;
 
 	case RIP2PEERRCVBADROUTES:
 		*val_len = sizeof(int);
-		return (u_char *)&peer->recv_badroutes;
+		return (unsigned char *)&peer->recv_badroutes;
 
 	default:
 		return NULL;

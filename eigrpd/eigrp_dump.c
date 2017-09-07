@@ -117,11 +117,11 @@ void eigrp_ip_header_dump(struct ip *iph)
 	zlog_debug("ip_hl %u", iph->ip_hl);
 	zlog_debug("ip_tos %u", iph->ip_tos);
 	zlog_debug("ip_len %u", iph->ip_len);
-	zlog_debug("ip_id %u", (u_int32_t)iph->ip_id);
-	zlog_debug("ip_off %u", (u_int32_t)iph->ip_off);
+	zlog_debug("ip_id %u", (uint32_t)iph->ip_id);
+	zlog_debug("ip_off %u", (uint32_t)iph->ip_off);
 	zlog_debug("ip_ttl %u", iph->ip_ttl);
 	zlog_debug("ip_p %u", iph->ip_p);
-	zlog_debug("ip_sum 0x%x", (u_int32_t)iph->ip_sum);
+	zlog_debug("ip_sum 0x%x", (uint32_t)iph->ip_sum);
 	zlog_debug("ip_src %s", inet_ntoa(iph->ip_src));
 	zlog_debug("ip_dst %s", inet_ntoa(iph->ip_dst));
 }
@@ -156,7 +156,7 @@ const char *eigrp_if_name_string(struct eigrp_interface *ei)
 const char *eigrp_topology_ip_string(struct eigrp_prefix_entry *tn)
 {
 	static char buf[EIGRP_IF_STRING_MAXLEN] = "";
-	u_int32_t ifaddr;
+	uint32_t ifaddr;
 
 	ifaddr = ntohl(tn->destination->u.prefix4.s_addr);
 	snprintf(buf, EIGRP_IF_STRING_MAXLEN, "%u.%u.%u.%u",
@@ -169,7 +169,7 @@ const char *eigrp_topology_ip_string(struct eigrp_prefix_entry *tn)
 const char *eigrp_if_ip_string(struct eigrp_interface *ei)
 {
 	static char buf[EIGRP_IF_STRING_MAXLEN] = "";
-	u_int32_t ifaddr;
+	uint32_t ifaddr;
 
 	if (!ei)
 		return "inactive";
@@ -185,7 +185,7 @@ const char *eigrp_if_ip_string(struct eigrp_interface *ei)
 const char *eigrp_neigh_ip_string(struct eigrp_neighbor *nbr)
 {
 	static char buf[EIGRP_IF_STRING_MAXLEN] = "";
-	u_int32_t ifaddr;
+	uint32_t ifaddr;
 
 	ifaddr = ntohl(nbr->src.s_addr);
 	snprintf(buf, EIGRP_IF_STRING_MAXLEN, "%u.%u.%u.%u",

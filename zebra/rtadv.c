@@ -94,7 +94,7 @@ static int rtadv_increment_received(struct zebra_ns *zns, ifindex_t *ifindex)
 	return ret;
 }
 
-static int rtadv_recv_packet(struct zebra_ns *zns, int sock, u_char *buf,
+static int rtadv_recv_packet(struct zebra_ns *zns, int sock, unsigned char *buf,
 			     int buflen, struct sockaddr_in6 *from,
 			     ifindex_t *ifindex, int *hoplimit)
 {
@@ -163,10 +163,10 @@ static void rtadv_send_packet(int sock, struct interface *ifp)
 	int len = 0;
 	struct zebra_if *zif;
 	struct rtadv_prefix *rprefix;
-	u_char all_nodes_addr[] = {0xff, 0x02, 0, 0, 0, 0, 0, 0,
-				   0,    0,    0, 0, 0, 0, 0, 1};
+	unsigned char all_nodes_addr[] = {0xff, 0x02, 0, 0, 0, 0, 0, 0,
+					  0,    0,    0, 0, 0, 0, 0, 1};
 	struct listnode *node;
-	u_int16_t pkt_RouterLifetime;
+	uint16_t pkt_RouterLifetime;
 
 	/*
 	 * Allocate control message bufffer.  This is dynamic because
@@ -312,7 +312,7 @@ static void rtadv_send_packet(int sock, struct interface *ifp)
 
 #ifdef DEBUG
 		{
-			u_char buf[INET6_ADDRSTRLEN];
+			unsigned char buf[INET6_ADDRSTRLEN];
 
 			zlog_debug("DEBUG %s",
 				   inet_ntop(AF_INET6, &pinfo->nd_opt_pi_prefix,
@@ -443,7 +443,7 @@ static void rtadv_process_solicit(struct interface *ifp)
 	rtadv_send_packet(zns->rtadv.sock, ifp);
 }
 
-static void rtadv_process_advert(u_char *msg, unsigned int len,
+static void rtadv_process_advert(unsigned char *msg, unsigned int len,
 				 struct interface *ifp,
 				 struct sockaddr_in6 *addr)
 {
@@ -517,7 +517,7 @@ static void rtadv_process_advert(u_char *msg, unsigned int len,
 }
 
 
-static void rtadv_process_packet(u_char *buf, unsigned int len,
+static void rtadv_process_packet(unsigned char *buf, unsigned int len,
 				 ifindex_t ifindex, int hoplimit,
 				 struct sockaddr_in6 *from,
 				 struct zebra_ns *zns)
@@ -587,7 +587,7 @@ static int rtadv_read(struct thread *thread)
 {
 	int sock;
 	int len;
-	u_char buf[RTADV_MSG_SIZE];
+	unsigned char buf[RTADV_MSG_SIZE];
 	struct sockaddr_in6 from;
 	ifindex_t ifindex = 0;
 	int hoplimit = -1;

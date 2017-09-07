@@ -101,7 +101,7 @@ static void ospf6_interface_lsdb_hook_remove(struct ospf6_lsa *lsa)
 	ospf6_interface_lsdb_hook(lsa, ospf6_lsremove_to_spf_reason(lsa));
 }
 
-static u_char ospf6_default_iftype(struct interface *ifp)
+static unsigned char ospf6_default_iftype(struct interface *ifp)
 {
 	if (if_is_pointopoint(ifp))
 		return OSPF_IFTYPE_POINTOPOINT;
@@ -111,11 +111,11 @@ static u_char ospf6_default_iftype(struct interface *ifp)
 		return OSPF_IFTYPE_BROADCAST;
 }
 
-static u_int32_t ospf6_interface_get_cost(struct ospf6_interface *oi)
+static uint32_t ospf6_interface_get_cost(struct ospf6_interface *oi)
 {
 	/* If all else fails, use default OSPF cost */
-	u_int32_t cost;
-	u_int32_t bw, refbw;
+	uint32_t cost;
+	uint32_t bw, refbw;
 
 	bw = oi->interface->bandwidth ? oi->interface->bandwidth
 				      : OSPF6_INTERFACE_BANDWIDTH;
@@ -125,7 +125,7 @@ static u_int32_t ospf6_interface_get_cost(struct ospf6_interface *oi)
 	if (CHECK_FLAG(oi->flag, OSPF6_INTERFACE_NOAUTOCOST))
 		cost = oi->cost;
 	else {
-		cost = (u_int32_t)((double)refbw / (double)bw + (double)0.5);
+		cost = (uint32_t)((double)refbw / (double)bw + (double)0.5);
 		if (cost < 1)
 			cost = 1;
 		else if (cost > UINT32_MAX)
@@ -137,7 +137,7 @@ static u_int32_t ospf6_interface_get_cost(struct ospf6_interface *oi)
 
 static void ospf6_interface_recalculate_cost(struct ospf6_interface *oi)
 {
-	u_int32_t newcost;
+	uint32_t newcost;
 
 	newcost = ospf6_interface_get_cost(oi);
 	if (newcost == oi->cost)
@@ -479,10 +479,10 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 	OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(oi->area);
 }
 
-static void ospf6_interface_state_change(u_char next_state,
+static void ospf6_interface_state_change(unsigned char next_state,
 					 struct ospf6_interface *oi)
 {
-	u_char prev_state;
+	unsigned char prev_state;
 
 	prev_state = oi->state;
 	oi->state = next_state;
@@ -594,12 +594,12 @@ static struct ospf6_neighbor *better_drouter(struct ospf6_neighbor *a,
 	return a;
 }
 
-static u_char dr_election(struct ospf6_interface *oi)
+static unsigned char dr_election(struct ospf6_interface *oi)
 {
 	struct listnode *node, *nnode;
 	struct ospf6_neighbor *on, *drouter, *bdrouter, myself;
 	struct ospf6_neighbor *best_drouter, *best_bdrouter;
-	u_char next_state = 0;
+	unsigned char next_state = 0;
 
 	drouter = bdrouter = NULL;
 	best_drouter = best_bdrouter = NULL;
@@ -1240,7 +1240,7 @@ DEFUN (auto_cost_reference_bandwidth,
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
 	struct listnode *i, *j;
-	u_int32_t refbw;
+	uint32_t refbw;
 
 	refbw = strtol(argv[idx_number]->arg, NULL, 10);
 	if (refbw < 1 || refbw > 4294967) {

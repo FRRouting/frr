@@ -25,7 +25,7 @@
 #include "openbsd-tree.h"
 #include "linklist.h"
 
-typedef u_int16_t ns_id_t;
+typedef uint16_t ns_id_t;
 
 /* The default NS ID */
 #define NS_DEFAULT 0

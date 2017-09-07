@@ -123,8 +123,8 @@
 static vlanid_t filter_vlan = 0;
 
 struct gw_family_t {
-	u_int16_t filler;
-	u_int16_t family;
+	uint16_t filler;
+	uint16_t family;
 	union g_addr gate;
 };
 
@@ -242,7 +242,7 @@ static inline int proto2zebra(int proto, int family)
 /*
 Pending: create an efficient table_id (in a tree/hash) based lookup)
  */
-static vrf_id_t vrf_lookup_by_table(u_int32_t table_id)
+static vrf_id_t vrf_lookup_by_table(uint32_t table_id)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
@@ -266,7 +266,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 	int len;
 	struct rtmsg *rtm;
 	struct rtattr *tb[RTA_MAX + 1];
-	u_char flags = 0;
+	unsigned char flags = 0;
 	struct prefix p;
 	struct prefix_ipv6 src_p;
 	vrf_id_t vrf_id = VRF_DEFAULT;
@@ -277,7 +277,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 	int index = 0;
 	int table;
 	int metric = 0;
-	u_int32_t mtu = 0;
+	uint32_t mtu = 0;
 
 	void *dest = NULL;
 	void *gate = NULL;
@@ -378,7 +378,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 				     RTA_PAYLOAD(tb[RTA_METRICS]));
 
 		if (mxrta[RTAX_MTU])
-			mtu = *(u_int32_t *)RTA_DATA(mxrta[RTAX_MTU]);
+			mtu = *(uint32_t *)RTA_DATA(mxrta[RTAX_MTU]);
 	}
 
 	if (rtm->rtm_family == AF_INET) {
@@ -749,8 +749,8 @@ int netlink_route_read(struct zebra_ns *zns)
 	return 0;
 }
 
-static void _netlink_route_nl_add_gateway_info(u_char route_family,
-					       u_char gw_family,
+static void _netlink_route_nl_add_gateway_info(unsigned char route_family,
+					       unsigned char gw_family,
 					       struct nlmsghdr *nlmsg,
 					       size_t req_size, int bytelen,
 					       struct nexthop *nexthop)
@@ -775,8 +775,8 @@ static void _netlink_route_nl_add_gateway_info(u_char route_family,
 	}
 }
 
-static void _netlink_route_rta_add_gateway_info(u_char route_family,
-						u_char gw_family,
+static void _netlink_route_rta_add_gateway_info(unsigned char route_family,
+						unsigned char gw_family,
 						struct rtattr *rta,
 						struct rtnexthop *rtnh,
 						size_t req_size, int bytelen,
@@ -843,7 +843,7 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 
 	if (nh_label && nh_label->num_labels) {
 		int i, num_labels = 0;
-		u_int32_t bos;
+		uint32_t bos;
 		char label_buf1[20];
 
 		for (i = 0; i < nh_label->num_labels; i++) {
@@ -871,10 +871,10 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 					  num_labels * sizeof(mpls_lse_t));
 			else {
 				struct rtattr *nest;
-				u_int16_t encap = LWTUNNEL_ENCAP_MPLS;
+				uint16_t encap = LWTUNNEL_ENCAP_MPLS;
 
 				addattr_l(nlmsg, req_size, RTA_ENCAP_TYPE,
-					  &encap, sizeof(u_int16_t));
+					  &encap, sizeof(uint16_t));
 				nest = addattr_nest(nlmsg, req_size, RTA_ENCAP);
 				addattr_l(nlmsg, req_size, MPLS_IPTUNNEL_DST,
 					  &out_lse,
@@ -1047,7 +1047,7 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 
 	if (nh_label && nh_label->num_labels) {
 		int i, num_labels = 0;
-		u_int32_t bos;
+		uint32_t bos;
 		char label_buf1[20];
 
 		for (i = 0; i < nh_label->num_labels; i++) {
@@ -1078,12 +1078,12 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 					num_labels * sizeof(mpls_lse_t));
 			} else {
 				struct rtattr *nest;
-				u_int16_t encap = LWTUNNEL_ENCAP_MPLS;
+				uint16_t encap = LWTUNNEL_ENCAP_MPLS;
 				int len = rta->rta_len;
 
 				rta_addattr_l(rta, NL_PKT_BUF_SIZE,
 					      RTA_ENCAP_TYPE, &encap,
-					      sizeof(u_int16_t));
+					      sizeof(uint16_t));
 				nest = rta_nest(rta, NL_PKT_BUF_SIZE,
 						RTA_ENCAP);
 				rta_addattr_l(rta, NL_PKT_BUF_SIZE,
@@ -1192,7 +1192,7 @@ static inline void _netlink_mpls_build_singlepath(const char *routedesc,
 						  size_t req_size, int cmd)
 {
 	int bytelen;
-	u_char family;
+	unsigned char family;
 
 	family = NHLFE_FAMILY(nhlfe);
 	bytelen = (family == AF_INET ? 4 : 16);
@@ -1207,7 +1207,7 @@ _netlink_mpls_build_multipath(const char *routedesc, zebra_nhlfe_t *nhlfe,
 			      struct rtmsg *rtmsg, union g_addr **src)
 {
 	int bytelen;
-	u_char family;
+	unsigned char family;
 
 	family = NHLFE_FAMILY(nhlfe);
 	bytelen = (family == AF_INET ? 4 : 16);
@@ -1240,7 +1240,7 @@ static void _netlink_route_debug(int cmd, struct prefix *p,
 	}
 }
 
-static void _netlink_mpls_debug(int cmd, u_int32_t label, const char *routedesc)
+static void _netlink_mpls_debug(int cmd, uint32_t label, const char *routedesc)
 {
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug("netlink_mpls_multipath() (%s): %s %u/20", routedesc,
@@ -1366,7 +1366,7 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 	if (re->mtu || re->nexthop_mtu) {
 		char buf[NL_PKT_BUF_SIZE];
 		struct rtattr *rta = (void *)buf;
-		u_int32_t mtu = re->mtu;
+		uint32_t mtu = re->mtu;
 		if (!mtu || (re->nexthop_mtu && re->nexthop_mtu < mtu))
 			mtu = re->nexthop_mtu;
 		rta->rta_type = RTA_METRICS;
@@ -1651,7 +1651,7 @@ static int netlink_vxlan_flood_list_update(struct interface *ifp,
 		struct ndmsg ndm;
 		char buf[256];
 	} req;
-	u_char dst_mac[6] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
+	unsigned char dst_mac[6] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
 
 	memset(&req.n, 0, sizeof(req.n));
 	memset(&req.ndm, 0, sizeof(req.ndm));
@@ -1723,7 +1723,7 @@ static int netlink_macfdb_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	char buf[ETHER_ADDR_STRLEN];
 	char vid_buf[20];
 	char dst_buf[30];
-	u_char sticky = 0;
+	unsigned char sticky = 0;
 
 	ndm = NLMSG_DATA(h);
 
@@ -1786,7 +1786,7 @@ static int netlink_macfdb_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 
 	if ((NDA_VLAN <= NDA_MAX) && tb[NDA_VLAN]) {
 		vid_present = 1;
-		vid = *(u_int16_t *)RTA_DATA(tb[NDA_VLAN]);
+		vid = *(uint16_t *)RTA_DATA(tb[NDA_VLAN]);
 		sprintf(vid_buf, " VLAN %u", vid);
 	}
 
@@ -1949,7 +1949,7 @@ int netlink_macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
 
 static int netlink_macfdb_update(struct interface *ifp, vlanid_t vid,
 				 struct ethaddr *mac, struct in_addr vtep_ip,
-				 int local, int cmd, u_char sticky)
+				 int local, int cmd, unsigned char sticky)
 {
 	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
 	struct {
@@ -2038,7 +2038,7 @@ static int netlink_ipneigh_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	char buf[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
 	int mac_present = 0;
-	u_char ext_learned;
+	unsigned char ext_learned;
 
 	ndm = NLMSG_DATA(h);
 
@@ -2265,7 +2265,7 @@ int netlink_neigh_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 }
 
 static int netlink_neigh_update2(struct interface *ifp, struct ipaddr *ip,
-				 struct ethaddr *mac, u_int32_t flags, int cmd)
+				 struct ethaddr *mac, uint32_t flags, int cmd)
 {
 	struct {
 		struct nlmsghdr n;
@@ -2311,7 +2311,7 @@ static int netlink_neigh_update2(struct interface *ifp, struct ipaddr *ip,
 }
 
 int kernel_add_mac(struct interface *ifp, vlanid_t vid, struct ethaddr *mac,
-		   struct in_addr vtep_ip, u_char sticky)
+		   struct in_addr vtep_ip, unsigned char sticky)
 {
 	return netlink_macfdb_update(ifp, vid, mac, vtep_ip, 0, RTM_NEWNEIGH,
 				     sticky);

@@ -136,7 +136,7 @@ int ospf_if_drop_alldrouters(struct ospf *top, struct prefix *p,
 
 int ospf_if_ipmulticast(struct ospf *top, struct prefix *p, ifindex_t ifindex)
 {
-	u_char val;
+	unsigned char val;
 	int ret, len;
 
 	/* Prevent receiving self-origined multicast packets. */

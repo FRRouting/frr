@@ -208,7 +208,7 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 	struct prefix_ipv6 *ipv6;
 
 	if (connected->address->family == AF_INET) {
-		u_int32_t addr = connected->address->u.prefix4.s_addr;
+		uint32_t addr = connected->address->u.prefix4.s_addr;
 		addr = ntohl(addr);
 		if (IPV4_NET0(addr) || IPV4_NET127(addr) || IN_CLASSD(addr)
 		    || IPV4_LINKLOCAL(addr))
@@ -373,9 +373,9 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 	return;
 }
 
-static u_char isis_circuit_id_gen(struct interface *ifp)
+static unsigned char isis_circuit_id_gen(struct interface *ifp)
 {
-	u_char id = 0;
+	unsigned char id = 0;
 	char ifname[16];
 	unsigned int i;
 	int start = -1, end = -1;
@@ -403,12 +403,12 @@ static u_char isis_circuit_id_gen(struct interface *ifp)
 	if ((start >= 0) && (end >= start) && (end - start) < 16) {
 		memset(ifname, 0, 16);
 		strncpy(ifname, &ifp->name[start], end - start);
-		id = (u_char)atoi(ifname);
+		id = (unsigned char)atoi(ifname);
 	}
 
 	/* Try to be unique. */
 	if (!id)
-		id = (u_char)((ifp->ifindex & 0xff) | 0x80);
+		id = (unsigned char)((ifp->ifindex & 0xff) | 0x80);
 
 	return id;
 }
@@ -1237,7 +1237,8 @@ ferr_r isis_circuit_passwd_unset(struct isis_circuit *circuit)
 }
 
 static int isis_circuit_passwd_set(struct isis_circuit *circuit,
-				   u_char passwd_type, const char *passwd)
+				   unsigned char passwd_type,
+				   const char *passwd)
 {
 	int len;
 

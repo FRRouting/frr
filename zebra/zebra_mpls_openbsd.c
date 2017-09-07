@@ -35,7 +35,7 @@
 extern struct zebra_privs_t zserv_privs;
 
 struct {
-	u_int32_t rtseq;
+	uint32_t rtseq;
 	int fd;
 	int ioctl_fd;
 } kr_state;

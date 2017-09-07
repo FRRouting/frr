@@ -28,7 +28,7 @@
 struct ospf6_lsdb {
 	void *data; /* data structure that holds this lsdb */
 	struct route_table *table;
-	u_int32_t count;
+	uint32_t count;
 	void (*hook_add)(struct ospf6_lsa *);
 	void (*hook_remove)(struct ospf6_lsa *);
 };
@@ -37,11 +37,11 @@ struct ospf6_lsdb {
 extern struct ospf6_lsdb *ospf6_lsdb_create(void *data);
 extern void ospf6_lsdb_delete(struct ospf6_lsdb *lsdb);
 
-extern struct ospf6_lsa *ospf6_lsdb_lookup(u_int16_t type, u_int32_t id,
-					   u_int32_t adv_router,
+extern struct ospf6_lsa *ospf6_lsdb_lookup(uint16_t type, uint32_t id,
+					   uint32_t adv_router,
 					   struct ospf6_lsdb *lsdb);
-extern struct ospf6_lsa *ospf6_lsdb_lookup_next(u_int16_t type, u_int32_t id,
-						u_int32_t adv_router,
+extern struct ospf6_lsa *ospf6_lsdb_lookup_next(uint16_t type, uint32_t id,
+						uint32_t adv_router,
 						struct ospf6_lsdb *lsdb);
 
 extern void ospf6_lsdb_add(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb);
@@ -83,14 +83,14 @@ enum ospf_lsdb_show_level {
 };
 
 extern void ospf6_lsdb_show(struct vty *vty, enum ospf_lsdb_show_level level,
-			    u_int16_t *type, u_int32_t *id,
-			    u_int32_t *adv_router, struct ospf6_lsdb *lsdb);
+			    uint16_t *type, uint32_t *id, uint32_t *adv_router,
+			    struct ospf6_lsdb *lsdb);
 
-extern u_int32_t ospf6_new_ls_id(u_int16_t type, u_int32_t adv_router,
-				 struct ospf6_lsdb *lsdb);
-extern u_int32_t ospf6_new_ls_seqnum(u_int16_t type, u_int32_t id,
-				     u_int32_t adv_router,
-				     struct ospf6_lsdb *lsdb);
+extern uint32_t ospf6_new_ls_id(uint16_t type, uint32_t adv_router,
+				struct ospf6_lsdb *lsdb);
+extern uint32_t ospf6_new_ls_seqnum(uint16_t type, uint32_t id,
+				    uint32_t adv_router,
+				    struct ospf6_lsdb *lsdb);
 extern int ospf6_lsdb_maxage_remover(struct ospf6_lsdb *lsdb);
 
 #endif /* OSPF6_LSDB_H */

@@ -635,8 +635,8 @@ DEFUN (isis_hello_interval,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	circuit->hello_interval[0] = (u_int16_t)interval;
-	circuit->hello_interval[1] = (u_int16_t)interval;
+	circuit->hello_interval[0] = (uint16_t)interval;
+	circuit->hello_interval[1] = (uint16_t)interval;
 
 	return CMD_SUCCESS;
 }
@@ -682,7 +682,7 @@ DEFUN (isis_hello_interval_l1,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	circuit->hello_interval[0] = (u_int16_t)interval;
+	circuit->hello_interval[0] = (uint16_t)interval;
 
 	return CMD_SUCCESS;
 }
@@ -728,7 +728,7 @@ DEFUN (isis_hello_interval_l2,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	circuit->hello_interval[1] = (u_int16_t)interval;
+	circuit->hello_interval[1] = (uint16_t)interval;
 
 	return CMD_SUCCESS;
 }
@@ -774,8 +774,8 @@ DEFUN (isis_hello_multiplier,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	circuit->hello_multiplier[0] = (u_int16_t)mult;
-	circuit->hello_multiplier[1] = (u_int16_t)mult;
+	circuit->hello_multiplier[0] = (uint16_t)mult;
+	circuit->hello_multiplier[1] = (uint16_t)mult;
 
 	return CMD_SUCCESS;
 }
@@ -822,7 +822,7 @@ DEFUN (isis_hello_multiplier_l1,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	circuit->hello_multiplier[0] = (u_int16_t)mult;
+	circuit->hello_multiplier[0] = (uint16_t)mult;
 
 	return CMD_SUCCESS;
 }
@@ -869,7 +869,7 @@ DEFUN (isis_hello_multiplier_l2,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	circuit->hello_multiplier[1] = (u_int16_t)mult;
+	circuit->hello_multiplier[1] = (uint16_t)mult;
 
 	return CMD_SUCCESS;
 }
@@ -947,8 +947,8 @@ DEFUN (csnp_interval,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	circuit->csnp_interval[0] = (u_int16_t)interval;
-	circuit->csnp_interval[1] = (u_int16_t)interval;
+	circuit->csnp_interval[0] = (uint16_t)interval;
+	circuit->csnp_interval[1] = (uint16_t)interval;
 
 	return CMD_SUCCESS;
 }
@@ -994,7 +994,7 @@ DEFUN (csnp_interval_l1,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	circuit->csnp_interval[0] = (u_int16_t)interval;
+	circuit->csnp_interval[0] = (uint16_t)interval;
 
 	return CMD_SUCCESS;
 }
@@ -1040,7 +1040,7 @@ DEFUN (csnp_interval_l2,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	circuit->csnp_interval[1] = (u_int16_t)interval;
+	circuit->csnp_interval[1] = (uint16_t)interval;
 
 	return CMD_SUCCESS;
 }
@@ -1085,8 +1085,8 @@ DEFUN (psnp_interval,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	circuit->psnp_interval[0] = (u_int16_t)interval;
-	circuit->psnp_interval[1] = (u_int16_t)interval;
+	circuit->psnp_interval[0] = (uint16_t)interval;
+	circuit->psnp_interval[1] = (uint16_t)interval;
 
 	return CMD_SUCCESS;
 }
@@ -1132,7 +1132,7 @@ DEFUN (psnp_interval_l1,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	circuit->psnp_interval[0] = (u_int16_t)interval;
+	circuit->psnp_interval[0] = (uint16_t)interval;
 
 	return CMD_SUCCESS;
 }
@@ -1178,7 +1178,7 @@ DEFUN (psnp_interval_l2,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	circuit->psnp_interval[1] = (u_int16_t)interval;
+	circuit->psnp_interval[1] = (uint16_t)interval;
 
 	return CMD_SUCCESS;
 }
@@ -1603,7 +1603,7 @@ DEFUN (spf_interval,
 {
 	int idx_number = 1;
 	VTY_DECLVAR_CONTEXT(isis_area, area);
-	u_int16_t interval;
+	uint16_t interval;
 
 	interval = atoi(argv[idx_number]->arg);
 	area->min_spf_interval[0] = interval;
@@ -1640,7 +1640,7 @@ DEFUN (spf_interval_l1,
 {
 	int idx_number = 2;
 	VTY_DECLVAR_CONTEXT(isis_area, area);
-	u_int16_t interval;
+	uint16_t interval;
 
 	interval = atoi(argv[idx_number]->arg);
 	area->min_spf_interval[0] = interval;
@@ -1672,7 +1672,7 @@ DEFUN (spf_interval_l2,
 {
 	int idx_number = 2;
 	VTY_DECLVAR_CONTEXT(isis_area, area);
-	u_int16_t interval;
+	uint16_t interval;
 
 	interval = atoi(argv[idx_number]->arg);
 	area->min_spf_interval[1] = interval;
@@ -1919,8 +1919,9 @@ DEFUN (no_lsp_refresh_interval,
 
 static int area_passwd_set(struct vty *vty, int level,
 			   int (*type_set)(struct isis_area *area, int level,
-					   const char *passwd, u_char snp_auth),
-			   const char *passwd, u_char snp_auth)
+					   const char *passwd,
+					   unsigned char snp_auth),
+			   const char *passwd, unsigned char snp_auth)
 {
 	VTY_DECLVAR_CONTEXT(isis_area, area);
 
@@ -1948,7 +1949,7 @@ DEFUN (area_passwd_md5,
 	int idx_password = 0;
 	int idx_word = 2;
 	int idx_type = 5;
-	u_char snp_auth = 0;
+	unsigned char snp_auth = 0;
 	int level = strmatch(argv[idx_password]->text, "domain-password")
 			    ? IS_LEVEL_2
 			    : IS_LEVEL_1;
@@ -1991,7 +1992,7 @@ DEFUN (area_passwd_clear,
 	int idx_password = 0;
 	int idx_word = 2;
 	int idx_type = 5;
-	u_char snp_auth = 0;
+	unsigned char snp_auth = 0;
 	int level = strmatch(argv[idx_password]->text, "domain-password")
 			    ? IS_LEVEL_2
 			    : IS_LEVEL_1;

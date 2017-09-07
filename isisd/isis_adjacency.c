@@ -50,7 +50,7 @@
 
 extern struct isis *isis;
 
-static struct isis_adjacency *adj_alloc(const u_char *id)
+static struct isis_adjacency *adj_alloc(const unsigned char *id)
 {
 	struct isis_adjacency *adj;
 
@@ -60,8 +60,9 @@ static struct isis_adjacency *adj_alloc(const u_char *id)
 	return adj;
 }
 
-struct isis_adjacency *isis_new_adj(const u_char *id, const u_char *snpa,
-				    int level, struct isis_circuit *circuit)
+struct isis_adjacency *isis_new_adj(const unsigned char *id,
+				    const unsigned char *snpa, int level,
+				    struct isis_circuit *circuit)
 {
 	struct isis_adjacency *adj;
 	int i;
@@ -94,7 +95,8 @@ struct isis_adjacency *isis_new_adj(const u_char *id, const u_char *snpa,
 	return adj;
 }
 
-struct isis_adjacency *isis_adj_lookup(const u_char *sysid, struct list *adjdb)
+struct isis_adjacency *isis_adj_lookup(const unsigned char *sysid,
+				       struct list *adjdb)
 {
 	struct isis_adjacency *adj;
 	struct listnode *node;
@@ -106,7 +108,7 @@ struct isis_adjacency *isis_adj_lookup(const u_char *sysid, struct list *adjdb)
 	return NULL;
 }
 
-struct isis_adjacency *isis_adj_lookup_snpa(const u_char *ssnpa,
+struct isis_adjacency *isis_adj_lookup_snpa(const unsigned char *ssnpa,
 					    struct list *adjdb)
 {
 	struct listnode *node;

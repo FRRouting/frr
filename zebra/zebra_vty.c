@@ -48,7 +48,7 @@
 extern int allow_delete;
 
 static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
-			    safi_t safi, bool use_fib, u_char use_json,
+			    safi_t safi, bool use_fib, unsigned char use_json,
 			    route_tag_t tag, struct prefix *longer_prefix_p,
 			    bool supernets_only, int type,
 			    u_short ospf_instance_id);
@@ -68,7 +68,7 @@ static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
 			      const char *label_str)
 {
 	int ret;
-	u_char distance;
+	unsigned char distance;
 	struct prefix p, src;
 	struct prefix_ipv6 *src_p = NULL;
 	union g_addr gate;
@@ -77,7 +77,7 @@ static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
 	enum static_blackhole_type bh_type = 0;
 	route_tag_t tag = 0;
 	struct zebra_vrf *zvrf;
-	u_char type;
+	unsigned char type;
 	struct static_nh_label snh_label;
 
 	ret = str2prefix(dest_str, &p);
@@ -895,7 +895,7 @@ static bool use_fib(struct cmd_token *token)
 }
 
 static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
-			    safi_t safi, bool use_fib, u_char use_json,
+			    safi_t safi, bool use_fib, unsigned char use_json,
 			    route_tag_t tag, struct prefix *longer_prefix_p,
 			    bool supernets_only, int type,
 			    u_short ospf_instance_id)
@@ -908,7 +908,7 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 	char buf[BUFSIZ];
 	json_object *json = NULL;
 	json_object *json_prefix = NULL;
-	u_int32_t addr;
+	uint32_t addr;
 
 	if (!(zvrf = zebra_vrf_lookup_by_name(vrf_name))) {
 		if (use_json)
@@ -1364,10 +1364,10 @@ static void vty_show_ip_route_summary(struct vty *vty,
 	struct route_entry *re;
 #define ZEBRA_ROUTE_IBGP  ZEBRA_ROUTE_MAX
 #define ZEBRA_ROUTE_TOTAL (ZEBRA_ROUTE_IBGP + 1)
-	u_int32_t rib_cnt[ZEBRA_ROUTE_TOTAL + 1];
-	u_int32_t fib_cnt[ZEBRA_ROUTE_TOTAL + 1];
-	u_int32_t i;
-	u_int32_t is_ibgp;
+	uint32_t rib_cnt[ZEBRA_ROUTE_TOTAL + 1];
+	uint32_t fib_cnt[ZEBRA_ROUTE_TOTAL + 1];
+	uint32_t i;
+	uint32_t is_ibgp;
 
 	memset(&rib_cnt, 0, sizeof(rib_cnt));
 	memset(&fib_cnt, 0, sizeof(fib_cnt));
@@ -1434,9 +1434,9 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 	struct nexthop *nexthop;
 #define ZEBRA_ROUTE_IBGP  ZEBRA_ROUTE_MAX
 #define ZEBRA_ROUTE_TOTAL (ZEBRA_ROUTE_IBGP + 1)
-	u_int32_t rib_cnt[ZEBRA_ROUTE_TOTAL + 1];
-	u_int32_t fib_cnt[ZEBRA_ROUTE_TOTAL + 1];
-	u_int32_t i;
+	uint32_t rib_cnt[ZEBRA_ROUTE_TOTAL + 1];
+	uint32_t fib_cnt[ZEBRA_ROUTE_TOTAL + 1];
+	uint32_t i;
 	int cnt;
 
 	memset(&rib_cnt, 0, sizeof(rib_cnt));
@@ -2307,7 +2307,7 @@ DEFUN (show_evpn_vni,
        JSON_STR)
 {
 	struct zebra_vrf *zvrf;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	zebra_vxlan_print_vnis(vty, zvrf, uj);
@@ -2325,7 +2325,7 @@ DEFUN (show_evpn_vni_vni,
 {
 	struct zebra_vrf *zvrf;
 	vni_t vni;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	vni = strtoul(argv[3]->arg, NULL, 10);
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
@@ -2345,7 +2345,7 @@ DEFUN (show_evpn_mac_vni,
 {
 	struct zebra_vrf *zvrf;
 	vni_t vni;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	vni = strtoul(argv[4]->arg, NULL, 10);
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
@@ -2364,7 +2364,7 @@ DEFUN (show_evpn_mac_vni_all,
        JSON_STR)
 {
 	struct zebra_vrf *zvrf;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	zebra_vxlan_print_macs_all_vni(vty, zvrf, uj);
@@ -2385,7 +2385,7 @@ DEFUN (show_evpn_mac_vni_all_vtep,
 {
 	struct zebra_vrf *zvrf;
 	struct in_addr vtep_ip;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	if (!inet_aton(argv[6]->arg, &vtep_ip)) {
 		if (!uj)
@@ -2439,7 +2439,7 @@ DEFUN (show_evpn_mac_vni_vtep,
 	struct zebra_vrf *zvrf;
 	vni_t vni;
 	struct in_addr vtep_ip;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	vni = strtoul(argv[4]->arg, NULL, 10);
 	if (!inet_aton(argv[6]->arg, &vtep_ip)) {
@@ -2465,7 +2465,7 @@ DEFUN (show_evpn_neigh_vni,
 {
 	struct zebra_vrf *zvrf;
 	vni_t vni;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	vni = strtoul(argv[4]->arg, NULL, 10);
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
@@ -2484,7 +2484,7 @@ DEFUN (show_evpn_neigh_vni_all,
        JSON_STR)
 {
 	struct zebra_vrf *zvrf;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	zebra_vxlan_print_neigh_all_vni(vty, zvrf, uj);
@@ -2506,7 +2506,7 @@ DEFUN (show_evpn_neigh_vni_neigh,
 	struct zebra_vrf *zvrf;
 	vni_t vni;
 	struct ipaddr ip;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	vni = strtoul(argv[4]->arg, NULL, 10);
 	if (str2ipaddr(argv[6]->arg, &ip) != 0) {
@@ -2534,7 +2534,7 @@ DEFUN (show_evpn_neigh_vni_vtep,
 	struct zebra_vrf *zvrf;
 	vni_t vni;
 	struct in_addr vtep_ip;
-	u_char uj = use_json(argc, argv);
+	unsigned char uj = use_json(argc, argv);
 
 	vni = strtoul(argv[4]->arg, NULL, 10);
 	if (!inet_aton(argv[6]->arg, &vtep_ip)) {
@@ -2572,7 +2572,7 @@ DEFUN (ip_zebra_import_table_distance,
        "route-map for filtering\n"
        "route-map name\n")
 {
-	u_int32_t table_id = 0;
+	uint32_t table_id = 0;
 
 	table_id = strtoul(argv[2]->arg, NULL, 10);
 	int distance = ZEBRA_TABLE_DISTANCE_DEFAULT;
@@ -2622,7 +2622,7 @@ DEFUN (no_ip_zebra_import_table,
        "route-map for filtering\n"
        "route-map name\n")
 {
-	u_int32_t table_id = 0;
+	uint32_t table_id = 0;
 	table_id = strtoul(argv[3]->arg, NULL, 10);
 
 	if (!is_zebra_valid_kernel_table(table_id)) {

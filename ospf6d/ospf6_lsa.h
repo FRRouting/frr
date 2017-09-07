@@ -78,13 +78,13 @@
 /* LSA Header */
 #define OSPF6_LSA_HEADER_SIZE                 20U
 struct ospf6_lsa_header {
-	u_int16_t age;	/* LS age */
-	u_int16_t type;       /* LS type */
-	u_int32_t id;	 /* Link State ID */
-	u_int32_t adv_router; /* Advertising Router */
-	u_int32_t seqnum;     /* LS sequence number */
-	u_int16_t checksum;   /* LS checksum */
-	u_int16_t length;     /* LSA length */
+	uint16_t age;	/* LS age */
+	uint16_t type;       /* LS type */
+	uint32_t id;	 /* Link State ID */
+	uint32_t adv_router; /* Advertising Router */
+	uint32_t seqnum;     /* LS sequence number */
+	uint16_t checksum;   /* LS checksum */
+	uint16_t length;     /* LSA length */
 };
 
 #define OSPF6_LSA_HEADER_END(h) ((caddr_t)(h) + sizeof(struct ospf6_lsa_header))
@@ -137,13 +137,13 @@ struct ospf6_lsa {
 #define OSPF6_LSA_SEQWRAPPED 0x20
 
 struct ospf6_lsa_handler {
-	u_int16_t type; /* host byte order */
+	uint16_t type; /* host byte order */
 	const char *name;
 	const char *short_name;
 	int (*show)(struct vty *, struct ospf6_lsa *);
 	char *(*get_prefix_str)(struct ospf6_lsa *, char *buf, int buflen,
 				int pos);
-	u_char debug;
+	unsigned char debug;
 };
 
 extern struct ospf6_lsa_handler unknown_handler;
@@ -201,13 +201,13 @@ extern vector ospf6_lsa_handler_vector;
 
 
 /* Function Prototypes */
-extern const char *ospf6_lstype_name(u_int16_t type);
-extern const char *ospf6_lstype_short_name(u_int16_t type);
-extern u_char ospf6_lstype_debug(u_int16_t type);
+extern const char *ospf6_lstype_name(uint16_t type);
+extern const char *ospf6_lstype_short_name(uint16_t type);
+extern unsigned char ospf6_lstype_debug(uint16_t type);
 extern int ospf6_lsa_is_differ(struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);
 extern int ospf6_lsa_is_changed(struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);
-extern u_int16_t ospf6_lsa_age_current(struct ospf6_lsa *);
-extern void ospf6_lsa_age_update_to_send(struct ospf6_lsa *, u_int32_t);
+extern uint16_t ospf6_lsa_age_current(struct ospf6_lsa *);
+extern void ospf6_lsa_age_update_to_send(struct ospf6_lsa *, uint32_t);
 extern void ospf6_lsa_premature_aging(struct ospf6_lsa *);
 extern int ospf6_lsa_compare(struct ospf6_lsa *, struct ospf6_lsa *);
 
@@ -234,11 +234,11 @@ extern int ospf6_lsa_refresh(struct thread *);
 
 extern unsigned short ospf6_lsa_checksum(struct ospf6_lsa_header *);
 extern int ospf6_lsa_checksum_valid(struct ospf6_lsa_header *);
-extern int ospf6_lsa_prohibited_duration(u_int16_t type, u_int32_t id,
-					 u_int32_t adv_router, void *scope);
+extern int ospf6_lsa_prohibited_duration(uint16_t type, uint32_t id,
+					 uint32_t adv_router, void *scope);
 
 extern void ospf6_install_lsa_handler(struct ospf6_lsa_handler *handler);
-extern struct ospf6_lsa_handler *ospf6_get_lsa_handler(u_int16_t type);
+extern struct ospf6_lsa_handler *ospf6_get_lsa_handler(uint16_t type);
 
 extern void ospf6_lsa_init(void);
 extern void ospf6_lsa_terminate(void);

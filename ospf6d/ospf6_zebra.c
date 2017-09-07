@@ -62,7 +62,7 @@ static int ospf6_router_id_update_zebra(int command, struct zclient *zclient,
 		return 0;
 
 	if (o->router_id == 0)
-		o->router_id = (u_int32_t)router_id_zebra.s_addr;
+		o->router_id = (uint32_t)router_id_zebra.s_addr;
 
 	return 0;
 }
@@ -460,7 +460,7 @@ int ospf6_distance_set(struct vty *vty, struct ospf6 *o,
 {
 	int ret;
 	struct prefix_ipv6 p;
-	u_char distance;
+	unsigned char distance;
 	struct route_node *rn;
 	struct ospf6_distance *odistance;
 
@@ -545,7 +545,8 @@ void ospf6_distance_reset(struct ospf6 *o)
 		}
 }
 
-u_char ospf6_distance_apply(struct prefix_ipv6 *p, struct ospf6_route * or)
+unsigned char ospf6_distance_apply(struct prefix_ipv6 *p,
+				   struct ospf6_route * or)
 {
 	struct ospf6 *o;
 

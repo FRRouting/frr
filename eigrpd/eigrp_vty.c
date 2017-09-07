@@ -600,7 +600,7 @@ DEFUN (eigrp_if_delay,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct eigrp *eigrp;
-	u_int32_t delay;
+	uint32_t delay;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
@@ -648,7 +648,7 @@ DEFUN (eigrp_if_bandwidth,
        "Bandwidth in kilobits\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	u_int32_t bandwidth;
+	uint32_t bandwidth;
 	struct eigrp *eigrp;
 
 	eigrp = eigrp_lookup();
@@ -697,7 +697,7 @@ DEFUN (eigrp_if_ip_hellointerval,
        "Seconds between hello transmissions\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	u_int32_t hello;
+	uint32_t hello;
 	struct eigrp *eigrp;
 
 	eigrp = eigrp_lookup();
@@ -756,7 +756,7 @@ DEFUN (eigrp_if_ip_holdinterval,
        "Seconds before neighbor is considered down\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	u_int32_t hold;
+	uint32_t hold;
 	struct eigrp *eigrp;
 
 	eigrp = eigrp_lookup();
@@ -782,7 +782,7 @@ DEFUN (eigrp_ip_summary_address,
        "Summary <network>/<length>, e.g. 192.168.0.0/16\n")
 {
 	// VTY_DECLVAR_CONTEXT(interface, ifp);
-	// u_int32_t AS;
+	// uint32_t AS;
 	struct eigrp *eigrp;
 
 	eigrp = eigrp_lookup();
@@ -809,7 +809,7 @@ DEFUN (no_eigrp_ip_summary_address,
        "Summary <network>/<length>, e.g. 192.168.0.0/16\n")
 {
 	// VTY_DECLVAR_CONTEXT(interface, ifp);
-	// u_int32_t AS;
+	// uint32_t AS;
 	struct eigrp *eigrp;
 
 	eigrp = eigrp_lookup();
@@ -1054,7 +1054,7 @@ DEFUN (eigrp_variance,
        "Metric variance multiplier\n")
 {
 	struct eigrp *eigrp;
-	u_char variance;
+	unsigned char variance;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
@@ -1098,7 +1098,7 @@ DEFUN (eigrp_maximum_paths,
        "Number of paths\n")
 {
 	struct eigrp *eigrp;
-	u_char max;
+	unsigned char max;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {

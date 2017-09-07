@@ -67,9 +67,9 @@ struct isis_dis_record {
 };
 
 struct isis_adjacency {
-	u_char snpa[ETH_ALEN];		   /* NeighbourSNPAAddress */
-	u_char sysid[ISIS_SYS_ID_LEN];     /* neighbourSystemIdentifier */
-	u_char lanid[ISIS_SYS_ID_LEN + 1]; /* LAN id on bcast circuits */
+	unsigned char snpa[ETH_ALEN];	 /* NeighbourSNPAAddress */
+	unsigned char sysid[ISIS_SYS_ID_LEN]; /* neighbourSystemIdentifier */
+	unsigned char lanid[ISIS_SYS_ID_LEN + 1]; /* LAN id on bcast circuits */
 	int dischanges[ISIS_LEVELS];       /* how many DIS changes ? */
 	/* an array of N levels for M records */
 	struct isis_dis_record dis_record[DIS_RECORDS * ISIS_LEVELS];
@@ -84,13 +84,13 @@ struct isis_adjacency {
 	struct in6_addr *ipv6_addresses;
 	unsigned int ipv6_address_count;
 	struct in6_addr router_address6;
-	u_char prio[ISIS_LEVELS];       /* priorityOfNeighbour for DIS */
+	unsigned char prio[ISIS_LEVELS]; /* priorityOfNeighbour for DIS */
 	int circuit_t;			/* from hello PDU hdr */
 	int level;			/* level (1 or 2) */
 	enum isis_system_type sys_type; /* neighbourSystemType */
-	u_int16_t hold_time;		/* entryRemainingTime */
-	u_int32_t last_upd;
-	u_int32_t last_flap;	  /* last time the adj flapped */
+	uint16_t hold_time;		/* entryRemainingTime */
+	uint32_t last_upd;
+	uint32_t last_flap;	   /* last time the adj flapped */
 	int flaps;		      /* number of adjacency flaps  */
 	struct thread *t_expire;      /* expire after hold_time  */
 	struct isis_circuit *circuit; /* back pointer */
@@ -98,11 +98,13 @@ struct isis_adjacency {
 	unsigned int mt_count; /* Number of entries in mt_set */
 };
 
-struct isis_adjacency *isis_adj_lookup(const u_char *sysid, struct list *adjdb);
-struct isis_adjacency *isis_adj_lookup_snpa(const u_char *ssnpa,
+struct isis_adjacency *isis_adj_lookup(const unsigned char *sysid,
+				       struct list *adjdb);
+struct isis_adjacency *isis_adj_lookup_snpa(const unsigned char *ssnpa,
 					    struct list *adjdb);
-struct isis_adjacency *isis_new_adj(const u_char *id, const u_char *snpa,
-				    int level, struct isis_circuit *circuit);
+struct isis_adjacency *isis_new_adj(const unsigned char *id,
+				    const unsigned char *snpa, int level,
+				    struct isis_circuit *circuit);
 void isis_delete_adj(void *adj);
 void isis_adj_state_change(struct isis_adjacency *adj,
 			   enum isis_adj_state state, const char *reason);

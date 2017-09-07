@@ -367,7 +367,7 @@ enum metric_change eigrp_topology_update_distance(struct eigrp_fsm_action_messag
 	struct eigrp_prefix_entry *prefix = msg->prefix;
 	struct eigrp_nexthop_entry *entry = msg->entry;
 	enum metric_change change = METRIC_SAME;
-	u_int32_t new_reported_distance;
+	uint32_t new_reported_distance;
 
 	assert(entry);
 

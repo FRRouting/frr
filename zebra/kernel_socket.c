@@ -167,7 +167,7 @@ static inline void rta_copy(union sockunion *dest, caddr_t src)
 
 #define RTA_NAME_GET(DEST, RTA, RTMADDRS, PNT, LEN)                            \
 	if ((RTMADDRS) & (RTA)) {                                              \
-		u_char *pdest = (u_char *)(DEST);                              \
+		unsigned char *pdest = (unsigned char *)(DEST);                \
 		int len = SAROUNDUP((PNT));                                    \
 		struct sockaddr_dl *sdl = (struct sockaddr_dl *)(PNT);         \
 		if (IS_ZEBRA_DEBUG_KERNEL)                                     \
@@ -866,7 +866,7 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 void rtm_read(struct rt_msghdr *rtm)
 {
 	int flags;
-	u_char zebra_flags;
+	unsigned char zebra_flags;
 	union sockunion dest, mask, gate;
 	char ifname[INTERFACE_NAMSIZ + 1];
 	short ifnlen = 0;

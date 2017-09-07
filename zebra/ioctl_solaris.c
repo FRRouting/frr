@@ -149,7 +149,7 @@ void if_get_mtu(struct interface *ifp)
 {
 	struct lifreq lifreq;
 	int ret;
-	u_char changed = 0;
+	unsigned char changed = 0;
 
 	if (ifp->flags & IFF_IPV4) {
 		lifreq_set_name(&lifreq, ifp->name);

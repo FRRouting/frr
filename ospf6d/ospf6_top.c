@@ -317,7 +317,7 @@ DEFUN(ospf6_router_id,
 	int idx = 0;
 	int ret;
 	const char *router_id_str;
-	u_int32_t router_id;
+	uint32_t router_id;
 
 	argv_find(argv, argc, "A.B.C.D", &idx);
 	router_id_str = argv[idx]->arg;
@@ -592,7 +592,7 @@ DEFUN (ospf6_interface_area,
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
 	struct interface *ifp;
-	u_int32_t area_id;
+	uint32_t area_id;
 
 	/* find/create ospf6 interface */
 	ifp = if_get_by_name(argv[idx_ifname]->arg, VRF_DEFAULT);
@@ -651,7 +651,7 @@ DEFUN (no_ospf6_interface_area,
 	struct ospf6_interface *oi;
 	struct ospf6_area *oa;
 	struct interface *ifp;
-	u_int32_t area_id;
+	uint32_t area_id;
 
 	ifp = if_lookup_by_name(argv[idx_ifname]->arg, VRF_DEFAULT);
 	if (ifp == NULL) {

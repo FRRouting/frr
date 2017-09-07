@@ -116,9 +116,9 @@ _rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn,
 #define rnode_info(node, ...)                                                  \
 	_rnode_zlog(__func__, vrf_id, node, LOG_INFO, __VA_ARGS__)
 
-u_char route_distance(int type)
+unsigned char route_distance(int type)
 {
-	u_char distance;
+	unsigned char distance;
 
 	if ((unsigned)type >= array_size(route_info))
 		distance = 150;
@@ -128,7 +128,7 @@ u_char route_distance(int type)
 	return distance;
 }
 
-int is_zebra_valid_kernel_table(u_int32_t table_id)
+int is_zebra_valid_kernel_table(uint32_t table_id)
 {
 	if ((table_id > ZEBRA_KERNEL_TABLE_MAX))
 		return 0;
@@ -142,7 +142,7 @@ int is_zebra_valid_kernel_table(u_int32_t table_id)
 	return 1;
 }
 
-int is_zebra_main_routing_table(u_int32_t table_id)
+int is_zebra_main_routing_table(uint32_t table_id)
 {
 	if ((table_id == RT_TABLE_MAIN)
 	    || (table_id == zebrad.rtm_table_default))
@@ -153,7 +153,7 @@ int is_zebra_main_routing_table(u_int32_t table_id)
 int zebra_check_addr(struct prefix *p)
 {
 	if (p->family == AF_INET) {
-		u_int32_t addr;
+		uint32_t addr;
 
 		addr = p->u.prefix4.s_addr;
 		addr = ntohl(addr);
@@ -1622,7 +1622,7 @@ static void rib_process(struct route_node *rn)
  * picked from it and processed by rib_process(). Don't process more,
  * than one RN record; operate only in the specified sub-queue.
  */
-static unsigned int process_subq(struct list *subq, u_char qindex)
+static unsigned int process_subq(struct list *subq, unsigned char qindex)
 {
 	struct listnode *lnode = listhead(subq);
 	struct route_node *rnode;
@@ -1726,7 +1726,7 @@ static wq_item_status meta_queue_process(struct work_queue *dummy, void *data)
 /*
  * Map from rib types to queue type (priority) in meta queue
  */
-static const u_char meta_queue_map[ZEBRA_ROUTE_MAX] = {
+static const unsigned char meta_queue_map[ZEBRA_ROUTE_MAX] = {
 		[ZEBRA_ROUTE_SYSTEM] = 4,
 		[ZEBRA_ROUTE_KERNEL] = 0,
 		[ZEBRA_ROUTE_CONNECT] = 0,
@@ -1762,7 +1762,7 @@ static void rib_meta_queue_add(struct meta_queue *mq, struct route_node *rn)
 
 	RNODE_FOREACH_RE(rn, re)
 	{
-		u_char qindex = meta_queue_map[re->type];
+		unsigned char qindex = meta_queue_map[re->type];
 		struct zebra_vrf *zvrf;
 
 		/* Invariant: at this point we always have rn->info set. */
@@ -2274,7 +2274,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		u_short instance, int flags, struct prefix *p,
 		struct prefix_ipv6 *src_p, const struct nexthop *nh,
-		u_int32_t table_id, u_int32_t metric)
+		uint32_t table_id, uint32_t metric)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -2414,8 +2414,8 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 
 int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 	    int flags, struct prefix *p, struct prefix_ipv6 *src_p,
-	    const struct nexthop *nh, u_int32_t table_id, u_int32_t metric,
-	    u_int32_t mtu, u_char distance)
+	    const struct nexthop *nh, uint32_t table_id, uint32_t metric,
+	    uint32_t mtu, unsigned char distance)
 {
 	struct route_entry *re;
 	struct route_entry *same = NULL;
@@ -2708,7 +2708,8 @@ void rib_sweep_route(void)
 }
 
 /* Remove specific by protocol routes from 'table'. */
-static unsigned long rib_score_proto_table(u_char proto, u_short instance,
+static unsigned long rib_score_proto_table(unsigned char proto,
+					   u_short instance,
 					   struct route_table *table)
 {
 	struct route_node *rn;
@@ -2732,7 +2733,7 @@ static unsigned long rib_score_proto_table(u_char proto, u_short instance,
 }
 
 /* Remove specific by protocol routes. */
-unsigned long rib_score_proto(u_char proto, u_short instance)
+unsigned long rib_score_proto(unsigned char proto, u_short instance)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;

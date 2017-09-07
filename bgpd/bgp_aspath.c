@@ -80,8 +80,8 @@
  * NOT the internal representation!
  */
 struct assegment_header {
-	u_char type;
-	u_char length;
+	unsigned char type;
+	unsigned char length;
 };
 
 /* Hash for aspath.  This is the top level structure of AS path. */
@@ -109,7 +109,7 @@ const char *aspath_segment_type_str[] = {"as-invalid", "as-set", "as-sequence",
  * the caller should immediately assign data to the segment, as the segment
  * otherwise is not generally valid
  */
-static struct assegment *assegment_new(u_char type, u_short length)
+static struct assegment *assegment_new(unsigned char type, u_short length)
 {
 	struct assegment *new;
 
@@ -345,7 +345,7 @@ void aspath_unintern(struct aspath **aspath)
 /* Return the start or end delimiters for a particular Segment type */
 #define AS_SEG_START 0
 #define AS_SEG_END 1
-static char aspath_delimiter_char(u_char type, u_char which)
+static char aspath_delimiter_char(unsigned char type, unsigned char which)
 {
 	int i;
 	struct {
@@ -849,7 +849,8 @@ static void assegment_data_put(struct stream *s, as_t *as, int num,
 		}
 }
 
-static size_t assegment_header_put(struct stream *s, u_char type, int length)
+static size_t assegment_header_put(struct stream *s, unsigned char type,
+				   int length)
 {
 	size_t lenp;
 	assert(length <= AS_SEGMENT_MAX);
@@ -946,7 +947,7 @@ size_t aspath_put(struct stream *s, struct aspath *as, int use32bit)
  * We have no way to manage the storage, so we use a static stream
  * wrapper around aspath_put.
  */
-u_char *aspath_snmp_pathseg(struct aspath *as, size_t *varlen)
+unsigned char *aspath_snmp_pathseg(struct aspath *as, size_t *varlen)
 {
 #define SNMP_PATHSEG_MAX 1024
 
@@ -1525,7 +1526,7 @@ struct aspath *aspath_filter_exclude(struct aspath *source,
 
 /* Add specified AS to the leftmost of aspath. */
 static struct aspath *aspath_add_asns(struct aspath *aspath, as_t asno,
-				      u_char type, unsigned num)
+				      unsigned char type, unsigned num)
 {
 	struct assegment *assegment = aspath->segments;
 	unsigned i;

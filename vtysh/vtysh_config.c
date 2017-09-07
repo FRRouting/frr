@@ -44,7 +44,7 @@ struct config {
 	struct config *config;
 
 	/* Index of this config. */
-	u_int32_t index;
+	uint32_t index;
 };
 
 struct list *config_top;

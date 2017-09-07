@@ -285,9 +285,9 @@ void zclient_create_header(struct stream *s, uint16_t command, vrf_id_t vrf_id)
 	stream_putw(s, command);
 }
 
-int zclient_read_header(struct stream *s, int sock, u_int16_t *size,
-			u_char *marker, u_char *version, vrf_id_t *vrf_id,
-			u_int16_t *cmd)
+int zclient_read_header(struct stream *s, int sock, uint16_t *size,
+			unsigned char *marker, unsigned char *version,
+			vrf_id_t *vrf_id, uint16_t *cmd)
 {
 	if (stream_read(s, sock, ZEBRA_HEADER_SIZE) != ZEBRA_HEADER_SIZE)
 		return -1;
@@ -652,8 +652,8 @@ static int zclient_connect(struct thread *t)
  *
  * XXX: No attention paid to alignment.
  */
-int zapi_ipv4_route(u_char cmd, struct zclient *zclient, struct prefix_ipv4 *p,
-		    struct zapi_ipv4 *api)
+int zapi_ipv4_route(unsigned char cmd, struct zclient *zclient,
+		    struct prefix_ipv4 *p, struct zapi_ipv4 *api)
 {
 	int i;
 	int psize;
@@ -687,7 +687,7 @@ int zapi_ipv4_route(u_char cmd, struct zclient *zclient, struct prefix_ipv4 *p,
 	/* Put prefix information. */
 	psize = PSIZE(p->prefixlen);
 	stream_putc(s, p->prefixlen);
-	stream_write(s, (u_char *)&p->prefix, psize);
+	stream_write(s, (unsigned char *)&p->prefix, psize);
 
 	/* Nexthop, ifindex, distance and metric information. */
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP)) {
@@ -722,7 +722,7 @@ int zapi_ipv4_route(u_char cmd, struct zclient *zclient, struct prefix_ipv4 *p,
 	return zclient_send_message(zclient);
 }
 
-int zapi_ipv4_route_ipv6_nexthop(u_char cmd, struct zclient *zclient,
+int zapi_ipv4_route_ipv6_nexthop(unsigned char cmd, struct zclient *zclient,
 				 struct prefix_ipv4 *p, struct zapi_ipv6 *api)
 {
 	int i;
@@ -757,7 +757,7 @@ int zapi_ipv4_route_ipv6_nexthop(u_char cmd, struct zclient *zclient,
 	/* Put prefix information. */
 	psize = PSIZE(p->prefixlen);
 	stream_putc(s, p->prefixlen);
-	stream_write(s, (u_char *)&p->prefix, psize);
+	stream_write(s, (unsigned char *)&p->prefix, psize);
 
 	/* Nexthop, ifindex, distance and metric information. */
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP)) {
@@ -765,7 +765,7 @@ int zapi_ipv4_route_ipv6_nexthop(u_char cmd, struct zclient *zclient,
 
 		for (i = 0; i < api->nexthop_num; i++) {
 			stream_putc(s, NEXTHOP_TYPE_IPV6);
-			stream_write(s, (u_char *)api->nexthop[i], 16);
+			stream_write(s, (unsigned char *)api->nexthop[i], 16);
 			/* For labeled-unicast, each nexthop is followed by
 			 * label. */
 			if (CHECK_FLAG(api->message, ZAPI_MESSAGE_LABEL))
@@ -792,8 +792,9 @@ int zapi_ipv4_route_ipv6_nexthop(u_char cmd, struct zclient *zclient,
 	return zclient_send_message(zclient);
 }
 
-int zapi_ipv6_route(u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
-		    struct prefix_ipv6 *src_p, struct zapi_ipv6 *api)
+int zapi_ipv6_route(unsigned char cmd, struct zclient *zclient,
+		    struct prefix_ipv6 *p, struct prefix_ipv6 *src_p,
+		    struct zapi_ipv6 *api)
 {
 	int i;
 	int psize;
@@ -831,12 +832,12 @@ int zapi_ipv6_route(u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
 	/* Put prefix information. */
 	psize = PSIZE(p->prefixlen);
 	stream_putc(s, p->prefixlen);
-	stream_write(s, (u_char *)&p->prefix, psize);
+	stream_write(s, (unsigned char *)&p->prefix, psize);
 
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_SRCPFX)) {
 		psize = PSIZE(src_p->prefixlen);
 		stream_putc(s, src_p->prefixlen);
-		stream_write(s, (u_char *)&src_p->prefix, psize);
+		stream_write(s, (unsigned char *)&src_p->prefix, psize);
 	}
 
 	/* Nexthop, ifindex, distance and metric information. */
@@ -845,7 +846,7 @@ int zapi_ipv6_route(u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
 
 		for (i = 0; i < api->nexthop_num; i++) {
 			stream_putc(s, NEXTHOP_TYPE_IPV6);
-			stream_write(s, (u_char *)api->nexthop[i], 16);
+			stream_write(s, (unsigned char *)api->nexthop[i], 16);
 			/* For labeled-unicast, each nexthop is followed by
 			 * label. */
 			if (CHECK_FLAG(api->message, ZAPI_MESSAGE_LABEL))
@@ -872,7 +873,7 @@ int zapi_ipv6_route(u_char cmd, struct zclient *zclient, struct prefix_ipv6 *p,
 	return zclient_send_message(zclient);
 }
 
-int zclient_route_send(u_char cmd, struct zclient *zclient,
+int zclient_route_send(unsigned char cmd, struct zclient *zclient,
 		       struct zapi_route *api)
 {
 	if (zapi_route_encode(cmd, zclient->obuf, api) < 0)
@@ -880,7 +881,8 @@ int zclient_route_send(u_char cmd, struct zclient *zclient,
 	return zclient_send_message(zclient);
 }
 
-int zapi_route_encode(u_char cmd, struct stream *s, struct zapi_route *api)
+int zapi_route_encode(unsigned char cmd, struct stream *s,
+		      struct zapi_route *api)
 {
 	struct zapi_nexthop *api_nh;
 	int i;
@@ -899,12 +901,13 @@ int zapi_route_encode(u_char cmd, struct stream *s, struct zapi_route *api)
 	stream_putc(s, api->prefix.family);
 	psize = PSIZE(api->prefix.prefixlen);
 	stream_putc(s, api->prefix.prefixlen);
-	stream_write(s, (u_char *)&api->prefix.u.prefix, psize);
+	stream_write(s, (unsigned char *)&api->prefix.u.prefix, psize);
 
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_SRCPFX)) {
 		psize = PSIZE(api->src_prefix.prefixlen);
 		stream_putc(s, api->src_prefix.prefixlen);
-		stream_write(s, (u_char *)&api->src_prefix.prefix, psize);
+		stream_write(s, (unsigned char *)&api->src_prefix.prefix,
+			     psize);
 	}
 
 	/* Nexthops.  */
@@ -941,12 +944,14 @@ int zapi_route_encode(u_char cmd, struct stream *s, struct zapi_route *api)
 				stream_putl(s, api_nh->ifindex);
 				break;
 			case NEXTHOP_TYPE_IPV6:
-				stream_write(s, (u_char *)&api_nh->gate.ipv6,
-					     16);
+				stream_write(
+					s, (unsigned char *)&api_nh->gate.ipv6,
+					16);
 				break;
 			case NEXTHOP_TYPE_IPV6_IFINDEX:
-				stream_write(s, (u_char *)&api_nh->gate.ipv6,
-					     16);
+				stream_write(
+					s, (unsigned char *)&api_nh->gate.ipv6,
+					16);
 				stream_putl(s, api_nh->ifindex);
 				break;
 			}
@@ -1122,7 +1127,7 @@ int zebra_redistribute_send(int command, struct zclient *zclient, afi_t afi,
 static void zclient_stream_get_prefix(struct stream *s, struct prefix *p)
 {
 	size_t plen = prefix_blen(p);
-	u_char c;
+	unsigned char c;
 	p->prefixlen = 0;
 
 	if (plen == 0)
@@ -1330,7 +1335,7 @@ struct interface *zebra_interface_link_params_read(struct stream *s)
 
 void zebra_interface_if_set_value(struct stream *s, struct interface *ifp)
 {
-	u_char link_params_status = 0;
+	unsigned char link_params_status = 0;
 
 	/* Read interface's index. */
 	ifp->ifindex = stream_getl(s);
@@ -1433,7 +1438,7 @@ size_t zebra_interface_link_params_write(struct stream *s,
 
 static int memconstant(const void *s, int c, size_t n)
 {
-	const u_char *p = s;
+	const unsigned char *p = s;
 
 	while (n-- > 0)
 		if (*p++ != c)
@@ -1450,7 +1455,7 @@ struct connected *zebra_interface_address_read(int type, struct stream *s,
 	struct connected *ifc;
 	struct prefix p, d, *dp;
 	int plen;
-	u_char ifc_flags;
+	unsigned char ifc_flags;
 
 	memset(&p, 0, sizeof(p));
 	memset(&d, 0, sizeof(d));
@@ -1615,14 +1620,14 @@ struct interface *zebra_interface_vrf_update_read(struct stream *s,
 
 /* filter unwanted messages until the expected one arrives */
 static int zclient_read_sync_response(struct zclient *zclient,
-				      u_int16_t expected_cmd)
+				      uint16_t expected_cmd)
 {
 	struct stream *s;
-	u_int16_t size;
-	u_char marker;
-	u_char version;
+	uint16_t size;
+	unsigned char marker;
+	unsigned char version;
 	vrf_id_t vrf_id;
-	u_int16_t cmd;
+	uint16_t cmd;
 	fd_set readfds;
 	int ret;
 
@@ -1665,7 +1670,7 @@ int lm_label_manager_connect(struct zclient *zclient)
 {
 	int ret;
 	struct stream *s;
-	u_char result;
+	unsigned char result;
 
 	if (zclient_debug)
 		zlog_debug("Connecting to Label Manager");
@@ -1732,12 +1737,12 @@ int lm_label_manager_connect(struct zclient *zclient)
  * @param end To write last assigned chunk label to
  * @result 0 on success, -1 otherwise
  */
-int lm_get_label_chunk(struct zclient *zclient, u_char keep,
+int lm_get_label_chunk(struct zclient *zclient, unsigned char keep,
 		       uint32_t chunk_size, uint32_t *start, uint32_t *end)
 {
 	int ret;
 	struct stream *s;
-	u_char response_keep;
+	unsigned char response_keep;
 
 	if (zclient_debug)
 		zlog_debug("Getting Label Chunk");
@@ -1877,7 +1882,7 @@ int zebra_send_pw(struct zclient *zclient, int command, struct zapi_pw *pw)
 		stream_put_in_addr(s, &pw->nexthop.ipv4);
 		break;
 	case AF_INET6:
-		stream_write(s, (u_char *)&pw->nexthop.ipv6, 16);
+		stream_write(s, (unsigned char *)&pw->nexthop.ipv6, 16);
 		break;
 	default:
 		zlog_err("%s: unknown af", __func__);

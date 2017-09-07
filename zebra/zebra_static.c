@@ -373,10 +373,11 @@ void static_uninstall_route(afi_t afi, safi_t safi, struct prefix *p,
 	route_unlock_node(rn);
 }
 
-int static_add_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
-		     struct prefix_ipv6 *src_p, union g_addr *gate,
-		     const char *ifname, enum static_blackhole_type bh_type,
-		     route_tag_t tag, u_char distance, struct zebra_vrf *zvrf,
+int static_add_route(afi_t afi, safi_t safi, unsigned char type,
+		     struct prefix *p, struct prefix_ipv6 *src_p,
+		     union g_addr *gate, const char *ifname,
+		     enum static_blackhole_type bh_type, route_tag_t tag,
+		     unsigned char distance, struct zebra_vrf *zvrf,
 		     struct static_nh_label *snh_label)
 {
 	struct route_node *rn;
@@ -502,10 +503,10 @@ int static_add_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	return 1;
 }
 
-int static_delete_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
-			struct prefix_ipv6 *src_p, union g_addr *gate,
-			const char *ifname, route_tag_t tag, u_char distance,
-			struct zebra_vrf *zvrf,
+int static_delete_route(afi_t afi, safi_t safi, unsigned char type,
+			struct prefix *p, struct prefix_ipv6 *src_p,
+			union g_addr *gate, const char *ifname, route_tag_t tag,
+			unsigned char distance, struct zebra_vrf *zvrf,
 			struct static_nh_label *snh_label)
 {
 	struct route_node *rn;

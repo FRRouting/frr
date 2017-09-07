@@ -860,7 +860,7 @@ int pim_rp_check_is_my_ip_address(struct pim_instance *pim,
 }
 
 void pim_rp_show_information(struct pim_instance *pim, struct vty *vty,
-			     u_char uj)
+			     unsigned char uj)
 {
 	struct rp_info *rp_info;
 	struct rp_info *prev_rp_info = NULL;

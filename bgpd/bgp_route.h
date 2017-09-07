@@ -71,7 +71,7 @@ struct bgp_info_extra {
 	int suppress;
 
 	/* Nexthop reachability check.  */
-	u_int32_t igpmetric;
+	uint32_t igpmetric;
 
 	/* MPLS label.  */
 	mpls_label_t label;
@@ -91,8 +91,9 @@ struct bgp_info_extra {
 			void *hme; /* encap monitor, if this is a VPN route */
 			struct prefix_rd
 				rd; /* import: route's route-distinguisher */
-			u_char un_family; /* family of cached un address, 0 if
-					     unset */
+			unsigned char
+				un_family; /* family of cached un address, 0 if
+				       unset */
 			union {
 				struct in_addr addr4;
 				struct in6_addr addr6;
@@ -146,7 +147,7 @@ struct bgp_info {
 	int lock;
 
 	/* BGP information status.  */
-	u_int16_t flags;
+	uint16_t flags;
 #define BGP_INFO_IGP_CHANGED    (1 << 0)
 #define BGP_INFO_DAMPED         (1 << 1)
 #define BGP_INFO_HISTORY        (1 << 2)
@@ -163,11 +164,11 @@ struct bgp_info {
 #define BGP_INFO_RIB_ATTR_CHG   (1 << 13)
 
 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
-	u_char type;
+	unsigned char type;
 
 	/* When above type is BGP.  This sub type specify BGP sub type
 	   information.  */
-	u_char sub_type;
+	unsigned char sub_type;
 #define BGP_ROUTE_NORMAL       0
 #define BGP_ROUTE_STATIC       1
 #define BGP_ROUTE_AGGREGATE    2
@@ -179,8 +180,8 @@ struct bgp_info {
 	u_short instance;
 
 	/* Addpath identifiers */
-	u_int32_t addpath_rx_id;
-	u_int32_t addpath_tx_id;
+	uint32_t addpath_rx_id;
+	uint32_t addpath_tx_id;
 };
 
 /* Structure used in BGP path selection */
@@ -195,20 +196,20 @@ struct bgp_static {
 	int backdoor;
 
 	/* Label index configuration; applies to LU prefixes. */
-	u_int32_t label_index;
+	uint32_t label_index;
 #define BGP_INVALID_LABEL_INDEX   0xFFFFFFFF
 
 	/* Import check status.  */
-	u_char valid;
+	unsigned char valid;
 
 	/* IGP metric. */
-	u_int32_t igpmetric;
+	uint32_t igpmetric;
 
 	/* IGP nexthop. */
 	struct in_addr igpnexthop;
 
 	/* Atomic set reference count (ie cause of pathlimit) */
-	u_int32_t atomic;
+	uint32_t atomic;
 
 	/* BGP redistribute route-map.  */
 	struct {
@@ -319,9 +320,8 @@ extern void bgp_info_add(struct bgp_node *rn, struct bgp_info *ri);
 extern void bgp_info_reap(struct bgp_node *rn, struct bgp_info *ri);
 extern void bgp_info_delete(struct bgp_node *rn, struct bgp_info *ri);
 extern struct bgp_info_extra *bgp_info_extra_get(struct bgp_info *);
-extern void bgp_info_set_flag(struct bgp_node *, struct bgp_info *, u_int32_t);
-extern void bgp_info_unset_flag(struct bgp_node *, struct bgp_info *,
-				u_int32_t);
+extern void bgp_info_set_flag(struct bgp_node *, struct bgp_info *, uint32_t);
+extern void bgp_info_unset_flag(struct bgp_node *, struct bgp_info *, uint32_t);
 extern void bgp_info_path_with_addpath_rx_str(struct bgp_info *ri, char *buf);
 
 extern int bgp_nlri_parse_ip(struct peer *, struct attr *, struct bgp_nlri *);
@@ -330,9 +330,9 @@ extern int bgp_maximum_prefix_overflow(struct peer *, afi_t, safi_t, int);
 
 extern void bgp_redistribute_add(struct bgp *, struct prefix *,
 				 const union g_addr *, unsigned int ifindex,
-				 u_int32_t, u_char, u_short, route_tag_t);
-extern void bgp_redistribute_delete(struct bgp *, struct prefix *, u_char,
-				    u_short);
+				 uint32_t, unsigned char, u_short, route_tag_t);
+extern void bgp_redistribute_delete(struct bgp *, struct prefix *,
+				    unsigned char, u_short);
 extern void bgp_redistribute_withdraw(struct bgp *, afi_t, int, u_short);
 
 extern void bgp_static_add(struct bgp *);
@@ -353,13 +353,12 @@ extern int bgp_static_unset_safi(afi_t afi, safi_t safi, struct vty *,
 				 const char *, const char *, const char *);
 
 /* this is primarily for MPLS-VPN */
-extern int bgp_update(struct peer *, struct prefix *, u_int32_t, struct attr *,
+extern int bgp_update(struct peer *, struct prefix *, uint32_t, struct attr *,
 		      afi_t, safi_t, int, int, struct prefix_rd *,
 		      mpls_label_t *, int, struct bgp_route_evpn *);
-extern int bgp_withdraw(struct peer *, struct prefix *, u_int32_t,
-			struct attr *, afi_t, safi_t, int, int,
-			struct prefix_rd *, mpls_label_t *,
-			struct bgp_route_evpn *);
+extern int bgp_withdraw(struct peer *, struct prefix *, uint32_t, struct attr *,
+			afi_t, safi_t, int, int, struct prefix_rd *,
+			mpls_label_t *, struct bgp_route_evpn *);
 
 /* for bgp_nexthop and bgp_damp */
 extern void bgp_process(struct bgp *, struct bgp_node *, afi_t, safi_t);
@@ -380,8 +379,8 @@ extern void bgp_aggregate_increment(struct bgp *, struct prefix *,
 extern void bgp_aggregate_decrement(struct bgp *, struct prefix *,
 				    struct bgp_info *, afi_t, safi_t);
 
-extern u_char bgp_distance_apply(struct prefix *, struct bgp_info *, afi_t,
-				 safi_t, struct bgp *);
+extern unsigned char bgp_distance_apply(struct prefix *, struct bgp_info *,
+					afi_t, safi_t, struct bgp *);
 
 extern afi_t bgp_node_afi(struct vty *);
 extern safi_t bgp_node_safi(struct vty *);
@@ -395,7 +394,7 @@ extern void route_vty_out(struct vty *, struct prefix *, struct bgp_info *, int,
 extern void route_vty_out_tag(struct vty *, struct prefix *, struct bgp_info *,
 			      int, safi_t, json_object *);
 extern void route_vty_out_tmp(struct vty *, struct prefix *, struct attr *,
-			      safi_t, u_char, json_object *);
+			      safi_t, unsigned char, json_object *);
 extern void route_vty_out_overlay(struct vty *vty, struct prefix *p,
 				  struct bgp_info *binfo, int display,
 				  json_object *json);
@@ -403,7 +402,7 @@ extern void route_vty_out_overlay(struct vty *vty, struct prefix *p,
 extern int subgroup_process_announce_selected(struct update_subgroup *subgrp,
 					      struct bgp_info *selected,
 					      struct bgp_node *rn,
-					      u_int32_t addpath_tx_id);
+					      uint32_t addpath_tx_id);
 
 extern int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
 				   struct update_subgroup *subgrp,

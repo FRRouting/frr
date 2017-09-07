@@ -463,13 +463,13 @@ const char *bgp_notify_subcode_str(char code, char subcode)
 }
 
 /* extract notify admin reason if correctly present */
-const char *bgp_notify_admin_message(char *buf, size_t bufsz, u_char *data,
-				     size_t datalen)
+const char *bgp_notify_admin_message(char *buf, size_t bufsz,
+				     unsigned char *data, size_t datalen)
 {
 	if (!data || datalen < 1)
 		return NULL;
 
-	u_char len = data[0];
+	unsigned char len = data[0];
 	if (len > 128 || len > datalen - 1)
 		return NULL;
 
@@ -2039,7 +2039,7 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 				    struct prefix_rd *prd,
 				    union prefixconstptr pu,
 				    mpls_label_t *label, int addpath_valid,
-				    u_int32_t addpath_id, char *str, int size)
+				    uint32_t addpath_id, char *str, int size)
 {
 	char rd_buf[RD_ADDRSTRLEN];
 	char pfx_buf[PREFIX_STRLEN];
@@ -2063,7 +2063,7 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 
 	tag_buf[0] = '\0';
 	if (bgp_labeled_safi(safi) && label) {
-		u_int32_t label_value;
+		uint32_t label_value;
 
 		label_value = decode_label(label);
 		sprintf(tag_buf, " label %u", label_value);
