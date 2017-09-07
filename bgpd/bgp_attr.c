@@ -161,22 +161,6 @@ static void cluster_free(struct cluster_list *cluster)
 	XFREE(MTYPE_CLUSTER, cluster);
 }
 
-static struct cluster_list *cluster_dup(struct cluster_list *cluster)
-{
-	struct cluster_list *new;
-
-	new = XCALLOC(MTYPE_CLUSTER, sizeof(struct cluster_list));
-	new->length = cluster->length;
-
-	if (cluster->length) {
-		new->list = XMALLOC(MTYPE_CLUSTER_VAL, cluster->length);
-		memcpy(new->list, cluster->list, cluster->length);
-	} else
-		new->list = NULL;
-
-	return new;
-}
-
 static struct cluster_list *cluster_intern(struct cluster_list *cluster)
 {
 	struct cluster_list *find;
@@ -420,21 +404,6 @@ static void transit_free(struct transit *transit)
 	if (transit->val)
 		XFREE(MTYPE_TRANSIT_VAL, transit->val);
 	XFREE(MTYPE_TRANSIT, transit);
-}
-
-static struct transit *transit_dup(struct transit *transit)
-{
-	struct transit *new;
-
-	new = XCALLOC(MTYPE_TRANSIT, sizeof(struct transit));
-	new->length = transit->length;
-	if (new->length) {
-		new->val = XMALLOC(MTYPE_TRANSIT_VAL, transit->length);
-		memcpy(new->val, transit->val, transit->length);
-	} else
-		new->val = NULL;
-
-	return new;
 }
 
 static void *transit_hash_alloc(void *p)
