@@ -239,4 +239,10 @@ extern struct stream *stream_fifo_head(struct stream_fifo *fifo);
 extern void stream_fifo_clean(struct stream_fifo *fifo);
 extern void stream_fifo_free(struct stream_fifo *fifo);
 
+/*
+ * Initialization and shutdown handlers
+ * Should only be called from libfrr
+ */
+extern void stream_init(void);
+extern void stream_fini(void);
 #endif /* _ZEBRA_STREAM_H */

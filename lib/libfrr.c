@@ -35,6 +35,7 @@
 #include "log_int.h"
 #include "module.h"
 #include "network.h"
+#include "stream.h"
 
 DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm))
 DEFINE_KOOH(frr_early_fini, (), ())
@@ -587,6 +588,8 @@ struct thread_master *frr_init(void)
 	vty_init(master);
 	memory_init();
 
+	stream_init();
+
 	return master;
 }
 
@@ -886,6 +889,7 @@ void frr_fini(void)
 	zprivs_terminate(di->privs);
 	/* signal_init -> nothing needed */
 	thread_master_free(master);
+	stream_fini();
 	closezlog();
 	/* frrmod_init -> nothing needed / hooks */
 
