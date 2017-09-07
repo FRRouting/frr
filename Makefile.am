@@ -51,16 +51,16 @@ include nhrpd/subdir.am
 include ldpd/subdir.am
 include babeld/subdir.am
 include eigrpd/subdir.am
+include pimd/subdir.am
 
 SUBDIRS = . @LIBRFP@ @RFPTEST@ \
 	 @BGPD@ \
-         @PIMD@ \
 	 @VTYSH@ @DOC@ \
          @SOLARIS@ tests
 
 DIST_SUBDIRS = . bgpd \
 	  vtysh doc tests \
-	  solaris pimd bgpd/rfp-example/librfp \
+	  solaris bgpd/rfp-example/librfp \
 	  bgpd/rfp-example/rfptest \
 	  # end
 

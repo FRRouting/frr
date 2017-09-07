@@ -1,0 +1,110 @@
+#
+# pimd
+#
+
+if PIMD
+noinst_LIBRARIES += pimd/libpim.a
+sbin_PROGRAMS += pimd/pimd
+noinst_PROGRAMS += pimd/test_igmpv3_join
+dist_examples_DATA += pimd/pimd.conf.sample
+endif
+
+pimd_libpim_a_SOURCES = \
+	pimd/pim_assert.c \
+	pimd/pim_bfd.c \
+	pimd/pim_br.c \
+	pimd/pim_cmd.c \
+	pimd/pim_hello.c \
+	pimd/pim_iface.c \
+	pimd/pim_ifchannel.c \
+	pimd/pim_igmp.c \
+	pimd/pim_igmpv2.c \
+	pimd/pim_igmpv3.c \
+	pimd/pim_instance.c \
+	pimd/pim_int.c \
+	pimd/pim_join.c \
+	pimd/pim_jp_agg.c \
+	pimd/pim_macro.c \
+	pimd/pim_memory.c \
+	pimd/pim_mroute.c \
+	pimd/pim_msdp.c \
+	pimd/pim_msdp_packet.c \
+	pimd/pim_msdp_socket.c \
+	pimd/pim_msg.c \
+	pimd/pim_neighbor.c \
+	pimd/pim_nht.c \
+	pimd/pim_oil.c \
+	pimd/pim_pim.c \
+	pimd/pim_register.c \
+	pimd/pim_routemap.c \
+	pimd/pim_rp.c \
+	pimd/pim_rpf.c \
+	pimd/pim_signals.c \
+	pimd/pim_sock.c \
+	pimd/pim_ssm.c \
+	pimd/pim_ssmpingd.c \
+	pimd/pim_static.c \
+	pimd/pim_str.c \
+	pimd/pim_time.c \
+	pimd/pim_tlv.c \
+	pimd/pim_upstream.c \
+	pimd/pim_util.c \
+	pimd/pim_version.c \
+	pimd/pim_vty.c \
+	pimd/pim_zebra.c \
+	pimd/pim_zlookup.c \
+	pimd/pimd.c \
+	# end
+
+noinst_HEADERS += \
+	pimd/pim_assert.h \
+	pimd/pim_bfd.h \
+	pimd/pim_br.h \
+	pimd/pim_cmd.h \
+	pimd/pim_hello.h \
+	pimd/pim_iface.h \
+	pimd/pim_ifchannel.h \
+	pimd/pim_igmp.h \
+	pimd/pim_igmp_join.h \
+	pimd/pim_igmpv2.h \
+	pimd/pim_igmpv3.h \
+	pimd/pim_instance.h \
+	pimd/pim_int.h \
+	pimd/pim_join.h \
+	pimd/pim_jp_agg.h \
+	pimd/pim_macro.h \
+	pimd/pim_memory.h \
+	pimd/pim_mroute.h \
+	pimd/pim_msdp.h \
+	pimd/pim_msdp_packet.h \
+	pimd/pim_msdp_socket.h \
+	pimd/pim_msg.h \
+	pimd/pim_neighbor.h \
+	pimd/pim_nht.h \
+	pimd/pim_oil.h \
+	pimd/pim_pim.h \
+	pimd/pim_register.h \
+	pimd/pim_rp.h \
+	pimd/pim_rpf.h \
+	pimd/pim_signals.h \
+	pimd/pim_sock.h \
+	pimd/pim_ssm.h \
+	pimd/pim_ssmpingd.h \
+	pimd/pim_static.h \
+	pimd/pim_str.h \
+	pimd/pim_time.h \
+	pimd/pim_tlv.h \
+	pimd/pim_upstream.h \
+	pimd/pim_util.h \
+	pimd/pim_version.h \
+	pimd/pim_vty.h \
+	pimd/pim_zebra.h \
+	pimd/pim_zlookup.h \
+	pimd/pimd.h \
+	# end
+
+pimd_pimd_LDADD = pimd/libpim.a lib/libfrr.la @LIBCAP@
+pimd_pimd_SOURCES = pimd/pim_main.c
+
+pimd_test_igmpv3_join_LDADD = lib/libfrr.la
+pimd_test_igmpv3_join_SOURCES = pimd/test_igmpv3_join.c

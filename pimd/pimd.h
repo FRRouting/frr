@@ -40,6 +40,8 @@
 #define PIM_IP_PROTO_PIM              (103)
 #define PIM_IGMP_MIN_LEN              (8)
 
+#define PIM_ENFORCE_LOOPFREE_MFC
+
 /*
  * PIM MSG Header Format
  *  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
