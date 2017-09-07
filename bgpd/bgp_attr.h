@@ -207,7 +207,12 @@ struct transit {
 	u_char *val;
 };
 
-#define ATTR_FLAG_BIT(X)  (1ULL << ((X) - 1))
+/* "(void) 0" will generate a compiler error.  this is a safety check to
+ * ensure we're not using a value that exceeds the bit size of attr->flag. */
+#define ATTR_FLAG_BIT(X) \
+	__builtin_choose_expr((X) >= 1 && (X) <= 64, \
+			      1ULL << ((X) - 1), \
+			      (void) 0)
 
 #define BGP_CLUSTER_LIST_LENGTH(attr)                                          \
 	(((attr)->flag & ATTR_FLAG_BIT(BGP_ATTR_CLUSTER_LIST))                 \
