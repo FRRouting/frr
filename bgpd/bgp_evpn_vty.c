@@ -22,6 +22,7 @@
 #include "command.h"
 #include "prefix.h"
 #include "lib/json.h"
+#include "stream.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -87,11 +88,7 @@ static void display_import_rt(struct vty *vty, struct irt_node *irt,
 	case ECOMMUNITY_ENCODE_AS:
 		eas.as = (*pnt++ << 8);
 		eas.as |= (*pnt++);
-
-		eas.val = (*pnt++ << 24);
-		eas.val |= (*pnt++ << 16);
-		eas.val |= (*pnt++ << 8);
-		eas.val |= (*pnt++);
+		pnt = ptr_get_be32(pnt, &eas.val);
 
 		snprintf(rt_buf, RT_ADDRSTRLEN, "%u:%u", eas.as, eas.val);
 
@@ -119,11 +116,7 @@ static void display_import_rt(struct vty *vty, struct irt_node *irt,
 		break;
 
 	case ECOMMUNITY_ENCODE_AS4:
-		eas.as = (*pnt++ << 24);
-		eas.as |= (*pnt++ << 16);
-		eas.as |= (*pnt++ << 8);
-		eas.as |= (*pnt++);
-
+		pnt = ptr_get_be32(pnt, &eas.val);
 		eas.val = (*pnt++ << 8);
 		eas.val |= (*pnt++);
 

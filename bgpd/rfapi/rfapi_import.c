@@ -33,6 +33,7 @@
 #include "lib/log.h"
 #include "lib/skiplist.h"
 #include "lib/thread.h"
+#include "lib/stream.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ecommunity.h"
@@ -1079,10 +1080,7 @@ int rfapiEcommunityGetEthernetTag(struct ecommunity *ecom, uint16_t *tag_id)
 
 			if (*p++ == ECOMMUNITY_ROUTE_TARGET) {
 				if (encode == ECOMMUNITY_ENCODE_AS4) {
-					as = (*p++ << 24);
-					as |= (*p++ << 16);
-					as |= (*p++ << 8);
-					as |= (*p++);
+					p = ptr_get_be32(p, &as);
 				} else if (encode == ECOMMUNITY_ENCODE_AS) {
 					as = (*p++ << 8);
 					as |= (*p++);

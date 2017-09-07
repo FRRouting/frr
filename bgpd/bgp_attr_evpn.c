@@ -144,11 +144,8 @@ u_int32_t bgp_attr_mac_mobility_seqnum(struct attr *attr, u_char *sticky)
 			*sticky = 0;
 
 		pnt++;
-		seq_num = (*pnt++ << 24);
-		seq_num |= (*pnt++ << 16);
-		seq_num |= (*pnt++ << 8);
-		seq_num |= (*pnt++);
-
+		pnt = ptr_get_be32(pnt, &seq_num);
+		(void)pnt; /* consume value */
 		return seq_num;
 	}
 

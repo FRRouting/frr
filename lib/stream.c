@@ -394,7 +394,7 @@ u_int32_t stream_getl_from(struct stream *s, size_t from)
 		return 0;
 	}
 
-	l = s->data[from++] << 24;
+	l = (unsigned)(s->data[from++]) << 24;
 	l |= s->data[from++] << 16;
 	l |= s->data[from++] << 8;
 	l |= s->data[from];
@@ -426,7 +426,7 @@ u_int32_t stream_getl(struct stream *s)
 		return 0;
 	}
 
-	l = s->data[s->getp++] << 24;
+	l = (unsigned)(s->data[s->getp++]) << 24;
 	l |= s->data[s->getp++] << 16;
 	l |= s->data[s->getp++] << 8;
 	l |= s->data[s->getp++];
