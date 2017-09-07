@@ -79,18 +79,24 @@ an example.)
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/nhrpd.conf    
     sudo install -m 640 -o frr -g frrvty /dev/null /etc/frr/vtysh.conf
 
-### Enable IP & IPv6 forwarding
+### Enable IPv4 & IPv6 forwarding and disable trouble sources
 
-Edit `/etc/sysctl.conf` and uncomment the following values (ignore the 
-other settings)
+Create `/etc/sysctl.d/60-frr.conf` and paste the following settings
 
-    # Uncomment the next line to enable packet forwarding for IPv4
+    #IPv4
     net.ipv4.ip_forward=1
-
-    # Uncomment the next line to enable packet forwarding for IPv6
-    #  Enabling this option disables Stateless Address Autoconfiguration
-    #  based on Router Advertisements for this host
+    net.ipv4.conf.all.accept_redirects = 0
+    net.ipv4.icmp_errors_use_inbound_ifaddr=1
+    net.ipv4.conf.all.accept_source_route=0
+    net.ipv4.icmp_echo_ignore_broadcasts=1
+    net.ipv4.conf.default.rp_filter=2
+    net.ipv4.conf.all.rp_filter=2
+    net.ipv4.conf.all.proxy_arp=0
+    
+    # IPv6
     net.ipv6.conf.all.forwarding=1
+    net.ipv6.conf.all.accept_redirects = 0
+    net.ipv6.conf.all.keep_addr_on_down=1
 
 ### Enable MPLS Forwarding (with Linux Kernel >= 4.5)
 
