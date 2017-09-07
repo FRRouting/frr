@@ -1298,12 +1298,7 @@ AM_CONDITIONAL(RIPNGD, test "${enable_ripngd}" != "no")
 AM_CONDITIONAL(BABELD, test "${enable_babeld}" != "no")
 AM_CONDITIONAL(OSPF6D, test "${enable_ospf6d}" != "no")
 AM_CONDITIONAL(ISISD, test "${enable_isisd}" != "no")
-
-case "${enable_pimd}" in
-  "no" ) PIMD="";;
-  *    ) PIMD="pimd";;
-esac
-AM_CONDITIONAL(PIMD, test "x$PIMD" = "xpimd")
+AM_CONDITIONAL(PIMD, test "${enable_pimd}" != "no")
 
 if test "${enable_bgp_announce}" = "no";then
   AC_DEFINE(DISABLE_BGP_ANNOUNCE,1,Disable BGP installation to zebra)
@@ -1337,9 +1332,6 @@ AC_SUBST(RFPTEST)
 AC_SUBST(LIBRFP)
 AC_SUBST(RFPINC)
 AC_SUBST(BGPD)
-AC_SUBST(WATCHFRR)
-AC_SUBST(ISISD)
-AC_SUBST(PIMD)
 AC_SUBST(SOLARIS)
 AC_SUBST(VTYSH)
 AC_SUBST(CURSES)
@@ -1812,12 +1804,10 @@ AC_CACHE_VAL(ac_cv_htonl_works,
 AC_MSG_RESULT($ac_cv_htonl_works)
 
 AC_CONFIG_FILES([Makefile
-	  bgpd/Makefile watchfrr/Makefile
+	  bgpd/Makefile
 	  vtysh/Makefile
 	  doc/Makefile tests/Makefile
 	  bgpd/rfp-example/rfptest/Makefile bgpd/rfp-example/librfp/Makefile
-	  pimd/Makefile
-	  tools/Makefile
 	  redhat/frr.spec
 	  snapcraft/snapcraft.yaml
 	  lib/version.h

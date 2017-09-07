@@ -16,6 +16,7 @@ examplesdir = $(exampledir)
 
 bin_PROGRAMS =
 sbin_PROGRAMS =
+sbin_SCRIPTS =
 noinst_PROGRAMS =
 noinst_HEADERS =
 noinst_LIBRARIES =
@@ -35,8 +36,10 @@ $(AUTOMAKE_DUMMY)install-sbinPROGRAMS: install-libLTLIBRARIES
 
 include lib/subdir.am
 include zebra/subdir.am
+include watchfrr/subdir.am
 include qpb/subdir.am
 include fpm/subdir.am
+include tools/subdir.am
 
 include ripd/subdir.am
 include ripngd/subdir.am
@@ -48,17 +51,17 @@ include nhrpd/subdir.am
 include ldpd/subdir.am
 include babeld/subdir.am
 include eigrpd/subdir.am
+include pimd/subdir.am
 
 SUBDIRS = . @LIBRFP@ @RFPTEST@ \
 	 @BGPD@ \
-         @PIMD@ \
-	 @WATCHFRR@ @VTYSH@ @DOC@ \
-         @SOLARIS@ tests tools
+	 @VTYSH@ @DOC@ \
+         @SOLARIS@ tests
 
 DIST_SUBDIRS = . bgpd \
-	  watchfrr vtysh doc tests \
-	  solaris pimd bgpd/rfp-example/librfp \
-	  bgpd/rfp-example/rfptest tools \
+	  vtysh doc tests \
+	  solaris bgpd/rfp-example/librfp \
+	  bgpd/rfp-example/rfptest \
 	  # end
 
 if PKGSRC
@@ -99,12 +102,6 @@ EXTRA_DIST += \
 	snapcraft/defaults \
 	snapcraft/helpers \
 	snapcraft/snap \
-	\
-	tools/multiple-bgpd.sh \
-	tools/rrcheck.pl \
-	tools/rrlookup.pl \
-	tools/zc.pl \
-	tools/zebra.el \
 	\
 	vtysh/Makefile.am \
 	vtysh/Makefile.in \

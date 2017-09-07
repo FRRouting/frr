@@ -1,4 +1,4 @@
-Makefile
+!Makefile
 Makefile.in
 *.o
 watchfrr
