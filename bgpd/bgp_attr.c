@@ -551,6 +551,9 @@ void bgp_attr_deep_dup(struct attr *new, struct attr *orig)
 		if (orig->extra->ecommunity)
 			new->extra->ecommunity =
 				ecommunity_dup(orig->extra->ecommunity);
+		if (orig->extra->lcommunity)
+			new->extra->lcommunity =
+				lcommunity_dup(orig->extra->lcommunity);
 		if (orig->extra->cluster)
 			new->extra->cluster = cluster_dup(orig->extra->cluster);
 		if (orig->extra->transit)
@@ -577,6 +580,8 @@ void bgp_attr_deep_free(struct attr *attr)
 	if (attr->extra) {
 		if (attr->extra->ecommunity)
 			ecommunity_free(&attr->extra->ecommunity);
+		if (attr->extra->lcommunity)
+			lcommunity_free(&attr->extra->lcommunity);
 		if (attr->extra->cluster)
 			cluster_free(attr->extra->cluster);
 		if (attr->extra->transit)
