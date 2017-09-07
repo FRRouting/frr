@@ -2475,10 +2475,11 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 			return 0;
 		/*
 		 * Nexthop is different. Remove the old route unless it's
-		 * a link-local route.
+		 * a connected route. This exception is necessary because
+		 * of IPv6 link-local routes and unnumbered interfaces on
+		 * Linux.
 		 */
-		else if (afi != AFI_IP6
-			 || !IN6_IS_ADDR_LINKLOCAL(&p->u.prefix6))
+		else if (type != ZEBRA_ROUTE_CONNECT)
 			same = re;
 	}
 
