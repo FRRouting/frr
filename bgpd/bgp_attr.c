@@ -832,47 +832,6 @@ struct attr *bgp_attr_intern(struct attr *attr)
 	return find;
 }
 
-/**
- * Increment the refcount on various structures that attr holds.
- * Note on usage: call _only_ when the 'attr' object has already
- * been 'intern'ed and exists in 'attrhash' table. The function
- * serves to hold a reference to that (real) object.
- * Note also that the caller can safely call bgp_attr_unintern()
- * after calling bgp_attr_refcount(). That would release the
- * reference and could result in a free() of the attr object.
- */
-struct attr *bgp_attr_refcount(struct attr *attr)
-{
-	/* Intern referenced strucutre. */
-	if (attr->aspath)
-		attr->aspath->refcnt++;
-
-	if (attr->community)
-		attr->community->refcnt++;
-
-	if (attr->extra) {
-		struct attr_extra *attre = attr->extra;
-		if (attre->ecommunity)
-			attre->ecommunity->refcnt++;
-
-		if (attre->cluster)
-			attre->cluster->refcnt++;
-
-		if (attre->transit)
-			attre->transit->refcnt++;
-
-		if (attre->encap_subtlvs)
-			attre->encap_subtlvs->refcnt++;
-
-#if ENABLE_BGP_VNC
-		if (attre->vnc_subtlvs)
-			attre->vnc_subtlvs->refcnt++;
-#endif
-	}
-	attr->refcnt++;
-	return attr;
-}
-
 /* Make network statement's attribute. */
 struct attr *bgp_attr_default_set(struct attr *attr, u_char origin)
 {
