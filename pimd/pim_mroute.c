@@ -720,7 +720,8 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 	}
 
 #ifdef SO_BINDTODEVICE
-	if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, pim->vrf->name,
+	if (pim->vrf->vrf_id != VRF_DEFAULT &&
+	    setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, pim->vrf->name,
 		       strlen(pim->vrf->name))) {
 		zlog_warn("Could not setsockopt SO_BINDTODEVICE: %s",
 			  safe_strerror(errno));
