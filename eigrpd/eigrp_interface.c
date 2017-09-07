@@ -159,7 +159,7 @@ int eigrp_if_new_hook(struct interface *ifp)
 {
 	int rc = 0;
 
-	ifp->info = XCALLOC(MTYPE_EIGRP_IF_INFO, sizeof(struct eigrp_if_info));
+	ifp->info = XCALLOC(MTYPE_EIGRP_IF_INFO, sizeof(struct eigrp_interface));
 
 	IF_OIFS(ifp) = route_table_init();
 	IF_OIFS_PARAMS(ifp) = route_table_init();

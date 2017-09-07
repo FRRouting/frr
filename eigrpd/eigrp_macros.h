@@ -29,9 +29,9 @@
 #define _ZEBRA_EIGRP_MACROS_H_
 
 #define DECLARE_IF_PARAM(T, P) T P; u_char P##__config:1
-#define IF_EIGRP_IF_INFO(I) ((struct eigrp_if_info *)((I)->info))
+#define IF_EIGRP_IF_INFO(I) ((struct eigrp_interface *)((I)->info))
 #define IF_OIFS(I)  (IF_EIGRP_IF_INFO (I)->eifs)
-#define IF_OIFS_PARAMS(I) (IF_EIGRP_IF_INFO (I)->params)
+#define IF_OIFS_PARAMS(I) (IF_EIGRP_IF_INFO (I)->eparams)
 
 #define SET_IF_PARAM(S, P) ((S)->P##__config) = 1
 #define IF_DEF_PARAMS(I) (IF_EIGRP_IF_INFO (I)->def_params)
