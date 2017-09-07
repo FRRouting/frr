@@ -27,6 +27,7 @@
 #include "queue.h"
 #include "filter.h"
 #include "jhash.h"
+#include "stream.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ecommunity.h"
@@ -583,10 +584,7 @@ static int ecommunity_rt_soo_str(char *buf, u_int8_t *pnt, int type,
 
 	/* Put string into buffer.  */
 	if (type == ECOMMUNITY_ENCODE_AS4) {
-		eas.as = (*pnt++ << 24);
-		eas.as |= (*pnt++ << 16);
-		eas.as |= (*pnt++ << 8);
-		eas.as |= (*pnt++);
+		pnt = ptr_get_be32(pnt, &eas.as);
 		eas.val = (*pnt++ << 8);
 		eas.val |= (*pnt++);
 
@@ -594,11 +592,7 @@ static int ecommunity_rt_soo_str(char *buf, u_int8_t *pnt, int type,
 	} else if (type == ECOMMUNITY_ENCODE_AS) {
 		eas.as = (*pnt++ << 8);
 		eas.as |= (*pnt++);
-
-		eas.val = (*pnt++ << 24);
-		eas.val |= (*pnt++ << 16);
-		eas.val |= (*pnt++ << 8);
-		eas.val |= (*pnt++);
+		pnt = ptr_get_be32(pnt, &eas.val);
 
 		len = sprintf(buf, "%s%u:%u", prefix, eas.as, eas.val);
 	} else if (type == ECOMMUNITY_ENCODE_IP) {
@@ -610,6 +604,7 @@ static int ecommunity_rt_soo_str(char *buf, u_int8_t *pnt, int type,
 		len = sprintf(buf, "%s%s:%u", prefix, inet_ntoa(eip.ip),
 			      eip.val);
 	}
+	(void)pnt; /* consume value */
 
 	return len;
 }

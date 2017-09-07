@@ -239,4 +239,22 @@ extern struct stream *stream_fifo_head(struct stream_fifo *fifo);
 extern void stream_fifo_clean(struct stream_fifo *fifo);
 extern void stream_fifo_free(struct stream_fifo *fifo);
 
+/* This is here because "<< 24" is particularly problematic in C.
+ * This is because the left operand of << is integer-promoted, which means
+ * an uint8_t gets converted into a *signed* int.  Shifting into the sign
+ * bit of a signed int is theoretically undefined behaviour, so - the left
+ * operand needs to be cast to unsigned.
+ *
+ * This is not a problem for 16- or 8-bit values (they don't reach the sign
+ * bit), for 64-bit values (you need to cast them anyway), and neither for
+ * encoding (because it's downcasted.)
+ */
+static inline uint8_t *ptr_get_be32(uint8_t *ptr, uint32_t *out)
+{
+	uint32_t tmp;
+	memcpy(&tmp, ptr, sizeof(tmp));
+	*out = ntohl(tmp);
+	return ptr + 4;
+}
+
 #endif /* _ZEBRA_STREAM_H */

@@ -63,21 +63,13 @@ void decode_rd_as(u_char *pnt, struct rd_as *rd_as)
 {
 	rd_as->as = (u_int16_t)*pnt++ << 8;
 	rd_as->as |= (u_int16_t)*pnt++;
-
-	rd_as->val = ((u_int32_t)*pnt++ << 24);
-	rd_as->val |= ((u_int32_t)*pnt++ << 16);
-	rd_as->val |= ((u_int32_t)*pnt++ << 8);
-	rd_as->val |= (u_int32_t)*pnt;
+	ptr_get_be32(pnt, &rd_as->val);
 }
 
 /* type == RD_TYPE_AS4 */
 void decode_rd_as4(u_char *pnt, struct rd_as *rd_as)
 {
-	rd_as->as = (u_int32_t)*pnt++ << 24;
-	rd_as->as |= (u_int32_t)*pnt++ << 16;
-	rd_as->as |= (u_int32_t)*pnt++ << 8;
-	rd_as->as |= (u_int32_t)*pnt++;
-
+	pnt = ptr_get_be32(pnt, &rd_as->as);
 	rd_as->val = ((u_int16_t)*pnt++ << 8);
 	rd_as->val |= (u_int16_t)*pnt;
 }
