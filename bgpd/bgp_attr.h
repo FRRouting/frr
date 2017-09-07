@@ -238,8 +238,6 @@ extern bgp_attr_parse_ret_t bgp_attr_parse(struct peer *, struct attr *,
 					   bgp_size_t, struct bgp_nlri *,
 					   struct bgp_nlri *);
 extern void bgp_attr_dup(struct attr *, struct attr *);
-extern void bgp_attr_deep_dup(struct attr *, struct attr *);
-extern void bgp_attr_deep_free(struct attr *);
 extern struct attr *bgp_attr_intern(struct attr *attr);
 extern void bgp_attr_unintern_sub(struct attr *);
 extern void bgp_attr_unintern(struct attr **);
