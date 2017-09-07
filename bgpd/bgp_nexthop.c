@@ -580,7 +580,11 @@ DEFUN (show_ip_bgp_nexthop,
        "Show detailed information\n")
 {
 	int idx = 0;
-	char *vrf = argv_find(argv, argc, "WORD", &idx) ? argv[idx]->arg : NULL;
+	char *vrf = NULL;
+
+	if (argv_find(argv, argc, "view", &idx)
+	    || argv_find(argv, argc, "vrf", &idx))
+		vrf = argv[++idx]->arg;
 	int detail = argv_find(argv, argc, "detail", &idx) ? 1 : 0;
 	return show_ip_bgp_nexthop_table(vty, vrf, detail);
 }
