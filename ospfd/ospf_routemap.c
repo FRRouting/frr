@@ -51,7 +51,7 @@ static void ospf_route_map_update(const char *name)
 	if (listcount(om->ospf) == 0)
 		return;
 
-	for (ALL_LIST_ELEMENTS_RO (om->ospf, n1, ospf)) {
+	for (ALL_LIST_ELEMENTS_RO(om->ospf, n1, ospf)) {
 		/* Update route-map */
 		for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
 			struct list *red_list;

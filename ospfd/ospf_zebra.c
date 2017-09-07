@@ -107,6 +107,8 @@ static int ospf_interface_add(int command, struct zclient *zclient,
 	struct ospf *ospf = NULL;
 
 	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
+	if (ifp == NULL)
+		return 0;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug(
@@ -123,6 +125,8 @@ static int ospf_interface_add(int command, struct zclient *zclient,
 	}
 
 	ospf = ospf_lookup_by_vrf_id(vrf_id);
+	if (!ospf)
+		return 0;
 
 	ospf_if_update(ospf, ifp);
 
@@ -282,6 +286,8 @@ static int ospf_interface_address_add(int command, struct zclient *zclient,
 	}
 
 	ospf = ospf_lookup_by_vrf_id(vrf_id);
+	if (!ospf)
+		return 0;
 
 	ospf_if_update(ospf, c->ifp);
 
@@ -1123,8 +1129,8 @@ void ospf_distribute_list_update(struct ospf *ospf, int type,
 {
 	struct route_table *rt;
 	struct ospf_external *ext;
+	void **args = XCALLOC(MTYPE_OSPF_DIST_ARGS, sizeof(void *)*2);
 
-	void **args = XCALLOC(MTYPE_OSPF_DIST_ARGS, sizeof (void * )*2);
 	args[0] = ospf;
 	args[1] = (void *)((ptrdiff_t) type);
 
@@ -1158,7 +1164,7 @@ static void ospf_filter_update(struct access_list *access)
 		return;
 
 	/* Iterate all ospf [VRF] instances */
-	for (ALL_LIST_ELEMENTS_RO (om->ospf, n1, ospf)) {
+	for (ALL_LIST_ELEMENTS_RO(om->ospf, n1, ospf)) {
 		/* Update distribute-list, and apply filter. */
 		for (type = 0; type <= ZEBRA_ROUTE_MAX; type++) {
 			struct list *red_list;

@@ -510,13 +510,8 @@ extern const char *ospf_redist_string(u_int route_type);
 extern struct ospf *ospf_lookup_instance(u_short);
 extern struct ospf *ospf_get(u_short instance, const char *name);
 extern struct ospf *ospf_get_instance(u_short);
-extern struct ospf *ospf_lookup_by_name(const char *name);
 extern struct ospf *ospf_lookup_by_inst_name(u_short instance,
 					     const char *name);
-extern struct ospf *ospf_lookup_by_vrf_id(vrf_id_t vrf_id);
-extern struct ospf *ospf_lookup_by_name(const char *name);
-extern struct ospf *ospf_lookup_by_inst_name(u_short instance,
-					      const char *name);
 extern struct ospf *ospf_lookup_by_vrf_id(vrf_id_t vrf_id);
 extern void ospf_finish(struct ospf *);
 extern void ospf_router_id_update(struct ospf *ospf);

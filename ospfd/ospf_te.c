@@ -2570,10 +2570,13 @@ DEFUN (show_ip_ospf_mpls_te_link,
 	}
 	/* Show All Interfaces. */
 	if (argc == 5) {
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-		for (ALL_LIST_ELEMENTS(vrf_iflist(ospf->vrf_id), node, nnode,
-				       ifp))
-			show_mpls_te_link_sub(vty, ifp);
+		for (ALL_LIST_ELEMENTS_RO(om->ospf, n1, ospf)) {
+			if (!ospf->oi_running)
+				continue;
+			for (ALL_LIST_ELEMENTS(vrf_iflist(ospf->vrf_id), node,
+					       nnode, ifp))
+				show_mpls_te_link_sub(vty, ifp);
+		}
 	}
 	/* Interface name is specified. */
 	else {

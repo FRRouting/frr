@@ -447,14 +447,19 @@ struct ospf *ospf_lookup_by_vrf_id(vrf_id_t vrf_id)
 
 }
 
-struct ospf *ospf_lookup_by_name(const char *name)
+/* It should only be used when processing incoming info update from zebra.
+ * Other situations, it is not sufficient to lookup the ospf instance by
+ * vrf_name only without using the instance number.
+ */
+static struct ospf *ospf_lookup_by_name(const char *vrf_name)
 {
 	struct ospf *ospf = NULL;
 	struct listnode *node, *nnode;
 
 	for (ALL_LIST_ELEMENTS(om->ospf, node, nnode, ospf))
-		if ((ospf->name == NULL && name == NULL)
-		    || (ospf->name && name && strcmp(ospf->name, name) == 0))
+		if ((ospf->name == NULL && vrf_name == NULL)
+		    || (ospf->name && vrf_name &&
+			strcmp(ospf->name, vrf_name) == 0))
 			return ospf;
 	return NULL;
 }
@@ -1283,8 +1288,9 @@ void ospf_ls_upd_queue_empty(struct ospf_interface *oi)
 
 void ospf_if_update(struct ospf *ospf, struct interface *ifp)
 {
+
 	if (!ospf)
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		return;
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: interface %s ifp->vrf_id %u ospf vrf %s vrf_id %u router_id %s",
