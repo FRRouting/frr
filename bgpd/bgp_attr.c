@@ -508,50 +508,6 @@ void bgp_attr_dup(struct attr *new, struct attr *orig)
 	*new = *orig;
 }
 
-void bgp_attr_deep_dup(struct attr *new, struct attr *orig)
-{
-	if (orig->aspath)
-		new->aspath = aspath_dup(orig->aspath);
-
-	if (orig->community)
-		new->community = community_dup(orig->community);
-
-	if (orig->ecommunity)
-		new->ecommunity = ecommunity_dup(orig->ecommunity);
-	if (orig->cluster)
-		new->cluster = cluster_dup(orig->cluster);
-	if (orig->transit)
-		new->transit = transit_dup(orig->transit);
-	if (orig->encap_subtlvs)
-		new->encap_subtlvs = encap_tlv_dup(orig->encap_subtlvs);
-#if ENABLE_BGP_VNC
-	if (orig->vnc_subtlvs)
-		new->vnc_subtlvs = encap_tlv_dup(orig->vnc_subtlvs);
-#endif
-}
-
-void bgp_attr_deep_free(struct attr *attr)
-{
-	if (attr->aspath)
-		aspath_free(attr->aspath);
-
-	if (attr->community)
-		community_free(attr->community);
-
-	if (attr->ecommunity)
-		ecommunity_free(&attr->ecommunity);
-	if (attr->cluster)
-		cluster_free(attr->cluster);
-	if (attr->transit)
-		transit_free(attr->transit);
-	if (attr->encap_subtlvs)
-		encap_free(attr->encap_subtlvs);
-#if ENABLE_BGP_VNC
-	if (attr->vnc_subtlvs)
-		encap_free(attr->vnc_subtlvs);
-#endif
-}
-
 unsigned long int attr_count(void)
 {
 	return attrhash->count;

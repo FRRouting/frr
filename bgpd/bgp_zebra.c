@@ -58,41 +58,6 @@
 /* All information about zebra. */
 struct zclient *zclient = NULL;
 
-/* These array buffers are used in making a copy of the attributes for
-   route-map apply. Arrays are being used here to minimize mallocs and
-   frees for the temporary copy of the attributes.
-   Given the zapi api expects the nexthop buffer to contain pointer to
-   pointers for nexthops, we couldnt have used a single nexthop variable
-   on the stack, hence we had two options:
-     1. maintain a linked-list and free it after zapi_*_route call
-     2. use an array to avoid number of mallocs.
-   Number of supported next-hops are finite, use of arrays should be ok. */
-struct attr attr_cp[MULTIPATH_NUM];
-unsigned int attr_index = 0;
-
-/* Once per address-family initialization of the attribute array */
-#define BGP_INFO_ATTR_BUF_INIT()                                               \
-	do {                                                                   \
-		memset(attr_cp, 0, MULTIPATH_NUM * sizeof(struct attr));       \
-		attr_index = 0;                                                \
-	} while (0)
-
-#define BGP_INFO_ATTR_BUF_COPY(info_src, info_dst)                             \
-	do {                                                                   \
-		*info_dst = *info_src;                                         \
-		assert(attr_index != multipath_num);                           \
-		bgp_attr_dup(&attr_cp[attr_index], info_src->attr);            \
-		bgp_attr_deep_dup(&attr_cp[attr_index], info_src->attr);       \
-		info_dst->attr = &attr_cp[attr_index];                         \
-		attr_index++;                                                  \
-	} while (0)
-
-#define BGP_INFO_ATTR_BUF_FREE(info)                                           \
-	do {                                                                   \
-		bgp_attr_deep_free(info->attr);                                \
-	} while (0)
-
-
 /* Can we install into zebra? */
 static inline int bgp_install_info_to_zebra(struct bgp *bgp)
 {
@@ -950,7 +915,12 @@ static struct in6_addr *bgp_info_to_ipv6_nexthop(struct bgp_info *info)
 static int bgp_table_map_apply(struct route_map *map, struct prefix *p,
 			       struct bgp_info *info)
 {
-	if (route_map_apply(map, p, RMAP_BGP, info) != RMAP_DENYMATCH)
+	route_map_result_t ret;
+
+	ret = route_map_apply(map, p, RMAP_BGP, info);
+	bgp_attr_flush(info->attr);
+
+	if (ret != RMAP_DENYMATCH)
 		return 1;
 
 	if (bgp_debug_zebra(p)) {
@@ -992,8 +962,9 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	struct peer *peer;
 	struct bgp_info *mpinfo;
 	u_int32_t metric;
+	struct attr local_attr;
 	struct bgp_info local_info;
-	struct bgp_info *info_cp = &local_info;
+	struct bgp_info *mpinfo_cp = &local_info;
 	route_tag_t tag;
 	mpls_label_t label;
 
@@ -1046,37 +1017,34 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	else
 		return;
 
-	if (bgp->table_map[afi][safi].name)
-		BGP_INFO_ATTR_BUF_INIT();
-
 	/* Metric is currently based on the best-path only */
 	metric = info->attr->med;
 	for (mpinfo = info; mpinfo; mpinfo = bgp_info_mpath_next(mpinfo)) {
+		*mpinfo_cp = *mpinfo;
+
 		if (nh_family == AF_INET) {
 			struct in_addr *nexthop;
 
-			nexthop = NULL;
-
 			if (bgp->table_map[afi][safi].name) {
 				/* Copy info and attributes, so the route-map
-				   apply doesn't modify the
-				   BGP route info. */
-				BGP_INFO_ATTR_BUF_COPY(mpinfo, info_cp);
-				if (bgp_table_map_apply(
-					    bgp->table_map[afi][safi].map, p,
-					    info_cp)) {
-					if (mpinfo == info) {
-						metric = info_cp->attr->med;
-						tag = info_cp->attr->tag;
-					}
-					nexthop = &info_cp->attr->nexthop;
-				}
-				BGP_INFO_ATTR_BUF_FREE(info_cp);
-			} else
-				nexthop = &mpinfo->attr->nexthop;
+				   apply doesn't modify the BGP route info. */
+				local_attr = *mpinfo->attr;
+				mpinfo_cp->attr = &local_attr;
 
-			if (nexthop == NULL)
-				continue;
+				if (!bgp_table_map_apply(
+					    bgp->table_map[afi][safi].map, p,
+					    mpinfo_cp))
+					continue;
+
+				/* metric/tag is only allowed to be
+				 * overridden on 1st nexthop */
+				if (mpinfo == info) {
+					metric = mpinfo_cp->attr->med;
+					tag = mpinfo_cp->attr->tag;
+				}
+			}
+
+			nexthop = &mpinfo_cp->attr->nexthop;
 
 			api_nh = &api.nexthops[valid_nh_count];
 			api_nh->gate.ipv4 = *nexthop;
@@ -1086,29 +1054,26 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 			struct in6_addr *nexthop;
 
 			ifindex = 0;
-			nexthop = NULL;
 
 			if (bgp->table_map[afi][safi].name) {
 				/* Copy info and attributes, so the route-map
-				   apply doesn't modify the
-				   BGP route info. */
-				BGP_INFO_ATTR_BUF_COPY(mpinfo, info_cp);
-				if (bgp_table_map_apply(
-					    bgp->table_map[afi][safi].map, p,
-					    info_cp)) {
-					if (mpinfo == info) {
-						metric = info_cp->attr->med;
-						tag = info_cp->attr->tag;
-					}
-					nexthop = bgp_info_to_ipv6_nexthop(
-						info_cp);
-				}
-				BGP_INFO_ATTR_BUF_FREE(info_cp);
-			} else
-				nexthop = bgp_info_to_ipv6_nexthop(mpinfo);
+				   apply doesn't modify the BGP route info. */
+				local_attr = *mpinfo->attr;
+				mpinfo_cp->attr = &local_attr;
 
-			if (nexthop == NULL)
-				continue;
+				if (!bgp_table_map_apply(
+					    bgp->table_map[afi][safi].map, p,
+					    mpinfo_cp))
+					continue;
+
+				/* metric/tag is only allowed to be
+				 * overridden on 1st nexthop */
+				if (mpinfo == info) {
+					metric = mpinfo_cp->attr->med;
+					tag = mpinfo_cp->attr->tag;
+				}
+			}
+			nexthop = bgp_info_to_ipv6_nexthop(mpinfo_cp);
 
 			if ((mpinfo == info)
 			    && mpinfo->attr->mp_nexthop_len
