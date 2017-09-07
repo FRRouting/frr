@@ -690,6 +690,12 @@ struct attr *bgp_attr_intern(struct attr *attr)
 	}
 #endif
 
+	/* At this point, attr only contains intern'd pointers.  that means
+	 * if we find it in attrhash, it has all the same pointers and we
+	 * correctly updated the refcounts on these.
+	 * If we don't find it, we need to allocate a one because in all
+	 * cases this returns a new reference to a hashed attr, but the input
+	 * wasn't on hash. */
 	find = (struct attr *)hash_get(attrhash, attr, bgp_attr_hash_alloc);
 	find->refcnt++;
 
