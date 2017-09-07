@@ -136,13 +136,15 @@ For example.
     ripngd=yes
     isisd=yes
 
-### Enable the systemd serivce
+### Enable the systemd service
 Edit `/etc/systemd/system/frr.service` and remove the line **OnFailure=heartbeat-failed@%n.service**  
 For example.
 
     [Unit]  
     Description=Cumulus Linux FRR  
     After=syslog.target networking.service  
+
+- systemctl enable frr
     
 ### Start the systemd service
 - systemctl start frr
