@@ -6339,7 +6339,7 @@ void bgp_redistribute_withdraw(struct bgp *bgp, afi_t afi, int type,
 static void route_vty_out_route(struct prefix *p, struct vty *vty,
 				json_object *json)
 {
-	int len;
+	int len = 0;
 	u_int32_t destination;
 	char buf[BUFSIZ];
 
