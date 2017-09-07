@@ -122,8 +122,9 @@ static int bgp_tip_hash_cmp(const void *p1, const void *p2)
 
 void bgp_tip_hash_init(struct bgp *bgp)
 {
-	bgp->tip_hash =
-		hash_create(bgp_tip_hash_key_make, bgp_tip_hash_cmp, NULL);
+	bgp->tip_hash = hash_create(bgp_tip_hash_key_make,
+				    bgp_tip_hash_cmp,
+				    "BGP TIP hash");
 }
 
 void bgp_tip_hash_destroy(struct bgp *bgp)
@@ -204,7 +205,8 @@ static int bgp_address_hash_cmp(const void *p1, const void *p2)
 void bgp_address_init(struct bgp *bgp)
 {
 	bgp->address_hash = hash_create(bgp_address_hash_key_make,
-					bgp_address_hash_cmp, NULL);
+					bgp_address_hash_cmp,
+					"BGP Address Hash");
 }
 
 void bgp_address_destroy(struct bgp *bgp)

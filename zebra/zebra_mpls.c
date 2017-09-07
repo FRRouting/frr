@@ -2812,8 +2812,12 @@ void zebra_mpls_init_tables(struct zebra_vrf *zvrf)
 {
 	if (!zvrf)
 		return;
-	zvrf->slsp_table = hash_create(label_hash, label_cmp, NULL);
-	zvrf->lsp_table = hash_create(label_hash, label_cmp, NULL);
+	zvrf->slsp_table = hash_create(label_hash,
+				       label_cmp,
+				       "ZEBRA SLSP table");
+	zvrf->lsp_table = hash_create(label_hash,
+				      label_cmp,
+				      "ZEBRA LSP table");
 	zvrf->fec_table[AFI_IP] = route_table_init();
 	zvrf->fec_table[AFI_IP6] = route_table_init();
 	zvrf->mpls_flags = 0;

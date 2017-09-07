@@ -196,7 +196,9 @@ void nhrp_vc_init(void)
 {
 	size_t i;
 
-	nhrp_vc_hash = hash_create(nhrp_vc_key, nhrp_vc_cmp, NULL);
+	nhrp_vc_hash = hash_create(nhrp_vc_key,
+				   nhrp_vc_cmp,
+				   "NHRP VC hash");
 	for (i = 0; i < ZEBRA_NUM_OF(childlist_head); i++)
 		list_init(&childlist_head[i]);
 }

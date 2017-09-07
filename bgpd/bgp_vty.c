@@ -9934,7 +9934,7 @@ static void community_show_all_iterator(struct hash_backet *backet,
 	struct community *com;
 
 	com = (struct community *)backet->data;
-	vty_out(vty, "[%p] (%ld) %s\n", (void *)backet, com->refcnt,
+	vty_out(vty, "[%p] (%ld) %s\n", (void *)com, com->refcnt,
 		community_str(com));
 }
 
@@ -9963,7 +9963,7 @@ static void lcommunity_show_all_iterator(struct hash_backet *backet,
 	struct lcommunity *lcom;
 
 	lcom = (struct lcommunity *)backet->data;
-	vty_out(vty, "[%p] (%ld) %s\n", (void *)backet, lcom->refcnt,
+	vty_out(vty, "[%p] (%ld) %s\n", (void *)lcom, lcom->refcnt,
 		lcommunity_str(lcom));
 }
 

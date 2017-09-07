@@ -1581,8 +1581,10 @@ static void *route_map_dep_hash_alloc(void *p)
 
 	dep_entry = XCALLOC(MTYPE_ROUTE_MAP_DEP, sizeof(struct route_map_dep));
 	dep_entry->dep_name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, dep_name);
-	dep_entry->dep_rmap_hash = hash_create(route_map_dep_hash_make_key,
-					       route_map_rmap_hash_cmp, NULL);
+	dep_entry->dep_rmap_hash = hash_create_size(8,
+						    route_map_dep_hash_make_key,
+						    route_map_rmap_hash_cmp,
+						    "Route Map Dep Hash");
 	dep_entry->this_hash = NULL;
 
 	return ((void *)dep_entry);
@@ -2784,12 +2786,15 @@ void route_map_init(void)
 	route_match_vec = vector_init(1);
 	route_set_vec = vector_init(1);
 	route_map_master_hash =
-		hash_create(route_map_hash_key_make, route_map_hash_cmp, NULL);
+		hash_create_size(8, route_map_hash_key_make,
+				 route_map_hash_cmp,
+				 "Route Map Master Hash");
 
 	for (i = 1; i < ROUTE_MAP_DEP_MAX; i++)
 		route_map_dep_hash[i] =
-			hash_create(route_map_dep_hash_make_key,
-				    route_map_dep_hash_cmp, NULL);
+			hash_create_size(8, route_map_dep_hash_make_key,
+					 route_map_dep_hash_cmp,
+					 "Route Map Dep Hash");
 
 	cmd_variable_handler_register(rmap_var_handlers);
 

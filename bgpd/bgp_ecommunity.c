@@ -26,6 +26,7 @@
 #include "command.h"
 #include "queue.h"
 #include "filter.h"
+#include "jhash.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ecommunity.h"
@@ -234,22 +235,8 @@ unsigned int ecommunity_hash_make(void *arg)
 {
 	const struct ecommunity *ecom = arg;
 	int size = ecom->size * ECOMMUNITY_SIZE;
-	u_int8_t *pnt = ecom->val;
-	unsigned int key = 0;
-	int c;
 
-	for (c = 0; c < size; c += ECOMMUNITY_SIZE) {
-		key += pnt[c];
-		key += pnt[c + 1];
-		key += pnt[c + 2];
-		key += pnt[c + 3];
-		key += pnt[c + 4];
-		key += pnt[c + 5];
-		key += pnt[c + 6];
-		key += pnt[c + 7];
-	}
-
-	return key;
+	return jhash(ecom->val, size, 0x564321ab);
 }
 
 /* Compare two Extended Communities Attribute structure.  */
@@ -272,7 +259,9 @@ int ecommunity_cmp(const void *arg1, const void *arg2)
 /* Initialize Extended Comminities related hash. */
 void ecommunity_init(void)
 {
-	ecomhash = hash_create(ecommunity_hash_make, ecommunity_cmp, NULL);
+	ecomhash = hash_create(ecommunity_hash_make,
+			       ecommunity_cmp,
+			       "BGP ecommunity hash");
 }
 
 void ecommunity_finish(void)

@@ -31,6 +31,7 @@
 #include "command.h"
 #include "sigevent.h"
 #include "network.h"
+#include "jhash.h"
 
 DEFINE_MTYPE_STATIC(LIB, THREAD, "Thread")
 DEFINE_MTYPE_STATIC(LIB, THREAD_MASTER, "Thread master")
@@ -58,7 +59,9 @@ static struct list *masters;
 /* CLI start ---------------------------------------------------------------- */
 static unsigned int cpu_record_hash_key(struct cpu_thread_history *a)
 {
-	return (uintptr_t)a->func;
+	int size = sizeof (&a->func);
+
+	return jhash(&a->func, size, 0);
 }
 
 static int cpu_record_hash_cmp(const struct cpu_thread_history *a,
@@ -376,9 +379,11 @@ struct thread_master *thread_master_create(const char *name)
 		return NULL;
 	}
 
-	rv->cpu_record = hash_create(
+	rv->cpu_record = hash_create_size(
+		8,
 		(unsigned int (*)(void *))cpu_record_hash_key,
-		(int (*)(const void *, const void *))cpu_record_hash_cmp, NULL);
+		(int (*)(const void *, const void *))cpu_record_hash_cmp,
+		"Thread Hash");
 
 
 	/* Initialize the timer queues */

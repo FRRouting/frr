@@ -84,7 +84,9 @@ static void sync_init(struct update_subgroup *subgrp)
 	BGP_ADV_FIFO_INIT(&subgrp->sync->update);
 	BGP_ADV_FIFO_INIT(&subgrp->sync->withdraw);
 	BGP_ADV_FIFO_INIT(&subgrp->sync->withdraw_low);
-	subgrp->hash = hash_create(baa_hash_key, baa_hash_cmp, NULL);
+	subgrp->hash = hash_create(baa_hash_key,
+				   baa_hash_cmp,
+				   "BGP SubGroup Hash");
 
 	/* We use a larger buffer for subgrp->work in the event that:
 	 * - We RX a BGP_UPDATE where the attributes alone are just
@@ -1549,8 +1551,10 @@ void update_bgp_group_init(struct bgp *bgp)
 	int afid;
 
 	AF_FOREACH(afid)
-	bgp->update_groups[afid] =
-		hash_create(updgrp_hash_key_make, updgrp_hash_cmp, NULL);
+		bgp->update_groups[afid] =
+			hash_create(updgrp_hash_key_make,
+				    updgrp_hash_cmp,
+				    "BGP Update Group Hash");
 }
 
 void update_bgp_group_free(struct bgp *bgp)

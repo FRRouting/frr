@@ -2833,7 +2833,9 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 			XSTRDUP(MTYPE_BGP_PEER_HOST, cmd_domainname_get());
 	bgp->peer = list_new();
 	bgp->peer->cmp = (int (*)(void *, void *))peer_cmp;
-	bgp->peerhash = hash_create(peer_hash_key_make, peer_hash_same, NULL);
+	bgp->peerhash = hash_create(peer_hash_key_make,
+				    peer_hash_same,
+				    "BGP Peer Hash");
 	bgp->peerhash->max_size = BGP_PEER_MAX_HASH_SIZE;
 
 	bgp->group = list_new();
