@@ -575,6 +575,8 @@ void thread_master_free(struct thread_master *m)
 	hash_free(m->cpu_record);
 	m->cpu_record = NULL;
 
+	if (m->name)
+		XFREE(MTYPE_THREAD_MASTER, m->name);
 	XFREE(MTYPE_THREAD_MASTER, m->handler.pfds);
 	XFREE(MTYPE_THREAD_MASTER, m->handler.copy);
 	XFREE(MTYPE_THREAD_MASTER, m);
