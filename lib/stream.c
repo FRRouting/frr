@@ -85,12 +85,54 @@ DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO")
 		}                                                              \
 	} while (0);
 
+/*
+ * streamcache -> Is an attempt to speed up buffer lookup
+ * When we do a stream_free, if the size spot in streamcache
+ * is not being used, then save the stream pointer
+ * (clearing it up first).  Thus when we do a stream_new
+ * lookup in the streamcache.
+ *
+ * The belief here is that:
+ * a) caching the size is faster then the FREE + MALLOC
+ *    for the next one.
+ * b) The daemon is going to allocate the same size
+ *    more frequently than random sizes.
+ *
+ * Recent perf tests show that stream_new and stream_free
+ * were being called at a significant pace.
+ */ 
+#define STREAMCACHEMAX 9000
+struct stream *streamcache[STREAMCACHEMAX+1];
+
+void stream_init(void)
+{
+	memset(streamcache, 0, sizeof(struct stream *) * (STREAMCACHEMAX+1));
+}
+
+void stream_fini(void)
+{
+	int i;
+
+	for (i = 0; i <= STREAMCACHEMAX; i++) {
+		if (streamcache[i] != NULL) {
+			stream_free(streamcache[i]);
+			streamcache[i] = NULL;
+		}
+	}
+}
+
 /* Make stream buffer. */
 struct stream *stream_new(size_t size)
 {
 	struct stream *s;
 
 	assert(size > 0);
+
+	if (size <= STREAMCACHEMAX && streamcache[size] != NULL) {
+		s = streamcache[size];
+		streamcache[size] = NULL;
+		return s;
+	}
 
 	s = XCALLOC(MTYPE_STREAM, sizeof(struct stream));
 
@@ -112,6 +154,13 @@ void stream_free(struct stream *s)
 	if (!s)
 		return;
 
+	if (s->size <= STREAMCACHEMAX && streamcache[s->size] == NULL) {
+		streamcache[s->size] = s;
+		memset(s->data, 0, s->size);
+		s->endp = s->getp = 0;
+		s->next = NULL;
+		return;
+	}
 	XFREE(MTYPE_STREAM_DATA, s->data);
 	XFREE(MTYPE_STREAM, s);
 }
