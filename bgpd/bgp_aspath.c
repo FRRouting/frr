@@ -892,7 +892,7 @@ size_t aspath_put(struct stream *s, struct aspath *as, int use32bit)
 				assegment_data_put(s, seg->as, AS_SEGMENT_MAX,
 						   use32bit);
 				written += AS_SEGMENT_MAX;
-				bytes += ASSEGMENT_SIZE(written, use32bit);
+				bytes += ASSEGMENT_SIZE(AS_SEGMENT_MAX, use32bit);
 			}
 
 			/* write the final segment, probably is also the first
