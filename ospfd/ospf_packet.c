@@ -1787,6 +1787,8 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 	 */
 	lsas = ospf_ls_upd_list_lsa(nbr, s, oi, size);
 
+	if (lsas == NULL)
+		return;
 #define DISCARD_LSA(L, N)                                                              \
 	{                                                                              \
 		if (IS_DEBUG_OSPF_EVENT)                                               \

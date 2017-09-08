@@ -6395,13 +6395,14 @@ DEFUN (ip_ospf_cost,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
-	u_int32_t cost;
+	u_int32_t cost = OSPF_OUTPUT_COST_DEFAULT;
 	struct in_addr addr;
 	struct ospf_if_params *params;
 	params = IF_DEF_PARAMS(ifp);
 
 	// get arguments
 	char *coststr = NULL, *ifaddr = NULL;
+
 	argv_find(argv, argc, "(1-65535)", &idx);
 	coststr = argv[idx]->arg;
 	cost = strtol(coststr, NULL, 10);
@@ -7259,7 +7260,7 @@ DEFUN (ip_ospf_area,
 	int format, ret;
 	struct in_addr area_id;
 	struct in_addr addr;
-	struct ospf_if_params *params;
+	struct ospf_if_params *params = NULL;
 	struct route_node *rn;
 	struct ospf *ospf = NULL;
 	u_short instance = 0;
@@ -7330,9 +7331,11 @@ DEFUN (ip_ospf_area,
 	}
 
 	/* enable ospf on this interface with area_id */
-	SET_IF_PARAM(params, if_area);
-	params->if_area = area_id;
-	params->if_area_id_fmt = format;
+	if (params) {
+		SET_IF_PARAM(params, if_area);
+		params->if_area = area_id;
+		params->if_area_id_fmt = format;
+	}
 	ospf_interface_area_set(ospf, ifp);
 	ospf->if_ospf_cli_count++;
 
@@ -8638,14 +8641,22 @@ static int config_write_interface_one(struct vty *vty, struct ospf *ospf)
 	int write = 0;
 
 	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(ospf->vrf_id), n1, ifp)) {
+		struct vrf *vrf = NULL;
+
 		if (memcmp(ifp->name, "VLINK", 5) == 0)
 			continue;
 
 		if (ifp->ifindex == IFINDEX_DELETED)
 			continue;
 
+		vrf = vrf_lookup_by_id(ifp->vrf_id);
+
 		vty_frame(vty, "!\n");
-		vty_frame(vty, "interface %s\n", ifp->name);
+		if (ifp->vrf_id == VRF_DEFAULT || vrf == NULL)
+			vty_frame(vty, "interface %s\n", ifp->name);
+		else
+			vty_frame(vty, "interface %s vrf %s\n",
+				  ifp->name, vrf->name);
 		if (ifp->desc)
 			vty_out(vty, " description %s\n", ifp->desc);
 
@@ -8716,14 +8727,17 @@ static int config_write_interface_one(struct vty *vty, struct ospf *ospf)
 			}
 
 			/* Cryptographic Authentication Key print. */
-			for (ALL_LIST_ELEMENTS_RO(params->auth_crypt, n2, ck)) {
-				vty_out(vty,
-					" ip ospf message-digest-key %d md5 %s",
-					ck->key_id, ck->auth_key);
-				if (params != IF_DEF_PARAMS(ifp))
-					vty_out(vty, " %s",
-						inet_ntoa(rn->p.u.prefix4));
-				vty_out(vty, "\n");
+			if (params && params->auth_crypt) {
+				for (ALL_LIST_ELEMENTS_RO(params->auth_crypt,
+							  n2, ck)) {
+					vty_out(vty,
+						" ip ospf message-digest-key %d md5 %s",
+						ck->key_id, ck->auth_key);
+					if (params != IF_DEF_PARAMS(ifp))
+						vty_out(vty, " %s",
+							inet_ntoa(rn->p.u.prefix4));
+					vty_out(vty, "\n");
+				}
 			}
 
 			/* Interface Output Cost print. */
