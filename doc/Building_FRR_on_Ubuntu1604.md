@@ -56,7 +56,7 @@ an example.)
         --enable-rtadv \
         --enable-tcp-zebra \
         --enable-fpm \
-	--enable-systemd=yes \
+        --enable-systemd=yes \
         --with-pkg-git-version \
         --with-pkg-extra-version=-MyOwnFRRVersion   
     make
@@ -79,7 +79,7 @@ an example.)
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/nhrpd.conf    
     sudo install -m 640 -o frr -g frrvty /dev/null /etc/frr/vtysh.conf
 
-### Enable IP & IPv6 forwarding
+### Enable IPv4 & IPv6 forwarding
 
 Edit `/etc/sysctl.conf` and uncomment the following values (ignore the 
 other settings)
@@ -136,7 +136,7 @@ For example.
     ripngd=yes
     isisd=yes
 
-### Enable the systemd serivce
+### Enable the systemd service
  - systemctl enable frr
 
 ### Start the systemd service
