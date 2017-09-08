@@ -634,7 +634,6 @@ struct stream *bpacket_reformat_for_peer(struct bpacket *pkt,
 		}
 	}
 
-	bgp_packet_add(peer, s);
 	return s;
 }
 

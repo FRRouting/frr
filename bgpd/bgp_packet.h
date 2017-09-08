@@ -24,7 +24,6 @@
 #define BGP_NLRI_LENGTH       1U
 #define BGP_TOTAL_ATTR_LEN    2U
 #define BGP_UNFEASIBLE_LEN    2U
-#define BGP_WRITE_PACKET_MAX 10U
 
 /* When to refresh */
 #define REFRESH_IMMEDIATE 1
@@ -38,10 +37,6 @@
 #define ORF_COMMON_PART_DENY       0x20 
 
 /* Packet send and receive function prototypes. */
-extern int bgp_read(struct thread *);
-extern int bgp_write(struct thread *);
-extern int bgp_connect_check(struct peer *, int change_state);
-
 extern void bgp_keepalive_send(struct peer *);
 extern void bgp_open_send(struct peer *);
 extern void bgp_notify_send(struct peer *, u_int8_t, u_int8_t);
@@ -65,6 +60,8 @@ extern void bgp_check_update_delay(struct bgp *);
 
 extern int bgp_packet_set_marker(struct stream *s, u_char type);
 extern int bgp_packet_set_size(struct stream *s);
-extern void bgp_packet_add(struct peer *peer, struct stream *s);
+
+extern int bgp_generate_updgrp_packets(struct thread *);
+extern int bgp_process_packet(struct thread *);
 
 #endif /* _QUAGGA_BGP_PACKET_H */

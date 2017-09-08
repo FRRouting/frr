@@ -179,7 +179,7 @@ struct update_subgroup {
 	struct stream *work;
 
 	/* We use a separate stream to encode MP_REACH_NLRI for efficient
-	 * NLRI packing. peer->work stores all the other attributes. The
+	 * NLRI packing. peer->obuf_work stores all the other attributes. The
 	 * actual packet is then constructed by concatenating the two.
 	 */
 	struct stream *scratch;

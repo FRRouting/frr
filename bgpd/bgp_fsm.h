@@ -23,36 +23,6 @@
 #define _QUAGGA_BGP_FSM_H
 
 /* Macro for BGP read, write and timer thread.  */
-#define BGP_READ_ON(T, F, V)                                                   \
-	do {                                                                   \
-		if ((peer->status != Deleted))                                 \
-			thread_add_read(bm->master, (F), peer, (V), &(T));     \
-	} while (0)
-
-#define BGP_READ_OFF(T)                                                        \
-	do {                                                                   \
-		if (T)                                                         \
-			THREAD_READ_OFF(T);                                    \
-	} while (0)
-
-#define BGP_WRITE_ON(T, F, V)                                                  \
-	do {                                                                   \
-		if ((peer)->status != Deleted)                                 \
-			thread_add_write(bm->master, (F), (peer), (V), &(T));  \
-	} while (0)
-
-#define BGP_PEER_WRITE_ON(T, F, V, peer)                                       \
-	do {                                                                   \
-		if ((peer)->status != Deleted)                                 \
-			thread_add_write(bm->master, (F), (peer), (V), &(T));  \
-	} while (0)
-
-#define BGP_WRITE_OFF(T)                                                       \
-	do {                                                                   \
-		if (T)                                                         \
-			THREAD_WRITE_OFF(T);                                   \
-	} while (0)
-
 #define BGP_TIMER_ON(T, F, V)                                                  \
 	do {                                                                   \
 		if ((peer->status != Deleted))                                 \
@@ -79,6 +49,12 @@
 	} while (0)
 
 #define BGP_MSEC_JITTER 10
+
+/* Status codes for bgp_event_update() */
+#define FSM_PEER_NOOP           0
+#define FSM_PEER_STOPPED        1
+#define FSM_PEER_TRANSFERRED    2
+#define FSM_PEER_TRANSITIONED   3
 
 /* Prototypes. */
 extern void bgp_fsm_nht_update(struct peer *, int valid);
