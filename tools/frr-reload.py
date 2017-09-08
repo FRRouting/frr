@@ -320,6 +320,17 @@ end
  exit-address-family
 !
 end
+ address-family evpn
+  neighbor LEAF activate
+  advertise-all-vni
+  vni 10100
+   rd 65000:10100
+   route-target import 10.1.1.1:10100
+   route-target export 10.1.1.1:10100
+  exit-vni
+ exit-address-family
+!
+end
 router ospf
  ospf router-id 10.0.0.1
  log-adjacency-changes detail
@@ -398,7 +409,7 @@ end
                 ctx_keys = []
                 current_context_lines = []
 
-            elif line == "exit-address-family" or line == "exit":
+            elif line == "exit-address-family" or line == "exit" or line == "exit-vni":
                 # if this exit is for address-family ipv4 unicast, ignore the pop
                 if main_ctx_key:
                     self.save_contexts(ctx_keys, current_context_lines)
@@ -418,6 +429,17 @@ end
                 current_context_lines = []
                 new_ctx = False
                 log.debug('LINE %-50s: entering new context, %-50s', line, ctx_keys)
+
+            elif "vni " in line:
+                main_ctx_key = []
+
+                # Save old context first
+                self.save_contexts(ctx_keys, current_context_lines)
+                current_context_lines = []
+                main_ctx_key = copy.deepcopy(ctx_keys)
+                log.debug('LINE %-50s: entering sub-context, append to ctx_keys', line)
+
+                ctx_keys.append(line)
 
             elif "address-family " in line:
                 main_ctx_key = []
@@ -872,6 +894,9 @@ def compare_context_objects(newconf, running):
 
             # Non-global context
             elif running_ctx_keys and not any("address-family" in key for key in running_ctx_keys):
+                lines_to_del.append((running_ctx_keys, None))
+
+            elif running_ctx_keys and not any("vni" in key for key in running_ctx_keys):
                 lines_to_del.append((running_ctx_keys, None))
 
             # Global context
