@@ -28,6 +28,7 @@ BGP-4.
 * Autonomous System::           
 * BGP Communities Attribute::   
 * BGP Extended Communities Attribute::  
+* BGP Large Communities Attribute::  
 * Displaying BGP routes::       
 * Capability Negotiation::      
 * Route Reflector::             
@@ -1372,6 +1373,104 @@ This command set Site of Origin value.
 @end deffn
 
 @c -----------------------------------------------------------------------
+@node BGP Large Communities Attribute
+@section BGP Large Communities Attribute
+
+The BGP Large Communities attribute was introduced in Feb 2017 with
+@cite{RFC8092, BGP Large Communities Attribute}.
+
+The BGP Large Communities Attribute is similar to the BGP Communities
+Attribute except that it has 3 components instead of two and each of
+which are 4 octets in length. Large Communities bring additional
+functionality and convenience over traditional communities, specifically
+the fact that the @code{GLOBAL} part below is now 4 octets wide allowing
+AS4 operators seamless use.
+
+@table @code
+@item GLOBAL:LOCAL1:LOCAL2
+This is the format to define Large Community values. Referencing
+@cite{RFC8195, Use of BGP Large Communities} the values are commonly
+referred to as follows.
+The @code{GLOBAL} part is a 4 octet Global Administrator field, common
+use of this field is the operators AS number.
+The @code{LOCAL1} part is a 4 octet Local Data Part 1 subfield referred
+to as a function.
+The @code{LOCAL2} part is a 4 octet Local Data Part 2 field and referred
+to as the parameter subfield. @code{65551:1:10} represents AS 65551
+function 1 and parameter 10.
+The referenced RFC above gives some guidelines on recommended usage.
+@end table
+
+@menu
+* BGP Large Community Lists::  
+* BGP Large Communities in Route Map::  
+@end menu
+
+@node BGP Large Community Lists
+@subsection BGP Large Community Lists
+
+Two types of large community lists are supported, namely @code{standard} and
+@code{expanded}.
+
+@deffn Command {ip large-community-list standard @var{name} @{permit|deny@} @var{large-community}} {}
+This command defines a new standard large-community-list.
+@var{large-community} is the Large Community value. We
+can add multiple large communities under same name. In that case
+the match will happen in the user defined order. Once the large-community-list
+matches the Large Communities attribute in BGP updates it will return
+permit or deny based upon the large-community-list definition.  When
+there is no matched entry, a deny will be returned.  When @var{large-community}
+is empty it matches any routes.
+@end deffn
+
+@deffn Command {ip large-community-list expanded @var{name} @{permit|deny@} @var{line}} {}
+This command defines a new expanded large-community-list. Where @var{line} is
+a string matching expression, it will be compared to the entire Large Communities
+attribute as a string, with each large-community in order from lowest to highest.
+@var{line} can also be a regular expression which matches this Large
+Community attribute.
+@end deffn
+
+@deffn Command {no ip large-community-list @var{name}} {}
+@deffnx Command {no ip large-community-list standard @var{name}} {}
+@deffnx Command {no ip large-community-list expanded @var{name}} {}
+These commands delete Large Community lists specified by
+@var{name}. All Large Community lists share a single namespace.
+This means Large Community lists can be removed by simply specifying the name.
+@end deffn
+
+@deffn {Command} {show ip large-community-list} {}
+@deffnx {Command} {show ip large-community-list @var{name}} {}
+This command display current large-community-list information.  When
+@var{name} is specified the community list information is shown.
+@end deffn
+
+@deffn {Command} {show ip bgp large-community-info} {}
+This command displays the current large communities in use.
+@end deffn
+
+@node BGP Large Communities in Route Map
+@subsection BGP Large Communities in Route Map
+
+@deffn {Route Map} {match large-community @var{line}} {}
+Where @var{line} can be a simple string to match, or a regular expression.
+It is very important to note that this match occurs on the entire
+large-community string as a whole, where each large-community is ordered
+from lowest to highest.
+@end deffn
+
+@deffn {Route Map} {set large-community @var{large-community}} {}
+@deffnx {Route Map} {set large-community @var{large-community} @var{large-community}} {}
+@deffnx {Route Map} {set large-community @var{large-community} additive} {}
+These commands are used for setting large-community values. The first
+command will overwrite any large-communities currently present.
+The second specifies two large-communities, which overwrites the current
+large-community list. The third will add a large-community value without
+overwriting other values. Multiple large-community values can be specified.
+@end deffn
+
+@c -----------------------------------------------------------------------
+
 @node Displaying BGP routes
 @section Displaying BGP Routes
 
