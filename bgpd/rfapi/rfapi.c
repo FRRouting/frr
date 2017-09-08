@@ -1305,8 +1305,10 @@ static int rfapi_open_inner(struct rfapi_descriptor *rfd, struct bgp *bgp,
 	rfd->peer->status = Established; /* keep bgp core happy */
 	bgp_sync_delete(rfd->peer);      /* don't need these */
 
-	// since this peer is not on the I/O thread, this lock is not strictly
-	// necessary, but serves as a reminder to those who may meddle...
+	/*
+	 * since this peer is not on the I/O thread, this lock is not strictly
+	 * necessary, but serves as a reminder to those who may meddle...
+	 */
 	pthread_mutex_lock(&rfd->peer->io_mtx);
 	{
 		// we don't need any I/O related facilities

@@ -185,7 +185,6 @@ void bgp_reads_off(struct peer *peer)
 
 /**
  * Called from I/O pthread when a file descriptor has become ready for writing.
- * HUP is not handled here,
  */
 static int bgp_process_writes(struct thread *thread)
 {
@@ -318,7 +317,8 @@ static int bgp_process_reads(struct thread *thread)
 			break;
 	}
 
-	/* After reading:
+	/*
+	 * After reading:
 	 * 1. Move unread data to stream start to make room for more.
 	 * 2. Reschedule and return when we have additional data.
 	 *
@@ -421,9 +421,7 @@ static uint16_t bgp_write(struct peer *peer)
 				peer->v_start = (60 * 2);
 
 			/* Handle Graceful Restart case where the state changes
-			   to
-			   Connect instead of Idle */
-			/* Flush any existing events */
+			 * to Connect instead of Idle */
 			BGP_EVENT_ADD(peer, BGP_Stop);
 			goto done;
 
@@ -531,7 +529,7 @@ static uint16_t bgp_read(struct peer *peer)
  */
 static bool validate_header(struct peer *peer)
 {
-	u_int16_t size, type;
+	uint16_t size, type;
 	struct stream *pkt = peer->ibuf_work;
 	size_t getp = stream_get_getp(pkt);
 
@@ -580,7 +578,6 @@ static bool validate_header(struct peer *peer)
 	    || (type == BGP_MSG_CAPABILITY
 		&& size < BGP_MSG_CAPABILITY_MIN_SIZE)) {
 		if (bgp_debug_neighbor_events(peer)) {
-			// XXX: zlog is not MT-safe
 			zlog_debug("%s bad message length - %d for %s",
 				   peer->host, size,
 				   type == 128 ? "ROUTE-REFRESH"

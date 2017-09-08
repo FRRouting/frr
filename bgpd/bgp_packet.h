@@ -61,9 +61,6 @@ extern void bgp_check_update_delay(struct bgp *);
 extern int bgp_packet_set_marker(struct stream *s, u_char type);
 extern int bgp_packet_set_size(struct stream *s);
 
-/* Control variable for write thread. */
-extern bool bgp_packet_writes_thread_run;
-
 extern int bgp_generate_updgrp_packets(struct thread *);
 extern int bgp_process_packet(struct thread *);
 

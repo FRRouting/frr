@@ -1872,10 +1872,11 @@ void subgroup_trigger_write(struct update_subgroup *subgrp)
 {
 	struct peer_af *paf;
 
-	/* For each peer in the subgroup, schedule a job to pull packets from
-	 * the
-	 * subgroup output queue into their own output queue. This action will
-	 * trigger a write job on the I/O thread. */
+	/*
+	 * For each peer in the subgroup, schedule a job to pull packets from
+	 * the subgroup output queue into their own output queue. This action
+	 * will trigger a write job on the I/O thread.
+	 */
 	SUBGRP_FOREACH_PEER(subgrp, paf)
 	if (paf->peer->status == Established)
 		thread_add_timer_msec(bm->master, bgp_generate_updgrp_packets,
