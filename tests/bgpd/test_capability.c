@@ -866,11 +866,11 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 		failed++;
 	}
 
-	/* Some of the functions used return BGP_Stop on error and some return
-	 * -1. If
-	 * we have -1, keep it; if we have BGP_Stop, transform it to the correct
-	 * pass/fail code */
-
+	/*
+	 * Some of the functions used return BGP_Stop on error and some return
+	 * -1. If we have -1, keep it; if we have BGP_Stop, transform it to the
+	 * correct pass/fail code
+	 */
 	if (ret != -1)
 		ret = (ret == BGP_Stop) ? -1 : 0;
 

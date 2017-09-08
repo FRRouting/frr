@@ -138,11 +138,11 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	BGP_TIMER_OFF(from_peer->t_connect);
 	BGP_TIMER_OFF(from_peer->t_connect_check);
 
-	// At this point in time, it is possible that there are packets pending
-	// on
-	// various buffers. Those need to be transferred or dropped, otherwise
-	// we'll
-	// get spurious failures during session establishment.
+	/*
+	 * At this point in time, it is possible that there are packets pending
+	 * on various buffers. Those need to be transferred or dropped,
+	 * otherwise we'll get spurious failures during session establishment.
+	 */
 	pthread_mutex_lock(&peer->io_mtx);
 	pthread_mutex_lock(&from_peer->io_mtx);
 	{
@@ -154,10 +154,11 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 		stream_fifo_clean(peer->obuf);
 		stream_reset(peer->ibuf_work);
 
-		// this should never happen, since bgp_process_packet() is the
-		// only task
-		// that sets and unsets the current packet and it runs in our
-		// pthread.
+		/*
+		 * this should never happen, since bgp_process_packet() is the
+		 * only task that sets and unsets the current packet and it
+		 * runs in our pthread.
+		 */
 		if (peer->curr) {
 			zlog_err(
 				"[%s] Dropping pending packet on connection transfer:",
@@ -1416,9 +1417,10 @@ int bgp_start(struct peer *peer)
 				 peer->fd);
 			return -1;
 		}
-		// when the socket becomes ready (or fails to connect),
-		// bgp_connect_check
-		// will be called.
+		/*
+		 * when the socket becomes ready (or fails to connect),
+		 * bgp_connect_check will be called.
+		 */
 		thread_add_read(bm->master, bgp_connect_check, peer, peer->fd,
 				&peer->t_connect_check);
 		break;
@@ -1912,13 +1914,13 @@ int bgp_event_update(struct peer *peer, int event)
 		if (next != peer->status) {
 			bgp_fsm_change_status(peer, next);
 
-			/* If we're going to ESTABLISHED then we executed a peer
-			 * transfer. In
-			 * this case we can either return FSM_PEER_TRANSITIONED
-			 * or
-			 * FSM_PEER_TRANSFERRED. Opting for TRANSFERRED since
-			 * transfer implies
-			 * session establishment. */
+			/*
+			 * If we're going to ESTABLISHED then we executed a
+			 * peer transfer. In this case we can either return
+			 * FSM_PEER_TRANSITIONED or FSM_PEER_TRANSFERRED.
+			 * Opting for TRANSFERRED since transfer implies
+			 * session establishment.
+			 */
 			if (ret != FSM_PEER_TRANSFERRED)
 				ret = FSM_PEER_TRANSITIONED;
 		}
@@ -1927,13 +1929,13 @@ int bgp_event_update(struct peer *peer, int event)
 		bgp_timer_set(peer);
 
 	} else {
-		/* If we got a return value of -1, that means there was an
-		 * error, restart
-		 * the FSM. Since bgp_stop() was called on the peer. only a few
-		 * fields
-		 * are safe to access here. In any case we need to indicate that
-		 * the peer
-		 * was stopped in the return code. */
+		/*
+		 * If we got a return value of -1, that means there was an
+		 * error, restart the FSM. Since bgp_stop() was called on the
+		 * peer. only a few fields are safe to access here. In any case
+		 * we need to indicate that the peer was stopped in the return
+		 * code.
+		 */
 		if (!dyn_nbr && !passive_conn && peer->bgp) {
 			zlog_err(
 				"%s [FSM] Failure handling event %s in state %s, "

@@ -20,13 +20,14 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _BGP_KEEPALIVES_H_
-#define _BGP_KEEPALIVES_H_
+#ifndef _FRR_BGP_KEEPALIVES_H
+#define _FRR_BGP_KEEPALIVES_H
 
 #include "frr_pthread.h"
 #include "bgpd.h"
 
-/* Turns on keepalives for a peer.
+/**
+ * Turns on keepalives for a peer.
  *
  * This function adds the peer to an internal list of peers to generate
  * keepalives for.
@@ -43,7 +44,8 @@
  */
 extern void bgp_keepalives_on(struct peer *);
 
-/* Turns off keepalives for a peer.
+/**
+ * Turns off keepalives for a peer.
  *
  * Removes the peer from the internal list of peers to generate keepalives for.
  *
@@ -51,14 +53,16 @@ extern void bgp_keepalives_on(struct peer *);
  */
 extern void bgp_keepalives_off(struct peer *);
 
-/* Pre-run initialization function for keepalives pthread.
+/**
+ * Pre-run initialization function for keepalives pthread.
  *
  * Initializes synchronization primitives. This should be called before
  * anything else to avoid race conditions.
  */
 extern void bgp_keepalives_init(void);
 
-/* Entry function for keepalives pthread.
+/**
+ * Entry function for keepalives pthread.
  *
  * This function loops over an internal list of peers, generating keepalives at
  * regular intervals as determined by each peer's keepalive timer.
@@ -69,7 +73,8 @@ extern void bgp_keepalives_init(void);
  */
 extern void *bgp_keepalives_start(void *arg);
 
-/* Poking function for keepalives pthread.
+/**
+ * Poking function for keepalives pthread.
  *
  * Under normal circumstances the pthread will automatically wake itself
  * whenever it is necessary to do work. This function may be used to force the
@@ -85,4 +90,4 @@ extern void bgp_keepalives_wake(void);
  */
 int bgp_keepalives_stop(void **result, struct frr_pthread *fpt);
 
-#endif /* _BGP_KEEPALIVES_H */
+#endif /* _FRR_BGP_KEEPALIVES_H */

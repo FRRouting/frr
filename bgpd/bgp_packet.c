@@ -170,12 +170,12 @@ void bgp_check_update_delay(struct bgp *bgp)
 
 	if (bgp->established
 	    <= bgp->restarted_peers + bgp->implicit_eors + bgp->explicit_eors) {
-		/* This is an extra sanity check to make sure we wait for all
-		   the
-		   eligible configured peers. This check is performed if
-		   establish wait
-		   timer is on, or establish wait option is not given with the
-		   update-delay command */
+		/*
+		 * This is an extra sanity check to make sure we wait for all
+		 * the eligible configured peers. This check is performed if
+		 * establish wait timer is on, or establish wait option is not
+		 * given with the update-delay command
+		 */
 		if (bgp->t_establish_wait
 		    || (bgp->v_establish_wait == bgp->v_update_delay))
 			for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
@@ -200,8 +200,10 @@ void bgp_check_update_delay(struct bgp *bgp)
 	}
 }
 
-/* Called if peer is known to have restarted. The restart-state bit in
-   Graceful-Restart capability is used for that */
+/*
+ * Called if peer is known to have restarted. The restart-state bit in
+ * Graceful-Restart capability is used for that
+ */
 void bgp_update_restarted_peers(struct peer *peer)
 {
 	if (!bgp_update_delay_active(peer->bgp))
@@ -219,10 +221,12 @@ void bgp_update_restarted_peers(struct peer *peer)
 	}
 }
 
-/* Called as peer receives a keep-alive. Determines if this occurence can be
-   taken as an implicit EOR for this peer.
-   NOTE: The very first keep-alive after the Established state of a peer is
-	 considered implicit EOR for the update-delay purposes */
+/*
+ * Called as peer receives a keep-alive. Determines if this occurence can be
+ * taken as an implicit EOR for this peer.
+ * NOTE: The very first keep-alive after the Established state of a peer is
+ * considered implicit EOR for the update-delay purposes
+ */
 void bgp_update_implicit_eors(struct peer *peer)
 {
 	if (!bgp_update_delay_active(peer->bgp))
@@ -240,8 +244,10 @@ void bgp_update_implicit_eors(struct peer *peer)
 	}
 }
 
-/* Should be called only when there is a change in the EOR_RECEIVED status
-   for any afi/safi on a peer */
+/*
+ * Should be called only when there is a change in the EOR_RECEIVED status
+ * for any afi/safi on a peer.
+ */
 static void bgp_update_explicit_eors(struct peer *peer)
 {
 	afi_t afi;
@@ -299,7 +305,7 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 	return -1;
 }
 
-/*
+/**
  * Enqueue onto the peer's output buffer any packets which are pending for the
  * update group it is a member of.
  *
@@ -335,10 +341,11 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 					continue;
 				next_pkt = paf->next_pkt_to_send;
 
-				/* Try to generate a packet for the peer if we
-				 * are at the end of
-				 * the list. Always try to push out WITHDRAWs
-				 * first. */
+				/*
+				 * Try to generate a packet for the peer if we
+				 * are at the end of the list. Always try to
+				 * push out WITHDRAWs first.
+				 */
 				if (!next_pkt || !next_pkt->buffer) {
 					next_pkt = subgroup_withdraw_packet(
 						PAF_SUBGRP(paf));
@@ -348,15 +355,13 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 					next_pkt = paf->next_pkt_to_send;
 				}
 
-				/* If we still don't have a packet to send to
-				 * the peer, then
-				 * try to find out out if we have to send eor or
-				 * if not, skip to
-				 * the next AFI, SAFI.
-				 * Don't send the EOR prematurely... if the
-				 * subgroup's coalesce
-				 * timer is running, the adjacency-out structure
-				 * is not created
+				/*
+				 * If we still don't have a packet to send to
+				 * the peer, then try to find out out if we
+				 * have to send eor or if not, skip to the next
+				 * AFI, SAFI. Don't send the EOR prematurely...
+				 * if the subgroup's coalesce timer is running,
+				 * the adjacency-out structure is not created
 				 * yet.
 				 */
 				if (!next_pkt || !next_pkt->buffer) {
@@ -393,8 +398,8 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 
 
 				/* Found a packet template to send, overwrite
-				 * packet with appropriate
-				 * attributes from peer and advance peer */
+				 * packet with appropriate attributes from peer
+				 * and advance peer */
 				s = bpacket_reformat_for_peer(next_pkt, paf);
 				bgp_packet_add(peer, s);
 				bgp_writes_on(peer);
@@ -507,12 +512,16 @@ static int bgp_write_notify(struct peer *peer)
 	/* Stop collecting data within the socket */
 	sockopt_cork(peer->fd, 0);
 
-	/* socket is in nonblocking mode, if we can't deliver the NOTIFY, well,
-	 * we only care about getting a clean shutdown at this point. */
+	/*
+	 * socket is in nonblocking mode, if we can't deliver the NOTIFY, well,
+	 * we only care about getting a clean shutdown at this point.
+	 */
 	ret = write(peer->fd, STREAM_DATA(s), stream_get_endp(s));
 
-	/* only connection reset/close gets counted as TCP_fatal_error, failure
-	 * to write the entire NOTIFY doesn't get different FSM treatment */
+	/*
+	 * only connection reset/close gets counted as TCP_fatal_error, failure
+	 * to write the entire NOTIFY doesn't get different FSM treatment
+	 */
 	if (ret <= 0) {
 		stream_free(s);
 		BGP_EVENT_ADD(peer, TCP_fatal_error);
@@ -540,8 +549,10 @@ static int bgp_write_notify(struct peer *peer)
 	if (peer->v_start >= (60 * 2))
 		peer->v_start = (60 * 2);
 
-	/* Handle Graceful Restart case where the state changes to
-	   Connect instead of Idle */
+	/*
+	 * Handle Graceful Restart case where the state changes to
+	 * Connect instead of Idle
+	 */
 	BGP_EVENT_ADD(peer, BGP_Stop);
 
 	stream_free(s);
@@ -552,8 +563,8 @@ static int bgp_write_notify(struct peer *peer)
 /*
  * Creates a BGP Notify and appends it to the peer's output queue.
  *
- * This function awakens the write thread to ensure the packet
- * gets out ASAP.
+ * This function attempts to write the packet from the thread it is called
+ * from, to ensure the packet gets out ASAP.
  *
  * @param peer
  * @param code      BGP error code
@@ -591,11 +602,11 @@ void bgp_notify_send_with_data(struct peer *peer, u_char code, u_char sub_code,
 	}
 	pthread_mutex_unlock(&peer->io_mtx);
 
-	/* If possible, store last packet for debugging purposes. This check is
-	 * in
-	 * place because we are sometimes called with a doppelganger peer, who
-	 * tends
-	 * to have a plethora of fields nulled out. */
+	/*
+	 * If possible, store last packet for debugging purposes. This check is
+	 * in place because we are sometimes called with a doppelganger peer,
+	 * who tends to have a plethora of fields nulled out.
+	 */
 	if (peer->curr && peer->last_reset_cause_size) {
 		size_t packetsize = stream_get_endp(peer->curr);
 		assert(packetsize <= peer->last_reset_cause_size);
@@ -661,8 +672,8 @@ void bgp_notify_send_with_data(struct peer *peer, u_char code, u_char sub_code,
 /*
  * Creates a BGP Notify and appends it to the peer's output queue.
  *
- * This function awakens the write thread to ensure the packet
- * gets out ASAP.
+ * This function attempts to write the packet from the thread it is called
+ * from, to ensure the packet gets out ASAP.
  *
  * @param peer
  * @param code      BGP error code
@@ -2163,11 +2174,12 @@ int bgp_process_packet(struct thread *thread)
 					__FUNCTION__, peer->host);
 			break;
 		default:
-			/* The message type should have been sanitized before we
-			 * ever got
-			 * here. Receipt of a message with an invalid header at
-			 * this point is
-			 * indicative of a security issue. */
+			/*
+			 * The message type should have been sanitized before
+			 * we ever got here. Receipt of a message with an
+			 * invalid header at this point is indicative of a
+			 * security issue.
+			 */
 			assert (!"Message of invalid type received during input processing");
 		}
 
@@ -2182,9 +2194,10 @@ int bgp_process_packet(struct thread *thread)
 		else
 			continue;
 
-		/* If peer was deleted, do not process any more packets. This is
-		 * usually
-		 * due to executing BGP_Stop or a stub deletion. */
+		/*
+		 * If peer was deleted, do not process any more packets. This
+		 * is usually due to executing BGP_Stop or a stub deletion.
+		 */
 		if (fsm_update_result == FSM_PEER_TRANSFERRED
 		    || fsm_update_result == FSM_PEER_STOPPED)
 			break;
@@ -2194,8 +2207,8 @@ int bgp_process_packet(struct thread *thread)
 	    && fsm_update_result != FSM_PEER_STOPPED) {
 		pthread_mutex_lock(&peer->io_mtx);
 		{
-			if (peer->ibuf->count
-			    > 0) // more work to do, come back later
+			// more work to do, come back later
+			if (peer->ibuf->count > 0)
 				thread_add_event(bm->master, bgp_process_packet,
 						 peer, 0, NULL);
 		}
