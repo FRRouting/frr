@@ -1127,25 +1127,25 @@ BGP update's communities attribute is completely removed.
 @subsection Display BGP Routes by Community
 
 To show BGP routes which has specific BGP communities attribute,
-@code{show ip bgp} command can be used.  The @var{community} value and
-community list can be used for @code{show ip bgp} command.
+@code{show bgp @{ipv4|ipv6@}} command can be used. The
+@var{community} and @var{community-list} subcommand can be used.
 
-@deffn Command {show ip bgp community} {}
-@deffnx Command {show ip bgp community @var{community}} {}
-@deffnx Command {show ip bgp community @var{community} exact-match} {}
-@code{show ip bgp community} displays BGP routes which has communities
-attribute.  When @var{community} is specified, BGP routes that matches
-@var{community} value is displayed.  For this command, @code{internet}
-keyword can't be used for @var{community} value.  When
-@code{exact-match} is specified, it display only routes that have an
-exact match.
+@deffn Command {show bgp @{ipv4|ipv6@} community} {}
+@deffnx Command {show bgp @{ipv4|ipv6@} community @var{community}} {}
+@deffnx Command {show bgp @{ipv4|ipv6@} community @var{community} exact-match} {}
+@code{show bgp @{ipv4|ipv6@} community} displays BGP routes which has communities
+attribute. Where the address family can be IPv4 or IPv6 among others. When
+@var{community} is specified, BGP routes that matches @var{community} value is
+displayed. For this command, @code{internet} keyword can't be used for
+@var{community} value. When @code{exact-match} is specified, it display only
+routes that have an exact match.
 @end deffn
 
-@deffn Command {show ip bgp community-list @var{word}} {}
-@deffnx Command {show ip bgp community-list @var{word} exact-match} {}
-This commands display BGP routes that matches community list
-@var{word}.  When @code{exact-match} is specified, display only routes
-that have an exact match.
+@deffn Command {show bgp @{ipv4|ipv6@} community-list @var{word}} {}
+@deffnx Command {show bgp @{ipv4|ipv6@} community-list @var{word} exact-match} {}
+This commands display BGP routes for the address family specified that matches
+community list @var{word}. When @code{exact-match} is specified, display only
+routes that have an exact match.
 @end deffn
 
 @node Using BGP Communities Attribute
