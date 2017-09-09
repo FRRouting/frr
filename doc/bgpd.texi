@@ -28,7 +28,7 @@ BGP-4.
 * Autonomous System::           
 * BGP Communities Attribute::   
 * BGP Extended Communities Attribute::  
-* Displaying BGP routes::       
+* Displaying BGP information::       
 * Capability Negotiation::      
 * Route Reflector::             
 * Route Server::                
@@ -1329,16 +1329,16 @@ This command set Site of Origin value.
 @end deffn
 
 @c -----------------------------------------------------------------------
-@node Displaying BGP routes
-@section Displaying BGP Routes
+@node Displaying BGP information
+@section Displaying BGP information
 
 @menu
-* Show IP BGP::                 
-* More Show IP BGP::            
+* Showing BGP information::                 
+* Other BGP commands::            
 @end menu
 
-@node Show IP BGP
-@subsection Show IP BGP
+@node Showing BGP information
+@subsection Showing BGP information
 
 @deffn {Command} {show ip bgp} {}
 @deffnx {Command} {show ip bgp @var{A.B.C.D}} {}
@@ -1358,9 +1358,6 @@ Origin codes: i - IGP, e - EGP, ? - incomplete
 Total number of prefixes 1
 @end example
 
-@node More Show IP BGP
-@subsection More Show IP BGP
-
 @deffn {Command} {show ip bgp regexp @var{line}} {}
 This command displays BGP routes using AS path regular expression
 (@pxref{BGP Regular Expressions}).
@@ -1378,26 +1375,35 @@ This command displays BGP routes using community list (@pxref{Display
 BGP Routes by Community}).
 @end deffn
 
-@deffn {Command} {show ip bgp summary} {}
+@deffn {Command} {show bgp @{ipv4|ipv6@} summary} {}
+Show a bgp peer summary for the specified address family.
 @end deffn
 
-@deffn {Command} {show ip bgp neighbor [@var{peer}]} {}
+@deffn {Command} {show bgp @{ipv4|ipv6@} neighbor [@var{peer}]} {}
+This command shows information on a specific BGP @var{peer}.
 @end deffn
 
-@deffn {Command} {clear ip bgp @var{peer}} {}
+@deffn {Command} {show bgp @{ipv4|ipv6@} dampening dampened-paths} {}
+Display paths suppressed due to dampening.
+@end deffn
+
+@deffn {Command} {show bgp @{ipv4|ipv6@} dampening flap-statistics} {}
+Display flap statistics of routes.
+@end deffn
+
+@node Other BGP commands
+@subsection Other BGP commands
+
+@deffn {Command} {clear bgp @{ipv4|ipv6@} *} {}
+Clear all address family peers.
+@end deffn
+
+@deffn {Command} {clear bgp @{ipv4|ipv6@} @var{peer}} {}
 Clear peers which have addresses of X.X.X.X
 @end deffn
 
-@deffn {Command} {clear ip bgp @var{peer} soft in} {}
+@deffn {Command} {clear bgp @{ipv4|ipv6@} @var{peer} soft in} {}
 Clear peer using soft reconfiguration.
-@end deffn
-
-@deffn {Command} {show ip bgp dampened-paths} {}
-Display paths suppressed due to dampening
-@end deffn
-
-@deffn {Command} {show ip bgp flap-statistics} {}
-Display flap statistics of routes
 @end deffn
 
 @deffn {Command} {show debug} {}
