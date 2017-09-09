@@ -1001,7 +1001,7 @@ removed simpley specifying community lists name.
 
 @deffn {Command} {show ip community-list} {}
 @deffnx {Command} {show ip community-list @var{name}} {}
-This command display current community list information.  When
+This command displays current community list information.  When
 @var{name} is specified the specified community list's information is
 shown.
 
@@ -1306,7 +1306,7 @@ the name.
 
 @deffn {Command} {show ip extcommunity-list} {}
 @deffnx {Command} {show ip extcommunity-list @var{name}} {}
-This command display current extcommunity-list information.  When
+This command displays current extcommunity-list information.  When
 @var{name} is specified the community list's information is shown.
 
 @example
@@ -1368,13 +1368,13 @@ This command displays BGP routes using AS path regular expression
 
 @deffn Command {show ip bgp community @var{community}} {}
 @deffnx Command {show ip bgp community @var{community} exact-match} {}
-This command display BGP routes using @var{community} (@pxref{Display
+This command displays BGP routes using @var{community} (@pxref{Display
 BGP Routes by Community}).
 @end deffn
 
 @deffn Command {show ip bgp community-list @var{word}} {}
 @deffnx Command {show ip bgp community-list @var{word} exact-match} {}
-This command display BGP routes using community list (@pxref{Display
+This command displays BGP routes using community list (@pxref{Display
 BGP Routes by Community}).
 @end deffn
 
