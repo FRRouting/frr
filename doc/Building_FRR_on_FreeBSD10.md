@@ -43,6 +43,7 @@ an example)
 
     git clone https://github.com/frrouting/frr.git frr
     cd frr
+    git checkout stable/3.0
     ./bootstrap.sh
     export MAKE=gmake
     export LDFLAGS="-L/usr/local/lib"

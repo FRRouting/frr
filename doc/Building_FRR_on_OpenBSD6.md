@@ -36,6 +36,7 @@ an example)
 
     git clone https://github.com/frrouting/frr.git frr
     cd frr
+    git checkout stable/3.0
     export AUTOCONF_VERSION="2.69"
     export AUTOMAKE_VERSION="1.15"
     ./bootstrap.sh
