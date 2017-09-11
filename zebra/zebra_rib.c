@@ -1118,7 +1118,6 @@ static int rib_can_delete_dest(rib_dest_t *dest)
 int rib_gc_dest(struct route_node *rn)
 {
 	rib_dest_t *dest;
-	struct zebra_vrf *zvrf;
 
 	dest = rib_dest_from_rnode(rn);
 	if (!dest)
@@ -1127,9 +1126,12 @@ int rib_gc_dest(struct route_node *rn)
 	if (!rib_can_delete_dest(dest))
 		return 0;
 
-	zvrf = rib_dest_vrf(dest);
-	if (IS_ZEBRA_DEBUG_RIB)
+	if (IS_ZEBRA_DEBUG_RIB) {
+		struct zebra_vrf *zvrf;
+
+		zvrf = rib_dest_vrf(dest);
 		rnode_debug(rn, zvrf_id(zvrf), "removing dest from table");
+	}
 
 	dest->rnode = NULL;
 	XFREE(MTYPE_RIB_DEST, dest);
