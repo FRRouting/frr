@@ -2553,27 +2553,29 @@ static void rib_update_table(struct route_table *table,
 			 */
 			RNODE_FOREACH_RE_SAFE(rn, re, next)
 			{
-				if (re->type == ZEBRA_ROUTE_OSPF
-				    || re->type == ZEBRA_ROUTE_OSPF6
-				    || re->type == ZEBRA_ROUTE_BGP)
-					continue; /* protocol will handle. */
-				else if (re->type == ZEBRA_ROUTE_STATIC) {
-					struct nexthop *nh;
-					for (nh = re->nexthop; nh;
-					     nh = nh->next)
-						if (!(nh->type
-							      == NEXTHOP_TYPE_IPV4
-						      || nh->type
-								 == NEXTHOP_TYPE_IPV6))
-							break;
+				struct nexthop *nh;
 
-					/* If we only have nexthops to a
-					 * gateway, NHT will
-					 * take care.
-					 */
-					if (nh)
-						rib_queue_add(rn);
-				} else
+				if (re->type != ZEBRA_ROUTE_SYSTEM &&
+				    re->type != ZEBRA_ROUTE_KERNEL &&
+				    re->type != ZEBRA_ROUTE_CONNECT &&
+				    re->type != ZEBRA_ROUTE_STATIC)
+					continue;
+
+				if (re->type != ZEBRA_ROUTE_STATIC) {
+					rib_queue_add(rn);
+					continue;
+				}
+
+				for (nh = re->nexthop; nh; nh = nh->next)
+					if (!(nh->type == NEXTHOP_TYPE_IPV4
+					      || nh->type == NEXTHOP_TYPE_IPV6))
+						break;
+
+				/* If we only have nexthops to a
+				 * gateway, NHT will
+				 * take care.
+				 */
+				if (nh)
 					rib_queue_add(rn);
 			}
 			break;
