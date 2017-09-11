@@ -84,11 +84,13 @@ static void zebra_redistribute_default(struct zserv *client, vrf_id_t vrf_id)
 		if (!rn)
 			continue;
 
-		RNODE_FOREACH_RE(rn, newre)
-		if (CHECK_FLAG(newre->flags, ZEBRA_FLAG_SELECTED)
-		    && newre->distance != DISTANCE_INFINITY)
-			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_ADD,
-						 client, &rn->p, NULL, newre);
+		RNODE_FOREACH_RE(rn, newre) {
+			if (CHECK_FLAG(newre->flags, ZEBRA_FLAG_SELECTED)
+			    && newre->distance != DISTANCE_INFINITY)
+				zsend_redistribute_route(
+					ZEBRA_REDISTRIBUTE_ROUTE_ADD,
+					client, &rn->p, NULL, newre);
+		}
 
 		route_unlock_node(rn);
 	}
