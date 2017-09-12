@@ -31,6 +31,9 @@ struct ldp_debug {
 	int	 event;
 #define LDP_DEBUG_EVENT		0x01
 
+	int	 labels;
+#define LDP_DEBUG_LABELS	0x01
+
 	int	 msg;
 #define LDP_DEBUG_MSG_RECV	0x01
 #define LDP_DEBUG_MSG_RECV_ALL	0x02
@@ -88,6 +91,12 @@ do {									\
 do {									\
 	if (LDP_DEBUG(event, EVENT))					\
 		log_debug("event: " emsg, __VA_ARGS__);			\
+} while (0)
+
+#define		 debug_labels(emsg, ...)				\
+do {									\
+	if (LDP_DEBUG(labels, LABELS))					\
+		log_debug("labels: " emsg, __VA_ARGS__);		\
 } while (0)
 
 #define		 debug_msg_recv(emsg, ...)				\
