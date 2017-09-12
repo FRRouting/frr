@@ -601,7 +601,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client, struct prefix *p,
 	int count = 0;
 
 	memset(&api, 0, sizeof(api));
-	api.vrf_id = VRF_DEFAULT;
+	api.vrf_id = re->vrf_id;
 	api.type = re->type;
 	api.instance = re->instance;
 	api.flags = re->flags;
