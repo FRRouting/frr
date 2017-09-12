@@ -796,10 +796,6 @@ int zlog_set_file(const char *filename, int log_level)
 	/* There is opend file.  */
 	zlog_reset_file();
 
-	pthread_mutex_lock(&loglock);
-
-	zl = zlog_default;
-
 	/* Open file. */
 	oldumask = umask(0777 & ~LOGFILE_MASK);
 	fp = fopen(filename, "a");
@@ -807,14 +803,16 @@ int zlog_set_file(const char *filename, int log_level)
 	if (fp == NULL) {
 		ret = 0;
 	} else {
+		pthread_mutex_lock(&loglock);
+		zl = zlog_default;
+
 		/* Set flags. */
 		zl->filename = XSTRDUP(MTYPE_ZLOG, filename);
 		zl->maxlvl[ZLOG_DEST_FILE] = log_level;
 		zl->fp = fp;
 		logfile_fd = fileno(fp);
+		pthread_mutex_unlock(&loglock);
 	}
-
-	pthread_mutex_unlock(&loglock);
 
 	return ret;
 }
