@@ -2233,7 +2233,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 
 	/* Set default distance by route type. */
 	if (re->distance == 0) {
-		re->distance = route_info[re->type].distance;
+		re->distance = route_distance(re->type);
 
 		/* iBGP distance is 200. */
 		if (re->type == ZEBRA_ROUTE_BGP
@@ -2450,10 +2450,7 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 
 	/* Set default distance by route type. */
 	if (distance == 0) {
-		if ((unsigned)type >= array_size(route_info))
-			distance = 150;
-		else
-			distance = route_info[type].distance;
+		distance = route_distance(type);
 
 		/* iBGP distance is 200. */
 		if (type == ZEBRA_ROUTE_BGP
