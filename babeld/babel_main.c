@@ -335,6 +335,7 @@ babel_exit_properly(void)
     babel_save_state_file();
     debugf(BABEL_DEBUG_COMMON, "Remove pid file.");
     debugf(BABEL_DEBUG_COMMON, "Done.");
+    frr_fini();
 
     exit(0);
 }

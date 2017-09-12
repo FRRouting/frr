@@ -42,6 +42,7 @@
 #include "plist.h"
 #include "sockopt.h"
 #include "keychain.h"
+#include "libfrr.h"
 
 #include "eigrpd/eigrp_structs.h"
 #include "eigrpd/eigrpd.h"
@@ -241,12 +242,10 @@ void eigrp_terminate(void)
 
 	SET_FLAG(eigrp_om->options, EIGRP_MASTER_SHUTDOWN);
 
-	/* exit immediately if EIGRP not actually running */
-	if (listcount(eigrp_om->eigrp) == 0)
-		exit(0);
-
 	for (ALL_LIST_ELEMENTS(eigrp_om->eigrp, node, nnode, eigrp))
 		eigrp_finish(eigrp);
+
+	frr_fini();
 }
 
 void eigrp_finish(struct eigrp *eigrp)
