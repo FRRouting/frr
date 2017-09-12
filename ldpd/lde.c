@@ -1693,7 +1693,8 @@ static uint32_t
 lde_get_next_label(void)
 {
 	struct label_chunk	*label_chunk;
-	uint32_t		 i, pos, size;
+	uint32_t		 i, size;
+	uint64_t		 pos;
 	uint32_t		 label = NO_LABEL;
 
 	while (current_label_chunk) {
