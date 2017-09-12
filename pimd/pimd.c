@@ -139,4 +139,6 @@ void pim_terminate()
 		zclient_stop(zclient);
 		zclient_free(zclient);
 	}
+
+	frr_fini();
 }

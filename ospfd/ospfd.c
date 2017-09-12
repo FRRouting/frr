@@ -35,6 +35,7 @@
 #include "plist.h"
 #include "sockopt.h"
 #include "bfd.h"
+#include "libfrr.h"
 #include "defaults.h"
 
 #include "ospfd/ospfd.h"
@@ -489,6 +490,8 @@ void ospf_terminate(void)
 	 */
 	zclient_stop(zclient);
 	zclient_free(zclient);
+
+	frr_fini();
 }
 
 void ospf_finish(struct ospf *ospf)
