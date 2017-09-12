@@ -408,32 +408,26 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 			vty_out(vty, ", best");
 		vty_out(vty, "\n");
 
-		if (re->type == ZEBRA_ROUTE_RIP || re->type == ZEBRA_ROUTE_OSPF
-		    || re->type == ZEBRA_ROUTE_ISIS
-		    || re->type == ZEBRA_ROUTE_NHRP
-		    || re->type == ZEBRA_ROUTE_TABLE
-		    || re->type == ZEBRA_ROUTE_BGP) {
-			time_t uptime;
-			struct tm *tm;
+		time_t uptime;
+		struct tm *tm;
 
-			uptime = time(NULL);
-			uptime -= re->uptime;
-			tm = gmtime(&uptime);
+		uptime = time(NULL);
+		uptime -= re->uptime;
+		tm = gmtime(&uptime);
 
-			vty_out(vty, "  Last update ");
+		vty_out(vty, "  Last update ");
 
-			if (uptime < ONE_DAY_SECOND)
-				vty_out(vty, "%02d:%02d:%02d", tm->tm_hour,
-					tm->tm_min, tm->tm_sec);
-			else if (uptime < ONE_WEEK_SECOND)
-				vty_out(vty, "%dd%02dh%02dm", tm->tm_yday,
-					tm->tm_hour, tm->tm_min);
-			else
-				vty_out(vty, "%02dw%dd%02dh", tm->tm_yday / 7,
-					tm->tm_yday - ((tm->tm_yday / 7) * 7),
-					tm->tm_hour);
-			vty_out(vty, " ago\n");
-		}
+		if (uptime < ONE_DAY_SECOND)
+			vty_out(vty, "%02d:%02d:%02d", tm->tm_hour,
+				tm->tm_min, tm->tm_sec);
+		else if (uptime < ONE_WEEK_SECOND)
+			vty_out(vty, "%dd%02dh%02dm", tm->tm_yday,
+				tm->tm_hour, tm->tm_min);
+		else
+			vty_out(vty, "%02dw%dd%02dh", tm->tm_yday / 7,
+				tm->tm_yday - ((tm->tm_yday / 7) * 7),
+				tm->tm_hour);
+		vty_out(vty, " ago\n");
 
 		for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
 			char addrstr[32];
@@ -557,6 +551,12 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	json_object *json_nexthop = NULL;
 	json_object *json_route = NULL;
 	json_object *json_labels = NULL;
+	time_t uptime;
+	struct tm *tm;
+
+	uptime = time(NULL);
+	uptime -= re->uptime;
+	tm = gmtime(&uptime);
 
 	if (json) {
 		json_route = json_object_new_object();
@@ -583,31 +583,18 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			json_object_int_add(json_route, "metric", re->metric);
 		}
 
-		if (re->type == ZEBRA_ROUTE_RIP || re->type == ZEBRA_ROUTE_OSPF
-		    || re->type == ZEBRA_ROUTE_ISIS
-		    || re->type == ZEBRA_ROUTE_NHRP
-		    || re->type == ZEBRA_ROUTE_TABLE
-		    || re->type == ZEBRA_ROUTE_BGP) {
-			time_t uptime;
-			struct tm *tm;
+		if (uptime < ONE_DAY_SECOND)
+			sprintf(buf, "%02d:%02d:%02d", tm->tm_hour,
+				tm->tm_min, tm->tm_sec);
+		else if (uptime < ONE_WEEK_SECOND)
+			sprintf(buf, "%dd%02dh%02dm", tm->tm_yday,
+				tm->tm_hour, tm->tm_min);
+		else
+			sprintf(buf, "%02dw%dd%02dh", tm->tm_yday / 7,
+				tm->tm_yday - ((tm->tm_yday / 7) * 7),
+				tm->tm_hour);
 
-			uptime = time(NULL);
-			uptime -= re->uptime;
-			tm = gmtime(&uptime);
-
-			if (uptime < ONE_DAY_SECOND)
-				sprintf(buf, "%02d:%02d:%02d", tm->tm_hour,
-					tm->tm_min, tm->tm_sec);
-			else if (uptime < ONE_WEEK_SECOND)
-				sprintf(buf, "%dd%02dh%02dm", tm->tm_yday,
-					tm->tm_hour, tm->tm_min);
-			else
-				sprintf(buf, "%02dw%dd%02dh", tm->tm_yday / 7,
-					tm->tm_yday - ((tm->tm_yday / 7) * 7),
-					tm->tm_hour);
-
-			json_object_string_add(json_route, "uptime", buf);
-		}
+		json_object_string_add(json_route, "uptime", buf);
 
 		for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
 			json_nexthop = json_object_new_object();
@@ -876,29 +863,16 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 					       sizeof buf, 1));
 		}
 
-		if (re->type == ZEBRA_ROUTE_RIP || re->type == ZEBRA_ROUTE_OSPF
-		    || re->type == ZEBRA_ROUTE_ISIS
-		    || re->type == ZEBRA_ROUTE_NHRP
-		    || re->type == ZEBRA_ROUTE_TABLE
-		    || re->type == ZEBRA_ROUTE_BGP) {
-			time_t uptime;
-			struct tm *tm;
-
-			uptime = time(NULL);
-			uptime -= re->uptime;
-			tm = gmtime(&uptime);
-
-			if (uptime < ONE_DAY_SECOND)
-				vty_out(vty, ", %02d:%02d:%02d", tm->tm_hour,
-					tm->tm_min, tm->tm_sec);
-			else if (uptime < ONE_WEEK_SECOND)
-				vty_out(vty, ", %dd%02dh%02dm", tm->tm_yday,
-					tm->tm_hour, tm->tm_min);
-			else
-				vty_out(vty, ", %02dw%dd%02dh", tm->tm_yday / 7,
-					tm->tm_yday - ((tm->tm_yday / 7) * 7),
-					tm->tm_hour);
-		}
+		if (uptime < ONE_DAY_SECOND)
+			vty_out(vty, ", %02d:%02d:%02d", tm->tm_hour,
+				tm->tm_min, tm->tm_sec);
+		else if (uptime < ONE_WEEK_SECOND)
+			vty_out(vty, ", %dd%02dh%02dm", tm->tm_yday,
+				tm->tm_hour, tm->tm_min);
+		else
+			vty_out(vty, ", %02dw%dd%02dh", tm->tm_yday / 7,
+				tm->tm_yday - ((tm->tm_yday / 7) * 7),
+				tm->tm_hour);
 		vty_out(vty, "\n");
 	}
 }
