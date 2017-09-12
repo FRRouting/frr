@@ -1321,23 +1321,6 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 	req.r.rtm_scope = RT_SCOPE_UNIVERSE;
 	req.r.rtm_type = RTN_UNICAST;
 
-	if (re->nexthop_num == 1
-	    && re->nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
-		discard = 1;
-
-		switch (re->nexthop->bh_type) {
-		case BLACKHOLE_ADMINPROHIB:
-			req.r.rtm_type = RTN_PROHIBIT;
-			break;
-		case BLACKHOLE_REJECT:
-			req.r.rtm_type = RTN_UNREACHABLE;
-			break;
-		default:
-			req.r.rtm_type = RTN_BLACKHOLE;
-			break;
-		}
-	}
-
 	addattr_l(&req.n, sizeof req, RTA_DST, &p->u.prefix, bytelen);
 	if (src_p)
 		addattr_l(&req.n, sizeof req, RTA_SRC, &src_p->u.prefix,
@@ -1396,6 +1379,27 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 	if (nexthop_num == 1 || multipath_num == 1) {
 		nexthop_num = 0;
 		for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
+			/*
+			 * So we want to cover 2 types of blackhole
+			 * routes here:
+			 * 1) A normal blackhole route( ala from a static
+			 *    install.
+			 * 2) A recursively resolved blackhole route
+			 */
+			if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
+				switch (nexthop->bh_type) {
+				case BLACKHOLE_ADMINPROHIB:
+					req.r.rtm_type = RTN_PROHIBIT;
+					break;
+				case BLACKHOLE_REJECT:
+					req.r.rtm_type = RTN_UNREACHABLE;
+					break;
+				default:
+					req.r.rtm_type = RTN_BLACKHOLE;
+					break;
+				}
+				goto skip;
+			}
 			if (CHECK_FLAG(nexthop->flags,
 				       NEXTHOP_FLAG_RECURSIVE)) {
 				if (!setsrc) {
