@@ -440,7 +440,8 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 
 			vty_out(vty, "  %c%s",
 				CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)
-					? '*'
+					? CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE)
+						? ' ' : '*'
 					: ' ',
 				nexthop->rparent ? "  " : "");
 
@@ -489,6 +490,9 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 			default:
 				break;
 			}
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
+				vty_out(vty, " (duplicate nexthop removed)");
+
 			if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 				vty_out(vty, " inactive");
 
@@ -608,6 +612,10 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
 			json_nexthop = json_object_new_object();
 
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
+				json_object_boolean_true_add(json_nexthop,
+							     "duplicate");
+
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
 				json_object_boolean_true_add(json_nexthop,
 							     "fib");
@@ -686,6 +694,10 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			default:
 				break;
 			}
+
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
+				json_object_boolean_true_add(json_nexthop,
+							     "duplicate");
 
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 				json_object_boolean_true_add(json_nexthop,
@@ -774,12 +786,14 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			if (re->type != ZEBRA_ROUTE_CONNECT)
 				len += vty_out(vty, " [%d/%d]", re->distance,
 					       re->metric);
-		} else
+		} else {
 			vty_out(vty, "  %c%*c",
 				CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)
-					? '*'
+					? CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE)
+						? ' ' : '*'
 					: ' ',
 				len - 3 + (2 * nexthop_level(nexthop)), ' ');
+		}
 
 		switch (nexthop->type) {
 		case NEXTHOP_TYPE_IPV4:
