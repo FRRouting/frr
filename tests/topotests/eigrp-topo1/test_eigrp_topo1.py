@@ -31,6 +31,7 @@ import os
 import re
 import sys
 import pytest
+import json
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -166,6 +167,42 @@ def test_eigrp_routes():
         assert failures == 0, 'SHOW IP EIGRP failed for router {}:\n{}'.format(router.name, diff)
 
 
+# def test_zebra_ipv4_routingTable():
+#     "Test 'show ip route'"
+
+#     tgen = get_topogen()
+#     # Don't run this test if we have any failure.
+#     if tgen.routers_have_failure():
+#         pytest.skip(tgen.errors)
+
+#     # Verify OSPFv2 Routing Table
+#     logger.info("Verifying Zebra IPv4 Routing Table")
+
+#     failures = 0
+#     router_list = tgen.routers().values()
+#     for router in router_list:
+#         refTableFile = '{}/{}/show_ip_route.ref'.format(CWD, router.name)
+
+#         # Read expected result from file
+#         expected = open(refTableFile).read().rstrip()
+
+#         # Actual output from router
+#         actual = router.vtysh_cmd('show ip route').rstrip()
+
+#         # Generate Diff
+#         diff = topotest.difflines(actual, expected,
+#                                   title1="actual Zebra IPv4 routing table",
+#                                   title2="expected Zebra IPv4 routing table")
+
+#         # Empty string if it matches, otherwise diff contains unified diff
+#         if diff:
+#             failures += 1
+#         else:
+#             logger.info('{} ok'.format(router.name))
+
+#         assert failures == 0, 'Zebra IPv4 Routing Table verification failed for router {}:\n{}'.format(router.name, diff)
+
+
 def test_zebra_ipv4_routingTable():
     "Test 'show ip route'"
 
@@ -174,32 +211,27 @@ def test_zebra_ipv4_routingTable():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    # Verify OSPFv3 Routing Table
-    logger.info("Verifying Zebra IPv4 Routing Table")
-
     failures = 0
     router_list = tgen.routers().values()
     for router in router_list:
-        refTableFile = '{}/{}/show_ip_route.ref'.format(CWD, router.name)
+        output = router.vtysh_cmd('show ip route json', isjson=True)
+        refTableFile = '{}/{}/show_ip_route.json_ref'.format(CWD, router.name)
+        expected = json.loads(open(refTableFile).read())
 
-        # Read expected result from file
-        expected = open(refTableFile).read().rstrip()
+        # diff = topotest.json_cmp(output, expected)
 
-        # Actual output from router
-        actual = router.vtysh_cmd('show ip route').rstrip()
+        assertmsg = 'Zebra IPv4 Routing Table verification failed for router {}'.format(router.name)
+        assert topotest.json_cmp(output, expected) is None, assertmsg
 
-        # Generate Diff
-        diff = topotest.difflines(actual, expected,
-                                  title1="actual Zebra IPv4 routing table",
-                                  title2="expected Zebra IPv4 routing table")
+        # # Empty string if it matches, otherwise diff contains unified diff
+        # if diff:
+        #     logger.info('{} NOT ok'.format(router.name))
+        #     print("diff = %s" % str(diff))
+        #     failures += 1
+        # else:
+        #     logger.info('{} ok'.format(router.name))
 
-        # Empty string if it matches, otherwise diff contains unified diff
-        if diff:
-            failures += 1
-        else:
-            logger.info('{} ok'.format(router.name))
-
-        assert failures == 0, 'Zebra IPv4 Routing Table verification failed for router {}:\n{}'.format(router.name, diff)
+        # assert failures == 0, 'Zebra IPv4 Routing Table verification failed for router {}:\n{}'.format(router.name, diff)
 
 
 def test_shutdown_check_stderr():
