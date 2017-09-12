@@ -155,8 +155,9 @@ static u_char *ipFwNumber(struct variable *v, oid objid[], size_t *objid_len,
 	/* Return number of routing entries. */
 	result = 0;
 	for (rn = route_top(table); rn; rn = route_next(rn))
-		RNODE_FOREACH_RE(rn, re)
-	result++;
+		RNODE_FOREACH_RE(rn, re) {
+			result++;
+		}
 
 	return (u_char *)&result;
 }
@@ -182,8 +183,9 @@ static u_char *ipCidrNumber(struct variable *v, oid objid[], size_t *objid_len,
 	/* Return number of routing entries. */
 	result = 0;
 	for (rn = route_top(table); rn; rn = route_next(rn))
-		RNODE_FOREACH_RE(rn, re)
-	result++;
+		RNODE_FOREACH_RE(rn, re) {
+			result++;
+		}
 
 	return (u_char *)&result;
 }
@@ -388,8 +390,9 @@ static void get_fwtable_route_node(struct variable *v, oid objid[],
 
 		/* Check destination first */
 		if (in_addr_cmp(&np2->p.u.prefix, (u_char *)&dest) > 0)
-			RNODE_FOREACH_RE(np2, re2)
-		check_replace(np2, re2, np, re);
+			RNODE_FOREACH_RE(np2, re2) {
+				check_replace(np2, re2, np, re);
+			}
 
 		if (in_addr_cmp(&np2->p.u.prefix, (u_char *)&dest)
 		    == 0) { /* have to look at each re individually */

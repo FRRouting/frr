@@ -2392,15 +2392,20 @@ void mpls_ldp_ftn_uninstall_all(struct zebra_vrf *zvrf, int afi)
 
 	for (rn = route_top(table); rn; rn = route_next(rn)) {
 		update = 0;
-		RNODE_FOREACH_RE(rn, re)
-		for (nexthop = re->nexthop; nexthop; nexthop = nexthop->next)
-			if (nexthop->nh_label_type == ZEBRA_LSP_LDP) {
+		RNODE_FOREACH_RE(rn, re) {
+			for (nexthop = re->nexthop;
+			     nexthop;
+			     nexthop = nexthop->next) {
+				if (nexthop->nh_label_type != ZEBRA_LSP_LDP)
+					continue;
+
 				nexthop_del_labels(nexthop);
 				SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 				SET_FLAG(re->status,
 					 ROUTE_ENTRY_LABELS_CHANGED);
 				update = 1;
 			}
+		}
 
 		if (update)
 			rib_queue_add(rn);
