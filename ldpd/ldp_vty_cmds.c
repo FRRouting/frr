@@ -538,13 +538,14 @@ DEFPY  (ldp_debug_mpls_ldp_discovery_hello,
 
 DEFPY  (ldp_debug_mpls_ldp_type,
 	ldp_debug_mpls_ldp_type_cmd,
-	"[no] debug mpls ldp <errors|event|zebra>$type",
+	"[no] debug mpls ldp <errors|event|labels|zebra>$type",
 	NO_STR
 	"Debugging functions\n"
 	"MPLS information\n"
 	"Label Distribution Protocol\n"
 	"Errors\n"
 	"LDP event information\n"
+	"LDP label allocation information\n"
 	"LDP zebra information\n")
 {
 	return (ldp_vty_debug(vty, no, type, NULL, NULL));

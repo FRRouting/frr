@@ -66,6 +66,11 @@ ldp_vty_debug(struct vty *vty, const char *negate, const char *type_str,
 			DEBUG_OFF(event, EVENT);
 		else
 			DEBUG_ON(event, EVENT);
+	} else if (strcmp(type_str, "labels") == 0) {
+		if (negate)
+			DEBUG_OFF(labels, LABELS);
+		else
+			DEBUG_ON(labels, LABELS);
 	} else if (strcmp(type_str, "messages") == 0) {
 		if (dir_str == NULL)
 			return (CMD_WARNING_CONFIG_FAILED);
@@ -115,6 +120,8 @@ ldp_vty_show_debugging(struct vty *vty)
 		vty_out (vty, "  LDP errors debugging is on\n");
 	if (LDP_DEBUG(event, EVENT))
 		vty_out (vty, "  LDP events debugging is on\n");
+	if (LDP_DEBUG(labels, LABELS))
+		vty_out (vty, "  LDP labels debugging is on\n");
 	if (LDP_DEBUG(msg, MSG_RECV_ALL))
 		vty_out (vty,
 			  "  LDP detailed messages debugging is on (inbound)\n");
@@ -154,6 +161,11 @@ ldp_debug_config_write(struct vty *vty)
 
 	if (CONF_LDP_DEBUG(event, EVENT)) {
 		vty_out (vty, "debug mpls ldp event\n");
+		write = 1;
+	}
+
+	if (CONF_LDP_DEBUG(labels, LABELS)) {
+		vty_out (vty, "debug mpls ldp labels\n");
 		write = 1;
 	}
 
