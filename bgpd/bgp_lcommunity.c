@@ -26,6 +26,7 @@
 #include "command.h"
 #include "filter.h"
 #include "jhash.h"
+#include "stream.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_lcommunity.h"
@@ -431,20 +432,10 @@ char *lcommunity_lcom2str(struct lcommunity *lcom, int format)
 
 		pnt = lcom->val + (i * LCOMMUNITY_SIZE);
 
-		globaladmin = (*pnt++ << 24);
-		globaladmin |= (*pnt++ << 16);
-		globaladmin |= (*pnt++ << 8);
-		globaladmin |= (*pnt++);
-
-		localdata1 = (*pnt++ << 24);
-		localdata1 |= (*pnt++ << 16);
-		localdata1 |= (*pnt++ << 8);
-		localdata1 |= (*pnt++);
-
-		localdata2 = (*pnt++ << 24);
-		localdata2 |= (*pnt++ << 16);
-		localdata2 |= (*pnt++ << 8);
-		localdata2 |= (*pnt++);
+		pnt = ptr_get_be32(pnt, &globaladmin);
+		pnt = ptr_get_be32(pnt, &localdata1);
+		pnt = ptr_get_be32(pnt, &localdata2);
+		(void)pnt; /* consume value */
 
 		len = sprintf(str_buf + str_pnt, "%u:%u:%u", globaladmin,
 			      localdata1, localdata2);

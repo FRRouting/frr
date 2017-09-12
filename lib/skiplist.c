@@ -593,8 +593,8 @@ static void *scramble(int i)
 {
 	uintptr_t result;
 
-	result = (i & 0xff) << 24;
-	result |= (i >> 8);
+	result = (unsigned)(i & 0xff) << 24;
+	result |= (unsigned)i >> 8;
 
 	return (void *)result;
 }

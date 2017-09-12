@@ -46,7 +46,8 @@
 #define GET_OPAQUE_ID(lsid) ((u_int32_t)(lsid)&LSID_OPAQUE_ID_MASK)
 
 #define SET_OPAQUE_LSID(type, id)                                              \
-	((((type) << 24) & LSID_OPAQUE_TYPE_MASK) | ((id)&LSID_OPAQUE_ID_MASK))
+	((((unsigned)(type) << 24) & LSID_OPAQUE_TYPE_MASK)                    \
+	 | ((id) & LSID_OPAQUE_ID_MASK))
 
 /*
  * Opaque LSA types will be assigned by IANA.

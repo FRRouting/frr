@@ -25,6 +25,7 @@
 #include "memory.h"
 #include "queue.h"
 #include "filter.h"
+#include "stream.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_community.h"
@@ -465,20 +466,10 @@ static char *lcommunity_str_get(struct lcommunity *lcom, int i)
 	str = pnt = XMALLOC(MTYPE_LCOMMUNITY_STR, 48);
 
 	ptr = (u_char *)lcomval.val;
-	globaladmin = (*ptr++ << 24);
-	globaladmin |= (*ptr++ << 16);
-	globaladmin |= (*ptr++ << 8);
-	globaladmin |= (*ptr++);
-
-	localdata1 = (*ptr++ << 24);
-	localdata1 |= (*ptr++ << 16);
-	localdata1 |= (*ptr++ << 8);
-	localdata1 |= (*ptr++);
-
-	localdata2 = (*ptr++ << 24);
-	localdata2 |= (*ptr++ << 16);
-	localdata2 |= (*ptr++ << 8);
-	localdata2 |= (*ptr++);
+	ptr = ptr_get_be32(ptr, &globaladmin);
+	ptr = ptr_get_be32(ptr, &localdata1);
+	ptr = ptr_get_be32(ptr, &localdata2);
+	(void)ptr; /* consume value */
 
 	sprintf(pnt, "%u:%u:%u", globaladmin, localdata1, localdata2);
 	pnt += strlen(pnt);
