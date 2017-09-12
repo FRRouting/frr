@@ -104,7 +104,6 @@ an example.)
         --enable-rtadv \
         --disable-exampledir \
         --enable-watchfrr \
-        --enable-tcp-zebra \
         --disable-ldpd \
         --enable-fpm \
         --enable-nhrpd \
