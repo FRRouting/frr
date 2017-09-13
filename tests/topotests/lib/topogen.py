@@ -40,13 +40,13 @@ Basic usage instructions:
 
 import os
 import sys
+import logging
 import json
 import ConfigParser
 import glob
 import grp
 import platform
 import pwd
-import re
 import subprocess
 
 from mininet.net import Mininet
@@ -883,6 +883,15 @@ def diagnose_env():
     is ok, otherwise `False`.
     """
     ret = True
+
+    # Log diagnostics to file so it can be examined later.
+    fhandler = logging.FileHandler(filename='/tmp/topotests/diagnostics.txt')
+    fhandler.setLevel(logging.DEBUG)
+    fhandler.setFormatter(
+        logging.Formatter(fmt='%(asctime)s %(levelname)s: %(message)s')
+    )
+    logger.addHandler(fhandler)
+
     logger.info('Running environment diagnostics')
 
     # Load configuration
@@ -1005,5 +1014,8 @@ def diagnose_env():
     # pylint: disable=W0702
     except:
         logger.warning('failed to find exabgp or returned error')
+
+    # After we logged the output to file, remove the handler.
+    logger.removeHandler(fhandler)
 
     return ret
