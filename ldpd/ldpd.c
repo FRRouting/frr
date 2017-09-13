@@ -370,9 +370,9 @@ main(int argc, char *argv[])
 
 	if (main_imsg_send_ipc_sockets(&iev_ldpe->ibuf, &iev_lde->ibuf))
 		fatal("could not establish imsg links");
-	main_imsg_compose_both(IMSG_INIT, &init, sizeof(init));
 	main_imsg_compose_both(IMSG_DEBUG_UPDATE, &ldp_debug,
 	    sizeof(ldp_debug));
+	main_imsg_compose_both(IMSG_INIT, &init, sizeof(init));
 	main_imsg_send_config(ldpd_conf);
 
 	if (ldpd_conf->ipv4.flags & F_LDPD_AF_ENABLED)

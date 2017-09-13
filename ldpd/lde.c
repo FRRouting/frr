@@ -1609,7 +1609,6 @@ static void
 zclient_sync_init(u_short instance)
 {
 	/* Initialize special zclient for synchronous message exchanges. */
-	log_debug("Initializing synchronous zclient for label manager");
 	zclient_sync = zclient_new(master);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
@@ -1640,7 +1639,7 @@ lde_get_label_chunk(void)
 	int		 ret;
 	uint32_t	 start, end;
 
-	log_debug("Getting label chunk");
+	debug_labels("getting label chunk (size %u)", CHUNK_SIZE);
 	ret = lm_get_label_chunk(zclient_sync, 0, CHUNK_SIZE, &start, &end);
 	if (ret < 0) {
 		log_warnx("Error getting label chunk!");
@@ -1670,7 +1669,7 @@ on_get_label_chunk_response(uint32_t start, uint32_t end)
 {
 	struct label_chunk *new_label_chunk;
 
-	log_debug("Label Chunk assign: %u - %u", start, end);
+	debug_labels("label chunk assign: %u - %u", start, end);
 
 	new_label_chunk = calloc(1, sizeof(struct label_chunk));
 	if (!new_label_chunk) {
@@ -1693,7 +1692,8 @@ static uint32_t
 lde_get_next_label(void)
 {
 	struct label_chunk	*label_chunk;
-	uint32_t		 i, pos, size;
+	uint32_t		 i, size;
+	uint64_t		 pos;
 	uint32_t		 label = NO_LABEL;
 
 	while (current_label_chunk) {
