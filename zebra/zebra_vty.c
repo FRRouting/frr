@@ -55,6 +55,10 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 			    u_short ospf_instance_id);
 static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				     int mcast);
+static void vty_show_ip_route_summary(struct vty *vty,
+				      struct route_table *table);
+static void vty_show_ip_route_summary_prefix(struct vty *vty,
+					     struct route_table *table);
 
 /* VNI range as per RFC 7432 */
 #define CMD_VNI_RANGE "(1-16777215)"
@@ -1283,96 +1287,151 @@ DEFPY (show_route,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_route_addr,
-       show_ip_route_addr_cmd,
-       "show ip route [vrf NAME] A.B.C.D",
+DEFPY (show_route_detail,
+       show_route_detail_cmd,
+       "show\
+         <\
+          ip$ipv4 route [vrf <NAME$vrf_name|all$vrf_all>]\
+          <\
+	   A.B.C.D$address\
+	   |A.B.C.D/M$prefix\
+	  >\
+          |ipv6$ipv6 route [vrf <NAME$vrf_name|all$vrf_all>]\
+          <\
+	   X:X::X:X$address\
+	   |X:X::X:X/M$prefix\
+	  >\
+	 >",
        SHOW_STR
        IP_STR
        "IP routing table\n"
-       VRF_CMD_HELP_STR
-       "Network in the IP routing table to display\n")
-{
-	int ret;
-	struct prefix_ipv4 p;
-	struct route_table *table;
-	struct route_node *rn;
-	vrf_id_t vrf_id = VRF_DEFAULT;
-
-	if (strmatch(argv[3]->text, "vrf")) {
-		VRF_GET_ID(vrf_id, argv[4]->arg);
-		ret = str2prefix_ipv4(argv[5]->arg, &p);
-	} else {
-		ret = str2prefix_ipv4(argv[3]->arg, &p);
-	}
-
-	if (ret <= 0) {
-		vty_out(vty, "%% Malformed IPv4 address\n");
-		return CMD_WARNING;
-	}
-
-	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id);
-	if (!table)
-		return CMD_SUCCESS;
-
-	rn = route_node_match(table, (struct prefix *)&p);
-	if (!rn) {
-		vty_out(vty, "%% Network not in table\n");
-		return CMD_WARNING;
-	}
-
-	vty_show_ip_route_detail(vty, rn, 0);
-
-	route_unlock_node(rn);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_ip_route_prefix,
-       show_ip_route_prefix_cmd,
-       "show ip route [vrf NAME] A.B.C.D/M",
-       SHOW_STR
-       IP_STR
+       VRF_FULL_CMD_HELP_STR
+       "Network in the IP routing table to display\n"
+       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
+       IP6_STR
        "IP routing table\n"
-       VRF_CMD_HELP_STR
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
+       VRF_FULL_CMD_HELP_STR
+       "IPv6 Address\n"
+       "IPv6 prefix\n")
 {
-	int ret;
-	struct prefix_ipv4 p;
+	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	struct route_table *table;
+	struct prefix p;
 	struct route_node *rn;
-	vrf_id_t vrf_id = VRF_DEFAULT;
 
-	if (strmatch(argv[3]->text, "vrf")) {
-		VRF_GET_ID(vrf_id, argv[4]->arg);
-		ret = str2prefix_ipv4(argv[5]->arg, &p);
-	} else {
-		ret = str2prefix_ipv4(argv[3]->arg, &p);
-	}
-
-	if (ret <= 0) {
-		vty_out(vty, "%% Malformed IPv4 address\n");
+	if (address_str)
+		prefix_str = address_str;
+	if (str2prefix(prefix_str, &p) < 0) {
+		vty_out(vty, "%% Malformed address\n");
 		return CMD_WARNING;
 	}
 
-	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id);
-	if (!table)
-		return CMD_SUCCESS;
+	if (vrf_all) {
+		struct vrf *vrf;
+		struct zebra_vrf *zvrf;
 
-	rn = route_node_match(table, (struct prefix *)&p);
-	if (!rn || rn->p.prefixlen != p.prefixlen) {
-		if (rn)
+		RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
+			if ((zvrf = vrf->info) == NULL
+			    || (table = zvrf->table[afi][SAFI_UNICAST]) == NULL)
+				continue;
+
+			rn = route_node_match(table, &p);
+			if (!rn)
+				continue;
+			if (!address_str && rn->p.prefixlen != p.prefixlen) {
+				route_unlock_node(rn);
+				continue;
+			}
+
+			vty_show_ip_route_detail(vty, rn, 0);
+
 			route_unlock_node(rn);
-		vty_out(vty, "%% Network not in table\n");
-		return CMD_WARNING;
+		}
+	} else {
+		vrf_id_t vrf_id = VRF_DEFAULT;
+
+		if (vrf_name)
+			VRF_GET_ID(vrf_id, vrf_name);
+
+		table = zebra_vrf_table(afi, SAFI_UNICAST, vrf_id);
+		if (!table)
+			return CMD_SUCCESS;
+
+		rn = route_node_match(table, &p);
+		if (!rn) {
+			vty_out(vty, "%% Network not in table\n");
+			return CMD_WARNING;
+		}
+		if (!address_str && rn->p.prefixlen != p.prefixlen) {
+			vty_out(vty, "%% Network not in table\n");
+			route_unlock_node(rn);
+			return CMD_WARNING;
+		}
+
+		vty_show_ip_route_detail(vty, rn, 0);
+
+		route_unlock_node(rn);
 	}
-
-	vty_show_ip_route_detail(vty, rn, 0);
-
-	route_unlock_node(rn);
 
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_route_summary,
+       show_route_summary_cmd,
+       "show\
+         <\
+          ip$ipv4 route [vrf <NAME$vrf_name|all$vrf_all>]\
+            summary [prefix$prefix]\
+          |ipv6$ipv6 route [vrf <NAME$vrf_name|all$vrf_all>]\
+	    summary [prefix$prefix]\
+	 >",
+       SHOW_STR
+       IP_STR
+       "IP routing table\n"
+       VRF_FULL_CMD_HELP_STR
+       "Summary of all routes\n"
+       "Prefix routes\n"
+       IP6_STR
+       "IP routing table\n"
+       VRF_FULL_CMD_HELP_STR
+       "Summary of all routes\n"
+       "Prefix routes\n")
+{
+	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
+	struct route_table *table;
+
+	if (vrf_all) {
+		struct vrf *vrf;
+		struct zebra_vrf *zvrf;
+
+		RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
+			if ((zvrf = vrf->info) == NULL
+			    || (table = zvrf->table[afi][SAFI_UNICAST]) == NULL)
+				continue;
+
+			if (prefix)
+				vty_show_ip_route_summary_prefix(vty, table);
+			else
+				vty_show_ip_route_summary(vty, table);
+		}
+	} else {
+		vrf_id_t vrf_id = VRF_DEFAULT;
+
+		if (vrf_name)
+			VRF_GET_ID(vrf_id, vrf_name);
+
+		table = zebra_vrf_table(afi, SAFI_UNICAST, vrf_id);
+		if (!table)
+			return CMD_SUCCESS;
+
+		if (prefix)
+			vty_show_ip_route_summary_prefix(vty, table);
+		else
+			vty_show_ip_route_summary(vty, table);
+	}
+
+	return CMD_SUCCESS;
+}
 
 static void vty_show_ip_route_summary(struct vty *vty,
 				      struct route_table *table)
@@ -1510,183 +1569,6 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 	vty_out(vty, "%-20s %-20d %-20d \n", "Totals",
 		rib_cnt[ZEBRA_ROUTE_TOTAL], fib_cnt[ZEBRA_ROUTE_TOTAL]);
 	vty_out(vty, "\n");
-}
-
-/* Show route summary.  */
-DEFUN (show_ip_route_summary,
-       show_ip_route_summary_cmd,
-       "show ip route [vrf NAME] summary",
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
-       VRF_CMD_HELP_STR
-       "Summary of all routes\n")
-{
-	struct route_table *table;
-	vrf_id_t vrf_id = VRF_DEFAULT;
-
-	if (strmatch(argv[3]->text, "vrf"))
-		VRF_GET_ID(vrf_id, argv[4]->arg);
-
-	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id);
-	if (!table)
-		return CMD_SUCCESS;
-
-	vty_show_ip_route_summary(vty, table);
-
-	return CMD_SUCCESS;
-}
-
-/* Show route summary prefix.  */
-DEFUN (show_ip_route_summary_prefix,
-       show_ip_route_summary_prefix_cmd,
-       "show ip route [vrf NAME] summary prefix",
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
-       VRF_CMD_HELP_STR
-       "Summary of all routes\n"
-       "Prefix routes\n")
-{
-	struct route_table *table;
-	vrf_id_t vrf_id = VRF_DEFAULT;
-
-	if (strmatch(argv[3]->text, "vrf"))
-		VRF_GET_ID(vrf_id, argv[4]->arg);
-
-	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id);
-	if (!table)
-		return CMD_SUCCESS;
-
-	vty_show_ip_route_summary_prefix(vty, table);
-
-	return CMD_SUCCESS;
-}
-
-
-DEFUN (show_ip_route_vrf_all_addr,
-       show_ip_route_vrf_all_addr_cmd,
-       "show ip route vrf all A.B.C.D",
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
-       VRF_ALL_CMD_HELP_STR
-       "Network in the IP routing table to display\n")
-{
-	int idx_ipv4 = 5;
-	int ret;
-	struct prefix_ipv4 p;
-	struct route_table *table;
-	struct route_node *rn;
-	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
-
-	ret = str2prefix_ipv4(argv[idx_ipv4]->arg, &p);
-	if (ret <= 0) {
-		vty_out(vty, "%% Malformed IPv4 address\n");
-		return CMD_WARNING;
-	}
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if ((zvrf = vrf->info) == NULL
-		    || (table = zvrf->table[AFI_IP][SAFI_UNICAST]) == NULL)
-			continue;
-
-		rn = route_node_match(table, (struct prefix *)&p);
-		if (!rn)
-			continue;
-
-		vty_show_ip_route_detail(vty, rn, 0);
-
-		route_unlock_node(rn);
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_ip_route_vrf_all_prefix,
-       show_ip_route_vrf_all_prefix_cmd,
-       "show ip route vrf all A.B.C.D/M",
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
-       VRF_ALL_CMD_HELP_STR
-       "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n")
-{
-	int idx_ipv4_prefixlen = 5;
-	int ret;
-	struct prefix_ipv4 p;
-	struct route_table *table;
-	struct route_node *rn;
-	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
-
-	ret = str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
-	if (ret <= 0) {
-		vty_out(vty, "%% Malformed IPv4 address\n");
-		return CMD_WARNING;
-	}
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if ((zvrf = vrf->info) == NULL
-		    || (table = zvrf->table[AFI_IP][SAFI_UNICAST]) == NULL)
-			continue;
-
-		rn = route_node_match(table, (struct prefix *)&p);
-		if (!rn)
-			continue;
-		if (rn->p.prefixlen != p.prefixlen) {
-			route_unlock_node(rn);
-			continue;
-		}
-
-		vty_show_ip_route_detail(vty, rn, 0);
-
-		route_unlock_node(rn);
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_ip_route_vrf_all_summary,
-       show_ip_route_vrf_all_summary_cmd,
-       "show ip route vrf all summary ",
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
-       VRF_ALL_CMD_HELP_STR
-       "Summary of all routes\n")
-{
-	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-		if ((zvrf = vrf->info) != NULL)
-			vty_show_ip_route_summary(
-				vty, zvrf->table[AFI_IP][SAFI_UNICAST]);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_ip_route_vrf_all_summary_prefix,
-       show_ip_route_vrf_all_summary_prefix_cmd,
-       "show ip route vrf all summary prefix",
-       SHOW_STR
-       IP_STR
-       "IP routing table\n"
-       VRF_ALL_CMD_HELP_STR
-       "Summary of all routes\n"
-       "Prefix routes\n")
-{
-	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-		if ((zvrf = vrf->info) != NULL)
-			vty_show_ip_route_summary_prefix(
-				vty, zvrf->table[AFI_IP][SAFI_UNICAST]);
-
-	return CMD_SUCCESS;
 }
 
 /* Write static route configuration. */
@@ -1873,149 +1755,6 @@ DEFPY(ipv6_route,
 				  tag_str, distance_str, vrf, label);
 }
 
-DEFUN (show_ipv6_route_addr,
-       show_ipv6_route_addr_cmd,
-       "show ipv6 route [vrf NAME] X:X::X:X",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
-       VRF_CMD_HELP_STR
-       "IPv6 Address\n")
-{
-	int ret;
-	struct prefix_ipv6 p;
-	struct route_table *table;
-	struct route_node *rn;
-	vrf_id_t vrf_id = VRF_DEFAULT;
-
-	if (strmatch(argv[3]->text, "vrf")) {
-		VRF_GET_ID(vrf_id, argv[4]->arg);
-		ret = str2prefix_ipv6(argv[5]->arg, &p);
-	} else {
-		ret = str2prefix_ipv6(argv[3]->arg, &p);
-	}
-
-	if (ret <= 0) {
-		vty_out(vty, "Malformed IPv6 address\n");
-		return CMD_WARNING;
-	}
-
-	table = zebra_vrf_table(AFI_IP6, SAFI_UNICAST, vrf_id);
-	if (!table)
-		return CMD_SUCCESS;
-
-	rn = route_node_match(table, (struct prefix *)&p);
-	if (!rn) {
-		vty_out(vty, "%% Network not in table\n");
-		return CMD_WARNING;
-	}
-
-	vty_show_ip_route_detail(vty, rn, 0);
-
-	route_unlock_node(rn);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_ipv6_route_prefix,
-       show_ipv6_route_prefix_cmd,
-       "show ipv6 route [vrf NAME] X:X::X:X/M",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
-       VRF_CMD_HELP_STR
-       "IPv6 prefix\n")
-{
-	int ret;
-	struct prefix_ipv6 p;
-	struct route_table *table;
-	struct route_node *rn;
-	vrf_id_t vrf_id = VRF_DEFAULT;
-
-	if (strmatch(argv[3]->text, "vrf")) {
-		VRF_GET_ID(vrf_id, argv[4]->arg);
-		ret = str2prefix_ipv6(argv[5]->arg, &p);
-	} else
-		ret = str2prefix_ipv6(argv[3]->arg, &p);
-
-	if (ret <= 0) {
-		vty_out(vty, "Malformed IPv6 prefix\n");
-		return CMD_WARNING;
-	}
-
-	table = zebra_vrf_table(AFI_IP6, SAFI_UNICAST, vrf_id);
-	if (!table)
-		return CMD_SUCCESS;
-
-	rn = route_node_match(table, (struct prefix *)&p);
-	if (!rn || rn->p.prefixlen != p.prefixlen) {
-		if (rn)
-			route_unlock_node(rn);
-		vty_out(vty, "%% Network not in table\n");
-		return CMD_WARNING;
-	}
-
-	vty_show_ip_route_detail(vty, rn, 0);
-
-	route_unlock_node(rn);
-
-	return CMD_SUCCESS;
-}
-
-
-/* Show route summary.  */
-DEFUN (show_ipv6_route_summary,
-       show_ipv6_route_summary_cmd,
-       "show ipv6 route [vrf NAME] summary",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
-       VRF_CMD_HELP_STR
-       "Summary of all IPv6 routes\n")
-{
-	struct route_table *table;
-	vrf_id_t vrf_id = VRF_DEFAULT;
-
-	if (strmatch(argv[3]->text, "vrf"))
-		VRF_GET_ID(vrf_id, argv[4]->arg);
-
-	table = zebra_vrf_table(AFI_IP6, SAFI_UNICAST, vrf_id);
-	if (!table)
-		return CMD_SUCCESS;
-
-	vty_show_ip_route_summary(vty, table);
-
-	return CMD_SUCCESS;
-}
-
-
-/* Show ipv6 route summary prefix.  */
-DEFUN (show_ipv6_route_summary_prefix,
-       show_ipv6_route_summary_prefix_cmd,
-       "show ipv6 route [vrf NAME] summary prefix",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
-       VRF_CMD_HELP_STR
-       "Summary of all IPv6 routes\n"
-       "Prefix routes\n")
-{
-	struct route_table *table;
-	vrf_id_t vrf_id = VRF_DEFAULT;
-
-	if (strmatch(argv[3]->text, "vrf"))
-		VRF_GET_ID(vrf_id, argv[4]->arg);
-
-	table = zebra_vrf_table(AFI_IP6, SAFI_UNICAST, vrf_id);
-	if (!table)
-		return CMD_SUCCESS;
-
-	vty_show_ip_route_summary_prefix(vty, table);
-
-	return CMD_SUCCESS;
-}
-
-
 /*
  * Show IPv6 mroute command.Used to dump
  * the Multicast routing table.
@@ -2053,110 +1792,6 @@ DEFUN (show_ipv6_mroute,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ipv6_route_vrf_all_addr,
-       show_ipv6_route_vrf_all_addr_cmd,
-       "show ipv6 route vrf all X:X::X:X",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
-       VRF_ALL_CMD_HELP_STR
-       "IPv6 Address\n")
-{
-	int idx_ipv6 = 5;
-	int ret;
-	struct prefix_ipv6 p;
-	struct route_table *table;
-	struct route_node *rn;
-	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
-
-	ret = str2prefix_ipv6(argv[idx_ipv6]->arg, &p);
-	if (ret <= 0) {
-		vty_out(vty, "Malformed IPv6 address\n");
-		return CMD_WARNING;
-	}
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if ((zvrf = vrf->info) == NULL
-		    || (table = zvrf->table[AFI_IP6][SAFI_UNICAST]) == NULL)
-			continue;
-
-		rn = route_node_match(table, (struct prefix *)&p);
-		if (!rn)
-			continue;
-
-		vty_show_ip_route_detail(vty, rn, 0);
-
-		route_unlock_node(rn);
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_ipv6_route_vrf_all_prefix,
-       show_ipv6_route_vrf_all_prefix_cmd,
-       "show ipv6 route vrf all X:X::X:X/M",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
-       VRF_ALL_CMD_HELP_STR
-       "IPv6 prefix\n")
-{
-	int idx_ipv6_prefixlen = 5;
-	int ret;
-	struct prefix_ipv6 p;
-	struct route_table *table;
-	struct route_node *rn;
-	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
-
-	ret = str2prefix_ipv6(argv[idx_ipv6_prefixlen]->arg, &p);
-	if (ret <= 0) {
-		vty_out(vty, "Malformed IPv6 prefix\n");
-		return CMD_WARNING;
-	}
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if ((zvrf = vrf->info) == NULL
-		    || (table = zvrf->table[AFI_IP6][SAFI_UNICAST]) == NULL)
-			continue;
-
-		rn = route_node_match(table, (struct prefix *)&p);
-		if (!rn)
-			continue;
-		if (rn->p.prefixlen != p.prefixlen) {
-			route_unlock_node(rn);
-			continue;
-		}
-
-		vty_show_ip_route_detail(vty, rn, 0);
-
-		route_unlock_node(rn);
-	}
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_ipv6_route_vrf_all_summary,
-       show_ipv6_route_vrf_all_summary_cmd,
-       "show ipv6 route vrf all summary",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
-       VRF_ALL_CMD_HELP_STR
-       "Summary of all IPv6 routes\n")
-{
-	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-		if ((zvrf = vrf->info) != NULL)
-			vty_show_ip_route_summary(
-				vty, zvrf->table[AFI_IP6][SAFI_UNICAST]);
-
-	return CMD_SUCCESS;
-}
-
 DEFUN (show_ipv6_mroute_vrf_all,
        show_ipv6_mroute_vrf_all_cmd,
        "show ipv6 mroute vrf all",
@@ -2187,27 +1822,6 @@ DEFUN (show_ipv6_mroute_vrf_all,
 				vty_show_ip_route(vty, rn, re, NULL);
 			}
 	}
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_ipv6_route_vrf_all_summary_prefix,
-       show_ipv6_route_vrf_all_summary_prefix_cmd,
-       "show ipv6 route vrf all summary prefix",
-       SHOW_STR
-       IP_STR
-       "IPv6 routing table\n"
-       VRF_ALL_CMD_HELP_STR
-       "Summary of all IPv6 routes\n"
-       "Prefix routes\n")
-{
-	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-		if ((zvrf = vrf->info) != NULL)
-			vty_show_ip_route_summary_prefix(
-				vty, zvrf->table[AFI_IP6][SAFI_UNICAST]);
-
 	return CMD_SUCCESS;
 }
 
@@ -2661,22 +2275,15 @@ void zebra_vty_init(void)
 
 	install_element(VIEW_NODE, &show_vrf_cmd);
 	install_element(VIEW_NODE, &show_route_cmd);
+	install_element(VIEW_NODE, &show_route_detail_cmd);
+	install_element(VIEW_NODE, &show_route_summary_cmd);
 	install_element(VIEW_NODE, &show_ip_nht_cmd);
 	install_element(VIEW_NODE, &show_ip_nht_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_nht_cmd);
 	install_element(VIEW_NODE, &show_ipv6_nht_vrf_all_cmd);
-	install_element(VIEW_NODE, &show_ip_route_addr_cmd);
-	install_element(VIEW_NODE, &show_ip_route_prefix_cmd);
-	install_element(VIEW_NODE, &show_ip_route_summary_cmd);
-	install_element(VIEW_NODE, &show_ip_route_summary_prefix_cmd);
 
 	install_element(VIEW_NODE, &show_ip_rpf_cmd);
 	install_element(VIEW_NODE, &show_ip_rpf_addr_cmd);
-
-	install_element(VIEW_NODE, &show_ip_route_vrf_all_addr_cmd);
-	install_element(VIEW_NODE, &show_ip_route_vrf_all_prefix_cmd);
-	install_element(VIEW_NODE, &show_ip_route_vrf_all_summary_cmd);
-	install_element(VIEW_NODE, &show_ip_route_vrf_all_summary_prefix_cmd);
 
 	install_element(CONFIG_NODE, &ipv6_route_blackhole_cmd);
 	install_element(CONFIG_NODE, &ipv6_route_address_interface_cmd);
@@ -2685,18 +2292,9 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &no_ip_nht_default_route_cmd);
 	install_element(CONFIG_NODE, &ipv6_nht_default_route_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_nht_default_route_cmd);
-	install_element(VIEW_NODE, &show_ipv6_route_summary_cmd);
-	install_element(VIEW_NODE, &show_ipv6_route_summary_prefix_cmd);
-	install_element(VIEW_NODE, &show_ipv6_route_addr_cmd);
-	install_element(VIEW_NODE, &show_ipv6_route_prefix_cmd);
 	install_element(VIEW_NODE, &show_ipv6_mroute_cmd);
 
 	/* Commands for VRF */
-	install_element(VIEW_NODE, &show_ipv6_route_vrf_all_summary_cmd);
-	install_element(VIEW_NODE, &show_ipv6_route_vrf_all_summary_prefix_cmd);
-	install_element(VIEW_NODE, &show_ipv6_route_vrf_all_addr_cmd);
-	install_element(VIEW_NODE, &show_ipv6_route_vrf_all_prefix_cmd);
-
 	install_element(VIEW_NODE, &show_ipv6_mroute_vrf_all_cmd);
 
 	install_element(VIEW_NODE, &show_evpn_vni_cmd);
