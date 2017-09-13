@@ -35,6 +35,7 @@
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_vty.h"
+#include "bgpd/bgp_ecommunity.h"
 
 #define SHOW_DISPLAY_STANDARD 0
 #define SHOW_DISPLAY_TAGS 1
@@ -57,14 +58,8 @@ static void display_import_rt(struct vty *vty, struct irt_node *irt,
 {
 	u_char *pnt;
 	u_char type, sub_type;
-	struct ecommunity_as {
-		as_t as;
-		u_int32_t val;
-	} eas;
-	struct ecommunity_ip {
-		struct in_addr ip;
-		u_int16_t val;
-	} eip;
+	struct ecommunity_as eas;
+	struct ecommunity_ip eip;
 	struct listnode *node, *nnode;
 	struct bgpevpn *tmp_vpn;
 	json_object *json_rt = NULL;

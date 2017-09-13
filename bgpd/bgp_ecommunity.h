@@ -70,6 +70,16 @@ struct ecommunity {
 	char *str;
 };
 
+struct ecommunity_as {
+	as_t as;
+	uint32_t val;
+};
+
+struct ecommunity_ip {
+	struct in_addr ip;
+	uint16_t val;
+};
+
 /* Extended community value is eight octet.  */
 struct ecommunity_val {
 	char val[ECOMMUNITY_SIZE];
