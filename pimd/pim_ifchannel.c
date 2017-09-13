@@ -1327,7 +1327,7 @@ void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
 					 uint8_t join)
 {
 	struct pim_ifchannel *child;
-	struct listnode *ch_node;
+	struct listnode *ch_node, *nch_node;
 	struct pim_instance *pim =
 		((struct pim_interface *)ch->interface->info)->pim;
 
@@ -1339,7 +1339,7 @@ void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
 	if (!ch->sources)
 		return;
 
-	for (ALL_LIST_ELEMENTS_RO(ch->sources, ch_node, child)) {
+	for (ALL_LIST_ELEMENTS(ch->sources, ch_node, nch_node, child)) {
 		if (!PIM_IF_FLAG_TEST_S_G_RPT(child->flags))
 			continue;
 
@@ -1358,30 +1358,36 @@ void pim_ifchannel_set_star_g_join_state(struct pim_ifchannel *ch, int eom,
 			break;
 		case PIM_IFJOIN_PRUNE_TMP:
 		case PIM_IFJOIN_PRUNE_PENDING_TMP:
-			if (eom) {
-				struct pim_upstream *parent =
-					child->upstream->parent;
+			if (!eom)
+				break;
 
-				PIM_IF_FLAG_UNSET_S_G_RPT(child->flags);
-				child->ifjoin_state = PIM_IFJOIN_NOINFO;
+			if (child->ifjoin_state == PIM_IFJOIN_PRUNE_PENDING_TMP)
+				THREAD_OFF(child->t_ifjoin_prune_pending_timer);
+			THREAD_OFF(child->t_ifjoin_expiry_timer);
+			struct pim_upstream *parent =
+				child->upstream->parent;
 
-				if (I_am_RP(pim, child->sg.grp)) {
-					pim_channel_add_oif(
-						child->upstream->channel_oil,
-						ch->interface,
-						PIM_OIF_FLAG_PROTO_STAR);
-					pim_upstream_switch(
-						pim, child->upstream,
-						PIM_UPSTREAM_JOINED);
-					pim_jp_agg_single_upstream_send(
-						&child->upstream->rpf,
-						child->upstream, true);
-				}
-				if (parent)
-					pim_jp_agg_single_upstream_send(
-						&parent->rpf,
-						parent, true);
+			PIM_IF_FLAG_UNSET_S_G_RPT(child->flags);
+			child->ifjoin_state = PIM_IFJOIN_NOINFO;
+
+			if (I_am_RP(pim, child->sg.grp)) {
+				pim_channel_add_oif(
+					child->upstream->channel_oil,
+					ch->interface,
+					PIM_OIF_FLAG_PROTO_STAR);
+				pim_upstream_switch(
+					pim, child->upstream,
+					PIM_UPSTREAM_JOINED);
+				pim_jp_agg_single_upstream_send(
+					&child->upstream->rpf,
+					child->upstream, true);
 			}
+			if (parent)
+				pim_jp_agg_single_upstream_send(
+					&parent->rpf,
+					parent, true);
+
+			delete_on_noinfo(child);
 			break;
 		}
 	}
