@@ -1360,6 +1360,8 @@ DEFUN (show_ip_route_prefix,
 
 	rn = route_node_match(table, (struct prefix *)&p);
 	if (!rn || rn->p.prefixlen != p.prefixlen) {
+		if (rn)
+			route_unlock_node(rn);
 		vty_out(vty, "%% Network not in table\n");
 		return CMD_WARNING;
 	}
@@ -1947,6 +1949,8 @@ DEFUN (show_ipv6_route_prefix,
 
 	rn = route_node_match(table, (struct prefix *)&p);
 	if (!rn || rn->p.prefixlen != p.prefixlen) {
+		if (rn)
+			route_unlock_node(rn);
 		vty_out(vty, "%% Network not in table\n");
 		return CMD_WARNING;
 	}
