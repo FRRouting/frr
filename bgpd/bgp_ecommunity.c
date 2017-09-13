@@ -555,15 +555,8 @@ static int ecommunity_rt_soo_str(char *buf, u_int8_t *pnt, int type,
 	const char *prefix;
 
 	/* For parse Extended Community attribute tupple. */
-	struct ecommunity_as {
-		as_t as;
-		u_int32_t val;
-	} eas;
-
-	struct ecommunity_ip {
-		struct in_addr ip;
-		u_int16_t val;
-	} eip;
+	struct ecommunity_as eas;
+	struct ecommunity_ip eip;
 
 
 	/* Determine prefix for string, if any. */
