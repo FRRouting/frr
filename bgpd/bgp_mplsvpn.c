@@ -236,7 +236,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 /* For testing purpose, static route of MPLS-VPN. */
 DEFUN (vpnv4_network,
        vpnv4_network_cmd,
-       "network A.B.C.D/M rd ASN:nn_or_IP-address:nn <tag|label> (0-1048575)",
+       "network A.B.C.D/M rd ASN:NN_OR_IP-ADDRESS:NN <tag|label> (0-1048575)",
        "Specify a network to announce via BGP\n"
        "IPv4 prefix\n"
        "Specify Route Distinguisher\n"
@@ -256,7 +256,7 @@ DEFUN (vpnv4_network,
 
 DEFUN (vpnv4_network_route_map,
        vpnv4_network_route_map_cmd,
-       "network A.B.C.D/M rd ASN:nn_or_IP-address:nn <tag|label> (0-1048575) route-map WORD",
+       "network A.B.C.D/M rd ASN:NN_OR_IP-ADDRESS:NN <tag|label> (0-1048575) route-map WORD",
        "Specify a network to announce via BGP\n"
        "IPv4 prefix\n"
        "Specify Route Distinguisher\n"
@@ -280,7 +280,7 @@ DEFUN (vpnv4_network_route_map,
 /* For testing purpose, static route of MPLS-VPN. */
 DEFUN (no_vpnv4_network,
        no_vpnv4_network_cmd,
-       "no network A.B.C.D/M rd ASN:nn_or_IP-address:nn <tag|label> (0-1048575)",
+       "no network A.B.C.D/M rd ASN:NN_OR_IP-ADDRESS:NN <tag|label> (0-1048575)",
        NO_STR
        "Specify a network to announce via BGP\n"
        "IPv4 prefix\n"
@@ -301,7 +301,7 @@ DEFUN (no_vpnv4_network,
 
 DEFUN (vpnv6_network,
        vpnv6_network_cmd,
-       "network X:X::X:X/M rd ASN:nn_or_IP-address:nn <tag|label> (0-1048575) [route-map WORD]",
+       "network X:X::X:X/M rd ASN:NN_OR_IP-ADDRESS:NN <tag|label> (0-1048575) [route-map WORD]",
        "Specify a network to announce via BGP\n"
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
        "Specify Route Distinguisher\n"
@@ -331,7 +331,7 @@ DEFUN (vpnv6_network,
 /* For testing purpose, static route of MPLS-VPN. */
 DEFUN (no_vpnv6_network,
        no_vpnv6_network_cmd,
-       "no network X:X::X:X/M rd ASN:nn_or_IP-address:nn <tag|label> (0-1048575)",
+       "no network X:X::X:X/M rd ASN:NN_OR_IP-ADDRESS:NN <tag|label> (0-1048575)",
        NO_STR
        "Specify a network to announce via BGP\n"
        "IPv6 prefix <network>/<length>, e.g., 3ffe::/16\n"
@@ -632,7 +632,7 @@ int bgp_show_mpls_vpn(struct vty *vty, afi_t afi, struct prefix_rd *prd,
 
 DEFUN (show_bgp_ip_vpn_all_rd,
        show_bgp_ip_vpn_all_rd_cmd,
-       "show bgp "BGP_AFI_CMD_STR" vpn all [rd ASN:nn_or_IP-address:nn] [json]",
+       "show bgp "BGP_AFI_CMD_STR" vpn all [rd ASN:NN_OR_IP-ADDRESS:NN] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -670,7 +670,7 @@ DEFUN (show_bgp_ip_vpn_all_rd,
 
 DEFUN (show_ip_bgp_vpn_rd,
        show_ip_bgp_vpn_rd_cmd,
-       "show [ip] bgp "BGP_AFI_CMD_STR" vpn rd ASN:nn_or_IP-address:nn",
+       "show [ip] bgp "BGP_AFI_CMD_STR" vpn rd ASN:NN_OR_IP-ADDRESS:NN",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -736,7 +736,7 @@ DEFUN (show_ip_bgp_vpn_all_tags,
 
 DEFUN (show_ip_bgp_vpn_rd_tags,
        show_ip_bgp_vpn_rd_tags_cmd,
-       "show [ip] bgp <vpnv4|vpnv6> rd ASN:nn_or_IP-address:nn tags",
+       "show [ip] bgp <vpnv4|vpnv6> rd ASN:NN_OR_IP-ADDRESS:NN tags",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -826,7 +826,7 @@ DEFUN (show_ip_bgp_vpn_all_neighbor_routes,
 
 DEFUN (show_ip_bgp_vpn_rd_neighbor_routes,
        show_ip_bgp_vpn_rd_neighbor_routes_cmd,
-       "show [ip] bgp <vpnv4|vpnv6> rd ASN:nn_or_IP-address:nn neighbors A.B.C.D routes [json]",
+       "show [ip] bgp <vpnv4|vpnv6> rd ASN:NN_OR_IP-ADDRESS:NN neighbors A.B.C.D routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -966,7 +966,7 @@ DEFUN (show_ip_bgp_vpn_all_neighbor_advertised_routes,
 
 DEFUN (show_ip_bgp_vpn_rd_neighbor_advertised_routes,
        show_ip_bgp_vpn_rd_neighbor_advertised_routes_cmd,
-       "show [ip] bgp <vpnv4|vpnv6> rd ASN:nn_or_IP-address:nn neighbors A.B.C.D advertised-routes [json]",
+       "show [ip] bgp <vpnv4|vpnv6> rd ASN:NN_OR_IP-ADDRESS:NN neighbors A.B.C.D advertised-routes [json]",
        SHOW_STR
        IP_STR
        BGP_STR
