@@ -642,6 +642,9 @@ void ospf6_area_plist_update(struct prefix_list *plist, int add)
 	struct listnode *n;
 	const char *name = prefix_list_name(plist);
 
+	if (!ospf6)
+		return;
+
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, n, oa)) {
 		if (PREFIX_NAME_IN(oa) && !strcmp(PREFIX_NAME_IN(oa), name))
 			PREFIX_LIST_IN(oa) = add ? plist : NULL;
