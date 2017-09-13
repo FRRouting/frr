@@ -1202,19 +1202,21 @@ DEFPY (show_route,
        "show\
          <\
 	  ip$ipv4 <fib$fib|route> [vrf <NAME$vrf_name|all$vrf_all>]\
-	   [\
+	   [{\
 	    tag (1-4294967295)\
 	    |A.B.C.D/M$prefix longer-prefixes\
 	    |supernets-only$supernets_only\
-	    |" FRR_IP_REDIST_STR_ZEBRA "$type_str\
+	   }]\
+	   [<\
+	    " FRR_IP_REDIST_STR_ZEBRA "$type_str\
 	    |ospf$type_str (1-65535)$ospf_instance_id\
-	   ]\
+	   >]\
           |ipv6$ipv6 <fib$fib|route> [vrf <NAME$vrf_name|all$vrf_all>]\
-	   [\
+	   [{\
 	    tag (1-4294967295)\
 	    |X:X::X:X/M$prefix longer-prefixes\
-	    |" FRR_IP6_REDIST_STR_ZEBRA "$type_str\
-	   ]\
+	   }]\
+	   [" FRR_IP6_REDIST_STR_ZEBRA "$type_str]\
 	 >\
         [json$json]",
        SHOW_STR
