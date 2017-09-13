@@ -79,6 +79,7 @@ static void display_import_rt(struct vty *vty, struct irt_node *irt,
 	if (sub_type != ECOMMUNITY_ROUTE_TARGET)
 		return;
 
+	memset(&eas, 0, sizeof(eas));
 	switch (type) {
 	case ECOMMUNITY_ENCODE_AS:
 		eas.as = (*pnt++ << 8);
