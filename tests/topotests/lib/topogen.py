@@ -884,13 +884,18 @@ def diagnose_env():
     """
     ret = True
 
-    # Log diagnostics to file so it can be examined later.
-    fhandler = logging.FileHandler(filename='/tmp/topotests/diagnostics.txt')
-    fhandler.setLevel(logging.DEBUG)
-    fhandler.setFormatter(
-        logging.Formatter(fmt='%(asctime)s %(levelname)s: %(message)s')
-    )
-    logger.addHandler(fhandler)
+    # Test log path exists before installing handler.
+    if not os.path.isdir('/tmp'):
+        logger.warning('could not find /tmp for logs')
+    else:
+        os.system('mkdir /tmp/topotests')
+        # Log diagnostics to file so it can be examined later.
+        fhandler = logging.FileHandler(filename='/tmp/topotests/diagnostics.txt')
+        fhandler.setLevel(logging.DEBUG)
+        fhandler.setFormatter(
+            logging.Formatter(fmt='%(asctime)s %(levelname)s: %(message)s')
+        )
+        logger.addHandler(fhandler)
 
     logger.info('Running environment diagnostics')
 
@@ -1001,9 +1006,6 @@ def diagnose_env():
                 os.system(
                     '{} -v 2>&1 >/tmp/topotests/quagga_zebra.txt'.format(path)
                 )
-
-    if not os.path.isdir('/tmp'):
-        logger.warning('could not find /tmp for logs')
 
     # Test MPLS availability
     krel = platform.release()
