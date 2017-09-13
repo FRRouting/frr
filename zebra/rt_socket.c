@@ -136,7 +136,7 @@ static int kernel_rtm_ipv4(int cmd, struct prefix *p, struct route_entry *re)
 		 * other than ADD and DELETE?
 		 */
 		if ((cmd == RTM_ADD
-		     && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+		     && NEXTHOP_IS_ACTIVE(nexthop->flags))
 		    || (cmd == RTM_DELETE
 			&& CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))) {
 			if (nexthop->type == NEXTHOP_TYPE_IPV4
@@ -314,7 +314,7 @@ static int kernel_rtm_ipv6(int cmd, struct prefix *p, struct route_entry *re)
 		gate = 0;
 
 		if ((cmd == RTM_ADD
-		     && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+		     && NEXTHOP_IS_ACTIVE(nexthop->flags))
 		    || (cmd == RTM_DELETE
 #if 0
 	      && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)
