@@ -75,6 +75,9 @@ Some general notes:
   configuration items should be defined in separate commands. Clarity is
   preferred over LOC (within reason).
 
+* The maximum number of space-separated tokens that can be entered is presently
+  limited to 256. Please keep this limit in mind when implementing new CLI.
+
 Variable Names
 --------------
 The parser tries to fill the "varname" field on each token.  This can happen

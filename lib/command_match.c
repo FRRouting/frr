@@ -28,7 +28,7 @@
 
 DEFINE_MTYPE_STATIC(LIB, CMD_MATCHSTACK, "Command Match Stack")
 
-#define MAXDEPTH 64
+#define MAXDEPTH 256
 
 #ifdef TRACE_MATCHER
 #define TM 1
