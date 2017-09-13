@@ -648,6 +648,9 @@ static int ospf_write(struct thread *thread)
        /* clang-format off */
 #define OSPF_WRITE_IPHL_SHIFT 2
 	int pkt_count = 0;
+	unsigned char cmsgbuf[64] = {};
+	struct cmsghdr *cm = (struct cmsghdr *)cmsgbuf;
+	struct in_pktinfo *pi;
 
 	ospf->t_write = NULL;
 
@@ -753,14 +756,27 @@ static int ospf_write(struct thread *thread)
 		msg.msg_namelen = sizeof(sa_dst);
 		msg.msg_iov = iov;
 		msg.msg_iovlen = 2;
+		msg.msg_control = (caddr_t)cm;
+
 		iov[0].iov_base = (char *)&iph;
 		iov[0].iov_len = iph.ip_hl << OSPF_WRITE_IPHL_SHIFT;
 		iov[1].iov_base = STREAM_PNT(op->s);
 		iov[1].iov_len = op->length;
 
-/* Sadly we can not rely on kernels to fragment packets because of either
- * IP_HDRINCL and/or multicast destination being set.
- */
+		cm->cmsg_level = SOL_IP;
+		cm->cmsg_type = IP_PKTINFO;
+		cm->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
+		pi = (struct in_pktinfo *)CMSG_DATA(cm);
+		pi->ipi_ifindex = oi->ifp->ifindex;
+
+		msg.msg_controllen = cm->cmsg_len;
+
+
+	/* Sadly we can not rely on kernels to fragment packets
+	 * because of either IP_HDRINCL and/or multicast
+	 * destination being set.
+	 */
+
 #ifdef WANT_OSPF_WRITE_FRAGMENT
 		if (op->length > maxdatasize)
 			ospf_write_frags(ospf->fd, op, &iph, &msg, maxdatasize,

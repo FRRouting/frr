@@ -67,6 +67,7 @@ struct ospf_master *om;
 
 extern struct zclient *zclient;
 extern struct in_addr router_id_zebra;
+extern struct zebra_privs_t ospfd_privs;
 
 
 static void ospf_remove_vls_through_area(struct ospf *, struct ospf_area *);
@@ -308,7 +309,7 @@ static struct ospf *ospf_new(u_short instance, const char *name)
 			 new->lsa_refresh_interval, &new->t_lsa_refresher);
 	new->lsa_refresher_started = monotime(NULL);
 
-	if ((new->fd = ospf_sock_init()) < 0) {
+	if ((ospf_sock_init(new)) < 0) {
 		zlog_err(
 			"ospf_new: fatal error: ospf_sock_init was unable to open "
 			"a socket");
@@ -2013,6 +2014,17 @@ static int ospf_vrf_enable(struct vrf *vrf)
 				   old_vrf_id);
 
 		if (old_vrf_id != ospf->vrf_id) {
+			if (ospfd_privs.change(ZPRIVS_RAISE)) {
+				zlog_err("ospf_sock_init: could not raise privs, %s",
+					 safe_strerror(errno));
+			}
+			if (ospf_bind_vrfdevice(ospf, ospf->fd) < 0)
+				return 0;
+			if (ospfd_privs.change(ZPRIVS_LOWER)) {
+				zlog_err("ospf_sock_init: could not lower privs, %s",
+					 safe_strerror(errno));
+			}
+
 			ospf->oi_running = 1;
 			ospf_router_id_update(ospf);
 		}
