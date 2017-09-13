@@ -89,6 +89,7 @@ static void sigint(void)
 		rip_clean();
 
 	rip_zclient_stop();
+	frr_fini();
 
 	exit(0);
 }

@@ -35,6 +35,7 @@
 #include "linklist.h"
 #include "nexthop.h"
 #include "vrf.h"
+#include "libfrr.h"
 
 #include "isisd/dict.h"
 #include "isisd/isis_constants.h"
@@ -427,4 +428,5 @@ void isis_zebra_stop(void)
 {
 	zclient_stop(zclient);
 	zclient_free(zclient);
+	frr_fini();
 }

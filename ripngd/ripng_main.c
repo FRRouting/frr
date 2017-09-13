@@ -92,6 +92,7 @@ static void sigint(void)
 		ripng_clean();
 
 	ripng_zebra_stop();
+	frr_fini();
 	exit(0);
 }
 
