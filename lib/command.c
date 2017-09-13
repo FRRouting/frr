@@ -42,6 +42,7 @@
 #include "command_match.h"
 #include "qobj.h"
 #include "defaults.h"
+#include "json.h"
 
 DEFINE_MTYPE(LIB, HOST, "Host config")
 DEFINE_MTYPE(LIB, STRVEC, "String vector")
@@ -1455,15 +1456,42 @@ DEFUN (config_end,
 /* Show version. */
 DEFUN (show_version,
        show_version_cmd,
-       "show version",
+       "show version [json]",
        SHOW_STR
-       "Displays zebra version\n")
+       "Displays zebra version\n"
+	JSON_STR)
 {
-	vty_out(vty, "%s %s (%s).%s", FRR_FULL_NAME, FRR_VERSION,
-		host.name ? host.name : "", VTY_NEWLINE);
-	vty_out(vty, "%s%s%s", FRR_COPYRIGHT, GIT_INFO, VTY_NEWLINE);
-	vty_out(vty, "configured with:%s    %s%s", VTY_NEWLINE, FRR_CONFIG_ARGS,
-		VTY_NEWLINE);
+	int uj = use_json(argc, argv);
+	json_object *json = NULL;
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_string_add(json,
+				       "hostName",
+				       host.name ? host.name : "");
+		json_object_string_add(json,
+				       "version", FRR_VERSION);
+		json_object_string_add(json,
+				       "name", FRR_FULL_NAME);
+		json_object_string_add(json,
+				       "copyright", FRR_COPYRIGHT);
+		json_object_string_add(json,
+				       "gitInformation", GIT_INFO);
+		json_object_string_add(json,
+				       "configureLine", FRR_CONFIG_ARGS);
+
+		vty_out(vty, "%s%s",
+			json_object_to_json_string_ext(json,
+						       JSON_C_TO_STRING_PRETTY),
+			VTY_NEWLINE);
+		json_object_free(json);
+	} else {
+		vty_out(vty, "%s %s (%s).%s", FRR_FULL_NAME, FRR_VERSION,
+			host.name ? host.name : "", VTY_NEWLINE);
+		vty_out(vty, "%s%s%s", FRR_COPYRIGHT, GIT_INFO, VTY_NEWLINE);
+		vty_out(vty, "configured with:%s    %s%s", VTY_NEWLINE, FRR_CONFIG_ARGS,
+			VTY_NEWLINE);
+	}
 
 	return CMD_SUCCESS;
 }
