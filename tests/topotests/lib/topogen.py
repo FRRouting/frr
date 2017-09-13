@@ -955,6 +955,13 @@ def diagnose_env():
 
                 logger.warning('could not find {} in {}'.format(fname, frrdir))
                 ret = False
+            else:
+                if fname != 'zebra':
+                    continue
+
+                os.system(
+                    '{} -v 2>&1 >/tmp/topotests/frr_zebra.txt'.format(path)
+                )
 
     # Assert that Quagga utilities exist
     quaggadir = config.get('topogen', 'quaggadir')
@@ -987,6 +994,13 @@ def diagnose_env():
             if not os.path.isfile(path):
                 logger.warning('could not find {} in {}'.format(fname, quaggadir))
                 ret = False
+            else:
+                if fname != 'zebra':
+                    continue
+
+                os.system(
+                    '{} -v 2>&1 >/tmp/topotests/quagga_zebra.txt'.format(path)
+                )
 
     if not os.path.isdir('/tmp'):
         logger.warning('could not find /tmp for logs')
