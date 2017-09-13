@@ -49,7 +49,8 @@ extern int allow_delete;
 
 static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 			    safi_t safi, bool use_fib, u_char use_json,
-			    route_tag_t tag, struct prefix *longer_prefix_p,
+			    route_tag_t tag,
+			    const struct prefix *longer_prefix_p,
 			    bool supernets_only, int type,
 			    u_short ospf_instance_id);
 static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
@@ -935,14 +936,10 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	}
 }
 
-static bool use_fib(struct cmd_token *token)
-{
-	return strncmp(token->arg, "route", strlen(token->arg));
-}
-
 static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 			    safi_t safi, bool use_fib, u_char use_json,
-			    route_tag_t tag, struct prefix *longer_prefix_p,
+			    route_tag_t tag,
+			    const struct prefix *longer_prefix_p,
 			    bool supernets_only, int type,
 			    u_short ospf_instance_id)
 {
@@ -1200,14 +1197,31 @@ DEFUN (no_ipv6_nht_default_route,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_route,
-       show_ip_route_cmd,
-       "show ip <fib|route> [vrf NAME] [tag (1-4294967295)|A.B.C.D/M longer-prefixes|supernets-only|" FRR_IP_REDIST_STR_ZEBRA "|ospf (1-65535)] [json]",
+DEFPY (show_route,
+       show_route_cmd,
+       "show\
+         <\
+	  ip$ipv4 <fib$fib|route> [vrf <NAME$vrf_name|all$vrf_all>]\
+	   [\
+	    tag (1-4294967295)\
+	    |A.B.C.D/M$prefix longer-prefixes\
+	    |supernets-only$supernets_only\
+	    |" FRR_IP_REDIST_STR_ZEBRA "$type_str\
+	    |ospf$type_str (1-65535)$ospf_instance_id\
+	   ]\
+          |ipv6$ipv6 <fib$fib|route> [vrf <NAME$vrf_name|all$vrf_all>]\
+	   [\
+	    tag (1-4294967295)\
+	    |X:X::X:X/M$prefix longer-prefixes\
+	    |" FRR_IP6_REDIST_STR_ZEBRA "$type_str\
+	   ]\
+	 >\
+        [json$json]",
        SHOW_STR
        IP_STR
        "IP forwarding table\n"
        "IP routing table\n"
-       VRF_CMD_HELP_STR
+       VRF_FULL_CMD_HELP_STR
        "Show only routes with tag\n"
        "Tag value\n"
        "IP prefix <network>/<length>, e.g., 35.0.0.0/8\n"
@@ -1216,75 +1230,23 @@ DEFUN (show_ip_route,
        FRR_IP_REDIST_HELP_STR_ZEBRA
        "Open Shortest Path First (OSPFv2)\n"
        "Instance ID\n"
+       IPV6_STR
+       "IP forwarding table\n"
+       "IP routing table\n"
+       VRF_FULL_CMD_HELP_STR
+       "Show only routes with tag\n"
+       "Tag value\n"
+       "IPv6 prefix\n"
+       "Show route matching the specified Network/Mask pair only\n"
+       FRR_IP6_REDIST_HELP_STR_ZEBRA
        JSON_STR)
 {
-	bool uf = use_fib(argv[2]);
-	struct route_table *table;
-	int vrf_all = 0;
-	route_tag_t tag = 0;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
-	int uj = use_json(argc, argv);
-	int idx = 0;
-	struct prefix p;
-	bool longer_prefixes = false;
-	bool supernets_only = false;
 	int type = 0;
-	u_short ospf_instance_id = 0;
 
-	if (argv_find(argv, argc, "vrf", &idx)) {
-		if (strmatch(argv[idx + 1]->arg, "all"))
-			vrf_all = 1;
-		else
-			VRF_GET_ID(vrf_id, argv[idx + 1]->arg);
-	}
-
-	if (argv_find(argv, argc, "tag", &idx))
-		tag = strtoul(argv[idx + 1]->arg, NULL, 10);
-
-	else if (argv_find(argv, argc, "A.B.C.D/M", &idx)) {
-		if (str2prefix(argv[idx]->arg, &p) <= 0) {
-			vty_out(vty, "%% Malformed prefix\n");
-			return CMD_WARNING;
-		}
-		longer_prefixes = true;
-	}
-
-	else if (argv_find(argv, argc, "supernets_only", &idx))
-		supernets_only = true;
-
-	else {
-		if (argv_find(argv, argc, "kernel", &idx))
-			type = proto_redistnum(AFI_IP, argv[idx]->text);
-		else if (argv_find(argv, argc, "babel", &idx))
-			type = proto_redistnum(AFI_IP, argv[idx]->text);
-		else if (argv_find(argv, argc, "connected", &idx))
-			type = proto_redistnum(AFI_IP, argv[idx]->text);
-		else if (argv_find(argv, argc, "static", &idx))
-			type = proto_redistnum(AFI_IP, argv[idx]->text);
-		else if (argv_find(argv, argc, "rip", &idx))
-			type = proto_redistnum(AFI_IP, argv[idx]->text);
-		else if (argv_find(argv, argc, "ospf", &idx))
-			type = proto_redistnum(AFI_IP, argv[idx]->text);
-		else if (argv_find(argv, argc, "isis", &idx))
-			type = proto_redistnum(AFI_IP, argv[idx]->text);
-		else if (argv_find(argv, argc, "bgp", &idx))
-			type = proto_redistnum(AFI_IP, argv[idx]->text);
-		else if (argv_find(argv, argc, "pim", &idx))
-			type = proto_redistnum(AFI_IP, argv[idx]->text);
-		else if (argv_find(argv, argc, "eigrp", &idx))
-			type = proto_redistnum(AFI_IP, argv[idx]->text);
-		else if (argv_find(argv, argc, "nhrp", &idx))
-			type = proto_redistnum(AFI_IP, argv[idx]->text);
-		else if (argv_find(argv, argc, "table", &idx))
-			type = proto_redistnum(AFI_IP, argv[idx]->text);
-		else if (argv_find(argv, argc, "vnc", &idx))
-			type = proto_redistnum(AFI_IP, argv[idx]->text);
-
-		if (argv_find(argv, argc, "(1-65535)", &idx))
-			ospf_instance_id = strtoul(argv[idx]->arg, NULL, 10);
-
+	if (type_str) {
+		type = proto_redistnum(afi, type_str);
 		if (type < 0) {
 			vty_out(vty, "Unknown route type\n");
 			return CMD_WARNING;
@@ -1293,22 +1255,29 @@ DEFUN (show_ip_route,
 
 	if (vrf_all) {
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			struct zebra_vrf *zvrf;
+			struct route_table *table;
+
 			if ((zvrf = vrf->info) == NULL
-			    || (table = zvrf->table[AFI_IP][SAFI_UNICAST])
-				       == NULL)
+			    || (table = zvrf->table[afi][SAFI_UNICAST]) == NULL)
 				continue;
 
 			do_show_ip_route(
-				vty, zvrf_name(zvrf), AFI_IP, SAFI_UNICAST, uf,
-				uj, tag, longer_prefixes ? &p : NULL,
-				supernets_only, type, ospf_instance_id);
+				vty, zvrf_name(zvrf), afi, SAFI_UNICAST, !!fib,
+				!!json, tag, prefix_str ? prefix : NULL,
+				!!supernets_only, type, ospf_instance_id);
 		}
 	} else {
+		vrf_id_t vrf_id = VRF_DEFAULT;
+
+		if (vrf_name)
+			VRF_GET_ID(vrf_id, vrf_name);
 		vrf = vrf_lookup_by_id(vrf_id);
-		do_show_ip_route(vty, vrf->name, AFI_IP, SAFI_UNICAST, uf, uj,
-				 tag, longer_prefixes ? &p : NULL,
-				 supernets_only, type, ospf_instance_id);
+		do_show_ip_route(vty, vrf->name, afi, SAFI_UNICAST, !!fib,
+				 !!json, tag, prefix_str ? prefix : NULL,
+				 !!supernets_only, type, ospf_instance_id);
 	}
+
 	return CMD_SUCCESS;
 }
 
@@ -1898,104 +1867,6 @@ DEFPY(ipv6_route,
 	return zebra_static_route(vty, AFI_IP6, SAFI_UNICAST, no, prefix_str,
 				  NULL, from_str, gate_str, ifname, NULL,
 				  tag_str, distance_str, vrf, label);
-}
-
-DEFUN (show_ipv6_route,
-       show_ipv6_route_cmd,
-       "show ipv6 <fib|route> [vrf NAME] [tag (1-4294967295)|X:X::X:X/M longer-prefixes|" FRR_IP6_REDIST_STR_ZEBRA "] [json]",
-       SHOW_STR
-       IP_STR
-       "IP forwarding table\n"
-       "IP routing table\n"
-       VRF_CMD_HELP_STR
-       "Show only routes with tag\n"
-       "Tag value\n"
-       "IPv6 prefix\n"
-       "Show route matching the specified Network/Mask pair only\n"
-       FRR_IP6_REDIST_HELP_STR_ZEBRA
-       JSON_STR)
-{
-	bool uf = use_fib(argv[2]);
-	struct route_table *table;
-	int vrf_all = 0;
-	route_tag_t tag = 0;
-	vrf_id_t vrf_id = VRF_DEFAULT;
-	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
-	int uj = use_json(argc, argv);
-	int idx = 0;
-	struct prefix p;
-	bool longer_prefixes = false;
-	bool supernets_only = false;
-	int type = 0;
-
-	if (argv_find(argv, argc, "vrf", &idx)) {
-		if (strmatch(argv[idx + 1]->arg, "all"))
-			vrf_all = 1;
-		else
-			VRF_GET_ID(vrf_id, argv[idx + 1]->arg);
-	}
-
-	if (argv_find(argv, argc, "tag", &idx))
-		tag = strtoul(argv[idx + 1]->arg, NULL, 10);
-
-	else if (argv_find(argv, argc, "X:X::X:X/M", &idx)) {
-		if (str2prefix(argv[idx]->arg, &p) <= 0) {
-			vty_out(vty, "%% Malformed prefix\n");
-			return CMD_WARNING;
-		}
-		longer_prefixes = true;
-	}
-
-	else {
-		if (argv_find(argv, argc, "kernel", &idx))
-			type = proto_redistnum(AFI_IP6, argv[idx]->text);
-		else if (argv_find(argv, argc, "babel", &idx))
-			type = proto_redistnum(AFI_IP6, argv[idx]->text);
-		else if (argv_find(argv, argc, "connected", &idx))
-			type = proto_redistnum(AFI_IP6, argv[idx]->text);
-		else if (argv_find(argv, argc, "static", &idx))
-			type = proto_redistnum(AFI_IP6, argv[idx]->text);
-		else if (argv_find(argv, argc, "ripng", &idx))
-			type = proto_redistnum(AFI_IP6, argv[idx]->text);
-		else if (argv_find(argv, argc, "ospf6", &idx))
-			type = proto_redistnum(AFI_IP6, argv[idx]->text);
-		else if (argv_find(argv, argc, "isis", &idx))
-			type = proto_redistnum(AFI_IP6, argv[idx]->text);
-		else if (argv_find(argv, argc, "bgp", &idx))
-			type = proto_redistnum(AFI_IP6, argv[idx]->text);
-		else if (argv_find(argv, argc, "nhrp", &idx))
-			type = proto_redistnum(AFI_IP6, argv[idx]->text);
-		else if (argv_find(argv, argc, "table", &idx))
-			type = proto_redistnum(AFI_IP6, argv[idx]->text);
-		else if (argv_find(argv, argc, "vnc", &idx))
-			type = proto_redistnum(AFI_IP6, argv[idx]->text);
-
-		if (type < 0) {
-			vty_out(vty, "Unknown route type\n");
-			return CMD_WARNING;
-		}
-	}
-
-	if (vrf_all) {
-		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-			if ((zvrf = vrf->info) == NULL
-			    || (table = zvrf->table[AFI_IP6][SAFI_UNICAST])
-				       == NULL)
-				continue;
-
-			do_show_ip_route(vty, zvrf_name(zvrf), AFI_IP6,
-					 SAFI_UNICAST, uf, uj, tag,
-					 longer_prefixes ? &p : NULL,
-					 supernets_only, type, 0);
-		}
-	} else {
-		vrf = vrf_lookup_by_id(vrf_id);
-		do_show_ip_route(vty, vrf->name, AFI_IP6, SAFI_UNICAST, uf, uj,
-				 tag, longer_prefixes ? &p : NULL,
-				 supernets_only, type, 0);
-	}
-	return CMD_SUCCESS;
 }
 
 DEFUN (show_ipv6_route_addr,
@@ -2783,7 +2654,7 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &no_ip_zebra_import_table_cmd);
 
 	install_element(VIEW_NODE, &show_vrf_cmd);
-	install_element(VIEW_NODE, &show_ip_route_cmd);
+	install_element(VIEW_NODE, &show_route_cmd);
 	install_element(VIEW_NODE, &show_ip_nht_cmd);
 	install_element(VIEW_NODE, &show_ip_nht_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_nht_cmd);
@@ -2808,7 +2679,6 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &no_ip_nht_default_route_cmd);
 	install_element(CONFIG_NODE, &ipv6_nht_default_route_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_nht_default_route_cmd);
-	install_element(VIEW_NODE, &show_ipv6_route_cmd);
 	install_element(VIEW_NODE, &show_ipv6_route_summary_cmd);
 	install_element(VIEW_NODE, &show_ipv6_route_summary_prefix_cmd);
 	install_element(VIEW_NODE, &show_ipv6_route_addr_cmd);
