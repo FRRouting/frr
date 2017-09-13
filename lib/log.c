@@ -43,6 +43,9 @@ static int logfile_fd = -1; /* Used in signal handler. */
 struct zlog *zlog_default = NULL;
 bool zlog_startup_stderr = true;
 
+/* lock protecting zlog_default for mt-safe zlog */
+pthread_mutex_t loglock = PTHREAD_MUTEX_INITIALIZER;
+
 const char *zlog_priority[] = {
 	"emergencies",   "alerts",	"critical",  "errors", "warnings",
 	"notifications", "informational", "debugging", NULL,
@@ -195,6 +198,8 @@ static void vzlog_file(struct zlog *zl, struct timestamp_control *tsctl,
 /* va_list version of zlog. */
 void vzlog(int priority, const char *format, va_list args)
 {
+	pthread_mutex_lock(&loglock);
+
 	char proto_str[32];
 	int original_errno = errno;
 	struct timestamp_control tsctl;
@@ -212,6 +217,7 @@ void vzlog(int priority, const char *format, va_list args)
 
 		/* In this case we return at here. */
 		errno = original_errno;
+		pthread_mutex_unlock(&loglock);
 		return;
 	}
 	tsctl.precision = zl->timestamp_precision;
@@ -252,37 +258,36 @@ void vzlog(int priority, const char *format, va_list args)
 			proto_str, format, &tsctl, args);
 
 	errno = original_errno;
+	pthread_mutex_unlock(&loglock);
 }
 
 int vzlog_test(int priority)
 {
+	pthread_mutex_lock(&loglock);
+
+	int ret = 0;
+
 	struct zlog *zl = zlog_default;
 
 	/* When zlog_default is also NULL, use stderr for logging. */
-	if (zl == NULL) {
-		return 1;
-	}
-
+	if (zl == NULL)
+		ret = 1;
 	/* Syslog output */
-	if (priority <= zl->maxlvl[ZLOG_DEST_SYSLOG]) {
-		return 1;
-	}
-
+	else if (priority <= zl->maxlvl[ZLOG_DEST_SYSLOG])
+		ret = 1;
 	/* File output. */
-	if ((priority <= zl->maxlvl[ZLOG_DEST_FILE]) && zl->fp) {
-		return 1;
-	}
-
+	else if ((priority <= zl->maxlvl[ZLOG_DEST_FILE]) && zl->fp)
+		ret = 1;
 	/* stdout output. */
-	if (priority <= zl->maxlvl[ZLOG_DEST_STDOUT]) {
-		return 1;
-	}
-
+	else if (priority <= zl->maxlvl[ZLOG_DEST_STDOUT])
+		ret = 1;
 	/* Terminal monitor. */
-	if (priority <= zl->maxlvl[ZLOG_DEST_MONITOR])
-		return 1;
+	else if (priority <= zl->maxlvl[ZLOG_DEST_MONITOR])
+		ret = 1;
 
-	return 0;
+	pthread_mutex_unlock(&loglock);
+
+	return ret;
 }
 
 static char *str_append(char *dst, int len, const char *src)
@@ -737,7 +742,10 @@ void openzlog(const char *progname, const char *protoname, u_short instance,
 	zl->default_lvl = LOG_DEBUG;
 
 	openlog(progname, syslog_flags, zl->facility);
+
+	pthread_mutex_lock(&loglock);
 	zlog_default = zl;
+	pthread_mutex_unlock(&loglock);
 
 #ifdef HAVE_GLIBC_BACKTRACE
 	/* work around backtrace() using lazily resolved dynamically linked
@@ -754,6 +762,7 @@ void openzlog(const char *progname, const char *protoname, u_short instance,
 
 void closezlog(void)
 {
+	pthread_mutex_lock(&loglock);
 	struct zlog *zl = zlog_default;
 
 	closelog();
@@ -766,19 +775,23 @@ void closezlog(void)
 
 	XFREE(MTYPE_ZLOG, zl);
 	zlog_default = NULL;
+	pthread_mutex_unlock(&loglock);
 }
 
 /* Called from command.c. */
 void zlog_set_level(zlog_dest_t dest, int log_level)
 {
+	pthread_mutex_lock(&loglock);
 	zlog_default->maxlvl[dest] = log_level;
+	pthread_mutex_unlock(&loglock);
 }
 
 int zlog_set_file(const char *filename, int log_level)
 {
-	struct zlog *zl = zlog_default;
+	struct zlog *zl;
 	FILE *fp;
 	mode_t oldumask;
+	int ret = 1;
 
 	/* There is opend file.  */
 	zlog_reset_file();
@@ -787,21 +800,28 @@ int zlog_set_file(const char *filename, int log_level)
 	oldumask = umask(0777 & ~LOGFILE_MASK);
 	fp = fopen(filename, "a");
 	umask(oldumask);
-	if (fp == NULL)
-		return 0;
+	if (fp == NULL) {
+		ret = 0;
+	} else {
+		pthread_mutex_lock(&loglock);
+		zl = zlog_default;
 
-	/* Set flags. */
-	zl->filename = XSTRDUP(MTYPE_ZLOG, filename);
-	zl->maxlvl[ZLOG_DEST_FILE] = log_level;
-	zl->fp = fp;
-	logfile_fd = fileno(fp);
+		/* Set flags. */
+		zl->filename = XSTRDUP(MTYPE_ZLOG, filename);
+		zl->maxlvl[ZLOG_DEST_FILE] = log_level;
+		zl->fp = fp;
+		logfile_fd = fileno(fp);
+		pthread_mutex_unlock(&loglock);
+	}
 
-	return 1;
+	return ret;
 }
 
 /* Reset opend file. */
 int zlog_reset_file(void)
 {
+	pthread_mutex_lock(&loglock);
+
 	struct zlog *zl = zlog_default;
 
 	if (zl->fp)
@@ -814,14 +834,19 @@ int zlog_reset_file(void)
 		XFREE(MTYPE_ZLOG, zl->filename);
 	zl->filename = NULL;
 
+	pthread_mutex_unlock(&loglock);
+
 	return 1;
 }
 
 /* Reopen log file. */
 int zlog_rotate(void)
 {
+	pthread_mutex_lock(&loglock);
+
 	struct zlog *zl = zlog_default;
 	int level;
+	int ret = 1;
 
 	if (zl->fp)
 		fclose(zl->fp);
@@ -842,13 +867,16 @@ int zlog_rotate(void)
 			zlog_err(
 				"Log rotate failed: cannot open file %s for append: %s",
 				zl->filename, safe_strerror(save_errno));
-			return -1;
+			ret = -1;
+		} else {
+			logfile_fd = fileno(zl->fp);
+			zl->maxlvl[ZLOG_DEST_FILE] = level;
 		}
-		logfile_fd = fileno(zl->fp);
-		zl->maxlvl[ZLOG_DEST_FILE] = level;
 	}
 
-	return 1;
+	pthread_mutex_unlock(&loglock);
+
+	return ret;
 }
 
 /* Wrapper around strerror to handle case where it returns NULL. */
