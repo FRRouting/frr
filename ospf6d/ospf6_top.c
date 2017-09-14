@@ -832,7 +832,7 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o)
 			(long long)o->ts_spf_duration.tv_sec,
 			(long long)o->ts_spf_duration.tv_usec);
 	} else
-		vty_out(vty, "has not been run$\n");
+		vty_out(vty, "has not been run\n");
 	threadtimer_string(now, o->t_spf_calc, buf, sizeof(buf));
 	vty_out(vty, " SPF timer %s%s\n", (o->t_spf_calc ? "due in " : "is "),
 		buf);

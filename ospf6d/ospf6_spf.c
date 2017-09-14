@@ -576,6 +576,7 @@ static int ospf6_spf_calculation_thread(struct thread *t)
 
 	/* execute SPF calculation */
 	monotime(&start);
+	ospf6->ts_spf = start;
 
 	if (ospf6_is_router_abr(ospf6))
 		ospf6_abr_range_reset_cost(ospf6);
@@ -585,6 +586,7 @@ static int ospf6_spf_calculation_thread(struct thread *t)
 		if (oa == ospf6->backbone)
 			continue;
 
+		monotime(&oa->ts_spf);
 		if (IS_OSPF6_DEBUG_SPF(PROCESS))
 			zlog_debug("SPF calculation for Area %s", oa->name);
 		if (IS_OSPF6_DEBUG_SPF(DATABASE))
@@ -598,6 +600,7 @@ static int ospf6_spf_calculation_thread(struct thread *t)
 	}
 
 	if (ospf6->backbone) {
+		monotime(&ospf6->backbone->ts_spf);
 		if (IS_OSPF6_DEBUG_SPF(PROCESS))
 			zlog_debug("SPF calculation for Backbone area %s",
 				   ospf6->backbone->name);
@@ -632,6 +635,7 @@ static int ospf6_spf_calculation_thread(struct thread *t)
 		"Reason: %s\n",
 		areas_processed, (long long)runtime.tv_sec,
 		(long long)runtime.tv_usec, rbuf);
+
 	ospf6->last_spf_reason = ospf6->spf_reason;
 	ospf6_reset_spf_reason(ospf6);
 	return 0;
