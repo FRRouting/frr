@@ -1098,7 +1098,7 @@ DEFUN (show_ipv6_ospf6_linkstate,
        "Specify Router ID as IPv4 address notation\n"
        "Specify Link state ID as IPv4 address notation\n")
 {
-	int idx_ipv4 = 4;
+	int idx_ipv4 = 5;
 	struct listnode *node;
 	struct ospf6_area *oa;
 
