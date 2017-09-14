@@ -397,7 +397,7 @@ int pim_rp_new(struct pim_instance *pim, const char *rp,
 			nht_p.prefixlen = IPV4_MAX_BITLEN;
 			nht_p.u.prefix4 =
 				rp_all->rp.rpf_addr.u.prefix4; // RP address
-			if (PIM_DEBUG_PIM_TRACE) {
+			if (PIM_DEBUG_PIM_NHT_RP) {
 				char buf[PREFIX2STR_BUFFER];
 				char buf1[PREFIX2STR_BUFFER];
 				prefix2str(&nht_p, buf, sizeof(buf));
@@ -467,7 +467,7 @@ int pim_rp_new(struct pim_instance *pim, const char *rp,
 	nht_p.family = AF_INET;
 	nht_p.prefixlen = IPV4_MAX_BITLEN;
 	nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
-	if (PIM_DEBUG_PIM_TRACE) {
+	if (PIM_DEBUG_PIM_NHT_RP) {
 		char buf[PREFIX2STR_BUFFER];
 		char buf1[PREFIX2STR_BUFFER];
 		prefix2str(&nht_p, buf, sizeof(buf));
@@ -534,7 +534,7 @@ int pim_rp_del(struct pim_instance *pim, const char *rp,
 	nht_p.family = AF_INET;
 	nht_p.prefixlen = IPV4_MAX_BITLEN;
 	nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
-	if (PIM_DEBUG_PIM_TRACE) {
+	if (PIM_DEBUG_PIM_NHT_RP) {
 		char buf[PREFIX2STR_BUFFER];
 		prefix2str(&nht_p, buf, sizeof(buf));
 		zlog_debug("%s: Deregister RP addr %s with Zebra ",
@@ -579,7 +579,7 @@ void pim_rp_setup(struct pim_instance *pim)
 						&rp_info->rp.source_nexthop,
 						&nht_p, &rp_info->group, 1);
 		else {
-			if (PIM_DEBUG_ZEBRA) {
+			if (PIM_DEBUG_PIM_NHT_RP) {
 				char buf[PREFIX2STR_BUFFER];
 				prefix2str(&nht_p, buf, sizeof(buf));
 				zlog_debug(
@@ -589,7 +589,7 @@ void pim_rp_setup(struct pim_instance *pim)
 			if (!pim_nexthop_lookup(
 				    pim, &rp_info->rp.source_nexthop,
 				    rp_info->rp.rpf_addr.u.prefix4, 1))
-				if (PIM_DEBUG_PIM_TRACE)
+				if (PIM_DEBUG_PIM_NHT_RP)
 					zlog_debug(
 						"Unable to lookup nexthop for rp specified");
 		}
@@ -624,7 +624,7 @@ void pim_rp_check_on_if_add(struct pim_interface *pim_ifp)
 		if (pim_rp_check_interface_addrs(rp_info, pim_ifp)) {
 			i_am_rp_changed = true;
 			rp_info->i_am_rp = 1;
-			if (PIM_DEBUG_ZEBRA) {
+			if (PIM_DEBUG_PIM_NHT_RP) {
 				char rp[PREFIX_STRLEN];
 				pim_addr_dump("<rp?>", &rp_info->rp.rpf_addr,
 					      rp, sizeof(rp));
@@ -660,7 +660,7 @@ void pim_i_am_rp_re_evaluate(struct pim_instance *pim)
 
 		if (old_i_am_rp != rp_info->i_am_rp) {
 			i_am_rp_changed = true;
-			if (PIM_DEBUG_ZEBRA) {
+			if (PIM_DEBUG_PIM_NHT_RP) {
 				char rp[PREFIX_STRLEN];
 				pim_addr_dump("<rp?>", &rp_info->rp.rpf_addr,
 					      rp, sizeof(rp));
@@ -728,7 +728,7 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, struct in_addr group)
 		nht_p.family = AF_INET;
 		nht_p.prefixlen = IPV4_MAX_BITLEN;
 		nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
-		if (PIM_DEBUG_PIM_TRACE) {
+		if (PIM_DEBUG_PIM_NHT_RP) {
 			char buf[PREFIX2STR_BUFFER];
 			char buf1[PREFIX2STR_BUFFER];
 			prefix2str(&nht_p, buf, sizeof(buf));
@@ -743,7 +743,7 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, struct in_addr group)
 						&rp_info->rp.source_nexthop,
 						&nht_p, &rp_info->group, 1);
 		else {
-			if (PIM_DEBUG_ZEBRA) {
+			if (PIM_DEBUG_PIM_NHT_RP) {
 				char buf[PREFIX2STR_BUFFER];
 				char buf1[PREFIX2STR_BUFFER];
 				prefix2str(&nht_p, buf, sizeof(buf));
@@ -786,7 +786,7 @@ int pim_rp_set_upstream_addr(struct pim_instance *pim, struct in_addr *up,
 
 	if ((pim_rpf_addr_is_inaddr_none(&rp_info->rp))
 	    && (source.s_addr == INADDR_ANY)) {
-		if (PIM_DEBUG_PIM_TRACE)
+		if (PIM_DEBUG_PIM_NHT_RP)
 			zlog_debug("%s: Received a (*,G) with no RP configured",
 				   __PRETTY_FUNCTION__);
 		return 0;
@@ -998,7 +998,7 @@ void pim_resolve_rp_nh(struct pim_instance *pim)
 				continue;
 
 			nh_node->gate.ipv4 = nbr->source_addr;
-			if (PIM_DEBUG_TRACE) {
+			if (PIM_DEBUG_PIM_NHT_RP) {
 				char str[PREFIX_STRLEN];
 				char str1[INET_ADDRSTRLEN];
 				pim_inet4_dump("<nht_nbr?>", nbr->source_addr,

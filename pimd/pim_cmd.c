@@ -28,6 +28,7 @@
 #include "hash.h"
 #include "nexthop.h"
 #include "vrf.h"
+#include "ferr.h"
 
 #include "pimd.h"
 #include "pim_mroute.h"
@@ -5839,13 +5840,8 @@ DEFUN (interface_ip_igmp_join,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	result = pim_if_igmp_join_add(ifp, group_addr, source_addr);
-	if (result) {
-		vty_out(vty,
-			"%% Failure joining IGMP group %s source %s on interface %s: %d\n",
-			group_str, source_str, ifp->name, result);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	CMD_FERR_RETURN(pim_if_igmp_join_add(ifp, group_addr, source_addr),
+			"Failure joining IGMP group: $ERR");
 
 	return CMD_SUCCESS;
 }
@@ -6956,6 +6952,31 @@ DEFUN (no_debug_pim_nht,
        "Nexthop Tracking\n")
 {
 	PIM_DONT_DEBUG_PIM_NHT;
+	return CMD_SUCCESS;
+}
+
+DEFUN (debug_pim_nht_rp,
+       debug_pim_nht_rp_cmd,
+       "debug pim nht rp",
+       DEBUG_STR
+       DEBUG_PIM_STR
+       "Nexthop Tracking\n"
+       "RP Nexthop Tracking\n")
+{
+	PIM_DO_DEBUG_PIM_NHT_RP;
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_pim_nht_rp,
+       no_debug_pim_nht_rp_cmd,
+       "no debug pim nht rp",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIM_STR
+       "Nexthop Tracking\n"
+       "RP Nexthop Tracking\n")
+{
+	PIM_DONT_DEBUG_PIM_NHT_RP;
 	return CMD_SUCCESS;
 }
 
@@ -8628,6 +8649,8 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &no_debug_pim_cmd);
 	install_element(ENABLE_NODE, &debug_pim_nht_cmd);
 	install_element(ENABLE_NODE, &no_debug_pim_nht_cmd);
+	install_element(ENABLE_NODE, &debug_pim_nht_rp_cmd);
+	install_element(ENABLE_NODE, &no_debug_pim_nht_rp_cmd);
 	install_element(ENABLE_NODE, &debug_pim_events_cmd);
 	install_element(ENABLE_NODE, &no_debug_pim_events_cmd);
 	install_element(ENABLE_NODE, &debug_pim_packets_cmd);
@@ -8672,6 +8695,8 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_debug_pim_cmd);
 	install_element(CONFIG_NODE, &debug_pim_nht_cmd);
 	install_element(CONFIG_NODE, &no_debug_pim_nht_cmd);
+	install_element(CONFIG_NODE, &debug_pim_nht_rp_cmd);
+	install_element(CONFIG_NODE, &no_debug_pim_nht_rp_cmd);
 	install_element(CONFIG_NODE, &debug_pim_events_cmd);
 	install_element(CONFIG_NODE, &no_debug_pim_events_cmd);
 	install_element(CONFIG_NODE, &debug_pim_packets_cmd);

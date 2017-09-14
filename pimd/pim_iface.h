@@ -26,6 +26,7 @@
 #include "vty.h"
 #include "vrf.h"
 #include "zclient.h"
+#include "ferr.h"
 
 #include "pim_igmp.h"
 #include "pim_upstream.h"
@@ -182,8 +183,8 @@ int pim_if_t_override_msec(struct interface *ifp);
 
 struct in_addr pim_find_primary_addr(struct interface *ifp);
 
-int pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
-			 struct in_addr source_addr);
+ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
+			    struct in_addr source_addr);
 int pim_if_igmp_join_del(struct interface *ifp, struct in_addr group_addr,
 			 struct in_addr source_addr);
 
