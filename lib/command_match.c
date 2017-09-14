@@ -214,6 +214,7 @@ static enum matcher_rv command_match_r(struct graph_node *start, vector vline,
 	fprintf(stdout, "\"%-20s\" matches \"%-30s\" ? ", input_token,
 		token->text);
 	enum match_type mt = match_token(token, input_token);
+	fprintf(stdout, "type: %d ", token->type);
 	fprintf(stdout, "min: %d - ", minmatch);
 	switch (mt) {
 	case trivial_match:

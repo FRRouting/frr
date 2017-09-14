@@ -385,7 +385,7 @@ DEFUN (vnc_defaults_rt_both,
 
 DEFUN (vnc_defaults_rd,
        vnc_defaults_rd_cmd,
-       "rd ASN:nn_or_IP-address:nn",
+       "rd ASN:NN_OR_IP-ADDRESS:NN",
        "Specify default route distinguisher\n"
        "Route Distinguisher (<as-number>:<number> | <ip-address>:<number> | auto:vn:<number> )\n")
 {
@@ -2841,7 +2841,7 @@ DEFUN (vnc_nve_group_no_l2rd,
 
 DEFUN (vnc_nve_group_rd,
        vnc_nve_group_rd_cmd,
-       "rd ASN:nn_or_IP-address:nn",
+       "rd ASN:NN_OR_IP-ADDRESS:NN",
        "Specify route distinguisher\n"
        "Route Distinguisher (<as-number>:<number> | <ip-address>:<number> | auto:vn:<number> )\n")
 {
@@ -3295,7 +3295,7 @@ DEFUN (vnc_vrf_policy_rt_both,
 
 DEFUN (vnc_vrf_policy_rd,
        vnc_vrf_policy_rd_cmd,
-       "rd ASN:nn_or_IP-address:nn",
+       "rd ASN:NN_OR_IP-ADDRESS:NN",
        "Specify default VRF route distinguisher\n"
        "Route Distinguisher (<as-number>:<number> | <ip-address>:<number> | auto:nh:<number> )\n")
 {
@@ -3562,7 +3562,7 @@ DEFUN (vnc_l2_group_no_labels,
 
 DEFUN (vnc_l2_group_rt,
        vnc_l2_group_rt_cmd,
-       "rt <both|export|import> ASN:nn_or_IP-address:nn",
+       "rt <both|export|import> ASN:NN_OR_IP-ADDRESS:NN",
        "Specify route targets\n"
        "Export+import filters\n"
        "Export filters\n"
