@@ -28,6 +28,7 @@
 #include "hash.h"
 #include "nexthop.h"
 #include "vrf.h"
+#include "ferr.h"
 
 #include "pimd.h"
 #include "pim_mroute.h"
@@ -5839,13 +5840,8 @@ DEFUN (interface_ip_igmp_join,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	result = pim_if_igmp_join_add(ifp, group_addr, source_addr);
-	if (result) {
-		vty_out(vty,
-			"%% Failure joining IGMP group %s source %s on interface %s: %d\n",
-			group_str, source_str, ifp->name, result);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	CMD_FERR_RETURN(pim_if_igmp_join_add(ifp, group_addr, source_addr),
+			"Failure joining IGMP group: $ERR");
 
 	return CMD_SUCCESS;
 }

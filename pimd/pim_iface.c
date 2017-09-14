@@ -27,6 +27,7 @@
 #include "linklist.h"
 #include "plist.h"
 #include "hash.h"
+#include "ferr.h"
 
 #include "pimd.h"
 #include "pim_instance.h"
@@ -1270,7 +1271,7 @@ static struct igmp_join *igmp_join_new(struct interface *ifp,
 	return ij;
 }
 
-int pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
+ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
 			 struct in_addr source_addr)
 {
 	struct pim_interface *pim_ifp;
@@ -1278,17 +1279,14 @@ int pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
-		zlog_warn("%s: multicast not enabled on interface %s",
-			  __PRETTY_FUNCTION__, ifp->name);
-		return -1;
+		return ferr_cfg_invalid("multicast not enabled on interface %s",
+					ifp->name);
 	}
 
 	if (!pim_ifp->igmp_join_list) {
 		pim_ifp->igmp_join_list = list_new();
 		if (!pim_ifp->igmp_join_list) {
-			zlog_err("%s %s: failure: igmp_join_list=list_new()",
-				 __FILE__, __PRETTY_FUNCTION__);
-			return -2;
+			return ferr_cfg_invalid("Insufficient memory");
 		}
 		pim_ifp->igmp_join_list->del = (void (*)(void *))igmp_join_free;
 	}
@@ -1301,24 +1299,15 @@ int pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
 			       sizeof(group_str));
 		pim_inet4_dump("<src?>", source_addr, source_str,
 			       sizeof(source_str));
-		zlog_warn(
-			"%s: can't re-join existing IGMP group %s source %s on interface %s",
-			__PRETTY_FUNCTION__, group_str, source_str, ifp->name);
-		return -3;
+		return ferr_cfg_invalid(
+			"can't re-join existing IGMP group %s source %s on interface %s",
+			group_str, source_str, ifp->name);
 	}
 
 	ij = igmp_join_new(ifp, group_addr, source_addr);
 	if (!ij) {
-		char group_str[INET_ADDRSTRLEN];
-		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<grp?>", group_addr, group_str,
-			       sizeof(group_str));
-		pim_inet4_dump("<src?>", source_addr, source_str,
-			       sizeof(source_str));
-		zlog_warn(
-			"%s: igmp_join_new() failure for IGMP group %s source %s on interface %s",
-			__PRETTY_FUNCTION__, group_str, source_str, ifp->name);
-		return -4;
+		return ferr_cfg_invalid(
+			"Failure to create new join data structure, see log file for more information");
 	}
 
 	if (PIM_DEBUG_IGMP_EVENTS) {
@@ -1333,7 +1322,7 @@ int pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
 			__PRETTY_FUNCTION__, source_str, group_str, ifp->name);
 	}
 
-	return 0;
+	return ferr_ok();
 }
 
 
