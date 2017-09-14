@@ -373,42 +373,30 @@ void isis_circuit_del_addr(struct isis_circuit *circuit,
 	return;
 }
 
-static u_char isis_circuit_id_gen(struct interface *ifp)
+static uint8_t isis_circuit_id_gen(struct interface *ifp)
 {
-	u_char id = 0;
-	char ifname[16];
-	unsigned int i;
-	int start = -1, end = -1;
-
-	/*
-	 * Get a stable circuit id from ifname. This makes
-	 * the ifindex from flapping when netdevs are created
-	 * and deleted on the fly. Note that this circuit id
-	 * is used in pseudo lsps so it is better to be stable.
-	 * The following code works on any reasonanle ifname
-	 * like: eth1 or trk-1.1 etc.
+	/* Circuit ids MUST be unique for any broadcast circuits. Otherwise,
+	 * Pseudo-Node LSPs cannot be generated correctly.
+	 *
+	 * Currently, allocate one circuit ID for any circuit, limiting the total
+	 * numer of circuits IS-IS can run on to 255.
+	 *
+	 * We should revisit this when implementing 3-way adjacencies for p2p, since
+	 * we then have extended interface IDs available.
 	 */
-	for (i = 0; i < strlen(ifp->name); i++) {
-		if (isdigit((unsigned char)ifp->name[i])) {
-			if (start < 0) {
-				start = i;
-				end = i + 1;
-			} else {
-				end = i + 1;
-			}
-		} else if (start >= 0)
+	uint8_t id = ifp->ifindex;
+	unsigned int i;
+
+	for (i = 0; i < 256; i++) {
+		if (id && !_ISIS_CHECK_FLAG(isis->circuit_ids_used, id))
 			break;
+		id++;
 	}
 
-	if ((start >= 0) && (end >= start) && (end - start) < 16) {
-		memset(ifname, 0, 16);
-		strncpy(ifname, &ifp->name[start], end - start);
-		id = (u_char)atoi(ifname);
+	if (i == 256) {
+		zlog_warn("Could not allocate a circuit id for '%s'", ifp->name);
+		return 0;
 	}
-
-	/* Try to be unique. */
-	if (!id)
-		id = (u_char)((ifp->ifindex & 0xff) | 0x80);
 
 	return id;
 }
@@ -419,6 +407,7 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 	struct connected *conn;
 
 	circuit->circuit_id = isis_circuit_id_gen(ifp);
+	_ISIS_SET_FLAG(isis->circuit_ids_used, circuit->circuit_id);
 
 	isis_circuit_if_bind(circuit, ifp);
 	/*  isis_circuit_update_addrs (circuit, ifp); */
@@ -480,6 +469,7 @@ void isis_circuit_if_del(struct isis_circuit *circuit, struct interface *ifp)
 	}
 
 	circuit->circ_type = CIRCUIT_T_UNKNOWN;
+	_ISIS_CLEAR_FLAG(isis->circuit_ids_used, circuit->circuit_id);
 	circuit->circuit_id = 0;
 
 	return;

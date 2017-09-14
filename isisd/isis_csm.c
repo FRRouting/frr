@@ -86,6 +86,13 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 		case IF_UP_FROM_Z:
 			circuit = isis_circuit_new();
 			isis_circuit_if_add(circuit, (struct interface *)arg);
+			if (!circuit->circuit_id) {
+				isis_circuit_if_del(circuit,
+						    (struct interface *)arg);
+				isis_circuit_del(circuit);
+				circuit = NULL;
+				break;
+			}
 			listnode_add(isis->init_circ_list, circuit);
 			circuit->state = C_STATE_INIT;
 			break;
@@ -136,6 +143,8 @@ isis_csm_state_change(int event, struct isis_circuit *circuit, void *arg)
 			break;
 		case IF_UP_FROM_Z:
 			isis_circuit_if_add(circuit, (struct interface *)arg);
+			if (!circuit->circuit_id)
+				break;
 			if (isis_circuit_up(circuit) != ISIS_OK) {
 				zlog_err(
 					"Could not bring up %s because of invalid config.",
