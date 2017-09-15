@@ -322,21 +322,21 @@ static int irdp_finish(void)
 
 	zlog_info("IRDP: Received shutdown notification.");
 
-	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id)
-	for (ALL_LIST_ELEMENTS(vrf->iflist, node, nnode, ifp)) {
-		zi = ifp->info;
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+		for (ALL_LIST_ELEMENTS(vrf->iflist, node, nnode, ifp)) {
+			zi = ifp->info;
 
-		if (!zi)
-			continue;
-		irdp = zi->irdp;
-		if (!irdp)
-			continue;
+			if (!zi)
+				continue;
+			irdp = zi->irdp;
+			if (!irdp)
+				continue;
 
-		if (irdp->flags & IF_ACTIVE) {
-			irdp->flags |= IF_SHUTDOWN;
-			irdp_advert_off(ifp);
+			if (irdp->flags & IF_ACTIVE) {
+				irdp->flags |= IF_SHUTDOWN;
+				irdp_advert_off(ifp);
+			}
 		}
-	}
 	return 0;
 }
 

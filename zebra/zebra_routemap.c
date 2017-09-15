@@ -354,8 +354,7 @@ DEFUN (set_src,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id)
-	{
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		if (family == AF_INET)
 			pif = if_lookup_exact_address((void *)&src.ipv4,
 						      AF_INET, vrf->vrf_id);

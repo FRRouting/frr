@@ -115,7 +115,7 @@ static void pim_ifchannel_find_new_children(struct pim_ifchannel *ch)
 	    && (ch->sg.grp.s_addr == INADDR_ANY))
 		return;
 
-	RB_FOREACH(child, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
+	RB_FOREACH (child, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		if ((ch->sg.grp.s_addr != INADDR_ANY)
 		    && (child->sg.grp.s_addr == ch->sg.grp.s_addr)
 		    && (child != ch)) {
@@ -469,7 +469,7 @@ void pim_ifchannel_membership_clear(struct interface *ifp)
 	pim_ifp = ifp->info;
 	zassert(pim_ifp);
 
-	RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb)
+	RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb)
 		ifmembership_set(ch, PIM_IFMEMBERSHIP_NOINFO);
 }
 
@@ -481,7 +481,7 @@ void pim_ifchannel_delete_on_noinfo(struct interface *ifp)
 	pim_ifp = ifp->info;
 	zassert(pim_ifp);
 
-	RB_FOREACH_SAFE(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb, ch_tmp)
+	RB_FOREACH_SAFE (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb, ch_tmp)
 		delete_on_noinfo(ch);
 }
 
@@ -1304,7 +1304,7 @@ void pim_ifchannel_scan_forward_start(struct interface *new_ifp)
 		if (new_pim_ifp == loop_pim_ifp)
 			continue;
 
-		RB_FOREACH(ch, pim_ifchannel_rb, &loop_pim_ifp->ifchannel_rb) {
+		RB_FOREACH (ch, pim_ifchannel_rb, &loop_pim_ifp->ifchannel_rb) {
 			if (ch->ifjoin_state == PIM_IFJOIN_JOIN) {
 				struct pim_upstream *up = ch->upstream;
 				if ((!up->channel_oil)

@@ -258,7 +258,7 @@ int work_queue_run(struct thread *thread)
 	if (wq->cycles.granularity == 0)
 		wq->cycles.granularity = WORK_QUEUE_MIN_GRANULARITY;
 
-	STAILQ_FOREACH_SAFE(item, &wq->items, wq, titem) {
+	STAILQ_FOREACH_SAFE (item, &wq->items, wq, titem) {
 		assert(item && item->data);
 
 		/* dont run items which are past their allowed retries */

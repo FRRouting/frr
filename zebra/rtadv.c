@@ -395,41 +395,48 @@ static int rtadv_timer(struct thread *thread)
 		rtadv_event(zns, RTADV_TIMER_MSEC, 10 /* 10 ms */);
 	}
 
-	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id)
-	for (ALL_LIST_ELEMENTS(vrf->iflist, node, nnode, ifp)) {
-		if (if_is_loopback(ifp)
-		    || CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK)
-		    || !if_is_operative(ifp))
-			continue;
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+		for (ALL_LIST_ELEMENTS(vrf->iflist, node, nnode, ifp)) {
+			if (if_is_loopback(ifp)
+			    || CHECK_FLAG(ifp->status,
+					  ZEBRA_INTERFACE_VRF_LOOPBACK)
+			    || !if_is_operative(ifp))
+				continue;
 
-		zif = ifp->info;
+			zif = ifp->info;
 
-		if (zif->rtadv.AdvSendAdvertisements) {
-			if (zif->rtadv.inFastRexmit) {
-				/* We assume we fast rexmit every sec so no
-				 * additional vars */
-				if (--zif->rtadv.NumFastReXmitsRemain <= 0)
-					zif->rtadv.inFastRexmit = 0;
+			if (zif->rtadv.AdvSendAdvertisements) {
+				if (zif->rtadv.inFastRexmit) {
+					/* We assume we fast rexmit every sec so
+					 * no
+					 * additional vars */
+					if (--zif->rtadv.NumFastReXmitsRemain
+					    <= 0)
+						zif->rtadv.inFastRexmit = 0;
 
-				if (IS_ZEBRA_DEBUG_SEND)
-					zlog_debug(
-						"Fast RA Rexmit on interface %s",
-						ifp->name);
+					if (IS_ZEBRA_DEBUG_SEND)
+						zlog_debug(
+							"Fast RA Rexmit on interface %s",
+							ifp->name);
 
-				rtadv_send_packet(zns->rtadv.sock, ifp);
-			} else {
-				zif->rtadv.AdvIntervalTimer -= period;
-				if (zif->rtadv.AdvIntervalTimer <= 0) {
-					/* FIXME: using MaxRtrAdvInterval each
-					   time isn't what section
-					   6.2.4 of RFC4861 tells to do. */
-					zif->rtadv.AdvIntervalTimer =
-						zif->rtadv.MaxRtrAdvInterval;
 					rtadv_send_packet(zns->rtadv.sock, ifp);
+				} else {
+					zif->rtadv.AdvIntervalTimer -= period;
+					if (zif->rtadv.AdvIntervalTimer <= 0) {
+						/* FIXME: using
+						   MaxRtrAdvInterval each
+						   time isn't what section
+						   6.2.4 of RFC4861 tells to do.
+						   */
+						zif->rtadv.AdvIntervalTimer =
+							zif->rtadv
+								.MaxRtrAdvInterval;
+						rtadv_send_packet(
+							zns->rtadv.sock, ifp);
+					}
 				}
 			}
 		}
-	}
 
 	return 0;
 }

@@ -245,8 +245,7 @@ int pim_interface_config_write(struct vty *vty)
 	struct vrf *vrf;
 	int writes = 0;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		pim = vrf->info;
 		if (!pim)
 			continue;

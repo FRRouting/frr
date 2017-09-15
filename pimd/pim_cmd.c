@@ -228,7 +228,7 @@ static void pim_show_assert(struct pim_instance *pim, struct vty *vty)
 		if (!pim_ifp)
 			continue;
 
-		RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
+		RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 			pim_show_assert_helper(vty, pim_ifp, ch, now);
 		} /* scan interface channels */
 	}
@@ -280,7 +280,7 @@ static void pim_show_assert_internal(struct pim_instance *pim, struct vty *vty)
 		if (!pim_ifp)
 			continue;
 
-		RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
+		RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 			pim_show_assert_internal_helper(vty, pim_ifp, ch);
 		} /* scan interface channels */
 	}
@@ -329,7 +329,7 @@ static void pim_show_assert_metric(struct pim_instance *pim, struct vty *vty)
 		if (!pim_ifp)
 			continue;
 
-		RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
+		RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 			pim_show_assert_metric_helper(vty, pim_ifp, ch);
 		} /* scan interface channels */
 	}
@@ -392,7 +392,7 @@ static void pim_show_assert_winner_metric(struct pim_instance *pim,
 		if (!pim_ifp)
 			continue;
 
-		RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
+		RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 			pim_show_assert_winner_metric_helper(vty, pim_ifp, ch);
 		} /* scan interface channels */
 	}
@@ -482,7 +482,7 @@ static void pim_show_membership(struct pim_instance *pim, struct vty *vty,
 		if (!pim_ifp)
 			continue;
 
-		RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
+		RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 			pim_show_membership_helper(vty, pim_ifp, ch, json);
 		} /* scan interface channels */
 	}
@@ -1698,9 +1698,8 @@ static void pim_show_join(struct pim_instance *pim, struct vty *vty, u_char uj)
 		if (!pim_ifp)
 			continue;
 
-		RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
-			pim_show_join_helper(vty, pim_ifp,
-					     ch, json, now, uj);
+		RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
+			pim_show_join_helper(vty, pim_ifp, ch, json, now, uj);
 		} /* scan interface channels */
 	}
 
@@ -2528,7 +2527,7 @@ static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
 			continue;
 
 
-		RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
+		RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 			/* scan all interfaces */
 			pim_show_join_desired_helper(pim, vty,
 						     pim_ifp, ch,
@@ -3393,8 +3392,7 @@ DEFUN (show_ip_igmp_interface_vrf_all,
 
 	if (uj)
 		vty_out(vty, "{ ");
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (uj) {
 			if (!first)
 				vty_out(vty, ", ");
@@ -3450,8 +3448,7 @@ DEFUN (show_ip_igmp_join_vrf_all,
 
 	if (uj)
 		vty_out(vty, "{ ");
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (uj) {
 			if (!first)
 				vty_out(vty, ", ");
@@ -3505,8 +3502,7 @@ DEFUN (show_ip_igmp_groups_vrf_all,
 
 	if (uj)
 		vty_out(vty, "{ ");
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (uj) {
 			if (!first)
 				vty_out(vty, ", ");
@@ -3711,8 +3707,7 @@ DEFUN (show_ip_pim_interface_vrf_all,
 
 	if (uj)
 		vty_out(vty, "{ ");
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (uj) {
 			if (!first)
 				vty_out(vty, ", ");
@@ -3771,8 +3766,7 @@ DEFUN (show_ip_pim_join_vrf_all,
 
 	if (uj)
 		vty_out(vty, "{ ");
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (uj) {
 			if (!first)
 				vty_out(vty, ", ");
@@ -3857,8 +3851,7 @@ DEFUN (show_ip_pim_neighbor_vrf_all,
 
 	if (uj)
 		vty_out(vty, "{ ");
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (uj) {
 			if (!first)
 				vty_out(vty, ", ");
@@ -3964,8 +3957,7 @@ DEFUN (show_ip_pim_state_vrf_all,
 			group = argv[idx + 1]->arg;
 	}
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (uj) {
 			if (!first)
 				vty_out(vty, ", ");
@@ -4019,8 +4011,7 @@ DEFUN (show_ip_pim_upstream_vrf_all,
 
 	if (uj)
 		vty_out(vty, "{ ");
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (uj) {
 			if (!first)
 				vty_out(vty, ", ");
@@ -4116,8 +4107,7 @@ DEFUN (show_ip_pim_rp_vrf_all,
 
 	if (uj)
 		vty_out(vty, "{ ");
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (uj) {
 			if (!first)
 				vty_out(vty, ", ");
@@ -4171,8 +4161,7 @@ DEFUN (show_ip_pim_rpf_vrf_all,
 
 	if (uj)
 		vty_out(vty, "{ ");
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (uj) {
 			if (!first)
 				vty_out(vty, ", ");
@@ -4438,8 +4427,7 @@ DEFUN (show_ip_multicast_vrf_all,
 
 	if (uj)
 		vty_out(vty, "{ ");
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (uj) {
 			if (!first)
 				vty_out(vty, ", ");
@@ -4814,8 +4802,7 @@ DEFUN (show_ip_mroute_vrf_all,
 
 	if (uj)
 		vty_out(vty, "{ ");
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (uj) {
 			if (!first)
 				vty_out(vty, ", ");
@@ -4918,8 +4905,7 @@ DEFUN (show_ip_mroute_count_vrf_all,
 
 	if (uj)
 		vty_out(vty, "{ ");
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (uj) {
 			if (!first)
 				vty_out(vty, ", ");
@@ -7854,8 +7840,7 @@ DEFUN (show_ip_msdp_mesh_group_vrf_all,
 
 	if (uj)
 		vty_out(vty, "{ ");
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (uj) {
 			if (!first)
 				vty_out(vty, ", ");
@@ -8083,8 +8068,7 @@ DEFUN (show_ip_msdp_peer_detail_vrf_all,
 
 	if (uj)
 		vty_out(vty, "{ ");
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (uj) {
 			if (!first)
 				vty_out(vty, ", ");
@@ -8313,8 +8297,7 @@ DEFUN (show_ip_msdp_sa_detail_vrf_all,
 
 	if (uj)
 		vty_out(vty, "{ ");
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (uj) {
 			if (!first)
 				vty_out(vty, ", ");
@@ -8450,7 +8433,7 @@ DEFUN (show_ip_msdp_sa_sg_vrf_all,
 
 	if (uj)
 		vty_out(vty, "{ ");
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (uj) {
 			if (!first)
 				vty_out(vty, ", ");

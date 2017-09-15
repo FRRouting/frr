@@ -72,8 +72,7 @@ void pim_prefix_list_update(struct prefix_list *plist)
 	struct pim_instance *pim;
 	struct vrf *vrf;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		pim = vrf->info;
 		if (!pim)
 			continue;

@@ -84,12 +84,12 @@ static void zebra_redistribute_default(struct zserv *client, vrf_id_t vrf_id)
 		if (!rn)
 			continue;
 
-		RNODE_FOREACH_RE(rn, newre) {
+		RNODE_FOREACH_RE (rn, newre) {
 			if (CHECK_FLAG(newre->flags, ZEBRA_FLAG_SELECTED)
 			    && newre->distance != DISTANCE_INFINITY)
 				zsend_redistribute_route(
-					ZEBRA_REDISTRIBUTE_ROUTE_ADD,
-					client, &rn->p, NULL, newre);
+					ZEBRA_REDISTRIBUTE_ROUTE_ADD, client,
+					&rn->p, NULL, newre);
 		}
 
 		route_unlock_node(rn);
@@ -109,8 +109,7 @@ static void zebra_redistribute(struct zserv *client, int type, u_short instance,
 		return;
 
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
-		RNODE_FOREACH_RE(rn, newre)
-		{
+		RNODE_FOREACH_RE (rn, newre) {
 			struct prefix *dst_p, *src_p;
 			srcdest_rnode_prefixes(rn, &dst_p, &src_p);
 
@@ -506,10 +505,8 @@ int zebra_add_import_table_entry(struct route_node *rn, struct route_entry *re,
 
 	prefix_copy(&p, &rn->p);
 
-	RNODE_FOREACH_RE(rn, same)
-	{
-		if (CHECK_FLAG(same->status,
-			       ROUTE_ENTRY_REMOVED))
+	RNODE_FOREACH_RE (rn, same) {
+		if (CHECK_FLAG(same->status, ROUTE_ENTRY_REMOVED))
 			continue;
 
 		if (same->type == re->type
@@ -620,8 +617,7 @@ int zebra_import_table(afi_t afi, u_int32_t table_id, u_int32_t distance,
 		if (!rn->info)
 			continue;
 
-		RNODE_FOREACH_RE(rn, re)
-		{
+		RNODE_FOREACH_RE (rn, re) {
 			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 				continue;
 			break;
@@ -708,11 +704,9 @@ void zebra_import_table_rm_update()
 				if (!rn->info)
 					continue;
 
-				RNODE_FOREACH_RE(rn, re)
-				{
-					if (CHECK_FLAG(
-						    re->status,
-						    ROUTE_ENTRY_REMOVED))
+				RNODE_FOREACH_RE (rn, re) {
+					if (CHECK_FLAG(re->status,
+						       ROUTE_ENTRY_REMOVED))
 						continue;
 					break;
 				}

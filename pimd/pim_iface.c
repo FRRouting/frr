@@ -263,7 +263,7 @@ void pim_if_update_could_assert(struct interface *ifp)
 	pim_ifp = ifp->info;
 	zassert(pim_ifp);
 
-	RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
+	RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		pim_ifchannel_update_could_assert(ch);
 	}
 }
@@ -276,7 +276,7 @@ static void pim_if_update_my_assert_metric(struct interface *ifp)
 	pim_ifp = ifp->info;
 	zassert(pim_ifp);
 
-	RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
+	RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		pim_ifchannel_update_my_assert_metric(ch);
 	}
 }
@@ -1426,7 +1426,7 @@ void pim_if_assert_on_neighbor_down(struct interface *ifp,
 	pim_ifp = ifp->info;
 	zassert(pim_ifp);
 
-	RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
+	RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		/* Is (S,G,I) assert loser ? */
 		if (ch->ifassert_state != PIM_IFASSERT_I_AM_LOSER)
 			continue;
@@ -1443,13 +1443,13 @@ void pim_if_update_join_desired(struct pim_interface *pim_ifp)
 	struct pim_ifchannel *ch;
 
 	/* clear off flag from interface's upstreams */
-	RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
+	RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		PIM_UPSTREAM_FLAG_UNSET_DR_JOIN_DESIRED_UPDATED(
 			ch->upstream->flags);
 	}
 
 	/* scan per-interface (S,G,I) state on this I interface */
-	RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
+	RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		struct pim_upstream *up = ch->upstream;
 
 		if (PIM_UPSTREAM_FLAG_TEST_DR_JOIN_DESIRED_UPDATED(up->flags))
@@ -1470,7 +1470,7 @@ void pim_if_update_assert_tracking_desired(struct interface *ifp)
 	if (!pim_ifp)
 		return;
 
-	RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
+	RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		pim_ifchannel_update_assert_tracking_desired(ch);
 	}
 }
@@ -1537,8 +1537,7 @@ int pim_if_is_vrf_device(struct interface *ifp)
 {
 	struct vrf *vrf;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (strncmp(ifp->name, vrf->name, strlen(ifp->name)) == 0)
 			return 1;
 	}
@@ -1551,7 +1550,7 @@ int pim_if_ifchannel_count(struct pim_interface *pim_ifp)
 	struct pim_ifchannel *ch;
 	int count = 0;
 
-	RB_FOREACH(ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
+	RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		count++;
 	}
 

@@ -1004,8 +1004,7 @@ static int zread_interface_add(struct zserv *client, u_short length,
 	/* Interface information is needed. */
 	vrf_bitmap_set(client->ifinfo, zvrf_id(zvrf));
 
-	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id)
-	{
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		for (ALL_LIST_ELEMENTS(vrf->iflist, ifnode, ifnnode, ifp)) {
 			/* Skip pseudo interface. */
 			if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE))
@@ -2084,8 +2083,7 @@ static void zebra_client_close_cleanup_rnh(struct zserv *client)
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 
-	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id)
-	{
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		if ((zvrf = vrf->info) != NULL) {
 			zebra_cleanup_rnh_client(zvrf_id(zvrf), AF_INET, client,
 						 RNH_NEXTHOP_TYPE);
@@ -2832,8 +2830,7 @@ DEFUN (show_zebra,
 		"                            Route      Route      Neighbor   LSP        LSP\n");
 	vty_out(vty,
 		"VRF                         Installs   Removals    Updates   Installs   Removals\n");
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		struct zebra_vrf *zvrf = vrf->info;
 		vty_out(vty, "%-25s %10" PRIu64 " %10" PRIu64 " %10" PRIu64
 			     " %10" PRIu64 " %10" PRIu64 "\n",

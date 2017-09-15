@@ -687,8 +687,7 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			buf, bnc->flags, bnc->change_flags);
 	}
 
-	LIST_FOREACH(path, &(bnc->paths), nh_thread)
-	{
+	LIST_FOREACH (path, &(bnc->paths), nh_thread) {
 		if (!(path->type == ZEBRA_ROUTE_BGP
 		      && ((path->sub_type == BGP_ROUTE_NORMAL)
 			  || (path->sub_type == BGP_ROUTE_STATIC))))

@@ -249,8 +249,7 @@ struct interface *if_lookup_by_name_all_vrf(const char *name)
 	struct vrf *vrf;
 	struct interface *ifp;
 
-	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id)
-	{
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		ifp = if_lookup_by_name(name, vrf->vrf_id);
 		if (ifp)
 			return ifp;
@@ -386,8 +385,7 @@ struct interface *if_get_by_name_len(const char *name, size_t namelen,
 		return ifp;
 
 	/* Didn't find the interface on that vrf. Defined on a different one? */
-	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id)
-	{
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf->vrf_id), node, ifp)) {
 			if (!memcmp(name, ifp->name, namelen)
 			    && (ifp->name[namelen] == '\0')) {
@@ -541,10 +539,10 @@ void if_dump_all(void)
 	struct listnode *node;
 	void *p;
 
-	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id)
-	if (vrf->iflist != NULL)
-		for (ALL_LIST_ELEMENTS_RO(vrf->iflist, node, p))
-			if_dump(p);
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+		if (vrf->iflist != NULL)
+			for (ALL_LIST_ELEMENTS_RO(vrf->iflist, node, p))
+				if_dump(p);
 }
 
 DEFUN (interface_desc,
@@ -1053,8 +1051,7 @@ static void if_autocomplete(vector comps, struct cmd_token *token)
 	struct listnode *ln;
 	struct vrf *vrf = NULL;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		for (ALL_LIST_ELEMENTS_RO(vrf->iflist, ln, ifp))
 			vector_set(comps, XSTRDUP(MTYPE_COMPLETION, ifp->name));
 	}

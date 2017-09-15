@@ -70,8 +70,7 @@ void zebra_vrf_update_all(struct zserv *client)
 {
 	struct vrf *vrf;
 
-	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id)
-	{
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		if (vrf->vrf_id)
 			zsend_vrf_add(client, vrf_info_lookup(vrf->vrf_id));
 	}
@@ -290,7 +289,7 @@ static void zebra_rtable_node_cleanup(struct route_table *table,
 {
 	struct route_entry *re, *next;
 
-	RNODE_FOREACH_RE_SAFE(node, re, next) {
+	RNODE_FOREACH_RE_SAFE (node, re, next) {
 		rib_unlink(node, re);
 	}
 
@@ -468,8 +467,7 @@ static int vrf_config_write(struct vty *vty)
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		zvrf = vrf->info;
 
 		if (!zvrf)

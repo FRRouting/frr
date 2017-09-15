@@ -155,7 +155,7 @@ static u_char *ipFwNumber(struct variable *v, oid objid[], size_t *objid_len,
 	/* Return number of routing entries. */
 	result = 0;
 	for (rn = route_top(table); rn; rn = route_next(rn))
-		RNODE_FOREACH_RE(rn, re) {
+		RNODE_FOREACH_RE (rn, re) {
 			result++;
 		}
 
@@ -183,7 +183,7 @@ static u_char *ipCidrNumber(struct variable *v, oid objid[], size_t *objid_len,
 	/* Return number of routing entries. */
 	result = 0;
 	for (rn = route_top(table); rn; rn = route_next(rn))
-		RNODE_FOREACH_RE(rn, re) {
+		RNODE_FOREACH_RE (rn, re) {
 			result++;
 		}
 
@@ -369,8 +369,7 @@ static void get_fwtable_route_node(struct variable *v, oid objid[],
 			return;
 		for (*np = route_top(table); *np; *np = route_next(*np)) {
 			if (!in_addr_cmp(&(*np)->p.u.prefix, (u_char *)&dest)) {
-				RNODE_FOREACH_RE(*np, *re)
-				{
+				RNODE_FOREACH_RE (*np, *re) {
 					if (!in_addr_cmp((u_char *)&(*re)
 								 ->nexthop->gate
 								 .ipv4,
@@ -390,14 +389,13 @@ static void get_fwtable_route_node(struct variable *v, oid objid[],
 
 		/* Check destination first */
 		if (in_addr_cmp(&np2->p.u.prefix, (u_char *)&dest) > 0)
-			RNODE_FOREACH_RE(np2, re2) {
+			RNODE_FOREACH_RE (np2, re2) {
 				check_replace(np2, re2, np, re);
 			}
 
 		if (in_addr_cmp(&np2->p.u.prefix, (u_char *)&dest)
 		    == 0) { /* have to look at each re individually */
-			RNODE_FOREACH_RE(np2, re2)
-			{
+			RNODE_FOREACH_RE (np2, re2) {
 				int proto2, policy2;
 
 				proto2 = proto_trans(re2->type);

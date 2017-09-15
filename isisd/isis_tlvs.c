@@ -1921,8 +1921,7 @@ static void free_mt_items(enum isis_tlv_context context,
 {
 	struct isis_item_list *n, *nnext;
 
-	RB_FOREACH_SAFE(n, isis_mt_item_list, m, nnext)
-	{
+	RB_FOREACH_SAFE (n, isis_mt_item_list, m, nnext) {
 		free_items(context, type, n);
 		RB_REMOVE(isis_mt_item_list, m, n);
 		XFREE(MTYPE_ISIS_MT_ITEM_LIST, n);
@@ -1936,8 +1935,7 @@ static void format_mt_items(enum isis_tlv_context context,
 {
 	struct isis_item_list *n;
 
-	RB_FOREACH(n, isis_mt_item_list, m)
-	{
+	RB_FOREACH (n, isis_mt_item_list, m) {
 		format_items_(n->mtid, context, type, n, buf, indent);
 	}
 }
@@ -1951,8 +1949,7 @@ static int pack_mt_items(enum isis_tlv_context context, enum isis_tlv_type type,
 {
 	struct isis_item_list *n;
 
-	RB_FOREACH(n, isis_mt_item_list, m)
-	{
+	RB_FOREACH (n, isis_mt_item_list, m) {
 		int rv;
 
 		rv = pack_items_(n->mtid, context, type, n, s, fragment_tlvs,
@@ -1973,8 +1970,7 @@ static void copy_mt_items(enum isis_tlv_context context,
 
 	RB_INIT(isis_mt_item_list, dest);
 
-	RB_FOREACH(n, isis_mt_item_list, src)
-	{
+	RB_FOREACH (n, isis_mt_item_list, src) {
 		copy_items(context, type, n, isis_get_mt_items(dest, n->mtid));
 	}
 }

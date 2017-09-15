@@ -155,22 +155,24 @@ int bgp_adj_out_lookup(struct peer *peer, struct bgp_node *rn,
 	int addpath_capable;
 
 	for (adj = rn->adj_out; adj; adj = adj->next)
-		SUBGRP_FOREACH_PEER(adj->subgroup, paf)
-	if (paf->peer == peer) {
-		afi = SUBGRP_AFI(adj->subgroup);
-		safi = SUBGRP_SAFI(adj->subgroup);
-		addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
+		SUBGRP_FOREACH_PEER (adj->subgroup, paf)
+			if (paf->peer == peer) {
+				afi = SUBGRP_AFI(adj->subgroup);
+				safi = SUBGRP_SAFI(adj->subgroup);
+				addpath_capable =
+					bgp_addpath_encode_tx(peer, afi, safi);
 
-		/* Match on a specific addpath_tx_id if we are using addpath for
-		 * this
-		 * peer and if an addpath_tx_id was specified */
-		if (addpath_capable && addpath_tx_id
-		    && adj->addpath_tx_id != addpath_tx_id)
-			continue;
+				/* Match on a specific addpath_tx_id if we are
+				 * using addpath for
+				 * this
+				 * peer and if an addpath_tx_id was specified */
+				if (addpath_capable && addpath_tx_id
+				    && adj->addpath_tx_id != addpath_tx_id)
+					continue;
 
-		return (adj->adv ? (adj->adv->baa ? 1 : 0)
-				 : (adj->attr ? 1 : 0));
-	}
+				return (adj->adv ? (adj->adv->baa ? 1 : 0)
+						 : (adj->attr ? 1 : 0));
+			}
 
 	return 0;
 }

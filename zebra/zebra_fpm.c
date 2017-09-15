@@ -873,8 +873,7 @@ struct route_entry *zfpm_route_for_update(rib_dest_t *dest)
 {
 	struct route_entry *re;
 
-	RE_DEST_FOREACH_ROUTE(dest, re)
-	{
+	RE_DEST_FOREACH_ROUTE (dest, re) {
 		if (!CHECK_FLAG(re->status, ROUTE_ENTRY_SELECTED_FIB))
 			continue;
 
