@@ -2287,6 +2287,8 @@ char *bgp_evpn_route2str(struct prefix_evpn *p, char *buf, int len)
 		}
 	} else {
 		/* For EVPN route types not supported yet. */
+		snprintf(buf, len, "(unsupported route type %d)",
+			 p->prefix.route_type);
 	}
 
 	return (buf);
