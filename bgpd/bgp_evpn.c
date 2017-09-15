@@ -2047,7 +2047,6 @@ static void evpn_mpattr_encode_type5(struct stream *s, struct prefix *p,
 		len = 8; /* ipv4 */
 	else
 		len = 32; /* ipv6 */
-	stream_putc(s, BGP_EVPN_IP_PREFIX_ROUTE);
 	/* Prefix contains RD, ESI, EthTag, IP length, IP, GWIP and VNI */
 	stream_putc(s, 8 + 10 + 4 + 1 + len + 3);
 	stream_put(s, prd->val, 8);
