@@ -436,6 +436,24 @@ static inline enum lsp_types_t lsp_type_from_re_type(int re_type)
 	}
 }
 
+/*
+ * Map LSP type to RIB type.
+ */
+static inline int re_type_from_lsp_type(enum lsp_types_t lsp_type)
+{
+	switch (lsp_type) {
+	case ZEBRA_LSP_STATIC:
+		return ZEBRA_ROUTE_STATIC;
+	case ZEBRA_LSP_LDP:
+		return ZEBRA_ROUTE_LDP;
+	case ZEBRA_LSP_BGP:
+		return ZEBRA_ROUTE_BGP;
+	case ZEBRA_LSP_NONE:
+	default:
+		return ZEBRA_ROUTE_KERNEL;
+	}
+}
+
 /* NHLFE type as printable string. */
 static inline const char *nhlfe_type2str(enum lsp_types_t lsp_type)
 {

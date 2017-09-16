@@ -2349,6 +2349,7 @@ int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp)
 	unsigned int nexthop_num;
 	const char *routedesc;
 	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+	int route_type;
 
 	struct {
 		struct nlmsghdr n;
@@ -2382,8 +2383,10 @@ int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp)
 		}
 	}
 
-	if (nexthop_num == 0) // unexpected
+	if (nexthop_num == 0 || !lsp->best_nhlfe) // unexpected
 		return 0;
+
+	route_type = re_type_from_lsp_type(lsp->best_nhlfe->type);
 
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
 	req.n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
@@ -2393,7 +2396,7 @@ int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp)
 	req.r.rtm_family = AF_MPLS;
 	req.r.rtm_table = RT_TABLE_MAIN;
 	req.r.rtm_dst_len = MPLS_LABEL_LEN_BITS;
-	req.r.rtm_protocol = RTPROT_ZEBRA;
+	req.r.rtm_protocol = zebra2proto(route_type);
 	req.r.rtm_scope = RT_SCOPE_UNIVERSE;
 	req.r.rtm_type = RTN_UNICAST;
 
