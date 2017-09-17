@@ -2890,6 +2890,13 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 		}
 	}
 
+	if (ospf->name) {
+		if (use_json)
+			json_object_string_add(json, "vrfName", ospf->name);
+		else
+			vty_out(vty, "OSPF vrfName: %s\n", ospf->name);
+	}
+
 	/* Show Router ID. */
 	if (use_json) {
 		json_object_string_add(json, "routerId",
@@ -3857,6 +3864,13 @@ static int show_ip_ospf_neighbor_common(struct vty *vty, struct ospf *ospf,
 			vty_out(vty, "\nOSPF Instance: %d\n\n", ospf->instance);
 	}
 
+	if (ospf->name) {
+		if (use_json)
+			json_object_string_add(json, "vrfName", ospf->name);
+		else
+			vty_out(vty, "OSPF vrfName: %s\n", ospf->name);
+	}
+
 	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi))
 		show_ip_ospf_neighbor_sub(vty, oi, json, use_json);
 
@@ -4144,6 +4158,13 @@ static int show_ip_ospf_neighbor_int_common(struct vty *vty, struct ospf *ospf,
 					    ospf->instance);
 		else
 			vty_out(vty, "\nOSPF Instance: %d\n\n", ospf->instance);
+	}
+
+	if (ospf->name) {
+		if (use_json)
+			json_object_string_add(json, "vrfName", ospf->name);
+		else
+			vty_out(vty, "OSPF vrfName: %s\n", ospf->name);
 	}
 
 	/*ifp = if_lookup_by_name(argv[arg_base]->arg, ospf->vrf_id);*/
@@ -4558,6 +4579,13 @@ static int show_ip_ospf_neighbor_id_common(struct vty *vty, struct ospf *ospf,
 			vty_out(vty, "\nOSPF Instance: %d\n\n", ospf->instance);
 	}
 
+	if (ospf->name) {
+		if (use_json)
+			json_object_string_add(json, "vrfName", ospf->name);
+		else
+			vty_out(vty, "OSPF vrfName: %s\n", ospf->name);
+	}
+
 	ret = inet_aton(argv[arg_base]->arg, &router_id);
 	if (!ret) {
 		if (!use_json)
@@ -4655,6 +4683,13 @@ static int show_ip_ospf_neighbor_detail_common(struct vty *vty,
 					    ospf->instance);
 		else
 			vty_out(vty, "\nOSPF Instance: %d\n\n", ospf->instance);
+	}
+
+	if (ospf->name) {
+		if (use_json)
+			json_object_string_add(json, "vrfName", ospf->name);
+		else
+			vty_out(vty, "OSPF vrfName: %s\n", ospf->name);
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
@@ -4779,6 +4814,13 @@ static int show_ip_ospf_neighbor_detail_all_common(struct vty *vty,
 					    ospf->instance);
 		else
 			vty_out(vty, "\nOSPF Instance: %d\n\n", ospf->instance);
+	}
+
+	if (ospf->name) {
+		if (use_json)
+			json_object_string_add(json, "vrfName", ospf->name);
+		else
+			vty_out(vty, "OSPF vrfName: %s\n", ospf->name);
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
@@ -5591,6 +5633,9 @@ static int show_ip_ospf_database_common(struct vty *vty, struct ospf *ospf,
 	if (ospf->instance)
 		vty_out(vty, "\nOSPF Instance: %d\n", ospf->instance);
 
+	if (ospf->name)
+		vty_out(vty, "OSPF vrfName: %s\n", ospf->name);
+
 	vty_out(vty, "\n       OSPF Router with ID (%s)\n\n",
 		inet_ntoa(ospf->router_id));
 
@@ -5811,6 +5856,9 @@ static int show_ip_ospf_database_type_adv_router_common(struct vty *vty,
 
 	if (ospf->instance)
 		vty_out(vty, "\nOSPF Instance: %d\n", ospf->instance);
+
+	if (ospf->name)
+		vty_out(vty, "OSPF vrfName: %s\n", ospf->name);
 
 	vty_out(vty, "\n       OSPF Router with ID (%s)\n\n",
 		inet_ntoa(ospf->router_id));
@@ -8368,6 +8416,9 @@ static int show_ip_ospf_border_routers_common(struct vty *vty,
 	if (ospf->instance)
 		vty_out(vty, "\nOSPF Instance: %d\n\n", ospf->instance);
 
+	if (ospf->name)
+		vty_out(vty, "OSPF vrfName: %s\n", ospf->name);
+
 	if (ospf->new_table == NULL) {
 		vty_out(vty, "No OSPF routing information exist\n");
 		return CMD_SUCCESS;
@@ -8459,6 +8510,9 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf)
 {
 	if (ospf->instance)
 		vty_out(vty, "\nOSPF Instance: %d\n\n", ospf->instance);
+
+	if (ospf->name)
+		vty_out(vty, "OSPF vrfName: %s\n", ospf->name);
 
 	if (ospf->new_table == NULL) {
 		vty_out(vty, "No OSPF routing information exist\n");
