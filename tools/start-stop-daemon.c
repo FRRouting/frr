@@ -280,8 +280,7 @@ static void set_namespaces()
 	struct namespace *namespace;
 	int fd;
 
-	LIST_FOREACH(namespace, &namespace_head, list)
-	{
+	LIST_FOREACH (namespace, &namespace_head, list) {
 		if ((fd = open(namespace->path, O_RDONLY)) == -1)
 			fatal("open namespace %s: %s", namespace->path,
 			      strerror(errno));

@@ -411,8 +411,7 @@ static int fec_change_update_lsp(struct zebra_vrf *zvrf, zebra_fec_t *fec,
 	if (!rn)
 		return 0;
 
-	RNODE_FOREACH_RE(rn, re)
-	{
+	RNODE_FOREACH_RE (rn, re) {
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
 			break;
 	}
@@ -614,8 +613,7 @@ static int nhlfe_nexthop_active_ipv4(zebra_nhlfe_t *nhlfe,
 	route_unlock_node(rn);
 
 	/* Locate a valid connected route. */
-	RNODE_FOREACH_RE(rn, match)
-	{
+	RNODE_FOREACH_RE (rn, match) {
 		if (CHECK_FLAG(match->status, ROUTE_ENTRY_REMOVED)
 		    || !CHECK_FLAG(match->flags, ZEBRA_FLAG_SELECTED))
 			continue;
@@ -664,8 +662,7 @@ static int nhlfe_nexthop_active_ipv6(zebra_nhlfe_t *nhlfe,
 	route_unlock_node(rn);
 
 	/* Locate a valid connected route. */
-	RNODE_FOREACH_RE(rn, match)
-	{
+	RNODE_FOREACH_RE (rn, match) {
 		if ((match->type == ZEBRA_ROUTE_CONNECT)
 		    && !CHECK_FLAG(match->status, ROUTE_ENTRY_REMOVED)
 		    && CHECK_FLAG(match->flags, ZEBRA_FLAG_SELECTED))
@@ -2164,8 +2161,7 @@ int mpls_ftn_update(int add, struct zebra_vrf *zvrf, enum lsp_types_t type,
 
 	/* Lookup existing route */
 	rn = route_node_get(table, prefix);
-	RNODE_FOREACH_RE(rn, re)
-	{
+	RNODE_FOREACH_RE (rn, re) {
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 			continue;
 		if (re->distance == distance)
@@ -2392,9 +2388,8 @@ void mpls_ldp_ftn_uninstall_all(struct zebra_vrf *zvrf, int afi)
 
 	for (rn = route_top(table); rn; rn = route_next(rn)) {
 		update = 0;
-		RNODE_FOREACH_RE(rn, re) {
-			for (nexthop = re->nexthop;
-			     nexthop;
+		RNODE_FOREACH_RE (rn, re) {
+			for (nexthop = re->nexthop; nexthop;
 			     nexthop = nexthop->next) {
 				if (nexthop->nh_label_type != ZEBRA_LSP_LDP)
 					continue;

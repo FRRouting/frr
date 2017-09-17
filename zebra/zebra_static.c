@@ -67,8 +67,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 
 	/* Lookup existing route */
 	rn = srcdest_rnode_get(table, p, src_p);
-	RNODE_FOREACH_RE(rn, re)
-	{
+	RNODE_FOREACH_RE (rn, re) {
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 			continue;
 
@@ -281,8 +280,7 @@ void static_uninstall_route(afi_t afi, safi_t safi, struct prefix *p,
 	if (!rn)
 		return;
 
-	RNODE_FOREACH_RE(rn, re)
-	{
+	RNODE_FOREACH_RE (rn, re) {
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 			continue;
 

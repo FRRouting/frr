@@ -247,8 +247,7 @@ static vrf_id_t vrf_lookup_by_table(u_int32_t table_id)
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 
-	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id)
-	{
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		if ((zvrf = vrf->info) == NULL || (zvrf->table_id != table_id))
 			continue;
 

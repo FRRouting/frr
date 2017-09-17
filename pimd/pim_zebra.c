@@ -178,8 +178,7 @@ static int pim_zebra_if_state_up(int command, struct zclient *zclient,
 	 */
 	if (sscanf(ifp->name, "pimreg%d", &table_id) == 1) {
 		struct vrf *vrf;
-		RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-		{
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 			if ((table_id == vrf->data.l.table_id)
 			    && (ifp->vrf_id != vrf->vrf_id)) {
 				struct interface *master = if_lookup_by_name(
@@ -401,8 +400,7 @@ static void scan_upstream_rpf_cache()
 	struct vrf *vrf;
 	struct pim_instance *pim;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		pim = vrf->info;
 		if (!pim)
 			continue;
@@ -498,8 +496,7 @@ static void scan_upstream_rpf_cache()
 		} /* for (qpim_upstream_list) */
 	}
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		pim = vrf->info;
 		if (!pim)
 			continue;
@@ -666,8 +663,7 @@ void pim_scan_oil(struct pim_instance *pim_matcher)
 	qpim_scan_oil_last = pim_time_monotonic_sec();
 	++qpim_scan_oil_events;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		pim = vrf->info;
 		if (!pim)
 			continue;
@@ -870,8 +866,7 @@ void igmp_source_forward_reevaluate_all(void)
 	struct vrf *vrf;
 	struct pim_instance *pim;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		pim = vrf->info;
 		if (!pim)
 			continue;

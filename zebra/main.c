@@ -131,8 +131,7 @@ static void sigint(void)
 	list_delete_all_node(zebrad.client_list);
 
 	if (retain_mode)
-		RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-		{
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 			zvrf = vrf->info;
 			if (zvrf)
 				SET_FLAG(zvrf->flags, ZEBRA_VRF_RETAIN);

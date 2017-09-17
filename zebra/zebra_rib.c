@@ -447,8 +447,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		    && !nh_resolve_via_default(p.family))
 			return 0;
 
-		RNODE_FOREACH_RE(rn, match)
-		{
+		RNODE_FOREACH_RE (rn, match) {
 			if (CHECK_FLAG(match->status, ROUTE_ENTRY_REMOVED))
 				continue;
 
@@ -563,8 +562,7 @@ struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 		route_unlock_node(rn);
 
 		/* Pick up selected route. */
-		RNODE_FOREACH_RE(rn, match)
-		{
+		RNODE_FOREACH_RE (rn, match) {
 			if (CHECK_FLAG(match->status, ROUTE_ENTRY_REMOVED))
 				continue;
 			if (CHECK_FLAG(match->status, ROUTE_ENTRY_SELECTED_FIB))
@@ -693,8 +691,7 @@ struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 	/* Unlock node. */
 	route_unlock_node(rn);
 
-	RNODE_FOREACH_RE(rn, match)
-	{
+	RNODE_FOREACH_RE (rn, match) {
 		if (CHECK_FLAG(match->status, ROUTE_ENTRY_REMOVED))
 			continue;
 		if (CHECK_FLAG(match->status, ROUTE_ENTRY_SELECTED_FIB))
@@ -752,8 +749,7 @@ int rib_lookup_ipv4_route(struct prefix_ipv4 *p, union sockunion *qgate,
 
 	/* Find out if a "selected" RR for the discovered RIB entry exists ever.
 	 */
-	RNODE_FOREACH_RE(rn, match)
-	{
+	RNODE_FOREACH_RE (rn, match) {
 		if (CHECK_FLAG(match->status, ROUTE_ENTRY_REMOVED))
 			continue;
 		if (CHECK_FLAG(match->status, ROUTE_ENTRY_SELECTED_FIB))
@@ -1449,8 +1445,7 @@ static void rib_process(struct route_node *rn)
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug("%u:%s: Processing rn %p", vrf_id, buf, rn);
 
-	RNODE_FOREACH_RE_SAFE(rn, re, next)
-	{
+	RNODE_FOREACH_RE_SAFE (rn, re, next) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug(
 				"%u:%s: Examine re %p (type %d) status %x flags %x "
@@ -1619,8 +1614,7 @@ static void rib_process(struct route_node *rn)
 	}
 
 	/* Remove all RE entries queued for removal */
-	RNODE_FOREACH_RE_SAFE(rn, re, next)
-	{
+	RNODE_FOREACH_RE_SAFE (rn, re, next) {
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)) {
 			if (IS_ZEBRA_DEBUG_RIB) {
 				rnode_debug(rn, vrf_id, "rn %p, removing re %p",
@@ -1694,8 +1688,7 @@ static void meta_queue_process_complete(struct work_queue *dummy)
 	 * should limit the evaluation to the necessary VRFs in most common
 	 * situations.
 	 */
-	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id)
-	{
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		zvrf = vrf->info;
 		if (zvrf == NULL || !(zvrf->flags & ZEBRA_VRF_RIB_SCHEDULED))
 			continue;
@@ -1778,8 +1771,7 @@ static void rib_meta_queue_add(struct meta_queue *mq, struct route_node *rn)
 {
 	struct route_entry *re;
 
-	RNODE_FOREACH_RE(rn, re)
-	{
+	RNODE_FOREACH_RE (rn, re) {
 		u_char qindex = meta_queue_map[re->type];
 		struct zebra_vrf *zvrf;
 
@@ -2139,8 +2131,7 @@ void rib_lookup_and_dump(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 	route_unlock_node(rn);
 
 	/* let's go */
-	RNODE_FOREACH_RE(rn, re)
-	{
+	RNODE_FOREACH_RE (rn, re) {
 		zlog_debug("%s: rn %p, re %p: %s, %s", __func__, (void *)rn,
 			   (void *)re,
 			   (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)
@@ -2185,8 +2176,7 @@ void rib_lookup_and_pushup(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 	 * revalidation
 	 * of the rest of the RE.
 	 */
-	RNODE_FOREACH_RE(rn, re)
-	{
+	RNODE_FOREACH_RE (rn, re) {
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_SELECTED_FIB)
 		    && !RIB_SYSTEM_ROUTE(re)) {
 			changed = 1;
@@ -2251,8 +2241,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 
 	/* If same type of route are installed, treat it as a implicit
 	   withdraw. */
-	RNODE_FOREACH_RE(rn, same)
-	{
+	RNODE_FOREACH_RE (rn, same) {
 		if (CHECK_FLAG(same->status, ROUTE_ENTRY_REMOVED))
 			continue;
 
@@ -2334,8 +2323,7 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	}
 
 	/* Lookup same type route. */
-	RNODE_FOREACH_RE(rn, re)
-	{
+	RNODE_FOREACH_RE (rn, re) {
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 			continue;
 
@@ -2471,8 +2459,7 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 
 	/* If same type of route are installed, treat it as a implicit
 	   withdraw. */
-	RNODE_FOREACH_RE(rn, re)
-	{
+	RNODE_FOREACH_RE (rn, re) {
 		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 			continue;
 
@@ -2567,8 +2554,7 @@ static void rib_update_table(struct route_table *table,
 			 * always
 			 * get queued for processing.
 			 */
-			RNODE_FOREACH_RE_SAFE(rn, re, next)
-			{
+			RNODE_FOREACH_RE_SAFE (rn, re, next) {
 				struct nexthop *nh;
 
 				if (re->type != ZEBRA_ROUTE_SYSTEM &&
@@ -2636,8 +2622,7 @@ static void rib_weed_table(struct route_table *table)
 
 	if (table)
 		for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
-			RNODE_FOREACH_RE_SAFE(rn, re, next)
-			{
+			RNODE_FOREACH_RE_SAFE (rn, re, next) {
 				if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 					continue;
 
@@ -2653,11 +2638,11 @@ void rib_weed_tables(void)
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 
-	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id)
-	if ((zvrf = vrf->info) != NULL) {
-		rib_weed_table(zvrf->table[AFI_IP][SAFI_UNICAST]);
-		rib_weed_table(zvrf->table[AFI_IP6][SAFI_UNICAST]);
-	}
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+		if ((zvrf = vrf->info) != NULL) {
+			rib_weed_table(zvrf->table[AFI_IP][SAFI_UNICAST]);
+			rib_weed_table(zvrf->table[AFI_IP6][SAFI_UNICAST]);
+		}
 }
 
 /* Delete self installed routes after zebra is relaunched.  */
@@ -2673,8 +2658,7 @@ static void rib_sweep_table(struct route_table *table)
 		return;
 
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
-		RNODE_FOREACH_RE_SAFE(rn, re, next)
-		{
+		RNODE_FOREACH_RE_SAFE (rn, re, next) {
 			if (IS_ZEBRA_DEBUG_RIB)
 				route_entry_dump(&rn->p, NULL, re);
 
@@ -2718,7 +2702,7 @@ void rib_sweep_route(void)
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 
-	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id) {
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		if ((zvrf = vrf->info) == NULL)
 			continue;
 
@@ -2738,8 +2722,7 @@ static unsigned long rib_score_proto_table(u_char proto, u_short instance,
 
 	if (table)
 		for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
-			RNODE_FOREACH_RE_SAFE(rn, re, next)
-			{
+			RNODE_FOREACH_RE_SAFE (rn, re, next) {
 				if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 					continue;
 				if (re->type == proto
@@ -2758,13 +2741,14 @@ unsigned long rib_score_proto(u_char proto, u_short instance)
 	struct zebra_vrf *zvrf;
 	unsigned long cnt = 0;
 
-	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id)
-	if ((zvrf = vrf->info) != NULL)
-		cnt += rib_score_proto_table(proto, instance,
-					     zvrf->table[AFI_IP][SAFI_UNICAST])
-		       + rib_score_proto_table(
-				 proto, instance,
-				 zvrf->table[AFI_IP6][SAFI_UNICAST]);
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+		if ((zvrf = vrf->info) != NULL)
+			cnt += rib_score_proto_table(
+				       proto, instance,
+				       zvrf->table[AFI_IP][SAFI_UNICAST])
+			       + rib_score_proto_table(
+					 proto, instance,
+					 zvrf->table[AFI_IP6][SAFI_UNICAST]);
 
 	return cnt;
 }
@@ -2782,10 +2766,8 @@ void rib_close_table(struct route_table *table)
 	info = table->info;
 
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
-		RNODE_FOREACH_RE(rn, re)
-		{
-			if (!CHECK_FLAG(re->status,
-					ROUTE_ENTRY_SELECTED_FIB))
+		RNODE_FOREACH_RE (rn, re) {
+			if (!CHECK_FLAG(re->status, ROUTE_ENTRY_SELECTED_FIB))
 				continue;
 
 			if (info->safi == SAFI_UNICAST)

@@ -378,8 +378,7 @@ static int ns_config_write(struct vty *vty)
 	struct ns *ns;
 	int write = 0;
 
-	RB_FOREACH(ns, ns_head, &ns_tree)
-	{
+	RB_FOREACH (ns, ns_head, &ns_tree) {
 		if (ns->ns_id == NS_DEFAULT || ns->name == NULL)
 			continue;
 

@@ -113,8 +113,7 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 	peer = UPDGRP_PEER(updgrp);
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
 
-	UPDGRP_FOREACH_SUBGRP(updgrp, subgrp)
-	{
+	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
 
 		/*
 		 * Skip the subgroups that have coalesce timer running. We will
@@ -262,8 +261,7 @@ static int updgrp_show_adj_walkcb(struct update_group *updgrp, void *arg)
 	struct vty *vty;
 
 	vty = ctx->vty;
-	UPDGRP_FOREACH_SUBGRP(updgrp, subgrp)
-	{
+	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
 		if (ctx->subgrp_id && (ctx->subgrp_id != subgrp->id))
 			continue;
 		vty_out(vty, "update group %" PRIu64 ", subgroup %" PRIu64 "\n",
@@ -311,8 +309,7 @@ static int subgroup_coalesce_timer(struct thread *thread)
 		struct peer_af *paf;
 		struct peer *peer;
 
-		SUBGRP_FOREACH_PEER(subgrp, paf)
-		{
+		SUBGRP_FOREACH_PEER (subgrp, paf) {
 			peer = PAF_PEER(paf);
 			BGP_TIMER_OFF(peer->t_routeadv);
 			BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, 0);
@@ -326,8 +323,7 @@ static int update_group_announce_walkcb(struct update_group *updgrp, void *arg)
 {
 	struct update_subgroup *subgrp;
 
-	UPDGRP_FOREACH_SUBGRP(updgrp, subgrp)
-	{
+	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
 		subgroup_announce_all(subgrp);
 	}
 
@@ -348,8 +344,7 @@ static int update_group_announce_rrc_walkcb(struct update_group *updgrp,
 
 	/* Only announce if this is a group of route-reflector-clients */
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_REFLECTOR_CLIENT)) {
-		UPDGRP_FOREACH_SUBGRP(updgrp, subgrp)
-		{
+		UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
 			subgroup_announce_all(subgrp);
 		}
 	}
@@ -468,8 +463,7 @@ void bgp_adj_out_set_subgroup(struct bgp_node *rn,
 	if (BGP_ADV_FIFO_EMPTY(&subgrp->sync->update)) {
 		struct peer_af *paf;
 
-		SUBGRP_FOREACH_PEER(subgrp, paf)
-		{
+		SUBGRP_FOREACH_PEER (subgrp, paf) {
 			bgp_adjust_routeadv(PAF_PEER(paf));
 		}
 	}
@@ -556,8 +550,7 @@ void subgroup_clear_table(struct update_subgroup *subgrp)
 {
 	struct bgp_adj_out *aout, *taout;
 
-	SUBGRP_FOREACH_ADJ_SAFE(subgrp, aout, taout)
-	{
+	SUBGRP_FOREACH_ADJ_SAFE (subgrp, aout, taout) {
 		struct bgp_node *rn = aout->rn;
 		bgp_adj_out_remove_subgroup(rn, aout, subgrp);
 		bgp_unlock_node(rn);

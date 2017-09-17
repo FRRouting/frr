@@ -187,19 +187,21 @@ void router_id_write(struct vty *vty)
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	if ((zvrf = vrf->info) != NULL)
-		if (zvrf->rid_user_assigned.u.prefix4.s_addr) {
-			if (zvrf_id(zvrf) == VRF_DEFAULT)
-				vty_out(vty, "router-id %s\n",
-					inet_ntoa(zvrf->rid_user_assigned.u
-							  .prefix4));
-			else
-				vty_out(vty, "router-id %s vrf %s\n",
-					inet_ntoa(zvrf->rid_user_assigned.u
-							  .prefix4),
-					zvrf_name(zvrf));
-		}
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		if ((zvrf = vrf->info) != NULL)
+			if (zvrf->rid_user_assigned.u.prefix4.s_addr) {
+				if (zvrf_id(zvrf) == VRF_DEFAULT)
+					vty_out(vty, "router-id %s\n",
+						inet_ntoa(
+							zvrf->rid_user_assigned
+								.u.prefix4));
+				else
+					vty_out(vty, "router-id %s vrf %s\n",
+						inet_ntoa(
+							zvrf->rid_user_assigned
+								.u.prefix4),
+						zvrf_name(zvrf));
+			}
 }
 
 DEFUN (router_id,

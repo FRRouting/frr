@@ -378,8 +378,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 	char buf[SRCDEST2STR_BUFFER];
 	struct zebra_vrf *zvrf;
 
-	RNODE_FOREACH_RE(rn, re)
-	{
+	RNODE_FOREACH_RE (rn, re) {
 		const char *mcast_info = "";
 		if (mcast) {
 			rib_table_info_t *info = srcdest_rnode_table_info(rn);
@@ -926,8 +925,7 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 
 	/* Show all routes. */
 	for (rn = route_top(table); rn; rn = route_next(rn)) {
-		RNODE_FOREACH_RE(rn, re)
-		{
+		RNODE_FOREACH_RE (rn, re) {
 			if (use_fib
 			    && !CHECK_FLAG(re->status,
 					   ROUTE_ENTRY_SELECTED_FIB))
@@ -1031,12 +1029,12 @@ DEFUN (show_ip_nht_vrf_all,
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	if ((zvrf = vrf->info) != NULL) {
-		vty_out(vty, "\nVRF %s:\n", zvrf_name(zvrf));
-		zebra_print_rnh_table(zvrf_id(zvrf), AF_INET, vty,
-				      RNH_NEXTHOP_TYPE);
-	}
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		if ((zvrf = vrf->info) != NULL) {
+			vty_out(vty, "\nVRF %s:\n", zvrf_name(zvrf));
+			zebra_print_rnh_table(zvrf_id(zvrf), AF_INET, vty,
+					      RNH_NEXTHOP_TYPE);
+		}
 
 	return CMD_SUCCESS;
 }
@@ -1071,12 +1069,12 @@ DEFUN (show_ipv6_nht_vrf_all,
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	if ((zvrf = vrf->info) != NULL) {
-		vty_out(vty, "\nVRF %s:\n", zvrf_name(zvrf));
-		zebra_print_rnh_table(zvrf_id(zvrf), AF_INET6, vty,
-				      RNH_NEXTHOP_TYPE);
-	}
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		if ((zvrf = vrf->info) != NULL) {
+			vty_out(vty, "\nVRF %s:\n", zvrf_name(zvrf));
+			zebra_print_rnh_table(zvrf_id(zvrf), AF_INET6, vty,
+					      RNH_NEXTHOP_TYPE);
+		}
 
 	return CMD_SUCCESS;
 }
@@ -1235,8 +1233,7 @@ DEFUN (show_ip_route,
 	}
 
 	if (vrf_all) {
-		RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-		{
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 			if ((zvrf = vrf->info) == NULL
 			    || (table = zvrf->table[AFI_IP][SAFI_UNICAST])
 				       == NULL)
@@ -1360,8 +1357,7 @@ static void vty_show_ip_route_summary(struct vty *vty,
 	memset(&rib_cnt, 0, sizeof(rib_cnt));
 	memset(&fib_cnt, 0, sizeof(fib_cnt));
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
-		RNODE_FOREACH_RE(rn, re)
-		{
+		RNODE_FOREACH_RE (rn, re) {
 			is_ibgp = (re->type == ZEBRA_ROUTE_BGP
 				   && CHECK_FLAG(re->flags, ZEBRA_FLAG_IBGP));
 
@@ -1430,8 +1426,7 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 	memset(&rib_cnt, 0, sizeof(rib_cnt));
 	memset(&fib_cnt, 0, sizeof(fib_cnt));
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
-		RNODE_FOREACH_RE(rn, re)
-		{
+		RNODE_FOREACH_RE (rn, re) {
 
 			/*
 			 * In case of ECMP, count only once.
@@ -1560,8 +1555,7 @@ DEFUN (show_ip_route_vrf_all_addr,
 		return CMD_WARNING;
 	}
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if ((zvrf = vrf->info) == NULL
 		    || (table = zvrf->table[AFI_IP][SAFI_UNICAST]) == NULL)
 			continue;
@@ -1601,8 +1595,7 @@ DEFUN (show_ip_route_vrf_all_prefix,
 		return CMD_WARNING;
 	}
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if ((zvrf = vrf->info) == NULL
 		    || (table = zvrf->table[AFI_IP][SAFI_UNICAST]) == NULL)
 			continue;
@@ -1635,10 +1628,10 @@ DEFUN (show_ip_route_vrf_all_summary,
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	if ((zvrf = vrf->info) != NULL)
-		vty_show_ip_route_summary(vty,
-					  zvrf->table[AFI_IP][SAFI_UNICAST]);
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		if ((zvrf = vrf->info) != NULL)
+			vty_show_ip_route_summary(
+				vty, zvrf->table[AFI_IP][SAFI_UNICAST]);
 
 	return CMD_SUCCESS;
 }
@@ -1656,10 +1649,10 @@ DEFUN (show_ip_route_vrf_all_summary_prefix,
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	if ((zvrf = vrf->info) != NULL)
-		vty_show_ip_route_summary_prefix(
-			vty, zvrf->table[AFI_IP][SAFI_UNICAST]);
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		if ((zvrf = vrf->info) != NULL)
+			vty_show_ip_route_summary_prefix(
+				vty, zvrf->table[AFI_IP][SAFI_UNICAST]);
 
 	return CMD_SUCCESS;
 }
@@ -1676,8 +1669,7 @@ static int static_config(struct vty *vty, afi_t afi, safi_t safi,
 	char buf[SRCDEST2STR_BUFFER];
 	int write = 0;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (!(zvrf = vrf->info))
 			continue;
 		if ((stable = zvrf->stable[afi][safi]) == NULL)
@@ -1874,8 +1866,7 @@ DEFUN (show_ipv6_route,
 	}
 
 	if (vrf_all) {
-		RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-		{
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 			if ((zvrf = vrf->info) == NULL
 			    || (table = zvrf->table[AFI_IP6][SAFI_UNICAST])
 				       == NULL)
@@ -2063,8 +2054,7 @@ DEFUN (show_ipv6_mroute,
 
 	/* Show all IPv6 route. */
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
-		RNODE_FOREACH_RE(rn, re)
-		{
+		RNODE_FOREACH_RE (rn, re) {
 			if (first) {
 				vty_out(vty, SHOW_ROUTE_V6_HEADER);
 				first = 0;
@@ -2097,8 +2087,7 @@ DEFUN (show_ipv6_route_vrf_all_addr,
 		return CMD_WARNING;
 	}
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if ((zvrf = vrf->info) == NULL
 		    || (table = zvrf->table[AFI_IP6][SAFI_UNICAST]) == NULL)
 			continue;
@@ -2138,8 +2127,7 @@ DEFUN (show_ipv6_route_vrf_all_prefix,
 		return CMD_WARNING;
 	}
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if ((zvrf = vrf->info) == NULL
 		    || (table = zvrf->table[AFI_IP6][SAFI_UNICAST]) == NULL)
 			continue;
@@ -2172,10 +2160,10 @@ DEFUN (show_ipv6_route_vrf_all_summary,
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	if ((zvrf = vrf->info) != NULL)
-		vty_show_ip_route_summary(vty,
-					  zvrf->table[AFI_IP6][SAFI_UNICAST]);
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		if ((zvrf = vrf->info) != NULL)
+			vty_show_ip_route_summary(
+				vty, zvrf->table[AFI_IP6][SAFI_UNICAST]);
 
 	return CMD_SUCCESS;
 }
@@ -2195,16 +2183,14 @@ DEFUN (show_ipv6_mroute_vrf_all,
 	struct zebra_vrf *zvrf;
 	int first = 1;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if ((zvrf = vrf->info) == NULL
 		    || (table = zvrf->table[AFI_IP6][SAFI_MULTICAST]) == NULL)
 			continue;
 
 		/* Show all IPv6 route. */
 		for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
-			RNODE_FOREACH_RE(rn, re)
-			{
+			RNODE_FOREACH_RE (rn, re) {
 				if (first) {
 					vty_out(vty, SHOW_ROUTE_V6_HEADER);
 					first = 0;
@@ -2228,10 +2214,10 @@ DEFUN (show_ipv6_route_vrf_all_summary_prefix,
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	if ((zvrf = vrf->info) != NULL)
-		vty_show_ip_route_summary_prefix(
-			vty, zvrf->table[AFI_IP6][SAFI_UNICAST]);
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		if ((zvrf = vrf->info) != NULL)
+			vty_show_ip_route_summary_prefix(
+				vty, zvrf->table[AFI_IP6][SAFI_UNICAST]);
 
 	return CMD_SUCCESS;
 }
@@ -2267,8 +2253,7 @@ DEFUN (show_vrf,
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (!(zvrf = vrf->info))
 			continue;
 		if (!zvrf_id(zvrf))

@@ -2078,8 +2078,8 @@ int peer_delete(struct peer *peer)
 			}
 		}
 
-	FOREACH_AFI_SAFI(afi, safi)
-	peer_af_delete(peer, afi, safi);
+	FOREACH_AFI_SAFI (afi, safi)
+		peer_af_delete(peer, afi, safi);
 
 	if (peer->hostname) {
 		XFREE(MTYPE_BGP_PEER_HOST, peer->hostname);
@@ -7365,8 +7365,7 @@ static void bgp_viewvrf_autocomplete(vector comps, struct cmd_token *token)
 	struct listnode *next;
 	struct bgp *bgp;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	{
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (vrf->vrf_id != VRF_DEFAULT)
 			vector_set(comps, XSTRDUP(MTYPE_COMPLETION, vrf->name));
 	}

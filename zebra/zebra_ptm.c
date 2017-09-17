@@ -263,17 +263,19 @@ DEFUN (zebra_ptm_enable,
 
 	ptm_cb.ptm_enable = ZEBRA_IF_PTM_ENABLE_ON;
 
-	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name)
-	for (ALL_LIST_ELEMENTS_RO(vrf->iflist, i, ifp))
-		if (!ifp->ptm_enable) {
-			if_data = (struct zebra_if *)ifp->info;
-			if (if_data && (if_data->ptm_enable
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		for (ALL_LIST_ELEMENTS_RO(vrf->iflist, i, ifp))
+			if (!ifp->ptm_enable) {
+				if_data = (struct zebra_if *)ifp->info;
+				if (if_data
+				    && (if_data->ptm_enable
 					== ZEBRA_IF_PTM_ENABLE_UNSPEC)) {
-				ifp->ptm_enable = ZEBRA_IF_PTM_ENABLE_ON;
+					ifp->ptm_enable =
+						ZEBRA_IF_PTM_ENABLE_ON;
+				}
+				/* Assign a default unknown status */
+				ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
 			}
-			/* Assign a default unknown status */
-			ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
-		}
 
 	zebra_ptm_connect(NULL);
 
@@ -1090,26 +1092,27 @@ void zebra_ptm_reset_status(int ptm_disable)
 	struct interface *ifp;
 	int send_linkup;
 
-	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id)
-	for (ALL_LIST_ELEMENTS_RO(vrf->iflist, i, ifp)) {
-		send_linkup = 0;
-		if (ifp->ptm_enable) {
-			if (!if_is_operative(ifp))
-				send_linkup = 1;
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
+		for (ALL_LIST_ELEMENTS_RO(vrf->iflist, i, ifp)) {
+			send_linkup = 0;
+			if (ifp->ptm_enable) {
+				if (!if_is_operative(ifp))
+					send_linkup = 1;
 
-			if (ptm_disable)
-				ifp->ptm_enable = ZEBRA_IF_PTM_ENABLE_OFF;
-			ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
+				if (ptm_disable)
+					ifp->ptm_enable =
+						ZEBRA_IF_PTM_ENABLE_OFF;
+				ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
 
-			if (if_is_operative(ifp) && send_linkup) {
-				if (IS_ZEBRA_DEBUG_EVENT)
-					zlog_debug(
-						"%s: Bringing up interface %s",
-						__func__, ifp->name);
-				if_up(ifp);
+				if (if_is_operative(ifp) && send_linkup) {
+					if (IS_ZEBRA_DEBUG_EVENT)
+						zlog_debug(
+							"%s: Bringing up interface %s",
+							__func__, ifp->name);
+					if_up(ifp);
+				}
 			}
 		}
-	}
 }
 
 void zebra_ptm_if_init(struct zebra_if *zebra_ifp)

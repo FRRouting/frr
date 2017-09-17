@@ -274,11 +274,9 @@ void zebra_pw_client_close(struct zserv *client)
 	struct zebra_vrf *zvrf;
 	struct zebra_pw *pw, *tmp;
 
-	RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id)
-	{
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		zvrf = vrf->info;
-		RB_FOREACH_SAFE(pw, zebra_pw_head, &zvrf->pseudowires, tmp)
-		{
+		RB_FOREACH_SAFE (pw, zebra_pw_head, &zvrf->pseudowires, tmp) {
 			if (pw->client != client)
 				continue;
 			zebra_pw_del(zvrf, pw);
@@ -450,8 +448,7 @@ DEFUN (show_pseudowires,
 	vty_out(vty, "%-16s %-24s %-12s %-8s %-10s\n", "Interface", "Neighbor",
 		"Labels", "Protocol", "Status");
 
-	RB_FOREACH(pw, zebra_pw_head, &zvrf->pseudowires)
-	{
+	RB_FOREACH (pw, zebra_pw_head, &zvrf->pseudowires) {
 		char buf_nbr[INET6_ADDRSTRLEN];
 		char buf_labels[64];
 
@@ -486,8 +483,7 @@ static int zebra_pw_config(struct vty *vty)
 	if (!zvrf)
 		return 0;
 
-	RB_FOREACH(pw, zebra_static_pw_head, &zvrf->static_pseudowires)
-	{
+	RB_FOREACH (pw, zebra_static_pw_head, &zvrf->static_pseudowires) {
 		vty_out(vty, "pseudowire %s\n", pw->ifname);
 		if (pw->local_label != MPLS_NO_LABEL
 		    && pw->remote_label != MPLS_NO_LABEL)

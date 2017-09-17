@@ -405,8 +405,7 @@ static struct route_entry *zebra_rnh_resolve_entry(vrf_id_t vrfid, int family,
 		re = NULL;
 	else {
 		/* Identify appropriate route entry. */
-		RNODE_FOREACH_RE(rn, re)
-		{
+		RNODE_FOREACH_RE (rn, re) {
 			if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
 				continue;
 			if (!CHECK_FLAG(re->status, ROUTE_ENTRY_SELECTED_FIB))
@@ -578,8 +577,7 @@ static void zebra_rnh_process_static_routes(vrf_id_t vrfid, int family,
 	/* Evaluate each static route associated with this nexthop. */
 	for (ALL_LIST_ELEMENTS_RO(rnh->zebra_static_route_list, node,
 				  static_rn)) {
-		RNODE_FOREACH_RE(static_rn, sre)
-		{
+		RNODE_FOREACH_RE (static_rn, sre) {
 			if (sre->type != ZEBRA_ROUTE_STATIC)
 				continue;
 
