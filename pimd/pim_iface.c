@@ -1292,16 +1292,11 @@ ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
 	}
 
 	ij = igmp_join_find(pim_ifp->igmp_join_list, group_addr, source_addr);
+
+	/* This interface has already been configured to join this IGMP group
+	 */
 	if (ij) {
-		char group_str[INET_ADDRSTRLEN];
-		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<grp?>", group_addr, group_str,
-			       sizeof(group_str));
-		pim_inet4_dump("<src?>", source_addr, source_str,
-			       sizeof(source_str));
-		return ferr_cfg_invalid(
-			"can't re-join existing IGMP group %s source %s on interface %s",
-			group_str, source_str, ifp->name);
+		return ferr_ok();
 	}
 
 	ij = igmp_join_new(ifp, group_addr, source_addr);
