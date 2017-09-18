@@ -117,8 +117,17 @@ static u_int32_t ospf6_interface_get_cost(struct ospf6_interface *oi)
 	u_int32_t cost;
 	u_int32_t bw, refbw;
 
-	bw = oi->interface->bandwidth ? oi->interface->bandwidth
-				      : OSPF6_INTERFACE_BANDWIDTH;
+	/* interface speed and bw can be 0 in some platforms,
+	 * use ospf default bw. If bw is configured then it would
+	 * be used.
+	 */
+	if (!oi->interface->bandwidth && oi->interface->speed) {
+		bw = oi->interface->speed;
+	} else {
+		bw = oi->interface->bandwidth ? oi->interface->bandwidth
+			: OSPF6_INTERFACE_BANDWIDTH;
+	}
+
 	refbw = ospf6 ? ospf6->ref_bandwidth : OSPF6_REFERENCE_BANDWIDTH;
 
 	/* A specifed ip ospf cost overrides a calculated one. */
