@@ -102,13 +102,15 @@ struct zebra_vrf {
 	 * VNI hash table (for EVPN). Only in default instance.
 	 */
 	struct hash *vni_table;
+
 	/*
-	 * Whether EVPN is enabled or not.
+	 * Whether EVPN is enabled or not. Only in default instance.
 	 */
 	int advertise_all_vni;
 
 	/*
 	 * Whether we are advertising g/w macip in EVPN or not.
+	 * Only in default instance.
 	 */
 	int advertise_gw_macip;
 
