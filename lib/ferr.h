@@ -162,7 +162,7 @@ void vty_print_error(struct vty *vty, ferr_r err, const char *msg, ...);
 	} while (0)
 
 #define CMD_FERR_RETURN(func, ...) \
-	CMD_FERR_DO(func, return CMD_WARNING, __VA_ARGS__)
+	CMD_FERR_DO(func, return CMD_WARNING_CONFIG_FAILED, __VA_ARGS__)
 #define CMD_FERR_GOTO(func, label, ...) \
 	CMD_FERR_DO(func, goto label, __VA_ARGS__)
 
