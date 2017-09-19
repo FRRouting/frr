@@ -22,6 +22,7 @@
 # OF THIS SOFTWARE.
 #
 
+import json
 import os
 import errno
 import re
@@ -58,6 +59,17 @@ class json_cmp_result(object):
         "Returns True if there were errors, otherwise False."
         return len(self.errors) > 0
 
+def json_diff(d1, d2):
+    """
+    Returns a string with the difference between JSON data.
+    """
+    json_format_opts = {
+        'indent': 4,
+        'sort_keys': True,
+    }
+    dstr1 = json.dumps(d1, **json_format_opts)
+    dstr2 = json.dumps(d2, **json_format_opts)
+    return difflines(dstr2, dstr1, title1='Expected value', title2='Current value', n=0)
 
 def json_cmp(d1, d2):
     """
@@ -110,8 +122,9 @@ def json_cmp(d1, d2):
                 if len(nd2[key]) > len(nd1[key]):
                     result.add_error(
                         '{}["{}"] too few items '.format(parent, key) +
-                        '(have ({}) "{}", expected ({}) "{}")'.format(
-                            len(nd1[key]), str(nd1[key]), len(nd2[key]), str(nd2[key])))
+                        '(have {}, expected {}:\n {})'.format(
+                            len(nd1[key]), len(nd2[key]),
+                            json_diff(nd1[key], nd2[key])))
                     continue
 
                 # List all unmatched items errors
@@ -131,15 +144,15 @@ def json_cmp(d1, d2):
                 # If there are unmatched items, error out.
                 if unmatched:
                     result.add_error(
-                        '{}["{}"] value is different (have "{}", expected "{}")'.format(
-                            parent, key, str(nd1[key]), str(nd2[key])))
+                        '{}["{}"] value is different (\n{})'.format(
+                            parent, key, json_diff(nd1[key], nd2[key])))
                 continue
 
             # Compare JSON values
             if nd1[key] != nd2[key]:
                 result.add_error(
-                    '{}["{}"] value is different (have "{}", expected "{}")'.format(
-                        parent, key, str(nd1[key]), str(nd2[key])))
+                    '{}["{}"] value is different (\n{})'.format(
+                        parent, key, json_diff(nd1[key], nd2[key])))
                 continue
 
     if result.has_errors():
