@@ -58,7 +58,7 @@ class json_cmp_result(object):
         return len(self.errors) > 0
 
 
-def json_cmp(d1, d2, reason=False):
+def json_cmp(d1, d2):
     """
     JSON compare function. Receives two parameters:
     * `d1`: json value
