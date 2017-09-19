@@ -51,7 +51,8 @@ class json_cmp_result(object):
 
     def add_error(self, error):
         "Append error message to the result"
-        self.errors.append(error)
+        for line in error.splitlines():
+            self.errors.append(line)
 
     def has_errors(self):
         "Returns True if there were errors, otherwise False."
