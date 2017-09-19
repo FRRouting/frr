@@ -135,6 +135,8 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 					re->type);
 			}
 		}
+
+		re->uptime = time(NULL);
 		/* Schedule route for processing or invoke NHT, as appropriate.
 		 */
 		if (si->type == STATIC_IPV4_GATEWAY
@@ -211,6 +213,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 					re->type);
 			}
 		}
+		re->uptime = time(NULL);
 		/* Link this re to the tree. Schedule for processing or invoke
 		 * NHT,
 		 * as appropriate.
