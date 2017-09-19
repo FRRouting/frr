@@ -1152,7 +1152,7 @@ if __name__ == '__main__':
 
                     while True:
                         try:
-                            _ = subprocess.check_output(cmd)
+                            _ = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
 
                         except subprocess.CalledProcessError:
 
@@ -1197,7 +1197,7 @@ if __name__ == '__main__':
                             fh.write(line + '\n')
 
                     try:
-                        subprocess.check_output(['/usr/bin/vtysh', '-f', filename])
+                        subprocess.check_output(['/usr/bin/vtysh', '-f', filename], stderr=subprocess.STDOUT)
                     except subprocess.CalledProcessError as e:
                         log.warning("frr-reload.py failed due to\n%s" % e.output)
                         reload_ok = False
