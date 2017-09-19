@@ -4093,7 +4093,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 			}
 		}
 
-		if (hc->default_rd.family || hc->default_response_lifetime
+		if (hc->default_rd.prefixlen || hc->default_response_lifetime
 		    || hc->default_rt_import_list || hc->default_rt_export_list
 		    || hc->nve_groups_sequential->count) {
 
