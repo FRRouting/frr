@@ -1007,20 +1007,21 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 
 		SET_FLAG(api.flags, ZEBRA_FLAG_INTERNAL);
 
-	/* Get nexthop address-family */
-	if (p->family == AF_INET && !BGP_ATTR_NEXTHOP_AFI_IP6(info->attr))
-		nh_family = AF_INET;
-	else if (p->family == AF_INET6
-		 || (p->family == AF_INET
-		     && BGP_ATTR_NEXTHOP_AFI_IP6(info->attr)))
-		nh_family = AF_INET6;
-	else
-		return;
-
 	/* Metric is currently based on the best-path only */
 	metric = info->attr->med;
 	for (mpinfo = info; mpinfo; mpinfo = bgp_info_mpath_next(mpinfo)) {
 		*mpinfo_cp = *mpinfo;
+
+		/* Get nexthop address-family */
+		if (p->family == AF_INET
+		    && !BGP_ATTR_NEXTHOP_AFI_IP6(mpinfo_cp->attr))
+			nh_family = AF_INET;
+		else if (p->family == AF_INET6
+			 || (p->family == AF_INET
+			     && BGP_ATTR_NEXTHOP_AFI_IP6(mpinfo_cp->attr)))
+			nh_family = AF_INET6;
+		else
+			continue;
 
 		if (nh_family == AF_INET) {
 			struct in_addr *nexthop;
@@ -1148,6 +1149,10 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 		for (i = 0; i < api.nexthop_num; i++) {
 			api_nh = &api.nexthops[i];
 
+			if (api_nh->type == NEXTHOP_TYPE_IPV4)
+				nh_family = AF_INET;
+			else
+				nh_family = AF_INET6;
 			inet_ntop(nh_family, &api_nh->gate, nh_buf,
 				  sizeof(nh_buf));
 
