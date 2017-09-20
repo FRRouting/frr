@@ -825,6 +825,7 @@ static int zserv_fec_register(struct zserv *client, int sock, u_short length)
 
 	while (l < length) {
 		flags = stream_getw(s);
+		memset(&p, 0, sizeof(p));
 		p.family = stream_getw(s);
 		if (p.family != AF_INET && p.family != AF_INET6) {
 			zlog_err(
@@ -875,6 +876,7 @@ static int zserv_fec_unregister(struct zserv *client, int sock, u_short length)
 	while (l < length) {
 		// flags = stream_getw(s);
 		(void)stream_getw(s);
+		memset(&p, 0, sizeof(p));
 		p.family = stream_getw(s);
 		if (p.family != AF_INET && p.family != AF_INET6) {
 			zlog_err(
