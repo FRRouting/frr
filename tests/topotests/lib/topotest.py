@@ -198,20 +198,20 @@ def pid_exists(pid):
     else:
         return True
 
-def get_textdiff(text1, text2, title1="", title2=""):
+def get_textdiff(text1, text2, title1="", title2="", **opts):
     "Returns empty string if same or formatted diff"
 
     diff = '\n'.join(difflib.unified_diff(text1, text2,
-           fromfile=title1, tofile=title2))
+           fromfile=title1, tofile=title2, **opts))
     # Clean up line endings
     diff = os.linesep.join([s for s in diff.splitlines() if s])
     return diff
 
-def difflines(text1, text2, title1='', title2=''):
+def difflines(text1, text2, title1='', title2='', **opts):
     "Wrapper for get_textdiff to avoid string transformations."
     text1 = ('\n'.join(text1.rstrip().splitlines()) + '\n').splitlines(1)
     text2 = ('\n'.join(text2.rstrip().splitlines()) + '\n').splitlines(1)
-    return get_textdiff(text1, text2, title1, title2)
+    return get_textdiff(text1, text2, title1, title2, **opts)
 
 def get_file(content):
     """
