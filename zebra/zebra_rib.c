@@ -372,6 +372,12 @@ static void nexthop_set_resolved(afi_t afi, struct nexthop *newhop,
 		break;
 	}
 
+	/* Copy labels of the resolved route */
+	if (newhop->nh_label)
+		nexthop_add_labels(resolved_hop, newhop->nh_label_type,
+				   newhop->nh_label->num_labels,
+				   &newhop->nh_label->label[0]);
+
 	resolved_hop->rparent = nexthop;
 	nexthop_add(&nexthop->resolved, resolved_hop);
 }
