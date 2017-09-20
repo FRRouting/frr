@@ -2104,8 +2104,8 @@ static void zebra_client_close_cleanup_rnh(struct zserv *client)
 	}
 }
 
-/* Close zebra client. */
-static void zebra_client_close(struct zserv *client)
+/* free zebra client information. */
+static void zebra_client_free(struct zserv *client)
 {
 	/* Send client de-registration to BFD */
 	zebra_ptm_bfd_client_deregister(client->proto);
@@ -2161,9 +2161,13 @@ static void zebra_client_close(struct zserv *client)
 	vrf_bitmap_free(client->ifinfo);
 	vrf_bitmap_free(client->ridinfo);
 
-	/* Free client structure. */
-	listnode_delete(zebrad.client_list, client);
 	XFREE(MTYPE_TMP, client);
+}
+
+static void zebra_client_close(struct zserv *client)
+{
+	listnode_delete(zebrad.client_list, client);
+	zebra_client_free(client);
 }
 
 /* Make new client. */
@@ -3009,6 +3013,7 @@ void zebra_init(void)
 {
 	/* Client list init. */
 	zebrad.client_list = list_new();
+	zebrad.client_list->del = (void (*)(void *))zebra_client_free;
 
 	/* Install configuration write function. */
 	install_node(&table_node, config_write_table);
