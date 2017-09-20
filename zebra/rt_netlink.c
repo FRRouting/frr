@@ -845,7 +845,7 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 {
 	struct nexthop_label *nh_label;
 	mpls_lse_t out_lse[MPLS_MAX_LABELS];
-	char label_buf[100];
+	char label_buf[256];
 
 	/*
 	 * label_buf is *only* currently used within debugging.
@@ -876,12 +876,13 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 							     0, 0, bos);
 				if (IS_ZEBRA_DEBUG_KERNEL) {
 					if (!num_labels)
-						sprintf(label_buf, "label %d",
+						sprintf(label_buf, "label %u",
 							nh_label->label[i]);
 					else {
-						sprintf(label_buf1, "/%d",
+						sprintf(label_buf1, "/%u",
 							nh_label->label[i]);
-						strcat(label_buf, label_buf1);
+						strlcat(label_buf, label_buf1,
+							sizeof(label_buf));
 					}
 				}
 				num_labels++;
@@ -1044,7 +1045,7 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 {
 	struct nexthop_label *nh_label;
 	mpls_lse_t out_lse[MPLS_MAX_LABELS];
-	char label_buf[100];
+	char label_buf[256];
 
 	rtnh->rtnh_len = sizeof(*rtnh);
 	rtnh->rtnh_flags = 0;
@@ -1080,12 +1081,13 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 							     0, 0, bos);
 				if (IS_ZEBRA_DEBUG_KERNEL) {
 					if (!num_labels)
-						sprintf(label_buf, "label %d",
+						sprintf(label_buf, "label %u",
 							nh_label->label[i]);
 					else {
-						sprintf(label_buf1, "/%d",
+						sprintf(label_buf1, "/%u",
 							nh_label->label[i]);
-						strcat(label_buf, label_buf1);
+						strlcat(label_buf, label_buf1,
+							sizeof(label_buf));
 					}
 				}
 				num_labels++;
