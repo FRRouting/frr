@@ -2442,70 +2442,10 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 	    u_int32_t mtu, u_char distance)
 {
 	struct route_entry *re;
-	struct route_entry *same = NULL;
-	struct route_table *table;
-	struct route_node *rn;
-	struct nexthop *rtnh;
+	struct nexthop *nexthop;
 
-	assert(!src_p || afi == AFI_IP6);
-
-	/* Lookup table.  */
-	table = zebra_vrf_table_with_table_id(afi, safi, vrf_id, table_id);
-	if (!table)
-		return 0;
-
-	/* Make sure mask is applied. */
-	apply_mask(p);
-	if (src_p)
-		apply_mask_ipv6(src_p);
-
-	/* Set default distance by route type. */
-	if (distance == 0) {
-		distance = route_distance(type);
-
-		/* iBGP distance is 200. */
-		if (type == ZEBRA_ROUTE_BGP
-		    && CHECK_FLAG(flags, ZEBRA_FLAG_IBGP))
-			distance = 200;
-	}
-
-	/* Lookup route node.*/
-	rn = srcdest_rnode_get(table, p, src_p);
-
-	/* If same type of route are installed, treat it as a implicit
-	   withdraw. */
-	RNODE_FOREACH_RE (rn, re) {
-		if (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED))
-			continue;
-
-		if (re->type != type)
-			continue;
-		if (re->instance != instance)
-			continue;
-		if (re->type == ZEBRA_ROUTE_KERNEL &&
-		    re->metric != metric)
-			continue;
-		if (!RIB_SYSTEM_ROUTE(re)) {
-			same = re;
-			break;
-		}
-		/* Duplicate system route comes in. */
-		rtnh = re->nexthop;
-		if (nexthop_same_no_recurse(rtnh, nh))
-			return 0;
-		/*
-		 * Nexthop is different. Remove the old route unless it's
-		 * a connected route. This exception is necessary because
-		 * of IPv6 link-local routes and unnumbered interfaces on
-		 * Linux.
-		 */
-		else if (type != ZEBRA_ROUTE_CONNECT)
-			same = re;
-	}
-
-	/* Allocate new re structure. */
+	/* Allocate new route_entry structure. */
 	re = XCALLOC(MTYPE_RE, sizeof(struct route_entry));
-
 	re->type = type;
 	re->instance = instance;
 	re->distance = distance;
@@ -2517,33 +2457,12 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 	re->nexthop_num = 0;
 	re->uptime = time(NULL);
 
-	rtnh = nexthop_new();
-	*rtnh = *nh;
-	route_entry_nexthop_add(re, rtnh);
+	/* Add nexthop. */
+	nexthop = nexthop_new();
+	*nexthop = *nh;
+	route_entry_nexthop_add(re, nexthop);
 
-	/* If this route is kernel route, set FIB flag to the route. */
-	if (RIB_SYSTEM_ROUTE(re))
-		for (rtnh = re->nexthop; rtnh; rtnh = rtnh->next)
-			SET_FLAG(rtnh->flags, NEXTHOP_FLAG_FIB);
-
-	/* Link new rib to node.*/
-	if (IS_ZEBRA_DEBUG_RIB) {
-		rnode_debug(
-			rn, vrf_id,
-			"Inserting route rn %p, re %p (type %d) existing %p",
-			(void *)rn, (void *)re, re->type, (void *)same);
-
-		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-			route_entry_dump(p, src_p, re);
-	}
-	rib_addnode(rn, re, 1);
-
-	/* Free implicit route.*/
-	if (same)
-		rib_delnode(rn, same);
-
-	route_unlock_node(rn);
-	return 0;
+	return rib_add_multipath(afi, safi, p, src_p, re);
 }
 
 /* Schedule routes of a particular table (address-family) based on event. */
