@@ -529,7 +529,8 @@ static uint16_t bgp_read(struct peer *peer)
  */
 static bool validate_header(struct peer *peer)
 {
-	uint16_t size, type;
+	uint16_t size;
+	uint8_t type;
 	struct stream *pkt = peer->ibuf_work;
 	size_t getp = stream_get_getp(pkt);
 
@@ -543,7 +544,7 @@ static bool validate_header(struct peer *peer)
 		return false;
 	}
 
-	/* Get size and type. */
+	/* Get size and type in host byte order. */
 	size = stream_getw_from(pkt, getp + BGP_MARKER_SIZE);
 	type = stream_getc_from(pkt, getp + BGP_MARKER_SIZE + 2);
 
@@ -553,19 +554,17 @@ static bool validate_header(struct peer *peer)
 	    && type != BGP_MSG_ROUTE_REFRESH_NEW
 	    && type != BGP_MSG_ROUTE_REFRESH_OLD
 	    && type != BGP_MSG_CAPABILITY) {
-		if (bgp_debug_neighbor_events(peer)) {
-			// XXX: zlog is not MT-safe
+		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s unknown message type 0x%02x", peer->host,
 				   type);
-		}
 
 		bgp_notify_send_with_data(peer, BGP_NOTIFY_HEADER_ERR,
 					  BGP_NOTIFY_HEADER_BAD_MESTYPE,
-					  (u_char *) &type, 1);
+					  &type, 1);
 		return false;
 	}
 
-	/* Mimimum packet length check. */
+	/* Minimum packet length check. */
 	if ((size < BGP_HEADER_SIZE) || (size > BGP_MAX_PACKET_SIZE)
 	    || (type == BGP_MSG_OPEN && size < BGP_MSG_OPEN_MIN_SIZE)
 	    || (type == BGP_MSG_UPDATE && size < BGP_MSG_UPDATE_MIN_SIZE)
@@ -584,9 +583,11 @@ static bool validate_header(struct peer *peer)
 					       : bgp_type_str[(int) type]);
 		}
 
+		uint16_t nsize = htons(size);
+
 		bgp_notify_send_with_data(peer, BGP_NOTIFY_HEADER_ERR,
 					  BGP_NOTIFY_HEADER_BAD_MESLEN,
-					  (u_char *) &size, 2);
+					  (unsigned char *) &nsize, 2);
 		return false;
 	}
 
