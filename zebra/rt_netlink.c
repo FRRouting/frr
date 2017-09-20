@@ -1446,8 +1446,8 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 				&& CHECK_FLAG(nexthop->flags,
 					      NEXTHOP_FLAG_FIB))) {
 				routedesc = nexthop->rparent
-						    ? "recursive, 1 hop"
-						    : "single hop";
+						    ? "recursive, single-path"
+						    : "single-path";
 
 				_netlink_route_debug(cmd, p, nexthop, routedesc,
 						     family, zvrf);
@@ -1529,8 +1529,8 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 				&& CHECK_FLAG(nexthop->flags,
 					      NEXTHOP_FLAG_FIB))) {
 				routedesc = nexthop->rparent
-						    ? "recursive, multihop"
-						    : "multihop";
+						    ? "recursive, multipath"
+						    : "multipath";
 				nexthop_num++;
 
 				_netlink_route_debug(cmd, p, nexthop, routedesc,
@@ -2412,7 +2412,7 @@ int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp)
 	 * chosen depend on the operation.
 	 */
 	if (nexthop_num == 1 || multipath_num == 1) {
-		routedesc = "single hop";
+		routedesc = "single-path";
 		_netlink_mpls_debug(cmd, lsp->ile.in_label, routedesc);
 
 		nexthop_num = 0;
@@ -2460,7 +2460,7 @@ int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp)
 		rta->rta_len = RTA_LENGTH(0);
 		rtnh = RTA_DATA(rta);
 
-		routedesc = "multihop";
+		routedesc = "multipath";
 		_netlink_mpls_debug(cmd, lsp->ile.in_label, routedesc);
 
 		nexthop_num = 0;
