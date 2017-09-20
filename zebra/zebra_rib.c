@@ -2260,7 +2260,11 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 		if (same->type == ZEBRA_ROUTE_KERNEL &&
 		    same->metric != re->metric)
 			continue;
-		if (!RIB_SYSTEM_ROUTE(same))
+		/*
+		 * We should allow duplicate connected routes because of
+		 * IPv6 link-local routes and unnumbered interfaces on Linux.
+		 */
+		if (same->type != ZEBRA_ROUTE_CONNECT)
 			break;
 	}
 
