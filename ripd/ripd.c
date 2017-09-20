@@ -3828,6 +3828,7 @@ void rip_clean(void)
 			rip->sock = -1;
 		}
 
+		stream_free(rip->obuf);
 		/* Static RIP route configuration. */
 		for (rp = route_top(rip->route); rp; rp = route_next(rp))
 			if (rp->info) {
