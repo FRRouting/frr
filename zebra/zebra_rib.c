@@ -370,6 +370,10 @@ static void nexthop_set_resolved(afi_t afi, struct nexthop *newhop,
 		resolved_hop->ifindex = newhop->ifindex;
 	}
 
+	if (newhop->type == NEXTHOP_TYPE_BLACKHOLE) {
+		resolved_hop->type = NEXTHOP_TYPE_BLACKHOLE;
+		resolved_hop->bh_type = nexthop->bh_type;
+	}
 	resolved_hop->rparent = nexthop;
 	nexthop_add(&nexthop->resolved, resolved_hop);
 }
@@ -496,8 +500,6 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		} else if (CHECK_FLAG(re->flags, ZEBRA_FLAG_INTERNAL)) {
 			resolved = 0;
 			for (ALL_NEXTHOPS(match->nexthop, newhop)) {
-				if (newhop->type == NEXTHOP_TYPE_BLACKHOLE)
-					continue;
 				if (!CHECK_FLAG(newhop->flags,
 						NEXTHOP_FLAG_FIB))
 					continue;
@@ -521,8 +523,6 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		} else if (re->type == ZEBRA_ROUTE_STATIC) {
 			resolved = 0;
 			for (ALL_NEXTHOPS(match->nexthop, newhop)) {
-				if (newhop->type == NEXTHOP_TYPE_BLACKHOLE)
-					continue;
 				if (!CHECK_FLAG(newhop->flags,
 						NEXTHOP_FLAG_FIB))
 					continue;
