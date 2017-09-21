@@ -23,6 +23,10 @@
 #ifdef HAVE_NETLINK
 
 #include <net/if_arp.h>
+#include <linux/lwtunnel.h>
+#include <linux/mpls_iptunnel.h>
+#include <linux/neighbour.h>
+#include <linux/rtnetlink.h>
 
 /* Hack for GNU libc version 2. */
 #ifndef MSG_TRUNC
@@ -61,64 +65,9 @@
 #include "zebra/zebra_mroute.h"
 #include "zebra/zebra_vxlan.h"
 
-
-/* TODO - Temporary definitions, need to refine. */
 #ifndef AF_MPLS
 #define AF_MPLS 28
 #endif
-
-#ifndef RTA_VIA
-#define RTA_VIA		18
-#endif
-
-#ifndef RTA_NEWDST
-#define RTA_NEWDST	19
-#endif
-
-#ifndef RTA_ENCAP_TYPE
-#define RTA_ENCAP_TYPE	21
-#endif
-
-#ifndef RTA_ENCAP
-#define RTA_ENCAP	22
-#endif
-
-#ifndef RTA_EXPIRES
-#define RTA_EXPIRES     23
-#endif
-
-#ifndef LWTUNNEL_ENCAP_MPLS
-#define LWTUNNEL_ENCAP_MPLS  1
-#endif
-
-#ifndef MPLS_IPTUNNEL_DST
-#define MPLS_IPTUNNEL_DST  1
-#endif
-
-#ifndef NDA_MASTER
-#define NDA_MASTER   9
-#endif
-
-#ifndef NTF_MASTER
-#define NTF_MASTER   0x04
-#endif
-
-#ifndef NTF_SELF
-#define NTF_SELF     0x02
-#endif
-
-#ifndef NTF_EXT_LEARNED
-#define NTF_EXT_LEARNED 0x10
-#endif
-
-#ifndef NDA_IFINDEX
-#define NDA_IFINDEX  8
-#endif
-
-#ifndef NDA_VLAN
-#define NDA_VLAN     5
-#endif
-/* End of temporary definitions */
 
 static vlanid_t filter_vlan = 0;
 
