@@ -47,6 +47,7 @@ an example)
 
     git clone https://github.com/frrouting/frr.git frr
     cd frr
+    git checkout stable/3.0
     ./bootstrap.sh
     MAKE=gmake
     export LDFLAGS="-L/usr/pkg/lib -R/usr/pkg/lib"
@@ -65,7 +66,6 @@ an example)
         --enable-configfile-mask=0640 \
         --enable-logfile-mask=0640 \
         --enable-rtadv \
-        --enable-tcp-zebra \
         --enable-fpm \
         --with-pkg-git-version \
         --with-pkg-extra-version=-MyOwnFRRVersion   

@@ -1605,7 +1605,7 @@ DEFUN (vtysh_show_work_queues,
 {
 	unsigned int i;
 	int ret = CMD_SUCCESS;
-	char line[] = "show work-queues\n";
+	char line[] = "do show work-queues\n";
 
 	for (i = 0; i < array_size(vtysh_client); i++)
 		if (vtysh_client[i].fd >= 0) {
@@ -1707,7 +1707,7 @@ DEFUN (vtysh_show_logging,
 {
 	unsigned int i;
 	int ret = CMD_SUCCESS;
-	char line[] = "show logging\n";
+	char line[] = "do show logging\n";
 
 	for (i = 0; i < array_size(vtysh_client); i++)
 		if (vtysh_client[i].fd >= 0) {
@@ -1721,17 +1721,23 @@ DEFUN (vtysh_show_logging,
 	return ret;
 }
 
-DEFUNSH(VTYSH_ALL, vtysh_log_stdout, vtysh_log_stdout_cmd, "log stdout",
-	"Logging control\n"
-	"Set stdout logging level\n")
+DEFUNSH (VTYSH_ALL,
+	 vtysh_log_stdout,
+	 vtysh_log_stdout_cmd,
+	 "log stdout",
+	 "Logging control\n"
+	 "Set stdout logging level\n")
 {
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_ALL, vtysh_log_stdout_level, vtysh_log_stdout_level_cmd,
-	"log stdout <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
-	"Logging control\n"
-	"Set stdout logging level\n" LOG_LEVEL_DESC)
+DEFUNSH (VTYSH_ALL,
+	 vtysh_log_stdout_level,
+	 vtysh_log_stdout_level_cmd,
+	 "log stdout <emergencies|alerts|critical|errors|warnings|notifications|informational|debugging>",
+	 "Logging control\n"
+	 "Set stdout logging level\n"
+	 LOG_LEVEL_DESC)
 {
 	return CMD_SUCCESS;
 }
@@ -1958,7 +1964,7 @@ DEFUN (vtysh_write_terminal,
        "For the pim daemon\n")
 {
 	u_int i;
-	char line[] = "write terminal\n";
+	char line[] = "do write terminal\n";
 	FILE *fp = NULL;
 
 	if (vtysh_pager_name) {
@@ -2053,7 +2059,7 @@ static void backup_config_file(const char *fbackup)
 int vtysh_write_config_integrated(void)
 {
 	u_int i;
-	char line[] = "write terminal\n";
+	char line[] = "do write terminal\n";
 	FILE *fp;
 	int fd;
 	struct passwd *pwentry;
@@ -2159,7 +2165,7 @@ DEFUN (vtysh_write_memory,
        "Write configuration to the file (same as write memory)\n")
 {
 	int ret = CMD_SUCCESS;
-	char line[] = "write memory\n";
+	char line[] = "do write memory\n";
 	u_int i;
 
 	fprintf(stdout,
@@ -2173,7 +2179,8 @@ DEFUN (vtysh_write_memory,
 				break;
 		if (i < array_size(vtysh_client) && vtysh_client[i].fd != -1)
 			ret = vtysh_client_execute(&vtysh_client[i],
-						   "write integrated", stdout);
+						   "do write integrated",
+						   stdout);
 
 		if (ret != CMD_SUCCESS) {
 			printf("\nWarning: attempting direct configuration write without "
@@ -2267,7 +2274,7 @@ DEFUN (vtysh_show_daemons,
 
 /* Execute command in child process. */
 static void execute_command(const char *command, int argc,
-			    struct cmd_token *arg1, const char *arg2)
+			    const char *arg1, const char *arg2)
 {
 	pid_t pid;
 	int status;
@@ -2312,7 +2319,10 @@ DEFUN (vtysh_ping,
        "Send echo messages\n"
        "Ping destination address or hostname\n")
 {
-	execute_command("ping", 1, argv[0], NULL);
+	int idx = 1;
+
+	argv_find(argv, argc, "WORD", &idx);
+	execute_command("ping", 1, argv[idx]->arg, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -2327,7 +2337,10 @@ DEFUN (vtysh_traceroute,
        "Trace route to destination\n"
        "Trace route to destination address or hostname\n")
 {
-	execute_command("traceroute", 1, argv[0], NULL);
+	int idx = 1;
+
+	argv_find(argv, argc, "WORD", &idx);
+	execute_command("traceroute", 1, argv[idx]->arg, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -2343,7 +2356,7 @@ DEFUN (vtysh_ping6,
        "IPv6 echo\n"
        "Ping destination address or hostname\n")
 {
-	execute_command("ping6", 1, argv[0], NULL);
+	execute_command("ping6", 1, argv[2]->arg, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -2354,7 +2367,7 @@ DEFUN (vtysh_traceroute6,
        "IPv6 trace\n"
        "Trace route to destination address or hostname\n")
 {
-	execute_command("traceroute6", 1, argv[0], NULL);
+	execute_command("traceroute6", 1, argv[2]->arg, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -2365,7 +2378,7 @@ DEFUN (vtysh_telnet,
        "Open a telnet connection\n"
        "IP address or hostname of a remote system\n")
 {
-	execute_command("telnet", 1, argv[0], NULL);
+	execute_command("telnet", 1, argv[1]->arg, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -2376,7 +2389,7 @@ DEFUN (vtysh_telnet_port,
        "IP address or hostname of a remote system\n"
        "TCP Port number\n")
 {
-	execute_command("telnet", 2, argv[0], argv[1]);
+	execute_command("telnet", 2, argv[1]->arg, argv[2]->arg);
 	return CMD_SUCCESS;
 }
 
@@ -2386,7 +2399,7 @@ DEFUN (vtysh_ssh,
        "Open an ssh connection\n"
        "[user@]host\n")
 {
-	execute_command("ssh", 1, argv[0], NULL);
+	execute_command("ssh", 1, argv[1]->arg, NULL);
 	return CMD_SUCCESS;
 }
 

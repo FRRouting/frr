@@ -170,7 +170,8 @@ void vtysh_config_parse_line(const char *line)
 			} else if (config->index == RMAP_NODE
 				   || config->index == INTERFACE_NODE
 				   || config->index == NS_NODE
-				   || config->index == VTY_NODE)
+				   || config->index == VTY_NODE
+				   || config->index == VRF_NODE)
 				config_add_line_uniq(config->line, line);
 			else
 				config_add_line(config->line, line);
@@ -281,7 +282,8 @@ void vtysh_config_parse_line(const char *line)
 			if (strncmp(line, "log", strlen("log")) == 0
 			    || strncmp(line, "hostname", strlen("hostname"))
 				       == 0
-			    || strncmp(line, "frr", strlen("frr")) == 0)
+			    || strncmp(line, "frr", strlen("frr")) == 0
+			    || strncmp(line, "no log", strlen("no log")) == 0)
 				config_add_line_uniq(config_top, line);
 			else
 				config_add_line(config_top, line);
