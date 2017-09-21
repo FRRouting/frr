@@ -368,8 +368,8 @@ static int vnc_zebra_read_route(int command, struct zclient *zclient,
 /*
  * low-level message builder
  */
-static void vnc_zebra_route_msg(struct prefix *p, int nhp_count, void *nhp_ary,
-				int add) /* 1 = add, 0 = del */
+static void vnc_zebra_route_msg(struct prefix *p, unsigned int nhp_count,
+				void *nhp_ary, int add) /* 1 = add, 0 = del */
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -389,8 +389,8 @@ static void vnc_zebra_route_msg(struct prefix *p, int nhp_count, void *nhp_ary,
 
 	/* Nexthops */
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-	api.nexthop_num = nhp_count;
-	for (i = 0; i < nhp_count; i++) {
+	api.nexthop_num = MIN(nhp_count, multipath_num);
+	for (i = 0; i < api.nexthop_num; i++) {
 		struct in_addr *nhp_ary4;
 		struct in6_addr *nhp_ary6;
 
@@ -426,7 +426,8 @@ static void vnc_zebra_route_msg(struct prefix *p, int nhp_count, void *nhp_ary,
 
 
 static void
-nve_list_to_nh_array(u_char family, struct list *nve_list, int *nh_count_ret,
+nve_list_to_nh_array(u_char family, struct list *nve_list,
+		     unsigned int *nh_count_ret,
 		     void **nh_ary_ret,  /* returned address array */
 		     void **nhp_ary_ret) /* returned pointer array */
 {
@@ -549,7 +550,7 @@ static void vnc_zebra_add_del_prefix(struct bgp *bgp,
 {
 	struct list *nves;
 
-	int nexthop_count = 0;
+	unsigned int nexthop_count = 0;
 	void *nh_ary = NULL;
 	void *nhp_ary = NULL;
 
@@ -713,7 +714,7 @@ static void vnc_zebra_add_del_group_afi(struct bgp *bgp,
 	uint8_t family = afi2family(afi);
 
 	struct list *nves = NULL;
-	int nexthop_count = 0;
+	unsigned int nexthop_count = 0;
 	void *nh_ary = NULL;
 	void *nhp_ary = NULL;
 

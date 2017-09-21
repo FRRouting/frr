@@ -349,7 +349,6 @@ void ospf_zebra_add(struct prefix_ipv4 *p, struct ospf_route * or)
 
 	memcpy(&api.prefix, p, sizeof(*p));
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-	api.nexthop_num = or->paths->count;
 
 	/* Metric value. */
 	SET_FLAG(api.message, ZAPI_MESSAGE_METRIC);
@@ -377,6 +376,8 @@ void ospf_zebra_add(struct prefix_ipv4 *p, struct ospf_route * or)
 
 	/* Nexthop, ifindex, distance and metric information. */
 	for (ALL_LIST_ELEMENTS_RO(or->paths, node, path)) {
+		if (count >= MULTIPATH_NUM)
+			break;
 		api_nh = &api.nexthops[count];
 #ifdef HAVE_NETLINK
 		if (path->unnumbered || (path->nexthop.s_addr != INADDR_ANY
@@ -407,6 +408,7 @@ void ospf_zebra_add(struct prefix_ipv4 *p, struct ospf_route * or)
 				path->ifindex);
 		}
 	}
+	api.nexthop_num = count;
 
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 }

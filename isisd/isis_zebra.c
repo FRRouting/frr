@@ -277,6 +277,8 @@ static void isis_zebra_route_add_route(struct prefix *prefix,
 	case AF_INET:
 		for (ALL_LIST_ELEMENTS_RO(route_info->nexthops, node,
 					  nexthop)) {
+			if (count >= MULTIPATH_NUM)
+				break;
 			api_nh = &api.nexthops[count];
 			/* FIXME: can it be ? */
 			if (nexthop->ip.s_addr != INADDR_ANY) {
@@ -292,6 +294,8 @@ static void isis_zebra_route_add_route(struct prefix *prefix,
 	case AF_INET6:
 		for (ALL_LIST_ELEMENTS_RO(route_info->nexthops6, node,
 					  nexthop6)) {
+			if (count >= MULTIPATH_NUM)
+				break;
 			if (!IN6_IS_ADDR_LINKLOCAL(&nexthop6->ip6)
 			    && !IN6_IS_ADDR_UNSPECIFIED(&nexthop6->ip6)) {
 				continue;
