@@ -408,10 +408,16 @@ void zebra_mpls_vty_init(void);
  */
 static inline u_char lsp_distance(enum lsp_types_t type)
 {
-	if (type == ZEBRA_LSP_STATIC)
+	switch (type) {
+	case ZEBRA_LSP_STATIC:
 		return (route_distance(ZEBRA_ROUTE_STATIC));
-
-	return 150;
+	case ZEBRA_LSP_LDP:
+		return (route_distance(ZEBRA_ROUTE_LDP));
+	case ZEBRA_LSP_BGP:
+		return (route_distance(ZEBRA_ROUTE_BGP));
+	default:
+		return 150;
+	}
 }
 
 /*

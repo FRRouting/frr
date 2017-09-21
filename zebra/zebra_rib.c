@@ -78,7 +78,20 @@ static const struct {
 		[ZEBRA_ROUTE_OSPF6] = {ZEBRA_ROUTE_OSPF6, 110},
 		[ZEBRA_ROUTE_ISIS] = {ZEBRA_ROUTE_ISIS, 115},
 		[ZEBRA_ROUTE_BGP] = {ZEBRA_ROUTE_BGP, 20 /* IBGP is 200. */},
+		[ZEBRA_ROUTE_PIM] = {ZEBRA_ROUTE_PIM, 255},
+		[ZEBRA_ROUTE_EIGRP] = {ZEBRA_ROUTE_EIGRP, 90},
 		[ZEBRA_ROUTE_NHRP] = {ZEBRA_ROUTE_NHRP, 10},
+		[ZEBRA_ROUTE_HSLS] = {ZEBRA_ROUTE_HSLS, 255},
+		[ZEBRA_ROUTE_OLSR] = {ZEBRA_ROUTE_OLSR, 255},
+		[ZEBRA_ROUTE_TABLE] = {ZEBRA_ROUTE_TABLE, 150},
+		[ZEBRA_ROUTE_LDP] = {ZEBRA_ROUTE_LDP, 150},
+		[ZEBRA_ROUTE_VNC] = {ZEBRA_ROUTE_VNC, 20},
+		[ZEBRA_ROUTE_VNC_DIRECT] = {ZEBRA_ROUTE_VNC_DIRECT, 20},
+		[ZEBRA_ROUTE_VNC_DIRECT_RH] = {ZEBRA_ROUTE_VNC_DIRECT_RH, 20},
+		[ZEBRA_ROUTE_BGP_DIRECT] = {ZEBRA_ROUTE_BGP_DIRECT, 20},
+		[ZEBRA_ROUTE_BGP_DIRECT_EXT] = {ZEBRA_ROUTE_BGP_DIRECT_EXT, 20},
+		[ZEBRA_ROUTE_BABEL] = {ZEBRA_ROUTE_BABEL, 100},
+
 	/* no entry/default: 150 */
 };
 
@@ -2228,7 +2241,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 
 	/* Set default distance by route type. */
 	if (re->distance == 0) {
-		re->distance = route_info[re->type].distance;
+		re->distance = route_distance(re->type);
 
 		/* iBGP distance is 200. */
 		if (re->type == ZEBRA_ROUTE_BGP
@@ -2443,10 +2456,7 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 
 	/* Set default distance by route type. */
 	if (distance == 0) {
-		if ((unsigned)type >= array_size(route_info))
-			distance = 150;
-		else
-			distance = route_info[type].distance;
+		distance = route_distance(type);
 
 		/* iBGP distance is 200. */
 		if (type == ZEBRA_ROUTE_BGP
