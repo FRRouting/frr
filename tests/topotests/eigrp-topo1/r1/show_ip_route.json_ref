@@ -3,7 +3,6 @@
     {
       "prefix":"192.168.1.0/24",
       "protocol":"eigrp",
-      "distance":0,
       "metric":0,
       "nexthops":[
         {
@@ -32,7 +31,6 @@
       "prefix":"192.168.3.0/24",
       "protocol":"eigrp",
       "selected":true,
-      "distance":0,
       "metric":0,
       "nexthops":[
         {
@@ -49,7 +47,6 @@
     {
       "prefix":"193.1.1.0/26",
       "protocol":"eigrp",
-      "distance":0,
       "metric":0,
       "nexthops":[
         {
@@ -78,7 +75,6 @@
       "prefix":"193.1.2.0/24",
       "protocol":"eigrp",
       "selected":true,
-      "distance":0,
       "metric":0,
       "nexthops":[
         {
