@@ -956,7 +956,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
 	int nh_family;
-	int valid_nh_count = 0;
+	unsigned int valid_nh_count = 0;
 	int has_valid_label = 0;
 	u_char distance;
 	struct peer *peer;
@@ -1010,6 +1010,9 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	/* Metric is currently based on the best-path only */
 	metric = info->attr->med;
 	for (mpinfo = info; mpinfo; mpinfo = bgp_info_mpath_next(mpinfo)) {
+		if (valid_nh_count >= multipath_num)
+			break;
+
 		*mpinfo_cp = *mpinfo;
 
 		/* Get nexthop address-family */
