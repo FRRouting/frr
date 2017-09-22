@@ -89,7 +89,6 @@ struct isis_vertex {
 	u_int16_t depth;       /* The depth in the imaginary tree */
 	struct list *Adj_N;    /* {Adj(N)} next hop or neighbor list */
 	struct list *parents;  /* list of parents for ECMP */
-	struct list *children; /* list of children used for tree dump */
 	uint64_t insert_counter;
 };
 
@@ -431,7 +430,6 @@ static struct isis_vertex *isis_vertex_new(void *id, enum vertextype vtype)
 
 	vertex->Adj_N = list_new();
 	vertex->parents = list_new();
-	vertex->children = list_new();
 
 	return vertex;
 }
@@ -442,8 +440,6 @@ static void isis_vertex_del(struct isis_vertex *vertex)
 	vertex->Adj_N = NULL;
 	list_delete(vertex->parents);
 	vertex->parents = NULL;
-	list_delete(vertex->children);
-	vertex->children = NULL;
 
 	memset(vertex, 0, sizeof(struct isis_vertex));
 	XFREE(MTYPE_ISIS_VERTEX, vertex);
@@ -660,8 +656,6 @@ static struct isis_vertex *isis_spf_add2tent(struct isis_spftree *spftree,
 
 	if (parent) {
 		listnode_add(vertex->parents, parent);
-		if (listnode_lookup(parent->children, vertex) == NULL)
-			listnode_add(parent->children, vertex);
 	}
 
 	if (parent && parent->Adj_N && listcount(parent->Adj_N) > 0) {
@@ -703,9 +697,6 @@ static void isis_spf_add_local(struct isis_spftree *spftree,
 			if (parent && (listnode_lookup(vertex->parents, parent)
 				       == NULL))
 				listnode_add(vertex->parents, parent);
-			if (parent && (listnode_lookup(parent->children, vertex)
-				       == NULL))
-				listnode_add(parent->children, vertex);
 			return;
 		} else if (vertex->d_N < cost) {
 			/*       e) do nothing */
@@ -715,10 +706,6 @@ static void isis_spf_add_local(struct isis_spftree *spftree,
 			struct listnode *pnode, *pnextnode;
 			struct isis_vertex *pvertex;
 			isis_vertex_queue_delete(&spftree->tents, vertex);
-			assert(listcount(vertex->children) == 0);
-			for (ALL_LIST_ELEMENTS(vertex->parents, pnode,
-					       pnextnode, pvertex))
-				listnode_delete(pvertex->children, vertex);
 			isis_vertex_del(vertex);
 		}
 	}
@@ -794,9 +781,6 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype,
 				remove_excess_adjs(vertex->Adj_N);
 			if (listnode_lookup(vertex->parents, parent) == NULL)
 				listnode_add(vertex->parents, parent);
-			if (listnode_lookup(parent->children, vertex) == NULL)
-				listnode_add(parent->children, vertex);
-			/*      3) */
 			return;
 		} else if (vertex->d_N < dist) {
 			return;
@@ -805,10 +789,6 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype,
 			struct listnode *pnode, *pnextnode;
 			struct isis_vertex *pvertex;
 			isis_vertex_queue_delete(&spftree->tents, vertex);
-			assert(listcount(vertex->children) == 0);
-			for (ALL_LIST_ELEMENTS(vertex->parents, pnode,
-					       pnextnode, pvertex))
-				listnode_delete(pvertex->children, vertex);
 			isis_vertex_del(vertex);
 		}
 	}
