@@ -29,7 +29,9 @@ if SOLARIS
 TESTS_ISISD =
 else
 TESTS_ISISD = \
-	isisd/test_fuzz_isis_tlv
+	isisd/test_fuzz_isis_tlv \
+	isisd/test_isis_vertex_queue \
+	# end
 endif
 else
 TESTS_ISISD =
@@ -135,6 +137,7 @@ bgpd_test_mp_attr_SOURCES = bgpd/test_mp_attr.c
 bgpd_test_mpath_SOURCES = bgpd/test_mpath.c
 isisd_test_fuzz_isis_tlv_SOURCES = isisd/test_fuzz_isis_tlv.c
 isisd_test_fuzz_isis_tlv_CPPFLAGS = $(AM_CPPFLAGS) -I$(top_builddir)/tests/isisd
+isisd_test_isis_vertex_queue_SOURCES = isisd/test_isis_vertex_queue.c
 
 ospf6d_test_lsdb_SOURCES = ospf6d/test_lsdb.c lib/cli/common_cli.c
 
@@ -168,6 +171,7 @@ bgpd_test_ecommunity_LDADD = $(BGP_TEST_LDADD)
 bgpd_test_mp_attr_LDADD = $(BGP_TEST_LDADD)
 bgpd_test_mpath_LDADD = $(BGP_TEST_LDADD)
 isisd_test_fuzz_isis_tlv_LDADD = $(ISISD_TEST_LDADD)
+isisd_test_isis_vertex_queue_LDADD = $(ISISD_TEST_LDADD)
 ospf6d_test_lsdb_LDADD = $(OSPF6_TEST_LDADD)
 
 EXTRA_DIST = \
@@ -181,6 +185,7 @@ EXTRA_DIST = \
     helpers/python/frrtest.py \
     isisd/test_fuzz_isis_tlv.py \
     isisd/test_fuzz_isis_tlv_tests.h.gz \
+    isisd/test_isis_vertex_queue.py \
     lib/cli/test_commands.in \
     lib/cli/test_commands.py \
     lib/cli/test_commands.refout \
