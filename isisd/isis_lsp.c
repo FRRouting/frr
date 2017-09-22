@@ -1120,9 +1120,20 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	}
 	isis_free_tlvs(tlvs);
 
+	bool fragment_overflow = false;
 	frag = lsp;
 	for (ALL_LIST_ELEMENTS_RO(fragments, node, tlvs)) {
 		if (node != listhead(fragments)) {
+			if (LSP_FRAGMENT(frag->hdr.lsp_id) == 255) {
+				if (!fragment_overflow) {
+					fragment_overflow = true;
+					zlog_warn("ISIS (%s): Too much information for 256 fragments",
+						  area->area_tag);
+				}
+				isis_free_tlvs(tlvs);
+				continue;
+			}
+
 			frag = lsp_next_frag(LSP_FRAGMENT(frag->hdr.lsp_id) + 1,
 					     lsp, area, level);
 		}
