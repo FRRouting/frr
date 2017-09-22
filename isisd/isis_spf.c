@@ -36,6 +36,7 @@
 #include "table.h"
 #include "spf_backoff.h"
 #include "jhash.h"
+#include "skiplist.h"
 
 #include "isis_constants.h"
 #include "isis_common.h"
@@ -89,13 +90,18 @@ struct isis_vertex {
 	struct list *Adj_N;    /* {Adj(N)} next hop or neighbor list */
 	struct list *parents;  /* list of parents for ECMP */
 	struct list *children; /* list of children used for tree dump */
+	uint64_t insert_counter;
 };
 
 /* Vertex Queue and associated functions */
 
 struct isis_vertex_queue {
-	struct list *list;
+	union {
+		struct skiplist *slist;
+		struct list *list;
+	} l;
 	struct hash *hash;
+	uint64_t insert_counter;
 };
 
 static unsigned isis_vertex_queue_hash_key(void *vp)
@@ -121,9 +127,50 @@ static int isis_vertex_queue_hash_cmp(const void *a, const void *b)
 	return memcmp(va->N.id, vb->N.id, ISIS_SYS_ID_LEN + 1) == 0;
 }
 
-static void isis_vertex_queue_init(struct isis_vertex_queue *queue, const char *name)
+/*
+ * Compares vertizes for sorting in the TENT list. Returns true
+ * if candidate should be considered before current, false otherwise.
+ */
+static int isis_vertex_queue_tent_cmp(void *a, void *b)
 {
-	queue->list = list_new();
+	struct isis_vertex *va = a;
+	struct isis_vertex *vb = b;
+
+	if (va->d_N < vb->d_N)
+		return -1;
+
+	if (va->d_N > vb->d_N)
+		return 1;
+
+	if (va->type < vb->type)
+		return -1;
+
+	if (va->type > vb->type)
+		return 1;
+
+	if (va->insert_counter < vb->insert_counter)
+		return -1;
+
+	if (va->insert_counter > vb->insert_counter)
+		return 1;
+
+	assert(!"Vertizes should be strictly ordered");
+}
+
+static struct skiplist *isis_vertex_queue_skiplist(void)
+{
+	return skiplist_new(0, isis_vertex_queue_tent_cmp, NULL);
+}
+
+static void isis_vertex_queue_init(struct isis_vertex_queue *queue, const char *name, bool ordered)
+{
+	if (ordered) {
+		queue->insert_counter = 1;
+		queue->l.slist = isis_vertex_queue_skiplist();
+	} else {
+		queue->insert_counter = 0;
+		queue->l.list = list_new();
+	}
 	queue->hash = hash_create(isis_vertex_queue_hash_key,
 				  isis_vertex_queue_hash_cmp,
 				  name);
@@ -135,9 +182,18 @@ static void isis_vertex_queue_clear(struct isis_vertex_queue *queue)
 {
 	hash_clean(queue->hash, NULL);
 
-	queue->list->del = (void (*)(void *))isis_vertex_del;
-	list_delete_all_node(queue->list);
-	queue->list->del = NULL;
+	if (queue->insert_counter) {
+		struct isis_vertex *vertex;
+		while (0 == skiplist_first(queue->l.slist, NULL, (void**)&vertex)) {
+			isis_vertex_del(vertex);
+			skiplist_delete_first(queue->l.slist);
+		}
+		queue->insert_counter = 1;
+	} else {
+		queue->l.list->del = (void (*)(void *))isis_vertex_del;
+		list_delete_all_node(queue->l.list);
+		queue->l.list->del = NULL;
+	}
 }
 
 static void isis_vertex_queue_free(struct isis_vertex_queue *queue)
@@ -147,19 +203,26 @@ static void isis_vertex_queue_free(struct isis_vertex_queue *queue)
 	hash_free(queue->hash);
 	queue->hash = NULL;
 
-	list_delete(queue->list);
-	queue->list = NULL;
+	if (queue->insert_counter) {
+		skiplist_free(queue->l.slist);
+		queue->l.slist = NULL;
+	} else {
+		list_delete(queue->l.list);
+		queue->l.list = NULL;
+	}
 }
 
 static unsigned int isis_vertex_queue_count(struct isis_vertex_queue *queue)
 {
-	return listcount(queue->list);
+	return hashcount(queue->hash);
 }
 
-static void isis_vertex_queue_add(struct isis_vertex_queue *queue,
-				  struct isis_vertex *vertex)
+static void isis_vertex_queue_append(struct isis_vertex_queue *queue,
+				     struct isis_vertex *vertex)
 {
-	listnode_add(queue->list, vertex);
+	assert(!queue->insert_counter);
+
+	listnode_add(queue->l.list, vertex);
 
 	struct isis_vertex *inserted;
 
@@ -167,17 +230,30 @@ static void isis_vertex_queue_add(struct isis_vertex_queue *queue,
 	assert(inserted == vertex);
 }
 
+static void isis_vertex_queue_insert(struct isis_vertex_queue *queue,
+				     struct isis_vertex *vertex)
+{
+	assert(queue->insert_counter);
+	vertex->insert_counter = queue->insert_counter++;
+	assert(queue->insert_counter != (uint64_t)-1);
+
+	skiplist_insert(queue->l.slist, vertex, vertex);
+
+	struct isis_vertex *inserted;
+	inserted = hash_get(queue->hash, vertex, hash_alloc_intern);
+	assert(inserted == vertex);
+}
+
 static struct isis_vertex *isis_vertex_queue_pop(struct isis_vertex_queue *queue)
 {
-	struct listnode *node;
+	assert(queue->insert_counter);
 
-	node = listhead(queue->list);
-	if (!node)
+	struct isis_vertex *rv;
+
+	if (skiplist_first(queue->l.slist, NULL, (void**)&rv))
 		return NULL;
 
-	struct isis_vertex *rv = listgetdata(node);
-
-	list_delete_node(queue->list, node);
+	skiplist_delete_first(queue->l.slist);
 	hash_release(queue->hash, rv);
 
 	return rv;
@@ -186,12 +262,14 @@ static struct isis_vertex *isis_vertex_queue_pop(struct isis_vertex_queue *queue
 static void isis_vertex_queue_delete(struct isis_vertex_queue *queue,
 				     struct isis_vertex *vertex)
 {
-	listnode_delete(queue->list, vertex);
+	assert(queue->insert_counter);
+
+	skiplist_delete(queue->l.slist, vertex, vertex);
 	hash_release(queue->hash, vertex);
 }
 
 #define ALL_QUEUE_ELEMENTS_RO(queue, node, data) \
-		ALL_LIST_ELEMENTS_RO((queue)->list, node, data)
+		ALL_LIST_ELEMENTS_RO((queue)->l.list, node, data)
 
 
 /* End of vertex queue definitions */
@@ -397,8 +475,8 @@ struct isis_spftree *isis_spftree_new(struct isis_area *area)
 		return NULL;
 	}
 
-	isis_vertex_queue_init(&tree->tents, "IS-IS SPF tents");
-	isis_vertex_queue_init(&tree->paths, "IS-IS SPF paths");
+	isis_vertex_queue_init(&tree->tents, "IS-IS SPF tents", true);
+	isis_vertex_queue_init(&tree->paths, "IS-IS SPF paths", false);
 	tree->area = area;
 	tree->last_run_timestamp = 0;
 	tree->last_run_duration = 0;
@@ -422,8 +500,7 @@ static void isis_spftree_adj_del(struct isis_spftree *spftree,
 	struct isis_vertex *v;
 	if (!adj)
 		return;
-	for (ALL_QUEUE_ELEMENTS_RO(&spftree->tents, node, v))
-		isis_vertex_adj_del(v, adj);
+	assert(!isis_vertex_queue_count(&spftree->tents));
 	for (ALL_QUEUE_ELEMENTS_RO(&spftree->paths, node, v))
 		isis_vertex_adj_del(v, adj);
 	return;
@@ -538,7 +615,7 @@ static struct isis_vertex *isis_spf_add_root(struct isis_spftree *spftree,
 				 spftree->area->oldmetric
 					 ? VTYPE_NONPSEUDO_IS
 					 : VTYPE_NONPSEUDO_TE_IS);
-	isis_vertex_queue_add(&spftree->paths, vertex);
+	isis_vertex_queue_append(&spftree->paths, vertex);
 
 #ifdef EXTREME_DEBUG
 	zlog_debug("ISIS-Spf: added this IS  %s %s depth %d dist %d to PATHS",
@@ -557,45 +634,6 @@ static struct isis_vertex *isis_find_vertex(struct isis_vertex_queue *queue, voi
 
 	isis_vertex_id_init(&querier, id, vtype);
 	return hash_lookup(queue->hash, &querier);
-}
-
-/*
- * Compares vertizes for sorting in the TENT list. Returns true
- * if candidate should be considered before current, false otherwise.
- */
-static bool tent_cmp(struct isis_vertex *current, struct isis_vertex *candidate)
-{
-	if (current->d_N > candidate->d_N)
-		return true;
-
-	if (current->d_N == candidate->d_N && current->type > candidate->type)
-		return true;
-
-	return false;
-}
-
-static void isis_vertex_queue_insert(struct isis_vertex_queue *queue,
-				     struct isis_vertex *vertex)
-{
-	struct listnode *node;
-	struct isis_vertex *v;
-
-	/* XXX: This cant use the standard ALL_LIST_ELEMENTS macro */
-	for (node = listhead(queue->list); node; node = listnextnode(node)) {
-		v = listgetdata(node);
-		if (tent_cmp(v, vertex)) {
-			listnode_add_before(queue->list, node, vertex);
-			break;
-		}
-	}
-
-	if (node == NULL)
-		listnode_add(queue->list, vertex);
-
-	struct isis_vertex *inserted;
-
-	inserted = hash_get(queue->hash, vertex, hash_alloc_intern);
-	assert(inserted == vertex);
 }
 
 /*
@@ -1198,7 +1236,7 @@ static void add_to_paths(struct isis_spftree *spftree,
 
 	if (isis_find_vertex(&spftree->paths, vertex->N.id, vertex->type))
 		return;
-	isis_vertex_queue_add(&spftree->paths, vertex);
+	isis_vertex_queue_append(&spftree->paths, vertex);
 
 #ifdef EXTREME_DEBUG
 	zlog_debug("ISIS-Spf: added %s %s %s depth %d dist %d to PATHS",
