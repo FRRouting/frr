@@ -688,9 +688,9 @@ def test_linux_mpls_routes():
             actual = net['r%s' % i].cmd('ip -family mpls route 2> /dev/null').rstrip()
              # Mask out label
             actual = re.sub(r"[0-9][0-9] via inet ", "xx via inet ", actual)
-            actual = re.sub(r"[0-9][0-9]  proto zebra", "xx  proto zebra", actual)
+            actual = re.sub(r"[0-9][0-9]  proto", "xx  proto", actual)
             actual = re.sub(r"[0-9][0-9] as to ", "xx as to ", actual)
-            actual = re.sub(r"proto zebra ", "proto zebra", actual)
+            actual = re.sub(r"proto \w+", "proto xx", actual)
  
             # Fix newlines (make them all the same)
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)

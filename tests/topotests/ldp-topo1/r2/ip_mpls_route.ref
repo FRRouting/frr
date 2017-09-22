@@ -1,5 +1,5 @@
-xx  proto zebra
+xx  proto xx
 	nexthopvia inet 10.0.2.3  dev r2-eth1 weight 1
 	nexthopvia inet 10.0.3.3  dev r2-eth2 weight 1
-xx via inet 10.0.1.1 dev r2-eth0  proto zebra
-xx via inet 10.0.2.4 dev r2-eth1  proto zebra
+xx via inet 10.0.1.1 dev r2-eth0  proto xx
+xx via inet 10.0.2.4 dev r2-eth1  proto xx
