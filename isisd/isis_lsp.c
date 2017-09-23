@@ -447,6 +447,19 @@ static void lsp_update_data(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 	return;
 }
 
+static void lsp_link_fragment(struct isis_lsp *lsp, struct isis_lsp *lsp0)
+{
+	if (!LSP_FRAGMENT(lsp->hdr.lsp_id)) {
+		/* zero lsp -> create list to store fragments */
+		lsp->lspu.frags = list_new();
+	} else {
+		/* fragment -> set backpointer and add to zero lsps list */
+		assert(lsp0);
+		lsp->lspu.zero_lsp = lsp0;
+		listnode_add(lsp0->lspu.frags, lsp);
+	}
+}
+
 void lsp_update(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 		struct isis_tlvs *tlvs, struct stream *stream,
 		struct isis_area *area, int level, bool confusion)
@@ -476,21 +489,19 @@ void lsp_update(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 		put_lsp_hdr(lsp, NULL, true);
 	}
 
+	if (LSP_FRAGMENT(lsp->hdr.lsp_id) && !lsp->lspu.zero_lsp) {
+		uint8_t lspid[ISIS_SYS_ID_LEN + 2];
+		struct isis_lsp *lsp0;
+
+		memcpy(lspid, lsp->hdr.lsp_id, ISIS_SYS_ID_LEN + 1);
+		LSP_FRAGMENT(lspid) = 0;
+		lsp0 = lsp_search(lspid, area->lspdb[level - 1]);
+		if (lsp0)
+			lsp_link_fragment(lsp, lsp0);
+	}
+
 	/* insert the lsp back into the database */
 	lsp_insert(lsp, area->lspdb[level - 1]);
-}
-
-static void lsp_link_fragment(struct isis_lsp *lsp, struct isis_lsp *lsp0)
-{
-	if (!LSP_FRAGMENT(lsp->hdr.lsp_id)) {
-		/* zero lsp -> create list to store fragments */
-		lsp->lspu.frags = list_new();
-	} else {
-		/* fragment -> set backpointer and add to zero lsps list */
-		assert(lsp0);
-		lsp->lspu.zero_lsp = lsp0;
-		listnode_add(lsp0->lspu.frags, lsp);
-	}
 }
 
 /* creation of LSP directly from what we received */
@@ -809,6 +820,8 @@ static struct isis_lsp *lsp_next_frag(uint8_t frag_num, struct isis_lsp *lsp0,
 	lsp = lsp_search(frag_id, area->lspdb[level - 1]);
 	if (lsp) {
 		lsp_clear_data(lsp);
+		if (!lsp->lspu.zero_lsp)
+			lsp_link_fragment(lsp, lsp0);
 		return lsp;
 	}
 
@@ -1255,6 +1268,7 @@ static int lsp_regenerate(struct isis_area *area, int level)
 		 * so that no fragment expires before the lsp is refreshed.
 		 */
 		frag->hdr.rem_lifetime = rem_lifetime;
+		frag->age_out = ZERO_AGE_LIFETIME;
 		lsp_set_all_srmflags(frag);
 	}
 	lsp_seqno_update(lsp);
