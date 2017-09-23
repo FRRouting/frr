@@ -705,8 +705,6 @@ static void isis_spf_add_local(struct isis_spftree *spftree,
 			return;
 		} else { /* vertex->d_N > cost */
 			/*         f) */
-			struct listnode *pnode, *pnextnode;
-			struct isis_vertex *pvertex;
 			isis_vertex_queue_delete(&spftree->tents, vertex);
 			isis_vertex_del(vertex);
 		}
@@ -788,8 +786,6 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype,
 			return;
 			/*      4) */
 		} else {
-			struct listnode *pnode, *pnextnode;
-			struct isis_vertex *pvertex;
 			isis_vertex_queue_delete(&spftree->tents, vertex);
 			isis_vertex_del(vertex);
 		}
