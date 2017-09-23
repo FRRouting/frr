@@ -45,7 +45,7 @@ RB_GENERATE(iface_head, iface, entry, iface_compare)
 static __inline int
 iface_compare(const struct iface *a, const struct iface *b)
 {
-	return (strcmp(a->name, b->name));
+	return (if_cmp_name_func((char *)a->name, (char *)b->name));
 }
 
 struct iface *
