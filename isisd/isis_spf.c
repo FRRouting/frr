@@ -278,7 +278,8 @@ struct isis_spftree {
 	struct isis_vertex_queue tents; /* TENT */
 	struct isis_area *area;    /* back pointer to area */
 	unsigned int runcount;     /* number of runs since uptime */
-	time_t last_run_timestamp; /* last run timestamp for scheduling */
+	time_t last_run_timestamp; /* last run timestamp as wall time for display */
+	time_t last_run_monotime;  /* last run as monotime for scheduling */
 	time_t last_run_duration;  /* last run duration in msec */
 
 	uint16_t mtid;
@@ -475,6 +476,7 @@ struct isis_spftree *isis_spftree_new(struct isis_area *area)
 	isis_vertex_queue_init(&tree->paths, "IS-IS SPF paths", false);
 	tree->area = area;
 	tree->last_run_timestamp = 0;
+	tree->last_run_monotime = 0;
 	tree->last_run_duration = 0;
 	tree->runcount = 0;
 	return tree;
@@ -1348,7 +1350,7 @@ out:
 	isis_route_validate(area);
 	spftree->runcount++;
 	spftree->last_run_timestamp = time(NULL);
-	monotime(&time_now);
+	spftree->last_run_monotime = monotime(&time_now);
 	end_time = time_now.tv_sec;
 	end_time = (end_time * 1000000) + time_now.tv_usec;
 	spftree->last_run_duration = end_time - start_time;
@@ -1398,8 +1400,8 @@ static struct isis_spf_run *isis_run_spf_arg(struct isis_area *area, int level)
 int isis_spf_schedule(struct isis_area *area, int level)
 {
 	struct isis_spftree *spftree = area->spftree[level - 1];
-	time_t now = time(NULL);
-	int diff = now - spftree->last_run_timestamp;
+	time_t now = monotime(NULL);
+	int diff = now - spftree->last_run_monotime;
 
 	assert(diff >= 0);
 	assert(area->is_type & level);
@@ -1429,22 +1431,16 @@ int isis_spf_schedule(struct isis_area *area, int level)
 		return ISIS_OK;
 
 	/* wait configured min_spf_interval before doing the SPF */
+	long timer;
 	if (diff >= area->min_spf_interval[level - 1]) {
-		int retval = ISIS_OK;
-
-		if (area->ip_circuits)
-			retval =
-				isis_run_spf(area, level, AF_INET, isis->sysid);
-		if (area->ipv6_circuits)
-			retval = isis_run_spf(area, level, AF_INET6,
-					      isis->sysid);
-
-		return retval;
+		/* Last run is more than min interval ago, schedule immediate run */
+		timer = 0;
+	} else {
+		timer = area->min_spf_interval[level - 1] - diff;
 	}
 
 	thread_add_timer(master, isis_run_spf_cb, isis_run_spf_arg(area, level),
-			 area->min_spf_interval[level - 1] - diff,
-			 &area->spf_timer[level - 1]);
+			 timer, &area->spf_timer[level - 1]);
 
 	if (isis->debugs & DEBUG_SPF_EVENTS)
 		zlog_debug("ISIS-Spf (%s) L%d SPF scheduled %d sec from now",
