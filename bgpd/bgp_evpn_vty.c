@@ -1118,17 +1118,18 @@ DEFUN(evpnrt5_network,
       "Name of the route map\n")
 {
 	int idx_ipv4_prefixlen = 1;
-	int idx_ext_community = 3;
-	int idx_word = 7;
+	int idx_route_distinguisher = 3;
+	int idx_label = 7;
 	int idx_esi = 9;
 	int idx_gwip = 11;
 	int idx_ethtag = 5;
 	int idx_routermac = 13;
 	int idx_rmap = 15;
+
 	return bgp_static_set_safi(
 		AFI_L2VPN, SAFI_EVPN, vty, argv[idx_ipv4_prefixlen]->arg,
-		argv[idx_ext_community]->arg, argv[idx_word]->arg,
-		argv[idx_rmap] ? argv[idx_gwip]->arg : NULL,
+		argv[idx_route_distinguisher]->arg, argv[idx_label]->arg,
+		NULL,
 		BGP_EVPN_IP_PREFIX_ROUTE, argv[idx_esi]->arg,
 		argv[idx_gwip]->arg, argv[idx_ethtag]->arg,
 		argv[idx_routermac]->arg);

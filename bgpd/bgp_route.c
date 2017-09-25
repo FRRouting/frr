@@ -11129,11 +11129,23 @@ static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 
 			/* "network" configuration display.  */
 			prefix_rd2str(prd, rdbuf, RD_ADDRSTRLEN);
+			if (p->u.prefix_evpn.route_type == 5) {
+				char local_buf[PREFIX_STRLEN];
+				uint8_t family = IS_EVPN_PREFIX_IPADDR_V4((struct prefix_evpn *)p)
+					? AF_INET
+					: AF_INET6;
+				inet_ntop(family, &p->u.prefix_evpn.ip.ip.addr, local_buf,
+					  PREFIX_STRLEN);
+				sprintf(buf, "%s/%u", local_buf,p->u.prefix_evpn.ip_prefix_length);
+			} else {
+				prefix2str(p, buf, sizeof(buf));
+			}
 
-			inet_ntop(AF_INET, &bgp_static->igpnexthop, buf2,
-				  SU_ADDRSTRLEN);
-
-			prefix2str(p, buf, sizeof(buf));
+			if (bgp_static->gatewayIp.family == AF_INET ||
+			    bgp_static->gatewayIp.family == AF_INET6)
+				inet_ntop(bgp_static->gatewayIp.family,
+					  &bgp_static->gatewayIp.u.prefix, buf2,
+					  sizeof(buf2));
 			vty_out(vty,
 				" network %s rd %s ethtag %u tag %u esi %s gwip %s routermac %s\n",
 				buf, rdbuf, p->u.prefix_evpn.eth_tag,
