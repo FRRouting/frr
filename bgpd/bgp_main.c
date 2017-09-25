@@ -347,7 +347,7 @@ int main(int argc, char **argv)
 
 	frr_preinit(&bgpd_di, argc, argv);
 	frr_opt_add(
-		"p:l:rne:", longopts,
+		"p:l:rSne:", longopts,
 		"  -p, --bgp_port     Set bgp protocol's port number\n"
 		"  -l, --listenon     Listen on specified address (implies -n)\n"
 		"  -r, --retain       When program terminates, retain added route by bgpd.\n"
