@@ -526,7 +526,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 			if (re->nexthop_num == 0)
 				XFREE(MTYPE_RE, re);
 			else
-				rib_add_multipath(AFI_IP, SAFI_UNICAST, &p,
+				rib_add_multipath(afi, SAFI_UNICAST, &p,
 						  NULL, re);
 		}
 	} else {
@@ -1446,8 +1446,8 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 				&& CHECK_FLAG(nexthop->flags,
 					      NEXTHOP_FLAG_FIB))) {
 				routedesc = nexthop->rparent
-						    ? "recursive, 1 hop"
-						    : "single hop";
+						    ? "recursive, single-path"
+						    : "single-path";
 
 				_netlink_route_debug(cmd, p, nexthop, routedesc,
 						     family, zvrf);
@@ -1529,8 +1529,8 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 				&& CHECK_FLAG(nexthop->flags,
 					      NEXTHOP_FLAG_FIB))) {
 				routedesc = nexthop->rparent
-						    ? "recursive, multihop"
-						    : "multihop";
+						    ? "recursive, multipath"
+						    : "multipath";
 				nexthop_num++;
 
 				_netlink_route_debug(cmd, p, nexthop, routedesc,
@@ -2349,6 +2349,7 @@ int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp)
 	unsigned int nexthop_num;
 	const char *routedesc;
 	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+	int route_type;
 
 	struct {
 		struct nlmsghdr n;
@@ -2382,8 +2383,10 @@ int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp)
 		}
 	}
 
-	if (nexthop_num == 0) // unexpected
+	if (nexthop_num == 0 || !lsp->best_nhlfe) // unexpected
 		return 0;
+
+	route_type = re_type_from_lsp_type(lsp->best_nhlfe->type);
 
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
 	req.n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
@@ -2393,7 +2396,7 @@ int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp)
 	req.r.rtm_family = AF_MPLS;
 	req.r.rtm_table = RT_TABLE_MAIN;
 	req.r.rtm_dst_len = MPLS_LABEL_LEN_BITS;
-	req.r.rtm_protocol = RTPROT_ZEBRA;
+	req.r.rtm_protocol = zebra2proto(route_type);
 	req.r.rtm_scope = RT_SCOPE_UNIVERSE;
 	req.r.rtm_type = RTN_UNICAST;
 
@@ -2409,7 +2412,7 @@ int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp)
 	 * chosen depend on the operation.
 	 */
 	if (nexthop_num == 1 || multipath_num == 1) {
-		routedesc = "single hop";
+		routedesc = "single-path";
 		_netlink_mpls_debug(cmd, lsp->ile.in_label, routedesc);
 
 		nexthop_num = 0;
@@ -2457,7 +2460,7 @@ int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp)
 		rta->rta_len = RTA_LENGTH(0);
 		rtnh = RTA_DATA(rta);
 
-		routedesc = "multihop";
+		routedesc = "multipath";
 		_netlink_mpls_debug(cmd, lsp->ile.in_label, routedesc);
 
 		nexthop_num = 0;
