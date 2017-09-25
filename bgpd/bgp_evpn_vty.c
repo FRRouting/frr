@@ -1124,7 +1124,6 @@ DEFUN(evpnrt5_network,
 	int idx_gwip = 11;
 	int idx_ethtag = 5;
 	int idx_routermac = 13;
-	int idx_rmap = 15;
 
 	return bgp_static_set_safi(
 		AFI_L2VPN, SAFI_EVPN, vty, argv[idx_ipv4_prefixlen]->arg,
