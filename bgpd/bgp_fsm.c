@@ -133,10 +133,12 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 
 	BGP_TIMER_OFF(peer->t_routeadv);
 	BGP_TIMER_OFF(peer->t_connect);
-	BGP_TIMER_OFF(peer->t_connect_check);
+	BGP_TIMER_OFF(peer->t_connect_check_r);
+	BGP_TIMER_OFF(peer->t_connect_check_w);
 	BGP_TIMER_OFF(from_peer->t_routeadv);
 	BGP_TIMER_OFF(from_peer->t_connect);
-	BGP_TIMER_OFF(from_peer->t_connect_check);
+	BGP_TIMER_OFF(from_peer->t_connect_check_r);
+	BGP_TIMER_OFF(from_peer->t_connect_check_w);
 
 	/*
 	 * At this point in time, it is possible that there are packets pending
@@ -1072,7 +1074,8 @@ int bgp_stop(struct peer *peer)
 	bgp_writes_off(peer);
 	bgp_reads_off(peer);
 
-	THREAD_OFF(peer->t_connect_check);
+	THREAD_OFF(peer->t_connect_check_r);
+	THREAD_OFF(peer->t_connect_check_w);
 
 	/* Stop all timers. */
 	BGP_TIMER_OFF(peer->t_start);
@@ -1209,9 +1212,15 @@ static int bgp_stop_with_notify(struct peer *peer, u_char code, u_char sub_code)
  * events as appropriate.
  *
  * This function is called when setting up a new session. After connect() is
- * called on the peer's socket (in bgp_start()), the fd is passed to select()
- * to wait for connection success or failure. When select() returns, this
+ * called on the peer's socket (in bgp_start()), the fd is passed to poll()
+ * to wait for connection success or failure. When poll() returns, this
  * function is called to evaluate the result.
+ *
+ * Due to differences in behavior of poll() on Linux and BSD - specifically,
+ * the value of .revents in the case of a closed connection - this function is
+ * scheduled both for a read and a write event. The write event is triggered
+ * when the connection is established. A read event is triggered when the
+ * connection is closed. Thus we need to cancel whichever one did not occur.
  */
 static int bgp_connect_check(struct thread *thread)
 {
@@ -1226,7 +1235,8 @@ static int bgp_connect_check(struct thread *thread)
 	assert(!peer->t_read);
 	assert(!peer->t_write);
 
-	peer->t_connect_check = NULL;
+	THREAD_OFF(peer->t_connect_check_r);
+	THREAD_OFF(peer->t_connect_check_w);
 
 	/* Check file descriptor. */
 	slen = sizeof(status);
@@ -1409,11 +1419,18 @@ int bgp_start(struct peer *peer)
 			return -1;
 		}
 		/*
-		 * when the socket becomes ready (or fails to connect),
-		 * bgp_connect_check will be called.
+		 * - when the socket becomes ready, poll() will signify POLLOUT
+		 * - if it fails to connect, poll() will signify POLLHUP
+		 * - POLLHUP is handled as a 'read' event by thread.c
+		 *
+		 * therefore, we schedule both a read and a write event with
+		 * bgp_connect_check() as the handler for each and cancel the
+		 * unused event in that function.
 		 */
 		thread_add_read(bm->master, bgp_connect_check, peer, peer->fd,
-				&peer->t_connect_check);
+				&peer->t_connect_check_r);
+		thread_add_write(bm->master, bgp_connect_check, peer, peer->fd,
+				 &peer->t_connect_check_w);
 		break;
 	}
 	return 0;

@@ -120,7 +120,8 @@ void bgp_writes_on(struct peer *peer)
 	assert(peer->obuf);
 	assert(peer->ibuf);
 	assert(peer->ibuf_work);
-	assert(!peer->t_connect_check);
+	assert(!peer->t_connect_check_r);
+	assert(!peer->t_connect_check_w);
 	assert(peer->fd);
 
 	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_IO);
@@ -156,7 +157,8 @@ void bgp_reads_on(struct peer *peer)
 	assert(peer->ibuf_work);
 	assert(stream_get_endp(peer->ibuf_work) == 0);
 	assert(peer->obuf);
-	assert(!peer->t_connect_check);
+	assert(!peer->t_connect_check_r);
+	assert(!peer->t_connect_check_w);
 	assert(peer->fd);
 
 	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_IO);

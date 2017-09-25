@@ -807,7 +807,8 @@ struct peer {
 	struct thread *t_read;
 	struct thread *t_write;
 	struct thread *t_start;
-	struct thread *t_connect_check;
+	struct thread *t_connect_check_r;
+	struct thread *t_connect_check_w;
 	struct thread *t_connect;
 	struct thread *t_holdtime;
 	struct thread *t_routeadv;
