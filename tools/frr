@@ -544,13 +544,15 @@ case "$1" in
 
         if [ -z "$dmn" -o "$dmn" = "zebra" ]; then
           echo "Removing all routes made by FRR."
-          ip route flush proto bgp
-          ip route flush proto ospf
-          ip route flush proto static
-          ip route flush proto rip
-          ip route flush proto ripng
-          ip route flush proto zebra
-          ip route flush proto isis
+          ip route flush proto 186
+          ip route flush proto 188
+          ip route flush proto 4
+          ip route flush proto 189
+          ip route flush proto 190
+          ip route flush proto 11
+          ip route flush proto 187
+          ip route flush proto 192
+          ip route flush proto 194
 
        else
          [ -n "$dmn" ] && eval "${dmn/-/_}=0"
