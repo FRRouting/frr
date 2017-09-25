@@ -886,6 +886,7 @@ void frr_fini(void)
 	zprivs_terminate(di->privs);
 	/* signal_init -> nothing needed */
 	thread_master_free(master);
+	master = NULL;
 	closezlog();
 	/* frrmod_init -> nothing needed / hooks */
 
