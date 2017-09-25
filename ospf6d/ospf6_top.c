@@ -164,6 +164,7 @@ void ospf6_delete(struct ospf6 *o)
 {
 	struct listnode *node, *nnode;
 	struct ospf6_area *oa;
+	struct interface *ifp = NULL;
 
 	QOBJ_UNREG(o);
 	ospf6_disable(ospf6);
@@ -171,8 +172,14 @@ void ospf6_delete(struct ospf6 *o)
 	for (ALL_LIST_ELEMENTS(o->area_list, node, nnode, oa))
 		ospf6_area_delete(oa);
 
-
 	list_delete(o->area_list);
+
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+		if (ifp->info != NULL) {
+			ospf6_interface_delete(ifp->info);
+			ifp->info = NULL;
+		}
+	}
 
 	ospf6_lsdb_delete(o->lsdb);
 	ospf6_lsdb_delete(o->lsdb_self);
