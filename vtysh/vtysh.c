@@ -1896,7 +1896,7 @@ DEFUN (vtysh_show_debugging,
        DEBUG_STR)
 {
 	return show_per_daemon("do show debugging\n",
-			       "Debugging Information for %s:\n");
+			       "");
 }
 
 DEFUN (vtysh_show_debugging_hashtable,
