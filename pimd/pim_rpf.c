@@ -61,6 +61,14 @@ int pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 	int found = 0;
 	int i = 0;
 
+	/*
+	 * We should not attempt to lookup a
+	 * 255.255.255.255 address, since
+	 * it will never work
+	 */
+	if (addr.s_addr == INADDR_NONE)
+		return -1;
+
 	if ((nexthop->last_lookup.s_addr == addr.s_addr)
 	    && (nexthop->last_lookup_time > last_route_change_time)) {
 		if (PIM_DEBUG_TRACE) {
