@@ -32,7 +32,7 @@
 
 DEFINE_MTYPE(ZEBRA, ZEBRA_NS, "Zebra Name Space")
 
-struct zebra_ns *dzns;
+static struct zebra_ns *dzns;
 
 struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id)
 {
