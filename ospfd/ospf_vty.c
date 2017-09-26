@@ -1016,7 +1016,7 @@ DEFUN (ospf_area_vlink,
 	}
 
 	/* Deal with other parameters */
-	for (i = 5; i < argc; i++) {
+	for (i = 4; i < argc; i++) {
 
 		/* vty_out (vty, "argv[%d]->arg - %s\n", i, argv[i]->text); */
 
@@ -1027,10 +1027,8 @@ DEFUN (ospf_area_vlink,
 			    || strncmp(argv[i]->arg, "authentication-", 15)
 				       == 0) {
 				/* authentication-key - this option can occur
-				   anywhere on
-							command line.  At start
-				   of command line
-							must check for
+				   anywhere on command line.  At start
+				   of command line must check for
 				   authentication option. */
 				memset(auth_key, 0, OSPF_AUTH_SIMPLE_SIZE + 1);
 				strncpy(auth_key, argv[i + 1]->text,
@@ -1040,8 +1038,7 @@ DEFUN (ospf_area_vlink,
 			} else if (strncmp(argv[i]->arg, "authentication", 14)
 				   == 0) {
 				/* authentication  - this option can only occur
-				   at start
-						     of command line */
+				   at start of command line */
 				vl_config.auth_type = OSPF_AUTH_SIMPLE;
 				if ((i + 1) < argc) {
 					if (strncmp(argv[i + 1]->arg, "n", 1)
@@ -1054,9 +1051,9 @@ DEFUN (ospf_area_vlink,
 						strncmp(argv[i + 1]->arg, "m",
 							1)
 							== 0
-						&& !strmatch(
+						&& strmatch(
 							   argv[i + 1]->text,
-							   "message-digest-")) {
+							   "message-digest")) {
 						/* "authentication
 						 * message-digest" */
 						vl_config.auth_type =
@@ -1153,29 +1150,28 @@ DEFUN (no_ospf_area_vlink,
 	/* If we are down here, we are reseting parameters */
 
 	/* Deal with other parameters */
-	for (i = 6; i < argc; i++) {
+	for (i = 5; i < argc; i++) {
 		/* vty_out (vty, "argv[%d] - %s\n", i, argv[i]); */
 
 		switch (argv[i]->arg[0]) {
 
 		case 'a':
-			if (i > 2
+			if (i > 6
 			    || strncmp(argv[i]->text, "authentication-", 15)
 				       == 0) {
 				/* authentication-key - this option can occur
-				   anywhere on
-							command line.  At start
-				   of command line
-							must check for
+				   anywhere on command line.  At start
+				   of command line must check for
 				   authentication option. */
 				memset(auth_key, 0, OSPF_AUTH_SIMPLE_SIZE + 1);
 				vl_config.auth_key = auth_key;
 			} else if (strncmp(argv[i]->text, "authentication", 14)
 				   == 0) {
 				/* authentication  - this option can only occur
-				   at start
-						     of command line */
+				   at start of command line */
 				vl_config.auth_type = OSPF_AUTH_NOTSET;
+				if ((i + 1) < argc)
+					i++;
 			}
 			break;
 
@@ -1186,6 +1182,7 @@ DEFUN (no_ospf_area_vlink,
 			if (i < argc) {
 				vl_config.crypto_key_id =
 					strtol(argv[i]->arg, NULL, 10);
+				i++; /* skip md5_key arg for delete */
 				if (vl_config.crypto_key_id < 0)
 					return CMD_WARNING_CONFIG_FAILED;
 				vl_config.md5_key = NULL;
