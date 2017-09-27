@@ -304,6 +304,7 @@ static void addr2hostprefix(int af, const union g_addr *addr,
 		prefix->u.prefix6 = addr->ipv6;
 		break;
 	default:
+		memset(prefix, 0, sizeof(*prefix));
 		zlog_warn("%s: unknown address family %d", __func__, af);
 		break;
 	}

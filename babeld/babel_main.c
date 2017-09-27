@@ -279,8 +279,7 @@ babel_load_state_file(void)
     if(fd >= 0 && rc < 0) {
         zlog_err("unlink(babel-state): %s", safe_strerror(errno));
         /* If we couldn't unlink it, it's probably stale. */
-        close(fd);
-        fd = -1;
+        goto fini;
     }
     if(fd >= 0) {
         char buf[100];
@@ -315,9 +314,12 @@ babel_load_state_file(void)
                 zlog_err("Couldn't parse babel-state.");
             }
         }
-        close(fd);
-        fd = -1;
+        goto fini;
     }
+fini:
+    if (fd >= 0)
+        close(fd);
+    return ;
 }
 
 static void

@@ -1619,7 +1619,7 @@ static int zclient_read_sync_response(struct zclient *zclient,
 				      u_int16_t expected_cmd)
 {
 	struct stream *s;
-	u_int16_t size;
+	u_int16_t size = -1;
 	u_char marker;
 	u_char version;
 	vrf_id_t vrf_id;
