@@ -865,39 +865,42 @@ DEFUN (no_debug_bgp_keepalive_peer,
 	return CMD_SUCCESS;
 }
 
-#ifndef VTYSH_EXTRACT_PL
-#include "bgp_debug_clippy.c"
-#endif
-
 /* debug bgp bestpath */
-DEFPY (debug_bgp_bestpath_prefix,
+DEFUN (debug_bgp_bestpath_prefix,
        debug_bgp_bestpath_prefix_cmd,
-       "debug bgp bestpath <A.B.C.D/M|X:X::X:X/M>$bestpath",
+       "debug bgp bestpath <A.B.C.D/M|X:X::X:X/M>",
        DEBUG_STR
        BGP_STR
        "BGP bestpath\n"
        "IPv4 prefix\n"
        "IPv6 prefix\n")
 {
+	struct prefix *argv_p;
+	int idx_ipv4_ipv6_prefixlen = 3;
+
+	argv_p = prefix_new();
+	(void)str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
+	apply_mask(argv_p);
+
 	if (!bgp_debug_bestpath_prefixes)
 		bgp_debug_bestpath_prefixes = list_new();
 
 	if (bgp_debug_list_has_entry(bgp_debug_bestpath_prefixes, NULL,
-				     bestpath)) {
+				     argv_p)) {
 		vty_out(vty,
 			"BGP bestpath debugging is already enabled for %s\n",
-			bestpath_str);
+			argv[idx_ipv4_ipv6_prefixlen]->arg);
 		return CMD_SUCCESS;
 	}
 
-	bgp_debug_list_add_entry(bgp_debug_bestpath_prefixes, NULL, bestpath);
+	bgp_debug_list_add_entry(bgp_debug_bestpath_prefixes, NULL, argv_p);
 
 	if (vty->node == CONFIG_NODE) {
 		DEBUG_ON(bestpath, BESTPATH);
 	} else {
 		TERM_DEBUG_ON(bestpath, BESTPATH);
 		vty_out(vty, "BGP bestpath debugging is on for %s\n",
-			bestpath_str);
+			argv[idx_ipv4_ipv6_prefixlen]->arg);
 	}
 
 	return CMD_SUCCESS;
@@ -916,15 +919,10 @@ DEFUN (no_debug_bgp_bestpath_prefix,
 	int idx_ipv4_ipv6_prefixlen = 4;
 	struct prefix *argv_p;
 	int found_prefix = 0;
-	int ret;
 
 	argv_p = prefix_new();
-	ret = str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
-	if (!ret) {
-		prefix_free(argv_p);
-		vty_out(vty, "%% Malformed Prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	(void)str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
+	apply_mask(argv_p);
 
 	if (bgp_debug_bestpath_prefixes
 	    && !list_isempty(bgp_debug_bestpath_prefixes)) {
@@ -1267,16 +1265,10 @@ DEFUN (debug_bgp_update_prefix,
 {
 	int idx_ipv4_ipv6_prefixlen = 4;
 	struct prefix *argv_p;
-	int ret;
 
 	argv_p = prefix_new();
-	ret = str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
-	if (!ret) {
-		prefix_free(argv_p);
-		vty_out(vty, "%% Malformed Prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
+	(void)str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
+	apply_mask(argv_p);
 
 	if (!bgp_debug_update_prefixes)
 		bgp_debug_update_prefixes = list_new();
@@ -1315,15 +1307,10 @@ DEFUN (no_debug_bgp_update_prefix,
 	int idx_ipv4_ipv6_prefixlen = 5;
 	struct prefix *argv_p;
 	int found_prefix = 0;
-	int ret;
 
 	argv_p = prefix_new();
-	ret = str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
-	if (!ret) {
-		prefix_free(argv_p);
-		vty_out(vty, "%% Malformed Prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	(void)str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
+	apply_mask(argv_p);
 
 	if (bgp_debug_update_prefixes
 	    && !list_isempty(bgp_debug_update_prefixes)) {
@@ -1411,15 +1398,10 @@ DEFUN (debug_bgp_zebra_prefix,
 {
 	int idx_ipv4_ipv6_prefixlen = 4;
 	struct prefix *argv_p;
-	int ret;
 
 	argv_p = prefix_new();
-	ret = str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
-	if (!ret) {
-		prefix_free(argv_p);
-		vty_out(vty, "%% Malformed Prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	(void)str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
+	apply_mask(argv_p);
 
 	if (!bgp_debug_zebra_prefixes)
 		bgp_debug_zebra_prefixes = list_new();
@@ -1476,15 +1458,10 @@ DEFUN (no_debug_bgp_zebra_prefix,
 	int idx_ipv4_ipv6_prefixlen = 5;
 	struct prefix *argv_p;
 	int found_prefix = 0;
-	int ret;
 
 	argv_p = prefix_new();
-	ret = str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
-	if (!ret) {
-		prefix_free(argv_p);
-		vty_out(vty, "%% Malformed Prefix\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	(void)str2prefix(argv[idx_ipv4_ipv6_prefixlen]->arg, argv_p);
+	apply_mask(argv_p);
 
 	if (bgp_debug_zebra_prefixes
 	    && !list_isempty(bgp_debug_zebra_prefixes)) {

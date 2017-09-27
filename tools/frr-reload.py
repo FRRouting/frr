@@ -557,7 +557,15 @@ def line_for_vtysh_file(ctx_keys, line, delete):
             for ctx_key in ctx_keys:
                 cmd.append(ctx_key)
 
-    return '\n' + '\n'.join(cmd)
+    cmd = '\n' + '\n'.join(cmd)
+
+    # There are some commands that are on by default so their "no" form will be
+    # displayed in the config.  "no bgp default ipv4-unicast" is one of these.
+    # If we need to remove this line we do so by adding "bgp default ipv4-unicast",
+    # not by doing a "no no bgp default ipv4-unicast"
+    cmd = cmd.replace('no no ', '')
+
+    return cmd
 
 
 def get_normalized_ipv6_line(line):
@@ -931,6 +939,7 @@ def compare_context_objects(newconf, running):
 
     return (lines_to_add, lines_to_del)
 
+
 if __name__ == '__main__':
     # Command line options
     parser = argparse.ArgumentParser(description='Dynamically apply diff in frr configs')
@@ -1143,7 +1152,7 @@ if __name__ == '__main__':
 
                     while True:
                         try:
-                            _ = subprocess.check_output(cmd)
+                            _ = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
 
                         except subprocess.CalledProcessError:
 
@@ -1188,7 +1197,7 @@ if __name__ == '__main__':
                             fh.write(line + '\n')
 
                     try:
-                        subprocess.check_output(['/usr/bin/vtysh', '-f', filename])
+                        subprocess.check_output(['/usr/bin/vtysh', '-f', filename], stderr=subprocess.STDOUT)
                     except subprocess.CalledProcessError as e:
                         log.warning("frr-reload.py failed due to\n%s" % e.output)
                         reload_ok = False
