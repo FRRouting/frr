@@ -430,6 +430,48 @@ int bgp_multiaccess_check_v4(struct in_addr nexthop, struct peer *peer)
 	return (ret);
 }
 
+int bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
+				    struct update_subgroup *subgrp)
+{
+	struct bgp_node *rn1, *rn2;
+	struct peer_af *paf;
+	struct prefix p, np;
+	struct bgp *bgp = NULL;
+
+	np.family = AF_INET;
+	np.prefixlen = IPV4_MAX_BITLEN;
+	np.u.prefix4 = nexthop;
+
+	p.family = AF_INET;
+	p.prefixlen = IPV4_MAX_BITLEN;
+
+	rn1 = rn2 = NULL;
+
+	bgp = SUBGRP_INST(subgrp);
+	rn1 = bgp_node_match(bgp->connected_table[AFI_IP],
+			     &np);
+	if (!rn1)
+		return 0;
+
+	SUBGRP_FOREACH_PEER(subgrp, paf) {
+		p.u.prefix4 = paf->peer->su.sin.sin_addr;
+
+		rn2 = bgp_node_match(bgp->connected_table[AFI_IP],
+				     &p);
+		if (rn1 == rn2) {
+			bgp_unlock_node(rn1);
+			bgp_unlock_node(rn2);
+			return 1;
+		}
+
+		if (rn2)
+			bgp_unlock_node(rn2);
+	}
+
+	bgp_unlock_node(rn1);
+	return 0;
+}
+
 static void bgp_show_nexthops_detail(struct vty *vty,
 				     struct bgp *bgp,
 				     struct bgp_nexthop_cache *bnc)
