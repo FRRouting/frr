@@ -83,6 +83,8 @@ DEFUN_NOSH (show_debugging_zebra,
 		vty_out(vty, "  Zebra next-hop tracking debugging is on\n");
 	if (IS_ZEBRA_DEBUG_MPLS)
 		vty_out(vty, "  Zebra MPLS debugging is on\n");
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		vty_out(vty, "  Zebra VXLAN debugging is on\n");
 	if (IS_ZEBRA_DEBUG_PW)
 		vty_out(vty, "  Zebra pseudowire debugging is on\n");
 

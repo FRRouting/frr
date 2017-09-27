@@ -567,9 +567,11 @@ void thread_master_free(struct thread_master *m)
 	thread_list_free(m, &m->ready);
 	thread_list_free(m, &m->unuse);
 	pthread_mutex_destroy(&m->mtx);
+	pthread_cond_destroy(&m->cancel_cond);
 	close(m->io_pipe[0]);
 	close(m->io_pipe[1]);
 	list_delete(m->cancel_req);
+	m->cancel_req = NULL;
 
 	hash_clean(m->cpu_record, cpu_record_hash_free);
 	hash_free(m->cpu_record);

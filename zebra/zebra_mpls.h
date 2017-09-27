@@ -408,10 +408,16 @@ void zebra_mpls_vty_init(void);
  */
 static inline u_char lsp_distance(enum lsp_types_t type)
 {
-	if (type == ZEBRA_LSP_STATIC)
+	switch (type) {
+	case ZEBRA_LSP_STATIC:
 		return (route_distance(ZEBRA_ROUTE_STATIC));
-
-	return 150;
+	case ZEBRA_LSP_LDP:
+		return (route_distance(ZEBRA_ROUTE_LDP));
+	case ZEBRA_LSP_BGP:
+		return (route_distance(ZEBRA_ROUTE_BGP));
+	default:
+		return 150;
+	}
 }
 
 /*
@@ -427,6 +433,24 @@ static inline enum lsp_types_t lsp_type_from_re_type(int re_type)
 		return ZEBRA_LSP_BGP;
 	default:
 		return ZEBRA_LSP_NONE;
+	}
+}
+
+/*
+ * Map LSP type to RIB type.
+ */
+static inline int re_type_from_lsp_type(enum lsp_types_t lsp_type)
+{
+	switch (lsp_type) {
+	case ZEBRA_LSP_STATIC:
+		return ZEBRA_ROUTE_STATIC;
+	case ZEBRA_LSP_LDP:
+		return ZEBRA_ROUTE_LDP;
+	case ZEBRA_LSP_BGP:
+		return ZEBRA_ROUTE_BGP;
+	case ZEBRA_LSP_NONE:
+	default:
+		return ZEBRA_ROUTE_KERNEL;
 	}
 }
 

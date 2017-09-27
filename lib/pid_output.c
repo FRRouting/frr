@@ -57,7 +57,8 @@ pid_t pid_output(const char *path)
 		lock.l_whence = SEEK_SET;
 
 		if (fcntl(fd, F_SETLK, &lock) < 0) {
-			zlog_err("Could not lock pid_file %s, exiting", path);
+			zlog_err("Could not lock pid_file %s (%s), exiting",
+				 path, safe_strerror(errno));
 			exit(1);
 		}
 

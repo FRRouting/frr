@@ -915,9 +915,10 @@ int zapi_route_encode(u_char cmd, struct stream *s, struct zapi_route *api)
 
 			prefix2str(&api->prefix, buf, sizeof(buf));
 			zlog_warn(
-				"%s: prefix %s: encoding %u nexthops out of %u",
-				__func__, buf, MULTIPATH_NUM, api->nexthop_num);
-			api->nexthop_num = MULTIPATH_NUM;
+				"%s: prefix %s: can't encode %u nexthops "
+				"(maximum is %u)",
+				__func__, buf, api->nexthop_num, MULTIPATH_NUM);
+			return -1;
 		}
 
 		stream_putw(s, api->nexthop_num);

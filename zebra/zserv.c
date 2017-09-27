@@ -1165,7 +1165,7 @@ static int zread_route_del(struct zserv *client, u_short length,
 
 	rib_delete(afi, api.safi, zvrf_id(zvrf), api.type, api.instance,
 		   api.flags, &api.prefix, src_p, NULL, zvrf->table_id,
-		   api.metric);
+		   api.metric, false);
 
 	/* Stats */
 	switch (api.prefix.family) {
@@ -1331,7 +1331,7 @@ static int zread_ipv4_delete(struct zserv *client, u_short length,
 	table_id = zvrf->table_id;
 
 	rib_delete(AFI_IP, api.safi, zvrf_id(zvrf), api.type, api.instance,
-		   api.flags, &p, NULL, NULL, table_id, 0);
+		   api.flags, &p, NULL, NULL, table_id, 0, false);
 	client->v4_route_del_cnt++;
 	return 0;
 }
@@ -1693,7 +1693,7 @@ static int zread_ipv6_delete(struct zserv *client, u_short length,
 		src_pp = NULL;
 
 	rib_delete(AFI_IP6, api.safi, zvrf_id(zvrf), api.type, api.instance,
-		   api.flags, &p, src_pp, NULL, client->rtm_table, 0);
+		   api.flags, &p, src_pp, NULL, client->rtm_table, 0, false);
 
 	client->v6_route_del_cnt++;
 	return 0;
@@ -2104,8 +2104,8 @@ static void zebra_client_close_cleanup_rnh(struct zserv *client)
 	}
 }
 
-/* Close zebra client. */
-static void zebra_client_close(struct zserv *client)
+/* free zebra client information. */
+static void zebra_client_free(struct zserv *client)
 {
 	/* Send client de-registration to BFD */
 	zebra_ptm_bfd_client_deregister(client->proto);
@@ -2161,9 +2161,13 @@ static void zebra_client_close(struct zserv *client)
 	vrf_bitmap_free(client->ifinfo);
 	vrf_bitmap_free(client->ridinfo);
 
-	/* Free client structure. */
-	listnode_delete(zebrad.client_list, client);
 	XFREE(MTYPE_TMP, client);
+}
+
+static void zebra_client_close(struct zserv *client)
+{
+	listnode_delete(zebrad.client_list, client);
+	zebra_client_free(client);
 }
 
 /* Make new client. */
@@ -3009,6 +3013,7 @@ void zebra_init(void)
 {
 	/* Client list init. */
 	zebrad.client_list = list_new();
+	zebrad.client_list->del = (void (*)(void *))zebra_client_free;
 
 	/* Install configuration write function. */
 	install_node(&table_node, config_write_table);

@@ -1368,7 +1368,7 @@ DEFUN (access_list_exact,
        "Prefix to match. e.g. 10.0.0.0/8\n"
        "Exact match of the prefixes\n")
 {
-	int idx;
+	int idx = 0;
 	int exact = 0;
 	int idx_word = 1;
 	int idx_permit_deny = 2;
@@ -1410,7 +1410,7 @@ DEFUN (no_access_list_exact,
        "Prefix to match. e.g. 10.0.0.0/8\n"
        "Exact match of the prefixes\n")
 {
-	int idx;
+	int idx = 0;
 	int exact = 0;
 	int idx_word = 2;
 	int idx_permit_deny = 3;
@@ -1549,7 +1549,7 @@ DEFUN (ipv6_access_list_exact,
        "IPv6 prefix\n"
        "Exact match of the prefixes\n")
 {
-	int idx;
+	int idx = 0;
 	int exact = 0;
 	int idx_word = 2;
 	int idx_allow = 3;
@@ -1592,7 +1592,7 @@ DEFUN (no_ipv6_access_list_exact,
        "Prefix to match. e.g. 3ffe:506::/32\n"
        "Exact match of the prefixes\n")
 {
-	int idx;
+	int idx = 0;
 	int exact = 0;
 	int idx_word = 3;
 	int idx_permit_deny = 4;

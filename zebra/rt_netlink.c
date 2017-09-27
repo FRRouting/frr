@@ -526,7 +526,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 			if (re->nexthop_num == 0)
 				XFREE(MTYPE_RE, re);
 			else
-				rib_add_multipath(AFI_IP, SAFI_UNICAST, &p,
+				rib_add_multipath(afi, SAFI_UNICAST, &p,
 						  NULL, re);
 		}
 	} else {
@@ -560,13 +560,13 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 				memcpy(&nh.gate, gate, sz);
 			rib_delete(afi, SAFI_UNICAST, vrf_id,
 				   proto, 0, flags, &p, NULL, &nh,
-				   table, metric);
+				   table, metric, true);
 		} else {
 			/* XXX: need to compare the entire list of nexthops
 			 * here for NLM_F_APPEND stupidity */
 			rib_delete(afi, SAFI_UNICAST, vrf_id,
 				   proto, 0, flags, &p, NULL, NULL,
-				   table, metric);
+				   table, metric, true);
 		}
 	}
 
@@ -1320,23 +1320,6 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 	req.r.rtm_scope = RT_SCOPE_UNIVERSE;
 	req.r.rtm_type = RTN_UNICAST;
 
-	if (re->nexthop_num == 1
-	    && re->nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
-		discard = 1;
-
-		switch (re->nexthop->bh_type) {
-		case BLACKHOLE_ADMINPROHIB:
-			req.r.rtm_type = RTN_PROHIBIT;
-			break;
-		case BLACKHOLE_REJECT:
-			req.r.rtm_type = RTN_UNREACHABLE;
-			break;
-		default:
-			req.r.rtm_type = RTN_BLACKHOLE;
-			break;
-		}
-	}
-
 	addattr_l(&req.n, sizeof req, RTA_DST, &p->u.prefix, bytelen);
 	if (src_p)
 		addattr_l(&req.n, sizeof req, RTA_SRC, &src_p->u.prefix,
@@ -1395,6 +1378,27 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 	if (nexthop_num == 1 || multipath_num == 1) {
 		nexthop_num = 0;
 		for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
+			/*
+			 * So we want to cover 2 types of blackhole
+			 * routes here:
+			 * 1) A normal blackhole route( ala from a static
+			 *    install.
+			 * 2) A recursively resolved blackhole route
+			 */
+			if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE) {
+				switch (nexthop->bh_type) {
+				case BLACKHOLE_ADMINPROHIB:
+					req.r.rtm_type = RTN_PROHIBIT;
+					break;
+				case BLACKHOLE_REJECT:
+					req.r.rtm_type = RTN_UNREACHABLE;
+					break;
+				default:
+					req.r.rtm_type = RTN_BLACKHOLE;
+					break;
+				}
+				goto skip;
+			}
 			if (CHECK_FLAG(nexthop->flags,
 				       NEXTHOP_FLAG_RECURSIVE)) {
 				if (!setsrc) {
@@ -1442,8 +1446,8 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 				&& CHECK_FLAG(nexthop->flags,
 					      NEXTHOP_FLAG_FIB))) {
 				routedesc = nexthop->rparent
-						    ? "recursive, 1 hop"
-						    : "single hop";
+						    ? "recursive, single-path"
+						    : "single-path";
 
 				_netlink_route_debug(cmd, p, nexthop, routedesc,
 						     family, zvrf);
@@ -1525,8 +1529,8 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 				&& CHECK_FLAG(nexthop->flags,
 					      NEXTHOP_FLAG_FIB))) {
 				routedesc = nexthop->rparent
-						    ? "recursive, multihop"
-						    : "multihop";
+						    ? "recursive, multipath"
+						    : "multipath";
 				nexthop_num++;
 
 				_netlink_route_debug(cmd, p, nexthop, routedesc,
@@ -2345,6 +2349,7 @@ int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp)
 	unsigned int nexthop_num;
 	const char *routedesc;
 	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+	int route_type;
 
 	struct {
 		struct nlmsghdr n;
@@ -2378,8 +2383,10 @@ int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp)
 		}
 	}
 
-	if (nexthop_num == 0) // unexpected
+	if (nexthop_num == 0 || !lsp->best_nhlfe) // unexpected
 		return 0;
+
+	route_type = re_type_from_lsp_type(lsp->best_nhlfe->type);
 
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct rtmsg));
 	req.n.nlmsg_flags = NLM_F_CREATE | NLM_F_REQUEST;
@@ -2389,7 +2396,7 @@ int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp)
 	req.r.rtm_family = AF_MPLS;
 	req.r.rtm_table = RT_TABLE_MAIN;
 	req.r.rtm_dst_len = MPLS_LABEL_LEN_BITS;
-	req.r.rtm_protocol = RTPROT_ZEBRA;
+	req.r.rtm_protocol = zebra2proto(route_type);
 	req.r.rtm_scope = RT_SCOPE_UNIVERSE;
 	req.r.rtm_type = RTN_UNICAST;
 
@@ -2405,7 +2412,7 @@ int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp)
 	 * chosen depend on the operation.
 	 */
 	if (nexthop_num == 1 || multipath_num == 1) {
-		routedesc = "single hop";
+		routedesc = "single-path";
 		_netlink_mpls_debug(cmd, lsp->ile.in_label, routedesc);
 
 		nexthop_num = 0;
@@ -2453,7 +2460,7 @@ int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp)
 		rta->rta_len = RTA_LENGTH(0);
 		rtnh = RTA_DATA(rta);
 
-		routedesc = "multihop";
+		routedesc = "multipath";
 		_netlink_mpls_debug(cmd, lsp->ile.in_label, routedesc);
 
 		nexthop_num = 0;

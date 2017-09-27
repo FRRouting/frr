@@ -50,7 +50,21 @@ extern void prefix_list_delete_hook(void (*func)(struct prefix_list *));
 extern const char *prefix_list_name(struct prefix_list *);
 extern afi_t prefix_list_afi(struct prefix_list *);
 extern struct prefix_list *prefix_list_lookup(afi_t, const char *);
-extern enum prefix_list_type prefix_list_apply(struct prefix_list *, void *);
+
+/*
+ * prefix_list_apply_which_prefix
+ *
+ * Allow calling function to learn which prefix
+ * caused the DENY or PERMIT.
+ *
+ * If no pointer is sent in, do not return anything.
+ * If it is a empty plist return a NULL pointer.
+ */
+extern enum prefix_list_type prefix_list_apply_which_prefix(
+	struct prefix_list *plist,
+	struct prefix **which,
+	void *object);
+#define prefix_list_apply(A, B) prefix_list_apply_which_prefix((A), NULL, (B))
 
 extern struct prefix_list *prefix_bgp_orf_lookup(afi_t, const char *);
 extern struct stream *prefix_bgp_orf_entry(struct stream *,

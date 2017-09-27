@@ -379,10 +379,11 @@ void eigrp_zebra_route_add(struct prefix *p, struct list *successors)
 	memcpy(&api.prefix, p, sizeof(*p));
 
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
-	api.nexthop_num = successors->count;
 
 	/* Nexthop, ifindex, distance and metric information. */
 	for (ALL_LIST_ELEMENTS_RO(successors, node, te)) {
+		if (count >= MULTIPATH_NUM)
+			break;
 		api_nh = &api.nexthops[count];
 		if (te->adv_router->src.s_addr) {
 			api_nh->gate.ipv4 = te->adv_router->src;
@@ -393,6 +394,7 @@ void eigrp_zebra_route_add(struct prefix *p, struct list *successors)
 
 		count++;
 	}
+	api.nexthop_num = count;
 
 	if (IS_DEBUG_EIGRP(zebra, ZEBRA_REDISTRIBUTE)) {
 		char buf[2][PREFIX_STRLEN];

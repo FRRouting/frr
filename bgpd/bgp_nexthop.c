@@ -430,12 +430,101 @@ int bgp_multiaccess_check_v4(struct in_addr nexthop, struct peer *peer)
 	return (ret);
 }
 
+int bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
+				    struct update_subgroup *subgrp)
+{
+	struct bgp_node *rn1, *rn2;
+	struct peer_af *paf;
+	struct prefix p, np;
+	struct bgp *bgp = NULL;
+
+	np.family = AF_INET;
+	np.prefixlen = IPV4_MAX_BITLEN;
+	np.u.prefix4 = nexthop;
+
+	p.family = AF_INET;
+	p.prefixlen = IPV4_MAX_BITLEN;
+
+	rn1 = rn2 = NULL;
+
+	bgp = SUBGRP_INST(subgrp);
+	rn1 = bgp_node_match(bgp->connected_table[AFI_IP],
+			     &np);
+	if (!rn1)
+		return 0;
+
+	SUBGRP_FOREACH_PEER(subgrp, paf) {
+		p.u.prefix4 = paf->peer->su.sin.sin_addr;
+
+		rn2 = bgp_node_match(bgp->connected_table[AFI_IP],
+				     &p);
+		if (rn1 == rn2) {
+			bgp_unlock_node(rn1);
+			bgp_unlock_node(rn2);
+			return 1;
+		}
+
+		if (rn2)
+			bgp_unlock_node(rn2);
+	}
+
+	bgp_unlock_node(rn1);
+	return 0;
+}
+
+static void bgp_show_nexthops_detail(struct vty *vty,
+				     struct bgp *bgp,
+				     struct bgp_nexthop_cache *bnc)
+{
+	char buf[PREFIX2STR_BUFFER];
+	struct nexthop *nexthop;
+
+	for (nexthop = bnc->nexthop; nexthop; nexthop = nexthop->next)
+		switch (nexthop->type) {
+		case NEXTHOP_TYPE_IPV6:
+			vty_out(vty, "  gate %s\n",
+				inet_ntop(AF_INET6, &nexthop->gate.ipv6,
+					  buf, sizeof(buf)));
+			break;
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			vty_out(vty, "  gate %s, if %s\n",
+				inet_ntop(AF_INET6, &nexthop->gate.ipv6,
+					  buf, sizeof(buf)),
+				ifindex2ifname(nexthop->ifindex,
+					       bgp->vrf_id));
+			break;
+		case NEXTHOP_TYPE_IPV4:
+			vty_out(vty, "  gate %s\n",
+				inet_ntop(AF_INET, &nexthop->gate.ipv4,
+					  buf, sizeof(buf)));
+			break;
+		case NEXTHOP_TYPE_IFINDEX:
+			vty_out(vty, "  if %s\n",
+				ifindex2ifname(nexthop->ifindex,
+					       bgp->vrf_id));
+			break;
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			vty_out(vty, "  gate %s, if %s\n",
+				inet_ntop(AF_INET, &nexthop->gate.ipv4,
+					  buf, sizeof(buf)),
+				ifindex2ifname(nexthop->ifindex,
+					       bgp->vrf_id));
+			break;
+		case NEXTHOP_TYPE_BLACKHOLE:
+			vty_out(vty, "  blackhole\n");
+			break;
+		default:
+			vty_out(vty,
+				"  invalid nexthop type %u\n",
+				nexthop->type);
+		}
+}
+
 static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp, int detail)
 {
 	struct bgp_node *rn;
 	struct bgp_nexthop_cache *bnc;
 	char buf[PREFIX2STR_BUFFER];
-	struct nexthop *nexthop;
 	time_t tbuf;
 	afi_t afi;
 
@@ -454,70 +543,13 @@ static void bgp_show_nexthops(struct vty *vty, struct bgp *bgp, int detail)
 							  &rn->p.u.prefix, buf,
 							  sizeof(buf)),
 						bnc->metric, bnc->path_count);
-					if (detail)
-						for (nexthop = bnc->nexthop;
-						     nexthop;
-						     nexthop = nexthop->next)
-							switch (nexthop->type) {
-							case NEXTHOP_TYPE_IPV6:
-								vty_out(vty,
-									"  gate %s\n",
-									inet_ntop(
-										AF_INET6,
-										&nexthop->gate
-											 .ipv6,
-										buf,
-										sizeof(buf)));
-								break;
-							case NEXTHOP_TYPE_IPV6_IFINDEX:
-								vty_out(vty,
-									"  gate %s, if %s\n",
-									inet_ntop(
-										AF_INET6,
-										&nexthop->gate
-											 .ipv6,
-										buf,
-										sizeof(buf)),
-									ifindex2ifname(
-										nexthop->ifindex,
-										bgp->vrf_id));
-								break;
-							case NEXTHOP_TYPE_IPV4:
-								vty_out(vty,
-									"  gate %s\n",
-									inet_ntop(
-										AF_INET,
-										&nexthop->gate
-											 .ipv4,
-										buf,
-										sizeof(buf)));
-								break;
-							case NEXTHOP_TYPE_IFINDEX:
-								vty_out(vty,
-									"  if %s\n",
-									ifindex2ifname(
-										nexthop->ifindex,
-										bgp->vrf_id));
-								break;
-							case NEXTHOP_TYPE_IPV4_IFINDEX:
-								vty_out(vty,
-									"  gate %s, if %s\n",
-									inet_ntop(
-										AF_INET,
-										&nexthop->gate
-											 .ipv4,
-										buf,
-										sizeof(buf)),
-									ifindex2ifname(
-										nexthop->ifindex,
-										bgp->vrf_id));
-								break;
-							default:
-								vty_out(vty,
-									"  invalid nexthop type %u\n",
-									nexthop->type);
-							}
-				} else {
+
+					if (!detail)
+						continue;
+
+					bgp_show_nexthops_detail(vty, bgp, bnc);
+
+				} else{
 					vty_out(vty, " %s invalid\n",
 						inet_ntop(rn->p.family,
 							  &rn->p.u.prefix, buf,

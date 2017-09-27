@@ -1555,7 +1555,20 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 
 	for (brouter = ospf6_route_head(oa->ospf6->brouter_table); brouter;
 	     brouter = nbrouter) {
-		nbrouter = ospf6_route_next(brouter);
+		/*
+		 * brouter may have been "deleted" in the last loop iteration.
+		 * If this is the case there is still 1 final refcount lock
+		 * taken by ospf6_route_next, that will be released by the same
+		 * call and result in deletion. To avoid heap UAF we must then
+		 * skip processing the deleted route.
+		 */
+		if (brouter->lock == 1) {
+			nbrouter = ospf6_route_next(brouter);
+			continue;
+		} else {
+			nbrouter = ospf6_route_next(brouter);
+		}
+
 		brouter_id = ADV_ROUTER_IN_PREFIX(&brouter->prefix);
 		inet_ntop(AF_INET, &brouter_id, brouter_name,
 			  sizeof(brouter_name));

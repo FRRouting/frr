@@ -41,17 +41,22 @@ long int flags_get_index(struct flags *flags);
 void flags_free_index(struct flags *flags, long int index);
 int flags_any_set(u_int32_t *flags);
 
-#define ISIS_SET_FLAG(F, C)                                                    \
-	{                                                                      \
-		F[C->idx >> 5] |= (1 << (C->idx & 0x1F));                      \
+#define _ISIS_SET_FLAG(F, C)                          \
+	{                                             \
+		F[(C) >> 5] |= (1 << ((C) & 0x1F));   \
 	}
+#define ISIS_SET_FLAG(F, C) _ISIS_SET_FLAG(F, C->idx)
 
-#define ISIS_CLEAR_FLAG(F, C)                                                  \
-	{                                                                      \
-		F[C->idx >> 5] &= ~(1 << (C->idx & 0x1F));                     \
+
+#define _ISIS_CLEAR_FLAG(F, C)                        \
+	{                                             \
+		F[(C) >> 5] &= ~(1 << ((C) & 0x1F));  \
 	}
+#define ISIS_CLEAR_FLAG(F, C) _ISIS_CLEAR_FLAG(F, C->idx)
 
-#define ISIS_CHECK_FLAG(F, C)  (F[(C)->idx>>5] & (1<<(C->idx & 0x1F)))
+
+#define _ISIS_CHECK_FLAG(F, C)  (F[(C)>>5] & (1<<((C) & 0x1F)))
+#define ISIS_CHECK_FLAG(F, C) _ISIS_CHECK_FLAG(F, C->idx)
 
 /* sets all u_32int_t flags to 1 */
 #define ISIS_FLAGS_SET_ALL(FLAGS)                                              \

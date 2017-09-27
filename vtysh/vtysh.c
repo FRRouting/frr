@@ -425,6 +425,12 @@ static int vtysh_execute_func(const char *line, int pager)
 		cmd_stat = CMD_SUCCESS;
 		for (i = 0; i < array_size(vtysh_client); i++) {
 			if (cmd->daemon & vtysh_client[i].flag) {
+				if (vtysh_client[i].fd < 0
+				    && (cmd->daemon == vtysh_client[i].flag)) {
+					fprintf(stderr, "%s is not running\n",
+						vtysh_client[i].name);
+					continue;
+				}
 				cmd_stat = vtysh_client_execute(
 					&vtysh_client[i], line, fp);
 				if (cmd_stat != CMD_SUCCESS)
@@ -1890,7 +1896,7 @@ DEFUN (vtysh_show_debugging,
        DEBUG_STR)
 {
 	return show_per_daemon("do show debugging\n",
-			       "Debugging Information for %s:\n");
+			       "");
 }
 
 DEFUN (vtysh_show_debugging_hashtable,

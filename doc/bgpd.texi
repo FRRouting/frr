@@ -29,10 +29,11 @@ BGP-4.
 * BGP Communities Attribute::   
 * BGP Extended Communities Attribute::  
 * BGP Large Communities Attribute::  
-* Displaying BGP routes::       
+* Displaying BGP information::       
 * Capability Negotiation::      
 * Route Reflector::             
 * Route Server::                
+* BGP Regular Expressions::  
 * How to set up a 6-Bone connection::  
 * Dump BGP packets and table::  
 * BGP Configuration Examples::
@@ -857,44 +858,11 @@ The AS numbers 64512 through 65535 are defined as private AS numbers.
 Private AS numbers must not to be advertised in the global Internet.
 
 @menu
-* AS Path Regular Expression::  
 * Display BGP Routes by AS Path::  
 * AS Path Access List::         
 * Using AS Path in Route Map::  
 * Private AS Numbers::          
 @end menu
-
-@node AS Path Regular Expression
-@subsection AS Path Regular Expression
-
-AS path regular expression can be used for displaying BGP routes and
-AS path access list.  AS path regular expression is based on
-@code{POSIX 1003.2} regular expressions.  Following description is
-just a subset of @code{POSIX} regular expression.  User can use full
-@code{POSIX} regular expression.  Adding to that special character '_'
-is added for AS path regular expression.
-
-@table @code
-@item .
-Matches any single character.
-@item *
-Matches 0 or more occurrences of pattern.
-@item +
-Matches 1 or more occurrences of pattern.
-@item ?
-Match 0 or 1 occurrences of pattern.
-@item ^
-Matches the beginning of the line.
-@item $
-Matches the end of the line.
-@item _
-Character @code{_} has special meanings in AS path regular expression.
-It matches to space and comma , and AS set delimiter @{ and @} and AS
-confederation delimiter @code{(} and @code{)}.  And it also matches to
-the beginning of the line and the end of the line.  So @code{_} can be
-used for AS value boundaries match.  @code{show ip bgp regexp _7675_}
-matches to all of BGP routes which as AS number include @var{7675}.
-@end table
 
 @node Display BGP Routes by AS Path
 @subsection Display BGP Routes by AS Path
@@ -902,9 +870,9 @@ matches to all of BGP routes which as AS number include @var{7675}.
 To show BGP routes which has specific AS path information @code{show
 ip bgp} command can be used.  
 
-@deffn Command {show ip bgp regexp @var{line}} {}
-This commands display BGP routes that matches AS path regular
-expression @var{line}.
+@deffn Command {show bgp @{ipv4|ipv6@} regexp @var{line}} {}
+This commands displays BGP routes that matches a regular
+expression @var{line} (@pxref{BGP Regular Expressions}).
 @end deffn
 
 @node AS Path Access List
@@ -1021,8 +989,9 @@ empty it matches to any routes.
 
 @deffn Command {ip community-list expanded @var{name} @{permit|deny@} @var{line}} {}
 This command defines a new expanded community list.  @var{line} is a
-string expression of communities attribute.  @var{line} can include
-regular expression to match communities attribute in BGP updates.
+string expression of communities attribute.  @var{line} can be a
+regular expression (@pxref{BGP Regular Expressions}) to match
+the communities attribute in BGP updates.
 @end deffn
 
 @deffn Command {no ip community-list @var{name}} {}
@@ -1035,7 +1004,7 @@ removed simpley specifying community lists name.
 
 @deffn {Command} {show ip community-list} {}
 @deffnx {Command} {show ip community-list @var{name}} {}
-This command display current community list information.  When
+This command displays current community list information.  When
 @var{name} is specified the specified community list's information is
 shown.
 
@@ -1130,25 +1099,25 @@ BGP update's communities attribute is completely removed.
 @subsection Display BGP Routes by Community
 
 To show BGP routes which has specific BGP communities attribute,
-@code{show ip bgp} command can be used.  The @var{community} value and
-community list can be used for @code{show ip bgp} command.
+@code{show bgp @{ipv4|ipv6@}} command can be used. The
+@var{community} and @var{community-list} subcommand can be used.
 
-@deffn Command {show ip bgp community} {}
-@deffnx Command {show ip bgp community @var{community}} {}
-@deffnx Command {show ip bgp community @var{community} exact-match} {}
-@code{show ip bgp community} displays BGP routes which has communities
-attribute.  When @var{community} is specified, BGP routes that matches
-@var{community} value is displayed.  For this command, @code{internet}
-keyword can't be used for @var{community} value.  When
-@code{exact-match} is specified, it display only routes that have an
-exact match.
+@deffn Command {show bgp @{ipv4|ipv6@} community} {}
+@deffnx Command {show bgp @{ipv4|ipv6@} community @var{community}} {}
+@deffnx Command {show bgp @{ipv4|ipv6@} community @var{community} exact-match} {}
+@code{show bgp @{ipv4|ipv6@} community} displays BGP routes which has communities
+attribute. Where the address family can be IPv4 or IPv6 among others. When
+@var{community} is specified, BGP routes that matches @var{community} value is
+displayed. For this command, @code{internet} keyword can't be used for
+@var{community} value. When @code{exact-match} is specified, it display only
+routes that have an exact match.
 @end deffn
 
-@deffn Command {show ip bgp community-list @var{word}} {}
-@deffnx Command {show ip bgp community-list @var{word} exact-match} {}
-This commands display BGP routes that matches community list
-@var{word}.  When @code{exact-match} is specified, display only routes
-that have an exact match.
+@deffn Command {show bgp @{ipv4|ipv6@} community-list @var{word}} {}
+@deffnx Command {show bgp @{ipv4|ipv6@} community-list @var{word} exact-match} {}
+This commands display BGP routes for the address family specified that matches
+community list @var{word}. When @code{exact-match} is specified, display only
+routes that have an exact match.
 @end deffn
 
 @node Using BGP Communities Attribute
@@ -1335,8 +1304,8 @@ there is no matched entry, deny will be returned.  When
 @deffn Command {ip extcommunity-list expanded @var{name} @{permit|deny@} @var{line}} {}
 This command defines a new expanded extcommunity-list.  @var{line} is
 a string expression of extended communities attribute.  @var{line} can
-include regular expression to match extended communities attribute in
-BGP updates.
+be a regular expression (@pxref{BGP Regular Expressions}) to match an
+extended communities attribute in BGP updates.
 @end deffn
 
 @deffn Command {no ip extcommunity-list @var{name}} {}
@@ -1350,7 +1319,7 @@ the name.
 
 @deffn {Command} {show ip extcommunity-list} {}
 @deffnx {Command} {show ip extcommunity-list @var{name}} {}
-This command display current extcommunity-list information.  When
+This command displays current extcommunity-list information.  When
 @var{name} is specified the community list's information is shown.
 
 @example
@@ -1471,16 +1440,16 @@ overwriting other values. Multiple large-community values can be specified.
 
 @c -----------------------------------------------------------------------
 
-@node Displaying BGP routes
-@section Displaying BGP Routes
+@node Displaying BGP information
+@section Displaying BGP information
 
 @menu
-* Show IP BGP::                 
-* More Show IP BGP::            
+* Showing BGP information::                 
+* Other BGP commands::            
 @end menu
 
-@node Show IP BGP
-@subsection Show IP BGP
+@node Showing BGP information
+@subsection Showing BGP information
 
 @deffn {Command} {show ip bgp} {}
 @deffnx {Command} {show ip bgp @var{A.B.C.D}} {}
@@ -1500,45 +1469,52 @@ Origin codes: i - IGP, e - EGP, ? - incomplete
 Total number of prefixes 1
 @end example
 
-@node More Show IP BGP
-@subsection More Show IP BGP
-
 @deffn {Command} {show ip bgp regexp @var{line}} {}
-This command display BGP routes using AS path regular expression (@pxref{Display BGP Routes by AS Path}).
+This command displays BGP routes using AS path regular expression
+(@pxref{BGP Regular Expressions}).
 @end deffn
 
 @deffn Command {show ip bgp community @var{community}} {}
 @deffnx Command {show ip bgp community @var{community} exact-match} {}
-This command display BGP routes using @var{community} (@pxref{Display
+This command displays BGP routes using @var{community} (@pxref{Display
 BGP Routes by Community}).
 @end deffn
 
 @deffn Command {show ip bgp community-list @var{word}} {}
 @deffnx Command {show ip bgp community-list @var{word} exact-match} {}
-This command display BGP routes using community list (@pxref{Display
+This command displays BGP routes using community list (@pxref{Display
 BGP Routes by Community}).
 @end deffn
 
-@deffn {Command} {show ip bgp summary} {}
+@deffn {Command} {show bgp @{ipv4|ipv6@} summary} {}
+Show a bgp peer summary for the specified address family.
 @end deffn
 
-@deffn {Command} {show ip bgp neighbor [@var{peer}]} {}
+@deffn {Command} {show bgp @{ipv4|ipv6@} neighbor [@var{peer}]} {}
+This command shows information on a specific BGP @var{peer}.
 @end deffn
 
-@deffn {Command} {clear ip bgp @var{peer}} {}
+@deffn {Command} {show bgp @{ipv4|ipv6@} dampening dampened-paths} {}
+Display paths suppressed due to dampening.
+@end deffn
+
+@deffn {Command} {show bgp @{ipv4|ipv6@} dampening flap-statistics} {}
+Display flap statistics of routes.
+@end deffn
+
+@node Other BGP commands
+@subsection Other BGP commands
+
+@deffn {Command} {clear bgp @{ipv4|ipv6@} *} {}
+Clear all address family peers.
+@end deffn
+
+@deffn {Command} {clear bgp @{ipv4|ipv6@} @var{peer}} {}
 Clear peers which have addresses of X.X.X.X
 @end deffn
 
-@deffn {Command} {clear ip bgp @var{peer} soft in} {}
+@deffn {Command} {clear bgp @{ipv4|ipv6@} @var{peer} soft in} {}
 Clear peer using soft reconfiguration.
-@end deffn
-
-@deffn {Command} {show ip bgp dampened-paths} {}
-Display paths suppressed due to dampening
-@end deffn
-
-@deffn {Command} {show ip bgp flap-statistics} {}
-Display flap statistics of routes
 @end deffn
 
 @deffn {Command} {show debug} {}
@@ -1820,6 +1796,36 @@ To display routing table of BGP view, you must specify view name.
 @deffn {Command} {show ip bgp view @var{name}} {}
 Display routing table of BGP view @var{name}.
 @end deffn
+
+@node BGP Regular Expressions
+@section BGP Regular Expressions
+
+BGP regular expressions are based on @code{POSIX 1003.2} regular
+expressions. The following description is just a quick subset of the
+@code{POSIX} regular expressions. Adding to that, the special character
+'_' is added.
+
+@table @code
+@item .
+Matches any single character.
+@item *
+Matches 0 or more occurrences of pattern.
+@item +
+Matches 1 or more occurrences of pattern.
+@item ?
+Match 0 or 1 occurrences of pattern.
+@item ^
+Matches the beginning of the line.
+@item $
+Matches the end of the line.
+@item _
+Character @code{_} has special meanings in BGP regular expressions.
+It matches to space and comma , and AS set delimiter @{ and @} and AS
+confederation delimiter @code{(} and @code{)}.  And it also matches to
+the beginning of the line and the end of the line.  So @code{_} can be
+used for AS value boundaries match. This character technically evaluates
+to @code{(^|[,@{@}() ]|$)}.
+@end table
 
 @node How to set up a 6-Bone connection
 @section How to set up a 6-Bone connection

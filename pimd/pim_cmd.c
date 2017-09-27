@@ -3160,6 +3160,14 @@ static void clear_interfaces(struct pim_instance *pim)
 	clear_pim_interfaces(pim);
 }
 
+#define PIM_GET_PIM_INTERFACE(pim_ifp, ifp)                                     \
+	pim_ifp = ifp->info;                                                    \
+	if (!pim_ifp) {                                                         \
+		vty_out(vty,                                                    \
+			"%% Enable PIM and/or IGMP on this interface first\n"); \
+		return CMD_WARNING_CONFIG_FAILED;                               \
+	}
+
 DEFUN (clear_ip_interfaces,
        clear_ip_interfaces_cmd,
        "clear ip interfaces [vrf NAME]",
@@ -5060,7 +5068,7 @@ static int pim_rp_cmd_worker(struct pim_instance *pim, struct vty *vty,
 	}
 
 	if (result == PIM_GROUP_OVERLAP) {
-		vty_out(vty, "%% Group range specified cannot overlap\n");
+		vty_out(vty, "%% Group range specified cannot exact match another\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -6474,7 +6482,7 @@ DEFUN (interface_ip_mroute,
 	struct in_addr src_addr;
 	int result;
 
-	pim_ifp = iif->info;
+	PIM_GET_PIM_INTERFACE(pim_ifp, iif);
 	pim = pim_ifp->pim;
 
 	oifname = argv[idx_interface]->arg;
@@ -6525,7 +6533,7 @@ DEFUN (interface_ip_mroute_source,
 	struct in_addr src_addr;
 	int result;
 
-	pim_ifp = iif->info;
+	PIM_GET_PIM_INTERFACE(pim_ifp, iif);
 	pim = pim_ifp->pim;
 
 	oifname = argv[idx_interface]->arg;
@@ -6580,7 +6588,7 @@ DEFUN (interface_no_ip_mroute,
 	struct in_addr src_addr;
 	int result;
 
-	pim_ifp = iif->info;
+	PIM_GET_PIM_INTERFACE(pim_ifp, iif);
 	pim = pim_ifp->pim;
 
 	oifname = argv[idx_interface]->arg;
@@ -6632,7 +6640,7 @@ DEFUN (interface_no_ip_mroute_source,
 	struct in_addr src_addr;
 	int result;
 
-	pim_ifp = iif->info;
+	PIM_GET_PIM_INTERFACE(pim_ifp, iif);
 	pim = pim_ifp->pim;
 
 	oifname = argv[idx_interface]->arg;
