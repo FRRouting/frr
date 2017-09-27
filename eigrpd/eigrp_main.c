@@ -100,6 +100,8 @@ static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 	eigrp_terminate();
+
+	exit(0);
 }
 
 /* SIGUSR1 handler. */
