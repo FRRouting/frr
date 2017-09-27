@@ -122,6 +122,9 @@ struct pim_interface {
 	uint32_t pim_dr_priority;	  /* config */
 	int pim_dr_num_nondrpri_neighbors; /* neighbors without dr_pri */
 
+	/* boundary prefix-list */
+	char *boundary_oil_plist;
+
 	int64_t pim_ifstat_start; /* start timestamp for stats */
 	uint32_t pim_ifstat_hello_sent;
 	uint32_t pim_ifstat_hello_sendfail;

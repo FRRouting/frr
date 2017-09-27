@@ -671,6 +671,9 @@ void igmpv3_report_isex(struct igmp_sock *igmp, struct in_addr from,
 	on_trace(__PRETTY_FUNCTION__, ifp, from, group_addr, num_sources,
 		 sources);
 
+	if (pim_is_group_filtered(ifp->info, &group_addr))
+		return;
+
 	/* non-existant group is created as INCLUDE {empty} */
 	group = igmp_add_group_by_addr(igmp, group_addr);
 	if (!group) {
@@ -1869,6 +1872,9 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 	struct interface *ifp = igmp->interface;
 	int i;
 	int local_ncb = 0;
+	struct pim_interface *pim_ifp;
+
+	pim_ifp = igmp->interface->info;
 
 	if (igmp_msg_len < IGMP_V3_MSG_MIN_SIZE) {
 		zlog_warn(
@@ -1920,6 +1926,7 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 		int j;
 		struct prefix lncb;
 		struct prefix g;
+		bool filtered = false;
 
 		if ((group_record + IGMP_V3_GROUP_RECORD_MIN_SIZE)
 		    > report_pastend) {
@@ -1983,6 +1990,16 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 		g.family = AF_INET;
 		g.u.prefix4 = rec_group;
 		g.prefixlen = 32;
+
+		/* determine filtering status for group */
+		filtered = pim_is_group_filtered(ifp->info, &rec_group);
+
+		if (PIM_DEBUG_IGMP_PACKETS && filtered)
+			zlog_debug(
+				"Filtering IGMPv3 group record %s from %s on %s per prefix-list %s",
+				inet_ntoa(rec_group), from_str, ifp->name,
+				pim_ifp->boundary_oil_plist);
+
 		/*
 		 * If we receive a igmp report with the group in 224.0.0.0/24
 		 * then we should ignore it
@@ -1990,7 +2007,7 @@ int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
 		if (prefix_match(&lncb, &g))
 			local_ncb = 1;
 
-		if (!local_ncb)
+		if (!local_ncb && !filtered)
 			switch (rec_type) {
 			case IGMP_GRP_REC_TYPE_MODE_IS_INCLUDE:
 				igmpv3_report_isin(igmp, from, rec_group,

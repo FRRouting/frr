@@ -299,22 +299,19 @@ static int igmp_recv_query(struct igmp_sock *igmp, int query_version,
 		return -1;
 	}
 
-	/* RFC 3376 defines some guidelines on operating in backwards
-	 * compatibility
-	 * with older versions of IGMP but there are some gaps in the logic:
+	/*
+	 * RFC 3376 defines some guidelines on operating in backwards
+	 * compatibility with older versions of IGMP but there are some gaps in
+	 * the logic:
 	 *
 	 * - once we drop from say version 3 to version 2 we will never go back
-	 * to
-	 *   version 3 even if the node that TXed an IGMP v2 query upgrades to
-	 * v3
+	 *   to version 3 even if the node that TXed an IGMP v2 query upgrades
+	 *   to v3
 	 *
 	 * - The node with the lowest IP is the querier so we will only know to
-	 * drop
-	 *   from v3 to v2 if the node that is the querier is also the one that
-	 * is
-	 *   running igmp v2.  If a non-querier only supports igmp v2 we will
-	 * have
-	 *   no way of knowing.
+	 *   drop from v3 to v2 if the node that is the querier is also the one
+	 *   that is running igmp v2.  If a non-querier only supports igmp v2
+	 *   we will have no way of knowing.
 	 *
 	 * For now we will simplify things and inform the user that they need to
 	 * configure all PIM routers to use the same version of IGMP.
@@ -402,6 +399,9 @@ static int igmp_v1_recv_report(struct igmp_sock *igmp, struct in_addr from,
 	}
 
 	memcpy(&group_addr, igmp_msg + 4, sizeof(struct in_addr));
+
+	if (pim_is_group_filtered(ifp->info, &group_addr))
+		return -1;
 
 	/* non-existant group is created as INCLUDE {empty} */
 	group = igmp_add_group_by_addr(igmp, group_addr);

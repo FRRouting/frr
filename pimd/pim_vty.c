@@ -285,6 +285,7 @@ int pim_interface_config_write(struct vty *vty)
 						vty_out(vty, " %d",
 							pim_ifp->pim_default_holdtime);
 					vty_out(vty, "\n");
+					++writes;
 				}
 
 				/* update source */
@@ -356,6 +357,14 @@ int pim_interface_config_write(struct vty *vty)
 							group_str, source_str);
 						++writes;
 					}
+				}
+
+				/* boundary */
+				if (pim_ifp->boundary_oil_plist) {
+					vty_out(vty,
+						" ip pim boundary oil %s\n",
+						pim_ifp->boundary_oil_plist);
+					++writes;
 				}
 
 				writes +=
