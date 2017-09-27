@@ -229,6 +229,7 @@ static struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 	struct prefix *p, *bp;
 	struct route_node *rn;
 
+	bp = NULL;
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (rp_info->plist) {
 			plist = prefix_list_lookup(AFI_IP, rp_info->plist);
@@ -242,7 +243,7 @@ static struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 				continue;
 			}
 
-			if (bp->prefixlen < p->prefixlen) {
+			if (bp && bp->prefixlen < p->prefixlen) {
 				best = rp_info;
 				bp = p;
 			}
