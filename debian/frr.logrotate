@@ -22,6 +22,6 @@
                     pids="$pids $(cat /var/run/frr/$i.pid)"
                 fi
             done
-            [ -n "$pids" ] && kill -USR1 $pids
+            [ -n "$pids" ] && kill -USR1 $pids || true
         endscript
 }
