@@ -82,6 +82,8 @@ extern int bgp_nexthop_lookup(afi_t, struct peer *peer, struct bgp_info *,
 			      int *, int *);
 extern void bgp_connected_add(struct bgp *bgp, struct connected *c);
 extern void bgp_connected_delete(struct bgp *bgp, struct connected *c);
+extern int bgp_subgrp_multiaccess_check_v4(struct in_addr nexthop,
+					   struct update_subgroup *subgrp);
 extern int bgp_multiaccess_check_v4(struct in_addr, struct peer *);
 extern int bgp_config_write_scan_time(struct vty *);
 extern int bgp_nexthop_self(struct bgp *, struct in_addr);

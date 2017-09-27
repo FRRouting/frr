@@ -1319,7 +1319,6 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
 	struct peer *onlypeer;
 	struct bgp *bgp;
 	struct attr *riattr;
-	struct peer_af *paf;
 	char buf[PREFIX_STRLEN];
 	int ret;
 	int transparent;
@@ -1710,16 +1709,12 @@ int subgroup_announce_check(struct bgp_node *rn, struct bgp_info *ri,
 			 * Note: 3rd party nexthop currently implemented for
 			 * IPv4 only.
 			 */
-			SUBGRP_FOREACH_PEER (subgrp, paf) {
-				if (bgp_multiaccess_check_v4(riattr->nexthop,
-							     paf->peer))
-					break;
-			}
-			if (!paf)
+			if (!bgp_subgrp_multiaccess_check_v4(riattr->nexthop,
+							     subgrp))
 				subgroup_announce_reset_nhop(
 					(peer_cap_enhe(peer, afi, safi)
-						 ? AF_INET6
-						 : p->family),
+					 ? AF_INET6
+					 : p->family),
 					attr);
 		}
 		/* If IPv6/MP and nexthop does not have any override and happens
