@@ -723,7 +723,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn,
 
 DEFUN(show_ip_bgp_l2vpn_evpn_rd,
       show_ip_bgp_l2vpn_evpn_rd_cmd,
-      "show [ip] bgp l2vpn evpn rd ASN:nn_or_IP-address:nn [json]",
+      "show [ip] bgp l2vpn evpn rd ASN:NN_OR_IP-ADDRESS:NN [json]",
       SHOW_STR
       IP_STR
       BGP_STR
@@ -736,7 +736,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd,
 	int ret;
 	struct prefix_rd prd;
 
-	argv_find(argv, argc, "ASN:nn_or_IP-address:nn", &idx_ext_community);
+	argv_find(argv, argc, "ASN:NN_OR_IP-ADDRESS:NN", &idx_ext_community);
 
 	ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
 	if (!ret) {
@@ -764,7 +764,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_all_tags,
 
 DEFUN(show_ip_bgp_l2vpn_evpn_rd_tags,
       show_ip_bgp_l2vpn_evpn_rd_tags_cmd,
-      "show [ip] bgp l2vpn evpn rd ASN:nn_or_IP-address:nn tags",
+      "show [ip] bgp l2vpn evpn rd ASN:NN_OR_IP-ADDRESS:NN tags",
       SHOW_STR
       IP_STR
       BGP_STR
@@ -777,7 +777,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_tags,
 	int ret;
 	struct prefix_rd prd;
 
-	argv_find(argv, argc, "ASN:nn_or_IP-address:nn", &idx_ext_community);
+	argv_find(argv, argc, "ASN:NN_OR_IP-ADDRESS:NN", &idx_ext_community);
 
 	ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
 	if (!ret) {
@@ -847,7 +847,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_all_neighbor_routes,
 
 DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_routes,
       show_ip_bgp_l2vpn_evpn_rd_neighbor_routes_cmd,
-      "show [ip] bgp l2vpn evpn rd ASN:nn_or_IP-address:nn neighbors A.B.C.D routes [json]",
+      "show [ip] bgp l2vpn evpn rd ASN:NN_OR_IP-ADDRESS:NN neighbors A.B.C.D routes [json]",
       SHOW_STR
       IP_STR
       BGP_STR
@@ -867,7 +867,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_routes,
 	struct prefix_rd prd;
 	u_char uj = use_json(argc, argv);
 
-	argv_find(argv, argc, "ASN:nn_or_IP-address:nn", &idx_ext_community);
+	argv_find(argv, argc, "ASN:NN_OR_IP-ADDRESS:NN", &idx_ext_community);
 	argv_find(argv, argc, "A.B.C.D", &idx_ipv4);
 
 	ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
@@ -978,7 +978,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_all_neighbor_advertised_routes,
 
 DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes,
       show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes_cmd,
-      "show [ip] bgp l2vpn evpn rd ASN:nn_or_IP-address:nn neighbors A.B.C.D advertised-routes [json]",
+      "show [ip] bgp l2vpn evpn rd ASN:NN_OR_IP-ADDRESS:NN neighbors A.B.C.D advertised-routes [json]",
       SHOW_STR
       IP_STR
       BGP_STR
@@ -998,7 +998,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_rd_neighbor_advertised_routes,
 	union sockunion su;
 	u_char uj = use_json(argc, argv);
 
-	argv_find(argv, argc, "ASN:nn_or_IP-address:nn", &idx_ext_community);
+	argv_find(argv, argc, "ASN:NN_OR_IP-ADDRESS:NN", &idx_ext_community);
 	argv_find(argv, argc, "A.B.C.D", &idx_ipv4);
 
 	ret = str2sockunion(argv[idx_ipv4]->arg, &su);
@@ -1068,7 +1068,7 @@ DEFUN(show_ip_bgp_l2vpn_evpn_all_overlay,
 
 DEFUN(show_ip_bgp_evpn_rd_overlay,
       show_ip_bgp_evpn_rd_overlay_cmd,
-      "show [ip] bgp l2vpn evpn rd ASN:nn_or_IP-address:nn overlay",
+      "show [ip] bgp l2vpn evpn rd ASN:NN_OR_IP-ADDRESS:NN overlay",
       SHOW_STR
       IP_STR
       BGP_STR
@@ -1082,7 +1082,7 @@ DEFUN(show_ip_bgp_evpn_rd_overlay,
 	int ret;
 	struct prefix_rd prd;
 
-	argv_find(argv, argc, "ASN:nn_or_IP-address:nn", &idx_ext_community);
+	argv_find(argv, argc, "ASN:NN_OR_IP-ADDRESS:NN", &idx_ext_community);
 
 	ret = str2prefix_rd(argv[idx_ext_community]->arg, &prd);
 	if (!ret) {
@@ -1097,7 +1097,7 @@ DEFUN(show_ip_bgp_evpn_rd_overlay,
 /* For testing purpose, static route of MPLS-VPN. */
 DEFUN(evpnrt5_network,
       evpnrt5_network_cmd,
-      "network <A.B.C.D/M|X:X::X:X/M> rd ASN:nn_or_IP-address:nn ethtag WORD label WORD esi WORD gwip <A.B.C.D|X:X::X:X> routermac WORD [route-map WORD]",
+      "network <A.B.C.D/M|X:X::X:X/M> rd ASN:NN_OR_IP-ADDRESS:NN ethtag WORD label WORD esi WORD gwip <A.B.C.D|X:X::X:X> routermac WORD [route-map WORD]",
       "Specify a network to announce via BGP\n"
       "IP prefix\n"
       "IPv6 prefix\n"
@@ -1137,7 +1137,7 @@ DEFUN(evpnrt5_network,
 /* For testing purpose, static route of MPLS-VPN. */
 DEFUN(no_evpnrt5_network,
       no_evpnrt5_network_cmd,
-      "no network <A.B.C.D/M|X:X::X:X/M> rd ASN:nn_or_IP-address:nn ethtag WORD label WORD esi WORD gwip <A.B.C.D|X:X::X:X>",
+      "no network <A.B.C.D/M|X:X::X:X/M> rd ASN:NN_OR_IP-ADDRESS:NN ethtag WORD label WORD esi WORD gwip <A.B.C.D|X:X::X:X>",
       NO_STR
       "Specify a network to announce via BGP\n"
       "IP prefix\n"
@@ -2388,7 +2388,7 @@ DEFUN(show_bgp_l2vpn_evpn_route,
  */
 DEFUN(show_bgp_l2vpn_evpn_route_rd,
       show_bgp_l2vpn_evpn_route_rd_cmd,
-      "show bgp l2vpn evpn route rd ASN:nn_or_IP-address:nn [type <macip|multicast>] [json]",
+      "show bgp l2vpn evpn route rd ASN:NN_OR_IP-ADDRESS:NN [type <macip|multicast>] [json]",
       SHOW_STR
       BGP_STR
       L2VPN_HELP_STR
@@ -2456,7 +2456,7 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd,
  */
 DEFUN(show_bgp_l2vpn_evpn_route_rd_macip,
       show_bgp_l2vpn_evpn_route_rd_macip_cmd,
-      "show bgp l2vpn evpn route rd ASN:nn_or_IP-address:nn mac WORD [ip WORD] [json]",
+      "show bgp l2vpn evpn route rd ASN:NN_OR_IP-ADDRESS:NN mac WORD [ip WORD] [json]",
       SHOW_STR
       BGP_STR
       L2VPN_HELP_STR
@@ -2841,7 +2841,7 @@ ALIAS_HIDDEN(show_bgp_l2vpn_evpn_route, show_bgp_evpn_route_cmd,
 
 ALIAS_HIDDEN(
 	show_bgp_l2vpn_evpn_route_rd, show_bgp_evpn_route_rd_cmd,
-	"show bgp evpn route rd ASN:nn_or_IP-address:nn [type <macip|multicast>]",
+	"show bgp evpn route rd ASN:NN_OR_IP-ADDRESS:NN [type <macip|multicast>]",
 	SHOW_STR BGP_STR EVPN_HELP_STR
 	"EVPN route information\n"
 	"Route Distinguisher\n"
@@ -2852,7 +2852,7 @@ ALIAS_HIDDEN(
 
 ALIAS_HIDDEN(
 	show_bgp_l2vpn_evpn_route_rd_macip, show_bgp_evpn_route_rd_macip_cmd,
-	"show bgp evpn route rd ASN:nn_or_IP-address:nn mac WORD [ip WORD]",
+	"show bgp evpn route rd ASN:NN_OR_IP-ADDRESS:NN mac WORD [ip WORD]",
 	SHOW_STR BGP_STR EVPN_HELP_STR
 	"EVPN route information\n"
 	"Route Distinguisher\n"
@@ -2980,7 +2980,7 @@ DEFUN_NOSH (exit_vni,
 
 DEFUN (bgp_evpn_vni_rd,
        bgp_evpn_vni_rd_cmd,
-       "rd ASN:nn_or_IP-address:nn",
+       "rd ASN:NN_OR_IP-ADDRESS:NN",
        "Route Distinguisher\n"
        "ASN:XX or A.B.C.D:XX\n")
 {
@@ -3009,7 +3009,7 @@ DEFUN (bgp_evpn_vni_rd,
 
 DEFUN (no_bgp_evpn_vni_rd,
        no_bgp_evpn_vni_rd_cmd,
-       "no rd ASN:nn_or_IP-address:nn",
+       "no rd ASN:NN_OR_IP-ADDRESS:NN",
        NO_STR
        "Route Distinguisher\n"
        "ASN:XX or A.B.C.D:XX\n")

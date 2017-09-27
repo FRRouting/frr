@@ -3972,7 +3972,7 @@ DEFUN (no_set_lcommunity_delete,
 
 DEFUN (set_ecommunity_rt,
        set_ecommunity_rt_cmd,
-       "set extcommunity rt ASN:nn_or_IP-address:nn...",
+       "set extcommunity rt ASN:NN_OR_IP-ADDRESS:NN...",
        SET_STR
        "BGP extended community attribute\n"
        "Route Target extended community\n"
@@ -3992,7 +3992,7 @@ DEFUN (set_ecommunity_rt,
 
 DEFUN (no_set_ecommunity_rt,
        no_set_ecommunity_rt_cmd,
-       "no set extcommunity rt ASN:nn_or_IP-address:nn...",
+       "no set extcommunity rt ASN:NN_OR_IP-ADDRESS:NN...",
        NO_STR
        SET_STR
        "BGP extended community attribute\n"
@@ -4006,7 +4006,7 @@ DEFUN (no_set_ecommunity_rt,
 
 DEFUN (set_ecommunity_soo,
        set_ecommunity_soo_cmd,
-       "set extcommunity soo ASN:nn_or_IP-address:nn...",
+       "set extcommunity soo ASN:NN_OR_IP-ADDRESS:NN...",
        SET_STR
        "BGP extended community attribute\n"
        "Site-of-Origin extended community\n"
@@ -4026,7 +4026,7 @@ DEFUN (set_ecommunity_soo,
 
 DEFUN (no_set_ecommunity_soo,
        no_set_ecommunity_soo_cmd,
-       "no set extcommunity soo ASN:nn_or_IP-address:nn...",
+       "no set extcommunity soo ASN:NN_OR_IP-ADDRESS:NN...",
        NO_STR
        SET_STR
        "BGP extended community attribute\n"

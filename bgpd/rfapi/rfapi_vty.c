@@ -4791,7 +4791,7 @@ static int vnc_add_vrf_prefix(struct vty *vty, const char *arg_vrf,
 
 DEFUN (add_vrf_prefix_rd_label_pref,
        add_vrf_prefix_rd_label_pref_cmd,
-      "add vrf NAME prefix <A.B.C.D/M|X:X::X:X/M> [{rd ASN:nn_or_IP-address|label (0-1048575)|preference (0-4294967295)}]",
+      "add vrf NAME prefix <A.B.C.D/M|X:X::X:X/M> [{rd ASN:NN_OR_IP-ADDRESS|label (0-1048575)|preference (0-4294967295)}]",
        "Add\n"
        "To a VRF\n"
        "VRF name\n"
@@ -4914,7 +4914,7 @@ static int vnc_clear_vrf(struct vty *vty, struct bgp *bgp, const char *arg_vrf,
 
 DEFUN (clear_vrf_prefix_rd,
        clear_vrf_prefix_rd_cmd,
-       "clear vrf NAME [prefix <A.B.C.D/M|X:X::X:X/M>] [rd ASN:nn_or_IP-address]",
+       "clear vrf NAME [prefix <A.B.C.D/M|X:X::X:X/M>] [rd ASN:NN_OR_IP-ADDRESS]",
        "Clear stored data\n"
        "From a VRF\n"
        "VRF name\n"
