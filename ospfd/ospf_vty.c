@@ -974,15 +974,16 @@ static int ospf_vl_set(struct ospf *ospf, struct ospf_vl_config_data *vl_config)
 
 DEFUN (ospf_area_vlink,
        ospf_area_vlink_cmd,
-       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [authentication] [<message-digest|null>] [<message-digest-key (1-255) md5 KEY|authentication-key AUTH_KEY>]",
+       "area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [authentication [<message-digest|null>]] [<message-digest-key (1-255) md5 KEY|authentication-key AUTH_KEY>]",
        VLINK_HELPSTR_IPADDR
-       "Enable authentication on this virtual link\n" \
-       "Use null authentication\n" \
+       "Enable authentication on this virtual link\n"
        "Use message-digest authentication\n"
-       "Message digest authentication password (key)\n" \
-       "Key ID\n" \
-       "Use MD5 algorithm\n" \
-       "The OSPF password (key)")
+       "Use null authentication\n"
+       "Message digest authentication password (key)\n"
+       "Key ID\n"
+       "Use MD5 algorithm\n"
+       "The OSPF password (key)\n"
+       "Authentication password (key)")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_ipv4_number = 1;
@@ -990,8 +991,8 @@ DEFUN (ospf_area_vlink,
 	struct ospf_vl_config_data vl_config;
 	char auth_key[OSPF_AUTH_SIMPLE_SIZE + 1];
 	char md5_key[OSPF_AUTH_MD5_SIZE + 1];
-	int i;
 	int ret;
+	int idx;
 
 	ospf_vl_config_data_init(&vl_config, vty);
 
@@ -1015,77 +1016,44 @@ DEFUN (ospf_area_vlink,
 		return ospf_vl_set(ospf, &vl_config);
 	}
 
-	/* Deal with other parameters */
-	for (i = 4; i < argc; i++) {
-
-		/* vty_out (vty, "argv[%d]->arg - %s\n", i, argv[i]->text); */
-
-		switch (argv[i]->arg[0]) {
-
-		case 'a':
-			if (i > 5
-			    || strncmp(argv[i]->arg, "authentication-", 15)
-				       == 0) {
-				/* authentication-key - this option can occur
-				   anywhere on command line.  At start
-				   of command line must check for
-				   authentication option. */
-				memset(auth_key, 0, OSPF_AUTH_SIMPLE_SIZE + 1);
-				strncpy(auth_key, argv[i + 1]->text,
-					OSPF_AUTH_SIMPLE_SIZE);
-				vl_config.auth_key = auth_key;
-				i++;
-			} else if (strncmp(argv[i]->arg, "authentication", 14)
-				   == 0) {
-				/* authentication  - this option can only occur
-				   at start of command line */
-				vl_config.auth_type = OSPF_AUTH_SIMPLE;
-				if ((i + 1) < argc) {
-					if (strncmp(argv[i + 1]->arg, "n", 1)
-					    == 0) {
-						/* "authentication null" */
-						vl_config.auth_type =
-							OSPF_AUTH_NULL;
-						i++;
-					} else if (
-						strncmp(argv[i + 1]->arg, "m",
-							1)
-							== 0
-						&& strmatch(
-							   argv[i + 1]->text,
-							   "message-digest")) {
-						/* "authentication
-						 * message-digest" */
-						vl_config.auth_type =
-							OSPF_AUTH_CRYPTOGRAPHIC;
-						i++;
-					}
-				}
-			}
-			break;
-
-		case 'm':
-			/* message-digest-key */
-			i++;
-			if (i < argc) {
-				vl_config.crypto_key_id =
-					strtol(argv[i]->arg, NULL, 10);
-				if (vl_config.crypto_key_id < 0)
-					return CMD_WARNING_CONFIG_FAILED;
-				i++;
-				if (i < argc) {
-					memset(md5_key, 0,
-					       OSPF_AUTH_MD5_SIZE + 1);
-					strncpy(md5_key, argv[i]->arg,
-						OSPF_AUTH_MD5_SIZE);
-					vl_config.md5_key = md5_key;
-				}
-			} else
-				vl_config.md5_key = NULL;
-			break;
-		}
+	if (argv_find(argv, argc, "authentication", &idx)) {
+		/* authentication  - this option can only occur
+		at start of command line */
+		vl_config.auth_type = OSPF_AUTH_SIMPLE;
 	}
 
+	idx = 2;
+	if (argv_find(argv, argc, "message-digest", &idx)) {
+		/* authentication  - this option can only occur
+		at start of command line */
+		vl_config.auth_type = OSPF_AUTH_CRYPTOGRAPHIC;
+	} else if (argv_find(argv, argc, "null", &idx)) {
+		/* "authentication null" */
+		vl_config.auth_type = OSPF_AUTH_NULL;
+	}
+
+	idx = 3;
+	if (argv_find(argv, argc, "message-digest-key", &idx)) {
+		idx = idx + 1; /* Fetch key_id */
+
+		vl_config.md5_key = NULL;
+		vl_config.crypto_key_id = strtol(argv[idx]->arg, NULL, 10);
+		if (vl_config.crypto_key_id < 0)
+			return CMD_WARNING_CONFIG_FAILED;
+
+		idx = idx + 1; /* Fetch md5_key */
+		memset(md5_key, 0, OSPF_AUTH_MD5_SIZE + 1);
+		strncpy(md5_key, argv[idx]->arg, OSPF_AUTH_MD5_SIZE);
+		vl_config.md5_key = md5_key;
+	}
+
+	idx = 3;
+	if (argv_find(argv, argc, "authentication-key", &idx)) {
+		idx = idx + 1;
+		memset(auth_key, 0, OSPF_AUTH_SIMPLE_SIZE + 1);
+		strncpy(auth_key, argv[idx]->text, OSPF_AUTH_SIMPLE_SIZE);
+		vl_config.auth_key = auth_key;
+	}
 
 	/* Action configuration */
 
@@ -1094,16 +1062,17 @@ DEFUN (ospf_area_vlink,
 
 DEFUN (no_ospf_area_vlink,
        no_ospf_area_vlink_cmd,
-       "no area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [authentication] [<message-digest|null>] [<message-digest-key (1-255) md5 KEY|authentication-key AUTH_KEY>]",
+       "no area <A.B.C.D|(0-4294967295)> virtual-link A.B.C.D [authentication [<message-digest|null>]] [<message-digest-key (1-255) md5 KEY|authentication-key AUTH_KEY>]",
        NO_STR
        VLINK_HELPSTR_IPADDR
        "Enable authentication on this virtual link\n" \
+       "Use message-digest authentication\n" \
        "Use null authentication\n" \
-       "Use message-digest authentication\n"
        "Message digest authentication password (key)\n" \
        "Key ID\n" \
        "Use MD5 algorithm\n" \
-       "The OSPF password (key)")
+       "The OSPF password (key)\n" \
+       "Authentication password (key)")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_ipv4_number = 2;
@@ -1112,7 +1081,7 @@ DEFUN (no_ospf_area_vlink,
 	struct ospf_vl_config_data vl_config;
 	struct ospf_vl_data *vl_data = NULL;
 	char auth_key[OSPF_AUTH_SIMPLE_SIZE + 1];
-	int i;
+	int idx = 0;
 	int ret, format;
 
 	ospf_vl_config_data_init(&vl_config, vty);
@@ -1148,50 +1117,29 @@ DEFUN (no_ospf_area_vlink,
 	}
 
 	/* If we are down here, we are reseting parameters */
-
 	/* Deal with other parameters */
-	for (i = 5; i < argc; i++) {
-		/* vty_out (vty, "argv[%d] - %s\n", i, argv[i]); */
 
-		switch (argv[i]->arg[0]) {
-
-		case 'a':
-			if (i > 6
-			    || strncmp(argv[i]->text, "authentication-", 15)
-				       == 0) {
-				/* authentication-key - this option can occur
-				   anywhere on command line.  At start
-				   of command line must check for
-				   authentication option. */
-				memset(auth_key, 0, OSPF_AUTH_SIMPLE_SIZE + 1);
-				vl_config.auth_key = auth_key;
-			} else if (strncmp(argv[i]->text, "authentication", 14)
-				   == 0) {
-				/* authentication  - this option can only occur
-				   at start of command line */
-				vl_config.auth_type = OSPF_AUTH_NOTSET;
-				if ((i + 1) < argc)
-					i++;
-			}
-			break;
-
-		case 'm':
-			/* message-digest-key */
-			/* Delete one key */
-			i++;
-			if (i < argc) {
-				vl_config.crypto_key_id =
-					strtol(argv[i]->arg, NULL, 10);
-				i++; /* skip md5_key arg for delete */
-				if (vl_config.crypto_key_id < 0)
-					return CMD_WARNING_CONFIG_FAILED;
-				vl_config.md5_key = NULL;
-			} else
-				return CMD_WARNING_CONFIG_FAILED;
-			break;
-		}
+	if (argv_find(argv, argc, "authentication", &idx)) {
+		/* authentication  - this option can only occur
+		at start of command line */
+		vl_config.auth_type = OSPF_AUTH_NOTSET;
 	}
 
+	idx = 3;
+	if (argv_find(argv, argc, "message-digest-key", &idx)) {
+		idx = idx + 1; /* Fetch key_id */
+		vl_config.md5_key = NULL;
+		vl_config.crypto_key_id = strtol(argv[idx]->arg, NULL, 10);
+		if (vl_config.crypto_key_id < 0)
+			return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	idx = 3;
+	if (argv_find(argv, argc, "authentication-key", &idx)) {
+		idx = idx + 1;
+		memset(auth_key, 0, OSPF_AUTH_SIMPLE_SIZE + 1);
+		vl_config.auth_key = auth_key;
+	}
 
 	/* Action configuration */
 
