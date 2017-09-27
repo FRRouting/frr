@@ -865,10 +865,6 @@ DEFUN (no_debug_bgp_keepalive_peer,
 	return CMD_SUCCESS;
 }
 
-#ifndef VTYSH_EXTRACT_PL
-#include "bgp_debug_clippy.c"
-#endif
-
 /* debug bgp bestpath */
 DEFUN (debug_bgp_bestpath_prefix,
        debug_bgp_bestpath_prefix_cmd,
