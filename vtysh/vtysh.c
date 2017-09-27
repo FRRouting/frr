@@ -423,12 +423,20 @@ static int vtysh_execute_func(const char *line, int pager)
 		}
 
 		cmd_stat = CMD_SUCCESS;
+		struct vtysh_client *vc;
 		for (i = 0; i < array_size(vtysh_client); i++) {
 			if (cmd->daemon & vtysh_client[i].flag) {
 				if (vtysh_client[i].fd < 0
 				    && (cmd->daemon == vtysh_client[i].flag)) {
-					fprintf(stderr, "%s is not running\n",
-						vtysh_client[i].name);
+					bool any_inst = false;
+					for (vc = &vtysh_client[i]; vc;
+					     vc = vc->next)
+						any_inst = any_inst
+							   || (vc->fd > 0);
+					if (!any_inst)
+						fprintf(stderr,
+							"%s is not running\n",
+							vtysh_client[i].name);
 					continue;
 				}
 				cmd_stat = vtysh_client_execute(
