@@ -2299,7 +2299,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		u_short instance, int flags, struct prefix *p,
 		struct prefix_ipv6 *src_p, const struct nexthop *nh,
-		u_int32_t table_id, u_int32_t metric)
+		u_int32_t table_id, u_int32_t metric, bool fromkernel)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -2380,6 +2380,21 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	/* If same type of route can't be found and this message is from
 	   kernel. */
 	if (!same) {
+		/*
+		 * In the past(HA!) we could get here because
+		 * we were receiving a route delete from the
+		 * kernel and we're not marking the proto
+		 * as coming from it's appropriate originator.
+		 * Now that we are properly noticing the fact
+		 * that the kernel has deleted our route we
+		 * are not going to get called in this path
+		 * I am going to leave this here because
+		 * this might still work this way on non-linux
+		 * platforms as well as some weird state I have
+		 * not properly thought of yet.
+		 * If we can show that this code path is
+		 * dead then we can remove it.
+		 */
 		if (fib && type == ZEBRA_ROUTE_KERNEL
 		    && CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE)) {
 			if (IS_ZEBRA_DEBUG_RIB) {
@@ -2428,8 +2443,17 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		}
 	}
 
-	if (same)
+	if (same) {
+		if (fromkernel &&
+		    CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE) &&
+		    !allow_delete) {
+			rib_install_kernel(rn, same, NULL);
+			route_unlock_node(rn);
+
+			return;
+		}
 		rib_delnode(rn, same);
+	}
 
 	route_unlock_node(rn);
 	return;

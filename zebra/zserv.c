@@ -1165,7 +1165,7 @@ static int zread_route_del(struct zserv *client, u_short length,
 
 	rib_delete(afi, api.safi, zvrf_id(zvrf), api.type, api.instance,
 		   api.flags, &api.prefix, src_p, NULL, zvrf->table_id,
-		   api.metric);
+		   api.metric, false);
 
 	/* Stats */
 	switch (api.prefix.family) {
@@ -1331,7 +1331,7 @@ static int zread_ipv4_delete(struct zserv *client, u_short length,
 	table_id = zvrf->table_id;
 
 	rib_delete(AFI_IP, api.safi, zvrf_id(zvrf), api.type, api.instance,
-		   api.flags, &p, NULL, NULL, table_id, 0);
+		   api.flags, &p, NULL, NULL, table_id, 0, false);
 	client->v4_route_del_cnt++;
 	return 0;
 }
@@ -1693,7 +1693,7 @@ static int zread_ipv6_delete(struct zserv *client, u_short length,
 		src_pp = NULL;
 
 	rib_delete(AFI_IP6, api.safi, zvrf_id(zvrf), api.type, api.instance,
-		   api.flags, &p, src_pp, NULL, client->rtm_table, 0);
+		   api.flags, &p, src_pp, NULL, client->rtm_table, 0, false);
 
 	client->v6_route_del_cnt++;
 	return 0;
