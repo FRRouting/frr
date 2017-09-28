@@ -581,17 +581,38 @@ DEFPY  (ldp_debug_mpls_ldp_messages_sent,
 
 DEFPY  (ldp_show_mpls_ldp_binding,
 	ldp_show_mpls_ldp_binding_cmd,
-	"show mpls ldp [<ipv4|ipv6>]$af binding [detail]$detail [json]$json",
+	"show mpls ldp [<ipv4|ipv6>]$af binding\
+	  [<A.B.C.D/M|X:X::X:X/M>$prefix [longer-prefixes$longer_prefixes]]\
+	  [{\
+	    neighbor A.B.C.D$nbr\
+	    |local-label (0-1048575)$local_label\
+	    |remote-label (0-1048575)$remote_label\
+	  }]\
+	 [detail]$detail [json]$json",
 	"Show running system information\n"
 	"MPLS information\n"
 	"Label Distribution Protocol\n"
 	"IPv4 Address Family\n"
 	"IPv6 Address Family\n"
 	"Label Information Base (LIB) information\n"
+	"Destination prefix (IPv4)\n"
+	"Destination prefix (IPv6)\n"
+	"Include longer matches\n"
+	"Display labels from LDP neighbor\n"
+	"Neighbor LSR-ID\n"
+	"Match locally assigned label values\n"
+	"Locally assigned label value\n"
+	"Match remotely assigned label values\n"
+	"Remotely assigned label value\n"
 	"Show detailed information\n"
 	JSON_STR)
 {
-	return (ldp_vty_show_binding(vty, af, detail, json));
+	if (!local_label_str)
+		local_label = NO_LABEL;
+	if (!remote_label_str)
+		remote_label = NO_LABEL;
+	return (ldp_vty_show_binding(vty, af, prefix_str, !!longer_prefixes,
+	    nbr_str, local_label, remote_label, detail, json));
 }
 
 DEFPY  (ldp_show_mpls_ldp_discovery,
@@ -637,52 +658,81 @@ DEFPY  (ldp_show_mpls_ldp_capabilities,
 
 DEFPY  (ldp_show_mpls_ldp_neighbor,
 	ldp_show_mpls_ldp_neighbor_cmd,
-	"show mpls ldp neighbor [detail]$detail [json]$json",
+	"show mpls ldp neighbor [A.B.C.D]$lsr_id [detail]$detail [json]$json",
 	"Show running system information\n"
 	"MPLS information\n"
 	"Label Distribution Protocol\n"
 	"Neighbor information\n"
+	"Neighbor LSR-ID\n"
 	"Show detailed information\n"
 	JSON_STR)
 {
-	return (ldp_vty_show_neighbor(vty, 0, detail, json));
+	return (ldp_vty_show_neighbor(vty, lsr_id_str, 0, detail, json));
 }
 
 DEFPY  (ldp_show_mpls_ldp_neighbor_capabilities,
 	ldp_show_mpls_ldp_neighbor_capabilities_cmd,
-	"show mpls ldp neighbor capabilities [json]$json",
+	"show mpls ldp neighbor [A.B.C.D]$lsr_id capabilities [json]$json",
 	"Show running system information\n"
 	"MPLS information\n"
 	"Label Distribution Protocol\n"
 	"Neighbor information\n"
+	"Neighbor LSR-ID\n"
 	"Display neighbor capability information\n"
 	JSON_STR)
 {
-	return (ldp_vty_show_neighbor(vty, 1, NULL, json));
+	return (ldp_vty_show_neighbor(vty, lsr_id_str, 1, NULL, json));
 }
 
 DEFPY  (ldp_show_l2vpn_atom_binding,
 	ldp_show_l2vpn_atom_binding_cmd,
-	"show l2vpn atom binding [json]$json",
+	"show l2vpn atom binding\
+	  [{\
+	    A.B.C.D$peer\
+	    |local-label (16-1048575)$local_label\
+	    |remote-label (16-1048575)$remote_label\
+	  }]\
+	 [json]$json",
 	"Show running system information\n"
 	"Show information about Layer2 VPN\n"
 	"Show Any Transport over MPLS information\n"
 	"Show AToM label binding information\n"
+	"Destination address of the VC\n"
+	"Match locally assigned label values\n"
+	"Locally assigned label value\n"
+	"Match remotely assigned label values\n"
+	"Remotely assigned label value\n"
 	JSON_STR)
 {
-	return (ldp_vty_show_atom_binding(vty, json));
+	if (!local_label_str)
+		local_label = NO_LABEL;
+	if (!remote_label_str)
+		remote_label = NO_LABEL;
+	return (ldp_vty_show_atom_binding(vty, peer_str, local_label,
+	    remote_label, json));
 }
 
 DEFPY  (ldp_show_l2vpn_atom_vc,
 	ldp_show_l2vpn_atom_vc_cmd,
-	"show l2vpn atom vc [json]$json",
+	"show l2vpn atom vc\
+	  [{\
+	    A.B.C.D$peer\
+	    |interface IFNAME$ifname\
+	    |vc-id (1-4294967295)$vcid\
+	  }]\
+	 [json]$json",
 	"Show running system information\n"
 	"Show information about Layer2 VPN\n"
 	"Show Any Transport over MPLS information\n"
 	"Show AToM virtual circuit information\n"
+	"Destination address of the VC\n"
+	"Local interface of the pseudowire\n"
+	"Interface's name\n"
+	"VC ID\n"
+	"VC ID\n"
 	JSON_STR)
 {
-	return (ldp_vty_show_atom_vc(vty, json));
+	return (ldp_vty_show_atom_vc(vty, peer_str, ifname, vcid_str, json));
 }
 
 DEFUN_NOSH (ldp_show_debugging_mpls_ldp,

@@ -44,9 +44,28 @@ struct show_params {
 	int		family;
 	union ldpd_addr	addr;
 	uint8_t		prefixlen;
-	int		capabilities;
 	int		detail;
 	int		json;
+	union {
+		struct {
+			struct in_addr lsr_id;
+			int capabilities;
+		} neighbor;
+		struct {
+			struct prefix prefix;
+			int longer_prefixes;
+			struct in_addr neighbor;
+			uint32_t local_label;
+			uint32_t remote_label;
+		} lib;
+		struct {
+			struct in_addr peer;
+			uint32_t local_label;
+			uint32_t remote_label;
+			char ifname[IFNAMSIZ];
+			uint32_t vcid;
+		} l2vpn;
+	};
 };
 
 #define LDPBUFSIZ	65535
@@ -1005,14 +1024,17 @@ show_lib_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 
 	switch (imsg->hdr.type) {
 	case IMSG_CTL_SHOW_LIB_BEGIN:
+		rt = imsg->data;
+
+		if (params->lib.remote_label != NO_LABEL &&
+		    params->lib.remote_label != rt->remote_label)
+			return (0);
+		/* FALLTHROUGH */
 	case IMSG_CTL_SHOW_LIB_RCVD:
 		rt = imsg->data;
 
 		if (imsg->hdr.type == IMSG_CTL_SHOW_LIB_BEGIN &&
 		    !rt->no_downstream)
-			break;
-
-		if (params->family != AF_UNSPEC && params->family != rt->af)
 			break;
 
 		snprintf(dstnet, sizeof(dstnet), "%s/%d",
@@ -1039,7 +1061,7 @@ static int
 show_lib_detail_msg(struct vty *vty, struct imsg *imsg, struct show_params *params)
 {
 	struct ctl_rt	*rt = NULL;
-	char		 dstnet[BUFSIZ];
+	static char	 dstnet[BUFSIZ];
 	static int	 upstream, downstream;
 	size_t		 buflen;
 	static char	 sent_buffer[LDPBUFSIZ];
@@ -1047,38 +1069,25 @@ show_lib_detail_msg(struct vty *vty, struct imsg *imsg, struct show_params *para
 
 	switch (imsg->hdr.type) {
 	case IMSG_CTL_SHOW_LIB_BEGIN:
-	case IMSG_CTL_SHOW_LIB_SENT:
-	case IMSG_CTL_SHOW_LIB_RCVD:
-	case IMSG_CTL_SHOW_LIB_END:
 		rt = imsg->data;
-		if (params->family != AF_UNSPEC && params->family != rt->af)
-			return (0);
-		break;
-	default:
-		break;
-	}
 
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_LIB_BEGIN:
 		upstream = 0;
 		downstream = 0;
 		sent_buffer[0] = '\0';
 		rcvd_buffer[0] = '\0';
-
 		snprintf(dstnet, sizeof(dstnet), "%s/%d",
 		    log_addr(rt->af, &rt->prefix), rt->prefixlen);
-
-		vty_out (vty, "%s\n", dstnet);
-		vty_out (vty, "%-8sLocal binding: label: %s\n", "",
-		    log_label(rt->local_label));
 		break;
 	case IMSG_CTL_SHOW_LIB_SENT:
+		rt = imsg->data;
+
 		upstream = 1;
 		buflen = strlen(sent_buffer);
 		snprintf(sent_buffer + buflen, LDPBUFSIZ - buflen,
 		    "%12s%s:0\n", "", inet_ntoa(rt->nexthop));
 		break;
 	case IMSG_CTL_SHOW_LIB_RCVD:
+		rt = imsg->data;
 		downstream = 1;
 		buflen = strlen(rcvd_buffer);
 		snprintf(rcvd_buffer + buflen, LDPBUFSIZ - buflen,
@@ -1087,6 +1096,14 @@ show_lib_detail_msg(struct vty *vty, struct imsg *imsg, struct show_params *para
 		    rt->in_use ? " (in use)" : "");
 		break;
 	case IMSG_CTL_SHOW_LIB_END:
+		rt = imsg->data;
+
+		if (params->lib.remote_label != NO_LABEL &&
+		    !downstream)
+			break;
+		vty_out(vty, "%s\n", dstnet);
+		vty_out(vty, "%-8sLocal binding: label: %s\n", "",
+		    log_label(rt->local_label));
 		if (upstream) {
 			vty_out (vty, "%-8sAdvertised to:\n", "");
 			vty_out(vty, "%s", sent_buffer);
@@ -1170,19 +1187,8 @@ show_lib_detail_msg_json(struct imsg *imsg, struct show_params *params,
 
 	switch (imsg->hdr.type) {
 	case IMSG_CTL_SHOW_LIB_BEGIN:
-	case IMSG_CTL_SHOW_LIB_SENT:
-	case IMSG_CTL_SHOW_LIB_RCVD:
-	case IMSG_CTL_SHOW_LIB_END:
 		rt = imsg->data;
-		if (params->family != AF_UNSPEC && params->family != rt->af)
-			return (0);
-		break;
-	default:
-		break;
-	}
 
-	switch (imsg->hdr.type) {
-	case IMSG_CTL_SHOW_LIB_BEGIN:
 		snprintf(dstnet, sizeof(dstnet), "%s/%d",
 		    log_addr(rt->af, &rt->prefix), rt->prefixlen);
 
@@ -1201,12 +1207,16 @@ show_lib_detail_msg_json(struct imsg *imsg, struct show_params *params,
 		json_object_object_add(json, dstnet, json_lib_entry);
 		break;
 	case IMSG_CTL_SHOW_LIB_SENT:
+		rt = imsg->data;
+
 		json_adv_label = json_object_new_object();
 		json_object_string_add(json_adv_label, "neighborId",
 		    inet_ntoa(rt->nexthop));
 		json_object_array_add(json_adv_labels, json_adv_label);
 		break;
 	case IMSG_CTL_SHOW_LIB_RCVD:
+		rt = imsg->data;
+
 		json_remote_label = json_object_new_object();
 		json_object_string_add(json_remote_label, "neighborId",
 		    inet_ntoa(rt->nexthop));
@@ -1410,86 +1420,270 @@ ldp_vty_connect(struct imsgbuf *ibuf)
 }
 
 static int
-ldp_vty_dispatch_msg(struct vty *vty, struct imsg *imsg, enum show_command cmd,
+ldp_vty_dispatch_iface(struct vty *vty, struct imsg *imsg,
     struct show_params *params, json_object *json)
 {
 	int	 ret;
 
-	switch (cmd) {
-	case SHOW_IFACE:
+	if (params->json)
+		ret = show_interface_msg_json(imsg, params, json);
+	else
+		ret = show_interface_msg(vty, imsg, params);
+
+	return (ret);
+}
+
+static int
+ldp_vty_dispatch_disc(struct vty *vty, struct imsg *imsg,
+    struct show_params *params, json_object *json)
+{
+	int	 ret;
+
+	if (params->detail) {
 		if (params->json)
-			ret = show_interface_msg_json(imsg, params, json);
+			ret = show_discovery_detail_msg_json(imsg, params,
+			    json);
 		else
-			ret = show_interface_msg(vty, imsg, params);
-		break;
-	case SHOW_DISC:
-		if (params->detail) {
-			if (params->json)
-				ret = show_discovery_detail_msg_json(imsg,
-				    params, json);
-			else
-				ret = show_discovery_detail_msg(vty, imsg,
-				    params);
-		} else {
-			if (params->json)
-				ret = show_discovery_msg_json(imsg, params,
-				    json);
-			else
-				ret = show_discovery_msg(vty, imsg, params);
-		}
-		break;
-	case SHOW_NBR:
-		if (params->capabilities) {
-			if (params->json)
-				ret = show_nbr_capabilities_msg_json(imsg,
-				    params, json);
-			else
-				ret = show_nbr_capabilities_msg(vty, imsg,
-				    params);
-		} else if (params->detail) {
-			if (params->json)
-				ret = show_nbr_detail_msg_json(imsg, params,
-				    json);
-			else
-				ret = show_nbr_detail_msg(vty, imsg, params);
-		} else {
-			if (params->json)
-				ret = show_nbr_msg_json(imsg, params, json);
-			else
-				ret = show_nbr_msg(vty, imsg, params);
-		}
-		break;
-	case SHOW_LIB:
-		if (params->detail) {
-			if (params->json)
-				ret = show_lib_detail_msg_json(imsg, params,
-				    json);
-			else
-				ret = show_lib_detail_msg(vty, imsg, params);
-		} else {
-			if (params->json)
-				ret = show_lib_msg_json(imsg, params, json);
-			else
-				ret = show_lib_msg(vty, imsg, params);
-		}
-		break;
-	case SHOW_L2VPN_PW:
+			ret = show_discovery_detail_msg(vty, imsg, params);
+	} else {
 		if (params->json)
-			ret = show_l2vpn_pw_msg_json(imsg, params, json);
+			ret = show_discovery_msg_json(imsg, params, json);
 		else
-			ret = show_l2vpn_pw_msg(vty, imsg, params);
-		break;
-	case SHOW_L2VPN_BINDING:
-		if (params->json)
-			ret = show_l2vpn_binding_msg_json(imsg, params, json);
-		else
-			ret = show_l2vpn_binding_msg(vty, imsg, params);
-		break;
-	default:
-		return (0);
+			ret = show_discovery_msg(vty, imsg, params);
 	}
 
 	return (ret);
+}
+
+static int
+ldp_vty_dispatch_nbr(struct vty *vty, struct imsg *imsg,
+    struct show_params *params, json_object *json)
+{
+	static bool	 filtered = false;
+	struct ctl_nbr	*nbr;
+	int		 ret;
+
+	switch (imsg->hdr.type) {
+	case IMSG_CTL_SHOW_NBR:
+		filtered = false;
+		nbr = imsg->data;
+
+		if (params->neighbor.lsr_id.s_addr != INADDR_ANY &&
+		    params->neighbor.lsr_id.s_addr != nbr->id.s_addr) {
+			filtered = true;
+			return (0);
+		}
+		break;
+	case IMSG_CTL_SHOW_NBR_DISC:
+	case IMSG_CTL_SHOW_NBR_END:
+		if (filtered)
+			return (0);
+		break;
+	default:
+		break;
+	}
+
+	if (params->neighbor.capabilities) {
+		if (params->json)
+			ret = show_nbr_capabilities_msg_json(imsg, params,
+			    json);
+		else
+			ret = show_nbr_capabilities_msg(vty, imsg, params);
+	} else if (params->detail) {
+		if (params->json)
+			ret = show_nbr_detail_msg_json(imsg, params, json);
+		else
+			ret = show_nbr_detail_msg(vty, imsg, params);
+	} else {
+		if (params->json)
+			ret = show_nbr_msg_json(imsg, params, json);
+		else
+			ret = show_nbr_msg(vty, imsg, params);
+	}
+
+	return (ret);
+}
+
+static int
+ldp_vty_dispatch_lib(struct vty *vty, struct imsg *imsg,
+    struct show_params *params, json_object *json)
+{
+	static bool	 filtered = false;
+	struct ctl_rt	*rt;
+	struct prefix	 prefix;
+	int		 ret;
+
+	switch (imsg->hdr.type) {
+	case IMSG_CTL_SHOW_LIB_BEGIN:
+		filtered = false;
+		break;
+	case IMSG_CTL_SHOW_LIB_SENT:
+	case IMSG_CTL_SHOW_LIB_RCVD:
+	case IMSG_CTL_SHOW_LIB_END:
+		if (filtered)
+			return (0);
+		break;
+	default:
+		break;
+	}
+
+	switch (imsg->hdr.type) {
+	case IMSG_CTL_SHOW_LIB_BEGIN:
+	case IMSG_CTL_SHOW_LIB_SENT:
+	case IMSG_CTL_SHOW_LIB_RCVD:
+	case IMSG_CTL_SHOW_LIB_END:
+		rt = imsg->data;
+
+		if (params->family != AF_UNSPEC && params->family != rt->af) {
+			filtered = true;
+			return (0);
+		}
+
+		prefix.family = rt->af;
+		prefix.prefixlen = rt->prefixlen;
+		memcpy(&prefix.u.val, &rt->prefix, sizeof(prefix.u.val));
+		if (params->lib.prefix.family != AF_UNSPEC) {
+			if (!params->lib.longer_prefixes &&
+			    !prefix_same(&params->lib.prefix, &prefix)) {
+				filtered = true;
+				return (0);
+			} else if (params->lib.longer_prefixes &&
+			    !prefix_match(&params->lib.prefix, &prefix)) {
+				filtered = true;
+				return (0);
+			}
+		}
+
+		if (params->lib.local_label != NO_LABEL &&
+		    params->lib.local_label != rt->local_label) {
+			filtered = true;
+			return (0);
+		}
+		break;
+	default:
+		break;
+	}
+
+	switch (imsg->hdr.type) {
+	case IMSG_CTL_SHOW_LIB_SENT:
+	case IMSG_CTL_SHOW_LIB_RCVD:
+		if (params->lib.neighbor.s_addr != INADDR_ANY &&
+		    params->lib.neighbor.s_addr != rt->nexthop.s_addr)
+			return (0);
+		break;
+	default:
+		break;
+	}
+
+	switch (imsg->hdr.type) {
+	case IMSG_CTL_SHOW_LIB_RCVD:
+		if (params->lib.remote_label != NO_LABEL &&
+		    params->lib.remote_label != rt->remote_label)
+			return (0);
+		break;
+	default:
+		break;
+	}
+
+	if (params->detail) {
+		if (params->json)
+			ret = show_lib_detail_msg_json(imsg, params, json);
+		else
+			ret = show_lib_detail_msg(vty, imsg, params);
+	} else {
+		if (params->json)
+			ret = show_lib_msg_json(imsg, params, json);
+		else
+			ret = show_lib_msg(vty, imsg, params);
+	}
+
+	return (ret);
+}
+
+static int
+ldp_vty_dispatch_l2vpn_pw(struct vty *vty, struct imsg *imsg,
+    struct show_params *params, json_object *json)
+{
+	struct ctl_pw	*pw;
+	int		 ret;
+
+	switch (imsg->hdr.type) {
+	case IMSG_CTL_SHOW_L2VPN_PW:
+		pw = imsg->data;
+		if (params->l2vpn.peer.s_addr != INADDR_ANY &&
+		    params->l2vpn.peer.s_addr != pw->lsr_id.s_addr)
+			return (0);
+		if (params->l2vpn.ifname[0] != '\0' &&
+		    strcmp(params->l2vpn.ifname, pw->ifname))
+			return (0);
+		if (params->l2vpn.vcid && params->l2vpn.vcid != pw->pwid)
+			return (0);
+		break;
+	default:
+		break;
+	}
+
+	if (params->json)
+		ret = show_l2vpn_pw_msg_json(imsg, params, json);
+	else
+		ret = show_l2vpn_pw_msg(vty, imsg, params);
+
+	return (ret);
+}
+
+static int
+ldp_vty_dispatch_l2vpn_binding(struct vty *vty, struct imsg *imsg,
+    struct show_params *params, json_object *json)
+{
+	struct ctl_pw	*pw;
+	int		 ret;
+
+	switch (imsg->hdr.type) {
+	case IMSG_CTL_SHOW_L2VPN_BINDING:
+		pw = imsg->data;
+		if (params->l2vpn.peer.s_addr != INADDR_ANY &&
+		    params->l2vpn.peer.s_addr != pw->lsr_id.s_addr)
+			return (0);
+		if (params->l2vpn.local_label != NO_LABEL &&
+		    params->l2vpn.local_label != pw->local_label)
+			return (0);
+		if (params->l2vpn.remote_label != NO_LABEL &&
+		    params->l2vpn.remote_label != pw->remote_label)
+			return (0);
+		break;
+	default:
+		break;
+	}
+
+	if (params->json)
+		ret = show_l2vpn_binding_msg_json(imsg, params, json);
+	else
+		ret = show_l2vpn_binding_msg(vty, imsg, params);
+
+	return (ret);
+}
+
+static int
+ldp_vty_dispatch_msg(struct vty *vty, struct imsg *imsg, enum show_command cmd,
+    struct show_params *params, json_object *json)
+{
+	switch (cmd) {
+	case SHOW_IFACE:
+		return (ldp_vty_dispatch_iface(vty, imsg, params, json));
+	case SHOW_DISC:
+		return (ldp_vty_dispatch_disc(vty, imsg, params, json));
+	case SHOW_NBR:
+		return (ldp_vty_dispatch_nbr(vty, imsg, params, json));
+	case SHOW_LIB:
+		return (ldp_vty_dispatch_lib(vty, imsg, params, json));
+	case SHOW_L2VPN_PW:
+		return (ldp_vty_dispatch_l2vpn_pw(vty, imsg, params, json));
+	case SHOW_L2VPN_BINDING:
+		return (ldp_vty_dispatch_l2vpn_binding(vty, imsg, params,
+		    json));
+	default:
+		return (0);
+	}
 }
 
 static int
@@ -1565,7 +1759,9 @@ ldp_vty_get_af(const char *str, int *af)
 }
 
 int
-ldp_vty_show_binding(struct vty *vty, const char *af_str, const char *detail, const char *json)
+ldp_vty_show_binding(struct vty *vty, const char *af_str, const char *prefix,
+    int longer_prefixes, const char *neighbor, unsigned long local_label,
+    unsigned long remote_label, const char *detail, const char *json)
 {
 	struct imsgbuf		 ibuf;
 	struct show_params	 params;
@@ -1581,6 +1777,18 @@ ldp_vty_show_binding(struct vty *vty, const char *af_str, const char *detail, co
 	params.family = af;
 	params.detail = (detail) ? 1 : 0;
 	params.json = (json) ? 1 : 0;
+	if (prefix) {
+		(void)str2prefix(prefix, &params.lib.prefix);
+		params.lib.longer_prefixes = longer_prefixes;
+	}
+	if (neighbor &&
+	    (inet_pton(AF_INET, neighbor, &params.lib.neighbor) != 1 ||
+	     bad_addr_v4(params.lib.neighbor))) {
+		vty_out (vty, "%% Malformed address\n");
+		return (CMD_SUCCESS);
+	}
+	params.lib.local_label = local_label;
+	params.lib.remote_label = remote_label;
 
 	if (!params.detail && !params.json)
 		vty_out (vty, "%-4s %-20s %-15s %-11s %-13s %6s\n", "AF",
@@ -1703,7 +1911,8 @@ ldp_vty_show_capabilities(struct vty *vty, const char *json)
 }
 
 int
-ldp_vty_show_neighbor(struct vty *vty, int capabilities, const char *detail, const char *json)
+ldp_vty_show_neighbor(struct vty *vty, const char *lsr_id, int capabilities,
+    const char *detail, const char *json)
 {
 	struct imsgbuf		 ibuf;
 	struct show_params	 params;
@@ -1712,11 +1921,17 @@ ldp_vty_show_neighbor(struct vty *vty, int capabilities, const char *detail, con
 		return (CMD_WARNING);
 
 	memset(&params, 0, sizeof(params));
-	params.capabilities = capabilities;
 	params.detail = (detail) ? 1 : 0;
 	params.json = (json) ? 1 : 0;
+	params.neighbor.capabilities = capabilities;
+	if (lsr_id &&
+	    (inet_pton(AF_INET, lsr_id, &params.neighbor.lsr_id) != 1 ||
+	     bad_addr_v4(params.neighbor.lsr_id))) {
+		vty_out (vty, "%% Malformed address\n");
+		return (CMD_SUCCESS);
+	}
 
-	if (params.capabilities)
+	if (params.neighbor.capabilities)
 		params.detail = 1;
 
 	if (!params.detail && !params.json)
@@ -1728,7 +1943,8 @@ ldp_vty_show_neighbor(struct vty *vty, int capabilities, const char *detail, con
 }
 
 int
-ldp_vty_show_atom_binding(struct vty *vty, const char *json)
+ldp_vty_show_atom_binding(struct vty *vty, const char *peer,
+    unsigned long local_label, unsigned long remote_label, const char *json)
 {
 	struct imsgbuf		 ibuf;
 	struct show_params	 params;
@@ -1738,13 +1954,22 @@ ldp_vty_show_atom_binding(struct vty *vty, const char *json)
 
 	memset(&params, 0, sizeof(params));
 	params.json = (json) ? 1 : 0;
+	if (peer &&
+	    (inet_pton(AF_INET, peer, &params.l2vpn.peer) != 1 ||
+	     bad_addr_v4(params.l2vpn.peer))) {
+		vty_out (vty, "%% Malformed address\n");
+		return (CMD_SUCCESS);
+	}
+	params.l2vpn.local_label = local_label;
+	params.l2vpn.remote_label = remote_label;
 
 	imsg_compose(&ibuf, IMSG_CTL_SHOW_L2VPN_BINDING, 0, 0, -1, NULL, 0);
 	return (ldp_vty_dispatch(vty, &ibuf, SHOW_L2VPN_BINDING, &params));
 }
 
 int
-ldp_vty_show_atom_vc(struct vty *vty, const char *json)
+ldp_vty_show_atom_vc(struct vty *vty, const char *peer, const char *ifname,
+    const char *vcid, const char *json)
 {
 	struct imsgbuf		 ibuf;
 	struct show_params	 params;
@@ -1754,6 +1979,17 @@ ldp_vty_show_atom_vc(struct vty *vty, const char *json)
 
 	memset(&params, 0, sizeof(params));
 	params.json = (json) ? 1 : 0;
+	if (peer &&
+	    (inet_pton(AF_INET, peer, &params.l2vpn.peer) != 1 ||
+	     bad_addr_v4(params.l2vpn.peer))) {
+		vty_out (vty, "%% Malformed address\n");
+		return (CMD_SUCCESS);
+	}
+	if (ifname)
+		strlcpy(params.l2vpn.ifname, ifname,
+		    sizeof(params.l2vpn.ifname));
+	if (vcid)
+		params.l2vpn.vcid = atoi(vcid);
 
 	if (!params.json) {
 		/* header */

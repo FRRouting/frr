@@ -69,13 +69,16 @@ int	 ldp_vty_l2vpn_pw_pwid(struct vty *, const char *, long);
 int	 ldp_vty_l2vpn_pw_pwstatus(struct vty *, const char *);
 int	 ldp_vty_clear_nbr(struct vty *, const char *);
 int	 ldp_vty_debug(struct vty *, const char *, const char *, const char *, const char *);
-int	 ldp_vty_show_binding(struct vty *, const char *, const char *, const char *);
+int	 ldp_vty_show_binding(struct vty *, const char *, const char *, int,
+	    const char *, unsigned long, unsigned long, const char *, const char *);
 int	 ldp_vty_show_discovery(struct vty *, const char *, const char *, const char *);
 int	 ldp_vty_show_interface(struct vty *, const char *, const char *);
 int	 ldp_vty_show_capabilities(struct vty *, const char *);
-int	 ldp_vty_show_neighbor(struct vty *, int, const char *, const char *);
-int	 ldp_vty_show_atom_binding(struct vty *, const char *);
-int	 ldp_vty_show_atom_vc(struct vty *, const char *);
+int	 ldp_vty_show_neighbor(struct vty *, const char *, int, const char *, const char *);
+int	 ldp_vty_show_atom_binding(struct vty *, const char *, unsigned long,
+	    unsigned long, const char *);
+int	 ldp_vty_show_atom_vc(struct vty *, const char *, const char *,
+	    const char *, const char *);
 int	 ldp_vty_show_debugging(struct vty *);
 
 void	 ldp_vty_init(void);
