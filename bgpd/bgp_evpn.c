@@ -288,7 +288,7 @@ static void unmap_vni_from_rt(struct bgp *bgp, struct bgpevpn *vpn,
 	/* Delete VNI from hash list for this RT. */
 	listnode_delete(irt->vnis, vpn);
 	if (!listnode_head(irt->vnis)) {
-		list_free(irt->vnis);
+		list_delete_and_null(&irt->vnis);
 		import_rt_free(bgp, irt);
 	}
 }

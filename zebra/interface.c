@@ -138,7 +138,7 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		struct rtadvconf *rtadv;
 
 		rtadv = &zebra_if->rtadv;
-		list_free(rtadv->AdvPrefixList);
+		list_delete_and_null(&rtadv->AdvPrefixList);
 #endif /* HAVE_RTADV */
 
 		XFREE(MTYPE_TMP, zebra_if);
@@ -322,7 +322,7 @@ int if_subnet_delete(struct interface *ifp, struct connected *ifc)
 	}
 
 	/* Otherwise, free list and route node. */
-	list_free(addr_list);
+	list_delete_and_null(&addr_list);
 	rn->info = NULL;
 	route_unlock_node(rn);
 

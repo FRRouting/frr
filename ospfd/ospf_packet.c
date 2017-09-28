@@ -1617,7 +1617,7 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 
 		list_delete_and_null(&ls_upd);
 	} else
-		list_free(ls_upd);
+		list_delete_and_null(&ls_upd);
 }
 
 /* Get the list of LSAs from Link State Update packet.

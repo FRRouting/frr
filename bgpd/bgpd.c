@@ -7454,8 +7454,7 @@ void bgp_terminate(void)
 	/* reverse bgp_master_init */
 	bgp_close();
 	if (bm->listen_sockets)
-		list_free(bm->listen_sockets);
-	bm->listen_sockets = NULL;
+		list_delete_and_null(&bm->listen_sockets);
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp))
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))

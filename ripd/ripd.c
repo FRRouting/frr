@@ -132,8 +132,7 @@ static int rip_garbage_collect(struct thread *t)
 	/* Unlock route_node. */
 	listnode_delete(rp->info, rinfo);
 	if (list_isempty((struct list *)rp->info)) {
-		list_free(rp->info);
-		rp->info = NULL;
+		list_delete_and_null((struct list **)&rp->info);
 		route_unlock_node(rp);
 	}
 

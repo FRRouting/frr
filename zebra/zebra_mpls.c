@@ -554,7 +554,7 @@ static zebra_fec_t *fec_add(struct route_table *table, struct prefix *p,
  */
 static int fec_del(zebra_fec_t *fec)
 {
-	list_free(fec->client_list);
+	list_delete_and_null(&fec->client_list);
 	fec->rn->info = NULL;
 	route_unlock_node(fec->rn);
 	XFREE(MTYPE_FEC, fec);

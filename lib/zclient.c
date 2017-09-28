@@ -123,8 +123,7 @@ void redist_del_instance(struct redist_proto *red, u_short instance)
 	XFREE(MTYPE_REDIST_INST, id);
 	if (!red->instances->count) {
 		red->enabled = 0;
-		list_free(red->instances);
-		red->instances = NULL;
+		list_delete_and_null(&red->instances);
 	}
 }
 

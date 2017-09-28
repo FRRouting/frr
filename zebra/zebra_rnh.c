@@ -160,9 +160,9 @@ struct rnh *zebra_lookup_rnh(struct prefix *p, vrf_id_t vrfid, rnh_type_t type)
 void zebra_free_rnh(struct rnh *rnh)
 {
 	rnh->flags |= ZEBRA_NHT_DELETED;
-	list_free(rnh->client_list);
-	list_free(rnh->zebra_static_route_list);
-	list_free(rnh->zebra_pseudowire_list);
+	list_delete_and_null(&rnh->client_list);
+	list_delete_and_null(&rnh->zebra_static_route_list);
+	list_delete_and_null(&rnh->zebra_pseudowire_list);
 	free_state(rnh->vrf_id, rnh->state, rnh->node);
 	XFREE(MTYPE_RNH, rnh);
 }

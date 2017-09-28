@@ -554,8 +554,7 @@ void thread_master_free(struct thread_master *m)
 	{
 		listnode_delete(masters, m);
 		if (masters->count == 0) {
-			list_free(masters);
-			masters = NULL;
+			list_delete_and_null(&masters);
 		}
 	}
 	pthread_mutex_unlock(&masters_mtx);

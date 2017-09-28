@@ -77,7 +77,7 @@ struct ospf_route *ospf_find_asbr_route(struct ospf *ospf,
 
 	/* If none is found -- look through all. */
 	if (listcount(chosen) == 0) {
-		list_free(chosen);
+		list_delete_and_null(&chosen);
 		chosen = rn->info;
 	}
 

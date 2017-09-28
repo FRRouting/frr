@@ -313,10 +313,10 @@ void ospf_if_free(struct ospf_interface *oi)
 	route_table_finish(oi->ls_upd_queue);
 
 	/* Free any lists that should be freed */
-	list_free(oi->nbr_nbma);
+	list_delete_and_null(&oi->nbr_nbma);
 
-	list_free(oi->ls_ack);
-	list_free(oi->ls_ack_direct.ls_ack);
+	list_delete_and_null(&oi->ls_ack);
+	list_delete_and_null(&oi->ls_ack_direct.ls_ack);
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: ospf interface %s vrf %s id %u deleted",

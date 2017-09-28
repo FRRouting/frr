@@ -101,8 +101,7 @@ static int eigrp_prefix_entry_cmp(struct eigrp_prefix_entry *node1,
 
 static void eigrp_prefix_entry_del(struct eigrp_prefix_entry *node)
 {
-	list_delete_all_node(node->entries);
-	list_free(node->entries);
+	list_delete_and_null(&node->entries);
 }
 
 /*
@@ -158,7 +157,7 @@ struct eigrp_nexthop_entry *eigrp_nexthop_entry_new()
  */
 void eigrp_topology_free(struct list *list)
 {
-	list_free(list);
+	list_delete_and_null(&list);
 }
 
 /*
@@ -217,9 +216,8 @@ void eigrp_prefix_entry_delete(struct list *topology,
 	listnode_delete(eigrp->topology_changes_internalIPV4, node);
 
 	if (listnode_lookup(topology, node) != NULL) {
-		list_delete_all_node(node->entries);
-		list_free(node->entries);
-		list_free(node->rij);
+		list_delete_and_null(&node->entries);
+		list_delete_and_null(&node->rij);
 		listnode_delete(topology, node);
 		eigrp_zebra_route_delete(node->destination);
 		XFREE(MTYPE_EIGRP_PREFIX_ENTRY, node);

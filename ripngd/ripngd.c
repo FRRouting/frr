@@ -407,8 +407,7 @@ static int ripng_garbage_collect(struct thread *t)
 	/* Unlock route_node. */
 	listnode_delete(rp->info, rinfo);
 	if (list_isempty((struct list *)rp->info)) {
-		list_free(rp->info);
-		rp->info = NULL;
+		list_delete_and_null((struct list **)&rp->info);
 		route_unlock_node(rp);
 	}
 
@@ -2150,7 +2149,7 @@ DEFUN (clear_ipv6_rip,
 		}
 
 		if (list_isempty(list)) {
-			list_free(list);
+			list_delete_and_null(&list);
 			rp->info = NULL;
 			route_unlock_node(rp);
 		}

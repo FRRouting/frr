@@ -33,7 +33,7 @@ struct list *list_new(void)
 }
 
 /* Free list. */
-void list_free(struct list *l)
+static void list_free_internal(struct list *l)
 {
 	XFREE(MTYPE_LINK_LIST, l);
 }
@@ -252,7 +252,7 @@ void list_delete_and_null(struct list **list)
 {
 	assert(*list);
 	list_delete_all_node(*list);
-	list_free(*list);
+	list_free_internal(*list);
 	*list = NULL;
 }
 
