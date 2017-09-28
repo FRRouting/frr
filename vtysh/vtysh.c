@@ -226,7 +226,8 @@ static int vtysh_client_run_all(struct vtysh_client *head_client,
 			wrong_instance++;
 			continue;
 		}
-		correct_instance++;
+		if (client->fd > 0)
+			correct_instance++;
 		if (rc != CMD_SUCCESS) {
 			if (!continue_on_err)
 				return rc;
@@ -433,11 +434,12 @@ static int vtysh_execute_func(const char *line, int pager)
 					     vc = vc->next)
 						any_inst = any_inst
 							   || (vc->fd > 0);
-					if (!any_inst)
+					if (!any_inst) {
 						fprintf(stderr,
 							"%s is not running\n",
 							vtysh_client[i].name);
-					continue;
+						continue;
+					}
 				}
 				cmd_stat = vtysh_client_execute(
 					&vtysh_client[i], line, fp);
