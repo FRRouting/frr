@@ -7841,7 +7841,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 						    "bestpathFromAs", first_as);
 			} else {
 				if (first_as)
-					vty_out(vty, ", bestpath-from-AS %d",
+					vty_out(vty, ", bestpath-from-AS %u",
 						first_as);
 				else
 					vty_out(vty,
