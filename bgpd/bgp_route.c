@@ -8122,23 +8122,29 @@ static int bgp_show_community(struct vty *vty, struct bgp *bgp,
 			      const char *comstr, int exact, afi_t afi,
 			      safi_t safi);
 
-static int bgp_show_table(struct vty *vty, struct bgp *bgp,
+
+static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			  struct bgp_table *table, enum bgp_show_type type,
-			  void *output_arg, u_char use_json)
+			  void *output_arg, u_char use_json,
+			  char *rd, int is_last,
+			  unsigned long *output_cum, unsigned long *total_cum)
 {
 	struct bgp_info *ri;
 	struct bgp_node *rn;
 	int header = 1;
 	int display;
-	unsigned long output_count;
-	unsigned long total_count;
+	unsigned long output_count = 0;
+	unsigned long total_count = 0;
 	struct prefix *p;
 	char buf[BUFSIZ];
 	char buf2[BUFSIZ];
 	json_object *json_paths = NULL;
 	int first = 1;
 
-	if (use_json) {
+	if (output_cum && *output_cum != 0)
+		header = 0;
+
+	if (use_json && header) {
 		vty_out(vty,
 			"{ \"vrfId\": %d, \"vrfName\": \"%s\", \"tableVersion\": %" PRId64
 			", \"routerId\": \"%s\", \"routes\": { ",
@@ -8148,10 +8154,6 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp,
 			table->version, inet_ntoa(bgp->router_id));
 		json_paths = json_object_new_object();
 	}
-
-	/* This is first entry point, so reset total line. */
-	output_count = 0;
-	total_count = 0;
 
 	/* Start processing of routes. */
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
@@ -8335,22 +8337,29 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp,
 						vty_out(vty, BGP_SHOW_HEADER);
 					header = 0;
 				}
-
+				if (rd != NULL && !display && !output_count) {
+					if (!use_json)
+						vty_out(vty,
+							"Route Distinguisher: %s\n",
+							rd);
+					else
+						vty_out(vty, "rd:\"%s\",", rd);
+				}
 				if (type == bgp_show_type_dampend_paths
 				    || type == bgp_show_type_damp_neighbor)
 					damp_route_vty_out(
 						vty, &rn->p, ri, display,
-						SAFI_UNICAST, use_json,
+						safi, use_json,
 						json_paths);
 				else if (type == bgp_show_type_flap_statistics
 					 || type == bgp_show_type_flap_neighbor)
 					flap_route_vty_out(
 						vty, &rn->p, ri, display,
-						SAFI_UNICAST, use_json,
+						safi, use_json,
 						json_paths);
 				else
 					route_vty_out(vty, &rn->p, ri, display,
-						      SAFI_UNICAST, json_paths);
+						      safi, json_paths);
 				display++;
 			}
 
@@ -8373,25 +8382,68 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp,
 			}
 		}
 
+	if (output_cum) {
+		output_count += *output_cum;
+		*output_cum = output_count;
+	}
+	if (total_cum) {
+		total_count += *total_cum;
+		*total_cum = total_count;
+	}
 	if (use_json) {
 		json_object_free(json_paths);
-		vty_out(vty, " } }\n");
+		if (is_last)
+			vty_out(vty, " } }\n");
+		else
+			vty_out(vty, " }, ");
 	} else {
-		/* No route is displayed */
-		if (output_count == 0) {
-			if (type == bgp_show_type_normal)
+		if (is_last) {
+			/* No route is displayed */
+			if (output_count == 0) {
+				if (type == bgp_show_type_normal)
+					vty_out(vty,
+						"No BGP prefixes displayed, %ld exist\n",
+						total_count);
+			} else
 				vty_out(vty,
-					"No BGP prefixes displayed, %ld exist\n",
-					total_count);
-		} else
-			vty_out(vty,
-				"\nDisplayed  %ld routes and %ld total paths\n",
-				output_count, total_count);
+					"\nDisplayed  %ld routes and %ld total paths\n",
+					output_count, total_count);
+		}
 	}
 
 	return CMD_SUCCESS;
 }
 
+int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
+		      struct bgp_table *table, struct prefix_rd *prd_match,
+		      enum bgp_show_type type, void *output_arg,
+		      u_char use_json)
+{
+	struct bgp_node *rn, *next;
+	unsigned long output_cum = 0;
+	unsigned long total_cum = 0;
+
+	for (rn = bgp_table_top(table); rn; rn = next) {
+		next = bgp_route_next(rn);
+		if (prd_match && memcmp(rn->p.u.val, prd_match->val, 8) != 0)
+			continue;
+		if (rn->info != NULL) {
+			struct prefix_rd prd;
+			char rd[BUFSIZ];
+
+			memcpy(&prd, &(rn->p), sizeof(struct prefix_rd));
+			if (prefix_rd2str(&prd, rd, BUFSIZ) == NULL)
+				sprintf(rd,
+					"Unknown Type: %u",
+					decode_rd_type(prd.val));
+			bgp_show_table(vty, bgp, safi, rn->info, type,
+				       output_arg, use_json,
+				       rd, next == NULL,
+				       &output_cum, &total_cum);
+		}
+	}
+	return CMD_SUCCESS;
+}
 static int bgp_show(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		    enum bgp_show_type type, void *output_arg, u_char use_json)
 {
@@ -8409,18 +8461,18 @@ static int bgp_show(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		return CMD_WARNING;
 	}
 
+	table = bgp->rib[afi][safi];
 	/* use MPLS and ENCAP specific shows until they are merged */
 	if (safi == SAFI_MPLS_VPN) {
-		return bgp_show_mpls_vpn(vty, afi, NULL, type, output_arg, 0,
-					 use_json);
+		return bgp_show_table_rd(vty, bgp, safi, table, NULL, type,
+					 output_arg, use_json);
 	}
 	/* labeled-unicast routes live in the unicast table */
 	else if (safi == SAFI_LABELED_UNICAST)
 		safi = SAFI_UNICAST;
 
-	table = bgp->rib[afi][safi];
-
-	return bgp_show_table(vty, bgp, table, type, output_arg, use_json);
+	return bgp_show_table(vty, bgp, safi, table, type, output_arg, use_json,
+			      NULL, 1, NULL, NULL);
 }
 
 static void bgp_show_all_instances_routes_vty(struct vty *vty, afi_t afi,
@@ -9090,12 +9142,7 @@ DEFUN (show_ip_bgp_json,
 		return bgp_show(vty, bgp, afi, safi,
 				bgp_show_type_community_all, NULL, uj);
 	}
-
-	if (safi == SAFI_MPLS_VPN)
-		return bgp_show_mpls_vpn(vty, afi, NULL, bgp_show_type_normal,
-					 NULL, 0, uj);
-	else
-		return bgp_show(vty, bgp, afi, safi, sh_type, NULL, uj);
+	return bgp_show(vty, bgp, afi, safi, sh_type, NULL, uj);
 }
 
 DEFUN (show_ip_bgp_route,
