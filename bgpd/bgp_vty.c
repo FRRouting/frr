@@ -7083,15 +7083,27 @@ static void bgp_show_summary_afi_safi(struct vty *vty, struct bgp *bgp, int afi,
 	int safi_wildcard = (safi == SAFI_MAX);
 	int is_wildcard = (afi_wildcard || safi_wildcard);
 	bool json_output = false;
+	int afi_stop;
+	int safi_stop;
 
 	if (use_json && is_wildcard)
 		vty_out(vty, "{\n");
-	if (afi_wildcard)
+
+	if (afi_wildcard) {
 		afi = 1; /* AFI_IP */
-	while (afi < AFI_MAX) {
+		afi_stop = AFI_L2VPN;
+	} else
+		afi_stop = AFI_MAX;
+
+	if (safi_wildcard)
+		safi_stop = SAFI_MULTICAST;
+	else
+		safi_stop = SAFI_MAX;
+
+	while (afi < afi_stop) {
 		if (safi_wildcard)
 			safi = 1; /* SAFI_UNICAST */
-		while (safi < SAFI_MAX) {
+		while (safi < safi_stop) {
 			if (bgp_afi_safi_peer_exists(bgp, afi, safi)) {
 				json_output = true;
 				if (is_wildcard) {
