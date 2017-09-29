@@ -374,9 +374,9 @@ DEFUN (show_bgp_ip_vpn_all_rd,
        show_bgp_ip_vpn_all_rd_cmd,
        "show bgp "BGP_AFI_CMD_STR" vpn all [rd ASN:NN_OR_IP-ADDRESS:NN] [json]",
        SHOW_STR
-       IP_STR
        BGP_STR
        BGP_VPNVX_HELP_STR
+       "Display VPN NLRI specific information\n"
        "Display VPN NLRI specific information\n"
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
@@ -407,9 +407,21 @@ DEFUN (show_bgp_ip_vpn_all_rd,
 	return CMD_SUCCESS;
 }
 
+ALIAS(show_bgp_ip_vpn_all_rd,
+      show_bgp_ip_vpn_rd_cmd,
+       "show bgp "BGP_AFI_CMD_STR" vpn rd ASN:NN_OR_IP-ADDRESS:NN [json]",
+       SHOW_STR
+       BGP_STR
+       BGP_VPNVX_HELP_STR
+       "Display VPN NLRI specific information\n"
+       "Display information for a route distinguisher\n"
+       "VPN Route Distinguisher\n"
+       JSON_STR)
+
+#ifdef KEEP_OLD_VPN_COMMANDS
 DEFUN (show_ip_bgp_vpn_rd,
        show_ip_bgp_vpn_rd_cmd,
-       "show [ip] bgp "BGP_AFI_CMD_STR" vpn rd ASN:NN_OR_IP-ADDRESS:NN",
+       "show ip bgp "BGP_AFI_CMD_STR" vpn rd ASN:NN_OR_IP-ADDRESS:NN",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -436,7 +448,6 @@ DEFUN (show_ip_bgp_vpn_rd,
 	return CMD_SUCCESS;
 }
 
-#ifdef KEEP_OLD_VPN_COMMANDS
 DEFUN (show_ip_bgp_vpn_all,
        show_ip_bgp_vpn_all_cmd,
        "show [ip] bgp <vpnv4|vpnv6>",
@@ -794,8 +805,9 @@ void bgp_mplsvpn_init(void)
 	install_element(BGP_VPNV6_NODE, &no_vpnv6_network_cmd);
 
 	install_element(VIEW_NODE, &show_bgp_ip_vpn_all_rd_cmd);
-	install_element(VIEW_NODE, &show_ip_bgp_vpn_rd_cmd);
+	install_element(VIEW_NODE, &show_bgp_ip_vpn_rd_cmd);
 #ifdef KEEP_OLD_VPN_COMMANDS
+	install_element(VIEW_NODE, &show_ip_bgp_vpn_rd_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_vpn_all_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_vpn_all_tags_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_vpn_rd_tags_cmd);
