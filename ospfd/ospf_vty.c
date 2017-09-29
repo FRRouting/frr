@@ -992,7 +992,7 @@ DEFUN (ospf_area_vlink,
 	char auth_key[OSPF_AUTH_SIMPLE_SIZE + 1];
 	char md5_key[OSPF_AUTH_MD5_SIZE + 1];
 	int ret;
-	int idx;
+	int idx = 0;
 
 	ospf_vl_config_data_init(&vl_config, vty);
 
@@ -1022,7 +1022,6 @@ DEFUN (ospf_area_vlink,
 		vl_config.auth_type = OSPF_AUTH_SIMPLE;
 	}
 
-	idx = 2;
 	if (argv_find(argv, argc, "message-digest", &idx)) {
 		/* authentication  - this option can only occur
 		at start of command line */
@@ -1032,7 +1031,6 @@ DEFUN (ospf_area_vlink,
 		vl_config.auth_type = OSPF_AUTH_NULL;
 	}
 
-	idx = 3;
 	if (argv_find(argv, argc, "message-digest-key", &idx)) {
 		idx = idx + 1; /* Fetch key_id */
 
@@ -1047,7 +1045,6 @@ DEFUN (ospf_area_vlink,
 		vl_config.md5_key = md5_key;
 	}
 
-	idx = 3;
 	if (argv_find(argv, argc, "authentication-key", &idx)) {
 		idx = idx + 1;
 		memset(auth_key, 0, OSPF_AUTH_SIMPLE_SIZE + 1);
@@ -1125,7 +1122,6 @@ DEFUN (no_ospf_area_vlink,
 		vl_config.auth_type = OSPF_AUTH_NOTSET;
 	}
 
-	idx = 3;
 	if (argv_find(argv, argc, "message-digest-key", &idx)) {
 		idx = idx + 1; /* Fetch key_id */
 		vl_config.md5_key = NULL;
@@ -1134,7 +1130,6 @@ DEFUN (no_ospf_area_vlink,
 			return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	idx = 3;
 	if (argv_find(argv, argc, "authentication-key", &idx)) {
 		idx = idx + 1;
 		memset(auth_key, 0, OSPF_AUTH_SIMPLE_SIZE + 1);
