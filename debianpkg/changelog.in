@@ -1,5 +1,3 @@
-<<<<<<< HEAD:debianpkg/changelog
-<<<<<<< HEAD
 frr (@VERSION@) RELEASED; urgency=medium
 
   * New Enabled: BGP Shutdown Message
