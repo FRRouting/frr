@@ -382,15 +382,14 @@ DEFUN (show_bgp_ip_vpn_all_rd,
        "VPN Route Distinguisher\n"
        JSON_STR)
 {
-	int idx_rd = 5;
 	int ret;
 	struct prefix_rd prd;
 	afi_t afi;
 	int idx = 0;
 
 	if (argv_find_and_parse_afi(argv, argc, &idx, &afi)) {
-		if (argc >= 7 && argv[idx_rd]->arg) {
-			ret = str2prefix_rd(argv[idx_rd]->arg, &prd);
+		if (argv_find(argv, argc, "rd", &idx)) {
+			ret = str2prefix_rd(argv[idx+1]->arg, &prd);
 			if (!ret) {
 				vty_out(vty,
 					"%% Malformed Route Distinguisher\n");
