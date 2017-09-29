@@ -142,7 +142,6 @@ override_dh_auto_configure:
 		$(USE_FRR_VTY_GROUP) \
 		--enable-configfile-mask=0640 \
 		--enable-logfile-mask=0640 \
-		--enable-werror \
 		--with-libpam \
 		--enable-systemd=no \
 		--enable-poll=yes \
