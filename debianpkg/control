@@ -5,7 +5,7 @@ Maintainer: Nobody <nobody@frrouting.org>
 Uploaders: Nobody <nobody@frrouting.org>
 Build-Depends: debhelper (>= 7.0.50~), libncurses5-dev, libreadline-dev, texlive-latex-base, texlive-generic-recommended, libpam0g-dev | libpam-dev, libcap-dev, texinfo (>= 4.7), imagemagick, ghostscript, groff, autotools-dev, hardening-wrapper, libpcre3-dev, gawk, chrpath, libsnmp-dev, git, dh-autoreconf, libjson-c-dev, libjson-c2, dh-systemd, libsystemd-dev, bison, flex, libc-ares-dev, pkg-config, python (>= 2.7), python-ipaddr
 Standards-Version: 3.9.6
-Homepage: http://www.freerangerouting.org/
+Homepage: http://www.frrouting.org/
 
 Package: frr
 Architecture: any
@@ -20,7 +20,7 @@ Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon forked from Quagga
  PIM and LDP as well as the IPv6 versions of these.
  .
  FRR is a fork of Quagga with an open community model. The main git
- lives on https://github.com/freerangerouting/frr.git
+ lives on https://github.com/frrouting/frr.git
 
 Package: frr-dbg
 Architecture: any
