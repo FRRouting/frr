@@ -2500,6 +2500,15 @@ static void rib_update_table(struct route_table *table,
 	 * the trigger event.
 	 */
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn)) {
+		/*
+		 * If we are looking at a route node and the node
+		 * has already been queued  we don't
+		 * need to queue it up again
+		 */
+		if (rn->info
+		    && CHECK_FLAG(rib_dest_from_rnode(rn)->flags,
+				  RIB_ROUTE_ANY_QUEUED))
+			continue;
 		switch (event) {
 		case RIB_UPDATE_IF_CHANGE:
 			/* Examine all routes that won't get processed by the

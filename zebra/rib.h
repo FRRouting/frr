@@ -135,6 +135,8 @@ typedef struct rib_dest_t_ {
 } rib_dest_t;
 
 #define RIB_ROUTE_QUEUED(x)	(1 << (x))
+// If MQ_SIZE is modified this value needs to be updated.
+#define RIB_ROUTE_ANY_QUEUED    0x1F
 
 /*
  * The maximum qindex that can be used.
