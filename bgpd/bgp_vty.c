@@ -9868,17 +9868,13 @@ static int bgp_show_neighbor_vty(struct vty *vty, const char *name,
 /* "show [ip] bgp neighbors" commands.  */
 DEFUN (show_ip_bgp_neighbors,
        show_ip_bgp_neighbors_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6|vpnv4 <all|rd ASN:NN_OR_IP-ADDRESS:NN>>] neighbors [<A.B.C.D|X:X::X:X|WORD>] [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6>] neighbors [<A.B.C.D|X:X::X:X|WORD>] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
        BGP_INSTANCE_HELP_STR
        "Address Family\n"
        "Address Family\n"
-       "Address Family\n"
-       "Display information about all VPNv4 NLRIs\n"
-       "Display information for a route distinguisher\n"
-       "VPN Route Distinguisher\n"
        "Detailed information on TCP and BGP neighbor connections\n"
        "Neighbor to display information about\n"
        "Neighbor to display information about\n"
