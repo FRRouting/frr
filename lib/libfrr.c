@@ -534,7 +534,7 @@ struct thread_master *frr_init(void)
 		snprintf(p_pathspace, sizeof(p_pathspace), "/%s",
 			 di->pathspace);
 
-	snprintf(config_default, sizeof(config_default), "%s%s/%s%s.conf",
+	snprintf(config_default, sizeof(config_default), "%s%s%s%s.conf",
 		 frr_sysconfdir, p_pathspace, di->name, p_instance);
 	snprintf(pidfile_default, sizeof(pidfile_default), "%s%s/%s%s.pid",
 		 frr_vtydir, p_pathspace, di->name, p_instance);
