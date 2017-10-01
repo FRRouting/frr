@@ -983,7 +983,8 @@ DEFUN (ospf_area_vlink,
        "Key ID\n"
        "Use MD5 algorithm\n"
        "The OSPF password (key)\n"
-       "Authentication password (key)")
+       "Authentication password (key)\n"
+       "The OSPF password (key)")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_ipv4_number = 1;
@@ -1032,23 +1033,19 @@ DEFUN (ospf_area_vlink,
 	}
 
 	if (argv_find(argv, argc, "message-digest-key", &idx)) {
-		idx = idx + 1; /* Fetch key_id */
-
 		vl_config.md5_key = NULL;
-		vl_config.crypto_key_id = strtol(argv[idx]->arg, NULL, 10);
+		vl_config.crypto_key_id = strtol(argv[idx + 1]->arg, NULL, 10);
 		if (vl_config.crypto_key_id < 0)
 			return CMD_WARNING_CONFIG_FAILED;
 
-		idx = idx + 1; /* Fetch md5_key */
 		memset(md5_key, 0, OSPF_AUTH_MD5_SIZE + 1);
-		strncpy(md5_key, argv[idx]->arg, OSPF_AUTH_MD5_SIZE);
+		strncpy(md5_key, argv[idx + 3]->arg, OSPF_AUTH_MD5_SIZE);
 		vl_config.md5_key = md5_key;
 	}
 
 	if (argv_find(argv, argc, "authentication-key", &idx)) {
-		idx = idx + 1;
 		memset(auth_key, 0, OSPF_AUTH_SIMPLE_SIZE + 1);
-		strncpy(auth_key, argv[idx]->text, OSPF_AUTH_SIMPLE_SIZE);
+		strncpy(auth_key, argv[idx + 1]->arg, OSPF_AUTH_SIMPLE_SIZE);
 		vl_config.auth_key = auth_key;
 	}
 
@@ -1069,7 +1066,8 @@ DEFUN (no_ospf_area_vlink,
        "Key ID\n" \
        "Use MD5 algorithm\n" \
        "The OSPF password (key)\n" \
-       "Authentication password (key)")
+       "Authentication password (key)\n" \
+       "The OSPF password (key)")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_ipv4_number = 2;
@@ -1123,15 +1121,14 @@ DEFUN (no_ospf_area_vlink,
 	}
 
 	if (argv_find(argv, argc, "message-digest-key", &idx)) {
-		idx = idx + 1; /* Fetch key_id */
 		vl_config.md5_key = NULL;
-		vl_config.crypto_key_id = strtol(argv[idx]->arg, NULL, 10);
+		vl_config.crypto_key_id = strtol(argv[idx + 1]->arg, NULL, 10);
 		if (vl_config.crypto_key_id < 0)
 			return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	if (argv_find(argv, argc, "authentication-key", &idx)) {
-		idx = idx + 1;
+		/* Reset authentication-key to 0 */
 		memset(auth_key, 0, OSPF_AUTH_SIMPLE_SIZE + 1);
 		vl_config.auth_key = auth_key;
 	}
