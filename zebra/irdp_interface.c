@@ -63,11 +63,28 @@ extern int irdp_sock;
 
 DEFINE_MTYPE_STATIC(ZEBRA, IRDP_IF, "IRDP interface data")
 
+#define IRDP_CONFIGED							\
+	do {								\
+		if (!irdp) {						\
+			vty_out(vty, "Please Configure IRDP before using this command\n"); \
+			return CMD_WARNING_CONFIG_FAILED;		\
+		}							\
+	}								\
+	while (0)
+
 static struct irdp_interface *irdp_if_get(struct interface *ifp)
 {
 	struct zebra_if *zi = ifp->info;
+
+	if (!zi)
+		return NULL;
+
 	if (!zi->irdp)
 		zi->irdp = XCALLOC(MTYPE_IRDP_IF, sizeof(*zi->irdp));
+
+	if (!zi->irdp->started)
+		return NULL;
+
 	return zi->irdp;
 }
 
@@ -203,6 +220,7 @@ static void irdp_if_start(struct interface *ifp, int multicast,
 
 	assert(irdp);
 
+	irdp->started = true;
 	if (irdp->flags & IF_ACTIVE) {
 		zlog_warn("IRDP: Interface is already active %s", ifp->name);
 		return;
@@ -307,6 +325,7 @@ static void irdp_if_shutdown(struct interface *ifp)
 
 	if (!irdp)
 		return;
+
 	if (irdp->flags & IF_SHUTDOWN) {
 		zlog_warn("IRDP: Interface is already shutdown %s", ifp->name);
 		return;
@@ -325,6 +344,9 @@ static void irdp_if_shutdown(struct interface *ifp)
 static void irdp_if_no_shutdown(struct interface *ifp)
 {
 	struct irdp_interface *irdp = irdp_if_get(ifp);
+
+	if (!irdp)
+		return;
 
 	if (!(irdp->flags & IF_SHUTDOWN)) {
 		zlog_warn("IRDP: Interface is not shutdown %s", ifp->name);
@@ -458,6 +480,8 @@ DEFUN (ip_irdp_holdtime,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct irdp_interface *irdp = irdp_if_get(ifp);
 
+	IRDP_CONFIGED;
+
 	irdp->Lifetime = atoi(argv[idx_number]->arg);
 	return CMD_SUCCESS;
 }
@@ -473,6 +497,8 @@ DEFUN (ip_irdp_minadvertinterval,
 	int idx_number = 3;
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct irdp_interface *irdp = irdp_if_get(ifp);
+
+	IRDP_CONFIGED;
 
 	if ((unsigned)atoi(argv[idx_number]->arg) <= irdp->MaxAdvertInterval) {
 		irdp->MinAdvertInterval = atoi(argv[idx_number]->arg);
@@ -496,6 +522,8 @@ DEFUN (ip_irdp_maxadvertinterval,
 	int idx_number = 3;
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct irdp_interface *irdp = irdp_if_get(ifp);
+
+	IRDP_CONFIGED;
 
 	if (irdp->MinAdvertInterval <= (unsigned)atoi(argv[idx_number]->arg)) {
 		irdp->MaxAdvertInterval = atoi(argv[idx_number]->arg);
@@ -525,6 +553,8 @@ DEFUN (ip_irdp_preference,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct irdp_interface *irdp = irdp_if_get(ifp);
 
+	IRDP_CONFIGED;
+
 	irdp->Preference = atoi(argv[idx_number]->arg);
 	return CMD_SUCCESS;
 }
@@ -548,6 +578,8 @@ DEFUN (ip_irdp_address_preference,
 	int pref;
 	int ret;
 	struct Adv *adv;
+
+	IRDP_CONFIGED;
 
 	ret = inet_aton(argv[idx_ipv4]->arg, &ip);
 	if (!ret)
@@ -586,6 +618,8 @@ DEFUN (no_ip_irdp_address_preference,
 	int ret;
 	struct Adv *adv;
 
+	IRDP_CONFIGED;
+
 	ret = inet_aton(argv[idx_ipv4]->arg, &ip);
 	if (!ret)
 		return CMD_WARNING_CONFIG_FAILED;
@@ -611,6 +645,8 @@ DEFUN (ip_irdp_debug_messages,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct irdp_interface *irdp = irdp_if_get(ifp);
 
+	IRDP_CONFIGED;
+
 	irdp->flags |= IF_DEBUG_MESSAGES;
 
 	return CMD_SUCCESS;
@@ -626,6 +662,8 @@ DEFUN (ip_irdp_debug_misc,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct irdp_interface *irdp = irdp_if_get(ifp);
+
+	IRDP_CONFIGED;
 
 	irdp->flags |= IF_DEBUG_MISC;
 
@@ -643,6 +681,8 @@ DEFUN (ip_irdp_debug_packet,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct irdp_interface *irdp = irdp_if_get(ifp);
 
+	IRDP_CONFIGED;
+
 	irdp->flags |= IF_DEBUG_PACKET;
 
 	return CMD_SUCCESS;
@@ -659,6 +699,8 @@ DEFUN (ip_irdp_debug_disable,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct irdp_interface *irdp = irdp_if_get(ifp);
+
+	IRDP_CONFIGED;
 
 	irdp->flags &= ~IF_DEBUG_PACKET;
 	irdp->flags &= ~IF_DEBUG_MESSAGES;

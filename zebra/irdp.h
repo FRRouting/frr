@@ -111,6 +111,8 @@
 */
 
 struct irdp_interface {
+	bool started;
+
 	unsigned long MaxAdvertInterval;
 	unsigned long MinAdvertInterval;
 	unsigned long Preference;
