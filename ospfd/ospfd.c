@@ -1260,7 +1260,7 @@ static void ospf_network_run(struct prefix *p, struct ospf_area *area)
 		ospf_router_id_update(area->ospf);
 
 	/* Get target interface. */
-	for (ALL_LIST_ELEMENTS_RO(om->iflist, node, ifp))
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(area->ospf->vrf_id), node, ifp))
 		ospf_network_run_interface(area->ospf, ifp, p, area);
 }
 

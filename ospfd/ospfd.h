@@ -93,8 +93,6 @@ struct ospf_master {
 	/* OSPF thread master. */
 	struct thread_master *master;
 
-	/* Zebra interface list. */
-	struct list *iflist;
 
 	/* Redistributed external information. */
 	struct list *external[ZEBRA_ROUTE_MAX + 1];

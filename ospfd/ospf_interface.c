@@ -1180,7 +1180,6 @@ u_char ospf_default_iftype(struct interface *ifp)
 void ospf_if_init()
 {
 	/* Initialize Zebra interface data structure. */
-	om->iflist = vrf_iflist(VRF_DEFAULT);
 	hook_register_prio(if_add, 0, ospf_if_new_hook);
 	hook_register_prio(if_del, 0, ospf_if_delete_hook);
 }

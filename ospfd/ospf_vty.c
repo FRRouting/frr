@@ -9328,7 +9328,7 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	if (ospf->passive_interface_default == OSPF_IF_PASSIVE)
 		vty_out(vty, " passive-interface default\n");
 
-	for (ALL_LIST_ELEMENTS_RO(om->iflist, node, ifp))
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(ospf->vrf_id), node, ifp))
 		if (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp),
 					     passive_interface)
 		    && IF_DEF_PARAMS(ifp)->passive_interface
