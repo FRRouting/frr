@@ -127,8 +127,8 @@ static void sigint(void)
 
 	frr_early_fini();
 
-	zebra_ptm_finish();
 	list_delete_all_node(zebrad.client_list);
+	zebra_ptm_finish();
 
 	if (retain_mode)
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
