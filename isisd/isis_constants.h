@@ -73,7 +73,7 @@
 #define MAX_MIN_LSP_GEN_INTERVAL      120  /* RFC 4444 says 65535 */
 #define DEFAULT_MIN_LSP_GEN_INTERVAL  30
 
-#define MIN_LSP_TRANS_INTERVAL        5
+#define MIN_LSP_TRANS_INTERVAL        20000 /* Microseconds */
 
 #define MIN_CSNP_INTERVAL             1
 #define MAX_CSNP_INTERVAL             600

@@ -111,25 +111,15 @@ static void lsp_clear_data(struct isis_lsp *lsp)
 
 static void lsp_destroy(struct isis_lsp *lsp)
 {
-	struct listnode *cnode, *lnode, *lnnode;
-	struct isis_lsp *lsp_in_list;
+	struct listnode *cnode;
 	struct isis_circuit *circuit;
 
 	if (!lsp)
 		return;
 
-	if (lsp->area->circuit_list) {
-		for (ALL_LIST_ELEMENTS_RO(lsp->area->circuit_list, cnode,
-					  circuit)) {
-			if (circuit->lsp_queue == NULL)
-				continue;
-			for (ALL_LIST_ELEMENTS(circuit->lsp_queue, lnode,
-					       lnnode, lsp_in_list))
-				if (lsp_in_list == lsp)
-					list_delete_node(circuit->lsp_queue,
-							 lnode);
-		}
-	}
+	for (ALL_LIST_ELEMENTS_RO(lsp->area->circuit_list, cnode, circuit))
+		isis_circuit_cancel_queued_lsp(circuit, lsp);
+
 	ISIS_FLAGS_CLEAR_ALL(lsp->SSNflags);
 	ISIS_FLAGS_CLEAR_ALL(lsp->SRMflags);
 
@@ -1890,12 +1880,15 @@ int lsp_tick(struct thread *thread)
 			if (listcount(lsp_list) > 0) {
 				for (ALL_LIST_ELEMENTS_RO(area->circuit_list,
 							  cnode, circuit)) {
-					int diff =
-						time(NULL)
-						- circuit->lsp_queue_last_cleared;
-					if (circuit->lsp_queue == NULL
-					    || diff < MIN_LSP_TRANS_INTERVAL)
+					if (!circuit->lsp_queue)
 						continue;
+
+					if (monotime_since(
+						  &circuit->lsp_queue_last_cleared,
+						  NULL) < MIN_LSP_TRANS_INTERVAL) {
+						continue;
+					}
+
 					for (ALL_LIST_ELEMENTS_RO(
 						     lsp_list, lspnode, lsp)) {
 						if (circuit->upadjcount
@@ -1903,23 +1896,7 @@ int lsp_tick(struct thread *thread)
 						    && ISIS_CHECK_FLAG(
 							       lsp->SRMflags,
 							       circuit)) {
-							/* Add the lsp only if
-							 * it is not already in
-							 * lsp
-							 * queue */
-							if (!listnode_lookup(
-								    circuit->lsp_queue,
-								    lsp)) {
-								listnode_add(
-									circuit->lsp_queue,
-									lsp);
-								thread_add_event(
-									master,
-									send_lsp,
-									circuit,
-									0,
-									NULL);
-							}
+							isis_circuit_queue_lsp(circuit, lsp);
 						}
 					}
 				}

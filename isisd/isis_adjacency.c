@@ -214,13 +214,11 @@ void isis_adj_state_change(struct isis_adjacency *adj,
 			} else if (new_state == ISIS_ADJ_DOWN) {
 				listnode_delete(circuit->u.bc.adjdb[level - 1],
 						adj);
+
 				circuit->upadjcount[level - 1]--;
-				if (circuit->upadjcount[level - 1] == 0) {
-					/* Clean lsp_queue when no adj is up. */
-					if (circuit->lsp_queue)
-						list_delete_all_node(
-							circuit->lsp_queue);
-				}
+				if (circuit->upadjcount[level - 1] == 0)
+					isis_circuit_lsp_queue_clean(circuit);
+
 				isis_event_adjacency_state_change(adj,
 								  new_state);
 				del = true;
@@ -270,12 +268,9 @@ void isis_adj_state_change(struct isis_adjacency *adj,
 				if (adj->circuit->u.p2p.neighbor == adj)
 					adj->circuit->u.p2p.neighbor = NULL;
 				circuit->upadjcount[level - 1]--;
-				if (circuit->upadjcount[level - 1] == 0) {
-					/* Clean lsp_queue when no adj is up. */
-					if (circuit->lsp_queue)
-						list_delete_all_node(
-							circuit->lsp_queue);
-				}
+				if (circuit->upadjcount[level - 1] == 0)
+					isis_circuit_lsp_queue_clean(circuit);
+
 				isis_event_adjacency_state_change(adj,
 								  new_state);
 				del = true;

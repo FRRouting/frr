@@ -34,6 +34,8 @@
 
 #define CIRCUIT_MAX 255
 
+struct isis_lsp;
+
 struct password {
 	struct password *next;
 	int len;
@@ -79,8 +81,10 @@ struct isis_circuit {
 	struct thread *t_read;
 	struct thread *t_send_csnp[2];
 	struct thread *t_send_psnp[2];
+	struct thread *t_send_lsp;
 	struct list *lsp_queue;	/* LSPs to be txed (both levels) */
-	time_t lsp_queue_last_cleared; /* timestamp used to enforce transmit
+	struct isis_lsp_hash *lsp_hash; /* Hashtable synchronized with lsp_queue */
+	struct timeval lsp_queue_last_cleared; /* timestamp used to enforce transmit
 					* interval;
 					* for scalability, use one timestamp per
 					* circuit, instead of one per lsp per
@@ -195,4 +199,10 @@ ferr_r isis_circuit_passwd_hmac_md5_set(struct isis_circuit *circuit,
 int isis_circuit_mt_enabled_set(struct isis_circuit *circuit, uint16_t mtid,
 				bool enabled);
 
+void isis_circuit_schedule_lsp_send(struct isis_circuit *circuit);
+void isis_circuit_queue_lsp(struct isis_circuit *circuit, struct isis_lsp *lsp);
+void isis_circuit_lsp_queue_clean(struct isis_circuit *circuit);
+void isis_circuit_cancel_queued_lsp(struct isis_circuit *circuit,
+				    struct isis_lsp *lsp);
+struct isis_lsp *isis_circuit_lsp_queue_pop(struct isis_circuit *circuit);
 #endif /* _ZEBRA_ISIS_CIRCUIT_H */
