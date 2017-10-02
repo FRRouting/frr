@@ -89,7 +89,7 @@ static void test_ordered(void)
 	assert(isis_vertex_queue_pop(&q) == vertices[1]);
 	assert(isis_find_vertex(&q, vertices[1]->N.id, vertices[1]->type) == NULL);
 
-	assert(isis_vertex_queue_pop(&q) == vertices[4]);
+	isis_vertex_queue_delete(&q, vertices[4]);
 	assert(isis_find_vertex(&q, vertices[4]->N.id, vertices[4]->type) == NULL);
 
 	assert(isis_vertex_queue_count(&q) == 0);
