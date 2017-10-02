@@ -963,14 +963,13 @@ static int ospf_vl_set(struct ospf *ospf, struct ospf_vl_config_data *vl_config)
 
 #define VLINK_HELPSTR_AUTH_SIMPLE                                              \
 	"Authentication password (key)\n"                                      \
-	"The OSPF password (key)"
+	"The OSPF password (key)\n"
 
 #define VLINK_HELPSTR_AUTH_MD5                                                 \
 	"Message digest authentication password (key)\n"                       \
-	"dummy string \n"                                                      \
 	"Key ID\n"                                                             \
 	"Use MD5 algorithm\n"                                                  \
-	"The OSPF password (key)"
+	"The OSPF password (key)\n"
 
 DEFUN (ospf_area_vlink,
        ospf_area_vlink_cmd,
@@ -979,12 +978,8 @@ DEFUN (ospf_area_vlink,
        "Enable authentication on this virtual link\n"
        "Use message-digest authentication\n"
        "Use null authentication\n"
-       "Message digest authentication password (key)\n"
-       "Key ID\n"
-       "Use MD5 algorithm\n"
-       "The OSPF password (key)\n"
-       "Authentication password (key)\n"
-       "The OSPF password (key)")
+       VLINK_HELPSTR_AUTH_MD5
+       VLINK_HELPSTR_AUTH_SIMPLE)
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_ipv4_number = 1;
@@ -1024,8 +1019,7 @@ DEFUN (ospf_area_vlink,
 	}
 
 	if (argv_find(argv, argc, "message-digest", &idx)) {
-		/* authentication  - this option can only occur
-		at start of command line */
+		/* authentication message-digest */
 		vl_config.auth_type = OSPF_AUTH_CRYPTOGRAPHIC;
 	} else if (argv_find(argv, argc, "null", &idx)) {
 		/* "authentication null" */
@@ -1062,12 +1056,8 @@ DEFUN (no_ospf_area_vlink,
        "Enable authentication on this virtual link\n" \
        "Use message-digest authentication\n" \
        "Use null authentication\n" \
-       "Message digest authentication password (key)\n" \
-       "Key ID\n" \
-       "Use MD5 algorithm\n" \
-       "The OSPF password (key)\n" \
-       "Authentication password (key)\n" \
-       "The OSPF password (key)")
+       VLINK_HELPSTR_AUTH_MD5
+       VLINK_HELPSTR_AUTH_SIMPLE)
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_ipv4_number = 2;
@@ -5808,8 +5798,7 @@ DEFUN_HIDDEN (ospf_authentication_key,
               ospf_authentication_key_cmd,
               "ospf authentication-key AUTH_KEY [A.B.C.D]",
               "OSPF interface commands\n"
-              "Authentication password (key)\n"
-              "The OSPF password (key)\n"
+              VLINK_HELPSTR_AUTH_SIMPLE
               "Address of interface\n")
 {
 	return ip_ospf_authentication_key(self, vty, argc, argv);
@@ -5821,8 +5810,8 @@ DEFUN (no_ip_ospf_authentication_key,
        NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
-       "Authentication password (key)\n"
-       "The OSPF password (key)")
+       VLINK_HELPSTR_AUTH_SIMPLE
+       "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
@@ -5858,8 +5847,8 @@ DEFUN_HIDDEN (no_ospf_authentication_key,
               "no ospf authentication-key [AUTH_KEY [A.B.C.D]]",
               NO_STR
               "OSPF interface commands\n"
-              "Authentication password (key)\n"
-              "The OSPF password (key)")
+              VLINK_HELPSTR_AUTH_SIMPLE
+	      "Address of interface\n")
 {
 	return no_ip_ospf_authentication_key(self, vty, argc, argv);
 }
