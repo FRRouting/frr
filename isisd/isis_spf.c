@@ -153,7 +153,7 @@ static int isis_vertex_queue_tent_cmp(void *a, void *b)
 	if (va->insert_counter > vb->insert_counter)
 		return 1;
 
-	assert(!"Vertizes should be strictly ordered");
+	return 0;
 }
 
 static struct skiplist *isis_vertex_queue_skiplist(void)
