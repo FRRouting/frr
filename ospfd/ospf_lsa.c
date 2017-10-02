@@ -2844,11 +2844,12 @@ static int ospf_maxage_lsa_remover(struct thread *thread)
 void ospf_lsa_maxage_delete(struct ospf *ospf, struct ospf_lsa *lsa)
 {
 	struct route_node *rn;
-	struct prefix_ptr lsa_prefix;
+	struct prefix lsa_prefix;
 
+	memset(&lsa_prefix, 0, sizeof(struct prefix));
 	lsa_prefix.family = 0;
-	lsa_prefix.prefixlen = sizeof(lsa_prefix.prefix) * CHAR_BIT;
-	lsa_prefix.prefix = (uintptr_t)lsa;
+	lsa_prefix.prefixlen = sizeof(lsa_prefix.u.ptr) * CHAR_BIT;
+	lsa_prefix.u.ptr = (uintptr_t)lsa;
 
 	if ((rn = route_node_lookup(ospf->maxage_lsa,
 				    (struct prefix *)&lsa_prefix))) {
@@ -2860,6 +2861,10 @@ void ospf_lsa_maxage_delete(struct ospf *ospf, struct ospf_lsa *lsa)
 				rn); /* unlock node because lsa is deleted */
 		}
 		route_unlock_node(rn); /* route_node_lookup */
+	} else {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug("%s: lsa %s is not found in maxage db.",
+				   __PRETTY_FUNCTION__, dump_lsa_key(lsa));
 	}
 }
 
@@ -2870,7 +2875,7 @@ void ospf_lsa_maxage_delete(struct ospf *ospf, struct ospf_lsa *lsa)
  */
 void ospf_lsa_maxage(struct ospf *ospf, struct ospf_lsa *lsa)
 {
-	struct prefix_ptr lsa_prefix;
+	struct prefix lsa_prefix;
 	struct route_node *rn;
 
 	/* When we saw a MaxAge LSA flooded to us, we put it on the list
@@ -2884,9 +2889,10 @@ void ospf_lsa_maxage(struct ospf *ospf, struct ospf_lsa *lsa)
 		return;
 	}
 
+	memset(&lsa_prefix, 0, sizeof(struct prefix));
 	lsa_prefix.family = 0;
-	lsa_prefix.prefixlen = sizeof(lsa_prefix.prefix) * CHAR_BIT;
-	lsa_prefix.prefix = (uintptr_t)lsa;
+	lsa_prefix.prefixlen = sizeof(lsa_prefix.u.ptr) * CHAR_BIT;
+	lsa_prefix.u.ptr = (uintptr_t)lsa;
 
 	if ((rn = route_node_get(ospf->maxage_lsa,
 				 (struct prefix *)&lsa_prefix))
@@ -2903,7 +2909,8 @@ void ospf_lsa_maxage(struct ospf *ospf, struct ospf_lsa *lsa)
 			SET_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE);
 		}
 	} else {
-		zlog_err("Unable to allocate memory for maxage lsa\n");
+		zlog_err("Unable to allocate memory for maxage lsa %s\n",
+			 dump_lsa_key(lsa));
 		assert(0);
 	}
 
