@@ -676,16 +676,21 @@ int netlink_talk(int (*filter)(struct sockaddr_nl *, struct nlmsghdr *, ns_id_t,
 {
 	int status;
 	struct sockaddr_nl snl;
-	struct iovec iov = {.iov_base = (void *)n, .iov_len = n->nlmsg_len};
-	struct msghdr msg = {
-		.msg_name = (void *)&snl,
-		.msg_namelen = sizeof snl,
-		.msg_iov = &iov,
-		.msg_iovlen = 1,
-	};
+	struct iovec iov;
+	struct msghdr msg;
 	int save_errno;
 
 	memset(&snl, 0, sizeof snl);
+	memset(&iov, 0, sizeof iov);
+	memset(&msg, 0, sizeof msg);
+
+	iov.iov_base = n;
+	iov.iov_len = n->nlmsg_len;
+	msg.msg_name = (void *)&snl;
+	msg.msg_namelen = sizeof snl;
+	msg.msg_iov = &iov;
+	msg.msg_iovlen = 1;
+
 	snl.nl_family = AF_NETLINK;
 
 	n->nlmsg_seq = ++nl->seq;
