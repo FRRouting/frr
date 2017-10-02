@@ -176,11 +176,13 @@ static void rtadv_send_packet(int sock, struct interface *ifp)
 	 */
 	if (adata == NULL) {
 		/* XXX Free on shutdown. */
-		adata = malloc(CMSG_SPACE(sizeof(struct in6_pktinfo)));
+		adata = calloc(1, CMSG_SPACE(sizeof(struct in6_pktinfo)));
 
-		if (adata == NULL)
+		if (adata == NULL) {
 			zlog_err(
 				"rtadv_send_packet: can't malloc control data");
+			exit(-1);
+		}
 	}
 
 	/* Logging of packet. */
