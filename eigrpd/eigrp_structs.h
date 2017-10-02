@@ -137,22 +137,17 @@ struct eigrp {
 DECLARE_QOBJ_TYPE(eigrp)
 
 struct eigrp_if_params {
-	DECLARE_IF_PARAM(u_char, passive_interface); /* EIGRP Interface is
-							passive: no sending or
-							receiving (no need to
-							join multicast groups)
-							*/
-	DECLARE_IF_PARAM(u_int32_t, v_hello);	/* Hello Interval */
-	DECLARE_IF_PARAM(u_int16_t, v_wait); /* Router Hold Time Interval */
-	DECLARE_IF_PARAM(u_char, type);      /* type of interface */
-	DECLARE_IF_PARAM(u_int32_t, bandwidth);
-	DECLARE_IF_PARAM(u_int32_t, delay);
-	DECLARE_IF_PARAM(u_char, reliability);
-	DECLARE_IF_PARAM(u_char, load);
+	u_char passive_interface;
+	u_int32_t v_hello;
+	u_int16_t v_wait;
+	u_char type;      /* type of interface */
+	u_int32_t bandwidth;
+	u_int32_t delay;
+	u_char reliability;
+	u_char load;
 
-	DECLARE_IF_PARAM(char *,
-			 auth_keychain); /* Associated keychain with interface*/
-	DECLARE_IF_PARAM(int, auth_type); /* EIGRP authentication type */
+	char *auth_keychain; /* Associated keychain with interface*/
+	int auth_type; /* EIGRP authentication type */
 };
 
 enum { MEMBER_ALLROUTERS = 0,
@@ -161,12 +156,10 @@ enum { MEMBER_ALLROUTERS = 0,
 
 /*EIGRP interface structure*/
 struct eigrp_interface {
-	struct eigrp_if_params *def_params;
-	struct route_table *eparams;
-	struct route_table *eifs;
+	struct eigrp_if_params params;
 
 	/*multicast group refcnts */
-	unsigned int membership_counts[MEMBER_MAX];
+	bool member_allrouters;
 	
 	/* This interface's parent eigrp instance. */
 	struct eigrp *eigrp;
@@ -179,8 +172,6 @@ struct eigrp_interface {
 
 	/* To which multicast groups do we currently belong? */
 
-	/* Configured varables. */
-	struct eigrp_if_params *params;
 
 	u_char multicast_memberships;
 

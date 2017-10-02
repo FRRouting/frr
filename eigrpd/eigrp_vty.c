@@ -95,36 +95,32 @@ static int config_write_interfaces(struct vty *vty, struct eigrp *eigrp)
 	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
 		vty_frame(vty, "interface %s\n", ei->ifp->name);
 
-		if ((IF_DEF_PARAMS(ei->ifp)->auth_type)
-		    == EIGRP_AUTH_TYPE_MD5) {
+		if (ei->params.auth_type == EIGRP_AUTH_TYPE_MD5) {
 			vty_out(vty, " ip authentication mode eigrp %d md5\n",
 				eigrp->AS);
 		}
 
-		if ((IF_DEF_PARAMS(ei->ifp)->auth_type)
-		    == EIGRP_AUTH_TYPE_SHA256) {
+		if (ei->params.auth_type == EIGRP_AUTH_TYPE_SHA256) {
 			vty_out(vty,
 				" ip authentication mode eigrp %d hmac-sha-256\n",
 				eigrp->AS);
 		}
 
-		if (IF_DEF_PARAMS(ei->ifp)->auth_keychain) {
+		if (ei->params.auth_keychain) {
 			vty_out(vty,
 				" ip authentication key-chain eigrp %d %s\n",
 				eigrp->AS,
-				IF_DEF_PARAMS(ei->ifp)->auth_keychain);
+				ei->params.auth_keychain);
 		}
 
-		if ((IF_DEF_PARAMS(ei->ifp)->v_hello)
-		    != EIGRP_HELLO_INTERVAL_DEFAULT) {
+		if (ei->params.v_hello != EIGRP_HELLO_INTERVAL_DEFAULT) {
 			vty_out(vty, " ip hello-interval eigrp %d\n",
-				IF_DEF_PARAMS(ei->ifp)->v_hello);
+				ei->params.v_hello);
 		}
 
-		if ((IF_DEF_PARAMS(ei->ifp)->v_wait)
-		    != EIGRP_HOLD_INTERVAL_DEFAULT) {
+		if (ei->params.v_wait != EIGRP_HOLD_INTERVAL_DEFAULT) {
 			vty_out(vty, " ip hold-time eigrp %d\n",
-				IF_DEF_PARAMS(ei->ifp)->v_wait);
+				ei->params.v_wait);
 		}
 
 		/*Separate this EIGRP interface configuration from the others*/
@@ -138,24 +134,29 @@ static int eigrp_write_interface(struct vty *vty)
 {
 	struct listnode *node;
 	struct interface *ifp;
+	struct eigrp_interface *ei;
 
 	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+		ei = ifp->info;
+		if (!ei)
+			continue;
+
 		vty_frame(vty, "interface %s\n", ifp->name);
 
 		if (ifp->desc)
 			vty_out(vty, " description %s\n", ifp->desc);
 
-		if (IF_DEF_PARAMS(ifp)->bandwidth != EIGRP_BANDWIDTH_DEFAULT)
+		if (ei->params.bandwidth != EIGRP_BANDWIDTH_DEFAULT)
 			vty_out(vty, " bandwidth %u\n",
-				IF_DEF_PARAMS(ifp)->bandwidth);
-		if (IF_DEF_PARAMS(ifp)->delay != EIGRP_DELAY_DEFAULT)
-			vty_out(vty, " delay %u\n", IF_DEF_PARAMS(ifp)->delay);
-		if (IF_DEF_PARAMS(ifp)->v_hello != EIGRP_HELLO_INTERVAL_DEFAULT)
+				ei->params.bandwidth);
+		if (ei->params.delay != EIGRP_DELAY_DEFAULT)
+			vty_out(vty, " delay %u\n", ei->params.delay);
+		if (ei->params.v_hello != EIGRP_HELLO_INTERVAL_DEFAULT)
 			vty_out(vty, " ip hello-interval eigrp %u\n",
-				IF_DEF_PARAMS(ifp)->v_hello);
-		if (IF_DEF_PARAMS(ifp)->v_wait != EIGRP_HOLD_INTERVAL_DEFAULT)
+				ei->params.v_hello);
+		if (ei->params.v_wait != EIGRP_HOLD_INTERVAL_DEFAULT)
 			vty_out(vty, " ip hold-time eigrp %u\n",
-				IF_DEF_PARAMS(ifp)->v_wait);
+				ei->params.v_wait);
 
 		vty_endframe(vty, "!\n");
 	}
@@ -291,8 +292,10 @@ DEFUN (eigrp_passive_interface,
 	char *ifname = argv[1]->arg;
 
 	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
-		if (strcmp(ifname, ei->ifp->name) == 0)
-			SET_IF_PARAM(IF_DEF_PARAMS(ei->ifp), passive_interface);
+		if (strcmp(ifname, ei->ifp->name) == 0) {
+			ei->params.passive_interface = EIGRP_IF_PASSIVE;
+			return CMD_SUCCESS;
+		}
 	}
 	return CMD_SUCCESS;
 }
@@ -310,9 +313,10 @@ DEFUN (no_eigrp_passive_interface,
 	char *ifname = argv[2]->arg;
 
 	for (ALL_LIST_ELEMENTS_RO(eigrp->eiflist, node, ei)) {
-		if (strcmp(ifname, ei->ifp->name) == 0)
-			UNSET_IF_PARAM(IF_DEF_PARAMS(ei->ifp),
-				       passive_interface);
+		if (strcmp(ifname, ei->ifp->name) == 0) {
+			ei->params.passive_interface = EIGRP_IF_ACTIVE;
+			return CMD_SUCCESS;
+		}
 	}
 
 	return CMD_SUCCESS;
@@ -599,6 +603,7 @@ DEFUN (eigrp_if_delay,
        "Throughput delay (tens of microseconds)\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct eigrp_interface *ei = ifp->info;
 	struct eigrp *eigrp;
 	u_int32_t delay;
 
@@ -609,9 +614,13 @@ DEFUN (eigrp_if_delay,
 		return CMD_SUCCESS;
 	}
 
+	if (!ei) {
+		vty_out(vty, " EIGRP not configured on this interface\n");
+		return CMD_SUCCESS;
+	}
 	delay = atoi(argv[1]->arg);
 
-	IF_DEF_PARAMS(ifp)->delay = delay;
+	ei->params.delay = delay;
 	eigrp_if_reset(ifp);
 
 	return CMD_SUCCESS;
@@ -625,6 +634,7 @@ DEFUN (no_eigrp_if_delay,
        "Throughput delay (tens of microseconds)\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct eigrp_interface *ei = ifp->info;
 	struct eigrp *eigrp;
 
 	eigrp = eigrp_lookup();
@@ -633,8 +643,12 @@ DEFUN (no_eigrp_if_delay,
 
 		return CMD_SUCCESS;
 	}
+	if (!ei) {
+		vty_out(vty, " EIGRP not configured on this interface\n");
+		return CMD_SUCCESS;
+	}
 
-	IF_DEF_PARAMS(ifp)->delay = EIGRP_DELAY_DEFAULT;
+	ei->params.delay = EIGRP_DELAY_DEFAULT;
 	eigrp_if_reset(ifp);
 
 	return CMD_SUCCESS;
@@ -648,6 +662,7 @@ DEFUN (eigrp_if_bandwidth,
        "Bandwidth in kilobits\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct eigrp_interface *ei = ifp->info;
 	u_int32_t bandwidth;
 	struct eigrp *eigrp;
 
@@ -657,9 +672,14 @@ DEFUN (eigrp_if_bandwidth,
 		return CMD_SUCCESS;
 	}
 
+	if (!ei) {
+		vty_out(vty, " EIGRP not configured on this interface\n");
+		return CMD_SUCCESS;
+	}
+
 	bandwidth = atoi(argv[1]->arg);
 
-	IF_DEF_PARAMS(ifp)->bandwidth = bandwidth;
+	ei->params.bandwidth = bandwidth;
 	eigrp_if_reset(ifp);
 
 	return CMD_SUCCESS;
@@ -674,6 +694,7 @@ DEFUN (no_eigrp_if_bandwidth,
        "Bandwidth in kilobits\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct eigrp_interface *ei = ifp->info;
 	struct eigrp *eigrp;
 
 	eigrp = eigrp_lookup();
@@ -682,7 +703,12 @@ DEFUN (no_eigrp_if_bandwidth,
 		return CMD_SUCCESS;
 	}
 
-	IF_DEF_PARAMS(ifp)->bandwidth = EIGRP_BANDWIDTH_DEFAULT;
+	if (!ei) {
+		vty_out(vty, " EIGRP not configured on this interface\n");
+		return CMD_SUCCESS;
+	}
+
+	ei->params.bandwidth = EIGRP_BANDWIDTH_DEFAULT;
 	eigrp_if_reset(ifp);
 
 	return CMD_SUCCESS;
@@ -697,6 +723,7 @@ DEFUN (eigrp_if_ip_hellointerval,
        "Seconds between hello transmissions\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct eigrp_interface *ei = ifp->info;
 	u_int32_t hello;
 	struct eigrp *eigrp;
 
@@ -706,9 +733,14 @@ DEFUN (eigrp_if_ip_hellointerval,
 		return CMD_SUCCESS;
 	}
 
+	if (!ei) {
+		vty_out(vty, " EIGRP not configured on this interface\n");
+		return CMD_SUCCESS;
+	}
+
 	hello = atoi(argv[3]->arg);
 
-	IF_DEF_PARAMS(ifp)->v_hello = hello;
+	ei->params.v_hello = hello;
 
 	return CMD_SUCCESS;
 }
@@ -723,9 +755,8 @@ DEFUN (no_eigrp_if_ip_hellointerval,
        "Seconds between hello transmissions\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct eigrp_interface *ei = ifp->info;
 	struct eigrp *eigrp;
-	struct eigrp_interface *ei;
-	struct listnode *node, *nnode;
 
 	eigrp = eigrp_lookup();
 	if (eigrp == NULL) {
@@ -733,16 +764,16 @@ DEFUN (no_eigrp_if_ip_hellointerval,
 		return CMD_SUCCESS;
 	}
 
-	IF_DEF_PARAMS(ifp)->v_hello = EIGRP_HELLO_INTERVAL_DEFAULT;
-
-	for (ALL_LIST_ELEMENTS(eigrp->eiflist, node, nnode, ei)) {
-		if (ei->ifp == ifp) {
-			THREAD_TIMER_OFF(ei->t_hello);
-			thread_add_timer(master, eigrp_hello_timer, ei, 1,
-					 &ei->t_hello);
-			break;
-		}
+	if (!ei) {
+		vty_out(vty, " EIGRP not configured on this interface\n");
+		return CMD_SUCCESS;
 	}
+
+	ei->params.v_hello = EIGRP_HELLO_INTERVAL_DEFAULT;
+
+	THREAD_TIMER_OFF(ei->t_hello);
+	thread_add_timer(master, eigrp_hello_timer, ei, 1,
+			 &ei->t_hello);
 
 	return CMD_SUCCESS;
 }
@@ -756,6 +787,7 @@ DEFUN (eigrp_if_ip_holdinterval,
        "Seconds before neighbor is considered down\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct eigrp_interface *ei = ifp->info;
 	u_int32_t hold;
 	struct eigrp *eigrp;
 
@@ -765,9 +797,14 @@ DEFUN (eigrp_if_ip_holdinterval,
 		return CMD_SUCCESS;
 	}
 
+	if (!ei) {
+		vty_out(vty, " EIGRP not configured on this interface\n");
+		return CMD_SUCCESS;
+	}
+
 	hold = atoi(argv[3]->arg);
 
-	IF_DEF_PARAMS(ifp)->v_wait = hold;
+	ei->params.v_wait = hold;
 
 	return CMD_SUCCESS;
 }
@@ -835,6 +872,7 @@ DEFUN (no_eigrp_if_ip_holdinterval,
        "Seconds before neighbor is considered down\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct eigrp_interface *ei = ifp->info;
 	struct eigrp *eigrp;
 
 	eigrp = eigrp_lookup();
@@ -843,22 +881,27 @@ DEFUN (no_eigrp_if_ip_holdinterval,
 		return CMD_SUCCESS;
 	}
 
-	IF_DEF_PARAMS(ifp)->v_wait = EIGRP_HOLD_INTERVAL_DEFAULT;
+	if (!ei) {
+		vty_out(vty, " EIGRP not configured on this interface\n");
+		return CMD_SUCCESS;
+	}
+
+	ei->params.v_wait = EIGRP_HOLD_INTERVAL_DEFAULT;
 
 	return CMD_SUCCESS;
 }
 
-static int str2auth_type(const char *str, struct interface *ifp)
+static int str2auth_type(const char *str, struct eigrp_interface *ei)
 {
 	/* Sanity check. */
 	if (str == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
 
 	if (strncmp(str, "md5", 3) == 0) {
-		IF_DEF_PARAMS(ifp)->auth_type = EIGRP_AUTH_TYPE_MD5;
+		ei->params.auth_type = EIGRP_AUTH_TYPE_MD5;
 		return CMD_SUCCESS;
 	} else if (strncmp(str, "hmac-sha-256", 12) == 0) {
-		IF_DEF_PARAMS(ifp)->auth_type = EIGRP_AUTH_TYPE_SHA256;
+		ei->params.auth_type = EIGRP_AUTH_TYPE_SHA256;
 		return CMD_SUCCESS;
 	}
 
@@ -877,6 +920,7 @@ DEFUN (eigrp_authentication_mode,
        "HMAC SHA256 algorithm \n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct eigrp_interface *ei = ifp->info;
 	struct eigrp *eigrp;
 
 	eigrp = eigrp_lookup();
@@ -885,12 +929,17 @@ DEFUN (eigrp_authentication_mode,
 		return CMD_SUCCESS;
 	}
 
+	if (!ei) {
+		vty_out(vty, " EIGRP not configured on this interface\n");
+		return CMD_SUCCESS;
+	}
+
 	//  if(strncmp(argv[2], "md5",3))
 	//    IF_DEF_PARAMS (ifp)->auth_type = EIGRP_AUTH_TYPE_MD5;
 	//  else if(strncmp(argv[2], "hmac-sha-256",12))
 	//    IF_DEF_PARAMS (ifp)->auth_type = EIGRP_AUTH_TYPE_SHA256;
 
-	return str2auth_type(argv[5]->arg, ifp);
+	return str2auth_type(argv[5]->arg, ei);
 }
 
 DEFUN (no_eigrp_authentication_mode,
@@ -906,6 +955,7 @@ DEFUN (no_eigrp_authentication_mode,
        "HMAC SHA256 algorithm \n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct eigrp_interface *ei = ifp->info;
 	struct eigrp *eigrp;
 
 	eigrp = eigrp_lookup();
@@ -914,7 +964,12 @@ DEFUN (no_eigrp_authentication_mode,
 		return CMD_SUCCESS;
 	}
 
-	IF_DEF_PARAMS(ifp)->auth_type = EIGRP_AUTH_TYPE_NONE;
+	if (!ei) {
+		vty_out(vty, " EIGRP not configured on this interface\n");
+		return CMD_SUCCESS;
+	}
+
+	ei->params.auth_type = EIGRP_AUTH_TYPE_NONE;
 
 	return CMD_SUCCESS;
 }
@@ -930,6 +985,7 @@ DEFUN (eigrp_authentication_keychain,
        "Name of key-chain\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct eigrp_interface *ei = ifp->info;
 	struct eigrp *eigrp;
 	struct keychain *keychain;
 
@@ -939,14 +995,19 @@ DEFUN (eigrp_authentication_keychain,
 		return CMD_SUCCESS;
 	}
 
+	if (!ei) {
+		vty_out(vty, " EIGRP not configured on this interface\n");
+		return CMD_SUCCESS;
+	}
+
 	keychain = keychain_lookup(argv[4]->arg);
 	if (keychain != NULL) {
-		if (IF_DEF_PARAMS(ifp)->auth_keychain) {
-			free(IF_DEF_PARAMS(ifp)->auth_keychain);
-			IF_DEF_PARAMS(ifp)->auth_keychain =
+		if (ei->params.auth_keychain) {
+			free(ei->params.auth_keychain);
+			ei->params.auth_keychain =
 				strdup(keychain->name);
 		} else
-			IF_DEF_PARAMS(ifp)->auth_keychain =
+			ei->params.auth_keychain =
 				strdup(keychain->name);
 	} else
 		vty_out(vty, "Key chain with specified name not found\n");
@@ -966,6 +1027,7 @@ DEFUN (no_eigrp_authentication_keychain,
        "Name of key-chain\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct eigrp_interface *ei = ifp->info;
 	struct eigrp *eigrp;
 
 	eigrp = eigrp_lookup();
@@ -974,10 +1036,15 @@ DEFUN (no_eigrp_authentication_keychain,
 		return CMD_SUCCESS;
 	}
 
-	if ((IF_DEF_PARAMS(ifp)->auth_keychain != NULL)
-	    && (strcmp(IF_DEF_PARAMS(ifp)->auth_keychain, argv[5]->arg) == 0)) {
-		free(IF_DEF_PARAMS(ifp)->auth_keychain);
-		IF_DEF_PARAMS(ifp)->auth_keychain = NULL;
+	if (!ei) {
+		vty_out(vty, " EIGRP not configured on this interface\n");
+		return CMD_SUCCESS;
+	}
+
+	if ((ei->params.auth_keychain != NULL)
+	    && (strcmp(ei->params.auth_keychain, argv[5]->arg) == 0)) {
+		free(ei->params.auth_keychain);
+		ei->params.auth_keychain = NULL;
 	} else
 		vty_out(vty,
 			"Key chain with specified name not configured on interface\n");

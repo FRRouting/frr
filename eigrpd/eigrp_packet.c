@@ -108,7 +108,7 @@ int eigrp_make_md5_digest(struct eigrp_interface *ei, struct stream *s,
 	stream_get(auth_TLV, s, EIGRP_AUTH_MD5_TLV_SIZE);
 	stream_set_getp(s, backup_get);
 
-	keychain = keychain_lookup(IF_DEF_PARAMS(ei->ifp)->auth_keychain);
+	keychain = keychain_lookup(ei->params.auth_keychain);
 	if (keychain)
 		key = key_lookup_for_send(keychain);
 	else {
@@ -189,7 +189,7 @@ int eigrp_check_md5_digest(struct stream *s,
 	ibuf = s->data;
 	backup_end = s->endp;
 
-	keychain = keychain_lookup(IF_DEF_PARAMS(nbr->ei->ifp)->auth_keychain);
+	keychain = keychain_lookup(nbr->ei->params.auth_keychain);
 	if (keychain)
 		key = key_lookup_for_send(keychain);
 
@@ -265,7 +265,7 @@ int eigrp_make_sha256_digest(struct eigrp_interface *ei, struct stream *s,
 	stream_get(auth_TLV, s, EIGRP_AUTH_SHA256_TLV_SIZE);
 	stream_set_getp(s, backup_get);
 
-	keychain = keychain_lookup(IF_DEF_PARAMS(ei->ifp)->auth_keychain);
+	keychain = keychain_lookup(ei->params.auth_keychain);
 	if (keychain)
 		key = key_lookup_for_send(keychain);
 
@@ -522,7 +522,7 @@ int eigrp_read(struct thread *thread)
 	}
 
 	/* associate packet with eigrp interface */
-	ei = eigrp_if_lookup_recv_if(eigrp, iph->ip_src, ifp);
+	ei = ifp->info;
 
 	/* eigrp_verify_header() relies on a valid "ei" and thus can be called
 	   only
@@ -557,21 +557,8 @@ int eigrp_read(struct thread *thread)
 	//  stream_get_getp(ibuf)))
 	//    return -1;
 
-	/* Now it is safe to access all fields of EIGRP packet header. */
-	/* associate packet with eigrp interface */
-	ei = eigrp_if_lookup_recv_if(eigrp, iph->ip_src, ifp);
-
-	/* eigrp_verify_header() relies on a valid "ei" and thus can be called
-	   only
-	   after the checks below are passed. These checks in turn access the
-	   fields of unverified "eigrph" structure for their own purposes and
-	   must remain very accurate in doing this.
-	*/
-	if (!ei)
-		return 0;
-
 	/* If incoming interface is passive one, ignore it. */
-	if (ei && EIGRP_IF_PASSIVE_STATUS(ei) == EIGRP_IF_PASSIVE) {
+	if (ei && eigrp_if_is_passive(ei)) {
 		char buf[3][INET_ADDRSTRLEN];
 
 		if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV))
@@ -586,11 +573,6 @@ int eigrp_read(struct thread *thread)
 					  buf[2], sizeof(buf[2])));
 
 		if (iph->ip_dst.s_addr == htonl(EIGRP_MULTICAST_ADDRESS)) {
-			/* Try to fix multicast membership.
-			 * Some OS:es may have problems in this area,
-			 * make sure it is removed.
-			 */
-			EI_MEMBER_JOINED(ei, MEMBER_ALLROUTERS);
 			eigrp_if_set_multicast(ei);
 		}
 		return 0;
@@ -1240,12 +1222,12 @@ u_int16_t eigrp_add_authTLV_MD5_to_stream(struct stream *s,
 	authTLV->key_sequence = 0;
 	memset(authTLV->Nullpad, 0, sizeof(authTLV->Nullpad));
 
-	keychain = keychain_lookup(IF_DEF_PARAMS(ei->ifp)->auth_keychain);
+	keychain = keychain_lookup(ei->params.auth_keychain);
 	if (keychain)
 		key = key_lookup_for_send(keychain);
 	else {
-		free(IF_DEF_PARAMS(ei->ifp)->auth_keychain);
-		IF_DEF_PARAMS(ei->ifp)->auth_keychain = NULL;
+		free(ei->params.auth_keychain);
+		ei->params.auth_keychain = NULL;
 		eigrp_authTLV_MD5_free(authTLV);
 		return 0;
 	}
@@ -1280,12 +1262,12 @@ u_int16_t eigrp_add_authTLV_SHA256_to_stream(struct stream *s,
 	authTLV->key_sequence = 0;
 	memset(authTLV->Nullpad, 0, sizeof(authTLV->Nullpad));
 
-	keychain = keychain_lookup(IF_DEF_PARAMS(ei->ifp)->auth_keychain);
+	keychain = keychain_lookup(ei->params.auth_keychain);
 	if (keychain)
 		key = key_lookup_for_send(keychain);
 	else {
-		free(IF_DEF_PARAMS(ei->ifp)->auth_keychain);
-		IF_DEF_PARAMS(ei->ifp)->auth_keychain = NULL;
+		free(ei->params.auth_keychain);
+		ei->params.auth_keychain = NULL;
 		eigrp_authTLV_SHA256_free(authTLV);
 		return 0;
 	}

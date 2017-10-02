@@ -89,7 +89,7 @@ int eigrp_hello_timer(struct thread *thread)
 
 	if (IS_DEBUG_EIGRP(0, TIMERS))
 		zlog_debug("Start Hello Timer (%s) Expire [%u]", IF_NAME(ei),
-			   EIGRP_IF_PARAM(ei, v_hello));
+			   ei->params.v_hello);
 
 	/* Sending hello packet. */
 	eigrp_hello_send(ei, EIGRP_HELLO_NORMAL, NULL);
@@ -97,7 +97,7 @@ int eigrp_hello_timer(struct thread *thread)
 	/* Hello timer set. */
 	ei->t_hello = NULL;
 	thread_add_timer(master, eigrp_hello_timer, ei,
-			 EIGRP_IF_PARAM(ei, v_hello), &ei->t_hello);
+			 ei->params.v_hello, &ei->t_hello);
 
 	return 0;
 }
@@ -600,7 +600,7 @@ static u_int16_t eigrp_hello_parameter_encode(struct eigrp_interface *ei,
 	}
 
 	// and set hold time value..
-	stream_putw(s, IF_DEF_PARAMS(ei->ifp)->v_wait);
+	stream_putw(s, ei->params.v_wait);
 
 	return length;
 }
@@ -637,12 +637,12 @@ static struct eigrp_packet *eigrp_hello_encode(struct eigrp_interface *ei,
 		eigrp_packet_header_init(EIGRP_OPC_HELLO, ei->eigrp, ep->s, 0, 0, ack);
 
 		// encode Authentication TLV
-		if ((IF_DEF_PARAMS(ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
-		    && (IF_DEF_PARAMS(ei->ifp)->auth_keychain != NULL)) {
+		if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
+		    && (ei->params.auth_keychain != NULL)) {
 			length += eigrp_add_authTLV_MD5_to_stream(ep->s, ei);
-		} else if ((IF_DEF_PARAMS(ei->ifp)->auth_type
+		} else if ((ei->params.auth_type
 			    == EIGRP_AUTH_TYPE_SHA256)
-			   && (IF_DEF_PARAMS(ei->ifp)->auth_keychain != NULL)) {
+			   && (ei->params.auth_keychain != NULL)) {
 			length += eigrp_add_authTLV_SHA256_to_stream(ep->s, ei);
 		}
 
@@ -676,13 +676,13 @@ static struct eigrp_packet *eigrp_hello_encode(struct eigrp_interface *ei,
 		// set soruce address for the hello packet
 		ep->dst.s_addr = addr;
 
-		if ((IF_DEF_PARAMS(ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
-		    && (IF_DEF_PARAMS(ei->ifp)->auth_keychain != NULL)) {
+		if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
+		    && (ei->params.auth_keychain != NULL)) {
 			eigrp_make_md5_digest(ei, ep->s,
 					      EIGRP_AUTH_BASIC_HELLO_FLAG);
-		} else if ((IF_DEF_PARAMS(ei->ifp)->auth_type
+		} else if ((ei->params.auth_type
 			    == EIGRP_AUTH_TYPE_SHA256)
-			   && (IF_DEF_PARAMS(ei->ifp)->auth_keychain != NULL)) {
+			   && (ei->params.auth_keychain != NULL)) {
 			eigrp_make_sha256_digest(ei, ep->s,
 						 EIGRP_AUTH_BASIC_HELLO_FLAG);
 		}

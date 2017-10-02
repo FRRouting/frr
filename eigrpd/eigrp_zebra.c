@@ -148,15 +148,16 @@ static int eigrp_interface_add(int command, struct zclient *zclient,
 			       zebra_size_t length, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
+	struct eigrp_interface *ei;
 
 	ifp = zebra_interface_add_read(zclient->ibuf, vrf_id);
 
-	assert(ifp->info);
+	if (!ifp->info)
+		return 0;
 
-	if (!EIGRP_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp), type)) {
-		SET_IF_PARAM(IF_DEF_PARAMS(ifp), type);
-		IF_DEF_PARAMS(ifp)->type = eigrp_default_iftype(ifp);
-	}
+	ei = ifp->info;
+
+	ei->params.type = eigrp_default_iftype(ifp);
 
 	eigrp_if_update(ifp);
 
@@ -168,7 +169,6 @@ static int eigrp_interface_delete(int command, struct zclient *zclient,
 {
 	struct interface *ifp;
 	struct stream *s;
-	struct route_node *rn;
 
 	s = zclient->ibuf;
 	/* zebra_interface_state_read () updates interface structure in iflist
@@ -188,12 +188,10 @@ static int eigrp_interface_delete(int command, struct zclient *zclient,
 			ifp->name, ifp->ifindex, (unsigned long long)ifp->flags,
 			ifp->metric, ifp->mtu);
 
-	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn))
-		if (rn->info)
-			eigrp_if_free((struct eigrp_interface *)rn->info,
-				      INTERFACE_DOWN_BY_ZEBRA);
+	if (ifp->info)
+		eigrp_if_free(ifp->info,
+			      INTERFACE_DOWN_BY_ZEBRA);
 
-	ifp->ifindex = IFINDEX_INTERNAL;
 	return 0;
 }
 
@@ -225,8 +223,6 @@ static int eigrp_interface_address_delete(int command, struct zclient *zclient,
 	struct connected *c;
 	struct interface *ifp;
 	struct eigrp_interface *ei;
-	struct route_node *rn;
-	struct prefix p;
 
 	c = zebra_interface_address_read(command, zclient->ibuf, vrf_id);
 
@@ -241,17 +237,9 @@ static int eigrp_interface_address_delete(int command, struct zclient *zclient,
 	}
 
 	ifp = c->ifp;
-	p = *c->address;
-	p.prefixlen = IPV4_MAX_PREFIXLEN;
-
-	rn = route_node_lookup(IF_OIFS(ifp), &p);
-	if (!rn) {
-		connected_free(c);
+	ei = ifp->info;
+	if (!ei)
 		return 0;
-	}
-
-	assert(rn->info);
-	ei = rn->info;
 
 	/* Call interface hook functions to clean up */
 	eigrp_if_free(ei, INTERFACE_DOWN_BY_ZEBRA);
@@ -265,8 +253,6 @@ static int eigrp_interface_state_up(int command, struct zclient *zclient,
 				    zebra_size_t length, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
-	struct eigrp_interface *ei;
-	struct route_node *rn;
 
 	ifp = zebra_interface_if_lookup(zclient->ibuf);
 
@@ -314,12 +300,8 @@ static int eigrp_interface_state_up(int command, struct zclient *zclient,
 		zlog_debug("Zebra: Interface[%s] state change to up.",
 			   ifp->name);
 
-	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
-		if ((ei = rn->info) == NULL)
-			continue;
-
-		eigrp_if_up(ei);
-	}
+	if (ifp->info)
+		eigrp_if_up(ifp->info);
 
 	return 0;
 }
@@ -328,8 +310,6 @@ static int eigrp_interface_state_down(int command, struct zclient *zclient,
 				      zebra_size_t length, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
-	struct eigrp_interface *ei;
-	struct route_node *node;
 
 	ifp = zebra_interface_state_read(zclient->ibuf, vrf_id);
 
@@ -340,11 +320,8 @@ static int eigrp_interface_state_down(int command, struct zclient *zclient,
 		zlog_debug("Zebra: Interface[%s] state change to down.",
 			   ifp->name);
 
-	for (node = route_top(IF_OIFS(ifp)); node; node = route_next(node)) {
-		if ((ei = node->info) == NULL)
-			continue;
-		eigrp_if_down(ei);
-	}
+	if (ifp->info)
+		eigrp_if_down(ifp->info);
 
 	return 0;
 }
