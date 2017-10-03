@@ -141,7 +141,8 @@ static void ospf6_bfd_reg_dereg_all_nbr(struct ospf6_interface *oi, int command)
 static int ospf6_bfd_nbr_replay(int command, struct zclient *zclient,
 				zebra_size_t length, vrf_id_t vrf_id)
 {
-	struct listnode *inode, *nnode;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct listnode *node;
 	struct interface *ifp;
 	struct ospf6_interface *oi;
 	struct ospf6_neighbor *on;
@@ -154,13 +155,13 @@ static int ospf6_bfd_nbr_replay(int command, struct zclient *zclient,
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 
 	/* Replay the neighbor, if BFD is enabled on the interface*/
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), inode, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		oi = (struct ospf6_interface *)ifp->info;
 
 		if (!oi || !oi->bfd_info)
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, nnode, on)) {
+		for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, node, on)) {
 			if (on->state < OSPF6_NEIGHBOR_TWOWAY)
 				continue;
 

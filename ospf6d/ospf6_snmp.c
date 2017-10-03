@@ -837,6 +837,7 @@ static u_char *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 				 int exact, size_t *var_len,
 				 WriteMethod **write_method)
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct ospf6_lsa *lsa = NULL;
 	ifindex_t ifindex;
 	uint32_t area_id, id, instid, adv_router;
@@ -955,8 +956,7 @@ static u_char *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 			if (!ifslist)
 				return NULL;
 			ifslist->cmp = (int (*)(void *, void *))if_icmp_func;
-			for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node,
-						  iif))
+			RB_FOREACH (iif, if_name_head, &vrf->ifaces_by_name)
 				listnode_add_sort(ifslist, iif);
 
 			for (ALL_LIST_ELEMENTS_RO(ifslist, node, iif)) {
@@ -1092,7 +1092,7 @@ static u_char *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 		if (!ifslist)
 			return NULL;
 		ifslist->cmp = (int (*)(void *, void *))if_icmp_func;
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), i, iif))
+		RB_FOREACH (iif, if_name_head, &vrf->ifaces_by_name)
 			listnode_add_sort(ifslist, iif);
 
 		for (ALL_LIST_ELEMENTS_RO(ifslist, i, iif)) {
@@ -1253,7 +1253,7 @@ static u_char *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
 		if (!ifslist)
 			return NULL;
 		ifslist->cmp = (int (*)(void *, void *))if_icmp_func;
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), i, iif))
+		RB_FOREACH (iif, if_name_head, &vrf->ifaces_by_name)
 			listnode_add_sort(ifslist, iif);
 
 		for (ALL_LIST_ELEMENTS_RO(ifslist, i, iif)) {

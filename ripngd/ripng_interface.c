@@ -306,11 +306,11 @@ int ripng_interface_delete(int command, struct zclient *zclient,
 
 void ripng_interface_clean(void)
 {
-	struct listnode *node, *nnode;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 	struct ripng_interface *ri;
 
-	for (ALL_LIST_ELEMENTS(vrf_iflist(VRF_DEFAULT), node, nnode, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		ri = ifp->info;
 
 		ri->enable_network = 0;
@@ -326,11 +326,11 @@ void ripng_interface_clean(void)
 
 void ripng_interface_reset(void)
 {
-	struct listnode *node;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 	struct ripng_interface *ri;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		ri = ifp->info;
 
 		ri->enable_network = 0;
@@ -760,10 +760,10 @@ void ripng_enable_apply(struct interface *ifp)
 /* Set distribute list to all interfaces. */
 static void ripng_enable_apply_all(void)
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
-	struct listnode *node;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 		ripng_enable_apply(ifp);
 }
 
@@ -821,10 +821,10 @@ void ripng_passive_interface_apply(struct interface *ifp)
 
 static void ripng_passive_interface_apply_all(void)
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
-	struct listnode *node;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 		ripng_passive_interface_apply(ifp);
 }
 
@@ -1069,12 +1069,12 @@ static int ripng_if_delete_hook(struct interface *ifp)
 /* Configuration write function for ripngd. */
 static int interface_config_write(struct vty *vty)
 {
-	struct listnode *node;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 	struct ripng_interface *ri;
 	int write = 0;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		ri = ifp->info;
 
 		/* Do not display the interface if there is no

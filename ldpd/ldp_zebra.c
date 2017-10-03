@@ -212,13 +212,14 @@ kmpw_unset(struct zapi_pw *zpw)
 void
 kif_redistribute(const char *ifname)
 {
-	struct listnode		*node, *cnode;
+	struct vrf		*vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct listnode		*cnode;
 	struct interface	*ifp;
 	struct connected	*ifc;
 	struct kif		 kif;
 	struct kaddr		 ka;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		if (ifname && strcmp(ifname, ifp->name) != 0)
 			continue;
 

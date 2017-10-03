@@ -79,7 +79,7 @@ struct thread_master *master;
 
 static void __attribute__((noreturn)) ospf6_exit(int status)
 {
-	struct listnode *node;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
 	frr_early_fini();
@@ -89,7 +89,7 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 
 	bfd_gbl_exit();
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 		if (ifp->info != NULL)
 			ospf6_interface_delete(ifp->info);
 

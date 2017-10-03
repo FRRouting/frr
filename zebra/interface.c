@@ -1317,7 +1317,7 @@ DEFUN (show_interface,
        "Interface status and configuration\n"
        VRF_CMD_HELP_STR)
 {
-	struct listnode *node;
+	struct vrf *vrf;
 	struct interface *ifp;
 	vrf_id_t vrf_id = VRF_DEFAULT;
 
@@ -1327,7 +1327,8 @@ DEFUN (show_interface,
 		VRF_GET_ID(vrf_id, argv[3]->arg);
 
 	/* All interface print. */
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), node, ifp))
+	vrf = vrf_lookup_by_id(vrf_id);
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 		if_dump_vty(vty, ifp);
 
 	return CMD_SUCCESS;
@@ -1343,14 +1344,13 @@ DEFUN (show_interface_vrf_all,
        VRF_ALL_CMD_HELP_STR)
 {
 	struct vrf *vrf;
-	struct listnode *node;
 	struct interface *ifp;
 
 	interface_update_stats();
 
 	/* All interface print. */
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-		for (ALL_LIST_ELEMENTS_RO(vrf->iflist, node, ifp))
+		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 			if_dump_vty(vty, ifp);
 
 	return CMD_SUCCESS;
@@ -1425,11 +1425,11 @@ DEFUN (show_interface_name_vrf_all,
 
 static void if_show_description(struct vty *vty, vrf_id_t vrf_id)
 {
-	struct listnode *node;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct interface *ifp;
 
 	vty_out(vty, "Interface       Status  Protocol  Description\n");
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), node, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		int len;
 
 		len = vty_out(vty, "%s", ifp->name);
@@ -1486,7 +1486,7 @@ DEFUN (show_interface_desc_vrf_all,
 	struct vrf *vrf;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-		if (!list_isempty(vrf->iflist)) {
+		if (!RB_EMPTY (if_name_head, &vrf->ifaces_by_name)) {
 			vty_out(vty, "\n\tVRF %u\n\n", vrf->vrf_id);
 			if_show_description(vty, vrf->vrf_id);
 		}
@@ -2830,13 +2830,12 @@ static int link_params_config_write(struct vty *vty, struct interface *ifp)
 static int if_config_write(struct vty *vty)
 {
 	struct vrf *vrf;
-	struct listnode *node;
 	struct interface *ifp;
 
 	zebra_ptm_write(vty);
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-		for (ALL_LIST_ELEMENTS_RO(vrf->iflist, node, ifp)) {
+		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 			struct zebra_if *if_data;
 			struct listnode *addrnode;
 			struct connected *ifc;

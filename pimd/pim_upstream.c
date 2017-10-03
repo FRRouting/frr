@@ -864,12 +864,11 @@ int pim_upstream_evaluate_join_desired(struct pim_instance *pim,
 				       struct pim_upstream *up)
 {
 	struct interface *ifp;
-	struct listnode *node;
 	struct pim_ifchannel *ch, *starch;
 	struct pim_upstream *starup = up->parent;
 	int ret = 0;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), node, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
 		if (!ifp->info)
 			continue;
 
@@ -1426,7 +1425,6 @@ int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
 	struct interface *ifp;
 	struct pim_interface *pim_ifp = NULL;
 	struct pim_ifchannel *ch, *starch;
-	struct listnode *node;
 	struct pim_upstream *starup = up->parent;
 	int output_intf = 0;
 
@@ -1441,7 +1439,7 @@ int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
 		up->channel_oil = pim_channel_oil_add(
 			pim, &up->sg, pim_ifp->mroute_vif_index);
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), node, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
 		if (!ifp->info)
 			continue;
 

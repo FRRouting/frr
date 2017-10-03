@@ -410,12 +410,12 @@ static int pim_update_upstream_nh_helper(struct hash_backet *backet, void *arg)
 static int pim_update_upstream_nh(struct pim_instance *pim,
 				  struct pim_nexthop_cache *pnc)
 {
-	struct listnode *node, *ifnode;
+	struct listnode *node;
 	struct interface *ifp;
 
 	hash_walk(pnc->upstream_hash, pim_update_upstream_nh_helper, pim);
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), ifnode, ifp))
+	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name)
 		if (ifp->info) {
 			struct pim_interface *pim_ifp = ifp->info;
 			struct pim_iface_upstream_switch *us;

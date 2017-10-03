@@ -330,10 +330,10 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
 		pim_rp_check_on_if_add(pim_ifp);
 
 	if (if_is_loopback(c->ifp)) {
-		struct listnode *ifnode;
+		struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 		struct interface *ifp;
 
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), ifnode, ifp)) {
+		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 			if (!if_is_loopback(ifp) && if_is_operative(ifp))
 				pim_if_addr_add_all(ifp);
 		}
@@ -392,7 +392,6 @@ static int pim_zebra_if_address_del(int command, struct zclient *client,
 static void scan_upstream_rpf_cache()
 {
 	struct listnode *up_node;
-	struct listnode *ifnode;
 	struct listnode *up_nextnode;
 	struct listnode *node;
 	struct pim_upstream *up;
@@ -501,7 +500,7 @@ static void scan_upstream_rpf_cache()
 		if (!pim)
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), ifnode, ifp))
+		RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name)
 			if (ifp->info) {
 				struct pim_interface *pim_ifp = ifp->info;
 				struct pim_iface_upstream_switch *us;
@@ -861,7 +860,6 @@ static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
 
 void igmp_source_forward_reevaluate_all(void)
 {
-	struct listnode *ifnode;
 	struct interface *ifp;
 	struct vrf *vrf;
 	struct pim_instance *pim;
@@ -871,8 +869,7 @@ void igmp_source_forward_reevaluate_all(void)
 		if (!pim)
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), ifnode,
-					  ifp)) {
+		RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
 			struct pim_interface *pim_ifp = ifp->info;
 			struct listnode *sock_node;
 			struct igmp_sock *igmp;

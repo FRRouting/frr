@@ -240,7 +240,6 @@ int pim_global_config_write(struct vty *vty)
 int pim_interface_config_write(struct vty *vty)
 {
 	struct pim_instance *pim;
-	struct listnode *node;
 	struct interface *ifp;
 	struct vrf *vrf;
 	int writes = 0;
@@ -250,8 +249,7 @@ int pim_interface_config_write(struct vty *vty)
 		if (!pim)
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), node, ifp)) {
-
+		RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
 			/* IF name */
 			if (vrf->vrf_id == VRF_DEFAULT)
 				vty_frame(vty, "interface %s\n", ifp->name);

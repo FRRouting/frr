@@ -336,10 +336,10 @@ static int rip_if_ipv4_address_check(struct interface *ifp)
 /* Does this address belongs to me ? */
 int if_check_address(struct in_addr addr)
 {
-	struct listnode *node;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		struct listnode *cnode;
 		struct connected *connected;
 
@@ -490,10 +490,10 @@ static void rip_interface_clean(struct rip_interface *ri)
 
 void rip_interfaces_clean(void)
 {
-	struct listnode *node;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 		rip_interface_clean(ifp->info);
 }
 
@@ -542,10 +542,10 @@ static void rip_interface_reset(struct rip_interface *ri)
 
 void rip_interfaces_reset(void)
 {
-	struct listnode *node;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 		rip_interface_reset(ifp->info);
 }
 
@@ -583,10 +583,10 @@ int rip_if_down(struct interface *ifp)
 /* Needed for stop RIP process. */
 void rip_if_down_all()
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
-	struct listnode *node, *nnode;
 
-	for (ALL_LIST_ELEMENTS(vrf_iflist(VRF_DEFAULT), node, nnode, ifp))
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 		rip_if_down(ifp);
 }
 
@@ -977,11 +977,11 @@ void rip_enable_apply(struct interface *ifp)
 /* Apply network configuration to all interface. */
 void rip_enable_apply_all()
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
-	struct listnode *node, *nnode;
 
 	/* Check each interface. */
-	for (ALL_LIST_ELEMENTS(vrf_iflist(VRF_DEFAULT), node, nnode, ifp))
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 		rip_enable_apply(ifp);
 }
 
@@ -1091,10 +1091,10 @@ void rip_passive_interface_apply(struct interface *ifp)
 
 static void rip_passive_interface_apply_all(void)
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
-	struct listnode *node, *nnode;
 
-	for (ALL_LIST_ELEMENTS(vrf_iflist(VRF_DEFAULT), node, nnode, ifp))
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 		rip_passive_interface_apply(ifp);
 }
 
@@ -1728,10 +1728,10 @@ DEFUN (no_rip_passive_interface,
 /* Write rip configuration of each interface. */
 static int rip_interface_config_write(struct vty *vty)
 {
-	struct listnode *node;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		struct rip_interface *ri;
 
 		if (ifp->ifindex == IFINDEX_DELETED)

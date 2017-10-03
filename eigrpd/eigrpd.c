@@ -94,8 +94,8 @@ extern struct in_addr router_id_zebra;
  */
 void eigrp_router_id_update(struct eigrp *eigrp)
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
-	struct listnode *node;
 	u_int32_t router_id, router_id_old;
 
 	router_id_old = eigrp->router_id;
@@ -116,7 +116,7 @@ void eigrp_router_id_update(struct eigrp *eigrp)
 		//        inet_ntoa(eigrp->router_id));
 
 		/* update eigrp_interface's */
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
+		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 			eigrp_if_update(ifp);
 	}
 }

@@ -104,9 +104,9 @@ if_up(struct interface *ifp)
 }
 
 /* types:
- struct interface _ifp, struct listnode node */
-#define FOR_ALL_INTERFACES(_ifp, _node)                                              \
-  for(ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), _node, _ifp))
+ struct vrf _vrf, struct interface _ifp */
+#define FOR_ALL_INTERFACES(_vrf, _ifp)                                         \
+  RB_FOREACH(_ifp, if_name_head, &_vrf->ifaces_by_name)
 
 /* types:
  struct interface *ifp, struct connected *_connected, struct listnode *node */

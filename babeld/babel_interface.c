@@ -809,10 +809,10 @@ interface_reset(struct interface *ifp)
 void
 babel_interface_close_all(void)
 {
+    struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
     struct interface *ifp = NULL;
-    struct listnode *linklist_node = NULL;
 
-    FOR_ALL_INTERFACES(ifp, linklist_node) {
+    FOR_ALL_INTERFACES(vrf, ifp) {
         if(!if_up(ifp))
             continue;
         send_wildcard_retraction(ifp);
@@ -823,7 +823,7 @@ babel_interface_close_all(void)
         usleep(roughly(1000));
         gettime(&babel_now);
     }
-    FOR_ALL_INTERFACES(ifp, linklist_node) {
+    FOR_ALL_INTERFACES(vrf, ifp) {
         if(!if_up(ifp))
             continue;
         /* Make sure they got it. */
@@ -896,12 +896,12 @@ DEFUN (show_babel_interface,
        "Interface information\n"
        "Interface\n")
 {
+  struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
   struct interface *ifp;
-  struct listnode *node;
 
   if (argc == 3)
   {
-    for (ALL_LIST_ELEMENTS_RO (vrf_iflist(VRF_DEFAULT), node, ifp))
+    RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
       show_babel_interface_sub (vty, ifp);
     return CMD_SUCCESS;
   }
@@ -1316,11 +1316,11 @@ babeld-specific statement lines where appropriate. */
 static int
 interface_config_write (struct vty *vty)
 {
-    struct listnode *node;
+    struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
     struct interface *ifp;
     int write = 0;
 
-    for (ALL_LIST_ELEMENTS_RO (vrf_iflist(VRF_DEFAULT), node, ifp)) {
+    RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
         vty_frame (vty, "interface %s\n",ifp->name);
         if (ifp->desc)
             vty_out (vty, " description %s\n",ifp->desc);

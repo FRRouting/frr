@@ -712,7 +712,7 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 	"Shortcut information\n"
 	"opennhrpctl style cache dump\n")
 {
-	struct listnode *node;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 	struct info_ctx ctx = {
 		.vty = vty,
@@ -720,17 +720,17 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 	};
 
 	if (argc <= 3 || argv[3]->text[0] == 'c') {
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
+		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 			nhrp_cache_foreach(ifp, show_ip_nhrp_cache, &ctx);
 	} else if (argv[3]->text[0] == 'n') {
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
+		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 			nhrp_nhs_foreach(ifp, ctx.afi, show_ip_nhrp_nhs, &ctx);
 	} else if (argv[3]->text[0] == 's') {
 		nhrp_shortcut_foreach(ctx.afi, show_ip_nhrp_shortcut, &ctx);
 	} else {
 		vty_out (vty, "Status: ok\n\n");
 		ctx.count++;
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
+		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 			nhrp_cache_foreach(ifp, show_ip_opennhrp_cache, &ctx);
 	}
 
@@ -796,7 +796,7 @@ DEFUN(clear_nhrp, clear_nhrp_cmd,
 	"Dynamic cache entries\n"
 	"Shortcut entries\n")
 {
-	struct listnode *node;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 	struct info_ctx ctx = {
 		.vty = vty,
@@ -805,7 +805,7 @@ DEFUN(clear_nhrp, clear_nhrp_cmd,
 	};
 
 	if (argc <= 3 || argv[3]->text[0] == 'c') {
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
+		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 			nhrp_cache_foreach(ifp, clear_nhrp_cache, &ctx);
 	} else {
 		nhrp_shortcut_foreach(ctx.afi, clear_nhrp_shortcut, &ctx);
@@ -843,8 +843,8 @@ static void interface_config_write_nhrp_map(struct nhrp_cache *c, void *data)
 
 static int interface_config_write(struct vty *vty)
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct write_map_ctx mapctx;
-	struct listnode *node;
 	struct interface *ifp;
 	struct nhrp_interface *nifp;
 	struct nhrp_nhs *nhs;
@@ -853,7 +853,7 @@ static int interface_config_write(struct vty *vty)
 	char buf[SU_ADDRSTRLEN];
 	int i;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		vty_frame(vty, "interface %s\n", ifp->name);
 		if (ifp->desc)
 			vty_out (vty, " description %s\n", ifp->desc);

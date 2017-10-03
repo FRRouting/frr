@@ -1154,9 +1154,9 @@ flushupdates(struct interface *ifp)
     int i;
 
     if(ifp == NULL) {
-      struct interface *ifp_aux;
-      struct listnode *linklist_node = NULL;
-        FOR_ALL_INTERFACES(ifp_aux, linklist_node)
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+        struct interface *ifp_aux;
+        FOR_ALL_INTERFACES(vrf, ifp_aux)
             flushupdates(ifp_aux);
         return;
     }
@@ -1326,10 +1326,10 @@ send_update(struct interface *ifp, int urgent,
     babel_interface_nfo *babel_ifp = NULL;
 
     if(ifp == NULL) {
-      struct interface *ifp_aux;
-      struct listnode *linklist_node = NULL;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+        struct interface *ifp_aux;
         struct babel_route *route;
-        FOR_ALL_INTERFACES(ifp_aux, linklist_node)
+        FOR_ALL_INTERFACES(vrf, ifp_aux)
             send_update(ifp_aux, urgent, prefix, plen);
         if(prefix) {
             /* Since flushupdates only deals with non-wildcard interfaces, we
@@ -1387,9 +1387,9 @@ send_wildcard_retraction(struct interface *ifp)
 {
     babel_interface_nfo *babel_ifp = NULL;
     if(ifp == NULL) {
-      struct interface *ifp_aux;
-      struct listnode *linklist_node = NULL;
-        FOR_ALL_INTERFACES(ifp_aux, linklist_node)
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+        struct interface *ifp_aux;
+        FOR_ALL_INTERFACES(vrf, ifp_aux)
             send_wildcard_retraction(ifp_aux);
         return;
     }
@@ -1422,9 +1422,9 @@ send_self_update(struct interface *ifp)
 {
     struct xroute_stream *xroutes;
     if(ifp == NULL) {
-      struct interface *ifp_aux;
-      struct listnode *linklist_node = NULL;
-        FOR_ALL_INTERFACES(ifp_aux, linklist_node) {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+        struct interface *ifp_aux;
+        FOR_ALL_INTERFACES(vrf, ifp_aux) {
             if(!if_up(ifp_aux))
                 continue;
             send_self_update(ifp_aux);
@@ -1456,9 +1456,9 @@ send_ihu(struct neighbour *neigh, struct interface *ifp)
     int msglen;
 
     if(neigh == NULL && ifp == NULL) {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
         struct interface *ifp_aux;
-      struct listnode *linklist_node = NULL;
-        FOR_ALL_INTERFACES(ifp_aux, linklist_node) {
+        FOR_ALL_INTERFACES(vrf, ifp_aux) {
             if(if_up(ifp_aux))
                 continue;
             send_ihu(NULL, ifp_aux);
@@ -1573,9 +1573,9 @@ send_request(struct interface *ifp,
     int v4, pb, len;
 
     if(ifp == NULL) {
-      struct interface *ifp_aux;
-      struct listnode *linklist_node = NULL;
-        FOR_ALL_INTERFACES(ifp_aux, linklist_node) {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+        struct interface *ifp_aux;
+        FOR_ALL_INTERFACES(vrf, ifp_aux) {
             if(if_up(ifp_aux))
                 continue;
             send_request(ifp_aux, prefix, plen);
@@ -1648,9 +1648,9 @@ send_multihop_request(struct interface *ifp,
     flushupdates(ifp);
 
     if(ifp == NULL) {
-      struct interface *ifp_aux;
-      struct listnode *linklist_node = NULL;
-        FOR_ALL_INTERFACES(ifp_aux, linklist_node) {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+        struct interface *ifp_aux;
+        FOR_ALL_INTERFACES(vrf, ifp_aux) {
             if(!if_up(ifp_aux))
                 continue;
             send_multihop_request(ifp_aux, prefix, plen, seqno, id, hop_count);

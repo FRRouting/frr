@@ -352,13 +352,13 @@ int nhrp_nhs_free(struct nhrp_nhs *nhs)
 
 void nhrp_nhs_terminate(void)
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 	struct nhrp_interface *nifp;
 	struct nhrp_nhs *nhs, *tmp;
-	struct listnode *node;
 	afi_t afi;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist (VRF_DEFAULT), node, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		nifp = ifp->info;
 		for (afi = 0; afi < AFI_MAX; afi++) {
 			list_for_each_entry_safe(nhs, tmp, &nifp->afi[afi].nhslist_head, nhslist_entry)

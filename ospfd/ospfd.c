@@ -86,6 +86,7 @@ static void ospf_finish_final(struct ospf *);
 
 void ospf_router_id_update(struct ospf *ospf)
 {
+	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
 	struct in_addr router_id, router_id_old;
 	struct ospf_interface *oi;
 	struct interface *ifp;
@@ -209,7 +210,7 @@ void ospf_router_id_update(struct ospf *ospf)
 		ospf_router_lsa_update(ospf);
 
 		/* update ospf_interface's */
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(ospf->vrf_id), node, ifp))
+		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 			ospf_if_update(ospf, ifp);
 	}
 }
@@ -581,6 +582,7 @@ void ospf_finish(struct ospf *ospf)
 /* Final cleanup of ospf instance */
 static void ospf_finish_final(struct ospf *ospf)
 {
+	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
 	struct route_node *rn;
 	struct ospf_nbr_nbma *nbr_nbma;
 	struct ospf_lsa *lsa;
@@ -591,7 +593,6 @@ static void ospf_finish_final(struct ospf *ospf)
 	struct listnode *node, *nnode;
 	int i;
 	u_short instance = 0;
-	struct vrf *vrf = NULL;
 
 	QOBJ_UNREG(ospf);
 
@@ -623,7 +624,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	list_delete_and_null(&ospf->vlinks);
 
 	/* Remove any ospf interface config params */
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(ospf->vrf_id), node, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		struct ospf_if_params *params;
 
 		params = IF_DEF_PARAMS(ifp);
@@ -1252,15 +1253,15 @@ static void ospf_network_run_interface(struct ospf *ospf, struct interface *ifp,
 
 static void ospf_network_run(struct prefix *p, struct ospf_area *area)
 {
+	struct vrf *vrf = vrf_lookup_by_id(area->ospf->vrf_id);
 	struct interface *ifp;
-	struct listnode *node;
 
 	/* Schedule Router ID Update. */
 	if (area->ospf->router_id.s_addr == 0)
 		ospf_router_id_update(area->ospf);
 
 	/* Get target interface. */
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(area->ospf->vrf_id), node, ifp))
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 		ospf_network_run_interface(area->ospf, ifp, p, area);
 }
 

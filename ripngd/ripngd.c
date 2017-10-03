@@ -1377,7 +1377,7 @@ static void ripng_clear_changed_flag(void)
    enabled interface. */
 static int ripng_update(struct thread *t)
 {
-	struct listnode *node;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 	struct ripng_interface *ri;
 
@@ -1389,7 +1389,7 @@ static int ripng_update(struct thread *t)
 		zlog_debug("RIPng update timer expired!");
 
 	/* Supply routes to each interface. */
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		ri = ifp->info;
 
 		if (if_is_loopback(ifp) || !if_is_up(ifp))
@@ -1445,7 +1445,7 @@ static int ripng_triggered_interval(struct thread *t)
 /* Execute triggered update. */
 int ripng_triggered_update(struct thread *t)
 {
-	struct listnode *node;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 	struct ripng_interface *ri;
 	int interval;
@@ -1465,7 +1465,7 @@ int ripng_triggered_update(struct thread *t)
 
 	/* Split Horizon processing is done when generating triggered
 	   updates as well as normal updates (see section 2.6). */
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		ri = ifp->info;
 
 		if (if_is_loopback(ifp) || !if_is_up(ifp))
@@ -2058,7 +2058,7 @@ DEFUN (show_ipv6_ripng_status,
        "Show RIPng routes\n"
        "IPv6 routing protocol process parameters and statistics\n")
 {
-	struct listnode *node;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
 	if (!ripng)
@@ -2091,7 +2091,7 @@ DEFUN (show_ipv6_ripng_status,
 
 	vty_out(vty, "    Interface        Send  Recv\n");
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		struct ripng_interface *ri;
 
 		ri = ifp->info;
@@ -2791,10 +2791,10 @@ void ripng_distribute_update_interface(struct interface *ifp)
 /* Update all interface's distribute list. */
 static void ripng_distribute_update_all(struct prefix_list *notused)
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
-	struct listnode *node;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 		ripng_distribute_update_interface(ifp);
 }
 
@@ -2968,10 +2968,10 @@ static void ripng_routemap_update_redistribute(void)
 
 static void ripng_routemap_update(const char *unused)
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
-	struct listnode *node;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 		ripng_if_rmap_update_interface(ifp);
 
 	ripng_routemap_update_redistribute();

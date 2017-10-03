@@ -983,9 +983,9 @@ DEFUN (show_ipv6_ospf6_interface,
        INTERFACE_STR
        IFNAME_STR)
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	int idx_ifname = 4;
 	struct interface *ifp;
-	struct listnode *i;
 
 	if (argc == 5) {
 		ifp = if_lookup_by_name(argv[idx_ifname]->arg, VRF_DEFAULT);
@@ -996,7 +996,7 @@ DEFUN (show_ipv6_ospf6_interface,
 		}
 		ospf6_interface_show(vty, ifp);
 	} else {
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), i, ifp))
+		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 			ospf6_interface_show(vty, ifp);
 	}
 
@@ -1054,12 +1054,12 @@ DEFUN (show_ipv6_ospf6_interface_prefix,
        OSPF6_ROUTE_MATCH_STR
        "Display details of the prefixes\n")
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	int idx_prefix = 5;
-	struct listnode *i;
 	struct ospf6_interface *oi;
 	struct interface *ifp;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), i, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		oi = (struct ospf6_interface *)ifp->info;
 		if (oi == NULL)
 			continue;
@@ -1755,11 +1755,11 @@ DEFUN (no_ipv6_ospf6_network,
 
 static int config_write_ospf6_interface(struct vty *vty)
 {
-	struct listnode *i;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct ospf6_interface *oi;
 	struct interface *ifp;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), i, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		oi = (struct ospf6_interface *)ifp->info;
 		if (oi == NULL)
 			continue;
@@ -1905,13 +1905,13 @@ DEFUN (clear_ipv6_ospf6_interface,
        IFNAME_STR
        )
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	int idx_ifname = 4;
 	struct interface *ifp;
-	struct listnode *node;
 
 	if (argc == 4) /* Clear all the ospfv3 interfaces. */
 	{
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
+		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 			ospf6_interface_clear(vty, ifp);
 	} else /* Interface name is specified. */
 	{

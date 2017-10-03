@@ -262,10 +262,10 @@ static int if_getaddrs(void)
 /* Fetch interface information via ioctl(). */
 static void interface_info_ioctl()
 {
-	struct listnode *node, *nnode;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
-	for (ALL_LIST_ELEMENTS(vrf_iflist(VRF_DEFAULT), node, nnode, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		if_get_index(ifp);
 #ifdef SIOCGIFHWADDR
 		if_get_hwaddr(ifp);

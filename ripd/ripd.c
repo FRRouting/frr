@@ -372,16 +372,16 @@ static int rip_filter(int rip_distribute, struct prefix_ipv4 *p,
 /* Check nexthop address validity. */
 static int rip_nexthop_check(struct in_addr *addr)
 {
-	struct listnode *node;
-	struct listnode *cnode;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
+	struct listnode *cnode;
 	struct connected *ifc;
 	struct prefix *p;
 
 	/* If nexthop address matches local configured address then it is
 	   invalid nexthop. */
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, ifc)) {
 			p = ifc->address;
 
@@ -2445,7 +2445,7 @@ static void rip_update_interface(struct connected *ifc, u_char version,
 /* Update send to all interface and neighbor. */
 static void rip_update_process(int route_type)
 {
-	struct listnode *node;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct listnode *ifnode, *ifnnode;
 	struct connected *connected;
 	struct interface *ifp;
@@ -2455,7 +2455,7 @@ static void rip_update_process(int route_type)
 	struct prefix *p;
 
 	/* Send RIP update to each interface. */
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		if (if_is_loopback(ifp))
 			continue;
 
@@ -3512,7 +3512,7 @@ DEFUN (show_ip_rip_status,
        "Show RIP routes\n"
        "IP routing protocol process parameters and statistics\n")
 {
-	struct listnode *node;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 	struct rip_interface *ri;
 	extern const struct message ri_version_msg[];
@@ -3552,7 +3552,7 @@ DEFUN (show_ip_rip_status,
 
 	vty_out(vty, "    Interface        Send  Recv   Key-chain\n");
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		ri = ifp->info;
 
 		if (!ri->running)
@@ -3586,7 +3586,7 @@ DEFUN (show_ip_rip_status,
 
 	{
 		int found_passive = 0;
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 			ri = ifp->info;
 
 			if ((ri->enable_network || ri->enable_interface)
@@ -3771,10 +3771,10 @@ void rip_distribute_update_interface(struct interface *ifp)
 /* ARGSUSED */
 static void rip_distribute_update_all(struct prefix_list *notused)
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
-	struct listnode *node, *nnode;
 
-	for (ALL_LIST_ELEMENTS(vrf_iflist(VRF_DEFAULT), node, nnode, ifp))
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 		rip_distribute_update_interface(ifp);
 }
 /* ARGSUSED */
@@ -3947,10 +3947,10 @@ static void rip_routemap_update_redistribute(void)
 /* ARGSUSED */
 static void rip_routemap_update(const char *notused)
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
-	struct listnode *node, *nnode;
 
-	for (ALL_LIST_ELEMENTS(vrf_iflist(VRF_DEFAULT), node, nnode, ifp))
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 		rip_if_rmap_update_interface(ifp);
 
 	rip_routemap_update_redistribute();

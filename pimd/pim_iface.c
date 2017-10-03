@@ -1023,10 +1023,9 @@ int pim_if_del_vif(struct interface *ifp)
 struct interface *pim_if_find_by_vif_index(struct pim_instance *pim,
 					   ifindex_t vif_index)
 {
-	struct listnode *ifnode;
 	struct interface *ifp;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), ifnode, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
 		if (ifp->info) {
 			struct pim_interface *pim_ifp;
 			pim_ifp = ifp->info;

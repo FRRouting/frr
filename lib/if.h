@@ -201,6 +201,8 @@ struct if_link_params {
 
 /* Interface structure */
 struct interface {
+	RB_ENTRY(interface) name_entry;
+
 	/* Interface name.  This should probably never be changed after the
 	   interface is created, because the configuration info for this
 	   interface
@@ -282,6 +284,8 @@ struct interface {
 
 	QOBJ_FIELDS
 };
+RB_HEAD(if_name_head, interface);
+RB_PROTOTYPE(if_name_head, interface, name_entry, if_cmp_func);
 DECLARE_QOBJ_TYPE(interface)
 
 /* called from the library code whenever interfaces are created/deleted
@@ -441,9 +445,9 @@ extern int if_is_loopback(struct interface *);
 extern int if_is_broadcast(struct interface *);
 extern int if_is_pointopoint(struct interface *);
 extern int if_is_multicast(struct interface *);
-extern void if_init(struct list **);
 extern void if_cmd_init(void);
-extern void if_terminate(struct list **);
+struct vrf;
+extern void if_terminate(struct vrf *vrf);
 extern void if_dump_all(void);
 extern const char *if_flag_dump(unsigned long);
 extern const char *if_link_type_str(enum zebra_link_type);

@@ -332,11 +332,10 @@ static int pim_rp_check_interface_addrs(struct rp_info *rp_info,
 static void pim_rp_check_interfaces(struct pim_instance *pim,
 				    struct rp_info *rp_info)
 {
-	struct listnode *node;
 	struct interface *ifp;
 
 	rp_info->i_am_rp = 0;
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), node, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
 		struct pim_interface *pim_ifp = ifp->info;
 
 		if (!pim_ifp)

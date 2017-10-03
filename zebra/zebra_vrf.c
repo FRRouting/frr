@@ -179,7 +179,6 @@ static int zebra_vrf_delete(struct vrf *vrf)
 
 	/* uninstall everything */
 	if (!CHECK_FLAG(zvrf->flags, ZEBRA_VRF_RETAIN)) {
-		struct listnode *node;
 		struct interface *ifp;
 
 		for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
@@ -204,7 +203,7 @@ static int zebra_vrf_delete(struct vrf *vrf)
 		zebra_mpls_close_tables(zvrf);
 		zebra_pw_exit(zvrf);
 
-		for (ALL_LIST_ELEMENTS_RO(vrf->iflist, node, ifp))
+		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 			if_nbr_ipv6ll_to_ipv4ll_neigh_del_all(ifp);
 	}
 

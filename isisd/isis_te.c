@@ -1245,13 +1245,13 @@ DEFUN (show_isis_mpls_te_interface,
        "Interface information\n"
        "Interface name\n")
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	int idx_interface = 4;
 	struct interface *ifp;
-	struct listnode *node;
 
 	/* Show All Interfaces. */
 	if (argc == 4) {
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp))
+		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 			show_mpls_te_sub(vty, ifp);
 	}
 	/* Interface name is specified. */

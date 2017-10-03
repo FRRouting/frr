@@ -333,13 +333,14 @@ DEFPY (no_ospf_router_id,
 
 static void ospf_passive_interface_default(struct ospf *ospf, u_char newval)
 {
+	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
 	struct listnode *ln;
 	struct interface *ifp;
 	struct ospf_interface *oi;
 
 	ospf->passive_interface_default = newval;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(ospf->vrf_id), ln, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		if (ifp && OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp),
 						    passive_interface))
 			UNSET_IF_PARAM(IF_DEF_PARAMS(ifp), passive_interface);
@@ -2457,9 +2458,9 @@ DEFUN (ospf_auto_cost_reference_bandwidth,
        "The reference bandwidth in terms of Mbits per second\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
 	int idx_number = 2;
 	u_int32_t refbw;
-	struct listnode *node;
 	struct interface *ifp;
 
 	refbw = strtol(argv[idx_number]->arg, NULL, 10);
@@ -2473,7 +2474,7 @@ DEFUN (ospf_auto_cost_reference_bandwidth,
 		return CMD_SUCCESS;
 
 	ospf->ref_bandwidth = refbw;
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(ospf->vrf_id), node, ifp))
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 		ospf_if_recalculate_output_cost(ifp);
 
 	return CMD_SUCCESS;
@@ -2488,7 +2489,7 @@ DEFUN (no_ospf_auto_cost_reference_bandwidth,
        "The reference bandwidth in terms of Mbits per second\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	struct listnode *node, *nnode;
+	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
 	struct interface *ifp;
 
 	if (ospf->ref_bandwidth == OSPF_DEFAULT_REF_BANDWIDTH)
@@ -2499,7 +2500,7 @@ DEFUN (no_ospf_auto_cost_reference_bandwidth,
 	vty_out(vty,
 		"        Please ensure reference bandwidth is consistent across all routers\n");
 
-	for (ALL_LIST_ELEMENTS(vrf_iflist(ospf->vrf_id), node, nnode, ifp))
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 		ospf_if_recalculate_output_cost(ifp);
 
 	return CMD_SUCCESS;
@@ -3555,7 +3556,7 @@ static int show_ip_ospf_interface_common(struct vty *vty, struct ospf *ospf,
 					 int iface_argv, u_char use_json)
 {
 	struct interface *ifp;
-	struct listnode *node;
+	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
 	json_object *json = NULL;
 	json_object *json_interface_sub = NULL;
 
@@ -3573,8 +3574,7 @@ static int show_ip_ospf_interface_common(struct vty *vty, struct ospf *ospf,
 
 	if (argc == iface_argv) {
 		/* Show All Interfaces.*/
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(ospf->vrf_id),
-					  node, ifp)) {
+		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 			if (ospf_oi_count(ifp)) {
 				if (use_json)
 					json_interface_sub =
@@ -8633,14 +8633,15 @@ const char *ospf_int_type_str[] = {"unknown", /* should never be used. */
 
 static int config_write_interface_one(struct vty *vty, struct ospf *ospf)
 {
-	struct listnode *n1, *n2;
+	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
+	struct listnode *node;
 	struct interface *ifp;
 	struct crypt_key *ck;
 	struct route_node *rn = NULL;
 	struct ospf_if_params *params;
 	int write = 0;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(ospf->vrf_id), n1, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		struct vrf *vrf = NULL;
 
 		if (memcmp(ifp->name, "VLINK", 5) == 0)
@@ -8729,7 +8730,7 @@ static int config_write_interface_one(struct vty *vty, struct ospf *ospf)
 			/* Cryptographic Authentication Key print. */
 			if (params && params->auth_crypt) {
 				for (ALL_LIST_ELEMENTS_RO(params->auth_crypt,
-							  n2, ck)) {
+							  node, ck)) {
 					vty_out(vty,
 						" ip ospf message-digest-key %d md5 %s",
 						ck->key_id, ck->auth_key);
@@ -9234,6 +9235,7 @@ static int config_write_ospf_distance(struct vty *vty, struct ospf *ospf)
 
 static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 {
+	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
 	struct interface *ifp;
 	struct ospf_interface *oi;
 	struct listnode *node = NULL;
@@ -9328,7 +9330,7 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	if (ospf->passive_interface_default == OSPF_IF_PASSIVE)
 		vty_out(vty, " passive-interface default\n");
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(ospf->vrf_id), node, ifp))
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 		if (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp),
 					     passive_interface)
 		    && IF_DEF_PARAMS(ifp)->passive_interface
@@ -9591,14 +9593,14 @@ DEFUN (clear_ip_ospf_interface,
 {
 	int idx_ifname = 4;
 	struct interface *ifp;
-	struct listnode *node, *n1;
+	struct listnode *node;
 	struct ospf *ospf = NULL;
 
 	if (argc == 4) /* Clear all the ospfv2 interfaces. */
 	{
-		for (ALL_LIST_ELEMENTS_RO(om->ospf, n1, ospf)) {
-			for (ALL_LIST_ELEMENTS_RO(vrf_iflist(ospf->vrf_id),
-						  node, ifp))
+		for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+			struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
+			RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
 				ospf_interface_clear(ifp);
 		}
 	} else {

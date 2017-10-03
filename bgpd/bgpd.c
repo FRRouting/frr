@@ -7342,13 +7342,13 @@ void bgp_master_init(struct thread_master *master)
  */
 static void bgp_if_finish(struct bgp *bgp)
 {
-	struct listnode *ifnode, *ifnnode;
+	struct vrf *vrf = vrf_lookup_by_id(bgp->vrf_id);
 	struct interface *ifp;
 
-	if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW || !vrf)
 		return;
 
-	for (ALL_LIST_ELEMENTS(vrf_iflist(bgp->vrf_id), ifnode, ifnnode, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		struct listnode *c_node, *c_nnode;
 		struct connected *c;
 

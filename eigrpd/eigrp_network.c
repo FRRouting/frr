@@ -231,9 +231,9 @@ int eigrp_if_drop_allspfrouters(struct eigrp *top, struct prefix *p,
 
 int eigrp_network_set(struct eigrp *eigrp, struct prefix *p)
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct route_node *rn;
 	struct interface *ifp;
-	struct listnode *node;
 
 	rn = route_node_get(eigrp->networks, (struct prefix *)p);
 	if (rn->info) {
@@ -251,7 +251,7 @@ int eigrp_network_set(struct eigrp *eigrp, struct prefix *p)
 		eigrp_router_id_update(eigrp);
 	/* Run network config now. */
 	/* Get target interface. */
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		zlog_debug("Setting up %s", ifp->name);
 		eigrp_network_run_interface(eigrp, p, ifp);
 	}

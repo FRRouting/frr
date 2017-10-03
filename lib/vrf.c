@@ -109,7 +109,7 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 	if (vrf == NULL) {
 		vrf = XCALLOC(MTYPE_VRF, sizeof(struct vrf));
 		vrf->vrf_id = VRF_UNKNOWN;
-		if_init(&vrf->iflist);
+		RB_INIT(if_name_head, &vrf->ifaces_by_name);
 		QOBJ_REG(vrf, vrf);
 		new = 1;
 
@@ -153,7 +153,7 @@ void vrf_delete(struct vrf *vrf)
 		(*vrf_master.vrf_delete_hook)(vrf);
 
 	QOBJ_UNREG(vrf);
-	if_terminate(&vrf->iflist);
+	if_terminate(vrf);
 
 	if (vrf->vrf_id != VRF_UNKNOWN)
 		RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
@@ -249,20 +249,6 @@ void *vrf_info_lookup(vrf_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	return vrf ? vrf->info : NULL;
-}
-
-/* Look up the interface list in a VRF. */
-struct list *vrf_iflist(vrf_id_t vrf_id)
-{
-	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
-	return vrf ? vrf->iflist : NULL;
-}
-
-/* Get the interface list of the specified VRF. Create one if not find. */
-struct list *vrf_iflist_get(vrf_id_t vrf_id)
-{
-	struct vrf *vrf = vrf_get(vrf_id, NULL);
-	return vrf->iflist;
 }
 
 /*
