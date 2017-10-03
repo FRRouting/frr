@@ -111,6 +111,9 @@ struct ospf_lsa {
 
 	/* For Type-9 Opaque-LSAs */
 	struct ospf_interface *oi;
+
+	/* VRF Id */
+	vrf_id_t vrf_id;
 };
 
 /* OSPF LSA Link Type. */
@@ -267,8 +270,9 @@ extern struct ospf_lsa *ospf_external_lsa_originate(struct ospf *,
 						    struct external_info *);
 extern int ospf_external_lsa_originate_timer(struct thread *);
 extern int ospf_default_originate_timer(struct thread *);
-extern struct ospf_lsa *ospf_lsa_lookup(struct ospf_area *, u_int32_t,
-					struct in_addr, struct in_addr);
+extern struct ospf_lsa *ospf_lsa_lookup(struct ospf *ospf, struct ospf_area *,
+					u_int32_t, struct in_addr,
+					struct in_addr);
 extern struct ospf_lsa *ospf_lsa_lookup_by_id(struct ospf_area *, u_int32_t,
 					      struct in_addr);
 extern struct ospf_lsa *ospf_lsa_lookup_by_header(struct ospf_area *,

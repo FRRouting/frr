@@ -1273,10 +1273,12 @@ DEFUNSH(VTYSH_RIPNGD, router_ripng, router_ripng_cmd, "router ripng",
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_OSPFD, router_ospf, router_ospf_cmd, "router ospf [(1-65535)]",
+DEFUNSH(VTYSH_OSPFD, router_ospf, router_ospf_cmd,
+	"router ospf [(1-65535)] [vrf NAME]",
 	"Enable a routing process\n"
 	"Start OSPF configuration\n"
-	"Instance ID\n")
+	"Instance ID\n"
+	VRF_CMD_HELP_STR)
 {
 	vty->node = OSPF_NODE;
 	return CMD_SUCCESS;

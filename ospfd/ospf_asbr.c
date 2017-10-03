@@ -58,7 +58,8 @@ void ospf_external_route_remove(struct ospf *ospf, struct prefix_ipv4 *p)
 
 			/* Remove route from zebra. */
 			if (or->type == OSPF_DESTINATION_NETWORK)
-				ospf_zebra_delete((struct prefix_ipv4 *)&rn->p,
+				ospf_zebra_delete(ospf,
+						  (struct prefix_ipv4 *)&rn->p,
 						  or);
 
 			ospf_route_free(or);

@@ -77,7 +77,8 @@ static void ospf_flood_delayed_lsa_ack(struct ospf_neighbor *inbr,
 }
 
 /* Check LSA is related to external info. */
-struct external_info *ospf_external_info_check(struct ospf_lsa *lsa)
+struct external_info *ospf_external_info_check(struct ospf *ospf,
+					       struct ospf_lsa *lsa)
 {
 	struct as_external_lsa *al;
 	struct prefix_ipv4 p;
@@ -96,11 +97,11 @@ struct external_info *ospf_external_info_check(struct ospf_lsa *lsa)
 		redist_on =
 			is_prefix_default(&p)
 				? vrf_bitmap_check(zclient->default_information,
-						   VRF_DEFAULT)
+						   ospf->vrf_id)
 				: (zclient->mi_redist[AFI_IP][type].enabled
 				   || vrf_bitmap_check(
 					      zclient->redist[AFI_IP][type],
-					      VRF_DEFAULT));
+					      ospf->vrf_id));
 		// Pending: check for MI above.
 		if (redist_on) {
 			struct list *ext_list;
@@ -205,7 +206,7 @@ static void ospf_process_self_originated_lsa(struct ospf *ospf,
 			ospf_translated_nssa_refresh(ospf, NULL, new);
 			return;
 		}
-		ei = ospf_external_info_check(new);
+		ei = ospf_external_info_check(ospf, new);
 		if (ei)
 			ospf_external_lsa_refresh(ospf, new, ei,
 						  LSA_REFRESH_FORCE);

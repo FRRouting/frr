@@ -153,7 +153,10 @@ int ospf_if_ipmulticast(struct ospf *top, struct prefix *p, ifindex_t ifindex)
 	if (ret < 0)
 		zlog_warn("can't setsockopt IP_MULTICAST_TTL(1) for fd %d: %s",
 			  top->fd, safe_strerror(errno));
-
+#ifndef GNU_LINUX
+	/* For GNU LINUX ospf_write uses IP_PKTINFO, in_pktinfo to send
+	 * packet out of ifindex. Below would be used Non Linux system.
+	 */
 	ret = setsockopt_ipv4_multicast_if(top->fd, p->u.prefix4, ifindex);
 	if (ret < 0)
 		zlog_warn(
@@ -161,23 +164,53 @@ int ospf_if_ipmulticast(struct ospf *top, struct prefix *p, ifindex_t ifindex)
 			"ifindex %u): %s",
 			top->fd, inet_ntoa(p->u.prefix4), ifindex,
 			safe_strerror(errno));
+#endif
 
 	return ret;
 }
 
-int ospf_sock_init(void)
+int ospf_bind_vrfdevice(struct ospf *ospf, int ospf_sock)
+{
+	int ret = 0;
+
+#ifdef SO_BINDTODEVICE
+
+	if (ospf && ospf->vrf_id != VRF_DEFAULT &&
+	    ospf->vrf_id != VRF_UNKNOWN) {
+		ret = setsockopt(ospf_sock, SOL_SOCKET, SO_BINDTODEVICE,
+				 ospf->name,
+				 strlen(ospf->name));
+		if (ret < 0) {
+			int save_errno = errno;
+
+			zlog_warn("%s: Could not setsockopt SO_BINDTODEVICE %s",
+					__PRETTY_FUNCTION__,
+					safe_strerror(save_errno));
+		} else {
+			zlog_debug("%s: Bind socket %d to vrf %s id %u device",
+				   __PRETTY_FUNCTION__, ospf_sock,
+				   ospf->name, ospf->vrf_id);
+		}
+	}
+#endif
+	return ret;
+}
+
+int ospf_sock_init(struct ospf *ospf)
 {
 	int ospf_sock;
 	int ret, hincl = 1;
 	int bufsize = (8 * 1024 * 1024);
 
-	if (ospfd_privs.change(ZPRIVS_RAISE))
+	if (ospfd_privs.change(ZPRIVS_RAISE)) {
 		zlog_err("ospf_sock_init: could not raise privs, %s",
 			 safe_strerror(errno));
+	}
 
 	ospf_sock = socket(AF_INET, SOCK_RAW, IPPROTO_OSPFIGP);
 	if (ospf_sock < 0) {
 		int save_errno = errno;
+
 		if (ospfd_privs.change(ZPRIVS_LOWER))
 			zlog_err("ospf_sock_init: could not lower privs, %s",
 				 safe_strerror(errno));
@@ -186,17 +219,20 @@ int ospf_sock_init(void)
 		exit(1);
 	}
 
+	ret = ospf_bind_vrfdevice(ospf, ospf_sock);
+	if (ret < 0)
+		goto out;
+
 #ifdef IP_HDRINCL
 	/* we will include IP header with packet */
 	ret = setsockopt(ospf_sock, IPPROTO_IP, IP_HDRINCL, &hincl,
 			 sizeof(hincl));
 	if (ret < 0) {
 		int save_errno = errno;
-		if (ospfd_privs.change(ZPRIVS_LOWER))
-			zlog_err("ospf_sock_init: could not lower privs, %s",
-				 safe_strerror(errno));
+
 		zlog_warn("Can't set IP_HDRINCL option for fd %d: %s",
 			  ospf_sock, safe_strerror(save_errno));
+		goto out;
 	}
 #elif defined(IPTOS_PREC_INTERNETCONTROL)
 #warning "IP_HDRINCL not available on this system"
@@ -204,13 +240,11 @@ int ospf_sock_init(void)
 	ret = setsockopt_ipv4_tos(ospf_sock, IPTOS_PREC_INTERNETCONTROL);
 	if (ret < 0) {
 		int save_errno = errno;
-		if (ospfd_privs.change(ZPRIVS_LOWER))
-			zlog_err("ospf_sock_init: could not lower privs, %s",
-				 safe_strerror(errno));
+
 		zlog_warn("can't set sockopt IP_TOS %d to socket %d: %s", tos,
 			  ospf_sock, safe_strerror(save_errno));
 		close(ospf_sock); /* Prevent sd leak. */
-		return ret;
+		goto out;
 	}
 #else /* !IPTOS_PREC_INTERNETCONTROL */
 #warning "IP_HDRINCL not available, nor is IPTOS_PREC_INTERNETCONTROL"
@@ -222,13 +256,14 @@ int ospf_sock_init(void)
 	if (ret < 0)
 		zlog_warn("Can't set pktinfo option for fd %d", ospf_sock);
 
+	setsockopt_so_sendbuf(ospf_sock, bufsize);
+	setsockopt_so_recvbuf(ospf_sock, bufsize);
+
+	ospf->fd = ospf_sock;
+out:
 	if (ospfd_privs.change(ZPRIVS_LOWER)) {
 		zlog_err("ospf_sock_init: could not lower privs, %s",
 			 safe_strerror(errno));
 	}
-
-	setsockopt_so_sendbuf(ospf_sock, bufsize);
-	setsockopt_so_recvbuf(ospf_sock, bufsize);
-
-	return ospf_sock;
+	return ret;
 }

@@ -61,7 +61,8 @@ extern void ospf_flood_lsa_as(struct ospf_lsa *);
 extern void ospf_lsa_flush_area(struct ospf_lsa *, struct ospf_area *);
 extern void ospf_lsa_flush_as(struct ospf *, struct ospf_lsa *);
 extern void ospf_lsa_flush(struct ospf *, struct ospf_lsa *);
-extern struct external_info *ospf_external_info_check(struct ospf_lsa *);
+extern struct external_info *ospf_external_info_check(struct ospf *,
+						      struct ospf_lsa *);
 
 extern void ospf_lsdb_init(struct ospf_lsdb *);
 

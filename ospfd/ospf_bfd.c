@@ -75,12 +75,13 @@ static void ospf_bfd_reg_dereg_nbr(struct ospf_neighbor *nbr, int command)
 	bfd_info = (struct bfd_info *)params->bfd_info;
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
-		zlog_debug("%s nbr (%s) with BFD",
+		zlog_debug("%s nbr (%s) with BFD. OSPF vrf %s",
 			   bfd_get_command_dbg_str(command),
-			   inet_ntoa(nbr->src));
+			   inet_ntoa(nbr->src),
+			   ospf_vrf_id_to_name(oi->ospf->vrf_id));
 
 	bfd_peer_sendmsg(zclient, bfd_info, AF_INET, &nbr->src, NULL, ifp->name,
-			 0, 0, command, 0, VRF_DEFAULT);
+			 0, 0, command, 0, oi->ospf->vrf_id);
 }
 
 /*
@@ -158,7 +159,7 @@ static int ospf_bfd_nbr_replay(int command, struct zclient *zclient,
 	/* Send the client registration */
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 
-	/* Replay the neighbor, if BFD is enabled in BGP */
+	/* Replay the neighbor, if BFD is enabled in OSPF */
 	for (ALL_LIST_ELEMENTS(om->ospf, node, onode, ospf)) {
 		for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, inode, oi)) {
 			if ((nbrs = oi->nbrs) == NULL)

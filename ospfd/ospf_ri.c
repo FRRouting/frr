@@ -427,7 +427,7 @@ static void initialize_params(struct ospf_router_info *ori)
 
 	/* If Area address is not null and exist, retrieve corresponding
 	 * structure */
-	top = ospf_lookup();
+	top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	zlog_info("RI-> Initialize Router Info for %s scope within area %s",
 		  OspfRI.scope == OSPF_OPAQUE_AREA_LSA ? "Area" : "AS",
 		  inet_ntoa(OspfRI.area_id));
@@ -586,7 +586,7 @@ static struct ospf_lsa *ospf_router_info_lsa_new()
 			"LSA[Type%d:%s]: Create an Opaque-LSA/ROUTER INFORMATION instance",
 			lsa_type, inet_ntoa(lsa_id));
 
-	top = ospf_lookup();
+	top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 
 	/* Set opaque-LSA header fields. */
 	lsa_header_set(s, options, lsa_type, lsa_id, top->router_id);
@@ -615,6 +615,11 @@ static struct ospf_lsa *ospf_router_info_lsa_new()
 	new->area = OspfRI.area; /* Area must be null if the Opaque type is AS
 				    scope, fulfill otherwise */
 
+	if (new->area && new->area->ospf)
+		new->vrf_id = new->area->ospf->vrf_id;
+	else
+		new->vrf_id = VRF_DEFAULT;
+
 	SET_FLAG(new->flags, OSPF_LSA_SELF);
 	memcpy(new->data, lsah, length);
 	stream_free(s);
@@ -628,6 +633,7 @@ static int ospf_router_info_lsa_originate1(void *arg)
 	struct ospf *top;
 	struct ospf_area *area;
 	int rc = -1;
+	vrf_id_t vrf_id = VRF_DEFAULT;
 
 	/* First check if the area is known if flooding scope is Area */
 	if (OspfRI.scope == OSPF_OPAQUE_AREA_LSA) {
@@ -638,6 +644,8 @@ static int ospf_router_info_lsa_originate1(void *arg)
 			return rc;
 		}
 		OspfRI.area = area;
+		if (area->ospf)
+			vrf_id = area->ospf->vrf_id;
 	}
 
 	/* Create new Opaque-LSA/ROUTER INFORMATION instance. */
@@ -646,9 +654,15 @@ static int ospf_router_info_lsa_originate1(void *arg)
 			"ospf_router_info_lsa_originate1: ospf_router_info_lsa_new() ?");
 		return rc;
 	}
+	new->vrf_id = vrf_id;
 
 	/* Get ospf info */
-	top = ospf_lookup();
+	top = ospf_lookup_by_vrf_id(vrf_id);
+	if (top == NULL) {
+		zlog_debug("%s: ospf instance not found for vrf id %u",
+			   __PRETTY_FUNCTION__, vrf_id);
+		return rc;
+	}
 
 	/* Install this LSA into LSDB. */
 	if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
@@ -751,10 +765,11 @@ static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa)
 		return NULL;
 	}
 	new->data->ls_seqnum = lsa_seqnum_increment(lsa);
+	new->vrf_id = lsa->vrf_id;
 
 	/* Install this LSA into LSDB. */
 	/* Given "lsa" will be freed in the next function. */
-	top = ospf_lookup();
+	top = ospf_lookup_by_vrf_id(lsa->vrf_id);
 	if (ospf_lsa_install(top, NULL /*oi */, new) == NULL) {
 		zlog_warn("ospf_router_info_lsa_refresh: ospf_lsa_install() ?");
 		ospf_lsa_unlock(&new);
@@ -800,7 +815,7 @@ static void ospf_router_info_lsa_schedule(enum lsa_opcode opcode)
 	if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED) && (opcode == REORIGINATE_THIS_LSA))
 		opcode = REFRESH_THIS_LSA;
 
-	top = ospf_lookup();
+	top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	if ((OspfRI.scope == OSPF_OPAQUE_AREA_LSA) && (OspfRI.area == NULL)) {
 		zlog_warn(
 			"ospf_router_info_lsa_schedule(): Router Info is Area scope flooding but area is not set");

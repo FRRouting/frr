@@ -115,7 +115,7 @@ extern void ospf_path_free(struct ospf_path *);
 extern struct ospf_path *ospf_path_lookup(struct list *, struct ospf_path *);
 extern struct ospf_route *ospf_route_new(void);
 extern void ospf_route_free(struct ospf_route *);
-extern void ospf_route_delete(struct route_table *);
+extern void ospf_route_delete(struct ospf *, struct route_table *);
 extern void ospf_route_table_free(struct route_table *);
 
 extern void ospf_route_install(struct ospf *, struct route_table *);
@@ -145,9 +145,9 @@ extern void ospf_route_add(struct route_table *, struct prefix_ipv4 *,
 extern void ospf_route_subst_nexthops(struct ospf_route *, struct list *);
 extern void ospf_prune_unreachable_networks(struct route_table *);
 extern void ospf_prune_unreachable_routers(struct route_table *);
-extern int ospf_add_discard_route(struct route_table *, struct ospf_area *,
-				  struct prefix_ipv4 *);
-extern void ospf_delete_discard_route(struct route_table *,
+extern int ospf_add_discard_route(struct ospf *, struct route_table *,
+				  struct ospf_area *, struct prefix_ipv4 *);
+extern void ospf_delete_discard_route(struct ospf *, struct route_table *,
 				      struct prefix_ipv4 *);
 extern int ospf_route_match_same(struct route_table *, struct prefix_ipv4 *,
 				 struct ospf_route *);

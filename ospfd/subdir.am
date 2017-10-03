@@ -58,6 +58,9 @@ ospfdheader_HEADERS = \
 	# end
 endif
 
+ospfd/ospf_vty_clippy.c: $(CLIPPY_DEPS)
+ospfd/ospf_vty.$(OBJEXT): ospfd/ospf_vty_clippy.c
+
 noinst_HEADERS += \
 	ospfd/ospf_abr.h \
 	ospfd/ospf_apiserver.h \
