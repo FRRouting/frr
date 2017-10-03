@@ -941,9 +941,6 @@ int isis_interface_config_write(struct vty *vty)
 	int i;
 
 	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
-		if (ifp->ifindex == IFINDEX_DELETED)
-			continue;
-
 		/* IF name */
 		vty_frame(vty, "interface %s\n", ifp->name);
 		write++;

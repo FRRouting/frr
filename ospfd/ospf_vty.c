@@ -8647,9 +8647,6 @@ static int config_write_interface_one(struct vty *vty, struct ospf *ospf)
 		if (memcmp(ifp->name, "VLINK", 5) == 0)
 			continue;
 
-		if (ifp->ifindex == IFINDEX_DELETED)
-			continue;
-
 		vrf = vrf_lookup_by_id(ifp->vrf_id);
 
 		vty_frame(vty, "!\n");

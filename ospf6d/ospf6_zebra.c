@@ -126,7 +126,7 @@ static int ospf6_zebra_if_del(int command, struct zclient *zclient,
   ospf6_interface_if_del (ifp);
 #endif /*0*/
 
-	ifp->ifindex = IFINDEX_DELETED;
+	ifp->ifindex = IFINDEX_INTERNAL;
 	return 0;
 }
 

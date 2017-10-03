@@ -217,7 +217,6 @@ struct interface {
 	   deleted interfaces). */
 	ifindex_t ifindex;
 #define IFINDEX_INTERNAL	0
-#define IFINDEX_DELETED         INT_MAX
 
 	/* Zebra internal interface status */
 	u_char status;
