@@ -233,6 +233,7 @@ ldp_af_config_write(struct vty *vty, int af, struct ldpd_conf *conf,
 
 	ldp_af_iface_config_write(vty, af);
 
+	vty_out(vty, "  !\n");
 	vty_out(vty, " exit-address-family\n");
 }
 
