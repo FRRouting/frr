@@ -206,7 +206,7 @@ main(int argc, char *argv[])
 	frr_preinit(&ldpd_di, argc, argv);
 	frr_opt_add("LEn:", longopts,
 		"      --ctl_socket   Override ctl socket path\n"
-		"-n,   --instance     Instance id\n");
+		"  -n, --instance     Instance id\n");
 
 	while (1) {
 		int opt;
