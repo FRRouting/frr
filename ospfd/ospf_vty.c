@@ -6001,12 +6001,11 @@ DEFUN (ip_ospf_cost,
 
 	// get arguments
 	char *coststr = NULL, *ifaddr = NULL;
-	coststr = argv_find(argv, argc, "(1-65535)", &idx) ? argv[idx]->arg
-							   : NULL;
-	ifaddr = argv_find(argv, argc, "A.B.C.D", &idx) ? argv[idx]->arg : NULL;
-
+	argv_find(argv, argc, "(1-65535)", &idx);
+	coststr = argv[idx]->arg;
 	cost = strtol(coststr, NULL, 10);
 
+	ifaddr = argv_find(argv, argc, "A.B.C.D", &idx) ? argv[idx]->arg : NULL;
 	if (ifaddr) {
 		if (!inet_aton(ifaddr, &addr)) {
 			vty_out(vty,

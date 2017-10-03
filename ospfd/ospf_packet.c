@@ -4065,21 +4065,19 @@ void ospf_ls_ack_send_delayed(struct ospf_interface *oi)
  * punt-to-CPU set on them. This may overload the CPU control path that
  * can be avoided if the MAC was known apriori.
  */
-#define OSPF_PING_NBR_STR_MAX  (8 + 40 + 20)
+#define OSPF_PING_NBR_STR_MAX  (BUFSIZ)
 void ospf_proactively_arp(struct ospf_neighbor *nbr)
 {
 	char ping_nbr[OSPF_PING_NBR_STR_MAX];
-	char *str_ptr;
 	int ret;
 
 	if (!nbr || !nbr->oi || !nbr->oi->ifp)
 		return;
 
-	str_ptr = strcpy(ping_nbr, "ping -c 1 -I ");
-	str_ptr = strcat(str_ptr, nbr->oi->ifp->name);
-	str_ptr = strcat(str_ptr, " ");
-	str_ptr = strcat(str_ptr, inet_ntoa(nbr->address.u.prefix4));
-	str_ptr = strcat(str_ptr, " > /dev/null 2>&1 &");
+	snprintf(ping_nbr, sizeof(ping_nbr),
+		"ping -c 1 -I %s %s > /dev/null 2>&1 &",
+		nbr->oi->ifp->name, inet_ntoa(nbr->address.u.prefix4));
+
 	ret = system(ping_nbr);
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("Executed %s %s", ping_nbr,

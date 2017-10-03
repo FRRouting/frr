@@ -194,7 +194,7 @@ int pim_find_or_track_nexthop(struct pim_instance *pim, struct prefix *addr,
 	}
 
 	if (up != NULL)
-		up = hash_get(pnc->upstream_hash, up, hash_alloc_intern);
+		hash_get(pnc->upstream_hash, up, hash_alloc_intern);
 
 	if (pnc && CHECK_FLAG(pnc->flags, PIM_NEXTHOP_VALID)) {
 		memcpy(out_pnc, pnc, sizeof(struct pim_nexthop_cache));

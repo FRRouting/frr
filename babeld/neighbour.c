@@ -165,7 +165,6 @@ update_neighbour(struct neighbour *neigh, int hello, int hello_interval)
     if(missed_hellos > 0) {
         neigh->reach >>= missed_hellos;
         neigh->hello_seqno = seqno_plus(neigh->hello_seqno, missed_hellos);
-        missed_hellos = 0;
         rc = 1;
     }
 

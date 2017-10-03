@@ -391,7 +391,7 @@ static int bgp_info_cmp(struct bgp *bgp, struct bgp_info *new,
 	int exist_cluster;
 	int internal_as_route;
 	int confed_as_route;
-	int ret;
+	int ret = 0;
 	char new_buf[PATH_ADDPATH_STR_BUFFER];
 	char exist_buf[PATH_ADDPATH_STR_BUFFER];
 	u_int32_t new_mm_seq;
@@ -488,8 +488,6 @@ static int bgp_info_cmp(struct bgp *bgp, struct bgp_info *new,
 	}
 
 	/* 1. Weight check. */
-	new_weight = exist_weight = 0;
-
 	new_weight = newattr->weight;
 	exist_weight = existattr->weight;
 
