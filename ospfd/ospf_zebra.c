@@ -179,8 +179,7 @@ static struct interface *zebra_interface_if_lookup(struct stream *s,
 	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
 
 	/* And look it up. */
-	return if_lookup_by_name_len(
-		ifname_tmp, strnlen(ifname_tmp, INTERFACE_NAMSIZ), vrf_id);
+	return if_lookup_by_name(ifname_tmp, vrf_id);
 }
 
 static int ospf_interface_state_up(int command, struct zclient *zclient,

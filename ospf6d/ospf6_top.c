@@ -595,7 +595,7 @@ DEFUN (ospf6_interface_area,
 	u_int32_t area_id;
 
 	/* find/create ospf6 interface */
-	ifp = if_get_by_name(argv[idx_ifname]->arg, VRF_DEFAULT);
+	ifp = if_get_by_name(argv[idx_ifname]->arg, VRF_DEFAULT, 0);
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
 		oi = ospf6_interface_create(ifp);

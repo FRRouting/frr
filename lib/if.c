@@ -115,7 +115,7 @@ static int if_cmp_func(struct interface *ifp1, struct interface *ifp2)
 }
 
 /* Create new interface structure. */
-struct interface *if_create(const char *name, int namelen, vrf_id_t vrf_id)
+struct interface *if_create(const char *name, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
 	struct list *intf_list = vrf_iflist_get(vrf_id);
@@ -124,9 +124,7 @@ struct interface *if_create(const char *name, int namelen, vrf_id_t vrf_id)
 	ifp->ifindex = IFINDEX_INTERNAL;
 
 	assert(name);
-	assert(namelen <= INTERFACE_NAMSIZ); /* Need space for '\0' at end. */
-	strncpy(ifp->name, name, namelen);
-	ifp->name[namelen] = '\0';
+	strlcpy(ifp->name, name, sizeof(ifp->name));
 	ifp->vrf_id = vrf_id;
 	if (if_lookup_by_name(ifp->name, vrf_id) == NULL)
 		listnode_add_sort(intf_list, ifp);
@@ -163,8 +161,8 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 		listnode_add_sort(intf_list, ifp);
 	else
 		zlog_err(
-			"if_create(%s): corruption detected -- interface with this "
-			"name exists already in VRF %u!",
+			"%s(%s): corruption detected -- interface with this "
+			"name exists already in VRF %u!", __func__,
 			ifp->name, vrf_id);
 
 	return;
@@ -236,11 +234,14 @@ struct interface *if_lookup_by_name(const char *name, vrf_id_t vrf_id)
 	struct listnode *node;
 	struct interface *ifp;
 
-	if (name)
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), node, ifp)) {
-			if (strcmp(name, ifp->name) == 0)
-				return ifp;
-		}
+	if (!name || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
+		return NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), node, ifp)) {
+		if (strcmp(name, ifp->name) == 0)
+			return ifp;
+	}
+
 	return NULL;
 }
 
@@ -249,29 +250,15 @@ struct interface *if_lookup_by_name_all_vrf(const char *name)
 	struct vrf *vrf;
 	struct interface *ifp;
 
+	if (!name || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
+		return NULL;
+
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		ifp = if_lookup_by_name(name, vrf->vrf_id);
 		if (ifp)
 			return ifp;
 	}
 
-	return NULL;
-}
-
-struct interface *if_lookup_by_name_len(const char *name, size_t namelen,
-					vrf_id_t vrf_id)
-{
-	struct listnode *node;
-	struct interface *ifp;
-
-	if (namelen > INTERFACE_NAMSIZ)
-		return NULL;
-
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), node, ifp)) {
-		if (!memcmp(name, ifp->name, namelen)
-		    && (ifp->name[namelen] == '\0'))
-			return ifp;
-	}
 	return NULL;
 }
 
@@ -364,53 +351,33 @@ struct interface *if_lookup_prefix(struct prefix *prefix, vrf_id_t vrf_id)
 
 /* Get interface by name if given name interface doesn't exist create
    one. */
-struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id)
+struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id, int vty)
 {
 	struct interface *ifp;
 
-	return ((ifp = if_lookup_by_name(name, vrf_id)) != NULL)
-		       ? ifp
-		       : if_create(name, strlen(name), vrf_id);
-}
+	ifp = if_lookup_by_name_all_vrf(name);
+	if (ifp) {
+		if (ifp->vrf_id == vrf_id)
+			return ifp;
 
-struct interface *if_get_by_name_len(const char *name, size_t namelen,
-				     vrf_id_t vrf_id, int vty)
-{
-	struct interface *ifp;
-	struct vrf *vrf;
-	struct listnode *node;
-
-	ifp = if_lookup_by_name_len(name, namelen, vrf_id);
-	if (ifp)
-		return ifp;
-
-	/* Didn't find the interface on that vrf. Defined on a different one? */
-	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf->vrf_id), node, ifp)) {
-			if (!memcmp(name, ifp->name, namelen)
-			    && (ifp->name[namelen] == '\0')) {
-				/* Found a match.  If the interface command was
-				 * entered in vty without a
-				 * VRF (passed as VRF_DEFAULT), accept the ifp
-				 * we found.   If a vrf was
-				 * entered and there is a mismatch, reject it if
-				 * from vty. If it came
-				 * from the kernel by way of zclient,  believe
-				 * it and update
-				 * the ifp accordingly.
-				 */
-				if (vty) {
-					if (vrf_id == VRF_DEFAULT)
-						return ifp;
-					return NULL;
-				} else {
-					if_update_to_new_vrf(ifp, vrf_id);
-					return ifp;
-				}
-			}
+		/* Found a match on a different VRF. If the interface command
+		 * was entered in vty without a VRF (passed as VRF_DEFAULT),
+		 * accept the ifp we found. If a vrf was entered and there is
+		 * a mismatch, reject it if from vty. If it came from the kernel
+		 * or by way of zclient, believe it and update the ifp
+		 * accordingly.
+		 */
+		if (vty) {
+			if (vrf_id == VRF_DEFAULT)
+				return ifp;
+			return NULL;
+		} else {
+			if_update_to_new_vrf(ifp, vrf_id);
+			return ifp;
 		}
 	}
-	return (if_create(name, namelen, vrf_id));
+
+	return if_create(name, vrf_id);
 }
 
 /* Does interface up ? */
@@ -597,24 +564,20 @@ DEFUN (no_interface_desc,
  *     if not:
  *     - no idea, just get the name in its entirety.
  */
-static struct interface *if_sunwzebra_get(const char *name, size_t nlen,
-					  vrf_id_t vrf_id)
+static struct interface *if_sunwzebra_get(char *name, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
-	size_t seppos = 0;
+	char *cp;
 
-	if ((ifp = if_lookup_by_name_len(name, nlen, vrf_id)) != NULL)
+	if ((ifp = if_lookup_by_name(name, vrf_id)) != NULL)
 		return ifp;
 
 	/* hunt the primary interface name... */
-	while (seppos < nlen && name[seppos] != ':')
-		seppos++;
+	cp = strchr(name, ':');
+	if (cp)
+		*cp = '\0';
 
-	/* Wont catch seperator as last char, e.g. 'foo0:' but thats invalid */
-	if (seppos < nlen)
-		return if_get_by_name_len(name, seppos, vrf_id, 1);
-	else
-		return if_get_by_name_len(name, nlen, vrf_id, 1);
+	return if_get_by_name(name, vrf_id, 1);
 }
 #endif /* SUNOS_5 */
 
@@ -631,10 +594,9 @@ DEFUN (interface,
 	const char *vrfname = (argc > 2) ? argv[idx_vrf]->arg : NULL;
 
 	struct interface *ifp;
-	size_t sl;
 	vrf_id_t vrf_id = VRF_DEFAULT;
 
-	if ((sl = strlen(ifname)) > INTERFACE_NAMSIZ) {
+	if (strlen(ifname) > INTERFACE_NAMSIZ) {
 		vty_out(vty,
 			"%% Interface name %s is invalid: length exceeds "
 			"%d characters\n",
@@ -648,9 +610,9 @@ DEFUN (interface,
 		VRF_GET_ID(vrf_id, vrfname);
 
 #ifdef SUNOS_5
-	ifp = if_sunwzebra_get(ifname, sl, vrf_id);
+	ifp = if_sunwzebra_get(ifname, vrf_id);
 #else
-	ifp = if_get_by_name_len(ifname, sl, vrf_id, 1);
+	ifp = if_get_by_name(ifname, vrf_id, 1);
 #endif /* SUNOS_5 */
 
 	if (!ifp) {

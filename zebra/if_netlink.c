@@ -666,7 +666,7 @@ static int netlink_interface(struct sockaddr_nl *snl, struct nlmsghdr *h,
 		link_ifindex = *(ifindex_t *)RTA_DATA(tb[IFLA_LINK]);
 
 	/* Add interface. */
-	ifp = if_get_by_name(name, vrf_id);
+	ifp = if_get_by_name(name, vrf_id, 0);
 	set_ifindex(ifp, ifi->ifi_index, zns);
 	ifp->flags = ifi->ifi_flags & 0x0000fffff;
 	if (IS_ZEBRA_IF_VRF(ifp))
@@ -1121,7 +1121,7 @@ int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 
 			if (ifp == NULL) {
 				/* unknown interface */
-				ifp = if_get_by_name(name, vrf_id);
+				ifp = if_get_by_name(name, vrf_id, 0);
 			} else {
 				/* pre-configured interface, learnt now */
 				if (ifp->vrf_id != vrf_id)

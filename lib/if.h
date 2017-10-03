@@ -209,7 +209,7 @@ struct interface {
 	   To delete, just set ifindex to IFINDEX_INTERNAL to indicate that the
 	   interface does not exist in the kernel.
 	 */
-	char name[INTERFACE_NAMSIZ + 1];
+	char name[INTERFACE_NAMSIZ];
 
 	/* Interface index (should be IFINDEX_INTERNAL for non-kernel or
 	   deleted interfaces). */
@@ -408,8 +408,7 @@ struct nbr_connected {
 extern int if_cmp_name_func(char *, char *);
 
 extern void if_update_to_new_vrf(struct interface *, vrf_id_t vrf_id);
-extern struct interface *if_create(const char *name, int namelen,
-				   vrf_id_t vrf_id);
+extern struct interface *if_create(const char *name,  vrf_id_t vrf_id);
 extern struct interface *if_lookup_by_index(ifindex_t, vrf_id_t vrf_id);
 extern struct interface *if_lookup_exact_address(void *matchaddr, int family,
 						 vrf_id_t vrf_id);
@@ -422,16 +421,8 @@ extern struct interface *if_lookup_prefix(struct prefix *prefix,
    by a '\0' character: */
 extern struct interface *if_lookup_by_name_all_vrf(const char *ifname);
 extern struct interface *if_lookup_by_name(const char *ifname, vrf_id_t vrf_id);
-extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id);
-
-/* For these 2 functions, the namelen argument should be the precise length
-   of the ifname string (not counting any optional trailing '\0' character).
-   In most cases, strnlen should be used to calculate the namelen value. */
-extern struct interface *if_lookup_by_name_len(const char *ifname,
-					       size_t namelen, vrf_id_t vrf_id);
-extern struct interface *if_get_by_name_len(const char *ifname, size_t namelen,
-					    vrf_id_t vrf_id, int vty);
-
+extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id,
+					int vty);
 
 /* Delete the interface, but do not free the structure, and leave it in the
    interface list.  It is often advisable to leave the pseudo interface

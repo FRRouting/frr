@@ -334,8 +334,7 @@ static struct interface *zebra_interface_if_lookup(struct stream *s)
 	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
 
 	/* And look it up. */
-	return if_lookup_by_name_len(
-		ifname_tmp, strnlen(ifname_tmp, INTERFACE_NAMSIZ), VRF_DEFAULT);
+	return if_lookup_by_name(ifname_tmp, VRF_DEFAULT);
 }
 
 void eigrp_zebra_route_add(struct prefix *p, struct list *successors)
