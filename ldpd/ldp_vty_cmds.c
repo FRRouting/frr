@@ -112,30 +112,52 @@ DEFUN_NOSH(ldp_exit_address_family,
 	return CMD_SUCCESS;
 }
 
-DEFPY  (ldp_discovery_holdtime,
-	ldp_discovery_holdtime_cmd,
-	"[no] discovery <hello|targeted-hello>$hello_type holdtime (1-65535)$holdtime",
+DEFPY  (ldp_discovery_link_holdtime,
+	ldp_discovery_link_holdtime_cmd,
+	"[no] discovery hello holdtime (1-65535)$holdtime",
 	NO_STR
 	"Configure discovery parameters\n"
 	"LDP Link Hellos\n"
+	"Hello holdtime\n"
+	"Time (seconds) - 65535 implies infinite\n")
+{
+	return (ldp_vty_disc_holdtime(vty, no, HELLO_LINK, holdtime));
+}
+
+DEFPY  (ldp_discovery_targeted_holdtime,
+	ldp_discovery_targeted_holdtime_cmd,
+	"[no] discovery targeted-hello holdtime (1-65535)$holdtime",
+	NO_STR
+	"Configure discovery parameters\n"
 	"LDP Targeted Hellos\n"
 	"Hello holdtime\n"
 	"Time (seconds) - 65535 implies infinite\n")
 {
-	return (ldp_vty_disc_holdtime(vty, no, hello_type, holdtime));
+	return (ldp_vty_disc_holdtime(vty, no, HELLO_TARGETED, holdtime));
 }
 
-DEFPY  (ldp_discovery_interval,
-	ldp_discovery_interval_cmd,
-	"[no] discovery <hello|targeted-hello>$hello_type interval (1-65535)$interval",
+DEFPY  (ldp_discovery_link_interval,
+	ldp_discovery_link_interval_cmd,
+	"[no] discovery hello interval (1-65535)$interval",
 	NO_STR
 	"Configure discovery parameters\n"
 	"LDP Link Hellos\n"
+	"Hello interval\n"
+	"Time (seconds)\n")
+{
+	return (ldp_vty_disc_interval(vty, no, HELLO_LINK, interval));
+}
+
+DEFPY  (ldp_discovery_targeted_interval,
+	ldp_discovery_targeted_interval_cmd,
+	"[no] discovery targeted-hello interval (1-65535)$interval",
+	NO_STR
+	"Configure discovery parameters\n"
 	"LDP Targeted Hellos\n"
 	"Hello interval\n"
 	"Time (seconds)\n")
 {
-	return (ldp_vty_disc_interval(vty, no, hello_type, interval));
+	return (ldp_vty_disc_interval(vty, no, HELLO_TARGETED, interval));
 }
 
 DEFPY  (ldp_dual_stack_transport_connection_prefer_ipv4,
@@ -747,8 +769,10 @@ ldp_vty_init (void)
 
 	install_element(LDP_NODE, &ldp_address_family_cmd);
 	install_element(LDP_NODE, &no_ldp_address_family_cmd);
-	install_element(LDP_NODE, &ldp_discovery_holdtime_cmd);
-	install_element(LDP_NODE, &ldp_discovery_interval_cmd);
+	install_element(LDP_NODE, &ldp_discovery_link_holdtime_cmd);
+	install_element(LDP_NODE, &ldp_discovery_targeted_holdtime_cmd);
+	install_element(LDP_NODE, &ldp_discovery_link_interval_cmd);
+	install_element(LDP_NODE, &ldp_discovery_targeted_interval_cmd);
 	install_element(LDP_NODE, &ldp_dual_stack_transport_connection_prefer_ipv4_cmd);
 	install_element(LDP_NODE, &ldp_dual_stack_cisco_interop_cmd);
 	install_element(LDP_NODE, &ldp_neighbor_password_cmd);
@@ -756,8 +780,10 @@ ldp_vty_init (void)
 	install_element(LDP_NODE, &ldp_neighbor_ttl_security_cmd);
 	install_element(LDP_NODE, &ldp_router_id_cmd);
 
-	install_element(LDP_IPV4_NODE, &ldp_discovery_holdtime_cmd);
-	install_element(LDP_IPV4_NODE, &ldp_discovery_interval_cmd);
+	install_element(LDP_IPV4_NODE, &ldp_discovery_link_holdtime_cmd);
+	install_element(LDP_IPV4_NODE, &ldp_discovery_targeted_holdtime_cmd);
+	install_element(LDP_IPV4_NODE, &ldp_discovery_link_interval_cmd);
+	install_element(LDP_IPV4_NODE, &ldp_discovery_targeted_interval_cmd);
 	install_element(LDP_IPV4_NODE, &ldp_discovery_targeted_hello_accept_cmd);
 	install_element(LDP_IPV4_NODE, &ldp_discovery_transport_address_ipv4_cmd);
 	install_element(LDP_IPV4_NODE, &ldp_label_local_advertise_cmd);
@@ -771,8 +797,10 @@ ldp_vty_init (void)
 	install_element(LDP_IPV4_NODE, &ldp_neighbor_ipv4_targeted_cmd);
 	install_element(LDP_IPV4_NODE, &ldp_exit_address_family_cmd);
 
-	install_element(LDP_IPV6_NODE, &ldp_discovery_holdtime_cmd);
-	install_element(LDP_IPV6_NODE, &ldp_discovery_interval_cmd);
+	install_element(LDP_IPV6_NODE, &ldp_discovery_link_holdtime_cmd);
+	install_element(LDP_IPV6_NODE, &ldp_discovery_targeted_holdtime_cmd);
+	install_element(LDP_IPV6_NODE, &ldp_discovery_link_interval_cmd);
+	install_element(LDP_IPV6_NODE, &ldp_discovery_targeted_interval_cmd);
 	install_element(LDP_IPV6_NODE, &ldp_discovery_targeted_hello_accept_cmd);
 	install_element(LDP_IPV6_NODE, &ldp_discovery_transport_address_ipv6_cmd);
 	install_element(LDP_IPV6_NODE, &ldp_label_local_advertise_cmd);
@@ -785,11 +813,11 @@ ldp_vty_init (void)
 	install_element(LDP_IPV6_NODE, &ldp_neighbor_ipv6_targeted_cmd);
 	install_element(LDP_IPV6_NODE, &ldp_exit_address_family_cmd);
 
-	install_element(LDP_IPV4_IFACE_NODE, &ldp_discovery_holdtime_cmd);
-	install_element(LDP_IPV4_IFACE_NODE, &ldp_discovery_interval_cmd);
+	install_element(LDP_IPV4_IFACE_NODE, &ldp_discovery_link_holdtime_cmd);
+	install_element(LDP_IPV4_IFACE_NODE, &ldp_discovery_link_interval_cmd);
 
-	install_element(LDP_IPV6_IFACE_NODE, &ldp_discovery_holdtime_cmd);
-	install_element(LDP_IPV6_IFACE_NODE, &ldp_discovery_interval_cmd);
+	install_element(LDP_IPV6_IFACE_NODE, &ldp_discovery_link_holdtime_cmd);
+	install_element(LDP_IPV6_IFACE_NODE, &ldp_discovery_link_interval_cmd);
 
 	install_element(LDP_L2VPN_NODE, &ldp_bridge_cmd);
 	install_element(LDP_L2VPN_NODE, &ldp_mtu_cmd);
