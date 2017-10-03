@@ -60,11 +60,11 @@ adj_compare(const struct adj *a, const struct adj *b)
 
 	switch (a->source.type) {
 	case HELLO_LINK:
-		if (strcmp(a->source.link.ia->iface->name,
-		    b->source.link.ia->iface->name) < 0)
+		if (if_cmp_name_func((char *)a->source.link.ia->iface->name,
+		    (char *)b->source.link.ia->iface->name) < 0)
 			return (-1);
-		if (strcmp(a->source.link.ia->iface->name,
-		    b->source.link.ia->iface->name) > 0)
+		if (if_cmp_name_func((char *)a->source.link.ia->iface->name,
+		    (char *)b->source.link.ia->iface->name) > 0)
 			return (1);
 		return (ldp_addrcmp(a->source.link.ia->af,
 		    &a->source.link.src_addr, &b->source.link.src_addr));

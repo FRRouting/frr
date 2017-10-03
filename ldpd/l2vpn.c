@@ -114,7 +114,7 @@ l2vpn_exit(struct l2vpn *l2vpn)
 static __inline int
 l2vpn_if_compare(const struct l2vpn_if *a, const struct l2vpn_if *b)
 {
-	return (strcmp(a->ifname, b->ifname));
+	return (if_cmp_name_func((char *)a->ifname, (char *)b->ifname));
 }
 
 struct l2vpn_if *
@@ -177,7 +177,7 @@ l2vpn_if_update(struct l2vpn_if *lif)
 static __inline int
 l2vpn_pw_compare(const struct l2vpn_pw *a, const struct l2vpn_pw *b)
 {
-	return (strcmp(a->ifname, b->ifname));
+	return (if_cmp_name_func((char *)a->ifname, (char *)b->ifname));
 }
 
 struct l2vpn_pw *
