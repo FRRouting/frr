@@ -940,6 +940,32 @@ def compare_context_objects(newconf, running):
     return (lines_to_add, lines_to_del)
 
 
+
+def vtysh_config_available():
+    """
+    Return False if no frr daemon is running or some other vtysh session is
+    in 'configuration terminal' mode which will prevent us from making any
+    configuration changes.
+    """
+
+    try:
+        cmd = ['/usr/bin/vtysh', '-c', 'conf t']
+        output = subprocess.check_output(cmd, stderr=subprocess.STDOUT).strip()
+
+        if 'VTY configuration is locked by other VTY' in output:
+            print output
+            log.error("'%s' returned\n%s\n" % (' '.join(cmd), output))
+            return False
+
+    except subprocess.CalledProcessError as e:
+        msg = "vtysh could not connect with any frr daemons"
+        print msg
+        log.error(msg)
+        return False
+
+    return True
+
+
 if __name__ == '__main__':
     # Command line options
     parser = argparse.ArgumentParser(description='Dynamically apply diff in frr configs')
@@ -1059,6 +1085,10 @@ if __name__ == '__main__':
                 print cmd
 
     elif args.reload:
+
+        # We will not be able to do anything, go ahead and exit(1)
+        if not vtysh_config_available():
+            sys.exit(1)
 
         log.debug('New Frr Config\n%s', newconf.get_lines())
 
