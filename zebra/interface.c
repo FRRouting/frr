@@ -685,7 +685,7 @@ void if_delete_update(struct interface *ifp)
 	   while processing the deletion.  Each client daemon is responsible
 	   for setting ifindex to IFINDEX_INTERNAL after processing the
 	   interface deletion message. */
-	ifp->ifindex = IFINDEX_INTERNAL;
+	if_set_index(ifp, IFINDEX_INTERNAL);
 	ifp->node = NULL;
 
 	/* if the ifp is in a vrf, move it to default so vrf can be deleted if

@@ -1331,7 +1331,7 @@ void zebra_interface_if_set_value(struct stream *s, struct interface *ifp)
 	u_char link_params_status = 0;
 
 	/* Read interface's index. */
-	ifp->ifindex = stream_getl(s);
+	if_set_index(ifp, stream_getl(s));
 	ifp->status = stream_getc(s);
 
 	/* Read interface's value. */

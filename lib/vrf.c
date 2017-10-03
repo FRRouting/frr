@@ -110,6 +110,7 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 		vrf = XCALLOC(MTYPE_VRF, sizeof(struct vrf));
 		vrf->vrf_id = VRF_UNKNOWN;
 		RB_INIT(if_name_head, &vrf->ifaces_by_name);
+		RB_INIT(if_index_head, &vrf->ifaces_by_index);
 		QOBJ_REG(vrf, vrf);
 		new = 1;
 

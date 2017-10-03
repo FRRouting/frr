@@ -131,7 +131,7 @@ end:
 /* Get interface's index by ioctl. */
 static int if_get_index(struct interface *ifp)
 {
-	ifp->ifindex = if_nametoindex(ifp->name);
+	if_set_index(ifp, if_nametoindex(ifp->name));
 	return ifp->ifindex;
 }
 

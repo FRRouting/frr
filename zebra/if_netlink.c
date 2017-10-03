@@ -93,7 +93,7 @@ static void set_ifindex(struct interface *ifp, ifindex_t ifi_index,
 			if_delete_update(oifp);
 		}
 	}
-	ifp->ifindex = ifi_index;
+	if_set_index(ifp, ifi_index);
 }
 
 /* Utility function to parse hardware link-layer address and update ifp */

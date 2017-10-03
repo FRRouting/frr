@@ -166,7 +166,7 @@ static int ospf_interface_delete(int command, struct zclient *zclient,
 		if (rn->info)
 			ospf_if_free((struct ospf_interface *)rn->info);
 
-	ifp->ifindex = IFINDEX_INTERNAL;
+	if_set_index(ifp, IFINDEX_INTERNAL);
 	return 0;
 }
 

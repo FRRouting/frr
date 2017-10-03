@@ -201,7 +201,7 @@ struct if_link_params {
 
 /* Interface structure */
 struct interface {
-	RB_ENTRY(interface) name_entry;
+	RB_ENTRY(interface) name_entry, index_entry;
 
 	/* Interface name.  This should probably never be changed after the
 	   interface is created, because the configuration info for this
@@ -214,7 +214,12 @@ struct interface {
 	char name[INTERFACE_NAMSIZ];
 
 	/* Interface index (should be IFINDEX_INTERNAL for non-kernel or
-	   deleted interfaces). */
+	   deleted interfaces).
+	   WARNING: the ifindex needs to be changed using the if_set_index()
+	   function. Failure to respect this will cause corruption in the data
+	   structure used to store the interfaces and if_lookup_by_index() will
+	   not work as expected.
+	 */
 	ifindex_t ifindex;
 #define IFINDEX_INTERNAL	0
 
@@ -285,7 +290,37 @@ struct interface {
 };
 RB_HEAD(if_name_head, interface);
 RB_PROTOTYPE(if_name_head, interface, name_entry, if_cmp_func);
+RB_HEAD(if_index_head, interface);
+RB_PROTOTYPE(if_index_head, interface, index_entry, if_cmp_func);
 DECLARE_QOBJ_TYPE(interface)
+
+#define IFNAME_RB_INSERT(vrf, ifp)                                             \
+	if (RB_INSERT(if_name_head, &vrf->ifaces_by_name, (ifp)))              \
+		zlog_err(                                                      \
+			"%s(%s): corruption detected -- interface with this "  \
+			"name exists already in VRF %u!",                      \
+			__func__, (ifp)->name, (ifp)->vrf_id);
+
+#define IFNAME_RB_REMOVE(vrf, ifp)                                             \
+	if (RB_REMOVE(if_name_head, &vrf->ifaces_by_name, (ifp)) == NULL)      \
+		zlog_err(                                                      \
+			"%s(%s): corruption detected -- interface with this "  \
+			"name doesn't exist in VRF %u!",                       \
+			__func__, (ifp)->name, (ifp)->vrf_id);
+
+#define IFINDEX_RB_INSERT(vrf, ifp)                                            \
+	if (RB_INSERT(if_index_head, &vrf->ifaces_by_index, (ifp)))            \
+		zlog_err(                                                      \
+			"%s(%u): corruption detected -- interface with this "  \
+			"ifindex exists already in VRF %u!",                   \
+			__func__, (ifp)->ifindex, (ifp)->vrf_id);
+
+#define IFINDEX_RB_REMOVE(vrf, ifp)                                            \
+	if (RB_REMOVE(if_index_head, &vrf->ifaces_by_index, (ifp)) == NULL)    \
+		zlog_err(                                                      \
+			"%s(%u): corruption detected -- interface with this "  \
+			"ifindex doesn't exist in VRF %u!",                    \
+			__func__, (ifp)->ifindex, (ifp)->vrf_id);
 
 /* called from the library code whenever interfaces are created/deleted
  * note: interfaces may not be fully realized at that point; also they
@@ -426,6 +461,7 @@ extern struct interface *if_lookup_by_name_all_vrf(const char *ifname);
 extern struct interface *if_lookup_by_name(const char *ifname, vrf_id_t vrf_id);
 extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id,
 					int vty);
+extern void if_set_index(struct interface *ifp, ifindex_t ifindex);
 
 /* Delete the interface, but do not free the structure, and leave it in the
    interface list.  It is often advisable to leave the pseudo interface

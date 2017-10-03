@@ -79,6 +79,7 @@ struct vrf {
 
 	/* Interfaces belonging to this VRF */
 	struct if_name_head ifaces_by_name;
+	struct if_index_head ifaces_by_index;
 
 	/* User data */
 	void *info;

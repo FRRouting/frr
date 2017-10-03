@@ -299,7 +299,7 @@ int nhrp_interface_delete(int cmd, struct zclient *client,
 		return 0;
 
 	debugf(NHRP_DEBUG_IF, "if-delete: %s", ifp->name);
-	ifp->ifindex = IFINDEX_INTERNAL;
+	if_set_index(ifp, ifp->ifindex);
 	nhrp_interface_update(ifp);
 	/* if_delete(ifp); */
 	return 0;

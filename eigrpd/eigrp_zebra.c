@@ -192,6 +192,7 @@ static int eigrp_interface_delete(int command, struct zclient *zclient,
 		eigrp_if_free(ifp->info,
 			      INTERFACE_DOWN_BY_ZEBRA);
 
+	if_set_index(ifp, IFINDEX_INTERNAL);
 	return 0;
 }
 

@@ -41,7 +41,10 @@ DEFINE_MTYPE(LIB, CONNECTED_LABEL, "Connected interface label")
 DEFINE_MTYPE_STATIC(LIB, IF_LINK_PARAMS, "Informational Link Parameters")
 
 static int if_cmp_func(const struct interface *, const struct interface *);
+static int if_cmp_index_func(const struct interface *ifp1,
+			     const struct interface *ifp2);
 RB_GENERATE(if_name_head, interface, name_entry, if_cmp_func);
+RB_GENERATE(if_index_head, interface, index_entry, if_cmp_index_func);
 
 DEFINE_QOBJ_TYPE(interface)
 
@@ -118,6 +121,12 @@ static int if_cmp_func(const struct interface *ifp1,
 	return if_cmp_name_func((char *)ifp1->name, (char *)ifp2->name);
 }
 
+static int if_cmp_index_func(const struct interface *ifp1,
+			     const struct interface *ifp2)
+{
+	return ifp1->ifindex - ifp2->ifindex;
+}
+
 /* Create new interface structure. */
 struct interface *if_create(const char *name, vrf_id_t vrf_id)
 {
@@ -130,11 +139,7 @@ struct interface *if_create(const char *name, vrf_id_t vrf_id)
 	assert(name);
 	strlcpy(ifp->name, name, sizeof(ifp->name));
 	ifp->vrf_id = vrf_id;
-	if (RB_INSERT(if_name_head, &vrf->ifaces_by_name, ifp))
-		zlog_err(
-			"if_create(%s): corruption detected -- interface with this "
-			"name exists already in VRF %u!",
-			ifp->name, vrf_id);
+	IFNAME_RB_INSERT(vrf, ifp);
 	ifp->connected = list_new();
 	ifp->connected->del = (void (*)(void *))connected_free;
 
@@ -156,16 +161,18 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 
 	/* remove interface from old master vrf list */
 	vrf = vrf_lookup_by_id(ifp->vrf_id);
-	if (vrf)
-		RB_REMOVE(if_name_head, &vrf->ifaces_by_name, ifp);
+	if (vrf) {
+		IFNAME_RB_REMOVE(vrf, ifp);
+		if (ifp->ifindex != IFINDEX_INTERNAL)
+			IFINDEX_RB_REMOVE(vrf, ifp);
+	}
 
 	ifp->vrf_id = vrf_id;
 	vrf = vrf_get(ifp->vrf_id, NULL);
-	if (RB_INSERT(if_name_head, &vrf->ifaces_by_name, ifp))
-		zlog_err(
-			"%s(%s): corruption detected -- interface with this "
-			"name exists already in VRF %u!",
-			__func__, ifp->name, vrf_id);
+
+	IFNAME_RB_INSERT(vrf, ifp);
+	if (ifp->ifindex != IFINDEX_INTERNAL)
+		IFINDEX_RB_INSERT(vrf, ifp);
 }
 
 
@@ -187,7 +194,9 @@ void if_delete(struct interface *ifp)
 {
 	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
 
-	RB_REMOVE(if_name_head, &vrf->ifaces_by_name, ifp);
+	IFNAME_RB_REMOVE(vrf, ifp);
+	if (ifp->ifindex != IFINDEX_INTERNAL)
+		IFINDEX_RB_REMOVE(vrf, ifp);
 
 	if_delete_retain(ifp);
 
@@ -203,13 +212,10 @@ void if_delete(struct interface *ifp)
 struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
-	struct interface *ifp;
+	struct interface if_tmp;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
-		if (ifp->ifindex == ifindex)
-			return ifp;
-
-	return NULL;
+	if_tmp.ifindex = ifindex;
+	return RB_FIND(if_index_head, &vrf->ifaces_by_index, &if_tmp);
 }
 
 const char *ifindex2ifname(ifindex_t ifindex, vrf_id_t vrf_id)
@@ -376,6 +382,22 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id, int vty)
 	}
 
 	return if_create(name, vrf_id);
+}
+
+void if_set_index(struct interface *ifp, ifindex_t ifindex)
+{
+	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+
+	if (ifp->ifindex == ifindex)
+		return;
+
+	if (ifp->ifindex != IFINDEX_INTERNAL)
+		IFINDEX_RB_REMOVE(vrf, ifp)
+
+	ifp->ifindex = ifindex;
+
+	if (ifp->ifindex != IFINDEX_INTERNAL)
+		IFINDEX_RB_INSERT(vrf, ifp)
 }
 
 /* Does interface up ? */

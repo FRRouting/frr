@@ -128,7 +128,7 @@ static int isis_zebra_if_del(int command, struct zclient *zclient,
 	   in case there is configuration info attached to it. */
 	if_delete_retain(ifp);
 
-	ifp->ifindex = IFINDEX_INTERNAL;
+	if_set_index(ifp, IFINDEX_INTERNAL);
 
 	return 0;
 }

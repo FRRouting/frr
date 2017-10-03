@@ -227,9 +227,9 @@ static int if_get_index(struct interface *ifp)
 
 /* OK we got interface index. */
 #ifdef ifr_ifindex
-	ifp->ifindex = lifreq.lifr_ifindex;
+	if_set_index(ifp, lifreq.lifr_ifindex);
 #else
-	ifp->ifindex = lifreq.lifr_index;
+	if_set_index(ifp, lifreq.lifr_index);
 #endif
 	return ifp->ifindex;
 }

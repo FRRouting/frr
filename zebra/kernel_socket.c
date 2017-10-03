@@ -324,7 +324,7 @@ static int ifan_read(struct if_announcemsghdr *ifan)
 
 		/* Create Interface */
 		ifp = if_get_by_name(ifan->ifan_name, VRF_DEFAULT, 0);
-		ifp->ifindex = ifan->ifan_index;
+		if_set_index(ifp, ifan->ifan_index);
 
 		if_get_metric(ifp);
 		if_add_update(ifp);
@@ -528,7 +528,7 @@ int ifm_read(struct if_msghdr *ifm)
 		 * Fill in newly created interface structure, or larval
 		 * structure with ifindex IFINDEX_INTERNAL.
 		 */
-		ifp->ifindex = ifm->ifm_index;
+		if_set_index(ifp, ifm->ifm_index);
 
 #ifdef HAVE_BSD_IFI_LINK_STATE /* translate BSD kernel msg for link-state */
 		bsd_linkdetect_translate(ifm);
