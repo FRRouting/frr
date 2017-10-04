@@ -6480,7 +6480,7 @@ DEFUN(interface_ip_pim_boundary_oil,
       "Generic multicast configuration options\n"
       "Define multicast boundary\n"
       "Filter OIL by group using prefix list\n"
-      "Prefix list to filter OIL with")
+      "Prefix list to filter OIL with\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, iif);
 	struct pim_interface *pim_ifp;
@@ -6508,7 +6508,7 @@ DEFUN(interface_no_ip_pim_boundary_oil,
       "Generic multicast configuration options\n"
       "Define multicast boundary\n"
       "Filter OIL by group using prefix list\n"
-      "Prefix list to filter OIL with")
+      "Prefix list to filter OIL with\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, iif);
 	struct pim_interface *pim_ifp;
