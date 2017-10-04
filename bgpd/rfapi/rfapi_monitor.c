@@ -1378,6 +1378,8 @@ struct route_node *rfapiMonitorEthAdd(struct bgp *bgp,
 #if DEBUG_L2_EXTRA
 	vnc_zlog_debug_verbose("%s: inserted rfd=%p mon_eth=%p, rc=%d",
 			       __func__, rfd, val, rc);
+#else
+	(void)rc;
 #endif
 
 	/*
