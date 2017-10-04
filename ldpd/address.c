@@ -88,6 +88,7 @@ send_address(struct nbr *nbr, int af, struct if_addr_head *addr_list,
 		err |= gen_msg_hdr(buf, msg_type, size);
 		size -= LDP_MSG_SIZE;
 		err |= gen_address_list_tlv(buf, af, addr_list, tlv_addr_count);
+		(void)size; /* unused */
 		if (err) {
 			address_list_clr(addr_list);
 			ibuf_free(buf);
