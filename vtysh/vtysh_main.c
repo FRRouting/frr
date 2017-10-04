@@ -451,7 +451,7 @@ int main(int argc, char **argv, char **env)
 		exit(ret);
 	}
 
-	if (dryrun && cmd) {
+	if (dryrun && cmd && cmd->line) {
 		vtysh_execute("enable");
 		while (cmd) {
 			struct cmd_rec *cr;
@@ -552,7 +552,7 @@ int main(int argc, char **argv, char **env)
 	}
 
 	/* If eval mode. */
-	if (cmd) {
+	if (cmd && cmd->line) {
 		/* Enter into enable node. */
 		vtysh_execute("enable");
 
