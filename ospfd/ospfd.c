@@ -634,6 +634,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	/* Reset interface. */
 	for (ALL_LIST_ELEMENTS(ospf->oiflist, node, nnode, oi))
 		ospf_if_free(oi);
+	list_delete(ospf->oiflist);
 
 	/* De-Register VRF */
 	ospf_zebra_vrf_deregister(ospf);
@@ -768,6 +769,8 @@ static void ospf_finish_final(struct ospf *ospf)
 	if (!CHECK_FLAG(om->options, OSPF_MASTER_SHUTDOWN))
 		instance = ospf->instance;
 
+	list_delete(ospf->oi_write_q);
+
 	ospf_delete(ospf);
 
 	if (ospf->name) {
@@ -827,6 +830,8 @@ static void ospf_area_free(struct ospf_area *area)
 {
 	struct route_node *rn;
 	struct ospf_lsa *lsa;
+
+	ospf_opaque_type10_lsa_term(area);
 
 	/* Free LSDBs. */
 	LSDB_LOOP(ROUTER_LSDB(area), rn, lsa)
