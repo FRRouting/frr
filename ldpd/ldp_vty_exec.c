@@ -1509,7 +1509,7 @@ ldp_vty_dispatch_lib(struct vty *vty, struct imsg *imsg,
     struct show_params *params, json_object *json)
 {
 	static bool	 filtered = false;
-	struct ctl_rt	*rt;
+	struct ctl_rt	*rt = NULL;
 	struct prefix	 prefix;
 	int		 ret;
 
