@@ -91,6 +91,8 @@ int if_cmp_name_func(char *p1, char *p2)
 		p1 += l1;
 		p2 += l1;
 
+		if (!*p1 && !*p2)
+			return 0;
 		if (!*p1)
 			return -1;
 		if (!*p2)
