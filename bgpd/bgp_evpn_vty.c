@@ -2144,7 +2144,7 @@ static void write_vni_config_for_entry(struct hash_backet *backet,
 DEFUN (bgp_evpn_advertise_default_gw_vni,
        bgp_evpn_advertise_default_gw_vni_cmd,
        "advertise-default-gw",
-       "Advertise defualt g/w mac-ip routes in EVPN for a VNI\n")
+       "Advertise default g/w mac-ip routes in EVPN for a VNI\n")
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
 	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
@@ -2184,7 +2184,7 @@ DEFUN (no_bgp_evpn_advertise_default_vni_gw,
 DEFUN (bgp_evpn_advertise_default_gw,
        bgp_evpn_advertise_default_gw_cmd,
        "advertise-default-gw",
-       "Advertise All defualt g/w mac-ip routes in EVPN\n")
+       "Advertise All default g/w mac-ip routes in EVPN\n")
 {
 	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
 
