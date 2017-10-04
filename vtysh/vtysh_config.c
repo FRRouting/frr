@@ -131,6 +131,20 @@ static void config_add_line_uniq(struct list *config, const char *line)
 	listnode_add_sort(config, XSTRDUP(MTYPE_VTYSH_CONFIG_LINE, line));
 }
 
+/*
+ * I want to explicitly move this command to the end of the line
+ */
+static void config_add_line_end(struct list *config, const char *line)
+{
+	struct listnode *node;
+	void *item = XSTRDUP(MTYPE_VTYSH_CONFIG_LINE, line);
+
+	listnode_add(config, item);
+	node = listnode_lookup(config, item);
+	if (node)
+		listnode_move_to_tail(config, node);
+}
+
 void vtysh_config_parse_line(void *arg, const char *line)
 {
 	char c;
@@ -161,6 +175,10 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			    == 0) {
 				config_add_line(config->line, line);
 				config->index = LINK_PARAMS_NODE;
+			} else if (strncmp(line,
+					   " ip multicast boundary",
+					   strlen(" ip multicast boundary")) == 0) {
+				config_add_line_end(config->line, line);
 			} else if (config->index == LINK_PARAMS_NODE
 				   && strncmp(line, "  exit-link-params",
 					      strlen("  exit"))
