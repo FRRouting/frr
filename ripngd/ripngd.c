@@ -2011,7 +2011,7 @@ DEFUN (show_ipv6_ripng,
 
 				len = 28 - len;
 				if (len > 0)
-					len = vty_out(vty, "%*s", len, " ");
+					vty_out(vty, "%*s", len, " ");
 
 				/* from */
 				if ((rinfo->type == ZEBRA_ROUTE_RIPNG)
