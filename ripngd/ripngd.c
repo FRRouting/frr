@@ -842,6 +842,8 @@ static void ripng_route_process(struct rte *rte, struct sockaddr_in6 *from,
 		   unusable). */
 		if (rte->metric != RIPNG_METRIC_INFINITY)
 			ripng_ecmp_add(&newinfo);
+		else
+			route_unlock_node(rp);
 	} else {
 		/* If there is an existing route, compare the next hop address
 		   to the address of the router from which the datagram came.
