@@ -330,7 +330,7 @@ int ptm_lib_process_msg(ptm_lib_handle_t *hdl, int fd, char *inbuf, int inlen,
 	char client_name[32];
 	int cmd_id, type, ver, msglen;
 	csv_t *csv;
-	ptm_lib_msg_ctxt_t *p_ctxt;
+	ptm_lib_msg_ctxt_t *p_ctxt = NULL;
 
 	len = _ptm_lib_read_ptm_socket(fd, inbuf, PTMLIB_MSG_HDR_LEN);
 	if (len <= 0)
