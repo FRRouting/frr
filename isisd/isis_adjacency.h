@@ -108,4 +108,5 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 void isis_adj_build_neigh_list(struct list *adjdb, struct list *list);
 void isis_adj_build_up_list(struct list *adjdb, struct list *list);
 
+void isis_area_adj_del_addr(void *val);
 #endif /* ISIS_ADJACENCY_H */

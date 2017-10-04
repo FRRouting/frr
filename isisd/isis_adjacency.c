@@ -124,6 +124,14 @@ struct isis_adjacency *isis_adj_lookup_snpa(const u_char *ssnpa,
 	return NULL;
 }
 
+/*
+ * Processing helper functions
+ */
+void isis_area_adj_del_addr(void *val)
+{
+	XFREE(MTYPE_ISIS_TMP, val);
+}
+
 void isis_delete_adj(void *arg)
 {
 	struct isis_adjacency *adj = arg;
@@ -136,12 +144,18 @@ void isis_delete_adj(void *arg)
 	/* remove from SPF trees */
 	spftree_area_adj_del(adj->circuit->area, adj);
 
-	if (adj->area_addrs)
+	if (adj->area_addrs) {
+		adj->area_addrs->del = isis_area_adj_del_addr;
 		list_delete(adj->area_addrs);
-	if (adj->ipv4_addrs)
+	}
+	if (adj->ipv4_addrs) {
+		adj->ipv4_addrs->del = isis_area_adj_del_addr;
 		list_delete(adj->ipv4_addrs);
-	if (adj->ipv6_addrs)
+	}
+	if (adj->ipv6_addrs) {
+		adj->ipv6_addrs->del = isis_area_adj_del_addr;
 		list_delete(adj->ipv6_addrs);
+	}
 
 	XFREE(MTYPE_ISIS_ADJACENCY, adj);
 	return;
