@@ -206,7 +206,7 @@ main(int argc, char *argv[])
 	frr_preinit(&ldpd_di, argc, argv);
 	frr_opt_add("LEn:", longopts,
 		"      --ctl_socket   Override ctl socket path\n"
-		"-n,   --instance     Instance id\n");
+		"  -n, --instance     Instance id\n");
 
 	while (1) {
 		int opt;
@@ -435,7 +435,7 @@ static pid_t
 start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync)
 {
 	char	*argv[3];
-	int	 argc = 0;
+	int	 argc = 0, nullfd;
 	pid_t	 pid;
 
 	switch (pid = fork()) {
@@ -448,6 +448,12 @@ start_child(enum ldpd_process p, char *argv0, int fd_async, int fd_sync)
 		close(fd_sync);
 		return (pid);
 	}
+
+	nullfd = open("/dev/null", O_RDONLY | O_NOCTTY);
+	dup2(nullfd, 0);
+	dup2(nullfd, 1);
+	dup2(nullfd, 2);
+	close(nullfd);
 
 	if (dup2(fd_async, LDPD_FD_ASYNC) == -1)
 		fatal("cannot setup imsg async fd");

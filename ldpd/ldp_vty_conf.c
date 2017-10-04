@@ -233,6 +233,7 @@ ldp_af_config_write(struct vty *vty, int af, struct ldpd_conf *conf,
 
 	ldp_af_iface_config_write(vty, af);
 
+	vty_out(vty, "  !\n");
 	vty_out(vty, " exit-address-family\n");
 }
 
@@ -459,20 +460,13 @@ ldp_vty_address_family(struct vty *vty, const char *negate, const char *af_str)
 	return (CMD_SUCCESS);
 }
 
-int
-ldp_vty_disc_holdtime(struct vty *vty, const char *negate,
-    const char *hello_type_str, long secs)
+int ldp_vty_disc_holdtime(struct vty *vty, const char *negate,
+    enum hello_type hello_type, long secs)
 {
 	struct ldpd_af_conf	*af_conf;
 	struct iface		*iface;
 	struct iface_af		*ia;
 	int			 af;
-	enum hello_type		 hello_type;
-
-	if (hello_type_str[0] == 'h')
-		hello_type = HELLO_LINK;
-	else
-		hello_type = HELLO_TARGETED;
 
 	switch (vty->node) {
 	case LDP_NODE:
@@ -547,18 +541,12 @@ ldp_vty_disc_holdtime(struct vty *vty, const char *negate,
 
 int
 ldp_vty_disc_interval(struct vty *vty, const char *negate,
-    const char *hello_type_str, long secs)
+    enum hello_type hello_type, long secs)
 {
 	struct ldpd_af_conf	*af_conf;
 	struct iface		*iface;
 	struct iface_af		*ia;
 	int			 af;
-	enum hello_type		 hello_type;
-
-	if (hello_type_str[0] == 'h')
-		hello_type = HELLO_LINK;
-	else
-		hello_type = HELLO_TARGETED;
 
 	switch (vty->node) {
 	case LDP_NODE:
