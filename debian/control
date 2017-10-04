@@ -10,7 +10,7 @@ XS-Testsuite: autopkgtest
 
 Package: frr
 Architecture: any
-Depends: ${shlibs:Depends}, logrotate (>= 3.2-11), iproute, ${misc:Depends}, libc-ares2
+Depends: ${shlibs:Depends}, logrotate (>= 3.2-11), iproute2 | iproute, ${misc:Depends}, libc-ares2
 Pre-Depends: adduser
 Conflicts: zebra, zebra-pj, quagga
 Replaces: zebra, zebra-pj
