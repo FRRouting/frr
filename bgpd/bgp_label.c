@@ -225,7 +225,6 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 	for (; pnt < lim; pnt += psize) {
 		/* Clear prefix structure. */
 		memset(&p, 0, sizeof(struct prefix));
-		llen = 0;
 
 		if (addpath_encoded) {
 
