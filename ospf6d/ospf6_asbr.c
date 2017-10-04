@@ -455,10 +455,11 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 		}
 	}
 
+	memset(&troute, 0, sizeof(troute));
+	memset(&tinfo, 0, sizeof(tinfo));
+
 	/* apply route-map */
 	if (ospf6->rmap[type].map) {
-		memset(&troute, 0, sizeof(troute));
-		memset(&tinfo, 0, sizeof(tinfo));
 		troute.route_option = &tinfo;
 		tinfo.ifindex = ifindex;
 		tinfo.tag = tag;
