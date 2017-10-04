@@ -14,7 +14,7 @@ Add packages:
 
     apt-get install git autoconf automake libtool make gawk libreadline-dev \
        texinfo dejagnu pkg-config libpam0g-dev libjson-c-dev bison flex \
-       python-pytest libc-ares-dev python3-dev libsystemd-dev
+       python-pytest libc-ares-dev python3-dev libsystemd-dev python-ipaddr
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
@@ -113,7 +113,7 @@ Add the following lines to `/etc/modules-load.d/modules.conf`:
 **Reboot** or use `sysctl -p` to apply the same config to the running system
 
 
-### Install the systemd service
+### Install the systemd service (if rebooted from last step, change directory back to frr directory)
 
     sudo install -m 644 tools/frr.service /etc/systemd/system/frr.service
     sudo install -m 644 tools/etc/default/frr /etc/default/frr
