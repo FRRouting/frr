@@ -27,14 +27,26 @@
 
 #define NL_DEFAULT_ROUTE_METRIC 20
 
-/* Additional protocol strings to push into routes */
+/*
+ * Additional protocol strings to push into routes
+ * If we add anything new here please make sure
+ * to update:
+ * zebra2proto                 Function
+ * proto2zebra                 Function
+ * is_selfroute                Function
+ * tools/frr                   To flush the route upon exit
+ *
+ * Finally update this file to allow iproute2 to
+ * know about this new route.
+ * tools/etc/iproute2/rt_protos.d
+ */
 #define RTPROT_BGP         186
 #define RTPROT_ISIS        187
 #define RTPROT_OSPF        188
 #define RTPROT_RIP         189
 #define RTPROT_RIPNG       190
 #if !defined(RTPROT_BABEL)
-#define RTPROT_BABEL              42
+#define RTPROT_BABEL        42
 #endif
 #define RTPROT_NHRP        191
 #define RTPROT_EIGRP       192

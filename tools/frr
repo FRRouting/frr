@@ -544,6 +544,12 @@ case "$1" in
 
         if [ -z "$dmn" -o "$dmn" = "zebra" ]; then
           echo "Removing all routes made by FRR."
+	  # Specific values for each proto can be found
+	  # in /etc/iproute2/rt_protos as well as FRR
+	  # specific ones in /etc/iproute2/rt_protos.d
+	  # Additionally if a new protocol is added
+	  # we need to add it here as well as
+	  # in rt_netlink.h( follow the directions! )
           ip route flush proto 186
           ip route flush proto 188
           ip route flush proto 4
