@@ -454,17 +454,6 @@ void lsp_update(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 		struct isis_tlvs *tlvs, struct stream *stream,
 		struct isis_area *area, int level, bool confusion)
 {
-	dnode_t *dnode = NULL;
-
-	/* Remove old LSP from database. This is required since the
-	 * lsp_update_data will free the lsp->pdu (which has the key, lsp_id)
-	 * and will update it with the new data in the stream.
-	 * XXX: This doesn't hold true anymore since the header is now a copy.
-	 * keeping the LSP in the dict if it is already present should be possible */
-	dnode = dict_lookup(area->lspdb[level - 1], lsp->hdr.lsp_id);
-	if (dnode)
-		dnode_destroy(dict_delete(area->lspdb[level - 1], dnode));
-
 	if (lsp->own_lsp) {
 		zlog_err(
 			"ISIS-Upd (%s): BUG updating LSP %s still marked as own LSP",
@@ -490,8 +479,8 @@ void lsp_update(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 			lsp_link_fragment(lsp, lsp0);
 	}
 
-	/* insert the lsp back into the database */
-	lsp_insert(lsp, area->lspdb[level - 1]);
+	if (lsp->hdr.seqno)
+		isis_spf_schedule(lsp->area, lsp->level);
 }
 
 /* creation of LSP directly from what we received */
