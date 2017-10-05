@@ -544,14 +544,22 @@ case "$1" in
 
         if [ -z "$dmn" -o "$dmn" = "zebra" ]; then
           echo "Removing all routes made by FRR."
-          ip route flush proto bgp
-          ip route flush proto ospf
-          ip route flush proto static
-          ip route flush proto rip
-          ip route flush proto ripng
-          ip route flush proto zebra
-          ip route flush proto isis
-
+	  # Specific values for each proto can be found
+	  # in /etc/iproute2/rt_protos as well as FRR
+	  # specific ones in /etc/iproute2/rt_protos.d
+	  # Additionally if a new protocol is added
+	  # we need to add it here as well as
+	  # in rt_netlink.h( follow the directions! )
+          ip route flush proto 186
+          ip route flush proto 188
+          ip route flush proto 4
+          ip route flush proto 189
+          ip route flush proto 190
+          ip route flush proto 11
+          ip route flush proto 187
+          ip route flush proto 192
+          ip route flush proto 42
+          ip route flush proto 191
        else
          [ -n "$dmn" ] && eval "${dmn/-/_}=0"
          start_watchfrr
