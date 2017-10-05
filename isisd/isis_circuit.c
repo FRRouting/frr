@@ -45,6 +45,7 @@
 #include "isisd/isis_flags.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_lsp.h"
+#include "isisd/isis_lsp_hash.h"
 #include "isisd/isis_pdu.h"
 #include "isisd/isis_network.h"
 #include "isisd/isis_misc.h"
@@ -674,7 +675,8 @@ int isis_circuit_up(struct isis_circuit *circuit)
 	isis_circuit_prepare(circuit);
 
 	circuit->lsp_queue = list_new();
-	circuit->lsp_queue_last_cleared = time(NULL);
+	circuit->lsp_hash = isis_lsp_hash_new();
+	monotime(&circuit->lsp_queue_last_cleared);
 
 	return ISIS_OK;
 }
@@ -739,12 +741,17 @@ void isis_circuit_down(struct isis_circuit *circuit)
 	THREAD_TIMER_OFF(circuit->t_send_csnp[1]);
 	THREAD_TIMER_OFF(circuit->t_send_psnp[0]);
 	THREAD_TIMER_OFF(circuit->t_send_psnp[1]);
+	THREAD_OFF(circuit->t_send_lsp);
 	THREAD_OFF(circuit->t_read);
 
 	if (circuit->lsp_queue) {
-		circuit->lsp_queue->del = NULL;
 		list_delete(circuit->lsp_queue);
 		circuit->lsp_queue = NULL;
+	}
+
+	if (circuit->lsp_hash) {
+		isis_lsp_hash_free(circuit->lsp_hash);
+		circuit->lsp_hash = NULL;
 	}
 
 	/* send one gratuitous hello to spead up convergence */
@@ -1338,4 +1345,57 @@ void isis_circuit_init()
 	if_cmd_init();
 
 	isis_vty_init();
+}
+
+void isis_circuit_schedule_lsp_send(struct isis_circuit *circuit)
+{
+	if (circuit->t_send_lsp)
+		return;
+	circuit->t_send_lsp = thread_add_event(master, send_lsp, circuit, 0, NULL);
+}
+
+void isis_circuit_queue_lsp(struct isis_circuit *circuit, struct isis_lsp *lsp)
+{
+	if (isis_lsp_hash_lookup(circuit->lsp_hash, lsp))
+		return;
+
+	listnode_add(circuit->lsp_queue, lsp);
+	isis_lsp_hash_add(circuit->lsp_hash, lsp);
+	isis_circuit_schedule_lsp_send(circuit);
+}
+
+void isis_circuit_lsp_queue_clean(struct isis_circuit *circuit)
+{
+	if (!circuit->lsp_queue)
+		return;
+
+	list_delete_all_node(circuit->lsp_queue);
+	isis_lsp_hash_clean(circuit->lsp_hash);
+}
+
+void isis_circuit_cancel_queued_lsp(struct isis_circuit *circuit,
+				    struct isis_lsp *lsp)
+{
+	if (!circuit->lsp_queue)
+		return;
+
+	listnode_delete(circuit->lsp_queue, lsp);
+	isis_lsp_hash_release(circuit->lsp_hash, lsp);
+}
+
+struct isis_lsp *isis_circuit_lsp_queue_pop(struct isis_circuit *circuit)
+{
+	if (!circuit->lsp_queue)
+		return NULL;
+
+	struct listnode *node = listhead(circuit->lsp_queue);
+	if (!node)
+		return NULL;
+
+	struct isis_lsp *rv = listgetdata(node);
+
+	list_delete_node(circuit->lsp_queue, node);
+	isis_lsp_hash_release(circuit->lsp_hash, rv);
+
+	return rv;
 }

@@ -2046,39 +2046,24 @@ int send_lsp(struct thread *thread)
 {
 	struct isis_circuit *circuit;
 	struct isis_lsp *lsp;
-	struct listnode *node;
 	int clear_srm = 1;
 	int retval = ISIS_OK;
 
 	circuit = THREAD_ARG(thread);
 	assert(circuit);
+	circuit->t_send_lsp = NULL;
 
-	if (!circuit->lsp_queue)
+	lsp = isis_circuit_lsp_queue_pop(circuit);
+	if (!lsp)
 		return ISIS_OK;
-
-	node = listhead(circuit->lsp_queue);
-
-	/*
-	 * Handle case where there are no LSPs on the queue. This can
-	 * happen, for instance, if an adjacency goes down before this
-	 * thread gets a chance to run.
-	 */
-	if (!node)
-		return ISIS_OK;
-
-	/*
-	 * Delete LSP from lsp_queue. If it's still in queue, it is assumed
-	 * as 'transmit pending', but send_lsp may never be called again.
-	 * Retry will happen because SRM flag will not be cleared.
-	 */
-	lsp = listgetdata(node);
-	list_delete_node(circuit->lsp_queue, node);
-
 	/* Set the last-cleared time if the queue is empty. */
 	/* TODO: Is is possible that new lsps keep being added to the queue
 	 * that the queue is never empty? */
-	if (list_isempty(circuit->lsp_queue))
-		circuit->lsp_queue_last_cleared = time(NULL);
+	if (list_isempty(circuit->lsp_queue)) {
+		monotime(&circuit->lsp_queue_last_cleared);
+	} else {
+		isis_circuit_schedule_lsp_send(circuit);
+	}
 
 	if (circuit->state != C_STATE_UP || circuit->is_passive == 1)
 		goto out;
