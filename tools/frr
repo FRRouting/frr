@@ -553,6 +553,7 @@ case "$1" in
           ip route flush proto 187
           ip route flush proto 192
           ip route flush proto 42
+          ip route flush proto 191
        else
          [ -n "$dmn" ] && eval "${dmn/-/_}=0"
          start_watchfrr
