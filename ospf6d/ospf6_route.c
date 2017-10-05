@@ -1516,6 +1516,9 @@ int config_write_ospf6_debug_route(struct vty *vty)
 		vty_out(vty, "debug ospf6 route intra-area\n");
 	if (IS_OSPF6_DEBUG_ROUTE(INTER))
 		vty_out(vty, "debug ospf6 route inter-area\n");
+	if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
+		vty_out(vty, "debug ospf6 route memory\n");
+
 	return 0;
 }
 
