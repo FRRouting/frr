@@ -37,14 +37,10 @@ extern void eigrp_if_init(void);
 extern int eigrp_if_new_hook(struct interface *);
 extern int eigrp_if_delete_hook(struct interface *);
 
+extern bool eigrp_if_is_passive(struct eigrp_interface *ei);
 extern void eigrp_del_if_params(struct eigrp_if_params *);
-extern struct eigrp_if_params *eigrp_new_if_params(void);
 extern struct eigrp_interface *eigrp_if_new(struct eigrp *, struct interface *,
 					    struct prefix *);
-extern struct eigrp_interface *eigrp_if_table_lookup(struct interface *,
-						     struct prefix *);
-extern struct eigrp_if_params *eigrp_lookup_if_params(struct interface *,
-						      struct in_addr);
 extern int eigrp_if_up(struct eigrp_interface *);
 extern void eigrp_if_stream_set(struct eigrp_interface *);
 extern void eigrp_if_set_multicast(struct eigrp_interface *);
@@ -58,8 +54,6 @@ extern struct eigrp_interface *eigrp_if_lookup_by_local_addr(struct eigrp *,
 							     struct in_addr);
 extern struct eigrp_interface *eigrp_if_lookup_by_name(struct eigrp *,
 						       const char *);
-struct eigrp_interface *eigrp_if_lookup_recv_if(struct eigrp *, struct in_addr,
-						struct interface *);
 
 /* Simulate down/up on the interface. */
 extern void eigrp_if_reset(struct interface *);

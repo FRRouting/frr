@@ -434,8 +434,8 @@ void eigrp_update_send_init(struct eigrp_neighbor *nbr)
 				 nbr->recv_sequence_number);
 
 	// encode Authentication TLV, if needed
-	if ((IF_DEF_PARAMS(nbr->ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
-	    && (IF_DEF_PARAMS(nbr->ei->ifp)->auth_keychain != NULL)) {
+	if ((nbr->ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
+	    && (nbr->ei->params.auth_keychain != NULL)) {
 		length += eigrp_add_authTLV_MD5_to_stream(ep->s, nbr->ei);
 		eigrp_make_md5_digest(nbr->ei, ep->s,
 				      EIGRP_AUTH_UPDATE_INIT_FLAG);
@@ -467,8 +467,8 @@ static void eigrp_update_place_on_nbr_queue(struct eigrp_neighbor *nbr,
 					    u_int32_t seq_no,
 					    int length)
 {
-	if((IF_DEF_PARAMS (nbr->ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5) &&
-	   (IF_DEF_PARAMS (nbr->ei->ifp)->auth_keychain != NULL)) {
+	if((nbr->ei->params.auth_type == EIGRP_AUTH_TYPE_MD5) &&
+	   (nbr->ei->params.auth_keychain != NULL)) {
 		eigrp_make_md5_digest(nbr->ei,ep->s, EIGRP_AUTH_UPDATE_FLAG);
 	}
 
@@ -544,8 +544,8 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 				 seq_no, nbr->recv_sequence_number);
 
 	// encode Authentication TLV, if needed
-	if((IF_DEF_PARAMS (ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5) &&
-	   (IF_DEF_PARAMS (ei->ifp)->auth_keychain != NULL)) {
+	if((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5) &&
+	   (ei->params.auth_keychain != NULL)) {
 		length += eigrp_add_authTLV_MD5_to_stream(ep->s,ei);
 	}
 
@@ -564,8 +564,8 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 							 ep->s, EIGRP_EOT_FLAG,
 							 seq_no, nbr->recv_sequence_number);
 
-				if((IF_DEF_PARAMS (ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5) &&
-				   (IF_DEF_PARAMS (ei->ifp)->auth_keychain != NULL))
+				if((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5) &&
+				   (ei->params.auth_keychain != NULL))
 				{
 					length += eigrp_add_authTLV_MD5_to_stream(ep->s,ei);
 				}
@@ -610,8 +610,8 @@ void eigrp_update_send(struct eigrp_interface *ei)
 				 ep->s, 0, seq_no, 0);
 
 	// encode Authentication TLV, if needed
-	if ((IF_DEF_PARAMS(ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
-	    && (IF_DEF_PARAMS(ei->ifp)->auth_keychain != NULL)) {
+	if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
+	    && (ei->params.auth_keychain != NULL)) {
 		length += eigrp_add_authTLV_MD5_to_stream(ep->s, ei);
 	}
 
@@ -628,8 +628,8 @@ void eigrp_update_send(struct eigrp_interface *ei)
 			continue;
 
 		if ((length + 0x001D) > (u_int16_t)ei->ifp->mtu) {
-			if ((IF_DEF_PARAMS(ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
-			    && (IF_DEF_PARAMS(ei->ifp)->auth_keychain != NULL)) {
+			if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
+			    && (ei->params.auth_keychain != NULL)) {
 				eigrp_make_md5_digest(ei, ep->s, EIGRP_AUTH_UPDATE_FLAG);
 			}
 
@@ -646,8 +646,8 @@ void eigrp_update_send(struct eigrp_interface *ei)
 			ep = eigrp_packet_new(ei->ifp->mtu, NULL);
 			eigrp_packet_header_init(EIGRP_OPC_UPDATE, eigrp,
 						 ep->s, 0, seq_no, 0);
-			if ((IF_DEF_PARAMS(ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
-			    && (IF_DEF_PARAMS(ei->ifp)->auth_keychain != NULL)) {
+			if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
+			    && (ei->params.auth_keychain != NULL)) {
 				length += eigrp_add_authTLV_MD5_to_stream(ep->s, ei);
 			}
 			has_tlv = 0;
@@ -672,8 +672,8 @@ void eigrp_update_send(struct eigrp_interface *ei)
 		return;
 	}
 
-	if ((IF_DEF_PARAMS(ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
-	    && (IF_DEF_PARAMS(ei->ifp)->auth_keychain != NULL)) {
+	if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
+	    && (ei->params.auth_keychain != NULL)) {
 		eigrp_make_md5_digest(ei, ep->s, EIGRP_AUTH_UPDATE_FLAG);
 	}
 
@@ -790,8 +790,8 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 				 nbr->recv_sequence_number);
 
 	// encode Authentication TLV, if needed
-	if ((IF_DEF_PARAMS(ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
-	    && (IF_DEF_PARAMS(ei->ifp)->auth_keychain != NULL)) {
+	if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
+	    && (ei->params.auth_keychain != NULL)) {
 		length += eigrp_add_authTLV_MD5_to_stream(ep->s, ei);
 	}
 
@@ -856,8 +856,8 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 	}
 
 	/* compute Auth digest */
-	if ((IF_DEF_PARAMS(ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
-	    && (IF_DEF_PARAMS(ei->ifp)->auth_keychain != NULL)) {
+	if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
+	    && (ei->params.auth_keychain != NULL)) {
 		eigrp_make_md5_digest(ei, ep->s, EIGRP_AUTH_UPDATE_FLAG);
 	}
 

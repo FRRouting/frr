@@ -125,15 +125,15 @@ void eigrp_send_siareply(struct eigrp_neighbor *nbr,
 				 nbr->ei->eigrp->sequence_number, 0);
 
 	// encode Authentication TLV, if needed
-	if ((IF_DEF_PARAMS(nbr->ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
-	    && (IF_DEF_PARAMS(nbr->ei->ifp)->auth_keychain != NULL)) {
+	if (nbr->ei->params.auth_type == EIGRP_AUTH_TYPE_MD5
+	    && nbr->ei->params.auth_keychain != NULL) {
 		length += eigrp_add_authTLV_MD5_to_stream(ep->s, nbr->ei);
 	}
 
 	length += eigrp_add_internalTLV_to_stream(ep->s, pe);
 
-	if ((IF_DEF_PARAMS(nbr->ei->ifp)->auth_type == EIGRP_AUTH_TYPE_MD5)
-	    && (IF_DEF_PARAMS(nbr->ei->ifp)->auth_keychain != NULL)) {
+	if ((nbr->ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
+	    && (nbr->ei->params.auth_keychain != NULL)) {
 		eigrp_make_md5_digest(nbr->ei, ep->s, EIGRP_AUTH_UPDATE_FLAG);
 	}
 
