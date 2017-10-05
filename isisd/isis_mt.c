@@ -151,8 +151,7 @@ void area_mt_init(struct isis_area *area)
 
 void area_mt_finish(struct isis_area *area)
 {
-	list_delete(area->mt_settings);
-	area->mt_settings = NULL;
+	list_delete_and_null(&area->mt_settings);
 }
 
 struct isis_area_mt_setting *area_get_mt_setting(struct isis_area *area,
@@ -275,8 +274,7 @@ void circuit_mt_init(struct isis_circuit *circuit)
 
 void circuit_mt_finish(struct isis_circuit *circuit)
 {
-	list_delete(circuit->mt_settings);
-	circuit->mt_settings = NULL;
+	list_delete_and_null(&circuit->mt_settings);
 }
 
 struct isis_circuit_mt_setting *

@@ -519,7 +519,7 @@ int ospf_ls_upd_timer(struct thread *thread)
 
 		if (listcount(update) > 0)
 			ospf_ls_upd_send(nbr, update, OSPF_SEND_PACKET_DIRECT);
-		list_delete(update);
+		list_delete_and_null(&update);
 	}
 
 	/* Set LS Update retransmission timer. */
@@ -1572,7 +1572,7 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 		/* Verify LSA type. */
 		if (ls_type < OSPF_MIN_LSA || ls_type >= OSPF_MAX_LSA) {
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_BadLSReq);
-			list_delete(ls_upd);
+			list_delete_and_null(&ls_upd);
 			return;
 		}
 
@@ -1581,7 +1581,7 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 				       adv_router);
 		if (find == NULL) {
 			OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_BadLSReq);
-			list_delete(ls_upd);
+			list_delete_and_null(&ls_upd);
 			return;
 		}
 
@@ -1615,7 +1615,7 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 			ospf_ls_upd_send(nbr, ls_upd,
 					 OSPF_SEND_PACKET_INDIRECT);
 
-		list_delete(ls_upd);
+		list_delete_and_null(&ls_upd);
 	} else
 		list_free(ls_upd);
 }
@@ -1758,7 +1758,7 @@ static void ospf_upd_list_clean(struct list *lsas)
 	for (ALL_LIST_ELEMENTS(lsas, node, nnode, lsa))
 		ospf_lsa_discard(lsa);
 
-	list_delete(lsas);
+	list_delete_and_null(&lsas);
 }
 
 /* OSPF Link State Update message read -- RFC2328 Section 13. */
@@ -2159,7 +2159,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 #undef DISCARD_LSA
 
 	assert(listcount(lsas) == 0);
-	list_delete(lsas);
+	list_delete_and_null(&lsas);
 }
 
 /* OSPF Link State Acknowledgment message read -- RFC2328 Section 13.7. */
@@ -3774,7 +3774,7 @@ void ospf_ls_upd_send_lsa(struct ospf_neighbor *nbr, struct ospf_lsa *lsa,
 	listnode_add(update, lsa);
 	ospf_ls_upd_send(nbr, update, flag);
 
-	list_delete(update);
+	list_delete_and_null(&update);
 }
 
 /* Determine size for packet. Must be at least big enough to accomodate next
@@ -3918,8 +3918,7 @@ static int ospf_ls_upd_send_queue_event(struct thread *thread)
 
 		/* list might not be empty. */
 		if (listcount(update) == 0) {
-			list_delete(rn->info);
-			rn->info = NULL;
+			list_delete_and_null((struct list **)&rn->info);
 			route_unlock_node(rn);
 		} else
 			again = 1;

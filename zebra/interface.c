@@ -64,7 +64,7 @@ static void zebra_if_node_destroy(route_table_delegate_t *delegate,
 				  struct route_node *node)
 {
 	if (node->info)
-		list_delete(node->info);
+		list_delete_and_null((struct list **)&node->info);
 	route_node_destroy(delegate, table, node);
 }
 
@@ -627,7 +627,7 @@ static void if_delete_connected(struct interface *ifp)
 				}
 
 				/* Free chain list and respective route node. */
-				list_delete(addr_list);
+				list_delete_and_null(&addr_list);
 				rn->info = NULL;
 				route_unlock_node(rn);
 			} else if (cp.family == AF_INET6) {

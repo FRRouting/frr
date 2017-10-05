@@ -199,7 +199,7 @@ void eigrp_nexthop_entry_add(struct eigrp_prefix_entry *node,
 		eigrp_zebra_route_add(node->destination, l);
 	}
 
-	list_delete(l);
+	list_delete_and_null(&l);
 }
 
 /*
@@ -296,7 +296,7 @@ struct list *eigrp_topology_get_successor(struct eigrp_prefix_entry *table_node)
 	 * If we have no successors return NULL
 	 */
 	if (!successors->count) {
-		list_delete(successors);
+		list_delete_and_null(&successors);
 		successors = NULL;
 	}
 
@@ -475,7 +475,7 @@ void eigrp_update_routing_table(struct eigrp_prefix_entry *prefix)
 		for (ALL_LIST_ELEMENTS_RO(successors, node, entry))
 			entry->flags |= EIGRP_NEXTHOP_ENTRY_INTABLE_FLAG;
 
-		list_delete(successors);
+		list_delete_and_null(&successors);
 	} else {
 		eigrp_zebra_route_delete(prefix->destination);
 		for (ALL_LIST_ELEMENTS_RO(prefix->entries, node, entry))

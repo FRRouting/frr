@@ -272,7 +272,7 @@ void ospf6_area_delete(struct ospf6_area *oa)
 	for (ALL_LIST_ELEMENTS_RO(oa->if_list, n, oi))
 		oi->area = NULL;
 
-	list_delete(oa->if_list);
+	list_delete_and_null(&oa->if_list);
 
 	ospf6_lsdb_delete(oa->lsdb);
 	ospf6_lsdb_delete(oa->lsdb_self);

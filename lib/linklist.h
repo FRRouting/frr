@@ -74,7 +74,20 @@ extern void listnode_delete(struct list *, void *);
 extern struct listnode *listnode_lookup(struct list *, void *);
 extern void *listnode_head(struct list *);
 
-extern void list_delete(struct list *);
+/*
+ * The usage of list_delete is being transitioned to pass in
+ * the double pointer to remove use after free's.
+ * In Oct of 2018, rename list_delete_and_null to list_delete
+ * and remove list_delete_original and the list_delete #define
+ */
+#if CONFDATE > 20181001
+CPP_NOTICE("list_delete without double pointer is deprecated, please fixup")
+#endif
+extern void list_delete_and_null(struct list **);
+extern void list_delete_original(struct list *);
+#define list_delete(X) list_delete_original((X))  \
+	CPP_WARN("Please transition to using list_delete_and_null")
+
 extern void list_delete_all_node(struct list *);
 
 /* For ospfd and ospf6d. */

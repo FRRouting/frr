@@ -166,7 +166,7 @@ static int test(FILE *input, FILE *output)
 		sbuf_push(&fragment_format, 0, "%s", isis_format_tlvs(tlvs));
 		isis_free_tlvs(tlvs);
 	}
-	list_delete(fragments);
+	list_delete_and_null(&fragments);
 	stream_free(s);
 
 	char *fragment_content = sortlines((char *)sbuf_buf(&fragment_format));

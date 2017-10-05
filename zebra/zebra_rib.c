@@ -1875,7 +1875,7 @@ void meta_queue_free(struct meta_queue *mq)
 	unsigned i;
 
 	for (i = 0; i < MQ_SIZE; i++)
-		list_delete(mq->subq[i]);
+		list_delete_and_null(&mq->subq[i]);
 
 	XFREE(MTYPE_WORK_QUEUE, mq);
 }

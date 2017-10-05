@@ -570,7 +570,7 @@ void thread_master_free(struct thread_master *m)
 	pthread_cond_destroy(&m->cancel_cond);
 	close(m->io_pipe[0]);
 	close(m->io_pipe[1]);
-	list_delete(m->cancel_req);
+	list_delete_and_null(&m->cancel_req);
 	m->cancel_req = NULL;
 
 	hash_clean(m->cpu_record, cpu_record_hash_free);

@@ -2829,7 +2829,7 @@ void ripng_clean()
 						rinfo->t_garbage_collect);
 					ripng_info_free(rinfo);
 				}
-				list_delete(list);
+				list_delete_and_null(&list);
 				rp->info = NULL;
 				route_unlock_node(rp);
 			}

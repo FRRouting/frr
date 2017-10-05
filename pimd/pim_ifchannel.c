@@ -169,7 +169,7 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 	pim_ifchannel_remove_children(ch);
 
 	if (ch->sources)
-		list_delete(ch->sources);
+		list_delete_and_null(&ch->sources);
 
 	listnode_delete(ch->upstream->ifchannels, ch);
 
@@ -571,7 +571,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 
 		pim_ifchannel_remove_children(ch);
 		if (ch->sources)
-			list_delete(ch->sources);
+			list_delete_and_null(&ch->sources);
 
 		THREAD_OFF(ch->t_ifjoin_expiry_timer);
 		THREAD_OFF(ch->t_ifjoin_prune_pending_timer);

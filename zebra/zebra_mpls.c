@@ -2701,7 +2701,7 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 		vty_out(vty, "\n");
 	}
 
-	list_delete(lsp_list);
+	list_delete_and_null(&lsp_list);
 }
 
 /*
@@ -2740,7 +2740,7 @@ int zebra_mpls_write_lsp_config(struct vty *vty, struct zebra_vrf *zvrf)
 		}
 	}
 
-	list_delete(slsp_list);
+	list_delete_and_null(&slsp_list);
 	return (zvrf->slsp_table->count ? 1 : 0);
 }
 

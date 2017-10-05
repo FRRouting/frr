@@ -375,5 +375,5 @@ int release_daemon_chunks(u_char proto, u_short instance)
 
 void label_manager_close()
 {
-	list_delete(lbl_mgr.lc_list);
+	list_delete_and_null(&lbl_mgr.lc_list);
 }

@@ -318,8 +318,7 @@ void hash_free(struct hash *hash)
 		if (_hashes) {
 			listnode_delete(_hashes, hash);
 			if (_hashes->count == 0) {
-				list_delete(_hashes);
-				_hashes = NULL;
+				list_delete_and_null(&_hashes);
 			}
 		}
 	}

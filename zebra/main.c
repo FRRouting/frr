@@ -145,7 +145,7 @@ static void sigint(void)
 	prefix_list_reset();
 	route_map_finish();
 
-	list_delete(zebrad.client_list);
+	list_delete_and_null(&zebrad.client_list);
 	work_queue_free(zebrad.ribq);
 	if (zebrad.lsp_process_q)
 		work_queue_free(zebrad.lsp_process_q);

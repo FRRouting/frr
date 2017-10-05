@@ -509,7 +509,7 @@ static struct ospf_if_params *ospf_new_if_params(void)
 
 void ospf_del_if_params(struct ospf_if_params *oip)
 {
-	list_delete(oip->auth_crypt);
+	list_delete_and_null(&oip->auth_crypt);
 	bfd_info_free(&(oip->bfd_info));
 	XFREE(MTYPE_OSPF_IF_PARAMS, oip);
 }

@@ -1095,8 +1095,7 @@ void if_terminate(struct list **intf_list)
 		if_delete(ifp);
 	}
 
-	list_delete(*intf_list);
-	*intf_list = NULL;
+	list_delete_and_null(intf_list);
 }
 
 const char *if_link_type_str(enum zebra_link_type llt)

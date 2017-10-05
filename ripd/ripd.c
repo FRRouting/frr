@@ -3809,7 +3809,7 @@ void rip_clean(void)
 					RIP_TIMER_OFF(rinfo->t_garbage_collect);
 					rip_info_free(rinfo);
 				}
-				list_delete(list);
+				list_delete_and_null(&list);
 				rp->info = NULL;
 				route_unlock_node(rp);
 			}

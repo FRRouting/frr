@@ -3274,7 +3274,7 @@ static int rfapiDeleteLocalPrefixesByRFD(struct rfapi_local_reg_delete_arg *cda,
 				}
 				list_delete_all_node(adb_delete_list);
 			}
-			list_delete(adb_delete_list);
+			list_delete_and_null(&adb_delete_list);
 		}
 
 

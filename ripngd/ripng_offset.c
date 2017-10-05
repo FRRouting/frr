@@ -375,7 +375,7 @@ void ripng_offset_init(void)
 
 void ripng_offset_clean(void)
 {
-	list_delete(ripng_offset_list_master);
+	list_delete_and_null(&ripng_offset_list_master);
 
 	ripng_offset_list_master = list_new();
 	ripng_offset_list_master->cmp =

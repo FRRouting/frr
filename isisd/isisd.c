@@ -220,8 +220,7 @@ int isis_area_destroy(struct vty *vty, const char *area_tag)
 			circuit->ipv6_router = 0;
 			isis_csm_state_change(ISIS_DISABLE, circuit, area);
 		}
-		list_delete(area->circuit_list);
-		area->circuit_list = NULL;
+		list_delete_and_null(&area->circuit_list);
 	}
 
 	if (area->lspdb[0] != NULL) {

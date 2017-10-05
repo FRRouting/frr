@@ -104,7 +104,7 @@ static struct ospf_neighbor *ospf_elect_dr(struct ospf_interface *oi,
 	else
 		DR(oi).s_addr = 0;
 
-	list_delete(dr_list);
+	list_delete_and_null(&dr_list);
 
 	return dr;
 }
@@ -144,8 +144,8 @@ static struct ospf_neighbor *ospf_elect_bdr(struct ospf_interface *oi,
 	else
 		BDR(oi).s_addr = 0;
 
-	list_delete(bdr_list);
-	list_delete(no_dr_list);
+	list_delete_and_null(&bdr_list);
+	list_delete_and_null(&no_dr_list);
 
 	return bdr;
 }
@@ -232,7 +232,7 @@ static int ospf_dr_election(struct ospf_interface *oi)
 		zlog_debug("DR-Election[2nd]: DR     %s", inet_ntoa(DR(oi)));
 	}
 
-	list_delete(el_list);
+	list_delete_and_null(&el_list);
 
 	/* if DR or BDR changes, cause AdjOK? neighbor event. */
 	if (!IPV4_ADDR_SAME(&old_dr, &DR(oi))

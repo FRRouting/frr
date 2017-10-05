@@ -3707,7 +3707,7 @@ int ospf_lsa_refresh_walker(struct thread *t)
 			&lsa); /* lsa_refresh_queue & temp for lsa_to_refresh*/
 	}
 
-	list_delete(lsa_to_refresh);
+	list_delete_and_null(&lsa_to_refresh);
 
 	if (IS_DEBUG_OSPF(lsa, LSA_REFRESH))
 		zlog_debug("LSA[Refresh]: ospf_lsa_refresh_walker(): end");

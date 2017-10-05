@@ -236,7 +236,7 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 			pim_sendmsg_zebra_rnh(pim, zclient, pnc,
 					      ZEBRA_NEXTHOP_UNREGISTER);
 
-			list_delete(pnc->rp_list);
+			list_delete_and_null(&pnc->rp_list);
 			hash_free(pnc->upstream_hash);
 
 			hash_release(pim->rpf_hash, pnc);

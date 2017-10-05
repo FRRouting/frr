@@ -1292,7 +1292,7 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 		for (ALL_LIST_ELEMENTS_RO(lsp_list, node, lsp))
 			ISIS_SET_FLAG(lsp->SRMflags, circuit);
 		/* lets free it */
-		list_delete(lsp_list);
+		list_delete_and_null(&lsp_list);
 	}
 
 	retval = ISIS_OK;

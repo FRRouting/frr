@@ -166,8 +166,7 @@ static int ospf_mpls_te_unregister()
 
 void ospf_mpls_te_term(void)
 {
-	list_delete(OspfMplsTE.iflist);
-	OspfMplsTE.iflist = NULL;
+	list_delete_and_null(&OspfMplsTE.iflist);
 
 	ospf_delete_opaque_functab(OSPF_OPAQUE_AREA_LSA,
 				   OPAQUE_TYPE_TRAFFIC_ENGINEERING_LSA);

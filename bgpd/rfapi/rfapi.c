@@ -490,7 +490,8 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 		 * Delete local_nexthops list
 		 */
 		if (bi->extra && bi->extra->vnc.export.local_nexthops) {
-			list_delete(bi->extra->vnc.export.local_nexthops);
+			list_delete_and_null(
+				&bi->extra->vnc.export.local_nexthops);
 		}
 
 		bgp_aggregate_decrement(bgp, p, bi, afi, safi);

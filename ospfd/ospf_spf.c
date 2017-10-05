@@ -210,12 +210,10 @@ static void ospf_vertex_free(void *data)
 	// assert (listcount (v->parents) == 0);
 
 	if (v->children)
-		list_delete(v->children);
-	v->children = NULL;
+		list_delete_and_null(&v->children);
 
 	if (v->parents)
-		list_delete(v->parents);
-	v->parents = NULL;
+		list_delete_and_null(&v->parents);
 
 	v->lsa = NULL;
 
@@ -1089,7 +1087,7 @@ void ospf_rtrs_free(struct route_table *rtrs)
 			for (ALL_LIST_ELEMENTS(or_list, node, nnode, or))
 				ospf_route_free(or);
 
-			list_delete(or_list);
+			list_delete_and_null(&or_list);
 
 			/* Unlock the node. */
 			rn->info = NULL;
