@@ -629,6 +629,8 @@ static void ospf_finish_final(struct ospf *ospf)
 		params = IF_DEF_PARAMS(ifp);
 		if (OSPF_IF_PARAM_CONFIGURED(params, if_area))
 			UNSET_IF_PARAM(params, if_area);
+
+		IF_DEF_PARAMS(ifp)->type = ospf_default_iftype(ifp);
 	}
 
 	/* Reset interface. */
