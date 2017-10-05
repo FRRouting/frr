@@ -146,6 +146,33 @@ static void zvni_deref_ip2mac(zebra_vni_t *zvni, zebra_mac_t *mac,
 
 /* Private functions */
 
+/*
+ * Return number of valid MACs in a VNI's MAC hash table - all
+ * remote MACs and non-internal (auto) local MACs count.
+ */
+static u_int32_t num_valid_macs(zebra_vni_t *zvni)
+{
+	unsigned int i;
+	u_int32_t num_macs = 0;
+	struct hash *hash;
+	struct hash_backet *hb;
+	zebra_mac_t *mac;
+
+	hash = zvni->mac_table;
+	if (!hash)
+		return num_macs;
+	for (i = 0; i < hash->size; i++) {
+		for (hb = hash->index[i]; hb; hb = hb->next) {
+			mac = (zebra_mac_t *)hb->data;
+			if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)
+			    || !CHECK_FLAG(mac->flags, ZEBRA_MAC_AUTO))
+				num_macs++;
+		}
+	}
+
+	return num_macs;
+}
+
 static int advertise_gw_macip_enabled(zebra_vni_t *zvni)
 {
 	struct zebra_vrf *zvrf;
@@ -543,7 +570,7 @@ static void zvni_print_mac_hash_all_vni(struct hash_backet *backet, void *ctxt)
 	/*We are iterating over a new VNI, set the count to 0*/
 	wctx->count = 0;
 
-	num_macs = hashcount(zvni->mac_table);
+	num_macs = num_valid_macs(zvni);
 	if (!num_macs)
 		return;
 
@@ -602,7 +629,7 @@ static void zvni_print(zebra_vni_t *zvni, void **ctxt)
 			vty_out(vty, " VxLAN interface: unknown\n");
 		return;
 	}
-	num_macs = hashcount(zvni->mac_table);
+	num_macs = num_valid_macs(zvni);
 	num_neigh = hashcount(zvni->neigh_table);
 	if (json == NULL)
 		vty_out(vty, " VxLAN interface: %s ifIndex: %u VTEP IP: %s\n",
@@ -684,7 +711,7 @@ static void zvni_print_hash(struct hash_backet *backet, void *ctxt[])
 		zvtep = zvtep->next;
 	}
 
-	num_macs = hashcount(zvni->mac_table);
+	num_macs = num_valid_macs(zvni);
 	num_neigh = hashcount(zvni->neigh_table);
 	if (json == NULL)
 		vty_out(vty, "%-10u %-21s %-15s %-8u %-8u %-15u\n", zvni->vni,
@@ -2534,7 +2561,7 @@ void zebra_vxlan_print_macs_vni(struct vty *vty, struct zebra_vrf *zvrf,
 			vty_out(vty, "%% VNI %u does not exist\n", vni);
 		return;
 	}
-	num_macs = hashcount(zvni->mac_table);
+	num_macs = num_valid_macs(zvni);
 	if (!num_macs)
 		return;
 
@@ -2676,7 +2703,7 @@ void zebra_vxlan_print_macs_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf,
 			vty_out(vty, "%% VNI %u does not exist\n", vni);
 		return;
 	}
-	num_macs = hashcount(zvni->mac_table);
+	num_macs = num_valid_macs(zvni);
 	if (!num_macs)
 		return;
 
