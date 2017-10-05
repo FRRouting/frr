@@ -101,8 +101,7 @@ static int eigrp_prefix_entry_cmp(struct eigrp_prefix_entry *node1,
 
 static void eigrp_prefix_entry_del(struct eigrp_prefix_entry *node)
 {
-	list_delete_all_node(node->entries);
-	list_free(node->entries);
+	list_delete_and_null(&node->entries);
 }
 
 /*
@@ -158,7 +157,7 @@ struct eigrp_nexthop_entry *eigrp_nexthop_entry_new()
  */
 void eigrp_topology_free(struct list *list)
 {
-	list_free(list);
+	list_delete_and_null(&list);
 }
 
 /*
@@ -199,7 +198,7 @@ void eigrp_nexthop_entry_add(struct eigrp_prefix_entry *node,
 		eigrp_zebra_route_add(node->destination, l);
 	}
 
-	list_delete(l);
+	list_delete_and_null(&l);
 }
 
 /*
@@ -217,9 +216,8 @@ void eigrp_prefix_entry_delete(struct list *topology,
 	listnode_delete(eigrp->topology_changes_internalIPV4, node);
 
 	if (listnode_lookup(topology, node) != NULL) {
-		list_delete_all_node(node->entries);
-		list_free(node->entries);
-		list_free(node->rij);
+		list_delete_and_null(&node->entries);
+		list_delete_and_null(&node->rij);
 		listnode_delete(topology, node);
 		eigrp_zebra_route_delete(node->destination);
 		XFREE(MTYPE_EIGRP_PREFIX_ENTRY, node);
@@ -296,7 +294,7 @@ struct list *eigrp_topology_get_successor(struct eigrp_prefix_entry *table_node)
 	 * If we have no successors return NULL
 	 */
 	if (!successors->count) {
-		list_delete(successors);
+		list_delete_and_null(&successors);
 		successors = NULL;
 	}
 
@@ -475,7 +473,7 @@ void eigrp_update_routing_table(struct eigrp_prefix_entry *prefix)
 		for (ALL_LIST_ELEMENTS_RO(successors, node, entry))
 			entry->flags |= EIGRP_NEXTHOP_ENTRY_INTABLE_FLAG;
 
-		list_delete(successors);
+		list_delete_and_null(&successors);
 	} else {
 		eigrp_zebra_route_delete(prefix->destination);
 		for (ALL_LIST_ELEMENTS_RO(prefix->entries, node, entry))

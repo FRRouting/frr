@@ -1544,7 +1544,7 @@ void vnc_direct_bgp_vpn_disable(struct bgp *bgp, afi_t afi)
 		if (nve_list) {
 			vnc_direct_bgp_unexport_table(
 				afi, it->imported_vpn[afi], nve_list);
-			list_free(nve_list);
+			list_delete_and_null(&nve_list);
 		}
 	}
 }

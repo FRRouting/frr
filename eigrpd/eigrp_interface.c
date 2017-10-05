@@ -109,7 +109,7 @@ int eigrp_if_delete_hook(struct interface *ifp)
 	if (!ei)
 		return 0;
 
-	list_delete(ei->nbrs);
+	list_delete_and_null(&ei->nbrs);
 
 	eigrp = ei->eigrp;
 	listnode_delete(eigrp->eiflist, ei);
@@ -354,7 +354,7 @@ void eigrp_if_free(struct eigrp_interface *ei,
 
 	eigrp_if_down(ei);
 
-	list_delete(ei->nbrs);
+	list_delete_and_null(&ei->nbrs);
 	listnode_delete(ei->eigrp->eiflist, ei);
 }
 

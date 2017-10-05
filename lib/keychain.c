@@ -119,7 +119,7 @@ static void keychain_delete(struct keychain *keychain)
 	if (keychain->name)
 		XFREE(MTYPE_KEYCHAIN, keychain->name);
 
-	list_delete(keychain->key);
+	list_delete_and_null(&keychain->key);
 	listnode_delete(keychain_list, keychain);
 	keychain_free(keychain);
 }

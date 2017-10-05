@@ -288,7 +288,7 @@ static void unmap_vni_from_rt(struct bgp *bgp, struct bgpevpn *vpn,
 	/* Delete VNI from hash list for this RT. */
 	listnode_delete(irt->vnis, vpn);
 	if (!listnode_head(irt->vnis)) {
-		list_free(irt->vnis);
+		list_delete_and_null(&irt->vnis);
 		import_rt_free(bgp, irt);
 	}
 }
@@ -2609,10 +2609,8 @@ void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn)
 {
 	bgp_table_unlock(vpn->route_table);
 	bgp_evpn_unmap_vni_from_its_rts(bgp, vpn);
-	list_delete(vpn->import_rtl);
-	list_delete(vpn->export_rtl);
-	vpn->import_rtl = NULL;
-	vpn->export_rtl = NULL;
+	list_delete_and_null(&vpn->import_rtl);
+	list_delete_and_null(&vpn->export_rtl);
 	bf_release_index(bgp->rd_idspace, vpn->rd_id);
 	hash_release(bgp->vnihash, vpn);
 	QOBJ_UNREG(vpn);

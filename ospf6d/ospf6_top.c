@@ -172,7 +172,7 @@ void ospf6_delete(struct ospf6 *o)
 		ospf6_area_delete(oa);
 
 
-	list_delete(o->area_list);
+	list_delete_and_null(&o->area_list);
 
 	ospf6_lsdb_delete(o->lsdb);
 	ospf6_lsdb_delete(o->lsdb_self);

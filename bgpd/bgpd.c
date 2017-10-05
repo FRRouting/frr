@@ -2436,14 +2436,14 @@ int peer_group_delete(struct peer_group *group)
 			peer_delete(other);
 		}
 	}
-	list_delete(group->peer);
+	list_delete_and_null(&group->peer);
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
 		for (ALL_LIST_ELEMENTS(group->listen_range[afi], node, nnode,
 				       prefix)) {
 			prefix_free(prefix);
 		}
-		list_delete(group->listen_range[afi]);
+		list_delete_and_null(&group->listen_range[afi]);
 	}
 
 	XFREE(MTYPE_PEER_GROUP_HOST, group->name);
@@ -3193,8 +3193,8 @@ void bgp_free(struct bgp *bgp)
 
 	QOBJ_UNREG(bgp);
 
-	list_delete(bgp->group);
-	list_delete(bgp->peer);
+	list_delete_and_null(&bgp->group);
+	list_delete_and_null(&bgp->peer);
 
 	if (bgp->peerhash) {
 		hash_free(bgp->peerhash);
@@ -7454,8 +7454,7 @@ void bgp_terminate(void)
 	/* reverse bgp_master_init */
 	bgp_close();
 	if (bm->listen_sockets)
-		list_free(bm->listen_sockets);
-	bm->listen_sockets = NULL;
+		list_delete_and_null(&bm->listen_sockets);
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp))
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer))

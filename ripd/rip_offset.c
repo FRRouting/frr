@@ -363,7 +363,7 @@ void rip_offset_init()
 
 void rip_offset_clean()
 {
-	list_delete(rip_offset_list_master);
+	list_delete_and_null(&rip_offset_list_master);
 
 	rip_offset_list_master = list_new();
 	rip_offset_list_master->cmp = (int (*)(void *, void *))offset_list_cmp;

@@ -125,9 +125,9 @@ static void tlv_trace_list(const char *label, const char *tlv_name,
 	}
 }
 
-#define FREE_ADDR_LIST                                                         \
-	if (hello_option_addr_list) {                                          \
-		list_delete(hello_option_addr_list);                           \
+#define FREE_ADDR_LIST							\
+	if (hello_option_addr_list) {					\
+		list_delete_and_null(&hello_option_addr_list);		\
 	}
 
 #define FREE_ADDR_LIST_THEN_RETURN(code)                                       \

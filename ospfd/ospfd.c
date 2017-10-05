@@ -620,7 +620,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	for (ALL_LIST_ELEMENTS(ospf->vlinks, node, nnode, vl_data))
 		ospf_vl_delete(ospf, vl_data);
 
-	list_delete(ospf->vlinks);
+	list_delete_and_null(&ospf->vlinks);
 
 	/* Remove any ospf interface config params */
 	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(ospf->vrf_id), node, ifp)) {
@@ -734,9 +734,9 @@ static void ospf_finish_final(struct ospf *ospf)
 		ospf_ase_external_lsas_finish(ospf->external_lsas);
 	}
 
-	list_delete(ospf->areas);
-	list_delete(ospf->oi_write_q);
-	list_delete(ospf->oiflist);
+	list_delete_and_null(&ospf->areas);
+	list_delete_and_null(&ospf->oi_write_q);
+	list_delete_and_null(&ospf->oiflist);
 
 	for (i = ZEBRA_ROUTE_SYSTEM; i <= ZEBRA_ROUTE_MAX; i++) {
 		struct list *ext_list;
@@ -852,7 +852,7 @@ static void ospf_area_free(struct ospf_area *area)
 	ospf_lsa_unlock(&area->router_lsa_self);
 
 	route_table_finish(area->ranges);
-	list_delete(area->oiflist);
+	list_delete_and_null(&area->oiflist);
 
 	if (EXPORT_NAME(area))
 		free(EXPORT_NAME(area));
@@ -1276,7 +1276,7 @@ void ospf_ls_upd_queue_empty(struct ospf_interface *oi)
 		if ((lst = (struct list *)rn->info)) {
 			for (ALL_LIST_ELEMENTS(lst, node, nnode, lsa))
 				ospf_lsa_unlock(&lsa); /* oi->ls_upd_queue */
-			list_delete(lst);
+			list_delete_and_null(&lst);
 			rn->info = NULL;
 		}
 

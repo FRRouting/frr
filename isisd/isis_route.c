@@ -289,13 +289,13 @@ static void isis_route_info_delete(struct isis_route_info *route_info)
 	if (route_info->nexthops) {
 		route_info->nexthops->del =
 			(void (*)(void *))isis_nexthop_delete;
-		list_delete(route_info->nexthops);
+		list_delete_and_null(&route_info->nexthops);
 	}
 
 	if (route_info->nexthops6) {
 		route_info->nexthops6->del =
 			(void (*)(void *))isis_nexthop6_delete;
-		list_delete(route_info->nexthops6);
+		list_delete_and_null(&route_info->nexthops6);
 	}
 
 	XFREE(MTYPE_ISIS_ROUTE_INFO, route_info);

@@ -3622,7 +3622,7 @@ void ospf_refresher_unregister_lsa(struct ospf *ospf, struct ospf_lsa *lsa)
 			ospf->lsa_refresh_queue.qs[lsa->refresh_list];
 		listnode_delete(refresh_list, lsa);
 		if (!listcount(refresh_list)) {
-			list_free(refresh_list);
+			list_delete_and_null(&refresh_list);
 			ospf->lsa_refresh_queue.qs[lsa->refresh_list] = NULL;
 		}
 		ospf_lsa_unlock(&lsa); /* lsa_refresh_queue */
@@ -3691,7 +3691,7 @@ int ospf_lsa_refresh_walker(struct thread *t)
 				lsa->refresh_list = -1;
 				listnode_add(lsa_to_refresh, lsa);
 			}
-			list_free(refresh_list);
+			list_delete_and_null(&refresh_list);
 		}
 	}
 
@@ -3707,7 +3707,7 @@ int ospf_lsa_refresh_walker(struct thread *t)
 			&lsa); /* lsa_refresh_queue & temp for lsa_to_refresh*/
 	}
 
-	list_delete(lsa_to_refresh);
+	list_delete_and_null(&lsa_to_refresh);
 
 	if (IS_DEBUG_OSPF(lsa, LSA_REFRESH))
 		zlog_debug("LSA[Refresh]: ospf_lsa_refresh_walker(): end");

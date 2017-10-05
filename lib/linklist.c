@@ -33,7 +33,7 @@ struct list *list_new(void)
 }
 
 /* Free list. */
-void list_free(struct list *l)
+static void list_free_internal(struct list *l)
 {
 	XFREE(MTYPE_LINK_LIST, l);
 }
@@ -239,7 +239,7 @@ void list_delete_all_node(struct list *list)
 	assert(list);
 	for (node = list->head; node; node = next) {
 		next = node->next;
-		if (list->del)
+		if (*list->del)
 			(*list->del)(node->data);
 		listnode_free(node);
 	}
@@ -248,11 +248,17 @@ void list_delete_all_node(struct list *list)
 }
 
 /* Delete all listnode then free list itself. */
-void list_delete(struct list *list)
+void list_delete_and_null(struct list **list)
 {
-	assert(list);
-	list_delete_all_node(list);
-	list_free(list);
+	assert(*list);
+	list_delete_all_node(*list);
+	list_free_internal(*list);
+	*list = NULL;
+}
+
+void list_delete_original(struct list *list)
+{
+	list_delete_and_null(&list);
 }
 
 /* Lookup the node which has given data. */

@@ -99,7 +99,7 @@ void wheel_delete(struct timer_wheel *wheel)
 	int i;
 
 	for (i = 0; i < wheel->slots; i++) {
-		list_delete(wheel->wheel_slot_lists[i]);
+		list_delete_and_null(&wheel->wheel_slot_lists[i]);
 	}
 
 	THREAD_OFF(wheel->timer);

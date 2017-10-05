@@ -51,8 +51,7 @@ void pim_rp_list_hash_clean(void *data)
 {
 	struct pim_nexthop_cache *pnc = (struct pim_nexthop_cache *)data;
 
-	list_delete(pnc->rp_list);
-	pnc->rp_list = NULL;
+	list_delete_and_null(&pnc->rp_list);
 
 	hash_clean(pnc->upstream_hash, NULL);
 	hash_free(pnc->upstream_hash);
@@ -110,7 +109,7 @@ void pim_rp_init(struct pim_instance *pim)
 	pim->rp_table = route_table_init();
 	if (!pim->rp_table) {
 		zlog_err("Unable to alloc rp_table");
-		list_delete(pim->rp_list);
+		list_delete_and_null(&pim->rp_list);
 		return;
 	}
 
@@ -119,13 +118,13 @@ void pim_rp_init(struct pim_instance *pim)
 	if (!rp_info) {
 		zlog_err("Unable to alloc rp_info");
 		route_table_finish(pim->rp_table);
-		list_delete(pim->rp_list);
+		list_delete_and_null(&pim->rp_list);
 		return;
 	}
 
 	if (!str2prefix("224.0.0.0/4", &rp_info->group)) {
 		zlog_err("Unable to convert 224.0.0.0/4 to prefix");
-		list_delete(pim->rp_list);
+		list_delete_and_null(&pim->rp_list);
 		route_table_finish(pim->rp_table);
 		XFREE(MTYPE_PIM_RP, rp_info);
 		return;
@@ -140,7 +139,7 @@ void pim_rp_init(struct pim_instance *pim)
 	rn = route_node_get(pim->rp_table, &rp_info->group);
 	if (!rn) {
 		zlog_err("Failure to get route node for pim->rp_table");
-		list_delete(pim->rp_list);
+		list_delete_and_null(&pim->rp_list);
 		route_table_finish(pim->rp_table);
 		XFREE(MTYPE_PIM_RP, rp_info);
 		return;
@@ -155,8 +154,7 @@ void pim_rp_init(struct pim_instance *pim)
 void pim_rp_free(struct pim_instance *pim)
 {
 	if (pim->rp_list)
-		list_delete(pim->rp_list);
-	pim->rp_list = NULL;
+		list_delete_and_null(&pim->rp_list);
 }
 
 /*

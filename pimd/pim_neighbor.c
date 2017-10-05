@@ -401,8 +401,7 @@ static void delete_prefix_list(struct pim_neighbor *neigh)
 		}
 #endif
 
-		list_delete(neigh->prefix_list);
-		neigh->prefix_list = 0;
+		list_delete_and_null(&neigh->prefix_list);
 	}
 }
 
@@ -412,7 +411,7 @@ void pim_neighbor_free(struct pim_neighbor *neigh)
 
 	delete_prefix_list(neigh);
 
-	list_delete(neigh->upstream_jp_agg);
+	list_delete_and_null(&neigh->upstream_jp_agg);
 	THREAD_OFF(neigh->jp_timer);
 
 	XFREE(MTYPE_PIM_NEIGHBOR, neigh);

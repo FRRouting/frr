@@ -353,7 +353,7 @@ void ospf6_route_delete(struct ospf6_route *route)
 {
 	if (route) {
 		if (route->nh_list)
-			list_delete(route->nh_list);
+			list_delete_and_null(&route->nh_list);
 		XFREE(MTYPE_OSPF6_ROUTE, route);
 	}
 }

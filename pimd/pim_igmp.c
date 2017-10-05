@@ -696,7 +696,7 @@ void igmp_startup_mode_on(struct igmp_sock *igmp)
 
 static void igmp_group_free(struct igmp_group *group)
 {
-	list_delete(group->group_source_list);
+	list_delete_and_null(&group->group_source_list);
 
 	XFREE(MTYPE_PIM_IGMP_GROUP, group);
 }
@@ -748,7 +748,7 @@ void igmp_sock_free(struct igmp_sock *igmp)
 	zassert(igmp->igmp_group_list);
 	zassert(!listcount(igmp->igmp_group_list));
 
-	list_delete(igmp->igmp_group_list);
+	list_delete_and_null(&igmp->igmp_group_list);
 	hash_free(igmp->igmp_group_hash);
 
 	XFREE(MTYPE_PIM_IGMP_SOCKET, igmp);

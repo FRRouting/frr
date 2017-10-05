@@ -191,8 +191,8 @@ void if_delete(struct interface *ifp)
 
 	if_delete_retain(ifp);
 
-	list_free(ifp->connected);
-	list_free(ifp->nbr_connected);
+	list_delete_and_null(&ifp->connected);
+	list_delete_and_null(&ifp->nbr_connected);
 
 	if_link_params_free(ifp);
 
@@ -1095,8 +1095,7 @@ void if_terminate(struct list **intf_list)
 		if_delete(ifp);
 	}
 
-	list_delete(*intf_list);
-	*intf_list = NULL;
+	list_delete_and_null(intf_list);
 }
 
 const char *if_link_type_str(enum zebra_link_type llt)

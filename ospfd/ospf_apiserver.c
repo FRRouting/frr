@@ -180,7 +180,7 @@ void ospf_apiserver_term(void)
 
 	/* Free client list itself */
 	if (apiserver_list)
-		list_delete(apiserver_list);
+		list_delete_and_null(&apiserver_list);
 
 	/* Free wildcard list */
 	/* XXX  */

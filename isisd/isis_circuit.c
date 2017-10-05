@@ -453,19 +453,19 @@ void isis_circuit_if_del(struct isis_circuit *circuit, struct interface *ifp)
 
 	if (circuit->ip_addrs) {
 		assert(listcount(circuit->ip_addrs) == 0);
-		list_delete(circuit->ip_addrs);
+		list_delete_and_null(&circuit->ip_addrs);
 		circuit->ip_addrs = NULL;
 	}
 
 	if (circuit->ipv6_link) {
 		assert(listcount(circuit->ipv6_link) == 0);
-		list_delete(circuit->ipv6_link);
+		list_delete_and_null(&circuit->ipv6_link);
 		circuit->ipv6_link = NULL;
 	}
 
 	if (circuit->ipv6_non_link) {
 		assert(listcount(circuit->ipv6_non_link) == 0);
-		list_delete(circuit->ipv6_non_link);
+		list_delete_and_null(&circuit->ipv6_non_link);
 		circuit->ipv6_non_link = NULL;
 	}
 
@@ -692,22 +692,22 @@ void isis_circuit_down(struct isis_circuit *circuit)
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
 		/* destroy neighbour lists */
 		if (circuit->u.bc.lan_neighs[0]) {
-			list_delete(circuit->u.bc.lan_neighs[0]);
+			list_delete_and_null(&circuit->u.bc.lan_neighs[0]);
 			circuit->u.bc.lan_neighs[0] = NULL;
 		}
 		if (circuit->u.bc.lan_neighs[1]) {
-			list_delete(circuit->u.bc.lan_neighs[1]);
+			list_delete_and_null(&circuit->u.bc.lan_neighs[1]);
 			circuit->u.bc.lan_neighs[1] = NULL;
 		}
 		/* destroy adjacency databases */
 		if (circuit->u.bc.adjdb[0]) {
 			circuit->u.bc.adjdb[0]->del = isis_delete_adj;
-			list_delete(circuit->u.bc.adjdb[0]);
+			list_delete_and_null(&circuit->u.bc.adjdb[0]);
 			circuit->u.bc.adjdb[0] = NULL;
 		}
 		if (circuit->u.bc.adjdb[1]) {
 			circuit->u.bc.adjdb[1]->del = isis_delete_adj;
-			list_delete(circuit->u.bc.adjdb[1]);
+			list_delete_and_null(&circuit->u.bc.adjdb[1]);
 			circuit->u.bc.adjdb[1] = NULL;
 		}
 		if (circuit->u.bc.is_dr[0]) {
@@ -745,8 +745,7 @@ void isis_circuit_down(struct isis_circuit *circuit)
 	THREAD_OFF(circuit->t_read);
 
 	if (circuit->lsp_queue) {
-		list_delete(circuit->lsp_queue);
-		circuit->lsp_queue = NULL;
+		list_delete_and_null(&circuit->lsp_queue);
 	}
 
 	if (circuit->lsp_hash) {

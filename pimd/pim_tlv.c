@@ -654,12 +654,12 @@ int pim_parse_addr_source(struct prefix_sg *sg, uint8_t *flags,
 	return addr - buf;
 }
 
-#define FREE_ADDR_LIST(hello_option_addr_list)                                 \
-	{                                                                      \
-		if (hello_option_addr_list) {                                  \
-			list_delete(hello_option_addr_list);                   \
-			hello_option_addr_list = 0;                            \
-		}                                                              \
+#define FREE_ADDR_LIST(hello_option_addr_list)				\
+	{								\
+		if (hello_option_addr_list) {				\
+			list_delete_and_null(&hello_option_addr_list);	\
+			hello_option_addr_list = 0;			\
+		}							\
 	}
 
 int pim_tlv_parse_addr_list(const char *ifname, struct in_addr src_addr,

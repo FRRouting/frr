@@ -242,7 +242,7 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on))
 		ospf6_neighbor_delete(on);
 
-	list_delete(oi->neighbor_list);
+	list_delete_and_null(&oi->neighbor_list);
 
 	THREAD_OFF(oi->thread_send_hello);
 	THREAD_OFF(oi->thread_send_lsupdate);

@@ -215,7 +215,7 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 #endif
 	bgp_zebra_destroy();
 
-	list_delete(bm->bgp);
+	list_delete_and_null(&bm->bgp);
 	memset(bm, 0, sizeof(*bm));
 
 	frr_fini();

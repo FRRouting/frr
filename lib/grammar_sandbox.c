@@ -141,7 +141,7 @@ DEFUN (grammar_test_complete,
 		vty_out(vty, "%% No match\n");
 
 	// free resources
-	list_delete(completions);
+	list_delete_and_null(&completions);
 	cmd_free_strvec(command);
 	XFREE(MTYPE_TMP, cmdstr);
 
@@ -185,7 +185,7 @@ DEFUN (grammar_test_match,
 
 		vty_out(vty, "func: %p\n", element->func);
 
-		list_delete(argvv);
+		list_delete_and_null(&argvv);
 	} else {
 		assert(MATCHER_ERROR(result));
 		switch (result) {
@@ -426,7 +426,7 @@ DEFUN (grammar_findambig,
 			}
 			prev = cur;
 		}
-		list_delete(commands);
+		list_delete_and_null(&commands);
 
 		vty_out(vty, "\n");
 	} while (scan && scannode < LINK_PARAMS_NODE);

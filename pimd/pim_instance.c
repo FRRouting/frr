@@ -48,7 +48,7 @@ static void pim_instance_terminate(struct pim_instance *pim)
 	}
 
 	if (pim->static_routes)
-		list_delete(pim->static_routes);
+		list_delete_and_null(&pim->static_routes);
 
 	pim_rp_free(pim);
 
