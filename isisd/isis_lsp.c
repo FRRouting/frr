@@ -1805,6 +1805,7 @@ int lsp_tick(struct thread *thread)
 	dnode_t *dnode, *dnode_next;
 	int level;
 	u_int16_t rem_lifetime;
+        time_t now = monotime(NULL);
 
 	lsp_list = list_new();
 
@@ -1883,11 +1884,12 @@ int lsp_tick(struct thread *thread)
 					if (!circuit->lsp_queue)
 						continue;
 
-					if (monotime_since(
-						  &circuit->lsp_queue_last_cleared,
-						  NULL) < MIN_LSP_TRANS_INTERVAL) {
+					if (now - circuit->lsp_queue_last_push
+					    < MIN_LSP_RETRANS_INTERVAL) {
 						continue;
 					}
+
+					circuit->lsp_queue_last_push = now;
 
 					for (ALL_LIST_ELEMENTS_RO(
 						     lsp_list, lspnode, lsp)) {
