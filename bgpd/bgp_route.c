@@ -6500,245 +6500,257 @@ void route_vty_out(struct vty *vty, struct prefix *p, struct bgp_info *binfo,
 
 	/* Print attribute */
 	attr = binfo->attr;
-	if (attr) {
-		/*
-		 * For ENCAP and EVPN routes, nexthop address family is not
-		 * neccessarily the same as the prefix address family.
-		 * Both SAFI_MPLS_VPN and SAFI_ENCAP use the MP nexthop field
-		 * EVPN routes are also exchanged with a MP nexthop. Currently,
-		 * this
-		 * is only IPv4, the value will be present in either
-		 * attr->nexthop or
-		 * attr->mp_nexthop_global_in
-		 */
-		if ((safi == SAFI_ENCAP) || (safi == SAFI_MPLS_VPN)) {
-			char buf[BUFSIZ];
-			int af = NEXTHOP_FAMILY(attr->mp_nexthop_len);
+	if (!attr) {
+		if (json_paths)
+			json_object_array_add(json_paths, json_path);
+		else
+			vty_out(vty, "\n");
 
-			switch (af) {
-			case AF_INET:
-				vty_out(vty, "%s",
-					inet_ntop(af,
-						  &attr->mp_nexthop_global_in,
-						  buf, BUFSIZ));
-				break;
-			case AF_INET6:
-				vty_out(vty, "%s",
-					inet_ntop(af, &attr->mp_nexthop_global,
-						  buf, BUFSIZ));
-				break;
-			default:
-				vty_out(vty, "?");
-				break;
-			}
-		} else if (safi == SAFI_EVPN) {
-			if (json_paths) {
-				json_nexthop_global = json_object_new_object();
+		return;
+	}
 
-				json_object_string_add(
-					json_nexthop_global, "ip",
+	/*
+	 * For ENCAP and EVPN routes, nexthop address family is not
+	 * neccessarily the same as the prefix address family.
+	 * Both SAFI_MPLS_VPN and SAFI_ENCAP use the MP nexthop field
+	 * EVPN routes are also exchanged with a MP nexthop. Currently,
+	 * this
+	 * is only IPv4, the value will be present in either
+	 * attr->nexthop or
+	 * attr->mp_nexthop_global_in
+	 */
+	if ((safi == SAFI_ENCAP) || (safi == SAFI_MPLS_VPN)) {
+		char buf[BUFSIZ];
+		char nexthop[128];
+		int af = NEXTHOP_FAMILY(attr->mp_nexthop_len);
+
+		switch (af) {
+		case AF_INET:
+			sprintf(nexthop, "%s",
+				inet_ntop(af, &attr->mp_nexthop_global_in,
+					  buf, BUFSIZ));
+			break;
+		case AF_INET6:
+			sprintf(nexthop, "%s",
+				inet_ntop(af, &attr->mp_nexthop_global,
+					  buf, BUFSIZ));
+			break;
+		default:
+			sprintf(nexthop, "?");
+			break;
+		}
+
+		if (json_paths) {
+			json_nexthop_global = json_object_new_object();
+
+			json_object_string_add(json_nexthop_global,
+					       "afi",
+					       (af == AF_INET) ?
+					       "ip" : "ipv6");
+			json_object_string_add(json_nexthop_global,
+					       (af == AF_INET) ?
+					       "ip" : "ipv6",
+					       nexthop);
+			json_object_boolean_true_add(json_nexthop_global,
+						     "used");
+		} else
+			vty_out(vty, "%s", nexthop);
+	} else if (safi == SAFI_EVPN) {
+		if (json_paths) {
+			json_nexthop_global = json_object_new_object();
+
+			json_object_string_add(json_nexthop_global, "ip",
+					       inet_ntoa(attr->nexthop));
+			json_object_string_add(json_nexthop_global,
+					       "afi", "ipv4");
+			json_object_boolean_true_add(json_nexthop_global,
+						     "used");
+		} else
+			vty_out(vty, "%-16s", inet_ntoa(attr->nexthop));
+	}
+	/* IPv4 Next Hop */
+	else if (p->family == AF_INET
+		 && !BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
+		if (json_paths) {
+			json_nexthop_global = json_object_new_object();
+
+			if ((safi == SAFI_MPLS_VPN)
+			    || (safi == SAFI_EVPN))
+				json_object_string_add(json_nexthop_global,
+						       "ip",
+						       inet_ntoa(attr->mp_nexthop_global_in));
+			else
+				json_object_string_add(json_nexthop_global,
+						       "ip",
+						       inet_ntoa(attr->nexthop));
+
+			json_object_string_add(json_nexthop_global,
+					       "afi", "ipv4");
+			json_object_boolean_true_add(json_nexthop_global,
+						     "used");
+		} else {
+			if ((safi == SAFI_MPLS_VPN)
+			    || (safi == SAFI_EVPN))
+				vty_out(vty, "%-16s",
+					inet_ntoa(
+						attr->mp_nexthop_global_in));
+			else
+				vty_out(vty, "%-16s",
 					inet_ntoa(attr->nexthop));
-				json_object_string_add(json_nexthop_global,
-						       "afi", "ipv4");
-				json_object_boolean_true_add(
-					json_nexthop_global, "used");
-			} else
-				vty_out(vty, "%-16s", inet_ntoa(attr->nexthop));
 		}
-		/* IPv4 Next Hop */
-		else if (p->family == AF_INET
-			 && !BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
-			if (json_paths) {
-				json_nexthop_global = json_object_new_object();
+	}
 
-				if ((safi == SAFI_MPLS_VPN)
-				    || (safi == SAFI_EVPN))
-					json_object_string_add(
-						json_nexthop_global, "ip",
-						inet_ntoa(
-							attr->mp_nexthop_global_in));
-				else
-					json_object_string_add(
-						json_nexthop_global, "ip",
-						inet_ntoa(attr->nexthop));
+	/* IPv6 Next Hop */
+	else if (p->family == AF_INET6
+		 || BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
+		int len;
+		char buf[BUFSIZ];
 
-				json_object_string_add(json_nexthop_global,
-						       "afi", "ipv4");
-				json_object_boolean_true_add(
-					json_nexthop_global, "used");
-			} else {
-				if ((safi == SAFI_MPLS_VPN)
-				    || (safi == SAFI_EVPN))
-					vty_out(vty, "%-16s",
-						inet_ntoa(
-							attr->mp_nexthop_global_in));
-				else
-					vty_out(vty, "%-16s",
-						inet_ntoa(attr->nexthop));
-			}
-		}
+		if (json_paths) {
+			json_nexthop_global = json_object_new_object();
+			json_object_string_add(json_nexthop_global, "ip",
+					       inet_ntop(AF_INET6,
+							 &attr->mp_nexthop_global, buf,
+							 BUFSIZ));
+			json_object_string_add(json_nexthop_global,
+					       "afi", "ipv6");
+			json_object_string_add(json_nexthop_global,
+					       "scope", "global");
 
-		/* IPv6 Next Hop */
-		else if (p->family == AF_INET6
-			 || BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
-			int len;
-			char buf[BUFSIZ];
-
-			if (json_paths) {
-				json_nexthop_global = json_object_new_object();
+			/* We display both LL & GL if both have been
+			 * received */
+			if ((attr->mp_nexthop_len == 32)
+			    || (binfo->peer->conf_if)) {
+				json_nexthop_ll =
+					json_object_new_object();
 				json_object_string_add(
-					json_nexthop_global, "ip",
-					inet_ntop(AF_INET6,
-						  &attr->mp_nexthop_global, buf,
-						  BUFSIZ));
-				json_object_string_add(json_nexthop_global,
+					json_nexthop_ll, "ip",
+					inet_ntop(
+						AF_INET6,
+						&attr->mp_nexthop_local,
+						buf, BUFSIZ));
+				json_object_string_add(json_nexthop_ll,
 						       "afi", "ipv6");
-				json_object_string_add(json_nexthop_global,
-						       "scope", "global");
+				json_object_string_add(json_nexthop_ll,
+						       "scope",
+						       "link-local");
 
-				/* We display both LL & GL if both have been
-				 * received */
-				if ((attr->mp_nexthop_len == 32)
-				    || (binfo->peer->conf_if)) {
-					json_nexthop_ll =
-						json_object_new_object();
-					json_object_string_add(
-						json_nexthop_ll, "ip",
-						inet_ntop(
-							AF_INET6,
-							&attr->mp_nexthop_local,
-							buf, BUFSIZ));
-					json_object_string_add(json_nexthop_ll,
-							       "afi", "ipv6");
-					json_object_string_add(json_nexthop_ll,
-							       "scope",
-							       "link-local");
-
-					if ((IPV6_ADDR_CMP(
-						     &attr->mp_nexthop_global,
-						     &attr->mp_nexthop_local)
-					     != 0)
-					    && !attr->mp_nexthop_prefer_global)
-						json_object_boolean_true_add(
-							json_nexthop_ll,
-							"used");
-					else
-						json_object_boolean_true_add(
-							json_nexthop_global,
-							"used");
-				} else
+				if ((IPV6_ADDR_CMP(
+					     &attr->mp_nexthop_global,
+					     &attr->mp_nexthop_local)
+				     != 0)
+				    && !attr->mp_nexthop_prefer_global)
 					json_object_boolean_true_add(
-						json_nexthop_global, "used");
-			} else {
-				/* Display LL if LL/Global both in table unless
-				 * prefer-global is set */
-				if (((attr->mp_nexthop_len == 32)
-				     && !attr->mp_nexthop_prefer_global)
-				    || (binfo->peer->conf_if)) {
-					if (binfo->peer->conf_if) {
-						len = vty_out(
-							vty, "%s",
-							binfo->peer->conf_if);
-						len = 16 - len; /* len of IPv6
-								   addr + max
-								   len of def
-								   ifname */
+						json_nexthop_ll,
+						"used");
+				else
+					json_object_boolean_true_add(
+						json_nexthop_global,
+						"used");
+			} else
+				json_object_boolean_true_add(
+					json_nexthop_global, "used");
+		} else {
+			/* Display LL if LL/Global both in table unless
+			 * prefer-global is set */
+			if (((attr->mp_nexthop_len == 32)
+			     && !attr->mp_nexthop_prefer_global)
+			    || (binfo->peer->conf_if)) {
+				if (binfo->peer->conf_if) {
+					len = vty_out(
+						vty, "%s",
+						binfo->peer->conf_if);
+					len = 16 - len; /* len of IPv6
+							   addr + max
+							   len of def
+							   ifname */
 
-						if (len < 1)
-							vty_out(vty, "\n%*s",
-								36, " ");
-						else
-							vty_out(vty, "%*s", len,
-								" ");
-					} else {
-						len = vty_out(
-							vty, "%s",
-							inet_ntop(
-								AF_INET6,
-								&attr->mp_nexthop_local,
-								buf, BUFSIZ));
-						len = 16 - len;
-
-						if (len < 1)
-							vty_out(vty, "\n%*s",
-								36, " ");
-						else
-							vty_out(vty, "%*s", len,
-								" ");
-					}
+					if (len < 1)
+						vty_out(vty, "\n%*s",
+							36, " ");
+					else
+						vty_out(vty, "%*s", len,
+							" ");
 				} else {
 					len = vty_out(
 						vty, "%s",
 						inet_ntop(
 							AF_INET6,
-							&attr->mp_nexthop_global,
+							&attr->mp_nexthop_local,
 							buf, BUFSIZ));
 					len = 16 - len;
 
 					if (len < 1)
-						vty_out(vty, "\n%*s", 36, " ");
+						vty_out(vty, "\n%*s",
+							36, " ");
 					else
-						vty_out(vty, "%*s", len, " ");
+						vty_out(vty, "%*s", len,
+							" ");
 				}
+			} else {
+				len = vty_out(vty, "%s",
+					      inet_ntop(AF_INET6,
+							&attr->mp_nexthop_global,
+							buf, BUFSIZ));
+				len = 16 - len;
+
+				if (len < 1)
+					vty_out(vty, "\n%*s", 36, " ");
+				else
+					vty_out(vty, "%*s", len, " ");
 			}
 		}
-
-		/* MED/Metric */
-		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))
-			if (json_paths)
-				json_object_int_add(json_path, "med",
-						    attr->med);
-			else
-				vty_out(vty, "%10u", attr->med);
-		else if (!json_paths)
-			vty_out(vty, "          ");
-
-		/* Local Pref */
-		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
-			if (json_paths)
-				json_object_int_add(json_path, "localpref",
-						    attr->local_pref);
-			else
-				vty_out(vty, "%7u", attr->local_pref);
-		else if (!json_paths)
-			vty_out(vty, "       ");
-
-		if (json_paths)
-			json_object_int_add(json_path, "weight", attr->weight);
-		else
-			vty_out(vty, "%7u ", attr->weight);
-
-		if (json_paths) {
-			char buf[BUFSIZ];
-			json_object_string_add(json_path, "peerId",
-					       sockunion2str(&binfo->peer->su,
-							     buf,
-							     SU_ADDRSTRLEN));
-		}
-
-		/* Print aspath */
-		if (attr->aspath) {
-			if (json_paths)
-				json_object_string_add(json_path, "aspath",
-						       attr->aspath->str);
-			else
-				aspath_print_vty(vty, "%s", attr->aspath, " ");
-		}
-
-		/* Print origin */
-		if (json_paths)
-			json_object_string_add(
-				json_path, "origin",
-				bgp_origin_long_str[attr->origin]);
-		else
-			vty_out(vty, "%s", bgp_origin_str[attr->origin]);
-	} else {
-		if (json_paths)
-			json_object_string_add(json_path, "alert",
-					       "No attributes");
-		else
-			vty_out(vty, "No attributes to print\n");
 	}
+
+	/* MED/Metric */
+	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC))
+		if (json_paths)
+			json_object_int_add(json_path, "med",
+					    attr->med);
+		else
+			vty_out(vty, "%10u", attr->med);
+	else if (!json_paths)
+		vty_out(vty, "          ");
+
+	/* Local Pref */
+	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
+		if (json_paths)
+			json_object_int_add(json_path, "localpref",
+					    attr->local_pref);
+		else
+			vty_out(vty, "%7u", attr->local_pref);
+	else if (!json_paths)
+		vty_out(vty, "       ");
+
+	if (json_paths)
+		json_object_int_add(json_path, "weight", attr->weight);
+	else
+		vty_out(vty, "%7u ", attr->weight);
+
+	if (json_paths) {
+		char buf[BUFSIZ];
+		json_object_string_add(json_path, "peerId",
+				       sockunion2str(&binfo->peer->su,
+						     buf,
+						     SU_ADDRSTRLEN));
+	}
+
+	/* Print aspath */
+	if (attr->aspath) {
+		if (json_paths)
+			json_object_string_add(json_path, "aspath",
+					       attr->aspath->str);
+		else
+			aspath_print_vty(vty, "%s", attr->aspath, " ");
+	}
+
+	/* Print origin */
+	if (json_paths)
+		json_object_string_add(
+			json_path, "origin",
+			bgp_origin_long_str[attr->origin]);
+	else
+		vty_out(vty, "%s", bgp_origin_str[attr->origin]);
 
 	if (json_paths) {
 		if (json_nexthop_global || json_nexthop_ll) {
@@ -8152,7 +8164,13 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT ? "Default"
 								    : bgp->name,
 			table->version, inet_ntoa(bgp->router_id));
+		if (rd)
+			vty_out(vty, " \"routeDistinguishers\" : {");
 		json_paths = json_object_new_object();
+	}
+
+	if (use_json && rd) {
+		vty_out(vty, " \"%s\" : { ", rd);
 	}
 
 	/* Start processing of routes. */
@@ -8331,8 +8349,6 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 					vty_out(vty,
 						"Route Distinguisher: %s\n",
 						rd);
-				else
-					vty_out(vty, "rd:\"%s\",", rd);
 			}
 			if (type == bgp_show_type_dampend_paths
 			    || type == bgp_show_type_damp_neighbor)
@@ -8428,6 +8444,8 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 				       &output_cum, &total_cum);
 		}
 	}
+	if (use_json)
+		vty_out(vty, " } }");
 	return CMD_SUCCESS;
 }
 static int bgp_show(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
