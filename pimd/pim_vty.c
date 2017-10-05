@@ -362,7 +362,7 @@ int pim_interface_config_write(struct vty *vty)
 				/* boundary */
 				if (pim_ifp->boundary_oil_plist) {
 					vty_out(vty,
-						" ip pim boundary oil %s\n",
+						" ip multicast boundary oil %s\n",
 						pim_ifp->boundary_oil_plist);
 					++writes;
 				}
