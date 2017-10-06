@@ -3102,11 +3102,11 @@ DEFUN (bgp_evpn_vni_rt,
 	if (!bgp || !vpn)
 		return CMD_WARNING;
 
-	if (!strcmp(argv[1]->arg, "import"))
+	if (!strcmp(argv[1]->text, "import"))
 		rt_type = RT_TYPE_IMPORT;
-	else if (!strcmp(argv[1]->arg, "export"))
+	else if (!strcmp(argv[1]->text, "export"))
 		rt_type = RT_TYPE_EXPORT;
-	else if (!strcmp(argv[1]->arg, "both"))
+	else if (!strcmp(argv[1]->text, "both"))
 		rt_type = RT_TYPE_BOTH;
 	else {
 		vty_out(vty, "%% Invalid Route Target type\n");
@@ -3164,11 +3164,11 @@ DEFUN (no_bgp_evpn_vni_rt,
 	if (!bgp || !vpn)
 		return CMD_WARNING;
 
-	if (!strcmp(argv[2]->arg, "import"))
+	if (!strcmp(argv[2]->text, "import"))
 		rt_type = RT_TYPE_IMPORT;
-	else if (!strcmp(argv[2]->arg, "export"))
+	else if (!strcmp(argv[2]->text, "export"))
 		rt_type = RT_TYPE_EXPORT;
-	else if (!strcmp(argv[2]->arg, "both"))
+	else if (!strcmp(argv[2]->text, "both"))
 		rt_type = RT_TYPE_BOTH;
 	else {
 		vty_out(vty, "%% Invalid Route Target type\n");
@@ -3257,9 +3257,9 @@ DEFUN (no_bgp_evpn_vni_rt_without_val,
 	if (!bgp || !vpn)
 		return CMD_WARNING;
 
-	if (!strcmp(argv[2]->arg, "import")) {
+	if (!strcmp(argv[2]->text, "import")) {
 		rt_type = RT_TYPE_IMPORT;
-	} else if (!strcmp(argv[2]->arg, "export")) {
+	} else if (!strcmp(argv[2]->text, "export")) {
 		rt_type = RT_TYPE_EXPORT;
 	} else {
 		vty_out(vty, "%% Invalid Route Target type\n");
