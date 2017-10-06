@@ -356,19 +356,6 @@ int bgp_show_mpls_vpn(struct vty *vty, afi_t afi, struct prefix_rd *prd,
 {
 	struct bgp *bgp;
 	struct bgp_table *table;
-	struct bgp_node *rn;
-	struct bgp_node *rm;
-	struct bgp_info *ri;
-	int rd_header;
-	int header = 1;
-	unsigned long output_count = 0;
-	unsigned long total_count = 0;
-	json_object *json = NULL;
-	json_object *json_mroute = NULL;
-	json_object *json_nroute = NULL;
-	json_object *json_array = NULL;
-	json_object *json_scode = NULL;
-	json_object *json_ocode = NULL;
 
 	bgp = bgp_get_default();
 	if (bgp == NULL) {
@@ -378,279 +365,31 @@ int bgp_show_mpls_vpn(struct vty *vty, afi_t afi, struct prefix_rd *prd,
 			vty_out(vty, "{}\n");
 		return CMD_WARNING;
 	}
-
-	if (use_json) {
-		json_scode = json_object_new_object();
-		json_ocode = json_object_new_object();
-		json = json_object_new_object();
-		json_mroute = json_object_new_object();
-		json_nroute = json_object_new_object();
-
-		json_object_string_add(json_scode, "suppressed", "s");
-		json_object_string_add(json_scode, "damped", "d");
-		json_object_string_add(json_scode, "history", "h");
-		json_object_string_add(json_scode, "valid", "*");
-		json_object_string_add(json_scode, "best", ">");
-		json_object_string_add(json_scode, "internal", "i");
-
-		json_object_string_add(json_ocode, "igp", "i");
-		json_object_string_add(json_ocode, "egp", "e");
-		json_object_string_add(json_ocode, "incomplete", "?");
-	}
-
-	if ((afi != AFI_IP) && (afi != AFI_IP6)) {
-		vty_out(vty, "Afi %d not supported\n", afi);
-		return CMD_WARNING;
-	}
-
-	for (rn = bgp_table_top(bgp->rib[afi][SAFI_MPLS_VPN]); rn;
-	     rn = bgp_route_next(rn)) {
-		if (prd && memcmp(rn->p.u.val, prd->val, 8) != 0)
-			continue;
-
-		if ((table = rn->info) != NULL) {
-			rd_header = 1;
-
-			for (rm = bgp_table_top(table); rm;
-			     rm = bgp_route_next(rm)) {
-				total_count++;
-				if (use_json)
-					json_array = json_object_new_array();
-				else
-					json_array = NULL;
-
-				for (ri = rm->info; ri; ri = ri->next) {
-					if (type == bgp_show_type_neighbor) {
-						union sockunion *su =
-							output_arg;
-
-						if (ri->peer->su_remote == NULL
-						    || !sockunion_same(
-							       ri->peer->su_remote,
-							       su))
-							continue;
-					}
-					if (header) {
-						if (use_json) {
-							if (!tags) {
-								json_object_int_add(
-									json,
-									"bgpTableVersion",
-									0);
-								json_object_string_add(
-									json,
-									"bgpLocalRouterId",
-									inet_ntoa(
-										bgp->router_id));
-								json_object_object_add(
-									json,
-									"bgpStatusCodes",
-									json_scode);
-								json_object_object_add(
-									json,
-									"bgpOriginCodes",
-									json_ocode);
-							}
-						} else {
-							if (tags)
-								vty_out(vty,
-									V4_HEADER_TAG);
-							else {
-								vty_out(vty,
-									"BGP table version is 0, local router ID is %s\n",
-									inet_ntoa(
-										bgp->router_id));
-								vty_out(vty,
-									"Status codes: s suppressed, d damped, h history, * valid, > best, i - internal\n");
-								vty_out(vty,
-									"Origin codes: i - IGP, e - EGP, ? - incomplete\n\n");
-								vty_out(vty,
-									V4_HEADER);
-							}
-						}
-						header = 0;
-					}
-
-					if (rd_header) {
-						u_int16_t type;
-						struct rd_as rd_as;
-						struct rd_ip rd_ip = {0};
-#if ENABLE_BGP_VNC
-						struct rd_vnc_eth rd_vnc_eth = {
-							0};
-#endif
-						u_char *pnt;
-
-						pnt = rn->p.u.val;
-
-						/* Decode RD type. */
-						type = decode_rd_type(pnt);
-						/* Decode RD value. */
-						if (type == RD_TYPE_AS)
-							decode_rd_as(pnt + 2,
-								     &rd_as);
-						else if (type == RD_TYPE_AS4)
-							decode_rd_as4(pnt + 2,
-								      &rd_as);
-						else if (type == RD_TYPE_IP)
-							decode_rd_ip(pnt + 2,
-								     &rd_ip);
-#if ENABLE_BGP_VNC
-						else if (type
-							 == RD_TYPE_VNC_ETH)
-							decode_rd_vnc_eth(
-								pnt,
-								&rd_vnc_eth);
-#endif
-
-						if (use_json) {
-							char buffer[BUFSIZ];
-							if (type == RD_TYPE_AS
-							    || type == RD_TYPE_AS4)
-								sprintf(buffer,
-									"%u:%d",
-									rd_as.as,
-									rd_as.val);
-							else if (type
-								 == RD_TYPE_IP)
-								sprintf(buffer,
-									"%s:%d",
-									inet_ntoa(
-										rd_ip.ip),
-									rd_ip.val);
-							json_object_string_add(
-								json_nroute,
-								"routeDistinguisher",
-								buffer);
-						} else {
-							vty_out(vty,
-								"Route Distinguisher: ");
-
-							if (type == RD_TYPE_AS
-							    || type == RD_TYPE_AS4)
-								vty_out(vty,
-									"%u:%d",
-									rd_as.as,
-									rd_as.val);
-							else if (type
-								 == RD_TYPE_IP)
-								vty_out(vty,
-									"%s:%d",
-									inet_ntoa(
-										rd_ip.ip),
-									rd_ip.val);
-#if ENABLE_BGP_VNC
-							else if (
-								type
-								== RD_TYPE_VNC_ETH)
-								vty_out(vty,
-									"%u:%02x:%02x:%02x:%02x:%02x:%02x",
-									rd_vnc_eth
-										.local_nve_id,
-									rd_vnc_eth
-										.macaddr
-										.octet[0],
-									rd_vnc_eth
-										.macaddr
-										.octet[1],
-									rd_vnc_eth
-										.macaddr
-										.octet[2],
-									rd_vnc_eth
-										.macaddr
-										.octet[3],
-									rd_vnc_eth
-										.macaddr
-										.octet[4],
-									rd_vnc_eth
-										.macaddr
-										.octet[5]);
-#endif
-							vty_out(vty, "\n");
-						}
-						rd_header = 0;
-					}
-					if (tags)
-						route_vty_out_tag(vty, &rm->p,
-								  ri, 0,
-								  SAFI_MPLS_VPN,
-								  json_array);
-					else
-						route_vty_out(vty, &rm->p, ri,
-							      0, SAFI_MPLS_VPN,
-							      json_array);
-					output_count++;
-				}
-
-				if (use_json) {
-					struct prefix *p;
-					char buf_a[BUFSIZ];
-					char buf_b[BUFSIZ];
-					p = &rm->p;
-					sprintf(buf_a, "%s/%d",
-						inet_ntop(p->family,
-							  &p->u.prefix, buf_b,
-							  BUFSIZ),
-						p->prefixlen);
-					json_object_object_add(
-						json_mroute, buf_a, json_array);
-				}
-			}
-
-			if (use_json) {
-				struct prefix *p;
-				char buf_a[BUFSIZ];
-				char buf_b[BUFSIZ];
-				p = &rn->p;
-				sprintf(buf_a, "%s/%d",
-					inet_ntop(p->family, &p->u.prefix,
-						  buf_b, BUFSIZ),
-					p->prefixlen);
-				json_object_object_add(json_nroute, buf_a,
-						       json_mroute);
-			}
-		}
-	}
-
-	if (use_json) {
-		json_object_object_add(json, "routes", json_nroute);
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	} else {
-		if (output_count == 0)
-			vty_out(vty, "No prefixes displayed, %ld exist\n",
-				total_count);
-		else
-			vty_out(vty,
-				"\nDisplayed %ld routes and %ld total paths\n",
-				output_count, total_count);
-	}
-
-	return CMD_SUCCESS;
+	table = bgp->rib[afi][SAFI_MPLS_VPN];
+	return bgp_show_table_rd(vty, bgp, SAFI_MPLS_VPN,
+				 table, prd, type, output_arg, use_json);
 }
 
 DEFUN (show_bgp_ip_vpn_all_rd,
        show_bgp_ip_vpn_all_rd_cmd,
        "show bgp "BGP_AFI_CMD_STR" vpn all [rd ASN:NN_OR_IP-ADDRESS:NN] [json]",
        SHOW_STR
-       IP_STR
        BGP_STR
        BGP_VPNVX_HELP_STR
+       "Display VPN NLRI specific information\n"
        "Display VPN NLRI specific information\n"
        "Display information for a route distinguisher\n"
        "VPN Route Distinguisher\n"
        JSON_STR)
 {
-	int idx_rd = 5;
 	int ret;
 	struct prefix_rd prd;
 	afi_t afi;
 	int idx = 0;
 
 	if (argv_find_and_parse_afi(argv, argc, &idx, &afi)) {
-		if (argc >= 7 && argv[idx_rd]->arg) {
-			ret = str2prefix_rd(argv[idx_rd]->arg, &prd);
+		if (argv_find(argv, argc, "rd", &idx)) {
+			ret = str2prefix_rd(argv[idx+1]->arg, &prd);
 			if (!ret) {
 				vty_out(vty,
 					"%% Malformed Route Distinguisher\n");
@@ -668,9 +407,21 @@ DEFUN (show_bgp_ip_vpn_all_rd,
 	return CMD_SUCCESS;
 }
 
+ALIAS(show_bgp_ip_vpn_all_rd,
+      show_bgp_ip_vpn_rd_cmd,
+       "show bgp "BGP_AFI_CMD_STR" vpn rd ASN:NN_OR_IP-ADDRESS:NN [json]",
+       SHOW_STR
+       BGP_STR
+       BGP_VPNVX_HELP_STR
+       "Display VPN NLRI specific information\n"
+       "Display information for a route distinguisher\n"
+       "VPN Route Distinguisher\n"
+       JSON_STR)
+
+#ifdef KEEP_OLD_VPN_COMMANDS
 DEFUN (show_ip_bgp_vpn_rd,
        show_ip_bgp_vpn_rd_cmd,
-       "show [ip] bgp "BGP_AFI_CMD_STR" vpn rd ASN:NN_OR_IP-ADDRESS:NN",
+       "show ip bgp "BGP_AFI_CMD_STR" vpn rd ASN:NN_OR_IP-ADDRESS:NN",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -697,7 +448,6 @@ DEFUN (show_ip_bgp_vpn_rd,
 	return CMD_SUCCESS;
 }
 
-#ifdef KEEP_OLD_VPN_COMMANDS
 DEFUN (show_ip_bgp_vpn_all,
        show_ip_bgp_vpn_all_cmd,
        "show [ip] bgp <vpnv4|vpnv6>",
@@ -1055,8 +805,9 @@ void bgp_mplsvpn_init(void)
 	install_element(BGP_VPNV6_NODE, &no_vpnv6_network_cmd);
 
 	install_element(VIEW_NODE, &show_bgp_ip_vpn_all_rd_cmd);
-	install_element(VIEW_NODE, &show_ip_bgp_vpn_rd_cmd);
+	install_element(VIEW_NODE, &show_bgp_ip_vpn_rd_cmd);
 #ifdef KEEP_OLD_VPN_COMMANDS
+	install_element(VIEW_NODE, &show_ip_bgp_vpn_rd_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_vpn_all_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_vpn_all_tags_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_vpn_rd_tags_cmd);
