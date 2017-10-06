@@ -1042,6 +1042,7 @@ static u_char *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 			     int exact, size_t *var_len,
 			     WriteMethod **write_method)
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	ifindex_t ifindex = 0;
 	unsigned int instid = 0;
 	struct ospf6_interface *oi = NULL;
@@ -1194,6 +1195,7 @@ static u_char *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
 			      int exact, size_t *var_len,
 			      WriteMethod **write_method)
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	ifindex_t ifindex = 0;
 	unsigned int instid, rtrid;
 	struct ospf6_interface *oi = NULL;
