@@ -100,7 +100,7 @@ struct eigrp {
 
 	struct route_table *networks; /* EIGRP config networks. */
 
-	struct list *topology_table;
+	struct route_table *topology_table;
 
 	uint64_t serno; /* Global serial number counter for topology entry
 			   changes*/

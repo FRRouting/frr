@@ -530,13 +530,15 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 	u_int16_t length = EIGRP_HEADER_LEN;
 	struct eigrp_nexthop_entry *te;
 	struct eigrp_prefix_entry *pe;
-	struct listnode *node, *node2, *nnode, *nnode2;
+	struct listnode *node2, *nnode2;
 	struct eigrp_interface *ei = nbr->ei;
 	struct eigrp *eigrp = ei->eigrp;
 	struct prefix *dest_addr;
 	u_int32_t seq_no = eigrp->sequence_number;
+	u_int16_t mtu = ei->ifp->mtu;
+	struct route_node *rn;
 
-	ep = eigrp_packet_new(ei->ifp->mtu, nbr);
+	ep = eigrp_packet_new(mtu, nbr);
 
 	/* Prepare EIGRP EOT UPDATE header */
 	eigrp_packet_header_init(EIGRP_OPC_UPDATE, eigrp,
@@ -549,20 +551,26 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 		length += eigrp_add_authTLV_MD5_to_stream(ep->s,ei);
 	}
 
-	for (ALL_LIST_ELEMENTS(eigrp->topology_table, node, nnode, pe)) {
+	for (rn = route_top(eigrp->topology_table); rn; rn = route_next(rn)) {
+		if (!rn->info)
+			continue;
+
+		pe = rn->info;
 		for (ALL_LIST_ELEMENTS(pe->entries, node2, nnode2, te)) {
 			if (eigrp_nbr_split_horizon_check(te, ei))
 				continue;
 
-			if ((length + 0x001D) > (u_int16_t)ei->ifp->mtu) {
+			if ((length + 0x001D) > mtu) {
 				eigrp_update_place_on_nbr_queue (nbr, ep, seq_no, length);
 				seq_no++;
 
 				length = EIGRP_HEADER_LEN;
-				ep = eigrp_packet_new(ei->ifp->mtu, nbr);
-				eigrp_packet_header_init(EIGRP_OPC_UPDATE, eigrp,
+				ep = eigrp_packet_new(mtu, nbr);
+				eigrp_packet_header_init(EIGRP_OPC_UPDATE,
+							 nbr->ei->eigrp,
 							 ep->s, EIGRP_EOT_FLAG,
-							 seq_no, nbr->recv_sequence_number);
+							 seq_no,
+							 nbr->recv_sequence_number);
 
 				if((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5) &&
 				   (ei->params.auth_keychain != NULL))
@@ -736,7 +744,6 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 {
 	struct eigrp_packet *ep;
 	u_int16_t length = EIGRP_HEADER_LEN;
-	struct listnode *node, *nnode;
 	struct eigrp_prefix_entry *pe;
 	struct prefix *dest_addr;
 	struct eigrp_interface *ei = nbr->ei;
@@ -744,6 +751,7 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 	struct list *prefixes;
 	u_int32_t flags;
 	unsigned int send_prefixes;
+	struct route_node *rn;
 
 	/* get prefixes to send to neighbor */
 	prefixes = nbr->nbr_gr_prefixes_send;
@@ -795,7 +803,11 @@ static void eigrp_update_send_GR_part(struct eigrp_neighbor *nbr)
 		length += eigrp_add_authTLV_MD5_to_stream(ep->s, ei);
 	}
 
-	for (ALL_LIST_ELEMENTS(eigrp->topology_table, node, nnode, pe)) {
+	for (rn = route_top(eigrp->topology_table); rn; rn = route_next(rn)) {
+		if (!rn->info)
+			continue;
+
+		pe = rn->info;
 		/*
 		 * Filtering
 		 */
@@ -945,35 +957,40 @@ void eigrp_update_send_GR(struct eigrp_neighbor *nbr, enum GR_type gr_type,
 			  struct vty *vty)
 {
 	struct eigrp_prefix_entry *pe2;
-	struct listnode *node2, *nnode2;
 	struct list *prefixes;
+	struct route_node *rn;
+	struct eigrp_interface *ei = nbr->ei;
+	struct eigrp *eigrp = ei->eigrp;
 
 	if (gr_type == EIGRP_GR_FILTER) {
 		/* function was called after applying filtration */
 		zlog_info(
 			"Neighbor %s (%s) is resync: route configuration changed",
 			inet_ntoa(nbr->src),
-			ifindex2ifname(nbr->ei->ifp->ifindex, VRF_DEFAULT));
+			ifindex2ifname(ei->ifp->ifindex, VRF_DEFAULT));
 	} else if (gr_type == EIGRP_GR_MANUAL) {
 		/* Graceful restart was called manually */
 		zlog_info("Neighbor %s (%s) is resync: manually cleared",
 			  inet_ntoa(nbr->src),
-			  ifindex2ifname(nbr->ei->ifp->ifindex, VRF_DEFAULT));
+			  ifindex2ifname(ei->ifp->ifindex, VRF_DEFAULT));
 
 		if (vty != NULL) {
 			vty_time_print(vty, 0);
 			vty_out(vty,
 				"Neighbor %s (%s) is resync: manually cleared\n",
 				inet_ntoa(nbr->src),
-				ifindex2ifname(nbr->ei->ifp->ifindex,
+				ifindex2ifname(ei->ifp->ifindex,
 					       VRF_DEFAULT));
 		}
 	}
 
 	prefixes = list_new();
 	/* add all prefixes from topology table to list */
-	for (ALL_LIST_ELEMENTS(nbr->ei->eigrp->topology_table, node2, nnode2,
-			       pe2)) {
+	for (rn = route_top(eigrp->topology_table); rn; rn = route_next(rn)) {
+		if (!rn->info)
+			continue;
+
+		pe2 = rn->info;
 		listnode_add(prefixes, pe2);
 	}
 

@@ -158,7 +158,7 @@ static struct eigrp *eigrp_new(const char *AS)
 	/* init internal data structures */
 	eigrp->eiflist = list_new();
 	eigrp->passive_interface_default = EIGRP_IF_ACTIVE;
-	eigrp->networks = route_table_init();
+	eigrp->networks = eigrp_topology_new();
 
 	if ((eigrp_socket = eigrp_sock_init()) < 0) {
 		zlog_err(
@@ -181,7 +181,7 @@ static struct eigrp *eigrp_new(const char *AS)
 	thread_add_read(master, eigrp_read, eigrp, eigrp->fd, &eigrp->t_read);
 	eigrp->oi_write_q = list_new();
 
-	eigrp->topology_table = eigrp_topology_new();
+	eigrp->topology_table = route_table_init();
 
 	eigrp->neighbor_self = eigrp_nbr_new(NULL);
 	eigrp->neighbor_self->src.s_addr = INADDR_ANY;
