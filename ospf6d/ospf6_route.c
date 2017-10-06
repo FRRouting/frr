@@ -1469,13 +1469,13 @@ DEFUN (debug_ospf6_route,
 	int idx_type = 3;
 	unsigned char level = 0;
 
-	if (!strncmp(argv[idx_type]->arg, "table", 5))
+	if (!strcmp(argv[idx_type]->text, "table"))
 		level = OSPF6_DEBUG_ROUTE_TABLE;
-	else if (!strncmp(argv[idx_type]->arg, "intra", 5))
+	else if (!strcmp(argv[idx_type]->text, "intra-area"))
 		level = OSPF6_DEBUG_ROUTE_INTRA;
-	else if (!strncmp(argv[idx_type]->arg, "inter", 5))
+	else if (!strcmp(argv[idx_type]->text, "inter-area"))
 		level = OSPF6_DEBUG_ROUTE_INTER;
-	else if (!strncmp(argv[idx_type]->arg, "memor", 5))
+	else if (!strcmp(argv[idx_type]->text, "memory"))
 		level = OSPF6_DEBUG_ROUTE_MEMORY;
 	OSPF6_DEBUG_ROUTE_ON(level);
 	return CMD_SUCCESS;
@@ -1496,13 +1496,13 @@ DEFUN (no_debug_ospf6_route,
 	int idx_type = 4;
 	unsigned char level = 0;
 
-	if (!strncmp(argv[idx_type]->arg, "table", 5))
+	if (!strcmp(argv[idx_type]->text, "table"))
 		level = OSPF6_DEBUG_ROUTE_TABLE;
-	else if (!strncmp(argv[idx_type]->arg, "intra", 5))
+	else if (!strcmp(argv[idx_type]->text, "intra-area"))
 		level = OSPF6_DEBUG_ROUTE_INTRA;
-	else if (!strncmp(argv[idx_type]->arg, "inter", 5))
+	else if (!strcmp(argv[idx_type]->text, "inter-area"))
 		level = OSPF6_DEBUG_ROUTE_INTER;
-	else if (!strncmp(argv[idx_type]->arg, "memor", 5))
+	else if (!strcmp(argv[idx_type]->text, "memory"))
 		level = OSPF6_DEBUG_ROUTE_MEMORY;
 	OSPF6_DEBUG_ROUTE_OFF(level);
 	return CMD_SUCCESS;

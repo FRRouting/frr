@@ -455,7 +455,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		vty_out(vty, ", distance %u, metric %u", re->distance,
 			re->metric);
 		if (re->tag)
-			vty_out(vty, ", tag %d", re->tag);
+			vty_out(vty, ", tag %u", re->tag);
 		if (re->mtu)
 			vty_out(vty, ", mtu %u", re->mtu);
 		if (re->vrf_id != VRF_DEFAULT) {
@@ -829,7 +829,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 
 			/* Distance and metric display. */
 			if (re->type != ZEBRA_ROUTE_CONNECT)
-				len += vty_out(vty, " [%d/%d]", re->distance,
+				len += vty_out(vty, " [%u/%u]", re->distance,
 					       re->metric);
 		} else {
 			vty_out(vty, "  %c%*c",

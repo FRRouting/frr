@@ -93,13 +93,9 @@ DEFUN (debug_rip_packet_direct,
 {
 	int idx_recv_send = 3;
 	rip_debug_packet |= RIP_DEBUG_PACKET;
-	if (strncmp("send", argv[idx_recv_send]->arg,
-		    strlen(argv[idx_recv_send]->arg))
-	    == 0)
+	if (strcmp("send", argv[idx_recv_send]->text) == 0)
 		rip_debug_packet |= RIP_DEBUG_SEND;
-	if (strncmp("recv", argv[idx_recv_send]->arg,
-		    strlen(argv[idx_recv_send]->arg))
-	    == 0)
+	if (strcmp("recv", argv[idx_recv_send]->text) == 0)
 		rip_debug_packet |= RIP_DEBUG_RECV;
 	return CMD_SUCCESS;
 }
@@ -150,16 +146,12 @@ DEFUN (no_debug_rip_packet_direct,
        "RIP option set for send packet\n")
 {
 	int idx_recv_send = 4;
-	if (strncmp("send", argv[idx_recv_send]->arg,
-		    strlen(argv[idx_recv_send]->arg))
-	    == 0) {
+	if (strcmp("send", argv[idx_recv_send]->text) == 0) {
 		if (IS_RIP_DEBUG_RECV)
 			rip_debug_packet &= ~RIP_DEBUG_SEND;
 		else
 			rip_debug_packet = 0;
-	} else if (strncmp("recv", argv[idx_recv_send]->arg,
-			   strlen(argv[idx_recv_send]->arg))
-		   == 0) {
+	} else if (strcmp("recv", argv[idx_recv_send]->text) == 0) {
 		if (IS_RIP_DEBUG_SEND)
 			rip_debug_packet &= ~RIP_DEBUG_RECV;
 		else
