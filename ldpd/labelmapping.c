@@ -130,6 +130,7 @@ send_labelmessage(struct nbr *nbr, uint16_t type, struct mapping_head *mh)
 		}
 
 		TAILQ_REMOVE(mh, me, entry);
+		assert(me != TAILQ_FIRST(mh));
 		free(me);
 	}
 
@@ -459,6 +460,7 @@ recv_labelmessage(struct nbr *nbr, char *buf, uint16_t len, uint16_t type)
 
  next:
 		TAILQ_REMOVE(&mh, me, entry);
+		assert(me != TAILQ_FIRST(&mh));
 		free(me);
 	}
 

@@ -215,6 +215,7 @@ ldpe_shutdown(void)
 	/* remove addresses from global list */
 	while ((if_addr = LIST_FIRST(&global.addr_list)) != NULL) {
 		LIST_REMOVE(if_addr, entry);
+		assert(if_addr != LIST_FIRST(&global.addr_list));
 		free(if_addr);
 	}
 	while ((adj = RB_ROOT(global_adj_head, &global.adj_tree)) != NULL)
@@ -265,7 +266,7 @@ ldpe_dispatch_main(struct thread *thread)
 	struct l2vpn_if		*lif, *nlif;
 	struct l2vpn_pw		*pw, *npw;
 	struct imsg		 imsg;
-	int			 fd = THREAD_FD(thread);
+	int			 fd;
 	struct imsgev		*iev = THREAD_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	struct iface		*iface = NULL;
@@ -964,6 +965,7 @@ mapping_list_clr(struct mapping_head *mh)
 
 	while ((me = TAILQ_FIRST(mh)) != NULL) {
 		TAILQ_REMOVE(mh, me, entry);
+		assert(me != TAILQ_FIRST(mh));
 		free(me);
 	}
 }

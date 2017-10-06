@@ -429,7 +429,7 @@ lde_dispatch_parent(struct thread *thread)
 	struct imsg		 imsg;
 	struct kif		*kif;
 	struct kroute		*kr;
-	int			 fd = THREAD_FD(thread);
+	int			 fd;
 	struct imsgev		*iev = THREAD_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
 	ssize_t			 n;

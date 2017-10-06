@@ -98,6 +98,7 @@ send_address(struct nbr *nbr, int af, struct if_addr_head *addr_list,
 			log_msg_address(1, msg_type, nbr, af, &if_addr->addr);
 
 			LIST_REMOVE(if_addr, entry);
+			assert(if_addr != LIST_FIRST(addr_list));
 			free(if_addr);
 			if (--tlv_addr_count == 0)
 				break;
@@ -168,7 +169,6 @@ send_mac_withdrawal(struct nbr *nbr, struct map *fec, uint8_t *mac)
 	err = gen_ldp_hdr(buf, size);
 	size -= LDP_HDR_SIZE;
 	err |= gen_msg_hdr(buf, MSG_TYPE_ADDRWITHDRAW, size);
-	size -= LDP_MSG_SIZE;
 	err |= gen_address_list_tlv(buf, AF_INET, NULL, 0);
 	err |= gen_fec_tlv(buf, fec);
 	err |= gen_mac_list_tlv(buf, mac);
@@ -400,6 +400,7 @@ address_list_clr(struct if_addr_head *addr_list)
 
 	while ((if_addr = LIST_FIRST(addr_list)) != NULL) {
 		LIST_REMOVE(if_addr, entry);
+		assert(if_addr != LIST_FIRST(addr_list));
 		free(if_addr);
 	}
 }

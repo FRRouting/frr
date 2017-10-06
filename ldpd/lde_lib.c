@@ -229,8 +229,10 @@ fec_free(void *arg)
 	struct fec_node	*fn = arg;
 	struct fec_nh	*fnh;
 
-	while ((fnh = LIST_FIRST(&fn->nexthops)))
+	while ((fnh = LIST_FIRST(&fn->nexthops))) {
 		fec_nh_del(fnh);
+		assert(fnh != LIST_FIRST(&fn->nexthops));
+	}
 	if (!RB_EMPTY(lde_map_head, &fn->downstream))
 		log_warnx("%s: fec %s downstream list not empty", __func__,
 		    log_fec(&fn->fec));
