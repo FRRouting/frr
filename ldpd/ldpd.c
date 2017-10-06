@@ -260,7 +260,6 @@ main(int argc, char *argv[])
 	    sizeof(init.zclient_serv_path));
 
 	argc -= optind;
-	argv += optind;
 	if (argc > 0 || (lflag && eflag))
 		frr_help_exit(1);
 

@@ -103,6 +103,7 @@ ldpe_if_exit(struct iface *iface)
 
 	while ((if_addr = LIST_FIRST(&iface->addr_list)) != NULL) {
 		LIST_REMOVE(if_addr, entry);
+		assert(if_addr != LIST_FIRST(&iface->addr_list));
 		free(if_addr);
 	}
 }
