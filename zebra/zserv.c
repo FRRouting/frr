@@ -1004,7 +1004,7 @@ static int zread_interface_add(struct zserv *client, u_short length,
 	vrf_bitmap_set(client->ifinfo, zvrf_id(zvrf));
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
 			/* Skip pseudo interface. */
 			if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE))
 				continue;

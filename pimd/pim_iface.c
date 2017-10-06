@@ -1025,7 +1025,7 @@ struct interface *pim_if_find_by_vif_index(struct pim_instance *pim,
 {
 	struct interface *ifp;
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		if (ifp->info) {
 			struct pim_interface *pim_ifp;
 			pim_ifp = ifp->info;

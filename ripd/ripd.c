@@ -381,7 +381,7 @@ static int rip_nexthop_check(struct in_addr *addr)
 	/* If nexthop address matches local configured address then it is
 	   invalid nexthop. */
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, ifc)) {
 			p = ifc->address;
 
@@ -2455,7 +2455,7 @@ static void rip_update_process(int route_type)
 	struct prefix *p;
 
 	/* Send RIP update to each interface. */
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		if (if_is_loopback(ifp))
 			continue;
 
@@ -3552,7 +3552,7 @@ DEFUN (show_ip_rip_status,
 
 	vty_out(vty, "    Interface        Send  Recv   Key-chain\n");
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		ri = ifp->info;
 
 		if (!ri->running)
@@ -3586,7 +3586,7 @@ DEFUN (show_ip_rip_status,
 
 	{
 		int found_passive = 0;
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
 			ri = ifp->info;
 
 			if ((ri->enable_network || ri->enable_interface)
@@ -3774,7 +3774,7 @@ static void rip_distribute_update_all(struct prefix_list *notused)
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (vrf, ifp)
 		rip_distribute_update_interface(ifp);
 }
 /* ARGSUSED */
@@ -3950,7 +3950,7 @@ static void rip_routemap_update(const char *notused)
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (vrf, ifp)
 		rip_if_rmap_update_interface(ifp);
 
 	rip_routemap_update_redistribute();

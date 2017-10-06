@@ -1293,7 +1293,7 @@ void pim_ifchannel_scan_forward_start(struct interface *new_ifp)
 	struct pim_instance *pim = new_pim_ifp->pim;
 	struct interface *ifp;
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *loop_pim_ifp = ifp->info;
 		struct pim_ifchannel *ch;
 

@@ -203,7 +203,7 @@ static int zebra_vrf_delete(struct vrf *vrf)
 		zebra_mpls_close_tables(zvrf);
 		zebra_pw_exit(zvrf);
 
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+		FOR_ALL_INTERFACES (vrf, ifp)
 			if_nbr_ipv6ll_to_ipv4ll_neigh_del_all(ifp);
 	}
 

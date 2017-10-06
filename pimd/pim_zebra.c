@@ -333,7 +333,7 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
 		struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 		struct interface *ifp;
 
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
 			if (!if_is_loopback(ifp) && if_is_operative(ifp))
 				pim_if_addr_add_all(ifp);
 		}
@@ -500,7 +500,7 @@ static void scan_upstream_rpf_cache()
 		if (!pim)
 			continue;
 
-		RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name)
+		FOR_ALL_INTERFACES (pim->vrf, ifp)
 			if (ifp->info) {
 				struct pim_interface *pim_ifp = ifp->info;
 				struct pim_iface_upstream_switch *us;
@@ -869,7 +869,7 @@ void igmp_source_forward_reevaluate_all(void)
 		if (!pim)
 			continue;
 
-		RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+		FOR_ALL_INTERFACES (pim->vrf, ifp) {
 			struct pim_interface *pim_ifp = ifp->info;
 			struct listnode *sock_node;
 			struct igmp_sock *igmp;

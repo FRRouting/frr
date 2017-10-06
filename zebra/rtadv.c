@@ -397,7 +397,7 @@ static int rtadv_timer(struct thread *thread)
 	}
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
 			if (if_is_loopback(ifp)
 			    || CHECK_FLAG(ifp->status,
 					  ZEBRA_INTERFACE_VRF_LOOPBACK)

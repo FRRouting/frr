@@ -415,7 +415,7 @@ static int pim_update_upstream_nh(struct pim_instance *pim,
 
 	hash_walk(pnc->upstream_hash, pim_update_upstream_nh_helper, pim);
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (pim->vrf, ifp)
 		if (ifp->info) {
 			struct pim_interface *pim_ifp = ifp->info;
 			struct pim_iface_upstream_switch *us;

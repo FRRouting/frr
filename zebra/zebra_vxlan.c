@@ -1215,7 +1215,7 @@ struct interface *zebra_get_vrr_intf_for_svi(struct interface *ifp)
 	zvrf = vrf_info_lookup(ifp->vrf_id);
 	assert(zvrf);
 
-	RB_FOREACH (tmp_if, if_name_head, &zvrf->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (zvrf->vrf, tmp_if) {
 		zif = tmp_if->info;
 		if (!zif)
 			continue;

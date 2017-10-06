@@ -2555,8 +2555,7 @@ DEFUN (show_ip_ospf_mpls_te_link,
 				if (!ospf->oi_running)
 					continue;
 				vrf = vrf_lookup_by_id(ospf->vrf_id);
-				RB_FOREACH (ifp, if_name_head,
-					    &vrf->ifaces_by_name)
+				FOR_ALL_INTERFACES (vrf, ifp)
 					show_mpls_te_link_sub(vty, ifp);
 			}
 			return CMD_SUCCESS;
@@ -2565,7 +2564,7 @@ DEFUN (show_ip_ospf_mpls_te_link,
 		if (ospf == NULL || !ospf->oi_running)
 			return CMD_SUCCESS;
 		vrf = vrf_lookup_by_id(ospf->vrf_id);
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+		FOR_ALL_INTERFACES (vrf, ifp)
 			show_mpls_te_link_sub(vty, ifp);
 		return CMD_SUCCESS;
 	}
@@ -2575,7 +2574,7 @@ DEFUN (show_ip_ospf_mpls_te_link,
 			if (!ospf->oi_running)
 				continue;
 			vrf = vrf_lookup_by_id(ospf->vrf_id);
-			RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+			FOR_ALL_INTERFACES (vrf, ifp)
 				show_mpls_te_link_sub(vty, ifp);
 		}
 	}

@@ -720,17 +720,17 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 	};
 
 	if (argc <= 3 || argv[3]->text[0] == 'c') {
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+		FOR_ALL_INTERFACES (vrf, ifp)
 			nhrp_cache_foreach(ifp, show_ip_nhrp_cache, &ctx);
 	} else if (argv[3]->text[0] == 'n') {
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+		FOR_ALL_INTERFACES (vrf, ifp)
 			nhrp_nhs_foreach(ifp, ctx.afi, show_ip_nhrp_nhs, &ctx);
 	} else if (argv[3]->text[0] == 's') {
 		nhrp_shortcut_foreach(ctx.afi, show_ip_nhrp_shortcut, &ctx);
 	} else {
 		vty_out (vty, "Status: ok\n\n");
 		ctx.count++;
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+		FOR_ALL_INTERFACES (vrf, ifp)
 			nhrp_cache_foreach(ifp, show_ip_opennhrp_cache, &ctx);
 	}
 
@@ -805,7 +805,7 @@ DEFUN(clear_nhrp, clear_nhrp_cmd,
 	};
 
 	if (argc <= 3 || argv[3]->text[0] == 'c') {
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+		FOR_ALL_INTERFACES (vrf, ifp)
 			nhrp_cache_foreach(ifp, clear_nhrp_cache, &ctx);
 	} else {
 		nhrp_shortcut_foreach(ctx.afi, clear_nhrp_shortcut, &ctx);
@@ -853,7 +853,7 @@ static int interface_config_write(struct vty *vty)
 	char buf[SU_ADDRSTRLEN];
 	int i;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		vty_frame(vty, "interface %s\n", ifp->name);
 		if (ifp->desc)
 			vty_out (vty, " description %s\n", ifp->desc);

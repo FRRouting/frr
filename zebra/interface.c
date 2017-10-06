@@ -1328,7 +1328,7 @@ DEFUN (show_interface,
 
 	/* All interface print. */
 	vrf = vrf_lookup_by_id(vrf_id);
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (vrf, ifp)
 		if_dump_vty(vty, ifp);
 
 	return CMD_SUCCESS;
@@ -1350,7 +1350,7 @@ DEFUN (show_interface_vrf_all,
 
 	/* All interface print. */
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+		FOR_ALL_INTERFACES (vrf, ifp)
 			if_dump_vty(vty, ifp);
 
 	return CMD_SUCCESS;
@@ -1429,7 +1429,7 @@ static void if_show_description(struct vty *vty, vrf_id_t vrf_id)
 	struct interface *ifp;
 
 	vty_out(vty, "Interface       Status  Protocol  Description\n");
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		int len;
 
 		len = vty_out(vty, "%s", ifp->name);
@@ -2835,7 +2835,7 @@ static int if_config_write(struct vty *vty)
 	zebra_ptm_write(vty);
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
 			struct zebra_if *if_data;
 			struct listnode *addrnode;
 			struct connected *ifc;

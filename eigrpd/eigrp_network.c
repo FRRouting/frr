@@ -251,7 +251,7 @@ int eigrp_network_set(struct eigrp *eigrp, struct prefix *p)
 		eigrp_router_id_update(eigrp);
 	/* Run network config now. */
 	/* Get target interface. */
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		zlog_debug("Setting up %s", ifp->name);
 		eigrp_network_run_interface(eigrp, p, ifp);
 	}

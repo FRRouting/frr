@@ -606,7 +606,7 @@ struct interface *if_lookup_by_ipv4(struct in_addr *addr, vrf_id_t vrf_id)
 	p.prefix = *addr;
 	p.prefixlen = IPV4_MAX_BITLEN;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected)) {
 			cp = connected->address;
 
@@ -630,7 +630,7 @@ struct interface *if_lookup_by_ipv4_exact(struct in_addr *addr, vrf_id_t vrf_id)
 	if (!vrf)
 		return NULL;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected)) {
 			cp = connected->address;
 
@@ -660,7 +660,7 @@ struct interface *if_lookup_by_ipv6(struct in6_addr *addr, ifindex_t ifindex,
 	p.prefix = *addr;
 	p.prefixlen = IPV6_MAX_BITLEN;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected)) {
 			cp = connected->address;
 
@@ -691,7 +691,7 @@ struct interface *if_lookup_by_ipv6_exact(struct in6_addr *addr,
 	if (!vrf)
 		return NULL;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected)) {
 			cp = connected->address;
 

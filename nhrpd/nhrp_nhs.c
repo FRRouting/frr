@@ -358,7 +358,7 @@ void nhrp_nhs_terminate(void)
 	struct nhrp_nhs *nhs, *tmp;
 	afi_t afi;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		nifp = ifp->info;
 		for (afi = 0; afi < AFI_MAX; afi++) {
 			list_for_each_entry_safe(nhs, tmp, &nifp->afi[afi].nhslist_head, nhslist_entry)

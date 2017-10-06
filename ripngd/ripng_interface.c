@@ -310,7 +310,7 @@ void ripng_interface_clean(void)
 	struct interface *ifp;
 	struct ripng_interface *ri;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		ri = ifp->info;
 
 		ri->enable_network = 0;
@@ -330,7 +330,7 @@ void ripng_interface_reset(void)
 	struct interface *ifp;
 	struct ripng_interface *ri;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		ri = ifp->info;
 
 		ri->enable_network = 0;
@@ -763,7 +763,7 @@ static void ripng_enable_apply_all(void)
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (vrf, ifp)
 		ripng_enable_apply(ifp);
 }
 
@@ -824,7 +824,7 @@ static void ripng_passive_interface_apply_all(void)
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (vrf, ifp)
 		ripng_passive_interface_apply(ifp);
 }
 
@@ -1074,7 +1074,7 @@ static int interface_config_write(struct vty *vty)
 	struct ripng_interface *ri;
 	int write = 0;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		ri = ifp->info;
 
 		/* Do not display the interface if there is no

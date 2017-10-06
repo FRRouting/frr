@@ -1251,7 +1251,7 @@ DEFUN (show_isis_mpls_te_interface,
 
 	/* Show All Interfaces. */
 	if (argc == 4) {
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+		FOR_ALL_INTERFACES (vrf, ifp)
 			show_mpls_te_sub(vty, ifp);
 	}
 	/* Interface name is specified. */

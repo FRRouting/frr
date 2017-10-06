@@ -298,7 +298,7 @@ void eigrp_distribute_update_all(struct prefix_list *notused)
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (vrf, ifp)
 		eigrp_distribute_update_interface(ifp);
 }
 

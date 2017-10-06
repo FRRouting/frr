@@ -249,7 +249,7 @@ int pim_interface_config_write(struct vty *vty)
 		if (!pim)
 			continue;
 
-		RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+		FOR_ALL_INTERFACES (pim->vrf, ifp) {
 			/* IF name */
 			if (vrf->vrf_id == VRF_DEFAULT)
 				vty_frame(vty, "interface %s\n", ifp->name);

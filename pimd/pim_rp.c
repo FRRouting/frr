@@ -335,7 +335,7 @@ static void pim_rp_check_interfaces(struct pim_instance *pim,
 	struct interface *ifp;
 
 	rp_info->i_am_rp = 0;
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
 
 		if (!pim_ifp)

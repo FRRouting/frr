@@ -7348,7 +7348,7 @@ static void bgp_if_finish(struct bgp *bgp)
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW || !vrf)
 		return;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		struct listnode *c_node, *c_nnode;
 		struct connected *c;
 

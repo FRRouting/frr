@@ -265,7 +265,7 @@ static void interface_info_ioctl()
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		if_get_index(ifp);
 #ifdef SIOCGIFHWADDR
 		if_get_hwaddr(ifp);

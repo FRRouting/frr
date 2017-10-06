@@ -339,7 +339,7 @@ int if_check_address(struct in_addr addr)
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		struct listnode *cnode;
 		struct connected *connected;
 
@@ -493,7 +493,7 @@ void rip_interfaces_clean(void)
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (vrf, ifp)
 		rip_interface_clean(ifp->info);
 }
 
@@ -545,7 +545,7 @@ void rip_interfaces_reset(void)
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (vrf, ifp)
 		rip_interface_reset(ifp->info);
 }
 
@@ -586,7 +586,7 @@ void rip_if_down_all()
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (vrf, ifp)
 		rip_if_down(ifp);
 }
 
@@ -981,7 +981,7 @@ void rip_enable_apply_all()
 	struct interface *ifp;
 
 	/* Check each interface. */
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (vrf, ifp)
 		rip_enable_apply(ifp);
 }
 
@@ -1094,7 +1094,7 @@ static void rip_passive_interface_apply_all(void)
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (vrf, ifp)
 		rip_passive_interface_apply(ifp);
 }
 
@@ -1731,7 +1731,7 @@ static int rip_interface_config_write(struct vty *vty)
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		struct rip_interface *ri;
 
 		ri = ifp->info;

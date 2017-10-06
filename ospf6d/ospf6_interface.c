@@ -996,7 +996,7 @@ DEFUN (show_ipv6_ospf6_interface,
 		}
 		ospf6_interface_show(vty, ifp);
 	} else {
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+		FOR_ALL_INTERFACES (vrf, ifp)
 			ospf6_interface_show(vty, ifp);
 	}
 
@@ -1059,7 +1059,7 @@ DEFUN (show_ipv6_ospf6_interface_prefix,
 	struct ospf6_interface *oi;
 	struct interface *ifp;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		oi = (struct ospf6_interface *)ifp->info;
 		if (oi == NULL)
 			continue;
@@ -1759,7 +1759,7 @@ static int config_write_ospf6_interface(struct vty *vty)
 	struct ospf6_interface *oi;
 	struct interface *ifp;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		oi = (struct ospf6_interface *)ifp->info;
 		if (oi == NULL)
 			continue;
@@ -1911,7 +1911,7 @@ DEFUN (clear_ipv6_ospf6_interface,
 
 	if (argc == 4) /* Clear all the ospfv3 interfaces. */
 	{
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+		FOR_ALL_INTERFACES (vrf, ifp)
 			ospf6_interface_clear(vty, ifp);
 	} else /* Interface name is specified. */
 	{

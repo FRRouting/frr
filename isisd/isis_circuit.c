@@ -940,7 +940,7 @@ int isis_interface_config_write(struct vty *vty)
 	struct isis_circuit *circuit;
 	int i;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		/* IF name */
 		vty_frame(vty, "interface %s\n", ifp->name);
 		write++;

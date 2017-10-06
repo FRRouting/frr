@@ -868,7 +868,7 @@ int pim_upstream_evaluate_join_desired(struct pim_instance *pim,
 	struct pim_upstream *starup = up->parent;
 	int ret = 0;
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		if (!ifp->info)
 			continue;
 
@@ -1439,7 +1439,7 @@ int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
 		up->channel_oil = pim_channel_oil_add(
 			pim, &up->sg, pim_ifp->mroute_vif_index);
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		if (!ifp->info)
 			continue;
 

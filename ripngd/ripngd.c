@@ -1389,7 +1389,7 @@ static int ripng_update(struct thread *t)
 		zlog_debug("RIPng update timer expired!");
 
 	/* Supply routes to each interface. */
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		ri = ifp->info;
 
 		if (if_is_loopback(ifp) || !if_is_up(ifp))
@@ -1465,7 +1465,7 @@ int ripng_triggered_update(struct thread *t)
 
 	/* Split Horizon processing is done when generating triggered
 	   updates as well as normal updates (see section 2.6). */
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		ri = ifp->info;
 
 		if (if_is_loopback(ifp) || !if_is_up(ifp))
@@ -2091,7 +2091,7 @@ DEFUN (show_ipv6_ripng_status,
 
 	vty_out(vty, "    Interface        Send  Recv\n");
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		struct ripng_interface *ri;
 
 		ri = ifp->info;
@@ -2794,7 +2794,7 @@ static void ripng_distribute_update_all(struct prefix_list *notused)
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (vrf, ifp)
 		ripng_distribute_update_interface(ifp);
 }
 
@@ -2971,7 +2971,7 @@ static void ripng_routemap_update(const char *unused)
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (vrf, ifp)
 		ripng_if_rmap_update_interface(ifp);
 
 	ripng_routemap_update_redistribute();

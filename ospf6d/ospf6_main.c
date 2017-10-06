@@ -89,7 +89,7 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 
 	bfd_gbl_exit();
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (vrf, ifp)
 		if (ifp->info != NULL)
 			ospf6_interface_delete(ifp->info);
 

@@ -222,7 +222,7 @@ static void pim_show_assert(struct pim_instance *pim, struct vty *vty)
 	vty_out(vty,
 		"Interface Address         Source          Group           State  Winner          Uptime   Timer\n");
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;
 		if (!pim_ifp)
 			continue;
@@ -273,7 +273,7 @@ static void pim_show_assert_internal(struct pim_instance *pim, struct vty *vty)
 
 	vty_out(vty,
 		"Interface Address         Source          Group           CA  eCA ATD eATD\n");
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;
 		if (!pim_ifp)
 			continue;
@@ -321,7 +321,7 @@ static void pim_show_assert_metric(struct pim_instance *pim, struct vty *vty)
 	vty_out(vty,
 		"Interface Address         Source          Group           RPT Pref Metric Address        \n");
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;
 		if (!pim_ifp)
 			continue;
@@ -383,7 +383,7 @@ static void pim_show_assert_winner_metric(struct pim_instance *pim,
 	vty_out(vty,
 		"Interface Address         Source          Group           RPT Pref Metric Address        \n");
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;
 		if (!pim_ifp)
 			continue;
@@ -472,7 +472,7 @@ static void pim_show_membership(struct pim_instance *pim, struct vty *vty,
 
 	json = json_object_new_object();
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;
 		if (!pim_ifp)
 			continue;
@@ -593,7 +593,7 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 		vty_out(vty,
 			"Interface  State          Address  V  Querier  Query Timer    Uptime\n");
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
 		struct listnode *sock_node;
 		struct igmp_sock *igmp;
@@ -683,7 +683,7 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 
 	now = pim_time_monotonic_sec();
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;
 
 		if (!pim_ifp)
@@ -867,7 +867,7 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty)
 	vty_out(vty,
 		"Interface Address         Source          Group           Socket Uptime  \n");
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
 		struct listnode *join_node;
 		struct igmp_join *ij;
@@ -947,7 +947,7 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 	if (uj)
 		json = json_object_new_object();
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;
 
 		if (!pim_ifp)
@@ -1341,7 +1341,7 @@ static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
 
 	json = json_object_new_object();
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;
 
 		if (!pim_ifp)
@@ -1440,7 +1440,7 @@ static void pim_show_interface_traffic(struct pim_instance *pim,
 			"---------------------------------------------------------------------------------------------------------------\n");
 	}
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;
 
 		if (!pim_ifp)
@@ -1521,7 +1521,7 @@ static void pim_show_interface_traffic_single(struct pim_instance *pim,
 			"---------------------------------------------------------------------------------------------------------------\n");
 	}
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		if (strcmp(ifname, ifp->name))
 			continue;
 
@@ -1680,7 +1680,7 @@ static void pim_show_join(struct pim_instance *pim, struct vty *vty, u_char uj)
 		vty_out(vty,
 			"Interface Address         Source          Group           State      Uptime   Expire Prune\n");
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;
 		if (!pim_ifp)
 			continue;
@@ -1725,7 +1725,7 @@ static void pim_show_neighbors_single(struct pim_instance *pim, struct vty *vty,
 	if (uj)
 		json = json_object_new_object();
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;
 
 		if (!pim_ifp)
@@ -2132,7 +2132,7 @@ static void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 			"Interface         Neighbor    Uptime  Holdtime  DR Pri\n");
 	}
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;
 
 		if (!pim_ifp)
@@ -2198,7 +2198,7 @@ static void pim_show_neighbors_secondary(struct pim_instance *pim,
 	vty_out(vty,
 		"Interface Address         Neighbor        Secondary      \n");
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
 		struct in_addr ifaddr;
 		struct listnode *neighnode;
@@ -2504,7 +2504,7 @@ static void pim_show_join_desired(struct pim_instance *pim, struct vty *vty,
 			"Interface Source          Group           LostAssert Joins PimInclude JoinDesired EvalJD\n");
 
 	/* scan per-interface (S,G) state */
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;
 		if (!pim_ifp)
 			continue;
@@ -2800,7 +2800,7 @@ static void igmp_show_groups(struct pim_instance *pim, struct vty *vty,
 			"Interface Address         Group           Mode Timer    Srcs V Uptime  \n");
 
 	/* scan interfaces */
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
 		struct listnode *sock_node;
 		struct igmp_sock *igmp;
@@ -2912,7 +2912,7 @@ static void igmp_show_group_retransmission(struct pim_instance *pim,
 		"Interface Address         Group           RetTimer Counter RetSrcs\n");
 
 	/* scan interfaces */
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
 		struct listnode *sock_node;
 		struct igmp_sock *igmp;
@@ -2979,7 +2979,7 @@ static void igmp_show_sources(struct pim_instance *pim, struct vty *vty)
 		"Interface Address         Group           Source          Timer Fwd Uptime  \n");
 
 	/* scan interfaces */
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
 		struct listnode *sock_node;
 		struct igmp_sock *igmp;
@@ -3052,7 +3052,7 @@ static void igmp_show_source_retransmission(struct pim_instance *pim,
 		"Interface Address         Group           Source          Counter\n");
 
 	/* scan interfaces */
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
 		struct listnode *sock_node;
 		struct igmp_sock *igmp;
@@ -3106,10 +3106,10 @@ static void clear_igmp_interfaces(struct pim_instance *pim)
 {
 	struct interface *ifp;
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (pim->vrf, ifp)
 		pim_if_addr_del_all_igmp(ifp);
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (pim->vrf, ifp)
 		pim_if_addr_add_all(ifp);
 }
 
@@ -3117,7 +3117,7 @@ static void clear_pim_interfaces(struct pim_instance *pim)
 {
 	struct interface *ifp;
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		if (ifp->info) {
 			pim_neighbor_delete_all(ifp, "interface cleared");
 		}
@@ -3277,7 +3277,7 @@ DEFUN (clear_ip_pim_interface_traffic,
 	if (!vrf)
 		return CMD_WARNING;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		pim_ifp = ifp->info;
 
 		if (!pim_ifp)
@@ -4294,7 +4294,7 @@ static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty)
 	vty_out(vty,
 		"Interface Address            ifi Vif  PktsIn PktsOut    BytesIn   BytesOut\n");
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
 		struct in_addr ifaddr;
 		struct sioc_vif_req vreq;

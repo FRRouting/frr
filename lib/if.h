@@ -322,6 +322,13 @@ DECLARE_QOBJ_TYPE(interface)
 			"ifindex doesn't exist in VRF %u!",                    \
 			__func__, (ifp)->ifindex, (ifp)->vrf_id);
 
+#define FOR_ALL_INTERFACES(vrf, ifp)                                           \
+	if (vrf)                                                               \
+		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+
+#define FOR_ALL_INTERFACES_ADDRESSES(ifp, connected, node)                     \
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected))
+
 /* called from the library code whenever interfaces are created/deleted
  * note: interfaces may not be fully realized at that point; also they
  * may not exist in the system (ifindex = IFINDEX_INTERNAL)

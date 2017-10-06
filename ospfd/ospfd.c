@@ -210,7 +210,7 @@ void ospf_router_id_update(struct ospf *ospf)
 		ospf_router_lsa_update(ospf);
 
 		/* update ospf_interface's */
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+		FOR_ALL_INTERFACES (vrf, ifp)
 			ospf_if_update(ospf, ifp);
 	}
 }
@@ -624,7 +624,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	list_delete_and_null(&ospf->vlinks);
 
 	/* Remove any ospf interface config params */
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		struct ospf_if_params *params;
 
 		params = IF_DEF_PARAMS(ifp);
@@ -1261,7 +1261,7 @@ static void ospf_network_run(struct prefix *p, struct ospf_area *area)
 		ospf_router_id_update(area->ospf);
 
 	/* Get target interface. */
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (vrf, ifp)
 		ospf_network_run_interface(area->ospf, ifp, p, area);
 }
 

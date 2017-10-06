@@ -55,7 +55,7 @@ static void map_slaves_to_bridge(struct interface *br_if, int link)
 	struct interface *ifp;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
 			struct zebra_if *zif;
 			struct zebra_l2info_brslave *br_slave;
 

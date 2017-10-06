@@ -263,7 +263,7 @@ DEFUN (zebra_ptm_enable,
 	ptm_cb.ptm_enable = ZEBRA_IF_PTM_ENABLE_ON;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+		FOR_ALL_INTERFACES (vrf, ifp)
 			if (!ifp->ptm_enable) {
 				if_data = (struct zebra_if *)ifp->info;
 				if (if_data
@@ -1091,7 +1091,7 @@ void zebra_ptm_reset_status(int ptm_disable)
 	int send_linkup;
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
 			send_linkup = 0;
 			if (ifp->ptm_enable) {
 				if (!if_is_operative(ifp))

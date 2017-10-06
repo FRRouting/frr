@@ -278,7 +278,7 @@ struct interface *if_lookup_exact_address(void *src, int family,
 	struct prefix *p;
 	struct connected *c;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
 			p = c->address;
 
@@ -324,7 +324,7 @@ struct connected *if_lookup_address(void *matchaddr, int family,
 
 	match = NULL;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
 			if (c->address && (c->address->family == AF_INET)
 			    && prefix_match(CONNECTED_PREFIX(c), &addr)
@@ -345,7 +345,7 @@ struct interface *if_lookup_prefix(struct prefix *prefix, vrf_id_t vrf_id)
 	struct interface *ifp;
 	struct connected *c;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
 			if (prefix_cmp(c->address, prefix) == 0) {
 				return ifp;
@@ -528,7 +528,7 @@ void if_dump_all(void)
 	void *ifp;
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+		FOR_ALL_INTERFACES (vrf, ifp)
 			if_dump(ifp);
 }
 
@@ -685,7 +685,7 @@ static void if_autocomplete(vector comps, struct cmd_token *token)
 	struct vrf *vrf = NULL;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
 			vector_set(comps, XSTRDUP(MTYPE_COMPLETION, ifp->name));
 		}
 	}
@@ -730,7 +730,7 @@ DEFUN (show_address,
   if (argc > 2)
     VRF_GET_ID (vrf_id, argv[idx_vrf]->arg);
 
-  RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+  FOR_ALL_INTERFACES (vrf, ifp)
     {
       for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
 	{
@@ -763,7 +763,7 @@ DEFUN (show_address_vrf_all,
 
       vty_out (vty, "\nVRF %u\n\n", vrf->vrf_id);
 
-      RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+      FOR_ALL_INTERFACES (vrf, ifp)
         {
           for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
             {

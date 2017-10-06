@@ -901,7 +901,7 @@ DEFUN (show_babel_interface,
 
   if (argc == 3)
   {
-    RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+    FOR_ALL_INTERFACES (vrf, ifp)
       show_babel_interface_sub (vty, ifp);
     return CMD_SUCCESS;
   }
@@ -1320,7 +1320,7 @@ interface_config_write (struct vty *vty)
     struct interface *ifp;
     int write = 0;
 
-    RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+    FOR_ALL_INTERFACES (vrf, ifp) {
         vty_frame (vty, "interface %s\n",ifp->name);
         if (ifp->desc)
             vty_out (vty, " description %s\n",ifp->desc);

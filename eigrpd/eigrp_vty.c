@@ -136,7 +136,7 @@ static int eigrp_write_interface(struct vty *vty)
 	struct interface *ifp;
 	struct eigrp_interface *ei;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		ei = ifp->info;
 		if (!ei)
 			continue;

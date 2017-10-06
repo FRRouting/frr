@@ -116,7 +116,7 @@ void eigrp_router_id_update(struct eigrp *eigrp)
 		//        inet_ntoa(eigrp->router_id));
 
 		/* update eigrp_interface's */
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+		FOR_ALL_INTERFACES (vrf, ifp)
 			eigrp_if_update(ifp);
 	}
 }

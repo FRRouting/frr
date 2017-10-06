@@ -216,7 +216,7 @@ void pim_jp_agg_upstream_verification(struct pim_upstream *up, bool ignore)
 	struct pim_interface *pim_ifp = up->rpf.source_nexthop.interface->info;
 	struct pim_instance *pim = pim_ifp->pim;
 
-	RB_FOREACH (ifp, if_name_head, &pim->vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;
 		struct listnode *nnode;
 

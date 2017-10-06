@@ -340,7 +340,7 @@ static void ospf_passive_interface_default(struct ospf *ospf, u_char newval)
 
 	ospf->passive_interface_default = newval;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		if (ifp && OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp),
 						    passive_interface))
 			UNSET_IF_PARAM(IF_DEF_PARAMS(ifp), passive_interface);
@@ -2474,7 +2474,7 @@ DEFUN (ospf_auto_cost_reference_bandwidth,
 		return CMD_SUCCESS;
 
 	ospf->ref_bandwidth = refbw;
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (vrf, ifp)
 		ospf_if_recalculate_output_cost(ifp);
 
 	return CMD_SUCCESS;
@@ -2500,7 +2500,7 @@ DEFUN (no_ospf_auto_cost_reference_bandwidth,
 	vty_out(vty,
 		"        Please ensure reference bandwidth is consistent across all routers\n");
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (vrf, ifp)
 		ospf_if_recalculate_output_cost(ifp);
 
 	return CMD_SUCCESS;
@@ -3574,7 +3574,7 @@ static int show_ip_ospf_interface_common(struct vty *vty, struct ospf *ospf,
 
 	if (argc == iface_argv) {
 		/* Show All Interfaces.*/
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
 			if (ospf_oi_count(ifp)) {
 				if (use_json)
 					json_interface_sub =
@@ -8641,7 +8641,7 @@ static int config_write_interface_one(struct vty *vty, struct ospf *ospf)
 	struct ospf_if_params *params;
 	int write = 0;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		struct vrf *vrf = NULL;
 
 		if (memcmp(ifp->name, "VLINK", 5) == 0)
@@ -9327,7 +9327,7 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	if (ospf->passive_interface_default == OSPF_IF_PASSIVE)
 		vty_out(vty, " passive-interface default\n");
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+	FOR_ALL_INTERFACES (vrf, ifp)
 		if (OSPF_IF_PARAM_CONFIGURED(IF_DEF_PARAMS(ifp),
 					     passive_interface)
 		    && IF_DEF_PARAMS(ifp)->passive_interface
@@ -9597,7 +9597,7 @@ DEFUN (clear_ip_ospf_interface,
 	{
 		for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 			struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
-			RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+			FOR_ALL_INTERFACES (vrf, ifp)
 				ospf_interface_clear(ifp);
 		}
 	} else {

@@ -300,7 +300,7 @@ static int pim_bfd_nbr_replay(int command, struct zclient *zclient,
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
 			pim_ifp = ifp->info;
 
 			if (!pim_ifp)

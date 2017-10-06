@@ -219,7 +219,7 @@ kif_redistribute(const char *ifname)
 	struct kif		 kif;
 	struct kaddr		 ka;
 
-	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		if (ifname && strcmp(ifname, ifp->name) != 0)
 			continue;
 
