@@ -57,6 +57,22 @@ static void work_queue_item_free(struct work_queue_item *item)
 	return;
 }
 
+static void work_queue_item_remove(struct work_queue *wq,
+				   struct work_queue_item *item)
+{
+	assert(item && item->data);
+
+	/* call private data deletion callback if needed */
+	if (wq->spec.del_item_data)
+		wq->spec.del_item_data(wq, item->data);
+
+	work_queue_item_dequeue(wq, item);
+
+	work_queue_item_free(item);
+
+	return;
+}
+
 /* create new work queue */
 struct work_queue *work_queue_new(struct thread_master *m,
 				  const char *queue_name)
@@ -89,6 +105,12 @@ void work_queue_free(struct work_queue *wq)
 {
 	if (wq->thread != NULL)
 		thread_cancel(wq->thread);
+
+	while (!work_queue_empty(wq)) {
+		struct work_queue_item *item = work_queue_last_item(wq);
+
+		work_queue_item_remove(wq, item);
+	}
 
 	listnode_delete(work_queues, wq);
 
@@ -133,22 +155,6 @@ void work_queue_add(struct work_queue *wq, void *data)
 	work_queue_item_enqueue(wq, item);
 
 	work_queue_schedule(wq, wq->spec.hold);
-
-	return;
-}
-
-static void work_queue_item_remove(struct work_queue *wq,
-				   struct work_queue_item *item)
-{
-	assert(item && item->data);
-
-	/* call private data deletion callback if needed */
-	if (wq->spec.del_item_data)
-		wq->spec.del_item_data(wq, item->data);
-
-	work_queue_item_dequeue(wq, item);
-
-	work_queue_item_free(item);
 
 	return;
 }
