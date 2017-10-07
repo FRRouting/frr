@@ -1546,8 +1546,11 @@ int send_hello(struct isis_circuit *circuit, int level)
 
 	isis_tlvs_add_auth(tlvs, &circuit->passwd);
 
-	if (!listcount(circuit->area->area_addrs))
+	if (!listcount(circuit->area->area_addrs)) {
+		isis_free_tlvs(tlvs);
 		return ISIS_WARNING;
+	}
+
 	isis_tlvs_add_area_addresses(tlvs, circuit->area->area_addrs);
 
 	if (circuit->circ_type == CIRCUIT_T_BROADCAST)
