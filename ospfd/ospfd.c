@@ -1493,6 +1493,25 @@ int ospf_area_no_summary_unset(struct ospf *ospf, struct in_addr area_id)
 	return 1;
 }
 
+int ospf_area_nssa_no_summary_set(struct ospf *ospf, struct in_addr area_id)
+{
+	struct ospf_area *area;
+
+	area = ospf_area_get(ospf, area_id);
+	if (ospf_area_vlink_count(ospf, area))
+		return 0;
+
+	if (area->external_routing != OSPF_AREA_NSSA) {
+		ospf_area_type_set(area, OSPF_AREA_NSSA);
+		ospf->anyNSSA++;
+		area->NSSATranslatorRole = OSPF_NSSA_ROLE_CANDIDATE;
+	}
+
+	ospf_area_no_summary_set(ospf, area_id);
+
+	return 1;
+}
+
 int ospf_area_nssa_set(struct ospf *ospf, struct in_addr area_id)
 {
 	struct ospf_area *area;
@@ -1504,18 +1523,18 @@ int ospf_area_nssa_set(struct ospf *ospf, struct in_addr area_id)
 	if (area->external_routing != OSPF_AREA_NSSA) {
 		ospf_area_type_set(area, OSPF_AREA_NSSA);
 		ospf->anyNSSA++;
+
+		/* set NSSA area defaults */
+		area->no_summary = 0;
+		area->NSSATranslatorRole = OSPF_NSSA_ROLE_CANDIDATE;
+		area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_DISABLED;
+		area->NSSATranslatorStabilityInterval =
+			OSPF_NSSA_TRANS_STABLE_DEFAULT;
 	}
-
-	/* set NSSA area defaults */
-	area->no_summary = 0;
-	area->NSSATranslatorRole = OSPF_NSSA_ROLE_CANDIDATE;
-	area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_DISABLED;
-	area->NSSATranslatorStabilityInterval = OSPF_NSSA_TRANS_STABLE_DEFAULT;
-
 	return 1;
 }
 
-int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id)
+int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id, int argc)
 {
 	struct ospf_area *area;
 
@@ -1523,9 +1542,18 @@ int ospf_area_nssa_unset(struct ospf *ospf, struct in_addr area_id)
 	if (area == NULL)
 		return 0;
 
-	if (area->external_routing == OSPF_AREA_NSSA) {
+	/* argc < 5 -> 'no area x nssa' */
+	if (argc < 5 && area->external_routing == OSPF_AREA_NSSA) {
 		ospf->anyNSSA--;
+		/* set NSSA area defaults */
+		area->no_summary = 0;
+		area->NSSATranslatorRole = OSPF_NSSA_ROLE_CANDIDATE;
+		area->NSSATranslatorState = OSPF_NSSA_TRANSLATE_DISABLED;
+		area->NSSATranslatorStabilityInterval =
+			OSPF_NSSA_TRANS_STABLE_DEFAULT;
 		ospf_area_type_set(area, OSPF_AREA_DEFAULT);
+	} else {
+		area->NSSATranslatorRole = OSPF_NSSA_ROLE_CANDIDATE;
 	}
 
 	ospf_area_check_free(ospf, area_id);
