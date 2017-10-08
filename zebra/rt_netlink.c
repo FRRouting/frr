@@ -267,7 +267,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 	struct rtattr *tb[RTA_MAX + 1];
 	u_char flags = 0;
 	struct prefix p;
-	struct prefix_ipv6 src_p;
+	struct prefix_ipv6 src_p = {};
 	vrf_id_t vrf_id = VRF_DEFAULT;
 
 	char anyaddr[16] = {0};

@@ -169,6 +169,7 @@ const char *ospf_timeval_dump(struct timeval *t, char *buf, size_t size)
 	if (us >= 1000) {
 		ms = us / 1000;
 		us %= 1000;
+		(void)us; /* unused */
 	}
 
 	if (ms >= 1000) {

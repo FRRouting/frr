@@ -223,6 +223,9 @@ uint8_t add_te_subtlvs(uint8_t *buf, struct mpls_te_circuit *mtc)
 		tlvs += size;
 	}
 
+	/* Add before this line any other parsing of TLV */
+	(void)tlvs;
+
 	/* Update SubTLVs length */
 	mtc->length = subtlvs_len(mtc);
 

@@ -137,18 +137,25 @@ struct ospf6_lsa {
 #define OSPF6_LSA_SEQWRAPPED 0x20
 
 struct ospf6_lsa_handler {
-	u_int16_t type; /* host byte order */
-	const char *name;
-	const char *short_name;
-	int (*show)(struct vty *, struct ospf6_lsa *);
-	char *(*get_prefix_str)(struct ospf6_lsa *, char *buf, int buflen,
-				int pos);
+	const struct {
+		u_int16_t type; /* host byte order */
+		const char *name;
+		const char *short_name;
+		int (*show)(struct vty *, struct ospf6_lsa *);
+		char *(*get_prefix_str)(struct ospf6_lsa *, char *buf, int buflen,
+					int pos);
+	} s;
+#define lh_type       s.type
+#define lh_name       s.name
+#define lh_short_name s.short_name
+#define lh_show       s.show
+#define lh_get_prefix_str s.get_prefix_str
 	u_char debug;
+#define lh_debug debug
 };
 
-extern struct ospf6_lsa_handler unknown_handler;
-#define OSPF6_LSA_IS_KNOWN(type)                                               \
-	(ospf6_get_lsa_handler(type) != &unknown_handler ? 1 : 0)
+#define OSPF6_LSA_IS_KNOWN(t)                                                  \
+	(ospf6_get_lsa_handler(t).lh_type != OSPF6_LSTYPE_UNKNOWN ? 1 : 0)
 
 extern vector ospf6_lsa_handler_vector;
 
@@ -237,8 +244,8 @@ extern int ospf6_lsa_checksum_valid(struct ospf6_lsa_header *);
 extern int ospf6_lsa_prohibited_duration(u_int16_t type, u_int32_t id,
 					 u_int32_t adv_router, void *scope);
 
-extern void ospf6_install_lsa_handler(struct ospf6_lsa_handler *handler);
-extern struct ospf6_lsa_handler *ospf6_get_lsa_handler(u_int16_t type);
+extern void ospf6_install_lsa_handler(const struct ospf6_lsa_handler *handler);
+extern const struct ospf6_lsa_handler *ospf6_get_lsa_handler(u_int16_t type);
 
 extern void ospf6_lsa_init(void);
 extern void ospf6_lsa_terminate(void);

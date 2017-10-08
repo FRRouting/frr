@@ -68,19 +68,25 @@ static int ospf6_unknown_lsa_show(struct vty *vty, struct ospf6_lsa *lsa)
 	return 0;
 }
 
-struct ospf6_lsa_handler unknown_handler = {
-	OSPF6_LSTYPE_UNKNOWN, "Unknown", "Unk", ospf6_unknown_lsa_show, NULL};
+static struct ospf6_lsa_handler unknown_handler = {
+	.lh_type = OSPF6_LSTYPE_UNKNOWN,
+	.lh_name = "Unknown",
+	.lh_short_name = "Unk",
+	.lh_show = ospf6_unknown_lsa_show,
+	.lh_get_prefix_str = NULL,
+	.lh_debug = 0 /* No default debug */
+};
 
-void ospf6_install_lsa_handler(struct ospf6_lsa_handler *handler)
+void ospf6_install_lsa_handler(const struct ospf6_lsa_handler *handler)
 {
 	/* type in handler is host byte order */
-	int index = handler->type & OSPF6_LSTYPE_FCODE_MASK;
-	vector_set_index(ospf6_lsa_handler_vector, index, handler);
+	int index = handler->lh_type & OSPF6_LSTYPE_FCODE_MASK;
+	vector_set_index(ospf6_lsa_handler_vector, index, (void *)handler);
 }
 
-struct ospf6_lsa_handler *ospf6_get_lsa_handler(u_int16_t type)
+const struct ospf6_lsa_handler *ospf6_get_lsa_handler(u_int16_t type)
 {
-	struct ospf6_lsa_handler *handler = NULL;
+	const struct ospf6_lsa_handler *handler = NULL;
 	unsigned int index = ntohs(type) & OSPF6_LSTYPE_FCODE_MASK;
 
 	if (index >= vector_active(ospf6_lsa_handler_vector))
@@ -97,11 +103,11 @@ struct ospf6_lsa_handler *ospf6_get_lsa_handler(u_int16_t type)
 const char *ospf6_lstype_name(u_int16_t type)
 {
 	static char buf[8];
-	struct ospf6_lsa_handler *handler;
+	const struct ospf6_lsa_handler *handler;
 
 	handler = ospf6_get_lsa_handler(type);
 	if (handler && handler != &unknown_handler)
-		return handler->name;
+		return handler->lh_name;
 
 	snprintf(buf, sizeof(buf), "0x%04hx", ntohs(type));
 	return buf;
@@ -110,11 +116,11 @@ const char *ospf6_lstype_name(u_int16_t type)
 const char *ospf6_lstype_short_name(u_int16_t type)
 {
 	static char buf[8];
-	struct ospf6_lsa_handler *handler;
+	const struct ospf6_lsa_handler *handler;
 
 	handler = ospf6_get_lsa_handler(type);
 	if (handler && handler != &unknown_handler)
-		return handler->short_name;
+		return handler->lh_short_name;
 
 	snprintf(buf, sizeof(buf), "0x%04hx", ntohs(type));
 	return buf;
@@ -122,7 +128,7 @@ const char *ospf6_lstype_short_name(u_int16_t type)
 
 u_char ospf6_lstype_debug(u_int16_t type)
 {
-	struct ospf6_lsa_handler *handler;
+	const struct ospf6_lsa_handler *handler;
 	handler = ospf6_get_lsa_handler(type);
 	return handler->debug;
 }
@@ -369,7 +375,7 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa)
 {
 	char adv_router[16], id[16];
 	int type;
-	struct ospf6_lsa_handler *handler;
+	const struct ospf6_lsa_handler *handler;
 	char buf[64], tmpbuf[80];
 	int cnt = 0;
 
@@ -389,14 +395,14 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa)
 			ospf6_lstype_short_name(lsa->header->type), id,
 			adv_router, ospf6_lsa_age_current(lsa),
 			(u_long)ntohl(lsa->header->seqnum),
-			handler->get_prefix_str(lsa, buf, sizeof(buf), 0));
+			handler->lh_get_prefix_str(lsa, buf, sizeof(buf), 0));
 	} else if (type != OSPF6_LSTYPE_UNKNOWN) {
 		sprintf(tmpbuf, "%-4s %-15s%-15s%4hu %8lx",
 			ospf6_lstype_short_name(lsa->header->type), id,
 			adv_router, ospf6_lsa_age_current(lsa),
 			(u_long)ntohl(lsa->header->seqnum));
 
-		while (handler->get_prefix_str(lsa, buf, sizeof(buf), cnt)
+		while (handler->lh_get_prefix_str(lsa, buf, sizeof(buf), cnt)
 		       != NULL) {
 			vty_out(vty, "%s %30s\n", tmpbuf, buf);
 			cnt++;
@@ -465,7 +471,7 @@ void ospf6_lsa_show_internal(struct vty *vty, struct ospf6_lsa *lsa)
 void ospf6_lsa_show(struct vty *vty, struct ospf6_lsa *lsa)
 {
 	char adv_router[64], id[64];
-	struct ospf6_lsa_handler *handler;
+	const struct ospf6_lsa_handler *handler;
 	struct timeval now, res;
 	char duration[64];
 
@@ -490,9 +496,13 @@ void ospf6_lsa_show(struct vty *vty, struct ospf6_lsa *lsa)
 	vty_out(vty, "Duration: %s\n", duration);
 
 	handler = ospf6_get_lsa_handler(lsa->header->type);
-	if (handler->show == NULL)
-		handler = &unknown_handler;
-	(*handler->show)(vty, lsa);
+
+	if (handler->lh_show != NULL)
+		handler->lh_show(vty, lsa);
+	else {
+		assert(unknown_handler.lh_show != NULL);
+		unknown_handler.lh_show(vty, lsa);
+	}
 
 	vty_out(vty, "\n");
 }
@@ -739,22 +749,22 @@ void ospf6_lsa_terminate(void)
 	vector_free(ospf6_lsa_handler_vector);
 }
 
-static char *ospf6_lsa_handler_name(struct ospf6_lsa_handler *h)
+static char *ospf6_lsa_handler_name(const struct ospf6_lsa_handler *h)
 {
 	static char buf[64];
 	unsigned int i;
-	unsigned int size = strlen(h->name);
+	unsigned int size = strlen(h->lh_name);
 
-	if (!strcmp(h->name, "unknown") && h->type != OSPF6_LSTYPE_UNKNOWN) {
-		snprintf(buf, sizeof(buf), "%#04hx", h->type);
+	if (!strcmp(h->lh_name, "unknown") && h->lh_type != OSPF6_LSTYPE_UNKNOWN) {
+		snprintf(buf, sizeof(buf), "%#04hx", h->lh_type);
 		return buf;
 	}
 
 	for (i = 0; i < MIN(size, sizeof(buf)); i++) {
-		if (!islower((unsigned char)h->name[i]))
-			buf[i] = tolower((unsigned char)h->name[i]);
+		if (!islower((unsigned char)h->lh_name[i]))
+			buf[i] = tolower((unsigned char)h->lh_name[i]);
 		else
-			buf[i] = h->name[i];
+			buf[i] = h->lh_name[i];
 	}
 	buf[size] = '\0';
 	return buf;
@@ -791,7 +801,7 @@ DEFUN (debug_ospf6_lsa_type,
 			    strlen(argv[idx_lsa]->arg))
 		    == 0)
 			break;
-		if (!strcasecmp(argv[idx_lsa]->arg, handler->name))
+		if (!strcasecmp(argv[idx_lsa]->arg, handler->lh_name))
 			break;
 		handler = NULL;
 	}
@@ -844,7 +854,7 @@ DEFUN (no_debug_ospf6_lsa_type,
 			    strlen(argv[idx_lsa]->arg))
 		    == 0)
 			break;
-		if (!strcasecmp(argv[idx_lsa]->arg, handler->name))
+		if (!strcasecmp(argv[idx_lsa]->arg, handler->lh_name))
 			break;
 	}
 
@@ -875,7 +885,7 @@ void install_element_ospf6_debug_lsa(void)
 int config_write_ospf6_debug_lsa(struct vty *vty)
 {
 	u_int i;
-	struct ospf6_lsa_handler *handler;
+	const struct ospf6_lsa_handler *handler;
 
 	for (i = 0; i < vector_active(ospf6_lsa_handler_vector); i++) {
 		handler = vector_slot(ospf6_lsa_handler_vector, i);

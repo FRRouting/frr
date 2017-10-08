@@ -169,7 +169,7 @@ int eigrp_check_md5_digest(struct stream *s,
 	struct TLV_MD5_Authentication_Type *auth_TLV;
 	struct eigrp_header *eigrph;
 
-	if (nbr && ntohl(nbr->crypt_seqnum) > ntohl(authTLV->key_sequence)) {
+	if (ntohl(nbr->crypt_seqnum) > ntohl(authTLV->key_sequence)) {
 		zlog_warn(
 			"interface %s: eigrp_check_md5 bad sequence %d (expect %d)",
 			IF_NAME(nbr->ei), ntohl(authTLV->key_sequence),
@@ -317,7 +317,6 @@ int eigrp_write(struct thread *thread)
 	struct ip iph;
 	struct msghdr msg;
 	struct iovec iov[2];
-	u_int16_t opcode = 0;
 	u_int32_t seqno, ack;
 
 	int ret;
@@ -363,7 +362,6 @@ int eigrp_write(struct thread *thread)
 	 * this outgoing packet.
 	 */
 	eigrph = (struct eigrp_header *)STREAM_DATA(ep->s);
-	opcode = eigrph->opcode;
 	seqno = ntohl(eigrph->sequence);
 	ack = ntohl(eigrph->ack);
 	if (ep->nbr && (ack != ep->nbr->recv_sequence_number)) {
@@ -427,9 +425,8 @@ int eigrp_write(struct thread *thread)
 
 	if (IS_DEBUG_EIGRP_TRANSMIT(0, SEND)) {
 		eigrph = (struct eigrp_header *)STREAM_DATA(ep->s);
-		opcode = eigrph->opcode;
 		zlog_debug("Sending [%s][%d/%d] to [%s] via [%s] ret [%d].",
-			   lookup_msg(eigrp_packet_type_str, opcode, NULL),
+			   lookup_msg(eigrp_packet_type_str, eigrph->opcode, NULL),
 			   seqno, ack,
 			   inet_ntoa(ep->dst), IF_NAME(ei), ret);
 	}

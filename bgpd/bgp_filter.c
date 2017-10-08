@@ -410,8 +410,8 @@ DEFUN (ip_as_path,
 	char *regstr;
 
 	/* Retrieve access list name */
-	char *alname =
-		argv_find(argv, argc, "WORD", &idx) ? argv[idx]->arg : NULL;
+	argv_find(argv, argc, "WORD", &idx);
+	char *alname = argv[idx]->arg;
 
 	/* Check the filter type. */
 	type = argv_find(argv, argc, "deny", &idx) ? AS_FILTER_DENY
