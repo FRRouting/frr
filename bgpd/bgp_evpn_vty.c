@@ -252,6 +252,8 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 			vty_out(vty, " (known to the kernel)");
 		vty_out(vty, "\n");
 
+		vty_out(vty, "  Tenant-Vrf: %s\n",
+			vrf_id_to_name(vpn->tenant_vrf_id));
 		vty_out(vty, "  RD: %s\n",
 			prefix_rd2str(&vpn->prd, buf1, sizeof(buf1)));
 		vty_out(vty, "  Originator IP: %s\n",
@@ -448,9 +450,10 @@ static void show_vni_entry(struct hash_backet *backet, void *args[])
 			json_vni, "rd",
 			prefix_rd2str(&vpn->prd, buf2, sizeof(buf2)));
 	} else {
-		vty_out(vty, "%-1s %-10u %-15s %-21s", buf1, vpn->vni,
+		vty_out(vty, "%-1s %-10u %-15s %-37s %-21s", buf1, vpn->vni,
 			inet_ntoa(vpn->originator_ip),
-			prefix_rd2str(&vpn->prd, buf2, sizeof(buf2)));
+			vrf_id_to_name(vpn->tenant_vrf_id),
+			prefix_rd2str(&vpn->prd, buf2, RD_ADDRSTRLEN));
 	}
 
 	for (ALL_LIST_ELEMENTS(vpn->import_rtl, node, nnode, ecom)) {
@@ -1403,7 +1406,9 @@ static struct bgpevpn *evpn_create_update_vni(struct bgp *bgp, vni_t vni)
 
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
 	if (!vpn) {
-		vpn = bgp_evpn_new(bgp, vni, bgp->router_id);
+		/* tenant vrf will be updated when we get local_vni_add from
+		 * zebra */
+		vpn = bgp_evpn_new(bgp, vni, bgp->router_id, 0);
 		if (!vpn) {
 			zlog_err(
 				"%u: Failed to allocate VNI entry for VNI %u - at Config",
@@ -2014,8 +2019,9 @@ static void evpn_show_all_vnis(struct vty *vty, struct bgp *bgp,
 	} else {
 		vty_out(vty, "Number of VNIs: %u\n", num_vnis);
 		vty_out(vty, "Flags: * - Kernel\n");
-		vty_out(vty, "  %-10s %-15s %-21s %-25s %-25s\n", "VNI",
-			"Orig IP", "RD", "Import RT", "Export RT");
+		vty_out(vty, "  %-10s %-15s %-37s %-21s %-25s %-25s\n", "VNI",
+			"Orig IP", "Tenant-Vrf", "RD", "Import RT",
+			"Export RT");
 	}
 
 	args[0] = vty;

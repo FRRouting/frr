@@ -1682,23 +1682,29 @@ static int bgp_zebra_process_local_vni(int command, struct zclient *zclient,
 	vni_t vni;
 	struct bgp *bgp;
 	struct in_addr vtep_ip;
+	vrf_id_t tenant_vrf_id = VRF_DEFAULT;
 
 	s = zclient->ibuf;
 	vni = stream_getl(s);
-	if (command == ZEBRA_VNI_ADD)
+	if (command == ZEBRA_VNI_ADD) {
 		vtep_ip.s_addr = stream_get_ipv4(s);
+		stream_get(&tenant_vrf_id, s, sizeof(vrf_id_t));
+	}
+
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp)
 		return 0;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("Rx VNI %s VRF %u VNI %u",
-			   (command == ZEBRA_VNI_ADD) ? "add" : "del", vrf_id,
-			   vni);
+		zlog_debug("Rx VNI %s VRF %s VNI %u tenant-vrf %s",
+			   (command == ZEBRA_VNI_ADD) ? "add" : "del",
+			   vrf_id_to_name(vrf_id),
+			   vni, vrf_id_to_name(tenant_vrf_id));
 
 	if (command == ZEBRA_VNI_ADD)
 		return bgp_evpn_local_vni_add(
-			bgp, vni, vtep_ip.s_addr ? vtep_ip : bgp->router_id);
+			bgp, vni, vtep_ip.s_addr ? vtep_ip : bgp->router_id,
+			tenant_vrf_id);
 	else
 		return bgp_evpn_local_vni_del(bgp, vni);
 }
