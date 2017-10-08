@@ -53,6 +53,7 @@ typedef enum {
  */
 struct bgpevpn {
 	vni_t vni;
+	vrf_id_t tenant_vrf_id;
 	u_int32_t flags;
 #define VNI_FLAG_CFGD              0x1  /* VNI is user configured */
 #define VNI_FLAG_LIVE              0x2  /* VNI is "live" */
@@ -213,6 +214,7 @@ extern void bgp_evpn_derive_auto_rt_export(struct bgp *bgp,
 extern void bgp_evpn_derive_auto_rd(struct bgp *bgp, struct bgpevpn *vpn);
 extern struct bgpevpn *bgp_evpn_lookup_vni(struct bgp *bgp, vni_t vni);
 extern struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
-				    struct in_addr originator_ip);
+				    struct in_addr originator_ip,
+				    vrf_id_t tenant_vrf_id);
 extern void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn);
 #endif /* _BGP_EVPN_PRIVATE_H */

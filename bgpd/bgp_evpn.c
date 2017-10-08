@@ -2566,7 +2566,8 @@ struct bgpevpn *bgp_evpn_lookup_vni(struct bgp *bgp, vni_t vni)
  * Create a new vpn - invoked upon configuration or zebra notification.
  */
 struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
-			     struct in_addr originator_ip)
+			     struct in_addr originator_ip,
+			     vrf_id_t tenant_vrf_id)
 {
 	struct bgpevpn *vpn;
 
@@ -2580,6 +2581,7 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 	/* Set values - RD and RT set to defaults. */
 	vpn->vni = vni;
 	vpn->originator_ip = originator_ip;
+	vpn->tenant_vrf_id = tenant_vrf_id;
 
 	/* Initialize route-target import and export lists */
 	vpn->import_rtl = list_new();
@@ -2815,7 +2817,8 @@ int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni)
  * about is change to local-tunnel-ip.
  */
 int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
-			   struct in_addr originator_ip)
+			   struct in_addr originator_ip,
+			   vrf_id_t tenant_vrf_id)
 {
 	struct bgpevpn *vpn;
 	struct prefix_evpn p;
@@ -2828,6 +2831,11 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 	/* Lookup VNI. If present and no change, exit. */
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
 	if (vpn) {
+
+		/* update tenant_vrf_id if required */
+		if (vpn->tenant_vrf_id != tenant_vrf_id)
+			vpn->tenant_vrf_id = tenant_vrf_id;
+
 		if (is_vni_live(vpn)
 		    && IPV4_ADDR_SAME(&vpn->originator_ip, &originator_ip))
 			/* Probably some other param has changed that we don't
@@ -2840,7 +2848,7 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 
 	/* Create or update as appropriate. */
 	if (!vpn) {
-		vpn = bgp_evpn_new(bgp, vni, originator_ip);
+		vpn = bgp_evpn_new(bgp, vni, originator_ip, tenant_vrf_id);
 		if (!vpn) {
 			zlog_err(
 				"%u: Failed to allocate VNI entry for VNI %u - at Add",
