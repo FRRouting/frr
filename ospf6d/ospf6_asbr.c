@@ -438,6 +438,9 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	if (!ospf6_zebra_is_redistribute(type))
 		return;
 
+	memset(&troute, 0, sizeof(troute));
+	memset(&tinfo, 0, sizeof(tinfo));
+
 	if (IS_OSPF6_DEBUG_ASBR) {
 		prefix2str(prefix, pbuf, sizeof(pbuf));
 		zlog_debug("Redistribute %s (%s)", pbuf, ZROUTE_NAME(type));
@@ -457,8 +460,6 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 
 	/* apply route-map */
 	if (ospf6->rmap[type].map) {
-		memset(&troute, 0, sizeof(troute));
-		memset(&tinfo, 0, sizeof(tinfo));
 		troute.route_option = &tinfo;
 		tinfo.ifindex = ifindex;
 		tinfo.tag = tag;
