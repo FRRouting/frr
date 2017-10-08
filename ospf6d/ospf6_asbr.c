@@ -1234,8 +1234,13 @@ DEFUN (show_ipv6_ospf6_redistribute,
 }
 
 struct ospf6_lsa_handler as_external_handler = {
-	OSPF6_LSTYPE_AS_EXTERNAL, "AS-External", "ASE",
-	ospf6_as_external_lsa_show, ospf6_as_external_lsa_get_prefix_str};
+	.lh_type = OSPF6_LSTYPE_AS_EXTERNAL,
+	.lh_name = "AS-External",
+	.lh_short_name = "ASE",
+	.lh_show = ospf6_as_external_lsa_show,
+	.lh_get_prefix_str = ospf6_as_external_lsa_get_prefix_str,
+	.lh_debug = 0
+};
 
 void ospf6_asbr_init(void)
 {

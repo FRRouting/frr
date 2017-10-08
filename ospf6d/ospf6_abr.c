@@ -1110,19 +1110,21 @@ void install_element_ospf6_debug_abr(void)
 }
 
 struct ospf6_lsa_handler inter_prefix_handler = {
-	OSPF6_LSTYPE_INTER_PREFIX,
-	"Inter-Prefix",
-	"IAP",
-	ospf6_inter_area_prefix_lsa_show,
-	ospf6_inter_area_prefix_lsa_get_prefix_str,
+	.lh_type = OSPF6_LSTYPE_INTER_PREFIX,
+	.lh_name = "Inter-Prefix",
+	.lh_short_name = "IAP",
+	.lh_show = ospf6_inter_area_prefix_lsa_show,
+	.lh_get_prefix_str = ospf6_inter_area_prefix_lsa_get_prefix_str,
+	.lh_debug = 0
 };
 
 struct ospf6_lsa_handler inter_router_handler = {
-	OSPF6_LSTYPE_INTER_ROUTER,
-	"Inter-Router",
-	"IAR",
-	ospf6_inter_area_router_lsa_show,
-	ospf6_inter_area_router_lsa_get_prefix_str,
+	.lh_type = OSPF6_LSTYPE_INTER_ROUTER,
+	.lh_name = "Inter-Router",
+	.lh_short_name = "IAR",
+	.lh_show = ospf6_inter_area_router_lsa_show,
+	.lh_get_prefix_str = ospf6_inter_area_router_lsa_get_prefix_str,
+	.lh_debug = 0
 };
 
 void ospf6_abr_init(void)
