@@ -225,6 +225,17 @@ static void vrf_disable(struct vrf *vrf)
 		(*vrf_master.vrf_disable_hook)(vrf);
 }
 
+const char *vrf_id_to_name(vrf_id_t vrf_id)
+{
+	struct vrf *vrf;
+
+	vrf = vrf_lookup_by_id(vrf_id);
+	if (vrf)
+		return vrf->name;
+
+	return NULL;
+}
+
 vrf_id_t vrf_name_to_id(const char *name)
 {
 	struct vrf *vrf;

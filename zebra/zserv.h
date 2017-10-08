@@ -110,6 +110,8 @@ struct zserv {
 	u_int32_t bfd_client_reg_cnt;
 	u_int32_t vniadd_cnt;
 	u_int32_t vnidel_cnt;
+	u_int32_t l3vniadd_cnt;
+	u_int32_t l3vnidel_cnt;
 	u_int32_t macipadd_cnt;
 	u_int32_t macipdel_cnt;
 

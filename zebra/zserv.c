@@ -2979,6 +2979,8 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 	vty_out(vty, "Interface Down Notifications: %d\n", client->ifdown_cnt);
 	vty_out(vty, "VNI add notifications: %d\n", client->vniadd_cnt);
 	vty_out(vty, "VNI delete notifications: %d\n", client->vnidel_cnt);
+	vty_out(vty, "L3-VNI add notifications: %d\n", client->l3vniadd_cnt);
+	vty_out(vty, "L3-VNI delete notifications: %d\n", client->l3vnidel_cnt);
 	vty_out(vty, "MAC-IP add notifications: %d\n", client->macipadd_cnt);
 	vty_out(vty, "MAC-IP delete notifications: %d\n", client->macipdel_cnt);
 
