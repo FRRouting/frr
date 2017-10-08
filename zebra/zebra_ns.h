@@ -49,6 +49,9 @@ struct zebra_ns {
 
 	struct route_table *if_table;
 
+	/* L3-VNI hash table (for EVPN). Only in default instance */
+	struct hash *l3vni_table;
+
 #if defined(HAVE_RTADV)
 	struct rtadv rtadv;
 #endif /* HAVE_RTADV */

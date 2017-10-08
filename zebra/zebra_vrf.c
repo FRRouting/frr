@@ -250,6 +250,10 @@ static int zebra_vrf_delete(struct vrf *vrf)
 		route_table_finish(zvrf->rnh_table[afi]);
 		route_table_finish(zvrf->import_check_table[afi]);
 	}
+
+	/* cleanup evpn states for vrf */
+	zebra_vxlan_vrf_delete(zvrf);
+
 	list_delete_all_node(zvrf->rid_all_sorted_list);
 	list_delete_all_node(zvrf->rid_lo_sorted_list);
 	XFREE(MTYPE_ZEBRA_VRF, zvrf);
@@ -474,6 +478,7 @@ static int vrf_config_write(struct vty *vty)
 
 		if (strcmp(zvrf_name(zvrf), VRF_DEFAULT_NAME)) {
 			vty_out(vty, "vrf %s\n", zvrf_name(zvrf));
+			vty_out(vty, " vni %u\n", zvrf->l3vni);
 			vty_out(vty, "!\n");
 		}
 	}

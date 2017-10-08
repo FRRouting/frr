@@ -112,6 +112,8 @@ typedef enum {
 	ZEBRA_ADVERTISE_ALL_VNI,
 	ZEBRA_VNI_ADD,
 	ZEBRA_VNI_DEL,
+	ZEBRA_L3VNI_ADD,
+	ZEBRA_L3VNI_DEL,
 	ZEBRA_REMOTE_VTEP_ADD,
 	ZEBRA_REMOTE_VTEP_DEL,
 	ZEBRA_MACIP_ADD,
@@ -200,6 +202,8 @@ struct zclient {
 	int (*fec_update)(int, struct zclient *, uint16_t);
 	int (*local_vni_add)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*local_vni_del)(int, struct zclient *, uint16_t, vrf_id_t);
+	int (*local_l3vni_add)(int, struct zclient *, uint16_t, vrf_id_t);
+	int (*local_l3vni_del)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*local_macip_add)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*local_macip_del)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*pw_status_update)(int, struct zclient *, uint16_t, vrf_id_t);

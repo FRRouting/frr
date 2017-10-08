@@ -301,7 +301,7 @@ static const struct in6_addr maskbytes6[] = {
 
 #define MASKBIT(offset)  ((0xff << (PNBBY - (offset))) & 0xff)
 
-static int is_zero_mac(const struct ethaddr *mac)
+int is_zero_mac(struct ethaddr *mac)
 {
 	int i = 0;
 
