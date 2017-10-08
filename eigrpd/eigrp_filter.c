@@ -187,6 +187,7 @@ void eigrp_distribute_update(struct distribute *dist)
 			break;
 		}
 	}
+	assert(ei != NULL);
 
 	/* Access-list for interface in */
 	if (dist->list[DISTRIBUTE_V4_IN]) {
