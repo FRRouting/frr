@@ -169,7 +169,7 @@ int eigrp_check_md5_digest(struct stream *s,
 	struct TLV_MD5_Authentication_Type *auth_TLV;
 	struct eigrp_header *eigrph;
 
-	if (nbr && ntohl(nbr->crypt_seqnum) > ntohl(authTLV->key_sequence)) {
+	if (ntohl(nbr->crypt_seqnum) > ntohl(authTLV->key_sequence)) {
 		zlog_warn(
 			"interface %s: eigrp_check_md5 bad sequence %d (expect %d)",
 			IF_NAME(nbr->ei), ntohl(authTLV->key_sequence),
