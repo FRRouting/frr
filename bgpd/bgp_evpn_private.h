@@ -101,6 +101,26 @@ struct irt_node {
 #define RT_TYPE_EXPORT 2
 #define RT_TYPE_BOTH   3
 
+static inline void bgpevpn_unlink_from_l3vni(struct bgpevpn *vpn)
+{
+	struct bgp *bgp_vrf = NULL;
+
+	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
+	if (!bgp_vrf || !bgp_vrf->l2vnis)
+		return;
+	listnode_delete(bgp_vrf->l2vnis, vpn);
+}
+
+static inline void bgpevpn_link_to_l3vni(struct bgpevpn *vpn)
+{
+	struct bgp *bgp_vrf = NULL;
+
+	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
+	if (!bgp_vrf || !bgp_vrf->l2vnis)
+		return;
+	listnode_add_sort(bgp_vrf->l2vnis, vpn);
+}
+
 static inline int is_vni_configured(struct bgpevpn *vpn)
 {
 	return (CHECK_FLAG(vpn->flags, VNI_FLAG_CFGD));

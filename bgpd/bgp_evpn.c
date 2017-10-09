@@ -2738,6 +2738,10 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 		XFREE(MTYPE_BGP_EVPN, vpn);
 		return NULL;
 	}
+
+	/* add to l2vni list on corresponding vrf */
+	bgpevpn_link_to_l3vni(vpn);
+
 	QOBJ_REG(vpn, bgpevpn);
 	return vpn;
 }
@@ -2750,6 +2754,7 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
  */
 void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn)
 {
+	bgpevpn_unlink_from_l3vni(vpn);
 	bgp_table_unlock(vpn->route_table);
 	bgp_evpn_unmap_vni_from_its_rts(bgp, vpn);
 	list_delete_and_null(&vpn->import_rtl);
@@ -2913,6 +2918,20 @@ int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
 	return 0;
 }
 
+static void link_l2vni_hash_to_l3vni(struct hash_backet *backet,
+				     struct bgp *bgp_vrf)
+{
+	struct bgpevpn *vpn = NULL;
+	struct bgp *bgp_def = NULL;
+
+	bgp_def = bgp_get_default();
+	assert(bgp_def);
+
+	vpn = (struct bgpevpn *)backet->data;
+	if (vpn->tenant_vrf_id == bgp_vrf->vrf_id)
+		bgpevpn_link_to_l3vni(vpn);
+}
+
 int bgp_evpn_local_l3vni_add(vni_t l3vni,
 			     vrf_id_t vrf_id,
 			     struct ethaddr *rmac)
@@ -2966,6 +2985,12 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni,
 		evpn_auto_rt_import_add_for_vrf(bgp_vrf);
 	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_RT_CFGD))
 		evpn_auto_rt_export_add_for_vrf(bgp_vrf);
+
+	/* link all corresponding l2vnis */
+	hash_iterate(bgp_def->vnihash,
+		     (void (*)(struct hash_backet *, void *))
+			link_l2vni_hash_to_l3vni,
+		     bgp_vrf);
 
 	//TODO_MITESH: update all the local mac-ip routes with l3vni/rmac info
 
@@ -3068,8 +3093,11 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 	if (vpn) {
 
 		/* update tenant_vrf_id if required */
-		if (vpn->tenant_vrf_id != tenant_vrf_id)
+		if (vpn->tenant_vrf_id != tenant_vrf_id) {
+			bgpevpn_unlink_from_l3vni(vpn);
 			vpn->tenant_vrf_id = tenant_vrf_id;
+			bgpevpn_link_to_l3vni(vpn);
+		}
 
 		if (is_vni_live(vpn)
 		    && IPV4_ADDR_SAME(&vpn->originator_ip, &originator_ip))
@@ -3159,6 +3187,9 @@ void bgp_evpn_cleanup(struct bgp *bgp)
 	if (bgp->vrf_export_rtl)
 		list_delete(bgp->vrf_export_rtl);
 	bgp->vrf_export_rtl = NULL;
+	if (bgp->l2vnis)
+		list_delete(bgp->l2vnis);
+	bgp->l2vnis = NULL;
 	bf_free(bgp->rd_idspace);
 }
 
@@ -3183,6 +3214,9 @@ void bgp_evpn_init(struct bgp *bgp)
 	bgp->vrf_export_rtl = list_new();
 	bgp->vrf_export_rtl->cmp =
 		(int (*)(void *, void *))evpn_route_target_cmp;
+	bgp->l2vnis = list_new();
+	bgp->l2vnis->cmp =
+		(int (*)(void *, void *))vni_hash_cmp;
 	bf_init(bgp->rd_idspace, UINT16_MAX);
 	/*assign 0th index in the bitfield, so that we start with id 1*/
 	bf_assign_zero_index(bgp->rd_idspace);

@@ -427,6 +427,9 @@ struct bgp {
 	/* export rt list for the vrf instance */
 	struct list *vrf_export_rtl;
 
+	/* list of corresponding l2vnis (struct bgpevpn) */
+	struct list *l2vnis;
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(bgp)

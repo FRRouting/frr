@@ -3081,7 +3081,7 @@ DEFUN (show_bgp_vrf_l3vni_info,
 	const char *name = NULL;
 	struct bgp *bgp = NULL;
 	struct listnode *node = NULL;
-	//struct bgpevpn *vpn = NULL;
+	struct bgpevpn *vpn = NULL;
 	struct ecommunity *ecom = NULL;
 
 	name = argv[idx_vrf]->arg;
@@ -3096,11 +3096,11 @@ DEFUN (show_bgp_vrf_l3vni_info,
 	vty_out(vty, "  L3-VNI: %u\n", bgp->l3vni);
 	vty_out(vty, "  Rmac: %s\n",
 		prefix_mac2str(&bgp->rmac, buf, sizeof(buf)));
-	/*vty_out(vty, "  L2-VNI List:\n");
+	vty_out(vty, "  L2-VNI List:\n");
 	vty_out(vty, "    ");
 	for (ALL_LIST_ELEMENTS_RO(bgp->l2vnis, node, vpn))
 		vty_out(vty, "%u  ", vpn->vni);
-	vty_out(vty, "\n");*/
+	vty_out(vty, "\n");
 	vty_out(vty, "  Export-RTs:\n");
 	vty_out(vty, "    ");
 	for (ALL_LIST_ELEMENTS_RO(bgp->vrf_export_rtl, node, ecom))
