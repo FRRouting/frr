@@ -433,8 +433,10 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr)
 {
 	struct ecommunity ecom_encap;
 	struct ecommunity ecom_sticky;
+	struct ecommunity ecom_rmac;
 	struct ecommunity_val eval;
 	struct ecommunity_val eval_sticky;
+	struct ecommunity_val eval_rmac;
 	bgp_encap_types tnl_type;
 	struct listnode *node, *nnode;
 	struct ecommunity *ecom;
@@ -471,6 +473,15 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr)
 		ecom_sticky.val = (u_int8_t *)eval_sticky.val;
 		attr->ecommunity =
 			ecommunity_merge(attr->ecommunity, &ecom_sticky);
+	}
+
+	if (!is_zero_mac(&attr->rmac)) {
+		memset(&ecom_rmac, 0, sizeof(ecom_rmac));
+		encode_rmac_extcomm(&eval_rmac, &attr->rmac);
+		ecom_rmac.size = 1;
+		ecom_rmac.val = (uint8_t *)eval_rmac.val;
+		attr->ecommunity = ecommunity_merge(attr->ecommunity,
+						    &ecom_rmac);
 	}
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
@@ -843,6 +854,7 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	attr.mp_nexthop_global_in = vpn->originator_ip;
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
 	attr.sticky = CHECK_FLAG(flags, ZEBRA_MAC_TYPE_STICKY) ? 1 : 0;
+	bgpevpn_get_rmac(vpn, &attr.rmac);
 
 	/* Set up RT and ENCAP extended community. */
 	build_evpn_route_extcomm(vpn, &attr);
@@ -989,10 +1001,12 @@ static int update_all_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
 	attr.nexthop = vpn->originator_ip;
 	attr.mp_nexthop_global_in = vpn->originator_ip;
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
+	bgpevpn_get_rmac(vpn, &attr.rmac);
 	attr_sticky.nexthop = vpn->originator_ip;
 	attr_sticky.mp_nexthop_global_in = vpn->originator_ip;
 	attr_sticky.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
 	attr_sticky.sticky = 1;
+	bgpevpn_get_rmac(vpn, &attr_sticky.rmac);
 
 	/* Set up RT, ENCAP and sticky MAC extended community. */
 	build_evpn_route_extcomm(vpn, &attr);
