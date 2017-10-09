@@ -155,7 +155,7 @@ struct ospf6_lsa_handler {
 };
 
 #define OSPF6_LSA_IS_KNOWN(t)                                                  \
-	(ospf6_get_lsa_handler(t).lh_type != OSPF6_LSTYPE_UNKNOWN ? 1 : 0)
+	(ospf6_get_lsa_handler(t)->lh_type != OSPF6_LSTYPE_UNKNOWN ? 1 : 0)
 
 extern vector ospf6_lsa_handler_vector;
 
