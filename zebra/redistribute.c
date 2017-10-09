@@ -519,32 +519,20 @@ int zebra_add_import_table_entry(struct route_node *rn, struct route_entry *re,
 	if (same)
 		zebra_del_import_table_entry(rn, same);
 
-	if (re->nexthop_num == 1) {
-		rib_add(afi, SAFI_UNICAST, re->vrf_id,
-			ZEBRA_ROUTE_TABLE, re->table, 0, &p,
-			NULL, re->nexthop,
-			zebrad.rtm_table_default, re->metric,
-			re->mtu,
-			zebra_import_table_distance[afi]
-			[re->table]);
-	} else if (re->nexthop_num > 1) {
-		newre = XCALLOC(MTYPE_RE,
-				sizeof(struct route_entry));
-		newre->type = ZEBRA_ROUTE_TABLE;
-		newre->distance =
-			zebra_import_table_distance[afi][re->table];
-		newre->flags = re->flags;
-		newre->metric = re->metric;
-		newre->mtu = re->mtu;
-		newre->table = zebrad.rtm_table_default;
-		newre->nexthop_num = 0;
-		newre->uptime = time(NULL);
-		newre->instance = re->table;
-		route_entry_copy_nexthops(newre, re->nexthop);
+	newre = XCALLOC(MTYPE_RE,sizeof(struct route_entry));
+	newre->type = ZEBRA_ROUTE_TABLE;
+	newre->distance = zebra_import_table_distance[afi][re->table];
+	newre->flags = re->flags;
+	newre->metric = re->metric;
+	newre->mtu = re->mtu;
+	newre->table = zebrad.rtm_table_default;
+	newre->nexthop_num = 0;
+	newre->uptime = time(NULL);
+	newre->instance = re->table;
+	route_entry_copy_nexthops(newre, re->nexthop);
 
-		rib_add_multipath(afi, SAFI_UNICAST, &p,
-				  NULL, newre);
-	}
+	rib_add_multipath(afi, SAFI_UNICAST, &p, NULL, newre);
+
 	return 0;
 }
 
@@ -557,7 +545,7 @@ int zebra_del_import_table_entry(struct route_node *rn, struct route_entry *re)
 	prefix_copy(&p, &rn->p);
 
 	rib_delete(afi, SAFI_UNICAST, re->vrf_id, ZEBRA_ROUTE_TABLE,
-		   re->table, re->flags, &p, NULL, NULL,
+		   re->table, re->flags, &p, NULL, re->nexthop,
 		   zebrad.rtm_table_default, re->metric, false);
 
 	return 0;
