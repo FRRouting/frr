@@ -457,8 +457,11 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr)
 
 	/* Add the export RTs for L3VNI */
 	vrf_export_rtl = bgpevpn_get_vrf_export_rtl(vpn);
-	for (ALL_LIST_ELEMENTS(vrf_export_rtl, node, nnode, ecom))
-		attr->ecommunity = ecommunity_merge(attr->ecommunity, ecom);
+	if (vrf_export_rtl) {
+		for (ALL_LIST_ELEMENTS(vrf_export_rtl, node, nnode, ecom))
+			attr->ecommunity = ecommunity_merge(attr->ecommunity,
+							    ecom);
+	}
 
 	if (attr->sticky) {
 		seqnum = 0;
@@ -2147,6 +2150,20 @@ static void evpn_auto_rt_export_delete_for_vrf(struct bgp *bgp_vrf)
 	evpn_rt_delete_auto(bgp_vrf, bgp_vrf->l3vni, bgp_vrf->vrf_export_rtl);
 }
 
+static void bgp_evpn_handle_export_rt_change_for_vrf(struct bgp *bgp_vrf)
+{
+	struct bgp *bgp_def = NULL;
+	struct listnode *node = NULL;
+	struct bgpevpn *vpn = NULL;
+
+	bgp_def = bgp_get_default();
+	if (!bgp_def)
+		return;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp_vrf->l2vnis, node, vpn))
+		update_routes_for_vni(bgp_def, vpn);
+}
+
 /*
  * Public functions.
  */
@@ -2229,7 +2246,8 @@ void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
 	listnode_add_sort(bgp_vrf->vrf_export_rtl, ecomadd);
 	SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_RT_CFGD);
 
-	/* TODO_MITESH: update all routes */
+	bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
+
 }
 
 void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,
@@ -2256,7 +2274,7 @@ void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,
 		evpn_auto_rt_export_add_for_vrf(bgp_vrf);
 	}
 
-	//TODO_MITESH: update all mac-ip routes
+	bgp_evpn_handle_export_rt_change_for_vrf(bgp_vrf);
 }
 
 /*
@@ -2944,6 +2962,8 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni,
 {
 	struct bgp *bgp_vrf = NULL; /* bgp VRF instance */
 	struct bgp *bgp_def = NULL; /* default bgp instance */
+	struct listnode *node = NULL;
+	struct bgpevpn *vpn = NULL;
 	as_t as = 0;
 
 	/* get the default instamce - required to get the AS number for VRF
@@ -2998,7 +3018,9 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni,
 			link_l2vni_hash_to_l3vni,
 		     bgp_vrf);
 
-	//TODO_MITESH: update all the local mac-ip routes with l3vni/rmac info
+	/* updates all corresponding local mac-ip routes */
+	for (ALL_LIST_ELEMENTS_RO(bgp_vrf->l2vnis, node, vpn))
+		update_routes_for_vni(bgp_def, vpn);
 
 	//TODO_MITESH: import all the remote routes to VRF
 
@@ -3009,10 +3031,20 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni,
 			     vrf_id_t vrf_id)
 {
 	struct bgp *bgp_vrf = NULL; /* bgp vrf instance */
+	struct bgp *bgp_def = NULL; /* default bgp instance */
+	struct listnode *node = NULL;
+	struct bgpevpn *vpn = NULL;
 
 	bgp_vrf = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp_vrf) {
 		zlog_err("Cannot process L3VNI %u Del - Could not find BGP instance",
+			 l3vni);
+		return -1;
+	}
+
+	bgp_def = bgp_get_default();
+	if (!bgp_def) {
+		zlog_err("Cannot process L3VNI %u Del - Could not find default BGP instance",
 			 l3vni);
 		return -1;
 	}
@@ -3029,7 +3061,9 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni,
 	if (bgp_vrf->vrf_export_rtl && !list_isempty(bgp_vrf->vrf_export_rtl))
 		list_delete(bgp_vrf->vrf_export_rtl);
 
-	/* TODO_MITESH: update all local mac-ip routes */
+	/* update all corresponding local mac-ip routes */
+	for (ALL_LIST_ELEMENTS_RO(bgp_vrf->l2vnis, node, vpn))
+		update_routes_for_vni(bgp_def, vpn);
 
 	/* TODO_MITESH: unimport remote routes from VRF */
 
