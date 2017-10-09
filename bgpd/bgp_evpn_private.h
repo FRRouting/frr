@@ -197,7 +197,15 @@ static inline void build_evpn_type3_prefix(struct prefix_evpn *p,
 	p->prefix.ip.ipaddr_v4 = originator_ip;
 }
 
-
+extern void evpn_rt_delete_auto(struct bgp*, vni_t, struct list*);
+extern void bgp_evpn_configure_export_rt_for_vrf(struct bgp*,
+						 struct ecommunity*);
+extern void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp*,
+						   struct ecommunity*);
+extern void bgp_evpn_configure_import_rt_for_vrf(struct bgp*,
+						 struct ecommunity*);
+extern void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp*,
+						   struct ecommunity*);
 extern int bgp_evpn_handle_export_rt_change(struct bgp *bgp,
 					    struct bgpevpn *vpn);
 extern void bgp_evpn_handle_rd_change(struct bgp *bgp, struct bgpevpn *vpn,

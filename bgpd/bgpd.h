@@ -418,6 +418,14 @@ struct bgp {
 	/* vrf flags */
 	uint32_t vrf_flags;
 #define BGP_VRF_AUTO (1 << 0)
+#define BGP_VRF_IMPORT_RT_CFGD (1 << 1)
+#define BGP_VRF_EXPORT_RT_CFGD (1 << 2)
+
+	/* import rt list for the vrf instance */
+	struct list *vrf_import_rtl;
+
+	/* export rt list for the vrf instance */
+	struct list *vrf_export_rtl;
 
 	QOBJ_FIELDS
 };
