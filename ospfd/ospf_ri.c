@@ -659,6 +659,7 @@ static int ospf_router_info_lsa_originate1(void *arg)
 	if (top == NULL) {
 		zlog_debug("%s: ospf instance not found for vrf id %u",
 			   __PRETTY_FUNCTION__, vrf_id);
+		ospf_lsa_unlock(&new);
 		return rc;
 	}
 
