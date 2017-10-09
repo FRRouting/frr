@@ -129,9 +129,9 @@ _rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn,
 #define rnode_info(node, ...)                                                  \
 	_rnode_zlog(__func__, vrf_id, node, LOG_INFO, __VA_ARGS__)
 
-u_char route_distance(int type)
+uint8_t route_distance(int type)
 {
-	u_char distance;
+	uint8_t distance;
 
 	if ((unsigned)type >= array_size(route_info))
 		distance = 150;
@@ -2463,7 +2463,7 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 	    int flags, struct prefix *p, struct prefix_ipv6 *src_p,
 	    const struct nexthop *nh, u_int32_t table_id, u_int32_t metric,
-	    u_int32_t mtu, u_char distance)
+	    u_int32_t mtu, uint8_t distance)
 {
 	struct route_entry *re;
 	struct nexthop *nexthop;

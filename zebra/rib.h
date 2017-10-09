@@ -71,7 +71,7 @@ struct route_entry {
 	u_int32_t nexthop_mtu;
 
 	/* Distance. */
-	u_char distance;
+	uint8_t distance;
 
 	/* Flags of this route.
 	 * This flag's definition is in lib/zebra.h ZEBRA_FLAG_* and is exposed
@@ -296,7 +296,7 @@ extern int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		   u_short instance, int flags, struct prefix *p,
 		   struct prefix_ipv6 *src_p, const struct nexthop *nh,
 		   u_int32_t table_id, u_int32_t metric, u_int32_t mtu,
-		   u_char distance);
+		   uint8_t distance);
 
 extern int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *,
 			     struct prefix_ipv6 *src_p, struct route_entry *);
@@ -330,7 +330,7 @@ extern void rib_unlink(struct route_node *, struct route_entry *);
 extern int rib_gc_dest(struct route_node *rn);
 extern struct route_table *rib_tables_iter_next(rib_tables_iter_t *iter);
 
-extern u_char route_distance(int type);
+extern uint8_t route_distance(int type);
 
 /*
  * Inline functions.

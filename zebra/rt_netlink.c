@@ -277,6 +277,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 	int table;
 	int metric = 0;
 	u_int32_t mtu = 0;
+	uint8_t distance = 0;
 
 	void *dest = NULL;
 	void *gate = NULL;
@@ -405,16 +406,38 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 		return 0;
 	}
 
+	/*
+	 * For ZEBRA_ROUTE_KERNEL types:
+	 *
+	 * The metric/priority of the route received from the kernel
+	 * is a 32 bit number.  We are going to interpret the high
+	 * order byte as the Admin Distance and the low order 3 bytes
+	 * as the metric.
+	 *
+	 * This will allow us to do two things:
+	 * 1) Allow the creation of kernel routes that can be
+	 *    overridden by zebra.
+	 * 2) Allow the old behavior for 'most' kernel route types
+	 *    if a user enters 'ip route ...' v4 routes get a metric
+	 *    of 0 and v6 routes get a metric of 1024.  Both of these
+	 *    values will end up with a admin distance of 0, which
+	 *    will cause them to win for the purposes of zebra.
+	 */
+	if (proto == ZEBRA_ROUTE_KERNEL) {
+		distance = (metric >> 24) & 0xFF;
+		metric   = (metric & 0x00FFFFFF);
+	}
+
 	if (IS_ZEBRA_DEBUG_KERNEL) {
 		char buf[PREFIX_STRLEN];
 		char buf2[PREFIX_STRLEN];
 		zlog_debug(
-			"%s %s%s%s vrf %u", nl_msg_type_to_str(h->nlmsg_type),
+			"%s %s%s%s vrf %u metric: %d Admin Distance: %d", nl_msg_type_to_str(h->nlmsg_type),
 			prefix2str(&p, buf, sizeof(buf)),
 			src_p.prefixlen ? " from " : "",
 			src_p.prefixlen ? prefix2str(&src_p, buf2, sizeof(buf2))
 					: "",
-			vrf_id);
+			vrf_id, metric, distance);
 	}
 
 	afi_t afi = AFI_IP;
@@ -454,7 +477,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 				memcpy(&nh.gate, gate, sz);
 
 			rib_add(afi, SAFI_UNICAST, vrf_id, proto,
-				0, flags, &p, NULL, &nh, table, metric, mtu, 0);
+				0, flags, &p, NULL, &nh, table, metric, mtu, distance);
 		} else {
 			/* This is a multipath route */
 
@@ -466,7 +489,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 
 			re = XCALLOC(MTYPE_RE, sizeof(struct route_entry));
 			re->type = proto;
-			re->distance = 0;
+			re->distance = distance;
 			re->flags = flags;
 			re->metric = metric;
 			re->mtu = mtu;
