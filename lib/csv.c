@@ -652,18 +652,15 @@ int main()
 {
 	char buf[10000];
 	csv_t csv;
-	int p;
-	int i, j;
+	int i;
 	csv_record_t *rec;
-	csv_field_t *fld;
-	char *str;
 	char hdr1[32], hdr2[32];
 
-	log_verbose("Mem: %ld\n", get_memory_usage(getpid()));
+	log_verbose("Mem: %d\n", get_memory_usage(getpid()));
 	csv_init(&csv, buf, 256);
 	sprintf(hdr1, "%4u", 0);
 	sprintf(hdr2, "%4u", 1);
-	log_verbose("(%d/%d/%d/%d)\n", strlen(hdr1), strlen(hdr2), atoi(hdr1),
+	log_verbose("(%zu/%zu/%d/%d)\n", strlen(hdr1), strlen(hdr2), atoi(hdr1),
 		    atoi(hdr2));
 	rec = csv_encode(&csv, 2, hdr1, hdr2);
 	csv_encode(&csv, 4, "name", "age", "sex", "hei");
@@ -676,19 +673,19 @@ int main()
 	log_verbose("%s\n", buf);
 	sprintf(hdr1, "%4u", csv.csv_len);
 	sprintf(hdr2, "%4u", 1);
-	log_verbose("(%d/%d/%d/%d)\n", strlen(hdr1), strlen(hdr2), atoi(hdr1),
+	log_verbose("(%zu/%zu/%d/%d)\n", strlen(hdr1), strlen(hdr2), atoi(hdr1),
 		    atoi(hdr2));
 	rec = csv_encode_record(&csv, rec, 2, hdr1, hdr2);
 	log_verbose("(%d/%d)\n%s\n", rec->rec_len, csv.csv_len, buf);
 
-	log_verbose("Mem: %ld\n", get_memory_usage(getpid()));
+	log_verbose("Mem: %d\n", get_memory_usage(getpid()));
 	csv_clean(&csv);
-	log_verbose("Mem: %ld\n", get_memory_usage(getpid()));
+	log_verbose("Mem: %d\n", get_memory_usage(getpid()));
 	csv_init(&csv, buf, 256);
 	csv_decode(&csv, NULL);
-	log_verbose("AFTER DECODE\n");
+	log_verbose("%s", "AFTER DECODE\n");
 	csv_dump(&csv);
 	csv_clean(&csv);
-	log_verbose("Mem: %ld\n", get_memory_usage(getpid()));
+	log_verbose("Mem: %d\n", get_memory_usage(getpid()));
 }
 #endif
