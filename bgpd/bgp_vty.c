@@ -6448,6 +6448,7 @@ DEFUN (show_bgp_vrfs,
        "Show BGP VRFs\n"
        JSON_STR)
 {
+	char buf[ETHER_ADDR_STRLEN];
 	struct list *inst = bm->bgp;
 	struct listnode *node;
 	struct bgp *bgp;
@@ -6455,8 +6456,6 @@ DEFUN (show_bgp_vrfs,
 	json_object *json = NULL;
 	json_object *json_vrfs = NULL;
 	int count = 0;
-	static char header[] =
-		"Type  Id     RouterId          #PeersCfg  #PeersEstb  Name";
 
 	if (!bgp_option_check(BGP_OPT_MULTIPLE_INSTANCE)) {
 		vty_out(vty, "BGP Multiple Instance is not enabled\n");
@@ -6482,7 +6481,10 @@ DEFUN (show_bgp_vrfs,
 
 		count++;
 		if (!uj && count == 1)
-			vty_out(vty, "%s\n", header);
+			vty_out(vty,
+				"%4s  %-5s  %-16s  %9s  %10s  %-37s %-10s %-15s\n",
+			       "Type", "Id", "routerId", "#PeersVfg",
+			       "#PeersEstb", "Name", "L3-VNI", "Rmac");
 
 		peers_cfg = peers_estb = 0;
 		if (uj)
@@ -6516,11 +6518,17 @@ DEFUN (show_bgp_vrfs,
 			json_object_int_add(json_vrf, "numEstablishedPeers",
 					    peers_estb);
 
+			json_object_int_add(json_vrf, "l3vni", bgp->l3vni);
+			json_object_string_add(json_vrf, "rmac",
+					       prefix_mac2str(&bgp->rmac, buf,
+							      sizeof(buf)));
 			json_object_object_add(json_vrfs, name, json_vrf);
 		} else
-			vty_out(vty, "%4s  %-5d  %-16s  %9u  %10u  %s\n", type,
-				vrf_id_ui, inet_ntoa(bgp->router_id), peers_cfg,
-				peers_estb, name);
+			vty_out(vty,
+				"%4s  %-5d  %-16s  %9u  %10u  %-37s %-10u %-15s\n",
+				type, vrf_id_ui, inet_ntoa(bgp->router_id),
+				peers_cfg, peers_estb, name, bgp->l3vni,
+				prefix_mac2str(&bgp->rmac, buf, sizeof(buf)));
 	}
 
 	if (uj) {

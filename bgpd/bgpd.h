@@ -36,6 +36,7 @@
 #include "defaults.h"
 #include "bgp_memory.h"
 #include "bitfield.h"
+#include "vxlan.h"
 
 #define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 #define BGP_PEER_MAX_HASH_SIZE 16384
@@ -407,6 +408,16 @@ struct bgp {
 
 	/* Id space for automatic RD derivation for an EVI */
 	bitfield_t rd_idspace;
+
+	/* L3-VNI corresponding to this vrf */
+	vni_t l3vni;
+
+	/* router-mac to be used in mac-ip routes for this vrf */
+	struct ethaddr rmac;
+
+	/* vrf flags */
+	uint32_t vrf_flags;
+#define BGP_VRF_AUTO (1 << 0)
 
 	QOBJ_FIELDS
 };

@@ -2772,6 +2772,94 @@ int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni, struct ethaddr *mac,
 	return 0;
 }
 
+int bgp_evpn_local_l3vni_add(vni_t l3vni,
+			     vrf_id_t vrf_id,
+			     struct ethaddr *rmac)
+{
+	struct bgp *bgp_vrf = NULL; /* bgp VRF instance */
+	struct bgp *bgp_def = NULL; /* default bgp instance */
+	as_t as = 0;
+
+	/* get the default instamce - required to get the AS number for VRF
+	 * auto-creation*/
+	bgp_def = bgp_get_default();
+	if (!bgp_def) {
+		zlog_err("Cannot process L3VNI  %u ADD - default BGP instance not yet created",
+			 l3vni);
+		return -1;
+	}
+	as = bgp_def->as;
+
+	/* if the BGP vrf instance doesnt exist - create one */
+	bgp_vrf = bgp_lookup_by_vrf_id(vrf_id);
+	if (!bgp_vrf) {
+
+		int ret = 0;
+
+		ret = bgp_get(&bgp_vrf, &as, vrf_id_to_name(vrf_id),
+			      BGP_INSTANCE_TYPE_VRF);
+		switch (ret) {
+		case BGP_ERR_MULTIPLE_INSTANCE_NOT_SET:
+			zlog_err("'bgp multiple-instance' not present\n");
+			return -1;
+		case BGP_ERR_AS_MISMATCH:
+			zlog_err("BGP is already running; AS is %u\n", as);
+			return -1;
+		case BGP_ERR_INSTANCE_MISMATCH:
+			zlog_err("BGP instance name and AS number mismatch\n");
+			return -1;
+		}
+
+		/* mark as auto created */
+		SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_AUTO);
+	}
+
+	/* associate with l3vni */
+	bgp_vrf->l3vni = l3vni;
+
+	/* set the router mac - to be used in mac-ip routes for this vrf */
+	memcpy(&bgp_vrf->rmac, rmac, sizeof(struct ethaddr));
+
+	//TODO_MITESH: auto derive RD/RT
+
+	//TODO_MITESH: update all the local mac-ip routes with l3vni/rmac info
+
+	//TODO_MITESH: import all the remote routes to VRF
+
+	return 0;
+}
+
+int bgp_evpn_local_l3vni_del(vni_t l3vni,
+			     vrf_id_t vrf_id)
+{
+	struct bgp *bgp_vrf = NULL; /* bgp vrf instance */
+
+	bgp_vrf = bgp_lookup_by_vrf_id(vrf_id);
+	if (!bgp_vrf) {
+		zlog_err("Cannot process L3VNI %u Del - Could not find BGP instance",
+			 l3vni);
+		return -1;
+	}
+
+	/* remove the l3vni from vrf instance */
+	bgp_vrf->l3vni = 0;
+
+	/* remove the Rmac from the BGP vrf */
+	memset(&bgp_vrf->rmac, 0, sizeof(struct ethaddr));
+
+	/* TODO_MITESH: delete auto RD/RT */
+
+	/* TODO_MITESH: update all local mac-ip routes */
+
+	/* TODO_MITESH: unimport remote routes from VRF */
+
+	/* Delete the instance if it was autocreated */
+	if (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_AUTO))
+		bgp_delete(bgp_vrf);
+
+	return 0;
+}
+
 /*
  * Handle del of a local VNI.
  */

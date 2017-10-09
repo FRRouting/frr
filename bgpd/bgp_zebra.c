@@ -1675,6 +1675,35 @@ static void bgp_zebra_connected(struct zclient *zclient)
 	 */
 }
 
+static int bgp_zebra_process_local_l3vni(int cmd, struct zclient *zclient,
+					 zebra_size_t length, vrf_id_t vrf_id)
+{
+	char buf[ETHER_ADDR_STRLEN];
+	vni_t l3vni;
+	struct ethaddr rmac;
+	struct stream *s;
+
+	memset(&rmac, 0, sizeof(struct ethaddr));
+	s = zclient->ibuf;
+	l3vni = stream_getl(s);
+	if (cmd == ZEBRA_L3VNI_ADD)
+		stream_get(&rmac, s, sizeof(struct ethaddr));
+
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("Rx L3-VNI %s VRF %s VNI %u RMAC %s",
+			   (cmd == ZEBRA_L3VNI_ADD) ? "add" : "del",
+			   vrf_id_to_name(vrf_id),
+			   l3vni,
+			   prefix_mac2str(&rmac, buf, sizeof(buf)));
+
+	if (cmd == ZEBRA_L3VNI_ADD)
+		bgp_evpn_local_l3vni_add(l3vni, vrf_id, &rmac);
+	else
+		bgp_evpn_local_l3vni_del(l3vni, vrf_id);
+
+	return 0;
+}
+
 static int bgp_zebra_process_local_vni(int command, struct zclient *zclient,
 				       zebra_size_t length, vrf_id_t vrf_id)
 {
@@ -1788,6 +1817,8 @@ void bgp_zebra_init(struct thread_master *master)
 	zclient->local_vni_del = bgp_zebra_process_local_vni;
 	zclient->local_macip_add = bgp_zebra_process_local_macip;
 	zclient->local_macip_del = bgp_zebra_process_local_macip;
+	zclient->local_l3vni_add = bgp_zebra_process_local_l3vni;
+	zclient->local_l3vni_del = bgp_zebra_process_local_l3vni;
 }
 
 void bgp_zebra_destroy(void)
