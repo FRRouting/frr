@@ -3056,10 +3056,14 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni,
 	memset(&bgp_vrf->rmac, 0, sizeof(struct ethaddr));
 
 	/* delete RD/RT */
-	if (bgp_vrf->vrf_import_rtl && !list_isempty(bgp_vrf->vrf_import_rtl))
+	if (bgp_vrf->vrf_import_rtl && !list_isempty(bgp_vrf->vrf_import_rtl)) {
 		list_delete(bgp_vrf->vrf_import_rtl);
-	if (bgp_vrf->vrf_export_rtl && !list_isempty(bgp_vrf->vrf_export_rtl))
+		bgp_vrf->vrf_import_rtl = NULL;
+	}
+	if (bgp_vrf->vrf_export_rtl && !list_isempty(bgp_vrf->vrf_export_rtl)) {
 		list_delete(bgp_vrf->vrf_export_rtl);
+		bgp_vrf->vrf_export_rtl = NULL;
+	}
 
 	/* update all corresponding local mac-ip routes */
 	for (ALL_LIST_ELEMENTS_RO(bgp_vrf->l2vnis, node, vpn))
