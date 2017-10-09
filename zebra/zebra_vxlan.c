@@ -4279,7 +4279,6 @@ int zebra_vxlan_remote_macip_del(struct zserv *client, u_short length,
 	struct stream *s;
 	vni_t vni;
 	struct ethaddr macaddr;
-	struct ethaddr rmac;
 	struct ipaddr ip;
 	struct in_addr vtep_ip;
 	zebra_vni_t *zvni;
@@ -4288,12 +4287,10 @@ int zebra_vxlan_remote_macip_del(struct zserv *client, u_short length,
 	u_short l = 0, ipa_len;
 	char buf[ETHER_ADDR_STRLEN];
 	char buf1[INET6_ADDRSTRLEN];
-	char buf3[INET6_ADDRSTRLEN];
 	struct interface *ifp = NULL;
 	struct zebra_if *zif = NULL;
 
 	memset(&macaddr, 0, sizeof(struct ethaddr));
-	memset(&rmac, 0, sizeof(struct ethaddr));
 	memset(&ip, 0, sizeof(struct ipaddr));
 	memset(&vtep_ip, 0, sizeof(struct in_addr));
 
@@ -4318,16 +4315,13 @@ int zebra_vxlan_remote_macip_del(struct zserv *client, u_short length,
 		l += 4 + ETH_ALEN + 4 + ipa_len;
 		STREAM_GET(&vtep_ip.s_addr, s, IPV4_MAX_BYTELEN);
 		l += IPV4_MAX_BYTELEN;
-		stream_get(&rmac.octet, s, ETH_ALEN);
-		l += ETH_ALEN;
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"Recv MACIP Del MAC %s IP %s VNI %u Remote VTEP %s RMAC %s from %s",
+				"Recv MACIP Del MAC %s IP %s VNI %u Remote VTEP %s from %s",
 				prefix_mac2str(&macaddr, buf, sizeof(buf)),
 				ipaddr2str(&ip, buf1, sizeof(buf1)), vni,
 				inet_ntoa(vtep_ip),
-				prefix_mac2str(&rmac, buf3, sizeof(buf3)),
 				zebra_route_string(client->proto));
 
 		/* Locate VNI hash entry - expected to exist. */
