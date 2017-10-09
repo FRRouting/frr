@@ -1167,8 +1167,10 @@ static struct ospf_lsa *ospf_mpls_te_lsa_new(struct ospf *ospf,
 		tmp = SET_OPAQUE_LSID(OPAQUE_TYPE_INTER_AS_LSA, lp->instance);
 		lsa_id.s_addr = htonl(tmp);
 
-		if (!ospf)
+		if (!ospf) {
+			stream_free(s);
 			return NULL;
+		}
 
 		lsa_header_set(s, options, lsa_type, lsa_id, ospf->router_id);
 	} else {
