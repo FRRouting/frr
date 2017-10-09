@@ -128,7 +128,7 @@ int nexthop_labels_match(struct nexthop *nh1, struct nexthop *nh2)
 
 	nhl1 = nh1->nh_label;
 	nhl2 = nh2->nh_label;
-	if ((nhl1 && !nhl2) || (!nhl1 && nhl2))
+	if (!nhl1 || !nhl2)
 		return 0;
 
 	if (nhl1->num_labels != nhl2->num_labels)
