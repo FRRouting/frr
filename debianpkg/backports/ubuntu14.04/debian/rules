@@ -11,7 +11,6 @@
 #   export WANT_PIM=1
 #   export WANT_OSPFAPI=1
 #   export WANT_TCP_ZEBRA=0
-#   export WANT_FPM=0
 #   export WANT_BGP_VNC=0
 #   export WANT_CUMULUS_MODE=0
 #   export WANT_MULTIPATH=1
@@ -54,16 +53,6 @@ ifneq ($(WANT_OSPFAPI), 0)
   USE_OSPFAPI=--enable-ospfapi=yes
 else
   USE_OSPFAPI=--enable-ospfapi=no
-endif
-
-ifeq ($(WANT_FPM), 1)
-  USE_FPM=---enable-fpm
-  ifneq ($(WANT_TCP_ZEBRA),1)
-    $(warning "Zebra TCP interface enabled for FPM (requirement for FPM)")
-    export WANT_TCP_ZEBRA=1
-  endif
-else
-  USE_FPM=--disable-fpm
 endif
 
 ifeq ($(WANT_TCP_ZEBRA),1)
@@ -137,7 +126,7 @@ override_dh_auto_configure:
 		$(USE_MULTIPATH) \
 		$(USE_LDP) \
 		$(USE_TCP_ZEBRA) \
-		$(USE_FPM) \
+		--enable-fpm \
 		$(USE_FRR_USER) $(USE_FRR_GROUP) \
 		$(USE_FRR_VTY_GROUP) \
 		--enable-configfile-mask=0640 \
