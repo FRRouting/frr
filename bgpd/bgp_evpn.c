@@ -439,6 +439,7 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr)
 	struct listnode *node, *nnode;
 	struct ecommunity *ecom;
 	u_int32_t seqnum;
+	struct list *vrf_export_rtl = NULL;
 
 	/* Encap */
 	tnl_type = BGP_ENCAP_TYPE_VXLAN;
@@ -450,8 +451,13 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr)
 	/* Add Encap */
 	attr->ecommunity = ecommunity_dup(&ecom_encap);
 
-	/* Add the export RTs */
+	/* Add the export RTs for L2VNI */
 	for (ALL_LIST_ELEMENTS(vpn->export_rtl, node, nnode, ecom))
+		attr->ecommunity = ecommunity_merge(attr->ecommunity, ecom);
+
+	/* Add the export RTs for L3VNI */
+	vrf_export_rtl = bgpevpn_get_vrf_export_rtl(vpn);
+	for (ALL_LIST_ELEMENTS(vrf_export_rtl, node, nnode, ecom))
 		attr->ecommunity = ecommunity_merge(attr->ecommunity, ecom);
 
 	if (attr->sticky) {
