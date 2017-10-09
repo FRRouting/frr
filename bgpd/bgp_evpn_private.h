@@ -101,6 +101,50 @@ struct irt_node {
 #define RT_TYPE_EXPORT 2
 #define RT_TYPE_BOTH   3
 
+static inline vni_t bgpevpn_get_l3vni(struct bgpevpn *vpn)
+{
+	struct bgp *bgp_vrf = NULL;
+
+	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
+	if (!bgp_vrf)
+		return 0;
+
+	return bgp_vrf->l3vni;
+}
+
+static inline void bgpevpn_get_rmac(struct bgpevpn *vpn, struct ethaddr *rmac)
+{
+	struct bgp *bgp_vrf = NULL;
+
+	memset(rmac, 0, sizeof(struct ethaddr));
+	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
+	if (!bgp_vrf)
+		return;
+	memcpy(rmac, &bgp_vrf->rmac, sizeof(struct ethaddr));
+}
+
+static inline struct list *bgpevpn_get_vrf_export_rtl(struct bgpevpn *vpn)
+{
+	struct bgp *bgp_vrf = NULL;
+
+	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
+	if (!bgp_vrf)
+		return NULL;
+
+	return bgp_vrf->vrf_export_rtl;
+}
+
+static inline struct list *bgpevpn_get_vrf_import_rtl(struct bgpevpn *vpn)
+{
+	struct bgp *bgp_vrf = NULL;
+
+	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
+	if (!bgp_vrf)
+		return NULL;
+
+	return bgp_vrf->vrf_import_rtl;
+}
+
 static inline void bgpevpn_unlink_from_l3vni(struct bgpevpn *vpn)
 {
 	struct bgp *bgp_vrf = NULL;
