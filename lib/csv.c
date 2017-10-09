@@ -284,6 +284,8 @@ csv_record_t *csv_encode_record(csv_t *csv, csv_record_t *rec, int count, ...)
 
 	va_start(list, count);
 	str = csv_field_iter(rec, &fld);
+	if (!fld)
+		return NULL;
 	for (tempc = 0; tempc < count; tempc++) {
 		col = va_arg(list, char *);
 		for (i = 0; i < fld->field_len; i++) {
