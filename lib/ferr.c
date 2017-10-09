@@ -74,6 +74,7 @@ static ferr_r ferr_set_va(const char *file, int line, const char *func,
 			/* we're screwed */
 			zlog_err("out of memory while allocating error info");
 			raise(SIGSEGV);
+			abort(); /* raise() can return, but raise(SIGSEGV) shall not */
 		}
 
 		pthread_setspecific(errkey, error);
