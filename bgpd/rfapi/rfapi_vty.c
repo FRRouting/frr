@@ -4632,6 +4632,8 @@ notcfg:
  * add [vrf <vrf-name>] prefix <prefix>
  *     [rd <value>] [label <value>] [local-preference <0-4294967295>]
  ************************************************************************/
+
+/* NOTE: this functions parallels vnc_direct_add_rn_group_rd */
 static int vnc_add_vrf_prefix(struct vty *vty, const char *arg_vrf,
 			      const char *arg_prefix,
 			      const char *arg_rd,    /* optional */
@@ -4847,7 +4849,7 @@ static int rfapi_cfg_group_it_count(struct rfapi_nve_group_cfg *rfg)
 	return count;
 }
 
-static void clear_vnc_vrf_closer(struct rfapi_nve_group_cfg *rfg)
+void clear_vnc_vrf_closer(struct rfapi_nve_group_cfg *rfg)
 {
 	struct rfapi_descriptor *rfd = rfg->rfd;
 	afi_t afi;

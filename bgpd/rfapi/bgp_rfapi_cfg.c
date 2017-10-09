@@ -1459,6 +1459,14 @@ DEFUN (vnc_export_nvegroup,
 
 	rfg_new = bgp_rfapi_cfg_match_byname(bgp, argv[5]->arg,
 					     RFAPI_GROUP_CFG_NVE);
+	if (rfg_new == NULL)
+		rfg_new = bgp_rfapi_cfg_match_byname(bgp, argv[5]->arg,
+						     RFAPI_GROUP_CFG_VRF);
+
+	if (rfg_new == NULL) {
+		vty_out(vty, "Can't group named \"%s\".\n", argv[5]->arg);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (argv[2]->arg[0] == 'b') {
 
