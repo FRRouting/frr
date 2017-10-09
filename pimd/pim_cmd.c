@@ -2400,6 +2400,30 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 			json_object_string_add(
 				json_row, "inboundInterface",
 				up->rpf.source_nexthop.interface->name);
+
+			/*
+			 * The RPF address we use is slightly different
+			 * based upon what we are looking up.
+			 * If we have a S, list that unless
+			 * we are the FHR, else we just put
+			 * the RP as the rpfAddress
+			 */
+			if (up->flags & PIM_UPSTREAM_FLAG_MASK_FHR ||
+			    up->sg.src.s_addr == INADDR_ANY) {
+				char rpf[PREFIX_STRLEN];
+				struct pim_rpf *rpg;
+
+				rpg = RP(pim, up->sg.grp);
+				pim_inet4_dump("<rpf?>",
+					       rpg->rpf_addr.u.prefix4,
+					       rpf, sizeof(rpf));
+				json_object_string_add(json_row,
+						       "rpfAddress", rpf);
+			} else {
+				json_object_string_add(json_row,
+						       "rpfAddress", src_str);
+			}
+
 			json_object_string_add(json_row, "source", src_str);
 			json_object_string_add(json_row, "group", grp_str);
 			json_object_string_add(json_row, "state", state_str);
