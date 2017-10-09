@@ -6512,7 +6512,7 @@ DEFUN(interface_no_ip_pim_boundary_oil,
 {
 	VTY_DECLVAR_CONTEXT(interface, iif);
 	struct pim_interface *pim_ifp;
-	int idx;
+	int idx = 0;
 
 	argv_find(argv, argc, "WORD", &idx);
 
