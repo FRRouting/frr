@@ -1063,58 +1063,48 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 			// FHR
 			for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode,
 						  up)) {
-				if (ifp == up->rpf.source_nexthop.interface) {
-					if (up->flags
-					    & PIM_UPSTREAM_FLAG_MASK_FHR) {
-						if (!json_fhr_sources) {
-							json_fhr_sources =
-								json_object_new_object();
-						}
+				if (ifp != up->rpf.source_nexthop.interface)
+					continue;
 
-						pim_inet4_dump("<src?>",
-							       up->sg.src,
-							       src_str,
-							       sizeof(src_str));
-						pim_inet4_dump("<grp?>",
-							       up->sg.grp,
-							       grp_str,
-							       sizeof(grp_str));
-						pim_time_uptime(
-							uptime, sizeof(uptime),
-							now - up->state_transition);
+				if (!(up->flags & PIM_UPSTREAM_FLAG_MASK_FHR))
+					continue;
 
-						/* Does this group live in
-						 * json_fhr_sources?  If not
-						 * create it. */
-						json_object_object_get_ex(
-							json_fhr_sources,
-							grp_str, &json_group);
+				if (!json_fhr_sources)
+					json_fhr_sources =
+						json_object_new_object();
 
-						if (!json_group) {
-							json_group =
-								json_object_new_object();
-							json_object_object_add(
-								json_fhr_sources,
-								grp_str,
-								json_group);
-						}
+				pim_inet4_dump("<src?>", up->sg.src,
+					       src_str, sizeof(src_str));
+				pim_inet4_dump("<grp?>", up->sg.grp,
+					       grp_str, sizeof(grp_str));
+				pim_time_uptime(uptime, sizeof(uptime),
+						now - up->state_transition);
 
-						json_group_source =
-							json_object_new_object();
-						json_object_string_add(
-							json_group_source,
-							"source", src_str);
-						json_object_string_add(
-							json_group_source,
-							"group", grp_str);
-						json_object_string_add(
-							json_group_source,
-							"upTime", uptime);
-						json_object_object_add(
-							json_group, src_str,
-							json_group_source);
-					}
+				/*
+				 * Does this group live in json_fhr_sources?
+				 * If not create it.
+				 */
+				json_object_object_get_ex(json_fhr_sources,
+							  grp_str,
+							  &json_group);
+
+				if (!json_group) {
+					json_group = json_object_new_object();
+					json_object_object_add(
+						json_fhr_sources,
+						grp_str,
+						json_group);
 				}
+
+				json_group_source = json_object_new_object();
+				json_object_string_add(json_group_source,
+						       "source", src_str);
+				json_object_string_add(json_group_source,
+						       "group", grp_str);
+				json_object_string_add(json_group_source,
+						       "upTime", uptime);
+				json_object_object_add(json_group, src_str,
+						       json_group_source);
 			}
 
 			if (json_fhr_sources) {
@@ -1237,37 +1227,33 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 			print_header = 1;
 			for (ALL_LIST_ELEMENTS_RO(pim->upstream_list, upnode,
 						  up)) {
-				if (strcmp(ifp->name, up->rpf.source_nexthop
-							      .interface->name)
-				    == 0) {
-					if (up->flags
-					    & PIM_UPSTREAM_FLAG_MASK_FHR) {
 
-						if (print_header) {
-							vty_out(vty,
-								"FHR - First Hop Router\n");
-							vty_out(vty,
-								"----------------------\n");
-							print_header = 0;
-						}
+				if (strcmp(ifp->name,
+					   up->rpf.source_nexthop.
+					   interface->name) != 0)
+					continue;
 
-						pim_inet4_dump("<src?>",
-							       up->sg.src,
-							       src_str,
-							       sizeof(src_str));
-						pim_inet4_dump("<grp?>",
-							       up->sg.grp,
-							       grp_str,
-							       sizeof(grp_str));
-						pim_time_uptime(
-							uptime, sizeof(uptime),
-							now - up->state_transition);
-						vty_out(vty,
-							"%s : %s is a source, uptime is %s\n",
-							grp_str, src_str,
-							uptime);
-					}
+				if (!(up->flags & PIM_UPSTREAM_FLAG_MASK_FHR))
+					continue;
+
+				if (print_header) {
+					vty_out(vty,
+						"FHR - First Hop Router\n");
+					vty_out(vty,
+						"----------------------\n");
+					print_header = 0;
 				}
+
+				pim_inet4_dump("<src?>", up->sg.src,
+					       src_str, sizeof(src_str));
+				pim_inet4_dump("<grp?>", up->sg.grp,
+					       grp_str, sizeof(grp_str));
+				pim_time_uptime(uptime, sizeof(uptime),
+						now - up->state_transition);
+				vty_out(vty,
+					"%s : %s is a source, uptime is %s\n",
+					grp_str, src_str,
+					uptime);
 			}
 
 			if (!print_header) {
@@ -3184,12 +3170,12 @@ static void clear_interfaces(struct pim_instance *pim)
 	clear_pim_interfaces(pim);
 }
 
-#define PIM_GET_PIM_INTERFACE(pim_ifp, ifp)                                     \
-	pim_ifp = ifp->info;                                                    \
-	if (!pim_ifp) {                                                         \
-		vty_out(vty,                                                    \
+#define PIM_GET_PIM_INTERFACE(pim_ifp, ifp)				\
+	pim_ifp = ifp->info;						\
+	if (!pim_ifp) {							\
+		vty_out(vty,						\
 			"%% Enable PIM and/or IGMP on this interface first\n"); \
-		return CMD_WARNING_CONFIG_FAILED;                               \
+		return CMD_WARNING_CONFIG_FAILED;			\
 	}
 
 DEFUN (clear_ip_interfaces,
