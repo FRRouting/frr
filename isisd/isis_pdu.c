@@ -268,14 +268,6 @@ static int lsp_authentication_check(struct stream *stream,
 	return retval;
 }
 
-/*
- * Processing helper functions
- */
-static void del_addr(void *val)
-{
-	XFREE(MTYPE_ISIS_TMP, val);
-}
-
 static void tlvs_to_adj_area_addrs(struct tlvs *tlvs,
 				   struct isis_adjacency *adj)
 {
@@ -283,7 +275,7 @@ static void tlvs_to_adj_area_addrs(struct tlvs *tlvs,
 	struct area_addr *area_addr, *malloced;
 
 	if (adj->area_addrs) {
-		adj->area_addrs->del = del_addr;
+		adj->area_addrs->del = isis_area_adj_del_addr;
 		list_delete(adj->area_addrs);
 	}
 	adj->area_addrs = list_new();
@@ -324,7 +316,7 @@ static void tlvs_to_adj_ipv4_addrs(struct tlvs *tlvs,
 	struct in_addr *ipv4_addr, *malloced;
 
 	if (adj->ipv4_addrs) {
-		adj->ipv4_addrs->del = del_addr;
+		adj->ipv4_addrs->del = isis_area_adj_del_addr;
 		list_delete(adj->ipv4_addrs);
 	}
 	adj->ipv4_addrs = list_new();
@@ -345,7 +337,7 @@ static void tlvs_to_adj_ipv6_addrs(struct tlvs *tlvs,
 	struct in6_addr *ipv6_addr, *malloced;
 
 	if (adj->ipv6_addrs) {
-		adj->ipv6_addrs->del = del_addr;
+		adj->ipv6_addrs->del = isis_area_adj_del_addr;
 		list_delete(adj->ipv6_addrs);
 	}
 	adj->ipv6_addrs = list_new();
