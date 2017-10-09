@@ -1914,7 +1914,8 @@ static const char *aspath_gettoken(const char *buf, enum as_token *token,
 
 	/* There is no match then return unknown token. */
 	*token = as_token_unknown;
-	return p++;
+	p++;
+	return p;
 }
 
 struct aspath *aspath_str2aspath(const char *str)

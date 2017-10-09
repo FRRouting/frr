@@ -1849,7 +1849,6 @@ static int bgp_attr_encap(uint8_t type, struct peer *peer, /* IN */
 			  u_char *startp)
 {
 	bgp_size_t total;
-	struct bgp_attr_encap_subtlv *stlv_last = NULL;
 	uint16_t tunneltype = 0;
 
 	total = length + (CHECK_FLAG(flag, BGP_ATTR_FLAG_EXTLEN) ? 4 : 3);
@@ -1926,6 +1925,7 @@ static int bgp_attr_encap(uint8_t type, struct peer *peer, /* IN */
 
 		/* attach tlv to encap chain */
 		if (BGP_ATTR_ENCAP == type) {
+			struct bgp_attr_encap_subtlv *stlv_last;
 			for (stlv_last = attr->encap_subtlvs;
 			     stlv_last && stlv_last->next;
 			     stlv_last = stlv_last->next)
@@ -1937,6 +1937,7 @@ static int bgp_attr_encap(uint8_t type, struct peer *peer, /* IN */
 			}
 #if ENABLE_BGP_VNC
 		} else {
+			struct bgp_attr_encap_subtlv *stlv_last;
 			for (stlv_last = attr->vnc_subtlvs;
 			     stlv_last && stlv_last->next;
 			     stlv_last = stlv_last->next)
@@ -1948,7 +1949,6 @@ static int bgp_attr_encap(uint8_t type, struct peer *peer, /* IN */
 			}
 #endif
 		}
-		stlv_last = tlv;
 	}
 
 	if (BGP_ATTR_ENCAP == type) {
