@@ -1080,7 +1080,7 @@ really_send_update(struct interface *ifp,
             accumulate_bytes(ifp, id, 8);
             end_message(ifp, MESSAGE_ROUTER_ID, 10);
         }
-        memcpy(babel_ifp->buffered_id, id, 16);
+        memcpy(babel_ifp->buffered_id, id, sizeof(babel_ifp->buffered_id));
         babel_ifp->have_buffered_id = 1;
     }
 
