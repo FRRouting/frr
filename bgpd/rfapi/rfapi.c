@@ -122,7 +122,7 @@ int rfapi_get_response_lifetime_default(void *rfp_start_val)
 /*------------------------------------------
  * rfapi_is_vnc_configured
  *
- * Returns if VNC (BGP VPN messaging /VPN & encap SAFIs) are configured
+ * Returns if VNC is configured
  *
  * input:
  *    rfp_start_val     value returned by rfp_start or
@@ -137,7 +137,9 @@ int rfapi_get_response_lifetime_default(void *rfp_start_val)
 int rfapi_is_vnc_configured(void *rfp_start_val)
 {
 	struct bgp *bgp = rfapi_bgp_lookup_by_rfp(rfp_start_val);
-	return bgp_rfapi_is_vnc_configured(bgp);
+	if (bgp_rfapi_is_vnc_configured(bgp) == 0)
+		return 0;
+	return ENXIO;
 }
 
 
