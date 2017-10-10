@@ -11464,12 +11464,6 @@ void bgp_route_init(void)
 	install_element(BGP_IPV6M_NODE, &ipv6_bgp_network_cmd);
 	install_element(BGP_IPV6M_NODE, &no_ipv6_bgp_network_cmd);
 
-	install_element(BGP_IPV6L_NODE, &bgp_table_map_cmd);
-	install_element(BGP_IPV6L_NODE, &ipv6_bgp_network_cmd);
-	install_element(BGP_IPV6L_NODE, &ipv6_bgp_network_route_map_cmd);
-	install_element(BGP_IPV6L_NODE, &no_bgp_table_map_cmd);
-	install_element(BGP_IPV6L_NODE, &no_ipv6_bgp_network_cmd);
-
 	install_element(BGP_NODE, &bgp_distance_cmd);
 	install_element(BGP_NODE, &no_bgp_distance_cmd);
 	install_element(BGP_NODE, &bgp_distance_source_cmd);

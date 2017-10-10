@@ -325,9 +325,11 @@ static void nexthop_set_resolved(afi_t afi, struct nexthop *newhop,
 
 	resolved_hop = nexthop_new();
 	SET_FLAG(resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
-	/* If the resolving route specifies a gateway, use it */
-	if (newhop->type == NEXTHOP_TYPE_IPV4
-	    || newhop->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
+
+	switch (newhop->type) {
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		/* If the resolving route specifies a gateway, use it */
 		resolved_hop->type = newhop->type;
 		resolved_hop->gate.ipv4 = newhop->gate.ipv4;
 
@@ -337,9 +339,9 @@ static void nexthop_set_resolved(afi_t afi, struct nexthop *newhop,
 			if (newhop->flags & NEXTHOP_FLAG_ONLINK)
 				resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
 		}
-	}
-	if (newhop->type == NEXTHOP_TYPE_IPV6
-	    || newhop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		resolved_hop->type = newhop->type;
 		resolved_hop->gate.ipv6 = newhop->gate.ipv6;
 
@@ -347,18 +349,17 @@ static void nexthop_set_resolved(afi_t afi, struct nexthop *newhop,
 			resolved_hop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
 			resolved_hop->ifindex = newhop->ifindex;
 		}
-	}
-
-	/* If the resolving route is an interface route,
-	 * it means the gateway we are looking up is connected
-	 * to that interface. (The actual network is _not_ onlink).
-	 * Therefore, the resolved route should have the original
-	 * gateway as nexthop as it is directly connected.
-	 *
-	 * On Linux, we have to set the onlink netlink flag because
-	 * otherwise, the kernel won't accept the route.
-	 */
-	if (newhop->type == NEXTHOP_TYPE_IFINDEX) {
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+		/* If the resolving route is an interface route,
+		 * it means the gateway we are looking up is connected
+		 * to that interface. (The actual network is _not_ onlink).
+		 * Therefore, the resolved route should have the original
+		 * gateway as nexthop as it is directly connected.
+		 *
+		 * On Linux, we have to set the onlink netlink flag because
+		 * otherwise, the kernel won't accept the route.
+		 */
 		resolved_hop->flags |= NEXTHOP_FLAG_ONLINK;
 		if (afi == AFI_IP) {
 			resolved_hop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
@@ -368,12 +369,13 @@ static void nexthop_set_resolved(afi_t afi, struct nexthop *newhop,
 			resolved_hop->gate.ipv6 = nexthop->gate.ipv6;
 		}
 		resolved_hop->ifindex = newhop->ifindex;
-	}
-
-	if (newhop->type == NEXTHOP_TYPE_BLACKHOLE) {
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
 		resolved_hop->type = NEXTHOP_TYPE_BLACKHOLE;
 		resolved_hop->bh_type = nexthop->bh_type;
+		break;
 	}
+
 	resolved_hop->rparent = nexthop;
 	nexthop_add(&nexthop->resolved, resolved_hop);
 }
