@@ -180,6 +180,7 @@ endif
 
 	# cleaning .la files
 	sed -i "/dependency_libs/ s/'.*'/''/" debian/tmp/usr/lib/*.la
+	sed -i "/dependency_libs/ s/'.*'/''/" debian/tmp/usr/lib/frr/modules/*.la
 
 override_dh_systemd_start:
 	dh_systemd_start frr.service
