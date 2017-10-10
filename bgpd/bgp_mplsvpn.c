@@ -651,7 +651,7 @@ int bgp_show_mpls_vpn(struct vty *vty, afi_t afi, struct prefix_rd *prd,
 
 					if (rd_header) {
 						u_int16_t type;
-						struct rd_as rd_as;
+						struct rd_as rd_as = {0};
 						struct rd_ip rd_ip = {0};
 #if ENABLE_BGP_VNC
 						struct rd_vnc_eth rd_vnc_eth = {
