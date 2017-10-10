@@ -185,11 +185,14 @@ lde_shutdown(void)
 	if (iev_ldpe) {
 		msgbuf_clear(&iev_ldpe->ibuf.w);
 		close(iev_ldpe->ibuf.fd);
+		iev_ldpe->ibuf.fd = -1;
 	}
 	msgbuf_clear(&iev_main->ibuf.w);
 	close(iev_main->ibuf.fd);
+	iev_main->ibuf.fd = -1;
 	msgbuf_clear(&iev_main_sync->ibuf.w);
 	close(iev_main_sync->ibuf.fd);
+	iev_main_sync->ibuf.fd = -1;
 
 	lde_gc_stop_timer();
 	lde_nbr_clear();
@@ -210,12 +213,16 @@ lde_shutdown(void)
 int
 lde_imsg_compose_parent(int type, pid_t pid, void *data, uint16_t datalen)
 {
+	if (iev_main->ibuf.fd == -1)
+		return (0);
 	return (imsg_compose_event(iev_main, type, 0, pid, -1, data, datalen));
 }
 
 void
 lde_imsg_compose_parent_sync(int type, pid_t pid, void *data, uint16_t datalen)
 {
+	if (iev_main_sync->ibuf.fd == -1)
+		return;
 	imsg_compose_event(iev_main_sync, type, 0, pid, -1, data, datalen);
 	imsg_flush(&iev_main_sync->ibuf);
 }
@@ -224,6 +231,8 @@ int
 lde_imsg_compose_ldpe(int type, uint32_t peerid, pid_t pid, void *data,
     uint16_t datalen)
 {
+	if (iev_ldpe->ibuf.fd == -1)
+		return (0);
 	return (imsg_compose_event(iev_ldpe, type, peerid, pid,
 	     -1, data, datalen));
 }
