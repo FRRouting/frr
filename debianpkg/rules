@@ -27,7 +27,7 @@
 ####################################
 
 export DH_VERBOSE=1
-export DEB_BUILD_HARDENING=1
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 export DH_OPTIONS=-v
 
 ifeq ($(WANT_SNMP), 1)
@@ -138,7 +138,8 @@ override_dh_auto_configure:
 		$(USE_CUMULUS) \
 		$(USE_PIM) \
 		--enable-dependency-tracking \
-		$(USE_BGP_VNC); \
+		$(USE_BGP_VNC) \
+		$(shell dpkg-buildflags --export=configure); \
 	fi
 
 override_dh_auto_build:
