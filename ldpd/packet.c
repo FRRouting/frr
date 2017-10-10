@@ -494,7 +494,7 @@ session_read(struct thread *thread)
 			msg_len = ntohs(msg->length);
 			if (msg_len < LDP_MSG_LEN ||
 			    (msg_len + LDP_MSG_DEAD_LEN) > pdu_len) {
-				session_shutdown(nbr, S_BAD_TLV_LEN, msg->id,
+				session_shutdown(nbr, S_BAD_MSG_LEN, msg->id,
 				    msg->type);
 				free(buf);
 				return (0);
