@@ -6652,6 +6652,48 @@ DEFUN (show_bgp_memory,
 	return CMD_SUCCESS;
 }
 
+static void bgp_show_bestpath_json(struct bgp *bgp, json_object *json)
+{
+	json_object *bestpath = json_object_new_object();
+
+	if (bgp_flag_check(bgp, BGP_FLAG_ASPATH_IGNORE))
+		json_object_string_add(bestpath, "asPath", "ignore");
+
+	if (bgp_flag_check(bgp, BGP_FLAG_ASPATH_CONFED))
+		json_object_string_add(bestpath, "asPath", "confed");
+
+	if (bgp_flag_check(bgp, BGP_FLAG_ASPATH_MULTIPATH_RELAX)) {
+		if (bgp_flag_check(bgp,
+				   BGP_FLAG_MULTIPATH_RELAX_AS_SET))
+			json_object_string_add(bestpath,
+					       "multiPathRelax",
+					       "as-set");
+		else
+			json_object_string_add(bestpath,
+					       "multiPathRelax",
+					       "true");
+	} else
+		json_object_string_add(bestpath,
+				       "multiPathRelax",
+				       "false");
+
+	if (bgp_flag_check(bgp, BGP_FLAG_COMPARE_ROUTER_ID))
+		json_object_string_add(bestpath, "compareRouterId", "true");
+	if (bgp_flag_check(bgp, BGP_FLAG_MED_CONFED)
+	    || bgp_flag_check(bgp, BGP_FLAG_MED_MISSING_AS_WORST)) {
+		if (bgp_flag_check(bgp, BGP_FLAG_MED_CONFED))
+			json_object_string_add(bestpath, "med",
+					       "confed");
+		if (bgp_flag_check(bgp, BGP_FLAG_MED_MISSING_AS_WORST))
+			json_object_string_add(bestpath, "med",
+					       "missing-as-worst");
+		else
+			json_object_string_add(bestpath, "med", "true");
+	}
+
+	json_object_object_add(json, "bestPath", bestpath);
+}
+
 /* Show BGP peer's summary information. */
 static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			    u_char use_json, json_object *json)
@@ -7047,6 +7089,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 
 		json_object_int_add(json, "totalPeers", count);
 		json_object_int_add(json, "dynamicPeers", dn_count);
+
+		bgp_show_bestpath_json(bgp, json);
 
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
 					     json, JSON_C_TO_STRING_PRETTY));
@@ -9745,6 +9789,7 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 	}
 
 	if (use_json) {
+		bgp_show_bestpath_json(bgp, json);
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
 					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
