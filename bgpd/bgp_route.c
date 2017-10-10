@@ -2788,7 +2788,8 @@ int bgp_update(struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 	}
 
 	/* next hop check.  */
-	if (bgp_update_martian_nexthop(bgp, afi, safi, &new_attr)) {
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD) && /* allow vpn->vrf import */
+	    bgp_update_martian_nexthop(bgp, afi, safi, &new_attr)) {
 		reason = "martian or self next-hop;";
 		bgp_attr_flush(&new_attr);
 		goto filtered;
@@ -3031,7 +3032,8 @@ int bgp_update(struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 				connected = 0;
 
 			if (bgp_find_or_add_nexthop(bgp, afi, ri, NULL,
-						    connected))
+						    connected) ||
+			    CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD))
 				bgp_info_set_flag(rn, ri, BGP_INFO_VALID);
 			else {
 				if (BGP_DEBUG(nht, NHT)) {
@@ -3143,7 +3145,8 @@ int bgp_update(struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 		else
 			connected = 0;
 
-		if (bgp_find_or_add_nexthop(bgp, afi, new, NULL, connected))
+		if (bgp_find_or_add_nexthop(bgp, afi, new, NULL, connected) ||
+		    CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD))
 			bgp_info_set_flag(rn, new, BGP_INFO_VALID);
 		else {
 			if (BGP_DEBUG(nht, NHT)) {
