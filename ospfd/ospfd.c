@@ -737,7 +737,6 @@ static void ospf_finish_final(struct ospf *ospf)
 
 	list_delete_and_null(&ospf->areas);
 	list_delete_and_null(&ospf->oi_write_q);
-	list_delete_and_null(&ospf->oiflist);
 
 	for (i = ZEBRA_ROUTE_SYSTEM; i <= ZEBRA_ROUTE_MAX; i++) {
 		struct list *ext_list;
