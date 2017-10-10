@@ -53,6 +53,117 @@ struct vni_walk_ctx {
 };
 
 #if defined(HAVE_CUMULUS)
+static void display_vrf_import_rt(struct vty *vty,
+				  struct vrf_irt_node *irt,
+				  json_object *json)
+{
+	u_char *pnt;
+	u_char type, sub_type;
+	struct ecommunity_as eas;
+	struct ecommunity_ip eip;
+	struct listnode *node, *nnode;
+	struct bgp *tmp_bgp_vrf = NULL;
+	json_object *json_rt = NULL;
+	json_object *json_vrfs = NULL;
+	char rt_buf[RT_ADDRSTRLEN];
+
+	if (json) {
+		json_rt = json_object_new_object();
+		json_vrfs = json_object_new_array();
+	}
+
+	pnt = (u_char *)&irt->rt.val;
+	type = *pnt++;
+	sub_type = *pnt++;
+	if (sub_type != ECOMMUNITY_ROUTE_TARGET)
+		return;
+
+	memset(&eas, 0, sizeof(eas));
+	switch (type) {
+	case ECOMMUNITY_ENCODE_AS:
+		eas.as = (*pnt++ << 8);
+		eas.as |= (*pnt++);
+		pnt = ptr_get_be32(pnt, &eas.val);
+
+		snprintf(rt_buf, RT_ADDRSTRLEN, "%u:%u", eas.as, eas.val);
+
+		if (json)
+			json_object_string_add(json_rt, "rt", rt_buf);
+		else
+			vty_out(vty, "Route-target: %s", rt_buf);
+
+		break;
+
+	case ECOMMUNITY_ENCODE_IP:
+		memcpy(&eip.ip, pnt, 4);
+		pnt += 4;
+		eip.val = (*pnt++ << 8);
+		eip.val |= (*pnt++);
+
+		snprintf(rt_buf, RT_ADDRSTRLEN, "%s:%u", inet_ntoa(eip.ip),
+			 eip.val);
+
+		if (json)
+			json_object_string_add(json_rt, "rt", rt_buf);
+		else
+			vty_out(vty, "Route-target: %s", rt_buf);
+
+		break;
+
+	case ECOMMUNITY_ENCODE_AS4:
+		pnt = ptr_get_be32(pnt, &eas.val);
+		eas.val = (*pnt++ << 8);
+		eas.val |= (*pnt++);
+
+		snprintf(rt_buf, RT_ADDRSTRLEN, "%u:%u", eas.as, eas.val);
+
+		if (json)
+			json_object_string_add(json_rt, "rt", rt_buf);
+		else
+			vty_out(vty, "Route-target: %s", rt_buf);
+
+		break;
+
+	default:
+		return;
+	}
+
+	if (!json) {
+		vty_out(vty,
+			"\nList of VRFs importing routes with this route-target:\n");
+	}
+
+	for (ALL_LIST_ELEMENTS(irt->vrfs, node, nnode, tmp_bgp_vrf)) {
+		if (json)
+			json_object_array_add(
+				json_vrfs,
+				json_object_new_string(
+						vrf_id_to_name(
+							tmp_bgp_vrf->vrf_id)));
+		else
+			vty_out(vty, "  %s\n",
+				vrf_id_to_name(tmp_bgp_vrf->vrf_id));
+	}
+
+	if (json) {
+		json_object_object_add(json_rt, "vrfs", json_vrfs);
+		json_object_object_add(json, rt_buf, json_rt);
+	}
+}
+
+static void show_vrf_import_rt_entry(struct hash_backet *backet,
+				     void *args[])
+{
+	json_object *json = NULL;
+	struct vty *vty = NULL;
+	struct vrf_irt_node *irt = (struct vrf_irt_node *)backet->data;
+
+	vty = args[0];
+	json = args[1];
+
+	display_vrf_import_rt(vty, irt, json);
+}
+
 static void display_import_rt(struct vty *vty, struct irt_node *irt,
 			      json_object *json)
 {
@@ -1433,6 +1544,25 @@ static int evpn_delete_vni(struct bgp *bgp, struct bgpevpn *vpn)
 }
 
 /*
+ * Display import RT mapping to VRFs (vty handler)
+ * bgp_def: default bgp instance
+ */
+static void evpn_show_vrf_import_rts(struct vty *vty,
+				     struct bgp *bgp_def,
+				     json_object *json)
+{
+	void *args[2];
+
+	args[0] = vty;
+	args[1] = json;
+
+	hash_iterate(bgp_def->vrf_import_rt_hash,
+		     (void (*)(struct hash_backet *, void *))
+		     show_vrf_import_rt_entry,
+		     args);
+}
+
+/*
  * Display import RT mapping to VNIs (vty handler)
  */
 static void evpn_show_import_rts(struct vty *vty, struct bgp *bgp,
@@ -2768,6 +2898,42 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_all,
 /*
  * Display EVPN import route-target hash table
  */
+DEFUN(show_bgp_l2vpn_evpn_vrf_import_rt,
+      show_bgp_l2vpn_evpn_vrf_import_rt_cmd,
+      "show bgp l2vpn evpn vrf-import-rt [json]",
+      SHOW_STR
+      BGP_STR
+      L2VPN_HELP_STR
+      EVPN_HELP_STR
+      "Show vrf import route target\n"
+      JSON_STR)
+{
+	u_char uj = 0;
+	struct bgp *bgp_def;
+	json_object *json = NULL;
+
+	bgp_def = bgp_get_default();
+	if (!bgp_def)
+		return CMD_WARNING;
+
+	uj = use_json(argc, argv);
+	if (uj)
+		json = json_object_new_object();
+
+	evpn_show_vrf_import_rts(vty, bgp_def, json);
+
+	if (uj) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+
+	return CMD_SUCCESS;
+}
+
+/*
+ * Display EVPN import route-target hash table
+ */
 DEFUN(show_bgp_l2vpn_evpn_import_rt,
       show_bgp_l2vpn_evpn_import_rt_cmd,
       "show bgp l2vpn evpn import-rt [json]",
@@ -3536,6 +3702,7 @@ void bgp_ethernetvpn_init(void)
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_route_vni_macip_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_route_vni_all_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_import_rt_cmd);
+	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_vrf_import_rt_cmd);
 
 	/* "show bgp evpn" commands. */
 	install_element(VIEW_NODE, &show_bgp_evpn_vni_cmd);

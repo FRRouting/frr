@@ -93,6 +93,131 @@ static int vni_hash_cmp(const void *p1, const void *p2)
 }
 
 /*
+ * Make vrf import route target hash key.
+ */
+static unsigned int vrf_import_rt_hash_key_make(void *p)
+{
+	struct vrf_irt_node *irt = p;
+	char *pnt = irt->rt.val;
+	unsigned int key = 0;
+	int c = 0;
+
+	key += pnt[c];
+	key += pnt[c + 1];
+	key += pnt[c + 2];
+	key += pnt[c + 3];
+	key += pnt[c + 4];
+	key += pnt[c + 5];
+	key += pnt[c + 6];
+	key += pnt[c + 7];
+
+	return key;
+}
+
+/*
+ * Comparison function for vrf import rt hash
+ */
+static int vrf_import_rt_hash_cmp(const void *p1, const void *p2)
+{
+	const struct vrf_irt_node *irt1 = p1;
+	const struct vrf_irt_node *irt2 = p2;
+
+	if (irt1 == NULL && irt2 == NULL)
+		return 1;
+
+	if (irt1 == NULL || irt2 == NULL)
+		return 0;
+
+	return (memcmp(irt1->rt.val, irt2->rt.val, ECOMMUNITY_SIZE) == 0);
+}
+
+/*
+ * Create a new vrf import_rt in default instance
+ */
+static struct vrf_irt_node *vrf_import_rt_new(struct ecommunity_val *rt)
+{
+	struct bgp *bgp_def = NULL;
+	struct vrf_irt_node *irt;
+
+	bgp_def = bgp_get_default();
+	if (!bgp_def) {
+		zlog_err("vrf import rt new - def instance not created yet");
+		return NULL;
+	}
+
+	irt = XCALLOC(MTYPE_BGP_EVPN_VRF_IMPORT_RT,
+		      sizeof(struct vrf_irt_node));
+	if (!irt)
+		return NULL;
+
+	irt->rt = *rt;
+	irt->vrfs = list_new();
+
+	/* Add to hash */
+	if (!hash_get(bgp_def->vrf_import_rt_hash, irt, hash_alloc_intern)) {
+		XFREE(MTYPE_BGP_EVPN_VRF_IMPORT_RT, irt);
+		return NULL;
+	}
+
+	return irt;
+}
+
+/*
+ * Free the vrf import rt node
+ */
+static void vrf_import_rt_free(struct vrf_irt_node *irt)
+{
+	struct bgp *bgp_def = NULL;
+
+	bgp_def = bgp_get_default();
+	if (!bgp_def) {
+		zlog_err("vrf import rt free - def instance not created yet");
+		return;
+	}
+
+	hash_release(bgp_def->vrf_import_rt_hash, irt);
+	XFREE(MTYPE_BGP_EVPN_VRF_IMPORT_RT, irt);
+}
+
+/*
+ * Function to lookup Import RT node - used to map a RT to set of
+ * VNIs importing routes with that RT.
+ */
+static struct vrf_irt_node *lookup_vrf_import_rt(struct ecommunity_val *rt)
+{
+	struct bgp *bgp_def = NULL;
+	struct vrf_irt_node *irt;
+	struct vrf_irt_node tmp;
+
+	bgp_def = bgp_get_default();
+	if (!bgp_def) {
+		zlog_err("vrf import rt lookup - def instance not created yet");
+		return NULL;
+	}
+
+	memset(&tmp, 0, sizeof(struct vrf_irt_node));
+	memcpy(&tmp.rt, rt, ECOMMUNITY_SIZE);
+	irt = hash_lookup(bgp_def->vrf_import_rt_hash, &tmp);
+	return irt;
+}
+
+/*
+ * Is specified VRF present on the RT's list of "importing" VRFs?
+ */
+static int is_vrf_present_in_irt_vrfs(struct list *vrfs,
+				      struct bgp *bgp_vrf)
+{
+	struct listnode *node = NULL, *nnode = NULL;
+	struct bgp *tmp_bgp_vrf = NULL;
+
+	for (ALL_LIST_ELEMENTS(vrfs, node, nnode, tmp_bgp_vrf)) {
+		if (tmp_bgp_vrf == bgp_vrf)
+			return 1;
+	}
+	return 0;
+}
+
+/*
  * Make import route target hash key.
  */
 static unsigned int import_rt_hash_key_make(void *p)
@@ -243,6 +368,57 @@ static inline void mask_ecom_global_admin(struct ecommunity_val *dst,
 		   || type == ECOMMUNITY_ENCODE_IP) {
 		dst->val[2] = dst->val[3] = 0;
 		dst->val[4] = dst->val[5] = 0;
+	}
+}
+
+/*
+ * Map one RT to specified VRF.
+ * bgp_vrf = BGP vrf instance
+ */
+static void map_vrf_to_rt(struct bgp *bgp_vrf,
+			  struct ecommunity_val *eval)
+{
+	struct vrf_irt_node *irt = NULL;
+	struct ecommunity_val eval_tmp;
+
+	/* If using "automatic" RT,
+	 * we only care about the local-admin sub-field.
+	 * This is to facilitate using L3VNI(VRF-VNI)
+	 * as the RT for EBGP peering too.
+	 */
+	memcpy(&eval_tmp, eval, ECOMMUNITY_SIZE);
+	if (!CHECK_FLAG(bgp_vrf->vrf_flags,
+			BGP_VRF_IMPORT_RT_CFGD))
+		mask_ecom_global_admin(&eval_tmp, eval);
+
+	irt = lookup_vrf_import_rt(&eval_tmp);
+	if (irt && irt->vrfs)
+		if (is_vrf_present_in_irt_vrfs(irt->vrfs, bgp_vrf))
+			/* Already mapped. */
+			return;
+
+	if (!irt) {
+		irt = vrf_import_rt_new(&eval_tmp);
+		assert(irt);
+	}
+
+	/* Add VRF to the list for this RT. */
+	listnode_add(irt->vrfs, bgp_vrf);
+}
+
+/*
+ * Unmap specified VRF from specified RT. If there are no other
+ * VRFs for this RT, then the RT hash is deleted.
+ * bgp_vrf: BGP VRF specific instance
+ */
+static void unmap_vrf_from_rt(struct bgp *bgp_vrf,
+			      struct vrf_irt_node *irt)
+{
+	/* Delete VRF from list for this RT. */
+	listnode_delete(irt->vrfs, bgp_vrf);
+	if (!listnode_head(irt->vrfs)) {
+		list_free(irt->vrfs);
+		vrf_import_rt_free(irt);
 	}
 }
 
@@ -2123,8 +2299,16 @@ static void free_vni_entry(struct hash_backet *backet, struct bgp *bgp)
  */
 static void evpn_auto_rt_import_add_for_vrf(struct bgp *bgp_vrf)
 {
-	UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD);
+	struct bgp *bgp_def = NULL;
+
 	form_auto_rt(bgp_vrf, bgp_vrf->l3vni, bgp_vrf->vrf_import_rtl);
+	UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD);
+
+	/* Map RT to VRF */
+	bgp_def = bgp_get_default();
+	if (!bgp_def)
+		return;
+	bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
 }
 
 /*
@@ -2197,8 +2381,13 @@ void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni,
 }
 
 void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf,
-					 struct ecommunity *ecomadd)
+					  struct ecommunity *ecomadd)
 {
+	//TODO_MITESH: uninstall routes from VRF
+
+	/* Cleanup the RT to VRF mapping */
+	bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
+
 	/* Remove auto generated RT */
 	evpn_auto_rt_import_delete_for_vrf(bgp_vrf);
 
@@ -2206,8 +2395,10 @@ void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf,
 	listnode_add_sort(bgp_vrf->vrf_import_rtl, ecomadd);
 	SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD);
 
-	//TODO_MITESH: handle RT change (uninstall old routes and install new
-	//routes matching this RT)
+	/* map VRF to its RTs */
+	bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
+
+	//TODO_MITESH: install routes matching the new VRF
 }
 
 void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
@@ -2215,6 +2406,11 @@ void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
 {
 	struct listnode *node = NULL, *nnode = NULL, *node_to_del = NULL;
 	struct ecommunity *ecom = NULL;
+
+	//TODO_MITESH: uninstall routes from VRF
+
+	/* Cleanup the RT to VRF mapping */
+	bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
 
 	/* remove the RT from the RT list */
 	for (ALL_LIST_ELEMENTS(bgp_vrf->vrf_import_rtl, node, nnode, ecom)) {
@@ -2234,8 +2430,10 @@ void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
 		evpn_auto_rt_import_add_for_vrf(bgp_vrf);
 	}
 
-	//TODO_MITESH: handle import RT change
-	//uninstall old routes, install new routes matching this RT
+	/* map VRFs to its RTs */
+	bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
+
+	//TODO_MITESH: install routes matching this new RT
 }
 
 void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
@@ -2619,6 +2817,65 @@ int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 
 	return 0;
 }
+
+/*
+ * Map the RTs (configured or automatically derived) of a VRF to the VRF.
+ * The mapping will be used during route processing.
+ * bgp_def: default bgp instance
+ * bgp_vrf: specific bgp vrf instance on which RT is configured
+ */
+void bgp_evpn_map_vrf_to_its_rts(struct bgp *bgp_vrf)
+{
+	int i = 0;
+	struct ecommunity_val *eval = NULL;
+	struct listnode *node = NULL, *nnode = NULL;
+	struct ecommunity *ecom = NULL;
+
+	for (ALL_LIST_ELEMENTS(bgp_vrf->vrf_import_rtl, node, nnode, ecom)) {
+		for (i = 0; i < ecom->size; i++) {
+			eval = (struct ecommunity_val *)(ecom->val
+							 + (i
+							    * ECOMMUNITY_SIZE));
+			map_vrf_to_rt(bgp_vrf, eval);
+		}
+	}
+}
+
+/*
+ * Unmap the RTs (configured or automatically derived) of a VRF from the VRF.
+ */
+void bgp_evpn_unmap_vrf_from_its_rts(struct bgp *bgp_vrf)
+{
+	int i;
+	struct ecommunity_val *eval;
+	struct listnode *node, *nnode;
+	struct ecommunity *ecom;
+
+	for (ALL_LIST_ELEMENTS(bgp_vrf->vrf_import_rtl, node, nnode, ecom)) {
+		for (i = 0; i < ecom->size; i++) {
+			struct vrf_irt_node *irt;
+			struct ecommunity_val eval_tmp;
+
+			eval = (struct ecommunity_val *)(ecom->val
+							 + (i
+							    * ECOMMUNITY_SIZE));
+			/* If using "automatic" RT, we only care about the
+			 * local-admin sub-field.
+			 * This is to facilitate using VNI as the RT for EBGP
+			 * peering too.
+			 */
+			memcpy(&eval_tmp, eval, ECOMMUNITY_SIZE);
+			if (!CHECK_FLAG(bgp_vrf->vrf_flags,
+					BGP_VRF_IMPORT_RT_CFGD))
+				mask_ecom_global_admin(&eval_tmp, eval);
+
+			irt = lookup_vrf_import_rt(&eval_tmp);
+			if (irt)
+				unmap_vrf_from_rt(bgp_vrf, irt);
+		}
+	}
+}
+
 
 
 /*
@@ -3059,6 +3316,7 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni,
 
 	/* delete RD/RT */
 	if (bgp_vrf->vrf_import_rtl && !list_isempty(bgp_vrf->vrf_import_rtl)) {
+		bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
 		list_delete(bgp_vrf->vrf_import_rtl);
 		bgp_vrf->vrf_import_rtl = NULL;
 	}
@@ -3224,6 +3482,9 @@ void bgp_evpn_cleanup(struct bgp *bgp)
 	if (bgp->import_rt_hash)
 		hash_free(bgp->import_rt_hash);
 	bgp->import_rt_hash = NULL;
+	if (bgp->vrf_import_rt_hash)
+		hash_free(bgp->vrf_import_rt_hash);
+	bgp->vrf_import_rt_hash = NULL;
 	if (bgp->vnihash)
 		hash_free(bgp->vnihash);
 	bgp->vnihash = NULL;
@@ -3253,6 +3514,9 @@ void bgp_evpn_init(struct bgp *bgp)
 	bgp->import_rt_hash =
 		hash_create(import_rt_hash_key_make, import_rt_hash_cmp,
 			    "BGP Import RT Hash");
+	bgp->vrf_import_rt_hash =
+		hash_create(vrf_import_rt_hash_key_make, vrf_import_rt_hash_cmp,
+			    "BGP VRF Import RT Hash");
 	bgp->vrf_import_rtl = list_new();
 	bgp->vrf_import_rtl->cmp =
 		(int (*)(void *, void *))evpn_route_target_cmp;
@@ -3266,4 +3530,9 @@ void bgp_evpn_init(struct bgp *bgp)
 	bf_init(bgp->rd_idspace, UINT16_MAX);
 	/*assign 0th index in the bitfield, so that we start with id 1*/
 	bf_assign_zero_index(bgp->rd_idspace);
+}
+
+void bgp_evpn_vrf_delete(struct bgp *bgp_vrf)
+{
+	bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
 }
