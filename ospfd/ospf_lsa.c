@@ -1702,7 +1702,7 @@ static void ospf_install_flood_nssa(struct ospf *ospf, struct ospf_lsa *lsa,
 			not adversited into OSPF as an internal OSPF route and
 			the
 			type-7 LSA's P-bit is set a forwarding address should be
-			selected from one of the router's active OSPF inteface
+			selected from one of the router's active OSPF interface
 			addresses
 			which belong to the NSSA.  If no such addresses exist,
 			then
