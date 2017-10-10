@@ -634,7 +634,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	/* Reset interface. */
 	for (ALL_LIST_ELEMENTS(ospf->oiflist, node, nnode, oi))
 		ospf_if_free(oi);
-	list_delete(ospf->oiflist);
+	list_delete_and_null(&ospf->oiflist);
 
 	/* De-Register VRF */
 	ospf_zebra_vrf_deregister(ospf);
@@ -737,7 +737,6 @@ static void ospf_finish_final(struct ospf *ospf)
 
 	list_delete_and_null(&ospf->areas);
 	list_delete_and_null(&ospf->oi_write_q);
-	list_delete_and_null(&ospf->oiflist);
 
 	for (i = ZEBRA_ROUTE_SYSTEM; i <= ZEBRA_ROUTE_MAX; i++) {
 		struct list *ext_list;
@@ -768,8 +767,6 @@ static void ospf_finish_final(struct ospf *ospf)
 
 	if (!CHECK_FLAG(om->options, OSPF_MASTER_SHUTDOWN))
 		instance = ospf->instance;
-
-	list_delete(ospf->oi_write_q);
 
 	ospf_delete(ospf);
 
