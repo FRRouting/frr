@@ -4078,8 +4078,7 @@ static int check_and_display_is_vnc_running(struct vty *vty)
 		return 1; /* is running */
 
 	if (vty) {
-		vty_out(vty,
-			"VNC is not configured.\n");
+		vty_out(vty, "VNC is not configured.\n");
 	}
 	return 0; /* not running */
 }
