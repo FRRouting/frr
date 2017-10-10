@@ -97,6 +97,19 @@ struct irt_node {
 	struct list *vnis;
 };
 
+/* Mapping of Import RT to VRFs.
+ * The Import RTs of all VRFss are maintained in a hash table with each
+ * RT linking to all VRFs that will import routes matching this RT.
+ */
+struct vrf_irt_node {
+	/* RT */
+	struct ecommunity_val rt;
+
+	/* List of VNIs importing routes matching this RT. */
+	struct list *vrfs;
+};
+
+
 #define RT_TYPE_IMPORT 1
 #define RT_TYPE_EXPORT 2
 #define RT_TYPE_BOTH   3
@@ -285,6 +298,8 @@ extern void bgp_evpn_handle_rd_change(struct bgp *bgp, struct bgpevpn *vpn,
 				      int withdraw);
 extern int bgp_evpn_install_routes(struct bgp *bgp, struct bgpevpn *vpn);
 extern int bgp_evpn_uninstall_routes(struct bgp *bgp, struct bgpevpn *vpn);
+extern void bgp_evpn_map_vrf_to_its_rts(struct bgp *);
+extern void bgp_evpn_unmap_vrf_from_its_rts(struct bgp *);
 extern void bgp_evpn_map_vni_to_its_rts(struct bgp *bgp, struct bgpevpn *vpn);
 extern void bgp_evpn_unmap_vni_from_its_rts(struct bgp *bgp,
 					    struct bgpevpn *vpn);

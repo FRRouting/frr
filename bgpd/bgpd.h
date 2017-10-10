@@ -406,6 +406,9 @@ struct bgp {
 	/* Hash table of Import RTs to EVIs */
 	struct hash *import_rt_hash;
 
+	/* Hash table of VRF import RTs to VRFs */
+	struct hash *vrf_import_rt_hash;
+
 	/* Id space for automatic RD derivation for an EVI */
 	bitfield_t rd_idspace;
 

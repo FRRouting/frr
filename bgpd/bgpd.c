@@ -3139,6 +3139,9 @@ int bgp_delete(struct bgp *bgp)
 				   bgp->name);
 	}
 
+	/* unmap from RT list */
+	bgp_evpn_vrf_delete(bgp);
+
 	/* Stop timers. */
 	if (bgp->t_rmap_def_originate_eval) {
 		BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);
