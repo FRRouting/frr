@@ -380,6 +380,13 @@ extern void uninstall_element(enum node_type, struct cmd_element *);
    string with a space between each element (allocated using
    XMALLOC(MTYPE_TMP)).  Returns NULL if shift >= argc. */
 extern char *argv_concat(struct cmd_token **argv, int argc, int shift);
+
+/*
+ * It is preferred that you set the index initial value
+ * to a 0.  This way in the future if you modify the
+ * cli then there is no need to modify the initial
+ * value of the index
+ */
 extern int argv_find(struct cmd_token **argv, int argc, const char *text,
 		     int *index);
 
