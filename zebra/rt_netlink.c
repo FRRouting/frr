@@ -1739,7 +1739,6 @@ static int netlink_macfdb_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	struct ndmsg *ndm;
 	struct interface *ifp;
 	struct zebra_if *zif;
-	struct zebra_vrf *zvrf;
 	struct rtattr *tb[NDA_MAX + 1];
 	struct interface *br_if;
 	struct ethaddr mac;
@@ -1753,20 +1752,14 @@ static int netlink_macfdb_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 
 	ndm = NLMSG_DATA(h);
 
+	/* We only process macfdb notifications if EVPN is enabled */
+	if (!is_evpn_enabled())
+		return 0;
+
 	/* The interface should exist. */
 	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
 					ndm->ndm_ifindex);
-	if (!ifp)
-		return 0;
-
-	/* Locate VRF corresponding to interface. We only process MAC
-	 * notifications
-	 * if EVPN is enabled on this VRF.
-	 */
-	zvrf = vrf_info_lookup(ifp->vrf_id);
-	if (!zvrf || !EVPN_ENABLED(zvrf))
-		return 0;
-	if (!ifp->info)
+	if (!ifp || !ifp->info)
 		return 0;
 
 	/* The interface should be something we're interested in. */
@@ -2056,7 +2049,6 @@ static int netlink_ipneigh_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	struct ndmsg *ndm;
 	struct interface *ifp;
 	struct zebra_if *zif;
-	struct zebra_vrf *zvrf;
 	struct rtattr *tb[NDA_MAX + 1];
 	struct interface *link_if;
 	struct ethaddr mac;
@@ -2068,20 +2060,14 @@ static int netlink_ipneigh_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 
 	ndm = NLMSG_DATA(h);
 
+	/* We only process neigh notifications if EVPN is enabled */
+	if (!is_evpn_enabled())
+		return 0;
+
 	/* The interface should exist. */
 	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT),
 					ndm->ndm_ifindex);
-	if (!ifp)
-		return 0;
-
-	/* Locate VRF corresponding to interface. We only process neigh
-	 * notifications
-	 * if EVPN is enabled on this VRF.
-	 */
-	zvrf = vrf_info_lookup(ifp->vrf_id);
-	if (!zvrf || !EVPN_ENABLED(zvrf))
-		return 0;
-	if (!ifp->info)
+	if (!ifp || !ifp->info)
 		return 0;
 
 	/* Drop "permanent" entries. */

@@ -35,6 +35,14 @@
 
 /* Is EVPN enabled? */
 #define EVPN_ENABLED(zvrf)  (zvrf)->advertise_all_vni
+static inline int
+is_evpn_enabled()
+{
+	struct zebra_vrf *zvrf = NULL;
+	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+	return zvrf ? zvrf->advertise_all_vni : 0;
+}
+
 
 /* VxLAN interface change flags of interest. */
 #define ZEBRA_VXLIF_LOCAL_IP_CHANGE     0x1
