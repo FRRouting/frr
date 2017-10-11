@@ -40,6 +40,7 @@
 #include "nexthop.h"
 #include "vrf.h"
 #include "libfrr.h"
+#include "sockopt.h"
 
 #include "zebra/zserv.h"
 #include "zebra/zebra_ns.h"
@@ -2573,6 +2574,11 @@ void zebra_zserv_socket_init(char *path)
 		if (suna->sun_path[0])
 			unlink(suna->sun_path);
 	}
+
+	zserv_privs.change(ZPRIVS_RAISE);
+	setsockopt_so_recvbuf(sock, 1048576);
+	setsockopt_so_sendbuf(sock, 1048576);
+	zserv_privs.change(ZPRIVS_LOWER);
 
 	if (sa.ss_family != AF_UNIX && zserv_privs.change(ZPRIVS_RAISE))
 		zlog_err("Can't raise privileges");
