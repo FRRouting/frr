@@ -44,8 +44,6 @@
 
 #include "privs.h"
 
-extern struct zebra_privs_t isisd_privs;
-
 /* tcpdump -i eth0 'isis' -dd */
 static struct sock_filter isisfilter[] =
 	{

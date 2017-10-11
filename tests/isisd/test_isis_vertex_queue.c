@@ -9,6 +9,8 @@ int isis_sock_init(struct isis_circuit *circuit)
 	return 0;
 }
 
+struct zebra_privs_t isisd_privs;
+
 static struct isis_vertex **vertices;
 static size_t vertex_count;
 

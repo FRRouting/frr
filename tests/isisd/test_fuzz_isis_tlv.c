@@ -19,6 +19,8 @@ int isis_sock_init(struct isis_circuit *circuit)
 	return 0;
 }
 
+struct zebra_privs_t isisd_privs;
+
 static bool atexit_registered;
 
 static void show_meminfo_at_exit(void)
