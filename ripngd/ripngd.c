@@ -50,8 +50,6 @@ enum { ripng_all_route,
        ripng_changed_route,
 };
 
-extern struct zebra_privs_t ripngd_privs;
-
 /* Prototypes. */
 void ripng_output_process(struct interface *, struct sockaddr_in6 *, int);
 

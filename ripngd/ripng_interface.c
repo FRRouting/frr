@@ -47,8 +47,6 @@
 #define IPV6_LEAVE_GROUP IPV6_DROP_MEMBERSHIP 
 #endif
 
-extern struct zebra_privs_t ripngd_privs;
-
 /* Static utility function. */
 static void ripng_enable_apply(struct interface *);
 static void ripng_passive_interface_apply(struct interface *);
