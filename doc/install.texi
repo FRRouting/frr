@@ -97,6 +97,10 @@ Controls backtrace support for the crash handlers. This is autodetected by
 default. Using the switch will enforce the requested behaviour, failing with
 an error if support is requested but not available.  On BSD systems, this
 needs libexecinfo, while on glibc support for this is part of libc itself.
+@item --enable-dev-build
+Turn on some options for compiling FRR within a development environment in
+mind.  Specifically turn on -g3 -O0 for compiling options and add inclusion
+of grammar sandbox.
 @end table
 
 You may specify any combination of the above options to the configure
