@@ -1749,13 +1749,15 @@ static int bgp_zebra_process_local_macip(int command, struct zclient *zclient,
 		return bgp_evpn_local_macip_del(bgp, vni, &mac, &ip);
 }
 
+extern struct zebra_privs_t bgpd_privs;
+
 void bgp_zebra_init(struct thread_master *master)
 {
 	zclient_num_connects = 0;
 
 	/* Set default values. */
 	zclient = zclient_new(master);
-	zclient_init(zclient, ZEBRA_ROUTE_BGP, 0);
+	zclient_init(zclient, ZEBRA_ROUTE_BGP, 0, &bgpd_privs);
 	zclient->zebra_connected = bgp_zebra_connected;
 	zclient->router_id_update = bgp_router_id_update;
 	zclient->interface_add = bgp_interface_add;
