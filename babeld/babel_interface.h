@@ -50,7 +50,7 @@ struct babel_interface {
     char have_buffered_id;
     char have_buffered_nh;
     char have_buffered_prefix;
-    unsigned char buffered_id[16];
+    unsigned char buffered_id[8];
     unsigned char buffered_nh[4];
     unsigned char buffered_prefix[16];
     unsigned char *sendbuf;
