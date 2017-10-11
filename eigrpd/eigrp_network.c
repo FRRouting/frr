@@ -38,8 +38,6 @@
 #include "table.h"
 #include "vty.h"
 
-extern struct zebra_privs_t eigrpd_privs;
-
 #include "eigrpd/eigrp_structs.h"
 #include "eigrpd/eigrpd.h"
 #include "eigrpd/eigrp_interface.h"

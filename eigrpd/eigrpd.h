@@ -41,6 +41,7 @@
 extern struct zclient *zclient;
 extern struct thread_master *master;
 extern struct eigrp_master *eigrp_om;
+extern struct zebra_privs_t eigrpd_privs;
 
 /* Prototypes */
 extern void eigrp_master_init(void);
