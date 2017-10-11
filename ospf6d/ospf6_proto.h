@@ -62,6 +62,7 @@ struct ospf6_prefix {
 #define prefix_metric        u._prefix_metric
 #define prefix_refer_lstype  u._prefix_referenced_lstype
 	/* followed by one address_prefix */
+	struct in6_addr addr[];
 };
 
 #define OSPF6_PREFIX_OPTION_NU (1 << 0)  /* No Unicast */
