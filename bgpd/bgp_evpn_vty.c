@@ -411,6 +411,52 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 		json_object_object_add(json, "exportRts", json_export_rtl);
 }
 
+static void evpn_show_vrf_routes(struct vty *vty,
+				 struct bgp *bgp_vrf)
+{
+	struct bgp *bgp_def = NULL;
+	struct bgp_node *rn;
+	struct bgp_info *ri;
+	int header = 1;
+	u_int32_t prefix_cnt, path_cnt;
+
+	prefix_cnt = path_cnt = 0;
+	bgp_def = bgp_get_default();
+	if (!bgp_def)
+		return;
+
+	for (rn = bgp_table_top(bgp_vrf->rib[AFI_L2VPN][SAFI_EVPN]); rn;
+	     rn = bgp_route_next(rn)) {
+		char prefix_str[BUFSIZ];
+
+		bgp_evpn_route2str((struct prefix_evpn *)&rn->p, prefix_str,
+				   sizeof(prefix_str));
+
+		if (rn->info) {
+			/* Overall header/legend displayed once. */
+			if (header) {
+				bgp_evpn_show_route_header(vty, bgp_def, NULL);
+				header = 0;
+			}
+			prefix_cnt++;
+		}
+
+		/* For EVPN, the prefix is displayed for each path (to fit in
+		 * with code that already exists).
+		 */
+		for (ri = rn->info; ri; ri = ri->next) {
+			route_vty_out(vty, &rn->p, ri, 0, SAFI_EVPN, NULL);
+			path_cnt++;
+		}
+	}
+
+	if (prefix_cnt == 0)
+		vty_out(vty, "No EVPN prefixes exist for this VRF");
+	else
+		vty_out(vty, "\nDisplayed %u prefixes (%u paths)",
+			prefix_cnt, path_cnt);
+}
+
 static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn, int type,
 			    struct vty *vty, struct in_addr vtep_ip,
 			    json_object *json)
@@ -2641,6 +2687,33 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd_macip,
 }
 
 /*
+ * Display per-VRF EVPN routing table.
+ */
+DEFUN(show_bgp_l2vpn_evpn_route_vrf, show_bgp_l2vpn_evpn_route_vrf_cmd,
+      "show bgp l2vpn evpn route vrf VRFNAME",
+      SHOW_STR
+      BGP_STR
+      L2VPN_HELP_STR
+      EVPN_HELP_STR
+      "EVPN route information\n"
+      "VRF\n"
+      "VRF Name\n")
+{
+	int vrf_idx = 6;
+	char *vrf_name = NULL;
+	struct bgp *bgp_vrf = NULL;
+
+	vrf_name = argv[vrf_idx]->arg;
+	bgp_vrf = bgp_lookup_by_name(vrf_name);
+	if (!bgp_vrf)
+		return CMD_WARNING;
+
+	evpn_show_vrf_routes(vty, bgp_vrf);
+
+	return CMD_SUCCESS;
+}
+
+/*
  * Display per-VNI EVPN routing table.
  */
 DEFUN(show_bgp_l2vpn_evpn_route_vni, show_bgp_l2vpn_evpn_route_vni_cmd,
@@ -3697,6 +3770,7 @@ void bgp_ethernetvpn_init(void)
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_route_rd_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_route_rd_macip_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_route_vni_cmd);
+	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_route_vrf_cmd);
 	install_element(VIEW_NODE,
 			&show_bgp_l2vpn_evpn_route_vni_multicast_cmd);
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_route_vni_macip_cmd);

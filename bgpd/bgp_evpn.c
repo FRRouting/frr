@@ -786,6 +786,95 @@ static void evpn_delete_old_local_route(struct bgp *bgp, struct bgpevpn *vpn,
  * Calculate the best path for an EVPN route. Install/update best path in zebra,
  * if appropriate.
  */
+static int evpn_vrf_route_select_install(struct bgp *bgp_vrf,
+					 struct bgp_node *rn,
+					 struct prefix *p,
+					 afi_t afi,
+					 safi_t safi)
+{
+	struct bgp_info *old_select, *new_select;
+	struct bgp_info_pair old_and_new;
+	int ret = 0;
+
+	/* Compute the best path. */
+	bgp_best_selection(bgp_vrf, rn, &bgp_vrf->maxpaths[afi][safi],
+			   &old_and_new, afi, safi);
+	old_select = old_and_new.old;
+	new_select = old_and_new.new;
+
+	/* If the best path hasn't changed - see if there is still something to
+	 * update
+	 * to zebra RIB.
+	 */
+	if (old_select && old_select == new_select
+	    && old_select->type == ZEBRA_ROUTE_BGP
+	    && old_select->sub_type == BGP_ROUTE_NORMAL
+	    && !CHECK_FLAG(rn->flags, BGP_NODE_USER_CLEAR)
+	    && !CHECK_FLAG(old_select->flags, BGP_INFO_ATTR_CHANGED)
+	    && !bgp_vrf->addpath_tx_used[afi][safi]) {
+		if (bgp_zebra_has_route_changed(rn, old_select))
+			bgp_zebra_announce(rn, p, old_select, bgp_vrf,
+					   afi, safi);
+		UNSET_FLAG(old_select->flags, BGP_INFO_MULTIPATH_CHG);
+		bgp_zebra_clear_route_change_flags(rn);
+		return ret;
+	}
+
+	/* If the user did a "clear" this flag will be set */
+	UNSET_FLAG(rn->flags, BGP_NODE_USER_CLEAR);
+
+	/* bestpath has changed; update relevant fields and install or uninstall
+	 * into the zebra RIB.
+	 */
+	if (old_select || new_select)
+		bgp_bump_version(rn);
+
+	if (old_select)
+		bgp_info_unset_flag(rn, old_select, BGP_INFO_SELECTED);
+	if (new_select) {
+		bgp_info_set_flag(rn, new_select, BGP_INFO_SELECTED);
+		bgp_info_unset_flag(rn, new_select, BGP_INFO_ATTR_CHANGED);
+		UNSET_FLAG(new_select->flags, BGP_INFO_MULTIPATH_CHG);
+	}
+
+	if (new_select && new_select->type == ZEBRA_ROUTE_BGP
+	    && new_select->sub_type == BGP_ROUTE_NORMAL) {
+		bgp_zebra_announce(rn, p, new_select, bgp_vrf,
+				   afi, safi);
+
+		/* If an old best existed and it was a "local" route, the only
+		 * reason
+		 * it would be supplanted is due to MAC mobility procedures. So,
+		 * we
+		 * need to do an implicit delete and withdraw that route from
+		 * peers.
+		 */
+		/*if (old_select && old_select->peer == bgp_vrf->peer_self
+		    && old_select->type == ZEBRA_ROUTE_BGP
+		    && old_select->sub_type == BGP_ROUTE_STATIC) {
+			//evpn_delete_old_local_route(bgp, vpn, rn, old_select);
+		}*/ //TODO_MITESH: probably not needed for vrf routes, think!!
+	} else {
+		if (old_select && old_select->type == ZEBRA_ROUTE_BGP
+		    && old_select->sub_type == BGP_ROUTE_NORMAL) {
+			bgp_zebra_withdraw(p, old_select, safi);
+		}
+	}
+
+	/* Clear any route change flags. */
+	bgp_zebra_clear_route_change_flags(rn);
+
+	/* Reap old select bgp_info, if it has been removed */
+	if (old_select && CHECK_FLAG(old_select->flags, BGP_INFO_REMOVED))
+		bgp_info_reap(rn, old_select);
+
+	return ret;
+}
+
+/*
+ * Calculate the best path for an EVPN route. Install/update best path in zebra,
+ * if appropriate.
+ */
 static int evpn_route_select_install(struct bgp *bgp, struct bgpevpn *vpn,
 				     struct bgp_node *rn)
 {
@@ -1419,6 +1508,88 @@ static int handle_tunnel_ip_change(struct bgp *bgp, struct bgpevpn *vpn,
 }
 
 /*
+ * Install route entry into the VRF routing table and invoke route selection.
+ */
+static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
+					   struct prefix_evpn *evp,
+					   struct bgp_info *parent_ri)
+{
+	struct bgp_node *rn;
+	struct bgp_info *ri;
+	struct attr *attr_new;
+	int ret;
+	struct prefix p;
+	struct prefix *pp = &p;
+	afi_t afi = 0;
+	safi_t safi = 0;
+
+	memset(pp, 0, sizeof(struct prefix));
+	ip_prefix_from_type2_prefix(evp, pp);
+
+	/* Create (or fetch) route within the VRF. */
+	/* NOTE: There is no RD here. */
+	if (IS_EVPN_PREFIX_IPADDR_V4(evp)) {
+		afi = AFI_IP;
+		safi = SAFI_UNICAST;
+		rn = bgp_node_get(bgp_vrf->rib[afi][safi], pp);
+	} else if (IS_EVPN_PREFIX_IPADDR_V6(evp)) {
+		afi = AFI_IP6;
+		safi = SAFI_UNICAST;
+		rn = bgp_node_get(bgp_vrf->rib[afi][safi], pp);
+	} else
+		return 0;
+
+	/* Check if route entry is already present. */
+	for (ri = rn->info; ri; ri = ri->next)
+		if (ri->extra
+		    && (struct bgp_info *)ri->extra->parent == parent_ri)
+			break;
+
+	if (!ri) {
+		/* Add (or update) attribute to hash. */
+		attr_new = bgp_attr_intern(parent_ri->attr);
+
+		/* Create new route with its attribute. */
+		ri = info_make(parent_ri->type, parent_ri->sub_type, 0,
+			       parent_ri->peer, attr_new, rn);
+		SET_FLAG(ri->flags, BGP_INFO_VALID);
+		bgp_info_extra_get(ri);
+		ri->extra->parent = parent_ri;
+		if (parent_ri->extra)
+			memcpy(&ri->extra->label, &parent_ri->extra->label,
+			       BGP_LABEL_BYTES);
+		bgp_info_add(rn, ri);
+	} else {
+		if (attrhash_cmp(ri->attr, parent_ri->attr)
+		    && !CHECK_FLAG(ri->flags, BGP_INFO_REMOVED)) {
+			bgp_unlock_node(rn);
+			return 0;
+		}
+		/* The attribute has changed. */
+		/* Add (or update) attribute to hash. */
+		attr_new = bgp_attr_intern(parent_ri->attr);
+
+		/* Restore route, if needed. */
+		if (CHECK_FLAG(ri->flags, BGP_INFO_REMOVED))
+			bgp_info_restore(rn, ri);
+
+		/* Mark if nexthop has changed. */
+		if (!IPV4_ADDR_SAME(&ri->attr->nexthop, &attr_new->nexthop))
+			SET_FLAG(ri->flags, BGP_INFO_IGP_CHANGED);
+
+		/* Unintern existing, set to new. */
+		bgp_attr_unintern(&ri->attr);
+		ri->attr = attr_new;
+		ri->uptime = bgp_clock();
+	}
+
+	/* Perform route selection and update zebra, if required. */
+	ret = evpn_vrf_route_select_install(bgp_vrf, rn, pp, afi, safi);
+
+	return ret;
+}
+
+/*
  * Install route entry into the VNI routing table and invoke route selection.
  */
 static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
@@ -1480,6 +1651,61 @@ static int install_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 
 	/* Perform route selection and update zebra, if required. */
 	ret = evpn_route_select_install(bgp, vpn, rn);
+
+	return ret;
+}
+
+/*
+ * Uninstall route entry from the VRF routing table and send message
+ * to zebra, if appropriate.
+ */
+static int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
+					     struct prefix_evpn *evp,
+					     struct bgp_info *parent_ri)
+{
+	struct bgp_node *rn;
+	struct bgp_info *ri;
+	int ret;
+	struct prefix p;
+	struct prefix *pp = &p;
+	afi_t afi = 0;
+	safi_t safi = 0;
+
+	memset(pp, 0, sizeof(struct prefix));
+	ip_prefix_from_type2_prefix(evp, pp);
+
+	/* Locate route within the VRF. */
+	/* NOTE: There is no RD here. */
+	if (IS_EVPN_PREFIX_IPADDR_V4(evp)) {
+		afi = AFI_IP;
+		safi = SAFI_UNICAST;
+		rn = bgp_node_lookup(bgp_vrf->rib[afi][safi], pp);
+	} else {
+		afi = AFI_IP6;
+		safi = SAFI_UNICAST;
+		rn = bgp_node_lookup(bgp_vrf->rib[afi][safi], pp);
+	}
+
+	if (!rn)
+		return 0;
+
+	/* Find matching route entry. */
+	for (ri = rn->info; ri; ri = ri->next)
+		if (ri->extra
+		    && (struct bgp_info *)ri->extra->parent == parent_ri)
+			break;
+
+	if (!ri)
+		return 0;
+
+	/* Mark entry for deletion */
+	bgp_info_delete(rn, ri);
+
+	/* Perform route selection and update zebra, if required. */
+	ret = evpn_vrf_route_select_install(bgp_vrf, rn, pp, afi, safi);
+
+	/* Unlock route node. */
+	bgp_unlock_node(rn);
 
 	return ret;
 }
@@ -1707,6 +1933,45 @@ static int uninstall_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn)
 }
 
 /*
+ * Install or uninstall route in matching VRFs (list).
+ */
+static int install_uninstall_route_in_vrfs(struct bgp *bgp_def, afi_t afi,
+					   safi_t safi, struct prefix_evpn *evp,
+					   struct bgp_info *ri,
+					   struct list *vrfs, int install)
+{
+	char buf[PREFIX2STR_BUFFER];
+	struct bgp *bgp_vrf;
+	struct listnode *node, *nnode;
+
+	/* Only type-2 routes go into a VRF */
+	if (!(evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE))
+		return 0;
+
+	for (ALL_LIST_ELEMENTS(vrfs, node, nnode, bgp_vrf)) {
+		int ret;
+
+		if (install)
+			ret = install_evpn_route_entry_in_vrf(bgp_vrf,
+							      evp, ri);
+		else
+			ret = uninstall_evpn_route_entry_in_vrf(bgp_vrf,
+								evp, ri);
+
+		if (ret) {
+			zlog_err("%u: Failed to %s prefix %s in VRF %s",
+				 bgp_def->vrf_id,
+				 install ? "install" : "uninstall",
+				 prefix2str(evp, buf, sizeof(buf)),
+				 vrf_id_to_name(bgp_vrf->vrf_id));
+			return ret;
+		}
+	}
+
+	return 0;
+}
+
+/*
  * Install or uninstall route in matching VNIs (list).
  */
 static int install_uninstall_route_in_vnis(struct bgp *bgp, afi_t afi,
@@ -1777,7 +2042,8 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 		u_char type, sub_type;
 		struct ecommunity_val *eval;
 		struct ecommunity_val eval_tmp;
-		struct irt_node *irt;
+		struct irt_node *irt; /* import rt for l2vni */
+		struct vrf_irt_node *vrf_irt; /* import rt for l3vni */
 
 		/* Only deal with RTs */
 		pnt = (ecom->val + (i * ECOMMUNITY_SIZE));
@@ -1788,11 +2054,17 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 		if (sub_type != ECOMMUNITY_ROUTE_TARGET)
 			continue;
 
-		/* Are we interested in this RT? */
+		/* Import route into matching l2-vnis */
 		irt = lookup_import_rt(bgp, eval);
 		if (irt && irt->vnis)
 			install_uninstall_route_in_vnis(bgp, afi, safi, evp, ri,
 							irt->vnis, import);
+
+		/* Import route into matching l3-vnis (vrfs) */
+		vrf_irt = lookup_vrf_import_rt(eval);
+		if (vrf_irt && vrf_irt->vrfs)
+			install_uninstall_route_in_vrfs(bgp, afi, safi, evp, ri,
+							vrf_irt->vrfs, import);
 
 		/* Also check for non-exact match. In this, we mask out the AS
 		 * and
@@ -1801,16 +2073,22 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 		 * VNI as the RT for EBGP peering too.
 		 */
 		irt = NULL;
+		vrf_irt = NULL;
 		if (type == ECOMMUNITY_ENCODE_AS
 		    || type == ECOMMUNITY_ENCODE_AS4
 		    || type == ECOMMUNITY_ENCODE_IP) {
 			memcpy(&eval_tmp, eval, ECOMMUNITY_SIZE);
 			mask_ecom_global_admin(&eval_tmp, eval);
 			irt = lookup_import_rt(bgp, &eval_tmp);
+			vrf_irt = lookup_vrf_import_rt(&eval_tmp);
 		}
 		if (irt && irt->vnis)
 			install_uninstall_route_in_vnis(bgp, afi, safi, evp, ri,
 							irt->vnis, import);
+		if (vrf_irt && vrf_irt->vrfs)
+			install_uninstall_route_in_vrfs(bgp, afi, safi, evp,
+							ri, vrf_irt->vrfs,
+							import);
 	}
 
 	return 0;

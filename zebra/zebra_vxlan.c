@@ -6084,3 +6084,15 @@ void zebra_vxlan_ns_disable(struct zebra_ns *zns)
 {
 	hash_free(zns->l3vni_table);
 }
+
+/* get the l3vni svi ifindex */
+ifindex_t get_l3vni_svi_ifindex(vrf_id_t vrf_id)
+{
+	zebra_l3vni_t *zl3vni = NULL;
+
+	zl3vni = zl3vni_from_vrf(vrf_id);
+	if (!zl3vni || !is_l3vni_oper_up(zl3vni))
+		return 0;
+
+	return zl3vni->svi_if->ifindex;
+}

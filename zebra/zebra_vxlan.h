@@ -51,6 +51,7 @@ is_evpn_enabled()
 
 #define VNI_STR_LEN 32
 
+extern ifindex_t get_l3vni_svi_ifindex(vrf_id_t vrf_id);
 extern int zebra_vxlan_vrf_delete(struct zebra_vrf *);
 extern void zebra_vxlan_print_macs_vni(struct vty *vty, struct zebra_vrf *zvrf,
 				       vni_t vni, u_char use_json);

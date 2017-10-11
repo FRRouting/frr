@@ -258,6 +258,25 @@ static inline void encode_mac_mobility_extcomm(int static_mac, u_int32_t seq,
 	eval->val[7] = seq & 0xff;
 }
 
+static inline void ip_prefix_from_type2_prefix(struct prefix_evpn *evp,
+					       struct prefix *ip)
+{
+	memset(ip, 0, sizeof(struct prefix));
+	if (IS_EVPN_PREFIX_IPADDR_V4(evp)) {
+		ip->family = AF_INET;
+		ip->prefixlen = IPV4_MAX_BITLEN;
+		memcpy(&(ip->u.prefix4),
+		       &(evp->prefix.ip.ip),
+		       IPV4_MAX_BYTELEN);
+	} else if (IS_EVPN_PREFIX_IPADDR_V6(evp)) {
+		ip->family = AF_INET6;
+		ip->prefixlen = IPV6_MAX_BITLEN;
+		memcpy(&(ip->u.prefix6),
+		       &(evp->prefix.ip.ip),
+		       IPV6_MAX_BYTELEN);
+	}
+}
+
 static inline void build_evpn_type2_prefix(struct prefix_evpn *p,
 					   struct ethaddr *mac,
 					   struct ipaddr *ip)
