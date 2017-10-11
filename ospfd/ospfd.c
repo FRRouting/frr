@@ -67,7 +67,6 @@ struct ospf_master *om;
 
 extern struct zclient *zclient;
 extern struct in_addr router_id_zebra;
-extern struct zebra_privs_t ospfd_privs;
 
 
 static void ospf_remove_vls_through_area(struct ospf *, struct ospf_area *);
