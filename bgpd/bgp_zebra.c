@@ -1015,6 +1015,12 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	if (info->sub_type == BGP_ROUTE_AGGREGATE)
 		zapi_route_set_blackhole(&api, BLACKHOLE_NULL);
 
+	/* If it is an EVPN route mark as such.
+	 * Currently presence of rmac in attr denotes
+	 * this is an EVPN type-2 route */
+	if (!is_zero_mac(&(info->attr->rmac)))
+		SET_FLAG(api.flags, ZEBRA_FLAG_EVPN_TYPE2_ROUTE);
+
 	if (peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED
 	    || info->sub_type == BGP_ROUTE_AGGREGATE) {
 		SET_FLAG(api.flags, ZEBRA_FLAG_IBGP);
@@ -1072,7 +1078,13 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 
 			api_nh = &api.nexthops[valid_nh_count];
 			api_nh->gate.ipv4 = *nexthop;
-			api_nh->type = NEXTHOP_TYPE_IPV4;
+
+			/* EVPN type-2 routes are
+			   programmed as onlink on l3-vni SVI */
+			if (CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_TYPE2_ROUTE))
+				api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
+			else
+				api_nh->type = NEXTHOP_TYPE_IPV4;
 		} else {
 			ifindex_t ifindex;
 			struct in6_addr *nexthop;

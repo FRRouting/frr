@@ -259,7 +259,8 @@ struct nexthop *route_entry_nexthop_ipv4_ifindex_add(struct route_entry *re,
 	/*Pending: need to think if null ifp here is ok during bootup?
 	  There was a crash because ifp here was coming to be NULL */
 	if (ifp)
-		if (connected_is_unnumbered(ifp)) {
+		if (connected_is_unnumbered(ifp) ||
+		    CHECK_FLAG(re->flags, ZEBRA_FLAG_EVPN_TYPE2_ROUTE)) {
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
 		}
 

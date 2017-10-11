@@ -1149,6 +1149,7 @@ static int zread_route_add(struct zserv *client, u_short length,
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)) {
 		for (i = 0; i < api.nexthop_num; i++) {
 			api_nh = &api.nexthops[i];
+			ifindex_t ifindex = 0;
 
 			switch (api_nh->type) {
 			case NEXTHOP_TYPE_IFINDEX:
@@ -1160,9 +1161,16 @@ static int zread_route_add(struct zserv *client, u_short length,
 					re, &api_nh->gate.ipv4, NULL);
 				break;
 			case NEXTHOP_TYPE_IPV4_IFINDEX:
+				if (CHECK_FLAG(api.flags,
+					       ZEBRA_FLAG_EVPN_TYPE2_ROUTE)) {
+					ifindex =
+						get_l3vni_svi_ifindex(zvrf_id(zvrf));
+				} else {
+					ifindex = api_nh->ifindex;
+				}
 				nexthop = route_entry_nexthop_ipv4_ifindex_add(
 					re, &api_nh->gate.ipv4, NULL,
-					api_nh->ifindex);
+					ifindex);
 				break;
 			case NEXTHOP_TYPE_IPV6:
 				nexthop = route_entry_nexthop_ipv6_add(
