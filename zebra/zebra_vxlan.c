@@ -3028,7 +3028,7 @@ int zebra_vxlan_local_neigh_add_update(struct interface *ifp,
 /*
  * Handle message from client to delete a remote MACIP for a VNI.
  */
-int zebra_vxlan_remote_macip_del(struct zserv *client, int sock, u_short length,
+int zebra_vxlan_remote_macip_del(struct zserv *client, u_short length,
 				 struct zebra_vrf *zvrf)
 {
 	struct stream *s;
@@ -3168,7 +3168,7 @@ int zebra_vxlan_remote_macip_del(struct zserv *client, int sock, u_short length,
  * could be just the add of a MAC address or the add of a neighbor
  * (IP+MAC).
  */
-int zebra_vxlan_remote_macip_add(struct zserv *client, int sock, u_short length,
+int zebra_vxlan_remote_macip_add(struct zserv *client, u_short length,
 				 struct zebra_vrf *zvrf)
 {
 	struct stream *s;
@@ -3671,7 +3671,7 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 /*
  * Handle message from client to delete a remote VTEP for a VNI.
  */
-int zebra_vxlan_remote_vtep_del(struct zserv *client, int sock, u_short length,
+int zebra_vxlan_remote_vtep_del(struct zserv *client, u_short length,
 				struct zebra_vrf *zvrf)
 {
 	struct stream *s;
@@ -3750,7 +3750,7 @@ int zebra_vxlan_remote_vtep_del(struct zserv *client, int sock, u_short length,
 /*
  * Handle message from client to add a remote VTEP for a VNI.
  */
-int zebra_vxlan_remote_vtep_add(struct zserv *client, int sock, u_short length,
+int zebra_vxlan_remote_vtep_add(struct zserv *client, u_short length,
 				struct zebra_vrf *zvrf)
 {
 	struct stream *s;
@@ -4280,8 +4280,8 @@ int zebra_vxlan_if_add(struct interface *ifp)
  * Handle message from client to enable/disable advertisement of g/w macip
  * routes
  */
-int zebra_vxlan_advertise_gw_macip(struct zserv *client, int sock,
-				   u_short length, struct zebra_vrf *zvrf)
+int zebra_vxlan_advertise_gw_macip(struct zserv *client, u_short length,
+				   struct zebra_vrf *zvrf)
 {
 	struct stream *s;
 	int advertise;
@@ -4388,7 +4388,7 @@ int zebra_vxlan_advertise_gw_macip(struct zserv *client, int sock,
  * when disabled, the entries should be deleted and remote VTEPs and MACs
  * uninstalled from the kernel.
  */
-int zebra_vxlan_advertise_all_vni(struct zserv *client, int sock,
+int zebra_vxlan_advertise_all_vni(struct zserv *client,
 				  u_short length, struct zebra_vrf *zvrf)
 {
 	struct stream *s;

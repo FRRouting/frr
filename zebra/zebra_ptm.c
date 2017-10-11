@@ -661,7 +661,7 @@ int zebra_ptm_sock_read(struct thread *thread)
 }
 
 /* BFD peer/dst register/update */
-int zebra_ptm_bfd_dst_register(struct zserv *client, int sock, u_short length,
+int zebra_ptm_bfd_dst_register(struct zserv *client, u_short length,
 			       int command, struct zebra_vrf *zvrf)
 {
 	struct stream *s;
@@ -819,7 +819,7 @@ int zebra_ptm_bfd_dst_register(struct zserv *client, int sock, u_short length,
 }
 
 /* BFD peer/dst deregister */
-int zebra_ptm_bfd_dst_deregister(struct zserv *client, int sock, u_short length,
+int zebra_ptm_bfd_dst_deregister(struct zserv *client, u_short length,
 				 struct zebra_vrf *zvrf)
 {
 	struct stream *s;
@@ -946,7 +946,7 @@ int zebra_ptm_bfd_dst_deregister(struct zserv *client, int sock, u_short length,
 }
 
 /* BFD client register */
-int zebra_ptm_bfd_client_register(struct zserv *client, int sock,
+int zebra_ptm_bfd_client_register(struct zserv *client,
 				  u_short length)
 {
 	struct stream *s;

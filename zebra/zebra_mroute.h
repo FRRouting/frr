@@ -28,7 +28,7 @@ struct mcast_route_data {
 	unsigned long long lastused;
 };
 
-int zebra_ipmr_route_stats(struct zserv *client, int sock, u_short length,
+int zebra_ipmr_route_stats(struct zserv *client, u_short length,
 			   struct zebra_vrf *zvf);
 
 #endif

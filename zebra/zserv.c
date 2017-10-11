@@ -693,7 +693,7 @@ static int zsend_write_nexthop(struct stream *s, struct nexthop *nexthop)
 }
 
 /* Nexthop register */
-static int zserv_rnh_register(struct zserv *client, int sock, u_short length,
+static int zserv_rnh_register(struct zserv *client, u_short length,
 			      rnh_type_t type, struct zebra_vrf *zvrf)
 {
 	struct rnh *rnh;
@@ -754,7 +754,7 @@ static int zserv_rnh_register(struct zserv *client, int sock, u_short length,
 }
 
 /* Nexthop register */
-static int zserv_rnh_unregister(struct zserv *client, int sock, u_short length,
+static int zserv_rnh_unregister(struct zserv *client, u_short length,
 				rnh_type_t type, struct zebra_vrf *zvrf)
 {
 	struct rnh *rnh;
@@ -798,7 +798,7 @@ static int zserv_rnh_unregister(struct zserv *client, int sock, u_short length,
 #define ZEBRA_MIN_FEC_LENGTH 5
 
 /* FEC register */
-static int zserv_fec_register(struct zserv *client, int sock, u_short length)
+static int zserv_fec_register(struct zserv *client, u_short length)
 {
 	struct stream *s;
 	struct zebra_vrf *zvrf;
@@ -849,7 +849,7 @@ static int zserv_fec_register(struct zserv *client, int sock, u_short length)
 }
 
 /* FEC unregister */
-static int zserv_fec_unregister(struct zserv *client, int sock, u_short length)
+static int zserv_fec_unregister(struct zserv *client, u_short length)
 {
 	struct stream *s;
 	struct zebra_vrf *zvrf;
@@ -2210,7 +2210,7 @@ static void zebra_client_create(int sock)
 	zebra_vrf_update_all(client);
 }
 
-static int zread_interface_set_master(struct zserv *client, int sock,
+static int zread_interface_set_master(struct zserv *client,
 				      u_short length)
 {
 	struct interface *master;
@@ -2405,42 +2405,42 @@ static int zebra_client_read(struct thread *thread)
 		zread_hello(client);
 		break;
 	case ZEBRA_NEXTHOP_REGISTER:
-		zserv_rnh_register(client, sock, length, RNH_NEXTHOP_TYPE,
+		zserv_rnh_register(client, length, RNH_NEXTHOP_TYPE,
 				   zvrf);
 		break;
 	case ZEBRA_NEXTHOP_UNREGISTER:
-		zserv_rnh_unregister(client, sock, length, RNH_NEXTHOP_TYPE,
+		zserv_rnh_unregister(client, length, RNH_NEXTHOP_TYPE,
 				     zvrf);
 		break;
 	case ZEBRA_IMPORT_ROUTE_REGISTER:
-		zserv_rnh_register(client, sock, length, RNH_IMPORT_CHECK_TYPE,
+		zserv_rnh_register(client, length, RNH_IMPORT_CHECK_TYPE,
 				   zvrf);
 		break;
 	case ZEBRA_IMPORT_ROUTE_UNREGISTER:
-		zserv_rnh_unregister(client, sock, length,
+		zserv_rnh_unregister(client, length,
 				     RNH_IMPORT_CHECK_TYPE, zvrf);
 		break;
 	case ZEBRA_BFD_DEST_UPDATE:
 	case ZEBRA_BFD_DEST_REGISTER:
-		zebra_ptm_bfd_dst_register(client, sock, length, command, zvrf);
+		zebra_ptm_bfd_dst_register(client, length, command, zvrf);
 		break;
 	case ZEBRA_BFD_DEST_DEREGISTER:
-		zebra_ptm_bfd_dst_deregister(client, sock, length, zvrf);
+		zebra_ptm_bfd_dst_deregister(client, length, zvrf);
 		break;
 	case ZEBRA_VRF_UNREGISTER:
 		zread_vrf_unregister(client, length, zvrf);
 		break;
 	case ZEBRA_BFD_CLIENT_REGISTER:
-		zebra_ptm_bfd_client_register(client, sock, length);
+		zebra_ptm_bfd_client_register(client, length);
 		break;
 	case ZEBRA_INTERFACE_ENABLE_RADV:
 #if defined(HAVE_RTADV)
-		zebra_interface_radv_set(client, sock, length, zvrf, 1);
+		zebra_interface_radv_set(client, length, zvrf, 1);
 #endif
 		break;
 	case ZEBRA_INTERFACE_DISABLE_RADV:
 #if defined(HAVE_RTADV)
-		zebra_interface_radv_set(client, sock, length, zvrf, 0);
+		zebra_interface_radv_set(client, length, zvrf, 0);
 #endif
 		break;
 	case ZEBRA_MPLS_LABELS_ADD:
@@ -2448,7 +2448,7 @@ static int zebra_client_read(struct thread *thread)
 		zread_mpls_labels(command, client, length, vrf_id);
 		break;
 	case ZEBRA_IPMR_ROUTE_STATS:
-		zebra_ipmr_route_stats(client, sock, length, zvrf);
+		zebra_ipmr_route_stats(client, length, zvrf);
 		break;
 	case ZEBRA_LABEL_MANAGER_CONNECT:
 	case ZEBRA_GET_LABEL_CHUNK:
@@ -2456,31 +2456,31 @@ static int zebra_client_read(struct thread *thread)
 		zread_label_manager_request(command, client, vrf_id);
 		break;
 	case ZEBRA_FEC_REGISTER:
-		zserv_fec_register(client, sock, length);
+		zserv_fec_register(client, length);
 		break;
 	case ZEBRA_FEC_UNREGISTER:
-		zserv_fec_unregister(client, sock, length);
+		zserv_fec_unregister(client, length);
 		break;
 	case ZEBRA_ADVERTISE_DEFAULT_GW:
-		zebra_vxlan_advertise_gw_macip(client, sock, length, zvrf);
+		zebra_vxlan_advertise_gw_macip(client, length, zvrf);
 		break;
 	case ZEBRA_ADVERTISE_ALL_VNI:
-		zebra_vxlan_advertise_all_vni(client, sock, length, zvrf);
+		zebra_vxlan_advertise_all_vni(client, length, zvrf);
 		break;
 	case ZEBRA_REMOTE_VTEP_ADD:
-		zebra_vxlan_remote_vtep_add(client, sock, length, zvrf);
+		zebra_vxlan_remote_vtep_add(client, length, zvrf);
 		break;
 	case ZEBRA_REMOTE_VTEP_DEL:
-		zebra_vxlan_remote_vtep_del(client, sock, length, zvrf);
+		zebra_vxlan_remote_vtep_del(client, length, zvrf);
 		break;
 	case ZEBRA_REMOTE_MACIP_ADD:
-		zebra_vxlan_remote_macip_add(client, sock, length, zvrf);
+		zebra_vxlan_remote_macip_add(client, length, zvrf);
 		break;
 	case ZEBRA_REMOTE_MACIP_DEL:
-		zebra_vxlan_remote_macip_del(client, sock, length, zvrf);
+		zebra_vxlan_remote_macip_del(client, length, zvrf);
 		break;
 	case ZEBRA_INTERFACE_SET_MASTER:
-		zread_interface_set_master(client, sock, length);
+		zread_interface_set_master(client, length);
 		break;
 	case ZEBRA_PW_ADD:
 	case ZEBRA_PW_DELETE:
