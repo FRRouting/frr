@@ -2228,122 +2228,11 @@ static int zread_interface_set_master(struct zserv *client,
 	return 1;
 }
 
-/* Handler of zebra service request. */
-static int zebra_client_read(struct thread *thread)
+static inline void zserv_handle_commands(struct zserv *client,
+					 uint16_t command,
+					 uint16_t length,
+					 struct zebra_vrf *zvrf)
 {
-	int sock;
-	struct zserv *client;
-	size_t already;
-	uint16_t length, command;
-	uint8_t marker, version;
-	vrf_id_t vrf_id;
-	struct zebra_vrf *zvrf;
-
-	/* Get thread data.  Reset reading thread because I'm running. */
-	sock = THREAD_FD(thread);
-	client = THREAD_ARG(thread);
-	client->t_read = NULL;
-
-	if (client->t_suicide) {
-		zebra_client_close(client);
-		return -1;
-	}
-
-	/* Read length and command (if we don't have it already). */
-	if ((already = stream_get_endp(client->ibuf)) < ZEBRA_HEADER_SIZE) {
-		ssize_t nbyte;
-		if (((nbyte = stream_read_try(client->ibuf, sock,
-					      ZEBRA_HEADER_SIZE - already))
-		     == 0)
-		    || (nbyte == -1)) {
-			if (IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug("connection closed socket [%d]",
-					   sock);
-			zebra_client_close(client);
-			return -1;
-		}
-		if (nbyte != (ssize_t)(ZEBRA_HEADER_SIZE - already)) {
-			/* Try again later. */
-			zebra_event(ZEBRA_READ, sock, client);
-			return 0;
-		}
-		already = ZEBRA_HEADER_SIZE;
-	}
-
-	/* Reset to read from the beginning of the incoming packet. */
-	stream_set_getp(client->ibuf, 0);
-
-	/* Fetch header values */
-	length = stream_getw(client->ibuf);
-	marker = stream_getc(client->ibuf);
-	version = stream_getc(client->ibuf);
-	vrf_id = stream_getw(client->ibuf);
-	command = stream_getw(client->ibuf);
-
-	if (marker != ZEBRA_HEADER_MARKER || version != ZSERV_VERSION) {
-		zlog_err(
-			"%s: socket %d version mismatch, marker %d, version %d",
-			__func__, sock, marker, version);
-		zebra_client_close(client);
-		return -1;
-	}
-	if (length < ZEBRA_HEADER_SIZE) {
-		zlog_warn(
-			"%s: socket %d message length %u is less than header size %d",
-			__func__, sock, length, ZEBRA_HEADER_SIZE);
-		zebra_client_close(client);
-		return -1;
-	}
-	if (length > STREAM_SIZE(client->ibuf)) {
-		zlog_warn(
-			"%s: socket %d message length %u exceeds buffer size %lu",
-			__func__, sock, length,
-			(u_long)STREAM_SIZE(client->ibuf));
-		zebra_client_close(client);
-		return -1;
-	}
-
-	/* Read rest of data. */
-	if (already < length) {
-		ssize_t nbyte;
-		if (((nbyte = stream_read_try(client->ibuf, sock,
-					      length - already))
-		     == 0)
-		    || (nbyte == -1)) {
-			if (IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug(
-					"connection closed [%d] when reading zebra data",
-					sock);
-			zebra_client_close(client);
-			return -1;
-		}
-		if (nbyte != (ssize_t)(length - already)) {
-			/* Try again later. */
-			zebra_event(ZEBRA_READ, sock, client);
-			return 0;
-		}
-	}
-
-	length -= ZEBRA_HEADER_SIZE;
-
-	/* Debug packet information. */
-	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("zebra message comes from socket [%d]", sock);
-
-	if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
-		zlog_debug("zebra message received [%s] %d in VRF %u",
-			   zserv_command_string(command), length, vrf_id);
-
-	client->last_read_time = monotime(NULL);
-	client->last_read_cmd = command;
-
-	zvrf = zebra_vrf_lookup_by_id(vrf_id);
-	if (!zvrf) {
-		if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("zebra received unknown VRF[%u]", vrf_id);
-		goto zclient_read_out;
-	}
-
 	switch (command) {
 	case ZEBRA_ROUTER_ID_ADD:
 		zread_router_id_add(client, length, zvrf);
@@ -2485,6 +2374,125 @@ static int zebra_client_read(struct thread *thread)
 		zlog_info("Zebra received unknown command %d", command);
 		break;
 	}
+}
+
+/* Handler of zebra service request. */
+static int zebra_client_read(struct thread *thread)
+{
+	int sock;
+	struct zserv *client;
+	size_t already;
+	uint16_t length, command;
+	uint8_t marker, version;
+	vrf_id_t vrf_id;
+	struct zebra_vrf *zvrf;
+
+	/* Get thread data.  Reset reading thread because I'm running. */
+	sock = THREAD_FD(thread);
+	client = THREAD_ARG(thread);
+	client->t_read = NULL;
+
+	if (client->t_suicide) {
+		zebra_client_close(client);
+		return -1;
+	}
+
+	/* Read length and command (if we don't have it already). */
+	if ((already = stream_get_endp(client->ibuf)) < ZEBRA_HEADER_SIZE) {
+		ssize_t nbyte;
+		if (((nbyte = stream_read_try(client->ibuf, sock,
+					      ZEBRA_HEADER_SIZE - already))
+		     == 0)
+		    || (nbyte == -1)) {
+			if (IS_ZEBRA_DEBUG_EVENT)
+				zlog_debug("connection closed socket [%d]",
+					   sock);
+			zebra_client_close(client);
+			return -1;
+		}
+		if (nbyte != (ssize_t)(ZEBRA_HEADER_SIZE - already)) {
+			/* Try again later. */
+			zebra_event(ZEBRA_READ, sock, client);
+			return 0;
+		}
+		already = ZEBRA_HEADER_SIZE;
+	}
+
+	/* Reset to read from the beginning of the incoming packet. */
+	stream_set_getp(client->ibuf, 0);
+
+	/* Fetch header values */
+	length = stream_getw(client->ibuf);
+	marker = stream_getc(client->ibuf);
+	version = stream_getc(client->ibuf);
+	vrf_id = stream_getw(client->ibuf);
+	command = stream_getw(client->ibuf);
+
+	if (marker != ZEBRA_HEADER_MARKER || version != ZSERV_VERSION) {
+		zlog_err(
+			"%s: socket %d version mismatch, marker %d, version %d",
+			__func__, sock, marker, version);
+		zebra_client_close(client);
+		return -1;
+	}
+	if (length < ZEBRA_HEADER_SIZE) {
+		zlog_warn(
+			"%s: socket %d message length %u is less than header size %d",
+			__func__, sock, length, ZEBRA_HEADER_SIZE);
+		zebra_client_close(client);
+		return -1;
+	}
+	if (length > STREAM_SIZE(client->ibuf)) {
+		zlog_warn(
+			"%s: socket %d message length %u exceeds buffer size %lu",
+			__func__, sock, length,
+			(u_long)STREAM_SIZE(client->ibuf));
+		zebra_client_close(client);
+		return -1;
+	}
+
+	/* Read rest of data. */
+	if (already < length) {
+		ssize_t nbyte;
+		if (((nbyte = stream_read_try(client->ibuf, sock,
+					      length - already))
+		     == 0)
+		    || (nbyte == -1)) {
+			if (IS_ZEBRA_DEBUG_EVENT)
+				zlog_debug(
+					"connection closed [%d] when reading zebra data",
+					sock);
+			zebra_client_close(client);
+			return -1;
+		}
+		if (nbyte != (ssize_t)(length - already)) {
+			/* Try again later. */
+			zebra_event(ZEBRA_READ, sock, client);
+			return 0;
+		}
+	}
+
+	length -= ZEBRA_HEADER_SIZE;
+
+	/* Debug packet information. */
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("zebra message comes from socket [%d]", sock);
+
+	if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
+		zlog_debug("zebra message received [%s] %d in VRF %u",
+			   zserv_command_string(command), length, vrf_id);
+
+	client->last_read_time = monotime(NULL);
+	client->last_read_cmd = command;
+
+	zvrf = zebra_vrf_lookup_by_id(vrf_id);
+	if (!zvrf) {
+		if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
+			zlog_debug("zebra received unknown VRF[%u]", vrf_id);
+		goto zclient_read_out;
+	}
+
+	zserv_handle_commands(client, command, length, zvrf);
 
 	if (client->t_suicide) {
 		/* No need to wait for thread callback, just kill immediately.
