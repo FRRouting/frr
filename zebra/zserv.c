@@ -1763,7 +1763,7 @@ static int zread_vrf_unregister(struct zserv *client, u_short length,
 }
 
 static void zread_mpls_labels(int command, struct zserv *client, u_short length,
-			      vrf_id_t vrf_id)
+			      struct zebra_vrf *zvrf)
 {
 	struct stream *s;
 	enum lsp_types_t type;
@@ -1773,11 +1773,6 @@ static void zread_mpls_labels(int command, struct zserv *client, u_short length,
 	ifindex_t ifindex;
 	mpls_label_t in_label, out_label;
 	u_int8_t distance;
-	struct zebra_vrf *zvrf;
-
-	zvrf = vrf_info_lookup(vrf_id);
-	if (!zvrf)
-		return;
 
 	/* Get input stream.  */
 	s = client->ibuf;
@@ -1959,7 +1954,7 @@ static void zread_release_label_chunk(struct zserv *client)
 	release_label_chunk(client->proto, client->instance, start, end);
 }
 static void zread_label_manager_request(int cmd, struct zserv *client,
-					vrf_id_t vrf_id)
+					struct zebra_vrf *zvrf)
 {
 	/* to avoid sending other messages like ZERBA_INTERFACE_UP */
 	if (cmd == ZEBRA_LABEL_MANAGER_CONNECT)
@@ -1967,11 +1962,13 @@ static void zread_label_manager_request(int cmd, struct zserv *client,
 
 	/* external label manager */
 	if (lm_is_external)
-		zread_relay_label_manager_request(cmd, client, vrf_id);
+		zread_relay_label_manager_request(cmd, client,
+						  zvrf_id(zvrf));
 	/* this is a label manager */
 	else {
 		if (cmd == ZEBRA_LABEL_MANAGER_CONNECT)
-			zread_label_manager_connect(client, vrf_id);
+			zread_label_manager_connect(client,
+						    zvrf_id(zvrf));
 		else {
 			/* Sanity: don't allow 'unidentified' requests */
 			if (!client->proto) {
@@ -1980,7 +1977,8 @@ static void zread_label_manager_request(int cmd, struct zserv *client,
 				return;
 			}
 			if (cmd == ZEBRA_GET_LABEL_CHUNK)
-				zread_get_label_chunk(client, vrf_id);
+				zread_get_label_chunk(client,
+						      zvrf_id(zvrf));
 			else if (cmd == ZEBRA_RELEASE_LABEL_CHUNK)
 				zread_release_label_chunk(client);
 		}
@@ -1988,10 +1986,9 @@ static void zread_label_manager_request(int cmd, struct zserv *client,
 }
 
 static int zread_pseudowire(int command, struct zserv *client, u_short length,
-			    vrf_id_t vrf_id)
+			    struct zebra_vrf *zvrf)
 {
 	struct stream *s;
-	struct zebra_vrf *zvrf;
 	char ifname[IF_NAMESIZE];
 	ifindex_t ifindex;
 	int type;
@@ -2003,10 +2000,6 @@ static int zread_pseudowire(int command, struct zserv *client, u_short length,
 	union pw_protocol_fields data;
 	uint8_t protocol;
 	struct zebra_pw *pw;
-
-	zvrf = vrf_info_lookup(vrf_id);
-	if (!zvrf)
-		return -1;
 
 	/* Get input stream.  */
 	s = client->ibuf;
@@ -2445,7 +2438,7 @@ static int zebra_client_read(struct thread *thread)
 		break;
 	case ZEBRA_MPLS_LABELS_ADD:
 	case ZEBRA_MPLS_LABELS_DELETE:
-		zread_mpls_labels(command, client, length, vrf_id);
+		zread_mpls_labels(command, client, length, zvrf);
 		break;
 	case ZEBRA_IPMR_ROUTE_STATS:
 		zebra_ipmr_route_stats(client, length, zvrf);
@@ -2453,7 +2446,7 @@ static int zebra_client_read(struct thread *thread)
 	case ZEBRA_LABEL_MANAGER_CONNECT:
 	case ZEBRA_GET_LABEL_CHUNK:
 	case ZEBRA_RELEASE_LABEL_CHUNK:
-		zread_label_manager_request(command, client, vrf_id);
+		zread_label_manager_request(command, client, zvrf);
 		break;
 	case ZEBRA_FEC_REGISTER:
 		zserv_fec_register(client, length);
@@ -2486,7 +2479,7 @@ static int zebra_client_read(struct thread *thread)
 	case ZEBRA_PW_DELETE:
 	case ZEBRA_PW_SET:
 	case ZEBRA_PW_UNSET:
-		zread_pseudowire(command, client, length, vrf_id);
+		zread_pseudowire(command, client, length, zvrf);
 		break;
 	default:
 		zlog_info("Zebra received unknown command %d", command);
