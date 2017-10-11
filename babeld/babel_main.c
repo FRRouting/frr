@@ -84,7 +84,7 @@ static zebra_capabilities_t _caps_p [] =
     ZCAP_BIND
 };
 
-static struct zebra_privs_t babeld_privs =
+struct zebra_privs_t babeld_privs =
 {
 #if defined(FRR_USER)
     .user = FRR_USER,

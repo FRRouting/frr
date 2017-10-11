@@ -113,6 +113,8 @@ struct babel
     struct thread *t_update;  /* timers */
 };
 
+extern struct zebra_privs_t babeld_privs;
+
 extern void babeld_quagga_init(void);
 extern int input_filter(const unsigned char *id,
                         const unsigned char *prefix, unsigned short plen,
