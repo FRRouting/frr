@@ -303,6 +303,8 @@ struct nhrp_interface {
 	} afi[AFI_MAX];
 };
 
+extern struct zebra_privs_t nhrpd_privs;
+
 int sock_open_unix(const char *path);
 
 void nhrp_interface_init(void);
