@@ -240,7 +240,8 @@ static char *ospf6_lsdesc_backlink(struct ospf6_lsa *lsa, caddr_t lsdesc,
 	}
 
 	if (IS_OSPF6_DEBUG_SPF(PROCESS))
-		zlog_debug("  Backlink %s", (found ? "OK" : "FAIL"));
+		zlog_debug("Vertex %s Lsa %s Backlink %s", v->name, lsa->name,
+			   (found ? "OK" : "FAIL"));
 
 	return found;
 }
