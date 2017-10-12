@@ -542,7 +542,6 @@ static void ospf_finish_final(struct ospf *ospf)
 	/* Reset interface. */
 	for (ALL_LIST_ELEMENTS(ospf->oiflist, node, nnode, oi))
 		ospf_if_free(oi);
-	list_delete(ospf->oiflist);
 
 	/* Clear static neighbors */
 	for (rn = route_top(ospf->nbr_nbma); rn; rn = route_next(rn))
@@ -575,7 +574,6 @@ static void ospf_finish_final(struct ospf *ospf)
 			route_unlock_node(rn);
 		}
 	}
-	route_table_finish(ospf->networks);
 
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
 		listnode_delete(ospf->areas, area);
@@ -672,8 +670,6 @@ static void ospf_finish_final(struct ospf *ospf)
 	if (!CHECK_FLAG(om->options, OSPF_MASTER_SHUTDOWN))
 		instance = ospf->instance;
 
-	list_delete(ospf->oi_write_q);
-
 	ospf_delete(ospf);
 
 	XFREE(MTYPE_OSPF_TOP, ospf);
@@ -722,8 +718,6 @@ static void ospf_area_free(struct ospf_area *area)
 {
 	struct route_node *rn;
 	struct ospf_lsa *lsa;
-
-	ospf_opaque_type10_lsa_term(area);
 
 	/* Free LSDBs. */
 	LSDB_LOOP(ROUTER_LSDB(area), rn, lsa)
