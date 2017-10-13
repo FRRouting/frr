@@ -1183,6 +1183,8 @@ static int zread_route_add(struct zserv *client, u_short length,
 				   program the nh as neigh */
 				if (CHECK_FLAG(api.flags,
 					       ZEBRA_FLAG_EVPN_TYPE2_ROUTE)) {
+					SET_FLAG(nexthop->flags,
+						 NEXTHOP_FLAG_EVPN_RVTEP);
 					vtep_ip.ipa_type = IPADDR_V4;
 					memcpy(&(vtep_ip.ipaddr_v4),
 					       &(api_nh->gate.ipv4),
