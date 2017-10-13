@@ -999,6 +999,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 
 	/* Make Zebra API structure. */
 	memset(&api, 0, sizeof(api));
+	memcpy(&api.rmac, &(info->attr->rmac), sizeof(struct ethaddr));
 	api.vrf_id = bgp->vrf_id;
 	api.type = ZEBRA_ROUTE_BGP;
 	api.safi = safi;

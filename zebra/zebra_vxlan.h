@@ -145,5 +145,11 @@ extern void zebra_vxlan_init_tables(struct zebra_vrf *zvrf);
 extern void zebra_vxlan_close_tables(struct zebra_vrf *);
 extern void zebra_vxlan_ns_init(struct zebra_ns *zns);
 extern void zebra_vxlan_ns_disable(struct zebra_ns *zns);
+extern void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id,
+					   struct ethaddr *rmac,
+					   struct ipaddr *ip);
+extern void zebra_vxlan_evpn_vrf_route_del(vrf_id_t vrf_id,
+					   struct ethaddr *rmac,
+					   struct ipaddr *ip);
 
 #endif /* _ZEBRA_VXLAN_H */
