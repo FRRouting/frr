@@ -635,7 +635,7 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr)
 
 	/* Add the export RTs for L3VNI */
 	vrf_export_rtl = bgpevpn_get_vrf_export_rtl(vpn);
-	if (vrf_export_rtl) {
+	if (vrf_export_rtl && !list_isempty(vrf_export_rtl)) {
 		for (ALL_LIST_ELEMENTS(vrf_export_rtl, node, nnode, ecom))
 			attr->ecommunity = ecommunity_merge(attr->ecommunity,
 							    ecom);
@@ -1584,6 +1584,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	}
 
 	/* Perform route selection and update zebra, if required. */
+	//TODO_MITESH: callbgp process instead
 	ret = evpn_vrf_route_select_install(bgp_vrf, rn, pp, afi, safi);
 
 	return ret;
@@ -1750,6 +1751,73 @@ static int uninstall_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 }
 
 /*
+ * Given a route entry and a VRF, see if this route entry should be
+ * imported into the VRF i.e., RTs match.
+ */
+static int is_route_matching_for_vrf(struct bgp *bgp_vrf,
+				     struct bgp_info *ri)
+{
+	struct attr *attr = ri->attr;
+	struct ecommunity *ecom;
+	int i;
+
+	assert(attr);
+	/* Route should have valid RT to be even considered. */
+	if (!(attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)))
+		return 0;
+
+	ecom = attr->ecommunity;
+	if (!ecom || !ecom->size)
+		return 0;
+
+	/* For each extended community RT, see if it matches this VNI. If any RT
+	 * matches, we're done.
+	 */
+	for (i = 0; i < ecom->size; i++) {
+		u_char *pnt;
+		u_char type, sub_type;
+		struct ecommunity_val *eval;
+		struct ecommunity_val eval_tmp;
+		struct vrf_irt_node *irt;
+
+		/* Only deal with RTs */
+		pnt = (ecom->val + (i * ECOMMUNITY_SIZE));
+		eval = (struct ecommunity_val *)(ecom->val
+						 + (i * ECOMMUNITY_SIZE));
+		type = *pnt++;
+		sub_type = *pnt++;
+		if (sub_type != ECOMMUNITY_ROUTE_TARGET)
+			continue;
+
+		/* See if this RT matches specified VNIs import RTs */
+		irt = lookup_vrf_import_rt(eval);
+		if (irt && irt->vrfs)
+			if (is_vrf_present_in_irt_vrfs(irt->vrfs, bgp_vrf))
+				return 1;
+
+		/* Also check for non-exact match. In this, we mask out the AS
+		 * and
+		 * only check on the local-admin sub-field. This is to
+		 * facilitate using
+		 * VNI as the RT for EBGP peering too.
+		 */
+		irt = NULL;
+		if (type == ECOMMUNITY_ENCODE_AS
+		    || type == ECOMMUNITY_ENCODE_AS4
+		    || type == ECOMMUNITY_ENCODE_IP) {
+			memcpy(&eval_tmp, eval, ECOMMUNITY_SIZE);
+			mask_ecom_global_admin(&eval_tmp, eval);
+			irt = lookup_vrf_import_rt(&eval_tmp);
+		}
+		if (irt && irt->vrfs)
+			if (is_vrf_present_in_irt_vrfs(irt->vrfs, bgp_vrf))
+				return 1;
+	}
+
+	return 0;
+}
+
+/*
  * Given a route entry and a VNI, see if this route entry should be
  * imported into the VNI i.e., RTs match.
  */
@@ -1811,6 +1879,80 @@ static int is_route_matching_for_vni(struct bgp *bgp, struct bgpevpn *vpn,
 		if (irt && irt->vnis)
 			if (is_vni_present_in_irt_vnis(irt->vnis, vpn))
 				return 1;
+	}
+
+	return 0;
+}
+
+/*
+ * Install or uninstall mac-ip routes are appropriate for this
+ * particular VRF.
+ */
+static int install_uninstall_routes_for_vrf(struct bgp *bgp_vrf,
+					    int install)
+{
+	afi_t afi;
+	safi_t safi;
+	struct bgp_node *rd_rn, *rn;
+	struct bgp_table *table;
+	struct bgp_info *ri;
+	int ret;
+	char buf[PREFIX_STRLEN];
+	struct bgp *bgp_def = NULL;
+
+	afi = AFI_L2VPN;
+	safi = SAFI_EVPN;
+	bgp_def = bgp_get_default();
+	if (!bgp_def)
+		return -1;
+
+	/* Walk entire global routing table and evaluate routes which could be
+	 * imported into this VRF. Note that we need to loop through all global
+	 * routes to determine which route matches the import rt on vrf
+	 */
+	for (rd_rn = bgp_table_top(bgp_def->rib[afi][safi]); rd_rn;
+	     rd_rn = bgp_route_next(rd_rn)) {
+		table = (struct bgp_table *)(rd_rn->info);
+		if (!table)
+			continue;
+
+		for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
+			struct prefix_evpn *evp = (struct prefix_evpn *)&rn->p;
+
+			if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE)
+				continue;
+
+			for (ri = rn->info; ri; ri = ri->next) {
+				/* Consider "valid" remote routes applicable for
+				 * this VRF. */
+				if (!(CHECK_FLAG(ri->flags, BGP_INFO_VALID)
+				      && ri->type == ZEBRA_ROUTE_BGP
+				      && ri->sub_type == BGP_ROUTE_NORMAL))
+					continue;
+
+				if (is_route_matching_for_vrf(bgp_vrf, ri)) {
+					if (install)
+						ret =
+						install_evpn_route_entry_in_vrf(
+							bgp_vrf, evp, ri);
+					else
+						ret =
+						uninstall_evpn_route_entry_in_vrf(
+							bgp_vrf, evp, ri);
+
+					if (ret) {
+						zlog_err(
+							"Failed to %s EVPN %s route in VRF %s",
+							install ? "install"
+								: "uninstall",
+							prefix2str(evp, buf,
+								   sizeof(buf)),
+							vrf_id_to_name(bgp_vrf->vrf_id));
+						return ret;
+					}
+				}
+			}
+		}
 	}
 
 	return 0;
@@ -1890,6 +2032,14 @@ static int install_uninstall_routes_for_vni(struct bgp *bgp,
 	return 0;
 }
 
+/* Install any existing remote routes applicable for this VRF into VRF RIB. This
+ * is invoked upon l3vni-add or l3vni import rt change */
+static int install_routes_for_vrf(struct bgp *bgp_vrf)
+{
+	install_uninstall_routes_for_vrf(bgp_vrf, 1);
+	return 0;
+}
+
 /*
  * Install any existing remote routes applicable for this VNI into its
  * routing table. This is invoked when a VNI becomes "live" or its Import
@@ -1909,6 +2059,13 @@ static int install_routes_for_vni(struct bgp *bgp, struct bgpevpn *vpn)
 
 	return install_uninstall_routes_for_vni(bgp, vpn, BGP_EVPN_MAC_IP_ROUTE,
 						1);
+}
+
+/* uninstall routes from l3vni vrf. */
+static int uninstall_routes_for_vrf(struct bgp *bgp_vrf)
+{
+	install_uninstall_routes_for_vrf(bgp_vrf, 0);
+	return 0;
 }
 
 /*
@@ -2673,7 +2830,8 @@ void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni,
 void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf,
 					  struct ecommunity *ecomadd)
 {
-	//TODO_MITESH: uninstall routes from VRF
+	/* uninstall routes from vrf */
+	uninstall_routes_for_vrf(bgp_vrf);
 
 	/* Cleanup the RT to VRF mapping */
 	bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
@@ -2688,7 +2846,8 @@ void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf,
 	/* map VRF to its RTs */
 	bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
 
-	//TODO_MITESH: install routes matching the new VRF
+	/* install routes matching the new VRF */
+	install_routes_for_vrf(bgp_vrf);
 }
 
 void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
@@ -2697,7 +2856,8 @@ void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
 	struct listnode *node = NULL, *nnode = NULL, *node_to_del = NULL;
 	struct ecommunity *ecom = NULL;
 
-	//TODO_MITESH: uninstall routes from VRF
+	/* uninstall routes from vrf */
+	uninstall_routes_for_vrf(bgp_vrf);
 
 	/* Cleanup the RT to VRF mapping */
 	bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
@@ -2723,7 +2883,8 @@ void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
 	/* map VRFs to its RTs */
 	bgp_evpn_map_vrf_to_its_rts(bgp_vrf);
 
-	//TODO_MITESH: install routes matching this new RT
+	/* install routes matching this new RT */
+	install_routes_for_vrf(bgp_vrf);
 }
 
 void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
@@ -3571,7 +3732,9 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni,
 	for (ALL_LIST_ELEMENTS_RO(bgp_vrf->l2vnis, node, vpn))
 		update_routes_for_vni(bgp_def, vpn);
 
-	//TODO_MITESH: import all the remote routes to VRF
+	/* install all remote routes belonging to this l3vni into correspondng
+	 * vrf */
+	install_routes_for_vrf(bgp_vrf);
 
 	return 0;
 }
@@ -3598,6 +3761,9 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni,
 		return -1;
 	}
 
+	/* unimport remote routes from VRF */
+	uninstall_routes_for_vrf(bgp_vrf);
+
 	/* remove the l3vni from vrf instance */
 	bgp_vrf->l3vni = 0;
 
@@ -3607,19 +3773,16 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni,
 	/* delete RD/RT */
 	if (bgp_vrf->vrf_import_rtl && !list_isempty(bgp_vrf->vrf_import_rtl)) {
 		bgp_evpn_unmap_vrf_from_its_rts(bgp_vrf);
-		list_delete(bgp_vrf->vrf_import_rtl);
-		bgp_vrf->vrf_import_rtl = NULL;
+		list_delete_all_node(bgp_vrf->vrf_import_rtl);
 	}
 	if (bgp_vrf->vrf_export_rtl && !list_isempty(bgp_vrf->vrf_export_rtl)) {
-		list_delete(bgp_vrf->vrf_export_rtl);
-		bgp_vrf->vrf_export_rtl = NULL;
+		list_delete_all_node(bgp_vrf->vrf_export_rtl);
 	}
 
 	/* update all corresponding local mac-ip routes */
 	for (ALL_LIST_ELEMENTS_RO(bgp_vrf->l2vnis, node, vpn))
 		update_routes_for_vni(bgp_def, vpn);
 
-	/* TODO_MITESH: unimport remote routes from VRF */
 
 	/* Delete the instance if it was autocreated */
 	if (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_AUTO))
