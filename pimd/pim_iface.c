@@ -1023,10 +1023,9 @@ int pim_if_del_vif(struct interface *ifp)
 struct interface *pim_if_find_by_vif_index(struct pim_instance *pim,
 					   ifindex_t vif_index)
 {
-	struct listnode *ifnode;
 	struct interface *ifp;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(pim->vrf_id), ifnode, ifp)) {
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		if (ifp->info) {
 			struct pim_interface *pim_ifp;
 			pim_ifp = ifp->info;
@@ -1480,17 +1479,16 @@ void pim_if_update_assert_tracking_desired(struct interface *ifp)
  */
 void pim_if_create_pimreg(struct pim_instance *pim)
 {
-	char pimreg_name[100];
+	char pimreg_name[INTERFACE_NAMSIZ];
 
 	if (!pim->regiface) {
 		if (pim->vrf_id == VRF_DEFAULT)
-			strcpy(pimreg_name, "pimreg");
+			strlcpy(pimreg_name, "pimreg", sizeof(pimreg_name));
 		else
-			sprintf(pimreg_name, "pimreg%d",
-				pim->vrf->data.l.table_id);
+			snprintf(pimreg_name, sizeof(pimreg_name), "pimreg%u",
+				 pim->vrf->data.l.table_id);
 
-		pim->regiface = if_create(pimreg_name, strlen(pimreg_name),
-					  pim->vrf_id);
+		pim->regiface = if_create(pimreg_name, pim->vrf_id);
 		pim->regiface->ifindex = PIM_OIF_PIM_REGISTER_VIF;
 
 		pim_if_new(pim->regiface, 0, 0);

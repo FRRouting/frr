@@ -238,7 +238,7 @@ static int bgp_interface_delete(int command, struct zclient *zclient,
 
 	bgp_update_interface_nbrs(bgp, ifp, NULL);
 
-	ifp->ifindex = IFINDEX_DELETED;
+	if_set_index(ifp, IFINDEX_INTERNAL);
 	return 0;
 }
 
@@ -593,18 +593,22 @@ static int zebra_read_route(int command, struct zclient *zclient,
 
 struct interface *if_lookup_by_ipv4(struct in_addr *addr, vrf_id_t vrf_id)
 {
-	struct listnode *ifnode;
+	struct vrf *vrf;
 	struct listnode *cnode;
 	struct interface *ifp;
 	struct connected *connected;
 	struct prefix_ipv4 p;
 	struct prefix *cp;
 
+	vrf = vrf_lookup_by_id(vrf_id);
+	if (!vrf)
+		return NULL;
+
 	p.family = AF_INET;
 	p.prefix = *addr;
 	p.prefixlen = IPV4_MAX_BITLEN;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), ifnode, ifp)) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected)) {
 			cp = connected->address;
 
@@ -618,13 +622,17 @@ struct interface *if_lookup_by_ipv4(struct in_addr *addr, vrf_id_t vrf_id)
 
 struct interface *if_lookup_by_ipv4_exact(struct in_addr *addr, vrf_id_t vrf_id)
 {
-	struct listnode *ifnode;
+	struct vrf *vrf;
 	struct listnode *cnode;
 	struct interface *ifp;
 	struct connected *connected;
 	struct prefix *cp;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), ifnode, ifp)) {
+	vrf = vrf_lookup_by_id(vrf_id);
+	if (!vrf)
+		return NULL;
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected)) {
 			cp = connected->address;
 
@@ -639,18 +647,22 @@ struct interface *if_lookup_by_ipv4_exact(struct in_addr *addr, vrf_id_t vrf_id)
 struct interface *if_lookup_by_ipv6(struct in6_addr *addr, ifindex_t ifindex,
 				    vrf_id_t vrf_id)
 {
-	struct listnode *ifnode;
+	struct vrf *vrf;
 	struct listnode *cnode;
 	struct interface *ifp;
 	struct connected *connected;
 	struct prefix_ipv6 p;
 	struct prefix *cp;
 
+	vrf = vrf_lookup_by_id(vrf_id);
+	if (!vrf)
+		return NULL;
+
 	p.family = AF_INET6;
 	p.prefix = *addr;
 	p.prefixlen = IPV6_MAX_BITLEN;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), ifnode, ifp)) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected)) {
 			cp = connected->address;
 
@@ -671,13 +683,17 @@ struct interface *if_lookup_by_ipv6(struct in6_addr *addr, ifindex_t ifindex,
 struct interface *if_lookup_by_ipv6_exact(struct in6_addr *addr,
 					  ifindex_t ifindex, vrf_id_t vrf_id)
 {
-	struct listnode *ifnode;
+	struct vrf *vrf;
 	struct listnode *cnode;
 	struct interface *ifp;
 	struct connected *connected;
 	struct prefix *cp;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), ifnode, ifp)) {
+	vrf = vrf_lookup_by_id(vrf_id);
+	if (!vrf)
+		return NULL;
+
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, connected)) {
 			cp = connected->address;
 

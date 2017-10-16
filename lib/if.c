@@ -40,6 +40,12 @@ DEFINE_MTYPE_STATIC(LIB, NBR_CONNECTED, "Neighbor Connected")
 DEFINE_MTYPE(LIB, CONNECTED_LABEL, "Connected interface label")
 DEFINE_MTYPE_STATIC(LIB, IF_LINK_PARAMS, "Informational Link Parameters")
 
+static int if_cmp_func(const struct interface *, const struct interface *);
+static int if_cmp_index_func(const struct interface *ifp1,
+			     const struct interface *ifp2);
+RB_GENERATE(if_name_head, interface, name_entry, if_cmp_func);
+RB_GENERATE(if_index_head, interface, index_entry, if_cmp_index_func);
+
 DEFINE_QOBJ_TYPE(interface)
 
 DEFINE_HOOK(if_add, (struct interface *ifp), (ifp))
@@ -85,6 +91,8 @@ int if_cmp_name_func(char *p1, char *p2)
 		p1 += l1;
 		p2 += l1;
 
+		if (!*p1 && !*p2)
+			return 0;
 		if (!*p1)
 			return -1;
 		if (!*p2)
@@ -109,32 +117,31 @@ int if_cmp_name_func(char *p1, char *p2)
 	return 0;
 }
 
-static int if_cmp_func(struct interface *ifp1, struct interface *ifp2)
+static int if_cmp_func(const struct interface *ifp1,
+		       const struct interface *ifp2)
 {
-	return if_cmp_name_func(ifp1->name, ifp2->name);
+	return if_cmp_name_func((char *)ifp1->name, (char *)ifp2->name);
+}
+
+static int if_cmp_index_func(const struct interface *ifp1,
+			     const struct interface *ifp2)
+{
+	return ifp1->ifindex - ifp2->ifindex;
 }
 
 /* Create new interface structure. */
-struct interface *if_create(const char *name, int namelen, vrf_id_t vrf_id)
+struct interface *if_create(const char *name, vrf_id_t vrf_id)
 {
+	struct vrf *vrf = vrf_get(vrf_id, NULL);
 	struct interface *ifp;
-	struct list *intf_list = vrf_iflist_get(vrf_id);
 
 	ifp = XCALLOC(MTYPE_IF, sizeof(struct interface));
 	ifp->ifindex = IFINDEX_INTERNAL;
 
 	assert(name);
-	assert(namelen <= INTERFACE_NAMSIZ); /* Need space for '\0' at end. */
-	strncpy(ifp->name, name, namelen);
-	ifp->name[namelen] = '\0';
+	strlcpy(ifp->name, name, sizeof(ifp->name));
 	ifp->vrf_id = vrf_id;
-	if (if_lookup_by_name(ifp->name, vrf_id) == NULL)
-		listnode_add_sort(intf_list, ifp);
-	else
-		zlog_err(
-			"if_create(%s): corruption detected -- interface with this "
-			"name exists already in VRF %u!",
-			ifp->name, vrf_id);
+	IFNAME_RB_INSERT(vrf, ifp);
 	ifp->connected = list_new();
 	ifp->connected->del = (void (*)(void *))connected_free;
 
@@ -152,22 +159,22 @@ struct interface *if_create(const char *name, int namelen, vrf_id_t vrf_id)
 /* Create new interface structure. */
 void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 {
-	struct list *intf_list = vrf_iflist_get(vrf_id);
+	struct vrf *vrf;
 
 	/* remove interface from old master vrf list */
-	if (vrf_iflist(ifp->vrf_id))
-		listnode_delete(vrf_iflist(ifp->vrf_id), ifp);
+	vrf = vrf_lookup_by_id(ifp->vrf_id);
+	if (vrf) {
+		IFNAME_RB_REMOVE(vrf, ifp);
+		if (ifp->ifindex != IFINDEX_INTERNAL)
+			IFINDEX_RB_REMOVE(vrf, ifp);
+	}
 
 	ifp->vrf_id = vrf_id;
-	if (if_lookup_by_name(ifp->name, vrf_id) == NULL)
-		listnode_add_sort(intf_list, ifp);
-	else
-		zlog_err(
-			"if_create(%s): corruption detected -- interface with this "
-			"name exists already in VRF %u!",
-			ifp->name, vrf_id);
+	vrf = vrf_get(ifp->vrf_id, NULL);
 
-	return;
+	IFNAME_RB_INSERT(vrf, ifp);
+	if (ifp->ifindex != IFINDEX_INTERNAL)
+		IFINDEX_RB_INSERT(vrf, ifp);
 }
 
 
@@ -187,7 +194,11 @@ void if_delete_retain(struct interface *ifp)
 /* Delete and free interface structure. */
 void if_delete(struct interface *ifp)
 {
-	listnode_delete(vrf_iflist(ifp->vrf_id), ifp);
+	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+
+	IFNAME_RB_REMOVE(vrf, ifp);
+	if (ifp->ifindex != IFINDEX_INTERNAL)
+		IFINDEX_RB_REMOVE(vrf, ifp);
 
 	if_delete_retain(ifp);
 
@@ -202,14 +213,11 @@ void if_delete(struct interface *ifp)
 /* Interface existance check by index. */
 struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id)
 {
-	struct listnode *node;
-	struct interface *ifp;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+	struct interface if_tmp;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), node, ifp)) {
-		if (ifp->ifindex == ifindex)
-			return ifp;
-	}
-	return NULL;
+	if_tmp.ifindex = ifindex;
+	return RB_FIND(if_index_head, &vrf->ifaces_by_index, &if_tmp);
 }
 
 const char *ifindex2ifname(ifindex_t ifindex, vrf_id_t vrf_id)
@@ -233,21 +241,23 @@ ifindex_t ifname2ifindex(const char *name, vrf_id_t vrf_id)
 /* Interface existance check by interface name. */
 struct interface *if_lookup_by_name(const char *name, vrf_id_t vrf_id)
 {
-	struct listnode *node;
-	struct interface *ifp;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+	struct interface if_tmp;
 
-	if (name)
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), node, ifp)) {
-			if (strcmp(name, ifp->name) == 0)
-				return ifp;
-		}
-	return NULL;
+	if (!name || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
+		return NULL;
+
+	strlcpy(if_tmp.name, name, sizeof(if_tmp.name));
+	return RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
 }
 
 struct interface *if_lookup_by_name_all_vrf(const char *name)
 {
 	struct vrf *vrf;
 	struct interface *ifp;
+
+	if (!name || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
+		return NULL;
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		ifp = if_lookup_by_name(name, vrf->vrf_id);
@@ -258,34 +268,17 @@ struct interface *if_lookup_by_name_all_vrf(const char *name)
 	return NULL;
 }
 
-struct interface *if_lookup_by_name_len(const char *name, size_t namelen,
-					vrf_id_t vrf_id)
-{
-	struct listnode *node;
-	struct interface *ifp;
-
-	if (namelen > INTERFACE_NAMSIZ)
-		return NULL;
-
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), node, ifp)) {
-		if (!memcmp(name, ifp->name, namelen)
-		    && (ifp->name[namelen] == '\0'))
-			return ifp;
-	}
-	return NULL;
-}
-
 /* Lookup interface by IPv4 address. */
 struct interface *if_lookup_exact_address(void *src, int family,
 					  vrf_id_t vrf_id)
 {
-	struct listnode *node;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct listnode *cnode;
 	struct interface *ifp;
 	struct prefix *p;
 	struct connected *c;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), node, ifp)) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
 			p = c->address;
 
@@ -311,7 +304,7 @@ struct interface *if_lookup_exact_address(void *src, int family,
 struct connected *if_lookup_address(void *matchaddr, int family,
 				    vrf_id_t vrf_id)
 {
-	struct listnode *node;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct prefix addr;
 	int bestlen = 0;
 	struct listnode *cnode;
@@ -331,7 +324,7 @@ struct connected *if_lookup_address(void *matchaddr, int family,
 
 	match = NULL;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), node, ifp)) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
 			if (c->address && (c->address->family == AF_INET)
 			    && prefix_match(CONNECTED_PREFIX(c), &addr)
@@ -347,12 +340,12 @@ struct connected *if_lookup_address(void *matchaddr, int family,
 /* Lookup interface by prefix */
 struct interface *if_lookup_prefix(struct prefix *prefix, vrf_id_t vrf_id)
 {
-	struct listnode *node;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct listnode *cnode;
 	struct interface *ifp;
 	struct connected *c;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf_id), node, ifp)) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
 			if (prefix_cmp(c->address, prefix) == 0) {
 				return ifp;
@@ -364,53 +357,49 @@ struct interface *if_lookup_prefix(struct prefix *prefix, vrf_id_t vrf_id)
 
 /* Get interface by name if given name interface doesn't exist create
    one. */
-struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id)
+struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id, int vty)
 {
 	struct interface *ifp;
 
-	return ((ifp = if_lookup_by_name(name, vrf_id)) != NULL)
-		       ? ifp
-		       : if_create(name, strlen(name), vrf_id);
-}
+	ifp = if_lookup_by_name_all_vrf(name);
+	if (ifp) {
+		if (ifp->vrf_id == vrf_id)
+			return ifp;
 
-struct interface *if_get_by_name_len(const char *name, size_t namelen,
-				     vrf_id_t vrf_id, int vty)
-{
-	struct interface *ifp;
-	struct vrf *vrf;
-	struct listnode *node;
-
-	ifp = if_lookup_by_name_len(name, namelen, vrf_id);
-	if (ifp)
-		return ifp;
-
-	/* Didn't find the interface on that vrf. Defined on a different one? */
-	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		for (ALL_LIST_ELEMENTS_RO(vrf_iflist(vrf->vrf_id), node, ifp)) {
-			if (!memcmp(name, ifp->name, namelen)
-			    && (ifp->name[namelen] == '\0')) {
-				/* Found a match.  If the interface command was
-				 * entered in vty without a
-				 * VRF (passed as VRF_DEFAULT), accept the ifp
-				 * we found.   If a vrf was
-				 * entered and there is a mismatch, reject it if
-				 * from vty. If it came
-				 * from the kernel by way of zclient,  believe
-				 * it and update
-				 * the ifp accordingly.
-				 */
-				if (vty) {
-					if (vrf_id == VRF_DEFAULT)
-						return ifp;
-					return NULL;
-				} else {
-					if_update_to_new_vrf(ifp, vrf_id);
-					return ifp;
-				}
-			}
+		/* Found a match on a different VRF. If the interface command
+		 * was entered in vty without a VRF (passed as VRF_DEFAULT),
+		 * accept the ifp we found. If a vrf was entered and there is
+		 * a mismatch, reject it if from vty. If it came from the kernel
+		 * or by way of zclient, believe it and update the ifp
+		 * accordingly.
+		 */
+		if (vty) {
+			if (vrf_id == VRF_DEFAULT)
+				return ifp;
+			return NULL;
+		} else {
+			if_update_to_new_vrf(ifp, vrf_id);
+			return ifp;
 		}
 	}
-	return (if_create(name, namelen, vrf_id));
+
+	return if_create(name, vrf_id);
+}
+
+void if_set_index(struct interface *ifp, ifindex_t ifindex)
+{
+	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+
+	if (ifp->ifindex == ifindex)
+		return;
+
+	if (ifp->ifindex != IFINDEX_INTERNAL)
+		IFINDEX_RB_REMOVE(vrf, ifp)
+
+	ifp->ifindex = ifindex;
+
+	if (ifp->ifindex != IFINDEX_INTERNAL)
+		IFINDEX_RB_INSERT(vrf, ifp)
 }
 
 /* Does interface up ? */
@@ -536,13 +525,11 @@ static void if_dump(const struct interface *ifp)
 void if_dump_all(void)
 {
 	struct vrf *vrf;
-	struct listnode *node;
-	void *p;
+	void *ifp;
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
-		if (vrf->iflist != NULL)
-			for (ALL_LIST_ELEMENTS_RO(vrf->iflist, node, p))
-				if_dump(p);
+		FOR_ALL_INTERFACES (vrf, ifp)
+			if_dump(ifp);
 }
 
 DEFUN (interface_desc,
@@ -597,24 +584,20 @@ DEFUN (no_interface_desc,
  *     if not:
  *     - no idea, just get the name in its entirety.
  */
-static struct interface *if_sunwzebra_get(const char *name, size_t nlen,
-					  vrf_id_t vrf_id)
+static struct interface *if_sunwzebra_get(char *name, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
-	size_t seppos = 0;
+	char *cp;
 
-	if ((ifp = if_lookup_by_name_len(name, nlen, vrf_id)) != NULL)
+	if ((ifp = if_lookup_by_name(name, vrf_id)) != NULL)
 		return ifp;
 
 	/* hunt the primary interface name... */
-	while (seppos < nlen && name[seppos] != ':')
-		seppos++;
+	cp = strchr(name, ':');
+	if (cp)
+		*cp = '\0';
 
-	/* Wont catch seperator as last char, e.g. 'foo0:' but thats invalid */
-	if (seppos < nlen)
-		return if_get_by_name_len(name, seppos, vrf_id, 1);
-	else
-		return if_get_by_name_len(name, nlen, vrf_id, 1);
+	return if_get_by_name(name, vrf_id, 1);
 }
 #endif /* SUNOS_5 */
 
@@ -631,10 +614,9 @@ DEFUN (interface,
 	const char *vrfname = (argc > 2) ? argv[idx_vrf]->arg : NULL;
 
 	struct interface *ifp;
-	size_t sl;
 	vrf_id_t vrf_id = VRF_DEFAULT;
 
-	if ((sl = strlen(ifname)) > INTERFACE_NAMSIZ) {
+	if (strlen(ifname) > INTERFACE_NAMSIZ) {
 		vty_out(vty,
 			"%% Interface name %s is invalid: length exceeds "
 			"%d characters\n",
@@ -648,9 +630,9 @@ DEFUN (interface,
 		VRF_GET_ID(vrf_id, vrfname);
 
 #ifdef SUNOS_5
-	ifp = if_sunwzebra_get(ifname, sl, vrf_id);
+	ifp = if_sunwzebra_get(ifname, vrf_id);
 #else
-	ifp = if_get_by_name_len(ifname, sl, vrf_id, 1);
+	ifp = if_get_by_name(ifname, vrf_id, 1);
 #endif /* SUNOS_5 */
 
 	if (!ifp) {
@@ -697,8 +679,30 @@ DEFUN_NOSH (no_interface,
 	return CMD_SUCCESS;
 }
 
+static void if_autocomplete(vector comps, struct cmd_token *token)
+{
+	struct interface *ifp;
+	struct vrf *vrf = NULL;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			vector_set(comps, XSTRDUP(MTYPE_COMPLETION, ifp->name));
+		}
+	}
+}
+
+static const struct cmd_variable_handler if_var_handlers[] = {
+	{/* "interface NAME" */
+	 .varname = "interface",
+	 .completions = if_autocomplete},
+	{.tokenname = "IFNAME", .completions = if_autocomplete},
+	{.tokenname = "INTERFACE", .completions = if_autocomplete},
+	{.completions = NULL}};
+
 void if_cmd_init(void)
 {
+	cmd_variable_handler_register(if_var_handlers);
+
 	install_element(CONFIG_NODE, &interface_cmd);
 	install_element(CONFIG_NODE, &no_interface_cmd);
 
@@ -718,7 +722,6 @@ DEFUN (show_address,
 {
   int idx_vrf = 3;
   struct listnode *node;
-  struct listnode *node2;
   struct interface *ifp;
   struct connected *ifc;
   struct prefix *p;
@@ -727,9 +730,9 @@ DEFUN (show_address,
   if (argc > 2)
     VRF_GET_ID (vrf_id, argv[idx_vrf]->arg);
 
-  for (ALL_LIST_ELEMENTS_RO (vrf_iflist (vrf_id), node, ifp))
+  FOR_ALL_INTERFACES (vrf, ifp)
     {
-      for (ALL_LIST_ELEMENTS_RO (ifp->connected, node2, ifc))
+      for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
 	{
 	  p = ifc->address;
 
@@ -749,21 +752,20 @@ DEFUN (show_address_vrf_all,
 {
   struct vrf *vrf;
   struct listnode *node;
-  struct listnode *node2;
   struct interface *ifp;
   struct connected *ifc;
   struct prefix *p;
 
   RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
     {
-      if (!vrf->iflist || !listcount (vrf->iflist))
+      if (RB_EMPTY (if_name_head, &vrf->ifaces_by_name))
         continue;
 
       vty_out (vty, "\nVRF %u\n\n", vrf->vrf_id);
 
-      for (ALL_LIST_ELEMENTS_RO (vrf->iflist, node, ifp))
+      FOR_ALL_INTERFACES (vrf, ifp)
         {
-          for (ALL_LIST_ELEMENTS_RO (ifp->connected, node2, ifc))
+          for (ALL_LIST_ELEMENTS_RO (ifp->connected, node, ifc))
             {
               p = ifc->address;
 
@@ -1045,57 +1047,17 @@ ifaddr_ipv4_lookup (struct in_addr *addr, ifindex_t ifindex)
 }
 #endif /* ifaddr_ipv4_table */
 
-static void if_autocomplete(vector comps, struct cmd_token *token)
+void if_terminate(struct vrf *vrf)
 {
 	struct interface *ifp;
-	struct listnode *ln;
-	struct vrf *vrf = NULL;
 
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		for (ALL_LIST_ELEMENTS_RO(vrf->iflist, ln, ifp))
-			vector_set(comps, XSTRDUP(MTYPE_COMPLETION, ifp->name));
-	}
-}
-
-static const struct cmd_variable_handler if_var_handlers[] = {
-	{/* "interface NAME" */
-	 .varname = "interface",
-	 .completions = if_autocomplete},
-	{.tokenname = "IFNAME", .completions = if_autocomplete},
-	{.tokenname = "INTERFACE", .completions = if_autocomplete},
-	{.completions = NULL}};
-
-/* Initialize interface list. */
-void if_init(struct list **intf_list)
-{
-	*intf_list = list_new();
-#if 0
-  ifaddr_ipv4_table = route_table_init ();
-#endif /* ifaddr_ipv4_table */
-
-	(*intf_list)->cmp = (int (*)(void *, void *))if_cmp_func;
-
-	cmd_variable_handler_register(if_var_handlers);
-}
-
-void if_terminate(struct list **intf_list)
-{
-	for (;;) {
-		struct interface *ifp;
-
-		ifp = listnode_head(*intf_list);
-		if (ifp == NULL)
-			break;
-
+	while ((ifp = RB_ROOT(if_name_head, &vrf->ifaces_by_name)) != NULL) {
 		if (ifp->node) {
 			ifp->node->info = NULL;
 			route_unlock_node(ifp->node);
 		}
-
 		if_delete(ifp);
 	}
-
-	list_delete_and_null(intf_list);
 }
 
 const char *if_link_type_str(enum zebra_link_type llt)

@@ -1211,12 +1211,11 @@ struct interface *zebra_get_vrr_intf_for_svi(struct interface *ifp)
 	struct zebra_vrf *zvrf = NULL;
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif = NULL;
-	struct listnode *node;
 
 	zvrf = vrf_info_lookup(ifp->vrf_id);
 	assert(zvrf);
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(zvrf_id(zvrf)), node, tmp_if)) {
+	FOR_ALL_INTERFACES (zvrf->vrf, tmp_if) {
 		zif = tmp_if->info;
 		if (!zif)
 			continue;

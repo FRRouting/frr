@@ -323,11 +323,8 @@ static int ifan_read(struct if_announcemsghdr *ifan)
 				__func__, ifan->ifan_index, ifan->ifan_name);
 
 		/* Create Interface */
-		ifp = if_get_by_name_len(
-			ifan->ifan_name,
-			strnlen(ifan->ifan_name, sizeof(ifan->ifan_name)),
-			VRF_DEFAULT, 0);
-		ifp->ifindex = ifan->ifan_index;
+		ifp = if_get_by_name(ifan->ifan_name, VRF_DEFAULT, 0);
+		if_set_index(ifp, ifan->ifan_index);
 
 		if_get_metric(ifp);
 		if_add_update(ifp);
@@ -517,7 +514,7 @@ int ifm_read(struct if_msghdr *ifm)
 		if (ifp == NULL) {
 			/* Interface that zebra was not previously aware of, so
 			 * create. */
-			ifp = if_create(ifname, ifnlen, VRF_DEFAULT);
+			ifp = if_create(ifname, VRF_DEFAULT);
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug("%s: creating ifp for ifindex %d",
 					   __func__, ifm->ifm_index);
@@ -531,7 +528,7 @@ int ifm_read(struct if_msghdr *ifm)
 		 * Fill in newly created interface structure, or larval
 		 * structure with ifindex IFINDEX_INTERNAL.
 		 */
-		ifp->ifindex = ifm->ifm_index;
+		if_set_index(ifp, ifm->ifm_index);
 
 #ifdef HAVE_BSD_IFI_LINK_STATE /* translate BSD kernel msg for link-state */
 		bsd_linkdetect_translate(ifm);

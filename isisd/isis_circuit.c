@@ -932,17 +932,15 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 
 int isis_interface_config_write(struct vty *vty)
 {
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	int write = 0;
-	struct listnode *node, *node2;
+	struct listnode *node;
 	struct interface *ifp;
 	struct isis_area *area;
 	struct isis_circuit *circuit;
 	int i;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
-		if (ifp->ifindex == IFINDEX_DELETED)
-			continue;
-
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		/* IF name */
 		vty_frame(vty, "interface %s\n", ifp->name);
 		write++;
@@ -952,7 +950,7 @@ int isis_interface_config_write(struct vty *vty)
 			write++;
 		}
 		/* ISIS Circuit */
-		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node2, area)) {
+		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
 			circuit =
 				circuit_lookup_by_ifp(ifp, area->circuit_list);
 			if (circuit == NULL)

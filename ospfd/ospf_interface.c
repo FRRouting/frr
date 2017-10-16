@@ -798,7 +798,7 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 {
 	struct ospf_interface *voi;
 	struct interface *vi;
-	char ifname[INTERFACE_NAMSIZ + 1];
+	char ifname[INTERFACE_NAMSIZ];
 	struct ospf_area *area;
 	struct in_addr area_id;
 	struct connected *co;
@@ -819,7 +819,7 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 			   ospf->vrf_id);
 
 	snprintf(ifname, sizeof(ifname), "VLINK%d", vlink_count);
-	vi = if_create(ifname, strnlen(ifname, sizeof(ifname)), ospf->vrf_id);
+	vi = if_create(ifname, ospf->vrf_id);
 	/*
 	 * if_create sets ZEBRA_INTERFACE_LINKDETECTION
 	 * virtual links don't need this.

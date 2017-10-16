@@ -103,23 +103,12 @@ if_up(struct interface *ifp)
             (babel_get_if_nfo(ifp)->flags & BABEL_IF_IS_UP));
 }
 
-/* types:
- struct interface _ifp, struct listnode node */
-#define FOR_ALL_INTERFACES(_ifp, _node)                                              \
-  for(ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), _node, _ifp))
-
-/* types:
- struct interface *ifp, struct connected *_connected, struct listnode *node */
-#define FOR_ALL_INTERFACES_ADDRESSES(ifp, _connected, _node)                   \
-    for(ALL_LIST_ELEMENTS_RO(ifp->connected, _node, _connected))
-
 struct buffered_update {
     unsigned char id[8];
     unsigned char prefix[16];
     unsigned char plen;
     unsigned char pad[3];
 };
-
 
 /* init function */
 void babel_if_init(void);

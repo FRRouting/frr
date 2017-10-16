@@ -383,7 +383,6 @@ static int rtadv_timer(struct thread *thread)
 {
 	struct zebra_ns *zns = THREAD_ARG(thread);
 	struct vrf *vrf;
-	struct listnode *node, *nnode;
 	struct interface *ifp;
 	struct zebra_if *zif;
 	int period;
@@ -398,7 +397,7 @@ static int rtadv_timer(struct thread *thread)
 	}
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
-		for (ALL_LIST_ELEMENTS(vrf->iflist, node, nnode, ifp)) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
 			if (if_is_loopback(ifp)
 			    || CHECK_FLAG(ifp->status,
 					  ZEBRA_INTERFACE_VRF_LOOPBACK)

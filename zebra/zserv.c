@@ -1000,14 +1000,13 @@ static int zread_interface_add(struct zserv *client, u_short length,
 			       struct zebra_vrf *zvrf)
 {
 	struct vrf *vrf;
-	struct listnode *ifnode, *ifnnode;
 	struct interface *ifp;
 
 	/* Interface information is needed. */
 	vrf_bitmap_set(client->ifinfo, zvrf_id(zvrf));
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		for (ALL_LIST_ELEMENTS(vrf->iflist, ifnode, ifnnode, ifp)) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
 			/* Skip pseudo interface. */
 			if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE))
 				continue;

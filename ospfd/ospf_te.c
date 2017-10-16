@@ -2535,9 +2535,10 @@ DEFUN (show_ip_ospf_mpls_te_link,
        "Interface information\n"
        "Interface name\n")
 {
+	struct vrf *vrf;
 	int idx_interface = 5;
 	struct interface *ifp;
-	struct listnode *node, *nnode, *n1;
+	struct listnode *node;
 	char *vrf_name = NULL;
 	bool all_vrf;
 	int inst = 0;
@@ -2552,11 +2553,11 @@ DEFUN (show_ip_ospf_mpls_te_link,
 	/* vrf input is provided could be all or specific vrf*/
 	if (vrf_name) {
 		if (all_vrf) {
-			for (ALL_LIST_ELEMENTS_RO(om->ospf, n1, ospf)) {
+			for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 				if (!ospf->oi_running)
 					continue;
-				for (ALL_LIST_ELEMENTS(vrf_iflist(ospf->vrf_id),
-						       node, nnode, ifp))
+				vrf = vrf_lookup_by_id(ospf->vrf_id);
+				FOR_ALL_INTERFACES (vrf, ifp)
 					show_mpls_te_link_sub(vty, ifp);
 			}
 			return CMD_SUCCESS;
@@ -2564,18 +2565,18 @@ DEFUN (show_ip_ospf_mpls_te_link,
 		ospf = ospf_lookup_by_inst_name (inst, vrf_name);
 		if (ospf == NULL || !ospf->oi_running)
 			return CMD_SUCCESS;
-		for (ALL_LIST_ELEMENTS(vrf_iflist(ospf->vrf_id), node,
-				       nnode, ifp))
+		vrf = vrf_lookup_by_id(ospf->vrf_id);
+		FOR_ALL_INTERFACES (vrf, ifp)
 			show_mpls_te_link_sub(vty, ifp);
 		return CMD_SUCCESS;
 	}
 	/* Show All Interfaces. */
 	if (argc == 5) {
-		for (ALL_LIST_ELEMENTS_RO(om->ospf, n1, ospf)) {
+		for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 			if (!ospf->oi_running)
 				continue;
-			for (ALL_LIST_ELEMENTS(vrf_iflist(ospf->vrf_id), node,
-					       nnode, ifp))
+			vrf = vrf_lookup_by_id(ospf->vrf_id);
+			FOR_ALL_INTERFACES (vrf, ifp)
 				show_mpls_te_link_sub(vty, ifp);
 		}
 	}

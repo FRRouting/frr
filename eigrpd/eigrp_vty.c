@@ -132,11 +132,11 @@ static int config_write_interfaces(struct vty *vty, struct eigrp *eigrp)
 
 static int eigrp_write_interface(struct vty *vty)
 {
-	struct listnode *node;
+	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	struct interface *ifp;
 	struct eigrp_interface *ei;
 
-	for (ALL_LIST_ELEMENTS_RO(vrf_iflist(VRF_DEFAULT), node, ifp)) {
+	FOR_ALL_INTERFACES (vrf, ifp) {
 		ei = ifp->info;
 		if (!ei)
 			continue;

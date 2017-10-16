@@ -201,6 +201,8 @@ struct if_link_params {
 
 /* Interface structure */
 struct interface {
+	RB_ENTRY(interface) name_entry, index_entry;
+
 	/* Interface name.  This should probably never be changed after the
 	   interface is created, because the configuration info for this
 	   interface
@@ -209,13 +211,17 @@ struct interface {
 	   To delete, just set ifindex to IFINDEX_INTERNAL to indicate that the
 	   interface does not exist in the kernel.
 	 */
-	char name[INTERFACE_NAMSIZ + 1];
+	char name[INTERFACE_NAMSIZ];
 
 	/* Interface index (should be IFINDEX_INTERNAL for non-kernel or
-	   deleted interfaces). */
+	   deleted interfaces).
+	   WARNING: the ifindex needs to be changed using the if_set_index()
+	   function. Failure to respect this will cause corruption in the data
+	   structure used to store the interfaces and if_lookup_by_index() will
+	   not work as expected.
+	 */
 	ifindex_t ifindex;
 #define IFINDEX_INTERNAL	0
-#define IFINDEX_DELETED         INT_MAX
 
 	/* Zebra internal interface status */
 	u_char status;
@@ -282,7 +288,46 @@ struct interface {
 
 	QOBJ_FIELDS
 };
+RB_HEAD(if_name_head, interface);
+RB_PROTOTYPE(if_name_head, interface, name_entry, if_cmp_func);
+RB_HEAD(if_index_head, interface);
+RB_PROTOTYPE(if_index_head, interface, index_entry, if_cmp_func);
 DECLARE_QOBJ_TYPE(interface)
+
+#define IFNAME_RB_INSERT(vrf, ifp)                                             \
+	if (RB_INSERT(if_name_head, &vrf->ifaces_by_name, (ifp)))              \
+		zlog_err(                                                      \
+			"%s(%s): corruption detected -- interface with this "  \
+			"name exists already in VRF %u!",                      \
+			__func__, (ifp)->name, (ifp)->vrf_id);
+
+#define IFNAME_RB_REMOVE(vrf, ifp)                                             \
+	if (RB_REMOVE(if_name_head, &vrf->ifaces_by_name, (ifp)) == NULL)      \
+		zlog_err(                                                      \
+			"%s(%s): corruption detected -- interface with this "  \
+			"name doesn't exist in VRF %u!",                       \
+			__func__, (ifp)->name, (ifp)->vrf_id);
+
+#define IFINDEX_RB_INSERT(vrf, ifp)                                            \
+	if (RB_INSERT(if_index_head, &vrf->ifaces_by_index, (ifp)))            \
+		zlog_err(                                                      \
+			"%s(%u): corruption detected -- interface with this "  \
+			"ifindex exists already in VRF %u!",                   \
+			__func__, (ifp)->ifindex, (ifp)->vrf_id);
+
+#define IFINDEX_RB_REMOVE(vrf, ifp)                                            \
+	if (RB_REMOVE(if_index_head, &vrf->ifaces_by_index, (ifp)) == NULL)    \
+		zlog_err(                                                      \
+			"%s(%u): corruption detected -- interface with this "  \
+			"ifindex doesn't exist in VRF %u!",                    \
+			__func__, (ifp)->ifindex, (ifp)->vrf_id);
+
+#define FOR_ALL_INTERFACES(vrf, ifp)                                           \
+	if (vrf)                                                               \
+		RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name)
+
+#define FOR_ALL_INTERFACES_ADDRESSES(ifp, connected, node)                     \
+	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, connected))
 
 /* called from the library code whenever interfaces are created/deleted
  * note: interfaces may not be fully realized at that point; also they
@@ -408,8 +453,7 @@ struct nbr_connected {
 extern int if_cmp_name_func(char *, char *);
 
 extern void if_update_to_new_vrf(struct interface *, vrf_id_t vrf_id);
-extern struct interface *if_create(const char *name, int namelen,
-				   vrf_id_t vrf_id);
+extern struct interface *if_create(const char *name,  vrf_id_t vrf_id);
 extern struct interface *if_lookup_by_index(ifindex_t, vrf_id_t vrf_id);
 extern struct interface *if_lookup_exact_address(void *matchaddr, int family,
 						 vrf_id_t vrf_id);
@@ -422,16 +466,9 @@ extern struct interface *if_lookup_prefix(struct prefix *prefix,
    by a '\0' character: */
 extern struct interface *if_lookup_by_name_all_vrf(const char *ifname);
 extern struct interface *if_lookup_by_name(const char *ifname, vrf_id_t vrf_id);
-extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id);
-
-/* For these 2 functions, the namelen argument should be the precise length
-   of the ifname string (not counting any optional trailing '\0' character).
-   In most cases, strnlen should be used to calculate the namelen value. */
-extern struct interface *if_lookup_by_name_len(const char *ifname,
-					       size_t namelen, vrf_id_t vrf_id);
-extern struct interface *if_get_by_name_len(const char *ifname, size_t namelen,
-					    vrf_id_t vrf_id, int vty);
-
+extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id,
+					int vty);
+extern void if_set_index(struct interface *ifp, ifindex_t ifindex);
 
 /* Delete the interface, but do not free the structure, and leave it in the
    interface list.  It is often advisable to leave the pseudo interface
@@ -450,9 +487,9 @@ extern int if_is_loopback(struct interface *);
 extern int if_is_broadcast(struct interface *);
 extern int if_is_pointopoint(struct interface *);
 extern int if_is_multicast(struct interface *);
-extern void if_init(struct list **);
 extern void if_cmd_init(void);
-extern void if_terminate(struct list **);
+struct vrf;
+extern void if_terminate(struct vrf *vrf);
 extern void if_dump_all(void);
 extern const char *if_flag_dump(unsigned long);
 extern const char *if_link_type_str(enum zebra_link_type);
