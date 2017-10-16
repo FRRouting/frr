@@ -242,8 +242,8 @@ struct zebra_mac_t_ {
 	/* List of neigh associated with this mac */
 	struct list *neigh_list;
 
-	/* Refcnt of number of mac-ips */
-	u_int32_t rmac_refcnt;
+	/* list of hosts pointing to this remote RMAC */
+	struct list *host_list;
 };
 
 /*
@@ -315,8 +315,8 @@ struct zebra_neigh_t_ {
 	/* Remote VTEP IP - applicable only for remote neighbors. */
 	struct in_addr r_vtep_ip;
 
-	/* refcnt of remote mac-ip referring to a NH neigh */
-	u_int32_t nh_refcnt;
+	/* list of hosts pointing to this remote NH entry */
+	struct list *host_list;
 };
 
 /*
