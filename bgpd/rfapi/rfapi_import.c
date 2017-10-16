@@ -3530,7 +3530,10 @@ void rfapiBgpInfoFilteredImportVPN(
 			 * Compare types. Doing so prevents a RFP-originated
 			 * route from matching an imported route, for example.
 			 */
-			assert(bi->type == type);
+			if (VNC_DEBUG(VERBOSE) && bi->type != type)
+				/* should be handled by RDs, but warn for now */
+				zlog_warn("%s: type mismatch! (bi=%d, arg=%d)",
+					  __func__, bi->type, type);
 
 			vnc_zlog_debug_verbose("%s: found matching bi",
 					       __func__);

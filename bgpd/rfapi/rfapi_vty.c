@@ -4074,12 +4074,11 @@ DEFUN (clear_vnc_mac_all_prefix,
 /* copied from rfp_vty.c */
 static int check_and_display_is_vnc_running(struct vty *vty)
 {
-	if (!bgp_rfapi_is_vnc_configured(NULL))
+	if (bgp_rfapi_is_vnc_configured(NULL) == 0)
 		return 1; /* is running */
 
 	if (vty) {
-		vty_out(vty,
-			"VNC is not configured. (There are no configured BGP VPN SAFI peers.)\n");
+		vty_out(vty, "VNC is not configured.\n");
 	}
 	return 0; /* not running */
 }
@@ -4089,7 +4088,7 @@ static int rfapi_vty_show_nve_summary(struct vty *vty,
 {
 	struct bgp *bgp_default = bgp_get_default();
 	struct rfapi *h;
-	int is_vnc_running = !bgp_rfapi_is_vnc_configured(bgp_default);
+	int is_vnc_running = (bgp_rfapi_is_vnc_configured(bgp_default) == 0);
 
 	int active_local_routes;
 	int active_remote_routes;
