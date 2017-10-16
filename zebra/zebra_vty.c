@@ -2038,6 +2038,29 @@ DEFUN (show_evpn_l3vni_vni,
 	return CMD_SUCCESS;
 }
 
+DEFUN (show_evpn_rmac_l3vni_mac,
+       show_evpn_rmac_l3vni_mac_cmd,
+       "show evpn rmac l3vni " CMD_VNI_RANGE " mac WORD",
+       SHOW_STR
+       "EVPN\n"
+       "RMAC\n"
+       "L3-VNI\n"
+       "VNI number\n"
+       "MAC\n"
+       "mac-address (e.g. 0a:0a:0a:0a:0a:0a)\n")
+{
+	vni_t l3vni = 0;
+	struct ethaddr mac;
+
+	l3vni = strtoul(argv[4]->arg, NULL, 10);
+	if (!prefix_str2mac(argv[6]->arg, &mac)) {
+		vty_out(vty, "%% Malformed MAC address\n");
+		return CMD_WARNING;
+	}
+	zebra_vxlan_print_specific_rmac_l3vni(vty, l3vni, &mac);
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_evpn_rmac_l3vni,
        show_evpn_rmac_l3vni_cmd,
        "show evpn rmac l3vni " CMD_VNI_RANGE "[json]",
@@ -2070,6 +2093,32 @@ DEFUN (show_evpn_rmac_l3vni_all,
 	u_char uj = use_json(argc, argv);
 
 	zebra_vxlan_print_rmacs_all_l3vni(vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_nh_l3vni_ip,
+       show_evpn_nh_l3vni_ip_cmd,
+       "show evpn next-hops l3vni " CMD_VNI_RANGE " ip WORD",
+       SHOW_STR
+       "EVPN\n"
+       "Remote Vteps\n"
+       "L3-VNI\n"
+       "VNI number\n"
+       "Ip address\n"
+       "Host address (ipv4 or ipv6)\n")
+{
+	vni_t l3vni;
+	u_char uj = use_json(argc, argv);
+	struct ipaddr ip;
+
+	l3vni = strtoul(argv[4]->arg, NULL, 10);
+	if (str2ipaddr(argv[6]->arg, &ip) != 0) {
+		if (!uj)
+			vty_out(vty, "%% Malformed Neighbor address\n");
+		return CMD_WARNING;
+	}
+	zebra_vxlan_print_specific_nh_l3vni(vty, l3vni, &ip);
 
 	return CMD_SUCCESS;
 }
@@ -2808,8 +2857,10 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_vni_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_l3vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_l3vni_vni_cmd);
+	install_element(VIEW_NODE, &show_evpn_rmac_l3vni_mac_cmd);
 	install_element(VIEW_NODE, &show_evpn_rmac_l3vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_rmac_l3vni_all_cmd);
+	install_element(VIEW_NODE, &show_evpn_nh_l3vni_ip_cmd);
 	install_element(VIEW_NODE, &show_evpn_nh_l3vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_nh_l3vni_all_cmd);
 	install_element(VIEW_NODE, &show_evpn_mac_vni_cmd);
