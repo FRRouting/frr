@@ -74,7 +74,6 @@ static struct route_node *route_node_set(struct route_table *table,
 	node = route_node_new(table);
 
 	prefix_copy(&node->p, prefix);
-	apply_mask(&node->p);
 	node->table = table;
 
 	inserted = hash_get(node->table->hash, node, hash_alloc_intern);
