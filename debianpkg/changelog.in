@@ -1,5 +1,11 @@
 frr (@VERSION@) RELEASED; urgency=medium
 
+  * Added Debian 9 Backport
+ 
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Mon, 16 Oct 2017 03:28:00 -0700
+
+frr (3.0-0) RELEASED; urgency=medium
+
   * New Enabled: BGP Shutdown Message
   * New Enabled: BGP Large Community
   * New Enabled: BGP RFC 7432 Partial Support w/ Ethernet VPN
@@ -18,7 +24,7 @@ frr (@VERSION@) RELEASED; urgency=medium
   * New Enabled: Label Manager
   * Switched from hardening-wrapper to dpkg-buildflags. 
 
- -- FRRouting-Dev <dev@lists.frrouting.org>  Wed, 05 Apr 2017 22:23:42 -0500
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Fri, 13 Oct 2017 16:17:26 -0700
 
 frr (2.0-0) RELEASE; urgency=medium
 
