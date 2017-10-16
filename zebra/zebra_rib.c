@@ -50,6 +50,7 @@
 #include "zebra/zebra_rnh.h"
 #include "zebra/interface.h"
 #include "zebra/connected.h"
+#include "zebra/zebra_vxlan.h"
 
 DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	    (rn, reason))
@@ -2319,7 +2320,8 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		u_short instance, int flags, struct prefix *p,
 		struct prefix_ipv6 *src_p, const struct nexthop *nh,
-		u_int32_t table_id, u_int32_t metric, bool fromkernel)
+		u_int32_t table_id, u_int32_t metric, bool fromkernel,
+		struct ethaddr *rmac)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -2471,6 +2473,22 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 			route_unlock_node(rn);
 
 			return;
+		}
+
+		if (CHECK_FLAG(flags, ZEBRA_FLAG_EVPN_TYPE2_ROUTE)) {
+			struct nexthop *tmp_nh;
+
+			for (ALL_NEXTHOPS(re->nexthop, tmp_nh)) {
+				struct ipaddr vtep_ip;
+
+				memset(&vtep_ip, 0, sizeof(struct ipaddr));
+				vtep_ip.ipa_type = IPADDR_V4;
+				memcpy(&(vtep_ip.ipaddr_v4),
+				       &(tmp_nh->gate.ipv4),
+				       sizeof(struct in_addr));
+				zebra_vxlan_evpn_vrf_route_del(re->vrf_id, rmac,
+							       &vtep_ip, p);
+			}
 		}
 		rib_delnode(rn, same);
 	}

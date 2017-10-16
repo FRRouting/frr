@@ -535,13 +535,13 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 				memcpy(&nh.gate, gate, sz);
 			rib_delete(afi, SAFI_UNICAST, vrf_id,
 				   proto, 0, flags, &p, NULL, &nh,
-				   table, metric, true);
+				   table, metric, true, NULL);
 		} else {
 			/* XXX: need to compare the entire list of nexthops
 			 * here for NLM_F_APPEND stupidity */
 			rib_delete(afi, SAFI_UNICAST, vrf_id,
 				   proto, 0, flags, &p, NULL, NULL,
-				   table, metric, true);
+				   table, metric, true, NULL);
 		}
 	}
 

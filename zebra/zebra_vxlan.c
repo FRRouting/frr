@@ -48,6 +48,7 @@
 #include "zebra/zebra_l2.h"
 #include "lib/json.h"
 
+DEFINE_MTYPE_STATIC(ZEBRA, HOST_PREFIX, "host prefix");
 DEFINE_MTYPE_STATIC(ZEBRA, ZVNI, "VNI hash");
 DEFINE_MTYPE_STATIC(ZEBRA, ZL3VNI, "L3 VNI hash");
 DEFINE_MTYPE_STATIC(ZEBRA, ZVNI_VTEP, "VNI remote VTEP");
@@ -666,14 +667,14 @@ static void zl3vni_print_nh_hash(struct hash_backet *backet,
 		vty_out(vty, "%-15s %-17s %6d\n",
 			ipaddr2str(&(n->ip), buf2, sizeof(buf2)),
 			prefix_mac2str(&n->emac, buf1, sizeof(buf1)),
-			n->nh_refcnt);
+			listcount(n->host_list));
 	} else {
 		json_object_string_add(json_nh, "vtep-ip",
 				       inet_ntoa(n->r_vtep_ip));
 		json_object_string_add(json_nh, "rmac",
 				       prefix_mac2str(&n->emac, buf1,
 						      sizeof(buf1)));
-		json_object_int_add(json_nh, "refCnt", n->nh_refcnt);
+		json_object_int_add(json_nh, "refCnt", listcount(n->host_list));
 	}
 }
 
@@ -806,14 +807,15 @@ static void zl3vni_print_rmac_hash(struct hash_backet *backet,
 		vty_out(vty, "%-17s %-21s %-6d\n",
 			prefix_mac2str(&zrmac->macaddr, buf, sizeof(buf)),
 					inet_ntoa(zrmac->fwd_info.r_vtep_ip),
-					zrmac->rmac_refcnt);
+					listcount(zrmac->host_list));
 	} else {
 		json_object_string_add(json_rmac, "rmac",
 				       prefix_mac2str(&zrmac->macaddr, buf,
 						      sizeof(buf)));
 		json_object_string_add(json_rmac, "vtep-ip",
 				       inet_ntoa(zrmac->fwd_info.r_vtep_ip));
-		json_object_int_add(json_rmac, "refcnt", zrmac->rmac_refcnt);
+		json_object_int_add(json_rmac, "refcnt",
+				    listcount(zrmac->host_list));
 		json_object_array_add(json, json_rmac);
 	}
 }
@@ -2756,6 +2758,47 @@ static void zvni_cleanup_all(struct hash_backet *backet, void *zvrf)
 	zvni_del(zvni);
 }
 
+static int is_host_present_in_host_list(struct list *list,
+					struct prefix *host)
+{
+	struct listnode *node = NULL;
+	struct prefix *p = NULL;
+
+	for (ALL_LIST_ELEMENTS_RO(list, node, p)) {
+		if (prefix_same(p, host))
+			return 1;
+	}
+	return 0;
+}
+
+static void host_list_add_host(struct list *list,
+			       struct prefix *host)
+{
+	struct prefix *p = NULL;
+
+	p = XCALLOC(MTYPE_HOST_PREFIX, sizeof(struct prefix));
+	memcpy(p, host, sizeof(struct prefix));
+
+	listnode_add_sort(list, p);
+}
+
+static void host_list_delete_host(struct list *list,
+				  struct prefix *host)
+{
+	struct listnode *node = NULL, *nnode = NULL, *node_to_del = NULL;
+	struct prefix *p = NULL;
+
+	for (ALL_LIST_ELEMENTS(list, node, nnode, p)) {
+		if (prefix_same(p, host)) {
+			XFREE(MTYPE_HOST_PREFIX, p);
+			node_to_del = node;
+		}
+	}
+
+	if (node_to_del)
+		list_delete_node(list, node_to_del);
+}
+
 /*
  * Look up MAC hash entry.
  */
@@ -2800,8 +2843,8 @@ static zebra_mac_t *zl3vni_rmac_add(zebra_l3vni_t *zl3vni,
 	zrmac = hash_get(zl3vni->rmac_table, &tmp_rmac, zl3vni_rmac_alloc);
 	assert(zrmac);
 
-	zrmac->neigh_list = list_new();
-	zrmac->neigh_list->cmp = (int (*)(void *, void *))neigh_cmp;
+	zrmac->host_list = list_new();
+	zrmac->host_list->cmp = (int (*)(void *, void *))prefix_cmp;
 
 	SET_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE);
 	SET_FLAG(zrmac->flags, ZEBRA_MAC_REMOTE_RMAC);
@@ -2882,9 +2925,10 @@ static int zl3vni_rmac_uninstall(zebra_l3vni_t *zl3vni,
 }
 
 /* handle rmac add */
-static int zebra_vxlan_l3vni_remote_rmac_add(zebra_l3vni_t *zl3vni,
-					     struct ethaddr *rmac,
-					     struct ipaddr *vtep_ip)
+static int zl3vni_remote_rmac_add(zebra_l3vni_t *zl3vni,
+				  struct ethaddr *rmac,
+				  struct ipaddr *vtep_ip,
+				  struct prefix *host_prefix)
 {
 	char buf[ETHER_ADDR_STRLEN];
 	char buf1[INET6_ADDRSTRLEN];
@@ -2909,14 +2953,17 @@ static int zebra_vxlan_l3vni_remote_rmac_add(zebra_l3vni_t *zl3vni,
 		/* install rmac in kernel */
 		zl3vni_rmac_install(zl3vni, zrmac);
 	}
-	zrmac->rmac_refcnt++;
+
+	if (!is_host_present_in_host_list(zrmac->host_list, host_prefix))
+		host_list_add_host(zrmac->host_list, host_prefix);
 	return 0;
 }
 
 
 /* handle rmac delete */
-static int zebra_vxlan_l3vni_remote_rmac_del(zebra_l3vni_t *zl3vni,
-					     struct ethaddr *rmac)
+static int zl3vni_remote_rmac_del(zebra_l3vni_t *zl3vni,
+				  struct ethaddr *rmac,
+				  struct prefix *host_prefix)
 {
 	zebra_mac_t *zrmac = NULL;
 
@@ -2924,8 +2971,8 @@ static int zebra_vxlan_l3vni_remote_rmac_del(zebra_l3vni_t *zl3vni,
 	if (!zrmac)
 		return -1;
 
-	zrmac->rmac_refcnt--;
-	if (!zrmac->rmac_refcnt) {
+	host_list_delete_host(zrmac->host_list, host_prefix);
+	if (list_isempty(zrmac->host_list)) {
 
 		/* uninstall from kernel */
 		zl3vni_rmac_uninstall(zl3vni, zrmac);
@@ -2982,6 +3029,9 @@ static zebra_neigh_t *zl3vni_nh_add(zebra_l3vni_t *zl3vni,
 	n = hash_get(zl3vni->nh_table, &tmp_n, zl3vni_nh_alloc);
 	assert(n);
 
+	n->host_list = list_new();
+	n->host_list->cmp = (int (*)(void *, void *))prefix_cmp;
+
 	memcpy(&n->emac, mac, ETH_ALEN);
 	SET_FLAG(n->flags, ZEBRA_NEIGH_REMOTE);
 	SET_FLAG(n->flags, ZEBRA_NEIGH_REMOTE_NH);
@@ -3037,9 +3087,10 @@ static int zl3vni_nh_uninstall(zebra_l3vni_t *zl3vni,
 }
 
 /* add remote vtep as a neigh entry */
-static int zebra_vxlan_l3vni_remote_nh_add(zebra_l3vni_t *zl3vni,
-			     struct ipaddr *vtep_ip,
-			     struct ethaddr *rmac)
+static int zl3vni_remote_nh_add(zebra_l3vni_t *zl3vni,
+				struct ipaddr *vtep_ip,
+				struct ethaddr *rmac,
+				struct prefix *host_prefix)
 {
 	char buf[ETHER_ADDR_STRLEN];
 	char buf1[INET6_ADDRSTRLEN];
@@ -3063,13 +3114,17 @@ static int zebra_vxlan_l3vni_remote_nh_add(zebra_l3vni_t *zl3vni,
 		/* install the nh neigh in kernel */
 		zl3vni_nh_install(zl3vni, nh);
 	}
-	nh->nh_refcnt++;
+
+	if (!is_host_present_in_host_list(nh->host_list, host_prefix))
+		host_list_add_host(nh->host_list, host_prefix);
+
 	return 0;
 }
 
 /* handle nh neigh delete */
-static int zebra_vxlan_l3vni_remote_nh_del(zebra_l3vni_t *zl3vni,
-			     struct ipaddr *vtep_ip)
+static int zl3vni_remote_nh_del(zebra_l3vni_t *zl3vni,
+				struct ipaddr *vtep_ip,
+				struct prefix *host_prefix)
 {
 	zebra_neigh_t *nh = NULL;
 
@@ -3077,8 +3132,8 @@ static int zebra_vxlan_l3vni_remote_nh_del(zebra_l3vni_t *zl3vni,
 	if (!nh)
 		return -1;
 
-	nh->nh_refcnt--;
-	if (!nh->nh_refcnt) {
+	host_list_delete_host(nh->host_list, host_prefix);
+	if (list_isempty(nh->host_list)) {
 
 		/* uninstall from kernel */
 		zl3vni_nh_uninstall(zl3vni, nh);
@@ -3533,7 +3588,8 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf,
 /* handle evpn route in vrf table */
 void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id,
 				   struct ethaddr *rmac,
-				   struct ipaddr *ip)
+				   struct ipaddr *vtep_ip,
+				   struct prefix *host_prefix)
 {
 	zebra_l3vni_t *zl3vni = NULL;
 
@@ -3542,16 +3598,17 @@ void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id,
 		return;
 
 	/* add the next hop neighbor */
-	zebra_vxlan_l3vni_remote_nh_add(zl3vni, ip, rmac);
+	zl3vni_remote_nh_add(zl3vni, vtep_ip, rmac, host_prefix);
 
 	/* add the rmac */
-	zebra_vxlan_l3vni_remote_rmac_add(zl3vni, rmac, ip);
+	zl3vni_remote_rmac_add(zl3vni, rmac, vtep_ip, host_prefix);
 }
 
 /* handle evpn vrf route delete */
 void zebra_vxlan_evpn_vrf_route_del(vrf_id_t vrf_id,
 				   struct ethaddr *rmac,
-				   struct ipaddr *ip)
+				   struct ipaddr *vtep_ip,
+				   struct prefix *host_prefix)
 {
 	zebra_l3vni_t *zl3vni = NULL;
 
@@ -3560,10 +3617,10 @@ void zebra_vxlan_evpn_vrf_route_del(vrf_id_t vrf_id,
 		return;
 
 	/* delete the next hop entry */
-	zebra_vxlan_l3vni_remote_nh_del(zl3vni, ip);
+	zl3vni_remote_nh_del(zl3vni, vtep_ip, host_prefix);
 
 	/* delete the rmac entry */
-	zebra_vxlan_l3vni_remote_rmac_del(zl3vni, rmac);
+	zl3vni_remote_rmac_del(zl3vni, rmac, host_prefix);
 }
 
 
