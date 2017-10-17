@@ -688,7 +688,7 @@ static void zl3vni_print_nh_hash(struct hash_backet *backet,
 {
 	struct nh_walk_ctx *wctx = NULL;
 	struct vty *vty = NULL;
-	struct json_object *json = NULL;
+	struct json_object *json_vni = NULL;
 	struct json_object *json_nh = NULL;
 	zebra_neigh_t *n = NULL;
 	char buf1[ETHER_ADDR_STRLEN];
@@ -696,43 +696,44 @@ static void zl3vni_print_nh_hash(struct hash_backet *backet,
 
 	wctx = (struct nh_walk_ctx *)ctx;
 	vty = wctx->vty;
-	json = wctx->json;
-	if (json)
+	json_vni = wctx->json;
+	if (json_vni)
 		json_nh = json_object_new_object();
 	n = (zebra_neigh_t *)backet->data;
 	if (!n)
 		return;
 
-	if (!json) {
+	if (!json_vni) {
 		vty_out(vty, "%-15s %-17s %6d\n",
 			ipaddr2str(&(n->ip), buf2, sizeof(buf2)),
 			prefix_mac2str(&n->emac, buf1, sizeof(buf1)),
 			listcount(n->host_list));
 	} else {
-		json_object_string_add(json_nh, "vtep-ip",
-				       inet_ntoa(n->r_vtep_ip));
+		json_object_string_add(json_nh, "nexthop-ip",
+				       ipaddr2str(&n->ip, buf2, sizeof(buf2)));
 		json_object_string_add(json_nh, "rmac",
 				       prefix_mac2str(&n->emac, buf1,
 						      sizeof(buf1)));
 		json_object_int_add(json_nh, "refCnt", listcount(n->host_list));
+		json_object_object_add(json_vni,
+				       ipaddr2str(&(n->ip), buf2, sizeof(buf2)),
+				       json_nh);
 	}
 }
 
 static void zl3vni_print_nh_hash_all_vni(struct hash_backet *backet,
-					 void *ctx)
+					 void **args)
 {
 	struct vty *vty = NULL;
 	json_object *json = NULL;
 	json_object *json_vni = NULL;
-	json_object *json_nh = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
 	uint32_t num_nh = 0;
-	struct nh_walk_ctx *wctx = NULL;
+	struct nh_walk_ctx wctx;
 	char vni_str[VNI_STR_LEN];
 
-	wctx = (struct nh_walk_ctx *)ctx;
-	vty = (struct vty *)wctx->vty;
-	json = (struct json_object *)wctx->json;
+	vty = (struct vty *)args[0];
+	json = (struct json_object *)args[1];
 
 	zl3vni = (zebra_l3vni_t *)backet->data;
 	if (!zl3vni) {
@@ -747,27 +748,23 @@ static void zl3vni_print_nh_hash_all_vni(struct hash_backet *backet,
 
 	if (json) {
 		json_vni = json_object_new_object();
-		json_nh = json_object_new_array();
 		snprintf(vni_str, VNI_STR_LEN, "%u", zl3vni->vni);
 	}
 
 	if (json == NULL) {
-		vty_out(vty, "\nVNI %u #Next-Hopss %u\n\n",
+		vty_out(vty, "\nVNI %u #Next-Hops %u\n\n",
 			zl3vni->vni, num_nh);
-		vty_out(vty, "%-17s %-21s %-6s\n", "MAC",
-			"Remote VTEP", "Refcnt");
 		vty_out(vty, "%-15s %-17s %6s\n", "IP",
 			"RMAC", "Refcnt");
 	} else
 		json_object_int_add(json_vni, "numNh", num_nh);
 
-	wctx->json = json_nh;
-	hash_iterate(zl3vni->nh_table, zl3vni_print_nh_hash, wctx);
-	wctx->json = json;
-	if (json) {
-		json_object_object_add(json_vni, "nh", json_nh);
+	memset(&wctx, 0, sizeof(struct nh_walk_ctx));
+	wctx.vty = vty;
+	wctx.json = json_vni;
+	hash_iterate(zl3vni->nh_table, zl3vni_print_nh_hash, &wctx);
+	if (json)
 		json_object_object_add(json, vni_str, json_vni);
-	}
 }
 
 static void zl3vni_print_rmac_hash_all_vni(struct hash_backet *backet,
@@ -3871,8 +3868,8 @@ void zebra_vxlan_print_nh_all_l3vni(struct vty *vty,
 				    u_char use_json)
 {
 	struct zebra_ns *zns = NULL;
-	struct nh_walk_ctx wctx;
 	json_object *json = NULL;
+	void *args[2];
 
 	if (!is_evpn_enabled()) {
 		if (use_json)
@@ -3887,11 +3884,12 @@ void zebra_vxlan_print_nh_all_l3vni(struct vty *vty,
 	if (use_json)
 		json = json_object_new_object();
 
-	memset(&wctx, 0, sizeof(struct nh_walk_ctx));
-	wctx.vty = vty;
-	wctx.json = json;
-
-	hash_iterate(zns->l3vni_table, zl3vni_print_nh_hash_all_vni, &wctx);
+	args[0] = vty;
+	args[1] = json;
+	hash_iterate(zns->l3vni_table,
+		     (void (*)(struct hash_backet *,
+			       void *))zl3vni_print_nh_hash_all_vni,
+		     args);
 
 	if (use_json) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
