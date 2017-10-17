@@ -3307,13 +3307,14 @@ static int bgp_evpn_rt_matches_existing(struct list *rtl,
 /* display L3VNI related info for a VRF instance */
 DEFUN (show_bgp_vrf_l3vni_info,
        show_bgp_vrf_l3vni_info_cmd,
-       "show bgp vrf VRFNAME l3vni info",
+       "show bgp vrf VRFNAME l3vni info [json]",
        SHOW_STR
        BGP_STR
        "show bgp vrf\n"
        "VRF Name\n"
        "L3-VNI\n"
-       "L3-VNI info\n")
+       "L3-VNI info\n"
+       JSON_STR)
 {
 	char buf[ETHER_ADDR_STRLEN];
 	int idx_vrf = 3;
@@ -3322,35 +3323,88 @@ DEFUN (show_bgp_vrf_l3vni_info,
 	struct listnode *node = NULL;
 	struct bgpevpn *vpn = NULL;
 	struct ecommunity *ecom = NULL;
+	json_object *json = NULL;
+	json_object *json_vnis = NULL;
+	json_object *json_export_rts = NULL;
+	json_object *json_import_rts = NULL;
+	u_char uj = use_json(argc, argv);
+
+	if (uj) {
+		json = json_object_new_object();
+		json_vnis = json_object_new_array();
+		json_export_rts = json_object_new_array();
+		json_import_rts = json_object_new_array();
+	}
 
 	name = argv[idx_vrf]->arg;
 	bgp = bgp_lookup_by_name(name);
 	if (!bgp) {
-		vty_out(vty, "BGP instance for VRF %s not found",
-			name);
+		if (!uj)
+			vty_out(vty, "BGP instance for VRF %s not found",
+				name);
+		else {
+			json_object_string_add(json, "warning",
+					       "BGP instance not found");
+			vty_out(vty, "%s\n",
+				json_object_to_json_string(json));
+			json_object_free(json);
+		}
 		return CMD_WARNING;
 	}
 
-	vty_out(vty, "BGP VRF: %s\n", name);
-	vty_out(vty, "  L3-VNI: %u\n", bgp->l3vni);
-	vty_out(vty, "  Rmac: %s\n",
-		prefix_mac2str(&bgp->rmac, buf, sizeof(buf)));
-	vty_out(vty, "  L2-VNI List:\n");
-	vty_out(vty, "    ");
-	for (ALL_LIST_ELEMENTS_RO(bgp->l2vnis, node, vpn))
-		vty_out(vty, "%u  ", vpn->vni);
-	vty_out(vty, "\n");
-	vty_out(vty, "  Export-RTs:\n");
-	vty_out(vty, "    ");
-	for (ALL_LIST_ELEMENTS_RO(bgp->vrf_export_rtl, node, ecom))
-		vty_out(vty, "%s  ", ecommunity_str(ecom));
-	vty_out(vty, "\n");
-	vty_out(vty, "  Import-RTs:\n");
-	vty_out(vty, "    ");
-	for (ALL_LIST_ELEMENTS_RO(bgp->vrf_import_rtl, node, ecom))
-		vty_out(vty, "%s  ", ecommunity_str(ecom));
-	vty_out(vty, "\n");
+	if (!json) {
+		vty_out(vty, "BGP VRF: %s\n", name);
+		vty_out(vty, "  L3-VNI: %u\n", bgp->l3vni);
+		vty_out(vty, "  Rmac: %s\n",
+			prefix_mac2str(&bgp->rmac, buf, sizeof(buf)));
+		vty_out(vty, "  L2-VNI List:\n");
+		vty_out(vty, "    ");
+		for (ALL_LIST_ELEMENTS_RO(bgp->l2vnis, node, vpn))
+			vty_out(vty, "%u  ", vpn->vni);
+		vty_out(vty, "\n");
+		vty_out(vty, "  Export-RTs:\n");
+		vty_out(vty, "    ");
+		for (ALL_LIST_ELEMENTS_RO(bgp->vrf_export_rtl, node, ecom))
+			vty_out(vty, "%s  ", ecommunity_str(ecom));
+		vty_out(vty, "\n");
+		vty_out(vty, "  Import-RTs:\n");
+		vty_out(vty, "    ");
+		for (ALL_LIST_ELEMENTS_RO(bgp->vrf_import_rtl, node, ecom))
+			vty_out(vty, "%s  ", ecommunity_str(ecom));
+		vty_out(vty, "\n");
+	} else {
+		json_object_string_add(json, "vrf", name);
+		json_object_int_add(json, "l3vni", bgp->l3vni);
+		json_object_string_add(json, "rmac",
+				       prefix_mac2str(&bgp->rmac, buf,
+						      sizeof(buf)));
+		/* list of l2vnis */
+		for (ALL_LIST_ELEMENTS_RO(bgp->l2vnis, node, vpn))
+			json_object_array_add(json_vnis,
+					      json_object_new_int(vpn->vni));
+		json_object_object_add(json, "l2vnis", json_vnis);
 
+		/* export rts */
+		for (ALL_LIST_ELEMENTS_RO(bgp->vrf_export_rtl, node, ecom))
+			json_object_array_add(json_export_rts,
+					      json_object_new_string(
+							ecommunity_str(ecom)));
+		json_object_object_add(json, "export-rts", json_export_rts);
+
+		/* import rts */
+		for (ALL_LIST_ELEMENTS_RO(bgp->vrf_import_rtl, node, ecom))
+			json_object_array_add(json_import_rts,
+					      json_object_new_string(
+							ecommunity_str(ecom)));
+		json_object_object_add(json, "import-rts", json_import_rts);
+
+	}
+
+	if (uj) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
 	return CMD_SUCCESS;
 }
 
