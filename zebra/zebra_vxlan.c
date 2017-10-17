@@ -1001,10 +1001,11 @@ static void zl3vni_print_hash(struct hash_backet *backet,
 	char buf[ETHER_ADDR_STRLEN];
 	struct vty *vty = NULL;
 	json_object *json = NULL;
+	json_object *json_vni = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
 
-	vty = ctx[0];
-	json = ctx[1];
+	vty = (struct vty *)ctx[0];
+	json = (json_object *)ctx[1];
 
 	zl3vni = (zebra_l3vni_t *)backet->data;
 	if (!zl3vni)
@@ -1019,18 +1020,23 @@ static void zl3vni_print_hash(struct hash_backet *backet,
 			zl3vni_vrf_name(zl3vni),
 			zl3vni_rmac2str(zl3vni, buf, sizeof(buf)));
 	} else {
-		json_object_int_add(json, "vni", zl3vni->vni);
-		json_object_string_add(json, "vxlan-if",
+		char vni_str[VNI_STR_LEN];
+
+		snprintf(vni_str, VNI_STR_LEN, "%u", zl3vni->vni);
+		json_vni = json_object_new_object();
+		json_object_int_add(json_vni, "vni", zl3vni->vni);
+		json_object_string_add(json_vni, "vxlan-if",
 				       zl3vni_vxlan_if_name(zl3vni));
-		json_object_string_add(json, "svi-if",
+		json_object_string_add(json_vni, "svi-if",
 				       zl3vni_svi_if_name(zl3vni));
-		json_object_string_add(json, "state",
+		json_object_string_add(json_vni, "state",
 				       zl3vni_state2str(zl3vni));
-		json_object_string_add(json, "vrf",
+		json_object_string_add(json_vni, "vrf",
 				       zl3vni_vrf_name(zl3vni));
-		json_object_string_add(json, "rmac",
+		json_object_string_add(json_vni, "rmac",
 				       zl3vni_rmac2str(zl3vni, buf,
 						       sizeof(buf)));
+		json_object_object_add(json, vni_str, json_vni);
 	}
 
 }
@@ -3941,11 +3947,11 @@ void zebra_vxlan_print_l3vnis(struct vty *vty, u_char use_json)
 	json_object *json = NULL;
 	struct zebra_ns *zns = NULL;
 
-	args[0] = vty;
-	args[1] = json;
-
-	if (!is_evpn_enabled())
+	if (!is_evpn_enabled()) {
+		if (use_json)
+			vty_out(vty, "{}\n");
 		return;
+	}
 
 	zns = zebra_ns_lookup(NS_DEFAULT);
 	assert(zns);
@@ -3966,6 +3972,8 @@ void zebra_vxlan_print_l3vnis(struct vty *vty, u_char use_json)
 			"Vx-intf", "L3-SVI", "State", "VRF", "Rmac");
 	}
 
+	args[0] = vty;
+	args[1] = json;
 	hash_iterate(zns->l3vni_table,
 		     (void (*)(struct hash_backet *, void *))zl3vni_print_hash,
 		     args);
