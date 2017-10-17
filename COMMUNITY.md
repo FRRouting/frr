@@ -222,6 +222,23 @@ merged in a timely manner.
 
 ## Developer's Guidelines
 
+### Commit messages
+
+Commit messages should be formatted in the same way as Linux kernel commit
+messages. The format is roughly
+
+``` dir: short summary
+
+extended summary ```
+
+`dir` should be the top level source directory under which the change was made.
+For example, a change in bgpd/rfapi would be formatted as:
+
+`bgpd: short summary`
+
+The first line should be no longer than 50 characters. Subsequent lines should
+be wrapped to 72 characters.
+
 ### Source file header
 
 New files need to have a Copyright header (see [License for
