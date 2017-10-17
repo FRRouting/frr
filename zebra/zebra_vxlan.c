@@ -3724,7 +3724,6 @@ void zebra_vxlan_print_rmacs_l3vni(struct vty *vty,
 	u_int32_t num_rmacs;
 	struct rmac_walk_ctx wctx;
 	json_object *json = NULL;
-	json_object *json_rmac = NULL;
 
 	if (!is_evpn_enabled())
 		return;
@@ -3741,15 +3740,12 @@ void zebra_vxlan_print_rmacs_l3vni(struct vty *vty,
 	if (!num_rmacs)
 		return;
 
-	if (use_json) {
+	if (use_json)
 		json = json_object_new_object();
-		json_rmac = json_object_new_array();
-	}
 
 	memset(&wctx, 0, sizeof(struct rmac_walk_ctx));
 	wctx.vty = vty;
-	wctx.json = json_rmac;
-
+	wctx.json = json;
 	if (!use_json) {
 		vty_out(vty,
 			"Number of Remote RMACs known for this VNI: %u\n",
@@ -3762,7 +3758,6 @@ void zebra_vxlan_print_rmacs_l3vni(struct vty *vty,
 	hash_iterate(zl3vni->rmac_table, zl3vni_print_rmac_hash, &wctx);
 
 	if (use_json) {
-		json_object_object_add(json, "rmacs", json_rmac);
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
 					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
