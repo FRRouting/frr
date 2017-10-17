@@ -1249,10 +1249,17 @@ void bgp_zebra_withdraw(struct prefix *p, struct bgp_info *info, safi_t safi)
 		return;
 
 	memset(&api, 0, sizeof(api));
+	memcpy(&api.rmac, &(info->attr->rmac), sizeof(struct ethaddr));
 	api.vrf_id = peer->bgp->vrf_id;
 	api.type = ZEBRA_ROUTE_BGP;
 	api.safi = safi;
 	api.prefix = *p;
+
+	/* If it is an EVPN route mark as such.
+	 * Currently presence of rmac in attr denotes
+	 * this is an EVPN type-2 route */
+	if (!is_zero_mac(&(info->attr->rmac)))
+		SET_FLAG(api.flags, ZEBRA_FLAG_EVPN_TYPE2_ROUTE);
 
 	if (peer->sort == BGP_PEER_IBGP) {
 		SET_FLAG(api.flags, ZEBRA_FLAG_INTERNAL);
