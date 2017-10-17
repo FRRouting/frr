@@ -2067,24 +2067,26 @@ DEFUN (show_evpn_l3vni_vni,
 
 DEFUN (show_evpn_rmac_l3vni_mac,
        show_evpn_rmac_l3vni_mac_cmd,
-       "show evpn rmac l3vni " CMD_VNI_RANGE " mac WORD",
+       "show evpn rmac l3vni " CMD_VNI_RANGE " mac WORD [json]",
        SHOW_STR
        "EVPN\n"
        "RMAC\n"
        "L3-VNI\n"
        "VNI number\n"
        "MAC\n"
-       "mac-address (e.g. 0a:0a:0a:0a:0a:0a)\n")
+       "mac-address (e.g. 0a:0a:0a:0a:0a:0a)\n"
+       JSON_STR)
 {
 	vni_t l3vni = 0;
 	struct ethaddr mac;
+	u_char uj = use_json(argc, argv);
 
 	l3vni = strtoul(argv[4]->arg, NULL, 10);
 	if (!prefix_str2mac(argv[6]->arg, &mac)) {
 		vty_out(vty, "%% Malformed MAC address\n");
 		return CMD_WARNING;
 	}
-	zebra_vxlan_print_specific_rmac_l3vni(vty, l3vni, &mac);
+	zebra_vxlan_print_specific_rmac_l3vni(vty, l3vni, &mac, uj);
 	return CMD_SUCCESS;
 }
 

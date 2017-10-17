@@ -56,7 +56,8 @@ extern int zebra_vxlan_vrf_delete(struct zebra_vrf *);
 extern void zebra_vxlan_print_specific_nh_l3vni(struct vty *vty, vni_t l3vni,
 						struct ipaddr *ip, u_char uj);
 extern void zebra_vxlan_print_specific_rmac_l3vni(struct vty *vty, vni_t l3vni,
-						  struct ethaddr *rmac);
+						  struct ethaddr *rmac,
+						  u_char use_json);
 extern void zebra_vxlan_print_macs_vni(struct vty *vty, struct zebra_vrf *zvrf,
 				       vni_t vni, u_char use_json);
 extern void zebra_vxlan_print_macs_all_vni(struct vty *vty,
