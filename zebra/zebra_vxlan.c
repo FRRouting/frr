@@ -3910,11 +3910,11 @@ void zebra_vxlan_print_l3vni(struct vty *vty, vni_t vni, u_char use_json)
 	json_object *json = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
 
-	args[0] = vty;
-	args[1] = json;
-
-	if (!is_evpn_enabled())
+	if (!is_evpn_enabled()) {
+		if (use_json)
+			vty_out(vty, "{}\n");
 		return;
+	}
 
 	zl3vni = zl3vni_lookup(vni);
 	if (!zl3vni) {
@@ -3928,6 +3928,8 @@ void zebra_vxlan_print_l3vni(struct vty *vty, vni_t vni, u_char use_json)
 	if (use_json)
 		json = json_object_new_object();
 
+	args[0] = vty;
+	args[1] = json;
 	zl3vni_print(zl3vni, (void *)args);
 
 	if (use_json) {
