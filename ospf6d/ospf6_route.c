@@ -683,9 +683,9 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 
 	/* Else, this is the brand new route regarding to the prefix */
 	if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
-		zlog_debug("%s %p: route add %p: brand new route",
+		zlog_debug("%s %p: route add %p %s : brand new route",
 			   ospf6_route_table_name(table), (void *)table,
-			   (void *)route);
+			   (void *)route, buf);
 	else if (IS_OSPF6_DEBUG_ROUTE(TABLE))
 		zlog_debug("%s: route add: brand new route",
 			   ospf6_route_table_name(table));
@@ -760,9 +760,9 @@ void ospf6_route_remove(struct ospf6_route *route,
 		prefix2str(&route->prefix, buf, sizeof(buf));
 
 	if (IS_OSPF6_DEBUG_ROUTE(MEMORY))
-		zlog_debug("%s %p: route remove %p: %s rnode refcount %u",
+		zlog_debug("%s %p: route remove %p: %s refcount %u",
 			   ospf6_route_table_name(table), (void *)table,
-			   (void *)route, buf, route->rnode->lock);
+			   (void *)route, buf, route->lock);
 	else if (IS_OSPF6_DEBUG_ROUTE(TABLE))
 		zlog_debug("%s: route remove: %s",
 			   ospf6_route_table_name(table), buf);
@@ -801,6 +801,7 @@ void ospf6_route_remove(struct ospf6_route *route,
 
 	SET_FLAG(route->flag, OSPF6_ROUTE_WAS_REMOVED);
 
+	/* Note hook_remove may call ospf6_route_remove */
 	if (table->hook_remove)
 		(*table->hook_remove)(route);
 
