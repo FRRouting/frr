@@ -140,32 +140,18 @@ def test_eigrp_routes():
     # Verify EIGRP Status
     logger.info("Verifying EIGRP routes")
 
-    failures = 0
     router_list = tgen.routers().values()
     for router in router_list:
-        refTableFile = '{}/{}/show_ip_eigrp.ref'.format(CWD, router.name)
+        refTableFile = '{}/{}/show_ip_eigrp.json'.format(CWD, router.name)
 
         # Read expected result from file
-        expected = open(refTableFile).read().rstrip()
+        expected = json.loads(open(refTableFile).read())
 
         # Actual output from router
-        actual = router.vtysh_cmd('show ip eigrp topo').rstrip()
-        # Drop Time
-        actual = re.sub(r"[0-9][0-9]:[0-5][0-9]", "XX:XX", actual)
+        actual = ip_eigrp_topo(router)
 
-        # Generate Diff
-        diff = topotest.difflines(actual, expected,
-                                  title1="actual SHOW IP EIGRP",
-                                  title2="expected SHOW IP EIGRP")
-
-        # Empty string if it matches, otherwise diff contains unified diff
-        if diff:
-            failures += 1
-        else:
-            logger.info('{} ok'.format(router.name))
-
-        assert failures == 0, 'SHOW IP EIGRP failed for router {}:\n{}'.format(router.name, diff)
-
+        assertmsg = '"show ip eigrp topo" mismatches on {}'.format(router.name)
+        assert topotest.json_cmp(actual, expected) is None, assertmsg
 
 
 def test_zebra_ipv4_routingTable():
@@ -213,3 +199,88 @@ def test_shutdown_check_stderr():
 if __name__ == '__main__':
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
+
+#
+# Auxiliary Functions
+#
+def ip_eigrp_topo(node):
+    """
+    Parse 'show ip eigrp topo' from `node` and returns a dict with the
+    result.
+
+    Example:
+    {
+        'P': {
+            '192.168.1.0/24': {
+                'sucessors': 1,
+                'fd': 112233,
+                'serno': 0,
+                'via': 'Connected',
+                'interface': 'eth0',
+            },
+            '192.168.2.0/24': {
+                'sucessors': 1,
+                'fd': 112234,
+                'serno': 0,
+                'via': 'Connected',
+                'interface': 'eth1',
+            }
+        }
+    }
+    """
+    output = topotest.normalize_text(node.vtysh_cmd('show ip eigrp topo')).splitlines()
+    result = {}
+    for idx, line in enumerate(output):
+        columns = line.split(' ', 1)
+
+        # Parse the following format into python dicts
+        # code A.B.C.D/E, X successors, FD is Y, serno: Z
+        #       via FOO, interface-name
+        code = columns[0]
+        if code not in ['P', 'A', 'U', 'Q', 'R', 'r', 's']:
+            continue
+
+        if not result.has_key(code):
+            result[code] = {}
+
+        # Split network from the rest
+        columns = columns[1].split(',')
+
+        # Parse first line data
+        network = columns[0]
+        result[code][network] = {}
+        for column in columns:
+            # Skip the network column
+            if column == columns[0]:
+                continue
+
+            match = re.search(r'(\d+) successors', column)
+            if match is not None:
+                result[code][network]['successors'] = match.group(1)
+                continue
+
+            match = re.search(r'FD is (\d+)', column)
+            if match is not None:
+                result[code][network]['fd'] = match.group(1)
+                continue
+
+            match = re.search(r'serno: (\d+)', column)
+            if match is not None:
+                result[code][network]['serno'] = match.group(1)
+                continue
+
+        # Parse second line data
+        nextline = output[idx + 1]
+        columns = topotest.normalize_text(nextline).split(',')
+        for column in columns:
+            match = re.search(r'via (.+)', column)
+            if match is not None:
+                result[code][network]['via'] = match.group(1)
+                continue
+
+            match = re.search(r'(.+)', column)
+            if match is not None:
+                result[code][network]['interface'] = match.group(1)
+                continue
+
+    return result
