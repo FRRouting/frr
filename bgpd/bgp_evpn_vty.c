@@ -158,8 +158,8 @@ static void show_vrf_import_rt_entry(struct hash_backet *backet,
 	struct vty *vty = NULL;
 	struct vrf_irt_node *irt = (struct vrf_irt_node *)backet->data;
 
-	vty = args[0];
-	json = args[1];
+	vty = (struct vty *)args[0];
+	json = (struct json_object *)args[1];
 
 	display_vrf_import_rt(vty, irt, json);
 }
@@ -2982,7 +2982,7 @@ DEFUN(show_bgp_l2vpn_evpn_vrf_import_rt,
       JSON_STR)
 {
 	u_char uj = 0;
-	struct bgp *bgp_def;
+	struct bgp *bgp_def = NULL;
 	json_object *json = NULL;
 
 	bgp_def = bgp_get_default();

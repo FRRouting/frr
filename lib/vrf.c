@@ -233,7 +233,7 @@ const char *vrf_id_to_name(vrf_id_t vrf_id)
 	if (vrf)
 		return vrf->name;
 
-	return NULL;
+	return "n/a";
 }
 
 vrf_id_t vrf_name_to_id(const char *name)
