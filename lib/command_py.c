@@ -250,6 +250,8 @@ static PyObject *graph_parse(PyTypeObject *type, PyObject *args,
 static void graph_wrap_free(void *arg)
 {
 	struct wrap_graph *wgraph = arg;
+
+	graph_delete_graph(wgraph->graph);
 	free(wgraph->nodewrappers);
 	free(wgraph->definition);
 }
