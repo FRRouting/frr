@@ -2133,18 +2133,19 @@ DEFUN (show_evpn_rmac_l3vni_all,
 
 DEFUN (show_evpn_nh_l3vni_ip,
        show_evpn_nh_l3vni_ip_cmd,
-       "show evpn next-hops l3vni " CMD_VNI_RANGE " ip WORD",
+       "show evpn next-hops l3vni " CMD_VNI_RANGE " ip WORD [json]",
        SHOW_STR
        "EVPN\n"
        "Remote Vteps\n"
        "L3-VNI\n"
        "VNI number\n"
        "Ip address\n"
-       "Host address (ipv4 or ipv6)\n")
+       "Host address (ipv4 or ipv6)\n"
+       JSON_STR)
 {
 	vni_t l3vni;
-	u_char uj = use_json(argc, argv);
 	struct ipaddr ip;
+	u_char uj = use_json(argc, argv);
 
 	l3vni = strtoul(argv[4]->arg, NULL, 10);
 	if (str2ipaddr(argv[6]->arg, &ip) != 0) {
@@ -2152,7 +2153,7 @@ DEFUN (show_evpn_nh_l3vni_ip,
 			vty_out(vty, "%% Malformed Neighbor address\n");
 		return CMD_WARNING;
 	}
-	zebra_vxlan_print_specific_nh_l3vni(vty, l3vni, &ip);
+	zebra_vxlan_print_specific_nh_l3vni(vty, l3vni, &ip, uj);
 
 	return CMD_SUCCESS;
 }

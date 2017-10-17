@@ -63,7 +63,8 @@ static void zvni_print_neigh(zebra_neigh_t *n, void *ctxt, json_object *json);
 static void zvni_print_neigh_hash(struct hash_backet *backet, void *ctxt);
 static void zvni_print_neigh_hash_all_vni(struct hash_backet *backet,
 					  void **args);
-static void zl3vni_print_nh(zebra_neigh_t *n, struct vty *vty);
+static void zl3vni_print_nh(zebra_neigh_t *n, struct vty *vty,
+			    json_object *json);
 static void zl3vni_print_rmac(zebra_mac_t *zrmac, struct vty *vty);
 static void zvni_print_mac(zebra_mac_t *mac, void *ctxt);
 static void zvni_print_mac_hash(struct hash_backet *backet, void *ctxt);
@@ -429,21 +430,39 @@ static void zvni_print_neigh_hash_all_vni(struct hash_backet *backet,
 
 /* print a specific next hop for an l3vni */
 static void zl3vni_print_nh(zebra_neigh_t *n,
-			    struct vty *vty)
+			    struct vty *vty,
+			    json_object *json)
 {
 	char buf1[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
 	struct listnode *node = NULL;
 	struct prefix *p = NULL;
+	json_object *json_hosts = NULL;
 
-	vty_out(vty, "Ip: %s\n",
-		ipaddr2str(&n->ip, buf1, sizeof(buf1)));
-	vty_out(vty, "  RMAC: %s\n",
-	       prefix_mac2str(&n->emac, buf1, sizeof(buf1)));
-	vty_out(vty, "  Host-List:\n");
-	for (ALL_LIST_ELEMENTS_RO(n->host_list, node, p))
-		vty_out(vty, "    %s\n",
-			prefix2str(p, buf2, sizeof(buf2)));
+	if (!json) {
+		vty_out(vty, "Ip: %s\n",
+			ipaddr2str(&n->ip, buf2, sizeof(buf2)));
+		vty_out(vty, "  RMAC: %s\n",
+		       prefix_mac2str(&n->emac, buf1, sizeof(buf1)));
+		vty_out(vty, "  Host-List:\n");
+		for (ALL_LIST_ELEMENTS_RO(n->host_list, node, p))
+			vty_out(vty, "    %s\n",
+				prefix2str(p, buf2, sizeof(buf2)));
+	} else {
+		json_hosts = json_object_new_array();
+		json_object_string_add(json, "ip",
+				       ipaddr2str(&(n->ip), buf2,
+						  sizeof(buf2)));
+		json_object_string_add(json, "rmac",
+				       prefix_mac2str(&n->emac, buf2,
+						      sizeof(buf2)));
+		for (ALL_LIST_ELEMENTS_RO(n->host_list, node, p))
+			json_object_array_add(json_hosts,
+					      json_object_new_string(
+							prefix2str(p, buf2,
+								sizeof(buf2))));
+		json_object_object_add(json, "hosts", json_hosts);
+	}
 }
 
 /* Print a specific RMAC entry */
@@ -3787,28 +3806,49 @@ void zebra_vxlan_print_rmacs_all_l3vni(struct vty *vty,
 
 void zebra_vxlan_print_specific_nh_l3vni(struct vty *vty,
 					 vni_t l3vni,
-					 struct ipaddr *ip)
+					 struct ipaddr *ip,
+					 u_char use_json)
 {
 	zebra_l3vni_t *zl3vni = NULL;
 	zebra_neigh_t *n = NULL;
+	json_object *json = NULL;
 
-	if (!is_evpn_enabled())
+	if (!is_evpn_enabled()) {
+		if (use_json)
+			vty_out(vty, "{}\n");
 		return;
+	}
+
+	if (use_json)
+		json = json_object_new_object();
 
 	zl3vni = zl3vni_lookup(l3vni);
 	if (!zl3vni) {
-		vty_out(vty, "%% L3-VNI %u does not exist\n", l3vni);
+		if (use_json)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty, "%% L3-VNI %u does not exist\n", l3vni);
 		return;
 	}
 
 	n = zl3vni_nh_lookup(zl3vni, ip);
 	if (!n) {
-		vty_out(vty, "%% Requested next-hop not present for L3-VNI %u",
-			l3vni);
+		if (use_json)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty,
+				"%% Requested next-hop not present for L3-VNI %u",
+				l3vni);
 		return;
 	}
 
-	zl3vni_print_nh(n, vty);
+	zl3vni_print_nh(n, vty, json);
+
+	if (use_json) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
 }
 
 void zebra_vxlan_print_nh_l3vni(struct vty *vty,
