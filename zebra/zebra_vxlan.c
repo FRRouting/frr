@@ -3818,7 +3818,6 @@ void zebra_vxlan_print_nh_l3vni(struct vty *vty,
 	u_int32_t num_nh;
 	struct nh_walk_ctx wctx;
 	json_object *json = NULL;
-	json_object *json_nh = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
 
 	if (!is_evpn_enabled())
@@ -3837,14 +3836,11 @@ void zebra_vxlan_print_nh_l3vni(struct vty *vty,
 	if (!num_nh)
 		return;
 
-	if (use_json) {
+	if (use_json)
 		json = json_object_new_object();
-		json_nh = json_object_new_array();
-	}
 
 	wctx.vty = vty;
-	wctx.json = json_nh;
-
+	wctx.json = json;
 	if (!use_json) {
 		vty_out(vty,
 			"Number of NH Neighbors known for this VNI: %u\n",
@@ -3857,7 +3853,6 @@ void zebra_vxlan_print_nh_l3vni(struct vty *vty,
 	hash_iterate(zl3vni->nh_table, zl3vni_print_nh_hash, &wctx);
 
 	if (use_json) {
-		json_object_object_add(json, "next-hop-neighbors", json_nh);
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
 					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
