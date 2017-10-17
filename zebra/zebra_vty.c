@@ -1957,23 +1957,50 @@ DEFUN (no_vrf_vni_mapping,
 /* show vrf */
 DEFUN (show_vrf_vni,
        show_vrf_vni_cmd,
-       "show vrf vni",
+       "show vrf vni [json]",
        SHOW_STR
        "VRF\n"
-       "VNI\n")
+       "VNI\n"
+       JSON_STR)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
+	json_object *json = NULL;
+	json_object *json_vrfs = NULL;
+	u_char uj = use_json(argc, argv);
+
+	if (uj) {
+		json = json_object_new_object();
+		json_vrfs = json_object_new_array();
+	}
 
 	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
 		zvrf = vrf->info;
 		if (!zvrf)
 			continue;
 
-		vty_out(vty, "vrf: %s VNI: %u",
-			zvrf_name(zvrf),
-			zvrf->l3vni);
-		vty_out(vty, "\n");
+		if (!uj) {
+			vty_out(vty, "vrf: %s VNI: %u",
+				zvrf_name(zvrf),
+				zvrf->l3vni);
+			vty_out(vty, "\n");
+		} else {
+			json_object *json_vrf = NULL;
+
+			json_vrf = json_object_new_object();
+			json_object_string_add(json_vrf, "vrf",
+					       zvrf_name(zvrf));
+			json_object_int_add(json_vrf, "l3vni",
+					    zvrf->l3vni);
+			json_object_array_add(json_vrfs, json_vrf);
+		}
+	}
+
+	if (uj) {
+		json_object_object_add(json, "vrfs", json_vrfs);
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
 	}
 
 	return CMD_SUCCESS;
