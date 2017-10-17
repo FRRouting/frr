@@ -114,7 +114,6 @@ static int zl3vni_nh_uninstall(zebra_l3vni_t *zl3vni, zebra_neigh_t *n);
 
 /* l3-vni rmac related APIs */
 static void zl3vni_print_rmac_hash(struct hash_backet *, void *);
-static void zl3vni_print_rmac_hash_all_vni(struct hash_backet *, void *);
 static zebra_mac_t *zl3vni_rmac_lookup(zebra_l3vni_t *zl3vni,
 				       struct ethaddr *rmac);
 static void *zl3vni_rmac_alloc(void *p);
@@ -787,20 +786,18 @@ static void zl3vni_print_nh_hash_all_vni(struct hash_backet *backet,
 }
 
 static void zl3vni_print_rmac_hash_all_vni(struct hash_backet *backet,
-					   void *ctx)
+					   void **args)
 {
 	struct vty *vty = NULL;
 	json_object *json = NULL;
 	json_object *json_vni = NULL;
-	json_object *json_mac = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
 	u_int32_t num_rmacs;
-	struct rmac_walk_ctx *wctx = NULL;
+	struct rmac_walk_ctx wctx;
 	char vni_str[VNI_STR_LEN];
 
-	wctx = (struct rmac_walk_ctx *)ctx;
-	vty = (struct vty *)wctx->vty;
-	json = (struct json_object *)wctx->json;
+	vty = (struct vty *)args[0];
+	json = (struct json_object *)args[1];
 
 	zl3vni = (zebra_l3vni_t *)backet->data;
 	if (!zl3vni) {
@@ -815,7 +812,6 @@ static void zl3vni_print_rmac_hash_all_vni(struct hash_backet *backet,
 
 	if (json) {
 		json_vni = json_object_new_object();
-		json_mac = json_object_new_array();
 		snprintf(vni_str, VNI_STR_LEN, "%u", zl3vni->vni);
 	}
 
@@ -831,13 +827,12 @@ static void zl3vni_print_rmac_hash_all_vni(struct hash_backet *backet,
 	 * under the vni. Re-assign primary json object to fill
 	 * next vni information.
 	 */
-	wctx->json = json_mac;
-	hash_iterate(zl3vni->rmac_table, zl3vni_print_rmac_hash, wctx);
-	wctx->json = json;
-	if (json) {
-		json_object_object_add(json_vni, "rmacs", json_mac);
+	memset(&wctx, 0, sizeof(struct rmac_walk_ctx));
+	wctx.vty = vty;
+	wctx.json = json_vni;
+	hash_iterate(zl3vni->rmac_table, zl3vni_print_rmac_hash, &wctx);
+	if (json)
 		json_object_object_add(json, vni_str, json_vni);
-	}
 }
 
 static void zl3vni_print_rmac_hash(struct hash_backet *backet,
@@ -872,7 +867,10 @@ static void zl3vni_print_rmac_hash(struct hash_backet *backet,
 				       inet_ntoa(zrmac->fwd_info.r_vtep_ip));
 		json_object_int_add(json_rmac, "refcnt",
 				    listcount(zrmac->host_list));
-		json_object_array_add(json, json_rmac);
+		json_object_object_add(json,
+				       prefix_mac2str(&zrmac->macaddr, buf,
+						      sizeof(buf)),
+				       json_rmac);
 	}
 }
 
@@ -3775,8 +3773,8 @@ void zebra_vxlan_print_rmacs_all_l3vni(struct vty *vty,
 				       u_char use_json)
 {
 	struct zebra_ns *zns = NULL;
-	struct rmac_walk_ctx wctx;
 	json_object *json = NULL;
+	void *args[2];
 
 	if (!is_evpn_enabled()) {
 		if (use_json)
@@ -3785,17 +3783,21 @@ void zebra_vxlan_print_rmacs_all_l3vni(struct vty *vty,
 	}
 
 	zns = zebra_ns_lookup(NS_DEFAULT);
-	if (!zns)
+	if (!zns) {
+		if (use_json)
+			vty_out(vty, "{}\n");
 		return;
+	}
 
 	if (use_json)
 		json = json_object_new_object();
 
-	memset(&wctx, 0, sizeof(struct rmac_walk_ctx));
-	wctx.vty = vty;
-	wctx.json = json;
-
-	hash_iterate(zns->l3vni_table, zl3vni_print_rmac_hash_all_vni, &wctx);
+	args[0] = vty;
+	args[1] = json;
+	hash_iterate(zns->l3vni_table,
+		     (void (*)(struct hash_backet *,
+			       void *))zl3vni_print_rmac_hash_all_vni,
+		     args);
 
 	if (use_json) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
