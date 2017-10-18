@@ -249,10 +249,6 @@ static route_map_result_t route_match_peer(void *rule, struct prefix *prefix,
 		su = &pc->su;
 		peer = ((struct bgp_info *)object)->peer;
 
-		if (!CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IMPORT)
-		    && !CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_EXPORT))
-			return RMAP_NOMATCH;
-
 		if (pc->interface) {
 			if (!peer->conf_if)
 				return RMAP_NOMATCH;
