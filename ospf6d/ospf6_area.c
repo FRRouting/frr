@@ -234,6 +234,7 @@ struct ospf6_area *ospf6_area_create(u_int32_t area_id, struct ospf6 *o, int df)
 	oa->summary_prefix->scope = oa;
 	oa->summary_router = OSPF6_ROUTE_TABLE_CREATE(AREA, SUMMARY_ROUTERS);
 	oa->summary_router->scope = oa;
+	oa->router_lsa_size_limit = 1024 + 256;
 
 	/* set default options */
 	if (CHECK_FLAG(o->flag, OSPF6_STUB_ROUTER)) {
