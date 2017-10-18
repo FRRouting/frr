@@ -534,6 +534,10 @@ void bgp_open_send(struct peer *peer)
 	else
 		send_holdtime = peer->bgp->default_holdtime;
 
+	/* set our hold time to the hold time we advertise */
+	peer->v_holdtime = peer->bgp->default_holdtime;
+	peer->v_keepalive = peer->bgp->default_keepalive;
+
 	/* local-as Change */
 	if (peer->change_local_as)
 		local_as = peer->change_local_as;
