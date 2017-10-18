@@ -1587,6 +1587,7 @@ DEFUN (no_debug_bgp,
 	TERM_DEBUG_OFF(neighbor_events, NEIGHBOR_EVENTS);
 	TERM_DEBUG_OFF(zebra, ZEBRA);
 	TERM_DEBUG_OFF(allow_martians, ALLOW_MARTIANS);
+	TERM_DEBUG_OFF(nht, NHT);
 	vty_out(vty, "All possible debugging has been turned off\n");
 
 	return CMD_SUCCESS;
