@@ -3668,6 +3668,32 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf,
 	return 0;
 }
 
+/* delete and uninstall rmac hash entry */
+static void zl3vni_del_rmac_hash_entry(struct hash_backet *backet,
+				       void *ctx)
+{
+	zebra_mac_t *zrmac = NULL;
+	zebra_l3vni_t *zl3vni = NULL;
+
+	zrmac = (zebra_mac_t *)backet->data;
+	zl3vni = (zebra_l3vni_t *)ctx;
+	zl3vni_rmac_uninstall(zl3vni, zrmac);
+	zl3vni_rmac_del(zl3vni, zrmac);
+}
+
+/* delete and uninstall nh hash entry */
+static void zl3vni_del_nh_hash_entry(struct hash_backet *backet,
+				     void *ctx)
+{
+	zebra_neigh_t *n = NULL;
+	zebra_l3vni_t *zl3vni = NULL;
+
+	n = (zebra_neigh_t *)backet->data;
+	zl3vni = (zebra_l3vni_t *)ctx;
+	zl3vni_nh_uninstall(zl3vni, n);
+	zl3vni_nh_del(zl3vni, n);
+}
+
 /* Public functions */
 
 /* handle evpn route in vrf table */
@@ -3698,7 +3724,7 @@ void zebra_vxlan_evpn_vrf_route_del(vrf_id_t vrf_id,
 	zebra_l3vni_t *zl3vni = NULL;
 
 	zl3vni = zl3vni_from_vrf(vrf_id);
-	if (!zl3vni || !is_l3vni_oper_up(zl3vni))
+	if (!zl3vni)
 		return;
 
 	/* delete the next hop entry */
@@ -6333,6 +6359,16 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf,
 		}
 
 		zebra_vxlan_process_l3vni_oper_down(zl3vni);
+
+		/* delete and uninstall all rmacs */
+		hash_iterate(zl3vni->rmac_table,
+			     zl3vni_del_rmac_hash_entry,
+			     zl3vni);
+
+		/* delete and uninstall all next-hops */
+		hash_iterate(zl3vni->nh_table,
+			     zl3vni_del_nh_hash_entry,
+			     zl3vni);
 
 		zvrf->l3vni = 0;
 		zl3vni_del(zl3vni);
