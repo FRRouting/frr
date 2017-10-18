@@ -7068,7 +7068,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				vty_out(vty, "%*s", max_neighbor_width - len,
 					" ");
 
-			vty_out(vty, "4 %10u %7d %7d %8" PRIu64 " %4d %4zd %8s",
+			vty_out(vty, "4 %10u %7u %7u %8" PRIu64 " %4d %4zd %8s",
 				peer->as,
 				peer->open_in + peer->update_in
 					+ peer->keepalive_in + peer->notify_in
