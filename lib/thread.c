@@ -89,7 +89,7 @@ static void cpu_record_hash_free(void *a)
 static void vty_out_cpu_thread_history(struct vty *vty,
 				       struct cpu_thread_history *a)
 {
-	vty_out(vty, "%5d %10ld.%03ld %9d %8ld %9ld %8ld %9ld", a->total_active,
+	vty_out(vty, "%5d %10lu.%03lu %9u %8lu %9lu %8lu %9lu", a->total_active,
 		a->cpu.total / 1000, a->cpu.total % 1000, a->total_calls,
 		a->cpu.total / a->total_calls, a->cpu.max,
 		a->real.total / a->total_calls, a->real.max);
