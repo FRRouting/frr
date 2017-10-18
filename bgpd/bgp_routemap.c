@@ -222,7 +222,12 @@ static void route_aspath_free(void *rule)
 	aspath_free(aspath);
 }
 
-/* 'match peer (A.B.C.D|X:X::X:X)' */
+struct bgp_match_peer_compiled {
+	char *interface;
+	union sockunion su;
+};
+
+/* 'match peer (A.B.C.D|X:X::X:X|WORD)' */
 
 /* Compares the peer specified in the 'match peer' clause with the peer
     received in bgp_info->peer. If it is the same, or if the peer structure
@@ -231,6 +236,7 @@ static route_map_result_t route_match_peer(void *rule, struct prefix *prefix,
 					   route_map_object_t type,
 					   void *object)
 {
+	struct bgp_match_peer_compiled *pc;
 	union sockunion *su;
 	union sockunion su_def = {
 		.sin = {.sin_family = AF_INET, .sin_addr.s_addr = INADDR_ANY}};
@@ -239,12 +245,23 @@ static route_map_result_t route_match_peer(void *rule, struct prefix *prefix,
 	struct listnode *node, *nnode;
 
 	if (type == RMAP_BGP) {
-		su = rule;
+		pc = rule;
+		su = &pc->su;
 		peer = ((struct bgp_info *)object)->peer;
 
 		if (!CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_IMPORT)
 		    && !CHECK_FLAG(peer->rmap_type, PEER_RMAP_TYPE_EXPORT))
 			return RMAP_NOMATCH;
+
+		if (pc->interface) {
+			if (!peer->conf_if)
+				return RMAP_NOMATCH;
+
+			if (strcmp(peer->conf_if, pc->interface) == 0)
+				return RMAP_MATCH;
+
+			return RMAP_NOMATCH;
+		}
 
 		/* If su='0.0.0.0' (command 'match peer local'), and it's a
 		   NETWORK,
@@ -283,23 +300,29 @@ static route_map_result_t route_match_peer(void *rule, struct prefix *prefix,
 
 static void *route_match_peer_compile(const char *arg)
 {
-	union sockunion *su;
+	struct bgp_match_peer_compiled *pc;
 	int ret;
 
-	su = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(union sockunion));
+	pc = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
+		     sizeof(struct bgp_match_peer_compiled));
 
-	ret = str2sockunion(strcmp(arg, "local") ? arg : "0.0.0.0", su);
+	ret = str2sockunion(strcmp(arg, "local") ? arg : "0.0.0.0", &pc->su);
 	if (ret < 0) {
-		XFREE(MTYPE_ROUTE_MAP_COMPILED, su);
-		return NULL;
+		pc->interface = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+		return pc;
 	}
 
-	return su;
+	return pc;
 }
 
 /* Free route map's compiled `ip address' value. */
 static void route_match_peer_free(void *rule)
 {
+	struct bgp_match_peer_compiled *pc = rule;
+
+	if (pc->interface)
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, pc->interface);
+
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
@@ -3148,11 +3171,12 @@ DEFUN (no_match_evpn_vni,
 
 DEFUN (match_peer,
        match_peer_cmd,
-       "match peer <A.B.C.D|X:X::X:X>",
+       "match peer <A.B.C.D|X:X::X:X|WORD>",
        MATCH_STR
        "Match peer address\n"
        "IP address of peer\n"
-       "IPv6 address of peer\n")
+       "IPv6 address of peer\n"
+       "Interface name of peer\n")
 {
 	int idx_ip = 2;
 	return bgp_route_match_add(vty, "peer", argv[idx_ip]->arg,
@@ -3172,13 +3196,14 @@ DEFUN (match_peer_local,
 
 DEFUN (no_match_peer,
        no_match_peer_cmd,
-       "no match peer [<local|A.B.C.D|X:X::X:X>]",
+       "no match peer [<local|A.B.C.D|X:X::X:X|WORD>]",
        NO_STR
        MATCH_STR
        "Match peer address\n"
        "Static or Redistributed routes\n"
        "IP address of peer\n"
-       "IPv6 address of peer\n")
+       "IPv6 address of peer\n"
+       "Interface name of peer\n")
 {
 	int idx_peer = 3;
 
