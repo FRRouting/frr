@@ -1683,7 +1683,150 @@ int peer_remote_as(struct bgp *bgp, union sockunion *su, const char *conf_if,
 	return 0;
 }
 
-static int non_peergroup_activate_af(struct peer *peer, afi_t afi, safi_t safi)
+static void peer_group2peer_config_copy_af(struct peer_group *group,
+					   struct peer *peer, afi_t afi,
+					   safi_t safi)
+{
+	int in = FILTER_IN;
+	int out = FILTER_OUT;
+	struct peer *conf;
+	struct bgp_filter *pfilter;
+	struct bgp_filter *gfilter;
+
+	conf = group->conf;
+	pfilter = &peer->filter[afi][safi];
+	gfilter = &conf->filter[afi][safi];
+
+	/* peer af_flags apply */
+	peer->af_flags[afi][safi] = conf->af_flags[afi][safi];
+
+	/* maximum-prefix */
+	peer->pmax[afi][safi] = conf->pmax[afi][safi];
+	peer->pmax_threshold[afi][safi] = conf->pmax_threshold[afi][safi];
+	peer->pmax_restart[afi][safi] = conf->pmax_restart[afi][safi];
+
+	/* allowas-in */
+	peer->allowas_in[afi][safi] = conf->allowas_in[afi][safi];
+
+	/* weight */
+	peer->weight[afi][safi] = conf->weight[afi][safi];
+
+	/* default-originate route-map */
+	if (conf->default_rmap[afi][safi].name) {
+		if (peer->default_rmap[afi][safi].name)
+			XFREE(MTYPE_BGP_FILTER_NAME,
+			      peer->default_rmap[afi][safi].name);
+		peer->default_rmap[afi][safi].name =
+			XSTRDUP(MTYPE_BGP_FILTER_NAME,
+				conf->default_rmap[afi][safi].name);
+		peer->default_rmap[afi][safi].map =
+			conf->default_rmap[afi][safi].map;
+	}
+
+	/* inbound filter apply */
+	if (gfilter->dlist[in].name && !pfilter->dlist[in].name) {
+		if (pfilter->dlist[in].name)
+			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->dlist[in].name);
+		pfilter->dlist[in].name =
+			XSTRDUP(MTYPE_BGP_FILTER_NAME, gfilter->dlist[in].name);
+		pfilter->dlist[in].alist = gfilter->dlist[in].alist;
+	}
+
+	if (gfilter->plist[in].name && !pfilter->plist[in].name) {
+		if (pfilter->plist[in].name)
+			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->plist[in].name);
+		pfilter->plist[in].name =
+			XSTRDUP(MTYPE_BGP_FILTER_NAME, gfilter->plist[in].name);
+		pfilter->plist[in].plist = gfilter->plist[in].plist;
+	}
+
+	if (gfilter->aslist[in].name && !pfilter->aslist[in].name) {
+		if (pfilter->aslist[in].name)
+			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->aslist[in].name);
+		pfilter->aslist[in].name = XSTRDUP(MTYPE_BGP_FILTER_NAME,
+						   gfilter->aslist[in].name);
+		pfilter->aslist[in].aslist = gfilter->aslist[in].aslist;
+	}
+
+	if (gfilter->map[RMAP_IN].name && !pfilter->map[RMAP_IN].name) {
+		if (pfilter->map[RMAP_IN].name)
+			XFREE(MTYPE_BGP_FILTER_NAME,
+			      pfilter->map[RMAP_IN].name);
+		pfilter->map[RMAP_IN].name = XSTRDUP(
+			MTYPE_BGP_FILTER_NAME, gfilter->map[RMAP_IN].name);
+		pfilter->map[RMAP_IN].map = gfilter->map[RMAP_IN].map;
+	}
+
+	/* outbound filter apply */
+	if (gfilter->dlist[out].name) {
+		if (pfilter->dlist[out].name)
+			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->dlist[out].name);
+		pfilter->dlist[out].name = XSTRDUP(MTYPE_BGP_FILTER_NAME,
+						   gfilter->dlist[out].name);
+		pfilter->dlist[out].alist = gfilter->dlist[out].alist;
+	} else {
+		if (pfilter->dlist[out].name)
+			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->dlist[out].name);
+		pfilter->dlist[out].name = NULL;
+		pfilter->dlist[out].alist = NULL;
+	}
+
+	if (gfilter->plist[out].name) {
+		if (pfilter->plist[out].name)
+			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->plist[out].name);
+		pfilter->plist[out].name = XSTRDUP(MTYPE_BGP_FILTER_NAME,
+						   gfilter->plist[out].name);
+		pfilter->plist[out].plist = gfilter->plist[out].plist;
+	} else {
+		if (pfilter->plist[out].name)
+			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->plist[out].name);
+		pfilter->plist[out].name = NULL;
+		pfilter->plist[out].plist = NULL;
+	}
+
+	if (gfilter->aslist[out].name) {
+		if (pfilter->aslist[out].name)
+			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->aslist[out].name);
+		pfilter->aslist[out].name = XSTRDUP(MTYPE_BGP_FILTER_NAME,
+						    gfilter->aslist[out].name);
+		pfilter->aslist[out].aslist = gfilter->aslist[out].aslist;
+	} else {
+		if (pfilter->aslist[out].name)
+			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->aslist[out].name);
+		pfilter->aslist[out].name = NULL;
+		pfilter->aslist[out].aslist = NULL;
+	}
+
+	if (gfilter->map[RMAP_OUT].name) {
+		if (pfilter->map[RMAP_OUT].name)
+			XFREE(MTYPE_BGP_FILTER_NAME,
+			      pfilter->map[RMAP_OUT].name);
+		pfilter->map[RMAP_OUT].name = XSTRDUP(
+			MTYPE_BGP_FILTER_NAME, gfilter->map[RMAP_OUT].name);
+		pfilter->map[RMAP_OUT].map = gfilter->map[RMAP_OUT].map;
+	} else {
+		if (pfilter->map[RMAP_OUT].name)
+			XFREE(MTYPE_BGP_FILTER_NAME,
+			      pfilter->map[RMAP_OUT].name);
+		pfilter->map[RMAP_OUT].name = NULL;
+		pfilter->map[RMAP_OUT].map = NULL;
+	}
+
+	if (gfilter->usmap.name) {
+		if (pfilter->usmap.name)
+			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->usmap.name);
+		pfilter->usmap.name =
+			XSTRDUP(MTYPE_BGP_FILTER_NAME, gfilter->usmap.name);
+		pfilter->usmap.map = gfilter->usmap.map;
+	} else {
+		if (pfilter->usmap.name)
+			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->usmap.name);
+		pfilter->usmap.name = NULL;
+		pfilter->usmap.map = NULL;
+	}
+}
+
+static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 {
 	int active;
 
@@ -1708,6 +1851,10 @@ static int non_peergroup_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 
 	active = peer_active(peer);
 	peer->afc[afi][safi] = 1;
+
+	if (peer->group)
+		peer_group2peer_config_copy_af(peer->group, peer,
+					       afi, safi);
 
 	if (!active && peer_active(peer)) {
 		bgp_timer_set(peer);
@@ -1764,10 +1911,10 @@ int peer_activate(struct peer *peer, afi_t afi, safi_t safi)
 		group = peer->group;
 
 		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, tmp_peer)) {
-			ret |= non_peergroup_activate_af(tmp_peer, afi, safi);
+			ret |= peer_activate_af(tmp_peer, afi, safi);
 		}
 	} else {
-		ret |= non_peergroup_activate_af(peer, afi, safi);
+		ret |= peer_activate_af(peer, afi, safi);
 	}
 
 	/* If this is the first peer to be activated for this afi/labeled-unicast
@@ -2243,149 +2390,6 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	}
 
 	bgp_bfd_peer_group2peer_copy(conf, peer);
-}
-
-static void peer_group2peer_config_copy_af(struct peer_group *group,
-					   struct peer *peer, afi_t afi,
-					   safi_t safi)
-{
-	int in = FILTER_IN;
-	int out = FILTER_OUT;
-	struct peer *conf;
-	struct bgp_filter *pfilter;
-	struct bgp_filter *gfilter;
-
-	conf = group->conf;
-	pfilter = &peer->filter[afi][safi];
-	gfilter = &conf->filter[afi][safi];
-
-	/* peer af_flags apply */
-	peer->af_flags[afi][safi] = conf->af_flags[afi][safi];
-
-	/* maximum-prefix */
-	peer->pmax[afi][safi] = conf->pmax[afi][safi];
-	peer->pmax_threshold[afi][safi] = conf->pmax_threshold[afi][safi];
-	peer->pmax_restart[afi][safi] = conf->pmax_restart[afi][safi];
-
-	/* allowas-in */
-	peer->allowas_in[afi][safi] = conf->allowas_in[afi][safi];
-
-	/* weight */
-	peer->weight[afi][safi] = conf->weight[afi][safi];
-
-	/* default-originate route-map */
-	if (conf->default_rmap[afi][safi].name) {
-		if (peer->default_rmap[afi][safi].name)
-			XFREE(MTYPE_BGP_FILTER_NAME,
-			      peer->default_rmap[afi][safi].name);
-		peer->default_rmap[afi][safi].name =
-			XSTRDUP(MTYPE_BGP_FILTER_NAME,
-				conf->default_rmap[afi][safi].name);
-		peer->default_rmap[afi][safi].map =
-			conf->default_rmap[afi][safi].map;
-	}
-
-	/* inbound filter apply */
-	if (gfilter->dlist[in].name && !pfilter->dlist[in].name) {
-		if (pfilter->dlist[in].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->dlist[in].name);
-		pfilter->dlist[in].name =
-			XSTRDUP(MTYPE_BGP_FILTER_NAME, gfilter->dlist[in].name);
-		pfilter->dlist[in].alist = gfilter->dlist[in].alist;
-	}
-
-	if (gfilter->plist[in].name && !pfilter->plist[in].name) {
-		if (pfilter->plist[in].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->plist[in].name);
-		pfilter->plist[in].name =
-			XSTRDUP(MTYPE_BGP_FILTER_NAME, gfilter->plist[in].name);
-		pfilter->plist[in].plist = gfilter->plist[in].plist;
-	}
-
-	if (gfilter->aslist[in].name && !pfilter->aslist[in].name) {
-		if (pfilter->aslist[in].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->aslist[in].name);
-		pfilter->aslist[in].name = XSTRDUP(MTYPE_BGP_FILTER_NAME,
-						   gfilter->aslist[in].name);
-		pfilter->aslist[in].aslist = gfilter->aslist[in].aslist;
-	}
-
-	if (gfilter->map[RMAP_IN].name && !pfilter->map[RMAP_IN].name) {
-		if (pfilter->map[RMAP_IN].name)
-			XFREE(MTYPE_BGP_FILTER_NAME,
-			      pfilter->map[RMAP_IN].name);
-		pfilter->map[RMAP_IN].name = XSTRDUP(
-			MTYPE_BGP_FILTER_NAME, gfilter->map[RMAP_IN].name);
-		pfilter->map[RMAP_IN].map = gfilter->map[RMAP_IN].map;
-	}
-
-	/* outbound filter apply */
-	if (gfilter->dlist[out].name) {
-		if (pfilter->dlist[out].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->dlist[out].name);
-		pfilter->dlist[out].name = XSTRDUP(MTYPE_BGP_FILTER_NAME,
-						   gfilter->dlist[out].name);
-		pfilter->dlist[out].alist = gfilter->dlist[out].alist;
-	} else {
-		if (pfilter->dlist[out].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->dlist[out].name);
-		pfilter->dlist[out].name = NULL;
-		pfilter->dlist[out].alist = NULL;
-	}
-
-	if (gfilter->plist[out].name) {
-		if (pfilter->plist[out].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->plist[out].name);
-		pfilter->plist[out].name = XSTRDUP(MTYPE_BGP_FILTER_NAME,
-						   gfilter->plist[out].name);
-		pfilter->plist[out].plist = gfilter->plist[out].plist;
-	} else {
-		if (pfilter->plist[out].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->plist[out].name);
-		pfilter->plist[out].name = NULL;
-		pfilter->plist[out].plist = NULL;
-	}
-
-	if (gfilter->aslist[out].name) {
-		if (pfilter->aslist[out].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->aslist[out].name);
-		pfilter->aslist[out].name = XSTRDUP(MTYPE_BGP_FILTER_NAME,
-						    gfilter->aslist[out].name);
-		pfilter->aslist[out].aslist = gfilter->aslist[out].aslist;
-	} else {
-		if (pfilter->aslist[out].name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->aslist[out].name);
-		pfilter->aslist[out].name = NULL;
-		pfilter->aslist[out].aslist = NULL;
-	}
-
-	if (gfilter->map[RMAP_OUT].name) {
-		if (pfilter->map[RMAP_OUT].name)
-			XFREE(MTYPE_BGP_FILTER_NAME,
-			      pfilter->map[RMAP_OUT].name);
-		pfilter->map[RMAP_OUT].name = XSTRDUP(
-			MTYPE_BGP_FILTER_NAME, gfilter->map[RMAP_OUT].name);
-		pfilter->map[RMAP_OUT].map = gfilter->map[RMAP_OUT].map;
-	} else {
-		if (pfilter->map[RMAP_OUT].name)
-			XFREE(MTYPE_BGP_FILTER_NAME,
-			      pfilter->map[RMAP_OUT].name);
-		pfilter->map[RMAP_OUT].name = NULL;
-		pfilter->map[RMAP_OUT].map = NULL;
-	}
-
-	if (gfilter->usmap.name) {
-		if (pfilter->usmap.name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->usmap.name);
-		pfilter->usmap.name =
-			XSTRDUP(MTYPE_BGP_FILTER_NAME, gfilter->usmap.name);
-		pfilter->usmap.map = gfilter->usmap.map;
-	} else {
-		if (pfilter->usmap.name)
-			XFREE(MTYPE_BGP_FILTER_NAME, pfilter->usmap.name);
-		pfilter->usmap.name = NULL;
-		pfilter->usmap.map = NULL;
-	}
 }
 
 /* Peer group's remote AS configuration.  */
