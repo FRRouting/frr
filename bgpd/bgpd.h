@@ -771,6 +771,11 @@ struct peer {
 #define PEER_CONFIG_TIMER             (1 << 0) /* keepalive & holdtime */
 #define PEER_CONFIG_CONNECT           (1 << 1) /* connect */
 #define PEER_CONFIG_ROUTEADV          (1 << 2) /* route advertise */
+#define PEER_GROUP_CONFIG_TIMER       (1 << 3) /* timers from peer-group */
+
+#define PEER_OR_GROUP_TIMER_SET(peer)                                        \
+	(CHECK_FLAG(peer->config, PEER_CONFIG_TIMER)			     \
+	 || CHECK_FLAG(peer->config, PEER_GROUP_CONFIG_TIMER))
 
 	u_int32_t holdtime;
 	u_int32_t keepalive;

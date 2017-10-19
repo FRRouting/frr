@@ -1096,7 +1096,7 @@ int bgp_stop(struct peer *peer)
 		}
 
 	/* Reset keepalive and holdtime */
-	if (CHECK_FLAG(peer->config, PEER_CONFIG_TIMER)) {
+	if (PEER_OR_GROUP_TIMER_SET(peer)) {
 		peer->v_keepalive = peer->keepalive;
 		peer->v_holdtime = peer->holdtime;
 	} else {

@@ -8272,7 +8272,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 				    "bgpTimerKeepAliveIntervalMsecs",
 				    p->v_keepalive * 1000);
 
-		if (CHECK_FLAG(p->config, PEER_CONFIG_TIMER)) {
+		if (PEER_OR_GROUP_TIMER_SET(p)) {
 			json_object_int_add(json_neigh,
 					    "bgpTimerConfiguredHoldTimeMsecs",
 					    p->holdtime * 1000);
@@ -8280,6 +8280,16 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 				json_neigh,
 				"bgpTimerConfiguredKeepAliveIntervalMsecs",
 				p->keepalive * 1000);
+		} else if ((bgp->default_holdtime != BGP_DEFAULT_HOLDTIME)
+			   || (bgp->default_keepalive !=
+			       BGP_DEFAULT_KEEPALIVE)) {
+			json_object_int_add(json_neigh,
+					    "bgpTimerConfiguredHoldTimeMsecs",
+					    bgp->default_holdtime);
+			json_object_int_add(
+				json_neigh,
+				"bgpTimerConfiguredKeepAliveIntervalMsecs",
+				bgp->default_keepalive);
 		}
 	} else {
 		/* Administrative shutdown. */
@@ -8326,11 +8336,18 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 		vty_out(vty,
 			"  Hold time is %d, keepalive interval is %d seconds\n",
 			p->v_holdtime, p->v_keepalive);
-		if (CHECK_FLAG(p->config, PEER_CONFIG_TIMER)) {
+		if (PEER_OR_GROUP_TIMER_SET(p)) {
 			vty_out(vty, "  Configured hold time is %d",
 				p->holdtime);
 			vty_out(vty, ", keepalive interval is %d seconds\n",
 				p->keepalive);
+		} else if ((bgp->default_holdtime != BGP_DEFAULT_HOLDTIME)
+			   || (bgp->default_keepalive !=
+			       BGP_DEFAULT_KEEPALIVE)) {
+			vty_out(vty, "  Configured hold time is %d",
+				bgp->default_holdtime);
+			vty_out(vty, ", keepalive interval is %d seconds\n",
+				bgp->default_keepalive);
 		}
 	}
 	/* Capability. */
