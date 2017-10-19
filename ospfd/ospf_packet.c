@@ -825,6 +825,26 @@ static int ospf_write(struct thread *thread)
 					"-----------------------------------------------------");
 		}
 
+		switch (type) {
+			case OSPF_MSG_HELLO:
+				oi->hello_out++;
+				break;
+			case OSPF_MSG_DB_DESC:
+				oi->db_desc_out++;
+				break;
+			case OSPF_MSG_LS_REQ:
+				oi->ls_req_out++;
+				break;
+			case OSPF_MSG_LS_UPD:
+				oi->ls_upd_out++;
+				break;
+			case OSPF_MSG_LS_ACK:
+				oi->ls_ack_out++;
+				break;
+			default:
+				break;
+		}
+
 		/* Now delete packet from queue. */
 		ospf_packet_delete(oi);
 
