@@ -143,6 +143,9 @@ void *hash_get(struct hash *hash, void *data, void *(*alloc_func)(void *))
 	void *newdata;
 	struct hash_backet *backet;
 
+	if (!alloc_func && !hash->count)
+		return NULL;
+
 	key = (*hash->hash_key)(data);
 	index = key & (hash->size - 1);
 
