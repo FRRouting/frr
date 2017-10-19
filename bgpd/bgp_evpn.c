@@ -3783,6 +3783,9 @@ int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
 			bgpevpn_unlink_from_l3vni(vpn);
 			vpn->tenant_vrf_id = tenant_vrf_id;
 			bgpevpn_link_to_l3vni(vpn);
+
+			/* update all routes with new export RT for VRFs */
+			update_routes_for_vni(bgp, vpn);
 		}
 
 		if (is_vni_live(vpn)
