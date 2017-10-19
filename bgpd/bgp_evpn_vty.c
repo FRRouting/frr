@@ -230,8 +230,8 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 	char *ecom_str;
 	struct listnode *node, *nnode;
 	struct ecommunity *ecom;
-	json_object *json_import_rtl;
-	json_object *json_export_rtl;
+	json_object *json_import_rtl = NULL;
+	json_object *json_export_rtl = NULL;
 
 	if (json) {
 		json_import_rtl = json_object_new_array();

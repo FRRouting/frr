@@ -208,7 +208,7 @@ struct bgp_attr_encap_subtlv *encap_tlv_dup(struct bgp_attr_encap_subtlv *orig)
 	struct bgp_attr_encap_subtlv *p;
 
 	for (p = orig, tail = new = NULL; p; p = p->next) {
-		int size = sizeof(struct bgp_attr_encap_subtlv) - 1 + p->length;
+		int size = sizeof(struct bgp_attr_encap_subtlv) + p->length;
 		if (tail) {
 			tail->next = XCALLOC(MTYPE_ENCAP_TLV, size);
 			tail = tail->next;
@@ -1916,7 +1916,7 @@ static int bgp_attr_encap(uint8_t type, struct peer *peer, /* IN */
 		/* alloc and copy sub-tlv */
 		/* TBD make sure these are freed when attributes are released */
 		tlv = XCALLOC(MTYPE_ENCAP_TLV,
-			      sizeof(struct bgp_attr_encap_subtlv) - 1
+			      sizeof(struct bgp_attr_encap_subtlv)
 				      + sublength);
 		tlv->type = subtype;
 		tlv->length = sublength;
