@@ -525,7 +525,7 @@ rm -rf %{buildroot}
 %config(noreplace) /etc/frr/[!v]*.conf*
 %config(noreplace) %attr(750,%frr_user,%frr_user) /etc/frr/daemons
 %if "%{initsystem}" == "systemd"
-    %{_unitdir}/frr.service
+    %attr(644,root,root) %{_unitdir}/frr.service
     %{_sbindir}/frr
 %else
     /etc/rc.d/init.d/frr
