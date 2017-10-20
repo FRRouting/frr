@@ -675,7 +675,7 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen)
 		return ret;
 	}
 
-	ret = listen(sock, 3);
+	ret = listen(sock, SOMAXCONN);
 	if (ret < 0) {
 		zlog_err("listen: %s", safe_strerror(errno));
 		return ret;
