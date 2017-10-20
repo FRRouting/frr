@@ -2913,10 +2913,6 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 
 		for (afi = AFI_IP; afi < AFI_MAX; afi++)
 			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-				/* Ignore inactive AFI/SAFI */
-				if (!peer->afc[afi][safi])
-					continue;
-
 				/* process in/out/import/export/default-orig
 				 * route-maps */
 				bgp_route_map_process_peer(rmap_name, map, peer,
