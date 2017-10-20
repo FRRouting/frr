@@ -92,7 +92,6 @@ typedef struct zfpm_stats_t_ {
 
 	unsigned long updates_triggered;
 	unsigned long redundant_triggers;
-	unsigned long non_fpm_table_triggers;
 
 	unsigned long dests_del_after_update;
 
@@ -312,31 +311,6 @@ static time_t zfpm_get_elapsed_time(time_t reference)
 }
 
 /*
- * zfpm_is_table_for_fpm
- *
- * Returns TRUE if the the given table is to be communicated to the
- * FPM.
- */
-static inline int zfpm_is_table_for_fpm(struct route_table *table)
-{
-	rib_table_info_t *info;
-
-	info = rib_table_info(table);
-
-	/*
-	 * We only send the unicast tables in the main instance to the FPM
-	 * at this point.
-	 */
-	if (zvrf_id(info->zvrf) != 0)
-		return 0;
-
-	if (info->safi != SAFI_UNICAST)
-		return 0;
-
-	return 1;
-}
-
-/*
  * zfpm_rnodes_iter_init
  */
 static inline void zfpm_rnodes_iter_init(zfpm_rnodes_iter_t *iter)
@@ -371,10 +345,7 @@ static inline struct route_node *zfpm_rnodes_iter_next(zfpm_rnodes_iter_t *iter)
 		 */
 		route_table_iter_cleanup(&iter->iter);
 
-		while ((table = rib_tables_iter_next(&iter->tables_iter))) {
-			if (zfpm_is_table_for_fpm(table))
-				break;
-		}
+		table = rib_tables_iter_next(&iter->tables_iter);
 
 		if (!table)
 			return NULL;
@@ -1278,15 +1249,6 @@ static int zfpm_trigger_update(struct route_node *rn, const char *reason)
 
 	dest = rib_dest_from_rnode(rn);
 
-	/*
-	 * Ignore the trigger if the dest is not in a table that we would
-	 * send to the FPM.
-	 */
-	if (!zfpm_is_table_for_fpm(rib_dest_table(dest))) {
-		zfpm_g->stats.non_fpm_table_triggers++;
-		return 0;
-	}
-
 	if (CHECK_FLAG(dest->flags, RIB_DEST_UPDATE_FPM)) {
 		zfpm_g->stats.redundant_triggers++;
 		return 0;
@@ -1401,7 +1363,6 @@ static void zfpm_show_stats(struct vty *vty)
 	ZFPM_SHOW_STAT(route_adds);
 	ZFPM_SHOW_STAT(route_dels);
 	ZFPM_SHOW_STAT(updates_triggered);
-	ZFPM_SHOW_STAT(non_fpm_table_triggers);
 	ZFPM_SHOW_STAT(redundant_triggers);
 	ZFPM_SHOW_STAT(dests_del_after_update);
 	ZFPM_SHOW_STAT(t_conn_down_starts);
