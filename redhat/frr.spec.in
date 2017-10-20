@@ -312,6 +312,8 @@ install %{zeb_rh_src}/frr.init \
 %else
 mkdir -p %{buildroot}/etc/rc.d/init.d
 install %{zeb_rh_src}/frr.init \
+    %{buildroot}%{_sbindir}/frr
+ln -s %{_sbindir}/frr \
     %{buildroot}/etc/rc.d/init.d/frr
 %endif
 
@@ -523,10 +525,11 @@ rm -rf %{buildroot}
 %config(noreplace) /etc/frr/[!v]*.conf*
 %config(noreplace) %attr(750,%frr_user,%frr_user) /etc/frr/daemons
 %if "%{initsystem}" == "systemd"
-    %config %{_unitdir}/frr.service
+    %{_unitdir}/frr.service
     %{_sbindir}/frr
 %else
-    %config /etc/rc.d/init.d/frr
+    /etc/rc.d/init.d/frr
+    %{_sbindir}/frr
 %endif
 %config(noreplace) /etc/pam.d/frr
 %config(noreplace) %attr(640,root,root) /etc/logrotate.d/*
