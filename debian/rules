@@ -53,6 +53,7 @@ override_dh_auto_configure:
 		--enable-systemd=yes \
 		--enable-poll=yes \
 		--enable-cumulus=yes \
+		--enable-fpm=yes \
 		--enable-pimd=yes \
 		--enable-dependency-tracking \
 		--enable-bgp-vnc=no; \
