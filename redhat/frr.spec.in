@@ -390,6 +390,10 @@ done
 /sbin/chkconfig --add frr
 %endif
 
+# Fix bad path in previous config files
+#  Config files won't get replaced by default, so we do this ugly hack to fix it
+%__sed -i 's|/etc/init.d/|%{_sbindir}/|g' %{_sysconfdir}/daemons 2> /dev/null || true
+
 /sbin/install-info %{_infodir}/frr.info.gz %{_infodir}/dir
 
 # Create dummy files if they don't exist so basic functions can be used.
@@ -561,7 +565,10 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Mon Jun  5 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Fri Oct 20 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- Fix script location for watchfrr restart functions in daemon config
+
+* Mon Jun  5 2017 Martin Winter <mwinter@opensourcerouting.org>
 - added NHRP daemon
 
 * Mon Apr 17 2017 Martin Winter <mwinter@opensourcerouting.org>
