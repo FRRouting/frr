@@ -183,6 +183,11 @@ typedef struct zfpm_glob_t_ {
 	int sock;
 
 	/*
+	 * Prevent routes from being directly updated in kernel.
+	 */
+	int prevent_kernel;
+
+	/*
 	 * Buffers for messages to/from the FPM.
 	 */
 	struct stream *obuf;
@@ -1239,19 +1244,25 @@ static int zfpm_trigger_update(struct route_node *rn, const char *reason)
 {
 	rib_dest_t *dest;
 	char buf[PREFIX_STRLEN];
+	int ret;
+
+	if (reason && strstr(reason, "kernel"))
+		ret = zfpm_g->prevent_kernel;
+	else
+		ret = 0;
 
 	/*
 	 * Ignore if the connection is down. We will update the FPM about
 	 * all destinations once the connection comes up.
 	 */
 	if (!zfpm_conn_is_up())
-		return 0;
+		return ret;
 
 	dest = rib_dest_from_rnode(rn);
 
 	if (CHECK_FLAG(dest->flags, RIB_DEST_UPDATE_FPM)) {
 		zfpm_g->stats.redundant_triggers++;
-		return 0;
+		return ret;
 	}
 
 	if (reason) {
@@ -1267,10 +1278,10 @@ static int zfpm_trigger_update(struct route_node *rn, const char *reason)
 	 * Make sure that writes are enabled.
 	 */
 	if (zfpm_g->t_write)
-		return 0;
+		return ret;
 
 	zfpm_write_on();
-	return 0;
+	return ret;
 }
 
 /*
@@ -1579,7 +1590,7 @@ static int zfpm_init(struct thread_master *master)
 {
 	int enable = 1;
 	uint16_t port = 0;
-	const char *format = THIS_MODULE->load_args;
+	char *format = THIS_MODULE->load_args;
 
 	memset(zfpm_g, 0, sizeof(*zfpm_g));
 	zfpm_g->master = master;
@@ -1596,6 +1607,16 @@ static int zfpm_init(struct thread_master *master)
 	install_element(ENABLE_NODE, &clear_zebra_fpm_stats_cmd);
 	install_element(CONFIG_NODE, &fpm_remote_ip_cmd);
 	install_element(CONFIG_NODE, &no_fpm_remote_ip_cmd);
+
+	zfpm_g->prevent_kernel = 0;
+
+	if (format) {
+		char *prevent_kernel_flag = strchr(format, ':');
+		if (prevent_kernel_flag) {
+			*prevent_kernel_flag++ = '\0';
+			zfpm_g->prevent_kernel = atoi(prevent_kernel_flag);
+		}
+	}
 
 	zfpm_init_message_format(format);
 

@@ -1033,8 +1033,10 @@ int rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	 * Make sure we update the FPM any time we send new information to
 	 * the kernel.
 	 */
-	hook_call(rib_update, rn, "installing in kernel");
-	ret = kernel_route_rib(p, src_p, old, re);
+	if (hook_call(rib_update, rn, "installing in kernel") == 0)
+		ret = kernel_route_rib(p, src_p, old, re);
+	else
+		ret = 0;
 	zvrf->installs++;
 
 	/* If install succeeds, update FIB flag for nexthops. */
@@ -1074,8 +1076,10 @@ int rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 	 * Make sure we update the FPM any time we send new information to
 	 * the kernel.
 	 */
-	hook_call(rib_update, rn, "uninstalling from kernel");
-	ret = kernel_route_rib(p, src_p, re, NULL);
+	if (hook_call(rib_update, rn, "uninstalling from kernel") == 0)
+		ret = kernel_route_rib(p, src_p, re, NULL);
+	else
+		ret = 0;
 	zvrf->removals++;
 
 	for (ALL_NEXTHOPS(re->nexthop, nexthop))
