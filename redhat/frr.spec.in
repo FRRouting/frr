@@ -442,7 +442,7 @@ if [ "$1" -ge 1 ]; then
         ##
         ## Systemd Version
         ##
-        %systemd_postun frr.service
+        %systemd_postun_with_restart frr.service
     %else
         ##
         ## init.d Version
@@ -457,18 +457,14 @@ fi
     ##
     ## Systemd Version
     ##
-    if [ "$1" = "0" ]; then
-        for daemon in %all_daemons ; do
-            if [ x"${daemon}" != x"" ] ; then
-                %systemd_preun frr.service
-            fi
-        done
+    if [ $1 -eq 0 ] ; then
+        %systemd_preun frr.service
     fi
 %else
     ##
     ## init.d Version
     ##
-    if [ "$1" = "0" ]; then
+    if [ $1 -eq 0 ] ; then
         /etc/rc.d/init.d/frr stop  >/dev/null 2>&1
         /sbin/chkconfig --del frr
     fi
@@ -567,6 +563,7 @@ rm -rf %{buildroot}
 %changelog
 * Fri Oct 20 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
 - Fix script location for watchfrr restart functions in daemon config
+- Fix postun script to restart frr during upgrade
 
 * Mon Jun  5 2017 Martin Winter <mwinter@opensourcerouting.org>
 - added NHRP daemon
