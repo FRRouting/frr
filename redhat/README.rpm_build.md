@@ -9,21 +9,16 @@ Building your own FRRouting RPM
     Newer automake/autoconf/bison is only needed to build the rpm and is
     **not** needed to install the binary rpm package
 
-2. Install the following packages to build the RPMs:
+2. Install the build packages as documented in doc/Building_on_xxxxx.md 
+   and the following additional packages:
 
-        yum install git autoconf automake libtool make gawk readline-devel \
-        texinfo net-snmp-devel groff pkgconfig rpm-build json-c-devel \
-        pam-devel texi2html bison libcap-devel flex
+        yum install rpm-build net-snmp-devel pam-devel
 
     Additionally, on systems with systemd (CentOS 7, Fedora)
 
         yum install systemd-devel
 
     (use `dnf install` on new Fedora instead of `yum install`)
-
-    **CentOS 6:** Please check doc/Building_FRR_on_CentOS6.md for details on
-    how to install required version of autoconf, automake and bison. The
-    versions in the common Repo are too old.
 
 3. Checkout FRR under a **unpriviledged** user account
 
