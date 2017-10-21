@@ -421,7 +421,7 @@ if [ ! -e %{_sysconfdir}/vtysh.conf ]; then
 fi
 
 %postun
-if [ "$1" -ge 1 ]; then
+if [ $1 -ge 1 ]; then
     #
     # Upgrade from older version
     #
@@ -457,6 +457,17 @@ fi
     fi
 %endif
 /sbin/install-info --delete %{_infodir}/frr.info.gz %{_infodir}/dir
+
+%posttrans
+# We screwed up and didn't correctly add the restart to the RPM script
+# with the previous version. postun script is run from the previous version,
+# so the fix won't work until the next time.
+# We add an additional restart here which should be removed in future
+# major versions
+%if "%{initsystem}" == "systemd"
+    systemctl daemon-reload >/dev/null 2>&1 || : 
+    systemctl try-restart frr.service >/dev/null 2>&1 || :
+%endif
 
 %clean
 %if !0%{?keep_build:1}
@@ -548,6 +559,8 @@ rm -rf %{buildroot}
 * Fri Oct 20 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
 - Fix script location for watchfrr restart functions in daemon config
 - Fix postun script to restart frr during upgrade
+- Add posttrans script to fix missing restart in postun script from 2.0 rpm 
+    package. Will be removed in next major version > 3 again
 
 * Mon Apr 17 2017 Martin Winter <mwinter@opensourcerouting.org>
 - new subpackage frr-pythontools with python 2.7 restart script
