@@ -138,7 +138,7 @@ DEFUN (debug_zebra_vxlan,
 DEFUN (debug_zebra_pw,
        debug_zebra_pw_cmd,
        "[no] debug zebra pseudowires",
-       "Negate a command or set its defaults\n"
+       NO_STR
        DEBUG_STR
        "Zebra configuration\n"
        "Debug option set for zebra pseudowires\n")

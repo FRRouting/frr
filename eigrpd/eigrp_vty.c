@@ -870,11 +870,10 @@ DEFUN (no_eigrp_ip_summary_address,
 DEFUN (no_eigrp_if_ip_holdinterval,
        no_eigrp_if_ip_holdinterval_cmd,
        "no ip hold-time eigrp",
-       "No"
+       NO_STR
        "Interface Internet Protocol config commands\n"
        "Configures EIGRP hello interval\n"
-       "Enhanced Interior Gateway Routing Protocol (EIGRP)\n"
-       "Seconds before neighbor is considered down\n")
+       "Enhanced Interior Gateway Routing Protocol (EIGRP)\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct eigrp_interface *ei = ifp->info;

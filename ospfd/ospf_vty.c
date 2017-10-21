@@ -6243,7 +6243,7 @@ DEFUN (ip_ospf_authentication,
        "IP Information\n"
        "OSPF interface commands\n"
        "Enable authentication on this interface\n"
-       "Address of interface")
+       "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_ipv4 = 3;
@@ -6280,7 +6280,7 @@ DEFUN (no_ip_ospf_authentication_args,
        "Enable authentication on this interface\n"
        "Use null authentication\n"
        "Use message-digest authentication\n"
-       "Address of interface")
+       "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_encryption = 4;
@@ -6360,7 +6360,7 @@ DEFUN (no_ip_ospf_authentication,
        "IP Information\n"
        "OSPF interface commands\n"
        "Enable authentication on this interface\n"
-       "Address of interface")
+       "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_ipv4 = 4;
@@ -6437,7 +6437,7 @@ DEFUN (ip_ospf_authentication_key,
        "OSPF interface commands\n"
        "Authentication password (key)\n"
        "The OSPF password (key)\n"
-       "Address of interface")
+       "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
@@ -6649,7 +6649,9 @@ DEFUN_HIDDEN (no_ospf_message_digest_key,
               "OSPF interface commands\n"
               "Message digest authentication password (key)\n"
               "Key ID\n"
-              "Address of interface")
+              "Use MD5 algorithm\n"
+              "The OSPF password (key)\n"
+              "Address of interface\n")
 {
 	return no_ip_ospf_message_digest_key(self, vty, argc, argv);
 }
@@ -6712,9 +6714,11 @@ DEFUN (no_ip_ospf_cost,
        no_ip_ospf_cost_cmd,
        "no ip ospf cost [(1-65535)] [A.B.C.D]",
        NO_STR
+       "IP Information\n"
        "OSPF interface commands\n"
        "Interface cost\n"
-       "Address of interface")
+       "Cost\n"
+       "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
@@ -6907,7 +6911,10 @@ DEFUN (no_ip_ospf_dead_interval,
        "OSPF interface commands\n"
        "Interval time after which a neighbor is declared down\n"
        "Seconds\n"
-       "Address of interface")
+       "Minimal 1s dead-interval with fast sub-second hellos\n"
+       "Hello multiplier factor\n"
+       "Number of Hellos to send each second\n"
+       "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_ipv4 = argc - 1;
@@ -6969,7 +6976,10 @@ DEFUN_HIDDEN (no_ospf_dead_interval,
               "OSPF interface commands\n"
               "Interval time after which a neighbor is declared down\n"
               "Seconds\n"
-              "Address of interface")
+              "Minimal 1s dead-interval with fast sub-second hellos\n"
+              "Hello multiplier factor\n"
+              "Number of Hellos to send each second\n"
+              "Address of interface\n")
 {
 	return no_ip_ospf_dead_interval(self, vty, argc, argv);
 }
@@ -7198,7 +7208,7 @@ DEFUN (ip_ospf_priority,
        "OSPF interface commands\n"
        "Router priority\n"
        "Priority\n"
-       "Address of interface")
+       "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
@@ -7246,7 +7256,7 @@ DEFUN_HIDDEN (ospf_priority,
               "OSPF interface commands\n"
               "Router priority\n"
               "Priority\n"
-              "Address of interface")
+              "Address of interface\n")
 {
 	return ip_ospf_priority(self, vty, argc, argv);
 }
@@ -7259,7 +7269,7 @@ DEFUN (no_ip_ospf_priority,
        "OSPF interface commands\n"
        "Router priority\n" // ignored
        "Priority\n"
-       "Address of interface")
+       "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
@@ -7311,7 +7321,7 @@ DEFUN_HIDDEN (no_ospf_priority,
               "OSPF interface commands\n"
               "Router priority\n"
               "Priority\n"
-              "Address of interface")
+              "Address of interface\n")
 {
 	return no_ip_ospf_priority(self, vty, argc, argv);
 }
@@ -7323,7 +7333,7 @@ DEFUN (ip_ospf_retransmit_interval,
        "OSPF interface commands\n"
        "Time between retransmitting lost link state advertisements\n"
        "Seconds\n"
-       "Address of interface")
+       "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
@@ -7358,7 +7368,7 @@ DEFUN_HIDDEN (ospf_retransmit_interval,
               "OSPF interface commands\n"
               "Time between retransmitting lost link state advertisements\n"
               "Seconds\n"
-              "Address of interface")
+              "Address of interface\n")
 {
 	return ip_ospf_retransmit_interval(self, vty, argc, argv);
 }
@@ -7422,7 +7432,7 @@ DEFUN (ip_ospf_transmit_delay,
        "OSPF interface commands\n"
        "Link state transmit delay\n"
        "Seconds\n"
-       "Address of interface")
+       "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
@@ -7457,7 +7467,7 @@ DEFUN_HIDDEN (ospf_transmit_delay,
               "OSPF interface commands\n"
               "Link state transmit delay\n"
               "Seconds\n"
-              "Address of interface")
+              "Address of interface\n")
 {
 	return ip_ospf_transmit_delay(self, vty, argc, argv);
 }
@@ -7469,7 +7479,8 @@ DEFUN (no_ip_ospf_transmit_delay,
        "IP Information\n"
        "OSPF interface commands\n"
        "Link state transmit delay\n"
-       "Address of interface")
+       "Seconds\n"
+       "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
@@ -7509,7 +7520,7 @@ DEFUN_HIDDEN (no_ospf_transmit_delay,
               "OSPF interface commands\n"
               "Link state transmit delay\n"
               "Seconds\n"
-              "Address of interface")
+              "Address of interface\n")
 {
 	return no_ip_ospf_transmit_delay(self, vty, argc, argv);
 }
@@ -8203,7 +8214,7 @@ DEFUN (ip_ospf_mtu_ignore,
        "IP Information\n"
        "OSPF interface commands\n"
        "Disable MTU mismatch detection on this interface\n"
-       "Address of interface")
+       "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_ipv4 = 3;
@@ -8239,10 +8250,11 @@ DEFUN (ip_ospf_mtu_ignore,
 DEFUN (no_ip_ospf_mtu_ignore,
        no_ip_ospf_mtu_ignore_addr_cmd,
        "no ip ospf mtu-ignore [A.B.C.D]",
+       NO_STR
        "IP Information\n"
        "OSPF interface commands\n"
        "Disable MTU mismatch detection on this interface\n"
-       "Address of interface")
+       "Address of interface\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_ipv4 = 4;

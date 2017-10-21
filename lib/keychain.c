@@ -633,7 +633,7 @@ DEFUN (accept_lifetime_infinite_day_month,
        "Day of th month to start\n"
        "Month of the year to start\n"
        "Year to start\n"
-       "Never expires")
+       "Never expires\n")
 {
 	int idx_hhmmss = 1;
 	int idx_number = 2;
@@ -654,7 +654,7 @@ DEFUN (accept_lifetime_infinite_month_day,
        "Month of the year to start\n"
        "Day of th month to start\n"
        "Year to start\n"
-       "Never expires")
+       "Never expires\n")
 {
 	int idx_hhmmss = 1;
 	int idx_month = 2;
@@ -843,7 +843,7 @@ DEFUN (send_lifetime_infinite_day_month,
        "Day of th month to start\n"
        "Month of the year to start\n"
        "Year to start\n"
-       "Never expires")
+       "Never expires\n")
 {
 	int idx_hhmmss = 1;
 	int idx_number = 2;
@@ -864,7 +864,7 @@ DEFUN (send_lifetime_infinite_month_day,
        "Month of the year to start\n"
        "Day of th month to start\n"
        "Year to start\n"
-       "Never expires")
+       "Never expires\n")
 {
 	int idx_hhmmss = 1;
 	int idx_month = 2;

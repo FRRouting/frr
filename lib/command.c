@@ -1367,7 +1367,7 @@ DEFUN (config_quit,
 DEFUN (config_end,
        config_end_cmd,
        "end",
-       "End current mode and change to enable mode.")
+       "End current mode and change to enable mode.\n")
 {
 	switch (vty->node) {
 	case VIEW_NODE:

@@ -438,7 +438,7 @@ DEFUN(if_nhrp_mtu, if_nhrp_mtu_cmd,
 	NHRP_STR
 	"Configure NHRP advertised MTU\n"
 	"MTU value\n"
-	"Advertise bound interface MTU similar to OpenNHRP")
+	"Advertise bound interface MTU similar to OpenNHRP\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct nhrp_interface *nifp = ifp->info;
@@ -461,7 +461,7 @@ DEFUN(if_no_nhrp_mtu, if_no_nhrp_mtu_cmd,
 	NHRP_STR
 	"Configure NHRP advertised MTU\n"
 	"MTU value\n"
-	"Advertise bound interface MTU similar to OpenNHRP")
+	"Advertise bound interface MTU similar to OpenNHRP\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct nhrp_interface *nifp = ifp->info;

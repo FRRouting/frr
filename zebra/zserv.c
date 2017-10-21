@@ -2800,7 +2800,7 @@ DEFUN (ip_forwarding,
        ip_forwarding_cmd,
        "ip forwarding",
        IP_STR
-       "Turn on IP forwarding")
+       "Turn on IP forwarding\n")
 {
 	int ret;
 
@@ -2821,7 +2821,7 @@ DEFUN (no_ip_forwarding,
        "no ip forwarding",
        NO_STR
        IP_STR
-       "Turn off IP forwarding")
+       "Turn off IP forwarding\n")
 {
 	int ret;
 
@@ -2967,7 +2967,7 @@ DEFUN (ipv6_forwarding,
        ipv6_forwarding_cmd,
        "ipv6 forwarding",
        IPV6_STR
-       "Turn on IPv6 forwarding")
+       "Turn on IPv6 forwarding\n")
 {
 	int ret;
 
@@ -2988,7 +2988,7 @@ DEFUN (no_ipv6_forwarding,
        "no ipv6 forwarding",
        NO_STR
        IPV6_STR
-       "Turn off IPv6 forwarding")
+       "Turn off IPv6 forwarding\n")
 {
 	int ret;
 

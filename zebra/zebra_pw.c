@@ -436,7 +436,7 @@ DEFUN (show_pseudowires,
        "show mpls pseudowires",
        SHOW_STR
        MPLS_STR
-       "Pseudowires")
+       "Pseudowires\n")
 {
 	struct zebra_vrf *zvrf;
 	struct zebra_pw *pw;
