@@ -675,6 +675,7 @@ static int rtadv_make_socket(void)
 			 sizeof(struct icmp6_filter));
 	if (ret < 0) {
 		zlog_info("ICMP6_FILTER set fail: %s", safe_strerror(errno));
+		close(sock);
 		return ret;
 	}
 

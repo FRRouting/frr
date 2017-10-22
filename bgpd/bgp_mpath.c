@@ -751,6 +751,10 @@ void bgp_info_mpath_aggregate_update(struct bgp_info *new_best,
 			attr.ecommunity = ecomm;
 			attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 		}
+		if (lcomm) {
+			attr.lcommunity = lcomm;
+			attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES);
+		}
 
 		/* Zap multipath attr nexthop so we set nexthop to self */
 		attr.nexthop.s_addr = 0;

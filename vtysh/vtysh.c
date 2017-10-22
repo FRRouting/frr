@@ -573,6 +573,7 @@ int vtysh_mark_file(const char *filename)
 		 * appropriate */
 		if (strlen(vty_buf_trimmed) == 3
 		    && strncmp("end", vty_buf_trimmed, 3) == 0) {
+			cmd_free_strvec(vline);
 			continue;
 		}
 
@@ -804,8 +805,6 @@ static int vtysh_rl_describe(void)
 	} else if (rl_end && isspace((int)rl_line_buffer[rl_end - 1]))
 		vector_set(vline, NULL);
 
-	describe = cmd_describe_command(vline, vty, &ret);
-
 	fprintf(stdout, "\n");
 
 	/* Ambiguous and no match error. */
@@ -823,6 +822,8 @@ static int vtysh_rl_describe(void)
 		return 0;
 		break;
 	}
+
+	describe = cmd_describe_command(vline, vty, &ret);
 
 	/* Get width of command string. */
 	width = 0;

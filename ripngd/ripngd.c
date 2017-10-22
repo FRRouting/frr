@@ -101,21 +101,21 @@ static int ripng_make_socket(void)
 	setsockopt_so_recvbuf(sock, 8096);
 	ret = setsockopt_ipv6_pktinfo(sock, 1);
 	if (ret < 0)
-		return ret;
+		goto error;
 #ifdef IPTOS_PREC_INTERNETCONTROL
 	ret = setsockopt_ipv6_tclass(sock, IPTOS_PREC_INTERNETCONTROL);
 	if (ret < 0)
-		return ret;
+		goto error;
 #endif
 	ret = setsockopt_ipv6_multicast_hops(sock, 255);
 	if (ret < 0)
-		return ret;
+		goto error;
 	ret = setsockopt_ipv6_multicast_loop(sock, 0);
 	if (ret < 0)
-		return ret;
+		goto error;
 	ret = setsockopt_ipv6_hoplimit(sock, 1);
 	if (ret < 0)
-		return ret;
+		goto error;
 
 	memset(&ripaddr, 0, sizeof(ripaddr));
 	ripaddr.sin6_family = AF_INET6;
@@ -132,11 +132,15 @@ static int ripng_make_socket(void)
 		zlog_err("Can't bind ripng socket: %s.", safe_strerror(errno));
 		if (ripngd_privs.change(ZPRIVS_LOWER))
 			zlog_err("ripng_make_socket: could not lower privs");
-		return ret;
+		goto error;
 	}
 	if (ripngd_privs.change(ZPRIVS_LOWER))
 		zlog_err("ripng_make_socket: could not lower privs");
 	return sock;
+
+error:
+	close(sock);
+	return ret;
 }
 
 /* Send RIPng packet. */
