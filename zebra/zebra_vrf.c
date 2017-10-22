@@ -478,7 +478,8 @@ static int vrf_config_write(struct vty *vty)
 
 		if (strcmp(zvrf_name(zvrf), VRF_DEFAULT_NAME)) {
 			vty_out(vty, "vrf %s\n", zvrf_name(zvrf));
-			vty_out(vty, " vni %u\n", zvrf->l3vni);
+			if (zvrf->l3vni)
+				vty_out(vty, " vni %u\n", zvrf->l3vni);
 			vty_out(vty, "!\n");
 		}
 	}
