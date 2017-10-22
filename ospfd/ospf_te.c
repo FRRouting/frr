@@ -1252,7 +1252,7 @@ static int ospf_mpls_te_lsa_originate1(struct ospf_area *area,
 
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
 		char area_id[INET_ADDRSTRLEN];
-		strcpy(area_id, inet_ntoa(area->area_id));
+		strlcpy(area_id, inet_ntoa(area->area_id), sizeof(area_id));
 		zlog_debug(
 			"LSA[Type%d:%s]: Originate Opaque-LSA/MPLS-TE: Area(%s), Link(%s)",
 			new->data->type, inet_ntoa(new->data->id), area_id,
