@@ -3230,6 +3230,24 @@ static int zl3vni_remote_nh_del(zebra_l3vni_t *zl3vni,
 	return 0;
 }
 
+/* handle neigh delete from kernel */
+static int zl3vni_local_nh_del(zebra_l3vni_t *zl3vni,
+			       struct ipaddr *ip)
+{
+	zebra_neigh_t *n = NULL;
+
+	n = zl3vni_nh_lookup(zl3vni, ip);
+	if (!n)
+		return 0;
+
+	/* all next hop neigh are remote and installed by frr.
+	 * If we get an age out notification for these neigh entries, we have to
+	 * install it back */
+	zl3vni_nh_install(zl3vni, n);
+
+	return 0;
+}
+
 /*
  * Hash function for L3 VNI.
  */
@@ -4528,16 +4546,18 @@ void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf,
 int zebra_vxlan_local_neigh_del(struct interface *ifp,
 				struct interface *link_if, struct ipaddr *ip)
 {
-	vni_t l3vni = 0;
-	struct ethaddr rmac;
 	char buf[INET6_ADDRSTRLEN];
-	char buf1[INET6_ADDRSTRLEN];
 	char buf2[ETHER_ADDR_STRLEN];
 	zebra_neigh_t *n = NULL;
 	zebra_vni_t *zvni = NULL;
 	zebra_mac_t *zmac = NULL;
+	zebra_l3vni_t *zl3vni = NULL;
 
-	memset(&rmac, 0, sizeof(struct ethaddr));
+	/* check if this is a remote neigh entry corresponding to remote
+	 * next-hop */
+	zl3vni = zl3vni_from_svi(ifp, link_if);
+	if (zl3vni)
+		return zl3vni_local_nh_del(zl3vni, ip);
 
 	/* We are only interested in neighbors on an SVI that resides on top
 	 * of a VxLAN bridge.
@@ -4545,6 +4565,7 @@ int zebra_vxlan_local_neigh_del(struct interface *ifp,
 	zvni = zvni_from_svi(ifp, link_if);
 	if (!zvni)
 		return 0;
+
 	if (!zvni->vxlan_if) {
 		zlog_err(
 			"VNI %u hash %p doesn't have intf upon local neighbor DEL",
@@ -4552,17 +4573,10 @@ int zebra_vxlan_local_neigh_del(struct interface *ifp,
 		return -1;
 	}
 
-	/* get the l3-vni */
-	l3vni = zvni_get_l3vni(zvni);
-
-	/* get the rmac */
-	zvni_get_rmac(zvni, &rmac);
-
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("Del neighbor %s intf %s(%u) -> L2-VNI %u L3-VNI %u RMAC %s",
+		zlog_debug("Del neighbor %s intf %s(%u) -> L2-VNI %u",
 			   ipaddr2str(ip, buf, sizeof(buf)),
-			   ifp->name, ifp->ifindex, zvni->vni,
-			   l3vni, prefix_mac2str(&rmac, buf1, sizeof(buf1)));
+			   ifp->name, ifp->ifindex, zvni->vni);
 
 	/* If entry doesn't exist, nothing to do. */
 	n = zvni_neigh_lookup(zvni, ip);
@@ -4615,16 +4629,11 @@ int zebra_vxlan_local_neigh_add_update(struct interface *ifp,
 				       struct ethaddr *macaddr, u_int16_t state,
 				       u_char ext_learned)
 {
-	vni_t l3vni = 0;
-	struct ethaddr rmac;
 	char buf[ETHER_ADDR_STRLEN];
-	char buf1[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
 	zebra_vni_t *zvni = NULL;
 	zebra_neigh_t *n = NULL;
 	zebra_mac_t *zmac = NULL, *old_zmac = NULL;
-
-	memset(&rmac, 0, sizeof(struct ethaddr));
 
 	/* We are only interested in neighbors on an SVI that resides on top
 	 * of a VxLAN bridge.
@@ -4633,20 +4642,13 @@ int zebra_vxlan_local_neigh_add_update(struct interface *ifp,
 	if (!zvni)
 		return 0;
 
-	/* get the l3-vni */
-	l3vni = zvni_get_l3vni(zvni);
-
-	/* get the rmac */
-	zvni_get_rmac(zvni, &rmac);
-
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug(
-			"Add/Update neighbor %s MAC %s intf %s(%u) state 0x%x %s-> L2-VNI %u L3-VNI %u RMAC %s",
+			"Add/Update neighbor %s MAC %s intf %s(%u) state 0x%x %s-> L2-VNI %u",
 			ipaddr2str(ip, buf2, sizeof(buf2)),
 			prefix_mac2str(macaddr, buf, sizeof(buf)), ifp->name,
 			ifp->ifindex, state, ext_learned ? "ext-learned " : "",
-			zvni->vni, l3vni,
-			prefix_mac2str(&rmac, buf1, sizeof(buf1)));
+			zvni->vni);
 
 	/* create a dummy MAC if the MAC is not already present */
 	zmac = zvni_mac_lookup(zvni, macaddr);
@@ -4750,13 +4752,10 @@ int zebra_vxlan_local_neigh_add_update(struct interface *ifp,
 
 	/* Inform BGP. */
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("neigh %s (MAC %s) is now ACTIVE on L2-VNI %u L3-VNI %u with RMAC %s",
+		zlog_debug("neigh %s (MAC %s) is now ACTIVE on L2-VNI %u",
 			   ipaddr2str(ip, buf2, sizeof(buf2)),
 			   prefix_mac2str(macaddr, buf, sizeof(buf)),
-			   zvni->vni,
-			   l3vni,
-			   prefix_mac2str(&rmac, buf1, sizeof(buf1)));
-
+			   zvni->vni);
 	ZEBRA_NEIGH_SET_ACTIVE(n);
 
 	return zvni_neigh_send_add_to_client(zvni->vni, ip, macaddr, 0);
