@@ -3666,6 +3666,154 @@ static int show_ip_ospf_interface_common(struct vty *vty, struct ospf *ospf,
 	return CMD_SUCCESS;
 }
 
+static void show_ip_ospf_interface_traffic_sub(struct vty *vty,
+					       struct ospf_interface *oi,
+					       json_object *json_interface_sub,
+					       u_char use_json)
+{
+	if (use_json) {
+		json_object_int_add(json_interface_sub,
+			    "ifIndex",
+			    oi->ifp->ifindex);
+		json_object_int_add(json_interface_sub,
+			    "helloIn",
+			    oi->hello_in);
+		json_object_int_add(json_interface_sub,
+			    "helloOut",
+			    oi->hello_out);
+		json_object_int_add(json_interface_sub,
+			    "dbDescIn",
+			    oi->db_desc_in);
+		json_object_int_add(json_interface_sub,
+			    "dbDescOut",
+			    oi->db_desc_out);
+		json_object_int_add(json_interface_sub,
+			    "lsReqIn",
+			    oi->ls_req_in);
+		json_object_int_add(json_interface_sub,
+			    "lsReqOut",
+			    oi->ls_req_out);
+		json_object_int_add(json_interface_sub,
+			    "lsUpdIn",
+			    oi->ls_upd_in);
+		json_object_int_add(json_interface_sub,
+			    "lsUpdOut",
+			    oi->ls_upd_out);
+		json_object_int_add(json_interface_sub,
+			    "lsAckIn",
+			    oi->ls_ack_in);
+		json_object_int_add(json_interface_sub,
+			    "lsAckOut",
+			    oi->ls_ack_out);
+	} else {
+		vty_out(vty,
+			"%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u\n",
+			oi->ifp->name, oi->hello_in,
+			oi->hello_out,
+			oi->db_desc_in, oi->db_desc_out,
+			oi->ls_req_in, oi->ls_req_out,
+			oi->ls_upd_in, oi->ls_upd_out,
+			oi->ls_ack_in, oi->ls_ack_out);
+	}
+}
+
+/* OSPFv2 Packet Counters */
+static int show_ip_ospf_interface_traffic_common(struct vty *vty,
+						 struct ospf *ospf,
+						 char *intf_name,
+						 int display_once,
+						 u_char use_json)
+{
+	struct vrf *vrf = NULL;
+	struct interface *ifp = NULL;
+	json_object *json = NULL;
+	json_object *json_interface_sub = NULL;
+
+	if (!use_json && !display_once) {
+		vty_out(vty, "\n");
+		vty_out(vty, "%-12s%-17s%-17s%-17s%-17s%-17s\n",
+			"Interface", "    HELLO", "    DB-Desc", "   LS-Req",
+			"   LS-Update", "   LS-Ack");
+		vty_out(vty, "%-10s%-18s%-18s%-17s%-17s%-17s\n", "",
+			"      Rx/Tx", "     Rx/Tx", "    Rx/Tx", "    Rx/Tx", "    Rx/Tx");
+		vty_out(vty,
+		"--------------------------------------------------------------------------------------------\n");
+	} else if (use_json) {
+		json = json_object_new_object();
+	}
+
+	if (intf_name == NULL) {
+		vrf = vrf_lookup_by_id(ospf->vrf_id);
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			struct route_node *rn;
+			struct ospf_interface *oi;
+
+			if (ospf_oi_count(ifp) == 0)
+				continue;
+
+			for (rn = route_top(IF_OIFS(ifp)); rn;
+				rn = route_next(rn)) {
+				oi = rn->info;
+
+				if (oi == NULL)
+					continue;
+
+				if (use_json) {
+					json_interface_sub =
+						json_object_new_object();
+				}
+
+				show_ip_ospf_interface_traffic_sub(vty, oi,
+							   json_interface_sub,
+							   use_json);
+				if (use_json) {
+					json_object_object_add(json, ifp->name,
+						json_interface_sub);
+				}
+			}
+		}
+	} else {
+		/* Interface name is specified. */
+		ifp = if_lookup_by_name(intf_name, ospf->vrf_id);
+		if (ifp != NULL) {
+			struct route_node *rn;
+			struct ospf_interface *oi;
+
+			if (ospf_oi_count(ifp) == 0) {
+				vty_out(vty, "  OSPF not enabled on this interface %s\n",
+					ifp->name);
+				return CMD_SUCCESS;
+			}
+
+			for (rn = route_top(IF_OIFS(ifp)); rn;
+			     rn = route_next(rn)) {
+				oi = rn->info;
+
+				if (use_json) {
+					json_interface_sub =
+						json_object_new_object();
+				}
+
+				show_ip_ospf_interface_traffic_sub(vty, oi,
+							   json_interface_sub,
+							   use_json);
+				if (use_json) {
+					json_object_object_add(json, ifp->name,
+						json_interface_sub);
+				}
+			}
+		}
+	}
+
+	if (use_json) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_ip_ospf_interface,
        show_ip_ospf_interface_cmd,
        "show ip ospf [vrf <NAME|all>] interface [INTERFACE] [json]",
@@ -3752,6 +3900,71 @@ DEFUN (show_ip_ospf_instance_interface,
 
 	return show_ip_ospf_interface_common(vty, ospf, argc, argv, 5, uj);
 }
+
+DEFUN (show_ip_ospf_interface_traffic,
+       show_ip_ospf_interface_traffic_cmd,
+       "show ip ospf [vrf <NAME|all>] interface traffic [INTERFACE] [json]",
+       SHOW_STR
+       IP_STR
+       "OSPF information\n"
+       VRF_CMD_HELP_STR
+       "All VRFs\n"
+       "Interface information\n"
+       "Protocol Packet counters\n"
+       "Interface name\n"
+       JSON_STR)
+{
+	struct ospf *ospf = NULL;
+	struct listnode *node = NULL;
+	char *vrf_name = NULL, *intf_name = NULL;
+	bool all_vrf = FALSE;
+	int inst = 0;
+	int idx_vrf = 0, idx_intf = 0;
+	u_char uj = use_json(argc, argv);
+	int ret = CMD_SUCCESS;
+	int display_once = 0;
+
+	if (uj)
+		argc--;
+
+
+	OSPF_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+
+	if (argv_find(argv, argc, "INTERFACE", &idx_intf))
+		intf_name = argv[idx_intf]->arg;
+
+	if (vrf_name) {
+		if (all_vrf) {
+			for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+				if (!ospf->oi_running)
+					continue;
+
+				ret = show_ip_ospf_interface_traffic_common(vty,
+								ospf, intf_name,
+								display_once,
+								uj);
+				display_once = 1;
+			}
+			return ret;
+		}
+		ospf = ospf_lookup_by_inst_name(inst, vrf_name);
+		if (ospf == NULL || !ospf->oi_running)
+			return CMD_SUCCESS;
+		ret = show_ip_ospf_interface_traffic_common(vty, ospf,
+							    intf_name,
+							    display_once, uj);
+	} else {
+		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		if (ospf == NULL || !ospf->oi_running)
+			return CMD_SUCCESS;
+		ret = show_ip_ospf_interface_traffic_common(vty, ospf,
+							    intf_name,
+							    display_once, uj);
+	}
+
+	return ret;
+}
+
 
 static void show_ip_ospf_neighbour_header(struct vty *vty)
 {
@@ -9484,6 +9697,8 @@ void ospf_vty_show_init(void)
 	install_element(VIEW_NODE, &show_ip_ospf_interface_cmd);
 
 	install_element(VIEW_NODE, &show_ip_ospf_instance_interface_cmd);
+	/* "show ip ospf interface traffic */
+	install_element(VIEW_NODE, &show_ip_ospf_interface_traffic_cmd);
 
 	/* "show ip ospf neighbor" commands. */
 	install_element(VIEW_NODE, &show_ip_ospf_neighbor_int_detail_cmd);
