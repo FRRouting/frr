@@ -398,7 +398,7 @@ DEFUN (eigrp_network,
 	struct prefix p;
 	int ret;
 
-	str2prefix(argv[1]->arg, &p);
+	(void)str2prefix(argv[1]->arg, &p);
 
 	ret = eigrp_network_set(eigrp, &p);
 
@@ -421,7 +421,7 @@ DEFUN (no_eigrp_network,
 	struct prefix p;
 	int ret;
 
-	str2prefix(argv[2]->arg, &p);
+	(void)str2prefix(argv[2]->arg, &p);
 
 	ret = eigrp_network_unset(eigrp, &p);
 

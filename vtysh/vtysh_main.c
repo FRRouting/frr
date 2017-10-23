@@ -533,7 +533,7 @@ int main(int argc, char **argv, char **env)
 
 			fp = open(history_file, O_CREAT | O_EXCL,
 				  S_IRUSR | S_IWUSR);
-			if (fp)
+			if (fp != -1)
 				close(fp);
 
 			read_history(history_file);

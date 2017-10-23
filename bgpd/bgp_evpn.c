@@ -2542,7 +2542,7 @@ void bgp_evpn_derive_auto_rd(struct bgp *bgp, struct bgpevpn *vpn)
 	vpn->prd.family = AF_UNSPEC;
 	vpn->prd.prefixlen = 64;
 	sprintf(buf, "%s:%hu", inet_ntoa(bgp->router_id), vpn->rd_id);
-	str2prefix_rd(buf, &vpn->prd);
+	(void)str2prefix_rd(buf, &vpn->prd);
 	UNSET_FLAG(vpn->flags, VNI_FLAG_RD_CFGD);
 }
 
