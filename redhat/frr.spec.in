@@ -333,6 +333,8 @@ install %{zeb_rh_src}/frr.init \
 %else
 mkdir -p %{buildroot}/etc/rc.d/init.d
 install %{zeb_rh_src}/frr.init \
+    %{buildroot}%{_sbindir}/frr
+ln -s %{_sbindir}/frr \
     %{buildroot}/etc/rc.d/init.d/frr
 %endif
 
@@ -415,6 +417,10 @@ done
 /sbin/chkconfig --add frr
 %endif
 
+# Fix bad path in previous config files
+#  Config files won't get replaced by default, so we do this ugly hack to fix it
+%__sed -i 's|/etc/init.d/|%{_sbindir}/|g' %{_sysconfdir}/daemons 2> /dev/null || true
+
 /sbin/install-info %{_infodir}/frr.info.gz %{_infodir}/dir
 
 # Create dummy files if they don't exist so basic functions can be used.
@@ -463,7 +469,7 @@ if [ "$1" -ge 1 ]; then
         ##
         ## Systemd Version
         ##
-        %systemd_postun frr.service
+        %systemd_postun_with_restart frr.service
     %else
         ##
         ## init.d Version
@@ -478,18 +484,14 @@ fi
     ##
     ## Systemd Version
     ##
-    if [ "$1" = "0" ]; then
-        for daemon in %all_daemons ; do
-            if [ x"${daemon}" != x"" ] ; then
-                %systemd_preun frr.service
-            fi
-        done
+    if [ $1 -eq 0 ] ; then
+        %systemd_preun frr.service
     fi
 %else
     ##
     ## init.d Version
     ##
-    if [ "$1" = "0" ]; then
+    if [ $1 -eq 0 ] ; then
         /etc/rc.d/init.d/frr stop  >/dev/null 2>&1
         /sbin/chkconfig --del frr
     fi
@@ -557,10 +559,11 @@ rm -rf %{buildroot}
 %config(noreplace) /etc/frr/[!v]*.conf*
 %config(noreplace) %attr(750,%frr_user,%frr_user) /etc/frr/daemons
 %if "%{initsystem}" == "systemd"
-    %config %{_unitdir}/frr.service
+    %attr(644,root,root) %{_unitdir}/frr.service
     %{_sbindir}/frr
 %else
-    %config /etc/rc.d/init.d/frr
+    /etc/rc.d/init.d/frr
+    %{_sbindir}/frr
 %endif
 %config(noreplace) /etc/pam.d/frr
 %config(noreplace) %attr(640,root,root) /etc/logrotate.d/*
@@ -596,7 +599,11 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Mon Jun  5 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Fri Oct 20 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- Fix script location for watchfrr restart functions in daemon config
+- Fix postun script to restart frr during upgrade
+
+* Mon Jun  5 2017 Martin Winter <mwinter@opensourcerouting.org>
 - added NHRP and EIGRP daemon
 
 * Mon Apr 17 2017 Martin Winter <mwinter@opensourcerouting.org>
