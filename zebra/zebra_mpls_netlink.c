@@ -58,17 +58,29 @@ int kernel_add_lsp(zebra_lsp_t *lsp)
 int kernel_upd_lsp(zebra_lsp_t *lsp)
 {
 	int ret;
+	zebra_nhlfe_t *nhlfe;
+	struct nexthop *nexthop;
 
 	if (!lsp || !lsp->best_nhlfe) // unexpected
 		return -1;
 
 	UNSET_FLAG(lsp->flags, LSP_FLAG_CHANGED);
 
-	/* First issue a DEL and clear the installed flag. */
-	netlink_mpls_multipath(RTM_DELROUTE, lsp);
-	UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
+	/* Any NHLFE that was installed but is not selected now needs to
+	 * have its flags updated.
+	 */
+	for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next) {
+		nexthop = nhlfe->nexthop;
+		if (!nexthop)
+			continue;
 
-	/* Then issue an ADD. */
+		if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED) &&
+		    !CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED)) {
+			UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+		}
+	}
+
 	ret = netlink_mpls_multipath(RTM_NEWROUTE, lsp);
 	if (!ret)
 		SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
