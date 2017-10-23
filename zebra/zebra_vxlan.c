@@ -132,10 +132,8 @@ static void *zl3vni_alloc(void *p);
 static zebra_l3vni_t *zl3vni_add(vni_t vni, vrf_id_t vrf_id);
 static int zl3vni_del(zebra_l3vni_t *zl3vni);
 static zebra_l3vni_t *zl3vni_from_vrf(vrf_id_t);
-static vni_t zvni_get_l3vni(zebra_vni_t *zvni);
 static struct interface *zl3vni_map_to_svi_if(zebra_l3vni_t *zl3vni);
 static struct interface *zl3vni_map_to_vxlan_if(zebra_l3vni_t *zl3vni);
-static void zvni_get_rmac(zebra_vni_t *zvni, struct ethaddr *rmac);
 static void zebra_vxlan_process_l3vni_oper_up(zebra_l3vni_t *zl3vni);
 static void zebra_vxlan_process_l3vni_oper_down(zebra_l3vni_t *zl3vni);
 
@@ -1697,29 +1695,18 @@ static int zvni_add_macip_for_intf(struct interface *ifp, zebra_vni_t *zvni)
 static int zvni_gw_macip_add(struct interface *ifp, zebra_vni_t *zvni,
 			     struct ethaddr *macaddr, struct ipaddr *ip)
 {
-	vni_t l3vni = 0;
-	struct ethaddr rmac;
 	char buf[ETHER_ADDR_STRLEN];
-	char buf1[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
 	zebra_neigh_t *n = NULL;
 	zebra_mac_t *mac = NULL;
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
 
-	memset(&rmac, 0, sizeof(struct ethaddr));
-
 	zif = zvni->vxlan_if->info;
 	if (!zif)
 		return -1;
 
 	vxl = &zif->l2info.vxl;
-
-	/* get the l3-vni */
-	l3vni = zvni_get_l3vni(zvni);
-
-	/* get the rmac */
-	zvni_get_rmac(zvni, &rmac);
 
 	mac = zvni_mac_lookup(zvni, macaddr);
 	if (!mac) {
@@ -1759,10 +1746,8 @@ static int zvni_gw_macip_add(struct interface *ifp, zebra_vni_t *zvni,
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug(
-			"SVI %s(%u) L2-VNI %u L3-VNI %u RMAC %s , sending GW MAC %s IP %s add to BGP",
+			"SVI %s(%u) L2-VNI %u, sending GW MAC %s IP %s add to BGP",
 			ifp->name, ifp->ifindex, zvni->vni,
-			l3vni,
-			prefix_mac2str(&rmac, buf1, sizeof(buf1)),
 			prefix_mac2str(macaddr, buf, sizeof(buf)),
 			ipaddr2str(ip, buf2, sizeof(buf2)));
 
@@ -1778,21 +1763,10 @@ static int zvni_gw_macip_add(struct interface *ifp, zebra_vni_t *zvni,
 static int zvni_gw_macip_del(struct interface *ifp, zebra_vni_t *zvni,
 			     struct ipaddr *ip)
 {
-	vni_t l3vni = 0;
-	struct ethaddr rmac;
-	char buf[ETHER_ADDR_STRLEN];
 	char buf1[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
 	zebra_neigh_t *n = NULL;
 	zebra_mac_t *mac = NULL;
-
-	memset(&rmac, 0, sizeof(struct ethaddr));
-
-	/* get the l30vni */
-	l3vni = zvni_get_l3vni(zvni);
-
-	/* get the rmac */
-	zvni_get_rmac(zvni, &rmac);
 
 	/* If the neigh entry is not present nothing to do*/
 	n = zvni_neigh_lookup(zvni, ip);
@@ -1814,9 +1788,8 @@ static int zvni_gw_macip_del(struct interface *ifp, zebra_vni_t *zvni,
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug(
-			"SVI %s(%u) L2-VNI %u, L3-VNI %u RMAC %s sending GW MAC %s IP %s del to BGP",
-			ifp->name, ifp->ifindex, zvni->vni, l3vni,
-			prefix_mac2str(&rmac, buf, sizeof(buf)),
+			"SVI %s(%u) L2-VNI %u, sending GW MAC %s IP %s del to BGP",
+			ifp->name, ifp->ifindex, zvni->vni,
 			prefix_mac2str(&(n->emac), buf1, sizeof(buf1)),
 			ipaddr2str(ip, buf2, sizeof(buf2)));
 
@@ -3607,32 +3580,6 @@ static void zvni_add_to_l3vni_list(struct hash_backet *backet,
 
 	if (zvni->vrf_id == zl3vni_vrf_id(zl3vni))
 		listnode_add_sort(zl3vni->l2vnis, zvni);
-}
-
-/* l3vni from zvni */
-static vni_t zvni_get_l3vni(zebra_vni_t *zvni)
-{
-	zebra_l3vni_t *zl3vni = NULL;
-
-	zl3vni = zl3vni_from_vrf(zvni->vrf_id);
-	if (!zl3vni || !is_l3vni_oper_up(zl3vni))
-		return 0;
-
-	return zl3vni->vni;
-}
-
-/* rmac from l3vni */
-static void zvni_get_rmac(zebra_vni_t *zvni,
-				 struct ethaddr *rmac)
-{
-	zebra_l3vni_t *zl3vni = NULL;
-
-	zl3vni = zl3vni_from_vrf(zvni->vrf_id);
-	if (!zl3vni || !is_l3vni_oper_up(zl3vni))
-		return;
-
-	if (zl3vni->svi_if)
-		memcpy(rmac->octet, zl3vni->svi_if->hw_addr, ETH_ALEN);
 }
 
 /*
