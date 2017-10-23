@@ -453,6 +453,15 @@ struct ospf_interface *ospf_if_lookup_recv_if(struct ospf *ospf,
 	return match;
 }
 
+static void ospf_if_reset_stats(struct ospf_interface *oi)
+{
+	oi->hello_in = oi->hello_out = 0;
+	oi->db_desc_in = oi->db_desc_out = 0;
+	oi->ls_req_in = oi->ls_req_out = 0;
+	oi->ls_upd_in = oi->ls_upd_out = 0;
+	oi->ls_ack_in = oi->ls_ack_out = 0;
+}
+
 void ospf_if_stream_set(struct ospf_interface *oi)
 {
 	/* set output fifo queue. */
@@ -467,6 +476,9 @@ void ospf_if_stream_unset(struct ospf_interface *oi)
 	if (oi->obuf) {
 		ospf_fifo_free(oi->obuf);
 		oi->obuf = NULL;
+
+		/*reset protocol stats */
+		ospf_if_reset_stats(oi);
 
 		if (oi->on_write_q) {
 			listnode_delete(ospf->oi_write_q, oi);
