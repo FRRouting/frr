@@ -2474,23 +2474,4 @@ int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp)
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
 			    0);
 }
-
-/*
- * Handle failure in LSP install, clear flags for NHLFE.
- */
-void clear_nhlfe_installed(zebra_lsp_t *lsp)
-{
-	zebra_nhlfe_t *nhlfe;
-	struct nexthop *nexthop;
-
-	for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next) {
-		nexthop = nhlfe->nexthop;
-		if (!nexthop)
-			continue;
-
-		UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
-		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-	}
-}
-
 #endif /* HAVE_NETLINK */

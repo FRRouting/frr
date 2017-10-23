@@ -40,8 +40,6 @@ int kernel_add_lsp(zebra_lsp_t *lsp)
 	ret = netlink_mpls_multipath(RTM_NEWROUTE, lsp);
 	if (!ret)
 		SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
-	else
-		clear_nhlfe_installed(lsp);
 
 	return ret;
 }
@@ -74,8 +72,6 @@ int kernel_upd_lsp(zebra_lsp_t *lsp)
 	ret = netlink_mpls_multipath(RTM_NEWROUTE, lsp);
 	if (!ret)
 		SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
-	else
-		clear_nhlfe_installed(lsp);
 
 	return ret;
 }
