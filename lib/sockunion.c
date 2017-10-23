@@ -175,15 +175,11 @@ static int sockunion_sizeof(const union sockunion *su)
 	return ret;
 }
 
-/* sockunion_connect returns
-   -1 : error occured
-   0 : connect success
-   1 : connect is in progress */
+/* Performs a non-blocking connect().  */
 enum connect_result sockunion_connect(int fd, const union sockunion *peersu,
 				      unsigned short port, ifindex_t ifindex)
 {
 	int ret;
-	int val;
 	union sockunion su;
 
 	memcpy(&su, peersu, sizeof(union sockunion));
@@ -203,18 +199,12 @@ enum connect_result sockunion_connect(int fd, const union sockunion *peersu,
 		break;
 	}
 
-	/* Make socket non-block. */
-	val = fcntl(fd, F_GETFL, 0);
-	fcntl(fd, F_SETFL, val | O_NONBLOCK);
-
 	/* Call connect function. */
 	ret = connect(fd, (struct sockaddr *)&su, sockunion_sizeof(&su));
 
 	/* Immediate success */
-	if (ret == 0) {
-		fcntl(fd, F_SETFL, val);
+	if (ret == 0)
 		return connect_success;
-	}
 
 	/* If connect is in progress then return 1 else it's real error. */
 	if (ret < 0) {
@@ -226,8 +216,6 @@ enum connect_result sockunion_connect(int fd, const union sockunion *peersu,
 			return connect_error;
 		}
 	}
-
-	fcntl(fd, F_SETFL, val);
 
 	return connect_in_progress;
 }
