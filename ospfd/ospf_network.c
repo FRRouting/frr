@@ -30,8 +30,6 @@
 #include "sockopt.h"
 #include "privs.h"
 
-extern struct zebra_privs_t ospfd_privs;
-
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_network.h"
 #include "ospfd/ospf_interface.h"

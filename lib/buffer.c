@@ -482,12 +482,14 @@ buffer_status_t buffer_write(struct buffer *b, int fd, const void *p,
 	ssize_t nbytes;
 
 #if 0
-  /* Should we attempt to drain any previously buffered data?  This could help
-     reduce latency in pushing out the data if we are stuck in a long-running
-     thread that is preventing the main select loop from calling the flush
-     thread... */
-  if (b->head && (buffer_flush_available(b, fd) == BUFFER_ERROR))
-    return BUFFER_ERROR;
+	/*
+	 * Should we attempt to drain any previously buffered data?
+	 * This could help reduce latency in pushing out the data if
+	 * we are stuck in a long-running thread that is preventing
+	 * the main select loop from calling the flush thread...
+	 */
+	if (b->head && (buffer_flush_available(b, fd) == BUFFER_ERROR))
+		return BUFFER_ERROR;
 #endif
 	if (b->head)
 		/* Buffer is not empty, so do not attempt to write the new data.

@@ -35,6 +35,7 @@
 #include "table.h"
 #include "nexthop.h"
 #include "mpls.h"
+#include "sockopt.h"
 
 DEFINE_MTYPE_STATIC(LIB, ZCLIENT, "Zclient")
 DEFINE_MTYPE_STATIC(LIB, REDIST_INST, "Redistribution instance IDs")
@@ -180,7 +181,8 @@ void zclient_reset(struct zclient *zclient)
 			&zclient->mi_redist[afi][zclient->redist_default],
 			zclient->instance);
 
-	zclient_init(zclient, zclient->redist_default, zclient->instance);
+	zclient_init(zclient, zclient->redist_default,
+		     zclient->instance, zclient->privs);
 }
 
 /**
@@ -201,6 +203,10 @@ int zclient_socket_connect(struct zclient *zclient)
 		return -1;
 
 	set_cloexec(sock);
+
+	zclient->privs->change(ZPRIVS_RAISE);
+	setsockopt_so_sendbuf(sock, 1048576);
+	zclient->privs->change(ZPRIVS_LOWER);
 
 	/* Connect to zebra. */
 	ret = connect(sock, (struct sockaddr *)&zclient_addr,
@@ -543,12 +549,14 @@ int zclient_start(struct zclient *zclient)
 
 /* Initialize zebra client.  Argument redist_default is unwanted
    redistribute route type. */
-void zclient_init(struct zclient *zclient, int redist_default, u_short instance)
+void zclient_init(struct zclient *zclient, int redist_default,
+		  u_short instance, struct zebra_privs_t *privs)
 {
 	int afi, i;
 
 	/* Set -1 to the default socket value. */
 	zclient->sock = -1;
+	zclient->privs = privs;
 
 	/* Clear redistribution flags. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)

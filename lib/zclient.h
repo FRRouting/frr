@@ -134,6 +134,9 @@ struct zclient {
 	/* The thread master we schedule ourselves on */
 	struct thread_master *master;
 
+	/* Priviledges to change socket values */
+	struct zebra_privs_t *privs;
+
 	/* Socket to zebra daemon. */
 	int sock;
 
@@ -315,7 +318,7 @@ struct zapi_pw_status {
 
 /* Prototypes of zebra client service functions. */
 extern struct zclient *zclient_new(struct thread_master *);
-extern void zclient_init(struct zclient *, int, u_short);
+extern void zclient_init(struct zclient *, int, u_short, struct zebra_privs_t *privs);
 extern int zclient_start(struct zclient *);
 extern void zclient_stop(struct zclient *);
 extern void zclient_reset(struct zclient *);

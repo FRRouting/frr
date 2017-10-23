@@ -29,8 +29,7 @@
 #include "libospf.h"
 #include "ospf6_proto.h"
 #include "ospf6_network.h"
-
-extern struct zebra_privs_t ospf6d_privs;
+#include "ospf6d.h"
 
 int ospf6_sock;
 struct in6_addr allspfrouters6;

@@ -427,6 +427,8 @@ extern struct rip_info *rip_ecmp_delete(struct rip_info *);
 /* There is only one rip strucutre. */
 extern struct rip *rip;
 
+extern struct zebra_privs_t ripd_privs;
+
 /* Master thread strucutre. */
 extern struct thread_master *master;
 

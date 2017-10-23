@@ -45,8 +45,6 @@
 
 #include "privs.h"
 
-extern struct zebra_privs_t isisd_privs;
-
 struct bpf_insn llcfilter[] = {
 	/* check first byte */
 	BPF_STMT(BPF_LD + BPF_B + BPF_ABS, ETH_ALEN),

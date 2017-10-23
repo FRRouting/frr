@@ -883,6 +883,7 @@ int vnc_redistribute_unset(struct bgp *bgp, afi_t afi, int type)
 	return CMD_SUCCESS;
 }
 
+extern struct zebra_privs_t bgpd_privs;
 
 /*
  * Modeled after bgp_zebra.c'bgp_zebra_init()
@@ -892,7 +893,7 @@ void vnc_zebra_init(struct thread_master *master)
 {
 	/* Set default values. */
 	zclient_vnc = zclient_new(master);
-	zclient_init(zclient_vnc, ZEBRA_ROUTE_VNC, 0);
+	zclient_init(zclient_vnc, ZEBRA_ROUTE_VNC, 0, &bgpd_privs);
 
 	zclient_vnc->redistribute_route_add = vnc_zebra_read_route;
 	zclient_vnc->redistribute_route_del = vnc_zebra_read_route;

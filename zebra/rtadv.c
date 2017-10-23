@@ -799,7 +799,7 @@ static void ipv6_nd_suppress_ra_set(struct interface *ifp,
  * if the operator has explicitly enabled RA. The enable request can also
  * specify a RA interval (in seconds).
  */
-void zebra_interface_radv_set(struct zserv *client, int sock, u_short length,
+void zebra_interface_radv_set(struct zserv *client, u_short length,
 			      struct zebra_vrf *zvrf, int enable)
 {
 	struct stream *s;

@@ -586,7 +586,7 @@ void rip_zclient_init(struct thread_master *master)
 {
 	/* Set default value to the zebra client structure. */
 	zclient = zclient_new(master);
-	zclient_init(zclient, ZEBRA_ROUTE_RIP, 0);
+	zclient_init(zclient, ZEBRA_ROUTE_RIP, 0, &ripd_privs);
 	zclient->zebra_connected = rip_zebra_connected;
 	zclient->interface_add = rip_interface_add;
 	zclient->interface_delete = rip_interface_delete;

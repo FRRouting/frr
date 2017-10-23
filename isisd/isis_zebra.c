@@ -412,7 +412,7 @@ static void isis_zebra_connected(struct zclient *zclient)
 void isis_zebra_init(struct thread_master *master)
 {
 	zclient = zclient_new(master);
-	zclient_init(zclient, ZEBRA_ROUTE_ISIS, 0);
+	zclient_init(zclient, ZEBRA_ROUTE_ISIS, 0, &isisd_privs);
 	zclient->zebra_connected = isis_zebra_connected;
 	zclient->router_id_update = isis_router_id_update_zebra;
 	zclient->interface_add = isis_zebra_if_add;

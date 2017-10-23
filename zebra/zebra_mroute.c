@@ -32,7 +32,7 @@
 #include "zebra/rt.h"
 #include "zebra/debug.h"
 
-int zebra_ipmr_route_stats(struct zserv *client, int fd, u_short length,
+int zebra_ipmr_route_stats(struct zserv *client, u_short length,
 			   struct zebra_vrf *zvrf)
 {
 	struct mcast_route_data mroute;

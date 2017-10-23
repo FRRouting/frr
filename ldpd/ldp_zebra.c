@@ -507,12 +507,14 @@ ldp_zebra_connected(struct zclient *zclient)
 	    ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
 }
 
+extern struct zebra_privs_t ldpd_privs;
+
 void
 ldp_zebra_init(struct thread_master *master)
 {
 	/* Set default values. */
 	zclient = zclient_new(master);
-	zclient_init(zclient, ZEBRA_ROUTE_LDP, 0);
+	zclient_init(zclient, ZEBRA_ROUTE_LDP, 0, &ldpd_privs);
 
 	/* set callbacks */
 	zclient->zebra_connected = ldp_zebra_connected;

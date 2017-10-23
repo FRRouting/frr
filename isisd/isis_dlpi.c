@@ -47,8 +47,6 @@
 
 #include "privs.h"
 
-extern struct zebra_privs_t isisd_privs;
-
 static t_uscalar_t dlpi_ctl[1024]; /* DLPI control messages */
 
 /*

@@ -128,6 +128,7 @@ void zclient_lookup_new(void)
 
 	zlookup->sock = -1;
 	zlookup->t_connect = NULL;
+	zlookup->privs = &pimd_privs;
 
 	zclient_lookup_sched_now(zlookup);
 

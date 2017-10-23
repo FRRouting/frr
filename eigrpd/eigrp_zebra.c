@@ -103,7 +103,7 @@ void eigrp_zebra_init(void)
 {
 	zclient = zclient_new(master);
 
-	zclient_init(zclient, ZEBRA_ROUTE_EIGRP, 0);
+	zclient_init(zclient, ZEBRA_ROUTE_EIGRP, 0, &eigrpd_privs);
 	zclient->zebra_connected = eigrp_zebra_connected;
 	zclient->router_id_update = eigrp_router_id_update_zebra;
 	zclient->interface_add = eigrp_interface_add;

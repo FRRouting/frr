@@ -325,7 +325,7 @@ void nhrp_zebra_init(void)
 	zclient->redistribute_route_add = nhrp_route_read;
 	zclient->redistribute_route_del = nhrp_route_read;
 
-	zclient_init(zclient, ZEBRA_ROUTE_NHRP, 0);
+	zclient_init(zclient, ZEBRA_ROUTE_NHRP, 0, &nhrpd_privs);
 }
 
 void nhrp_zebra_terminate(void)

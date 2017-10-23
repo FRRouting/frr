@@ -414,7 +414,7 @@ void zebra_init(struct thread_master *master)
 {
 	/* Allocate zebra structure. */
 	zclient = zclient_new(master);
-	zclient_init(zclient, ZEBRA_ROUTE_RIPNG, 0);
+	zclient_init(zclient, ZEBRA_ROUTE_RIPNG, 0, &ripngd_privs);
 
 	zclient->zebra_connected = ripng_zebra_connected;
 	zclient->interface_up = ripng_interface_up;

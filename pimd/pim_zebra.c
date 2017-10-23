@@ -753,7 +753,7 @@ void pim_zebra_init(void)
 	zclient->interface_address_delete = pim_zebra_if_address_del;
 	zclient->nexthop_update = pim_parse_nexthop_update;
 
-	zclient_init(zclient, ZEBRA_ROUTE_PIM, 0);
+	zclient_init(zclient, ZEBRA_ROUTE_PIM, 0, &pimd_privs);
 	if (PIM_DEBUG_PIM_TRACE) {
 		zlog_info("zclient_init cleared redistribution request");
 	}

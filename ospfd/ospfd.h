@@ -502,6 +502,7 @@ extern const int ospf_redistributed_proto_max;
 extern struct zclient *zclient;
 extern struct thread_master *master;
 extern int ospf_zlog;
+extern struct zebra_privs_t ospfd_privs;
 
 /* Prototypes. */
 extern const char *ospf_redist_string(u_int route_type);

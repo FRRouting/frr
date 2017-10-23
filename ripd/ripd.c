@@ -49,9 +49,6 @@ DEFINE_QOBJ_TYPE(rip)
 /* UDP receive buffer size */
 #define RIP_UDP_RCV_BUF 41600
 
-/* privileges global */
-extern struct zebra_privs_t ripd_privs;
-
 /* RIP Structure. */
 struct rip *rip = NULL;
 

@@ -661,7 +661,7 @@ int zebra_ptm_sock_read(struct thread *thread)
 }
 
 /* BFD peer/dst register/update */
-int zebra_ptm_bfd_dst_register(struct zserv *client, int sock, u_short length,
+int zebra_ptm_bfd_dst_register(struct zserv *client, u_short length,
 			       int command, struct zebra_vrf *zvrf)
 {
 	struct stream *s;
@@ -819,7 +819,7 @@ int zebra_ptm_bfd_dst_register(struct zserv *client, int sock, u_short length,
 }
 
 /* BFD peer/dst deregister */
-int zebra_ptm_bfd_dst_deregister(struct zserv *client, int sock, u_short length,
+int zebra_ptm_bfd_dst_deregister(struct zserv *client, u_short length,
 				 struct zebra_vrf *zvrf)
 {
 	struct stream *s;
@@ -946,7 +946,7 @@ int zebra_ptm_bfd_dst_deregister(struct zserv *client, int sock, u_short length,
 }
 
 /* BFD client register */
-int zebra_ptm_bfd_client_register(struct zserv *client, int sock,
+int zebra_ptm_bfd_client_register(struct zserv *client,
 				  u_short length)
 {
 	struct stream *s;
@@ -960,6 +960,9 @@ int zebra_ptm_bfd_client_register(struct zserv *client, int sock,
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("bfd_client_register msg from client %s: length=%d",
 			   zebra_route_string(client->proto), length);
+
+	s = client->ibuf;
+	pid = stream_getl(s);
 
 	if (ptm_cb.ptm_sock == -1) {
 		ptm_cb.t_timer = NULL;
@@ -977,9 +980,6 @@ int zebra_ptm_bfd_client_register(struct zserv *client, int sock,
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_CLIENT_FIELD,
 			   tmp_buf);
 
-	s = client->ibuf;
-
-	pid = stream_getl(s);
 	sprintf(tmp_buf, "%d", pid);
 	ptm_lib_append_msg(ptm_hdl, out_ctxt, ZEBRA_PTM_BFD_SEQID_FIELD,
 			   tmp_buf);

@@ -327,7 +327,7 @@ enum ripng_event {
 
 /* Extern variables. */
 extern struct ripng *ripng;
-
+extern struct zebra_privs_t ripngd_privs;
 extern struct thread_master *master;
 
 /* Prototypes. */

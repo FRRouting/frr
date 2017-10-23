@@ -77,7 +77,7 @@ struct thread_master *master;
 /* lde privileges */
 static zebra_capabilities_t _caps_p [] =
 {
-	/* none */
+	ZCAP_NET_ADMIN
 };
 
 static struct zebra_privs_t lde_privs =
@@ -1622,6 +1622,8 @@ zclient_sync_init(u_short instance)
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
 	zclient_sync->instance = instance;
+	zclient_sync->privs = &lde_privs;
+
 	while (zclient_socket_connect(zclient_sync) < 0) {
 		log_warnx("Error connecting synchronous zclient!");
 		sleep(1);
