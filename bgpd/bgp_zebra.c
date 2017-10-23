@@ -1105,12 +1105,11 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 							  ->ifindex;
 
 			if (!ifindex) {
-				if (mpinfo->peer->conf_if
-				    || mpinfo->peer->ifname)
+				if (mpinfo->peer->conf_if)
+					ifindex = mpinfo->peer->ifp->ifindex;
+				else if (mpinfo->peer->ifname)
 					ifindex = ifname2ifindex(
-						mpinfo->peer->conf_if
-							? mpinfo->peer->conf_if
-							: mpinfo->peer->ifname,
+						mpinfo->peer->ifname,
 						bgp->vrf_id);
 				else if (mpinfo->peer->nexthop.ifp)
 					ifindex = mpinfo->peer->nexthop.ifp
