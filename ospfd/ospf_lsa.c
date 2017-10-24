@@ -284,12 +284,12 @@ const char *dump_lsa_key(struct ospf_lsa *lsa)
 
 	if (lsa != NULL && (lsah = lsa->data) != NULL) {
 		char id[INET_ADDRSTRLEN], ar[INET_ADDRSTRLEN];
-		strcpy(id, inet_ntoa(lsah->id));
-		strcpy(ar, inet_ntoa(lsah->adv_router));
+		strlcpy(id, inet_ntoa(lsah->id), sizeof(id));
+		strlcpy(ar, inet_ntoa(lsah->adv_router), sizeof(ar));
 
 		sprintf(buf, "Type%d,id(%s),ar(%s)", lsah->type, id, ar);
 	} else
-		strcpy(buf, "NULL");
+		strlcpy(buf, "NULL", sizeof(buf));
 
 	return buf;
 }
@@ -2713,7 +2713,8 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 					      new->data->type, NULL));
 			break;
 		default:
-			strcpy(area_str, inet_ntoa(new->area->area_id));
+			strlcpy(area_str, inet_ntoa(new->area->area_id),
+				sizeof(area_str));
 			zlog_debug("LSA[%s]: Install %s to Area %s",
 				   dump_lsa_key(new),
 				   lookup_msg(ospf_lsa_type_msg,

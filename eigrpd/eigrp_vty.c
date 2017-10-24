@@ -398,7 +398,7 @@ DEFUN (eigrp_network,
 	struct prefix p;
 	int ret;
 
-	str2prefix(argv[1]->arg, &p);
+	(void)str2prefix(argv[1]->arg, &p);
 
 	ret = eigrp_network_set(eigrp, &p);
 
@@ -421,7 +421,7 @@ DEFUN (no_eigrp_network,
 	struct prefix p;
 	int ret;
 
-	str2prefix(argv[2]->arg, &p);
+	(void)str2prefix(argv[2]->arg, &p);
 
 	ret = eigrp_network_unset(eigrp, &p);
 
@@ -870,11 +870,10 @@ DEFUN (no_eigrp_ip_summary_address,
 DEFUN (no_eigrp_if_ip_holdinterval,
        no_eigrp_if_ip_holdinterval_cmd,
        "no ip hold-time eigrp",
-       "No"
+       NO_STR
        "Interface Internet Protocol config commands\n"
        "Configures EIGRP hello interval\n"
-       "Enhanced Interior Gateway Routing Protocol (EIGRP)\n"
-       "Seconds before neighbor is considered down\n")
+       "Enhanced Interior Gateway Routing Protocol (EIGRP)\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct eigrp_interface *ei = ifp->info;

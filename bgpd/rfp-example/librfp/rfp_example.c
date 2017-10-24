@@ -42,7 +42,7 @@ DEFUN (rfp_example_config_value,
        "rfp example-config-value VALUE",
        RFP_SHOW_STR
        "Example value to be configured\n"
-       "Value to display")
+       "Value to display\n")
 {
 	uint32_t value = 0;
 	struct rfp_instance_t *rfi = NULL;

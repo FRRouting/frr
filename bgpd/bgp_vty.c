@@ -3794,7 +3794,7 @@ DEFUN (neighbor_remove_private_as_all,
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Remove private ASNs in outbound updates\n"
-       "Apply to all AS numbers")
+       "Apply to all AS numbers\n")
 {
 	int idx_peer = 1;
 	return peer_af_flag_set_vty(vty, argv[idx_peer]->arg, bgp_node_afi(vty),
@@ -5733,7 +5733,7 @@ DEFUN (neighbor_maximum_prefix_restart,
        "Maximum number of prefix accept from this peer\n"
        "maximum no. of prefix limit\n"
        "Restart bgp connection after limit is exceeded\n"
-       "Restart interval in minutes")
+       "Restart interval in minutes\n")
 {
 	int idx_peer = 1;
 	int idx_number = 3;
@@ -5751,7 +5751,7 @@ ALIAS_HIDDEN(
 	"Maximum number of prefix accept from this peer\n"
 	"maximum no. of prefix limit\n"
 	"Restart bgp connection after limit is exceeded\n"
-	"Restart interval in minutes")
+	"Restart interval in minutes\n")
 
 DEFUN (neighbor_maximum_prefix_threshold_restart,
        neighbor_maximum_prefix_threshold_restart_cmd,

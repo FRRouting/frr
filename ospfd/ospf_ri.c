@@ -1119,7 +1119,7 @@ DEFUN (router_info,
        OSPF_RI_STR
        "Enable the Router Information functionality with AS flooding scope\n"
        "Enable the Router Information functionality with Area flooding scope\n"
-       "OSPF area ID in IP format")
+       "OSPF area ID in IP format\n")
 {
 	int idx_ipv4 = 2;
 	char *area = (argc == 3) ? argv[idx_ipv4]->arg : NULL;

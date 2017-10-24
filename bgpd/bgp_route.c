@@ -10545,7 +10545,7 @@ DEFUN (show_bgp_afi_vpn_rd_route,
 	afi_t afi = AFI_MAX;
 	int idx = 0;
 
-	argv_find_and_parse_afi(argv, argc, &idx, &afi);
+	(void)argv_find_and_parse_afi(argv, argc, &idx, &afi);
 	ret = str2prefix_rd(argv[5]->arg, &prd);
 	if (!ret) {
 		vty_out(vty, "%% Malformed Route Distinguisher\n");

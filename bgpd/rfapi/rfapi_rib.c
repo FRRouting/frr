@@ -1668,7 +1668,7 @@ void rfapiRibUpdatePendingNode(
 
 			struct prefix pfx_vn;
 
-			rfapiRaddr2Qprefix(&rfd->vn_addr, &pfx_vn);
+			assert(!rfapiRaddr2Qprefix(&rfd->vn_addr, &pfx_vn));
 			if (prefix_same(&pfx_vn, &pfx_nh))
 				continue;
 		}

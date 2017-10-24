@@ -1090,10 +1090,9 @@ void subgroup_default_update_packet(struct update_subgroup *subgrp,
 	bpacket_attr_vec_arr_reset(&vecarr);
 	addpath_encode = bgp_addpath_encode_tx(peer, afi, safi);
 
-	if (afi == AFI_IP)
-		str2prefix("0.0.0.0/0", &p);
-	else
-		str2prefix("::/0", &p);
+	memset(&p, 0, sizeof(p));
+	p.family = afi2family(afi);
+	p.prefixlen = 0;
 
 	/* Logging the attribute. */
 	if (bgp_debug_update(NULL, &p, subgrp->update_group, 0)) {
@@ -1176,10 +1175,9 @@ void subgroup_default_withdraw_packet(struct update_subgroup *subgrp)
 	safi = SUBGRP_SAFI(subgrp);
 	addpath_encode = bgp_addpath_encode_tx(peer, afi, safi);
 
-	if (afi == AFI_IP)
-		str2prefix("0.0.0.0/0", &p);
-	else
-		str2prefix("::/0", &p);
+	memset(&p, 0, sizeof(p));
+	p.family = afi2family(afi);
+	p.prefixlen = 0;
 
 	if (bgp_debug_update(NULL, &p, subgrp->update_group, 0)) {
 		char buf[PREFIX_STRLEN];

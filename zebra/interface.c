@@ -2539,7 +2539,7 @@ DEFUN (no_ip_address,
        NO_STR
        "Interface Internet Protocol config commands\n"
        "Set the IP address of an interface\n"
-       "IP Address (e.g. 10.0.0.1/8)")
+       "IP Address (e.g. 10.0.0.1/8)\n")
 {
 	int idx_ipv4_prefixlen = 3;
 	VTY_DECLVAR_CONTEXT(interface, ifp);

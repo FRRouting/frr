@@ -194,7 +194,10 @@ void if_delete_retain(struct interface *ifp)
 /* Delete and free interface structure. */
 void if_delete(struct interface *ifp)
 {
-	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+	struct vrf *vrf;
+
+	vrf = vrf_lookup_by_id(ifp->vrf_id);
+	assert(vrf);
 
 	IFNAME_RB_REMOVE(vrf, ifp);
 	if (ifp->ifindex != IFINDEX_INTERNAL)
@@ -213,8 +216,12 @@ void if_delete(struct interface *ifp)
 /* Interface existance check by index. */
 struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id)
 {
-	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+	struct vrf *vrf;
 	struct interface if_tmp;
+
+	vrf = vrf_lookup_by_id(vrf_id);
+	if (!vrf)
+		return NULL;
 
 	if_tmp.ifindex = ifindex;
 	return RB_FIND(if_index_head, &vrf->ifaces_by_index, &if_tmp);
@@ -244,7 +251,8 @@ struct interface *if_lookup_by_name(const char *name, vrf_id_t vrf_id)
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct interface if_tmp;
 
-	if (!name || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
+	if (!vrf || !name
+	    || strnlen(name, INTERFACE_NAMSIZ) == INTERFACE_NAMSIZ)
 		return NULL;
 
 	strlcpy(if_tmp.name, name, sizeof(if_tmp.name));
@@ -388,7 +396,10 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id, int vty)
 
 void if_set_index(struct interface *ifp, ifindex_t ifindex)
 {
-	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+	struct vrf *vrf;
+
+	vrf = vrf_lookup_by_id(ifp->vrf_id);
+	assert(vrf);
 
 	if (ifp->ifindex == ifindex)
 		return;

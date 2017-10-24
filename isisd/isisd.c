@@ -1509,7 +1509,7 @@ DEFUN_NOSH (router_isis,
        "router isis WORD",
        ROUTER_STR
        "ISO IS-IS\n"
-       "ISO Routing area tag")
+       "ISO Routing area tag\n")
 {
 	int idx_word = 2;
 	return isis_area_get(vty, argv[idx_word]->arg);

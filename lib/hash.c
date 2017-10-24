@@ -395,6 +395,7 @@ DEFUN_NOSH(show_hash_stats,
 	pthread_mutex_lock(&_hashes_mtx);
 	if (!_hashes) {
 		pthread_mutex_unlock(&_hashes_mtx);
+		ttable_del(tt);
 		vty_out(vty, "No hash tables in use.\n");
 		return CMD_SUCCESS;
 	}
