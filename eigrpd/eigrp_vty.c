@@ -466,9 +466,10 @@ DEFUN (show_ip_eigrp_topology,
        "Show all links in topology table\n")
 {
 	struct eigrp *eigrp;
-	struct listnode *node, *node2;
+	struct listnode *node;
 	struct eigrp_prefix_entry *tn;
 	struct eigrp_nexthop_entry *te;
+	struct route_node *rn;
 	int first;
 
 	eigrp = eigrp_lookup();
@@ -479,9 +480,13 @@ DEFUN (show_ip_eigrp_topology,
 
 	show_ip_eigrp_topology_header(vty, eigrp);
 
-	for (ALL_LIST_ELEMENTS_RO(eigrp->topology_table, node, tn)) {
+	for (rn = route_top(eigrp->topology_table); rn; rn = route_next(rn)) {
+		if (!rn->info)
+			continue;
+
+		tn = rn->info;
 		first = 1;
-		for (ALL_LIST_ELEMENTS_RO(tn->entries, node2, te)) {
+		for (ALL_LIST_ELEMENTS_RO(tn->entries, node, te)) {
 			if (argc == 5
 			    || (((te->flags
 				  & EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)
