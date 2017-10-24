@@ -65,3 +65,11 @@ nhrpd_options=("-A 127.0.0.1")
 eigrpd_options=("-A 127.0.0.1")
 babeld_options=("-A 127.0.0.1")
 
+#
+# If the vtysh_enable is yes, then the unified config is read
+# and applied if it exists.  If no unified frr.conf exists
+# then the per-daemon <daemon>.conf files are used)
+# If vtysh_enable is no or non-existant, the frr.conf is ignored.
+# it is highly suggested to have this set to yes
+vtysh_enable=yes
+
