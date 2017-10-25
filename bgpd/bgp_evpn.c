@@ -2234,6 +2234,27 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 }
 
 /*
+ * update and advertise local routes for a VRF as type-5 routes.
+ * This is invoked upon RD change for a VRF. Note taht the processing is only
+ * done in the global route table using the routes which already exist in the
+ * VRF routing table
+ */
+static int update_advertise_vrf_routes(struct bgp *bgp_vrf)
+{
+	return 0;
+}
+
+/*
+ * Delete and withdraw all type-5 routes  for the RD corresponding to VRF.
+ * This is invoked upon VRF RD change. The processing is done only from global
+ * table.
+ */
+static int delete_withdraw_vrf_routes(struct bgp *bgp_vrf)
+{
+	return 0;
+}
+
+/*
  * Update and advertise local routes for a VNI. Invoked upon router-id
  * change. Note that the processing is done only on the global route table
  * using routes that already exist in the per-VNI table.
@@ -2914,21 +2935,36 @@ void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,
  * Handle change to BGP router id. This is invoked twice by the change
  * handler, first before the router id has been changed and then after
  * the router id has been changed. The first invocation will result in
- * local routes for all VNIs being deleted and withdrawn and the next
+ * local routes for all VNIs/VRF being deleted and withdrawn and the next
  * will result in the routes being re-advertised.
  */
 void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw)
 {
-	if (withdraw)
+	if (withdraw) {
+
+		/* delete and withdraw all the type-5 routes
+		   stored in the global table for this vrf */
+		delete_withdraw_vrf_routes(bgp);
+
+		/* delete all the VNI routes (type-2/type-3) routes for all the
+		 * L2-VNIs */
 		hash_iterate(bgp->vnihash,
 			     (void (*)(struct hash_backet *,
 				       void *))withdraw_router_id_vni,
 			     bgp);
-	else
+	} else {
+
+		/* advertise all routes in the vrf as type-5 routes with the new
+		 * RD */
+		update_advertise_vrf_routes(bgp);
+
+		/* advertise all the VNI routes (type-2/type-3) routes with the
+		 * new RD*/
 		hash_iterate(bgp->vnihash,
 			     (void (*)(struct hash_backet *,
 				       void *))update_router_id_vni,
 			     bgp);
+	}
 }
 
 /*
@@ -2937,6 +2973,15 @@ void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw)
 int bgp_evpn_handle_export_rt_change(struct bgp *bgp, struct bgpevpn *vpn)
 {
 	return update_routes_for_vni(bgp, vpn);
+}
+
+void bgp_evpn_handle_vrf_rd_change(struct bgp *bgp_vrf,
+				   int withdraw)
+{
+	if (withdraw)
+		delete_withdraw_vrf_routes(bgp_vrf);
+	else
+		update_advertise_vrf_routes(bgp_vrf);
 }
 
 /*
@@ -3392,6 +3437,20 @@ void bgp_evpn_derive_auto_rt_export(struct bgp *bgp, struct bgpevpn *vpn)
  * Derive RD automatically for VNI using passed information - it
  * is of the form RouterId:unique-id-for-vni.
  */
+void bgp_evpn_derive_auto_rd_for_vrf(struct bgp *bgp)
+{
+	char buf[100];
+
+	bgp->vrf_prd.family = AF_UNSPEC;
+	bgp->vrf_prd.prefixlen = 64;
+	sprintf(buf, "%s:%hu", inet_ntoa(bgp->router_id), bgp->vrf_rd_id);
+	str2prefix_rd(buf, &bgp->vrf_prd);
+}
+
+/*
+ * Derive RD automatically for VNI using passed information - it
+ * is of the form RouterId:unique-id-for-vni.
+ */
 void bgp_evpn_derive_auto_rd(struct bgp *bgp, struct bgpevpn *vpn)
 {
 	char buf[100];
@@ -3703,6 +3762,7 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni,
 		evpn_auto_rt_import_add_for_vrf(bgp_vrf);
 	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_RT_CFGD))
 		evpn_auto_rt_export_add_for_vrf(bgp_vrf);
+	bgp_evpn_derive_auto_rd_for_vrf(bgp_vrf);
 
 	/* link all corresponding l2vnis */
 	hash_iterate(bgp_def->vnihash,
@@ -3937,6 +3997,7 @@ void bgp_evpn_cleanup(struct bgp *bgp)
 	if (bgp->l2vnis)
 		list_delete_and_null(&bgp->l2vnis);
 	bgp->l2vnis = NULL;
+	bf_release_index(bm->rd_idspace, bgp->vrf_rd_id);
 }
 
 /*
@@ -3944,7 +4005,7 @@ void bgp_evpn_cleanup(struct bgp *bgp)
  * Create
  *  VNI hash table
  *  hash for RT to VNI
- *  unique rd id space for auto derivation of RD for VNIs
+ *  assign a unique rd id for auto derivation of vrf_prd
  */
 void bgp_evpn_init(struct bgp *bgp)
 {
@@ -3966,6 +4027,8 @@ void bgp_evpn_init(struct bgp *bgp)
 	bgp->l2vnis = list_new();
 	bgp->l2vnis->cmp =
 		(int (*)(void *, void *))vni_hash_cmp;
+	bf_assign_index(bm->rd_idspace, bgp->vrf_rd_id);
+
 }
 
 void bgp_evpn_vrf_delete(struct bgp *bgp_vrf)

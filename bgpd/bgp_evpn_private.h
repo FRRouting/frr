@@ -114,6 +114,27 @@ struct vrf_irt_node {
 #define RT_TYPE_EXPORT 2
 #define RT_TYPE_BOTH   3
 
+static inline int is_vrf_rd_configured(struct bgp *bgp_vrf)
+{
+	return (CHECK_FLAG(bgp_vrf->vrf_flags,
+			   BGP_VRF_RD_CFGD));
+}
+
+static inline int bgp_evpn_vrf_rd_matches_existing(struct bgp *bgp_vrf,
+						   struct prefix_rd *prd)
+{
+	return (memcmp(&bgp_vrf->vrf_prd.val, prd->val, ECOMMUNITY_SIZE) == 0);
+}
+
+static inline int is_evpn_prefix_routes_adv_enabled(struct bgp *bgp_vrf)
+{
+	if (!bgp_vrf->l3vni ||
+	    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_ADVERTISE_EVPN_PREFIX_ROUTE))
+		return 0;
+
+	return 1;
+}
+
 static inline vni_t bgpevpn_get_l3vni(struct bgpevpn *vpn)
 {
 	struct bgp *bgp_vrf = NULL;
@@ -313,6 +334,7 @@ extern void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp*,
 						   struct ecommunity*);
 extern int bgp_evpn_handle_export_rt_change(struct bgp *bgp,
 					    struct bgpevpn *vpn);
+extern void bgp_evpn_handle_vrf_rd_change(struct bgp *bgp_vrf, int withdraw);
 extern void bgp_evpn_handle_rd_change(struct bgp *bgp, struct bgpevpn *vpn,
 				      int withdraw);
 extern int bgp_evpn_install_routes(struct bgp *bgp, struct bgpevpn *vpn);
@@ -327,6 +349,7 @@ extern void bgp_evpn_derive_auto_rt_import(struct bgp *bgp,
 extern void bgp_evpn_derive_auto_rt_export(struct bgp *bgp,
 					   struct bgpevpn *vpn);
 extern void bgp_evpn_derive_auto_rd(struct bgp *bgp, struct bgpevpn *vpn);
+extern void bgp_evpn_derive_auto_rd_for_vrf(struct bgp *bgp);
 extern struct bgpevpn *bgp_evpn_lookup_vni(struct bgp *bgp, vni_t vni);
 extern struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 				    struct in_addr originator_ip,
