@@ -10180,70 +10180,72 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 			}
 		} else {
 			for (adj = rn->adj_out; adj; adj = adj->next)
-				SUBGRP_FOREACH_PEER (adj->subgroup, paf)
-					if (paf->peer == peer) {
-						if (header1) {
-							if (use_json) {
-								json_object_int_add(
-									json,
-									"bgpTableVersion",
-									table->version);
-								json_object_string_add(
-									json,
-									"bgpLocalRouterId",
-									inet_ntoa(
-										bgp->router_id));
-								json_object_object_add(
-									json,
-									"bgpStatusCodes",
-									json_scode);
-								json_object_object_add(
-									json,
-									"bgpOriginCodes",
-									json_ocode);
-							} else {
-								vty_out(vty,
-									"BGP table version is %" PRIu64
-									", local router ID is %s\n",
-									table->version,
-									inet_ntoa(
-										bgp->router_id));
-								vty_out(vty,
-									BGP_SHOW_SCODE_HEADER);
-								vty_out(vty,
-									BGP_SHOW_OCODE_HEADER);
-							}
-							header1 = 0;
-						}
+				SUBGRP_FOREACH_PEER (adj->subgroup, paf) {
+					if (paf->peer != peer)
+						continue;
 
-						if (header2) {
-							if (!use_json)
-								vty_out(vty,
-									BGP_SHOW_HEADER);
-							header2 = 0;
+					if (header1) {
+						if (use_json) {
+							json_object_int_add(
+								json,
+								"bgpTableVersion",
+								table->version);
+							json_object_string_add(
+								json,
+								"bgpLocalRouterId",
+								inet_ntoa(
+									bgp->router_id));
+							json_object_object_add(
+								json,
+								"bgpStatusCodes",
+								json_scode);
+							json_object_object_add(
+								json,
+								"bgpOriginCodes",
+								json_ocode);
+						} else {
+							vty_out(vty,
+								"BGP table version is %" PRIu64
+								", local router ID is %s\n",
+								table->version,
+								inet_ntoa(
+									bgp->router_id));
+							vty_out(vty,
+								BGP_SHOW_SCODE_HEADER);
+							vty_out(vty,
+								BGP_SHOW_OCODE_HEADER);
 						}
-
-						if (adj->attr) {
-							bgp_attr_dup(&attr,
-								     adj->attr);
-							ret = bgp_output_modifier(
-								peer, &rn->p,
-								&attr, afi,
-								safi,
-								rmap_name);
-							if (ret != RMAP_DENY) {
-								route_vty_out_tmp(
-									vty,
-									&rn->p,
-									&attr,
-									safi,
-									use_json,
-									json_ar);
-								output_count++;
-							} else
-								filtered_count++;
-						}
+						header1 = 0;
 					}
+
+					if (header2) {
+						if (!use_json)
+							vty_out(vty,
+								BGP_SHOW_HEADER);
+						header2 = 0;
+					}
+
+					if (adj->attr) {
+						bgp_attr_dup(&attr,
+							     adj->attr);
+						ret = bgp_output_modifier(
+							peer, &rn->p,
+							&attr, afi,
+							safi,
+							rmap_name);
+						if (ret != RMAP_DENY) {
+							route_vty_out_tmp(
+								vty,
+								&rn->p,
+								&attr,
+								safi,
+								use_json,
+								json_ar);
+							output_count++;
+						} else
+							filtered_count++;
+					}
+				}
 		}
 	}
 	if (use_json)
