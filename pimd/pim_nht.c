@@ -648,7 +648,11 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 	struct interface *ifp = NULL;
 	struct interface *ifp1 = NULL;
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
-	struct pim_instance *pim = vrf->info;
+	struct pim_instance *pim;
+
+	if (!vrf)
+		return 0;
+	pim = vrf->info;
 
 	s = zclient->ibuf;
 	memset(&p, 0, sizeof(struct prefix));
