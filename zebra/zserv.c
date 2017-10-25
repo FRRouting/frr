@@ -2387,7 +2387,7 @@ static int zebra_client_read(struct thread *thread)
 	uint8_t marker, version;
 	vrf_id_t vrf_id;
 	struct zebra_vrf *zvrf;
-	int packets = 10;
+	int packets = zebrad.packets_to_process;
 
 	/* Get thread data.  Reset reading thread because I'm running. */
 	sock = THREAD_FD(thread);

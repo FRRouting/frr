@@ -138,6 +138,9 @@ struct zebra_t {
 
 	/* LSP work queue */
 	struct work_queue *lsp_process_q;
+
+	#define ZEBRA_ZAPI_PACKETS_TO_PROCESS 10
+	u_int32_t packets_to_process;
 };
 extern struct zebra_t zebrad;
 extern unsigned int multipath_num;
