@@ -137,6 +137,9 @@ struct bgp_master {
 				      /* clang-format off */
 #define RMAP_DEFAULT_UPDATE_TIMER 5 /* disabled by default */
 
+	/* Id space for automatic RD derivation for an EVI/VRF */
+	bitfield_t rd_idspace;
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(bgp_master)
@@ -408,9 +411,6 @@ struct bgp {
 
 	/* Hash table of VRF import RTs to VRFs */
 	struct hash *vrf_import_rt_hash;
-
-	/* Id space for automatic RD derivation for an EVI */
-	bitfield_t rd_idspace;
 
 	/* L3-VNI corresponding to this vrf */
 	vni_t l3vni;
