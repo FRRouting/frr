@@ -203,7 +203,15 @@ elif test "x${enable_dev_build}" = "xyes"; then
       AC_C_FLAG([-g3])
       AC_C_FLAG([-O0])
    fi
+   if test "x${enable_lua}" = "xyes"; then
+      AC_CHECK_LIB([lua], [lua_newstate],
+      [LIBS="$LIBS -llua"])
+      AC_DEFINE(HAVE_LUA,,Lua enabled for development)
+   fi
 else
+   if test "x${enable_lua}" = "xyes"; then
+      AC_MSG_ERROR([Lua is not meant to be built/used outside of development at this time])
+   fi
    if test "z$orig_cflags" = "z"; then
       AC_C_FLAG([-g])
       AC_C_FLAG([-Os], [
@@ -453,6 +461,9 @@ fi
 
 AC_ARG_ENABLE([dev_build],
     AS_HELP_STRING([--enable-dev-build], [build for development]))
+
+AC_ARG_ENABLE([lua],
+    AS_HELP_STRING([--enable-lua], [Build Lua scripting]))
 
 if test x"${enable_time_check}" != x"no" ; then
   if test x"${enable_time_check}" = x"yes" -o x"${enable_time_check}" = x ; then
@@ -1126,6 +1137,7 @@ if test x"$LIBM" = x ; then
   AC_MSG_WARN([Unable to find working pow function - bgpd may not link])
 fi
 LIBS="$TMPLIBS"
+
 AC_SUBST(LIBM)
 
 AC_CHECK_FUNCS([ppoll], [
