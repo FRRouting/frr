@@ -1490,6 +1490,47 @@ static void evpn_unconfigure_export_rt(struct bgp *bgp, struct bgpevpn *vpn,
 }
 
 /*
+ * Configure RD for VRF
+ */
+static void evpn_configure_vrf_rd(struct bgp *bgp_vrf,
+				  struct prefix_rd *rd)
+{
+	/* If we have already advertise type-5 routes with a diffrent RD, we
+	 * have to delete and withdraw them first*/
+	if (is_evpn_prefix_routes_adv_enabled(bgp_vrf))
+		bgp_evpn_handle_vrf_rd_change(bgp_vrf, 1);
+
+	/* update RD */
+	memcpy(&bgp_vrf->vrf_prd, rd, sizeof(struct prefix_rd));
+	SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_RD_CFGD);
+
+	/* We have a new RD for VRF.
+	 * Advertise all type-5 routes again with the new RD */
+	if (is_evpn_prefix_routes_adv_enabled(bgp_vrf))
+		bgp_evpn_handle_vrf_rd_change(bgp_vrf, 0);
+
+}
+
+/*
+ * Unconfigure RD for VRF
+ */
+static void evpn_unconfigure_vrf_rd(struct bgp *bgp_vrf)
+{
+	/* If we have already advertise type-5 routes with a diffrent RD, we
+	 * have to delete and withdraw them first*/
+	if (is_evpn_prefix_routes_adv_enabled(bgp_vrf))
+		bgp_evpn_handle_vrf_rd_change(bgp_vrf, 1);
+
+	/* fall back to default RD */
+	bgp_evpn_derive_auto_rd_for_vrf(bgp_vrf);
+
+	/* We have a new RD for VRF.
+	 * Advertise all type-5 routes again with the new RD */
+	if (is_evpn_prefix_routes_adv_enabled(bgp_vrf))
+		bgp_evpn_handle_vrf_rd_change(bgp_vrf, 0);
+}
+
+/*
  * Configure RD for a VNI (vty handler)
  */
 static void evpn_configure_rd(struct bgp *bgp, struct bgpevpn *vpn,
@@ -3201,6 +3242,91 @@ DEFUN_NOSH (exit_vni,
 	return CMD_SUCCESS;
 }
 
+DEFUN (bgp_evpn_vrf_rd,
+       bgp_evpn_vrf_rd_cmd,
+       "rd ASN:NN_OR_IP-ADDRESS:NN",
+       "Route Distinguisher\n"
+       "ASN:XX or A.B.C.D:XX\n")
+{
+	int ret;
+	struct prefix_rd prd;
+	struct bgp *bgp_vrf = VTY_GET_CONTEXT(bgp);
+
+	if (!bgp_vrf)
+		return CMD_WARNING;
+
+	ret = str2prefix_rd(argv[1]->arg, &prd);
+	if (!ret) {
+		vty_out(vty, "%% Malformed Route Distinguisher\n");
+		return CMD_WARNING;
+	}
+
+	/* If same as existing value, there is nothing more to do. */
+	if (bgp_evpn_vrf_rd_matches_existing(bgp_vrf, &prd))
+		return CMD_SUCCESS;
+
+	/* Configure or update the RD. */
+	evpn_configure_vrf_rd(bgp_vrf, &prd);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_evpn_vrf_rd,
+       no_bgp_evpn_vrf_rd_cmd,
+       "no rd ASN:NN_OR_IP-ADDRESS:NN",
+       NO_STR
+       "Route Distinguisher\n"
+       "ASN:XX or A.B.C.D:XX\n")
+{
+	int ret;
+	struct prefix_rd prd;
+	struct bgp *bgp_vrf = VTY_GET_CONTEXT(bgp);
+
+	if (!bgp_vrf)
+		return CMD_WARNING;
+
+	ret = str2prefix_rd(argv[2]->arg, &prd);
+	if (!ret) {
+		vty_out(vty, "%% Malformed Route Distinguisher\n");
+		return CMD_WARNING;
+	}
+
+	/* Check if we should disallow. */
+	if (!is_vrf_rd_configured(bgp_vrf)) {
+		vty_out(vty, "%% RD is not configured for this VRF\n");
+		return CMD_WARNING;
+	}
+
+	if (!bgp_evpn_vrf_rd_matches_existing(bgp_vrf, &prd)) {
+		vty_out(vty,
+			"%% RD specified does not match configuration for this VRF\n");
+		return CMD_WARNING;
+	}
+
+	evpn_unconfigure_vrf_rd(bgp_vrf);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_evpn_vrf_rd_without_val,
+       no_bgp_evpn_vrf_rd_without_val_cmd,
+       "no rd",
+       NO_STR
+       "Route Distinguisher\n")
+{
+	struct bgp *bgp_vrf = VTY_GET_CONTEXT(bgp);
+
+	if (!bgp_vrf)
+		return CMD_WARNING;
+
+	/* Check if we should disallow. */
+	if (!is_vrf_rd_configured(bgp_vrf)) {
+		vty_out(vty, "%% RD is not configured for this VRF\n");
+		return CMD_WARNING;
+	}
+
+	evpn_unconfigure_vrf_rd(bgp_vrf);
+	return CMD_SUCCESS;
+}
+
 DEFUN (bgp_evpn_vni_rd,
        bgp_evpn_vni_rd_cmd,
        "rd ASN:NN_OR_IP-ADDRESS:NN",
@@ -3320,6 +3446,7 @@ DEFUN (show_bgp_vrf_l3vni_info,
        JSON_STR)
 {
 	char buf[ETHER_ADDR_STRLEN];
+	char buf1[INET6_ADDRSTRLEN];
 	int idx_vrf = 3;
 	const char *name = NULL;
 	struct bgp *bgp = NULL;
@@ -3375,6 +3502,8 @@ DEFUN (show_bgp_vrf_l3vni_info,
 		for (ALL_LIST_ELEMENTS_RO(bgp->vrf_import_rtl, node, ecom))
 			vty_out(vty, "%s  ", ecommunity_str(ecom));
 		vty_out(vty, "\n");
+		vty_out(vty, "  RD: %s\n",
+			prefix_rd2str(&bgp->vrf_prd, buf1, RD_ADDRSTRLEN));
 	} else {
 		json_object_string_add(json, "vrf", name);
 		json_object_int_add(json, "l3vni", bgp->l3vni);
@@ -3400,6 +3529,9 @@ DEFUN (show_bgp_vrf_l3vni_info,
 					      json_object_new_string(
 							ecommunity_str(ecom)));
 		json_object_object_add(json, "import-rts", json_import_rts);
+		json_object_string_add(
+			json, "rd",
+			prefix_rd2str(&bgp->vrf_prd, buf1, RD_ADDRSTRLEN));
 
 	}
 
@@ -3857,6 +3989,9 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_vni_rt_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &no_bgp_evpn_vni_rt_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &no_bgp_evpn_vni_rt_without_val_cmd);
+	install_element(BGP_NODE, &bgp_evpn_vrf_rd_cmd);
+	install_element(BGP_NODE, &no_bgp_evpn_vrf_rd_cmd);
+	install_element(BGP_NODE, &no_bgp_evpn_vrf_rd_without_val_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_vrf_rt_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_vrf_rt_cmd);
 	install_element(BGP_EVPN_VNI_NODE,
