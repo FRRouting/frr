@@ -1413,7 +1413,7 @@ DEFUN (show_zebra_fpm_stats,
        show_zebra_fpm_stats_cmd,
        "show zebra fpm stats",
        SHOW_STR
-       "Zebra information\n"
+       ZEBRA_STR
        "Forwarding Path Manager information\n"
        "Statistics\n")
 {
@@ -1428,7 +1428,7 @@ DEFUN (clear_zebra_fpm_stats,
        clear_zebra_fpm_stats_cmd,
        "clear zebra fpm stats",
        CLEAR_STR
-       "Zebra information\n"
+       ZEBRA_STR
        "Clear Forwarding Path Manager information\n"
        "Statistics\n")
 {

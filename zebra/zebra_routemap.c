@@ -392,7 +392,7 @@ DEFUN (no_set_src,
 DEFUN (zebra_route_map_timer,
        zebra_route_map_timer_cmd,
        "zebra route-map delay-timer (0-600)",
-       "Zebra information\n"
+       ZEBRA_STR
        "Set route-map parameters\n"
        "Time to wait before route-map updates are processed\n"
        "0 means event-driven updates are disabled\n")
@@ -410,7 +410,7 @@ DEFUN (no_zebra_route_map_timer,
        no_zebra_route_map_timer_cmd,
        "no zebra route-map delay-timer [(0-600)]",
        NO_STR
-       "Zebra information\n"
+       ZEBRA_STR
        "Set route-map parameters\n"
        "Reset delay-timer to default value, 30 secs\n"
        "0 means event-driven updates are disabled\n")
