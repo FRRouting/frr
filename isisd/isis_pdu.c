@@ -2059,12 +2059,8 @@ int send_lsp(struct thread *thread)
 	lsp = isis_circuit_lsp_queue_pop(circuit);
 	if (!lsp)
 		return ISIS_OK;
-	/* Set the last-cleared time if the queue is empty. */
-	/* TODO: Is is possible that new lsps keep being added to the queue
-	 * that the queue is never empty? */
-	if (list_isempty(circuit->lsp_queue)) {
-		monotime(&circuit->lsp_queue_last_cleared);
-	} else {
+
+	if (!list_isempty(circuit->lsp_queue)) {
 		isis_circuit_schedule_lsp_send(circuit);
 	}
 
