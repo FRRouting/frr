@@ -1160,6 +1160,7 @@ static int bgp_output_modifier(struct peer *peer, struct prefix *p,
 	struct bgp_info info;
 	route_map_result_t ret;
 	struct route_map *rmap = NULL;
+	u_char rmap_type;
 
 	/*
 	 * So if we get to this point and have no rmap_name
@@ -1188,12 +1189,13 @@ static int bgp_output_modifier(struct peer *peer, struct prefix *p,
 	info.peer = peer;
 	info.attr = attr;
 
+	rmap_type = peer->rmap_type;
 	SET_FLAG(peer->rmap_type, PEER_RMAP_TYPE_OUT);
 
 	/* Apply BGP route map to the attribute. */
 	ret = route_map_apply(rmap, p, RMAP_BGP, &info);
 
-	peer->rmap_type = 0;
+	peer->rmap_type = rmap_type;
 
 	if (ret == RMAP_DENYMATCH)
 		/*
