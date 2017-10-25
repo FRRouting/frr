@@ -10247,6 +10247,9 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 							output_count++;
 						} else
 							filtered_count++;
+
+						bgp_attr_undup(&attr,
+							       adj->attr);
 					}
 				}
 		}
