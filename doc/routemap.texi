@@ -5,8 +5,8 @@ Route maps provide a means to both filter and/or apply actions to
 route, hence allowing policy to be applied to routes.
 
 @menu
-* Route Map Command::           
-* Route Map Match Command::     
+* Route Map Command::
+* Route Map Match Command::
 * Route Map Set Command::
 * Route Map Call Command::
 * Route Map Exit Action Command::
@@ -157,6 +157,22 @@ Matches the specified @var{local-preference}.
 
 @deffn {Route-map Command} {match community @var{community_list}} {}
 Matches the specified  @var{community_list}
+@end deffn
+
+@deffn {Route-map Command} {match peer @var{ipv4_addr}} {}
+This is a BGP specific match command.  Matches the peer ip address
+if the neighbor was specified in this manner.
+@end deffn
+
+@deffn {Route-map Command} {match peer @var{ipv6_addr}} {}
+This is a BGP specific match command.  Matches the peer ipv6
+address if the neighbor was specified in this manner.
+@end deffn
+
+@deffn {Route-map Command} {match peer @var{interface_name}} {}
+This is a BGP specific match command.  Matches the peer
+interface name specified if the neighbor was specified
+in this manner.
 @end deffn
 
 @node Route Map Set Command
