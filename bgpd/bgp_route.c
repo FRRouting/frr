@@ -1157,49 +1157,50 @@ static int bgp_output_modifier(struct peer *peer, struct prefix *p,
 			       struct attr *attr, afi_t afi, safi_t safi,
 			       const char *rmap_name)
 {
-	struct bgp_filter *filter;
 	struct bgp_info info;
 	route_map_result_t ret;
 	struct route_map *rmap = NULL;
 
-	filter = &peer->filter[afi][safi];
+	/*
+	 * So if we get to this point and have no rmap_name
+	 * we want to just show the output as it currently
+	 * exists.
+	 */
+	if (!rmap_name)
+		return RMAP_PERMIT;
 
 	/* Apply default weight value. */
 	if (peer->weight[afi][safi])
 		attr->weight = peer->weight[afi][safi];
 
-	if (rmap_name) {
-		rmap = route_map_lookup_by_name(rmap_name);
+	rmap = route_map_lookup_by_name(rmap_name);
 
-		if (rmap == NULL)
-			return RMAP_DENY;
-	} else {
-		if (ROUTE_MAP_OUT_NAME(filter)) {
-			rmap = ROUTE_MAP_OUT(filter);
-
-			if (rmap == NULL)
-				return RMAP_DENY;
-		}
-	}
+	/*
+	 * If we have a route map name and we do not find
+	 * the routemap that means we have an implicit
+	 * deny.
+	 */
+	if (rmap == NULL)
+		return RMAP_DENY;
 
 	/* Route map apply. */
-	if (rmap) {
-		/* Duplicate current value to new strucutre for modification. */
-		info.peer = peer;
-		info.attr = attr;
+	/* Duplicate current value to new strucutre for modification. */
+	info.peer = peer;
+	info.attr = attr;
 
-		SET_FLAG(peer->rmap_type, PEER_RMAP_TYPE_OUT);
+	SET_FLAG(peer->rmap_type, PEER_RMAP_TYPE_OUT);
 
-		/* Apply BGP route map to the attribute. */
-		ret = route_map_apply(rmap, p, RMAP_BGP, &info);
+	/* Apply BGP route map to the attribute. */
+	ret = route_map_apply(rmap, p, RMAP_BGP, &info);
 
-		peer->rmap_type = 0;
+	peer->rmap_type = 0;
 
-		if (ret == RMAP_DENYMATCH)
-			/* caller has multiple error paths with bgp_attr_flush()
-			 */
-			return RMAP_DENY;
-	}
+	if (ret == RMAP_DENYMATCH)
+		/*
+		 * caller has multiple error paths with bgp_attr_flush()
+		 */
+		return RMAP_DENY;
+
 	return RMAP_PERMIT;
 }
 
