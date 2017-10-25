@@ -3388,7 +3388,7 @@ struct bgpevpn *bgp_evpn_new(struct bgp *bgp, vni_t vni,
 	vpn->import_rtl->cmp = (int (*)(void *, void *))evpn_route_target_cmp;
 	vpn->export_rtl = list_new();
 	vpn->export_rtl->cmp = (int (*)(void *, void *))evpn_route_target_cmp;
-	bf_assign_index(bgp->rd_idspace, vpn->rd_id);
+	bf_assign_index(bm->rd_idspace, vpn->rd_id);
 	derive_rd_rt_for_vni(bgp, vpn);
 
 	/* Initialize EVPN route table. */
@@ -3420,7 +3420,7 @@ void bgp_evpn_free(struct bgp *bgp, struct bgpevpn *vpn)
 	bgp_evpn_unmap_vni_from_its_rts(bgp, vpn);
 	list_delete_and_null(&vpn->import_rtl);
 	list_delete_and_null(&vpn->export_rtl);
-	bf_release_index(bgp->rd_idspace, vpn->rd_id);
+	bf_release_index(bm->rd_idspace, vpn->rd_id);
 	hash_release(bgp->vnihash, vpn);
 	QOBJ_UNREG(vpn);
 	XFREE(MTYPE_BGP_EVPN, vpn);
@@ -3882,7 +3882,6 @@ void bgp_evpn_cleanup(struct bgp *bgp)
 	if (bgp->l2vnis)
 		list_delete_and_null(&bgp->l2vnis);
 	bgp->l2vnis = NULL;
-	bf_free(bgp->rd_idspace);
 }
 
 /*
@@ -3912,9 +3911,6 @@ void bgp_evpn_init(struct bgp *bgp)
 	bgp->l2vnis = list_new();
 	bgp->l2vnis->cmp =
 		(int (*)(void *, void *))vni_hash_cmp;
-	bf_init(bgp->rd_idspace, UINT16_MAX);
-	/*assign 0th index in the bitfield, so that we start with id 1*/
-	bf_assign_zero_index(bgp->rd_idspace);
 }
 
 void bgp_evpn_vrf_delete(struct bgp *bgp_vrf)
