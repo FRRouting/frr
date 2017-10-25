@@ -807,23 +807,25 @@ static int vtysh_rl_describe(void)
 
 	fprintf(stdout, "\n");
 
+	describe = cmd_describe_command(vline, vty, &ret);
+
 	/* Ambiguous and no match error. */
 	switch (ret) {
 	case CMD_ERR_AMBIGUOUS:
 		cmd_free_strvec(vline);
+		vector_free(describe);
 		fprintf(stdout, "%% Ambiguous command.\n");
 		rl_on_new_line();
 		return 0;
 		break;
 	case CMD_ERR_NO_MATCH:
 		cmd_free_strvec(vline);
+		vector_free(describe);
 		fprintf(stdout, "%% There is no matched command.\n");
 		rl_on_new_line();
 		return 0;
 		break;
 	}
-
-	describe = cmd_describe_command(vline, vty, &ret);
 
 	/* Get width of command string. */
 	width = 0;
