@@ -132,6 +132,7 @@ struct zebra_t {
 	u_int32_t rtm_table_default;
 
 	/* rib work queue */
+	#define ZEBRA_RIB_PROCESS_HOLD_TIME 10
 	struct work_queue *ribq;
 	struct meta_queue *mq;
 
