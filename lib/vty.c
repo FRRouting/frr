@@ -2279,6 +2279,21 @@ static void vty_read_file(FILE *confp)
 		case CMD_ERR_NO_MATCH:
 			message = "No such command";
 			break;
+		case CMD_WARNING:
+			message = "Command returned Warning";
+			break;
+		case CMD_WARNING_CONFIG_FAILED:
+			message = "Command returned Warning Config Failed";
+			break;
+		case CMD_ERR_INCOMPLETE:
+			message = "Command returned Incomplete";
+			break;
+		case CMD_ERR_EXEED_ARGC_MAX:
+			message = "Command exceeded maximum number of Arguments";
+			break;
+		default:
+			message = "Command returned unhandled error message";
+			break;
 		}
 
 		nl = strchr(vty->error_buf, '\n');
