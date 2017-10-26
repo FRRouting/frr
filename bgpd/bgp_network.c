@@ -740,8 +740,10 @@ int bgp_socket(unsigned short port, const char *address)
 	}
 	freeaddrinfo(ainfo_save);
 	if (count == 0) {
-		zlog_err("%s: no usable addresses", __func__);
-		return -1;
+		zlog_err("%s: no usable addresses please check other programs usage of specified port %d",
+			 __func__, port);
+		zlog_err("%s: Program cannot continue", __func__);
+		exit(-1);
 	}
 
 	return 0;
