@@ -1338,12 +1338,14 @@ int bgp_redistribute_set(struct bgp *bgp, afi_t afi, int type, u_short instance)
 		vrf_bitmap_set(zclient->redist[afi][type], bgp->vrf_id);
 	}
 
-	/* Don't try to register if we're not connected to Zebra or Zebra
-	 * doesn't
-	 * know of this instance.
+	/*
+	 * Don't try to register if we're not connected to Zebra or Zebra
+	 * doesn't know of this instance.
+	 *
+	 * When we come up later well resend if needed.
 	 */
 	if (!bgp_install_info_to_zebra(bgp))
-		return CMD_WARNING_CONFIG_FAILED;
+		return CMD_SUCCESS;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Tx redistribute add VRF %u afi %d %s %d",
