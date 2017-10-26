@@ -574,7 +574,6 @@ void zclient_init(struct zclient *zclient, int redist_default,
 
 	/* Set default-information redistribute to zero. */
 	zclient->default_information = vrf_bitmap_init();
-	;
 
 	if (zclient_debug)
 		zlog_debug("zclient_start is called");
