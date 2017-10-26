@@ -690,7 +690,7 @@ def test_linux_mpls_routes():
             actual = re.sub(r"[0-9][0-9] via inet ", "xx via inet ", actual)
             actual = re.sub(r"[0-9][0-9]  proto", "xx  proto", actual)
             actual = re.sub(r"[0-9][0-9] as to ", "xx as to ", actual)
-            actual = re.sub(r"proto \w+", "proto xx", actual)
+            actual = re.sub(r"[ ]+proto \w+", "  proto xx", actual)
  
             # Fix newlines (make them all the same)
             actual = ('\n'.join(actual.splitlines()) + '\n').splitlines(1)
