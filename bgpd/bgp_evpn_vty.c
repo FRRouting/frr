@@ -1978,11 +1978,11 @@ static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
 			/* RD header and legend - once overall. */
 			if (rd_header && !json) {
 				vty_out(vty,
-					"EVPN type-2 prefix: [2]:[ESI]:[EthTag]:[MAClen]:"
-					"[MAC]\n");
+					"EVPN type-2 prefix: [2]:[ESI]:[EthTag]:[MAClen]:[MAC]\n");
 				vty_out(vty,
-					"EVPN type-3 prefix: [3]:[EthTag]:[IPlen]:"
-					"[OrigIP]\n\n");
+					"EVPN type-3 prefix: [3]:[EthTag]:[IPlen]:[OrigIP]\n");
+				vty_out(vty,
+					"EVPN type-5 prefix: [5]:[EthTag]:[IPlen]:[IP]\n\n");
 				rd_header = 0;
 			}
 
@@ -2437,6 +2437,105 @@ DEFUN (no_bgp_evpn_advertise_all_vni,
 	if (!bgp)
 		return CMD_WARNING;
 	evpn_unset_advertise_all_vni(bgp);
+	return CMD_SUCCESS;
+}
+
+DEFUN (bgp_evpn_advertise_type5,
+       bgp_evpn_advertise_type5_cmd,
+       "advertise <ipv4|ipv6|both>",
+       "Advertise prefix routes\n"
+       "advertise ipv4 prefix only\n"
+       "advertise ipv6 prefix only\n"
+       "advertise both ipv4/ipv6 prefix\n")
+{
+	struct bgp *bgp_vrf = VTY_GET_CONTEXT(bgp); /* bgp vrf instance */
+	uint32_t type = 0;
+
+	if (strcmp(argv[1]->text, "ipv4")) {
+		type = BGP_VRF_ADVERTISE_IPV4_IN_EVPN;
+	} else if (strcmp(argv[1]->text, "ipv6")) {
+		type = BGP_VRF_ADVERTISE_IPV4_IN_EVPN;
+	} else if (strcmp(argv[1]->text, "both")) {
+		type = BGP_VRF_ADVERTISE_IPV4_IN_EVPN |
+		       BGP_VRF_ADVERTISE_IPV6_IN_EVPN;
+	} else {
+		vty_out(vty, "%%invalid command");
+		return CMD_WARNING;
+	}
+
+	if (CHECK_FLAG(type, BGP_VRF_ADVERTISE_IPV4_IN_EVPN)) {
+
+		/* if we are already advertising ipv4 prefix as type-5
+		 * nothing to do */
+		if (!CHECK_FLAG(bgp_vrf->vrf_flags,
+				BGP_VRF_ADVERTISE_IPV4_IN_EVPN)) {
+			SET_FLAG(bgp_vrf->vrf_flags,
+				 BGP_VRF_ADVERTISE_IPV4_IN_EVPN);
+			bgp_evpn_advertise_type5_routes(bgp_vrf,
+							AFI_IP);
+		}
+	} else {
+
+		/* if we are already advertising ipv6 prefix as type-5
+		 * nothing to do */
+		if (!CHECK_FLAG(bgp_vrf->vrf_flags,
+				BGP_VRF_ADVERTISE_IPV6_IN_EVPN)) {
+			SET_FLAG(bgp_vrf->vrf_flags,
+				 BGP_VRF_ADVERTISE_IPV6_IN_EVPN);
+			bgp_evpn_advertise_type5_routes(bgp_vrf,
+							AFI_IP6);
+		}
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_evpn_advertise_type5,
+       no_bgp_evpn_advertise_type5_cmd,
+       "no advertise <ipv4|ipv6|both>",
+       NO_STR
+       "Advertise prefix routes\n"
+       "advertise ipv4 prefix only\n"
+       "advertise ipv6 prefix only\n"
+       "advertise both ipv4/ipv6 prefix\n")
+{
+	struct bgp *bgp_vrf = VTY_GET_CONTEXT(bgp); /* bgp vrf instance */
+	uint32_t type = 0;
+
+	if (strcmp(argv[1]->text, "ipv4")) {
+		type = BGP_VRF_ADVERTISE_IPV4_IN_EVPN;
+	} else if (strcmp(argv[1]->text, "ipv6")) {
+		type = BGP_VRF_ADVERTISE_IPV4_IN_EVPN;
+	} else if (strcmp(argv[1]->text, "both")) {
+		type = BGP_VRF_ADVERTISE_IPV4_IN_EVPN |
+		       BGP_VRF_ADVERTISE_IPV6_IN_EVPN;
+	} else {
+		vty_out(vty, "%%invalid command");
+		return CMD_WARNING;
+	}
+
+	if (CHECK_FLAG(type, BGP_VRF_ADVERTISE_IPV4_IN_EVPN)) {
+
+		/* if we are already advertising ipv4 prefix as type-5
+		 * nothing to do */
+		if (CHECK_FLAG(bgp_vrf->vrf_flags,
+			       BGP_VRF_ADVERTISE_IPV4_IN_EVPN)) {
+			bgp_evpn_withdraw_type5_routes(bgp_vrf, AFI_IP);
+			UNSET_FLAG(bgp_vrf->vrf_flags,
+				   BGP_VRF_ADVERTISE_IPV4_IN_EVPN);
+		}
+	} else {
+
+		/* if we are already advertising ipv6 prefix as type-5
+		 * nothing to do */
+		if (CHECK_FLAG(bgp_vrf->vrf_flags,
+			       BGP_VRF_ADVERTISE_IPV6_IN_EVPN)) {
+			bgp_evpn_withdraw_type5_routes(bgp_vrf,
+						       AFI_IP6);
+			UNSET_FLAG(bgp_vrf->vrf_flags,
+				   BGP_VRF_ADVERTISE_IPV6_IN_EVPN);
+		}
+	}
 	return CMD_SUCCESS;
 }
 
@@ -3955,6 +4054,8 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_all_vni_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_default_gw_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_default_gw_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_type5_cmd);
+	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_type5_cmd);
 
 	/* "show bgp l2vpn evpn" commands. */
 	install_element(VIEW_NODE, &show_bgp_l2vpn_evpn_vni_cmd);
