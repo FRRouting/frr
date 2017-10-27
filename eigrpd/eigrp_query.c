@@ -160,49 +160,91 @@ void eigrp_query_receive(struct eigrp *eigrp, struct ip *iph,
 
 void eigrp_send_query(struct eigrp_interface *ei)
 {
-	struct eigrp_packet *ep;
+	struct eigrp_packet *ep = NULL;
 	u_int16_t length = EIGRP_HEADER_LEN;
 	struct listnode *node, *nnode, *node2, *nnode2;
 	struct eigrp_neighbor *nbr;
 	struct eigrp_prefix_entry *pe;
 	bool has_tlv = false;
-	bool ep_saved = false;
-
-	ep = eigrp_packet_new(ei->ifp->mtu, NULL);
-
-	/* Prepare EIGRP INIT UPDATE header */
-	eigrp_packet_header_init(EIGRP_OPC_QUERY, ei->eigrp, ep->s, 0,
-				 ei->eigrp->sequence_number, 0);
-
-	// encode Authentication TLV, if needed
-	if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
-	    && (ei->params.auth_keychain != NULL)) {
-		length += eigrp_add_authTLV_MD5_to_stream(ep->s, ei);
-	}
+	bool new_packet = true;
 
 	for (ALL_LIST_ELEMENTS(ei->eigrp->topology_changes_internalIPV4, node,
 			       nnode, pe)) {
 		if (!(pe->req_action & EIGRP_FSM_NEED_QUERY))
 			continue;
 
-		length += eigrp_add_internalTLV_to_stream(ep->s, pe);
-		for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
-			if (nbr->state == EIGRP_NEIGHBOR_UP) {
-				listnode_add(pe->rij, nbr);
-				has_tlv = true;;
+		if (new_packet) {
+			ep = eigrp_packet_new(ei->ifp->mtu, NULL);
+
+			/* Prepare EIGRP INIT UPDATE header */
+			eigrp_packet_header_init(EIGRP_OPC_QUERY,
+						 ei->eigrp, ep->s, 0,
+						 ei->eigrp->sequence_number, 0);
+
+			// encode Authentication TLV, if needed
+			if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
+			    && (ei->params.auth_keychain != NULL)) {
+				length +=
+					eigrp_add_authTLV_MD5_to_stream(ep->s,
+									ei);
 			}
+			new_packet = false;
+		}
+
+		length += eigrp_add_internalTLV_to_stream(ep->s, pe);
+		has_tlv = true;
+		for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
+			if (nbr->state == EIGRP_NEIGHBOR_UP)
+				listnode_add(pe->rij, nbr);
+		}
+
+		if (length + EIGRP_TLV_MAX_IPV4_BYTE > (uint16_t)ei->ifp->mtu) {
+			if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
+			    && ei->params.auth_keychain != NULL) {
+				eigrp_make_md5_digest(ei, ep->s,
+						      EIGRP_AUTH_UPDATE_FLAG);
+			}
+
+			eigrp_packet_checksum(ei, ep->s, length);
+			ep->length = length;
+
+			ep->dst.s_addr = htonl(EIGRP_MULTICAST_ADDRESS);
+
+			ep->sequence_number = ei->eigrp->sequence_number;
+			ei->eigrp->sequence_number++;
+
+			for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
+				struct eigrp_packet *dup;
+
+				if (nbr->state != EIGRP_NEIGHBOR_UP)
+					continue;
+
+				dup = eigrp_packet_duplicate(ep, nbr);
+				/*Put packet to retransmission queue*/
+				eigrp_fifo_push(nbr->retrans_queue, dup);
+
+				if (nbr->retrans_queue->count == 1)
+					eigrp_send_packet_reliably(nbr);
+			}
+
+			has_tlv = false;
+			length = 0;
+			eigrp_packet_free(ep);
+			ep = NULL;
+			new_packet = true;
 		}
 	}
 
 	if (!has_tlv) {
-		eigrp_packet_free(ep);
+		if (ep)
+			eigrp_packet_free(ep);
 		return;
 	}
 
 	if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
-	    && ei->params.auth_keychain != NULL) {
+	    && ei->params.auth_keychain != NULL)
 		eigrp_make_md5_digest(ei, ep->s, EIGRP_AUTH_UPDATE_FLAG);
-	}
+
 
 	/* EIGRP Checksum */
 	eigrp_packet_checksum(ei, ep->s, length);
@@ -215,17 +257,18 @@ void eigrp_send_query(struct eigrp_interface *ei)
 	ei->eigrp->sequence_number++;
 
 	for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
-		if (nbr->state == EIGRP_NEIGHBOR_UP) {
-			/*Put packet to retransmission queue*/
-			eigrp_fifo_push(nbr->retrans_queue, ep);
-			ep_saved = true;
+		struct eigrp_packet *dup;
 
-			if (nbr->retrans_queue->count == 1) {
-				eigrp_send_packet_reliably(nbr);
-			}
-		}
+		if (nbr->state != EIGRP_NEIGHBOR_UP)
+			continue;
+
+		dup = eigrp_packet_duplicate(ep, nbr);
+		/*Put packet to retransmission queue*/
+		eigrp_fifo_push(nbr->retrans_queue, dup);
+
+		if (nbr->retrans_queue->count == 1)
+			eigrp_send_packet_reliably(nbr);
 	}
 
-	if (!ep_saved)
-		eigrp_packet_free(ep);
+	eigrp_packet_free(ep);
 }
