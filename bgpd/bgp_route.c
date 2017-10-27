@@ -8158,8 +8158,8 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 
 	if (use_json && header) {
 		vty_out(vty,
-			"{ \"vrfId\": %d, \"vrfName\": \"%s\", \"tableVersion\": %" PRId64
-			", \"routerId\": \"%s\", \"routes\": { ",
+			"{\n \"vrfId\": %d,\n \"vrfName\": \"%s\",\n \"tableVersion\": %" PRId64
+			",\n \"routerId\": \"%s\",\n \"routes\": { ",
 			bgp->vrf_id == VRF_UNKNOWN ? -1 : bgp->vrf_id,
 			bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT ? "Default"
 								    : bgp->name,
@@ -8378,7 +8378,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				p->prefixlen);
 			vty_out(vty, "\"%s\": ", buf2);
 			vty_out(vty, "%s",
-				json_object_to_json_string(json_paths));
+				json_object_to_json_string_ext(json_paths, JSON_C_TO_STRING_PRETTY));
 			json_object_free(json_paths);
 			first = 0;
 		}
@@ -9434,8 +9434,8 @@ static struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 						"malformedAddressOrName",
 						ip_str);
 					vty_out(vty, "%s\n",
-						json_object_to_json_string(
-							json_no));
+						json_object_to_json_string_ext(
+							json_no, JSON_C_TO_STRING_PRETTY));
 					json_object_free(json_no);
 				} else
 					vty_out(vty,
@@ -9456,7 +9456,8 @@ static struct peer *peer_lookup_in_view(struct vty *vty, struct bgp *bgp,
 			json_object_string_add(json_no, "warning",
 					       "No such neighbor");
 			vty_out(vty, "%s\n",
-				json_object_to_json_string(json_no));
+				json_object_to_json_string_ext(json_no,
+							       JSON_C_TO_STRING_PRETTY));
 			json_object_free(json_no);
 		} else
 			vty_out(vty, "No such neighbor\n");
@@ -9865,7 +9866,8 @@ static int bgp_peer_counts(struct vty *vty, struct peer *peer, afi_t afi,
 				json, "recommended",
 				"Please report this bug, with the above command output");
 		}
-		vty_out(vty, "%s\n", json_object_to_json_string(json));
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(json,
+								    JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	} else {
 
@@ -10243,7 +10245,8 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 				output_count);
 	}
 	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string(json));
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(json,
+								    JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 }
