@@ -424,10 +424,11 @@ struct bgp {
 	/* vrf flags */
 	uint32_t vrf_flags;
 #define BGP_VRF_AUTO                        (1 << 0)
-#define BGP_VRF_ADVERTISE_EVPN_PREFIX_ROUTE (1 << 1)
-#define BGP_VRF_IMPORT_RT_CFGD              (1 << 2)
-#define BGP_VRF_EXPORT_RT_CFGD              (1 << 3)
-#define BGP_VRF_RD_CFGD                     (1 << 4)
+#define BGP_VRF_ADVERTISE_IPV4_IN_EVPN      (1 << 1)
+#define BGP_VRF_ADVERTISE_IPV6_IN_EVPN      (1 << 2)
+#define BGP_VRF_IMPORT_RT_CFGD              (1 << 3)
+#define BGP_VRF_EXPORT_RT_CFGD              (1 << 4)
+#define BGP_VRF_RD_CFGD                     (1 << 5)
 
 	/* unique ID for auto derivation of RD for this vrf */
 	uint16_t vrf_rd_id;

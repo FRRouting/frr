@@ -33,6 +33,7 @@
 /* EVPN prefix lengths. */
 #define EVPN_TYPE_2_ROUTE_PREFIXLEN      224
 #define EVPN_TYPE_3_ROUTE_PREFIXLEN      224
+#define EVPN_TYPE_5_ROUTE_PREFIXLEN      168
 
 /* EVPN route types. */
 typedef enum {
@@ -128,11 +129,14 @@ static inline int bgp_evpn_vrf_rd_matches_existing(struct bgp *bgp_vrf,
 
 static inline int is_evpn_prefix_routes_adv_enabled(struct bgp *bgp_vrf)
 {
-	if (!bgp_vrf->l3vni ||
-	    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_ADVERTISE_EVPN_PREFIX_ROUTE))
+	if (!bgp_vrf->l3vni)
 		return 0;
 
-	return 1;
+	if (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_ADVERTISE_IPV4_IN_EVPN) ||
+	    CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_ADVERTISE_IPV6_IN_EVPN))
+		return 1;
+
+	return 0;
 }
 
 static inline vni_t bgpevpn_get_l3vni(struct bgpevpn *vpn)
@@ -310,6 +314,31 @@ static inline void build_evpn_type2_prefix(struct prefix_evpn *p,
 	p->prefix.ip.ipa_type = IPADDR_NONE;
 	if (ip)
 		memcpy(&p->prefix.ip, ip, sizeof(*ip));
+}
+
+static inline void build_type5_prefix_from_ip_prefix(struct prefix_evpn *evp,
+						     struct prefix *ip_prefix)
+{
+	struct ipaddr ip;
+
+	memset(&ip, 0, sizeof(struct ipaddr));
+	if (ip_prefix->family == AF_INET) {
+		ip.ipa_type = IPADDR_V4;
+		memcpy(&ip.ipaddr_v4, &ip_prefix->u.prefix4,
+		       sizeof(struct in_addr));
+	} else {
+		ip.ipa_type = IPADDR_V6;
+		memcpy(&ip.ipaddr_v6, &ip_prefix->u.prefix6,
+		       sizeof(struct in6_addr));
+	}
+
+	memset(evp, 0, sizeof(struct prefix_evpn));
+	evp->family = AF_EVPN;
+	evp->prefixlen = EVPN_TYPE_5_ROUTE_PREFIXLEN;
+	evp->prefix.ip_prefix_length = ip_prefix->prefixlen;
+	evp->prefix.route_type = BGP_EVPN_IP_PREFIX_ROUTE;
+	evp->prefix.ip.ipa_type = ip.ipa_type;
+	memcpy(&evp->prefix.ip, &ip, sizeof(struct ipaddr));
 }
 
 static inline void build_evpn_type3_prefix(struct prefix_evpn *p,
