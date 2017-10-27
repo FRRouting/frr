@@ -16,6 +16,6 @@ usr/share/man/man8/zebra.8
 usr/share/man/man8/isisd.8
 usr/share/man/man8/watchfrr.8
 usr/share/snmp/mibs/
-cumulus/etc/* etc/
+tools/etc/* etc/
 tools/*.service    lib/systemd/system
 debian/frr.conf  usr/lib/tmpfiles.d
