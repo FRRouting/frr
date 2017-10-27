@@ -188,8 +188,6 @@ def process_file(fn, ofd, dumpfd, all_defun):
     for entry in filedata['data']:
         if entry['type'] == 'DEFPY' or (all_defun and entry['type'].startswith('DEFUN')):
             cmddef = entry['args'][2]
-            for i in cmddef:
-                assert i.startswith('"') and i.endswith('"')
             cmddef = ''.join([i[1:-1] for i in cmddef])
 
             graph = clippy.Graph(cmddef)
