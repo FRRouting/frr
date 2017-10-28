@@ -235,6 +235,20 @@ static const char *fsm_state2str(enum eigrp_fsm_events event)
 
 	return "Unknown";
 }
+
+static const char *change2str(enum metric_change change)
+{
+	switch (change) {
+	case METRIC_DECREASE:
+		return "Decrease";
+	case METRIC_SAME:
+		return "Same";
+	case METRIC_INCREASE:
+		return "Increase";
+	}
+
+	return "Unknown";
+}
 /*
  * Main function in which are make decisions which event occurred.
  * msg - argument of type struct eigrp_fsm_action_message contain
@@ -266,6 +280,9 @@ static enum eigrp_fsm_events eigrp_get_fsm_event(
 	 * in entries list
 	 */
 	change = eigrp_topology_update_distance(msg);
+
+	/* Store for display later */
+	msg->change = change;
 
 	switch (actual_state) {
 	case EIGRP_FSM_STATE_PASSIVE: {
@@ -331,7 +348,8 @@ static enum eigrp_fsm_events eigrp_get_fsm_event(
 				zlog_info("All reply received\n");
 				return EIGRP_FSM_EVENT_LR;
 			}
-		} else if (msg->packet_type == EIGRP_OPC_UPDATE && change == 1
+		} else if (msg->packet_type == EIGRP_OPC_UPDATE
+			   && change == METRIC_INCREASE
 			   && (entry->flags
 			       & EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)) {
 			return EIGRP_FSM_EVENT_DINC;
@@ -376,7 +394,8 @@ static enum eigrp_fsm_events eigrp_get_fsm_event(
 				zlog_info("All reply received\n");
 				return EIGRP_FSM_EVENT_LR;
 			}
-		} else if (msg->packet_type == EIGRP_OPC_UPDATE && change == 1
+		} else if (msg->packet_type == EIGRP_OPC_UPDATE
+			   && change == METRIC_INCREASE
 			   && (entry->flags
 			       & EIGRP_NEXTHOP_ENTRY_SUCCESSOR_FLAG)) {
 			return EIGRP_FSM_EVENT_DINC;
@@ -398,12 +417,13 @@ int eigrp_fsm_event(struct eigrp_fsm_action_message *msg)
 {
 	enum eigrp_fsm_events event = eigrp_get_fsm_event(msg);
 
-	zlog_info("EIGRP AS: %d State: %s Event: %s Network: %s Packet Type: %s Reply RIJ Count: %d",
+	zlog_info("EIGRP AS: %d State: %s Event: %s Network: %s Packet Type: %s Reply RIJ Count: %d change: %s",
 		  msg->eigrp->AS, prefix_state2str(msg->prefix->state),
 		  fsm_state2str(event),
 		  eigrp_topology_ip_string(msg->prefix),
 		  packet_type2str(msg->packet_type),
-		  msg->prefix->rij->count);
+		  msg->prefix->rij->count,
+		  change2str(msg->change));
 	(*(NSM[msg->prefix->state][event].func))(msg);
 
 	return 1;
