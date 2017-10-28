@@ -170,6 +170,24 @@ struct {
 	},
 };
 
+static const char *prefix_state2str(enum eigrp_fsm_states state)
+{
+	switch (state) {
+	case EIGRP_FSM_STATE_PASSIVE:
+		return "Passive";
+	case EIGRP_FSM_STATE_ACTIVE_0:
+		return "Active oij0";
+	case EIGRP_FSM_STATE_ACTIVE_1:
+		return "Active oij1";
+	case EIGRP_FSM_STATE_ACTIVE_2:
+		return "Active oij2";
+	case EIGRP_FSM_STATE_ACTIVE_3:
+		return "Active oij3";
+	}
+
+	return "Unknown";
+}
+
 /*
  * Main function in which are make decisions which event occurred.
  * msg - argument of type struct eigrp_fsm_action_message contain
@@ -331,9 +349,9 @@ static int eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
 int eigrp_fsm_event(struct eigrp_fsm_action_message *msg)
 {
 	int event = eigrp_get_fsm_event(msg);
-	zlog_info("EIGRP AS: %d State: %d  Event: %d Network: %s",
-		  msg->eigrp->AS, msg->prefix->state, event,
-		  eigrp_topology_ip_string(msg->prefix));
+	zlog_info("EIGRP AS: %d State: %s Event: %d Network: %s",
+		  msg->eigrp->AS, prefix_state2str(msg->prefix->state),
+		  event, eigrp_topology_ip_string(msg->prefix));
 	(*(NSM[msg->prefix->state][event].func))(msg);
 
 	return 1;
