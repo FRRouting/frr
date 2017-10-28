@@ -170,6 +170,30 @@ struct {
 	},
 };
 
+static const char *packet_type2str(u_char packet_type)
+{
+	if (packet_type == EIGRP_OPC_UPDATE)
+		return "Update";
+	if (packet_type == EIGRP_OPC_REQUEST)
+		return "Request";
+	if (packet_type == EIGRP_OPC_QUERY)
+		return "Query";
+	if (packet_type == EIGRP_OPC_REPLY)
+		return "Reply";
+	if (packet_type == EIGRP_OPC_HELLO)
+		return "Hello";
+	if (packet_type == EIGRP_OPC_IPXSAP)
+		return "IPXSAP";
+	if (packet_type == EIGRP_OPC_ACK)
+		return "Ack";
+	if (packet_type == EIGRP_OPC_SIAQUERY)
+		return "SIA Query";
+	if (packet_type == EIGRP_OPC_SIAREPLY)
+		return "SIA Reply";
+
+	return "Unknown";
+}
+
 static const char *prefix_state2str(enum eigrp_fsm_states state)
 {
 	switch (state) {
@@ -374,10 +398,12 @@ int eigrp_fsm_event(struct eigrp_fsm_action_message *msg)
 {
 	enum eigrp_fsm_events event = eigrp_get_fsm_event(msg);
 
-	zlog_info("EIGRP AS: %d State: %s Event: %s Network: %s",
+	zlog_info("EIGRP AS: %d State: %s Event: %s Network: %s Packet Type: %s Reply RIJ Count: %d",
 		  msg->eigrp->AS, prefix_state2str(msg->prefix->state),
 		  fsm_state2str(event),
-		  eigrp_topology_ip_string(msg->prefix));
+		  eigrp_topology_ip_string(msg->prefix),
+		  packet_type2str(msg->packet_type),
+		  msg->prefix->rij->count);
 	(*(NSM[msg->prefix->state][event].func))(msg);
 
 	return 1;
