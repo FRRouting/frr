@@ -573,7 +573,7 @@ static void vnc_import_bgp_add_route_mode_resolve_nve(
 	struct bgp_node *bnp; /* prd table node */
 
 	/*debugging */
-	{
+	if (VNC_DEBUG(VERBOSE)) {
 		char str_pfx[BUFSIZ];
 		char str_nh[BUFSIZ];
 		struct prefix nh;
@@ -2637,7 +2637,7 @@ void vnc_import_bgp_add_route(struct bgp *bgp, struct prefix *prefix,
 {
 	afi_t afi = family2afi(prefix->family);
 
-	{
+	if (VNC_DEBUG(VERBOSE)) {
 		struct prefix pfx_nexthop;
 		char buf[BUFSIZ];
 		char buf_nh[BUFSIZ];

@@ -643,7 +643,7 @@ encap_attr_export(struct attr *new, struct attr *orig,
 	if (rn) {
 		ecom_ro = vnc_route_origin_ecom(rn);
 	} else {
-		/* TBD test/assert for IPv6 */
+		/* TBD  use lcom for IPv6 */
 		ecom_ro = vnc_route_origin_ecom_single(&use_nexthop->u.prefix4);
 	}
 	if (new->ecommunity) {
