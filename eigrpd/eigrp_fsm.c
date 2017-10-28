@@ -188,6 +188,29 @@ static const char *prefix_state2str(enum eigrp_fsm_states state)
 	return "Unknown";
 }
 
+static const char *fsm_state2str(enum eigrp_fsm_events event)
+{
+	switch (event) {
+	case EIGRP_FSM_KEEP_STATE:
+		return "Keep State Event";
+	case EIGRP_FSM_EVENT_NQ_FCN:
+		return "Non Query Event Feasability not satisfied";
+	case EIGRP_FSM_EVENT_LR:
+		return "Last Reply Event";
+	case EIGRP_FSM_EVENT_Q_FCN:
+		return "Query Event Feasability not satisified";
+	case EIGRP_FSM_EVENT_LR_FCS:
+		return "Last Reply Event Feasability satisified";
+	case EIGRP_FSM_EVENT_DINC:
+		return "Distance Increase Event";
+	case EIGRP_FSM_EVENT_QACT:
+		return "Query from Successor while in active state";
+	case EIGRP_FSM_EVENT_LR_FCN:
+		return "Last Reply Event, Feasibility not satisfied";
+	};
+
+	return "Unknown";
+}
 /*
  * Main function in which are make decisions which event occurred.
  * msg - argument of type struct eigrp_fsm_action_message contain
@@ -196,7 +219,8 @@ static const char *prefix_state2str(enum eigrp_fsm_states state)
  * Return number of occurred event (arrow in diagram).
  *
  */
-static int eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
+static enum eigrp_fsm_events eigrp_get_fsm_event(
+	struct eigrp_fsm_action_message *msg)
 {
 	// Loading base information from message
 	// struct eigrp *eigrp = msg->eigrp;
@@ -348,10 +372,12 @@ static int eigrp_get_fsm_event(struct eigrp_fsm_action_message *msg)
  */
 int eigrp_fsm_event(struct eigrp_fsm_action_message *msg)
 {
-	int event = eigrp_get_fsm_event(msg);
-	zlog_info("EIGRP AS: %d State: %s Event: %d Network: %s",
+	enum eigrp_fsm_events event = eigrp_get_fsm_event(msg);
+
+	zlog_info("EIGRP AS: %d State: %s Event: %s Network: %s",
 		  msg->eigrp->AS, prefix_state2str(msg->prefix->state),
-		  event, eigrp_topology_ip_string(msg->prefix));
+		  fsm_state2str(event),
+		  eigrp_topology_ip_string(msg->prefix));
 	(*(NSM[msg->prefix->state][event].func))(msg);
 
 	return 1;
