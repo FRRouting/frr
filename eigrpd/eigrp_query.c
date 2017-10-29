@@ -183,13 +183,14 @@ void eigrp_send_query(struct eigrp_interface *ei)
 	has_tlv = 0;
 	for (ALL_LIST_ELEMENTS(ei->eigrp->topology_changes_internalIPV4, node,
 			       nnode, pe)) {
-		if (pe->req_action & EIGRP_FSM_NEED_QUERY) {
-			length += eigrp_add_internalTLV_to_stream(ep->s, pe);
-			for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
-				if (nbr->state == EIGRP_NEIGHBOR_UP) {
-					listnode_add(pe->rij, nbr);
-					has_tlv = 1;
-				}
+		if (!(pe->req_action & EIGRP_FSM_NEED_QUERY))
+			continue;
+
+		length += eigrp_add_internalTLV_to_stream(ep->s, pe);
+		for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
+			if (nbr->state == EIGRP_NEIGHBOR_UP) {
+				listnode_add(pe->rij, nbr);
+				has_tlv = 1;
 			}
 		}
 	}
@@ -212,6 +213,7 @@ void eigrp_send_query(struct eigrp_interface *ei)
 
 	/*This ack number we await from neighbor*/
 	ep->sequence_number = ei->eigrp->sequence_number;
+	ei->eigrp->sequence_number++;
 
 	for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
 		if (nbr->state == EIGRP_NEIGHBOR_UP) {
