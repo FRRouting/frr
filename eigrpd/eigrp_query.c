@@ -165,7 +165,7 @@ void eigrp_send_query(struct eigrp_interface *ei)
 	struct listnode *node, *nnode, *node2, *nnode2;
 	struct eigrp_neighbor *nbr;
 	struct eigrp_prefix_entry *pe;
-	char has_tlv;
+	bool has_tlv = false;
 	bool ep_saved = false;
 
 	ep = eigrp_packet_new(ei->ifp->mtu, NULL);
@@ -180,7 +180,6 @@ void eigrp_send_query(struct eigrp_interface *ei)
 		length += eigrp_add_authTLV_MD5_to_stream(ep->s, ei);
 	}
 
-	has_tlv = 0;
 	for (ALL_LIST_ELEMENTS(ei->eigrp->topology_changes_internalIPV4, node,
 			       nnode, pe)) {
 		if (!(pe->req_action & EIGRP_FSM_NEED_QUERY))
@@ -190,7 +189,7 @@ void eigrp_send_query(struct eigrp_interface *ei)
 		for (ALL_LIST_ELEMENTS(ei->nbrs, node2, nnode2, nbr)) {
 			if (nbr->state == EIGRP_NEIGHBOR_UP) {
 				listnode_add(pe->rij, nbr);
-				has_tlv = 1;
+				has_tlv = true;;
 			}
 		}
 	}
