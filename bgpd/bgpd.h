@@ -418,6 +418,9 @@ struct bgp {
 	/* router-mac to be used in mac-ip routes for this vrf */
 	struct ethaddr rmac;
 
+	/* originator ip - to be used as NH for type-5 routes */
+	struct in_addr originator_ip;
+
 	/* vrf flags */
 	uint32_t vrf_flags;
 #define BGP_VRF_AUTO                        (1 << 0)

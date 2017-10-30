@@ -97,6 +97,9 @@ struct zebra_l3vni_t_ {
 	/* vrf_id */
 	vrf_id_t vrf_id;
 
+	/* Local IP */
+	struct in_addr local_vtep_ip;
+
 	/* kernel interface for l3vni */
 	struct interface *vxlan_if;
 

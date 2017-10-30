@@ -3709,7 +3709,8 @@ static void link_l2vni_hash_to_l3vni(struct hash_backet *backet,
 
 int bgp_evpn_local_l3vni_add(vni_t l3vni,
 			     vrf_id_t vrf_id,
-			     struct ethaddr *rmac)
+			     struct ethaddr *rmac,
+			     struct in_addr originator_ip)
 {
 	struct bgp *bgp_vrf = NULL; /* bgp VRF instance */
 	struct bgp *bgp_def = NULL; /* default bgp instance */
@@ -3756,6 +3757,9 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni,
 
 	/* set the router mac - to be used in mac-ip routes for this vrf */
 	memcpy(&bgp_vrf->rmac, rmac, sizeof(struct ethaddr));
+
+	/* set the originator ip */
+	bgp_vrf->originator_ip = originator_ip;
 
 	/* auto derive RD/RT */
 	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD))

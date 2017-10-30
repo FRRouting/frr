@@ -46,7 +46,8 @@ extern int bgp_evpn_local_macip_del(struct bgp *bgp, vni_t vni,
 extern int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni,
 				    struct ethaddr *mac, struct ipaddr *ip,
 				    u_char flags);
-extern int bgp_evpn_local_l3vni_add(vni_t, vrf_id_t, struct ethaddr *);
+extern int bgp_evpn_local_l3vni_add(vni_t, vrf_id_t, struct ethaddr *,
+				    struct in_addr originator_ip);
 extern int bgp_evpn_local_l3vni_del(vni_t, vrf_id_t);
 extern int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni);
 extern int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
