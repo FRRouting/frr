@@ -3484,6 +3484,8 @@ DEFUN (show_bgp_vrf_l3vni_info,
 
 	if (!json) {
 		vty_out(vty, "BGP VRF: %s\n", name);
+		vty_out(vty, "  Local-Ip: %s\n",
+			inet_ntoa(bgp->originator_ip));
 		vty_out(vty, "  L3-VNI: %u\n", bgp->l3vni);
 		vty_out(vty, "  Rmac: %s\n",
 			prefix_mac2str(&bgp->rmac, buf, sizeof(buf)));
@@ -3506,6 +3508,8 @@ DEFUN (show_bgp_vrf_l3vni_info,
 			prefix_rd2str(&bgp->vrf_prd, buf1, RD_ADDRSTRLEN));
 	} else {
 		json_object_string_add(json, "vrf", name);
+		json_object_string_add(json, "local-ip",
+				       inet_ntoa(bgp->originator_ip));
 		json_object_int_add(json, "l3vni", bgp->l3vni);
 		json_object_string_add(json, "rmac",
 				       prefix_mac2str(&bgp->rmac, buf,

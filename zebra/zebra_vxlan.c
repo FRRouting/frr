@@ -906,6 +906,8 @@ static void zl3vni_print(zebra_l3vni_t *zl3vni, void **ctx)
 
 	if (!json) {
 		vty_out(vty, "VNI: %u\n", zl3vni->vni);
+		vty_out(vty, "  Local Vtep Ip: %s",
+			inet_ntoa(zl3vni->local_vtep_ip));
 		vty_out(vty, "  Vxlan-Intf: %s\n",
 			zl3vni_vxlan_if_name(zl3vni));
 		vty_out(vty, "  SVI-If: %s\n",
@@ -923,6 +925,8 @@ static void zl3vni_print(zebra_l3vni_t *zl3vni, void **ctx)
 	} else {
 		json_vni_list = json_object_new_array();
 		json_object_int_add(json, "vni", zl3vni->vni);
+		json_object_string_add(json, "local-vtep-ip",
+				       inet_ntoa(zl3vni->local_vtep_ip));
 		json_object_string_add(json, "vxlan-intf",
 				       zl3vni_vxlan_if_name(zl3vni));
 		json_object_string_add(json, "svi-if",
@@ -1043,8 +1047,9 @@ static void zl3vni_print_hash(struct hash_backet *backet,
 		return;
 
 	if (!json) {
-		vty_out(vty, "%-10u %-20s %-20s %-5s %-37s %-18s\n",
+		vty_out(vty, "%-10u %-15s %-20s %-20s %-5s %-37s %-18s\n",
 			zl3vni->vni,
+			inet_ntoa(zl3vni->local_vtep_ip),
 			zl3vni_vxlan_if_name(zl3vni),
 			zl3vni_svi_if_name(zl3vni),
 			zl3vni_state2str(zl3vni),
@@ -1056,6 +1061,8 @@ static void zl3vni_print_hash(struct hash_backet *backet,
 		snprintf(vni_str, VNI_STR_LEN, "%u", zl3vni->vni);
 		json_vni = json_object_new_object();
 		json_object_int_add(json_vni, "vni", zl3vni->vni);
+		json_object_string_add(json_vni, "local-ip",
+				       inet_ntoa(zl3vni->local_vtep_ip));
 		json_object_string_add(json_vni, "vxlan-if",
 				       zl3vni_vxlan_if_name(zl3vni));
 		json_object_string_add(json_vni, "svi-if",
@@ -2615,6 +2622,7 @@ static void zvni_build_hash_table()
 			}
 
 			/* associate with vxlan_if */
+			zl3vni->local_vtep_ip = vxl->vtep_ip;
 			zl3vni->vxlan_if = ifp;
 
 			/* we need to associate with SVI.
@@ -3393,8 +3401,10 @@ static struct interface *zl3vni_map_to_vxlan_if(zebra_l3vni_t *zl3vni)
 			continue;
 
 		vxl = &zif->l2info.vxl;
-		if (vxl->vni == zl3vni->vni)
+		if (vxl->vni == zl3vni->vni) {
+			zl3vni->local_vtep_ip = vxl->vtep_ip;
 			return ifp;
+		}
 	}
 
 	return NULL;
@@ -3526,14 +3536,16 @@ static int zl3vni_send_add_to_client(zebra_l3vni_t *zl3vni)
 			    zl3vni_vrf_id(zl3vni));
 	stream_putl(s, zl3vni->vni);
 	stream_put(s, &rmac, sizeof(struct ethaddr));
+	stream_put_in_addr(s, &zl3vni->local_vtep_ip);
 
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("Send L3_VNI_ADD %u VRF %s RMAC %s to %s",
+		zlog_debug("Send L3_VNI_ADD %u VRF %s RMAC %s local-ip %s to %s",
 			   zl3vni->vni, vrf_id_to_name(zl3vni_vrf_id(zl3vni)),
 			   prefix_mac2str(&rmac, buf, sizeof(buf)),
+			   inet_ntoa(zl3vni->local_vtep_ip),
 			   zebra_route_string(client->proto));
 
 	client->l3vniadd_cnt++;
@@ -4052,8 +4064,9 @@ void zebra_vxlan_print_l3vnis(struct vty *vty, u_char use_json)
 		json_object_int_add(json, "numVnis", num_vnis);
 	} else {
 		vty_out(vty, "Number of L3 VNIs: %u\n", num_vnis);
-		vty_out(vty, "%-10s %-20s %-20s %-5s %-37s %-18s\n", "VNI",
-			"Vx-intf", "L3-SVI", "State", "VRF", "Rmac");
+		vty_out(vty, "%-10s %-15s %-20s %-20s %-5s %-37s %-18s\n",
+			"VNI", "Local-ip", "Vx-intf", "L3-SVI", "State",
+			"VRF", "Rmac");
 	}
 
 	args[0] = vty;
@@ -5965,6 +5978,7 @@ int zebra_vxlan_if_del(struct interface *ifp)
 		zebra_vxlan_process_l3vni_oper_down(zl3vni);
 
 		/* remove the association with vxlan_if */
+		memset(&zl3vni->local_vtep_ip, 0, sizeof(struct in_addr));
 		zl3vni->vxlan_if = NULL;
 	} else {
 
@@ -6201,6 +6215,7 @@ int zebra_vxlan_if_add(struct interface *ifp)
 		}
 
 		/* associate with vxlan_if */
+		zl3vni->local_vtep_ip = vxl->vtep_ip;
 		zl3vni->vxlan_if = ifp;
 
 		/* Associate with SVI, if any. We can associate with svi-if only
