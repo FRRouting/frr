@@ -1459,9 +1459,11 @@ DEFUN (vnc_export_nvegroup,
 
 	rfg_new = bgp_rfapi_cfg_match_byname(bgp, argv[5]->arg,
 					     RFAPI_GROUP_CFG_NVE);
-	if (rfg_new == NULL)
+	if (rfg_new == NULL) {
 		rfg_new = bgp_rfapi_cfg_match_byname(bgp, argv[5]->arg,
 						     RFAPI_GROUP_CFG_VRF);
+		vnc_add_vrf_opener(bgp, rfg_new);
+	}
 
 	if (rfg_new == NULL) {
 		vty_out(vty, "Can't group named \"%s\".\n", argv[5]->arg);
@@ -2432,8 +2434,7 @@ bgp_rfapi_delete_named_nve_group(struct vty *vty, /* NULL = no output */
 	 */
 	for (ALL_LIST_ELEMENTS_RO(bgp->rfapi_cfg->rfg_export_direct_bgp_l, node,
 				  rfgn)) {
-		if (rfg_name == NULL || (type == RFAPI_GROUP_CFG_NVE
-					 && !strcmp(rfgn->name, rfg_name))) {
+		if (rfgn->rfg == rfg) {
 			rfgn->rfg = NULL;
 			/* remove exported routes from this group */
 			vnc_direct_bgp_del_group(bgp, rfg);
@@ -2446,21 +2447,25 @@ bgp_rfapi_delete_named_nve_group(struct vty *vty, /* NULL = no output */
 	 */
 	for (ALL_LIST_ELEMENTS_RO(bgp->rfapi_cfg->rfg_export_zebra_l, node,
 				  rfgn)) {
-
-		if (rfg_name == NULL || (type == RFAPI_GROUP_CFG_NVE
-					 && !strcmp(rfgn->name, rfg_name))) {
+		if (rfgn->rfg == rfg) {
 			rfgn->rfg = NULL;
 			/* remove exported routes from this group */
 			vnc_zebra_del_group(bgp, rfg);
 			break;
 		}
 	}
-	if (rfg)
+	if (rfg) {
+		if (rfg->rfd)
+			clear_vnc_vrf_closer(rfg);
 		bgp_rfapi_delete_nve_group(vty, bgp, rfg);
+	}
 	else /* must be delete all */
 		for (ALL_LIST_ELEMENTS(bgp->rfapi_cfg->nve_groups_sequential,
-				       node, nnode, rfg))
+				       node, nnode, rfg)) {
+			if (rfg->rfd)
+				clear_vnc_vrf_closer(rfg);
 			bgp_rfapi_delete_nve_group(vty, bgp, rfg);
+		}
 	return CMD_SUCCESS;
 }
 

@@ -4632,6 +4632,35 @@ notcfg:
  * add [vrf <vrf-name>] prefix <prefix>
  *     [rd <value>] [label <value>] [local-preference <0-4294967295>]
  ************************************************************************/
+void vnc_add_vrf_opener(struct bgp *bgp, struct rfapi_nve_group_cfg *rfg)
+{
+	if (rfg->rfd == NULL) /* need new rfapi_handle */
+	{
+		/* based on rfapi_open */
+		struct rfapi_descriptor *rfd;
+		rfd = XCALLOC(MTYPE_RFAPI_DESC,
+			      sizeof(struct rfapi_descriptor));
+		rfd->bgp = bgp;
+		rfg->rfd = rfd;
+		/* leave most fields empty as will get from (dynamic) config
+		 * when needed */
+		rfd->default_tunneltype_option.type = BGP_ENCAP_TYPE_MPLS;
+		rfd->cookie = rfg;
+		if (rfg->vn_prefix.family
+		    && !CHECK_FLAG(rfg->flags, RFAPI_RFG_VPN_NH_SELF)) {
+			rfapiQprefix2Raddr(&rfg->vn_prefix, &rfd->vn_addr);
+		} else {
+			memset(&rfd->vn_addr, 0, sizeof(struct rfapi_ip_addr));
+			rfd->vn_addr.addr_family = AF_INET;
+			rfd->vn_addr.addr.v4 = bgp->router_id;
+		}
+		rfd->un_addr = rfd->vn_addr; /* sigh, need something in UN for
+						lookups */
+		vnc_zlog_debug_verbose("%s: Opening RFD for VRF %s", __func__,
+				       rfg->name);
+		rfapi_init_and_open(bgp, rfd, rfg);
+	}
+}
 
 /* NOTE: this functions parallels vnc_direct_add_rn_group_rd */
 static int vnc_add_vrf_prefix(struct vty *vty, const char *arg_vrf,
@@ -4725,32 +4754,7 @@ static int vnc_add_vrf_prefix(struct vty *vty, const char *arg_vrf,
 		}
 	}
 	rpfx.cost = 255 - (pref & 255);
-	if (rfg->rfd == NULL) /* need new rfapi_handle */
-	{
-		/* based on rfapi_open */
-		struct rfapi_descriptor *rfd;
-		rfd = XCALLOC(MTYPE_RFAPI_DESC,
-			      sizeof(struct rfapi_descriptor));
-		rfd->bgp = bgp;
-		rfg->rfd = rfd;
-		/* leave most fields empty as will get from (dynamic) config
-		 * when needed */
-		rfd->default_tunneltype_option.type = BGP_ENCAP_TYPE_MPLS;
-		rfd->cookie = rfg;
-		if (rfg->vn_prefix.family
-		    && !CHECK_FLAG(rfg->flags, RFAPI_RFG_VPN_NH_SELF)) {
-			rfapiQprefix2Raddr(&rfg->vn_prefix, &rfd->vn_addr);
-		} else {
-			memset(&rfd->vn_addr, 0, sizeof(struct rfapi_ip_addr));
-			rfd->vn_addr.addr_family = AF_INET;
-			rfd->vn_addr.addr.v4 = bgp->router_id;
-		}
-		rfd->un_addr = rfd->vn_addr; /* sigh, need something in UN for
-						lookups */
-		vnc_zlog_debug_verbose("%s: Opening RFD for VRF %s", __func__,
-				       rfg->name);
-		rfapi_init_and_open(bgp, rfd, rfg);
-	}
+	vnc_add_vrf_opener(bgp, rfg);
 
 	if (!rfapi_register(rfg->rfd, &rpfx, RFAPI_INFINITE_LIFETIME, NULL,
 			    (cur_opt ? optary : NULL), RFAPI_REGISTER_ADD)) {
@@ -4907,7 +4911,6 @@ static int vnc_clear_vrf(struct vty *vty, struct bgp *bgp, const char *arg_vrf,
 
 	start_count = rfapi_cfg_group_it_count(rfg);
 	clear_vnc_prefix(&cda);
-	clear_vnc_vrf_closer(rfg);
 	vty_out(vty, "Cleared %u out of %d prefixes.\n", cda.pfx_count,
 		start_count);
 	return CMD_SUCCESS;

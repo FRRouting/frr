@@ -1367,9 +1367,6 @@ static void vnc_direct_del_rn_group_rd(struct bgp *bgp,
 		     NULL, /* RD not used for unicast */
 		     NULL,
 		     NULL); /* tag not used for unicast */
-	if (rfg->type == RFAPI_GROUP_CFG_VRF) {
-		clear_vnc_vrf_closer(rfg);
-	}
 	return;
 }
 
