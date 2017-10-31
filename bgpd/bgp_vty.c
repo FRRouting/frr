@@ -11334,6 +11334,7 @@ static void bgp_ac_neighbor(vector comps, struct cmd_token *token)
 static const struct cmd_variable_handler bgp_var_neighbor[] = {
 	{.varname = "neighbor", .completions = bgp_ac_neighbor},
 	{.varname = "neighbors", .completions = bgp_ac_neighbor},
+	{.varname = "peer", .completions = bgp_ac_neighbor},
 	{.completions = NULL}};
 
 void bgp_vty_init(void)
