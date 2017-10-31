@@ -1466,7 +1466,7 @@ DEFUN (vnc_export_nvegroup,
 	}
 
 	if (rfg_new == NULL) {
-		vty_out(vty, "Can't group named \"%s\".\n", argv[5]->arg);
+		vty_out(vty, "Can't find group named \"%s\".\n", argv[5]->arg);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
