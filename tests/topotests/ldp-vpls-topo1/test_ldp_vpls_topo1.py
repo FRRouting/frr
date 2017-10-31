@@ -165,12 +165,12 @@ def router_compare_json_output_cb(rname, command, reference):
 
 def router_compare_json_output(rname, command, reference):
     logger.info('Comparing router "%s" "%s" output', rname, command)
-    tgen = get_topogen()
 
     # Run test function until we get an result. Wait at most 60 seconds.
     test_func = partial(router_compare_json_output_cb, rname, command, reference)
-    result, diff = topotest.run_and_expect(test_func, None, count=20, wait=3)
-    assert result, '"{}" JSON output mismatches the expected result'.format(rname)
+    _, diff = topotest.run_and_expect(test_func, None, count=20, wait=3)
+    assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
+    assert diff is None, assertmsg
 
 def test_ospf_convergence():
     logger.info("Test: check OSPF adjacencies")
