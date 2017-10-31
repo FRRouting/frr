@@ -4252,11 +4252,16 @@ DEFUN (show_ip_pim_nexthop_lookup,
 	memset(&nexthop, 0, sizeof(nexthop));
 
 	if (pim_find_or_track_nexthop(vrf->info, &nht_p, NULL, NULL, &pnc))
-		pim_ecmp_nexthop_search(vrf->info, &pnc, &nexthop, &nht_p, &grp,
-					0);
+		result = pim_ecmp_nexthop_search(vrf->info, &pnc, &nexthop,
+						 &nht_p, &grp, 0);
 	else
-		pim_ecmp_nexthop_lookup(vrf->info, &nexthop, vif_source, &nht_p,
-					&grp, 0);
+		result = pim_ecmp_nexthop_lookup(vrf->info, &nexthop, vif_source,
+						 &nht_p, &grp, 0);
+
+	if (!result) {
+		vty_out(vty, "Nexthop Lookup failed, no usable routes returned.\n");
+		return CMD_SUCCESS;
+	}
 
 	pim_addr_dump("<grp?>", &grp, grp_str, sizeof(grp_str));
 	pim_addr_dump("<nexthop?>", &nexthop.mrib_nexthop_addr,
