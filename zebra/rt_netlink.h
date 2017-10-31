@@ -54,7 +54,6 @@
 
 void rt_netlink_init(void);
 
-extern void clear_nhlfe_installed(zebra_lsp_t *lsp);
 extern int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp);
 
 extern int netlink_route_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
