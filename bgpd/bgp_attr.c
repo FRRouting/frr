@@ -1709,9 +1709,18 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 
 	/* must have nrli_len, what is left of the attribute */
 	nlri_len = LEN_LEFT;
-	if ((!nlri_len) || (nlri_len > STREAM_READABLE(s))) {
+	if (nlri_len > STREAM_READABLE(s)) {
 		zlog_info("%s: (%s) Failed to read NLRI", __func__, peer->host);
 		return BGP_ATTR_PARSE_ERROR_NOTIFYPLS;
+	}
+
+	if (!nlri_len) {
+		zlog_info("%s: (%s) No Reachability, Treating as a EOR marker",
+			  __func__, peer->host);
+
+		mp_update->afi = afi;
+		mp_update->safi = safi;
+		return BGP_ATTR_PARSE_EOR;
 	}
 
 	mp_update->afi = afi;
@@ -2376,6 +2385,12 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 			bgp_notify_send(peer, BGP_NOTIFY_UPDATE_ERR,
 					BGP_NOTIFY_UPDATE_MAL_ATTR);
 			ret = BGP_ATTR_PARSE_ERROR;
+		}
+
+		if (ret == BGP_ATTR_PARSE_EOR) {
+			if (as4_path)
+				aspath_unintern(&as4_path);
+			return ret;
 		}
 
 		/* If hard error occured immediately return to the caller. */
