@@ -499,6 +499,7 @@ struct eigrp_fsm_action_message {
 	struct eigrp_prefix_entry *prefix;
 	msg_data_t data_type; // internal or external tlv type
 	struct eigrp_metrics metrics;
+	enum metric_change change;
 };
 
 #endif /* _ZEBRA_EIGRP_STRUCTURES_H_ */

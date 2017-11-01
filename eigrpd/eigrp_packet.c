@@ -344,8 +344,18 @@ int eigrp_write(struct thread *thread)
 
 	/* Get one packet from queue. */
 	ep = eigrp_fifo_next(ei->obuf);
-	assert(ep);
-	assert(ep->length >= EIGRP_HEADER_LEN);
+	if (!ep) {
+		zlog_err("%s: Interface %s no packet on queue?",
+			 __PRETTY_FUNCTION__, ei->ifp->name);
+		goto out;
+	}
+	if (ep->length < EIGRP_HEADER_LEN) {
+		zlog_err("%s: Packet just has a header?",
+			 __PRETTY_FUNCTION__);
+		eigrp_header_dump((struct eigrp_header *)ep->s->data);
+		eigrp_packet_delete(ei);
+		goto out;
+	}
 
 	if (ep->dst.s_addr == htonl(EIGRP_MULTICAST_ADDRESS))
 		eigrp_if_ipmulticast(eigrp, ei->address, ei->ifp->ifindex);
@@ -442,6 +452,7 @@ int eigrp_write(struct thread *thread)
 	/* Now delete packet from queue. */
 	eigrp_packet_delete(ei);
 
+out:
 	if (eigrp_fifo_next(ei->obuf) == NULL) {
 		ei->on_write_q = 0;
 		list_delete_node(eigrp->oi_write_q, node);

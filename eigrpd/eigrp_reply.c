@@ -149,49 +149,56 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 
 	while (s->endp > s->getp) {
 		type = stream_getw(s);
-		if (type == EIGRP_TLV_IPv4_INT) {
-			struct prefix dest_addr;
 
-			stream_set_getp(s, s->getp - sizeof(u_int16_t));
+		if (type != EIGRP_TLV_IPv4_INT)
+			continue;
 
-			tlv = eigrp_read_ipv4_tlv(s);
+		struct prefix dest_addr;
 
-			dest_addr.family = AF_INET;
-			dest_addr.u.prefix4 = tlv->destination;
-			dest_addr.prefixlen = tlv->prefix_length;
-			struct eigrp_prefix_entry *dest =
-				eigrp_topology_table_lookup_ipv4(
-					eigrp->topology_table, &dest_addr);
-			/*
-			 * Destination must exists
-			 */
-			assert(dest);
+		stream_set_getp(s, s->getp - sizeof(u_int16_t));
 
-			struct eigrp_fsm_action_message msg;
-			struct eigrp_nexthop_entry *entry =
-				eigrp_prefix_entry_lookup(dest->entries, nbr);
+		tlv = eigrp_read_ipv4_tlv(s);
 
-			if (eigrp_update_prefix_apply(eigrp, ei,
-						      EIGRP_FILTER_IN,
-						      &dest_addr)) {
-				tlv->metric.delay = EIGRP_MAX_METRIC;
-			}
-			/*
-			 * End of filtering
-			 */
-
-			msg.packet_type = EIGRP_OPC_REPLY;
-			msg.eigrp = eigrp;
-			msg.data_type = EIGRP_INT;
-			msg.adv_router = nbr;
-			msg.metrics = tlv->metric;
-			msg.entry = entry;
-			msg.prefix = dest;
-			eigrp_fsm_event(&msg);
-
-
-			eigrp_IPv4_InternalTLV_free(tlv);
+		dest_addr.family = AF_INET;
+		dest_addr.u.prefix4 = tlv->destination;
+		dest_addr.prefixlen = tlv->prefix_length;
+		struct eigrp_prefix_entry *dest =
+			eigrp_topology_table_lookup_ipv4(
+				eigrp->topology_table, &dest_addr);
+		/*
+		 * Destination must exists
+		 */
+		if (!dest) {
+			char buf[PREFIX_STRLEN];
+			zlog_err("%s: Received prefix %s which we do not know about",
+				 __PRETTY_FUNCTION__,
+				 prefix2str(&dest_addr, buf, strlen(buf)));
+			continue;
 		}
+
+		struct eigrp_fsm_action_message msg;
+		struct eigrp_nexthop_entry *entry =
+			eigrp_prefix_entry_lookup(dest->entries, nbr);
+
+		if (eigrp_update_prefix_apply(eigrp, ei,
+					      EIGRP_FILTER_IN,
+					      &dest_addr)) {
+			tlv->metric.delay = EIGRP_MAX_METRIC;
+		}
+		/*
+		 * End of filtering
+		 */
+
+		msg.packet_type = EIGRP_OPC_REPLY;
+		msg.eigrp = eigrp;
+		msg.data_type = EIGRP_INT;
+		msg.adv_router = nbr;
+		msg.metrics = tlv->metric;
+		msg.entry = entry;
+		msg.prefix = dest;
+		eigrp_fsm_event(&msg);
+
+		eigrp_IPv4_InternalTLV_free(tlv);
 	}
 	eigrp_hello_send_ack(nbr);
 }
