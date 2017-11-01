@@ -180,8 +180,19 @@ def test_ospf_convergence():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
+    # Old output (before FRR PR1383) didn't show a list of neighbors.
+    # Check for dict object and compare to old output if this is the case
+    tgen = get_topogen()
+    router = tgen.gears['r1']
+    output = router.vtysh_cmd("show ip ospf neighbor json", isjson=True)
+
+    if isinstance(output["2.2.2.2"], dict):
+        reffile = "show_ip_ospf_neighbor.ref-old-nolist"
+    else:
+        reffile = "show_ip_ospf_neighbor.ref"
+
     for rname in ['r1', 'r2', 'r3']:
-        router_compare_json_output(rname, "show ip ospf neighbor json", "show_ip_ospf_neighbor.ref")
+        router_compare_json_output(rname, "show ip ospf neighbor json", reffile)
 
 def test_rib():
     logger.info("Test: verify RIB")

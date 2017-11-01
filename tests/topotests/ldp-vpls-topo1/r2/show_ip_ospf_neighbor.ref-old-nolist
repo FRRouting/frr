@@ -1,0 +1,14 @@
+{
+  "1.1.1.1":{
+    "priority":1,
+    "state":"Full/Backup",
+    "address":"10.0.1.1",
+    "ifaceName":"r2-eth1:10.0.1.2"
+  },
+  "3.3.3.3":{
+    "priority":1,
+    "state":"Full/DR",
+    "address":"10.0.3.3",
+    "ifaceName":"r2-eth2:10.0.3.2"
+  }
+}
