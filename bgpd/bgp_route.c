@@ -2313,7 +2313,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 				|| old_select->sub_type == BGP_ROUTE_AGGREGATE
 				|| old_select->sub_type == BGP_ROUTE_IMPORTED))
 
-				bgp_zebra_withdraw(p, old_select, safi);
+				bgp_zebra_withdraw(p, old_select, bgp, safi);
 		}
 	}
 
@@ -3984,7 +3984,8 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 	}
 }
 
-static void bgp_cleanup_table(struct bgp_table *table, safi_t safi)
+static void bgp_cleanup_table(struct bgp *bgp, struct bgp_table *table,
+			      safi_t safi)
 {
 	struct bgp_node *rn;
 	struct bgp_info *ri;
@@ -4000,7 +4001,8 @@ static void bgp_cleanup_table(struct bgp_table *table, safi_t safi)
 				|| ri->sub_type == BGP_ROUTE_IMPORTED)) {
 
 				if (bgp_fibupd_safi(safi))
-					bgp_zebra_withdraw(&rn->p, ri, safi);
+					bgp_zebra_withdraw(&rn->p, ri,
+							   bgp, safi);
 				bgp_info_reap(rn, ri);
 			}
 		}
@@ -4015,7 +4017,8 @@ void bgp_cleanup_routes(struct bgp *bgp)
 	for (afi = AFI_IP; afi < AFI_MAX; ++afi) {
 		if (afi == AFI_L2VPN)
 			continue;
-		bgp_cleanup_table(bgp->rib[afi][SAFI_UNICAST], SAFI_UNICAST);
+		bgp_cleanup_table(bgp, bgp->rib[afi][SAFI_UNICAST],
+				  SAFI_UNICAST);
 		/*
 		 * VPN and ENCAP and EVPN tables are two-level (RD is top level)
 		 */
@@ -4025,7 +4028,7 @@ void bgp_cleanup_routes(struct bgp *bgp)
 			for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
 			     rn = bgp_route_next(rn)) {
 				if (rn->info) {
-					bgp_cleanup_table(
+					bgp_cleanup_table(bgp,
 						(struct bgp_table *)(rn->info),
 						safi);
 					bgp_table_finish((struct bgp_table **)&(
@@ -4038,7 +4041,7 @@ void bgp_cleanup_routes(struct bgp *bgp)
 			for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
 			     rn = bgp_route_next(rn)) {
 				if (rn->info) {
-					bgp_cleanup_table(
+					bgp_cleanup_table(bgp,
 						(struct bgp_table *)(rn->info),
 						safi);
 					bgp_table_finish((struct bgp_table **)&(
@@ -4052,7 +4055,8 @@ void bgp_cleanup_routes(struct bgp *bgp)
 	for (rn = bgp_table_top(bgp->rib[AFI_L2VPN][SAFI_EVPN]); rn;
 	     rn = bgp_route_next(rn)) {
 		if (rn->info) {
-			bgp_cleanup_table((struct bgp_table *)(rn->info),
+			bgp_cleanup_table(bgp,
+					  (struct bgp_table *)(rn->info),
 					  SAFI_EVPN);
 			bgp_table_finish((struct bgp_table **)&(rn->info));
 			rn->info = NULL;
