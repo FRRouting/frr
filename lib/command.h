@@ -358,6 +358,7 @@ struct cmd_node {
 #define PCE_STR "PCE Router Information specific commands\n"
 #define MPLS_STR "MPLS information\n"
 #define WATCHFRR_STR "watchfrr information\n"
+#define ZEBRA_STR "Zebra information\n"
 
 #define CONF_BACKUP_EXT ".sav"
 

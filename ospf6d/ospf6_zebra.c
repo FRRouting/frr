@@ -256,7 +256,7 @@ DEFUN (show_zebra,
        SHOW_STR
        IPV6_STR
        OSPF6_STR
-       "Zebra information\n")
+       ZEBRA_STR)
 {
 	int i;
 	if (zclient == NULL) {

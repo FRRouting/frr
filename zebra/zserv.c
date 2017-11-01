@@ -2387,7 +2387,7 @@ static int zebra_client_read(struct thread *thread)
 	uint8_t marker, version;
 	vrf_id_t vrf_id;
 	struct zebra_vrf *zvrf;
-	int packets = 10;
+	int packets = zebrad.packets_to_process;
 
 	/* Get thread data.  Reset reading thread because I'm running. */
 	sock = THREAD_FD(thread);
@@ -2841,7 +2841,7 @@ DEFUN (show_zebra,
        show_zebra_cmd,
        "show zebra",
        SHOW_STR
-       "Zebra information\n")
+       ZEBRA_STR)
 {
 	struct vrf *vrf;
 
@@ -2866,7 +2866,7 @@ DEFUN (show_zebra_client,
        show_zebra_client_cmd,
        "show zebra client",
        SHOW_STR
-       "Zebra information\n"
+       ZEBRA_STR
        "Client information\n")
 {
 	struct listnode *node;
@@ -2883,7 +2883,7 @@ DEFUN (show_zebra_client_summary,
        show_zebra_client_summary_cmd,
        "show zebra client summary",
        SHOW_STR
-       "Zebra information brief\n"
+       ZEBRA_STR
        "Client information brief\n"
        "Brief Summary\n")
 {

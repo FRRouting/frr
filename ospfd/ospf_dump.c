@@ -1182,7 +1182,7 @@ DEFUN (debug_ospf_zebra,
        "debug ospf zebra [<interface|redistribute>]",
        DEBUG_STR
        OSPF_STR
-       "OSPF Zebra information\n"
+       ZEBRA_STR
        "Zebra interface\n"
        "Zebra redistribute\n")
 {
@@ -1195,7 +1195,7 @@ DEFUN (debug_ospf_instance_zebra,
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
-       "OSPF Zebra information\n"
+       ZEBRA_STR
        "Zebra interface\n"
        "Zebra redistribute\n")
 {
@@ -1245,7 +1245,7 @@ DEFUN (no_debug_ospf_zebra,
        NO_STR
        DEBUG_STR
        OSPF_STR
-       "OSPF Zebra information\n"
+       ZEBRA_STR
        "Zebra interface\n"
        "Zebra redistribute\n")
 {
@@ -1259,7 +1259,7 @@ DEFUN (no_debug_ospf_instance_zebra,
        DEBUG_STR
        OSPF_STR
        "Instance ID\n"
-       "OSPF Zebra information\n"
+       ZEBRA_STR
        "Zebra interface\n"
        "Zebra redistribute\n")
 {

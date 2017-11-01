@@ -57,12 +57,6 @@ DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 /* Should we allow non Quagga processes to delete our routes */
 extern int allow_delete;
 
-/* Hold time for RIB process, should be very minimal.
- * it is useful to able to set it otherwise for testing, hence exported
- * as global here for test-rig code.
- */
-int rib_process_hold_time = 10;
-
 /* Each route type's string and default distance value. */
 static const struct {
 	int key;
@@ -1899,7 +1893,7 @@ static void rib_queue_init(struct zebra_t *zebra)
 	zebra->ribq->spec.completion_func = &meta_queue_process_complete;
 	/* XXX: TODO: These should be runtime configurable via vty */
 	zebra->ribq->spec.max_retries = 3;
-	zebra->ribq->spec.hold = rib_process_hold_time;
+	zebra->ribq->spec.hold = ZEBRA_RIB_PROCESS_HOLD_TIME;
 
 	if (!(zebra->mq = meta_queue_new())) {
 		zlog_err("%s: could not initialise meta queue!", __func__);

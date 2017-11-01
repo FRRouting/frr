@@ -44,6 +44,7 @@
 #include "lib/json.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_vty_clippy.c"
+#include "zebra/zserv.h"
 
 extern int allow_delete;
 
@@ -2186,6 +2187,59 @@ DEFUN (ip_zebra_import_table_distance,
 	return ret;
 }
 
+DEFUN_HIDDEN (zebra_packet_process,
+	      zebra_packet_process_cmd,
+	      "zebra zapi-packets (1-10000)",
+	      ZEBRA_STR
+	      "Zapi Protocol\n"
+	      "Number of packets to process before relinquishing thread\n")
+{
+	uint32_t packets = strtoul(argv[2]->arg, NULL, 10);
+
+	zebrad.packets_to_process = packets;
+
+	return CMD_SUCCESS;
+}
+
+DEFUN_HIDDEN (no_zebra_packet_process,
+	      no_zebra_packet_process_cmd,
+	      "no zebra zapi-packets [(1-10000)]",
+	      NO_STR
+	      ZEBRA_STR
+	      "Zapi Protocol\n"
+	      "Number of packets to process before relinquishing thread\n")
+{
+	zebrad.packets_to_process = ZEBRA_ZAPI_PACKETS_TO_PROCESS;
+
+	return CMD_SUCCESS;
+}
+
+DEFUN_HIDDEN (zebra_workqueue_timer,
+	      zebra_workqueue_timer_cmd,
+	      "zebra work-queue (0-10000)",
+	      ZEBRA_STR
+	      "Work Queue\n"
+	      "Time in milliseconds\n")
+{
+       uint32_t timer = strtoul(argv[2]->arg, NULL, 10);
+       zebrad.ribq->spec.hold = timer;
+
+       return CMD_SUCCESS;
+}
+
+DEFUN_HIDDEN (no_zebra_workqueue_timer,
+	      no_zebra_workqueue_timer_cmd,
+	      "no zebra work-queue [(0-10000)]",
+	      NO_STR
+	      ZEBRA_STR
+	      "Work Queue\n"
+	      "Time in milliseconds\n")
+{
+       zebrad.ribq->spec.hold = ZEBRA_RIB_PROCESS_HOLD_TIME;
+
+       return CMD_SUCCESS;
+}
+
 DEFUN (no_ip_zebra_import_table,
        no_ip_zebra_import_table_cmd,
        "no ip import-table (1-252) [distance (1-255)] [route-map NAME]",
@@ -2231,6 +2285,13 @@ static int config_write_protocol(struct vty *vty)
 	if (zebra_rnh_ipv6_default_route)
 		vty_out(vty, "ipv6 nht resolve-via-default\n");
 
+	if (zebrad.ribq->spec.hold != ZEBRA_RIB_PROCESS_HOLD_TIME)
+		vty_out(vty, "zebra work-queue %u\n", zebrad.ribq->spec.hold);
+
+	if (zebrad.packets_to_process != ZEBRA_ZAPI_PACKETS_TO_PROCESS)
+		vty_out(vty,
+			"zebra zapi-packets %u\n", zebrad.packets_to_process);
+
 	enum multicast_mode ipv4_multicast_mode = multicast_mode_ipv4_get();
 
 	if (ipv4_multicast_mode != MCAST_NO_CONFIG)
@@ -2272,6 +2333,10 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &ip_route_cmd);
 	install_element(CONFIG_NODE, &ip_zebra_import_table_distance_cmd);
 	install_element(CONFIG_NODE, &no_ip_zebra_import_table_cmd);
+	install_element(CONFIG_NODE, &zebra_workqueue_timer_cmd);
+	install_element(CONFIG_NODE, &no_zebra_workqueue_timer_cmd);
+	install_element(CONFIG_NODE, &zebra_packet_process_cmd);
+	install_element(CONFIG_NODE, &no_zebra_packet_process_cmd);
 
 	install_element(VIEW_NODE, &show_vrf_cmd);
 	install_element(VIEW_NODE, &show_route_cmd);
