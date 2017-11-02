@@ -63,7 +63,6 @@ struct zclient *zclient = NULL;
 
 /* For registering threads. */
 extern struct thread_master *master;
-struct in_addr router_id_zebra;
 
 /* Router-id update message from zebra. */
 static int ospf_router_id_update_zebra(int command, struct zclient *zclient,
@@ -80,13 +79,12 @@ static int ospf_router_id_update_zebra(int command, struct zclient *zclient,
 			   buf, ospf_vrf_id_to_name(vrf_id), vrf_id);
 	}
 
-	router_id_zebra = router_id.u.prefix4;
-
 	ospf = ospf_lookup_by_vrf_id(vrf_id);
 
-	if (ospf != NULL)
+	if (ospf != NULL) {
+		ospf->router_id_zebra = router_id.u.prefix4;
 		ospf_router_id_update(ospf);
-	else {
+	} else {
 		if (IS_DEBUG_OSPF_EVENT) {
 			char buf[PREFIX2STR_BUFFER];
 
@@ -1434,12 +1432,14 @@ void ospf_zebra_vrf_register(struct ospf *ospf)
 	if (!zclient || zclient->sock < 0 || !ospf)
 		return;
 
-	if (ospf->vrf_id != VRF_DEFAULT && ospf->vrf_id != VRF_UNKNOWN) {
+	if (ospf->vrf_id != VRF_UNKNOWN) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("%s: Register VRF %s id %u",
 				   __PRETTY_FUNCTION__,
 				   ospf_vrf_id_to_name(ospf->vrf_id),
 				   ospf->vrf_id);
+		/* Deregister for router-id, interfaces,
+		 * redistributed routes. */
 		zclient_send_reg_requests(zclient, ospf->vrf_id);
 	}
 }
@@ -1451,7 +1451,7 @@ void ospf_zebra_vrf_deregister(struct ospf *ospf)
 
 	if (ospf->vrf_id != VRF_DEFAULT && ospf->vrf_id != VRF_UNKNOWN) {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: De-Register VRF %s id %u",
+			zlog_debug("%s: De-Register VRF %s id %u to Zebra.",
 				   __PRETTY_FUNCTION__,
 				   ospf_vrf_id_to_name(ospf->vrf_id),
 				   ospf->vrf_id);

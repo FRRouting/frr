@@ -244,7 +244,6 @@ DEFUN (no_router_ospf,
 		else
 			return CMD_WARNING;
 	}
-	zlog_debug("%s: no router ospf ", __PRETTY_FUNCTION__);
 	ospf_finish(ospf);
 
 	return CMD_SUCCESS;
@@ -4151,12 +4150,12 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 
 				if (nbr->state == NSM_Attempt &&
 				    nbr->router_id.s_addr == 0)
-					strncpy(neigh_str, "neighbor",
-						INET_ADDRSTRLEN);
+					strlcpy(neigh_str, "neighbor",
+						sizeof(neigh_str));
 				else
-					strncpy(neigh_str,
+					strlcpy(neigh_str,
 						inet_ntoa(nbr->router_id),
-						INET_ADDRSTRLEN);
+						sizeof(neigh_str));
 
 				json_object_object_get_ex(json, neigh_str,
 							  &json_neigh_array);

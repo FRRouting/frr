@@ -66,7 +66,6 @@ static struct ospf_master ospf_master;
 struct ospf_master *om;
 
 extern struct zclient *zclient;
-extern struct in_addr router_id_zebra;
 
 
 static void ospf_remove_vls_through_area(struct ospf *, struct ospf_area *);
@@ -117,12 +116,12 @@ void ospf_router_id_update(struct ospf *ospf)
 	else if (ospf->router_id.s_addr != 0)
 		router_id = ospf->router_id;
 	else
-		router_id = router_id_zebra;
+		router_id = ospf->router_id_zebra;
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("Router-ID[OLD:%s]: Update to %s",
 			   inet_ntoa(ospf->router_id),
-			   inet_ntoa(router_id_old));
+			   inet_ntoa(router_id));
 
 	if (!IPV4_ADDR_SAME(&router_id_old, &router_id)) {
 
@@ -2056,6 +2055,7 @@ static int ospf_vrf_enable(struct vrf *vrf)
 			}
 
 			ospf->oi_running = 1;
+			ospf_zebra_vrf_register(ospf);
 			ospf_router_id_update(ospf);
 		}
 	}
