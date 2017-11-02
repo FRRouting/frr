@@ -607,9 +607,8 @@ static void show_vni_entry(struct hash_backet *backet, void *args[])
 			json_vni, "rd",
 			prefix_rd2str(&vpn->prd, buf2, sizeof(buf2)));
 	} else {
-		vty_out(vty, "%-1s %-10u %-15s %-37s %-21s", buf1, vpn->vni,
+		vty_out(vty, "%-1s %-10u %-15s %-21s", buf1, vpn->vni,
 			inet_ntoa(vpn->originator_ip),
-			vrf_id_to_name(vpn->tenant_vrf_id),
 			prefix_rd2str(&vpn->prd, buf2, RD_ADDRSTRLEN));
 	}
 
@@ -661,6 +660,9 @@ static void show_vni_entry(struct hash_backet *backet, void *args[])
 		if (!json)
 			break;
 	}
+
+	if (!json)
+		vty_out(vty, "%-37s", vrf_id_to_name(vpn->tenant_vrf_id));
 
 	if (json) {
 		char vni_str[VNI_STR_LEN];
@@ -2170,9 +2172,9 @@ static void evpn_show_all_vnis(struct vty *vty, struct bgp *bgp,
 	} else {
 		vty_out(vty, "Number of VNIs: %u\n", num_vnis);
 		vty_out(vty, "Flags: * - Kernel\n");
-		vty_out(vty, "  %-10s %-15s %-37s %-21s %-25s %-25s\n", "VNI",
-			"Orig IP", "Tenant-Vrf", "RD", "Import RT",
-			"Export RT");
+		vty_out(vty, "  %-10s %-15s %-21s %-25s %-25s %-37s\n", "VNI",
+			"Orig IP", "RD", "Import RT",
+			"Export RT", "Tenant-Vrf");
 	}
 
 	args[0] = vty;
