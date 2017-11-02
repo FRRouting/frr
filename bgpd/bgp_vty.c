@@ -58,6 +58,7 @@
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_io.h"
+#include "bgpd/bgp_evpn.h"
 
 static struct peer_group *listen_range_exists(struct bgp *bgp,
 					      struct prefix *range, int exact);
@@ -7745,7 +7746,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 		}
 
 		if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
-			if (p->bgp->advertise_all_vni)
+			if (is_evpn_enabled())
 				json_object_boolean_true_add(
 					json_addr, "advertiseAllVnis");
 		}
@@ -8017,7 +8018,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 
 		/* advertise-vni-all */
 		if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
-			if (p->bgp->advertise_all_vni)
+			if (is_evpn_enabled())
 				vty_out(vty, "  advertise-all-vni\n");
 		}
 

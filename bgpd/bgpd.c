@@ -217,7 +217,7 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id)
 		return 0;
 
 	/* EVPN uses router id in RD, withdraw them */
-	if (bgp->advertise_all_vni)
+	if (is_evpn_enabled())
 		bgp_evpn_handle_router_id_update(bgp, TRUE);
 
 	IPV4_ADDR_COPY(&bgp->router_id, id);
@@ -234,7 +234,7 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id)
 	}
 
 	/* EVPN uses router id in RD, update them */
-	if (bgp->advertise_all_vni)
+	if (is_evpn_enabled())
 		bgp_evpn_handle_router_id_update(bgp, FALSE);
 
 	return 0;
