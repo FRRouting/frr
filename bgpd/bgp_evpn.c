@@ -2437,15 +2437,45 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 	return 0;
 }
 
+/* delete and withdraw all ipv4 and ipv6 routes in the vrf table as type-5
+ * routes */
+static void delete_withdraw_vrf_routes(struct bgp *bgp_vrf)
+{
+	/* delete all ipv4 routes and withdraw from peers */
+	bgp_evpn_withdraw_type5_routes(bgp_vrf, AFI_IP);
+
+	/* delete all ipv6 routes and withdraw from peers */
+	bgp_evpn_withdraw_type5_routes(bgp_vrf, AFI_IP6);
+}
+
+/* update and advertise all ipv4 and ipv6 routes in thr vrf table as type-5
+ * routes */
+static void update_advertise_vrf_routes(struct bgp *bgp_vrf)
+{
+	/* update all ipv4 routes */
+	bgp_evpn_advertise_type5_routes(bgp_vrf, AFI_IP);
+
+	/* update all ipv6 routes */
+	bgp_evpn_advertise_type5_routes(bgp_vrf, AFI_IP6);
+}
+
 /*
  * update and advertise local routes for a VRF as type-5 routes.
  * This is invoked upon RD change for a VRF. Note taht the processing is only
  * done in the global route table using the routes which already exist in the
  * VRF routing table
  */
-static int update_advertise_vrf_routes(struct bgp *bgp_vrf)
+static void update_router_id_vrf(struct bgp *bgp_vrf)
 {
-	return 0;
+	/* skip if the RD is configured */
+	if (is_vrf_rd_configured(bgp_vrf))
+		return;
+
+	/* derive the RD for the VRF based on new router-id */
+	bgp_evpn_derive_auto_rd_for_vrf(bgp_vrf);
+
+	/* update advertise ipv4|ipv6 routes as type-5 routes */
+	update_advertise_vrf_routes(bgp_vrf);
 }
 
 /*
@@ -2453,9 +2483,14 @@ static int update_advertise_vrf_routes(struct bgp *bgp_vrf)
  * This is invoked upon VRF RD change. The processing is done only from global
  * table.
  */
-static int delete_withdraw_vrf_routes(struct bgp *bgp_vrf)
+static void withdraw_router_id_vrf(struct bgp *bgp_vrf)
 {
-	return 0;
+	/* skip if the RD is configured */
+	if (is_vrf_rd_configured(bgp_vrf))
+		return;
+
+	/* delete/withdraw ipv4|ipv6 routes as type-5 routes */
+	delete_withdraw_vrf_routes(bgp_vrf);
 }
 
 /*
@@ -3200,7 +3235,7 @@ void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw)
 
 		/* delete and withdraw all the type-5 routes
 		   stored in the global table for this vrf */
-		delete_withdraw_vrf_routes(bgp);
+		withdraw_router_id_vrf(bgp);
 
 		/* delete all the VNI routes (type-2/type-3) routes for all the
 		 * L2-VNIs */
@@ -3212,7 +3247,7 @@ void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw)
 
 		/* advertise all routes in the vrf as type-5 routes with the new
 		 * RD */
-		update_advertise_vrf_routes(bgp);
+		update_router_id_vrf(bgp);
 
 		/* advertise all the VNI routes (type-2/type-3) routes with the
 		 * new RD*/
