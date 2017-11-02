@@ -181,14 +181,18 @@ extern int stream_put_prefix(struct stream *, struct prefix *);
 extern int stream_put_labeled_prefix(struct stream *, struct prefix *,
 				     mpls_label_t *);
 extern void stream_get(void *, struct stream *, size_t);
+extern bool stream_get2(void *data, struct stream *s, size_t size);
 extern void stream_get_from(void *, struct stream *, size_t, size_t);
 extern u_char stream_getc(struct stream *);
+extern bool stream_getc2(struct stream *s, u_char *byte);
 extern u_char stream_getc_from(struct stream *, size_t);
 extern u_int16_t stream_getw(struct stream *);
+extern bool stream_getw2(struct stream *s, uint16_t *word);
 extern u_int16_t stream_getw_from(struct stream *, size_t);
 extern u_int32_t stream_get3(struct stream *);
 extern u_int32_t stream_get3_from(struct stream *, size_t);
 extern u_int32_t stream_getl(struct stream *);
+extern bool stream_getl2(struct stream *s, uint32_t *l);
 extern u_int32_t stream_getl_from(struct stream *, size_t);
 extern uint64_t stream_getq(struct stream *);
 extern uint64_t stream_getq_from(struct stream *, size_t);
@@ -256,5 +260,50 @@ static inline uint8_t *ptr_get_be32(uint8_t *ptr, uint32_t *out)
 	*out = ntohl(tmp);
 	return ptr + 4;
 }
+
+/*
+ * so Normal stream_getX functions assert.  Which is anathema
+ * to keeping a daemon up and running when something goes south
+ * Provide a stream_getX2 functions that do not assert.
+ * In addition provide these macro's that upon failure
+ * goto stream_failure.  This is modeled upon some NL_XX
+ * macros in the linux kernel.
+ *
+ * This change allows for proper memory freeing
+ * after we've detected an error.
+ *
+ * In the future we will be removing the assert in
+ * the stream functions but we need a transition
+ * plan.
+ */
+#define STREAM_GETC(S, P)			\
+	do {					\
+		uint8_t	_pval;			\
+		if (!stream_getc2((S), &_pval))	\
+			goto stream_failure;	\
+		(P) = _pval;			\
+	} while (0)
+
+#define STREAM_GETW(S, P)			\
+	do {					\
+		uint16_t _pval;			\
+		if (!stream_getw2((S), &_pval))	\
+			goto stream_failure;	\
+		(P) = _pval;			\
+	} while (0)
+
+#define STREAM_GETL(S, P)				\
+	do {						\
+		uint32_t _pval;				\
+		if (!stream_getl2((S), &_pval))		\
+			goto stream_failure;		\
+		(P) = _pval;				\
+	} while (0)
+
+#define STREAM_GET(P, STR, SIZE)			\
+	do {						\
+		if (!stream_get2((P), (STR), (SIZE)))	\
+			goto stream_failure;		\
+	} while (0)
 
 #endif /* _ZEBRA_STREAM_H */
