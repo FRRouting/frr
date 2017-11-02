@@ -297,6 +297,12 @@ enum eigrp_fsm_events {
 #define EIGRP_TLV_IPv4_EXT              (EIGRP_TLV_IPv4 | EIGRP_TLV_EXTERNAL)
 #define EIGRP_TLV_IPv4_COM              (EIGRP_TLV_IPv4 | EIGRP_TLV_COMMUNITY)
 
+#define EIGRP_TLV_IPV4_SIZE_GRT_24_BIT      0x001D
+#define EIGRP_TLV_IPV4_SIZE_GRT_16_BIT      0x001C
+#define EIGRP_TLV_IPV4_SIZE_GRT_8_BIT       0x001B
+#define EIGRP_TLV_IPV4_SIZE_GRT_0_BIT       0x001A
+#define EIGRP_TLV_MAX_IPV4_BYTE             EIGRP_TLV_IPV4_SIZE_GRT_24_BIT
+
 /* max number of TLV IPv4 prefixes in packet */
 #define EIGRP_TLV_MAX_IPv4				25
 

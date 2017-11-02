@@ -560,7 +560,7 @@ void eigrp_update_send_EOT(struct eigrp_neighbor *nbr)
 			if (eigrp_nbr_split_horizon_check(te, ei))
 				continue;
 
-			if ((length + 0x001D) > mtu) {
+			if ((length + EIGRP_TLV_MAX_IPV4_BYTE) > mtu) {
 				eigrp_update_place_on_nbr_queue (nbr, ep, seq_no, length);
 				seq_no++;
 
@@ -635,7 +635,8 @@ void eigrp_update_send(struct eigrp_interface *ei)
 		if (eigrp_nbr_split_horizon_check(ne, ei))
 			continue;
 
-		if ((length + 0x001D) > (u_int16_t)ei->ifp->mtu) {
+		if ((length + EIGRP_TLV_MAX_IPV4_BYTE) >
+		    (u_int16_t)ei->ifp->mtu) {
 			if ((ei->params.auth_type == EIGRP_AUTH_TYPE_MD5)
 			    && (ei->params.auth_keychain != NULL)) {
 				eigrp_make_md5_digest(ei, ep->s, EIGRP_AUTH_UPDATE_FLAG);
