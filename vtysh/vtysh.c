@@ -820,7 +820,8 @@ static int vtysh_rl_describe(void)
 		break;
 	case CMD_ERR_NO_MATCH:
 		cmd_free_strvec(vline);
-		vector_free(describe);
+		if (describe)
+			vector_free(describe);
 		fprintf(stdout, "%% There is no matched command.\n");
 		rl_on_new_line();
 		return 0;
