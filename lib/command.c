@@ -682,7 +682,7 @@ static vector cmd_complete_command_real(vector vline, struct vty *vty,
 
 	if (MATCHER_ERROR(rv)) {
 		*status = CMD_ERR_NO_MATCH;
-		return NULL;
+		return vector_init(VECTOR_MIN_SIZE);
 	}
 
 	vector comps = completions_to_vec(completions);
