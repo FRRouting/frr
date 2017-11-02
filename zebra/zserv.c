@@ -2377,6 +2377,26 @@ static inline void zserv_handle_commands(struct zserv *client,
 	}
 }
 
+#if defined(HANDLE_ZAPI_FUZZING)
+static void zserv_write_incoming(struct stream *orig, uint16_t command)
+{
+	char fname[MAXPATHLEN];
+	struct stream *copy;
+	int fd = -1;
+
+	copy = stream_dup(orig);
+	stream_set_getp(copy, 0);
+
+	zserv_privs.change(ZPRIVS_RAISE);
+	snprintf(fname, MAXPATHLEN, "%s/%u", DAEMON_VTY_DIR, command);
+	fd = open(fname, O_CREAT | O_WRONLY | O_EXCL, 0644);
+	stream_flush(copy, fd);
+	close(fd);
+	zserv_privs.change(ZPRIVS_LOWER);
+	stream_free(copy);
+}
+#endif
+
 /* Handler of zebra service request. */
 static int zebra_client_read(struct thread *thread)
 {
@@ -2387,7 +2407,11 @@ static int zebra_client_read(struct thread *thread)
 	uint8_t marker, version;
 	vrf_id_t vrf_id;
 	struct zebra_vrf *zvrf;
+#if defined(HANDLE_ZAPI_FUZZING)
+	int packets = 1;
+#else
 	int packets = zebrad.packets_to_process;
+#endif
 
 	/* Get thread data.  Reset reading thread because I'm running. */
 	sock = THREAD_FD(thread);
@@ -2477,6 +2501,9 @@ static int zebra_client_read(struct thread *thread)
 			}
 		}
 
+#if defined(HANDLE_ZAPI_FUZZING)
+		zserv_write_incoming(client->ibuf, command);
+#endif
 		length -= ZEBRA_HEADER_SIZE;
 
 		/* Debug packet information. */
@@ -3022,6 +3049,26 @@ static int config_write_forwarding(struct vty *vty)
 static struct cmd_node forwarding_node = {FORWARDING_NODE,
 					  "", /* This node has no interface. */
 					  1};
+
+#if defined(HANDLE_ZAPI_FUZZING)
+void zserv_read_file(char *input)
+{
+	int fd;
+	struct zserv *client = NULL;
+	struct thread t;
+
+	zebra_client_create(-1);
+	client = zebrad.client_list->head->data;
+	t.arg = client;
+
+	fd = open(input, O_RDONLY|O_NONBLOCK);
+	t.u.fd = fd;
+
+	zebra_client_read(&t);
+
+	close(fd);
+}
+#endif
 
 /* Initialisation of zebra and installation of commands. */
 void zebra_init(void)

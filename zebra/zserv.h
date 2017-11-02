@@ -193,4 +193,8 @@ extern int zebra_server_send_message(struct zserv *client);
 
 extern struct zserv *zebra_find_client(u_char proto);
 
+#if defined(HANDLE_ZAPI_FUZZING)
+extern void zserv_read_file(char *input);
+#endif
+
 #endif /* _ZEBRA_ZEBRA_H */
