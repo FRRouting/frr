@@ -2578,7 +2578,7 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 						       ? "Enabled"
 						       : "Disabled");
 			json_object_string_add(json, "advertiseAllVnis",
-					       bgp->advertise_all_vni
+					       is_evpn_enabled()
 						       ? "Enabled"
 						       : "Disabled");
 		} else {
@@ -2588,8 +2588,7 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 
 			/* Display all VNIs */
 			vty_out(vty, "Advertise All VNI flag: %s\n",
-				bgp->advertise_all_vni ? "Enabled"
-						       : "Disabled");
+				is_evpn_enabled() ? "Enabled" : "Disabled");
 		}
 
 		evpn_show_all_vnis(vty, bgp, json);

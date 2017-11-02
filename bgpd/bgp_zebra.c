@@ -1573,7 +1573,7 @@ void bgp_zebra_instance_register(struct bgp *bgp)
 	/* For default instance, register to learn about VNIs, if appropriate.
 	 */
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
-	    && bgp->advertise_all_vni)
+	    && is_evpn_enabled())
 		bgp_zebra_advertise_all_vni(bgp, 1);
 }
 
@@ -1592,7 +1592,7 @@ void bgp_zebra_instance_deregister(struct bgp *bgp)
 	/* For default instance, unregister learning about VNIs, if appropriate.
 	 */
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
-	    && bgp->advertise_all_vni)
+	    && is_evpn_enabled())
 		bgp_zebra_advertise_all_vni(bgp, 0);
 
 	/* Deregister for router-id, interfaces, redistributed routes. */

@@ -22,8 +22,17 @@
 #define _QUAGGA_BGP_EVPN_H
 
 #include "vxlan.h"
+#include "bgpd.h"
 
 #define EVPN_ROUTE_STRLEN 200 /* Must be >> MAC + IPv6 strings. */
+
+static inline int is_evpn_enabled(void)
+{
+	struct bgp *bgp = NULL;
+
+	bgp = bgp_get_default();
+	return bgp ? bgp->advertise_all_vni : 0;
+}
 
 extern void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi);
 extern void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi);
