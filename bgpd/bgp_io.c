@@ -155,7 +155,6 @@ void bgp_reads_on(struct peer *peer)
 	assert(peer->ibuf);
 	assert(peer->fd);
 	assert(peer->ibuf_work);
-	assert(stream_get_endp(peer->ibuf_work) == 0);
 	assert(peer->obuf);
 	assert(!peer->t_connect_check_r);
 	assert(!peer->t_connect_check_w);

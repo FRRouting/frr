@@ -181,6 +181,8 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 		while (from_peer->ibuf->head)
 			stream_fifo_push(peer->ibuf,
 					 stream_fifo_pop(from_peer->ibuf));
+
+		stream_copy(peer->ibuf_work, from_peer->ibuf_work);
 	}
 	pthread_mutex_unlock(&from_peer->io_mtx);
 	pthread_mutex_unlock(&peer->io_mtx);
