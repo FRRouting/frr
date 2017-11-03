@@ -691,7 +691,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	p.family = afi2family(afi);
 	p.prefixlen = 0;
 
-	if (afi == AFI_IP6) {
+	if ((afi == AFI_IP6) || peer_cap_enhe(peer, afi, safi)) {
 		/* IPv6 global nexthop must be included. */
 		attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
 
