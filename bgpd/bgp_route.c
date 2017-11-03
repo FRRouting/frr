@@ -2788,7 +2788,7 @@ int bgp_update(struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 	}
 
 	/* next hop check.  */
-	if (!CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD) && /* allow vpn->vrf import */
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_IS_RFAPI_HD) &&
 	    bgp_update_martian_nexthop(bgp, afi, safi, &new_attr)) {
 		reason = "martian or self next-hop;";
 		bgp_attr_flush(&new_attr);

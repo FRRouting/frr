@@ -4634,10 +4634,10 @@ notcfg:
  ************************************************************************/
 void vnc_add_vrf_opener(struct bgp *bgp, struct rfapi_nve_group_cfg *rfg)
 {
-	if (rfg->rfd == NULL) /* need new rfapi_handle */
-	{
+	if (rfg->rfd == NULL) {	/* need new rfapi_handle */
 		/* based on rfapi_open */
 		struct rfapi_descriptor *rfd;
+
 		rfd = XCALLOC(MTYPE_RFAPI_DESC,
 			      sizeof(struct rfapi_descriptor));
 		rfd->bgp = bgp;

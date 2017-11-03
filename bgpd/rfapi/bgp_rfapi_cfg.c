@@ -1752,7 +1752,7 @@ DEFUN (vnc_nve_group_export_no_routemap,
 		is_bgp = 0;
 		/* fall thru */
 	case 'b':
-		idx +=2;
+		idx += 2;
 		break;
 	default:		/* route-map */
 		idx++;

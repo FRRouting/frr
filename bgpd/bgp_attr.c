@@ -1638,7 +1638,10 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 	case BGP_ATTR_NHLEN_VPNV4:
 		stream_getl(s); /* RD high */
 		stream_getl(s); /* RD low */
-		/* NOTE: intentional fall through - for consistency in rx processing */
+		/*
+		 * NOTE: intentional fall through
+		 * - for consistency in rx processing
+		 */
 	case BGP_ATTR_NHLEN_IPV4:
 		stream_get(&attr->mp_nexthop_global_in, s, IPV4_MAX_BYTELEN);
 		/* Probably needed for RFC 2283 */

@@ -779,7 +779,11 @@ void vnc_direct_bgp_add_prefix(struct bgp *bgp,
 		if (rfgn->rfg->type == RFAPI_GROUP_CFG_VRF) {
 			vnc_direct_add_rn_group_rd(bgp, rfgn->rfg, rn, &attr,
 						   afi, rfgn->rfg->rfd);
-			continue; /* yuck! - but consistent with rest of function */
+			/*
+			 * yuck!
+			 *  - but consistent with rest of function
+			 */
+			continue;
 		}
 		/*
 		 * For each NVE that is assigned to the export nve group,
@@ -880,7 +884,11 @@ void vnc_direct_bgp_del_prefix(struct bgp *bgp,
 				     BGP_ROUTE_REDISTRIBUTE,
 				     NULL,	/* RD not used for unicast */
 				     NULL, NULL); /* tag not used for unicast */
-			continue; /* yuck! - but consistent with rest of function */
+			/*
+			 * yuck!
+			 *  - but consistent with rest of function
+			 */
+			continue;
 		}
 		/*
 		 * For each NVE that is assigned to the export nve group,
@@ -1161,7 +1169,7 @@ static void vnc_direct_add_rn_group_rd(struct bgp *bgp,
 	if (irfd == NULL && rfg->type != RFAPI_GROUP_CFG_VRF) {
 		/* need new rfapi_handle, for peer strcture
 		 * -- based on vnc_add_vrf_prefi */
-		assert (rfg->rfd == NULL);
+		assert(rfg->rfd == NULL);
 
 		if (!rfg->rt_export_list || !rfg->rfapi_import_table) {
 			vnc_zlog_debug_verbose("%s: VRF \"%s\" is missing RT import/export configuration.\n",
@@ -1183,8 +1191,10 @@ static void vnc_direct_add_rn_group_rd(struct bgp *bgp,
 			      sizeof(struct rfapi_descriptor));
 		irfd->bgp = bgp;
 		rfg->rfd = irfd;
-		/* leave most fields empty as will get from (dynamic) config
-		 * when needed */
+		/*
+		 * leave most fields empty as will get from (dynamic) config
+		 * when needed
+		 */
 		irfd->default_tunneltype_option.type = BGP_ENCAP_TYPE_MPLS;
 		irfd->cookie = rfg;
 		if (rfg->vn_prefix.family
@@ -1224,23 +1234,21 @@ static void vnc_direct_add_rn_group_rd(struct bgp *bgp,
 
 	if (rfg->routemap_export_bgp) {
 		route_map_result_t ret;
+
 		info.peer = irfd->peer;
 		info.attr = &hattr;
-		ret = route_map_apply(
-				      rfg->routemap_export_bgp,
+		ret = route_map_apply(rfg->routemap_export_bgp,
 				      &rn->p, RMAP_BGP, &info);
 		if (ret == RMAP_DENYMATCH) {
 			bgp_attr_flush(&hattr);
-			vnc_zlog_debug_verbose(
-					       "%s: route map says DENY, so not calling bgp_update",
+			vnc_zlog_debug_verbose("%s: route map says DENY, so not calling bgp_update",
 					       __func__);
 			return;
 		}
 	}
 
 	if (VNC_DEBUG(EXPORT_BGP_DIRECT_ADD)) {
-		vnc_zlog_debug_any(
-				   "%s: hattr after route_map_apply:",
+		vnc_zlog_debug_any("%s: hattr after route_map_apply:",
 				   __func__);
 		rfapiPrintAttrPtrs(NULL, &hattr);
 	}
@@ -1321,7 +1329,11 @@ static void vnc_direct_bgp_add_group_afi(struct bgp *bgp,
 			if (rfg->type == RFAPI_GROUP_CFG_VRF) {
 				vnc_direct_add_rn_group_rd(bgp, rfg, rn, &attr,
 							   afi, rfg->rfd);
-				continue; /* yuck! - but consistent with rest of function */
+				/*
+				 * yuck!
+				 *  - but consistent with rest of function
+				 */
+				continue;
 			}
 			/*
 			 * For each NVE that is assigned to the export nve
@@ -1331,7 +1343,7 @@ static void vnc_direct_bgp_add_group_afi(struct bgp *bgp,
 			for (ln = listhead(rfg->nves); ln;
 			     ln = listnextnode(ln)) {
 				vnc_direct_add_rn_group_rd(bgp, rfg, rn, &attr,
-							   afi, listgetdata(ln));
+						   afi, listgetdata(ln));
 			}
 		}
 	}
@@ -1418,11 +1430,10 @@ static void vnc_direct_bgp_del_group_afi(struct bgp *bgp,
 				for (ln = listhead(rfg->nves); ln;
 				     ln = listnextnode(ln))
 					vnc_direct_del_rn_group_rd(bgp, rfg, rn,
-								   afi, listgetdata(ln));
+						afi, listgetdata(ln));
 			}
 		}
 }
-
 
 /*
  * Caller is responsible for ensuring that the specified nve-group
