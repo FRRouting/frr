@@ -3035,6 +3035,10 @@ static void bgp_evpn_handle_export_rt_change_for_vrf(struct bgp *bgp_vrf)
 	if (!bgp_def)
 		return;
 
+	/* update all type-5 routes */
+	update_advertise_vrf_routes(bgp_vrf);
+
+	/* update all type-2 routes */
 	for (ALL_LIST_ELEMENTS_RO(bgp_vrf->l2vnis, node, vpn))
 		update_routes_for_vni(bgp_def, vpn);
 }
