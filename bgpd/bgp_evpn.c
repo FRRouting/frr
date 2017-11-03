@@ -3050,6 +3050,9 @@ void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf,
 	struct bgp_table *table = NULL;
 	struct bgp_node *rn = NULL;
 
+	if (!advertise_type5_routes(bgp_vrf, afi))
+		return;
+
 	table = bgp_vrf->rib[afi][SAFI_UNICAST];
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
 
@@ -3075,6 +3078,9 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf,
 {
 	struct bgp_table *table = NULL;
 	struct bgp_node *rn = NULL;
+
+	if (!advertise_type5_routes(bgp_vrf, afi))
+		return;
 
 	table = bgp_vrf->rib[afi][SAFI_UNICAST];
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
@@ -4076,6 +4082,9 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni,
 	for (ALL_LIST_ELEMENTS_RO(bgp_vrf->l2vnis, node, vpn))
 		update_routes_for_vni(bgp_def, vpn);
 
+	/* advertise type-5 routes if needed */
+	update_advertise_vrf_routes(bgp_vrf);
+
 	/* install all remote routes belonging to this l3vni into correspondng
 	 * vrf */
 	install_routes_for_vrf(bgp_vrf);
@@ -4109,6 +4118,9 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni,
 	 * take care of uninstalling the routes from zebra */
 	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_AUTO))
 		uninstall_routes_for_vrf(bgp_vrf);
+
+	/* delete/withdraw all type-5 routes */
+	delete_withdraw_vrf_routes(bgp_vrf);
 
 	/* remove the l3vni from vrf instance */
 	bgp_vrf->l3vni = 0;
