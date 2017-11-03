@@ -2011,6 +2011,7 @@ static int bgp_capability_msg_parse(struct peer *peer, u_char *pnt,
 
 		/* Fetch structure to the byte stream. */
 		memcpy(&mpc, pnt + 3, sizeof(struct capability_mp_data));
+		pnt += hdr->length + 3;
 
 		/* We know MP Capability Code. */
 		if (hdr->code == CAPABILITY_CODE_MP) {
@@ -2063,7 +2064,6 @@ static int bgp_capability_msg_parse(struct peer *peer, u_char *pnt,
 				"%s unrecognized capability code: %d - ignored",
 				peer->host, hdr->code);
 		}
-		pnt += hdr->length + 3;
 	}
 	return 0;
 }
