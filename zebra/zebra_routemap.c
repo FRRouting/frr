@@ -229,6 +229,33 @@ DEFUN (no_match_ip_address_prefix_len,
 					RMAP_EVENT_MATCH_DELETED);
 }
 
+DEFUN (match_ipv6_address_prefix_len,
+       match_ipv6_address_prefix_len_cmd,
+       "match ipv6 address prefix-len (0-128)",
+       MATCH_STR
+       IPV6_STR
+       "Match prefix length of ipv6 address\n"
+       "Match prefix length of ipv6 address\n"
+       "Prefix length\n")
+{
+	return zebra_route_match_add(vty, "ipv6 address prefix-len", argv[4]->arg,
+				     RMAP_EVENT_MATCH_ADDED);
+}
+
+DEFUN (no_match_ipv6_address_prefix_len,
+       no_match_ipv6_address_prefix_len_cmd,
+       "no match ipv6 address prefix-len [(0-128)]",
+       NO_STR
+       MATCH_STR
+       IPV6_STR
+       "Match prefix length of ip address\n"
+       "Match prefix length of ip address\n"
+       "Prefix length\n")
+{
+	char *plen = (argc == 6) ? argv[5]->arg : NULL;
+	return zebra_route_match_delete(vty, "ipv6 address prefix-len", plen,
+					RMAP_EVENT_MATCH_DELETED);
+}
 
 DEFUN (match_ip_nexthop_prefix_len,
        match_ip_nexthop_prefix_len_cmd,
@@ -257,7 +284,6 @@ DEFUN (no_match_ip_nexthop_prefix_len,
 	return zebra_route_match_delete(vty, "ip next-hop prefix-len", plen,
 					RMAP_EVENT_MATCH_DELETED);
 }
-
 
 DEFUN (match_source_protocol,
        match_source_protocol_cmd,
@@ -1012,8 +1038,8 @@ static struct route_map_rule_cmd route_match_ip_address_prefix_list_cmd = {
 /* `match ip address prefix-len PREFIXLEN' */
 
 static route_map_result_t
-route_match_ip_address_prefix_len(void *rule, struct prefix *prefix,
-				  route_map_object_t type, void *object)
+route_match_address_prefix_len(void *rule, struct prefix *prefix,
+			       route_map_object_t type, void *object)
 {
 	u_int32_t *prefixlen = (u_int32_t *)rule;
 
@@ -1024,7 +1050,7 @@ route_match_ip_address_prefix_len(void *rule, struct prefix *prefix,
 	return RMAP_NOMATCH;
 }
 
-static void *route_match_ip_address_prefix_len_compile(const char *arg)
+static void *route_match_address_prefix_len_compile(const char *arg)
 {
 	u_int32_t *prefix_len;
 	char *endptr = NULL;
@@ -1048,16 +1074,20 @@ static void *route_match_ip_address_prefix_len_compile(const char *arg)
 	return prefix_len;
 }
 
-static void route_match_ip_address_prefix_len_free(void *rule)
+static void route_match_address_prefix_len_free(void *rule)
 {
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
 static struct route_map_rule_cmd route_match_ip_address_prefix_len_cmd = {
-	"ip address prefix-len", route_match_ip_address_prefix_len,
-	route_match_ip_address_prefix_len_compile,
-	route_match_ip_address_prefix_len_free};
+	"ip address prefix-len", route_match_address_prefix_len,
+	route_match_address_prefix_len_compile,
+	route_match_address_prefix_len_free};
 
+static struct route_map_rule_cmd route_match_ipv6_address_prefix_len_cmd = {
+	"ipv6 address prefix-len", route_match_address_prefix_len,
+	route_match_address_prefix_len_compile,
+	route_match_address_prefix_len_free};
 
 /* `match ip nexthop prefix-len PREFIXLEN' */
 
@@ -1095,8 +1125,8 @@ route_match_ip_nexthop_prefix_len(void *rule, struct prefix *prefix,
 
 static struct route_map_rule_cmd route_match_ip_nexthop_prefix_len_cmd = {
 	"ip next-hop prefix-len", route_match_ip_nexthop_prefix_len,
-	route_match_ip_address_prefix_len_compile, /* reuse */
-	route_match_ip_address_prefix_len_free     /* reuse */
+	route_match_address_prefix_len_compile, /* reuse */
+	route_match_address_prefix_len_free     /* reuse */
 };
 
 /* `match source-protocol PROTOCOL' */
@@ -1438,6 +1468,7 @@ void zebra_route_map_init()
 	route_map_install_match(&route_match_ip_address_cmd);
 	route_map_install_match(&route_match_ip_address_prefix_list_cmd);
 	route_map_install_match(&route_match_ip_address_prefix_len_cmd);
+	route_map_install_match(&route_match_ipv6_address_prefix_len_cmd);
 	route_map_install_match(&route_match_ip_nexthop_prefix_len_cmd);
 	route_map_install_match(&route_match_source_protocol_cmd);
 	/* */
@@ -1446,6 +1477,8 @@ void zebra_route_map_init()
 	install_element(RMAP_NODE, &match_ip_nexthop_prefix_len_cmd);
 	install_element(RMAP_NODE, &no_match_ip_nexthop_prefix_len_cmd);
 	install_element(RMAP_NODE, &match_ip_address_prefix_len_cmd);
+	install_element(RMAP_NODE, &match_ipv6_address_prefix_len_cmd);
+	install_element(RMAP_NODE, &no_match_ipv6_address_prefix_len_cmd);
 	install_element(RMAP_NODE, &no_match_ip_address_prefix_len_cmd);
 	install_element(RMAP_NODE, &match_source_protocol_cmd);
 	install_element(RMAP_NODE, &no_match_source_protocol_cmd);

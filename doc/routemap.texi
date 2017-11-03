@@ -139,6 +139,26 @@ Configure the @var{order}'th entry in @var{route-map-name} with
 Matches the specified @var{access_list}
 @end deffn
 
+@deffn {Route-map Command} {match ip address @var{prefix-list}} {}
+Matches the specified @var{prefix-list}
+@end deffn
+
+@deffn {Route-map Command} {match ip address prefix-len @var{0-32}} {}
+Matches the specified @var{prefix-len}.  This is a Zebra specific command.
+@end deffn
+
+@deffn {Route-map Command} {match ipv6 address @var{access_list}} {}
+Matches the specified @var{access_list}
+@end deffn
+
+@deffn {Route-map Command} {match ipv6 address @var{prefix-list}} {}
+Matches the specified @var{prefix-list}
+@end deffn
+
+@deffn {Route-map Command} {match ipv6 address prefix-len @var{0-128}} {}
+Matches the specified @var{prefix-len}.  This is a Zebra specific command.
+@end deffn
+
 @deffn {Route-map Command} {match ip next-hop @var{ipv4_addr}} {}
 Matches the specified @var{ipv4_addr}.
 @end deffn
