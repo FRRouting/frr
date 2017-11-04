@@ -733,7 +733,7 @@ statement.
 Specify how routes should be exported to bgp or zebra.
 If the mode is @code{none}, routes are not exported.
 If the mode is @code{group-nve}, routes are exported according
-to nve-group configuration (@pxref{VNC NVE Group Configuration}): if a group is configured to
+to nve-group or vrf-policy group configuration (@pxref{VNC NVE Group Configuration}): if a group is configured to
 allow export, then each prefix visible to the group is exported
 with next hops set to the currently-registered NVEs.
 If the mode is @code{registering-nve}, then all VNC routes are
@@ -751,7 +751,8 @@ The default for both bgp and zebra is mode @code{none}.
 @deffn {VNC} {vnc export bgp|zebra group-nve group @var{group-name}}
 @deffnx {VNC} {vnc export bgp|zebra group-nve no group @var{group-name}}
 When export mode is @code{group-nve},
-export (or do not export) prefixes from the specified nve-group
+export (or do not export) prefixes from the specified nve-group or
+vrf-policy group
 to unicast BGP or to zebra.
 Repeat this statement as needed for each nve-group to be exported.
 Each VNC prefix that is exported will result in N exported routes to the
@@ -785,7 +786,7 @@ being exported to bgp or zebra.
 @end deffn
 
 When the export mode is @code{group-nve}, policy for exported
-routes is specified per-NVE-group inside a @code{nve-group} @var{RFG-NAME} block
+routes is specified per-NVE-group or vrf-policy group inside a @code{nve-group} @var{RFG-NAME} block
 via the following commands(@pxref{VNC NVE Group Configuration}):
 
 @deffn {VNC} {export bgp|zebra route-map MAP-NAME}
