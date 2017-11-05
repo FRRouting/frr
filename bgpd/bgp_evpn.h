@@ -34,8 +34,10 @@ static inline int is_evpn_enabled(void)
 	return bgp ? bgp->advertise_all_vni : 0;
 }
 
-extern void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi);
-extern void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi);
+extern void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi,
+					   safi_t safi);
+extern void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
+					    safi_t safi);
 extern void bgp_evpn_vrf_delete(struct bgp *);
 extern void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw);
 extern char *bgp_evpn_label2str(mpls_label_t *label, char *buf, int len);

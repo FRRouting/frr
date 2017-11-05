@@ -2437,28 +2437,33 @@ DEFUN (no_bgp_evpn_advertise_all_vni,
 
 DEFUN (bgp_evpn_advertise_type5,
        bgp_evpn_advertise_type5_cmd,
-       "advertise <ipv4|ipv6|both>",
+       "advertise " BGP_AFI_CMD_STR "" BGP_SAFI_CMD_STR,
        "Advertise prefix routes\n"
-       "advertise ipv4 prefix only\n"
-       "advertise ipv6 prefix only\n"
-       "advertise both ipv4/ipv6 prefix\n")
+       BGP_AFI_HELP_STR
+       BGP_SAFI_HELP_STR)
 {
 	struct bgp *bgp_vrf = VTY_GET_CONTEXT(bgp); /* bgp vrf instance */
-	uint32_t type = 0;
+	int idx_afi = 0;
+	int idx_safi = 0;
+	afi_t afi = 0;
+	safi_t safi = 0;
 
-	if (strcmp(argv[1]->text, "ipv4")) {
-		type = BGP_VRF_ADVERTISE_IPV4_IN_EVPN;
-	} else if (strcmp(argv[1]->text, "ipv6")) {
-		type = BGP_VRF_ADVERTISE_IPV4_IN_EVPN;
-	} else if (strcmp(argv[1]->text, "both")) {
-		type = BGP_VRF_ADVERTISE_IPV4_IN_EVPN |
-		       BGP_VRF_ADVERTISE_IPV6_IN_EVPN;
-	} else {
-		vty_out(vty, "%%invalid command");
+	argv_find_and_parse_afi(argv, argc, &idx_afi, &afi);
+	argv_find_and_parse_safi(argv, argc, &idx_safi, &safi);
+
+	if (!(afi == AFI_IP) || (afi == AFI_IP6)) {
+		vty_out(vty,
+			"%%only ipv4 or ipv6 address families are supported");
 		return CMD_WARNING;
 	}
 
-	if (CHECK_FLAG(type, BGP_VRF_ADVERTISE_IPV4_IN_EVPN)) {
+	if (safi != SAFI_UNICAST) {
+		vty_out(vty,
+			"%%only ipv4 unicast or ipv6 unicast are supported");
+		return CMD_WARNING;
+	}
+
+	if (afi == AFI_IP) {
 
 		/* if we are already advertising ipv4 prefix as type-5
 		 * nothing to do */
@@ -2466,8 +2471,7 @@ DEFUN (bgp_evpn_advertise_type5,
 				BGP_VRF_ADVERTISE_IPV4_IN_EVPN)) {
 			SET_FLAG(bgp_vrf->vrf_flags,
 				 BGP_VRF_ADVERTISE_IPV4_IN_EVPN);
-			bgp_evpn_advertise_type5_routes(bgp_vrf,
-							AFI_IP);
+			bgp_evpn_advertise_type5_routes(bgp_vrf, afi, safi);
 		}
 	} else {
 
@@ -2477,45 +2481,48 @@ DEFUN (bgp_evpn_advertise_type5,
 				BGP_VRF_ADVERTISE_IPV6_IN_EVPN)) {
 			SET_FLAG(bgp_vrf->vrf_flags,
 				 BGP_VRF_ADVERTISE_IPV6_IN_EVPN);
-			bgp_evpn_advertise_type5_routes(bgp_vrf,
-							AFI_IP6);
+			bgp_evpn_advertise_type5_routes(bgp_vrf, afi, safi);
 		}
 	}
-
 	return CMD_SUCCESS;
 }
 
 DEFUN (no_bgp_evpn_advertise_type5,
        no_bgp_evpn_advertise_type5_cmd,
-       "no advertise <ipv4|ipv6|both>",
+       "no advertise " BGP_AFI_CMD_STR "" BGP_SAFI_CMD_STR,
        NO_STR
        "Advertise prefix routes\n"
-       "advertise ipv4 prefix only\n"
-       "advertise ipv6 prefix only\n"
-       "advertise both ipv4/ipv6 prefix\n")
+       BGP_AFI_HELP_STR
+       BGP_SAFI_HELP_STR)
 {
 	struct bgp *bgp_vrf = VTY_GET_CONTEXT(bgp); /* bgp vrf instance */
-	uint32_t type = 0;
+	int idx_afi = 0;
+	int idx_safi = 0;
+	afi_t afi = 0;
+	safi_t safi = 0;
 
-	if (strcmp(argv[1]->text, "ipv4")) {
-		type = BGP_VRF_ADVERTISE_IPV4_IN_EVPN;
-	} else if (strcmp(argv[1]->text, "ipv6")) {
-		type = BGP_VRF_ADVERTISE_IPV4_IN_EVPN;
-	} else if (strcmp(argv[1]->text, "both")) {
-		type = BGP_VRF_ADVERTISE_IPV4_IN_EVPN |
-		       BGP_VRF_ADVERTISE_IPV6_IN_EVPN;
-	} else {
-		vty_out(vty, "%%invalid command");
+	argv_find_and_parse_afi(argv, argc, &idx_afi, &afi);
+	argv_find_and_parse_safi(argv, argc, &idx_safi, &safi);
+
+	if (!(afi == AFI_IP) || (afi == AFI_IP6)) {
+		vty_out(vty,
+			"%%only ipv4 or ipv6 address families are supported");
 		return CMD_WARNING;
 	}
 
-	if (CHECK_FLAG(type, BGP_VRF_ADVERTISE_IPV4_IN_EVPN)) {
+	if (safi != SAFI_UNICAST) {
+		vty_out(vty,
+			"%%only ipv4 unicast or ipv6 unicast are supported");
+		return CMD_WARNING;
+	}
+
+	if (afi == AFI_IP) {
 
 		/* if we are already advertising ipv4 prefix as type-5
 		 * nothing to do */
 		if (CHECK_FLAG(bgp_vrf->vrf_flags,
 			       BGP_VRF_ADVERTISE_IPV4_IN_EVPN)) {
-			bgp_evpn_withdraw_type5_routes(bgp_vrf, AFI_IP);
+			bgp_evpn_withdraw_type5_routes(bgp_vrf, afi, safi);
 			UNSET_FLAG(bgp_vrf->vrf_flags,
 				   BGP_VRF_ADVERTISE_IPV4_IN_EVPN);
 		}
@@ -2525,8 +2532,7 @@ DEFUN (no_bgp_evpn_advertise_type5,
 		 * nothing to do */
 		if (CHECK_FLAG(bgp_vrf->vrf_flags,
 			       BGP_VRF_ADVERTISE_IPV6_IN_EVPN)) {
-			bgp_evpn_withdraw_type5_routes(bgp_vrf,
-						       AFI_IP6);
+			bgp_evpn_withdraw_type5_routes(bgp_vrf, afi, safi);
 			UNSET_FLAG(bgp_vrf->vrf_flags,
 				   BGP_VRF_ADVERTISE_IPV6_IN_EVPN);
 		}
