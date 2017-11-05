@@ -1,0 +1,39 @@
+# This file is a Work in Progress to get FRR compiled
+# and running on MacOS.
+#
+# It is provided as-is without any support. The purpose
+# is to extend the community of users to the MacOS' developers.
+#
+# Should you have any specific comments, please send me
+# direclty an email to vincent.jardin AT 6wind.com
+# or to FRR's mailing list.
+
+# The following compilation has been done with:
+#  - macOS High Sierra (10.13.1)
+#  - xcode (9.1)
+#  - macos ports
+
+sudo xcode-select --install
+sudo xcodebuild -license
+
+sudo port -v selfupdate
+
+sudo port install libtool
+sudo port install autoconf
+sudo port install automake
+
+sudo port install bison
+sudo port install readline
+sudo port install openssl
+sudo port install json-c
+
+git clone https://github.com/FRRouting/frr.git
+cd frr/
+autoreconf -i
+export LDFLAGS=-L/opt/local/lib
+export CFLAGS=-I/opt/local/include/
+# I do not know the MacOS-BSD's IOCTL that Apple did port
+# for the mcast route entires, so let's currently skip
+# PIM until we can find the proper IOCTLs to be used.
+
+./configure --disable-pimd

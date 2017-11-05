@@ -62,11 +62,16 @@ struct memgroup {
  *  Note:  MTYPE_* are symbols to the compiler (of type struct memtype *),
  *         but MGROUP_* aren't.
  */
+#ifdef __APPLE__
+#define SECTION_PREFIX ".mem,"
+#else
+#define SECTION_PREFIX ".mem"
+#endif
 
 #define DECLARE_MGROUP(name) extern struct memgroup _mg_##name;
 #define DEFINE_MGROUP(mname, desc)                                             \
 	struct memgroup _mg_##mname                                            \
-		__attribute__((section(".data.mgroups"))) = {                  \
+		__attribute__((section(SECTION_PREFIX".data.mgroups"))) = {    \
 			.name = desc,                                          \
 			.types = NULL,                                         \
 			.next = NULL,                                          \
@@ -96,7 +101,7 @@ struct memgroup {
 
 #define DEFINE_MTYPE_ATTR(group, mname, attr, desc)                            \
 	attr struct memtype _mt_##mname                                        \
-		__attribute__((section(".data.mtypes"))) = {                   \
+		__attribute__((section(SECTION_PREFIX".data.mtypes"))) = {     \
 			.name = desc,                                          \
 			.next = NULL,                                          \
 			.n_alloc = 0,                                          \
