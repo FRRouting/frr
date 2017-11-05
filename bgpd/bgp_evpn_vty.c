@@ -4027,6 +4027,12 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 	if (bgp->advertise_gw_macip)
 		vty_out(vty, "  advertise-default-gw\n");
+
+	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_ADVERTISE_IPV4_IN_EVPN))
+		vty_out(vty, "  advertise ipv4 unicast\n");
+
+	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_ADVERTISE_IPV6_IN_EVPN))
+		vty_out(vty, "  advertise ipv6 unicast\n");
 }
 
 void bgp_ethernetvpn_init(void)
