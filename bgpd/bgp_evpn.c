@@ -3093,6 +3093,13 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf,
 		struct prefix_evpn evp;
 		char buf[PREFIX_STRLEN];
 
+		if (!rn->info)
+			continue;
+
+		/* only advertise subnet routes as type-5 */
+		if (is_host_route(&rn->p))
+			continue;
+
 		build_type5_prefix_from_ip_prefix(&evp, &rn->p);
 		ret = update_evpn_type5_route(bgp_vrf, &evp);
 		if (ret) {

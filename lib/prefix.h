@@ -399,4 +399,13 @@ static inline int is_default_prefix(const struct prefix *p)
 	return 0;
 }
 
+static inline int is_host_route(struct prefix *p)
+{
+	if (p->family == AF_INET)
+		return (p->prefixlen == IPV4_MAX_BITLEN);
+	else if (p->family == AF_INET6)
+		return (p->prefixlen == IPV6_MAX_BITLEN);
+	return 0;
+}
+
 #endif /* _ZEBRA_PREFIX_H */
