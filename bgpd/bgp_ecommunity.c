@@ -702,8 +702,12 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				len = sprintf(
 					str_buf + str_pnt,
 					"EVPN:%02x:%02x:%02x:%02x:%02x:%02x",
-					macaddr[0], macaddr[1], macaddr[2],
-					macaddr[3], macaddr[4], macaddr[5]);
+					(uint8_t)macaddr[0],
+					(uint8_t)macaddr[1],
+					(uint8_t)macaddr[2],
+					(uint8_t)macaddr[3],
+					(uint8_t)macaddr[4],
+					(uint8_t)macaddr[5]);
 			} else if (*pnt
 				   == ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY) {
 				u_int32_t seqnum;
