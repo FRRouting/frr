@@ -548,6 +548,7 @@ static int netlink_interface(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	struct interface *ifp;
 	char *name = NULL;
 	char *kind = NULL;
+	char *desc = NULL;
 	char *slave_kind = NULL;
 	struct zebra_ns *zns;
 	vrf_id_t vrf_id = VRF_DEFAULT;
@@ -588,6 +589,9 @@ static int netlink_interface(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	if (tb[IFLA_IFNAME] == NULL)
 		return -1;
 	name = (char *)RTA_DATA(tb[IFLA_IFNAME]);
+
+	if (tb[IFLA_IFALIAS])
+		desc = (char *)RTA_DATA(tb[IFLA_IFALIAS]);
 
 	if (tb[IFLA_LINKINFO]) {
 		parse_rtattr_nested(linkinfo, IFLA_INFO_MAX, tb[IFLA_LINKINFO]);
@@ -635,6 +639,9 @@ static int netlink_interface(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	ifp->metric = 0;
 	ifp->speed = get_iflink_speed(name);
 	ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
+
+	if (desc)
+		ifp->desc = XSTRDUP(MTYPE_TMP, desc);
 
 	/* Set zebra interface type */
 	zebra_if_set_ziftype(ifp, zif_type, zif_slave_type);
@@ -980,6 +987,7 @@ int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	struct interface *ifp;
 	char *name = NULL;
 	char *kind = NULL;
+	char *desc = NULL;
 	char *slave_kind = NULL;
 	struct zebra_ns *zns;
 	vrf_id_t vrf_id = VRF_DEFAULT;
@@ -1044,6 +1052,10 @@ int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	if (tb[IFLA_LINK])
 		link_ifindex = *(ifindex_t *)RTA_DATA(tb[IFLA_LINK]);
 
+	if (tb[IFLA_IFALIAS]) {
+		desc = (char *)RTA_DATA(tb[IFLA_IFALIAS]);
+	}
+
 	/* If VRF, create or update the VRF structure itself. */
 	if (zif_type == ZEBRA_IF_VRF) {
 		netlink_vrf_change(h, tb[IFLA_LINKINFO], name);
@@ -1052,6 +1064,13 @@ int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 
 	/* See if interface is present. */
 	ifp = if_lookup_by_name_per_ns(zns, name);
+
+	if (ifp) {
+		if (ifp->desc)
+			XFREE(MTYPE_TMP, ifp->desc);
+		if (desc)
+			ifp->desc = XSTRDUP(MTYPE_TMP, desc);
+	}
 
 	if (h->nlmsg_type == RTM_NEWLINK) {
 		if (tb[IFLA_MASTER]) {
