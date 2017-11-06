@@ -344,8 +344,8 @@ static int bgp_process_reads(struct thread *thread)
 		thread_add_read(fpt->master, bgp_process_reads, peer, peer->fd,
 				&peer->t_read);
 		if (added_pkt)
-			thread_add_event(bm->master, bgp_process_packet, peer,
-					 0, NULL);
+			thread_add_timer_msec(bm->master, bgp_process_packet,
+					      peer, 0, &peer->t_process_packet);
 	}
 
 	return 0;

@@ -139,6 +139,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	BGP_TIMER_OFF(from_peer->t_connect);
 	BGP_TIMER_OFF(from_peer->t_connect_check_r);
 	BGP_TIMER_OFF(from_peer->t_connect_check_w);
+	BGP_TIMER_OFF(from_peer->t_process_packet);
 
 	/*
 	 * At this point in time, it is possible that there are packets pending
@@ -265,6 +266,8 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 
 	bgp_reads_on(peer);
 	bgp_writes_on(peer);
+	thread_add_timer_msec(bm->master, bgp_process_packet, peer, 0,
+			      &peer->t_process_packet);
 
 	if (from_peer)
 		peer_xfer_stats(peer, from_peer);
