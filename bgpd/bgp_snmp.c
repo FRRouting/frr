@@ -615,14 +615,14 @@ static u_char *bgpPeerTable(struct variable *v, oid name[], size_t *length,
 		break;
 	case BGPPEERHOLDTIMECONFIGURED:
 		*write_method = write_bgpPeerTable;
-		if (CHECK_FLAG(peer->config, PEER_CONFIG_TIMER))
+		if (PEER_OR_GROUP_TIMER_SET(peer))
 			return SNMP_INTEGER(peer->holdtime);
 		else
 			return SNMP_INTEGER(peer->v_holdtime);
 		break;
 	case BGPPEERKEEPALIVECONFIGURED:
 		*write_method = write_bgpPeerTable;
-		if (CHECK_FLAG(peer->config, PEER_CONFIG_TIMER))
+		if (PEER_OR_GROUP_TIMER_SET(peer))
 			return SNMP_INTEGER(peer->keepalive);
 		else
 			return SNMP_INTEGER(peer->v_keepalive);

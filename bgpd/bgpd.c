@@ -2301,6 +2301,7 @@ struct peer_group *peer_group_get(struct bgp *bgp, const char *name)
 	group->conf->gtsm_hops = 0;
 	group->conf->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
 	UNSET_FLAG(group->conf->config, PEER_CONFIG_TIMER);
+	UNSET_FLAG(group->conf->config, PEER_GROUP_CONFIG_TIMER);
 	UNSET_FLAG(group->conf->config, PEER_CONFIG_CONNECT);
 	group->conf->keepalive = 0;
 	group->conf->holdtime = 0;
@@ -4582,20 +4583,30 @@ int peer_timers_set(struct peer *peer, u_int32_t keepalive, u_int32_t holdtime)
 		return BGP_ERR_INVALID_VALUE;
 
 	/* Set value to the configuration. */
-	SET_FLAG(peer->config, PEER_CONFIG_TIMER);
 	peer->holdtime = holdtime;
 	peer->keepalive = (keepalive < holdtime / 3 ? keepalive : holdtime / 3);
 
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
-		return 0;
-
-	/* peer-group member updates. */
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+	/* First work on real peers with timers */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		SET_FLAG(peer->config, PEER_CONFIG_TIMER);
-		peer->holdtime = group->conf->holdtime;
-		peer->keepalive = group->conf->keepalive;
+		UNSET_FLAG(peer->config, PEER_GROUP_CONFIG_TIMER);
+	} else {
+		/* Now work on the peer-group timers */
+		SET_FLAG(peer->config, PEER_GROUP_CONFIG_TIMER);
+
+		/* peer-group member updates. */
+		group = peer->group;
+		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+			/* Skip peers that have their own timers */
+			if (CHECK_FLAG(peer->config, PEER_CONFIG_TIMER))
+				continue;
+
+			SET_FLAG(peer->config, PEER_GROUP_CONFIG_TIMER);
+			peer->holdtime = group->conf->holdtime;
+			peer->keepalive = group->conf->keepalive;
+		}
 	}
+
 	return 0;
 }
 
@@ -4604,20 +4615,32 @@ int peer_timers_unset(struct peer *peer)
 	struct peer_group *group;
 	struct listnode *node, *nnode;
 
-	/* Clear configuration. */
-	UNSET_FLAG(peer->config, PEER_CONFIG_TIMER);
-	peer->keepalive = 0;
-	peer->holdtime = 0;
-
-	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
-		return 0;
-
-	/* peer-group member updates. */
-	group = peer->group;
-	for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+	/* First work on real peers vs the peer-group */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		UNSET_FLAG(peer->config, PEER_CONFIG_TIMER);
-		peer->holdtime = 0;
 		peer->keepalive = 0;
+		peer->holdtime = 0;
+
+		if (peer->group && peer->group->conf->holdtime) {
+			SET_FLAG(peer->config, PEER_GROUP_CONFIG_TIMER);
+			peer->keepalive = peer->group->conf->keepalive;
+			peer->holdtime = peer->group->conf->holdtime;
+		}
+	} else {
+		/* peer-group member updates. */
+		group = peer->group;
+		for (ALL_LIST_ELEMENTS(group->peer, node, nnode, peer)) {
+			if (!CHECK_FLAG(peer->config, PEER_CONFIG_TIMER)) {
+				UNSET_FLAG(peer->config,
+					   PEER_GROUP_CONFIG_TIMER);
+				peer->holdtime = 0;
+				peer->keepalive = 0;
+			}
+		}
+
+		UNSET_FLAG(group->conf->config, PEER_GROUP_CONFIG_TIMER);
+		group->conf->holdtime = 0;
+		group->conf->keepalive = 0;
 	}
 
 	return 0;
@@ -6535,7 +6558,7 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	}
 
 	/* timers */
-	if (CHECK_FLAG(peer->config, PEER_CONFIG_TIMER)
+	if ((PEER_OR_GROUP_TIMER_SET(peer))
 	    && ((!peer_group_active(peer)
 		 && (peer->keepalive != BGP_DEFAULT_KEEPALIVE
 		     || peer->holdtime != BGP_DEFAULT_HOLDTIME))
