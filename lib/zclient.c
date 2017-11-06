@@ -901,7 +901,7 @@ int zapi_route_encode(u_char cmd, struct stream *s, struct zapi_route *api)
 	stream_putw(s, api->instance);
 	stream_putl(s, api->flags);
 	stream_putc(s, api->message);
-	stream_putw(s, api->safi);
+	stream_putc(s, api->safi);
 
 	/* Put prefix information. */
 	stream_putc(s, api->prefix.family);
@@ -1021,7 +1021,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 	STREAM_GETW(s, api->instance);
 	STREAM_GETL(s, api->flags);
 	STREAM_GETC(s, api->message);
-	STREAM_GETW(s, api->safi);
+	STREAM_GETC(s, api->safi);
 
 	/* Prefix. */
 	STREAM_GETC(s, api->prefix.family);
