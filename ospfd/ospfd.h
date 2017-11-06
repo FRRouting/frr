@@ -134,6 +134,7 @@ struct ospf {
 	/* OSPF Router ID. */
 	struct in_addr router_id;	/* Configured automatically. */
 	struct in_addr router_id_static; /* Configured manually. */
+	struct in_addr router_id_zebra;
 
 	vrf_id_t vrf_id;  /* VRF Id */
 	char *name;       /* VRF name */
