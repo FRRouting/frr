@@ -2847,6 +2847,7 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	/* Make EVPN prefix. */
 	memset(&p, 0, sizeof(struct prefix_evpn));
 	p.family = AF_EVPN;
+	p.prefixlen = EVPN_TYPE_5_ROUTE_PREFIXLEN;
 	p.prefix.route_type = BGP_EVPN_IP_PREFIX_ROUTE;
 
 	/* Additional information outside of prefix - ESI and GW IP */
@@ -2881,14 +2882,12 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 		pfx += 4;
 		memcpy(&evpn.gw_ip.ipv4, pfx, 4);
 		pfx += 4;
-		p.prefixlen = PREFIX_LEN_ROUTE_TYPE_5_IPV4;
 	} else {
 		SET_IPADDR_V6(&p.prefix.ip);
 		memcpy(&p.prefix.ip.ipaddr_v6, pfx, 16);
 		pfx += 16;
 		memcpy(&evpn.gw_ip.ipv6, pfx, 16);
 		pfx += 16;
-		p.prefixlen = PREFIX_LEN_ROUTE_TYPE_5_IPV6;
 	}
 
 	label_pnt = (mpls_label_t *)pfx;
@@ -2919,10 +2918,12 @@ static void evpn_mpattr_encode_type5(struct stream *s, struct prefix *p,
 		return;
 	p_evpn_p = &(p->u.prefix_evpn);
 
+	/* len denites the total len of IP and GW-IP in the route
+	   IP and GW-IP have to be both ipv4 or ipv6 */
 	if (IS_IPADDR_V4(&p_evpn_p->ip))
-		len = 8; /* ipv4 */
+		len = 8; /* IP and GWIP are both ipv4 */
 	else
-		len = 32; /* ipv6 */
+		len = 32; /* IP and GWIP are both ipv6 */
 	/* Prefix contains RD, ESI, EthTag, IP length, IP, GWIP and VNI */
 	stream_putc(s, 8 + 10 + 4 + 1 + len + 3);
 	stream_put(s, prd->val, 8);

@@ -30,10 +30,10 @@
 
 #define RT_ADDRSTRLEN 28
 
-/* EVPN prefix lengths. */
+/* EVPN prefix lengths. This reprsent the sizeof struct prefix_evpn  */
 #define EVPN_TYPE_2_ROUTE_PREFIXLEN      224
 #define EVPN_TYPE_3_ROUTE_PREFIXLEN      224
-#define EVPN_TYPE_5_ROUTE_PREFIXLEN      168
+#define EVPN_TYPE_5_ROUTE_PREFIXLEN      224
 
 /* EVPN route types. */
 typedef enum {
