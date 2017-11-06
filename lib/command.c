@@ -1621,10 +1621,13 @@ DEFUN (show_commandtree,
 	return cmd_list_cmds(vty, argc == 3);
 }
 
-static void vty_write_config(struct vty *vty)
+static int vty_write_config(struct vty *vty)
 {
 	size_t i;
 	struct cmd_node *node;
+
+	if (host.noconfig)
+		return CMD_SUCCESS;
 
 	if (vty->type == VTY_TERM) {
 		vty_out(vty, "%sCurrent configuration:%s", VTY_NEWLINE,
@@ -1646,19 +1649,12 @@ static void vty_write_config(struct vty *vty)
 	if (vty->type == VTY_TERM) {
 		vty_out(vty, "end%s", VTY_NEWLINE);
 	}
+
+	return CMD_SUCCESS;
 }
 
-/* Write current configuration into file. */
-
-DEFUN (config_write,
-       config_write_cmd,
-       "write [<file|memory|terminal>]",
-       "Write running configuration to memory, network, or terminal\n"
-       "Write to configuration file\n"
-       "Write configuration currently in memory\n"
-       "Write configuration to terminal\n")
+static int file_write_config(struct vty *vty)
 {
-	int idx_type = 1;
 	int fd, dirfd;
 	char *config_file, *slash;
 	char *config_file_tmp = NULL;
@@ -1666,13 +1662,6 @@ DEFUN (config_write,
 	int ret = CMD_WARNING;
 	struct vty *file_vty;
 	struct stat conf_stat;
-
-	// if command was 'write terminal' or 'show running-config'
-	if (argc == 2 && (!strcmp(argv[idx_type]->text, "terminal")
-			  || !strcmp(argv[0]->text, "show"))) {
-		vty_write_config(vty);
-		return CMD_SUCCESS;
-	}
 
 	if (host.noconfig)
 		return CMD_SUCCESS;
@@ -1773,14 +1762,34 @@ finished:
 	return ret;
 }
 
+/* Write current configuration into file. */
+
+DEFUN (config_write,
+       config_write_cmd,
+       "write [<file|memory|terminal>]",
+       "Write running configuration to memory, network, or terminal\n"
+       "Write to configuration file\n"
+       "Write configuration currently in memory\n"
+       "Write configuration to terminal\n")
+{
+	const int idx_type = 1;
+
+	// if command was 'write terminal' or 'write memory'
+	if (argc == 2 && (!strcmp(argv[idx_type]->text, "terminal"))) {
+		return vty_write_config(vty);
+	}
+
+	return file_write_config(vty);
+}
+
 /* ALIAS_FIXME for 'write <terminal|memory>' */
 DEFUN (show_running_config,
        show_running_config_cmd,
        "show running-config",
        SHOW_STR
-       "running configuration (same as write terminal/memory)\n")
+       "running configuration (same as write terminal)\n")
 {
-	return config_write(self, vty, argc, argv);
+	return vty_write_config(vty);
 }
 
 /* ALIAS_FIXME for 'write file' */
@@ -1789,11 +1798,9 @@ DEFUN (copy_runningconf_startupconf,
        "copy running-config startup-config",
        "Copy configuration\n"
        "Copy running config to... \n"
-       "Copy running config to startup config (same as write file)\n")
+       "Copy running config to startup config (same as write file/memory)\n")
 {
-	if (!host.noconfig)
-		vty_write_config(vty);
-	return CMD_SUCCESS;
+	return file_write_config(vty);
 }
 /** -- **/
 
