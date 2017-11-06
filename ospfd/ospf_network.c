@@ -184,11 +184,8 @@ int ospf_bind_vrfdevice(struct ospf *ospf, int ospf_sock)
 			zlog_warn("%s: Could not setsockopt SO_BINDTODEVICE %s",
 					__PRETTY_FUNCTION__,
 					safe_strerror(save_errno));
-		} else {
-			zlog_debug("%s: Bind socket %d to vrf %s id %u device",
-				   __PRETTY_FUNCTION__, ospf_sock,
-				   ospf->name, ospf->vrf_id);
 		}
+
 	}
 #endif
 	return ret;
