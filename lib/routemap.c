@@ -2184,7 +2184,7 @@ DEFUN (set_ip_nexthop,
 		return CMD_WARNING;
 	}
 	if (su.sin.sin_addr.s_addr == 0
-	    || IPV4_CLASS_DE(su.sin.sin_addr.s_addr)) {
+	    || IPV4_CLASS_DE(ntohl(su.sin.sin_addr.s_addr))) {
 		vty_out(vty,
 			"%% nexthop address cannot be 0.0.0.0, multicast "
 			"or reserved%s",
