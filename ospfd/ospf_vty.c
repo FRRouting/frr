@@ -139,35 +139,29 @@ static struct ospf *ospf_cmd_lookup_ospf(struct vty *vty,
 					 u_short *instance)
 {
 	struct ospf *ospf = NULL;
-	int idx_vrf = 0;
+	int idx_vrf = 0, idx_inst = 0;
 	const char *vrf_name = NULL;
+
+	*instance = 0;
+	if (argv_find(argv, argc, "(1-65535)", &idx_inst))
+		*instance = strtoul(argv[idx_inst]->arg, NULL, 10);
 
 	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
 		vrf_name = argv[idx_vrf + 1]->arg;
 		if (enable) {
-			if (argc > 4)
-				*instance = strtoul(argv[2]->arg, NULL, 10);
 			/* Allocate VRF aware instance */
 			ospf = ospf_get(*instance, vrf_name);
 		} else {
-			if (argc > 5)
-				*instance = strtoul(argv[3]->arg, NULL, 10);
 			ospf = ospf_lookup_by_inst_name(*instance, vrf_name);
 		}
 	} else {
 		if (enable) {
-			ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-			if (!ospf)
-				vty_out(vty,
-					"There isn't active ospf instance\n");
-			if (argc > 2)
-				*instance = strtoul(argv[2]->arg, NULL, 10);
+			ospf = ospf_get(*instance, NULL);
 		} else {
-			if (argc > 3)
-				*instance = strtoul(argv[3]->arg, NULL, 10);
 			ospf = ospf_lookup_instance(*instance);
 		}
 	}
+
 	return ospf;
 }
 
@@ -250,6 +244,7 @@ DEFUN (no_router_ospf,
 		else
 			return CMD_WARNING;
 	}
+	zlog_debug("%s: no router ospf ", __PRETTY_FUNCTION__);
 	ospf_finish(ospf);
 
 	return CMD_SUCCESS;
@@ -9282,7 +9277,7 @@ DEFUN (show_ip_ospf_vrfs,
 		json_object_free(json);
 	} else {
 		if (count)
-			vty_out(vty, "\nTotal number of OSPF VRFs (including default): %d\n",
+			vty_out(vty, "\nTotal number of OSPF VRFs: %d\n",
 				count);
 	}
 
