@@ -28,6 +28,7 @@
 #include "plist.h"
 #include "memory.h"
 #include "log.h"
+#include "lua.h"
 #ifdef HAVE_LIBPCREPOSIX
 #include <pcreposix.h>
 #else
@@ -329,6 +330,102 @@ static void route_match_peer_free(void *rule)
 struct route_map_rule_cmd route_match_peer_cmd = {"peer", route_match_peer,
 						  route_match_peer_compile,
 						  route_match_peer_free};
+
+#if defined(HAVE_LUA)
+static route_map_result_t route_match_command(void *rule,
+					      const struct prefix *prefix,
+					      route_map_object_t type,
+					      void *object)
+{
+	int status = RMAP_NOMATCH;
+	u_int32_t locpref = 0;
+	u_int32_t newlocpref = 0;
+	enum lua_rm_status lrm_status;
+	struct bgp_info *info = (struct bgp_info *)object;
+	lua_State *L = lua_initialize("/etc/frr/lua.scr");
+
+	if (L == NULL)
+		return status;
+
+	/*
+	 * Setup the prefix information to pass in
+	 */
+	lua_setup_prefix_table(L, prefix);
+
+	zlog_debug("Set up prefix table");
+	/*
+	 * Setup the bgp_info information
+	 */
+	lua_newtable(L);
+	lua_pushinteger(L, info->attr->med);
+	lua_setfield(L, -2, "metric");
+	lua_pushinteger(L, info->attr->nh_ifindex);
+	lua_setfield(L, -2, "ifindex");
+	lua_pushstring(L, info->attr->aspath->str);
+	lua_setfield(L, -2, "aspath");
+	lua_pushinteger(L, info->attr->local_pref);
+	lua_setfield(L, -2, "localpref");
+	zlog_debug("%s %d", info->attr->aspath->str, info->attr->nh_ifindex);
+	lua_setglobal(L, "nexthop");
+
+	zlog_debug("Set up nexthop information");
+	/*
+	 * Run the rule
+	 */
+	lrm_status = lua_run_rm_rule(L, rule);
+	switch (lrm_status) {
+	case LUA_RM_FAILURE:
+		zlog_debug("RM_FAILURE");
+		break;
+	case LUA_RM_NOMATCH:
+		zlog_debug("RM_NOMATCH");
+		break;
+	case LUA_RM_MATCH_AND_CHANGE:
+		zlog_debug("MATCH AND CHANGE");
+		lua_getglobal(L, "nexthop");
+		info->attr->med = get_integer(L, "metric");
+		/*
+		 * This needs to be abstraced with the set function
+		 */
+		if (info->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
+			locpref = info->attr->local_pref;
+		newlocpref = get_integer(L, "localpref");
+		if (newlocpref != locpref) {
+			info->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
+			info->attr->local_pref = newlocpref;
+		}
+		status = RMAP_MATCH;
+		break;
+	case LUA_RM_MATCH:
+		zlog_debug("MATCH ONLY");
+		status = RMAP_MATCH;
+		break;
+	}
+	lua_close(L);
+	return status;
+}
+
+static void *route_match_command_compile(const char *arg)
+{
+	char *command;
+
+	command = XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+	return command;
+}
+
+static void
+route_match_command_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+struct route_map_rule_cmd route_match_command_cmd = {
+	"command",
+	route_match_command,
+	route_match_command_compile,
+	route_match_command_free
+};
+#endif
 
 /* `match ip address IP_ACCESS_LIST' */
 
@@ -3356,6 +3453,30 @@ DEFUN (no_match_peer,
 				      RMAP_EVENT_MATCH_DELETED);
 }
 
+#if defined(HAVE_LUA)
+DEFUN (match_command,
+       match_command_cmd,
+       "match command WORD",
+       MATCH_STR
+       "Run a command to match\n"
+       "The command to run\n")
+{
+	return bgp_route_match_add(vty, "command", argv[2]->arg,
+				   RMAP_EVENT_FILTER_ADDED);
+}
+
+DEFUN (no_match_command,
+       no_match_command_cmd,
+       "no match command WORD",
+       NO_STR
+       MATCH_STR
+       "Run a command to match\n"
+       "The command to run\n")
+{
+	return bgp_route_match_delete(vty, "command", argv[3]->arg,
+				      RMAP_EVENT_FILTER_DELETED);
+}
+#endif
 
 /* match probability */
 DEFUN (match_probability,
@@ -4671,6 +4792,9 @@ void bgp_route_map_init(void)
 
 	route_map_install_match(&route_match_peer_cmd);
 	route_map_install_match(&route_match_local_pref_cmd);
+#if defined(HAVE_LUA)
+	route_map_install_match(&route_match_command_cmd);
+#endif
 	route_map_install_match(&route_match_ip_address_cmd);
 	route_map_install_match(&route_match_ip_next_hop_cmd);
 	route_map_install_match(&route_match_ip_route_source_cmd);
@@ -4804,6 +4928,10 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &no_set_ipv6_nexthop_prefer_global_cmd);
 	install_element(RMAP_NODE, &set_ipv6_nexthop_peer_cmd);
 	install_element(RMAP_NODE, &no_set_ipv6_nexthop_peer_cmd);
+#if defined(HAVE_LUA)
+	install_element(RMAP_NODE, &match_command_cmd);
+	install_element(RMAP_NODE, &no_match_command_cmd);
+#endif
 }
 
 void bgp_route_map_terminate(void)
