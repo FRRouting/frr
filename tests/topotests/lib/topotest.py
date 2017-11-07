@@ -291,7 +291,7 @@ def version_cmp(v1, v2):
             while v1g:
                 v1n = int(v1g.pop())
                 if v1n > 0:
-                    return -1
+                    return 1
             break
 
         if v1n > v2n:

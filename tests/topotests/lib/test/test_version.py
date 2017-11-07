@@ -78,3 +78,10 @@ def test_invalid_versions():
         assert version_cmp(curver, badver2)
         assert version_cmp(curver, badver3)
         assert version_cmp(curver, badver4)
+
+def test_regression_1():
+    """
+    Test regression on the following type of comparison: '3.0.2' > '3'
+    Expected result is 1.
+    """
+    assert version_cmp('3.0.2', '3') == 1
