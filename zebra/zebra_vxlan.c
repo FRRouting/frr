@@ -2913,7 +2913,7 @@ static int zl3vni_rmac_del(zebra_l3vni_t *zl3vni,
 	zebra_mac_t *tmp_rmac;
 
 	if (zrmac->host_list)
-		list_delete(zrmac->host_list);
+		list_delete_and_null(&zrmac->host_list);
 	zrmac->host_list = NULL;
 
 	tmp_rmac = hash_release(zl3vni->rmac_table, zrmac);
@@ -3102,7 +3102,7 @@ static int zl3vni_nh_del(zebra_l3vni_t *zl3vni,
 	zebra_neigh_t *tmp_n;
 
 	if (n->host_list)
-		list_delete(n->host_list);
+		list_delete_and_null(&n->host_list);
 	n->host_list = NULL;
 
 	tmp_n = hash_release(zl3vni->nh_table, n);
