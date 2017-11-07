@@ -127,7 +127,7 @@ def test_bgp_convergence():
 
     # Expected result
     router = tgen.gears['r1']
-    if router.has_version('<', '3'):
+    if router.has_version('<', '3.0'):
         reffile = os.path.join(CWD, 'r1/summary20.txt')
     else:
         reffile = os.path.join(CWD, 'r1/summary.txt')
