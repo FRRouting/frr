@@ -556,7 +556,12 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Fri Oct 20 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Tue Nov  7 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- Improved Packaging for debian related builds
+- Fix for a invalid AS-PATH length in BGP
+- Fix for miss-handling of BGP attributes in an error situation
+
+* Fri Oct 20 2017 Martin Winter <mwinter@opensourcerouting.org> 
 - Fix script location for watchfrr restart functions in daemon config
 - Fix postun script to restart frr during upgrade
 - Add posttrans script to fix missing restart in postun script from 2.0 rpm 

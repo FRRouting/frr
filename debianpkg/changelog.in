@@ -1,5 +1,13 @@
 frr (@VERSION@) RELEASED; urgency=medium
 
+  * Improved Packaging for debian related builds
+  * Fix for a invalid AS-PATH length in BGP
+  * Fix for miss-handling of BGP attributes in an error situation
+
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Tue,  7 Nov 2017 10:37:00 -0700
+
+frr (2.0.0) RELEASED; urgency=medium
+
   * Switchover to FRR
 
  -- FRRouting-Dev <dev@lists.frrouting.org>  Mon, 23 Jan 2017 16:30:22 -0400
