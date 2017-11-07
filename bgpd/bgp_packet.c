@@ -2270,8 +2270,9 @@ int bgp_process_packet(struct thread *thread)
 		{
 			// more work to do, come back later
 			if (peer->ibuf->count > 0)
-				thread_add_event(bm->master, bgp_process_packet,
-						 peer, 0, NULL);
+				thread_add_timer_msec(
+					bm->master, bgp_process_packet, peer, 0,
+					&peer->t_process_packet);
 		}
 		pthread_mutex_unlock(&peer->io_mtx);
 	}
