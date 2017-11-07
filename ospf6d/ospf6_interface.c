@@ -136,15 +136,8 @@ static u_int32_t ospf6_interface_get_cost(struct ospf6_interface *oi)
 	return cost;
 }
 
-static void ospf6_interface_recalculate_cost(struct ospf6_interface *oi)
+static void ospf6_interface_force_recalculate_cost(struct ospf6_interface *oi)
 {
-	u_int32_t newcost;
-
-	newcost = ospf6_interface_get_cost(oi);
-	if (newcost == oi->cost)
-		return;
-	oi->cost = newcost;
-
 	/* update cost held in route_connected list in ospf6_interface */
 	ospf6_interface_connected_route_update(oi->interface);
 
@@ -156,6 +149,18 @@ static void ospf6_interface_recalculate_cost(struct ospf6_interface *oi)
 		OSPF6_INTRA_PREFIX_LSA_SCHEDULE_TRANSIT(oi);
 		OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(oi->area);
 	}
+}
+
+static void ospf6_interface_recalculate_cost(struct ospf6_interface *oi)
+{
+	u_int32_t newcost;
+
+	newcost = ospf6_interface_get_cost(oi);
+	if (newcost == oi->cost)
+		return;
+	oi->cost = newcost;
+
+	ospf6_interface_force_recalculate_cost(oi);
 }
 
 /* Create new ospf6 interface structure */
@@ -1174,7 +1179,7 @@ DEFUN (ipv6_ospf6_cost,
 	oi->cost = lcost;
 	SET_FLAG(oi->flag, OSPF6_INTERFACE_NOAUTOCOST);
 
-	ospf6_interface_recalculate_cost(oi);
+	ospf6_interface_force_recalculate_cost(oi);
 
 	return CMD_SUCCESS;
 }
