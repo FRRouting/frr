@@ -596,8 +596,7 @@ static void ospf_finish_final(struct ospf *ospf)
 
 	ospf_opaque_type11_lsa_term(ospf);
 
-	/* be nice if this worked, but it doesn't */
-	/*ospf_flush_self_originated_lsas_now (ospf);*/
+	ospf_flush_self_originated_lsas_now(ospf);
 
 	/* Unregister redistribution */
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {

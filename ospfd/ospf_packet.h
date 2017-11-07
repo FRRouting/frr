@@ -152,7 +152,7 @@ extern void ospf_db_desc_resend(struct ospf_neighbor *);
 extern void ospf_ls_req_send(struct ospf_neighbor *);
 extern void ospf_ls_upd_send_lsa(struct ospf_neighbor *, struct ospf_lsa *,
 				 int);
-extern void ospf_ls_upd_send(struct ospf_neighbor *, struct list *, int);
+extern void ospf_ls_upd_send(struct ospf_neighbor *, struct list *, int, int);
 extern void ospf_ls_ack_send(struct ospf_neighbor *, struct ospf_lsa *);
 extern void ospf_ls_ack_send_delayed(struct ospf_interface *);
 extern void ospf_ls_retransmit(struct ospf_interface *, struct ospf_lsa *);
