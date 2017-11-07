@@ -2281,10 +2281,46 @@ bgp_attr_parse_ret_t bgp_attr_parse(struct peer *peer, struct attr *attr,
 				"%s: BGP type %d length %d is too large, attribute total length is %d.  attr_endp is %p.  endp is %p",
 				peer->host, type, length, size, attr_endp,
 				endp);
+			/*
+			 * RFC 4271 6.3
+			 * If any recognized attribute has an Attribute
+			 * Length that conflicts with the expected length
+			 * (based on the attribute type code), then the
+			 * Error Subcode MUST be set to Attribute Length
+			 * Error.  The Data field MUST contain the erroneous
+			 * attribute (type, length, and value).
+			 * ----------
+			 * We do not currently have a good way to determine the
+			 * length of the attribute independent of the length
+			 * received in the message. Instead we send the
+			 * minimum between the amount of data we have and the
+			 * amount specified by the attribute length field.
+			 *
+			 * Instead of directly passing in the packet buffer and
+			 * offset we use the stream_get* functions to read into
+			 * a stack buffer, since they perform bounds checking
+			 * and we are working with untrusted data.
+			 */
+			unsigned char ndata[BGP_MAX_PACKET_SIZE];
+			memset(ndata, 0x00, sizeof(ndata));
+			size_t lfl =
+				CHECK_FLAG(flag, BGP_ATTR_FLAG_EXTLEN) ? 2 : 1;
+			/* Rewind to end of flag field */
+			stream_forward_getp(BGP_INPUT(peer), -(1 + lfl));
+			/* Type */
+			stream_get(&ndata[0], BGP_INPUT(peer), 1);
+			/* Length */
+			stream_get(&ndata[1], BGP_INPUT(peer), lfl);
+			/* Value */
+			size_t atl = attr_endp - startp;
+			size_t ndl = MIN(atl, STREAM_READABLE(BGP_INPUT(peer)));
+			stream_get(&ndata[lfl + 1], BGP_INPUT(peer), ndl);
+
 			bgp_notify_send_with_data(
 				peer, BGP_NOTIFY_UPDATE_ERR,
-				BGP_NOTIFY_UPDATE_ATTR_LENG_ERR, startp,
-				attr_endp - startp);
+				BGP_NOTIFY_UPDATE_ATTR_LENG_ERR, ndata,
+				ndl + lfl + 1);
+
 			return BGP_ATTR_PARSE_ERROR;
 		}
 
