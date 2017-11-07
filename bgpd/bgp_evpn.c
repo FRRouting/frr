@@ -1684,7 +1684,10 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	char buf1[PREFIX_STRLEN];
 
 	memset(pp, 0, sizeof(struct prefix));
-	ip_prefix_from_type2_prefix(evp, pp);
+	if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE)
+		ip_prefix_from_type2_prefix(evp, pp);
+	else if(evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE)
+		ip_prefix_from_type5_prefix(evp, pp);
 
 	if (bgp_debug_zebra(NULL)) {
 		zlog_debug("installing evpn prefix %s as ip prefix %s in vrf %s",
@@ -2282,13 +2285,14 @@ static int install_uninstall_route_in_vrfs(struct bgp *bgp_def, afi_t afi,
 	struct bgp *bgp_vrf;
 	struct listnode *node, *nnode;
 
-	/* Only type-2 routes go into a VRF */
-	if (!(evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE))
+	/* Only type-2/type-5 routes go into a VRF */
+	if (!(evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE ||
+	      evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE))
 		return 0;
 
-	/* if not a mac+ip route skip this route */
-	if (!(IS_EVPN_PREFIX_IPADDR_V4(evp) ||
-	      IS_EVPN_PREFIX_IPADDR_V6(evp)))
+	/* if it is type-2 route and not a mac+ip route skip this route */
+	if ((evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) &&
+	    !(IS_EVPN_PREFIX_IPADDR_V4(evp) || IS_EVPN_PREFIX_IPADDR_V6(evp)))
 		return 0;
 
 	for (ALL_LIST_ELEMENTS(vrfs, node, nnode, bgp_vrf)) {
@@ -2364,9 +2368,10 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 
 	assert(attr);
 
-	/* Only type-2 and type-3 routes go into a L2 VNI. */
+	/* Only type-2 and type-3 and type-5 are supported currently */
 	if (!(evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
-	      || evp->prefix.route_type == BGP_EVPN_IMET_ROUTE))
+	      || evp->prefix.route_type == BGP_EVPN_IMET_ROUTE
+	      || evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE))
 		return 0;
 
 	/* If we don't have Route Target, nothing much to do. */
@@ -2377,8 +2382,8 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 	if (!ecom || !ecom->size)
 		return -1;
 
-	/* For each extended community RT, see which VNIs match and import
-	 * the route into matching VNIs.
+	/* For each extended community RT, see which VNIs/VRFs match and import
+	 * the route into matching VNIs/VRFs.
 	 */
 	for (i = 0; i < ecom->size; i++) {
 		u_char *pnt;
@@ -2397,22 +2402,24 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 		if (sub_type != ECOMMUNITY_ROUTE_TARGET)
 			continue;
 
-		/* Import route into matching l2-vnis */
+		/* Import route into matching l2-vnis (type-2/type-3 routes go
+		 * into l2vni table) */
 		irt = lookup_import_rt(bgp, eval);
 		if (irt && irt->vnis)
 			install_uninstall_route_in_vnis(bgp, afi, safi, evp, ri,
 							irt->vnis, import);
 
-		/* Import route into matching l3-vnis (vrfs) */
+		/* Import route into matching l3-vnis (type-2/type-5 routes go
+		 * into l3vni/vrf table) */
 		vrf_irt = lookup_vrf_import_rt(eval);
 		if (vrf_irt && vrf_irt->vrfs)
 			install_uninstall_route_in_vrfs(bgp, afi, safi, evp, ri,
 							vrf_irt->vrfs, import);
 
-		/* Also check for non-exact match. In this, we mask out the AS
-		 * and
-		 * only check on the local-admin sub-field. This is to
-		 * facilitate using
+		/* Also check for non-exact match. In this,
+		 *  we mask out the AS and
+		 * only check on the local-admin sub-field.
+		 * This is to facilitate using
 		 * VNI as the RT for EBGP peering too.
 		 */
 		irt = NULL;

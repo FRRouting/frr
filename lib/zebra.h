@@ -409,7 +409,7 @@ extern const char *zserv_command_string(unsigned int command);
 #define ZEBRA_FLAG_STATIC             0x40
 #define ZEBRA_FLAG_SCOPE_LINK         0x100
 #define ZEBRA_FLAG_FIB_OVERRIDE       0x200
-#define ZEBRA_FLAG_EVPN_TYPE2_ROUTE   0x400
+#define ZEBRA_FLAG_EVPN_ROUTE         0x400
 /* ZEBRA_FLAG_BLACKHOLE was 0x04 */
 /* ZEBRA_FLAG_REJECT was 0x80 */
 
