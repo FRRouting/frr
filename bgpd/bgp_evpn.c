@@ -417,7 +417,7 @@ static void unmap_vrf_from_rt(struct bgp *bgp_vrf,
 	/* Delete VRF from list for this RT. */
 	listnode_delete(irt->vrfs, bgp_vrf);
 	if (!listnode_head(irt->vrfs)) {
-		list_free(irt->vrfs);
+		list_delete_and_null(&irt->vrfs);
 		vrf_import_rt_free(irt);
 	}
 }
@@ -3874,13 +3874,13 @@ void bgp_evpn_cleanup(struct bgp *bgp)
 		hash_free(bgp->vnihash);
 	bgp->vnihash = NULL;
 	if (bgp->vrf_import_rtl)
-		list_delete(bgp->vrf_import_rtl);
+		list_delete_and_null(&bgp->vrf_import_rtl);
 	bgp->vrf_import_rtl = NULL;
 	if (bgp->vrf_export_rtl)
-		list_delete(bgp->vrf_export_rtl);
+		list_delete_and_null(&bgp->vrf_export_rtl);
 	bgp->vrf_export_rtl = NULL;
 	if (bgp->l2vnis)
-		list_delete(bgp->l2vnis);
+		list_delete_and_null(&bgp->l2vnis);
 	bgp->l2vnis = NULL;
 	bf_free(bgp->rd_idspace);
 }

@@ -419,14 +419,15 @@ static void evpn_show_vrf_routes(struct vty *vty,
 	struct bgp_info *ri;
 	int header = 1;
 	u_int32_t prefix_cnt, path_cnt;
+	struct bgp_table *table;
 
 	prefix_cnt = path_cnt = 0;
 	bgp_def = bgp_get_default();
 	if (!bgp_def)
 		return;
 
-	for (rn = bgp_table_top(bgp_vrf->rib[AFI_L2VPN][SAFI_EVPN]); rn;
-	     rn = bgp_route_next(rn)) {
+	table = (struct bgp_table *)bgp_vrf->rib[AFI_L2VPN][SAFI_EVPN];
+	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
 		char prefix_str[BUFSIZ];
 
 		bgp_evpn_route2str((struct prefix_evpn *)&rn->p, prefix_str,
