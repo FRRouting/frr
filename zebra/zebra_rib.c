@@ -261,7 +261,7 @@ struct nexthop *route_entry_nexthop_ipv4_ifindex_add(struct route_entry *re,
 	  There was a crash because ifp here was coming to be NULL */
 	if (ifp)
 		if (connected_is_unnumbered(ifp) ||
-		    CHECK_FLAG(re->flags, ZEBRA_FLAG_EVPN_TYPE2_ROUTE)) {
+		    CHECK_FLAG(re->flags, ZEBRA_FLAG_EVPN_ROUTE)) {
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
 		}
 
@@ -2473,7 +2473,7 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 			return;
 		}
 
-		if (CHECK_FLAG(flags, ZEBRA_FLAG_EVPN_TYPE2_ROUTE)) {
+		if (CHECK_FLAG(flags, ZEBRA_FLAG_EVPN_ROUTE)) {
 			struct nexthop *tmp_nh;
 
 			for (ALL_NEXTHOPS(re->nexthop, tmp_nh)) {

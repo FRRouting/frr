@@ -1168,7 +1168,7 @@ static int zread_route_add(struct zserv *client, u_short length,
 
 				memset(&vtep_ip, 0, sizeof(struct ipaddr));
 				if (CHECK_FLAG(api.flags,
-					       ZEBRA_FLAG_EVPN_TYPE2_ROUTE)) {
+					       ZEBRA_FLAG_EVPN_ROUTE)) {
 					ifindex =
 						get_l3vni_svi_ifindex(vrf_id);
 				} else {
@@ -1182,7 +1182,7 @@ static int zread_route_add(struct zserv *client, u_short length,
 				/* if this an EVPN route entry,
 				   program the nh as neigh */
 				if (CHECK_FLAG(api.flags,
-					       ZEBRA_FLAG_EVPN_TYPE2_ROUTE)) {
+					       ZEBRA_FLAG_EVPN_ROUTE)) {
 					SET_FLAG(nexthop->flags,
 						 NEXTHOP_FLAG_EVPN_RVTEP);
 					vtep_ip.ipa_type = IPADDR_V4;

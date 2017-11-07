@@ -1020,7 +1020,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	 * Currently presence of rmac in attr denotes
 	 * this is an EVPN type-2 route */
 	if (!is_zero_mac(&(info->attr->rmac)))
-		SET_FLAG(api.flags, ZEBRA_FLAG_EVPN_TYPE2_ROUTE);
+		SET_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE);
 
 	if (peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED
 	    || info->sub_type == BGP_ROUTE_AGGREGATE) {
@@ -1082,7 +1082,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 
 			/* EVPN type-2 routes are
 			   programmed as onlink on l3-vni SVI */
-			if (CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_TYPE2_ROUTE))
+			if (CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE))
 				api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
 			else
 				api_nh->type = NEXTHOP_TYPE_IPV4;
@@ -1140,7 +1140,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 		}
 
 		if (mpinfo->extra && bgp_is_valid_label(&mpinfo->extra->label)
-		    && !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_TYPE2_ROUTE)) {
+		    && !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
 			has_valid_label = 1;
 			label = label_pton(&mpinfo->extra->label);
 
@@ -1152,7 +1152,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 
 	/* if this is a evpn route we don't have to include the label */
 	if (has_valid_label &&
-	    !(CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_TYPE2_ROUTE)))
+	    !(CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)))
 		SET_FLAG(api.message, ZAPI_MESSAGE_LABEL);
 
 	if (info->sub_type != BGP_ROUTE_AGGREGATE)
@@ -1195,7 +1195,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 
 			label_buf[0] = '\0';
 			if (has_valid_label &&
-			    !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_TYPE2_ROUTE))
+			    !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE))
 				sprintf(label_buf, "label %u",
 					api_nh->labels[0]);
 			zlog_debug("  nhop [%d]: %s %s", i + 1, nh_buf,
@@ -1259,7 +1259,7 @@ void bgp_zebra_withdraw(struct prefix *p, struct bgp_info *info, safi_t safi)
 	 * Currently presence of rmac in attr denotes
 	 * this is an EVPN type-2 route */
 	if (!is_zero_mac(&(info->attr->rmac)))
-		SET_FLAG(api.flags, ZEBRA_FLAG_EVPN_TYPE2_ROUTE);
+		SET_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE);
 
 	if (peer->sort == BGP_PEER_IBGP) {
 		SET_FLAG(api.flags, ZEBRA_FLAG_INTERNAL);
