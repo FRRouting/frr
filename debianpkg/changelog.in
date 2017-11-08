@@ -1,6 +1,12 @@
 frr (@VERSION@) RELEASED; urgency=medium
 
   * Added Debian 9 Backport
+  * Packaging fixes
+  * Fix for miss-handling of BGP attributes in an error situation
+  * Fix for reading in of a nexthop as part of set ip nexthop ... command
+  * Fix for a memory leak in ISIS
+  * Check for per-peer outbound config in addition to the peer-group config
+  * Enable '-S' usage for BGP
  
  -- FRRouting-Dev <dev@lists.frrouting.org>  Mon, 16 Oct 2017 03:28:00 -0700
 

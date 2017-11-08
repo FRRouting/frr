@@ -572,7 +572,15 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Fri Oct 20 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Tue Nov  7 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- Packaging fixes
+- Fix for miss-handling of BGP attributes in an error situation
+- Fix for reading in of a nexthop as part of set ip nexthop ... command
+- Fix for a memory leak in ISIS
+- Check for per-peer outbound config in addition to the peer-group config
+- Enable '-S' usage for BGP.
+
+* Fri Oct 20 2017 Martin Winter <mwinter@opensourcerouting.org> 
 - Fix script location for watchfrr restart functions in daemon config
 - Fix postun script to restart frr during upgrade
 - Add posttrans script to fix missing restart in postun script from 2.0 rpm 
