@@ -617,7 +617,7 @@ static void ospf_write_frags(int fd, struct ospf_packet *op, struct ip *iph,
 
 		iph->ip_off += offset;
 		stream_forward_getp(op->s, iovp->iov_len);
-		iovp->iov_base = STREAM_PNT(op->s);
+		iovp->iov_base = stream_pnt(op->s);
 	}
 
 	/* setup for final fragment */
@@ -763,7 +763,7 @@ static int ospf_write(struct thread *thread)
 
 		iov[0].iov_base = (char *)&iph;
 		iov[0].iov_len = iph.ip_hl << OSPF_WRITE_IPHL_SHIFT;
-		iov[1].iov_base = STREAM_PNT(op->s);
+		iov[1].iov_base = stream_pnt(op->s);
 		iov[1].iov_len = op->length;
 
 #ifdef GNU_LINUX
@@ -891,7 +891,7 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 	/* increment statistics. */
 	oi->hello_in++;
 
-	hello = (struct ospf_hello *)STREAM_PNT(s);
+	hello = (struct ospf_hello *)stream_pnt(s);
 
 	/* If Hello is myself, silently discard. */
 	if (IPV4_ADDR_SAME(&ospfh->router_id, &oi->ospf->router_id)) {
@@ -1119,7 +1119,7 @@ static void ospf_db_desc_proc(struct stream *s, struct ospf_interface *oi,
 	stream_forward_getp(s, OSPF_DB_DESC_MIN_SIZE);
 	for (size -= OSPF_DB_DESC_MIN_SIZE; size >= OSPF_LSA_HEADER_SIZE;
 	     size -= OSPF_LSA_HEADER_SIZE) {
-		lsah = (struct lsa_header *)STREAM_PNT(s);
+		lsah = (struct lsa_header *)stream_pnt(s);
 		stream_forward_getp(s, OSPF_LSA_HEADER_SIZE);
 
 		/* Unknown LS type. */
@@ -1268,7 +1268,7 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 	/* Increment statistics. */
 	oi->db_desc_in++;
 
-	dd = (struct ospf_db_desc *)STREAM_PNT(s);
+	dd = (struct ospf_db_desc *)stream_pnt(s);
 
 	nbr = ospf_nbr_lookup(oi, iph, ospfh);
 	if (nbr == NULL) {
@@ -1661,7 +1661,7 @@ static struct list *ospf_ls_upd_list_lsa(struct ospf_neighbor *nbr,
 
 	for (; size >= OSPF_LSA_HEADER_SIZE && count > 0;
 	     size -= length, stream_forward_getp(s, length), count--) {
-		lsah = (struct lsa_header *)STREAM_PNT(s);
+		lsah = (struct lsa_header *)stream_pnt(s);
 		length = ntohs(lsah->length);
 
 		if (length > size) {
@@ -2219,10 +2219,10 @@ static void ospf_ls_ack(struct ip *iph, struct ospf_header *ospfh,
 		struct ospf_lsa *lsa, *lsr;
 
 		lsa = ospf_lsa_new();
-		lsa->data = (struct lsa_header *)STREAM_PNT(s);
+		lsa->data = (struct lsa_header *)stream_pnt(s);
 		lsa->vrf_id = oi->ospf->vrf_id;
 
-		/* lsah = (struct lsa_header *) STREAM_PNT (s); */
+		/* lsah = (struct lsa_header *) stream_pnt (s); */
 		size -= OSPF_LSA_HEADER_SIZE;
 		stream_forward_getp(s, OSPF_LSA_HEADER_SIZE);
 
@@ -2936,7 +2936,7 @@ int ospf_read(struct thread *thread)
 	   by ospf_recv_packet() to be correct). */
 	stream_forward_getp(ibuf, iph->ip_hl * 4);
 
-	ospfh = (struct ospf_header *)STREAM_PNT(ibuf);
+	ospfh = (struct ospf_header *)stream_pnt(ibuf);
 	if (MSG_OK
 	    != ospf_packet_examin(
 		       ospfh, stream_get_endp(ibuf) - stream_get_getp(ibuf)))
