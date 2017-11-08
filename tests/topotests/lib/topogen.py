@@ -354,7 +354,7 @@ class Topogen(object):
 
     def set_error(self, message, code=None):
         "Sets an error message and signal other tests to skip."
-        logger.error(message)
+        logger.info(message)
 
         # If no code is defined use a sequential number
         if code is None:
