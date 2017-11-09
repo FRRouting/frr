@@ -1635,17 +1635,19 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 
 	/* Nexthop length check. */
 	switch (attr->mp_nexthop_len) {
+	case BGP_ATTR_NHLEN_VPNV4:
+		stream_getl(s); /* RD high */
+		stream_getl(s); /* RD low */
+		/*
+		 * NOTE: intentional fall through
+		 * - for consistency in rx processing
+		 */
 	case BGP_ATTR_NHLEN_IPV4:
 		stream_get(&attr->mp_nexthop_global_in, s, IPV4_MAX_BYTELEN);
 		/* Probably needed for RFC 2283 */
 		if (attr->nexthop.s_addr == 0)
 			memcpy(&attr->nexthop.s_addr,
 			       &attr->mp_nexthop_global_in, IPV4_MAX_BYTELEN);
-		break;
-	case BGP_ATTR_NHLEN_VPNV4:
-		stream_getl(s); /* RD high */
-		stream_getl(s); /* RD low */
-		stream_get(&attr->mp_nexthop_global_in, s, IPV4_MAX_BYTELEN);
 		break;
 	case BGP_ATTR_NHLEN_IPV6_GLOBAL:
 	case BGP_ATTR_NHLEN_VPNV6_GLOBAL:

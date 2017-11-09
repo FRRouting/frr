@@ -3973,9 +3973,6 @@ void rfapiProcessUpdate(struct peer *peer,
 
 	if (safi == SAFI_MPLS_VPN) {
 		vnc_direct_bgp_rh_add_route(bgp, afi, p, peer, attr);
-	}
-
-	if (safi == SAFI_MPLS_VPN) {
 		rfapiBgpInfoFilteredImportVPN(
 			bgp->rfapi->it_ce, FIF_ACTION_UPDATE, peer, rfd,
 			p, /* prefix */

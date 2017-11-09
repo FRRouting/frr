@@ -345,6 +345,8 @@ extern void rfapi_un_options_free(struct rfapi_un_option *goner);
 
 extern void rfapi_vn_options_free(struct rfapi_vn_option *goner);
 
+extern void vnc_add_vrf_opener(struct bgp *bgp, struct rfapi_nve_group_cfg *rfg);
+extern void clear_vnc_vrf_closer(struct rfapi_nve_group_cfg *rfg);
 /*------------------------------------------
  * rfapi_extract_l2o
  *

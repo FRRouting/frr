@@ -699,9 +699,8 @@ struct peer {
 #define PEER_FLAG_DYNAMIC_NEIGHBOR          (1 << 12) /* dynamic neighbor */
 #define PEER_FLAG_CAPABILITY_ENHE           (1 << 13) /* Extended next-hop (rfc 5549)*/
 #define PEER_FLAG_IFPEER_V6ONLY             (1 << 14) /* if-based peer is v6 only */
-#if ENABLE_BGP_VNC
 #define PEER_FLAG_IS_RFAPI_HD		    (1 << 15) /* attached to rfapi HD */
-#endif
+
 	/* outgoing message sent in CEASE_ADMIN_SHUTDOWN notify */
 	char *tx_shutdown_message;
 
