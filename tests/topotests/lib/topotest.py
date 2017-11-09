@@ -92,21 +92,22 @@ def json_cmp(d1, d2):
         s2_req = set([key for key in nd2 if nd2[key] is not None])
         diff = s2_req - s1
         if diff != set({}):
-            result.add_error('expected key(s) {} in {} (have {})'.format(
-                str(list(diff)), parent, str(list(s1))))
+            result.add_error('expected key(s) {} in {} (have {}):\n{}'.format(
+                str(list(diff)), parent, str(list(s1)), json_diff(nd1, nd2)))
 
         for key in s2.intersection(s1):
             # Test for non existence of key in d2
             if nd2[key] is None:
-                result.add_error('"{}" should not exist in {} (have {})'.format(
-                    key, parent, str(s1)))
+                result.add_error('"{}" should not exist in {} (have {}):\n{}'.format(
+                    key, parent, str(s1), json_diff(nd1[key], nd2[key])))
                 continue
             # If nd1 key is a dict, we have to recurse in it later.
             if isinstance(nd2[key], type({})):
                 if not isinstance(nd1[key], type({})):
                     result.add_error(
                         '{}["{}"] has different type than expected '.format(parent, key) +
-                        '(have {}, expected {})'.format(type(nd1[key]), type(nd2[key])))
+                        '(have {}, expected {}):\n{}'.format(
+                            type(nd1[key]), type(nd2[key]), json_diff(nd1[key], nd2[key])))
                     continue
                 nparent = '{}["{}"]'.format(parent, key)
                 squeue.append((nd1[key], nd2[key], nparent))
@@ -116,7 +117,8 @@ def json_cmp(d1, d2):
                 if not isinstance(nd1[key], type([])):
                     result.add_error(
                         '{}["{}"] has different type than expected '.format(parent, key) +
-                        '(have {}, expected {})'.format(type(nd1[key]), type(nd2[key])))
+                        '(have {}, expected {}):\n{}'.format(
+                            type(nd1[key]), type(nd2[key]), json_diff(nd1[key], nd2[key])))
                     continue
                 # Check list size
                 if len(nd2[key]) > len(nd1[key]):
