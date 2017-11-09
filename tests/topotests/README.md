@@ -1,5 +1,17 @@
 # FRRouting Topology Tests with Mininet
 
+## Guidelines
+
+Instructions for  use, write or debug topologies can be found in the
+[guidelines](GUIDELINES.md). To learn/remember common code snippets see
+[here](SNIPPETS.md).
+
+Before creating a new topology, make sure that there isn't one already
+that does what you need. If nothing is similar, then you may create a
+new topology, preferably, using the newest
+[template](example-test/test_template.py).
+
+
 ## Installation of Mininet for running tests
 Only tested with Ubuntu 16.04 (which uses Mininet 2.2.0)
 
