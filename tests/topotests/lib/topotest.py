@@ -541,7 +541,8 @@ class Router(Node):
                 if (daemonpid.isdigit() and pid_exists(int(daemonpid))):
                     self.cmd('kill -TERM %s' % daemonpid)
                     self.waitOutput()
-            sleep(2)
+            sleep(2, 'waiting for router "{}" daemons to finish'.format(
+                self.name))
             # 2nd round of kill if daemons didn't exist
             for d in StringIO.StringIO(rundaemons):
                 daemonpid = self.cmd('cat %s' % d.rstrip()).rstrip()
