@@ -183,6 +183,10 @@ extern int zsend_interface_vrf_update(struct zserv *, struct interface *,
 extern int zsend_interface_link_params(struct zserv *, struct interface *);
 extern int zsend_pw_update(struct zserv *, struct zebra_pw *);
 
+extern int zsend_route_notify_owner(u_char proto, vrf_id_t vrf_id,
+				    struct prefix *p,
+				    enum zapi_route_notify_owner note);
+
 extern pid_t pid;
 
 extern void zserv_create_header(struct stream *s, uint16_t cmd,

@@ -988,6 +988,40 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 	return zebra_server_send_message(client);
 }
 
+int zsend_route_notify_owner(u_char proto, vrf_id_t vrf_id,
+			     struct prefix *p,
+			     enum zapi_route_notify_owner note)
+{
+	struct zserv *client;
+	struct stream *s;
+	uint8_t blen;
+
+	client = zebra_find_client(proto);
+	if (!client) {
+		if (IS_ZEBRA_DEBUG_PACKET)
+			zlog_debug("Attempting to notify a client for proto: %u but did not find one",
+				   proto);
+		return -1;
+	}
+
+	s = client->obuf;
+	stream_reset(s);
+
+	zserv_create_header(s, ZEBRA_ROUTE_NOTIFY_OWNER, vrf_id);
+
+	stream_put(s, &note, sizeof(note));
+
+	stream_putc(s, p->family);
+
+	blen = prefix_blen(p);
+	stream_putc(s, p->prefixlen);
+	stream_put(s, &p->u.prefix, blen);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zebra_server_send_message(client);
+}
+
 /* Router-id is updated. Send ZEBRA_ROUTER_ID_ADD to client. */
 int zsend_router_id_update(struct zserv *client, struct prefix *p,
 			   vrf_id_t vrf_id)

@@ -1144,6 +1144,22 @@ stream_failure:
 	return 0;
 }
 
+bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
+			      enum zapi_route_notify_owner *note)
+{
+	STREAM_GET(note, s, sizeof(*note));
+
+	STREAM_GETC(s, p->family);
+	STREAM_GETC(s, p->prefixlen);
+	STREAM_GET(&p->u.prefix, s,
+		   PSIZE(p->prefixlen));
+
+	return true;
+
+stream_failure:
+	return false;
+}
+
 /*
  * send a ZEBRA_REDISTRIBUTE_ADD or ZEBRA_REDISTRIBUTE_DELETE
  * for the route type (ZEBRA_ROUTE_KERNEL etc.). The zebra server will
@@ -2193,6 +2209,11 @@ static int zclient_read(struct thread *thread)
 		if (zclient->pw_status_update)
 			(*zclient->pw_status_update)(command, zclient, length,
 						     vrf_id);
+		break;
+	case ZEBRA_ROUTE_NOTIFY_OWNER:
+		if (zclient->notify_owner)
+			(*zclient->notify_owner)(command, zclient,
+						 length, vrf_id);
 		break;
 	default:
 		break;
