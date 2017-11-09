@@ -43,7 +43,9 @@
 #include "zebra/zebra_static.h"
 #include "lib/json.h"
 #include "zebra/zebra_vxlan.h"
+#ifndef VTYSH_EXTRACT_PL
 #include "zebra/zebra_vty_clippy.c"
+#endif
 #include "zebra/zserv.h"
 
 extern int allow_delete;
