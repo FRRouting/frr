@@ -138,6 +138,9 @@ struct zclient {
 	/* Priviledges to change socket values */
 	struct zebra_privs_t *privs;
 
+	/* Do we care about failure events for route install? */
+	bool receive_notify;
+
 	/* Socket to zebra daemon. */
 	int sock;
 
@@ -336,8 +339,25 @@ enum zapi_route_notify_owner {
 #define ZEBRA_MAC_TYPE_STICKY                0x01 /* Sticky MAC*/
 #define ZEBRA_MAC_TYPE_GW                    0x02 /* gateway (SVI) mac*/
 
+struct zclient_options {
+	bool receive_notify;
+};
+
 /* Prototypes of zebra client service functions. */
 extern struct zclient *zclient_new(struct thread_master *);
+
+#if CONFDATE > 20181101
+CPP_NOTICE("zclient_new_notify can take over or zclient_new now");
+#endif
+
+extern struct zclient_options zclient_options_default;
+
+extern struct zclient *zclient_new_notify(struct thread_master *m,
+					  struct zclient_options *opt);
+
+#define zclient_new(A) zclient_new_notify((A), &zclient_options_default); \
+	CPP_WARN("Please transition to using zclient_new_notify");
+
 extern void zclient_init(struct zclient *, int, u_short, struct zebra_privs_t *privs);
 extern int zclient_start(struct zclient *);
 extern void zclient_stop(struct zclient *);

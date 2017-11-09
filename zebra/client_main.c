@@ -184,7 +184,7 @@ int main(int argc, char **argv)
 
 	master = thread_master_create(NULL);
 	/* Establish connection to zebra. */
-	zclient = zclient_new(master);
+	zclient = zclient_new_notify(master, &zclient_options_default);
 	zclient->enable = 1;
 	zclient_socket_connect(zclient);
 

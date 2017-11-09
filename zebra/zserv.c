@@ -997,11 +997,14 @@ int zsend_route_notify_owner(u_char proto, vrf_id_t vrf_id,
 	uint8_t blen;
 
 	client = zebra_find_client(proto);
-	if (!client) {
-		if (IS_ZEBRA_DEBUG_PACKET)
-			zlog_debug("Attempting to notify a client for proto: %u but did not find one",
-				   proto);
-		return -1;
+	if (!client || !client->notify_owner) {
+		if (IS_ZEBRA_DEBUG_PACKET) {
+			char buff[PREFIX_STRLEN];
+
+			zlog_debug("Not Notifying Owner: %u about prefix %s",
+				   proto, prefix2str(p, buff, sizeof(buff)));
+		}
+		return 0;
 	}
 
 	s = client->obuf;
@@ -1918,9 +1921,13 @@ static void zread_hello(struct zserv *client)
 	/* type of protocol (lib/zebra.h) */
 	u_char proto;
 	u_short instance;
+	u_char notify;
 
 	STREAM_GETC(client->ibuf, proto);
 	STREAM_GETW(client->ibuf, instance);
+	STREAM_GETC(client->ibuf, notify);
+	if (notify)
+		client->notify_owner = true;
 
 	/* accept only dynamic routing protocols */
 	if ((proto < ZEBRA_ROUTE_MAX) && (proto > ZEBRA_ROUTE_STATIC)) {

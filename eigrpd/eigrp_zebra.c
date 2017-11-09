@@ -101,7 +101,7 @@ static void eigrp_zebra_connected(struct zclient *zclient)
 
 void eigrp_zebra_init(void)
 {
-	zclient = zclient_new(master);
+	zclient = zclient_new_notify(master, &zclient_options_default);
 
 	zclient_init(zclient, ZEBRA_ROUTE_EIGRP, 0, &eigrpd_privs);
 	zclient->zebra_connected = eigrp_zebra_connected;

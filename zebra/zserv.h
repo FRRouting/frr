@@ -75,6 +75,8 @@ struct zserv {
 	/* Router-id information. */
 	vrf_bitmap_t ridinfo;
 
+	bool notify_owner;
+
 	/* client's protocol */
 	u_char proto;
 	u_short instance;

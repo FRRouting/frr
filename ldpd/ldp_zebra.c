@@ -513,7 +513,7 @@ void
 ldp_zebra_init(struct thread_master *master)
 {
 	/* Set default values. */
-	zclient = zclient_new(master);
+	zclient = zclient_new_notify(master, &zclient_options_default);
 	zclient_init(zclient, ZEBRA_ROUTE_LDP, 0, &ldpd_privs);
 
 	/* set callbacks */

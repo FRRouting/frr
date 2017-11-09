@@ -1618,7 +1618,7 @@ static void
 zclient_sync_init(u_short instance)
 {
 	/* Initialize special zclient for synchronous message exchanges. */
-	zclient_sync = zclient_new(master);
+	zclient_sync = zclient_new_notify(master, &zclient_options_default);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
 	zclient_sync->instance = instance;
