@@ -956,7 +956,7 @@ static int evpn_route_is_sticky(struct bgp *bgp, struct bgp_node *rn)
 static int update_evpn_type5_route_entry(struct bgp *bgp_def,
 					 struct bgp *bgp_vrf, afi_t afi,
 					 safi_t safi, struct bgp_node *rn,
-					 struct attr *attr)
+					 struct attr *attr, int *route_changed)
 {
 	struct attr *attr_new = NULL;
 	struct bgp_info *ri = NULL;
@@ -964,7 +964,7 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_def,
 	struct bgp_info *local_ri = NULL;
 	struct bgp_info *tmp_ri = NULL;
 
-
+	*route_changed = 0;
 	/* locate the local route entry if any */
 	for (tmp_ri = rn->info; tmp_ri; tmp_ri = tmp_ri->next) {
 		if (tmp_ri->peer == bgp_def->peer_self
@@ -976,6 +976,9 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_def,
 	/* create a new route entry if one doesnt exist.
 	   Otherwise see if route attr has changed */
 	if (!local_ri) {
+
+		/* route has changed as this is the first entry */
+		*route_changed = 1;
 
 		/* Add (or update) attribute to hash. */
 		attr_new = bgp_attr_intern(attr);
@@ -996,6 +999,10 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_def,
 
 		tmp_ri = local_ri;
 		if (!attrhash_cmp(tmp_ri->attr, attr)) {
+
+			/* attribute changed */
+			*route_changed = 1;
+
 			/* The attribute has changed. */
 			/* Add (or update) attribute to hash. */
 			attr_new = bgp_attr_intern(attr);
@@ -1023,6 +1030,7 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf,
 	struct attr attr;
 	struct bgp_node *rn = NULL;
 	struct bgp *bgp_def = NULL;
+	int route_changed = 0;
 
 	bgp_def = bgp_get_default();
 	if (!bgp_def)
@@ -1048,11 +1056,13 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf,
 	/* create or update the route entry within the route node */
 	update_evpn_type5_route_entry(bgp_def, bgp_vrf,
 				      afi, safi,
-				      rn, &attr);
+				      rn, &attr, &route_changed);
 
 	/* schedule for processing and unlock node */
-	bgp_process(bgp_def, rn, afi, safi);
-	bgp_unlock_node(rn);
+	if (route_changed) {
+		bgp_process(bgp_def, rn, afi, safi);
+		bgp_unlock_node(rn);
+	}
 
 	/* uninten temporary */
 	aspath_unintern(&attr.aspath);
@@ -3055,6 +3065,25 @@ static void bgp_evpn_handle_export_rt_change_for_vrf(struct bgp *bgp_vrf)
  * Public functions.
  */
 
+/* withdraw type-5 route corresponding to ip prefix */
+void bgp_evpn_withdraw_type5_route(struct bgp *bgp_vrf, struct bgp_node *rn,
+				   afi_t afi, safi_t safi)
+{
+	int ret = 0;
+	struct prefix_evpn evp;
+	char buf[PREFIX_STRLEN];
+
+	build_type5_prefix_from_ip_prefix(&evp, &rn->p);
+	ret = delete_evpn_type5_route(bgp_vrf, &evp);
+	if (ret) {
+		zlog_err(
+			 "%u failed to delete type-5 route for prefix %s in vrf %s",
+			 bgp_vrf->vrf_id,
+			 prefix2str(&rn->p, buf, sizeof(buf)),
+			 vrf_id_to_name(bgp_vrf->vrf_id));
+	}
+}
+
 /* withdraw all type-5 routes for an address family */
 void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf,
 				    afi_t afi, safi_t safi)
@@ -3066,21 +3095,37 @@ void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf,
 		return;
 
 	table = bgp_vrf->rib[afi][safi];
-	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
+	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
+		bgp_evpn_withdraw_type5_route(bgp_vrf, rn, afi, safi);
 
-		int ret = 0;
-		struct prefix_evpn evp;
-		char buf[PREFIX_STRLEN];
+}
 
-		build_type5_prefix_from_ip_prefix(&evp, &rn->p);
-		ret = delete_evpn_type5_route(bgp_vrf, &evp);
-		if (ret) {
-			zlog_err(
-				 "%u failed to delete type-5 route for prefix %s in vrf %s",
-				 bgp_vrf->vrf_id,
-				 prefix2str(&rn->p, buf, sizeof(buf)),
-				 vrf_id_to_name(bgp_vrf->vrf_id));
-		}
+/* advertise ip prefix as type-5 route*/
+void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf, struct bgp_node *rn,
+				    afi_t afi, safi_t safi)
+{
+	int ret = 0;
+	struct prefix_evpn evp;
+	char buf[PREFIX_STRLEN];
+
+	if (!advertise_type5_routes(bgp_vrf, afi))
+		return;
+
+	if (!rn->info)
+		return;
+
+	/* only advertise subnet routes as type-5 */
+	if (is_host_route(&rn->p))
+		return;
+
+	build_type5_prefix_from_ip_prefix(&evp, &rn->p);
+	ret = update_evpn_type5_route(bgp_vrf, &evp);
+	if (ret) {
+		zlog_err(
+			 "%u failed to create type-5 route for prefix %s in vrf %s",
+			 bgp_vrf->vrf_id,
+			 prefix2str(&rn->p, buf, sizeof(buf)),
+			 vrf_id_to_name(bgp_vrf->vrf_id));
 	}
 }
 
@@ -3091,33 +3136,9 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf,
 	struct bgp_table *table = NULL;
 	struct bgp_node *rn = NULL;
 
-	if (!advertise_type5_routes(bgp_vrf, afi))
-		return;
-
 	table = bgp_vrf->rib[afi][safi];
-	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-
-		int ret = 0;
-		struct prefix_evpn evp;
-		char buf[PREFIX_STRLEN];
-
-		if (!rn->info)
-			continue;
-
-		/* only advertise subnet routes as type-5 */
-		if (is_host_route(&rn->p))
-			continue;
-
-		build_type5_prefix_from_ip_prefix(&evp, &rn->p);
-		ret = update_evpn_type5_route(bgp_vrf, &evp);
-		if (ret) {
-			zlog_err(
-				 "%u failed to create type-5 route for prefix %s in vrf %s",
-				 bgp_vrf->vrf_id,
-				 prefix2str(&rn->p, buf, sizeof(buf)),
-				 vrf_id_to_name(bgp_vrf->vrf_id));
-		}
-	}
+	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
+		bgp_evpn_advertise_type5_route(bgp_vrf, rn, afi, safi);
 }
 
 void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni,
