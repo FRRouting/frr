@@ -3203,6 +3203,27 @@ static int zl3vni_remote_nh_del(zebra_l3vni_t *zl3vni,
 	return 0;
 }
 
+/* handle neigh update from kernel - the only thing of interest is to
+ * readd stale entries.
+ */
+static int zl3vni_local_nh_add_update(zebra_l3vni_t *zl3vni,
+			              struct ipaddr *ip, u_int16_t state)
+{
+	zebra_neigh_t *n = NULL;
+
+	n = zl3vni_nh_lookup(zl3vni, ip);
+	if (!n)
+		return 0;
+
+	/* all next hop neigh are remote and installed by frr.
+	 * If the kernel has aged this entry, re-install.
+	 */
+	if (state & NUD_STALE)
+		zl3vni_nh_install(zl3vni, n);
+
+	return 0;
+}
+
 /* handle neigh delete from kernel */
 static int zl3vni_local_nh_del(zebra_l3vni_t *zl3vni,
 			       struct ipaddr *ip)
@@ -4581,6 +4602,14 @@ int zebra_vxlan_local_neigh_add_update(struct interface *ifp,
 	zebra_vni_t *zvni = NULL;
 	zebra_neigh_t *n = NULL;
 	zebra_mac_t *zmac = NULL, *old_zmac = NULL;
+	zebra_l3vni_t *zl3vni = NULL;
+
+	/* check if this is a remote neigh entry corresponding to remote
+	 * next-hop
+	 */
+	zl3vni = zl3vni_from_svi(ifp, link_if);
+	if (zl3vni)
+		return zl3vni_local_nh_add_update(zl3vni, ip, state);
 
 	/* We are only interested in neighbors on an SVI that resides on top
 	 * of a VxLAN bridge.
