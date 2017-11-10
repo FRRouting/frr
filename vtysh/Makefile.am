@@ -132,6 +132,10 @@ vtysh_scan += $(top_srcdir)/babeld/babel_zebra.c
 vtysh_scan += $(top_srcdir)/babeld/babeld.c
 endif
 
+if SHARPD
+vtysh_scan += $(top_srcdir)/sharpd/sharp_vty.c
+endif
+
 if SNMP
 vtysh_scan += $(top_srcdir)/lib/agentx.c
 endif

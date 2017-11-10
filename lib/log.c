@@ -1045,6 +1045,8 @@ int proto_redistnum(int afi, const char *s)
 			return ZEBRA_ROUTE_NHRP;
 		else if (strmatch(s, "babel"))
 			return ZEBRA_ROUTE_BABEL;
+		else if (strmatch(s, "sharp"))
+			return ZEBRA_ROUTE_SHARP;
 	}
 	if (afi == AFI_IP6) {
 		if (strmatch(s, "kernel"))
@@ -1071,6 +1073,8 @@ int proto_redistnum(int afi, const char *s)
 			return ZEBRA_ROUTE_NHRP;
 		else if (strmatch(s, "babel"))
 			return ZEBRA_ROUTE_BABEL;
+		else if (strmatch(s, "sharp"))
+			return ZEBRA_ROUTE_SHARP;
 	}
 	return -1;
 }

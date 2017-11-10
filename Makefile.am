@@ -53,6 +53,7 @@ include nhrpd/subdir.am
 include ldpd/subdir.am
 include babeld/subdir.am
 include eigrpd/subdir.am
+include sharpd/subdir.am
 include pimd/subdir.am
 
 SUBDIRS = . @LIBRFP@ @RFPTEST@ \
