@@ -623,152 +623,154 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
     for (ctx_keys, line) in lines_to_del:
         deleted = False
 
-        if ctx_keys[0].startswith('router bgp') and line and line.startswith('neighbor '):
-            """
-            BGP changed how it displays swpX peers that are part of peer-group. Older
-            versions of frr would display these on separate lines:
-                neighbor swp1 interface
-                neighbor swp1 peer-group FOO
+        if ctx_keys[0].startswith('router bgp') and line:
 
-            but today we display via a single line
-                neighbor swp1 interface peer-group FOO
+            if line.startswith('neighbor '):
+                '''
+                BGP changed how it displays swpX peers that are part of peer-group. Older
+                versions of frr would display these on separate lines:
+                    neighbor swp1 interface
+                    neighbor swp1 peer-group FOO
 
-            This change confuses frr-reload.py so check to see if we are deleting
-                neighbor swp1 interface peer-group FOO
+                but today we display via a single line
+                    neighbor swp1 interface peer-group FOO
 
-            and adding
-                neighbor swp1 interface
-                neighbor swp1 peer-group FOO
+                This change confuses frr-reload.py so check to see if we are deleting
+                    neighbor swp1 interface peer-group FOO
 
-            If so then chop the del line and the corresponding add lines
-            """
+                and adding
+                    neighbor swp1 interface
+                    neighbor swp1 peer-group FOO
 
-            re_swpx_int_peergroup = re.search('neighbor (\S+) interface peer-group (\S+)', line)
-            re_swpx_int_v6only_peergroup = re.search('neighbor (\S+) interface v6only peer-group (\S+)', line)
+                If so then chop the del line and the corresponding add lines
+                '''
 
-            if re_swpx_int_peergroup or re_swpx_int_v6only_peergroup:
-                swpx_interface = None
-                swpx_peergroup = None
+                re_swpx_int_peergroup = re.search('neighbor (\S+) interface peer-group (\S+)', line)
+                re_swpx_int_v6only_peergroup = re.search('neighbor (\S+) interface v6only peer-group (\S+)', line)
 
-                if re_swpx_int_peergroup:
-                    swpx = re_swpx_int_peergroup.group(1)
-                    peergroup = re_swpx_int_peergroup.group(2)
-                    swpx_interface = "neighbor %s interface" % swpx
-                elif re_swpx_int_v6only_peergroup:
-                    swpx = re_swpx_int_v6only_peergroup.group(1)
-                    peergroup = re_swpx_int_v6only_peergroup.group(2)
-                    swpx_interface = "neighbor %s interface v6only" % swpx
+                if re_swpx_int_peergroup or re_swpx_int_v6only_peergroup:
+                    swpx_interface = None
+                    swpx_peergroup = None
 
-                swpx_peergroup = "neighbor %s peer-group %s" % (swpx, peergroup)
-                found_add_swpx_interface = line_exist(lines_to_add, ctx_keys, swpx_interface)
-                found_add_swpx_peergroup = line_exist(lines_to_add, ctx_keys, swpx_peergroup)
-                tmp_ctx_keys = tuple(list(ctx_keys))
+                    if re_swpx_int_peergroup:
+                        swpx = re_swpx_int_peergroup.group(1)
+                        peergroup = re_swpx_int_peergroup.group(2)
+                        swpx_interface = "neighbor %s interface" % swpx
+                    elif re_swpx_int_v6only_peergroup:
+                        swpx = re_swpx_int_v6only_peergroup.group(1)
+                        peergroup = re_swpx_int_v6only_peergroup.group(2)
+                        swpx_interface = "neighbor %s interface v6only" % swpx
 
-                if not found_add_swpx_peergroup:
-                    tmp_ctx_keys = list(ctx_keys)
-                    tmp_ctx_keys.append('address-family ipv4 unicast')
-                    tmp_ctx_keys = tuple(tmp_ctx_keys)
-                    found_add_swpx_peergroup = line_exist(lines_to_add, tmp_ctx_keys, swpx_peergroup)
+                    swpx_peergroup = "neighbor %s peer-group %s" % (swpx, peergroup)
+                    found_add_swpx_interface = line_exist(lines_to_add, ctx_keys, swpx_interface)
+                    found_add_swpx_peergroup = line_exist(lines_to_add, ctx_keys, swpx_peergroup)
+                    tmp_ctx_keys = tuple(list(ctx_keys))
 
                     if not found_add_swpx_peergroup:
                         tmp_ctx_keys = list(ctx_keys)
-                        tmp_ctx_keys.append('address-family ipv6 unicast')
+                        tmp_ctx_keys.append('address-family ipv4 unicast')
                         tmp_ctx_keys = tuple(tmp_ctx_keys)
                         found_add_swpx_peergroup = line_exist(lines_to_add, tmp_ctx_keys, swpx_peergroup)
 
-                if found_add_swpx_interface and found_add_swpx_peergroup:
+                        if not found_add_swpx_peergroup:
+                            tmp_ctx_keys = list(ctx_keys)
+                            tmp_ctx_keys.append('address-family ipv6 unicast')
+                            tmp_ctx_keys = tuple(tmp_ctx_keys)
+                            found_add_swpx_peergroup = line_exist(lines_to_add, tmp_ctx_keys, swpx_peergroup)
+
+                    if found_add_swpx_interface and found_add_swpx_peergroup:
+                        deleted = True
+                        lines_to_del_to_del.append((ctx_keys, line))
+                        lines_to_add_to_del.append((ctx_keys, swpx_interface))
+                        lines_to_add_to_del.append((tmp_ctx_keys, swpx_peergroup))
+
+                '''
+                In 3.0.1 we changed how we display neighbor interface command. Older
+                versions of frr would display the following:
+                    neighbor swp1 interface
+                    neighbor swp1 remote-as external
+                    neighbor swp1 capability extended-nexthop
+
+                but today we display via a single line
+                    neighbor swp1 interface remote-as external
+
+                and capability extended-nexthop is no longer needed because we
+                automatically enable it when the neighbor is of type interface.
+
+                This change confuses frr-reload.py so check to see if we are deleting
+                    neighbor swp1 interface remote-as (external|internal|ASNUM)
+
+                and adding
+                    neighbor swp1 interface
+                    neighbor swp1 remote-as (external|internal|ASNUM)
+                    neighbor swp1 capability extended-nexthop
+
+                If so then chop the del line and the corresponding add lines
+                '''
+                re_swpx_int_remoteas = re.search('neighbor (\S+) interface remote-as (\S+)', line)
+                re_swpx_int_v6only_remoteas = re.search('neighbor (\S+) interface v6only remote-as (\S+)', line)
+
+                if re_swpx_int_remoteas or re_swpx_int_v6only_remoteas:
+                    swpx_interface = None
+                    swpx_remoteas = None
+
+                    if re_swpx_int_remoteas:
+                        swpx = re_swpx_int_remoteas.group(1)
+                        remoteas = re_swpx_int_remoteas.group(2)
+                        swpx_interface = "neighbor %s interface" % swpx
+                    elif re_swpx_int_v6only_remoteas:
+                        swpx = re_swpx_int_v6only_remoteas.group(1)
+                        remoteas = re_swpx_int_v6only_remoteas.group(2)
+                        swpx_interface = "neighbor %s interface v6only" % swpx
+
+                    swpx_remoteas = "neighbor %s remote-as %s" % (swpx, remoteas)
+                    found_add_swpx_interface = line_exist(lines_to_add, ctx_keys, swpx_interface)
+                    found_add_swpx_remoteas = line_exist(lines_to_add, ctx_keys, swpx_remoteas)
+                    tmp_ctx_keys = tuple(list(ctx_keys))
+
+                    if found_add_swpx_interface and found_add_swpx_remoteas:
+                        deleted = True
+                        lines_to_del_to_del.append((ctx_keys, line))
+                        lines_to_add_to_del.append((ctx_keys, swpx_interface))
+                        lines_to_add_to_del.append((tmp_ctx_keys, swpx_remoteas))
+
+            '''
+            In 3.0, we made bgp bestpath multipath as-relax command
+            automatically assume no-as-set since the lack of this option caused
+            weird routing problems and this problem was peculiar to this
+            implementation. When the running config is shown in relases after
+            3.0, the no-as-set is not shown as its the default. This causes
+            reload to unnecessarily unapply this option to only apply it back
+            again, causing unnecessary session resets. Handle this.
+            '''
+            if 'multipath-relax' in line:
+                re_asrelax_new = re.search('^bgp\s+bestpath\s+as-path\s+multipath-relax$', line)
+                old_asrelax_cmd = 'bgp bestpath as-path multipath-relax no-as-set'
+                found_asrelax_old = line_exist(lines_to_add, ctx_keys, old_asrelax_cmd)
+
+                if re_asrelax_new and found_asrelax_old:
                     deleted = True
                     lines_to_del_to_del.append((ctx_keys, line))
-                    lines_to_add_to_del.append((ctx_keys, swpx_interface))
-                    lines_to_add_to_del.append((tmp_ctx_keys, swpx_peergroup))
+                    lines_to_add_to_del.append((ctx_keys, old_asrelax_cmd))
 
-            """
-            In 3.0.1 we changed how we display neighbor interface command. Older
-            versions of frr would display the following:
-                neighbor swp1 interface
-                neighbor swp1 remote-as external
-                neighbor swp1 capability extended-nexthop
+            '''
+            If we are modifying the BGP table-map we need to avoid a del/add and
+            instead modify the table-map in place via an add.  This is needed to
+            avoid installing all routes in the RIB the second the 'no table-map'
+            is issued.
+            '''
+            if line.startswith('table-map'):
+                found_table_map = line_exist(lines_to_add, ctx_keys, 'table-map', False)
 
-            but today we display via a single line
-                neighbor swp1 interface remote-as external
-
-            and capability extended-nexthop is no longer needed because we
-            automatically enable it when the neighbor is of type interface.
-
-            This change confuses frr-reload.py so check to see if we are deleting
-                neighbor swp1 interface remote-as (external|internal|ASNUM)
-
-            and adding
-                neighbor swp1 interface
-                neighbor swp1 remote-as (external|internal|ASNUM)
-                neighbor swp1 capability extended-nexthop
-
-            If so then chop the del line and the corresponding add lines
-            """
-            re_swpx_int_remoteas = re.search('neighbor (\S+) interface remote-as (\S+)', line)
-            re_swpx_int_v6only_remoteas = re.search('neighbor (\S+) interface v6only remote-as (\S+)', line)
-
-            if re_swpx_int_remoteas or re_swpx_int_v6only_remoteas:
-                swpx_interface = None
-                swpx_remoteas = None
-
-                if re_swpx_int_remoteas:
-                    swpx = re_swpx_int_remoteas.group(1)
-                    remoteas = re_swpx_int_remoteas.group(2)
-                    swpx_interface = "neighbor %s interface" % swpx
-                elif re_swpx_int_v6only_remoteas:
-                    swpx = re_swpx_int_v6only_remoteas.group(1)
-                    remoteas = re_swpx_int_v6only_remoteas.group(2)
-                    swpx_interface = "neighbor %s interface v6only" % swpx
-
-                swpx_remoteas = "neighbor %s remote-as %s" % (swpx, remoteas)
-                found_add_swpx_interface = line_exist(lines_to_add, ctx_keys, swpx_interface)
-                found_add_swpx_remoteas = line_exist(lines_to_add, ctx_keys, swpx_remoteas)
-                tmp_ctx_keys = tuple(list(ctx_keys))
-
-                if found_add_swpx_interface and found_add_swpx_remoteas:
-                    deleted = True
+                if found_table_map:
                     lines_to_del_to_del.append((ctx_keys, line))
-                    lines_to_add_to_del.append((ctx_keys, swpx_interface))
-                    lines_to_add_to_del.append((tmp_ctx_keys, swpx_remoteas))
 
         '''
-           In 3.0, we made bgp bestpath multipath as-relax command
-           automatically assume no-as-set since the lack of this option caused
-           weird routing problems and this problem was peculiar to this
-           implementation. When the running config is shown in relases after
-           3.0, the no-as-set is not shown as its the default. This causes
-           reload to unnecessarily unapply this option to only apply it back
-           again, causing unnecessary session resets. Handle this.
-        '''
-        if ctx_keys[0].startswith('router bgp') and line and 'multipath-relax' in line:
-            re_asrelax_new = re.search('^bgp\s+bestpath\s+as-path\s+multipath-relax$', line)
-            old_asrelax_cmd = 'bgp bestpath as-path multipath-relax no-as-set'
-            found_asrelax_old = line_exist(lines_to_add, ctx_keys, old_asrelax_cmd)
-
-            if re_asrelax_new and found_asrelax_old:
-                deleted = True
-                lines_to_del_to_del.append((ctx_keys, line))
-                lines_to_add_to_del.append((ctx_keys, old_asrelax_cmd))
-
-        '''
-        If we are modifying the BGP table-map we need to avoid a del/add and
-        instead modify the table-map in place via an add.  This is needed to
-        avoid installing all routes in the RIB the second the 'no table-map'
-        is issued.
-        '''
-        if ctx_keys[0].startswith('router bgp') and line and line.startswith('table-map'):
-            found_table_map = line_exist(lines_to_add, ctx_keys, 'table-map', False)
-
-            if found_table_map:
-                lines_to_del_to_del.append((ctx_keys, line))
-
-        '''
-           More old-to-new config handling. ip import-table no longer accepts
-           distance, but we honor the old syntax. But 'show running' shows only
-           the new syntax. This causes an unnecessary 'no import-table' followed
-           by the same old 'ip import-table' which causes perturbations in
-           announced routes leading to traffic blackholes. Fix this issue.
+        More old-to-new config handling. ip import-table no longer accepts
+        distance, but we honor the old syntax. But 'show running' shows only
+        the new syntax. This causes an unnecessary 'no import-table' followed
+        by the same old 'ip import-table' which causes perturbations in
+        announced routes leading to traffic blackholes. Fix this issue.
         '''
         re_importtbl = re.search('^ip\s+import-table\s+(\d+)$', ctx_keys[0])
         if re_importtbl:
