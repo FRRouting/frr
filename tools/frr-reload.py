@@ -118,6 +118,10 @@ class Config(object):
 
         for line in file_output.split('\n'):
             line = line.strip()
+
+            # Compress duplicate whitespaces
+            line = ' '.join(line.split())
+
             if ":" in line:
                 qv6_line = get_normalized_ipv6_line(line)
                 self.lines.append(qv6_line)
