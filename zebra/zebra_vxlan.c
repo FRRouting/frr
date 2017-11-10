@@ -3055,16 +3055,16 @@ int zebra_vxlan_remote_macip_del(struct zserv *client, u_short length,
 		mac = NULL;
 		n = NULL;
 		memset(&ip, 0, sizeof(ip));
-		vni = (vni_t)stream_getl(s);
-		stream_get(&macaddr.octet, s, ETH_ALEN);
-		ipa_len = stream_getl(s);
+		STREAM_GETL(s, vni);
+		STREAM_GET(&macaddr.octet, s, ETH_ALEN);
+		STREAM_GETL(s, ipa_len);
 		if (ipa_len) {
 			ip.ipa_type = (ipa_len == IPV4_MAX_BYTELEN) ? IPADDR_V4
 								    : IPADDR_V6;
-			stream_get(&ip.ip.addr, s, ipa_len);
+			STREAM_GET(&ip.ip.addr, s, ipa_len);
 		}
 		l += 4 + ETH_ALEN + 4 + ipa_len;
-		vtep_ip.s_addr = stream_get_ipv4(s);
+		STREAM_GET(&vtep_ip.s_addr, s, IPV4_MAX_BYTELEN);
 		l += IPV4_MAX_BYTELEN;
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
@@ -3160,6 +3160,7 @@ int zebra_vxlan_remote_macip_del(struct zserv *client, u_short length,
 		}
 	}
 
+stream_failure:
 	return 0;
 }
 
@@ -3188,7 +3189,11 @@ int zebra_vxlan_remote_macip_add(struct zserv *client, u_short length,
 	struct interface *ifp = NULL;
 	struct zebra_if *zif = NULL;
 
-	assert(EVPN_ENABLED(zvrf));
+	if (!EVPN_ENABLED(zvrf)) {
+		zlog_warn("%s: EVPN Not turned on yet we have received a remote_macip add zapi callback",
+			  __PRETTY_FUNCTION__);
+		return -1;
+	}
 
 	s = client->ibuf;
 
@@ -3201,20 +3206,20 @@ int zebra_vxlan_remote_macip_add(struct zserv *client, u_short length,
 		mac = NULL;
 		n = NULL;
 		memset(&ip, 0, sizeof(ip));
-		vni = (vni_t)stream_getl(s);
-		stream_get(&macaddr.octet, s, ETH_ALEN);
-		ipa_len = stream_getl(s);
+		STREAM_GETL(s, vni);
+		STREAM_GET(&macaddr.octet, s, ETH_ALEN);
+		STREAM_GETL(s, ipa_len);
 		if (ipa_len) {
 			ip.ipa_type = (ipa_len == IPV4_MAX_BYTELEN) ? IPADDR_V4
 								    : IPADDR_V6;
-			stream_get(&ip.ip.addr, s, ipa_len);
+			STREAM_GET(&ip.ip.addr, s, ipa_len);
 		}
 		l += 4 + ETH_ALEN + 4 + ipa_len;
-		vtep_ip.s_addr = stream_get_ipv4(s);
+		STREAM_GET(&vtep_ip.s_addr, s, IPV4_MAX_BYTELEN);
 		l += IPV4_MAX_BYTELEN;
 
 		/* Get 'sticky' flag. */
-		sticky = stream_getc(s);
+		STREAM_GETC(s, sticky);
 		l++;
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
@@ -3367,6 +3372,7 @@ int zebra_vxlan_remote_macip_add(struct zserv *client, u_short length,
 		}
 	}
 
+stream_failure:
 	return 0;
 }
 
@@ -3683,7 +3689,12 @@ int zebra_vxlan_remote_vtep_del(struct zserv *client, u_short length,
 	struct interface *ifp;
 	struct zebra_if *zif;
 
-	assert(is_evpn_enabled());
+	if (!is_evpn_enabled()) {
+		zlog_warn("%s: EVPN is not enabled yet we have received a vtep del command",
+			  __PRETTY_FUNCTION__);
+		return -1;
+	}
+
 	if (zvrf_id(zvrf) != VRF_DEFAULT) {
 		zlog_err("Recv MACIP DEL for non-default VRF %u",
 			 zvrf_id(zvrf));
@@ -3694,9 +3705,9 @@ int zebra_vxlan_remote_vtep_del(struct zserv *client, u_short length,
 
 	while (l < length) {
 		/* Obtain each remote VTEP and process. */
-		vni = (vni_t)stream_getl(s);
+		STREAM_GETL(s, vni);
 		l += 4;
-		vtep_ip.s_addr = stream_get_ipv4(s);
+		STREAM_GET(&vtep_ip.s_addr, s, IPV4_MAX_BYTELEN);
 		l += IPV4_MAX_BYTELEN;
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
@@ -3744,6 +3755,7 @@ int zebra_vxlan_remote_vtep_del(struct zserv *client, u_short length,
 		zvni_vtep_del(zvni, zvtep);
 	}
 
+stream_failure:
 	return 0;
 }
 
@@ -3761,7 +3773,12 @@ int zebra_vxlan_remote_vtep_add(struct zserv *client, u_short length,
 	struct interface *ifp;
 	struct zebra_if *zif;
 
-	assert(is_evpn_enabled());
+	if (!is_evpn_enabled()) {
+		zlog_warn("%s: EVPN not enabled yet we received a vtep_add zapi call",
+			  __PRETTY_FUNCTION__);
+		return -1;
+	}
+
 	if (zvrf_id(zvrf) != VRF_DEFAULT) {
 		zlog_err("Recv MACIP ADD for non-default VRF %u",
 			 zvrf_id(zvrf));
@@ -3772,9 +3789,9 @@ int zebra_vxlan_remote_vtep_add(struct zserv *client, u_short length,
 
 	while (l < length) {
 		/* Obtain each remote VTEP and process. */
-		vni = (vni_t)stream_getl(s);
+		STREAM_GETL(s, vni);
 		l += 4;
-		vtep_ip.s_addr = stream_get_ipv4(s);
+		STREAM_GET(&vtep_ip.s_addr, s, IPV4_MAX_BYTELEN);
 		l += IPV4_MAX_BYTELEN;
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
@@ -3820,6 +3837,7 @@ int zebra_vxlan_remote_vtep_add(struct zserv *client, u_short length,
 		zvni_vtep_install(zvni, &vtep_ip);
 	}
 
+stream_failure:
 	return 0;
 }
 
@@ -4296,8 +4314,8 @@ int zebra_vxlan_advertise_gw_macip(struct zserv *client, u_short length,
 	}
 
 	s = client->ibuf;
-	advertise = stream_getc(s);
-	vni = stream_get3(s);
+	STREAM_GETC(s, advertise);
+	STREAM_GET(&vni, s, 3);
 
 	if (!vni) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
@@ -4378,6 +4396,7 @@ int zebra_vxlan_advertise_gw_macip(struct zserv *client, u_short length,
 		}
 	}
 
+stream_failure:
 	return 0;
 }
 
@@ -4401,7 +4420,7 @@ int zebra_vxlan_advertise_all_vni(struct zserv *client,
 	}
 
 	s = client->ibuf;
-	advertise = stream_getc(s);
+	STREAM_GETC(s, advertise);
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("EVPN VNI Adv %s, currently %s",
@@ -4432,6 +4451,7 @@ int zebra_vxlan_advertise_all_vni(struct zserv *client,
 		hash_iterate(zvrf->vni_table, zvni_cleanup_all, zvrf);
 	}
 
+stream_failure:
 	return 0;
 }
 

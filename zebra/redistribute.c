@@ -246,16 +246,25 @@ void redistribute_delete(struct prefix *p, struct prefix *src_p,
 void zebra_redistribute_add(int command, struct zserv *client, int length,
 			    struct zebra_vrf *zvrf)
 {
-	afi_t afi;
-	int type;
+	afi_t afi = 0;
+	int type = 0;
 	u_short instance;
 
-	afi = stream_getc(client->ibuf);
-	type = stream_getc(client->ibuf);
-	instance = stream_getw(client->ibuf);
+	STREAM_GETC(client->ibuf, afi);
+	STREAM_GETC(client->ibuf, type);
+	STREAM_GETW(client->ibuf, instance);
 
-	if (type == 0 || type >= ZEBRA_ROUTE_MAX)
+	if (afi == 0 || afi > AFI_MAX) {
+		zlog_warn("%s: Specified afi %d does not exist",
+			  __PRETTY_FUNCTION__, afi);
 		return;
+	}
+
+	if (type == 0 || type >= ZEBRA_ROUTE_MAX) {
+		zlog_warn("%s: Specified Route Type %d does not exist",
+			  __PRETTY_FUNCTION__, type);
+		return;
+	}
 
 	if (instance) {
 		if (!redist_check_instance(&client->mi_redist[afi][type],
@@ -273,21 +282,33 @@ void zebra_redistribute_add(int command, struct zserv *client, int length,
 			zebra_redistribute(client, type, 0, zvrf_id(zvrf), afi);
 		}
 	}
+
+stream_failure:
+	return;
 }
 
 void zebra_redistribute_delete(int command, struct zserv *client, int length,
 			       struct zebra_vrf *zvrf)
 {
-	afi_t afi;
-	int type;
+	afi_t afi = 0;
+	int type = 0;
 	u_short instance;
 
-	afi = stream_getc(client->ibuf);
-	type = stream_getc(client->ibuf);
-	instance = stream_getw(client->ibuf);
+	STREAM_GETC(client->ibuf, afi);
+	STREAM_GETC(client->ibuf, type);
+	STREAM_GETW(client->ibuf, instance);
 
-	if (type == 0 || type >= ZEBRA_ROUTE_MAX)
+	if (afi == 0 || afi > AFI_MAX) {
+		zlog_warn("%s: Specified afi %d does not exist",
+			  __PRETTY_FUNCTION__, afi);
 		return;
+	}
+
+	if (type == 0 || type >= ZEBRA_ROUTE_MAX) {
+		zlog_warn("%s: Specified Route Type %d does not exist",
+			  __PRETTY_FUNCTION__, type);
+		return;
+	}
 
 	/*
 	 * NOTE: no need to withdraw the previously advertised routes. The
@@ -299,6 +320,9 @@ void zebra_redistribute_delete(int command, struct zserv *client, int length,
 		redist_del_instance(&client->mi_redist[afi][type], instance);
 	else
 		vrf_bitmap_unset(client->redist[afi][type], zvrf_id(zvrf));
+
+stream_failure:
+	return;
 }
 
 void zebra_redistribute_default_add(int command, struct zserv *client,
