@@ -602,10 +602,15 @@ def get_normalized_ipv6_line(line):
     return norm_line.strip()
 
 
-def line_exist(lines, target_ctx_keys, target_line):
+def line_exist(lines, target_ctx_keys, target_line, exact_match=True):
     for (ctx_keys, line) in lines:
-        if ctx_keys == target_ctx_keys and line == target_line:
-            return True
+        if ctx_keys == target_ctx_keys:
+            if exact_match:
+                if line == target_line:
+                    return True
+            else:
+                if line.startswith(target_line):
+                    return True
     return False
 
 
@@ -745,6 +750,18 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                 deleted = True
                 lines_to_del_to_del.append((ctx_keys, line))
                 lines_to_add_to_del.append((ctx_keys, old_asrelax_cmd))
+
+        '''
+        If we are modifying the BGP table-map we need to avoid a del/add and
+        instead modify the table-map in place via an add.  This is needed to
+        avoid installing all routes in the RIB the second the 'no table-map'
+        is issued.
+        '''
+        if ctx_keys[0].startswith('router bgp') and line and line.startswith('table-map'):
+            found_table_map = line_exist(lines_to_add, ctx_keys, 'table-map', False)
+
+            if found_table_map:
+                lines_to_del_to_del.append((ctx_keys, line))
 
         '''
            More old-to-new config handling. ip import-table no longer accepts
