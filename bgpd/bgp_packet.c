@@ -2142,8 +2142,22 @@ int bgp_process_packet(struct thread *thread)
 	int mprc;		  // message processing return code
 
 	peer = THREAD_ARG(thread);
+/*
+ * This functionality is presently disabled. Unfortunately due to the
+ * way bgpd is structured, reading more than one packet per input cycle
+ * severely impacts convergence time. This is because advancing the
+ * state of the routing table based on prefixes learned from one peer
+ * prior to all (or at least most) peers being established and placed
+ * into an update-group will make UPDATE generation starve
+ * bgp_accept(), delaying convergence. This is a deficiency that needs
+ * to be fixed elsewhere in the codebase, but for now our hand is
+ * forced.
+ */
+#if 0
 	rpkt_quanta_old = atomic_load_explicit(&peer->bgp->rpkt_quanta,
 					       memory_order_relaxed);
+#endif
+	rpkt_quanta_old = 1;
 	fsm_update_result = 0;
 
 	/* Guard against scheduled events that occur after peer deletion. */
