@@ -117,6 +117,7 @@ const char *node_names[] = {
 	"vty",			    // VTY_NODE,
 	"link-params",		    // LINK_PARAMS_NODE,
 	"bgp evpn vni",		    // BGP_EVPN_VNI_NODE,
+	"rpki",			    // RPKI_NODE
 };
 
 /* Command vector which includes some level of command lists. Normally

@@ -37,6 +37,7 @@ BGP-4.
 * How to set up a 6-Bone connection::  
 * Dump BGP packets and table::  
 * BGP Configuration Examples::
+* Prefix Origin Validation Using RPKI::
 @end menu
 
 @node Starting BGP
@@ -2144,3 +2145,5 @@ route-map rm-peer-out permit 10
 route-map rm-peer-in permit 10
  set community additive 64512:3200
 @end example
+
+@include rpki.texi
