@@ -7083,6 +7083,11 @@ int bgp_config_write(struct vty *vty)
 
 	/* BGP configuration. */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
+
+		/* skip all auto created vrf as they dont have user config */
+		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
+			continue;
+
 		/* Router bgp ASN */
 		vty_out(vty, "router bgp %u", bgp->as);
 

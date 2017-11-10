@@ -873,6 +873,8 @@ DEFUN_NOSH (router_bgp,
 		 */
 	}
 
+	/* unset the auto created flag as the user config is now present */
+	UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
 	VTY_PUSH_CONTEXT(BGP_NODE, bgp);
 
 	return CMD_SUCCESS;
@@ -909,6 +911,12 @@ DEFUN (no_router_bgp,
 				"%% Multiple BGP processes are configured\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
+
+		if (bgp->l3vni) {
+			vty_out(vty, "%% Please unconfigure l3vni %u",
+				bgp->l3vni);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 	} else {
 		as = strtoul(argv[idx_asn]->arg, NULL, 10);
 
@@ -919,6 +927,12 @@ DEFUN (no_router_bgp,
 		bgp = bgp_lookup(as, name);
 		if (!bgp) {
 			vty_out(vty, "%% Can't find BGP instance\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		if (bgp->l3vni) {
+			vty_out(vty, "%% Please unconfigure l3vni %u",
+				bgp->l3vni);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
