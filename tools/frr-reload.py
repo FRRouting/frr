@@ -874,6 +874,34 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
     return (lines_to_add, lines_to_del)
 
 
+def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
+    """
+    There are certain commands that cannot be removed.  Remove
+    those commands from lines_to_del.
+    """
+    lines_to_del_to_del = []
+
+    for (ctx_keys, line) in lines_to_del:
+
+        if (ctx_keys[0].startswith('frr version') or
+            ctx_keys[0].startswith('frr defaults') or
+            ctx_keys[0].startswith('password') or
+            ctx_keys[0].startswith('line vty') or
+
+            # This is technically "no"able but if we did so frr-reload would
+            # stop working so do not let the user shoot themselves in the foot
+            # by removing this.
+            ctx_keys[0].startswith('service integrated-vtysh-config')):
+
+            log.info("(%s, %s) cannot be removed" % (pformat(ctx_keys), line))
+            lines_to_del_to_del.append((ctx_keys, line))
+
+    for (ctx_keys, line) in lines_to_del_to_del:
+        lines_to_del.remove((ctx_keys, line))
+
+    return (lines_to_add, lines_to_del)
+
+
 def compare_context_objects(newconf, running):
     """
     Create a context diff for the two specified contexts
@@ -959,6 +987,7 @@ def compare_context_objects(newconf, running):
                 lines_to_add.append((newconf_ctx_keys, line))
 
     (lines_to_add, lines_to_del) = ignore_delete_re_add_lines(lines_to_add, lines_to_del)
+    (lines_to_add, lines_to_del) = ignore_unconfigurable_lines(lines_to_add, lines_to_del)
 
     return (lines_to_add, lines_to_del)
 
