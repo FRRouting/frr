@@ -659,6 +659,9 @@ static int prefix_list_entry_match(struct prefix_list_entry *pentry,
 {
 	int ret;
 
+	if (pentry->prefix.family != p->family)
+		return 0;
+
 	ret = prefix_match(&pentry->prefix, p);
 	if (!ret)
 		return 0;
@@ -1226,9 +1229,11 @@ static int vty_show_prefix_list_prefix(struct vty *vty, afi_t afi,
 			if (prefix_same(&p, &pentry->prefix))
 				match = 1;
 
-		if (type == longer_display)
-			if (prefix_match(&p, &pentry->prefix))
+		if (type == longer_display) {
+			if ((p.family == pentry->prefix.family) &&
+			    (prefix_match(&p, &pentry->prefix)))
 				match = 1;
+		}
 
 		if (match) {
 			vty_out(vty, "   seq %u %s ", pentry->seq,
@@ -1305,7 +1310,8 @@ static int vty_clear_prefix_list(struct vty *vty, afi_t afi, const char *name,
 
 		for (pentry = plist->head; pentry; pentry = pentry->next) {
 			if (prefix) {
-				if (prefix_match(&pentry->prefix, &p))
+				if (pentry->prefix.family == p.family &&
+				    prefix_match(&pentry->prefix, &p))
 					pentry->hitcnt = 0;
 			} else
 				pentry->hitcnt = 0;
