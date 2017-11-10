@@ -68,7 +68,8 @@ frr_TEXINFOS = appendix.texi basic.texi bgpd.texi isisd.texi filter.texi \
 	ospf6d.texi ospfd.texi \
 	overview.texi protocol.texi ripd.texi ripngd.texi routemap.texi \
 	snmp.texi vtysh.texi routeserver.texi $(figures_png) \
-	snmptrap.texi ospf_fundamentals.texi isisd.texi $(figures_txt)
+	snmptrap.texi ospf_fundamentals.texi isisd.texi $(figures_txt) \
+	rpki.texi
 
 .png.eps:
 	$(PNGTOEPS) $< "$@"
