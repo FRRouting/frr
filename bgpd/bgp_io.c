@@ -218,12 +218,9 @@ static int bgp_process_writes(struct thread *thread)
 	if (reschedule) {
 		thread_add_write(fpt->master, bgp_process_writes, peer,
 				 peer->fd, &peer->t_write);
-	}
-
-	if (!fatal) {
-		thread_add_timer_msec(bm->master, bgp_generate_updgrp_packets,
-				      peer, 0,
-				      &peer->t_generate_updgrp_packets);
+	} else if (!fatal) {
+		BGP_TIMER_ON(peer->t_generate_updgrp_packets,
+			     bgp_generate_updgrp_packets, 0);
 	}
 
 	return 0;
