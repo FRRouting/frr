@@ -685,7 +685,7 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                         lines_to_add_to_del.append((tmp_ctx_keys, swpx_peergroup))
 
                 '''
-                In 3.0.1 we changed how we display neighbor interface command. Older
+                We changed how we display the neighbor interface command. Older
                 versions of frr would display the following:
                     neighbor swp1 interface
                     neighbor swp1 remote-as external
@@ -735,13 +735,13 @@ def ignore_delete_re_add_lines(lines_to_add, lines_to_del):
                         lines_to_add_to_del.append((tmp_ctx_keys, swpx_remoteas))
 
             '''
-            In 3.0, we made bgp bestpath multipath as-relax command
-            automatically assume no-as-set since the lack of this option caused
-            weird routing problems and this problem was peculiar to this
-            implementation. When the running config is shown in relases after
-            3.0, the no-as-set is not shown as its the default. This causes
-            reload to unnecessarily unapply this option to only apply it back
-            again, causing unnecessary session resets. Handle this.
+            We made the 'bgp bestpath as-path multipath-relax' command
+            automatically assume 'no-as-set' since the lack of this option caused
+            weird routing problems. When the running config is shown in
+            releases with this change, the no-as-set keyword is not shown as it
+            is the default. This causes frr-reload to unnecessarily unapply
+            this option only to apply it back again, causing unnecessary session
+            resets.
             '''
             if 'multipath-relax' in line:
                 re_asrelax_new = re.search('^bgp\s+bestpath\s+as-path\s+multipath-relax$', line)
