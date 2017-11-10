@@ -3669,7 +3669,7 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni,
 	as = bgp_def->as;
 
 	/* if the BGP vrf instance doesnt exist - create one */
-	bgp_vrf = bgp_lookup_by_vrf_id(vrf_id);
+	bgp_vrf = bgp_lookup_by_name(vrf_id_to_name(vrf_id));
 	if (!bgp_vrf) {
 
 		int ret = 0;
