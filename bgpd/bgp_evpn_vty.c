@@ -3857,8 +3857,8 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_vni_rt_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &no_bgp_evpn_vni_rt_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &no_bgp_evpn_vni_rt_without_val_cmd);
-	install_element(BGP_NODE, &bgp_evpn_vrf_rt_cmd);
-	install_element(BGP_NODE, &no_bgp_evpn_vrf_rt_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_vrf_rt_cmd);
+	install_element(BGP_EVPN_NODE, &no_bgp_evpn_vrf_rt_cmd);
 	install_element(BGP_EVPN_VNI_NODE,
 			&bgp_evpn_advertise_default_gw_vni_cmd);
 	install_element(BGP_EVPN_VNI_NODE,
