@@ -255,9 +255,11 @@ static struct rtr_mgr_group *get_groups(void)
 		if (cache->type == TCP)
 			tr_tcp_init(cache->tr_config.tcp_config,
 				    cache->tr_socket);
+#if defined(FOUND_SSH)
 		else
 			tr_ssh_init(cache->tr_config.ssh_config,
 				    cache->tr_socket);
+#endif
 
 		i++;
 	}
@@ -635,7 +637,9 @@ static int config_write(struct vty *vty)
 		for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
 			switch (cache->type) {
 				struct tr_tcp_config *tcp_config;
+#if defined(FOUND_SSH)
 				struct tr_ssh_config *ssh_config;
+#endif
 			case TCP:
 				tcp_config = cache->tr_config.tcp_config;
 				vty_out(vty,
@@ -971,7 +975,9 @@ DEFUN (show_rpki_cache_connection,
 					  cache)) {
 			if (cache->preference == group->preference) {
 				struct tr_tcp_config *tcp_config;
+#if defined(FOUND_SSH)
 				struct tr_ssh_config *ssh_config;
+#endif
 
 				switch (cache->type) {
 				case TCP:
