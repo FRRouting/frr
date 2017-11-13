@@ -1471,7 +1471,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	struct bgp_node *rn;
 	struct bgp_info *ri;
 	struct attr *attr_new;
-	int ret;
+	int ret = 0;
 	struct prefix p;
 	struct prefix *pp = &p;
 	afi_t afi = 0;
@@ -1628,7 +1628,7 @@ static int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 {
 	struct bgp_node *rn;
 	struct bgp_info *ri;
-	int ret;
+	int ret = 0;
 	struct prefix p;
 	struct prefix *pp = &p;
 	afi_t afi = 0;
