@@ -1045,6 +1045,8 @@ struct cmd_node link_params_node = {
 	LINK_PARAMS_NODE, "%s(config-link-params)# ",
 };
 
+static struct cmd_node rpki_node = {RPKI_NODE, "%s(config-rpki)# ", 1};
+
 /* Defined in lib/vty.c */
 extern struct cmd_node vty_node;
 
@@ -1179,6 +1181,35 @@ DEFUNSH(VTYSH_BGPD, address_family_ipv6_labeled_unicast,
 {
 	vty->node = BGP_IPV6L_NODE;
 	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD,
+	rpki,
+	rpki_cmd,
+	"rpki",
+	"Enable rpki and enter rpki configuration mode\n")
+{
+	vty->node = RPKI_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD,
+	rpki_exit,
+	rpki_exit_cmd,
+	"exit",
+	"Exit current mode and down to previous mode\n")
+{
+	vty->node = CONFIG_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BGPD,
+	rpki_quit,
+	rpki_quit_cmd,
+	"quit",
+	"Exit current mode and down to previous mode\n")
+{
+	return rpki_exit(self, vty, argc, argv);
 }
 
 DEFUNSH(VTYSH_BGPD, address_family_evpn, address_family_evpn_cmd,
@@ -2979,6 +3010,7 @@ void vtysh_init_vty(void)
 	install_node(&keychain_key_node, NULL);
 	install_node(&isis_node, NULL);
 	install_node(&vty_node, NULL);
+	install_node(&rpki_node, NULL);
 
 	struct cmd_node *node;
 	for (unsigned int i = 0; i < vector_active(cmdvec); i++) {
@@ -3176,6 +3208,11 @@ void vtysh_init_vty(void)
 	install_element(BGP_IPV6M_NODE, &exit_address_family_cmd);
 	install_element(BGP_EVPN_NODE, &exit_address_family_cmd);
 	install_element(BGP_IPV6L_NODE, &exit_address_family_cmd);
+
+	install_element(CONFIG_NODE, &rpki_cmd);
+	install_element(RPKI_NODE, &rpki_exit_cmd);
+	install_element(RPKI_NODE, &rpki_quit_cmd);
+	install_element(RPKI_NODE, &vtysh_end_all_cmd);
 
 	/* EVPN commands */
 	install_element(BGP_EVPN_NODE, &bgp_evpn_vni_cmd);
