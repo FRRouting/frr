@@ -907,6 +907,9 @@ static int zserv_fec_unregister(struct zserv *client, u_short length)
 
 	while (l < length) {
 		STREAM_GETW(s, flags);
+		if (flags != 0)
+			goto stream_failure;
+
 		memset(&p, 0, sizeof(p));
 		STREAM_GETW(s, p.family);
 		if (p.family != AF_INET && p.family != AF_INET6) {
