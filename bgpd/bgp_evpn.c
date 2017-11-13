@@ -1854,7 +1854,10 @@ static int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	char buf1[PREFIX_STRLEN];
 
 	memset(pp, 0, sizeof(struct prefix));
-	ip_prefix_from_type2_prefix(evp, pp);
+	if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE)
+		ip_prefix_from_type2_prefix(evp, pp);
+	else if(evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE)
+		ip_prefix_from_type5_prefix(evp, pp);
 
 	if (bgp_debug_zebra(NULL)) {
 		zlog_debug("uninstalling evpn prefix %s as ip prefix %s in vrf %s",
@@ -2108,7 +2111,8 @@ static int install_uninstall_routes_for_vrf(struct bgp *bgp_vrf,
 			struct prefix_evpn *evp = (struct prefix_evpn *)&rn->p;
 
 			/* if not mac-ip route skip this route */
-			if (evp->prefix.route_type != BGP_EVPN_MAC_IP_ROUTE)
+			if (!(evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE ||
+			      evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE))
 				continue;
 
 			/* if not a mac+ip route skip this route */
