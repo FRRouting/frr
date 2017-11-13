@@ -371,8 +371,13 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 	struct stream *s;
 	struct peer_af *paf;
 	struct bpacket *next_pkt;
+	uint32_t wpq;
+	uint32_t generated = 0;
 	afi_t afi;
 	safi_t safi;
+
+	wpq = atomic_load_explicit(&peer->bgp->wpkt_quanta,
+				   memory_order_relaxed);
 
 	/*
 	 * The code beyond this part deals with update packets, proceed only
@@ -458,7 +463,7 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 				bgp_writes_on(peer);
 				bpacket_queue_advance_peer(paf);
 			}
-	} while (s);
+	} while (s && (++generated < wpq));
 
 	bgp_write_proceed_actions(peer);
 
