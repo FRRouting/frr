@@ -111,7 +111,7 @@ the Developer's Certificate of Origin (below). Code without a proper signoff
 can not and will not be merged.
 
 If you are unfamiliar with this process, you should read the [official policy
-at kernel.org](http://www.kernel.org/doc/Documentation/SubmittingPatches) and
+at kernel.org](https://www.kernel.org/doc/html/latest/process/submitting-patches.html) and
 you might find this article about [participating in the Linux community on the
 Linux Foundation
 website](http://www.linuxfoundation.org/content/how-participate-linux-community-0)
