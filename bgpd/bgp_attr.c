@@ -1876,6 +1876,9 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	attr->mm_seqnum = bgp_attr_mac_mobility_seqnum(attr, &sticky);
 	attr->sticky = sticky;
 
+	/* Check if this is a Gateway MAC-IP advertisement */
+	attr->default_gw = bgp_attr_default_gw(attr);
+
 	/* Extract the Rmac, if any */
 	bgp_attr_rmac(attr, &attr->rmac);
 

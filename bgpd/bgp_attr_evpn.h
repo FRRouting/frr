@@ -62,5 +62,6 @@ extern int bgp_build_evpn_prefix(int type, uint32_t eth_tag,
 extern void bgp_attr_rmac(struct attr *attr, struct ethaddr *rmac);
 extern u_int32_t bgp_attr_mac_mobility_seqnum(struct attr *attr,
 					      u_char *sticky);
+extern uint8_t bgp_attr_default_gw(struct attr *attr);
 
 #endif /* _QUAGGA_BGP_ATTR_EVPN_H */

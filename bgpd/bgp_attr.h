@@ -162,6 +162,9 @@ struct attr {
 	/* Static MAC for EVPN */
 	u_char sticky;
 
+	/* Flag for default gateway extended community in EVPN */
+	u_char default_gw;
+
 	/* route tag */
 	route_tag_t tag;
 

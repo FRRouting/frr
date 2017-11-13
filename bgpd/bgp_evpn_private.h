@@ -257,6 +257,13 @@ static inline void encode_rmac_extcomm(struct ecommunity_val *eval,
 	memcpy(&eval->val[2], rmac, ETH_ALEN);
 }
 
+static inline void encode_default_gw_extcomm(struct ecommunity_val *eval)
+{
+	memset(eval, 0, sizeof(*eval));
+	eval->val[0] = ECOMMUNITY_ENCODE_OPAQUE;
+	eval->val[1] = ECOMMUNITY_EVPN_SUBTYPE_DEF_GW;
+}
+
 static inline void encode_mac_mobility_extcomm(int static_mac, u_int32_t seq,
 					       struct ecommunity_val *eval)
 {

@@ -135,6 +135,36 @@ void bgp_attr_rmac(struct attr *attr,
 }
 
 /*
+ * return true if attr contains default gw extended community
+ */
+uint8_t bgp_attr_default_gw(struct attr *attr)
+{
+	struct ecommunity	*ecom;
+	int			i;
+
+	ecom = attr->ecommunity;
+	if (!ecom || !ecom->size)
+		return 0;
+
+	/* If there is a default gw extendd community return true otherwise
+	 * return 0 */
+	for (i = 0; i < ecom->size; i++) {
+		u_char		*pnt;
+		u_char		type, sub_type;
+
+		pnt = (ecom->val + (i * ECOMMUNITY_SIZE));
+		type = *pnt++;
+		sub_type = *pnt++;
+
+		if ((type == ECOMMUNITY_ENCODE_OPAQUE
+		      && sub_type == ECOMMUNITY_EVPN_SUBTYPE_DEF_GW))
+			return 1;
+	}
+
+	return 0;
+}
+
+/*
  * Fetch and return the sequence number from MAC Mobility extended
  * community, if present, else 0.
  */

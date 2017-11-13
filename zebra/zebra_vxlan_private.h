@@ -233,6 +233,7 @@ struct zebra_mac_t_ {
 #define ZEBRA_MAC_AUTO    0x04  /* Auto created for neighbor. */
 #define ZEBRA_MAC_STICKY  0x08  /* Static MAC */
 #define ZEBRA_MAC_REMOTE_RMAC  0x10  /* remote router mac */
+#define ZEBRA_MAC_DEF_GW  0x20
 
 	/* Local or remote info. */
 	union {
@@ -314,6 +315,7 @@ struct zebra_neigh_t_ {
 #define ZEBRA_NEIGH_LOCAL     0x01
 #define ZEBRA_NEIGH_REMOTE    0x02
 #define ZEBRA_NEIGH_REMOTE_NH    0x04 /* neigh entry for remote vtep */
+#define ZEBRA_NEIGH_DEF_GW    0x08
 
 	enum zebra_neigh_state state;
 
