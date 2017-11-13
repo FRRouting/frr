@@ -68,6 +68,7 @@ struct ospf6_vertex {
 
 	/* nexthops to this node */
 	struct list *nh_list;
+	uint32_t link_id;
 };
 
 #define OSPF6_VERTEX_TYPE_ROUTER  0x01
