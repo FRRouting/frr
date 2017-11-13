@@ -58,6 +58,7 @@
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_label.h"
 #include "bgpd/bgp_io.h"
+#include "bgpd/bgp_keepalives.h"
 
 /**
  * Sets marker and type fields for a BGP message.
@@ -654,6 +655,14 @@ void bgp_notify_send_with_data(struct peer *peer, u_char code, u_char sub_code,
 
 	/* Set BGP packet length. */
 	length = bgp_packet_set_size(s);
+
+	/*
+	 * Turn off keepalive generation for peer. This is necessary because
+	 * otherwise between the time we wipe the output buffer and the time we
+	 * push the NOTIFY onto it, the KA generation thread could have pushed
+	 * a KEEPALIVE in the middle.
+	 */
+	bgp_keepalives_off(peer);
 
 	/* wipe output buffer */
 	pthread_mutex_lock(&peer->io_mtx);
