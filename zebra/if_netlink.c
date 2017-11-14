@@ -221,8 +221,10 @@ static enum zebra_link_type netlink_to_zebra_link_type(unsigned int hwt)
 		return ZEBRA_LLT_IEEE802_TR;
 	case ARPHRD_IEEE80211:
 		return ZEBRA_LLT_IEEE80211;
+#ifdef ARPHRD_IEEE802154
 	case ARPHRD_IEEE802154:
 		return ZEBRA_LLT_IEEE802154;
+#endif
 #ifdef ARPHRD_IP6GRE
 	case ARPHRD_IP6GRE:
 		return ZEBRA_LLT_IP6GRE;
