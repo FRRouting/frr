@@ -588,8 +588,10 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 	s = zclient->obuf;
 	stream_reset(s);
 	zclient_create_header(s, command, bnc->bgp->vrf_id);
-	if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED)
-	    || CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH))
+	if ((command == ZEBRA_NEXTHOP_REGISTER ||
+	     command == ZEBRA_IMPORT_ROUTE_REGISTER) &&
+	    (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED)
+	     || CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH)))
 		stream_putc(s, 1);
 	else
 		stream_putc(s, 0);

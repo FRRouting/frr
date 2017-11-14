@@ -782,9 +782,12 @@ static int zserv_rnh_unregister(struct zserv *client, u_short length,
 	s = client->ibuf;
 
 	while (l < length) {
-		u_char noval;
+		uint8_t flags;
 
-		STREAM_GETC(s, noval);
+		STREAM_GETC(s, flags);
+		if (flags != 0)
+			goto stream_failure;
+
 		STREAM_GETW(s, p.family);
 		STREAM_GETC(s, p.prefixlen);
 		l += 4;
