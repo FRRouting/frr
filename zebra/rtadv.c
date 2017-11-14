@@ -804,7 +804,7 @@ void zebra_interface_radv_set(struct zserv *client, u_short length,
 			      struct zebra_vrf *zvrf, int enable)
 {
 	struct stream *s;
-	unsigned int ifindex;
+	ifindex_t ifindex;
 	struct interface *ifp;
 	struct zebra_if *zif;
 	int ra_interval;
@@ -812,8 +812,8 @@ void zebra_interface_radv_set(struct zserv *client, u_short length,
 	s = client->ibuf;
 
 	/* Get interface index and RA interval. */
-	ifindex = stream_getl(s);
-	ra_interval = stream_getl(s);
+	STREAM_GETL(s, ifindex);
+	STREAM_GETL(s, ra_interval);
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("%u: IF %u RA %s from client %s, interval %ds",
@@ -849,6 +849,8 @@ void zebra_interface_radv_set(struct zserv *client, u_short length,
 			ipv6_nd_suppress_ra_set(ifp, RA_SUPPRESS);
 		}
 	}
+stream_failure:
+	return;
 }
 
 DEFUN (ipv6_nd_suppress_ra,

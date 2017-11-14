@@ -235,6 +235,13 @@ struct zapi_nexthop {
 	mpls_label_t labels[MPLS_MAX_LABELS];
 };
 
+/*
+ * Some of these data structures do not map easily to
+ * a actual data structure size giving different compilers
+ * and systems.  For those data structures we need
+ * to use the smallest available stream_getX/putX functions
+ * to encode/decode.
+ */
 struct zapi_route {
 	u_char type;
 	u_short instance;
@@ -243,6 +250,10 @@ struct zapi_route {
 
 	u_char message;
 
+	/*
+	 * This is an enum but we are going to treat it as a uint8_t
+	 * for purpose of encoding/decoding
+	 */
 	safi_t safi;
 
 	struct prefix prefix;

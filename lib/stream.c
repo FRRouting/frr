@@ -65,12 +65,19 @@ DEFINE_MTYPE_STATIC(LIB, STREAM_FIFO, "Stream FIFO")
 		assert(ENDP_VALID(S, (S)->endp));                              \
 	} while (0)
 
-#define STREAM_BOUND_WARN(S, WHAT)                                             \
-	do {                                                                   \
-		zlog_warn("%s: Attempt to %s out of bounds", __func__,         \
-			  (WHAT));                                             \
-		STREAM_WARN_OFFSETS(S);                                        \
-		assert(0);                                                     \
+#define STREAM_BOUND_WARN(S, WHAT)					\
+	do {								\
+		zlog_warn("%s: Attempt to %s out of bounds", __func__,	\
+			  (WHAT));					\
+		STREAM_WARN_OFFSETS(S);					\
+		assert(0);						\
+	} while (0)
+
+#define STREAM_BOUND_WARN2(S, WHAT)					\
+	do {								\
+		zlog_warn("%s: Attempt to %s out of bounds", __func__,	\
+			  (WHAT));					\
+		STREAM_WARN_OFFSETS(S);					\
 	} while (0)
 
 /* XXX: Deprecated macro: do not use */
@@ -263,6 +270,21 @@ void stream_forward_endp(struct stream *s, size_t size)
 }
 
 /* Copy from stream to destination. */
+inline bool stream_get2(void *dst, struct stream *s, size_t size)
+{
+	STREAM_VERIFY_SANE(s);
+
+	if (STREAM_READABLE(s) < size) {
+		STREAM_BOUND_WARN2(s, "get");
+		return false;
+	}
+
+	memcpy(dst, s->data + s->getp, size);
+	s->getp += size;
+
+	return true;
+}
+
 void stream_get(void *dst, struct stream *s, size_t size)
 {
 	STREAM_VERIFY_SANE(s);
@@ -277,6 +299,19 @@ void stream_get(void *dst, struct stream *s, size_t size)
 }
 
 /* Get next character from the stream. */
+inline bool stream_getc2(struct stream *s, u_char *byte)
+{
+	STREAM_VERIFY_SANE(s);
+
+	if (STREAM_READABLE(s) < sizeof(u_char)) {
+		STREAM_BOUND_WARN2(s, "get char");
+		return false;
+	}
+	*byte = s->data[s->getp++];
+
+	return true;
+}
+
 u_char stream_getc(struct stream *s)
 {
 	u_char c;
@@ -307,6 +342,21 @@ u_char stream_getc_from(struct stream *s, size_t from)
 	c = s->data[from];
 
 	return c;
+}
+
+inline bool stream_getw2(struct stream *s, uint16_t *word)
+{
+	STREAM_VERIFY_SANE(s);
+
+	if (STREAM_READABLE(s) < sizeof(uint16_t)) {
+		STREAM_BOUND_WARN2(s, "get ");
+		return false;
+	}
+
+	*word  = s->data[s->getp++] << 8;
+	*word |= s->data[s->getp++];
+
+	return true;
 }
 
 /* Get next word from the stream. */
@@ -413,6 +463,24 @@ void stream_get_from(void *dst, struct stream *s, size_t from, size_t size)
 	}
 
 	memcpy(dst, s->data + from, size);
+}
+
+inline bool stream_getl2(struct stream *s, uint32_t *l)
+{
+	STREAM_VERIFY_SANE(s);
+
+	if (STREAM_READABLE(s) < sizeof(uint32_t)) {
+		STREAM_BOUND_WARN2(s, "get long");
+		return false;
+	}
+
+	*l  = (unsigned int)(s->data[s->getp++]) << 24;
+	*l |= s->data[s->getp++] << 16;
+	*l |= s->data[s->getp++] << 8;
+	*l |= s->data[s->getp++];
+
+	return true;
+
 }
 
 u_int32_t stream_getl(struct stream *s)
