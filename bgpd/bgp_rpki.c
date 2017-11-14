@@ -224,7 +224,7 @@ static void print_record(const struct pfx_record *record, void *data)
 	struct rpki_for_each_record_arg *arg = data;
 	struct vty *vty = arg->vty;
 
-	arg->prefix_amount++;
+	(*arg->prefix_amount)++;
 
 	lrtr_ip_addr_to_str(&record->prefix, ip, sizeof(ip));
 	vty_out(vty, "%-40s   %3u - %3u   %10u\n", ip, record->min_len,
