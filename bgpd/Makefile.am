@@ -119,6 +119,8 @@ module_LTLIBRARIES += bgpd_rpki.la
 endif
 
 bgpd_rpki_la-bgp_rpki.o: bgp_rpki_clippy.c
+bgp_rpki.la: bgp_rpki_clippy.c
+bgp_rpki.lo: bgp_rpki_clippy.c
 bgp_rpki.o: bgp_rpki_clippy.c
 
 bgpd_rpki_la_SOURCES = bgp_rpki.c
