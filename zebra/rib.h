@@ -285,9 +285,9 @@ extern int zebra_check_addr(struct prefix *p);
 extern void rib_addnode(struct route_node *rn, struct route_entry *re,
 			int process);
 extern void rib_delnode(struct route_node *rn, struct route_entry *re);
-extern int rib_install_kernel(struct route_node *rn, struct route_entry *re,
-			      struct route_entry *old);
-extern int rib_uninstall_kernel(struct route_node *rn, struct route_entry *re);
+extern void rib_install_kernel(struct route_node *rn, struct route_entry *re,
+			       struct route_entry *old);
+extern void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re);
 
 /* NOTE:
  * All rib_add function will not just add prefix into RIB, but

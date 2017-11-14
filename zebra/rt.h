@@ -41,8 +41,36 @@
  * success failure should be handled by the caller.
  */
 
-extern int kernel_route_rib(struct prefix *, struct prefix *,
-			    struct route_entry *, struct route_entry *);
+
+enum southbound_results {
+	SOUTHBOUND_INSTALL_SUCCESS,
+	SOUTHBOUND_INSTALL_FAILURE,
+	SOUTHBOUND_DELETE_SUCCESS,
+	SOUTHBOUND_DELETE_FAILURE,
+};
+
+/*
+ * Install/delete the specified prefix p from the kernel
+ *
+ * old = NULL, new = pointer - Install new
+ * old = pointer, new = pointer - Route replace Old w/ New
+ * old = pointer, new = NULL, - Route Delete
+ *
+ * Please note not all kernels support route replace
+ * semantics so we will end up with a delete than
+ * a re-add.
+ */
+extern void kernel_route_rib(struct prefix *p, struct prefix *src_p,
+			     struct route_entry *old, struct route_entry *new);
+
+/*
+ * So route install/failure may not be immediately known
+ * so let's separate it out and allow the result to
+ * be passed back up.
+ */
+extern void kernel_route_rib_pass_fail(struct prefix *p,
+				       struct route_entry *re,
+				       enum southbound_results res);
 
 extern int kernel_address_add_ipv4(struct interface *, struct connected *);
 extern int kernel_address_delete_ipv4(struct interface *, struct connected *);
