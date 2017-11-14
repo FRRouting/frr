@@ -10535,58 +10535,37 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group)
 	return CMD_SUCCESS;
 }
 
-/* Show BGP peer group's information. */
-enum show_group_type { show_all_groups, show_peer_group };
-
-static int bgp_show_peer_group(struct vty *vty, struct bgp *bgp,
-			       enum show_group_type type,
-			       const char *group_name)
-{
-	struct listnode *node, *nnode;
-	struct peer_group *group;
-	int find = 0;
-
-	for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
-		switch (type) {
-		case show_all_groups:
-			bgp_show_one_peer_group(vty, group);
-			break;
-		case show_peer_group:
-			if (group_name
-			    && (strcmp(group->name, group_name) == 0)) {
-				find = 1;
-				bgp_show_one_peer_group(vty, group);
-			}
-			break;
-		}
-	}
-
-	if (type == show_peer_group && !find)
-		vty_out(vty, "%% No such peer-group\n");
-
-	return CMD_SUCCESS;
-}
-
 static int bgp_show_peer_group_vty(struct vty *vty, const char *name,
-				   enum show_group_type type,
 				   const char *group_name)
 {
 	struct bgp *bgp;
-	int ret = CMD_SUCCESS;
+	struct listnode *node, *nnode;
+	struct peer_group *group;
+	bool found = false;
 
-	if (name)
-		bgp = bgp_lookup_by_name(name);
-	else
-		bgp = bgp_get_default();
+	bgp = name ? bgp_lookup_by_name(name) : bgp_get_default();
 
 	if (!bgp) {
-		vty_out(vty, "%% No such BGP instance exist\n");
+		vty_out(vty, "%% No such BGP instance exists\n");
 		return CMD_WARNING;
 	}
 
-	ret = bgp_show_peer_group(vty, bgp, type, group_name);
+	for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
+		if (group_name) {
+			if (strmatch(group->name, group_name)) {
+				bgp_show_one_peer_group(vty, group);
+				found = true;
+				break;
+			}
+		} else {
+			bgp_show_one_peer_group(vty, group);
+		}
+	}
 
-	return ret;
+	if (group_name && !found)
+		vty_out(vty, "%% No such peer-group\n");
+
+	return CMD_SUCCESS;
 }
 
 DEFUN (show_ip_bgp_peer_groups,
@@ -10606,7 +10585,7 @@ DEFUN (show_ip_bgp_peer_groups,
 	vrf = argv_find(argv, argc, "WORD", &idx) ? argv[idx]->arg : NULL;
 	pg = argv_find(argv, argc, "PGNAME", &idx) ? argv[idx]->arg : NULL;
 
-	return bgp_show_peer_group_vty(vty, vrf, show_all_groups, pg);
+	return bgp_show_peer_group_vty(vty, vrf, pg);
 }
 
 
