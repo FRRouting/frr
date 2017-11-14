@@ -1856,7 +1856,7 @@ static int uninstall_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	memset(pp, 0, sizeof(struct prefix));
 	if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE)
 		ip_prefix_from_type2_prefix(evp, pp);
-	else if(evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE)
+	else if (evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE)
 		ip_prefix_from_type5_prefix(evp, pp);
 
 	if (bgp_debug_zebra(NULL)) {

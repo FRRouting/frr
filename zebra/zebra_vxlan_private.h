@@ -30,6 +30,7 @@
 
 #include "if.h"
 #include "linklist.h"
+#include "zebra_vxlan.h"
 
 #define ERR_STR_SZ 256
 
@@ -165,6 +166,7 @@ static inline const char *zl3vni_rmac2str(zebra_l3vni_t *zl3vni, char *buf,
 
 /*
  * l3-vni is oper up when:
+ * 0. if EVPN is enabled (advertise-all-vni cfged)
  * 1. it is associated to a vxlan-intf
  * 2. Associated vxlan-intf is oper up
  * 3. it is associated to an SVI
@@ -172,7 +174,7 @@ static inline const char *zl3vni_rmac2str(zebra_l3vni_t *zl3vni, char *buf,
  */
 static inline int is_l3vni_oper_up(zebra_l3vni_t *zl3vni)
 {
-	return (zl3vni &&
+	return (is_evpn_enabled() && zl3vni &&
 		(zl3vni->vrf_id != VRF_UNKNOWN) &&
 		zl3vni->vxlan_if && if_is_operative(zl3vni->vxlan_if) &&
 		zl3vni->svi_if && if_is_operative(zl3vni->svi_if));

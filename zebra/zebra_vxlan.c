@@ -2818,6 +2818,19 @@ static void zvni_cleanup_all(struct hash_backet *backet, void *zvrf)
 	zvni_del(zvni);
 }
 
+/* cleanup L3VNI */
+static void zl3vni_cleanup_all(struct hash_backet *backet,
+			       void *args)
+{
+	zebra_l3vni_t *zl3vni = NULL;
+
+	zl3vni = (zebra_l3vni_t *)backet->data;
+	if (!zl3vni)
+		return;
+
+	zebra_vxlan_process_l3vni_oper_down(zl3vni);
+}
+
 static int is_host_present_in_host_list(struct list *list,
 					struct prefix *host)
 {
@@ -3588,7 +3601,7 @@ static int zl3vni_send_del_to_client(zebra_l3vni_t *zl3vni)
 static void zebra_vxlan_process_l3vni_oper_up(zebra_l3vni_t *zl3vni)
 {
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("L3-VNI %u is UP - send add to BGP and update all neigh enries",
+		zlog_debug("L3-VNI %u is UP - send add to BGP",
 			   zl3vni->vni);
 
 	/* send l3vni add to BGP */
@@ -3598,7 +3611,7 @@ static void zebra_vxlan_process_l3vni_oper_up(zebra_l3vni_t *zl3vni)
 static void zebra_vxlan_process_l3vni_oper_down(zebra_l3vni_t *zl3vni)
 {
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("L3-VNI %u is Down - send del to BGP and update all neigh enries",
+		zlog_debug("L3-VNI %u is Down - Send del to BGP",
 			   zl3vni->vni);
 
 	/* send l3-vni del to BGP*/
@@ -6499,8 +6512,9 @@ stream_failure:
 int zebra_vxlan_advertise_all_vni(struct zserv *client,
 				  u_short length, struct zebra_vrf *zvrf)
 {
-	struct stream *s;
-	int advertise;
+	struct stream *s = NULL;
+	int advertise = 0;
+	struct zebra_ns *zns = NULL;
 
 	if (zvrf_id(zvrf) != VRF_DEFAULT) {
 		zlog_err("EVPN VNI Adv for non-default VRF %u",
@@ -6538,6 +6552,13 @@ int zebra_vxlan_advertise_all_vni(struct zserv *client,
 		 * kernel and free entries.
 		 */
 		hash_iterate(zvrf->vni_table, zvni_cleanup_all, zvrf);
+
+		/* cleanup all l3vnis */
+		zns = zebra_ns_lookup(NS_DEFAULT);
+		if (!zns)
+			return -1;
+
+		hash_iterate(zns->l3vni_table, zl3vni_cleanup_all, NULL);
 	}
 
 stream_failure:
