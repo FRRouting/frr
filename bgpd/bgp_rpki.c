@@ -224,7 +224,7 @@ static void print_record(const struct pfx_record *record, void *data)
 	struct rpki_for_each_record_arg *arg = data;
 	struct vty *vty = arg->vty;
 
-	arg->prefix_amount++;
+	(*arg->prefix_amount)++;
 
 	lrtr_ip_addr_to_str(&record->prefix, ip, sizeof(ip));
 	vty_out(vty, "%-40s   %3u - %3u   %10u\n", ip, record->min_len,
@@ -915,7 +915,7 @@ DEFUN (show_rpki_prefix_table,
        "show rpki prefix-table",
        SHOW_STR
        RPKI_OUTPUT_STRING
-       "Show validated prefixes which were received from RPKI Cache")
+       "Show validated prefixes which were received from RPKI Cache\n")
 {
 	struct listnode *cache_node;
 	struct cache *cache;
@@ -939,7 +939,7 @@ DEFUN (show_rpki_cache_server,
        "show rpki cache-server",
        SHOW_STR
        RPKI_OUTPUT_STRING
-       "SHOW configured cache server")
+       "SHOW configured cache server\n")
 {
 	struct listnode *cache_node;
 	struct cache *cache;
@@ -959,7 +959,7 @@ DEFUN (show_rpki_cache_connection,
        "show rpki cache-connection",
        SHOW_STR
        RPKI_OUTPUT_STRING
-       "Show to which RPKI Cache Servers we have a connection")
+       "Show to which RPKI Cache Servers we have a connection\n")
 {
 	if (is_synchronized()) {
 		struct listnode *cache_node;
@@ -1019,7 +1019,7 @@ DEFUN (show_rpki_cache_connection,
 DEFUN_NOSH (rpki_exit,
 	    rpki_exit_cmd,
 	    "exit",
-	    "Exit rpki configuration and restart rpki session")
+	    "Exit rpki configuration and restart rpki session\n")
 {
 	int ret = reset(false);
 
@@ -1030,7 +1030,7 @@ DEFUN_NOSH (rpki_exit,
 DEFUN_NOSH (rpki_quit,
 	    rpki_quit_cmd,
 	    "quit",
-	    "Exit rpki configuration mode")
+	    "Exit rpki configuration mode\n")
 {
 	return rpki_exit(self, vty, argc, argv);
 }
@@ -1038,7 +1038,7 @@ DEFUN_NOSH (rpki_quit,
 DEFUN_NOSH (rpki_end,
 	    rpki_end_cmd,
 	    "end",
-	    "End rpki configuration, restart rpki session and change to enable mode.")
+	    "End rpki configuration, restart rpki session and change to enable mode.\n")
 {
 	int ret = reset(false);
 
@@ -1060,7 +1060,7 @@ DEFUN (debug_rpki,
        debug_rpki_cmd,
        "debug rpki",
        DEBUG_STR
-       "Enable debugging for rpki")
+       "Enable debugging for rpki\n")
 {
 	rpki_debug = 1;
 	return CMD_SUCCESS;
@@ -1071,7 +1071,7 @@ DEFUN (no_debug_rpki,
        "no debug rpki",
        NO_STR
        DEBUG_STR
-       "Disable debugging for rpki")
+       "Disable debugging for rpki\n")
 {
 	rpki_debug = 0;
 	return CMD_SUCCESS;
