@@ -83,6 +83,10 @@ void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf)
 {
 }
 
+void zebra_vxlan_print_evpn(struct vty *vty, u_char uj)
+{
+}
+
 void zebra_vxlan_print_rmacs_l3vni(struct vty*, vni_t, u_char)
 {
 }
@@ -100,10 +104,6 @@ void zebra_vxlan_print_nh_all_l3vni(struct vty*, u_char)
 }
 
 void zebra_vxlan_print_l3vni(struct vty *vty, vni_t vni)
-{
-}
-
-void zebra_vxlan_print_l3vnis(struct vty *vty)
 {
 }
 

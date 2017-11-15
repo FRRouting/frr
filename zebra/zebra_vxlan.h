@@ -31,6 +31,7 @@
 #include "vlan.h"
 #include "vxlan.h"
 
+#include "lib/json.h"
 #include "zebra/zebra_vrf.h"
 
 /* Is EVPN enabled? */
@@ -55,6 +56,7 @@ extern ifindex_t get_l3vni_svi_ifindex(vrf_id_t vrf_id);
 extern int zebra_vxlan_vrf_delete(struct zebra_vrf *zvrf);
 extern void zebra_vxlan_print_specific_nh_l3vni(struct vty *vty, vni_t l3vni,
 						struct ipaddr *ip, u_char uj);
+extern void zebra_vxlan_print_evpn(struct vty *vty, u_char uj);
 extern void zebra_vxlan_print_specific_rmac_l3vni(struct vty *vty, vni_t l3vni,
 						  struct ethaddr *rmac,
 						  u_char use_json);
@@ -99,9 +101,8 @@ extern void zebra_vxlan_print_nh_l3vni(struct vty *vty, vni_t vni, u_char
 extern void zebra_vxlan_print_nh_all_l3vni(struct vty *vty, u_char use_json);
 extern void zebra_vxlan_print_l3vni(struct vty *vty, vni_t vni,
 				    u_char use_json);
-extern void zebra_vxlan_print_l3vnis(struct vty *vty,
-				     u_char use_json);
-
+extern void zebra_vxlan_print_vrf_vni(struct vty *vty, struct zebra_vrf *zvrf,
+				      json_object *json_vrfs);
 extern int zebra_vxlan_add_del_gw_macip(struct interface *ifp, struct prefix *p,
 					int add);
 extern int zebra_vxlan_svi_up(struct interface *ifp, struct interface *link_if);

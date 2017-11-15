@@ -46,7 +46,6 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_memory.h"
 #include "zebra/zebra_l2.h"
-#include "lib/json.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, HOST_PREFIX, "host prefix");
 DEFINE_MTYPE_STATIC(ZEBRA, ZVNI, "VNI hash");
@@ -451,7 +450,8 @@ static void zl3vni_print_nh(zebra_neigh_t *n,
 			ipaddr2str(&n->ip, buf2, sizeof(buf2)));
 		vty_out(vty, "  RMAC: %s\n",
 		       prefix_mac2str(&n->emac, buf1, sizeof(buf1)));
-		vty_out(vty, "  Host-List:\n");
+		vty_out(vty, "  Refcount: %d\n", listcount(n->host_list));
+		vty_out(vty, "  Prefixes:\n");
 		for (ALL_LIST_ELEMENTS_RO(n->host_list, node, p))
 			vty_out(vty, "    %s\n",
 				prefix2str(p, buf2, sizeof(buf2)));
@@ -460,15 +460,16 @@ static void zl3vni_print_nh(zebra_neigh_t *n,
 		json_object_string_add(json, "ip",
 				       ipaddr2str(&(n->ip), buf2,
 						  sizeof(buf2)));
-		json_object_string_add(json, "rmac",
+		json_object_string_add(json, "routerMac",
 				       prefix_mac2str(&n->emac, buf2,
 						      sizeof(buf2)));
+		json_object_int_add(json, "refCount", listcount(n->host_list));
 		for (ALL_LIST_ELEMENTS_RO(n->host_list, node, p))
 			json_object_array_add(json_hosts,
 					      json_object_new_string(
 							prefix2str(p, buf2,
 								sizeof(buf2))));
-		json_object_object_add(json, "hosts", json_hosts);
+		json_object_object_add(json, "prefixList", json_hosts);
 	}
 }
 
@@ -488,24 +489,27 @@ static void zl3vni_print_rmac(zebra_mac_t *zrmac,
 			prefix_mac2str(&zrmac->macaddr, buf1, sizeof(buf1)));
 		vty_out(vty, " Remote VTEP: %s\n",
 			inet_ntoa(zrmac->fwd_info.r_vtep_ip));
-		vty_out(vty, "  Host-List:\n");
+		vty_out(vty, " Refcount: %d\n", listcount(zrmac->host_list));
+		vty_out(vty, "  Prefixes:\n");
 		for (ALL_LIST_ELEMENTS_RO(zrmac->host_list, node, p))
 			vty_out(vty, "    %s\n",
 				prefix2str(p, buf2, sizeof(buf2)));
 	} else {
 		json_hosts = json_object_new_array();
-		json_object_string_add(json, "Rmac",
+		json_object_string_add(json, "routerMac",
 				       prefix_mac2str(&zrmac->macaddr,
 						      buf1,
 						      sizeof(buf1)));
-		json_object_string_add(json, "vtep-ip",
+		json_object_string_add(json, "vtepIp",
 				       inet_ntoa(zrmac->fwd_info.r_vtep_ip));
+		json_object_int_add(json, "refCount",
+				    listcount(zrmac->host_list));
 		for (ALL_LIST_ELEMENTS_RO(zrmac->host_list, node, p))
 			json_object_array_add(json_hosts,
 					      json_object_new_string(
 							prefix2str(p, buf2,
 								sizeof(buf2))));
-		json_object_object_add(json, "hosts", json_hosts);
+		json_object_object_add(json, "prefixList", json_hosts);
 	}
 }
 
@@ -754,17 +758,15 @@ static void zl3vni_print_nh_hash(struct hash_backet *backet,
 		return;
 
 	if (!json_vni) {
-		vty_out(vty, "%-15s %-17s %6d\n",
+		vty_out(vty, "%-15s %-17s\n",
 			ipaddr2str(&(n->ip), buf2, sizeof(buf2)),
-			prefix_mac2str(&n->emac, buf1, sizeof(buf1)),
-			listcount(n->host_list));
+			prefix_mac2str(&n->emac, buf1, sizeof(buf1)));
 	} else {
-		json_object_string_add(json_nh, "nexthop-ip",
+		json_object_string_add(json_nh, "nexthopIp",
 				       ipaddr2str(&n->ip, buf2, sizeof(buf2)));
-		json_object_string_add(json_nh, "rmac",
+		json_object_string_add(json_nh, "routerMac",
 				       prefix_mac2str(&n->emac, buf1,
 						      sizeof(buf1)));
-		json_object_int_add(json_nh, "refCnt", listcount(n->host_list));
 		json_object_object_add(json_vni,
 				       ipaddr2str(&(n->ip), buf2, sizeof(buf2)),
 				       json_nh);
@@ -804,10 +806,9 @@ static void zl3vni_print_nh_hash_all_vni(struct hash_backet *backet,
 	if (json == NULL) {
 		vty_out(vty, "\nVNI %u #Next-Hops %u\n\n",
 			zl3vni->vni, num_nh);
-		vty_out(vty, "%-15s %-17s %6s\n", "IP",
-			"RMAC", "Refcnt");
+		vty_out(vty, "%-15s %-17s\n", "IP", "RMAC");
 	} else
-		json_object_int_add(json_vni, "numNh", num_nh);
+		json_object_int_add(json_vni, "numNextHops", num_nh);
 
 	memset(&wctx, 0, sizeof(struct nh_walk_ctx));
 	wctx.vty = vty;
@@ -848,10 +849,9 @@ static void zl3vni_print_rmac_hash_all_vni(struct hash_backet *backet,
 	}
 
 	if (json == NULL) {
-		vty_out(vty, "\nVNI %u #MACs %u\n\n",
+		vty_out(vty, "\nVNI %u #RMACs %u\n\n",
 			zl3vni->vni, num_rmacs);
-		vty_out(vty, "%-17s %-21s %-6s\n", "MAC",
-			"Remote VTEP", "Refcnt");
+		vty_out(vty, "%-17s %-21s\n", "RMAC", "Remote VTEP");
 	} else
 		json_object_int_add(json_vni, "numRmacs", num_rmacs);
 
@@ -887,18 +887,15 @@ static void zl3vni_print_rmac_hash(struct hash_backet *backet,
 		return;
 
 	if (!json) {
-		vty_out(vty, "%-17s %-21s %-6d\n",
+		vty_out(vty, "%-17s %-21s\n",
 			prefix_mac2str(&zrmac->macaddr, buf, sizeof(buf)),
-					inet_ntoa(zrmac->fwd_info.r_vtep_ip),
-					listcount(zrmac->host_list));
+					inet_ntoa(zrmac->fwd_info.r_vtep_ip));
 	} else {
-		json_object_string_add(json_rmac, "rmac",
+		json_object_string_add(json_rmac, "routerMac",
 				       prefix_mac2str(&zrmac->macaddr, buf,
 						      sizeof(buf)));
-		json_object_string_add(json_rmac, "vtep-ip",
+		json_object_string_add(json_rmac, "vtepIp",
 				       inet_ntoa(zrmac->fwd_info.r_vtep_ip));
-		json_object_int_add(json_rmac, "refcnt",
-				    listcount(zrmac->host_list));
 		json_object_object_add(json,
 				       prefix_mac2str(&zrmac->macaddr, buf,
 						      sizeof(buf)),
@@ -921,7 +918,10 @@ static void zl3vni_print(zebra_l3vni_t *zl3vni, void **ctx)
 
 	if (!json) {
 		vty_out(vty, "VNI: %u\n", zl3vni->vni);
-		vty_out(vty, "  Local Vtep Ip: %s",
+		vty_out(vty, "  Type: %s\n", "L3");
+		vty_out(vty, "  Tenant VRF: %s\n",
+			zl3vni_vrf_name(zl3vni));
+		vty_out(vty, "  Local Vtep Ip: %s\n",
 			inet_ntoa(zl3vni->local_vtep_ip));
 		vty_out(vty, "  Vxlan-Intf: %s\n",
 			zl3vni_vxlan_if_name(zl3vni));
@@ -929,35 +929,34 @@ static void zl3vni_print(zebra_l3vni_t *zl3vni, void **ctx)
 			zl3vni_svi_if_name(zl3vni));
 		vty_out(vty, "  State: %s\n",
 			zl3vni_state2str(zl3vni));
-		vty_out(vty, "  Vrf: %s\n",
-			zl3vni_vrf_name(zl3vni));
-		vty_out(vty, "  Rmac: %s\n",
+		vty_out(vty, "  Router MAC: %s\n",
 			zl3vni_rmac2str(zl3vni, buf, sizeof(buf)));
-		vty_out(vty, "  L2-VNIs: ");
+		vty_out(vty, "  L2 VNIs: ");
 		for (ALL_LIST_ELEMENTS(zl3vni->l2vnis, node, nnode, zvni))
 			vty_out(vty, "%u ", zvni->vni);
 		vty_out(vty, "\n");
 	} else {
 		json_vni_list = json_object_new_array();
 		json_object_int_add(json, "vni", zl3vni->vni);
-		json_object_string_add(json, "local-vtep-ip",
+		json_object_string_add(json, "type", "L3");
+		json_object_string_add(json, "localVtepIp",
 				       inet_ntoa(zl3vni->local_vtep_ip));
-		json_object_string_add(json, "vxlan-intf",
+		json_object_string_add(json, "vxlanIntf",
 				       zl3vni_vxlan_if_name(zl3vni));
-		json_object_string_add(json, "svi-if",
+		json_object_string_add(json, "sviIntf",
 				       zl3vni_svi_if_name(zl3vni));
 		json_object_string_add(json, "state",
 				       zl3vni_state2str(zl3vni));
 		json_object_string_add(json, "vrf",
 				       zl3vni_vrf_name(zl3vni));
-		json_object_string_add(json, "rmac",
+		json_object_string_add(json, "routerMac",
 				       zl3vni_rmac2str(zl3vni, buf,
 						       sizeof(buf)));
 		for (ALL_LIST_ELEMENTS(zl3vni->l2vnis, node, nnode, zvni)) {
 			json_object_array_add(json_vni_list,
 					      json_object_new_int(zvni->vni));
 		}
-		json_object_object_add(json, "l2-vnis", json_vni_list);
+		json_object_object_add(json, "l2Vnis", json_vni_list);
 	}
 }
 
@@ -979,9 +978,11 @@ static void zvni_print(zebra_vni_t *zvni, void **ctxt)
 
 	if (json == NULL) {
 		vty_out(vty, "VNI: %u\n", zvni->vni);
-		vty_out(vty, " VRF: %s\n", vrf_id_to_name(zvni->vrf_id));
+		vty_out(vty, " Type: %s\n", "L2");
+		vty_out(vty, " Tenant VRF: %s\n", vrf_id_to_name(zvni->vrf_id));
 	} else {
 		json_object_int_add(json, "vni", zvni->vni);
+		json_object_string_add(json, "type", "L2");
 		json_object_string_add(json, "vrf",
 				       vrf_id_to_name(zvni->vrf_id));
 	}
@@ -993,11 +994,13 @@ static void zvni_print(zebra_vni_t *zvni, void **ctxt)
 	}
 	num_macs = num_valid_macs(zvni);
 	num_neigh = hashcount(zvni->neigh_table);
-	if (json == NULL)
-		vty_out(vty, " VxLAN interface: %s ifIndex: %u VTEP IP: %s\n",
-			zvni->vxlan_if->name, zvni->vxlan_if->ifindex,
+	if (json == NULL) {
+		vty_out(vty, " VxLAN interface: %s\n",
+			zvni->vxlan_if->name);
+		vty_out(vty, " VxLAN ifIndex: %u\n", zvni->vxlan_if->ifindex);
+		vty_out(vty," Local VTEP IP: %s\n",
 			inet_ntoa(zvni->local_vtep_ip));
-	else {
+	} else {
 		json_object_string_add(json, "vxlanInterface",
 				       zvni->vxlan_if->name);
 		json_object_int_add(json, "ifindex", zvni->vxlan_if->ifindex);
@@ -1048,7 +1051,6 @@ static void zvni_print(zebra_vni_t *zvni, void **ctxt)
 static void zl3vni_print_hash(struct hash_backet *backet,
 			      void *ctx[])
 {
-	char buf[ETHER_ADDR_STRLEN];
 	struct vty *vty = NULL;
 	json_object *json = NULL;
 	json_object *json_vni = NULL;
@@ -1062,33 +1064,30 @@ static void zl3vni_print_hash(struct hash_backet *backet,
 		return;
 
 	if (!json) {
-		vty_out(vty, "%-10u %-15s %-20s %-20s %-5s %-37s %-18s\n",
-			zl3vni->vni,
-			inet_ntoa(zl3vni->local_vtep_ip),
+		vty_out(vty,
+			"%-10u %-4s %-21s %-8lu %-8lu %-15s %-37s\n",
+			zl3vni->vni, "L3",
 			zl3vni_vxlan_if_name(zl3vni),
-			zl3vni_svi_if_name(zl3vni),
-			zl3vni_state2str(zl3vni),
-			zl3vni_vrf_name(zl3vni),
-			zl3vni_rmac2str(zl3vni, buf, sizeof(buf)));
+			hashcount(zl3vni->rmac_table),
+			hashcount(zl3vni->nh_table),
+			"n/a",
+			zl3vni_vrf_name(zl3vni));
 	} else {
 		char vni_str[VNI_STR_LEN];
 
 		snprintf(vni_str, VNI_STR_LEN, "%u", zl3vni->vni);
 		json_vni = json_object_new_object();
 		json_object_int_add(json_vni, "vni", zl3vni->vni);
-		json_object_string_add(json_vni, "local-ip",
-				       inet_ntoa(zl3vni->local_vtep_ip));
-		json_object_string_add(json_vni, "vxlan-if",
+		json_object_string_add(json_vni, "vxlanIf",
 				       zl3vni_vxlan_if_name(zl3vni));
-		json_object_string_add(json_vni, "svi-if",
-				       zl3vni_svi_if_name(zl3vni));
-		json_object_string_add(json_vni, "state",
-				       zl3vni_state2str(zl3vni));
-		json_object_string_add(json_vni, "vrf",
+		json_object_int_add(json_vni, "numMacs",
+				    hashcount(zl3vni->rmac_table));
+		json_object_int_add(json_vni, "numArpNd",
+				    hashcount(zl3vni->nh_table));
+		json_object_string_add(json_vni, "numRemoteVteps", "n/a");
+		json_object_string_add(json_vni, "type", "L3");
+		json_object_string_add(json_vni, "tenantVrf",
 				       zl3vni_vrf_name(zl3vni));
-		json_object_string_add(json_vni, "rmac",
-				       zl3vni_rmac2str(zl3vni, buf,
-						       sizeof(buf)));
 		json_object_object_add(json, vni_str, json_vni);
 	}
 
@@ -1126,24 +1125,26 @@ static void zvni_print_hash(struct hash_backet *backet, void *ctxt[])
 	num_macs = num_valid_macs(zvni);
 	num_neigh = hashcount(zvni->neigh_table);
 	if (json == NULL)
-		vty_out(vty, "%-10u %-21s %-15s %-8u %-8u %-15u %-37s\n",
-			zvni->vni,
+		vty_out(vty,
+			"%-10u %-4s %-21s %-8u %-8u %-15u %-37s\n",
+			zvni->vni, "L2",
 			zvni->vxlan_if ? zvni->vxlan_if->name : "unknown",
-			inet_ntoa(zvni->local_vtep_ip), num_macs, num_neigh,
-			num_vteps,
+			num_macs, num_neigh, num_vteps,
 			vrf_id_to_name(zvni->vrf_id));
 	else {
 		char vni_str[VNI_STR_LEN];
 		snprintf(vni_str, VNI_STR_LEN, "%u", zvni->vni);
 		json_vni = json_object_new_object();
+		json_object_int_add(json_vni, "vni", zvni->vni);
+		json_object_string_add(json_vni, "type", "L2");
 		json_object_string_add(json_vni, "vxlanIf",
 				       zvni->vxlan_if ? zvni->vxlan_if->name
 						      : "unknown");
-		json_object_string_add(json_vni, "vtepIp",
-				       inet_ntoa(zvni->local_vtep_ip));
 		json_object_int_add(json_vni, "numMacs", num_macs);
 		json_object_int_add(json_vni, "numArpNd", num_neigh);
 		json_object_int_add(json_vni, "numRemoteVteps", num_vteps);
+		json_object_string_add(json_vni, "tenantVrf",
+				       vrf_id_to_name(zvni->vrf_id));
 		if (num_vteps) {
 			json_vtep_list = json_object_new_array();
 			for (zvtep = zvni->vteps; zvtep; zvtep = zvtep->next) {
@@ -3941,8 +3942,7 @@ void zebra_vxlan_print_rmacs_l3vni(struct vty *vty,
 		vty_out(vty,
 			"Number of Remote RMACs known for this VNI: %u\n",
 			num_rmacs);
-		vty_out(vty, "%-17s %-21s %-6s\n", "MAC",
-			"Remote VTEP", "Refcnt");
+		vty_out(vty, "%-17s %-21s\n", "MAC", "Remote VTEP");
 	} else
 		json_object_int_add(json, "numRmacs", num_rmacs);
 
@@ -4073,10 +4073,9 @@ void zebra_vxlan_print_nh_l3vni(struct vty *vty,
 		vty_out(vty,
 			"Number of NH Neighbors known for this VNI: %u\n",
 			num_nh);
-		vty_out(vty, "%-15s %-17s %6s\n", "IP",
-			"RMAC", "Refcnt");
+		vty_out(vty, "%-15s %-17s\n", "IP", "RMAC");
 	} else
-		json_object_int_add(json, "numNh", num_nh);
+		json_object_int_add(json, "numNextHops", num_nh);
 
 	hash_iterate(zl3vni->nh_table, zl3vni_print_nh_hash, &wctx);
 
@@ -4160,52 +4159,40 @@ void zebra_vxlan_print_l3vni(struct vty *vty, vni_t vni, u_char use_json)
 	}
 }
 
-/*
- * Display L3 VNI hash table (VTY command handler).
- */
-void zebra_vxlan_print_l3vnis(struct vty *vty, u_char use_json)
+void zebra_vxlan_print_vrf_vni(struct vty *vty, struct zebra_vrf *zvrf,
+			       json_object *json_vrfs)
 {
-	u_int32_t num_vnis;
-	void *args[2];
-	json_object *json = NULL;
-	struct zebra_ns *zns = NULL;
+	char buf[ETHER_ADDR_STRLEN];
+	zebra_l3vni_t *zl3vni = NULL;
 
-	if (!is_evpn_enabled()) {
-		if (use_json)
-			vty_out(vty, "{}\n");
+	zl3vni = zl3vni_lookup(zvrf->l3vni);
+	if (!zl3vni)
 		return;
-	}
 
-	zns = zebra_ns_lookup(NS_DEFAULT);
-	assert(zns);
-
-	num_vnis = hashcount(zns->l3vni_table);
-	if (!num_vnis) {
-		if (use_json)
-			vty_out(vty, "{}\n");
-		return;
-	}
-
-	if (use_json) {
-		json = json_object_new_object();
-		json_object_int_add(json, "numVnis", num_vnis);
+	if (!json_vrfs) {
+		vty_out(vty, "%-37s %-10u %-20s %-20s %-5s %-18s\n",
+			zvrf_name(zvrf),
+			zl3vni->vni,
+			zl3vni_vxlan_if_name(zl3vni),
+			zl3vni_svi_if_name(zl3vni),
+			zl3vni_state2str(zl3vni),
+			zl3vni_rmac2str(zl3vni, buf, sizeof(buf)));
 	} else {
-		vty_out(vty, "Number of L3 VNIs: %u\n", num_vnis);
-		vty_out(vty, "%-10s %-15s %-20s %-20s %-5s %-37s %-18s\n",
-			"VNI", "Local-ip", "Vx-intf", "L3-SVI", "State",
-			"VRF", "Rmac");
-	}
-
-	args[0] = vty;
-	args[1] = json;
-	hash_iterate(zns->l3vni_table,
-		     (void (*)(struct hash_backet *, void *))zl3vni_print_hash,
-		     args);
-
-	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		json_object *json_vrf = NULL;
+		json_vrf = json_object_new_object();
+		json_object_string_add(json_vrf, "vrf",
+				       zvrf_name(zvrf));
+		json_object_int_add(json_vrf, "vni", zl3vni->vni);
+		json_object_string_add(json_vrf, "vxlanIntf",
+				       zl3vni_vxlan_if_name(zl3vni));
+		json_object_string_add(json_vrf, "sviIntf",
+				       zl3vni_svi_if_name(zl3vni));
+		json_object_string_add(json_vrf, "state",
+				       zl3vni_state2str(zl3vni));
+		json_object_string_add(json_vrf, "routerMac",
+				       zl3vni_rmac2str(zl3vni, buf,
+						       sizeof(buf)));
+		json_object_array_add(json_vrfs, json_vrf);
 	}
 }
 
@@ -4574,26 +4561,89 @@ void zebra_vxlan_print_macs_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf,
 void zebra_vxlan_print_vni(struct vty *vty, struct zebra_vrf *zvrf, vni_t vni,
 			   u_char use_json)
 {
-	zebra_vni_t *zvni;
 	json_object *json = NULL;
 	void *args[2];
 
 	if (!is_evpn_enabled())
 		return;
-	zvni = zvni_lookup(vni);
-	if (!zvni) {
-		if (use_json)
-			vty_out(vty, "{}\n");
-		else
-			vty_out(vty, "%% VNI %u does not exist\n", vni);
-		return;
-	}
+
 	if (use_json)
 		json = json_object_new_object();
 	args[0] = vty;
 	args[1] = json;
-	zvni_print(zvni, (void *)args);
+
+	if (is_vni_l3(vni)) {
+		zebra_l3vni_t *zl3vni = NULL;
+
+		zl3vni = zl3vni_lookup(vni);
+		if (!zl3vni) {
+			if (use_json)
+				vty_out(vty, "{}\n");
+			else
+				vty_out(vty, "%% VNI %u does not exist\n", vni);
+			return;
+		}
+
+		zl3vni_print(zl3vni, (void *)args);
+	} else {
+		zebra_vni_t *zvni;
+
+		zvni = zvni_lookup(vni);
+		if (!zvni) {
+			if (use_json)
+				vty_out(vty, "{}\n");
+			else
+				vty_out(vty, "%% VNI %u does not exist\n", vni);
+			return;
+		}
+
+		zvni_print(zvni, (void *)args);
+	}
+
 	if (use_json) {
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+}
+
+/* Display all global details for EVPN */
+void zebra_vxlan_print_evpn(struct vty *vty, u_char uj)
+{
+	int num_l2vnis = 0;
+	int num_l3vnis = 0;
+	json_object *json = NULL;
+	struct zebra_ns *zns = NULL;
+	struct zebra_vrf *zvrf = NULL;
+
+	if (!is_evpn_enabled())
+		return;
+
+	zns = zebra_ns_lookup(NS_DEFAULT);
+	if (!zns)
+		return;
+
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	if (!zvrf)
+		return;
+
+	num_l3vnis = hashcount(zns->l3vni_table);
+	num_l2vnis = hashcount(zvrf->vni_table);
+
+	if (uj) {
+		json = json_object_new_object();
+		json_object_string_add(json, "advertiseGatewayMacip",
+				       zvrf->advertise_gw_macip ? "Yes" : "No");
+		json_object_int_add(json, "numL2Vnis", num_l2vnis);
+		json_object_int_add(json, "numL3Vnis", num_l3vnis);
+	} else {
+		vty_out(vty, "L2 VNIs: %u\n", num_l2vnis);
+		vty_out(vty, "L3 VNIs: %u\n", num_l3vnis);
+		vty_out(vty, "Advertise gateway mac-ip: %s\n",
+			zvrf->advertise_gw_macip ? "Yes" : "No");
+	}
+
+	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
 					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
@@ -4606,36 +4656,37 @@ void zebra_vxlan_print_vni(struct vty *vty, struct zebra_vrf *zvrf, vni_t vni,
 void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf,
 			    u_char use_json)
 {
-	u_int32_t num_vnis;
 	json_object *json = NULL;
+	struct zebra_ns *zns = NULL;
 	void *args[2];
 
 	if (!is_evpn_enabled())
 		return;
-	num_vnis = hashcount(zvrf->vni_table);
-	if (!num_vnis) {
-		if (use_json)
-			vty_out(vty, "{}\n");
+
+	zns = zebra_ns_lookup(NS_DEFAULT);
+	if (!zns)
 		return;
-	}
-	if (use_json) {
+
+
+	if (use_json)
 		json = json_object_new_object();
-		json_object_string_add(json, "advertiseGatewayMacip",
-				       zvrf->advertise_gw_macip ? "Yes" : "No");
-		json_object_int_add(json, "numVnis", num_vnis);
-	} else {
-		vty_out(vty, "Advertise gateway mac-ip: %s\n",
-			zvrf->advertise_gw_macip ? "Yes" : "No");
-		vty_out(vty, "Number of VNIs: %u\n", num_vnis);
-		vty_out(vty, "%-10s %-21s %-15s %-8s %-8s %-15s %-37s\n", "VNI",
-			"VxLAN IF", "VTEP IP", "# MACs", "# ARPs",
-			"# Remote VTEPs", "VRF");
-	}
+	else
+		vty_out(vty,
+			"%-10s %-4s %-21s %-8s %-8s %-15s %-37s\n",
+			"VNI", "Type", "VxLAN IF", "# MACs",
+			"# ARPs", "# Remote VTEPs", "Tenant VRF");
+
 	args[0] = vty;
 	args[1] = json;
 
+	/* Display all L2-VNIs */
 	hash_iterate(zvrf->vni_table,
 		     (void (*)(struct hash_backet *, void *))zvni_print_hash,
+		     args);
+
+	/* Display all L3-VNIs */
+	hash_iterate(zns->l3vni_table,
+		     (void (*)(struct hash_backet *, void *))zl3vni_print_hash,
 		     args);
 
 	if (use_json) {
