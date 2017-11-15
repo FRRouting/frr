@@ -559,7 +559,7 @@ int rip_if_down(struct interface *ifp)
 			if ((list = rp->info) != NULL)
 				for (ALL_LIST_ELEMENTS(list, listnode, nextnode,
 						       rinfo))
-					if (rinfo->ifindex == ifp->ifindex)
+					if (rinfo->nh.ifindex == ifp->ifindex)
 						rip_ecmp_delete(rinfo);
 
 		ri = ifp->info;

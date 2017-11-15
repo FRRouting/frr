@@ -56,7 +56,7 @@ static void rip_zebra_ipv4_send(struct route_node *rp, u_char cmd)
 		if (count >= MULTIPATH_NUM)
 			break;
 		api_nh = &api.nexthops[count];
-		api_nh->gate.ipv4 = rinfo->nexthop;
+		api_nh->gate = rinfo->nh.gate;
 		api_nh->type = NEXTHOP_TYPE_IPV4;
 		if (cmd == ZEBRA_ROUTE_ADD)
 			SET_FLAG(rinfo->flags, RIP_RTF_FIB);

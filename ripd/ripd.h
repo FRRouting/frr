@@ -23,6 +23,7 @@
 
 #include "qobj.h"
 #include "hook.h"
+#include "nexthop.h"
 #include "rip_memory.h"
 
 /* RIP version number. */
@@ -194,11 +195,8 @@ struct rip_info {
 	int sub_type;
 
 	/* RIP nexthop. */
-	struct in_addr nexthop;
+	struct nexthop nh;
 	struct in_addr from;
-
-	/* Which interface does this route come from. */
-	ifindex_t ifindex;
 
 	/* Metric of this route. */
 	u_int32_t metric;

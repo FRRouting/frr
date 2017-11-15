@@ -424,9 +424,10 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 	memset(&newinfo, 0, sizeof(newinfo));
 	newinfo.type = ZEBRA_ROUTE_RIP;
 	newinfo.sub_type = RIP_ROUTE_RTE;
-	newinfo.nexthop = rte->nexthop;
+	newinfo.nh.gate.ipv4 = rte->nexthop;
 	newinfo.from = from->sin_addr;
-	newinfo.ifindex = ifp->ifindex;
+	newinfo.nh.ifindex = ifp->ifindex;
+	newinfo.nh.type = NEXTHOP_TYPE_IPV4_IFINDEX;
 	newinfo.metric = rte->metric;
 	newinfo.metric_out = rte->metric; /* XXX */
 	newinfo.tag = ntohs(rte->tag);    /* XXX */
@@ -488,7 +489,8 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 	rp = route_node_get(rip->table, (struct prefix *)&p);
 
 	newinfo.rp = rp;
-	newinfo.nexthop = *nexthop;
+	newinfo.nh.gate.ipv4 = *nexthop;
+	newinfo.nh.type = NEXTHOP_TYPE_IPV4;
 	newinfo.metric = rte->metric;
 	newinfo.tag = ntohs(rte->tag);
 	newinfo.distance = rip_distance_apply(&newinfo);
@@ -505,7 +507,7 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 				break;
 
 			if (IPV4_ADDR_SAME(&rinfo->from, &from->sin_addr)
-			    && IPV4_ADDR_SAME(&rinfo->nexthop, nexthop))
+			    && IPV4_ADDR_SAME(&rinfo->nh.gate.ipv4, nexthop))
 				break;
 
 			if (!listnextnode(node)) {
@@ -567,7 +569,7 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 			/* Only routes directly connected to an interface
 			 * (nexthop == 0)
 			 * may have a valid NULL distance */
-			if (rinfo->nexthop.s_addr != 0)
+			if (rinfo->nh.gate.ipv4.s_addr != 0)
 				old_dist = old_dist
 						   ? old_dist
 						   : ZEBRA_RIP_DISTANCE_DEFAULT;
@@ -602,7 +604,7 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 		   If this datagram is from the same router as the existing
 		   route, reinitialize the timeout.  */
 		same = (IPV4_ADDR_SAME(&rinfo->from, &from->sin_addr)
-			&& (rinfo->ifindex == ifp->ifindex));
+			&& (rinfo->nh.ifindex == ifp->ifindex));
 
 		old_dist = rinfo->distance ? rinfo->distance
 					   : ZEBRA_RIP_DISTANCE_DEFAULT;
@@ -1480,7 +1482,7 @@ void rip_redistribute_add(int type, int sub_type, struct prefix_ipv4 *p,
 	memset(&newinfo, 0, sizeof(struct rip_info));
 	newinfo.type = type;
 	newinfo.sub_type = sub_type;
-	newinfo.ifindex = ifindex;
+	newinfo.nh.ifindex = ifindex;
 	newinfo.metric = 1;
 	newinfo.external_metric = metric;
 	newinfo.distance = distance;
@@ -1488,7 +1490,7 @@ void rip_redistribute_add(int type, int sub_type, struct prefix_ipv4 *p,
 		newinfo.tag = tag;
 	newinfo.rp = rp;
 	if (nexthop)
-		newinfo.nexthop = *nexthop;
+		newinfo.nh.gate.ipv4 = *nexthop;
 
 	if ((list = rp->info) != NULL && listcount(list) != 0) {
 		rinfo = listgetdata(listhead(list));
@@ -1527,7 +1529,7 @@ void rip_redistribute_add(int type, int sub_type, struct prefix_ipv4 *p,
 			zlog_debug(
 				"Redistribute new prefix %s/%d with nexthop %s on the interface %s",
 				inet_ntoa(p->prefix), p->prefixlen,
-				inet_ntoa(rinfo->nexthop),
+				inet_ntoa(rinfo->nh.gate.ipv4),
 				ifindex2ifname(ifindex, VRF_DEFAULT));
 	}
 
@@ -1554,7 +1556,7 @@ void rip_redistribute_delete(int type, int sub_type, struct prefix_ipv4 *p,
 			rinfo = listgetdata(listhead(list));
 			if (rinfo != NULL && rinfo->type == type
 			    && rinfo->sub_type == sub_type
-			    && rinfo->ifindex == ifindex) {
+			    && rinfo->nh.ifindex == ifindex) {
 				/* Perform poisoned reverse. */
 				rinfo->metric = RIP_METRIC_INFINITY;
 				RIP_TIMER_ON(rinfo->t_garbage_collect,
@@ -2201,7 +2203,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 				for (ALL_LIST_ELEMENTS_RO(list, listnode,
 							  tmp_rinfo))
 					if (tmp_rinfo->type == ZEBRA_ROUTE_RIP
-					    && tmp_rinfo->ifindex
+					    && tmp_rinfo->nh.ifindex
 						       == ifc->ifp->ifindex) {
 						suppress = 1;
 						break;
@@ -2233,8 +2235,8 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 			 * to avoid an IGP multi-level recursive look-up.
 			 * see (4.4)
 			 */
-			if (rinfo->ifindex == ifc->ifp->ifindex)
-				rinfo->nexthop_out = rinfo->nexthop;
+			if (rinfo->nh.ifindex == ifc->ifp->ifindex)
+				rinfo->nexthop_out = rinfo->nh.gate.ipv4;
 
 			/* Interface route-map */
 			if (ri->routemap[RIP_FILTER_OUT]) {
@@ -2326,7 +2328,7 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 				for (ALL_LIST_ELEMENTS_RO(list, listnode,
 							  tmp_rinfo))
 					if (tmp_rinfo->type == ZEBRA_ROUTE_RIP
-					    && tmp_rinfo->ifindex
+					    && tmp_rinfo->nh.ifindex
 						       == ifc->ifp->ifindex)
 						rinfo->metric_out =
 							RIP_METRIC_INFINITY;
@@ -2647,8 +2649,9 @@ void rip_redistribute_withdraw(int type)
 						"Poisone %s/%d on the interface %s with an infinity metric [withdraw]",
 						inet_ntoa(p->prefix),
 						p->prefixlen,
-						ifindex2ifname(rinfo->ifindex,
-							       VRF_DEFAULT));
+						ifindex2ifname(
+							rinfo->nh.ifindex,
+							VRF_DEFAULT));
 				}
 
 				rip_event(RIP_TRIGGERED_UPDATE, 0);
@@ -3454,9 +3457,9 @@ DEFUN (show_ip_rip,
 				if (len > 0)
 					vty_out(vty, "%*s", len, " ");
 
-				if (rinfo->nexthop.s_addr)
+				if (rinfo->nh.gate.ipv4.s_addr)
 					vty_out(vty, "%-20s %2d ",
-						inet_ntoa(rinfo->nexthop),
+						inet_ntoa(rinfo->nh.gate.ipv4),
 						rinfo->metric);
 				else
 					vty_out(vty,
