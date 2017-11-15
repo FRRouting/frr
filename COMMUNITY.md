@@ -82,7 +82,7 @@ for the release notes.
 
 ### Pre-submission Checklist
 
-* Format code (see [Coding style requirements](#coding-style-requirements))
+* Format code (see [Developer's Guidelines](#developers-guidelines))
 * Verify and acknowledge license (see [License for contributions](#license-for-contributions))
 * Ensure you have properly signed off (see [Signing Off](#signing-off))
 * Test building with various configurations:
