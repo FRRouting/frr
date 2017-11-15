@@ -1463,7 +1463,7 @@ static int rip_send_packet(u_char *buf, int size, struct sockaddr_in *to,
 
 /* Add redistributed route to RIP table. */
 void rip_redistribute_add(int type, int sub_type, struct prefix_ipv4 *p,
-			  ifindex_t ifindex, struct in_addr *nexthop,
+			  struct nexthop *nh,
 			  unsigned int metric, unsigned char distance,
 			  route_tag_t tag)
 {
@@ -1482,15 +1482,13 @@ void rip_redistribute_add(int type, int sub_type, struct prefix_ipv4 *p,
 	memset(&newinfo, 0, sizeof(struct rip_info));
 	newinfo.type = type;
 	newinfo.sub_type = sub_type;
-	newinfo.nh.ifindex = ifindex;
 	newinfo.metric = 1;
 	newinfo.external_metric = metric;
 	newinfo.distance = distance;
 	if (tag <= UINT16_MAX) /* RIP only supports 16 bit tags */
 		newinfo.tag = tag;
 	newinfo.rp = rp;
-	if (nexthop)
-		newinfo.nh.gate.ipv4 = *nexthop;
+	newinfo.nh = *nh;
 
 	if ((list = rp->info) != NULL && listcount(list) != 0) {
 		rinfo = listgetdata(listhead(list));
@@ -1520,17 +1518,9 @@ void rip_redistribute_add(int type, int sub_type, struct prefix_ipv4 *p,
 		rinfo = rip_ecmp_add(&newinfo);
 
 	if (IS_RIP_DEBUG_EVENT) {
-		if (!nexthop)
-			zlog_debug(
-				"Redistribute new prefix %s/%d on the interface %s",
-				inet_ntoa(p->prefix), p->prefixlen,
-				ifindex2ifname(ifindex, VRF_DEFAULT));
-		else
-			zlog_debug(
-				"Redistribute new prefix %s/%d with nexthop %s on the interface %s",
-				inet_ntoa(p->prefix), p->prefixlen,
-				inet_ntoa(rinfo->nh.gate.ipv4),
-				ifindex2ifname(ifindex, VRF_DEFAULT));
+		zlog_debug(
+			"Redistribute new prefix %s/%d",
+			inet_ntoa(p->prefix), p->prefixlen);
 	}
 
 	rip_event(RIP_TRIGGERED_UPDATE, 0);
@@ -2864,8 +2854,12 @@ DEFUN (rip_route,
 {
 	int idx_ipv4_prefixlen = 1;
 	int ret;
+	struct nexthop nh;
 	struct prefix_ipv4 p;
 	struct route_node *node;
+
+	memset(&nh, 0, sizeof(nh));
+	nh.type = NEXTHOP_TYPE_IPV4;
 
 	ret = str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 	if (ret < 0) {
@@ -2885,7 +2879,7 @@ DEFUN (rip_route,
 
 	node->info = (void *)1;
 
-	rip_redistribute_add(ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, 0, NULL, 0,
+	rip_redistribute_add(ZEBRA_ROUTE_RIP, RIP_ROUTE_STATIC, &p, &nh, 0,
 			     0, 0);
 
 	return CMD_SUCCESS;
@@ -3457,14 +3451,30 @@ DEFUN (show_ip_rip,
 				if (len > 0)
 					vty_out(vty, "%*s", len, " ");
 
-				if (rinfo->nh.gate.ipv4.s_addr)
+				switch(rinfo->nh.type) {
+				case NEXTHOP_TYPE_IPV4:
+				case NEXTHOP_TYPE_IPV4_IFINDEX:
 					vty_out(vty, "%-20s %2d ",
 						inet_ntoa(rinfo->nh.gate.ipv4),
 						rinfo->metric);
-				else
+					break;
+				case NEXTHOP_TYPE_IFINDEX:
 					vty_out(vty,
 						"0.0.0.0              %2d ",
 						rinfo->metric);
+					break;
+				case NEXTHOP_TYPE_BLACKHOLE:
+					vty_out(vty,
+						"blackhole            %2d ",
+						rinfo->metric);
+					break;
+				case NEXTHOP_TYPE_IPV6:
+				case NEXTHOP_TYPE_IPV6_IFINDEX:
+					vty_out(vty,
+						"V6 Address Hidden    %2d ",
+						rinfo->metric);
+					break;
+				}
 
 				/* Route which exist in kernel routing table. */
 				if ((rinfo->type == ZEBRA_ROUTE_RIP)

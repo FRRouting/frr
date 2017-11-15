@@ -121,8 +121,7 @@ static int rip_zebra_read_route(int command, struct zclient *zclient,
 				zebra_size_t length, vrf_id_t vrf_id)
 {
 	struct zapi_route api;
-	struct in_addr nexthop;
-	unsigned long ifindex;
+	struct nexthop nh;
 
 	if (!rip)
 		return 0;
@@ -130,19 +129,21 @@ static int rip_zebra_read_route(int command, struct zclient *zclient,
 	if (zapi_route_decode(zclient->ibuf, &api) < 0)
 		return -1;
 
-	nexthop = api.nexthops[0].gate.ipv4;
-	ifindex = api.nexthops[0].ifindex;
+	memset(&nh, 0, sizeof(nh));
+	nh.type = api.nexthops[0].type;
+	nh.gate.ipv4 = api.nexthops[0].gate.ipv4;
+	nh.ifindex = api.nexthops[0].ifindex;
 
 	/* Then fetch IPv4 prefixes. */
 	if (command == ZEBRA_REDISTRIBUTE_ROUTE_ADD)
 		rip_redistribute_add(api.type, RIP_ROUTE_REDISTRIBUTE,
-				     (struct prefix_ipv4 *)&api.prefix, ifindex,
-				     &nexthop, api.metric, api.distance,
+				     (struct prefix_ipv4 *)&api.prefix, &nh,
+				     api.metric, api.distance,
 				     api.tag);
 	else if (command == ZEBRA_REDISTRIBUTE_ROUTE_DEL)
 		rip_redistribute_delete(api.type, RIP_ROUTE_REDISTRIBUTE,
 					(struct prefix_ipv4 *)&api.prefix,
-					ifindex);
+					nh.ifindex);
 
 	return 0;
 }
@@ -501,15 +502,19 @@ DEFUN (rip_default_information_originate,
        "Distribute a default route\n")
 {
 	struct prefix_ipv4 p;
+	struct nexthop nh;
 
 	if (!rip->default_information) {
 		memset(&p, 0, sizeof(struct prefix_ipv4));
+		memset(&nh, 0, sizeof(nh));
+
 		p.family = AF_INET;
+		nh.type = NEXTHOP_TYPE_IPV4;
 
 		rip->default_information = 1;
 
-		rip_redistribute_add(ZEBRA_ROUTE_RIP, RIP_ROUTE_DEFAULT, &p, 0,
-				     NULL, 0, 0, 0);
+		rip_redistribute_add(ZEBRA_ROUTE_RIP, RIP_ROUTE_DEFAULT, &p,
+				     &nh, 0, 0, 0);
 	}
 
 	return CMD_SUCCESS;
