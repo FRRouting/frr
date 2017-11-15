@@ -328,9 +328,11 @@ extern int bgp_nlri_parse_ip(struct peer *, struct attr *, struct bgp_nlri *);
 
 extern int bgp_maximum_prefix_overflow(struct peer *, afi_t, safi_t, int);
 
-extern void bgp_redistribute_add(struct bgp *, struct prefix *,
-				 const union g_addr *, unsigned int ifindex,
-				 u_int32_t, u_char, u_short, route_tag_t);
+extern void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
+				 const union g_addr *nexthop, ifindex_t ifindex,
+				 enum nexthop_types_t nhtype, uint32_t metric,
+				 u_char type, u_short instance,
+				 route_tag_t tag);
 extern void bgp_redistribute_delete(struct bgp *, struct prefix *, u_char,
 				    u_short);
 extern void bgp_redistribute_withdraw(struct bgp *, afi_t, int, u_short);

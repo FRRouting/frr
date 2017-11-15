@@ -6148,8 +6148,9 @@ DEFUN (no_ipv6_aggregate_address,
 
 /* Redistribute route treatment. */
 void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
-			  const union g_addr *nexthop, unsigned int ifindex,
-			  u_int32_t metric, u_char type, u_short instance,
+			  const union g_addr *nexthop, ifindex_t ifindex,
+			  enum nexthop_types_t nhtype, uint32_t metric,
+			  u_char type, u_short instance,
 			  route_tag_t tag)
 {
 	struct bgp_info *new;
@@ -6164,15 +6165,31 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 
 	/* Make default attribute. */
 	bgp_attr_default_set(&attr, BGP_ORIGIN_INCOMPLETE);
-	if (nexthop) {
+
+	switch(nhtype) {
+	case NEXTHOP_TYPE_IFINDEX:
+		break;
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		attr.nexthop = nexthop->ipv4;
+		break;
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		attr.mp_nexthop_global = nexthop->ipv6;
+		attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
 		switch (p->family) {
 		case AF_INET:
-			attr.nexthop = nexthop->ipv4;
+			attr.nexthop.s_addr = INADDR_ANY;
 			break;
 		case AF_INET6:
-			attr.mp_nexthop_global = nexthop->ipv6;
+			memset(&attr.mp_nexthop_global, 0,
+			       sizeof(attr.mp_nexthop_global));
 			attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV6_GLOBAL;
+			break;
 		}
+		break;
 	}
 	attr.nh_ifindex = ifindex;
 
