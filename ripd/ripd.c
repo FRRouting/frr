@@ -1557,7 +1557,7 @@ void rip_redistribute_delete(int type, int sub_type, struct prefix_ipv4 *p,
 
 				if (IS_RIP_DEBUG_EVENT)
 					zlog_debug(
-						"Poisone %s/%d on the interface %s with an "
+						"Poison %s/%d on the interface %s with an "
 						"infinity metric [delete]",
 						inet_ntoa(p->prefix),
 						p->prefixlen,
