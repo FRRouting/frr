@@ -2393,29 +2393,16 @@ DEFUN (show_vrf_vni,
 		json_vrfs = json_object_new_array();
 	}
 
+	if (!uj)
+		vty_out(vty, "%-37s %-10s %-20s %-20s %-5s %-18s\n",
+			"VRF", "VNI", "VxLAN IF", "L3-SVI", "State", "Rmac");
+
 	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
 		zvrf = vrf->info;
 		if (!zvrf)
 			continue;
 
-		if (!zvrf->l3vni)
-			continue;
-
-		if (!uj) {
-			vty_out(vty, "vrf: %s VNI: %u",
-				zvrf_name(zvrf),
-				zvrf->l3vni);
-			vty_out(vty, "\n");
-		} else {
-			json_object *json_vrf = NULL;
-
-			json_vrf = json_object_new_object();
-			json_object_string_add(json_vrf, "vrf",
-					       zvrf_name(zvrf));
-			json_object_int_add(json_vrf, "l3vni",
-					    zvrf->l3vni);
-			json_object_array_add(json_vrfs, json_vrf);
-		}
+		zebra_vxlan_print_vrf_vni(vty, zvrf, json_vrfs);
 	}
 
 	if (uj) {
@@ -2425,6 +2412,19 @@ DEFUN (show_vrf_vni,
 		json_object_free(json);
 	}
 
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_global,
+       show_evpn_global_cmd,
+       "show evpn [json]",
+       SHOW_STR
+       "EVPN\n"
+       JSON_STR)
+{
+	u_char uj = use_json(argc, argv);
+
+	zebra_vxlan_print_evpn(vty, uj);
 	return CMD_SUCCESS;
 }
 
@@ -2463,44 +2463,13 @@ DEFUN (show_evpn_vni_vni,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_evpn_l3vni,
-       show_evpn_l3vni_cmd,
-       "show evpn l3vni [json]",
-       SHOW_STR
-       "EVPN\n"
-       "L3 VNI\n"
-       JSON_STR)
-{
-	u_char uj = use_json(argc, argv);
-
-	zebra_vxlan_print_l3vnis(vty, uj);
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_evpn_l3vni_vni,
-       show_evpn_l3vni_vni_cmd,
-       "show evpn l3vni " CMD_VNI_RANGE "[json]",
-       SHOW_STR
-       "EVPN\n"
-       "L3 VxLAN Network Identifier\n"
-       "VNI number\n"
-       JSON_STR)
-{
-	vni_t vni;
-	u_char uj = use_json(argc, argv);
-
-	vni = strtoul(argv[3]->arg, NULL, 10);
-	zebra_vxlan_print_l3vni(vty, vni, uj);
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_evpn_rmac_l3vni_mac,
-       show_evpn_rmac_l3vni_mac_cmd,
-       "show evpn rmac l3vni " CMD_VNI_RANGE " mac WORD [json]",
+DEFUN (show_evpn_rmac_vni_mac,
+       show_evpn_rmac_vni_mac_cmd,
+       "show evpn rmac vni " CMD_VNI_RANGE " mac WORD [json]",
        SHOW_STR
        "EVPN\n"
        "RMAC\n"
-       "L3-VNI\n"
+       "L3 VNI\n"
        "VNI number\n"
        "MAC\n"
        "mac-address (e.g. 0a:0a:0a:0a:0a:0a)\n"
@@ -2519,13 +2488,13 @@ DEFUN (show_evpn_rmac_l3vni_mac,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_evpn_rmac_l3vni,
-       show_evpn_rmac_l3vni_cmd,
-       "show evpn rmac l3vni " CMD_VNI_RANGE "[json]",
+DEFUN (show_evpn_rmac_vni,
+       show_evpn_rmac_vni_cmd,
+       "show evpn rmac vni " CMD_VNI_RANGE "[json]",
        SHOW_STR
        "EVPN\n"
        "RMAC\n"
-       "L3-VNI\n"
+       "L3 VNI\n"
        "VNI number\n"
        JSON_STR)
 {
@@ -2538,13 +2507,13 @@ DEFUN (show_evpn_rmac_l3vni,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_evpn_rmac_l3vni_all,
-       show_evpn_rmac_l3vni_all_cmd,
-       "show evpn rmac l3vni all [json]",
+DEFUN (show_evpn_rmac_vni_all,
+       show_evpn_rmac_vni_all_cmd,
+       "show evpn rmac vni all [json]",
        SHOW_STR
        "EVPN\n"
        "RMAC addresses\n"
-       "L3-VNI\n"
+       "L3 VNI\n"
        "All VNIs\n"
        JSON_STR)
 {
@@ -2555,13 +2524,13 @@ DEFUN (show_evpn_rmac_l3vni_all,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_evpn_nh_l3vni_ip,
-       show_evpn_nh_l3vni_ip_cmd,
-       "show evpn next-hops l3vni " CMD_VNI_RANGE " ip WORD [json]",
+DEFUN (show_evpn_nh_vni_ip,
+       show_evpn_nh_vni_ip_cmd,
+       "show evpn next-hops vni " CMD_VNI_RANGE " ip WORD [json]",
        SHOW_STR
        "EVPN\n"
        "Remote Vteps\n"
-       "L3-VNI\n"
+       "L3 VNI\n"
        "VNI number\n"
        "Ip address\n"
        "Host address (ipv4 or ipv6)\n"
@@ -2582,13 +2551,13 @@ DEFUN (show_evpn_nh_l3vni_ip,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_evpn_nh_l3vni,
-       show_evpn_nh_l3vni_cmd,
-       "show evpn next-hops l3vni " CMD_VNI_RANGE "[json]",
+DEFUN (show_evpn_nh_vni,
+       show_evpn_nh_vni_cmd,
+       "show evpn next-hops vni " CMD_VNI_RANGE "[json]",
        SHOW_STR
        "EVPN\n"
        "Remote Vteps\n"
-       "L3-VNI\n"
+       "L3 VNI\n"
        "VNI number\n"
        JSON_STR)
 {
@@ -2601,13 +2570,13 @@ DEFUN (show_evpn_nh_l3vni,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_evpn_nh_l3vni_all,
-       show_evpn_nh_l3vni_all_cmd,
-       "show evpn next-hops l3vni all [json]",
+DEFUN (show_evpn_nh_vni_all,
+       show_evpn_nh_vni_all_cmd,
+       "show evpn next-hops vni all [json]",
        SHOW_STR
        "EVPN\n"
        "Remote VTEPs\n"
-       "L3-VNI\n"
+       "L3 VNI\n"
        "All VNIs\n"
        JSON_STR)
 {
@@ -3315,16 +3284,15 @@ void zebra_vty_init(void)
 	/* Commands for VRF */
 	install_element(VIEW_NODE, &show_ipv6_mroute_vrf_all_cmd);
 
+	install_element(VIEW_NODE, &show_evpn_global_cmd);
 	install_element(VIEW_NODE, &show_evpn_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_vni_vni_cmd);
-	install_element(VIEW_NODE, &show_evpn_l3vni_cmd);
-	install_element(VIEW_NODE, &show_evpn_l3vni_vni_cmd);
-	install_element(VIEW_NODE, &show_evpn_rmac_l3vni_mac_cmd);
-	install_element(VIEW_NODE, &show_evpn_rmac_l3vni_cmd);
-	install_element(VIEW_NODE, &show_evpn_rmac_l3vni_all_cmd);
-	install_element(VIEW_NODE, &show_evpn_nh_l3vni_ip_cmd);
-	install_element(VIEW_NODE, &show_evpn_nh_l3vni_cmd);
-	install_element(VIEW_NODE, &show_evpn_nh_l3vni_all_cmd);
+	install_element(VIEW_NODE, &show_evpn_rmac_vni_mac_cmd);
+	install_element(VIEW_NODE, &show_evpn_rmac_vni_cmd);
+	install_element(VIEW_NODE, &show_evpn_rmac_vni_all_cmd);
+	install_element(VIEW_NODE, &show_evpn_nh_vni_ip_cmd);
+	install_element(VIEW_NODE, &show_evpn_nh_vni_cmd);
+	install_element(VIEW_NODE, &show_evpn_nh_vni_all_cmd);
 	install_element(VIEW_NODE, &show_evpn_mac_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_mac_vni_all_cmd);
 	install_element(VIEW_NODE, &show_evpn_mac_vni_all_vtep_cmd);
