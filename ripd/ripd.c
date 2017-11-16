@@ -1512,10 +1512,10 @@ void rip_redistribute_add(int type, int sub_type, struct prefix_ipv4 *p,
 			}
 		}
 
-		rinfo = rip_ecmp_replace(&newinfo);
+		(void)rip_ecmp_replace(&newinfo);
 		route_unlock_node(rp);
 	} else
-		rinfo = rip_ecmp_add(&newinfo);
+		(void)rip_ecmp_add(&newinfo);
 
 	if (IS_RIP_DEBUG_EVENT) {
 		zlog_debug(
