@@ -299,10 +299,7 @@ int kernel_add_lsp(zebra_lsp_t *lsp)
 	if (!lsp || !lsp->best_nhlfe) // unexpected
 		return -1;
 
-	UNSET_FLAG(lsp->flags, LSP_FLAG_CHANGED);
 	ret = kernel_lsp_cmd(RTM_ADD, lsp);
-	if (!ret)
-		SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 
 	return ret;
 }
@@ -314,11 +311,7 @@ int kernel_upd_lsp(zebra_lsp_t *lsp)
 	if (!lsp || !lsp->best_nhlfe) // unexpected
 		return -1;
 
-	UNSET_FLAG(lsp->flags, LSP_FLAG_CHANGED);
-	UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 	ret = kernel_lsp_cmd(RTM_CHANGE, lsp);
-	if (!ret)
-		SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 
 	return ret;
 }
@@ -334,8 +327,6 @@ int kernel_del_lsp(zebra_lsp_t *lsp)
 		return -1;
 
 	ret = kernel_lsp_cmd(RTM_DELETE, lsp);
-	if (!ret)
-		UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 
 	return ret;
 }
