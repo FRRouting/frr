@@ -134,6 +134,7 @@ void zebra_pw_change(struct zebra_pw *pw, ifindex_t ifindex, int type, int af,
 struct zebra_pw *zebra_pw_find(struct zebra_vrf *zvrf, const char *ifname)
 {
 	struct zebra_pw pw;
+	memset (&pw, 0, sizeof(struct zebra_pw));
 	strlcpy(pw.ifname, ifname, sizeof(pw.ifname));
 	return (RB_FIND(zebra_pw_head, &zvrf->pseudowires, &pw));
 }
