@@ -201,9 +201,6 @@ static int kernel_rtm_ipv4(int cmd, struct prefix *p, struct route_entry *re)
 					zlog_debug(
 						"%s: %s: successfully did NH %s",
 						__func__, prefix_buf, gate_buf);
-				if (cmd == RTM_ADD)
-					SET_FLAG(nexthop->flags,
-						 NEXTHOP_FLAG_FIB);
 				break;
 
 			/* The only valid case for this error is kernel's
@@ -315,11 +312,7 @@ static int kernel_rtm_ipv6(int cmd, struct prefix *p, struct route_entry *re)
 
 		if ((cmd == RTM_ADD
 		     && NEXTHOP_IS_ACTIVE(nexthop->flags))
-		    || (cmd == RTM_DELETE
-#if 0
-	      && CHECK_FLAG (nexthop->flags, NEXTHOP_FLAG_FIB)
-#endif
-			)) {
+		    || (cmd == RTM_DELETE)) {
 			if (nexthop->type == NEXTHOP_TYPE_IPV6
 			    || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
 				sin_gate.sin6_addr = nexthop->gate.ipv6;
@@ -331,9 +324,6 @@ static int kernel_rtm_ipv6(int cmd, struct prefix *p, struct route_entry *re)
 
 			if (nexthop->type == NEXTHOP_TYPE_BLACKHOLE)
 				bh_type = nexthop->bh_type;
-
-			if (cmd == RTM_ADD)
-				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		}
 
 /* Under kame set interface index to link local address. */
@@ -371,16 +361,7 @@ static int kernel_rtm_ipv6(int cmd, struct prefix *p, struct route_entry *re)
 				  (union sockunion *)mask,
 				  gate ? (union sockunion *)&sin_gate : NULL,
 				  smplsp, ifindex, bh_type, re->metric);
-
-#if 0
-      if (error)
-	{
-	  zlog_info ("kernel_rtm_ipv6(): nexthop %d add error=%d.",
-	    nexthop_num, error);
-	}
-#else
 		(void)error;
-#endif
 
 		nexthop_num++;
 	}

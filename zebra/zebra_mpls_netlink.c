@@ -36,10 +36,7 @@ int kernel_add_lsp(zebra_lsp_t *lsp)
 	if (!lsp || !lsp->best_nhlfe) // unexpected
 		return -1;
 
-	UNSET_FLAG(lsp->flags, LSP_FLAG_CHANGED);
 	ret = netlink_mpls_multipath(RTM_NEWROUTE, lsp);
-	if (!ret)
-		SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 
 	return ret;
 }
@@ -64,8 +61,6 @@ int kernel_upd_lsp(zebra_lsp_t *lsp)
 	if (!lsp || !lsp->best_nhlfe) // unexpected
 		return -1;
 
-	UNSET_FLAG(lsp->flags, LSP_FLAG_CHANGED);
-
 	/* Any NHLFE that was installed but is not selected now needs to
 	 * have its flags updated.
 	 */
@@ -82,8 +77,6 @@ int kernel_upd_lsp(zebra_lsp_t *lsp)
 	}
 
 	ret = netlink_mpls_multipath(RTM_NEWROUTE, lsp);
-	if (!ret)
-		SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 
 	return ret;
 }
@@ -93,15 +86,17 @@ int kernel_upd_lsp(zebra_lsp_t *lsp)
  */
 int kernel_del_lsp(zebra_lsp_t *lsp)
 {
+	int ret;
+
 	if (!lsp) // unexpected
 		return -1;
 
-	if (CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED)) {
-		netlink_mpls_multipath(RTM_DELROUTE, lsp);
-		UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
-	}
+	if (!CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED))
+		return -1;
 
-	return 0;
+	ret = netlink_mpls_multipath(RTM_DELROUTE, lsp);
+
+	return ret;
 }
 
 int mpls_kernel_init(void)

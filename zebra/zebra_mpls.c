@@ -846,8 +846,10 @@ static void lsp_uninstall_from_kernel(struct hash_backet *backet, void *ctxt)
 	if (CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED)) {
 		ret = kernel_del_lsp(lsp);
 
-		if (!ret)
+		if (!ret) {
+			UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 			clear_nhlfe_installed(lsp);
+		}
 	}
 }
 
@@ -901,22 +903,44 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 	if (!CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED)) {
 		/* Not already installed */
 		if (newbest) {
+
+			UNSET_FLAG(lsp->flags, LSP_FLAG_CHANGED);
 			ret = kernel_add_lsp(lsp);
+
+			if (!ret)
+				SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
+			else
+				clear_nhlfe_installed(lsp);
+
 			zvrf->lsp_installs++;
 		}
 	} else {
 		/* Installed, may need an update and/or delete. */
 		if (!newbest) {
+
 			ret = kernel_del_lsp(lsp);
+
+			if (!ret) {
+				UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
+				clear_nhlfe_installed(lsp);
+			}
+
 			zvrf->lsp_removals++;
 		} else if (CHECK_FLAG(lsp->flags, LSP_FLAG_CHANGED)) {
+
+			UNSET_FLAG(lsp->flags, LSP_FLAG_CHANGED);
+			UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
+
 			ret = kernel_upd_lsp(lsp);
+
+			if (!ret)
+				SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
+			else
+				clear_nhlfe_installed(lsp);
+
 			zvrf->lsp_installs++;
 		}
 	}
-
-	if (!ret)
-		clear_nhlfe_installed(lsp);
 
 	return WQ_SUCCESS;
 }

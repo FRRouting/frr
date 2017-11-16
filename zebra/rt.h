@@ -30,6 +30,17 @@
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_mpls.h"
 
+/*
+ * Philosophy Note:
+ *
+ * Flags being SET/UNSET do not belong in the South Bound
+ * Interface.  This Setting belongs at the calling level
+ * because we can and will have multiple different interfaces
+ * and we will have potentially multiple different
+ * modules/filters to call.  As such Setting/Unsetting
+ * success failure should be handled by the caller.
+ */
+
 extern int kernel_route_rib(struct prefix *, struct prefix *,
 			    struct route_entry *, struct route_entry *);
 
