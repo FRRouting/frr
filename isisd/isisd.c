@@ -1521,7 +1521,7 @@ DEFUN_NOSH (router_isis,
 DEFUN (no_router_isis,
        no_router_isis_cmd,
        "no router isis WORD",
-       "no\n" ROUTER_STR "ISO IS-IS\n" "ISO Routing area tag")
+       "no\n" ROUTER_STR "ISO IS-IS\n" "ISO Routing area tag\n")
 {
 	int idx_word = 3;
 	return isis_area_destroy(vty, argv[idx_word]->arg);
