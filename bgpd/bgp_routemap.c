@@ -299,7 +299,7 @@ static void *route_match_peer_compile(const char *arg)
 	struct bgp_match_peer_compiled *pc;
 	int ret;
 
-	pc = XMALLOC(MTYPE_ROUTE_MAP_COMPILED,
+	pc = XCALLOC(MTYPE_ROUTE_MAP_COMPILED,
 		     sizeof(struct bgp_match_peer_compiled));
 
 	ret = str2sockunion(strcmp(arg, "local") ? arg : "0.0.0.0", &pc->su);
