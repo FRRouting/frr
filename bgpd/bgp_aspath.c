@@ -479,7 +479,7 @@ unsigned int aspath_has_as4(struct aspath *aspath)
 }
 
 /* Convert aspath structure to string expression. */
-static void aspath_make_str_count(struct aspath *as)
+static void aspath_make_str_count(struct aspath *as, bool make_json)
 {
 	struct assegment *seg;
 	int str_size;
@@ -489,14 +489,18 @@ static void aspath_make_str_count(struct aspath *as)
 	json_object *jseg = NULL;
 	json_object *jseg_list = NULL;
 
-	as->json = json_object_new_object();
-	jaspath_segments = json_object_new_array();
+	if (make_json) {
+		as->json = json_object_new_object();
+		jaspath_segments = json_object_new_array();
+	}
 
 	/* Empty aspath. */
 	if (!as->segments) {
-		json_object_string_add(as->json, "string", "Local");
-		json_object_object_add(as->json, "segments", jaspath_segments);
-		json_object_int_add(as->json, "length", 0);
+		if (make_json) {
+			json_object_string_add(as->json, "string", "Local");
+			json_object_object_add(as->json, "segments", jaspath_segments);
+			json_object_int_add(as->json, "length", 0);
+		}
 		as->str = XMALLOC(MTYPE_AS_STR, 1);
 		as->str[0] = '\0';
 		as->str_len = 0;
@@ -539,6 +543,7 @@ static void aspath_make_str_count(struct aspath *as)
 			as->str_len = 0;
 			json_object_free(as->json);
 			as->json = NULL;
+
 			return;
 		}
 
@@ -564,12 +569,14 @@ static void aspath_make_str_count(struct aspath *as)
 				str_buf + len, str_size - len, "%c",
 				aspath_delimiter_char(seg->type, AS_SEG_START));
 
-		jseg_list = json_object_new_array();
+		if (make_json)
+			jseg_list = json_object_new_array();
 
 		/* write out the ASNs, with their seperators, bar the last one*/
 		for (i = 0; i < seg->length; i++) {
-			json_object_array_add(jseg_list,
-					      json_object_new_int(seg->as[i]));
+			if (make_json)
+				json_object_array_add(jseg_list,
+						      json_object_new_int(seg->as[i]));
 
 			len += snprintf(str_buf + len, str_size - len, "%u",
 					seg->as[i]);
@@ -579,11 +586,13 @@ static void aspath_make_str_count(struct aspath *as)
 						"%c", seperator);
 		}
 
-		jseg = json_object_new_object();
-		json_object_string_add(jseg, "type",
-				       aspath_segment_type_str[seg->type]);
-		json_object_object_add(jseg, "list", jseg_list);
-		json_object_array_add(jaspath_segments, jseg);
+		if (make_json) {
+			jseg = json_object_new_object();
+			json_object_string_add(jseg, "type",
+					       aspath_segment_type_str[seg->type]);
+			json_object_object_add(jseg, "list", jseg_list);
+			json_object_array_add(jaspath_segments, jseg);
+		}
 
 		if (seg->type != AS_SEQUENCE)
 			len += snprintf(
@@ -601,13 +610,16 @@ static void aspath_make_str_count(struct aspath *as)
 	as->str = str_buf;
 	as->str_len = len;
 
-	json_object_string_add(as->json, "string", str_buf);
-	json_object_object_add(as->json, "segments", jaspath_segments);
-	json_object_int_add(as->json, "length", aspath_count_hops(as));
+	if (make_json) {
+		json_object_string_add(as->json, "string", str_buf);
+		json_object_object_add(as->json, "segments", jaspath_segments);
+		json_object_int_add(as->json, "length", aspath_count_hops(as));
+	}
+
 	return;
 }
 
-static void aspath_str_update(struct aspath *as)
+void aspath_str_update(struct aspath *as, bool make_json)
 {
 	if (as->str)
 		XFREE(MTYPE_AS_STR, as->str);
@@ -617,7 +629,7 @@ static void aspath_str_update(struct aspath *as)
 		as->json = NULL;
 	}
 
-	aspath_make_str_count(as);
+	aspath_make_str_count(as, make_json);
 }
 
 /* Intern allocated AS path. */
@@ -1079,7 +1091,7 @@ struct aspath *aspath_aggregate(struct aspath *as1, struct aspath *as2)
 	}
 
 	assegment_normalise(aspath->segments);
-	aspath_str_update(aspath);
+	aspath_str_update(aspath, false);
 	return aspath;
 }
 
@@ -1214,7 +1226,7 @@ struct aspath *aspath_replace_specific_asn(struct aspath *aspath,
 		seg = seg->next;
 	}
 
-	aspath_str_update(new);
+	aspath_str_update(new, false);
 	return new;
 }
 
@@ -1237,7 +1249,7 @@ struct aspath *aspath_replace_private_asns(struct aspath *aspath, as_t asn)
 		seg = seg->next;
 	}
 
-	aspath_str_update(new);
+	aspath_str_update(new, false);
 	return new;
 }
 
@@ -1307,7 +1319,7 @@ struct aspath *aspath_remove_private_asns(struct aspath *aspath)
 		seg = seg->next;
 	}
 
-	aspath_str_update(new);
+	aspath_str_update(new, false);
 	return new;
 }
 
@@ -1362,7 +1374,7 @@ static struct aspath *aspath_merge(struct aspath *as1, struct aspath *as2)
 
 	last->next = as2->segments;
 	as2->segments = new;
-	aspath_str_update(as2);
+	aspath_str_update(as2, false);
 	return as2;
 }
 
@@ -1381,7 +1393,7 @@ struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2)
 	/* If as2 is empty, only need to dupe as1's chain onto as2 */
 	if (seg2 == NULL) {
 		as2->segments = assegment_dup_all(as1->segments);
-		aspath_str_update(as2);
+		aspath_str_update(as2, false);
 		return as2;
 	}
 
@@ -1432,7 +1444,7 @@ struct aspath *aspath_prepend(struct aspath *as1, struct aspath *as2)
 		/* we've now prepended as1's segment chain to as2, merging
 		 * the inbetween AS_SEQUENCE of seg2 in the process
 		 */
-		aspath_str_update(as2);
+		aspath_str_update(as2, false);
 		return as2;
 	} else {
 		/* AS_SET merge code is needed at here. */
@@ -1511,7 +1523,7 @@ struct aspath *aspath_filter_exclude(struct aspath *source,
 			lastseg->next = newseg;
 		lastseg = newseg;
 	}
-	aspath_str_update(newpath);
+	aspath_str_update(newpath, false);
 	/* We are happy returning even an empty AS_PATH, because the
 	 * administrator
 	 * might expect this very behaviour. There's a mean to avoid this, if
@@ -1549,7 +1561,7 @@ static struct aspath *aspath_add_asns(struct aspath *aspath, as_t asno,
 		aspath->segments = newsegment;
 	}
 
-	aspath_str_update(aspath);
+	aspath_str_update(aspath, false);
 	return aspath;
 }
 
@@ -1639,7 +1651,7 @@ struct aspath *aspath_reconcile_as4(struct aspath *aspath,
 
 	if (!hops) {
 		newpath = aspath_dup(as4path);
-		aspath_str_update(newpath);
+		aspath_str_update(newpath, false);
 		return newpath;
 	}
 
@@ -1701,7 +1713,7 @@ struct aspath *aspath_reconcile_as4(struct aspath *aspath,
 	mergedpath = aspath_merge(newpath, aspath_dup(as4path));
 	aspath_free(newpath);
 	mergedpath->segments = assegment_normalise(mergedpath->segments);
-	aspath_str_update(mergedpath);
+	aspath_str_update(mergedpath, false);
 
 	if (BGP_DEBUG(as4, AS4))
 		zlog_debug("[AS4] result of synthesizing is %s",
@@ -1773,7 +1785,7 @@ struct aspath *aspath_delete_confed_seq(struct aspath *aspath)
 	}
 
 	if (removed_confed_segment)
-		aspath_str_update(aspath);
+		aspath_str_update(aspath, false);
 
 	return aspath;
 }
@@ -1824,7 +1836,7 @@ struct aspath *aspath_empty_get(void)
 	struct aspath *aspath;
 
 	aspath = aspath_new();
-	aspath_make_str_count(aspath);
+	aspath_make_str_count(aspath, false);
 	return aspath;
 }
 
@@ -1975,7 +1987,7 @@ struct aspath *aspath_str2aspath(const char *str)
 		}
 	}
 
-	aspath_make_str_count(aspath);
+	aspath_make_str_count(aspath, false);
 
 	return aspath;
 }
@@ -1987,7 +1999,7 @@ unsigned int aspath_key_make(void *p)
 	unsigned int key = 0;
 
 	if (!aspath->str)
-		aspath_str_update(aspath);
+		aspath_str_update(aspath, false);
 
 	key = jhash(aspath->str, aspath->str_len, 2334325);
 

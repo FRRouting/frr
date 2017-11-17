@@ -7395,6 +7395,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 		/* Line1 display AS-path, Aggregator */
 		if (attr->aspath) {
 			if (json_paths) {
+				if (!attr->aspath->json)
+					aspath_str_update(attr->aspath, true);
 				json_object_lock(attr->aspath->json);
 				json_object_object_add(json_path, "aspath",
 						       attr->aspath->json);
