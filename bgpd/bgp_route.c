@@ -8187,8 +8187,6 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			continue;
 
 		display = 0;
-		if (!first && use_json)
-			vty_out(vty, ",");
 		if (use_json)
 			json_paths = json_object_new_array();
 		else
@@ -8384,7 +8382,11 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				inet_ntop(p->family, &p->u.prefix,
 					  buf, BUFSIZ),
 				p->prefixlen);
-			vty_out(vty, "\"%s\": ", buf2);
+			if (first)
+				vty_out(vty, "\"%s\": ", buf2);
+			else
+				vty_out(vty, ",\"%s\": ", buf2);
+
 			vty_out(vty, "%s",
 				json_object_to_json_string_ext(json_paths, JSON_C_TO_STRING_PRETTY));
 			json_object_free(json_paths);
