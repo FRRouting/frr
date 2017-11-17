@@ -238,13 +238,13 @@ l2vpn_pw_init(struct l2vpn_pw *pw)
 
 	l2vpn_pw_reset(pw);
 
+	pw2zpw(pw, &zpw);
+	lde_imsg_compose_parent(IMSG_KPW_ADD, 0, &zpw, sizeof(zpw));
+
 	l2vpn_pw_fec(pw, &fec);
 	lde_kernel_insert(&fec, AF_INET, (union ldpd_addr*)&pw->lsr_id, 0, 0,
 	    0, (void *)pw);
 	lde_kernel_update(&fec);
-
-	pw2zpw(pw, &zpw);
-	lde_imsg_compose_parent(IMSG_KPW_ADD, 0, &zpw, sizeof(zpw));
 }
 
 void
