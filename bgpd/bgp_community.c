@@ -168,7 +168,6 @@ struct community *community_uniq_sort(struct community *com)
 		return NULL;
 
 	new = community_new();
-	;
 	new->json = NULL;
 
 	for (i = 0; i < com->size; i++) {
@@ -193,7 +192,7 @@ struct community *community_uniq_sort(struct community *com)
    0xFFFFFF03      "local-AS"
 
    For other values, "AS:VAL" format is used.  */
-static void set_community_string(struct community *com)
+static void set_community_string(struct community *com, bool make_json)
 {
 	int i;
 	char *str;
@@ -209,16 +208,20 @@ static void set_community_string(struct community *com)
 	if (!com)
 		return;
 
-	com->json = json_object_new_object();
-	json_community_list = json_object_new_array();
+	if (make_json) {
+		com->json = json_object_new_object();
+		json_community_list = json_object_new_array();
+	}
 
 	/* When communities attribute is empty.  */
 	if (com->size == 0) {
 		str = XMALLOC(MTYPE_COMMUNITY_STR, 1);
 		str[0] = '\0';
 
-		json_object_string_add(com->json, "string", "");
-		json_object_object_add(com->json, "list", json_community_list);
+		if (make_json) {
+			json_object_string_add(com->json, "string", "");
+			json_object_object_add(com->json, "list", json_community_list);
+		}
 		com->str = str;
 		return;
 	}
@@ -268,41 +271,53 @@ static void set_community_string(struct community *com)
 		case COMMUNITY_INTERNET:
 			strcpy(pnt, "internet");
 			pnt += strlen("internet");
-			json_string = json_object_new_string("internet");
-			json_object_array_add(json_community_list, json_string);
+			if (make_json) {
+				json_string = json_object_new_string("internet");
+				json_object_array_add(json_community_list, json_string);
+			}
 			break;
 		case COMMUNITY_NO_EXPORT:
 			strcpy(pnt, "no-export");
 			pnt += strlen("no-export");
-			json_string = json_object_new_string("noExport");
-			json_object_array_add(json_community_list, json_string);
+			if (make_json) {
+				json_string = json_object_new_string("noExport");
+				json_object_array_add(json_community_list, json_string);
+			}
 			break;
 		case COMMUNITY_NO_ADVERTISE:
 			strcpy(pnt, "no-advertise");
 			pnt += strlen("no-advertise");
-			json_string = json_object_new_string("noAdvertise");
-			json_object_array_add(json_community_list, json_string);
+			if (make_json) {
+				json_string = json_object_new_string("noAdvertise");
+				json_object_array_add(json_community_list, json_string);
+			}
 			break;
 		case COMMUNITY_LOCAL_AS:
 			strcpy(pnt, "local-AS");
 			pnt += strlen("local-AS");
-			json_string = json_object_new_string("localAs");
-			json_object_array_add(json_community_list, json_string);
+			if (make_json) {
+				json_string = json_object_new_string("localAs");
+				json_object_array_add(json_community_list, json_string);
+			}
 			break;
 		default:
 			as = (comval >> 16) & 0xFFFF;
 			val = comval & 0xFFFF;
 			sprintf(pnt, "%u:%d", as, val);
-			json_string = json_object_new_string(pnt);
-			json_object_array_add(json_community_list, json_string);
+			if (make_json) {
+				json_string = json_object_new_string(pnt);
+				json_object_array_add(json_community_list, json_string);
+			}
 			pnt += strlen(pnt);
 			break;
 		}
 	}
 	*pnt = '\0';
 
-	json_object_string_add(com->json, "string", str);
-	json_object_object_add(com->json, "list", json_community_list);
+	if (make_json) {
+		json_object_string_add(com->json, "string", str);
+		json_object_object_add(com->json, "list", json_community_list);
+	}
 	com->str = str;
 }
 
@@ -327,7 +342,7 @@ struct community *community_intern(struct community *com)
 
 	/* Make string.  */
 	if (!find->str)
-		set_community_string(find);
+		set_community_string(find, false);
 
 	return find;
 }
@@ -385,13 +400,16 @@ struct community *community_dup(struct community *com)
 }
 
 /* Retrun string representation of communities attribute. */
-char *community_str(struct community *com)
+char *community_str(struct community *com, bool make_json)
 {
 	if (!com)
 		return NULL;
 
+	if (make_json && !com->json && com->str)
+		XFREE(MTYPE_COMMUNITY_STR, com->str);
+
 	if (!com->str)
-		set_community_string(com);
+		set_community_string(com, make_json);
 	return com->str;
 }
 

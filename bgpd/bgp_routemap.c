@@ -3594,7 +3594,7 @@ DEFUN (set_community,
 	}
 
 	/* Set communites attribute string.  */
-	str = community_str(com);
+	str = community_str(com, false);
 
 	if (additive) {
 		argstr = XCALLOC(MTYPE_TMP,
