@@ -2275,10 +2275,59 @@ DEFUN (show_vrf,
 	return CMD_SUCCESS;
 }
 
+DEFUN (default_vrf_vni_mapping,
+       default_vrf_vni_mapping_cmd,
+       "vni " CMD_VNI_RANGE,
+       "VNI corresponding to the DEFAULT VRF\n"
+       "VNI-ID\n")
+{
+	int ret = 0;
+	char err[ERR_STR_SZ];
+	struct zebra_vrf *zvrf = NULL;
+	vni_t vni = strtoul(argv[1]->arg, NULL, 10);
+
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	if (!zvrf)
+		return CMD_WARNING;
+
+	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, 1);
+	if (ret != 0) {
+		vty_out(vty, "%s\n", err);
+		return CMD_WARNING;
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_default_vrf_vni_mapping,
+       no_default_vrf_vni_mapping_cmd,
+       "no vni " CMD_VNI_RANGE,
+       NO_STR
+       "VNI corresponding to DEFAULT VRF\n"
+       "VNI-ID")
+{
+	int ret = 0;
+	char err[ERR_STR_SZ];
+	vni_t vni = strtoul(argv[2]->arg, NULL, 10);
+	struct zebra_vrf *zvrf = NULL;
+
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	if (!zvrf)
+		return CMD_WARNING;
+
+	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, 0);
+	if (ret != 0) {
+		vty_out(vty, "%s\n", err);
+		return CMD_WARNING;
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (vrf_vni_mapping,
        vrf_vni_mapping_cmd,
        "vni " CMD_VNI_RANGE,
-       "VNI\n"
+       "VNI corresponding to tenant VRF\n"
        "VNI-ID\n")
 {
 	int ret = 0;
@@ -2303,7 +2352,7 @@ DEFUN (no_vrf_vni_mapping,
        no_vrf_vni_mapping_cmd,
        "no vni " CMD_VNI_RANGE,
        NO_STR
-       "VNI\n"
+       "VNI corresponding to tenant VRF\n"
        "VNI-ID")
 {
 	int ret = 0;
@@ -3286,7 +3335,8 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_neigh_cmd);
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_vtep_cmd);
 
-	install_element(CONFIG_NODE, &no_vrf_vni_mapping_cmd);
+	install_element(CONFIG_NODE, &default_vrf_vni_mapping_cmd);
+	install_element(CONFIG_NODE, &no_default_vrf_vni_mapping_cmd);
 	install_element(VRF_NODE, &vrf_vni_mapping_cmd);
 	install_element(VRF_NODE, &no_vrf_vni_mapping_cmd);
 
