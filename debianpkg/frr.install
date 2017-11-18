@@ -1,0 +1,22 @@
+etc/frr/
+usr/bin/vtysh
+usr/include/frr/
+usr/lib/
+tools/frr usr/lib/frr
+usr/share/doc/frr/
+usr/share/man/man1/vtysh.1
+usr/share/man/man1/frr.1
+usr/share/man/man8
+usr/share/man/man8/bgpd.8
+usr/share/man/man8/ospf6d.8
+usr/share/man/man8/ospfd.8
+usr/share/man/man8/ripd.8
+usr/share/man/man8/ripngd.8
+usr/share/man/man8/zebra.8
+usr/share/man/man8/isisd.8
+usr/share/man/man8/watchfrr.8
+usr/share/man/man8/frr-args.8
+usr/share/snmp/mibs/
+tools/etc/* etc/
+tools/*.service    lib/systemd/system
+debian/frr.conf  usr/lib/tmpfiles.d

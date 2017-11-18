@@ -1,0 +1,4 @@
+frr: non-dev-pkg-with-shlib-symlink usr/lib/libfrrospfapiclient.so.0.0.0 usr/lib/libfrrospfapiclient.so
+frr: non-dev-pkg-with-shlib-symlink usr/lib/libfrr.so.0.0.0 usr/lib/libfrr.so
+frr: non-dev-pkg-with-shlib-symlink usr/lib/libfrrfpm_pb.so.0.0.0 usr/lib/libfrrfpm_pb.so
+frr: package-name-doesnt-match-sonames libfrr0 libfrrfpm-pb0 libfrrospfapiclient0

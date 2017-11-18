@@ -1,0 +1,137 @@
+.PHONY: backports $(KNOWN_BACKPORTS)
+
+# error out if these files are missing
+required_files = $(foreach backport,$(KNOWN_BACKPORTS), \
+	$(addprefix debian/backports/$(backport)/, \
+		debian/source/format \
+		versionext \
+		exclude))
+$(if $(filter-out $(wildcard $(required_files)),$(required_files)), \
+	$(error missing required backports files: \
+		$(filter-out $(wildcard $(required_files)),$(required_files)). \
+		see debian/backports/README) \
+)
+
+TARBALLDIR ?= $(shell dh_testdir debian/changelog && realpath .)
+
+define backports-targets
+# if this file is empty, no automatic changelog entry is created
+VERSIONEXT_$(1) ?= $(strip \
+	$(shell cat $(wildcard debian/backports/$(1)/versionext)))
+DEBIAN_VERSION_$(1) = $(DEBIAN_VERSION)$$(VERSIONEXT_$(1))
+BACKPORTDIR_$(1) = $(realpath debian/backports/$(1))
+
+# as of right now, must be '3.0 (quilt)'
+SOURCEFORMAT_$(1) ?= $(strip \
+	$(shell cat debian/backports/$(1)/debian/source/format))
+
+# files checked for the dirhash (see below)
+FINDCMD_$(1) = find -L debian/backports/$(1)/debian \
+	-type f \
+	! -path debian/backports/$(1)/debian/changelog
+
+# files *not* pulled from the root debian directory into the backport tarball:
+# debian/changelog (copied and edited for backport version entry)
+# debian/backports itself (relevant contents are copied out separately)
+# anything provided in the current backports debian dir
+# anything specified in the 'exclude' file in the current backports debian dir
+EXCLUDEROOT_$(1) = debian/changelog debian/backports \
+	$$(subst debian/backports/$(1)/,,$$(shell $$(FINDCMD_$(1)))) \
+	$$(shell cat debian/backports/$(1)/exclude)
+
+EXCLUDEROOT_TAR_$(1) = $$(foreach file,$$(EXCLUDEROOT_$(1)),--exclude $$(file))
+EXCLUDEROOT_FIND_$(1) = $$(foreach file,$$(EXCLUDEROOT_$(1)),-o -path $$(file))
+
+# find command resulting in all files that *will* be pulled into the backport
+# tarball.
+FINDCMDROOT_$(1) = find -L debian/ \
+	'(' -false $$(EXCLUDEROOT_FIND_$(1)) ')' -prune -o \
+	-type f -a '!' '(' -false $$(EXCLUDEROOT_FIND_$(1)) ')'
+
+# usually using `find' output for dependencies has the downfall of not tracking
+# file removal. Work around that by introducing a dependency on a file whose
+# name contains the hash of `find' output, so that the name will change when a
+# file is deleted.
+DIRHASH_$(1) = \
+	$$(shell $$(FINDCMD_$(1)) | sha1sum | sed -r 's/^(......).*/\1/')
+DIRHASHROOT_$(1) = \
+	$$(shell $$(FINDCMDROOT_$(1)) | sha1sum | sed -r 's/^(......).*/\1/')
+
+CONTROL_$(1) = $$(strip \
+	$$(if $$(wildcard $$(BACKPORTDIR_$(1))/debian/control), \
+		$$(BACKPORTDIR_$(1))/debian/control, \
+		$(realpath debian/control) \
+	))
+
+# TARGETS:
+
+$(1): $(TARBALLDIR)/$(SRCPKG)_$$(DEBIAN_VERSION_$(1)).dsc ;
+
+# we use 3.0 (custom) to build a source package directly from tarballs,
+# bypassing the usual checks (which wouldn't like our combination-of-
+# directories approach)
+$(TARBALLDIR)/$(SRCPKG)_$$(DEBIAN_VERSION_$(1)).dsc:
+	dpkg-source -l$$(BACKPORTDIR_$(1))/debian/changelog \
+		-c$$(CONTROL_$(1)) \
+		--format='3.0 (custom)' \
+		--target-format='$$(SOURCEFORMAT_$(1))' \
+		-b . $$^
+	mv $(TARBALLDIR)/../$$(notdir $$@) $$@
+
+ifeq ($$(SOURCEFORMAT_$(1)),3.0 (quilt))
+# this target depends on the orig.tar.gz file, for which there is no target in
+# this makefile. It is assumed to either already exist or be built by a target
+# provided elsewhere in debian/rules (e.g. via pristine-tar)
+$$(if $$(findstring $(ORIG_VERSION),$$(DEBIAN_VERSION_$(1))), \
+	$$(info downstream version matches upstream version (good)), \
+	$$(error quilt format expects downstream version \
+		($$(DEBIAN_VERSION_$(1))) to contain upstream version \
+		($(ORIG_VERSION)). Make a new debian/changelog entry \
+		to reflect the new upstream release) \
+)
+
+$(TARBALLDIR)/$(SRCPKG)_$$(DEBIAN_VERSION_$(1)).dsc: \
+		$(TARBALLDIR)/$(SRCPKG)_$(ORIG_VERSION).orig.tar.gz \
+		$(TARBALLDIR)/$(SRCPKG)_$$(DEBIAN_VERSION_$(1)).debian.tar.xz
+else
+$$(error unsupported source format for $(1) backport: $$(SOURCEFORMAT_$(1)))
+endif #SOURCEFORMAT_$(1)
+
+# for 3.0 (quilt)
+$(TARBALLDIR)/$(SRCPKG)_$$(DEBIAN_VERSION_$(1)).debian.tar.xz: \
+		$$(BACKPORTDIR_$(1))/debian/changelog \
+		$$(shell $$(FINDCMD_$(1))) \
+		$$(BACKPORTDIR_$(1))/$$(DIRHASH_$(1)).backport.dirhash \
+		$$(shell $$(FINDCMDROOT_$(1))) \
+		$$(BACKPORTDIR_$(1))/$$(DIRHASHROOT_$(1)).root.dirhash \
+		$$(BACKPORTDIR_$(1))/exclude
+	rm -f $$(subst .tar.xz,.tar,$$@) $$@
+	tar -chf $$(subst .tar.xz,.tar,$$@) \
+		--exclude-vcs $$(EXCLUDEROOT_TAR_$(1)) debian/
+	cd debian/backports/$(1) && tar -uhf $$(subst .tar.xz,.tar,$$@) \
+		--exclude-vcs debian/
+	xz $$(subst .tar.xz,.tar,$$@)
+
+$$(BACKPORTDIR_$(1))/debian/changelog: \
+		debian/changelog \
+		debian/backports/$(1)/versionext
+	rm -f debian/backports/$(1)/debian/changelog
+	cp $$< $$@
+	$(if $$(VERSIONEXT_$(1)), \
+		dch -c $$@ -v '$$(DEBIAN_VERSION_$(1))' -b \
+			'backport to $(1) systems', \
+	)
+
+$$(BACKPORTDIR_$(1))/$$(DIRHASH_$(1)).backport.dirhash:
+	rm -f debian/backports/$(1)/*.backport.dirhash
+	touch $$@
+
+$$(BACKPORTDIR_$(1))/$$(DIRHASHROOT_$(1)).root.dirhash:
+	rm -f debian/backports/$(1)/*.root.dirhash
+	touch $$@
+
+endef # backports-targets
+$(foreach backport,$(KNOWN_BACKPORTS),$(eval \
+	$(call backports-targets,$(backport))))
+
+backports: $(KNOWN_BACKPORTS)

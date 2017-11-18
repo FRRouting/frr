@@ -1,0 +1,56 @@
+Source: frr
+Section: net
+Priority: optional
+Maintainer: Nobody <nobody@frrouting.org>
+Uploaders: Nobody <nobody@frrouting.org>
+XSBC-Original-Maintainer: <maintainers@frrouting.org>
+Build-Depends: debhelper (>= 7.0.50~), libncurses5-dev, libreadline-dev, texlive-latex-base, texlive-generic-recommended, libpam0g-dev | libpam-dev, libcap-dev, texinfo (>= 4.7), imagemagick, ghostscript, groff, autotools-dev, libpcre3-dev, gawk, chrpath, libsnmp-dev, git, dh-autoreconf, libjson0, libjson0-dev, pkg-config, python (>= 2.7), python-ipaddr
+Standards-Version: 3.9.6
+Homepage: http://www.frrouting.org/
+XS-Testsuite: autopkgtest
+
+Package: frr
+Architecture: any
+Depends: ${shlibs:Depends}, logrotate (>= 3.2-11), ${misc:Depends}
+Pre-Depends: adduser
+Conflicts: zebra, zebra-pj
+Replaces: zebra, zebra-pj
+Suggests: snmpd
+Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon forked from Quagga
+ FRR is free software which manages TCP/IP based routing protocols.
+ It supports BGP4, BGP4+, OSPFv2, OSPFv3, IS-IS, RIPv1, RIPv2, RIPng,
+ PIM and LDP as well as the IPv6 versions of these.
+ .
+ FRR is a fork of Quagga with an open community model. The main git
+ lives on https://github.com/frrouting/frr.git
+
+Package: frr-dbg
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, frr (= ${binary:Version})
+Priority: extra
+Section: debug
+Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon (debug symbols)
+ This package provides debugging symbols for all binary packages built 
+ from frr source package. It's highly recommended to have this package
+ installed before reporting any FRR crashes to either FRR developers or 
+ Debian package maintainers.
+
+Package: frr-doc
+Section: net
+Architecture: all
+Depends: ${misc:Depends}
+Suggests: frr
+Description: documentation files for FRR
+ This package includes info files for frr, a free software which manages
+ TCP/IP based routing protocols.  It supports BGP4, BGP4+, OSPFv2, OSPFv3,
+ IS-IS, RIPv1, RIPv2, RIPng, PIM and LDP as well as the IPv6 versions of these.
+
+Package: frr-pythontools
+Section: net
+Architecture: all
+Depends: ${misc:Depends}, frr (= ${binary:Version}), python (>= 2.7), python-ipaddr
+Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon (Python Tools)
+ This package includes info files for frr, a free software which manages
+ TCP/IP based routing protocols.  It supports BGP4, BGP4+, OSPFv2, OSPFv3,
+ IS-IS, RIPv1, RIPv2, RIPng, PIM and LDP as well as the IPv6 versions of these.
+
