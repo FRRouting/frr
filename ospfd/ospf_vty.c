@@ -8828,177 +8828,140 @@ static void config_write_stub_router(struct vty *vty, struct ospf *ospf)
 }
 
 static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
-				       struct route_table *rt)
+				       struct route_table *rt,
+				       json_object *json)
 {
 	struct route_node *rn;
 	struct ospf_route * or ;
 	struct listnode *pnode, *pnnode;
 	struct ospf_path *path;
+	json_object *json_route = NULL, *json_nexthop_array = NULL,
+		    *json_nexthop = NULL;
 
-	vty_out(vty, "============ OSPF network routing table ============\n");
+	if (!json)
+		vty_out(vty, "============ OSPF network routing table ============\n");
 
-	for (rn = route_top(rt); rn; rn = route_next(rn))
-		if ((or = rn->info) != NULL) {
-			char buf1[19];
-			snprintf(buf1, 19, "%s/%d", inet_ntoa(rn->p.u.prefix4),
-				 rn->p.prefixlen);
+	for (rn = route_top(rt); rn; rn = route_next(rn)) {
+		if ((or = rn->info) == NULL)
+			continue;
+		char buf1[PREFIX2STR_BUFFER];
 
-			switch (or->path_type) {
-			case OSPF_PATH_INTER_AREA:
-				if (or->type == OSPF_DESTINATION_NETWORK)
+		memset(buf1, 0, sizeof(buf1));
+		prefix2str(&rn->p, buf1, sizeof(buf1));
+
+		json_route = json_object_new_object();
+		if (json) {
+			 json_object_object_add(json, buf1, json_route);
+			 json_object_to_json_string_ext(json,
+				JSON_C_TO_STRING_NOSLASHESCAPE);
+
+		}
+
+		switch (or->path_type) {
+		case OSPF_PATH_INTER_AREA:
+			if (or->type == OSPF_DESTINATION_NETWORK) {
+				if (json) {
+					json_object_string_add(json_route,
+							"routeType",
+							"N IA");
+					json_object_int_add(json_route,
+							    "cost",
+							    or->cost);
+					json_object_string_add(
+						json_route,
+						"area",
+						inet_ntoa(
+						or->u.std.area_id));
+				} else {
 					vty_out(vty,
-						"N IA %-18s    [%d] area: %s\n",
+					"N IA %-18s    [%d] area: %s\n",
 						buf1, or->cost,
-						inet_ntoa(or->u.std.area_id));
-				else if (or->type == OSPF_DESTINATION_DISCARD)
+					inet_ntoa(or->u.std.area_id));
+				}
+			} else if (or->type ==
+					OSPF_DESTINATION_DISCARD) {
+				if (json) {
+					json_object_string_add(json_route,
+							"routeType",
+							"D IA");
+				} else {
 					vty_out(vty,
 						"D IA %-18s    Discard entry\n",
 						buf1);
-				break;
-			case OSPF_PATH_INTRA_AREA:
+				}
+			}
+			break;
+		case OSPF_PATH_INTRA_AREA:
+			if (json) {
+				json_object_string_add(json_route,
+							"routeType", "N");
+				json_object_int_add(json_route, "cost",
+							    or->cost);
+				json_object_string_add(json_route,
+					"area", inet_ntoa(or->u.std.area_id));
+			} else {
 				vty_out(vty, "N    %-18s    [%d] area: %s\n",
 					buf1, or->cost,
 					inet_ntoa(or->u.std.area_id));
-				break;
-			default:
-				break;
 			}
-
-			if (or->type == OSPF_DESTINATION_NETWORK)
-				for (ALL_LIST_ELEMENTS(or->paths, pnode, pnnode,
-						       path)) {
-					if (if_lookup_by_index(path->ifindex,
-							       ospf->vrf_id)) {
-						if (path->nexthop.s_addr == 0)
-							vty_out(vty,
-								"%24s   directly attached to %s\n",
-								"",
-								ifindex2ifname(
-									path->ifindex,
-									ospf->vrf_id));
-						else
-							vty_out(vty,
-								"%24s   via %s, %s\n",
-								"",
-								inet_ntoa(
-									path->nexthop),
-								ifindex2ifname(
-									path->ifindex,
-									ospf->vrf_id));
-					}
-				}
+			break;
+		default:
+			break;
 		}
-	vty_out(vty, "\n");
-}
 
-static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
-				      struct route_table *rtrs)
-{
-	struct route_node *rn;
-	struct ospf_route * or ;
-	struct listnode *pnode;
-	struct listnode *node;
-	struct ospf_path *path;
-
-	vty_out(vty, "============ OSPF router routing table =============\n");
-	for (rn = route_top(rtrs); rn; rn = route_next(rn))
-		if (rn->info) {
-			int flag = 0;
-
-			vty_out(vty, "R    %-15s    ",
-				inet_ntoa(rn->p.u.prefix4));
-
-			for (ALL_LIST_ELEMENTS_RO((struct list *)rn->info, node,
-						  or)) {
-				if (flag++)
-					vty_out(vty, "%24s", "");
-
-				/* Show path. */
-				vty_out(vty, "%s [%d] area: %s",
-					(or->path_type == OSPF_PATH_INTER_AREA
-						 ? "IA"
-						 : "  "),
-					or->cost, inet_ntoa(or->u.std.area_id));
-				/* Show flags. */
-				vty_out(vty, "%s%s\n",
-					(or->u.std.flags & ROUTER_LSA_BORDER
-						 ? ", ABR"
-						 : ""),
-					(or->u.std.flags & ROUTER_LSA_EXTERNAL
-						 ? ", ASBR"
-						 : ""));
-
-				for (ALL_LIST_ELEMENTS_RO(or->paths, pnode,
-							  path)) {
-					if (if_lookup_by_index(path->ifindex,
-							       ospf->vrf_id)) {
-						if (path->nexthop.s_addr == 0)
-							vty_out(vty,
-								"%24s   directly attached to %s\n",
-								"",
-								ifindex2ifname(
-									path->ifindex,
-									ospf->vrf_id));
-						else
-							vty_out(vty,
-								"%24s   via %s, %s\n",
-								"",
-								inet_ntoa(
-									path->nexthop),
-								ifindex2ifname(
-									path->ifindex,
-									ospf->vrf_id));
-					}
-				}
-			}
-		}
-	vty_out(vty, "\n");
-}
-
-static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
-					struct route_table *rt)
-{
-	struct route_node *rn;
-	struct ospf_route *er;
-	struct listnode *pnode, *pnnode;
-	struct ospf_path *path;
-
-	vty_out(vty, "============ OSPF external routing table ===========\n");
-	for (rn = route_top(rt); rn; rn = route_next(rn))
-		if ((er = rn->info) != NULL) {
-			char buf1[19];
-			snprintf(buf1, 19, "%s/%d", inet_ntoa(rn->p.u.prefix4),
-				 rn->p.prefixlen);
-
-			switch (er->path_type) {
-			case OSPF_PATH_TYPE1_EXTERNAL:
-				vty_out(vty,
-					"N E1 %-18s    [%d] tag: %" ROUTE_TAG_PRI
-					"\n",
-					buf1, er->cost, er->u.ext.tag);
-				break;
-			case OSPF_PATH_TYPE2_EXTERNAL:
-				vty_out(vty,
-					"N E2 %-18s    [%d/%d] tag: %" ROUTE_TAG_PRI
-					"\n",
-					buf1, er->cost, er->u.ext.type2_cost,
-					er->u.ext.tag);
-				break;
+		if (or->type == OSPF_DESTINATION_NETWORK) {
+			if (json) {
+				json_nexthop_array = json_object_new_array();
+				json_object_object_add(json_route, "nexthops",
+					      json_nexthop_array);
 			}
 
-			for (ALL_LIST_ELEMENTS(er->paths, pnode, pnnode,
+			for (ALL_LIST_ELEMENTS(or->paths, pnode, pnnode,
 					       path)) {
+				if (json) {
+					json_nexthop =
+					json_object_new_object();
+					json_object_array_add(json_nexthop_array,
+							      json_nexthop);
+				}
 				if (if_lookup_by_index(path->ifindex,
 						       ospf->vrf_id)) {
-					if (path->nexthop.s_addr == 0)
-						vty_out(vty,
+
+					if (path->nexthop.s_addr == 0) {
+						if (json) {
+							json_object_string_add(
+								json_nexthop,
+								"ip",
+								" ");
+							json_object_string_add(
+								json_nexthop,
+								"directly attached to",
+								ifindex2ifname(
+								path->ifindex,
+								ospf->vrf_id));
+						} else {
+							vty_out(vty,
 							"%24s   directly attached to %s\n",
 							"",
 							ifindex2ifname(
 								path->ifindex,
 								ospf->vrf_id));
-					else
-						vty_out(vty,
+						}
+					} else {
+						if (json) {
+							json_object_string_add(
+								json_nexthop,
+								"ip",
+								inet_ntoa(
+								path->nexthop));
+							json_object_string_add(
+								json_nexthop,
+								"via",
+								ifindex2ifname(
+								path->ifindex,
+								ospf->vrf_id));
+						} else {
+							vty_out(vty,
 							"%24s   via %s, %s\n",
 							"",
 							inet_ntoa(
@@ -9006,10 +8969,297 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 							ifindex2ifname(
 								path->ifindex,
 								ospf->vrf_id));
+						}
+					}
 				}
 			}
 		}
-	vty_out(vty, "\n");
+		if (!json)
+			json_object_free(json_route);
+	}
+	if (!json)
+		vty_out(vty, "\n");
+}
+
+static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
+				      struct route_table *rtrs,
+				      json_object *json)
+{
+	struct route_node *rn;
+	struct ospf_route * or ;
+	struct listnode *pnode;
+	struct listnode *node;
+	struct ospf_path *path;
+	json_object *json_route = NULL, *json_nexthop_array = NULL,
+		    *json_nexthop = NULL;
+
+	if (!json)
+		vty_out(vty, "============ OSPF router routing table =============\n");
+
+	for (rn = route_top(rtrs); rn; rn = route_next(rn)) {
+		if (rn->info == NULL)
+			continue;
+		int flag = 0;
+
+		json_route = json_object_new_object();
+		if (json) {
+			json_object_object_add(json,
+					inet_ntoa(rn->p.u.prefix4),
+					json_route);
+			json_object_string_add(json_route, "routeType",
+					       "R ");
+		} else {
+			vty_out(vty, "R    %-15s    ",
+				inet_ntoa(rn->p.u.prefix4));
+		}
+
+		for (ALL_LIST_ELEMENTS_RO((struct list *)rn->info, node,
+					  or)) {
+			if (flag++) {
+				if (!json)
+					vty_out(vty, "%24s", "");
+			}
+
+			/* Show path. */
+			if (json) {
+				json_object_int_add(json_route, "cost",
+						    or->cost);
+				json_object_string_add(json_route,
+					"area",
+					inet_ntoa(or->u.std.area_id));
+				if (or->path_type ==
+				    OSPF_PATH_INTER_AREA)
+					json_object_boolean_true_add(
+							json_route,
+							"IA");
+				if (or->u.std.flags & ROUTER_LSA_BORDER)
+					json_object_string_add(
+							json_route,
+							"routerType",
+							"abr");
+				else if (or->u.std.flags &
+					 ROUTER_LSA_EXTERNAL)
+					json_object_string_add(
+							json_route,
+							"routerType",
+							"asbr");
+			} else {
+				vty_out(vty, "%s [%d] area: %s",
+				(or->path_type == OSPF_PATH_INTER_AREA
+					 ? "IA"
+					 : "  "),
+				or->cost, inet_ntoa(or->u.std.area_id));
+				/* Show flags. */
+				vty_out(vty, "%s%s\n",
+				(or->u.std.flags & ROUTER_LSA_BORDER
+					 ? ", ABR"
+					 : ""),
+				(or->u.std.flags & ROUTER_LSA_EXTERNAL
+					 ? ", ASBR"
+					 : ""));
+			}
+
+			if (json) {
+				json_nexthop_array =
+					json_object_new_array();
+				json_object_object_add(json_route, "nexthops",
+					      json_nexthop_array);
+			}
+
+			for (ALL_LIST_ELEMENTS_RO(or->paths, pnode,
+						  path)) {
+				if (json) {
+					json_nexthop =
+					json_object_new_object();
+					json_object_array_add(
+						json_nexthop_array,
+						json_nexthop);
+				}
+				if (if_lookup_by_index(path->ifindex,
+						       ospf->vrf_id)) {
+					if (path->nexthop.s_addr == 0) {
+						if (json) {
+							json_object_string_add(
+								json_nexthop,
+								"ip",
+								" ");
+							json_object_string_add(
+								json_nexthop,
+								"directly attached to",
+								ifindex2ifname(
+									path->ifindex,
+									ospf->vrf_id));
+						} else {
+							vty_out(vty,
+							"%24s   directly attached to %s\n",
+							"",
+							ifindex2ifname(
+								path->ifindex,
+								ospf->vrf_id));
+						}
+					} else {
+						if (json) {
+							json_object_string_add(
+								json_nexthop,
+								"ip",
+								inet_ntoa(path->nexthop));
+							json_object_string_add(
+								json_nexthop,
+								"via",
+								ifindex2ifname(
+									path->ifindex,
+									ospf->vrf_id));
+						} else {
+							vty_out(vty,
+							"%24s   via %s, %s\n",
+							"",
+							inet_ntoa(
+								path->nexthop),
+							ifindex2ifname(
+								path->ifindex,
+								ospf->vrf_id));
+						}
+					}
+				}
+			}
+		}
+		if (!json)
+			json_object_free(json_route);
+	}
+	if (!json)
+		vty_out(vty, "\n");
+}
+
+static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
+					struct route_table *rt,
+					json_object *json)
+{
+	struct route_node *rn;
+	struct ospf_route *er;
+	struct listnode *pnode, *pnnode;
+	struct ospf_path *path;
+	json_object *json_route = NULL, *json_nexthop_array = NULL,
+		    *json_nexthop = NULL;
+
+	if (!json)
+		vty_out(vty, "============ OSPF external routing table ===========\n");
+
+	for (rn = route_top(rt); rn; rn = route_next(rn)) {
+		if ((er = rn->info) == NULL)
+			continue;
+
+		char buf1[19];
+
+		snprintf(buf1, 19, "%s/%d", inet_ntoa(rn->p.u.prefix4),
+			 rn->p.prefixlen);
+		json_route = json_object_new_object();
+		if (json) {
+			 json_object_object_add(json, buf1, json_route);
+			 json_object_to_json_string_ext(json,
+				JSON_C_TO_STRING_NOSLASHESCAPE);
+
+		}
+
+		switch (er->path_type) {
+		case OSPF_PATH_TYPE1_EXTERNAL:
+			if (json) {
+				json_object_string_add(json_route,
+						       "routeType",
+						       "N E1");
+				json_object_int_add(json_route, "cost",
+							    er->cost);
+			} else {
+				vty_out(vty,
+				"N E1 %-18s    [%d] tag: %" ROUTE_TAG_PRI
+				"\n",
+				buf1, er->cost, er->u.ext.tag);
+			}
+			break;
+		case OSPF_PATH_TYPE2_EXTERNAL:
+			if (json) {
+				json_object_string_add(json_route,
+						       "routeType",
+						       "N E2");
+				json_object_int_add(json_route, "cost",
+							    er->cost);
+			} else {
+				vty_out(vty,
+					"N E2 %-18s    [%d/%d] tag: %"
+					ROUTE_TAG_PRI
+					"\n", buf1, er->cost,
+					er->u.ext.type2_cost,
+					er->u.ext.tag);
+			}
+			break;
+		}
+
+		if (json) {
+			json_nexthop_array = json_object_new_array();
+			json_object_object_add(json_route, "nexthops",
+					      json_nexthop_array);
+		}
+
+		for (ALL_LIST_ELEMENTS(er->paths, pnode, pnnode,
+				       path)) {
+			if (json) {
+				json_nexthop = json_object_new_object();
+				json_object_array_add(json_nexthop_array
+						      ,json_nexthop);
+			}
+
+			if (if_lookup_by_index(path->ifindex,
+					       ospf->vrf_id)) {
+				if (path->nexthop.s_addr == 0) {
+					if (json) {
+						json_object_string_add(
+							json_nexthop,
+								"ip",
+								" ");
+						json_object_string_add(
+							json_nexthop,
+							"directly attached to",
+							ifindex2ifname(
+							path->ifindex,
+							ospf->vrf_id));
+					} else {
+						vty_out(vty,
+						"%24s   directly attached to %s\n",
+						"",
+						ifindex2ifname(
+							path->ifindex,
+							ospf->vrf_id));
+					}
+				} else {
+					if (json) {
+						json_object_string_add(
+							json_nexthop,
+								"ip",
+							inet_ntoa(
+							path->nexthop));
+						json_object_string_add(
+							json_nexthop,
+							"via",
+							ifindex2ifname(
+							path->ifindex,
+							ospf->vrf_id));
+					} else {
+						vty_out(vty,
+						"%24s   via %s, %s\n",
+						"",
+						inet_ntoa(
+							path->nexthop),
+						ifindex2ifname(
+							path->ifindex,
+							ospf->vrf_id));
+					}
+				}
+			}
+		}
+		if (!json)
+			json_object_free(json_route);
+	}
+	if (!json)
+		vty_out(vty, "\n");
 }
 
 static int show_ip_ospf_border_routers_common(struct vty *vty,
@@ -9030,7 +9280,7 @@ static int show_ip_ospf_border_routers_common(struct vty *vty,
 	show_ip_ospf_route_network (vty, ospf->new_table);   */
 
 	/* Show Router routes. */
-	show_ip_ospf_route_router(vty, ospf, ospf->new_rtrs);
+	show_ip_ospf_route_router(vty, ospf, ospf->new_rtrs, NULL);
 
 	vty_out(vty, "\n");
 
@@ -9113,12 +9363,22 @@ DEFUN (show_ip_ospf_instance_border_routers,
 }
 
 static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
-				     u_char use_vrf)
+				     json_object *json, u_char use_vrf)
 {
+	json_object *json_vrf = NULL;
+
 	if (ospf->instance)
 		vty_out(vty, "\nOSPF Instance: %d\n\n", ospf->instance);
 
-	ospf_show_vrf_name(ospf, vty, NULL, use_vrf);
+
+	if (json) {
+		if (use_vrf)
+			json_vrf = json_object_new_object();
+		else
+			json_vrf = json;
+	}
+
+	ospf_show_vrf_name(ospf, vty, json_vrf, use_vrf);
 
 	if (ospf->new_table == NULL) {
 		vty_out(vty, "No OSPF routing information exist\n");
@@ -9126,28 +9386,42 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
 	}
 
 	/* Show Network routes. */
-	show_ip_ospf_route_network(vty, ospf, ospf->new_table);
+	show_ip_ospf_route_network(vty, ospf, ospf->new_table, json_vrf);
 
 	/* Show Router routes. */
-	show_ip_ospf_route_router(vty, ospf, ospf->new_rtrs);
+	show_ip_ospf_route_router(vty, ospf, ospf->new_rtrs, json_vrf);
 
 	/* Show AS External routes. */
-	show_ip_ospf_route_external(vty, ospf, ospf->old_external_route);
+	show_ip_ospf_route_external(vty, ospf, ospf->old_external_route,
+				    json_vrf);
 
-	vty_out(vty, "\n");
+	if (json) {
+		if (use_vrf) {
+			//json_object_object_add(json_vrf, "areas", json_areas);
+			if (ospf->vrf_id == VRF_DEFAULT)
+				json_object_object_add(json, "default",
+						       json_vrf);
+			else
+				json_object_object_add(json, ospf->name,
+						       json_vrf);
+		}
+	} else {
+		vty_out(vty, "\n");
+	}
 
 	return CMD_SUCCESS;
 }
 
 DEFUN (show_ip_ospf_route,
        show_ip_ospf_route_cmd,
-	"show ip ospf [vrf <NAME|all>] route",
+	"show ip ospf [vrf <NAME|all>] route [json]",
 	SHOW_STR
 	IP_STR
 	"OSPF information\n"
 	VRF_CMD_HELP_STR
 	"All VRFs\n"
-	"OSPF routing table\n")
+	"OSPF routing table\n"
+	JSON_STR)
 {
 	struct ospf *ospf = NULL;
 	struct listnode *node = NULL;
@@ -9157,6 +9431,11 @@ DEFUN (show_ip_ospf_route,
 	int inst = 0;
 	int idx_vrf = 0;
 	u_char use_vrf = 0;
+	u_char uj = use_json(argc, argv);
+	json_object *json = NULL;
+
+	if (uj)
+		json = json_object_new_object();
 
 	OSPF_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
@@ -9167,23 +9446,44 @@ DEFUN (show_ip_ospf_route,
 			for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 				if (!ospf->oi_running)
 					continue;
-				ret = show_ip_ospf_route_common(vty, ospf,
+				ret = show_ip_ospf_route_common(vty, ospf, json,
 								use_vrf);
 			}
+
+			if (uj) {
+				vty_out(vty, "%s\n",
+					json_object_to_json_string_ext(json,
+						  JSON_C_TO_STRING_PRETTY));
+				json_object_free(json);
+			}
+
 			return ret;
 		}
 		ospf = ospf_lookup_by_inst_name(inst, vrf_name);
-		if (ospf == NULL || !ospf->oi_running)
+		if (ospf == NULL || !ospf->oi_running) {
+			if (uj)
+				json_object_free(json);
 			return CMD_SUCCESS;
+		}
 	} else {
 		/* Display default ospf (instance 0) info */
 		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
-		if (ospf == NULL || !ospf->oi_running)
+		if (ospf == NULL || !ospf->oi_running) {
+			if (uj)
+				json_object_free(json);
 			return CMD_SUCCESS;
+		}
 	}
 
-	if (ospf)
-		ret = show_ip_ospf_route_common(vty, ospf, use_vrf);
+	if (ospf) {
+		ret = show_ip_ospf_route_common(vty, ospf, json, use_vrf);
+		if (uj)
+			vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+	}
+
+	if (uj)
+		json_object_free(json);
 
 	return ret;
 }
@@ -9209,7 +9509,7 @@ DEFUN (show_ip_ospf_instance_route,
 	if (!ospf->oi_running)
 		return CMD_SUCCESS;
 
-	return show_ip_ospf_route_common(vty, ospf, 0);
+	return show_ip_ospf_route_common(vty, ospf, NULL, 0);
 }
 
 
