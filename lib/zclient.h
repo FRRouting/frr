@@ -109,6 +109,7 @@ typedef enum {
 	ZEBRA_FEC_UNREGISTER,
 	ZEBRA_FEC_UPDATE,
 	ZEBRA_ADVERTISE_DEFAULT_GW,
+	ZEBRA_ADVERTISE_SUBNET,
 	ZEBRA_ADVERTISE_ALL_VNI,
 	ZEBRA_VNI_ADD,
 	ZEBRA_VNI_DEL,
@@ -118,6 +119,8 @@ typedef enum {
 	ZEBRA_REMOTE_VTEP_DEL,
 	ZEBRA_MACIP_ADD,
 	ZEBRA_MACIP_DEL,
+	ZEBRA_IP_PREFIX_ROUTE_ADD,
+	ZEBRA_IP_PREFIX_ROUTE_DEL,
 	ZEBRA_REMOTE_MACIP_ADD,
 	ZEBRA_REMOTE_MACIP_DEL,
 	ZEBRA_PW_ADD,
@@ -204,6 +207,8 @@ struct zclient {
 	int (*local_vni_del)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*local_l3vni_add)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*local_l3vni_del)(int, struct zclient *, uint16_t, vrf_id_t);
+	void (*local_ip_prefix_add)(int, struct zclient *, uint16_t, vrf_id_t);
+	void (*local_ip_prefix_del)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*local_macip_add)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*local_macip_del)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*pw_status_update)(int, struct zclient *, uint16_t, vrf_id_t);

@@ -2602,6 +2602,9 @@ static inline void zserv_handle_commands(struct zserv *client,
 	case ZEBRA_ADVERTISE_DEFAULT_GW:
 		zebra_vxlan_advertise_gw_macip(client, length, zvrf);
 		break;
+	case ZEBRA_ADVERTISE_SUBNET:
+		zebra_vxlan_advertise_subnet(client, length, zvrf);
+		break;
 	case ZEBRA_ADVERTISE_ALL_VNI:
 		zebra_vxlan_advertise_all_vni(client, length, zvrf);
 		break;

@@ -70,6 +70,9 @@ struct zebra_vni_t_ {
 	/* Flag for advertising gw macip */
 	u_int8_t advertise_gw_macip;
 
+	/* Flag for advertising gw macip */
+	u_int8_t advertise_subnet;
+
 	/* Corresponding VxLAN interface. */
 	struct interface *vxlan_if;
 

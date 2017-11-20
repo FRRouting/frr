@@ -35,10 +35,10 @@ static inline int is_evpn_enabled(void)
 }
 
 extern void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf,
-					   struct bgp_node *rn,
+					   struct prefix *p,
 					   afi_t afi, safi_t safi);
 extern void bgp_evpn_withdraw_type5_route(struct bgp *bgp_vrf,
-					  struct bgp_node *rn,
+					  struct prefix *p,
 					  afi_t afi, safi_t safi);
 extern void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 					   safi_t safi);

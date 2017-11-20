@@ -59,6 +59,9 @@ DEFINE_MTYPE_STATIC(ZEBRA, NEIGH, "VNI Neighbor");
 
 
 /* static function declarations */
+static int ip_prefix_send_to_client(vrf_id_t vrf_id,
+					     struct prefix *p,
+					     uint16_t cmd);
 static void zvni_print_neigh(zebra_neigh_t *n, void *ctxt, json_object *json);
 static void zvni_print_neigh_hash(struct hash_backet *backet, void *ctxt);
 static void zvni_print_neigh_hash_all_vni(struct hash_backet *backet,
@@ -1692,7 +1695,37 @@ static int zvni_add_macip_for_intf(struct interface *ifp, zebra_vni_t *zvni)
 
 		zvni_gw_macip_add(ifp, zvni, &macaddr, &ip);
 	}
+	return 0;
+}
 
+
+static int zvni_advertise_subnet(zebra_vni_t *zvni,
+				 struct interface *ifp,
+				 int advertise)
+{
+	struct listnode *cnode = NULL, *cnnode = NULL;
+	struct connected *c = NULL;
+	struct ethaddr macaddr;
+
+	memcpy(&macaddr.octet, ifp->hw_addr, ETH_ALEN);
+
+	for (ALL_LIST_ELEMENTS(ifp->connected, cnode, cnnode, c)) {
+		struct prefix p;
+
+		memcpy(&p, c->address, sizeof(struct prefix));
+
+		/* skip link local address */
+		if (IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6))
+			continue;
+
+		apply_mask(&p);
+		if (advertise)
+			ip_prefix_send_to_client(ifp->vrf_id, &p,
+						     ZEBRA_IP_PREFIX_ROUTE_ADD);
+		else
+			ip_prefix_send_to_client(ifp->vrf_id, &p,
+						 ZEBRA_IP_PREFIX_ROUTE_DEL);
+	}
 	return 0;
 }
 
@@ -3704,6 +3737,43 @@ static void zl3vni_del_nh_hash_entry(struct hash_backet *backet,
 	zl3vni = (zebra_l3vni_t *)ctx;
 	zl3vni_nh_uninstall(zl3vni, n);
 	zl3vni_nh_del(zl3vni, n);
+}
+
+static int ip_prefix_send_to_client(vrf_id_t vrf_id,
+					     struct prefix *p,
+					     uint16_t cmd)
+{
+	struct zserv *client = NULL;
+	struct stream *s = NULL;
+	char buf[PREFIX_STRLEN];
+
+	client = zebra_find_client(ZEBRA_ROUTE_BGP);
+	/* BGP may not be running. */
+	if (!client)
+		return 0;
+
+	s = client->obuf;
+	stream_reset(s);
+
+	zserv_create_header(s, cmd, vrf_id);
+	stream_put(s, p, sizeof(struct prefix));
+
+	/* Write packet size. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug(
+			   "Send ip prefix %s %s on vrf %s",
+			   prefix2str(p, buf, sizeof(buf)),
+			   (cmd == ZEBRA_IP_PREFIX_ROUTE_ADD) ? "ADD" : "DEL",
+			   vrf_id_to_name(vrf_id));
+
+	if (cmd == ZEBRA_IP_PREFIX_ROUTE_ADD)
+		client->prefixadd_cnt++;
+	else
+		client->prefixdel_cnt++;
+
+	return zebra_server_send_message(client);
 }
 
 /* Public functions */
@@ -6394,6 +6464,73 @@ int zebra_vxlan_vrf_delete(struct zebra_vrf *zvrf)
 	zebra_vxlan_process_l3vni_oper_down(zl3vni);
 	zl3vni_del(zl3vni);
 	zebra_vxlan_handle_vni_transition(zvrf, zl3vni->vni, 0);
+
+	return 0;
+}
+
+/*
+ * Handle message from client to enable/disable advertisement of g/w macip
+ * routes
+ */
+int zebra_vxlan_advertise_subnet(struct zserv *client, u_short length,
+				 struct zebra_vrf *zvrf)
+{
+	struct stream *s;
+	int advertise;
+	vni_t vni = 0;
+	zebra_vni_t *zvni = NULL;
+	struct interface *ifp = NULL;
+	struct zebra_if *zif = NULL;
+	struct zebra_l2info_vxlan zl2_info;
+	struct interface *vlan_if = NULL;
+
+	if (zvrf_id(zvrf) != VRF_DEFAULT) {
+		zlog_err("EVPN GW-MACIP Adv for non-default VRF %u",
+			 zvrf_id(zvrf));
+		return -1;
+	}
+
+	s = client->ibuf;
+	advertise = stream_getc(s);
+	vni = stream_get3(s);
+
+	zvni = zvni_lookup(vni);
+	if (!zvni)
+		return 0;
+
+	if (zvni->advertise_subnet == advertise)
+		return 0;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug(
+			"EVPN subnet Adv %s on VNI %d , currently %s",
+			advertise ? "enabled" : "disabled", vni,
+			zvni->advertise_subnet ? "enabled" : "disabled");
+
+
+	zvni->advertise_subnet = advertise;
+
+	ifp = zvni->vxlan_if;
+	if (!ifp)
+		return 0;
+
+	zif = ifp->info;
+
+	/* If down or not mapped to a bridge, we're done. */
+	if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
+		return 0;
+
+	zl2_info = zif->l2info.vxl;
+
+	vlan_if = zvni_map_to_svi(zl2_info.access_vlan,
+				  zif->brslave_info.br_if);
+	if (!vlan_if)
+		return 0;
+
+	if (zvni->advertise_subnet)
+		zvni_advertise_subnet(zvni, vlan_if, 1);
+	else
+		zvni_advertise_subnet(zvni, vlan_if, 0);
 
 	return 0;
 }

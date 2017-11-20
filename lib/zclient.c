@@ -2267,6 +2267,16 @@ static int zclient_read(struct thread *thread)
 			(*zclient->local_macip_del)(command, zclient, length,
 						    vrf_id);
 		break;
+	case ZEBRA_IP_PREFIX_ROUTE_ADD:
+		if (zclient->local_ip_prefix_add)
+			(*zclient->local_ip_prefix_add)(command, zclient,
+							length, vrf_id);
+		break;
+	case ZEBRA_IP_PREFIX_ROUTE_DEL:
+		if (zclient->local_ip_prefix_del)
+			(*zclient->local_ip_prefix_del)(command, zclient,
+							length, vrf_id);
+		break;
 	case ZEBRA_PW_STATUS_UPDATE:
 		if (zclient->pw_status_update)
 			(*zclient->pw_status_update)(command, zclient, length,

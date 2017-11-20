@@ -114,6 +114,8 @@ struct zserv {
 	u_int32_t l3vnidel_cnt;
 	u_int32_t macipadd_cnt;
 	u_int32_t macipdel_cnt;
+	u_int32_t prefixadd_cnt;
+	u_int32_t prefixdel_cnt;
 
 	time_t connect_time;
 	time_t last_read_time;
