@@ -1635,6 +1635,29 @@ void bgp_zebra_terminate_radv(struct bgp *bgp, struct peer *peer)
 	zclient_send_interface_radv_req(zclient, bgp->vrf_id, peer->ifp, 0, 0);
 }
 
+int bgp_zebra_advertise_subnet(struct bgp *bgp, int advertise, vni_t vni)
+{
+	struct stream *s = NULL;
+
+	/* Check socket. */
+	if (!zclient || zclient->sock < 0)
+		return 0;
+
+	/* Don't try to register if Zebra doesn't know of this instance. */
+	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
+		return 0;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_ADVERTISE_SUBNET, bgp->vrf_id);
+	stream_putc(s, advertise);
+	stream_put3(s, vni);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
+}
+
 int bgp_zebra_advertise_gw_macip(struct bgp *bgp, int advertise, vni_t vni)
 {
 	struct stream *s = NULL;
@@ -1821,6 +1844,53 @@ static int bgp_zebra_process_local_macip(int command, struct zclient *zclient,
 		return bgp_evpn_local_macip_del(bgp, vni, &mac, &ip);
 }
 
+static void bgp_zebra_process_local_ip_prefix(int cmd,
+					      struct zclient *zclient,
+					      zebra_size_t length,
+					      vrf_id_t vrf_id)
+{
+	struct stream *s = NULL;
+	struct bgp *bgp_vrf = NULL;
+	struct prefix p;
+	char buf[PREFIX_STRLEN];
+
+	memset(&p, 0, sizeof(struct prefix));
+	s = zclient->ibuf;
+	stream_get(&p, s, sizeof(struct prefix));
+
+	bgp_vrf = bgp_lookup_by_vrf_id(vrf_id);
+	if (!bgp_vrf)
+		return;
+
+	if (BGP_DEBUG(zebra, ZEBRA))
+		zlog_debug("Recv prefix %s %s on vrf %s",
+			   prefix2str(&p, buf, sizeof(buf)),
+			   (cmd == ZEBRA_IP_PREFIX_ROUTE_ADD) ? "ADD" : "DEL",
+			   vrf_id_to_name(vrf_id));
+
+	if (cmd == ZEBRA_IP_PREFIX_ROUTE_ADD) {
+
+		if (p.family == AF_INET)
+			return bgp_evpn_advertise_type5_route(bgp_vrf, &p,
+							      AFI_IP,
+							      SAFI_UNICAST);
+		else
+			return bgp_evpn_advertise_type5_route(bgp_vrf, &p,
+							      AFI_IP6,
+							      SAFI_UNICAST);
+
+	} else {
+		if (p.family == AF_INET)
+			return bgp_evpn_withdraw_type5_route(bgp_vrf, &p,
+							     AFI_IP,
+							     SAFI_UNICAST);
+		else
+			return bgp_evpn_withdraw_type5_route(bgp_vrf, &p,
+							     AFI_IP6,
+							     SAFI_UNICAST);
+	}
+}
+
 extern struct zebra_privs_t bgpd_privs;
 
 void bgp_zebra_init(struct thread_master *master)
@@ -1853,6 +1923,8 @@ void bgp_zebra_init(struct thread_master *master)
 	zclient->local_macip_del = bgp_zebra_process_local_macip;
 	zclient->local_l3vni_add = bgp_zebra_process_local_l3vni;
 	zclient->local_l3vni_del = bgp_zebra_process_local_l3vni;
+	zclient->local_ip_prefix_add = bgp_zebra_process_local_ip_prefix;
+	zclient->local_ip_prefix_del = bgp_zebra_process_local_ip_prefix;
 }
 
 void bgp_zebra_destroy(void)

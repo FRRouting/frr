@@ -65,6 +65,9 @@ struct bgpevpn {
 	/* Flag to indicate if we are advertising the g/w mac ip for this VNI*/
 	u_int8_t advertise_gw_macip;
 
+	/* Flag to indicate if we are advertising subnet for this VNI */
+	u_int8_t advertise_subnet;
+
 	/* Id for deriving the RD automatically for this VNI */
 	u_int16_t rd_id;
 

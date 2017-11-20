@@ -2272,6 +2272,32 @@ static void evpn_unset_advertise_default_gw(struct bgp *bgp,
 }
 
 /*
+ * evpn - enable advertisement of default g/w
+ */
+static void evpn_set_advertise_subnet(struct bgp *bgp,
+				      struct bgpevpn *vpn)
+{
+	if (vpn->advertise_subnet)
+		return;
+
+	vpn->advertise_subnet = 1;
+	bgp_zebra_advertise_subnet(bgp, vpn->advertise_subnet, vpn->vni);
+}
+
+/*
+ * evpn - disable advertisement of default g/w
+ */
+static void evpn_unset_advertise_subnet(struct bgp *bgp,
+					struct bgpevpn *vpn)
+{
+	if (!vpn->advertise_subnet)
+		return;
+
+	vpn->advertise_subnet = 0;
+	bgp_zebra_advertise_subnet(bgp, vpn->advertise_subnet, vpn->vni);
+}
+
+/*
  * EVPN (VNI advertisement) enabled. Register with zebra.
  */
 static void evpn_set_advertise_all_vni(struct bgp *bgp)
@@ -2329,6 +2355,9 @@ static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 
 		if (vpn->advertise_gw_macip)
 			vty_out(vty, "   advertise-default-gw\n");
+
+		if (vpn->advertise_subnet)
+			vty_out(vty, "   advertise-subnet\n");
 
 		vty_out(vty, "  exit-vni\n");
 	}
@@ -2437,6 +2466,56 @@ DEFUN (no_bgp_evpn_advertise_all_vni,
 	if (!bgp)
 		return CMD_WARNING;
 	evpn_unset_advertise_all_vni(bgp);
+	return CMD_SUCCESS;
+}
+
+DEFUN (bgp_evpn_advertise_vni_subnet,
+       bgp_evpn_advertise_vni_subnet_cmd,
+       "advertise-subnet",
+       "Advertise the subnet corresponding to VNI\n")
+{
+	struct bgp *bgp_vrf = NULL;
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
+
+	if (!bgp)
+		return CMD_WARNING;
+
+	if (!vpn)
+		return CMD_WARNING;
+
+	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
+	if (!bgp_vrf)
+		return CMD_WARNING;
+
+	if (!(advertise_type5_routes(bgp_vrf, AFI_IP) ||
+	      advertise_type5_routes(bgp_vrf, AFI_IP6))) {
+		vty_out(vty,
+			"%%Please enable ip prefix advertisement under l2vpn evpn in %s",
+			vrf_id_to_name(bgp_vrf->vrf_id));
+		return CMD_WARNING;
+	}
+
+	evpn_set_advertise_subnet(bgp, vpn);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_evpn_advertise_vni_subnet,
+       no_bgp_evpn_advertise_vni_subnet_cmd,
+       "no advertise-subnet",
+       NO_STR
+       "Advertise All local VNIs\n")
+{
+	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
+	VTY_DECLVAR_CONTEXT_SUB(bgpevpn, vpn);
+
+	if (!bgp)
+		return CMD_WARNING;
+
+	if (!vpn)
+		return CMD_WARNING;
+
+	evpn_unset_advertise_subnet(bgp, vpn);
 	return CMD_SUCCESS;
 }
 
@@ -4118,5 +4197,8 @@ void bgp_ethernetvpn_init(void)
 			&bgp_evpn_advertise_default_gw_vni_cmd);
 	install_element(BGP_EVPN_VNI_NODE,
 			&no_bgp_evpn_advertise_default_gw_vni_cmd);
+	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_advertise_vni_subnet_cmd);
+	install_element(BGP_EVPN_VNI_NODE,
+			&no_bgp_evpn_advertise_vni_subnet_cmd);
 #endif
 }

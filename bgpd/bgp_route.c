@@ -2226,9 +2226,9 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 	/* advertise/withdraw type-5 routes */
 	if ((afi == AFI_IP || afi == AFI_IP6) && (safi == SAFI_UNICAST)) {
 		if (new_select)
-			bgp_evpn_advertise_type5_route(bgp, rn, afi, safi);
+			bgp_evpn_advertise_type5_route(bgp, &rn->p, afi, safi);
 		else if (old_select)
-			bgp_evpn_withdraw_type5_route(bgp, rn, afi, safi);
+			bgp_evpn_withdraw_type5_route(bgp, &rn->p, afi, safi);
 	}
 
 	/* Clear any route change flags. */
