@@ -311,7 +311,7 @@ DEFUN (show_ip_rpf,
 {
 	int uj = use_json(argc, argv);
 	return do_show_ip_route(vty, VRF_DEFAULT_NAME, AFI_IP, SAFI_MULTICAST,
-				false, uj, 0, NULL, false, -1, 0);
+				false, uj, 0, NULL, false, 0, 0);
 }
 
 DEFUN (show_ip_rpf_addr,
