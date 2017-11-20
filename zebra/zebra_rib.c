@@ -1060,7 +1060,7 @@ int rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 
 	if (info->safi != SAFI_UNICAST) {
 		for (ALL_NEXTHOPS(re->nexthop, nexthop))
-			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		return ret;
 	}
 
