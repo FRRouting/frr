@@ -2056,12 +2056,10 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 				 sizeof(bgp->update_delay_zebra_resume_time));
 
 		bgp->main_zebra_update_hold = 0;
-		for (afi = AFI_IP; afi < AFI_MAX; afi++)
-			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-				if (bgp_fibupd_safi(safi))
-					bgp_zebra_announce_table(bgp, afi,
-								 safi);
-			}
+		FOREACH_AFI_SAFI (afi, safi) {
+			if (bgp_fibupd_safi(safi))
+				bgp_zebra_announce_table(bgp, afi, safi);
+		}
 		bgp->main_peers_update_hold = 0;
 
 		bgp_start_routeadv(bgp);
@@ -3434,9 +3432,8 @@ void bgp_announce_route_all(struct peer *peer)
 	afi_t afi;
 	safi_t safi;
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-			bgp_announce_route(peer, afi, safi);
+	FOREACH_AFI_SAFI (afi, safi)
+		bgp_announce_route(peer, afi, safi);
 }
 
 static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
@@ -3718,9 +3715,8 @@ void bgp_clear_route_all(struct peer *peer)
 	afi_t afi;
 	safi_t safi;
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-			bgp_clear_route(peer, afi, safi);
+	FOREACH_AFI_SAFI (afi, safi)
+		bgp_clear_route(peer, afi, safi);
 
 #if ENABLE_BGP_VNC
 	rfapiProcessPeerDown(peer);
@@ -4624,30 +4620,28 @@ void bgp_static_add(struct bgp *bgp)
 	struct bgp_table *table;
 	struct bgp_static *bgp_static;
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-			for (rn = bgp_table_top(bgp->route[afi][safi]); rn;
-			     rn = bgp_route_next(rn)) {
-				if (rn->info == NULL)
-					continue;
+	FOREACH_AFI_SAFI (afi, safi)
+		for (rn = bgp_table_top(bgp->route[afi][safi]); rn;
+		     rn = bgp_route_next(rn)) {
+			if (rn->info == NULL)
+				continue;
 
-				if ((safi == SAFI_MPLS_VPN)
-				    || (safi == SAFI_ENCAP)
-				    || (safi == SAFI_EVPN)) {
-					table = rn->info;
+			if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)
+			    || (safi == SAFI_EVPN)) {
+				table = rn->info;
 
-					for (rm = bgp_table_top(table); rm;
-					     rm = bgp_route_next(rm)) {
-						bgp_static = rm->info;
-						bgp_static_update_safi(
-							bgp, &rm->p, bgp_static,
-							afi, safi);
-					}
-				} else {
-					bgp_static_update(bgp, &rn->p, rn->info,
-							  afi, safi);
+				for (rm = bgp_table_top(table); rm;
+				     rm = bgp_route_next(rm)) {
+					bgp_static = rm->info;
+					bgp_static_update_safi(bgp, &rm->p,
+							       bgp_static, afi,
+							       safi);
 				}
+			} else {
+				bgp_static_update(bgp, &rn->p, rn->info, afi,
+						  safi);
 			}
+		}
 }
 
 /* Called from bgp_delete().  Delete all static routes from the BGP
@@ -4661,39 +4655,34 @@ void bgp_static_delete(struct bgp *bgp)
 	struct bgp_table *table;
 	struct bgp_static *bgp_static;
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-			for (rn = bgp_table_top(bgp->route[afi][safi]); rn;
-			     rn = bgp_route_next(rn)) {
-				if (rn->info == NULL)
-					continue;
+	FOREACH_AFI_SAFI (afi, safi)
+		for (rn = bgp_table_top(bgp->route[afi][safi]); rn;
+		     rn = bgp_route_next(rn)) {
+			if (rn->info == NULL)
+				continue;
 
-				if ((safi == SAFI_MPLS_VPN)
-				    || (safi == SAFI_ENCAP)
-				    || (safi == SAFI_EVPN)) {
-					table = rn->info;
+			if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)
+			    || (safi == SAFI_EVPN)) {
+				table = rn->info;
 
-					for (rm = bgp_table_top(table); rm;
-					     rm = bgp_route_next(rm)) {
-						bgp_static = rm->info;
-						bgp_static_withdraw_safi(
-							bgp, &rm->p, AFI_IP,
-							safi,
-							(struct prefix_rd *)&rn
-								->p);
-						bgp_static_free(bgp_static);
-						rn->info = NULL;
-						bgp_unlock_node(rn);
-					}
-				} else {
-					bgp_static = rn->info;
-					bgp_static_withdraw(bgp, &rn->p, afi,
-							    safi);
+				for (rm = bgp_table_top(table); rm;
+				     rm = bgp_route_next(rm)) {
+					bgp_static = rm->info;
+					bgp_static_withdraw_safi(
+						bgp, &rm->p, AFI_IP, safi,
+						(struct prefix_rd *)&rn->p);
 					bgp_static_free(bgp_static);
 					rn->info = NULL;
 					bgp_unlock_node(rn);
 				}
+			} else {
+				bgp_static = rn->info;
+				bgp_static_withdraw(bgp, &rn->p, afi, safi);
+				bgp_static_free(bgp_static);
+				rn->info = NULL;
+				bgp_unlock_node(rn);
 			}
+		}
 }
 
 void bgp_static_redo_import_check(struct bgp *bgp)
@@ -4707,32 +4696,30 @@ void bgp_static_redo_import_check(struct bgp *bgp)
 
 	/* Use this flag to force reprocessing of the route */
 	bgp_flag_set(bgp, BGP_FLAG_FORCE_STATIC_PROCESS);
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-			for (rn = bgp_table_top(bgp->route[afi][safi]); rn;
-			     rn = bgp_route_next(rn)) {
-				if (rn->info == NULL)
-					continue;
+	FOREACH_AFI_SAFI (afi, safi) {
+		for (rn = bgp_table_top(bgp->route[afi][safi]); rn;
+		     rn = bgp_route_next(rn)) {
+			if (rn->info == NULL)
+				continue;
 
-				if ((safi == SAFI_MPLS_VPN)
-				    || (safi == SAFI_ENCAP)
-				    || (safi == SAFI_EVPN)) {
-					table = rn->info;
+			if ((safi == SAFI_MPLS_VPN) || (safi == SAFI_ENCAP)
+			    || (safi == SAFI_EVPN)) {
+				table = rn->info;
 
-					for (rm = bgp_table_top(table); rm;
-					     rm = bgp_route_next(rm)) {
-						bgp_static = rm->info;
-						bgp_static_update_safi(
-							bgp, &rm->p, bgp_static,
-							afi, safi);
-					}
-				} else {
-					bgp_static = rn->info;
-					bgp_static_update(bgp, &rn->p,
-							  bgp_static, afi,
-							  safi);
+				for (rm = bgp_table_top(table); rm;
+				     rm = bgp_route_next(rm)) {
+					bgp_static = rm->info;
+					bgp_static_update_safi(bgp, &rm->p,
+							       bgp_static, afi,
+							       safi);
 				}
+			} else {
+				bgp_static = rn->info;
+				bgp_static_update(bgp, &rn->p, bgp_static, afi,
+						  safi);
 			}
+		}
+	}
 	bgp_flag_unset(bgp, BGP_FLAG_FORCE_STATIC_PROCESS);
 }
 
@@ -4771,9 +4758,8 @@ void bgp_purge_static_redist_routes(struct bgp *bgp)
 	afi_t afi;
 	safi_t safi;
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-			bgp_purge_af_static_redist_routes(bgp, afi, safi);
+	FOREACH_AFI_SAFI (afi, safi)
+		bgp_purge_af_static_redist_routes(bgp, afi, safi);
 }
 
 /*
@@ -11350,10 +11336,8 @@ void bgp_route_init(void)
 	safi_t safi;
 
 	/* Init BGP distance table. */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-			bgp_distance_table[afi][safi] =
-				bgp_table_init(afi, safi);
+	FOREACH_AFI_SAFI (afi, safi)
+		bgp_distance_table[afi][safi] = bgp_table_init(afi, safi);
 
 	/* IPv4 BGP commands. */
 	install_element(BGP_NODE, &bgp_table_map_cmd);
@@ -11525,9 +11509,8 @@ void bgp_route_finish(void)
 	afi_t afi;
 	safi_t safi;
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			bgp_table_unlock(bgp_distance_table[afi][safi]);
-			bgp_distance_table[afi][safi] = NULL;
-		}
+	FOREACH_AFI_SAFI (afi, safi) {
+		bgp_table_unlock(bgp_distance_table[afi][safi]);
+		bgp_distance_table[afi][safi] = NULL;
+	}
 }

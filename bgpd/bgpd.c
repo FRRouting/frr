@@ -1121,18 +1121,17 @@ struct peer *peer_new(struct bgp *bgp)
 	peer->password = NULL;
 
 	/* Set default flags.  */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			if (!bgp_option_check(BGP_OPT_CONFIG_CISCO)) {
-				SET_FLAG(peer->af_flags[afi][safi],
-					 PEER_FLAG_SEND_COMMUNITY);
-				SET_FLAG(peer->af_flags[afi][safi],
-					 PEER_FLAG_SEND_EXT_COMMUNITY);
-				SET_FLAG(peer->af_flags[afi][safi],
-					 PEER_FLAG_SEND_LARGE_COMMUNITY);
-			}
-			peer->orf_plist[afi][safi] = NULL;
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (!bgp_option_check(BGP_OPT_CONFIG_CISCO)) {
+			SET_FLAG(peer->af_flags[afi][safi],
+				 PEER_FLAG_SEND_COMMUNITY);
+			SET_FLAG(peer->af_flags[afi][safi],
+				 PEER_FLAG_SEND_EXT_COMMUNITY);
+			SET_FLAG(peer->af_flags[afi][safi],
+				 PEER_FLAG_SEND_LARGE_COMMUNITY);
 		}
+		peer->orf_plist[afi][safi] = NULL;
+	}
 	SET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
 
 	/* Create buffers.  */
@@ -1214,16 +1213,13 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 		peer_dst->password =
 			XSTRDUP(MTYPE_PEER_PASSWORD, peer_src->password);
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			peer_dst->afc[afi][safi] = peer_src->afc[afi][safi];
-			peer_dst->af_flags[afi][safi] =
-				peer_src->af_flags[afi][safi];
-			peer_dst->allowas_in[afi][safi] =
-				peer_src->allowas_in[afi][safi];
-			peer_dst->weight[afi][safi] =
-				peer_src->weight[afi][safi];
-		}
+	FOREACH_AFI_SAFI (afi, safi) {
+		peer_dst->afc[afi][safi] = peer_src->afc[afi][safi];
+		peer_dst->af_flags[afi][safi] = peer_src->af_flags[afi][safi];
+		peer_dst->allowas_in[afi][safi] =
+			peer_src->allowas_in[afi][safi];
+		peer_dst->weight[afi][safi] = peer_src->weight[afi][safi];
+	}
 
 	for (afidx = BGP_AF_START; afidx < BGP_AF_MAX; afidx++) {
 		paf = peer_src->peer_af_array[afidx];
@@ -1425,10 +1421,8 @@ void bgp_recalculate_all_bestpaths(struct bgp *bgp)
 	afi_t afi;
 	safi_t safi;
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			bgp_recalculate_afi_safi_bestpaths(bgp, afi, safi);
-		}
+	FOREACH_AFI_SAFI (afi, safi) {
+		bgp_recalculate_afi_safi_bestpaths(bgp, afi, safi);
 	}
 }
 
@@ -2180,50 +2174,48 @@ int peer_delete(struct peer *peer)
 	}
 
 	/* Free filter related memory.  */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			filter = &peer->filter[afi][safi];
+	FOREACH_AFI_SAFI (afi, safi) {
+		filter = &peer->filter[afi][safi];
 
-			for (i = FILTER_IN; i < FILTER_MAX; i++) {
-				if (filter->dlist[i].name) {
-					XFREE(MTYPE_BGP_FILTER_NAME,
-					      filter->dlist[i].name);
-					filter->dlist[i].name = NULL;
-				}
-
-				if (filter->plist[i].name) {
-					XFREE(MTYPE_BGP_FILTER_NAME,
-					      filter->plist[i].name);
-					filter->plist[i].name = NULL;
-				}
-
-				if (filter->aslist[i].name) {
-					XFREE(MTYPE_BGP_FILTER_NAME,
-					      filter->aslist[i].name);
-					filter->aslist[i].name = NULL;
-				}
-			}
-
-			for (i = RMAP_IN; i < RMAP_MAX; i++) {
-				if (filter->map[i].name) {
-					XFREE(MTYPE_BGP_FILTER_NAME,
-					      filter->map[i].name);
-					filter->map[i].name = NULL;
-				}
-			}
-
-			if (filter->usmap.name) {
+		for (i = FILTER_IN; i < FILTER_MAX; i++) {
+			if (filter->dlist[i].name) {
 				XFREE(MTYPE_BGP_FILTER_NAME,
-				      filter->usmap.name);
-				filter->usmap.name = NULL;
+				      filter->dlist[i].name);
+				filter->dlist[i].name = NULL;
 			}
 
-			if (peer->default_rmap[afi][safi].name) {
-				XFREE(MTYPE_ROUTE_MAP_NAME,
-				      peer->default_rmap[afi][safi].name);
-				peer->default_rmap[afi][safi].name = NULL;
+			if (filter->plist[i].name) {
+				XFREE(MTYPE_BGP_FILTER_NAME,
+				      filter->plist[i].name);
+				filter->plist[i].name = NULL;
+			}
+
+			if (filter->aslist[i].name) {
+				XFREE(MTYPE_BGP_FILTER_NAME,
+				      filter->aslist[i].name);
+				filter->aslist[i].name = NULL;
 			}
 		}
+
+		for (i = RMAP_IN; i < RMAP_MAX; i++) {
+			if (filter->map[i].name) {
+				XFREE(MTYPE_BGP_FILTER_NAME,
+				      filter->map[i].name);
+				filter->map[i].name = NULL;
+			}
+		}
+
+		if (filter->usmap.name) {
+			XFREE(MTYPE_BGP_FILTER_NAME, filter->usmap.name);
+			filter->usmap.name = NULL;
+		}
+
+		if (peer->default_rmap[afi][safi].name) {
+			XFREE(MTYPE_ROUTE_MAP_NAME,
+			      peer->default_rmap[afi][safi].name);
+			peer->default_rmap[afi][safi].name = NULL;
+		}
+	}
 
 	FOREACH_AFI_SAFI (afi, safi)
 		peer_af_delete(peer, afi, safi);
@@ -2622,19 +2614,17 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 		if (peer->conf_if && cap_enhe_preset)
 			peer_flag_set(peer, PEER_FLAG_CAPABILITY_ENHE);
 
-		for (afi = AFI_IP; afi < AFI_MAX; afi++)
-			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-				if (group->conf->afc[afi][safi]) {
-					peer->afc[afi][safi] = 1;
+		FOREACH_AFI_SAFI (afi, safi) {
+			if (group->conf->afc[afi][safi]) {
+				peer->afc[afi][safi] = 1;
 
-					if (peer_af_find(peer, afi, safi)
-					    || peer_af_create(peer, afi,
-							      safi)) {
-						peer_group2peer_config_copy_af(
-							group, peer, afi, safi);
-					}
-				} else if (peer->afc[afi][safi])
-					peer_deactivate(peer, afi, safi);
+				if (peer_af_find(peer, afi, safi)
+				    || peer_af_create(peer, afi, safi)) {
+					peer_group2peer_config_copy_af(
+						group, peer, afi, safi);
+				}
+			} else if (peer->afc[afi][safi])
+				peer_deactivate(peer, afi, safi);
 			}
 
 		if (peer->group) {
@@ -2704,15 +2694,15 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 
 		/* If the peer-group is active for this afi/safi then activate
 		 * for this peer */
-		for (afi = AFI_IP; afi < AFI_MAX; afi++)
-			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-				if (group->conf->afc[afi][safi]) {
-					peer->afc[afi][safi] = 1;
-					peer_af_create(peer, afi, safi);
-					peer_group2peer_config_copy_af(
-						group, peer, afi, safi);
-				} else if (peer->afc[afi][safi])
-					peer_deactivate(peer, afi, safi);
+		FOREACH_AFI_SAFI (afi, safi) {
+			if (group->conf->afc[afi][safi]) {
+				peer->afc[afi][safi] = 1;
+				peer_af_create(peer, afi, safi);
+				peer_group2peer_config_copy_af(group, peer, afi,
+							       safi);
+			} else if (peer->afc[afi][safi])
+				peer_deactivate(peer, afi, safi);
+		}
 
 		SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 
@@ -2734,19 +2724,18 @@ int peer_group_unbind(struct bgp *bgp, struct peer *peer,
 	if (group != peer->group)
 		return BGP_ERR_PEER_GROUP_MISMATCH;
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			if (peer->afc[afi][safi]) {
-				peer->afc[afi][safi] = 0;
-				peer_af_flag_reset(peer, afi, safi);
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (peer->afc[afi][safi]) {
+			peer->afc[afi][safi] = 0;
+			peer_af_flag_reset(peer, afi, safi);
 
-				if (peer_af_delete(peer, afi, safi) != 0) {
-					zlog_err(
-						"couldn't delete af structure for peer %s",
-						peer->host);
-				}
+			if (peer_af_delete(peer, afi, safi) != 0) {
+				zlog_err(
+					"couldn't delete af structure for peer %s",
+					peer->host);
 			}
 		}
+	}
 
 	assert(listnode_lookup(group->peer, peer));
 	peer_unlock(peer); /* peer group list reference */
@@ -2846,18 +2835,17 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->group = list_new();
 	bgp->group->cmp = (int (*)(void *, void *))peer_group_cmp;
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			bgp->route[afi][safi] = bgp_table_init(afi, safi);
-			bgp->aggregate[afi][safi] = bgp_table_init(afi, safi);
-			bgp->rib[afi][safi] = bgp_table_init(afi, safi);
+	FOREACH_AFI_SAFI (afi, safi) {
+		bgp->route[afi][safi] = bgp_table_init(afi, safi);
+		bgp->aggregate[afi][safi] = bgp_table_init(afi, safi);
+		bgp->rib[afi][safi] = bgp_table_init(afi, safi);
 
-			/* Enable maximum-paths */
-			bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_EBGP,
-					      multipath_num, 0);
-			bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_IBGP,
-					      multipath_num, 0);
-		}
+		/* Enable maximum-paths */
+		bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_EBGP,
+				      multipath_num, 0);
+		bgp_maximum_paths_set(bgp, afi, safi, BGP_PEER_IBGP,
+				      multipath_num, 0);
+	}
 
 	bgp->v_update_delay = BGP_UPDATE_DELAY_DEF;
 	bgp->default_local_pref = BGP_DEFAULT_LOCAL_PREF;
@@ -3206,27 +3194,26 @@ void bgp_free(struct bgp *bgp)
 		bgp->peerhash = NULL;
 	}
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			/* Special handling for 2-level routing tables. */
-			if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
-			    || safi == SAFI_EVPN) {
-				for (rn = bgp_table_top(bgp->rib[afi][safi]);
-				     rn; rn = bgp_route_next(rn)) {
-					table = (struct bgp_table *)rn->info;
-					bgp_table_finish(&table);
-				}
+	FOREACH_AFI_SAFI (afi, safi) {
+		/* Special handling for 2-level routing tables. */
+		if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
+		    || safi == SAFI_EVPN) {
+			for (rn = bgp_table_top(bgp->rib[afi][safi]); rn;
+			     rn = bgp_route_next(rn)) {
+				table = (struct bgp_table *)rn->info;
+				bgp_table_finish(&table);
 			}
-			if (bgp->route[afi][safi])
-				bgp_table_finish(&bgp->route[afi][safi]);
-			if (bgp->aggregate[afi][safi])
-				bgp_table_finish(&bgp->aggregate[afi][safi]);
-			if (bgp->rib[afi][safi])
-				bgp_table_finish(&bgp->rib[afi][safi]);
-			rmap = &bgp->table_map[afi][safi];
-			if (rmap->name)
-				XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
 		}
+		if (bgp->route[afi][safi])
+			bgp_table_finish(&bgp->route[afi][safi]);
+		if (bgp->aggregate[afi][safi])
+			bgp_table_finish(&bgp->aggregate[afi][safi]);
+		if (bgp->rib[afi][safi])
+			bgp_table_finish(&bgp->rib[afi][safi]);
+		rmap = &bgp->table_map[afi][safi];
+		if (rmap->name)
+			XFREE(MTYPE_ROUTE_MAP_NAME, rmap->name);
+	}
 
 	bgp_scan_finish(bgp);
 	bgp_address_destroy(bgp);
@@ -3360,17 +3347,16 @@ struct peer *peer_create_bind_dynamic_neighbor(struct bgp *bgp,
 	 * peer_group_bind as that is sub-optimal and does some stuff we don't
 	 * want.
 	 */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			if (!group->conf->afc[afi][safi])
-				continue;
-			peer->afc[afi][safi] = 1;
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (!group->conf->afc[afi][safi])
+			continue;
+		peer->afc[afi][safi] = 1;
 
-			if (!peer_af_find(peer, afi, safi))
-				peer_af_create(peer, afi, safi);
+		if (!peer_af_find(peer, afi, safi))
+			peer_af_create(peer, afi, safi);
 
-			peer_group2peer_config_copy_af(group, peer, afi, safi);
-		}
+		peer_group2peer_config_copy_af(group, peer, afi, safi);
+	}
 
 	/* Mark as dynamic, but also as a "config node" for other things to
 	 * work. */
@@ -5237,45 +5223,40 @@ static void peer_distribute_update(struct access_list *access)
 			update_group_policy_update(bgp, BGP_POLICY_FILTER_LIST,
 						   access->name, 0, 0);
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			for (afi = AFI_IP; afi < AFI_MAX; afi++)
-				for (safi = SAFI_UNICAST; safi < SAFI_MAX;
-				     safi++) {
-					filter = &peer->filter[afi][safi];
+			FOREACH_AFI_SAFI (afi, safi) {
+				filter = &peer->filter[afi][safi];
 
-					for (direct = FILTER_IN;
-					     direct < FILTER_MAX; direct++) {
-						if (filter->dlist[direct].name)
+				for (direct = FILTER_IN; direct < FILTER_MAX;
+				     direct++) {
+					if (filter->dlist[direct].name)
+						filter->dlist[direct]
+							.alist = access_list_lookup(
+							afi,
 							filter->dlist[direct]
-								.alist = access_list_lookup(
-								afi,
-								filter->dlist[direct]
-									.name);
-						else
-							filter->dlist[direct]
-								.alist = NULL;
-					}
+								.name);
+					else
+						filter->dlist[direct].alist =
+							NULL;
 				}
+			}
 		}
 		for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
-			for (afi = AFI_IP; afi < AFI_MAX; afi++)
-				for (safi = SAFI_UNICAST; safi < SAFI_MAX;
-				     safi++) {
-					filter =
-						&group->conf->filter[afi][safi];
+			FOREACH_AFI_SAFI (afi, safi) {
+				filter = &group->conf->filter[afi][safi];
 
-					for (direct = FILTER_IN;
-					     direct < FILTER_MAX; direct++) {
-						if (filter->dlist[direct].name)
+				for (direct = FILTER_IN; direct < FILTER_MAX;
+				     direct++) {
+					if (filter->dlist[direct].name)
+						filter->dlist[direct]
+							.alist = access_list_lookup(
+							afi,
 							filter->dlist[direct]
-								.alist = access_list_lookup(
-								afi,
-								filter->dlist[direct]
-									.name);
-						else
-							filter->dlist[direct]
-								.alist = NULL;
-					}
+								.name);
+					else
+						filter->dlist[direct].alist =
+							NULL;
 				}
+			}
 		}
 #if ENABLE_BGP_VNC
 		vnc_prefix_list_update(bgp);
@@ -5408,45 +5389,40 @@ static void peer_prefix_list_update(struct prefix_list *plist)
 			plist ? prefix_list_name(plist) : NULL, 0, 0);
 
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			for (afi = AFI_IP; afi < AFI_MAX; afi++)
-				for (safi = SAFI_UNICAST; safi < SAFI_MAX;
-				     safi++) {
-					filter = &peer->filter[afi][safi];
+			FOREACH_AFI_SAFI (afi, safi) {
+				filter = &peer->filter[afi][safi];
 
-					for (direct = FILTER_IN;
-					     direct < FILTER_MAX; direct++) {
-						if (filter->plist[direct].name)
+				for (direct = FILTER_IN; direct < FILTER_MAX;
+				     direct++) {
+					if (filter->plist[direct].name)
+						filter->plist[direct]
+							.plist = prefix_list_lookup(
+							afi,
 							filter->plist[direct]
-								.plist = prefix_list_lookup(
-								afi,
-								filter->plist[direct]
-									.name);
-						else
-							filter->plist[direct]
-								.plist = NULL;
-					}
+								.name);
+					else
+						filter->plist[direct].plist =
+							NULL;
 				}
+			}
 		}
 		for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
-			for (afi = AFI_IP; afi < AFI_MAX; afi++)
-				for (safi = SAFI_UNICAST; safi < SAFI_MAX;
-				     safi++) {
-					filter =
-						&group->conf->filter[afi][safi];
+			FOREACH_AFI_SAFI (afi, safi) {
+				filter = &group->conf->filter[afi][safi];
 
-					for (direct = FILTER_IN;
-					     direct < FILTER_MAX; direct++) {
-						if (filter->plist[direct].name)
+				for (direct = FILTER_IN; direct < FILTER_MAX;
+				     direct++) {
+					if (filter->plist[direct].name)
+						filter->plist[direct]
+							.plist = prefix_list_lookup(
+							afi,
 							filter->plist[direct]
-								.plist = prefix_list_lookup(
-								afi,
-								filter->plist[direct]
-									.name);
-						else
-							filter->plist[direct]
-								.plist = NULL;
-					}
+								.name);
+					else
+						filter->plist[direct].plist =
+							NULL;
 				}
+			}
 		}
 	}
 }
@@ -5565,43 +5541,38 @@ static void peer_aslist_update(const char *aslist_name)
 					   aslist_name, 0, 0);
 
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			for (afi = AFI_IP; afi < AFI_MAX; afi++)
-				for (safi = SAFI_UNICAST; safi < SAFI_MAX;
-				     safi++) {
-					filter = &peer->filter[afi][safi];
+			FOREACH_AFI_SAFI (afi, safi) {
+				filter = &peer->filter[afi][safi];
 
-					for (direct = FILTER_IN;
-					     direct < FILTER_MAX; direct++) {
-						if (filter->aslist[direct].name)
+				for (direct = FILTER_IN; direct < FILTER_MAX;
+				     direct++) {
+					if (filter->aslist[direct].name)
+						filter->aslist[direct]
+							.aslist = as_list_lookup(
 							filter->aslist[direct]
-								.aslist = as_list_lookup(
-								filter->aslist[direct]
-									.name);
-						else
-							filter->aslist[direct]
-								.aslist = NULL;
-					}
+								.name);
+					else
+						filter->aslist[direct].aslist =
+							NULL;
 				}
+			}
 		}
 		for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
-			for (afi = AFI_IP; afi < AFI_MAX; afi++)
-				for (safi = SAFI_UNICAST; safi < SAFI_MAX;
-				     safi++) {
-					filter =
-						&group->conf->filter[afi][safi];
+			FOREACH_AFI_SAFI (afi, safi) {
+				filter = &group->conf->filter[afi][safi];
 
-					for (direct = FILTER_IN;
-					     direct < FILTER_MAX; direct++) {
-						if (filter->aslist[direct].name)
+				for (direct = FILTER_IN; direct < FILTER_MAX;
+				     direct++) {
+					if (filter->aslist[direct].name)
+						filter->aslist[direct]
+							.aslist = as_list_lookup(
 							filter->aslist[direct]
-								.aslist = as_list_lookup(
-								filter->aslist[direct]
-									.name);
-						else
-							filter->aslist[direct]
-								.aslist = NULL;
-					}
+								.name);
+					else
+						filter->aslist[direct].aslist =
+							NULL;
 				}
+			}
 		}
 	}
 }

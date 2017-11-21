@@ -1654,15 +1654,13 @@ DEFUN (no_bgp_deterministic_med,
 		bestpath_per_as_used = 0;
 
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-			for (afi = AFI_IP; afi < AFI_MAX; afi++)
-				for (safi = SAFI_UNICAST; safi < SAFI_MAX;
-				     safi++)
-					if (CHECK_FLAG(
-						    peer->af_flags[afi][safi],
-						    PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS)) {
-						bestpath_per_as_used = 1;
-						break;
-					}
+			FOREACH_AFI_SAFI (afi, safi)
+				if (CHECK_FLAG(
+					    peer->af_flags[afi][safi],
+					    PEER_FLAG_ADDPATH_TX_BESTPATH_PER_AS)) {
+					bestpath_per_as_used = 1;
+					break;
+				}
 
 			if (bestpath_per_as_used)
 				break;
@@ -8403,132 +8401,119 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 
 					json_add = json_object_new_object();
 
-					for (afi = AFI_IP; afi < AFI_MAX; afi++)
-						for (safi = SAFI_UNICAST;
-						     safi < SAFI_MAX; safi++) {
-							json_object *json_sub =
-								NULL;
-							json_sub =
-								json_object_new_object();
-							print_store =
-								afi_safi_print(
-									afi,
-									safi);
+					FOREACH_AFI_SAFI (afi, safi) {
+						json_object *json_sub = NULL;
+						json_sub =
+							json_object_new_object();
+						print_store = afi_safi_print(
+							afi, safi);
 
+						if (CHECK_FLAG(
+							    p->af_cap[afi]
+								     [safi],
+							    PEER_CAP_ADDPATH_AF_TX_ADV)
+						    || CHECK_FLAG(
+							       p->af_cap[afi]
+									[safi],
+							       PEER_CAP_ADDPATH_AF_TX_RCV)) {
 							if (CHECK_FLAG(
 								    p->af_cap
 									    [afi]
 									    [safi],
 								    PEER_CAP_ADDPATH_AF_TX_ADV)
-							    || CHECK_FLAG(
+							    && CHECK_FLAG(
 								       p->af_cap
 									       [afi]
 									       [safi],
-								       PEER_CAP_ADDPATH_AF_TX_RCV)) {
-								if (CHECK_FLAG(
-									    p->af_cap
-										    [afi]
-										    [safi],
-									    PEER_CAP_ADDPATH_AF_TX_ADV)
-								    && CHECK_FLAG(
-									       p->af_cap
-										       [afi]
-										       [safi],
-									       PEER_CAP_ADDPATH_AF_TX_RCV))
-									json_object_boolean_true_add(
-										json_sub,
-										"txAdvertisedAndReceived");
-								else if (
-									CHECK_FLAG(
-										p->af_cap
-											[afi]
-											[safi],
-										PEER_CAP_ADDPATH_AF_TX_ADV))
-									json_object_boolean_true_add(
-										json_sub,
-										"txAdvertised");
-								else if (
-									CHECK_FLAG(
-										p->af_cap
-											[afi]
-											[safi],
-										PEER_CAP_ADDPATH_AF_TX_RCV))
-									json_object_boolean_true_add(
-										json_sub,
-										"txReceived");
-							}
+								       PEER_CAP_ADDPATH_AF_TX_RCV))
+								json_object_boolean_true_add(
+									json_sub,
+									"txAdvertisedAndReceived");
+							else if (
+								CHECK_FLAG(
+									p->af_cap
+										[afi]
+										[safi],
+									PEER_CAP_ADDPATH_AF_TX_ADV))
+								json_object_boolean_true_add(
+									json_sub,
+									"txAdvertised");
+							else if (
+								CHECK_FLAG(
+									p->af_cap
+										[afi]
+										[safi],
+									PEER_CAP_ADDPATH_AF_TX_RCV))
+								json_object_boolean_true_add(
+									json_sub,
+									"txReceived");
+						}
 
+						if (CHECK_FLAG(
+							    p->af_cap[afi]
+								     [safi],
+							    PEER_CAP_ADDPATH_AF_RX_ADV)
+						    || CHECK_FLAG(
+							       p->af_cap[afi]
+									[safi],
+							       PEER_CAP_ADDPATH_AF_RX_RCV)) {
 							if (CHECK_FLAG(
 								    p->af_cap
 									    [afi]
 									    [safi],
 								    PEER_CAP_ADDPATH_AF_RX_ADV)
-							    || CHECK_FLAG(
-								       p->af_cap
-									       [afi]
-									       [safi],
-								       PEER_CAP_ADDPATH_AF_RX_RCV)) {
-								if (CHECK_FLAG(
-									    p->af_cap
-										    [afi]
-										    [safi],
-									    PEER_CAP_ADDPATH_AF_RX_ADV)
-								    && CHECK_FLAG(
-									       p->af_cap
-										       [afi]
-										       [safi],
-									       PEER_CAP_ADDPATH_AF_RX_RCV))
-									json_object_boolean_true_add(
-										json_sub,
-										"rxAdvertisedAndReceived");
-								else if (
-									CHECK_FLAG(
-										p->af_cap
-											[afi]
-											[safi],
-										PEER_CAP_ADDPATH_AF_RX_ADV))
-									json_object_boolean_true_add(
-										json_sub,
-										"rxAdvertised");
-								else if (
-									CHECK_FLAG(
-										p->af_cap
-											[afi]
-											[safi],
-										PEER_CAP_ADDPATH_AF_RX_RCV))
-									json_object_boolean_true_add(
-										json_sub,
-										"rxReceived");
-							}
-
-							if (CHECK_FLAG(
-								    p->af_cap
-									    [afi]
-									    [safi],
-								    PEER_CAP_ADDPATH_AF_TX_ADV)
-							    || CHECK_FLAG(
-								       p->af_cap
-									       [afi]
-									       [safi],
-								       PEER_CAP_ADDPATH_AF_TX_RCV)
-							    || CHECK_FLAG(
-								       p->af_cap
-									       [afi]
-									       [safi],
-								       PEER_CAP_ADDPATH_AF_RX_ADV)
-							    || CHECK_FLAG(
+							    && CHECK_FLAG(
 								       p->af_cap
 									       [afi]
 									       [safi],
 								       PEER_CAP_ADDPATH_AF_RX_RCV))
-								json_object_object_add(
-									json_add,
-									print_store,
-									json_sub);
-							else
-								json_object_free(
-									json_sub);
+								json_object_boolean_true_add(
+									json_sub,
+									"rxAdvertisedAndReceived");
+							else if (
+								CHECK_FLAG(
+									p->af_cap
+										[afi]
+										[safi],
+									PEER_CAP_ADDPATH_AF_RX_ADV))
+								json_object_boolean_true_add(
+									json_sub,
+									"rxAdvertised");
+							else if (
+								CHECK_FLAG(
+									p->af_cap
+										[afi]
+										[safi],
+									PEER_CAP_ADDPATH_AF_RX_RCV))
+								json_object_boolean_true_add(
+									json_sub,
+									"rxReceived");
 						}
+
+						if (CHECK_FLAG(
+							    p->af_cap[afi]
+								     [safi],
+							    PEER_CAP_ADDPATH_AF_TX_ADV)
+						    || CHECK_FLAG(
+							       p->af_cap[afi]
+									[safi],
+							       PEER_CAP_ADDPATH_AF_TX_RCV)
+						    || CHECK_FLAG(
+							       p->af_cap[afi]
+									[safi],
+							       PEER_CAP_ADDPATH_AF_RX_ADV)
+						    || CHECK_FLAG(
+							       p->af_cap[afi]
+									[safi],
+							       PEER_CAP_ADDPATH_AF_RX_RCV))
+							json_object_object_add(
+								json_add,
+								print_store,
+								json_sub);
+						else
+							json_object_free(
+								json_sub);
+					}
 
 					json_object_object_add(
 						json_cap, "addPath", json_add);
@@ -8678,45 +8663,32 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 				json_object *json_multi = NULL;
 				json_multi = json_object_new_object();
 
-				for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-					for (safi = SAFI_UNICAST;
-					     safi < SAFI_MAX; safi++) {
+				FOREACH_AFI_SAFI (afi, safi) {
+					if (p->afc_adv[afi][safi]
+					    || p->afc_recv[afi][safi]) {
+						json_object *json_exten = NULL;
+						json_exten =
+							json_object_new_object();
+
 						if (p->afc_adv[afi][safi]
-						    || p->afc_recv[afi][safi]) {
-							json_object
-								*json_exten =
-									NULL;
-							json_exten =
-								json_object_new_object();
+						    && p->afc_recv[afi][safi])
+							json_object_boolean_true_add(
+								json_exten,
+								"advertisedAndReceived");
+						else if (p->afc_adv[afi][safi])
+							json_object_boolean_true_add(
+								json_exten,
+								"advertised");
+						else if (p->afc_recv[afi][safi])
+							json_object_boolean_true_add(
+								json_exten,
+								"received");
 
-							if (p->afc_adv[afi]
-								      [safi]
-							    && p->afc_recv
-								       [afi]
-								       [safi])
-								json_object_boolean_true_add(
-									json_exten,
-									"advertisedAndReceived");
-							else if (p->afc_adv
-									 [afi]
-									 [safi])
-								json_object_boolean_true_add(
-									json_exten,
-									"advertised");
-							else if (p->afc_recv
-									 [afi]
-									 [safi])
-								json_object_boolean_true_add(
-									json_exten,
-									"received");
-
-							json_object_object_add(
-								json_multi,
-								afi_safi_print(
-									afi,
-									safi),
-								json_exten);
-						}
+						json_object_object_add(
+							json_multi,
+							afi_safi_print(afi,
+								       safi),
+							json_exten);
 					}
 				}
 				json_object_object_add(
@@ -8798,37 +8770,33 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 							"gracefulRestartRemoteTimerMsecs",
 							p->v_gr_restart * 1000);
 
-						for (afi = AFI_IP;
-						     afi < AFI_MAX; afi++) {
-							for (safi = SAFI_UNICAST;
-							     safi < SAFI_MAX;
-							     safi++) {
+						FOREACH_AFI_SAFI (afi, safi) {
+							if (CHECK_FLAG(
+								    p->af_cap
+									    [afi]
+									    [safi],
+								    PEER_CAP_RESTART_AF_RCV)) {
+								json_object *
+									json_sub =
+										NULL;
+								json_sub =
+									json_object_new_object();
+
 								if (CHECK_FLAG(
 									    p->af_cap
 										    [afi]
 										    [safi],
-									    PEER_CAP_RESTART_AF_RCV)) {
-									json_object *json_sub =
-										NULL;
-									json_sub =
-										json_object_new_object();
-
-									if (CHECK_FLAG(
-										    p->af_cap
-											    [afi]
-											    [safi],
-										    PEER_CAP_RESTART_AF_PRESERVE_RCV))
-										json_object_boolean_true_add(
-											json_sub,
-											"preserved");
-									restart_af_count++;
-									json_object_object_add(
-										json_restart,
-										afi_safi_print(
-											afi,
-											safi),
-										json_sub);
-								}
+									    PEER_CAP_RESTART_AF_PRESERVE_RCV))
+									json_object_boolean_true_add(
+										json_sub,
+										"preserved");
+								restart_af_count++;
+								json_object_object_add(
+									json_restart,
+									afi_safi_print(
+										afi,
+										safi),
+									json_sub);
 							}
 						}
 						if (!restart_af_count) {
@@ -8875,101 +8843,93 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 						  PEER_CAP_ADDPATH_ADV)) {
 					vty_out(vty, "    AddPath:\n");
 
-					for (afi = AFI_IP; afi < AFI_MAX; afi++)
-						for (safi = SAFI_UNICAST;
-						     safi < SAFI_MAX; safi++) {
-							if (CHECK_FLAG(
-								    p->af_cap
-									    [afi]
-									    [safi],
-								    PEER_CAP_ADDPATH_AF_TX_ADV)
-							    || CHECK_FLAG(
-								       p->af_cap
-									       [afi]
-									       [safi],
-								       PEER_CAP_ADDPATH_AF_TX_RCV)) {
-								vty_out(vty,
-									"      %s: TX ",
-									afi_safi_print(
-										afi,
-										safi));
-
-								if (CHECK_FLAG(
-									    p->af_cap
-										    [afi]
-										    [safi],
-									    PEER_CAP_ADDPATH_AF_TX_ADV))
-									vty_out(vty,
-										"advertised %s",
-										afi_safi_print(
-											afi,
-											safi));
-
-								if (CHECK_FLAG(
-									    p->af_cap
-										    [afi]
-										    [safi],
-									    PEER_CAP_ADDPATH_AF_TX_RCV))
-									vty_out(vty,
-										"%sreceived",
-										CHECK_FLAG(
-											p->af_cap
-												[afi]
-												[safi],
-											PEER_CAP_ADDPATH_AF_TX_ADV)
-											? " and "
-											: "");
-
-								vty_out(vty,
-									"\n");
-							}
+					FOREACH_AFI_SAFI (afi, safi) {
+						if (CHECK_FLAG(
+							    p->af_cap[afi]
+								     [safi],
+							    PEER_CAP_ADDPATH_AF_TX_ADV)
+						    || CHECK_FLAG(
+							       p->af_cap[afi]
+									[safi],
+							       PEER_CAP_ADDPATH_AF_TX_RCV)) {
+							vty_out(vty,
+								"      %s: TX ",
+								afi_safi_print(
+									afi,
+									safi));
 
 							if (CHECK_FLAG(
 								    p->af_cap
 									    [afi]
 									    [safi],
-								    PEER_CAP_ADDPATH_AF_RX_ADV)
-							    || CHECK_FLAG(
-								       p->af_cap
-									       [afi]
-									       [safi],
-								       PEER_CAP_ADDPATH_AF_RX_RCV)) {
+								    PEER_CAP_ADDPATH_AF_TX_ADV))
 								vty_out(vty,
-									"      %s: RX ",
+									"advertised %s",
 									afi_safi_print(
 										afi,
 										safi));
 
-								if (CHECK_FLAG(
-									    p->af_cap
-										    [afi]
-										    [safi],
-									    PEER_CAP_ADDPATH_AF_RX_ADV))
-									vty_out(vty,
-										"advertised %s",
-										afi_safi_print(
-											afi,
-											safi));
-
-								if (CHECK_FLAG(
-									    p->af_cap
-										    [afi]
-										    [safi],
-									    PEER_CAP_ADDPATH_AF_RX_RCV))
-									vty_out(vty,
-										"%sreceived",
-										CHECK_FLAG(
-											p->af_cap
-												[afi]
-												[safi],
-											PEER_CAP_ADDPATH_AF_RX_ADV)
-											? " and "
-											: "");
-
+							if (CHECK_FLAG(
+								    p->af_cap
+									    [afi]
+									    [safi],
+								    PEER_CAP_ADDPATH_AF_TX_RCV))
 								vty_out(vty,
-									"\n");
-							}
+									"%sreceived",
+									CHECK_FLAG(
+										p->af_cap
+											[afi]
+											[safi],
+										PEER_CAP_ADDPATH_AF_TX_ADV)
+										? " and "
+										: "");
+
+							vty_out(vty, "\n");
 						}
+
+						if (CHECK_FLAG(
+							    p->af_cap[afi]
+								     [safi],
+							    PEER_CAP_ADDPATH_AF_RX_ADV)
+						    || CHECK_FLAG(
+							       p->af_cap[afi]
+									[safi],
+							       PEER_CAP_ADDPATH_AF_RX_RCV)) {
+							vty_out(vty,
+								"      %s: RX ",
+								afi_safi_print(
+									afi,
+									safi));
+
+							if (CHECK_FLAG(
+								    p->af_cap
+									    [afi]
+									    [safi],
+								    PEER_CAP_ADDPATH_AF_RX_ADV))
+								vty_out(vty,
+									"advertised %s",
+									afi_safi_print(
+										afi,
+										safi));
+
+							if (CHECK_FLAG(
+								    p->af_cap
+									    [afi]
+									    [safi],
+								    PEER_CAP_ADDPATH_AF_RX_RCV))
+								vty_out(vty,
+									"%sreceived",
+									CHECK_FLAG(
+										p->af_cap
+											[afi]
+											[safi],
+										PEER_CAP_ADDPATH_AF_RX_ADV)
+										? " and "
+										: "");
+
+							vty_out(vty, "\n");
+						}
+					}
 				}
 
 				/* Dynamic */
@@ -9065,30 +9025,25 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 				}
 
 				/* Multiprotocol Extensions */
-				for (afi = AFI_IP; afi < AFI_MAX; afi++)
-					for (safi = SAFI_UNICAST;
-					     safi < SAFI_MAX; safi++)
-						if (p->afc_adv[afi][safi]
-						    || p->afc_recv[afi][safi]) {
+				FOREACH_AFI_SAFI (afi, safi)
+					if (p->afc_adv[afi][safi]
+					    || p->afc_recv[afi][safi]) {
+						vty_out(vty,
+							"    Address Family %s:",
+							afi_safi_print(afi,
+								       safi));
+						if (p->afc_adv[afi][safi])
 							vty_out(vty,
-								"    Address Family %s:",
-								afi_safi_print(
-									afi,
-									safi));
-							if (p->afc_adv[afi]
-								      [safi])
-								vty_out(vty,
-									" advertised");
-							if (p->afc_recv[afi]
-								       [safi])
-								vty_out(vty,
-									" %sreceived",
-									p->afc_adv[afi]
-										  [safi]
-										? "and "
-										: "");
-							vty_out(vty, "\n");
-						}
+								" advertised");
+						if (p->afc_recv[afi][safi])
+							vty_out(vty,
+								" %sreceived",
+								p->afc_adv[afi]
+									  [safi]
+									? "and "
+									: "");
+						vty_out(vty, "\n");
+					}
 
 				/* Hostname capability */
 				vty_out(vty, "    Hostname Capability:");
@@ -9150,33 +9105,29 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 						vty_out(vty,
 							"      Address families by peer:\n        ");
 
-						for (afi = AFI_IP;
-						     afi < AFI_MAX; afi++)
-							for (safi = SAFI_UNICAST;
-							     safi < SAFI_MAX;
-							     safi++)
-								if (CHECK_FLAG(
-									    p->af_cap
-										    [afi]
-										    [safi],
-									    PEER_CAP_RESTART_AF_RCV)) {
-									vty_out(vty,
-										"%s%s(%s)",
-										restart_af_count
-											? ", "
-											: "",
-										afi_safi_print(
-											afi,
-											safi),
-										CHECK_FLAG(
-											p->af_cap
-												[afi]
-												[safi],
-											PEER_CAP_RESTART_AF_PRESERVE_RCV)
-											? "preserved"
-											: "not preserved");
-									restart_af_count++;
-								}
+						FOREACH_AFI_SAFI (afi, safi)
+							if (CHECK_FLAG(
+								    p->af_cap
+									    [afi]
+									    [safi],
+								    PEER_CAP_RESTART_AF_RCV)) {
+								vty_out(vty,
+									"%s%s(%s)",
+									restart_af_count
+										? ", "
+										: "",
+									afi_safi_print(
+										afi,
+										safi),
+									CHECK_FLAG(
+										p->af_cap
+											[afi]
+											[safi],
+										PEER_CAP_RESTART_AF_PRESERVE_RCV)
+										? "preserved"
+										: "not preserved");
+								restart_af_count++;
+							}
 						if (!restart_af_count)
 							vty_out(vty, "none");
 						vty_out(vty, "\n");
@@ -9201,36 +9152,25 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 			json_grace_recv = json_object_new_object();
 
 			if (p->status == Established) {
-				for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-					for (safi = SAFI_UNICAST;
-					     safi < SAFI_MAX; safi++) {
-						if (CHECK_FLAG(
-							    p->af_sflags[afi]
-									[safi],
-							    PEER_STATUS_EOR_SEND)) {
-							json_object_boolean_true_add(
-								json_grace_send,
-								afi_safi_print(
-									afi,
-									safi));
-							eor_send_af_count++;
-						}
+				FOREACH_AFI_SAFI (afi, safi) {
+					if (CHECK_FLAG(p->af_sflags[afi][safi],
+						       PEER_STATUS_EOR_SEND)) {
+						json_object_boolean_true_add(
+							json_grace_send,
+							afi_safi_print(afi,
+								       safi));
+						eor_send_af_count++;
 					}
 				}
-				for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-					for (safi = SAFI_UNICAST;
-					     safi < SAFI_MAX; safi++) {
-						if (CHECK_FLAG(
-							    p->af_sflags[afi]
-									[safi],
-							    PEER_STATUS_EOR_RECEIVED)) {
-							json_object_boolean_true_add(
-								json_grace_recv,
-								afi_safi_print(
-									afi,
-									safi));
-							eor_receive_af_count++;
-						}
+				FOREACH_AFI_SAFI (afi, safi) {
+					if (CHECK_FLAG(
+						    p->af_sflags[afi][safi],
+						    PEER_STATUS_EOR_RECEIVED)) {
+						json_object_boolean_true_add(
+							json_grace_recv,
+							afi_safi_print(afi,
+								       safi));
+						eor_receive_af_count++;
 					}
 				}
 			}
@@ -9261,42 +9201,30 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 			vty_out(vty, "  Graceful restart informations:\n");
 			if (p->status == Established) {
 				vty_out(vty, "    End-of-RIB send: ");
-				for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-					for (safi = SAFI_UNICAST;
-					     safi < SAFI_MAX; safi++) {
-						if (CHECK_FLAG(
-							    p->af_sflags[afi]
-									[safi],
-							    PEER_STATUS_EOR_SEND)) {
-							vty_out(vty, "%s%s",
-								eor_send_af_count
-									? ", "
-									: "",
-								afi_safi_print(
-									afi,
-									safi));
-							eor_send_af_count++;
-						}
+				FOREACH_AFI_SAFI (afi, safi) {
+					if (CHECK_FLAG(p->af_sflags[afi][safi],
+						       PEER_STATUS_EOR_SEND)) {
+						vty_out(vty, "%s%s",
+							eor_send_af_count ? ", "
+									  : "",
+							afi_safi_print(afi,
+								       safi));
+						eor_send_af_count++;
 					}
 				}
 				vty_out(vty, "\n");
 				vty_out(vty, "    End-of-RIB received: ");
-				for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-					for (safi = SAFI_UNICAST;
-					     safi < SAFI_MAX; safi++) {
-						if (CHECK_FLAG(
-							    p->af_sflags[afi]
-									[safi],
-							    PEER_STATUS_EOR_RECEIVED)) {
-							vty_out(vty, "%s%s",
-								eor_receive_af_count
-									? ", "
-									: "",
-								afi_safi_print(
-									afi,
-									safi));
-							eor_receive_af_count++;
-						}
+				FOREACH_AFI_SAFI (afi, safi) {
+					if (CHECK_FLAG(
+						    p->af_sflags[afi][safi],
+						    PEER_STATUS_EOR_RECEIVED)) {
+						vty_out(vty, "%s%s",
+							eor_receive_af_count
+								? ", "
+								: "",
+							afi_safi_print(afi,
+								       safi));
+						eor_receive_af_count++;
 					}
 				}
 				vty_out(vty, "\n");
@@ -9424,11 +9352,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 	if (use_json)
 		json_hold = json_object_new_object();
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
-			if (p->afc[afi][safi])
-				bgp_show_peer_afi(vty, p, afi, safi, use_json,
-						  json_hold);
+	FOREACH_AFI_SAFI (afi, safi)
+		if (p->afc[afi][safi])
+			bgp_show_peer_afi(vty, p, afi, safi, use_json,
+					  json_hold);
 
 	if (use_json) {
 		json_object_object_add(json_neigh, "addressFamilyInfo",
@@ -10479,13 +10406,12 @@ static int bgp_show_one_peer_group(struct vty *vty, struct peer_group *group)
 
 	/* Display AFs configured. */
 	vty_out(vty, "  Configured address-families:");
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			if (conf->afc[afi][safi]) {
-				af_cfgd = 1;
-				vty_out(vty, " %s;", afi_safi_print(afi, safi));
-			}
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (conf->afc[afi][safi]) {
+			af_cfgd = 1;
+			vty_out(vty, " %s;", afi_safi_print(afi, safi));
 		}
+	}
 	if (!af_cfgd)
 		vty_out(vty, " none\n");
 	else
