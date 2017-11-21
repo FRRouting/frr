@@ -1476,6 +1476,7 @@ static int update_all_type2_routes(struct bgp *bgp, struct bgpevpn *vpn)
 	bgpevpn_get_rmac(vpn, &attr_def_gw.rmac);
 	bgp_attr_default_set(&attr_ip6, BGP_ORIGIN_IGP);
 	bgp_attr_default_set(&attr_sticky_ip6, BGP_ORIGIN_IGP);
+	bgp_attr_default_set(&attr_def_gw_ip6, BGP_ORIGIN_IGP);
 	attr_ip6.nexthop = vpn->originator_ip;
 	attr_ip6.mp_nexthop_global_in = vpn->originator_ip;
 	attr_ip6.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
