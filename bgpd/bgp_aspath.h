@@ -92,6 +92,7 @@ extern struct aspath *aspath_delete_confed_seq(struct aspath *);
 extern struct aspath *aspath_empty(void);
 extern struct aspath *aspath_empty_get(void);
 extern struct aspath *aspath_str2aspath(const char *);
+extern void aspath_str_update(struct aspath *as, bool make_json);
 extern void aspath_free(struct aspath *);
 extern struct aspath *aspath_intern(struct aspath *);
 extern void aspath_unintern(struct aspath **);

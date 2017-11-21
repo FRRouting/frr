@@ -7395,6 +7395,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 		/* Line1 display AS-path, Aggregator */
 		if (attr->aspath) {
 			if (json_paths) {
+				if (!attr->aspath->json)
+					aspath_str_update(attr->aspath, true);
 				json_object_lock(attr->aspath->json);
 				json_object_object_add(json_path, "aspath",
 						       attr->aspath->json);
@@ -7883,6 +7885,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 		/* Line 4 display Community */
 		if (attr->community) {
 			if (json_paths) {
+				if (!attr->community->json)
+					community_str(attr->community,
+						      true);
 				json_object_lock(attr->community->json);
 				json_object_object_add(json_path, "community",
 						       attr->community->json);
@@ -8182,8 +8187,6 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			continue;
 
 		display = 0;
-		if (!first && use_json)
-			vty_out(vty, ",");
 		if (use_json)
 			json_paths = json_object_new_array();
 		else
@@ -8379,7 +8382,11 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				inet_ntop(p->family, &p->u.prefix,
 					  buf, BUFSIZ),
 				p->prefixlen);
-			vty_out(vty, "\"%s\": ", buf2);
+			if (first)
+				vty_out(vty, "\"%s\": ", buf2);
+			else
+				vty_out(vty, ",\"%s\": ", buf2);
+
 			vty_out(vty, "%s",
 				json_object_to_json_string_ext(json_paths, JSON_C_TO_STRING_PRETTY));
 			json_object_free(json_paths);

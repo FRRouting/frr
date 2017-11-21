@@ -438,7 +438,7 @@ static int community_regexp_match(struct community *com, regex_t *reg)
 	if (com == NULL || com->size == 0)
 		str = "";
 	else
-		str = community_str(com);
+		str = community_str(com, false);
 
 	/* Regular expression match.  */
 	if (regexec(reg, str, 0, NULL, 0) == 0)
