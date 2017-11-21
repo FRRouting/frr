@@ -317,7 +317,7 @@ void vnc_direct_bgp_add_route_ce(struct bgp *bgp, struct route_node *rn,
 		   iattr,	   /* bgp_update copies this attr */
 		   afi, SAFI_UNICAST, ZEBRA_ROUTE_VNC_DIRECT,
 		   BGP_ROUTE_REDISTRIBUTE, NULL, /* RD not used for unicast */
-		   NULL,			 /* tag not used for unicast */
+		   NULL, 0,			 /* tag not used for unicast */
 		   0, NULL);			 /* EVPN not used */
 	bgp_attr_unintern(&iattr);
 }

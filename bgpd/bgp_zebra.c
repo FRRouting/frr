@@ -1142,10 +1142,11 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 			api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
 		}
 
-		if (mpinfo->extra && bgp_is_valid_label(&mpinfo->extra->label)
+		if (mpinfo->extra &&
+		    bgp_is_valid_label(&mpinfo->extra->label[0])
 		    && !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
 			has_valid_label = 1;
-			label = label_pton(&mpinfo->extra->label);
+			label = label_pton(&mpinfo->extra->label[0]);
 
 			api_nh->label_num = 1;
 			api_nh->labels[0] = label;

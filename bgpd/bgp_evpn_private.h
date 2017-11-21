@@ -228,26 +228,6 @@ static inline int is_vni_param_configured(struct bgpevpn *vpn)
 		|| is_export_rt_configured(vpn));
 }
 
-static inline void vni2label(vni_t vni, mpls_label_t *label)
-{
-	u_char *tag = (u_char *)label;
-	tag[0] = (vni >> 16) & 0xFF;
-	tag[1] = (vni >> 8) & 0xFF;
-	tag[2] = vni & 0xFF;
-}
-
-static inline vni_t label2vni(mpls_label_t *label)
-{
-	u_char *tag = (u_char *)label;
-	vni_t vni;
-
-	vni = ((u_int32_t)*tag++ << 16);
-	vni |= (u_int32_t)*tag++ << 8;
-	vni |= (u_int32_t)(*tag & 0xFF);
-
-	return vni;
-}
-
 static inline void encode_rmac_extcomm(struct ecommunity_val *eval,
 				       struct ethaddr *rmac)
 {

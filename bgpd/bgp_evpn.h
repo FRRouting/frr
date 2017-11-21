@@ -34,6 +34,27 @@ static inline int is_evpn_enabled(void)
 	return bgp ? bgp->advertise_all_vni : 0;
 }
 
+static inline void vni2label(vni_t vni, mpls_label_t *label)
+{
+	u_char *tag = (u_char *)label;
+
+	tag[0] = (vni >> 16) & 0xFF;
+	tag[1] = (vni >> 8) & 0xFF;
+	tag[2] = vni & 0xFF;
+}
+
+static inline vni_t label2vni(mpls_label_t *label)
+{
+	u_char *tag = (u_char *)label;
+	vni_t vni;
+
+	vni = ((u_int32_t)*tag++ << 16);
+	vni |= (u_int32_t)*tag++ << 8;
+	vni |= (u_int32_t)(*tag & 0xFF);
+
+	return vni;
+}
+
 extern void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf,
 					   struct bgp_node *rn,
 					   afi_t afi, safi_t safi);
@@ -46,11 +67,13 @@ extern void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 					    safi_t safi);
 extern void bgp_evpn_vrf_delete(struct bgp *bgp_vrf);
 extern void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw);
-extern char *bgp_evpn_label2str(mpls_label_t *label, char *buf, int len);
+extern char *bgp_evpn_label2str(mpls_label_t *label, u_int32_t num_labels,
+				char *buf, int len);
 extern char *bgp_evpn_route2str(struct prefix_evpn *p, char *buf, int len);
 extern void bgp_evpn_route2json(struct prefix_evpn *p, json_object *json);
 extern void bgp_evpn_encode_prefix(struct stream *s, struct prefix *p,
-				   struct prefix_rd *prd, mpls_label_t *label,
+				   struct prefix_rd *prd,
+				   mpls_label_t *label, u_int32_t num_labels,
 				   struct attr *attr, int addpath_encode,
 				   u_int32_t addpath_tx_id);
 extern int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,

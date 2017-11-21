@@ -2701,8 +2701,9 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 
 void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 			      struct prefix *p, struct prefix_rd *prd,
-			      mpls_label_t *label, int addpath_encode,
-			      u_int32_t addpath_tx_id, struct attr *attr)
+			      mpls_label_t *label, u_int32_t num_labels,
+			      int addpath_encode, u_int32_t addpath_tx_id,
+			      struct attr *attr)
 {
 	if (safi == SAFI_MPLS_VPN) {
 		if (addpath_encode)
@@ -2714,8 +2715,8 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 		stream_put(s, &p->u.prefix, PSIZE(p->prefixlen));
 	} else if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
 		/* EVPN prefix - contents depend on type */
-		bgp_evpn_encode_prefix(s, p, prd, label, attr, addpath_encode,
-				       addpath_tx_id);
+		bgp_evpn_encode_prefix(s, p, prd, label, num_labels,
+				       attr, addpath_encode, addpath_tx_id);
 	} else if (safi == SAFI_LABELED_UNICAST) {
 		/* Prefix write with label. */
 		stream_put_labeled_prefix(s, p, label);
@@ -2843,8 +2844,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 				struct bpacket_attr_vec_arr *vecarr,
 				struct prefix *p, afi_t afi, safi_t safi,
 				struct peer *from, struct prefix_rd *prd,
-				mpls_label_t *label, int addpath_encode,
-				u_int32_t addpath_tx_id)
+				mpls_label_t *label, u_int32_t num_labels,
+				int addpath_encode, u_int32_t addpath_tx_id)
 {
 	size_t cp;
 	size_t aspath_sizep;
@@ -2866,7 +2867,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 
 		mpattrlen_pos = bgp_packet_mpattr_start(s, peer, afi, safi,
 							vecarr, attr);
-		bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label,
+		bgp_packet_mpattr_prefix(s, afi, safi, p, prd,
+					 label, num_labels,
 					 addpath_encode, addpath_tx_id, attr);
 		bgp_packet_mpattr_end(s, mpattrlen_pos);
 	}
@@ -3298,15 +3300,19 @@ size_t bgp_packet_mpunreach_start(struct stream *s, afi_t afi, safi_t safi)
 
 void bgp_packet_mpunreach_prefix(struct stream *s, struct prefix *p, afi_t afi,
 				 safi_t safi, struct prefix_rd *prd,
-				 mpls_label_t *label, int addpath_encode,
-				 u_int32_t addpath_tx_id, struct attr *attr)
+				 mpls_label_t *label, u_int32_t num_labels,
+				 int addpath_encode, u_int32_t addpath_tx_id,
+				 struct attr *attr)
 {
 	u_char wlabel[3] = {0x80, 0x00, 0x00};
 
-	if (safi == SAFI_LABELED_UNICAST)
+	if (safi == SAFI_LABELED_UNICAST) {
 		label = (mpls_label_t *)wlabel;
+		num_labels = 1;
+	}
 
-	return bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label,
+	return bgp_packet_mpattr_prefix(s, afi, safi, p, prd,
+					label, num_labels,
 					addpath_encode, addpath_tx_id, attr);
 }
 

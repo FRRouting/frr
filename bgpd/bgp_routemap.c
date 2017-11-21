@@ -659,7 +659,7 @@ static route_map_result_t route_match_vni(void *rule, struct prefix *prefix,
 		vni = *((vni_t *)rule);
 		bgp_info = (struct bgp_info *)object;
 
-		if (vni == label2vni(&bgp_info->extra->label))
+		if (vni == label2vni(&bgp_info->extra->label[0]))
 			return RMAP_MATCH;
 	}
 
