@@ -3302,6 +3302,8 @@ void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
 	struct route_node *rn;
 	int need_to_flush_ase = 0;
 
+	ospf->inst_shutdown = 1;
+
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
 		if ((lsa = area->router_lsa_self) != NULL) {
 			if (IS_DEBUG_OSPF_EVENT)

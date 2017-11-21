@@ -361,9 +361,9 @@ static int ospf_flood_through_interface(struct ospf_interface *oi,
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug(
 			"ospf_flood_through_interface(): "
-			"considering int %s, INBR(%s), LSA[%s]",
+			"considering int %s, INBR(%s), LSA[%s] AGE %u",
 			IF_NAME(oi), inbr ? inet_ntoa(inbr->router_id) : "NULL",
-			dump_lsa_key(lsa));
+			dump_lsa_key(lsa), ntohs(lsa->data->ls_age));
 
 	if (!ospf_if_is_enable(oi))
 		return 0;
@@ -958,6 +958,9 @@ void ospf_lsa_flush_area(struct ospf_lsa *lsa, struct ospf_area *area)
 	   more time for the ACK to be received and avoid
 	   retransmissions */
 	lsa->data->ls_age = htons(OSPF_LSA_MAXAGE);
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug("%s: MAXAGE set to LSA %s", __PRETTY_FUNCTION__,
+			   inet_ntoa(lsa->data->id));
 	monotime(&lsa->tv_recv);
 	lsa->tv_orig = lsa->tv_recv;
 	ospf_flood_through_area(area, NULL, lsa);

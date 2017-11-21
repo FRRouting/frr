@@ -310,6 +310,10 @@ struct ospf {
 
 	struct route_table *distance_table;
 
+	/* Used during ospf instance going down send LSDB
+	 * update to neighbors immediatly */
+	uint8_t inst_shutdown;
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(ospf)

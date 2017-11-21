@@ -518,7 +518,8 @@ int ospf_ls_upd_timer(struct thread *thread)
 		}
 
 		if (listcount(update) > 0)
-			ospf_ls_upd_send(nbr, update, OSPF_SEND_PACKET_DIRECT);
+			ospf_ls_upd_send(nbr, update,
+					 OSPF_SEND_PACKET_DIRECT, 0);
 		list_delete_and_null(&update);
 	}
 
@@ -1609,10 +1610,10 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 		if (length + ntohs(find->data->length) > ospf_packet_max(oi)) {
 			if (oi->type == OSPF_IFTYPE_NBMA)
 				ospf_ls_upd_send(nbr, ls_upd,
-						 OSPF_SEND_PACKET_DIRECT);
+						 OSPF_SEND_PACKET_DIRECT, 0);
 			else
 				ospf_ls_upd_send(nbr, ls_upd,
-						 OSPF_SEND_PACKET_INDIRECT);
+						 OSPF_SEND_PACKET_INDIRECT, 0);
 
 			/* Only remove list contents.  Keep ls_upd. */
 			list_delete_all_node(ls_upd);
@@ -1630,10 +1631,11 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 	/* Send rest of Link State Update. */
 	if (listcount(ls_upd) > 0) {
 		if (oi->type == OSPF_IFTYPE_NBMA)
-			ospf_ls_upd_send(nbr, ls_upd, OSPF_SEND_PACKET_DIRECT);
+			ospf_ls_upd_send(nbr, ls_upd,
+					 OSPF_SEND_PACKET_DIRECT, 0);
 		else
 			ospf_ls_upd_send(nbr, ls_upd,
-					 OSPF_SEND_PACKET_INDIRECT);
+					 OSPF_SEND_PACKET_INDIRECT, 0);
 
 		list_delete_and_null(&ls_upd);
 	} else
@@ -3792,7 +3794,13 @@ void ospf_ls_upd_send_lsa(struct ospf_neighbor *nbr, struct ospf_lsa *lsa,
 	update = list_new();
 
 	listnode_add(update, lsa);
-	ospf_ls_upd_send(nbr, update, flag);
+
+	/*ospf instance is going down, send self originated
+	 * MAXAGE LSA update to neighbors to remove from LSDB */
+	if (nbr->oi->ospf->inst_shutdown && IS_LSA_MAXAGE(lsa))
+		ospf_ls_upd_send(nbr, update, flag, 1);
+	else
+		ospf_ls_upd_send(nbr, update, flag, 0);
 
 	list_delete_and_null(&update);
 }
@@ -3875,7 +3883,8 @@ static struct ospf_packet *ospf_ls_upd_packet_new(struct list *update,
 }
 
 static void ospf_ls_upd_queue_send(struct ospf_interface *oi,
-				   struct list *update, struct in_addr addr)
+				   struct list *update, struct in_addr addr,
+				   int send_lsupd_now)
 {
 	struct ospf_packet *op;
 	u_int16_t length = OSPF_HEADER_SIZE;
@@ -3908,9 +3917,20 @@ static void ospf_ls_upd_queue_send(struct ospf_interface *oi,
 
 	/* Add packet to the interface output queue. */
 	ospf_packet_add(oi, op);
+	/* Call ospf_write() right away to send ospf packets to neighbors */
+	if (send_lsupd_now) {
+		struct thread os_packet_thd;
 
-	/* Hook thread to write packet. */
-	OSPF_ISM_WRITE_ON(oi->ospf);
+		os_packet_thd.arg = (void *)oi->ospf;
+		if (oi->on_write_q == 0) {
+			listnode_add(oi->ospf->oi_write_q, oi);
+			oi->on_write_q = 1;
+		}
+		ospf_write(&os_packet_thd);
+	} else {
+		/* Hook thread to write packet. */
+		OSPF_ISM_WRITE_ON(oi->ospf);
+	}
 }
 
 static int ospf_ls_upd_send_queue_event(struct thread *thread)
@@ -3934,7 +3954,7 @@ static int ospf_ls_upd_send_queue_event(struct thread *thread)
 
 		update = (struct list *)rn->info;
 
-		ospf_ls_upd_queue_send(oi, update, rn->p.u.prefix4);
+		ospf_ls_upd_queue_send(oi, update, rn->p.u.prefix4, 0);
 
 		/* list might not be empty. */
 		if (listcount(update) == 0) {
@@ -3961,7 +3981,8 @@ static int ospf_ls_upd_send_queue_event(struct thread *thread)
 	return 0;
 }
 
-void ospf_ls_upd_send(struct ospf_neighbor *nbr, struct list *update, int flag)
+void ospf_ls_upd_send(struct ospf_neighbor *nbr, struct list *update, int flag,
+		      int send_lsupd_now)
 {
 	struct ospf_interface *oi;
 	struct ospf_lsa *lsa;
@@ -4006,8 +4027,24 @@ void ospf_ls_upd_send(struct ospf_neighbor *nbr, struct list *update, int flag)
 	for (ALL_LIST_ELEMENTS_RO(update, node, lsa))
 		listnode_add(rn->info,
 			     ospf_lsa_lock(lsa)); /* oi->ls_upd_queue */
+	if (send_lsupd_now) {
+		struct list *send_update_list;
+		struct route_node *rn, *rnext;
 
-	thread_add_event(master, ospf_ls_upd_send_queue_event, oi, 0,
+		for (rn = route_top(oi->ls_upd_queue); rn; rn = rnext) {
+			rnext = route_next(rn);
+
+			if (rn->info == NULL)
+				continue;
+
+			send_update_list = (struct list *)rn->info;
+
+			ospf_ls_upd_queue_send(oi, send_update_list,
+					       rn->p.u.prefix4, 1);
+
+		}
+	} else
+		thread_add_event(master, ospf_ls_upd_send_queue_event, oi, 0,
 			 &oi->t_ls_upd_event);
 }
 
