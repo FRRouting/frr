@@ -8361,10 +8361,10 @@ DEFUN (no_ospf_default_information_originate,
 
 	ospf_external_lsa_flush(ospf, DEFAULT_ROUTE, &p, 0);
 
-	if ((ext = ospf_external_lookup(DEFAULT_ROUTE, 0))
-	    && EXTERNAL_INFO(ext)) {
-		ospf_external_info_delete(DEFAULT_ROUTE, 0, p);
-		ospf_external_del(DEFAULT_ROUTE, 0);
+	ext = ospf_external_lookup(ospf, DEFAULT_ROUTE, 0);
+	if (ext && EXTERNAL_INFO(ext)) {
+		ospf_external_info_delete(ospf, DEFAULT_ROUTE, 0, p);
+		ospf_external_del(ospf, DEFAULT_ROUTE, 0);
 	}
 
 	red = ospf_redist_lookup(ospf, DEFAULT_ROUTE, 0);

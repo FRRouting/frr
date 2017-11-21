@@ -127,7 +127,8 @@ int ospf_route_map_set_compare(struct route_map_set_values *values1,
 }
 
 /* Add an External info for AS-external-LSA. */
-struct external_info *ospf_external_info_add(u_char type, u_short instance,
+struct external_info *ospf_external_info_add(struct ospf *ospf, u_char type,
+					     u_short instance,
 					     struct prefix_ipv4 p,
 					     ifindex_t ifindex,
 					     struct in_addr nexthop,
@@ -138,9 +139,9 @@ struct external_info *ospf_external_info_add(u_char type, u_short instance,
 	struct ospf_external *ext;
 	char inetbuf[INET6_BUFSIZ];
 
-	ext = ospf_external_lookup(type, instance);
+	ext = ospf_external_lookup(ospf, type, instance);
 	if (!ext)
-		ext = ospf_external_add(type, instance);
+		ext = ospf_external_add(ospf, type, instance);
 
 	rn = route_node_get(EXTERNAL_INFO(ext), (struct prefix *)&p);
 	/* If old info exists, -- discard new one or overwrite with new one? */
@@ -157,9 +158,10 @@ struct external_info *ospf_external_info_add(u_char type, u_short instance,
 			inet_ntop(AF_INET, (void *)&nexthop.s_addr, inetbuf,
 				  INET6_BUFSIZ);
 			zlog_warn(
-				"Redistribute[%s][%d]: %s/%d discarding old info with NH %s.",
+				"Redistribute[%s][%d][%u]: %s/%d discarding old info with NH %s.",
 				ospf_redist_string(type), instance,
-				inet_ntoa(p.prefix), p.prefixlen, inetbuf);
+				ospf->vrf_id, inet_ntoa(p.prefix),
+				p.prefixlen, inetbuf);
 			XFREE(MTYPE_OSPF_EXTERNAL_INFO, rn->info);
 			rn->info = NULL;
 		}
@@ -179,20 +181,20 @@ struct external_info *ospf_external_info_add(u_char type, u_short instance,
 		inet_ntop(AF_INET, (void *)&nexthop.s_addr, inetbuf,
 			  INET6_BUFSIZ);
 		zlog_debug(
-			"Redistribute[%s]: %s/%d external info created, with NH %s",
-			ospf_redist_string(type), inet_ntoa(p.prefix),
-			p.prefixlen, inetbuf);
+			"Redistribute[%s][%u]: %s/%d external info created, with NH %s",
+			ospf_redist_string(type), ospf->vrf_id,
+			inet_ntoa(p.prefix), p.prefixlen, inetbuf);
 	}
 	return new;
 }
 
-void ospf_external_info_delete(u_char type, u_short instance,
+void ospf_external_info_delete(struct ospf *ospf, u_char type, u_short instance,
 			       struct prefix_ipv4 p)
 {
 	struct route_node *rn;
 	struct ospf_external *ext;
 
-	ext = ospf_external_lookup(type, instance);
+	ext = ospf_external_lookup(ospf, type, instance);
 	if (!ext)
 		return;
 
@@ -205,13 +207,14 @@ void ospf_external_info_delete(u_char type, u_short instance,
 	}
 }
 
-struct external_info *ospf_external_info_lookup(u_char type, u_short instance,
+struct external_info *ospf_external_info_lookup(struct ospf *ospf, u_char type,
+						u_short instance,
 						struct prefix_ipv4 *p)
 {
 	struct route_node *rn;
 	struct ospf_external *ext;
 
-	ext = ospf_external_lookup(type, instance);
+	ext = ospf_external_lookup(ospf, type, instance);
 	if (!ext)
 		return NULL;
 
@@ -288,7 +291,7 @@ void ospf_redistribute_withdraw(struct ospf *ospf, u_char type,
 	struct external_info *ei;
 	struct ospf_external *ext;
 
-	ext = ospf_external_lookup(type, instance);
+	ext = ospf_external_lookup(ospf, type, instance);
 	if (!ext)
 		return;
 

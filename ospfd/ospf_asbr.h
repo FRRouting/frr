@@ -58,12 +58,15 @@ extern struct external_info *ospf_external_info_new(u_char, u_short);
 extern void ospf_reset_route_map_set_values(struct route_map_set_values *);
 extern int ospf_route_map_set_compare(struct route_map_set_values *,
 				      struct route_map_set_values *);
-extern struct external_info *ospf_external_info_add(u_char, u_short,
+extern struct external_info *ospf_external_info_add(struct ospf *,
+						    u_char, u_short,
 						    struct prefix_ipv4,
 						    ifindex_t, struct in_addr,
 						    route_tag_t);
-extern void ospf_external_info_delete(u_char, u_short, struct prefix_ipv4);
-extern struct external_info *ospf_external_info_lookup(u_char, u_short,
+extern void ospf_external_info_delete(struct ospf*, u_char, u_short,
+				      struct prefix_ipv4);
+extern struct external_info *ospf_external_info_lookup(struct ospf*, u_char,
+						       u_short,
 						       struct prefix_ipv4 *);
 extern struct ospf_route *ospf_external_route_lookup(struct ospf *,
 						     struct prefix_ipv4 *);

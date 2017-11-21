@@ -741,7 +741,7 @@ static void ospf_finish_final(struct ospf *ospf)
 		struct listnode *node;
 		struct ospf_external *ext;
 
-		ext_list = om->external[i];
+		ext_list = ospf->external[i];
 		if (!ext_list)
 			continue;
 
@@ -970,34 +970,37 @@ static void update_redistributed(struct ospf *ospf, int add_to_ospf)
 	struct external_info *ei;
 	struct ospf_external *ext;
 
-	if (ospf_is_type_redistributed(ospf, ZEBRA_ROUTE_CONNECT, 0))
-		if ((ext = ospf_external_lookup(ZEBRA_ROUTE_CONNECT, 0))
-		    && EXTERNAL_INFO(ext)) {
+	if (ospf_is_type_redistributed(ospf, ZEBRA_ROUTE_CONNECT, 0)) {
+		ext = ospf_external_lookup(ospf, ZEBRA_ROUTE_CONNECT, 0);
+		if ((ext) && EXTERNAL_INFO(ext)) {
 			for (rn = route_top(EXTERNAL_INFO(ext)); rn;
 			     rn = route_next(rn)) {
-				if ((ei = rn->info) != NULL) {
-					if (add_to_ospf) {
-						if (ospf_external_info_find_lsa(
-							    ospf, &ei->p))
-							if (!ospf_distribute_check_connected(
-								    ospf, ei))
-								ospf_external_lsa_flush(
-									ospf,
-									ei->type,
-									&ei->p,
-									ei->ifindex /*, ei->nexthop */);
-					} else {
-						if (!ospf_external_info_find_lsa(
-							    ospf, &ei->p))
-							if (ospf_distribute_check_connected(
-								    ospf, ei))
-								ospf_external_lsa_originate(
-									ospf,
-									ei);
-					}
+				ei = rn->info;
+				if (ei == NULL)
+					continue;
+
+				if (add_to_ospf) {
+					if (ospf_external_info_find_lsa(
+						    ospf, &ei->p))
+						if (!ospf_distribute_check_connected(
+							    ospf, ei))
+							ospf_external_lsa_flush(
+								ospf,
+								ei->type,
+								&ei->p,
+								ei->ifindex /*, ei->nexthop */);
+				} else {
+					if (!ospf_external_info_find_lsa(
+						    ospf, &ei->p))
+						if (ospf_distribute_check_connected(
+							    ospf, ei))
+							ospf_external_lsa_originate(
+								ospf,
+								ei);
 				}
 			}
 		}
+	}
 }
 
 /* Config network statement related functions. */
