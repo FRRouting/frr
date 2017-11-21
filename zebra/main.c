@@ -201,6 +201,9 @@ int main(int argc, char **argv)
 	char *lblmgr_path = NULL;
 	struct sockaddr_storage dummy;
 	socklen_t dummylen;
+#if defined(HANDLE_ZAPI_FUZZING)
+	char *fuzzing = NULL;
+#endif
 
 	frr_preinit(&zebra_di, argc, argv);
 
@@ -208,6 +211,9 @@ int main(int argc, char **argv)
 		"bakz:e:l:r"
 #ifdef HAVE_NETLINK
 		"s:"
+#endif
+#if defined(HANDLE_ZAPI_FUZZING)
+		"c:"
 #endif
 		,
 		longopts,
@@ -221,6 +227,9 @@ int main(int argc, char **argv)
 #ifdef HAVE_NETLINK
 		"  -s, --nl-bufsize   Set netlink receive buffer size\n"
 #endif /* HAVE_NETLINK */
+#if defined(HANDLE_ZAPI_FUZZING)
+		"  -c <file>          Bypass normal startup use this file for tetsting of zapi"
+#endif
 		);
 
 	while (1) {
@@ -271,6 +280,11 @@ int main(int argc, char **argv)
 			nl_rcvbufsize = atoi(optarg);
 			break;
 #endif /* HAVE_NETLINK */
+#if defined(HANDLE_ZAPI_FUZZING)
+		case 'c':
+			fuzzing = optarg;
+			break;
+#endif
 		default:
 			frr_help_exit(1);
 			break;
@@ -307,6 +321,13 @@ int main(int argc, char **argv)
 	/* Initialize NS( and implicitly the VRF module), and make kernel
 	 * routing socket. */
 	zebra_ns_init();
+
+#if defined(HANDLE_ZAPI_FUZZING)
+	if (fuzzing) {
+		zserv_read_file(fuzzing);
+		exit(0);
+	}
+#endif
 
 	/* Process the configuration file. Among other configuration
 	*  directives we can meet those installing static routes. Such
