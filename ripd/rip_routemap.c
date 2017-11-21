@@ -129,7 +129,7 @@ static route_map_result_t route_match_interface(void *rule,
 		rinfo = object;
 
 		if (rinfo->ifindex_out == ifp->ifindex
-		    || rinfo->ifindex == ifp->ifindex)
+		    || rinfo->nh.ifindex == ifp->ifindex)
 			return RMAP_MATCH;
 		else
 			return RMAP_NOMATCH;
@@ -171,7 +171,8 @@ static route_map_result_t route_match_ip_next_hop(void *rule,
 		rinfo = object;
 		p.family = AF_INET;
 		p.prefix =
-			(rinfo->nexthop.s_addr) ? rinfo->nexthop : rinfo->from;
+			(rinfo->nh.gate.ipv4.s_addr) ?
+			rinfo->nh.gate.ipv4 : rinfo->from;
 		p.prefixlen = IPV4_MAX_BITLEN;
 
 		alist = access_list_lookup(AFI_IP, (char *)rule);
@@ -217,7 +218,8 @@ route_match_ip_next_hop_prefix_list(void *rule, struct prefix *prefix,
 		rinfo = object;
 		p.family = AF_INET;
 		p.prefix =
-			(rinfo->nexthop.s_addr) ? rinfo->nexthop : rinfo->from;
+			(rinfo->nh.gate.ipv4.s_addr) ?
+			rinfo->nh.gate.ipv4 : rinfo->from;
 		p.prefixlen = IPV4_MAX_BITLEN;
 
 		plist = prefix_list_lookup(AFI_IP, (char *)rule);

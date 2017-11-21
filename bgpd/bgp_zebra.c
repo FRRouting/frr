@@ -524,9 +524,10 @@ static int bgp_interface_vrf_update(int command, struct zclient *zclient,
 static int zebra_read_route(int command, struct zclient *zclient,
 			    zebra_size_t length, vrf_id_t vrf_id)
 {
+	enum nexthop_types_t nhtype;
 	struct zapi_route api;
 	union g_addr nexthop;
-	unsigned int ifindex;
+	ifindex_t ifindex;
 	int add, i;
 	struct bgp *bgp;
 
@@ -548,6 +549,7 @@ static int zebra_read_route(int command, struct zclient *zclient,
 
 	nexthop = api.nexthops[0].gate;
 	ifindex = api.nexthops[0].ifindex;
+	nhtype = api.nexthops[0].type;
 
 	add = (command == ZEBRA_REDISTRIBUTE_ROUTE_ADD);
 	if (add) {
@@ -568,8 +570,8 @@ static int zebra_read_route(int command, struct zclient *zclient,
 
 		/* Now perform the add/update. */
 		bgp_redistribute_add(bgp, &api.prefix, &nexthop, ifindex,
-				     api.metric, api.type, api.instance,
-				     api.tag);
+				     nhtype, api.metric, api.type,
+				     api.instance, api.tag);
 	} else {
 		bgp_redistribute_delete(bgp, &api.prefix, api.type,
 					api.instance);

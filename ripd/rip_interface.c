@@ -559,7 +559,7 @@ int rip_if_down(struct interface *ifp)
 			if ((list = rp->info) != NULL)
 				for (ALL_LIST_ELEMENTS(list, listnode, nextnode,
 						       rinfo))
-					if (rinfo->ifindex == ifp->ifindex)
+					if (rinfo->nh.ifindex == ifp->ifindex)
 						rip_ecmp_delete(rinfo);
 
 		ri = ifp->info;
@@ -591,6 +591,7 @@ void rip_if_down_all()
 static void rip_apply_address_add(struct connected *ifc)
 {
 	struct prefix_ipv4 address;
+	struct nexthop nh;
 	struct prefix *p;
 
 	if (!rip)
@@ -602,18 +603,22 @@ static void rip_apply_address_add(struct connected *ifc)
 	p = ifc->address;
 
 	memset(&address, 0, sizeof(address));
+	memset(&nh, 0, sizeof(nh));
+
 	address.family = p->family;
 	address.prefix = p->u.prefix4;
 	address.prefixlen = p->prefixlen;
 	apply_mask_ipv4(&address);
+
+	nh.ifindex = ifc->ifp->ifindex;
+	nh.type = NEXTHOP_TYPE_IFINDEX;
 
 	/* Check if this interface is RIP enabled or not
 	   or  Check if this address's prefix is RIP enabled */
 	if ((rip_enable_if_lookup(ifc->ifp->name) >= 0)
 	    || (rip_enable_network_lookup2(ifc) >= 0))
 		rip_redistribute_add(ZEBRA_ROUTE_CONNECT, RIP_ROUTE_INTERFACE,
-				     &address, ifc->ifp->ifindex, NULL, 0, 0,
-				     0);
+				     &address, &nh, 0, 0, 0);
 }
 
 int rip_interface_address_add(int command, struct zclient *zclient,
@@ -879,6 +884,9 @@ static void rip_connect_set(struct interface *ifp, int set)
 	struct listnode *node, *nnode;
 	struct connected *connected;
 	struct prefix_ipv4 address;
+	struct nexthop nh;
+
+	memset(&nh, 0, sizeof(nh));
 
 	for (ALL_LIST_ELEMENTS(ifp->connected, node, nnode, connected)) {
 		struct prefix *p;
@@ -892,6 +900,8 @@ static void rip_connect_set(struct interface *ifp, int set)
 		address.prefixlen = p->prefixlen;
 		apply_mask_ipv4(&address);
 
+		nh.ifindex = connected->ifp->ifindex;
+		nh.type = NEXTHOP_TYPE_IFINDEX;
 		if (set) {
 			/* Check once more wether this prefix is within a
 			 * "network IF_OR_PREF" one */
@@ -900,7 +910,7 @@ static void rip_connect_set(struct interface *ifp, int set)
 				rip_redistribute_add(
 					ZEBRA_ROUTE_CONNECT,
 					RIP_ROUTE_INTERFACE, &address,
-					connected->ifp->ifindex, NULL, 0, 0, 0);
+					&nh, 0, 0, 0);
 		} else {
 			rip_redistribute_delete(ZEBRA_ROUTE_CONNECT,
 						RIP_ROUTE_INTERFACE, &address,
@@ -909,7 +919,7 @@ static void rip_connect_set(struct interface *ifp, int set)
 				rip_redistribute_add(
 					ZEBRA_ROUTE_CONNECT,
 					RIP_ROUTE_REDISTRIBUTE, &address,
-					connected->ifp->ifindex, NULL, 0, 0, 0);
+					&nh, 0, 0, 0);
 		}
 	}
 }
