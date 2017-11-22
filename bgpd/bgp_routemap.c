@@ -2881,25 +2881,23 @@ static void bgp_route_map_update_peer_group(const char *rmap_name,
 	/* All the peers have been updated correctly already. This is
 	 * just updating the placeholder data. No real update required.
 	 */
-	for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group))
-		for (afi = AFI_IP; afi < AFI_MAX; afi++)
-			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-				filter = &group->conf->filter[afi][safi];
+	for (ALL_LIST_ELEMENTS(bgp->group, node, nnode, group)) {
+		FOREACH_AFI_SAFI (afi, safi) {
+			filter = &group->conf->filter[afi][safi];
 
-				for (direct = RMAP_IN; direct < RMAP_MAX;
-				     direct++) {
-					if ((filter->map[direct].name)
-					    && (strcmp(rmap_name,
-						       filter->map[direct].name)
-						== 0))
-						filter->map[direct].map = map;
-				}
-
-				if (filter->usmap.name
-				    && (strcmp(rmap_name, filter->usmap.name)
+			for (direct = RMAP_IN; direct < RMAP_MAX; direct++) {
+				if ((filter->map[direct].name)
+				    && (strcmp(rmap_name,
+					       filter->map[direct].name)
 					== 0))
-					filter->usmap.map = map;
+					filter->map[direct].map = map;
 			}
+
+			if (filter->usmap.name
+			    && (strcmp(rmap_name, filter->usmap.name) == 0))
+				filter->usmap.map = map;
+		}
+	}
 }
 
 /*
@@ -2930,14 +2928,12 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 		if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
 			continue;
 
-		for (afi = AFI_IP; afi < AFI_MAX; afi++)
-			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-				/* process in/out/import/export/default-orig
-				 * route-maps */
-				bgp_route_map_process_peer(rmap_name, map, peer,
-							   afi, safi,
-							   route_update);
-			}
+		FOREACH_AFI_SAFI (afi, safi) {
+			/* process in/out/import/export/default-orig
+			 * route-maps */
+			bgp_route_map_process_peer(rmap_name, map, peer, afi,
+						   safi, route_update);
+		}
 	}
 
 	/* for outbound/default-orig route-maps, process for groups */
@@ -2947,62 +2943,55 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 	/* update peer-group config (template) */
 	bgp_route_map_update_peer_group(rmap_name, map, bgp);
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			/* For table route-map updates. */
-			if (!bgp_fibupd_safi(safi))
-				continue;
+	FOREACH_AFI_SAFI (afi, safi) {
+		/* For table route-map updates. */
+		if (!bgp_fibupd_safi(safi))
+			continue;
 
-			if (bgp->table_map[afi][safi].name
-			    && (strcmp(rmap_name,
-				       bgp->table_map[afi][safi].name)
-				== 0)) {
-				bgp->table_map[afi][safi].map = map;
+		if (bgp->table_map[afi][safi].name
+		    && (strcmp(rmap_name, bgp->table_map[afi][safi].name)
+			== 0)) {
+			bgp->table_map[afi][safi].map = map;
 
-				if (BGP_DEBUG(zebra, ZEBRA))
-					zlog_debug(
-						"Processing route_map %s update on "
-						"table map",
-						rmap_name);
-				if (route_update)
-					bgp_zebra_announce_table(bgp, afi,
-								 safi);
-			}
-
-			/* For network route-map updates. */
-			for (bn = bgp_table_top(bgp->route[afi][safi]); bn;
-			     bn = bgp_route_next(bn))
-				if ((bgp_static = bn->info) != NULL) {
-					if (bgp_static->rmap.name
-					    && (strcmp(rmap_name,
-						       bgp_static->rmap.name)
-						== 0)) {
-						bgp_static->rmap.map = map;
-
-						if (route_update)
-							if (!bgp_static
-								     ->backdoor) {
-								if (bgp_debug_zebra(
-									    &bn->p))
-									zlog_debug(
-										"Processing route_map %s update on "
-										"static route %s",
-										rmap_name,
-										inet_ntop(
-											bn->p.family,
-											&bn->p.u.prefix,
-											buf,
-											INET6_ADDRSTRLEN));
-								bgp_static_update(
-									bgp,
-									&bn->p,
-									bgp_static,
-									afi,
-									safi);
-							}
-					}
-				}
+			if (BGP_DEBUG(zebra, ZEBRA))
+				zlog_debug(
+					"Processing route_map %s update on "
+					"table map",
+					rmap_name);
+			if (route_update)
+				bgp_zebra_announce_table(bgp, afi, safi);
 		}
+
+		/* For network route-map updates. */
+		for (bn = bgp_table_top(bgp->route[afi][safi]); bn;
+		     bn = bgp_route_next(bn))
+			if ((bgp_static = bn->info) != NULL) {
+				if (bgp_static->rmap.name
+				    && (strcmp(rmap_name, bgp_static->rmap.name)
+					== 0)) {
+					bgp_static->rmap.map = map;
+
+					if (route_update)
+						if (!bgp_static->backdoor) {
+							if (bgp_debug_zebra(
+								    &bn->p))
+								zlog_debug(
+									"Processing route_map %s update on "
+									"static route %s",
+									rmap_name,
+									inet_ntop(
+										bn->p.family,
+										&bn->p.u.prefix,
+										buf,
+										INET6_ADDRSTRLEN));
+							bgp_static_update(
+								bgp, &bn->p,
+								bgp_static, afi,
+								safi);
+						}
+				}
+			}
+	}
 
 	/* For redistribute route-map updates. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
