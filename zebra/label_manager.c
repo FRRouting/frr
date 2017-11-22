@@ -41,22 +41,7 @@
 
 struct label_manager lbl_mgr;
 
-/* privileges */
-static zebra_capabilities_t _caps_p[] = {
-		ZCAP_NET_RAW, ZCAP_NET_ADMIN,
-};
-struct zebra_privs_t lm_privs = {
-#if defined(FRR_USER) && defined(FRR_GROUP)
-		.user = FRR_USER,
-		.group = FRR_GROUP,
-#endif
-#ifdef VTY_GROUP
-		.vty_group = VTY_GROUP,
-#endif
-		.caps_p = _caps_p,
-		.cap_num_p = array_size(_caps_p),
-		.cap_num_i = 0,
-};
+extern struct zebra_privs_t zserv_privs;
 
 DEFINE_MGROUP(LBL_MGR, "Label Manager");
 DEFINE_MTYPE_STATIC(LBL_MGR, LM_CHUNK, "Label Manager Chunk");
@@ -239,8 +224,7 @@ static void lm_zclient_init(char *lm_zserv_path)
 
 	/* Set default values. */
 	zclient = zclient_new_notify(zebrad.master, &zclient_options_default);
-	zprivs_init (&lm_privs);
-	zclient->privs = &lm_privs;
+	zclient->privs = &zserv_privs;
 	zclient->sock = -1;
 	zclient->t_connect = NULL;
 	lm_zclient_connect(NULL);

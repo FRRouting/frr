@@ -1,0 +1,18 @@
+Sequence to be tested: GGRGGGRRG
+Connect to Label Manager
+Label Manager connection result: 0
+Ask for label chunk
+Label Chunk assign: 16 - 47
+Ask for label chunk
+Label Chunk assign: 48 - 79
+Release label chunk: 48 - 79
+Ask for label chunk
+Label Chunk assign: 48 - 79
+Ask for label chunk
+Label Chunk assign: 80 - 111
+Ask for label chunk
+Label Chunk assign: 112 - 143
+Release label chunk: 112 - 143
+Release label chunk: 80 - 111
+Ask for label chunk
+Label Chunk assign: 80 - 111
