@@ -376,7 +376,6 @@ static int zebra_rnh_apply_nht_rmap(int family, struct route_node *prn,
 static
 struct route_entry *zebra_rnh_resolve_import_entry(vrf_id_t vrfid,
 						   int family,
-						   rnh_type_t type,
 						   struct route_node *nrn,
 						   struct rnh *rnh,
 						   struct route_node **prn)
@@ -398,12 +397,8 @@ struct route_entry *zebra_rnh_resolve_import_entry(vrf_id_t vrfid,
 	/* Unlock route node - we don't need to lock when walking the tree. */
 	route_unlock_node(rn);
 
-	/* When resolving nexthops, do not resolve via the default route unless
-	 * 'ip nht resolve-via-default' is configured.
-	 */
-	if (((is_default_prefix(&rn->p)) ||
-	     ((CHECK_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH)) &&
-	     !prefix_same(&nrn->p, &rn->p))))
+	if (CHECK_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH) &&
+	     !prefix_same(&nrn->p, &rn->p))
 		return NULL;
 
 	/* Identify appropriate route entry. */
@@ -784,7 +779,7 @@ static void zebra_rnh_evaluate_entry(vrf_id_t vrfid, int family, int force,
 
 	/* Identify route entry (RE) resolving this tracked entry. */
 	if (type == RNH_IMPORT_CHECK_TYPE)
-		re = zebra_rnh_resolve_import_entry(vrfid, family, type, nrn,
+		re = zebra_rnh_resolve_import_entry(vrfid, family, nrn,
 						    rnh, &prn);
 	else
 		re = zebra_rnh_resolve_nexthop_entry(vrfid, family, nrn, rnh,
@@ -825,7 +820,7 @@ static void zebra_rnh_clear_nhc_flag(vrf_id_t vrfid, int family,
 
 	/* Identify route entry (RIB) resolving this tracked entry. */
 	if (type == RNH_IMPORT_CHECK_TYPE)
-		re = zebra_rnh_resolve_import_entry(vrfid, family, type, nrn,
+		re = zebra_rnh_resolve_import_entry(vrfid, family, nrn,
 						    rnh, &prn);
 	else
 		re = zebra_rnh_resolve_nexthop_entry(vrfid, family, nrn, rnh,
