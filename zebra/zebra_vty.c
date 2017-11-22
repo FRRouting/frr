@@ -351,7 +351,7 @@ DEFPY(ip_route_blackhole,
       ip_route_blackhole_cmd,
       "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask>                        \
-	<Null0|reject|blackhole>$flag \
+	<reject|blackhole>$flag                                               \
 	[{                                                                    \
 	  tag (1-4294967295)                                                  \
 	  |(1-255)$distance                                                   \
@@ -363,7 +363,6 @@ DEFPY(ip_route_blackhole,
       "IP destination prefix (e.g. 10.0.0.0/8)\n"
       "IP destination prefix\n"
       "IP destination prefix mask\n"
-      "Null interface\n"
       "Emit an ICMP unreachable when matched\n"
       "Silently discard pkts when matched\n"
       "Set tag for this route\n"
@@ -395,15 +394,21 @@ DEFPY(ip_route_address_interface,
       "IP destination prefix\n"
       "IP destination prefix mask\n"
       "IP gateway address\n"
-      "IP gateway interface name\n"
+      "IP gateway interface name. Specify 'Null0' (case-insensitive) for a \
+      null route.\n"
       "Set tag for this route\n"
       "Tag value\n"
       "Distance value for this route\n"
       VRF_CMD_HELP_STR
       MPLS_LABEL_HELPSTR)
 {
+	const char *flag = NULL;
+	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
+		flag = "Null0";
+		ifname = NULL;
+	}
 	return zebra_static_route(vty, AFI_IP, SAFI_UNICAST, no, prefix,
-				  mask_str, NULL, gate_str, ifname, NULL,
+				  mask_str, NULL, gate_str, ifname, flag,
 				  tag_str, distance_str, vrf, label);
 }
 
@@ -431,8 +436,13 @@ DEFPY(ip_route,
       VRF_CMD_HELP_STR
       MPLS_LABEL_HELPSTR)
 {
+	const char *flag = NULL;
+	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
+		flag = "Null0";
+		ifname = NULL;
+	}
 	return zebra_static_route(vty, AFI_IP, SAFI_UNICAST, no, prefix,
-				  mask_str, NULL, gate_str, ifname, NULL,
+				  mask_str, NULL, gate_str, ifname, flag,
 				  tag_str, distance_str, vrf, label);
 }
 
