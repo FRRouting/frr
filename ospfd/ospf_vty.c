@@ -201,6 +201,9 @@ DEFUN_NOSH (router_ospf,
 	struct ospf *ospf = NULL;
 	int ret = CMD_SUCCESS;
 	u_short instance = 0;
+	struct vrf *vrf = NULL;
+	struct route_node *rn;
+	struct interface *ifp;
 
 	ospf = ospf_cmd_lookup_ospf(vty, argv, argc, 1, &instance);
 	if (!ospf)
@@ -219,6 +222,34 @@ DEFUN_NOSH (router_ospf,
 				   instance,  ospf->name ? ospf->name : "NIL",
 				   ospf->vrf_id, ospf->oi_running);
 		VTY_PUSH_CONTEXT(OSPF_NODE, ospf);
+
+		/* Activate 'ip ospf area x' configured interfaces for given
+		 * vrf. Activate area on vrf x aware interfaces.
+		 * vrf_enable callback calls router_id_update which
+		 * internally will call ospf_if_update to trigger
+		 * network_run_state
+		 */
+		vrf = vrf_lookup_by_id(ospf->vrf_id);
+
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			struct ospf_if_params *params;
+
+			params = IF_DEF_PARAMS(ifp);
+			if (OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
+				for (rn = route_top(ospf->networks); rn;
+				     rn = route_next(rn)) {
+					if (rn->info != NULL) {
+						vty_out(vty,
+						"Interface %s has area config but please remove all network commands first.\n",
+						ifp->name);
+						return ret;
+					}
+				}
+				ospf_interface_area_set(ospf, ifp);
+				ospf->if_ospf_cli_count++;
+			}
+		}
+
 		ospf_router_id_update(ospf);
 	}
 
@@ -570,6 +601,11 @@ DEFUN (ospf_network_area,
 	if (ospf->if_ospf_cli_count > 0) {
 		vty_out(vty,
 			"Please remove all ip ospf area x.x.x.x commands first.\n");
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug("%s ospf vrf %s num of %u ip osp area x config",
+				   __PRETTY_FUNCTION__,
+				   ospf->name ? ospf->name : "NIL",
+				   ospf->if_ospf_cli_count);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -7926,7 +7962,7 @@ DEFUN (ip_ospf_area,
 	else
 		ospf = ospf_lookup_instance(instance);
 
-	if (ospf == NULL) {
+	if (instance && ospf == NULL) {
 		params = IF_DEF_PARAMS(ifp);
 		if (OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
 			UNSET_IF_PARAM(params, if_area);
@@ -7971,11 +8007,13 @@ DEFUN (ip_ospf_area,
 		ospf_if_update_params((ifp), (addr));
 	}
 
-	for (rn = route_top(ospf->networks); rn; rn = route_next(rn)) {
-		if (rn->info != NULL) {
-			vty_out(vty,
-				"Please remove all network commands first.\n");
-			return CMD_WARNING_CONFIG_FAILED;
+	if (ospf) {
+		for (rn = route_top(ospf->networks); rn; rn = route_next(rn)) {
+			if (rn->info != NULL) {
+				vty_out(vty,
+					"Please remove all network commands first.\n");
+				return CMD_WARNING_CONFIG_FAILED;
+			}
 		}
 	}
 
@@ -7985,8 +8023,11 @@ DEFUN (ip_ospf_area,
 		params->if_area = area_id;
 		params->if_area_id_fmt = format;
 	}
-	ospf_interface_area_set(ospf, ifp);
-	ospf->if_ospf_cli_count++;
+
+	if (ospf) {
+		ospf_interface_area_set(ospf, ifp);
+		ospf->if_ospf_cli_count++;
+	}
 
 	return CMD_SUCCESS;
 }
