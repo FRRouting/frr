@@ -449,9 +449,15 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	while (rn) {
 		route_unlock_node(rn);
 
-		/* If lookup self prefix return immediately. */
-		if (rn == top)
-			return 0;
+		/* Lookup should halt if we've matched against ourselves ('top',
+		 * if specified) - i.e., we cannot have a nexthop NH1 is
+		 * resolved by a route NH1. The exception is if the route is a
+		 * host route.
+		 */
+		if (top && rn == top)
+			if (((afi == AFI_IP) && (rn->p.prefixlen != 32)) ||
+			    ((afi == AFI_IP6) && (rn->p.prefixlen != 128)))
+				return 0;
 
 		/* Pick up selected route. */
 		/* However, do not resolve over default route unless explicitly
