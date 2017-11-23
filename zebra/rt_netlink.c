@@ -1605,7 +1605,23 @@ int kernel_route_rib(struct prefix *p, struct prefix *src_p,
 	if (old && !new)
 		return netlink_route_multipath(RTM_DELROUTE, p, src_p, old, 0);
 
-	return netlink_route_multipath(RTM_NEWROUTE, p, src_p, new, 1);
+	if (p->family == AF_INET)
+		return netlink_route_multipath(RTM_NEWROUTE, p, src_p, new, 1);
+
+	/*
+	 * So v6 route replace semantics are not in the kernel at this
+	 * point as I understand it.
+	 * So let's do a delete than an add.
+	 * In the future once v6 route replace semantics are in
+	 * we can figure out what to do here to allow working
+	 * with old and new kernels.
+	 *
+	 * I'm also intentionally ignoring the failure case
+	 * of the route delete.  If that happens yeah we're
+	 * screwed.
+	 */
+	netlink_route_multipath(RTM_DELROUTE, p, src_p, old, 0);
+	return netlink_route_multipath(RTM_NEWROUTE, p, src_p, new, 0);
 }
 
 int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,
