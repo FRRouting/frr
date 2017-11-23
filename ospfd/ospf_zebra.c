@@ -519,13 +519,14 @@ void ospf_zebra_delete_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 			   inet_ntoa(p->prefix), p->prefixlen);
 }
 
-struct ospf_external *ospf_external_lookup(u_char type, u_short instance)
+struct ospf_external *ospf_external_lookup(struct ospf *ospf, u_char type,
+					   u_short instance)
 {
 	struct list *ext_list;
 	struct listnode *node;
 	struct ospf_external *ext;
 
-	ext_list = om->external[type];
+	ext_list = ospf->external[type];
 	if (!ext_list)
 		return (NULL);
 
@@ -536,19 +537,20 @@ struct ospf_external *ospf_external_lookup(u_char type, u_short instance)
 	return NULL;
 }
 
-struct ospf_external *ospf_external_add(u_char type, u_short instance)
+struct ospf_external *ospf_external_add(struct ospf *ospf, u_char type,
+					u_short instance)
 {
 	struct list *ext_list;
 	struct ospf_external *ext;
 
-	ext = ospf_external_lookup(type, instance);
+	ext = ospf_external_lookup(ospf, type, instance);
 	if (ext)
 		return ext;
 
-	if (!om->external[type])
-		om->external[type] = list_new();
+	if (!ospf->external[type])
+		ospf->external[type] = list_new();
 
-	ext_list = om->external[type];
+	ext_list = ospf->external[type];
 	ext = (struct ospf_external *)XCALLOC(MTYPE_OSPF_EXTERNAL,
 					      sizeof(struct ospf_external));
 	ext->instance = instance;
@@ -559,20 +561,21 @@ struct ospf_external *ospf_external_add(u_char type, u_short instance)
 	return ext;
 }
 
-void ospf_external_del(u_char type, u_short instance)
+void ospf_external_del(struct ospf *ospf, u_char type, u_short instance)
 {
 	struct ospf_external *ext;
 
-	ext = ospf_external_lookup(type, instance);
+	ext = ospf_external_lookup(ospf, type, instance);
 
 	if (ext) {
 		if (EXTERNAL_INFO(ext))
 			route_table_finish(EXTERNAL_INFO(ext));
 
-		listnode_delete(om->external[type], ext);
-		if (!om->external[type]->count) {
-			list_delete_and_null(&om->external[type]);
-		}
+		listnode_delete(ospf->external[type], ext);
+
+		if (!ospf->external[type]->count)
+			list_delete_and_null(&ospf->external[type]);
+
 		XFREE(MTYPE_OSPF_EXTERNAL, ext);
 	}
 }
@@ -684,7 +687,7 @@ int ospf_redistribute_set(struct ospf *ospf, int type, u_short instance,
 	red->dmetric.type = mtype;
 	red->dmetric.value = mvalue;
 
-	ospf_external_add(type, instance);
+	ospf_external_add(ospf, type, instance);
 
 	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, type,
 			     instance, ospf->vrf_id);
@@ -720,7 +723,7 @@ int ospf_redistribute_unset(struct ospf *ospf, int type, u_short instance)
 	/* Remove the routes from OSPF table. */
 	ospf_redistribute_withdraw(ospf, type, instance);
 
-	ospf_external_del(type, instance);
+	ospf_external_del(ospf, type, instance);
 
 	ospf_asbr_status_update(ospf, --ospf->redistribute);
 
@@ -738,7 +741,7 @@ int ospf_redistribute_default_set(struct ospf *ospf, int originate, int mtype,
 	red->dmetric.type = mtype;
 	red->dmetric.value = mvalue;
 
-	ospf_external_add(DEFAULT_ROUTE, 0);
+	ospf_external_add(ospf, DEFAULT_ROUTE, 0);
 
 	if (ospf_is_type_redistributed(ospf, DEFAULT_ROUTE, 0)) {
 		/* if ospf->default_originate changes value, is calling
@@ -963,10 +966,11 @@ static int ospf_zebra_read_route(int command, struct zclient *zclient,
 		 */
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
 			if (i != api.type)
-				ospf_external_info_delete(i, api.instance, p);
+				ospf_external_info_delete(ospf, i,
+							  api.instance, p);
 
-		ei = ospf_external_info_add(api.type, api.instance, p, ifindex,
-					    nexthop, api.tag);
+		ei = ospf_external_info_add(ospf, api.type, api.instance, p,
+					    ifindex, nexthop, api.tag);
 		if (ei == NULL) {
 			/* Nothing has changed, so nothing to do; return */
 			return 0;
@@ -1004,7 +1008,7 @@ static int ospf_zebra_read_route(int command, struct zclient *zclient,
 		}
 	} else /* if (command == ZEBRA_REDISTRIBUTE_ROUTE_DEL) */
 	{
-		ospf_external_info_delete(api.type, api.instance, p);
+		ospf_external_info_delete(ospf, api.type, api.instance, p);
 		if (is_prefix_default(&p))
 			ospf_external_lsa_refresh_default(ospf);
 		else
@@ -1087,7 +1091,7 @@ static int ospf_distribute_list_update_timer(struct thread *thread)
 		struct listnode *node;
 		struct ospf_external *ext;
 
-		ext_list = om->external[type];
+		ext_list = ospf->external[type];
 		if (!ext_list)
 			continue;
 
@@ -1130,7 +1134,7 @@ void ospf_distribute_list_update(struct ospf *ospf, int type,
 	args[1] = (void *)((ptrdiff_t) type);
 
 	/* External info does not exist. */
-	ext = ospf_external_lookup(type, instance);
+	ext = ospf_external_lookup(ospf, type, instance);
 	if (!ext || !(rt = EXTERNAL_INFO(ext))) {
 		XFREE(MTYPE_OSPF_DIST_ARGS, args);
 		return;

@@ -108,7 +108,7 @@ struct external_info *ospf_external_info_check(struct ospf *ospf,
 			struct listnode *node;
 			struct ospf_external *ext;
 
-			ext_list = om->external[type];
+			ext_list = ospf->external[type];
 			if (!ext_list)
 				continue;
 

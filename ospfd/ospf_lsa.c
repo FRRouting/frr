@@ -2037,7 +2037,7 @@ int ospf_external_lsa_originate_timer(struct thread *thread)
 
 	ospf->t_external_lsa = NULL;
 
-	ext_list = om->external[type];
+	ext_list = ospf->external[type];
 	if (!ext_list)
 		return 0;
 
@@ -2077,7 +2077,7 @@ static struct external_info *ospf_default_external_info(struct ospf *ospf)
 		if (type == ZEBRA_ROUTE_OSPF)
 			continue;
 
-		ext_list = om->external[type];
+		ext_list = ospf->external[type];
 		if (!ext_list)
 			continue;
 
@@ -2114,7 +2114,8 @@ int ospf_default_originate_timer(struct thread *thread)
 		/* If there is no default route via redistribute,
 		   then originate AS-external-LSA with nexthop 0 (self). */
 		nexthop.s_addr = 0;
-		ospf_external_info_add(DEFAULT_ROUTE, 0, p, 0, nexthop, 0);
+		ospf_external_info_add(ospf, DEFAULT_ROUTE, 0, p, 0,
+				       nexthop, 0);
 	}
 
 	if ((ei = ospf_default_external_info(ospf)))
@@ -2245,25 +2246,32 @@ void ospf_external_lsa_refresh_type(struct ospf *ospf, u_char type,
 	struct external_info *ei;
 	struct ospf_external *ext;
 
-	if (type != DEFAULT_ROUTE)
-		if ((ext = ospf_external_lookup(type, instance))
-		    && EXTERNAL_INFO(ext))
-			/* Refresh each redistributed AS-external-LSAs. */
-			for (rn = route_top(EXTERNAL_INFO(ext)); rn;
-			     rn = route_next(rn))
-				if ((ei = rn->info))
-					if (!is_prefix_default(&ei->p)) {
-						struct ospf_lsa *lsa;
+	if (type == DEFAULT_ROUTE)
+		return;
 
-						if ((lsa = ospf_external_info_find_lsa(
-							     ospf, &ei->p)))
-							ospf_external_lsa_refresh(
-								ospf, lsa, ei,
-								force);
-						else
-							ospf_external_lsa_originate(
-								ospf, ei);
-					}
+	ext = ospf_external_lookup(ospf, type, instance);
+
+	if (ext && EXTERNAL_INFO(ext)) {
+		/* Refresh each redistributed AS-external-LSAs. */
+		for (rn = route_top(EXTERNAL_INFO(ext)); rn;
+		     rn = route_next(rn)) {
+			ei = rn->info;
+			if (ei) {
+				if (!is_prefix_default(&ei->p)) {
+					struct ospf_lsa *lsa;
+
+					lsa = ospf_external_info_find_lsa(ospf,
+								&ei->p);
+					if (lsa)
+						ospf_external_lsa_refresh(ospf,
+								lsa, ei, force);
+					else
+						ospf_external_lsa_originate(ospf
+									, ei);
+				}
+			}
+		}
+	}
 }
 
 /* Refresh AS-external-LSA. */

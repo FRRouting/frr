@@ -59,9 +59,10 @@ extern int ospf_is_type_redistributed(struct ospf *, int, u_short);
 extern void ospf_distance_reset(struct ospf *);
 extern u_char ospf_distance_apply(struct ospf *ospf, struct prefix_ipv4 *,
 				  struct ospf_route *);
-extern struct ospf_external *ospf_external_lookup(u_char, u_short);
-extern struct ospf_external *ospf_external_add(u_char, u_short);
-extern void ospf_external_del(u_char, u_short);
+extern struct ospf_external *ospf_external_lookup(struct ospf*, u_char,
+						  u_short);
+extern struct ospf_external *ospf_external_add(struct ospf*, u_char, u_short);
+extern void ospf_external_del(struct ospf *, u_char, u_short);
 extern struct ospf_redist *ospf_redist_lookup(struct ospf *, u_char, u_short);
 extern struct ospf_redist *ospf_redist_add(struct ospf *, u_char, u_short);
 extern void ospf_redist_del(struct ospf *, u_char, u_short);

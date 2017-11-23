@@ -93,11 +93,6 @@ struct ospf_master {
 	/* OSPF thread master. */
 	struct thread_master *master;
 
-
-	/* Redistributed external information. */
-	struct list *external[ZEBRA_ROUTE_MAX + 1];
-#define EXTERNAL_INFO(E)      (E->external_info)
-
 	/* Various OSPF global configuration. */
 	u_char options;
 #define OSPF_MASTER_SHUTDOWN (1 << 0) /* deferred-shutdown */
@@ -313,6 +308,10 @@ struct ospf {
 	/* Used during ospf instance going down send LSDB
 	 * update to neighbors immediatly */
 	uint8_t inst_shutdown;
+
+	/* Redistributed external information. */
+	struct list *external[ZEBRA_ROUTE_MAX + 1];
+#define EXTERNAL_INFO(E)      (E->external_info)
 
 	QOBJ_FIELDS
 };
