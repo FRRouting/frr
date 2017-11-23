@@ -40,21 +40,26 @@
  */
 extern void *frrzmq_context;
 
-extern void frrzmq_init (void);
-extern void frrzmq_finish (void);
+extern void frrzmq_init(void);
+extern void frrzmq_finish(void);
 
 #define debugargdef const char *funcname, const char *schedfrom, int fromln
 
 /* core event registration, one of these 2 macros should be used */
-#define frrzmq_thread_add_read_msg(m,f,a,z) funcname_frrzmq_thread_add_read( \
-				m,f,NULL,a,z,#f,__FILE__,__LINE__)
-#define frrzmq_thread_add_read_part(m,f,a,z) funcname_frrzmq_thread_add_read( \
-				m,NULL,f,a,z,#f,__FILE__,__LINE__)
+#define frrzmq_thread_add_read_msg(m, f, e, a, z, d)                           \
+	funcname_frrzmq_thread_add_read(m, f, NULL, e, a, z, d, #f, __FILE__,  \
+					__LINE__)
+#define frrzmq_thread_add_read_part(m, f, e, a, z, d)                          \
+	funcname_frrzmq_thread_add_read(m, NULL, f, e, a, z, d, #f, __FILE__,  \
+					__LINE__)
+#define frrzmq_thread_add_write_msg(m, f, e, a, z, d)                          \
+	funcname_frrzmq_thread_add_write(m, f, e, a, z, d, #f, __FILE__,       \
+					 __LINE__)
 
 struct frrzmq_cb;
 
-/* Set up a POLLIN notification to be called from the libfrr main loop.
- * This has the following properties:
+/* Set up a POLLIN or POLLOUT notification to be called from the libfrr main
+ * loop. This has the following properties:
  *
  * - since ZeroMQ works with edge triggered notifications, it will loop and
  *   dispatch as many events as ZeroMQ has pending at the time libfrr calls
@@ -67,22 +72,37 @@ struct frrzmq_cb;
  *   - if partfunc is specified, the message is read and partfunc is called
  *     for each ZeroMQ multi-part subpart.  Note that you can't send replies
  *     before all parts have been read because that violates the ZeroMQ FSM.
+ * - write version doesn't allow for partial callback, you must handle the
+ *   whole message (all parts) in msgfunc callback
  * - you can safely cancel the callback from within itself
  * - installing a callback will check for pending events (ZMQ_EVENTS) and
  *   may schedule the event to run as soon as libfrr is back in its main
  *   loop.
- *
- * TODO #1: add ZMQ_POLLERR / error callback
- * TODO #2: add frrzmq_check_events() function to check for edge triggered
- *          things that may have happened after a zmq_send() call or so
+ * - if you are registering both POLLIN and POLLOUT for the same socket, you
+ *   can tie them together using cb->dual field. This way the other event
+ *   will be checked after every execution (see comments below for
+ *   frrzmq_check_events_function)
  */
 extern struct frrzmq_cb *funcname_frrzmq_thread_add_read(
-		struct thread_master *master,
-		void (*msgfunc)(void *arg, void *zmqsock),
-		void (*partfunc)(void *arg, void *zmqsock,
-				 zmq_msg_t *msg, unsigned partnum),
-		void *arg, void *zmqsock, debugargdef);
+	struct thread_master *master, void (*msgfunc)(void *arg, void *zmqsock),
+	void (*partfunc)(void *arg, void *zmqsock, zmq_msg_t *msg,
+			 unsigned partnum),
+	void (*errfunc)(void *arg, void *zmqsock), void *arg, void *zmqsock,
+	struct frrzmq_cb *dual, debugargdef);
+extern struct frrzmq_cb *funcname_frrzmq_thread_add_write(
+	struct thread_master *master, void (*msgfunc)(void *arg, void *zmqsock),
+	void (*errfunc)(void *arg, void *zmqsock), void *arg, void *zmqsock,
+	struct frrzmq_cb *dual, debugargdef);
 
 extern void frrzmq_thread_cancel(struct frrzmq_cb *cb);
+/*
+ * http://api.zeromq.org/4-2:zmq-getsockopt#toc10
+ *
+ * As the descriptor is edge triggered, applications must update the state of
+ * ZMQ_EVENTS after each invocation of zmq_send or zmq_recv.To be more explicit:
+ * after calling zmq_send the socket may become readable (and vice versa)
+ * without triggering a read event on the file descriptor.
+ */
+extern void frrzmq_check_events(struct frrzmq_cb *cb, int event);
 
 #endif /* _FRRZMQ_H */
