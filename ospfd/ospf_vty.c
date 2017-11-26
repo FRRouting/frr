@@ -10061,7 +10061,14 @@ static int ospf_config_write(struct vty *vty)
 		return write;
 
 	for (ALL_LIST_ELEMENTS_RO(om->ospf, ospf_node, ospf)) {
-		if (ospf->oi_running)
+		/* VRF Default check if it is running.
+		 * Upon daemon start, there could be default instance
+		 * in absence of 'router ospf'/oi_running is disabled. */
+		if (ospf->vrf_id == VRF_DEFAULT && ospf->oi_running)
+			write += ospf_config_write_one(vty, ospf);
+		/* For Non-Default VRF simply display the configuration,
+		 * even if it is not oi_running. */
+		else if (ospf->vrf_id != VRF_DEFAULT)
 			write += ospf_config_write_one(vty, ospf);
 	}
 	return write;
