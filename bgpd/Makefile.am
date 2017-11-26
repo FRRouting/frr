@@ -73,6 +73,8 @@ module_LTLIBRARIES =
 sbin_PROGRAMS = bgpd
 bin_PROGRAMS = bgp_btoa
 
+BUILT_SOURCES = 
+
 libbgp_a_SOURCES = \
 	bgp_memory.c \
 	bgpd.c bgp_fsm.c bgp_aspath.c bgp_community.c bgp_attr.c \
@@ -116,12 +118,8 @@ bgpd_snmp_la_LIBADD = ../lib/libfrrsnmp.la
 
 if RPKI
 module_LTLIBRARIES += bgpd_rpki.la
+BUILT_SOURCES += bgp_rpki_clippy.c
 endif
-
-bgpd_rpki_la-bgp_rpki.o: bgp_rpki_clippy.c
-bgp_rpki.la: bgp_rpki_clippy.c
-bgp_rpki.lo: bgp_rpki_clippy.c
-bgp_rpki.o: bgp_rpki_clippy.c
 
 bgpd_rpki_la_SOURCES = bgp_rpki.c
 bgpd_rpki_la_CFLAGS = $(WERROR) $(RTRLIB_CFLAGS)
