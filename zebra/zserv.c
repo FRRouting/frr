@@ -988,15 +988,15 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 	return zebra_server_send_message(client);
 }
 
-int zsend_route_notify_owner(u_char proto, vrf_id_t vrf_id,
-			     struct prefix *p,
+int zsend_route_notify_owner(u_char proto, u_short instance,
+			     vrf_id_t vrf_id, struct prefix *p,
 			     enum zapi_route_notify_owner note)
 {
 	struct zserv *client;
 	struct stream *s;
 	uint8_t blen;
 
-	client = zebra_find_client(proto);
+	client = zebra_find_client(proto, instance);
 	if (!client || !client->notify_owner) {
 		if (IS_ZEBRA_DEBUG_PACKET) {
 			char buff[PREFIX_STRLEN];
@@ -3003,13 +3003,14 @@ static void zebra_show_client_brief(struct vty *vty, struct zserv *client)
 		client->v6_route_del_cnt);
 }
 
-struct zserv *zebra_find_client(u_char proto)
+struct zserv *zebra_find_client(u_char proto, u_short instance)
 {
 	struct listnode *node, *nnode;
 	struct zserv *client;
 
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client)) {
-		if (client->proto == proto)
+		if (client->proto == proto &&
+		    client->instance == instance)
 			return client;
 	}
 

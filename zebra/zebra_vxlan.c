@@ -759,7 +759,7 @@ static int zvni_macip_send_msg_to_client(vni_t vni,
 	char buf[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
 
-	client = zebra_find_client(ZEBRA_ROUTE_BGP);
+	client = zebra_find_client(ZEBRA_ROUTE_BGP, 0);
 	/* BGP may not be running. */
 	if (!client)
 		return 0;
@@ -2122,7 +2122,7 @@ static int zvni_send_add_to_client(zebra_vni_t *zvni)
 	struct zserv *client;
 	struct stream *s;
 
-	client = zebra_find_client(ZEBRA_ROUTE_BGP);
+	client = zebra_find_client(ZEBRA_ROUTE_BGP, 0);
 	/* BGP may not be running. */
 	if (!client)
 		return 0;
@@ -2154,7 +2154,7 @@ static int zvni_send_del_to_client(vni_t vni)
 	struct zserv *client;
 	struct stream *s;
 
-	client = zebra_find_client(ZEBRA_ROUTE_BGP);
+	client = zebra_find_client(ZEBRA_ROUTE_BGP, 0);
 	/* BGP may not be running. */
 	if (!client)
 		return 0;
