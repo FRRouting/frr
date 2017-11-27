@@ -1157,49 +1157,52 @@ static int bgp_output_modifier(struct peer *peer, struct prefix *p,
 			       struct attr *attr, afi_t afi, safi_t safi,
 			       const char *rmap_name)
 {
-	struct bgp_filter *filter;
 	struct bgp_info info;
 	route_map_result_t ret;
 	struct route_map *rmap = NULL;
+	u_char rmap_type;
 
-	filter = &peer->filter[afi][safi];
+	/*
+	 * So if we get to this point and have no rmap_name
+	 * we want to just show the output as it currently
+	 * exists.
+	 */
+	if (!rmap_name)
+		return RMAP_PERMIT;
 
 	/* Apply default weight value. */
 	if (peer->weight[afi][safi])
 		attr->weight = peer->weight[afi][safi];
 
-	if (rmap_name) {
-		rmap = route_map_lookup_by_name(rmap_name);
+	rmap = route_map_lookup_by_name(rmap_name);
 
-		if (rmap == NULL)
-			return RMAP_DENY;
-	} else {
-		if (ROUTE_MAP_OUT_NAME(filter)) {
-			rmap = ROUTE_MAP_OUT(filter);
-
-			if (rmap == NULL)
-				return RMAP_DENY;
-		}
-	}
+	/*
+	 * If we have a route map name and we do not find
+	 * the routemap that means we have an implicit
+	 * deny.
+	 */
+	if (rmap == NULL)
+		return RMAP_DENY;
 
 	/* Route map apply. */
-	if (rmap) {
-		/* Duplicate current value to new strucutre for modification. */
-		info.peer = peer;
-		info.attr = attr;
+	/* Duplicate current value to new strucutre for modification. */
+	info.peer = peer;
+	info.attr = attr;
 
-		SET_FLAG(peer->rmap_type, PEER_RMAP_TYPE_OUT);
+	rmap_type = peer->rmap_type;
+	SET_FLAG(peer->rmap_type, PEER_RMAP_TYPE_OUT);
 
-		/* Apply BGP route map to the attribute. */
-		ret = route_map_apply(rmap, p, RMAP_BGP, &info);
+	/* Apply BGP route map to the attribute. */
+	ret = route_map_apply(rmap, p, RMAP_BGP, &info);
 
-		peer->rmap_type = 0;
+	peer->rmap_type = rmap_type;
 
-		if (ret == RMAP_DENYMATCH)
-			/* caller has multiple error paths with bgp_attr_flush()
-			 */
-			return RMAP_DENY;
-	}
+	if (ret == RMAP_DENYMATCH)
+		/*
+		 * caller has multiple error paths with bgp_attr_flush()
+		 */
+		return RMAP_DENY;
+
 	return RMAP_PERMIT;
 }
 
@@ -10180,70 +10183,75 @@ static void show_adj_route(struct vty *vty, struct peer *peer, afi_t afi,
 			}
 		} else {
 			for (adj = rn->adj_out; adj; adj = adj->next)
-				SUBGRP_FOREACH_PEER (adj->subgroup, paf)
-					if (paf->peer == peer) {
-						if (header1) {
-							if (use_json) {
-								json_object_int_add(
-									json,
-									"bgpTableVersion",
-									table->version);
-								json_object_string_add(
-									json,
-									"bgpLocalRouterId",
-									inet_ntoa(
-										bgp->router_id));
-								json_object_object_add(
-									json,
-									"bgpStatusCodes",
-									json_scode);
-								json_object_object_add(
-									json,
-									"bgpOriginCodes",
-									json_ocode);
-							} else {
-								vty_out(vty,
-									"BGP table version is %" PRIu64
-									", local router ID is %s\n",
-									table->version,
-									inet_ntoa(
-										bgp->router_id));
-								vty_out(vty,
-									BGP_SHOW_SCODE_HEADER);
-								vty_out(vty,
-									BGP_SHOW_OCODE_HEADER);
-							}
-							header1 = 0;
-						}
+				SUBGRP_FOREACH_PEER (adj->subgroup, paf) {
+					if (paf->peer != peer)
+						continue;
 
-						if (header2) {
-							if (!use_json)
-								vty_out(vty,
-									BGP_SHOW_HEADER);
-							header2 = 0;
+					if (header1) {
+						if (use_json) {
+							json_object_int_add(
+								json,
+								"bgpTableVersion",
+								table->version);
+							json_object_string_add(
+								json,
+								"bgpLocalRouterId",
+								inet_ntoa(
+									bgp->router_id));
+							json_object_object_add(
+								json,
+								"bgpStatusCodes",
+								json_scode);
+							json_object_object_add(
+								json,
+								"bgpOriginCodes",
+								json_ocode);
+						} else {
+							vty_out(vty,
+								"BGP table version is %" PRIu64
+								", local router ID is %s\n",
+								table->version,
+								inet_ntoa(
+									bgp->router_id));
+							vty_out(vty,
+								BGP_SHOW_SCODE_HEADER);
+							vty_out(vty,
+								BGP_SHOW_OCODE_HEADER);
 						}
-
-						if (adj->attr) {
-							bgp_attr_dup(&attr,
-								     adj->attr);
-							ret = bgp_output_modifier(
-								peer, &rn->p,
-								&attr, afi,
-								safi,
-								rmap_name);
-							if (ret != RMAP_DENY) {
-								route_vty_out_tmp(
-									vty,
-									&rn->p,
-									&attr,
-									safi,
-									use_json,
-									json_ar);
-								output_count++;
-							} else
-								filtered_count++;
-						}
+						header1 = 0;
 					}
+
+					if (header2) {
+						if (!use_json)
+							vty_out(vty,
+								BGP_SHOW_HEADER);
+						header2 = 0;
+					}
+
+					if (adj->attr) {
+						bgp_attr_dup(&attr,
+							     adj->attr);
+						ret = bgp_output_modifier(
+							peer, &rn->p,
+							&attr, afi,
+							safi,
+							rmap_name);
+						if (ret != RMAP_DENY) {
+							route_vty_out_tmp(
+								vty,
+								&rn->p,
+								&attr,
+								safi,
+								use_json,
+								json_ar);
+							output_count++;
+						} else
+							filtered_count++;
+
+						bgp_attr_undup(&attr,
+							       adj->attr);
+					}
+				}
 		}
 	}
 	if (use_json)

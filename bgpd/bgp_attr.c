@@ -822,6 +822,32 @@ void bgp_attr_unintern_sub(struct attr *attr)
 #endif
 }
 
+/*
+ * We have some show commands that let you experimentally
+ * apply a route-map.  When we apply the route-map
+ * we are reseting values but not saving them for
+ * posterity via intern'ing( because route-maps don't
+ * do that) but at this point in time we need
+ * to compare the new attr to the old and if the
+ * routemap has changed it we need to, as Snoop Dog says,
+ * Drop it like it's hot
+ */
+void bgp_attr_undup(struct attr *new, struct attr *old)
+{
+	if (new->aspath != old->aspath)
+		aspath_free(new->aspath);
+
+	if (new->community != old->community)
+		community_free(new->community);
+
+	if (new->ecommunity != old->ecommunity)
+		ecommunity_free(&new->ecommunity);
+
+	if (new->lcommunity != old->lcommunity)
+		lcommunity_free(&new->lcommunity);
+
+}
+
 /* Free bgp attribute and aspath. */
 void bgp_attr_unintern(struct attr **pattr)
 {
