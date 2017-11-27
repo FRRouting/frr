@@ -33,3 +33,4 @@ ldpd=no
 nhrpd=no
 eigrpd=no
 babeld=no
+sharpd=no

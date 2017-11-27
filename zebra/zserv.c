@@ -988,6 +988,43 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 	return zebra_server_send_message(client);
 }
 
+int zsend_route_notify_owner(u_char proto, u_short instance,
+			     vrf_id_t vrf_id, struct prefix *p,
+			     enum zapi_route_notify_owner note)
+{
+	struct zserv *client;
+	struct stream *s;
+	uint8_t blen;
+
+	client = zebra_find_client(proto, instance);
+	if (!client || !client->notify_owner) {
+		if (IS_ZEBRA_DEBUG_PACKET) {
+			char buff[PREFIX_STRLEN];
+
+			zlog_debug("Not Notifying Owner: %u about prefix %s",
+				   proto, prefix2str(p, buff, sizeof(buff)));
+		}
+		return 0;
+	}
+
+	s = client->obuf;
+	stream_reset(s);
+
+	zserv_create_header(s, ZEBRA_ROUTE_NOTIFY_OWNER, vrf_id);
+
+	stream_put(s, &note, sizeof(note));
+
+	stream_putc(s, p->family);
+
+	blen = prefix_blen(p);
+	stream_putc(s, p->prefixlen);
+	stream_put(s, &p->u.prefix, blen);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zebra_server_send_message(client);
+}
+
 /* Router-id is updated. Send ZEBRA_ROUTER_ID_ADD to client. */
 int zsend_router_id_update(struct zserv *client, struct prefix *p,
 			   vrf_id_t vrf_id)
@@ -1884,9 +1921,13 @@ static void zread_hello(struct zserv *client)
 	/* type of protocol (lib/zebra.h) */
 	u_char proto;
 	u_short instance;
+	u_char notify;
 
 	STREAM_GETC(client->ibuf, proto);
 	STREAM_GETW(client->ibuf, instance);
+	STREAM_GETC(client->ibuf, notify);
+	if (notify)
+		client->notify_owner = true;
 
 	/* accept only dynamic routing protocols */
 	if ((proto < ZEBRA_ROUTE_MAX) && (proto > ZEBRA_ROUTE_STATIC)) {
@@ -2962,13 +3003,14 @@ static void zebra_show_client_brief(struct vty *vty, struct zserv *client)
 		client->v6_route_del_cnt);
 }
 
-struct zserv *zebra_find_client(u_char proto)
+struct zserv *zebra_find_client(u_char proto, u_short instance)
 {
 	struct listnode *node, *nnode;
 	struct zserv *client;
 
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client)) {
-		if (client->proto == proto)
+		if (client->proto == proto &&
+		    client->instance == instance)
 			return client;
 	}
 

@@ -748,7 +748,7 @@ void pim_zebra_init(void)
 	int i;
 
 	/* Socket for receiving updates from Zebra daemon */
-	zclient = zclient_new(master);
+	zclient = zclient_new_notify(master, &zclient_options_default);
 
 	zclient->zebra_connected = pim_zebra_connected;
 	zclient->router_id_update = pim_router_id_update_zebra;

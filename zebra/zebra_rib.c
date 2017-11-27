@@ -1028,6 +1028,14 @@ int rib_install_kernel(struct route_node *rn, struct route_entry *re,
 		}
 	}
 
+	/*
+	 * If this is a replace to a new RE let the originator of the RE
+	 * know that they've lost
+	 */
+	if (old && old != re)
+		zsend_route_notify_owner(old->type, old->instance,
+					 old->vrf_id, p,
+					 ZAPI_ROUTE_BETTER_ADMIN_WON);
 
 	/*
 	 * Make sure we update the FPM any time we send new information to
@@ -1048,7 +1056,11 @@ int rib_install_kernel(struct route_node *rn, struct route_entry *re,
 			else
 				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		}
-	}
+		zsend_route_notify_owner(re->type, re->instance, re->vrf_id,
+					 p, ZAPI_ROUTE_INSTALLED);
+	} else
+		zsend_route_notify_owner(re->type, re->instance, re->vrf_id,
+					 p, ZAPI_ROUTE_FAIL_INSTALL);
 
 	return ret;
 }

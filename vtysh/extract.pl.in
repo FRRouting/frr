@@ -82,7 +82,7 @@ foreach (@ARGV) {
             $protocol = "VTYSH_RIPD";
         }
         elsif ($file =~ /lib\/routemap\.c$/) {
-            $protocol = "VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_PIMD|VTYSH_EIGRPD";
+            $protocol = "VTYSH_RIPD|VTYSH_RIPNGD|VTYSH_OSPFD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_PIMD|VTYSH_EIGRPD|VTYSH_SHARPD";
         }
         elsif ($file =~ /lib\/vrf\.c$/) {
             $protocol = "VTYSH_ALL";

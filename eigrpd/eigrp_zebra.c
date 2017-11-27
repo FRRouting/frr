@@ -94,6 +94,18 @@ static int eigrp_router_id_update_zebra(int command, struct zclient *zclient,
 	return 0;
 }
 
+static int eigrp_zebra_notify_owner(int command, struct zclient *zclient,
+				    zebra_size_t length, vrf_id_t vrf_id)
+{
+	struct prefix p;
+	enum zapi_route_notify_owner note;
+
+	if (!zapi_route_notify_decode(zclient->ibuf, &p, &note))
+		return -1;
+
+	return 0;
+}
+
 static void eigrp_zebra_connected(struct zclient *zclient)
 {
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
@@ -101,7 +113,9 @@ static void eigrp_zebra_connected(struct zclient *zclient)
 
 void eigrp_zebra_init(void)
 {
-	zclient = zclient_new(master);
+	struct zclient_options opt = { .receive_notify = false };
+
+	zclient = zclient_new_notify(master, &opt);
 
 	zclient_init(zclient, ZEBRA_ROUTE_EIGRP, 0, &eigrpd_privs);
 	zclient->zebra_connected = eigrp_zebra_connected;
@@ -114,6 +128,7 @@ void eigrp_zebra_init(void)
 	zclient->interface_address_delete = eigrp_interface_address_delete;
 	zclient->redistribute_route_add = eigrp_zebra_read_route;
 	zclient->redistribute_route_del = eigrp_zebra_read_route;
+	zclient->notify_owner = eigrp_zebra_notify_owner;
 }
 
 

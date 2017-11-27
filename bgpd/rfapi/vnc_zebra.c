@@ -892,7 +892,7 @@ extern struct zebra_privs_t bgpd_privs;
 void vnc_zebra_init(struct thread_master *master)
 {
 	/* Set default values. */
-	zclient_vnc = zclient_new(master);
+	zclient_vnc = zclient_new_notify(master, &zclient_options_default);
 	zclient_init(zclient_vnc, ZEBRA_ROUTE_VNC, 0, &bgpd_privs);
 
 	zclient_vnc->redistribute_route_add = vnc_zebra_read_route;

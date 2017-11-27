@@ -51,6 +51,7 @@
 #define RTPROT_NHRP        191
 #define RTPROT_EIGRP       192
 #define RTPROT_LDP         193
+#define RTPROT_SHARP       194
 
 void rt_netlink_init(void);
 

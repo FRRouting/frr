@@ -75,6 +75,8 @@ struct zserv {
 	/* Router-id information. */
 	vrf_bitmap_t ridinfo;
 
+	bool notify_owner;
+
 	/* client's protocol */
 	u_char proto;
 	u_short instance;
@@ -183,6 +185,10 @@ extern int zsend_interface_vrf_update(struct zserv *, struct interface *,
 extern int zsend_interface_link_params(struct zserv *, struct interface *);
 extern int zsend_pw_update(struct zserv *, struct zebra_pw *);
 
+extern int zsend_route_notify_owner(u_char proto, u_short instance,
+				    vrf_id_t vrf_id, struct prefix *p,
+				    enum zapi_route_notify_owner note);
+
 extern pid_t pid;
 
 extern void zserv_create_header(struct stream *s, uint16_t cmd,
@@ -191,7 +197,7 @@ extern void zserv_nexthop_num_warn(const char *, const struct prefix *,
 				   const unsigned int);
 extern int zebra_server_send_message(struct zserv *client);
 
-extern struct zserv *zebra_find_client(u_char proto);
+extern struct zserv *zebra_find_client(u_char proto, u_short instance);
 
 #if defined(HANDLE_ZAPI_FUZZING)
 extern void zserv_read_file(char *input);

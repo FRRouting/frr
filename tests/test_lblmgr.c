@@ -115,7 +115,7 @@ void init_zclient(struct thread_master *master, char *lm_zserv_path)
 {
 	frr_zclient_addr(&zclient_addr, &zclient_addr_len, lm_zserv_path);
 
-	zclient = zclient_new(master);
+	zclient = zclient_new_notify(master, &zclient_options_default);
 	/* zclient_init(zclient, ZEBRA_LABEL_MANAGER, 0); */
 	zclient->sock = -1;
 	zclient->redist_default = ZEBRA_ROUTE_LDP;

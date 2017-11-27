@@ -52,8 +52,11 @@ socklen_t zclient_addr_len;
 /* This file local debug flag. */
 int zclient_debug = 0;
 
+struct zclient_options zclient_options_default = { .receive_notify = false };
+
 /* Allocate zclient structure. */
-struct zclient *zclient_new(struct thread_master *master)
+struct zclient *zclient_new_notify(struct thread_master *master,
+				   struct zclient_options *opt)
 {
 	struct zclient *zclient;
 	zclient = XCALLOC(MTYPE_ZCLIENT, sizeof(struct zclient));
@@ -62,6 +65,8 @@ struct zclient *zclient_new(struct thread_master *master)
 	zclient->obuf = stream_new(ZEBRA_MAX_PACKET_SIZ);
 	zclient->wb = buffer_new(0);
 	zclient->master = master;
+
+	zclient->receive_notify = opt->receive_notify;
 
 	return zclient;
 }
@@ -190,7 +195,7 @@ void zclient_reset(struct zclient *zclient)
  * @param zclient a pointer to zclient structure
  * @return socket fd just to make sure that connection established
  * @see zclient_init
- * @see zclient_new
+ * @see zclient_new_notify
  */
 int zclient_socket_connect(struct zclient *zclient)
 {
@@ -346,6 +351,11 @@ static int zebra_hello_send(struct zclient *zclient)
 		zclient_create_header(s, ZEBRA_HELLO, VRF_DEFAULT);
 		stream_putc(s, zclient->redist_default);
 		stream_putw(s, zclient->instance);
+		if (zclient->receive_notify)
+			stream_putc(s, 1);
+		else
+			stream_putc(s, 0);
+
 		stream_putw_at(s, 0, stream_get_endp(s));
 		return zclient_send_message(zclient);
 	}
@@ -1142,6 +1152,22 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 
 stream_failure:
 	return 0;
+}
+
+bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
+			      enum zapi_route_notify_owner *note)
+{
+	STREAM_GET(note, s, sizeof(*note));
+
+	STREAM_GETC(s, p->family);
+	STREAM_GETC(s, p->prefixlen);
+	STREAM_GET(&p->u.prefix, s,
+		   PSIZE(p->prefixlen));
+
+	return true;
+
+stream_failure:
+	return false;
 }
 
 /*
@@ -2193,6 +2219,11 @@ static int zclient_read(struct thread *thread)
 		if (zclient->pw_status_update)
 			(*zclient->pw_status_update)(command, zclient, length,
 						     vrf_id);
+		break;
+	case ZEBRA_ROUTE_NOTIFY_OWNER:
+		if (zclient->notify_owner)
+			(*zclient->notify_owner)(command, zclient,
+						 length, vrf_id);
 		break;
 	default:
 		break;
