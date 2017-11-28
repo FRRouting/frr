@@ -6313,7 +6313,7 @@ DEFUN (clear_ip_bgp_prefix,
 	int idx = 0;
 
 	/* [<view|vrf> VIEWVRFNAME] */
-	if (argv_find(argv, argc, "WORD", &idx))
+	if (argv_find(argv, argc, "VIEWVRFNAME", &idx))
 		vrf = argv[idx]->arg;
 
 	prefix = argv[argc - 1]->arg;
@@ -10529,7 +10529,7 @@ DEFUN (show_ip_bgp_peer_groups,
 	vrf = pg = NULL;
 	int idx = 0;
 
-	vrf = argv_find(argv, argc, "WORD", &idx) ? argv[idx]->arg : NULL;
+	vrf = argv_find(argv, argc, "VIEWVRFNAME", &idx) ? argv[idx]->arg : NULL;
 	pg = argv_find(argv, argc, "PGNAME", &idx) ? argv[idx]->arg : NULL;
 
 	return bgp_show_peer_group_vty(vty, vrf, show_all_groups, pg);
