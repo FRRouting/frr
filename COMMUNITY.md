@@ -296,6 +296,17 @@ submitting a new file, it is recommended to run that script over the new file
 after ensuring that the latest stable release of `clang-format` is in your
 PATH.
 
+LLVM also provides integrations for emacs, vim and git. The emacs and vim
+integrations are recommended as they make proper styling effortless. The git
+integration is strongly recommended; it can format commit ranges or pending
+changes and will only touch changed lines, which is very convenient. These
+tools are documented on the LLVM website and can be found in the LLVM trunk
+under `tools/clang/tools/clang-format`.
+
+When performing formatting tasks with `clang-format` please ensure you are
+using the latest offical version (i.e. the latest version available on
+[http://releases.llvm.org/download.html](http://releases.llvm.org/download.html))
+
 **Whitespace changes in untouched parts of the code are not acceptable in
 patches that change actual code.**  To change/fix formatting issues, please
 create a separate patch that only does formatting changes and nothing else.
