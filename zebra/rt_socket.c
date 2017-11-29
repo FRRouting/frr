@@ -394,7 +394,7 @@ void kernel_route_rib(struct prefix *p, struct prefix *src_p,
 
 	if (src_p && src_p->prefixlen) {
 		zlog_err("route add: IPv6 sourcedest routes unsupported!");
-		return 1;
+		return;
 	}
 
 	if (zserv_privs.change(ZPRIVS_RAISE))
@@ -413,7 +413,7 @@ void kernel_route_rib(struct prefix *p, struct prefix *src_p,
 		kernel_route_rib_pass_fail(p, new,
 					   (!route) ?
 					   SOUTHBOUND_INSTALL_SUCCESS :
-					   SOUTBHOUND_INSTALL_FAILURE);
+					   SOUTHBOUND_INSTALL_FAILURE);
 	} else {
 		kernel_route_rib_pass_fail(p, old,
 					   (!route) ?

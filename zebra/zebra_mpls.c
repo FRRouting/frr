@@ -839,18 +839,11 @@ static void lsp_select_best_nhlfe(zebra_lsp_t *lsp)
  */
 static void lsp_uninstall_from_kernel(struct hash_backet *backet, void *ctxt)
 {
-	int ret;
 	zebra_lsp_t *lsp;
 
 	lsp = (zebra_lsp_t *)backet->data;
-	if (CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED)) {
-		ret = kernel_del_lsp(lsp);
-
-		if (!ret) {
-			UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
-			clear_nhlfe_installed(lsp);
-		}
-	}
+	if (CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED))
+		kernel_del_lsp(lsp);
 }
 
 /*
@@ -871,7 +864,6 @@ static void lsp_schedule(struct hash_backet *backet, void *ctxt)
  */
 static wq_item_status lsp_process(struct work_queue *wq, void *data)
 {
-	int ret = 1;
 	zebra_lsp_t *lsp;
 	zebra_nhlfe_t *oldbest, *newbest;
 	char buf[BUFSIZ], buf2[BUFSIZ];
@@ -905,12 +897,7 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 		if (newbest) {
 
 			UNSET_FLAG(lsp->flags, LSP_FLAG_CHANGED);
-			ret = kernel_add_lsp(lsp);
-
-			if (!ret)
-				SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
-			else
-				clear_nhlfe_installed(lsp);
+			kernel_add_lsp(lsp);
 
 			zvrf->lsp_installs++;
 		}
@@ -918,12 +905,7 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 		/* Installed, may need an update and/or delete. */
 		if (!newbest) {
 
-			ret = kernel_del_lsp(lsp);
-
-			if (!ret) {
-				UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
-				clear_nhlfe_installed(lsp);
-			}
+			kernel_del_lsp(lsp);
 
 			zvrf->lsp_removals++;
 		} else if (CHECK_FLAG(lsp->flags, LSP_FLAG_CHANGED)) {
@@ -931,12 +913,7 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 			UNSET_FLAG(lsp->flags, LSP_FLAG_CHANGED);
 			UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
 
-			ret = kernel_upd_lsp(lsp);
-
-			if (!ret)
-				SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
-			else
-				clear_nhlfe_installed(lsp);
+			kernel_upd_lsp(lsp);
 
 			zvrf->lsp_installs++;
 		}
@@ -1658,6 +1635,42 @@ static int mpls_processq_init(struct zebra_t *zebra)
 
 
 /* Public functions */
+
+void kernel_lsp_pass_fail(zebra_lsp_t *lsp,
+			  enum southbound_results res)
+{
+	struct nexthop *nexthop;
+	zebra_nhlfe_t *nhlfe;
+
+	if (!lsp)
+		return;
+
+	switch (res) {
+	case SOUTHBOUND_INSTALL_FAILURE:
+		UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
+		clear_nhlfe_installed(lsp);
+		zlog_warn("LSP Install Failure: %u", lsp->ile.in_label);
+		break;
+	case SOUTHBOUND_INSTALL_SUCCESS:
+		SET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
+		for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next) {
+			nexthop = nhlfe->nexthop;
+			if (!nexthop)
+				continue;
+
+			SET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+		}
+		break;
+	case SOUTHBOUND_DELETE_SUCCESS:
+		UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
+		clear_nhlfe_installed(lsp);
+		break;
+	case SOUTHBOUND_DELETE_FAILURE:
+		zlog_warn("LSP Deletion Failure: %u", lsp->ile.in_label);
+		break;
+	}
+}
 
 /*
  * String to label conversion, labels separated by '/'.

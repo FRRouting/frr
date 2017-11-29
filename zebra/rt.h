@@ -77,9 +77,23 @@ extern int kernel_address_delete_ipv4(struct interface *, struct connected *);
 extern int kernel_neigh_update(int, int, uint32_t, char *, int);
 extern int kernel_interface_set_master(struct interface *master,
 				       struct interface *slave);
-extern int kernel_add_lsp(zebra_lsp_t *);
-extern int kernel_upd_lsp(zebra_lsp_t *);
-extern int kernel_del_lsp(zebra_lsp_t *);
+
+extern void kernel_add_lsp(zebra_lsp_t *lsp);
+extern void kernel_upd_lsp(zebra_lsp_t *lsp);
+extern void kernel_del_lsp(zebra_lsp_t *lsp);
+
+/*
+ * Add the ability to pass back up the lsp install/delete
+ * success/failure.
+ *
+ * This functions goal is similiar to kernel_route_rib_pass_fail
+ * in that we are separating out the mechanics for
+ * the install/failure to set/unset flags and to notify
+ * as needed.
+ */
+extern void kernel_lsp_pass_fail(zebra_lsp_t *lsp,
+				 enum southbound_results res);
+
 extern int mpls_kernel_init(void);
 
 extern int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *mroute);
