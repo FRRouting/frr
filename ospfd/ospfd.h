@@ -300,7 +300,9 @@ struct ospf {
 	/* Statistics for LSA used for new instantiation. */
 	u_int32_t rx_lsa_count;
 
-	/* Counter of "ip ospf area x.x.x.x" */
+	/* Counter of "ip ospf area x.x.x.x" used
+	 * for multual exclusion of network command under
+	 * router ospf or ip ospf area x under interface. */
 	u_int32_t if_ospf_cli_count;
 
 	struct route_table *distance_table;
