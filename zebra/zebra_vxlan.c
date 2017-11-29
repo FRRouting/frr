@@ -3820,6 +3820,26 @@ static int ip_prefix_send_to_client(vrf_id_t vrf_id,
 	return zebra_server_send_message(client);
 }
 
+/* re-add remote rmac if needed */
+static int zebra_vxlan_readd_remote_rmac(zebra_l3vni_t *zl3vni,
+				  struct ethaddr *rmac)
+{
+	char buf[ETHER_ADDR_STRLEN];
+	zebra_mac_t *zrmac = NULL;
+
+	zrmac = zl3vni_rmac_lookup(zl3vni, rmac);
+	if (!zrmac)
+		return 0;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("Del remote RMAC %s L3VNI %u - readd",
+			   prefix_mac2str(rmac, buf, sizeof(buf)),
+			   zl3vni->vni);
+
+	zl3vni_rmac_install(zl3vni, zrmac);
+	return 0;
+}
+
 /* Public functions */
 
 /* handle evpn route in vrf table */
@@ -5385,11 +5405,12 @@ int zebra_vxlan_check_readd_remote_mac(struct interface *ifp,
 				       struct interface *br_if,
 				       struct ethaddr *macaddr, vlanid_t vid)
 {
-	struct zebra_if *zif;
-	struct zebra_l2info_vxlan *vxl;
+	struct zebra_if *zif = NULL;
+	struct zebra_l2info_vxlan *vxl = NULL;
 	vni_t vni;
-	zebra_vni_t *zvni;
-	zebra_mac_t *mac;
+	zebra_vni_t *zvni = NULL;
+	zebra_l3vni_t *zl3vni = NULL;
+	zebra_mac_t *mac = NULL;
 	char buf[ETHER_ADDR_STRLEN];
 
 	zif = ifp->info;
@@ -5400,6 +5421,11 @@ int zebra_vxlan_check_readd_remote_mac(struct interface *ifp,
 	/* Check if EVPN is enabled. */
 	if (!is_evpn_enabled())
 		return 0;
+
+	/* check if this is a remote RMAC and readd simillar to remote macs */
+	zl3vni = zl3vni_lookup(vni);
+	if (zl3vni)
+		return zebra_vxlan_readd_remote_rmac(zl3vni, macaddr);
 
 	/* Locate hash entry; it is expected to exist. */
 	zvni = zvni_lookup(vni);
