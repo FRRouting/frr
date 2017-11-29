@@ -1045,7 +1045,8 @@ static void do_thread_cancel(struct thread_master *master)
 
 		if (queue) {
 			assert(thread->index >= 0);
-			pqueue_remove(thread, queue);
+			assert(thread == queue->array[thread->index]);
+			pqueue_remove_at(thread->index, queue);
 		} else if (list) {
 			thread_list_delete(list, thread);
 		} else if (thread_array) {
