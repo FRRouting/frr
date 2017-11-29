@@ -60,27 +60,10 @@ void kernel_add_lsp(zebra_lsp_t *lsp)
 void kernel_upd_lsp(zebra_lsp_t *lsp)
 {
 	int ret;
-	zebra_nhlfe_t *nhlfe;
-	struct nexthop *nexthop;
 
 	if (!lsp || !lsp->best_nhlfe) { // unexpected
 		kernel_lsp_pass_fail(lsp, SOUTHBOUND_INSTALL_FAILURE);
 		return;
-	}
-
-	/* Any NHLFE that was installed but is not selected now needs to
-	 * have its flags updated.
-	 */
-	for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next) {
-		nexthop = nhlfe->nexthop;
-		if (!nexthop)
-			continue;
-
-		if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED) &&
-		    !CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED)) {
-			UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
-			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-		}
 	}
 
 	ret = netlink_mpls_multipath(RTM_NEWROUTE, lsp);

@@ -909,9 +909,32 @@ static wq_item_status lsp_process(struct work_queue *wq, void *data)
 
 			zvrf->lsp_removals++;
 		} else if (CHECK_FLAG(lsp->flags, LSP_FLAG_CHANGED)) {
+			zebra_nhlfe_t *nhlfe;
+			struct nexthop *nexthop;
 
 			UNSET_FLAG(lsp->flags, LSP_FLAG_CHANGED);
 			UNSET_FLAG(lsp->flags, LSP_FLAG_INSTALLED);
+
+			/*
+			 * Any NHLFE that was installed but is not
+			 * selected now needs to have its flags updated.
+			 */
+			for (nhlfe = lsp->nhlfe_list;
+			     nhlfe; nhlfe = nhlfe->next) {
+				nexthop = nhlfe->nexthop;
+				if (!nexthop)
+					continue;
+
+				if (CHECK_FLAG(nhlfe->flags,
+					       NHLFE_FLAG_INSTALLED) &&
+				    !CHECK_FLAG(nhlfe->flags,
+						NHLFE_FLAG_SELECTED)) {
+					UNSET_FLAG(nhlfe->flags,
+						   NHLFE_FLAG_INSTALLED);
+					UNSET_FLAG(nexthop->flags,
+						   NEXTHOP_FLAG_FIB);
+				}
+			}
 
 			kernel_upd_lsp(lsp);
 
