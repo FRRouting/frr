@@ -1667,7 +1667,11 @@ int bgp_mp_reach_parse(struct bgp_attr_parser_args *args,
 		/*
 		 * NOTE: intentional fall through
 		 * - for consistency in rx processing
+		 *
+		 * The following comment is to signal GCC this intention
+		 * and supress the warning
 		 */
+		/* FALLTHRU */
 	case BGP_ATTR_NHLEN_IPV4:
 		stream_get(&attr->mp_nexthop_global_in, s, IPV4_MAX_BYTELEN);
 		/* Probably needed for RFC 2283 */
