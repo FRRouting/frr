@@ -1577,7 +1577,7 @@ DEFUN (ospf_area_nssa,
        "OSPF area ID as a decimal value\n"
        "Configure OSPF area as nssa\n")
 {
-	return ospf_area_nssa_cmd_handler(vty, argc, argv, 1, 0);
+	return ospf_area_nssa_cmd_handler(vty, argc, argv, 0, 0);
 }
 
 DEFUN (ospf_area_nssa_no_summary,
@@ -9973,6 +9973,9 @@ static int config_write_ospf_area(struct vty *vty, struct ospf *ospf)
 					vty_out(vty,
 						" area %s nssa translate-always\n",
 						buf);
+					break;
+				case OSPF_NSSA_ROLE_CANDIDATE:
+					vty_out(vty, " area %s nssa \n", buf);
 					break;
 				}
 				if (area->no_summary)
