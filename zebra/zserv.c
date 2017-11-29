@@ -1203,7 +1203,7 @@ static int zread_route_add(struct zserv *client, u_short length,
 					       sizeof(struct in_addr));
 					zebra_vxlan_evpn_vrf_route_add(
 								vrf_id,
-								&api.rmac,
+								&api_nh->rmac,
 								&vtep_ip,
 								&api.prefix);
 				}
@@ -1310,7 +1310,7 @@ static int zread_route_del(struct zserv *client, u_short length,
 
 	rib_delete(afi, api.safi, zvrf_id(zvrf), api.type, api.instance,
 		   api.flags, &api.prefix, src_p, NULL, zvrf->table_id,
-		   api.metric, false, &api.rmac);
+		   api.metric, false);
 
 	/* Stats */
 	switch (api.prefix.family) {
@@ -1513,7 +1513,7 @@ static int zread_ipv4_delete(struct zserv *client, u_short length,
 	table_id = zvrf->table_id;
 
 	rib_delete(AFI_IP, api.safi, zvrf_id(zvrf), api.type, api.instance,
-		   api.flags, &p, NULL, NULL, table_id, 0, false, NULL);
+		   api.flags, &p, NULL, NULL, table_id, 0, false);
 	client->v4_route_del_cnt++;
 
 stream_failure:
@@ -1934,8 +1934,7 @@ static int zread_ipv6_delete(struct zserv *client, u_short length,
 		src_pp = NULL;
 
 	rib_delete(AFI_IP6, api.safi, zvrf_id(zvrf), api.type, api.instance,
-		   api.flags, &p, src_pp, NULL, client->rtm_table, 0, false,
-		   NULL);
+		   api.flags, &p, src_pp, NULL, client->rtm_table, 0, false);
 
 	client->v6_route_del_cnt++;
 

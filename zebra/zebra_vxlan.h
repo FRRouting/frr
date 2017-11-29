@@ -166,7 +166,6 @@ extern void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id,
 					   struct ipaddr *ip,
 					   struct prefix *host_prefix);
 extern void zebra_vxlan_evpn_vrf_route_del(vrf_id_t vrf_id,
-					   struct ethaddr *rmac,
 					   struct ipaddr *vtep_ip,
 					   struct prefix *host_prefix);
 

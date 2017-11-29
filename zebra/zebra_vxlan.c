@@ -3286,16 +3286,10 @@ static int zl3vni_remote_rmac_add(zebra_l3vni_t *zl3vni,
 
 
 /* handle rmac delete */
-static int zl3vni_remote_rmac_del(zebra_l3vni_t *zl3vni,
-				  struct ethaddr *rmac,
+static void zl3vni_remote_rmac_del(zebra_l3vni_t *zl3vni,
+				  zebra_mac_t *zrmac,
 				  struct prefix *host_prefix)
 {
-	zebra_mac_t *zrmac = NULL;
-
-	zrmac = zl3vni_rmac_lookup(zl3vni, rmac);
-	if (!zrmac)
-		return -1;
-
 	host_list_delete_host(zrmac->host_list, host_prefix);
 	if (list_isempty(zrmac->host_list)) {
 
@@ -3305,7 +3299,6 @@ static int zl3vni_remote_rmac_del(zebra_l3vni_t *zl3vni,
 		/* del the rmac entry */
 		zl3vni_rmac_del(zl3vni, zrmac);
 	}
-	return 0;
 }
 
 /*
@@ -3451,16 +3444,10 @@ static int zl3vni_remote_nh_add(zebra_l3vni_t *zl3vni,
 }
 
 /* handle nh neigh delete */
-static int zl3vni_remote_nh_del(zebra_l3vni_t *zl3vni,
-				struct ipaddr *vtep_ip,
-				struct prefix *host_prefix)
+static void zl3vni_remote_nh_del(zebra_l3vni_t *zl3vni,
+				 zebra_neigh_t *nh,
+				 struct prefix *host_prefix)
 {
-	zebra_neigh_t *nh = NULL;
-
-	nh = zl3vni_nh_lookup(zl3vni, vtep_ip);
-	if (!nh)
-		return -1;
-
 	host_list_delete_host(nh->host_list, host_prefix);
 	if (list_isempty(nh->host_list)) {
 
@@ -3470,8 +3457,6 @@ static int zl3vni_remote_nh_del(zebra_l3vni_t *zl3vni,
 		/* delete the nh entry */
 		zl3vni_nh_del(zl3vni, nh);
 	}
-
-	return 0;
 }
 
 /* handle neigh update from kernel - the only thing of interest is to
@@ -4045,21 +4030,30 @@ void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id,
 
 /* handle evpn vrf route delete */
 void zebra_vxlan_evpn_vrf_route_del(vrf_id_t vrf_id,
-				   struct ethaddr *rmac,
-				   struct ipaddr *vtep_ip,
-				   struct prefix *host_prefix)
+				    struct ipaddr *vtep_ip,
+				    struct prefix *host_prefix)
 {
 	zebra_l3vni_t *zl3vni = NULL;
+	zebra_neigh_t *nh = NULL;
+	zebra_mac_t *zrmac = NULL;
 
 	zl3vni = zl3vni_from_vrf(vrf_id);
 	if (!zl3vni)
 		return;
 
+	/* find the next hop entry and rmac entry */
+	nh = zl3vni_nh_lookup(zl3vni, vtep_ip);
+	if (!nh)
+		return;
+	zrmac = zl3vni_rmac_lookup(zl3vni, &nh->emac);
+
 	/* delete the next hop entry */
-	zl3vni_remote_nh_del(zl3vni, vtep_ip, host_prefix);
+	zl3vni_remote_nh_del(zl3vni, nh, host_prefix);
 
 	/* delete the rmac entry */
-	zl3vni_remote_rmac_del(zl3vni, rmac, host_prefix);
+	if (zrmac)
+		zl3vni_remote_rmac_del(zl3vni, zrmac, host_prefix);
+
 }
 
 void zebra_vxlan_print_specific_rmac_l3vni(struct vty *vty,
