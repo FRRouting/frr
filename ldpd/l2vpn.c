@@ -550,7 +550,8 @@ l2vpn_pw_ctl(pid_t pid)
 			    sizeof(pwctl.ifname));
 			pwctl.pwid = pw->pwid;
 			pwctl.lsr_id = pw->lsr_id;
-			if (pw->local_status == PW_FORWARDING &&
+			if (pw->enabled &&
+			    pw->local_status == PW_FORWARDING &&
 			    pw->remote_status == PW_FORWARDING)
 				pwctl.status = 1;
 
