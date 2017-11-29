@@ -52,4 +52,19 @@ extern void json_object_free(struct json_object *obj);
 
 #define JSON_STR "JavaScript Object Notation\n"
 
+/* NOTE: json-c lib has following commit 316da85 which
+ * handles escape of forward slash.
+ * This allows prefix  "20.0.14.0\/24":{
+ * to  "20.0.14.0/24":{ some platforms do not have
+ * latest copy of json-c where defining below macro.
+ */
+
+#ifndef JSON_C_TO_STRING_NOSLASHESCAPE
+
+/**
+  * Don't escape forward slashes.
+  */
+#define JSON_C_TO_STRING_NOSLASHESCAPE (1<<4)
+#endif
+
 #endif /* _QUAGGA_JSON_H */
