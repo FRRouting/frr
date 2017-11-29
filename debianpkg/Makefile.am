@@ -29,6 +29,10 @@ EXTRA_DIST = README.Debian README.Maintainer \
 	backports/ubuntu16.04/debian/source/format \
 	backports/ubuntu16.04/exclude \
 	backports/ubuntu16.04/versionext \
+	backports/ubuntu17.10/debian/control \
+	backports/ubuntu17.10/debian/source/format \
+	backports/ubuntu17.10/exclude \
+	backports/ubuntu17.10/versionext \
 	frr-doc.docs frr-doc.info frr-doc.install \
 	frr-doc.lintian-overrides frr.conf \
 	frr.dirs frr.docs frr.install \
