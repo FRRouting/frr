@@ -1316,7 +1316,7 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 		return;
 
 	if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX))
-		zlog_debug("%s found", lsa->name);
+		zlog_debug("%s: LSA %s found", __PRETTY_FUNCTION__, lsa->name);
 
 	oa = OSPF6_AREA(lsa->lsdb->data);
 
@@ -1325,7 +1325,7 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 			lsa->header);
 	if (intra_prefix_lsa->ref_type == htons(OSPF6_LSTYPE_ROUTER))
 		ospf6_linkstate_prefix(intra_prefix_lsa->ref_adv_router,
-				       htonl(0), &ls_prefix);
+				       intra_prefix_lsa->ref_id, &ls_prefix);
 	else if (intra_prefix_lsa->ref_type == htons(OSPF6_LSTYPE_NETWORK))
 		ospf6_linkstate_prefix(intra_prefix_lsa->ref_adv_router,
 				       intra_prefix_lsa->ref_id, &ls_prefix);
@@ -1404,7 +1404,7 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 
 		if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
 			prefix2str(&route->prefix, buf, sizeof(buf));
-			zlog_debug("  add %s", buf);
+			zlog_debug("  route %s add", buf);
 		}
 
 		ospf6_route_add(route, oa->route_table);
