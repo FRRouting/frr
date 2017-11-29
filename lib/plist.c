@@ -933,7 +933,7 @@ static int vty_prefix_list_install(struct vty *vty, afi_t afi, const char *name,
 	if (genum && (genum <= p.prefixlen))
 		return vty_invalid_prefix_range(vty, prefix);
 
-	if (lenum && (lenum <= p.prefixlen))
+	if (lenum && (lenum < p.prefixlen))
 		return vty_invalid_prefix_range(vty, prefix);
 
 	if (lenum && (genum > lenum))
