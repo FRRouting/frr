@@ -450,18 +450,38 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
 	/* loop through all the nexthops */
 	for (i = 0; i < api.nexthop_num; i++) {
 		api_nh = &api.nexthops[i];
-
-		switch (kr.af) {
-		case AF_INET:
+		switch (api_nh->type) {
+		case NEXTHOP_TYPE_IPV4:
+			if (kr.af != AF_INET)
+				continue;
 			kr.nexthop.v4 = api_nh->gate.ipv4;
+			kr.ifindex = 0;
 			break;
-		case AF_INET6:
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			if (kr.af != AF_INET)
+				continue;
+			kr.nexthop.v4 = api_nh->gate.ipv4;
+			kr.ifindex = api_nh->ifindex;
+			break;
+		case NEXTHOP_TYPE_IPV6:
+			if (kr.af != AF_INET6)
+				continue;
 			kr.nexthop.v6 = api_nh->gate.ipv6;
+			kr.ifindex = 0;
+			break;
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			if (kr.af != AF_INET6)
+				continue;
+			kr.nexthop.v6 = api_nh->gate.ipv6;
+			kr.ifindex = api_nh->ifindex;
+			break;
+		case NEXTHOP_TYPE_IFINDEX:
+			if (!(kr.flags & F_CONNECTED))
+				continue;
 			break;
 		default:
-			break;
+			continue;
 		}
-		kr.ifindex = api_nh->ifindex;;
 
 		debug_zebra_in("route %s %s/%d nexthop %s ifindex %u (%s)",
 		    (add) ? "add" : "delete", log_addr(kr.af, &kr.prefix),
