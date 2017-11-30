@@ -369,7 +369,7 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 			return;
 		}
 	/* else fall through to ExStart */
-
+	/* fallthru */
 	case OSPF6_NEIGHBOR_EXSTART:
 		/* if neighbor obeys us as our slave, schedule negotiation_done
 		   and process LSA Headers. Otherwise, ignore this message */
@@ -565,7 +565,7 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 			return;
 		}
 	/* else fall through to ExStart */
-
+	/* fallthru */
 	case OSPF6_NEIGHBOR_EXSTART:
 		/* If the neighbor is Master, act as Slave. Schedule
 		   negotiation_done

@@ -320,7 +320,7 @@ int work_queue_run(struct thread *thread)
 			if (wq->spec.errorfunc)
 				wq->spec.errorfunc(wq, item);
 		}
-		/* fall through here is deliberate */
+		/* fallthru */
 		case WQ_SUCCESS:
 		default: {
 			work_queue_item_remove(wq, node);

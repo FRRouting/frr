@@ -338,6 +338,7 @@ void bgp_timer_set(struct peer *peer)
 		BGP_TIMER_OFF(peer->t_gr_restart);
 		BGP_TIMER_OFF(peer->t_gr_stale);
 		BGP_TIMER_OFF(peer->t_pmax_restart);
+		/* fallthru */
 	case Clearing:
 		BGP_TIMER_OFF(peer->t_start);
 		BGP_TIMER_OFF(peer->t_connect);

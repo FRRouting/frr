@@ -134,7 +134,7 @@ static void nhrp_peer_ifp_notify(struct notifier_block *n, unsigned long cmd)
 			nhrp_vc_notify_add(p->vc, &p->vc_notifier, nhrp_peer_vc_notify);
 			__nhrp_peer_check(p);
 		}
-		/* Fall-through to post config update */
+		/* fallthru */
 	case NOTIFY_INTERFACE_ADDRESS_CHANGED:
 		notifier_call(&p->notifier_list, NOTIFY_PEER_IFCONFIG_CHANGED);
 		break;
@@ -687,6 +687,7 @@ static void nhrp_peer_forward(struct nhrp_peer *p, struct nhrp_packet_parser *pp
 				/* FIXME: RFC says to just copy, but not
 				 * append our selves to the transit NHS list */
 				goto err;
+			/* fallthru */
 		case NHRP_EXTENSION_RESPONDER_ADDRESS:
 			/* Supported compulsory extensions, and any
 			 * non-compulsory that is not explicitly handled,
@@ -849,6 +850,7 @@ void nhrp_peer_recv(struct nhrp_peer *p, struct zbuf *zb)
 				/* FIXME: send error-indication */
 			}
 		}
+		/* fallthru */
 	case NHRP_ROUTE_OFF_NBMA:
 		if (packet_types[hdr->type].handler) {
 			packet_types[hdr->type].handler(&pp);

@@ -387,7 +387,8 @@ int main(int argc, char **argv)
 			break;
 		case 'l':
 			bgp_address = optarg;
-		/* listenon implies -n */
+			/* listenon implies -n */
+			/* fallthru */
 		case 'n':
 			no_fib_flag = 1;
 			break;
