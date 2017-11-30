@@ -2855,8 +2855,6 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 	if ((uj && argc == ((idx + 1) + 2)) || (!uj && argc == (idx + 1) + 1)) {
 
 		num_l2vnis = hashcount(bgp_def->vnihash);
-		if (!num_l2vnis)
-			return CMD_SUCCESS;
 
 		for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_temp)) {
 			if (bgp_temp->l3vni)
