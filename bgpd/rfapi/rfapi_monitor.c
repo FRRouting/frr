@@ -848,9 +848,9 @@ void rfapiMonitorItNodeChanged(
 	nves_seen = skiplist_new(0, NULL, NULL);
 
 #if DEBUG_L2_EXTRA
-	prefix2str(&it_node->p, buf_prefix, BUFSIZ);
 	vnc_zlog_debug_verbose("%s: it=%p, it_node=%p, it_node->prefix=%s",
-			       __func__, import_table, it_node, buf_prefix);
+			       __func__, import_table, it_node,
+			       prefix2str(&it_node->p, buf_prefix, BUFSIZ));
 #endif
 
 	if (AFI_L2VPN == afi) {
@@ -926,22 +926,18 @@ void rfapiMonitorItNodeChanged(
 					assert(!skiplist_insert(nves_seen,
 								m->rfd, NULL));
 
-					{
-						char buf_attach_pfx[BUFSIZ];
-						char buf_target_pfx[BUFSIZ];
+					char buf_attach_pfx[BUFSIZ];
+					char buf_target_pfx[BUFSIZ];
 
+					vnc_zlog_debug_verbose(
+						"%s: update rfd %p attached to pfx %s (targ=%s)",
+						__func__, m->rfd,
 						prefix2str(&m->node->p,
 							   buf_attach_pfx,
-							   BUFSIZ);
+							   BUFSIZ),
 						prefix2str(&m->p,
 							   buf_target_pfx,
-							   BUFSIZ);
-						vnc_zlog_debug_verbose(
-							"%s: update rfd %p attached to pfx %s (targ=%s)",
-							__func__, m->rfd,
-							buf_attach_pfx,
-							buf_target_pfx);
-					}
+							   BUFSIZ));
 
 					/*
 					 * update its RIB

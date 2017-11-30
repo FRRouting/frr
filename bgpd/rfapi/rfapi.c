@@ -367,12 +367,6 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 	char buf2[BUFSIZ];
 	struct prefix_rd prd0;
 
-	prefix2str(p, buf, BUFSIZ);
-	buf[BUFSIZ - 1] = 0; /* guarantee NUL-terminated */
-
-	prefix_rd2str(prd, buf2, BUFSIZ);
-	buf2[BUFSIZ - 1] = 0;
-
 	afi = family2afi(p->family);
 	assert(afi == AFI_IP || afi == AFI_IP6);
 
@@ -386,7 +380,9 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 
 	vnc_zlog_debug_verbose(
 		"%s: peer=%p, prefix=%s, prd=%s afi=%d, safi=%d bn=%p, bn->info=%p",
-		__func__, peer, buf, buf2, afi, safi, bn,
+		__func__, peer,
+		prefix2str(p, buf, BUFSIZ),
+		prefix_rd2str(prd, buf2, BUFSIZ), afi, safi, bn,
 		(bn ? bn->info : NULL));
 
 	for (bi = (bn ? bn->info : NULL); bi; bi = bi->next) {
@@ -464,10 +460,6 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 	rfapiProcessWithdraw(peer, rfd, p, prd, NULL, afi, safi, type, kill);
 
 	if (bi) {
-		char buf[BUFSIZ];
-
-		prefix2str(p, buf, BUFSIZ);
-		buf[BUFSIZ - 1] = 0; /* guarantee NUL-terminated */
 
 		vnc_zlog_debug_verbose(
 			"%s: Found route (safi=%d) to delete at prefix %s",
@@ -649,10 +641,6 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		label_val = *label;
 	else
 		label_val = MPLS_LABEL_IMPLICIT_NULL;
-
-	prefix_rd2str(prd, buf2, BUFSIZ);
-	buf2[BUFSIZ - 1] = 0;
-
 
 	afi = family2afi(p->family);
 	assert(afi == AFI_IP || afi == AFI_IP6);
@@ -906,9 +894,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		assert(0);
 	}
 
-
-	prefix2str(p, buf, BUFSIZ);
-	buf[BUFSIZ - 1] = 0; /* guarantee NUL-terminated */
+	
 
 	/*
 	 * At this point:
@@ -1018,7 +1004,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 			vnc_zlog_debug_any(
 				"%s: Found route (safi=%d) at prefix %s, no change",
-				__func__, safi, buf);
+				__func__, safi, prefix2str(p, buf, BUFSIZ));
 
 			goto done;
 		} else {
@@ -1072,7 +1058,8 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 			vnc_zlog_debug_any(
 				"%s: Found route (safi=%d) at prefix %s, changed attr",
-				__func__, safi, buf);
+				__func__, safi,
+				prefix2str(p, buf, BUFSIZ));
 
 			goto done;
 		}
@@ -1122,7 +1109,8 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 	vnc_zlog_debug_any(
 		"%s: Added route (safi=%s) at prefix %s (bn=%p, prd=%s)",
-		__func__, safi2str(safi), buf, bn, buf2);
+		__func__, safi2str(safi), prefix2str(p, buf, BUFSIZ), bn,
+		prefix_rd2str(prd, buf2, BUFSIZ));
 
 done:
 	/* Loop back to import tables */
@@ -1597,20 +1585,18 @@ rfapi_query_inner(void *handle, struct rfapi_ip_addr *target,
 		p = p_original;
 	}
 
-	{
+	if (VNC_DEBUG(VERBOSE)) {
 		char buf[BUFSIZ];
 		char *s;
 
 		prefix2str(&p, buf, BUFSIZ);
-		buf[BUFSIZ - 1] = 0; /* guarantee NUL-terminated */
-		vnc_zlog_debug_verbose("%s(rfd=%p, target=%s, ppNextHop=%p)",
-				       __func__, rfd, buf, ppNextHopEntry);
+		zlog_debug("%s(rfd=%p, target=%s, ppNextHop=%p)",
+			   __func__, rfd, buf, ppNextHopEntry);
 
 		s = ecommunity_ecom2str(rfd->import_table->rt_import_list,
 					ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-		vnc_zlog_debug_verbose(
-			"%s rfd->import_table=%p, rfd->import_table->rt_import_list: %s",
-			__func__, rfd->import_table, s);
+		zlog_debug("%s rfd->import_table=%p, rfd->import_table->rt_import_list: %s",
+			   __func__, rfd->import_table, s);
 		XFREE(MTYPE_ECOMMUNITY_STR, s);
 	}
 
@@ -2420,15 +2406,13 @@ int rfapi_register(void *handle, struct rfapi_ip_prefix *prefix,
 	assert(afi);
 
 
-	{
+	if (VNC_DEBUG(VERBOSE)) {
 		char buf[BUFSIZ];
 
 		prefix2str(&p, buf, BUFSIZ);
-		buf[BUFSIZ - 1] = 0; /* guarantee NUL-terminated */
-		vnc_zlog_debug_verbose(
-			"%s(rfd=%p, pfx=%s, lifetime=%d, opts_un=%p, opts_vn=%p, action=%s)",
-			__func__, rfd, buf, lifetime, options_un, options_vn,
-			action_str);
+		zlog_debug("%s(rfd=%p, pfx=%s, lifetime=%d, opts_un=%p, opts_vn=%p, action=%s)",
+			   __func__, rfd, buf, lifetime, options_un, options_vn,
+			   action_str);
 	}
 
 	/*
