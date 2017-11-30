@@ -315,48 +315,45 @@ static void bgp_write_proceed_actions(struct peer *peer)
 	struct bpacket *next_pkt;
 	struct update_subgroup *subgrp;
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-			paf = peer_af_find(peer, afi, safi);
-			if (!paf)
-				continue;
-			subgrp = paf->subgroup;
-			if (!subgrp)
-				continue;
+	FOREACH_AFI_SAFI (afi, safi) {
+		paf = peer_af_find(peer, afi, safi);
+		if (!paf)
+			continue;
+		subgrp = paf->subgroup;
+		if (!subgrp)
+			continue;
 
-			next_pkt = paf->next_pkt_to_send;
-			if (next_pkt && next_pkt->buffer) {
+		next_pkt = paf->next_pkt_to_send;
+		if (next_pkt && next_pkt->buffer) {
+			BGP_TIMER_ON(peer->t_generate_updgrp_packets,
+				     bgp_generate_updgrp_packets, 0);
+			return;
+		}
+
+		/* No packets readily available for AFI/SAFI, are there
+		 * subgroup packets
+		 * that need to be generated? */
+		if (bpacket_queue_is_full(SUBGRP_INST(subgrp),
+					  SUBGRP_PKTQ(subgrp))
+		    || subgroup_packets_to_build(subgrp)) {
+			BGP_TIMER_ON(peer->t_generate_updgrp_packets,
+				     bgp_generate_updgrp_packets, 0);
+			return;
+		}
+
+		/* No packets to send, see if EOR is pending */
+		if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV)) {
+			if (!subgrp->t_coalesce && peer->afc_nego[afi][safi]
+			    && peer->synctime
+			    && !CHECK_FLAG(peer->af_sflags[afi][safi],
+					   PEER_STATUS_EOR_SEND)
+			    && safi != SAFI_MPLS_VPN) {
 				BGP_TIMER_ON(peer->t_generate_updgrp_packets,
 					     bgp_generate_updgrp_packets, 0);
 				return;
-			}
-
-			/* No packets readily available for AFI/SAFI, are there
-			 * subgroup packets
-			 * that need to be generated? */
-			if (bpacket_queue_is_full(SUBGRP_INST(subgrp),
-						  SUBGRP_PKTQ(subgrp))
-			    || subgroup_packets_to_build(subgrp)) {
-				BGP_TIMER_ON(peer->t_generate_updgrp_packets,
-					     bgp_generate_updgrp_packets, 0);
-				return;
-			}
-
-			/* No packets to send, see if EOR is pending */
-			if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV)) {
-				if (!subgrp->t_coalesce
-				    && peer->afc_nego[afi][safi]
-				    && peer->synctime
-				    && !CHECK_FLAG(peer->af_sflags[afi][safi],
-						   PEER_STATUS_EOR_SEND)
-				    && safi != SAFI_MPLS_VPN) {
-					BGP_TIMER_ON(
-						peer->t_generate_updgrp_packets,
-						bgp_generate_updgrp_packets, 0);
-					return;
-				}
 			}
 		}
+	}
 }
 
 /**
@@ -393,77 +390,67 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 
 	do {
 		s = NULL;
-		for (afi = AFI_IP; afi < AFI_MAX; afi++)
-			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-				paf = peer_af_find(peer, afi, safi);
-				if (!paf || !PAF_SUBGRP(paf))
-					continue;
+		FOREACH_AFI_SAFI (afi, safi) {
+			paf = peer_af_find(peer, afi, safi);
+			if (!paf || !PAF_SUBGRP(paf))
+				continue;
+			next_pkt = paf->next_pkt_to_send;
+
+			/*
+			 * Try to generate a packet for the peer if we are at
+			 * the end of the list. Always try to push out
+			 * WITHDRAWs first.
+			 */
+			if (!next_pkt || !next_pkt->buffer) {
+				next_pkt = subgroup_withdraw_packet(
+					PAF_SUBGRP(paf));
+				if (!next_pkt || !next_pkt->buffer)
+					subgroup_update_packet(PAF_SUBGRP(paf));
 				next_pkt = paf->next_pkt_to_send;
+			}
 
-				/*
-				 * Try to generate a packet for the peer if we
-				 * are at the end of the list. Always try to
-				 * push out WITHDRAWs first.
-				 */
-				if (!next_pkt || !next_pkt->buffer) {
-					next_pkt = subgroup_withdraw_packet(
-						PAF_SUBGRP(paf));
-					if (!next_pkt || !next_pkt->buffer)
-						subgroup_update_packet(
-							PAF_SUBGRP(paf));
-					next_pkt = paf->next_pkt_to_send;
-				}
-
-				/*
-				 * If we still don't have a packet to send to
-				 * the peer, then try to find out out if we
-				 * have to send eor or if not, skip to the next
-				 * AFI, SAFI. Don't send the EOR prematurely...
-				 * if the subgroup's coalesce timer is running,
-				 * the adjacency-out structure is not created
-				 * yet.
-				 */
-				if (!next_pkt || !next_pkt->buffer) {
-					if (CHECK_FLAG(peer->cap,
-						       PEER_CAP_RESTART_RCV)) {
-						if (!(PAF_SUBGRP(paf))
-							     ->t_coalesce
-						    && peer->afc_nego[afi][safi]
-						    && peer->synctime
-						    && !CHECK_FLAG(
-							       peer->af_sflags
-								       [afi]
-								       [safi],
-							       PEER_STATUS_EOR_SEND)) {
-							SET_FLAG(
-								peer->af_sflags
-									[afi]
+			/*
+			 * If we still don't have a packet to send to the peer,
+			 * then try to find out out if we have to send eor or
+			 * if not, skip to the next AFI, SAFI. Don't send the
+			 * EOR prematurely; if the subgroup's coalesce timer is
+			 * running, the adjacency-out structure is not created
+			 * yet.
+			 */
+			if (!next_pkt || !next_pkt->buffer) {
+				if (CHECK_FLAG(peer->cap,
+					       PEER_CAP_RESTART_RCV)) {
+					if (!(PAF_SUBGRP(paf))->t_coalesce
+					    && peer->afc_nego[afi][safi]
+					    && peer->synctime
+					    && !CHECK_FLAG(
+						       peer->af_sflags[afi]
+								      [safi],
+						       PEER_STATUS_EOR_SEND)) {
+						SET_FLAG(peer->af_sflags[afi]
 									[safi],
-								PEER_STATUS_EOR_SEND);
+							 PEER_STATUS_EOR_SEND);
 
-							if ((s = bgp_update_packet_eor(
-								     peer, afi,
-								     safi))) {
-								bgp_packet_add(
-									peer,
-									s);
-								bgp_writes_on(
-									peer);
-							}
+						if ((s = bgp_update_packet_eor(
+							     peer, afi,
+							     safi))) {
+							bgp_packet_add(peer, s);
+							bgp_writes_on(peer);
 						}
 					}
-					continue;
 				}
-
-
-				/* Found a packet template to send, overwrite
-				 * packet with appropriate attributes from peer
-				 * and advance peer */
-				s = bpacket_reformat_for_peer(next_pkt, paf);
-				bgp_packet_add(peer, s);
-				bgp_writes_on(peer);
-				bpacket_queue_advance_peer(paf);
+				continue;
 			}
+
+
+			/* Found a packet template to send, overwrite
+			 * packet with appropriate attributes from peer
+			 * and advance peer */
+			s = bpacket_reformat_for_peer(next_pkt, paf);
+			bgp_packet_add(peer, s);
+			bgp_writes_on(peer);
+			bpacket_queue_advance_peer(paf);
+		}
 	} while (s && (++generated < wpq));
 
 	bgp_write_proceed_actions(peer);
