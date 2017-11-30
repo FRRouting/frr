@@ -306,7 +306,12 @@ int bgp_nlri_parse(struct peer *peer, struct attr *attr,
 	return -1;
 }
 
-/* The next action for the peer from a write perspective */
+/*
+ * Checks a variety of conditions to determine whether the peer needs to be
+ * rescheduled for packet generation again, and does so if necessary.
+ *
+ * @param peer to check for rescheduling
+ */
 static void bgp_write_proceed_actions(struct peer *peer)
 {
 	afi_t afi;
@@ -356,11 +361,10 @@ static void bgp_write_proceed_actions(struct peer *peer)
 	}
 }
 
-/**
- * Enqueue onto the peer's output buffer any packets which are pending for the
- * update group it is a member of.
- *
- * XXX: Severely needs performance work.
+/*
+ * Generate advertisement information (withdraws, updates, EOR) from each
+ * update group a peer belongs to, encode this information into packets, and
+ * enqueue the packets onto the peer's output buffer.
  */
 int bgp_generate_updgrp_packets(struct thread *thread)
 {
@@ -435,7 +439,6 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 							     peer, afi,
 							     safi))) {
 							bgp_packet_add(peer, s);
-							bgp_writes_on(peer);
 						}
 					}
 				}
@@ -448,10 +451,12 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 			 * and advance peer */
 			s = bpacket_reformat_for_peer(next_pkt, paf);
 			bgp_packet_add(peer, s);
-			bgp_writes_on(peer);
 			bpacket_queue_advance_peer(paf);
 		}
 	} while (s && (++generated < wpq));
+
+	if (generated)
+		bgp_writes_on(peer);
 
 	bgp_write_proceed_actions(peer);
 
