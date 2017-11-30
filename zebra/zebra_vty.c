@@ -961,6 +961,7 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 			    u_short ospf_instance_id)
 {
 	struct route_table *table;
+	rib_dest_t *dest;
 	struct route_node *rn;
 	struct route_entry *re;
 	int first = 1;
@@ -998,10 +999,11 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 
 	/* Show all routes. */
 	for (rn = route_top(table); rn; rn = route_next(rn)) {
+		dest = rib_dest_from_rnode(rn);
+
 		RNODE_FOREACH_RE (rn, re) {
 			if (use_fib
-			    && !CHECK_FLAG(re->status,
-					   ROUTE_ENTRY_SELECTED_FIB))
+			    && re != dest->selected_fib)
 				continue;
 
 			if (tag && re->tag != tag)

@@ -331,11 +331,12 @@ void static_uninstall_route(afi_t afi, safi_t safi, struct prefix *p,
 		}
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)) {
+			rib_dest_t *dest = rib_dest_from_rnode(rn);
+
 			/* If there are other active nexthops, do an update. */
 			if (re->nexthop_active_num > 1) {
 				/* Update route in kernel if it's in fib */
-				if (CHECK_FLAG(re->status,
-					       ROUTE_ENTRY_SELECTED_FIB))
+				if (dest->selected_fib)
 					rib_install_kernel(rn, re, re);
 				/* Update redistribution if it's selected */
 				if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
@@ -350,8 +351,7 @@ void static_uninstall_route(afi_t afi, safi_t safi, struct prefix *p,
 						p, (struct prefix *)src_p, re);
 				/* Remove from kernel if fib route becomes
 				 * inactive */
-				if (CHECK_FLAG(re->status,
-					       ROUTE_ENTRY_SELECTED_FIB))
+				if (dest->selected_fib)
 					rib_uninstall_kernel(rn, re);
 			}
 		}

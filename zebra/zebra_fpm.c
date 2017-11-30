@@ -842,19 +842,7 @@ static inline int zfpm_encode_route(rib_dest_t *dest, struct route_entry *re,
  */
 struct route_entry *zfpm_route_for_update(rib_dest_t *dest)
 {
-	struct route_entry *re;
-
-	RE_DEST_FOREACH_ROUTE (dest, re) {
-		if (!CHECK_FLAG(re->status, ROUTE_ENTRY_SELECTED_FIB))
-			continue;
-
-		return re;
-	}
-
-	/*
-	 * We have no route for this destination.
-	 */
-	return NULL;
+	return dest->selected_fib;
 }
 
 /*
