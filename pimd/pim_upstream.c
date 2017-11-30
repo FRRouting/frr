@@ -1764,15 +1764,18 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 
 void pim_upstream_init(struct pim_instance *pim)
 {
-	char hash_name[64];
+	char name[64];
 
+	snprintf(name, 64, "PIM %s Timer Wheel",
+		 pim->vrf->name);
 	pim->upstream_sg_wheel =
 		wheel_init(master, 31000, 100, pim_upstream_hash_key,
-			   pim_upstream_sg_running);
+			   pim_upstream_sg_running, name);
 
-	snprintf(hash_name, 64, "PIM %s Upstream Hash", pim->vrf->name);
+	snprintf(name, 64, "PIM %s Upstream Hash",
+		 pim->vrf->name);
 	pim->upstream_hash = hash_create_size(8192, pim_upstream_hash_key,
-					      pim_upstream_equal, hash_name);
+					      pim_upstream_equal, name);
 
 	pim->upstream_list = list_new();
 	pim->upstream_list->cmp = pim_upstream_compare;
