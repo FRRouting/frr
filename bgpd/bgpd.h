@@ -22,6 +22,8 @@
 #define _QUAGGA_BGPD_H
 
 #include "qobj.h"
+#include <pthread.h>
+
 #include "lib/json.h"
 #include "vrf.h"
 #include "vty.h"
@@ -97,6 +99,10 @@ struct bgp_master {
 
 	/* BGP thread master.  */
 	struct thread_master *master;
+
+/* BGP pthreads. */
+#define PTHREAD_IO              (1 << 1)
+#define PTHREAD_KEEPALIVES      (1 << 2)
 
 	/* work queues */
 	struct work_queue *process_main_queue;
@@ -372,7 +378,9 @@ struct bgp {
 #define BGP_FLAG_IBGP_MULTIPATH_SAME_CLUSTERLEN (1 << 0)
 	} maxpaths[AFI_MAX][SAFI_MAX];
 
-	u_int32_t wpkt_quanta; /* per peer packet quanta to write */
+	_Atomic uint32_t wpkt_quanta; // max # packets to write per i/o cycle
+	_Atomic uint32_t rpkt_quanta; // max # packets to read per i/o cycle
+
 	u_int32_t coalesce_time;
 
 	u_int32_t addpath_tx_id;
@@ -583,12 +591,17 @@ struct peer {
 	struct in_addr local_id;
 
 	/* Packet receive and send buffer. */
-	struct stream *ibuf;
-	struct stream_fifo *obuf;
-	struct stream *work;
+	pthread_mutex_t io_mtx;   // guards ibuf, obuf
+	struct stream_fifo *ibuf; // packets waiting to be processed
+	struct stream_fifo *obuf; // packets waiting to be written
+
+	struct stream *ibuf_work; // WiP buffer used by bgp_read() only
+	struct stream *obuf_work; // WiP buffer used to construct packets
+
+	struct stream *curr; // the current packet being parsed
 
 	/* We use a separate stream to encode MP_REACH_NLRI for efficient
-	 * NLRI packing. peer->work stores all the other attributes. The
+	 * NLRI packing. peer->obuf_work stores all the other attributes. The
 	 * actual packet is then constructed by concatenating the two.
 	 */
 	struct stream *scratch;
@@ -776,49 +789,57 @@ struct peer {
 	(CHECK_FLAG(peer->config, PEER_CONFIG_TIMER)			     \
 	 || CHECK_FLAG(peer->config, PEER_GROUP_CONFIG_TIMER))
 
-	u_int32_t holdtime;
-	u_int32_t keepalive;
-	u_int32_t connect;
-	u_int32_t routeadv;
+	_Atomic uint32_t holdtime;
+	_Atomic uint32_t keepalive;
+	_Atomic uint32_t connect;
+	_Atomic uint32_t routeadv;
 
 	/* Timer values. */
-	u_int32_t v_start;
-	u_int32_t v_connect;
-	u_int32_t v_holdtime;
-	u_int32_t v_keepalive;
-	u_int32_t v_routeadv;
-	u_int32_t v_pmax_restart;
-	u_int32_t v_gr_restart;
+	_Atomic uint32_t v_start;
+	_Atomic uint32_t v_connect;
+	_Atomic uint32_t v_holdtime;
+	_Atomic uint32_t v_keepalive;
+	_Atomic uint32_t v_routeadv;
+	_Atomic uint32_t v_pmax_restart;
+	_Atomic uint32_t v_gr_restart;
 
 	/* Threads. */
 	struct thread *t_read;
 	struct thread *t_write;
 	struct thread *t_start;
+	struct thread *t_connect_check_r;
+	struct thread *t_connect_check_w;
 	struct thread *t_connect;
 	struct thread *t_holdtime;
-	struct thread *t_keepalive;
 	struct thread *t_routeadv;
 	struct thread *t_pmax_restart;
 	struct thread *t_gr_restart;
 	struct thread *t_gr_stale;
+	struct thread *t_generate_updgrp_packets;
+	struct thread *t_process_packet;
 
+	/* Thread flags. */
+	_Atomic uint16_t thread_flags;
+#define PEER_THREAD_WRITES_ON         (1 << 0)
+#define PEER_THREAD_READS_ON          (1 << 1)
+#define PEER_THREAD_KEEPALIVES_ON     (1 << 2)
 	/* workqueues */
 	struct work_queue *clear_node_queue;
 
 	/* Statistics field */
-	u_int32_t open_in;	 /* Open message input count */
-	u_int32_t open_out;	/* Open message output count */
-	u_int32_t update_in;       /* Update message input count */
-	u_int32_t update_out;      /* Update message ouput count */
-	time_t update_time;	/* Update message received time. */
-	u_int32_t keepalive_in;    /* Keepalive input count */
-	u_int32_t keepalive_out;   /* Keepalive output count */
-	u_int32_t notify_in;       /* Notify input count */
-	u_int32_t notify_out;      /* Notify output count */
-	u_int32_t refresh_in;      /* Route Refresh input count */
-	u_int32_t refresh_out;     /* Route Refresh output count */
-	u_int32_t dynamic_cap_in;  /* Dynamic Capability input count.  */
-	u_int32_t dynamic_cap_out; /* Dynamic Capability output count.  */
+	_Atomic uint32_t open_in;         /* Open message input count */
+	_Atomic uint32_t open_out;        /* Open message output count */
+	_Atomic uint32_t update_in;       /* Update message input count */
+	_Atomic uint32_t update_out;      /* Update message ouput count */
+	_Atomic time_t update_time;       /* Update message received time. */
+	_Atomic uint32_t keepalive_in;    /* Keepalive input count */
+	_Atomic uint32_t keepalive_out;   /* Keepalive output count */
+	_Atomic uint32_t notify_in;       /* Notify input count */
+	_Atomic uint32_t notify_out;      /* Notify output count */
+	_Atomic uint32_t refresh_in;      /* Route Refresh input count */
+	_Atomic uint32_t refresh_out;     /* Route Refresh output count */
+	_Atomic uint32_t dynamic_cap_in;  /* Dynamic Capability input count.  */
+	_Atomic uint32_t dynamic_cap_out; /* Dynamic Capability output count.  */
 
 	/* BGP state count */
 	u_int32_t established; /* Established */
@@ -831,8 +852,10 @@ struct peer {
 	/* Syncronization list and time.  */
 	struct bgp_synchronize *sync[AFI_MAX][SAFI_MAX];
 	time_t synctime;
-	time_t last_write;  /* timestamp when the last msg was written */
-	time_t last_update; /* timestamp when the last UPDATE msg was written */
+	/* timestamp when the last UPDATE msg was written */
+	_Atomic time_t last_write;
+	/* timestamp when the last msg was written */
+	_Atomic time_t last_update;
 
 	/* Send prefix count. */
 	unsigned long scount[AFI_MAX][SAFI_MAX];
@@ -842,9 +865,6 @@ struct peer {
 
 	/* Notify data. */
 	struct bgp_notify notify;
-
-	/* Whole packet size to be read. */
-	unsigned long packet_size;
 
 	/* Filter structure. */
 	struct bgp_filter filter[AFI_MAX][SAFI_MAX];
@@ -1139,7 +1159,7 @@ enum bgp_clear_type {
 };
 
 /* Macros. */
-#define BGP_INPUT(P)         ((P)->ibuf)
+#define BGP_INPUT(P)         ((P)->curr)
 #define BGP_INPUT_PNT(P)     (STREAM_PNT(BGP_INPUT(P)))
 #define BGP_IS_VALID_STATE_FOR_NOTIF(S)                                        \
 	(((S) == OpenSent) || ((S) == OpenConfirm) || ((S) == Established))
@@ -1251,6 +1271,8 @@ extern int bgp_config_write(struct vty *);
 extern void bgp_master_init(struct thread_master *master);
 
 extern void bgp_init(void);
+extern void bgp_pthreads_run(void);
+extern void bgp_pthreads_finish(void);
 extern void bgp_route_map_init(void);
 extern void bgp_session_reset(struct peer *);
 

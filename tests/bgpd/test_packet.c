@@ -80,6 +80,6 @@ int main(int argc, char *argv[])
         peer->fd = open(argv[1], O_RDONLY|O_NONBLOCK);
 	t.arg = peer;
 	peer->t_read = &t;
- 
-	printf("bgp_read_packet returns: %d\n", bgp_read(&t));
+
+	// printf("bgp_read_packet returns: %d\n", bgp_read(&t));
 }

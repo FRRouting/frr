@@ -36,6 +36,7 @@
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_mplsvpn.h"
 #include "bgpd/bgp_nexthop.h"
+#include "bgpd/bgp_vty.h"
 
 #define VT100_RESET "\x1b[0m"
 #define VT100_RED "\x1b[31m"
@@ -1045,11 +1046,11 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 		.startp = BGP_INPUT_PNT(peer),
 	};
 #define RANDOM_FUZZ 35
-	stream_reset(peer->ibuf);
-	stream_put(peer->ibuf, NULL, RANDOM_FUZZ);
-	stream_set_getp(peer->ibuf, RANDOM_FUZZ);
+	stream_reset(peer->curr);
+	stream_put(peer->curr, NULL, RANDOM_FUZZ);
+	stream_set_getp(peer->curr, RANDOM_FUZZ);
 
-	stream_write(peer->ibuf, t->data, t->len);
+	stream_write(peer->curr, t->data, t->len);
 
 	printf("%s: %s\n", t->name, t->desc);
 
@@ -1097,7 +1098,9 @@ int main(void)
 	term_bgp_debug_as4 = -1UL;
 
 	qobj_init();
-	master = thread_master_create(NULL);
+	cmd_init(0);
+	bgp_vty_init();
+	master = thread_master_create("test mp attr");
 	bgp_master_init(master);
 	vrf_init(NULL, NULL, NULL, NULL);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
@@ -1112,6 +1115,7 @@ int main(void)
 	peer = peer_create_accept(bgp);
 	peer->host = (char *)"foo";
 	peer->status = Established;
+	peer->curr = stream_new(BGP_MAX_PACKET_SIZE);
 
 	for (i = AFI_IP; i < AFI_MAX; i++)
 		for (j = SAFI_UNICAST; j < SAFI_MAX; j++) {

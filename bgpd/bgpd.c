@@ -42,6 +42,7 @@
 #include "jhash.h"
 #include "table.h"
 #include "lib/json.h"
+#include "frr_pthread.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -75,6 +76,8 @@
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_memory.h"
 #include "bgpd/bgp_evpn_vty.h"
+#include "bgpd/bgp_keepalives.h"
+#include "bgpd/bgp_io.h"
 
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
@@ -989,9 +992,13 @@ static void peer_free(struct peer *peer)
 	 * but just to be sure..
 	 */
 	bgp_timer_set(peer);
-	BGP_READ_OFF(peer->t_read);
-	BGP_WRITE_OFF(peer->t_write);
+	bgp_reads_off(peer);
+	bgp_writes_off(peer);
+	assert(!peer->t_write);
+	assert(!peer->t_read);
 	BGP_EVENT_FLUSH(peer);
+
+	pthread_mutex_destroy(&peer->io_mtx);
 
 	/* Free connected nexthop, if present */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE)
@@ -1135,10 +1142,11 @@ struct peer *peer_new(struct bgp *bgp)
 	SET_FLAG(peer->sflags, PEER_STATUS_CAPABILITY_OPEN);
 
 	/* Create buffers.  */
-	peer->ibuf = stream_new(BGP_MAX_PACKET_SIZE);
+	peer->ibuf = stream_fifo_new();
 	peer->obuf = stream_fifo_new();
+	pthread_mutex_init(&peer->io_mtx, NULL);
 
-	/* We use a larger buffer for peer->work in the event that:
+	/* We use a larger buffer for peer->obuf_work in the event that:
 	 * - We RX a BGP_UPDATE where the attributes alone are just
 	 *   under BGP_MAX_PACKET_SIZE
 	 * - The user configures an outbound route-map that does many as-path
@@ -1152,10 +1160,10 @@ struct peer *peer_new(struct bgp *bgp)
 	 * bounds
 	 * checking for every single attribute as we construct an UPDATE.
 	 */
-	peer->work =
+	peer->obuf_work =
 		stream_new(BGP_MAX_PACKET_SIZE + BGP_MAX_PACKET_SIZE_OVERFLOW);
+	peer->ibuf_work = stream_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX);
 	peer->scratch = stream_new(BGP_MAX_PACKET_SIZE);
-
 
 	bgp_sync_init(peer);
 
@@ -1465,6 +1473,11 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	peer->group = group;
 	listnode_add_sort(bgp->peer, peer);
 	hash_get(bgp->peerhash, peer, hash_alloc_intern);
+
+	/* Adjust update-group coalesce timer heuristics for # peers. */
+	long ct = BGP_DEFAULT_SUBGROUP_COALESCE_TIME
+		  + (bgp->peer->count * BGP_PEER_ADJUST_SUBGROUP_COALESCE_TIME);
+	bgp->coalesce_time = MIN(BGP_MAX_SUBGROUP_COALESCE_TIME, ct);
 
 	active = peer_active(peer);
 
@@ -2082,6 +2095,11 @@ int peer_delete(struct peer *peer)
 	bgp = peer->bgp;
 	accept_peer = CHECK_FLAG(peer->sflags, PEER_STATUS_ACCEPT_PEER);
 
+	bgp_reads_off(peer);
+	bgp_writes_off(peer);
+	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_WRITES_ON));
+	assert(!CHECK_FLAG(peer->thread_flags, PEER_THREAD_READS_ON));
+
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT))
 		peer_nsf_stop(peer);
 
@@ -2143,7 +2161,7 @@ int peer_delete(struct peer *peer)
 
 	/* Buffers.  */
 	if (peer->ibuf) {
-		stream_free(peer->ibuf);
+		stream_fifo_free(peer->ibuf);
 		peer->ibuf = NULL;
 	}
 
@@ -2152,9 +2170,14 @@ int peer_delete(struct peer *peer)
 		peer->obuf = NULL;
 	}
 
-	if (peer->work) {
-		stream_free(peer->work);
-		peer->work = NULL;
+	if (peer->ibuf_work) {
+		stream_free(peer->ibuf_work);
+		peer->ibuf_work = NULL;
+	}
+
+	if (peer->obuf_work) {
+		stream_free(peer->obuf_work);
+		peer->obuf_work = NULL;
 	}
 
 	if (peer->scratch) {
@@ -2890,7 +2913,10 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 				 bgp->restart_time, &bgp->t_startup);
 	}
 
-	bgp->wpkt_quanta = BGP_WRITE_PACKET_MAX;
+	atomic_store_explicit(&bgp->wpkt_quanta, BGP_WRITE_PACKET_MAX,
+			      memory_order_relaxed);
+	atomic_store_explicit(&bgp->rpkt_quanta, BGP_READ_PACKET_MAX,
+			      memory_order_relaxed);
 	bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
 
 	QOBJ_REG(bgp, bgp);
@@ -7174,6 +7200,8 @@ int bgp_config_write(struct vty *vty)
 
 		/* write quanta */
 		bgp_config_write_wpkt_quanta(vty, bgp);
+		/* read quanta */
+		bgp_config_write_rpkt_quanta(vty, bgp);
 
 		/* coalesce time */
 		bgp_config_write_coalesce_time(vty, bgp);
@@ -7381,11 +7409,44 @@ static const struct cmd_variable_handler bgp_viewvrf_var_handlers[] = {
 	{.completions = NULL},
 };
 
+static void bgp_pthreads_init()
+{
+	frr_pthread_init();
+
+	frr_pthread_new("BGP i/o thread", PTHREAD_IO, bgp_io_start,
+			bgp_io_stop);
+	frr_pthread_new("BGP keepalives thread", PTHREAD_KEEPALIVES,
+			bgp_keepalives_start, bgp_keepalives_stop);
+
+	/* pre-run initialization */
+	bgp_keepalives_init();
+	bgp_io_init();
+}
+
+void bgp_pthreads_run()
+{
+	pthread_attr_t attr;
+	pthread_attr_init(&attr);
+	pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+
+	frr_pthread_run(PTHREAD_IO, &attr, NULL);
+	frr_pthread_run(PTHREAD_KEEPALIVES, &attr, NULL);
+}
+
+void bgp_pthreads_finish()
+{
+	frr_pthread_stop_all();
+	frr_pthread_finish();
+}
+
 void bgp_init(void)
 {
 
 	/* allocates some vital data structures used by peer commands in
 	 * vty_init */
+
+	/* pre-init pthreads */
+	bgp_pthreads_init();
 
 	/* Init zebra. */
 	bgp_zebra_init(bm->master);

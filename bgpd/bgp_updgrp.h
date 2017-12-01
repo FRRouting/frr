@@ -29,7 +29,27 @@
 
 #include "bgp_advertise.h"
 
-#define BGP_DEFAULT_SUBGROUP_COALESCE_TIME 200
+/*
+ * The following three heuristic constants determine how long advertisement to
+ * a subgroup will be delayed after it is created. The intent is to allow
+ * transient changes in peer state (primarily session establishment) to settle,
+ * so that more peers can be grouped together and benefit from sharing
+ * advertisement computations with the subgroup.
+ *
+ * These values have a very large impact on initial convergence time; any
+ * changes should be accompanied by careful performance testing at all scales.
+ *
+ * The coalesce time 'C' for a new subgroup within a particular BGP instance
+ * 'B' with total number of known peers 'P', established or not, is computed as
+ * follows:
+ *
+ * C = MIN(BGP_MAX_SUBGROUP_COALESCE_TIME,
+ *         BGP_DEFAULT_SUBGROUP_COALESCE_TIME +
+ *         (P*BGP_PEER_ADJUST_SUBGROUP_COALESCE_TIME))
+ */
+#define BGP_DEFAULT_SUBGROUP_COALESCE_TIME 1000
+#define BGP_MAX_SUBGROUP_COALESCE_TIME 10000
+#define BGP_PEER_ADJUST_SUBGROUP_COALESCE_TIME 50
 
 #define PEER_UPDGRP_FLAGS                                                      \
 	(PEER_FLAG_LOCAL_AS_NO_PREPEND | PEER_FLAG_LOCAL_AS_REPLACE_AS)
@@ -179,7 +199,7 @@ struct update_subgroup {
 	struct stream *work;
 
 	/* We use a separate stream to encode MP_REACH_NLRI for efficient
-	 * NLRI packing. peer->work stores all the other attributes. The
+	 * NLRI packing. peer->obuf_work stores all the other attributes. The
 	 * actual packet is then constructed by concatenating the two.
 	 */
 	struct stream *scratch;

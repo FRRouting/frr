@@ -796,14 +796,15 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 	int oldfailed = failed;
 	int len = t->len;
 #define RANDOM_FUZZ 35
-	stream_reset(peer->ibuf);
-	stream_put(peer->ibuf, NULL, RANDOM_FUZZ);
-	stream_set_getp(peer->ibuf, RANDOM_FUZZ);
+
+	stream_reset(peer->curr);
+	stream_put(peer->curr, NULL, RANDOM_FUZZ);
+	stream_set_getp(peer->curr, RANDOM_FUZZ);
 
 	switch (type) {
 	case CAPABILITY:
-		stream_putc(peer->ibuf, BGP_OPEN_OPT_CAP);
-		stream_putc(peer->ibuf, t->len);
+		stream_putc(peer->curr, BGP_OPEN_OPT_CAP);
+		stream_putc(peer->curr, t->len);
 		break;
 	case DYNCAP:
 		/*        for (i = 0; i < BGP_MARKER_SIZE; i++)
@@ -812,7 +813,7 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 			stream_putc (s, BGP_MSG_CAPABILITY);*/
 		break;
 	}
-	stream_write(peer->ibuf, t->data, t->len);
+	stream_write(peer->curr, t->data, t->len);
 
 	printf("%s: %s\n", t->name, t->desc);
 
@@ -825,7 +826,7 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 		as4 = peek_for_as4_capability(peer, len);
 		printf("peek_for_as4: as4 is %u\n", as4);
 		/* and it should leave getp as it found it */
-		assert(stream_get_getp(peer->ibuf) == RANDOM_FUZZ);
+		assert(stream_get_getp(peer->curr) == RANDOM_FUZZ);
 
 		ret = bgp_open_option_parse(peer, len, &capability);
 		break;
@@ -837,7 +838,7 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 		exit(1);
 	}
 
-	if (!ret && t->validate_afi) {
+	if (ret != BGP_Stop && t->validate_afi) {
 		afi_t afi;
 		safi_t safi;
 
@@ -865,10 +866,20 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 		failed++;
 	}
 
+	/*
+	 * Some of the functions used return BGP_Stop on error and some return
+	 * -1. If we have -1, keep it; if we have BGP_Stop, transform it to the
+	 * correct pass/fail code
+	 */
+	if (ret != -1)
+		ret = (ret == BGP_Stop) ? -1 : 0;
+
 	printf("parsed?: %s\n", ret ? "no" : "yes");
 
-	if (ret != t->parses)
+	if (ret != t->parses) {
+		printf("t->parses: %d\nret: %d\n", t->parses, ret);
 		failed++;
+	}
 
 	if (tty)
 		printf("%s",
@@ -918,6 +929,8 @@ int main(void)
 			peer->afc[i][j] = 1;
 			peer->afc_adv[i][j] = 1;
 		}
+
+	peer->curr = stream_new(BGP_MAX_PACKET_SIZE);
 
 	i = 0;
 	while (mp_segments[i].name)
