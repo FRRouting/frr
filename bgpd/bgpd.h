@@ -1160,7 +1160,7 @@ enum bgp_clear_type {
 
 /* Macros. */
 #define BGP_INPUT(P)         ((P)->curr)
-#define BGP_INPUT_PNT(P)     (STREAM_PNT(BGP_INPUT(P)))
+#define BGP_INPUT_PNT(P)     (stream_pnt(BGP_INPUT(P)))
 #define BGP_IS_VALID_STATE_FOR_NOTIF(S)                                        \
 	(((S) == OpenSent) || ((S) == OpenConfirm) || ((S) == Established))
 

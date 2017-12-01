@@ -221,7 +221,7 @@ int pim_msdp_write(struct thread *thread)
 		writenum = stream_get_endp(s) - stream_get_getp(s);
 
 		/* Call write() system call */
-		num = write(mp->fd, STREAM_PNT(s), writenum);
+		num = write(mp->fd, stream_pnt(s), writenum);
 		if (num < 0) {
 			/* write failed either retry needed or error */
 			if (ERRNO_IO_RETRY(errno)) {

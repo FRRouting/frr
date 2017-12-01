@@ -425,7 +425,7 @@ int eigrp_write(struct thread *thread)
 
 	iov[0].iov_base = (char *)&iph;
 	iov[0].iov_len = iph.ip_hl << EIGRP_WRITE_IPHL_SHIFT;
-	iov[1].iov_base = STREAM_PNT(ep->s);
+	iov[1].iov_base = stream_pnt(ep->s);
 	iov[1].iov_len = ep->length;
 
 	/* send final fragment (could be first) */
@@ -555,7 +555,7 @@ int eigrp_read(struct thread *thread)
 	   by eigrp_recv_packet() to be correct). */
 
 	stream_forward_getp(ibuf, (iph->ip_hl * 4));
-	eigrph = (struct eigrp_header *)STREAM_PNT(ibuf);
+	eigrph = (struct eigrp_header *)stream_pnt(ibuf);
 
 	if (IS_DEBUG_EIGRP_TRANSMIT(0, RECV)
 	    && IS_DEBUG_EIGRP_TRANSMIT(0, PACKET_DETAIL))

@@ -1181,7 +1181,7 @@ void ospf_opaque_lsa_dump(struct stream *s, u_int16_t length)
 {
 	struct ospf_lsa lsa;
 
-	lsa.data = (struct lsa_header *)STREAM_PNT(s);
+	lsa.data = (struct lsa_header *)stream_pnt(s);
 	show_opaque_info_detail(NULL, &lsa);
 	return;
 }

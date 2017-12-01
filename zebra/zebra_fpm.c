@@ -996,7 +996,7 @@ static int zfpm_write_cb(struct thread *thread)
 			break;
 
 		bytes_written =
-			write(zfpm_g->sock, STREAM_PNT(s), bytes_to_write);
+			write(zfpm_g->sock, stream_pnt(s), bytes_to_write);
 		zfpm_g->stats.write_calls++;
 		num_writes++;
 
