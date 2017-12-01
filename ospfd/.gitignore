@@ -15,4 +15,4 @@ TAGS
 *~
 *.loT
 *.a
-*.clippy.c
+*clippy.c
