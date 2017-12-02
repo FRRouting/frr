@@ -41,6 +41,7 @@ struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id)
 	return dzns;
 }
 
+/* Do global enable actions - open sockets, read kernel config etc. */
 int zebra_ns_enable(ns_id_t ns_id, void **info)
 {
 	struct zebra_ns *zns = (struct zebra_ns *)(*info);
@@ -49,8 +50,6 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 	rtadv_init(zns);
 #endif
 
-	zns->if_table = route_table_init();
-	zebra_vxlan_ns_init(zns);
 	kernel_init(zns);
 	interface_list(zns);
 	route_read(zns);
@@ -79,8 +78,14 @@ int zebra_ns_init(void)
 
 	ns_init();
 
+	/* Do any needed per-NS data structure allocation. */
+	dzns->if_table = route_table_init();
+	zebra_vxlan_ns_init(dzns);
+
+	/* Register zebra VRF callbacks, create and activate default VRF. */
 	zebra_vrf_init();
 
+	/* Default NS is activated */
 	zebra_ns_enable(NS_DEFAULT, (void **)&dzns);
 
 	return 0;

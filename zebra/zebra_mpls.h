@@ -379,6 +379,13 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 int zebra_mpls_write_lsp_config(struct vty *vty, struct zebra_vrf *zvrf);
 
 /*
+ * Called when VRF becomes inactive, cleans up information but keeps
+ * the table itself.
+ * NOTE: Currently supported only for default VRF.
+ */
+void zebra_mpls_cleanup_tables(struct zebra_vrf *zvrf);
+
+/*
  * Called upon process exiting, need to delete LSP forwarding
  * entries from the kernel.
  * NOTE: Currently supported only for default VRF.

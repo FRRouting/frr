@@ -2866,17 +2866,19 @@ static int zvni_vtep_uninstall(zebra_vni_t *zvni, struct in_addr *vtep_ip)
 /*
  * Cleanup VNI/VTEP and update kernel
  */
-static void zvni_cleanup_all(struct hash_backet *backet, void *zvrf)
+static void zvni_cleanup_all(struct hash_backet *backet, void *arg)
 {
 	zebra_vni_t *zvni = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_vrf *zvrf = (struct zebra_vrf *)arg;
 
 	zvni = (zebra_vni_t *)backet->data;
 	if (!zvni)
 		return;
 
 	/* remove from l3-vni list */
-	zl3vni = zl3vni_from_vrf(zvni->vrf_id);
+	if (zvrf->l3vni)
+		zl3vni = zl3vni_lookup(zvrf->l3vni);
 	if (zl3vni)
 		listnode_delete(zl3vni->l2vnis, zvni);
 
@@ -6590,17 +6592,48 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf,
 	return 0;
 }
 
-int zebra_vxlan_vrf_delete(struct zebra_vrf *zvrf)
+int zebra_vxlan_vrf_enable(struct zebra_vrf *zvrf)
 {
 	zebra_l3vni_t *zl3vni = NULL;
 
-	zl3vni = zl3vni_from_vrf(zvrf_id(zvrf));
+	if (zvrf->l3vni)
+		zl3vni = zl3vni_lookup(zvrf->l3vni);
 	if (!zl3vni)
 		return 0;
 
+	zl3vni->vrf_id = zvrf_id(zvrf);
+	if (is_l3vni_oper_up(zl3vni))
+		zebra_vxlan_process_l3vni_oper_up(zl3vni);
+	return 0;
+}
+
+int zebra_vxlan_vrf_disable(struct zebra_vrf *zvrf)
+{
+	zebra_l3vni_t *zl3vni = NULL;
+
+	if (zvrf->l3vni)
+		zl3vni = zl3vni_lookup(zvrf->l3vni);
+	if (!zl3vni)
+		return 0;
+
+	zl3vni->vrf_id = VRF_UNKNOWN;
 	zebra_vxlan_process_l3vni_oper_down(zl3vni);
+	return 0;
+}
+
+int zebra_vxlan_vrf_delete(struct zebra_vrf *zvrf)
+{
+	zebra_l3vni_t *zl3vni = NULL;
+	vni_t vni;
+
+	if (zvrf->l3vni)
+		zl3vni = zl3vni_lookup(zvrf->l3vni);
+	if (!zl3vni)
+		return 0;
+
+	vni = zl3vni->vni;
 	zl3vni_del(zl3vni);
-	zebra_vxlan_handle_vni_transition(zvrf, zl3vni->vni, 0);
+	zebra_vxlan_handle_vni_transition(zvrf, vni, 0);
 
 	return 0;
 }
@@ -6851,6 +6884,14 @@ void zebra_vxlan_init_tables(struct zebra_vrf *zvrf)
 		return;
 	zvrf->vni_table = hash_create(vni_hash_keymake, vni_hash_cmp,
 				      "Zebra VRF VNI Table");
+}
+
+/* Cleanup VNI info, but don't free the table. */
+void zebra_vxlan_cleanup_tables(struct zebra_vrf *zvrf)
+{
+	if (!zvrf)
+		return;
+	hash_iterate(zvrf->vni_table, zvni_cleanup_all, zvrf);
 }
 
 /* Close all VNI handling */

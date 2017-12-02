@@ -141,7 +141,9 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 	return vrf;
 }
 
-/* Delete a VRF. This is called in vrf_terminate(). */
+/* Delete a VRF. This is called when the underlying VRF goes away, a
+ * pre-configured VRF is deleted or when shutting down (vrf_terminate()).
+ */
 void vrf_delete(struct vrf *vrf)
 {
 	if (debug_vrf)
@@ -149,6 +151,23 @@ void vrf_delete(struct vrf *vrf)
 
 	if (vrf_is_enabled(vrf))
 		vrf_disable(vrf);
+
+	/* If the VRF is user configured, it'll stick around, just remove
+	 * the ID mapping. Interfaces assigned to this VRF should've been
+	 * removed already as part of the VRF going down.
+	 */
+	if (vrf_is_user_cfged(vrf)) {
+		if (vrf->vrf_id != VRF_UNKNOWN) {
+			/* Delete any VRF interfaces - should be only
+			 * the VRF itself, other interfaces should've
+			 * been moved out of the VRF.
+			 */
+			if_terminate(vrf);
+			RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
+			vrf->vrf_id = VRF_UNKNOWN;
+		}
+		return;
+	}
 
 	if (vrf_master.vrf_delete_hook)
 		(*vrf_master.vrf_delete_hook)(vrf);
@@ -170,14 +189,6 @@ struct vrf *vrf_lookup_by_id(vrf_id_t vrf_id)
 	struct vrf vrf;
 	vrf.vrf_id = vrf_id;
 	return (RB_FIND(vrf_id_head, &vrfs_by_id, &vrf));
-}
-
-/*
- * Check whether the VRF is enabled.
- */
-static int vrf_is_enabled(struct vrf *vrf)
-{
-	return vrf && CHECK_FLAG(vrf->status, VRF_ACTIVE);
 }
 
 /*
@@ -445,6 +456,9 @@ DEFUN_NOSH (vrf,
 
 	vrfp = vrf_get(VRF_UNKNOWN, vrfname);
 
+	/* Mark as user configured. */
+	SET_FLAG(vrfp->status, VRF_CONFIGURED);
+
 	VTY_PUSH_CONTEXT(VRF_NODE, vrfp);
 
 	return CMD_SUCCESS;
@@ -473,6 +487,8 @@ DEFUN_NOSH (no_vrf,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	/* Clear configured flag and invoke delete. */
+	UNSET_FLAG(vrfp->status, VRF_CONFIGURED);
 	vrf_delete(vrfp);
 
 	return CMD_SUCCESS;

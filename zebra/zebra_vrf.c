@@ -82,7 +82,7 @@ static int zebra_vrf_new(struct vrf *vrf)
 	struct zebra_vrf *zvrf;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_info("ZVRF %s with id %u", vrf->name, vrf->vrf_id);
+		zlog_info("VRF %s created, id %u", vrf->name, vrf->vrf_id);
 
 	zvrf = zebra_vrf_alloc();
 	zvrf->zns = zebra_ns_lookup(
@@ -106,9 +106,16 @@ static int zebra_vrf_enable(struct vrf *vrf)
 	safi_t safi;
 
 	assert(zvrf);
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("VRF %s id %u is now active",
+			   zvrf_name(zvrf), zvrf_id(zvrf));
 
+	/* Inform clients that the VRF is now active. This is an
+	 * add for the clients.
+	 */
 	zebra_vrf_add_update(zvrf);
 
+	/* Install any static routes configured for this VRF. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
 			stable = zvrf->stable[afi][safi];
@@ -132,6 +139,9 @@ static int zebra_vrf_enable(struct vrf *vrf)
 				}
 		}
 
+	/* Kick off any VxLAN-EVPN processing. */
+	zebra_vxlan_vrf_enable(zvrf);
+
 	return 0;
 }
 
@@ -142,13 +152,16 @@ static int zebra_vrf_disable(struct vrf *vrf)
 	struct route_table *stable;
 	struct route_node *rn;
 	struct static_route *si;
+	u_int32_t table_id;
 	afi_t afi;
 	safi_t safi;
 
-	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("VRF %s id %u is now disabled.", zvrf_name(zvrf),
-			   zvrf_id(zvrf));
+	assert(zvrf);
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("VRF %s id %u is now inactive",
+			   zvrf_name(zvrf), zvrf_id(zvrf));
 
+	/* Uninstall any static routes configured for this VRF. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
 			stable = zvrf->stable[afi][safi];
@@ -161,23 +174,15 @@ static int zebra_vrf_disable(struct vrf *vrf)
 						afi, safi, &rn->p, NULL, si);
 		}
 
-	return 0;
-}
+	/* Stop any VxLAN-EVPN processing. */
+	zebra_vxlan_vrf_disable(zvrf);
 
-static int zebra_vrf_delete(struct vrf *vrf)
-{
-	struct zebra_vrf *zvrf = vrf->info;
-	struct route_table *table;
-	u_int32_t table_id;
-	afi_t afi;
-	safi_t safi;
-	unsigned i;
-
-	assert(zvrf);
-
+	/* Inform clients that the VRF is now inactive. This is a
+	 * delete for the clients.
+	 */
 	zebra_vrf_delete_update(zvrf);
 
-	/* uninstall everything */
+	/* uninstall all routes */
 	if (!CHECK_FLAG(zvrf->flags, ZEBRA_VRF_RETAIN)) {
 		struct interface *ifp;
 
@@ -197,15 +202,31 @@ static int zebra_vrf_delete(struct vrf *vrf)
 								[table_id]);
 		}
 
-		/* Cleanup Vxlan table and update kernel */
-		zebra_vxlan_close_tables(zvrf);
-
-		zebra_mpls_close_tables(zvrf);
+		/* Cleanup Vxlan, MPLS and PW tables. */
+		zebra_vxlan_cleanup_tables(zvrf);
+		zebra_mpls_cleanup_tables(zvrf);
 		zebra_pw_exit(zvrf);
 
 		FOR_ALL_INTERFACES (vrf, ifp)
 			if_nbr_ipv6ll_to_ipv4ll_neigh_del_all(ifp);
 	}
+
+	return 0;
+}
+
+static int zebra_vrf_delete(struct vrf *vrf)
+{
+	struct zebra_vrf *zvrf = vrf->info;
+	struct route_table *table;
+	u_int32_t table_id;
+	afi_t afi;
+	safi_t safi;
+	unsigned i;
+
+	assert(zvrf);
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_debug("VRF %s id %u deleted",
+			   zvrf_name(zvrf), zvrf_id(zvrf));
 
 	/* clean-up work queues */
 	for (i = 0; i < MQ_SIZE; i++) {
@@ -223,6 +244,10 @@ static int zebra_vrf_delete(struct vrf *vrf)
 			}
 		}
 	}
+
+	/* Free Vxlan and MPLS. */
+	zebra_vxlan_close_tables(zvrf);
+	zebra_mpls_close_tables(zvrf);
 
 	/* release allocated memory */
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
@@ -251,7 +276,7 @@ static int zebra_vrf_delete(struct vrf *vrf)
 		route_table_finish(zvrf->import_check_table[afi]);
 	}
 
-	/* cleanup evpn states for vrf */
+	/* Cleanup EVPN states for vrf */
 	zebra_vxlan_vrf_delete(zvrf);
 
 	list_delete_all_node(zvrf->rid_all_sorted_list);
@@ -482,7 +507,7 @@ static int vrf_config_write(struct vty *vty)
 			vty_out(vty, "!\n");
 		}
 
-		if (strcmp(zvrf_name(zvrf), VRF_DEFAULT_NAME)) {
+		if (vrf_is_user_cfged(vrf)) {
 			vty_out(vty, "vrf %s\n", zvrf_name(zvrf));
 
 		static_config(vty, zvrf, AFI_IP, SAFI_UNICAST, "ip route");
