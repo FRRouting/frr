@@ -511,10 +511,6 @@ static void cmd_merge_nodes(struct graph *oldgraph, struct graph *newgraph,
 		}
 		/* nothing found => add new to old */
 		if (i == vector_active(old->to) && direction > 0) {
-			assert(vector_count(cnew->from)
-					       == cmd_nodes_link(cnew, cnew)
-				       ? 2
-				       : 1);
 			graph_remove_edge(new, cnew);
 
 			cmd_reparent_tree(newgraph, oldgraph, cnew);
