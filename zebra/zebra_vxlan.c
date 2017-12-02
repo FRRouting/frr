@@ -3231,11 +3231,11 @@ static int zl3vni_nh_install(zebra_l3vni_t *zl3vni,
 static int zl3vni_nh_uninstall(zebra_l3vni_t *zl3vni,
 			       zebra_neigh_t *n)
 {
-	if (!is_l3vni_oper_up(zl3vni))
-		return -1;
-
 	if (!(n->flags & ZEBRA_NEIGH_REMOTE) ||
 	    !(n->flags & ZEBRA_NEIGH_REMOTE_NH))
+		return 0;
+
+	if (!zl3vni->svi_if || !if_is_operative(zl3vni->svi_if))
 		return 0;
 
 	return kernel_del_neigh(zl3vni->svi_if, &n->ip);
