@@ -2923,7 +2923,7 @@ DEFUN(show_bgp_l2vpn_evpn_summary,
  */
 DEFUN(show_bgp_l2vpn_evpn_route,
       show_bgp_l2vpn_evpn_route_cmd,
-      "show bgp l2vpn evpn route [type <macip|multicast>] [json]",
+      "show bgp l2vpn evpn route [type <macip|multicast|prefix>] [json]",
       SHOW_STR
       BGP_STR
       L2VPN_HELP_STR
@@ -2932,6 +2932,7 @@ DEFUN(show_bgp_l2vpn_evpn_route,
       "Specify Route type\n"
       "MAC-IP (Type-2) route\n"
       "Multicast (Type-3) route\n"
+      "Prefix route"
       JSON_STR)
 {
 	struct bgp *bgp;
@@ -2956,6 +2957,8 @@ DEFUN(show_bgp_l2vpn_evpn_route,
 			type = BGP_EVPN_MAC_IP_ROUTE;
 		else if (strncmp(argv[type_idx + 1]->arg, "mu", 2) == 0)
 			type = BGP_EVPN_IMET_ROUTE;
+		else if (strncmp(argv[type_idx + 1]->arg, "pr", 2) == 0)
+			type = BGP_EVPN_IP_PREFIX_ROUTE;
 		else
 			return CMD_WARNING;
 	}
