@@ -556,11 +556,13 @@ static int bgp_write_notify(struct peer *peer)
 	{
 		/* There should be at least one packet. */
 		s = stream_fifo_pop(peer->obuf);
-		if (!s)
-			return 0;
-		assert(stream_get_endp(s) >= BGP_HEADER_SIZE);
 	}
 	pthread_mutex_unlock(&peer->io_mtx);
+
+	if (!s)
+		return 0;
+
+	assert(stream_get_endp(s) >= BGP_HEADER_SIZE);
 
 	/* Stop collecting data within the socket */
 	sockopt_cork(peer->fd, 0);
