@@ -419,10 +419,16 @@ void vrf_terminate(void)
 		zlog_debug("%s: Shutting down vrf subsystem",
 			   __PRETTY_FUNCTION__);
 
-	while ((vrf = RB_ROOT(vrf_id_head, &vrfs_by_id)) != NULL)
+	while ((vrf = RB_ROOT(vrf_id_head, &vrfs_by_id)) != NULL) {
+		/* Clear configured flag and invoke delete. */
+		UNSET_FLAG(vrf->status, VRF_CONFIGURED);
 		vrf_delete(vrf);
-	while ((vrf = RB_ROOT(vrf_name_head, &vrfs_by_name)) != NULL)
+	}
+	while ((vrf = RB_ROOT(vrf_name_head, &vrfs_by_name)) != NULL) {
+		/* Clear configured flag and invoke delete. */
+		UNSET_FLAG(vrf->status, VRF_CONFIGURED);
 		vrf_delete(vrf);
+	}
 }
 
 /* Create a socket for the VRF. */
