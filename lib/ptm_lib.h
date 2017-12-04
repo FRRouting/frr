@@ -63,5 +63,6 @@ int ptm_lib_find_key_in_msg(void *, const char *, char *);
 int ptm_lib_init_msg(ptm_lib_handle_t *, int, int, void *, void **);
 int ptm_lib_append_msg(ptm_lib_handle_t *, void *, const char *, const char *);
 int ptm_lib_complete_msg(ptm_lib_handle_t *, void *, char *, int *);
+int ptm_lib_cleanup_msg(ptm_lib_handle_t *, void *);
 
 #endif
