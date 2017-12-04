@@ -1598,33 +1598,51 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	return suc;
 }
 
-int kernel_route_rib(struct prefix *p, struct prefix *src_p,
-		     struct route_entry *old, struct route_entry *new)
+void kernel_route_rib(struct prefix *p, struct prefix *src_p,
+		      struct route_entry *old, struct route_entry *new)
 {
+	int ret = 0;
+
 	assert(old || new);
 
-	if (!old && new)
-		return netlink_route_multipath(RTM_NEWROUTE, p, src_p, new, 0);
-	if (old && !new)
-		return netlink_route_multipath(RTM_DELROUTE, p, src_p, old, 0);
+	if (new) {
+		if (p->family == AF_INET)
+			ret = netlink_route_multipath(RTM_NEWROUTE, p, src_p,
+						      new, (old) ? 1 : 0);
+		else {
+			/*
+			 * So v6 route replace semantics are not in
+			 * the kernel at this point as I understand it.
+			 * So let's do a delete than an add.
+			 * In the future once v6 route replace semantics
+			 * are in we can figure out what to do here to
+			 * allow working with old and new kernels.
+			 *
+			 * I'm also intentionally ignoring the failure case
+			 * of the route delete.  If that happens yeah we're
+			 * screwed.
+			 */
+			if (old)
+				netlink_route_multipath(RTM_DELROUTE, p,
+							src_p, old, 0);
+			ret = netlink_route_multipath(RTM_NEWROUTE, p,
+						      src_p, new, 0);
+		}
+		kernel_route_rib_pass_fail(p, new,
+					   (!ret) ?
+					   SOUTHBOUND_INSTALL_SUCCESS :
+					   SOUTHBOUND_INSTALL_FAILURE);
+		return;
+	}
 
-	if (p->family == AF_INET)
-		return netlink_route_multipath(RTM_NEWROUTE, p, src_p, new, 1);
+	if (old) {
+		ret = netlink_route_multipath(RTM_DELROUTE, p, src_p, old, 0);
 
-	/*
-	 * So v6 route replace semantics are not in the kernel at this
-	 * point as I understand it.
-	 * So let's do a delete than an add.
-	 * In the future once v6 route replace semantics are in
-	 * we can figure out what to do here to allow working
-	 * with old and new kernels.
-	 *
-	 * I'm also intentionally ignoring the failure case
-	 * of the route delete.  If that happens yeah we're
-	 * screwed.
-	 */
-	netlink_route_multipath(RTM_DELROUTE, p, src_p, old, 0);
-	return netlink_route_multipath(RTM_NEWROUTE, p, src_p, new, 0);
+		kernel_route_rib_pass_fail(p, old,
+					   (!ret) ?
+					   SOUTHBOUND_DELETE_SUCCESS :
+					   SOUTHBOUND_DELETE_FAILURE);
+	}
 }
 
 int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,
@@ -2414,17 +2432,6 @@ int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp)
 				_netlink_mpls_build_singlepath(routedesc, nhlfe,
 							       &req.n, &req.r,
 							       sizeof req, cmd);
-				if (cmd == RTM_NEWROUTE) {
-					SET_FLAG(nhlfe->flags,
-						 NHLFE_FLAG_INSTALLED);
-					SET_FLAG(nexthop->flags,
-						 NEXTHOP_FLAG_FIB);
-				} else {
-					UNSET_FLAG(nhlfe->flags,
-						   NHLFE_FLAG_INSTALLED);
-					UNSET_FLAG(nexthop->flags,
-						   NEXTHOP_FLAG_FIB);
-				}
 				nexthop_num++;
 				break;
 			}
@@ -2468,18 +2475,6 @@ int netlink_mpls_multipath(int cmd, zebra_lsp_t *lsp)
 							      rta, rtnh, &req.r,
 							      &src1);
 				rtnh = RTNH_NEXT(rtnh);
-
-				if (cmd == RTM_NEWROUTE) {
-					SET_FLAG(nhlfe->flags,
-						 NHLFE_FLAG_INSTALLED);
-					SET_FLAG(nexthop->flags,
-						 NEXTHOP_FLAG_FIB);
-				} else {
-					UNSET_FLAG(nhlfe->flags,
-						   NHLFE_FLAG_INSTALLED);
-					UNSET_FLAG(nexthop->flags,
-						   NEXTHOP_FLAG_FIB);
-				}
 			}
 		}
 

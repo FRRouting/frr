@@ -29,16 +29,21 @@
 /*
  * Install Label Forwarding entry into the kernel.
  */
-int kernel_add_lsp(zebra_lsp_t *lsp)
+void kernel_add_lsp(zebra_lsp_t *lsp)
 {
 	int ret;
 
-	if (!lsp || !lsp->best_nhlfe) // unexpected
-		return -1;
+	if (!lsp || !lsp->best_nhlfe) { // unexpected
+		kernel_lsp_pass_fail(lsp, SOUTHBOUND_INSTALL_FAILURE);
+		return;
+	}
 
 	ret = netlink_mpls_multipath(RTM_NEWROUTE, lsp);
 
-	return ret;
+	kernel_lsp_pass_fail(lsp,
+			     (!ret) ?
+			     SOUTHBOUND_INSTALL_SUCCESS :
+			     SOUTHBOUND_INSTALL_FAILURE);
 }
 
 /*
@@ -52,51 +57,48 @@ int kernel_add_lsp(zebra_lsp_t *lsp)
  * through the metric field (before kernel-MPLS). This shouldn't be an issue
  * any longer, so REPLACE can be reintroduced.
  */
-int kernel_upd_lsp(zebra_lsp_t *lsp)
+void kernel_upd_lsp(zebra_lsp_t *lsp)
 {
 	int ret;
-	zebra_nhlfe_t *nhlfe;
-	struct nexthop *nexthop;
 
-	if (!lsp || !lsp->best_nhlfe) // unexpected
-		return -1;
-
-	/* Any NHLFE that was installed but is not selected now needs to
-	 * have its flags updated.
-	 */
-	for (nhlfe = lsp->nhlfe_list; nhlfe; nhlfe = nhlfe->next) {
-		nexthop = nhlfe->nexthop;
-		if (!nexthop)
-			continue;
-
-		if (CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED) &&
-		    !CHECK_FLAG(nhlfe->flags, NHLFE_FLAG_SELECTED)) {
-			UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
-			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-		}
+	if (!lsp || !lsp->best_nhlfe) { // unexpected
+		kernel_lsp_pass_fail(lsp, SOUTHBOUND_INSTALL_FAILURE);
+		return;
 	}
 
 	ret = netlink_mpls_multipath(RTM_NEWROUTE, lsp);
 
-	return ret;
+	kernel_lsp_pass_fail(lsp,
+			     (!ret) ?
+			     SOUTHBOUND_INSTALL_SUCCESS :
+			     SOUTHBOUND_INSTALL_FAILURE);
 }
 
 /*
  * Delete Label Forwarding entry from the kernel.
  */
-int kernel_del_lsp(zebra_lsp_t *lsp)
+void kernel_del_lsp(zebra_lsp_t *lsp)
 {
 	int ret;
 
-	if (!lsp) // unexpected
-		return -1;
+	if (!lsp) { // unexpected
+		kernel_lsp_pass_fail(lsp,
+				     SOUTHBOUND_DELETE_FAILURE);
+		return;
+	}
 
-	if (!CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED))
-		return -1;
+	if (!CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED)) {
+		kernel_lsp_pass_fail(lsp,
+				     SOUTHBOUND_DELETE_FAILURE);
+		return;
+	}
 
 	ret = netlink_mpls_multipath(RTM_DELROUTE, lsp);
 
-	return ret;
+	kernel_lsp_pass_fail(lsp,
+			     (!ret) ?
+			     SOUTHBOUND_DELETE_SUCCESS :
+			     SOUTHBOUND_DELETE_FAILURE);
 }
 
 int mpls_kernel_init(void)

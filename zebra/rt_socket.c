@@ -387,14 +387,14 @@ static int kernel_rtm(int cmd, struct prefix *p, struct route_entry *re)
 	return 0;
 }
 
-int kernel_route_rib(struct prefix *p, struct prefix *src_p,
-		     struct route_entry *old, struct route_entry *new)
+void kernel_route_rib(struct prefix *p, struct prefix *src_p,
+		      struct route_entry *old, struct route_entry *new)
 {
 	int route = 0;
 
 	if (src_p && src_p->prefixlen) {
 		zlog_err("route add: IPv6 sourcedest routes unsupported!");
-		return 1;
+		return;
 	}
 
 	if (zserv_privs.change(ZPRIVS_RAISE))
@@ -409,7 +409,17 @@ int kernel_route_rib(struct prefix *p, struct prefix *src_p,
 	if (zserv_privs.change(ZPRIVS_LOWER))
 		zlog_err("Can't lower privileges");
 
-	return route;
+	if (new) {
+		kernel_route_rib_pass_fail(p, new,
+					   (!route) ?
+					   SOUTHBOUND_INSTALL_SUCCESS :
+					   SOUTHBOUND_INSTALL_FAILURE);
+	} else {
+		kernel_route_rib_pass_fail(p, old,
+					   (!route) ?
+					   SOUTHBOUND_DELETE_SUCCESS :
+					   SOUTHBOUND_DELETE_FAILURE);
+	}
 }
 
 int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,

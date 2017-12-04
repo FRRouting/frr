@@ -279,56 +279,69 @@ static int kernel_lsp_cmd(int action, zebra_lsp_t *lsp)
 			default:
 				break;
 			}
-			if (action == RTM_ADD || action == RTM_CHANGE) {
-				SET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
-				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-			} else {
-				UNSET_FLAG(nhlfe->flags, NHLFE_FLAG_INSTALLED);
-				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-			}
 		}
 	}
 
 	return (0);
 }
 
-int kernel_add_lsp(zebra_lsp_t *lsp)
+void kernel_add_lsp(zebra_lsp_t *lsp)
 {
 	int ret;
 
-	if (!lsp || !lsp->best_nhlfe) // unexpected
-		return -1;
+	if (!lsp || !lsp->best_nhlfe) { // unexpected
+		kernel_lsp_pass_fail(lsp, SOUTHBOUND_INSTALL_FAILURE);
+		return;
+	}
 
 	ret = kernel_lsp_cmd(RTM_ADD, lsp);
 
-	return ret;
+	kernel_lsp_pass_fail(lsp,
+			     (!ret) ?
+			     SOUTHBOUND_INSTALL_SUCCESS :
+			     SOUTHBOUND_INSTALL_FAILURE);
 }
 
-int kernel_upd_lsp(zebra_lsp_t *lsp)
+void kernel_upd_lsp(zebra_lsp_t *lsp)
 {
 	int ret;
 
-	if (!lsp || !lsp->best_nhlfe) // unexpected
-		return -1;
+	if (!lsp || !lsp->best_nhlfe) { // unexpected
+		kernel_lsp_pass_fail(lsp, SOUTHBOUND_INSTALL_FAILURE);
+		return;
+	}
 
 	ret = kernel_lsp_cmd(RTM_CHANGE, lsp);
 
-	return ret;
+	kernel_lsp_pass_fail(lsp,
+			     (!ret) ?
+			     SOUTHBOUND_INSTALL_SUCCESS :
+			     SOUTHBOUND_INSTALL_FAILURE);
+	return;
 }
 
-int kernel_del_lsp(zebra_lsp_t *lsp)
+void kernel_del_lsp(zebra_lsp_t *lsp)
 {
 	int ret;
 
-	if (!lsp) // unexpected
-		return -1;
+	if (!lsp) { // unexpected
+		kernel_lsp_pass_fail(lsp,
+				     SOUTHBOUND_DELETE_FAILURE);
+		return;
+	}
 
-	if (!CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED))
-		return -1;
+	if (!CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED)) {
+		kernel_lsp_pass_fail(lsp,
+				     SOUTHBOUND_DELETE_FAILURE);
+		return;
+	}
 
 	ret = kernel_lsp_cmd(RTM_DELETE, lsp);
 
-	return ret;
+	kernel_lsp_pass_fail(lsp,
+			     (!ret) ?
+			     SOUTHBOUND_DELETE_SUCCESS :
+			     SOUTHBOUND_DELETE_FAILURE);
 }
 
 static int kmpw_install(struct zebra_pw *pw)

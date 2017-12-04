@@ -993,13 +993,49 @@ int zebra_rib_labeled_unicast(struct route_entry *re)
 	return 1;
 }
 
+void kernel_route_rib_pass_fail(struct prefix *p, struct route_entry *re,
+				enum southbound_results res)
+{
+	struct nexthop *nexthop;
+	char buf[PREFIX_STRLEN];
+
+	switch (res) {
+	case SOUTHBOUND_INSTALL_SUCCESS:
+		for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
+				continue;
+
+			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
+				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+			else
+				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+		}
+		zsend_route_notify_owner(re->type, re->instance, re->vrf_id,
+					 p, ZAPI_ROUTE_INSTALLED);
+		break;
+	case SOUTHBOUND_INSTALL_FAILURE:
+		zsend_route_notify_owner(re->type, re->instance, re->vrf_id,
+					 p, ZAPI_ROUTE_FAIL_INSTALL);
+		zlog_warn("%u:%s: Route install failed", re->vrf_id,
+			  prefix2str(p, buf, sizeof(buf)));
+		break;
+	case SOUTHBOUND_DELETE_SUCCESS:
+		for (ALL_NEXTHOPS(re->nexthop, nexthop))
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
+		break;
+	case SOUTHBOUND_DELETE_FAILURE:
+		zlog_warn("%u:%s: Route Deletion failure", re->vrf_id,
+			  prefix2str(p, buf, sizeof(buf)));
+		break;
+	}
+}
+
 /* Update flag indicates whether this is a "replace" or not. Currently, this
  * is only used for IPv4.
  */
-int rib_install_kernel(struct route_node *rn, struct route_entry *re,
-		       struct route_entry *old)
+void rib_install_kernel(struct route_node *rn, struct route_entry *re,
+			struct route_entry *old)
 {
-	int ret = 0;
 	struct nexthop *nexthop;
 	rib_table_info_t *info = srcdest_rnode_table_info(rn);
 	struct prefix *p, *src_p;
@@ -1010,7 +1046,7 @@ int rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	if (info->safi != SAFI_UNICAST) {
 		for (ALL_NEXTHOPS(re->nexthop, nexthop))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-		return ret;
+		return;
 	} else {
 		struct nexthop *prev;
 
@@ -1042,33 +1078,15 @@ int rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	 * the kernel.
 	 */
 	hook_call(rib_update, rn, "installing in kernel");
-	ret = kernel_route_rib(p, src_p, old, re);
+	kernel_route_rib(p, src_p, old, re);
 	zvrf->installs++;
 
-	/* If install succeeds, update FIB flag for nexthops. */
-	if (!ret) {
-		for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
-				continue;
-
-			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
-				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-			else
-				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-		}
-		zsend_route_notify_owner(re->type, re->instance, re->vrf_id,
-					 p, ZAPI_ROUTE_INSTALLED);
-	} else
-		zsend_route_notify_owner(re->type, re->instance, re->vrf_id,
-					 p, ZAPI_ROUTE_FAIL_INSTALL);
-
-	return ret;
+	return;
 }
 
 /* Uninstall the route from kernel. */
-int rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
+void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 {
-	int ret = 0;
 	struct nexthop *nexthop;
 	rib_table_info_t *info = srcdest_rnode_table_info(rn);
 	struct prefix *p, *src_p;
@@ -1079,7 +1097,7 @@ int rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 	if (info->safi != SAFI_UNICAST) {
 		for (ALL_NEXTHOPS(re->nexthop, nexthop))
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-		return ret;
+		return;
 	}
 
 	/*
@@ -1087,13 +1105,10 @@ int rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 	 * the kernel.
 	 */
 	hook_call(rib_update, rn, "uninstalling from kernel");
-	ret = kernel_route_rib(p, src_p, re, NULL);
+	kernel_route_rib(p, src_p, re, NULL);
 	zvrf->removals++;
 
-	for (ALL_NEXTHOPS(re->nexthop, nexthop))
-		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-
-	return ret;
+	return;
 }
 
 /* Uninstall the route from kernel. */
@@ -1207,14 +1222,8 @@ static void rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 	if (zebra_rib_labeled_unicast(new))
 		zebra_mpls_lsp_install(zvrf, rn, new);
 
-	if (!RIB_SYSTEM_ROUTE(new)) {
-		if (rib_install_kernel(rn, new, NULL)) {
-			char buf[SRCDEST2STR_BUFFER];
-			srcdest_rnode2str(rn, buf, sizeof(buf));
-			zlog_warn("%u:%s: Route install failed", zvrf_id(zvrf),
-				  buf);
-		}
-	}
+	if (!RIB_SYSTEM_ROUTE(new))
+		rib_install_kernel(rn, new, NULL);
 
 	UNSET_FLAG(new->status, ROUTE_ENTRY_CHANGED);
 }
@@ -1301,13 +1310,7 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 				if (zebra_rib_labeled_unicast(new))
 					zebra_mpls_lsp_install(zvrf, rn, new);
 
-				if (rib_install_kernel(rn, new, old)) {
-					char buf[SRCDEST2STR_BUFFER];
-					srcdest_rnode2str(rn, buf, sizeof(buf));
-					installed = 0;
-					zlog_warn("%u:%s: Route install failed",
-						  zvrf_id(zvrf), buf);
-				}
+				rib_install_kernel(rn, new, old);
 			}
 
 			/* If install succeeded or system route, cleanup flags
@@ -2633,7 +2636,6 @@ static void rib_sweep_table(struct route_table *table)
 	struct route_entry *re;
 	struct route_entry *next;
 	struct nexthop *nexthop;
-	int ret = 0;
 
 	if (!table)
 		return;
@@ -2670,9 +2672,8 @@ static void rib_sweep_table(struct route_table *table)
 			for (ALL_NEXTHOPS(re->nexthop, nexthop))
 				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 
-			ret = rib_uninstall_kernel(rn, re);
-			if (!ret)
-				rib_delnode(rn, re);
+			rib_uninstall_kernel(rn, re);
+			rib_delnode(rn, re);
 		}
 	}
 }
