@@ -1321,7 +1321,7 @@ static int vty_clear_prefix_list(struct vty *vty, afi_t afi, const char *name,
 }
 
 #ifndef VTYSH_EXTRACT_PL
-#include "plist_clippy.c"
+#include "lib/plist_clippy.c"
 #endif
 
 DEFPY (ip_prefix_list,

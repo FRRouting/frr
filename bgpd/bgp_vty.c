@@ -721,7 +721,7 @@ static void bgp_clear_star_soft_out(struct vty *vty, const char *name)
 
 
 #ifndef VTYSH_EXTRACT_PL
-#include "bgp_vty_clippy.c"
+#include "bgpd/bgp_vty_clippy.c"
 #endif
 
 /* BGP global configuration.  */
