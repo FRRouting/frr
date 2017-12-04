@@ -52,7 +52,9 @@
 #include "libfrr.h"
 #include "version.h"
 
-#include "bgp_rpki_clippy.c"
+#ifndef VTYSH_EXTRACT_PL
+#include "bgpd/bgp_rpki_clippy.c"
+#endif
 
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE, "BGP RPKI Cache server")
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group")

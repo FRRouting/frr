@@ -210,7 +210,7 @@ all DEFPY statements**:
 
 ...
 
-#include "filename_clippy.c"
+#include "daemon/filename_clippy.c"
 
 DEFPY(...)
 DEFPY(...)

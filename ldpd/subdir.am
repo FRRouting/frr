@@ -38,6 +38,7 @@ ldpd_libldp_a_SOURCES = \
 	ldpd/util.c \
 	# end
 
+ldpd/ldp_vty_cmds_clippy.c: $(CLIPPY_DEPS)
 ldpd/ldp_vty_cmds.$(OBJEXT): ldpd/ldp_vty_cmds_clippy.c
 
 noinst_HEADERS += \

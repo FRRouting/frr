@@ -29,7 +29,9 @@
 
 #include "sharpd/sharp_zebra.h"
 #include "sharpd/sharp_vty.h"
+#ifndef VTYSH_EXTRACT_PL
 #include "sharpd/sharp_vty_clippy.c"
+#endif
 
 extern uint32_t total_routes;
 extern uint32_t installed_routes;
