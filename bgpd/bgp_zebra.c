@@ -1872,10 +1872,12 @@ static void bgp_zebra_process_local_ip_prefix(int cmd,
 
 		if (p.family == AF_INET)
 			return bgp_evpn_advertise_type5_route(bgp_vrf, &p,
+							      NULL,
 							      AFI_IP,
 							      SAFI_UNICAST);
 		else
 			return bgp_evpn_advertise_type5_route(bgp_vrf, &p,
+							      NULL,
 							      AFI_IP6,
 							      SAFI_UNICAST);
 

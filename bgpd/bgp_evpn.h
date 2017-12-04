@@ -57,6 +57,7 @@ static inline vni_t label2vni(mpls_label_t *label)
 
 extern void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf,
 					   struct prefix *p,
+					   struct attr *src_attr,
 					   afi_t afi, safi_t safi);
 extern void bgp_evpn_withdraw_type5_route(struct bgp *bgp_vrf,
 					  struct prefix *p,

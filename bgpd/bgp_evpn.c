@@ -1070,7 +1070,8 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_def,
 
 /* update evpn type-5 route entry */
 static int update_evpn_type5_route(struct bgp *bgp_vrf,
-				   struct prefix_evpn *evp)
+				   struct prefix_evpn *evp,
+				   struct attr* src_attr)
 {
 	afi_t afi = AFI_L2VPN;
 	safi_t safi = SAFI_EVPN;
@@ -1083,9 +1084,16 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf,
 	if (!bgp_def)
 		return -1;
 
-	/* build path attribute for this route */
-	memset(&attr, 0, sizeof(struct attr));
-	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
+	/* Build path attribute for this route - use the source attr, if
+	 * present, else treat as locally originated.
+	 */
+	if (src_attr)
+		bgp_attr_dup(&attr, src_attr);
+	else {
+		memset(&attr, 0, sizeof(struct attr));
+		bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
+	}
+	/* Set nexthop to ourselves and fill in the Router MAC. */
 	attr.nexthop = bgp_vrf->originator_ip;
 	attr.mp_nexthop_global_in = bgp_vrf->originator_ip;
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
@@ -3222,8 +3230,14 @@ void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf,
 
 }
 
-/* advertise ip prefix as type-5 route*/
+/*
+ * Advertise IP prefix as type-5 route. The afi/safi and src_attr passed
+ * to this function correspond to those of the source IP prefix (best
+ * path in the case of the attr. In the case of a local prefix (when we
+ * are advertising local subnets), the src_attr will be NULL.
+ */
 void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf, struct prefix *p,
+				    struct attr *src_attr,
 				    afi_t afi, safi_t safi)
 {
 	int ret = 0;
@@ -3238,29 +3252,39 @@ void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf, struct prefix *p,
 		return;
 
 	build_type5_prefix_from_ip_prefix(&evp, p);
-	ret = update_evpn_type5_route(bgp_vrf, &evp);
-	if (ret) {
+	ret = update_evpn_type5_route(bgp_vrf, &evp, src_attr);
+	if (ret)
 		zlog_err(
-			 "%u failed to create type-5 route for prefix %s in vrf %s",
+			 "%u: Failed to create type-5 route for prefix %s",
 			 bgp_vrf->vrf_id,
-			 prefix2str(p, buf, sizeof(buf)),
-			 vrf_id_to_name(bgp_vrf->vrf_id));
-	}
+			 prefix2str(p, buf, sizeof(buf)));
 }
 
-/* advertise all type-5 routes for an address family */
+/* Inject all prefixes of a particular address-family (currently, IPv4 or
+ * IPv6 unicast) into EVPN as type-5 routes. This is invoked when the
+ * advertisement is enabled.
+ */
 void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf,
 				     afi_t afi, safi_t safi)
 {
 	struct bgp_table *table = NULL;
 	struct bgp_node *rn = NULL;
+	struct bgp_info *ri;
 
 	table = bgp_vrf->rib[afi][safi];
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
-
-		if (!rn->info)
-			continue;
-		bgp_evpn_advertise_type5_route(bgp_vrf, &rn->p, afi, safi);
+		/* Need to identify the "selected" route entry to use its
+		 * attribute.
+		 * TODO: Support for AddPath for EVPN.
+		 */
+		for (ri = rn->info; ri; ri = ri->next) {
+			if (CHECK_FLAG(ri->flags, BGP_INFO_SELECTED)) {
+				bgp_evpn_advertise_type5_route(bgp_vrf, &rn->p,
+							       ri->attr,
+							       afi, safi);
+				break;
+			}
+		}
 	}
 }
 
