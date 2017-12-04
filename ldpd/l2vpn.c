@@ -295,17 +295,26 @@ int
 l2vpn_pw_ok(struct l2vpn_pw *pw, struct fec_nh *fnh)
 {
 	/* check for a remote label */
-	if (fnh->remote_label == NO_LABEL)
+	if (fnh->remote_label == NO_LABEL) {
+		log_warnx("%s: pseudowire %s: no remote label", __func__,
+			  pw->ifname);
 		return (0);
+	}
 
 	/* MTUs must match */
-	if (pw->l2vpn->mtu != pw->remote_mtu)
+	if (pw->l2vpn->mtu != pw->remote_mtu) {
+		log_warnx("%s: pseudowire %s: MTU mismatch detected", __func__,
+			  pw->ifname);
 		return (0);
+	}
 
 	/* check pw status if applicable */
 	if ((pw->flags & F_PW_STATUSTLV) &&
-	    pw->remote_status != PW_FORWARDING)
+	    pw->remote_status != PW_FORWARDING) {
+		log_warnx("%s: pseudowire %s: remote end is down", __func__,
+			  pw->ifname);
 		return (0);
+	}
 
 	return (1);
 }
@@ -550,7 +559,8 @@ l2vpn_pw_ctl(pid_t pid)
 			    sizeof(pwctl.ifname));
 			pwctl.pwid = pw->pwid;
 			pwctl.lsr_id = pw->lsr_id;
-			if (pw->local_status == PW_FORWARDING &&
+			if (pw->enabled &&
+			    pw->local_status == PW_FORWARDING &&
 			    pw->remote_status == PW_FORWARDING)
 				pwctl.status = 1;
 
