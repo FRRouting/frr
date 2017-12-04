@@ -1882,6 +1882,11 @@ static int peer_activate_af(struct peer *peer, afi_t afi, safi_t safi)
 						BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 			}
 		}
+		if (peer->status == OpenSent || peer->status == OpenConfirm) {
+			peer->last_reset = PEER_DOWN_AF_ACTIVATE;
+			bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+		}
 	}
 
 	return 0;
