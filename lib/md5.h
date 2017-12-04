@@ -1,7 +1,3 @@
-/* $USAGI: md5.h,v 1.2 2000/11/02 11:59:25 yoshfuji Exp $ */
-/*	$KAME: md5.h,v 1.4 2000/03/27 04:36:22 sumikawa Exp $	*/
-/*	$Id: md5.h,v 1.3 2006/01/17 17:40:45 paul Exp $ */
-
 /*
  * Copyright (C) 2004 6WIND
  *                          <Vincent.Jardin@6WIND.com>
