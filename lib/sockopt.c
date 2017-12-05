@@ -703,3 +703,46 @@ int sockopt_tcp_mss_get(int sock)
 
 	return tcp_maxseg;
 }
+
+int setsockopt_tcp_keepalive(int sock, uint16_t keepalive_idle,
+			     uint16_t keepalive_intvl,
+			     uint16_t keepalive_probes)
+{
+	int val = 1;
+
+	if (setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val)) < 0) {
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
+			     "%s failed: setsockopt SO_KEEPALIVE (%d): %s",
+			      __func__, sock, safe_strerror(errno));
+		return -1;
+	}
+
+	/* Send first probe after keepalive_idle seconds */
+	val = keepalive_idle;
+	if (setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, &val, sizeof(val)) < 0) {
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
+			     "%s failed: setsockopt TCP_KEEPALIVE (%d): %s",
+			     __func__, sock, safe_strerror(errno));
+		return -1;
+	}
+
+	/* Set interval between two probes */
+	val = keepalive_intvl;
+	if (setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, &val, sizeof(val)) < 0) {
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
+			     "%s failed: setsockopt TCP_KEEPINTVL (%d): %s",
+			     __func__, sock, safe_strerror(errno));
+		return -1;
+	}
+
+	/* Set maximum probes */
+	val = keepalive_probes;
+	if (setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, &val, sizeof(val)) < 0) {
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
+			     "%s failed: setsockopt TCP_KEEPCNT (%d): %s",
+			     __func__, sock, safe_strerror(errno));
+		return -1;
+	}
+
+  return 0;
+}
