@@ -2084,6 +2084,15 @@ void bgp_config_write_coalesce_time(struct vty *vty, struct bgp *bgp)
 		vty_out(vty, " coalesce-time %u\n", bgp->coalesce_time);
 }
 
+/* BGP TCP keepalive */
+static void bgp_config_tcp_keepalive(struct vty *vty, struct bgp *bgp)
+{
+	if (bgp->tcp_keepalive_idle) {
+		vty_out(vty, " bgp tcp-keepalive %u %u %u\n",
+			bgp->tcp_keepalive_idle, bgp->tcp_keepalive_intvl,
+			bgp->tcp_keepalive_probes);
+	}
+}
 
 DEFUN (bgp_coalesce_time,
        bgp_coalesce_time_cmd,
@@ -2273,6 +2282,44 @@ DEFUN (no_bgp_timers,
 	return CMD_SUCCESS;
 }
 
+
+DEFUN (bgp_tcp_keepalive,
+       bgp_tcp_keepalive_cmd,
+       "bgp tcp-keepalive (1-65535) (1-65535) (1-30)",
+       "BGP specific commands\n"
+       "TCP keepalive parameters\n"
+       "TCP keepalive idle time (seconds)\n"
+       "TCP keepalive interval (seconds)\n"
+       "TCP keepalive maximum probes\n")
+{
+	uint32_t idle, intvl, probes;
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	idle = strtoul(argv[2]->arg, NULL, 10);
+	intvl = strtoul(argv[3]->arg, NULL, 10);
+	probes = strtoul(argv[4]->arg, NULL, 10);
+
+	bgp_tcp_keepalive_set(bgp, (uint16_t)idle, (uint16_t)intvl, (uint16_t)probes);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_bgp_tcp_keepalive,
+       no_bgp_tcp_keepalive_cmd,
+       "no bgp tcp-keepalive (1-65535) (1-65535) (1-30)",
+       NO_STR
+       "BGP specific commands\n"
+       "TCP keepalive parameters\n"
+       "TCP keepalive idle time (seconds)\n"
+       "TCP keepalive interval (seconds)\n"
+       "TCP keepalive maximum probes\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	bgp_tcp_keepalive_unset(bgp);
+
+	return CMD_SUCCESS;
+}
 
 DEFUN (bgp_client_to_client_reflection,
        bgp_client_to_client_reflection_cmd,
@@ -16647,6 +16694,9 @@ int bgp_config_write(struct vty *vty)
 			if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN))
 				vty_out(vty, " bgp graceful-shutdown\n");
 
+		/* BGP TCP keepalive */
+		bgp_config_tcp_keepalive(vty, bgp);
+
 		/* BGP graceful-restart. */
 		if (bgp->stalepath_time != BGP_DEFAULT_STALEPATH_TIME)
 			vty_out(vty,
@@ -18285,6 +18335,10 @@ void bgp_vty_init(void)
 	/* ttl_security commands */
 	install_element(BGP_NODE, &neighbor_ttl_security_cmd);
 	install_element(BGP_NODE, &no_neighbor_ttl_security_cmd);
+
+	/* "bgp tcp-keepalive" commands */
+	install_element(BGP_NODE, &bgp_tcp_keepalive_cmd);
+	install_element(BGP_NODE, &no_bgp_tcp_keepalive_cmd);
 
 	/* "show [ip] bgp memory" commands. */
 	install_element(VIEW_NODE, &show_bgp_memory_cmd);
