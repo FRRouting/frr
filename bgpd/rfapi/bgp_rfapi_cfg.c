@@ -169,18 +169,17 @@ struct rfapi_nve_group_cfg *bgp_rfapi_cfg_match_group(struct rfapi_cfg *hc,
 	}
 
 #if BGP_VNC_DEBUG_MATCH_GROUP
-	{
+	if (VNC_DEBUG(VERBOSE)) {
 		char buf[BUFSIZ];
 
 		prefix2str(vn, buf, BUFSIZ);
-		vnc_zlog_debug_verbose("%s: vn prefix: %s", __func__, buf);
+		zlog_debug("%s: vn prefix: %s", __func__, buf);
 
 		prefix2str(un, buf, BUFSIZ);
-		vnc_zlog_debug_verbose("%s: un prefix: %s", __func__, buf);
+		zlog_debug("%s: un prefix: %s", __func__, buf);
 
-		vnc_zlog_debug_verbose(
-			"%s: rn_vn=%p, rn_un=%p, rfg_vn=%p, rfg_un=%p",
-			__func__, rn_vn, rn_un, rfg_vn, rfg_un);
+		zlog_debug("%s: rn_vn=%p, rn_un=%p, rfg_vn=%p, rfg_un=%p",
+			   __func__, rn_vn, rn_un, rfg_vn, rfg_un);
 	}
 #endif
 

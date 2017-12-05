@@ -211,13 +211,12 @@ static void print_rhn_list(const char *tag1, const char *tag2)
 
 		pb = p->value;
 
-		prefix2str(p->key, kbuf, BUFSIZ);
-		prefix2str(&pb->hpfx, hbuf, BUFSIZ);
-		prefix2str(&pb->upfx, ubuf, BUFSIZ);
-
 		vnc_zlog_debug_verbose(
 			"RHN Entry %d (q=%p): kpfx=%s, upfx=%s, hpfx=%s, ubi=%p",
-			++count, p, kbuf, ubuf, hbuf, pb->ubi);
+			++count, p,
+			prefix2str(p->key, kbuf, BUFSIZ),
+			prefix2str(&pb->upfx, ubuf, BUFSIZ),
+			prefix2str(&pb->hpfx, hbuf, BUFSIZ), pb->ubi);
 	}
 }
 #endif
@@ -262,15 +261,11 @@ static void vnc_rhnck(char *tag)
 			char str_onh[BUFSIZ];
 			char str_nve_pfx[BUFSIZ];
 
-			prefix2str(&pfx_orig_nexthop, str_onh, BUFSIZ);
-			str_onh[BUFSIZ - 1] = 0;
-
-			prefix2str(&pb->hpfx, str_nve_pfx, BUFSIZ);
-			str_nve_pfx[BUFSIZ - 1] = 0;
-
 			vnc_zlog_debug_verbose(
 				"%s: %s: FATAL: resolve_nve_nexthop list item bi nexthop %s != nve pfx %s",
-				__func__, tag, str_onh, str_nve_pfx);
+				__func__, tag,
+				prefix2str(&pfx_orig_nexthop, str_onh, BUFSIZ),
+				prefix2str(&pb->hpfx, str_nve_pfx, BUFSIZ));
 			assert(0);
 		}
 	}
@@ -524,18 +519,13 @@ static void vnc_import_bgp_add_route_mode_resolve_nve_one_rd(
 {
 	struct bgp_node *bn;
 	struct bgp_info *bi;
+	char str_nh[BUFSIZ];
 
 	if (!table_rd)
 		return;
 
-	{
-		char str_nh[BUFSIZ];
-
-		prefix2str(ubi_nexthop, str_nh, BUFSIZ);
-		str_nh[BUFSIZ - 1] = 0;
-
-		vnc_zlog_debug_verbose("%s: ubi_nexthop=%s", __func__, str_nh);
-	}
+	vnc_zlog_debug_verbose("%s: ubi_nexthop=%s", __func__,
+			       prefix2str(ubi_nexthop, str_nh, BUFSIZ));
 
 	/* exact match */
 	bn = bgp_node_lookup(table_rd, ubi_nexthop);
@@ -579,13 +569,11 @@ static void vnc_import_bgp_add_route_mode_resolve_nve(
 		struct prefix nh;
 
 		prefix2str(prefix, str_pfx, BUFSIZ);
-		str_pfx[BUFSIZ - 1] = 0;
 
 		nh.prefixlen = 0;
 		rfapiUnicastNexthop2Prefix(afi, info->attr, &nh);
 		if (nh.prefixlen) {
 			prefix2str(&nh, str_nh, BUFSIZ);
-			str_nh[BUFSIZ - 1] = 0;
 		} else {
 			str_nh[0] = '?';
 			str_nh[1] = 0;
@@ -716,15 +704,11 @@ static void vnc_import_bgp_add_route_mode_plain(struct bgp *bgp,
 	struct route_map *rmap = NULL;
 	uint32_t local_pref;
 	uint32_t *med = NULL;
+	char buf[BUFSIZ];
 
-	{
-		char buf[BUFSIZ];
 
-		buf[0] = 0;
-		prefix2str(prefix, buf, BUFSIZ);
-		buf[BUFSIZ - 1] = 0;
-		vnc_zlog_debug_verbose("%s(prefix=%s) entry", __func__, buf);
-	}
+	vnc_zlog_debug_verbose("%s(prefix=%s) entry", __func__,
+			       prefix2str(prefix, buf, BUFSIZ));
 
 	if (!afi) {
 		zlog_err("%s: can't get afi of prefix", __func__);
@@ -791,9 +775,7 @@ static void vnc_import_bgp_add_route_mode_plain(struct bgp *bgp,
 	if (VNC_DEBUG(IMPORT_BGP_ADD_ROUTE)) {
 		char buf[BUFSIZ];
 
-		buf[0] = 0;
 		prefix2str(vn_pfx, buf, BUFSIZ);
-		buf[BUFSIZ - 1] = 0;
 		vnc_zlog_debug_any("%s vn_pfx=%s", __func__, buf);
 	}
 
@@ -908,15 +890,10 @@ vnc_import_bgp_add_route_mode_nvegroup(struct bgp *bgp, struct prefix *prefix,
 	struct prefix_rd prd;
 	struct route_map *rmap = NULL;
 	uint32_t local_pref;
+	char buf[BUFSIZ];
 
-	{
-		char buf[BUFSIZ];
-
-		buf[0] = 0;
-		prefix2str(prefix, buf, BUFSIZ);
-		buf[BUFSIZ - 1] = 0;
-		vnc_zlog_debug_verbose("%s(prefix=%s) entry", __func__, buf);
-	}
+	vnc_zlog_debug_verbose("%s(prefix=%s) entry", __func__,
+			       prefix2str(prefix, buf, BUFSIZ));
 
 	assert(rfg);
 
@@ -999,10 +976,8 @@ vnc_import_bgp_add_route_mode_nvegroup(struct bgp *bgp, struct prefix *prefix,
 	if (VNC_DEBUG(IMPORT_BGP_ADD_ROUTE)) {
 		char buf[BUFSIZ];
 
-		buf[0] = 0;
-		prefix2str(vn_pfx, buf, BUFSIZ);
-		buf[BUFSIZ - 1] = 0;
-		vnc_zlog_debug_any("%s vn_pfx=%s", __func__, buf);
+		vnc_zlog_debug_any("%s vn_pfx=%s", __func__,
+				   prefix2str(vn_pfx, buf, BUFSIZ));
 	}
 
 	/*
@@ -1480,12 +1455,11 @@ void vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
 			char hbuf[BUFSIZ];
 			char ubuf[BUFSIZ];
 
-			prefix2str(&pb->hpfx, hbuf, BUFSIZ);
-			prefix2str(&pb->upfx, ubuf, BUFSIZ);
-
 			vnc_zlog_debug_any(
 				"%s: examining RHN Entry (q=%p): upfx=%s, hpfx=%s, ubi=%p",
-				__func__, cursor, ubuf, hbuf, pb->ubi);
+				__func__, cursor,
+				prefix2str(&pb->upfx, ubuf, BUFSIZ),
+				prefix2str(&pb->hpfx, hbuf, BUFSIZ), pb->ubi);
 		}
 
 		if (process_unicast_route(bgp, afi, &pb->upfx, pb->ubi, &ecom,
@@ -1512,15 +1486,12 @@ void vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
 			char str_unh[BUFSIZ];
 			char str_nve_pfx[BUFSIZ];
 
-			prefix2str(&pfx_unicast_nexthop, str_unh, BUFSIZ);
-			str_unh[BUFSIZ - 1] = 0;
-
-			prefix2str(prefix, str_nve_pfx, BUFSIZ);
-			str_nve_pfx[BUFSIZ - 1] = 0;
-
 			vnc_zlog_debug_verbose(
 				"%s: FATAL: resolve_nve_nexthop list item bi nexthop %s != nve pfx %s",
-				__func__, str_unh, str_nve_pfx);
+				__func__,
+				prefix2str(&pfx_unicast_nexthop,
+					   str_unh, BUFSIZ),
+				prefix2str(prefix, str_nve_pfx, BUFSIZ));
 			assert(0);
 		}
 
@@ -1534,16 +1505,13 @@ void vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
 
 #if DEBUG_RHN_LIST
 		/* debug */
-		{
-			char pbuf[BUFSIZ];
+		char pbuf[BUFSIZ];
 
-			prefix2str(prefix, pbuf, BUFSIZ);
-
-			vnc_zlog_debug_verbose(
-				"%s: advancing past RHN Entry (q=%p): with prefix %s",
-				__func__, cursor, pbuf);
-			print_rhn_list(__func__, NULL); /* debug */
-		}
+		vnc_zlog_debug_verbose(
+			"%s: advancing past RHN Entry (q=%p): with prefix %s",
+			__func__, cursor,
+			prefix2str(prefix, pbuf, BUFSIZ));
+		print_rhn_list(__func__, NULL); /* debug */
 #endif
 		rc = skiplist_next_value(sl, prefix, (void *)&pb, &cursor);
 	}
@@ -1563,16 +1531,11 @@ void vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
 	void *cursor;
 	struct rfapi_cfg *hc = NULL;
 	int rc;
+	char str_pfx[BUFSIZ];
 
-	{
-		char str_pfx[BUFSIZ];
-
-		prefix2str(prefix, str_pfx, BUFSIZ);
-		str_pfx[BUFSIZ - 1] = 0;
-
-		vnc_zlog_debug_verbose("%s(bgp=%p, nve prefix=%s)", __func__,
-				       bgp, str_pfx);
-	}
+	vnc_zlog_debug_verbose("%s(bgp=%p, nve prefix=%s)", __func__,
+			       bgp,
+			       prefix2str(prefix, str_pfx, BUFSIZ));
 
 	if (afi != AFI_IP && afi != AFI_IP6)
 		return;
@@ -1639,15 +1602,12 @@ void vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
 			char str_unh[BUFSIZ];
 			char str_nve_pfx[BUFSIZ];
 
-			prefix2str(&pfx_unicast_nexthop, str_unh, BUFSIZ);
-			str_unh[BUFSIZ - 1] = 0;
-
-			prefix2str(prefix, str_nve_pfx, BUFSIZ);
-			str_nve_pfx[BUFSIZ - 1] = 0;
-
 			vnc_zlog_debug_verbose(
 				"%s: FATAL: resolve_nve_nexthop list item bi nexthop %s != nve pfx %s",
-				__func__, str_unh, str_nve_pfx);
+				__func__,
+				prefix2str(&pfx_unicast_nexthop,
+					   str_unh, BUFSIZ),
+				prefix2str(prefix, str_nve_pfx, BUFSIZ));
 			assert(0);
 		}
 
@@ -2094,11 +2054,11 @@ void vnc_import_bgp_exterior_add_route_interior(
 	{
 		char str_pfx[BUFSIZ];
 
-		prefix2str(&rn_interior->p, str_pfx, BUFSIZ);
-		str_pfx[BUFSIZ - 1] = 0;
-
 		vnc_zlog_debug_verbose("%s: interior prefix=%s, bi type=%d",
-				       __func__, str_pfx, bi_interior->type);
+				       __func__,
+				       prefix2str(&rn_interior->p,
+						  str_pfx, BUFSIZ),
+				       bi_interior->type);
 	}
 
 	if (RFAPI_HAS_MONITOR_EXTERIOR(rn_interior)) {
@@ -2340,11 +2300,9 @@ void vnc_import_bgp_exterior_add_route_interior(
 		char buf[BUFSIZ];
 		afi_t afi_exterior = family2afi(pfx_exterior->family);
 
-		prefix2str(pfx_exterior, buf, sizeof(buf));
-		buf[sizeof(buf) - 1] = 0;
 		vnc_zlog_debug_verbose(
 			"%s: checking exterior orphan at prefix %s", __func__,
-			buf);
+			prefix2str(pfx_exterior, buf, sizeof(buf)));
 
 		if (afi_exterior != afi) {
 			vnc_zlog_debug_verbose(
@@ -2482,11 +2440,11 @@ void vnc_import_bgp_exterior_del_route_interior(
 	{
 		char str_pfx[BUFSIZ];
 
-		prefix2str(&rn_interior->p, str_pfx, BUFSIZ);
-		str_pfx[BUFSIZ - 1] = 0;
-
 		vnc_zlog_debug_verbose("%s: interior prefix=%s, bi type=%d",
-				       __func__, str_pfx, bi_interior->type);
+				       __func__,
+				       prefix2str(&rn_interior->p,
+						  str_pfx, BUFSIZ),
+				       bi_interior->type);
 	}
 
 	/*
@@ -2703,22 +2661,18 @@ void vnc_import_bgp_add_route(struct bgp *bgp, struct prefix *prefix,
 void vnc_import_bgp_del_route(struct bgp *bgp, struct prefix *prefix,
 			      struct bgp_info *info) /* unicast info */
 {
+	struct prefix pfx_nexthop;
+	char buf[BUFSIZ];
+	char buf_nh[BUFSIZ];
 	afi_t afi = family2afi(prefix->family);
 
 	assert(afi);
 
-	{
-		struct prefix pfx_nexthop;
-		char buf[BUFSIZ];
-		char buf_nh[BUFSIZ];
+	rfapiUnicastNexthop2Prefix(afi, info->attr, &pfx_nexthop);
+	vnc_zlog_debug_verbose("%s: pfx %s, nh %s", __func__,
+			       prefix2str(prefix, buf, BUFSIZ),
+			       prefix2str(&pfx_nexthop, buf_nh, BUFSIZ));
 
-		prefix2str(prefix, buf, BUFSIZ);
-		rfapiUnicastNexthop2Prefix(afi, info->attr, &pfx_nexthop);
-		prefix2str(&pfx_nexthop, buf_nh, BUFSIZ);
-
-		vnc_zlog_debug_verbose("%s: pfx %s, nh %s", __func__, buf,
-				       buf_nh);
-	}
 #if DEBUG_RHN_LIST
 	print_rhn_list(__func__, "ENTER ");
 #endif
