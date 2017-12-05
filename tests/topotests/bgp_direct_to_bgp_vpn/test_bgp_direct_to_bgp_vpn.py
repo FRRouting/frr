@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 
 #
-# <template>.py
 # Part of NetDEF Topology Tests
 #
 # Copyright (c) 2017 by
@@ -81,19 +80,18 @@ import pytest
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, '../'))
-sys.path.append(os.path.join(CWD, '../utilities'))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lutil import luStart, luInclude, luFinish, luNumFail
+from lib.lutil import luStart, luInclude, luFinish, luNumFail, luShowFail
 
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
-class TemplateTopo(Topo):
+class ThisTestTopo(Topo):
     "Test topology builder"
     def build(self, *_args, **_opts):
         "Build function"
@@ -133,7 +131,7 @@ class TemplateTopo(Topo):
 def setup_module(mod):
     "Sets up the pytest environment"
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(ThisTestTopo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
     tgen.start_topology()
 
@@ -158,22 +156,16 @@ def setup_module(mod):
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()
 
+    # For debugging after starting daemons, uncomment the next line
+    #tgen.mininet_cli()
+
+
 def teardown_module(mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
 
     # This function tears down the whole topology.
     tgen.stop_topology()
-
-def no_test_call_mininet_cli():
-    "Dummy test that just calls mininet CLI so we can interact with the build."
-    tgen = get_topogen()
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    logger.info('calling mininet CLI')
-    tgen.mininet_cli()
 
 def test_run_lu_tests():
     tgen = get_topogen()
@@ -197,23 +189,29 @@ def test_run_lu_tests():
         print("\n\n** Running main test cases")
         print("******************************\n")
 
-        luStart(os.path.dirname(os.path.realpath(__file__)), tgen.net)
+        luStart(os.path.dirname(os.path.realpath(__file__)),
+                router.logdir, tgen.net)
 
-        luInclude('teststart.py')
-        # For debugging after starting FRR/Quagga daemons, uncomment the next line
-        #CLI(net)
+        CliOnFail = False
+        # For debugging, uncomment the next line
+        #CliOnFail = tgen.mininet_cli
 
-        luInclude('testfinish.py')
+        luInclude('teststart.py', CliOnFail)
+        # For debugging, uncomment the next line
+        #tgen.mininet_cli()
+
+        luInclude('testfinish.py', CliOnFail)
         print(luFinish())
 
         # For debugging after starting FRR/Quagga daemons, uncomment the next line
-        #CLI(net)
+        #tgen.mininet_cli()
 
         # Make sure that all daemons are running
         numFail = luNumFail()
         if numFail > 0:
+            luShowFail()
             fatal_error = '%d tests failed' % numFail
-            assert fatal_error == "", fatal_error
+            assert fatal_error == 'See summary output above', fatal_error
 
 # Memory leak test template
 def test_memory_leak():
