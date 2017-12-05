@@ -207,7 +207,7 @@ void rfapiRibCheckCounts(
 		}
 	}
 
-	if (checkstats && bgp && bgp->rfapi) {
+	if (checkstats && bgp->rfapi) {
 		if (t_pfx_active != bgp->rfapi->rib_prefix_count_total) {
 			vnc_zlog_debug_verbose(
 				"%s: actual total pfx count %u != running %u",
@@ -688,13 +688,10 @@ static void rfapiRibBi2Ri(struct bgp_info *bi, struct rfapi_info *ri,
 		memcpy(&vo->v.l2addr.macaddr, bi->extra->vnc.import.rd.val + 2,
 		       ETH_ALEN);
 
-		if (bi->attr) {
-			(void)rfapiEcommunityGetLNI(
-				bi->attr->ecommunity,
-				&vo->v.l2addr.logical_net_id);
-			(void)rfapiEcommunityGetEthernetTag(
-				bi->attr->ecommunity, &vo->v.l2addr.tag_id);
-		}
+		(void)rfapiEcommunityGetLNI(bi->attr->ecommunity,
+					    &vo->v.l2addr.logical_net_id);
+		(void)rfapiEcommunityGetEthernetTag(bi->attr->ecommunity,
+						    &vo->v.l2addr.tag_id);
 
 		/* local_nve_id comes from RD */
 		vo->v.l2addr.local_nve_id = bi->extra->vnc.import.rd.val[1];
@@ -710,7 +707,7 @@ static void rfapiRibBi2Ri(struct bgp_info *bi, struct rfapi_info *ri,
 	/*
 	 * If there is an auxiliary IP address (L2 can have it), copy it
 	 */
-	if (bi && bi->extra && bi->extra->vnc.import.aux_prefix.family) {
+	if (bi->extra && bi->extra->vnc.import.aux_prefix.family) {
 		ri->rk.aux_prefix = bi->extra->vnc.import.aux_prefix;
 	}
 }

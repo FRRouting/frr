@@ -1451,7 +1451,7 @@ void vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
 		return;
 	}
 
-	if (bgp && bgp->rfapi)
+	if (bgp->rfapi)
 		sl = bgp->rfapi->resolve_nve_nexthop;
 
 	if (!sl) {
@@ -1598,7 +1598,7 @@ void vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
 		return;
 	}
 
-	if (bgp && bgp->rfapi)
+	if (bgp->rfapi)
 		sl = bgp->rfapi->resolve_nve_nexthop;
 
 	if (!sl) {

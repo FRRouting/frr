@@ -1146,7 +1146,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 
 		char buf_age[BUFSIZ];
 
-		if (bi && bi->extra && bi->extra->vnc.import.create_time) {
+		if (bi->extra && bi->extra->vnc.import.create_time) {
 			rfapiFormatAge(bi->extra->vnc.import.create_time,
 				       buf_age, BUFSIZ);
 		} else {
@@ -1163,7 +1163,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		 * print that on the next line
 		 */
 
-		if (bi && bi->extra
+		if (bi->extra
 		    && bi->extra->vnc.import.aux_prefix.family) {
 			const char *sp;
 

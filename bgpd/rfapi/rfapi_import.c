@@ -1452,7 +1452,7 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 				       __func__, __LINE__, have_vnc_tunnel_un);
 #endif
 
-		if (!have_vnc_tunnel_un && bi && bi->extra) {
+		if (!have_vnc_tunnel_un && bi->extra) {
 			/*
 			 * use cached UN address from ENCAP route
 			 */
@@ -3947,7 +3947,7 @@ void rfapiProcessUpdate(struct peer *peer,
 		vnc_zlog_debug_verbose(
 			"%s: rfapiEcommunityGetLNI returned %d, lni=%d, attr=%p",
 			__func__, rc, lni, attr);
-		if (attr && !rc) {
+		if (!rc) {
 			it = rfapiMacImportTableGet(bgp, lni);
 
 			rfapiBgpInfoFilteredImportVPN(
