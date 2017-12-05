@@ -1657,7 +1657,34 @@ static void rib_process(struct route_node *rn)
 	/*
 	 * Check if the dest can be deleted now.
 	 */
-	rib_gc_dest(rn);
+	if (!rib_gc_dest(rn)) {
+		/*
+		 * If we haven't deleted the route_node,
+		 * let's check that the first route_entry
+		 * is the selected entry for the rib and
+		 * if not move it to the front of the
+		 * route_entries.  This matters because we
+		 * might have multiple route_entries and we
+		 * do allot of searching for the
+		 * best entry so let the cream rise to the top
+		 */
+		RNODE_FOREACH_RE(rn, re) {
+			if (CHECK_FLAG(re->status,
+				       ROUTE_ENTRY_SELECTED_FIB))
+			    break;
+		}
+
+		if (dest->routes == re || re == NULL)
+			return;
+
+		re->prev->next = re->next;
+		if (re->next)
+			re->next->prev = re->prev;
+		dest->routes->prev = re;
+		re->prev = NULL;
+		re->next = dest->routes;
+		dest->routes = re;
+	}
 }
 
 /* Take a list of route_node structs and return 1, if there was a record
