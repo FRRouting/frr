@@ -912,7 +912,7 @@ static void peer_global_config_reset(struct peer *peer)
 }
 
 /* Check peer's AS number and determines if this peer is IBGP or EBGP */
-static bgp_peer_sort_t peer_calc_sort(struct peer *peer)
+static inline bgp_peer_sort_t peer_calc_sort(struct peer *peer)
 {
 	struct bgp *bgp;
 
@@ -1204,7 +1204,7 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 	peer_dst->local_as = peer_src->local_as;
 	peer_dst->ifindex = peer_src->ifindex;
 	peer_dst->port = peer_src->port;
-	peer_sort(peer_dst);
+	(void)peer_sort(peer_dst);
 	peer_dst->rmap_type = peer_src->rmap_type;
 
 	/* Timers */
