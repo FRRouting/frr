@@ -1183,7 +1183,8 @@ static void vnc_import_bgp_del_route_mode_nvegroup(struct bgp *bgp,
 
 	assert(afi);
 
-	assert((rfg = bgp->rfapi_cfg->rfg_redist));
+	rfg = bgp->rfapi_cfg->rfg_redist;
+	assert(rfg);
 
 	/*
 	 * Compute VN address
