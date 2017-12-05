@@ -1,21 +1,26 @@
 Building your own FRRouting Debian Package
 ==========================================
-(Tested on Ubuntu 12.04, 14.04, 16.04 and Debian 8)
+(Tested on Ubuntu 12.04, 14.04, 16.04, 17.10, Debian 8 and 9)
+
+**Note:**  If you try to build for a different distro, then it will most likely
+fail because of the missing backport. See debianpkg/backports/README about
+adding a new backport.
 
 1. Follow the package installation as outlined in doc/Building_on_XXXX.md
    (XXXX refers your OS Distribution) to install the required build packages
 
 2. Install the following additional packages:
 
-        apt-get install realpath equivs groff fakeroot debhelper
+        apt-get install realpath equivs groff fakeroot debhelper devscripts
 
 3. Checkout FRR under a **unpriviledged** user account
 
         git clone https://github.com/frrouting/frr.git frr
+        cd frr
+	# git checkout <branch>    - if different branch than master
 
 4. Run Bootstrap and make distribution tar.gz
 
-        cd frr
         ./bootstrap.sh
         ./configure --with-pkg-extra-version=-MyDebPkgVersion
         make dist
@@ -44,7 +49,7 @@ Building your own FRRouting Debian Package
     and multiple `frr_*.debian.tar.xz` and `frr_*.dsc` for the debian package
     source on each backport supported distribution
 
-6. Create a new directory to build the package and populate with package src
+7. Create a new directory to build the package and populate with package src
 
         mkdir frrpkg
         cd frrpkg
@@ -53,12 +58,21 @@ Building your own FRRouting Debian Package
         . /etc/os-release
         tar xf ~/frr/frr_*${ID}${VERSION_ID}*.debian.tar.xz
 
-7. Build Debian Package Dependencies and install them as needed
+8. Build Debian Package Dependencies and install them as needed
 
         sudo mk-build-deps --install debian/control
 
-8. Build Debian Package
+9. Build Debian Package
 
+    Building with standard options:
+
+        debuild -b -uc -us
+
+    Or change some options:
+    (see `rules` file for available options)
+
+        export WANT_BGP_VNC=1
+	export WANT_WANT_CUMULUS_MODE=1
         debuild -b -uc -us
 
 DONE.
@@ -83,7 +97,7 @@ allowed.
 
             sudo update-rc.d frr defaults
 
-    - On `systemd` based systems (Debian 8, Ubuntu 14.04, 16.04)
+    - On `systemd` based systems (Debian 8, 9, Ubuntu 14.04, 16.04, 17.10)
 
             sudo systemctl enable frr
 
@@ -93,7 +107,7 @@ allowed.
 
             sudo invoke-rc.d frr start
 
-    - on `systemd` based systems (Debian 8, Ubuntu 14.04, 16.04)
+    - on `systemd` based systems (Debian 8, 9, Ubuntu 14.04, 16.04, 17.10)
 
             sudo systemctl start frr
 

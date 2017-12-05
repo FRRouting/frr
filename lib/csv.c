@@ -424,7 +424,7 @@ void csv_clone_record(csv_t *csv, csv_record_t *in_rec, csv_record_t **out_rec)
 
 void csv_remove_record(csv_t *csv, csv_record_t *rec)
 {
-	csv_field_t *fld, *p_fld;
+	csv_field_t *fld = NULL, *p_fld;
 
 	/* first check if rec belongs to this csv */
 	if (!csv_is_record_valid(csv, rec)) {
