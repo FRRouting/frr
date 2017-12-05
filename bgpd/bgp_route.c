@@ -10569,12 +10569,17 @@ DEFUN (show_bgp_afi_vpn_rd_route,
 	afi_t afi = AFI_MAX;
 	int idx = 0;
 
-	(void)argv_find_and_parse_afi(argv, argc, &idx, &afi);
+	if (!argv_find_and_parse_afi(argv, argc, &idx, &afi)) {
+		vty_out(vty, "%% Malformed Address Family\n");
+		return CMD_WARNING;
+	}
+
 	ret = str2prefix_rd(argv[5]->arg, &prd);
 	if (!ret) {
 		vty_out(vty, "%% Malformed Route Distinguisher\n");
 		return CMD_WARNING;
 	}
+
 	return bgp_show_route(vty, NULL, argv[6]->arg, afi, SAFI_MPLS_VPN, &prd,
 			      0, BGP_PATH_ALL, use_json(argc, argv));
 }
