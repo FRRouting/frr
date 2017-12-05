@@ -170,12 +170,12 @@ struct rfapi_nve_group_cfg *bgp_rfapi_cfg_match_group(struct rfapi_cfg *hc,
 
 #if BGP_VNC_DEBUG_MATCH_GROUP
 	{
-		char buf[BUFSIZ];
+		char buf[PREFIX_STRLEN];
 
-		prefix2str(vn, buf, BUFSIZ);
+		prefix2str(vn, buf, sizeof(buf));
 		vnc_zlog_debug_verbose("%s: vn prefix: %s", __func__, buf);
 
-		prefix2str(un, buf, BUFSIZ);
+		prefix2str(un, buf, sizeof(buf));
 		vnc_zlog_debug_verbose("%s: un prefix: %s", __func__, buf);
 
 		vnc_zlog_debug_verbose(
@@ -4187,32 +4187,21 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 				vty_out(vty, " vnc nve-group %s\n", rfg->name);
 
 				if (rfg->vn_prefix.family && rfg->vn_node) {
-					char buf[BUFSIZ];
-					buf[0] = buf[BUFSIZ - 1] = 0;
+					char buf[PREFIX_STRLEN];
 
 					prefix2str(&rfg->vn_prefix, buf,
-						   BUFSIZ);
-					if (!buf[0] || buf[BUFSIZ - 1]) {
-						vty_out(vty,
-							"!Error: Can't convert prefix\n");
-					} else {
-						vty_out(vty, "  prefix %s %s\n",
-							"vn", buf);
-					}
+						   sizeof(buf));
+					vty_out(vty, "  prefix %s %s\n",
+						"vn", buf);
 				}
 
 				if (rfg->un_prefix.family && rfg->un_node) {
-					char buf[BUFSIZ];
-					buf[0] = buf[BUFSIZ - 1] = 0;
+					char buf[PREFIX_STRLEN];
+
 					prefix2str(&rfg->un_prefix, buf,
-						   BUFSIZ);
-					if (!buf[0] || buf[BUFSIZ - 1]) {
-						vty_out(vty,
-							"!Error: Can't convert prefix\n");
-					} else {
-						vty_out(vty, "  prefix %s %s\n",
-							"un", buf);
-					}
+						   sizeof(buf));
+					vty_out(vty, "  prefix %s %s\n",
+						"un", buf);
 				}
 
 

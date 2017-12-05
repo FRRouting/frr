@@ -342,7 +342,7 @@ rfapiRibStartTimer(struct rfapi_descriptor *rfd, struct rfapi_info *ri,
 {
 	struct thread *t = ri->timer;
 	struct rfapi_rib_tcb *tcb = NULL;
-	char buf_prefix[BUFSIZ];
+	char buf_prefix[PREFIX_STRLEN];
 
 	if (t) {
 		tcb = t->arg;
@@ -363,7 +363,7 @@ rfapiRibStartTimer(struct rfapi_descriptor *rfd, struct rfapi_info *ri,
 		UNSET_FLAG(tcb->flags, RFAPI_RIB_TCB_FLAG_DELETED);
 	}
 
-	prefix2str(&rn->p, buf_prefix, BUFSIZ);
+	prefix2str(&rn->p, buf_prefix, sizeof(buf_prefix));
 	vnc_zlog_debug_verbose("%s: rfd %p pfx %s life %u", __func__, rfd,
 			       buf_prefix, ri->lifetime);
 	ri->timer = NULL;
@@ -852,7 +852,7 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 	struct list *lPendCost = NULL;
 	struct list *delete_list = NULL;
 	int printedprefix = 0;
-	char buf_prefix[BUFSIZ];
+	char buf_prefix[PREFIX_STRLEN];
 	int rib_node_started_nonempty = 0;
 	int sendingsomeroutes = 0;
 
@@ -863,7 +863,7 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 #endif
 
 	assert(pn);
-	prefix2str(&pn->p, buf_prefix, BUFSIZ);
+	prefix2str(&pn->p, buf_prefix, sizeof(buf_prefix));
 	vnc_zlog_debug_verbose("%s: afi=%d, %s pn->info=%p", __func__, afi,
 			       buf_prefix, pn->info);
 
@@ -913,8 +913,8 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 			while (0
 			       == skiplist_first(slRibPt, NULL, (void **)&ri)) {
 
-				char buf[BUFSIZ];
-				char buf2[BUFSIZ];
+				char buf[PREFIX_STRLEN];
+				char buf2[PREFIX_STRLEN];
 
 				listnode_add(delete_list, ri);
 				vnc_zlog_debug_verbose(
@@ -932,8 +932,8 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 					ri->timer = NULL;
 				}
 
-				prefix2str(&ri->rk.vn, buf, BUFSIZ);
-				prefix2str(&ri->un, buf2, BUFSIZ);
+				prefix2str(&ri->rk.vn, buf, sizeof(buf));
+				prefix2str(&ri->un, buf2, sizeof(buf2));
 				vnc_zlog_debug_verbose(
 					"%s:   put dl pfx=%s vn=%s un=%s cost=%d life=%d vn_options=%p",
 					__func__, buf_prefix, buf, buf2,
@@ -1592,7 +1592,7 @@ void rfapiRibUpdatePendingNode(
 	afi_t afi;
 	uint32_t queued_flag;
 	int count = 0;
-	char buf[BUFSIZ];
+	char buf[PREFIX_STRLEN];
 
 	vnc_zlog_debug_verbose("%s: entry", __func__);
 
@@ -1605,7 +1605,7 @@ void rfapiRibUpdatePendingNode(
 
 	prefix = &it_node->p;
 	afi = family2afi(prefix->family);
-	prefix2str(prefix, buf, BUFSIZ);
+	prefix2str(prefix, buf, sizeof(buf));
 	vnc_zlog_debug_verbose("%s: prefix=%s", __func__, buf);
 
 	pn = route_node_get(rfd->rib_pending[afi], prefix);
@@ -1811,9 +1811,9 @@ int rfapiRibFTDFilterRecentPrefix(
 
 #if DEBUG_FTD_FILTER_RECENT
 	{
-		char buf_pfx[BUFSIZ];
+		char buf_pfx[PREFIX_STRLEN];
 
-		prefix2str(&it_rn->p, buf_pfx, BUFSIZ);
+		prefix2str(&it_rn->p, buf_pfx, sizeof(buf_pfx));
 		vnc_zlog_debug_verbose("%s: prefix %s", __func__, buf_pfx);
 	}
 #endif
@@ -1975,14 +1975,15 @@ rfapiRibPreload(struct bgp *bgp, struct rfapi_descriptor *rfd,
 
 #if DEBUG_NHL
 		{
-			char str_vn[BUFSIZ];
-			char str_aux_prefix[BUFSIZ];
+			char str_vn[PREFIX_STRLEN];
+			char str_aux_prefix[PREFIX_STRLEN];
 
 			str_vn[0] = 0;
 			str_aux_prefix[0] = 0;
 
-			prefix2str(&rk.vn, str_vn, BUFSIZ);
-			prefix2str(&rk.aux_prefix, str_aux_prefix, BUFSIZ);
+			prefix2str(&rk.vn, str_vn, sizeof(str_vn));
+			prefix2str(&rk.aux_prefix, str_aux_prefix,
+				   sizeof(str_aux_prefix));
 
 			if (!rk.aux_prefix.family) {
 			}
@@ -2072,11 +2073,11 @@ rfapiRibPreload(struct bgp *bgp, struct rfapi_descriptor *rfd,
 			route_unlock_node(trn);
 
 		{
-			char str_pfx[BUFSIZ];
-			char str_pfx_vn[BUFSIZ];
+			char str_pfx[PREFIX_STRLEN];
+			char str_pfx_vn[PREFIX_STRLEN];
 
-			prefix2str(&pfx, str_pfx, BUFSIZ);
-			prefix2str(&rk.vn, str_pfx_vn, BUFSIZ);
+			prefix2str(&pfx, str_pfx, sizeof(str_pfx));
+			prefix2str(&rk.vn, str_pfx_vn, sizeof(str_pfx_vn));
 			vnc_zlog_debug_verbose(
 				"%s:   added pfx=%s nh[vn]=%s, cost=%u, lifetime=%u, allowed=%d",
 				__func__, str_pfx, str_pfx_vn, nhp->prefix.cost,
@@ -2111,9 +2112,9 @@ void rfapiRibPendingDeleteRoute(struct bgp *bgp, struct rfapi_import_table *it,
 {
 	struct rfapi_descriptor *rfd;
 	struct listnode *node;
-	char buf[BUFSIZ];
+	char buf[PREFIX_STRLEN];
 
-	prefix2str(&it_node->p, buf, BUFSIZ);
+	prefix2str(&it_node->p, buf, sizeof(buf));
 	vnc_zlog_debug_verbose("%s: entry, it=%p, afi=%d, it_node=%p, pfx=%s",
 			       __func__, it, afi, it_node, buf);
 
@@ -2287,8 +2288,8 @@ static int print_rib_sl(int (*fp)(void *, const char *, ...), struct vty *vty,
 	for (rc = skiplist_next(sl, NULL, (void **)&ri, &cursor); !rc;
 	     rc = skiplist_next(sl, NULL, (void **)&ri, &cursor)) {
 
-		char str_vn[BUFSIZ];
-		char str_un[BUFSIZ];
+		char str_vn[PREFIX_STRLEN];
+		char str_un[PREFIX_STRLEN];
 		char str_lifetime[BUFSIZ];
 		char str_age[BUFSIZ];
 		char *p;
@@ -2296,12 +2297,12 @@ static int print_rib_sl(int (*fp)(void *, const char *, ...), struct vty *vty,
 
 		++routes_displayed;
 
-		prefix2str(&ri->rk.vn, str_vn, BUFSIZ);
+		prefix2str(&ri->rk.vn, str_vn, sizeof(str_vn));
 		p = index(str_vn, '/');
 		if (p)
 			*p = 0;
 
-		prefix2str(&ri->un, str_un, BUFSIZ);
+		prefix2str(&ri->un, str_un, sizeof(str_un));
 		p = index(str_un, '/');
 		if (p)
 			*p = 0;
@@ -2349,13 +2350,13 @@ static void rfapiRibShowRibSl(void *stream, struct prefix *pfx,
 	const char *vty_newline;
 
 	int nhs_displayed = 0;
-	char str_pfx[BUFSIZ];
+	char str_pfx[PREFIX_STRLEN];
 	int printedprefix = 0;
 
 	if (rfapiStream2Vty(stream, &fp, &vty, &out, &vty_newline) == 0)
 		return;
 
-	prefix2str(pfx, str_pfx, BUFSIZ);
+	prefix2str(pfx, str_pfx, sizeof(str_pfx));
 
 	nhs_displayed +=
 		print_rib_sl(fp, vty, out, sl, 0, str_pfx, &printedprefix);
@@ -2415,7 +2416,7 @@ void rfapiRibShowResponses(void *stream, struct prefix *pfx_match,
 			     rn = route_next(rn)) {
 
 				struct skiplist *sl;
-				char str_pfx[BUFSIZ];
+				char str_pfx[PREFIX_STRLEN];
 				int printedprefix = 0;
 
 				if (!show_removed)
@@ -2469,7 +2470,7 @@ void rfapiRibShowResponses(void *stream, struct prefix *pfx_match,
 								str_un,
 								BUFSIZ));
 				}
-				prefix2str(&rn->p, str_pfx, BUFSIZ);
+				prefix2str(&rn->p, str_pfx, sizeof(str_pfx));
 				// fp(out, "  %s\n", buf);  /* prefix */
 
 				routes_displayed++;

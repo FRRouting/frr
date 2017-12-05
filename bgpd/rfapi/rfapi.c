@@ -363,15 +363,12 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 	afi_t afi; /* of the VN address */
 	struct bgp_node *bn;
 	struct bgp_info *bi;
-	char buf[BUFSIZ];
+	char buf[PREFIX_STRLEN];
 	char buf2[BUFSIZ];
 	struct prefix_rd prd0;
 
-	prefix2str(p, buf, BUFSIZ);
-	buf[BUFSIZ - 1] = 0; /* guarantee NUL-terminated */
-
-	prefix_rd2str(prd, buf2, BUFSIZ);
-	buf2[BUFSIZ - 1] = 0;
+	prefix2str(p, buf, sizeof(buf));
+	prefix_rd2str(prd, buf2, sizeof(buf2));
 
 	afi = family2afi(p->family);
 	assert(afi == AFI_IP || afi == AFI_IP6);
@@ -464,11 +461,9 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 	rfapiProcessWithdraw(peer, rfd, p, prd, NULL, afi, safi, type, kill);
 
 	if (bi) {
-		char buf[BUFSIZ];
+		char buf[PREFIX_STRLEN];
 
-		prefix2str(p, buf, BUFSIZ);
-		buf[BUFSIZ - 1] = 0; /* guarantee NUL-terminated */
-
+		prefix2str(p, buf, sizeof(buf));
 		vnc_zlog_debug_verbose(
 			"%s: Found route (safi=%d) to delete at prefix %s",
 			__func__, safi, buf);
@@ -593,7 +588,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	uint32_t label_val;
 
 	struct bgp_attr_encap_subtlv *encaptlv;
-	char buf[BUFSIZ];
+	char buf[PREFIX_STRLEN];
 	char buf2[BUFSIZ];
 #if 0 /* unused? */
   struct prefix pfx_buf;
@@ -650,9 +645,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	else
 		label_val = MPLS_LABEL_IMPLICIT_NULL;
 
-	prefix_rd2str(prd, buf2, BUFSIZ);
-	buf2[BUFSIZ - 1] = 0;
-
+	prefix_rd2str(prd, buf2, sizeof(buf2));
 
 	afi = family2afi(p->family);
 	assert(afi == AFI_IP || afi == AFI_IP6);
@@ -907,8 +900,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	}
 
 
-	prefix2str(p, buf, BUFSIZ);
-	buf[BUFSIZ - 1] = 0; /* guarantee NUL-terminated */
+	prefix2str(p, buf, sizeof(buf));
 
 	/*
 	 * At this point:
@@ -1611,11 +1603,10 @@ rfapi_query_inner(void *handle, struct rfapi_ip_addr *target,
 	}
 
 	{
-		char buf[BUFSIZ];
+		char buf[PREFIX_STRLEN];
 		char *s;
 
-		prefix2str(&p, buf, BUFSIZ);
-		buf[BUFSIZ - 1] = 0; /* guarantee NUL-terminated */
+		prefix2str(&p, buf, sizeof(buf));
 		vnc_zlog_debug_verbose("%s(rfd=%p, target=%s, ppNextHop=%p)",
 				       __func__, rfd, buf, ppNextHopEntry);
 
@@ -2434,10 +2425,9 @@ int rfapi_register(void *handle, struct rfapi_ip_prefix *prefix,
 
 
 	{
-		char buf[BUFSIZ];
+		char buf[PREFIX_STRLEN];
 
-		prefix2str(&p, buf, BUFSIZ);
-		buf[BUFSIZ - 1] = 0; /* guarantee NUL-terminated */
+		prefix2str(&p, buf, sizeof(buf));
 		vnc_zlog_debug_verbose(
 			"%s(rfd=%p, pfx=%s, lifetime=%d, opts_un=%p, opts_vn=%p, action=%s)",
 			__func__, rfd, buf, lifetime, options_un, options_vn,

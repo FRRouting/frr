@@ -839,7 +839,7 @@ void rfapiMonitorItNodeChanged(
 	struct bgp *bgp = bgp_get_default();
 	afi_t afi = family2afi(rn->p.family);
 #if DEBUG_L2_EXTRA
-	char buf_prefix[BUFSIZ];
+	char buf_prefix[PREFIX_STRLEN];
 #endif
 
 	assert(bgp);
@@ -848,7 +848,7 @@ void rfapiMonitorItNodeChanged(
 	nves_seen = skiplist_new(0, NULL, NULL);
 
 #if DEBUG_L2_EXTRA
-	prefix2str(&it_node->p, buf_prefix, BUFSIZ);
+	prefix2str(&it_node->p, buf_prefix, sizeof(buf_prefix));
 	vnc_zlog_debug_verbose("%s: it=%p, it_node=%p, it_node->prefix=%s",
 			       __func__, import_table, it_node, buf_prefix);
 #endif
@@ -926,22 +926,20 @@ void rfapiMonitorItNodeChanged(
 					assert(!skiplist_insert(nves_seen,
 								m->rfd, NULL));
 
-					{
-						char buf_attach_pfx[BUFSIZ];
-						char buf_target_pfx[BUFSIZ];
+					char buf_attach_pfx[PREFIX_STRLEN];
+					char buf_target_pfx[PREFIX_STRLEN];
 
-						prefix2str(&m->node->p,
-							   buf_attach_pfx,
-							   BUFSIZ);
-						prefix2str(&m->p,
-							   buf_target_pfx,
-							   BUFSIZ);
-						vnc_zlog_debug_verbose(
-							"%s: update rfd %p attached to pfx %s (targ=%s)",
-							__func__, m->rfd,
-							buf_attach_pfx,
-							buf_target_pfx);
-					}
+					prefix2str(&m->node->p,
+						   buf_attach_pfx,
+						   sizeof(buf_attach_pfx));
+					prefix2str(&m->p,
+						   buf_target_pfx,
+						   sizeof(buf_target_pfx));
+					vnc_zlog_debug_verbose(
+						"%s: update rfd %p attached to pfx %s (targ=%s)",
+						__func__, m->rfd,
+						buf_attach_pfx,
+						buf_target_pfx);
 
 					/*
 					 * update its RIB
@@ -1271,8 +1269,9 @@ static void rfapiMonitorEthDetachImport(
 	assert(rn);
 
 #if DEBUG_L2_EXTRA
-	char buf_prefix[BUFSIZ];
-	prefix2str(&rn->p, buf_prefix, BUFSIZ);
+	char buf_prefix[PREFIX_STRLEN];
+
+	prefix2str(&rn->p, buf_prefix, sizeof(buf_prefix));
 #endif
 
 	/*
