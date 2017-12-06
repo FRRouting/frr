@@ -31,10 +31,12 @@ from mininet.net import Mininet
 
 class lUtil:
     #to be made configurable in the future
+    base_script_dir = '.'
+    base_log_dir = '.'
     fout_name = 'output.log'
     fsum_name = 'summary.txt'
     l_level = 9
-    base_dir = '.'
+    CallOnFail = False
 
     l_total = 0
     l_pass = 0
@@ -63,8 +65,8 @@ class lUtil:
             f = 1
             p = 0
             self.l_fail += 1
-        res = "%-4d %-6s %-56s %-4d %-4d" % (self.l_total, target, str, p, f)
-        self.log (res)
+        res = "%-4d %-6s %-56s %-4d %d" % (self.l_total, target, str, p, f)
+        self.log ('R:'+res)
         if self.fsum == '':
             self.fsum = open(self.fsum_name, 'w', 0)
             self.fsum.write('\
@@ -74,11 +76,13 @@ Test Target Summary                                                  Pass Fail\n
             self.fsum.write('\
 ******************************************************************************\n')
         self.fsum.write(res+'\n')
+        if f == 1 and self.CallOnFail != False:
+            self.CallOnFail()
 
     def closeFiles(self):
         ret = '\
 ******************************************************************************\n\
-Total %-4d                                                           %-4d %-4d\n\
+Total %-4d                                                           %-4d %d\n\
 ******************************************************************************'\
 % (self.l_total, self.l_pass, self.l_fail)
         if self.fsum != '':
@@ -98,6 +102,12 @@ Total %-4d                                                           %-4d %-4d\n
         self.log('FILE: ' + name)
         self.l_filename = name
         self.line = 0
+
+    def getCallOnFail(self):
+        return self.CallOnFail
+
+    def setCallOnFail(self, CallOnFail):
+        self.CallOnFail = CallOnFail
 
     def strToArray(self, string):
         a = []
@@ -210,30 +220,37 @@ Total %-4d                                                           %-4d %-4d\n
 LUtil=lUtil()
 
 #entry calls
-def luStart(baseDir='.', net='', fout='output.log', fsum='summary.txt', level=9):
-    LUtil.base_dir = baseDir
+def luStart(baseScriptDir='.', baseLogDir='.', net='',
+            fout='output.log', fsum='summary.txt', level=9):
+    LUtil.base_script_dir = baseScriptDir
+    LUtil.base_log_dir = baseLogDir
     LUtil.net = net
     if fout != '':
-        LUtil.fout_name = fout
-    if fsum != '':
-        LUtil.fsum_name = fsum
+        LUtil.fout_name = baseLogDir + '/' + fout
+    if fsum != None:
+        LUtil.fsum_name = baseLogDir + '/' + fsum
     LUtil.l_level = level
 
-def luCommand(target, command, regexp='.', op='none', result='', time=60):
+def luCommand(target, command, regexp='.', op='none', result='', time=10):
     if op != 'wait':
         return LUtil.command(target, command, regexp, op, result)
     else:
         return LUtil.wait(target, command, regexp, op, result, time)
 
 
-def luInclude(filename):
+def luInclude(filename, CallOnFail=None):
     global LUtil
-    tstFile = LUtil.base_dir + '/' + filename
+    tstFile = LUtil.base_script_dir + '/' + filename
     LUtil.setFilename(filename)
+    if CallOnFail != None:
+        oldCallOnFail = LUtil.getCallOnFail()
+        LUtil.setCallOnFail(CallOnFail)
     if filename.endswith('.py'):
         execfile(tstFile)
     else:
         LUtil.execTestFile(tstFile)
+    if CallOnFail != None:
+        LUtil.setCallOnFail(oldCallOnFail)
 
 def luFinish():
     return LUtil.closeFiles()
@@ -244,9 +261,22 @@ def luNumFail():
 def luNumPass():
     return LUtil.l_pass
 
+def luShowFail():
+    printed = 0
+    print("Showing error summary from See %s" % LUtil.fsum_name)
+    sf = open(LUtil.fsum_name, 'r')
+    for line in sf:
+        if line[-2] != "0":
+            printed+=1
+            sys.stdout.write(line)
+    sys.stdout.flush()
+    sf.close()
+    if printed > 0:
+        print("See %s for details of errors" % LUtil.fout_name)
+
 #for testing
 if __name__ == '__main__':
-    print(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/utilities')
+    print(os.path.dirname(os.path.dirname(os.path.abspath(__file__))) + '/lib')
     luStart()
     for arg in sys.argv[1:]:
         luInclude(arg)
