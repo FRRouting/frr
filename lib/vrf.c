@@ -462,9 +462,6 @@ DEFUN_NOSH (vrf,
 
 	vrfp = vrf_get(VRF_UNKNOWN, vrfname);
 
-	/* Mark as user configured. */
-	SET_FLAG(vrfp->status, VRF_CONFIGURED);
-
 	VTY_PUSH_CONTEXT(VRF_NODE, vrfp);
 
 	return CMD_SUCCESS;

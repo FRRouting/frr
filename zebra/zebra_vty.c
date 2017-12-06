@@ -231,13 +231,19 @@ static int zebra_static_route_leak(struct vty *vty,
 			type = STATIC_IPV6_GATEWAY;
 	}
 
-	if (!negate)
+	if (!negate) {
 		static_add_route(afi, safi, type, &p, src_p, gatep, ifname,
 				 bh_type, tag, distance, zvrf, nh_zvrf,
 				 &snh_label);
-	else
+		/* Mark as having FRR configuration */
+		vrf_set_user_cfged(zvrf->vrf);
+	} else {
 		static_delete_route(afi, safi, type, &p, src_p, gatep, ifname,
 				    tag, distance, zvrf, &snh_label);
+		/* If no other FRR config for this VRF, mark accordingly. */
+		if (!zebra_vrf_has_config(zvrf))
+			vrf_reset_user_cfged(zvrf->vrf);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -247,19 +253,39 @@ static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
                              const char *mask_str, const char *src_str,
                              const char *gate_str, const char *ifname,
                              const char *flag_str, const char *tag_str,
-                             const char *distance_str, const char *vrf_id_str,
+                             const char *distance_str, const char *vrf_name,
                              const char *label_str)
 {
 	struct zebra_vrf *zvrf;
+	struct vrf *vrf;
 
 	/* VRF id */
-	zvrf = zebra_vrf_lookup_by_name(vrf_id_str);
+	zvrf = zebra_vrf_lookup_by_name(vrf_name);
 
-	if (!zvrf) {
-		vty_out(vty, "%% vrf %s is not defined\n", vrf_id_str);
+	/* When trying to delete, the VRF must exist. */
+	if (negate && !zvrf) {
+		vty_out(vty, "%% vrf %s is not defined\n", vrf_name);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	/* When trying to create, create the VRF if it doesn't exist.
+	 * Note: The VRF isn't active until we hear about it from the kernel.
+	 */
+	if (!zvrf) {
+		vrf = vrf_get(VRF_UNKNOWN, vrf_name);
+		if (!vrf) {
+			vty_out(vty, "%% Could not create vrf %s\n", vrf_name);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		zvrf = vrf->info;
+		if (!zvrf) {
+			vty_out(vty, "%% Could not create vrf-info %s\n",
+				vrf_name);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		/* Mark as having FRR configuration */
+		vrf_set_user_cfged(vrf);
+	}
 	return zebra_static_route_leak(vty, zvrf, zvrf, afi, safi,
 				       negate, dest_str, mask_str, src_str,
 				       gate_str, ifname, flag_str, tag_str,
@@ -2269,6 +2295,8 @@ DEFUN (show_vrf,
 		else
 			vty_out(vty, "id %u table %u", zvrf_id(zvrf),
 				zvrf->table_id);
+		if (vrf_is_user_cfged(vrf))
+			vty_out(vty, " (configured)");
 		vty_out(vty, "\n");
 	}
 
@@ -2371,6 +2399,10 @@ DEFUN (no_vrf_vni_mapping,
 		vty_out(vty, "%s\n", err);
 		return CMD_WARNING;
 	}
+
+	/* If no other FRR config for this VRF, mark accordingly. */
+	if (!zebra_vrf_has_config(zvrf))
+		vrf_reset_user_cfged(vrf);
 
 	return CMD_SUCCESS;
 }

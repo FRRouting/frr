@@ -3801,7 +3801,7 @@ static int ip_prefix_send_to_client(vrf_id_t vrf_id,
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, cmd, vrf_id);
+	zclient_create_header(s, cmd, vrf_id);
 	stream_put(s, p, sizeof(struct prefix));
 
 	/* Write packet size. */

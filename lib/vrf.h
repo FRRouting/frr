@@ -76,7 +76,7 @@ struct vrf {
 	/* Zebra internal VRF status */
 	u_char status;
 #define VRF_ACTIVE     (1 << 0) /* VRF is up in kernel */
-#define VRF_CONFIGURED (1 << 1) /* VRF is configured by user in frr */
+#define VRF_CONFIGURED (1 << 1) /* VRF has some FRR configuration */
 
 	/* Interfaces belonging to this VRF */
 	struct if_name_head ifaces_by_name;
@@ -132,6 +132,18 @@ static inline int vrf_is_enabled(struct vrf *vrf)
 static inline int vrf_is_user_cfged(struct vrf *vrf)
 {
 	return vrf && CHECK_FLAG(vrf->status, VRF_CONFIGURED);
+}
+
+/* Mark that VRF has user configuration */
+static inline void vrf_set_user_cfged(struct vrf *vrf)
+{
+	SET_FLAG(vrf->status, VRF_CONFIGURED);
+}
+
+/* Mark that VRF no longer has any user configuration */
+static inline void vrf_reset_user_cfged(struct vrf *vrf)
+{
+	UNSET_FLAG(vrf->status, VRF_CONFIGURED);
 }
 
 /*
