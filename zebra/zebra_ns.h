@@ -82,4 +82,5 @@ extern struct route_table *zebra_ns_find_table(struct zebra_ns *zns,
 extern struct route_table *zebra_ns_get_table(struct zebra_ns *zns,
 					      struct zebra_vrf *zvrf,
 					      uint32_t tableid, afi_t afi);
+int zebra_ns_config_write(struct vty *vty, struct ns *ns);
 #endif

@@ -563,6 +563,7 @@ static int vrf_config_write(struct vty *vty)
 					zvrf->l3vni,
 					is_l3vni_for_prefix_routes_only(zvrf->l3vni) ?
 					" prefix-routes-only" :"");
+			zebra_ns_config_write(vty, (struct ns *)vrf->ns_ctxt);
 			vty_out(vty, "!\n");
 		}
 
