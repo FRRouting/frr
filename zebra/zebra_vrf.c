@@ -484,11 +484,12 @@ static int vrf_config_write(struct vty *vty)
 		static_config(vty, zvrf, AFI_IP, SAFI_MULTICAST, "ip mroute");
 		static_config(vty, zvrf, AFI_IP6, SAFI_UNICAST, "ipv6 route");
 
-		if (vrf->vrf_id != VRF_DEFAULT && zvrf->l3vni)
-			vty_out(vty, " vni %u\n", zvrf->l3vni);
-
-		if (vrf->vrf_id != VRF_DEFAULT)
+		if (vrf->vrf_id != VRF_DEFAULT) {
+			if (zvrf->l3vni)
+				vty_out(vty, " vni %u\n", zvrf->l3vni);
+			zebra_ns_config_write(vty, (struct ns *)vrf->ns_ctxt);
 			vty_out(vty, "!\n");
+		}
 	}
 	return 0;
 }

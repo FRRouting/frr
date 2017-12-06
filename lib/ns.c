@@ -35,12 +35,14 @@
 
 #include "command.h"
 #include "vty.h"
+#include "vrf.h"
 
-DEFINE_MTYPE_STATIC(LIB, NS, "Logical-Router")
-DEFINE_MTYPE_STATIC(LIB, NS_NAME, "Logical-Router Name")
+DEFINE_MTYPE_STATIC(LIB, NS, "NetNS Context")
+DEFINE_MTYPE_STATIC(LIB, NS_NAME, "NetNS Name")
 
 static __inline int ns_compare(const struct ns *, const struct ns *);
 static struct ns *ns_lookup(ns_id_t);
+static struct ns *ns_lookup_name(const char *);
 
 RB_GENERATE(ns_head, ns, entry, ns_compare)
 
@@ -105,10 +107,29 @@ struct ns_master {
 static int ns_is_enabled(struct ns *ns);
 static int ns_enable(struct ns *ns);
 static void ns_disable(struct ns *ns);
+static void ns_get_created(struct ns *ns);
 
 static __inline int ns_compare(const struct ns *a, const struct ns *b)
 {
 	return (a->ns_id - b->ns_id);
+}
+
+static void ns_get_created(struct ns *ns)
+{
+	/*
+	 * Initialize interfaces.
+	 *
+	 * I'm not sure if this belongs here or in
+	 * the vrf code.
+	 */
+	// if_init (&ns->iflist);
+
+	if (ns->ns_id != NS_UNKNOWN)
+		zlog_info("NS %u is created.", ns->ns_id);
+	else
+		zlog_info("NS %s is created.", ns->name);
+	if (ns_master.ns_new_hook)
+		(*ns_master.ns_new_hook)(ns->ns_id, &ns->info);
 }
 
 /* Get a NS. If not found, create one. */
@@ -124,20 +145,27 @@ static struct ns *ns_get(ns_id_t ns_id)
 	ns->ns_id = ns_id;
 	ns->fd = -1;
 	RB_INSERT(ns_head, &ns_tree, ns);
+	ns_get_created(ns);
+	return ns;
+}
 
-	/*
-	 * Initialize interfaces.
-	 *
-	 * I'm not sure if this belongs here or in
-	 * the vrf code.
-	 */
-	// if_init (&ns->iflist);
+/* Get a NS. If not found, create one. */
+static struct ns *ns_get_by_name(char *ns_name)
+{
+	struct ns *ns;
 
-	zlog_info("NS %u is created.", ns_id);
+	ns = ns_lookup_name(ns_name);
+	if (ns)
+		return (ns);
 
-	if (ns_master.ns_new_hook)
-		(*ns_master.ns_new_hook)(ns_id, &ns->info);
+	ns = XCALLOC(MTYPE_NS, sizeof (struct ns));
+	ns->ns_id = NS_UNKNOWN;
+	ns->name = XSTRDUP(MTYPE_NS_NAME, ns_name);
+	ns->fd = -1;
+	RB_INSERT(ns_head, &ns_tree, ns);
 
+	/* ns_id not initialised */
+	ns_get_created(ns);
 	return ns;
 }
 
@@ -170,6 +198,20 @@ static struct ns *ns_lookup(ns_id_t ns_id)
 	struct ns ns;
 	ns.ns_id = ns_id;
 	return (RB_FIND(ns_head, &ns_tree, &ns));
+}
+
+/* Look up a NS by name */
+static struct ns *ns_lookup_name(const char * name)
+{
+	struct ns *ns = NULL;
+
+	RB_FOREACH(ns, ns_head, &ns_tree) {
+		if (ns->name != NULL) {
+			if (strcmp(name, ns->name) == 0)
+				return ns;
+		}
+	}
+	return NULL;
 }
 
 /*
@@ -289,8 +331,8 @@ static char *ns_netns_pathname(struct vty *vty, const char *name)
 	return pathname;
 }
 
-DEFUN_NOSH (ns_netns,
-       ns_netns_cmd,
+DEFUN_NOSH (ns_logicalrouter,
+       ns_logicalrouter_cmd,
        "logical-router (1-65535) ns NAME",
        "Enable a logical-router\n"
        "Specify the logical-router indentifier\n"
@@ -299,7 +341,7 @@ DEFUN_NOSH (ns_netns,
 {
 	int idx_number = 1;
 	int idx_name = 3;
-	ns_id_t ns_id = NS_DEFAULT;
+	ns_id_t ns_id;
 	struct ns *ns = NULL;
 	char *pathname = ns_netns_pathname(vty, argv[idx_name]->arg);
 
@@ -327,8 +369,11 @@ DEFUN_NOSH (ns_netns,
 	return CMD_SUCCESS;
 }
 
-DEFUN (no_ns_netns,
-       no_ns_netns_cmd,
+static struct cmd_node logicalrouter_node = {NS_NODE, "", /* NS node has no interface. */
+					     1};
+
+DEFUN (no_ns_logicalrouter,
+       no_ns_logicalrouter_cmd,
        "no logical-router (1-65535) ns NAME",
        NO_STR
        "Enable a Logical-Router\n"
@@ -338,7 +383,7 @@ DEFUN (no_ns_netns,
 {
 	int idx_number = 2;
 	int idx_name = 4;
-	ns_id_t ns_id = NS_DEFAULT;
+	ns_id_t ns_id;
 	struct ns *ns = NULL;
 	char *pathname = ns_netns_pathname(vty, argv[idx_name]->arg);
 
@@ -368,28 +413,97 @@ DEFUN (no_ns_netns,
 	return CMD_SUCCESS;
 }
 
-/* NS node. */
-static struct cmd_node ns_node = {NS_NODE, "", /* NS node has no interface. */
-				  1};
+DEFUN_NOSH (ns_netns,
+	    ns_netns_cmd,
+	    "netns NAME",
+	    "Attach VRF to a Namespace\n"
+	    "The file name in " NS_RUN_DIR ", or a full pathname\n")
+{
+	int idx_name = 1;
+	struct ns *ns = NULL;
+	char *pathname = ns_netns_pathname(vty, argv[idx_name]->arg);
 
-/* NS configuration write function. */
-static int ns_config_write(struct vty *vty)
+	VTY_DECLVAR_CONTEXT(vrf, vrf);
+
+	if (!pathname)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (!vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+	if (vrf->vrf_id != VRF_UNKNOWN && vrf->ns_ctxt == NULL) {
+		vty_out(vty, "VRF %u is already configured with VRF %s\n",
+		    vrf->vrf_id, vrf->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (vrf->ns_ctxt != NULL) {
+		ns = (struct ns *) vrf->ns_ctxt;
+		if (ns && 0 != strcmp(ns->name, pathname)) {
+			vty_out(vty, "VRF %u is already configured"
+				" with NETNS %s\n",
+			    vrf->vrf_id, ns->name);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+	ns = ns_lookup_name(pathname);
+	if (ns && ns->vrf_ctxt) {
+		struct vrf *vrf2 = (struct vrf *)ns->vrf_ctxt;
+
+		vty_out(vty, "NS %s is already configured"
+			" with VRF %u(%s)\n",
+		    ns->name, vrf2->vrf_id, vrf2->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	} else if (!ns)
+		ns = ns_get_by_name(pathname);
+
+	if (!ns_enable(ns)) {
+		vty_out(vty, "Can not associate NS %u with NETNS %s\n",
+			ns->ns_id, ns->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	vrf->ns_ctxt = (void *)ns;
+	ns->vrf_ctxt = (void *)vrf;
+	return CMD_SUCCESS;
+}
+
+static int ns_logicalrouter_config_write(struct vty *vty)
 {
 	struct ns *ns;
 	int write = 0;
 
-	if (vrf_is_backend_netns())
-		return 0;
 	RB_FOREACH(ns, ns_head, &ns_tree) {
 		if (ns->ns_id == NS_DEFAULT || ns->name == NULL)
 			continue;
-
 		vty_out(vty, "logical-router %u netns %s\n", ns->ns_id,
 			ns->name);
 		write = 1;
 	}
-
 	return write;
+}
+
+DEFUN (no_ns_netns,
+	no_ns_netns_cmd,
+	"no netns [NAME]",
+	NO_STR
+	"Detach VRF from a Namespace\n"
+	"The file name in " NS_RUN_DIR ", or a full pathname\n")
+{
+	struct ns *ns = NULL;
+
+	VTY_DECLVAR_CONTEXT(vrf, vrf);
+
+	if (!vrf->ns_ctxt) {
+		vty_out(vty, "VRF %s(%u) is not configured with NetNS\n",
+			vrf->name, vrf->vrf_id);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ns = (struct ns *)vrf->ns_ctxt;
+
+	ns->vrf_ctxt = NULL;
+	ns_delete(ns);
+	vrf->ns_ctxt = NULL;
+	return CMD_SUCCESS;
 }
 
 /* Initialize NS module. */
@@ -415,9 +529,18 @@ void ns_init(void)
 
 	if (have_netns() && !vrf_is_backend_netns()) {
 		/* Install NS commands. */
-		install_node(&ns_node, ns_config_write);
-		install_element(CONFIG_NODE, &ns_netns_cmd);
-		install_element(CONFIG_NODE, &no_ns_netns_cmd);
+		install_node(&logicalrouter_node, ns_logicalrouter_config_write);
+		install_element(CONFIG_NODE, &ns_logicalrouter_cmd);
+		install_element(CONFIG_NODE, &no_ns_logicalrouter_cmd);
+	}
+}
+
+void ns_cmd_init()
+{
+	if (have_netns()) {
+		/* Install NS commands. */
+		install_element(VRF_NODE, &ns_netns_cmd);
+		install_element(VRF_NODE, &no_ns_netns_cmd);
 	}
 }
 

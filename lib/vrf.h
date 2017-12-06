@@ -87,6 +87,9 @@ struct vrf {
 	/* The table_id from the kernel */
 	struct vrf_data data;
 
+	/* Back pointer to namespace context */
+	void *ns_ctxt;
+
 	QOBJ_FIELDS
 };
 RB_HEAD(vrf_id_head, vrf);

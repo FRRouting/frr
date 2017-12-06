@@ -1,6 +1,7 @@
 /* zebra NS Routines
  * Copyright (C) 2016 Cumulus Networks, Inc.
  *                    Donald Sharp
+ * Copyright (C) 2017/2018 6WIND
  *
  * This file is part of Quagga.
  *
@@ -83,5 +84,13 @@ int zebra_ns_init(void)
 
 	zebra_ns_enable(NS_DEFAULT, (void **)&dzns);
 
+	return 0;
+}
+
+int zebra_ns_config_write(struct vty *vty, struct ns *ns)
+{
+	if (ns && ns->name != NULL) {
+		vty_out(vty, " netns %s\n", ns->name);
+	}
 	return 0;
 }

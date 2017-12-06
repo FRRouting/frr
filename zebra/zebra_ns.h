@@ -62,4 +62,5 @@ struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id);
 int zebra_ns_init(void);
 int zebra_ns_enable(ns_id_t ns_id, void **info);
 int zebra_ns_disable(ns_id_t ns_id, void **info);
+int zebra_ns_config_write(struct vty *vty, struct ns *ns);
 #endif
