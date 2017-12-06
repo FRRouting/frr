@@ -381,7 +381,10 @@ struct bgp {
 	_Atomic uint32_t wpkt_quanta; // max # packets to write per i/o cycle
 	_Atomic uint32_t rpkt_quanta; // max # packets to read per i/o cycle
 
-	u_int32_t coalesce_time;
+	/* Configured coalesce time */
+	uint32_t v_coalesce_time;
+	/* Actual coalesce time */
+	uint32_t coalesce_time;
 
 	u_int32_t addpath_tx_id;
 	int addpath_tx_used[AFI_MAX][SAFI_MAX];

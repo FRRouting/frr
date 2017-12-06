@@ -1423,8 +1423,8 @@ DEFUN (no_bgp_rpkt_quanta,
 
 void bgp_config_write_coalesce_time(struct vty *vty, struct bgp *bgp)
 {
-	if (bgp->coalesce_time != BGP_DEFAULT_SUBGROUP_COALESCE_TIME)
-		vty_out(vty, " coalesce-time %u\n", bgp->coalesce_time);
+	if (bgp->v_coalesce_time)
+		vty_out(vty, " coalesce-time %u\n", bgp->v_coalesce_time);
 }
 
 
@@ -1438,7 +1438,8 @@ DEFUN (bgp_coalesce_time,
 
 	int idx = 0;
 	argv_find(argv, argc, "(0-4294967295)", &idx);
-	bgp->coalesce_time = strtoul(argv[idx]->arg, NULL, 10);
+	bgp->coalesce_time = bgp->v_coalesce_time =
+		strtoul(argv[idx]->arg, NULL, 10);
 	return CMD_SUCCESS;
 }
 
@@ -1451,6 +1452,7 @@ DEFUN (no_bgp_coalesce_time,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
+	bgp->v_coalesce_time = 0;
 	bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
 	return CMD_SUCCESS;
 }
