@@ -3298,13 +3298,16 @@ void zserv_read_file(char *input)
 }
 #endif
 
-/* Initialisation of zebra and installation of commands. */
-void zebra_init(void)
+void zserv_init(void)
 {
 	/* Client list init. */
 	zebrad.client_list = list_new();
 	zebrad.client_list->del = (void (*)(void *))zebra_client_free;
+}
 
+/* Initialisation of zebra and installation of commands. */
+void zebra_init(void)
+{
 	/* Install configuration write function. */
 	install_node(&table_node, config_write_table);
 	install_node(&forwarding_node, config_write_forwarding);

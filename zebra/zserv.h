@@ -148,6 +148,7 @@ extern struct zebra_t zebrad;
 extern unsigned int multipath_num;
 
 /* Prototypes. */
+extern void zserv_init(void);
 extern void zebra_init(void);
 extern void zebra_if_init(void);
 extern void zebra_zserv_socket_init(char *path);
