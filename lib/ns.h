@@ -49,6 +49,9 @@ struct ns {
 	/* Master list of interfaces belonging to this NS */
 	struct list *iflist;
 
+	/* Back Pointer to VRF */
+	void *vrf_ctxt;
+
 	/* User data */
 	void *info;
 };
@@ -89,5 +92,6 @@ extern void ns_terminate(void);
 
 /* Create a socket serving for the given NS */
 extern int ns_socket(int, int, int, ns_id_t);
+extern void ns_cmd_init(void);
 
 #endif /*_ZEBRA_NS_H*/

@@ -600,6 +600,7 @@ static int vrf_config_write(struct vty *vty)
 			vty_out(vty, "vrf %s\n", zvrf_name(zvrf));
 			if (zvrf->l3vni)
 				vty_out(vty, " vni %u\n", zvrf->l3vni);
+			zebra_ns_config_write(vty, (struct ns *)vrf->ns_ctxt);
 			vty_out(vty, "!\n");
 		}
 

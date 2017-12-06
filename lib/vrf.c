@@ -29,6 +29,7 @@
 #include "log.h"
 #include "memory.h"
 #include "command.h"
+#include "ns.h"
 
 DEFINE_MTYPE_STATIC(LIB, VRF, "VRF")
 DEFINE_MTYPE_STATIC(LIB, VRF_BITMAP, "VRF bit-map")
@@ -569,4 +570,5 @@ void vrf_cmd_init(int (*writefunc)(struct vty *vty))
 	install_element(CONFIG_NODE, &no_vrf_cmd);
 	install_node(&vrf_node, writefunc);
 	install_default(VRF_NODE);
+	ns_cmd_init();
 }
