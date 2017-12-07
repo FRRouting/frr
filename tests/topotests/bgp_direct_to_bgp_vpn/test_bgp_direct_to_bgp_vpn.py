@@ -135,11 +135,13 @@ def setup_module(mod):
     # ... and here it calls Mininet initialization functions.
     tgen.start_topology()
 
+    print("Topology started")
     # This is a sample of configuration loading.
     router_list = tgen.routers()
 
     # For all registred routers, load the zebra configuration file
     for rname, router in router_list.iteritems():
+        print("Setting up %s" % rname)
         config = os.path.join(CWD, '{}/zebra.conf'.format(rname))
         if os.path.exists(config):
             router.load_config(TopoRouter.RD_ZEBRA, config)
@@ -154,6 +156,7 @@ def setup_module(mod):
             router.load_config(TopoRouter.RD_BGP, config)
 
     # After loading the configurations, this function loads configured daemons.
+    print("Starting routers")
     tgen.start_router()
 
     # For debugging after starting daemons, uncomment the next line
