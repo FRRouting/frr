@@ -218,6 +218,13 @@ void ns_walk_func(int (*func)(struct ns *))
 		func(ns);
 }
 
+const char *ns_get_name(struct ns *ns)
+{
+	if (!ns)
+		return NULL;
+	return ns->name;
+}
+
 /* Look up a NS by name */
 static struct ns *ns_lookup_name(const char * name)
 {
