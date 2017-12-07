@@ -679,6 +679,8 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 		json_object_int_add(json_vni, "vni", bgp->l3vni);
 		json_object_string_add(json_vni, "type", "L3");
 		json_object_string_add(json_vni, "inKernel", "True");
+		json_object_string_add(json_vni, "originatorIp",
+				       inet_ntoa(bgp->originator_ip));
 		json_object_string_add(
 			json_vni, "rd",
 			prefix_rd2str(&bgp->vrf_prd, buf2, RD_ADDRSTRLEN));
@@ -784,6 +786,8 @@ static void show_vni_entry(struct hash_backet *backet, void *args[])
 		json_object_string_add(json_vni, "type", "L2");
 		json_object_string_add(json_vni, "inKernel",
 				       is_vni_live(vpn) ? "True" : "False");
+		json_object_string_add(json_vni, "originatorIp",
+				       inet_ntoa(vpn->originator_ip));
 		json_object_string_add(json_vni, "originatorIp",
 				       inet_ntoa(vpn->originator_ip));
 		json_object_string_add(
@@ -2846,6 +2850,7 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 	json_object *json = NULL;
 	u_int32_t num_l2vnis = 0;
 	u_int32_t num_l3vnis = 0;
+	uint32_t num_vnis = 0;
 	struct listnode *node = NULL;
 	struct bgp *bgp_temp = NULL;
 
@@ -2869,6 +2874,7 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 			if (bgp_temp->l3vni)
 				num_l3vnis++;
 		}
+		num_vnis = num_l2vnis + num_l3vnis;
 		if (uj) {
 			json_object_string_add(json, "advertiseGatewayMacip",
 					       bgp_def->advertise_gw_macip
@@ -2878,6 +2884,7 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 					       is_evpn_enabled()
 						       ? "Enabled"
 						       : "Disabled");
+			json_object_int_add(json, "numVnis", num_vnis);
 			json_object_int_add(json, "numL2Vnis", num_l2vnis);
 			json_object_int_add(json, "numL3Vnis", num_l3vnis);
 		} else {

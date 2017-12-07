@@ -4634,6 +4634,7 @@ void zebra_vxlan_print_evpn(struct vty *vty, u_char uj)
 {
 	int num_l2vnis = 0;
 	int num_l3vnis = 0;
+	int num_vnis = 0;
 	json_object *json = NULL;
 	struct zebra_ns *zns = NULL;
 	struct zebra_vrf *zvrf = NULL;
@@ -4651,11 +4652,13 @@ void zebra_vxlan_print_evpn(struct vty *vty, u_char uj)
 
 	num_l3vnis = hashcount(zns->l3vni_table);
 	num_l2vnis = hashcount(zvrf->vni_table);
+	num_vnis = num_l2vnis + num_l3vnis;
 
 	if (uj) {
 		json = json_object_new_object();
 		json_object_string_add(json, "advertiseGatewayMacip",
 				       zvrf->advertise_gw_macip ? "Yes" : "No");
+		json_object_int_add(json, "numVnis", num_vnis);
 		json_object_int_add(json, "numL2Vnis", num_l2vnis);
 		json_object_int_add(json, "numL3Vnis", num_l3vnis);
 	} else {
