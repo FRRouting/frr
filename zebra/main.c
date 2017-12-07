@@ -296,7 +296,6 @@ int main(int argc, char **argv)
 
 	/* Zebra related initialize. */
 	zserv_init();
-	zebra_init();
 	rib_init();
 	zebra_if_init();
 	zebra_debug_init();

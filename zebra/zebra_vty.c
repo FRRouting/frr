@@ -47,6 +47,8 @@
 #include "zebra/zebra_vty_clippy.c"
 #endif
 #include "zebra/zserv.h"
+#include "zebra/router-id.h"
+#include "zebra/ipforward.h"
 
 extern int allow_delete;
 
@@ -2325,13 +2327,254 @@ static int config_write_protocol(struct vty *vty)
 	return 1;
 }
 
+#ifdef HAVE_NETLINK
+/* Display default rtm_table for all clients. */
+DEFUN (show_table,
+       show_table_cmd,
+       "show table",
+       SHOW_STR
+       "default routing table to use for all clients\n")
+{
+	vty_out(vty, "table %d\n", zebrad.rtm_table_default);
+	return CMD_SUCCESS;
+}
+
+DEFUN (config_table,
+       config_table_cmd,
+       "table TABLENO",
+       "Configure target kernel routing table\n"
+       "TABLE integer\n")
+{
+	zebrad.rtm_table_default = strtol(argv[1]->arg, (char **)0, 10);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_config_table,
+       no_config_table_cmd,
+       "no table [TABLENO]",
+       NO_STR
+       "Configure target kernel routing table\n"
+       "TABLE integer\n")
+{
+	zebrad.rtm_table_default = 0;
+	return CMD_SUCCESS;
+}
+#endif
+
+DEFUN (show_zebra,
+       show_zebra_cmd,
+       "show zebra",
+       SHOW_STR
+       ZEBRA_STR)
+{
+	struct vrf *vrf;
+
+	vty_out(vty,
+		"                            Route      Route      Neighbor   LSP        LSP\n");
+	vty_out(vty,
+		"VRF                         Installs   Removals    Updates   Installs   Removals\n");
+
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
+		struct zebra_vrf *zvrf = vrf->info;
+
+		vty_out(vty, "%-25s %10" PRIu64 " %10" PRIu64 " %10" PRIu64
+			     " %10" PRIu64 " %10" PRIu64 "\n",
+			vrf->name, zvrf->installs, zvrf->removals,
+			zvrf->neigh_updates, zvrf->lsp_installs,
+			zvrf->lsp_removals);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (ip_forwarding,
+       ip_forwarding_cmd,
+       "ip forwarding",
+       IP_STR
+       "Turn on IP forwarding\n")
+{
+	int ret;
+
+	ret = ipforward();
+	if (ret == 0)
+		ret = ipforward_on();
+
+	if (ret == 0) {
+		vty_out(vty, "Can't turn on IP forwarding\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ip_forwarding,
+       no_ip_forwarding_cmd,
+       "no ip forwarding",
+       NO_STR
+       IP_STR
+       "Turn off IP forwarding\n")
+{
+	int ret;
+
+	ret = ipforward();
+	if (ret != 0)
+		ret = ipforward_off();
+
+	if (ret != 0) {
+		vty_out(vty, "Can't turn off IP forwarding\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return CMD_SUCCESS;
+}
+
+/* Only display ip forwarding is enabled or not. */
+DEFUN (show_ip_forwarding,
+       show_ip_forwarding_cmd,
+       "show ip forwarding",
+       SHOW_STR
+       IP_STR
+       "IP forwarding status\n")
+{
+	int ret;
+
+	ret = ipforward();
+
+	if (ret == 0)
+		vty_out(vty, "IP forwarding is off\n");
+	else
+		vty_out(vty, "IP forwarding is on\n");
+	return CMD_SUCCESS;
+}
+
+/* Only display ipv6 forwarding is enabled or not. */
+DEFUN (show_ipv6_forwarding,
+       show_ipv6_forwarding_cmd,
+       "show ipv6 forwarding",
+       SHOW_STR
+       "IPv6 information\n"
+       "Forwarding status\n")
+{
+	int ret;
+
+	ret = ipforward_ipv6();
+
+	switch (ret) {
+	case -1:
+		vty_out(vty, "ipv6 forwarding is unknown\n");
+		break;
+	case 0:
+		vty_out(vty, "ipv6 forwarding is %s\n", "off");
+		break;
+	case 1:
+		vty_out(vty, "ipv6 forwarding is %s\n", "on");
+		break;
+	default:
+		vty_out(vty, "ipv6 forwarding is %s\n", "off");
+		break;
+	}
+	return CMD_SUCCESS;
+}
+
+DEFUN (ipv6_forwarding,
+       ipv6_forwarding_cmd,
+       "ipv6 forwarding",
+       IPV6_STR
+       "Turn on IPv6 forwarding\n")
+{
+	int ret;
+
+	ret = ipforward_ipv6();
+	if (ret == 0)
+		ret = ipforward_ipv6_on();
+
+	if (ret == 0) {
+		vty_out(vty, "Can't turn on IPv6 forwarding\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_ipv6_forwarding,
+       no_ipv6_forwarding_cmd,
+       "no ipv6 forwarding",
+       NO_STR
+       IPV6_STR
+       "Turn off IPv6 forwarding\n")
+{
+	int ret;
+
+	ret = ipforward_ipv6();
+	if (ret != 0)
+		ret = ipforward_ipv6_off();
+
+	if (ret != 0) {
+		vty_out(vty, "Can't turn off IPv6 forwarding\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return CMD_SUCCESS;
+}
+
+/* Table configuration write function. */
+static int config_write_table(struct vty *vty)
+{
+	if (zebrad.rtm_table_default)
+		vty_out(vty, "table %d\n", zebrad.rtm_table_default);
+	return 0;
+}
+
+/* IPForwarding configuration write function. */
+static int config_write_forwarding(struct vty *vty)
+{
+	/* FIXME: Find better place for that. */
+	router_id_write(vty);
+
+	if (!ipforward())
+		vty_out(vty, "no ip forwarding\n");
+	if (!ipforward_ipv6())
+		vty_out(vty, "no ipv6 forwarding\n");
+	vty_out(vty, "!\n");
+	return 0;
+}
+
 /* IP node for static routes. */
 static struct cmd_node ip_node = {IP_NODE, "", 1};
 static struct cmd_node protocol_node = {PROTOCOL_NODE, "", 1};
+/* table node for routing tables. */
+static struct cmd_node table_node = {TABLE_NODE,
+				     "", /* This node has no interface. */
+				     1};
+static struct cmd_node forwarding_node = {FORWARDING_NODE,
+					  "", /* This node has no interface. */
+					  1};
 
 /* Route VTY.  */
 void zebra_vty_init(void)
 {
+	/* Install configuration write function. */
+	install_node(&table_node, config_write_table);
+	install_node(&forwarding_node, config_write_forwarding);
+
+	install_element(VIEW_NODE, &show_ip_forwarding_cmd);
+	install_element(CONFIG_NODE, &ip_forwarding_cmd);
+	install_element(CONFIG_NODE, &no_ip_forwarding_cmd);
+	install_element(ENABLE_NODE, &show_zebra_cmd);
+
+#ifdef HAVE_NETLINK
+	install_element(VIEW_NODE, &show_table_cmd);
+	install_element(CONFIG_NODE, &config_table_cmd);
+	install_element(CONFIG_NODE, &no_config_table_cmd);
+#endif /* HAVE_NETLINK */
+
+	install_element(VIEW_NODE, &show_ipv6_forwarding_cmd);
+	install_element(CONFIG_NODE, &ipv6_forwarding_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_forwarding_cmd);
+
+	/* Route-map */
+	zebra_route_map_init();
+
 	install_node(&ip_node, zebra_ip_config);
 	install_node(&protocol_node, config_write_protocol);
 
