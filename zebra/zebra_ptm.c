@@ -817,6 +817,7 @@ int zebra_ptm_bfd_dst_register(struct zserv *client, u_short length,
 	zebra_ptm_send_message(ptm_cb.out_data, data_len);
 
 stream_failure:
+	ptm_lib_cleanup_msg(ptm_hdl, out_ctxt);
 	return 0;
 }
 
@@ -946,6 +947,7 @@ int zebra_ptm_bfd_dst_deregister(struct zserv *client, u_short length,
 	zebra_ptm_send_message(ptm_cb.out_data, data_len);
 
 stream_failure:
+	ptm_lib_cleanup_msg(ptm_hdl, out_ctxt);
 	return 0;
 }
 
