@@ -42,6 +42,7 @@ static void dropline(FILE *fp)
 
 int ipforward(void)
 {
+	int ret = 0;
 	FILE *fp;
 	int ipforwarding = 0;
 	char buf[10];
@@ -58,11 +59,11 @@ int ipforward(void)
 	   1 => ip forwarding enabled
 	   2 => ip forwarding off. */
 	if (fgets(buf, 6, fp))
-		sscanf(buf, "Ip: %d", &ipforwarding);
+		ret = sscanf(buf, "Ip: %d", &ipforwarding);
 
 	fclose(fp);
 
-	if (ipforwarding == 1)
+	if (ret == 1 && ipforwarding == 1)
 		return 1;
 
 	return 0;
@@ -127,6 +128,7 @@ char proc_ipv6_forwarding[] = "/proc/sys/net/ipv6/conf/all/forwarding";
 
 int ipforward_ipv6(void)
 {
+	int ret = 0;
 	FILE *fp;
 	char buf[5];
 	int ipforwarding = 0;
@@ -137,9 +139,13 @@ int ipforward_ipv6(void)
 		return -1;
 
 	if (fgets(buf, 2, fp))
-		sscanf(buf, "%d", &ipforwarding);
+		ret = sscanf(buf, "%d", &ipforwarding);
 
 	fclose(fp);
+
+	if (ret != 1)
+		return 0;
+
 	return ipforwarding;
 }
 

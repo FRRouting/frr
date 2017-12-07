@@ -596,7 +596,8 @@ static void daemon_send_ready(void)
 		FILE *fp;
 
 		fp = fopen(DAEMON_VTY_DIR "/watchfrr.started", "w");
-		fclose(fp);
+		if (fp)
+			fclose(fp);
 #if defined HAVE_SYSTEMD
 		zlog_notice(
 			"Watchfrr: Notifying Systemd we are up and running");

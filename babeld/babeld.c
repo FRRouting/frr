@@ -229,7 +229,7 @@ babel_get_myid(void)
         int ifindex = if_nametoindex(ifp->name);
         if(ifindex > 0) {
             unsigned char eui[8];
-            rc = if_eui64(ifp->name, ifindex, eui);
+            rc = if_eui64(ifindex, eui);
             if(rc < 0)
                 continue;
             memcpy(myid, eui, 8);
@@ -245,7 +245,7 @@ babel_get_myid(void)
         ifname = if_indextoname(i, buf);
         if(ifname == NULL)
             continue;
-        rc = if_eui64(ifname, i, eui);
+        rc = if_eui64(i, eui);
         if(rc < 0)
             continue;
         memcpy(myid, eui, 8);

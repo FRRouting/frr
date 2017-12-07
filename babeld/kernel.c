@@ -203,7 +203,7 @@ zebra_route(int add, int family, const unsigned char *pref, unsigned short plen,
 }
 
 int
-if_eui64(char *ifname, int ifindex, unsigned char *eui)
+if_eui64(int ifindex, unsigned char *eui)
 {
     struct interface *ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
     if (ifp == NULL) {
