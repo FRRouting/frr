@@ -117,7 +117,9 @@ static void ospf6_area_lsdb_hook_remove(struct ospf6_lsa *lsa)
 
 static void ospf6_area_route_hook_add(struct ospf6_route *route)
 {
-	struct ospf6_route *copy = ospf6_route_copy(route);
+	struct ospf6_route *copy;
+
+	copy = ospf6_route_copy(route);
 	ospf6_route_add(copy, ospf6->route_table);
 }
 

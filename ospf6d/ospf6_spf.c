@@ -145,6 +145,7 @@ static struct ospf6_vertex *ospf6_vertex_create(struct ospf6_lsa *lsa)
 	v->options[2] = *(u_char *)(OSPF6_LSA_HEADER_END(lsa->header) + 3);
 
 	v->nh_list = list_new();
+	v->nh_list->cmp = (int (*)(void *, void *))ospf6_nexthop_cmp;
 	v->nh_list->del = (void (*) (void *))ospf6_nexthop_delete;
 
 	v->parent = NULL;
