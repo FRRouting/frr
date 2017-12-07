@@ -40,6 +40,7 @@
 #include "zebra/zserv.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
+#include "zebra/rt.h"
 #include "zebra/debug.h"
 #include "zebra/kernel_netlink.h"
 #include "zebra/rt_netlink.h"

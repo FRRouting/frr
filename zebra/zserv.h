@@ -149,21 +149,7 @@ extern unsigned int multipath_num;
 
 /* Prototypes. */
 extern void zserv_init(void);
-extern void zebra_if_init(void);
 extern void zebra_zserv_socket_init(char *path);
-extern void hostinfo_get(void);
-extern void rib_init(void);
-extern void interface_list(struct zebra_ns *);
-extern void route_read(struct zebra_ns *);
-extern void macfdb_read(struct zebra_ns *);
-extern void macfdb_read_for_bridge(struct zebra_ns *, struct interface *,
-				   struct interface *);
-extern void neigh_read(struct zebra_ns *);
-extern void neigh_read_for_vlan(struct zebra_ns *, struct interface *);
-extern void kernel_init(struct zebra_ns *);
-extern void kernel_terminate(struct zebra_ns *);
-extern void zebra_route_map_init(void);
-extern void zebra_vty_init(void);
 
 extern int zsend_vrf_add(struct zserv *, struct zebra_vrf *);
 extern int zsend_vrf_delete(struct zserv *, struct zebra_vrf *);
@@ -188,8 +174,6 @@ extern int zsend_pw_update(struct zserv *, struct zebra_pw *);
 extern int zsend_route_notify_owner(u_char proto, u_short instance,
 				    vrf_id_t vrf_id, struct prefix *p,
 				    enum zapi_route_notify_owner note);
-
-extern pid_t pid;
 
 extern void zserv_create_header(struct stream *s, uint16_t cmd,
 				vrf_id_t vrf_id);

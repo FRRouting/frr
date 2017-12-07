@@ -112,4 +112,18 @@ extern int kernel_add_neigh(struct interface *ifp, struct ipaddr *ip,
 			    struct ethaddr *mac);
 extern int kernel_del_neigh(struct interface *ifp, struct ipaddr *ip);
 
+/*
+ * Southbound Initialization routines to get initial starting
+ * state.
+ */
+extern void interface_list(struct zebra_ns *zns);
+extern void kernel_init(struct zebra_ns *zns);
+extern void kernel_terminate(struct zebra_ns *zns);
+extern void macfdb_read(struct zebra_ns *zns);
+extern void macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
+				   struct interface *br_if);
+extern void neigh_read(struct zebra_ns *zns);
+extern void neigh_read_for_vlan(struct zebra_ns *zns, struct interface *ifp);
+extern void route_read(struct zebra_ns *zns);
+
 #endif /* _ZEBRA_RT_H */

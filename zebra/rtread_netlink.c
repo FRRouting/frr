@@ -24,7 +24,7 @@
 #ifdef GNU_LINUX
 
 #include "vty.h"
-#include "zebra/zserv.h"
+#include "zebra/rt.h"
 #include "zebra/rt_netlink.h"
 
 void route_read(struct zebra_ns *zns)
