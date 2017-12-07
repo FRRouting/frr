@@ -307,12 +307,16 @@ class Topogen(object):
         """
         Stops the network topology. This function will call the stop() function
         of all gears before calling the mininet stop function, so they can have
-        their oportunity to do a graceful shutdown.
+        their oportunity to do a graceful shutdown. stop() is called twice. The
+        first is a simple kill with no sleep, the second will sleep if not
+        killed and try with a different signal.
         """
         logger.info('stopping topology: {}'.format(self.modname))
 
         for gear in self.gears.values():
-            gear.stop()
+            gear.stop(False)
+        for gear in self.gears.values():
+            gear.stop(True)
 
         self.net.stop()
 
@@ -413,7 +417,7 @@ class TopoGear(object):
         "Basic start function that just reports equipment start"
         logger.info('starting "{}"'.format(self.name))
 
-    def stop(self):
+    def stop(self, wait=True):
         "Basic start function that just reports equipment stop"
         logger.info('stopping "{}"'.format(self.name))
 
@@ -633,13 +637,13 @@ class TopoRouter(TopoGear):
 
         return result
 
-    def stop(self):
+    def stop(self, wait=True):
         """
         Stop router:
         * Kill daemons
         """
         self.logger.debug('stopping')
-        return self.tgen.net[self.name].stopRouter()
+        return self.tgen.net[self.name].stopRouter(wait)
 
     def vtysh_cmd(self, command, isjson=False, daemon=None):
         """
@@ -866,7 +870,7 @@ class TopoExaBGP(TopoHost):
         self.run('chown -R exabgp:exabgp /etc/exabgp')
         self.run('exabgp -e /etc/exabgp/exabgp.env /etc/exabgp/exabgp.cfg')
 
-    def stop(self):
+    def stop(self, wait=True):
         "Stop ExaBGP peer and kill the daemon"
         self.run('kill `cat /var/run/exabgp/exabgp.pid`')
 

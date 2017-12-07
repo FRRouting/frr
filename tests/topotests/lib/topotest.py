@@ -534,23 +534,28 @@ class Router(Node):
         set_sysctl(self, 'net.ipv4.ip_forward', 0)
         set_sysctl(self, 'net.ipv6.conf.all.forwarding', 0)
         super(Router, self).terminate()
-    def stopRouter(self):
+    def stopRouter(self, wait=True):
         # Stop Running Quagga or FRR Daemons
         rundaemons = self.cmd('ls -1 /var/run/%s/*.pid' % self.routertype)
         if rundaemons is not None:
+            numRunning = 0
             for d in StringIO.StringIO(rundaemons):
                 daemonpid = self.cmd('cat %s' % d.rstrip()).rstrip()
                 if (daemonpid.isdigit() and pid_exists(int(daemonpid))):
+                    logger.info('killing %s %s' % (self.name, os.path.basename(d.rstrip().rsplit(".", 1)[0])))
                     self.cmd('kill -TERM %s' % daemonpid)
                     self.waitOutput()
-            sleep(2, 'waiting for router "{}" daemons to finish'.format(
-                self.name))
-            # 2nd round of kill if daemons didn't exist
-            for d in StringIO.StringIO(rundaemons):
-                daemonpid = self.cmd('cat %s' % d.rstrip()).rstrip()
-                if (daemonpid.isdigit() and pid_exists(int(daemonpid))):
-                    self.cmd('kill -7 %s' % daemonpid)
-                    self.waitOutput()
+                    if pid_exists(int(daemonpid)):
+                        numRunning += 1
+            if wait and numRunning > 0:
+                sleep(2)
+                # 2nd round of kill if daemons didn't exit
+                for d in StringIO.StringIO(rundaemons):
+                    daemonpid = self.cmd('cat %s' % d.rstrip()).rstrip()
+                    if (daemonpid.isdigit() and pid_exists(int(daemonpid))):
+                        logger.info('killing (-7) %s %s' % (self.name, os.path.basename(d.rstrip().rsplit(".", 1)[0])))
+                        self.cmd('kill -7 %s' % daemonpid)
+                        self.waitOutput()
     def removeIPs(self):
         for interface in self.intfNames():
             self.cmd('ip address flush', interface)
