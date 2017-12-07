@@ -46,11 +46,11 @@ struct ldp_debug {
 extern struct ldp_debug	 conf_ldp_debug;
 extern struct ldp_debug	 ldp_debug;
 
-#define CONF_DEBUG_ON(a, b)	(conf_ldp_debug.a |= (LDP_DEBUG_ ## b))
-#define CONF_DEBUG_OFF(a, b)	(conf_ldp_debug.a &= ~(LDP_DEBUG_ ## b))
+#define CONF_DEBUG_ON(a, b)	(conf_ldp_debug.a |= (b))
+#define CONF_DEBUG_OFF(a, b)	(conf_ldp_debug.a &= ~(b))
 
-#define TERM_DEBUG_ON(a, b)	(ldp_debug.a |= (LDP_DEBUG_ ## b))
-#define TERM_DEBUG_OFF(a, b)	(ldp_debug.a &= ~(LDP_DEBUG_ ## b))
+#define TERM_DEBUG_ON(a, b)	(ldp_debug.a |= (b))
+#define TERM_DEBUG_OFF(a, b)	(ldp_debug.a &= ~(b))
 
 #define DEBUG_ON(a, b)			\
     do {				\
@@ -66,48 +66,48 @@ extern struct ldp_debug	 ldp_debug;
 	TERM_DEBUG_OFF(a, b);		\
     } while (0)
 
-#define LDP_DEBUG(a, b)		(ldp_debug.a & LDP_DEBUG_ ## b)
-#define CONF_LDP_DEBUG(a, b)    (conf_ldp_debug.a & LDP_DEBUG_ ## b)
+#define LDP_DEBUG(a, b)		(ldp_debug.a & b)
+#define CONF_LDP_DEBUG(a, b)    (conf_ldp_debug.a & b)
 
 #define		 debug_hello_recv(emsg, ...)				\
 do {									\
-	if (LDP_DEBUG(hello, HELLO_RECV))				\
+	if (LDP_DEBUG(hello, LDP_DEBUG_HELLO_RECV))			\
 		log_debug("discovery[recv]: " emsg, __VA_ARGS__);	\
 } while (0)
 
 #define		 debug_hello_send(emsg, ...)				\
 do {									\
-	if (LDP_DEBUG(hello, HELLO_SEND))				\
+	if (LDP_DEBUG(hello, LDP_DEBUG_HELLO_SEND))			\
 		log_debug("discovery[send]: " emsg, __VA_ARGS__);	\
 } while (0)
 
 #define		 debug_err(emsg, ...)					\
 do {									\
-	if (LDP_DEBUG(errors, ERRORS))					\
+	if (LDP_DEBUG(errors, LDP_DEBUG_ERRORS))			\
 		log_debug("error: " emsg, __VA_ARGS__);			\
 } while (0)
 
 #define		 debug_evt(emsg, ...)					\
 do {									\
-	if (LDP_DEBUG(event, EVENT))					\
+	if (LDP_DEBUG(event, LDP_DEBUG_EVENT))				\
 		log_debug("event: " emsg, __VA_ARGS__);			\
 } while (0)
 
 #define		 debug_labels(emsg, ...)				\
 do {									\
-	if (LDP_DEBUG(labels, LABELS))					\
+	if (LDP_DEBUG(labels, LDP_DEBUG_LABELS))			\
 		log_debug("labels: " emsg, __VA_ARGS__);		\
 } while (0)
 
 #define		 debug_msg_recv(emsg, ...)				\
 do {									\
-	if (LDP_DEBUG(msg, MSG_RECV))					\
+	if (LDP_DEBUG(msg, LDP_DEBUG_MSG_RECV))				\
 		log_debug("msg[in]: " emsg, __VA_ARGS__);		\
 } while (0)
 
 #define		 debug_msg_send(emsg, ...)				\
 do {									\
-	if (LDP_DEBUG(msg, MSG_SEND))					\
+	if (LDP_DEBUG(msg, LDP_DEBUG_MSG_SEND))				\
 		log_debug("msg[out]: " emsg, __VA_ARGS__);		\
 } while (0)
 
@@ -121,25 +121,25 @@ do {									\
 
 #define		 debug_kalive_recv(emsg, ...)				\
 do {									\
-	if (LDP_DEBUG(msg, MSG_RECV_ALL))				\
+	if (LDP_DEBUG(msg, LDP_DEBUG_MSG_RECV_ALL))			\
 		log_debug("kalive[in]: " emsg, __VA_ARGS__);		\
 } while (0)
 
 #define		 debug_kalive_send(emsg, ...)				\
 do {									\
-	if (LDP_DEBUG(msg, MSG_SEND_ALL))				\
+	if (LDP_DEBUG(msg, LDP_DEBUG_MSG_SEND_ALL))			\
 		log_debug("kalive[out]: " emsg, __VA_ARGS__);		\
 } while (0)
 
 #define		 debug_zebra_in(emsg, ...)				\
 do {									\
-	if (LDP_DEBUG(zebra, ZEBRA))					\
+	if (LDP_DEBUG(zebra, LDP_DEBUG_ZEBRA))				\
 		log_debug("zebra[in]: " emsg, __VA_ARGS__);		\
 } while (0)
 
 #define		 debug_zebra_out(emsg, ...)				\
 do {									\
-	if (LDP_DEBUG(zebra, ZEBRA))					\
+	if (LDP_DEBUG(zebra, LDP_DEBUG_ZEBRA))				\
 		log_debug("zebra[out]: " emsg, __VA_ARGS__);		\
 } while (0)
 
