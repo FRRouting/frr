@@ -76,7 +76,7 @@ static void sighup(void)
 	zlog_info("ripd restarting!");
 
 	/* Reload config file. */
-	vty_read_config(ripd_di.config_file, config_default);
+	vty_read_config(NULL, ripd_di.config_file, config_default);
 
 	/* Try to return to normal operation. */
 }

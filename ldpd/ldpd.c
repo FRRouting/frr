@@ -138,7 +138,7 @@ sighup(void)
 	 * and build a new configuartion from scratch.
 	 */
 	ldp_config_reset(vty_conf);
-	vty_read_config(ldpd_di.config_file, config_default);
+	vty_read_config(NULL, ldpd_di.config_file, config_default);
 	ldp_config_apply(NULL, vty_conf);
 }
 

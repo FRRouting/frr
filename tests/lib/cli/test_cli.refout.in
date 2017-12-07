@@ -313,6 +313,7 @@ frr defaults @DFLT_NAME@
 hostname test
 !
 !
+!
 line vty
 !
 end
@@ -326,6 +327,7 @@ frr version @PACKAGE_VERSION@
 frr defaults @DFLT_NAME@
 !
 hostname foohost
+!
 !
 !
 line vty

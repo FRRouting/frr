@@ -155,6 +155,8 @@ int main(int argc, char **argv)
 	cmd_init(1);
 	vty_init(master);
 	memory_init();
+	yang_init();
+	nb_init(NULL, 0);
 
 	/* OSPF vty inits. */
 	test_vty_init();
@@ -171,7 +173,7 @@ int main(int argc, char **argv)
 	/* Configuration file read*/
 	if (!config_file)
 		usage(progname, 1);
-	vty_read_config(config_file, NULL);
+	vty_read_config(NULL, config_file, NULL);
 
 	test_timer_init();
 

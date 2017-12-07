@@ -3,7 +3,7 @@
 #
 lib_LTLIBRARIES += lib/libfrr.la
 lib_libfrr_la_LDFLAGS = -version-info 0:0:0 -Xlinker -e_libfrr_version
-lib_libfrr_la_LIBADD = @LIBCAP@ $(UNWIND_LIBS)
+lib_libfrr_la_LIBADD = @LIBCAP@ $(UNWIND_LIBS) -lyang
 
 lib_libfrr_la_SOURCES = \
 	lib/agg_table.c \
@@ -50,6 +50,9 @@ lib_libfrr_la_SOURCES = \
 	lib/netns_linux.c \
 	lib/netns_other.c \
 	lib/nexthop_group.c \
+	lib/northbound.c \
+	lib/northbound_cli.c \
+	lib/northbound_db.c \
 	lib/openbsd-tree.c \
 	lib/pid_output.c \
 	lib/plist.c \
@@ -80,6 +83,9 @@ lib_libfrr_la_SOURCES = \
 	lib/vty.c \
 	lib/wheel.c \
 	lib/workqueue.c \
+	lib/yang.c \
+	lib/yang_translator.c \
+	lib/yang_wrappers.c \
 	lib/zclient.c \
 	lib/logicalrouter.c \
 	lib/lua.c \
@@ -101,10 +107,17 @@ vtysh_scan += \
 # can be loaded as DSO - always include for vtysh
 vtysh_scan += $(top_srcdir)/lib/agentx.c
 
+if SQLITE3
+lib_libfrr_la_LIBADD += -lsqlite3
+lib_libfrr_la_SOURCES += lib/db.c
+endif
+
 lib/plist_clippy.c: $(CLIPPY_DEPS)
 lib/plist.lo: lib/plist_clippy.c
 lib/nexthop_group_clippy.c: $(CLIPPY_DEPS)
 lib/nexthop_group.lo: lib/nexthop_group_clippy.c
+lib/northbound_cli_clippy.c: $(CLIPPY_DEPS)
+lib/northbound_cli.lo: lib/northbound_cli_clippy.c
 
 pkginclude_HEADERS += \
 	lib/agg_table.h \
@@ -117,6 +130,7 @@ pkginclude_HEADERS += \
 	lib/command_match.h \
 	lib/compiler.h \
 	lib/csv.h \
+	lib/db.h \
 	lib/debug.h \
 	lib/distribute.h \
 	lib/event_counter.h \
@@ -152,6 +166,9 @@ pkginclude_HEADERS += \
 	lib/network.h \
 	lib/nexthop.h \
 	lib/nexthop_group.h \
+	lib/northbound.h \
+	lib/northbound_cli.h \
+	lib/northbound_db.h \
 	lib/ns.h \
 	lib/openbsd-queue.h \
 	lib/openbsd-tree.h \
@@ -187,6 +204,9 @@ pkginclude_HEADERS += \
 	lib/vxlan.h \
 	lib/wheel.h \
 	lib/workqueue.h \
+	lib/yang.h \
+	lib/yang_translator.h \
+	lib/yang_wrappers.h \
 	lib/zassert.h \
 	lib/zclient.h \
 	lib/zebra.h \

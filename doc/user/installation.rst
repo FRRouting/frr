@@ -222,6 +222,10 @@ options from the list below.
    the COMMIT (git hash) and TOKEN (codecov upload token) environment variables
    be set.
 
+.. option:: --enable-config-rollbacks
+
+   Build with configuration rollback support. Requires SQLite3.
+
 You may specify any combination of the above options to the configure
 script. By default, the executables are placed in :file:`/usr/local/sbin`
 and the configuration files in :file:`/usr/local/etc`. The :file:`/usr/local/`

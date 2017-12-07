@@ -1,0 +1,9 @@
+#
+# libyang user types
+#
+libyang_plugins_LTLIBRARIES += yang/libyang_plugins/frr_user_types.la
+
+yang_libyang_plugins_frr_user_types_la_CFLAGS = $(WERROR)
+yang_libyang_plugins_frr_user_types_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+yang_libyang_plugins_frr_user_types_la_LIBADD =
+yang_libyang_plugins_frr_user_types_la_SOURCES = yang/libyang_plugins/frr_user_types.c

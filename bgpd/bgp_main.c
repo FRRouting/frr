@@ -137,7 +137,7 @@ void sighup(void)
 	zlog_info("bgpd restarting!");
 
 	/* Reload config file. */
-	vty_read_config(bgpd_di.config_file, config_default);
+	vty_read_config(NULL, bgpd_di.config_file, config_default);
 
 	/* Try to return to normal operation. */
 }

@@ -77,6 +77,7 @@ enum node_type {
 	CONFIG_NODE,		 /* Config node. Default mode of config file. */
 	DEBUG_NODE,		 /* Debug node. */
 	VRF_DEBUG_NODE,		 /* Vrf Debug node. */
+	NORTHBOUND_DEBUG_NODE,	 /* Northbound Debug node. */
 	DEBUG_VNC_NODE,		 /* Debug VNC node. */
 	AAA_NODE,		 /* AAA node. */
 	KEYCHAIN_NODE,		 /* Key-chain node. */

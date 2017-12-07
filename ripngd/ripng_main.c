@@ -76,7 +76,7 @@ static void sighup(void)
 	ripng_reset();
 
 	/* Reload config file. */
-	vty_read_config(ripngd_di.config_file, config_default);
+	vty_read_config(NULL, ripngd_di.config_file, config_default);
 
 	/* Try to return to normal operation. */
 }
