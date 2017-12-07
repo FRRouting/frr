@@ -21,6 +21,7 @@ import re
 import sys
 import time
 import datetime
+from topolog import logger
 from mininet.net import Mininet
 
 
@@ -263,16 +264,14 @@ def luNumPass():
 
 def luShowFail():
     printed = 0
-    print("Showing error summary from See %s" % LUtil.fsum_name)
     sf = open(LUtil.fsum_name, 'r')
     for line in sf:
         if line[-2] != "0":
             printed+=1
-            sys.stdout.write(line)
-    sys.stdout.flush()
+            logger.error(line.rstrip())
     sf.close()
     if printed > 0:
-        print("See %s for details of errors" % LUtil.fout_name)
+         logger.error("See %s for details of errors" % LUtil.fout_name)
 
 #for testing
 if __name__ == '__main__':
