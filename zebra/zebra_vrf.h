@@ -22,6 +22,7 @@
 #if !defined(__ZEBRA_RIB_H__)
 #define __ZEBRA_RIB_H__
 
+#include <lib/ns.h>
 #include <zebra/zebra_ns.h>
 #include <zebra/zebra_pw.h>
 #include <lib/vxlan.h>
@@ -133,9 +134,21 @@ static inline vrf_id_t zvrf_id(struct zebra_vrf *zvrf)
 	return zvrf->vrf->vrf_id;
 }
 
+static inline const char *zvrf_ns_name(struct zebra_vrf *zvrf)
+{
+	if (!zvrf->vrf || !zvrf->vrf->ns_ctxt)
+		return NULL;
+	return ns_get_name((struct ns *)zvrf->vrf->ns_ctxt);
+}
+
 static inline const char *zvrf_name(struct zebra_vrf *zvrf)
 {
 	return zvrf->vrf->name;
+}
+
+static inline bool zvrf_is_active(struct zebra_vrf *zvrf)
+{
+	return zvrf->vrf->status & VRF_ACTIVE;
 }
 
 struct route_table *zebra_vrf_table_with_table_id(afi_t afi, safi_t safi,

@@ -99,5 +99,6 @@ extern int ns_handler_create(struct vty *vty, struct vrf *vrf,
 extern char *ns_netns_pathname(struct vty *vty, const char *name);
 extern void *ns_info_lookup(ns_id_t ns_id);
 extern void ns_walk_func(int (*func)(struct ns *));
+extern const char *ns_get_name(struct ns *ns);
 
 #endif /*_ZEBRA_NS_H*/
