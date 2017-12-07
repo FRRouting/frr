@@ -32,6 +32,7 @@
 #include "zebra_memory.h"
 #include "rt.h"
 #include "zebra_vxlan.h"
+#include "debug.h"
 
 DEFINE_MTYPE(ZEBRA, ZEBRA_NS, "Zebra Name Space")
 
@@ -57,6 +58,58 @@ zebra_ns_table_entry_compare(const struct zebra_ns_table *e1,
 struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id)
 {
 	return dzns;
+}
+
+static struct zebra_ns *zebra_ns_alloc(void)
+{
+	return XCALLOC(MTYPE_ZEBRA_NS, sizeof(struct zebra_ns));
+}
+
+static int zebra_ns_new(struct ns *ns)
+{
+	struct zebra_ns *zns;
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_info("ZNS %s with id %u (created)", ns->name, ns->ns_id);
+
+	zns = zebra_ns_alloc();
+	ns->info = zns;
+	zns->ns = ns;
+	return 0;
+}
+
+static int zebra_ns_delete(struct ns *ns)
+{
+	struct zebra_ns *zns = (struct zebra_ns *) ns->info;
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_info("ZNS %s with id %u (deleted)", ns->name, ns->ns_id);
+	if (!zns)
+		return 0;
+	XFREE(MTYPE_ZEBRA_NS, zns);
+	return 0;
+}
+
+static int zebra_ns_enabled(struct ns *ns)
+{
+	struct zebra_ns *zns = ns->info;
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_info("ZNS %s with id %u (enabled)", ns->name, ns->ns_id);
+	if (!zns)
+		return 0;
+	return zebra_ns_enable(ns->ns_id, (void **)&zns);
+}
+
+static int zebra_ns_disabled(struct ns *ns)
+{
+	struct zebra_ns *zns = ns->info;
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_info("ZNS %s with id %u (disabled)", ns->name, ns->ns_id);
+	if (!zns)
+		return 0;
+	return zebra_ns_disable(ns->ns_id, (void **)&zns);
 }
 
 /* Do global enable actions - open sockets, read kernel config etc. */
@@ -162,7 +215,9 @@ int zebra_ns_disable(ns_id_t ns_id, void **info)
 
 int zebra_ns_init(void)
 {
-	dzns = XCALLOC(MTYPE_ZEBRA_NS, sizeof(struct zebra_ns));
+	dzns = zebra_ns_alloc();
+
+	ns_init_zebra();
 
 	ns_init();
 
@@ -176,6 +231,12 @@ int zebra_ns_init(void)
 	/* Default NS is activated */
 	zebra_ns_enable(NS_DEFAULT, (void **)&dzns);
 
+	if (vrf_is_backend_netns()) {
+		ns_add_hook(NS_NEW_HOOK, zebra_ns_new);
+		ns_add_hook(NS_ENABLE_HOOK, zebra_ns_enabled);
+		ns_add_hook(NS_DISABLE_HOOK, zebra_ns_disabled);
+		ns_add_hook(NS_DELETE_HOOK, zebra_ns_delete);
+	}
 	return 0;
 }
 

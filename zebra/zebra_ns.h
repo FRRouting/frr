@@ -69,6 +69,9 @@ struct zebra_ns {
 #endif /* HAVE_RTADV */
 
 	struct zebra_ns_table_head ns_tables;
+
+	/* Back pointer */
+	struct ns *ns;
 };
 
 struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id);

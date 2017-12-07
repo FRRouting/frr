@@ -96,10 +96,10 @@ static int have_netns(void)
 
 /* Holding NS hooks  */
 struct ns_master {
-	int (*ns_new_hook)(ns_id_t, void **);
-	int (*ns_delete_hook)(ns_id_t, void **);
-	int (*ns_enable_hook)(ns_id_t, void **);
-	int (*ns_disable_hook)(ns_id_t, void **);
+	int (*ns_new_hook)(struct ns *ns);
+	int (*ns_delete_hook)(struct ns *ns);
+	int (*ns_enable_hook)(struct ns *ns);
+	int (*ns_disable_hook)(struct ns *ns);
 } ns_master = {
 	0,
 };
@@ -129,7 +129,8 @@ static void ns_get_created(struct ns *ns)
 	else
 		zlog_info("NS %s is created.", ns->name);
 	if (ns_master.ns_new_hook)
-		(*ns_master.ns_new_hook)(ns->ns_id, &ns->info);
+		(*ns_master.ns_new_hook) (ns);
+	return;
 }
 
 /* Get a NS. If not found, create one. */
@@ -177,7 +178,7 @@ static void ns_delete(struct ns *ns)
 	ns_disable(ns);
 
 	if (ns_master.ns_delete_hook)
-		(*ns_master.ns_delete_hook)(ns->ns_id, &ns->info);
+		(*ns_master.ns_delete_hook)(ns);
 
 	/*
 	 * I'm not entirely sure if the vrf->iflist
@@ -270,7 +271,7 @@ static int ns_enable(struct ns *ns)
 		 * then VRF enable event
 		 */
 		if (ns_master.ns_enable_hook)
-			(*ns_master.ns_enable_hook)(ns->ns_id, &ns->info);
+			(*ns_master.ns_enable_hook)(ns);
 		if (vrf_on == 1)
 			vrf_enable((struct vrf *)ns->vrf_ctxt);
 	}
@@ -289,7 +290,7 @@ static void ns_disable(struct ns *ns)
 		zlog_info("NS %u is to be disabled.", ns->ns_id);
 
 		if (ns_master.ns_disable_hook)
-			(*ns_master.ns_disable_hook)(ns->ns_id, &ns->info);
+			(*ns_master.ns_disable_hook)(ns);
 
 		if (have_netns())
 			close(ns->fd);
@@ -300,7 +301,7 @@ static void ns_disable(struct ns *ns)
 
 
 /* Add a NS hook. Please add hooks before calling ns_init(). */
-void ns_add_hook(int type, int (*func)(ns_id_t, void **))
+void ns_add_hook(int type, int (*func)(struct ns *))
 {
 	switch (type) {
 	case NS_NEW_HOOK:
@@ -564,7 +565,7 @@ DEFUN (no_ns_netns,
 }
 
 /* Initialize NS module. */
-void ns_init(void)
+void ns_init_zebra(void)
 {
 	struct ns *default_ns;
 

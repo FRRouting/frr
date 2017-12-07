@@ -79,13 +79,12 @@ extern struct ns_head ns_tree;
  *          - param 2: the address of the user data pointer (the user data
  *                     can be stored in or freed from there)
  */
-extern void ns_add_hook(int, int (*)(ns_id_t, void **));
+extern void ns_add_hook(int type, int (*)(struct ns *));
 
 /*
  * NS initializer/destructor
  */
-/* Please add hooks before calling ns_init(). */
-extern void ns_init(void);
+extern void ns_init_zebra(void);
 extern void ns_terminate(void);
 
 /*
