@@ -1,67 +1,141 @@
-FRR Command Line Interface
-==========================
+Command Line Interface
+======================
+
+FRR features a flexible modal command line interface. Often when adding new
+features or modifying existing code it is necessary to create or modify CLI
+commands. FRR has a powerful internal CLI system that does most of the heavy
+lifting for you.
+
+All definitions for the CLI system are exposed in ``lib/command.h``. In this
+header there are a set of macros used to define commands. These macros are
+collectively referred to as "DEFUNs", because of their syntax:
+
+::
+
+    DEFUN(command_name,
+          command_name_cmd,
+          "example command FOO...",
+          "Examples\n"
+          "CLI command\n"
+          "Argument\n")
+    {
+        // ...command handler...
+    }
+
+DEFUNs generally take four arguments which are expanded into the appropriate
+constructs for hooking into the CLI. In order these are:
+
+- **Function name** - the name of the handler function for the command
+- **Command name** - the identifier of the ``struct cmd_element`` for the
+  command. By convention this should be the function name with ``_cmd``
+  appended.
+- **Command definition** - an expression in FRR's CLI grammar that defines the
+  form of the command and its arguments, if any
+- **Doc string** - a newline-delimited string that documents each element in
+  the command definition
+
+In the above example, ``command_name`` is the function name,
+``command_name_cmd`` is the command name, ``"example..."`` is the definition
+and the last argument is the doc string. The block following the macro is the
+body of the handler function, details on which are presented later in this
+section.
+
+In order to make the command show up to the user it must be installed into the
+CLI graph. To do this, call:
+
+``install_element(NODE, &command_name_cmd);``
+
+This will install the command into the specified CLI node. Usually these calls
+are grouped together in a CLI initialization function for a set of commands,
+and the DEFUNs themselves are grouped into the same source file to avoid
+cluttering the codebase.  The names of these files follow the form
+``*_vty.[ch]`` by convention. Please do not scatter individual CLI commands in
+the middle of source files; instead expose the necessary functions in a header
+and place the command definition in a ``*_vty.[ch]`` file.
 
 Definition Grammar
 ------------------
 
-This is a reference for the syntax used when defining new CLI commands.
-An example definition is:
+FRR uses its own grammar for defining CLI commands. The grammar draws from
+syntax commonly seen in \*nix manpages and should be fairly intuitive. The
+parser is implemented in Bison and the lexer in Flex. These may be found in
+``lib/command_lex.l`` and ``lib/command_parse.y``, respectively.
+
+    **ProTip**: if you define a new command and find that the parser is
+    throwing syntax or other errors, the parser is the last place you want
+    to look. Bison is very stable and if it detects a syntax error, 99% of
+    the time it will be a syntax error in your definition.
+
+Tokens
+~~~~~~
+
+Each element in a command definition is assigned a type by the parser based on a set of regular expression rules.
+
++-----------------+-----------------+-------------------------------------------------------------+
+| Token type      | Syntax          | Description                                                 |
++=================+=================+=============================================================+
+| ``WORD``        | ``show ip bgp`` | Matches itself. In the given example every token is a WORD. |
++-----------------+-----------------+-------------------------------------------------------------+
+| ``IPV4``        | ``A.B.C.D``     | Matches an IPv4 address.                                    |
++-----------------+-----------------+-------------------------------------------------------------+
+| ``IPV6``        | ``X:X::X:X``    | Matches an IPv6 address.                                    |
++-----------------+-----------------+-------------------------------------------------------------+
+| ``IPV4_PREFIX`` | ``A.B.C.D/M``   | Matches an IPv4 prefix in CIDR notation.                    |
++-----------------+-----------------+-------------------------------------------------------------+
+| ``IPV6_PREFIX`` | ``X:X::X:X/M``  | Matches an IPv6 prefix in CIDR notation.                    |
++-----------------+-----------------+-------------------------------------------------------------+
+| ``MAC``         | ``M:A:C``       | Matches a 48-bit mac address.                               |
++-----------------+-----------------+-------------------------------------------------------------+
+| ``MAC_PREFIX``  | ``M:A:C/M``     | Matches a 48-bit mac address with a mask.                   |
++-----------------+-----------------+-------------------------------------------------------------+
+| ``VARIABLE``    | ``FOOBAR``      | Matches anything.                                           |
++-----------------+-----------------+-------------------------------------------------------------+
+| ``RANGE``       | ``(X-Y)``       | Matches numbers in the range X..Y inclusive.                |
++-----------------+-----------------+-------------------------------------------------------------+
+
+When presented with user input, the parser will search over all defined
+commands in the current context to find a match. It is aware of the various
+types of user input and has a ranking system to help disambiguate commands. For
+instance, suppose the following commands are defined in the user's current
+context:
 
 ::
 
-    DEFUN (command_name,
-           command_name_cmd,
-    -->    "example <command|line [interface]> DEFINITION...",
-           <..doc strings..>)
+        example command FOO
+        example command (22-49)
+        example command A.B.C.D/X
 
-The arrowed part is the definition string.
+The following table demonstrates the matcher's choice for a selection of
+possible user input.
 
-Explicit syntax rules in Flex and Bison may be found in
-lib/command\_lex.l and lib/command\_parse.y, respectively. If you can
-read BNF and regex those will be more useful than this document.
-
-If the parser is throwing syntax or other errors and you can't figure
-out why, it's unlikely to be a bug in the parser. If the error message
-is not useful, please file a bug for a better error message. If all else
-fails, read the token definitions in the lexer source and the Bison BNF
-in the parser source.
-
-Characters allowed in each token type:
-
-Tokens
-------
-
--  ``WORD`` -- A token that begins with +, -, or a lowercase letter. It
-   is an unchanging part of the command and will only match itself.
-   Example: "show ip bgp", every token is a WORD.
--  ``IPV4`` -- 'A.B.C.D', matches an IPv4 address.
--  ``IPV6`` -- 'X:X::X:X', matches an IPv6 address.
--  ``IPV4_PREFIX`` -- 'A.B.C.D/M', matches an IPv4 prefix in CIDR
-   notation.
--  ``IPV6_PREFIX`` -- 'X:X::X:X/M', matches an IPv6 prefix in CIDR
-   notation.
--  ``MAC`` -- 'M:A:C', matches a 48-bit mac address
--  ``MAC_PREFIX`` -- 'M:A:C/M', matches a 48-bit mac address with a mask
--  ``VARIABLE`` -- Begins with a capital letter. Matches any input.
--  ``RANGE`` -- Numeric range delimited by parentheses, e.g. (-100 -
-   100) or (10-20). Will only match numbers in the range.
++-----------------------------+---------------------------+--------------------------------------------------------------------------------------------------------------+
+| Input                       | Matched command           | Reason                                                                                                       |
++=============================+===========================+==============================================================================================================+
+| example command eLi7eH4xx0r | example command FOO       | ``eLi7eH4xx0r`` is not an integer or IPv4 prefix,                                                            |
+|                             |                           | but FOO is a variable and matches all input.                                                                 |
++-----------------------------+---------------------------+--------------------------------------------------------------------------------------------------------------+
+| example command 42          | example command (22-49)   | ``42`` is not an IPv4 prefix. It does match both                                                             |
+|                             |                           | ``(22-49)`` and ``FOO``, but RANGE tokens are more specific and have a higher priority than VARIABLE tokens. |
++-----------------------------+---------------------------+--------------------------------------------------------------------------------------------------------------+
+| example command 10.3.3.0/24 | example command A.B.C.D/X | The user entered an IPv4 prefix, which is best matched by the last command.                                  |
++-----------------------------+---------------------------+--------------------------------------------------------------------------------------------------------------+
 
 Rules
------
+~~~~~
 
--  ``<angle|brackets>`` -- Contain sequences of tokens separated by
-   pipes and provide mutual exclusion. Sequences may contain
-   ``<mutual|exclusion>`` but not as the first token. Disallowed:
-   ``"example <<a|b> c|d>"`` Allowed: ``"example <a c|b c|d>"``
--  ``[square brackets]`` -- Contains sequences of tokens that are
-   optional (can be omitted). ``[<a|b>]`` can be shortened to ``[a|b]``.
--  ``{curly|braces}`` -- similar to angle brackets, but instead of
-   mutual exclusion, curly braces indicate that one or more of the
-   pipe-separated sequences may be provided in any order.
--  ``VARIADICS...`` -- Any token which accepts input (so anything except
-   WORD) and that occurs as the last token of a line may be followed by
-   an ellipsis, which indicates that input matching the token may be
-   repeated an unlimited number of times.
+There are also constructs which allow optional tokens, mutual exclusion, one-or-more selection and repetition.
+
+-  ``<angle|brackets>`` -- Contain sequences of tokens separated by pipes and
+   provide mutual exclusion. User input matches at most one option.
+-  ``[square brackets]`` -- Contains sequences of tokens that can be omitted.
+   ``[<a|b>]`` can be shortened to ``[a|b]``.
+-  ``{curly|braces}`` -- similar to angle brackets, but instead of mutual
+   exclusion, curly braces indicate that one or more of the pipe-separated
+   sequences may be provided in any order.
+-  ``VARIADICS...`` -- Any token which accepts input (anything except WORD)
+   which occurs as the last token of a line may be followed by an ellipsis,
+   which indicates that input matching the token may be repeated an unlimited
+   number of times.
 -  ``$name`` -- Specify a variable name for the preceding token. See
    "Variable Names" below.
 
@@ -69,18 +143,13 @@ Some general notes:
 
 -  Options are allowed at the beginning of the command. The developer is
    entreated to use these extremely sparingly. They are most useful for
-   implementing the 'no' form of configuration commands. Please think
-   carefully before using them for anything else. There is usually a
-   better solution, even if it is just separating out the command
-   definition into separate ones.
-
--  The developer should judiciously apply separation of concerns when
-   defining
-
-CLI. CLI definitions for two unrelated or vaguely related commands or
-     configuration items should be defined in separate commands. Clarity
-     is preferred over LOC (within reason).
-
+   implementing the 'no' form of configuration commands. Please think carefully
+   before using them for anything else. There is usually a better solution, even
+   if it is just separating out the command definition into separate ones.
+-  The developer should judiciously apply separation of concerns when defining
+   commands. CLI definitions for two unrelated or vaguely related commands or
+   configuration items should be defined in separate commands. Clarity is
+   preferred over LOC (within reason).
 -  The maximum number of space-separated tokens that can be entered is
    presently limited to 256. Please keep this limit in mind when
    implementing new CLI.
@@ -159,53 +228,53 @@ explicitly given variable name.
 Type rules
 ~~~~~~~~~~
 
-+------------------------------+----------------------------------+----------------------------+
-| Token(s)                     | Type                             | Value if omitted by user   |
-+==============================+==================================+============================+
-| ``A.B.C.D``                  | ``struct in_addr``               | 0.0.0.0                    |
-+------------------------------+----------------------------------+----------------------------+
-| ``X:X::X:X``                 | ``struct in6_addr``              | ::                         |
-+------------------------------+----------------------------------+----------------------------+
-| ``A.B.C.D + X:X::X:X``       | ``const union sockunion *``      | NULL                       |
-+------------------------------+----------------------------------+----------------------------+
-| ``A.B.C.D/M``                | ``const struct prefix_ipv4 *``   | NULL                       |
-+------------------------------+----------------------------------+----------------------------+
-| ``X:X::X:X/M``               | ``const struct prefix_ipv6 *``   | NULL                       |
-+------------------------------+----------------------------------+----------------------------+
-| ``A.B.C.D/M + X:X::X:X/M``   | ``const struct prefix *``        | NULL                       |
-+------------------------------+----------------------------------+----------------------------+
-| ``(0-9)``                    | ``long``                         | 0                          |
-+------------------------------+----------------------------------+----------------------------+
-| ``VARIABLE``                 | ``const char *``                 | NULL                       |
-+------------------------------+----------------------------------+----------------------------+
-| ``word``                     | ``const char *``                 | NULL                       |
-+------------------------------+----------------------------------+----------------------------+
-| *all other*                  | ``const char *``                 | NULL                       |
-+------------------------------+----------------------------------+----------------------------+
++-----------------------------+--------------------------------+--------------------------+
+| Token(s)                    | Type                           | Value if omitted by user |
++=============================+================================+==========================+
+| ``A.B.C.D``                 | ``struct in_addr``             | 0.0.0.0                  |
++-----------------------------+--------------------------------+--------------------------+
+| ``X:X::X:X``                | ``struct in6_addr``            | \::                      |
++-----------------------------+--------------------------------+--------------------------+
+| ``A.B.C.D + X:X::X:X``      | ``const union sockunion *``    | NULL                     |
++-----------------------------+--------------------------------+--------------------------+
+| ``A.B.C.D/M``               | ``const struct prefix_ipv4 *`` | NULL                     |
++-----------------------------+--------------------------------+--------------------------+
+| ``X:X::X:X/M``              | ``const struct prefix_ipv6 *`` | NULL                     |
++-----------------------------+--------------------------------+--------------------------+
+| ``A.B.C.D/M + X:X::X:X/M``  | ``const struct prefix *``      | NULL                     |
++-----------------------------+--------------------------------+--------------------------+
+| ``(0-9)``                   | ``long``                       | 0                        |
++-----------------------------+--------------------------------+--------------------------+
+| ``VARIABLE``                | ``const char *``               | NULL                     |
++-----------------------------+--------------------------------+--------------------------+
+| ``word``                    | ``const char *``               | NULL                     |
++-----------------------------+--------------------------------+--------------------------+
+| *all other*                 | ``const char *``               | NULL                     |
++-----------------------------+--------------------------------+--------------------------+
 
 Note the following details:
 
--  not all parameters are pointers, some are passed as values.
--  when the type is not ``const char *``, there will be an extra
+-  Not all parameters are pointers, some are passed as values.
+-  When the type is not ``const char *``, there will be an extra
    ``_str`` argument with type ``const char *``.
--  you can give a variable name not only to ``VARIABLE`` tokens but also
+-  You can give a variable name not only to ``VARIABLE`` tokens but also
    to ``word`` tokens (e.g. constant words). This is useful if some
    parts of a command are optional. The type will be ``const char *``.
 -  ``[no]`` will be passed as ``const char *no``.
--  pointers will be NULL when the argument is optional and the user did
+-  Pointers will be NULL when the argument is optional and the user did
    not use it.
--  if a parameter is not a pointer, but is optional and the user didn't
+-  If a parameter is not a pointer, but is optional and the user didn't
    use it, the default value will be passed. Check the ``_str`` argument
    if you need to determine whether the parameter was omitted.
--  if the definition contains multiple parameters with the same variable
+-  If the definition contains multiple parameters with the same variable
    name, they will be collapsed into a single function parameter. The
    python code will detect if the types are compatible (i.e. IPv4 + IPv6
    variantes) and choose a corresponding C type.
--  the standard DEFUN parameters (self, vty, argc, argv) are still
+-  The standard DEFUN parameters (self, vty, argc, argv) are still
    present and can be used. A DEFUN can simply be **edited into a DEFPY
    without further changes and it will still work**; this allows easy
    forward migration.
--  a file may contain both DEFUN and DEFPY statements.
+-  A file may contain both DEFUN and DEFPY statements.
 
 Getting a parameter dump
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -264,12 +333,11 @@ requirement)
 Doc Strings
 -----------
 
-Each token in a command definition should be documented with a brief doc
-string that informs a user of the meaning and/or purpose of the
-subsequent command tree. These strings are provided as the last
-parameter to DEFUN macros, concatenated together and separated by an
-escaped newline (':raw-latex:`\n`'). These are best explained by
-example.
+Each token in a command definition should be documented with a brief doc string
+that informs a user of the meaning and/or purpose of the subsequent command
+tree. These strings are provided as the last parameter to DEFUN macros,
+concatenated together and separated by an escaped newline (\n). These are best
+explained by example.
 
 ::
 
@@ -411,8 +479,9 @@ The block that follows a CLI definition is executed when a user enters
 input that matches the definition. Its function signature looks like
 this:
 
-int (*func) (const struct cmd\_element *, struct vty *, int, struct
-cmd\_token *\ []);
+::
+
+      int (*func) (const struct cmd_element *, struct vty *, int, struct cmd_token *[]);
 
 The first argument is the command definition struct. The last argument
 is an ordered array of tokens that correspond to the path taken through
