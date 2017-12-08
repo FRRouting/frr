@@ -542,18 +542,24 @@ class Router(Node):
             for d in StringIO.StringIO(rundaemons):
                 daemonpid = self.cmd('cat %s' % d.rstrip()).rstrip()
                 if (daemonpid.isdigit() and pid_exists(int(daemonpid))):
-                    logger.info('killing %s %s' % (self.name, os.path.basename(d.rstrip().rsplit(".", 1)[0])))
+                    logger.info('{}: stopping {}'.format(
+                        self.name,
+                        os.path.basename(d.rstrip().rsplit(".", 1)[0])
+                    ))
                     self.cmd('kill -TERM %s' % daemonpid)
                     self.waitOutput()
                     if pid_exists(int(daemonpid)):
                         numRunning += 1
             if wait and numRunning > 0:
-                sleep(2)
+                sleep(2, '{}: waiting for daemons stopping'.format(self.name))
                 # 2nd round of kill if daemons didn't exit
                 for d in StringIO.StringIO(rundaemons):
                     daemonpid = self.cmd('cat %s' % d.rstrip()).rstrip()
                     if (daemonpid.isdigit() and pid_exists(int(daemonpid))):
-                        logger.info('killing (-7) %s %s' % (self.name, os.path.basename(d.rstrip().rsplit(".", 1)[0])))
+                        logger.info('{}: killing {}'.format(
+                            self.name,
+                            os.path.basename(d.rstrip().rsplit(".", 1)[0])
+                        ))
                         self.cmd('kill -7 %s' % daemonpid)
                         self.waitOutput()
     def removeIPs(self):
