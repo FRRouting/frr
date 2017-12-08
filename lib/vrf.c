@@ -96,7 +96,8 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 	int new = 0;
 
 	if (debug_vrf)
-		zlog_debug("VRF_GET: %s(%u)", name, vrf_id);
+		zlog_debug("VRF_GET: %s(%u)",
+			   name == NULL ? "(NULL)" : name, vrf_id);
 
 	/* Nothing to see, move along here */
 	if (!name && vrf_id == VRF_UNKNOWN)
