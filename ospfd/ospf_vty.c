@@ -449,7 +449,7 @@ DEFUN (ospf_passive_interface,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_ipv4 = 2;
-	struct interface *ifp;
+	struct interface *ifp = NULL;
 	struct in_addr addr = {.s_addr = INADDR_ANY};
 	int ret;
 	struct ospf_if_params *params;
@@ -459,12 +459,13 @@ DEFUN (ospf_passive_interface,
 		ospf_passive_interface_default(ospf, OSPF_IF_PASSIVE);
 		return CMD_SUCCESS;
 	}
+	if (ospf->vrf_id != VRF_UNKNOWN)
+		ifp = if_get_by_name(argv[1]->arg, ospf->vrf_id, 0);
 
-	ifp = if_get_by_name(argv[1]->arg, ospf->vrf_id, 0);
 	if (ifp == NULL) {
 		vty_out(vty, "interface %s not found.\n",
 			(char *)argv[1]->arg);
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	params = IF_DEF_PARAMS(ifp);
@@ -521,7 +522,7 @@ DEFUN (no_ospf_passive_interface,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_ipv4 = 3;
-	struct interface *ifp;
+	struct interface *ifp = NULL;
 	struct in_addr addr = {.s_addr = INADDR_ANY};
 	struct ospf_if_params *params;
 	int ret;
@@ -532,11 +533,13 @@ DEFUN (no_ospf_passive_interface,
 		return CMD_SUCCESS;
 	}
 
-	ifp = if_get_by_name(argv[2]->arg, ospf->vrf_id, 0);
+	if (ospf->vrf_id != VRF_UNKNOWN)
+		ifp = if_get_by_name(argv[1]->arg, ospf->vrf_id, 0);
+
 	if (ifp == NULL) {
 		vty_out(vty, "interface %s not found.\n",
 			(char *)argv[1]->arg);
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	params = IF_DEF_PARAMS(ifp);
