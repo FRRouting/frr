@@ -123,7 +123,6 @@ static void sigint(void)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
-	struct zebra_ns *zns;
 
 	zlog_notice("Terminating on signal");
 
@@ -140,8 +139,7 @@ static void sigint(void)
 		}
 	vrf_terminate();
 
-	zns = zebra_ns_lookup(NS_DEFAULT);
-	zebra_ns_disable(0, (void **)&zns);
+	ns_walk_func(zebra_ns_disabled);
 
 	access_list_reset();
 	prefix_list_reset();

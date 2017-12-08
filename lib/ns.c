@@ -201,6 +201,23 @@ static struct ns *ns_lookup(ns_id_t ns_id)
 	return (RB_FIND(ns_head, &ns_tree, &ns));
 }
 
+/* Look up the data pointer of the specified VRF. */
+void *
+ns_info_lookup(ns_id_t ns_id)
+{
+	struct ns *ns = ns_lookup(ns_id);
+
+	return ns ? ns->info : NULL;
+}
+
+void ns_walk_func(int (*func)(struct ns *))
+{
+	struct ns *ns = NULL;
+
+	RB_FOREACH(ns, ns_head, &ns_tree)
+		func(ns);
+}
+
 /* Look up a NS by name */
 static struct ns *ns_lookup_name(const char * name)
 {
