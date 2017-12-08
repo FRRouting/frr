@@ -1,67 +1,52 @@
-Developing for FRRouting
+Process & Workflow
 ========================
 
-General note on this document
------------------------------
+FRR is a large project developed by many different groups. This section
+documents standards for code style & quality, commit messages, pull requests
+and best practices that all contributors are asked to follow.
 
-This document is "descriptive/post-factual" in that it documents
-pratices that are in use; it is not "definitive/pre-factual" in
-prescribing practices.
-
-This means that when a procedure changes, it is agreed upon, then put
-into practice, and then documented here. If this document doesn't match
-reality, it's the document that needs to be updated, not reality.
+This section is "descriptive/post-factual" in that it documents pratices that
+are in use; it is not "definitive/pre-factual" in prescribing practices.  This
+means that when a procedure changes, it is agreed upon, then put into practice,
+and then documented here. If this document doesn't match reality, it's the
+document that needs to be updated, not reality.
 
 Git Structure
 -------------
 
-The master Git for FRRouting resides on Github at
-`https://github.com/frrouting/frr <https://github.com/FRRouting/frr>`__
+The master Git for FRR resides on `Github
+<https://github.com/frrouting/frr>`__.
 
-.. figure:: git_branches.svg
-   :alt: git branches continually merging to the left from 3 lanes;
-   float-right
+.. figure:: git_branches.png
 
-   git branches continually merging to the left from 3 lanes;
-   float-right
-
-There is one main branch for development and a release branch for each
-major release.
-
-New contributions are done against the head of the master branch. The CI
-systems will pick up the Github Pull Requests or the new patch from
-Patchwork, run some basic build and functional tests.
-
-For each major release (1.0, 1.1 etc) a new release branch is created
-based on the master.
-
-There was an attempt to use a "develop" branch automatically maintained
-by the CI system. This is not currently in active use, though the system
-is operational. If the "develop" branch is in active use and this
-paragraph is still here, this document obviously wasn't updated.
+There is one main branch for development, ``master``. For each major release
+(2.0, 3.0 etc) a new release branch is created based on the master. Subsequent
+point releases based on a major branch are marked by tagging.
 
 Programming language, Tools and Libraries
 -----------------------------------------
 
-The core of FRRouting is written in C (gcc or clang supported) and makes
+The core of FRR is written in C (gcc or clang supported) and makes
 use of GNU compiler extensions. A few non-essential scripts are
-implemented in Perl and Python. FRRouting requires the following tools
+implemented in Perl and Python. FRR requires the following tools
 to build distribution packages: automake, autoconf, texinfo, libtool and
 gawk and various libraries (i.e. libpam and libjson-c).
 
 If your contribution requires a new library or other tool, then please
 highlight this in your description of the change. Also make sure it’s
-supported by all FRRouting platform OSes or provide a way to build
+supported by all FRR platform OSes or provide a way to build
 without the library (potentially without the new feature) on the other
 platforms.
 
-Documentation should be written in Tex (.texi) or Markdown (.md) format
-with a preference for Markdown.
+Documentation should be written in reStructuredText. Sphinx extensions may be
+utilized but pure ReST is preferred where possible. See `Documentation
+<#documentation>`__.
 
 Mailing lists
 -------------
 
-Italicized lists are private.
+The FRR development group maintains multiple mailing lists for use by the
+community. Italicized lists are private.
 
 +----------------------------------+--------------------------------+
 | Topic                            | List                           |
@@ -80,19 +65,31 @@ Italicized lists are private.
 Changelog
 ~~~~~~~~~
 
-The changelog will be the base for the release notes. A changelog entry
-for your changes is usually not required and will be added based on your
-commit messages by the maintainers. However, you are free to include an
-update to the changelog with some better description. The changelog will
-be the base for the release notes.
+The changelog will be the base for the release notes. A changelog entry for
+your changes is usually not required and will be added based on your commit
+messages by the maintainers. However, you are free to include an update to the
+changelog with some better description.
 
 Submitting Patches and Enhancements
 -----------------------------------
 
+FRR accepts patches from two sources:
+
+- Email (git format-patch)
+- Github pull request
+
+Contributors are highly encouraged to use Github's fork-and-pr workflow. It is
+easier for us to review it, test it, try it and discuss it on Github than it is
+via email, thus your patch will get more attention more quickly on Github.
+
+The base branch for new contributions and non-critical bug fixes should be
+``master``. Please ensure your pull request is based on this branch when you
+submit it.
+
 Pre-submission Checklist
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
--  Format code (see `Developer's Guidelines <#developers-guidelines>`__)
+-  Format code (see `Code Formatting <#developers-guidelines>`__)
 -  Verify and acknowledge license (see `License for
    contributions <#license-for-contributions>`__)
 -  Ensure you have properly signed off (see `Signing
@@ -115,14 +112,14 @@ Pre-submission Checklist
 License for contributions
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
-FRRouting is under a “GPLv2 or later” license. Any code submitted must
+FRR is under a “GPLv2 or later” license. Any code submitted must
 be released under the same license (preferred) or any license which
 allows redistribution under this GPLv2 license (eg MIT License).
 
 Signing Off
 ~~~~~~~~~~~
 
-Code submitted to FRRouting must be signed off. We have the same
+Code submitted to FRR must be signed off. We have the same
 requirements for using the signed-off-by process as the Linux kernel. In
 short, you must include a signed-off-by tag in every patch.
 
@@ -141,6 +138,8 @@ to be a helpful resource.
 
 In short, when you sign off on a commit, you assert your agreement to
 all of the following:
+
+::
 
     Developer's Certificate of Origin 1.1
 
@@ -171,7 +170,7 @@ What do I submit my changes against?
 
 We've documented where we would like to have the different fixes applied
 at
-https://github.com/FRRouting/frr/wiki/Where-Do-I-create-a-Pull-Request-against%3F
+https://github.com/FRR/frr/wiki/Where-Do-I-create-a-Pull-Request-against%3F
 If you are unsure where your submission goes, look at that document or
 ask a project maintainer.
 
@@ -219,12 +218,9 @@ After submitting your changes
 
    -  You should automatically receive an email with the test results
       within less than 2 hrs of the submission. If you don’t get the
-      email, then check status on the github pull request (if submitted
-      by pull request) or on Patchwork at
-      https://patchwork.frrouting.org (if submitted as patch to mailing
-      list).
+      email, then check status on the Github pull request.
    -  Please notify the development mailing list if you think something
-      doesn’t work.
+      doesn't work.
 
 -  If the tests failed:
 
@@ -253,8 +249,8 @@ After submitting your changes
    community members.
 -  Your submission is done once it is merged to the master branch.
 
-Developer's Guidelines
-----------------------
+Coding Practices & Style
+------------------------
 
 Commit messages
 ~~~~~~~~~~~~~~~
@@ -392,13 +388,12 @@ BSD coding style applies to:
 Documentation
 ~~~~~~~~~~~~~
 
-FRRouting is a large and complex software project developed by many
-different people over a long period of time. Without adequate
-documentation, it can be exceedingly difficult to understand code
-segments, APIs and other interfaces. In the interest of keeping the
-project healthy and maintainable, you should make every effort to
-document your code so that other people can understand what it does
-without needing to closely read the code itself.
+FRR is a large and complex software project developed by many different people
+over a long period of time. Without adequate documentation, it can be
+exceedingly difficult to understand code segments, APIs and other interfaces.
+In the interest of keeping the project healthy and maintainable, you should
+make every effort to document your code so that other people can understand
+what it does without needing to closely read the code itself.
 
 Some specific guidelines that contributors should follow are:
 
@@ -440,10 +435,13 @@ used for.
 -  **For new code in ``lib/``, these guidelines are hard requirements.**
 
 If you are contributing code that adds significant user-visible
-functionality or introduces a new API, please document it in ``doc/``.
-Markdown and LaTeX are acceptable formats, although Markdown is
-currently preferred for new documentation. This may change in the near
-future.
+functionality please document it in ``doc/``. If you make significant changes
+to portions of the codebase covered in the Developer's Manual, please
+update the relevant sections. If you add a major feature or introduce a new
+API, please document the architecture and API to the best of your abilities in
+the Developer's Manual.
+
+Documentation should be in reStructuredText.
 
 Finally, if you come across some code that is undocumented and feel like
 going above and beyond, document it! We absolutely appreciate and accept

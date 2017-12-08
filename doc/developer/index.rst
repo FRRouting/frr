@@ -6,5 +6,6 @@ Welcome to FRR's documentation!
 
    workflow
    library
+   bgpd
    building
 
