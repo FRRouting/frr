@@ -792,8 +792,12 @@ static int netlink_address(int cmd, int family, struct interface *ifp,
 		char buf[NL_PKT_BUF_SIZE];
 	} req;
 
-	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+	struct zebra_ns *zns;
 
+	if (vrf_is_backend_netns())
+		zns = zebra_ns_lookup((ns_id_t)ifp->vrf_id);
+	else
+		zns = zebra_ns_lookup(NS_DEFAULT);
 	p = ifc->address;
 	memset(&req, 0, sizeof req - NL_PKT_BUF_SIZE);
 
@@ -1020,6 +1024,7 @@ int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	zns = zebra_ns_lookup(ns_id);
 	ifi = NLMSG_DATA(h);
 
+	/* assume if not default zns, then new VRF */
 	if (!(h->nlmsg_type == RTM_NEWLINK || h->nlmsg_type == RTM_DELLINK)) {
 		/* If this is not link add/delete message so print warning. */
 		zlog_warn("netlink_link_change: wrong kernel message %d",
@@ -1107,7 +1112,8 @@ int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 			} else
 				zif_slave_type = ZEBRA_IF_SLAVE_OTHER;
 		}
-
+		if (vrf_is_backend_netns())
+			vrf_id = (vrf_id_t)ns_id;
 		if (ifp == NULL
 		    || !CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
 			/* Add interface notification from kernel */

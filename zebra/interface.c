@@ -512,8 +512,13 @@ static void if_addr_wakeup(struct interface *ifp)
 void if_add_update(struct interface *ifp)
 {
 	struct zebra_if *if_data;
+	struct zebra_ns *zns;
 
-	if_link_per_ns(zebra_ns_lookup(NS_DEFAULT), ifp);
+	if (vrf_is_backend_netns())
+		zns = zebra_ns_lookup((ns_id_t)ifp->vrf_id);
+	else
+		zns = zebra_ns_lookup(NS_DEFAULT);
+	if_link_per_ns(zns, ifp);
 
 	if_data = ifp->info;
 	assert(if_data);
