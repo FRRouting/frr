@@ -57,7 +57,11 @@ zebra_ns_table_entry_compare(const struct zebra_ns_table *e1,
 
 struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id)
 {
-	return dzns;
+	if (ns_id == NS_DEFAULT)
+		return dzns;
+	struct zebra_ns *info = (struct zebra_ns *)ns_info_lookup(ns_id);
+
+	return (info == NULL) ? dzns : info;
 }
 
 static struct zebra_ns *zebra_ns_alloc(void)
@@ -75,6 +79,11 @@ static int zebra_ns_new(struct ns *ns)
 	zns = zebra_ns_alloc();
 	ns->info = zns;
 	zns->ns = ns;
+
+	/* Do any needed per-NS data structure allocation. */
+	zns->if_table = route_table_init();
+	zebra_vxlan_ns_init(zns);
+
 	return 0;
 }
 
@@ -101,7 +110,7 @@ static int zebra_ns_enabled(struct ns *ns)
 	return zebra_ns_enable(ns->ns_id, (void **)&zns);
 }
 
-static int zebra_ns_disabled(struct ns *ns)
+int zebra_ns_disabled(struct ns *ns)
 {
 	struct zebra_ns *zns = ns->info;
 
@@ -116,6 +125,8 @@ static int zebra_ns_disabled(struct ns *ns)
 int zebra_ns_enable(ns_id_t ns_id, void **info)
 {
 	struct zebra_ns *zns = (struct zebra_ns *)(*info);
+
+	zns->ns_id = ns_id;
 
 #if defined(HAVE_RTADV)
 	rtadv_init(zns);
@@ -208,6 +219,8 @@ int zebra_ns_disable(ns_id_t ns_id, void **info)
 #endif
 
 	kernel_terminate(zns);
+
+	zns->ns_id = NS_DEFAULT;
 
 	return 0;
 }
