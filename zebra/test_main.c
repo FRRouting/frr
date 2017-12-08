@@ -223,6 +223,7 @@ int main(int argc, char **argv)
 			break;
 		case 'b':
 			batch_mode = 1;
+			break;
 		case 'd':
 			daemon_mode = 1;
 			break;

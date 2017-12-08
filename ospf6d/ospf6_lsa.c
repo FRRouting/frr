@@ -468,7 +468,7 @@ void ospf6_lsa_show(struct vty *vty, struct ospf6_lsa *lsa)
 	char adv_router[64], id[64];
 	struct ospf6_lsa_handler *handler;
 	struct timeval now, res;
-	char duration[16];
+	char duration[64];
 
 	assert(lsa && lsa->header);
 

@@ -190,7 +190,7 @@ override_dh_systemd_enable:
 
 # backports
 SRCPKG = frr
-KNOWN_BACKPORTS = debian8 debian9 ubuntu12.04 ubuntu14.04 ubuntu16.04
+KNOWN_BACKPORTS = debian8 debian9 ubuntu12.04 ubuntu14.04 ubuntu16.04 ubuntu17.10
 DEBIAN_VERSION := $(shell dh_testdir && \
 		dpkg-parsechangelog -c1 < debian/changelog | \
 		sed -rn 's/^Version: ?//p')

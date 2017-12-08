@@ -30,7 +30,7 @@ fi
 # frr and as such we need to intelligently
 # check to see if the frr user is in the frrvty
 # group.
-if ! /usr/bin/id frr | grep &>/dev/null 'frrvty'; then
+if ! id frr | grep &>/dev/null 'frrvty'; then
     usermod -a -G frrvty frr >/dev/null
 fi
 

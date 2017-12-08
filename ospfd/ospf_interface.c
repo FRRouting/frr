@@ -988,6 +988,7 @@ static int ospf_vl_set_params(struct ospf_vl_data *vl_data, struct vertex *v)
 				if (IS_DEBUG_OSPF_EVENT)
 					zlog_debug(
 						"found back link through VL");
+				/* fallthru */
 			case LSA_LINK_TYPE_TRANSIT:
 			case LSA_LINK_TYPE_POINTOPOINT:
 				if (!IPV4_ADDR_SAME(&vl_data->peer_addr,

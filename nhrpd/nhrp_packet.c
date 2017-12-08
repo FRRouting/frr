@@ -244,6 +244,7 @@ int nhrp_ext_reply(struct zbuf *zb, struct nhrp_packet_header *hdr, struct inter
 	default:
 		if (type & NHRP_EXTENSION_FLAG_COMPULSORY)
 			goto err;
+		/* fallthru */
 	case NHRP_EXTENSION_FORWARD_TRANSIT_NHS:
 	case NHRP_EXTENSION_REVERSE_TRANSIT_NHS:
 		/* Supported compulsory extensions, and any

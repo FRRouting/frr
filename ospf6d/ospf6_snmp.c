@@ -712,7 +712,8 @@ static u_char *ospfv3GeneralGroup(struct variable *v, oid *name, size_t *length,
 	case OSPFv3REFERENCEBANDWIDTH:
 		if (ospf6)
 			return SNMP_INTEGER(ospf6->ref_bandwidth);
-	/* Otherwise, like for "not implemented". */
+		/* Otherwise, like for "not implemented". */
+		/* fallthru */
 	case OSPFv3RESTARTSUPPORT:
 	case OSPFv3RESTARTINTERVAL:
 	case OSPFv3RESTARTSTRICTLSACHECKING:

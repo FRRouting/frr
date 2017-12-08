@@ -43,7 +43,7 @@ unsigned char conf_debug_ospf6_route = 0;
 
 static char *ospf6_route_table_name(struct ospf6_route_table *table)
 {
-	static char name[32];
+	static char name[64];
 	switch (table->scope_type) {
 	case OSPF6_SCOPE_TYPE_GLOBAL: {
 		switch (table->table_type) {
@@ -946,7 +946,7 @@ void ospf6_route_show(struct vty *vty, struct ospf6_route *route)
 {
 	int i;
 	char destination[PREFIX2STR_BUFFER], nexthop[64];
-	char duration[16];
+	char duration[64];
 	const char *ifname;
 	struct timeval now, res;
 	struct listnode *node;
@@ -992,7 +992,7 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route)
 	char destination[PREFIX2STR_BUFFER], nexthop[64];
 	char area_id[16], id[16], adv_router[16], capa[16], options[16];
 	struct timeval now, res;
-	char duration[16];
+	char duration[64];
 	struct listnode *node;
 	struct ospf6_nexthop *nh;
 
