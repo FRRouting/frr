@@ -7,6 +7,6 @@ libfrr library facilities
    memtypes
    hooks
    cli
-   dev-modules
+   modules
 
 

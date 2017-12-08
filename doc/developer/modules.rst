@@ -1,10 +1,8 @@
-Module and Hook support (developer docs)
-========================================
+Modules
+=======
 
-What it does
-------------
-
-It uses ``dlopen()`` to load DSOs at startup.
+FRR has facilities to load DSOs at startup via ``dlopen()``. These are used to
+implement modules, such as SNMP and FPM.
 
 Limitations
 -----------
