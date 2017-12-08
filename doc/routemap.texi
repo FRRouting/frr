@@ -171,6 +171,11 @@ Matches the specified @var{as_path}.
 Matches the specified @var{metric}.
 @end deffn
 
+@deffn {Route-map Command} {match tag @var{tag}} {}
+Matches the specified tag value associated with the route.
+This tag value can be in the range of (1-4294967295).
+@end deffn
+
 @deffn {Route-map Command} {match local-preference @var{metric}} {}
 Matches the specified @var{local-preference}.
 @end deffn
@@ -197,6 +202,14 @@ in this manner.
 
 @node Route Map Set Command
 @section Route Map Set Command
+
+@deffn {Route-map Command} {set tag @var{tag}} {}
+Set a tag on the matched route.  This tag value can be from
+(1-4294967295).  Additionally if you have compiled with
+the --enable-realms configure option.  Tag values from (1-255)
+are sent to the linux kernel as a realm value.  Then route
+policy can be applied.  See the tc man page.
+@end deffn
 
 @deffn {Route-map Command} {set ip next-hop @var{ipv4_address}} {}
 Set the BGP nexthop address.
