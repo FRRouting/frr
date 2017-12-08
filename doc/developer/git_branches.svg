@@ -1,0 +1,720 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   version="1.1"
+   viewBox="52 37 349.25195 651.46875"
+   width="349.25195"
+   height="651.46875"
+   id="svg2"
+   inkscape:version="0.91 r13725"
+   sodipodi:docname="git_branches.svg">
+  <metadata
+     id="metadata376">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <defs
+     id="defs374" />
+  <sodipodi:namedview
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1"
+     objecttolerance="10"
+     gridtolerance="10"
+     guidetolerance="10"
+     inkscape:pageopacity="0"
+     inkscape:pageshadow="2"
+     inkscape:window-width="1596"
+     inkscape:window-height="848"
+     id="namedview372"
+     showgrid="false"
+     fit-margin-top="0"
+     fit-margin-left="0"
+     fit-margin-right="0"
+     fit-margin-bottom="0"
+     inkscape:zoom="0.89517435"
+     inkscape:cx="53.149337"
+     inkscape:cy="353.95197"
+     inkscape:window-x="0"
+     inkscape:window-y="0"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg2" />
+  <g
+     id="g12"
+     transform="translate(-3.09375,-3.7812531)">
+    <path
+       d="M 216,98.125 216,684"
+       id="path14"
+       inkscape:connector-curvature="0"
+       style="fill:none;stroke:#000100;stroke-width:8" />
+    <path
+       d="M 205,99.5 216,72 227,99.5"
+       id="path16"
+       inkscape:connector-curvature="0"
+       style="fill:#000100" />
+    <path
+       d="M 225.625,692.25 216,684 l -9.625,8.25 0,-30.25 9.625,-8.25 9.625,8.25"
+       id="path18"
+       inkscape:connector-curvature="0"
+       style="fill:#000100" />
+  </g>
+  <path
+     d="m 212.90625,644.21875 -72,-36"
+     id="path20"
+     inkscape:connector-curvature="0"
+     style="fill:none;stroke:#ff0000;stroke-width:8" />
+  <path
+     d="m 212.90625,428.21875 -72,-36"
+     id="path22"
+     inkscape:connector-curvature="0"
+     style="fill:none;stroke:#ff0000;stroke-width:8" />
+  <text
+     font-weight="bold"
+     font-size="12"
+     xml:space="preserve"
+     id="text30"
+     style="font-weight:bold;font-size:12px;font-family:Helvetica;text-anchor:middle;fill:#ff0000"
+     x="143.89426"
+     y="427.82574"><tspan
+       id="tspan32">1.0</tspan><tspan
+       x="143.89426"
+       y="443.82574"
+       id="tspan34">Release</tspan><tspan
+       x="143.89426"
+       y="459.82574"
+       id="tspan36">Branch</tspan></text>
+  <path
+     d="m 213.73825,392.21875 -72.832,-36"
+     id="path42"
+     inkscape:connector-curvature="0"
+     style="fill:none;stroke:#ff0000;stroke-width:8" />
+  <path
+     d="m 212.73825,356.21875 -71.832,-36"
+     id="path44"
+     inkscape:connector-curvature="0"
+     style="fill:none;stroke:#ff0000;stroke-width:8" />
+  <path
+     d="m 220.90625,644.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path46"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <path
+     d="m 220.90625,464.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path48"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <path
+     d="m 220.90625,428.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path50"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <path
+     d="m 220.90625,608.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path52"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <path
+     d="m 220.90625,140.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path54"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <path
+     d="m 220.90625,356.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path58"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <path
+     d="m 220.90625,392.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path60"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <text
+     font-weight="bold"
+     font-size="12"
+     xml:space="preserve"
+     id="text62"
+     style="font-weight:bold;font-size:12px;font-family:Helvetica;text-anchor:middle;fill:#000100"
+     x="213.21825"
+     y="45.748047"><tspan
+       id="tspan64">Master</tspan><tspan
+       x="213.21825"
+       y="61.748047"
+       id="tspan66">(Stable)</tspan></text>
+  <g
+     id="g82"
+     transform="translate(-3.09375,-3.7812531)">
+    <path
+       d="m 144.832,612 0,-117.875"
+       id="path84"
+       inkscape:connector-curvature="0"
+       style="fill:none;stroke:#ff0000;stroke-width:8" />
+    <path
+       d="m 133.832,495.5 11,-27.5 11,27.5"
+       id="path86"
+       inkscape:connector-curvature="0"
+       style="fill:#ff0000" />
+  </g>
+  <g
+     id="g88"
+     transform="translate(-3.09375,-3.7812531)">
+    <path
+       d="m 144.832,396 0,-189.875"
+       id="path90"
+       inkscape:connector-curvature="0"
+       style="fill:none;stroke:#ff0000;stroke-width:8" />
+    <path
+       d="m 133.832,207.5 11,-27.5 11,27.5"
+       id="path92"
+       inkscape:connector-curvature="0"
+       style="fill:#ff0000" />
+  </g>
+  <text
+     font-weight="bold"
+     font-size="12"
+     xml:space="preserve"
+     id="text94"
+     style="font-weight:bold;font-size:12px;font-family:Helvetica;text-anchor:middle;fill:#ff0000"
+     x="143.89426"
+     y="138.82574"><tspan
+       id="tspan96">1.1</tspan><tspan
+       x="143.89426"
+       y="154.82574"
+       id="tspan98">Release</tspan><tspan
+       x="143.89426"
+       y="170.82574"
+       id="tspan100">Branch</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text102"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"
+     x="51.90625"
+     y="611.97876"><tspan
+       id="tspan104">Version 1.</tspan><tspan
+       id="tspan106">0.a1</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text108"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"
+     x="52.679649"
+     y="395.97876"><tspan
+       id="tspan110">Version 1.1.a1</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text112"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"
+     x="51.90625"
+     y="359.97876"><tspan
+       id="tspan114">Version 1.1.a2</tspan></text>
+  <path
+     d="m 148.90625,608.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path116"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <path
+     d="m 148.90625,392.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path118"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <path
+     d="m 148.90625,356.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path120"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <path
+     d="m 148.90625,320.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path122"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text124"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"
+     x="52.679649"
+     y="323.97876"><tspan
+       id="tspan126">Version 1.</tspan><tspan
+       id="tspan128">1.b1</tspan></text>
+  <g
+     id="g156"
+     transform="translate(-67.09375,-3.7812531)">
+    <path
+       d="m 432,540 -127.375,0"
+       id="path158"
+       inkscape:connector-curvature="0"
+       style="fill:none;stroke:#666666;stroke-width:4" />
+    <path
+       d="m 305.5,547 -17.5,-7 17.5,-7"
+       id="path160"
+       inkscape:connector-curvature="0"
+       style="fill:#666666" />
+  </g>
+  <g
+     id="g162"
+     transform="translate(-67.09375,-3.7812531)">
+    <path
+       d="m 432,504 -127.375,0"
+       id="path164"
+       inkscape:connector-curvature="0"
+       style="fill:none;stroke:#666666;stroke-width:4" />
+    <path
+       d="m 305.5,511 -17.5,-7 17.5,-7"
+       id="path166"
+       inkscape:connector-curvature="0"
+       style="fill:#666666" />
+  </g>
+  <g
+     id="g168"
+     transform="translate(-67.09375,-3.7812531)">
+    <path
+       d="m 432,468 -127.375,0"
+       id="path170"
+       inkscape:connector-curvature="0"
+       style="fill:none;stroke:#666666;stroke-width:4" />
+    <path
+       d="m 305.5,475 -17.5,-7 17.5,-7"
+       id="path172"
+       inkscape:connector-curvature="0"
+       style="fill:#666666" />
+  </g>
+  <g
+     id="g174"
+     transform="translate(-67.09375,-3.7812531)">
+    <path
+       d="m 432,432 -127.375,0"
+       id="path176"
+       inkscape:connector-curvature="0"
+       style="fill:none;stroke:#666666;stroke-width:4" />
+    <path
+       d="m 305.5,439 -17.5,-7 17.5,-7"
+       id="path178"
+       inkscape:connector-curvature="0"
+       style="fill:#666666" />
+  </g>
+  <g
+     id="g180"
+     transform="translate(-67.09375,-3.7812531)">
+    <path
+       d="m 432,396 -127.375,0"
+       id="path182"
+       inkscape:connector-curvature="0"
+       style="fill:none;stroke:#666666;stroke-width:4" />
+    <path
+       d="m 305.5,403 -17.5,-7 17.5,-7"
+       id="path184"
+       inkscape:connector-curvature="0"
+       style="fill:#666666" />
+  </g>
+  <g
+     id="g186"
+     transform="translate(-67.09375,-3.7812531)">
+    <path
+       d="m 432,360 -127.375,0"
+       id="path188"
+       inkscape:connector-curvature="0"
+       style="fill:none;stroke:#666666;stroke-width:4" />
+    <path
+       d="m 305.5,367 -17.5,-7 17.5,-7"
+       id="path190"
+       inkscape:connector-curvature="0"
+       style="fill:#666666" />
+  </g>
+  <g
+     id="g192"
+     transform="translate(-67.09375,-3.7812531)">
+    <path
+       d="m 432,324 -127.375,0"
+       id="path194"
+       inkscape:connector-curvature="0"
+       style="fill:none;stroke:#666666;stroke-width:4" />
+    <path
+       d="m 305.5,331 -17.5,-7 17.5,-7"
+       id="path196"
+       inkscape:connector-curvature="0"
+       style="fill:#666666" />
+  </g>
+  <g
+     id="g198"
+     transform="translate(-67.09375,-3.7812531)">
+    <path
+       d="m 432,288 -127.375,0"
+       id="path200"
+       inkscape:connector-curvature="0"
+       style="fill:none;stroke:#666666;stroke-width:4" />
+    <path
+       d="m 305.5,295 -17.5,-7 17.5,-7"
+       id="path202"
+       inkscape:connector-curvature="0"
+       style="fill:#666666" />
+  </g>
+  <g
+     id="g204"
+     transform="translate(-67.09375,-3.7812531)">
+    <path
+       d="m 432,252 -127.375,0"
+       id="path206"
+       inkscape:connector-curvature="0"
+       style="fill:none;stroke:#666666;stroke-width:4" />
+    <path
+       d="m 305.5,259 -17.5,-7 17.5,-7"
+       id="path208"
+       inkscape:connector-curvature="0"
+       style="fill:#666666" />
+  </g>
+  <g
+     id="g210"
+     transform="translate(-67.09375,-3.7812531)">
+    <path
+       d="m 432,216 -127.375,0"
+       id="path212"
+       inkscape:connector-curvature="0"
+       style="fill:none;stroke:#666666;stroke-width:4" />
+    <path
+       d="m 305.5,223 -17.5,-7 17.5,-7"
+       id="path214"
+       inkscape:connector-curvature="0"
+       style="fill:#666666" />
+  </g>
+  <g
+     id="g216"
+     transform="translate(-67.09375,-3.7812531)">
+    <path
+       d="m 404,180 -99.375,0"
+       id="path218"
+       inkscape:connector-curvature="0"
+       style="fill:none;stroke:#666666;stroke-width:4" />
+    <path
+       d="m 305.5,187 -17.5,-7 17.5,-7"
+       id="path220"
+       inkscape:connector-curvature="0"
+       style="fill:#666666" />
+  </g>
+  <g
+     id="g222"
+     transform="translate(-67.09375,-3.7812531)">
+    <path
+       d="m 432,180 -127.375,0"
+       id="path224"
+       inkscape:connector-curvature="0"
+       style="fill:none;stroke:#666666;stroke-width:4" />
+    <path
+       d="m 305.5,187 -17.5,-7 17.5,-7"
+       id="path226"
+       inkscape:connector-curvature="0"
+       style="fill:#666666" />
+  </g>
+  <g
+     id="g228"
+     transform="translate(-67.09375,-3.7812531)">
+    <path
+       d="m 432,144 -127.375,0"
+       id="path230"
+       inkscape:connector-curvature="0"
+       style="fill:none;stroke:#666666;stroke-width:4" />
+    <path
+       d="m 305.5,151 -17.5,-7 17.5,-7"
+       id="path232"
+       inkscape:connector-curvature="0"
+       style="fill:#666666" />
+  </g>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text234"
+     x="256.90625"
+     y="531.21875"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"><tspan
+       id="tspan236">Patch Email (Patchwork)</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text238"
+     x="256.90625"
+     y="495.21875"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"><tspan
+       id="tspan240">Github Pull Request</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text242"
+     x="256.90625"
+     y="459.21875"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"><tspan
+       id="tspan244">Github Pull Request</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text246"
+     x="256.90625"
+     y="423.21875"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"><tspan
+       id="tspan248">Patch Email (Patchwork)</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text250"
+     x="256.90625"
+     y="387.21875"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"><tspan
+       id="tspan252">Patch Email (Patchwork)</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text254"
+     x="256.90625"
+     y="351.21875"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"><tspan
+       id="tspan256">Github Pull Request</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text258"
+     x="256.90625"
+     y="315.21875"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"><tspan
+       id="tspan260">Github Pull Request</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text262"
+     x="256.90625"
+     y="279.21875"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"><tspan
+       id="tspan264">Github Pull Request</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text266"
+     x="256.90625"
+     y="243.21875"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"><tspan
+       id="tspan268">Patch Email (Patchwork)</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text270"
+     x="256.90625"
+     y="207.21875"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"><tspan
+       id="tspan272">Github Pull Request</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text274"
+     x="256.90625"
+     y="171.21875"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"><tspan
+       id="tspan276">Github Pull Request</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text278"
+     x="256.90625"
+     y="135.21875"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"><tspan
+       id="tspan280">Github Pull Request</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text282"
+     x="256.90625"
+     y="603.21875"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"><tspan
+       id="tspan284">Github Pull Request</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text286"
+     x="256.90625"
+     y="567.21875"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"><tspan
+       id="tspan288">Github Pull Request</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text290"
+     x="256.90625"
+     y="567.21875"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"><tspan
+       id="tspan292">Github Pull Request</tspan></text>
+  <g
+     id="g294"
+     transform="translate(-67.09375,-3.7812531)">
+    <path
+       d="m 432,612 -127.72,0"
+       id="path296"
+       inkscape:connector-curvature="0"
+       style="fill:none;stroke:#666666;stroke-width:4" />
+    <path
+       d="m 305.155,619 -17.5,-7 17.5,-7"
+       id="path298"
+       inkscape:connector-curvature="0"
+       style="fill:#666666" />
+  </g>
+  <g
+     id="g300"
+     transform="translate(-67.09375,-3.7812531)">
+    <path
+       d="m 432,576 -127.375,0"
+       id="path302"
+       inkscape:connector-curvature="0"
+       style="fill:none;stroke:#666666;stroke-width:4" />
+    <path
+       d="m 305.5,583 -17.5,-7 17.5,-7"
+       id="path304"
+       inkscape:connector-curvature="0"
+       style="fill:#666666" />
+  </g>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text306"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"
+     x="52.90625"
+     y="577.21875"><tspan
+       id="tspan308">Version 1.</tspan><tspan
+       id="tspan310">0.a2</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text312"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"
+     x="52.90625"
+     y="541.21875"><tspan
+       id="tspan314">Version 1.</tspan><tspan
+       id="tspan316">0.b1</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text318"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"
+     x="52.90625"
+     y="505.21875"><tspan
+       id="tspan320">Version 1.</tspan><tspan
+       id="tspan322">0.0</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text324"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"
+     x="52.679649"
+     y="288.97876"><tspan
+       id="tspan326">Version 1.1.0</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text328"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"
+     x="51.90625"
+     y="252.97874"><tspan
+       id="tspan330">Version 1.1.1</tspan></text>
+  <text
+     font-size="12"
+     xml:space="preserve"
+     id="text332"
+     style="font-size:12px;font-family:Helvetica;fill:#000100"
+     x="52.679649"
+     y="216.97874"><tspan
+       id="tspan334">Version 1.</tspan><tspan
+       id="tspan336">1.2</tspan></text>
+  <path
+     d="m 212.90625,608.21875 -72,-36"
+     id="path338"
+     inkscape:connector-curvature="0"
+     style="fill:none;stroke:#ff0000;stroke-width:8" />
+  <path
+     d="m 212.90625,572.21875 -72,-36"
+     id="path340"
+     inkscape:connector-curvature="0"
+     style="fill:none;stroke:#ff0000;stroke-width:8" />
+  <path
+     d="m 212.90625,536.21875 -72,-36"
+     id="path342"
+     inkscape:connector-curvature="0"
+     style="fill:none;stroke:#ff0000;stroke-width:8" />
+  <path
+     d="m 212.90625,320.21875 -72,-36"
+     id="path344"
+     inkscape:connector-curvature="0"
+     style="fill:none;stroke:#ff0000;stroke-width:8" />
+  <path
+     d="m 212.90625,284.21875 -72,-36"
+     id="path346"
+     inkscape:connector-curvature="0"
+     style="fill:none;stroke:#ff0000;stroke-width:8" />
+  <path
+     d="m 212.90625,248.21875 -72,-36"
+     id="path348"
+     inkscape:connector-curvature="0"
+     style="fill:none;stroke:#ff0000;stroke-width:8" />
+  <path
+     d="m 148.90625,571.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path350"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <path
+     d="m 148.90625,535.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path352"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <path
+     d="m 148.90625,499.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path354"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <path
+     d="m 148.90625,284.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path356"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <path
+     d="m 148.90625,248.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path358"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <path
+     d="m 148.90625,212.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path360"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <path
+     d="m 220.90625,572.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path362"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <path
+     d="m 220.90625,536.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path364"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <path
+     d="m 220.90625,320.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path366"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <path
+     d="m 220.90625,248.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path368"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+  <path
+     d="m 220.90625,284.21875 c 0,4.418 -3.582,8 -8,8 -4.418,0 -8,-3.582 -8,-8 0,-4.418 3.582,-8 8,-8 4.418,0 8,3.582 8,8 z"
+     id="path370"
+     inkscape:connector-curvature="0"
+     style="fill:#fffffe;stroke:#000100" />
+</svg>
