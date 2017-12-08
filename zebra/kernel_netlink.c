@@ -188,7 +188,10 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 		return -1;
 	}
 
-	sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+	if (ns_id != NS_DEFAULT)
+		sock = ns_socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE, ns_id);
+	else
+		sock = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
 	if (sock < 0) {
 		zlog_err("Can't open %s socket: %s", nl->name,
 			 safe_strerror(errno));
