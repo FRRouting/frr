@@ -537,6 +537,8 @@ class Router(Node):
     def stopRouter(self, wait=True):
         # Stop Running Quagga or FRR Daemons
         rundaemons = self.cmd('ls -1 /var/run/%s/*.pid' % self.routertype)
+        if re.search(r"No such file or directory", rundaemons):
+            return
         if rundaemons is not None:
             numRunning = 0
             for d in StringIO.StringIO(rundaemons):
@@ -562,6 +564,7 @@ class Router(Node):
                         ))
                         self.cmd('kill -7 %s' % daemonpid)
                         self.waitOutput()
+                    self.cmd('rm -- {}'.format(d.rstrip()))
     def removeIPs(self):
         for interface in self.intfNames():
             self.cmd('ip address flush', interface)
