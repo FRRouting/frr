@@ -474,8 +474,13 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 		vty_out(vty, "\"");
 		vty_out(vty, ", distance %u, metric %u", re->distance,
 			re->metric);
-		if (re->tag)
+		if (re->tag) {
 			vty_out(vty, ", tag %u", re->tag);
+#if defined(SUPPORT_REALMS)
+			if (re->tag > 0 && re->tag <= 255)
+				vty_out(vty, "(realm)");
+#endif
+		}
 		if (re->mtu)
 			vty_out(vty, ", mtu %u", re->mtu);
 		if (re->vrf_id != VRF_DEFAULT) {
