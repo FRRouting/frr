@@ -562,9 +562,9 @@ void ns_terminate(void)
 int ns_socket(int domain, int type, int protocol, ns_id_t ns_id)
 {
 	struct ns *ns = ns_lookup(ns_id);
-	int ret = -1;
+	int ret;
 
-	if (!ns_is_enabled(ns)) {
+	if (!ns || !ns_is_enabled(ns)) {
 		errno = ENOSYS;
 		return -1;
 	}
