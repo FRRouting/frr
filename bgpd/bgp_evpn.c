@@ -1120,7 +1120,8 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf,
 	}
 
 	/* uninten temporary */
-	aspath_unintern(&attr.aspath);
+	if (!src_attr)
+		aspath_unintern(&attr.aspath);
 	return 0;
 }
 
