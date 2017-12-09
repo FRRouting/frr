@@ -72,7 +72,8 @@ Set hostname of the router.
 @end deffn
 
 @deffn Command {password @var{password}} {}
-Set password for vty interface.  If there is no password, a vty won't
+@deffnx Command {no password} {}
+Set/delete password for vty interface.  If there is no password, a vty won't
 accept connections.
 @end deffn
 
