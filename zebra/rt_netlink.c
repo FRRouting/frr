@@ -1334,9 +1334,13 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 		char buf[NL_PKT_BUF_SIZE];
 	} req;
 
-	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+	struct zebra_ns *zns;
 	struct zebra_vrf *zvrf = vrf_info_lookup(re->vrf_id);
 
+	if (!vrf_is_backend_netns())
+		zns = zebra_ns_lookup(NS_DEFAULT);
+	else
+		zns = (struct zebra_ns *)ns_info_lookup(re->vrf_id);
 	memset(&req, 0, sizeof req - NL_PKT_BUF_SIZE);
 
 	bytelen = (family == AF_INET ? 4 : 16);
