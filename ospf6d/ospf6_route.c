@@ -241,18 +241,25 @@ int ospf6_route_cmp_nexthops(struct ospf6_route *a, struct ospf6_route *b)
 {
 	struct listnode *anode, *bnode;
 	struct ospf6_nexthop *anh, *bnh;
+	bool identical = false;
 
 	if (a && b) {
 		if (listcount(a->nh_list) == listcount(b->nh_list)) {
 			for (ALL_LIST_ELEMENTS_RO(a->nh_list, anode, anh)) {
+				identical = false;
 				for (ALL_LIST_ELEMENTS_RO(b->nh_list, bnode,
-							  bnh))
-					if (!ospf6_nexthop_is_same(anh, bnh))
-						return (1);
+							  bnh)) {
+					if (ospf6_nexthop_is_same(anh, bnh))
+						identical = true;
+				}
+				/* Currnet List A element not found List B
+				 * Non-Identical lists return */
+				if (identical == false)
+					return 1;
 			}
-			return (0);
+			return 0;
 		} else
-			return (1);
+			return 1;
 	}
 	/* One of the routes doesn't exist ? */
 	return (1);
@@ -333,9 +340,14 @@ int ospf6_route_get_first_nh_index(struct ospf6_route *route)
 
 static int ospf6_nexthop_cmp(struct ospf6_nexthop *a, struct ospf6_nexthop *b)
 {
-	if ((a)->ifindex == (b)->ifindex &&
-	    IN6_ARE_ADDR_EQUAL(&(a)->address, &(b)->address))
+	if (a->ifindex < b->ifindex)
+		return -1;
+	else if (a->ifindex > b->ifindex)
 		return 1;
+	else
+		return memcmp(&a->address, &b->address,
+			      sizeof(struct in6_addr));
+
 	return 0;
 }
 
