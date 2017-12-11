@@ -838,6 +838,16 @@ int kernel_address_delete_ipv4(struct interface *ifp, struct connected *ifc)
 	return netlink_address(RTM_DELADDR, AF_INET, ifp, ifc);
 }
 
+int kernel_address_add_ipv6 (struct interface *ifp, struct connected *ifc)
+{
+  return netlink_address (RTM_NEWADDR, AF_INET6, ifp, ifc);
+}
+
+int kernel_address_delete_ipv6 (struct interface *ifp, struct connected *ifc)
+{
+  return netlink_address (RTM_DELADDR, AF_INET6, ifp, ifc);
+}
+
 int netlink_interface_addr(struct sockaddr_nl *snl, struct nlmsghdr *h,
 			   ns_id_t ns_id, int startup)
 {
