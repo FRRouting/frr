@@ -7388,7 +7388,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 				vty_out(vty, "  Imported from %s:%s\n",
 					prefix_rd2str(
 						(struct prefix_rd *)&prn->p,
-						buf1, RD_ADDRSTRLEN),
+						buf1, sizeof(buf1)),
 					buf2);
 			}
 		}
@@ -7601,7 +7601,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 					json_peer, "routerId",
 					inet_ntop(AF_INET,
 						  &binfo->peer->remote_id, buf1,
-						  BUFSIZ));
+						  sizeof(buf1)));
 
 				if (binfo->peer->hostname)
 					json_object_string_add(
@@ -7655,7 +7655,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct prefix *p,
 						inet_ntop(
 							AF_INET,
 							&binfo->peer->remote_id,
-							buf1, BUFSIZ));
+							buf1, sizeof(buf1)));
 			}
 		}
 
@@ -8447,13 +8447,10 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 			continue;
 		if (rn->info != NULL) {
 			struct prefix_rd prd;
-			char rd[BUFSIZ];
+			char rd[RD_ADDRSTRLEN];
 
 			memcpy(&prd, &(rn->p), sizeof(struct prefix_rd));
-			if (prefix_rd2str(&prd, rd, BUFSIZ) == NULL)
-				sprintf(rd,
-					"Unknown Type: %u",
-					decode_rd_type(prd.val));
+			prefix_rd2str(&prd, rd, sizeof(rd));
 			bgp_show_table(vty, bgp, safi, rn->info, type,
 				       output_arg, use_json,
 				       rd, next == NULL,
@@ -8539,7 +8536,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	struct prefix *p;
 	struct peer *peer;
 	struct listnode *node, *nnode;
-	char buf1[INET6_ADDRSTRLEN];
+	char buf1[RD_ADDRSTRLEN];
 	char buf2[INET6_ADDRSTRLEN];
 #if defined(HAVE_CUMULUS)
 	char buf3[EVPN_ROUTE_STRLEN];
@@ -8573,7 +8570,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 #if defined(HAVE_CUMULUS)
 		if (safi == SAFI_EVPN)
 			vty_out(vty, "BGP routing table entry for %s%s%s\n",
-				prd ? prefix_rd2str(prd, buf1, RD_ADDRSTRLEN)
+				prd ? prefix_rd2str(prd, buf1, sizeof(buf1))
 				    : "",
 				prd ? ":" : "",
 				bgp_evpn_route2str((struct prefix_evpn *)p,
@@ -8582,7 +8579,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, "BGP routing table entry for %s%s%s/%d\n",
 				((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)
 					 ? prefix_rd2str(prd, buf1,
-							 RD_ADDRSTRLEN)
+							 sizeof(buf1))
 					 : ""),
 				safi == SAFI_MPLS_VPN ? ":" : "",
 				inet_ntop(p->family, &p->u.prefix, buf2,
@@ -8597,8 +8594,8 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, "BGP routing table entry for %s%s%s/%d\n",
 			((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
 			  || safi == SAFI_EVPN)
-				 ? prefix_rd2str(prd, buf1, RD_ADDRSTRLEN)
-				 : ""),
+			 ? prefix_rd2str(prd, buf1, sizeof(buf1))
+			 : ""),
 			((safi == SAFI_MPLS_VPN) || (safi == SAFI_EVPN)) ? ":"
 									 : "",
 			buf2, p->prefixlen);
@@ -11144,7 +11141,7 @@ static void bgp_config_write_network_vpn(struct vty *vty, struct bgp *bgp,
 			prd = (struct prefix_rd *)&prn->p;
 
 			/* "network" configuration display.  */
-			prefix_rd2str(prd, rdbuf, RD_ADDRSTRLEN);
+			prefix_rd2str(prd, rdbuf, sizeof(rdbuf));
 			label = decode_label(&bgp_static->label);
 
 			vty_out(vty, "  network %s/%d rd %s",
@@ -11201,7 +11198,7 @@ static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 			prd = (struct prefix_rd *)&prn->p;
 
 			/* "network" configuration display.  */
-			prefix_rd2str(prd, rdbuf, RD_ADDRSTRLEN);
+			prefix_rd2str(prd, rdbuf, sizeof(rdbuf));
 			if (p->u.prefix_evpn.route_type == 5) {
 				char local_buf[PREFIX_STRLEN];
 				uint8_t family = IS_EVPN_PREFIX_IPADDR_V4((struct prefix_evpn *)p)

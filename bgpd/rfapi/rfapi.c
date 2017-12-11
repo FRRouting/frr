@@ -364,11 +364,10 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 	struct bgp_node *bn;
 	struct bgp_info *bi;
 	char buf[PREFIX_STRLEN];
-	char buf2[BUFSIZ];
+	char buf2[RD_ADDRSTRLEN];
 	struct prefix_rd prd0;
 
 	prefix2str(p, buf, sizeof(buf));
-	prefix_rd2str(prd, buf2, sizeof(buf2));
 
 	afi = family2afi(p->family);
 	assert(afi == AFI_IP || afi == AFI_IP6);
@@ -383,7 +382,8 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 
 	vnc_zlog_debug_verbose(
 		"%s: peer=%p, prefix=%s, prd=%s afi=%d, safi=%d bn=%p, bn->info=%p",
-		__func__, peer, buf, buf2, afi, safi, bn,
+		__func__, peer, buf,
+		prefix_rd2str(prd, buf2, sizeof(buf2)), afi, safi, bn,
 		(bn ? bn->info : NULL));
 
 	for (bi = (bn ? bn->info : NULL); bi; bi = bi->next) {
@@ -589,7 +589,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 
 	struct bgp_attr_encap_subtlv *encaptlv;
 	char buf[PREFIX_STRLEN];
-	char buf2[BUFSIZ];
+	char buf2[RD_ADDRSTRLEN];
 #if 0 /* unused? */
   struct prefix pfx_buf;
 #endif
@@ -3831,12 +3831,10 @@ int rfapi_set_autord_from_vn(struct prefix_rd *rd, struct rfapi_ip_addr *vn)
 		       4); /* low order 4 bytes */
 	}
 	{
-		char buf[BUFSIZ];
-		buf[0] = 0;
-		prefix_rd2str(rd, buf, BUFSIZ);
-		buf[BUFSIZ - 1] = 0;
+		char buf[RD_ADDRSTRLEN];
+
 		vnc_zlog_debug_verbose("%s: auto-RD is set to %s", __func__,
-				       buf);
+				       prefix_rd2str(rd, buf, sizeof(buf)));
 	}
 	return 0;
 }

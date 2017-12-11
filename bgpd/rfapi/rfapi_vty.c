@@ -1527,11 +1527,9 @@ void rfapiPrintRfapiIpPrefix(void *stream, struct rfapi_ip_prefix *p)
 
 void rfapiPrintRd(struct vty *vty, struct prefix_rd *prd)
 {
-	char buf[BUFSIZ];
+	char buf[RD_ADDRSTRLEN];
 
-	buf[0] = 0;
 	prefix_rd2str(prd, buf, BUFSIZ);
-	buf[BUFSIZ - 1] = 0;
 	vty_out(vty, "%s", buf);
 }
 

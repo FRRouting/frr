@@ -1123,7 +1123,7 @@ static void process_pending_node(struct bgp *bgp, struct rfapi_descriptor *rfd,
 
 			} else {
 
-				char buf_rd[BUFSIZ];
+				char buf_rd[RD_ADDRSTRLEN];
 
 				/* not found: add new route to RIB */
 				ori = rfapi_info_new();
@@ -1402,13 +1402,14 @@ callback:
 					ri->last_sent_time = rfapi_time(NULL);
 #if DEBUG_RIB_SL_RD
 					{
-						char buf_rd[BUFSIZ];
-						prefix_rd2str(&ri->rk.rd,
-							      buf_rd,
-							      sizeof(buf_rd));
+						char buf_rd[RD_ADDRSTRLEN];
+
 						vnc_zlog_debug_verbose(
 							"%s: move route to recently deleted list, rd=%s",
-							__func__, buf_rd);
+							__func__,
+							prefix_rd2str(&ri->rk.rd,
+								      buf_rd,
+								      sizeof(buf_rd)));
 					}
 #endif
 
@@ -2293,7 +2294,7 @@ static int print_rib_sl(int (*fp)(void *, const char *, ...), struct vty *vty,
 		char str_lifetime[BUFSIZ];
 		char str_age[BUFSIZ];
 		char *p;
-		char str_rd[BUFSIZ];
+		char str_rd[RD_ADDRSTRLEN];
 
 		++routes_displayed;
 
@@ -2323,11 +2324,10 @@ static int print_rib_sl(int (*fp)(void *, const char *, ...), struct vty *vty,
 
 		str_rd[0] = 0; /* start empty */
 #if DEBUG_RIB_SL_RD
-		str_rd[0] = ' ';
-		prefix_rd2str(&ri->rk.rd, str_rd + 1, BUFSIZ - 1);
+		prefix_rd2str(&ri->rk.rd, str_rd, sizeof(str_rd));
 #endif
 
-		fp(out, " %c %-20s %-15s %-15s %-4u %-8s %-8s%s\n",
+		fp(out, " %c %-20s %-15s %-15s %-4u %-8s %-8s %s\n",
 		   deleted ? 'r' : ' ', *printedprefix ? "" : str_pfx, str_vn,
 		   str_un, ri->cost, str_lifetime, str_age, str_rd);
 

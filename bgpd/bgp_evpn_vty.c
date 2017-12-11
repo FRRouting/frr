@@ -226,7 +226,7 @@ static void bgp_evpn_show_route_header(struct vty *vty, struct bgp *bgp,
 
 static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 {
-	char buf1[INET6_ADDRSTRLEN];
+	char buf1[RD_ADDRSTRLEN];
 	char *ecom_str;
 	struct listnode *node, *nnode;
 	struct ecommunity *ecom;
@@ -241,7 +241,7 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 				       is_vni_live(vpn) ? "Yes" : "No");
 		json_object_string_add(
 			json, "rd",
-			prefix_rd2str(&vpn->prd, buf1, RD_ADDRSTRLEN));
+			prefix_rd2str(&vpn->prd, buf1, sizeof(buf1)));
 		json_object_string_add(json, "originatorIp",
 				       inet_ntoa(vpn->originator_ip));
 		json_object_string_add(json, "advertiseGatewayMacip",
@@ -253,7 +253,7 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 		vty_out(vty, "\n");
 
 		vty_out(vty, "  RD: %s\n",
-			prefix_rd2str(&vpn->prd, buf1, RD_ADDRSTRLEN));
+			prefix_rd2str(&vpn->prd, buf1, sizeof(buf1)));
 		vty_out(vty, "  Originator IP: %s\n",
 			inet_ntoa(vpn->originator_ip));
 		vty_out(vty, "  Advertise-gw-macip : %s\n",
@@ -419,7 +419,7 @@ static void show_vni_entry(struct hash_backet *backet, void *args[])
 	json_object *json_export_rtl;
 	struct bgpevpn *vpn = (struct bgpevpn *)backet->data;
 	char buf1[10];
-	char buf2[INET6_ADDRSTRLEN];
+	char buf2[RD_ADDRSTRLEN];
 	char rt_buf[25];
 	char *ecom_str;
 	struct listnode *node, *nnode;
@@ -446,11 +446,11 @@ static void show_vni_entry(struct hash_backet *backet, void *args[])
 				       inet_ntoa(vpn->originator_ip));
 		json_object_string_add(
 			json_vni, "rd",
-			prefix_rd2str(&vpn->prd, buf2, RD_ADDRSTRLEN));
+			prefix_rd2str(&vpn->prd, buf2, sizeof(buf2)));
 	} else {
 		vty_out(vty, "%-1s %-10u %-15s %-21s", buf1, vpn->vni,
 			inet_ntoa(vpn->originator_ip),
-			prefix_rd2str(&vpn->prd, buf2, RD_ADDRSTRLEN));
+			prefix_rd2str(&vpn->prd, buf2, sizeof(buf2)));
 	}
 
 	for (ALL_LIST_ELEMENTS(vpn->import_rtl, node, nnode, ecom)) {
@@ -2093,7 +2093,7 @@ static void evpn_unset_advertise_all_vni(struct bgp *bgp)
 
 static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 {
-	char buf1[INET6_ADDRSTRLEN];
+	char buf1[RD_ADDRSTRLEN];
 	char *ecom_str;
 	struct listnode *node, *nnode;
 	struct ecommunity *ecom;
@@ -2102,7 +2102,7 @@ static void write_vni_config(struct vty *vty, struct bgpevpn *vpn)
 		vty_out(vty, "  vni %d\n", vpn->vni);
 		if (is_rd_configured(vpn))
 			vty_out(vty, "   rd %s\n",
-				prefix_rd2str(&vpn->prd, buf1, RD_ADDRSTRLEN));
+				prefix_rd2str(&vpn->prd, buf1, sizeof(buf1)));
 
 		if (is_import_rt_configured(vpn)) {
 			for (ALL_LIST_ELEMENTS(vpn->import_rtl, node, nnode,

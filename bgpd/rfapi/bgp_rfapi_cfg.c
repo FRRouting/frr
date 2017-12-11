@@ -3884,8 +3884,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 			}
 
 			if (rfg->rd.prefixlen) {
-				char buf[BUFSIZ];
-				buf[0] = buf[BUFSIZ - 1] = 0;
+				char buf[RD_ADDRSTRLEN];
 
 				if (AF_UNIX == rfg->rd.family) {
 
@@ -3898,18 +3897,10 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 					vty_out(vty, "  rd auto:nh:%d\n",
 						value);
 
-				} else {
-
-					if (!prefix_rd2str(&rfg->rd, buf,
-							   BUFSIZ)
-					    || !buf[0] || buf[BUFSIZ - 1]) {
-
-						vty_out(vty,
-							"!Error: Can't convert rd\n");
-					} else {
-						vty_out(vty, "  rd %s\n", buf);
-					}
-				}
+				} else
+					vty_out(vty, "  rd %s\n",
+						prefix_rd2str(&rfg->rd, buf,
+							      sizeof(buf)));
 			}
 
 			if (rfg->rt_import_list && rfg->rt_export_list
@@ -4107,8 +4098,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 			vty_out(vty, " vnc defaults\n");
 
 			if (hc->default_rd.prefixlen) {
-				char buf[BUFSIZ];
-				buf[0] = buf[BUFSIZ - 1] = 0;
+				char buf[RD_ADDRSTRLEN];
 
 				if (AF_UNIX == hc->default_rd.family) {
 					uint16_t value = 0;
@@ -4121,18 +4111,11 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 					vty_out(vty, "  rd auto:vn:%d\n",
 						value);
 
-				} else {
-
-					if (!prefix_rd2str(&hc->default_rd, buf,
-							   BUFSIZ)
-					    || !buf[0] || buf[BUFSIZ - 1]) {
-
-						vty_out(vty,
-							"!Error: Can't convert rd\n");
-					} else {
-						vty_out(vty, "  rd %s\n", buf);
-					}
-				}
+				} else
+					vty_out(vty, "  rd %s\n",
+						prefix_rd2str(&hc->default_rd,
+							      buf,
+							      sizeof(buf)));
 			}
 			if (hc->default_response_lifetime) {
 				vty_out(vty, "  response-lifetime ");
@@ -4206,8 +4189,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 
 
 				if (rfg->rd.prefixlen) {
-					char buf[BUFSIZ];
-					buf[0] = buf[BUFSIZ - 1] = 0;
+					char buf[RD_ADDRSTRLEN];
 
 					if (AF_UNIX == rfg->rd.family) {
 
@@ -4222,21 +4204,12 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 							"  rd auto:vn:%d\n",
 							value);
 
-					} else {
-
-						if (!prefix_rd2str(&rfg->rd,
-								   buf, BUFSIZ)
-						    || !buf[0]
-						    || buf[BUFSIZ - 1]) {
-
-							vty_out(vty,
-								"!Error: Can't convert rd\n");
-						} else {
-							vty_out(vty,
-								"  rd %s\n",
-								buf);
-						}
-					}
+					} else
+						vty_out(vty,
+							"  rd %s\n",
+							prefix_rd2str(&rfg->rd,
+								      buf,
+								      sizeof(buf)));
 				}
 				if (rfg->flags & RFAPI_RFG_RESPONSE_LIFETIME) {
 					vty_out(vty, "  response-lifetime ");
