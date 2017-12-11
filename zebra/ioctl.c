@@ -78,6 +78,7 @@ int if_ioctl(u_long request, caddr_t buffer)
 	return 0;
 }
 
+#ifndef HAVE_NETLINK
 static int if_ioctl_ipv6(u_long request, caddr_t buffer)
 {
 	int sock;
@@ -108,6 +109,7 @@ static int if_ioctl_ipv6(u_long request, caddr_t buffer)
 	}
 	return 0;
 }
+#endif /* ! HAVE_NETLINK */
 
 /*
  * get interface metric
@@ -460,10 +462,12 @@ struct in6_ifreq {
 	int ifr6_ifindex;
 };
 #endif /* _LINUX_IN6_H */
-
 /* Interface's address add/delete functions. */
 int if_prefix_add_ipv6(struct interface *ifp, struct connected *ifc)
 {
+#ifdef HAVE_NETLINK
+	return kernel_address_add_ipv6 (ifp, ifc);
+#else /* ! HAVE_NETLINK */
 	int ret;
 	struct prefix_ipv6 *p;
 	struct in6_ifreq ifreq;
@@ -479,10 +483,14 @@ int if_prefix_add_ipv6(struct interface *ifp, struct connected *ifc)
 	ret = if_ioctl_ipv6(SIOCSIFADDR, (caddr_t)&ifreq);
 
 	return ret;
+#endif /* ! HAVE_NETLINK */
 }
 
 int if_prefix_delete_ipv6(struct interface *ifp, struct connected *ifc)
 {
+#ifdef HAVE_NETLINK
+	return kernel_address_delete_ipv6 (ifp, ifc);
+#else /* ! HAVE_NETLINK */
 	int ret;
 	struct prefix_ipv6 *p;
 	struct in6_ifreq ifreq;
@@ -498,6 +506,7 @@ int if_prefix_delete_ipv6(struct interface *ifp, struct connected *ifc)
 	ret = if_ioctl_ipv6(SIOCDIFADDR, (caddr_t)&ifreq);
 
 	return ret;
+#endif /* ! HAVE_NETLINK */
 }
 #else /* LINUX_IPV6 */
 #ifdef HAVE_STRUCT_IN6_ALIASREQ
