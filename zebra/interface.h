@@ -170,7 +170,12 @@ struct rtadvconf {
 #define RTADV_PREF_MEDIUM 0x0 /* Per RFC4191. */
 
 	u_char inFastRexmit; /* True if we're rexmits faster than usual */
-	u_char configured;   /* Has operator configured RA? */
+
+	/* Track if RA was configured by BGP or by the Operator or both */
+	u_char ra_configured;     /* Was RA configured? */
+#define BGP_RA_CONFIGURED (1<<0)  /* BGP configured RA? */
+#define VTY_RA_CONFIGURED (1<<1)  /* Operator configured RA? */
+#define VTY_RA_INTERVAL_CONFIGURED (1<<2)  /* Operator configured RA interval */
 	int
 		NumFastReXmitsRemain; /* Loaded first with number of fast
 					 rexmits to do */
