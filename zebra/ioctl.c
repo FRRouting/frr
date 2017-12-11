@@ -461,6 +461,21 @@ struct in6_ifreq {
 };
 #endif /* _LINUX_IN6_H */
 
+#ifdef HAVE_NETLINK
+/* Interface address setting via netlink interface. */
+int
+if_prefix_add_ipv6 (struct interface *ifp, struct connected *ifc)
+{
+  return kernel_address_add_ipv6 (ifp, ifc);
+}
+
+/* Interface address is removed using netlink interface. */
+int
+if_prefix_delete_ipv6 (struct interface *ifp, struct connected *ifc)
+{
+  return kernel_address_delete_ipv6 (ifp, ifc);
+}
+#else /* ! HAVE_NETLINK */
 /* Interface's address add/delete functions. */
 int if_prefix_add_ipv6(struct interface *ifp, struct connected *ifc)
 {
@@ -499,6 +514,7 @@ int if_prefix_delete_ipv6(struct interface *ifp, struct connected *ifc)
 
 	return ret;
 }
+#endif /* ! HAVE_NETLINK */
 #else /* LINUX_IPV6 */
 #ifdef HAVE_STRUCT_IN6_ALIASREQ
 #ifndef ND6_INFINITE_LIFETIME
