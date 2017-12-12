@@ -68,6 +68,16 @@ Italicized lists are private.
 | _Security_                     | security@lists.frrouting.org |
 | _Technical Steering Committee_ | tsc@lists.frrouting.org      |
 
+The Development list is used to discuss and document general issues
+related to project development and governance. The public Slack
+instance, frrouting.slack.com, and weekly technical meetings provide a
+higher bandwidth channel for discussions.  The results of such
+discussions must be reflected in updates, as appropriate, to code (i.e.,
+merges), [github](https://github.com/FRRouting/frr/issues) tracked
+issues, and for governance or process changes, updates to the
+Development list and either this file or information posted at
+[https://frrouting.org/](https://frrouting.org/).
+
 
 ### Changelog
 
