@@ -1923,11 +1923,19 @@ DEFUN (no_config_password,
        NO_STR
        "Modify the terminal connection password\n")
 {
-	if (host.password)
+	bool warned = false;
+
+	if (host.password) {
+		vty_out(vty, "Please be aware that removing the password is a security risk and you should think twice about this command\n");
+		warned = true;
 		XFREE(MTYPE_HOST, host.password);
+	}
 	host.password = NULL;
-	if (host.password_encrypt)
+	if (host.password_encrypt) {
+		if (!warned)
+			vty_out(vty, "Please be aware that removing the password is a security risk and you should think twice about this command\n");
 		XFREE(MTYPE_HOST, host.password_encrypt);
+	}
 	host.password_encrypt = NULL;
 
 	return CMD_SUCCESS;
@@ -1995,12 +2003,20 @@ DEFUN (no_config_enable_password,
        "Modify enable password parameters\n"
        "Assign the privileged level password\n")
 {
-	if (host.enable)
+	bool warned = false;
+
+	if (host.enable) {
+		vty_out(vty, "Please be aware that removing the password is a security risk and you should think twice about this command\n");
+		warned = true;
 		XFREE(MTYPE_HOST, host.enable);
+	}
 	host.enable = NULL;
 
-	if (host.enable_encrypt)
+	if (host.enable_encrypt) {
+		if (!warned)
+			vty_out(vty, "Please be aware that removing the password is a security risk and you should think twice about this command\n");
 		XFREE(MTYPE_HOST, host.enable_encrypt);
+	}
 	host.enable_encrypt = NULL;
 
 	return CMD_SUCCESS;
