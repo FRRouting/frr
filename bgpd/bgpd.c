@@ -7574,6 +7574,9 @@ void bgp_terminate(void)
 	 */
 	/* reverse bgp_master_init */
 	bgp_close();
+
+	bf_free(bm->rd_idspace);
+
 	if (bm->listen_sockets)
 		list_delete_and_null(&bm->listen_sockets);
 
