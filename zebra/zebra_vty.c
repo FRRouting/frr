@@ -1979,6 +1979,9 @@ DEFUN (show_vrf_vni,
 		if (!zvrf)
 			continue;
 
+		if (!zvrf->l3vni)
+			continue;
+
 		if (!uj) {
 			vty_out(vty, "vrf: %s VNI: %u",
 				zvrf_name(zvrf),
