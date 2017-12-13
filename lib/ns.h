@@ -24,6 +24,8 @@
 
 #include "openbsd-tree.h"
 #include "linklist.h"
+#include "vty.h"
+#include "vrf.h"
 
 typedef u_int32_t ns_id_t;
 
@@ -93,5 +95,8 @@ extern void ns_terminate(void);
 /* Create a socket serving for the given NS */
 extern int ns_socket(int, int, int, ns_id_t);
 extern void ns_cmd_init(void);
+extern int ns_handler_create(struct vty *vty, struct vrf *vrf,
+			     char *pathname, ns_id_t ns_id);
+extern char *ns_netns_pathname(struct vty *vty, const char *name);
 
 #endif /*_ZEBRA_NS_H*/
