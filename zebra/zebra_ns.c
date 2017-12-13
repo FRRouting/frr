@@ -33,6 +33,7 @@
 #include "rt.h"
 #include "zebra_vxlan.h"
 #include "debug.h"
+#include "zebra_netns_notify.h"
 
 DEFINE_MTYPE(ZEBRA, ZEBRA_NS, "Zebra Name Space")
 
@@ -249,6 +250,8 @@ int zebra_ns_init(void)
 		ns_add_hook(NS_ENABLE_HOOK, zebra_ns_enabled);
 		ns_add_hook(NS_DISABLE_HOOK, zebra_ns_disabled);
 		ns_add_hook(NS_DELETE_HOOK, zebra_ns_delete);
+		zebra_ns_notify_parse();
+		zebra_ns_notify_init();
 	}
 	return 0;
 }

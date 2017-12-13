@@ -47,6 +47,7 @@
 #include "zebra/redistribute.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/label_manager.h"
+#include "zebra/zebra_netns_notify.h"
 
 #define ZEBRA_PTM_SUPPORT
 
@@ -140,6 +141,7 @@ static void sigint(void)
 	vrf_terminate();
 
 	ns_walk_func(zebra_ns_disabled);
+	zebra_ns_notify_close();
 
 	access_list_reset();
 	prefix_list_reset();
