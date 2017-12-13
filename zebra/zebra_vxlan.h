@@ -145,7 +145,7 @@ extern int zebra_vxlan_advertise_all_vni(struct zserv *client,
 					 u_short length,
 					 struct zebra_vrf *zvrf);
 extern int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf*, vni_t, char*,
-					   int);
+					   int, int);
 extern void zebra_vxlan_init_tables(struct zebra_vrf *zvrf);
 extern void zebra_vxlan_close_tables(struct zebra_vrf *);
 extern void zebra_vxlan_ns_init(struct zebra_ns *zns);

@@ -6293,7 +6293,8 @@ int zebra_vxlan_if_add(struct interface *ifp)
 }
 
 int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf,
-				    vni_t vni, char *err,
+				    vni_t vni,
+				    char *err, int err_str_sz,
 				    int add)
 {
 	zebra_l3vni_t *zl3vni = NULL;
@@ -6315,7 +6316,7 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf,
 
 		/* check if the vni is already present under zvrf */
 		if (zvrf->l3vni) {
-			snprintf(err, ERR_STR_SZ,
+			snprintf(err, err_str_sz,
 				 "VNI is already configured under the vrf");
 			return -1;
 		}
@@ -6323,7 +6324,7 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf,
 		/* check if this VNI is already present in the system */
 		zl3vni = zl3vni_lookup(vni);
 		if (zl3vni) {
-			snprintf(err, ERR_STR_SZ,
+			snprintf(err, err_str_sz,
 				 "VNI is already configured as L3-VNI");
 			return -1;
 		}
@@ -6331,7 +6332,7 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf,
 		/* add the L3-VNI to the global table */
 		zl3vni = zl3vni_add(vni, zvrf_id(zvrf));
 		if (!zl3vni) {
-			snprintf(err, ERR_STR_SZ,
+			snprintf(err, err_str_sz,
 				 "Could not add L3-VNI");
 			return -1;
 		}
@@ -6358,7 +6359,7 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf,
 	} else {
 		zl3vni = zl3vni_lookup(vni);
 		if (!zl3vni) {
-			snprintf(err, ERR_STR_SZ, "VNI doesn't exist");
+			snprintf(err, err_str_sz, "VNI doesn't exist");
 			return -1;
 		}
 
