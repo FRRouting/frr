@@ -1,0 +1,28 @@
+{
+  "1": {
+    "level-1": [
+      {
+        "vertex": "r2"
+      }
+    ],
+    "level-2": [
+      {
+        "vertex": "r2"
+      },
+      {
+        "metric": "internal",
+        "parent": "0",
+        "type": "IP",
+        "vertex": "10.0.21.0/24"
+      },
+      {
+        "interface": "r2-eth0",
+        "metric": "10",
+        "next-hop": "r4",
+        "parent": "r2(4)",
+        "type": "TE-IS",
+        "vertex": "r4"
+      }
+    ]
+  }
+}

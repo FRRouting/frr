@@ -1,0 +1,42 @@
+{
+  "1": {
+    "level-1": [
+      {
+        "vertex": "r3"
+      },
+      {
+        "metric": "internal",
+        "parent": "0",
+        "type": "IP",
+        "vertex": "10.0.10.0/24"
+      },
+      {
+        "interface": "r3-eth1",
+        "metric": "10",
+        "next-hop": "r5",
+        "parent": "r3(4)",
+        "type": "TE-IS",
+        "vertex": "r5"
+      }
+    ],
+    "level-2": [
+      {
+        "vertex": "r3"
+      },
+      {
+        "metric": "internal",
+        "parent": "0",
+        "type": "IP",
+        "vertex": "10.0.20.0/24"
+      },
+      {
+        "interface": "r3-eth0",
+        "metric": "10",
+        "next-hop": "r1",
+        "parent": "r3(4)",
+        "type": "TE-IS",
+        "vertex": "r1"
+      }
+    ]
+  }
+}
