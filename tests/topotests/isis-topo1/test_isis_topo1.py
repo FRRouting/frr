@@ -133,6 +133,24 @@ def test_isis_convergence():
         assert topotest.json_cmp(actual, expected) is None, assertmsg
 
 
+def test_isis_route_installation():
+    "Check whether all expected routes are present"
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info('Checking routers for installed ISIS routes')
+
+    # Check for routes in 'show ip route json'
+    for rname, router in tgen.routers().iteritems():
+        filename = '{0}/{1}/{1}_route.json'.format(CWD, rname)
+        expected = json.loads(open(filename, 'r').read())
+        actual = router.vtysh_cmd('show ip route json', isjson=True)
+        assertmsg = "Router '{}' routes mismatch".format(rname)
+        assert topotest.json_cmp(actual, expected) is None, assertmsg
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
