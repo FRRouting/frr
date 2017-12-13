@@ -1852,20 +1852,18 @@ static int zvni_gw_macip_del(struct interface *ifp, zebra_vni_t *zvni,
 		return -1;
 
 	/* only need to delete the entry from bgp if we sent it before */
-	if (advertise_gw_macip_enabled(zvni)) {
-		if (IS_ZEBRA_DEBUG_VXLAN)
-			zlog_debug("%u:SVI %s(%u) VNI %u, sending GW MAC %s IP %s del to BGP",
-				   ifp->vrf_id, ifp->name,
-				   ifp->ifindex, zvni->vni,
-				   prefix_mac2str(&(n->emac),
-						  NULL,
-						  ETHER_ADDR_STRLEN),
-				   ipaddr2str(ip, buf2, sizeof(buf2)));
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("%u:SVI %s(%u) VNI %u, sending GW MAC %s IP %s del to BGP",
+			   ifp->vrf_id, ifp->name,
+			   ifp->ifindex, zvni->vni,
+			   prefix_mac2str(&(n->emac),
+					  NULL,
+					  ETHER_ADDR_STRLEN),
+			   ipaddr2str(ip, buf2, sizeof(buf2)));
 
-		/* Remove neighbor from BGP. */
-		zvni_neigh_send_del_to_client(zvni->vni, &n->ip, &n->emac,
-					      ZEBRA_MACIP_TYPE_GW);
-	}
+	/* Remove neighbor from BGP. */
+	zvni_neigh_send_del_to_client(zvni->vni, &n->ip, &n->emac,
+				      ZEBRA_MACIP_TYPE_GW);
 
 	/* Delete this neighbor entry. */
 	zvni_neigh_del(zvni, n);
@@ -6760,6 +6758,10 @@ int zebra_vxlan_advertise_gw_macip(struct zserv *client, u_short length,
 		struct interface *vlan_if = NULL;
 		struct interface *vrr_if = NULL;
 
+		zvni = zvni_lookup(vni);
+		if (!zvni)
+			return 0;
+
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"EVPN gateway macip Adv %s on VNI %d , currently %s",
@@ -6767,10 +6769,6 @@ int zebra_vxlan_advertise_gw_macip(struct zserv *client, u_short length,
 				advertise_gw_macip_enabled(zvni)
 					? "enabled"
 					: "disabled");
-
-		zvni = zvni_lookup(vni);
-		if (!zvni)
-			return 0;
 
 		if (zvni->advertise_gw_macip == advertise)
 			return 0;
