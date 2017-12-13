@@ -467,46 +467,14 @@ int if_prefix_add_ipv6(struct interface *ifp, struct connected *ifc)
 {
 #ifdef HAVE_NETLINK
 	return kernel_address_add_ipv6 (ifp, ifc);
-#else /* ! HAVE_NETLINK */
-	int ret;
-	struct prefix_ipv6 *p;
-	struct in6_ifreq ifreq;
-
-	p = (struct prefix_ipv6 *)ifc->address;
-
-	memset(&ifreq, 0, sizeof(struct in6_ifreq));
-
-	memcpy(&ifreq.ifr6_addr, &p->prefix, sizeof(struct in6_addr));
-	ifreq.ifr6_ifindex = ifp->ifindex;
-	ifreq.ifr6_prefixlen = p->prefixlen;
-
-	ret = if_ioctl_ipv6(SIOCSIFADDR, (caddr_t)&ifreq);
-
-	return ret;
-#endif /* ! HAVE_NETLINK */
+#endif /* HAVE_NETLINK */
 }
 
 int if_prefix_delete_ipv6(struct interface *ifp, struct connected *ifc)
 {
 #ifdef HAVE_NETLINK
 	return kernel_address_delete_ipv6 (ifp, ifc);
-#else /* ! HAVE_NETLINK */
-	int ret;
-	struct prefix_ipv6 *p;
-	struct in6_ifreq ifreq;
-
-	p = (struct prefix_ipv6 *)ifc->address;
-
-	memset(&ifreq, 0, sizeof(struct in6_ifreq));
-
-	memcpy(&ifreq.ifr6_addr, &p->prefix, sizeof(struct in6_addr));
-	ifreq.ifr6_ifindex = ifp->ifindex;
-	ifreq.ifr6_prefixlen = p->prefixlen;
-
-	ret = if_ioctl_ipv6(SIOCDIFADDR, (caddr_t)&ifreq);
-
-	return ret;
-#endif /* ! HAVE_NETLINK */
+#endif /* HAVE_NETLINK */
 }
 #else /* LINUX_IPV6 */
 #ifdef HAVE_STRUCT_IN6_ALIASREQ
