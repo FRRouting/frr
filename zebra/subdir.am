@@ -66,6 +66,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_vxlan.c \
 	zebra/zserv.c \
 	zebra/zebra_netns_id.c \
+	zebra/zebra_netns_notify.c \
 	# end
 
 zebra/zebra_vty_clippy.c: $(CLIPPY_DEPS)
@@ -106,6 +107,7 @@ noinst_HEADERS += \
 	zebra/zebra_vxlan_private.h \
 	zebra/zserv.h \
 	zebra/zebra_netns_id.h \
+	zebra/zebra_netns_notify.h \
 	# end
 
 zebra_zebra_irdp_la_SOURCES = \
