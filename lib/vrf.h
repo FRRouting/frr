@@ -185,6 +185,16 @@ extern int vrf_socket(int, int, int, vrf_id_t);
 extern void vrf_configure_backend(int vrf_backend_netns);
 extern int vrf_get_backend(void);
 extern int vrf_is_backend_netns(void);
+extern int vrf_handler_create(struct vty *vty,
+			      const char *name,
+			      struct vrf **vrf);
+
+/* used by NS when vrf backend is NS.
+ * Notify a change in the VRF ID of the VRF
+ */
+extern int vrf_update_vrf_id(vrf_id_t vrf_id, struct vrf *vrf);
+extern void vrf_disable(struct vrf *vrf);
+extern int vrf_enable(struct vrf *vrf);
 
 /*
  * VRF Debugging

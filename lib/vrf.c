@@ -64,7 +64,6 @@ struct vrf_master {
 };
 
 static int vrf_is_enabled(struct vrf *vrf);
-static void vrf_disable(struct vrf *vrf);
 
 /* VRF list existance check by name. */
 struct vrf *vrf_lookup_by_name(const char *name)
@@ -82,6 +81,25 @@ static __inline int vrf_id_compare(const struct vrf *a, const struct vrf *b)
 static int vrf_name_compare(const struct vrf *a, const struct vrf *b)
 {
 	return strcmp(a->name, b->name);
+}
+
+/* return 1 if vrf can be enabled */
+int vrf_update_vrf_id(vrf_id_t vrf_id, struct vrf *vrf)
+{
+	vrf_id_t old_vrf_id;
+
+	if (!vrf)
+		return 0;
+	old_vrf_id = vrf->vrf_id;
+	if (vrf_id == vrf->vrf_id)
+		return 0;
+	if (vrf->vrf_id != VRF_UNKNOWN)
+		RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
+	vrf->vrf_id = vrf_id;
+	RB_INSERT(vrf_id_head, &vrfs_by_id, vrf);
+	if (old_vrf_id == VRF_UNKNOWN)
+		return 1;
+	return 0;
 }
 
 /* Get a VRF. If not found, create one.
@@ -212,7 +230,7 @@ int vrf_enable(struct vrf *vrf)
  * The VRF_DELETE_HOOK callback will be called to inform
  * that they must release the resources in the VRF.
  */
-static void vrf_disable(struct vrf *vrf)
+void vrf_disable(struct vrf *vrf)
 {
 	if (!vrf_is_enabled(vrf))
 		return;
@@ -443,6 +461,31 @@ void vrf_configure_backend(int vrf_backend_netns)
 	vrf_backend = vrf_backend_netns;
 }
 
+int vrf_handler_create(struct vty *vty, const char *vrfname, struct vrf **vrf)
+{
+	struct vrf *vrfp;
+
+	if (strlen(vrfname) > VRF_NAMSIZ) {
+		if (vty)
+			vty_out(vty,
+			    "%% VRF name %s is invalid: length exceeds "
+			    "%d characters\n", vrfname, VRF_NAMSIZ);
+		else
+			zlog_warn("%% VRF name %s is invalid: length exceeds "
+				  "%d characters\n", vrfname, VRF_NAMSIZ);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	vrfp = vrf_get(VRF_UNKNOWN, vrfname);
+
+	if (vty)
+		VTY_PUSH_CONTEXT(VRF_NODE, vrfp);
+
+	if (vrf)
+		*vrf = vrfp;
+	return CMD_SUCCESS;
+}
+
 /* vrf CLI commands */
 DEFUN_NOSH (vrf,
        vrf_cmd,
@@ -452,21 +495,8 @@ DEFUN_NOSH (vrf,
 {
 	int idx_name = 1;
 	const char *vrfname = argv[idx_name]->arg;
-	struct vrf *vrfp;
 
-	if (strlen(vrfname) > VRF_NAMSIZ) {
-		vty_out(vty,
-			"%% VRF name %s is invalid: length exceeds "
-			"%d characters\n",
-			vrfname, VRF_NAMSIZ);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	vrfp = vrf_get(VRF_UNKNOWN, vrfname);
-
-	VTY_PUSH_CONTEXT(VRF_NODE, vrfp);
-
-	return CMD_SUCCESS;
+	return vrf_handler_create(vty, vrfname, NULL);
 }
 
 DEFUN_NOSH (no_vrf,
