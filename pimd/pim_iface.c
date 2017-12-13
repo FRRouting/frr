@@ -205,6 +205,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, int igmp, int pim)
 	if (!pim_ifp->sec_addr_list) {
 		zlog_err("%s: failure: secondary addresslist",
 			 __PRETTY_FUNCTION__);
+		return if_list_clean(pim_ifp);
 	}
 	pim_ifp->sec_addr_list->del = (void (*)(void *))pim_sec_addr_free;
 	pim_ifp->sec_addr_list->cmp =
