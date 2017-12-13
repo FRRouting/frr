@@ -3230,6 +3230,7 @@ static int zl3vni_remote_nh_del(zebra_l3vni_t *zl3vni,
 static int zl3vni_local_nh_add_update(zebra_l3vni_t *zl3vni,
 			              struct ipaddr *ip, u_int16_t state)
 {
+#ifdef GNU_LINUX
 	zebra_neigh_t *n = NULL;
 
 	n = zl3vni_nh_lookup(zl3vni, ip);
@@ -3241,7 +3242,7 @@ static int zl3vni_local_nh_add_update(zebra_l3vni_t *zl3vni,
 	 */
 	if (state & NUD_STALE)
 		zl3vni_nh_install(zl3vni, n);
-
+#endif
 	return 0;
 }
 
