@@ -561,33 +561,35 @@ static void if_delete_connected(struct interface *ifp)
 	struct prefix cp;
 	struct route_node *rn;
 	struct zebra_if *zebra_if;
+	struct listnode *node;
+	struct listnode *last = NULL;
 
 	zebra_if = ifp->info;
 
-	if (ifp->connected) {
-		struct listnode *node;
-		struct listnode *last = NULL;
+	if (!ifp->connected)
+		return;
 
-		while ((node = (last ? last->next
-				     : listhead(ifp->connected)))) {
-			ifc = listgetdata(node);
+	while ((node = (last ? last->next
+			: listhead(ifp->connected)))) {
+		ifc = listgetdata(node);
 
-			cp = *CONNECTED_PREFIX(ifc);
-			apply_mask(&cp);
+		cp = *CONNECTED_PREFIX(ifc);
+		apply_mask(&cp);
 
-			if (cp.family == AF_INET
-			    && (rn = route_node_lookup(zebra_if->ipv4_subnets,
-						       &cp))) {
-				struct listnode *anode;
-				struct listnode *next;
-				struct listnode *first;
-				struct list *addr_list;
+		if (cp.family == AF_INET
+		    && (rn = route_node_lookup(zebra_if->ipv4_subnets,
+					       &cp))) {
+			struct listnode *anode;
+			struct listnode *next;
+			struct listnode *first;
+			struct list *addr_list;
 
-				route_unlock_node(rn);
-				addr_list = (struct list *)rn->info;
+			route_unlock_node(rn);
+			addr_list = (struct list *)rn->info;
 
-				/* Remove addresses, secondaries first. */
-				first = listhead(addr_list);
+			/* Remove addresses, secondaries first. */
+			first = listhead(addr_list);
+			if (first)
 				for (anode = first->next; anode || first;
 				     anode = next) {
 					if (!anode) {
@@ -626,27 +628,26 @@ static void if_delete_connected(struct interface *ifp)
 						last = node;
 				}
 
-				/* Free chain list and respective route node. */
-				list_delete_and_null(&addr_list);
-				rn->info = NULL;
-				route_unlock_node(rn);
-			} else if (cp.family == AF_INET6) {
-				connected_down(ifp, ifc);
+			/* Free chain list and respective route node. */
+			list_delete_and_null(&addr_list);
+			rn->info = NULL;
+			route_unlock_node(rn);
+		} else if (cp.family == AF_INET6) {
+			connected_down(ifp, ifc);
 
-				zebra_interface_address_delete_update(ifp, ifc);
+			zebra_interface_address_delete_update(ifp, ifc);
 
-				UNSET_FLAG(ifc->conf, ZEBRA_IFC_REAL);
-				UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
+			UNSET_FLAG(ifc->conf, ZEBRA_IFC_REAL);
+			UNSET_FLAG(ifc->conf, ZEBRA_IFC_QUEUED);
 
-				if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED))
-					last = node;
-				else {
-					listnode_delete(ifp->connected, ifc);
-					connected_free(ifc);
-				}
-			} else {
+			if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_CONFIGURED))
 				last = node;
+			else {
+				listnode_delete(ifp->connected, ifc);
+				connected_free(ifc);
 			}
+		} else {
+			last = node;
 		}
 	}
 }
