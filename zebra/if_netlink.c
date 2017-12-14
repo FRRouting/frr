@@ -262,7 +262,7 @@ static void netlink_determine_zebra_iftype(char *kind, zebra_iftype_t *zif_type)
 	netlink_parse_rtattr((tb), (max), RTA_DATA(rta), RTA_PAYLOAD(rta))
 
 static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
-			       const char *name)
+			       const char *name, ns_id_t ns_id)
 {
 	struct ifinfomsg *ifi;
 	struct rtattr *linkinfo[IFLA_INFO_MAX + 1];
@@ -304,7 +304,7 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 		/*
 		 * vrf_get is implied creation if it does not exist
 		 */
-		vrf = vrf_get((vrf_id_t)ifi->ifi_index,
+		vrf = vrf_get((vrf_id_t)((uint32_t)ifi->ifi_index + ((uint32_t)ns_id << 16)),
 			      name); // It would create vrf
 		if (!vrf) {
 			zlog_err("VRF %s id %u not created", name,
@@ -333,7 +333,7 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 			zlog_debug("RTM_DELLINK for VRF %s(%u)", name,
 				   ifi->ifi_index);
 
-		vrf = vrf_lookup_by_id((vrf_id_t)ifi->ifi_index);
+		vrf = vrf_lookup_by_id((vrf_id_t)ifi->ifi_index + ((uint32_t)ns_id << 16));
 
 		if (!vrf) {
 			zlog_warn("%s: vrf not found", __func__);
@@ -553,7 +553,7 @@ static int netlink_interface(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	char *desc = NULL;
 	char *slave_kind = NULL;
 	struct zebra_ns *zns;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	vrf_id_t vrf_id = VRF_DEFAULT + ((uint32_t)ns_id << 16);
 	zebra_iftype_t zif_type = ZEBRA_IF_OTHER;
 	zebra_slave_iftype_t zif_slave_type = ZEBRA_IF_SLAVE_NONE;
 	ifindex_t bridge_ifindex = IFINDEX_INTERNAL;
@@ -611,14 +611,14 @@ static int netlink_interface(struct sockaddr_nl *snl, struct nlmsghdr *h,
 
 	/* If VRF, create the VRF structure itself. */
 	if (zif_type == ZEBRA_IF_VRF) {
-		netlink_vrf_change(h, tb[IFLA_LINKINFO], name);
-		vrf_id = (vrf_id_t)ifi->ifi_index;
+		netlink_vrf_change(h, tb[IFLA_LINKINFO], name, ns_id);
+		vrf_id = (vrf_id_t)((uint32_t)ifi->ifi_index + ((uint32_t)ns_id << 16));
 	}
 
 	if (tb[IFLA_MASTER]) {
 		if (slave_kind && (strcmp(slave_kind, "vrf") == 0)) {
 			zif_slave_type = ZEBRA_IF_SLAVE_VRF;
-			vrf_id = *(u_int32_t *)RTA_DATA(tb[IFLA_MASTER]);
+			vrf_id = *(u_int32_t *)RTA_DATA(tb[IFLA_MASTER]) + ((uint32_t)ns_id << 16);
 		} else if (slave_kind && (strcmp(slave_kind, "bridge") == 0)) {
 			zif_slave_type = ZEBRA_IF_SLAVE_BRIDGE;
 			bridge_ifindex =
@@ -1002,7 +1002,7 @@ int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	char *desc = NULL;
 	char *slave_kind = NULL;
 	struct zebra_ns *zns;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	vrf_id_t vrf_id = VRF_DEFAULT + ((uint32_t)ns_id << 16);
 	zebra_iftype_t zif_type = ZEBRA_IF_OTHER;
 	zebra_slave_iftype_t zif_slave_type = ZEBRA_IF_SLAVE_NONE;
 	ifindex_t bridge_ifindex = IFINDEX_INTERNAL;
@@ -1070,8 +1070,8 @@ int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 
 	/* If VRF, create or update the VRF structure itself. */
 	if (zif_type == ZEBRA_IF_VRF) {
-		netlink_vrf_change(h, tb[IFLA_LINKINFO], name);
-		vrf_id = (vrf_id_t)ifi->ifi_index;
+		netlink_vrf_change(h, tb[IFLA_LINKINFO], name, ns_id);
+		vrf_id = (vrf_id_t)((uint32_t)ifi->ifi_index + ((uint32_t)ns_id << 16));
 	}
 
 	/* See if interface is present. */
@@ -1089,7 +1089,8 @@ int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 			if (slave_kind && (strcmp(slave_kind, "vrf") == 0)) {
 				zif_slave_type = ZEBRA_IF_SLAVE_VRF;
 				vrf_id =
-					*(u_int32_t *)RTA_DATA(tb[IFLA_MASTER]);
+					*(u_int32_t *)RTA_DATA(tb[IFLA_MASTER])
+			                + ((uint32_t)ns_id << 16);
 			} else if (slave_kind
 				   && (strcmp(slave_kind, "bridge") == 0)) {
 				zif_slave_type = ZEBRA_IF_SLAVE_BRIDGE;

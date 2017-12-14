@@ -26,14 +26,13 @@
 #include "linklist.h"
 #include "qobj.h"
 #include "vty.h"
-
 /* The default NS ID */
 #define NS_DEFAULT 0
+#define NS_UNKNOWN UINT16_MAX
 
 /* The default VRF ID */
 #define VRF_DEFAULT 0
-#define VRF_UNKNOWN UINT16_MAX
-#define VRF_ALL UINT16_MAX - 1
+#define VRF_UNKNOWN UINT32_MAX
 
 /* Pending: May need to refine this. */
 #ifndef IFLA_VRF_MAX
