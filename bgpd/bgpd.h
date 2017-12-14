@@ -181,7 +181,7 @@ struct bgp {
 
 	/* Type of instance and VRF id. */
 	enum bgp_instance_type inst_type;
-	vrf_id_t vrf_id;
+	lr_id_t vrf_id;
 
 	/* Reference count to allow peer_delete to finish after bgp_delete */
 	int lock;
@@ -417,7 +417,7 @@ DECLARE_QOBJ_TYPE(bgp)
 #define IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)                                        \
 	(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT                           \
 	 || (bgp->inst_type == BGP_INSTANCE_TYPE_VRF                           \
-	     && bgp->vrf_id != VRF_UNKNOWN))
+	     && bgp->vrf_id.lr.id != LR_UNKNOWN))
 
 /* BGP peer-group support. */
 struct peer_group {
@@ -1225,7 +1225,7 @@ extern int bgp_nexthop_set(union sockunion *, union sockunion *,
 extern struct bgp *bgp_get_default(void);
 extern struct bgp *bgp_lookup(as_t, const char *);
 extern struct bgp *bgp_lookup_by_name(const char *);
-extern struct bgp *bgp_lookup_by_vrf_id(vrf_id_t);
+extern struct bgp *bgp_lookup_by_vrf_id(lr_id_t);
 extern struct peer *peer_lookup(struct bgp *, union sockunion *);
 extern struct peer *peer_lookup_by_conf_if(struct bgp *, const char *);
 extern struct peer *peer_lookup_by_hostname(struct bgp *, const char *);
@@ -1289,7 +1289,7 @@ extern int bgp_flag_set(struct bgp *, int);
 extern int bgp_flag_unset(struct bgp *, int);
 extern int bgp_flag_check(struct bgp *, int);
 
-extern void bgp_router_id_zebra_bump(vrf_id_t, const struct prefix *);
+extern void bgp_router_id_zebra_bump(lr_id_t, const struct prefix *);
 extern int bgp_router_id_static_set(struct bgp *, struct in_addr);
 
 extern int bgp_cluster_id_set(struct bgp *, struct in_addr *);
@@ -1576,7 +1576,7 @@ static inline struct vrf *bgp_vrf_lookup_by_instance_type(struct bgp *bgp)
 	struct vrf *vrf;
 
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
-		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+		vrf = vrf_lookup_by_id(vrf_id_default);
 	else if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
 		vrf = vrf_lookup_by_name(bgp->name);
 	else
@@ -1600,10 +1600,10 @@ static inline void bgp_vrf_unlink(struct bgp *bgp, struct vrf *vrf)
 		vrf->info = NULL;
 		bgp_unlock(bgp);
 	}
-	bgp->vrf_id = VRF_UNKNOWN;
+	bgp->vrf_id.lr.id = LR_UNKNOWN;
 }
 
-extern void bgp_update_redist_vrf_bitmaps(struct bgp *, vrf_id_t);
+extern void bgp_update_redist_vrf_bitmaps(struct bgp *, lr_id_t);
 
 /* For benefit of rfapi */
 extern struct peer *peer_new(struct bgp *bgp);

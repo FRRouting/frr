@@ -340,7 +340,7 @@ static void vnc_redistribute_withdraw(struct bgp *bgp, afi_t afi, uint8_t type)
  * Assumes 1 nexthop
  */
 static int vnc_zebra_read_route(int command, struct zclient *zclient,
-				zebra_size_t length, vrf_id_t vrf_id)
+				zebra_size_t length, lr_id_t vrf_id)
 {
 	struct zapi_route api;
 	int add;
@@ -392,7 +392,7 @@ static void vnc_zebra_route_msg(struct prefix *p, unsigned int nhp_count,
 	}
 
 	memset(&api, 0, sizeof(api));
-	api.vrf_id = VRF_DEFAULT;
+	api.vrf_id.lr.id = LR_DEFAULT;
 	api.type = ZEBRA_ROUTE_VNC;
 	api.safi = SAFI_UNICAST;
 	api.prefix = *p;
@@ -836,7 +836,7 @@ int vnc_redistribute_set(struct bgp *bgp, afi_t afi, int type)
 	if (zclient_vnc->redist[afi][type])
 		return CMD_WARNING_CONFIG_FAILED;
 
-	vrf_bitmap_set(zclient_vnc->redist[afi][type], VRF_DEFAULT);
+	vrf_bitmap_set(zclient_vnc->redist[afi][type], vrf_id_default);
 
 	// zclient_vnc->redist[afi][type] = 1;
 
@@ -850,7 +850,7 @@ int vnc_redistribute_set(struct bgp *bgp, afi_t afi, int type)
 
 	/* Send distribute add message to zebra. */
 	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient_vnc, afi, type,
-				0, VRF_DEFAULT);
+				0, vrf_id_default);
 
 	return CMD_SUCCESS;
 }
@@ -882,7 +882,7 @@ int vnc_redistribute_unset(struct bgp *bgp, afi_t afi, int type)
 				"Zebra send: redistribute delete %s",
 				zebra_route_string(type));
 		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient_vnc,
-					afi, type, 0, VRF_DEFAULT);
+					afi, type, 0, vrf_id_default);
 	}
 
 	/* Withdraw redistributed routes from current BGP's routing table. */

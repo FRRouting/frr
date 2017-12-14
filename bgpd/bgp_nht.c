@@ -318,7 +318,7 @@ void bgp_delete_connected_nexthop(afi_t afi, struct peer *peer)
 	}
 }
 
-void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
+void bgp_parse_nexthop_update(int command, lr_id_t vrf_id)
 {
 	struct stream *s;
 	struct bgp_node *rn = NULL;
@@ -336,8 +336,8 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp) {
 		zlog_err(
-			"parse nexthop update: instance not found for vrf_id %d",
-			vrf_id);
+			"parse nexthop update: instance not found for vrf_id %u",
+			vrf_id.lr.id);
 		return;
 	}
 
@@ -390,7 +390,7 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 		prefix2str(&p, buf, sizeof(buf));
 		zlog_debug(
 			"%d: Rcvd NH update %s - metric %d/%d #nhops %d/%d flags 0x%x",
-			vrf_id, buf, metric, bnc->metric, nexthop_num,
+			vrf_id.lr.id, buf, metric, bnc->metric, nexthop_num,
 			bnc->nexthop_num, bnc->flags);
 	}
 

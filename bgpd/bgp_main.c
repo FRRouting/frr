@@ -231,7 +231,7 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 static int bgp_vrf_new(struct vrf *vrf)
 {
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("VRF Created: %s(%d)", vrf->name, vrf->vrf_id);
+		zlog_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id.lr.id);
 
 	return 0;
 }
@@ -239,7 +239,7 @@ static int bgp_vrf_new(struct vrf *vrf)
 static int bgp_vrf_delete(struct vrf *vrf)
 {
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("VRF Deletion: %s(%d)", vrf->name, vrf->vrf_id);
+		zlog_debug("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id.lr.id);
 
 	return 0;
 }
@@ -247,19 +247,19 @@ static int bgp_vrf_delete(struct vrf *vrf)
 static int bgp_vrf_enable(struct vrf *vrf)
 {
 	struct bgp *bgp;
-	vrf_id_t old_vrf_id;
+	lr_id_t old_vrf_id;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("VRF enable add %s id %d", vrf->name, vrf->vrf_id);
+		zlog_debug("VRF enable add %s id %u", vrf->name, vrf->vrf_id.lr.id);
 
 	bgp = bgp_lookup_by_name(vrf->name);
 	if (bgp) {
-		old_vrf_id = bgp->vrf_id;
+		old_vrf_id.lr.id = bgp->vrf_id.lr.id;
 		/* We have instance configured, link to VRF and make it "up". */
 		bgp_vrf_link(bgp, vrf);
 
 		/* Update any redistribute vrf bitmaps if the vrf_id changed */
-		if (old_vrf_id != bgp->vrf_id)
+		if (old_vrf_id.lr.id != bgp->vrf_id.lr.id)
 			bgp_update_redist_vrf_bitmaps(bgp, old_vrf_id);
 		bgp_instance_up(bgp);
 	}
@@ -270,22 +270,22 @@ static int bgp_vrf_enable(struct vrf *vrf)
 static int bgp_vrf_disable(struct vrf *vrf)
 {
 	struct bgp *bgp;
-	vrf_id_t old_vrf_id;
+	lr_id_t old_vrf_id;
 
-	if (vrf->vrf_id == VRF_DEFAULT)
+	if (vrf->vrf_id.lr.id == LR_DEFAULT)
 		return 0;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("VRF disable %s id %d", vrf->name, vrf->vrf_id);
+		zlog_debug("VRF disable %s id %u", vrf->name, vrf->vrf_id.lr.id);
 
 	bgp = bgp_lookup_by_name(vrf->name);
 	if (bgp) {
-		old_vrf_id = bgp->vrf_id;
+		old_vrf_id.lr.id = bgp->vrf_id.lr.id;
 		/* We have instance configured, unlink from VRF and make it
 		 * "down". */
 		bgp_vrf_unlink(bgp, vrf);
 		/* Update any redistribute vrf bitmaps if the vrf_id changed */
-		if (old_vrf_id != bgp->vrf_id)
+		if (old_vrf_id.lr.id != bgp->vrf_id.lr.id)
 			bgp_update_redist_vrf_bitmaps(bgp, old_vrf_id);
 		bgp_instance_down(bgp);
 	}
