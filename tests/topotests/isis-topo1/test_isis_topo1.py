@@ -151,6 +151,24 @@ def test_isis_route_installation():
         assert topotest.json_cmp(actual, expected) is None, assertmsg
 
 
+def test_isis_linux_route_installation():
+    "Check whether all expected routes are present and installed in the OS"
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info('Checking routers for installed ISIS routes in OS')
+
+    # Check for routes in `ip route`
+    for rname, router in tgen.routers().iteritems():
+        filename = '{0}/{1}/{1}_route_linux.json'.format(CWD, rname)
+        expected = json.loads(open(filename, 'r').read())
+        actual = topotest.ip4_route(router)
+        assertmsg = "Router '{}' OS routes mismatch".format(rname)
+        assert topotest.json_cmp(actual, expected) is None, assertmsg
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
