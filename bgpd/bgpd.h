@@ -381,8 +381,8 @@ struct bgp {
 	_Atomic uint32_t wpkt_quanta; // max # packets to write per i/o cycle
 	_Atomic uint32_t rpkt_quanta; // max # packets to read per i/o cycle
 
-	/* Configured coalesce time */
-	uint32_t v_coalesce_time;
+	/* Automatic coalesce adjust on/off */
+	bool heuristic_coalesce;
 	/* Actual coalesce time */
 	uint32_t coalesce_time;
 

@@ -1475,7 +1475,7 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	hash_get(bgp->peerhash, peer, hash_alloc_intern);
 
 	/* Adjust update-group coalesce timer heuristics for # peers. */
-	if (!bgp->v_coalesce_time) {
+	if (bgp->heuristic_coalesce) {
 		long ct = BGP_DEFAULT_SUBGROUP_COALESCE_TIME
 			  + (bgp->peer->count
 			     * BGP_PEER_ADJUST_SUBGROUP_COALESCE_TIME);
