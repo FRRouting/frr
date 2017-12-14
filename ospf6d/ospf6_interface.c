@@ -60,7 +60,7 @@ struct ospf6_interface *ospf6_interface_lookup_by_ifindex(ifindex_t ifindex)
 	struct ospf6_interface *oi;
 	struct interface *ifp;
 
-	ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
+	ifp = if_lookup_by_index(ifindex, vrf_id_default);
 	if (ifp == NULL)
 		return (struct ospf6_interface *)NULL;
 
@@ -988,12 +988,12 @@ DEFUN (show_ipv6_ospf6_interface,
        INTERFACE_STR
        IFNAME_STR)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	int idx_ifname = 4;
 	struct interface *ifp;
 
 	if (argc == 5) {
-		ifp = if_lookup_by_name(argv[idx_ifname]->arg, VRF_DEFAULT);
+		ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf_id_default);
 		if (ifp == NULL) {
 			vty_out(vty, "No such Interface: %s\n",
 				argv[idx_ifname]->arg);
@@ -1027,7 +1027,7 @@ DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
 	struct interface *ifp;
 	struct ospf6_interface *oi;
 
-	ifp = if_lookup_by_name(argv[idx_ifname]->arg, VRF_DEFAULT);
+	ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf_id_default);
 	if (ifp == NULL) {
 		vty_out(vty, "No such Interface: %s\n", argv[idx_ifname]->arg);
 		return CMD_WARNING;
@@ -1059,7 +1059,7 @@ DEFUN (show_ipv6_ospf6_interface_prefix,
        OSPF6_ROUTE_MATCH_STR
        "Display details of the prefixes\n")
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	int idx_prefix = 5;
 	struct ospf6_interface *oi;
 	struct interface *ifp;
@@ -1760,7 +1760,7 @@ DEFUN (no_ipv6_ospf6_network,
 
 static int config_write_ospf6_interface(struct vty *vty)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct ospf6_interface *oi;
 	struct interface *ifp;
 
@@ -1910,7 +1910,7 @@ DEFUN (clear_ipv6_ospf6_interface,
        IFNAME_STR
        )
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	int idx_ifname = 4;
 	struct interface *ifp;
 
@@ -1921,7 +1921,7 @@ DEFUN (clear_ipv6_ospf6_interface,
 	} else /* Interface name is specified. */
 	{
 		if ((ifp = if_lookup_by_name(argv[idx_ifname]->arg,
-					     VRF_DEFAULT))
+					     vrf_id_default))
 		    == NULL) {
 			vty_out(vty, "No such Interface: %s\n",
 				argv[idx_ifname]->arg);

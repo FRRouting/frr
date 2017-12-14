@@ -87,7 +87,7 @@ void ospf6_bfd_reg_dereg_nbr(struct ospf6_neighbor *on, int command)
 
 	bfd_peer_sendmsg(zclient, bfd_info, AF_INET6, &on->linklocal_addr,
 			 on->ospf6_if->linklocal_addr, ifp->name, 0, 0, command,
-			 0, VRF_DEFAULT);
+			 0, vrf_id_default);
 
 	if (command == ZEBRA_BFD_DEST_DEREGISTER)
 		bfd_info_free((struct bfd_info **)&on->bfd_info);
@@ -139,9 +139,9 @@ static void ospf6_bfd_reg_dereg_all_nbr(struct ospf6_interface *oi, int command)
  *                        to zebra
  */
 static int ospf6_bfd_nbr_replay(int command, struct zclient *zclient,
-				zebra_size_t length, vrf_id_t vrf_id)
+				zebra_size_t length, lr_id_t vrf_id)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct listnode *node;
 	struct interface *ifp;
 	struct ospf6_interface *oi;
@@ -183,7 +183,7 @@ static int ospf6_bfd_nbr_replay(int command, struct zclient *zclient,
  *                                   connectivity if BFD down is received.
  */
 static int ospf6_bfd_interface_dest_update(int command, struct zclient *zclient,
-					   zebra_size_t length, vrf_id_t vrf_id)
+					   zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 	struct ospf6_interface *oi;

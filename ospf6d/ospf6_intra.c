@@ -1394,7 +1394,7 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 			ls_entry->path.cost + ntohs(op->prefix_metric);
 
 		if (direct_connect) {
-			ifp = if_lookup_prefix(&route->prefix, VRF_DEFAULT);
+			ifp = if_lookup_prefix(&route->prefix, vrf_id_default);
 			if (ifp)
 				ospf6_route_add_nexthop(route, ifp->ifindex,
 							NULL);
