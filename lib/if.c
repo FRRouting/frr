@@ -130,7 +130,7 @@ static int if_cmp_index_func(const struct interface *ifp1,
 }
 
 /* Create new interface structure. */
-struct interface *if_create(const char *name, vrf_id_t vrf_id)
+struct interface *if_create(const char *name, lr_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_get(vrf_id, NULL);
 	struct interface *ifp;
@@ -157,7 +157,7 @@ struct interface *if_create(const char *name, vrf_id_t vrf_id)
 }
 
 /* Create new interface structure. */
-void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
+void if_update_to_new_vrf(struct interface *ifp, lr_id_t vrf_id)
 {
 	struct vrf *vrf;
 
@@ -214,7 +214,7 @@ void if_delete(struct interface *ifp)
 }
 
 /* Interface existance check by index. */
-struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id)
+struct interface *if_lookup_by_index(ifindex_t ifindex, lr_id_t vrf_id)
 {
 	struct vrf *vrf;
 	struct interface if_tmp;
@@ -227,7 +227,7 @@ struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id)
 	return RB_FIND(if_index_head, &vrf->ifaces_by_index, &if_tmp);
 }
 
-const char *ifindex2ifname(ifindex_t ifindex, vrf_id_t vrf_id)
+const char *ifindex2ifname(ifindex_t ifindex, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 
@@ -236,7 +236,7 @@ const char *ifindex2ifname(ifindex_t ifindex, vrf_id_t vrf_id)
 		       : "unknown";
 }
 
-ifindex_t ifname2ifindex(const char *name, vrf_id_t vrf_id)
+ifindex_t ifname2ifindex(const char *name, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 
@@ -246,7 +246,7 @@ ifindex_t ifname2ifindex(const char *name, vrf_id_t vrf_id)
 }
 
 /* Interface existance check by interface name. */
-struct interface *if_lookup_by_name(const char *name, vrf_id_t vrf_id)
+struct interface *if_lookup_by_name(const char *name, lr_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct interface if_tmp;
@@ -278,7 +278,7 @@ struct interface *if_lookup_by_name_all_vrf(const char *name)
 
 /* Lookup interface by IPv4 address. */
 struct interface *if_lookup_exact_address(void *src, int family,
-					  vrf_id_t vrf_id)
+					  lr_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct listnode *cnode;
@@ -310,7 +310,7 @@ struct interface *if_lookup_exact_address(void *src, int family,
 
 /* Lookup interface by IPv4 address. */
 struct connected *if_lookup_address(void *matchaddr, int family,
-				    vrf_id_t vrf_id)
+				    lr_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct prefix addr;
@@ -346,7 +346,7 @@ struct connected *if_lookup_address(void *matchaddr, int family,
 }
 
 /* Lookup interface by prefix */
-struct interface *if_lookup_prefix(struct prefix *prefix, vrf_id_t vrf_id)
+struct interface *if_lookup_prefix(struct prefix *prefix, lr_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct listnode *cnode;
@@ -365,24 +365,24 @@ struct interface *if_lookup_prefix(struct prefix *prefix, vrf_id_t vrf_id)
 
 /* Get interface by name if given name interface doesn't exist create
    one. */
-struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id, int vty)
+struct interface *if_get_by_name(const char *name, lr_id_t vrf_id, int vty)
 {
 	struct interface *ifp;
 
 	ifp = if_lookup_by_name_all_vrf(name);
 	if (ifp) {
-		if (ifp->vrf_id == vrf_id)
+		if (ifp->vrf_id.lr.id == vrf_id.lr.id)
 			return ifp;
 
 		/* Found a match on a different VRF. If the interface command
-		 * was entered in vty without a VRF (passed as VRF_DEFAULT),
+		 * was entered in vty without a VRF (passed as LR_DEFAULT - vrf_id_default - ),
 		 * accept the ifp we found. If a vrf was entered and there is
 		 * a mismatch, reject it if from vty. If it came from the kernel
 		 * or by way of zclient, believe it and update the ifp
 		 * accordingly.
 		 */
 		if (vty) {
-			if (vrf_id == VRF_DEFAULT)
+			if (vrf_id.lr.id == LR_DEFAULT)
 				return ifp;
 			return NULL;
 		} else {
@@ -528,7 +528,7 @@ static void if_dump(const struct interface *ifp)
 		zlog_info(
 			"Interface %s vrf %u index %d metric %d mtu %d "
 			"mtu6 %d %s",
-			ifp->name, ifp->vrf_id, ifp->ifindex, ifp->metric,
+			ifp->name, ifp->vrf_id.lr.id, ifp->ifindex, ifp->metric,
 			ifp->mtu, ifp->mtu6, if_flag_dump(ifp->flags));
 }
 
@@ -595,7 +595,7 @@ DEFUN (no_interface_desc,
  *     if not:
  *     - no idea, just get the name in its entirety.
  */
-static struct interface *if_sunwzebra_get(char *name, vrf_id_t vrf_id)
+static struct interface *if_sunwzebra_get(char *name, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 	char *cp;
@@ -625,8 +625,9 @@ DEFUN (interface,
 	const char *vrfname = (argc > 2) ? argv[idx_vrf]->arg : NULL;
 
 	struct interface *ifp;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	lr_id_t vrf_id;
 
+	vrf_id.lr.id = LR_DEFAULT;
 	if (strlen(ifname) > INTERFACE_NAMSIZ) {
 		vty_out(vty,
 			"%% Interface name %s is invalid: length exceeds "
@@ -668,8 +669,9 @@ DEFUN_NOSH (no_interface,
 
 	// deleting interface
 	struct interface *ifp;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	lr_id_t vrf_id;
 
+	vrf_id.lr.id = LR_DEFAULT;
 	if (argc > 3)
 		VRF_GET_ID(vrf_id, vrfname);
 
@@ -736,8 +738,9 @@ DEFUN (show_address,
   struct interface *ifp;
   struct connected *ifc;
   struct prefix *p;
-  vrf_id_t vrf_id = VRF_DEFAULT;
+  lr_id_t vrf_id;
 
+  vrf_id.lr.id = LR_DEFAULT;
   if (argc > 2)
     VRF_GET_ID (vrf_id, argv[idx_vrf]->arg);
 
@@ -852,7 +855,7 @@ connected_log(struct connected *connected, char *str)
 	p = connected->address;
 
 	snprintf(logbuf, BUFSIZ, "%s interface %s vrf %u %s %s/%d ", str,
-		 ifp->name, ifp->vrf_id, prefix_family_str(p),
+		 ifp->name, ifp->vrf_id.lr.id, prefix_family_str(p),
 		 inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ), p->prefixlen);
 
 	p = connected->destination;
@@ -1054,7 +1057,7 @@ ifaddr_ipv4_lookup (struct in_addr *addr, ifindex_t ifindex)
       return ifp;
     }
   else
-    return if_lookup_by_index(ifindex, VRF_DEFAULT);
+    return if_lookup_by_index(ifindex, LR_DEFAULT);
 }
 #endif /* ifaddr_ipv4_table */
 

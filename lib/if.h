@@ -284,7 +284,7 @@ struct interface {
 #endif /* HAVE_NET_RT_IFLIST */
 
 	struct route_node *node;
-	vrf_id_t vrf_id;
+	lr_id_t vrf_id;
 
 	QOBJ_FIELDS
 };
@@ -299,28 +299,28 @@ DECLARE_QOBJ_TYPE(interface)
 		zlog_err(                                                      \
 			"%s(%s): corruption detected -- interface with this "  \
 			"name exists already in VRF %u!",                      \
-			__func__, (ifp)->name, (ifp)->vrf_id);
+			__func__, (ifp)->name, (ifp)->vrf_id.lr.id);
 
 #define IFNAME_RB_REMOVE(vrf, ifp)                                             \
 	if (RB_REMOVE(if_name_head, &vrf->ifaces_by_name, (ifp)) == NULL)      \
 		zlog_err(                                                      \
 			"%s(%s): corruption detected -- interface with this "  \
 			"name doesn't exist in VRF %u!",                       \
-			__func__, (ifp)->name, (ifp)->vrf_id);
+			__func__, (ifp)->name, (ifp)->vrf_id.lr.id);
 
 #define IFINDEX_RB_INSERT(vrf, ifp)                                            \
 	if (RB_INSERT(if_index_head, &vrf->ifaces_by_index, (ifp)))            \
 		zlog_err(                                                      \
 			"%s(%u): corruption detected -- interface with this "  \
 			"ifindex exists already in VRF %u!",                   \
-			__func__, (ifp)->ifindex, (ifp)->vrf_id);
+			__func__, (ifp)->ifindex, (ifp)->vrf_id.lr.id);
 
 #define IFINDEX_RB_REMOVE(vrf, ifp)                                            \
 	if (RB_REMOVE(if_index_head, &vrf->ifaces_by_index, (ifp)) == NULL)    \
 		zlog_err(                                                      \
 			"%s(%u): corruption detected -- interface with this "  \
 			"ifindex doesn't exist in VRF %u!",                    \
-			__func__, (ifp)->ifindex, (ifp)->vrf_id);
+			__func__, (ifp)->ifindex, (ifp)->vrf_id.lr.id);
 
 #define FOR_ALL_INTERFACES(vrf, ifp)                                           \
 	if (vrf)                                                               \
@@ -452,21 +452,21 @@ struct nbr_connected {
 /* Prototypes. */
 extern int if_cmp_name_func(char *, char *);
 
-extern void if_update_to_new_vrf(struct interface *, vrf_id_t vrf_id);
-extern struct interface *if_create(const char *name,  vrf_id_t vrf_id);
-extern struct interface *if_lookup_by_index(ifindex_t, vrf_id_t vrf_id);
+extern void if_update_to_new_vrf(struct interface *, lr_id_t vrf_id);
+extern struct interface *if_create(const char *name,  lr_id_t vrf_id);
+extern struct interface *if_lookup_by_index(ifindex_t, lr_id_t vrf_id);
 extern struct interface *if_lookup_exact_address(void *matchaddr, int family,
-						 vrf_id_t vrf_id);
+						 lr_id_t vrf_id);
 extern struct connected *if_lookup_address(void *matchaddr, int family,
-					   vrf_id_t vrf_id);
+					   lr_id_t vrf_id);
 extern struct interface *if_lookup_prefix(struct prefix *prefix,
-					  vrf_id_t vrf_id);
+					  lr_id_t vrf_id);
 
 /* These 3 functions are to be used when the ifname argument is terminated
    by a '\0' character: */
 extern struct interface *if_lookup_by_name_all_vrf(const char *ifname);
-extern struct interface *if_lookup_by_name(const char *ifname, vrf_id_t vrf_id);
-extern struct interface *if_get_by_name(const char *ifname, vrf_id_t vrf_id,
+extern struct interface *if_lookup_by_name(const char *ifname, lr_id_t vrf_id);
+extern struct interface *if_get_by_name(const char *ifname, lr_id_t vrf_id,
 					int vty);
 extern void if_set_index(struct interface *ifp, ifindex_t ifindex);
 
@@ -497,12 +497,12 @@ extern const char *if_link_type_str(enum zebra_link_type);
 /* Please use ifindex2ifname instead of if_indextoname where possible;
    ifindex2ifname uses internal interface info, whereas if_indextoname must
    make a system call. */
-extern const char *ifindex2ifname(ifindex_t, vrf_id_t vrf_id);
+extern const char *ifindex2ifname(ifindex_t, lr_id_t vrf_id);
 
 /* Please use ifname2ifindex instead of if_nametoindex where possible;
    ifname2ifindex uses internal interface info, whereas if_nametoindex must
    make a system call. */
-extern ifindex_t ifname2ifindex(const char *ifname, vrf_id_t vrf_id);
+extern ifindex_t ifname2ifindex(const char *ifname, lr_id_t vrf_id);
 
 /* Connected address functions. */
 extern struct connected *connected_new(void);

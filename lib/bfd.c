@@ -129,7 +129,7 @@ void bfd_set_param(struct bfd_info **bfd_info, u_int32_t min_rx,
 void bfd_peer_sendmsg(struct zclient *zclient, struct bfd_info *bfd_info,
 		      int family, void *dst_ip, void *src_ip, char *if_name,
 		      int ttl, int multihop, int command, int set_flag,
-		      vrf_id_t vrf_id)
+		      lr_id_t vrf_id)
 {
 	struct stream *s;
 	int ret;
@@ -254,7 +254,7 @@ const char *bfd_get_command_dbg_str(int command)
  */
 struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 				    struct prefix *sp, int *status,
-				    vrf_id_t vrf_id)
+				    lr_id_t vrf_id)
 {
 	unsigned int ifindex;
 	struct interface *ifp = NULL;
@@ -438,7 +438,7 @@ void bfd_client_sendmsg(struct zclient *zclient, int command)
 {
 	struct stream *s;
 	int ret;
-
+	
 	/* Check socket. */
 	if (!zclient || zclient->sock < 0) {
 		if (bfd_debug)
@@ -451,7 +451,8 @@ void bfd_client_sendmsg(struct zclient *zclient, int command)
 
 	s = zclient->obuf;
 	stream_reset(s);
-	zclient_create_header(s, command, VRF_DEFAULT);
+
+	zclient_create_header(s, command, vrf_id_default);
 
 	stream_putl(s, getpid());
 
