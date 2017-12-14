@@ -170,15 +170,15 @@ static void ospf_show_vrf_name(struct ospf *ospf, struct vty *vty,
 {
 	if (use_vrf) {
 		if (json) {
-			if (ospf->vrf_id == VRF_DEFAULT)
+			if (ospf->vrf_id.lr.id == LR_DEFAULT)
 				json_object_string_add(json, "vrfName",
 						       "default");
 			else
 				json_object_string_add(json, "vrfName",
 						       ospf->name);
-			json_object_int_add(json, "vrfId", ospf->vrf_id);
+			json_object_int_add(json, "vrfId", ospf->vrf_id.lr.id);
 		} else {
-			if (ospf->vrf_id == VRF_DEFAULT)
+			if (ospf->vrf_id.lr.id == LR_DEFAULT)
 				vty_out(vty, "VRF Name: %s\n", "default");
 			else if (ospf->name)
 				vty_out(vty, "VRF Name: %s\n", ospf->name);
@@ -215,12 +215,12 @@ DEFUN_NOSH (router_ospf,
 		VTY_PUSH_CONTEXT_NULL(OSPF_NODE);
 		ret = CMD_NOT_MY_INSTANCE;
 	} else {
-		if (ospf->vrf_id != VRF_UNKNOWN)
+		if (ospf->vrf_id.lr.id != LR_UNKNOWN)
 			ospf->oi_running = 1;
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("Config command 'router ospf %d' received, vrf %s id %d oi_running %u",
 				   instance,  ospf->name ? ospf->name : "NIL",
-				   ospf->vrf_id, ospf->oi_running);
+				   ospf->vrf_id.lr.id, ospf->oi_running);
 		VTY_PUSH_CONTEXT(OSPF_NODE, ospf);
 
 		/* Activate 'ip ospf area x' configured interfaces for given
@@ -459,7 +459,7 @@ DEFUN (ospf_passive_interface,
 		ospf_passive_interface_default(ospf, OSPF_IF_PASSIVE);
 		return CMD_SUCCESS;
 	}
-	if (ospf->vrf_id != VRF_UNKNOWN)
+	if (ospf->vrf_id.lr.id != LR_UNKNOWN)
 		ifp = if_get_by_name(argv[1]->arg, ospf->vrf_id, 0);
 
 	if (ifp == NULL) {
@@ -533,7 +533,7 @@ DEFUN (no_ospf_passive_interface,
 		return CMD_SUCCESS;
 	}
 
-	if (ospf->vrf_id != VRF_UNKNOWN)
+	if (ospf->vrf_id.lr.id != LR_UNKNOWN)
 		ifp = if_get_by_name(argv[1]->arg, ospf->vrf_id, 0);
 
 	if (ifp == NULL) {
@@ -3239,7 +3239,7 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 	if (json) {
 		if (use_vrf) {
 			json_object_object_add(json_vrf, "areas", json_areas);
-			if (ospf->vrf_id == VRF_DEFAULT)
+			if (ospf->vrf_id.lr.id == LR_DEFAULT)
 				json_object_object_add(json, "default",
 						       json_vrf);
 			else
@@ -3308,7 +3308,7 @@ DEFUN (show_ip_ospf,
 			return CMD_SUCCESS;
 		}
 	} else {
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 		/* Display default ospf (instance 0) info */
 		if (ospf == NULL || !ospf->oi_running) {
 			if (uj)
@@ -3754,7 +3754,7 @@ static int show_ip_ospf_interface_common(struct vty *vty, struct ospf *ospf,
 
 	if (use_json) {
 		if (use_vrf) {
-			if (ospf->vrf_id == VRF_DEFAULT)
+			if (ospf->vrf_id.lr.id == LR_DEFAULT)
 				json_object_object_add(json, "default",
 						       json_vrf);
 			else
@@ -3917,7 +3917,7 @@ static int show_ip_ospf_interface_traffic_common(struct vty *vty,
 
 	if (use_json) {
 		if (use_vrf) {
-			if (ospf->vrf_id == VRF_DEFAULT)
+			if (ospf->vrf_id.lr.id == LR_DEFAULT)
 				json_object_object_add(json, "default",
 						       json_vrf);
 			else
@@ -3996,7 +3996,7 @@ DEFUN (show_ip_ospf_interface,
 
 	} else {
 		/* Display default ospf (instance 0) info */
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 		if (ospf == NULL || !ospf->oi_running) {
 			if (uj)
 				json_object_free(json);
@@ -4130,7 +4130,7 @@ DEFUN (show_ip_ospf_interface_traffic,
 							    display_once,
 							    use_vrf, uj);
 	} else {
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 		if (ospf == NULL || !ospf->oi_running) {
 			if (uj)
 				json_object_free(json);
@@ -4308,7 +4308,7 @@ static int show_ip_ospf_neighbor_common(struct vty *vty, struct ospf *ospf,
 
 	if (use_json) {
 		if (use_vrf) {
-			if (ospf->vrf_id == VRF_DEFAULT)
+			if (ospf->vrf_id.lr.id == LR_DEFAULT)
 				json_object_object_add(json, "default",
 						       json_vrf);
 			else
@@ -4378,7 +4378,7 @@ DEFUN (show_ip_ospf_neighbor,
 		}
 	} else {
 		/* Display default ospf (instance 0) info */
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 		if (ospf == NULL || !ospf->oi_running) {
 			if (uj)
 				json_object_free(json);
@@ -4522,7 +4522,7 @@ static int show_ip_ospf_neighbor_all_common(struct vty *vty, struct ospf *ospf,
 
 	if (use_json) {
 		if (use_vrf) {
-			if (ospf->vrf_id == VRF_DEFAULT)
+			if (ospf->vrf_id.lr.id == LR_DEFAULT)
 				json_object_object_add(json, "default",
 						       json_vrf);
 			else
@@ -4595,7 +4595,7 @@ DEFUN (show_ip_ospf_neighbor_all,
 		}
 	} else {
 		/* Display default ospf (instance 0) info */
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 		if (ospf == NULL || !ospf->oi_running) {
 			if (uj)
 				json_object_free(json);
@@ -4733,7 +4733,7 @@ DEFUN (show_ip_ospf_neighbor_int,
 	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 		if (!ospf->oi_running)
 			continue;
-		if (!ifp || ifp->vrf_id != ospf->vrf_id)
+		if (!ifp || ifp->vrf_id.lr.id != ospf->vrf_id.lr.id)
 			continue;
 		ret = show_ip_ospf_neighbor_int_common(vty, ospf,
 						       idx_ifname, argv, uj, 0);
@@ -5224,7 +5224,7 @@ static int show_ip_ospf_neighbor_detail_common(struct vty *vty,
 
 	if (use_json) {
 		if (use_vrf) {
-			if (ospf->vrf_id == VRF_DEFAULT)
+			if (ospf->vrf_id.lr.id == LR_DEFAULT)
 				json_object_object_add(json, "default",
 						       json_vrf);
 			else
@@ -5295,7 +5295,7 @@ DEFUN (show_ip_ospf_neighbor_detail,
 		}
 	} else {
 		/* Display default ospf (instance 0) info */
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 		if (ospf == NULL || !ospf->oi_running) {
 			if (uj)
 				json_object_free(json);
@@ -5414,7 +5414,7 @@ static int show_ip_ospf_neighbor_detail_all_common(struct vty *vty,
 
 	if (use_json) {
 		if (use_vrf) {
-			if (ospf->vrf_id == VRF_DEFAULT)
+			if (ospf->vrf_id.lr.id == LR_DEFAULT)
 				json_object_object_add(json, "default",
 						       json_vrf);
 			else
@@ -5488,7 +5488,7 @@ DEFUN (show_ip_ospf_neighbor_detail_all,
 		}
 	} else {
 		/* Display default ospf (instance 0) info */
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 		if (ospf == NULL || !ospf->oi_running) {
 			if (uj)
 				json_object_free(json);
@@ -6359,7 +6359,7 @@ DEFUN (show_ip_ospf_database_max,
 		}
 	} else {
 		/* Display default ospf (instance 0) info */
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 		if (ospf == NULL || !ospf->oi_running)
 			return CMD_SUCCESS;
 		ret = show_ip_ospf_database_common(vty, ospf, 0, argc, argv,
@@ -6430,7 +6430,7 @@ DEFUN (show_ip_ospf_instance_database,
 		}
 	} else {
 		/* Display default ospf (instance 0) info */
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 		if (ospf == NULL || !ospf->oi_running)
 			return CMD_SUCCESS;
 		ret = (show_ip_ospf_database_common(vty, ospf, 0, argc, argv,
@@ -6582,7 +6582,7 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 		}
 	} else {
 		/* Display default ospf (instance 0) info */
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 		if (ospf == NULL || !ospf->oi_running)
 			return CMD_SUCCESS;
 		ret = show_ip_ospf_database_type_adv_router_common(vty, ospf,
@@ -7960,7 +7960,7 @@ DEFUN (ip_ospf_area,
 	argv_find(argv, argc, "area", &idx);
 	areaid = argv[idx + 1]->arg;
 
-	if (ifp->vrf_id && !instance)
+	if (ifp->vrf_id.lr.id && !instance)
 		ospf = ospf_lookup_by_vrf_id(ifp->vrf_id);
 	else
 		ospf = ospf_lookup_instance(instance);
@@ -7969,7 +7969,7 @@ DEFUN (ip_ospf_area,
 		params = IF_DEF_PARAMS(ifp);
 		if (OSPF_IF_PARAM_CONFIGURED(params, if_area)) {
 			UNSET_IF_PARAM(params, if_area);
-			ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+			ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 			ospf_interface_area_unset(ospf, ifp);
 			ospf->if_ospf_cli_count--;
 		}
@@ -8057,7 +8057,7 @@ DEFUN (no_ip_ospf_area,
 	if (argv_find(argv, argc, "(1-65535)", &idx))
 		instance = strtol(argv[idx]->arg, NULL, 10);
 
-	if (ifp->vrf_id && !instance)
+	if (ifp->vrf_id.lr.id && !instance)
 		ospf = ospf_lookup_by_vrf_id(ifp->vrf_id);
 	else
 		ospf = ospf_lookup_instance(instance);
@@ -9373,7 +9373,7 @@ DEFUN (show_ip_ospf_border_routers,
 		}
 	} else {
 		/* Display default ospf (instance 0) info */
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 		if (ospf == NULL || !ospf->oi_running)
 			return CMD_SUCCESS;
 		ret = show_ip_ospf_border_routers_common(vty, ospf, use_vrf);
@@ -9442,7 +9442,7 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
 	if (json) {
 		if (use_vrf) {
 			//json_object_object_add(json_vrf, "areas", json_areas);
-			if (ospf->vrf_id == VRF_DEFAULT)
+			if (ospf->vrf_id.lr.id == LR_DEFAULT)
 				json_object_object_add(json, "default",
 						       json_vrf);
 			else
@@ -9511,7 +9511,7 @@ DEFUN (show_ip_ospf_route,
 		}
 	} else {
 		/* Display default ospf (instance 0) info */
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 		if (ospf == NULL || !ospf->oi_running) {
 			if (uj)
 				json_object_free(json);
@@ -9591,12 +9591,12 @@ DEFUN (show_ip_ospf_vrfs,
 		if (uj)
 			json_vrf = json_object_new_object();
 
-		if (ospf->vrf_id == 0)
+		if (ospf->vrf_id.lr.id == LR_DEFAULT)
 			name = VRF_DEFAULT_NAME;
 		else
 			name = ospf->name;
 
-		vrf_id_ui = (ospf->vrf_id == VRF_UNKNOWN) ? -1 : ospf->vrf_id;
+		vrf_id_ui = (ospf->vrf_id.lr.id == LR_UNKNOWN) ? -1 : (int)ospf->vrf_id.lr.id;
 
 		if (uj) {
 			json_object_int_add(json_vrf, "vrfId", vrf_id_ui);
@@ -9607,7 +9607,7 @@ DEFUN (show_ip_ospf_vrfs,
 
 		} else {
 			vty_out(vty, "%-25s  %-5d  %-16s  \n",
-				name, ospf->vrf_id, inet_ntoa(ospf->router_id));
+				name, ospf->vrf_id.lr.id, inet_ntoa(ospf->router_id));
 		}
 	}
 
@@ -9654,7 +9654,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 			continue;
 
 		vty_frame(vty, "!\n");
-		if (ifp->vrf_id == VRF_DEFAULT)
+		if (ifp->vrf_id.lr.id == LR_DEFAULT)
 			vty_frame(vty, "interface %s\n", ifp->name);
 		else
 			vty_frame(vty, "interface %s vrf %s\n",
@@ -10418,11 +10418,11 @@ static int ospf_config_write(struct vty *vty)
 		/* VRF Default check if it is running.
 		 * Upon daemon start, there could be default instance
 		 * in absence of 'router ospf'/oi_running is disabled. */
-		if (ospf->vrf_id == VRF_DEFAULT && ospf->oi_running)
+		if (ospf->vrf_id.lr.id == LR_DEFAULT && ospf->oi_running)
 			write += ospf_config_write_one(vty, ospf);
 		/* For Non-Default VRF simply display the configuration,
 		 * even if it is not oi_running. */
-		else if (ospf->vrf_id != VRF_DEFAULT)
+		else if (ospf->vrf_id.lr.id != LR_DEFAULT)
 			write += ospf_config_write_one(vty, ospf);
 	}
 	return write;

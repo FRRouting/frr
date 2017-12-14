@@ -173,8 +173,8 @@ int ospf_bind_vrfdevice(struct ospf *ospf, int ospf_sock)
 
 #ifdef SO_BINDTODEVICE
 
-	if (ospf && ospf->vrf_id != VRF_DEFAULT &&
-	    ospf->vrf_id != VRF_UNKNOWN) {
+	if (ospf && ospf->vrf_id.lr.id != LR_DEFAULT &&
+	    ospf->vrf_id.lr.id != LR_UNKNOWN) {
 		ret = setsockopt(ospf_sock, SOL_SOCKET, SO_BINDTODEVICE,
 				 ospf->name,
 				 strlen(ospf->name));

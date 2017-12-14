@@ -425,7 +425,7 @@ static void initialize_params(struct ospf_router_info *ori)
 
 	/* If Area address is not null and exist, retrieve corresponding
 	 * structure */
-	top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	top = ospf_lookup_by_vrf_id(vrf_id_default);
 	zlog_info("RI-> Initialize Router Info for %s scope within area %s",
 		  OspfRI.scope == OSPF_OPAQUE_AREA_LSA ? "Area" : "AS",
 		  inet_ntoa(OspfRI.area_id));
@@ -584,7 +584,7 @@ static struct ospf_lsa *ospf_router_info_lsa_new()
 			"LSA[Type%d:%s]: Create an Opaque-LSA/ROUTER INFORMATION instance",
 			lsa_type, inet_ntoa(lsa_id));
 
-	top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	top = ospf_lookup_by_vrf_id(vrf_id_default);
 
 	/* Set opaque-LSA header fields. */
 	lsa_header_set(s, options, lsa_type, lsa_id, top->router_id);
@@ -616,7 +616,7 @@ static struct ospf_lsa *ospf_router_info_lsa_new()
 	if (new->area && new->area->ospf)
 		new->vrf_id = new->area->ospf->vrf_id;
 	else
-		new->vrf_id = VRF_DEFAULT;
+		new->vrf_id.lr.id = LR_DEFAULT;
 
 	SET_FLAG(new->flags, OSPF_LSA_SELF);
 	memcpy(new->data, lsah, length);
@@ -631,7 +631,7 @@ static int ospf_router_info_lsa_originate1(void *arg)
 	struct ospf *top;
 	struct ospf_area *area;
 	int rc = -1;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	lr_id_t vrf_id = { .lr.id = LR_DEFAULT};
 
 	/* First check if the area is known if flooding scope is Area */
 	if (OspfRI.scope == OSPF_OPAQUE_AREA_LSA) {
@@ -658,7 +658,7 @@ static int ospf_router_info_lsa_originate1(void *arg)
 	top = ospf_lookup_by_vrf_id(vrf_id);
 	if (top == NULL) {
 		zlog_debug("%s: ospf instance not found for vrf id %u",
-			   __PRETTY_FUNCTION__, vrf_id);
+			   __PRETTY_FUNCTION__, vrf_id.lr.id);
 		ospf_lsa_unlock(&new);
 		return rc;
 	}
@@ -814,7 +814,7 @@ static void ospf_router_info_lsa_schedule(enum lsa_opcode opcode)
 	if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED) && (opcode == REORIGINATE_THIS_LSA))
 		opcode = REFRESH_THIS_LSA;
 
-	top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	top = ospf_lookup_by_vrf_id(vrf_id_default);
 	if ((OspfRI.scope == OSPF_OPAQUE_AREA_LSA) && (OspfRI.area == NULL)) {
 		zlog_warn(
 			"ospf_router_info_lsa_schedule(): Router Info is Area scope flooding but area is not set");

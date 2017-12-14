@@ -131,7 +131,7 @@ struct ospf {
 	struct in_addr router_id_static; /* Configured manually. */
 	struct in_addr router_id_zebra;
 
-	vrf_id_t vrf_id;  /* VRF Id */
+	lr_id_t vrf_id;  /* VRF Id */
 	char *name;       /* VRF name */
 
 	/* ABR/ASBR internal flags. */
@@ -517,7 +517,7 @@ extern struct ospf *ospf_get(u_short instance, const char *name);
 extern struct ospf *ospf_get_instance(u_short);
 extern struct ospf *ospf_lookup_by_inst_name(u_short instance,
 					     const char *name);
-extern struct ospf *ospf_lookup_by_vrf_id(vrf_id_t vrf_id);
+extern struct ospf *ospf_lookup_by_vrf_id(lr_id_t vrf_id);
 extern void ospf_finish(struct ospf *);
 extern void ospf_router_id_update(struct ospf *ospf);
 extern int ospf_network_set(struct ospf *, struct prefix_ipv4 *, struct in_addr,
@@ -580,7 +580,7 @@ extern void ospf_vrf_init(void);
 extern void ospf_vrf_terminate(void);
 extern void ospf_vrf_link(struct ospf *ospf, struct vrf *vrf);
 extern void ospf_vrf_unlink(struct ospf *ospf, struct vrf *vrf);
-const char *ospf_vrf_id_to_name(vrf_id_t vrf_id);
+const char *ospf_vrf_id_to_name(lr_id_t vrf_id);
 int ospf_area_nssa_no_summary_set(struct ospf *, struct in_addr);
 
 #endif /* _ZEBRA_OSPFD_H */

@@ -142,7 +142,7 @@ static int ospf_bfd_reg_dereg_all_nbr(struct interface *ifp, int command)
  *                       to zebra
  */
 static int ospf_bfd_nbr_replay(int command, struct zclient *zclient,
-			       zebra_size_t length, vrf_id_t vrf_id)
+			       zebra_size_t length, lr_id_t vrf_id)
 {
 	struct listnode *inode, *node, *onode;
 	struct ospf *ospf;
@@ -196,7 +196,7 @@ static int ospf_bfd_nbr_replay(int command, struct zclient *zclient,
  *                                  down.
  */
 static int ospf_bfd_interface_dest_update(int command, struct zclient *zclient,
-					  zebra_size_t length, vrf_id_t vrf_id)
+					  zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 	struct ospf_interface *oi;
