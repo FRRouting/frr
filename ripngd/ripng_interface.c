@@ -190,7 +190,7 @@ static int ripng_if_down(struct interface *ifp)
 
 /* Inteface link up message processing. */
 int ripng_interface_up(int command, struct zclient *zclient,
-		       zebra_size_t length, vrf_id_t vrf_id)
+		       zebra_size_t length, lr_id_t vrf_id)
 {
 	struct stream *s;
 	struct interface *ifp;
@@ -223,7 +223,7 @@ int ripng_interface_up(int command, struct zclient *zclient,
 
 /* Inteface link down message processing. */
 int ripng_interface_down(int command, struct zclient *zclient,
-			 zebra_size_t length, vrf_id_t vrf_id)
+			 zebra_size_t length, lr_id_t vrf_id)
 {
 	struct stream *s;
 	struct interface *ifp;
@@ -249,7 +249,7 @@ int ripng_interface_down(int command, struct zclient *zclient,
 
 /* Inteface addition message from zebra. */
 int ripng_interface_add(int command, struct zclient *zclient,
-			zebra_size_t length, vrf_id_t vrf_id)
+			zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 
@@ -274,7 +274,7 @@ int ripng_interface_add(int command, struct zclient *zclient,
 }
 
 int ripng_interface_delete(int command, struct zclient *zclient,
-			   zebra_size_t length, vrf_id_t vrf_id)
+			   zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 	struct stream *s;
@@ -304,7 +304,7 @@ int ripng_interface_delete(int command, struct zclient *zclient,
 
 void ripng_interface_clean(void)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 	struct ripng_interface *ri;
 
@@ -324,7 +324,7 @@ void ripng_interface_clean(void)
 
 void ripng_interface_reset(void)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 	struct ripng_interface *ri;
 
@@ -382,7 +382,7 @@ static void ripng_apply_address_add(struct connected *ifc)
 }
 
 int ripng_interface_address_add(int command, struct zclient *zclient,
-				zebra_size_t length, vrf_id_t vrf_id)
+				zebra_size_t length, lr_id_t vrf_id)
 {
 	struct connected *c;
 	struct prefix *p;
@@ -446,7 +446,7 @@ static void ripng_apply_address_del(struct connected *ifc)
 }
 
 int ripng_interface_address_delete(int command, struct zclient *zclient,
-				   zebra_size_t length, vrf_id_t vrf_id)
+				   zebra_size_t length, lr_id_t vrf_id)
 {
 	struct connected *ifc;
 	struct prefix *p;
@@ -758,7 +758,7 @@ void ripng_enable_apply(struct interface *ifp)
 /* Set distribute list to all interfaces. */
 static void ripng_enable_apply_all(void)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
@@ -819,7 +819,7 @@ void ripng_passive_interface_apply(struct interface *ifp)
 
 static void ripng_passive_interface_apply_all(void)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
@@ -1067,7 +1067,7 @@ static int ripng_if_delete_hook(struct interface *ifp)
 /* Configuration write function for ripngd. */
 static int interface_config_write(struct vty *vty)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 	struct ripng_interface *ri;
 	int write = 0;

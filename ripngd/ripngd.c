@@ -957,13 +957,13 @@ void ripng_redistribute_add(int type, int sub_type, struct prefix_ipv6 *p,
 			zlog_debug(
 				"Redistribute new prefix %s/%d on the interface %s",
 				inet6_ntoa(p->prefix), p->prefixlen,
-				ifindex2ifname(ifindex, VRF_DEFAULT));
+				ifindex2ifname(ifindex, vrf_id_default));
 		else
 			zlog_debug(
 				"Redistribute new prefix %s/%d with nexthop %s on the interface %s",
 				inet6_ntoa(p->prefix), p->prefixlen,
 				inet6_ntoa(*nexthop),
-				ifindex2ifname(ifindex, VRF_DEFAULT));
+				ifindex2ifname(ifindex, vrf_id_default));
 	}
 
 	ripng_event(RIPNG_TRIGGERED_UPDATE, 0);
@@ -1010,7 +1010,7 @@ void ripng_redistribute_delete(int type, int sub_type, struct prefix_ipv6 *p,
 						inet6_ntoa(p->prefix),
 						p->prefixlen,
 						ifindex2ifname(ifindex,
-							       VRF_DEFAULT));
+							       vrf_id_default));
 
 				ripng_event(RIPNG_TRIGGERED_UPDATE, 0);
 			}
@@ -1055,7 +1055,7 @@ void ripng_redistribute_withdraw(int type)
 						inet6_ntoa(p->prefix),
 						p->prefixlen,
 						ifindex2ifname(rinfo->ifindex,
-							       VRF_DEFAULT));
+							       vrf_id_default));
 				}
 
 				ripng_event(RIPNG_TRIGGERED_UPDATE, 0);
@@ -1315,7 +1315,7 @@ static int ripng_read(struct thread *thread)
 	}
 
 	packet = (struct ripng_packet *)STREAM_DATA(ripng->ibuf);
-	ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
+	ifp = if_lookup_by_index(ifindex, vrf_id_default);
 
 	/* RIPng packet received. */
 	if (IS_RIPNG_DEBUG_EVENT)
@@ -1381,7 +1381,7 @@ static void ripng_clear_changed_flag(void)
    enabled interface. */
 static int ripng_update(struct thread *t)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 	struct ripng_interface *ri;
 
@@ -1449,7 +1449,7 @@ static int ripng_triggered_interval(struct thread *t)
 /* Execute triggered update. */
 int ripng_triggered_update(struct thread *t)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 	struct ripng_interface *ri;
 	int interval;
@@ -2022,7 +2022,7 @@ DEFUN (show_ipv6_ripng,
 					len = vty_out(
 						vty, "%s",
 						ifindex2ifname(rinfo->ifindex,
-							       VRF_DEFAULT));
+							       vrf_id_default));
 				} else if (rinfo->metric
 					   == RIPNG_METRIC_INFINITY) {
 					len = vty_out(vty, "kill");
@@ -2062,7 +2062,7 @@ DEFUN (show_ipv6_ripng_status,
        "Show RIPng routes\n"
        "IPv6 routing protocol process parameters and statistics\n")
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 
 	if (!ripng)
@@ -2736,7 +2736,7 @@ static void ripng_distribute_update(struct distribute *dist)
 	if (!dist->ifname)
 		return;
 
-	ifp = if_lookup_by_name(dist->ifname, VRF_DEFAULT);
+	ifp = if_lookup_by_name(dist->ifname, vrf_id_default);
 	if (ifp == NULL)
 		return;
 
@@ -2795,7 +2795,7 @@ void ripng_distribute_update_interface(struct interface *ifp)
 /* Update all interface's distribute list. */
 static void ripng_distribute_update_all(struct prefix_list *notused)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
@@ -2922,7 +2922,7 @@ static void ripng_if_rmap_update(struct if_rmap *if_rmap)
 	struct ripng_interface *ri;
 	struct route_map *rmap;
 
-	ifp = if_lookup_by_name(if_rmap->ifname, VRF_DEFAULT);
+	ifp = if_lookup_by_name(if_rmap->ifname, vrf_id_default);
 	if (ifp == NULL)
 		return;
 
@@ -2972,7 +2972,7 @@ static void ripng_routemap_update_redistribute(void)
 
 static void ripng_routemap_update(const char *unused)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
