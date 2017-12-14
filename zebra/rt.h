@@ -74,6 +74,8 @@ extern void kernel_route_rib_pass_fail(struct prefix *p,
 
 extern int kernel_address_add_ipv4(struct interface *, struct connected *);
 extern int kernel_address_delete_ipv4(struct interface *, struct connected *);
+extern int kernel_address_add_ipv6 (struct interface *, struct connected *);
+extern int kernel_address_delete_ipv6 (struct interface *, struct connected *);
 extern int kernel_neigh_update(int, int, uint32_t, char *, int);
 extern int kernel_interface_set_master(struct interface *master,
 				       struct interface *slave);
