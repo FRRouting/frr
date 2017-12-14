@@ -112,7 +112,7 @@ babel_config_write (struct vty *vty)
     for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
         for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
             if (i != zclient->redist_default &&
-                vrf_bitmap_check (zclient->redist[afi][i], VRF_DEFAULT)) {
+                vrf_bitmap_check (zclient->redist[afi][i], vrf_id_default)) {
                 vty_out (vty, " redistribute %s %s\n",
                          (afi == AFI_IP) ? "ipv4" : "ipv6",
                          zebra_route_string(i));
@@ -164,7 +164,7 @@ static int
 babel_read_protocol (struct thread *thread)
 {
     int rc;
-    struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+    struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
     struct interface *ifp = NULL;
     struct sockaddr_in6 sin6;
 
@@ -214,7 +214,7 @@ babel_init_routing_process(struct thread *thread)
 static void
 babel_get_myid(void)
 {
-    struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+    struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
     struct interface *ifp = NULL;
     int rc;
     int i;
@@ -268,7 +268,7 @@ babel_get_myid(void)
 static void
 babel_initial_noise(void)
 {
-    struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+    struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
     struct interface *ifp = NULL;
 
     FOR_ALL_INTERFACES(vrf, ifp) {
@@ -319,7 +319,7 @@ static int
 babel_main_loop(struct thread *thread)
 {
     struct timeval tv;
-    struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+    struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
     struct interface *ifp = NULL;
 
     while(1) {
@@ -449,7 +449,7 @@ babel_fill_with_next_timeout(struct timeval *tv)
 #define printIfMin(a,b,c,d) \
   if (UNLIKELY(debug & BABEL_DEBUG_TIMEOUT)) {printIfMin(a,b,c,d);}
 
-    struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+    struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
     struct interface *ifp = NULL;
 
     *tv = check_neighbours_timeout;
@@ -542,7 +542,7 @@ babel_distribute_update (struct distribute *dist)
     if (! dist->ifname)
         return;
 
-    ifp = if_lookup_by_name (dist->ifname, VRF_DEFAULT);
+    ifp = if_lookup_by_name (dist->ifname, vrf_id_default);
     if (ifp == NULL)
         return;
 
@@ -578,7 +578,7 @@ babel_distribute_update_interface (struct interface *ifp)
 static void
 babel_distribute_update_all (struct prefix_list *notused)
 {
-    struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+    struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
     struct interface *ifp;
 
     FOR_ALL_INTERFACES (vrf, ifp)

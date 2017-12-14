@@ -57,7 +57,7 @@ static struct {
 /* Zebra route add and delete treatment. */
 static int
 babel_zebra_read_route (int command, struct zclient *zclient,
-		        zebra_size_t length, vrf_id_t vrf)
+		        zebra_size_t length, lr_id_t vrf)
 {
     struct zapi_route api;
 
@@ -112,9 +112,9 @@ DEFUN (babel_redistribute_type,
     }
 
     if (!negate)
-        zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type, 0, VRF_DEFAULT);
+        zclient_redistribute (ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type, 0, vrf_id_default);
     else {
-        zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, afi, type, 0, VRF_DEFAULT);
+        zclient_redistribute (ZEBRA_REDISTRIBUTE_DELETE, zclient, afi, type, 0, vrf_id_default);
         /* perhaps should we remove xroutes having the same type... */
     }
     return CMD_SUCCESS;
@@ -232,7 +232,7 @@ DEFUN_NOSH (show_debugging_babel,
 static void
 babel_zebra_connected (struct zclient *zclient)
 {
-  zclient_send_reg_requests (zclient, VRF_DEFAULT);
+  zclient_send_reg_requests (zclient, vrf_id_default);
 }
 
 void babelz_zebra_init(void)
