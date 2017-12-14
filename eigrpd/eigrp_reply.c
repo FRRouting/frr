@@ -170,9 +170,11 @@ void eigrp_reply_receive(struct eigrp *eigrp, struct ip *iph,
 		 */
 		if (!dest) {
 			char buf[PREFIX_STRLEN];
+
 			zlog_err("%s: Received prefix %s which we do not know about",
 				 __PRETTY_FUNCTION__,
-				 prefix2str(&dest_addr, buf, strlen(buf)));
+				 prefix2str(&dest_addr, buf, sizeof(buf)));
+			eigrp_IPv4_InternalTLV_free(tlv);
 			continue;
 		}
 

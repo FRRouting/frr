@@ -437,14 +437,11 @@ static void vnc_direct_bgp_vpn_enable_ce(struct bgp *bgp, afi_t afi)
 			continue;
 
 		{
-			char prefixstr[BUFSIZ];
+			char prefixstr[PREFIX_STRLEN];
 
-			prefixstr[0] = 0;
-			inet_ntop(rn->p.family, &rn->p.u.prefix, prefixstr,
-				  BUFSIZ);
-			vnc_zlog_debug_verbose("%s: checking prefix %s/%d",
-					       __func__, prefixstr,
-					       rn->p.prefixlen);
+			prefix2str(&rn->p, prefixstr, sizeof(prefixstr));
+			vnc_zlog_debug_verbose("%s: checking prefix %s",
+					       __func__, prefixstr);
 		}
 
 		for (ri = rn->info; ri; ri = ri->next) {
@@ -1856,14 +1853,13 @@ void vnc_direct_bgp_rh_vpn_enable(struct bgp *bgp, afi_t afi)
 				continue;
 
 			{
-				char prefixstr[BUFSIZ];
+				char prefixstr[PREFIX_STRLEN];
 
-				prefixstr[0] = 0;
-				inet_ntop(rn->p.family, &rn->p.u.prefix,
-					  prefixstr, BUFSIZ);
+				prefix2str(&rn->p, prefixstr,
+					   sizeof(prefixstr));
 				vnc_zlog_debug_verbose(
-					"%s: checking prefix %s/%d", __func__,
-					prefixstr, rn->p.prefixlen);
+					"%s: checking prefix %s", __func__,
+					prefixstr);
 			}
 
 			/*
