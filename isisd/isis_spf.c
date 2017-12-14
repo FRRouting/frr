@@ -1436,9 +1436,8 @@ int isis_spf_schedule(struct isis_area *area, int level)
 			 timer, &area->spf_timer[level - 1]);
 
 	if (isis->debugs & DEBUG_SPF_EVENTS)
-		zlog_debug("ISIS-Spf (%s) L%d SPF scheduled %d sec from now",
-			   area->area_tag, level,
-			   area->min_spf_interval[level - 1] - diff);
+		zlog_debug("ISIS-Spf (%s) L%d SPF scheduled %ld sec from now",
+			   area->area_tag, level, timer);
 
 	return ISIS_OK;
 }
