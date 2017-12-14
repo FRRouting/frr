@@ -1529,7 +1529,7 @@ void rfapiPrintRd(struct vty *vty, struct prefix_rd *prd)
 {
 	char buf[RD_ADDRSTRLEN];
 
-	prefix_rd2str(prd, buf, BUFSIZ);
+	prefix_rd2str(prd, buf, sizeof(buf));
 	vty_out(vty, "%s", buf);
 }
 
