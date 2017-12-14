@@ -11,8 +11,6 @@ means that when a procedure changes, it is agreed upon, then put into practice,
 and then documented here. If this document doesn't match reality, it's the
 document that needs to be updated, not reality.
 
-In short - decisions to change practices should be documented in this document.
-
 Git Structure
 -------------
 
