@@ -53,21 +53,21 @@
 #include "eigrpd/eigrp_topology.h"
 #include "eigrpd/eigrp_fsm.h"
 
-static int eigrp_interface_add(int, struct zclient *, zebra_size_t, vrf_id_t);
+static int eigrp_interface_add(int, struct zclient *, zebra_size_t, lr_id_t);
 static int eigrp_interface_delete(int, struct zclient *, zebra_size_t,
-				  vrf_id_t);
+				  lr_id_t);
 static int eigrp_interface_address_add(int, struct zclient *, zebra_size_t,
-				       vrf_id_t vrf_id);
+				       lr_id_t vrf_id);
 static int eigrp_interface_address_delete(int, struct zclient *, zebra_size_t,
-					  vrf_id_t vrf_id);
+					  lr_id_t vrf_id);
 static int eigrp_interface_state_up(int, struct zclient *, zebra_size_t,
-				    vrf_id_t vrf_id);
+				    lr_id_t vrf_id);
 static int eigrp_interface_state_down(int, struct zclient *, zebra_size_t,
-				      vrf_id_t vrf_id);
+				      lr_id_t vrf_id);
 static struct interface *zebra_interface_if_lookup(struct stream *);
 
 static int eigrp_zebra_read_route(int, struct zclient *, zebra_size_t,
-				  vrf_id_t vrf_id);
+				  lr_id_t vrf_id);
 
 /* Zebra structure to hold current status. */
 struct zclient *zclient = NULL;
@@ -78,7 +78,7 @@ struct in_addr router_id_zebra;
 
 /* Router-id update message from zebra. */
 static int eigrp_router_id_update_zebra(int command, struct zclient *zclient,
-					zebra_size_t length, vrf_id_t vrf_id)
+					zebra_size_t length, lr_id_t vrf_id)
 {
 	struct eigrp *eigrp;
 	struct prefix router_id;
@@ -95,7 +95,7 @@ static int eigrp_router_id_update_zebra(int command, struct zclient *zclient,
 }
 
 static int eigrp_zebra_notify_owner(int command, struct zclient *zclient,
-				    zebra_size_t length, vrf_id_t vrf_id)
+				    zebra_size_t length, lr_id_t vrf_id)
 {
 	struct prefix p;
 	enum zapi_route_notify_owner note;
@@ -108,7 +108,7 @@ static int eigrp_zebra_notify_owner(int command, struct zclient *zclient,
 
 static void eigrp_zebra_connected(struct zclient *zclient)
 {
-	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+	zclient_send_reg_requests(zclient, vrf_id_default);
 }
 
 void eigrp_zebra_init(void)
@@ -134,7 +134,7 @@ void eigrp_zebra_init(void)
 
 /* Zebra route add and delete treatment. */
 static int eigrp_zebra_read_route(int command, struct zclient *zclient,
-				  zebra_size_t length, vrf_id_t vrf_id)
+				  zebra_size_t length, lr_id_t vrf_id)
 {
 	struct zapi_route api;
 	struct eigrp *eigrp;
@@ -160,7 +160,7 @@ static int eigrp_zebra_read_route(int command, struct zclient *zclient,
 
 /* Inteface addition message from zebra. */
 static int eigrp_interface_add(int command, struct zclient *zclient,
-			       zebra_size_t length, vrf_id_t vrf_id)
+			       zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 	struct eigrp_interface *ei;
@@ -180,7 +180,7 @@ static int eigrp_interface_add(int command, struct zclient *zclient,
 }
 
 static int eigrp_interface_delete(int command, struct zclient *zclient,
-				  zebra_size_t length, vrf_id_t vrf_id)
+				  zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 	struct stream *s;
@@ -212,7 +212,7 @@ static int eigrp_interface_delete(int command, struct zclient *zclient,
 }
 
 static int eigrp_interface_address_add(int command, struct zclient *zclient,
-				       zebra_size_t length, vrf_id_t vrf_id)
+				       zebra_size_t length, lr_id_t vrf_id)
 {
 	struct connected *c;
 
@@ -234,7 +234,7 @@ static int eigrp_interface_address_add(int command, struct zclient *zclient,
 }
 
 static int eigrp_interface_address_delete(int command, struct zclient *zclient,
-					  zebra_size_t length, vrf_id_t vrf_id)
+					  zebra_size_t length, lr_id_t vrf_id)
 {
 	struct connected *c;
 	struct interface *ifp;
@@ -266,7 +266,7 @@ static int eigrp_interface_address_delete(int command, struct zclient *zclient,
 }
 
 static int eigrp_interface_state_up(int command, struct zclient *zclient,
-				    zebra_size_t length, vrf_id_t vrf_id)
+				    zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 
@@ -323,7 +323,7 @@ static int eigrp_interface_state_up(int command, struct zclient *zclient,
 }
 
 static int eigrp_interface_state_down(int command, struct zclient *zclient,
-				      zebra_size_t length, vrf_id_t vrf_id)
+				      zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 
@@ -350,7 +350,7 @@ static struct interface *zebra_interface_if_lookup(struct stream *s)
 	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
 
 	/* And look it up. */
-	return if_lookup_by_name(ifname_tmp, VRF_DEFAULT);
+	return if_lookup_by_name(ifname_tmp, vrf_id_default);
 }
 
 void eigrp_zebra_route_add(struct prefix *p, struct list *successors)
@@ -365,7 +365,7 @@ void eigrp_zebra_route_add(struct prefix *p, struct list *successors)
 		return;
 
 	memset(&api, 0, sizeof(api));
-	api.vrf_id = VRF_DEFAULT;
+	api.vrf_id.lr.id = LR_DEFAULT;
 	api.type = ZEBRA_ROUTE_EIGRP;
 	api.safi = SAFI_UNICAST;
 	memcpy(&api.prefix, p, sizeof(*p));
@@ -406,7 +406,7 @@ void eigrp_zebra_route_delete(struct prefix *p)
 		return;
 
 	memset(&api, 0, sizeof(api));
-	api.vrf_id = VRF_DEFAULT;
+	api.vrf_id.lr.id = LR_DEFAULT;
 	api.type = ZEBRA_ROUTE_EIGRP;
 	api.safi = SAFI_UNICAST;
 	memcpy(&api.prefix, p, sizeof(*p));
@@ -425,9 +425,9 @@ int eigrp_is_type_redistributed(int type)
 {
 	return ((DEFAULT_ROUTE_TYPE(type))
 			? vrf_bitmap_check(zclient->default_information,
-					   VRF_DEFAULT)
+					   vrf_id_default)
 			: vrf_bitmap_check(zclient->redist[AFI_IP][type],
-					   VRF_DEFAULT));
+					   vrf_id_default));
 }
 
 int eigrp_redistribute_set(struct eigrp *eigrp, int type,
@@ -453,7 +453,7 @@ int eigrp_redistribute_set(struct eigrp *eigrp, int type,
 	eigrp->dmetric[type] = metric;
 
 	zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP, type, 0,
-			     VRF_DEFAULT);
+			     vrf_id_default);
 
 	++eigrp->redistribute;
 
@@ -466,7 +466,7 @@ int eigrp_redistribute_unset(struct eigrp *eigrp, int type)
 	if (eigrp_is_type_redistributed(type)) {
 		memset(&eigrp->dmetric[type], 0, sizeof(struct eigrp_metrics));
 		zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, zclient, AFI_IP,
-				     type, 0, VRF_DEFAULT);
+				     type, 0, vrf_id_default);
 		--eigrp->redistribute;
 	}
 

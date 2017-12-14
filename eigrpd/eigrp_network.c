@@ -229,7 +229,7 @@ int eigrp_if_drop_allspfrouters(struct eigrp *top, struct prefix *p,
 
 int eigrp_network_set(struct eigrp *eigrp, struct prefix *p)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct route_node *rn;
 	struct interface *ifp;
 

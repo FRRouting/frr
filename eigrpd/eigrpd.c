@@ -94,7 +94,7 @@ extern struct in_addr router_id_zebra;
  */
 void eigrp_router_id_update(struct eigrp *eigrp)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 	u_int32_t router_id, router_id_old;
 

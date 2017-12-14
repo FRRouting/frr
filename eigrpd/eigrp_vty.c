@@ -77,7 +77,7 @@ static int config_write_network(struct vty *vty, struct eigrp *eigrp)
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
 		if (i != zclient->redist_default
 		    && vrf_bitmap_check(zclient->redist[AFI_IP][i],
-					VRF_DEFAULT))
+					vrf_id_default))
 			vty_out(vty, " redistribute %s\n",
 				zebra_route_string(i));
 
@@ -132,7 +132,7 @@ static int config_write_interfaces(struct vty *vty, struct eigrp *eigrp)
 
 static int eigrp_write_interface(struct vty *vty)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 	struct eigrp_interface *ei;
 
@@ -1243,13 +1243,13 @@ DEFUN (clear_ip_eigrp_neighbors,
 					"Neighbor %s (%s) is down: manually cleared",
 					inet_ntoa(nbr->src),
 					ifindex2ifname(nbr->ei->ifp->ifindex,
-						       VRF_DEFAULT));
+						       vrf_id_default));
 				vty_time_print(vty, 0);
 				vty_out(vty,
 					"Neighbor %s (%s) is down: manually cleared\n",
 					inet_ntoa(nbr->src),
 					ifindex2ifname(nbr->ei->ifp->ifindex,
-						       VRF_DEFAULT));
+						       vrf_id_default));
 
 				/* set neighbor to DOWN */
 				nbr->state = EIGRP_NEIGHBOR_DOWN;
@@ -1304,13 +1304,13 @@ DEFUN (clear_ip_eigrp_neighbors_int,
 			zlog_debug("Neighbor %s (%s) is down: manually cleared",
 				   inet_ntoa(nbr->src),
 				   ifindex2ifname(nbr->ei->ifp->ifindex,
-						  VRF_DEFAULT));
+						  vrf_id_default));
 			vty_time_print(vty, 0);
 			vty_out(vty,
 				"Neighbor %s (%s) is down: manually cleared\n",
 				inet_ntoa(nbr->src),
 				ifindex2ifname(nbr->ei->ifp->ifindex,
-					       VRF_DEFAULT));
+					       vrf_id_default));
 
 			/* set neighbor to DOWN */
 			nbr->state = EIGRP_NEIGHBOR_DOWN;
