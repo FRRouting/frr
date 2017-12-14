@@ -40,7 +40,7 @@
 #define ZEBRA_MAX_PACKET_SIZ          4096
 
 /* Zebra header size. */
-#define ZEBRA_HEADER_SIZE             8
+#define ZEBRA_HEADER_SIZE             10
 
 /* special socket path name to use TCP
  * @ is used as first character because that's abstract socket names on Linux
