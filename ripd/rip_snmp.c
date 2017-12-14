@@ -255,7 +255,7 @@ static struct interface *rip2IfLookup(struct variable *v, oid name[],
 		oid2in_addr(name + v->namelen, sizeof(struct in_addr), addr);
 
 		return if_lookup_exact_address((void *)addr, AF_INET,
-					       VRF_DEFAULT);
+					       vrf_id_default);
 	} else {
 		len = *length - v->namelen;
 		if (len > 4)

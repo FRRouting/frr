@@ -47,7 +47,7 @@ static void rip_zebra_ipv4_send(struct route_node *rp, u_char cmd)
 	int count = 0;
 
 	memset(&api, 0, sizeof(api));
-	api.vrf_id = VRF_DEFAULT;
+	api.vrf_id.lr.id = LR_DEFAULT;
 	api.type = ZEBRA_ROUTE_RIP;
 	api.safi = SAFI_UNICAST;
 
@@ -118,7 +118,7 @@ void rip_zebra_ipv4_delete(struct route_node *rp)
 
 /* Zebra route add and delete treatment. */
 static int rip_zebra_read_route(int command, struct zclient *zclient,
-				zebra_size_t length, vrf_id_t vrf_id)
+				zebra_size_t length, lr_id_t vrf_id)
 {
 	struct zapi_route api;
 	struct nexthop nh;
@@ -209,14 +209,14 @@ static struct {
 
 static int rip_redistribute_unset(int type)
 {
-	if (!vrf_bitmap_check(zclient->redist[AFI_IP][type], VRF_DEFAULT))
+	if (!vrf_bitmap_check(zclient->redist[AFI_IP][type], vrf_id_default))
 		return CMD_SUCCESS;
 
-	vrf_bitmap_unset(zclient->redist[AFI_IP][type], VRF_DEFAULT);
+	vrf_bitmap_unset(zclient->redist[AFI_IP][type], vrf_id_default);
 
 	if (zclient->sock > 0)
 		zebra_redistribute_send(ZEBRA_REDISTRIBUTE_DELETE, zclient,
-					AFI_IP, type, 0, VRF_DEFAULT);
+					AFI_IP, type, 0, vrf_id_default);
 
 	/* Remove the routes from RIP table. */
 	rip_redistribute_withdraw(type);
@@ -226,7 +226,7 @@ static int rip_redistribute_unset(int type)
 
 int rip_redistribute_check(int type)
 {
-	return vrf_bitmap_check(zclient->redist[AFI_IP][type], VRF_DEFAULT);
+	return vrf_bitmap_check(zclient->redist[AFI_IP][type], vrf_id_default);
 }
 
 void rip_redistribute_clean(void)
@@ -236,16 +236,16 @@ void rip_redistribute_clean(void)
 	for (i = 0; redist_type[i].str; i++) {
 		if (vrf_bitmap_check(
 			    zclient->redist[AFI_IP][redist_type[i].type],
-			    VRF_DEFAULT)) {
+			    vrf_id_default)) {
 			if (zclient->sock > 0)
 				zebra_redistribute_send(
 					ZEBRA_REDISTRIBUTE_DELETE, zclient,
 					AFI_IP, redist_type[i].type, 0,
-					VRF_DEFAULT);
+					vrf_id_default);
 
 			vrf_bitmap_unset(
 				zclient->redist[AFI_IP][redist_type[i].type],
-				VRF_DEFAULT);
+				vrf_id_default);
 
 			/* Remove the routes from RIP table. */
 			rip_redistribute_withdraw(redist_type[i].type);
@@ -267,7 +267,7 @@ DEFUN (rip_redistribute_type,
 		    == 0) {
 			zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient,
 					     AFI_IP, redist_type[i].type, 0,
-					     VRF_DEFAULT);
+					     vrf_id_default);
 			return CMD_SUCCESS;
 		}
 	}
@@ -321,7 +321,7 @@ DEFUN (rip_redistribute_type_routemap,
 					 argv[idx_word]->arg);
 			zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient,
 					     AFI_IP, redist_type[i].type, 0,
-					     VRF_DEFAULT);
+					     vrf_id_default);
 			return CMD_SUCCESS;
 		}
 	}
@@ -380,7 +380,7 @@ DEFUN (rip_redistribute_type_metric,
 						    metric);
 			zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient,
 					     AFI_IP, redist_type[i].type, 0,
-					     VRF_DEFAULT);
+					     vrf_id_default);
 			return CMD_SUCCESS;
 		}
 	}
@@ -444,7 +444,7 @@ DEFUN (rip_redistribute_type_metric_routemap,
 					 argv[idx_word]->arg);
 			zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient,
 					     AFI_IP, redist_type[i].type, 0,
-					     VRF_DEFAULT);
+					     vrf_id_default);
 			return CMD_SUCCESS;
 		}
 	}
@@ -549,7 +549,7 @@ int config_write_rip_redistribute(struct vty *vty, int config_mode)
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if (i == zclient->redist_default
 		    || !vrf_bitmap_check(zclient->redist[AFI_IP][i],
-					 VRF_DEFAULT))
+					 vrf_id_default))
 			continue;
 
 		if (!config_mode) {
@@ -584,7 +584,7 @@ int config_write_rip_redistribute(struct vty *vty, int config_mode)
 
 static void rip_zebra_connected(struct zclient *zclient)
 {
-	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+	zclient_send_reg_requests(zclient, vrf_id_default);
 }
 
 void rip_zclient_init(struct thread_master *master)
