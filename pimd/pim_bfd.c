@@ -126,7 +126,7 @@ static void pim_bfd_reg_dereg_nbr(struct pim_neighbor *nbr, int command)
 			   bfd_get_command_dbg_str(command));
 	}
 	bfd_peer_sendmsg(zclient, bfd_info, AF_INET, &nbr->source_addr, NULL,
-			 nbr->interface->name, 0, 0, command, 0, VRF_DEFAULT);
+			 nbr->interface->name, 0, 0, command, 0, vrf_id_default);
 }
 
 /*
@@ -207,7 +207,7 @@ void pim_bfd_if_param_set(struct interface *ifp, u_int32_t min_rx,
  *                                  down.
  */
 static int pim_bfd_interface_dest_update(int command, struct zclient *zclient,
-					 zebra_size_t length, vrf_id_t vrf_id)
+					 zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp = NULL;
 	struct pim_interface *pim_ifp = NULL;
@@ -287,7 +287,7 @@ static int pim_bfd_interface_dest_update(int command, struct zclient *zclient,
  *                       to zebra
  */
 static int pim_bfd_nbr_replay(int command, struct zclient *zclient,
-			      zebra_size_t length, vrf_id_t vrf_id)
+			      zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp = NULL;
 	struct pim_interface *pim_ifp = NULL;
@@ -322,7 +322,7 @@ static int pim_bfd_nbr_replay(int command, struct zclient *zclient,
 						       str, sizeof(str));
 					zlog_debug("%s: Replaying Pim Neigh %s to BFD vrf_id %u",
 						   __PRETTY_FUNCTION__, str,
-						   vrf->vrf_id);
+						   vrf->vrf_id.lr.id);
 				}
 				pim_bfd_reg_dereg_nbr(neigh,
 						      ZEBRA_BFD_DEST_UPDATE);

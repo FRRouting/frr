@@ -632,7 +632,7 @@ int pim_ecmp_nexthop_search(struct pim_instance *pim,
 /* This API is used to parse Registered address nexthop update coming from Zebra
  */
 int pim_parse_nexthop_update(int command, struct zclient *zclient,
-			     zebra_size_t length, vrf_id_t vrf_id)
+			     zebra_size_t length, lr_id_t vrf_id)
 {
 	struct stream *s;
 	struct prefix p;
@@ -811,9 +811,9 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 		char buf[PREFIX2STR_BUFFER];
 		prefix2str(&p, buf, sizeof(buf));
 		zlog_debug(
-			"%s: NHT Update for %s(%s) num_nh %d num_pim_nh %d vrf:%d up %ld rp %d",
+			"%s: NHT Update for %s(%s) num_nh %d num_pim_nh %d vrf:%u up %ld rp %d",
 			__PRETTY_FUNCTION__, buf, pim->vrf->name, nexthop_num,
-			pnc->nexthop_num, vrf_id, pnc->upstream_hash->count,
+			pnc->nexthop_num, vrf_id.lr.id, pnc->upstream_hash->count,
 			listcount(pnc->rp_list));
 	}
 

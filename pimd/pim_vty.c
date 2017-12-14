@@ -153,7 +153,7 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	struct pim_ssm *ssm = pim->ssm_info;
 	char spaces[10];
 
-	if (pim->vrf_id == VRF_DEFAULT)
+	if (pim->vrf_id.lr.id == LR_DEFAULT)
 		sprintf(spaces, "%s", "");
 	else
 		sprintf(spaces, "%s", " ");
@@ -251,7 +251,7 @@ int pim_interface_config_write(struct vty *vty)
 
 		FOR_ALL_INTERFACES (pim->vrf, ifp) {
 			/* IF name */
-			if (vrf->vrf_id == VRF_DEFAULT)
+			if (vrf->vrf_id.lr.id == LR_DEFAULT)
 				vty_frame(vty, "interface %s\n", ifp->name);
 			else
 				vty_frame(vty, "interface %s vrf %s\n",

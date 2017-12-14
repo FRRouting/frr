@@ -72,7 +72,7 @@ void pim_cmd_init(void);
 #define PIM_DECLVAR_CONTEXT(A, B)                                              \
 	struct vrf *A = VTY_GET_CONTEXT(vrf);                                  \
 	struct pim_instance *B =                                               \
-		(vrf) ? vrf->info : pim_get_pim_instance(VRF_DEFAULT);         \
+		(vrf) ? vrf->info : pim_get_pim_instance(vrf_id_default);         \
 	vrf = (vrf) ? vrf : pim->vrf;
 
 #endif /* PIM_CMD_H */

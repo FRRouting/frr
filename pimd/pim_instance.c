@@ -110,7 +110,7 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 
 	pim->send_v6_secondary = 1;
 
-	if (vrf->vrf_id == VRF_DEFAULT)
+	if (vrf->vrf_id.lr.id == LR_DEFAULT)
 		pimg = pim;
 
 	pim_rp_init(pim);
@@ -122,7 +122,7 @@ static struct pim_instance *pim_instance_init(struct vrf *vrf)
 	return pim;
 }
 
-struct pim_instance *pim_get_pim_instance(vrf_id_t vrf_id)
+struct pim_instance *pim_get_pim_instance(lr_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 
@@ -136,7 +136,7 @@ static int pim_vrf_new(struct vrf *vrf)
 {
 	struct pim_instance *pim = pim_instance_init(vrf);
 
-	zlog_debug("VRF Created: %s(%d)", vrf->name, vrf->vrf_id);
+	zlog_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id.lr.id);
 	if (pim == NULL) {
 		zlog_err("%s %s: pim class init failure ", __FILE__,
 			 __PRETTY_FUNCTION__);
@@ -148,7 +148,7 @@ static int pim_vrf_new(struct vrf *vrf)
 
 	vrf->info = (void *)pim;
 
-	if (vrf->vrf_id == VRF_DEFAULT)
+	if (vrf->vrf_id.lr.id == LR_DEFAULT)
 		pimg = pim;
 
 	pim_ssmpingd_init(pim);
@@ -159,7 +159,7 @@ static int pim_vrf_delete(struct vrf *vrf)
 {
 	struct pim_instance *pim = vrf->info;
 
-	zlog_debug("VRF Deletion: %s(%d)", vrf->name, vrf->vrf_id);
+	zlog_debug("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id.lr.id);
 
 	pim_ssmpingd_destroy(pim);
 	pim_instance_terminate(pim);
@@ -198,7 +198,7 @@ static int pim_vrf_config_write(struct vty *vty)
 		if (!pim)
 			continue;
 
-		if (vrf->vrf_id == VRF_DEFAULT)
+		if (vrf->vrf_id.lr.id == LR_DEFAULT)
 			continue;
 
 		vty_frame(vty, "vrf %s\n", vrf->name);

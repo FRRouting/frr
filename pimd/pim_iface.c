@@ -909,7 +909,7 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 	if (!v4_addrs && v6_addrs && !if_is_loopback(ifp)) {
 		struct interface *lo_ifp;
 		// DBS - Come back and check here
-		if (ifp->vrf_id == VRF_DEFAULT)
+		if (ifp->vrf_id.lr.id == LR_DEFAULT)
 			lo_ifp = if_lookup_by_name("lo", vrf->vrf_id);
 		else
 			lo_ifp = if_lookup_by_name(vrf->name, vrf->vrf_id);
@@ -1489,7 +1489,7 @@ void pim_if_create_pimreg(struct pim_instance *pim)
 	char pimreg_name[INTERFACE_NAMSIZ];
 
 	if (!pim->regiface) {
-		if (pim->vrf_id == VRF_DEFAULT)
+		if (pim->vrf_id.lr.id == LR_DEFAULT)
 			strlcpy(pimreg_name, "pimreg", sizeof(pimreg_name));
 		else
 			snprintf(pimreg_name, sizeof(pimreg_name), "pimreg%u",

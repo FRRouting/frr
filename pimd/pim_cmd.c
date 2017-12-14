@@ -80,7 +80,7 @@ static struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
 	if (argv_find(argv, argc, "NAME", idx))
 		vrf = vrf_lookup_by_name(argv[*idx]->arg);
 	else
-		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+		vrf = vrf_lookup_by_id(vrf_id_default);
 
 	if (!vrf)
 		vty_out(vty, "Specified VRF: %s does not exist\n",
