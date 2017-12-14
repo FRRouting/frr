@@ -39,21 +39,21 @@ static void	 ifc2kaddr(struct interface *, struct connected *,
 		    struct kaddr *);
 static int	 zebra_send_mpls_labels(int, struct kroute *);
 static int	 ldp_router_id_update(int, struct zclient *, zebra_size_t,
-		    vrf_id_t);
+		    lr_id_t);
 static int	 ldp_interface_add(int, struct zclient *, zebra_size_t,
-		    vrf_id_t);
+		    lr_id_t);
 static int	 ldp_interface_delete(int, struct zclient *, zebra_size_t,
-		    vrf_id_t);
+		    lr_id_t);
 static int	 ldp_interface_status_change(int command, struct zclient *,
-		    zebra_size_t, vrf_id_t);
+		    zebra_size_t, lr_id_t);
 static int	 ldp_interface_address_add(int, struct zclient *, zebra_size_t,
-		    vrf_id_t);
+		    lr_id_t);
 static int	 ldp_interface_address_delete(int, struct zclient *,
-		    zebra_size_t, vrf_id_t);
+		    zebra_size_t, lr_id_t);
 static int	 ldp_zebra_read_route(int, struct zclient *, zebra_size_t,
-		    vrf_id_t);
+		    lr_id_t);
 static int	 ldp_zebra_read_pw_status_update(int, struct zclient *,
-		    zebra_size_t, vrf_id_t);
+		    zebra_size_t, lr_id_t);
 static void	 ldp_zebra_connected(struct zclient *);
 
 static struct zclient	*zclient;
@@ -132,7 +132,7 @@ zebra_send_mpls_labels(int cmd, struct kroute *kr)
 	s = zclient->obuf;
 	stream_reset(s);
 
-	zclient_create_header(s, cmd, VRF_DEFAULT);
+	zclient_create_header(s, cmd, vrf_id_default);
 	stream_putc(s, ZEBRA_LSP_LDP);
 	stream_putl(s, kr->af);
 	switch (kr->af) {
@@ -212,7 +212,7 @@ kmpw_unset(struct zapi_pw *zpw)
 void
 kif_redistribute(const char *ifname)
 {
-	struct vrf		*vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf		*vrf = vrf_lookup_by_id(vrf_id_default);
 	struct listnode		*cnode;
 	struct interface	*ifp;
 	struct connected	*ifc;
@@ -236,7 +236,7 @@ kif_redistribute(const char *ifname)
 
 static int
 ldp_router_id_update(int command, struct zclient *zclient, zebra_size_t length,
-    vrf_id_t vrf_id)
+    lr_id_t vrf_id)
 {
 	struct prefix	 router_id;
 
@@ -256,7 +256,7 @@ ldp_router_id_update(int command, struct zclient *zclient, zebra_size_t length,
 
 static int
 ldp_interface_add(int command, struct zclient *zclient, zebra_size_t length,
-    vrf_id_t vrf_id)
+    lr_id_t vrf_id)
 {
 	struct interface	*ifp;
 	struct kif		 kif;
@@ -273,7 +273,7 @@ ldp_interface_add(int command, struct zclient *zclient, zebra_size_t length,
 
 static int
 ldp_interface_delete(int command, struct zclient *zclient, zebra_size_t length,
-    vrf_id_t vrf_id)
+    lr_id_t vrf_id)
 {
 	struct interface	*ifp;
 	struct kif		 kif;
@@ -298,7 +298,7 @@ ldp_interface_delete(int command, struct zclient *zclient, zebra_size_t length,
 
 static int
 ldp_interface_status_change(int command, struct zclient *zclient,
-    zebra_size_t length, vrf_id_t vrf_id)
+    zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface	*ifp;
 	struct listnode		*node;
@@ -338,7 +338,7 @@ ldp_interface_status_change(int command, struct zclient *zclient,
 
 static int
 ldp_interface_address_add(int command, struct zclient *zclient,
-    zebra_size_t length, vrf_id_t vrf_id)
+    zebra_size_t length, lr_id_t vrf_id)
 {
 	struct connected	*ifc;
 	struct interface	*ifp;
@@ -366,7 +366,7 @@ ldp_interface_address_add(int command, struct zclient *zclient,
 
 static int
 ldp_interface_address_delete(int command, struct zclient *zclient,
-    zebra_size_t length, vrf_id_t vrf_id)
+    zebra_size_t length, lr_id_t vrf_id)
 {
 	struct connected	*ifc;
 	struct interface	*ifp;
@@ -395,7 +395,7 @@ ldp_interface_address_delete(int command, struct zclient *zclient,
 
 static int
 ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
-    vrf_id_t vrf_id)
+    lr_id_t vrf_id)
 {
 	struct zapi_route	 api;
 	struct zapi_nexthop	*api_nh;
@@ -503,7 +503,7 @@ ldp_zebra_read_route(int command, struct zclient *zclient, zebra_size_t length,
  */
 static int
 ldp_zebra_read_pw_status_update(int command, struct zclient *zclient,
-    zebra_size_t length, vrf_id_t vrf_id)
+    zebra_size_t length, lr_id_t vrf_id)
 {
 	struct zapi_pw_status	 zpw;
 
@@ -520,11 +520,11 @@ ldp_zebra_read_pw_status_update(int command, struct zclient *zclient,
 static void
 ldp_zebra_connected(struct zclient *zclient)
 {
-	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+	zclient_send_reg_requests(zclient, vrf_id_default);
 	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
-	    ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
+	    ZEBRA_ROUTE_ALL, 0, vrf_id_default);
 	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6,
-	    ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
+	    ZEBRA_ROUTE_ALL, 0, vrf_id_default);
 }
 
 extern struct zebra_privs_t ldpd_privs;
