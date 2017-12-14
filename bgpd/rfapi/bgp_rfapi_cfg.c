@@ -1626,7 +1626,11 @@ DEFUN (vnc_nve_group_export_no_prefixlist,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	argv_find_and_parse_afi(argv, argc, &idx, &afi);
+	if (!argv_find_and_parse_afi(argv, argc, &idx, &afi)) {
+		vty_out(vty, "%% Malformed Address Family\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	if (argv[idx-1]->text[0] == 'z')
 		is_bgp = 0;
 	idx += 2;		/* skip afi and keyword */
@@ -1691,7 +1695,11 @@ DEFUN (vnc_nve_group_export_prefixlist,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	argv_find_and_parse_afi(argv, argc, &idx, &afi);
+	if (!argv_find_and_parse_afi(argv, argc, &idx, &afi)) {
+		vty_out(vty, "%% Malformed Address Family\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	if (argv[idx-1]->text[0] == 'z')
 		is_bgp = 0;
 	idx = argc - 1;
