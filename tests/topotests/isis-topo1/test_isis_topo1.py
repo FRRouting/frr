@@ -147,6 +147,25 @@ def test_isis_route_installation():
         filename = '{0}/{1}/{1}_route.json'.format(CWD, rname)
         expected = json.loads(open(filename, 'r').read())
         actual = router.vtysh_cmd('show ip route json', isjson=True)
+
+        # Older FRR versions don't list interfaces in some ISIS routes
+        if router.has_version('<', '3.1'):
+            for network, routes in expected.iteritems():
+                for route in routes:
+                    if route['protocol'] != 'isis':
+                        continue
+
+                    for nexthop in route['nexthops']:
+                        try:
+                            nexthop.pop('interfaceIndex')
+                        except KeyError:
+                            pass
+
+                        try:
+                            nexthop.pop('interfaceName')
+                        except KeyError:
+                            pass
+
         assertmsg = "Router '{}' routes mismatch".format(rname)
         assert topotest.json_cmp(actual, expected) is None, assertmsg
 
@@ -165,6 +184,13 @@ def test_isis_linux_route_installation():
         filename = '{0}/{1}/{1}_route_linux.json'.format(CWD, rname)
         expected = json.loads(open(filename, 'r').read())
         actual = topotest.ip4_route(router)
+
+        # Older FRR versions install routes using different proto
+        if router.has_version('<', '3.1'):
+            for network, netoptions in expected.iteritems():
+                if 'proto' in netoptions and netoptions['proto'] == '187':
+                    netoptions['proto'] = 'zebra'
+
         assertmsg = "Router '{}' OS routes mismatch".format(rname)
         assert topotest.json_cmp(actual, expected) is None, assertmsg
 
