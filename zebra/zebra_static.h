@@ -53,7 +53,7 @@ struct static_route {
 	struct static_route *next;
 
 	/* VRF identifier. */
-	vrf_id_t vrf_id;
+	lr_id_t vrf_id;
 
 	/* Administrative distance. */
 	u_char distance;

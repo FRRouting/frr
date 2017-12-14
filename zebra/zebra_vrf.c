@@ -71,7 +71,7 @@ void zebra_vrf_update_all(struct zserv *client)
 	struct vrf *vrf;
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		if (vrf->vrf_id)
+		if (vrf->vrf_id.lr.id)
 			zsend_vrf_add(client, vrf_info_lookup(vrf->vrf_id));
 	}
 }
@@ -82,7 +82,7 @@ static int zebra_vrf_new(struct vrf *vrf)
 	struct zebra_vrf *zvrf;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_info("ZVRF %s with id %u", vrf->name, vrf->vrf_id);
+		zlog_info("ZVRF %s with id %u", vrf->name, vrf->vrf_id.lr.id);
 
 	zvrf = zebra_vrf_alloc();
 	zvrf->zns = zebra_ns_lookup(
@@ -147,7 +147,7 @@ static int zebra_vrf_disable(struct vrf *vrf)
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug("VRF %s id %u is now disabled.", zvrf_name(zvrf),
-			   zvrf_id(zvrf));
+			   zvrf_id(zvrf).lr.id);
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
@@ -186,7 +186,7 @@ static int zebra_vrf_delete(struct vrf *vrf)
 			     safi++)
 				rib_close_table(zvrf->table[afi][safi]);
 
-			if (vrf->vrf_id == VRF_DEFAULT)
+			if (vrf->vrf_id.lr.id == LR_DEFAULT)
 				for (table_id = 0;
 				     table_id < ZEBRA_KERNEL_TABLE_MAX;
 				     table_id++)
@@ -262,7 +262,7 @@ static int zebra_vrf_delete(struct vrf *vrf)
  * NOTE: Table-id is relevant only in the Default VRF.
  */
 struct route_table *zebra_vrf_table_with_table_id(afi_t afi, safi_t safi,
-						  vrf_id_t vrf_id,
+						  lr_id_t vrf_id,
 						  u_int32_t table_id)
 {
 	struct route_table *table = NULL;
@@ -270,7 +270,7 @@ struct route_table *zebra_vrf_table_with_table_id(afi_t afi, safi_t safi,
 	if (afi >= AFI_MAX || safi >= SAFI_MAX)
 		return NULL;
 
-	if (vrf_id == VRF_DEFAULT) {
+	if (vrf_id.lr.id == LR_DEFAULT) {
 		if (table_id == RT_TABLE_MAIN
 		    || table_id == zebrad.rtm_table_default)
 			table = zebra_vrf_table(afi, safi, vrf_id);
@@ -378,7 +378,7 @@ struct zebra_vrf *zebra_vrf_alloc(void)
 }
 
 /* Lookup VRF by identifier.  */
-struct zebra_vrf *zebra_vrf_lookup_by_id(vrf_id_t vrf_id)
+struct zebra_vrf *zebra_vrf_lookup_by_id(lr_id_t vrf_id)
 {
 	return vrf_info_lookup(vrf_id);
 }
@@ -399,7 +399,7 @@ struct zebra_vrf *zebra_vrf_lookup_by_name(const char *name)
 }
 
 /* Lookup the routing table in an enabled VRF. */
-struct route_table *zebra_vrf_table(afi_t afi, safi_t safi, vrf_id_t vrf_id)
+struct route_table *zebra_vrf_table(afi_t afi, safi_t safi, lr_id_t vrf_id)
 {
 	struct zebra_vrf *zvrf = vrf_info_lookup(vrf_id);
 
@@ -426,7 +426,7 @@ struct route_table *zebra_vrf_static_table(afi_t afi, safi_t safi,
 }
 
 struct route_table *zebra_vrf_other_route_table(afi_t afi, u_int32_t table_id,
-						vrf_id_t vrf_id)
+						lr_id_t vrf_id)
 {
 	struct zebra_vrf *zvrf;
 	rib_table_info_t *info;
@@ -442,7 +442,7 @@ struct route_table *zebra_vrf_other_route_table(afi_t afi, u_int32_t table_id,
 	if (table_id >= ZEBRA_KERNEL_TABLE_MAX)
 		return NULL;
 
-	if ((vrf_id == VRF_DEFAULT) && (table_id != RT_TABLE_MAIN)
+	if ((vrf_id.lr.id == LR_DEFAULT) && (table_id != RT_TABLE_MAIN)
 	    && (table_id != zebrad.rtm_table_default)) {
 		if (zvrf->other_table[afi][table_id] == NULL) {
 			table = (afi == AFI_IP6) ? srcdest_table_init()

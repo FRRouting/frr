@@ -70,7 +70,7 @@ void ifstat_update_sysctl(void)
 	for (end = buf + bufsiz; buf < end; buf += ifm->ifm_msglen) {
 		ifm = (struct if_msghdr *)buf;
 		if (ifm->ifm_type == RTM_IFINFO) {
-			ifp = if_lookup_by_index(ifm->ifm_index, VRF_DEFAULT);
+			ifp = if_lookup_by_index(ifm->ifm_index, vrf_id_default);
 			if (ifp)
 				ifp->stats = ifm->ifm_data;
 		}

@@ -63,7 +63,7 @@ static int relay_response_back(struct zserv *zserv)
 	u_int16_t size = 0;
 	u_char marker;
 	u_char version;
-	vrf_id_t vrf_id;
+	lr_id_t vrf_id;
 	u_int16_t resp_cmd;
 
 	src = zclient->ibuf;
@@ -112,7 +112,7 @@ static int lm_zclient_read(struct thread *t)
 	return ret;
 }
 
-static int reply_error(int cmd, struct zserv *zserv, vrf_id_t vrf_id)
+static int reply_error(int cmd, struct zserv *zserv, lr_id_t vrf_id)
 {
 	struct stream *s;
 
@@ -141,7 +141,7 @@ static int reply_error(int cmd, struct zserv *zserv, vrf_id_t vrf_id)
  * @return 0 on success, -1 otherwise
  */
 int zread_relay_label_manager_request(int cmd, struct zserv *zserv,
-				      vrf_id_t vrf_id)
+				      lr_id_t vrf_id)
 {
 	struct stream *src, *dst;
 	int ret = 0;

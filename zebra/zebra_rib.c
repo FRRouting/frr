@@ -94,7 +94,7 @@ static enum multicast_mode ipv4_multicast_mode = MCAST_NO_CONFIG;
 
 
 static void __attribute__((format(printf, 5, 6)))
-_rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn,
+_rnode_zlog(const char *_func, lr_id_t vrf_id, struct route_node *rn,
 	    int priority, const char *msgfmt, ...)
 {
 	char buf[SRCDEST2STR_BUFFER + sizeof(" (MRIB)")];
@@ -115,7 +115,7 @@ _rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn,
 		snprintf(buf, sizeof(buf), "{(route_node *) NULL}");
 	}
 
-	zlog(priority, "%s: %d:%s: %s", _func, vrf_id, buf, msgbuf);
+	zlog(priority, "%s: %u:%s: %s", _func, vrf_id.lr.id, buf, msgbuf);
 }
 
 #define rnode_debug(node, vrf_id, ...)                                         \
@@ -547,7 +547,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	return 0;
 }
 
-struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
+struct route_entry *rib_match(afi_t afi, safi_t safi, lr_id_t vrf_id,
 			      union g_addr *addr, struct route_node **rn_out)
 {
 	struct prefix p;
@@ -613,7 +613,7 @@ struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 	return NULL;
 }
 
-struct route_entry *rib_match_ipv4_multicast(vrf_id_t vrf_id,
+struct route_entry *rib_match_ipv4_multicast(lr_id_t vrf_id,
 					     struct in_addr addr,
 					     struct route_node **rn_out)
 {
@@ -685,7 +685,7 @@ enum multicast_mode multicast_mode_ipv4_get(void)
 	return ipv4_multicast_mode;
 }
 
-struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p, vrf_id_t vrf_id)
+struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p, lr_id_t vrf_id)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -739,7 +739,7 @@ struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *p, vrf_id_t vrf_id)
  * 3: no matches found
  */
 int rib_lookup_ipv4_route(struct prefix_ipv4 *p, union sockunion *qgate,
-			  vrf_id_t vrf_id)
+			  lr_id_t vrf_id)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -913,7 +913,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 			srcdest_rnode2str(rn, buf, sizeof(buf));
 			zlog_debug(
 				"%u:%s: Filtering out with NH out %s due to route map",
-				re->vrf_id, buf,
+				re->vrf_id.lr.id, buf,
 				ifindex2ifname(nexthop->ifindex, re->vrf_id));
 		}
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -1016,7 +1016,7 @@ void kernel_route_rib_pass_fail(struct prefix *p, struct route_entry *re,
 	case SOUTHBOUND_INSTALL_FAILURE:
 		zsend_route_notify_owner(re->type, re->instance, re->vrf_id,
 					 p, ZAPI_ROUTE_FAIL_INSTALL);
-		zlog_warn("%u:%s: Route install failed", re->vrf_id,
+		zlog_warn("%u:%s: Route install failed", re->vrf_id.lr.id,
 			  prefix2str(p, buf, sizeof(buf)));
 		break;
 	case SOUTHBOUND_DELETE_SUCCESS:
@@ -1024,7 +1024,7 @@ void kernel_route_rib_pass_fail(struct prefix *p, struct route_entry *re,
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		break;
 	case SOUTHBOUND_DELETE_FAILURE:
-		zlog_warn("%u:%s: Route Deletion failure", re->vrf_id,
+		zlog_warn("%u:%s: Route Deletion failure", re->vrf_id.lr.id,
 			  prefix2str(p, buf, sizeof(buf)));
 		break;
 	}
@@ -1215,7 +1215,7 @@ static void rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 		char buf[SRCDEST2STR_BUFFER];
 		srcdest_rnode2str(rn, buf, sizeof(buf));
 		zlog_debug("%u:%s: Adding route rn %p, re %p (type %d)",
-			   zvrf_id(zvrf), buf, rn, new, new->type);
+			   zvrf_id(zvrf).lr.id, buf, rn, new, new->type);
 	}
 
 	/* If labeled-unicast route, install transit LSP. */
@@ -1238,7 +1238,7 @@ static void rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 		char buf[SRCDEST2STR_BUFFER];
 		srcdest_rnode2str(rn, buf, sizeof(buf));
 		zlog_debug("%u:%s: Deleting route rn %p, re %p (type %d)",
-			   zvrf_id(zvrf), buf, rn, old, old->type);
+			   zvrf_id(zvrf).lr.id, buf, rn, old, old->type);
 	}
 
 	/* If labeled-unicast route, uninstall transit LSP. */
@@ -1290,12 +1290,12 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 					zlog_debug(
 						"%u:%s: Updating route rn %p, re %p (type %d) "
 						"old %p (type %d)",
-						zvrf_id(zvrf), buf, rn, new,
+						zvrf_id(zvrf).lr.id, buf, rn, new,
 						new->type, old, old->type);
 				else
 					zlog_debug(
 						"%u:%s: Updating route rn %p, re %p (type %d)",
-						zvrf_id(zvrf), buf, rn, new,
+						zvrf_id(zvrf).lr.id, buf, rn, new,
 						new->type);
 			}
 
@@ -1345,14 +1345,14 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 					zlog_debug(
 						"%u:%s: Deleting route rn %p, re %p (type %d) "
 						"old %p (type %d) - %s",
-						zvrf_id(zvrf), buf, rn, new,
+						zvrf_id(zvrf).lr.id, buf, rn, new,
 						new->type, old, old->type,
 						nh_active ? "install failed"
 							  : "nexthop inactive");
 				else
 					zlog_debug(
 						"%u:%s: Deleting route rn %p, re %p (type %d) - %s",
-						zvrf_id(zvrf), buf, rn, new,
+						zvrf_id(zvrf).lr.id, buf, rn, new,
 						new->type,
 						nh_active ? "install failed"
 							  : "nexthop inactive");
@@ -1459,7 +1459,7 @@ static void rib_process(struct route_node *rn)
 	struct zebra_vrf *zvrf = NULL;
 	struct prefix *p, *src_p;
 	srcdest_rnode_prefixes(rn, &p, &src_p);
-	vrf_id_t vrf_id = VRF_UNKNOWN;
+	lr_id_t vrf_id = { .lr.id = LR_UNKNOWN};
 
 	assert(rn);
 
@@ -1473,14 +1473,14 @@ static void rib_process(struct route_node *rn)
 		srcdest_rnode2str(rn, buf, sizeof(buf));
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
-		zlog_debug("%u:%s: Processing rn %p", vrf_id, buf, rn);
+		zlog_debug("%u:%s: Processing rn %p", vrf_id.lr.id, buf, rn);
 
 	RNODE_FOREACH_RE_SAFE (rn, re, next) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug(
 				"%u:%s: Examine re %p (type %d) status %x flags %x "
 				"dist %d metric %d",
-				vrf_id, buf, re, re->type, re->status,
+				vrf_id.lr.id, buf, re, re->type, re->status,
 				re->flags, re->distance, re->metric);
 
 		UNSET_FLAG(re->status, ROUTE_ENTRY_NEXTHOPS_CHANGED);
@@ -1590,7 +1590,7 @@ static void rib_process(struct route_node *rn)
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		zlog_debug(
 			"%u:%s: After processing: old_selected %p new_selected %p old_fib %p new_fib %p",
-			vrf_id, buf, (void *)old_selected, (void *)new_selected,
+			vrf_id.lr.id, buf, (void *)old_selected, (void *)new_selected,
 			(void *)old_fib, (void *)new_fib);
 	}
 
@@ -1685,7 +1685,7 @@ static unsigned int process_subq(struct list *subq, u_char qindex)
 		char buf[SRCDEST2STR_BUFFER];
 		srcdest_rnode2str(rnode, buf, sizeof(buf));
 		zlog_debug("%u:%s: rn %p dequeued from sub-queue %u",
-			   zvrf ? zvrf_id(zvrf) : 0, buf, rnode, qindex);
+			   zvrf ? zvrf_id(zvrf).lr.id : 0, buf, rnode, qindex);
 	}
 
 	if (rnode->info)
@@ -1735,12 +1735,12 @@ static void meta_queue_process_complete(struct work_queue *dummy)
 	}
 
 	/* Schedule LSPs for processing, if needed. */
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	if (mpls_should_lsps_be_processed(zvrf)) {
 		if (IS_ZEBRA_DEBUG_MPLS)
 			zlog_debug(
 				"%u: Scheduling all LSPs upon RIB completion",
-				zvrf_id(zvrf));
+				zvrf_id(zvrf).lr.id);
 		zebra_mpls_lsp_schedule(zvrf);
 		mpls_unmark_lsps_for_processing(zvrf);
 	}
@@ -2070,7 +2070,7 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 			srcdest_rnode2str(rn, buf, sizeof(buf));
 			zlog_debug(
 				"%u:%s: Freeing route rn %p, re %p (type %d)",
-				re->vrf_id, buf, rn, re, re->type);
+				re->vrf_id.lr.id, buf, rn, re, re->type);
 		}
 
 		rib_unlink(rn, re);
@@ -2100,7 +2100,7 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 		   is_srcdst ? " from " : "",
 		   is_srcdst ? prefix2str(src_pp, srcaddr, sizeof(srcaddr))
 			     : "",
-		   re->vrf_id);
+		   re->vrf_id.lr.id);
 	zlog_debug("%s: uptime == %lu, type == %u, instance == %d, table == %d",
 		   func, (unsigned long)re->uptime, re->type, re->instance,
 		   re->table);
@@ -2132,7 +2132,7 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
  * RE entry found by rib_lookup_ipv4_route()
  */
 
-void rib_lookup_and_dump(struct prefix_ipv4 *p, vrf_id_t vrf_id)
+void rib_lookup_and_dump(struct prefix_ipv4 *p, lr_id_t vrf_id)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -2179,7 +2179,7 @@ void rib_lookup_and_dump(struct prefix_ipv4 *p, vrf_id_t vrf_id)
  * actions, if needed: remove such a route from FIB and deSELECT
  * corresponding RE entry. Then put affected RN into RIBQ head.
  */
-void rib_lookup_and_pushup(struct prefix_ipv4 *p, vrf_id_t vrf_id)
+void rib_lookup_and_pushup(struct prefix_ipv4 *p, lr_id_t vrf_id)
 {
 	struct route_table *table;
 	struct route_node *rn;
@@ -2214,7 +2214,7 @@ void rib_lookup_and_pushup(struct prefix_ipv4 *p, vrf_id_t vrf_id)
 				char buf[PREFIX_STRLEN];
 				zlog_debug(
 					"%u:%s: freeing way for connected prefix",
-					re->vrf_id,
+					re->vrf_id.lr.id,
 					prefix2str(&rn->p, buf, sizeof(buf)));
 				route_entry_dump(&rn->p, NULL, re);
 			}
@@ -2313,7 +2313,7 @@ int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 	return ret;
 }
 
-void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
+void rib_delete(afi_t afi, safi_t safi, lr_id_t vrf_id, int type,
 		u_short instance, int flags, struct prefix *p,
 		struct prefix_ipv6 *src_p, const struct nexthop *nh,
 		u_int32_t table_id, u_int32_t metric, bool fromkernel)
@@ -2350,7 +2350,7 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 			src_buf[0] = '\0';
 
 		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug("%u:%s%s%s doesn't exist in rib", vrf_id,
+			zlog_debug("%u:%s%s%s doesn't exist in rib", vrf_id.lr.id,
 				   dst_buf,
 				   (src_buf[0] != '\0') ? " from " : "",
 				   src_buf);
@@ -2477,7 +2477,7 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 }
 
 
-int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
+int rib_add(afi_t afi, safi_t safi, lr_id_t vrf_id, int type, u_short instance,
 	    int flags, struct prefix *p, struct prefix_ipv6 *src_p,
 	    const struct nexthop *nh, u_int32_t table_id, u_int32_t metric,
 	    u_int32_t mtu, uint8_t distance)
@@ -2583,7 +2583,7 @@ static void rib_update_table(struct route_table *table,
 }
 
 /* RIB update function. */
-void rib_update(vrf_id_t vrf_id, rib_update_event_t event)
+void rib_update(lr_id_t vrf_id, rib_update_event_t event)
 {
 	struct route_table *table;
 
@@ -2773,7 +2773,7 @@ void rib_init(void)
  *
  * Returns TRUE if a vrf id was found, FALSE otherwise.
  */
-static inline int vrf_id_get_next(vrf_id_t vrf_id, vrf_id_t *next_id_p)
+static inline int vrf_id_get_next(lr_id_t vrf_id, lr_id_t *next_id_p)
 {
 	struct vrf *vrf;
 
@@ -2816,7 +2816,7 @@ struct route_table *rib_tables_iter_next(rib_tables_iter_t *iter)
 	switch (iter->state) {
 
 	case RIB_TABLES_ITER_S_INIT:
-		iter->vrf_id = VRF_DEFAULT;
+		iter->vrf_id.lr.id = LR_DEFAULT;
 		iter->afi_safi_ix = -1;
 
 	/* Fall through */

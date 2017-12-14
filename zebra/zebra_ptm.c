@@ -416,7 +416,7 @@ static void zebra_ptm_install_commands(void)
 /* BFD session goes down, send message to the protocols. */
 static void if_bfd_session_update(struct interface *ifp, struct prefix *dp,
 				  struct prefix *sp, int status,
-				  vrf_id_t vrf_id)
+				  lr_id_t vrf_id)
 {
 	if (IS_ZEBRA_DEBUG_EVENT) {
 		char buf[2][INET6_ADDRSTRLEN];
@@ -432,13 +432,13 @@ static void if_bfd_session_update(struct interface *ifp, struct prefix *dp,
 		} else {
 			zlog_debug(
 				"MESSAGE: ZEBRA_INTERFACE_BFD_DEST_UPDATE %s/%d "
-				"with src %s/%d and vrf %d %s event",
+				"with src %s/%d and vrf %u %s event",
 				inet_ntop(dp->family, &dp->u.prefix, buf[0],
 					  INET6_ADDRSTRLEN),
 				dp->prefixlen,
 				inet_ntop(sp->family, &sp->u.prefix, buf[1],
 					  INET6_ADDRSTRLEN),
-				sp->prefixlen, vrf_id,
+				sp->prefixlen, vrf_id.lr.id,
 				bfd_get_status_str(status));
 		}
 	}
@@ -455,7 +455,7 @@ static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt,
 	char vrf_str[64];
 	struct prefix dest_prefix;
 	struct prefix src_prefix;
-	vrf_id_t vrf_id;
+	lr_id_t vrf_id;
 
 	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDSTATUS_STR, bfdst_str);
 
@@ -769,7 +769,7 @@ int zebra_ptm_bfd_dst_register(struct zserv *client, u_short length,
 		ptm_lib_append_msg(ptm_hdl, out_ctxt,
 				   ZEBRA_PTM_BFD_MAX_HOP_CNT_FIELD, tmp_buf);
 
-		if (zvrf_id(zvrf) != VRF_DEFAULT)
+		if (zvrf_id(zvrf).lr.id != LR_DEFAULT)
 			ptm_lib_append_msg(ptm_hdl, out_ctxt,
 					   ZEBRA_PTM_BFD_VRF_NAME_FIELD,
 					   zvrf_name(zvrf));
@@ -902,7 +902,7 @@ int zebra_ptm_bfd_dst_deregister(struct zserv *client, u_short length,
 		ptm_lib_append_msg(ptm_hdl, out_ctxt,
 				   ZEBRA_PTM_BFD_SRC_IP_FIELD, buf);
 
-		if (zvrf_id(zvrf) != VRF_DEFAULT)
+		if (zvrf_id(zvrf).lr.id != LR_DEFAULT)
 			ptm_lib_append_msg(ptm_hdl, out_ctxt,
 					   ZEBRA_PTM_BFD_VRF_NAME_FIELD,
 					   zvrf_name(zvrf));

@@ -177,7 +177,7 @@ static int advertise_gw_macip_enabled(zebra_vni_t *zvni)
 {
 	struct zebra_vrf *zvrf;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	if (zvrf && zvrf->advertise_gw_macip)
 		return 1;
 
@@ -767,7 +767,7 @@ static int zvni_macip_send_msg_to_client(vni_t vni,
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, cmd, VRF_DEFAULT);
+	zserv_create_header(s, cmd, vrf_id_default);
 	stream_putl(s, vni);
 	stream_put(s, macaddr->octet, ETH_ALEN);
 	if (ip) {
@@ -2049,7 +2049,7 @@ static zebra_vni_t *zvni_lookup(vni_t vni)
 	zebra_vni_t tmp_vni;
 	zebra_vni_t *zvni = NULL;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	assert(zvrf);
 	memset(&tmp_vni, 0, sizeof(zebra_vni_t));
 	tmp_vni.vni = vni;
@@ -2067,7 +2067,7 @@ static zebra_vni_t *zvni_add(vni_t vni)
 	zebra_vni_t tmp_zvni;
 	zebra_vni_t *zvni = NULL;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	assert(zvrf);
 	memset(&tmp_zvni, 0, sizeof(zebra_vni_t));
 	tmp_zvni.vni = vni;
@@ -2093,7 +2093,7 @@ static int zvni_del(zebra_vni_t *zvni)
 	struct zebra_vrf *zvrf;
 	zebra_vni_t *tmp_zvni;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	assert(zvrf);
 
 	zvni->vxlan_if = NULL;
@@ -2130,7 +2130,7 @@ static int zvni_send_add_to_client(zebra_vni_t *zvni)
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, ZEBRA_VNI_ADD, VRF_DEFAULT);
+	zserv_create_header(s, ZEBRA_VNI_ADD, vrf_id_default);
 	stream_putl(s, zvni->vni);
 	stream_put_in_addr(s, &zvni->local_vtep_ip);
 
@@ -2162,7 +2162,7 @@ static int zvni_send_del_to_client(vni_t vni)
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, ZEBRA_VNI_DEL, VRF_DEFAULT);
+	zserv_create_header(s, ZEBRA_VNI_DEL, vrf_id_default);
 	stream_putl(s, vni);
 
 	/* Write packet size. */
@@ -3695,9 +3695,9 @@ int zebra_vxlan_remote_vtep_del(struct zserv *client, u_short length,
 		return -1;
 	}
 
-	if (zvrf_id(zvrf) != VRF_DEFAULT) {
+	if (zvrf_id(zvrf).lr.id != LR_DEFAULT) {
 		zlog_err("Recv MACIP DEL for non-default VRF %u",
-			 zvrf_id(zvrf));
+			 zvrf_id(zvrf).lr.id);
 		return -1;
 	}
 
@@ -3779,9 +3779,9 @@ int zebra_vxlan_remote_vtep_add(struct zserv *client, u_short length,
 		return -1;
 	}
 
-	if (zvrf_id(zvrf) != VRF_DEFAULT) {
+	if (zvrf_id(zvrf).lr.id != LR_DEFAULT) {
 		zlog_err("Recv MACIP ADD for non-default VRF %u",
-			 zvrf_id(zvrf));
+			 zvrf_id(zvrf).lr.id);
 		return -1;
 	}
 
@@ -4307,9 +4307,9 @@ int zebra_vxlan_advertise_gw_macip(struct zserv *client, u_short length,
 	zebra_vni_t *zvni = NULL;
 	struct interface *ifp = NULL;
 
-	if (zvrf_id(zvrf) != VRF_DEFAULT) {
+	if (zvrf_id(zvrf).lr.id != LR_DEFAULT) {
 		zlog_err("EVPN GW-MACIP Adv for non-default VRF %u",
-			 zvrf_id(zvrf));
+			 zvrf_id(zvrf).lr.id);
 		return -1;
 	}
 
@@ -4413,9 +4413,9 @@ int zebra_vxlan_advertise_all_vni(struct zserv *client,
 	struct stream *s;
 	int advertise;
 
-	if (zvrf_id(zvrf) != VRF_DEFAULT) {
+	if (zvrf_id(zvrf).lr.id != LR_DEFAULT) {
 		zlog_err("EVPN VNI Adv for non-default VRF %u",
-			 zvrf_id(zvrf));
+			 zvrf_id(zvrf).lr.id);
 		return -1;
 	}
 

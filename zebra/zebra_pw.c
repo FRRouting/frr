@@ -66,7 +66,7 @@ struct zebra_pw *zebra_pw_add(struct zebra_vrf *zvrf, const char *ifname,
 
 	if (IS_ZEBRA_DEBUG_PW)
 		zlog_debug("%u: adding pseudowire %s protocol %s",
-			   zvrf_id(zvrf), ifname, zebra_route_string(protocol));
+			   zvrf_id(zvrf).lr.id, ifname, zebra_route_string(protocol));
 
 	pw = XCALLOC(MTYPE_PW, sizeof(*pw));
 	strlcpy(pw->ifname, ifname, sizeof(pw->ifname));
@@ -90,7 +90,7 @@ struct zebra_pw *zebra_pw_add(struct zebra_vrf *zvrf, const char *ifname,
 void zebra_pw_del(struct zebra_vrf *zvrf, struct zebra_pw *pw)
 {
 	if (IS_ZEBRA_DEBUG_PW)
-		zlog_debug("%u: deleting pseudowire %s protocol %s", pw->vrf_id,
+		zlog_debug("%u: deleting pseudowire %s protocol %s", pw->vrf_id.lr.id,
 			   pw->ifname, zebra_route_string(pw->protocol));
 
 	/* remove nexthop tracking */
@@ -167,7 +167,7 @@ static void zebra_pw_install(struct zebra_pw *pw)
 {
 	if (IS_ZEBRA_DEBUG_PW)
 		zlog_debug("%u: installing pseudowire %s protocol %s",
-			   pw->vrf_id, pw->ifname,
+			   pw->vrf_id.lr.id, pw->ifname,
 			   zebra_route_string(pw->protocol));
 
 	if (hook_call(pw_install, pw)) {
@@ -186,7 +186,7 @@ static void zebra_pw_uninstall(struct zebra_pw *pw)
 
 	if (IS_ZEBRA_DEBUG_PW)
 		zlog_debug("%u: uninstalling pseudowire %s protocol %s",
-			   pw->vrf_id, pw->ifname,
+			   pw->vrf_id.lr.id, pw->ifname,
 			   zebra_route_string(pw->protocol));
 
 	/* ignore any possible error */
@@ -208,7 +208,7 @@ void zebra_pw_install_failure(struct zebra_pw *pw)
 		zlog_debug(
 			"%u: failed installing pseudowire %s, "
 			"scheduling retry in %u seconds",
-			pw->vrf_id, pw->ifname, PW_INSTALL_RETRY_INTERVAL);
+			pw->vrf_id.lr.id, pw->ifname, PW_INSTALL_RETRY_INTERVAL);
 
 	/* schedule to retry later */
 	THREAD_TIMER_OFF(pw->install_retry_timer);
@@ -310,7 +310,7 @@ DEFUN_NOSH (pseudowire_if,
 	int idx = 0;
 	const char *ifname;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	if (!zvrf)
 		return CMD_WARNING;
 
@@ -441,7 +441,7 @@ DEFUN (show_pseudowires,
 	struct zebra_vrf *zvrf;
 	struct zebra_pw *pw;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	if (!zvrf)
 		return 0;
 
@@ -479,7 +479,7 @@ static int zebra_pw_config(struct vty *vty)
 	struct zebra_vrf *zvrf;
 	struct zebra_pw *pw;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	if (!zvrf)
 		return 0;
 

@@ -336,7 +336,7 @@ DEFUN (show_ip_rpf_addr,
 		return CMD_WARNING;
 	}
 
-	re = rib_match_ipv4_multicast(VRF_DEFAULT, addr, &rn);
+	re = rib_match_ipv4_multicast(vrf_id_default, addr, &rn);
 
 	if (re)
 		vty_show_ip_route_detail(vty, rn, 1);
@@ -476,7 +476,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 			vty_out(vty, ", tag %u", re->tag);
 		if (re->mtu)
 			vty_out(vty, ", mtu %u", re->mtu);
-		if (re->vrf_id != VRF_DEFAULT) {
+		if (re->vrf_id.lr.id != LR_DEFAULT) {
 			zvrf = vrf_info_lookup(re->vrf_id);
 			vty_out(vty, ", vrf %s", zvrf_name(zvrf));
 		}
@@ -647,8 +647,8 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			json_object_int_add(json_route, "instance",
 					    re->instance);
 
-		if (re->vrf_id)
-			json_object_int_add(json_route, "vrfId", re->vrf_id);
+		if (re->vrf_id.lr.id)
+			json_object_int_add(json_route, "vrfId", re->vrf_id.lr.id);
 
 		if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
 			json_object_boolean_true_add(json_route, "selected");
@@ -978,7 +978,7 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 		return CMD_SUCCESS;
 	}
 
-	if (zvrf_id(zvrf) == VRF_UNKNOWN) {
+	if (zvrf_id(zvrf).lr.id == LR_UNKNOWN) {
 		if (use_json)
 			vty_out(vty, "{}\n");
 		else
@@ -1045,7 +1045,7 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 						vty_out(vty,
 							SHOW_ROUTE_V6_HEADER);
 
-					if (zvrf_id(zvrf) != VRF_DEFAULT)
+					if (zvrf_id(zvrf).lr.id != LR_DEFAULT)
 						vty_out(vty, "\nVRF %s:\n",
 							zvrf_name(zvrf));
 
@@ -1081,7 +1081,7 @@ DEFUN (show_ip_nht,
        VRF_CMD_HELP_STR)
 {
 	int idx_vrf = 4;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	lr_id_t vrf_id = { .lr.id = LR_DEFAULT};
 
 	if (argc == 5)
 		VRF_GET_ID(vrf_id, argv[idx_vrf]->arg);
@@ -1121,7 +1121,7 @@ DEFUN (show_ipv6_nht,
        VRF_CMD_HELP_STR)
 {
 	int idx_vrf = 4;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	lr_id_t vrf_id = { .lr.id = LR_DEFAULT};
 
 	if (argc == 5)
 		VRF_GET_ID(vrf_id, argv[idx_vrf]->arg);
@@ -1163,7 +1163,7 @@ DEFUN (ip_nht_default_route,
 		return CMD_SUCCESS;
 
 	zebra_rnh_ip_default_route = 1;
-	zebra_evaluate_rnh(0, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(vrf_id_default, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1179,7 +1179,7 @@ DEFUN (no_ip_nht_default_route,
 		return CMD_SUCCESS;
 
 	zebra_rnh_ip_default_route = 0;
-	zebra_evaluate_rnh(0, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(vrf_id_default, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1194,7 +1194,7 @@ DEFUN (ipv6_nht_default_route,
 		return CMD_SUCCESS;
 
 	zebra_rnh_ipv6_default_route = 1;
-	zebra_evaluate_rnh(0, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(vrf_id_default, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1210,7 +1210,7 @@ DEFUN (no_ipv6_nht_default_route,
 		return CMD_SUCCESS;
 
 	zebra_rnh_ipv6_default_route = 0;
-	zebra_evaluate_rnh(0, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(vrf_id_default, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
 
@@ -1287,7 +1287,7 @@ DEFPY (show_route,
 				!!supernets_only, type, ospf_instance_id);
 		}
 	} else {
-		vrf_id_t vrf_id = VRF_DEFAULT;
+		lr_id_t vrf_id = { .lr.id = LR_DEFAULT};
 
 		if (vrf_name)
 			VRF_GET_ID(vrf_id, vrf_name);
@@ -1361,7 +1361,7 @@ DEFPY (show_route_detail,
 			route_unlock_node(rn);
 		}
 	} else {
-		vrf_id_t vrf_id = VRF_DEFAULT;
+		lr_id_t vrf_id = { .lr.id = LR_DEFAULT};
 
 		if (vrf_name)
 			VRF_GET_ID(vrf_id, vrf_name);
@@ -1428,7 +1428,7 @@ DEFPY (show_route_summary,
 				vty_show_ip_route_summary(vty, table);
 		}
 	} else {
-		vrf_id_t vrf_id = VRF_DEFAULT;
+		lr_id_t vrf_id = { .lr.id = LR_DEFAULT};
 
 		if (vrf_name)
 			VRF_GET_ID(vrf_id, vrf_name);
@@ -1658,7 +1658,7 @@ static int static_config(struct vty *vty, afi_t afi, safi_t safi,
 				    != ZEBRA_STATIC_DISTANCE_DEFAULT)
 					vty_out(vty, " %d", si->distance);
 
-				if (si->vrf_id != VRF_DEFAULT)
+				if (si->vrf_id.lr.id != LR_DEFAULT)
 					vty_out(vty, " vrf %s",
 						zvrf_name(zvrf));
 
@@ -1784,7 +1784,7 @@ DEFUN (show_ipv6_mroute,
 	struct route_node *rn;
 	struct route_entry *re;
 	int first = 1;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	lr_id_t vrf_id = { .lr.id = LR_DEFAULT};
 
 	if (argc == 5)
 		VRF_GET_ID(vrf_id, argv[4]->arg);
@@ -1872,14 +1872,14 @@ DEFUN (show_vrf,
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		if (!(zvrf = vrf->info))
 			continue;
-		if (!zvrf_id(zvrf))
+		if (!zvrf_id(zvrf).lr.id)
 			continue;
 
 		vty_out(vty, "vrf %s ", zvrf_name(zvrf));
-		if (zvrf_id(zvrf) == VRF_UNKNOWN)
+		if (zvrf_id(zvrf).lr.id == LR_UNKNOWN)
 			vty_out(vty, "inactive");
 		else
-			vty_out(vty, "id %u table %u", zvrf_id(zvrf),
+			vty_out(vty, "id %u table %u", zvrf_id(zvrf).lr.id,
 				zvrf->table_id);
 		vty_out(vty, "\n");
 	}
@@ -1898,7 +1898,7 @@ DEFUN (show_evpn_vni,
 	struct zebra_vrf *zvrf;
 	u_char uj = use_json(argc, argv);
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	zebra_vxlan_print_vnis(vty, zvrf, uj);
 	return CMD_SUCCESS;
 }
@@ -1917,7 +1917,7 @@ DEFUN (show_evpn_vni_vni,
 	u_char uj = use_json(argc, argv);
 
 	vni = strtoul(argv[3]->arg, NULL, 10);
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	zebra_vxlan_print_vni(vty, zvrf, vni, uj);
 	return CMD_SUCCESS;
 }
@@ -1937,7 +1937,7 @@ DEFUN (show_evpn_mac_vni,
 	u_char uj = use_json(argc, argv);
 
 	vni = strtoul(argv[4]->arg, NULL, 10);
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	zebra_vxlan_print_macs_vni(vty, zvrf, vni, uj);
 	return CMD_SUCCESS;
 }
@@ -1955,7 +1955,7 @@ DEFUN (show_evpn_mac_vni_all,
 	struct zebra_vrf *zvrf;
 	u_char uj = use_json(argc, argv);
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	zebra_vxlan_print_macs_all_vni(vty, zvrf, uj);
 	return CMD_SUCCESS;
 }
@@ -1981,7 +1981,7 @@ DEFUN (show_evpn_mac_vni_all_vtep,
 			vty_out(vty, "%% Malformed VTEP IP address\n");
 		return CMD_WARNING;
 	}
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	zebra_vxlan_print_macs_all_vni_vtep(vty, zvrf, vtep_ip, uj);
 
 	return CMD_SUCCESS;
@@ -2008,7 +2008,7 @@ DEFUN (show_evpn_mac_vni_mac,
 		vty_out(vty, "%% Malformed MAC address");
 		return CMD_WARNING;
 	}
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	zebra_vxlan_print_specific_mac_vni(vty, zvrf, vni, &mac);
 	return CMD_SUCCESS;
 }
@@ -2037,7 +2037,7 @@ DEFUN (show_evpn_mac_vni_vtep,
 		return CMD_WARNING;
 	}
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	zebra_vxlan_print_macs_vni_vtep(vty, zvrf, vni, vtep_ip, uj);
 	return CMD_SUCCESS;
 }
@@ -2057,7 +2057,7 @@ DEFUN (show_evpn_neigh_vni,
 	u_char uj = use_json(argc, argv);
 
 	vni = strtoul(argv[4]->arg, NULL, 10);
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	zebra_vxlan_print_neigh_vni(vty, zvrf, vni, uj);
 	return CMD_SUCCESS;
 }
@@ -2075,7 +2075,7 @@ DEFUN (show_evpn_neigh_vni_all,
 	struct zebra_vrf *zvrf;
 	u_char uj = use_json(argc, argv);
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	zebra_vxlan_print_neigh_all_vni(vty, zvrf, uj);
 	return CMD_SUCCESS;
 }
@@ -2103,7 +2103,7 @@ DEFUN (show_evpn_neigh_vni_neigh,
 			vty_out(vty, "%% Malformed Neighbor address\n");
 		return CMD_WARNING;
 	}
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	zebra_vxlan_print_specific_neigh_vni(vty, zvrf, vni, &ip, uj);
 	return CMD_SUCCESS;
 }
@@ -2132,7 +2132,7 @@ DEFUN (show_evpn_neigh_vni_vtep,
 		return CMD_WARNING;
 	}
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	zebra_vxlan_print_neigh_vni_vtep(vty, zvrf, vni, vtep_ip, uj);
 	return CMD_SUCCESS;
 }

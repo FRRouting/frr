@@ -131,7 +131,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 					  INET6_ADDRSTRLEN);
 				zlog_debug(
 					"%u:%s/%d: Modifying route rn %p, re %p (type %d)",
-					si->vrf_id, buf, p->prefixlen, rn, re,
+					si->vrf_id.lr.id, buf, p->prefixlen, rn, re,
 					re->type);
 			}
 		}
@@ -156,7 +156,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 		re->mtu = 0;
 		re->vrf_id = si->vrf_id;
 		re->table =
-			si->vrf_id
+			si->vrf_id.lr.id
 				? (zebra_vrf_lookup_by_id(si->vrf_id))->table_id
 				: zebrad.rtm_table_default;
 		re->nexthop_num = 0;
@@ -209,7 +209,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 					  INET6_ADDRSTRLEN);
 				zlog_debug(
 					"%u:%s/%d: Inserting route rn %p, re %p (type %d)",
-					si->vrf_id, buf, p->prefixlen, rn, re,
+					si->vrf_id.lr.id, buf, p->prefixlen, rn, re,
 					re->type);
 			}
 		}
@@ -325,7 +325,7 @@ void static_uninstall_route(afi_t afi, safi_t safi, struct prefix *p,
 					  INET6_ADDRSTRLEN);
 				zlog_debug(
 					"%u:%s/%d: Modifying route rn %p, re %p (type %d)",
-					si->vrf_id, buf, p->prefixlen, rn, re,
+					si->vrf_id.lr.id, buf, p->prefixlen, rn, re,
 					re->type);
 			}
 		}

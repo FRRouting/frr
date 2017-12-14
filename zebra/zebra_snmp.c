@@ -148,7 +148,7 @@ static u_char *ipFwNumber(struct variable *v, oid objid[], size_t *objid_len,
 	    == MATCH_FAILED)
 		return NULL;
 
-	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
+	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id_default);
 	if (!table)
 		return NULL;
 
@@ -176,7 +176,7 @@ static u_char *ipCidrNumber(struct variable *v, oid objid[], size_t *objid_len,
 	    == MATCH_FAILED)
 		return NULL;
 
-	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
+	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id_default);
 	if (!table)
 		return 0;
 
@@ -333,7 +333,7 @@ static void get_fwtable_route_node(struct variable *v, oid objid[],
 	if (exact && (*objid_len != (unsigned)v->namelen + 10))
 		return;
 
-	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
+	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id_default);
 	if (!table)
 		return;
 

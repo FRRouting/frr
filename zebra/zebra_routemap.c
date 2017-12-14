@@ -47,7 +47,7 @@ char *zebra_import_table_routemap[AFI_MAX][ZEBRA_KERNEL_TABLE_MAX];
 
 struct nh_rmap_obj {
 	struct nexthop *nexthop;
-	vrf_id_t vrf_id;
+	lr_id_t vrf_id;
 	u_int32_t source_protocol;
 	int metric;
 	route_tag_t tag;
@@ -479,9 +479,9 @@ DEFUN (ip_protocol,
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug(
 			"%u: IPv4 Routemap config for protocol %s, scheduling RIB processing",
-			VRF_DEFAULT, proto);
+			LR_DEFAULT, proto);
 
-	rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
+	rib_update(vrf_id_default, RIB_UPDATE_RMAP_CHANGE);
 	return CMD_SUCCESS;
 }
 
@@ -519,8 +519,8 @@ DEFUN (no_ip_protocol,
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug(
 				"%u: IPv4 Routemap unconfig for protocol %s, scheduling RIB processing",
-				VRF_DEFAULT, proto);
-		rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
+				LR_DEFAULT, proto);
+		rib_update(vrf_id_default, RIB_UPDATE_RMAP_CHANGE);
 	}
 	return CMD_SUCCESS;
 }
@@ -583,9 +583,9 @@ DEFUN (ipv6_protocol,
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug(
 			"%u: IPv6 Routemap config for protocol %s, scheduling RIB processing",
-			VRF_DEFAULT, proto);
+			LR_DEFAULT, proto);
 
-	rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
+	rib_update(vrf_id_default, RIB_UPDATE_RMAP_CHANGE);
 	return CMD_SUCCESS;
 }
 
@@ -621,9 +621,9 @@ DEFUN (no_ipv6_protocol,
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug(
 				"%u: IPv6 Routemap unconfig for protocol %s, scheduling RIB processing",
-				VRF_DEFAULT, proto);
+				LR_DEFAULT, proto);
 
-		rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
+		rib_update(vrf_id_default, RIB_UPDATE_RMAP_CHANGE);
 	}
 	return CMD_SUCCESS;
 }
@@ -683,7 +683,7 @@ DEFUN (ip_protocol_nht_rmap,
 	}
 
 	nht_rm[AFI_IP][i] = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
-	zebra_evaluate_rnh(0, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(vrf_id_default, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
 
 	return CMD_SUCCESS;
 }
@@ -717,7 +717,7 @@ DEFUN (no_ip_protocol_nht_rmap,
 	if (!rmap || strcmp(rmap, nht_rm[AFI_IP][i]) == 0) {
 		XFREE(MTYPE_ROUTE_MAP_NAME, nht_rm[AFI_IP][i]);
 		nht_rm[AFI_IP][i] = NULL;
-		zebra_evaluate_rnh(0, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
+		zebra_evaluate_rnh(vrf_id_default, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
 	}
 	return CMD_SUCCESS;
 }
@@ -773,7 +773,7 @@ DEFUN (ipv6_protocol_nht_rmap,
 	if (nht_rm[AFI_IP6][i])
 		XFREE(MTYPE_ROUTE_MAP_NAME, nht_rm[AFI_IP6][i]);
 	nht_rm[AFI_IP6][i] = XSTRDUP(MTYPE_ROUTE_MAP_NAME, rmap);
-	zebra_evaluate_rnh(0, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(vrf_id_default, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
 
 	return CMD_SUCCESS;
 }
@@ -811,7 +811,7 @@ DEFUN (no_ipv6_protocol_nht_rmap,
 		nht_rm[AFI_IP6][i] = NULL;
 	}
 
-	zebra_evaluate_rnh(0, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(vrf_id_default, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
 
 	return CMD_SUCCESS;
 }
@@ -1222,12 +1222,12 @@ static int zebra_route_map_update_timer(struct thread *thread)
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug(
 			"%u: Routemap update-timer fired, scheduling RIB processing",
-			VRF_DEFAULT);
+			LR_DEFAULT);
 
 	zebra_import_table_rm_update();
-	rib_update(VRF_DEFAULT, RIB_UPDATE_RMAP_CHANGE);
-	zebra_evaluate_rnh(0, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
-	zebra_evaluate_rnh(0, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
+	rib_update(vrf_id_default, RIB_UPDATE_RMAP_CHANGE);
+	zebra_evaluate_rnh(vrf_id_default, AF_INET, 1, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(vrf_id_default, AF_INET6, 1, RNH_NEXTHOP_TYPE, NULL);
 
 	return (0);
 }
@@ -1254,7 +1254,7 @@ void zebra_route_map_write_delay_timer(struct vty *vty)
 route_map_result_t zebra_route_map_check(int family, int rib_type,
 					 struct prefix *p,
 					 struct nexthop *nexthop,
-					 vrf_id_t vrf_id, route_tag_t tag)
+					 lr_id_t vrf_id, route_tag_t tag)
 {
 	struct route_map *rmap = NULL;
 	route_map_result_t ret = RMAP_MATCH;
@@ -1297,7 +1297,7 @@ void zebra_del_import_table_route_map(afi_t afi, uint32_t table)
 
 route_map_result_t
 zebra_import_table_route_map_check(int family, int re_type, struct prefix *p,
-				   struct nexthop *nexthop, vrf_id_t vrf_id,
+				   struct nexthop *nexthop, lr_id_t vrf_id,
 				   route_tag_t tag, const char *rmap_name)
 {
 	struct route_map *rmap = NULL;

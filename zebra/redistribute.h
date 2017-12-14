@@ -54,9 +54,9 @@ extern void zebra_interface_address_delete_update(struct interface *,
 						  struct connected *c);
 extern void zebra_interface_parameters_update(struct interface *);
 extern void zebra_interface_vrf_update_del(struct interface *,
-					   vrf_id_t new_vrf_id);
+					   lr_id_t new_vrf_id);
 extern void zebra_interface_vrf_update_add(struct interface *,
-					   vrf_id_t old_vrf_id);
+					   lr_id_t old_vrf_id);
 
 extern int zebra_import_table(afi_t afi, u_int32_t table_id, u_int32_t distance,
 			      const char *rmap_name, int add);

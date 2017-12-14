@@ -53,8 +53,7 @@ void zebra_test_ipv4(int command, int type, char *prefix, char *gateway,
 	}
 
 	gpnt = &gate;
-
-	api.vrf_id = VRF_DEFAULT;
+	api.vrf_id.lr.id = LR_DEFAULT;
 	api.type = type;
 	api.flags = 0;
 

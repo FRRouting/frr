@@ -75,7 +75,7 @@ static int zfpm_dt_find_route(rib_dest_t **dest_p, struct route_entry **re_p)
 	struct route_entry *re;
 	int ret;
 
-	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
+	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id_default);
 	if (!table)
 		return 0;
 

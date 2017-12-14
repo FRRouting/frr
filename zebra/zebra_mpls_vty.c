@@ -57,7 +57,7 @@ static int zebra_mpls_transit_lsp(struct vty *vty, int add_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	if (!zvrf) {
 		vty_out(vty, "%% Default VRF does not exist\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -201,7 +201,7 @@ static int zebra_mpls_bind(struct vty *vty, int add_cmd, const char *prefix,
 	u_int32_t label;
 	int ret;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	if (!zvrf) {
 		vty_out(vty, "%% Default VRF does not exist\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -289,7 +289,7 @@ static int zebra_mpls_config(struct vty *vty)
 	int write = 0;
 	struct zebra_vrf *zvrf;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	if (!zvrf)
 		return 0;
 
@@ -312,7 +312,7 @@ DEFUN (show_mpls_fec,
 	struct prefix p;
 	int ret;
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	if (!zvrf)
 		return 0;
 
@@ -342,7 +342,7 @@ DEFUN (show_mpls_table,
 	struct zebra_vrf *zvrf;
 	u_char uj = use_json(argc, argv);
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	zebra_mpls_print_lsp_table(vty, zvrf, uj);
 	return CMD_SUCCESS;
 }
@@ -360,7 +360,7 @@ DEFUN (show_mpls_table_lsp,
 	struct zebra_vrf *zvrf;
 	u_char uj = use_json(argc, argv);
 
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	label = atoi(argv[3]->arg);
 	zebra_mpls_print_lsp(vty, zvrf, label, uj);
 	return CMD_SUCCESS;
@@ -388,7 +388,7 @@ static int zebra_mpls_global_block(struct vty *vty, int add_cmd,
 	u_int32_t end_label;
 	struct zebra_vrf *zvrf;
 
-	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+	zvrf = zebra_vrf_lookup_by_id(vrf_id_default);
 	if (!zvrf) {
 		vty_out(vty, "%% Default VRF does not exist\n");
 		return CMD_WARNING_CONFIG_FAILED;

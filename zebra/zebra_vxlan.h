@@ -39,7 +39,8 @@ static inline int
 is_evpn_enabled()
 {
 	struct zebra_vrf *zvrf = NULL;
-	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+	lr_id_t vrf_id_def = { .lr.id = LR_DEFAULT};
+	zvrf = zebra_vrf_lookup_by_id(vrf_id_def);
 	return zvrf ? zvrf->advertise_all_vni : 0;
 }
 

@@ -150,13 +150,14 @@ int zebra_server_send_message(struct zserv *client)
 	return 0;
 }
 
-void zserv_create_header(struct stream *s, uint16_t cmd, vrf_id_t vrf_id)
+void zserv_create_header(struct stream *s, uint16_t cmd, lr_id_t vrf_id)
 {
 	/* length placeholder, caller can update */
 	stream_putw(s, ZEBRA_HEADER_SIZE);
 	stream_putc(s, ZEBRA_HEADER_MARKER);
 	stream_putc(s, ZSERV_VERSION);
-	stream_putw(s, vrf_id);
+	stream_putw(s, vrf_id.lr.lr_id.vrf_id);
+	stream_putw(s, vrf_id.lr.lr_id.ns_id);
 	stream_putw(s, cmd);
 }
 
@@ -498,7 +499,7 @@ int zsend_interface_addresses(struct zserv *client, struct interface *ifp)
  * Whether client is interested in old and new VRF is checked by caller.
  */
 int zsend_interface_vrf_update(struct zserv *client, struct interface *ifp,
-			       vrf_id_t vrf_id)
+			       lr_id_t vrf_id)
 {
 	struct stream *s;
 
@@ -509,7 +510,8 @@ int zsend_interface_vrf_update(struct zserv *client, struct interface *ifp,
 
 	/* Fill in the ifIndex of the interface and its new VRF (id) */
 	stream_putl(s, ifp->ifindex);
-	stream_putw(s, vrf_id);
+	stream_putw(s, vrf_id.lr.lr_id.vrf_id);
+	stream_putw(s, vrf_id.lr.lr_id.ns_id);
 
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -836,7 +838,7 @@ static int zserv_fec_register(struct zserv *client, u_short length)
 	u_int32_t label_index = MPLS_INVALID_LABEL_INDEX;
 
 	s = client->ibuf;
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	if (!zvrf)
 		return 0; // unexpected
 
@@ -893,7 +895,7 @@ static int zserv_fec_unregister(struct zserv *client, u_short length)
 	uint16_t flags;
 
 	s = client->ibuf;
-	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	zvrf = vrf_info_lookup(vrf_id_default);
 	if (!zvrf)
 		return 0; // unexpected
 
@@ -989,7 +991,7 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 }
 
 int zsend_route_notify_owner(u_char proto, u_short instance,
-			     vrf_id_t vrf_id, struct prefix *p,
+			     lr_id_t vrf_id, struct prefix *p,
 			     enum zapi_route_notify_owner note)
 {
 	struct zserv *client;
@@ -1027,7 +1029,7 @@ int zsend_route_notify_owner(u_char proto, u_short instance,
 
 /* Router-id is updated. Send ZEBRA_ROUTER_ID_ADD to client. */
 int zsend_router_id_update(struct zserv *client, struct prefix *p,
-			   vrf_id_t vrf_id)
+			   lr_id_t vrf_id)
 {
 	struct stream *s;
 	int blen;
@@ -2048,7 +2050,7 @@ stream_failure:
 }
 /* Send response to a label manager connect request to client */
 static int zsend_label_manager_connect_response(struct zserv *client,
-						vrf_id_t vrf_id, u_short result)
+						lr_id_t vrf_id, u_short result)
 {
 	struct stream *s;
 
@@ -2066,7 +2068,7 @@ static int zsend_label_manager_connect_response(struct zserv *client,
 	return writen(client->sock, s->data, stream_get_endp(s));
 }
 
-static void zread_label_manager_connect(struct zserv *client, vrf_id_t vrf_id)
+static void zread_label_manager_connect(struct zserv *client, lr_id_t vrf_id)
 {
 	struct stream *s;
 	/* type of protocol (lib/zebra.h) */
@@ -2109,7 +2111,7 @@ stream_failure:
 }
 /* Send response to a get label chunk request to client */
 static int zsend_assign_label_chunk_response(struct zserv *client,
-					     vrf_id_t vrf_id,
+					     lr_id_t vrf_id,
 					     struct label_manager_chunk *lmc)
 {
 	struct stream *s;
@@ -2133,7 +2135,7 @@ static int zsend_assign_label_chunk_response(struct zserv *client,
 	return writen(client->sock, s->data, stream_get_endp(s));
 }
 
-static void zread_get_label_chunk(struct zserv *client, vrf_id_t vrf_id)
+static void zread_get_label_chunk(struct zserv *client, lr_id_t vrf_id)
 {
 	struct stream *s;
 	u_char keep;
@@ -2337,7 +2339,7 @@ static void zebra_client_free(struct zserv *client)
 	release_daemon_chunks(client->proto, client->instance);
 
 	/* Cleanup any FECs registered by this client. */
-	zebra_mpls_cleanup_fecs_for_client(vrf_info_lookup(VRF_DEFAULT),
+	zebra_mpls_cleanup_fecs_for_client(vrf_info_lookup(vrf_id_default),
 					   client);
 
 	/* Remove pseudowires associated with this client */
@@ -2436,13 +2438,15 @@ static int zread_interface_set_master(struct zserv *client,
 	struct interface *slave;
 	struct stream *s = client->ibuf;
 	int ifindex;
-	vrf_id_t vrf_id;
+	lr_id_t vrf_id;
 
-	STREAM_GETW(s, vrf_id);
+	STREAM_GETW(s, vrf_id.lr.lr_id.vrf_id);
+	STREAM_GETW(s, vrf_id.lr.lr_id.ns_id);
 	STREAM_GETL(s, ifindex);
 	master = if_lookup_by_index(ifindex, vrf_id);
 
-	STREAM_GETW(s, vrf_id);
+	STREAM_GETW(s, vrf_id.lr.lr_id.vrf_id);
+	STREAM_GETW(s, vrf_id.lr.lr_id.ns_id);
 	STREAM_GETL(s, ifindex);
 	slave = if_lookup_by_index(ifindex, vrf_id);
 
@@ -2631,7 +2635,7 @@ static int zebra_client_read(struct thread *thread)
 	size_t already;
 	uint16_t length, command;
 	uint8_t marker, version;
-	vrf_id_t vrf_id;
+	lr_id_t vrf_id;
 	struct zebra_vrf *zvrf;
 #if defined(HANDLE_ZAPI_FUZZING)
 	int packets = 1;
@@ -2680,7 +2684,8 @@ static int zebra_client_read(struct thread *thread)
 		STREAM_GETW(client->ibuf, length);
 		STREAM_GETC(client->ibuf, marker);
 		STREAM_GETC(client->ibuf, version);
-		STREAM_GETW(client->ibuf, vrf_id);
+		STREAM_GETW(client->ibuf, vrf_id.lr.lr_id.vrf_id);
+		STREAM_GETW(client->ibuf, vrf_id.lr.lr_id.ns_id);
 		STREAM_GETW(client->ibuf, command);
 
 		if (marker != ZEBRA_HEADER_MARKER || version != ZSERV_VERSION) {
@@ -2738,7 +2743,7 @@ static int zebra_client_read(struct thread *thread)
 
 		if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
 			zlog_debug("zebra message received [%s] %d in VRF %u",
-				   zserv_command_string(command), length, vrf_id);
+				   zserv_command_string(command), length, vrf_id.lr.id);
 
 		client->last_read_time = monotime(NULL);
 		client->last_read_cmd = command;
@@ -2746,7 +2751,7 @@ static int zebra_client_read(struct thread *thread)
 		zvrf = zebra_vrf_lookup_by_id(vrf_id);
 		if (!zvrf) {
 			if (IS_ZEBRA_DEBUG_PACKET && IS_ZEBRA_DEBUG_RECV)
-				zlog_debug("zebra received unknown VRF[%u]", vrf_id);
+				zlog_debug("zebra received unknown VRF[%u]", vrf_id.lr.id);
 			goto zclient_read_out;
 		}
 

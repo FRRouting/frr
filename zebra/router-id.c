@@ -71,7 +71,7 @@ static int router_id_bad_address(struct connected *ifc)
 	return 0;
 }
 
-void router_id_get(struct prefix *p, vrf_id_t vrf_id)
+void router_id_get(struct prefix *p, lr_id_t vrf_id)
 {
 	struct listnode *node;
 	struct connected *c;
@@ -94,7 +94,7 @@ void router_id_get(struct prefix *p, vrf_id_t vrf_id)
 	}
 }
 
-static void router_id_set(struct prefix *p, vrf_id_t vrf_id)
+static void router_id_set(struct prefix *p, lr_id_t vrf_id)
 {
 	struct prefix p2;
 	struct listnode *node;
@@ -190,7 +190,7 @@ void router_id_write(struct vty *vty)
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
 		if ((zvrf = vrf->info) != NULL)
 			if (zvrf->rid_user_assigned.u.prefix4.s_addr) {
-				if (zvrf_id(zvrf) == VRF_DEFAULT)
+				if (zvrf_id(zvrf).lr.id == LR_DEFAULT)
 					vty_out(vty, "router-id %s\n",
 						inet_ntoa(
 							zvrf->rid_user_assigned
@@ -215,7 +215,7 @@ DEFUN (router_id,
 	int idx_name = 3;
 
 	struct prefix rid;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	lr_id_t vrf_id = { .lr.id = LR_DEFAULT};
 
 	rid.u.prefix4.s_addr = inet_addr(argv[idx_ipv4]->arg);
 	if (!rid.u.prefix4.s_addr)
@@ -243,7 +243,7 @@ DEFUN (no_router_id,
 	int idx_name = 4;
 
 	struct prefix rid;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	lr_id_t vrf_id = { .lr.id = LR_DEFAULT};
 
 	rid.u.prefix4.s_addr = 0;
 	rid.prefixlen = 0;
