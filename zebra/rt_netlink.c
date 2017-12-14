@@ -194,15 +194,18 @@ static inline int proto2zebra(int proto, int family)
 /*
 Pending: create an efficient table_id (in a tree/hash) based lookup)
  */
-static vrf_id_t vrf_lookup_by_table(u_int32_t table_id)
+static vrf_id_t vrf_lookup_by_table(u_int32_t table_id, ns_id_t ns_id)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		if ((zvrf = vrf->info) == NULL || (zvrf->table_id != table_id))
+		if ((zvrf = vrf->info) == NULL)
 			continue;
-
+		if ((ns_id_t)(vrf->vrf_id >> 16) != ns_id)
+			continue;
+		if (zvrf->table_id != table_id)
+			continue;
 		return zvrf_id(zvrf);
 	}
 
@@ -287,7 +290,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 		table = rtm->rtm_table;
 
 	/* Map to VRF */
-	vrf_id = vrf_lookup_by_table(table);
+	vrf_id = vrf_lookup_by_table(table, ns_id);
 	if (vrf_id == VRF_DEFAULT) {
 		if (!is_zebra_valid_kernel_table(table)
 		    && !is_zebra_main_routing_table(table))
@@ -566,7 +569,7 @@ static int netlink_route_change_read_multicast(struct sockaddr_nl *snl,
 	char sbuf[40];
 	char gbuf[40];
 	char oif_list[256] = "\0";
-	vrf_id_t vrf = ns_id;
+	vrf_id_t vrf;
 	int table;
 
 	if (mroute)
@@ -588,7 +591,7 @@ static int netlink_route_change_read_multicast(struct sockaddr_nl *snl,
 	else
 		table = rtm->rtm_table;
 
-	vrf = vrf_lookup_by_table(table);
+	vrf = vrf_lookup_by_table(table, ns_id);
 
 	if (tb[RTA_IIF])
 		iif = *(int *)RTA_DATA(tb[RTA_IIF]);
@@ -644,7 +647,7 @@ int netlink_route_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 			 ns_id_t ns_id, int startup)
 {
 	int len;
-	vrf_id_t vrf_id = ns_id;
+	vrf_id_t vrf_id = (uint32_t)(ns_id << 16);
 	struct rtmsg *rtm;
 
 	rtm = NLMSG_DATA(h);

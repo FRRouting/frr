@@ -432,7 +432,7 @@ static void if_bfd_session_update(struct interface *ifp, struct prefix *dp,
 		} else {
 			zlog_debug(
 				"MESSAGE: ZEBRA_INTERFACE_BFD_DEST_UPDATE %s/%d "
-				"with src %s/%d and vrf %d %s event",
+				"with src %s/%d and vrf %u %s event",
 				inet_ntop(dp->family, &dp->u.prefix, buf[0],
 					  INET6_ADDRSTRLEN),
 				dp->prefixlen,
