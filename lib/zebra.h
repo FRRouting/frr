@@ -486,7 +486,7 @@ typedef u_int16_t zebra_size_t;
 typedef u_int16_t zebra_command_t;
 
 /* VRF ID type. */
-typedef u_int16_t vrf_id_t;
+typedef uint32_t vrf_id_t;
 
 typedef uint32_t route_tag_t;
 #define ROUTE_TAG_MAX UINT32_MAX
