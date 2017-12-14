@@ -55,7 +55,7 @@ struct zclient *zclient = NULL;
 
 /* Router-id update message from zebra. */
 static int isis_router_id_update_zebra(int command, struct zclient *zclient,
-				       zebra_size_t length, vrf_id_t vrf_id)
+				       zebra_size_t length, lr_id_t vrf_id)
 {
 	struct isis_area *area;
 	struct listnode *node;
@@ -81,7 +81,7 @@ static int isis_router_id_update_zebra(int command, struct zclient *zclient,
 }
 
 static int isis_zebra_if_add(int command, struct zclient *zclient,
-			     zebra_size_t length, vrf_id_t vrf_id)
+			     zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 
@@ -101,7 +101,7 @@ static int isis_zebra_if_add(int command, struct zclient *zclient,
 }
 
 static int isis_zebra_if_del(int command, struct zclient *zclient,
-			     zebra_size_t length, vrf_id_t vrf_id)
+			     zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 	struct stream *s;
@@ -134,7 +134,7 @@ static int isis_zebra_if_del(int command, struct zclient *zclient,
 }
 
 static int isis_zebra_if_state_up(int command, struct zclient *zclient,
-				  zebra_size_t length, vrf_id_t vrf_id)
+				  zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 
@@ -149,7 +149,7 @@ static int isis_zebra_if_state_up(int command, struct zclient *zclient,
 }
 
 static int isis_zebra_if_state_down(int command, struct zclient *zclient,
-				    zebra_size_t length, vrf_id_t vrf_id)
+				    zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 	struct isis_circuit *circuit;
@@ -168,7 +168,7 @@ static int isis_zebra_if_state_down(int command, struct zclient *zclient,
 }
 
 static int isis_zebra_if_address_add(int command, struct zclient *zclient,
-				     zebra_size_t length, vrf_id_t vrf_id)
+				     zebra_size_t length, lr_id_t vrf_id)
 {
 	struct connected *c;
 	struct prefix *p;
@@ -196,7 +196,7 @@ static int isis_zebra_if_address_add(int command, struct zclient *zclient,
 }
 
 static int isis_zebra_if_address_del(int command, struct zclient *client,
-				     zebra_size_t length, vrf_id_t vrf_id)
+				     zebra_size_t length, lr_id_t vrf_id)
 {
 	struct connected *c;
 	struct interface *ifp;
@@ -260,7 +260,7 @@ static void isis_zebra_route_add_route(struct prefix *prefix,
 		return;
 
 	memset(&api, 0, sizeof(api));
-	api.vrf_id = VRF_DEFAULT;
+	api.vrf_id.lr.id = LR_DEFAULT;
 	api.type = ZEBRA_ROUTE_ISIS;
 	api.safi = SAFI_UNICAST;
 	api.prefix = *prefix;
@@ -328,7 +328,7 @@ static void isis_zebra_route_del_route(struct prefix *prefix,
 		return;
 
 	memset(&api, 0, sizeof(api));
-	api.vrf_id = VRF_DEFAULT;
+	api.vrf_id.lr.id = LR_DEFAULT;
 	api.type = ZEBRA_ROUTE_ISIS;
 	api.safi = SAFI_UNICAST;
 	api.prefix = *prefix;
@@ -350,7 +350,7 @@ void isis_zebra_route_update(struct prefix *prefix,
 }
 
 static int isis_zebra_read(int command, struct zclient *zclient,
-			   zebra_size_t length, vrf_id_t vrf_id)
+			   zebra_size_t length, lr_id_t vrf_id)
 {
 	struct zapi_route api;
 
@@ -388,25 +388,25 @@ void isis_zebra_redistribute_set(afi_t afi, int type)
 {
 	if (type == DEFAULT_ROUTE)
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_ADD,
-					     zclient, VRF_DEFAULT);
+					     zclient, vrf_id_default);
 	else
 		zclient_redistribute(ZEBRA_REDISTRIBUTE_ADD, zclient, afi, type,
-				     0, VRF_DEFAULT);
+				     0, vrf_id_default);
 }
 
 void isis_zebra_redistribute_unset(afi_t afi, int type)
 {
 	if (type == DEFAULT_ROUTE)
 		zclient_redistribute_default(ZEBRA_REDISTRIBUTE_DEFAULT_DELETE,
-					     zclient, VRF_DEFAULT);
+					     zclient, vrf_id_default);
 	else
 		zclient_redistribute(ZEBRA_REDISTRIBUTE_DELETE, zclient, afi,
-				     type, 0, VRF_DEFAULT);
+				     type, 0, vrf_id_default);
 }
 
 static void isis_zebra_connected(struct zclient *zclient)
 {
-	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+	zclient_send_reg_requests(zclient, vrf_id_default);
 }
 
 void isis_zebra_init(struct thread_master *master)

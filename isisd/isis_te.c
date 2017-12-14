@@ -1245,7 +1245,7 @@ DEFUN (show_isis_mpls_te_interface,
        "Interface information\n"
        "Interface name\n")
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	int idx_interface = 4;
 	struct interface *ifp;
 
@@ -1257,7 +1257,7 @@ DEFUN (show_isis_mpls_te_interface,
 	/* Interface name is specified. */
 	else {
 		if ((ifp = if_lookup_by_name(argv[idx_interface]->arg,
-					     VRF_DEFAULT))
+					     vrf_id_default))
 		    == NULL)
 			vty_out(vty, "No such interface name\n");
 		else
