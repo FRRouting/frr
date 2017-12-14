@@ -30,7 +30,7 @@
 #include "vty.h"
 
 #include "zebra/rib.h"
-#include "zebra/zserv.h"
+#include "zebra/rt.h"
 
 /* Thank you, Solaris, for polluting application symbol namespace. */
 #undef hook_register

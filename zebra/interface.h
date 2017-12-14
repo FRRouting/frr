@@ -313,6 +313,8 @@ static inline void zebra_if_set_ziftype(struct interface *ifp,
 #define IS_ZEBRA_IF_VRF_SLAVE(ifp)                                             \
 	(((struct zebra_if *)(ifp->info))->zif_slave_type == ZEBRA_IF_SLAVE_VRF)
 
+extern void zebra_if_init(void);
+
 extern struct interface *if_lookup_by_index_per_ns(struct zebra_ns *,
 						   u_int32_t);
 extern struct interface *if_lookup_by_name_per_ns(struct zebra_ns *,

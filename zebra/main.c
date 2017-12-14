@@ -295,7 +295,7 @@ int main(int argc, char **argv)
 	zebrad.master = frr_init();
 
 	/* Zebra related initialize. */
-	zebra_init();
+	zserv_init();
 	rib_init();
 	zebra_if_init();
 	zebra_debug_init();
