@@ -51,12 +51,12 @@ static struct interface *zebra_interface_if_lookup(struct stream *s)
 	stream_get(ifname_tmp, s, INTERFACE_NAMSIZ);
 
 	/* And look it up. */
-	return if_lookup_by_name(ifname_tmp, VRF_DEFAULT);
+	return if_lookup_by_name(ifname_tmp, vrf_id_default);
 }
 
 /* Inteface addition message from zebra. */
 static int interface_add(int command, struct zclient *zclient,
-			       zebra_size_t length, vrf_id_t vrf_id)
+			       zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 
@@ -69,7 +69,7 @@ static int interface_add(int command, struct zclient *zclient,
 }
 
 static int interface_delete(int command, struct zclient *zclient,
-			    zebra_size_t length, vrf_id_t vrf_id)
+			    zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 	struct stream *s;
@@ -88,7 +88,7 @@ static int interface_delete(int command, struct zclient *zclient,
 }
 
 static int interface_address_add(int command, struct zclient *zclient,
-				 zebra_size_t length, vrf_id_t vrf_id)
+				 zebra_size_t length, lr_id_t vrf_id)
 {
 
 	zebra_interface_address_read(command, zclient->ibuf, vrf_id);
@@ -97,7 +97,7 @@ static int interface_address_add(int command, struct zclient *zclient,
 }
 
 static int interface_address_delete(int command, struct zclient *zclient,
-				    zebra_size_t length, vrf_id_t vrf_id)
+				    zebra_size_t length, lr_id_t vrf_id)
 {
 	struct connected *c;
 
@@ -111,7 +111,7 @@ static int interface_address_delete(int command, struct zclient *zclient,
 }
 
 static int interface_state_up(int command, struct zclient *zclient,
-			      zebra_size_t length, vrf_id_t vrf_id)
+			      zebra_size_t length, lr_id_t vrf_id)
 {
 
 	zebra_interface_if_lookup(zclient->ibuf);
@@ -120,7 +120,7 @@ static int interface_state_up(int command, struct zclient *zclient,
 }
 
 static int interface_state_down(int command, struct zclient *zclient,
-				zebra_size_t length, vrf_id_t vrf_id)
+				zebra_size_t length, lr_id_t vrf_id)
 {
 
 	zebra_interface_state_read(zclient->ibuf, vrf_id);
@@ -132,7 +132,7 @@ extern uint32_t total_routes;
 extern uint32_t installed_routes;
 
 static int notify_owner(int command, struct zclient *zclient,
-			zebra_size_t length, vrf_id_t vrf_id)
+			zebra_size_t length, lr_id_t vrf_id)
 {
 	struct prefix p;
 	enum zapi_route_notify_owner note;
@@ -149,7 +149,7 @@ static int notify_owner(int command, struct zclient *zclient,
 
 static void zebra_connected(struct zclient *zclient)
 {
-	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+	zclient_send_reg_requests(zclient, vrf_id_default);
 }
 
 void route_add(struct prefix *p, struct nexthop *nh)
@@ -158,7 +158,7 @@ void route_add(struct prefix *p, struct nexthop *nh)
 	struct zapi_nexthop *api_nh;
 
 	memset(&api, 0, sizeof(api));
-	api.vrf_id = VRF_DEFAULT;
+	api.vrf_id.lr.id = LR_DEFAULT;
 	api.type = ZEBRA_ROUTE_SHARP;
 	api.safi = SAFI_UNICAST;
 	memcpy(&api.prefix, p, sizeof(*p));
@@ -179,7 +179,7 @@ void route_delete(struct prefix *p)
 	struct zapi_route api;
 
 	memset(&api, 0, sizeof(api));
-	api.vrf_id = VRF_DEFAULT;
+	api.vrf_id.lr.id = LR_DEFAULT;
 	api.type = ZEBRA_ROUTE_SHARP;
 	api.safi = SAFI_UNICAST;
 	memcpy(&api.prefix, p, sizeof(*p));
