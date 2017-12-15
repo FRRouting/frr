@@ -4293,13 +4293,10 @@ void bgp_evpn_cleanup(struct bgp *bgp)
 	bgp->vnihash = NULL;
 	if (bgp->vrf_import_rtl)
 		list_delete_and_null(&bgp->vrf_import_rtl);
-	bgp->vrf_import_rtl = NULL;
 	if (bgp->vrf_export_rtl)
 		list_delete_and_null(&bgp->vrf_export_rtl);
-	bgp->vrf_export_rtl = NULL;
 	if (bgp->l2vnis)
 		list_delete_and_null(&bgp->l2vnis);
-	bgp->l2vnis = NULL;
 	bf_release_index(bm->rd_idspace, bgp->vrf_rd_id);
 }
 
