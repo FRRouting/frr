@@ -1,6 +1,11 @@
-@node  Zebra Protocol
-@appendix Zebra Protocol
-@appendixsection Overview of the Zebra Protocol
+.. _Zebra_Protocol
+
+**************
+Zebra Protocol
+**************
+
+Overview of the Zebra Protocol
+==============================
 
 Zebra Protocol is used by protocol daemons to communicate with the
 zebra daemon.
@@ -31,32 +36,38 @@ released in 1.0. Version 4 will be used as of Frr 2.0 to indicate that
 we are a different Routing Suite now and to hopefully prevent accidental
 Quagga <-> FRR issues.
 
-@appendixsection Zebra Protocol Definition
-@appendixsubsec Zebra Protocol Header (version 0)
-@example
-@group
-0                   1                   2                   3
-0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-------------------------------+---------------+
-|           Length (2)          |   Command (1) |
-+-------------------------------+---------------+
-@end group
-@end example
+Zebra Protocol Definition
+=========================
 
-@appendixsubsec Zebra Protocol Common Header (version 1)
-@example
-@group
-0                   1                   2                   3
-0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-+-------------------------------+---------------+-------------+
-|           Length (2)          |   Marker (1)  | Version (1) |
-+-------------------------------+---------------+-------------+
-|          Command (2)          |
-+-------------------------------+
-@end group
-@end example
+Zebra Protocol Header (version 0)
+----------------------------------
 
-@appendixsubsec Zebra Protocol Header Field Definitions
+::
+
+	0                   1                   2                   3
+	0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+	+-------------------------------+---------------+
+	|           Length (2)          |   Command (1) |
+	+-------------------------------+---------------+
+
+
+Zebra Protocol Common Header (version 1)
+----------------------------------------
+
+::
+
+	0                   1                   2                   3
+	0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+	+-------------------------------+---------------+-------------+
+	|           Length (2)          |   Marker (1)  | Version (1) |
+	+-------------------------------+---------------+-------------+
+	|          Command (2)          |
+	+-------------------------------+
+
+
+Zebra Protocol Header Field Definitions
+---------------------------------------
+
 @table @samp
 @item Length
 Total packet length including this header. The minimum length is 3
@@ -77,7 +88,9 @@ recognise. Not present in version 0 messages.
 The Zebra Protocol command.
 @end table
 
-@appendixsubsec Zebra Protocol Commands
+Zebra Protocol Commands
+-----------------------
+
 @multitable {ZEBRA_REDISTRIBUTE_DEFAULT_DELETE_WHATEVER} {99999}
 @headitem Command @tab Value
 @item ZEBRA_INTERFACE_ADD	

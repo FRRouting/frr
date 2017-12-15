@@ -1,8 +1,10 @@
-@cindex NHRP
-@node NHRP
-@chapter NHRP
+.. _NHRP:
 
-@command{nhrpd} is a daemon to support Next Hop Routing Protocol (NHRP).
+****
+NHRP
+****
+
+*nhrpd* is a daemon to support Next Hop Routing Protocol (NHRP).
 NHRP is described in RFC2332.
 
 NHRP is used to improve the efficiency of routing computer network
@@ -15,17 +17,10 @@ an intermediate hop.
 Cisco Dynamic Multipoint VPN (DMVPN) is based on NHRP, and
 @value{PACKAGE_NAME} nhrpd implements this scenario.
 
-@menu
-* Routing Design::
-* Configuring NHRP::
-* Hub Functionality::
-* Integration with IKE::
-* NHRP Events::
-* Configuration Example::
-@end menu
+.. _Routing_Design:
 
-@node Routing Design
-@section Routing Design
+Routing Design
+==============
 
 nhrpd never handles routing of prefixes itself. You need to run some
 real routing protocol (e.g. BGP) to advertise routes over the tunnels.
@@ -38,13 +33,14 @@ a generic subnet route.
 
 To create NBMA GRE tunnel you might use the following (linux terminal
 commands):
-@example
-@group
- ip tunnel add gre1 mode gre key 42 ttl 64
- ip addr add 10.255.255.2/32 dev gre1
- ip link set gre1 up
-@end group
-@end example
+::
+
+  @group
+   ip tunnel add gre1 mode gre key 42 ttl 64
+   ip addr add 10.255.255.2/32 dev gre1
+   ip link set gre1 up
+  @end group
+  
 
 Note that the IP-address is assigned as host prefix to gre1. nhrpd will
 automatically create additional host routes pointing to gre1 when
@@ -61,24 +57,28 @@ routing protocol (e.g. iBGP) to allow hubs to be able to relay all traffic.
 
 This can be achieved in hubs with the following bgp configuration (network
 command defines the GRE subnet):
-@example
-@group
-router bgp 65555
- address-family ipv4 unicast
-   network 172.16.0.0/16
-   redistribute nhrp
- exit-address-family
-@end group
-@end example
+::
 
+  @group
+  router bgp 65555
+   address-family ipv4 unicast
+     network 172.16.0.0/16
+     redistribute nhrp
+   exit-address-family
+  @end group
+  
 
-@node Configuring NHRP
-@section Configuring NHRP
+.. _Configuring_NHRP:
+
+Configuring NHRP
+================
 
 FIXME
 
-@node Hub Functionality
-@section Hub Functionality
+.. _Hub_Functionality:
+
+Hub Functionality
+=================
 
 In addition to routing nhrp redistributed host prefixes, the hub nodes
 are also responsible to send NHRP Traffic Indication messages that
@@ -89,14 +89,15 @@ using NFLOG. Typically you want to send Traffic Indications for network
 traffic that is routed from gre1 back to gre1 in rate limited manner.
 This can be achieved with the following iptables rule.
 
-@example
-@group
-iptables -A FORWARD -i gre1 -o gre1 \
-	-m hashlimit --hashlimit-upto 4/minute --hashlimit-burst 1 \
-	--hashlimit-mode srcip,dstip --hashlimit-srcmask 24 --hashlimit-dstmask 24 \
-	--hashlimit-name loglimit-0 -j NFLOG --nflog-group 1 --nflog-range 128
-@end group
-@end example
+::
+
+  @group
+  iptables -A FORWARD -i gre1 -o gre1 \\
+  	-m hashlimit --hashlimit-upto 4/minute --hashlimit-burst 1 \\
+  	--hashlimit-mode srcip,dstip --hashlimit-srcmask 24 --hashlimit-dstmask 24 \\
+  	--hashlimit-name loglimit-0 -j NFLOG --nflog-group 1 --nflog-range 128
+  @end group
+  
 
 You can fine tune the src/dstmask according to the prefix lengths you
 announce internal, add additional IP range matches, or rate limitation
@@ -104,23 +105,27 @@ if needed. However, the above should be good in most cases.
 
 This kernel NFLOG target's nflog-group is configured in global nhrp config
 with:
-@example
-@group
-nhrp nflog-group 1
-@end group
-@end example
+::
+
+  @group
+  nhrp nflog-group 1
+  @end group
+  
 
 To start sending these traffic notices out from hubs, use the nhrp
 per-interface directive:
-@example
-@group
-interface gre1
- ip nhrp redirect
-@end group
-@end example
+::
 
-@node Integration with IKE
-@section Integration with IKE
+  @group
+  interface gre1
+   ip nhrp redirect
+  @end group
+  
+
+.. _Integration_with_IKE:
+
+Integration with IKE
+====================
 
 nhrpd needs tight integration with IKE daemon for various reasons.
 Currently only strongSwan is supported as IKE daemon.
@@ -129,17 +134,20 @@ nhrpd connects to strongSwan using VICI protocol based on UNIX socket
 (hardcoded now as /var/run/charon.vici).
 
 strongSwan currently needs few patches applied. Please check out the
-@uref{http://git.alpinelinux.org/cgit/user/tteras/strongswan/log/?h=tteras-release,release}
+`http://git.alpinelinux.org/cgit/user/tteras/strongswan/log/?h=tteras-release,release <http://git.alpinelinux.org/cgit/user/tteras/strongswan/log/?h=tteras-release,release>`_
 and
-@uref{http://git.alpinelinux.org/cgit/user/tteras/strongswan/log/?h=tteras,working tree}
+`http://git.alpinelinux.org/cgit/user/tteras/strongswan/log/?h=tteras,working tree <http://git.alpinelinux.org/cgit/user/tteras/strongswan/log/?h=tteras,working tree>`_
 git repositories for the patches.
 
-@node NHRP Events
-@section NHRP Events
+.. _NHRP_Events:
+
+NHRP Events
+===========
 
 FIXME
 
-@node Configuration Example
-@section Configuration Example
+Configuration Example
+=====================
 
 FIXME
+
