@@ -352,7 +352,7 @@ int nhrp_nhs_free(struct nhrp_nhs *nhs)
 
 void nhrp_nhs_terminate(void)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 	struct nhrp_interface *nifp;
 	struct nhrp_nhs *nhs, *tmp;

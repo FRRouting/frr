@@ -712,7 +712,7 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 	"Shortcut information\n"
 	"opennhrpctl style cache dump\n")
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 	struct info_ctx ctx = {
 		.vty = vty,
@@ -796,7 +796,7 @@ DEFUN(clear_nhrp, clear_nhrp_cmd,
 	"Dynamic cache entries\n"
 	"Shortcut entries\n")
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 	struct info_ctx ctx = {
 		.vty = vty,
@@ -843,7 +843,7 @@ static void interface_config_write_nhrp_map(struct nhrp_cache *c, void *data)
 
 static int interface_config_write(struct vty *vty)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct write_map_ctx mapctx;
 	struct interface *ifp;
 	struct nhrp_interface *nifp;

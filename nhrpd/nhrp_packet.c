@@ -291,7 +291,7 @@ static int nhrp_packet_recvraw(struct thread *t)
 		goto err;
 	}
 
-	ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
+	ifp = if_lookup_by_index(ifindex, vrf_id_default);
 	if (!ifp) goto err;
 
 	p = nhrp_peer_get(ifp, &remote_nbma);

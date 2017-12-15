@@ -75,7 +75,7 @@ static void netlink_neigh_msg(struct nlmsghdr *msg, struct zbuf *zb)
 		}
 	}
 
-	ifp = if_lookup_by_index(ndm->ndm_ifindex, VRF_DEFAULT);
+	ifp = if_lookup_by_index(ndm->ndm_ifindex, vrf_id_default);
 	if (!ifp || sockunion_family(&addr) == AF_UNSPEC)
 		return;
 
@@ -185,7 +185,7 @@ static void netlink_log_indication(struct nlmsghdr *msg, struct zbuf *zb)
 	if (!pkthdr || !in_ndx || !zbuf_used(&pktpl))
 		return;
 
-	ifp = if_lookup_by_index(htonl(*in_ndx), VRF_DEFAULT);
+	ifp = if_lookup_by_index(htonl(*in_ndx), vrf_id_default);
 	if (!ifp)
 		return;
 
