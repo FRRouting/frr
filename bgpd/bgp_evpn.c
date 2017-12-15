@@ -3264,7 +3264,7 @@ void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,
 		list_delete_node(bgp_vrf->vrf_export_rtl, node_to_del);
 
 	/* fall back to auto-generated RT if this was the last RT */
-	if (list_isempty(bgp_vrf->vrf_export_rtl)) {
+	if (bgp_vrf->vrf_export_rtl && list_isempty(bgp_vrf->vrf_export_rtl)) {
 		UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_RT_CFGD);
 		evpn_auto_rt_export_add_for_vrf(bgp_vrf);
 	}
