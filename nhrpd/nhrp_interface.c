@@ -117,7 +117,7 @@ static void nhrp_interface_update_nbma(struct interface *ifp)
 	sockunion_family(&nbma) = AF_UNSPEC;
 
 	if (nifp->source)
-          nbmaifp = if_lookup_by_name(nifp->source, VRF_DEFAULT);
+          nbmaifp = if_lookup_by_name(nifp->source, vrf_id_default);
 
 	switch (ifp->ll_type) {
 	case ZEBRA_LLT_IPGRE: {
@@ -127,7 +127,7 @@ static void nhrp_interface_update_nbma(struct interface *ifp)
 			if (saddr.s_addr)
 				sockunion_set(&nbma, AF_INET, (u_char *) &saddr.s_addr, sizeof(saddr.s_addr));
 			else if (!nbmaifp && nifp->linkidx != IFINDEX_INTERNAL)
-                          nbmaifp = if_lookup_by_index(nifp->linkidx, VRF_DEFAULT);
+                          nbmaifp = if_lookup_by_index(nifp->linkidx, vrf_id_default);
 		}
 		break;
 	default:
@@ -269,7 +269,7 @@ void nhrp_interface_update(struct interface *ifp)
 	}
 }
 
-int nhrp_interface_add(int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf_id)
+int nhrp_interface_add(int cmd, struct zclient *client, zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 
@@ -288,7 +288,7 @@ int nhrp_interface_add(int cmd, struct zclient *client, zebra_size_t length, vrf
 }
 
 int nhrp_interface_delete(int cmd, struct zclient *client,
-			  zebra_size_t length, vrf_id_t vrf_id)
+			  zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 	struct stream *s;
@@ -306,7 +306,7 @@ int nhrp_interface_delete(int cmd, struct zclient *client,
 }
 
 int nhrp_interface_up(int cmd, struct zclient *client,
-		      zebra_size_t length, vrf_id_t vrf_id)
+		      zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 
@@ -321,7 +321,7 @@ int nhrp_interface_up(int cmd, struct zclient *client,
 }
 
 int nhrp_interface_down(int cmd, struct zclient *client,
-			zebra_size_t length, vrf_id_t vrf_id)
+			zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 
@@ -335,7 +335,7 @@ int nhrp_interface_down(int cmd, struct zclient *client,
 }
 
 int nhrp_interface_address_add(int cmd, struct zclient *client,
-			       zebra_size_t length, vrf_id_t vrf_id)
+			       zebra_size_t length, lr_id_t vrf_id)
 {
 	struct connected *ifc;
 	char buf[PREFIX_STRLEN];
@@ -354,7 +354,7 @@ int nhrp_interface_address_add(int cmd, struct zclient *client,
 }
 
 int nhrp_interface_address_delete(int cmd, struct zclient *client,
-				  zebra_size_t length, vrf_id_t vrf_id)
+				  zebra_size_t length, lr_id_t vrf_id)
 {
 	struct connected *ifc;
 	char buf[PREFIX_STRLEN];

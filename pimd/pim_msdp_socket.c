@@ -150,7 +150,7 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 	sockopt_reuseaddr(sock);
 	sockopt_reuseport(sock);
 
-	if (pim->vrf_id != VRF_DEFAULT) {
+	if (pim->vrf_id.lr.id != LR_DEFAULT) {
 		struct interface *ifp =
 			if_lookup_by_name(pim->vrf->name, pim->vrf_id);
 		if (!ifp) {
@@ -234,7 +234,7 @@ int pim_msdp_sock_connect(struct pim_msdp_peer *mp)
 		return -1;
 	}
 
-	if (mp->pim->vrf_id != VRF_DEFAULT) {
+	if (mp->pim->vrf_id.lr.id != LR_DEFAULT) {
 		struct interface *ifp =
 			if_lookup_by_name(mp->pim->vrf->name, mp->pim->vrf_id);
 		if (!ifp) {

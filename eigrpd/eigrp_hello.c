@@ -146,7 +146,7 @@ eigrp_hello_parameter_decode(struct eigrp_neighbor *nbr,
 			zlog_info("Neighbor %s (%s) is pending: new adjacency",
 				  inet_ntoa(nbr->src),
 				  ifindex2ifname(nbr->ei->ifp->ifindex,
-						 VRF_DEFAULT));
+						 vrf_id_default));
 
 			/* Expedited hello sent */
 			eigrp_hello_send(nbr->ei, EIGRP_HELLO_NORMAL, NULL);
@@ -166,7 +166,7 @@ eigrp_hello_parameter_decode(struct eigrp_neighbor *nbr,
 					"Neighbor %s (%s) is down: Interface PEER-TERMINATION received",
 					inet_ntoa(nbr->src),
 					ifindex2ifname(nbr->ei->ifp->ifindex,
-						       VRF_DEFAULT));
+						       vrf_id_default));
 				eigrp_nbr_delete(nbr);
 				return NULL;
 			} else {
@@ -174,7 +174,7 @@ eigrp_hello_parameter_decode(struct eigrp_neighbor *nbr,
 					"Neighbor %s (%s) going down: Kvalue mismatch",
 					inet_ntoa(nbr->src),
 					ifindex2ifname(nbr->ei->ifp->ifindex,
-						       VRF_DEFAULT));
+						       vrf_id_default));
 				eigrp_nbr_state_set(nbr, EIGRP_NEIGHBOR_DOWN);
 			}
 		}
@@ -253,7 +253,7 @@ static void eigrp_peer_termination_decode(struct eigrp_neighbor *nbr,
 	if (my_ip == received_ip) {
 		zlog_info("Neighbor %s (%s) is down: Peer Termination received",
 			  inet_ntoa(nbr->src),
-			  ifindex2ifname(nbr->ei->ifp->ifindex, VRF_DEFAULT));
+			  ifindex2ifname(nbr->ei->ifp->ifindex, vrf_id_default));
 		/* set neighbor to DOWN */
 		nbr->state = EIGRP_NEIGHBOR_DOWN;
 		/* delete neighbor */
@@ -329,7 +329,7 @@ void eigrp_hello_receive(struct eigrp *eigrp, struct ip *iph,
 
 	if (IS_DEBUG_EIGRP_PACKET(eigrph->opcode - 1, RECV))
 		zlog_debug("Processing Hello size[%u] int(%s) nbr(%s)", size,
-			   ifindex2ifname(nbr->ei->ifp->ifindex, VRF_DEFAULT),
+			   ifindex2ifname(nbr->ei->ifp->ifindex, vrf_id_default),
 			   inet_ntoa(nbr->src));
 
 	size -= EIGRP_HEADER_LEN;

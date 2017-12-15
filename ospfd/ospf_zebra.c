@@ -66,7 +66,7 @@ extern struct thread_master *master;
 
 /* Router-id update message from zebra. */
 static int ospf_router_id_update_zebra(int command, struct zclient *zclient,
-				       zebra_size_t length, vrf_id_t vrf_id)
+				       zebra_size_t length, lr_id_t vrf_id)
 {
 	struct ospf *ospf = NULL;
 	struct prefix router_id;
@@ -76,7 +76,7 @@ static int ospf_router_id_update_zebra(int command, struct zclient *zclient,
 		char buf[PREFIX2STR_BUFFER];
 		prefix2str(&router_id, buf, sizeof(buf));
 		zlog_debug("Zebra rcvd: router id update %s vrf %s id %u",
-			   buf, ospf_vrf_id_to_name(vrf_id), vrf_id);
+			   buf, ospf_vrf_id_to_name(vrf_id), vrf_id.lr.id);
 	}
 
 	ospf = ospf_lookup_by_vrf_id(vrf_id);
@@ -91,7 +91,7 @@ static int ospf_router_id_update_zebra(int command, struct zclient *zclient,
 			prefix2str(&router_id, buf, sizeof(buf));
 			zlog_debug("%s: ospf instance not found for vrf %s id %u router_id %s",
 				   __PRETTY_FUNCTION__,
-				   ospf_vrf_id_to_name(vrf_id), vrf_id, buf);
+				   ospf_vrf_id_to_name(vrf_id), vrf_id.lr.id, buf);
 		}
 	}
 	return 0;
@@ -99,7 +99,7 @@ static int ospf_router_id_update_zebra(int command, struct zclient *zclient,
 
 /* Inteface addition message from zebra. */
 static int ospf_interface_add(int command, struct zclient *zclient,
-			      zebra_size_t length, vrf_id_t vrf_id)
+			      zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp = NULL;
 	struct ospf *ospf = NULL;
@@ -112,7 +112,7 @@ static int ospf_interface_add(int command, struct zclient *zclient,
 		zlog_debug(
 			"Zebra: interface add %s vrf %s[%u] index %d flags %llx metric %d mtu %d",
 			ifp->name, ospf_vrf_id_to_name(ifp->vrf_id),
-			ifp->vrf_id, ifp->ifindex,
+			ifp->vrf_id.lr.id, ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
 
 	assert(ifp->info);
@@ -134,7 +134,7 @@ static int ospf_interface_add(int command, struct zclient *zclient,
 }
 
 static int ospf_interface_delete(int command, struct zclient *zclient,
-				 zebra_size_t length, vrf_id_t vrf_id)
+				 zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 	struct stream *s;
@@ -155,7 +155,7 @@ static int ospf_interface_delete(int command, struct zclient *zclient,
 		zlog_debug(
 			"Zebra: interface delete %s vrf %s[%u] index %d flags %llx metric %d mtu %d",
 			ifp->name, ospf_vrf_id_to_name(ifp->vrf_id),
-			ifp->vrf_id, ifp->ifindex,
+			ifp->vrf_id.lr.id, ifp->ifindex,
 			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
 
 	hook_call(ospf_if_delete, ifp);
@@ -169,7 +169,7 @@ static int ospf_interface_delete(int command, struct zclient *zclient,
 }
 
 static struct interface *zebra_interface_if_lookup(struct stream *s,
-						   vrf_id_t vrf_id)
+						   lr_id_t vrf_id)
 {
 	char ifname_tmp[INTERFACE_NAMSIZ];
 
@@ -181,7 +181,7 @@ static struct interface *zebra_interface_if_lookup(struct stream *s,
 }
 
 static int ospf_interface_state_up(int command, struct zclient *zclient,
-				   zebra_size_t length, vrf_id_t vrf_id)
+				   zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 	struct ospf_interface *oi;
@@ -238,7 +238,7 @@ static int ospf_interface_state_up(int command, struct zclient *zclient,
 }
 
 static int ospf_interface_state_down(int command, struct zclient *zclient,
-				     zebra_size_t length, vrf_id_t vrf_id)
+				     zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 	struct ospf_interface *oi;
@@ -263,7 +263,7 @@ static int ospf_interface_state_down(int command, struct zclient *zclient,
 }
 
 static int ospf_interface_address_add(int command, struct zclient *zclient,
-				      zebra_size_t length, vrf_id_t vrf_id)
+				      zebra_size_t length, lr_id_t vrf_id)
 {
 	struct connected *c;
 	struct ospf *ospf = NULL;
@@ -279,7 +279,7 @@ static int ospf_interface_address_add(int command, struct zclient *zclient,
 		prefix2str(c->address, buf, sizeof(buf));
 		zlog_debug("Zebra: interface %s address add %s vrf %s id %u",
 			   c->ifp->name, buf, ospf_vrf_id_to_name(vrf_id),
-			   vrf_id);
+			   vrf_id.lr.id);
 	}
 
 	ospf = ospf_lookup_by_vrf_id(vrf_id);
@@ -294,7 +294,7 @@ static int ospf_interface_address_add(int command, struct zclient *zclient,
 }
 
 static int ospf_interface_address_delete(int command, struct zclient *zclient,
-					 zebra_size_t length, vrf_id_t vrf_id)
+					 zebra_size_t length, lr_id_t vrf_id)
 {
 	struct connected *c;
 	struct interface *ifp;
@@ -356,10 +356,10 @@ static int ospf_interface_link_params(int command, struct zclient *zclient,
 
 /* VRF update for an interface. */
 static int ospf_interface_vrf_update(int command, struct zclient *zclient,
-				      zebra_size_t length, vrf_id_t vrf_id)
+				      zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp = NULL;
-	vrf_id_t new_vrf_id;
+	lr_id_t new_vrf_id;
 
 	ifp = zebra_interface_vrf_update_read(zclient->ibuf, vrf_id,
 					       &new_vrf_id);
@@ -368,8 +368,8 @@ static int ospf_interface_vrf_update(int command, struct zclient *zclient,
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: Rx Interface %s VRF change vrf_id %u New vrf %s id %u",
-			   __PRETTY_FUNCTION__, ifp->name, vrf_id,
-			   ospf_vrf_id_to_name(new_vrf_id), new_vrf_id);
+			   __PRETTY_FUNCTION__, ifp->name, vrf_id.lr.id,
+			   ospf_vrf_id_to_name(new_vrf_id), new_vrf_id.lr.id);
 
 	/*if_update(ifp, ifp->name, strlen(ifp->name), new_vrf_id);*/
 	if_update_to_new_vrf(ifp, new_vrf_id);
@@ -694,7 +694,7 @@ int ospf_redistribute_set(struct ospf *ospf, int type, u_short instance,
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
 		zlog_debug("Redistribute[%s][%d] vrf id %u: Start  Type[%d], Metric[%d]",
-			   ospf_redist_string(type), instance, ospf->vrf_id,
+			   ospf_redist_string(type), instance, ospf->vrf_id.lr.id,
 			   metric_type(ospf, type, instance),
 			   metric_value(ospf, type, instance));
 
@@ -716,7 +716,7 @@ int ospf_redistribute_unset(struct ospf *ospf, int type, u_short instance)
 
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE))
 		zlog_debug("Redistribute[%s][%d] vrf id %u: Stop",
-			   ospf_redist_string(type), instance, ospf->vrf_id);
+			   ospf_redist_string(type), instance, ospf->vrf_id.lr.id);
 
 	ospf_redist_del(ospf, type, instance);
 
@@ -921,7 +921,7 @@ void ospf_routemap_unset(struct ospf_redist *red)
 
 /* Zebra route add and delete treatment. */
 static int ospf_zebra_read_route(int command, struct zclient *zclient,
-				 zebra_size_t length, vrf_id_t vrf_id)
+				 zebra_size_t length, lr_id_t vrf_id)
 {
 	struct zapi_route api;
 	struct prefix_ipv4 p;
@@ -1082,7 +1082,7 @@ static int ospf_distribute_list_update_timer(struct thread *thread)
 	if (IS_DEBUG_OSPF_EVENT) {
 		zlog_debug("%s: ospf distribute-list update arg_type %d vrf %s id %d",
 			   __PRETTY_FUNCTION__, arg_type,
-			   ospf_vrf_id_to_name(ospf->vrf_id), ospf->vrf_id);
+			   ospf_vrf_id_to_name(ospf->vrf_id), ospf->vrf_id.lr.id);
 	}
 
 	/* foreach all external info. */
@@ -1436,12 +1436,12 @@ void ospf_zebra_vrf_register(struct ospf *ospf)
 	if (!zclient || zclient->sock < 0 || !ospf)
 		return;
 
-	if (ospf->vrf_id != VRF_UNKNOWN) {
+	if (ospf->vrf_id.lr.id != LR_UNKNOWN) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("%s: Register VRF %s id %u",
 				   __PRETTY_FUNCTION__,
 				   ospf_vrf_id_to_name(ospf->vrf_id),
-				   ospf->vrf_id);
+				   ospf->vrf_id.lr.id);
 		/* Deregister for router-id, interfaces,
 		 * redistributed routes. */
 		zclient_send_reg_requests(zclient, ospf->vrf_id);
@@ -1453,12 +1453,12 @@ void ospf_zebra_vrf_deregister(struct ospf *ospf)
 	if (!zclient || zclient->sock < 0 || !ospf)
 		return;
 
-	if (ospf->vrf_id != VRF_DEFAULT && ospf->vrf_id != VRF_UNKNOWN) {
+	if (ospf->vrf_id.lr.id != LR_DEFAULT && ospf->vrf_id.lr.id != LR_UNKNOWN) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug("%s: De-Register VRF %s id %u to Zebra.",
 				   __PRETTY_FUNCTION__,
 				   ospf_vrf_id_to_name(ospf->vrf_id),
-				   ospf->vrf_id);
+				   ospf->vrf_id.lr.id);
 		/* Deregister for router-id, interfaces,
 		 * redistributed routes. */
 		zclient_send_dereg_requests(zclient, ospf->vrf_id);
@@ -1469,7 +1469,7 @@ static void ospf_zebra_connected(struct zclient *zclient)
 	/* Send the client registration */
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER);
 
-	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+	zclient_send_reg_requests(zclient, vrf_id_default);
 }
 
 void ospf_zebra_init(struct thread_master *master, u_short instance)

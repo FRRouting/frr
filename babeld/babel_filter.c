@@ -32,7 +32,7 @@ int
 babel_filter(int output, const unsigned char *prefix, unsigned short plen,
              unsigned int ifindex)
 {
-    struct interface *ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
+    struct interface *ifp = if_lookup_by_index(ifindex, vrf_id_default);
     babel_interface_nfo *babel_ifp = ifp ? babel_get_if_nfo(ifp) : NULL;
     struct prefix p;
     struct distribute *dist;

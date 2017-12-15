@@ -135,7 +135,7 @@ void bgp_reg_dereg_for_label(struct bgp_node *rn, struct bgp_info *ri, int reg)
 	s = zclient->obuf;
 	stream_reset(s);
 	command = (reg) ? ZEBRA_FEC_REGISTER : ZEBRA_FEC_UNREGISTER;
-	zclient_create_header(s, command, VRF_DEFAULT);
+	zclient_create_header(s, command, vrf_id_default);
 	flags_pos = stream_get_endp(s); /* save position of 'flags' */
 	stream_putw(s, flags);		/* initial flags */
 	stream_putw(s, PREFIX_FAMILY(p));

@@ -502,7 +502,7 @@ void if_add_update(struct interface *ifp)
 				zlog_debug(
 					"interface %s vrf %u index %d is shutdown. "
 					"Won't wake it up.",
-					ifp->name, ifp->vrf_id, ifp->ifindex);
+					ifp->name, ifp->vrf_id.lr.id, ifp->ifindex);
 			return;
 		}
 
@@ -511,13 +511,13 @@ void if_add_update(struct interface *ifp)
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"interface %s vrf %u index %d becomes active.",
-				ifp->name, ifp->vrf_id, ifp->ifindex);
+				ifp->name, ifp->vrf_id.lr.id, ifp->ifindex);
 
 		static_ifindex_update(ifp, true);
 	} else {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("interface %s vrf %u index %d is added.",
-				   ifp->name, ifp->vrf_id, ifp->ifindex);
+				   ifp->name, ifp->vrf_id.lr.id, ifp->ifindex);
 	}
 }
 
@@ -660,7 +660,7 @@ void if_delete_update(struct interface *ifp)
 	if (if_is_up(ifp)) {
 		zlog_err(
 			"interface %s vrf %u index %d is still up while being deleted.",
-			ifp->name, ifp->vrf_id, ifp->ifindex);
+			ifp->name, ifp->vrf_id.lr.id, ifp->ifindex);
 		return;
 	}
 
@@ -669,7 +669,7 @@ void if_delete_update(struct interface *ifp)
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
 		zlog_debug("interface %s vrf %u index %d is now inactive.",
-			   ifp->name, ifp->vrf_id, ifp->ifindex);
+			   ifp->name, ifp->vrf_id.lr.id, ifp->ifindex);
 
 	static_ifindex_update(ifp, false);
 
@@ -691,8 +691,8 @@ void if_delete_update(struct interface *ifp)
 
 	/* if the ifp is in a vrf, move it to default so vrf can be deleted if
 	 * desired */
-	if (ifp->vrf_id)
-		if_handle_vrf_change(ifp, VRF_DEFAULT);
+	if (ifp->vrf_id.lr.id)
+		if_handle_vrf_change(ifp, vrf_id_default);
 
 	/* Reset some zebra interface params to default values. */
 	zif = ifp->info;
@@ -706,9 +706,9 @@ void if_delete_update(struct interface *ifp)
 }
 
 /* VRF change for an interface */
-void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id)
+void if_handle_vrf_change(struct interface *ifp, lr_id_t vrf_id)
 {
-	vrf_id_t old_vrf_id;
+	lr_id_t old_vrf_id;
 
 	old_vrf_id = ifp->vrf_id;
 
@@ -744,7 +744,7 @@ void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id)
 	 */
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug("%u: IF %s VRF change, scheduling RIB processing",
-			   ifp->vrf_id, ifp->name);
+			   ifp->vrf_id.lr.id, ifp->name);
 	rib_update(old_vrf_id, RIB_UPDATE_IF_CHANGE);
 	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 }
@@ -856,7 +856,7 @@ void if_up(struct interface *ifp)
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug("%u: IF %s up, scheduling RIB processing",
-			   ifp->vrf_id, ifp->name);
+			   ifp->vrf_id.lr.id, ifp->name);
 	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 
 	/* Handle interface up for specific types for EVPN. Non-VxLAN interfaces
@@ -913,7 +913,7 @@ void if_down(struct interface *ifp)
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug("%u: IF %s down, scheduling RIB processing",
-			   ifp->vrf_id, ifp->name);
+			   ifp->vrf_id.lr.id, ifp->name);
 	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 
 	if_nbr_ipv6ll_to_ipv4ll_neigh_del_all(ifp);
@@ -1320,7 +1320,7 @@ DEFUN (show_interface,
 {
 	struct vrf *vrf;
 	struct interface *ifp;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	lr_id_t vrf_id =  { .lr.id = LR_DEFAULT};
 
 	interface_update_stats();
 
@@ -1370,7 +1370,7 @@ DEFUN (show_interface_name_vrf,
 	int idx_ifname = 2;
 	int idx_name = 4;
 	struct interface *ifp;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	lr_id_t vrf_id =  { .lr.id = LR_DEFAULT};
 
 	interface_update_stats();
 
@@ -1424,7 +1424,7 @@ DEFUN (show_interface_name_vrf_all,
 }
 
 
-static void if_show_description(struct vty *vty, vrf_id_t vrf_id)
+static void if_show_description(struct vty *vty, lr_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct interface *ifp;
@@ -1465,7 +1465,7 @@ DEFUN (show_interface_desc,
        "Interface description\n"
        VRF_CMD_HELP_STR)
 {
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	lr_id_t vrf_id =  { .lr.id = LR_DEFAULT};
 
 	if (argc > 3)
 		VRF_GET_ID(vrf_id, argv[4]->arg);
@@ -1488,7 +1488,7 @@ DEFUN (show_interface_desc_vrf_all,
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
 		if (!RB_EMPTY (if_name_head, &vrf->ifaces_by_name)) {
-			vty_out(vty, "\n\tVRF %u\n\n", vrf->vrf_id);
+			vty_out(vty, "\n\tVRF %u\n\n", vrf->vrf_id.lr.id);
 			if_show_description(vty, vrf->vrf_id);
 		}
 
@@ -2846,7 +2846,7 @@ static int if_config_write(struct vty *vty)
 			if_data = ifp->info;
 			vrf = vrf_lookup_by_id(ifp->vrf_id);
 
-			if (ifp->vrf_id == VRF_DEFAULT)
+			if (ifp->vrf_id.lr.id == LR_DEFAULT)
 				vty_frame(vty, "interface %s\n", ifp->name);
 			else
 				vty_frame(vty, "interface %s vrf %s\n",

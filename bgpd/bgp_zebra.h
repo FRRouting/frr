@@ -52,12 +52,12 @@ extern int bgp_redistribute_metric_set(struct bgp *, struct bgp_redist *, afi_t,
 extern int bgp_redistribute_unset(struct bgp *, afi_t, int, u_short);
 extern int bgp_redistribute_unreg(struct bgp *, afi_t, int, u_short);
 
-extern struct interface *if_lookup_by_ipv4(struct in_addr *, vrf_id_t);
-extern struct interface *if_lookup_by_ipv4_exact(struct in_addr *, vrf_id_t);
+extern struct interface *if_lookup_by_ipv4(struct in_addr *, lr_id_t);
+extern struct interface *if_lookup_by_ipv4_exact(struct in_addr *, lr_id_t);
 extern struct interface *if_lookup_by_ipv6(struct in6_addr *, ifindex_t,
-					   vrf_id_t);
+					   lr_id_t);
 extern struct interface *if_lookup_by_ipv6_exact(struct in6_addr *, ifindex_t,
-						 vrf_id_t);
+						 lr_id_t);
 
 extern int bgp_zebra_advertise_gw_macip(struct bgp *, int, vni_t);
 extern int bgp_zebra_advertise_all_vni(struct bgp *, int);

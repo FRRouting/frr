@@ -521,7 +521,7 @@ int eigrp_read(struct thread *thread)
 		   ifindex
 		   retrieval but do not. */
 		c = if_lookup_address((void *)&iph->ip_src, AF_INET,
-				      VRF_DEFAULT);
+				      vrf_id_default);
 
 		if (c == NULL)
 			return 0;
@@ -769,7 +769,7 @@ static struct stream *eigrp_recv_packet(int fd, struct interface **ifp,
 
 	ifindex = getsockopt_ifindex(AF_INET, &msgh);
 
-	*ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
+	*ifp = if_lookup_by_index(ifindex, vrf_id_default);
 
 	if (ret != ip_len) {
 		zlog_warn(

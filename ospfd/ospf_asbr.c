@@ -160,7 +160,7 @@ struct external_info *ospf_external_info_add(struct ospf *ospf, u_char type,
 			zlog_warn(
 				"Redistribute[%s][%d][%u]: %s/%d discarding old info with NH %s.",
 				ospf_redist_string(type), instance,
-				ospf->vrf_id, inet_ntoa(p.prefix),
+				ospf->vrf_id.lr.id, inet_ntoa(p.prefix),
 				p.prefixlen, inetbuf);
 			XFREE(MTYPE_OSPF_EXTERNAL_INFO, rn->info);
 			rn->info = NULL;
@@ -182,7 +182,7 @@ struct external_info *ospf_external_info_add(struct ospf *ospf, u_char type,
 			  INET6_BUFSIZ);
 		zlog_debug(
 			"Redistribute[%s][%u]: %s/%d external info created, with NH %s",
-			ospf_redist_string(type), ospf->vrf_id,
+			ospf_redist_string(type), ospf->vrf_id.lr.id,
 			inet_ntoa(p.prefix), p.prefixlen, inetbuf);
 	}
 	return new;

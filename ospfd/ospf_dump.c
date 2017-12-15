@@ -1607,7 +1607,7 @@ DEFUN_NOSH (show_debugging_ospf,
 {
 	struct ospf *ospf = NULL;
 
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 	if (ospf == NULL)
 		return CMD_SUCCESS;
 
@@ -1653,7 +1653,7 @@ static int config_write_debug(struct vty *vty)
 	char str[16];
 	memset(str, 0, 16);
 
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 	if (ospf == NULL)
 		return CMD_SUCCESS;
 

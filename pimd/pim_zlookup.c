@@ -146,7 +146,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 	uint16_t length;
 	u_char marker;
 	u_char version;
-	vrf_id_t vrf_id;
+	lr_id_t vrf_id;
 	uint16_t command = 0;
 	struct in_addr raddr;
 	uint8_t distance;
@@ -312,7 +312,7 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 		return -1;
 	}
 
-	if (pim->vrf->vrf_id == VRF_UNKNOWN) {
+	if (pim->vrf->vrf_id.lr.id == LR_UNKNOWN) {
 		zlog_err(
 			"%s: VRF: %s does not fully exist yet, delaying lookup",
 			__PRETTY_FUNCTION__, pim->vrf->name);
@@ -515,7 +515,7 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 	while (command != ZEBRA_IPMR_ROUTE_STATS) {
 		int err;
 		uint16_t length = 0;
-		vrf_id_t vrf_id;
+		lr_id_t vrf_id;
 		u_char marker;
 		u_char version;
 

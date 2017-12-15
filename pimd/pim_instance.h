@@ -44,7 +44,7 @@ enum pim_spt_switchover {
 
 /* Per VRF PIM DB */
 struct pim_instance {
-	vrf_id_t vrf_id;
+	lr_id_t vrf_id;
 	struct vrf *vrf;
 
 	struct {
@@ -99,6 +99,6 @@ struct pim_instance {
 void pim_vrf_init(void);
 void pim_vrf_terminate(void);
 
-struct pim_instance *pim_get_pim_instance(vrf_id_t vrf_id);
+struct pim_instance *pim_get_pim_instance(lr_id_t vrf_id);
 
 #endif

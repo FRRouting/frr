@@ -238,7 +238,7 @@ static int bgp_get_instance_for_inc_conn(int sock, struct bgp **bgp_inst)
 	/* First try match to instance; if that fails, check for interfaces. */
 	bgp = bgp_lookup_by_name(name);
 	if (bgp) {
-		if (!bgp->vrf_id) // unexpected
+		if (!bgp->vrf_id.lr.id) // unexpected
 			return -1;
 		*bgp_inst = bgp;
 		return 0;
@@ -443,7 +443,7 @@ static int bgp_bind(struct peer *peer)
 	char *name = NULL;
 
 	/* If not bound to an interface or part of a VRF, we don't care. */
-	if (!peer->bgp->vrf_id && !peer->ifname && !peer->conf_if)
+	if (!peer->bgp->vrf_id.lr.id && !peer->ifname && !peer->conf_if)
 		return 0;
 
 	if (peer->su.sa.sa_family != AF_INET

@@ -194,19 +194,22 @@ static inline int proto2zebra(int proto, int family)
 /*
 Pending: create an efficient table_id (in a tree/hash) based lookup)
  */
-static vrf_id_t vrf_lookup_by_table(u_int32_t table_id)
+static lr_id_t vrf_lookup_by_table(ns_id_t ns_id, u_int32_t table_id)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
-
+	lr_id_t vrf_id = { .lr.lr_id.ns_id = ns_id,
+			   .lr.lr_id.vrf_id = VRF_DEFAULT};
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		if ((zvrf = vrf->info) == NULL || (zvrf->table_id != table_id))
+		if ((vrf->vrf_id.lr.lr_id.ns_id != ns_id))
 			continue;
-
+		if ((zvrf = vrf->info) == NULL)
+			continue;
+		if ((zvrf->table_id != table_id))
+			continue;
 		return zvrf_id(zvrf);
 	}
-
-	return VRF_DEFAULT;
+	return vrf_id;
 }
 
 /* Looking up routing table by netlink interface. */
@@ -220,7 +223,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 	u_char flags = 0;
 	struct prefix p;
 	struct prefix_ipv6 src_p = {};
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	lr_id_t vrf_id = { .lr.id = LR_DEFAULT};
 
 	char anyaddr[16] = {0};
 
@@ -287,8 +290,8 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 		table = rtm->rtm_table;
 
 	/* Map to VRF */
-	vrf_id = vrf_lookup_by_table(table);
-	if (vrf_id == VRF_DEFAULT) {
+	vrf_id = vrf_lookup_by_table(ns_id, table);
+	if (vrf_id.lr.id == LR_DEFAULT) {
 		if (!is_zebra_valid_kernel_table(table)
 		    && !is_zebra_main_routing_table(table))
 			return 0;
@@ -354,7 +357,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 		char buf[PREFIX_STRLEN];
 		zlog_warn(
 			"unsupported IPv[4|6] sourcedest route (dest %s vrf %u)",
-			prefix2str(&p, buf, sizeof(buf)), vrf_id);
+			prefix2str(&p, buf, sizeof(buf)), vrf_id.lr.id);
 		return 0;
 	}
 
@@ -389,7 +392,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 			src_p.prefixlen ? " from " : "",
 			src_p.prefixlen ? prefix2str(&src_p, buf2, sizeof(buf2))
 					: "",
-			vrf_id, metric, distance);
+			vrf_id.lr.id, metric, distance);
 	}
 
 	afi_t afi = AFI_IP;
@@ -566,7 +569,7 @@ static int netlink_route_change_read_multicast(struct sockaddr_nl *snl,
 	char sbuf[40];
 	char gbuf[40];
 	char oif_list[256] = "\0";
-	vrf_id_t vrf = ns_id;
+	lr_id_t vrf;
 	int table;
 
 	if (mroute)
@@ -588,7 +591,7 @@ static int netlink_route_change_read_multicast(struct sockaddr_nl *snl,
 	else
 		table = rtm->rtm_table;
 
-	vrf = vrf_lookup_by_table(table);
+	vrf = vrf_lookup_by_table(ns_id, table);
 
 	if (tb[RTA_IIF])
 		iif = *(int *)RTA_DATA(tb[RTA_IIF]);
@@ -634,7 +637,7 @@ static int netlink_route_change_read_multicast(struct sockaddr_nl *snl,
 		ifp = if_lookup_by_index(iif, vrf);
 		zlog_debug(
 			"MCAST VRF: %s(%d) %s (%s,%s) IIF: %s OIF: %s jiffies: %lld",
-			zvrf->vrf->name, vrf, nl_msg_type_to_str(h->nlmsg_type),
+			zvrf->vrf->name, vrf.lr.id, nl_msg_type_to_str(h->nlmsg_type),
 			sbuf, gbuf, ifp->name, oif_list, m->lastused);
 	}
 	return 0;
@@ -644,14 +647,13 @@ int netlink_route_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 			 ns_id_t ns_id, int startup)
 {
 	int len;
-	vrf_id_t vrf_id = ns_id;
 	struct rtmsg *rtm;
 
 	rtm = NLMSG_DATA(h);
 
 	if (!(h->nlmsg_type == RTM_NEWROUTE || h->nlmsg_type == RTM_DELROUTE)) {
 		/* If this is not route add/delete message print warning. */
-		zlog_warn("Kernel message: %d vrf %u\n", h->nlmsg_type, vrf_id);
+		zlog_warn("Kernel message: %d vrf %u\n", h->nlmsg_type, ns_id);
 		return 0;
 	}
 
@@ -661,7 +663,7 @@ int netlink_route_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 			   nl_msg_type_to_str(h->nlmsg_type),
 			   nl_family_to_str(rtm->rtm_family),
 			   nl_rttype_to_str(rtm->rtm_type),
-			   nl_rtproto_to_str(rtm->rtm_protocol), vrf_id);
+			   nl_rtproto_to_str(rtm->rtm_protocol), ns_id);
 
 	/* We don't care about change notifications for the MPLS table. */
 	/* TODO: Revisit this. */
@@ -1211,7 +1213,7 @@ static void _netlink_route_debug(int cmd, struct prefix *p,
 		zlog_debug(
 			"netlink_route_multipath() (%s): %s %s vrf %u type %s",
 			routedesc, nl_msg_type_to_str(cmd),
-			prefix2str(p, buf, sizeof(buf)), zvrf_id(zvrf),
+			prefix2str(p, buf, sizeof(buf)), zvrf_id(zvrf).lr.id,
 			(nexthop) ? nexthop_type_to_str(nexthop->type) : "UNK");
 	}
 }

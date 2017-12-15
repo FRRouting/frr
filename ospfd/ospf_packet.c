@@ -3538,11 +3538,11 @@ static void ospf_hello_send_sub(struct ospf_interface *oi, in_addr_t addr)
 	op->dst.s_addr = addr;
 
 	if (IS_DEBUG_OSPF_EVENT) {
-		if (oi->ospf->vrf_id)
+		if (oi->ospf->vrf_id.lr.id)
 			zlog_debug("%s: Hello Tx interface %s ospf vrf %s id %u",
 				    __PRETTY_FUNCTION__, oi->ifp->name,
 				    ospf_vrf_id_to_name(oi->ospf->vrf_id),
-				    oi->ospf->vrf_id);
+				    oi->ospf->vrf_id.lr.id);
 	}
 	/* Add packet to the top of the interface output queue, so that they
 	 * can't get delayed by things like long queues of LS Update packets

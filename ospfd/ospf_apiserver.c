@@ -82,7 +82,7 @@ struct ospf_interface *ospf_apiserver_if_lookup_by_addr(struct in_addr address)
 	struct ospf_interface *oi;
 	struct ospf *ospf = NULL;
 
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 	if (!ospf)
 		return NULL;
 
@@ -100,7 +100,7 @@ struct ospf_interface *ospf_apiserver_if_lookup_by_ifp(struct interface *ifp)
 	struct ospf_interface *oi;
 	struct ospf *ospf = NULL;
 
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 	if (!ospf)
 		return NULL;
 
@@ -1001,7 +1001,7 @@ void ospf_apiserver_notify_ready_type9(struct ospf_apiserver *apiserv)
 	struct ospf_interface *oi;
 	struct registered_opaque_type *r;
 
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 
 	for (ALL_LIST_ELEMENTS(ospf->oiflist, node, nnode, oi)) {
 		/* Check if this interface is indeed ready for type 9 */
@@ -1049,7 +1049,7 @@ void ospf_apiserver_notify_ready_type10(struct ospf_apiserver *apiserv)
 	struct ospf *ospf;
 	struct ospf_area *area;
 
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
 		struct registered_opaque_type *r;
@@ -1096,7 +1096,7 @@ void ospf_apiserver_notify_ready_type11(struct ospf_apiserver *apiserv)
 	struct ospf *ospf;
 	struct registered_opaque_type *r;
 
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 
 	/* Can type 11 be originated? */
 	if (!ospf_apiserver_is_ready_type11(ospf))
@@ -1273,7 +1273,7 @@ int ospf_apiserver_handle_sync_lsdb(struct ospf_apiserver *apiserv,
 	struct ospf *ospf;
 	struct ospf_area *area;
 
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 
 	/* Get request sequence number */
 	seqnum = msg_get_seq(msg);
@@ -1379,7 +1379,7 @@ struct ospf_lsa *ospf_apiserver_opaque_lsa_new(struct ospf_area *area,
 	if (oi && oi->ospf)
 		ospf = oi->ospf;
 	else
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 
 	assert(ospf);
 
@@ -1504,7 +1504,7 @@ int ospf_apiserver_handle_originate_request(struct ospf_apiserver *apiserv,
 	int ready = 0;
 	int rc = 0;
 
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 
 	/* Extract opaque LSA data from message */
 	omsg = (struct msg_originate_request *)STREAM_DATA(msg->s);
@@ -1647,7 +1647,7 @@ void ospf_apiserver_flood_opaque_lsa(struct ospf_lsa *lsa)
 	case OSPF_OPAQUE_AS_LSA: {
 		struct ospf *ospf;
 
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 		assert(ospf);
 
 		/* Increment counters? XXX */
@@ -1663,7 +1663,7 @@ int ospf_apiserver_originate1(struct ospf_lsa *lsa)
 {
 	struct ospf *ospf;
 
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 	assert(ospf);
 
 	/* Install this LSA into LSDB. */
@@ -1733,7 +1733,7 @@ struct ospf_lsa *ospf_apiserver_lsa_refresher(struct ospf_lsa *lsa)
 	struct ospf_lsa *new = NULL;
 	struct ospf *ospf;
 
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 	assert(ospf);
 
 	apiserv = lookup_apiserver_by_lsa(lsa);
@@ -1817,7 +1817,7 @@ int ospf_apiserver_handle_delete_request(struct ospf_apiserver *apiserv,
 	int rc = 0;
 	struct ospf *ospf;
 
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 	assert(ospf);
 
 	/* Extract opaque LSA from message */
@@ -1930,7 +1930,7 @@ void ospf_apiserver_flush_opaque_lsa(struct ospf_apiserver *apiserv,
 	struct ospf *ospf;
 	struct ospf_area *area;
 
-	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 	assert(ospf);
 
 	/* Set parameter struct. */

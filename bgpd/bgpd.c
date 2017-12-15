@@ -240,12 +240,12 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id)
 	return 0;
 }
 
-void bgp_router_id_zebra_bump(vrf_id_t vrf_id, const struct prefix *router_id)
+void bgp_router_id_zebra_bump(lr_id_t vrf_id, const struct prefix *router_id)
 {
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
 
-	if (vrf_id == VRF_DEFAULT) {
+	if (vrf_id.lr.id == LR_DEFAULT) {
 		/* Router-id change for default VRF has to also update all
 		 * views. */
 		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
@@ -2834,8 +2834,8 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 
 	bgp_lock(bgp);
 	bgp->inst_type = inst_type;
-	bgp->vrf_id = (inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? VRF_DEFAULT
-							       : VRF_UNKNOWN;
+	bgp->vrf_id.lr.id = (inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? LR_DEFAULT
+							       : LR_UNKNOWN;
 	bgp->peer_self = peer_new(bgp);
 	if (bgp->peer_self->host)
 		XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->host);
@@ -2975,7 +2975,7 @@ struct bgp *bgp_lookup_by_name(const char *name)
 
 /* Lookup BGP instance based on VRF id. */
 /* Note: Only to be used for incoming messages from Zebra. */
-struct bgp *bgp_lookup_by_vrf_id(vrf_id_t vrf_id)
+struct bgp *bgp_lookup_by_vrf_id(lr_id_t vrf_id)
 {
 	struct vrf *vrf;
 
@@ -7400,7 +7400,7 @@ static void bgp_viewvrf_autocomplete(vector comps, struct cmd_token *token)
 	struct bgp *bgp;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (vrf->vrf_id != VRF_DEFAULT)
+		if (vrf->vrf_id.lr.id != LR_DEFAULT)
 			vector_set(comps, XSTRDUP(MTYPE_COMPLETION, vrf->name));
 	}
 

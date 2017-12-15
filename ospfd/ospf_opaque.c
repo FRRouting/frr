@@ -1803,7 +1803,7 @@ static struct ospf_lsa *pseudo_lsa(struct ospf_interface *oi,
 	lsa.oi = oi;
 	lsa.area = area;
 	lsa.data = &lsah;
-	lsa.vrf_id = VRF_DEFAULT;
+	lsa.vrf_id.lr.id = LR_DEFAULT;
 
 	lsah.type = lsa_type;
 	tmp = SET_OPAQUE_LSID(opaque_type, 0); /* Opaque-ID is unused here. */

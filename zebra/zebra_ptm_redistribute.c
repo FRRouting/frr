@@ -29,7 +29,7 @@
 static int zsend_interface_bfd_update(int cmd, struct zserv *client,
 				      struct interface *ifp, struct prefix *dp,
 				      struct prefix *sp, int status,
-				      vrf_id_t vrf_id)
+				      lr_id_t vrf_id)
 {
 	int blen;
 	struct stream *s;
@@ -70,7 +70,7 @@ static int zsend_interface_bfd_update(int cmd, struct zserv *client,
 }
 
 void zebra_interface_bfd_update(struct interface *ifp, struct prefix *dp,
-				struct prefix *sp, int status, vrf_id_t vrf_id)
+				struct prefix *sp, int status, lr_id_t vrf_id)
 {
 	struct listnode *node, *nnode;
 	struct zserv *client;
@@ -97,7 +97,7 @@ static int zsend_bfd_peer_replay(int cmd, struct zserv *client)
 	stream_reset(s);
 
 	zserv_create_header(
-		s, cmd, VRF_DEFAULT); // Pending: adjust when multi-vrf bfd work
+		s, cmd, vrf_id_default); // Pending: adjust when multi-vrf bfd work
 
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));

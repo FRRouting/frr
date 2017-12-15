@@ -248,18 +248,18 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		char buf[PREFIX_STRLEN];
 
 		zlog_debug("%u: IF %s address %s add/up, scheduling RIB processing",
-			   ifp->vrf_id, ifp->name,
+			   ifp->vrf_id.lr.id, ifp->name,
 			   prefix2str(&p, buf, sizeof(buf)));
 	}
 	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
-	if (ifp->vrf_id == VRF_DEFAULT) {
+	if (ifp->vrf_id.lr.id == LR_DEFAULT) {
 		if (IS_ZEBRA_DEBUG_MPLS) {
 			char buf[PREFIX_STRLEN];
 
 			zlog_debug("%u: IF %s IP %s address add/up, scheduling MPLS processing",
-				   ifp->vrf_id, ifp->name,
+				   ifp->vrf_id.lr.id, ifp->name,
 				   prefix2str(&p, buf, sizeof(buf)));
 		}
 		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id));
@@ -405,19 +405,19 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 		char buf[PREFIX_STRLEN];
 
 		zlog_debug("%u: IF %s IP %s address down, scheduling RIB processing",
-			   ifp->vrf_id, ifp->name,
+			   ifp->vrf_id.lr.id, ifp->name,
 			   prefix2str(&p, buf, sizeof(buf)));
 	}
 
 	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
-	if (ifp->vrf_id == VRF_DEFAULT) {
+	if (ifp->vrf_id.lr.id == LR_DEFAULT) {
 		if (IS_ZEBRA_DEBUG_MPLS) {
 			char buf[PREFIX_STRLEN];
 
 			zlog_debug("%u: IF %s IP %s address down, scheduling MPLS processing",
-				   ifp->vrf_id, ifp->name,
+				   ifp->vrf_id.lr.id, ifp->name,
 				   prefix2str(&p, buf, sizeof(buf)));
 		}
 		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id));
@@ -438,18 +438,18 @@ static void connected_delete_helper(struct connected *ifc, struct prefix *p)
 		char buf[PREFIX_STRLEN];
 
 		zlog_debug("%u: IF %s IP %s address del, scheduling RIB processing",
-			   ifp->vrf_id, ifp->name,
+			   ifp->vrf_id.lr.id, ifp->name,
 			   prefix2str(p, buf, sizeof(buf)));
 	}
 	rib_update(ifp->vrf_id, RIB_UPDATE_IF_CHANGE);
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
-	if (ifp->vrf_id == VRF_DEFAULT) {
+	if (ifp->vrf_id.lr.id == LR_DEFAULT) {
 		if (IS_ZEBRA_DEBUG_MPLS) {
 			char buf[PREFIX_STRLEN];
 
 			zlog_debug("%u: IF %s IP %s address delete, scheduling MPLS processing",
-				   ifp->vrf_id, ifp->name,
+				   ifp->vrf_id.lr.id, ifp->name,
 				   prefix2str(p, buf, sizeof(buf)));
 		}
 		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id));

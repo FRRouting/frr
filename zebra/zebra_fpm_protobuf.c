@@ -22,7 +22,6 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 #include <zebra.h>
-
 #include "log.h"
 #include "rib.h"
 #include "zserv.h"
@@ -52,7 +51,7 @@ static Fpm__DeleteRoute *create_delete_route_message(qpb_allocator_t *allocator,
 	}
 
 	fpm__delete_route__init(msg);
-	msg->vrf_id = zvrf_id(rib_dest_vrf(dest));
+	msg->vrf_id = zvrf_id(rib_dest_vrf(dest)).lr.id;
 
 	qpb_address_family_set(&msg->address_family, rib_dest_af(dest));
 
@@ -153,7 +152,7 @@ static Fpm__AddRoute *create_add_route_message(qpb_allocator_t *allocator,
 
 	fpm__add_route__init(msg);
 
-	msg->vrf_id = zvrf_id(rib_dest_vrf(dest));
+	msg->vrf_id = zvrf_id(rib_dest_vrf(dest)).lr.id;
 
 	qpb_address_family_set(&msg->address_family, rib_dest_af(dest));
 

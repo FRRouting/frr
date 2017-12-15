@@ -22,6 +22,6 @@
 #ifndef _ZEBRA_PTM_REDISTRIBUTE_H
 #define _ZEBRA_PTM_REDISTRIBUTE_H
 extern void zebra_interface_bfd_update(struct interface *, struct prefix *,
-				       struct prefix *, int, vrf_id_t);
+				       struct prefix *, int, lr_id_t);
 extern void zebra_bfd_peer_replay_req(void);
 #endif /* _ZEBRA_PTM_REDISTRIBUTE_H */

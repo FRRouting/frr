@@ -164,19 +164,19 @@ extern void nbr_connected_delete_ipv6(struct interface *, struct in6_addr *);
 extern int zsend_interface_update(int, struct zserv *, struct interface *);
 extern int zsend_redistribute_route(int, struct zserv *, struct prefix *,
 				    struct prefix *, struct route_entry *);
-extern int zsend_router_id_update(struct zserv *, struct prefix *, vrf_id_t);
+extern int zsend_router_id_update(struct zserv *, struct prefix *, lr_id_t);
 extern int zsend_interface_vrf_update(struct zserv *, struct interface *,
-				      vrf_id_t);
+				      lr_id_t);
 
 extern int zsend_interface_link_params(struct zserv *, struct interface *);
 extern int zsend_pw_update(struct zserv *, struct zebra_pw *);
 
 extern int zsend_route_notify_owner(u_char proto, u_short instance,
-				    vrf_id_t vrf_id, struct prefix *p,
+				    lr_id_t vrf_id, struct prefix *p,
 				    enum zapi_route_notify_owner note);
 
 extern void zserv_create_header(struct stream *s, uint16_t cmd,
-				vrf_id_t vrf_id);
+				lr_id_t vrf_id);
 extern void zserv_nexthop_num_warn(const char *, const struct prefix *,
 				   const unsigned int);
 extern int zebra_server_send_message(struct zserv *client);

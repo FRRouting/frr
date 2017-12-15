@@ -30,7 +30,7 @@
 
 struct zebra_pw {
 	RB_ENTRY(zebra_pw) pw_entry, static_pw_entry;
-	vrf_id_t vrf_id;
+	lr_id_t vrf_id;
 	char ifname[IF_NAMESIZE];
 	ifindex_t ifindex;
 	int type;

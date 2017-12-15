@@ -96,7 +96,7 @@ int bgp_bfd_is_peer_multihop(struct peer *peer)
 static void bgp_bfd_peer_sendmsg(struct peer *peer, int command)
 {
 	struct bfd_info *bfd_info;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	lr_id_t vrf_id =  { .lr.id = LR_DEFAULT};
 	int multihop;
 
 	bfd_info = (struct bfd_info *)peer->bfd_info;
@@ -235,7 +235,7 @@ static void bgp_bfd_update_type(struct peer *peer)
  *                       to zebra
  */
 static int bgp_bfd_dest_replay(int command, struct zclient *client,
-			       zebra_size_t length, vrf_id_t vrf_id)
+			       zebra_size_t length, lr_id_t vrf_id)
 {
 	struct listnode *mnode, *node, *nnode;
 	struct bgp *bgp;
@@ -288,7 +288,7 @@ static void bgp_bfd_peer_status_update(struct peer *peer, int status)
  *                       connectivity if the BFD session went down.
  */
 static int bgp_bfd_dest_update(int command, struct zclient *zclient,
-			       zebra_size_t length, vrf_id_t vrf_id)
+			       zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 	struct prefix dp;
@@ -302,14 +302,14 @@ static int bgp_bfd_dest_update(int command, struct zclient *zclient,
 		prefix2str(&dp, buf[0], sizeof(buf[0]));
 		if (ifp) {
 			zlog_debug(
-				"Zebra: vrf %d interface %s bfd destination %s %s",
-				vrf_id, ifp->name, buf[0],
+				"Zebra: vrf %u interface %s bfd destination %s %s",
+				vrf_id.lr.id, ifp->name, buf[0],
 				bfd_get_status_str(status));
 		} else {
 			prefix2str(&sp, buf[1], sizeof(buf[1]));
 			zlog_debug(
-				"Zebra: vrf %d source %s bfd destination %s %s",
-				vrf_id, buf[1], buf[0],
+				"Zebra: vrf %u source %s bfd destination %s %s",
+				vrf_id.lr.id, buf[1], buf[0],
 				bfd_get_status_str(status));
 		}
 	}
@@ -367,8 +367,8 @@ static int bgp_bfd_dest_update(int command, struct zclient *zclient,
 					} else
 						continue;
 
-					if ((vrf_id != VRF_DEFAULT)
-					    && (peer->bgp->vrf_id != vrf_id))
+					if ((vrf_id.lr.id != LR_DEFAULT)
+					    && (peer->bgp->vrf_id.lr.id != vrf_id.lr.id))
 						continue;
 
 					bgp_bfd_peer_status_update(peer,

@@ -484,8 +484,23 @@ typedef enum {
 typedef u_int16_t zebra_size_t;
 typedef u_int16_t zebra_command_t;
 
-/* VRF ID type. */
+/* VRF ID type within a network namespace */
 typedef u_int16_t vrf_id_t;
+
+/* NS ID Identifier */
+typedef u_int16_t ns_id_t;
+
+/* Logical Router Id */
+typedef struct
+{
+	union {
+		u_int32_t id;
+		struct {
+			vrf_id_t vrf_id;
+			ns_id_t ns_id;
+		} lr_id;
+	} lr;
+}lr_id_t;
 
 typedef uint32_t route_tag_t;
 #define ROUTE_TAG_MAX UINT32_MAX

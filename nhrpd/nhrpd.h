@@ -311,12 +311,12 @@ void nhrp_interface_init(void);
 void nhrp_interface_update(struct interface *ifp);
 void nhrp_interface_update_mtu(struct interface *ifp, afi_t afi);
 
-int nhrp_interface_add(int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf_id);
-int nhrp_interface_delete(int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf_id);
-int nhrp_interface_up(int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf_id);
-int nhrp_interface_down(int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf_id);
-int nhrp_interface_address_add(int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf_id);
-int nhrp_interface_address_delete(int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf_id);
+int nhrp_interface_add(int cmd, struct zclient *client, zebra_size_t length, lr_id_t vrf_id);
+int nhrp_interface_delete(int cmd, struct zclient *client, zebra_size_t length, lr_id_t vrf_id);
+int nhrp_interface_up(int cmd, struct zclient *client, zebra_size_t length, lr_id_t vrf_id);
+int nhrp_interface_down(int cmd, struct zclient *client, zebra_size_t length, lr_id_t vrf_id);
+int nhrp_interface_address_add(int cmd, struct zclient *client, zebra_size_t length, lr_id_t vrf_id);
+int nhrp_interface_address_delete(int cmd, struct zclient *client, zebra_size_t length, lr_id_t vrf_id);
 
 void nhrp_interface_notify_add(struct interface *ifp, struct notifier_block *n, notifier_fn_t fn);
 void nhrp_interface_notify_del(struct interface *ifp, struct notifier_block *n);
@@ -331,7 +331,7 @@ void nhrp_nhs_foreach(struct interface *ifp, afi_t afi, void (*cb)(struct nhrp_n
 
 void nhrp_route_update_nhrp(const struct prefix *p, struct interface *ifp);
 void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix *p, struct interface *ifp, const union sockunion *nexthop, uint32_t mtu);
-int nhrp_route_read(int command, struct zclient *zclient, zebra_size_t length, vrf_id_t vrf_id);
+int nhrp_route_read(int command, struct zclient *zclient, zebra_size_t length, lr_id_t vrf_id);
 int nhrp_route_get_nexthop(const union sockunion *addr, struct prefix *p, union sockunion *via, struct interface **ifp);
 enum nhrp_route_type nhrp_route_address(struct interface *in_ifp, union sockunion *addr, struct prefix *p, struct nhrp_peer **peer);
 

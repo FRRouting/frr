@@ -63,7 +63,7 @@ int is_zebra_import_table_enabled(afi_t afi, u_int32_t table_id)
 	return 0;
 }
 
-static void zebra_redistribute_default(struct zserv *client, vrf_id_t vrf_id)
+static void zebra_redistribute_default(struct zserv *client, lr_id_t vrf_id)
 {
 	int afi;
 	struct prefix p;
@@ -98,7 +98,7 @@ static void zebra_redistribute_default(struct zserv *client, vrf_id_t vrf_id)
 
 /* Redistribute routes. */
 static void zebra_redistribute(struct zserv *client, int type, u_short instance,
-			       vrf_id_t vrf_id, int afi)
+			       lr_id_t vrf_id, int afi)
 {
 	struct route_entry *newre;
 	struct route_table *table;
@@ -154,7 +154,7 @@ void redistribute_update(struct prefix *p, struct prefix *src_p,
 		inet_ntop(p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN);
 		zlog_debug(
 			"%u:%s/%d: Redist update re %p (type %d), old %p (type %d)",
-			re->vrf_id, buf, p->prefixlen, re, re->type, prev_re,
+			re->vrf_id.lr.id, buf, p->prefixlen, re, re->type, prev_re,
 			prev_re ? prev_re->type : -1);
 	}
 
@@ -212,7 +212,7 @@ void redistribute_delete(struct prefix *p, struct prefix *src_p,
 	if (IS_ZEBRA_DEBUG_RIB) {
 		inet_ntop(p->family, &p->u.prefix, buf, INET6_ADDRSTRLEN);
 		zlog_debug("%u:%s/%d: Redist delete re %p (type %d)",
-			   re->vrf_id, buf, p->prefixlen, re, re->type);
+			   re->vrf_id.lr.id, buf, p->prefixlen, re, re->type);
 	}
 
 	/* Add DISTANCE_INFINITY check. */
@@ -379,7 +379,7 @@ void zebra_interface_add_update(struct interface *ifp)
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADD %s[%d]", ifp->name,
-			   ifp->vrf_id);
+			   ifp->vrf_id.lr.id);
 
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client))
 		if (client->ifinfo) {
@@ -466,7 +466,7 @@ void zebra_interface_address_delete_update(struct interface *ifp,
 /* Interface VRF change. May need to delete from clients not interested in
  * the new VRF. Note that this function is invoked *prior* to the VRF change.
  */
-void zebra_interface_vrf_update_del(struct interface *ifp, vrf_id_t new_vrf_id)
+void zebra_interface_vrf_update_del(struct interface *ifp, lr_id_t new_vrf_id)
 {
 	struct listnode *node, *nnode;
 	struct zserv *client;
@@ -474,7 +474,7 @@ void zebra_interface_vrf_update_del(struct interface *ifp, vrf_id_t new_vrf_id)
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug(
 			"MESSAGE: ZEBRA_INTERFACE_VRF_UPDATE/DEL %s VRF Id %u -> %u",
-			ifp->name, ifp->vrf_id, new_vrf_id);
+			ifp->name, ifp->vrf_id.lr.id, new_vrf_id.lr.id);
 
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client)) {
 		/* Need to delete if the client is not interested in the new
@@ -489,7 +489,7 @@ void zebra_interface_vrf_update_del(struct interface *ifp, vrf_id_t new_vrf_id)
 /* Interface VRF change. This function is invoked *post* VRF change and sends an
  * add to clients who are interested in the new VRF but not in the old VRF.
  */
-void zebra_interface_vrf_update_add(struct interface *ifp, vrf_id_t old_vrf_id)
+void zebra_interface_vrf_update_add(struct interface *ifp, lr_id_t old_vrf_id)
 {
 	struct listnode *node, *nnode;
 	struct zserv *client;
@@ -497,7 +497,7 @@ void zebra_interface_vrf_update_add(struct interface *ifp, vrf_id_t old_vrf_id)
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug(
 			"MESSAGE: ZEBRA_INTERFACE_VRF_UPDATE/ADD %s VRF Id %u -> %u",
-			ifp->name, old_vrf_id, ifp->vrf_id);
+			ifp->name, old_vrf_id.lr.id, ifp->vrf_id.lr.id);
 
 	for (ALL_LIST_ELEMENTS(zebrad.client_list, node, nnode, client)) {
 		/* Need to add if the client is interested in the new VRF. */
@@ -591,7 +591,7 @@ int zebra_import_table(afi_t afi, u_int32_t table_id, u_int32_t distance,
 	if (afi >= AFI_MAX)
 		return (-1);
 
-	table = zebra_vrf_other_route_table(afi, table_id, VRF_DEFAULT);
+	table = zebra_vrf_other_route_table(afi, table_id, vrf_id_default);
 	if (table == NULL) {
 		return 0;
 	} else if (IS_ZEBRA_DEBUG_RIB) {
@@ -706,7 +706,7 @@ void zebra_import_table_rm_update()
 
 			table = zebra_vrf_other_route_table(afi,
 							    i,
-							    VRF_DEFAULT);
+							    vrf_id_default);
 			for (rn = route_top(table); rn;
 			     rn = route_next(rn)) {
 				/* For each entry in the non-default

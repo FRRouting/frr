@@ -309,7 +309,7 @@ static int ifan_read(struct if_announcemsghdr *ifan)
 {
 	struct interface *ifp;
 
-	ifp = if_lookup_by_index(ifan->ifan_index, VRF_DEFAULT);
+	ifp = if_lookup_by_index(ifan->ifan_index, vrf_id_default);
 
 	if (ifp)
 		assert((ifp->ifindex == ifan->ifan_index)
@@ -323,7 +323,7 @@ static int ifan_read(struct if_announcemsghdr *ifan)
 				__func__, ifan->ifan_index, ifan->ifan_name);
 
 		/* Create Interface */
-		ifp = if_get_by_name(ifan->ifan_name, VRF_DEFAULT, 0);
+		ifp = if_get_by_name(ifan->ifan_name, vrf_id_default, 0);
 		if_set_index(ifp, ifan->ifan_index);
 
 		if_get_metric(ifp);
@@ -456,7 +456,7 @@ int ifm_read(struct if_msghdr *ifm)
 	 * messages, such as up/down status changes on NetBSD, do not include a
 	 * sockaddr_dl).
 	 */
-	if ((ifp = if_lookup_by_index(ifm->ifm_index, VRF_DEFAULT)) != NULL) {
+	if ((ifp = if_lookup_by_index(ifm->ifm_index, vrf_id_default)) != NULL) {
 		/* we have an ifp, verify that the name matches as some systems,
 		 * eg Solaris, have a 1:many association of ifindex:ifname
 		 * if they dont match, we dont have the correct ifp and should
@@ -485,7 +485,7 @@ int ifm_read(struct if_msghdr *ifm)
 	 * be filled in.
 	 */
 	if ((ifp == NULL) && ifnlen)
-		ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
+		ifp = if_lookup_by_name(ifname, vrf_id_default);
 
 	/*
 	 * If ifp still does not exist or has an invalid index
@@ -514,7 +514,7 @@ int ifm_read(struct if_msghdr *ifm)
 		if (ifp == NULL) {
 			/* Interface that zebra was not previously aware of, so
 			 * create. */
-			ifp = if_create(ifname, VRF_DEFAULT);
+			ifp = if_create(ifname, vrf_id_default);
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug("%s: creating ifp for ifindex %d",
 					   __func__, ifm->ifm_index);
@@ -723,7 +723,7 @@ int ifam_read(struct ifa_msghdr *ifam)
 	/* Allocate and read address information. */
 	ifam_read_mesg(ifam, &addr, &mask, &brd, ifname, &ifnlen);
 
-	if ((ifp = if_lookup_by_index(ifam->ifam_index, VRF_DEFAULT)) == NULL) {
+	if ((ifp = if_lookup_by_index(ifam->ifam_index, vrf_id_default)) == NULL) {
 		zlog_warn("%s: no interface for ifname %s, index %d", __func__,
 			  ifname, ifam->ifam_index);
 		return -1;
@@ -937,7 +937,7 @@ void rtm_read(struct rt_msghdr *rtm)
 			if (!IS_ZEBRA_DEBUG_RIB)
 				return;
 			ret = rib_lookup_ipv4_route((struct prefix_ipv4 *)&p,
-						    &gate, VRF_DEFAULT);
+						    &gate, vrf_id_default);
 			prefix2str(&p, buf, sizeof(buf));
 			switch (rtm->rtm_type) {
 			case RTM_ADD:
@@ -976,7 +976,7 @@ void rtm_read(struct rt_msghdr *rtm)
 						buf);
 					rib_lookup_and_dump(
 						(struct prefix_ipv4 *)&p,
-						VRF_DEFAULT);
+						vrf_id_default);
 					return;
 					break;
 				}
@@ -996,7 +996,7 @@ void rtm_read(struct rt_msghdr *rtm)
 						buf);
 					rib_lookup_and_dump(
 						(struct prefix_ipv4 *)&p,
-						VRF_DEFAULT);
+						vrf_id_default);
 					break;
 				case ZEBRA_RIB_FOUND_CONNECTED:
 				case ZEBRA_RIB_FOUND_NOGATE:
@@ -1008,7 +1008,7 @@ void rtm_read(struct rt_msghdr *rtm)
 						buf);
 					rib_lookup_and_dump(
 						(struct prefix_ipv4 *)&p,
-						VRF_DEFAULT);
+						vrf_id_default);
 					break;
 				case ZEBRA_RIB_NOTFOUND: /* RIB RR == FIB RR */
 					zlog_debug(
@@ -1018,7 +1018,7 @@ void rtm_read(struct rt_msghdr *rtm)
 						buf);
 					rib_lookup_and_dump(
 						(struct prefix_ipv4 *)&p,
-						VRF_DEFAULT);
+						vrf_id_default);
 					return;
 					break;
 				}
@@ -1037,7 +1037,7 @@ void rtm_read(struct rt_msghdr *rtm)
 		 * to specify the route really
 		 */
 		if (rtm->rtm_type == RTM_CHANGE)
-			rib_delete(AFI_IP, SAFI_UNICAST, VRF_DEFAULT,
+			rib_delete(AFI_IP, SAFI_UNICAST, vrf_id_default,
 				   ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
 				   NULL, 0, 0, true);
 
@@ -1048,11 +1048,11 @@ void rtm_read(struct rt_msghdr *rtm)
 
 		if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
 		    || rtm->rtm_type == RTM_CHANGE)
-			rib_add(AFI_IP, SAFI_UNICAST, VRF_DEFAULT,
+			rib_add(AFI_IP, SAFI_UNICAST, vrf_id_default,
 				ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
 				&nh, 0, 0, 0, 0);
 		else
-			rib_delete(AFI_IP, SAFI_UNICAST, VRF_DEFAULT,
+			rib_delete(AFI_IP, SAFI_UNICAST, vrf_id_default,
 				   ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
 				   &nh, 0, 0, true);
 	}
@@ -1083,7 +1083,7 @@ void rtm_read(struct rt_msghdr *rtm)
 		 * to specify the route really
 		 */
 		if (rtm->rtm_type == RTM_CHANGE)
-			rib_delete(AFI_IP6, SAFI_UNICAST, VRF_DEFAULT,
+			rib_delete(AFI_IP6, SAFI_UNICAST, vrf_id_default,
 				   ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
 				   NULL, 0, 0, true);
 
@@ -1096,11 +1096,11 @@ void rtm_read(struct rt_msghdr *rtm)
 
 		if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
 		    || rtm->rtm_type == RTM_CHANGE)
-			rib_add(AFI_IP6, SAFI_UNICAST, VRF_DEFAULT,
+			rib_add(AFI_IP6, SAFI_UNICAST, vrf_id_default,
 				ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
 				&nh, 0, 0, 0, 0);
 		else
-			rib_delete(AFI_IP6, SAFI_UNICAST, VRF_DEFAULT,
+			rib_delete(AFI_IP6, SAFI_UNICAST, vrf_id_default,
 				   ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
 				   &nh, 0, 0, true);
 	}
@@ -1149,7 +1149,7 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 		msg.rtm.rtm_inits |= RTV_HOPCOUNT;
 	}
 
-	ifp = if_lookup_by_index(index, VRF_DEFAULT);
+	ifp = if_lookup_by_index(index, vrf_id_default);
 
 	if (gate && (message == RTM_ADD || message == RTM_CHANGE))
 		msg.rtm.rtm_flags |= RTF_GATEWAY;

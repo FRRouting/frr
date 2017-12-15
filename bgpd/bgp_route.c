@@ -8174,7 +8174,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 		vty_out(vty,
 			"{\n \"vrfId\": %d,\n \"vrfName\": \"%s\",\n \"tableVersion\": %" PRId64
 			",\n \"routerId\": \"%s\",\n \"routes\": { ",
-			bgp->vrf_id == VRF_UNKNOWN ? -1 : bgp->vrf_id,
+			bgp->vrf_id.lr.id == LR_UNKNOWN ? -1 : (int)bgp->vrf_id.lr.id,
 			bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT ? "Default"
 								    : bgp->name,
 			table->version, inet_ntoa(bgp->router_id));

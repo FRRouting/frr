@@ -54,7 +54,7 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 	/*
 	 * We need to create the VRF table for the pim mroute_socket
 	 */
-	if (pim->vrf_id != VRF_DEFAULT) {
+	if (pim->vrf_id.lr.id != LR_DEFAULT) {
 		if (pimd_privs.change(ZPRIVS_RAISE))
 			zlog_err(
 				"pim_mroute_socket_enable: could not raise privs, %s",
@@ -720,7 +720,7 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 	}
 
 #ifdef SO_BINDTODEVICE
-	if (pim->vrf->vrf_id != VRF_DEFAULT &&
+	if (pim->vrf->vrf_id.lr.id != LR_DEFAULT &&
 	    setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, pim->vrf->name,
 		       strlen(pim->vrf->name))) {
 		zlog_warn("Could not setsockopt SO_BINDTODEVICE: %s",

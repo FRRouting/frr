@@ -1142,14 +1142,14 @@ ospf_rtrs_print (struct route_table *rtrs)
                 {
                   if (IS_DEBUG_OSPF_EVENT)
                     zlog_debug ("   directly attached to %s\r\n",
-				ifindex2ifname (path->ifindex), VRF_DEFAULT);
+				ifindex2ifname (path->ifindex), vrf_id_default);
                 }
               else
                 {
                   if (IS_DEBUG_OSPF_EVENT)
                     zlog_debug ("   via %s, %s\r\n",
 				inet_ntoa (path->nexthop),
-				ifindex2ifname (path->ifindex), VRF_DEFAULT);
+				ifindex2ifname (path->ifindex), vrf_id_default);
                 }
             }
         }
@@ -1344,7 +1344,7 @@ static int ospf_spf_calculate_timer(struct thread *thread)
 		zlog_debug("%s: ospf install new route, vrf %s id %u new_table count %lu",
 			   __PRETTY_FUNCTION__,
 			   ospf_vrf_id_to_name(ospf->vrf_id),
-			   ospf->vrf_id, new_table->count);
+			   ospf->vrf_id.lr.id, new_table->count);
 	/* Update routing table. */
 	monotime(&start_time);
 	ospf_route_install(ospf, new_table);

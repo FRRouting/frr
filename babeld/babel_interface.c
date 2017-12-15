@@ -64,7 +64,7 @@ static struct cmd_node babel_interface_node =  /* babeld's interface node.    */
 
 
 int
-babel_interface_up (int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf)
+babel_interface_up (int cmd, struct zclient *client, zebra_size_t length, lr_id_t vrf)
 {
     struct stream *s = NULL;
     struct interface *ifp = NULL;
@@ -83,7 +83,7 @@ babel_interface_up (int cmd, struct zclient *client, zebra_size_t length, vrf_id
 }
 
 int
-babel_interface_down (int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf)
+babel_interface_down (int cmd, struct zclient *client, zebra_size_t length, lr_id_t vrf)
 {
     struct stream *s = NULL;
     struct interface *ifp = NULL;
@@ -102,7 +102,7 @@ babel_interface_down (int cmd, struct zclient *client, zebra_size_t length, vrf_
 }
 
 int
-babel_interface_add (int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf)
+babel_interface_add (int cmd, struct zclient *client, zebra_size_t length, lr_id_t vrf)
 {
     struct interface *ifp = NULL;
 
@@ -120,7 +120,7 @@ babel_interface_add (int cmd, struct zclient *client, zebra_size_t length, vrf_i
 }
 
 int
-babel_interface_delete (int cmd, struct zclient *client, zebra_size_t length, vrf_id_t vrf)
+babel_interface_delete (int cmd, struct zclient *client, zebra_size_t length, lr_id_t vrf)
 {
     struct interface *ifp;
     struct stream *s;
@@ -145,7 +145,7 @@ babel_interface_delete (int cmd, struct zclient *client, zebra_size_t length, vr
 
 int
 babel_interface_address_add (int cmd, struct zclient *client,
-                             zebra_size_t length, vrf_id_t vrf)
+                             zebra_size_t length, lr_id_t vrf)
 {
     babel_interface_nfo *babel_ifp;
     struct connected *ifc;
@@ -182,7 +182,7 @@ babel_interface_address_add (int cmd, struct zclient *client,
 
 int
 babel_interface_address_delete (int cmd, struct zclient *client,
-                                zebra_size_t length, vrf_id_t vrf)
+                                zebra_size_t length, lr_id_t vrf)
 {
     babel_interface_nfo *babel_ifp;
     struct connected *ifc;
@@ -241,7 +241,7 @@ babel_enable_if_add (const char *ifname)
 
     vector_set (babel_enable_if, strdup (ifname));
 
-    ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
+    ifp = if_lookup_by_name(ifname, vrf_id_default);
     if (ifp != NULL)
         interface_recalculate(ifp);
 
@@ -264,7 +264,7 @@ babel_enable_if_delete (const char *ifname)
     free (str);
     vector_unset (babel_enable_if, babel_enable_if_index);
 
-    ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
+    ifp = if_lookup_by_name(ifname, vrf_id_default);
     if (ifp != NULL)
         interface_reset(ifp);
 
@@ -809,7 +809,7 @@ interface_reset(struct interface *ifp)
 void
 babel_interface_close_all(void)
 {
-    struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+    struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
     struct interface *ifp = NULL;
 
     FOR_ALL_INTERFACES(vrf, ifp) {
@@ -896,7 +896,7 @@ DEFUN (show_babel_interface,
        "Interface information\n"
        "Interface\n")
 {
-  struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+  struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
   struct interface *ifp;
 
   if (argc == 3)
@@ -905,7 +905,7 @@ DEFUN (show_babel_interface,
       show_babel_interface_sub (vty, ifp);
     return CMD_SUCCESS;
   }
-  if ((ifp = if_lookup_by_name (argv[3]->arg, VRF_DEFAULT)) == NULL)
+  if ((ifp = if_lookup_by_name (argv[3]->arg, vrf_id_default)) == NULL)
   {
     vty_out (vty, "No such interface name\n");
     return CMD_WARNING;
@@ -947,7 +947,7 @@ DEFUN (show_babel_neighbour,
         }
         return CMD_SUCCESS;
     }
-    if ((ifp = if_lookup_by_name (argv[3]->arg, VRF_DEFAULT)) == NULL)
+    if ((ifp = if_lookup_by_name (argv[3]->arg, vrf_id_default)) == NULL)
     {
         vty_out (vty, "No such interface name\n");
         return CMD_WARNING;
@@ -1316,7 +1316,7 @@ babeld-specific statement lines where appropriate. */
 static int
 interface_config_write (struct vty *vty)
 {
-    struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+    struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
     struct interface *ifp;
     int write = 0;
 

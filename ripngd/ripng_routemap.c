@@ -96,7 +96,7 @@ static route_map_result_t route_match_interface(void *rule,
 
 	if (type == RMAP_RIPNG) {
 		ifname = rule;
-		ifp = if_lookup_by_name(ifname, VRF_DEFAULT);
+		ifp = if_lookup_by_name(ifname, vrf_id_default);
 
 		if (!ifp)
 			return RMAP_NOMATCH;

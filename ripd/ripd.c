@@ -369,7 +369,7 @@ static int rip_filter(int rip_distribute, struct prefix_ipv4 *p,
 /* Check nexthop address validity. */
 static int rip_nexthop_check(struct in_addr *addr)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 	struct listnode *cnode;
 	struct connected *ifc;
@@ -1109,7 +1109,7 @@ static void rip_response_process(struct rip_packet *packet, int size,
 	   whether the datagram is from a valid neighbor; the source of the
 	   datagram must be on a directly connected network (RFC2453 - Sec.
 	   3.9.2) */
-	if (if_lookup_address((void *)&from->sin_addr, AF_INET, VRF_DEFAULT)
+	if (if_lookup_address((void *)&from->sin_addr, AF_INET, vrf_id_default)
 	    == NULL) {
 		zlog_info(
 			"This datagram doesn't came from a valid neighbor: %s",
@@ -1192,7 +1192,7 @@ static void rip_response_process(struct rip_packet *packet, int size,
 			}
 
 			if (!if_lookup_address((void *)&rte->nexthop, AF_INET,
-					       VRF_DEFAULT)) {
+					       vrf_id_default)) {
 				struct route_node *rn;
 				struct rip_info *rinfo;
 
@@ -1562,7 +1562,7 @@ void rip_redistribute_delete(int type, int sub_type, struct prefix_ipv4 *p,
 						inet_ntoa(p->prefix),
 						p->prefixlen,
 						ifindex2ifname(ifindex,
-							       VRF_DEFAULT));
+							       vrf_id_default));
 
 				rip_event(RIP_TRIGGERED_UPDATE, 0);
 			}
@@ -1767,7 +1767,7 @@ static int rip_read(struct thread *t)
 	}
 
 	/* Which interface is this packet comes from. */
-	ifc = if_lookup_address((void *)&from.sin_addr, AF_INET, VRF_DEFAULT);
+	ifc = if_lookup_address((void *)&from.sin_addr, AF_INET, vrf_id_default);
 	if (ifc)
 		ifp = ifc->ifp;
 
@@ -2434,7 +2434,7 @@ static void rip_update_interface(struct connected *ifc, u_char version,
 /* Update send to all interface and neighbor. */
 static void rip_update_process(int route_type)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct listnode *ifnode, *ifnnode;
 	struct connected *connected;
 	struct interface *ifp;
@@ -2497,7 +2497,7 @@ static void rip_update_process(int route_type)
 			p = &rp->p;
 
 			connected = if_lookup_address(&p->u.prefix4, AF_INET,
-						      VRF_DEFAULT);
+						      vrf_id_default);
 			if (!connected) {
 				zlog_warn(
 					"Neighbor %s doesnt have connected interface!",
@@ -2641,7 +2641,7 @@ void rip_redistribute_withdraw(int type)
 						p->prefixlen,
 						ifindex2ifname(
 							rinfo->nh.ifindex,
-							VRF_DEFAULT));
+							vrf_id_default));
 				}
 
 				rip_event(RIP_TRIGGERED_UPDATE, 0);
@@ -3522,7 +3522,7 @@ DEFUN (show_ip_rip_status,
        "Show RIP routes\n"
        "IP routing protocol process parameters and statistics\n")
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 	struct rip_interface *ri;
 	extern const struct message ri_version_msg[];
@@ -3721,7 +3721,7 @@ static void rip_distribute_update(struct distribute *dist)
 	if (!dist->ifname)
 		return;
 
-	ifp = if_lookup_by_name(dist->ifname, VRF_DEFAULT);
+	ifp = if_lookup_by_name(dist->ifname, vrf_id_default);
 	if (ifp == NULL)
 		return;
 
@@ -3781,7 +3781,7 @@ void rip_distribute_update_interface(struct interface *ifp)
 /* ARGSUSED */
 static void rip_distribute_update_all(struct prefix_list *notused)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
@@ -3906,7 +3906,7 @@ static void rip_if_rmap_update(struct if_rmap *if_rmap)
 	struct rip_interface *ri;
 	struct route_map *rmap;
 
-	ifp = if_lookup_by_name(if_rmap->ifname, VRF_DEFAULT);
+	ifp = if_lookup_by_name(if_rmap->ifname, vrf_id_default);
 	if (ifp == NULL)
 		return;
 
@@ -3957,7 +3957,7 @@ static void rip_routemap_update_redistribute(void)
 /* ARGSUSED */
 static void rip_routemap_update(const char *notused)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp)

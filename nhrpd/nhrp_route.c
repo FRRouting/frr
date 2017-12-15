@@ -167,7 +167,7 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix
 			   &api);
 }
 
-int nhrp_route_read(int cmd, struct zclient *zclient, zebra_size_t length, vrf_id_t vrf_id)
+int nhrp_route_read(int cmd, struct zclient *zclient, zebra_size_t length, lr_id_t vrf_id)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
@@ -198,7 +198,7 @@ int nhrp_route_read(int cmd, struct zclient *zclient, zebra_size_t length, vrf_i
 		}
 
 		if (api_nh->ifindex != IFINDEX_INTERNAL)
-                       	ifp = if_lookup_by_index(api_nh->ifindex, VRF_DEFAULT);
+                       	ifp = if_lookup_by_index(api_nh->ifindex, vrf_id_default);
 	}
 
 	added = (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD);
@@ -302,11 +302,11 @@ enum nhrp_route_type nhrp_route_address(struct interface *in_ifp, union sockunio
 static void
 nhrp_zebra_connected (struct zclient *zclient)
 {
-	zclient_send_reg_requests(zclient, VRF_DEFAULT);
+	zclient_send_reg_requests(zclient, vrf_id_default);
 	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP,
-	    ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
+	    ZEBRA_ROUTE_ALL, 0, vrf_id_default);
 	zebra_redistribute_send(ZEBRA_REDISTRIBUTE_ADD, zclient, AFI_IP6,
-	    ZEBRA_ROUTE_ALL, 0, VRF_DEFAULT);
+	    ZEBRA_ROUTE_ALL, 0, vrf_id_default);
 }
 
 void nhrp_zebra_init(void)

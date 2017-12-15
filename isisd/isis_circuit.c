@@ -933,7 +933,7 @@ void isis_circuit_print_vty(struct isis_circuit *circuit, struct vty *vty,
 
 int isis_interface_config_write(struct vty *vty)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	int write = 0;
 	struct listnode *node;
 	struct interface *ifp;

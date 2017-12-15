@@ -58,7 +58,7 @@ struct route_entry {
 	u_short instance;
 
 	/* VRF identifier. */
-	vrf_id_t vrf_id;
+	lr_id_t vrf_id;
 
 	/* Which routing table */
 	uint32_t table;
@@ -215,7 +215,7 @@ typedef enum {
  * Routing Information Base.
  */
 typedef struct rib_tables_iter_t_ {
-	vrf_id_t vrf_id;
+	lr_id_t vrf_id;
 	int afi_safi_ix;
 
 	rib_tables_iter_state_t state;
@@ -267,11 +267,11 @@ enum multicast_mode {
 extern void multicast_mode_ipv4_set(enum multicast_mode mode);
 extern enum multicast_mode multicast_mode_ipv4_get(void);
 
-extern void rib_lookup_and_dump(struct prefix_ipv4 *, vrf_id_t);
-extern void rib_lookup_and_pushup(struct prefix_ipv4 *, vrf_id_t);
+extern void rib_lookup_and_dump(struct prefix_ipv4 *, lr_id_t);
+extern void rib_lookup_and_pushup(struct prefix_ipv4 *, lr_id_t);
 
 extern int rib_lookup_ipv4_route(struct prefix_ipv4 *, union sockunion *,
-				 vrf_id_t);
+				 lr_id_t);
 #define ZEBRA_RIB_LOOKUP_ERROR -1
 #define ZEBRA_RIB_FOUND_EXACT 0
 #define ZEBRA_RIB_FOUND_NOGATE 1
@@ -292,7 +292,7 @@ extern void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re);
 /* NOTE:
  * All rib_add function will not just add prefix into RIB, but
  * also implicitly withdraw equal prefix of same type. */
-extern int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
+extern int rib_add(afi_t afi, safi_t safi, lr_id_t vrf_id, int type,
 		   u_short instance, int flags, struct prefix *p,
 		   struct prefix_ipv6 *src_p, const struct nexthop *nh,
 		   u_int32_t table_id, u_int32_t metric, u_int32_t mtu,
@@ -301,21 +301,21 @@ extern int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 extern int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *,
 			     struct prefix_ipv6 *src_p, struct route_entry *);
 
-extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
+extern void rib_delete(afi_t afi, safi_t safi, lr_id_t vrf_id, int type,
 		       u_short instance, int flags, struct prefix *p,
 		       struct prefix_ipv6 *src_p, const struct nexthop *nh,
 		       u_int32_t table_id, u_int32_t metric, bool fromkernel);
 
-extern struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t,
+extern struct route_entry *rib_match(afi_t afi, safi_t safi, lr_id_t,
 				     union g_addr *,
 				     struct route_node **rn_out);
-extern struct route_entry *rib_match_ipv4_multicast(vrf_id_t vrf_id,
+extern struct route_entry *rib_match_ipv4_multicast(lr_id_t vrf_id,
 						    struct in_addr addr,
 						    struct route_node **rn_out);
 
-extern struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *, vrf_id_t);
+extern struct route_entry *rib_lookup_ipv4(struct prefix_ipv4 *, lr_id_t);
 
-extern void rib_update(vrf_id_t, rib_update_event_t);
+extern void rib_update(lr_id_t, rib_update_event_t);
 extern void rib_weed_tables(void);
 extern void rib_sweep_route(void);
 extern void rib_close_table(struct route_table *);

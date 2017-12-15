@@ -162,7 +162,7 @@ struct ospf_lsa *ospf_lsa_new()
 	monotime(&new->tv_recv);
 	new->tv_orig = new->tv_recv;
 	new->refresh_list = -1;
-	new->vrf_id = VRF_DEFAULT;
+	new->vrf_id.lr.id = LR_DEFAULT;
 
 	return new;
 }

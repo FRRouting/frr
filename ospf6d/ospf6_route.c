@@ -308,7 +308,7 @@ void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
 				inet_ntop(AF_INET6, &nh->address, buf,
 					  sizeof(buf));
 				ifname = ifindex2ifname(nh->ifindex,
-							VRF_DEFAULT);
+							vrf_id_default);
 				zlog_debug("  nexthop: %s%%%.*s(%d)", buf,
 					   IFNAMSIZ, ifname, nh->ifindex);
 			}
@@ -990,7 +990,7 @@ void ospf6_route_show(struct vty *vty, struct ospf6_route *route)
 	for (ALL_LIST_ELEMENTS_RO(route->nh_list, node, nh)) {
 		/* nexthop */
 		inet_ntop(AF_INET6, &nh->address, nexthop, sizeof(nexthop));
-		ifname = ifindex2ifname(nh->ifindex, VRF_DEFAULT);
+		ifname = ifindex2ifname(nh->ifindex, vrf_id_default);
 
 		if (!i) {
 			vty_out(vty, "%c%1s %2s %-30s %-25s %6.*s %s\n",
@@ -1089,7 +1089,7 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route)
 	for (ALL_LIST_ELEMENTS_RO(route->nh_list, node, nh)) {
 		/* nexthop */
 		inet_ntop(AF_INET6, &nh->address, nexthop, sizeof(nexthop));
-		ifname = ifindex2ifname(nh->ifindex, VRF_DEFAULT);
+		ifname = ifindex2ifname(nh->ifindex, vrf_id_default);
 		vty_out(vty, "  %s %.*s\n", nexthop, IFNAMSIZ, ifname);
 	}
 	vty_out(vty, "\n");

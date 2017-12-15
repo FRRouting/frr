@@ -334,7 +334,7 @@ static int rip_if_ipv4_address_check(struct interface *ifp)
 /* Does this address belongs to me ? */
 int if_check_address(struct in_addr addr)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
@@ -358,7 +358,7 @@ int if_check_address(struct in_addr addr)
 
 /* Inteface link down message processing. */
 int rip_interface_down(int command, struct zclient *zclient,
-		       zebra_size_t length, vrf_id_t vrf_id)
+		       zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 	struct stream *s;
@@ -385,7 +385,7 @@ int rip_interface_down(int command, struct zclient *zclient,
 
 /* Inteface link up message processing */
 int rip_interface_up(int command, struct zclient *zclient, zebra_size_t length,
-		     vrf_id_t vrf_id)
+		     lr_id_t vrf_id)
 {
 	struct interface *ifp;
 
@@ -416,7 +416,7 @@ int rip_interface_up(int command, struct zclient *zclient, zebra_size_t length,
 
 /* Inteface addition message from zebra. */
 int rip_interface_add(int command, struct zclient *zclient, zebra_size_t length,
-		      vrf_id_t vrf_id)
+		      lr_id_t vrf_id)
 {
 	struct interface *ifp;
 
@@ -446,7 +446,7 @@ int rip_interface_add(int command, struct zclient *zclient, zebra_size_t length,
 }
 
 int rip_interface_delete(int command, struct zclient *zclient,
-			 zebra_size_t length, vrf_id_t vrf_id)
+			 zebra_size_t length, lr_id_t vrf_id)
 {
 	struct interface *ifp;
 	struct stream *s;
@@ -488,7 +488,7 @@ static void rip_interface_clean(struct rip_interface *ri)
 
 void rip_interfaces_clean(void)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
@@ -540,7 +540,7 @@ static void rip_interface_reset(struct rip_interface *ri)
 
 void rip_interfaces_reset(void)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
@@ -581,7 +581,7 @@ int rip_if_down(struct interface *ifp)
 /* Needed for stop RIP process. */
 void rip_if_down_all()
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
@@ -622,7 +622,7 @@ static void rip_apply_address_add(struct connected *ifc)
 }
 
 int rip_interface_address_add(int command, struct zclient *zclient,
-			      zebra_size_t length, vrf_id_t vrf_id)
+			      zebra_size_t length, lr_id_t vrf_id)
 {
 	struct connected *ifc;
 	struct prefix *p;
@@ -674,7 +674,7 @@ static void rip_apply_address_del(struct connected *ifc)
 }
 
 int rip_interface_address_delete(int command, struct zclient *zclient,
-				 zebra_size_t length, vrf_id_t vrf_id)
+				 zebra_size_t length, lr_id_t vrf_id)
 {
 	struct connected *ifc;
 	struct prefix *p;
@@ -985,7 +985,7 @@ void rip_enable_apply(struct interface *ifp)
 /* Apply network configuration to all interface. */
 void rip_enable_apply_all()
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 
 	/* Check each interface. */
@@ -1099,7 +1099,7 @@ void rip_passive_interface_apply(struct interface *ifp)
 
 static void rip_passive_interface_apply_all(void)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp)
@@ -1736,7 +1736,7 @@ DEFUN (no_rip_passive_interface,
 /* Write rip configuration of each interface. */
 static int rip_interface_config_write(struct vty *vty)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {

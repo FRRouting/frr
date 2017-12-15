@@ -26,14 +26,17 @@
 #include "linklist.h"
 #include "qobj.h"
 #include "vty.h"
-
 /* The default NS ID */
 #define NS_DEFAULT 0
+#define NS_UNKNOWN UINT16_MAX
 
 /* The default VRF ID */
 #define VRF_DEFAULT 0
 #define VRF_UNKNOWN UINT16_MAX
 #define VRF_ALL UINT16_MAX - 1
+
+#define LR_UNKNOWN UINT32_MAX
+#define LR_DEFAULT  0
 
 /* Pending: May need to refine this. */
 #ifndef IFLA_VRF_MAX
@@ -69,7 +72,7 @@ struct vrf {
 	RB_ENTRY(vrf) id_entry, name_entry;
 
 	/* Identifier, same as the vector index */
-	vrf_id_t vrf_id;
+	lr_id_t vrf_id;
 
 	/* Name */
 	char name[VRF_NAMSIZ + 1];
@@ -99,11 +102,13 @@ DECLARE_QOBJ_TYPE(vrf)
 
 extern struct vrf_id_head vrfs_by_id;
 extern struct vrf_name_head vrfs_by_name;
+extern lr_id_t vrf_id_default;
+extern lr_id_t vrf_id_unknown;
 
-extern struct vrf *vrf_lookup_by_id(vrf_id_t);
+extern struct vrf *vrf_lookup_by_id(lr_id_t);
 extern struct vrf *vrf_lookup_by_name(const char *);
-extern struct vrf *vrf_get(vrf_id_t, const char *);
-extern vrf_id_t vrf_name_to_id(const char *);
+extern struct vrf *vrf_get(lr_id_t, const char *);
+extern lr_id_t vrf_name_to_id(const char *);
 
 #define VRF_GET_ID(V, NAME)                                                    \
 	do {                                                                   \
@@ -112,7 +117,7 @@ extern vrf_id_t vrf_name_to_id(const char *);
 			vty_out(vty, "%% VRF %s not found\n", NAME);           \
 			return CMD_WARNING;                                    \
 		}                                                              \
-		if (vrf->vrf_id == VRF_UNKNOWN) {                              \
+		if (vrf->vrf_id.lr.id == LR_UNKNOWN) {                              \
 			vty_out(vty, "%% VRF %s not active\n", NAME);          \
 			return CMD_WARNING;                                    \
 		}                                                              \
@@ -124,9 +129,9 @@ extern vrf_id_t vrf_name_to_id(const char *);
  */
 
 /* Get the data pointer of the specified VRF. If not found, create one. */
-extern void *vrf_info_get(vrf_id_t);
+extern void *vrf_info_get(lr_id_t);
 /* Look up the data pointer of the specified VRF. */
-extern void *vrf_info_lookup(vrf_id_t);
+extern void *vrf_info_lookup(lr_id_t);
 
 /*
  * VRF bit-map: maintaining flags, one bit per VRF ID
@@ -137,9 +142,9 @@ typedef void *vrf_bitmap_t;
 
 extern vrf_bitmap_t vrf_bitmap_init(void);
 extern void vrf_bitmap_free(vrf_bitmap_t);
-extern void vrf_bitmap_set(vrf_bitmap_t, vrf_id_t);
-extern void vrf_bitmap_unset(vrf_bitmap_t, vrf_id_t);
-extern int vrf_bitmap_check(vrf_bitmap_t, vrf_id_t);
+extern void vrf_bitmap_set(vrf_bitmap_t, lr_id_t);
+extern void vrf_bitmap_unset(vrf_bitmap_t, lr_id_t);
+extern int vrf_bitmap_check(vrf_bitmap_t, lr_id_t);
 
 /*
  * VRF initializer/destructor
@@ -175,7 +180,7 @@ extern void vrf_cmd_init(int (*writefunc)(struct vty *vty));
  */
 
 /* Create a socket serving for the given VRF */
-extern int vrf_socket(int, int, int, vrf_id_t);
+extern int vrf_socket(int, int, int, lr_id_t);
 
 /*
  * VRF Debugging

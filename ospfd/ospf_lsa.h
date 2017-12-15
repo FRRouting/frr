@@ -113,7 +113,7 @@ struct ospf_lsa {
 	struct ospf_interface *oi;
 
 	/* VRF Id */
-	vrf_id_t vrf_id;
+	lr_id_t vrf_id;
 };
 
 /* OSPF LSA Link Type. */

@@ -727,7 +727,7 @@ static void update_linkparams(struct mpls_te_link *lp)
 			else {
 				lp->flags = INTER_AS | FLOOD_AREA;
 				lp->area = ospf_area_lookup_by_area_id(
-					ospf_lookup_by_vrf_id(VRF_DEFAULT),
+					ospf_lookup_by_vrf_id(vrf_id_default),
 					OspfMplsTE.interas_areaid);
 			}
 		}
@@ -1508,7 +1508,7 @@ void ospf_mpls_te_lsa_schedule(struct mpls_te_link *lp, enum lsa_opcode opcode)
 
 	memset(&lsa, 0, sizeof(lsa));
 	memset(&lsah, 0, sizeof(lsah));
-	top = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	top = ospf_lookup_by_vrf_id(vrf_id_default);
 
 	/* Check if the pseudo link is ready to flood */
 	if (!(CHECK_FLAG(lp->flags, LPFLG_LSA_ACTIVE))

@@ -79,7 +79,7 @@ struct thread_master *master;
 
 static void __attribute__((noreturn)) ospf6_exit(int status)
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id_default);
 	struct interface *ifp;
 
 	frr_early_fini();

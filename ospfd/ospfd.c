@@ -236,18 +236,18 @@ static struct ospf *ospf_new(u_short instance, const char *name)
 	new->router_id_static.s_addr = htonl(0);
 
 	if (name) {
-		new->vrf_id = VRF_UNKNOWN;
+		new->vrf_id.lr.id = LR_UNKNOWN;
 		/* Freed in ospf_finish_final */
 		new->name = XSTRDUP(MTYPE_OSPF_TOP, name);
 		vrf = vrf_lookup_by_name(new->name);
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: Create new ospf instance with vrf_name %s vrf_id %d",
-				   __PRETTY_FUNCTION__, name, new->vrf_id);
+			zlog_debug("%s: Create new ospf instance with vrf_name %s vrf_id %u",
+				   __PRETTY_FUNCTION__, name, new->vrf_id.lr.id);
 		if (vrf)
 			ospf_vrf_link(new, vrf);
 	} else {
-		new->vrf_id = VRF_DEFAULT;
-		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+		new->vrf_id.lr.id = LR_DEFAULT;
+		vrf = vrf_lookup_by_id(vrf_id_default);
 		ospf_vrf_link(new, vrf);
 	}
 	ospf_zebra_vrf_register(new);
@@ -394,7 +394,7 @@ struct ospf *ospf_get(u_short instance, const char *name)
 	if (name)
 		ospf = ospf_lookup_by_inst_name(instance, name);
 	else
-		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		ospf = ospf_lookup_by_vrf_id(vrf_id_default);
 
 	if (ospf == NULL) {
 		ospf = ospf_new(instance, name);
@@ -415,7 +415,7 @@ struct ospf *ospf_get_instance(u_short instance)
 
 	ospf = ospf_lookup_instance(instance);
 	if (ospf == NULL) {
-		ospf = ospf_new(instance, NULL /* VRF_DEFAULT*/);
+		ospf = ospf_new(instance, NULL /* LR_DEFAULT*/);
 		ospf_add(ospf);
 
 		if (ospf->router_id_static.s_addr == 0) {
@@ -423,9 +423,9 @@ struct ospf *ospf_get_instance(u_short instance)
 				ospf_router_id_update(ospf);
 			else {
 				if (IS_DEBUG_OSPF_EVENT)
-					zlog_debug("%s: ospf VRF (id %d) is not active yet, skip router id update"
+					zlog_debug("%s: ospf VRF (id %u) is not active yet, skip router id update"
 						    , __PRETTY_FUNCTION__,
-						    ospf->vrf_id);
+						    ospf->vrf_id.lr.id);
 			}
 			ospf_router_id_update(ospf);
 		}
@@ -436,7 +436,7 @@ struct ospf *ospf_get_instance(u_short instance)
 	return ospf;
 }
 
-struct ospf *ospf_lookup_by_vrf_id(vrf_id_t vrf_id)
+struct ospf *ospf_lookup_by_vrf_id(lr_id_t vrf_id)
 {
 	struct vrf *vrf = NULL;
 
@@ -774,7 +774,7 @@ static void ospf_finish_final(struct ospf *ospf)
 			ospf_vrf_unlink(ospf, vrf);
 		XFREE(MTYPE_OSPF_TOP, ospf->name);
 	} else {
-		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+		vrf = vrf_lookup_by_id(vrf_id_default);
 		if (vrf)
 			ospf_vrf_unlink(ospf, vrf);
 	}
@@ -1298,8 +1298,8 @@ void ospf_if_update(struct ospf *ospf, struct interface *ifp)
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: interface %s ifp->vrf_id %u ospf vrf %s vrf_id %u router_id %s",
-			   __PRETTY_FUNCTION__, ifp->name, ifp->vrf_id,
-			   ospf_vrf_id_to_name(ospf->vrf_id), ospf->vrf_id,
+			   __PRETTY_FUNCTION__, ifp->name, ifp->vrf_id.lr.id,
+			   ospf_vrf_id_to_name(ospf->vrf_id), ospf->vrf_id.lr.id,
 			   inet_ntoa(ospf->router_id));
 
 	/* OSPF must be ready. */
@@ -2001,15 +2001,15 @@ void ospf_vrf_unlink(struct ospf *ospf, struct vrf *vrf)
 {
 	if (vrf->info == (void *)ospf)
 		vrf->info = NULL;
-	ospf->vrf_id = VRF_UNKNOWN;
+	ospf->vrf_id.lr.id = LR_UNKNOWN;
 }
 
 /* This is hook function for vrf create called as part of vrf_init */
 static int ospf_vrf_new(struct vrf *vrf)
 {
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: VRF Created: %s(%d)", __PRETTY_FUNCTION__,
-			   vrf->name, vrf->vrf_id);
+		zlog_debug("%s: VRF Created: %s(%u)", __PRETTY_FUNCTION__,
+			   vrf->name, vrf->vrf_id.lr.id);
 
 	return 0;
 }
@@ -2018,8 +2018,8 @@ static int ospf_vrf_new(struct vrf *vrf)
 static int ospf_vrf_delete(struct vrf *vrf)
 {
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: VRF Deletion: %s(%d)", __PRETTY_FUNCTION__,
-			   vrf->name, vrf->vrf_id);
+		zlog_debug("%s: VRF Deletion: %s(%u)", __PRETTY_FUNCTION__,
+			   vrf->name, vrf->vrf_id.lr.id);
 
 	return 0;
 }
@@ -2028,11 +2028,11 @@ static int ospf_vrf_delete(struct vrf *vrf)
 static int ospf_vrf_enable(struct vrf *vrf)
 {
 	struct ospf *ospf = NULL;
-	vrf_id_t old_vrf_id = VRF_DEFAULT;
+	lr_id_t old_vrf_id = { .lr.id = LR_DEFAULT};
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: VRF %s id %d enabled",
-			   __PRETTY_FUNCTION__, vrf->name, vrf->vrf_id);
+		zlog_debug("%s: VRF %s id %u enabled",
+			   __PRETTY_FUNCTION__, vrf->name, vrf->vrf_id.lr.id);
 
 	ospf = ospf_lookup_by_name(vrf->name);
 	if (ospf) {
@@ -2040,11 +2040,11 @@ static int ospf_vrf_enable(struct vrf *vrf)
 		/* We have instance configured, link to VRF and make it "up". */
 		ospf_vrf_link(ospf, vrf);
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: ospf linked to vrf %s vrf_id %d (old id %d)",
-				   __PRETTY_FUNCTION__, vrf->name, ospf->vrf_id,
-				   old_vrf_id);
+			zlog_debug("%s: ospf linked to vrf %s vrf_id %u (old id %u)",
+				   __PRETTY_FUNCTION__, vrf->name, ospf->vrf_id.lr.id,
+				   old_vrf_id.lr.id);
 
-		if (old_vrf_id != ospf->vrf_id) {
+		if (old_vrf_id.lr.id != ospf->vrf_id.lr.id) {
 			if (ospfd_privs.change(ZPRIVS_RAISE)) {
 				zlog_err("ospf_sock_init: could not raise privs, %s",
 					 safe_strerror(errno));
@@ -2069,14 +2069,14 @@ static int ospf_vrf_enable(struct vrf *vrf)
 static int ospf_vrf_disable(struct vrf *vrf)
 {
 	struct ospf *ospf = NULL;
-	vrf_id_t old_vrf_id = VRF_UNKNOWN;
+	lr_id_t old_vrf_id = { .lr.id = LR_UNKNOWN};
 
-	if (vrf->vrf_id == VRF_DEFAULT)
+	if (vrf->vrf_id.lr.id == LR_DEFAULT)
 		return 0;
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: VRF %s id %d disabled.",
-			   __PRETTY_FUNCTION__, vrf->name, vrf->vrf_id);
+			   __PRETTY_FUNCTION__, vrf->name, vrf->vrf_id.lr.id);
 
 	ospf = ospf_lookup_by_name(vrf->name);
 	if (ospf) {
@@ -2088,8 +2088,8 @@ static int ospf_vrf_disable(struct vrf *vrf)
 		ospf_vrf_unlink(ospf, vrf);
 		ospf->oi_running = 0;
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: ospf old_vrf_id %d unlinked",
-				    __PRETTY_FUNCTION__, old_vrf_id);
+			zlog_debug("%s: ospf old_vrf_id %u unlinked",
+				    __PRETTY_FUNCTION__, old_vrf_id.lr.id);
 	}
 
 	/* Note: This is a callback, the VRF will be deleted by the caller. */
@@ -2107,7 +2107,7 @@ void ospf_vrf_terminate(void)
 	vrf_terminate();
 }
 
-const char *ospf_vrf_id_to_name(vrf_id_t vrf_id)
+const char *ospf_vrf_id_to_name(lr_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 
