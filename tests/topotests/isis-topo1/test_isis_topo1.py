@@ -240,29 +240,36 @@ def parse_topology(lines, level):
     Parse the output of 'show isis topology level-X' into a Python dict.
     """
     areas = {}
-    in_area = False
     area = None
+    ipv = None
 
     for line in lines:
-        if not in_area:
-            area_match = re.match(r"Area (.+):", line)
-            if not area_match:
-                continue
-
+        area_match = re.match(r"Area (.+):", line)
+        if area_match:
             area = area_match.group(1)
-            areas[area] = {level: []}
-            in_area = True
+            if area not in areas:
+                areas[area] = {
+                    level: {
+                        'ipv4': [],
+                        'ipv6': []
+                    }
+                }
+            ipv = None
+            continue
+        elif area is None:
             continue
 
-        if re.match(r"IS\-IS paths to", line):
+        if re.match(r"IS\-IS paths to level-. routers that speak IPv6", line):
+            ipv = 'ipv6'
             continue
-        if re.match(r"Vertex Type Metric Next\-Hop Interface Parent", line):
+        if re.match(r"IS\-IS paths to level-. routers that speak IP", line):
+            ipv = 'ipv4'
             continue
 
         item_match = re.match(
             r"([^ ]+) ([^ ]+) ([^ ]+) ([^ ]+) ([^ ]+) ([^ ]+)", line)
         if item_match is not None:
-            areas[area][level].append({
+            areas[area][level][ipv].append({
                 'vertex': item_match.group(1),
                 'type': item_match.group(2),
                 'metric': item_match.group(3),
@@ -274,7 +281,7 @@ def parse_topology(lines, level):
 
         item_match = re.match(r"([^ ]+) ([^ ]+) ([^ ]+) ([^ ]+)", line)
         if item_match is not None:
-            areas[area][level].append({
+            areas[area][level][ipv].append({
                 'vertex': item_match.group(1),
                 'type': item_match.group(2),
                 'metric': item_match.group(3),
@@ -284,10 +291,8 @@ def parse_topology(lines, level):
 
         item_match = re.match(r"([^ ]+)", line)
         if item_match is not None:
-            areas[area][level].append({'vertex': item_match.group(1)})
+            areas[area][level][ipv].append({'vertex': item_match.group(1)})
             continue
-
-        in_area = False
 
     return areas
 

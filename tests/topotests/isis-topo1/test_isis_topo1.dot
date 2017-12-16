@@ -18,31 +18,31 @@ graph template {
 	# Routers
 	r1 [
 		shape=doubleoctagon,
-		label="r1\n10.254.0.1",
+		label="r1\n10.254.0.1\n2001:DB8:F::1",
 		fillcolor="#f08080",
 		style=filled,
 	];
 	r2 [
 		shape=doubleoctagon
-		label="r2\n10.254.0.2",
+		label="r2\n10.254.0.2\n2001:DB8:F::2",
 		fillcolor="#f08080",
 		style=filled,
 	];
 	r3 [
 		shape=doubleoctagon
-		label="r3\n10.254.0.3",
+		label="r3\n10.254.0.3\n2001:DB8:F::3",
 		fillcolor="#f08080",
 		style=filled,
 	];
 	r4 [
 		shape=doubleoctagon
-		label="r4\n10.254.0.4",
+		label="r4\n10.254.0.4\n2001:DB8:F::4",
 		fillcolor="#f08080",
 		style=filled,
 	];
 	r5 [
 		shape=doubleoctagon
-		label="r5\n10.254.0.5",
+		label="r5\n10.254.0.5\n2001:DB8:F::5",
 		fillcolor="#f08080",
 		style=filled,
 	];
@@ -50,25 +50,25 @@ graph template {
 	# Switches
 	sw1 [
 		shape=oval,
-		label="sw1\n10.0.20.0/24",
+		label="sw1\n10.0.20.0/24\n2001:DB8:1:1::/64",
 		fillcolor="#d0e0d0",
 		style=filled,
 	];
 	sw2 [
 		shape=oval,
-		label="sw2\n10.0.21.0/24",
+		label="sw2\n10.0.21.0/24\n2001:DB8:1:2::/64",
 		fillcolor="#d0e0d0",
 		style=filled,
 	];
 	sw3 [
 		shape=oval,
-		label="sw3\n10.0.10.0/24",
+		label="sw3\n10.0.10.0/24\n2001:DB8:2:1::/64",
 		fillcolor="#d0e0d0",
 		style=filled,
 	];
 	sw4 [
 		shape=oval,
-		label="sw4\n10.0.11.0/24",
+		label="sw4\n10.0.11.0/24\n2001:DB8:2:2::/64",
 		fillcolor="#d0e0d0",
 		style=filled,
 	];
