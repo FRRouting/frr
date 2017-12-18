@@ -302,13 +302,13 @@ static int bgp_bfd_dest_update(int command, struct zclient *zclient,
 		prefix2str(&dp, buf[0], sizeof(buf[0]));
 		if (ifp) {
 			zlog_debug(
-				"Zebra: vrf %d interface %s bfd destination %s %s",
+				"Zebra: vrf %u interface %s bfd destination %s %s",
 				vrf_id, ifp->name, buf[0],
 				bfd_get_status_str(status));
 		} else {
 			prefix2str(&sp, buf[1], sizeof(buf[1]));
 			zlog_debug(
-				"Zebra: vrf %d source %s bfd destination %s %s",
+				"Zebra: vrf %u source %s bfd destination %s %s",
 				vrf_id, buf[1], buf[0],
 				bfd_get_status_str(status));
 		}

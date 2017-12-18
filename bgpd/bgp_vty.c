@@ -6476,7 +6476,7 @@ DEFUN (show_bgp_vrfs,
 		struct listnode *node, *nnode;
 		int peers_cfg, peers_estb;
 		json_object *json_vrf = NULL;
-		int vrf_id_ui;
+		int64_t vrf_id_ui;
 
 		/* Skip Views. */
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
@@ -6507,7 +6507,7 @@ DEFUN (show_bgp_vrfs,
 			type = "VRF";
 		}
 
-		vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN) ? -1 : bgp->vrf_id;
+		vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN) ? -1 : (int64_t)bgp->vrf_id;
 		if (uj) {
 			json_object_string_add(json_vrf, "type", type);
 			json_object_int_add(json_vrf, "vrfId", vrf_id_ui);
@@ -6521,7 +6521,8 @@ DEFUN (show_bgp_vrfs,
 			json_object_object_add(json_vrfs, name, json_vrf);
 		} else
 			vty_out(vty, "%4s  %-5d  %-16s  %9u  %10u  %s\n", type,
-				vrf_id_ui, inet_ntoa(bgp->router_id), peers_cfg,
+				bgp->vrf_id == VRF_UNKNOWN ? -1 : (int)bgp->vrf_id,
+				inet_ntoa(bgp->router_id), peers_cfg,
 				peers_estb, name);
 	}
 
@@ -6840,10 +6841,10 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 		if (!count) {
 			unsigned long ents;
 			char memstrbuf[MTYPE_MEMSTR_LEN];
-			int vrf_id_ui;
+			int64_t vrf_id_ui;
 
 			vrf_id_ui =
-				(bgp->vrf_id == VRF_UNKNOWN) ? -1 : bgp->vrf_id;
+				(bgp->vrf_id == VRF_UNKNOWN) ? -1 : (int64_t)bgp->vrf_id;
 
 			/* Usage summary and header */
 			if (use_json) {
@@ -6862,7 +6863,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				vty_out(vty,
 					"BGP router identifier %s, local AS number %u vrf-id %d",
 					inet_ntoa(bgp->router_id), bgp->as,
-					vrf_id_ui);
+					bgp->vrf_id == VRF_UNKNOWN ? -1 : (int)bgp->vrf_id);
 				vty_out(vty, "\n");
 			}
 
@@ -9868,7 +9869,7 @@ static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 			json_object_int_add(json, "vrfId",
 					    (bgp->vrf_id == VRF_UNKNOWN)
 						    ? -1
-						    : bgp->vrf_id);
+					    : (int64_t) bgp->vrf_id);
 			json_object_string_add(
 				json, "vrfName",
 				(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
