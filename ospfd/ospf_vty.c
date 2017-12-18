@@ -218,7 +218,7 @@ DEFUN_NOSH (router_ospf,
 		if (ospf->vrf_id != VRF_UNKNOWN)
 			ospf->oi_running = 1;
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("Config command 'router ospf %d' received, vrf %s id %d oi_running %u",
+			zlog_debug("Config command 'router ospf %d' received, vrf %s id %u oi_running %u",
 				   instance,  ospf->name ? ospf->name : "NIL",
 				   ospf->vrf_id, ospf->oi_running);
 		VTY_PUSH_CONTEXT(OSPF_NODE, ospf);
@@ -9600,7 +9600,7 @@ DEFUN (show_ip_ospf_vrfs,
 	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 		json_object *json_vrf = NULL;
 		const char *name = NULL;
-		int vrf_id_ui = 0;
+		int64_t vrf_id_ui = 0;
 
 		count++;
 
@@ -9614,7 +9614,8 @@ DEFUN (show_ip_ospf_vrfs,
 		else
 			name = ospf->name;
 
-		vrf_id_ui = (ospf->vrf_id == VRF_UNKNOWN) ? -1 : ospf->vrf_id;
+		vrf_id_ui = (ospf->vrf_id == VRF_UNKNOWN) ? -1 :
+			(int64_t) ospf->vrf_id;
 
 		if (uj) {
 			json_object_int_add(json_vrf, "vrfId", vrf_id_ui);
