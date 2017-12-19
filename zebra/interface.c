@@ -805,21 +805,26 @@ void if_nbr_ipv6ll_to_ipv4ll_neigh_update(struct interface *ifp,
 	char buf[16] = "169.254.0.1";
 	struct in_addr ipv4_ll;
 	char mac[6];
+	ns_id_t ns_id;
 
 	inet_pton(AF_INET, buf, &ipv4_ll);
 
 	ipv6_ll_address_to_mac(address, (u_char *)mac);
 
+	if (!vrf_is_backend_netns())
+		ns_id = NS_DEFAULT;
+	else
+		ns_id = (ns_id_t)(ifp->vrf_id);
 	/*
 	 * Remove existed arp record for the interface as netlink
 	 * protocol does not have update message types
 	 *
 	 * supported message types are RTM_NEWNEIGH and RTM_DELNEIGH
 	 */
-	kernel_neigh_update (0, ifp->ifindex, ipv4_ll.s_addr, mac, 6);
+	kernel_neigh_update(0, ifp->ifindex, ipv4_ll.s_addr, mac, 6, ns_id);
 
 	/* Add arp record */
-	kernel_neigh_update (add, ifp->ifindex, ipv4_ll.s_addr, mac, 6);
+	kernel_neigh_update(add, ifp->ifindex, ipv4_ll.s_addr, mac, 6, ns_id);
 	zvrf->neigh_updates++;
 }
 
