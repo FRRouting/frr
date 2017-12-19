@@ -85,8 +85,7 @@ struct route_entry {
 /* to simplify NHT logic when NHs change, instead of doing a NH by NH cmp */
 #define ROUTE_ENTRY_NEXTHOPS_CHANGED 0x2
 #define ROUTE_ENTRY_CHANGED          0x4
-#define ROUTE_ENTRY_SELECTED_FIB     0x8
-#define ROUTE_ENTRY_LABELS_CHANGED   0x10
+#define ROUTE_ENTRY_LABELS_CHANGED   0x8
 
 	/* Nexthop information. */
 	u_char nexthop_num;
@@ -121,6 +120,8 @@ typedef struct rib_dest_t_ {
 	 * Doubly-linked list of routes for this prefix.
 	 */
 	struct route_entry *routes;
+
+	struct route_entry *selected_fib;
 
 	/*
 	 * Flags, see below.

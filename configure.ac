@@ -881,6 +881,7 @@ case "$host_os" in
 
     AC_DEFINE(OPEN_BSD,,OpenBSD)
     AC_DEFINE(KAME,1,KAME IPv6)
+    AC_DEFINE(BSD_V6_SYSCTL,1,BSD v6 sysctl to turn on and off forwarding)
 
     if test "x${enable_pimd}" != "xno"; then
       case "$host_os" in
@@ -897,6 +898,7 @@ case "$host_os" in
 
     AC_DEFINE(HAVE_NET_RT_IFLIST,,NET_RT_IFLIST)
     AC_DEFINE(KAME,1,KAME IPv6)
+    AC_DEFINE(BSD_V6_SYSCTL,1,BSD v6 sysctl to turn on and off forwarding)
     ;;
 esac
 AM_CONDITIONAL(SOLARIS, test "${SOLARIS}" = "solaris")

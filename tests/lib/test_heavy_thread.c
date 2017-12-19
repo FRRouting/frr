@@ -1,6 +1,4 @@
 /*
- * $Id: heavy-thread.c,v 1.2 2005/04/25 16:42:24 paul Exp $
- *
  * This file is part of Quagga.
  *
  * Quagga is free software; you can redistribute it and/or modify it
