@@ -8396,6 +8396,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			vty_out(vty, "%s",
 				json_object_to_json_string_ext(json_paths, JSON_C_TO_STRING_PRETTY));
 			json_object_free(json_paths);
+			json_paths = NULL;
 			first = 0;
 		}
 	}
@@ -8409,7 +8410,8 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 		*total_cum = total_count;
 	}
 	if (use_json) {
-		json_object_free(json_paths);
+		if (json_paths)
+			json_object_free(json_paths);
 		if (is_last)
 			vty_out(vty, " } }\n");
 		else
