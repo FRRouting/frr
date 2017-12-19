@@ -423,7 +423,7 @@ void kernel_route_rib(struct prefix *p, struct prefix *src_p,
 }
 
 int kernel_neigh_update(int add, int ifindex, uint32_t addr, char *lla,
-			int llalen)
+			int llalen, ns_id_t ns_id)
 {
 	/* TODO */
 	return 0;
