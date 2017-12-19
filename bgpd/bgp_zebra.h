@@ -41,8 +41,7 @@ extern void bgp_zebra_terminate_radv(struct bgp *bgp, struct peer *peer);
 extern void bgp_zebra_instance_register(struct bgp *);
 extern void bgp_zebra_instance_deregister(struct bgp *);
 
-extern struct bgp_redist *bgp_redist_lookup(struct bgp *, afi_t, u_char,
-					    u_short);
+extern struct bgp_redist *bgp_redist_lookup(struct bgp *, afi_t, u_char, vrf_id_t);
 extern struct bgp_redist *bgp_redist_add(struct bgp *, afi_t, u_char, u_short);
 extern int bgp_redistribute_set(struct bgp *, afi_t, int, u_short);
 extern int bgp_redistribute_resend(struct bgp *, afi_t, int, u_short);
