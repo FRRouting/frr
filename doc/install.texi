@@ -85,6 +85,10 @@ Enable Traffic Engineering Extension for ISIS (RFC5305)
 @item --enable-multipath=@var{ARG}
 Enable support for Equal Cost Multipath. @var{ARG} is the maximum number
 of ECMP paths to allow, set to 0 to allow unlimited number of paths.
+@item --enable-realms
+Enable the support of linux Realms.  Convert tag values from 1-255
+into a realm value when inserting into the linux kernel.  Then
+routing policy can be assigned to the realm.  See the tc man page.
 @item --disable-rtadv
 Disable support IPV6 router advertisement in zebra.
 @item --enable-gcc-rdynamic

@@ -354,6 +354,8 @@ AC_ARG_ENABLE(logfile_mask,
   AS_HELP_STRING([--enable-logfile-mask=ARG], [set mask for log files]))
 AC_ARG_ENABLE(shell_access,
   AS_HELP_STRING([--enable-shell-access], [Allow users to access shell/telnet/ssh]))
+AC_ARG_ENABLE(realms,
+  AS_HELP_STRING([--enable-realms], [enable REALMS support under Linux]))
 AC_ARG_ENABLE(rtadv,
   AS_HELP_STRING([--disable-rtadv], [disable IPV6 router advertisement feature]))
 AC_ARG_ENABLE(irdp,
@@ -900,6 +902,22 @@ esac
 AM_CONDITIONAL(SOLARIS, test "${SOLARIS}" = "solaris")
 
 AC_SYS_LARGEFILE
+
+dnl ------------------------
+dnl Integrated REALMS option
+dnl ------------------------
+if test "${enable_realms}" = "yes"; then
+    case "$host_os" in
+      linux*)
+       AC_DEFINE(SUPPORT_REALMS,, Realms support)
+       ;;
+      *)
+       echo "Sorry, only Linux has REALMS support"
+       exit 1
+       ;;
+    esac
+fi
+AM_CONDITIONAL([SUPPORT_REALMS], [test "${enable_realms}" = "yes"])
 
 dnl ---------------------
 dnl Integrated VTY option
