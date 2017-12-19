@@ -612,13 +612,13 @@ static int netlink_interface(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	/* If VRF, create the VRF structure itself. */
 	if (zif_type == ZEBRA_IF_VRF) {
 		netlink_vrf_change(h, tb[IFLA_LINKINFO], name, ns_id);
-		vrf_id += (vrf_id_t)((uint32_t)ifi->ifi_index;
+		vrf_id += (vrf_id_t)ifi->ifi_index;
 	}
 
 	if (tb[IFLA_MASTER]) {
 		if (slave_kind && (strcmp(slave_kind, "vrf") == 0)) {
 			zif_slave_type = ZEBRA_IF_SLAVE_VRF;
-			vrf_id += *(u_int32_t *)RTA_DATA(tb[IFLA_MASTER])
+			vrf_id += *(u_int32_t *)RTA_DATA(tb[IFLA_MASTER]);
 		} else if (slave_kind && (strcmp(slave_kind, "bridge") == 0)) {
 			zif_slave_type = ZEBRA_IF_SLAVE_BRIDGE;
 			bridge_ifindex =
