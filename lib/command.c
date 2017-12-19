@@ -1876,7 +1876,7 @@ DEFUN (config_no_hostname,
 DEFUN (config_password,
        password_cmd,
        "password [(8-8)] WORD",
-       "Assign the terminal connection password\n"
+       "Modify the terminal connection password\n"
        "Specifies a HIDDEN password will follow\n"
        "The password string\n")
 {
@@ -1912,6 +1912,31 @@ DEFUN (config_password,
 			XSTRDUP(MTYPE_HOST, zencrypt(argv[idx_8]->arg));
 	} else
 		host.password = XSTRDUP(MTYPE_HOST, argv[idx_8]->arg);
+
+	return CMD_SUCCESS;
+}
+
+/* VTY interface password delete. */
+DEFUN (no_config_password,
+       no_password_cmd,
+       "no password",
+       NO_STR
+       "Modify the terminal connection password\n")
+{
+	bool warned = false;
+
+	if (host.password) {
+		vty_out(vty, "Please be aware that removing the password is a security risk and you should think twice about this command\n");
+		warned = true;
+		XFREE(MTYPE_HOST, host.password);
+	}
+	host.password = NULL;
+	if (host.password_encrypt) {
+		if (!warned)
+			vty_out(vty, "Please be aware that removing the password is a security risk and you should think twice about this command\n");
+		XFREE(MTYPE_HOST, host.password_encrypt);
+	}
+	host.password_encrypt = NULL;
 
 	return CMD_SUCCESS;
 }
@@ -1978,12 +2003,20 @@ DEFUN (no_config_enable_password,
        "Modify enable password parameters\n"
        "Assign the privileged level password\n")
 {
-	if (host.enable)
+	bool warned = false;
+
+	if (host.enable) {
+		vty_out(vty, "Please be aware that removing the password is a security risk and you should think twice about this command\n");
+		warned = true;
 		XFREE(MTYPE_HOST, host.enable);
+	}
 	host.enable = NULL;
 
-	if (host.enable_encrypt)
+	if (host.enable_encrypt) {
+		if (!warned)
+			vty_out(vty, "Please be aware that removing the password is a security risk and you should think twice about this command\n");
 		XFREE(MTYPE_HOST, host.enable_encrypt);
+	}
 	host.enable_encrypt = NULL;
 
 	return CMD_SUCCESS;
@@ -2647,6 +2680,7 @@ void cmd_init(int terminal)
 
 	if (terminal > 0) {
 		install_element(CONFIG_NODE, &password_cmd);
+		install_element(CONFIG_NODE, &no_password_cmd);
 		install_element(CONFIG_NODE, &enable_password_cmd);
 		install_element(CONFIG_NODE, &no_enable_password_cmd);
 
