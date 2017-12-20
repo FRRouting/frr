@@ -176,7 +176,11 @@ Total %-4d                                                           %-4d %d\n\
             return False
         #self.log("Running %s %s" % (target, command))
         out = self.net[target].cmd(command).rstrip()
-        self.log('out:%s:' % out)
+        if len(out) == 0:
+            report = "<no output>"
+        else:
+            report = out
+        self.log('COMMAND OUTPUT:%s:' % report)
         out = " ".join(out.splitlines())
         search = re.search(regexp, out)
         self.l_last = search
