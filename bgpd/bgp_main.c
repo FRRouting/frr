@@ -41,6 +41,7 @@
 #include "vrf.h"
 #include "bfd.h"
 #include "libfrr.h"
+#include "ns.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_attr.h"
@@ -57,6 +58,7 @@
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_keepalives.h"
+#include "bgpd/bgp_network.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -297,6 +299,7 @@ static int bgp_vrf_disable(struct vrf *vrf)
 
 static void bgp_vrf_init(void)
 {
+	ns_init();
 	vrf_init(bgp_vrf_new, bgp_vrf_enable, bgp_vrf_disable, bgp_vrf_delete);
 }
 

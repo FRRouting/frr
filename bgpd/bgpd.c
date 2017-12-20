@@ -3038,7 +3038,7 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 
 	/* Create BGP server socket, if first instance.  */
 	if (list_isempty(bm->bgp) && !bgp_option_check(BGP_OPT_NO_LISTEN)) {
-		if (bgp_socket(bm->port, bm->address) < 0)
+		if (bgp_socket(bgp, bm->port, bm->address) < 0)
 			return BGP_ERR_INVALID_VALUE;
 	}
 
@@ -3340,11 +3340,12 @@ struct peer *peer_lookup(struct bgp *bgp, union sockunion *su)
 		struct listnode *bgpnode, *nbgpnode;
 
 		for (ALL_LIST_ELEMENTS(bm->bgp, bgpnode, nbgpnode, bgp)) {
-			/* Skip VRFs, this function will not be invoked without
-			 * an instance
+			/* Skip VRFs Lite only, this function will not be
+			 * invoked without an instance
 			 * when examining VRFs.
 			 */
-			if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
+			if ((bgp->inst_type == BGP_INSTANCE_TYPE_VRF) &&
+			    !vrf_is_mapped_on_netns(bgp->vrf_id))
 				continue;
 
 			peer = hash_lookup(bgp->peerhash, &tmp_peer);
