@@ -101,6 +101,15 @@ def setup_module(mod):
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()
 
+    has_version_20 = False
+    for router in tgen.routers().values():
+        if router.has_version('<', '3'):
+            has_version_20 = True
+
+    if has_version_20:
+        logger.info('Skipping ISIS tests for FRR 2.0')
+        tgen.set_error('ISIS has convergence problems with IPv6')
+
 
 def teardown_module(mod):
     "Teardown the pytest environment"
