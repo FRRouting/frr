@@ -1376,6 +1376,15 @@ int bgp_start(struct peer *peer)
 		return 0;
 	}
 
+	if (peer->bgp &&
+	    peer->bgp->vrf_id == VRF_UNKNOWN) {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_err(
+				 "%s [FSM] In a VRF that is not initialised yet",
+				 peer->host);
+		return -1;
+	}
+
 	/* Register to be notified on peer up */
 	if (peer->sort == BGP_PEER_EBGP && peer->ttl == 1
 	    && !CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
