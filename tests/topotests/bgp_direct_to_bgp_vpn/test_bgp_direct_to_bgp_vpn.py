@@ -3,8 +3,8 @@
 #
 # Part of NetDEF Topology Tests
 #
-# Copyright (c) 2017 by
-# Network Device Education Foundation, Inc. ("NetDEF")
+# Copyright (c) 2018, LabN Consulting, L.L.C.
+# Authored by Lou Berger <lberger@labn.net>
 #
 # Permission to use, copy, modify, and/or distribute this software
 # for any purpose with or without fee is hereby granted, provided
@@ -21,210 +21,55 @@
 # OF THIS SOFTWARE.
 #
 
-"""
-test_mpls_vpn_topo1.py: Simple FRR/Quagga MPLS VPN Test
-
-                  |
-             +----+----+
-             |   ce1   |
-             | 99.0.0.1|                              CE Router
-             +----+----+
-       192.168.1. | .2  ce1-eth0
-                  | .1  r1-eth4
-             +---------+
-             |    r1   |
-             | 1.1.1.1 |                              PE Router
-             +----+----+
-                  | .1  r1-eth0
-                  |
-            ~~~~~~~~~~~~~
-          ~~     sw0     ~~
-          ~~ 10.0.1.0/24 ~~
-            ~~~~~~~~~~~~~
-                  |10.0.1.0/24
-                  |
-                  | .2  r2-eth0
-             +----+----+
-             |    r2   |
-             | 2.2.2.2 |                              P router
-             +--+---+--+
-    r2-eth2  .2 |   | .2  r2-eth1
-         ______/     \______
-        /                   \
-  ~~~~~~~~~~~~~        ~~~~~~~~~~~~~
-~~     sw2     ~~    ~~     sw1     ~~
-~~ 10.0.3.0/24 ~~    ~~ 10.0.2.0/24 ~~
-  ~~~~~~~~~~~~~        ~~~~~~~~~~~~~
-        |                 /    |
-         \      _________/     |
-          \    /                \
-r3-eth1 .3 |  | .3  r3-eth0      | .4 r4-eth0
-      +----+--+---+         +----+----+
-      |     r3    |         |    r4   |
-      |  3.3.3.3  |         | 4.4.4.4 |               PE Routers
-      +-----------+         +---------+
- 192.168.1. | .1     192.168.1.  | .1    rX-eth4
-            | .2                 | .2    ceX-eth0
-      +-----+-----+         +----+-----+
-      |    ce2    |         |   ce3    |
-      | 99.0.0.2  |         | 99.0.0.3 |              CE Routers
-      +-----+-----+         +----+-----+
-            |                    |
-
-"""
-
 import os
 import sys
 import pytest
 
-# Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, '../'))
+sys.path.append(CWD)
 
-# pylint: disable=C0413
-# Import topogen and topotest helpers
-from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
-from lib.lutil import luStart, luInclude, luFinish, luNumFail, luShowFail
+from lib.ltemplate import *
 
-# Required to instantiate the topology builder class.
-from mininet.topo import Topo
+def test_ltemplate_start():
+    ltemplate_start(CWD)
 
-class ThisTestTopo(Topo):
-    "Test topology builder"
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+def test_adjacencies():
+    CliOnFail = None
+    # For debugging, uncomment the next line
+    #CliOnFail = 'tgen.mininet_cli'
+    CheckFunc = 'versionCheck(\'3.1\')'
+    #uncomment next line to start cli *before* script is run
+    #CheckFunc = 'versionCheck(\'3.1\', cli=True)'
+    ltemplateTest('scripts/adjacencies.py', False, CliOnFail, CheckFunc)
 
-        # This function only purpose is to define allocation and relationship
-        # between routers, switches and hosts.
-        #
-        # Create P/PE routers
-        for routern in range(1, 5):
-            tgen.add_router('r{}'.format(routern))
-        # Create CE routers
-        for routern in range(1, 4):
-            tgen.add_router('ce{}'.format(routern))
+def test_add_routes():
+    CliOnFail = None
+    # For debugging, uncomment the next line
+    #CliOnFail = 'tgen.mininet_cli'
+    CheckFunc = 'versionCheck(\'3.1\')'
+    #uncomment next line to start cli *before* script is run
+    #CheckFunc = 'versionCheck(\'3.1\', cli=True)'
+    ltemplateTest('scripts/add_routes.py', False, CliOnFail, CheckFunc)
 
-        #CE/PE links
-        tgen.add_link(tgen.gears['ce1'], tgen.gears['r1'], 'ce1-eth0', 'r1-eth4')
-        tgen.add_link(tgen.gears['ce2'], tgen.gears['r3'], 'ce2-eth0', 'r3-eth4')
-        tgen.add_link(tgen.gears['ce3'], tgen.gears['r4'], 'ce3-eth0', 'r4-eth4')
+def test_check_routes():
+    CliOnFail = None
+    # For debugging, uncomment the next line
+    #CliOnFail = 'tgen.mininet_cli'
+    CheckFunc = 'versionCheck(\'3.1\')'
+    #uncomment next line to start cli *before* script is run
+    #CheckFunc = 'versionCheck(\'3.1\', cli=True)'
+    ltemplateTest('scripts/check_routes.py', False, CliOnFail, CheckFunc)
 
-        # Create a switch with just one router connected to it to simulate a
-        # empty network.
-        switch = {}
-        switch[0] = tgen.add_switch('sw0')
-        switch[0].add_link(tgen.gears['r1'], nodeif='r1-eth0')
-        switch[0].add_link(tgen.gears['r2'], nodeif='r2-eth0')
-
-        switch[1] = tgen.add_switch('sw1')
-        switch[1].add_link(tgen.gears['r2'], nodeif='r2-eth1')
-        switch[1].add_link(tgen.gears['r3'], nodeif='r3-eth0')
-        switch[1].add_link(tgen.gears['r4'], nodeif='r4-eth0')
-
-        switch[1] = tgen.add_switch('sw2')
-        switch[1].add_link(tgen.gears['r2'], nodeif='r2-eth2')
-        switch[1].add_link(tgen.gears['r3'], nodeif='r3-eth1')
-
-def setup_module(mod):
-    "Sets up the pytest environment"
-    # This function initiates the topology build with Topogen...
-    tgen = Topogen(ThisTestTopo, mod.__name__)
-    # ... and here it calls Mininet initialization functions.
-    tgen.start_topology()
-
-    print("Topology started")
-    # This is a sample of configuration loading.
-    router_list = tgen.routers()
-
-    # For all registred routers, load the zebra configuration file
-    for rname, router in router_list.iteritems():
-        print("Setting up %s" % rname)
-        config = os.path.join(CWD, '{}/zebra.conf'.format(rname))
-        if os.path.exists(config):
-            router.load_config(TopoRouter.RD_ZEBRA, config)
-        config = os.path.join(CWD, '{}/ospfd.conf'.format(rname))
-        if os.path.exists(config):
-            router.load_config(TopoRouter.RD_OSPF, config)
-        config = os.path.join(CWD, '{}/ldpd.conf'.format(rname))
-        if os.path.exists(config):
-            router.load_config(TopoRouter.RD_LDP, config)
-        config = os.path.join(CWD, '{}/bgpd.conf'.format(rname))
-        if os.path.exists(config):
-            router.load_config(TopoRouter.RD_BGP, config)
-
-    # After loading the configurations, this function loads configured daemons.
-    print("Starting routers")
-    tgen.start_router()
-
-    # For debugging after starting daemons, uncomment the next line
-    #tgen.mininet_cli()
-
-
-def teardown_module(mod):
-    "Teardown the pytest environment"
-    tgen = get_topogen()
-
-    # This function tears down the whole topology.
-    tgen.stop_topology()
-
-def test_run_lu_tests():
-    tgen = get_topogen()
-
-    # Don't run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    router = tgen.gears['r1']
-    is_pre31 = False
-    try:
-        if router.has_version('<', '3.1'):
-            is_pre31 = True
-            print("\nversion check failed, version < 3.1")
-    except:
-        is_pre31 = False
-
-    if is_pre31 == True:
-        print("\n\n** Skipping main tests on old version (<3.1)")
-    else:
-        print("\n\n** Running main test cases")
-        print("******************************\n")
-
-        luStart(os.path.dirname(os.path.realpath(__file__)),
-                router.logdir, tgen.net)
-
-        CliOnFail = False
-        # For debugging, uncomment the next line
-        #CliOnFail = tgen.mininet_cli
-
-        luInclude('teststart.py', CliOnFail)
-        # For debugging, uncomment the next line
-        #tgen.mininet_cli()
-
-        luInclude('testfinish.py', CliOnFail)
-        print(luFinish())
-
-        # For debugging after starting FRR/Quagga daemons, uncomment the next line
-        #tgen.mininet_cli()
-
-        # Make sure that all daemons are running
-        numFail = luNumFail()
-        if numFail > 0:
-            luShowFail()
-            fatal_error = '%d tests failed' % numFail
-            assert fatal_error == 'See summary output above', fatal_error
-
-# Memory leak test template
-def test_memory_leak():
-    "Run the memory leak test and report results."
-    tgen = get_topogen()
-    if not tgen.is_memleak_enabled():
-        pytest.skip('Memory leak test/report is disabled')
-
-    tgen.report_memory_leaks()
+def test_cleanup_all():
+    CliOnFail = None
+    # For debugging, uncomment the next line
+    #CliOnFail = 'tgen.mininet_cli'
+    CheckFunc = 'versionCheck(\'3.1\')'
+    #uncomment next line to start cli *before* script is run
+    #CheckFunc = 'versionCheck(\'3.1\', cli=True)'
+    ltemplateTest('scripts/cleanup_all.py', False, CliOnFail, CheckFunc)
 
 if __name__ == '__main__':
-    args = ["-s"] + sys.argv[1:]
-    sys.exit(pytest.main(args))
+    retval = pytest.main(["-s"])
+    sys.exit(retval)
