@@ -86,6 +86,32 @@ static int vrf_name_compare(const struct vrf *a, const struct vrf *b)
 	return strcmp(a->name, b->name);
 }
 
+int vrf_switch_to_netns(vrf_id_t vrf_id)
+{
+	char *name;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+	/* VRF has no NETNS backend. silently ignore */
+	if (!vrf || vrf->data.l.netns_name[0] == '\0')
+		return 0;
+	/* VRF is default VRF. silently ignore */
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return 0;
+	name = ns_netns_pathname(NULL, vrf->data.l.netns_name);
+	if (debug_vrf)
+		zlog_debug("VRF_SWITCH: %s(%u)", name, vrf->vrf_id);
+	return ns_switch_to_netns(name);
+}
+
+int vrf_switchback_to_initial(void)
+{
+	int ret = ns_switchback_to_initial();
+
+	if (ret == 0 && debug_vrf)
+		zlog_debug("VRF_SWITCHBACK");
+	return ret;
+}
+
 /* return 1 if vrf can be enabled */
 int vrf_update_vrf_id(vrf_id_t vrf_id, struct vrf *vrf)
 {
@@ -501,6 +527,17 @@ int vrf_handler_create(struct vty *vty, const char *vrfname, struct vrf **vrf)
 	if (vrf)
 		*vrf = vrfp;
 	return CMD_SUCCESS;
+}
+
+int vrf_is_mapped_on_netns(vrf_id_t vrf_id)
+{
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+	if (!vrf || vrf->data.l.netns_name[0] == '\0')
+		return 0;
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return 0;
+	return 1;
 }
 
 /* vrf CLI commands */

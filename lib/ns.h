@@ -84,6 +84,7 @@ extern void ns_add_hook(int type, int (*)(struct ns *));
 /*
  * NS initializer/destructor
  */
+extern void ns_init(void);
 extern void ns_init_zebra(void);
 extern void ns_terminate(void);
 
@@ -100,5 +101,10 @@ extern char *ns_netns_pathname(struct vty *vty, const char *name);
 extern void *ns_info_lookup(ns_id_t ns_id);
 extern void ns_walk_func(int (*func)(struct ns *));
 extern const char *ns_get_name(struct ns *ns);
+
+/* API that can be used by all daemons */
+extern int ns_switchback_to_initial(void);
+extern int ns_switch_to_netns(const char *netns_name);
+extern void ns_init(void);
 
 #endif /*_ZEBRA_NS_H*/

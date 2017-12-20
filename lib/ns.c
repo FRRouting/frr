@@ -51,6 +51,9 @@ RB_GENERATE(ns_head, ns, entry, ns_compare)
 
 struct ns_head ns_tree = RB_INITIALIZER(&ns_tree);
 
+static int ns_current_ns_fd;
+static int ns_default_ns_fd;
+
 #ifndef CLONE_NEWNET
 #define CLONE_NEWNET 0x40000000 /* New network namespace (lo, device, names sockets, etc) */
 #endif
@@ -613,13 +616,26 @@ DEFUN (no_ns_netns,
 	return CMD_SUCCESS;
 }
 
+void ns_init(void)
+{
+#ifdef HAVE_NETNS
+	if (have_netns_enabled < 0) {
+		ns_default_ns_fd = open(NS_DEFAULT_NAME, O_RDONLY);
+		return;
+	}
+#endif /* HAVE_NETNS */
+	ns_default_ns_fd = -1;
+}
+
 /* Initialize NS module. */
 void ns_init_zebra(void)
 {
 	struct ns *default_ns;
 
+	ns_init();
 	/* The default NS always exists. */
 	default_ns = ns_get(NS_DEFAULT);
+	ns_current_ns_fd = -1;
 	if (!default_ns) {
 		zlog_err("ns_init: failed to create the default NS!");
 		exit(1);
@@ -661,6 +677,40 @@ void ns_terminate(void)
 		ns_delete(ns);
 }
 
+int ns_switch_to_netns(const char *name)
+{
+	int ret;
+	int fd;
+
+	if (name == NULL)
+		return -1;
+	fd = open(name, O_RDONLY);
+	if (fd == -1) {
+		errno = ENOSYS;
+		return -1;
+	}
+	ret = setns(fd, CLONE_NEWNET);
+	ns_current_ns_fd = fd;
+	close(fd);
+	return ret;
+}
+
+/* returns 1 if switch() was not called before
+ * return status of setns() otherwise
+ */
+int ns_switchback_to_initial(void)
+{
+	if (ns_current_ns_fd != -1) {
+		int ret;
+
+		ret = setns(ns_default_ns_fd, CLONE_NEWNET);
+		ns_current_ns_fd = -1;
+		return ret;
+	}
+	/* silently ignore if setns() is not called */
+	return 1;
+}
+
 /* Create a socket for the NS. */
 int ns_socket(int domain, int type, int protocol, ns_id_t ns_id)
 {
@@ -676,8 +726,10 @@ int ns_socket(int domain, int type, int protocol, ns_id_t ns_id)
 		ret = (ns_id != NS_DEFAULT) ? setns(ns->fd, CLONE_NEWNET) : 0;
 		if (ret >= 0) {
 			ret = socket(domain, type, protocol);
-			if (ns_id != NS_DEFAULT)
+			if (ns_id != NS_DEFAULT) {
 				setns(ns_lookup(NS_DEFAULT)->fd, CLONE_NEWNET);
+				ns_current_ns_fd = ns_id;
+			}
 		}
 	} else
 		ret = socket(domain, type, protocol);
