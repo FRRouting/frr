@@ -165,15 +165,8 @@ def test_isis_route_installation():
                         continue
 
                     for nexthop in route['nexthops']:
-                        try:
-                            nexthop.pop('interfaceIndex')
-                        except KeyError:
-                            pass
-
-                        try:
-                            nexthop.pop('interfaceName')
-                        except KeyError:
-                            pass
+                        nexthop.pop('interfaceIndex', None)
+                        nexthop.pop('interfaceName', None)
 
         assertmsg = "Router '{}' routes mismatch".format(rname)
         assert topotest.json_cmp(actual, expected) is None, assertmsg
