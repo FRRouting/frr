@@ -3038,7 +3038,7 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 
 	/* Create BGP server socket, if first instance.  */
 	if (list_isempty(bm->bgp) && !bgp_option_check(BGP_OPT_NO_LISTEN)) {
-		if (bgp_socket(bm->port, bm->address) < 0)
+		if (bgp_socket(bgp, bm->port, bm->address) < 0)
 			return BGP_ERR_INVALID_VALUE;
 	}
 
