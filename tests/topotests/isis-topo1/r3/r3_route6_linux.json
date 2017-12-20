@@ -1,0 +1,32 @@
+{
+  "2001:db8:1:2::/64": {
+    "dev": "r3-eth1",
+    "metric": "20",
+    "pref": "medium",
+    "proto": "187"
+  },
+  "2001:db8:2:2::/64": {
+    "dev": "r3-eth1",
+    "metric": "20",
+    "pref": "medium",
+    "proto": "187"
+  },
+  "2001:db8:f::1": {
+    "dev": "r3-eth0",
+    "metric": "20",
+    "pref": "medium",
+    "proto": "187"
+  },
+  "2001:db8:f::4": {
+    "dev": "r3-eth1",
+    "metric": "20",
+    "pref": "medium",
+    "proto": "187"
+  },
+  "2001:db8:f::5": {
+    "dev": "r3-eth1",
+    "metric": "20",
+    "pref": "medium",
+    "proto": "187"
+  }
+}
