@@ -218,6 +218,13 @@ extern int vrf_handler_create(struct vty *vty,
 			      const char *name,
 			      struct vrf **vrf);
 
+/* VRF is mapped on netns or not ? */
+int vrf_is_mapped_on_netns(vrf_id_t vrf_id);
+
+/* VRF switch from NETNS */
+extern int vrf_switch_to_netns(vrf_id_t vrf_id);
+extern int vrf_switchback_to_initial(void);
+
 /* used by NS when vrf backend is NS.
  * Notify a change in the VRF ID of the VRF
  */
