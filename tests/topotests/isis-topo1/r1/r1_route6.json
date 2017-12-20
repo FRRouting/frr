@@ -1,0 +1,70 @@
+{
+  "2001:db8:1:1::/64": [
+    {
+      "nexthops": [
+        {
+          "active": true,
+          "directlyConnected": true,
+          "fib": true,
+          "interfaceIndex": 2,
+          "interfaceName": "r1-eth0"
+        }
+      ],
+      "prefix": "2001:db8:1:1::/64",
+      "protocol": "connected",
+      "selected": true
+    }
+  ],
+  "2001:db8:2:1::/64": [
+    {
+      "distance": 115,
+      "metric": 10,
+      "nexthops": [
+        {
+          "active": true,
+          "afi": "ipv6",
+          "fib": true,
+          "interfaceIndex": 2,
+          "interfaceName": "r1-eth0"
+        }
+      ],
+      "prefix": "2001:db8:2:1::/64",
+      "protocol": "isis",
+      "selected": true
+    }
+  ],
+  "2001:db8:f::1/128": [
+    {
+      "nexthops": [
+        {
+          "active": true,
+          "directlyConnected": true,
+          "fib": true,
+          "interfaceIndex": 1,
+          "interfaceName": "lo"
+        }
+      ],
+      "prefix": "2001:db8:f::1/128",
+      "protocol": "connected",
+      "selected": true
+    }
+  ],
+  "2001:db8:f::3/128": [
+    {
+      "distance": 115,
+      "metric": 10,
+      "nexthops": [
+        {
+          "active": true,
+          "afi": "ipv6",
+          "fib": true,
+          "interfaceIndex": 2,
+          "interfaceName": "r1-eth0"
+        }
+      ],
+      "prefix": "2001:db8:f::3/128",
+      "protocol": "isis",
+      "selected": true
+    }
+  ]
+}

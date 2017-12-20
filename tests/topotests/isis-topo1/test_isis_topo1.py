@@ -204,6 +204,39 @@ def test_isis_linux_route_installation():
         assert topotest.json_cmp(actual, expected) is None, assertmsg
 
 
+def test_isis_route6_installation():
+    "Check whether all expected routes are present"
+    tgen = get_topogen()
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    logger.info('Checking routers for installed ISIS IPv6 routes')
+
+    # Check for routes in 'show ip route json'
+    for rname, router in tgen.routers().iteritems():
+        filename = '{0}/{1}/{1}_route6.json'.format(CWD, rname)
+        expected = json.loads(open(filename, 'r').read())
+        actual = router.vtysh_cmd('show ipv6 route json', isjson=True)
+
+        # Older FRR versions don't list interfaces in some ISIS routes
+        if router.has_version('<', '3.1'):
+            for network, routes in expected.iteritems():
+                for route in routes:
+                    # Older versions display different metrics for IPv6 routes
+                    route.pop('metric', None)
+
+                    if route['protocol'] != 'isis':
+                        continue
+
+                    for nexthop in route['nexthops']:
+                        nexthop.pop('interfaceIndex', None)
+                        nexthop.pop('interfaceName', None)
+
+        assertmsg = "Router '{}' routes mismatch".format(rname)
+        assert topotest.json_cmp(actual, expected) is None, assertmsg
+
+
 def test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
