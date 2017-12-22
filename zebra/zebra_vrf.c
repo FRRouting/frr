@@ -86,12 +86,9 @@ static int zebra_vrf_new(struct vrf *vrf)
 		zlog_info("ZVRF %s with id %u", vrf->name, vrf->vrf_id);
 
 	zvrf = zebra_vrf_alloc();
-	zvrf->zns = zebra_ns_lookup(
-		NS_DEFAULT); /* Point to the global (single) NS */
-	router_id_init(zvrf);
 	vrf->info = zvrf;
 	zvrf->vrf = vrf;
-
+	router_id_init(zvrf);
 	return 0;
 }
 
@@ -108,6 +105,10 @@ static int zebra_vrf_enable(struct vrf *vrf)
 
 	assert(zvrf);
 
+	if (vrf_is_backend_netns())
+		zvrf->zns = zebra_ns_lookup((ns_id_t)vrf->vrf_id);
+	else
+		zvrf->zns = zebra_ns_lookup(NS_DEFAULT);
 	zebra_vrf_add_update(zvrf);
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
