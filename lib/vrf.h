@@ -42,6 +42,7 @@ enum { IFLA_VRF_UNSPEC, IFLA_VRF_TABLE, __IFLA_VRF_MAX };
 #endif
 
 #define VRF_NAMSIZ      36
+#define NS_NAMSIZ       16
 
 #define VRF_DEFAULT_NAME    "Default-IP-Routing-Table"
 
@@ -60,6 +61,7 @@ struct vrf_data {
 	union {
 		struct {
 			uint32_t table_id;
+			char netns_name[NS_NAMSIZ];
 		} l;
 	};
 };

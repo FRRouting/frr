@@ -28,6 +28,9 @@
 #include <sched.h>
 #endif
 
+/* for basename */
+#include <libgen.h>
+
 #include "if.h"
 #include "ns.h"
 #include "log.h"
@@ -353,6 +356,7 @@ char *ns_netns_pathname(struct vty *vty, const char *name)
 {
 	static char pathname[PATH_MAX];
 	char *result;
+	char *check_base;
 
 	if (name[0] == '/') /* absolute pathname */
 		result = realpath(name, pathname);
@@ -367,6 +371,21 @@ char *ns_netns_pathname(struct vty *vty, const char *name)
 		if (vty)
 			vty_out(vty, "Invalid pathname: %s\n",
 				safe_strerror(errno));
+		else
+			zlog_warn("Invalid pathname: %s",
+				  safe_strerror(errno));
+		return NULL;
+	}
+	check_base = basename(pathname);
+	if (check_base != NULL && strlen(check_base) + 1 > NS_NAMSIZ) {
+		if (vty)
+			vty_out(vty, "NS name (%s) invalid:"
+				" too long( %d needed)\n",
+				check_base, NS_NAMSIZ-1);
+		else
+			zlog_warn("NS name (%s) invalid:"
+				  " too long ( %d needed)",
+				  check_base, NS_NAMSIZ-1);
 		return NULL;
 	}
 	return pathname;
@@ -489,6 +508,8 @@ int ns_handler_create(struct vty *vty, struct vrf *vrf,
 	if (ns && ns->vrf_ctxt) {
 		struct vrf *vrf2 = (struct vrf *)ns->vrf_ctxt;
 
+		if (vrf2 == vrf)
+			return CMD_SUCCESS;
 		if (vty)
 			vty_out(vty, "NS %s is already configured"
 				" with VRF %u(%s)\n",
@@ -507,6 +528,10 @@ int ns_handler_create(struct vty *vty, struct vrf *vrf,
 	}
 	ns->vrf_ctxt = (void *)vrf;
 	vrf->ns_ctxt = (void *)ns;
+	/* update VRF netns NAME */
+	if (vrf)
+		strlcpy(vrf->data.l.netns_name, basename(pathname), NS_NAMSIZ);
+
 	if (!ns_enable(ns)) {
 		if (vty)
 			vty_out(vty, "Can not associate NS %u with NETNS %s\n",
