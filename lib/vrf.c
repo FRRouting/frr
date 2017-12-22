@@ -43,7 +43,6 @@ RB_GENERATE(vrf_name_head, vrf, name_entry, vrf_name_compare);
 
 struct vrf_id_head vrfs_by_id = RB_INITIALIZER(&vrfs_by_id);
 struct vrf_name_head vrfs_by_name = RB_INITIALIZER(&vrfs_by_name);
-
 /*
  * Turn on/off debug code
  * for vrf.
@@ -94,7 +93,7 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 	int new = 0;
 
 	if (debug_vrf)
-		zlog_debug("VRF_GET: %s(%d)", name, vrf_id);
+		zlog_debug("VRF_GET: %s(%u)", name, vrf_id);
 
 	/* Nothing to see, move along here */
 	if (!name && vrf_id == VRF_UNKNOWN)
@@ -230,7 +229,6 @@ vrf_id_t vrf_name_to_id(const char *name)
 	struct vrf *vrf;
 	vrf_id_t vrf_id = VRF_DEFAULT; // Pending: need a way to return invalid
 				       // id/ routine not used.
-
 	vrf = vrf_lookup_by_name(name);
 	if (vrf)
 		vrf_id = vrf->vrf_id;
@@ -257,7 +255,7 @@ void *vrf_info_lookup(vrf_id_t vrf_id)
  */
 
 #define VRF_BITMAP_NUM_OF_GROUPS            8
-#define VRF_BITMAP_NUM_OF_BITS_IN_GROUP (UINT16_MAX / VRF_BITMAP_NUM_OF_GROUPS)
+#define VRF_BITMAP_NUM_OF_BITS_IN_GROUP (UINT32_MAX / VRF_BITMAP_NUM_OF_GROUPS)
 #define VRF_BITMAP_NUM_OF_BYTES_IN_GROUP                                       \
 	(VRF_BITMAP_NUM_OF_BITS_IN_GROUP / CHAR_BIT + 1) /* +1 for ensure */
 
@@ -344,7 +342,7 @@ static void vrf_autocomplete(vector comps, struct cmd_token *token)
 	struct vrf *vrf = NULL;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (vrf->vrf_id != 0)
+		if (vrf->vrf_id != VRF_DEFAULT)
 			vector_set(comps, XSTRDUP(MTYPE_COMPLETION, vrf->name));
 	}
 }

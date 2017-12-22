@@ -1259,7 +1259,7 @@ void bgp_zebra_withdraw(struct prefix *p, struct bgp_info *info, safi_t safi)
 }
 
 struct bgp_redist *bgp_redist_lookup(struct bgp *bgp, afi_t afi, u_char type,
-				     u_short instance)
+				     vrf_id_t instance)
 {
 	struct list *red_list;
 	struct listnode *node;

@@ -147,7 +147,7 @@ struct bgp_rmap {
 };
 
 struct bgp_redist {
-	u_short instance;
+	vrf_id_t instance;
 
 	/* BGP redistribute metric configuration. */
 	u_char redist_metric_flag;

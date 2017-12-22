@@ -155,7 +155,7 @@ void zserv_create_header(struct stream *s, uint16_t cmd, vrf_id_t vrf_id)
 	stream_putw(s, ZEBRA_HEADER_SIZE);
 	stream_putc(s, ZEBRA_HEADER_MARKER);
 	stream_putc(s, ZSERV_VERSION);
-	stream_putw(s, vrf_id);
+	stream_putl(s, vrf_id);
 	stream_putw(s, cmd);
 }
 
@@ -508,7 +508,7 @@ int zsend_interface_vrf_update(struct zserv *client, struct interface *ifp,
 
 	/* Fill in the ifIndex of the interface and its new VRF (id) */
 	stream_putl(s, ifp->ifindex);
-	stream_putw(s, vrf_id);
+	stream_putl(s, vrf_id);
 
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -2437,11 +2437,11 @@ static int zread_interface_set_master(struct zserv *client,
 	int ifindex;
 	vrf_id_t vrf_id;
 
-	STREAM_GETW(s, vrf_id);
+	STREAM_GETL(s, vrf_id);
 	STREAM_GETL(s, ifindex);
 	master = if_lookup_by_index(ifindex, vrf_id);
 
-	STREAM_GETW(s, vrf_id);
+	STREAM_GETL(s, vrf_id);
 	STREAM_GETL(s, ifindex);
 	slave = if_lookup_by_index(ifindex, vrf_id);
 
@@ -2679,7 +2679,7 @@ static int zebra_client_read(struct thread *thread)
 		STREAM_GETW(client->ibuf, length);
 		STREAM_GETC(client->ibuf, marker);
 		STREAM_GETC(client->ibuf, version);
-		STREAM_GETW(client->ibuf, vrf_id);
+		STREAM_GETL(client->ibuf, vrf_id);
 		STREAM_GETW(client->ibuf, command);
 
 		if (marker != ZEBRA_HEADER_MARKER || version != ZSERV_VERSION) {
