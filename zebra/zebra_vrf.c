@@ -91,12 +91,9 @@ static int zebra_vrf_new(struct vrf *vrf)
 		zlog_info("VRF %s created, id %u", vrf->name, vrf->vrf_id);
 
 	zvrf = zebra_vrf_alloc();
-	zvrf->zns = zebra_ns_lookup(
-		NS_DEFAULT); /* Point to the global (single) NS */
-	router_id_init(zvrf);
 	vrf->info = zvrf;
 	zvrf->vrf = vrf;
-
+	router_id_init(zvrf);
 	return 0;
 }
 
@@ -117,6 +114,10 @@ static int zebra_vrf_enable(struct vrf *vrf)
 		zlog_debug("VRF %s id %u is now active",
 			   zvrf_name(zvrf), zvrf_id(zvrf));
 
+	if (vrf_is_backend_netns())
+		zvrf->zns = zebra_ns_lookup((ns_id_t)vrf->vrf_id);
+	else
+		zvrf->zns = zebra_ns_lookup(NS_DEFAULT);
 	/* Inform clients that the VRF is now active. This is an
 	 * add for the clients.
 	 */
