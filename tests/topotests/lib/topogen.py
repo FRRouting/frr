@@ -48,6 +48,7 @@ import grp
 import platform
 import pwd
 import subprocess
+import pytest
 
 from mininet.net import Mininet
 from mininet.log import setLogLevel
