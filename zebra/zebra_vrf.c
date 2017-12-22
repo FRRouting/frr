@@ -77,7 +77,7 @@ void zebra_vrf_update_all(struct zserv *client)
 	struct vrf *vrf;
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		if (vrf->vrf_id)
+		if (vrf->vrf_id != VRF_UNKNOWN)
 			zsend_vrf_add(client, vrf_info_lookup(vrf->vrf_id));
 	}
 }
