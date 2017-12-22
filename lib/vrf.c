@@ -131,8 +131,6 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 	if (vrf == NULL) {
 		vrf = XCALLOC(MTYPE_VRF, sizeof(struct vrf));
 		vrf->vrf_id = VRF_UNKNOWN;
-		RB_INIT(if_name_head, &vrf->ifaces_by_name);
-		RB_INIT(if_index_head, &vrf->ifaces_by_index);
 		QOBJ_REG(vrf, vrf);
 		new = 1;
 
@@ -156,7 +154,8 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 		strlcpy(vrf->name, name, sizeof(vrf->name));
 		RB_INSERT(vrf_name_head, &vrfs_by_name, vrf);
 	}
-
+	if (vrf && vrf->name)
+		strlcpy(vrf->data.l.netns_name, basename(vrf->name), NS_NAMSIZ);
 	if (new &&vrf_master.vrf_new_hook)
 		(*vrf_master.vrf_new_hook)(vrf);
 
