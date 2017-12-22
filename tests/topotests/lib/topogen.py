@@ -386,7 +386,7 @@ class Topogen(object):
 
         if errors != '':
             self.set_error(errors, 'router_error')
-            assert errors != '', errors
+            assert False, errors
             return True
         return False
 
