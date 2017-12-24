@@ -492,19 +492,13 @@ unsigned int attrhash_key_make(void *p)
 	const struct attr *attr = (struct attr *)p;
 	uint32_t key = 0;
 #define MIX(val)	key = jhash_1word(val, key)
+#define MIX3(a, b, c)	key = jhash_3words((a), (b), (c), key)
 
-	MIX(attr->origin);
-	MIX(attr->nexthop.s_addr);
-	MIX(attr->med);
-	MIX(attr->local_pref);
-	MIX(attr->aggregator_as);
-	MIX(attr->aggregator_addr.s_addr);
-	MIX(attr->weight);
-	MIX(attr->mp_nexthop_global_in.s_addr);
-	MIX(attr->originator_id.s_addr);
-	MIX(attr->tag);
-	MIX(attr->label);
-	MIX(attr->label_index);
+	MIX3(attr->origin, attr->nexthop.s_addr, attr->med);
+	MIX3(attr->local_pref, attr->aggregator_as, attr->aggregator_addr.s_addr);
+	MIX3(attr->weight, attr->mp_nexthop_global_in.s_addr,
+	     attr->originator_id.s_addr);
+	MIX3(attr->tag, attr->label, attr->label_index);
 
 	if (attr->aspath)
 		MIX(aspath_key_make(attr->aspath));
@@ -550,12 +544,6 @@ int attrhash_cmp(const void *p1, const void *p2)
 		    && attr1->tag == attr2->tag
 		    && attr1->label_index == attr2->label_index
 		    && attr1->mp_nexthop_len == attr2->mp_nexthop_len
-		    && IPV6_ADDR_SAME(&attr1->mp_nexthop_global,
-				      &attr2->mp_nexthop_global)
-		    && IPV6_ADDR_SAME(&attr1->mp_nexthop_local,
-				      &attr2->mp_nexthop_local)
-		    && IPV4_ADDR_SAME(&attr1->mp_nexthop_global_in,
-				      &attr2->mp_nexthop_global_in)
 		    && attr1->ecommunity == attr2->ecommunity
 		    && attr1->lcommunity == attr2->lcommunity
 		    && attr1->cluster == attr2->cluster
@@ -565,6 +553,12 @@ int attrhash_cmp(const void *p1, const void *p2)
 #if ENABLE_BGP_VNC
 		    && encap_same(attr1->vnc_subtlvs, attr2->vnc_subtlvs)
 #endif
+		    && IPV6_ADDR_SAME(&attr1->mp_nexthop_global,
+				      &attr2->mp_nexthop_global)
+		    && IPV6_ADDR_SAME(&attr1->mp_nexthop_local,
+				      &attr2->mp_nexthop_local)
+		    && IPV4_ADDR_SAME(&attr1->mp_nexthop_global_in,
+				      &attr2->mp_nexthop_global_in)
 		    && IPV4_ADDR_SAME(&attr1->originator_id,
 				      &attr2->originator_id)
 		    && overlay_index_same(attr1, attr2))

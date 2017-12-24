@@ -46,15 +46,14 @@
 #include "privs.h"
 
 struct bpf_insn llcfilter[] = {
-	/* check first byte */
-	BPF_STMT(BPF_LD + BPF_B + BPF_ABS, ETH_ALEN),
+	BPF_STMT(BPF_LD + BPF_B + BPF_ABS,
+		 ETHER_HDR_LEN), /* check first byte */
 	BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ISO_SAP, 0, 5),
-	/* check second byte */
-	BPF_STMT(BPF_LD + BPF_B + BPF_ABS, ETH_ALEN + 1),
-	BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ISO_SAP, 0, 3),
-	/* check third byte */
-	BPF_STMT(BPF_LD + BPF_B + BPF_ABS, ETH_ALEN + 2),
-	BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x03, 0, 1),
+	BPF_STMT(BPF_LD + BPF_B + BPF_ABS, ETHER_HDR_LEN + 1),
+	BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, ISO_SAP, 0,
+		 3), /* check second byte */
+	BPF_STMT(BPF_LD + BPF_B + BPF_ABS, ETHER_HDR_LEN + 2),
+	BPF_JUMP(BPF_JMP + BPF_JEQ + BPF_K, 0x03, 0, 1), /* check third byte */
 	BPF_STMT(BPF_RET + BPF_K, (u_int)-1),
 	BPF_STMT(BPF_RET + BPF_K, 0)};
 u_int readblen = 0;
@@ -242,14 +241,15 @@ int isis_recv_pdu_bcast(struct isis_circuit *circuit, u_char *ssnpa)
 
 	assert(bpf_hdr->bh_caplen == bpf_hdr->bh_datalen);
 
-	offset = bpf_hdr->bh_hdrlen + LLC_LEN + ETH_ALEN;
+	offset = bpf_hdr->bh_hdrlen + LLC_LEN + ETHER_HDR_LEN;
 
 	/* then we lose the BPF, LLC and ethernet headers */
 	stream_write(circuit->rcv_stream, readbuff + offset,
-		     bpf_hdr->bh_caplen - LLC_LEN - ETH_ALEN);
+		     bpf_hdr->bh_caplen - LLC_LEN - ETHER_HDR_LEN);
 	stream_set_getp(circuit->rcv_stream, 0);
 
-	memcpy(ssnpa, readbuff + bpf_hdr->bh_hdrlen + ETH_ALEN, ETH_ALEN);
+	memcpy(ssnpa, readbuff + bpf_hdr->bh_hdrlen + ETH_ALEN,
+	       ETH_ALEN);
 
 	if (ioctl(circuit->fd, BIOCFLUSH, &one) < 0)
 		zlog_warn("Flushing failed: %s", safe_strerror(errno));
@@ -263,7 +263,7 @@ int isis_send_pdu_bcast(struct isis_circuit *circuit, int level)
 	ssize_t written;
 	size_t buflen;
 
-	buflen = stream_get_endp(circuit->snd_stream) + LLC_LEN + ETH_ALEN;
+	buflen = stream_get_endp(circuit->snd_stream) + LLC_LEN + ETHER_HDR_LEN;
 	if (buflen > sizeof(sock_buff)) {
 		zlog_warn(
 			"isis_send_pdu_bcast: sock_buff size %zu is less than "
@@ -289,12 +289,12 @@ int isis_send_pdu_bcast(struct isis_circuit *circuit, int level)
 	/*
 	 * Then the LLC
 	 */
-	sock_buff[ETH_ALEN] = ISO_SAP;
-	sock_buff[ETH_ALEN + 1] = ISO_SAP;
-	sock_buff[ETH_ALEN + 2] = 0x03;
+	sock_buff[ETHER_HDR_LEN] = ISO_SAP;
+	sock_buff[ETHER_HDR_LEN + 1] = ISO_SAP;
+	sock_buff[ETHER_HDR_LEN + 2] = 0x03;
 
 	/* then we copy the data */
-	memcpy(sock_buff + (LLC_LEN + ETH_ALEN), circuit->snd_stream->data,
+	memcpy(sock_buff + (LLC_LEN + ETHER_HDR_LEN), circuit->snd_stream->data,
 	       stream_get_endp(circuit->snd_stream));
 
 	/* now we can send this */

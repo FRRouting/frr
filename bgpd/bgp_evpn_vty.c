@@ -414,9 +414,9 @@ static void show_vni_entry(struct hash_backet *backet, void *args[])
 {
 	struct vty *vty;
 	json_object *json;
-	json_object *json_vni;
-	json_object *json_import_rtl;
-	json_object *json_export_rtl;
+	json_object *json_vni = NULL;
+	json_object *json_import_rtl = NULL;
+	json_object *json_export_rtl = NULL;
 	struct bgpevpn *vpn = (struct bgpevpn *)backet->data;
 	char buf1[10];
 	char buf2[RD_ADDRSTRLEN];

@@ -354,6 +354,8 @@ AC_ARG_ENABLE(logfile_mask,
   AS_HELP_STRING([--enable-logfile-mask=ARG], [set mask for log files]))
 AC_ARG_ENABLE(shell_access,
   AS_HELP_STRING([--enable-shell-access], [Allow users to access shell/telnet/ssh]))
+AC_ARG_ENABLE(realms,
+  AS_HELP_STRING([--enable-realms], [enable REALMS support under Linux]))
 AC_ARG_ENABLE(rtadv,
   AS_HELP_STRING([--disable-rtadv], [disable IPV6 router advertisement feature]))
 AC_ARG_ENABLE(irdp,
@@ -879,6 +881,7 @@ case "$host_os" in
 
     AC_DEFINE(OPEN_BSD,,OpenBSD)
     AC_DEFINE(KAME,1,KAME IPv6)
+    AC_DEFINE(BSD_V6_SYSCTL,1,BSD v6 sysctl to turn on and off forwarding)
 
     if test "x${enable_pimd}" != "xno"; then
       case "$host_os" in
@@ -895,11 +898,28 @@ case "$host_os" in
 
     AC_DEFINE(HAVE_NET_RT_IFLIST,,NET_RT_IFLIST)
     AC_DEFINE(KAME,1,KAME IPv6)
+    AC_DEFINE(BSD_V6_SYSCTL,1,BSD v6 sysctl to turn on and off forwarding)
     ;;
 esac
 AM_CONDITIONAL(SOLARIS, test "${SOLARIS}" = "solaris")
 
 AC_SYS_LARGEFILE
+
+dnl ------------------------
+dnl Integrated REALMS option
+dnl ------------------------
+if test "${enable_realms}" = "yes"; then
+    case "$host_os" in
+      linux*)
+       AC_DEFINE(SUPPORT_REALMS,, Realms support)
+       ;;
+      *)
+       echo "Sorry, only Linux has REALMS support"
+       exit 1
+       ;;
+    esac
+fi
+AM_CONDITIONAL([SUPPORT_REALMS], [test "${enable_realms}" = "yes"])
 
 dnl ---------------------
 dnl Integrated VTY option
