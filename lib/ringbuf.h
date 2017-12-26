@@ -84,6 +84,21 @@ size_t ringbuf_put(struct ringbuf *buf, const void *data, size_t size);
 size_t ringbuf_get(struct ringbuf *buf, void *data, size_t size);
 
 /*
+ * Peek data from the ring buffer.
+ *
+ * @param offset	where to get the data from, in bytes offset from the
+ *			start of the data
+ * @param data		where to put the data
+ * @param size		how much data to get
+ * @return		number of bytes read into data; will be less than size
+ *			if there was not enough data to read; will be -1 if the
+ *			offset exceeds the amount of data left in the ring
+ *			buffer
+ */
+size_t ringbuf_peek(struct ringbuf *buf, size_t offset, void *data,
+		    size_t size);
+
+/*
  * Reset buffer. Does not wipe.
  *
  * @param buf

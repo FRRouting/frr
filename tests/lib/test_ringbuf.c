@@ -77,7 +77,7 @@ int main(int argc, char **argv)
 
 	/* put another 10 bytes and validate wraparound */
 	printf("Validating wraparound...\n");
-	assert(ringbuf_put(soil, &compost[BUFSIZ / 2], 10) == 10);
+	assert(ringbuf_put(soil, &compost[BUFSIZ/2], 10) == 10);
 
 	validate_state(soil, BUFSIZ, BUFSIZ - 15 + 10);
 	assert(soil->start == 15);
@@ -131,9 +131,9 @@ int main(int argc, char **argv)
 	/* validate simple data encode / decode */
 	const char *organ = "seed";
 	printf("Encoding: '%s'\n", organ);
-	ringbuf_put(soil, organ, strlen(organ));
+	assert(ringbuf_put(soil, organ, strlen(organ)) == 4);
 	char water[strlen(organ) + 1];
-	ringbuf_get(soil, &water, strlen(organ));
+	assert(ringbuf_get(soil, &water, strlen(organ)) == 4);
 	water[strlen(organ)] = '\0';
 	printf("Retrieved: '%s'\n", water);
 
@@ -144,11 +144,26 @@ int main(int argc, char **argv)
 	soil->end = soil->start;
 	const char *phloem = "root";
 	printf("Encoding: '%s'\n", phloem);
-	ringbuf_put(soil, phloem, strlen(phloem));
+	assert(ringbuf_put(soil, phloem, strlen(phloem)) == 4);
 	char xylem[strlen(phloem) + 1];
-	ringbuf_get(soil, &xylem, 100);
+	assert(ringbuf_get(soil, &xylem, 100) == 4);
 	xylem[strlen(phloem)] = '\0';
 	printf("Retrieved: '%s'\n", xylem);
+
+	ringbuf_wipe(soil);
+
+	/* validate simple data peek across ring boundary */
+	soil->start = soil->size - 2;
+	soil->end = soil->start;
+	const char *cytoplasm = "tree";
+	printf("Encoding: '%s'\n", cytoplasm);
+	assert(ringbuf_put(soil, cytoplasm, strlen(cytoplasm)) == 4);
+	char chloroplast[strlen(cytoplasm) + 1];
+	assert(ringbuf_peek(soil, 2, &chloroplast[0], 100) == 2);
+	assert(ringbuf_peek(soil, 0, &chloroplast[2], 2) == 2);
+	chloroplast[strlen(cytoplasm)] = '\0';
+	assert(!strcmp(chloroplast, "eetr"));
+	printf("Retrieved: '%s'\n", chloroplast);
 
 	printf("Deleting...\n");
 	ringbuf_del(soil);

@@ -77,7 +77,7 @@ size_t ringbuf_get(struct ringbuf *buf, void *data, size_t size)
 	size_t remain = ringbuf_remain(buf);
 	size_t copysize = MIN(remain, size);
 	size_t tocopy = copysize;
-	if (tocopy > buf->size - buf->start) {
+	if (tocopy >= buf->size - buf->start) {
 		size_t ts = buf->size - buf->start;
 		memcpy(dp, buf->data + buf->start, ts);
 		buf->start = 0;
@@ -87,6 +87,26 @@ size_t ringbuf_get(struct ringbuf *buf, void *data, size_t size)
 	memcpy(dp, buf->data + buf->start, tocopy);
 	buf->start = buf->start + tocopy;
 	buf->empty = (buf->start == buf->end) && (buf->empty || copysize);
+	return copysize;
+}
+
+size_t ringbuf_peek(struct ringbuf *buf, size_t offset, void *data, size_t size)
+{
+	uint8_t *dp = data;
+	size_t remain = ringbuf_remain(buf);
+	if (offset >= remain)
+		return 0;
+	size_t copysize = MAX(MIN(remain - offset, size), (size_t) 0);
+	size_t tocopy = copysize;
+	size_t cstart = (buf->start + offset) % buf->size;
+	if (tocopy >= buf->size - cstart) {
+		size_t ts = buf->size - cstart;
+		memcpy(dp, buf->data + cstart, ts);
+		buf->start = cstart = 0;
+		tocopy -= ts;
+		dp += ts;
+	}
+	memcpy(dp, buf->data + cstart, tocopy);
 	return copysize;
 }
 
