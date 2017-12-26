@@ -38,7 +38,7 @@
 #include "ospfd/ospf_lsdb.h"
 #include "ospfd/ospf_neighbor.h"
 #include "ospfd/ospf_packet.h"
-
+#include "ospfd/ospf_dump.h"
 
 /* Join to the OSPF ALL SPF ROUTERS multicast group. */
 int ospf_if_add_allspfrouters(struct ospf *top, struct prefix *p,
@@ -56,10 +56,11 @@ int ospf_if_add_allspfrouters(struct ospf *top, struct prefix *p,
 			"on # of multicast group memberships has been exceeded?",
 			top->fd, inet_ntoa(p->u.prefix4), ifindex,
 			safe_strerror(errno));
-	else
-		zlog_debug(
-			"interface %s [%u] join AllSPFRouters Multicast group.",
-			inet_ntoa(p->u.prefix4), ifindex);
+	else {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug("interface %s [%u] join AllSPFRouters Multicast group.",
+				   inet_ntoa(p->u.prefix4), ifindex);
+	}
 
 	return ret;
 }
@@ -78,10 +79,11 @@ int ospf_if_drop_allspfrouters(struct ospf *top, struct prefix *p,
 			"ifindex %u, AllSPFRouters): %s",
 			top->fd, inet_ntoa(p->u.prefix4), ifindex,
 			safe_strerror(errno));
-	else
-		zlog_debug(
-			"interface %s [%u] leave AllSPFRouters Multicast group.",
-			inet_ntoa(p->u.prefix4), ifindex);
+	else {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug("interface %s [%u] leave AllSPFRouters Multicast group.",
+				   inet_ntoa(p->u.prefix4), ifindex);
+	}
 
 	return ret;
 }

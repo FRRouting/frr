@@ -1463,9 +1463,7 @@ void ospf_spf_calculate_schedule(struct ospf *ospf, ospf_spf_reason_t reason)
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("SPF: calculation timer delay = %ld", delay);
-
-	zlog_info("SPF: Scheduled in %ld msec", delay);
+		zlog_debug("SPF: calculation timer delay = %ld msec", delay);
 
 	ospf->t_spf_calc = NULL;
 	thread_add_timer_msec(master, ospf_spf_calculate_timer, ospf, delay,
