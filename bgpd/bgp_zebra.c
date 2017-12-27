@@ -1018,7 +1018,8 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 
 	/* If it is an EVPN route mark as such.
 	 * Currently presence of rmac in attr denotes
-	 * this is an EVPN type-2 route */
+	 * this is an EVPN type-2 route
+	 */
 	if (!is_zero_mac(&(info->attr->rmac)))
 		SET_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE);
 
@@ -1081,7 +1082,8 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 			api_nh->gate.ipv4 = *nexthop;
 
 			/* EVPN type-2 routes are
-			   programmed as onlink on l3-vni SVI */
+			   programmed as onlink on l3-vni SVI
+			 */
 			if (CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE))
 				api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
 			else
@@ -1257,7 +1259,8 @@ void bgp_zebra_withdraw(struct prefix *p, struct bgp_info *info, safi_t safi)
 
 	/* If it is an EVPN route mark as such.
 	 * Currently presence of rmac in attr denotes
-	 * this is an EVPN type-2 route */
+	 * this is an EVPN type-2 route
+	 */
 	if (!is_zero_mac(&(info->attr->rmac)))
 		SET_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE);
 

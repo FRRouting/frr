@@ -7403,7 +7403,8 @@ void bgp_master_init(struct thread_master *master)
 
 	/* init the rd id space.
 	   assign 0th index in the bitfield,
-	   so that we start with id 1 */
+	   so that we start with id 1
+	 */
 	bf_init(bm->rd_idspace, UINT16_MAX);
 	bf_assign_zero_index(bm->rd_idspace);
 

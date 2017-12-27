@@ -687,7 +687,8 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 		attr->ecommunity = ecommunity_merge(attr->ecommunity, ecom);
 
 	/* Add the export RTs for L3VNI - currently only supported for IPV4 host
-	 * routes */
+	 * routes
+	 */
 	if (afi == AFI_IP) {
 		vrf_export_rtl = bgpevpn_get_vrf_export_rtl(vpn);
 		if (vrf_export_rtl && !list_isempty(vrf_export_rtl)) {
@@ -974,7 +975,8 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_def,
 	}
 
 	/* create a new route entry if one doesnt exist.
-	   Otherwise see if route attr has changed */
+	   Otherwise see if route attr has changed
+	 */
 	if (!local_ri) {
 
 		/* route has changed as this is the first entry */
@@ -1696,7 +1698,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	memset(pp, 0, sizeof(struct prefix));
 	if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE)
 		ip_prefix_from_type2_prefix(evp, pp);
-	else if(evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE)
+	else if (evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE)
 		ip_prefix_from_type5_prefix(evp, pp);
 
 	if (bgp_debug_zebra(NULL)) {
@@ -2122,7 +2124,8 @@ static int install_uninstall_routes_for_vrf(struct bgp *bgp_vrf,
 
 			for (ri = rn->info; ri; ri = ri->next) {
 				/* Consider "valid" remote routes applicable for
-				 * this VRF. */
+				 * this VRF.
+				 */
 				if (!(CHECK_FLAG(ri->flags, BGP_INFO_VALID)
 				      && ri->type == ZEBRA_ROUTE_BGP
 				      && ri->sub_type == BGP_ROUTE_NORMAL))
@@ -2231,7 +2234,8 @@ static int install_uninstall_routes_for_vni(struct bgp *bgp,
 }
 
 /* Install any existing remote routes applicable for this VRF into VRF RIB. This
- * is invoked upon l3vni-add or l3vni import rt change */
+ * is invoked upon l3vni-add or l3vni import rt change
+ */
 static int install_routes_for_vrf(struct bgp *bgp_vrf)
 {
 	install_uninstall_routes_for_vrf(bgp_vrf, 1);
@@ -2417,14 +2421,16 @@ static int install_uninstall_evpn_route(struct bgp *bgp, afi_t afi, safi_t safi,
 			continue;
 
 		/* Import route into matching l2-vnis (type-2/type-3 routes go
-		 * into l2vni table) */
+		 * into l2vni table)
+		 */
 		irt = lookup_import_rt(bgp, eval);
 		if (irt && irt->vnis)
 			install_uninstall_route_in_vnis(bgp, afi, safi, evp, ri,
 							irt->vnis, import);
 
 		/* Import route into matching l3-vnis (type-2/type-5 routes go
-		 * into l3vni/vrf table) */
+		 * into l3vni/vrf table)
+		 */
 		vrf_irt = lookup_vrf_import_rt(eval);
 		if (vrf_irt && vrf_irt->vrfs)
 			install_uninstall_route_in_vrfs(bgp, afi, safi, evp, ri,
@@ -2940,7 +2946,8 @@ static void evpn_mpattr_encode_type5(struct stream *s, struct prefix *p,
 	p_evpn_p = &(p->u.prefix_evpn);
 
 	/* len denites the total len of IP and GW-IP in the route
-	   IP and GW-IP have to be both ipv4 or ipv6 */
+	   IP and GW-IP have to be both ipv4 or ipv6
+	 */
 	if (IS_IPADDR_V4(&p_evpn_p->ip))
 		len = 8; /* IP and GWIP are both ipv4 */
 	else
@@ -3284,11 +3291,13 @@ void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw)
 	if (withdraw) {
 
 		/* delete and withdraw all the type-5 routes
-		   stored in the global table for this vrf */
+		   stored in the global table for this vrf
+		 */
 		withdraw_router_id_vrf(bgp);
 
 		/* delete all the VNI routes (type-2/type-3) routes for all the
-		 * L2-VNIs */
+		 * L2-VNIs
+		 */
 		hash_iterate(bgp->vnihash,
 			     (void (*)(struct hash_backet *,
 				       void *))withdraw_router_id_vni,
@@ -3296,11 +3305,13 @@ void bgp_evpn_handle_router_id_update(struct bgp *bgp, int withdraw)
 	} else {
 
 		/* advertise all routes in the vrf as type-5 routes with the new
-		 * RD */
+		 * RD
+		 */
 		update_router_id_vrf(bgp);
 
 		/* advertise all the VNI routes (type-2/type-3) routes with the
-		 * new RD*/
+		 * new RD
+		 */
 		hash_iterate(bgp->vnihash,
 			     (void (*)(struct hash_backet *,
 				       void *))update_router_id_vni,
@@ -4067,7 +4078,8 @@ int bgp_evpn_local_l3vni_add(vni_t l3vni,
 	as_t as = 0;
 
 	/* get the default instamce - required to get the AS number for VRF
-	 * auto-creation*/
+	 * auto-creatio
+	 */
 	bgp_def = bgp_get_default();
 	if (!bgp_def) {
 		zlog_err("Cannot process L3VNI  %u ADD - default BGP instance not yet created",
@@ -4159,7 +4171,8 @@ int bgp_evpn_local_l3vni_del(vni_t l3vni,
 	}
 
 	/* unimport remote routes from VRF, if it is AUTO vrf bgp_delete will
-	 * take care of uninstalling the routes from zebra */
+	 * take care of uninstalling the routes from zebra
+	 */
 	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_AUTO))
 		uninstall_routes_for_vrf(bgp_vrf);
 

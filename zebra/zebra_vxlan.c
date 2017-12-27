@@ -2625,9 +2625,11 @@ static void zvni_build_hash_table()
 			zl3vni->local_vtep_ip = vxl->vtep_ip;
 			zl3vni->vxlan_if = ifp;
 
-			/* we need to associate with SVI.
+			/*
+			 * we need to associate with SVI.
 			 * we can associate with svi-if only after association
-			 * with vxlan-intf is complete */
+			 * with vxlan-intf is complete
+			 */
 			zl3vni->svi_if = zl3vni_map_to_svi_if(zl3vni);
 
 			if (is_l3vni_oper_up(zl3vni))
@@ -2983,7 +2985,8 @@ static int zl3vni_rmac_uninstall(zebra_l3vni_t *zl3vni,
 		return 0;
 
 	if (!zl3vni->vxlan_if) {
-		zlog_err("RMAC %s on L3-VNI %u hash %p couldn't be uninstalled - no vxlan_if",
+		zlog_err(
+			 "RMAC %s on L3-VNI %u hash %p couldn't be uninstalled - no vxlan_if",
 			 prefix_mac2str(&zrmac->macaddr, buf, sizeof(buf)),
 			 zl3vni->vni, zl3vni);
 		return -1;
@@ -3228,7 +3231,7 @@ static int zl3vni_remote_nh_del(zebra_l3vni_t *zl3vni,
  * readd stale entries.
  */
 static int zl3vni_local_nh_add_update(zebra_l3vni_t *zl3vni,
-			              struct ipaddr *ip, u_int16_t state)
+				      struct ipaddr *ip, u_int16_t state)
 {
 #ifdef GNU_LINUX
 	zebra_neigh_t *n = NULL;
@@ -3258,7 +3261,8 @@ static int zl3vni_local_nh_del(zebra_l3vni_t *zl3vni,
 
 	/* all next hop neigh are remote and installed by frr.
 	 * If we get an age out notification for these neigh entries, we have to
-	 * install it back */
+	 * install it back
+	 */
 	zl3vni_nh_install(zl3vni, n);
 
 	return 0;
@@ -3643,7 +3647,8 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf,
 	 * that it can be reprogrammed as L3-VNI in the system. It is also
 	 * possible that the vrf-vni mapping is removed from FRR while the vxlan
 	 * interface is still present in kernel. In this case to keep it
-	 * symmetric, we will delete the l3-vni and reprogram it as l2-vni */
+	 * symmetric, we will delete the l3-vni and reprogram it as l2-vni
+	 */
 	if (add) {
 		/* Locate hash entry */
 		zvni = zvni_lookup(vni);
@@ -3674,7 +3679,8 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf,
 		/* TODO_MITESH: This needs to be thought through. We don't have
 		 * enough information at this point to reprogram the vni as
 		 * l2-vni. One way is to store the required info in l3-vni and
-		 * used it solely for this purpose */
+		 * used it solely for this purpose
+		 */
 	}
 
 	return 0;
@@ -4549,7 +4555,8 @@ int zebra_vxlan_local_neigh_del(struct interface *ifp,
 	zebra_l3vni_t *zl3vni = NULL;
 
 	/* check if this is a remote neigh entry corresponding to remote
-	 * next-hop */
+	 * next-hop
+	 */
 	zl3vni = zl3vni_from_svi(ifp, link_if);
 	if (zl3vni)
 		return zl3vni_local_nh_del(zl3vni, ip);
@@ -5906,7 +5913,8 @@ int zebra_vxlan_if_up(struct interface *ifp)
 		}
 
 		/* we need to associate with SVI, if any, we can associate with
-		 * svi-if only after association with vxlan-intf is complete  */
+		 * svi-if only after association with vxlan-intf is complete
+		 */
 		zl3vni->svi_if = zl3vni_map_to_svi_if(zl3vni);
 
 		if (is_l3vni_oper_up(zl3vni))
@@ -6083,7 +6091,8 @@ int zebra_vxlan_if_update(struct interface *ifp, u_int16_t chgflags)
 		}
 
 		/* access-vlan change - process oper down, associate with new
-		 * svi_if and then process oper up again */
+		 * svi_if and then process oper up again
+		 */
 		if (chgflags & ZEBRA_VXLIF_VLAN_CHANGE) {
 			if (if_is_operative(ifp)) {
 				zebra_vxlan_process_l3vni_oper_down(zl3vni);
@@ -6341,12 +6350,14 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf,
 		zvrf->l3vni = vni;
 
 		/* associate with vxlan-intf;
-		 * we need to associate with the vxlan-intf first */
+		 * we need to associate with the vxlan-intf first
+		 */
 		zl3vni->vxlan_if = zl3vni_map_to_vxlan_if(zl3vni);
 
 		/* associate with corresponding SVI interface, we can associate
 		 * with svi-if only after vxlan interface association is
-		 * complete */
+		 * complete
+		 */
 		zl3vni->svi_if = zl3vni_map_to_svi_if(zl3vni);
 
 		/* formulate l2vni list */

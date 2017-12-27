@@ -321,8 +321,10 @@ int main(int argc, char **argv)
 	 * routing socket. */
 	zebra_ns_init();
 
-	/* Initialize show/config command after the vrf initialization is
-	 * complete */
+	/*
+	 * Initialize show/config command after the vrf initialization is
+	 * complete
+	 */
 	zebra_vty_init();
 
 #if defined(HANDLE_ZAPI_FUZZING)

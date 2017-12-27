@@ -1496,7 +1496,8 @@ static void evpn_configure_vrf_rd(struct bgp *bgp_vrf,
 				  struct prefix_rd *rd)
 {
 	/* If we have already advertise type-5 routes with a diffrent RD, we
-	 * have to delete and withdraw them first*/
+	 * have to delete and withdraw them firs
+	 */
 	bgp_evpn_handle_vrf_rd_change(bgp_vrf, 1);
 
 	/* update RD */
@@ -1504,7 +1505,8 @@ static void evpn_configure_vrf_rd(struct bgp *bgp_vrf,
 	SET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_RD_CFGD);
 
 	/* We have a new RD for VRF.
-	 * Advertise all type-5 routes again with the new RD */
+	 * Advertise all type-5 routes again with the new RD
+	 */
 	bgp_evpn_handle_vrf_rd_change(bgp_vrf, 0);
 }
 
@@ -1514,14 +1516,16 @@ static void evpn_configure_vrf_rd(struct bgp *bgp_vrf,
 static void evpn_unconfigure_vrf_rd(struct bgp *bgp_vrf)
 {
 	/* If we have already advertise type-5 routes with a diffrent RD, we
-	 * have to delete and withdraw them first*/
+	 * have to delete and withdraw them firs
+	 */
 	bgp_evpn_handle_vrf_rd_change(bgp_vrf, 1);
 
 	/* fall back to default RD */
 	bgp_evpn_derive_auto_rd_for_vrf(bgp_vrf);
 
 	/* We have a new RD for VRF.
-	 * Advertise all type-5 routes again with the new RD */
+	 * Advertise all type-5 routes again with the new RD
+	 */
 	bgp_evpn_handle_vrf_rd_change(bgp_vrf, 0);
 }
 
@@ -1578,7 +1582,8 @@ static struct bgpevpn *evpn_create_update_vni(struct bgp *bgp, vni_t vni)
 	vpn = bgp_evpn_lookup_vni(bgp, vni);
 	if (!vpn) {
 		/* tenant vrf will be updated when we get local_vni_add from
-		 * zebra */
+		 * zebra
+		 */
 		vpn = bgp_evpn_new(bgp, vni, bgp->router_id, 0);
 		if (!vpn) {
 			zlog_err(
@@ -2466,7 +2471,8 @@ DEFUN (bgp_evpn_advertise_type5,
 	if (afi == AFI_IP) {
 
 		/* if we are already advertising ipv4 prefix as type-5
-		 * nothing to do */
+		 * nothing to do
+		 */
 		if (!CHECK_FLAG(bgp_vrf->vrf_flags,
 				BGP_VRF_ADVERTISE_IPV4_IN_EVPN)) {
 			SET_FLAG(bgp_vrf->vrf_flags,
@@ -2476,7 +2482,8 @@ DEFUN (bgp_evpn_advertise_type5,
 	} else {
 
 		/* if we are already advertising ipv6 prefix as type-5
-		 * nothing to do */
+		 * nothing to do
+		 */
 		if (!CHECK_FLAG(bgp_vrf->vrf_flags,
 				BGP_VRF_ADVERTISE_IPV6_IN_EVPN)) {
 			SET_FLAG(bgp_vrf->vrf_flags,
@@ -2519,7 +2526,8 @@ DEFUN (no_bgp_evpn_advertise_type5,
 	if (afi == AFI_IP) {
 
 		/* if we are already advertising ipv4 prefix as type-5
-		 * nothing to do */
+		 * nothing to do
+		 */
 		if (CHECK_FLAG(bgp_vrf->vrf_flags,
 			       BGP_VRF_ADVERTISE_IPV4_IN_EVPN)) {
 			bgp_evpn_withdraw_type5_routes(bgp_vrf, afi, safi);
@@ -2529,7 +2537,8 @@ DEFUN (no_bgp_evpn_advertise_type5,
 	} else {
 
 		/* if we are already advertising ipv6 prefix as type-5
-		 * nothing to do */
+		 * nothing to do
+		 */
 		if (CHECK_FLAG(bgp_vrf->vrf_flags,
 			       BGP_VRF_ADVERTISE_IPV6_IN_EVPN)) {
 			bgp_evpn_withdraw_type5_routes(bgp_vrf, afi, safi);

@@ -377,14 +377,14 @@ static inline int advertise_type5_routes(struct bgp *bgp_vrf,
 }
 
 extern void evpn_rt_delete_auto(struct bgp*, vni_t, struct list*);
-extern void bgp_evpn_configure_export_rt_for_vrf(struct bgp*,
-						 struct ecommunity*);
-extern void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp*,
-						   struct ecommunity*);
-extern void bgp_evpn_configure_import_rt_for_vrf(struct bgp*,
-						 struct ecommunity*);
-extern void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp*,
-						   struct ecommunity*);
+extern void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
+						 struct ecommunity *ecomadd);
+extern void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,
+						   struct ecommunity *ecomdel);
+extern void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf,
+						 struct ecommunity *ecomadd);
+extern void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
+						   struct ecommunity *ecomdel);
 extern int bgp_evpn_handle_export_rt_change(struct bgp *bgp,
 					    struct bgpevpn *vpn);
 extern void bgp_evpn_handle_vrf_rd_change(struct bgp *bgp_vrf, int withdraw);
@@ -392,8 +392,8 @@ extern void bgp_evpn_handle_rd_change(struct bgp *bgp, struct bgpevpn *vpn,
 				      int withdraw);
 extern int bgp_evpn_install_routes(struct bgp *bgp, struct bgpevpn *vpn);
 extern int bgp_evpn_uninstall_routes(struct bgp *bgp, struct bgpevpn *vpn);
-extern void bgp_evpn_map_vrf_to_its_rts(struct bgp *);
-extern void bgp_evpn_unmap_vrf_from_its_rts(struct bgp *);
+extern void bgp_evpn_map_vrf_to_its_rts(struct bgp *bgp_vrf);
+extern void bgp_evpn_unmap_vrf_from_its_rts(struct bgp *bgp_vrf);
 extern void bgp_evpn_map_vni_to_its_rts(struct bgp *bgp, struct bgpevpn *vpn);
 extern void bgp_evpn_unmap_vni_from_its_rts(struct bgp *bgp,
 					    struct bgpevpn *vpn);
