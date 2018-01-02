@@ -24,6 +24,7 @@
 #include "thread.h"
 #include "buffer.h"
 #include "stream.h"
+#include "ringbuf.h"
 #include "command.h"
 #include "sockunion.h"
 #include "sockopt.h"
@@ -1162,7 +1163,9 @@ struct peer *peer_new(struct bgp *bgp)
 	 */
 	peer->obuf_work =
 		stream_new(BGP_MAX_PACKET_SIZE + BGP_MAX_PACKET_SIZE_OVERFLOW);
-	peer->ibuf_work = stream_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX);
+	peer->ibuf_work =
+		ringbuf_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX);
+
 	peer->scratch = stream_new(BGP_MAX_PACKET_SIZE);
 
 	bgp_sync_init(peer);
@@ -2179,7 +2182,7 @@ int peer_delete(struct peer *peer)
 	}
 
 	if (peer->ibuf_work) {
-		stream_free(peer->ibuf_work);
+		ringbuf_del(peer->ibuf_work);
 		peer->ibuf_work = NULL;
 	}
 

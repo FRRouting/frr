@@ -31,6 +31,7 @@
 #include "lib/linklist.h"
 #include "lib/command.h"
 #include "lib/stream.h"
+#include "lib/ringbuf.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ecommunity.h"
@@ -1310,7 +1311,7 @@ static int rfapi_open_inner(struct rfapi_descriptor *rfd, struct bgp *bgp,
 			stream_fifo_free(rfd->peer->obuf);
 
 		if (rfd->peer->ibuf_work)
-			stream_free(rfd->peer->ibuf_work);
+			ringbuf_del(rfd->peer->ibuf_work);
 		if (rfd->peer->obuf_work)
 			stream_free(rfd->peer->obuf_work);
 

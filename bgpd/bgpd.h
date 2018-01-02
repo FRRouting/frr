@@ -635,8 +635,8 @@ struct peer {
 	struct stream_fifo *ibuf; // packets waiting to be processed
 	struct stream_fifo *obuf; // packets waiting to be written
 
-	struct stream *ibuf_work; // WiP buffer used by bgp_read() only
-	struct stream *obuf_work; // WiP buffer used to construct packets
+	struct ringbuf *ibuf_work; // WiP buffer used by bgp_read() only
+	struct stream *obuf_work;  // WiP buffer used to construct packets
 
 	struct stream *curr; // the current packet being parsed
 
