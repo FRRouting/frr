@@ -8316,7 +8316,23 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 			uptime -= p->uptime;
 			epoch_tbuf = time(NULL) - uptime;
 
+#if CONFDATE > 20200101
+			CPP_NOTICE("bgpTimerUp should be deprecated and can be removed now");
+#endif
+			/*
+			 * bgpTimerUp was miliseconds that was accurate
+			 * up to 1 day, then the value returned
+			 * became garbage.  So in order to provide
+			 * some level of backwards compatability,
+			 * we still provde the data, but now
+			 * we are returning the correct value
+			 * and also adding a new bgpTimerUpMsec
+			 * which will allow us to deprecate
+			 * this eventually
+			 */
 			json_object_int_add(json_neigh, "bgpTimerUp",
+					    uptime * 1000);
+			json_object_int_add(json_neigh, "bgpTimerUpMsec",
 					    uptime * 1000);
 			json_object_string_add(json_neigh, "bgpTimerUpString",
 					       peer_uptime(p->uptime, timebuf,
