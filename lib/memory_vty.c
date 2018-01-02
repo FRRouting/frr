@@ -25,7 +25,9 @@
 #include <malloc.h>
 #endif /* HAVE_MALLINFO */
 #include <dlfcn.h>
+#ifdef HAVE_DLINFO_LINKMAP
 #include <link.h>
+#endif
 
 #include "log.h"
 #include "memory.h"

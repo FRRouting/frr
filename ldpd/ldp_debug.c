@@ -29,6 +29,9 @@
 struct ldp_debug conf_ldp_debug;
 struct ldp_debug ldp_debug;
 
+/* be safe since it is already defined on Apple system targets */
+#undef MSG_SEND
+
 /* Debug node. */
 struct cmd_node ldp_debug_node =
 {
