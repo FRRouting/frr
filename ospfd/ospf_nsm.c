@@ -702,12 +702,12 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 							oi->ospf);
 		}
 
-		zlog_info(
-			"nsm_change_state(%s, %s -> %s): "
-			"scheduling new router-LSA origination",
-			inet_ntoa(nbr->router_id),
-			lookup_msg(ospf_nsm_state_msg, old_state, NULL),
-			lookup_msg(ospf_nsm_state_msg, state, NULL));
+		if (CHECK_FLAG(oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
+			zlog_info("%s:(%s, %s -> %s): "
+				"scheduling new router-LSA origination",
+				__PRETTY_FUNCTION__, inet_ntoa(nbr->router_id),
+				lookup_msg(ospf_nsm_state_msg, old_state, NULL),
+				lookup_msg(ospf_nsm_state_msg, state, NULL));
 
 		ospf_router_lsa_update_area(oi->area);
 
