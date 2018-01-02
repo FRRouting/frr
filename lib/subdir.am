@@ -51,6 +51,7 @@ lib_libfrr_la_SOURCES = \
 	lib/privs.c \
 	lib/ptm_lib.c \
 	lib/qobj.c \
+	lib/ringbuf.c \
 	lib/routemap.c \
 	lib/sbuf.c \
 	lib/sha256.c \
@@ -130,6 +131,7 @@ pkginclude_HEADERS += \
 	lib/pw.h \
 	lib/qobj.h \
 	lib/queue.h \
+	lib/ringbuf.h \
 	lib/routemap.h \
 	lib/sbuf.h \
 	lib/sha256.h \
