@@ -99,6 +99,16 @@ size_t ringbuf_peek(struct ringbuf *buf, size_t offset, void *data,
 		    size_t size);
 
 /*
+ * Copy data from one ringbuf to another.
+ *
+ * @param to	destination ringbuf
+ * @param from	source ringbuf
+ * @param size	how much data to copy
+ * @return amount of data copied
+ */
+size_t ringbuf_copy(struct ringbuf *to, struct ringbuf *from, size_t size);
+
+/*
  * Reset buffer. Does not wipe.
  *
  * @param buf

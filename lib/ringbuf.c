@@ -110,6 +110,15 @@ size_t ringbuf_peek(struct ringbuf *buf, size_t offset, void *data, size_t size)
 	return copysize;
 }
 
+size_t ringbuf_copy(struct ringbuf *to, struct ringbuf *from, size_t size)
+{
+	size_t tocopy = MIN(ringbuf_space(to), size);
+	uint8_t *cbuf = XCALLOC(MTYPE_TMP, tocopy);
+	tocopy = ringbuf_peek(from, 0, cbuf, tocopy);
+	XFREE(MTYPE_TMP, cbuf);
+	return ringbuf_put(to, cbuf, tocopy);
+}
+
 void ringbuf_reset(struct ringbuf *buf)
 {
 	buf->start = buf->end = 0;
