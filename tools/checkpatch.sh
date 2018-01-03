@@ -1,69 +1,76 @@
 #!/bin/bash
 # Check a patch for style errors.
-# Usage:
-#	./checkpatch.sh <patch>
-checkpatch="./checkpatch.pl --no-tree -f"
+usage="./checkpatch.sh <patch> <tree>"
+patch=$1
+tree=$2
+checkpatch="$tree/tools/checkpatch.pl --no-tree -f"
 ignore="ldpd\|babeld"
 cwd=${PWD##*/}
 dirty=0
 
-# check running from frr/tools/
-if [[ $cwd != *"tools"* ]]; then
-  echo "[!] script must be run from tools/ directory"
-  exit 1
+if [[ -z "$1" || -z "$2" ]]; then
+  echo "$usage"
+  exit 0
 fi
 
 # save working tree
-cd ..
-if git status --porcelain | egrep --silent '^(\?\?|.[DM])'; then
+if git -C $tree status --porcelain | egrep --silent '^(\?\?|.[DM])'; then
   echo "Detected dirty tree, caching state..."
   dirty=1
-  git config gc.auto 0;
-  td=$(git status -z | grep -z "^[ARM]D" | cut -z -d' ' -f2- | tr '\0' '\n')
-  INDEX=`git write-tree`
-  git add -f .
-  WORKTREE=`git write-tree`
+  git -C $tree config gc.auto 0;
+  td=$(git -C $tree status -z | grep -z "^[ARM]D" | cut -z -d' ' -f2- | tr '\0' '\n')
+  INDEX=`git -C $tree write-tree`
+  git -C $tree add -f .
+  WORKTREE=`git -C $tree write-tree`
   echo "Saved index to $INDEX"
   echo "Saved working tree to $WORKTREE"
 fi
 
 # double check
-if git status --porcelain | egrep --silent '^(\?\?|.[DM])'; then
+if git -C $tree status --porcelain | egrep --silent '^(\?\?|.[DM])'; then
   echo "[!] git working directory must be clean."
   exit 1
 fi
 
-git reset --hard
-git apply $1 2> /dev/null
-cd tools
-mkdir -p f1 f2
-mod=$(git ls-files -m .. | grep ".*\.[ch]" | grep -v $ignore)
-cp $mod f1/
-git reset --hard
-cp $mod f2/
-for file in f1/*; do
-  $checkpatch $file > "$file"_cp 2> /dev/null
-done
-for file in f2/*; do
-  $checkpatch $file > "$file"_cp 2> /dev/null
-done
-for file in f1/*_cp; do
-  if [ -a f2/$(basename $file) ]; then
-    diff $file f2/$(basename $file) | grep -A3 "ERROR\|WARNING"
-  else
-    cat $file
-  fi
-done
-rm -rf f1 f2
-cd ..
+git -C $tree reset --hard
+git -C $tree apply < $patch
+mkdir -p /tmp/f1 /tmp/f2
+mod=$(git -C $tree ls-files -m | grep ".*\.[ch]" | grep -v $ignore)
+if [ -z "$mod" ]; then
+  echo "There doesn't seem to be any changes."
+else
+  cp $tree/$mod /tmp/f1/
+  git -C $tree reset --hard
+  cp $tree/$mod /tmp/f2/
+  echo "Running style checks..."
+  for file in /tmp/f1/*; do
+    echo "$checkpatch $file > $file _cp"
+    $checkpatch $file > "$file"_cp 2> /dev/null
+  done
+  for file in /tmp/f2/*; do
+    echo "$checkpatch $file > $file _cp"
+    $checkpatch $file > "$file"_cp 2> /dev/null
+  done
+  echo "Done."
+  for file in /tmp/f1/*_cp; do
+    echo "Report for $(basename $file _cp)"
+    echo "==============================================="
+    if [ -a /tmp/f2/$(basename $file) ]; then
+      diff $file /tmp/f2/$(basename $file) | grep -A3 "ERROR\|WARNING"
+    else
+      cat $file
+    fi
+  done
+  rm -rf /tmp/f1 /tmp/f2
+fi
 
 # restore working tree
 if [ $dirty -eq 1 ]; then
-  git read-tree $WORKTREE;
-  git checkout-index -af;
-  git read-tree $INDEX;
+  git -C $tree read-tree $WORKTREE;
+  git -C $tree checkout-index -af;
+  git -C $tree read-tree $INDEX;
   if [ -n "$td" ]; then
     rm $td
   fi
-  git config --unset gc.auto;
+  git -C $tree config --unset gc.auto;
 fi
