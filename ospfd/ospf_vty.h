@@ -44,6 +44,7 @@
 			vty_out(vty,                                           \
 				"%% You can't configure %s to backbone\n",     \
 				NAME);                                         \
+			return CMD_WARNING;                                \
 		}                                                              \
 	}
 
