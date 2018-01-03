@@ -65,7 +65,7 @@ int main(int argc, char **argv)
 
 	validate_state(soil, BUFSIZ, BUFSIZ);
 	assert(soil->start == 0);
-	assert(soil->end == BUFSIZ);
+	assert(soil->end == 0);
 
 	/* read 15 bytes of garbage */
 	printf("Validating read...\n");
@@ -73,7 +73,7 @@ int main(int argc, char **argv)
 
 	validate_state(soil, BUFSIZ, BUFSIZ - 15);
 	assert(soil->start == 15);
-	assert(soil->end == BUFSIZ);
+	assert(soil->end == 0);
 
 	/* put another 10 bytes and validate wraparound */
 	printf("Validating wraparound...\n");
