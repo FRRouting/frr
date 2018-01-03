@@ -72,7 +72,7 @@ adding a new backport.
     (see `rules` file for available options)
 
         export WANT_BGP_VNC=1
-	export WANT_WANT_CUMULUS_MODE=1
+        export WANT_CUMULUS_MODE=1
         debuild -b -uc -us
 
 DONE.

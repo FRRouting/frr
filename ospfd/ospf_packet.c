@@ -1363,9 +1363,11 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 			if (IPV4_ADDR_CMP(&nbr->router_id, &oi->ospf->router_id)
 			    > 0) {
 				/* We're Slave---obey */
-				zlog_info(
-					"Packet[DD]: Neighbor %s Negotiation done (Slave).",
-					inet_ntoa(nbr->router_id));
+				if (CHECK_FLAG(oi->ospf->config,
+					       OSPF_LOG_ADJACENCY_DETAIL))
+					zlog_info("Packet[DD]: Neighbor %s Negotiation done (Slave).",
+						  inet_ntoa(nbr->router_id));
+
 				nbr->dd_seqnum = ntohl(dd->dd_seqnum);
 
 				/* Reset I/MS */
@@ -1374,10 +1376,12 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 			} else {
 				/* We're Master, ignore the initial DBD from
 				 * Slave */
-				zlog_info(
-					"Packet[DD]: Neighbor %s: Initial DBD from Slave, "
-					"ignoring.",
-					inet_ntoa(nbr->router_id));
+				if (CHECK_FLAG(oi->ospf->config,
+					       OSPF_LOG_ADJACENCY_DETAIL))
+					zlog_info(
+						"Packet[DD]: Neighbor %s: Initial DBD from Slave, "
+						"ignoring.",
+						inet_ntoa(nbr->router_id));
 				break;
 			}
 		}

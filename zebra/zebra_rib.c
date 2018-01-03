@@ -1471,7 +1471,14 @@ static void rib_process(struct route_node *rn)
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug("%u:%s: Processing rn %p", vrf_id, buf, rn);
 
-	old_fib = dest->selected_fib;
+	/*
+	 * we can have rn's that have a NULL info pointer
+	 * (dest).  As such let's not let the deref happen
+	 * additionally we know RNODE_FOREACH_RE_SAFE
+	 * will not iterate so we are ok.
+	 */
+	if (dest)
+		old_fib = dest->selected_fib;
 
 	RNODE_FOREACH_RE_SAFE (rn, re, next) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)

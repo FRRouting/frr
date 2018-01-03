@@ -2589,8 +2589,9 @@ static void ospfTrapNbrStateChange(struct ospf_neighbor *on)
 	char msgbuf[16];
 
 	ospf_nbr_state_message(on, msgbuf, sizeof(msgbuf));
-	zlog_info("ospfTrapNbrStateChange trap sent: %s now %s",
-		  inet_ntoa(on->address.u.prefix4), msgbuf);
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_info("%s: trap sent: %s now %s", __PRETTY_FUNCTION__,
+			  inet_ntoa(on->address.u.prefix4), msgbuf);
 
 	oid_copy_addr(index, &(on->address.u.prefix4), IN_ADDR_SIZE);
 	index[IN_ADDR_SIZE] = 0;
@@ -2646,9 +2647,10 @@ static void ospfTrapIfStateChange(struct ospf_interface *oi)
 {
 	oid index[sizeof(oid) * (IN_ADDR_SIZE + 1)];
 
-	zlog_info("ospfTrapIfStateChange trap sent: %s now %s",
-		  inet_ntoa(oi->address->u.prefix4),
-		  lookup_msg(ospf_ism_state_msg, oi->state, NULL));
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_info("%s: trap sent: %s now %s", __PRETTY_FUNCTION__,
+			  inet_ntoa(oi->address->u.prefix4),
+			  lookup_msg(ospf_ism_state_msg, oi->state, NULL));
 
 	oid_copy_addr(index, &(oi->address->u.prefix4), IN_ADDR_SIZE);
 	index[IN_ADDR_SIZE] = 0;
