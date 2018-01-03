@@ -1974,12 +1974,13 @@ DEFUN (ospf_area_authentication_message_digest,
        "Use message-digest authentication\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx_ipv4_number = 1;
+	int idx = 0;
 	struct ospf_area *area;
 	struct in_addr area_id;
 	int format;
 
-	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
+	argv_find(argv, argc, "area", &idx);
+	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx + 1]->arg);
 
 	area = ospf_area_get(ospf, area_id);
 	ospf_area_display_format_set(ospf, area, format);
