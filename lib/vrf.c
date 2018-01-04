@@ -267,7 +267,7 @@ void *vrf_info_lookup(vrf_id_t vrf_id)
  * VRF bit-map
  */
 
-#define VRF_BITMAP_NUM_OF_GROUPS            8
+#define VRF_BITMAP_NUM_OF_GROUPS            1024
 #define VRF_BITMAP_NUM_OF_BITS_IN_GROUP (UINT32_MAX / VRF_BITMAP_NUM_OF_GROUPS)
 #define VRF_BITMAP_NUM_OF_BYTES_IN_GROUP                                       \
 	(VRF_BITMAP_NUM_OF_BITS_IN_GROUP / CHAR_BIT + 1) /* +1 for ensure */
