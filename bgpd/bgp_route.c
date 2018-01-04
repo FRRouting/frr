@@ -5068,9 +5068,10 @@ DEFPY(bgp_network,
 	}
 
 	return bgp_static_set(vty, no, address_str ? addr_prefix_str:prefix_str,
-			     AFI_IP, bgp_node_safi(vty),
-			     map_name, backdoor?1:0,
-			     label_index ? label_index:BGP_INVALID_LABEL_INDEX);
+			      AFI_IP, bgp_node_safi(vty),
+			      map_name, backdoor?1:0,
+			      label_index ?
+			      (uint32_t)label_index : BGP_INVALID_LABEL_INDEX);
 }
 
 DEFPY(ipv6_bgp_network,
@@ -5086,8 +5087,9 @@ DEFPY(ipv6_bgp_network,
 	"Label index value\n")
 {
 	return bgp_static_set(vty, no, prefix_str, AFI_IP6,
-			     bgp_node_safi(vty), map_name, 0,
-			     label_index ? label_index:BGP_INVALID_LABEL_INDEX);
+			      bgp_node_safi(vty), map_name, 0,
+			      label_index ?
+			      (uint32_t)label_index : BGP_INVALID_LABEL_INDEX);
 }
 
 /* Aggreagete address:
