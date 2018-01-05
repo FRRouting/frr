@@ -74,6 +74,7 @@ static const struct message attr_str[] = {
 	{BGP_ATTR_AS4_PATH, "AS4_PATH"},
 	{BGP_ATTR_AS4_AGGREGATOR, "AS4_AGGREGATOR"},
 	{BGP_ATTR_AS_PATHLIMIT, "AS_PATHLIMIT"},
+	{BGP_ATTR_PMSI_TUNNEL, "PMSI_TUNNEL_ATTRIBUTE"},
 	{BGP_ATTR_ENCAP, "ENCAP"},
 #if ENABLE_BGP_VNC
 	{BGP_ATTR_VNC, "VNC"},
@@ -1033,6 +1034,8 @@ const u_int8_t attr_flags_values[] = {
 		[BGP_ATTR_AS4_PATH] =
 			BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
 		[BGP_ATTR_AS4_AGGREGATOR] =
+			BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
+		[BGP_ATTR_PMSI_TUNNEL] =
 			BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
 		[BGP_ATTR_LARGE_COMMUNITIES] =
 			BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
@@ -3244,6 +3247,17 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		/* VNC attribute */
 		bgp_packet_mpattr_tea(bgp, peer, s, attr, BGP_ATTR_VNC);
 #endif
+	}
+
+	/* PMSI Tunnel */
+	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL)) {
+		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
+		stream_putc(s, BGP_ATTR_PMSI_TUNNEL);
+		stream_putc(s, 9); // Length
+		stream_putc(s, 0); // Flags
+		stream_putc(s, 6); // Tunnel type: Ingress Replication (6)
+		stream_put(s, &(attr->label), BGP_LABEL_BYTES); // MPLS Label / VXLAN VNI
+		stream_put_ipv4(s, attr->nexthop.s_addr); // Unicast tunnel endpoint IP address
 	}
 
 	/* Unknown transit attribute. */
