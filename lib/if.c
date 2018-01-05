@@ -219,6 +219,18 @@ struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id)
 	struct vrf *vrf;
 	struct interface if_tmp;
 
+	if (vrf_id == VRF_UNKNOWN) {
+		struct interface *ifp;
+
+		RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id) {
+			ifp = if_lookup_by_index(ifindex, vrf->vrf_id);
+			if (ifp)
+				return ifp;
+		}
+
+		return NULL;
+	}
+
 	vrf = vrf_lookup_by_id(vrf_id);
 	if (!vrf)
 		return NULL;
