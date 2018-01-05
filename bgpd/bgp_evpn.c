@@ -1012,7 +1012,7 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf,
 
 	bgp_def = bgp_get_default();
 	if (!bgp_def)
-		return -1;
+		return 0;
 
 	/* Build path attribute for this route - use the source attr, if
 	 * present, else treat as locally originated.
@@ -1273,7 +1273,7 @@ static int delete_evpn_type5_route(struct bgp *bgp_vrf,
 
 	bgp_def = bgp_get_default();
 	if (!bgp_def)
-		return -1;
+		return 0;
 
 	/* locate the global route entry for this type-5 prefix */
 	rn = bgp_afi_node_lookup(bgp_def->rib[afi][safi], afi, safi,
@@ -3031,6 +3031,10 @@ void bgp_evpn_withdraw_type5_route(struct bgp *bgp_vrf, struct prefix *p,
 	struct prefix_evpn evp;
 	char buf[PREFIX_STRLEN];
 
+	/* NOTE: Check needed as this is called per-route also. */
+	if (!advertise_type5_routes(bgp_vrf, afi))
+		return;
+
 	build_type5_prefix_from_ip_prefix(&evp, p);
 	ret = delete_evpn_type5_route(bgp_vrf, &evp);
 	if (ret) {
@@ -3049,6 +3053,7 @@ void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf,
 	struct bgp_table *table = NULL;
 	struct bgp_node *rn = NULL;
 
+	/* Bail out early if we don't have to advertise type-5 routes. */
 	if (!advertise_type5_routes(bgp_vrf, afi))
 		return;
 
@@ -3072,6 +3077,7 @@ void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf, struct prefix *p,
 	struct prefix_evpn evp;
 	char buf[PREFIX_STRLEN];
 
+	/* NOTE: Check needed as this is called per-route also. */
 	if (!advertise_type5_routes(bgp_vrf, afi))
 		return;
 
@@ -3098,6 +3104,10 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf,
 	struct bgp_table *table = NULL;
 	struct bgp_node *rn = NULL;
 	struct bgp_info *ri;
+
+	/* Bail out early if we don't have to advertise type-5 routes. */
+	if (!advertise_type5_routes(bgp_vrf, afi))
+		return;
 
 	table = bgp_vrf->rib[afi][safi];
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
