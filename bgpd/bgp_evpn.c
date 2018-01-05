@@ -3441,7 +3441,7 @@ char *bgp_evpn_route2str(struct prefix_evpn *p, char *buf, int len)
 					   PREFIX2STR_BUFFER));
 		}
 	} else if (p->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE) {
-		snprintf(buf, len, "[%d]:[0]:[%d]:[%s]",
+		snprintf(buf, len, "[%d]:[0]:[0]:[%d]:[%s]",
 			 p->prefix.route_type,
 			 p->prefix.ip_prefix_length,
 			 IS_EVPN_PREFIX_IPADDR_V4(p) ?
