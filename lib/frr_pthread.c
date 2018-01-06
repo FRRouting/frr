@@ -19,6 +19,7 @@
 
 #include <zebra.h>
 #include <pthread.h>
+#include <sched.h>
 
 #include "frr_pthread.h"
 #include "memory.h"
@@ -181,4 +182,9 @@ void frr_pthread_stop_all()
 unsigned int frr_pthread_get_id()
 {
 	return next_id++;
+}
+
+void frr_pthread_yield(void)
+{
+	(void)sched_yield();
 }
