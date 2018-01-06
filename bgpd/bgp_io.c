@@ -109,13 +109,15 @@ int bgp_io_stop(void **result, struct frr_pthread *fpt)
 }
 
 /* Extern API -------------------------------------------------------------- */
+void bgp_io_running(void)
+{
+	while (!atomic_load_explicit(&bgp_io_thread_started,
+				     memory_order_seq_cst))
+		frr_pthread_yield();
+}
 
 void bgp_writes_on(struct peer *peer)
 {
-	while (
-	    !atomic_load_explicit(&bgp_io_thread_started, memory_order_seq_cst))
-		;
-
 	assert(peer->status != Deleted);
 	assert(peer->obuf);
 	assert(peer->ibuf);
@@ -133,10 +135,6 @@ void bgp_writes_on(struct peer *peer)
 
 void bgp_writes_off(struct peer *peer)
 {
-	while (
-	    !atomic_load_explicit(&bgp_io_thread_started, memory_order_seq_cst))
-		;
-
 	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_IO);
 
 	thread_cancel_async(fpt->master, &peer->t_write, NULL);
@@ -147,10 +145,6 @@ void bgp_writes_off(struct peer *peer)
 
 void bgp_reads_on(struct peer *peer)
 {
-	while (
-	    !atomic_load_explicit(&bgp_io_thread_started, memory_order_seq_cst))
-		;
-
 	assert(peer->status != Deleted);
 	assert(peer->ibuf);
 	assert(peer->fd);
@@ -170,10 +164,6 @@ void bgp_reads_on(struct peer *peer)
 
 void bgp_reads_off(struct peer *peer)
 {
-	while (
-	    !atomic_load_explicit(&bgp_io_thread_started, memory_order_seq_cst))
-		;
-
 	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_IO);
 
 	thread_cancel_async(fpt->master, &peer->t_read, NULL);
