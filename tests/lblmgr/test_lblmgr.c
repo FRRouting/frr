@@ -21,7 +21,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#include "lib/stream.h"
+#include "lib/libfrr.h"
 #include "lib/zclient.h"
 
 #define ZSERV_PATH "/tmp/zserv.api" // TODO!!
@@ -33,8 +33,22 @@ u_short instance = 1;
 
 const char *sequence = "GGRGGGRRG";
 
-static int zebra_send_get_label_chunk(void);
-static int zebra_send_release_label_chunk(uint32_t start, uint32_t end);
+zebra_capabilities_t _caps_p[] = {
+		ZCAP_NET_ADMIN, ZCAP_SYS_ADMIN, ZCAP_NET_RAW,
+};
+
+/* zebra privileges to run with */
+struct zebra_privs_t zserv_privs = {
+//#if defined(FRR_USER) && defined(FRR_GROUP)
+//		.user = FRR_USER,
+//		.group = FRR_GROUP,
+//#endif
+		.caps_p = _caps_p,
+		.cap_num_p = array_size(_caps_p),
+		.cap_num_i = 0};
+
+static void zebra_send_get_label_chunk(void);
+static void zebra_send_release_label_chunk(uint32_t start, uint32_t end);
 
 static void process_next_call(uint32_t start, uint32_t end)
 {
@@ -49,14 +63,14 @@ static void process_next_call(uint32_t start, uint32_t end)
 
 /* Connect to Label Manager */
 
-static int zebra_send_label_manager_connect()
+static void zebra_send_label_manager_connect()
 {
 	int ret;
 
 	printf("Connect to Label Manager\n");
 
 	ret = lm_label_manager_connect(zclient);
-	printf("Label Manager connection result: %u \n", ret);
+	printf("Label Manager connection result: %u\n", ret);
 	if (ret != 0) {
 		fprintf(stderr, "Error %d connecting to Label Manager %s\n",
 			ret, strerror(errno));
@@ -68,13 +82,13 @@ static int zebra_send_label_manager_connect()
 
 /* Get Label Chunk */
 
-static int zebra_send_get_label_chunk()
+static void zebra_send_get_label_chunk()
 {
 	uint32_t start;
 	uint32_t end;
 	int ret;
 
-	printf("Ask for label chunk \n");
+	printf("Ask for label chunk\n");
 
 	ret = lm_get_label_chunk(zclient, KEEP, CHUNK_SIZE, &start, &end);
 	if (ret != 0) {
@@ -85,16 +99,15 @@ static int zebra_send_get_label_chunk()
 
 	sequence++;
 
-	printf("Label Chunk assign: %u - %u \n", start, end);
+	printf("Label Chunk assign: %u - %u\n", start, end);
 
 	process_next_call(start, end);
 }
 
 /* Release Label Chunk */
 
-static int zebra_send_release_label_chunk(uint32_t start, uint32_t end)
+static void zebra_send_release_label_chunk(uint32_t start, uint32_t end)
 {
-	struct stream *s;
 	int ret;
 
 	printf("Release label chunk: %u - %u\n", start, end);
@@ -111,12 +124,15 @@ static int zebra_send_release_label_chunk(uint32_t start, uint32_t end)
 }
 
 
-void init_zclient(struct thread_master *master, char *lm_zserv_path)
+static void init_zclient(struct thread_master *master, const char *lm_zserv_path)
 {
 	frr_zclient_addr(&zclient_addr, &zclient_addr_len, lm_zserv_path);
 
 	zclient = zclient_new_notify(master, &zclient_options_default);
 	/* zclient_init(zclient, ZEBRA_LABEL_MANAGER, 0); */
+	zprivs_preinit(&zserv_privs);
+	zprivs_init (&zserv_privs);
+	zclient->privs = &zserv_privs;
 	zclient->sock = -1;
 	zclient->redist_default = ZEBRA_ROUTE_LDP;
 	zclient->instance = instance;
@@ -129,8 +145,6 @@ void init_zclient(struct thread_master *master, char *lm_zserv_path)
 int main(int argc, char *argv[])
 {
 	struct thread_master *master;
-	struct thread thread;
-	int ret;
 
 	printf("Sequence to be tested: %s\n", sequence);
 

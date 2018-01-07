@@ -46,6 +46,10 @@ else
 TESTS_OSPF6D =
 endif
 
+TESTS_LBLMGR = \
+	lblmgr/test_lblmgr \
+	# end
+
 if ENABLE_BGP_VNC
 BGP_VNC_RFP_LIB=@top_builddir@/$(LIBRFP)/librfp.a
 else
@@ -78,6 +82,7 @@ check_PROGRAMS = \
 	$(TESTS_BGPD) \
 	$(TESTS_ISISD) \
 	$(TESTS_OSPF6D) \
+	$(TESTS_LBLMGR) \
 	# end
 
 if ZEROMQ
@@ -145,6 +150,8 @@ isisd_test_isis_vertex_queue_SOURCES = isisd/test_isis_vertex_queue.c
 
 ospf6d_test_lsdb_SOURCES = ospf6d/test_lsdb.c lib/cli/common_cli.c
 
+lblmgr_test_lblmgr_SOURCES = lblmgr/test_lblmgr.c
+
 ALL_TESTS_LDADD = ../lib/libfrr.la @LIBCAP@
 BGP_TEST_LDADD = ../bgpd/libbgp.a $(BGP_VNC_RFP_LIB) $(ALL_TESTS_LDADD) -lm
 ISISD_TEST_LDADD = ../isisd/libisis.a $(ALL_TESTS_LDADD)
@@ -179,6 +186,7 @@ bgpd_test_mpath_LDADD = $(BGP_TEST_LDADD)
 isisd_test_fuzz_isis_tlv_LDADD = $(ISISD_TEST_LDADD)
 isisd_test_isis_vertex_queue_LDADD = $(ISISD_TEST_LDADD)
 ospf6d_test_lsdb_LDADD = $(OSPF6_TEST_LDADD)
+lblmgr_test_lblmgr_LDADD = $(ALL_TESTS_LDADD)
 
 EXTRA_DIST = \
     runtests.py \
