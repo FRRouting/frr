@@ -375,13 +375,9 @@ static uint16_t bgp_write(struct peer *peer)
 	int num;
 	int update_last_write = 0;
 	unsigned int count = 0;
-	uint32_t oc;
-	uint32_t uo;
+	uint32_t uo = 0;
 	uint16_t status = 0;
 	uint32_t wpkt_quanta_old;
-
-	// save current # updates sent
-	oc = atomic_load_explicit(&peer->update_out, memory_order_relaxed);
 
 	// cache current write quanta
 	wpkt_quanta_old =
@@ -419,6 +415,7 @@ static uint16_t bgp_write(struct peer *peer)
 		case BGP_MSG_UPDATE:
 			atomic_fetch_add_explicit(&peer->update_out, 1,
 						  memory_order_relaxed);
+			uo++;
 			break;
 		case BGP_MSG_NOTIFY:
 			atomic_fetch_add_explicit(&peer->notify_out, 1,
@@ -457,9 +454,12 @@ static uint16_t bgp_write(struct peer *peer)
 	}
 
 done : {
-	/* Update last_update if UPDATEs were written. */
-	uo = atomic_load_explicit(&peer->update_out, memory_order_relaxed);
-	if (uo > oc)
+	/*
+	 * Update last_update if UPDATEs were written.
+	 * Note: that these are only updated at end,
+	 *       not per message (i.e., per loop)
+	 */
+	if (uo)
 		atomic_store_explicit(&peer->last_update, bgp_clock(),
 				      memory_order_relaxed);
 
