@@ -261,6 +261,7 @@ static void isis_zebra_route_add_route(struct prefix *prefix,
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
+	api.nh_vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_ISIS;
 	api.safi = SAFI_UNICAST;
 	api.prefix = *prefix;
@@ -329,6 +330,7 @@ static void isis_zebra_route_del_route(struct prefix *prefix,
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
+	api.nh_vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_ISIS;
 	api.safi = SAFI_UNICAST;
 	api.prefix = *prefix;

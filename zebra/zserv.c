@@ -602,6 +602,7 @@ int zsend_redistribute_route(int cmd, struct zserv *client, struct prefix *p,
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = re->vrf_id;
+	api.nh_vrf_id = re->nh_vrf_id;
 	api.type = re->type;
 	api.instance = re->instance;
 	api.flags = re->flags;
@@ -1146,7 +1147,7 @@ static int zread_route_add(struct zserv *client, u_short length,
 	re->flags = api.flags;
 	re->uptime = time(NULL);
 	re->vrf_id = vrf_id;
-	re->nh_vrf_id = vrf_id;
+	re->nh_vrf_id = api.nh_vrf_id;
 	re->table = zvrf->table_id;
 
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)) {

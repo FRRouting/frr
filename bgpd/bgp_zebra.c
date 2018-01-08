@@ -1001,6 +1001,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	memset(&api, 0, sizeof(api));
 	memcpy(&api.rmac, &(info->attr->rmac), sizeof(struct ethaddr));
 	api.vrf_id = bgp->vrf_id;
+	api.nh_vrf_id = bgp->vrf_id;
 	api.type = ZEBRA_ROUTE_BGP;
 	api.safi = safi;
 	api.prefix = *p;
@@ -1251,6 +1252,7 @@ void bgp_zebra_withdraw(struct prefix *p, struct bgp_info *info, safi_t safi)
 	memset(&api, 0, sizeof(api));
 	memcpy(&api.rmac, &(info->attr->rmac), sizeof(struct ethaddr));
 	api.vrf_id = peer->bgp->vrf_id;
+	api.nh_vrf_id = peer->bgp->vrf_id;
 	api.type = ZEBRA_ROUTE_BGP;
 	api.safi = safi;
 	api.prefix = *p;
