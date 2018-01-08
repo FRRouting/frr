@@ -281,6 +281,7 @@ struct zapi_route {
 	u_int32_t mtu;
 
 	vrf_id_t vrf_id;
+	vrf_id_t nh_vrf_id;
 
 	struct ethaddr rmac;
 };
