@@ -1031,9 +1031,15 @@ int ospf_network_set(struct ospf *ospf, struct prefix_ipv4 *p,
 
 	rn = route_node_get(ospf->networks, (struct prefix *)p);
 	if (rn->info) {
-		/* There is already same network statement. */
+		network = rn->info;
 		route_unlock_node(rn);
-		return 0;
+
+		if (IPV4_ADDR_SAME(&area_id, &network->area_id)) {
+			return 1;
+		} else {
+			/* There is already same network statement. */
+			return 0;
+		}
 	}
 
 	rn->info = network = ospf_network_new(area_id);
