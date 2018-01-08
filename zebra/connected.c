@@ -238,10 +238,12 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		break;
 	}
 
-	rib_add(afi, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
+	rib_add(afi, SAFI_UNICAST, ifp->vrf_id, ifp->vrf_id,
+		ZEBRA_ROUTE_CONNECT, 0, 0,
 		&p, NULL, &nh, RT_TABLE_MAIN, ifp->metric, 0, 0, 0);
 
-	rib_add(afi, SAFI_MULTICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
+	rib_add(afi, SAFI_MULTICAST, ifp->vrf_id, ifp->vrf_id,
+		ZEBRA_ROUTE_CONNECT, 0, 0,
 		&p, NULL, &nh, RT_TABLE_MAIN, ifp->metric, 0, 0, 0);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {

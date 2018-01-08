@@ -2476,9 +2476,10 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 }
 
 
-int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
-	    int flags, struct prefix *p, struct prefix_ipv6 *src_p,
-	    const struct nexthop *nh, u_int32_t table_id, u_int32_t metric,
+int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, vrf_id_t nh_vrf_id,
+	    int type, u_short instance, int flags, struct prefix *p,
+	    struct prefix_ipv6 *src_p, const struct nexthop *nh,
+	    u_int32_t table_id, u_int32_t metric,
 	    u_int32_t mtu, uint8_t distance, route_tag_t tag)
 {
 	struct route_entry *re;
@@ -2494,7 +2495,7 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 	re->mtu = mtu;
 	re->table = table_id;
 	re->vrf_id = vrf_id;
-	re->nh_vrf_id = vrf_id;
+	re->nh_vrf_id = nh_vrf_id;
 	re->nexthop_num = 0;
 	re->uptime = time(NULL);
 	re->tag = tag;
