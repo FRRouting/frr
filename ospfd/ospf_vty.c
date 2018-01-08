@@ -534,11 +534,11 @@ DEFUN (no_ospf_passive_interface,
 	}
 
 	if (ospf->vrf_id != VRF_UNKNOWN)
-		ifp = if_get_by_name(argv[1]->arg, ospf->vrf_id, 0);
+		ifp = if_get_by_name(argv[2]->arg, ospf->vrf_id, 0);
 
 	if (ifp == NULL) {
 		vty_out(vty, "interface %s not found.\n",
-			(char *)argv[1]->arg);
+			(char *)argv[2]->arg);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
