@@ -576,6 +576,14 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 			default:
 				break;
 			}
+
+			if (re->vrf_id != re->nh_vrf_id) {
+				struct vrf *vrf =
+					vrf_lookup_by_id(re->nh_vrf_id);
+
+				vty_out(vty, "(vrf %s)", vrf->name);
+			}
+
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
 				vty_out(vty, " (duplicate nexthop removed)");
 
@@ -774,6 +782,14 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				break;
 			}
 
+			if (re->nh_vrf_id != re->vrf_id) {
+				struct vrf *vrf =
+					vrf_lookup_by_id(re->nh_vrf_id);
+
+				json_object_string_add(json_nexthop,
+						       "vrf",
+						       vrf->name);
+			}
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
 				json_object_boolean_true_add(json_nexthop,
 							     "duplicate");
@@ -918,6 +934,14 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		default:
 			break;
 		}
+
+		if (re->nh_vrf_id != re->vrf_id) {
+			struct vrf *vrf =
+				vrf_lookup_by_id(re->nh_vrf_id);
+
+			vty_out(vty, "(vrf %s)", vrf->name);
+		}
+
 		if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
 			vty_out(vty, " inactive");
 
