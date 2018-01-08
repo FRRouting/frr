@@ -7333,6 +7333,7 @@ static int interface_pim_use_src_cmd_worker(struct vty *vty, const char *source)
 {
 	int result;
 	struct in_addr source_addr;
+	int ret = CMD_SUCCESS;
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	result = inet_pton(AF_INET, source, &source_addr);
@@ -7347,16 +7348,19 @@ static int interface_pim_use_src_cmd_worker(struct vty *vty, const char *source)
 	case PIM_SUCCESS:
 		break;
 	case PIM_IFACE_NOT_FOUND:
+		ret = CMD_WARNING_CONFIG_FAILED;
 		vty_out(vty, "Pim not enabled on this interface\n");
 		break;
 	case PIM_UPDATE_SOURCE_DUP:
+		ret = CMD_WARNING;
 		vty_out(vty, "%% Source already set to %s\n", source);
 		break;
 	default:
+		ret = CMD_WARNING_CONFIG_FAILED;
 		vty_out(vty, "%% Source set failed\n");
 	}
 
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
+	return ret;
 }
 
 DEFUN (interface_pim_use_source,
