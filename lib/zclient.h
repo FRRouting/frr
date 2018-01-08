@@ -223,7 +223,7 @@ struct zserv_header {
 			 * always set to 255 in new zserv.
 			 */
 	uint8_t version;
-#define ZSERV_VERSION	4
+#define ZSERV_VERSION	5
 	vrf_id_t vrf_id;
 	uint16_t command;
 };
