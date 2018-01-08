@@ -530,7 +530,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				if (nexthop->ifindex)
 					vty_out(vty, ", via %s",
 						ifindex2ifname(nexthop->ifindex,
-							       re->vrf_id));
+							       re->nh_vrf_id));
 				break;
 			case NEXTHOP_TYPE_IPV6:
 			case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -540,12 +540,12 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				if (nexthop->ifindex)
 					vty_out(vty, ", via %s",
 						ifindex2ifname(nexthop->ifindex,
-							       re->vrf_id));
+							       re->nh_vrf_id));
 				break;
 			case NEXTHOP_TYPE_IFINDEX:
 				vty_out(vty, " directly connected, %s",
 					ifindex2ifname(nexthop->ifindex,
-						       re->vrf_id));
+						       re->nh_vrf_id));
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
 				vty_out(vty, " unreachable");
@@ -706,7 +706,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 					json_object_string_add(
 						json_nexthop, "interfaceName",
 						ifindex2ifname(nexthop->ifindex,
-							       re->vrf_id));
+							       re->nh_vrf_id));
 				}
 				break;
 			case NEXTHOP_TYPE_IPV6:
@@ -725,7 +725,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 					json_object_string_add(
 						json_nexthop, "interfaceName",
 						ifindex2ifname(nexthop->ifindex,
-							       re->vrf_id));
+							       re->nh_vrf_id));
 				}
 				break;
 
@@ -738,7 +738,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				json_object_string_add(
 					json_nexthop, "interfaceName",
 					ifindex2ifname(nexthop->ifindex,
-						       re->vrf_id));
+						       re->nh_vrf_id));
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
 				json_object_boolean_true_add(json_nexthop,
@@ -872,7 +872,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			if (nexthop->ifindex)
 				vty_out(vty, ", %s",
 					ifindex2ifname(nexthop->ifindex,
-						       re->vrf_id));
+						       re->nh_vrf_id));
 			break;
 		case NEXTHOP_TYPE_IPV6:
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -882,12 +882,13 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			if (nexthop->ifindex)
 				vty_out(vty, ", %s",
 					ifindex2ifname(nexthop->ifindex,
-						       re->vrf_id));
+						       re->nh_vrf_id));
 			break;
 
 		case NEXTHOP_TYPE_IFINDEX:
 			vty_out(vty, " is directly connected, %s",
-				ifindex2ifname(nexthop->ifindex, re->vrf_id));
+				ifindex2ifname(nexthop->ifindex,
+					       re->nh_vrf_id));
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:
 			vty_out(vty, " unreachable");
