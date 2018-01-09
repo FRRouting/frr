@@ -155,7 +155,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 		re->metric = 0;
 		re->mtu = 0;
 		re->vrf_id = si->vrf_id;
-		re->nh_vrf_id = si->vrf_id;
+		re->nh_vrf_id = si->nh_vrf_id;
 		re->table =
 			si->vrf_id
 				? (zebra_vrf_lookup_by_id(si->vrf_id))->table_id
@@ -379,6 +379,7 @@ int static_add_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 		     struct prefix_ipv6 *src_p, union g_addr *gate,
 		     const char *ifname, enum static_blackhole_type bh_type,
 		     route_tag_t tag, u_char distance, struct zebra_vrf *zvrf,
+		     struct zebra_vrf *nh_zvrf,
 		     struct static_nh_label *snh_label)
 {
 	struct route_node *rn;
@@ -440,6 +441,8 @@ int static_add_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	si->bh_type = bh_type;
 	si->tag = tag;
 	si->vrf_id = zvrf_id(zvrf);
+	si->nh_vrf_id = zvrf_id(nh_zvrf);
+
 	if (ifname)
 		strlcpy(si->ifname, ifname, sizeof(si->ifname));
 	si->ifindex = IFINDEX_INTERNAL;
@@ -494,7 +497,7 @@ int static_add_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	else {
 		struct interface *ifp;
 
-		ifp = if_lookup_by_name(ifname, zvrf_id(zvrf));
+		ifp = if_lookup_by_name(ifname, zvrf_id(nh_zvrf));
 		if (ifp && ifp->ifindex != IFINDEX_INTERNAL) {
 			si->ifindex = ifp->ifindex;
 			static_install_route(afi, safi, p, src_p, si);
