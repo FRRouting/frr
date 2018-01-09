@@ -595,6 +595,7 @@ static int bgp_write_notify(struct peer *peer)
 	assert(type == BGP_MSG_NOTIFY);
 
 	/* Type should be notify. */
+	atomic_fetch_add_explicit(&peer->notify_out, 1, memory_order_relaxed);
 	peer->notify_out++;
 
 	/* Double start timer. */
@@ -1682,7 +1683,7 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 	}
 
 	/* peer count update */
-	peer->notify_in++;
+	atomic_fetch_add_explicit(&peer->notify_in, 1, memory_order_relaxed);
 
 	peer->last_reset = PEER_DOWN_NOTIFY_RECEIVED;
 
@@ -2192,7 +2193,8 @@ int bgp_process_packet(struct thread *thread)
 		 */
 		switch (type) {
 		case BGP_MSG_OPEN:
-			peer->open_in++;
+			atomic_fetch_add_explicit(&peer->open_in, 1,
+						  memory_order_relaxed);
 			mprc = bgp_open_receive(peer, size);
 			if (mprc == BGP_Stop)
 				zlog_err(
@@ -2200,7 +2202,8 @@ int bgp_process_packet(struct thread *thread)
 					__FUNCTION__, peer->host);
 			break;
 		case BGP_MSG_UPDATE:
-			peer->update_in++;
+			atomic_fetch_add_explicit(&peer->update_in, 1,
+						  memory_order_relaxed);
 			peer->readtime = monotime(NULL);
 			mprc = bgp_update_receive(peer, size);
 			if (mprc == BGP_Stop)
@@ -2209,7 +2212,8 @@ int bgp_process_packet(struct thread *thread)
 					__FUNCTION__, peer->host);
 			break;
 		case BGP_MSG_NOTIFY:
-			peer->notify_in++;
+			atomic_fetch_add_explicit(&peer->notify_in, 1,
+						  memory_order_relaxed);
 			mprc = bgp_notify_receive(peer, size);
 			if (mprc == BGP_Stop)
 				zlog_err(
@@ -2218,7 +2222,8 @@ int bgp_process_packet(struct thread *thread)
 			break;
 		case BGP_MSG_KEEPALIVE:
 			peer->readtime = monotime(NULL);
-			peer->keepalive_in++;
+			atomic_fetch_add_explicit(&peer->keepalive_in, 1,
+						  memory_order_relaxed);
 			mprc = bgp_keepalive_receive(peer, size);
 			if (mprc == BGP_Stop)
 				zlog_err(
@@ -2227,7 +2232,8 @@ int bgp_process_packet(struct thread *thread)
 			break;
 		case BGP_MSG_ROUTE_REFRESH_NEW:
 		case BGP_MSG_ROUTE_REFRESH_OLD:
-			peer->refresh_in++;
+			atomic_fetch_add_explicit(&peer->refresh_in, 1,
+						  memory_order_relaxed);
 			mprc = bgp_route_refresh_receive(peer, size);
 			if (mprc == BGP_Stop)
 				zlog_err(
@@ -2235,7 +2241,8 @@ int bgp_process_packet(struct thread *thread)
 					__FUNCTION__, peer->host);
 			break;
 		case BGP_MSG_CAPABILITY:
-			peer->dynamic_cap_in++;
+			atomic_fetch_add_explicit(&peer->dynamic_cap_in, 1,
+						  memory_order_relaxed);
 			mprc = bgp_capability_receive(peer, size);
 			if (mprc == BGP_Stop)
 				zlog_err(
