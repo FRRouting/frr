@@ -1,5 +1,14 @@
 frr (@VERSION@) RELEASED; urgency=medium
 
+  * Added Ubuntu 17.10 Backport
+  * Fixes for GCC 7.0
+  * Always enable watchfrr on new installation (req for systemd operation)
+  * Add 'no password' command (with warning)
+
+ -- FRRouting-Dev <dev@lists.frrouting.org>  Mon, 09 Jan 2018 02:30:00 -0800
+
+frr (3.0.2-0) RELEASED; urgency=medium
+
   * Added Debian 9 Backport
   * Packaging fixes
   * Fix for miss-handling of BGP attributes in an error situation
