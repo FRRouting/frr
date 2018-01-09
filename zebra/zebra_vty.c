@@ -78,13 +78,16 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 #define CMD_VNI_RANGE "(1-16777215)"
 
 /* General function for static route. */
-static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
-			      const char *negate, const char *dest_str,
-			      const char *mask_str, const char *src_str,
-			      const char *gate_str, const char *ifname,
-			      const char *flag_str, const char *tag_str,
-			      const char *distance_str, const char *vrf_id_str,
-			      const char *label_str)
+static int zebra_static_route_leak(struct vty *vty,
+				   struct zebra_vrf *zvrf,
+				   struct zebra_vrf *nh_zvrf,
+				   afi_t afi, safi_t safi,
+				   const char *negate, const char *dest_str,
+				   const char *mask_str, const char *src_str,
+				   const char *gate_str, const char *ifname,
+				   const char *flag_str, const char *tag_str,
+				   const char *distance_str,
+				   const char *label_str)
 {
 	int ret;
 	u_char distance;
@@ -95,7 +98,6 @@ static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
 	struct in_addr mask;
 	enum static_blackhole_type bh_type = 0;
 	route_tag_t tag = 0;
-	struct zebra_vrf *zvrf;
 	u_char type;
 	struct static_nh_label snh_label;
 
@@ -144,14 +146,6 @@ static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
 	/* tag */
 	if (tag_str)
 		tag = strtoul(tag_str, NULL, 10);
-
-	/* VRF id */
-	zvrf = zebra_vrf_lookup_by_name(vrf_id_str);
-
-	if (!zvrf) {
-		vty_out(vty, "%% vrf %s is not defined\n", vrf_id_str);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	/* Labels */
 	memset(&snh_label, 0, sizeof(struct static_nh_label));
@@ -246,6 +240,31 @@ static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
 
 	return CMD_SUCCESS;
 }
+
+static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
+                             const char *negate, const char *dest_str,
+                             const char *mask_str, const char *src_str,
+                             const char *gate_str, const char *ifname,
+                             const char *flag_str, const char *tag_str,
+                             const char *distance_str, const char *vrf_id_str,
+                             const char *label_str)
+{
+	struct zebra_vrf *zvrf;
+
+	/* VRF id */
+	zvrf = zebra_vrf_lookup_by_name(vrf_id_str);
+
+	if (!zvrf) {
+		vty_out(vty, "%% vrf %s is not defined\n", vrf_id_str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return zebra_static_route_leak(vty, zvrf, zvrf, afi, safi,
+				       negate, dest_str, mask_str, src_str,
+				       gate_str, ifname, flag_str, tag_str,
+				       distance_str, label_str);
+}
+
 
 /* Static unicast routes for multicast RPF lookup. */
 DEFPY (ip_mroute_dist,
