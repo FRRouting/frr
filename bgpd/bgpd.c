@@ -7487,13 +7487,11 @@ void bgp_pthreads_run()
 	pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
 
 	/*
-	 * Please ensure that the io thread is running
-	 * by calling bgp_io_running.  The BGP threads
-	 * depend on it being running when we start
-	 * looking for it.
+	 * I/O related code assumes the thread is ready for work at all times,
+	 * so we wait until it is.
 	 */
 	frr_pthread_run(PTHREAD_IO, &attr, NULL);
-	bgp_io_running();
+	bgp_io_wait_running();
 
 	frr_pthread_run(PTHREAD_KEEPALIVES, &attr, NULL);
 }

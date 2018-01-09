@@ -31,20 +31,10 @@
 /**
  * Initializes data structures and flags for the write thread.
  *
- * This function should be called from the main thread before
+ * This function must be called from the main thread before
  * bgp_writes_start() is invoked.
  */
 extern void bgp_io_init(void);
-
-/**
- * Ensure that the BGP IO thread is actually up and running
- *
- * This function must be called immediately after the thread
- * has been created for running.  This is because we want
- * to make sure that the io thread is ready before other
- * threads start attempting to use it.
- */
-extern void bgp_io_running(void);
 
 /**
  * Start function for write thread.
@@ -52,6 +42,15 @@ extern void bgp_io_running(void);
  * @param arg - unused
  */
 extern void *bgp_io_start(void *arg);
+
+/**
+ * Wait until the IO thread is ready to accept jobs.
+ *
+ * This function must be called immediately after the thread has been created
+ * for running. Use of other functions before calling this one will result in
+ * undefined behavior.
+ */
+extern void bgp_io_wait_running(void);
 
 /**
  * Start function for write thread.
