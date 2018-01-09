@@ -866,6 +866,22 @@ struct peer {
 	/* workqueues */
 	struct work_queue *clear_node_queue;
 
+#define PEER_TOTAL_RX(peer) \
+	atomic_load_explicit(&peer->open_in, memory_order_relaxed) +		\
+	atomic_load_explicit(&peer->update_in, memory_order_relaxed) +		\
+	atomic_load_explicit(&peer->notify_in, memory_order_relaxed) +		\
+	atomic_load_explicit(&peer->refresh_in, memory_order_relaxed) +		\
+	atomic_load_explicit(&peer->keepalive_in, memory_order_relaxed) +	\
+	atomic_load_explicit(&peer->dynamic_cap_in, memory_order_relaxed)
+
+#define PEER_TOTAL_TX(peer) \
+	atomic_load_explicit(&peer->open_out, memory_order_relaxed) +		\
+	atomic_load_explicit(&peer->update_out, memory_order_relaxed) +		\
+	atomic_load_explicit(&peer->notify_out, memory_order_relaxed) +		\
+	atomic_load_explicit(&peer->refresh_out, memory_order_relaxed) +	\
+	atomic_load_explicit(&peer->keepalive_out, memory_order_relaxed) +	\
+	atomic_load_explicit(&peer->dynamic_cap_out, memory_order_relaxed)
+
 	/* Statistics field */
 	_Atomic uint32_t open_in;         /* Open message input count */
 	_Atomic uint32_t open_out;        /* Open message output count */

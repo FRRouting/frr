@@ -512,6 +512,7 @@ static u_char *bgpPeerTable(struct variable *v, oid name[], size_t *length,
 {
 	static struct in_addr addr;
 	struct peer *peer;
+	uint32_t ui, uo;
 
 	if (smux_header_table(v, name, length, exact, var_len, write_method)
 	    == MATCH_FAILED)
@@ -571,21 +572,20 @@ static u_char *bgpPeerTable(struct variable *v, oid name[], size_t *length,
 		return SNMP_INTEGER(peer->as);
 		break;
 	case BGPPEERINUPDATES:
-		return SNMP_INTEGER(peer->update_in);
+		ui = atomic_load_explicit(&peer->update_in,
+					  memory_order_relaxed);
+		return SNMP_INTEGER(ui);
 		break;
 	case BGPPEEROUTUPDATES:
-		return SNMP_INTEGER(peer->update_out);
+		uo = atomic_load_explicit(&peer->update_out,
+					  memory_order_relaxed);
+		return SNMP_INTEGER(uo);
 		break;
 	case BGPPEERINTOTALMESSAGES:
-		return SNMP_INTEGER(peer->open_in + peer->update_in
-				    + peer->keepalive_in + peer->notify_in
-				    + peer->refresh_in + peer->dynamic_cap_in);
+		return SNMP_INTEGER(PEER_TOTAL_RX(peer));
 		break;
 	case BGPPEEROUTTOTALMESSAGES:
-		return SNMP_INTEGER(peer->open_out + peer->update_out
-				    + peer->keepalive_out + peer->notify_out
-				    + peer->refresh_out
-				    + peer->dynamic_cap_out);
+		return SNMP_INTEGER(PEER_TOTAL_TX(peer));
 		break;
 	case BGPPEERLASTERROR: {
 		static u_char lasterror[2];
