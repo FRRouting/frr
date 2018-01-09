@@ -1008,6 +1008,103 @@ DEFUN (show_ipv6_ospf6_interface,
 	return CMD_SUCCESS;
 }
 
+static int ospf6_interface_show_traffic(struct vty *vty,
+					uint32_t vrf_id,
+					struct interface *intf_ifp,
+					int display_once)
+{
+	struct interface *ifp;
+	struct vrf *vrf = NULL;
+	struct ospf6_interface *oi = NULL;
+
+	vrf = vrf_lookup_by_id(vrf_id);
+
+	if (!display_once) {
+		vty_out(vty, "\n");
+		vty_out(vty, "%-12s%-17s%-17s%-17s%-17s%-17s\n",
+			"Interface", "    HELLO", "    DB-Desc", "   LS-Req",
+			"   LS-Update", "   LS-Ack");
+		vty_out(vty, "%-10s%-18s%-18s%-17s%-17s%-17s\n", "",
+			"      Rx/Tx", "     Rx/Tx", "    Rx/Tx", "    Rx/Tx", "    Rx/Tx");
+		vty_out(vty,
+		"--------------------------------------------------------------------------------------------\n");
+	}
+
+	if (intf_ifp == NULL) {
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			if (ifp->info)
+				oi = (struct ospf6_interface *)ifp->info;
+			else
+				continue;
+
+			vty_out(vty,
+			"%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u\n",
+				oi->interface->name, oi->hello_in,
+				oi->hello_out,
+				oi->db_desc_in, oi->db_desc_out,
+				oi->ls_req_in, oi->ls_req_out,
+				oi->ls_upd_in, oi->ls_upd_out,
+				oi->ls_ack_in, oi->ls_ack_out);
+		}
+	} else {
+		oi = intf_ifp->info;
+		if (oi == NULL)
+			return CMD_WARNING;
+
+		vty_out(vty,
+			"%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u\n",
+			oi->interface->name, oi->hello_in,
+			oi->hello_out,
+			oi->db_desc_in, oi->db_desc_out,
+			oi->ls_req_in, oi->ls_req_out,
+			oi->ls_upd_in, oi->ls_upd_out,
+			oi->ls_ack_in, oi->ls_ack_out);
+	}
+
+	return CMD_SUCCESS;
+}
+
+/* show interface */
+DEFUN (show_ipv6_ospf6_interface_traffic,
+       show_ipv6_ospf6_interface_traffic_cmd,
+       "show ipv6 ospf6 interface traffic [IFNAME]",
+       SHOW_STR
+       IP6_STR
+       OSPF6_STR
+       INTERFACE_STR
+       "Protocol Packet counters\n"
+       IFNAME_STR)
+{
+	int idx_ifname = 0;
+	int display_once = 0;
+	char *intf_name = NULL;
+	struct interface *ifp = NULL;
+
+	if (argv_find(argv, argc, "IFNAME", &idx_ifname)) {
+		intf_name = argv[idx_ifname]->arg;
+		ifp = if_lookup_by_name(intf_name, VRF_DEFAULT);
+		if (ifp == NULL) {
+			vty_out(vty,
+				"No such Interface: %s\n",
+				intf_name);
+			return CMD_WARNING;
+		}
+		if (ifp->info == NULL) {
+			vty_out(vty,
+				"   OSPF not enabled on this interface %s\n",
+				intf_name);
+			return 0;
+		}
+	}
+
+	ospf6_interface_show_traffic(vty, VRF_DEFAULT, ifp,
+				     display_once);
+
+
+	return CMD_SUCCESS;
+}
+
+
 DEFUN (show_ipv6_ospf6_interface_ifname_prefix,
        show_ipv6_ospf6_interface_ifname_prefix_cmd,
        "show ipv6 ospf6 interface IFNAME prefix [<X:X::X:X|X:X::X:X/M>] [<match|detail>]",
@@ -1841,6 +1938,8 @@ void ospf6_interface_init(void)
 	install_element(VIEW_NODE, &show_ipv6_ospf6_interface_ifname_cmd);
 	install_element(VIEW_NODE,
 			&show_ipv6_ospf6_interface_ifname_prefix_cmd);
+	install_element(VIEW_NODE,
+			&show_ipv6_ospf6_interface_traffic_cmd);
 
 	install_element(INTERFACE_NODE, &ipv6_ospf6_cost_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_ospf6_cost_cmd);

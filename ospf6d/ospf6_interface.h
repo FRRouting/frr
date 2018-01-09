@@ -117,6 +117,19 @@ struct ospf6_interface {
 	/* BFD information */
 	void *bfd_info;
 
+	/* Statistics Fields */
+	u_int32_t hello_in;
+	u_int32_t hello_out;
+	u_int32_t db_desc_in;
+	u_int32_t db_desc_out;
+	u_int32_t ls_req_in;
+	u_int32_t ls_req_out;
+	u_int32_t ls_upd_in;
+	u_int32_t ls_upd_out;
+	u_int32_t ls_ack_in;
+	u_int32_t ls_ack_out;
+	u_int32_t discarded;
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(ospf6_interface)
