@@ -233,7 +233,8 @@ static int zebra_static_route_leak(struct vty *vty,
 
 	if (!negate)
 		static_add_route(afi, safi, type, &p, src_p, gatep, ifname,
-				 bh_type, tag, distance, zvrf, &snh_label);
+				 bh_type, tag, distance, zvrf, nh_zvrf,
+				 &snh_label);
 	else
 		static_delete_route(afi, safi, type, &p, src_p, gatep, ifname,
 				    tag, distance, zvrf, &snh_label);
