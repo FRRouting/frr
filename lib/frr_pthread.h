@@ -21,7 +21,10 @@
 #define _FRR_PTHREAD_H
 
 #include <pthread.h>
+#include "memory.h"
 #include "thread.h"
+
+DECLARE_MTYPE(PTHREAD_PRIM);
 
 struct frr_pthread {
 
