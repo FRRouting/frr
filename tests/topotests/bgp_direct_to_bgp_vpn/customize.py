@@ -128,6 +128,34 @@ class ThisTestTopo(Topo):
         switch[1].add_link(tgen.gears['r2'], nodeif='r2-eth2')
         switch[1].add_link(tgen.gears['r3'], nodeif='r3-eth1')
 
+def doCmd(tgen, rtr, cmd):
+    output = tgen.net[rtr].cmd(cmd).strip()
+    if len(output):
+        logger.info('command output: ' + output)
+
+def autogenPreRouterStartHook():
+    tgen = get_topogen()
+    logger.info('pre router-start hook')
+    #configure r2 mpls interfaces
+    intfs = ['lo', 'r2-eth0', 'r2-eth1', 'r2-eth2']
+    for intf in intfs:
+        doCmd(tgen, 'r2', 'echo 1 > /proc/sys/net/mpls/conf/{}/input'.format(intf))
+    #configure MPLS
+    rtrs = ['r1', 'r3', 'r4']
+    cmds = ['echo 1 > /proc/sys/net/mpls/conf/lo/input']
+    for rtr in rtrs:
+        for cmd in cmds:
+            doCmd(tgen, rtr, cmd)
+        intfs = ['lo', rtr+'-eth0', rtr+'-eth4']
+        for intf in intfs:
+            doCmd(tgen, rtr, 'echo 1 > /proc/sys/net/mpls/conf/{}/input'.format(intf))
+    logger.info('setup mpls input')
+    return;
+
+def autogenPostRouterStartHook():
+    logger.info('post router-start hook')
+    return;
+
 def versionCheck(vstr, rname='r1', compstr='<',cli=False):
     tgen = get_topogen()
 
