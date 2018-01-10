@@ -1775,97 +1775,98 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 }
 
 /* Write static route configuration. */
-static int static_config(struct vty *vty, afi_t afi, safi_t safi,
-			 const char *cmd)
+int static_config(struct vty *vty, struct zebra_vrf *zvrf,
+		  afi_t afi, safi_t safi, const char *cmd)
 {
+	char spacing[100];
 	struct route_node *rn;
 	struct static_route *si;
 	struct route_table *stable;
-	struct vrf *vrf;
-	struct zebra_vrf *zvrf;
 	char buf[SRCDEST2STR_BUFFER];
 	int write = 0;
 
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (!(zvrf = vrf->info))
-			continue;
-		if ((stable = zvrf->stable[afi][safi]) == NULL)
-			continue;
+	if ((stable = zvrf->stable[afi][safi]) == NULL)
+		return write;
 
-		for (rn = route_top(stable); rn; rn = srcdest_route_next(rn))
-			for (si = rn->info; si; si = si->next) {
-				vty_out(vty, "%s %s", cmd,
-					srcdest_rnode2str(rn, buf, sizeof buf));
+	sprintf(spacing, "%s%s",
+		(zvrf->vrf->vrf_id == VRF_DEFAULT) ? "" : " ",
+		cmd);
 
-				switch (si->type) {
-				case STATIC_IPV4_GATEWAY:
-					vty_out(vty, " %s",
-						inet_ntoa(si->addr.ipv4));
+	for (rn = route_top(stable); rn; rn = srcdest_route_next(rn))
+		for (si = rn->info; si; si = si->next) {
+			vty_out(vty, "%s %s", spacing,
+				srcdest_rnode2str(rn, buf, sizeof buf));
+
+			switch (si->type) {
+			case STATIC_IPV4_GATEWAY:
+				vty_out(vty, " %s",
+					inet_ntoa(si->addr.ipv4));
+				break;
+			case STATIC_IPV6_GATEWAY:
+				vty_out(vty, " %s",
+					inet_ntop(AF_INET6,
+						  &si->addr.ipv6, buf,
+						  sizeof buf));
+				break;
+			case STATIC_IFNAME:
+				vty_out(vty, " %s", si->ifname);
+				break;
+			case STATIC_BLACKHOLE:
+				switch (si->bh_type) {
+				case STATIC_BLACKHOLE_DROP:
+					vty_out(vty, " blackhole");
 					break;
-				case STATIC_IPV6_GATEWAY:
-					vty_out(vty, " %s",
-						inet_ntop(AF_INET6,
-							  &si->addr.ipv6, buf,
-							  sizeof buf));
+				case STATIC_BLACKHOLE_NULL:
+					vty_out(vty, " Null0");
 					break;
-				case STATIC_IFNAME:
-					vty_out(vty, " %s", si->ifname);
-					break;
-				case STATIC_BLACKHOLE:
-					switch (si->bh_type) {
-					case STATIC_BLACKHOLE_DROP:
-						vty_out(vty, " blackhole");
-						break;
-					case STATIC_BLACKHOLE_NULL:
-						vty_out(vty, " Null0");
-						break;
-					case STATIC_BLACKHOLE_REJECT:
-						vty_out(vty, " reject");
-						break;
-					}
-					break;
-				case STATIC_IPV4_GATEWAY_IFNAME:
-					vty_out(vty, " %s %s",
-						inet_ntop(AF_INET,
-							  &si->addr.ipv4, buf,
-							  sizeof buf),
-						si->ifname);
-					break;
-				case STATIC_IPV6_GATEWAY_IFNAME:
-					vty_out(vty, " %s %s",
-						inet_ntop(AF_INET6,
-							  &si->addr.ipv6, buf,
-							  sizeof buf),
-						si->ifname);
+				case STATIC_BLACKHOLE_REJECT:
+					vty_out(vty, " reject");
 					break;
 				}
-
-				if (si->tag)
-					vty_out(vty, " tag %" ROUTE_TAG_PRI,
-						si->tag);
-
-				if (si->distance
-				    != ZEBRA_STATIC_DISTANCE_DEFAULT)
-					vty_out(vty, " %d", si->distance);
-
-				if (si->vrf_id != VRF_DEFAULT)
-					vty_out(vty, " vrf %s",
-						zvrf_name(zvrf));
-
-				/* Label information */
-				if (si->snh_label.num_labels)
-					vty_out(vty, " label %s",
-						mpls_label2str(
-							si->snh_label
-								.num_labels,
-							si->snh_label.label,
-							buf, sizeof buf, 0));
-
-				vty_out(vty, "\n");
-
-				write = 1;
+				break;
+			case STATIC_IPV4_GATEWAY_IFNAME:
+				vty_out(vty, " %s %s",
+					inet_ntop(AF_INET,
+						  &si->addr.ipv4, buf,
+						  sizeof buf),
+					si->ifname);
+				break;
+			case STATIC_IPV6_GATEWAY_IFNAME:
+				vty_out(vty, " %s %s",
+					inet_ntop(AF_INET6,
+						  &si->addr.ipv6, buf,
+						  sizeof buf),
+					si->ifname);
+				break;
 			}
-	}
+
+			if (si->tag)
+				vty_out(vty, " tag %" ROUTE_TAG_PRI,
+					si->tag);
+
+			if (si->distance
+			    != ZEBRA_STATIC_DISTANCE_DEFAULT)
+				vty_out(vty, " %d", si->distance);
+
+			if (si->nh_vrf_id != si->vrf_id) {
+				struct vrf *vrf;
+
+				vrf = vrf_lookup_by_id(si->nh_vrf_id);
+				vty_out(vty, " nexthop-vrf %s",
+					(vrf) ? vrf->name : "Unknown");
+			}
+
+			/* Label information */
+			if (si->snh_label.num_labels)
+				vty_out(vty, " label %s",
+					mpls_label2str(si->snh_label.num_labels,
+						       si->snh_label.label,
+						       buf, sizeof buf, 0));
+
+			vty_out(vty, "\n");
+
+			write = 1;
+		}
 	return write;
 }
 
@@ -2706,11 +2707,8 @@ static int zebra_ip_config(struct vty *vty)
 {
 	int write = 0;
 
-	write += static_config(vty, AFI_IP, SAFI_UNICAST, "ip route");
-	write += static_config(vty, AFI_IP, SAFI_MULTICAST, "ip mroute");
-	write += static_config(vty, AFI_IP6, SAFI_UNICAST, "ipv6 route");
-
 	write += zebra_import_table_config(vty);
+
 	return write;
 }
 
