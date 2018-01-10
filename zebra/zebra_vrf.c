@@ -476,12 +476,13 @@ static int vrf_config_write(struct vty *vty)
 		if (!zvrf)
 			continue;
 
-		if (strcmp(zvrf_name(zvrf), VRF_DEFAULT_NAME)) {
-			vty_out(vty, "vrf %s\n", zvrf_name(zvrf));
-			if (zvrf->l3vni)
-				vty_out(vty, " vni %u\n", zvrf->l3vni);
-			vty_out(vty, "!\n");
-		}
+		if (vrf->vrf_id == VRF_DEFAULT)
+			continue;
+
+		vty_out(vty, "vrf %s\n", zvrf_name(zvrf));
+		if (zvrf->l3vni)
+			vty_out(vty, " vni %u\n", zvrf->l3vni);
+		vty_out(vty, "!\n");
 	}
 	return 0;
 }
