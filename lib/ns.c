@@ -492,6 +492,10 @@ DEFUN (no_ns_netns,
 
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 
+	if (!vrf_is_backend_netns()) {
+		vty_out(vty, "VRF backend is not Netns. Aborting\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 	if (!vrf->ns_ctxt) {
 		vty_out(vty, "VRF %s(%u) is not configured with NetNS\n",
 			vrf->name, vrf->vrf_id);
@@ -538,7 +542,7 @@ void ns_init(void)
 
 void ns_cmd_init(void)
 {
-	if (have_netns()) {
+	if (have_netns() && vrf_is_backend_netns()) {
 		/* Install NS commands. */
 		install_element(VRF_NODE, &ns_netns_cmd);
 		install_element(VRF_NODE, &no_ns_netns_cmd);
