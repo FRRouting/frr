@@ -78,6 +78,7 @@ void bgp_io_init()
 	pthread_mutex_init(running_cond_mtx, NULL);
 	pthread_cond_init(running_cond, NULL);
 
+	/* unlocked in bgp_io_wait_running() */
 	pthread_mutex_lock(running_cond_mtx);
 }
 
@@ -96,9 +97,9 @@ void *bgp_io_start(void *arg)
 
 	struct thread task;
 
-	bgp_io_thread_run = true;
 	pthread_mutex_lock(running_cond_mtx);
 	{
+		bgp_io_thread_run = true;
 		pthread_cond_signal(running_cond);
 	}
 	pthread_mutex_unlock(running_cond_mtx);
@@ -119,6 +120,9 @@ void bgp_io_wait_running()
 {
 	while (!bgp_io_thread_run)
 		pthread_cond_wait(running_cond, running_cond_mtx);
+
+	/* locked in bgp_io_init() */
+	pthread_mutex_unlock(running_cond_mtx);
 }
 
 int bgp_io_stop(void **result, struct frr_pthread *fpt)
@@ -126,7 +130,6 @@ int bgp_io_stop(void **result, struct frr_pthread *fpt)
 	thread_add_event(fpt->master, &bgp_io_finish, NULL, 0, NULL);
 	pthread_join(fpt->thread, result);
 
-	pthread_mutex_unlock(running_cond_mtx);
 	pthread_mutex_destroy(running_cond_mtx);
 	pthread_cond_destroy(running_cond);
 
