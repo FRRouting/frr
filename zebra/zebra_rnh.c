@@ -951,6 +951,8 @@ static void copy_state(struct rnh *rnh, struct route_entry *re,
 	state->type = re->type;
 	state->distance = re->distance;
 	state->metric = re->metric;
+	state->vrf_id = re->vrf_id;
+	state->nh_vrf_id = re->vrf_id;
 
 	route_entry_copy_nexthops(state, re->nexthop);
 	rnh->state = state;

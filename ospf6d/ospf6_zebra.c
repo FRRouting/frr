@@ -337,6 +337,7 @@ static void ospf6_zebra_route_update(int type, struct ospf6_route *request)
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
+	api.nh_vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_OSPF6;
 	api.safi = SAFI_UNICAST;
 	api.prefix = *dest;
@@ -387,6 +388,7 @@ void ospf6_zebra_add_discard(struct ospf6_route *request)
 	if (!CHECK_FLAG(request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED)) {
 		memset(&api, 0, sizeof(api));
 		api.vrf_id = VRF_DEFAULT;
+		api.nh_vrf_id = VRF_DEFAULT;
 		api.type = ZEBRA_ROUTE_OSPF6;
 		api.safi = SAFI_UNICAST;
 		api.prefix = *dest;
@@ -420,6 +422,7 @@ void ospf6_zebra_delete_discard(struct ospf6_route *request)
 	if (CHECK_FLAG(request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED)) {
 		memset(&api, 0, sizeof(api));
 		api.vrf_id = VRF_DEFAULT;
+		api.nh_vrf_id = VRF_DEFAULT;
 		api.type = ZEBRA_ROUTE_OSPF6;
 		api.safi = SAFI_UNICAST;
 		api.prefix = *dest;
