@@ -57,9 +57,6 @@ struct zebra_ns {
 #endif /* HAVE_RTADV */
 };
 
-#define NS_DEFAULT 0
-#define NS_UNKNOWN UINT16_MAX
-
 struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id);
 
 int zebra_ns_init(void);
