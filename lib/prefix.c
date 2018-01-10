@@ -539,6 +539,24 @@ int prefix_match(const struct prefix *n, const struct prefix *p)
 	if (n->prefixlen > p->prefixlen)
 		return 0;
 
+	if (n->family == AF_FLOWSPEC) {
+		/* prefixlen is unused. look at fs prefix len */
+		if (n->u.prefix_flowspec.prefixlen >
+		    p->u.prefix_flowspec.prefixlen)
+			return 0;
+
+		/* Set both prefix's head pointer. */
+		np = (const uint8_t *)&n->u.prefix_flowspec.ptr;
+		pp = (const uint8_t *)&p->u.prefix_flowspec.ptr;
+
+		offset = n->u.prefix_flowspec.prefixlen;
+
+		while (offset--)
+			if (np[offset] != pp[offset])
+				return 0;
+		return 1;
+	}
+
 	/* Set both prefix's head pointer. */
 	np = (const uint8_t *)&n->u.prefix;
 	pp = (const uint8_t *)&p->u.prefix;
@@ -581,7 +599,6 @@ int prefix_match_network_statement(const struct prefix *n,
 	return 1;
 }
 
-/* Copy prefix from src to dest. */
 void prefix_copy(struct prefix *dest, const struct prefix *src)
 {
 	dest->family = src->family;
@@ -600,6 +617,18 @@ void prefix_copy(struct prefix *dest, const struct prefix *src)
 	} else if (src->family == AF_UNSPEC) {
 		dest->u.lp.id = src->u.lp.id;
 		dest->u.lp.adv_router = src->u.lp.adv_router;
+	} else if (src->family == AF_FLOWSPEC) {
+		void *temp;
+		int len;
+
+		len = src->u.prefix_flowspec.prefixlen;
+		dest->u.prefix_flowspec.prefixlen =
+			src->u.prefix_flowspec.prefixlen;
+		dest->family = src->family;
+		temp = XCALLOC(MTYPE_PREFIX_FLOWSPEC, len);
+		dest->u.prefix_flowspec.ptr = (uintptr_t)temp;
+		memcpy((void *)dest->u.prefix_flowspec.ptr,
+		       (void *)src->u.prefix_flowspec.ptr, len);
 	} else {
 		zlog_err("prefix_copy(): Unknown address family %d",
 			 src->family);
@@ -639,6 +668,15 @@ int prefix_same(const struct prefix *p1, const struct prefix *p2)
 			if (!memcmp(&p1->u.prefix_evpn, &p2->u.prefix_evpn,
 				    sizeof(struct evpn_addr)))
 				return 1;
+		if (p1->family == AF_FLOWSPEC) {
+			if (p1->u.prefix_flowspec.prefixlen !=
+			    p2->u.prefix_flowspec.prefixlen)
+				return 0;
+			if (!memcmp(&p1->u.prefix_flowspec.ptr,
+				    &p2->u.prefix_flowspec.ptr,
+				    p2->u.prefix_flowspec.prefixlen))
+				return 1;
+		}
 	}
 	return 0;
 }
@@ -659,12 +697,30 @@ int prefix_cmp(const struct prefix *p1, const struct prefix *p2)
 	int shift;
 
 	/* Set both prefix's head pointer. */
-	const uint8_t *pp1 = (const uint8_t *)&p1->u.prefix;
-	const uint8_t *pp2 = (const uint8_t *)&p2->u.prefix;
+	const uint8_t *pp1;
+	const uint8_t *pp2;
 
-	if (p1->family != p2->family || p1->prefixlen != p2->prefixlen)
+	if (p1->family != p2->family)
 		return 1;
+	if (p1->family == AF_FLOWSPEC) {
+		pp1 = (const uint8_t *)p1->u.prefix_flowspec.ptr;
+		pp2 = (const uint8_t *)p2->u.prefix_flowspec.ptr;
 
+		if (p1->u.prefix_flowspec.prefixlen !=
+		    p2->u.prefix_flowspec.prefixlen)
+			return 1;
+
+		offset = p1->u.prefix_flowspec.prefixlen;
+		while (offset--)
+			if (pp1[offset] != pp2[offset])
+				return 1;
+		return 0;
+	}
+	pp1 = (const uint8_t *)&p1->u.prefix;
+	pp2 = (const uint8_t *)&p2->u.prefix;
+
+	if (p1->prefixlen != p2->prefixlen)
+		return 1;
 	offset = p1->prefixlen / PNBBY;
 	shift = p1->prefixlen % PNBBY;
 
@@ -1207,6 +1263,10 @@ const char *prefix2str(union prefixconstptr pu, char *str, int size)
 		prefixevpn2str(p, str, size);
 		break;
 
+	case AF_FLOWSPEC:
+		sprintf(str, "FS prefix");
+		break;
+
 	default:
 		sprintf(str, "UNK prefix");
 		break;
@@ -1386,6 +1446,24 @@ unsigned prefix_hash_key(void *pp)
 {
 	struct prefix copy;
 
+	if (((struct prefix *)pp)->family == AF_FLOWSPEC) {
+		uint32_t len;
+		void *temp;
+
+		/* make sure *all* unused bits are zero,
+		 * particularly including alignment /
+		 * padding and unused prefix bytes.
+		 */
+		memset(&copy, 0, sizeof(copy));
+		prefix_copy(&copy, (struct prefix *)pp);
+		len = jhash((void *)copy.u.prefix_flowspec.ptr,
+			    copy.u.prefix_flowspec.prefixlen,
+			    0x55aa5a5a);
+		temp = (void *)copy.u.prefix_flowspec.ptr;
+		XFREE(MTYPE_PREFIX_FLOWSPEC, temp);
+		copy.u.prefix_flowspec.ptr = (uintptr_t)NULL;
+		return len;
+	}
 	/* make sure *all* unused bits are zero, particularly including
 	 * alignment /
 	 * padding and unused prefix bytes. */

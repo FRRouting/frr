@@ -152,10 +152,16 @@ static void route_common(const struct prefix *n, const struct prefix *p,
 	int i;
 	uint8_t diff;
 	uint8_t mask;
+	const uint8_t *np;
+	const uint8_t *pp;
+	uint8_t *newp;
 
-	const uint8_t *np = (const uint8_t *)&n->u.prefix;
-	const uint8_t *pp = (const uint8_t *)&p->u.prefix;
-	uint8_t *newp = (uint8_t *)&new->u.prefix;
+	if (n->family == AF_FLOWSPEC)
+		return prefix_copy(new, p);
+	np = (const uint8_t *)&n->u.prefix;
+	pp = (const uint8_t *)&p->u.prefix;
+
+	newp = (uint8_t *)&new->u.prefix;
 
 	for (i = 0; i < p->prefixlen / 8; i++) {
 		if (np[i] == pp[i])

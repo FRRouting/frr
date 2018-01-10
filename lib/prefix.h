@@ -106,6 +106,15 @@ struct evpn_addr {
 #define AF_EVPN (AF_MAX + 1)
 #endif
 
+#if !defined(AF_FLOWSPEC)
+#define AF_FLOWSPEC (AF_MAX + 2)
+#endif
+
+struct flowspec_prefix {
+	uint16_t prefixlen; /* length in bytes */
+	uintptr_t ptr;
+};
+
 /* FRR generic prefix structure. */
 struct prefix {
 	uint8_t family;
@@ -122,6 +131,7 @@ struct prefix {
 		uint8_t val[16];
 		uintptr_t ptr;
 		struct evpn_addr prefix_evpn; /* AF_EVPN */
+		struct flowspec_prefix prefix_flowspec; /* AF_FLOWSPEC */
 	} u __attribute__((aligned(8)));
 };
 
@@ -174,6 +184,13 @@ struct prefix_ptr {
 	uintptr_t prefix __attribute__((aligned(8)));
 };
 
+/* Prefix for a Flowspec entry */
+struct prefix_fs {
+	uint8_t family;
+	uint8_t prefixlen; /* unused */
+	struct flowspec_prefix  prefix __attribute__((aligned(8)));
+};
+
 struct prefix_sg {
 	uint8_t family;
 	uint8_t prefixlen;
@@ -191,6 +208,7 @@ union prefixptr {
 	struct prefix_ipv4 *p4;
 	struct prefix_ipv6 *p6;
 	struct prefix_evpn *evp;
+	const struct prefix_fs *fs;
 } __attribute__((transparent_union));
 
 union prefixconstptr {
@@ -198,6 +216,7 @@ union prefixconstptr {
 	const struct prefix_ipv4 *p4;
 	const struct prefix_ipv6 *p6;
 	const struct prefix_evpn *evp;
+	const struct prefix_fs *fs;
 } __attribute__((transparent_union));
 
 #ifndef INET_ADDRSTRLEN
