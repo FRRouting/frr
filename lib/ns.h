@@ -25,10 +25,11 @@
 #include "openbsd-tree.h"
 #include "linklist.h"
 
-typedef u_int16_t ns_id_t;
+typedef u_int32_t ns_id_t;
 
-/* The default NS ID */
+/* the default NS ID */
 #define NS_DEFAULT 0
+#define NS_UNKNOWN UINT32_MAX
 
 /* Default netns directory (Linux) */
 #define NS_RUN_DIR         "/var/run/netns"
