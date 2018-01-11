@@ -273,6 +273,8 @@ struct zebra_if {
 	/* Link fields - for sub-interfaces. */
 	ifindex_t link_ifindex;
 	struct interface *link;
+
+	struct thread *speed_update;
 };
 
 DECLARE_HOOK(zebra_if_extra_info, (struct vty *vty, struct interface *ifp),
