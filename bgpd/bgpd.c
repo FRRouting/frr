@@ -1497,8 +1497,11 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 		peer_af_create(peer, afi, safi);
 	}
 
+	/* auto shutdown if configured */
+	if (bgp->autoshutdown)
+		peer_flag_set(peer, PEER_FLAG_SHUTDOWN);
 	/* Set up peer's events and timers. */
-	if (!active && peer_active(peer))
+	else if (!active && peer_active(peer))
 		bgp_timer_set(peer);
 
 	return peer;
@@ -7139,6 +7142,10 @@ int bgp_config_write(struct vty *vty)
 		    != BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX)
 			vty_out(vty, " bgp default subgroup-pkt-queue-max %u\n",
 				bgp->default_subgroup_pkt_queue_max);
+
+		/* BGP default autoshutdown neighbors */
+		if (bgp->autoshutdown)
+			vty_out(vty, " bgp default auto-shutdown\n");
 
 		/* BGP client-to-client reflection. */
 		if (bgp_flag_check(bgp, BGP_FLAG_NO_CLIENT_TO_CLIENT))
