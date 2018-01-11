@@ -619,7 +619,7 @@ DEFUN (ospf_network_area,
 	ret = ospf_network_set(ospf, &p, area_id, format);
 	if (ret == 0) {
 		vty_out(vty, "There is already same network statement.\n");
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	return CMD_SUCCESS;
