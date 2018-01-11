@@ -1151,15 +1151,13 @@ struct peer *peer_new(struct bgp *bgp)
 	 * - We RX a BGP_UPDATE where the attributes alone are just
 	 *   under BGP_MAX_PACKET_SIZE
 	 * - The user configures an outbound route-map that does many as-path
-	 *   prepends or adds many communities.  At most they can have
-	 * CMD_ARGC_MAX
-	 *   args in a route-map so there is a finite limit on how large they
-	 * can
-	 *   make the attributes.
+	 *   prepends or adds many communities. At most they can have
+	 *   CMD_ARGC_MAX args in a route-map so there is a finite limit on how
+	 *   large they can make the attributes.
 	 *
 	 * Having a buffer with BGP_MAX_PACKET_SIZE_OVERFLOW allows us to avoid
-	 * bounds
-	 * checking for every single attribute as we construct an UPDATE.
+	 * bounds checking for every single attribute as we construct an
+	 * UPDATE.
 	 */
 	peer->obuf_work =
 		stream_new(BGP_MAX_PACKET_SIZE + BGP_MAX_PACKET_SIZE_OVERFLOW);

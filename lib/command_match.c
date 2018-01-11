@@ -28,8 +28,6 @@
 
 DEFINE_MTYPE_STATIC(LIB, CMD_MATCHSTACK, "Command Match Stack")
 
-#define MAXDEPTH 256
-
 #ifdef TRACE_MATCHER
 #define TM 1
 #else
@@ -84,7 +82,7 @@ static enum match_type match_mac(const char *, bool);
 enum matcher_rv command_match(struct graph *cmdgraph, vector vline,
 			      struct list **argv, const struct cmd_element **el)
 {
-	struct graph_node *stack[MAXDEPTH];
+	struct graph_node *stack[CMD_ARGC_MAX];
 	enum matcher_rv status;
 	*argv = NULL;
 
@@ -200,7 +198,7 @@ static enum matcher_rv command_match_r(struct graph_node *start, vector vline,
 	/* check history/stack of tokens
 	 * this disallows matching the same one more than once if there is a
 	 * circle in the graph (used for keyword arguments) */
-	if (n == MAXDEPTH)
+	if (n == CMD_ARGC_MAX)
 		return MATCHER_NO_MATCH;
 	if (!token->allowrepeat)
 		for (size_t s = 0; s < n; s++)
