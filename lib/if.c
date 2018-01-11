@@ -663,8 +663,9 @@ DEFUN_NOSH (no_interface,
            "Interface's name\n"
            VRF_CMD_HELP_STR)
 {
+	int idx_vrf = 4;
 	const char *ifname = argv[2]->arg;
-	const char *vrfname = (argc > 3) ? argv[3]->arg : NULL;
+	const char *vrfname = (argc > 3) ? argv[idx_vrf]->arg : NULL;
 
 	// deleting interface
 	struct interface *ifp;

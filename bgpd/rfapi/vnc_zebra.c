@@ -30,6 +30,7 @@
 #include "lib/command.h"
 #include "lib/zclient.h"
 #include "lib/stream.h"
+#include "lib/ringbuf.h"
 #include "lib/memory.h"
 
 #include "bgpd/bgpd.h"
@@ -198,7 +199,7 @@ static void vnc_redistribute_add(struct prefix *p, u_int32_t metric,
 					stream_fifo_free(vncHD1VR.peer->obuf);
 
 				if (vncHD1VR.peer->ibuf_work)
-					stream_free(vncHD1VR.peer->ibuf_work);
+					ringbuf_del(vncHD1VR.peer->ibuf_work);
 				if (vncHD1VR.peer->obuf_work)
 					stream_free(vncHD1VR.peer->obuf_work);
 

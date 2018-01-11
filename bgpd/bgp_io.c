@@ -29,6 +29,7 @@
 #include "memory.h"		// for MTYPE_TMP, XCALLOC, XFREE
 #include "network.h"		// for ERRNO_IO_RETRY
 #include "stream.h"		// for stream_get_endp, stream_getw_from, str...
+#include "ringbuf.h"		// for ringbuf_remain, ringbuf_peek, ringbuf_...
 #include "thread.h"		// for THREAD_OFF, THREAD_ARG, thread, thread...
 #include "zassert.h"		// for assert
 
@@ -109,13 +110,15 @@ int bgp_io_stop(void **result, struct frr_pthread *fpt)
 }
 
 /* Extern API -------------------------------------------------------------- */
+void bgp_io_running(void)
+{
+	while (!atomic_load_explicit(&bgp_io_thread_started,
+				     memory_order_seq_cst))
+		frr_pthread_yield();
+}
 
 void bgp_writes_on(struct peer *peer)
 {
-	while (
-	    !atomic_load_explicit(&bgp_io_thread_started, memory_order_seq_cst))
-		;
-
 	assert(peer->status != Deleted);
 	assert(peer->obuf);
 	assert(peer->ibuf);
@@ -133,10 +136,6 @@ void bgp_writes_on(struct peer *peer)
 
 void bgp_writes_off(struct peer *peer)
 {
-	while (
-	    !atomic_load_explicit(&bgp_io_thread_started, memory_order_seq_cst))
-		;
-
 	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_IO);
 
 	thread_cancel_async(fpt->master, &peer->t_write, NULL);
@@ -147,10 +146,6 @@ void bgp_writes_off(struct peer *peer)
 
 void bgp_reads_on(struct peer *peer)
 {
-	while (
-	    !atomic_load_explicit(&bgp_io_thread_started, memory_order_seq_cst))
-		;
-
 	assert(peer->status != Deleted);
 	assert(peer->ibuf);
 	assert(peer->fd);
@@ -170,10 +165,6 @@ void bgp_reads_on(struct peer *peer)
 
 void bgp_reads_off(struct peer *peer)
 {
-	while (
-	    !atomic_load_explicit(&bgp_io_thread_started, memory_order_seq_cst))
-		;
-
 	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_IO);
 
 	thread_cancel_async(fpt->master, &peer->t_read, NULL);
@@ -273,14 +264,12 @@ static int bgp_process_reads(struct thread *thread)
 		/* static buffer for transferring packets */
 		static unsigned char pktbuf[BGP_MAX_PACKET_SIZE];
 		/* shorter alias to peer's input buffer */
-		struct stream *ibw = peer->ibuf_work;
-		/* offset of start of current packet */
-		size_t offset = stream_get_getp(ibw);
+		struct ringbuf *ibw = peer->ibuf_work;
 		/* packet size as given by header */
-		u_int16_t pktsize = 0;
+		uint16_t pktsize = 0;
 
 		/* check that we have enough data for a header */
-		if (STREAM_READABLE(ibw) < BGP_HEADER_SIZE)
+		if (ringbuf_remain(ibw) < BGP_HEADER_SIZE)
 			break;
 
 		/* validate header */
@@ -292,16 +281,18 @@ static int bgp_process_reads(struct thread *thread)
 		}
 
 		/* header is valid; retrieve packet size */
-		pktsize = stream_getw_from(ibw, offset + BGP_MARKER_SIZE);
+		ringbuf_peek(ibw, BGP_MARKER_SIZE, &pktsize, sizeof(pktsize));
+
+		pktsize = ntohs(pktsize);
 
 		/* if this fails we are seriously screwed */
 		assert(pktsize <= BGP_MAX_PACKET_SIZE);
 
 		/* If we have that much data, chuck it into its own
 		 * stream and append to input queue for processing. */
-		if (STREAM_READABLE(ibw) >= pktsize) {
+		if (ringbuf_remain(ibw) >= pktsize) {
 			struct stream *pkt = stream_new(pktsize);
-			stream_get(pktbuf, ibw, pktsize);
+			assert(ringbuf_get(ibw, pktbuf, pktsize) == pktsize);
 			stream_put(pkt, pktbuf, pktsize);
 
 			pthread_mutex_lock(&peer->io_mtx);
@@ -315,28 +306,12 @@ static int bgp_process_reads(struct thread *thread)
 			break;
 	}
 
-	/*
-	 * After reading:
-	 * 1. Move unread data to stream start to make room for more.
-	 * 2. Reschedule and return when we have additional data.
-	 *
-	 * XXX: Heavy abuse of stream API. This needs a ring buffer.
-	 */
-	if (more && STREAM_WRITEABLE(peer->ibuf_work) < BGP_MAX_PACKET_SIZE) {
-		void *from = stream_pnt(peer->ibuf_work);
-		void *to = peer->ibuf_work->data;
-		size_t siz = STREAM_READABLE(peer->ibuf_work);
-		memmove(to, from, siz);
-		stream_set_getp(peer->ibuf_work, 0);
-		stream_set_endp(peer->ibuf_work, siz);
-	}
-
-	assert(STREAM_WRITEABLE(peer->ibuf_work) >= BGP_MAX_PACKET_SIZE);
+	assert(ringbuf_space(peer->ibuf_work) >= BGP_MAX_PACKET_SIZE);
 
 	/* handle invalid header */
 	if (fatal) {
 		/* wipe buffer just in case someone screwed up */
-		stream_reset(peer->ibuf_work);
+		ringbuf_wipe(peer->ibuf_work);
 	} else {
 		thread_add_read(fpt->master, bgp_process_reads, peer, peer->fd,
 				&peer->t_read);
@@ -474,14 +449,16 @@ static uint16_t bgp_read(struct peer *peer)
 	size_t readsize; // how many bytes we want to read
 	ssize_t nbytes;  // how many bytes we actually read
 	uint16_t status = 0;
+	static uint8_t ibw[BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX];
 
-	readsize = STREAM_WRITEABLE(peer->ibuf_work);
+	readsize = MIN(ringbuf_space(peer->ibuf_work), sizeof(ibw));
+	nbytes = read(peer->fd, ibw, readsize);
 
-	nbytes = stream_read_try(peer->ibuf_work, peer->fd, readsize);
-
-	switch (nbytes) {
+	/* EAGAIN or EWOULDBLOCK; come back later */
+	if (nbytes < 0 && ERRNO_IO_RETRY(errno)) {
+		SET_FLAG(status, BGP_IO_TRANS_ERR);
 	/* Fatal error; tear down session */
-	case -1:
+	} else if (nbytes < 0) {
 		zlog_err("%s [Error] bgp_read_packet error: %s", peer->host,
 			 safe_strerror(errno));
 
@@ -495,10 +472,8 @@ static uint16_t bgp_read(struct peer *peer)
 
 		BGP_EVENT_ADD(peer, TCP_fatal_error);
 		SET_FLAG(status, BGP_IO_FATAL_ERR);
-		break;
-
 	/* Received EOF / TCP session closed */
-	case 0:
+	} else if (nbytes == 0) {
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s [Event] BGP connection closed fd %d",
 				   peer->host, peer->fd);
@@ -513,14 +488,9 @@ static uint16_t bgp_read(struct peer *peer)
 
 		BGP_EVENT_ADD(peer, TCP_connection_closed);
 		SET_FLAG(status, BGP_IO_FATAL_ERR);
-		break;
-
-	/* EAGAIN or EWOULDBLOCK; come back later */
-	case -2:
-		SET_FLAG(status, BGP_IO_TRANS_ERR);
-		break;
-	default:
-		break;
+	} else {
+		assert(ringbuf_put(peer->ibuf_work, ibw, nbytes)
+		       == (size_t)nbytes);
 	}
 
 	return status;
@@ -529,27 +499,35 @@ static uint16_t bgp_read(struct peer *peer)
 /*
  * Called after we have read a BGP packet header. Validates marker, message
  * type and packet length. If any of these aren't correct, sends a notify.
+ *
+ * Assumes that there are at least BGP_HEADER_SIZE readable bytes in the input
+ * buffer.
  */
 static bool validate_header(struct peer *peer)
 {
 	uint16_t size;
 	uint8_t type;
-	struct stream *pkt = peer->ibuf_work;
-	size_t getp = stream_get_getp(pkt);
+	struct ringbuf *pkt = peer->ibuf_work;
 
-	static uint8_t marker[BGP_MARKER_SIZE] = {
-	    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-	    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+	static uint8_t m_correct[BGP_MARKER_SIZE] = {
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
+		0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+	uint8_t m_rx[BGP_MARKER_SIZE] = {0x00};
 
-	if (memcmp(marker, stream_pnt(pkt), BGP_MARKER_SIZE) != 0) {
+	if (ringbuf_peek(pkt, 0, m_rx, BGP_MARKER_SIZE) != BGP_MARKER_SIZE)
+		return false;
+
+	if (memcmp(m_correct, m_rx, BGP_MARKER_SIZE) != 0) {
 		bgp_notify_send(peer, BGP_NOTIFY_HEADER_ERR,
 				BGP_NOTIFY_HEADER_NOT_SYNC);
 		return false;
 	}
 
-	/* Get size and type in host byte order. */
-	size = stream_getw_from(pkt, getp + BGP_MARKER_SIZE);
-	type = stream_getc_from(pkt, getp + BGP_MARKER_SIZE + 2);
+	/* Get size and type in network byte order. */
+	ringbuf_peek(pkt, BGP_MARKER_SIZE, &size, sizeof(size));
+	ringbuf_peek(pkt, BGP_MARKER_SIZE + 2, &type, sizeof(type));
+
+	size = ntohs(size);
 
 	/* BGP type check. */
 	if (type != BGP_MSG_OPEN && type != BGP_MSG_UPDATE

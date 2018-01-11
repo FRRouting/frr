@@ -1438,7 +1438,7 @@ DEFUN (no_bgp_rpkt_quanta,
 
 void bgp_config_write_coalesce_time(struct vty *vty, struct bgp *bgp)
 {
-	if (bgp->coalesce_time != BGP_DEFAULT_SUBGROUP_COALESCE_TIME)
+	if (!bgp->heuristic_coalesce)
 		vty_out(vty, " coalesce-time %u\n", bgp->coalesce_time);
 }
 
@@ -1453,6 +1453,7 @@ DEFUN (bgp_coalesce_time,
 
 	int idx = 0;
 	argv_find(argv, argc, "(0-4294967295)", &idx);
+	bgp->heuristic_coalesce = false;
 	bgp->coalesce_time = strtoul(argv[idx]->arg, NULL, 10);
 	return CMD_SUCCESS;
 }
@@ -1466,6 +1467,7 @@ DEFUN (no_bgp_coalesce_time,
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
+	bgp->heuristic_coalesce = true;
 	bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
 	return CMD_SUCCESS;
 }
@@ -7074,17 +7076,9 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			json_object_int_add(json_peer, "remoteAs", peer->as);
 			json_object_int_add(json_peer, "version", 4);
 			json_object_int_add(json_peer, "msgRcvd",
-					    peer->open_in + peer->update_in
-						    + peer->keepalive_in
-						    + peer->notify_in
-						    + peer->refresh_in
-						    + peer->dynamic_cap_in);
+					    PEER_TOTAL_RX(peer));
 			json_object_int_add(json_peer, "msgSent",
-					    peer->open_out + peer->update_out
-						    + peer->keepalive_out
-						    + peer->notify_out
-						    + peer->refresh_out
-						    + peer->dynamic_cap_out);
+					    PEER_TOTAL_TX(peer));
 
 			json_object_int_add(json_peer, "tableVersion",
 					    peer->version[afi][safi]);
@@ -7141,48 +7135,18 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 					" ");
 
 			vty_out(vty, "4 %10u %7u %7u %8" PRIu64 " %4d %4zd %8s",
-				peer->as,
-				atomic_load_explicit(&peer->open_in,
-						     memory_order_relaxed)
-					+ atomic_load_explicit(
-						  &peer->update_in,
-						  memory_order_relaxed)
-					+ atomic_load_explicit(
-						  &peer->keepalive_in,
-						  memory_order_relaxed)
-					+ atomic_load_explicit(
-						  &peer->notify_in,
-						  memory_order_relaxed)
-					+ atomic_load_explicit(
-						  &peer->refresh_in,
-						  memory_order_relaxed)
-					+ atomic_load_explicit(
-						  &peer->dynamic_cap_in,
-						  memory_order_relaxed),
-				atomic_load_explicit(&peer->open_out,
-						     memory_order_relaxed)
-					+ atomic_load_explicit(
-						  &peer->update_out,
-						  memory_order_relaxed)
-					+ atomic_load_explicit(
-						  &peer->keepalive_out,
-						  memory_order_relaxed)
-					+ atomic_load_explicit(
-						  &peer->notify_out,
-						  memory_order_relaxed)
-					+ atomic_load_explicit(
-						  &peer->refresh_out,
-						  memory_order_relaxed)
-					+ atomic_load_explicit(
-						  &peer->dynamic_cap_out,
-						  memory_order_relaxed),
-				peer->version[afi][safi], 0, peer->obuf->count,
+				peer->as, PEER_TOTAL_RX(peer),
+				PEER_TOTAL_TX(peer), peer->version[afi][safi],
+				0, peer->obuf->count,
 				peer_uptime(peer->uptime, timebuf,
 					    BGP_UPTIME_LEN, 0, NULL));
 
 			if (peer->status == Established)
-				vty_out(vty, " %12ld",
-					peer->pcount[afi][pfx_rcd_safi]);
+				if (peer->afc_recv[afi][pfx_rcd_safi])
+					vty_out(vty, " %12ld",
+						peer->pcount[afi][pfx_rcd_safi]);
+				else
+					vty_out(vty, " NoNeg");
 			else {
 				if (CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN))
 					vty_out(vty, " Idle (Admin)");
@@ -8309,17 +8273,29 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 
 		if (p->status == Established) {
 			time_t uptime;
-			struct tm *tm;
 
 			uptime = bgp_clock();
 			uptime -= p->uptime;
-			tm = gmtime(&uptime);
 			epoch_tbuf = time(NULL) - uptime;
 
+#if CONFDATE > 20200101
+			CPP_NOTICE("bgpTimerUp should be deprecated and can be removed now");
+#endif
+			/*
+			 * bgpTimerUp was miliseconds that was accurate
+			 * up to 1 day, then the value returned
+			 * became garbage.  So in order to provide
+			 * some level of backwards compatability,
+			 * we still provde the data, but now
+			 * we are returning the correct value
+			 * and also adding a new bgpTimerUpMsec
+			 * which will allow us to deprecate
+			 * this eventually
+			 */
 			json_object_int_add(json_neigh, "bgpTimerUp",
-					    (tm->tm_sec * 1000)
-						    + (tm->tm_min * 60000)
-						    + (tm->tm_hour * 3600000));
+					    uptime * 1000);
+			json_object_int_add(json_neigh, "bgpTimerUpMsec",
+					    uptime * 1000);
 			json_object_string_add(json_neigh, "bgpTimerUpString",
 					       peer_uptime(p->uptime, timebuf,
 							   BGP_UPTIME_LEN, 0,
@@ -9350,34 +9326,44 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 		json_object_int_add(json_stat, "depthInq", 0);
 		json_object_int_add(json_stat, "depthOutq",
 				    (unsigned long)p->obuf->count);
-		json_object_int_add(json_stat, "opensSent", p->open_out);
-		json_object_int_add(json_stat, "opensRecv", p->open_in);
+		json_object_int_add(json_stat, "opensSent",
+				    atomic_load_explicit(&p->open_out,
+							 memory_order_relaxed));
+		json_object_int_add(json_stat, "opensRecv",
+				    atomic_load_explicit(&p->open_in,
+							 memory_order_relaxed));
 		json_object_int_add(json_stat, "notificationsSent",
-				    p->notify_out);
+				    atomic_load_explicit(&p->notify_out,
+							 memory_order_relaxed));
 		json_object_int_add(json_stat, "notificationsRecv",
-				    p->notify_in);
-		json_object_int_add(json_stat, "updatesSent", p->update_out);
-		json_object_int_add(json_stat, "updatesRecv", p->update_in);
+				    atomic_load_explicit(&p->notify_in,
+							 memory_order_relaxed));
+		json_object_int_add(json_stat, "updatesSent",
+				    atomic_load_explicit(&p->update_out,
+							 memory_order_relaxed));
+		json_object_int_add(json_stat, "updatesRecv",
+				    atomic_load_explicit(&p->update_in,
+							 memory_order_relaxed));
 		json_object_int_add(json_stat, "keepalivesSent",
-				    p->keepalive_out);
+				    atomic_load_explicit(&p->keepalive_out,
+							 memory_order_relaxed));
 		json_object_int_add(json_stat, "keepalivesRecv",
-				    p->keepalive_in);
+				    atomic_load_explicit(&p->keepalive_in,
+							 memory_order_relaxed));
 		json_object_int_add(json_stat, "routeRefreshSent",
-				    p->refresh_out);
+				    atomic_load_explicit(&p->refresh_out,
+							 memory_order_relaxed));
 		json_object_int_add(json_stat, "routeRefreshRecv",
-				    p->refresh_in);
+				    atomic_load_explicit(&p->refresh_in,
+							 memory_order_relaxed));
 		json_object_int_add(json_stat, "capabilitySent",
-				    p->dynamic_cap_out);
+				    atomic_load_explicit(&p->dynamic_cap_out,
+							 memory_order_relaxed));
 		json_object_int_add(json_stat, "capabilityRecv",
-				    p->dynamic_cap_in);
-		json_object_int_add(json_stat, "totalSent",
-				    p->open_out + p->notify_out + p->update_out
-					    + p->keepalive_out + p->refresh_out
-					    + p->dynamic_cap_out);
-		json_object_int_add(json_stat, "totalRecv",
-				    p->open_in + p->notify_in + p->update_in
-					    + p->keepalive_in + p->refresh_in
-					    + p->dynamic_cap_in);
+				    atomic_load_explicit(&p->dynamic_cap_in,
+							 memory_order_relaxed));
+		json_object_int_add(json_stat, "totalSent", PEER_TOTAL_TX(p));
+		json_object_int_add(json_stat, "totalRecv", PEER_TOTAL_RX(p));
 		json_object_object_add(json_neigh, "messageStats", json_stat);
 	} else {
 		/* Packet counts. */
@@ -9386,25 +9372,38 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, u_char use_json,
 		vty_out(vty, "    Outq depth is %lu\n",
 			(unsigned long)p->obuf->count);
 		vty_out(vty, "                         Sent       Rcvd\n");
-		vty_out(vty, "    Opens:         %10d %10d\n", p->open_out,
-			p->open_in);
-		vty_out(vty, "    Notifications: %10d %10d\n", p->notify_out,
-			p->notify_in);
-		vty_out(vty, "    Updates:       %10d %10d\n", p->update_out,
-			p->update_in);
-		vty_out(vty, "    Keepalives:    %10d %10d\n", p->keepalive_out,
-			p->keepalive_in);
-		vty_out(vty, "    Route Refresh: %10d %10d\n", p->refresh_out,
-			p->refresh_in);
+		vty_out(vty, "    Opens:         %10d %10d\n",
+			atomic_load_explicit(&p->open_out,
+					     memory_order_relaxed),
+			atomic_load_explicit(&p->open_in,
+					     memory_order_relaxed));
+		vty_out(vty, "    Notifications: %10d %10d\n",
+			atomic_load_explicit(&p->notify_out,
+					     memory_order_relaxed),
+			atomic_load_explicit(&p->notify_in,
+					     memory_order_relaxed));
+		vty_out(vty, "    Updates:       %10d %10d\n",
+			atomic_load_explicit(&p->update_out,
+					     memory_order_relaxed),
+			atomic_load_explicit(&p->update_in,
+					     memory_order_relaxed));
+		vty_out(vty, "    Keepalives:    %10d %10d\n",
+			atomic_load_explicit(&p->keepalive_out,
+					     memory_order_relaxed),
+			atomic_load_explicit(&p->keepalive_in,
+					     memory_order_relaxed));
+		vty_out(vty, "    Route Refresh: %10d %10d\n",
+			atomic_load_explicit(&p->refresh_out,
+					     memory_order_relaxed),
+			atomic_load_explicit(&p->refresh_in,
+					     memory_order_relaxed));
 		vty_out(vty, "    Capability:    %10d %10d\n",
-			p->dynamic_cap_out, p->dynamic_cap_in);
-		vty_out(vty, "    Total:         %10d %10d\n",
-			p->open_out + p->notify_out + p->update_out
-				+ p->keepalive_out + p->refresh_out
-				+ p->dynamic_cap_out,
-			p->open_in + p->notify_in + p->update_in
-				+ p->keepalive_in + p->refresh_in
-				+ p->dynamic_cap_in);
+			atomic_load_explicit(&p->dynamic_cap_out,
+					     memory_order_relaxed),
+			atomic_load_explicit(&p->dynamic_cap_in,
+					     memory_order_relaxed));
+		vty_out(vty, "    Total:         %10d %10d\n", PEER_TOTAL_TX(p),
+			PEER_TOTAL_RX(p));
 	}
 
 	if (use_json) {

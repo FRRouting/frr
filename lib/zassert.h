@@ -1,6 +1,4 @@
 /*
- * $Id: zassert.h,v 1.2 2004/12/03 18:01:04 ajs Exp $
- *
  * This file is part of Quagga.
  *
  * Quagga is free software; you can redistribute it and/or modify it

@@ -37,6 +37,16 @@
 extern void bgp_io_init(void);
 
 /**
+ * Ensure that the BGP IO thread is actually up and running
+ *
+ * This function must be called immediately after the thread
+ * has been created for running.  This is because we want
+ * to make sure that the io thread is ready before other
+ * threads start attempting to use it.
+ */
+extern void bgp_io_running(void);
+
+/**
  * Start function for write thread.
  *
  * @param arg - unused

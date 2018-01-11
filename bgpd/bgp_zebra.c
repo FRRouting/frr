@@ -1542,8 +1542,9 @@ void bgp_update_redist_vrf_bitmaps(struct bgp *bgp, vrf_id_t old_vrf_id)
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-			if (vrf_bitmap_check(zclient->redist[afi][i],
-					     old_vrf_id)) {
+			if ((old_vrf_id == VRF_UNKNOWN)
+			    || vrf_bitmap_check(zclient->redist[afi][i],
+						old_vrf_id)) {
 				vrf_bitmap_unset(zclient->redist[afi][i],
 						 old_vrf_id);
 				vrf_bitmap_set(zclient->redist[afi][i],

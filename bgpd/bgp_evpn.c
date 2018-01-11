@@ -1206,7 +1206,9 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	attr.mp_nexthop_global_in = vpn->originator_ip;
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
 	attr.sticky = CHECK_FLAG(flags, ZEBRA_MAC_TYPE_STICKY) ? 1 : 0;
+  attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL);
 	bgpevpn_get_rmac(vpn, &attr.rmac);
+	vni2label(vpn->vni, &(attr.label));
 
 	/* Set up RT and ENCAP extended community. */
 	build_evpn_route_extcomm(vpn, &attr,

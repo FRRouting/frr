@@ -369,10 +369,21 @@ static void ospf6_asbr_routemap_update(const char *mapname)
 		return;
 
 	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
-		if (ospf6->rmap[type].name)
+		if (ospf6->rmap[type].name) {
 			ospf6->rmap[type].map = route_map_lookup_by_name(
 				ospf6->rmap[type].name);
-		else
+
+			if (mapname && ospf6->rmap[type].map &&
+			    (strcmp(ospf6->rmap[type].name, mapname) == 0)) {
+				if (IS_OSPF6_DEBUG_ASBR)
+					zlog_debug("%s: route-map %s update, reset redist %s",
+						   __PRETTY_FUNCTION__, mapname,
+						   ZROUTE_NAME(type));
+
+				ospf6_zebra_no_redistribute(type);
+				ospf6_zebra_redistribute(type);
+			}
+		} else
 			ospf6->rmap[type].map = NULL;
 	}
 }

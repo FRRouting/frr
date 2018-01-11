@@ -7333,6 +7333,7 @@ static int interface_pim_use_src_cmd_worker(struct vty *vty, const char *source)
 {
 	int result;
 	struct in_addr source_addr;
+	int ret = CMD_SUCCESS;
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	result = inet_pton(AF_INET, source, &source_addr);
@@ -7347,16 +7348,19 @@ static int interface_pim_use_src_cmd_worker(struct vty *vty, const char *source)
 	case PIM_SUCCESS:
 		break;
 	case PIM_IFACE_NOT_FOUND:
+		ret = CMD_WARNING_CONFIG_FAILED;
 		vty_out(vty, "Pim not enabled on this interface\n");
 		break;
 	case PIM_UPDATE_SOURCE_DUP:
+		ret = CMD_WARNING;
 		vty_out(vty, "%% Source already set to %s\n", source);
 		break;
 	default:
+		ret = CMD_WARNING_CONFIG_FAILED;
 		vty_out(vty, "%% Source set failed\n");
 	}
 
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
+	return ret;
 }
 
 DEFUN (interface_pim_use_source,
@@ -7485,6 +7489,7 @@ static int ip_msdp_peer_cmd_worker(struct pim_instance *pim, struct vty *vty,
 	enum pim_msdp_err result;
 	struct in_addr peer_addr;
 	struct in_addr local_addr;
+	int ret = CMD_SUCCESS;
 
 	result = inet_pton(AF_INET, peer, &peer_addr);
 	if (result <= 0) {
@@ -7506,19 +7511,23 @@ static int ip_msdp_peer_cmd_worker(struct pim_instance *pim, struct vty *vty,
 	case PIM_MSDP_ERR_NONE:
 		break;
 	case PIM_MSDP_ERR_OOM:
+		ret = CMD_WARNING_CONFIG_FAILED;
 		vty_out(vty, "%% Out of memory\n");
 		break;
 	case PIM_MSDP_ERR_PEER_EXISTS:
+		ret = CMD_WARNING;
 		vty_out(vty, "%% Peer exists\n");
 		break;
 	case PIM_MSDP_ERR_MAX_MESH_GROUPS:
+		ret = CMD_WARNING_CONFIG_FAILED;
 		vty_out(vty, "%% Only one mesh-group allowed currently\n");
 		break;
 	default:
+		ret = CMD_WARNING_CONFIG_FAILED;
 		vty_out(vty, "%% peer add failed\n");
 	}
 
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
+	return ret;
 }
 
 DEFUN_HIDDEN (ip_msdp_peer,
@@ -7581,6 +7590,7 @@ static int ip_msdp_mesh_group_member_cmd_worker(struct pim_instance *pim,
 {
 	enum pim_msdp_err result;
 	struct in_addr mbr_ip;
+	int ret = CMD_SUCCESS;
 
 	result = inet_pton(AF_INET, mbr, &mbr_ip);
 	if (result <= 0) {
@@ -7594,19 +7604,23 @@ static int ip_msdp_mesh_group_member_cmd_worker(struct pim_instance *pim,
 	case PIM_MSDP_ERR_NONE:
 		break;
 	case PIM_MSDP_ERR_OOM:
+		ret = CMD_WARNING_CONFIG_FAILED;
 		vty_out(vty, "%% Out of memory\n");
 		break;
 	case PIM_MSDP_ERR_MG_MBR_EXISTS:
+		ret = CMD_WARNING;
 		vty_out(vty, "%% mesh-group member exists\n");
 		break;
 	case PIM_MSDP_ERR_MAX_MESH_GROUPS:
+		ret = CMD_WARNING_CONFIG_FAILED;
 		vty_out(vty, "%% Only one mesh-group allowed currently\n");
 		break;
 	default:
+		ret = CMD_WARNING_CONFIG_FAILED;
 		vty_out(vty, "%% member add failed\n");
 	}
 
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
+	return ret;
 }
 
 DEFUN (ip_msdp_mesh_group_member,

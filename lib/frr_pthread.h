@@ -130,6 +130,9 @@ int frr_pthread_stop(unsigned int id, void **result);
 /* Stops all frr_pthread's. */
 void frr_pthread_stop_all(void);
 
+/* Yields the current thread of execution */
+void frr_pthread_yield(void);
+
 /* Returns a unique identifier for use with frr_pthread_new().
  *
  * Internally, this is an integer that increments after each call to this

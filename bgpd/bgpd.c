@@ -24,6 +24,7 @@
 #include "thread.h"
 #include "buffer.h"
 #include "stream.h"
+#include "ringbuf.h"
 #include "command.h"
 #include "sockunion.h"
 #include "sockopt.h"
@@ -1162,7 +1163,9 @@ struct peer *peer_new(struct bgp *bgp)
 	 */
 	peer->obuf_work =
 		stream_new(BGP_MAX_PACKET_SIZE + BGP_MAX_PACKET_SIZE_OVERFLOW);
-	peer->ibuf_work = stream_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX);
+	peer->ibuf_work =
+		ringbuf_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX);
+
 	peer->scratch = stream_new(BGP_MAX_PACKET_SIZE);
 
 	bgp_sync_init(peer);
@@ -1475,9 +1478,12 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	hash_get(bgp->peerhash, peer, hash_alloc_intern);
 
 	/* Adjust update-group coalesce timer heuristics for # peers. */
-	long ct = BGP_DEFAULT_SUBGROUP_COALESCE_TIME
-		  + (bgp->peer->count * BGP_PEER_ADJUST_SUBGROUP_COALESCE_TIME);
-	bgp->coalesce_time = MIN(BGP_MAX_SUBGROUP_COALESCE_TIME, ct);
+	if (bgp->heuristic_coalesce) {
+		long ct = BGP_DEFAULT_SUBGROUP_COALESCE_TIME
+			  + (bgp->peer->count
+			     * BGP_PEER_ADJUST_SUBGROUP_COALESCE_TIME);
+		bgp->coalesce_time = MIN(BGP_MAX_SUBGROUP_COALESCE_TIME, ct);
+	}
 
 	active = peer_active(peer);
 
@@ -2176,7 +2182,7 @@ int peer_delete(struct peer *peer)
 	}
 
 	if (peer->ibuf_work) {
-		stream_free(peer->ibuf_work);
+		ringbuf_del(peer->ibuf_work);
 		peer->ibuf_work = NULL;
 	}
 
@@ -7481,7 +7487,15 @@ void bgp_pthreads_run()
 	pthread_attr_init(&attr);
 	pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
 
+	/*
+	 * Please ensure that the io thread is running
+	 * by calling bgp_io_running.  The BGP threads
+	 * depend on it being running when we start
+	 * looking for it.
+	 */
 	frr_pthread_run(PTHREAD_IO, &attr, NULL);
+	bgp_io_running();
+
 	frr_pthread_run(PTHREAD_KEEPALIVES, &attr, NULL);
 }
 

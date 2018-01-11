@@ -1,6 +1,4 @@
 /*
- * $Id: test-privs.c,v 1.1 2005/10/11 03:48:28 paul Exp $
- *
  * This file is part of Quagga.
  *
  * Quagga is free software; you can redistribute it and/or modify it

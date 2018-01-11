@@ -679,8 +679,9 @@ static int ospf_ase_calculate_timer(struct thread *t)
 
 		monotime(&stop_time);
 
-		zlog_info("SPF Processing Time(usecs): External Routes: %lld\n",
-			  (stop_time.tv_sec - start_time.tv_sec) * 1000000LL
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_info("SPF Processing Time(usecs): External Routes: %lld\n",
+				  (stop_time.tv_sec - start_time.tv_sec) * 1000000LL
 				  + (stop_time.tv_usec - start_time.tv_usec));
 	}
 	return 0;

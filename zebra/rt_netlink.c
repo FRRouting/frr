@@ -230,6 +230,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 	int metric = 0;
 	u_int32_t mtu = 0;
 	uint8_t distance = 0;
+	route_tag_t tag = 0;
 
 	void *dest = NULL;
 	void *gate = NULL;
@@ -320,6 +321,11 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 
 	if (tb[RTA_PRIORITY])
 		metric = *(int *)RTA_DATA(tb[RTA_PRIORITY]);
+
+#if defined(SUPPORT_REALMS)
+	if (tb[RTA_FLOW])
+		tag = *(uint32_t *)RTA_DATA(tb[RTA_FLOW]);
+#endif
 
 	if (tb[RTA_METRICS]) {
 		struct rtattr *mxrta[RTAX_MAX + 1];
@@ -429,7 +435,8 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 				memcpy(&nh.gate, gate, sz);
 
 			rib_add(afi, SAFI_UNICAST, vrf_id, proto,
-				0, flags, &p, NULL, &nh, table, metric, mtu, distance);
+				0, flags, &p, NULL, &nh, table, metric,
+				mtu, distance, tag);
 		} else {
 			/* This is a multipath route */
 
@@ -449,6 +456,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 			re->table = table;
 			re->nexthop_num = 0;
 			re->uptime = time(NULL);
+			re->tag = tag;
 
 			for (;;) {
 				if (len < (int)sizeof(*rtnh)
@@ -1310,7 +1318,10 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 	 * by the routing protocol and for communicating with protocol peers.
 	 */
 	addattr32(&req.n, sizeof req, RTA_PRIORITY, NL_DEFAULT_ROUTE_METRIC);
-
+#if defined(SUPPORT_REALMS)
+	if (re->tag > 0 && re->tag <= 255)
+		addattr32(&req.n, sizeof req, RTA_FLOW, re->tag);
+#endif
 	/* Table corresponding to this route. */
 	if (re->table < 256)
 		req.r.rtm_table = re->table;

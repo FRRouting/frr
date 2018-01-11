@@ -914,7 +914,7 @@ static u_char *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 	if (len)
 		id = htonl(*offset);
 	offset += len;
-	offsetlen -= len;
+	//offsetlen -= len;  // Add back in if we need it again
 
 	if (exact) {
 		if (v->magic & OSPFv3WWASTABLE) {
@@ -1080,8 +1080,8 @@ static u_char *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 	len = (offsetlen < 1 ? 0 : 1);
 	if (len)
 		instid = *offset;
-	offset += len;
-	offsetlen -= len;
+	//offset += len; // Add back in if we ever start using again
+	//offsetlen -= len;
 
 	if (exact) {
 		oi = ospf6_interface_lookup_by_ifindex(ifindex);
@@ -1241,8 +1241,8 @@ static u_char *ospfv3NbrEntry(struct variable *v, oid *name, size_t *length,
 	len = (offsetlen < 1 ? 0 : 1);
 	if (len)
 		rtrid = htonl(*offset);
-	offset += len;
-	offsetlen -= len;
+	//offset += len; // Add back in if we ever start looking at data
+	//offsetlen -= len;
 
 	if (exact) {
 		oi = ospf6_interface_lookup_by_ifindex(ifindex);
