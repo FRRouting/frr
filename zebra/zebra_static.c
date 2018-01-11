@@ -91,7 +91,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 			nh_p.family = AF_INET;
 			nh_p.prefixlen = IPV4_MAX_BITLEN;
 			nh_p.u.prefix4 = si->addr.ipv4;
-			zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
+			zebra_register_rnh_static_nh(si->nh_vrf_id, &nh_p, rn);
 			break;
 		case STATIC_IPV4_GATEWAY_IFNAME:
 			nexthop = route_entry_nexthop_ipv4_ifindex_add(
@@ -111,7 +111,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 			nh_p.family = AF_INET6;
 			nh_p.prefixlen = IPV6_MAX_BITLEN;
 			nh_p.u.prefix6 = si->addr.ipv6;
-			zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
+			zebra_register_rnh_static_nh(si->nh_vrf_id, &nh_p, rn);
 			break;
 		case STATIC_IPV6_GATEWAY_IFNAME:
 			nexthop = route_entry_nexthop_ipv6_ifindex_add(
@@ -141,7 +141,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 		 */
 		if (si->type == STATIC_IPV4_GATEWAY
 		    || si->type == STATIC_IPV6_GATEWAY)
-			zebra_evaluate_rnh(si->vrf_id, nh_p.family, 1,
+			zebra_evaluate_rnh(si->nh_vrf_id, nh_p.family, 1,
 					   RNH_NEXTHOP_TYPE, &nh_p);
 		else
 			rib_queue_add(rn);
@@ -170,7 +170,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 			nh_p.family = AF_INET;
 			nh_p.prefixlen = IPV4_MAX_BITLEN;
 			nh_p.u.prefix4 = si->addr.ipv4;
-			zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
+			zebra_register_rnh_static_nh(si->nh_vrf_id, &nh_p, rn);
 			break;
 		case STATIC_IPV4_GATEWAY_IFNAME:
 			nexthop = route_entry_nexthop_ipv4_ifindex_add(
@@ -190,7 +190,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 			nh_p.family = AF_INET6;
 			nh_p.prefixlen = IPV6_MAX_BITLEN;
 			nh_p.u.prefix6 = si->addr.ipv6;
-			zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
+			zebra_register_rnh_static_nh(si->nh_vrf_id, &nh_p, rn);
 			break;
 		case STATIC_IPV6_GATEWAY_IFNAME:
 			nexthop = route_entry_nexthop_ipv6_ifindex_add(
@@ -222,7 +222,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 		if (si->type == STATIC_IPV4_GATEWAY
 		    || si->type == STATIC_IPV6_GATEWAY) {
 			rib_addnode(rn, re, 0);
-			zebra_evaluate_rnh(si->vrf_id, nh_p.family, 1,
+			zebra_evaluate_rnh(si->nh_vrf_id, nh_p.family, 1,
 					   RNH_NEXTHOP_TYPE, &nh_p);
 		} else
 			rib_addnode(rn, re, 1);
