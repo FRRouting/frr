@@ -473,4 +473,9 @@ extern int kernel_interface_set_master(struct interface *master,
 	return 0;
 }
 
+uint32_t kernel_get_speed(struct interface *ifp)
+{
+	return ifp->speed;
+}
+
 #endif /* !HAVE_NETLINK */

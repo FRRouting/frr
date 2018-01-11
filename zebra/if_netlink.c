@@ -387,6 +387,11 @@ static int get_iflink_speed(const char *ifname)
 	return (ecmd.speed_hi << 16) | ecmd.speed;
 }
 
+uint32_t kernel_get_speed(struct interface *ifp)
+{
+	return get_iflink_speed(ifp->name);
+}
+
 static int netlink_extract_bridge_info(struct rtattr *link_data,
 				       struct zebra_l2info_bridge *bridge_info)
 {
