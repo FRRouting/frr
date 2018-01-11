@@ -866,8 +866,7 @@ static void peer_af_flag_reset(struct peer *peer, afi_t afi, safi_t safi)
 /* peer global config reset */
 static void peer_global_config_reset(struct peer *peer)
 {
-
-	int v6only;
+	int saved_flags = 0;
 
 	peer->change_local_as = 0;
 	peer->ttl = (peer_sort(peer) == BGP_PEER_IBGP ? MAXTTL : 1);
@@ -885,13 +884,11 @@ static void peer_global_config_reset(struct peer *peer)
 	else
 		peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
 
-	/* This is a per-peer specific flag and so we must preserve it */
-	v6only = CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
-
+	/* These are per-peer specific flags and so we must preserve them */
+	saved_flags |= CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+	saved_flags |= CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN);
 	peer->flags = 0;
-
-	if (v6only)
-		SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+	SET_FLAG(peer->flags, saved_flags);
 
 	peer->config = 0;
 	peer->holdtime = 0;
@@ -2342,7 +2339,7 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 					struct peer *peer)
 {
 	struct peer *conf;
-	int v6only;
+	int saved_flags = 0;
 
 	conf = group->conf;
 
@@ -2360,14 +2357,11 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	/* GTSM hops */
 	peer->gtsm_hops = conf->gtsm_hops;
 
-	/* this flag is per-neighbor and so has to be preserved */
-	v6only = CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
-
-	/* peer flags apply */
+	/* These are per-peer specific flags and so we must preserve them */
+	saved_flags |= CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+	saved_flags |= CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN);
 	peer->flags = conf->flags;
-
-	if (v6only)
-		SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+	SET_FLAG(peer->flags, saved_flags);
 
 	/* peer config apply */
 	peer->config = conf->config;
