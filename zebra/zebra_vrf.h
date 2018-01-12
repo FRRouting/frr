@@ -24,6 +24,7 @@
 
 #include <zebra/zebra_ns.h>
 #include <zebra/zebra_pw.h>
+#include <lib/vxlan.h>
 
 /* MPLS (Segment Routing) global block */
 typedef struct mpls_srgb_t_ {
@@ -113,6 +114,9 @@ struct zebra_vrf {
 	 * Only in default instance.
 	 */
 	int advertise_gw_macip;
+
+	/* l3-vni info */
+	vni_t l3vni;
 
 	/* Route Installs */
 	uint64_t installs;

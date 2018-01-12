@@ -58,6 +58,7 @@
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_bfd.h"
 #include "bgpd/bgp_io.h"
+#include "bgpd/bgp_evpn.h"
 
 static struct peer_group *listen_range_exists(struct bgp *bgp,
 					      struct prefix *range, int exact);
@@ -873,6 +874,8 @@ DEFUN_NOSH (router_bgp,
 		 */
 	}
 
+	/* unset the auto created flag as the user config is now present */
+	UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
 	VTY_PUSH_CONTEXT(BGP_NODE, bgp);
 
 	return CMD_SUCCESS;
@@ -909,6 +912,12 @@ DEFUN (no_router_bgp,
 				"%% Multiple BGP processes are configured\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
+
+		if (bgp->l3vni) {
+			vty_out(vty, "%% Please unconfigure l3vni %u",
+				bgp->l3vni);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
 	} else {
 		as = strtoul(argv[idx_asn]->arg, NULL, 10);
 
@@ -919,6 +928,12 @@ DEFUN (no_router_bgp,
 		bgp = bgp_lookup(as, name);
 		if (!bgp) {
 			vty_out(vty, "%% Can't find BGP instance\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		if (bgp->l3vni) {
+			vty_out(vty, "%% Please unconfigure l3vni %u",
+				bgp->l3vni);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
@@ -6450,6 +6465,7 @@ DEFUN (show_bgp_vrfs,
        "Show BGP VRFs\n"
        JSON_STR)
 {
+	char buf[ETHER_ADDR_STRLEN];
 	struct list *inst = bm->bgp;
 	struct listnode *node;
 	struct bgp *bgp;
@@ -6457,8 +6473,6 @@ DEFUN (show_bgp_vrfs,
 	json_object *json = NULL;
 	json_object *json_vrfs = NULL;
 	int count = 0;
-	static char header[] =
-		"Type  Id     RouterId          #PeersCfg  #PeersEstb  Name";
 
 	if (!bgp_option_check(BGP_OPT_MULTIPLE_INSTANCE)) {
 		vty_out(vty, "BGP Multiple Instance is not enabled\n");
@@ -6484,7 +6498,10 @@ DEFUN (show_bgp_vrfs,
 
 		count++;
 		if (!uj && count == 1)
-			vty_out(vty, "%s\n", header);
+			vty_out(vty,
+				"%4s  %-5s  %-16s  %9s  %10s  %-37s %-10s %-15s\n",
+			       "Type", "Id", "routerId", "#PeersVfg",
+			       "#PeersEstb", "Name", "L3-VNI", "Rmac");
 
 		peers_cfg = peers_estb = 0;
 		if (uj)
@@ -6518,11 +6535,17 @@ DEFUN (show_bgp_vrfs,
 			json_object_int_add(json_vrf, "numEstablishedPeers",
 					    peers_estb);
 
+			json_object_int_add(json_vrf, "l3vni", bgp->l3vni);
+			json_object_string_add(json_vrf, "rmac",
+					       prefix_mac2str(&bgp->rmac, buf,
+							      sizeof(buf)));
 			json_object_object_add(json_vrfs, name, json_vrf);
 		} else
-			vty_out(vty, "%4s  %-5d  %-16s  %9u  %10u  %s\n", type,
-				vrf_id_ui, inet_ntoa(bgp->router_id), peers_cfg,
-				peers_estb, name);
+			vty_out(vty,
+				"%4s  %-5d  %-16s  %9u  %10u  %-37s %-10u %-15s\n",
+				type, vrf_id_ui, inet_ntoa(bgp->router_id),
+				peers_cfg, peers_estb, name, bgp->l3vni,
+				prefix_mac2str(&bgp->rmac, buf, sizeof(buf)));
 	}
 
 	if (uj) {
@@ -7685,7 +7708,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 		}
 
 		if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
-			if (p->bgp->advertise_all_vni)
+			if (is_evpn_enabled())
 				json_object_boolean_true_add(
 					json_addr, "advertiseAllVnis");
 		}
@@ -7957,7 +7980,7 @@ static void bgp_show_peer_afi(struct vty *vty, struct peer *p, afi_t afi,
 
 		/* advertise-vni-all */
 		if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
-			if (p->bgp->advertise_all_vni)
+			if (is_evpn_enabled())
 				vty_out(vty, "  advertise-all-vni\n");
 		}
 

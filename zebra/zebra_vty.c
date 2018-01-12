@@ -49,6 +49,7 @@
 #include "zebra/zserv.h"
 #include "zebra/router-id.h"
 #include "zebra/ipforward.h"
+#include "zebra/zebra_vxlan_private.h"
 
 extern int allow_delete;
 
@@ -64,6 +65,14 @@ static void vty_show_ip_route_summary(struct vty *vty,
 				      struct route_table *table);
 static void vty_show_ip_route_summary_prefix(struct vty *vty,
 					     struct route_table *table);
+
+/*
+ * special macro to allow us to get the correct zebra_vrf
+ */
+#define ZEBRA_DECLVAR_CONTEXT(A, B)			\
+	struct vrf *A = VTY_GET_CONTEXT(vrf);		\
+	struct zebra_vrf *B =				\
+		(vrf) ? vrf->info : NULL;		\
 
 /* VNI range as per RFC 7432 */
 #define CMD_VNI_RANGE "(1-16777215)"
@@ -1896,6 +1905,110 @@ DEFUN (show_vrf,
 	return CMD_SUCCESS;
 }
 
+DEFUN (vrf_vni_mapping,
+       vrf_vni_mapping_cmd,
+       "vni " CMD_VNI_RANGE,
+       "VNI\n"
+       "VNI-ID\n")
+{
+	int ret = 0;
+
+	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+	vni_t vni = strtoul(argv[1]->arg, NULL, 10);
+	char err[ERR_STR_SZ];
+
+	assert(vrf);
+	assert(zvrf);
+
+	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 1);
+	if (ret != 0) {
+		vty_out(vty, "%s\n", err);
+		return CMD_WARNING;
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_vrf_vni_mapping,
+       no_vrf_vni_mapping_cmd,
+       "no vni " CMD_VNI_RANGE,
+       NO_STR
+       "VNI\n"
+       "VNI-ID")
+{
+	int ret = 0;
+	char err[ERR_STR_SZ];
+	vni_t vni = strtoul(argv[2]->arg, NULL, 10);
+
+	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+
+	assert(vrf);
+	assert(zvrf);
+
+	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 0);
+	if (ret != 0) {
+		vty_out(vty, "%s\n", err);
+		return CMD_WARNING;
+	}
+
+	return CMD_SUCCESS;
+}
+
+/* show vrf */
+DEFUN (show_vrf_vni,
+       show_vrf_vni_cmd,
+       "show vrf vni [json]",
+       SHOW_STR
+       "VRF\n"
+       "VNI\n"
+       JSON_STR)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *zvrf;
+	json_object *json = NULL;
+	json_object *json_vrfs = NULL;
+	u_char uj = use_json(argc, argv);
+
+	if (uj) {
+		json = json_object_new_object();
+		json_vrfs = json_object_new_array();
+	}
+
+	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
+		zvrf = vrf->info;
+		if (!zvrf)
+			continue;
+
+		if (!zvrf->l3vni)
+			continue;
+
+		if (!uj) {
+			vty_out(vty, "vrf: %s VNI: %u",
+				zvrf_name(zvrf),
+				zvrf->l3vni);
+			vty_out(vty, "\n");
+		} else {
+			json_object *json_vrf = NULL;
+
+			json_vrf = json_object_new_object();
+			json_object_string_add(json_vrf, "vrf",
+					       zvrf_name(zvrf));
+			json_object_int_add(json_vrf, "l3vni",
+					    zvrf->l3vni);
+			json_object_array_add(json_vrfs, json_vrf);
+		}
+	}
+
+	if (uj) {
+		json_object_object_add(json, "vrfs", json_vrfs);
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+					     json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_evpn_vni,
        show_evpn_vni_cmd,
        "show evpn vni [json]",
@@ -1928,6 +2041,161 @@ DEFUN (show_evpn_vni_vni,
 	vni = strtoul(argv[3]->arg, NULL, 10);
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	zebra_vxlan_print_vni(vty, zvrf, vni, uj);
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_l3vni,
+       show_evpn_l3vni_cmd,
+       "show evpn l3vni [json]",
+       SHOW_STR
+       "EVPN\n"
+       "L3 VNI\n"
+       JSON_STR)
+{
+	u_char uj = use_json(argc, argv);
+
+	zebra_vxlan_print_l3vnis(vty, uj);
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_l3vni_vni,
+       show_evpn_l3vni_vni_cmd,
+       "show evpn l3vni " CMD_VNI_RANGE "[json]",
+       SHOW_STR
+       "EVPN\n"
+       "L3 VxLAN Network Identifier\n"
+       "VNI number\n"
+       JSON_STR)
+{
+	vni_t vni;
+	u_char uj = use_json(argc, argv);
+
+	vni = strtoul(argv[3]->arg, NULL, 10);
+	zebra_vxlan_print_l3vni(vty, vni, uj);
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_rmac_l3vni_mac,
+       show_evpn_rmac_l3vni_mac_cmd,
+       "show evpn rmac l3vni " CMD_VNI_RANGE " mac WORD [json]",
+       SHOW_STR
+       "EVPN\n"
+       "RMAC\n"
+       "L3-VNI\n"
+       "VNI number\n"
+       "MAC\n"
+       "mac-address (e.g. 0a:0a:0a:0a:0a:0a)\n"
+       JSON_STR)
+{
+	vni_t l3vni = 0;
+	struct ethaddr mac;
+	u_char uj = use_json(argc, argv);
+
+	l3vni = strtoul(argv[4]->arg, NULL, 10);
+	if (!prefix_str2mac(argv[6]->arg, &mac)) {
+		vty_out(vty, "%% Malformed MAC address\n");
+		return CMD_WARNING;
+	}
+	zebra_vxlan_print_specific_rmac_l3vni(vty, l3vni, &mac, uj);
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_rmac_l3vni,
+       show_evpn_rmac_l3vni_cmd,
+       "show evpn rmac l3vni " CMD_VNI_RANGE "[json]",
+       SHOW_STR
+       "EVPN\n"
+       "RMAC\n"
+       "L3-VNI\n"
+       "VNI number\n"
+       JSON_STR)
+{
+	vni_t l3vni = 0;
+	u_char uj = use_json(argc, argv);
+
+	l3vni = strtoul(argv[4]->arg, NULL, 10);
+	zebra_vxlan_print_rmacs_l3vni(vty, l3vni, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_rmac_l3vni_all,
+       show_evpn_rmac_l3vni_all_cmd,
+       "show evpn rmac l3vni all [json]",
+       SHOW_STR
+       "EVPN\n"
+       "RMAC addresses\n"
+       "L3-VNI\n"
+       "All VNIs\n"
+       JSON_STR)
+{
+	u_char uj = use_json(argc, argv);
+
+	zebra_vxlan_print_rmacs_all_l3vni(vty, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_nh_l3vni_ip,
+       show_evpn_nh_l3vni_ip_cmd,
+       "show evpn next-hops l3vni " CMD_VNI_RANGE " ip WORD [json]",
+       SHOW_STR
+       "EVPN\n"
+       "Remote Vteps\n"
+       "L3-VNI\n"
+       "VNI number\n"
+       "Ip address\n"
+       "Host address (ipv4 or ipv6)\n"
+       JSON_STR)
+{
+	vni_t l3vni;
+	struct ipaddr ip;
+	u_char uj = use_json(argc, argv);
+
+	l3vni = strtoul(argv[4]->arg, NULL, 10);
+	if (str2ipaddr(argv[6]->arg, &ip) != 0) {
+		if (!uj)
+			vty_out(vty, "%% Malformed Neighbor address\n");
+		return CMD_WARNING;
+	}
+	zebra_vxlan_print_specific_nh_l3vni(vty, l3vni, &ip, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_nh_l3vni,
+       show_evpn_nh_l3vni_cmd,
+       "show evpn next-hops l3vni " CMD_VNI_RANGE "[json]",
+       SHOW_STR
+       "EVPN\n"
+       "Remote Vteps\n"
+       "L3-VNI\n"
+       "VNI number\n"
+       JSON_STR)
+{
+	vni_t l3vni;
+	u_char uj = use_json(argc, argv);
+
+	l3vni = strtoul(argv[4]->arg, NULL, 10);
+	zebra_vxlan_print_nh_l3vni(vty, l3vni, uj);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_nh_l3vni_all,
+       show_evpn_nh_l3vni_all_cmd,
+       "show evpn next-hops l3vni all [json]",
+       SHOW_STR
+       "EVPN\n"
+       "Remote VTEPs\n"
+       "L3-VNI\n"
+       "All VNIs\n"
+       JSON_STR)
+{
+	u_char uj = use_json(argc, argv);
+
+	zebra_vxlan_print_nh_all_l3vni(vty, uj);
+
 	return CMD_SUCCESS;
 }
 
@@ -2601,6 +2869,7 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &no_zebra_packet_process_cmd);
 
 	install_element(VIEW_NODE, &show_vrf_cmd);
+	install_element(VIEW_NODE, &show_vrf_vni_cmd);
 	install_element(VIEW_NODE, &show_route_cmd);
 	install_element(VIEW_NODE, &show_route_detail_cmd);
 	install_element(VIEW_NODE, &show_route_summary_cmd);
@@ -2626,6 +2895,14 @@ void zebra_vty_init(void)
 
 	install_element(VIEW_NODE, &show_evpn_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_vni_vni_cmd);
+	install_element(VIEW_NODE, &show_evpn_l3vni_cmd);
+	install_element(VIEW_NODE, &show_evpn_l3vni_vni_cmd);
+	install_element(VIEW_NODE, &show_evpn_rmac_l3vni_mac_cmd);
+	install_element(VIEW_NODE, &show_evpn_rmac_l3vni_cmd);
+	install_element(VIEW_NODE, &show_evpn_rmac_l3vni_all_cmd);
+	install_element(VIEW_NODE, &show_evpn_nh_l3vni_ip_cmd);
+	install_element(VIEW_NODE, &show_evpn_nh_l3vni_cmd);
+	install_element(VIEW_NODE, &show_evpn_nh_l3vni_all_cmd);
 	install_element(VIEW_NODE, &show_evpn_mac_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_mac_vni_all_cmd);
 	install_element(VIEW_NODE, &show_evpn_mac_vni_all_vtep_cmd);
@@ -2635,4 +2912,9 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_all_cmd);
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_neigh_cmd);
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_vtep_cmd);
+
+	install_element(CONFIG_NODE, &no_vrf_vni_mapping_cmd);
+	install_element(VRF_NODE, &vrf_vni_mapping_cmd);
+	install_element(VRF_NODE, &no_vrf_vni_mapping_cmd);
+
 }

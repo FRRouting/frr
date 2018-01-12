@@ -182,6 +182,9 @@ struct attr {
 
 	/* EVPN MAC Mobility sequence number, if any. */
 	u_int32_t mm_seqnum;
+
+	/* EVPN local router-mac */
+	struct ethaddr rmac;
 };
 
 /* rmap_change_flags definition */

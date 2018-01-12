@@ -1132,23 +1132,26 @@ static int zread_route_add(struct zserv *client, u_short length,
 	struct route_entry *re;
 	struct nexthop *nexthop = NULL;
 	int i, ret;
+	vrf_id_t vrf_id = 0;
 
 	s = client->ibuf;
 	if (zapi_route_decode(s, &api) < 0)
 		return -1;
 
 	/* Allocate new route. */
+	vrf_id = zvrf_id(zvrf);
 	re = XCALLOC(MTYPE_RE, sizeof(struct route_entry));
 	re->type = api.type;
 	re->instance = api.instance;
 	re->flags = api.flags;
 	re->uptime = time(NULL);
-	re->vrf_id = zvrf_id(zvrf);
+	re->vrf_id = vrf_id;
 	re->table = zvrf->table_id;
 
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)) {
 		for (i = 0; i < api.nexthop_num; i++) {
 			api_nh = &api.nexthops[i];
+			ifindex_t ifindex = 0;
 
 			switch (api_nh->type) {
 			case NEXTHOP_TYPE_IFINDEX:
@@ -1159,11 +1162,42 @@ static int zread_route_add(struct zserv *client, u_short length,
 				nexthop = route_entry_nexthop_ipv4_add(
 					re, &api_nh->gate.ipv4, NULL);
 				break;
-			case NEXTHOP_TYPE_IPV4_IFINDEX:
+			case NEXTHOP_TYPE_IPV4_IFINDEX: {
+
+				struct ipaddr vtep_ip;
+
+				memset(&vtep_ip, 0, sizeof(struct ipaddr));
+				if (CHECK_FLAG(api.flags,
+					       ZEBRA_FLAG_EVPN_ROUTE)) {
+					ifindex =
+						get_l3vni_svi_ifindex(vrf_id);
+				} else {
+					ifindex = api_nh->ifindex;
+				}
+
 				nexthop = route_entry_nexthop_ipv4_ifindex_add(
 					re, &api_nh->gate.ipv4, NULL,
-					api_nh->ifindex);
+					ifindex);
+
+				/* if this an EVPN route entry,
+				   program the nh as neigh
+				 */
+				if (CHECK_FLAG(api.flags,
+					       ZEBRA_FLAG_EVPN_ROUTE)) {
+					SET_FLAG(nexthop->flags,
+						 NEXTHOP_FLAG_EVPN_RVTEP);
+					vtep_ip.ipa_type = IPADDR_V4;
+					memcpy(&(vtep_ip.ipaddr_v4),
+					       &(api_nh->gate.ipv4),
+					       sizeof(struct in_addr));
+					zebra_vxlan_evpn_vrf_route_add(
+								vrf_id,
+								&api.rmac,
+								&vtep_ip,
+								&api.prefix);
+				}
 				break;
+			}
 			case NEXTHOP_TYPE_IPV6:
 				nexthop = route_entry_nexthop_ipv6_add(
 					re, &api_nh->gate.ipv6);
@@ -1265,7 +1299,7 @@ static int zread_route_del(struct zserv *client, u_short length,
 
 	rib_delete(afi, api.safi, zvrf_id(zvrf), api.type, api.instance,
 		   api.flags, &api.prefix, src_p, NULL, zvrf->table_id,
-		   api.metric, false);
+		   api.metric, false, &api.rmac);
 
 	/* Stats */
 	switch (api.prefix.family) {
@@ -1466,7 +1500,7 @@ static int zread_ipv4_delete(struct zserv *client, u_short length,
 	table_id = zvrf->table_id;
 
 	rib_delete(AFI_IP, api.safi, zvrf_id(zvrf), api.type, api.instance,
-		   api.flags, &p, NULL, NULL, table_id, 0, false);
+		   api.flags, &p, NULL, NULL, table_id, 0, false, NULL);
 	client->v4_route_del_cnt++;
 
 stream_failure:
@@ -1884,7 +1918,8 @@ static int zread_ipv6_delete(struct zserv *client, u_short length,
 		src_pp = NULL;
 
 	rib_delete(AFI_IP6, api.safi, zvrf_id(zvrf), api.type, api.instance,
-		   api.flags, &p, src_pp, NULL, client->rtm_table, 0, false);
+		   api.flags, &p, src_pp, NULL, client->rtm_table, 0, false,
+		   NULL);
 
 	client->v6_route_del_cnt++;
 
@@ -2979,6 +3014,8 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 	vty_out(vty, "Interface Down Notifications: %d\n", client->ifdown_cnt);
 	vty_out(vty, "VNI add notifications: %d\n", client->vniadd_cnt);
 	vty_out(vty, "VNI delete notifications: %d\n", client->vnidel_cnt);
+	vty_out(vty, "L3-VNI add notifications: %d\n", client->l3vniadd_cnt);
+	vty_out(vty, "L3-VNI delete notifications: %d\n", client->l3vnidel_cnt);
 	vty_out(vty, "MAC-IP add notifications: %d\n", client->macipadd_cnt);
 	vty_out(vty, "MAC-IP delete notifications: %d\n", client->macipdel_cnt);
 

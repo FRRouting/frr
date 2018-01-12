@@ -79,7 +79,7 @@
 #include "bgpd/bgp_evpn_vty.h"
 #include "bgpd/bgp_keepalives.h"
 #include "bgpd/bgp_io.h"
-
+#include "bgpd/bgp_ecommunity.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_QOBJ_TYPE(bgp_master)
@@ -218,7 +218,7 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id)
 		return 0;
 
 	/* EVPN uses router id in RD, withdraw them */
-	if (bgp->advertise_all_vni)
+	if (is_evpn_enabled())
 		bgp_evpn_handle_router_id_update(bgp, TRUE);
 
 	IPV4_ADDR_COPY(&bgp->router_id, id);
@@ -235,7 +235,7 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id)
 	}
 
 	/* EVPN uses router id in RD, update them */
-	if (bgp->advertise_all_vni)
+	if (is_evpn_enabled())
 		bgp_evpn_handle_router_id_update(bgp, FALSE);
 
 	return 0;
@@ -3142,6 +3142,9 @@ int bgp_delete(struct bgp *bgp)
 					   : "VIEW",
 				   bgp->name);
 	}
+
+	/* unmap from RT list */
+	bgp_evpn_vrf_delete(bgp);
 
 	/* Stop timers. */
 	if (bgp->t_rmap_def_originate_eval) {
@@ -7081,6 +7084,11 @@ int bgp_config_write(struct vty *vty)
 
 	/* BGP configuration. */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
+
+		/* skip all auto created vrf as they dont have user config */
+		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
+			continue;
+
 		/* Router bgp ASN */
 		vty_out(vty, "router bgp %u", bgp->as);
 
@@ -7305,6 +7313,38 @@ int bgp_config_write(struct vty *vty)
 		if (bgp_option_check(BGP_OPT_CONFIG_CISCO))
 			vty_out(vty, " no auto-summary\n");
 
+		/* import route-target */
+		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_IMPORT_RT_CFGD)) {
+			char *ecom_str;
+			struct listnode *node, *nnode;
+			struct ecommunity *ecom;
+
+			for (ALL_LIST_ELEMENTS(bgp->vrf_import_rtl, node, nnode,
+					       ecom)) {
+				ecom_str = ecommunity_ecom2str(
+					ecom, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+				vty_out(vty, "   route-target import %s\n",
+					ecom_str);
+				XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+			}
+		}
+
+		/* export route-target */
+		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_EXPORT_RT_CFGD)) {
+			char *ecom_str;
+			struct listnode *node, *nnode;
+			struct ecommunity *ecom;
+
+			for (ALL_LIST_ELEMENTS(bgp->vrf_export_rtl, node, nnode,
+					       ecom)) {
+				ecom_str = ecommunity_ecom2str(
+					ecom, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+				vty_out(vty, "   route-target export %s\n",
+					ecom_str);
+				XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+			}
+		}
+
 		/* IPv4 unicast configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_UNICAST);
 
@@ -7364,6 +7404,13 @@ void bgp_master_init(struct thread_master *master)
 	bm->rmap_update_timer = RMAP_DEFAULT_UPDATE_TIMER;
 
 	bgp_process_queue_init();
+
+	/* init the rd id space.
+	   assign 0th index in the bitfield,
+	   so that we start with id 1
+	 */
+	bf_init(bm->rd_idspace, UINT16_MAX);
+	bf_assign_zero_index(bm->rd_idspace);
 
 	/* Enable multiple instances by default. */
 	bgp_option_set(BGP_OPT_MULTIPLE_INSTANCE);
@@ -7529,6 +7576,7 @@ void bgp_terminate(void)
 	 */
 	/* reverse bgp_master_init */
 	bgp_close();
+
 	if (bm->listen_sockets)
 		list_delete_and_null(&bm->listen_sockets);
 

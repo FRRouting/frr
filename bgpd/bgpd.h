@@ -36,6 +36,7 @@
 #include "defaults.h"
 #include "bgp_memory.h"
 #include "bitfield.h"
+#include "vxlan.h"
 
 #define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 #define BGP_PEER_MAX_HASH_SIZE 16384
@@ -135,6 +136,9 @@ struct bgp_master {
 				      /* $FRR indent$ */
 				      /* clang-format off */
 #define RMAP_DEFAULT_UPDATE_TIMER 5 /* disabled by default */
+
+	/* Id space for automatic RD derivation for an EVI/VRF */
+	bitfield_t rd_idspace;
 
 	QOBJ_FIELDS
 };
@@ -408,8 +412,41 @@ struct bgp {
 	/* Hash table of Import RTs to EVIs */
 	struct hash *import_rt_hash;
 
-	/* Id space for automatic RD derivation for an EVI */
-	bitfield_t rd_idspace;
+	/* Hash table of VRF import RTs to VRFs */
+	struct hash *vrf_import_rt_hash;
+
+	/* L3-VNI corresponding to this vrf */
+	vni_t l3vni;
+
+	/* router-mac to be used in mac-ip routes for this vrf */
+	struct ethaddr rmac;
+
+	/* originator ip - to be used as NH for type-5 routes */
+	struct in_addr originator_ip;
+
+	/* vrf flags */
+	uint32_t vrf_flags;
+#define BGP_VRF_AUTO                        (1 << 0)
+#define BGP_VRF_ADVERTISE_IPV4_IN_EVPN      (1 << 1)
+#define BGP_VRF_ADVERTISE_IPV6_IN_EVPN      (1 << 2)
+#define BGP_VRF_IMPORT_RT_CFGD              (1 << 3)
+#define BGP_VRF_EXPORT_RT_CFGD              (1 << 4)
+#define BGP_VRF_RD_CFGD                     (1 << 5)
+
+	/* unique ID for auto derivation of RD for this vrf */
+	uint16_t vrf_rd_id;
+
+	/* RD for this VRF */
+	struct prefix_rd vrf_prd;
+
+	/* import rt list for the vrf instance */
+	struct list *vrf_import_rtl;
+
+	/* export rt list for the vrf instance */
+	struct list *vrf_export_rtl;
+
+	/* list of corresponding l2vnis (struct bgpevpn) */
+	struct list *l2vnis;
 
 	QOBJ_FIELDS
 };
