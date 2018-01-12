@@ -4097,7 +4097,8 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 			}
 		}
 
-		if (hc->default_rd.prefixlen || hc->default_response_lifetime
+		if (hc->default_rd.prefixlen
+		    || hc->default_response_lifetime != BGP_VNC_DEFAULT_RESPONSE_LIFETIME_DEFAULT
 		    || hc->default_rt_import_list || hc->default_rt_export_list
 		    || hc->nve_groups_sequential->count) {
 
@@ -4125,7 +4126,8 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 							      buf,
 							      sizeof(buf)));
 			}
-			if (hc->default_response_lifetime) {
+			if (hc->default_response_lifetime
+			    != BGP_VNC_DEFAULT_RESPONSE_LIFETIME_DEFAULT) {
 				vty_out(vty, "  response-lifetime ");
 				if (hc->default_response_lifetime != UINT32_MAX)
 					vty_out(vty, "%d",
