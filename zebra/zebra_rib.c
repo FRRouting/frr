@@ -2514,6 +2514,7 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 	re->mtu = mtu;
 	re->table = table_id;
 	re->vrf_id = vrf_id;
+	re->nh_vrf_id = vrf_id;
 	re->nexthop_num = 0;
 	re->uptime = time(NULL);
 	re->tag = tag;
