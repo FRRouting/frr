@@ -8117,6 +8117,9 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 	struct bgp_node *rn, *next;
 	unsigned long output_cum = 0;
 	unsigned long total_cum = 0;
+	bool show_msg;
+
+	show_msg = (!use_json && type == bgp_show_type_normal);
 
 	for (rn = bgp_table_top(table); rn; rn = next) {
 		next = bgp_route_next(rn);
@@ -8132,7 +8135,18 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 				       output_arg, use_json,
 				       rd, next == NULL,
 				       &output_cum, &total_cum);
+			if (next == NULL)
+				show_msg = false;
 		}
+	}
+	if (show_msg) {
+		if (output_cum == 0)
+			vty_out(vty, "No BGP prefixes displayed, %ld exist\n",
+				total_cum);
+		else
+			vty_out(vty,
+				"\nDisplayed  %ld routes and %ld total paths\n",
+				output_cum, total_cum);
 	}
 	if (use_json)
 		vty_out(vty, " } }");
