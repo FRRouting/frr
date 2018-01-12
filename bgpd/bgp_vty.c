@@ -3388,18 +3388,6 @@ static int peer_flag_modify_vty(struct vty *vty, const char *ip_str,
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	/*
-	 * If 'neighbor <interface>', then this is for directly connected peers,
-	 * we should not accept disable-connected-check.
-	 */
-	if (peer->conf_if && (flag == PEER_FLAG_DISABLE_CONNECTED_CHECK)) {
-		vty_out(vty,
-			"%s is directly connected peer, cannot accept disable-"
-			"connected-check\n",
-			ip_str);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	if (!set && flag == PEER_FLAG_SHUTDOWN)
 		peer_tx_shutdown_message_unset(peer);
 
@@ -4490,9 +4478,9 @@ DEFUN (no_neighbor_ebgp_multihop,
 /* disable-connected-check */
 DEFUN (neighbor_disable_connected_check,
        neighbor_disable_connected_check_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> <disable-connected-check|enforce-multihop>",
+       "neighbor <A.B.C.D|X:X::X:X> <disable-connected-check|enforce-multihop>",
        NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
+       NEIGHBOR_ADDR_STR
        "one-hop away EBGP peer using loopback address\n"
        "Enforce EBGP neighbors perform multihop\n")
 {
@@ -4503,10 +4491,10 @@ DEFUN (neighbor_disable_connected_check,
 
 DEFUN (no_neighbor_disable_connected_check,
        no_neighbor_disable_connected_check_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> <disable-connected-check|enforce-multihop>",
+       "no neighbor <A.B.C.D|X:X::X:X> <disable-connected-check|enforce-multihop>",
        NO_STR
        NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
+       NEIGHBOR_ADDR_STR
        "one-hop away EBGP peer using loopback address\n"
        "Enforce EBGP neighbors perform multihop\n")
 {
@@ -5945,9 +5933,9 @@ ALIAS_HIDDEN(
 
 DEFUN (neighbor_ttl_security,
        neighbor_ttl_security_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> ttl-security hops (1-254)",
+       "neighbor <A.B.C.D|X:X::X:X> ttl-security hops (1-254)",
        NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
+       NEIGHBOR_ADDR_STR
        "BGP ttl-security parameters\n"
        "Specify the maximum number of hops to the BGP peer\n"
        "Number of hops to BGP peer\n")
@@ -5963,26 +5951,15 @@ DEFUN (neighbor_ttl_security,
 
 	gtsm_hops = strtoul(argv[idx_number]->arg, NULL, 10);
 
-	/*
-	 * If 'neighbor swpX', then this is for directly connected peers,
-	 * we should not accept a ttl-security hops value greater than 1.
-	 */
-	if (peer->conf_if && (gtsm_hops > 1)) {
-		vty_out(vty,
-			"%s is directly connected peer, hops cannot exceed 1\n",
-			argv[idx_peer]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
 	return bgp_vty_return(vty, peer_ttl_security_hops_set(peer, gtsm_hops));
 }
 
 DEFUN (no_neighbor_ttl_security,
        no_neighbor_ttl_security_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> ttl-security hops (1-254)",
+       "no neighbor <A.B.C.D|X:X::X:X> ttl-security hops (1-254)",
        NO_STR
        NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
+       NEIGHBOR_ADDR_STR
        "BGP ttl-security parameters\n"
        "Specify the maximum number of hops to the BGP peer\n"
        "Number of hops to BGP peer\n")
