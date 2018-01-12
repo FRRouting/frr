@@ -1146,6 +1146,7 @@ static int zread_route_add(struct zserv *client, u_short length,
 	re->flags = api.flags;
 	re->uptime = time(NULL);
 	re->vrf_id = vrf_id;
+	re->nh_vrf_id = vrf_id;
 	re->table = zvrf->table_id;
 
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)) {
@@ -1371,6 +1372,7 @@ static int zread_ipv4_add(struct zserv *client, u_short length,
 
 	/* VRF ID */
 	re->vrf_id = zvrf_id(zvrf);
+	re->nh_vrf_id = zvrf_id(zvrf);
 
 	/* Nexthop parse. */
 	if (CHECK_FLAG(message, ZAPI_MESSAGE_NEXTHOP)) {
@@ -1580,6 +1582,7 @@ static int zread_ipv4_route_ipv6_nexthop_add(struct zserv *client,
 
 	/* VRF ID */
 	re->vrf_id = zvrf_id(zvrf);
+	re->nh_vrf_id = zvrf_id(zvrf);
 
 	/* We need to give nh-addr, nh-ifindex with the same next-hop object
 	 * to the re to ensure that IPv6 multipathing works; need to coalesce
@@ -1865,6 +1868,8 @@ static int zread_ipv6_add(struct zserv *client, u_short length,
 
 	/* VRF ID */
 	re->vrf_id = zvrf_id(zvrf);
+	re->nh_vrf_id = zvrf_id(zvrf);
+
 	re->table = zvrf->table_id;
 
 	ret = rib_add_multipath(AFI_IP6, safi, &p, src_pp, re);
