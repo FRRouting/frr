@@ -385,6 +385,8 @@ static void vnc_zebra_route_msg(struct prefix *p, unsigned int nhp_count,
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
 	int i;
+	struct in_addr **nhp_ary4 = nhp_ary;
+	struct in6_addr **nhp_ary6 = nhp_ary;
 
 	if (!nhp_count) {
 		vnc_zlog_debug_verbose("%s: empty nexthop list, skipping",
@@ -403,20 +405,16 @@ static void vnc_zebra_route_msg(struct prefix *p, unsigned int nhp_count,
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 	api.nexthop_num = MIN(nhp_count, multipath_num);
 	for (i = 0; i < api.nexthop_num; i++) {
-		struct in_addr *nhp_ary4;
-		struct in6_addr *nhp_ary6;
 
 		api_nh = &api.nexthops[i];
 		switch (p->family) {
 		case AF_INET:
-			nhp_ary4 = nhp_ary;
-			memcpy(&api_nh->gate.ipv4, &nhp_ary4[i],
+			memcpy(&api_nh->gate.ipv4, nhp_ary4[i],
 			       sizeof(api_nh->gate.ipv4));
 			api_nh->type = NEXTHOP_TYPE_IPV4;
 			break;
 		case AF_INET6:
-			nhp_ary6 = nhp_ary;
-			memcpy(&api_nh->gate.ipv6, &nhp_ary6[i],
+			memcpy(&api_nh->gate.ipv6, nhp_ary6[i],
 			       sizeof(api_nh->gate.ipv6));
 			api_nh->type = NEXTHOP_TYPE_IPV6;
 			break;
