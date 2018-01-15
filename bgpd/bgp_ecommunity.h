@@ -27,10 +27,19 @@
 #define ECOMMUNITY_ENCODE_AS4               0x02
 #define ECOMMUNITY_ENCODE_OPAQUE            0x03
 #define ECOMMUNITY_ENCODE_EVPN              0x06
+#define ECOMMUNITY_ENCODE_TRANS_EXP         0x80 /* Flow Spec */
+/* RFC7674 */
+#define ECOMMUNITY_EXTENDED_COMMUNITY_PART_2 0x81
+#define ECOMMUNITY_EXTENDED_COMMUNITY_PART_3 0x82
 
 /* Low-order octet of the Extended Communities type field.  */
 #define ECOMMUNITY_ROUTE_TARGET             0x02
 #define ECOMMUNITY_SITE_ORIGIN              0x03
+#define ECOMMUNITY_TRAFFIC_RATE             0x06 /* Flow Spec */
+#define ECOMMUNITY_TRAFFIC_ACTION           0x07
+#define ECOMMUNITY_REDIRECT_VRF             0x08
+#define ECOMMUNITY_TRAFFIC_MARKING          0x09
+#define ECOMMUNITY_REDIRECT_IP_NH           0x00
 
 /* Low-order octet of the Extended Communities type field for EVPN types */
 #define ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY  0x00
