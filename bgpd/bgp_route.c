@@ -2719,7 +2719,9 @@ int bgp_update(struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 
 	/* AS path local-as loop check. */
 	if (peer->change_local_as) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND))
+		if (peer->allowas_in[afi][safi])
+			aspath_loop_count = peer->allowas_in[afi][safi];
+		else if (!CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND))
 			aspath_loop_count = 1;
 
 		if (aspath_loop_check(attr->aspath, peer->change_local_as)
