@@ -4,15 +4,13 @@
 BGP
 ***
 
-@acronym{BGP} stands for a Border Gateway Protocol.  The lastest BGP version
-is 4.  It is referred as BGP-4.  BGP-4 is one of the Exterior Gateway
-Protocols and de-fact standard of Inter Domain routing protocol.
-BGP-4 is described in @cite{RFC1771, A Border Gateway Protocol
-4 (BGP-4)}.
+:abbr:`BGP` stands for a Border Gateway Protocol. The lastest BGP version is 4.
+It is referred as BGP-4. BGP-4 is one of the Exterior Gateway Protocols and
+de-fact standard of Inter Domain routing protocol.  BGP-4 is described in
+:t:`RFC1771, A Border Gateway Protocol 4 (BGP-4)`.
 
-Many extensions have been added to @cite{RFC1771}.  @cite{RFC2858,
-Multiprotocol Extensions for BGP-4} provides multiprotocol support to
-BGP-4.
+Many extensions have been added to :t:`RFC1771`. :t:`RFC2858, Multiprotocol
+Extensions for BGP-4` provides multiprotocol support to BGP-4.
 
 .. _Starting_BGP:
 
@@ -21,10 +19,10 @@ Starting BGP
 
 Default configuration file of *bgpd* is :file:`bgpd.conf`.
 *bgpd* searches the current directory first then
-@value{INSTALL_PREFIX_ETC}/bgpd.conf.  All of bgpd's command must be
+|INSTALL_PREFIX_ETC|/bgpd.conf. All of bgpd's command must be
 configured in :file:`bgpd.conf`.
 
-*bgpd* specific invocation options are described below.  Common
+*bgpd* specific invocation options are described below. Common
 options may also be specified (:ref:`Common_Invocation_Options`).
 
 
@@ -44,7 +42,7 @@ options may also be specified (:ref:`Common_Invocation_Options`).
 *-l*
 
 *--listenon*
-  Specify a specific IP address for bgpd to listen on, rather than its 
+  Specify a specific IP address for bgpd to listen on, rather than its
   default of INADDR_ANY / IN6ADDR_ANY. This can be useful to constrain bgpd
   to an internal address, or to run multiple bgpd processes on one host.
 
@@ -55,50 +53,54 @@ BGP router
 ==========
 
 First of all you must configure BGP router with *router bgp*
-command.  To configure BGP router, you need AS number.  AS number is an
-identification of autonomous system.  BGP protocol uses the AS number
+command. To configure BGP router, you need AS number. AS number is an
+identification of autonomous system. BGP protocol uses the AS number
 for detecting whether the BGP connection is internal one or external one.
 
-.. index:: Command {router bgp `asn`} {}
+.. index:: router bgp ASN
 
-Command {router bgp `asn`} {}
-  Enable a BGP protocol process with the specified `asn`.  After
-  this statement you can input any `BGP Commands`.  You can not
+``router bgp ASN``
+  Enable a BGP protocol process with the specified `asn`. After
+  this statement you can input any `BGP Commands`. You can not
   create different BGP process under different `asn` without
   specifying `multiple-instance` (:ref:`Multiple_instance`).
 
-.. index:: Command {no router bgp `asn`} {}
+.. index:: no router bgp ASN
 
-Command {no router bgp `asn`} {}
+``no router bgp ASN``
   Destroy a BGP protocol process with the specified `asn`.
 
-.. index:: {BGP} {bgp router-id `A.B.C.D`} {}
+.. index:: bgp router-id `A.B.C.D`
 
-{BGP} {bgp router-id `A.B.C.D`} {}
-  This command specifies the router-ID.  If *bgpd* connects to *zebra* it gets
-  interface and address information.  In that case default router ID value
-  is selected as the largest IP Address of the interfaces.  When
+``bgp router-id `A.B.C.D```
+
+  This command specifies the router-ID. If *bgpd* connects to *zebra* it gets
+  interface and address information. In that case default router ID value
+  is selected as the largest IP Address of the interfaces. When
   `router zebra` is not enabled *bgpd* can't get interface information
-  so `router-id` is set to 0.0.0.0.  So please set router-id by hand.
+  so `router-id` is set to 0.0.0.0. So please set router-id by hand.
 
 .. _BGP_distance:
 
 BGP distance
 ------------
 
-.. index:: {BGP} {distance bgp <1-255> <1-255> <1-255>} {}
+.. index:: distance bgp <1-255> <1-255> <1-255>
 
-{BGP} {distance bgp <1-255> <1-255> <1-255>} {}
-  This command change distance value of BGP.  Each argument is distance
+``distance bgp <1-255> <1-255> <1-255>``
+
+  This command change distance value of BGP. Each argument is distance
   value for external routes, internal routes and local routes.
 
-.. index:: {BGP} {distance <1-255> `A.B.C.D/M`} {}
+.. index:: distance <1-255> `A.B.C.D/M`
 
-{BGP} {distance <1-255> `A.B.C.D/M`} {}
-.. index:: {BGP} {distance <1-255> `A.B.C.D/M` `word`} {}
+``distance <1-255> `A.B.C.D/M```
 
-{BGP} {distance <1-255> `A.B.C.D/M` `word`} {}
-    This command set distance value to 
+.. index:: distance <1-255> `A.B.C.D/M` `word`
+
+``distance <1-255> `A.B.C.D/M` `word```
+
+    This command set distance value to
 
 .. _BGP_decision_process:
 
@@ -122,12 +124,12 @@ The decision process Frr BGP uses to select routes is as follows:
 
 
 *4. AS path length check*
-  Prefer shortest hop-count AS_PATHs. 
+  Prefer shortest hop-count AS_PATHs.
 
 
 *5. Origin check*
-  Prefer the lowest origin type route.  That is, prefer IGP origin routes to
-  EGP, to Incomplete routes. 
+  Prefer the lowest origin type route. That is, prefer IGP origin routes to
+  EGP, to Incomplete routes.
 
 
 *6. MED check*
@@ -154,20 +156,20 @@ The decision process Frr BGP uses to select routes is as follows:
 
 *10 Already-selected external check*
   Where both routes were received from eBGP peers, then prefer the route which
-  is already selected.  Note that this check is not applied if :ref:`bgp_bestpath_compare-routerid` is configured.  This check can prevent some cases
+  is already selected. Note that this check is not applied if :ref:`bgp_bestpath_compare-routerid` is configured. This check can prevent some cases
   of oscillation.
 
 
 *11. Router-ID check*
-  Prefer the route with the lowest @w{router-ID}.  If the
-  route has an @w{ORIGINATOR_ID} attribute, through iBGP reflection, then that
-  router ID is used, otherwise the @w{router-ID} of the peer the route was
+  Prefer the route with the lowest `router-ID`. If the
+  route has an `ORIGINATOR_ID` attribute, through iBGP reflection, then that
+  router ID is used, otherwise the `router-ID` of the peer the route was
   received from is used.
 
 
 *12. Cluster-List length check*
   The route with the shortest cluster-list
-  length is used.  The cluster-list reflects the iBGP reflection path the
+  length is used. The cluster-list reflects the iBGP reflection path the
   route has taken.
 
 
@@ -176,25 +178,28 @@ The decision process Frr BGP uses to select routes is as follows:
   transport layer address, as a last-resort tie-breaker.
 
 
-.. index:: {BGP} {bgp bestpath as-path confed} {}
+.. index:: bgp bestpath as-path confed
 
-{BGP} {bgp bestpath as-path confed} {}
+``bgp bestpath as-path confed``
+
   This command specifies that the length of confederation path sets and
   sequences should should be taken into account during the BGP best path
   decision process.
 
-.. index:: {BGP} {bgp bestpath as-path multipath-relax} {}
+.. index:: bgp bestpath as-path multipath-relax
 
-{BGP} {bgp bestpath as-path multipath-relax} {}
+``bgp bestpath as-path multipath-relax``
+
   .. _bgp_bestpath_as-path_multipath-relax:
 
   This command specifies that BGP decision process should consider paths
   of equal AS_PATH length candidates for multipath computation. Without
   the knob, the entire AS_PATH must match for multipath computation.
 
-.. index:: {BGP} {bgp bestpath compare-routerid} {}
+.. index:: bgp bestpath compare-routerid
 
-{BGP} {bgp bestpath compare-routerid} {}
+``bgp bestpath compare-routerid``
+
   .. _bgp_bestpath_compare-routerid:
 
   Ensure that when comparing routes where both are equal on most metrics,
@@ -204,15 +209,15 @@ The decision process Frr BGP uses to select routes is as follows:
   If this option is enabled, then the already-selected check, where
   already selected eBGP routes are preferred, is skipped.
 
-  If a route has an @w{ORIGINATOR_ID} attribute because it has been reflected,
-  that @w{ORIGINATOR_ID} will be used.  Otherwise, the router-ID of the peer the
+  If a route has an `ORIGINATOR_ID` attribute because it has been reflected,
+  that `ORIGINATOR_ID` will be used. Otherwise, the router-ID of the peer the
   route was received from will be used.
 
   The advantage of this is that the route-selection (at this point) will be
-  more deterministic.  The disadvantage is that a few or even one lowest-ID
+  more deterministic. The disadvantage is that a few or even one lowest-ID
   router may attract all trafic to otherwise-equal paths because of this
-  check.  It may increase the possibility of MED or IGP oscillation, unless
-  other measures were taken to avoid these.  The exact behaviour will be
+  check. It may increase the possibility of MED or IGP oscillation, unless
+  other measures were taken to avoid these. The exact behaviour will be
   sensitive to the iBGP and reflection topology.
 
 
@@ -221,9 +226,10 @@ The decision process Frr BGP uses to select routes is as follows:
 BGP route flap dampening
 ------------------------
 
-.. index:: {BGP} {bgp dampening `<1-45>` `<1-20000>` `<1-20000>` `<1-255>`} {}
+.. index:: bgp dampening `<1-45>` `<1-20000>` `<1-20000>` `<1-255>`
 
-{BGP} {bgp dampening `<1-45>` `<1-20000>` `<1-20000>` `<1-255>`} {}
+``bgp dampening `<1-45>` `<1-20000>` `<1-20000>` `<1-255>```
+
   This command enables BGP route-flap dampening and specifies dampening parameters.
 
 
@@ -240,7 +246,7 @@ BGP route flap dampening
 *@asis{max-suppress}*
     Maximum duration to suppress a stable route
 
-  The route-flap damping algorithm is compatible with @cite{RFC2439}. The use of this command
+  The route-flap damping algorithm is compatible with :t:`RFC2439`. The use of this command
   is not recommended nowadays, see `http://www.ripe.net/ripe/docs/ripe-378,,RIPE-378 <http://www.ripe.net/ripe/docs/ripe-378,,RIPE-378>`_.
 
 .. _BGP_MED:
@@ -249,33 +255,33 @@ BGP MED
 =======
 
 The BGP MED (Multi_Exit_Discriminator) attribute has properties which can
-cause subtle convergence problems in BGP.  These properties and problems
+cause subtle convergence problems in BGP. These properties and problems
 have proven to be hard to understand, at least historically, and may still
-not be widely understood.  The following attempts to collect together and
+not be widely understood. The following attempts to collect together and
 present what is known about MED, to help operators and Frr users in
 designing and configuring their networks.
 
-The BGP @acronym{MED, Multi_Exit_Discriminator} attribute is intended to
+The BGP :abbr:`MED ( Multi_Exit_Discriminator)` attribute is intended to
 allow one AS to indicate its preferences for its ingress points to another
-AS.  The MED attribute will not be propagated on to another AS by the
+AS. The MED attribute will not be propagated on to another AS by the
 receiving AS - it is 'non-transitive' in the BGP sense.
 
 E.g., if AS X and AS Y have 2 different BGP peering points, then AS X
 might set a MED of 100 on routes advertised at one and a MED of 200 at the
-other.  When AS Y selects between otherwise equal routes to or via
+other. When AS Y selects between otherwise equal routes to or via
 AS X, AS Y should prefer to take the path via the lower MED peering of 100 with
-AS X.  Setting the MED allows an AS to influence the routing taken to it
+AS X. Setting the MED allows an AS to influence the routing taken to it
 within another, neighbouring AS.
 
 In this use of MED it is not really meaningful to compare the MED value on
-routes where the next AS on the paths differs.  E.g., if AS Y also had a
+routes where the next AS on the paths differs. E.g., if AS Y also had a
 route for some destination via AS Z in addition to the routes from AS X, and
 AS Z had also set a MED, it wouldn't make sense for AS Y to compare AS Z's
-MED values to those of AS X.  The MED values have been set by different
+MED values to those of AS X. The MED values have been set by different
 administrators, with different frames of reference.
 
 The default behaviour of BGP therefore is to not compare MED values across
-routes received from different neighbouring ASes.  In Frr this is done by
+routes received from different neighbouring ASes. In Frr this is done by
 comparing the neighbouring, left-most AS in the received AS_PATHs of the
 routes and only comparing MED if those are the same.
 
@@ -288,73 +294,73 @@ routes and only comparing MED if those are the same.
 Unfortunately, this behaviour of MED, of sometimes being compared across
 routes and sometimes not, depending on the properties of those other routes,
 means MED can cause the order of preference over all the routes to be
-undefined.  That is, given routes A, B, and C, if A is preferred to B, and B
+undefined. That is, given routes A, B, and C, if A is preferred to B, and B
 is preferred to C, then a well-defined order should mean the preference is
 transitive (in the sense of orders @footnote{For some set of objects to have
 an order, there *must* be some binary ordering relation that is defined
 for *every* combination of those objects, and that relation *must*
-be transitive.  I.e.@:, if the relation operator is @mprec{}, and if 
+be transitive. I.e.@:, if the relation operator is @mprec{}, and if
 a @mprec{} b and b @mprec{} c then that relation must carry over
 and it *must* be that a @mprec{} c for the objects to have an
-order.  The ordering relation may allow for equality, i.e. 
+order. The ordering relation may allow for equality, i.e.
 a @mprec{} b and b @mprec{} a may both be true amd imply that
 a and b are equal in the order and not distinguished by it, in
-which case the set has a partial order.  Otherwise, if there is an order,
+which case the set has a partial order. Otherwise, if there is an order,
 all the objects have a distinct place in the order and the set has a total
 order.}) and that A would be preferred to C.
 
-However, when MED is involved this need not be the case.  With MED it is
-possible that C is actually preferred over A.  So A is preferred to B, B is
-preferred to C, but C is preferred to A.  This can be true even where BGP
+However, when MED is involved this need not be the case. With MED it is
+possible that C is actually preferred over A. So A is preferred to B, B is
+preferred to C, but C is preferred to A. This can be true even where BGP
 defines a deterministic 'most preferred' route out of the full set of
-A,B,C.  With MED, for any given set of routes there may be a
+A,B,C. With MED, for any given set of routes there may be a
 deterministically preferred route, but there need not be any way to arrange
-them into any order of preference.  With unmodified MED, the order of
+them into any order of preference. With unmodified MED, the order of
 preference of routes literally becomes undefined.
 
-That MED can induce non-transitive preferences over routes can cause issues. 
+That MED can induce non-transitive preferences over routes can cause issues.
 Firstly, it may be perceived to cause routing table churn locally at
 speakers; secondly, and more seriously, it may cause routing instability in
 iBGP topologies, where sets of speakers continually oscillate between
 different paths.
 
-The first issue arises from how speakers often implement routing decisions. 
+The first issue arises from how speakers often implement routing decisions.
 Though BGP defines a selection process that will deterministically select
 the same route as best at any given speaker, even with MED, that process
-requires evaluating all routes together.  For performance and ease of
+requires evaluating all routes together. For performance and ease of
 implementation reasons, many implementations evaluate route preferences in a
-pair-wise fashion instead.  Given there is no well-defined order when MED is
+pair-wise fashion instead. Given there is no well-defined order when MED is
 involved, the best route that will be chosen becomes subject to
-implementation details, such as the order the routes are stored in.  That
+implementation details, such as the order the routes are stored in. That
 may be (locally) non-deterministic, e.g.@: it may be the order the routes
-were received in.  
+were received in.
 
 This indeterminism may be considered undesirable, though it need not cause
-problems.  It may mean additional routing churn is perceived, as sometimes
+problems. It may mean additional routing churn is perceived, as sometimes
 more updates may be produced than at other times in reaction to some event .
 
 This first issue can be fixed with a more deterministic route selection that
-ensures routes are ordered by the neighbouring AS during selection. 
-:ref:`bgp_deterministic-med`.  This may reduce the number of updates as
-routes are received, and may in some cases reduce routing churn.  Though, it
+ensures routes are ordered by the neighbouring AS during selection.
+:ref:`bgp_deterministic-med`. This may reduce the number of updates as
+routes are received, and may in some cases reduce routing churn. Though, it
 could equally deterministically produce the largest possible set of updates
 in response to the most common sequence of received updates.
 
 A deterministic order of evaluation tends to imply an additional overhead of
-sorting over any set of n routes to a destination.  The implementation of
+sorting over any set of n routes to a destination. The implementation of
 deterministic MED in Frr scales significantly worse than most sorting
-algorithms at present, with the number of paths to a given destination. 
+algorithms at present, with the number of paths to a given destination.
 That number is often low enough to not cause any issues, but where there are
 many paths, the deterministic comparison may quickly become increasingly
 expensive in terms of CPU.
 
 Deterministic local evaluation can *not* fix the second, more major,
-issue of MED however.  Which is that the non-transitive preference of routes
+issue of MED however. Which is that the non-transitive preference of routes
 MED can cause may lead to routing instability or oscillation across multiple
-speakers in iBGP topologies.  This can occur with full-mesh iBGP, but is
+speakers in iBGP topologies. This can occur with full-mesh iBGP, but is
 particularly problematic in non-full-mesh iBGP topologies that further
-reduce the routing information known to each speaker.  This has primarily
-been documented with iBGP route-reflection topologies.  However, any
+reduce the routing information known to each speaker. This has primarily
+been documented with iBGP route-reflection topologies. However, any
 route-hiding technologies potentially could also exacerbate oscillation with
 MED.
 
@@ -362,35 +368,35 @@ This second issue occurs where speakers each have only a subset of routes,
 and there are cycles in the preferences between different combinations of
 routes - as the undefined order of preference of MED allows - and the routes
 are distributed in a way that causes the BGP speakers to 'chase' those
-cycles.  This can occur even if all speakers use a deterministic order of
+cycles. This can occur even if all speakers use a deterministic order of
 evaluation in route selection.
 
 E.g., speaker 4 in AS A might receive a route from speaker 2 in AS X, and
 from speaker 3 in AS Y; while speaker 5 in AS A might receive that route
-from speaker 1 in AS Y.  AS Y might set a MED of 200 at speaker 1, and 100
+from speaker 1 in AS Y. AS Y might set a MED of 200 at speaker 1, and 100
 at speaker 3. I.e, using ASN:ID:MED to label the speakers:
 
 ::
 
-             /---------------\\
+       /---------------\\
    X:2------|--A:4-------A:5--|-Y:1:200
-   Y:3:100--|-/               |
-             \\---------------/
+   Y:3:100--|-/   |
+       \\---------------/
 
-  
+
 
 Assuming all other metrics are equal (AS_PATH, ORIGIN, 0 IGP costs), then
 based on the RFC4271 decision process speaker 4 will choose X:2 over
-Y:3:100, based on the lower ID of 2.  Speaker 4 advertises X:2 to speaker 5. 
+Y:3:100, based on the lower ID of 2. Speaker 4 advertises X:2 to speaker 5.
 Speaker 5 will continue to prefer Y:1:200 based on the ID, and advertise
-this to speaker 4.  Speaker 4 will now have the full set of routes, and the
+this to speaker 4. Speaker 4 will now have the full set of routes, and the
 Y:1:200 it receives from 5 will beat X:2, but when speaker 4 compares
 Y:1:200 to Y:3:100 the MED check now becomes active as the ASes match, and
-now Y:3:100 is preferred.  Speaker 4 therefore now advertises Y:3:100 to 5,
+now Y:3:100 is preferred. Speaker 4 therefore now advertises Y:3:100 to 5,
 which will also agrees that Y:3:100 is preferred to Y:1:200, and so
-withdraws the latter route from 4.  Speaker 4 now has only X:2 and Y:3:100,
+withdraws the latter route from 4. Speaker 4 now has only X:2 and Y:3:100,
 and X:2 beats Y:3:100, and so speaker 4 implicitly updates its route to
-speaker 5 to X:2.  Speaker 5 sees that Y:1:200 beats X:2 based on the ID,
+speaker 5 to X:2. Speaker 5 sees that Y:1:200 beats X:2 based on the ID,
 and advertises Y:1:200 to speaker 4, and the cycle continues.
 
 The root cause is the lack of a clear order of preference caused by how MED
@@ -399,28 +405,28 @@ preferences between the routes:
 
 ::
 
-         /---> X:2 ---beats---> Y:3:100 --\\
-        |                                  |
-        |                                  |
-         \\---beats--- Y:1:200 <---beats---/
+   /---> X:2 ---beats---> Y:3:100 --\\
+  |    |
+  |    |
+   \\---beats--- Y:1:200 <---beats---/
 
-  
+
 
 This particular type of oscillation in full-mesh iBGP topologies can  be
 avoided by speakers preferring already selected, external routes rather than
-choosing to update to new a route based on a post-MED metric (e.g. 
-router-ID), at the cost of a non-deterministic selection process.  Frr
+choosing to update to new a route based on a post-MED metric (e.g.
+router-ID), at the cost of a non-deterministic selection process. Frr
 implements this, as do many other implementations, so long as it is not
 overridden by setting :ref:`bgp_bestpath_compare-routerid`, and see also
 :ref:`BGP_decision_process`, .
 
 However, more complex and insidious cycles of oscillation are possible with
-iBGP route-reflection, which are not so easily avoided.  These have been
-documented in various places.  See, e.g., @cite{McPherson, D.  and Gill, V. 
+iBGP route-reflection, which are not so easily avoided. These have been
+documented in various places. See, e.g., @cite{McPherson, D. and Gill, V.
 and Walton, D., "Border Gateway Protocol (BGP) Persistent Route Oscillation
-Condition", IETF RFC3345}, and @cite{Flavel, A.  and M.  Roughan, "Stable
-and flexible iBGP", ACM SIGCOMM 2009}, and @cite{Griffin, T.  and G.  Wilfong, 
-"On the correctness of IBGP configuration", ACM SIGCOMM 2002} for concrete 
+Condition", IETF RFC3345}, and @cite{Flavel, A. and M. Roughan, "Stable
+and flexible iBGP", ACM SIGCOMM 2009}, and @cite{Griffin, T. and G. Wilfong,
+"On the correctness of IBGP configuration", ACM SIGCOMM 2002} for concrete
 examples and further references.
 
 There is as of this writing *no* known way to use MED for its original
@@ -431,10 +437,10 @@ networks.
 
 There may be iBGP topology specific ways to reduce the instability risks,
 even while using MED, e.g.@: by constraining the reflection topology and by
-tuning IGP costs between route-reflector clusters, see RFC3345 for details. 
+tuning IGP costs between route-reflector clusters, see RFC3345 for details.
 In the near future, the Add-Path extension to BGP may also solve MED
 oscillation while still allowing MED to be used as intended, by distributing
-"best-paths per neighbour AS".  This would be at the cost of distributing at
+"best-paths per neighbour AS". This would be at the cost of distributing at
 least as many routes to all speakers as a full-mesh iBGP would, if not more,
 while also imposing similar CPU overheads as the "Deterministic MED" feature
 at each Add-Path reflector.
@@ -443,12 +449,12 @@ More generally, the instability problems that MED can introduce on more
 complex, non-full-mesh, iBGP topologies may be avoided either by:
 
 
-* 
+*
   Setting :ref:`bgp_always-compare-med`, however this allows MED to be compared
   across values set by different neighbour ASes, which may not produce
   coherent desirable results, of itself.
 
-* 
+*
   Effectively ignoring MED by setting MED to the same value (e.g.@: 0) using
   :ref:`routemap_set_metric` on all received routes, in combination with
   setting :ref:`bgp_always-compare-med` on all speakers. This is the simplest
@@ -458,30 +464,31 @@ complex, non-full-mesh, iBGP topologies may be avoided either by:
 
 As MED is evaluated after the AS_PATH length check, another possible use for
 MED is for intra-AS steering of routes with equal AS_PATH length, as an
-extension of the last case above.  As MED is evaluated before IGP metric,
+extension of the last case above. As MED is evaluated before IGP metric,
 this can allow cold-potato routing to be implemented to send traffic to
 preferred hand-offs with neighbours, rather than the closest hand-off
 according to the IGP metric.
 
 Note that even if action is taken to address the MED non-transitivity
-issues, other oscillations may still be possible.  E.g., on IGP cost if
+issues, other oscillations may still be possible. E.g., on IGP cost if
 iBGP and IGP topologies are at cross-purposes with each other - see the
-Flavel and Roughan paper above for an example.  Hence the guideline that the
+Flavel and Roughan paper above for an example. Hence the guideline that the
 iBGP topology should follow the IGP topology.
 
-.. index:: {BGP} {bgp deterministic-med} {}
+.. index:: bgp deterministic-med
 
-{BGP} {bgp deterministic-med} {}
+``bgp deterministic-med``
+
   .. _bgp_deterministic-med:
 
   Carry out route-selection in way that produces deterministic answers
   locally, even in the face of MED and the lack of a well-defined order of
-  preference it can induce on routes.  Without this option the preferred route
+  preference it can induce on routes. Without this option the preferred route
   with MED may be determined largely by the order that routes were received
   in.
 
   Setting this option will have a performance cost that may be noticeable when
-  there are many routes for each destination.  Currently in Frr it is
+  there are many routes for each destination. Currently in Frr it is
   implemented in a way that scales poorly as the number of routes per
   destination increases.
 
@@ -491,13 +498,14 @@ Note that there are other sources of indeterminism in the route selection
 process, specifically, the preference for older and already selected routes
 from eBGP peers, :ref:`BGP_decision_process`.
 
-.. index:: {BGP} {bgp always-compare-med} {}
+.. index:: bgp always-compare-med
 
-{BGP} {bgp always-compare-med} {}
+``bgp always-compare-med``
+
   .. _bgp_always-compare-med:
 
   Always compare the MED on routes, even when they were received from
-  different neighbouring ASes.  Setting this option makes the order of
+  different neighbouring ASes. Setting this option makes the order of
   preference of routes more defined, and should eliminate MED induced
   oscillations.
 
@@ -518,94 +526,106 @@ BGP network
 BGP route
 ---------
 
-.. index:: {BGP} {network `A.B.C.D/M`} {}
+.. index:: network `A.B.C.D/M`
 
-{BGP} {network `A.B.C.D/M`} {}
+``network `A.B.C.D/M```
+
   This command adds the announcement network.::
 
-    @group
     router bgp 1
      address-family ipv4 unicast
       network 10.0.0.0/8
      exit-address-family
-    @end group
-    
+
   This configuration example says that network 10.0.0.0/8 will be
-  announced to all neighbors.  Some vendors' routers don't advertise
+  announced to all neighbors. Some vendors' routers don't advertise
   routes if they aren't present in their IGP routing tables; `bgpd`
   doesn't care about IGP routes when announcing its routes.
 
-.. index:: {BGP} {no network `A.B.C.D/M`} {}
+.. index:: no network `A.B.C.D/M`
 
-{BGP} {no network `A.B.C.D/M`} {}
+``no network `A.B.C.D/M```
+
 
 .. _Route_Aggregation:
 
 Route Aggregation
 -----------------
 
-.. index:: {BGP} {aggregate-address `A.B.C.D/M`} {}
+.. index:: aggregate-address `A.B.C.D/M`
 
-{BGP} {aggregate-address `A.B.C.D/M`} {}
+``aggregate-address `A.B.C.D/M```
+
   This command specifies an aggregate address.
 
-.. index:: {BGP} {aggregate-address `A.B.C.D/M` as-set} {}
+.. index:: aggregate-address `A.B.C.D/M` as-set
 
-{BGP} {aggregate-address `A.B.C.D/M` as-set} {}
-  This command specifies an aggregate address.  Resulting routes include
+``aggregate-address `A.B.C.D/M` as-set``
+
+  This command specifies an aggregate address. Resulting routes include
   AS set.
 
-.. index:: {BGP} {aggregate-address `A.B.C.D/M` summary-only} {}
+.. index:: aggregate-address `A.B.C.D/M` summary-only
 
-{BGP} {aggregate-address `A.B.C.D/M` summary-only} {}
-  This command specifies an aggregate address.  Aggreated routes will
+``aggregate-address `A.B.C.D/M` summary-only``
+
+  This command specifies an aggregate address. Aggreated routes will
   not be announce.
 
-.. index:: {BGP} {no aggregate-address `A.B.C.D/M`} {}
+.. index:: no aggregate-address `A.B.C.D/M`
 
-{BGP} {no aggregate-address `A.B.C.D/M`} {}
+``no aggregate-address `A.B.C.D/M```
+
 
 .. _Redistribute_to_BGP:
 
 Redistribute to BGP
 -------------------
 
-.. index:: {BGP} {redistribute kernel} {}
+.. index:: redistribute kernel
 
-{BGP} {redistribute kernel} {}
+``redistribute kernel``
+
   Redistribute kernel route to BGP process.
 
-.. index:: {BGP} {redistribute static} {}
+.. index:: redistribute static
 
-{BGP} {redistribute static} {}
+``redistribute static``
+
   Redistribute static route to BGP process.
 
-.. index:: {BGP} {redistribute connected} {}
+.. index:: redistribute connected
 
-{BGP} {redistribute connected} {}
+``redistribute connected``
+
   Redistribute connected route to BGP process.
 
-.. index:: {BGP} {redistribute rip} {}
+.. index:: redistribute rip
 
-{BGP} {redistribute rip} {}
+``redistribute rip``
+
   Redistribute RIP route to BGP process.
 
-.. index:: {BGP} {redistribute ospf} {}
+.. index:: redistribute ospf
 
-{BGP} {redistribute ospf} {}
+``redistribute ospf``
+
   Redistribute OSPF route to BGP process.
 
-.. index:: {BGP} {redistribute vpn} {}
+.. index:: redistribute vpn
 
-{BGP} {redistribute vpn} {}
+``redistribute vpn``
+
   Redistribute VNC routes to BGP process.
 
-.. index:: {BGP} {update-delay `max-delay`} {}
+.. index:: update-delay `max-delay`
 
-{BGP} {update-delay `max-delay`} {}
-.. index:: {BGP} {update-delay `max-delay` `establish-wait`} {}
+``update-delay `max-delay```
 
-{BGP} {update-delay `max-delay` `establish-wait`} {}
+.. index:: update-delay `max-delay` `establish-wait`
+
+``update-delay `max-delay` `establish-wait```
+
     This feature is used to enable read-only mode on BGP process restart or when
     BGP process is cleared using 'clear ip bgp \*'. When applicable, read-only mode
     would begin as soon as the first peer reaches Established status and a timer
@@ -627,9 +647,10 @@ Redistribute to BGP
 
     Default max-delay is 0, i.e. the feature is off by default.
 
-.. index:: {BGP} {table-map `route-map-name`} {}
+.. index:: table-map `route-map-name`
 
-{BGP} {table-map `route-map-name`} {}
+``table-map `route-map-name```
+
     This feature is used to apply a route-map on route updates from BGP to Zebra.
     All the applicable match operations are allowed, such as match on prefix,
     next-hop, communities, etc. Set operations for this attach-point are limited
@@ -650,17 +671,16 @@ BGP Peer
 Defining Peer
 -------------
 
-.. index:: {BGP} {neighbor `peer` remote-as `asn`} {}
+.. index:: neighbor `peer` remote-as `asn`
 
-{BGP} {neighbor `peer` remote-as `asn`} {}
-  Creates a new neighbor whose remote-as is `asn`.  `peer`
+``neighbor `peer` remote-as `asn```
+
+  Creates a new neighbor whose remote-as is `asn`. `peer`
   can be an IPv4 address or an IPv6 address.::
 
-    @group
     router bgp 1
      neighbor 10.0.0.1 remote-as 2
-    @end group
-    
+
   In this case my router, in AS-1, is trying to peer with AS-2 at
   10.0.0.1.
 
@@ -668,7 +688,7 @@ Defining Peer
   If the remote-as is not specified, *bgpd* will complain like this:::
 
     can't find neighbor 10.0.0.1
-    
+
 
 .. _BGP_Peer_commands:
 
@@ -678,188 +698,218 @@ BGP Peer commands
 In a `router bgp` clause there are neighbor specific configurations
 required.
 
-.. index:: {BGP} {neighbor `peer` shutdown} {}
+.. index:: neighbor `peer` shutdown
 
-{BGP} {neighbor `peer` shutdown} {}
-.. index:: {BGP} {no neighbor `peer` shutdown} {}
+``neighbor `peer` shutdown``
 
-{BGP} {no neighbor `peer` shutdown} {}
-    Shutdown the peer.  We can delete the neighbor's configuration by
+.. index:: no neighbor `peer` shutdown
+
+``no neighbor `peer` shutdown``
+
+    Shutdown the peer. We can delete the neighbor's configuration by
     `no neighbor `peer` remote-as @var{as-number`} but all
-    configuration of the neighbor will be deleted.  When you want to
+    configuration of the neighbor will be deleted. When you want to
     preserve the configuration, but want to drop the BGP peer, use this
     syntax.
 
-.. index:: {BGP} {neighbor `peer` ebgp-multihop} {}
+.. index:: neighbor `peer` ebgp-multihop
 
-{BGP} {neighbor `peer` ebgp-multihop} {}
-.. index:: {BGP} {no neighbor `peer` ebgp-multihop} {}
+``neighbor `peer` ebgp-multihop``
 
-{BGP} {no neighbor `peer` ebgp-multihop} {}
-.. index:: {BGP} {neighbor `peer` description ...} {}
+.. index:: no neighbor `peer` ebgp-multihop
 
-{BGP} {neighbor `peer` description ...} {}
-.. index:: {BGP} {no neighbor `peer` description ...} {}
+``no neighbor `peer` ebgp-multihop``
 
-{BGP} {no neighbor `peer` description ...} {}
-        Set description of the peer.
+.. index:: neighbor `peer` description ...
 
-.. index:: {BGP} {neighbor `peer` version `version`} {}
+``neighbor `peer` description ...``
 
-{BGP} {neighbor `peer` version `version`} {}
-        Set up the neighbor's BGP version.  `version` can be `4`,
-        `4+` or `4-`.  BGP version `4` is the default value used for
-        BGP peering.  BGP version `4+` means that the neighbor supports
-        Multiprotocol Extensions for BGP-4.  BGP version `4-` is similar but
-        the neighbor speaks the old Internet-Draft revision 00's Multiprotocol
-        Extensions for BGP-4.  Some routing software is still using this
-        version.
+.. index:: no neighbor `peer` description ...
 
-.. index:: {BGP} {neighbor `peer` interface `ifname`} {}
+``no neighbor `peer` description ...``
 
-{BGP} {neighbor `peer` interface `ifname`} {}
-.. index:: {BGP} {no neighbor `peer` interface `ifname`} {}
+  Set description of the peer.
 
-{BGP} {no neighbor `peer` interface `ifname`} {}
-          When you connect to a BGP peer over an IPv6 link-local address, you 
-          have to specify the `ifname` of the interface used for the 
-          connection. To specify IPv4 session addresses, see the 
-          `neighbor `peer` update-source` command below.
+.. index:: neighbor `peer` version `version`
 
-          This command is deprecated and may be removed in a future release. Its
-          use should be avoided.
+``neighbor `peer` version `version```
 
-.. index:: {BGP} {neighbor `peer` next-hop-self [all]} {}
+  Set up the neighbor's BGP version. `version` can be `4`,
+  `4+` or `4-`. BGP version `4` is the default value used for
+  BGP peering. BGP version `4+` means that the neighbor supports
+  Multiprotocol Extensions for BGP-4. BGP version `4-` is similar but
+  the neighbor speaks the old Internet-Draft revision 00's Multiprotocol
+  Extensions for BGP-4. Some routing software is still using this
+  version.
 
-{BGP} {neighbor `peer` next-hop-self [all]} {}
-.. index:: {BGP} {no neighbor `peer` next-hop-self [all]} {}
+.. index:: neighbor `peer` interface `ifname`
 
-{BGP} {no neighbor `peer` next-hop-self [all]} {}
-            This command specifies an announced route's nexthop as being equivalent
-            to the address of the bgp router if it is learned via eBGP.
-            If the optional keyword `all` is specified the modifiation is done
-            also for routes learned via iBGP.
+``neighbor `peer` interface `ifname```
 
-.. index:: {BGP} {neighbor `peer` update-source `<ifname|address>`} {}
+.. index:: no neighbor `peer` interface `ifname`
 
-{BGP} {neighbor `peer` update-source `<ifname|address>`} {}
-.. index:: {BGP} {no neighbor `peer` update-source} {}
+``no neighbor `peer` interface `ifname```
 
-{BGP} {no neighbor `peer` update-source} {}
-              Specify the IPv4 source address to use for the @acronym{BGP} session to this
-              neighbour, may be specified as either an IPv4 address directly or
-              as an interface name (in which case the *zebra* daemon MUST be running
-              in order for *bgpd* to be able to retrieve interface state).::
+  When you connect to a BGP peer over an IPv6 link-local address, you
+  have to specify the `ifname` of the interface used for the
+  connection. To specify IPv4 session addresses, see the
+  `neighbor `peer` update-source` command below.
 
-                @group
-                router bgp 64555
-                 neighbor foo update-source 192.168.0.1
-                 neighbor bar update-source lo0
-                @end group
-                
+  This command is deprecated and may be removed in a future release. Its
+  use should be avoided.
 
-.. index:: {BGP} {neighbor `peer` default-originate} {}
+.. index:: neighbor `peer` next-hop-self [all]
 
-{BGP} {neighbor `peer` default-originate} {}
-.. index:: {BGP} {no neighbor `peer` default-originate} {}
+``neighbor `peer` next-hop-self [all]``
 
-{BGP} {no neighbor `peer` default-originate} {}
-                *bgpd*'s default is to not announce the default route (0.0.0.0/0) even it
-                is in routing table.  When you want to announce default routes to the
-                peer, use this command.
+.. index:: no neighbor `peer` next-hop-self [all]
 
-.. index:: {BGP} {neighbor `peer` port `port`} {}
+``no neighbor `peer` next-hop-self [all]``
 
-{BGP} {neighbor `peer` port `port`} {}
-.. index:: {BGP} {neighbor `peer` port `port`} {}
+      This command specifies an announced route's nexthop as being equivalent
+      to the address of the bgp router if it is learned via eBGP.
+      If the optional keyword `all` is specified the modifiation is done
+      also for routes learned via iBGP.
 
-{BGP} {neighbor `peer` port `port`} {}
-.. index:: {BGP} {neighbor `peer` send-community} {}
+.. index:: neighbor `peer` update-source `<ifname|address>`
 
-{BGP} {neighbor `peer` send-community} {}
-.. index:: {BGP} {neighbor `peer` send-community} {}
+``neighbor `peer` update-source `<ifname|address>```
 
-{BGP} {neighbor `peer` send-community} {}
-.. index:: {BGP} {neighbor `peer` weight `weight`} {}
+.. index:: no neighbor `peer` update-source
 
-{BGP} {neighbor `peer` weight `weight`} {}
-.. index:: {BGP} {no neighbor `peer` weight `weight`} {}
+``no neighbor `peer` update-source``
 
-{BGP} {no neighbor `peer` weight `weight`} {}
-                      This command specifies a default `weight` value for the neighbor's
-                      routes.
+  Specify the IPv4 source address to use for the :abbr:`BGP` session to this
+  neighbour, may be specified as either an IPv4 address directly or
+  as an interface name (in which case the *zebra* daemon MUST be running
+  in order for *bgpd* to be able to retrieve interface state).::
 
-.. index:: {BGP} {neighbor `peer` maximum-prefix `number`} {}
+    router bgp 64555
+     neighbor foo update-source 192.168.0.1
+     neighbor bar update-source lo0
 
-{BGP} {neighbor `peer` maximum-prefix `number`} {}
-.. index:: {BGP} {no neighbor `peer` maximum-prefix `number`} {}
 
-{BGP} {no neighbor `peer` maximum-prefix `number`} {}
-.. index:: {BGP} {neighbor `peer` local-as `as-number`} {}
+.. index:: neighbor `peer` default-originate
 
-{BGP} {neighbor `peer` local-as `as-number`} {}
-.. index:: {BGP} {neighbor `peer` local-as `as-number` no-prepend} {}
+``neighbor `peer` default-originate``
 
-{BGP} {neighbor `peer` local-as `as-number` no-prepend} {}
-.. index:: {BGP} {neighbor `peer` local-as `as-number` no-prepend replace-as} {}
+.. index:: no neighbor `peer` default-originate
 
-{BGP} {neighbor `peer` local-as `as-number` no-prepend replace-as} {}
-.. index:: {BGP} {no neighbor `peer` local-as} {}
+``no neighbor `peer` default-originate``
 
-{BGP} {no neighbor `peer` local-as} {}
-                              Specify an alternate AS for this BGP process when interacting with the
-                              specified peer.  With no modifiers, the specified local-as is prepended to
-                              the received AS_PATH when receiving routing updates from the peer, and
-                              prepended to the outgoing AS_PATH (after the process local AS) when
-                              transmitting local routes to the peer.
+    *bgpd*'s default is to not announce the default route (0.0.0.0/0) even it
+    is in routing table. When you want to announce default routes to the
+    peer, use this command.
 
-                              If the no-prepend attribute is specified, then the supplied local-as is not
-                              prepended to the received AS_PATH.
+.. index:: neighbor `peer` port `port`
 
-                              If the replace-as attribute is specified, then only the supplied local-as is
-                              prepended to the AS_PATH when transmitting local-route updates to this peer.
+``neighbor `peer` port `port```
 
-                              Note that replace-as can only be specified if no-prepend is.
+.. index:: neighbor `peer` port `port`
 
-                              This command is only allowed for eBGP peers.
+``neighbor `peer` port `port```
 
-.. index:: {BGP} {neighbor `peer` ttl-security hops `number`} {}
+.. index:: neighbor `peer` send-community
 
-{BGP} {neighbor `peer` ttl-security hops `number`} {}
-.. index:: {BGP} {no neighbor `peer` ttl-security hops `number`} {}
+``neighbor `peer` send-community``
 
-{BGP} {no neighbor `peer` ttl-security hops `number`} {}
-                                This command enforces Generalized TTL Security Mechanism (GTSM), as
-                                specified in RFC 5082. With this command, only neighbors that are the
-                                specified number of hops away will be allowed to become neighbors. This
-                                command is mututally exclusive with *ebgp-multihop*.
+.. index:: neighbor `peer` send-community
+
+``neighbor `peer` send-community``
+
+.. index:: neighbor `peer` weight `weight`
+
+``neighbor `peer` weight `weight```
+
+.. index:: no neighbor `peer` weight `weight`
+
+``no neighbor `peer` weight `weight```
+
+    This command specifies a default `weight` value for the neighbor's
+    routes.
+
+.. index:: neighbor `peer` maximum-prefix `number`
+
+``neighbor `peer` maximum-prefix `number```
+
+.. index:: no neighbor `peer` maximum-prefix `number`
+
+``no neighbor `peer` maximum-prefix `number```
+
+.. index:: neighbor `peer` local-as `as-number`
+
+``neighbor `peer` local-as `as-number```
+
+.. index:: neighbor `peer` local-as `as-number` no-prepend
+
+``neighbor `peer` local-as `as-number` no-prepend``
+
+.. index:: neighbor `peer` local-as `as-number` no-prepend replace-as
+
+``neighbor `peer` local-as `as-number` no-prepend replace-as``
+
+.. index:: no neighbor `peer` local-as
+
+``no neighbor `peer` local-as``
+
+      Specify an alternate AS for this BGP process when interacting with the
+      specified peer. With no modifiers, the specified local-as is prepended to
+      the received AS_PATH when receiving routing updates from the peer, and
+      prepended to the outgoing AS_PATH (after the process local AS) when
+      transmitting local routes to the peer.
+
+      If the no-prepend attribute is specified, then the supplied local-as is not
+      prepended to the received AS_PATH.
+
+      If the replace-as attribute is specified, then only the supplied local-as is
+      prepended to the AS_PATH when transmitting local-route updates to this peer.
+
+      Note that replace-as can only be specified if no-prepend is.
+
+      This command is only allowed for eBGP peers.
+
+.. index:: neighbor `peer` ttl-security hops `number`
+
+``neighbor `peer` ttl-security hops `number```
+
+.. index:: no neighbor `peer` ttl-security hops `number`
+
+``no neighbor `peer` ttl-security hops `number```
+
+  This command enforces Generalized TTL Security Mechanism (GTSM), as
+  specified in RFC 5082. With this command, only neighbors that are the
+  specified number of hops away will be allowed to become neighbors. This
+  command is mututally exclusive with *ebgp-multihop*.
 
 .. _Peer_filtering:
 
 Peer filtering
 --------------
 
-.. index:: {BGP} {neighbor `peer` distribute-list `name` [in|out]} {}
+.. index:: neighbor `peer` distribute-list `name` [in|out]
 
-{BGP} {neighbor `peer` distribute-list `name` [in|out]} {}
-  This command specifies a distribute-list for the peer.  `direct` is
+``neighbor `peer` distribute-list `name` [in|out]``
+
+  This command specifies a distribute-list for the peer. `direct` is
   @samp{in} or @samp{out}.
 
-.. index:: {BGP command} {neighbor `peer` prefix-list `name` [in|out]} {}
+.. index:: neighbor PEER prefix-list NAME [in|out]
 
-{BGP command} {neighbor `peer` prefix-list `name` [in|out]} {}
-.. index:: {BGP command} {neighbor `peer` filter-list `name` [in|out]} {}
+``neighbor PEER prefix-list NAME [in|out]``
+.. index:: neighbor PEER filter-list NAME [in|out]
 
-{BGP command} {neighbor `peer` filter-list `name` [in|out]} {}
-.. index:: {BGP} {neighbor `peer` route-map `name` [in|out]} {}
+``neighbor PEER filter-list NAME [in|out]``
+.. index:: neighbor `peer` route-map `name` [in|out]
 
-{BGP} {neighbor `peer` route-map `name` [in|out]} {}
-  Apply a route-map on the neighbor.  `direct` must be `in` or
+``neighbor `peer` route-map `name` [in|out]``
+
+  Apply a route-map on the neighbor. `direct` must be `in` or
   `out`.
 
-.. index:: {BGP} {bgp route-reflector allow-outbound-policy} {}
+.. index:: bgp route-reflector allow-outbound-policy
 
-{BGP} {bgp route-reflector allow-outbound-policy} {}
+``bgp route-reflector allow-outbound-policy``
+
   By default, attribute modification via route-map policy out is not reflected
   on reflected routes. This option allows the modifications to be reflected as
   well. Once enabled, it affects all reflected routes.
@@ -869,14 +919,16 @@ Peer filtering
 BGP Peer Group
 ==============
 
-.. index:: {BGP} {neighbor `word` peer-group} {}
+.. index:: neighbor `word` peer-group
 
-{BGP} {neighbor `word` peer-group} {}
+``neighbor `word` peer-group``
+
   This command defines a new peer group.
 
-.. index:: {BGP} {neighbor `peer` peer-group `word`} {}
+.. index:: neighbor `peer` peer-group `word`
 
-{BGP} {neighbor `peer` peer-group `word`} {}
+``neighbor `peer` peer-group `word```
+
   This command bind specific peer to peer group `word`.
 
 .. _BGP_Address_Family:
@@ -888,54 +940,54 @@ Multiprotocol BGP enables BGP to carry routing information for multiple
 Network Layer protocols. BGP supports multiple Address Family
 Identifier (AFI), namely IPv4 and IPv6. Support is also provided for
 multiple sets of per-AFI information via Subsequent Address Family
-Identifiers (SAFI).  In addition to unicast information, VPN information
-@cite{RFC4364} and @cite{RFC4659}, and Encapsulation information
-@cite{RFC5512} is supported.
+Identifiers (SAFI). In addition to unicast information, VPN information
+:t:`RFC4364` and :t:`RFC4659`, and Encapsulation information
+:t:`RFC5512` is supported.
 
-.. index:: {Command} {show ip bgp vpnv4 all} {}
+.. index:: show ip bgp vpnv4 all
 
-{Command} {show ip bgp vpnv4 all} {}
-.. index:: {Command} {show ipv6 bgp vpn all} {}
+``show ip bgp vpnv4 all``
+.. index:: show ipv6 bgp vpn all
 
-{Command} {show ipv6 bgp vpn all} {}
+``show ipv6 bgp vpn all``
     Print active IPV4 or IPV6 routes advertised via the VPN SAFI.
 
-.. index:: {Command} {show ip bgp encap all} {}
+.. index:: show ip bgp encap all
 
-{Command} {show ip bgp encap all} {}
-.. index:: {Command} {show ipv6 bgp encap all} {}
+``show ip bgp encap all``
+.. index:: show ipv6 bgp encap all
 
-{Command} {show ipv6 bgp encap all} {}
+``show ipv6 bgp encap all``
       Print active IPV4 or IPV6 routes advertised via the Encapsulation SAFI.
 
-.. index:: {Command} {show bgp ipv4 encap summary} {}
+.. index:: show bgp ipv4 encap summary
 
-{Command} {show bgp ipv4 encap summary} {}
-.. index:: {Command} {show bgp ipv4 vpn summary} {}
+``show bgp ipv4 encap summary``
+.. index:: show bgp ipv4 vpn summary
 
-{Command} {show bgp ipv4 vpn summary} {}
-.. index:: {Command} {show bgp ipv6 encap summary} {}
+``show bgp ipv4 vpn summary``
+.. index:: show bgp ipv6 encap summary
 
-{Command} {show bgp ipv6 encap summary} {}
-.. index:: {Command} {show bgp ipv6 vpn summary} {}
+``show bgp ipv6 encap summary``
+.. index:: show bgp ipv6 vpn summary
 
-{Command} {show bgp ipv6 vpn summary} {}
-            Print a summary of neighbor connections for the specified AFI/SAFI combination.
+``show bgp ipv6 vpn summary``
+      Print a summary of neighbor connections for the specified AFI/SAFI combination.
 
 .. _Autonomous_System:
 
 Autonomous System
 =================
 
-The @acronym{AS,Autonomous System} number is one of the essential
-element of BGP.  BGP is a distance vector routing protocol, and the
+The :abbr:`AS (Autonomous System)` number is one of the essential
+element of BGP. BGP is a distance vector routing protocol, and the
 AS-Path framework provides distance vector metric and loop detection to
 BGP. @cite{RFC1930, Guidelines for creation, selection, and
 registration of an Autonomous System (AS)} provides some background on
 the concepts of an AS.
 
 The AS number is a two octet value, ranging in value from 1 to 65535.
-The AS numbers 64512 through 65535 are defined as private AS numbers. 
+The AS numbers 64512 through 65535 are defined as private AS numbers.
 Private AS numbers must not to be advertised in the global Internet.
 
 .. _Display_BGP_Routes_by_AS_Path:
@@ -943,11 +995,11 @@ Private AS numbers must not to be advertised in the global Internet.
 Display BGP Routes by AS Path
 -----------------------------
 
-To show BGP routes which has specific AS path information `show ip bgp` command can be used.  
+To show BGP routes which has specific AS path information `show ip bgp` command can be used.
 
-.. index:: Command {show bgp {ipv4|ipv6} regexp `line`} {}
+.. index:: show bgp ipv4|ipv6 regexp LINE
 
-Command {show bgp {ipv4|ipv6} regexp `line`} {}
+``show bgp ipv4|ipv6 regexp LINE``
   This commands displays BGP routes that matches a regular
   expression `line` (:ref:`BGP_Regular_Expressions`).
 
@@ -958,35 +1010,35 @@ AS Path Access List
 
 AS path access list is user defined AS path.
 
-.. index:: {Command} {ip as-path access-list `word` {permit|deny} `line`} {}
+.. index:: ip as-path access-list WORD permit|deny LINE
 
-{Command} {ip as-path access-list `word` {permit|deny} `line`} {}
+``ip as-path access-list WORD permit|deny LINE``
   This command defines a new AS path access list.
 
-.. index:: {Command} {no ip as-path access-list `word`} {}
+.. index:: no ip as-path access-list WORD
 
-{Command} {no ip as-path access-list `word`} {}
-.. index:: {Command} {no ip as-path access-list `word` {permit|deny} `line`} {}
+``no ip as-path access-list WORD``
+.. index:: no ip as-path access-list WORD permit|deny LINE
 
-{Command} {no ip as-path access-list `word` {permit|deny} `line`} {}
+``no ip as-path access-list WORD permit|deny LINE``
 
 .. _Using_AS_Path_in_Route_Map:
 
 Using AS Path in Route Map
 --------------------------
 
-.. index:: {Route Map} {match as-path `word`} {}
+.. index:: match as-path WORD
 
-{Route Map} {match as-path `word`} {}
+``match as-path WORD``
 
-.. index:: {Route Map} {set as-path prepend `as-path`} {}
+.. index:: set as-path prepend AS-PATH
 
-{Route Map} {set as-path prepend `as-path`} {}
+``set as-path prepend AS-PATH``
   Prepend the given string of AS numbers to the AS_PATH.
 
-.. index:: {Route Map} {set as-path prepend last-as `num`} {}
+.. index:: set as-path prepend last-as NUM
 
-{Route Map} {set as-path prepend last-as `num`} {}
+``set as-path prepend last-as NUM``
   Prepend the existing last AS number (the leftmost ASN) to the AS_PATH.
 
 .. _Private_AS_Numbers:
@@ -1001,24 +1053,24 @@ BGP Communities Attribute
 =========================
 
 BGP communities attribute is widely used for implementing policy
-routing.  Network operators can manipulate BGP communities attribute
-based on their network policy.  BGP communities attribute is defined
-in @cite{RFC1997, BGP Communities Attribute} and
+routing. Network operators can manipulate BGP communities attribute
+based on their network policy. BGP communities attribute is defined
+in :t:`RFC1997, BGP Communities Attribute` and
 @cite{RFC1998, An Application of the BGP Community Attribute
-in Multi-home Routing}.  It is an optional transitive attribute,
+in Multi-home Routing}. It is an optional transitive attribute,
 therefore local policy can travel through different autonomous system.
 
-Communities attribute is a set of communities values.  Each
-communities value is 4 octet long.  The following format is used to
+Communities attribute is a set of communities values. Each
+communities value is 4 octet long. The following format is used to
 define communities value.
 
 
 
 *AS:VAL*
-  This format represents 4 octet communities value.  `AS` is high
-  order 2 octet in digit format.  `VAL` is low order 2 octet in
-  digit format.  This format is useful to define AS oriented policy
-  value.  For example, `7675:80` can be used when AS 7675 wants to
+  This format represents 4 octet communities value. `AS` is high
+  order 2 octet in digit format. `VAL` is low order 2 octet in
+  digit format. This format is useful to define AS oriented policy
+  value. For example, `7675:80` can be used when AS 7675 wants to
   pass local policy value 80 to neighboring peer.
 
 *internet*
@@ -1026,8 +1078,8 @@ define communities value.
 
 *no-export*
   ``no-export`` represents well-known communities value ``NO_EXPORT`` @\*
-  @r{(0xFFFFFF01)}.  All routes carry this value must not be advertised
-  to outside a BGP confederation boundary.  If neighboring BGP peer is
+  @r{(0xFFFFFF01)}. All routes carry this value must not be advertised
+  to outside a BGP confederation boundary. If neighboring BGP peer is
   part of BGP confederation, the peer is considered as inside a BGP
   confederation boundary, so the route will be announced to the peer.
 
@@ -1038,8 +1090,8 @@ define communities value.
 
 *local-AS*
   ``local-AS`` represents well-known communities value
-  ``NO_EXPORT_SUBCONFED`` @r{(0xFFFFFF03)}.  All routes carry this
-  value must not be advertised to external BGP peers.  Even if the
+  ``NO_EXPORT_SUBCONFED`` @r{(0xFFFFFF03)}. All routes carry this
+  value must not be advertised to external BGP peers. Even if the
   neighboring router is part of confederation, it is considered as
   external BGP peer, so the route will not be announced to the peer.
 
@@ -1056,72 +1108,72 @@ BGP community list is a user defined BGP communites attribute list.
 BGP community list can be used for matching or manipulating BGP
 communities attribute in updates.
 
-There are two types of community list.  One is standard community
-list and another is expanded community list.  Standard community list
-defines communities attribute.  Expanded community list defines
-communities attribute string with regular expression.  Standard
+There are two types of community list. One is standard community
+list and another is expanded community list. Standard community list
+defines communities attribute. Expanded community list defines
+communities attribute string with regular expression. Standard
 community list is compiled into binary format when user define it.
 Standard community list will be directly compared to BGP communities
-attribute in BGP updates.  Therefore the comparison is faster than
+attribute in BGP updates. Therefore the comparison is faster than
 expanded community list.
 
-.. index:: Command {ip community-list standard `name` {permit|deny} `community`} {}
+.. index:: ip community-list standard NAME permit|deny COMMUNITY
 
-Command {ip community-list standard `name` {permit|deny} `community`} {}
-  This command defines a new standard community list.  `community`
-  is communities value.  The `community` is compiled into community
-  structure.  We can define multiple community list under same name.  In
-  that case match will happen user defined order.  Once the
+``ip community-list standard NAME permit|deny COMMUNITY``
+  This command defines a new standard community list. `community`
+  is communities value. The `community` is compiled into community
+  structure. We can define multiple community list under same name. In
+  that case match will happen user defined order. Once the
   community list matches to communities attribute in BGP updates it
-  return permit or deny by the community list definition.  When there is
-  no matched entry, deny will be returned.  When `community` is
+  return permit or deny by the community list definition. When there is
+  no matched entry, deny will be returned. When `community` is
   empty it matches to any routes.
 
-.. index:: Command {ip community-list expanded `name` {permit|deny} `line`} {}
+.. index:: ip community-list expanded NAME permit|deny LINE
 
-Command {ip community-list expanded `name` {permit|deny} `line`} {}
-  This command defines a new expanded community list.  `line` is a
-  string expression of communities attribute.  `line` can be a
+``ip community-list expanded NAME permit|deny LINE``
+  This command defines a new expanded community list. `line` is a
+  string expression of communities attribute. `line` can be a
   regular expression (:ref:`BGP_Regular_Expressions`) to match
   the communities attribute in BGP updates.
 
-.. index:: Command {no ip community-list `name`} {}
+.. index:: no ip community-list NAME
 
-Command {no ip community-list `name`} {}
-.. index:: Command {no ip community-list standard `name`} {}
+``no ip community-list NAME``
+.. index:: no ip community-list standard NAME
 
-Command {no ip community-list standard `name`} {}
-.. index:: Command {no ip community-list expanded `name`} {}
+``no ip community-list standard NAME``
+.. index:: no ip community-list expanded NAME
 
-Command {no ip community-list expanded `name`} {}
-      These commands delete community lists specified by `name`.  All of
-      community lists shares a single name space.  So community lists can be
+``no ip community-list expanded NAME``
+      These commands delete community lists specified by `name`. All of
+      community lists shares a single name space. So community lists can be
       removed simpley specifying community lists name.
 
-.. index:: {Command} {show ip community-list} {}
+.. index:: show ip community-list
 
-{Command} {show ip community-list} {}
-.. index:: {Command} {show ip community-list `name`} {}
+``show ip community-list``
+.. index:: show ip community-list NAME
 
-{Command} {show ip community-list `name`} {}
-        This command displays current community list information.  When
-        `name` is specified the specified community list's information is
-        shown.
+``show ip community-list NAME``
+  This command displays current community list information. When
+  `name` is specified the specified community list's information is
+  shown.
 
 ::
 
-          # show ip community-list 
-          Named Community standard list CLIST
-              permit 7675:80 7675:100 no-export
-              deny internet
-          Named Community expanded list EXPAND
-              permit :
+    # show ip community-list
+    Named Community standard list CLIST
+  permit 7675:80 7675:100 no-export
+  deny internet
+    Named Community expanded list EXPAND
+  permit :
 
-          # show ip community-list CLIST
-          Named Community standard list CLIST
-              permit 7675:80 7675:100 no-export
-              deny internet
-          
+    # show ip community-list CLIST
+    Named Community standard list CLIST
+  permit 7675:80 7675:100 no-export
+  deny internet
+
 
 .. _Numbered_BGP_Community_Lists:
 
@@ -1129,35 +1181,35 @@ Numbered BGP Community Lists
 ----------------------------
 
 When number is used for BGP community list name, the number has
-special meanings.  Community list number in the range from 1 and 99 is
-standard community list.  Community list number in the range from 100
-to 199 is expanded community list.  These community lists are called
-as numbered community lists.  On the other hand normal community lists
+special meanings. Community list number in the range from 1 and 99 is
+standard community list. Community list number in the range from 100
+to 199 is expanded community list. These community lists are called
+as numbered community lists. On the other hand normal community lists
 is called as named community lists.
 
-.. index:: Command {ip community-list <1-99> {permit|deny} `community`} {}
+.. index:: ip community-list <1-99> permit|deny COMMUNITY
 
-Command {ip community-list <1-99> {permit|deny} `community`} {}
-  This command defines a new community list.  <1-99> is standard
-  community list number.  Community list name within this range defines
-  standard community list.  When `community` is empty it matches to
+``ip community-list <1-99> permit|deny COMMUNITY``
+  This command defines a new community list. <1-99> is standard
+  community list number. Community list name within this range defines
+  standard community list. When `community` is empty it matches to
   any routes.
 
-.. index:: Command {ip community-list <100-199> {permit|deny} `community`} {}
+.. index:: ip community-list <100-199> permit|deny COMMUNITY
 
-Command {ip community-list <100-199> {permit|deny} `community`} {}
-  This command defines a new community list.  <100-199> is expanded
-  community list number.  Community list name within this range defines
+``ip community-list <100-199> permit|deny COMMUNITY``
+  This command defines a new community list. <100-199> is expanded
+  community list number. Community list name within this range defines
   expanded community list.
 
-.. index:: Command {ip community-list `name` {permit|deny} `community`} {}
+.. index:: ip community-list NAME permit|deny COMMUNITY
 
-Command {ip community-list `name` {permit|deny} `community`} {}
+``ip community-list NAME permit|deny COMMUNITY``
   When community list type is not specifed, the community list type is
-  automatically detected.  If `community` can be compiled into
+  automatically detected. If `community` can be compiled into
   communities attribute, the community list is defined as a standard
-  community list.  Otherwise it is defined as an expanded community
-  list.  This feature is left for backward compability.  Use of this
+  community list. Otherwise it is defined as an expanded community
+  list. This feature is left for backward compability. Use of this
   feature is not recommended.
 
 .. _BGP_Community_in_Route_Map:
@@ -1166,50 +1218,50 @@ BGP Community in Route Map
 --------------------------
 
 In Route Map (:ref:`Route_Map`), we can match or set BGP
-communities attribute.  Using this feature network operator can
+communities attribute. Using this feature network operator can
 implement their network policy based on BGP communities attribute.
 
 Following commands can be used in Route Map.
 
-.. index:: {Route Map} {match community `word`} {}
+.. index:: match community WORD
 
-{Route Map} {match community `word`} {}
-.. index:: {Route Map} {match community `word` exact-match} {}
+``match community WORD``
+.. index:: match community WORD exact-match
 
-{Route Map} {match community `word` exact-match} {}
+``match community WORD exact-match``
     This command perform match to BGP updates using community list
-    `word`.  When the one of BGP communities value match to the one of
-    communities value in community list, it is match.  When
+    `word`. When the one of BGP communities value match to the one of
+    communities value in community list, it is match. When
     `exact-match` keyword is spcified, match happen only when BGP
     updates have completely same communities value specified in the
     community list.
 
-.. index:: {Route Map} {set community none} {}
+.. index:: set community none
 
-{Route Map} {set community none} {}
-.. index:: {Route Map} {set community `community`} {}
+``set community none``
+.. index:: set community COMMUNITY
 
-{Route Map} {set community `community`} {}
-.. index:: {Route Map} {set community `community` additive} {}
+``set community COMMUNITY``
+.. index:: set community COMMUNITY additive
 
-{Route Map} {set community `community` additive} {}
-        This command manipulate communities value in BGP updates.  When
-        `none` is specified as communities value, it removes entire
-        communities attribute from BGP updates.  When `community` is not
-        `none`, specified communities value is set to BGP updates.  If
-        BGP updates already has BGP communities value, the existing BGP
-        communities value is replaced with specified `community` value.
-        When `additive` keyword is specified, `community` is appended
-        to the existing communities value.
+``set community COMMUNITY additive``
+  This command manipulate communities value in BGP updates. When
+  `none` is specified as communities value, it removes entire
+  communities attribute from BGP updates. When `community` is not
+  `none`, specified communities value is set to BGP updates. If
+  BGP updates already has BGP communities value, the existing BGP
+  communities value is replaced with specified `community` value.
+  When `additive` keyword is specified, `community` is appended
+  to the existing communities value.
 
-.. index:: {Route Map} {set comm-list `word` delete} {}
+.. index:: set comm-list WORD delete
 
-{Route Map} {set comm-list `word` delete} {}
-        This command remove communities value from BGP communities attribute.
-        The `word` is community list name.  When BGP route's communities
-        value matches to the community list `word`, the communities value
-        is removed.  When all of communities value is removed eventually, the
-        BGP update's communities attribute is completely removed.
+``set comm-list WORD delete``
+  This command remove communities value from BGP communities attribute.
+  The `word` is community list name. When BGP route's communities
+  value matches to the community list `word`, the communities value
+  is removed. When all of communities value is removed eventually, the
+  BGP update's communities attribute is completely removed.
 
 .. _Display_BGP_Routes_by_Community:
 
@@ -1220,15 +1272,15 @@ To show BGP routes which has specific BGP communities attribute,
 `show bgp {ipv4|ipv6}` command can be used. The
 `community` and `community-list` subcommand can be used.
 
-.. index:: Command {show bgp {ipv4|ipv6} community} {}
+.. index:: show bgp ipv4|ipv6 community
 
-Command {show bgp {ipv4|ipv6} community} {}
-.. index:: Command {show bgp {ipv4|ipv6} community `community`} {}
+``show bgp ipv4|ipv6 community``
+.. index:: show bgp ipv4|ipv6 community COMMUNITY
 
-Command {show bgp {ipv4|ipv6} community `community`} {}
-.. index:: Command {show bgp {ipv4|ipv6} community `community` exact-match} {}
+``show bgp ipv4|ipv6 community COMMUNITY``
+.. index:: show bgp ipv4|ipv6 community COMMUNITY exact-match
 
-Command {show bgp {ipv4|ipv6} community `community` exact-match} {}
+``show bgp ipv4|ipv6 community COMMUNITY exact-match``
       `show bgp {ipv4|ipv6} community` displays BGP routes which has communities
       attribute. Where the address family can be IPv4 or IPv6 among others. When
       `community` is specified, BGP routes that matches `community` value is
@@ -1236,15 +1288,15 @@ Command {show bgp {ipv4|ipv6} community `community` exact-match} {}
       `community` value. When `exact-match` is specified, it display only
       routes that have an exact match.
 
-.. index:: Command {show bgp {ipv4|ipv6} community-list `word`} {}
+.. index:: show bgp ipv4|ipv6 community-list WORD
 
-Command {show bgp {ipv4|ipv6} community-list `word`} {}
-.. index:: Command {show bgp {ipv4|ipv6} community-list `word` exact-match} {}
+``show bgp ipv4|ipv6 community-list WORD``
+.. index:: show bgp ipv4|ipv6 community-list WORD exact-match
 
-Command {show bgp {ipv4|ipv6} community-list `word` exact-match} {}
-        This commands display BGP routes for the address family specified that matches
-        community list `word`. When `exact-match` is specified, display only
-        routes that have an exact match.
+``show bgp ipv4|ipv6 community-list WORD exact-match``
+  This commands display BGP routes for the address family specified that matches
+  community list `word`. When `exact-match` is specified, display only
+  routes that have an exact match.
 
 .. _Using_BGP_Communities_Attribute:
 
@@ -1252,7 +1304,7 @@ Using BGP Communities Attribute
 -------------------------------
 
 Following configuration is the most typical usage of BGP communities
-attribute.  AS 7675 provides upstream Internet connection to AS 100.
+attribute. AS 7675 provides upstream Internet connection to AS 100.
 When following configuration exists in AS 7675, AS 100 networks
 operator can set local preference in AS 7675 network by setting BGP
 communities attribute to the updates.
@@ -1283,7 +1335,7 @@ communities attribute to the updates.
   route-map RMAP permit 30
    match community 90
    set local-preference 90
-  
+
 
 Following configuration announce 10.0.0.0/8 from AS 100 to AS 7675.
 The route has communities value 7675:80 so when above configuration
@@ -1304,11 +1356,11 @@ value 80.
   route-map RMAP permit 10
    match ip address prefix-list PLIST
    set community 7675:80
-  
+
 
 Following configuration is an example of BGP route filtering using
-communities attribute.  This configuration only permit BGP routes
-which has BGP communities value 0:80 or 0:90.  Network operator can
+communities attribute. This configuration only permit BGP routes
+which has BGP communities value 0:80 or 0:90. Network operator can
 put special internal communities value at BGP border router, then
 limit the BGP routes announcement into the internal network.
 
@@ -1324,10 +1376,10 @@ limit the BGP routes announcement into the internal network.
   !
   route-map RMAP permit in
    match community 1
-  
+
 
 Following exmaple filter BGP routes which has communities value 1:1.
-When there is no match community-list returns deny.  To avoid
+When there is no match community-list returns deny. To avoid
 filtering all of routes, we need to define permit any at last.
 
 ::
@@ -1343,24 +1395,24 @@ filtering all of routes, we need to define permit any at last.
   !
   route-map RMAP permit 10
    match community FILTER
-  
+
 
 Communities value keyword `internet` has special meanings in
-standard community lists.  In below example `internet` act as
-match any.  It matches all of BGP routes even if the route does not
-have communities attribute at all.  So community list `INTERNET`
+standard community lists. In below example `internet` act as
+match any. It matches all of BGP routes even if the route does not
+have communities attribute at all. So community list `INTERNET`
 is same as above example's `FILTER`.
 
 ::
 
   ip community-list standard INTERNET deny 1:1
   ip community-list standard INTERNET permit internet
-  
+
 
 Following configuration is an example of communities value deletion.
 With this configuration communities value 100:1 and 100:2 is removed
-from BGP updates.  For communities value deletion, only `permit`
-community-list is used.  `deny` community-list is ignored.
+from BGP updates. For communities value deletion, only `permit`
+community-list is used. `deny` community-list is ignored.
 
 ::
 
@@ -1374,7 +1426,7 @@ community-list is used.  `deny` community-list is ignored.
   !
   route-map RMAP permit 10
    set comm-list DEL delete
-  
+
 
 .. _BGP_Extended_Communities_Attribute:
 
@@ -1382,22 +1434,22 @@ BGP Extended Communities Attribute
 ==================================
 
 BGP extended communities attribute is introduced with MPLS VPN/BGP
-technology.  MPLS VPN/BGP expands capability of network infrastructure
-to provide VPN functionality.  At the same time it requires a new
-framework for policy routing.  With BGP Extended Communities Attribute
+technology. MPLS VPN/BGP expands capability of network infrastructure
+to provide VPN functionality. At the same time it requires a new
+framework for policy routing. With BGP Extended Communities Attribute
 we can use Route Target or Site of Origin for implementing network
 policy for MPLS VPN/BGP.
 
 BGP Extended Communities Attribute is similar to BGP Communities
-Attribute.  It is an optional transitive attribute.  BGP Extended
+Attribute. It is an optional transitive attribute. BGP Extended
 Communities Attribute can carry multiple Extended Community value.
 Each Extended Community value is eight octet length.
 
 BGP Extended Communities Attribute provides an extended range
-compared with BGP Communities Attribute.  Adding to that there is a
+compared with BGP Communities Attribute. Adding to that there is a
 type field in each value to provides community space structure.
 
-There are two format to define Extended Community value.  One is AS
+There are two format to define Extended Community value. One is AS
 based format the other is IP address based format.
 
 
@@ -1405,14 +1457,14 @@ based format the other is IP address based format.
 *AS:VAL*
   This is a format to define AS based Extended Community value.
   `AS` part is 2 octets Global Administrator subfield in Extended
-  Community value.  `VAL` part is 4 octets Local Administrator
-  subfield.  `7675:100` represents AS 7675 policy value 100.
+  Community value. `VAL` part is 4 octets Local Administrator
+  subfield. `7675:100` represents AS 7675 policy value 100.
 
 *IP-Address:VAL*
   This is a format to define IP address based Extended Community value.
   `IP-Address` part is 4 octets Global Administrator subfield.
   `VAL` part is 2 octets Local Administrator subfield.
-  `10.0.0.1:100` represents 
+  `10.0.0.1:100` represents
 
 .. _BGP_Extended_Community_Lists:
 
@@ -1422,72 +1474,72 @@ BGP Extended Community Lists
 Expanded Community Lists is a user defined BGP Expanded Community
 Lists.
 
-.. index:: Command {ip extcommunity-list standard `name` {permit|deny} `extcommunity`} {}
+.. index:: ip extcommunity-list standard NAME permit|deny EXTCOMMUNITY
 
-Command {ip extcommunity-list standard `name` {permit|deny} `extcommunity`} {}
+``ip extcommunity-list standard NAME permit|deny EXTCOMMUNITY``
   This command defines a new standard extcommunity-list.
-  `extcommunity` is extended communities value.  The
-  `extcommunity` is compiled into extended community structure.  We
-  can define multiple extcommunity-list under same name.  In that case
-  match will happen user defined order.  Once the extcommunity-list
+  `extcommunity` is extended communities value. The
+  `extcommunity` is compiled into extended community structure. We
+  can define multiple extcommunity-list under same name. In that case
+  match will happen user defined order. Once the extcommunity-list
   matches to extended communities attribute in BGP updates it return
-  permit or deny based upon the extcommunity-list definition.  When
-  there is no matched entry, deny will be returned.  When
+  permit or deny based upon the extcommunity-list definition. When
+  there is no matched entry, deny will be returned. When
   `extcommunity` is empty it matches to any routes.
 
-.. index:: Command {ip extcommunity-list expanded `name` {permit|deny} `line`} {}
+.. index:: ip extcommunity-list expanded NAME permit|deny LINE
 
-Command {ip extcommunity-list expanded `name` {permit|deny} `line`} {}
-  This command defines a new expanded extcommunity-list.  `line` is
-  a string expression of extended communities attribute.  `line` can
+``ip extcommunity-list expanded NAME permit|deny LINE``
+  This command defines a new expanded extcommunity-list. `line` is
+  a string expression of extended communities attribute. `line` can
   be a regular expression (:ref:`BGP_Regular_Expressions`) to match an
   extended communities attribute in BGP updates.
 
-.. index:: Command {no ip extcommunity-list `name`} {}
+.. index:: no ip extcommunity-list NAME
 
-Command {no ip extcommunity-list `name`} {}
-.. index:: Command {no ip extcommunity-list standard `name`} {}
+``no ip extcommunity-list NAME``
+.. index:: no ip extcommunity-list standard NAME
 
-Command {no ip extcommunity-list standard `name`} {}
-.. index:: Command {no ip extcommunity-list expanded `name`} {}
+``no ip extcommunity-list standard NAME``
+.. index:: no ip extcommunity-list expanded NAME
 
-Command {no ip extcommunity-list expanded `name`} {}
+``no ip extcommunity-list expanded NAME``
       These commands delete extended community lists specified by
-      `name`.  All of extended community lists shares a single name
-      space.  So extended community lists can be removed simpley specifying
+      `name`. All of extended community lists shares a single name
+      space. So extended community lists can be removed simpley specifying
       the name.
 
-.. index:: {Command} {show ip extcommunity-list} {}
+.. index:: show ip extcommunity-list
 
-{Command} {show ip extcommunity-list} {}
-.. index:: {Command} {show ip extcommunity-list `name`} {}
+``show ip extcommunity-list``
+.. index:: show ip extcommunity-list NAME
 
-{Command} {show ip extcommunity-list `name`} {}
-        This command displays current extcommunity-list information.  When
-        `name` is specified the community list's information is shown.
+``show ip extcommunity-list NAME``
+  This command displays current extcommunity-list information. When
+  `name` is specified the community list's information is shown.
 
 ::
 
-          # show ip extcommunity-list 
-          
+    # show ip extcommunity-list
+
 
 .. _BGP_Extended_Communities_in_Route_Map:
 
 BGP Extended Communities in Route Map
 -------------------------------------
 
-.. index:: {Route Map} {match extcommunity `word`} {}
+.. index:: match extcommunity WORD
 
-{Route Map} {match extcommunity `word`} {}
+``match extcommunity WORD``
 
-.. index:: {Route Map} {set extcommunity rt `extcommunity`} {}
+.. index:: set extcommunity rt EXTCOMMUNITY
 
-{Route Map} {set extcommunity rt `extcommunity`} {}
+``set extcommunity rt EXTCOMMUNITY``
   This command set Route Target value.
 
-.. index:: {Route Map} {set extcommunity soo `extcommunity`} {}
+.. index:: set extcommunity soo EXTCOMMUNITY
 
-{Route Map} {set extcommunity soo `extcommunity`} {}
+``set extcommunity soo EXTCOMMUNITY``
   This command set Site of Origin value.
 
 .. _BGP_Large_Communities_Attribute:
@@ -1496,7 +1548,7 @@ BGP Large Communities Attribute
 ===============================
 
 The BGP Large Communities attribute was introduced in Feb 2017 with
-@cite{RFC8092, BGP Large Communities Attribute}.
+:t:`RFC8092, BGP Large Communities Attribute`.
 
 The BGP Large Communities Attribute is similar to the BGP Communities
 Attribute except that it has 3 components instead of two and each of
@@ -1509,7 +1561,7 @@ AS4 operators seamless use.
 
 *GLOBAL:LOCAL1:LOCAL2*
   This is the format to define Large Community values. Referencing
-  @cite{RFC8195, Use of BGP Large Communities} the values are commonly
+  :t:`RFC8195, Use of BGP Large Communities` the values are commonly
   referred to as follows.
   The `GLOBAL` part is a 4 octet Global Administrator field, common
   use of this field is the operators AS number.
@@ -1528,76 +1580,76 @@ BGP Large Community Lists
 Two types of large community lists are supported, namely `standard` and
 `expanded`.
 
-.. index:: Command {ip large-community-list standard `name` {permit|deny} `large-community`} {}
+.. index:: ip large-community-list standard NAME permit|deny LARGE-COMMUNITY
 
-Command {ip large-community-list standard `name` {permit|deny} `large-community`} {}
+``ip large-community-list standard NAME permit|deny LARGE-COMMUNITY``
   This command defines a new standard large-community-list.
   `large-community` is the Large Community value. We
   can add multiple large communities under same name. In that case
   the match will happen in the user defined order. Once the large-community-list
   matches the Large Communities attribute in BGP updates it will return
-  permit or deny based upon the large-community-list definition.  When
-  there is no matched entry, a deny will be returned.  When `large-community`
+  permit or deny based upon the large-community-list definition. When
+  there is no matched entry, a deny will be returned. When `large-community`
   is empty it matches any routes.
 
-.. index:: Command {ip large-community-list expanded `name` {permit|deny} `line`} {}
+.. index:: ip large-community-list expanded NAME permit|deny LINE
 
-Command {ip large-community-list expanded `name` {permit|deny} `line`} {}
+``ip large-community-list expanded NAME permit|deny LINE``
   This command defines a new expanded large-community-list. Where `line` is
   a string matching expression, it will be compared to the entire Large Communities
   attribute as a string, with each large-community in order from lowest to highest.
   `line` can also be a regular expression which matches this Large
   Community attribute.
 
-.. index:: Command {no ip large-community-list `name`} {}
+.. index:: no ip large-community-list NAME
 
-Command {no ip large-community-list `name`} {}
-.. index:: Command {no ip large-community-list standard `name`} {}
+``no ip large-community-list NAME``
+.. index:: no ip large-community-list standard NAME
 
-Command {no ip large-community-list standard `name`} {}
-.. index:: Command {no ip large-community-list expanded `name`} {}
+``no ip large-community-list standard NAME``
+.. index:: no ip large-community-list expanded NAME
 
-Command {no ip large-community-list expanded `name`} {}
+``no ip large-community-list expanded NAME``
       These commands delete Large Community lists specified by
       `name`. All Large Community lists share a single namespace.
       This means Large Community lists can be removed by simply specifying the name.
 
-.. index:: {Command} {show ip large-community-list} {}
+.. index:: show ip large-community-list
 
-{Command} {show ip large-community-list} {}
-.. index:: {Command} {show ip large-community-list `name`} {}
+``show ip large-community-list``
+.. index:: show ip large-community-list NAME
 
-{Command} {show ip large-community-list `name`} {}
-        This command display current large-community-list information.  When
-        `name` is specified the community list information is shown.
+``show ip large-community-list NAME``
+  This command display current large-community-list information. When
+  `name` is specified the community list information is shown.
 
-.. index:: {Command} {show ip bgp large-community-info} {}
+.. index:: show ip bgp large-community-info
 
-{Command} {show ip bgp large-community-info} {}
-        This command displays the current large communities in use.
+``show ip bgp large-community-info``
+  This command displays the current large communities in use.
 
 .. _BGP_Large_Communities_in_Route_Map:
 
 BGP Large Communities in Route Map
 ----------------------------------
 
-.. index:: {Route Map} {match large-community `line`} {}
+.. index:: match large-community LINE
 
-{Route Map} {match large-community `line`} {}
+``match large-community LINE``
   Where `line` can be a simple string to match, or a regular expression.
   It is very important to note that this match occurs on the entire
   large-community string as a whole, where each large-community is ordered
   from lowest to highest.
 
-.. index:: {Route Map} {set large-community `large-community`} {}
+.. index:: set large-community LARGE-COMMUNITY
 
-{Route Map} {set large-community `large-community`} {}
-.. index:: {Route Map} {set large-community `large-community` `large-community`} {}
+``set large-community LARGE-COMMUNITY``
+.. index:: set large-community LARGE-COMMUNITY LARGE-COMMUNITY
 
-{Route Map} {set large-community `large-community` `large-community`} {}
-.. index:: {Route Map} {set large-community `large-community` additive} {}
+``set large-community LARGE-COMMUNITY LARGE-COMMUNITY``
+.. index:: set large-community LARGE-COMMUNITY additive
 
-{Route Map} {set large-community `large-community` additive} {}
+``set large-community LARGE-COMMUNITY additive``
       These commands are used for setting large-community values. The first
       command will overwrite any large-communities currently present.
       The second specifies two large-communities, which overwrites the current
@@ -1615,16 +1667,16 @@ Displaying BGP information
 Showing BGP information
 -----------------------
 
-.. index:: {Command} {show ip bgp} {}
+.. index:: show ip bgp
 
-{Command} {show ip bgp} {}
-.. index:: {Command} {show ip bgp `A.B.C.D`} {}
+``show ip bgp``
+.. index:: show ip bgp A.B.C.D
 
-{Command} {show ip bgp `A.B.C.D`} {}
-.. index:: {Command} {show ip bgp `X:X::X:X`} {}
+``show ip bgp A.B.C.D``
+.. index:: show ip bgp X:X::X:X
 
-{Command} {show ip bgp `X:X::X:X`} {}
-      This command displays BGP routes.  When no route is specified it
+``show ip bgp X:X::X:X``
+      This command displays BGP routes. When no route is specified it
       display all of IPv4 BGP routes.
 
 ::
@@ -1633,193 +1685,202 @@ Showing BGP information
       Status codes: s suppressed, d damped, h history, * valid, > best, i - internal
       Origin codes: i - IGP, e - EGP, ? - incomplete
 
-         Network          Next Hop            Metric LocPrf Weight Path
-      *> 1.1.1.1/32       0.0.0.0                  0         32768 i
+   Network    Next Hop      Metric LocPrf Weight Path
+      *> 1.1.1.1/32       0.0.0.0      0   32768 i
 
       Total number of prefixes 1
-      
 
-.. index:: {Command} {show ip bgp regexp `line`} {}
 
-{Command} {show ip bgp regexp `line`} {}
+.. index:: show ip bgp regexp LINE
+
+``show ip bgp regexp LINE``
       This command displays BGP routes using AS path regular expression
       (:ref:`BGP_Regular_Expressions`).
 
-.. index:: Command {show ip bgp community `community`} {}
+.. index:: show ip bgp community COMMUNITY
 
-Command {show ip bgp community `community`} {}
-.. index:: Command {show ip bgp community `community` exact-match} {}
+``show ip bgp community COMMUNITY``
+.. index:: show ip bgp community COMMUNITY exact-match
 
-Command {show ip bgp community `community` exact-match} {}
-        This command displays BGP routes using `community` (:ref:`Display_BGP_Routes_by_Community`).
+``show ip bgp community COMMUNITY exact-match``
+  This command displays BGP routes using `community` (:ref:`Display_BGP_Routes_by_Community`).
 
-.. index:: Command {show ip bgp community-list `word`} {}
+.. index:: show ip bgp community-list WORD
 
-Command {show ip bgp community-list `word`} {}
-.. index:: Command {show ip bgp community-list `word` exact-match} {}
+``show ip bgp community-list WORD``
+.. index:: show ip bgp community-list WORD exact-match
 
-Command {show ip bgp community-list `word` exact-match} {}
-          This command displays BGP routes using community list (:ref:`Display_BGP_Routes_by_Community`).
+``show ip bgp community-list WORD exact-match``
+    This command displays BGP routes using community list (:ref:`Display_BGP_Routes_by_Community`).
 
-.. index:: {Command} {show bgp {ipv4|ipv6} summary} {}
+.. index:: show bgp ipv4|ipv6 summary
 
-{Command} {show bgp {ipv4|ipv6} summary} {}
-          Show a bgp peer summary for the specified address family.
+``show bgp ipv4|ipv6 summary``
+    Show a bgp peer summary for the specified address family.
 
-.. index:: {Command} {show bgp {ipv4|ipv6} neighbor [`peer`]} {}
+.. index:: show bgp ipv4|ipv6 neighbor [PEER]
 
-{Command} {show bgp {ipv4|ipv6} neighbor [`peer`]} {}
-          This command shows information on a specific BGP `peer`.
+``show bgp ipv4|ipv6 neighbor [PEER]``
+    This command shows information on a specific BGP `peer`.
 
-.. index:: {Command} {show bgp {ipv4|ipv6} dampening dampened-paths} {}
+.. index:: show bgp ipv4|ipv6 dampening dampened-paths
 
-{Command} {show bgp {ipv4|ipv6} dampening dampened-paths} {}
-          Display paths suppressed due to dampening.
+``show bgp ipv4|ipv6 dampening dampened-paths``
+    Display paths suppressed due to dampening.
 
-.. index:: {Command} {show bgp {ipv4|ipv6} dampening flap-statistics} {}
+.. index:: show bgp ipv4|ipv6 dampening flap-statistics
 
-{Command} {show bgp {ipv4|ipv6} dampening flap-statistics} {}
-          Display flap statistics of routes.
+``show bgp ipv4|ipv6 dampening flap-statistics``
+    Display flap statistics of routes.
 
 .. _Other_BGP_commands:
 
 Other BGP commands
 ------------------
 
-.. index:: {Command} {clear bgp {ipv4|ipv6} \*} {}
+.. index:: clear bgp ipv4|ipv6 \*
 
-{Command} {clear bgp {ipv4|ipv6} \*} {}
+``clear bgp ipv4|ipv6 \*``
   Clear all address family peers.
 
-.. index:: {Command} {clear bgp {ipv4|ipv6} `peer`} {}
+.. index:: clear bgp ipv4|ipv6 PEER
 
-{Command} {clear bgp {ipv4|ipv6} `peer`} {}
+``clear bgp ipv4|ipv6 PEER``
   Clear peers which have addresses of X.X.X.X
 
-.. index:: {Command} {clear bgp {ipv4|ipv6} `peer` soft in} {}
+.. index:: clear bgp ipv4|ipv6 PEER soft in
 
-{Command} {clear bgp {ipv4|ipv6} `peer` soft in} {}
+``clear bgp ipv4|ipv6 PEER soft in``
   Clear peer using soft reconfiguration.
 
-.. index:: {Command} {show debug} {}
+.. index:: show debug
 
-{Command} {show debug} {}
-.. index:: {Command} {debug event} {}
+``show debug``
+.. index:: debug event
 
-{Command} {debug event} {}
-.. index:: {Command} {debug update} {}
+``debug event``
+.. index:: debug update
 
-{Command} {debug update} {}
-.. index:: {Command} {debug keepalive} {}
+``debug update``
+.. index:: debug keepalive
 
-{Command} {debug keepalive} {}
-.. index:: {Command} {no debug event} {}
+``debug keepalive``
+.. index:: no debug event
 
-{Command} {no debug event} {}
-.. index:: {Command} {no debug update} {}
+``no debug event``
+.. index:: no debug update
 
-{Command} {no debug update} {}
-.. index:: {Command} {no debug keepalive} {}
+``no debug update``
+.. index:: no debug keepalive
 
-{Command} {no debug keepalive} {}
+``no debug keepalive``
 
 .. _Capability_Negotiation:
 
 Capability Negotiation
 ======================
 
-When adding IPv6 routing information exchange feature to BGP.  There
-were some proposals.  @acronym{IETF,Internet Engineering Task Force}
-@acronym{IDR, Inter Domain Routing} @acronym{WG, Working group} adopted
-a proposal called Multiprotocol Extension for BGP.  The specification
-is described in @cite{RFC2283}.  The protocol does not define new protocols. 
-It defines new attributes to existing BGP.  When it is used exchanging
-IPv6 routing information it is called BGP-4+.  When it is used for
+When adding IPv6 routing information exchange feature to BGP. There
+were some proposals. :abbr:`IETF (Internet Engineering Task Force)`
+:abbr:`IDR ( Inter Domain Routing)` :abbr:`IDR ( Inter Domain Routing)` adopted
+a proposal called Multiprotocol Extension for BGP. The specification
+is described in :t:`RFC2283`. The protocol does not define new protocols.
+It defines new attributes to existing BGP. When it is used exchanging
+IPv6 routing information it is called BGP-4+. When it is used for
 exchanging multicast routing information it is called MBGP.
 
-*bgpd* supports Multiprotocol Extension for BGP.  So if remote
+*bgpd* supports Multiprotocol Extension for BGP. So if remote
 peer supports the protocol, *bgpd* can exchange IPv6 and/or
 multicast routing information.
 
 Traditional BGP did not have the feature to detect remote peer's
 capabilities, e.g. whether it can handle prefix types other than IPv4
-unicast routes.  This was a big problem using Multiprotocol Extension
-for BGP to operational network.  @cite{RFC2842, Capabilities
+unicast routes. This was a big problem using Multiprotocol Extension
+for BGP to operational network. @cite{RFC2842, Capabilities
 Advertisement with BGP-4} adopted a feature called Capability
 Negotiation. *bgpd* use this Capability Negotiation to detect
-the remote peer's capabilities.  If the peer is only configured as IPv4
+the remote peer's capabilities. If the peer is only configured as IPv4
 unicast neighbor, *bgpd* does not send these Capability
 Negotiation packets (at least not unless other optional BGP features
 require capability negotation).
 
 By default, Frr will bring up peering with minimal common capability
-for the both sides.  For example, local router has unicast and
-multicast capabilitie and remote router has unicast capability.  In
+for the both sides. For example, local router has unicast and
+multicast capabilitie and remote router has unicast capability. In
 this case, the local router will establish the connection with unicast
 only capability. When there are no common capabilities, Frr sends
 Unsupported Capability error and then resets the connection.
 
-If you want to completely match capabilities with remote peer.  Please
+If you want to completely match capabilities with remote peer. Please
 use *strict-capability-match* command.
 
-.. index:: {BGP} {neighbor `peer` strict-capability-match} {}
+.. index:: neighbor `peer` strict-capability-match
 
-{BGP} {neighbor `peer` strict-capability-match} {}
-.. index:: {BGP} {no neighbor `peer` strict-capability-match} {}
+``neighbor `peer` strict-capability-match``
 
-{BGP} {no neighbor `peer` strict-capability-match} {}
-    Strictly compares remote capabilities and local capabilities.  If capabilities
+.. index:: no neighbor `peer` strict-capability-match
+
+``no neighbor `peer` strict-capability-match``
+
+    Strictly compares remote capabilities and local capabilities. If capabilities
     are different, send Unsupported Capability error then reset connection.
 
   You may want to disable sending Capability Negotiation OPEN message
   optional parameter to the peer when remote peer does not implement
-  Capability Negotiation.  Please use *dont-capability-negotiate*
+  Capability Negotiation. Please use *dont-capability-negotiate*
   command to disable the feature.
 
-.. index:: {BGP} {neighbor `peer` dont-capability-negotiate} {}
+.. index:: neighbor `peer` dont-capability-negotiate
 
-{BGP} {neighbor `peer` dont-capability-negotiate} {}
-.. index:: {BGP} {no neighbor `peer` dont-capability-negotiate} {}
+``neighbor `peer` dont-capability-negotiate``
 
-{BGP} {no neighbor `peer` dont-capability-negotiate} {}
+.. index:: no neighbor `peer` dont-capability-negotiate
+
+``no neighbor `peer` dont-capability-negotiate``
+
       Suppress sending Capability Negotiation as OPEN message optional
-      parameter to the peer.  This command only affects the peer is configured
+      parameter to the peer. This command only affects the peer is configured
       other than IPv4 unicast configuration.
 
     When remote peer does not have capability negotiation feature, remote
-    peer will not send any capabilities at all.  In that case, bgp
+    peer will not send any capabilities at all. In that case, bgp
     configures the peer with configured capabilities.
 
     You may prefer locally configured capabilities more than the negotiated
-    capabilities even though remote peer sends capabilities.  If the peer
+    capabilities even though remote peer sends capabilities. If the peer
     is configured by *override-capability*, *bgpd* ignores
     received capabilities then override negotiated capabilities with
     configured values.
 
-.. index:: {BGP} {neighbor `peer` override-capability} {}
+.. index:: neighbor `peer` override-capability
 
-{BGP} {neighbor `peer` override-capability} {}
-.. index:: {BGP} {no neighbor `peer` override-capability} {}
+``neighbor `peer` override-capability``
 
-{BGP} {no neighbor `peer` override-capability} {}
-        Override the result of Capability Negotiation with local configuration.
-        Ignore remote peer's capability value.
+.. index:: no neighbor `peer` override-capability
+
+``no neighbor `peer` override-capability``
+
+  Override the result of Capability Negotiation with local configuration.
+  Ignore remote peer's capability value.
 
 .. _Route_Reflector:
 
 Route Reflector
 ===============
 
-.. index:: {BGP} {bgp cluster-id `a.b.c.d`} {}
+.. index:: bgp cluster-id `a.b.c.d`
 
-{BGP} {bgp cluster-id `a.b.c.d`} {}
+``bgp cluster-id `a.b.c.d```
 
-.. index:: {BGP} {neighbor `peer` route-reflector-client} {}
 
-{BGP} {neighbor `peer` route-reflector-client} {}
-.. index:: {BGP} {no neighbor `peer` route-reflector-client} {}
+.. index:: neighbor `peer` route-reflector-client
 
-{BGP} {no neighbor `peer` route-reflector-client} {}
+``neighbor `peer` route-reflector-client``
+
+.. index:: no neighbor `peer` route-reflector-client
+
+``no neighbor `peer` route-reflector-client``
+
 
 .. _Route_Server:
 
@@ -1827,19 +1888,19 @@ Route Server
 ============
 
 At an Internet Exchange point, many ISPs are connected to each other by
-external BGP peering.  Normally these external BGP connection are done by
-@samp{full mesh} method.  As with internal BGP full mesh formation,
+external BGP peering. Normally these external BGP connection are done by
+@samp{full mesh} method. As with internal BGP full mesh formation,
 this method has a scaling problem.
 
-This scaling problem is well known.  Route Server is a method to resolve
-the problem.  Each ISP's BGP router only peers to Route Server.  Route
-Server serves as BGP information exchange to other BGP routers.  By
+This scaling problem is well known. Route Server is a method to resolve
+the problem. Each ISP's BGP router only peers to Route Server. Route
+Server serves as BGP information exchange to other BGP routers. By
 applying this method, numbers of BGP connections is reduced from
 O(n*(n-1)/2) to O(n).
 
 Unlike normal BGP router, Route Server must have several routing tables
-for managing different routing policies for each BGP speaker.  We call the
-routing tables as different ``view`` s.  *bgpd* can work as
+for managing different routing policies for each BGP speaker. We call the
+routing tables as different ``view`` s. *bgpd* can work as
 normal BGP router or Route Server or both at the same time.
 
 .. _Multiple_instance:
@@ -1850,26 +1911,26 @@ Multiple instance
 To enable multiple view function of `bgpd`, you must turn on
 multiple instance feature beforehand.
 
-.. index:: {Command} {bgp multiple-instance} {}
+.. index:: bgp multiple-instance
 
-{Command} {bgp multiple-instance} {}
-  Enable BGP multiple instance feature.  After this feature is enabled,
+``bgp multiple-instance``
+  Enable BGP multiple instance feature. After this feature is enabled,
   you can make multiple BGP instances or multiple BGP views.
 
-.. index:: {Command} {no bgp multiple-instance} {}
+.. index:: no bgp multiple-instance
 
-{Command} {no bgp multiple-instance} {}
-  Disable BGP multiple instance feature.  You can not disable this feature
+``no bgp multiple-instance``
+  Disable BGP multiple instance feature. You can not disable this feature
   when BGP multiple instances or views exist.
 
-When you want to make configuration more Cisco like one, 
+When you want to make configuration more Cisco like one,
 
-.. index:: {Command} {bgp config-type cisco} {}
+.. index:: bgp config-type cisco
 
-{Command} {bgp config-type cisco} {}
+``bgp config-type cisco``
   Cisco compatible BGP configuration output.
 
-When bgp config-type cisco is specified, 
+When bgp config-type cisco is specified,
 
 'no synchronization' is displayed.
 'no auto-summary' is displayed.
@@ -1883,12 +1944,12 @@ Cisco: network 10.0.0.0
 Frr: aggregate-address 192.168.0.0/24
 Cisco: aggregate-address 192.168.0.0 255.255.255.0
 
-Community attribute handling is also different.  If there is no
+Community attribute handling is also different. If there is no
 configuration is specified community attribute and extended community
-attribute are sent to neighbor.  When user manually disable the
-feature community attribute is not sent to the neighbor.  In case of
+attribute are sent to neighbor. When user manually disable the
+feature community attribute is not sent to the neighbor. In case of
 *bgp config-type cisco* is specified, community attribute is not
-sent to the neighbor by default.  To send community attribute user has
+sent to the neighbor by default. To send community attribute user has
 to specify *neighbor A.B.C.D send-community* command.
 
 ::
@@ -1906,30 +1967,29 @@ to specify *neighbor A.B.C.D send-community* command.
     neighbor 10.0.0.1 send-community
    exit-address-family
   !
-  
 
-.. index:: {Command} {bgp config-type zebra} {}
 
-{Command} {bgp config-type zebra} {}
-  Frr style BGP configuration.  This is default.
+.. index:: bgp config-type zebra
+
+``bgp config-type zebra``
+  Frr style BGP configuration. This is default.
 
 .. _BGP_instance_and_view:
 
 BGP instance and view
 ---------------------
 
-BGP instance is a normal BGP process.  The result of route selection
-goes to the kernel routing table.  You can setup different AS at the
+BGP instance is a normal BGP process. The result of route selection
+goes to the kernel routing table. You can setup different AS at the
 same time when BGP multiple instance feature is enabled.
 
-.. index:: {Command} {router bgp `as-number`} {}
+.. index:: router bgp AS-NUMBER
 
-{Command} {router bgp `as-number`} {}
-  Make a new BGP instance.  You can use arbitrary word for the `name`.
+``router bgp AS-NUMBER``
+  Make a new BGP instance. You can use arbitrary word for the `name`.
 
 ::
 
-  @group
   bgp multiple-instance
   !
   router bgp 1
@@ -1939,24 +1999,22 @@ same time when BGP multiple instance feature is enabled.
   router bgp 2
    neighbor 10.0.0.3 remote-as 4
    neighbor 10.0.0.4 remote-as 5
-  @end group
-  
+
 
 BGP view is almost same as normal BGP process. The result of
-route selection does not go to the kernel routing table.  BGP view is
+route selection does not go to the kernel routing table. BGP view is
 only for exchanging BGP routing information.
 
-.. index:: {Command} {router bgp `as-number` view `name`} {}
+.. index:: router bgp AS-NUMBER view NAME
 
-{Command} {router bgp `as-number` view `name`} {}
-  Make a new BGP view.  You can use arbitrary word for the `name`.  This
+``router bgp AS-NUMBER view NAME``
+  Make a new BGP view. You can use arbitrary word for the `name`. This
   view's route selection result does not go to the kernel routing table.
 
 With this command, you can setup Route Server like below.
 
 ::
 
-  @group
   bgp multiple-instance
   !
   router bgp 1 view 1
@@ -1966,20 +2024,18 @@ With this command, you can setup Route Server like below.
   router bgp 2 view 2
    neighbor 10.0.0.3 remote-as 4
    neighbor 10.0.0.4 remote-as 5
-  @end group
-  
+
 
 .. _Routing_policy:
 
 Routing policy
 --------------
 
-You can set different routing policy for a peer.  For example, you can
+You can set different routing policy for a peer. For example, you can
 set different filter for a peer.
 
 ::
 
-  @group
   bgp multiple-instance
   !
   router bgp 1 view 1
@@ -1993,12 +2049,11 @@ set different filter for a peer.
    address-family ipv4 unicast
     neighbor 10.0.0.1 distribute-list 2 in
    exit-address-family
-  @end group
-  
+
 
 This means BGP update from a peer 10.0.0.1 goes to both BGP view 1 and view
-2.  When the update is inserted into view 1, distribute-list 1 is
-applied.  On the other hand, when the update is inserted into view 2,
+2. When the update is inserted into view 1, distribute-list 1 is
+applied. On the other hand, when the update is inserted into view 2,
 distribute-list 2 is applied.
 
 .. _Viewing_the_view:
@@ -2008,9 +2063,9 @@ Viewing the view
 
 To display routing table of BGP view, you must specify view name.
 
-.. index:: {Command} {show ip bgp view `name`} {}
+.. index:: show ip bgp view NAME
 
-{Command} {show ip bgp view `name`} {}
+``show ip bgp view NAME``
   Display routing table of BGP view `name`.
 
 .. _BGP_Regular_Expressions:
@@ -2046,8 +2101,8 @@ $
 _
   Character `_` has special meanings in BGP regular expressions.
   It matches to space and comma , and AS set delimiter { and } and AS
-  confederation delimiter `(` and `)`.  And it also matches to
-  the beginning of the line and the end of the line.  So `_` can be
+  confederation delimiter `(` and `)`. And it also matches to
+  the beginning of the line and the end of the line. So `_` can be
   used for AS value boundaries match. This character technically evaluates
   to `(^|[,{}() ]|$)`.
 
@@ -2058,11 +2113,10 @@ How to set up a 6-Bone connection
 
 ::
 
-  @group
-  zebra configuration 
-  =================== 
-  !  
-  ! Actually there is no need to configure zebra 
+  zebra configuration
+  ===================
+  !
+  ! Actually there is no need to configure zebra
   !
 
   bgpd configuration
@@ -2095,61 +2149,60 @@ How to set up a 6-Bone connection
    set ipv6 nexthop global 3ffe:1cfa:0:2:2c0:4fff:fe68:a225
    set ipv6 nexthop local fe80::2c0:4fff:fe68:a225
   !
-  ! logfile FILENAME is obsolete.  Please use log file FILENAME
+  ! logfile FILENAME is obsolete. Please use log file FILENAME
 
   log file bgpd.log
   !
-  @end group
-  
+
 
 .. _Dump_BGP_packets_and_table:
 
 Dump BGP packets and table
 ==========================
 
-.. index:: Command {dump bgp all `path` [`interval`]} {}
+.. index:: dump bgp all PATH [INTERVAL]
 
-Command {dump bgp all `path` [`interval`]} {}
-.. index:: Command {dump bgp all-et `path` [`interval`]} {}
+``dump bgp all PATH [INTERVAL]``
+.. index:: dump bgp all-et PATH [INTERVAL]
 
-Command {dump bgp all-et `path` [`interval`]} {}
-.. index:: Command {no dump bgp all [`path`] [`interval`]} {}
+``dump bgp all-et PATH [INTERVAL]``
+.. index:: no dump bgp all [PATH] [INTERVAL]
 
-Command {no dump bgp all [`path`] [`interval`]} {}
+``no dump bgp all [PATH] [INTERVAL]``
       Dump all BGP packet and events to `path` file.
       If `interval` is set, a new file will be created for echo `interval` of seconds.
       The path `path` can be set with date and time formatting (strftime).
       The type ‘all-et’ enables support for Extended Timestamp Header (:ref:`Packet_Binary_Dump_Format`).
       (:ref:`Packet_Binary_Dump_Format`)
 
-.. index:: Command {dump bgp updates `path` [`interval`]} {}
+.. index:: dump bgp updates PATH [INTERVAL]
 
-Command {dump bgp updates `path` [`interval`]} {}
-.. index:: Command {dump bgp updates-et `path` [`interval`]} {}
+``dump bgp updates PATH [INTERVAL]``
+.. index:: dump bgp updates-et PATH [INTERVAL]
 
-Command {dump bgp updates-et `path` [`interval`]} {}
-.. index:: Command {no dump bgp updates [`path`] [`interval`]} {}
+``dump bgp updates-et PATH [INTERVAL]``
+.. index:: no dump bgp updates [PATH] [INTERVAL]
 
-Command {no dump bgp updates [`path`] [`interval`]} {}
-          Dump only BGP updates messages to `path` file.
-          If `interval` is set, a new file will be created for echo `interval` of seconds.
-          The path `path` can be set with date and time formatting (strftime).
-          The type ‘updates-et’ enables support for Extended Timestamp Header (:ref:`Packet_Binary_Dump_Format`).
+``no dump bgp updates [PATH] [INTERVAL]``
+    Dump only BGP updates messages to `path` file.
+    If `interval` is set, a new file will be created for echo `interval` of seconds.
+    The path `path` can be set with date and time formatting (strftime).
+    The type ‘updates-et’ enables support for Extended Timestamp Header (:ref:`Packet_Binary_Dump_Format`).
 
-.. index:: Command {dump bgp routes-mrt `path`} {}
+.. index:: dump bgp routes-mrt PATH
 
-Command {dump bgp routes-mrt `path`} {}
-.. index:: Command {dump bgp routes-mrt `path` `interval`} {}
+``dump bgp routes-mrt PATH``
+.. index:: dump bgp routes-mrt PATH INTERVAL
 
-Command {dump bgp routes-mrt `path` `interval`} {}
-.. index:: Command {no dump bgp route-mrt [`path`] [`interval`]} {}
+``dump bgp routes-mrt PATH INTERVAL``
+.. index:: no dump bgp route-mrt [PATH] [INTERVAL]
 
-Command {no dump bgp route-mrt [`path`] [`interval`]} {}
-              Dump whole BGP routing table to `path`.  This is heavy process.
-              The path `path` can be set with date and time formatting (strftime).
-              If `interval` is set, a new file will be created for echo `interval` of seconds.
+``no dump bgp route-mrt [PATH] [INTERVAL]``
+  Dump whole BGP routing table to `path`. This is heavy process.
+  The path `path` can be set with date and time formatting (strftime).
+  If `interval` is set, a new file will be created for echo `interval` of seconds.
 
-            Note: the interval variable can also be set using hours and minutes: 04h20m00.
+      Note: the interval variable can also be set using hours and minutes: 04h20m00.
 
 BGP Configuration Examples
 ==========================
@@ -2174,7 +2227,7 @@ Example of a session to an upstream, advertising only one prefix to it.
   ip prefix-list pl-allowed-adv seq 5 permit 82.195.133.0/25
   ip prefix-list pl-allowed-adv seq 10 deny any
 
-  
+
 
 A more complex example. With upstream, peer and customer sessions.
 Advertising global prefixes and NO_EXPORT prefixes and providing
@@ -2340,7 +2393,7 @@ flaws.
   !
   ! #####################################################################
   ! Community actions to take when advertising a route.
-  ! These are filtering route-maps, 
+  ! These are filtering route-maps,
   !
   ! Deny customer routes to upstream with cust-only set.
   route-map rm-community-filt-to-upstream deny 10
@@ -2387,6 +2440,6 @@ flaws.
   !
   route-map rm-peer-in permit 10
    set community additive 64512:3200
-  
+
 
 @include rpki.texi
