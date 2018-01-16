@@ -20,6 +20,7 @@
 #include <zebra.h>
 
 #include "ns.h"
+#include "vrf.h"
 #include "log.h"
 
 #if defined(HAVE_NETLINK)
@@ -34,6 +35,9 @@
 #endif /* defined(HAVE_NETLINK) */
 
 #include "zebra_netns_id.h"
+
+/* default NS ID value used when VRF backend is not NETNS */
+#define NS_DEFAULT_INTERNAL 0
 
 /* in case NEWNSID not available, the NSID will be locally obtained
  */
@@ -310,3 +314,39 @@ ns_id_t zebra_ns_id_get(const char *netnspath)
 	return zebra_ns_id_get_fallback(netnspath);
 }
 #endif /* ! defined(HAVE_NETLINK) */
+
+#ifdef HAVE_NETNS
+static void zebra_ns_create_netns_directory(void)
+{
+	/* check that /var/run/netns is created */
+	if (mkdir(NS_RUN_DIR, S_IRWXU|S_IRGRP|S_IXGRP|S_IROTH|S_IXOTH)) {
+		if (errno != EEXIST) {
+			zlog_warn("NS check: failed to access %s", NS_RUN_DIR);
+			return;
+		}
+	}
+}
+#endif
+
+ns_id_t zebra_ns_id_get_default(void)
+{
+#ifdef HAVE_NETNS
+	int fd;
+#endif /* !HAVE_NETNS */
+
+#ifdef HAVE_NETNS
+	if (vrf_is_backend_netns())
+		zebra_ns_create_netns_directory();
+	fd = open(NS_DEFAULT_NAME, O_RDONLY);
+
+	if (fd == -1)
+		return NS_DEFAULT_INTERNAL;
+	if (!vrf_is_backend_netns())
+		return NS_DEFAULT_INTERNAL;
+	close(fd);
+	return zebra_ns_id_get((char *)NS_DEFAULT_NAME);
+#else /* HAVE_NETNS */
+	return NS_DEFAULT_INTERNAL;
+#endif /* !HAVE_NETNS */
+}
+

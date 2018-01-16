@@ -34,6 +34,9 @@
 #include "zebra_vxlan.h"
 #include "debug.h"
 #include "zebra_netns_notify.h"
+#include "zebra_netns_id.h"
+
+extern struct zebra_privs_t zserv_privs;
 
 DEFINE_MTYPE(ZEBRA, ZEBRA_NS, "Zebra Name Space")
 
@@ -142,9 +145,16 @@ int zebra_ns_disable(ns_id_t ns_id, void **info)
 
 int zebra_ns_init(void)
 {
+	ns_id_t ns_id;
+
 	dzns = zebra_ns_alloc();
 
-	ns_init_zebra();
+	if (zserv_privs.change(ZPRIVS_RAISE))
+		zlog_err("Can't raise privileges");
+	ns_id = zebra_ns_id_get_default();
+	if (zserv_privs.change(ZPRIVS_LOWER))
+		zlog_err("Can't lower privileges");
+	ns_init_zebra(ns_id);
 
 	ns_init();
 

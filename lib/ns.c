@@ -51,6 +51,7 @@ RB_GENERATE(ns_head, ns, entry, ns_compare)
 
 struct ns_head ns_tree = RB_INITIALIZER(&ns_tree);
 
+static struct ns *default_ns;
 static int ns_current_ns_fd;
 static int ns_default_ns_fd;
 
@@ -71,15 +72,11 @@ static inline int setns(int fd, int nstype)
 #endif /* HAVE_SETNS */
 
 #ifdef HAVE_NETNS
-
-#define NS_DEFAULT_NAME    "/proc/self/ns/net"
 static int have_netns_enabled = -1;
-
-#else  /* !HAVE_NETNS */
-
-#define NS_DEFAULT_NAME    "Default-logical-router"
-
 #endif /* HAVE_NETNS */
+
+/* default NS ID value used when VRF backend is not NETNS */
+#define NS_DEFAULT_INTERNAL 0
 
 static int have_netns(void)
 {
@@ -625,24 +622,28 @@ void ns_init(void)
 	}
 #endif /* HAVE_NETNS */
 	ns_default_ns_fd = -1;
+	default_ns = NULL;
 }
 
 /* Initialize NS module. */
-void ns_init_zebra(void)
+void ns_init_zebra(ns_id_t default_ns_id)
 {
-	struct ns *default_ns;
+	int fd;
 
 	ns_init();
-	/* The default NS always exists. */
-	default_ns = ns_get(NS_DEFAULT);
-	ns_current_ns_fd = -1;
+	default_ns = ns_get(default_ns_id);
 	if (!default_ns) {
 		zlog_err("ns_init: failed to create the default NS!");
 		exit(1);
 	}
-
+	if (have_netns()) {
+		fd = open(NS_DEFAULT_NAME, O_RDONLY);
+		default_ns->fd = fd;
+	}
+	ns_current_ns_fd = -1;
 	/* Set the default NS name. */
 	default_ns->name = XSTRDUP(MTYPE_NS_NAME, NS_DEFAULT_NAME);
+	zlog_info("ns_init: default NSID is %u", default_ns->ns_id);
 
 	/* Enable the default NS. */
 	if (!ns_enable(default_ns)) {
@@ -736,3 +737,11 @@ int ns_socket(int domain, int type, int protocol, ns_id_t ns_id)
 
 	return ret;
 }
+
+ns_id_t ns_get_default_id(void)
+{
+	if (default_ns)
+		return default_ns->ns_id;
+	return NS_UNKNOWN;
+}
+
