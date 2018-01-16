@@ -26,6 +26,7 @@
 #include "hash.h"
 
 DEFINE_MTYPE_STATIC(LIB, FRR_PTHREAD, "FRR POSIX Thread");
+DEFINE_MTYPE(LIB, PTHREAD_PRIM, "POSIX synchronization primitives");
 
 static unsigned int next_id = 0;
 

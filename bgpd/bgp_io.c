@@ -51,19 +51,37 @@ static bool validate_header(struct peer *);
 #define BGP_IO_TRANS_ERR (1 << 0) // EAGAIN or similar occurred
 #define BGP_IO_FATAL_ERR (1 << 1) // some kind of fatal TCP error
 
-/* Start and stop routines for I/O pthread + control variables
+/* Plumbing & control variables for thread lifecycle
  * ------------------------------------------------------------------------ */
-_Atomic bool bgp_io_thread_run;
-_Atomic bool bgp_io_thread_started;
-
-void bgp_io_init()
-{
-	bgp_io_thread_run = false;
-	bgp_io_thread_started = false;
-}
+bool bgp_io_thread_run;
+pthread_mutex_t *running_cond_mtx;
+pthread_cond_t *running_cond;
 
 /* Unused callback for thread_add_read() */
 static int bgp_io_dummy(struct thread *thread) { return 0; }
+
+/* Poison pill task */
+static int bgp_io_finish(struct thread *thread)
+{
+	bgp_io_thread_run = false;
+	return 0;
+}
+
+/* Extern lifecycle control functions. init -> start -> stop
+ * ------------------------------------------------------------------------ */
+void bgp_io_init()
+{
+	bgp_io_thread_run = false;
+
+	running_cond_mtx = XCALLOC(MTYPE_PTHREAD_PRIM, sizeof(pthread_mutex_t));
+	running_cond = XCALLOC(MTYPE_PTHREAD_PRIM, sizeof(pthread_cond_t));
+
+	pthread_mutex_init(running_cond_mtx, NULL);
+	pthread_cond_init(running_cond, NULL);
+
+	/* unlocked in bgp_io_wait_running() */
+	pthread_mutex_lock(running_cond_mtx);
+}
 
 void *bgp_io_start(void *arg)
 {
@@ -80,9 +98,12 @@ void *bgp_io_start(void *arg)
 
 	struct thread task;
 
-	atomic_store_explicit(&bgp_io_thread_run, true, memory_order_seq_cst);
-	atomic_store_explicit(&bgp_io_thread_started, true,
-			      memory_order_seq_cst);
+	pthread_mutex_lock(running_cond_mtx);
+	{
+		bgp_io_thread_run = true;
+		pthread_cond_signal(running_cond);
+	}
+	pthread_mutex_unlock(running_cond_mtx);
 
 	while (bgp_io_thread_run) {
 		if (thread_fetch(fpt->master, &task)) {
@@ -96,29 +117,35 @@ void *bgp_io_start(void *arg)
 	return NULL;
 }
 
-static int bgp_io_finish(struct thread *thread)
+void bgp_io_wait_running()
 {
-	atomic_store_explicit(&bgp_io_thread_run, false, memory_order_seq_cst);
-	return 0;
+	while (!bgp_io_thread_run)
+		pthread_cond_wait(running_cond, running_cond_mtx);
+
+	/* locked in bgp_io_init() */
+	pthread_mutex_unlock(running_cond_mtx);
 }
 
 int bgp_io_stop(void **result, struct frr_pthread *fpt)
 {
 	thread_add_event(fpt->master, &bgp_io_finish, NULL, 0, NULL);
 	pthread_join(fpt->thread, result);
+
+	pthread_mutex_destroy(running_cond_mtx);
+	pthread_cond_destroy(running_cond);
+
+	XFREE(MTYPE_PTHREAD_PRIM, running_cond_mtx);
+	XFREE(MTYPE_PTHREAD_PRIM, running_cond);
+
 	return 0;
 }
 
 /* Extern API -------------------------------------------------------------- */
-void bgp_io_running(void)
-{
-	while (!atomic_load_explicit(&bgp_io_thread_started,
-				     memory_order_seq_cst))
-		frr_pthread_yield();
-}
 
 void bgp_writes_on(struct peer *peer)
 {
+	assert(bgp_io_thread_run);
+
 	assert(peer->status != Deleted);
 	assert(peer->obuf);
 	assert(peer->ibuf);
@@ -136,6 +163,8 @@ void bgp_writes_on(struct peer *peer)
 
 void bgp_writes_off(struct peer *peer)
 {
+	assert(bgp_io_thread_run);
+
 	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_IO);
 
 	thread_cancel_async(fpt->master, &peer->t_write, NULL);
@@ -146,6 +175,8 @@ void bgp_writes_off(struct peer *peer)
 
 void bgp_reads_on(struct peer *peer)
 {
+	assert(bgp_io_thread_run);
+
 	assert(peer->status != Deleted);
 	assert(peer->ibuf);
 	assert(peer->fd);
@@ -165,6 +196,8 @@ void bgp_reads_on(struct peer *peer)
 
 void bgp_reads_off(struct peer *peer)
 {
+	assert(bgp_io_thread_run);
+
 	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_IO);
 
 	thread_cancel_async(fpt->master, &peer->t_read, NULL);
