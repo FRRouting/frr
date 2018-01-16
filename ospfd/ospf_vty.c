@@ -9496,9 +9496,9 @@ DEFUN (show_ip_ospf_route,
 			}
 
 			if (uj) {
+				/* Keep Non-pretty format */
 				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(json,
-						  JSON_C_TO_STRING_PRETTY));
+					json_object_to_json_string(json));
 				json_object_free(json);
 			}
 
@@ -9522,9 +9522,9 @@ DEFUN (show_ip_ospf_route,
 
 	if (ospf) {
 		ret = show_ip_ospf_route_common(vty, ospf, json, use_vrf);
+		/* Keep Non-pretty format */
 		if (uj)
-			vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+			vty_out(vty, "%s\n", json_object_to_json_string(json));
 	}
 
 	if (uj)
