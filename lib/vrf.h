@@ -27,11 +27,7 @@
 #include "qobj.h"
 #include "vty.h"
 
-/* The default NS ID */
-#define NS_DEFAULT 0
-
 /* The default VRF ID */
-#define VRF_DEFAULT 0
 #define VRF_UNKNOWN UINT32_MAX
 
 /* Pending: May need to refine this. */
@@ -181,6 +177,7 @@ extern void vrf_cmd_init(int (*writefunc)(struct vty *vty));
 /*
  * VRF utilities
  */
+extern vrf_id_t vrf_get_default_id(void);
 
 /* Create a socket serving for the given VRF */
 extern int vrf_socket(int, int, int, vrf_id_t);
@@ -209,4 +206,9 @@ extern int vrf_enable(struct vrf *vrf);
  * VRF Debugging
  */
 extern void vrf_install_commands(void);
+
+
+/* The default VRF ID */
+#define VRF_DEFAULT vrf_get_default_id()
+
 #endif /*_ZEBRA_VRF_H*/

@@ -30,11 +30,16 @@
 typedef u_int32_t ns_id_t;
 
 /* the default NS ID */
-#define NS_DEFAULT 0
 #define NS_UNKNOWN UINT32_MAX
 
 /* Default netns directory (Linux) */
 #define NS_RUN_DIR         "/var/run/netns"
+
+#ifdef HAVE_NETNS
+#define NS_DEFAULT_NAME    "/proc/self/ns/net"
+#else  /* !HAVE_NETNS */
+#define NS_DEFAULT_NAME    "Default-logical-router"
+#endif /* HAVE_NETNS */
 
 struct ns {
 	RB_ENTRY(ns) entry;
@@ -85,7 +90,7 @@ extern void ns_add_hook(int, int (*)(struct ns *));
  * NS initializer/destructor
  */
 extern void ns_init(void);
-extern void ns_init_zebra(void);
+extern void ns_init_zebra(ns_id_t ns_id);
 extern void ns_terminate(void);
 
 /*
@@ -101,10 +106,15 @@ extern char *ns_netns_pathname(struct vty *vty, const char *name);
 extern void *ns_info_lookup(ns_id_t ns_id);
 extern void ns_walk_func(int (*func)(struct ns *));
 extern const char *ns_get_name(struct ns *ns);
+extern ns_id_t ns_get_default_id(void);
 
 /* API that can be used by all daemons */
 extern int ns_switchback_to_initial(void);
 extern int ns_switch_to_netns(const char *);
 extern void ns_init(void);
+
+
+/* The default NS ID */
+#define NS_DEFAULT ns_get_default_id()
 
 #endif /*_ZEBRA_NS_H*/
