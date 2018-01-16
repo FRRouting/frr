@@ -21,5 +21,6 @@
 #include "ns.h"
 
 extern ns_id_t zebra_ns_id_get(const char *netnspath);
+extern ns_id_t zebra_ns_id_get_default(void);
 
 #endif /* __ZEBRA_NS_ID_H__ */

@@ -34,6 +34,9 @@
 #include "command.h"
 #include "ns.h"
 
+/* default VRF ID value used when VRF backend is not NETNS */
+#define VRF_DEFAULT_INTERNAL 0
+
 DEFINE_MTYPE_STATIC(LIB, VRF, "VRF")
 DEFINE_MTYPE_STATIC(LIB, VRF_BITMAP, "VRF bit-map")
 
@@ -645,4 +648,16 @@ void vrf_cmd_init(int (*writefunc)(struct vty *vty))
 	install_node(&vrf_node, writefunc);
 	install_default(VRF_NODE);
 	ns_cmd_init();
+}
+
+vrf_id_t vrf_get_default_id(void)
+{
+	struct vrf *vrf = vrf_lookup_by_name(VRF_DEFAULT_NAME);
+
+	if (vrf)
+		return vrf->vrf_id;
+	if (vrf_is_backend_netns())
+		return ns_get_default_id();
+	else
+		return VRF_DEFAULT_INTERNAL;
 }
