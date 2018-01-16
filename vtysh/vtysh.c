@@ -138,16 +138,25 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 
 		bufvalid += nread;
 
-		end = memmem(buf, bufvalid - buf, terminator,
-			     sizeof(terminator));
-		if (end + sizeof(terminator) + 1 > bufvalid)
+		if (bufvalid - buf >= 4)
+			end = memmem(bufvalid - 4, 4, terminator,
+				     sizeof(terminator));
+
+		if (end && end + sizeof(terminator) + 1 > bufvalid)
 			/* found \0\0\0 but return code hasn't been read yet */
 			end = NULL;
 		if (end)
 			ret = end[sizeof(terminator)];
 
-		while (bufvalid > buf && (end > buf || !end)) {
-			size_t textlen = (end ? end : bufvalid) - buf;
+		/*
+		 * calculate # bytes we have, up to & not including the
+		 * terminator if present
+		 */
+		size_t textlen = (end ? end : bufvalid) - buf;
+
+		/* feed line processing callback if present */
+		while (callback && bufvalid > buf && (end > buf || !end)) {
+			textlen = (end ? end : bufvalid) - buf;
 			char *eol = memchr(buf, '\n', textlen);
 			if (eol)
 				/* line break */
@@ -165,8 +174,7 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 				/* continue reading */
 				break;
 
-			/* eol is at a line end now, either \n => \0 or \0\0\0
-			 */
+			/* eol is at line end now, either \n => \0 or \0\0\0 */
 			assert(eol && eol <= bufvalid);
 
 			if (fp) {
@@ -184,6 +192,14 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 			bufvalid -= eol - buf;
 			if (end)
 				end -= eol - buf;
+		}
+
+		/* else if no callback, dump raw */
+		if (!callback) {
+			if (fp)
+				fwrite(buf, 1, textlen, fp);
+			memmove(buf, buf + textlen, bufvalid - buf - textlen);
+			bufvalid -= textlen;
 		}
 
 		if (bufvalid == buf + bufsz) {
