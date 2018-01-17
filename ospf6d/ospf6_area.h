@@ -55,6 +55,7 @@ struct ospf6_area {
 
 	struct ospf6_lsdb *lsdb;
 	struct ospf6_lsdb *lsdb_self;
+	struct ospf6_lsdb *temp_router_lsa_lsdb;
 
 	struct ospf6_route_table *spf_table;
 	struct ospf6_route_table *route_table;
