@@ -283,7 +283,7 @@ static void ospf_examine_summaries(struct ospf_area *area,
 	struct route_node *rn;
 
 	LSDB_LOOP(lsdb_rt, rn, lsa)
-	process_summary_lsa(area, rt, rtrs, lsa);
+		process_summary_lsa(area, rt, rtrs, lsa);
 }
 
 int ospf_area_is_transit(struct ospf_area *area)
@@ -583,7 +583,7 @@ static void ospf_examine_transit_summaries(struct ospf_area *area,
 	struct route_node *rn;
 
 	LSDB_LOOP(lsdb_rt, rn, lsa)
-	process_transit_summary_lsa(area, rt, rtrs, lsa);
+		process_transit_summary_lsa(area, rt, rtrs, lsa);
 }
 
 void ospf_ia_routing(struct ospf *ospf, struct route_table *rt,

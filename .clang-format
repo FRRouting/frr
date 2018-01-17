@@ -57,3 +57,5 @@ ForEachMacros:
   - SUBGRP_FOREACH_ADJ_SAFE
   - AF_FOREACH
   - FOREACH_AFI_SAFI
+  # ospfd
+  - LSDB_LOOP

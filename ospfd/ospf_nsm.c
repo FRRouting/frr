@@ -280,37 +280,37 @@ static int nsm_negotiation_done(struct ospf_neighbor *nbr)
 	ospf_proactively_arp(nbr);
 
 	LSDB_LOOP(ROUTER_LSDB(area), rn, lsa)
-	ospf_db_summary_add(nbr, lsa);
+		ospf_db_summary_add(nbr, lsa);
 	LSDB_LOOP(NETWORK_LSDB(area), rn, lsa)
-	ospf_db_summary_add(nbr, lsa);
+		ospf_db_summary_add(nbr, lsa);
 	LSDB_LOOP(SUMMARY_LSDB(area), rn, lsa)
-	ospf_db_summary_add(nbr, lsa);
+		ospf_db_summary_add(nbr, lsa);
 	LSDB_LOOP(ASBR_SUMMARY_LSDB(area), rn, lsa)
-	ospf_db_summary_add(nbr, lsa);
+		ospf_db_summary_add(nbr, lsa);
 
 	/* Process only if the neighbor is opaque capable. */
 	if (CHECK_FLAG(nbr->options, OSPF_OPTION_O)) {
 		LSDB_LOOP(OPAQUE_LINK_LSDB(area), rn, lsa)
-		ospf_db_summary_add(nbr, lsa);
+			ospf_db_summary_add(nbr, lsa);
 		LSDB_LOOP(OPAQUE_AREA_LSDB(area), rn, lsa)
-		ospf_db_summary_add(nbr, lsa);
+			ospf_db_summary_add(nbr, lsa);
 	}
 
 	if (CHECK_FLAG(nbr->options, OSPF_OPTION_NP)) {
 		LSDB_LOOP(NSSA_LSDB(area), rn, lsa)
-		ospf_db_summary_add(nbr, lsa);
+			ospf_db_summary_add(nbr, lsa);
 	}
 
 	if (nbr->oi->type != OSPF_IFTYPE_VIRTUALLINK
 	    && area->external_routing == OSPF_AREA_DEFAULT)
 		LSDB_LOOP(EXTERNAL_LSDB(nbr->oi->ospf), rn, lsa)
-	ospf_db_summary_add(nbr, lsa);
+			ospf_db_summary_add(nbr, lsa);
 
 	if (CHECK_FLAG(nbr->options, OSPF_OPTION_O)
 	    && (nbr->oi->type != OSPF_IFTYPE_VIRTUALLINK
 		&& area->external_routing == OSPF_AREA_DEFAULT))
 		LSDB_LOOP(OPAQUE_AS_LSDB(nbr->oi->ospf), rn, lsa)
-	ospf_db_summary_add(nbr, lsa);
+			ospf_db_summary_add(nbr, lsa);
 
 	return 0;
 }

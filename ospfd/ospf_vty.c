@@ -6167,7 +6167,7 @@ static void show_ip_ospf_database_summary(struct vty *vty, struct ospf *ospf,
 					show_database_header[type]);
 
 				LSDB_LOOP(AREA_LSDB(area, type), rn, lsa)
-				show_lsa_summary(vty, lsa, self);
+					show_lsa_summary(vty, lsa, self);
 
 				vty_out(vty, "\n");
 			}
@@ -6189,7 +6189,7 @@ static void show_ip_ospf_database_summary(struct vty *vty, struct ospf *ospf,
 			vty_out(vty, "%s\n", show_database_header[type]);
 
 			LSDB_LOOP(AS_LSDB(ospf, type), rn, lsa)
-			show_lsa_summary(vty, lsa, self);
+				show_lsa_summary(vty, lsa, self);
 
 			vty_out(vty, "\n");
 		}
