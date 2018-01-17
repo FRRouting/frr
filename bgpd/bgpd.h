@@ -919,9 +919,6 @@ struct peer {
 	/* Send prefix count. */
 	unsigned long scount[AFI_MAX][SAFI_MAX];
 
-	/* Announcement attribute hash.  */
-	struct hash *hash[AFI_MAX][SAFI_MAX];
-
 	/* Notify data. */
 	struct bgp_notify notify;
 
