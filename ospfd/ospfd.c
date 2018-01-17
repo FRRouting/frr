@@ -159,8 +159,8 @@ void ospf_router_id_update(struct ospf *ospf)
 			struct ospf_lsa *lsa;
 
 			LSDB_LOOP(EXTERNAL_LSDB(ospf), rn, lsa)
-			if (IS_LSA_SELF(lsa))
-				ospf_lsa_flush_schedule(ospf, lsa);
+				if (IS_LSA_SELF(lsa))
+					ospf_lsa_flush_schedule(ospf, lsa);
 		}
 
 		ospf->router_id = router_id;
@@ -183,8 +183,7 @@ void ospf_router_id_update(struct ospf *ospf)
 			struct route_node *rn;
 			struct ospf_lsa *lsa;
 
-			LSDB_LOOP(EXTERNAL_LSDB(ospf), rn, lsa)
-			{
+			LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa) {
 				/* AdvRouter and Router ID is the same. */
 				if (IPV4_ADDR_SAME(&lsa->data->adv_router,
 						   &ospf->router_id)) {
@@ -693,9 +692,9 @@ static void ospf_finish_final(struct ospf *ospf)
 	stream_free(ospf->ibuf);
 
 	LSDB_LOOP(OPAQUE_AS_LSDB(ospf), rn, lsa)
-	ospf_discard_from_db(ospf, ospf->lsdb, lsa);
+		ospf_discard_from_db(ospf, ospf->lsdb, lsa);
 	LSDB_LOOP(EXTERNAL_LSDB(ospf), rn, lsa)
-	ospf_discard_from_db(ospf, ospf->lsdb, lsa);
+		ospf_discard_from_db(ospf, ospf->lsdb, lsa);
 
 	ospf_lsdb_delete_all(ospf->lsdb);
 	ospf_lsdb_free(ospf->lsdb);
@@ -830,20 +829,20 @@ static void ospf_area_free(struct ospf_area *area)
 
 	/* Free LSDBs. */
 	LSDB_LOOP(ROUTER_LSDB(area), rn, lsa)
-	ospf_discard_from_db(area->ospf, area->lsdb, lsa);
+		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
 	LSDB_LOOP(NETWORK_LSDB(area), rn, lsa)
-	ospf_discard_from_db(area->ospf, area->lsdb, lsa);
+		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
 	LSDB_LOOP(SUMMARY_LSDB(area), rn, lsa)
-	ospf_discard_from_db(area->ospf, area->lsdb, lsa);
+		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
 	LSDB_LOOP(ASBR_SUMMARY_LSDB(area), rn, lsa)
-	ospf_discard_from_db(area->ospf, area->lsdb, lsa);
+		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
 
 	LSDB_LOOP(NSSA_LSDB(area), rn, lsa)
-	ospf_discard_from_db(area->ospf, area->lsdb, lsa);
+		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
 	LSDB_LOOP(OPAQUE_AREA_LSDB(area), rn, lsa)
-	ospf_discard_from_db(area->ospf, area->lsdb, lsa);
+		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
 	LSDB_LOOP(OPAQUE_LINK_LSDB(area), rn, lsa)
-	ospf_discard_from_db(area->ospf, area->lsdb, lsa);
+		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
 
 	ospf_opaque_type10_lsa_term(area);
 	ospf_lsdb_delete_all(area->lsdb);

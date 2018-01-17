@@ -327,8 +327,7 @@ static int ospf_abr_nssa_am_elected(struct ospf_area *area)
 	struct router_lsa *rlsa;
 	struct in_addr *best = NULL;
 
-	LSDB_LOOP(ROUTER_LSDB(area), rn, lsa)
-	{
+	LSDB_LOOP (ROUTER_LSDB(area), rn, lsa) {
 		/* sanity checks */
 		if (!lsa || (lsa->data->type != OSPF_ROUTER_LSA)
 		    || IS_LSA_SELF(lsa))
@@ -978,7 +977,7 @@ static void ospf_abr_process_nssa_translates(struct ospf *ospf)
 				inet_ntoa(area->area_id));
 
 		LSDB_LOOP(NSSA_LSDB(area), rn, lsa)
-		ospf_abr_translate_nssa(area, lsa);
+			ospf_abr_translate_nssa(area, lsa);
 	}
 
 	if (IS_DEBUG_OSPF_NSSA)
@@ -1325,14 +1324,14 @@ ospf_abr_unapprove_translates(struct ospf *ospf) /* For NSSA Translations */
 	  and we would want to flush any residuals anyway */
 
 	LSDB_LOOP(EXTERNAL_LSDB(ospf), rn, lsa)
-	if (CHECK_FLAG(lsa->flags, OSPF_LSA_LOCAL_XLT)) {
-		UNSET_FLAG(lsa->flags, OSPF_LSA_APPROVED);
-		if (IS_DEBUG_OSPF_NSSA)
-			zlog_debug(
-				"ospf_abr_unapprove_translates(): "
-				"approved unset on link id %s",
-				inet_ntoa(lsa->data->id));
-	}
+		if (CHECK_FLAG(lsa->flags, OSPF_LSA_LOCAL_XLT)) {
+			UNSET_FLAG(lsa->flags, OSPF_LSA_APPROVED);
+			if (IS_DEBUG_OSPF_NSSA)
+				zlog_debug(
+					"ospf_abr_unapprove_translates(): "
+					"approved unset on link id %s",
+					inet_ntoa(lsa->data->id));
+		}
 
 	if (IS_DEBUG_OSPF_NSSA)
 		zlog_debug("ospf_abr_unapprove_translates(): Stop");
@@ -1355,24 +1354,24 @@ static void ospf_abr_unapprove_summaries(struct ospf *ospf)
 				"considering area %s",
 				inet_ntoa(area->area_id));
 		LSDB_LOOP(SUMMARY_LSDB(area), rn, lsa)
-		if (ospf_lsa_is_self_originated(ospf, lsa)) {
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"ospf_abr_unapprove_summaries(): "
-					"approved unset on summary link id %s",
-					inet_ntoa(lsa->data->id));
-			UNSET_FLAG(lsa->flags, OSPF_LSA_APPROVED);
-		}
+			if (ospf_lsa_is_self_originated(ospf, lsa)) {
+				if (IS_DEBUG_OSPF_EVENT)
+					zlog_debug(
+						"ospf_abr_unapprove_summaries(): "
+						"approved unset on summary link id %s",
+						inet_ntoa(lsa->data->id));
+				UNSET_FLAG(lsa->flags, OSPF_LSA_APPROVED);
+			}
 
 		LSDB_LOOP(ASBR_SUMMARY_LSDB(area), rn, lsa)
-		if (ospf_lsa_is_self_originated(ospf, lsa)) {
-			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"ospf_abr_unapprove_summaries(): "
-					"approved unset on asbr-summary link id %s",
-					inet_ntoa(lsa->data->id));
-			UNSET_FLAG(lsa->flags, OSPF_LSA_APPROVED);
-		}
+			if (ospf_lsa_is_self_originated(ospf, lsa)) {
+				if (IS_DEBUG_OSPF_EVENT)
+					zlog_debug(
+						"ospf_abr_unapprove_summaries(): "
+						"approved unset on asbr-summary link id %s",
+						inet_ntoa(lsa->data->id));
+				UNSET_FLAG(lsa->flags, OSPF_LSA_APPROVED);
+			}
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
@@ -1633,7 +1632,7 @@ static void ospf_abr_remove_unapproved_translates(struct ospf *ospf)
 		zlog_debug("ospf_abr_remove_unapproved_translates(): Start");
 
 	LSDB_LOOP(EXTERNAL_LSDB(ospf), rn, lsa)
-	ospf_abr_remove_unapproved_translates_apply(ospf, lsa);
+		ospf_abr_remove_unapproved_translates_apply(ospf, lsa);
 
 	if (IS_DEBUG_OSPF_NSSA)
 		zlog_debug("ospf_abr_remove_unapproved_translates(): Stop");
@@ -1657,14 +1656,14 @@ static void ospf_abr_remove_unapproved_summaries(struct ospf *ospf)
 				inet_ntoa(area->area_id));
 
 		LSDB_LOOP(SUMMARY_LSDB(area), rn, lsa)
-		if (ospf_lsa_is_self_originated(ospf, lsa))
-			if (!CHECK_FLAG(lsa->flags, OSPF_LSA_APPROVED))
-				ospf_lsa_flush_area(lsa, area);
+			if (ospf_lsa_is_self_originated(ospf, lsa))
+				if (!CHECK_FLAG(lsa->flags, OSPF_LSA_APPROVED))
+					ospf_lsa_flush_area(lsa, area);
 
 		LSDB_LOOP(ASBR_SUMMARY_LSDB(area), rn, lsa)
-		if (ospf_lsa_is_self_originated(ospf, lsa))
-			if (!CHECK_FLAG(lsa->flags, OSPF_LSA_APPROVED))
-				ospf_lsa_flush_area(lsa, area);
+			if (ospf_lsa_is_self_originated(ospf, lsa))
+				if (!CHECK_FLAG(lsa->flags, OSPF_LSA_APPROVED))
+					ospf_lsa_flush_area(lsa, area);
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
