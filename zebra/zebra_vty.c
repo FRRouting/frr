@@ -2290,7 +2290,7 @@ DEFUN (default_vrf_vni_mapping,
 	if (!zvrf)
 		return CMD_WARNING;
 
-	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, 1);
+	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 1);
 	if (ret != 0) {
 		vty_out(vty, "%s\n", err);
 		return CMD_WARNING;
@@ -2315,7 +2315,7 @@ DEFUN (no_default_vrf_vni_mapping,
 	if (!zvrf)
 		return CMD_WARNING;
 
-	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, 0);
+	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 0);
 	if (ret != 0) {
 		vty_out(vty, "%s\n", err);
 		return CMD_WARNING;
@@ -2339,6 +2339,8 @@ DEFUN (vrf_vni_mapping,
 	assert(vrf);
 	assert(zvrf);
 
+	/* Mark as having FRR configuration */
+	vrf_set_user_cfged(vrf);
 	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 1);
 	if (ret != 0) {
 		vty_out(vty, "%s\n", err);

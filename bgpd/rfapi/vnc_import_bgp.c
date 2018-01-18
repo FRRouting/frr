@@ -495,7 +495,7 @@ static void vnc_import_bgp_add_route_mode_resolve_nve_one_bi(
 		ecommunity_merge(new_ecom, bi->attr->ecommunity);
 
 	if (bi->extra)
-		label = decode_label(&bi->extra->label);
+		label = decode_label(&bi->extra->label[0]);
 
 	add_vnc_route(&vncHDResolveNve, bgp, SAFI_MPLS_VPN,
 		      prefix,	  /* unicast route prefix */
@@ -1783,7 +1783,7 @@ static void vnc_import_bgp_exterior_add_route_it(
 					prd = &bi_interior->extra->vnc.import
 						       .rd;
 					label = decode_label(
-						&bi_interior->extra->label);
+						&bi_interior->extra->label[0]);
 				} else
 					prd = NULL;
 
@@ -1958,7 +1958,7 @@ void vnc_import_bgp_exterior_del_route(
 					prd = &bi_interior->extra->vnc.import
 						       .rd;
 					label = decode_label(
-						&bi_interior->extra->label);
+						&bi_interior->extra->label[0]);
 				} else
 					prd = NULL;
 
@@ -2113,7 +2113,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 			if (bi_interior->extra) {
 				prd = &bi_interior->extra->vnc.import.rd;
 				label = decode_label(
-					&bi_interior->extra->label);
+					&bi_interior->extra->label[0]);
 			} else
 				prd = NULL;
 
@@ -2226,7 +2226,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 					if (bi->extra) {
 						prd = &bi->extra->vnc.import.rd;
 						label = decode_label(
-							&bi->extra->label);
+							&bi->extra->label[0]);
 					} else
 						prd = NULL;
 
@@ -2248,7 +2248,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 					prd = &bi_interior->extra->vnc.import
 						       .rd;
 					label = decode_label(
-						&bi_interior->extra->label);
+						&bi_interior->extra->label[0]);
 				} else
 					prd = NULL;
 
@@ -2369,7 +2369,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 			if (bi_interior->extra) {
 				prd = &bi_interior->extra->vnc.import.rd;
 				label = decode_label(
-					&bi_interior->extra->label);
+					&bi_interior->extra->label[0]);
 			} else
 				prd = NULL;
 
@@ -2480,7 +2480,7 @@ void vnc_import_bgp_exterior_del_route_interior(
 
 		if (bi_interior->extra) {
 			prd = &bi_interior->extra->vnc.import.rd;
-			label = decode_label(&bi_interior->extra->label);
+			label = decode_label(&bi_interior->extra->label[0]);
 		} else
 			prd = NULL;
 
@@ -2556,7 +2556,8 @@ void vnc_import_bgp_exterior_del_route_interior(
 
 				if (bi->extra) {
 					prd = &bi->extra->vnc.import.rd;
-					label = decode_label(&bi->extra->label);
+					label = decode_label(
+							&bi->extra->label[0]);
 				} else
 					prd = NULL;
 

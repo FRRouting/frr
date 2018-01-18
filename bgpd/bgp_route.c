@@ -4472,7 +4472,7 @@ static void bgp_static_update_safi(struct bgp *bgp, struct prefix *p,
 			ri->uptime = bgp_clock();
 #if ENABLE_BGP_VNC
 			if (ri->extra)
-				label = decode_label(&ri->extra->label);
+				label = decode_label(&ri->extra->label[0]);
 #endif
 
 			/* Process change. */

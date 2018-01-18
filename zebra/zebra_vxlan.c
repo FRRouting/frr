@@ -3793,7 +3793,7 @@ static int ip_prefix_send_to_client(vrf_id_t vrf_id,
 	struct stream *s = NULL;
 	char buf[PREFIX_STRLEN];
 
-	client = zebra_find_client(ZEBRA_ROUTE_BGP);
+	client = zebra_find_client(ZEBRA_ROUTE_BGP, 0);
 	/* BGP may not be running. */
 	if (!client)
 		return 0;

@@ -521,7 +521,7 @@ static struct bgp_info *rfapiBgpInfoCreate(struct attr *attr, struct peer *peer,
 		rfapi_time(&new->extra->vnc.import.create_time);
 	}
 	if (label)
-		encode_label(*label, &new->extra->label);
+		encode_label(*label, &new->extra->label[0]);
 	new->type = type;
 	new->sub_type = sub_type;
 	new->peer = peer;
@@ -1338,7 +1338,7 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 		vo->v.l2addr.local_nve_id = bi->extra->vnc.import.rd.val[1];
 
 		/* label comes from MP_REACH_NLRI label */
-		vo->v.l2addr.label = decode_label(&bi->extra->label);
+		vo->v.l2addr.label = decode_label(&bi->extra->label[0]);
 
 		new->vn_options = vo;
 
@@ -4242,7 +4242,7 @@ static void rfapiBgpTableFilteredImport(struct bgp *bgp,
 
 					if (bi->extra)
 						label = decode_label(
-							&bi->extra->label);
+							&bi->extra->label[0]);
 					(*rfapiBgpInfoFilteredImportFunction(
 						safi))(
 						it, /* which import table */
