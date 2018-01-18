@@ -196,19 +196,44 @@ def test_ospf6_convergence():
     if tgen.routers_have_failure():
         pytest.skip('skipped because of router(s) failure')
 
+    ospf6route_file = '{}/ospf6route_ecmp.txt'
     for rnum in range(1, 5):
         router = 'r{}'.format(rnum)
 
         logger.info('Waiting for router "%s" IPv6 OSPF convergence', router)
 
         # Load expected results from the command
-        reffile = os.path.join(CWD, '{}/ospf6route.txt'.format(router))
+        reffile = os.path.join(CWD, ospf6route_file.format(router))
         expected = open(reffile).read()
 
         # Run test function until we get an result. Wait at most 60 seconds.
         test_func = partial(compare_show_ipv6_ospf6, router, expected)
         result, diff = topotest.run_and_expect(test_func, '',
                                                count=25, wait=3)
+        if (not result) and (rnum == 1):
+            # Didn't match the new ECMP version - try the old pre-ECMP format
+            ospf6route_file = '{}/ospf6route.txt'
+
+            # Load expected results from the command
+            reffile = os.path.join(CWD, ospf6route_file.format(router))
+            expected = open(reffile).read()
+
+            test_func = partial(compare_show_ipv6_ospf6, router, expected)
+            result, diff = topotest.run_and_expect(test_func, '',
+                                               count=1, wait=3)
+            if not result:
+                # Didn't match the old version - switch back to new ECMP version
+                # and fail
+                ospf6route_file = '{}/ospf6route_ecmp.txt'
+
+                # Load expected results from the command
+                reffile = os.path.join(CWD, ospf6route_file.format(router))
+                expected = open(reffile).read()
+
+                test_func = partial(compare_show_ipv6_ospf6, router, expected)
+                result, diff = topotest.run_and_expect(test_func, '',
+                                               count=1, wait=3)
+
         assert result, 'OSPF6 did not converge on {}:\n{}'.format(router, diff)
 
 def test_ospf6_kernel_route():
