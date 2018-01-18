@@ -41,8 +41,10 @@
 #define MPLS_MAX_UNRESERVED_LABEL          1048575
 
 /* Default min and max SRGB label range */
-#define MPLS_DEFAULT_MIN_SRGB_LABEL        16000
-#define MPLS_DEFAULT_MAX_SRGB_LABEL        23999
+#define MPLS_DEFAULT_MIN_SRGB_LABEL        10000
+#define MPLS_DEFAULT_MAX_SRGB_LABEL        50000
+#define MPLS_DEFAULT_MIN_SRGB_SIZE         5000
+#define MPLS_DEFAULT_MAX_SRGB_SIZE         20000
 
 /* Maximum # labels that can be pushed. */
 #define MPLS_MAX_LABELS                    16
@@ -94,7 +96,8 @@ enum lsp_types_t {
 	ZEBRA_LSP_NONE = 0,   /* No LSP. */
 	ZEBRA_LSP_STATIC = 1, /* Static LSP. */
 	ZEBRA_LSP_LDP = 2,    /* LDP LSP. */
-	ZEBRA_LSP_BGP = 3     /* BGP LSP. */
+	ZEBRA_LSP_BGP = 3,    /* BGP LSP. */
+	ZEBRA_LSP_SR = 4      /* Segment Routing LSP. */
 };
 
 /* Functions for basic label operations. */
