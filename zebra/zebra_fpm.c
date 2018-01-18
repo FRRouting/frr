@@ -713,7 +713,15 @@ static int zfpm_read_cb(struct thread *thread)
 		nbyte = stream_read_try(ibuf, zfpm_g->sock,
 					FPM_MSG_HDR_LEN - already);
 		if (nbyte == 0 || nbyte == -1) {
-			zfpm_connection_down("closed socket in read");
+			if (nbyte == -1) {
+				char buffer[1024];
+
+				sprintf(buffer, "closed socket in read(%d): %s",
+					errno, safe_strerror(errno));
+				zfpm_connection_down(buffer);
+			}
+			else
+				zfpm_connection_down("closed socket in read");
 			return 0;
 		}
 
@@ -743,7 +751,15 @@ static int zfpm_read_cb(struct thread *thread)
 		nbyte = stream_read_try(ibuf, zfpm_g->sock, msg_len - already);
 
 		if (nbyte == 0 || nbyte == -1) {
-			zfpm_connection_down("failed to read message");
+			if (nbyte == -1) {
+				char buffer[1024];
+
+				sprintf(buffer, "failed to read message(%d) %s",
+					errno, safe_strerror(errno));
+				zfpm_connection_down(buffer);
+			}
+			else
+				zfpm_connection_down("failed to read message");
 			return 0;
 		}
 
