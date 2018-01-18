@@ -59,7 +59,9 @@
 #define OPAQUE_TYPE_L1VPN_LSA                          5
 #define OPAQUE_TYPE_ROUTER_INFORMATION_LSA             4
 #define OPAQUE_TYPE_INTER_AS_LSA                       6
-#define OPAQUE_TYPE_MAX                                6
+#define OPAQUE_TYPE_EXTENDED_PREFIX_LSA                7
+#define OPAQUE_TYPE_EXTENDED_LINK_LSA                  8
+#define OPAQUE_TYPE_MAX                                8
 
 /* Followings types are proposed in internet-draft documents. */
 #define OPAQUE_TYPE_8021_QOSPF				129

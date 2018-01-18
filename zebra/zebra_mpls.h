@@ -316,6 +316,12 @@ void mpls_ldp_lsp_uninstall_all(struct hash_backet *backet, void *ctxt);
  */
 void mpls_ldp_ftn_uninstall_all(struct zebra_vrf *zvrf, int afi);
 
+/*
+ * Uninstall all Segment Routing NHLFEs for a particular LSP forwarding entry.
+ * If no other NHLFEs exist, the entry would be deleted.
+ */
+void mpls_sr_lsp_uninstall_all(struct hash_backet *backet, void *ctxt);
+
 #if defined(HAVE_CUMULUS)
 /*
  * Check that the label values used in LSP creation are consistent. The
@@ -448,6 +454,8 @@ static inline int re_type_from_lsp_type(enum lsp_types_t lsp_type)
 		return ZEBRA_ROUTE_LDP;
 	case ZEBRA_LSP_BGP:
 		return ZEBRA_ROUTE_BGP;
+	case ZEBRA_LSP_SR:
+		return ZEBRA_ROUTE_OSPF_SR;
 	case ZEBRA_LSP_NONE:
 	default:
 		return ZEBRA_ROUTE_KERNEL;
@@ -464,6 +472,8 @@ static inline const char *nhlfe_type2str(enum lsp_types_t lsp_type)
 		return "LDP";
 	case ZEBRA_LSP_BGP:
 		return "BGP";
+	case ZEBRA_LSP_SR:
+		return "SR";
 	default:
 		return "Unknown";
 	}
