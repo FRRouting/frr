@@ -95,6 +95,13 @@ static void ospf6_top_route_hook_remove(struct ospf6_route *route)
 
 static void ospf6_top_brouter_hook_add(struct ospf6_route *route)
 {
+	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
+		char buf[PREFIX2STR_BUFFER];
+
+		prefix2str(&route->prefix, buf, sizeof(buf));
+		zlog_debug("%s: brouter %s add with nh count %u",
+			   __PRETTY_FUNCTION__, buf, listcount(route->nh_list));
+	}
 	ospf6_abr_examin_brouter(ADV_ROUTER_IN_PREFIX(&route->prefix));
 	ospf6_asbr_lsentry_add(route);
 	ospf6_abr_originate_summary(route);
@@ -102,6 +109,13 @@ static void ospf6_top_brouter_hook_add(struct ospf6_route *route)
 
 static void ospf6_top_brouter_hook_remove(struct ospf6_route *route)
 {
+	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
+		char buf[PREFIX2STR_BUFFER];
+
+		prefix2str(&route->prefix, buf, sizeof(buf));
+		zlog_debug("%s: brouter %s del with nh count %u",
+			   __PRETTY_FUNCTION__, buf, listcount(route->nh_list));
+	}
 	route->flag |= OSPF6_ROUTE_REMOVE;
 	ospf6_abr_examin_brouter(ADV_ROUTER_IN_PREFIX(&route->prefix));
 	ospf6_asbr_lsentry_remove(route);
