@@ -918,6 +918,10 @@ static struct ospf_lsa *ospf_ext_pref_lsa_new(struct ospf_area *area,
 	u_int32_t tmp;
 	u_int16_t length;
 
+	/* Sanity Check */
+	if (exti == NULL)
+		return NULL;
+
 	/* Create a stream for LSA. */
 	if ((s = stream_new(OSPF_MAX_LSA_SIZE)) == NULL) {
 		zlog_warn("EXT: stream_new() error");
@@ -997,6 +1001,10 @@ static struct ospf_lsa *ospf_ext_link_lsa_new(struct ospf_area *area,
 	struct in_addr lsa_id;
 	u_int32_t tmp;
 	u_int16_t length;
+
+	/* Sanity Check */
+	if (exti == NULL)
+		return NULL;
 
 	/* Create a stream for LSA. */
 	if ((s = stream_new(OSPF_MAX_LSA_SIZE)) == NULL) {
