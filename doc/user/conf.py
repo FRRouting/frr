@@ -97,7 +97,11 @@ with open('../../config.status', 'r') as cfgstatus:
         replace_vars[m.group(1)] = m.group(2)
 
 # manually fill out some of these we can't get from config.status
-replace_vars['COPYRIGHT_STR'] = "Copyright (c) {} {}".format(replace_vars['COPYRIGHT_YEAR'], replace_vars['AUTHORS'])
+replace_vars['COPYRIGHT_STR'] = "Copyright (c)"
+replace_vars['COPYRIGHT_STR'] += ' {}'.format(replace_vars['COPYRIGHT_YEAR'])
+replace_vars['COPYRIGHT_STR'] += ' {}'.format(replace_vars['AUTHORS'])
+release = replace_vars['PACKAGE_VERSION']
+version = release.split('-')[0]
 
 # add substitutions to prolog
 for key, value in replace_vars.items():
