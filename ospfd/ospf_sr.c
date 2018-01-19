@@ -99,9 +99,23 @@ static int sr_cmp(const void *p1, const void *p2)
 	return (IPV4_ADDR_SAME(&srn->adv_router, rid));
 }
 
-/* Functions to free memory space, segment routing */
-static void del_sr_info(void *val)
+/* Functions to remove an SR Link */
+static void del_sr_link(void *val)
 {
+	struct sr_link *srl = (struct sr_link *)val;
+
+	del_sid_nhlfe(srl->nhlfe[0]);
+	del_sid_nhlfe(srl->nhlfe[1]);
+	XFREE(MTYPE_OSPF_SR_PARAMS, val);
+	return;
+}
+
+/* Functions to remove an SR Prefix */
+static void del_sr_pref(void *val)
+{
+	struct sr_prefix *srp = (struct sr_prefix *)val;
+
+	del_sid_nhlfe(srp->nhlfe);
 	XFREE(MTYPE_OSPF_SR_PARAMS, val);
 	return;
 }
@@ -128,7 +142,7 @@ static struct sr_node *sr_node_new(struct in_addr *rid)
 
 	/* Default Algorithm, SRGB and MSD */
 	for (int i = 0; i < ALGORITHM_COUNT; i++)
-		OspfSR.algo[i] = SR_ALGORITHM_UNSET;
+		new->algo[i] = SR_ALGORITHM_UNSET;
 
 	new->srgb.range_size = 0;
 	new->srgb.lower_bound = 0;
@@ -137,8 +151,8 @@ static struct sr_node *sr_node_new(struct in_addr *rid)
 	/* Create Link, Prefix and Range TLVs list */
 	new->ext_link = list_new();
 	new->ext_prefix = list_new();
-	new->ext_link->del = del_sr_info;
-	new->ext_prefix->del = del_sr_info;
+	new->ext_link->del = del_sr_link;
+	new->ext_prefix->del = del_sr_pref;
 
 	/* Check if list are correctly created */
 	if (new->ext_link == NULL || new->ext_prefix == NULL) {
@@ -161,31 +175,15 @@ static struct sr_node *sr_node_new(struct in_addr *rid)
 /* Delete Segment Routing node */
 static void sr_node_del(struct sr_node *srn)
 {
-	struct listnode *node;
-	struct sr_link *srl;
-	struct sr_prefix *srp;
-
 	/* Sanity Check */
 	if (srn == NULL)
 		return;
 
 	/* Clean Extended Link */
-	if (listcount(srn->ext_link) != 0) {
-		for (ALL_LIST_ELEMENTS_RO(srn->ext_link, node, srl)) {
-			listnode_delete(srn->ext_link, srl);
-			XFREE(MTYPE_OSPF_SR_PARAMS, srl);
-		}
-	}
-	list_delete_original(srn->ext_link);
+	list_delete_and_null(&srn->ext_link);
 
 	/* Clean Prefix List */
-	if (listcount(srn->ext_prefix) != 0) {
-		for (ALL_LIST_ELEMENTS_RO(srn->ext_prefix, node, srp)) {
-			listnode_delete(srn->ext_prefix, srp);
-			XFREE(MTYPE_OSPF_SR_PARAMS, srp);
-		}
-	}
-	list_delete_original(srn->ext_prefix);
+	list_delete_and_null(&srn->ext_prefix);
 
 	XFREE(MTYPE_OSPF_SR_PARAMS, srn);
 }
@@ -1352,10 +1350,11 @@ void ospf_sr_ext_link_lsa_delete(struct ospf_lsa *lsa)
 	srn = (struct sr_node *)hash_lookup(OspfSR.neighbors,
 					    (void *)&(lsah->adv_router));
 
-	/* Sanity check */
+	/* SR-Node may be NULL if it has been remove previously when
+	 * processing Router Information LSA deletion */
 	if (srn == NULL) {
-		zlog_err(
-			"SR (ospf_sr_ext_link_lsa_delete): Abort! "
+		zlog_warn(
+			"SR (ospf_sr_ext_link_lsa_delete): Stop! "
 			"no entry in SRDB for SR Node %s",
 			inet_ntoa(lsah->adv_router));
 		return;
@@ -1367,7 +1366,7 @@ void ospf_sr_ext_link_lsa_delete(struct ospf_lsa *lsa)
 			break;
 
 	/* Remove Segment Link if found */
-	if (srl->instance == instance) {
+	if ((srl != NULL) && (srl->instance == instance)) {
 		del_sid_nhlfe(srl->nhlfe[0]);
 		del_sid_nhlfe(srl->nhlfe[1]);
 		listnode_delete(srn->ext_link, srl);
@@ -1467,10 +1466,11 @@ void ospf_sr_ext_prefix_lsa_delete(struct ospf_lsa *lsa)
 	srn = (struct sr_node *)hash_lookup(OspfSR.neighbors,
 					    (void *)&(lsah->adv_router));
 
-	/* Sanity check */
+	/* SR-Node may be NULL if it has been remove previously when
+	 * processing Router Information LSA deletion */
 	if (srn == NULL) {
-		zlog_err(
-			"SR (ospf_sr_ext_prefix_lsa_delete):  Abort! "
+		zlog_warn(
+			"SR (ospf_sr_ext_prefix_lsa_delete):  Stop! "
 			"no entry in SRDB for SR Node %s",
 			inet_ntoa(lsah->adv_router));
 		return;
@@ -1482,7 +1482,7 @@ void ospf_sr_ext_prefix_lsa_delete(struct ospf_lsa *lsa)
 			break;
 
 	/* Remove Segment Link if found */
-	if (srp->instance == instance) {
+	if ((srp != NULL) && (srp->instance == instance)) {
 		del_sid_nhlfe(srp->nhlfe);
 		listnode_delete(srn->ext_link, srp);
 		XFREE(MTYPE_OSPF_SR_PARAMS, srp);
