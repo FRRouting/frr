@@ -32,7 +32,7 @@ seperate commands.
 Version 0 is used by all versions of GNU Zebra as of this writing, and
 versions of Quagga up to and including Quagga 0.98. Version 2 was created
 for 0.99.21 of Quagga.  Version 3 designates VRF compatibility and was
-released in 1.0. Version 4 will be used as of Frr 2.0 to indicate that
+released in 1.0. Version 4 will be used as of FRR 2.0 to indicate that
 we are a different Routing Suite now and to hopefully prevent accidental
 Quagga <-> FRR issues.
 

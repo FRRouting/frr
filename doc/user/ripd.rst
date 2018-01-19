@@ -86,7 +86,7 @@ to the packet on the basis of the interface that received the packet.
 Version 2 of RIP supports a variable length subnet mask (VLSM).  By
 extending the subnet mask, the mask can be divided and reused.  Each
 subnet can be used for different purposes such as large to middle size
-LANs and WAN links.  Frr *ripd* does not support the non-sequential
+LANs and WAN links.  FRR *ripd* does not support the non-sequential
 netmasks that are included in RIP Version 2.
 
 In a case of similar information with the same prefix and metric, the
@@ -345,10 +345,10 @@ How to Announce RIP route
 .. index:: {RIP command} {no route `a.b.c.d/m`} {}
 
 {RIP command} {no route `a.b.c.d/m`} {}
-                                  This command is specific to Frr.  The `route` command makes a static
+                                  This command is specific to FRR.  The `route` command makes a static
                                   route only inside RIP. This command should be used only by advanced
                                   users who are particularly knowledgeable about the RIP protocol.  In
-                                  most cases, we recommend creating a static route in Frr and
+                                  most cases, we recommend creating a static route in FRR and
                                   redistributing it in RIP using `redistribute static`.
 
 .. _Filtering_RIP_Routes:
@@ -476,7 +476,7 @@ statement.
   
 
 Cisco applies route-map _before_ routes will exported to rip route table. 
-In current Frr's test implementation, *ripd* applies route-map
+In current FRR's test implementation, *ripd* applies route-map
 after routes are listed in the route table and before routes will be
 announced to an interface (something like output filter). I think it is not
 so clear, but it is draft and it may be changed at future.

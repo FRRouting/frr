@@ -79,7 +79,7 @@ Command {no router ospf} {}
         to ensure routing-loops are avoided.
 
         With the "Cisco" or "IBM" ABR type, the default in this release of
-        Frr, this restriction is lifted, allowing an ABR to consider
+        FRR, this restriction is lifted, allowing an ABR to consider
         summaries learnt from other ABRs through non-backbone areas, and hence
         route via non-backbone areas as a last resort when, and only when,
         backbone links are down.
@@ -186,7 +186,7 @@ Command {no router ospf} {}
                 hold-time increasing by 400ms each time an SPF-triggering event occurs
                 within the hold-time of the previous SPF calculation.
 
-                This command supercedes the *timers spf* command in previous Frr
+                This command supercedes the *timers spf* command in previous FRR
                 releases.
 
 .. index:: {OSPF Command} {max-metric router-lsa [on-startup|on-shutdown] <5-86400>} {}
@@ -309,7 +309,7 @@ OSPF area
         announced to other areas. This command can be used only in ABR and ONLY
         router-LSAs (Type-1) and network-LSAs (Type-2) (ie. LSAs with scope area) can
         be summarized. Type-5 AS-external-LSAs can't be summarized - their scope is AS.
-        Summarizing Type-7 AS-external-LSAs isn't supported yet by Frr.
+        Summarizing Type-7 AS-external-LSAs isn't supported yet by FRR.
 
 ::
 

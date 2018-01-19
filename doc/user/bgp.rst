@@ -107,7 +107,7 @@ BGP distance
 BGP decision process
 --------------------
 
-The decision process Frr BGP uses to select routes is as follows:
+The decision process FRR BGP uses to select routes is as follows:
 
 
 
@@ -258,7 +258,7 @@ The BGP MED (Multi_Exit_Discriminator) attribute has properties which can
 cause subtle convergence problems in BGP. These properties and problems
 have proven to be hard to understand, at least historically, and may still
 not be widely understood. The following attempts to collect together and
-present what is known about MED, to help operators and Frr users in
+present what is known about MED, to help operators and FRR users in
 designing and configuring their networks.
 
 The BGP :abbr:`MED ( Multi_Exit_Discriminator)` attribute is intended to
@@ -281,7 +281,7 @@ MED values to those of AS X. The MED values have been set by different
 administrators, with different frames of reference.
 
 The default behaviour of BGP therefore is to not compare MED values across
-routes received from different neighbouring ASes. In Frr this is done by
+routes received from different neighbouring ASes. In FRR this is done by
 comparing the neighbouring, left-most AS in the received AS_PATHs of the
 routes and only comparing MED if those are the same.
 
@@ -348,7 +348,7 @@ in response to the most common sequence of received updates.
 
 A deterministic order of evaluation tends to imply an additional overhead of
 sorting over any set of n routes to a destination. The implementation of
-deterministic MED in Frr scales significantly worse than most sorting
+deterministic MED in FRR scales significantly worse than most sorting
 algorithms at present, with the number of paths to a given destination.
 That number is often low enough to not cause any issues, but where there are
 many paths, the deterministic comparison may quickly become increasingly
@@ -415,7 +415,7 @@ preferences between the routes:
 This particular type of oscillation in full-mesh iBGP topologies can  be
 avoided by speakers preferring already selected, external routes rather than
 choosing to update to new a route based on a post-MED metric (e.g.
-router-ID), at the cost of a non-deterministic selection process. Frr
+router-ID), at the cost of a non-deterministic selection process. FRR
 implements this, as do many other implementations, so long as it is not
 overridden by setting :ref:`bgp_bestpath_compare-routerid`, and see also
 :ref:`BGP_decision_process`, .
@@ -488,7 +488,7 @@ iBGP topology should follow the IGP topology.
   in.
 
   Setting this option will have a performance cost that may be noticeable when
-  there are many routes for each destination. Currently in Frr it is
+  there are many routes for each destination. Currently in FRR it is
   implemented in a way that scales poorly as the number of routes per
   destination increases.
 
@@ -1804,11 +1804,11 @@ unicast neighbor, *bgpd* does not send these Capability
 Negotiation packets (at least not unless other optional BGP features
 require capability negotation).
 
-By default, Frr will bring up peering with minimal common capability
+By default, FRR will bring up peering with minimal common capability
 for the both sides. For example, local router has unicast and
 multicast capabilitie and remote router has unicast capability. In
 this case, the local router will establish the connection with unicast
-only capability. When there are no common capabilities, Frr sends
+only capability. When there are no common capabilities, FRR sends
 Unsupported Capability error and then resets the connection.
 
 If you want to completely match capabilities with remote peer. Please
@@ -1938,10 +1938,10 @@ When bgp config-type cisco is specified,
 'network' and 'aggregate-address' argument is displayed as
 'A.B.C.D M.M.M.M'
 
-Frr: network 10.0.0.0/8
+FRR: network 10.0.0.0/8
 Cisco: network 10.0.0.0
 
-Frr: aggregate-address 192.168.0.0/24
+FRR: aggregate-address 192.168.0.0/24
 Cisco: aggregate-address 192.168.0.0 255.255.255.0
 
 Community attribute handling is also different. If there is no
@@ -1972,7 +1972,7 @@ to specify *neighbor A.B.C.D send-community* command.
 .. index:: bgp config-type zebra
 
 ``bgp config-type zebra``
-  Frr style BGP configuration. This is default.
+  FRR style BGP configuration. This is default.
 
 .. _BGP_instance_and_view:
 

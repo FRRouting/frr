@@ -85,8 +85,8 @@ RFP Related Configuration
 The protocol that is used to communicate routing and Ethernet / L2
 forwarding information between NVAs and NVEs is referred to as the
 Remote Forwarder Protocol (RFP).  Currently, only a simple example RFP
-is included in Frr.  Developers may use this example as a starting
-point to integrate Frr with an RFP of their choosing, e.g.,
+is included in FRR.  Developers may use this example as a starting
+point to integrate FRR with an RFP of their choosing, e.g.,
 `OpenFlow`.  The example code includes the following sample
 configuration: 
 

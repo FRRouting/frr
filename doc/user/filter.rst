@@ -2,7 +2,7 @@
 Filtering
 *********
 
-Frr provides many very flexible filtering features.  Filtering is used
+FRR provides many very flexible filtering features.  Filtering is used
 for both input and output of the routing information.  Once filtering is
 defined, it can be applied in any direction.
 

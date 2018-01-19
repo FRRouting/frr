@@ -35,7 +35,7 @@ interfaces.
 *netlink*
   On recent Linux kernels (2.0.x and 2.2.x), there is a kernel/user
   communication support called `netlink`.  It makes asynchronous
-  communication between kernel and Frr possible, similar to a routing
+  communication between kernel and FRR possible, similar to a routing
   socket on BSD systems.
 
   Before you use this feature, be sure to select (in kernel configuration) 
@@ -45,7 +45,7 @@ interfaces.
   Today, the /dev/route special device file is obsolete.  Netlink
   communication is done by reading/writing over netlink socket.
 
-  After the kernel configuration, please reconfigure and rebuild Frr.
-  You can use netlink as a dynamic routing update channel between Frr
+  After the kernel configuration, please reconfigure and rebuild FRR.
+  You can use netlink as a dynamic routing update channel between FRR
   and the kernel.
 

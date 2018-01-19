@@ -351,7 +351,7 @@ addresses but unicast addresses.
 This table is fully separate from the default unicast table.  However,
 RPF lookup can include the unicast table.
 
-WARNING: RPF lookup results are non-responsive in this version of Frr,
+WARNING: RPF lookup results are non-responsive in this version of FRR,
 i.e. multicast routing does not actively react to changes in underlying
 unicast topology!
 
@@ -483,17 +483,17 @@ zebra FIB push interface
 ========================
 
 Zebra supports a 'FIB push' interface that allows an external
-component to learn the forwarding information computed by the Frr
+component to learn the forwarding information computed by the FRR
 routing suite.  This is a loadable module that needs to be enabled
 at startup as described in :ref:`Loadable_Module_Support`.
 
-In Frr, the Routing Information Base (RIB) resides inside
+In FRR, the Routing Information Base (RIB) resides inside
 zebra. Routing protocols communicate their best routes to zebra, and
 zebra computes the best route across protocols for each prefix. This
 latter information makes up the Forwarding Information Base
 (FIB). Zebra feeds the FIB to the kernel, which allows the IP stack in
 the kernel to forward packets according to the routes computed by
-Frr. The kernel FIB is updated in an OS-specific way. For example,
+FRR. The kernel FIB is updated in an OS-specific way. For example,
 the `netlink` interface is used on Linux, and route sockets are
 used on FreeBSD.
 

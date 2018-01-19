@@ -6,7 +6,7 @@ SNMP Support
 
 @acronym{SNMP,Simple Network Managing Protocol} is a widely implemented
 feature for collecting network information from router and/or host.
-Frr itself does not support SNMP agent (server daemon) functionality
+FRR itself does not support SNMP agent (server daemon) functionality
 but is able to connect to a SNMP agent using the SMUX protocol
 (@cite{RFC1227}) or the AgentX protocol (@cite{RFC2741}) and make the
 routing protocol MIBs available through it.
@@ -25,7 +25,7 @@ version of `net-snmp` which was formerly known as `ucd-snmp`.
 It is free and open software and available at `http://www.net-snmp.org/ <http://www.net-snmp.org/>`_
 and as binary package for most Linux distributions.
 `net-snmp` has to be compiled with `--with-mib-modules=agentx` to
-be able to accept connections from Frr using AgentX protocol or with
+be able to accept connections from FRR using AgentX protocol or with
 `--with-mib-modules=smux` to use SMUX protocol.
 
 Nowadays, SMUX is a legacy protocol. The AgentX protocol should be
@@ -36,11 +36,11 @@ preferred for any new deployment. Both protocols have the same coverage.
 AgentX configuration
 ====================
 
-To enable AgentX protocol support, Frr must have been build with the
+To enable AgentX protocol support, FRR must have been build with the
 `--enable-snmp` or `--enable-snmp=agentx` option. Both the
-master SNMP agent (snmpd) and each of the Frr daemons must be
+master SNMP agent (snmpd) and each of the FRR daemons must be
 configured. In `/etc/snmp/snmpd.conf`, `master agentx`
-directive should be added. In each of the Frr daemons, `agentx`
+directive should be added. In each of the FRR daemons, `agentx`
 command will enable AgentX support.
 
 ::
@@ -66,7 +66,7 @@ command will enable AgentX support.
   
 
 Upon successful connection, you should get something like this in the
-log of each Frr daemons:
+log of each FRR daemons:
 
 ::
 
@@ -84,7 +84,7 @@ Then, you can use the following command to check everything works as expected:
 
 The AgentX protocol can be transported over a Unix socket or using TCP
 or UDP. It usually defaults to a Unix socket and depends on how NetSNMP
-was built. If need to configure Frr to use another transport, you can
+was built. If need to configure FRR to use another transport, you can
 configure it through `/etc/snmp/frr.conf`:
 
 ::
@@ -100,11 +100,11 @@ configure it through `/etc/snmp/frr.conf`:
 SMUX configuration
 ==================
 
-To enable SMUX protocol support, Frr must have been build with the
+To enable SMUX protocol support, FRR must have been build with the
 `--enable-snmp=smux` option.
 
 A separate connection has then to be established between the
-SNMP agent (snmpd) and each of the Frr daemons. This connections
+SNMP agent (snmpd) and each of the FRR daemons. This connections
 each use different OID numbers and passwords. Be aware that this OID
 number is not the one that is used in queries by clients, it is solely
 used for the intercommunication of the daemons.
@@ -125,7 +125,7 @@ restrictions can be hard to debug.
   	view all included .1 80
   	access MyROGroup "" any noauth exact all none none
   	#
-  	# the following line is relevant for Frr
+  	# the following line is relevant for FRR
   	#
   	smuxpeer .1.3.6.1.4.1.3317.1.2.5 frr_ospfd
 
@@ -159,7 +159,7 @@ MIB and command reference
 =========================
 
 The following OID numbers are used for the interprocess communication of snmpd and
-the Frr daemons with SMUX only.
+the FRR daemons with SMUX only.
 ::
 
               (OIDs below .iso.org.dod.internet.private.enterprises)
@@ -181,7 +181,7 @@ OID numbers are used for querying the SNMP daemon by a client:
   ospf6d	.1.3.6.1.3.102	    .iso.org.dod.internet.experimental.ospfv3
   
 
-The following syntax is understood by the Frr daemons for configuring SNMP using SMUX:
+The following syntax is understood by the FRR daemons for configuring SNMP using SMUX:
 .. index:: {Command} {smux peer `oid`} {}
 
 {Command} {smux peer `oid`} {}

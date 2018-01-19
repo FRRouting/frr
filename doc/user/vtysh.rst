@@ -4,7 +4,7 @@
 VTY shell
 *********
 
-*vtysh* provides a combined frontend to all Frr daemons in a
+*vtysh* provides a combined frontend to all FRR daemons in a
 single combined session.  It is enabled by default at build time, but can
 be disabled through the *--disable-vtysh* option to
 *./configure*.
@@ -30,7 +30,7 @@ that directory, plus membership in the *|INSTALL_VTY_GROUP|*
 group (which is the group that the daemons will change ownership of their
 sockets to).
 
-To restrict access to Frr configuration, make sure no unauthorized users
+To restrict access to FRR configuration, make sure no unauthorized users
 are members of the *|INSTALL_VTY_GROUP|* group.
 
 PAM support (experimental)
@@ -103,7 +103,7 @@ file with incorrect owner or permissions.
 
 Writing the configuration can be triggered directly by invoking
 *vtysh -w*.  This may be useful for scripting.  Note this command
-should be run as either the superuser or the Frr user.
+should be run as either the superuser or the FRR user.
 
 We recommend you do not mix the use of the two types of files. Further, it
 is better not to use the integrated frr.conf file, as any syntax error in
@@ -121,7 +121,7 @@ the daemon in whose file the error is made.
     'write file' is issued.
 
     These commands need to be placed in :file:`vtysh.conf` to have any effect.
-    Note that since :file:`vtysh.conf` is not written by Frr itself, they
+    Note that since :file:`vtysh.conf` is not written by FRR itself, they
     therefore need to be manually placed in that file.
 
     This command has 3 states:
