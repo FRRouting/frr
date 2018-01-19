@@ -3210,15 +3210,25 @@ void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf,
 {
 	struct bgp_table *table = NULL;
 	struct bgp_node *rn = NULL;
+	struct bgp_info *ri;
 
 	/* Bail out early if we don't have to advertise type-5 routes. */
 	if (!advertise_type5_routes(bgp_vrf, afi))
 		return;
 
 	table = bgp_vrf->rib[afi][safi];
-	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn))
-		bgp_evpn_withdraw_type5_route(bgp_vrf, &rn->p, afi, safi);
-
+	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
+		/* Only care about "selected" routes - non-imported. */
+		/* TODO: Support for AddPath for EVPN. */
+		for (ri = rn->info; ri; ri = ri->next) {
+			if (CHECK_FLAG(ri->flags, BGP_INFO_SELECTED) &&
+			    (!ri->extra || !ri->extra->parent)) {
+				bgp_evpn_withdraw_type5_route(bgp_vrf, &rn->p,
+							      afi, safi);
+				break;
+			}
+		}
+	}
 }
 
 /*
@@ -3237,10 +3247,6 @@ void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf, struct prefix *p,
 
 	/* NOTE: Check needed as this is called per-route also. */
 	if (!advertise_type5_routes(bgp_vrf, afi))
-		return;
-
-	/* only advertise subnet routes as type-5 */
-	if (is_host_route(p))
 		return;
 
 	build_type5_prefix_from_ip_prefix(&evp, p);
@@ -3270,11 +3276,12 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf,
 	table = bgp_vrf->rib[afi][safi];
 	for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
 		/* Need to identify the "selected" route entry to use its
-		 * attribute.
+		 * attribute. Also, we only consider "non-imported" routes.
 		 * TODO: Support for AddPath for EVPN.
 		 */
 		for (ri = rn->info; ri; ri = ri->next) {
-			if (CHECK_FLAG(ri->flags, BGP_INFO_SELECTED)) {
+			if (CHECK_FLAG(ri->flags, BGP_INFO_SELECTED) &&
+			    (!ri->extra || !ri->extra->parent)) {
 				bgp_evpn_advertise_type5_route(bgp_vrf, &rn->p,
 							       ri->attr,
 							       afi, safi);
