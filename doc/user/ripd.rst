@@ -23,7 +23,7 @@ Starting and Stopping ripd
 
 The default configuration file name of *ripd*'s is
 :file:`ripd.conf`.  When invocation *ripd* searches directory
-@value{INSTALL_PREFIX_ETC}.  If :file:`ripd.conf` is not there next
+|INSTALL_PREFIX_ETC|.  If :file:`ripd.conf` is not there next
 search current directory.
 
 RIP uses UDP port 520 to send and receive RIP packets.  So the user must have

@@ -20,7 +20,7 @@ Starting and Stopping eigrpd
 
 The default configuration file name of *eigrpd*'s is
 :file:`eigrpd.conf`.  When invocation *eigrpd* searches directory
-@value{INSTALL_PREFIX_ETC}.  If :file:`eigrpd.conf` is not there next
+|INSTALL_PREFIX_ETC|.  If :file:`eigrpd.conf` is not there next
 search current directory.  If an integrated config is specified
 configuration is written into frr.conf
 

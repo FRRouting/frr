@@ -39,12 +39,12 @@ starting.
 
 Config files are generally found in:
 
-* :file:`@value{INSTALL_PREFIX_ETC}`/\*.conf
+* :file:`|INSTALL_PREFIX_ETC|`/\*.conf
 
 Each of the daemons has its own
 config file. For example, zebra's default config file name is:
 
-* :file:`@value{INSTALL_PREFIX_ETC`/zebra.conf}
+* :file:`INSTALL_PREFIX_ETC`/zebra.conf
 
 The daemon name plus :file:`.conf` is the default config file name. You
 can specify a config file using the :kbd:`-f` or :kbd:`--config-file`
@@ -312,7 +312,7 @@ Terminal Mode Commands
 .. index:: show version
 
 ``show version``
-  Show the current version of @value{PACKAGE_NAME} and its build host information.
+  Show the current version of |PACKAGE_NAME| and its build host information.
 
 .. index:: show logging
 
@@ -331,7 +331,7 @@ Terminal Mode Commands
 Common Invocation Options
 =========================
 
-These options apply to all @value{PACKAGE_NAME} daemons.
+These options apply to all |PACKAGE_NAME| daemons.
 
 
 ``-d, --daemon``
@@ -354,7 +354,7 @@ These options apply to all @value{PACKAGE_NAME} daemons.
 
   The file name is an run-time option rather than a configure-time option
   so that multiple routing daemons can be run simultaneously. This is
-  useful when using @value{PACKAGE_NAME} to implement a routing looking glass. One
+  useful when using |PACKAGE_NAME| to implement a routing looking glass. One
   machine can be used to collect differing routing views from differing
   points in the network.
 
@@ -391,7 +391,7 @@ the following command line option at daemon startup:
   Load the specified module, optionally passing options to it. If the module
   name contains a slash (/), it is assumed to be a full pathname to a file to
   be loaded. If it does not contain a slash, the
-  `@value{INSTALL_PREFIX_MODULES`} directory is searched for a module of
+  `INSTALL_PREFIX_MODULES` directory is searched for a module of
   the given name; first with the daemon name prepended (e.g. ``zebra_mod``
   for ``mod``), then without the daemon name prepended.
 
@@ -447,8 +447,8 @@ is no VTY password, one cannot connect to the VTY interface at all.
   Connected to localhost.
   Escape character is '^]'.
 
-  Hello, this is @value{PACKAGE_NAME} (version @value{PACKAGE_VERSION})
-  @value{COPYRIGHT_STR}
+  Hello, this is |PACKAGE_NAME| (version |PACKAGE_VERSION|)
+  |COPYRIGHT_STR|
 
   User Access Verification
 

@@ -12,7 +12,7 @@
    @set PACKAGE_VERSION 3.1-dev
    @set AUTHORS Kunihiro Ishiguro, et al.
    @set COPYRIGHT_YEAR 1999-2005
-   @set COPYRIGHT_STR Copyright @copyright{} @value{COPYRIGHT_YEAR} @value{AUTHORS}
+   @set COPYRIGHT_STR Copyright @copyright{} |COPYRIGHT_YEAR| |AUTHORS|
    
    @c These may vary with installation environment.
    @set INSTALL_PREFIX_ETC /etc/frr

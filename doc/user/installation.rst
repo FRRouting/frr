@@ -325,5 +325,5 @@ specify a port number when starting the daemon, these entries may not be
 needed.
 
 You may need to make changes to the config files in
-:file:`@value{INSTALL_PREFIX_ETC`/\*.conf}. :ref:`Config_Commands`.
+:file:`|INSTALL_PREFIX_ETC`/\*.conf|. :ref:`Config_Commands`.
 

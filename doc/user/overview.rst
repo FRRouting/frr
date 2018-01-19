@@ -6,64 +6,63 @@ Overview
 
 .. index:: Overview
 
-`@value{PACKAGE_URL <@value{PACKAGE_URL>`_,,Frr} is a routing software package that
-provides TCP/IP based routing services with routing protocols support such
-as RIPv1, RIPv2, RIPng, OSPFv2, OSPFv3, IS-IS, BGP-4, and BGP-4+ (:ref:`Supported_RFCs`). Frr also supports special BGP Route Reflector and Route Server
-behavior.  In addition to traditional IPv4 routing protocols, Frr also
-supports IPv6 routing protocols.  With SNMP daemon which supports SMUX and AgentX
-protocol, Frr provides routing protocol MIBs (:ref:`SNMP_Support`).
+`FRR <|PACKAGE_URL|>`_ is a routing software package that provides TCP/IP based
+routing services with routing protocols support such as RIPv1, RIPv2, RIPng,
+OSPFv2, OSPFv3, IS-IS, BGP-4, and BGP-4+ (:ref:`Supported_RFCs`). FRR also
+supports special BGP Route Reflector and Route Server behavior.  In addition to
+traditional IPv4 routing protocols, FRR also supports IPv6 routing protocols.
+With SNMP daemon which supports SMUX and AgentX protocol, FRR provides routing
+protocol MIBs (:ref:`SNMP_Support`).
 
-Frr uses an advanced software architecture to provide you with a high
-quality, multi server routing engine. Frr has an interactive user
+FRR uses an advanced software architecture to provide you with a high
+quality, multi server routing engine. FRR has an interactive user
 interface for each routing protocol and supports common client commands. 
-Due to this design, you can add new protocol daemons to Frr easily.  You
-can use Frr library as your program's client user interface.
+Due to this design, you can add new protocol daemons to FRR easily.  You
+can use FRR library as your program's client user interface.
 
-Frr is distributed under the @sc{gnu} General Public License.
+FRR is distributed under the GNU General Public License.
 
-@comment  node-name,  next,  previous,  up
-
-About Frr
+About FRR
 =========
 
-.. index:: About Frr
+.. index:: About FRR
 
 Today, TCP/IP networks are covering all of the world.  The Internet has
 been deployed in many countries, companies, and to the home.  When you
 connect to the Internet your packet will pass many routers which have TCP/IP
 routing functionality.
 
-A system with Frr installed acts as a dedicated router.  With Frr,
+A system with FRR installed acts as a dedicated router.  With FRR,
 your machine exchanges routing information with other routers using routing
-protocols.  Frr uses this information to update the kernel routing table
+protocols.  FRR uses this information to update the kernel routing table
 so that the right data goes to the right place.  You can dynamically change
-the configuration and you may view routing table information from the Frr
+the configuration and you may view routing table information from the FRR
 terminal interface.
 
-Adding to routing protocol support, Frr can setup interface's flags,
+Adding to routing protocol support, FRR can setup interface's flags,
 interface's address, static routes and so on.  If you have a small network,
-or a stub network, or xDSL connection, configuring the Frr routing
+or a stub network, or xDSL connection, configuring the FRR routing
 software is very easy.  The only thing you have to do is to set up the
 interfaces and put a few commands about static routes and/or default routes. 
 If the network is rather large, or if the network structure changes
-frequently, you will want to take advantage of Frr's dynamic routing
+frequently, you will want to take advantage of FRR's dynamic routing
 protocol support for protocols such as RIP, OSPF, IS-IS or BGP.
 
 Traditionally, UNIX based router configuration is done by
 *ifconfig* and *route* commands.  Status of routing
 table is displayed by *netstat* utility.  Almost of these commands
-work only if the user has root privileges.  Frr has a different system
-administration method.  There are two user modes in Frr.  One is normal
+work only if the user has root privileges.  FRR has a different system
+administration method.  There are two user modes in FRR.  One is normal
 mode, the other is enable mode.  Normal mode user can only view system
 status, enable mode user can change system configuration.  This UNIX account
 independent feature will be great help to the router administrator.
 
-Currently, Frr supports common unicast routing protocols, that is BGP,
+Currently, FRR supports common unicast routing protocols, that is BGP,
 OSPF, RIP and IS-IS.  Upcoming for MPLS support, an implementation of LDP is
 currently being prepared for merging.  Implementations of BFD and PIM-SSM
 (IPv4) also exist, but are not actively being worked on.
 
-The ultimate goal of the Frr project is making a productive, quality, free
+The ultimate goal of the FRR project is making a productive, quality, free
 TCP/IP routing software package.
 
 @comment  node-name,  next,  previous,  up
@@ -78,7 +77,7 @@ System Architecture
 .. index:: Software internals
 
 Traditional routing software is made as a one process program which
-provides all of the routing protocol functionalities.  Frr takes a
+provides all of the routing protocol functionalities.  FRR takes a
 different approach.  It is made from a collection of several daemons that
 work together to build the routing table.  There may be several
 protocol-specific routing daemons and zebra the kernel routing manager.
@@ -110,7 +109,7 @@ architecture creates new possibilities for the routing system.
   |                              |
   +------------------------------+
 
-      Frr System Architecture
+      FRR System Architecture
   @end group
   
 
@@ -120,11 +119,11 @@ and terminal interfaces.  Each daemon has it's own configuration file and
 terminal interface.  When you configure a static route, it must be done in
 *zebra* configuration file.  When you configure BGP network it must
 be done in *bgpd* configuration file.  This can be a very annoying
-thing.  To resolve the problem, Frr provides integrated user interface
+thing.  To resolve the problem, FRR provides integrated user interface
 shell called *vtysh*.  *vtysh* connects to each daemon with
 UNIX domain socket and then works as a proxy for user input.
 
-Frr was planned to use multi-threaded mechanism when it runs with a
+FRR was planned to use multi-threaded mechanism when it runs with a
 kernel that supports multi-threads.  But at the moment, the thread library
 which comes with @sc{gnu}/Linux or FreeBSD has some problems with running
 reliable services such as routing software, so we don't use threads at all. 
@@ -138,20 +137,20 @@ Supported Platforms
 
 .. index:: Supported platforms
 
-.. index:: Frr on other systems
+.. index:: FRR on other systems
 
 .. index:: Compatibility with other systems
 
-.. index:: Operating systems that support Frr
+.. index:: Operating systems that support FRR
 
-Currently Frr supports @sc{gnu}/Linux and BSD. Porting Frr
+Currently FRR supports @sc{gnu}/Linux and BSD. Porting FRR
 to other platforms is not too difficult as platform dependent code should
 most be limited to the *zebra* daemon.  Protocol daemons are mostly
-platform independent. Please let us know when you find out Frr runs on a
+platform independent. Please let us know when you find out FRR runs on a
 platform which is not listed below.
 
 The list of officially supported platforms are listed below. Note that
-Frr may run correctly on other platforms, and may run with partial
+FRR may run correctly on other platforms, and may run with partial
 functionality on further platforms.
 
 @sp 1
@@ -178,7 +177,7 @@ may work with some effort:
   Mac OSX
 
 Also note that, in particular regarding proprietary platforms, compiler
-and C library choice will affect Frr.  Only recent versions of the
+and C library choice will affect FRR.  Only recent versions of the
 following C compilers are well-tested:
 
 @sp 1
@@ -291,18 +290,17 @@ When SNMP support is enabled, below RFC is also supported.
 
 @comment  node-name,  next,  previous,  up
 
-How to get Frr
+How to get FRR
 ==============
 
-The official Frr web-site is located at:
+The official FRR web-site is located at:
 
-`@value{PACKAGE_URL <@value{PACKAGE_URL>`_}
+`|PACKAGE_URL| <|PACKAGE_URL|>`_
 
 and contains further information, as well as links to additional
 resources. 
 
-`@value{PACKAGE_URL <@value{PACKAGE_URL>`_,Frr} is a fork of Quagga, whose
-web-site is located at:
+FRR is a fork of Quagga, whose website is located at:
 
 `http://www.quagga.net/ <http://www.quagga.net/>`_.
 
@@ -311,20 +309,20 @@ web-site is located at:
 Mailing List
 ============
 
-.. index:: How to get in touch with Frr
+.. index:: How to get in touch with FRR
 
-.. index:: Mailing Frr
+.. index:: Mailing FRR
 
 .. index:: Contact information
 
 .. index:: Mailing lists
 
-There is a mailing list for discussions about Frr.  If you have any
-comments or suggestions to Frr, please subscribe to:
+There is a mailing list for discussions about FRR.  If you have any
+comments or suggestions to FRR, please subscribe to:
 
 `https://lists.frrouting.org/listinfo/frog <https://lists.frrouting.org/listinfo/frog>`_.
 
-The `@value{PACKAGE_URL <@value{PACKAGE_URL>`_,,Frr} site has further information on
+The `FRR <|PACKAGE_URL|>`_ site has further information on
 the available mailing lists, see:
 
 `https://lists.frrouting.org/ <https://lists.frrouting.org/>`_
@@ -361,7 +359,7 @@ When you send a bug report, please be careful about the points below.
   Please send your configuration file with the report.  If you specify
   arguments to the configure script please note that too.
 
-Bug reports are very important for us to improve the quality of Frr.
-Frr is still in the development stage, but please don't hesitate to
+Bug reports are very important for us to improve the quality of FRR.
+FRR is still in the development stage, but please don't hesitate to
 send a bug report to `http://github.com/frrouting/frr/issues <http://github.com/frrouting/frr/issues>`_.
 

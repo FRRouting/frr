@@ -15,7 +15,7 @@ these systems to directly communicate without requiring traffic to use
 an intermediate hop.
 
 Cisco Dynamic Multipoint VPN (DMVPN) is based on NHRP, and
-@value{PACKAGE_NAME} nhrpd implements this scenario.
+|PACKAGE_NAME| nhrpd implements this scenario.
 
 .. _Routing_Design:
 

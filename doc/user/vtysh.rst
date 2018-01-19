@@ -10,7 +10,7 @@ be disabled through the *--disable-vtysh* option to
 *./configure*.
 
 *vtysh* has a configuration file, :file:`vtysh.conf`.  The location
-of that file cannot be changed from :file:`@value{INSTALL_PREFIX_ETC`} since
+of that file cannot be changed from :file:`|INSTALL_PREFIX_ETC|` since
 it contains options controlling authentication behavior.  This file will
 also not be written by configuration-save commands, it is intended to be
 updated manually by an administrator with an external editor.
@@ -25,28 +25,28 @@ Permissions and setup requirements
 ==================================
 
 *vtysh* connects to running daemons through Unix sockets located in
-:file:`@value{INSTALL_PREFIX_STATE`}.  Running vtysh thus requires access to
-that directory, plus membership in the *@value{INSTALL_VTY_GROUP*}
+:file:`|INSTALL_PREFIX_STATE|`.  Running vtysh thus requires access to
+that directory, plus membership in the *|INSTALL_VTY_GROUP|*
 group (which is the group that the daemons will change ownership of their
 sockets to).
 
 To restrict access to Frr configuration, make sure no unauthorized users
-are members of the *@value{INSTALL_VTY_GROUP*} group.
+are members of the *|INSTALL_VTY_GROUP|* group.
 
 PAM support (experimental)
 --------------------------
 
 vtysh has working (but rather useless) PAM support.  It will perform
-an "authenticate" PAM call using *@value{PACKAGE_NAME*} as service
+an "authenticate" PAM call using *|PACKAGE_NAME|* as service
 name. No other (accounting, session, password change) calls will be
 performed by vtysh.
 
 Users using vtysh still need to have appropriate access to the daemons'
-VTY sockets, usually by being member of the *@value{INSTALL_VTY_GROUP*}
+VTY sockets, usually by being member of the *|INSTALL_VTY_GROUP|*
 group.  If they have this membership, PAM support is useless since they can
 connect to daemons and issue commands using some other tool.  Alternatively,
 the *vtysh* binary could be made SGID (set group ID) to the
-*@value{INSTALL_VTY_GROUP*} group.  @strong{No security guarantees are
+*|INSTALL_VTY_GROUP|* group.  @strong{No security guarantees are
 made for this configuration}.
 
 .. index:: {Command} {username `username` nopassword} {}
@@ -67,7 +67,7 @@ Integrated configuration mode uses a single configuration file,
 :file:`frr.conf`, for all daemons.  This replaces the individual files like
 :file:`zebra.conf` or :file:`bgpd.conf`.
 
-:file:`frr.conf` is located in :file:`@value{INSTALL_PREFIX_ETC`}.  All
+:file:`frr.conf` is located in :file:`|INSTALL_PREFIX_ETC|`.  All
 daemons check for the existence of this file at startup, and if it exists
 will not load their individual configuration files.  Instead,
 *vtysh -b* must be invoked to process :file:`frr.conf` and apply
