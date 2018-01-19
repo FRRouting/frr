@@ -5,27 +5,27 @@ Installation
 ************
 
 .. index:: How to install FRR
-
 .. index:: Installation
-
 .. index:: Installing FRR
-
 .. index:: Building the system
-
 .. index:: Making FRR
 
-There are three steps for installing the software: configuration,
-compilation, and installation.
+Several distributions provide packages for FRR. Check your distribution's
+respositories to find out if a suitable version is available.
 
-The easiest way to get FRR running is to issue the following
-commands:
+If you wish to build FRR yourself, please see the `Building`_ appendix.
+
+FRR depends on various libraries depending on your operationg system.
+
+After installing these dependencies, change to the frr source directory and issue the following commands:
 
 ::
 
-  % configure
+  % ./bootstrap.sh
+  % ./configure
   % make
   % make install
-  
+
 
 .. _Configure_the_Software:
 
@@ -133,9 +133,9 @@ customize the build to include or exclude specific features and dependencies.
   only tool and should not be used for normal operations
 
 You may specify any combination of the above options to the configure
-script.  By default, the executables are placed in :file:`/usr/local/sbin` 
+script.  By default, the executables are placed in :file:`/usr/local/sbin`
 and the configuration files in :file:`/usr/local/etc`. The :file:`/usr/local/`
-installation prefix and other directories may be changed using the following 
+installation prefix and other directories may be changed using the following
 options to the configuration script.
 
 
@@ -154,7 +154,7 @@ options to the configuration script.
 ::
 
   % ./configure --disable-snmp
-  
+
 
 This command will configure zebra and the routing daemons.
 
@@ -180,7 +180,7 @@ options to control the behaviour of FRR daemons.
 
 *--enable-group=`group`*
   Switch real and effective group to `group` shortly after
-  startup. 
+  startup.
 
 *--enable-vty-group=`group`*
   Create Unix Vty sockets (for use with vtysh) with group owndership set to
@@ -233,7 +233,7 @@ recommendations do exist.
 
 
 *CONFIG_IP_MULTICAST*
-  IP: multicasting.  
+  IP: multicasting.
   This option should be specified when you use *ripd* (:ref:`RIP`) or
   *ospfd* (:ref:`OSPFv2`) because these protocols use multicast.
 
@@ -278,7 +278,7 @@ bug report :ref:`Bug_Reports`.
   % ./bootstrap.sh
   % ./configure <appropriate to your system>
   % make
-  
+
 
 @comment  node-name,  next,  previous,  up
 
@@ -298,7 +298,7 @@ prompt: *make install*.
   %
   % make install
   %
-  
+
 
 FRR daemons have their own terminal interface or VTY.  After
 installation, you have to setup each beast's port number to connect to
@@ -317,7 +317,7 @@ them.  Please add the following entries to :file:`/etc/services`.
   isisd         2608/tcp		  # ISISd vty
   nhrpd         2610/tcp		  # nhrpd vty
   pimd          2611/tcp		  # PIMd vty
-  
+
 
 If you use a FreeBSD newer than 2.2.8, the above entries are already
 added to :file:`/etc/services` so there is no need to add it. If you
