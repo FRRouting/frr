@@ -16,7 +16,6 @@ Welcome to FRR's documentation!
    nhrpd
    bgp
    babeld
-   routeserver
    vnc
    vtysh
    filter
