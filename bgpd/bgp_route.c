@@ -10904,7 +10904,7 @@ static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 					  &bgp_static->gatewayIp.u.prefix, buf2,
 					  sizeof(buf2));
 			vty_out(vty,
-				" network %s rd %s ethtag %u tag %u esi %s gwip %s routermac %s\n",
+				"  network %s rd %s ethtag %u label %u esi %s gwip %s routermac %s\n",
 				buf, rdbuf, p->u.prefix_evpn.eth_tag,
 				decode_label(&bgp_static->label), esi, buf2,
 				macrouter);
