@@ -51,6 +51,28 @@ DEFINE_QOBJ_TYPE(ospf_interface)
 DEFINE_HOOK(ospf_vl_add, (struct ospf_vl_data * vd), (vd))
 DEFINE_HOOK(ospf_vl_delete, (struct ospf_vl_data * vd), (vd))
 
+int ospf_interface_neighbor_count(struct ospf_interface *oi)
+{
+	int count = 0;
+	struct route_node *rn;
+	struct ospf_neighbor *nbr = NULL;
+
+	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
+		nbr = rn->info;
+		if (nbr) {
+			/* Do not show myself. */
+			if (nbr == oi->nbr_self)
+				continue;
+			/* Down state is not shown. */
+			if (nbr->state == NSM_Down)
+				continue;
+			count++;
+		}
+	}
+
+	return count;
+}
+
 int ospf_if_get_output_cost(struct ospf_interface *oi)
 {
 	/* If all else fails, use default OSPF cost */
