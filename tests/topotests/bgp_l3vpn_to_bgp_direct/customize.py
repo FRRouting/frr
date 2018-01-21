@@ -22,7 +22,7 @@
 #
 
 """
-test_mpls_vpn_topo1.py: Simple FRR/Quagga MPLS VPN Test
+customize.py: Simple FRR/Quagga MPLS L3VPN test topology
 
                   |
              +----+----+
