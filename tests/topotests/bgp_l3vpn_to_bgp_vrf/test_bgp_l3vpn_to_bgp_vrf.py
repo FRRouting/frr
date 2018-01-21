@@ -46,7 +46,7 @@ def test_adjacencies():
 def test_add_routes():
     CliOnFail = None
     # For debugging, uncomment the next line
-    #CliOnFail = 'tgen.mininet_cli'
+    CliOnFail = 'tgen.mininet_cli'
     CheckFunc = 'versionCheck(\'3.1\')'
     #uncomment next line to start cli *before* script is run
     #CheckFunc = 'versionCheck(\'3.1\', cli=True)'
@@ -55,7 +55,7 @@ def test_add_routes():
 def test_check_routes():
     CliOnFail = None
     # For debugging, uncomment the next line
-    #CliOnFail = 'tgen.mininet_cli'
+    CliOnFail = 'tgen.mininet_cli'
     CheckFunc = 'versionCheck(\'3.1\')'
     #uncomment next line to start cli *before* script is run
     #CheckFunc = 'versionCheck(\'3.1\', cli=True)'
