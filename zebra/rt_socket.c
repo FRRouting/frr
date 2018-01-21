@@ -67,7 +67,7 @@ static int sin_masklen(struct in_addr mask)
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
 #ifdef __OpenBSD__
-static int kernel_rtm_add_labels(struct nexthop_label *nh_label,
+static int kernel_rtm_add_labels(struct mpls_label_stack *nh_label,
 				 struct sockaddr_mpls *smpls)
 {
 	if (nh_label->num_labels > 1) {
