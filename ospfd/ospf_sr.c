@@ -1702,6 +1702,12 @@ DEFUN(ospf_sr_enable,
 	if (OspfSR.enabled)
 		return CMD_SUCCESS;
 
+	if (ospf->vrf_id != VRF_DEFAULT) {
+		vty_out(vty, "Segment Routing is only supported in default "
+			     "VRF\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("SR: Segment Routing: OFF -> ON");
 
@@ -2135,7 +2141,7 @@ DEFUN (show_ip_opsf_srdb,
 
 	if (!OspfSR.enabled) {
 		vty_out(vty, "Segment Routing is disabled on this router\n");
-		return CMD_WARNING_CONFIG_FAILED;
+		return CMD_WARNING;
 	}
 
 	vty_out(vty, "\n          OSPF Segment Routing database for ID %s\n\n",

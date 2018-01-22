@@ -102,7 +102,6 @@ static const struct message rtproto_str[] = {
 	{RTPROT_MROUTED, "mroute"},
 	{RTPROT_BGP, "BGP"},
 	{RTPROT_OSPF, "OSPF"},
-	{RTPROT_OSPF_SR, "OSPF-SR"},
 	{RTPROT_ISIS, "IS-IS"},
 	{RTPROT_RIP, "RIP"},
 	{RTPROT_RIPNG, "RIPNG"},

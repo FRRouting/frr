@@ -455,7 +455,7 @@ static inline int re_type_from_lsp_type(enum lsp_types_t lsp_type)
 	case ZEBRA_LSP_BGP:
 		return ZEBRA_ROUTE_BGP;
 	case ZEBRA_LSP_SR:
-		return ZEBRA_ROUTE_OSPF_SR;
+		return ZEBRA_ROUTE_OSPF;
 	case ZEBRA_LSP_NONE:
 	default:
 		return ZEBRA_ROUTE_KERNEL;
