@@ -768,7 +768,8 @@ void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id)
 	zebra_interface_vrf_update_add(ifp, old_vrf_id);
 
 	/* Install connected routes (in new VRF). */
-	if_install_connected(ifp);
+	if (if_is_operative(ifp))
+		if_install_connected(ifp);
 
 	static_ifindex_update(ifp, true);
 
