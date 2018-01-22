@@ -104,7 +104,7 @@ static zebra_nhlfe_t *nhlfe_add(zebra_lsp_t *lsp, enum lsp_types_t lsp_type,
 				ifindex_t ifindex, mpls_label_t out_label);
 static int nhlfe_del(zebra_nhlfe_t *snhlfe);
 static void nhlfe_out_label_update(zebra_nhlfe_t *nhlfe,
-				   struct nexthop_label *nh_label);
+				   struct mpls_label_stack *nh_label);
 static int mpls_lsp_uninstall_all(struct hash *lsp_table, zebra_lsp_t *lsp,
 				  enum lsp_types_t type);
 static int mpls_static_lsp_uninstall_all(struct zebra_vrf *zvrf,
@@ -457,7 +457,7 @@ static int fec_send(zebra_fec_t *fec, struct zserv *client)
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, ZEBRA_FEC_UPDATE, VRF_DEFAULT);
+	zclient_create_header(s, ZEBRA_FEC_UPDATE, VRF_DEFAULT);
 
 	stream_putw(s, rn->p.family);
 	stream_put_prefix(s, &rn->p);
@@ -1217,7 +1217,7 @@ static int nhlfe_del(zebra_nhlfe_t *nhlfe)
  * Update label for NHLFE entry.
  */
 static void nhlfe_out_label_update(zebra_nhlfe_t *nhlfe,
-				   struct nexthop_label *nh_label)
+				   struct mpls_label_stack *nh_label)
 {
 	nhlfe->nexthop->nh_label->label[0] = nh_label->label[0];
 }

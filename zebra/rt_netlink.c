@@ -803,7 +803,7 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 					    struct rtmsg *rtmsg,
 					    size_t req_size, int cmd)
 {
-	struct nexthop_label *nh_label;
+	struct mpls_label_stack *nh_label;
 	mpls_lse_t out_lse[MPLS_MAX_LABELS];
 	char label_buf[256];
 
@@ -1003,7 +1003,7 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 					   struct rtmsg *rtmsg,
 					   union g_addr **src)
 {
-	struct nexthop_label *nh_label;
+	struct mpls_label_stack *nh_label;
 	mpls_lse_t out_lse[MPLS_MAX_LABELS];
 	char label_buf[256];
 
