@@ -572,12 +572,11 @@ static int make_prefix(int afi, struct bgp_info *ri, struct prefix *p)
  */
 static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 {
-	struct stream *s;
 	struct prefix *p;
+	bool exact_match = false;
 	int ret;
 
-	/* Check socket. */
-	if (!zclient || zclient->sock < 0)
+	if (!zclient)
 		return;
 
 	/* Don't try to register if Zebra doesn't know of this instance. */
@@ -585,32 +584,14 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 		return;
 
 	p = &(bnc->node->p);
-	s = zclient->obuf;
-	stream_reset(s);
-	zclient_create_header(s, command, bnc->bgp->vrf_id);
 	if ((command == ZEBRA_NEXTHOP_REGISTER ||
 	     command == ZEBRA_IMPORT_ROUTE_REGISTER) &&
 	    (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED)
 	     || CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH)))
-		stream_putc(s, 1);
-	else
-		stream_putc(s, 0);
+		exact_match = true;
 
-	stream_putw(s, PREFIX_FAMILY(p));
-	stream_putc(s, p->prefixlen);
-	switch (PREFIX_FAMILY(p)) {
-	case AF_INET:
-		stream_put_in_addr(s, &p->u.prefix4);
-		break;
-	case AF_INET6:
-		stream_put(s, &(p->u.prefix6), 16);
-		break;
-	default:
-		break;
-	}
-	stream_putw_at(s, 0, stream_get_endp(s));
-
-	ret = zclient_send_message(zclient);
+	ret = zclient_send_rnh(zclient, command, p,
+			       exact_match, bnc->bgp->vrf_id);
 	/* TBD: handle the failure */
 	if (ret < 0)
 		zlog_warn("sendmsg_nexthop: zclient_send_message() failed");

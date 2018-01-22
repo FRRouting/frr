@@ -614,6 +614,33 @@ static int zclient_connect(struct thread *t)
 	return zclient_start(zclient);
 }
 
+int zclient_send_rnh(struct zclient *zclient, int command, struct prefix *p,
+		     bool exact_match, vrf_id_t vrf_id)
+{
+	struct stream *s;
+
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, command, vrf_id);
+	stream_putc(s, (exact_match) ? 1 : 0);
+
+	stream_putw(s, PREFIX_FAMILY(p));
+	stream_putc(s, p->prefixlen);
+	switch (PREFIX_FAMILY(p)) {
+	case AF_INET:
+		stream_put_in_addr(s, &p->u.prefix4);
+		break;
+	case AF_INET6:
+		stream_put(s, &(p->u.prefix6), 16);
+		break;
+	default:
+		break;
+	}
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
+}
+
 /*
  * "xdr_encode"-like interface that allows daemon (client) to send
  * a message to zebra server for a route that needs to be

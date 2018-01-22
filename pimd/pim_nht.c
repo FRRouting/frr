@@ -47,39 +47,13 @@
 void pim_sendmsg_zebra_rnh(struct pim_instance *pim, struct zclient *zclient,
 			   struct pim_nexthop_cache *pnc, int command)
 {
-	struct stream *s;
 	struct prefix *p;
 	int ret;
 
-	/* Check socket. */
-	if (!zclient || zclient->sock < 0)
-		return;
-
 	p = &(pnc->rpf.rpf_addr);
-	s = zclient->obuf;
-	stream_reset(s);
-	zclient_create_header(s, command, pim->vrf_id);
-	/* get update for all routes for a prefix */
-	stream_putc(s, 0);
-
-	stream_putw(s, PREFIX_FAMILY(p));
-	stream_putc(s, p->prefixlen);
-	switch (PREFIX_FAMILY(p)) {
-	case AF_INET:
-		stream_put_in_addr(s, &p->u.prefix4);
-		break;
-	case AF_INET6:
-		stream_put(s, &(p->u.prefix6), 16);
-		break;
-	default:
-		break;
-	}
-	stream_putw_at(s, 0, stream_get_endp(s));
-
-	ret = zclient_send_message(zclient);
+	ret = zclient_send_rnh(zclient, command, p, false, pim->vrf_id);
 	if (ret < 0)
 		zlog_warn("sendmsg_nexthop: zclient_send_message() failed");
-
 
 	if (PIM_DEBUG_PIM_NHT) {
 		char buf[PREFIX2STR_BUFFER];
