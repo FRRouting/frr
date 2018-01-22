@@ -25,8 +25,9 @@
 #include "command.h"
 #include "memory.h"
 #include "srcdest_table.h"
-
+#include "vrf.h"
 #include "vty.h"
+
 #include "zebra/debug.h"
 #include "zebra/zserv.h"
 #include "zebra/rib.h"

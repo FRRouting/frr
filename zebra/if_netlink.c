@@ -615,13 +615,14 @@ static int netlink_interface(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	}
 
 	/* If VRF, create the VRF structure itself. */
-	if (zif_type == ZEBRA_IF_VRF) {
+	if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns()) {
 		netlink_vrf_change(h, tb[IFLA_LINKINFO], name);
 		vrf_id = (vrf_id_t)ifi->ifi_index;
 	}
 
 	if (tb[IFLA_MASTER]) {
-		if (slave_kind && (strcmp(slave_kind, "vrf") == 0)) {
+		if (slave_kind && (strcmp(slave_kind, "vrf") == 0)
+		    && !vrf_is_backend_netns()) {
 			zif_slave_type = ZEBRA_IF_SLAVE_VRF;
 			vrf_id = *(u_int32_t *)RTA_DATA(tb[IFLA_MASTER]);
 		} else if (slave_kind && (strcmp(slave_kind, "bridge") == 0)) {
@@ -631,6 +632,8 @@ static int netlink_interface(struct sockaddr_nl *snl, struct nlmsghdr *h,
 		} else
 			zif_slave_type = ZEBRA_IF_SLAVE_OTHER;
 	}
+	if (vrf_is_backend_netns())
+		vrf_id = (vrf_id_t)ns_id;
 
 	/* If linking to another interface, note it. */
 	if (tb[IFLA_LINK])
@@ -1074,7 +1077,7 @@ int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	}
 
 	/* If VRF, create or update the VRF structure itself. */
-	if (zif_type == ZEBRA_IF_VRF) {
+	if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns()) {
 		netlink_vrf_change(h, tb[IFLA_LINKINFO], name);
 		vrf_id = (vrf_id_t)ifi->ifi_index;
 	}
@@ -1091,7 +1094,8 @@ int netlink_link_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 
 	if (h->nlmsg_type == RTM_NEWLINK) {
 		if (tb[IFLA_MASTER]) {
-			if (slave_kind && (strcmp(slave_kind, "vrf") == 0)) {
+			if (slave_kind && (strcmp(slave_kind, "vrf") == 0)
+			    && !vrf_is_backend_netns()) {
 				zif_slave_type = ZEBRA_IF_SLAVE_VRF;
 				vrf_id =
 					*(u_int32_t *)RTA_DATA(tb[IFLA_MASTER]);

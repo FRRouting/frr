@@ -44,6 +44,8 @@ RB_GENERATE(vrf_name_head, vrf, name_entry, vrf_name_compare);
 struct vrf_id_head vrfs_by_id = RB_INITIALIZER(&vrfs_by_id);
 struct vrf_name_head vrfs_by_name = RB_INITIALIZER(&vrfs_by_name);
 
+static int vrf_backend;
+
 /*
  * Turn on/off debug code
  * for vrf.
@@ -444,6 +446,21 @@ int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id)
 	ret = socket(domain, type, protocol);
 
 	return ret;
+}
+
+int vrf_is_backend_netns(void)
+{
+	return (vrf_backend == VRF_BACKEND_NETNS);
+}
+
+int vrf_get_backend(void)
+{
+	return vrf_backend;
+}
+
+void vrf_configure_backend(int vrf_backend_netns)
+{
+	vrf_backend = vrf_backend_netns;
 }
 
 /* vrf CLI commands */

@@ -378,7 +378,9 @@ static int ns_config_write(struct vty *vty)
 	struct ns *ns;
 	int write = 0;
 
-	RB_FOREACH (ns, ns_head, &ns_tree) {
+	if (vrf_is_backend_netns())
+		return 0;
+	RB_FOREACH(ns, ns_head, &ns_tree) {
 		if (ns->ns_id == NS_DEFAULT || ns->name == NULL)
 			continue;
 
@@ -411,7 +413,7 @@ void ns_init(void)
 		exit(1);
 	}
 
-	if (have_netns()) {
+	if (have_netns() && !vrf_is_backend_netns()) {
 		/* Install NS commands. */
 		install_node(&ns_node, ns_config_write);
 		install_element(CONFIG_NODE, &ns_netns_cmd);
