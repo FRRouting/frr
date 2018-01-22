@@ -240,7 +240,7 @@ static struct ospf *ospf_new(u_short instance, const char *name)
 		new->name = XSTRDUP(MTYPE_OSPF_TOP, name);
 		vrf = vrf_lookup_by_name(new->name);
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: Create new ospf instance with vrf_name %s vrf_id %d",
+			zlog_debug("%s: Create new ospf instance with vrf_name %s vrf_id %u",
 				   __PRETTY_FUNCTION__, name, new->vrf_id);
 		if (vrf)
 			ospf_vrf_link(new, vrf);
@@ -2013,7 +2013,7 @@ void ospf_vrf_unlink(struct ospf *ospf, struct vrf *vrf)
 static int ospf_vrf_new(struct vrf *vrf)
 {
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: VRF Created: %s(%d)", __PRETTY_FUNCTION__,
+		zlog_debug("%s: VRF Created: %s(%u)", __PRETTY_FUNCTION__,
 			   vrf->name, vrf->vrf_id);
 
 	return 0;
@@ -2023,7 +2023,7 @@ static int ospf_vrf_new(struct vrf *vrf)
 static int ospf_vrf_delete(struct vrf *vrf)
 {
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: VRF Deletion: %s(%d)", __PRETTY_FUNCTION__,
+		zlog_debug("%s: VRF Deletion: %s(%u)", __PRETTY_FUNCTION__,
 			   vrf->name, vrf->vrf_id);
 
 	return 0;
@@ -2036,7 +2036,7 @@ static int ospf_vrf_enable(struct vrf *vrf)
 	vrf_id_t old_vrf_id = VRF_DEFAULT;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: VRF %s id %d enabled",
+		zlog_debug("%s: VRF %s id %u enabled",
 			   __PRETTY_FUNCTION__, vrf->name, vrf->vrf_id);
 
 	ospf = ospf_lookup_by_name(vrf->name);
@@ -2045,7 +2045,7 @@ static int ospf_vrf_enable(struct vrf *vrf)
 		/* We have instance configured, link to VRF and make it "up". */
 		ospf_vrf_link(ospf, vrf);
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: ospf linked to vrf %s vrf_id %d (old id %d)",
+			zlog_debug("%s: ospf linked to vrf %s vrf_id %u (old id %u)",
 				   __PRETTY_FUNCTION__, vrf->name, ospf->vrf_id,
 				   old_vrf_id);
 
