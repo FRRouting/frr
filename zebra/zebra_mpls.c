@@ -457,7 +457,7 @@ static int fec_send(zebra_fec_t *fec, struct zserv *client)
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, ZEBRA_FEC_UPDATE, VRF_DEFAULT);
+	zclient_create_header(s, ZEBRA_FEC_UPDATE, VRF_DEFAULT);
 
 	stream_putw(s, rn->p.family);
 	stream_put_prefix(s, &rn->p);

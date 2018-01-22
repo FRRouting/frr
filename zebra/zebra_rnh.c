@@ -1002,7 +1002,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, cmd, vrf_id);
+	zclient_create_header(s, cmd, vrf_id);
 
 	stream_putw(s, rn->p.family);
 	switch (rn->p.family) {

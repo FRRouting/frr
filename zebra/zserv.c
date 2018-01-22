@@ -149,16 +149,6 @@ int zebra_server_send_message(struct zserv *client)
 	return 0;
 }
 
-void zserv_create_header(struct stream *s, uint16_t cmd, vrf_id_t vrf_id)
-{
-	/* length placeholder, caller can update */
-	stream_putw(s, ZEBRA_HEADER_SIZE);
-	stream_putc(s, ZEBRA_HEADER_MARKER);
-	stream_putc(s, ZSERV_VERSION);
-	stream_putl(s, vrf_id);
-	stream_putw(s, cmd);
-}
-
 static void zserv_encode_interface(struct stream *s, struct interface *ifp)
 {
 	/* Interface information. */
@@ -221,7 +211,7 @@ int zsend_interface_add(struct zserv *client, struct interface *ifp)
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, ZEBRA_INTERFACE_ADD, ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_INTERFACE_ADD, ifp->vrf_id);
 	zserv_encode_interface(s, ifp);
 
 	client->ifadd_cnt++;
@@ -236,7 +226,7 @@ int zsend_interface_delete(struct zserv *client, struct interface *ifp)
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, ZEBRA_INTERFACE_DELETE, ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_INTERFACE_DELETE, ifp->vrf_id);
 	zserv_encode_interface(s, ifp);
 
 	client->ifdel_cnt++;
@@ -250,7 +240,7 @@ int zsend_vrf_add(struct zserv *client, struct zebra_vrf *zvrf)
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, ZEBRA_VRF_ADD, zvrf_id(zvrf));
+	zclient_create_header(s, ZEBRA_VRF_ADD, zvrf_id(zvrf));
 	zserv_encode_vrf(s, zvrf);
 
 	client->vrfadd_cnt++;
@@ -265,7 +255,7 @@ int zsend_vrf_delete(struct zserv *client, struct zebra_vrf *zvrf)
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, ZEBRA_VRF_DELETE, zvrf_id(zvrf));
+	zclient_create_header(s, ZEBRA_VRF_DELETE, zvrf_id(zvrf));
 	zserv_encode_vrf(s, zvrf);
 
 	client->vrfdel_cnt++;
@@ -285,7 +275,7 @@ int zsend_interface_link_params(struct zserv *client, struct interface *ifp)
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, ZEBRA_INTERFACE_LINK_PARAMS, ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_INTERFACE_LINK_PARAMS, ifp->vrf_id);
 
 	/* Add Interface Index */
 	stream_putl(s, ifp->ifindex);
@@ -348,7 +338,7 @@ int zsend_interface_address(int cmd, struct zserv *client,
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, cmd, ifp->vrf_id);
+	zclient_create_header(s, cmd, ifp->vrf_id);
 	stream_putl(s, ifp->ifindex);
 
 	/* Interface address flag. */
@@ -393,7 +383,7 @@ static int zsend_interface_nbr_address(int cmd, struct zserv *client,
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, cmd, ifp->vrf_id);
+	zclient_create_header(s, cmd, ifp->vrf_id);
 	stream_putl(s, ifp->ifindex);
 
 	/* Prefix information. */
@@ -504,7 +494,7 @@ int zsend_interface_vrf_update(struct zserv *client, struct interface *ifp,
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, ZEBRA_INTERFACE_VRF_UPDATE, ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_INTERFACE_VRF_UPDATE, ifp->vrf_id);
 
 	/* Fill in the ifIndex of the interface and its new VRF (id) */
 	stream_putl(s, ifp->ifindex);
@@ -581,7 +571,7 @@ int zsend_interface_update(int cmd, struct zserv *client, struct interface *ifp)
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, cmd, ifp->vrf_id);
+	zclient_create_header(s, cmd, ifp->vrf_id);
 	zserv_encode_interface(s, ifp);
 
 	if (cmd == ZEBRA_INTERFACE_UP)
@@ -958,7 +948,7 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 	stream_reset(s);
 
 	/* Fill in result. */
-	zserv_create_header(s, ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB, zvrf_id(zvrf));
+	zclient_create_header(s, ZEBRA_IPV4_NEXTHOP_LOOKUP_MRIB, zvrf_id(zvrf));
 	stream_put_in_addr(s, &addr);
 
 	if (re) {
@@ -1010,7 +1000,7 @@ int zsend_route_notify_owner(u_char proto, u_short instance,
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, ZEBRA_ROUTE_NOTIFY_OWNER, vrf_id);
+	zclient_create_header(s, ZEBRA_ROUTE_NOTIFY_OWNER, vrf_id);
 
 	stream_put(s, &note, sizeof(note));
 
@@ -1040,7 +1030,7 @@ int zsend_router_id_update(struct zserv *client, struct prefix *p,
 	stream_reset(s);
 
 	/* Message type. */
-	zserv_create_header(s, ZEBRA_ROUTER_ID_UPDATE, vrf_id);
+	zclient_create_header(s, ZEBRA_ROUTER_ID_UPDATE, vrf_id);
 
 	/* Prefix information. */
 	stream_putc(s, p->family);
@@ -1064,7 +1054,7 @@ int zsend_pw_update(struct zserv *client, struct zebra_pw *pw)
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, ZEBRA_PW_STATUS_UPDATE, pw->vrf_id);
+	zclient_create_header(s, ZEBRA_PW_STATUS_UPDATE, pw->vrf_id);
 	stream_write(s, pw->ifname, IF_NAMESIZE);
 	stream_putl(s, pw->ifindex);
 	stream_putl(s, pw->status);
@@ -2094,7 +2084,7 @@ static int zsend_label_manager_connect_response(struct zserv *client,
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, ZEBRA_LABEL_MANAGER_CONNECT, vrf_id);
+	zclient_create_header(s, ZEBRA_LABEL_MANAGER_CONNECT, vrf_id);
 
 	/* result */
 	stream_putc(s, result);
@@ -2156,7 +2146,7 @@ static int zsend_assign_label_chunk_response(struct zserv *client,
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, ZEBRA_GET_LABEL_CHUNK, vrf_id);
+	zclient_create_header(s, ZEBRA_GET_LABEL_CHUNK, vrf_id);
 
 	if (lmc) {
 		/* keep */
