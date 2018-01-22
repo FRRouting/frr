@@ -6,6 +6,7 @@ DON'T use it for production network.
 
 Implementation details
 ----------------------
+### Concepts
 
 Segment Routing used 3 differents OPAQUE LSA in OSPF to carry the various
 information:
@@ -21,6 +22,8 @@ OPAQUE LSA functions define in ospf_opaque.[c,h] as well as the OSPF API. This
 latter is mandatory for the implementation as it provides the Callback to
 Segment Routing functions (see below) when an Extended Link / Prefix or Router
 Information is received.
+
+### Overview
 
 Following files where modified or added:
  - ospd_ri.[c,h] have been modified to add the new TLVs for Segment Routing.
@@ -45,7 +48,7 @@ The figure below shows the relation between the various files:
  - ospf_ri.c send back to ospf_sr.c received Router Information LSA and update
    Self Router Information LSA with paramters provided by ospf_sr.c i.e. SRGB
    and MSD. It use ospf_opaque.c functions to send/received these Opaque LSAs.
- - ospf_ext.c send bacl to ospf_sr.c received Extended Prefix and Link Opaque
+ - ospf_ext.c send back to ospf_sr.c received Extended Prefix and Link Opaque
    LSA and send self Extended Prefix and Link Opaque LSA through ospf_opaque.c
    functions.
 
@@ -84,6 +87,27 @@ The figure below shows the relation between the various files:
 
       Figure1: Overview of Segment Routing interaction
 
+### Module interactions
+
+To process incoming LSA, the code is based on the capability to call `hook()` functions when LSA are inserted or delete to / from the LSDB and the possibility to register particular treatment for Opaque LSA. The first point is provided by the OSPF API feature and the second by the Opaque implementation itself. Indeed, it is possible to register callback function for a given Opaque LSA ID (see `ospf_register_opaque_functab()` function defined in `ospf_opaque.c`). Each time a new LSA is added to the LSDB, the `new_lsa_hook()` function previously register for this LSA type is called. For Opaque LSA it is the `ospf_opaque_lsa_install_hook()`.  For deletion, it is `ospf_opaque_lsa_delete_hook()`.
+
+Note that incoming LSA which is already present in the LSDB will be inserted after the old instance of this LSA remove from the LSDB. Thus, after the first time, each incoming LSA will trigger a `delete` following by an `install`. This is not very helpfull to handle real LSA deletion. In fact, LSA deletion is done by Flushing LSA i.e. flood LSA after seting its age to MAX_AGE. Then, a garbage function has the role to remove all LSA with `age == MAX_AGE` in the LSDB. So, to handle LSA Flush, the best is to look to the LSA age to determine if it is an installation or a future deletion i.e. the flushed LSA is first store in the LSDB with MAX_AGE waiting for the garbage collector function.
+
+#### Router Information LSAs
+
+To activate Segment Routing, new CLI command `segment-routing on` has been introduced. When this command is activated, function `ospf_router_info_update_sr()` is called to indicate to Router Information process that Segment Routing TLVs must be flood. Same function is called to modify the Segment Routing Global Block (SRGB) and Maximum Stack Depth (MSD) TLV. Only Shortest Path First (SPF) Algorithm is supported, so no possiblity to modify this TLV is offer by the code.
+
+When Opaque LSA Tyep 4 i.e. Router Information are stored in LSDB, function `ospf_opaque_lsa_install_hook()` will call the previously registered function `ospf_router_info_lsa_update()`. In turn, the function will simply trigger `ospf_sr_ri_lsa_update()` or `ospf_sr_ri_lsa_delete` in function of the LSA age. Before, it verifies that the LSA Opaque Type is 4 (Router Information). Self Opaque LSA are not send back to the Segment Routing functions as information are already stored.
+
+#### Extended Link Prefix LSAs
+
+Like for Router Information, Segment Routing is activate at the Extended Link/Prefix level with new `segment-routing on` command. This trigger automtically the flooding of Extended Link LSA for all ospf interface where adjacency is full. For Extended Prefix LSA, the new CLI command `segment-routing prefix ...` will trigger the flooding of Prefix SID TLV/SubTLVs.
+
+When Opaque LSA Type 7 i.e. Extended Prefix and Type 8 i.e. Extended Link are store in the LSDB, `ospf_ext_pref_update_lsa()` respectively `ospf_ext_link_update_lsa()` are called like for Router Information LSA. In turn, they respectively trigger `ospf_sr_ext_prefix_lsa_update()` / `ospf_sr_ext_link_lsa_update()` or `ospf_sr_ext_prefix_lsa_delete()` / `ospf_sr_ext_link_lsa_delete()` if the LSA age is equel to MAX_AGE.
+
+#### Zebra
+
+When a new MPLS entry of new Forwarding Equivalent Class (FEC) must be add or delete in the data plane, `add_sid_nhlfe()` respectively `del_sid_nhlfe()` are called. Once check the validity of labels, they send to ZEBRA layer a new labels through `ZEBRA_MPLS_LABELS_ADD` command, respectively `ZEBRA_MPLS_LABELS_DELETE` command for deletion. This is completed by a new labelled route through `ZEBRA_ROUTE_ADD` command, respectively `ZEBRA_ROUTE_DELETE` command.
 
 Configuration
 -------------
@@ -113,9 +137,11 @@ SID.
 Known limitations
 -----------------
 
+ - Runs only within default VRF
  - Only single Area is supported. ABR is not yet supported
  - Only SPF algorithm is supported
  - Extended Prefix Range is not supported
+ - MPLS table are not flush at startup. Thus, restarting zebra process is mandatory to remove old MPLS entries in the data plane after a crash of ospfd daemon.
 
 Credits
 -------

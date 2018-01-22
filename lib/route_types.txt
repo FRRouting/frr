@@ -78,7 +78,6 @@ ZEBRA_ROUTE_BGP_DIRECT, bgp-direct, NULL,  'b', 0, 0, "BGP-Direct"
 ZEBRA_ROUTE_BGP_DIRECT_EXT, bgp-direct-to-nve-groups, NULL, 'e', 0, 0, "BGP2VNC"
 ZEBRA_ROUTE_BABEL,      babel,     babeld, 'A', 1, 1, "Babel"
 ZEBRA_ROUTE_SHARP,    sharp,     sharpd, 'D', 1, 1, "SHARP"
-ZEBRA_ROUTE_OSPF_SR,    ospf-sr,   ospfd,  's', 1, 0, "OSPF-SR" 
 ZEBRA_ROUTE_ALL,        wildcard,  none,   '-', 0, 0, "-"
 
 
@@ -104,4 +103,3 @@ ZEBRA_ROUTE_LDP,    "Label Distribution Protocol (LDP)"
 ZEBRA_ROUTE_VNC_DIRECT,    "VNC direct (not via zebra) routes"
 ZEBRA_ROUTE_BABEL,  "Babel routing protocol (Babel)"
 ZEBRA_ROUTE_SHARP, "Super Happy Advanced Routing Protocol (sharpd)"
-ZEBRA_ROUTE_OSPF_SR, "OSPF Segment Routing (OSPF-SR)"
