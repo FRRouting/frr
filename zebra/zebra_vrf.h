@@ -128,6 +128,8 @@ struct zebra_vrf {
 
 static inline vrf_id_t zvrf_id(struct zebra_vrf *zvrf)
 {
+	if (!zvrf || !zvrf->vrf)
+		return VRF_UNKNOWN;
 	return zvrf->vrf->vrf_id;
 }
 
