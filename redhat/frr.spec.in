@@ -22,7 +22,7 @@
 %{!?with_multipath:     %global  with_multipath     256 }
 %{!?frr_user:           %global  frr_user           frr }
 %{!?vty_group:          %global  vty_group          frrvty }
-%{!?with_fpm:           %global  with_fpm           0 }
+%{!?with_fpm:           %global  with_fpm           1 }
 %{!?with_watchfrr:      %global  with_watchfrr      1 }
 %{!?with_bgp_vnc:       %global  with_bgp_vnc       0 }
 %{!?with_pimd:          %global  with_pimd          1 }
@@ -553,6 +553,9 @@ rm -rf %{buildroot}
 %{_libdir}/lib*.so
 %{_libdir}/lib*.so.0
 %attr(755,root,root) %{_libdir}/lib*.so.0.*
+%endif
+%if %{with_fpm}
+%attr(755,root,root) %{_libdir}/frr/modules/zebra_fpm.so
 %endif
 %attr(755,root,root) %{_libdir}/frr/modules/zebra_irdp.so
 %{_bindir}/*
