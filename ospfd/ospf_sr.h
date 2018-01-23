@@ -64,7 +64,7 @@
 struct subtlv_sid_label {
 	/* Length is 3 (20 rightmost bits MPLS label) or 4 (32 bits SID) */
 	struct tlv_header header;
-	u_int32_t value;
+	uint32_t value;
 };
 
 /*
@@ -81,7 +81,7 @@ struct ri_sr_tlv_sr_algorithm {
 #define SR_ALGORITHM_UNSET       255
 #define ALGORITHM_COUNT          4
 	/* Only 4 algorithms supported in this code */
-	u_int8_t value[ALGORITHM_COUNT];
+	uint8_t value[ALGORITHM_COUNT];
 };
 
 /* RI SID/Label Range TLV - section 3.2 */
@@ -90,7 +90,7 @@ struct ri_sr_tlv_sid_label_range {
 	struct tlv_header header;
 /* Only 24 upper most bits are significant */
 #define SID_RANGE_LABEL_LENGTH	3
-	u_int32_t size;
+	uint32_t size;
 	/* A SID/Label sub-TLV will follow. */
 	struct subtlv_sid_label lower;
 };
@@ -99,9 +99,9 @@ struct ri_sr_tlv_sid_label_range {
 #define RI_SR_TLV_NODE_MSD		12
 struct ri_sr_tlv_node_msd {
 	struct tlv_header header;
-	u_int8_t subtype; /* always = 1 */
-	u_int8_t value;
-	u_int16_t padding;
+	uint8_t subtype; /* always = 1 */
+	uint8_t value;
+	uint16_t padding;
 };
 
 /*
@@ -130,11 +130,11 @@ struct ri_sr_tlv_node_msd {
 #define EXT_SUBTLV_PREFIX_RANGE_SIZE	12
 struct ext_tlv_prefix_range {
 	struct tlv_header header;
-	u_int8_t pref_length;
-	u_int8_t af;
-	u_int16_t range_size;
-	u_int8_t flags;
-	u_int8_t reserved[3];
+	uint8_t pref_length;
+	uint8_t af;
+	uint16_t range_size;
+	uint8_t flags;
+	uint8_t reserved[3];
 	struct in_addr address;
 };
 
@@ -143,11 +143,11 @@ struct ext_tlv_prefix_range {
 #define EXT_SUBTLV_PREFIX_SID_SIZE	8
 struct ext_subtlv_prefix_sid {
 	struct tlv_header header;
-	u_int8_t flags;
-	u_int8_t reserved;
-	u_int8_t mtid;
-	u_int8_t algorithm;
-	u_int32_t value;
+	uint8_t flags;
+	uint8_t reserved;
+	uint8_t mtid;
+	uint8_t algorithm;
+	uint32_t value;
 };
 
 /* Adj-SID Sub-TLV - section 6.1 */
@@ -155,11 +155,11 @@ struct ext_subtlv_prefix_sid {
 #define EXT_SUBTLV_ADJ_SID_SIZE		8
 struct ext_subtlv_adj_sid {
 	struct tlv_header header;
-	u_int8_t flags;
-	u_int8_t reserved;
-	u_int8_t mtid;
-	u_int8_t weight;
-	u_int32_t value;
+	uint8_t flags;
+	uint8_t reserved;
+	uint8_t mtid;
+	uint8_t weight;
+	uint32_t value;
 };
 
 /* LAN Adj-SID Sub-TLV - section 6.2 */
@@ -167,12 +167,12 @@ struct ext_subtlv_adj_sid {
 #define EXT_SUBTLV_LAN_ADJ_SID_SIZE	12
 struct ext_subtlv_lan_adj_sid {
 	struct tlv_header header;
-	u_int8_t flags;
-	u_int8_t reserved;
-	u_int8_t mtid;
-	u_int8_t weight;
+	uint8_t flags;
+	uint8_t reserved;
+	uint8_t mtid;
+	uint8_t weight;
 	struct in_addr neighbor_id;
-	u_int32_t value;
+	uint32_t value;
 };
 
 /*
@@ -182,8 +182,8 @@ struct ext_subtlv_lan_adj_sid {
 
 /* Structure aggregating SRGB info retrieved from an lsa */
 struct sr_srgb {
-	u_int32_t range_size;
-	u_int32_t lower_bound;
+	uint32_t range_size;
+	uint32_t lower_bound;
 };
 
 /* SID type to make difference between loopback interfaces and others */
@@ -198,7 +198,7 @@ struct ospf_sr_db {
 	bool update;
 
 	/* Flooding Scope: Area = 10 or AS = 11 */
-	u_int8_t scope;
+	uint8_t scope;
 
 	/* FRR SR node */
 	struct sr_node *self;
@@ -212,26 +212,26 @@ struct ospf_sr_db {
 	/* Local SR info announced in Router Info LSA */
 
 	/* Algorithms supported by the node */
-	u_int8_t algo[ALGORITHM_COUNT];
+	uint8_t algo[ALGORITHM_COUNT];
 	/*
 	 * Segment Routing Global Block i.e. label range
 	 * Only one range supported in this code
 	 */
 	struct sr_srgb srgb;
 	/* Maximum SID Depth supported by the node */
-	u_int8_t msd;
+	uint8_t msd;
 };
 
 /* Structure aggregating all received SR info from LSAs by node */
 struct sr_node {
 	struct in_addr adv_router; /* used to identify sender of LSA */
 	/* 24-bit Opaque-ID field value according to RFC 7684 specification */
-	u_int32_t instance;
+	uint32_t instance;
 
-	u_int8_t algo[ALGORITHM_COUNT]; /* Algorithms supported by the node */
+	uint8_t algo[ALGORITHM_COUNT]; /* Algorithms supported by the node */
 	/* Segment Routing Global Block i.e. label range */
 	struct sr_srgb srgb;
-	u_int8_t msd; /* Maximum SID Depth */
+	uint8_t msd; /* Maximum SID Depth */
 
 	/* List of Prefix & Link advertise by this node */
 	struct list *ext_prefix; /* For Node SID */
@@ -256,13 +256,13 @@ struct sr_nhlfe {
 struct sr_link {
 	struct in_addr adv_router; /* used to identify sender of LSA */
 	/* 24-bit Opaque-ID field value according to RFC 7684 specification */
-	u_int32_t instance;
+	uint32_t instance;
 
 	/* Flags to manage this link parameters. */
-	u_int32_t flags[2];
+	uint32_t flags[2];
 
 	/* Segment Routing ID */
-	u_int32_t sid[2];
+	uint32_t sid[2];
 	enum sid_type type;
 
 	/* SR NHLFE for this link */
@@ -276,13 +276,13 @@ struct sr_link {
 struct sr_prefix {
 	struct in_addr adv_router; /* used to identify sender of LSA */
 	/* 24-bit Opaque-ID field value according to RFC 7684 specification */
-	u_int32_t instance;
+	uint32_t instance;
 
 	/* Flags to manage this prefix parameters. */
-	u_int32_t flags;
+	uint32_t flags;
 
 	/* Segment Routing ID */
-	u_int32_t sid;
+	uint32_t sid;
 	enum sid_type type;
 
 	/* SR NHLFE for this prefix */
@@ -308,7 +308,7 @@ extern void ospf_sr_ext_link_lsa_delete(struct ospf_lsa *);
 extern void ospf_sr_ext_prefix_lsa_update(struct ospf_lsa *);
 extern void ospf_sr_ext_prefix_lsa_delete(struct ospf_lsa *);
 /* Segment Routing configuration functions */
-extern u_int32_t get_ext_link_label_value(void);
+extern uint32_t get_ext_link_label_value(void);
 extern void ospf_sr_config_write_router(struct vty *);
 /* Segment Routing re-routing function */
 extern void ospf_sr_update_timer_add(struct ospf *);

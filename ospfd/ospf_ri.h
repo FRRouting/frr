@@ -169,7 +169,7 @@ struct ri_pce_subtlv_cap_flag {
 
 /* Structure to share flooding scope info for Segment Routing */
 struct scope_info {
-	u_int8_t scope;
+	uint8_t scope;
 	struct in_addr area_id;
 };
 
@@ -177,6 +177,6 @@ struct scope_info {
 extern int ospf_router_info_init(void);
 extern void ospf_router_info_term(void);
 extern int ospf_router_info_enable(void);
-extern void ospf_router_info_update_sr(bool, struct sr_srgb, u_int8_t);
+extern void ospf_router_info_update_sr(bool, struct sr_srgb, uint8_t);
 extern struct scope_info ospf_router_info_get_flooding_scope(void);
 #endif /* _ZEBRA_OSPF_ROUTER_INFO_H */
