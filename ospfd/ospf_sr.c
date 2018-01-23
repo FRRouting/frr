@@ -412,7 +412,7 @@ void ospf_sr_term(void)
  */
 
 /* Compute label from index */
-static mpls_label_t index2label(u_int32_t index, struct sr_srgb srgb)
+static mpls_label_t index2label(uint32_t index, struct sr_srgb srgb)
 {
 	mpls_label_t label;
 
@@ -667,7 +667,7 @@ static int ospf_zebra_send_mpls_ftn(int cmd, struct sr_nhlfe nhlfe)
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
-	api.type = ZEBRA_ROUTE_OSPF_SR;
+	api.type = ZEBRA_ROUTE_OSPF;
 	api.safi = SAFI_UNICAST;
 	memcpy(&api.prefix, &nhlfe.prefv4, sizeof(struct prefix_ipv4));
 
@@ -695,8 +695,6 @@ static int ospf_zebra_send_mpls_ftn(int cmd, struct sr_nhlfe nhlfe)
 			   nhlfe.prefv4.prefixlen, nhlfe.ifindex);
 
 	return (zclient_route_send(cmd, zclient, &api));
-
-	return -1;
 }
 
 /* Add new NHLFE entry for SID */
@@ -743,7 +741,7 @@ static struct sr_link *get_ext_link_sid(struct tlv_header *tlvh)
 	struct ext_subtlv_rmt_itf_addr *rmt_itf;
 
 	struct tlv_header *sub_tlvh;
-	u_int16_t length = 0, sum = 0, i = 0;
+	uint16_t length = 0, sum = 0, i = 0;
 
 	srl = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_link));
 
@@ -828,7 +826,7 @@ static struct sr_prefix *get_ext_prefix_sid(struct tlv_header *tlvh)
 	struct ext_subtlv_prefix_sid *psid;
 
 	struct tlv_header *sub_tlvh;
-	u_int16_t length = 0, sum = 0;
+	uint16_t length = 0, sum = 0;
 
 	srp = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_prefix));
 
@@ -1103,7 +1101,7 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 	struct ri_sr_tlv_sid_label_range *ri_srgb;
 	struct ri_sr_tlv_sr_algorithm *algo;
 	struct sr_srgb srgb;
-	u_int16_t length = 0, sum = 0;
+	uint16_t length = 0, sum = 0;
 
 	if (IS_DEBUG_OSPF_SR)
 		zlog_debug(
@@ -1274,7 +1272,7 @@ void ospf_sr_ext_link_lsa_update(struct ospf_lsa *lsa)
 	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
 	struct sr_link *srl;
 
-	u_int16_t length, sum;
+	uint16_t length, sum;
 
 	if (IS_DEBUG_OSPF_SR)
 		zlog_debug(
@@ -1329,7 +1327,7 @@ void ospf_sr_ext_link_lsa_delete(struct ospf_lsa *lsa)
 	struct sr_link *srl;
 	struct sr_node *srn;
 	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
-	u_int32_t instance = ntohl(lsah->id.s_addr);
+	uint32_t instance = ntohl(lsah->id.s_addr);
 
 	if (IS_DEBUG_OSPF_SR)
 		zlog_debug(
@@ -1390,7 +1388,7 @@ void ospf_sr_ext_prefix_lsa_update(struct ospf_lsa *lsa)
 	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
 	struct sr_prefix *srp;
 
-	u_int16_t length, sum;
+	uint16_t length, sum;
 
 	if (IS_DEBUG_OSPF_SR)
 		zlog_debug(
@@ -1445,7 +1443,7 @@ void ospf_sr_ext_prefix_lsa_delete(struct ospf_lsa *lsa)
 	struct sr_prefix *srp;
 	struct sr_node *srn;
 	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
-	u_int32_t instance = ntohl(lsah->id.s_addr);
+	uint32_t instance = ntohl(lsah->id.s_addr);
 
 	if (IS_DEBUG_OSPF_SR)
 		zlog_debug(
@@ -1499,9 +1497,9 @@ void ospf_sr_ext_prefix_lsa_delete(struct ospf_lsa *lsa)
 
 /* Get Label for Extended Link SID */
 /* TODO: To be replace by Zebra Label Manager */
-u_int32_t get_ext_link_label_value(void)
+uint32_t get_ext_link_label_value(void)
 {
-	static u_int32_t label = ADJ_SID_MIN - 1;
+	static uint32_t label = ADJ_SID_MIN - 1;
 
 	if (label < ADJ_SID_MAX)
 		label += 1;
@@ -1779,9 +1777,9 @@ DEFUN (sr_sid_label_range,
        "Lower-bound range in decimal (0-1048575)\n"
        "Upper-bound range in decimal (0-1048575)\n")
 {
-	u_int32_t upper;
-	u_int32_t lower;
-	u_int32_t size;
+	uint32_t upper;
+	uint32_t lower;
+	uint32_t size;
 	int idx_low = 2;
 	int idx_up = 3;
 
@@ -1869,7 +1867,7 @@ DEFUN (sr_node_msd,
        "Maximum Stack Depth for this router\n"
        "Maximum number of label that could be stack (1-16)\n")
 {
-	u_int32_t msd;
+	uint32_t msd;
 	int idx_number = 2;
 
 	if (!ospf_sr_enabled(vty))

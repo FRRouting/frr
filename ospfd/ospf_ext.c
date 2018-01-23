@@ -205,9 +205,9 @@ static void del_ext_info(void *val)
 }
 
 /* Increment instance value for Extended Prefix Opaque LSAs Opaque ID field */
-static u_int32_t get_ext_pref_instance_value(void)
+static uint32_t get_ext_pref_instance_value(void)
 {
-	static u_int32_t seqno = 0;
+	static uint32_t seqno = 0;
 
 	if (seqno < MAX_LEGAL_EXT_INSTANCE_NUM)
 		seqno += 1;
@@ -218,9 +218,9 @@ static u_int32_t get_ext_pref_instance_value(void)
 }
 
 /* Increment instance value for Extended Link Opaque LSAs Opaque ID field */
-static u_int32_t get_ext_link_instance_value(void)
+static uint32_t get_ext_link_instance_value(void)
 {
-	static u_int32_t seqno = 0;
+	static uint32_t seqno = 0;
 
 	if (seqno < MAX_LEGAL_EXT_INSTANCE_NUM)
 		seqno += 1;
@@ -265,8 +265,8 @@ static struct ext_itf *lookup_ext_by_instance(struct ospf_lsa *lsa)
  *------------------------------------------------------------------------*/
 
 /* Extended Prefix TLV - RFC7684 section 2.1 */
-static void set_ext_prefix(struct ext_itf *exti, u_int8_t route_type,
-			   u_int8_t flags, struct prefix_ipv4 p)
+static void set_ext_prefix(struct ext_itf *exti, uint8_t route_type,
+			   uint8_t flags, struct prefix_ipv4 p)
 {
 
 	TLV_TYPE(exti->prefix) = htons(EXT_TLV_PREFIX);
@@ -281,7 +281,7 @@ static void set_ext_prefix(struct ext_itf *exti, u_int8_t route_type,
 }
 
 /* Extended Link TLV - RFC7684 section 3.1 */
-static void set_ext_link(struct ext_itf *exti, u_int8_t type, struct in_addr id,
+static void set_ext_link(struct ext_itf *exti, uint8_t type, struct in_addr id,
 			 struct in_addr data)
 {
 
@@ -294,11 +294,11 @@ static void set_ext_link(struct ext_itf *exti, u_int8_t type, struct in_addr id,
 }
 
 /* Prefix SID SubTLV - section 5 */
-static void set_prefix_sid(struct ext_itf *exti, u_int8_t algorithm,
-			   u_int32_t value, int value_type)
+static void set_prefix_sid(struct ext_itf *exti, uint8_t algorithm,
+			   uint32_t value, int value_type)
 {
 
-	u_int8_t flags;
+	uint8_t flags;
 
 	if ((algorithm != SR_ALGORITHM_SPF)
 	    && (algorithm != SR_ALGORITHM_STRICT_SPF)) {
@@ -336,11 +336,11 @@ static void set_prefix_sid(struct ext_itf *exti, u_int8_t algorithm,
 }
 
 /* Adjacency SID SubTLV - section 6.1 */
-static void set_adj_sid(struct ext_itf *exti, bool backup, u_int32_t value,
+static void set_adj_sid(struct ext_itf *exti, bool backup, uint32_t value,
 			int value_type)
 {
 	int index;
-	u_int8_t flags;
+	uint8_t flags;
 
 	/* Determine which ADJ_SID must be set: nominal or backup */
 	if (backup) {
@@ -377,12 +377,12 @@ static void set_adj_sid(struct ext_itf *exti, bool backup, u_int32_t value,
 }
 
 /* LAN Adjacency SID SubTLV - section 6.2 */
-static void set_lan_adj_sid(struct ext_itf *exti, bool backup, u_int32_t value,
+static void set_lan_adj_sid(struct ext_itf *exti, bool backup, uint32_t value,
 			    int value_type, struct in_addr neighbor_id)
 {
 
 	int index;
-	u_int8_t flags;
+	uint8_t flags;
 
 	/* Determine which ADJ_SID must be set: nominal or backup */
 	if (backup) {
@@ -437,7 +437,7 @@ static void set_rmt_itf_addr(struct ext_itf *exti, struct in_addr rmtif)
  *
  * @return instance number if update is OK, 0 otherwise
  */
-int ospf_ext_schedule_prefix_index(struct interface *ifp, u_int32_t index,
+int ospf_ext_schedule_prefix_index(struct interface *ifp, uint32_t index,
 				   struct prefix_ipv4 *p)
 {
 	int rc = 0;
@@ -659,7 +659,7 @@ static void ospf_ext_link_nsm_change(struct ospf_neighbor *nbr, int old_status)
 {
 	struct ospf_interface *oi = nbr->oi;
 	struct ext_itf *exti;
-	u_int32_t label;
+	uint32_t label;
 
 	/* Process Neighbor only when its state is NSM Full */
 	if (nbr->state != NSM_Full)
@@ -915,8 +915,8 @@ static struct ospf_lsa *ospf_ext_pref_lsa_new(struct ospf_area *area,
 	u_char options, lsa_type;
 	struct in_addr lsa_id;
 	struct in_addr router_id;
-	u_int32_t tmp;
-	u_int16_t length;
+	uint32_t tmp;
+	uint16_t length;
 
 	/* Sanity Check */
 	if (exti == NULL)
@@ -999,8 +999,8 @@ static struct ospf_lsa *ospf_ext_link_lsa_new(struct ospf_area *area,
 	struct ospf_lsa *new = NULL;
 	u_char options, lsa_type;
 	struct in_addr lsa_id;
-	u_int32_t tmp;
-	u_int16_t length;
+	uint32_t tmp;
+	uint16_t length;
 
 	/* Sanity Check */
 	if (exti == NULL)
@@ -1435,7 +1435,7 @@ static void ospf_ext_pref_lsa_schedule(struct ext_itf *exti,
 	struct ospf_lsa lsa;
 	struct lsa_header lsah;
 	struct ospf *top;
-	u_int32_t tmp;
+	uint32_t tmp;
 
 	memset(&lsa, 0, sizeof(lsa));
 	memset(&lsah, 0, sizeof(lsah));
@@ -1502,7 +1502,7 @@ static void ospf_ext_link_lsa_schedule(struct ext_itf *exti,
 	struct ospf_lsa lsa;
 	struct lsa_header lsah;
 	struct ospf *top;
-	u_int32_t tmp;
+	uint32_t tmp;
 
 	memset(&lsa, 0, sizeof(lsa));
 	memset(&lsah, 0, sizeof(lsah));
@@ -1576,7 +1576,7 @@ static void ospf_ext_lsa_schedule(struct ext_itf *exti, enum lsa_opcode op)
  * Followings are vty show functions.
  *------------------------------------------------------------------------*/
 /* Cisco experimental SubTLV */
-static u_int16_t show_vty_ext_link_rmt_itf_addr(struct vty *vty,
+static uint16_t show_vty_ext_link_rmt_itf_addr(struct vty *vty,
 						struct tlv_header *tlvh)
 {
 	struct ext_subtlv_rmt_itf_addr *top;
@@ -1591,7 +1591,7 @@ static u_int16_t show_vty_ext_link_rmt_itf_addr(struct vty *vty,
 }
 
 /* Adjacency SID SubTLV */
-static u_int16_t show_vty_ext_link_adj_sid(struct vty *vty,
+static uint16_t show_vty_ext_link_adj_sid(struct vty *vty,
 					   struct tlv_header *tlvh)
 {
 	struct ext_subtlv_adj_sid *top = (struct ext_subtlv_adj_sid *)tlvh;
@@ -1610,7 +1610,7 @@ static u_int16_t show_vty_ext_link_adj_sid(struct vty *vty,
 }
 
 /* LAN Adjacency SubTLV */
-static u_int16_t show_vty_ext_link_lan_adj_sid(struct vty *vty,
+static uint16_t show_vty_ext_link_lan_adj_sid(struct vty *vty,
 					       struct tlv_header *tlvh)
 {
 	struct ext_subtlv_lan_adj_sid *top =
@@ -1630,7 +1630,7 @@ static u_int16_t show_vty_ext_link_lan_adj_sid(struct vty *vty,
 	return TLV_SIZE(tlvh);
 }
 
-static u_int16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh)
+static uint16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh)
 {
 	vty_out(vty, "    Unknown TLV: [type(0x%x), length(0x%x)]\n",
 		ntohs(tlvh->type), ntohs(tlvh->length));
@@ -1639,12 +1639,12 @@ static u_int16_t show_vty_unknown_tlv(struct vty *vty, struct tlv_header *tlvh)
 }
 
 /* Extended Link Sub TLVs */
-static u_int16_t show_vty_link_info(struct vty *vty, struct tlv_header *ext)
+static uint16_t show_vty_link_info(struct vty *vty, struct tlv_header *ext)
 {
 	struct ext_tlv_link *top = (struct ext_tlv_link *)ext;
 	struct tlv_header *tlvh;
-	u_int16_t length = ntohs(top->header.length) - 3 * sizeof(u_int32_t);
-	u_int16_t sum = 0;
+	uint16_t length = ntohs(top->header.length) - 3 * sizeof(uint32_t);
+	uint16_t sum = 0;
 
 	vty_out(vty,
 		"  Extended Link TLV: Length %d\n	Link Type: 0x%x\n"
@@ -1680,7 +1680,7 @@ static void ospf_ext_link_show_info(struct vty *vty, struct ospf_lsa *lsa)
 {
 	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
 	struct tlv_header *tlvh;
-	u_int16_t length = 0, sum = 0;
+	uint16_t length = 0, sum = 0;
 
 	/* Initialize TLV browsing */
 	length = ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE;
@@ -1701,7 +1701,7 @@ static void ospf_ext_link_show_info(struct vty *vty, struct ospf_lsa *lsa)
 }
 
 /* Prefix SID SubTLV */
-static u_int16_t show_vty_ext_pref_pref_sid(struct vty *vty,
+static uint16_t show_vty_ext_pref_pref_sid(struct vty *vty,
 					    struct tlv_header *tlvh)
 {
 	struct ext_subtlv_prefix_sid *top =
@@ -1722,12 +1722,12 @@ static u_int16_t show_vty_ext_pref_pref_sid(struct vty *vty,
 }
 
 /* Extended Prefix SubTLVs */
-static u_int16_t show_vty_pref_info(struct vty *vty, struct tlv_header *ext)
+static uint16_t show_vty_pref_info(struct vty *vty, struct tlv_header *ext)
 {
 	struct ext_tlv_prefix *top = (struct ext_tlv_prefix *)ext;
 	struct tlv_header *tlvh;
-	u_int16_t length = ntohs(top->header.length) - 2 * sizeof(u_int32_t);
-	u_int16_t sum = 0;
+	uint16_t length = ntohs(top->header.length) - 2 * sizeof(uint32_t);
+	uint16_t sum = 0;
 
 	vty_out(vty,
 		"  Extended Prefix TLV: Length %d\n\tRoute Type: %d\n"
@@ -1756,7 +1756,7 @@ static void ospf_ext_pref_show_info(struct vty *vty, struct ospf_lsa *lsa)
 {
 	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
 	struct tlv_header *tlvh;
-	u_int16_t length = 0, sum = 0;
+	uint16_t length = 0, sum = 0;
 
 	/* Initialize TLV browsing */
 	length = ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE;

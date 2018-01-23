@@ -113,10 +113,10 @@
 #define EXT_TLV_PREFIX_SIZE		8
 struct ext_tlv_prefix {
 	struct tlv_header header;
-	u_int8_t route_type;
-	u_int8_t pref_length;
-	u_int8_t af;
-	u_int8_t flags;
+	uint8_t route_type;
+	uint8_t pref_length;
+	uint8_t af;
+	uint8_t flags;
 	struct in_addr address;
 };
 
@@ -125,8 +125,8 @@ struct ext_tlv_prefix {
 #define EXT_TLV_LINK_SIZE		12
 struct ext_tlv_link {
 	struct tlv_header header;
-	u_int8_t link_type;
-	u_int8_t reserved[3];
+	uint8_t link_type;
+	uint8_t reserved[3];
 	struct in_addr link_id;
 	struct in_addr link_data;
 };
@@ -144,11 +144,11 @@ struct ospf_ext_lp {
 	bool enabled;
 
 	/* Flags to manage this Extended Prefix/Link Opaque LSA */
-	u_int32_t flags;
+	uint32_t flags;
 
 	/* Scope is area Opaque Type 10 or AS Opaque LSA Type 11 for
 	 * Extended Prefix and area Opaque Type 10 for Extended Link */
-	u_int8_t scope;
+	uint8_t scope;
 
 	/* area pointer if flooding is Type 10 Null if flooding is AS scope */
 	struct ospf_area *area;
@@ -161,8 +161,8 @@ struct ospf_ext_lp {
 /* Structure to aggregate interfaces information for Extended Prefix/Link */
 struct ext_itf {
 	/* 24-bit Opaque-ID field value according to RFC 7684 specification */
-	u_int32_t instance;
-	u_int8_t type; /* Extended Prefix (7) or Link (8) */
+	uint32_t instance;
+	uint8_t type; /* Extended Prefix (7) or Link (8) */
 
 	/* Reference pointer to a Zebra-interface. */
 	struct interface *ifp;
@@ -171,7 +171,7 @@ struct ext_itf {
 	struct ospf_area *area;
 
 	/* Flags to manage this link parameters. */
-	u_int32_t flags;
+	uint32_t flags;
 
 	/* SID type: Node, Adjacency or LAN Adjacency */
 	enum sid_type stype;
@@ -191,6 +191,6 @@ struct ext_itf {
 extern int ospf_ext_init(void);
 extern void ospf_ext_term(void);
 extern void ospf_ext_update_sr(bool);
-extern int ospf_ext_schedule_prefix_index(struct interface *, u_int32_t,
+extern int ospf_ext_schedule_prefix_index(struct interface *, uint32_t,
 					  struct prefix_ipv4 *);
 #endif /* _FRR_OSPF_EXT_PREF_H_ */

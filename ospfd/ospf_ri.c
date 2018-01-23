@@ -443,7 +443,7 @@ static void set_pce_cap_flag(u_int32_t cap, struct ospf_pce_info *pce)
 /* Segment Routing TLV setter */
 
 /* Algorithm SubTLV - section 3.1 */
-static void set_sr_algorithm(u_int8_t algo)
+static void set_sr_algorithm(uint8_t algo)
 {
 
 	OspfRI.sr_info.algo.value[0] = algo;
@@ -452,13 +452,13 @@ static void set_sr_algorithm(u_int8_t algo)
 
 	/* Set TLV type and length == only 1 Algorithm */
 	TLV_TYPE(OspfRI.sr_info.algo) = htons(RI_SR_TLV_SR_ALGORITHM);
-	TLV_LEN(OspfRI.sr_info.algo) = htons(sizeof(u_int8_t));
+	TLV_LEN(OspfRI.sr_info.algo) = htons(sizeof(uint8_t));
 
 	return;
 }
 
 /* unset Aglogithm SubTLV */
-static void unset_sr_algorithm(u_int8_t algo)
+static void unset_sr_algorithm(uint8_t algo)
 {
 
 	for (int i = 0; i < ALGORITHM_COUNT; i++)
@@ -477,7 +477,7 @@ static void set_sr_sid_label_range(struct sr_srgb srgb)
 	/* Set Header */
 	TLV_TYPE(OspfRI.sr_info.range) = htons(RI_SR_TLV_SID_LABEL_RANGE);
 	TLV_LEN(OspfRI.sr_info.range) =
-		htons(SUBTLV_SID_LABEL_SIZE + sizeof(u_int32_t));
+		htons(SUBTLV_SID_LABEL_SIZE + sizeof(uint32_t));
 	/* Set Range Size */
 	OspfRI.sr_info.range.size = htonl(SET_RANGE_SIZE(srgb.range_size));
 	/* Set Lower bound label SubTLV */
@@ -501,10 +501,10 @@ static void unset_sr_sid_label_range()
 }
 
 /* Set Maximum Stack Depth for this router */
-static void set_sr_node_msd(u_int8_t msd)
+static void set_sr_node_msd(uint8_t msd)
 {
 	TLV_TYPE(OspfRI.sr_info.msd) = htons(RI_SR_TLV_NODE_MSD);
-	TLV_LEN(OspfRI.sr_info.msd) = htons(sizeof(u_int32_t));
+	TLV_LEN(OspfRI.sr_info.msd) = htons(sizeof(uint32_t));
 	OspfRI.sr_info.msd.value = msd;
 
 	return;
@@ -604,7 +604,7 @@ static int is_mandated_params_set(struct ospf_router_info ori)
  *
  * @return none
  */
-void ospf_router_info_update_sr(bool enable, struct sr_srgb srgb, u_int8_t msd)
+void ospf_router_info_update_sr(bool enable, struct sr_srgb srgb, uint8_t msd)
 {
 
 	/* First activate and initialize Router Information is necessary */
@@ -1234,7 +1234,7 @@ static u_int16_t show_vty_pce_info(struct vty *vty, struct tlv_header *ri,
 }
 
 /* Display Segment Routing Algorithm TLV information */
-static u_int16_t show_vty_sr_algorithm(struct vty *vty, struct tlv_header *tlvh)
+static uint16_t show_vty_sr_algorithm(struct vty *vty, struct tlv_header *tlvh)
 {
 	struct ri_sr_tlv_sr_algorithm *algo =
 		(struct ri_sr_tlv_sr_algorithm *)tlvh;
@@ -1281,7 +1281,7 @@ static u_int16_t show_vty_sr_algorithm(struct vty *vty, struct tlv_header *tlvh)
 }
 
 /* Display Segment Routing SID/Label Range TLV information */
-static u_int16_t show_vty_sr_range(struct vty *vty, struct tlv_header *tlvh)
+static uint16_t show_vty_sr_range(struct vty *vty, struct tlv_header *tlvh)
 {
 	struct ri_sr_tlv_sid_label_range *range =
 		(struct ri_sr_tlv_sid_label_range *)tlvh;
@@ -1306,7 +1306,7 @@ static u_int16_t show_vty_sr_range(struct vty *vty, struct tlv_header *tlvh)
 }
 
 /* Display Segment Routing Maximum Stack Depth TLV information */
-static u_int16_t show_vty_sr_msd(struct vty *vty, struct tlv_header *tlvh)
+static uint16_t show_vty_sr_msd(struct vty *vty, struct tlv_header *tlvh)
 {
 	struct ri_sr_tlv_node_msd *msd = (struct ri_sr_tlv_node_msd *)tlvh;
 
