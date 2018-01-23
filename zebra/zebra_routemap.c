@@ -1329,7 +1329,7 @@ route_map_result_t zebra_nht_route_map_check(int family, int client_proto,
 	struct nh_rmap_obj nh_obj;
 
 	nh_obj.nexthop = nexthop;
-	nh_obj.vrf_id = re->vrf_id;
+	nh_obj.vrf_id = re->nh_vrf_id;
 	nh_obj.source_protocol = re->type;
 	nh_obj.metric = re->metric;
 	nh_obj.tag = re->tag;

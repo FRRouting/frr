@@ -396,6 +396,7 @@ static void vnc_zebra_route_msg(struct prefix *p, unsigned int nhp_count,
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
+	api.nh_vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_VNC;
 	api.safi = SAFI_UNICAST;
 	api.prefix = *p;

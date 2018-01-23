@@ -256,7 +256,7 @@ struct nexthop *route_entry_nexthop_ipv4_ifindex_add(struct route_entry *re,
 	if (src)
 		nexthop->src.ipv4 = *src;
 	nexthop->ifindex = ifindex;
-	ifp = if_lookup_by_index(nexthop->ifindex, re->vrf_id);
+	ifp = if_lookup_by_index(nexthop->ifindex, re->nh_vrf_id);
 	/*Pending: need to think if null ifp here is ok during bootup?
 	  There was a crash because ifp here was coming to be NULL */
 	if (ifp)
@@ -403,7 +403,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 
 	if (set) {
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
-		zebra_deregister_rnh_static_nexthops(re->vrf_id,
+		zebra_deregister_rnh_static_nexthops(re->nh_vrf_id,
 						     nexthop->resolved, top);
 		nexthops_free(nexthop->resolved);
 		nexthop->resolved = NULL;
@@ -422,7 +422,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	 * address in the routing table.
 	 */
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK)) {
-		ifp = if_lookup_by_index(nexthop->ifindex, re->vrf_id);
+		ifp = if_lookup_by_index(nexthop->ifindex, re->nh_vrf_id);
 		if (ifp && connected_is_unnumbered(ifp)) {
 			if (if_is_operative(ifp))
 				return 1;
@@ -450,7 +450,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		break;
 	}
 	/* Lookup table.  */
-	table = zebra_vrf_table(afi, SAFI_UNICAST, re->vrf_id);
+	table = zebra_vrf_table(afi, SAFI_UNICAST, re->nh_vrf_id);
 	if (!table)
 		return 0;
 
@@ -838,7 +838,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 		family = 0;
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IFINDEX:
-		ifp = if_lookup_by_index(nexthop->ifindex, re->vrf_id);
+		ifp = if_lookup_by_index(nexthop->ifindex, re->nh_vrf_id);
 		if (ifp && if_is_operative(ifp))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
@@ -866,7 +866,8 @@ static unsigned nexthop_active_check(struct route_node *rn,
 		if (rn->p.family != AF_INET)
 			family = AFI_IP6;
 		if (IN6_IS_ADDR_LINKLOCAL(&nexthop->gate.ipv6)) {
-			ifp = if_lookup_by_index(nexthop->ifindex, re->vrf_id);
+			ifp = if_lookup_by_index(nexthop->ifindex,
+						 re->nh_vrf_id);
 			if (ifp && if_is_operative(ifp))
 				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 			else
@@ -909,7 +910,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	memset(&nexthop->rmap_src.ipv6, 0, sizeof(union g_addr));
 
 	/* It'll get set if required inside */
-	ret = zebra_route_map_check(family, re->type, p, nexthop, re->vrf_id,
+	ret = zebra_route_map_check(family, re->type, p, nexthop, re->nh_vrf_id,
 				    re->tag);
 	if (ret == RMAP_DENYMATCH) {
 		if (IS_ZEBRA_DEBUG_RIB) {
@@ -917,7 +918,8 @@ static unsigned nexthop_active_check(struct route_node *rn,
 			zlog_debug(
 				"%u:%s: Filtering out with NH out %s due to route map",
 				re->vrf_id, buf,
-				ifindex2ifname(nexthop->ifindex, re->vrf_id));
+				ifindex2ifname(nexthop->ifindex,
+					       re->nh_vrf_id));
 		}
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 	}
@@ -2502,9 +2504,10 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 }
 
 
-int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
-	    int flags, struct prefix *p, struct prefix_ipv6 *src_p,
-	    const struct nexthop *nh, u_int32_t table_id, u_int32_t metric,
+int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, vrf_id_t nh_vrf_id,
+	    int type, u_short instance, int flags, struct prefix *p,
+	    struct prefix_ipv6 *src_p, const struct nexthop *nh,
+	    u_int32_t table_id, u_int32_t metric,
 	    u_int32_t mtu, uint8_t distance, route_tag_t tag)
 {
 	struct route_entry *re;
@@ -2520,6 +2523,7 @@ int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type, u_short instance,
 	re->mtu = mtu;
 	re->table = table_id;
 	re->vrf_id = vrf_id;
+	re->nh_vrf_id = nh_vrf_id;
 	re->nexthop_num = 0;
 	re->uptime = time(NULL);
 	re->tag = tag;

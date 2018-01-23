@@ -476,12 +476,18 @@ static int vrf_config_write(struct vty *vty)
 		if (!zvrf)
 			continue;
 
-		if (strcmp(zvrf_name(zvrf), VRF_DEFAULT_NAME)) {
+		if (vrf->vrf_id != VRF_DEFAULT)
 			vty_out(vty, "vrf %s\n", zvrf_name(zvrf));
-			if (zvrf->l3vni)
-				vty_out(vty, " vni %u\n", zvrf->l3vni);
+
+		static_config(vty, zvrf, AFI_IP, SAFI_UNICAST, "ip route");
+		static_config(vty, zvrf, AFI_IP, SAFI_MULTICAST, "ip mroute");
+		static_config(vty, zvrf, AFI_IP6, SAFI_UNICAST, "ipv6 route");
+
+		if (vrf->vrf_id != VRF_DEFAULT && zvrf->l3vni)
+			vty_out(vty, " vni %u\n", zvrf->l3vni);
+
+		if (vrf->vrf_id != VRF_DEFAULT)
 			vty_out(vty, "!\n");
-		}
 	}
 	return 0;
 }

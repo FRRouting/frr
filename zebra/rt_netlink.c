@@ -403,6 +403,9 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 		afi = AFI_IP6;
 
 	if (h->nlmsg_type == RTM_NEWROUTE) {
+		struct interface *ifp;
+		vrf_id_t nh_vrf_id = vrf_id;
+
 		if (!tb[RTA_MULTIPATH]) {
 			struct nexthop nh;
 			size_t sz = (afi == AFI_IP) ? 4 : 16;
@@ -434,7 +437,14 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 			if (gate)
 				memcpy(&nh.gate, gate, sz);
 
-			rib_add(afi, SAFI_UNICAST, vrf_id, proto,
+			if (index) {
+				ifp = if_lookup_by_index(index,
+							 VRF_UNKNOWN);
+				if (ifp)
+					nh_vrf_id = ifp->vrf_id;
+			}
+
+			rib_add(afi, SAFI_UNICAST, vrf_id, nh_vrf_id, proto,
 				0, flags, &p, NULL, &nh, table, metric,
 				mtu, distance, tag);
 		} else {
@@ -453,6 +463,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 			re->metric = metric;
 			re->mtu = mtu;
 			re->vrf_id = vrf_id;
+			re->nh_vrf_id = vrf_id;
 			re->table = table;
 			re->nexthop_num = 0;
 			re->uptime = time(NULL);
@@ -464,6 +475,18 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 					break;
 
 				index = rtnh->rtnh_ifindex;
+				if (index) {
+					/*
+					 * Yes we are looking this up
+					 * for every nexthop and just
+					 * using the last one looked
+					 * up right now
+					 */
+					ifp = if_lookup_by_index(index,
+								 VRF_UNKNOWN);
+					if (ifp)
+						re->nh_vrf_id = ifp->vrf_id;
+				}
 				gate = 0;
 				if (rtnh->rtnh_len > sizeof(*rtnh)) {
 					memset(tb, 0, sizeof(tb));
@@ -940,10 +963,17 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 				routedesc, inet6_ntoa(nexthop->gate.ipv6),
 				label_buf, nexthop->ifindex);
 	}
-	if (nexthop->type == NEXTHOP_TYPE_IFINDEX
-	    || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
+
+	/*
+	 * We have the ifindex so we should always send it
+	 * This is especially useful if we are doing route
+	 * leaking.
+	 */
+	if (nexthop->type != NEXTHOP_TYPE_BLACKHOLE)
 		addattr32(nlmsg, req_size, RTA_OIF, nexthop->ifindex);
 
+	if (nexthop->type == NEXTHOP_TYPE_IFINDEX
+	    || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
 		if (cmd == RTM_NEWROUTE) {
 			if (nexthop->rmap_src.ipv4.s_addr)
 				addattr_l(nlmsg, req_size, RTA_PREFSRC,
@@ -961,8 +991,6 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 	}
 
 	if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
-		addattr32(nlmsg, req_size, RTA_OIF, nexthop->ifindex);
-
 		if (cmd == RTM_NEWROUTE) {
 			if (!IN6_IS_ADDR_UNSPECIFIED(&nexthop->rmap_src.ipv6))
 				addattr_l(nlmsg, req_size, RTA_PREFSRC,
@@ -1141,11 +1169,18 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 				routedesc, inet6_ntoa(nexthop->gate.ipv6),
 				label_buf, nexthop->ifindex);
 	}
+
+	/*
+	 * We have figured out the ifindex so we should always send it
+	 * This is especially useful if we are doing route
+	 * leaking.
+	 */
+	if (nexthop->type != NEXTHOP_TYPE_BLACKHOLE)
+		rtnh->rtnh_ifindex = nexthop->ifindex;
+
 	/* ifindex */
 	if (nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX
 	    || nexthop->type == NEXTHOP_TYPE_IFINDEX) {
-		rtnh->rtnh_ifindex = nexthop->ifindex;
-
 		if (nexthop->rmap_src.ipv4.s_addr)
 			*src = &nexthop->rmap_src;
 		else if (nexthop->src.ipv4.s_addr)
@@ -1157,8 +1192,6 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 				"nexthop via if %u",
 				routedesc, nexthop->ifindex);
 	} else if (nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
-		rtnh->rtnh_ifindex = nexthop->ifindex;
-
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"netlink_route_multipath() (%s): "

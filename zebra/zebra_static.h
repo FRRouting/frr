@@ -54,6 +54,7 @@ struct static_route {
 
 	/* VRF identifier. */
 	vrf_id_t vrf_id;
+	vrf_id_t nh_vrf_id;
 
 	/* Administrative distance. */
 	u_char distance;
@@ -89,6 +90,7 @@ extern int static_add_route(afi_t, safi_t safi, u_char type, struct prefix *p,
 			    const char *ifname,
 			    enum static_blackhole_type bh_type, route_tag_t tag,
 			    u_char distance, struct zebra_vrf *zvrf,
+			    struct zebra_vrf *nh_zvrf,
 			    struct static_nh_label *snh_label);
 
 extern int static_delete_route(afi_t, safi_t safi, u_char type,
