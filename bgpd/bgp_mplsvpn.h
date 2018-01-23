@@ -176,4 +176,6 @@ static inline void vpn_leak_postchange(vpn_policy_direction_t direction,
 
 extern void vpn_policy_routemap_event(const char *rmap_name);
 
+extern vrf_id_t get_first_vrf_for_redirect_with_rt(struct ecommunity *eckey);
+
 #endif /* _QUAGGA_BGP_MPLSVPN_H */

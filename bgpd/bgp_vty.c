@@ -6588,6 +6588,63 @@ DEFPY (bgp_imexport_vpn,
 	return CMD_SUCCESS;
 }
 
+DEFPY (af_routetarget_import,
+       af_routetarget_import_cmd,
+       "[no] <rt|route-target> redirect import RTLIST...",
+       NO_STR
+       "Specify route target list\n"
+       "Specify route target list\n"
+       "Flow-spec redirect type route target\n"
+       "Import routes to this address-family\n"
+       "Space separated route target list (A.B.C.D:MN|EF:OPQR|GHJK:MN)\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	int ret;
+	struct ecommunity *ecom = NULL;
+	int doafi[AFI_MAX] = {0};
+	afi_t afi;
+	int idx = 0;
+	int yes = 1;
+
+	if (argv_find(argv, argc, "no", &idx))
+		yes = 0;
+
+	ret = vpn_policy_getafi(vty, doafi);
+	if (ret != CMD_SUCCESS)
+		return ret;
+	if (yes) {
+		if (!argv_find(argv, argc, "RTLIST", &idx)) {
+			vty_out(vty, "%% Missing RTLIST\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		ret = set_ecom_list(vty, argc - idx, argv + idx, &ecom);
+		if (ret != CMD_SUCCESS)
+			return ret;
+	}
+	for (afi = 0; afi < AFI_MAX; ++afi) {
+		if (!doafi[afi])
+			continue;
+		if (yes) {
+			if (bgp->vpn_policy[afi].import_redirect_rtlist)
+				ecommunity_free(
+					&bgp->vpn_policy[afi]
+					.import_redirect_rtlist);
+			bgp->vpn_policy[afi].import_redirect_rtlist =
+				ecommunity_dup(ecom);
+		} else {
+			if (bgp->vpn_policy[afi].import_redirect_rtlist)
+				ecommunity_free(
+					&bgp->vpn_policy[afi]
+					.import_redirect_rtlist);
+			bgp->vpn_policy[afi].import_redirect_rtlist = NULL;
+		}
+	}
+	if (ecom)
+		ecommunity_free(&ecom);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN_NOSH (address_family_ipv4_safi,
        address_family_ipv4_safi_cmd,
        "address-family ipv4 [<unicast|multicast|vpn|labeled-unicast>]",
@@ -11685,7 +11742,16 @@ void bgp_vpn_policy_config_write_afi(struct vty *vty, struct bgp *bgp,
 			bgp->vpn_policy[afi]
 				.rmap_name[BGP_VPN_POLICY_DIR_TOVPN]);
 	}
+	if (bgp->vpn_policy[afi].import_redirect_rtlist) {
+		char *b = ecommunity_ecom2str(
+					bgp->vpn_policy[afi]
+					.import_redirect_rtlist,
+					ECOMMUNITY_FORMAT_ROUTE_MAP,
+					ECOMMUNITY_ROUTE_TARGET);
 
+		vty_out(vty, "%*srt redirect import %s\n", indent, "", b);
+		XFREE(MTYPE_ECOMMUNITY_STR, b);
+	}
 }
 
 
@@ -12896,6 +12962,9 @@ void bgp_vty_init(void)
 	install_element(BGP_IPV6_NODE, &af_rt_vpn_imexport_cmd);
 	install_element(BGP_IPV4_NODE, &af_route_map_vpn_imexport_cmd);
 	install_element(BGP_IPV6_NODE, &af_route_map_vpn_imexport_cmd);
+
+	install_element(BGP_IPV4_NODE, &af_routetarget_import_cmd);
+	install_element(BGP_IPV6_NODE, &af_routetarget_import_cmd);
 
 	install_element(BGP_IPV4_NODE, &af_no_rd_vpn_export_cmd);
 	install_element(BGP_IPV6_NODE, &af_no_rd_vpn_export_cmd);
