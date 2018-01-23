@@ -205,6 +205,9 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(LOGICALROUTER_NODE, line);
 		else if (strncmp(line, "vrf", strlen("vrf")) == 0)
 			config = config_get(VRF_NODE, line);
+		else if (strncmp(line, "nexthop-group", strlen("nexthop-group"))
+			 == 0)
+			config = config_get(NH_GROUP_NODE, line);
 		else if (strncmp(line, "router-id", strlen("router-id")) == 0)
 			config = config_get(ZEBRA_NODE, line);
 		else if (strncmp(line, "router rip", strlen("router rip")) == 0)
@@ -235,6 +238,8 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config = config_get(ISIS_NODE, line);
 		else if (strncmp(line, "route-map", strlen("route-map")) == 0)
 			config = config_get(RMAP_NODE, line);
+		else if (strncmp(line, "pbr-map", strlen("pbr-map")) == 0)
+			config = config_get(PBRMAP_NODE, line);
 		else if (strncmp(line, "access-list", strlen("access-list"))
 			 == 0)
 			config = config_get(ACCESS_NODE, line);

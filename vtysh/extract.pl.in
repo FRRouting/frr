@@ -99,6 +99,9 @@ foreach (@ARGV) {
         elsif ($file =~ /lib\/ns\.c$/) {
             $protocol = "VTYSH_ZEBRA";
         }
+	elsif ($file =~ /lib\/nexthop_group\.c$/) {
+	    $protocol = "VTYSH_PBRD";
+	}
         elsif ($file =~ /lib\/plist\.c$/) {
             if ($defun_array[1] =~ m/ipv6/) {
                 $protocol = "VTYSH_RIPNGD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_BABELD|VTYSH_ISISD";

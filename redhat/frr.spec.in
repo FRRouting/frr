@@ -86,7 +86,7 @@
 %{!?frr_gid:            %global  frr_gid            92 }
 %{!?vty_gid:            %global  vty_gid            85 }
 
-%define     daemon_list zebra ripd ospfd bgpd isisd ripngd ospf6d
+%define     daemon_list zebra ripd ospfd bgpd isisd ripngd ospf6d pbrd
 
 %if %{with_ldpd}
 %define     daemon_ldpd ldpd

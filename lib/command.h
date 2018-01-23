@@ -128,6 +128,7 @@ enum node_type {
 	AS_LIST_NODE,		 /* AS list node. */
 	COMMUNITY_LIST_NODE,     /* Community list node. */
 	RMAP_NODE,		 /* Route map node. */
+	PBRMAP_NODE,		 /* PBR map node. */
 	SMUX_NODE,		 /* SNMP configuration node. */
 	DUMP_NODE,		 /* Packet dump node. */
 	FORWARDING_NODE,	 /* IP forwarding node. */
