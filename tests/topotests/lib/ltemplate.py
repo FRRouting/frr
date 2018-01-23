@@ -122,7 +122,7 @@ def ltemplateTest(script, SkipIfFailed=True, CallOnFail=None, CheckFuncStr=None)
         if check != True:
             pytest.skip("Check function '"+CheckFuncStr+"' returned: " + check)
 
-    luInclude(script, CallOnFail)
+    luInclude(script, eval(CallOnFail))
     numFail = luNumFail() - numEntry
     if numFail > 0:
         luShowFail()
