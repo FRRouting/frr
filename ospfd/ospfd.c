@@ -844,7 +844,6 @@ static void ospf_area_free(struct ospf_area *area)
 	LSDB_LOOP(OPAQUE_LINK_LSDB(area), rn, lsa)
 		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
 
-	ospf_opaque_type10_lsa_term(area);
 	ospf_lsdb_delete_all(area->lsdb);
 	ospf_lsdb_free(area->lsdb);
 
