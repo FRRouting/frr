@@ -589,30 +589,6 @@ static void free_opaque_info_per_type(void *val)
 		ospf_opaque_lsa_flush_schedule(lsa);
 	}
 
-	/* Remove "oipt" from its owner's self-originated LSA list. */
-	switch (oipt->lsa_type) {
-	case OSPF_OPAQUE_LINK_LSA: {
-		struct ospf_interface *oi =
-			(struct ospf_interface *)(oipt->owner);
-		listnode_delete(oi->opaque_lsa_self, oipt);
-		break;
-	}
-	case OSPF_OPAQUE_AREA_LSA: {
-		struct ospf_area *area = (struct ospf_area *)(oipt->owner);
-		listnode_delete(area->opaque_lsa_self, oipt);
-		break;
-	}
-	case OSPF_OPAQUE_AS_LSA: {
-		struct ospf *top = (struct ospf *)(oipt->owner);
-		listnode_delete(top->opaque_lsa_self, oipt);
-		break;
-	}
-	default:
-		zlog_warn("free_opaque_info_per_type: Unexpected LSA-type(%u)",
-			  oipt->lsa_type);
-		break; /* This case may not exist. */
-	}
-
 	OSPF_TIMER_OFF(oipt->t_opaque_lsa_self);
 	list_delete_and_null(&oipt->id_list);
 	XFREE(MTYPE_OPAQUE_INFO_PER_TYPE, oipt);
