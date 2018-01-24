@@ -138,6 +138,8 @@ static void sigint(void)
 			if (zvrf)
 				SET_FLAG(zvrf->flags, ZEBRA_VRF_RETAIN);
 		}
+	if (zebrad.lsp_process_q)
+		work_queue_free(zebrad.lsp_process_q);
 	vrf_terminate();
 
 	zns = zebra_ns_lookup(NS_DEFAULT);
@@ -149,8 +151,6 @@ static void sigint(void)
 
 	list_delete_and_null(&zebrad.client_list);
 	work_queue_free(zebrad.ribq);
-	if (zebrad.lsp_process_q)
-		work_queue_free(zebrad.lsp_process_q);
 	meta_queue_free(zebrad.mq);
 
 	frr_fini();
