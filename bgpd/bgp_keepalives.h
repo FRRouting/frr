@@ -88,6 +88,6 @@ extern void bgp_keepalives_wake(void);
 /**
  * Stops the thread and blocks until it terminates.
  */
-int bgp_keepalives_stop(void **result, struct frr_pthread *fpt);
+int bgp_keepalives_stop(struct frr_pthread *fpt, void **result);
 
 #endif /* _FRR_BGP_KEEPALIVES_H */

@@ -7469,30 +7469,33 @@ static void bgp_pthreads_init()
 {
 	frr_pthread_init();
 
-	frr_pthread_new("BGP i/o thread", PTHREAD_IO, bgp_io_start,
-			bgp_io_stop);
-	frr_pthread_new("BGP keepalives thread", PTHREAD_KEEPALIVES,
-			bgp_keepalives_start, bgp_keepalives_stop);
-
-	/* pre-run initialization */
-	bgp_keepalives_init();
-	bgp_io_init();
+	struct frr_pthread_attr io = {
+		.id = PTHREAD_IO,
+		.start = frr_pthread_attr_default.start,
+		.stop = frr_pthread_attr_default.stop,
+		.name = "BGP I/O thread",
+	};
+	struct frr_pthread_attr ka = {
+		.id = PTHREAD_KEEPALIVES,
+		.start = bgp_keepalives_start,
+		.stop = bgp_keepalives_stop,
+		.name = "BGP Keepalives thread",
+	};
+	frr_pthread_new(&io);
+	frr_pthread_new(&ka);
 }
 
 void bgp_pthreads_run()
 {
-	pthread_attr_t attr;
-	pthread_attr_init(&attr);
-	pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+	struct frr_pthread *io = frr_pthread_get(PTHREAD_IO);
+	struct frr_pthread *ka = frr_pthread_get(PTHREAD_KEEPALIVES);
 
-	/*
-	 * I/O related code assumes the thread is ready for work at all times,
-	 * so we wait until it is.
-	 */
-	frr_pthread_run(PTHREAD_IO, &attr, NULL);
-	bgp_io_wait_running();
+	frr_pthread_run(io, NULL);
+	frr_pthread_run(ka, NULL);
 
-	frr_pthread_run(PTHREAD_KEEPALIVES, &attr, NULL);
+	/* Wait until threads are ready. */
+	frr_pthread_wait_running(io);
+	frr_pthread_wait_running(ka);
 }
 
 void bgp_pthreads_finish()
