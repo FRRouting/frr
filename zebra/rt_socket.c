@@ -387,8 +387,9 @@ static int kernel_rtm(int cmd, struct prefix *p, struct route_entry *re)
 	return 0;
 }
 
-void kernel_route_rib(struct prefix *p, struct prefix *src_p,
-		      struct route_entry *old, struct route_entry *new)
+void kernel_route_rib(struct route_node *rn, struct prefix *p,
+		      struct prefix *src_p, struct route_entry *old,
+		      struct route_entry *new)
 {
 	int route = 0;
 
@@ -410,12 +411,12 @@ void kernel_route_rib(struct prefix *p, struct prefix *src_p,
 		zlog_err("Can't lower privileges");
 
 	if (new) {
-		kernel_route_rib_pass_fail(p, new,
+		kernel_route_rib_pass_fail(rn, p, new,
 					   (!route) ?
 					   SOUTHBOUND_INSTALL_SUCCESS :
 					   SOUTHBOUND_INSTALL_FAILURE);
 	} else {
-		kernel_route_rib_pass_fail(p, old,
+		kernel_route_rib_pass_fail(rn, p, old,
 					   (!route) ?
 					   SOUTHBOUND_DELETE_SUCCESS :
 					   SOUTHBOUND_DELETE_FAILURE);
