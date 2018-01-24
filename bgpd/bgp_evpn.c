@@ -2880,7 +2880,10 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 	if (psize) {
 		num_labels++;
 		memcpy(&label[1], pfx, BGP_LABEL_BYTES);
-		pfx += 3;
+		/*
+		 * If in future, we are required to access additional fields,
+		 * we MUST increment pfx by 3 in before reading the next field
+		 */
 	}
 
 	/* Process the route. */
@@ -3036,7 +3039,11 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	/* Get the VNI (in MPLS label field). Stored as bytes here. */
 	memset(&label, 0, sizeof(label));
 	memcpy(&label, pfx, BGP_LABEL_BYTES);
-	pfx += 3;
+
+	/*
+	 * If in future, we are required to access additional fields,
+	 * we MUST increment pfx by 3 in before reading the next field
+	 */
 
 	/* Process the route. */
 	if (!withdraw)
