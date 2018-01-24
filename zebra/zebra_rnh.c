@@ -659,7 +659,7 @@ static struct route_entry *zebra_rnh_resolve_nexthop_entry(vrf_id_t vrfid,
 		 * match route to be exact if so specified
 		 */
 		if (is_default_prefix(&rn->p) &&
-		    !nh_resolve_via_default(rn->p.family))
+		    !rnh_resolve_via_default(rn->p.family))
 			return NULL;
 
 		/* Identify appropriate route entry. */
