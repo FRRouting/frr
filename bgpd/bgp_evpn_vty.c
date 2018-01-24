@@ -607,9 +607,9 @@ static void show_vni_routes_hash(struct hash_backet *backet, void *arg)
 static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 			     json_object *json)
 {
-	json_object *json_vni;
-	json_object *json_import_rtl;
-	json_object *json_export_rtl;
+	json_object *json_vni = NULL;
+	json_object *json_import_rtl = NULL;
+	json_object *json_export_rtl = NULL;
 	char buf1[10];
 	char buf2[INET6_ADDRSTRLEN];
 	char rt_buf[25];
