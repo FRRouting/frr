@@ -1642,8 +1642,9 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	return suc;
 }
 
-void kernel_route_rib(struct prefix *p, struct prefix *src_p,
-		      struct route_entry *old, struct route_entry *new)
+void kernel_route_rib(struct route_node *rn, struct prefix *p,
+		      struct prefix *src_p, struct route_entry *old,
+		      struct route_entry *new)
 {
 	int ret = 0;
 
@@ -1672,7 +1673,7 @@ void kernel_route_rib(struct prefix *p, struct prefix *src_p,
 			ret = netlink_route_multipath(RTM_NEWROUTE, p,
 						      src_p, new, 0);
 		}
-		kernel_route_rib_pass_fail(p, new,
+		kernel_route_rib_pass_fail(rn, p, new,
 					   (!ret) ?
 					   SOUTHBOUND_INSTALL_SUCCESS :
 					   SOUTHBOUND_INSTALL_FAILURE);
@@ -1682,7 +1683,7 @@ void kernel_route_rib(struct prefix *p, struct prefix *src_p,
 	if (old) {
 		ret = netlink_route_multipath(RTM_DELROUTE, p, src_p, old, 0);
 
-		kernel_route_rib_pass_fail(p, old,
+		kernel_route_rib_pass_fail(rn, p, old,
 					   (!ret) ?
 					   SOUTHBOUND_DELETE_SUCCESS :
 					   SOUTHBOUND_DELETE_FAILURE);

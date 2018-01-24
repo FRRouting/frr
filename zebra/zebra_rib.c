@@ -998,7 +998,8 @@ int zebra_rib_labeled_unicast(struct route_entry *re)
 	return 1;
 }
 
-void kernel_route_rib_pass_fail(struct prefix *p, struct route_entry *re,
+void kernel_route_rib_pass_fail(struct route_node *rn, struct prefix *p,
+				struct route_entry *re,
 				enum southbound_results res)
 {
 	struct nexthop *nexthop;
@@ -1083,7 +1084,7 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	 * the kernel.
 	 */
 	hook_call(rib_update, rn, "installing in kernel");
-	kernel_route_rib(p, src_p, old, re);
+	kernel_route_rib(rn, p, src_p, old, re);
 	zvrf->installs++;
 
 	return;
@@ -1110,7 +1111,7 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 	 * the kernel.
 	 */
 	hook_call(rib_update, rn, "uninstalling from kernel");
-	kernel_route_rib(p, src_p, re, NULL);
+	kernel_route_rib(rn, p, src_p, re, NULL);
 	zvrf->removals++;
 
 	return;

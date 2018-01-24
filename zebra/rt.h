@@ -60,15 +60,17 @@ enum southbound_results {
  * semantics so we will end up with a delete than
  * a re-add.
  */
-extern void kernel_route_rib(struct prefix *p, struct prefix *src_p,
-			     struct route_entry *old, struct route_entry *new);
+extern void kernel_route_rib(struct route_node *rn, struct prefix *p,
+			     struct prefix *src_p, struct route_entry *old,
+			     struct route_entry *new);
 
 /*
  * So route install/failure may not be immediately known
  * so let's separate it out and allow the result to
  * be passed back up.
  */
-extern void kernel_route_rib_pass_fail(struct prefix *p,
+extern void kernel_route_rib_pass_fail(struct route_node *rn,
+				       struct prefix *p,
 				       struct route_entry *re,
 				       enum southbound_results res);
 
