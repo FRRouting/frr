@@ -224,6 +224,9 @@ void *bgp_keepalives_start(void *arg)
 
 void bgp_keepalives_on(struct peer *peer)
 {
+	if (CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON))
+		return;
+
 	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_KEEPALIVES);
 	assert(fpt->running);
 
@@ -251,6 +254,9 @@ void bgp_keepalives_on(struct peer *peer)
 
 void bgp_keepalives_off(struct peer *peer)
 {
+	if (!CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON))
+		return;
+
 	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_KEEPALIVES);
 	assert(fpt->running);
 
