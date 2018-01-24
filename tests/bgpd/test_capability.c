@@ -27,8 +27,9 @@
 #include "memory.h"
 #include "queue.h"
 #include "filter.h"
+#include "frr_pthread.h"
 
-#include "bgpd/bgpd.h"
+#include "bgpd/bgpd.c"
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_packet.h"
@@ -914,6 +915,9 @@ int main(void)
 	bgp_master_init(master);
 	vrf_init(NULL, NULL, NULL, NULL);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
+
+	bgp_pthreads_init();
+	frr_pthread_get(PTHREAD_KEEPALIVES)->running = true;
 
 	if (fileno(stdout) >= 0)
 		tty = isatty(fileno(stdout));
