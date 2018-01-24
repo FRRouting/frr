@@ -484,6 +484,9 @@ extern int zapi_ipv4_route_ipv6_nexthop(u_char, struct zclient *,
 					struct zapi_ipv6 *)
 	__attribute__((deprecated));
 extern int zclient_route_send(u_char, struct zclient *, struct zapi_route *);
+extern int zclient_send_rnh(struct zclient *zclient, int command,
+			    struct prefix *p, bool exact_match,
+			    vrf_id_t vrf_id);
 extern int zapi_route_encode(u_char, struct stream *, struct zapi_route *);
 extern int zapi_route_decode(struct stream *, struct zapi_route *);
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,

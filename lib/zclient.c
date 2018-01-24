@@ -389,25 +389,28 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 			       vrf_id);
 
 	/* Flush all redistribute request. */
-	if (vrf_id == VRF_DEFAULT)
-		for (afi = AFI_IP; afi < AFI_MAX; afi++)
-			for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-				if (zclient->mi_redist[afi][i].enabled) {
-					struct listnode *node;
-					u_short *id;
+	if (vrf_id == VRF_DEFAULT) {
+		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+			for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+				if (!zclient->mi_redist[afi][i].enabled)
+					continue;
 
-					for (ALL_LIST_ELEMENTS_RO(
-						     zclient->mi_redist[afi][i]
-							     .instances,
-						     node, id))
-						if (!(i == zclient->redist_default
-						      && *id == zclient->instance))
-							zebra_redistribute_send(
-								ZEBRA_REDISTRIBUTE_ADD,
-								zclient, afi, i,
-								*id,
-								VRF_DEFAULT);
-				}
+				struct listnode *node;
+				u_short *id;
+
+				for (ALL_LIST_ELEMENTS_RO(
+					     zclient->mi_redist[afi][i]
+					     .instances, node, id))
+					if (!(i == zclient->redist_default
+					      && *id == zclient->instance))
+						zebra_redistribute_send(
+							ZEBRA_REDISTRIBUTE_ADD,
+							zclient, afi, i,
+							*id,
+							VRF_DEFAULT);
+			}
+		}
+	}
 
 	/* Flush all redistribute request. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
@@ -447,29 +450,32 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 
 	/* Set unwanted redistribute route. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		vrf_bitmap_set(zclient->redist[afi][zclient->redist_default],
-			       vrf_id);
+		vrf_bitmap_unset(zclient->redist[afi][zclient->redist_default],
+				 vrf_id);
 
 	/* Flush all redistribute request. */
-	if (vrf_id == VRF_DEFAULT)
-		for (afi = AFI_IP; afi < AFI_MAX; afi++)
-			for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-				if (zclient->mi_redist[afi][i].enabled) {
-					struct listnode *node;
-					u_short *id;
+	if (vrf_id == VRF_DEFAULT) {
+		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+			for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+				if (!zclient->mi_redist[afi][i].enabled)
+					continue;
 
-					for (ALL_LIST_ELEMENTS_RO(
-						     zclient->mi_redist[afi][i]
-							     .instances,
-						     node, id))
-						if (!(i == zclient->redist_default
-						      && *id == zclient->instance))
-							zebra_redistribute_send(
-								ZEBRA_REDISTRIBUTE_DELETE,
-								zclient, afi, i,
-								*id,
-								VRF_DEFAULT);
-				}
+				struct listnode *node;
+				u_short *id;
+
+				for (ALL_LIST_ELEMENTS_RO(
+					     zclient->mi_redist[afi][i]
+					     .instances, node, id))
+					if (!(i == zclient->redist_default
+					      && *id == zclient->instance))
+						zebra_redistribute_send(
+							ZEBRA_REDISTRIBUTE_DELETE,
+							zclient, afi, i,
+							*id,
+							VRF_DEFAULT);
+			}
+		}
+	}
 
 	/* Flush all redistribute request. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
@@ -606,6 +612,33 @@ static int zclient_connect(struct thread *t)
 		zlog_debug("zclient_connect is called");
 
 	return zclient_start(zclient);
+}
+
+int zclient_send_rnh(struct zclient *zclient, int command, struct prefix *p,
+		     bool exact_match, vrf_id_t vrf_id)
+{
+	struct stream *s;
+
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, command, vrf_id);
+	stream_putc(s, (exact_match) ? 1 : 0);
+
+	stream_putw(s, PREFIX_FAMILY(p));
+	stream_putc(s, p->prefixlen);
+	switch (PREFIX_FAMILY(p)) {
+	case AF_INET:
+		stream_put_in_addr(s, &p->u.prefix4);
+		break;
+	case AF_INET6:
+		stream_put(s, &(p->u.prefix6), 16);
+		break;
+	default:
+		break;
+	}
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
 }
 
 /*

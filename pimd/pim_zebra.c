@@ -765,8 +765,6 @@ void pim_zebra_init(void)
 		zlog_info("zclient_init cleared redistribution request");
 	}
 
-	zassert(zclient->redist_default == ZEBRA_ROUTE_PIM);
-
 	/* Request all redistribution */
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		if (i == zclient->redist_default)
