@@ -252,5 +252,6 @@ extern void ospf6_lsa_terminate(void);
 
 extern int config_write_ospf6_debug_lsa(struct vty *vty);
 extern void install_element_ospf6_debug_lsa(void);
+extern void ospf6_lsa_age_set(struct ospf6_lsa *lsa);
 
 #endif /* OSPF6_LSA_H */

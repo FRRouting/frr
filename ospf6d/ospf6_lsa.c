@@ -191,7 +191,7 @@ int ospf6_lsa_is_changed(struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2)
 
 /* ospf6 age functions */
 /* calculate birth */
-static void ospf6_lsa_age_set(struct ospf6_lsa *lsa)
+void ospf6_lsa_age_set(struct ospf6_lsa *lsa)
 {
 	struct timeval now;
 
