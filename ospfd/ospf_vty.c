@@ -7188,7 +7188,7 @@ DEFUN (no_ip_ospf_area,
 
 DEFUN (ospf_redistribute_source,
        ospf_redistribute_source_cmd,
-       "redistribute " FRR_REDIST_STR_OSPFD " [<metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
+       "redistribute " FRR_REDIST_STR_OSPFD " [{metric (0-16777214)|metric-type (1-2)|route-map WORD}]",
        REDIST_STR
        FRR_REDIST_HELP_STR_OSPFD
        "Metric for redistributed routes\n"
@@ -7223,12 +7223,12 @@ DEFUN (ospf_redistribute_source,
 			return CMD_WARNING;
 	}
 	/* Get metric type. */
-	else if (argv_find(argv, argc, "(1-2)", &idx)) {
+	if (argv_find(argv, argc, "(1-2)", &idx)) {
 		if (!str2metric_type(argv[idx]->arg, &type))
 			return CMD_WARNING;
 	}
 	/* Get route-map */
-	else if (argv_find(argv, argc, "WORD", &idx)) {
+	if (argv_find(argv, argc, "WORD", &idx)) {
 		ospf_routemap_set(red, argv[idx]->arg);
 	} else
 		ospf_routemap_unset(red);
@@ -7238,7 +7238,7 @@ DEFUN (ospf_redistribute_source,
 
 DEFUN (no_ospf_redistribute_source,
        no_ospf_redistribute_source_cmd,
-       "no redistribute " FRR_REDIST_STR_OSPFD " [<metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
+       "no redistribute " FRR_REDIST_STR_OSPFD " [{metric (0-16777214)|metric-type (1-2)|route-map WORD}]",
        NO_STR
        REDIST_STR
        FRR_REDIST_HELP_STR_OSPFD
@@ -7435,7 +7435,7 @@ DEFUN (no_ospf_distribute_list_out,
 /* Default information originate. */
 DEFUN (ospf_default_information_originate,
        ospf_default_information_originate_cmd,
-       "default-information originate [<always|metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
+       "default-information originate [{always|metric (0-16777214)|metric-type (1-2)|route-map WORD}]",
        "Control distribution of default information\n"
        "Distribute a default route\n"
        "Always advertise default route\n"
@@ -7460,17 +7460,17 @@ DEFUN (ospf_default_information_originate,
 	if (argv_find(argv, argc, "always", &idx))
 		default_originate = DEFAULT_ORIGINATE_ALWAYS;
 	/* Get metric value */
-	else if (argv_find(argv, argc, "(0-16777214)", &idx)) {
+	if (argv_find(argv, argc, "(0-16777214)", &idx)) {
 		if (!str2metric(argv[idx]->arg, &metric))
 			return CMD_WARNING;
 	}
 	/* Get metric type. */
-	else if (argv_find(argv, argc, "(1-2)", &idx)) {
+	if (argv_find(argv, argc, "(1-2)", &idx)) {
 		if (!str2metric_type(argv[idx]->arg, &type))
 			return CMD_WARNING;
 	}
 	/* Get route-map */
-	else if (argv_find(argv, argc, "WORD", &idx))
+	if (argv_find(argv, argc, "WORD", &idx))
 		ospf_routemap_set(red, argv[idx]->arg);
 	else
 		ospf_routemap_unset(red);
@@ -7481,7 +7481,7 @@ DEFUN (ospf_default_information_originate,
 
 DEFUN (no_ospf_default_information_originate,
        no_ospf_default_information_originate_cmd,
-       "no default-information originate [<always|metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
+       "no default-information originate [{always|metric (0-16777214)|metric-type (1-2)|route-map WORD}]",
        NO_STR
        "Control distribution of default information\n"
        "Distribute a default route\n"
