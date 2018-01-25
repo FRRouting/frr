@@ -60,16 +60,16 @@ customize.py: Simple FRR/Quagga MPLS L3VPN test topology
           \    /                \
 r3-eth1 .3 |  | .3  r3-eth0      | .4 r4-eth0
       +----+--+---+         +----+----+
-      |     r3    |         |    r4   |
-      |  3.3.3.3  |         | 4.4.4.4 |               PE Routers
-      +-----------+         +---------+
- 192.168.1. | .1     192.168.1.  | .1    rX-eth4
-            | .2                 | .2    ceX-eth0
-      +-----+-----+         +----+-----+
-      |    ce2    |         |   ce3    |
-      | 99.0.0.2  |         | 99.0.0.3 |              CE Routers
-      +-----+-----+         +----+-----+
-            |                    |
+      |     r3    |         |    r4   | r4-eth5
+      |  3.3.3.3  |         | 4.4.4.4 |-------+       PE Routers
+      +-----------+         +---------+       |
+192.168.1.1 |r3.eth4 192.168.1.1 | r4-eth4    |192.168.2.1
+         .2 |       ceX-eth0  .2 |            |         .2
+      +-----+-----+         +----+-----+ +----+-----+
+      |    ce2    |         |   ce3    | |   ce4    |
+      | 99.0.0.2  |         | 99.0.0.3 | | 99.0.0.4 | CE Routers
+      +-----+-----+         +----+-----+ +----+-----+
+            |                    |            |
 
 """
 
@@ -104,13 +104,14 @@ class ThisTestTopo(Topo):
         for routern in range(1, 5):
             tgen.add_router('r{}'.format(routern))
         # Create CE routers
-        for routern in range(1, 4):
+        for routern in range(1, 5):
             tgen.add_router('ce{}'.format(routern))
 
         #CE/PE links
         tgen.add_link(tgen.gears['ce1'], tgen.gears['r1'], 'ce1-eth0', 'r1-eth4')
         tgen.add_link(tgen.gears['ce2'], tgen.gears['r3'], 'ce2-eth0', 'r3-eth4')
         tgen.add_link(tgen.gears['ce3'], tgen.gears['r4'], 'ce3-eth0', 'r4-eth4')
+        tgen.add_link(tgen.gears['ce4'], tgen.gears['r4'], 'ce4-eth0', 'r4-eth5')
 
         # Create a switch with just one router connected to it to simulate a
         # empty network.
@@ -140,7 +141,7 @@ def ltemplatePreRouterStartHook():
     intfs = ['lo', 'r2-eth0', 'r2-eth1', 'r2-eth2']
     for intf in intfs:
         doCmd(tgen, 'r2', 'echo 1 > /proc/sys/net/mpls/conf/{}/input'.format(intf))
-    #configure VRFs & MPLS
+    #configure cust1 VRFs & MPLS
     rtrs = ['r1', 'r3', 'r4']
     cmds = ['ip link add cust1 type vrf table 10',
             'ip ru add oif cust1 table 10',
@@ -150,10 +151,24 @@ def ltemplatePreRouterStartHook():
         for cmd in cmds:
             doCmd(tgen, rtr, cmd)
         doCmd(tgen, rtr, 'ip link set dev {}-eth4 master cust1'.format(rtr))
-        intfs = ['lo', rtr+'-eth0', rtr+'-eth4']
+        intfs = ['cust1', 'lo', rtr+'-eth0', rtr+'-eth4']
         for intf in intfs:
             doCmd(tgen, rtr, 'echo 1 > /proc/sys/net/mpls/conf/{}/input'.format(intf))
         logger.info('setup {0} vrf cust1, {0}-eth4. enabled mpls input.'.format(rtr))
+    #configure cust2 VRFs & MPLS
+    rtrs = ['r4']
+    cmds = ['ip link add cust2 type vrf table 20',
+            'ip ru add oif cust1 table 20',
+            'ip ru add iif cust1 table 20',
+            'ip link set dev cust2 up']
+    for rtr in rtrs:
+        for cmd in cmds:
+            doCmd(tgen, rtr, cmd)
+        doCmd(tgen, rtr, 'ip link set dev {}-eth5 master cust2'.format(rtr))
+        intfs = ['cust2', rtr+'-eth5']
+        for intf in intfs:
+            doCmd(tgen, rtr, 'echo 1 > /proc/sys/net/mpls/conf/{}/input'.format(intf))
+        logger.info('setup {0} vrf cust2, {0}-eth5. enabled mpls input.'.format(rtr))
     return;
 
 def ltemplatePostRouterStartHook():
