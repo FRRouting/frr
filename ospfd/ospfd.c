@@ -32,6 +32,7 @@
 #include "log.h"
 #include "sockunion.h" /* for inet_aton () */
 #include "zclient.h"
+#include "routemap.h"
 #include "plist.h"
 #include "sockopt.h"
 #include "bfd.h"
@@ -553,6 +554,20 @@ void ospf_terminate(void)
 	bfd_gbl_exit();
 	for (ALL_LIST_ELEMENTS(om->ospf, node, nnode, ospf))
 		ospf_finish(ospf);
+
+	/* Cleanup route maps */
+	route_map_add_hook(NULL);
+	route_map_delete_hook(NULL);
+	route_map_event_hook(NULL);
+	route_map_finish();
+
+	/* reverse prefix_list_init */
+	prefix_list_add_hook(NULL);
+	prefix_list_delete_hook(NULL);
+	prefix_list_reset();
+
+	/* Cleanup vrf info */
+	ospf_vrf_terminate();
 
 	/* Deliberately go back up, hopefully to thread scheduler, as
 	 * One or more ospf_finish()'s may have deferred shutdown to a timer
