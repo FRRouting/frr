@@ -9859,12 +9859,15 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 }
 
 static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
+						 enum show_type type,
+						 const char *ip_str,
 						 u_char use_json)
 {
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
+	union sockunion su;
 	json_object *json = NULL;
-	int is_first = 1;
+	int ret, is_first = 1;
 
 	if (use_json)
 		vty_out(vty, "{\n");
@@ -9903,8 +9906,19 @@ static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 					? "Default"
 					: bgp->name);
 		}
-		bgp_show_neighbor(vty, bgp, show_all, NULL, NULL, use_json,
-				  json);
+
+		if (type == show_peer) {
+			ret = str2sockunion(ip_str, &su);
+			if (ret < 0)
+				bgp_show_neighbor(vty, bgp, type, NULL, ip_str,
+						  use_json, json);
+			else
+				bgp_show_neighbor(vty, bgp, type, &su, NULL,
+						  use_json, json);
+		} else {
+			bgp_show_neighbor(vty, bgp, show_all, NULL, NULL,
+					  use_json, json);
+		}
 	}
 
 	if (use_json)
@@ -9922,7 +9936,8 @@ static int bgp_show_neighbor_vty(struct vty *vty, const char *name,
 
 	if (name) {
 		if (strmatch(name, "all")) {
-			bgp_show_all_instances_neighbors_vty(vty, use_json);
+			bgp_show_all_instances_neighbors_vty(vty, type, ip_str,
+							     use_json);
 			return CMD_SUCCESS;
 		} else {
 			bgp = bgp_lookup_by_name(name);
