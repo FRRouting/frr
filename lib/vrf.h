@@ -222,6 +222,15 @@ int vrf_is_mapped_on_netns(vrf_id_t vrf_id);
 extern int vrf_switch_to_netns(vrf_id_t vrf_id);
 extern int vrf_switchback_to_initial(void);
 
+/* VRF ioctl operations */
+extern int vrf_getaddrinfo(const char *node, const char *service,
+		    const struct addrinfo *hints,
+		    struct addrinfo **res, vrf_id_t vrf_id);
+extern int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id);
+/* VRF switch from NETNS */
+extern int vrf_switch_to_netns(vrf_id_t vrf_id);
+extern int vrf_switchback_to_initial(void);
+
 /* used by NS when vrf backend is NS.
  * Notify a change in the VRF ID of the VRF
  */
