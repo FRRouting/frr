@@ -101,6 +101,42 @@ static void bgp_if_finish(struct bgp *bgp);
 
 extern struct zclient *zclient;
 
+/* handle main socket creation or deletion */
+static int bgp_check_main_socket(bool create, struct bgp *bgp)
+{
+	static int bgp_server_main_created;
+	struct listnode *bgpnode, *nbgpnode;
+	struct bgp *bgp_temp;
+
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
+		return 0;
+	if (create == true) {
+		if (bgp_server_main_created)
+			return 0;
+		if (bgp_socket(bgp, bm->port, bm->address) < 0)
+			return BGP_ERR_INVALID_VALUE;
+		bgp_server_main_created = 1;
+		return 0;
+	}
+	if (!bgp_server_main_created)
+		return 0;
+	/* only delete socket on some cases */
+	for (ALL_LIST_ELEMENTS(bm->bgp, bgpnode, nbgpnode, bgp_temp)) {
+		/* do not count with current bgp */
+		if (bgp_temp == bgp)
+			continue;
+		/* if other instance non VRF, do not delete socket */
+		if (bgp_temp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
+			return 0;
+		/* vrf lite, do not delete socket */
+		if (!vrf_is_mapped_on_netns(bgp_temp->vrf_id))
+			return 0;
+	}
+	bgp_close();
+	bgp_server_main_created = 0;
+	return 0;
+}
+
 void bgp_session_reset(struct peer *peer)
 {
 	if (peer->doppelganger && (peer->doppelganger->status != Deleted)
@@ -2983,11 +3019,67 @@ struct bgp *bgp_lookup_by_vrf_id(vrf_id_t vrf_id)
 	return (vrf->info) ? (struct bgp *)vrf->info : NULL;
 }
 
+/* handle socket creation or deletion, if necessary
+ * this is called for all new BGP instances
+ */
+int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf,
+			  vrf_id_t old_vrf_id, bool create)
+{
+	int ret = 0;
+
+	/* Create BGP server socket, if listen mode not disabled */
+	if (!bgp || bgp_option_check(BGP_OPT_NO_LISTEN))
+		return 0;
+	if (bgp->name
+	    && bgp->inst_type == BGP_INSTANCE_TYPE_VRF
+	    && vrf) {
+		/*
+		 * suppress vrf socket
+		 */
+		if (create == FALSE) {
+			if (vrf_is_mapped_on_netns(vrf->vrf_id))
+				bgp_close_vrf_socket(bgp);
+			else
+				ret = bgp_check_main_socket(create, bgp);
+			return ret;
+		}
+		/* do nothing
+		 * if vrf_id did not change
+		 */
+		if (vrf->vrf_id == old_vrf_id)
+			return 0;
+		if (old_vrf_id != VRF_UNKNOWN) {
+			/* look for old socket. close it. */
+			bgp_close_vrf_socket(bgp);
+		}
+		/* if backend is not yet identified ( VRF_UNKNOWN) then
+		 *   creation will be done later
+		 */
+		if (vrf->vrf_id == VRF_UNKNOWN)
+			return 0;
+		/* if BGP VRF instance requested
+		 * if backend is NETNS, create BGP server socket in the NETNS
+		 */
+		if (vrf_is_mapped_on_netns(bgp->vrf_id)) {
+			ret = bgp_socket(bgp, bm->port, bm->address);
+			if (ret < 0)
+				return BGP_ERR_INVALID_VALUE;
+			return 0;
+		}
+	}
+	/* if BGP VRF instance requested or VRF lite backend
+	 * if BGP non VRF instance, create it
+	 *  if not already done
+	 */
+	return bgp_check_main_socket(create, bgp);
+}
+
 /* Called from VTY commands. */
 int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	    enum bgp_instance_type inst_type)
 {
 	struct bgp *bgp;
+	struct vrf *vrf = NULL;
 
 	/* Multiple instance check. */
 	if (bgp_option_check(BGP_OPT_MULTIPLE_INSTANCE)) {
@@ -3035,25 +3127,19 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 
 	bgp->t_rmap_def_originate_eval = NULL;
 
-	/* Create BGP server socket, if first instance.  */
-	if (list_isempty(bm->bgp) && !bgp_option_check(BGP_OPT_NO_LISTEN)) {
-		if (bgp_socket(bgp, bm->port, bm->address) < 0)
-			return BGP_ERR_INVALID_VALUE;
-	}
-
-	listnode_add(bm->bgp, bgp);
-
 	/* If Default instance or VRF, link to the VRF structure, if present. */
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
 	    || bgp->inst_type == BGP_INSTANCE_TYPE_VRF) {
-		struct vrf *vrf;
-
 		vrf = bgp_vrf_lookup_by_instance_type(bgp);
 		if (vrf)
 			bgp_vrf_link(bgp, vrf);
 	}
+	/* BGP server socket already processed if BGP instance
+	 * already part of the list
+	 */
+	bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, true);
+	listnode_add(bm->bgp, bgp);
 
-	/* Register with Zebra, if needed */
 	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
 		bgp_zebra_instance_register(bgp);
 
@@ -3190,8 +3276,6 @@ int bgp_delete(struct bgp *bgp)
 	 * routes to be processed still referencing the struct bgp.
 	 */
 	listnode_delete(bm->bgp, bgp);
-	if (list_isempty(bm->bgp))
-		bgp_close();
 
 	/* Deregister from Zebra, if needed */
 	if (IS_BGP_INST_KNOWN_TO_ZEBRA(bgp))
@@ -3201,6 +3285,7 @@ int bgp_delete(struct bgp *bgp)
 	bgp_if_finish(bgp);
 
 	vrf = bgp_vrf_lookup_by_instance_type(bgp);
+	bgp_handle_socket(bgp, vrf, VRF_UNKNOWN, false);
 	if (vrf)
 		bgp_vrf_unlink(bgp, vrf);
 
