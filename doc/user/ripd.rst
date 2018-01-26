@@ -531,7 +531,7 @@ RIP Authentication
 
 RIPv2 allows packets to be authenticated via either an insecure plain
 text password, included with the packet, or via a more secure MD5 based
-@acronym{HMAC, keyed-Hashing for Message AuthentiCation},
+:abbr:`HMAC (keyed-Hashing for Message AuthentiCation)`,
 RIPv1 can not be authenticated at all, thus when authentication is
 configured `ripd` will discard routing updates received via RIPv1
 packets.

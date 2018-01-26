@@ -6,10 +6,10 @@ Prefix Origin Validation Using RPKI
 Prefix Origin Validation allows BGP routers to verify if the origin AS of
 an IP prefix is legitimate to announce this IP prefix. The required
 attestation objects are stored in the Resource Public Key Infrastructure
-(@acronym{RPKI}).  However, RPKI-enabled routers do not store cryptographic
+(:abbr:`RPKI`).  However, RPKI-enabled routers do not store cryptographic
 data itself but only validation information. The validation of the
 cryptographic data (so called Route Origin Authorization, or short
-@acronym{ROA}, objects) will be performed by trusted cache servers. The
+:abbr:`ROA`, objects) will be performed by trusted cache servers. The
 RPKI/RTR protocol defines a standard mechanism to maintain the exchange of
 the prefix/origin AS mapping between the cache server and routers.
 In combination with a  BGP Prefix Origin Validation scheme a router is able

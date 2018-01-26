@@ -4,7 +4,7 @@
 SNMP Support
 ************
 
-@acronym{SNMP,Simple Network Managing Protocol} is a widely implemented
+:abbr:`SNMP (Simple Network Managing Protocol)` is a widely implemented
 feature for collecting network information from router and/or host.
 FRR itself does not support SNMP agent (server daemon) functionality
 but is able to connect to a SNMP agent using the SMUX protocol

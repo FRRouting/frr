@@ -4,12 +4,12 @@
 ISIS
 ****
 
-@acronym{ISIS,Intermediate System to Intermediate System} is a routing protocol
+:abbr:`ISIS (Intermediate System to Intermediate System)` is a routing protocol
 which is described in @cite{ISO10589, RFC1195, RFC5308}.  ISIS is an
-@acronym{IGP,Interior Gateway Protocol}.  Compared with @acronym{RIP},
-@acronym{ISIS} can provide scalable network support and faster
-convergence times like @acronym{OSPF}. ISIS is widely used in large networks such as
-@acronym{ISP,Internet Service Provider} and carrier backbone networks.
+:abbr:`IGP (Interior Gateway Protocol)`.  Compared with :abbr:`RIP`,
+:abbr:`ISIS` can provide scalable network support and faster
+convergence times like :abbr:`OSPF`. ISIS is widely used in large networks such as
+:abbr:`ISP (Internet Service Provider)` and carrier backbone networks.
 
 .. _Configuring_isisd:
 
@@ -23,7 +23,7 @@ specified (:ref:`Common_Invocation_Options`) to *isisd*.
 running before invoking *isisd*. Also, if *zebra* is
 restarted then *isisd* must be too.
 
-Like other daemons, *isisd* configuration is done in @acronym{ISIS}
+Like other daemons, *isisd* configuration is done in :abbr:`ISIS`
 specific configuration file :file:`isisd.conf`.
 
 .. _ISIS_router:

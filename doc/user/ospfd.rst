@@ -4,12 +4,12 @@
 OSPFv2
 ******
 
-@acronym{OSPF,Open Shortest Path First} version 2 is a routing protocol
+:abbr:`OSPF (Open Shortest Path First)` version 2 is a routing protocol
 which is described in :rfc:`2328`.  OSPF is an
-@acronym{IGP,Interior Gateway Protocol}.  Compared with @acronym{RIP},
-@acronym{OSPF} can provide scalable network support and faster
+:abbr:`IGP (Interior Gateway Protocol)`.  Compared with :abbr:`RIP`,
+:abbr:`OSPF` can provide scalable network support and faster
 convergence times.  OSPF is widely used in large networks such as
-@acronym{ISP,Internet Service Provider} backbone and enterprise
+:abbr:`ISP (Internet Service Provider)` backbone and enterprise
 networks.
 
 @include ospf_fundamentals.texi
@@ -26,7 +26,7 @@ specified (:ref:`Common_Invocation_Options`) to *ospfd*.
 running before invoking *ospfd*. Also, if *zebra* is
 restarted then *ospfd* must be too.
 
-Like other daemons, *ospfd* configuration is done in @acronym{OSPF}
+Like other daemons, *ospfd* configuration is done in :abbr:`OSPF`
 specific configuration file :file:`ospfd.conf`.
 
 .. _OSPF_router:
@@ -92,7 +92,7 @@ Command {no router ospf} {}
         be found in @cite{RFC 3509, Alternative Implementations of OSPF Area
         Border Routers}, and @cite{draft-ietf-ospf-shortcut-abr-02.txt}.
 
-        Quote: "Though the definition of the @acronym{ABR,Area Border Router}
+        Quote: "Though the definition of the :abbr:`ABR (Area Border Router)`
         in the OSPF specification does not require a router with multiple
         attached areas to have a backbone connection, it is actually
         necessary to provide successful routing to the inter-area and
@@ -136,7 +136,7 @@ Command {no router ospf} {}
 
               Do not speak OSPF interface on the
               given interface, but do advertise the interface as a stub link in the
-              router-@acronym{LSA,Link State Advertisement} for this router. This
+              router-:abbr:`LSA (Link State Advertisement)` for this router. This
               allows one to advertise addresses on such connected interfaces without
               having to originate AS-External/Type-5 LSAs (which have global flooding
               scope) - as would occur if connected addresses were redistributed into
@@ -1129,7 +1129,7 @@ A simple example, with MD5 authentication enabled:
    area 0.0.0.1 authentication message-digest
   
 
-An @acronym{ABR} router, with MD5 authentication and performing summarisation
+An :abbr:`ABR` router, with MD5 authentication and performing summarisation
 of networks between the areas:
 
 ::

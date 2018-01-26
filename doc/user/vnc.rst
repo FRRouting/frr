@@ -5,15 +5,15 @@ VNC and VNC-GW
 **************
 
 This chapter describes how to use
-Virtual Network Control (@acronym{VNC}) services,
-including Network Virtualization Authority (@acronym{NVA}) and 
-VNC Gateway (@acronym{VNC-GW}) functions.
+Virtual Network Control (:abbr:`VNC`) services,
+including Network Virtualization Authority (:abbr:`NVA`) and 
+VNC Gateway (:abbr:`VNC-GW`) functions.
 Background information on NVAs, 
-Network Virtualization Edges (@acronym{NVE}s), underlay networks (@acronym{UN}s),
-and virtual networks (@acronym{VN}s) is available from the  
-`https://datatracker.ietf.org/wg/nvo3,IETF Network Virtualization Overlays (@acronym{NVO3 <https://datatracker.ietf.org/wg/nvo3,IETF Network Virtualization Overlays (@acronym{NVO3>`_) Working Group}.
-VNC Gateways (@acronym{VNC-GW}s) support the import/export of routing
-information between VNC and customer edge routers (@acronym{CE}s)
+Network Virtualization Edges (:abbr:`NVE`s), underlay networks (:abbr:`UN`s),
+and virtual networks (:abbr:`VN`s) is available from the  
+`IETF Network Virtualization Overlays <https://datatracker.ietf.org/wg/nvo3>`_
+VNC Gateways (:abbr:`VNC-GW`s) support the import/export of routing
+information between VNC and customer edge routers (:abbr:`CE`s)
 operating within a VN.  Both IP/Layer 3 (L3) VNs, and IP with
 Ethernet/Layer 2 (L2) VNs are supported.
 
@@ -41,7 +41,7 @@ The chapter also provides sample configurations for basic example scenarios.
 Configuring VNC
 ===============
 
-Virtual Network Control (@acronym{VNC}) service configuration commands
+Virtual Network Control (:abbr:`VNC`) service configuration commands
 appear in the `router bgp` section of the BGPD configuration file
 (:ref:`BGP_Configuration_Examples`). The commands are broken down into
 the following areas:
@@ -60,7 +60,7 @@ registered NVEs and overrides default parameters.
 
 `Redistribution` and `Export` control VNC-GW operation, i.e.,
 the  import/export of routing
-information between VNC and customer edge routers (@acronym{CE}s)
+information between VNC and customer edge routers (:abbr:`CE`s)
 operating within a VN.
 
 .. _General_VNC_Configuration:
