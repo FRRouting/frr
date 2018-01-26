@@ -37,13 +37,13 @@ def test_ltemplate_start():
 def test_adjacencies():
     CliOnFail = None
     # For debugging, uncomment the next line
-    CliOnFail = 'tgen.mininet_cli'
+    #CliOnFail = 'tgen.mininet_cli'
     CheckFunc = 'versionCheck(\'3.1\')'
     #uncomment next line to start cli *before* script is run
-    CheckFunc = 'versionCheck(\'3.1\', cli=True)'
+    #CheckFunc = 'versionCheck(\'3.1\', cli=True)'
     ltemplateTest('scripts/adjacencies.py', False, CliOnFail, CheckFunc)
 
-def skip_test_add_routes():
+def SKIP_test_add_routes():
     CliOnFail = None
     # For debugging, uncomment the next line
     #CliOnFail = 'tgen.mininet_cli'
@@ -52,7 +52,7 @@ def skip_test_add_routes():
     #CheckFunc = 'versionCheck(\'3.1\', cli=True)'
     ltemplateTest('scripts/add_routes.py', False, CliOnFail, CheckFunc)
 
-def skip_test_check_routes():
+def test_check_routes():
     CliOnFail = None
     # For debugging, uncomment the next line
     #CliOnFail = 'tgen.mininet_cli'
@@ -61,7 +61,7 @@ def skip_test_check_routes():
     #CheckFunc = 'versionCheck(\'3.1\', cli=True)'
     ltemplateTest('scripts/check_routes.py', False, CliOnFail, CheckFunc)
 
-def test_cleanup_all():
+def SKIP_test_cleanup_all():
     CliOnFail = None
     # For debugging, uncomment the next line
     #CliOnFail = 'tgen.mininet_cli'
