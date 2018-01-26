@@ -1174,6 +1174,10 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	if (bgp_debug_zebra(p))
 		prefix2str(&api.prefix, buf_prefix, sizeof(buf_prefix));
 
+	if (safi == SAFI_FLOWSPEC)
+		return bgp_pbr_update_entry(bgp, &rn->p,
+					    info, afi, safi, true);
+
 	/*
 	 * vrf leaking support (will have only one nexthop)
 	 */
@@ -1466,6 +1470,10 @@ void bgp_zebra_withdraw(struct prefix *p, struct bgp_info *info,
 	 */
 	if (!bgp_install_info_to_zebra(bgp))
 		return;
+
+	if (safi == SAFI_FLOWSPEC)
+		return bgp_pbr_update_entry(peer->bgp, p,
+					    info, AFI_IP, safi, false);
 
 	memset(&api, 0, sizeof(api));
 	memcpy(&api.rmac, &(info->attr->rmac), sizeof(struct ethaddr));

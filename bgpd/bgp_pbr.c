@@ -30,6 +30,7 @@
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_zebra.h"
+#include "bgpd/bgp_mplsvpn.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PBR_MATCH_ENTRY, "PBR match entry")
 DEFINE_MTYPE_STATIC(BGPD, PBR_MATCH, "PBR match")
