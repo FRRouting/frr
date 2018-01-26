@@ -25,49 +25,48 @@ import os
 import sys
 import pytest
 
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, '../'))
-sys.path.append(CWD)
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
 
 from lib.ltemplate import *
 
 def test_ltemplate_start():
-    ltemplate_start(CWD)
+    cwd = os.path.dirname(os.path.realpath(__file__))
+    ltemplate_start(cwd)
 
 def test_adjacencies():
     CliOnFail = None
     # For debugging, uncomment the next line
     #CliOnFail = 'tgen.mininet_cli'
-    CheckFunc = 'versionCheck(\'3.1\')'
+    CheckFunc = 'customize.versionCheck(\'3.1\')'
     #uncomment next line to start cli *before* script is run
-    #CheckFunc = 'versionCheck(\'3.1\', cli=True)'
+    #CheckFunc = 'customize.versionCheck(\'3.1\', cli=True)'
     ltemplateTest('scripts/adjacencies.py', False, CliOnFail, CheckFunc)
 
 def test_add_routes():
     CliOnFail = None
     # For debugging, uncomment the next line
     #CliOnFail = 'tgen.mininet_cli'
-    CheckFunc = 'versionCheck(\'3.1\')'
+    CheckFunc = 'customize.versionCheck(\'3.1\')'
     #uncomment next line to start cli *before* script is run
-    #CheckFunc = 'versionCheck(\'3.1\', cli=True)'
+    #CheckFunc = 'customize.versionCheck(\'3.1\', cli=True)'
     ltemplateTest('scripts/add_routes.py', False, CliOnFail, CheckFunc)
 
 def test_check_routes():
     CliOnFail = None
     # For debugging, uncomment the next line
     #CliOnFail = 'tgen.mininet_cli'
-    CheckFunc = 'versionCheck(\'3.1\')'
+    CheckFunc = 'customize.versionCheck(\'3.1\')'
     #uncomment next line to start cli *before* script is run
-    #CheckFunc = 'versionCheck(\'3.1\', cli=True)'
+    #CheckFunc = 'customize.versionCheck(\'3.1\', cli=True)'
     ltemplateTest('scripts/check_routes.py', False, CliOnFail, CheckFunc)
 
 def test_cleanup_all():
     CliOnFail = None
     # For debugging, uncomment the next line
     #CliOnFail = 'tgen.mininet_cli'
-    CheckFunc = 'versionCheck(\'3.1\')'
+    CheckFunc = 'customize.versionCheck(\'3.1\')'
     #uncomment next line to start cli *before* script is run
-    #CheckFunc = 'versionCheck(\'3.1\', cli=True)'
+    #CheckFunc = 'customize.versionCheck(\'3.1\', cli=True)'
     ltemplateTest('scripts/cleanup_all.py', False, CliOnFail, CheckFunc)
 
 if __name__ == '__main__':
