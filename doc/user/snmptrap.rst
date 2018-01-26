@@ -7,7 +7,7 @@ correctly as described in the frr documentation in :ref:`SNMP_Support`.
 The BGP4 mib will send traps on peer up/down events. These should be
 visible in your snmp logs with a message similar to:
 
-@samp{snmpd[13733]: Got trap from peer on fd 14}
+``snmpd[13733]: Got trap from peer on fd 14``
 
 To react on these traps they should be handled by a trapsink. Configure
 your trapsink by adding the following lines to :file:`/etc/snmpd/snmpd.conf`:

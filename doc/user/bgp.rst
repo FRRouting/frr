@@ -891,7 +891,7 @@ Peer filtering
 ``neighbor `peer` distribute-list `name` [in|out]``
 
   This command specifies a distribute-list for the peer. `direct` is
-  @samp{in} or @samp{out}.
+  ``in`` or ``out``.
 
 .. index:: neighbor PEER prefix-list NAME [in|out]
 
@@ -1889,7 +1889,7 @@ Route Server
 
 At an Internet Exchange point, many ISPs are connected to each other by
 external BGP peering. Normally these external BGP connection are done by
-@samp{full mesh} method. As with internal BGP full mesh formation,
+``full mesh`` method. As with internal BGP full mesh formation,
 this method has a scaling problem.
 
 This scaling problem is well known. Route Server is a method to resolve

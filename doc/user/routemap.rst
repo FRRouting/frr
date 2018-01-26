@@ -13,22 +13,22 @@ specify up to four distincts sets of clauses:
 
 
 *Matching Policy*
-  This specifies the policy implied if the @samp{Matching Conditions} are
+  This specifies the policy implied if the ``Matching Conditions`` are
   met or not met, and which actions of the route-map are to be taken, if
   any. The two possibilities are:
 
 
 **
-    @samp{permit}: If the entry matches, then carry out the @samp{Set
+    ``permit``: If the entry matches, then carry out the @samp{Set
     Actions}. Then finish processing the route-map, permitting the route,
-    unless an @samp{Exit Action} indicates otherwise.
+    unless an ``Exit Action`` indicates otherwise.
 
 
 **
-    @samp{deny}: If the entry matches, then finish processing the route-map and
-    deny the route (return @samp{deny}).
+    ``deny``: If the entry matches, then finish processing the route-map and
+    deny the route (return ``deny``).
 
-  The @samp{Matching Policy} is specified as part of the command which
+  The ``Matching Policy`` is specified as part of the command which
   defines the ordered entry in the route-map. See below.
 
 
@@ -45,32 +45,32 @@ specify up to four distincts sets of clauses:
 
 
 *Call Action*
-  Call to another route-map, after any @samp{Set Actions} have been
-  carried out. If the route-map called returns @samp{deny} then
+  Call to another route-map, after any ``Set Actions`` have been
+  carried out. If the route-map called returns ``deny`` then
   processing of the route-map finishes and the route is denied,
-  regardless of the @samp{Matching Policy} or the @samp{Exit Policy}. If
-  the called route-map returns @samp{permit}, then @samp{Matching Policy}
-  and @samp{Exit Policy} govern further behaviour, as normal.
+  regardless of the ``Matching Policy`` or the ``Exit Policy``. If
+  the called route-map returns ``permit``, then ``Matching Policy``
+  and ``Exit Policy`` govern further behaviour, as normal.
 
 
 *Exit Policy*
-  An entry may, optionally, specify an alternative @samp{Exit Policy} to
+  An entry may, optionally, specify an alternative ``Exit Policy`` to
   take if the entry matched, rather than the normal policy of exiting the
   route-map and permitting the route. The two possibilities are:
 
 
 **
-    @samp{next}: Continue on with processing of the route-map entries.
+    ``next``: Continue on with processing of the route-map entries.
 
 
 **
-    @samp{goto N}: Jump ahead to the first route-map entry whose order in
+    ``goto N``: Jump ahead to the first route-map entry whose order in
     the route-map is >= N. Jumping to a previous entry is not permitted.
 
 The default action of a route-map, if no entries match, is to deny.
-I.e. a route-map essentially has as its last entry an empty @samp{deny}
+I.e. a route-map essentially has as its last entry an empty ``deny``
 entry, which matches all routes. To change this behaviour, one must
-specify an empty @samp{permit} entry as the last entry in the route-map.
+specify an empty ``permit`` entry as the last entry in the route-map.
 
 To summarise the above:
 
@@ -89,16 +89,16 @@ To summarise the above:
 
 
 **
-    If *call* is present, call given route-map. If that returns a @samp{deny}, finish
-    processing and return @samp{deny}.
+    If *call* is present, call given route-map. If that returns a ``deny``, finish
+    processing and return ``deny``.
 
 
 **
-    If @samp{Exit Policy} is *next*, goto next route-map entry
+    If ``Exit Policy`` is *next*, goto next route-map entry
 
 
 **
-    If @samp{Exit Policy} is *goto*, goto first entry whose order in the list
+    If ``Exit Policy`` is *goto*, goto first entry whose order in the list
     is >= the given order.
 
 
@@ -109,7 +109,7 @@ To summarise the above:
 *deny*
 
 **
-    The route is denied by the route-map (return @samp{deny}).
+    The route is denied by the route-map (return ``deny``).
 
 
 *cont*
@@ -127,7 +127,7 @@ Route Map Command
 {Command} {route-map `route-map-name` (permit|deny) `order`} {}
 
   Configure the `order`'th entry in `route-map-name` with
-  @samp{Match Policy} of either *permit* or *deny*.
+  ``Match Policy`` of either *permit* or *deny*.
 
 
 .. _Route_Map_Match_Command:
@@ -304,5 +304,5 @@ This means that if a route matches ip access-list number 10 it's
 local-preference value is set to 200.
 
 See :ref:`BGP_Configuration_Examples` for examples of more sophisticated
-useage of route-maps, including of the @samp{call} action.
+useage of route-maps, including of the ``call`` action.
 

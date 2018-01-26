@@ -83,8 +83,8 @@ ripngd Filtering Commands
 Command {distribute-list `access_list` (in|out) `ifname`} {}
   You can apply an access-list to the interface using the
   `distribute-list` command.  `access_list` is an access-list
-  name.  `direct` is @samp{in} or @samp{out}.  If `direct` is
-  @samp{in}, the access-list is applied only to incoming packets.
+  name.  `direct` is ``in`` or ``out``.  If `direct` is
+  ``in``, the access-list is applied only to incoming packets.
 
 ::
 

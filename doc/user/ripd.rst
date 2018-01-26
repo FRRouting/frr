@@ -359,14 +359,14 @@ RIP routes can be filtered by a distribute-list.
 Command {distribute-list `access_list` `direct` `ifname`} {}
   You can apply access lists to the interface with a `distribute-list`
   command.  `access_list` is the access list name.  `direct` is
-  @samp{in} or @samp{out}.  If `direct` is @samp{in} the access list
+  ``in`` or ``out``.  If `direct` is ``in`` the access list
   is applied to input packets.
 
   The `distribute-list` command can be used to filter the RIP path.
   `distribute-list` can apply access-lists to a chosen interface.
   First, one should specify the access-list.  Next, the name of the
   access-list is used in the distribute-list command.  For example, in the
-  following configuration @samp{eth0} will permit only the paths that
+  following configuration ``eth0`` will permit only the paths that
   match the route 10.0.0.0/8
 
 ::
@@ -387,8 +387,8 @@ Command {distribute-list `access_list` `direct` `ifname`} {}
 Command {distribute-list prefix `prefix_list` (in|out) `ifname`} {}
   You can apply prefix lists to the interface with a
   `distribute-list` command.  `prefix_list` is the prefix list
-  name.  Next is the direction of @samp{in} or @samp{out}.  If
-  `direct` is @samp{in} the access list is applied to input packets.
+  name.  Next is the direction of ``in`` or ``out``.  If
+  `direct` is ``in`` the access list is applied to input packets.
 
 .. _RIP_Metric_Manipulation:
 

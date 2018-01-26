@@ -131,8 +131,8 @@ Babel configuration
       assumed to interfere with all other channels except noninterfering
       channels, and interfaces with a channel number interfere with
       interfering interfaces and interfaces with the same channel number.
-      The default is @samp{babel channel interfering} for wireless
-      interfaces, and @samp{babel channel noninterfering} for wired
+      The default is ``babel channel interfering`` for wireless
+      interfaces, and ``babel channel noninterfering`` for wired
       interfaces.  This is reset when the wired/wireless status of an
       interface is changed.
 

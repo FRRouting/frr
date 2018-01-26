@@ -233,11 +233,10 @@ Linux Notes
 
 .. index:: Linux configurations
 
-There are several options available only to GNU/Linux systems:
-@footnote{GNU/Linux has very flexible kernel configuration features}.  If
-you use GNU/Linux, make sure that the current kernel configuration is
-what you want.  FRR will run with any kernel configuration but some
-recommendations do exist.
+There are several options available only to GNU/Linux systems [#]_.
+If you use GNU/Linux, make sure that the current kernel configuration is what
+you want.  FRR will run with any kernel configuration but some recommendations
+do exist.
 
 
 - CONFIG_NETLINK
@@ -332,3 +331,4 @@ needed.
 You may need to make changes to the config files in
 |INSTALL_PREFIX_ETC|. :ref:`Config_Commands`.
 
+.. [#] GNU/Linux has very flexible kernel configuration features.

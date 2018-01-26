@@ -1,3 +1,5 @@
+.. _Kernel_Interface:
+
 ****************
 Kernel Interface
 ****************
@@ -9,24 +11,24 @@ interfaces.
 
 
 *ioctl*
-  The @samp{ioctl} method is a very traditional way for reading or writing
-  kernel information.  @samp{ioctl} can be used for looking up interfaces
+  The ``ioctl`` method is a very traditional way for reading or writing
+  kernel information.  ``ioctl`` can be used for looking up interfaces
   and for modifying interface addresses, flags, mtu settings and other
-  types of information.  Also, @samp{ioctl} can insert and delete kernel
+  types of information.  Also, ``ioctl`` can insert and delete kernel
   routing table entries.  It will soon be available on almost any platform
   which zebra supports, but it is a little bit ugly thus far, so if a
   better method is supported by the kernel, zebra will use that.
 
 
 *sysctl*
-  @samp{sysctl} can lookup kernel information using MIB (Management
+  ``sysctl`` can lookup kernel information using MIB (Management
   Information Base) syntax.  Normally, it only provides a way of getting
   information from the kernel.  So one would usually want to change kernel
-  information using another method such as @samp{ioctl}.
+  information using another method such as ``ioctl``.
 
 
 *proc filesystem*
-  @samp{proc filesystem} provides an easy way of getting kernel
+  ``proc filesystem`` provides an easy way of getting kernel
   information.
 
 
