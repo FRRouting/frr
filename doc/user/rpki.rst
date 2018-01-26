@@ -18,7 +18,7 @@ complexity.
 
 The RPKI/RTR protocol is defined in @cite{RFC6810, The Resource Public Key
 Infrastructure (RPKI) to Router Protocol}, and the validation scheme in
-@cite{RFC6811, BGP Prefix Origin Validation}. The current version of Prefix
+:rfc:`6811`. The current version of Prefix
 Origin Validation in FRR implements both RFCs.
 
 For a more detailed but still easy-to-read background, we suggest the

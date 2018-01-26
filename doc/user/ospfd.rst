@@ -5,7 +5,7 @@ OSPFv2
 ******
 
 @acronym{OSPF,Open Shortest Path First} version 2 is a routing protocol
-which is described in @cite{RFC2328, OSPF Version 2}.  OSPF is an
+which is described in :rfc:`2328`.  OSPF is an
 @acronym{IGP,Interior Gateway Protocol}.  Compared with @acronym{RIP},
 @acronym{OSPF} can provide scalable network support and faster
 convergence times.  OSPF is widely used in large networks such as
@@ -107,7 +107,7 @@ Command {no router ospf} {}
 .. index:: {OSPF Command} {no ospf rfc1583compatibility} {}
 
 {OSPF Command} {no ospf rfc1583compatibility} {}
-          @cite{RFC2328}, the sucessor to @cite{RFC1583}, suggests according
+          :rfc:`2328`, the sucessor to :rfc:`1583`, suggests according
           to section G.2 (changes) in section 16.4 a change to the path
           preference algorithm that prevents possible routing loops that were
           possible in the old version of OSPFv2. More specifically it demands
@@ -196,7 +196,7 @@ Command {no router ospf} {}
 .. index:: {OSPF Command} {no max-metric router-lsa [on-startup|on-shutdown|administrative]} {}
 
 {OSPF Command} {no max-metric router-lsa [on-startup|on-shutdown|administrative]} {}
-                    This enables @cite{RFC3137, OSPF Stub Router Advertisement} support,
+                    This enables :rfc:`3137` support,
                     where the OSPF process describes its transit links in its router-LSA as
                     having infinite distance so that other routers will avoid calculating
                     transit paths through the router while still being able to reach
@@ -376,7 +376,7 @@ OSPF area
 .. index:: {OSPF Command} {no area <0-4294967295> shortcut} {}
 
 {OSPF Command} {no area <0-4294967295> shortcut} {}
-                        Configure the area as Shortcut capable. See @cite{RFC3509}. This requires
+                        Configure the area as Shortcut capable. See :rfc:`3509`. This requires
                         that the 'abr-type' be set to 'shortcut'.
 
 .. index:: {OSPF Command} {area `a.b.c.d` stub} {}

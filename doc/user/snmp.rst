@@ -8,7 +8,7 @@ SNMP Support
 feature for collecting network information from router and/or host.
 FRR itself does not support SNMP agent (server daemon) functionality
 but is able to connect to a SNMP agent using the SMUX protocol
-(@cite{RFC1227}) or the AgentX protocol (@cite{RFC2741}) and make the
+(:rfc:`1227`) or the AgentX protocol (:rfc:`2741`) and make the
 routing protocol MIBs available through it.
 
 Note that SNMP Support needs to be enabled at compile-time and loaded as

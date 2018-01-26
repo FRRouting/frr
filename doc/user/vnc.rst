@@ -19,7 +19,7 @@ Ethernet/Layer 2 (L2) VNs are supported.
 
 BGP, with IP VPNs and Tunnel Encapsulation, is used to distribute VN
 information between NVAs. BGP based IP VPN support is defined in
-@cite{RFC4364, BGP/MPLS IP Virtual Private Networks (VPNs)}, and
+:rfc:`4364`, and
 @cite{RFC4659, BGP-MPLS IP Virtual Private Network (VPN) Extension for
 IPv6 VPN }.  Both the Encapsulation Subsequent Address Family Identifier
 (SAFI) and the Tunnel Encapsulation Attribute, @cite{RFC5512, The BGP
@@ -433,7 +433,7 @@ are used to override the route targets for an NVE's Ethernet
 registrations based on the Logical Network Identifier and label value.
 A Logical Network Identifier is used to uniquely identify a logical
 Ethernet segment and is conceptually similar to the Ethernet Segment
-Identifier defined in @cite{RFC7432, BGP MPLS-Based Ethernet VPN}.  Both
+Identifier defined in :rfc:`7432`.  Both
 the Logical Network Identifier and Label are passed to VNC via RFP
 prefix and address registration.
 
