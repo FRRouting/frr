@@ -998,14 +998,19 @@ int zebra_rib_labeled_unicast(struct route_entry *re)
 	return 1;
 }
 
-void kernel_route_rib_pass_fail(struct prefix *p, struct route_entry *re,
+void kernel_route_rib_pass_fail(struct route_node *rn, struct prefix *p,
+				struct route_entry *re,
 				enum southbound_results res)
 {
 	struct nexthop *nexthop;
 	char buf[PREFIX_STRLEN];
+	rib_dest_t *dest;
+
+	dest = rib_dest_from_rnode(rn);
 
 	switch (res) {
 	case SOUTHBOUND_INSTALL_SUCCESS:
+		dest->selected_fib = re;
 		for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 				continue;
@@ -1019,16 +1024,37 @@ void kernel_route_rib_pass_fail(struct prefix *p, struct route_entry *re,
 					 p, ZAPI_ROUTE_INSTALLED);
 		break;
 	case SOUTHBOUND_INSTALL_FAILURE:
+		/*
+		 * I am not sure this is the right thing to do here
+		 * but the code always set selected_fib before
+		 * this assignment was moved here.
+		 */
+		dest->selected_fib = re;
+
 		zsend_route_notify_owner(re->type, re->instance, re->vrf_id,
 					 p, ZAPI_ROUTE_FAIL_INSTALL);
 		zlog_warn("%u:%s: Route install failed", re->vrf_id,
 			  prefix2str(p, buf, sizeof(buf)));
 		break;
 	case SOUTHBOUND_DELETE_SUCCESS:
+		/*
+		 * The case where selected_fib is not re is
+		 * when we have received a system route
+		 * that is overriding our installed route
+		 * as such we should leave the selected_fib
+		 * pointer alone
+		 */
+		if (dest->selected_fib == re)
+			dest->selected_fib = NULL;
 		for (ALL_NEXTHOPS(re->nexthop, nexthop))
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		break;
 	case SOUTHBOUND_DELETE_FAILURE:
+		/*
+		 * Should we set this to NULL if the
+		 * delete fails?
+		 */
+		dest->selected_fib = NULL;
 		zlog_warn("%u:%s: Route Deletion failure", re->vrf_id,
 			  prefix2str(p, buf, sizeof(buf)));
 		break;
@@ -1083,7 +1109,7 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	 * the kernel.
 	 */
 	hook_call(rib_update, rn, "installing in kernel");
-	kernel_route_rib(p, src_p, old, re);
+	kernel_route_rib(rn, p, src_p, old, re);
 	zvrf->installs++;
 
 	return;
@@ -1110,7 +1136,7 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 	 * the kernel.
 	 */
 	hook_call(rib_update, rn, "uninstalling from kernel");
-	kernel_route_rib(p, src_p, re, NULL);
+	kernel_route_rib(rn, p, src_p, re, NULL);
 	zvrf->removals++;
 
 	return;
@@ -1132,8 +1158,6 @@ static void rib_uninstall(struct route_node *rn, struct route_entry *re)
 		/* If labeled-unicast route, uninstall transit LSP. */
 		if (zebra_rib_labeled_unicast(re))
 			zebra_mpls_lsp_uninstall(info->zvrf, rn, re);
-
-		dest->selected_fib = NULL;
 	}
 
 	if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)) {
@@ -1218,7 +1242,6 @@ static void rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 		return;
 	}
 
-	dest->selected_fib = new;
 	if (IS_ZEBRA_DEBUG_RIB) {
 		char buf[SRCDEST2STR_BUFFER];
 		srcdest_rnode2str(rn, buf, sizeof(buf));
@@ -1232,6 +1255,8 @@ static void rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 
 	if (!RIB_SYSTEM_ROUTE(new))
 		rib_install_kernel(rn, new, NULL);
+	else
+		dest->selected_fib = new;
 
 	UNSET_FLAG(new->status, ROUTE_ENTRY_CHANGED);
 }
@@ -1256,8 +1281,17 @@ static void rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 
 	if (!RIB_SYSTEM_ROUTE(old))
 		rib_uninstall_kernel(rn, old);
-
-	dest->selected_fib = NULL;
+	else {
+		/*
+		 * We are setting this to NULL here
+		 * because that is what we traditionally
+		 * have been doing.  I am not positive
+		 * that this is the right thing to do
+		 * but let's leave the code alone
+		 * for the RIB_SYSTEM_ROUTE case
+		 */
+		dest->selected_fib = NULL;
+	}
 
 	/* Update nexthop for route, reset changed flag. */
 	nexthop_active_update(rn, old, 1);
@@ -1271,7 +1305,6 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 {
 	struct nexthop *nexthop = NULL;
 	int nh_active = 0;
-	int installed = 1;
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 
 	/*
@@ -1321,11 +1354,23 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 					zebra_mpls_lsp_install(zvrf, rn, new);
 
 				rib_install_kernel(rn, new, old);
+			} else {
+				/*
+				 * We do not need to install the
+				 * selected route because it
+				 * is already isntalled by
+				 * the system( ie not us )
+				 * so just mark it as winning
+				 * we do need to ensure that
+				 * if we uninstall a route
+				 * from ourselves we don't
+				 * over write this pointer
+				 */
+				dest->selected_fib = NULL;
 			}
-
 			/* If install succeeded or system route, cleanup flags
 			 * for prior route. */
-			if (installed && new != old) {
+			if (new != old) {
 				if (RIB_SYSTEM_ROUTE(new)) {
 					if (!RIB_SYSTEM_ROUTE(old))
 						rib_uninstall_kernel(rn, old);
@@ -1336,10 +1381,6 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 							   NEXTHOP_FLAG_FIB);
 				}
 			}
-
-			/* Update for redistribution. */
-			if (installed)
-				dest->selected_fib = new;
 		}
 
 		/*
@@ -1347,7 +1388,7 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 		 * failed, we
 		 * may need to uninstall and delete for redistribution.
 		 */
-		if (!nh_active || !installed) {
+		if (!nh_active) {
 			if (IS_ZEBRA_DEBUG_RIB) {
 				char buf[SRCDEST2STR_BUFFER];
 				srcdest_rnode2str(rn, buf, sizeof(buf));
@@ -1374,7 +1415,8 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 
 			if (!RIB_SYSTEM_ROUTE(old))
 				rib_uninstall_kernel(rn, old);
-			dest->selected_fib = NULL;
+			else
+				dest->selected_fib = NULL;
 		}
 	} else {
 		/*
@@ -1387,12 +1429,12 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 		 * to add routes.
 		 */
 		if (!RIB_SYSTEM_ROUTE(new)) {
-			int in_fib = 0;
+			bool in_fib = false;
 
 			for (ALL_NEXTHOPS(new->nexthop, nexthop))
 				if (CHECK_FLAG(nexthop->flags,
 					       NEXTHOP_FLAG_FIB)) {
-					in_fib = 1;
+					in_fib = true;
 					break;
 				}
 			if (!in_fib)
@@ -2439,6 +2481,11 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 					UNSET_FLAG(rtnh->flags,
 						   NEXTHOP_FLAG_FIB);
 
+				/*
+				 * This is a non FRR route
+				 * as such we should mark
+				 * it as deleted
+				 */
 				dest->selected_fib = NULL;
 			} else {
 				/* This means someone else, other than Zebra,
