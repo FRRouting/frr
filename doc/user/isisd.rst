@@ -112,12 +112,12 @@ Command {no router isis WORD} {}
 ISIS Timer
 ==========
 
-.. index:: {ISIS Command} {lsp-gen-interval <1-120>} {}
+.. index:: {ISIS Command} {lsp-gen-interval (1-120)} {}
 
-{ISIS Command} {lsp-gen-interval <1-120>} {}
-.. index:: {ISIS Command} {lsp-gen-interval [level-1 | level-2] <1-120>} {}
+{ISIS Command} {lsp-gen-interval (1-120)} {}
+.. index:: {ISIS Command} {lsp-gen-interval [level-1 | level-2] (1-120)} {}
 
-{ISIS Command} {lsp-gen-interval [level-1 | level-2] <1-120>} {}
+{ISIS Command} {lsp-gen-interval [level-1 | level-2] (1-120)} {}
 .. index:: {ISIS Command} {no lsp-gen-interval} {}
 
 {ISIS Command} {no lsp-gen-interval} {}
@@ -127,12 +127,12 @@ ISIS Timer
         Set minimum interval in seconds between regenerating same LSP,
         globally, for an area (level-1) or a domain (level-2).
 
-.. index:: {ISIS Command} {lsp-refresh-interval <1-65235>} {}
+.. index:: {ISIS Command} {lsp-refresh-interval (1-65235)} {}
 
-{ISIS Command} {lsp-refresh-interval <1-65235>} {}
-.. index:: {ISIS Command} {lsp-refresh-interval [level-1 | level-2] <1-65235>} {}
+{ISIS Command} {lsp-refresh-interval (1-65235)} {}
+.. index:: {ISIS Command} {lsp-refresh-interval [level-1 | level-2] (1-65235)} {}
 
-{ISIS Command} {lsp-refresh-interval [level-1 | level-2] <1-65235>} {}
+{ISIS Command} {lsp-refresh-interval [level-1 | level-2] (1-65235)} {}
 .. index:: {ISIS Command} {no lsp-refresh-interval} {}
 
 {ISIS Command} {no lsp-refresh-interval} {}
@@ -141,12 +141,12 @@ ISIS Timer
 {ISIS Command} {no lsp-refresh-interval [level-1 | level-2]} {}
               Set LSP refresh interval in seconds, globally, for an area (level-1) or a domain (level-2).
 
-.. index:: {ISIS Command} {lsp-refresh-interval <1-65235>} {}
+.. index:: {ISIS Command} {lsp-refresh-interval (1-65235)} {}
 
-{ISIS Command} {lsp-refresh-interval <1-65235>} {}
-.. index:: {ISIS Command} {lsp-refresh-interval [level-1 | level-2] <1-65235>} {}
+{ISIS Command} {lsp-refresh-interval (1-65235)} {}
+.. index:: {ISIS Command} {lsp-refresh-interval [level-1 | level-2] (1-65235)} {}
 
-{ISIS Command} {lsp-refresh-interval [level-1 | level-2] <1-65235>} {}
+{ISIS Command} {lsp-refresh-interval [level-1 | level-2] (1-65235)} {}
 .. index:: {ISIS Command} {no lsp-refresh-interval} {}
 
 {ISIS Command} {no lsp-refresh-interval} {}
@@ -155,12 +155,12 @@ ISIS Timer
 {ISIS Command} {no lsp-refresh-interval [level-1 | level-2]} {}
                     Set LSP refresh interval in seconds, globally, for an area (level-1) or a domain (level-2).
 
-.. index:: {ISIS Command} {max-lsp-lifetime <360-65535>} {}
+.. index:: {ISIS Command} {max-lsp-lifetime (360-65535)} {}
 
-{ISIS Command} {max-lsp-lifetime <360-65535>} {}
-.. index:: {ISIS Command} {max-lsp-lifetime [level-1 | level-2] <360-65535>} {}
+{ISIS Command} {max-lsp-lifetime (360-65535)} {}
+.. index:: {ISIS Command} {max-lsp-lifetime [level-1 | level-2] (360-65535)} {}
 
-{ISIS Command} {max-lsp-lifetime [level-1 | level-2] <360-65535>} {}
+{ISIS Command} {max-lsp-lifetime [level-1 | level-2] (360-65535)} {}
 .. index:: {ISIS Command} {no max-lsp-lifetime} {}
 
 {ISIS Command} {no max-lsp-lifetime} {}
@@ -169,12 +169,12 @@ ISIS Timer
 {ISIS Command} {no max-lsp-lifetime [level-1 | level-2]} {}
                           Set LSP maximum LSP lifetime in seconds, globally, for an area (level-1) or a domain (level-2).
 
-.. index:: {ISIS Command} {spf-interval <1-120>} {}
+.. index:: {ISIS Command} {spf-interval (1-120)} {}
 
-{ISIS Command} {spf-interval <1-120>} {}
-.. index:: {ISIS Command} {spf-interval [level-1 | level-2] <1-120>} {}
+{ISIS Command} {spf-interval (1-120)} {}
+.. index:: {ISIS Command} {spf-interval [level-1 | level-2] (1-120)} {}
 
-{ISIS Command} {spf-interval [level-1 | level-2] <1-120>} {}
+{ISIS Command} {spf-interval [level-1 | level-2] (1-120)} {}
 .. index:: {ISIS Command} {no spf-interval} {}
 
 {ISIS Command} {no spf-interval} {}
@@ -227,12 +227,12 @@ ISIS interface
       - level-1-2     Level-1-2 adjacencies are formed
       - level-2-only  Level-2 only adjacencies are formed
 
-.. index:: {Interface Command} {isis csnp-interval <1-600>} {}
+.. index:: {Interface Command} {isis csnp-interval (1-600)} {}
 
-{Interface Command} {isis csnp-interval <1-600>} {}
-.. index:: {Interface Command} {isis csnp-interval <1-600> [level-1 | level-2]} {}
+{Interface Command} {isis csnp-interval (1-600)} {}
+.. index:: {Interface Command} {isis csnp-interval (1-600) [level-1 | level-2]} {}
 
-{Interface Command} {isis csnp-interval <1-600> [level-1 | level-2]} {}
+{Interface Command} {isis csnp-interval (1-600) [level-1 | level-2]} {}
 .. index:: {Interface Command} {no isis csnp-interval} {}
 
 {Interface Command} {no isis csnp-interval} {}
@@ -246,12 +246,12 @@ ISIS interface
 {Interface Command} {isis hello padding} {}
             Add padding to IS-IS hello packets.
 
-.. index:: {Interface Command} {isis hello-interval <1-600>} {}
+.. index:: {Interface Command} {isis hello-interval (1-600)} {}
 
-{Interface Command} {isis hello-interval <1-600>} {}
-.. index:: {Interface Command} {isis hello-interval <1-600> [level-1 | level-2]} {}
+{Interface Command} {isis hello-interval (1-600)} {}
+.. index:: {Interface Command} {isis hello-interval (1-600) [level-1 | level-2]} {}
 
-{Interface Command} {isis hello-interval <1-600> [level-1 | level-2]} {}
+{Interface Command} {isis hello-interval (1-600) [level-1 | level-2]} {}
 .. index:: {Interface Command} {no isis hello-interval} {}
 
 {Interface Command} {no isis hello-interval} {}
@@ -260,12 +260,12 @@ ISIS interface
 {Interface Command} {no isis hello-interval [level-1 | level-2]} {}
                   Set Hello interval in seconds globally, for an area (level-1) or a domain (level-2).
 
-.. index:: {Interface Command} {isis hello-multiplier <2-100>} {}
+.. index:: {Interface Command} {isis hello-multiplier (2-100)} {}
 
-{Interface Command} {isis hello-multiplier <2-100>} {}
-.. index:: {Interface Command} {isis hello-multiplier <2-100> [level-1 | level-2]} {}
+{Interface Command} {isis hello-multiplier (2-100)} {}
+.. index:: {Interface Command} {isis hello-multiplier (2-100) [level-1 | level-2]} {}
 
-{Interface Command} {isis hello-multiplier <2-100> [level-1 | level-2]} {}
+{Interface Command} {isis hello-multiplier (2-100) [level-1 | level-2]} {}
 .. index:: {Interface Command} {no isis hello-multiplier} {}
 
 {Interface Command} {no isis hello-multiplier} {}
@@ -274,12 +274,12 @@ ISIS interface
 {Interface Command} {no isis hello-multiplier [level-1 | level-2]} {}
                         Set multiplier for Hello holding time globally, for an area (level-1) or a domain (level-2).
 
-.. index:: {Interface Command} {isis metric [<0-255> | <0-16777215>]} {}
+.. index:: {Interface Command} {isis metric [(0-255) | (0-16777215)]} {}
 
-{Interface Command} {isis metric [<0-255> | <0-16777215>]} {}
-.. index:: {Interface Command} {isis metric [<0-255> | <0-16777215>] [level-1 | level-2]} {}
+{Interface Command} {isis metric [(0-255) | (0-16777215)]} {}
+.. index:: {Interface Command} {isis metric [(0-255) | (0-16777215)] [level-1 | level-2]} {}
 
-{Interface Command} {isis metric [<0-255> | <0-16777215>] [level-1 | level-2]} {}
+{Interface Command} {isis metric [(0-255) | (0-16777215)] [level-1 | level-2]} {}
 .. index:: {Interface Command} {no isis metric} {}
 
 {Interface Command} {no isis metric} {}
@@ -313,12 +313,12 @@ ISIS interface
 {Interface Command} {no isis password} {}
                                     Configure the authentication password (clear or encoded text) for the interface.
 
-.. index:: {Interface Command} {isis priority <0-127>} {}
+.. index:: {Interface Command} {isis priority (0-127)} {}
 
-{Interface Command} {isis priority <0-127>} {}
-.. index:: {Interface Command} {isis priority <0-127> [level-1 | level-2]} {}
+{Interface Command} {isis priority (0-127)} {}
+.. index:: {Interface Command} {isis priority (0-127) [level-1 | level-2]} {}
 
-{Interface Command} {isis priority <0-127> [level-1 | level-2]} {}
+{Interface Command} {isis priority (0-127) [level-1 | level-2]} {}
 .. index:: {Interface Command} {no isis priority} {}
 
 {Interface Command} {no isis priority} {}
@@ -328,12 +328,12 @@ ISIS interface
                                           Set priority for Designated Router election, globally, for the area (level-1)
                                           or the domain (level-2).
 
-.. index:: {Interface Command} {isis psnp-interval <1-120>} {}
+.. index:: {Interface Command} {isis psnp-interval (1-120)} {}
 
-{Interface Command} {isis psnp-interval <1-120>} {}
-.. index:: {Interface Command} {isis psnp-interval <1-120> [level-1 | level-2]} {}
+{Interface Command} {isis psnp-interval (1-120)} {}
+.. index:: {Interface Command} {isis psnp-interval (1-120) [level-1 | level-2]} {}
 
-{Interface Command} {isis psnp-interval <1-120> [level-1 | level-2]} {}
+{Interface Command} {isis psnp-interval (1-120) [level-1 | level-2]} {}
 .. index:: {Interface Command} {no isis psnp-interval} {}
 
 {Interface Command} {no isis psnp-interval} {}

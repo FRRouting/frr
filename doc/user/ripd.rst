@@ -249,9 +249,9 @@ How to Announce RIP route
 .. index:: {RIP command} {redistribute kernel} {}
 
 {RIP command} {redistribute kernel} {}
-.. index:: {RIP command} {redistribute kernel metric <0-16>} {}
+.. index:: {RIP command} {redistribute kernel metric (0-16)} {}
 
-{RIP command} {redistribute kernel metric <0-16>} {}
+{RIP command} {redistribute kernel metric (0-16)} {}
 .. index:: {RIP command} {redistribute kernel route-map `route-map`} {}
 
 {RIP command} {redistribute kernel route-map `route-map`} {}
@@ -265,9 +265,9 @@ How to Announce RIP route
 .. index:: {RIP command} {redistribute static} {}
 
 {RIP command} {redistribute static} {}
-.. index:: {RIP command} {redistribute static metric <0-16>} {}
+.. index:: {RIP command} {redistribute static metric (0-16)} {}
 
-{RIP command} {redistribute static metric <0-16>} {}
+{RIP command} {redistribute static metric (0-16)} {}
 .. index:: {RIP command} {redistribute static route-map `route-map`} {}
 
 {RIP command} {redistribute static route-map `route-map`} {}
@@ -281,9 +281,9 @@ How to Announce RIP route
 .. index:: {RIP command} {redistribute connected} {}
 
 {RIP command} {redistribute connected} {}
-.. index:: {RIP command} {redistribute connected metric <0-16>} {}
+.. index:: {RIP command} {redistribute connected metric (0-16)} {}
 
-{RIP command} {redistribute connected metric <0-16>} {}
+{RIP command} {redistribute connected metric (0-16)} {}
 .. index:: {RIP command} {redistribute connected route-map `route-map`} {}
 
 {RIP command} {redistribute connected route-map `route-map`} {}
@@ -297,9 +297,9 @@ How to Announce RIP route
 .. index:: {RIP command} {redistribute ospf} {}
 
 {RIP command} {redistribute ospf} {}
-.. index:: {RIP command} {redistribute ospf metric <0-16>} {}
+.. index:: {RIP command} {redistribute ospf metric (0-16)} {}
 
-{RIP command} {redistribute ospf metric <0-16>} {}
+{RIP command} {redistribute ospf metric (0-16)} {}
 .. index:: {RIP command} {redistribute ospf route-map `route-map`} {}
 
 {RIP command} {redistribute ospf route-map `route-map`} {}
@@ -313,9 +313,9 @@ How to Announce RIP route
 .. index:: {RIP command} {redistribute bgp} {}
 
 {RIP command} {redistribute bgp} {}
-.. index:: {RIP command} {redistribute bgp metric <0-16>} {}
+.. index:: {RIP command} {redistribute bgp metric (0-16)} {}
 
-{RIP command} {redistribute bgp metric <0-16>} {}
+{RIP command} {redistribute bgp metric (0-16)} {}
 .. index:: {RIP command} {redistribute bgp route-map `route-map`} {}
 
 {RIP command} {redistribute bgp route-map `route-map`} {}
@@ -395,12 +395,12 @@ RIP metric is a value for distance for the network.  Usually
 *ripd* increment the metric when the network information is
 received.  Redistributed routes' metric is set to 1.
 
-.. index:: {RIP command} {default-metric <1-16>} {}
+.. index:: {RIP command} {default-metric (1-16)} {}
 
-{RIP command} {default-metric <1-16>} {}
-.. index:: {RIP command} {no default-metric <1-16>} {}
+{RIP command} {default-metric (1-16)} {}
+.. index:: {RIP command} {no default-metric (1-16)} {}
 
-{RIP command} {no default-metric <1-16>} {}
+{RIP command} {no default-metric (1-16)} {}
     This command modifies the default metric value for redistributed routes.  The
     default value is 1.  This command does not affect connected route
     even if it is redistributed by *redistribute connected*.  To modify
@@ -422,29 +422,29 @@ RIP distance
 
 Distance value is used in zebra daemon.  Default RIP distance is 120.
 
-.. index:: {RIP command} {distance <1-255>} {}
+.. index:: {RIP command} {distance (1-255)} {}
 
-{RIP command} {distance <1-255>} {}
-.. index:: {RIP command} {no distance <1-255>} {}
+{RIP command} {distance (1-255)} {}
+.. index:: {RIP command} {no distance (1-255)} {}
 
-{RIP command} {no distance <1-255>} {}
+{RIP command} {no distance (1-255)} {}
     Set default RIP distance to specified value.
 
-.. index:: {RIP command} {distance <1-255> `A.B.C.D/M`} {}
+.. index:: {RIP command} {distance (1-255) `A.B.C.D/M`} {}
 
-{RIP command} {distance <1-255> `A.B.C.D/M`} {}
-.. index:: {RIP command} {no distance <1-255> `A.B.C.D/M`} {}
+{RIP command} {distance (1-255) `A.B.C.D/M`} {}
+.. index:: {RIP command} {no distance (1-255) `A.B.C.D/M`} {}
 
-{RIP command} {no distance <1-255> `A.B.C.D/M`} {}
+{RIP command} {no distance (1-255) `A.B.C.D/M`} {}
       Set default RIP distance to specified value when the route's source IP
       address matches the specified prefix.
 
-.. index:: {RIP command} {distance <1-255> `A.B.C.D/M` `access-list`} {}
+.. index:: {RIP command} {distance (1-255) `A.B.C.D/M` `access-list`} {}
 
-{RIP command} {distance <1-255> `A.B.C.D/M` `access-list`} {}
-.. index:: {RIP command} {no distance <1-255> `A.B.C.D/M` `access-list`} {}
+{RIP command} {distance (1-255) `A.B.C.D/M` `access-list`} {}
+.. index:: {RIP command} {no distance (1-255) `A.B.C.D/M` `access-list`} {}
 
-{RIP command} {no distance <1-255> `A.B.C.D/M` `access-list`} {}
+{RIP command} {no distance (1-255) `A.B.C.D/M` `access-list`} {}
         Set default RIP distance to specified value when the route's source IP
         address matches the specified prefix and the specified access-list.
 
@@ -504,12 +504,12 @@ functionality.
       Match if route next-hop (meaning next-hop listed in the rip route-table
       as displayed by "show ip rip") is permitted by access-list.
 
-.. index:: {Route Map} {match metric <0-4294967295>} {}
+.. index:: {Route Map} {match metric (0-4294967295)} {}
 
-{Route Map} {match metric <0-4294967295>} {}
+{Route Map} {match metric (0-4294967295)} {}
       This command match to the metric value of RIP updates.  For other
-      protocol compatibility metric range is shown as <0-4294967295>.  But
-      for RIP protocol only the value range <0-16> make sense.
+      protocol compatibility metric range is shown as (0-4294967295).  But
+      for RIP protocol only the value range (0-16) make sense.
 
 .. index:: {Route Map} {set ip next-hop A.B.C.D} {}
 
@@ -517,9 +517,9 @@ functionality.
       This command set next hop value in RIPv2 protocol.  This command does
       not affect RIPv1 because there is no next hop field in the packet.
 
-.. index:: {Route Map} {set metric <0-4294967295>} {}
+.. index:: {Route Map} {set metric (0-4294967295)} {}
 
-{Route Map} {set metric <0-4294967295>} {}
+{Route Map} {set metric (0-4294967295)} {}
       Set a metric for matched route when sending announcement.  The metric
       value range is very large for compatibility with other protocols.  For
       RIP, valid metric values are from 1 to 16.

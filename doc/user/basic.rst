@@ -53,187 +53,208 @@ Basic Config Commands
 
 .. index:: hostname HOSTNAME
 
-``hostname HOSTNAME``
-  Set hostname of the router.
+.. clicmd:: hostname HOSTNAME
+
+   Set hostname of the router.
 
 .. index:: password PASSWORD
 
-``password PASSWORD``
-  Set password for vty interface. If there is no password, a vty won't
-  accept connections.
+.. clicmd:: password PASSWORD
+
+   Set password for vty interface. If there is no password, a vty won't
+   accept connections.
 
 .. index:: enable password PASSWORD
 
-``enable password PASSWORD``
-  Set enable password.
+.. clicmd:: enable password PASSWORD
+
+   Set enable password.
 
 .. index::
-   single: no log trap [LEVEL]
-   single: log trap LEVEL
+    single: no log trap [LEVEL]
+    single: log trap LEVEL
 
-``[no] log trap LEVEL``
-  These commands are deprecated and are present only for historical
-  compatibility. The log trap command sets the current logging level for all
-  enabled logging destinations, and it sets the default for all future logging
-  commands that do not specify a level. The normal default logging level is
-  debugging. The ``no`` form of the command resets the default level for future
-  logging commands to debugging, but it does not change the logging level of
-  existing logging destinations.
+.. clicmd:: [no] log trap LEVEL
 
-.. index::
-   single: no log stdout [LEVEL]
-   single: log stdout [LEVEL]
-
-``[no] log stdout LEVEL``
-  Enable logging output to stdout. If the optional second argument specifying
-  the logging level is not present, the default logging level (typically
-  debugging, but can be changed using the deprecated ``log trap`` command) will
-  be used. The ``no`` form of the command disables logging to stdout. The
-  ``LEVEL`` argument must have one of these values: emergencies, alerts,
-  critical, errors, warnings, notifications, informational, or debugging. Note
-  that the existing code logs its most important messages with severity
-  ``errors``.
+   These commands are deprecated and are present only for historical
+   compatibility. The log trap command sets the current logging level for all
+   enabled logging destinations, and it sets the default for all future logging
+   commands that do not specify a level. The normal default logging level is
+   debugging. The ``no`` form of the command resets the default level for future
+   logging commands to debugging, but it does not change the logging level of
+   existing logging destinations.
 
 .. index::
-   single: no log file [FILENAME [LEVEL]]
-   single: log file FILENAME [LEVEL]
+    single: no log stdout [LEVEL]
+    single: log stdout [LEVEL]
 
-``[no] log file [FILENAME [LEVEL]]``
-  If you want to log into a file, please specify ``filename`` as
-  in this example: ::
+.. clicmd:: [no] log stdout LEVEL
 
-    log file /var/log/frr/bgpd.log informational
-
-  If the optional second argument specifying the logging level is not present,
-  the default logging level (typically debugging, but can be changed using the
-  deprecated ``log trap`` command) will be used. The ``no`` form of the command
-  disables logging to a file. *Note:* if you do not configure any file logging,
-  and a daemon crashes due to a signal or an assertion failure, it will attempt
-  to save the crash information in a file named /var/tmp/frr.<daemon
-  name>.crashlog. For security reasons, this will not happen if the file exists
-  already, so it is important to delete the file after reporting the crash
-  information.
+   Enable logging output to stdout. If the optional second argument specifying
+   the logging level is not present, the default logging level (typically
+   debugging, but can be changed using the deprecated ``log trap`` command) will
+   be used. The ``no`` form of the command disables logging to stdout. The
+   ``LEVEL`` argument must have one of these values: emergencies, alerts,
+   critical, errors, warnings, notifications, informational, or debugging. Note
+   that the existing code logs its most important messages with severity
+   ``errors``.
 
 .. index::
-   single: no log syslog [LEVEL]
-   single: log syslog [LEVEL]
+    single: no log file [FILENAME [LEVEL]]
+    single: log file FILENAME [LEVEL]
 
-``[no] log syslog [LEVEL]``
-  Enable logging output to syslog. If the optional second argument specifying
-  the logging level is not present, the default logging level (typically
-  debugging, but can be changed using the deprecated ``log trap`` command) will
-  be used. The ``no`` form of the command disables logging to syslog.
+.. clicmd:: [no] log file [FILENAME [LEVEL]]
 
-.. index::
-   single: no log monitor [LEVEL]
-   single: log monitor [LEVEL]
+   If you want to log into a file, please specify ``filename`` as
+   in this example: ::
 
-``[no] log monitor [LEVEL]``
-  Enable logging output to vty terminals that have enabled logging using the
-  ``terminal monitor`` command. By default, monitor logging is enabled at the
-  debugging level, but this command (or the deprecated ``log trap`` command) can
-  be used to change the monitor logging level. If the optional second argument
-  specifying the logging level is not present, the default logging level
-  (typically debugging, but can be changed using the deprecated ``log trap``
-  command) will be used. The ``no`` form of the command disables logging to
-  terminal monitors.
+     log file /var/log/frr/bgpd.log informational
+
+   If the optional second argument specifying the logging level is not present,
+   the default logging level (typically debugging, but can be changed using the
+   deprecated ``log trap`` command) will be used. The ``no`` form of the command
+   disables logging to a file. *Note:* if you do not configure any file logging,
+   and a daemon crashes due to a signal or an assertion failure, it will attempt
+   to save the crash information in a file named /var/tmp/frr.<daemon
+   name>.crashlog. For security reasons, this will not happen if the file exists
+   already, so it is important to delete the file after reporting the crash
+   information.
 
 .. index::
-   single: no log facility [FACILITY]
-   single: log facility [FACILITY]
+    single: no log syslog [LEVEL]
+    single: log syslog [LEVEL]
 
-``[no] log facility [FACILITY]``
-  This command changes the facility used in syslog messages. The default
-  facility is ``daemon``. The ``no`` form of the command resets
-  the facility to the default ``daemon`` facility.
+.. clicmd:: [no] log syslog [LEVEL]
 
-.. index::
-   single: no log record-priority
-   single: log record-priority
-
-``[no] log record-priority``
-  To include the severity in all messages logged to a file, to stdout, or to
-  a terminal monitor (i.e. anything except syslog),
-  use the ``log record-priority`` global configuration command.
-  To disable this option, use the ``no`` form of the command. By default,
-  the severity level is not included in logged messages. Note: some
-  versions of syslogd (including Solaris) can be configured to include
-  the facility and level in the messages emitted.
+   Enable logging output to syslog. If the optional second argument specifying
+   the logging level is not present, the default logging level (typically
+   debugging, but can be changed using the deprecated ``log trap`` command) will
+   be used. The ``no`` form of the command disables logging to syslog.
 
 .. index::
-   single: log timestamp precision <0-6>
-   single: [no] log timestamp precision <0-6>
+    single: no log monitor [LEVEL]
+    single: log monitor [LEVEL]
 
-``[no] log timestamp precision [<0-6>]``
-  This command sets the precision of log message timestamps to the given number
-  of digits after the decimal point. Currently, the value must be in the range
-  0 to 6 (i.e. the maximum precision is microseconds). To restore the default
-  behavior (1-second accuracy), use the ``no`` form of the command, or set the
-  precision explicitly to 0.
+.. clicmd:: [no] log monitor [LEVEL]
+
+   Enable logging output to vty terminals that have enabled logging using the
+   ``terminal monitor`` command. By default, monitor logging is enabled at the
+   debugging level, but this command (or the deprecated ``log trap`` command) can
+   be used to change the monitor logging level. If the optional second argument
+   specifying the logging level is not present, the default logging level
+   (typically debugging, but can be changed using the deprecated ``log trap``
+   command) will be used. The ``no`` form of the command disables logging to
+   terminal monitors.
+
+.. index::
+    single: no log facility [FACILITY]
+    single: log facility [FACILITY]
+
+.. clicmd:: [no] log facility [FACILITY]
+
+   This command changes the facility used in syslog messages. The default
+   facility is ``daemon``. The ``no`` form of the command resets
+   the facility to the default ``daemon`` facility.
+
+.. index::
+    single: no log record-priority
+    single: log record-priority
+
+.. clicmd:: [no] log record-priority
+
+   To include the severity in all messages logged to a file, to stdout, or to
+   a terminal monitor (i.e. anything except syslog),
+   use the ``log record-priority`` global configuration command.
+   To disable this option, use the ``no`` form of the command. By default,
+   the severity level is not included in logged messages. Note: some
+   versions of syslogd (including Solaris) can be configured to include
+   the facility and level in the messages emitted.
+
+.. index::
+    single: log timestamp precision (0-6)
+    single: [no] log timestamp precision (0-6)
+
+.. clicmd:: [no] log timestamp precision [(0-6)]
+
+   This command sets the precision of log message timestamps to the given number
+   of digits after the decimal point. Currently, the value must be in the range
+   0 to 6 (i.e. the maximum precision is microseconds). To restore the default
+   behavior (1-second accuracy), use the ``no`` form of the command, or set the
+   precision explicitly to 0.
 
 ::
 
-    log timestamp precision 3
+     log timestamp precision 3
 
-  In this example, the precision is set to provide timestamps with
-  millisecond accuracy.
+   In this example, the precision is set to provide timestamps with
+   millisecond accuracy.
 
 .. index:: log commands
 
-``log commands``
-  This command enables the logging of all commands typed by a user to
-  all enabled log destinations. The note that logging includes full
-  command lines, including passwords. Once set, command logging can only
-  be turned off by restarting the daemon.
+.. clicmd:: log commands
+
+   This command enables the logging of all commands typed by a user to
+   all enabled log destinations. The note that logging includes full
+   command lines, including passwords. Once set, command logging can only
+   be turned off by restarting the daemon.
 
 .. index:: service password-encryption
 
-``service password-encryption``
-  Encrypt password.
+.. clicmd:: service password-encryption
+
+   Encrypt password.
 
 .. index:: service advanced-vty
 
-``service advanced-vty``
-  Enable advanced mode VTY.
+.. clicmd:: service advanced-vty
 
-.. index:: service terminal-length <0-512>
+   Enable advanced mode VTY.
 
-``service terminal-length <0-512>``
-  Set system wide line configuration. This configuration command applies
-  to all VTY interfaces.
+.. index:: service terminal-length (0-512)
+
+.. clicmd:: service terminal-length (0-512)
+
+   Set system wide line configuration. This configuration command applies
+   to all VTY interfaces.
 
 .. index:: line vty
 
-``line vty``
-  Enter vty configuration mode.
+.. clicmd:: line vty
+
+   Enter vty configuration mode.
 
 .. index:: banner motd default
 
-``banner motd default``
-  Set default motd string.
+.. clicmd:: banner motd default
+
+   Set default motd string.
 
 .. index:: no banner motd
 
-``no banner motd``
-  No motd banner string will be printed.
+.. clicmd:: no banner motd
+
+   No motd banner string will be printed.
 
 .. index:: exec-timeout MINUTE [SECOND]
 
-``exec-timeout MINUTE [SECOND]``
-  Set VTY connection timeout value. When only one argument is specified
-  it is used for timeout value in minutes. Optional second argument is
-  used for timeout value in seconds. Default timeout value is 10 minutes.
-  When timeout value is zero, it means no timeout.
+.. clicmd:: exec-timeout MINUTE [SECOND]
+
+   Set VTY connection timeout value. When only one argument is specified
+   it is used for timeout value in minutes. Optional second argument is
+   used for timeout value in seconds. Default timeout value is 10 minutes.
+   When timeout value is zero, it means no timeout.
 
 .. index:: no exec-timeout
 
-``no exec-timeout``
-  Do not perform timeout at all. This command is as same as *exec-timeout 0 0*.
+.. clicmd:: no exec-timeout
+
+   Do not perform timeout at all. This command is as same as *exec-timeout 0 0*.
 
 .. index:: access-class ACCESS-LIST
 
-``access-class ACCESS-LIST``
-  Restrict vty connections with an access list.
+.. clicmd:: access-class ACCESS-LIST
+
+   Restrict vty connections with an access list.
 
 .. _Sample_Config_File:
 
@@ -275,50 +296,59 @@ Terminal Mode Commands
 
 .. index:: write terminal
 
-``write terminal``
+.. clicmd:: write terminal
+
   Displays the current configuration to the vty interface.
 
 .. index:: write file
 
-``write file``
+.. clicmd:: write file
+
   Write current configuration to configuration file.
 
 .. index:: configure terminal
 
-``configure terminal``
+.. clicmd:: configure terminal
+
   Change to configuration mode. This command is the first step to
   configuration.
 
-.. index:: terminal length <0-512>
+.. index:: terminal length (0-512)
 
-``terminal length <0-512>``
-  Set terminal display length to ``<0-512>``. If length is 0, no
+.. clicmd:: terminal length (0-512)
+
+  Set terminal display length to ``(0-512)``. If length is 0, no
   display control is performed.
 
 .. index:: who
 
-``who``
+.. clicmd:: who
+
   Show a list of currently connected vty sessions.
 
 .. index:: list
 
-``list``
+.. clicmd:: list
+
   List all available commands.
 
 .. index:: show version
 
-``show version``
+.. clicmd:: show version
+
   Show the current version of |PACKAGE_NAME| and its build host information.
 
 .. index:: show logging
 
-``show logging``
+.. clicmd:: show logging
+
   Shows the current configuration of the logging system. This includes
   the status of all logging destinations.
 
 .. index:: logmsg LEVEL MESSAGE
 
-``logmsg LEVEL MESSAGE``
+.. clicmd:: logmsg LEVEL MESSAGE
+
   Send a message to all logging destinations that are enabled for messages
   of the given severity.
 
@@ -330,19 +360,23 @@ Common Invocation Options
 These options apply to all |PACKAGE_NAME| daemons.
 
 
-``-d, --daemon``
+.. clicmd:: -d, --daemon
+
   Runs in daemon mode.
 
 
-``-f file, --config_file=FILE``
+.. clicmd:: -f file, --config_file=FILE
+
   Set configuration file name.
 
 
-``-h, --help``
+.. clicmd:: -h, --help
+
   Display this help and exit.
 
 
-``-i file, --pid_file=file``
+.. clicmd:: -i file, --pid_file=file
+
   Upon startup the process identifier of the daemon is written to a file,
   typically in :file:`/var/run`. This file can be used by the init system
   to implement commands such as ``.../init.d/zebra status``,
@@ -355,21 +389,25 @@ These options apply to all |PACKAGE_NAME| daemons.
   points in the network.
 
 
-``-A address, --vty_addr=address``
+.. clicmd:: -A address, --vty_addr=address
+
   Set the VTY local address to bind to. If set, the VTY socket will only
   be bound to this address.
 
 
-``-P port, --vty_port=port``
+.. clicmd:: -P port, --vty_port=port
+
   Set the VTY TCP port number. If set to 0 then the TCP VTY sockets will not
   be opened.
 
 
-``-u user, --vty_addr=user``
+.. clicmd:: -u user, --vty_addr=user
+
   Set the user and group to run as.
 
 
-``-v, --version``
+.. clicmd:: -v, --version
+
   Print program version.
 
 
@@ -383,7 +421,8 @@ unloading modules at runtime is not supported (yet). To load a module, use
 the following command line option at daemon startup:
 
 
-``-M module:options, --module module:options``
+.. clicmd:: -M module:options, --module module:options
+
   Load the specified module, optionally passing options to it. If the module
   name contains a slash (/), it is assumed to be a full pathname to a file to
   be loaded. If it does not contain a slash, the
@@ -412,7 +451,7 @@ the ``fpm`` module can be loaded for the *zebra* daemon. This
 provides the Forwarding Plane Manager ("FPM") API.
 
 The module expects its argument to be either ``netlink`` or
-``protobuf``, specifying the encapsulation to use. `netlink` is the
+.. clicmd:: protobuf, specifying the encapsulation to use. `netlink` is the
 default, and `protobuf` may not be available if the module was built
 without protobuf support. Refer to :ref:`zebra_FIB_push_interface` for more
 information.

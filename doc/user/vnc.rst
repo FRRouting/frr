@@ -857,9 +857,9 @@ Ethernet MAC address forwarding information.  The `clear vnc`
 commands can be used to remove manually and dynamically added
 information.
 
-.. index:: {Command} {add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) [cost <0-255>] [lifetime (infinite|<1-4294967295>)] [local-next-hop (A.B.C.D|X:X::X:X) [local-cost <0-255>]]} {}
+.. index:: {Command} {add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) [cost (0-255)] [lifetime (infinite|(1-4294967295))] [local-next-hop (A.B.C.D|X:X::X:X) [local-cost (0-255)]]} {}
 
-{Command} {add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) [cost <0-255>] [lifetime (infinite|<1-4294967295>)] [local-next-hop (A.B.C.D|X:X::X:X) [local-cost <0-255>]]} {}
+{Command} {add vnc prefix (A.B.C.D/M|X:X::X:X/M) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) [cost (0-255)] [lifetime (infinite|(1-4294967295))] [local-next-hop (A.B.C.D|X:X::X:X) [local-cost (0-255)]]} {}
   Register an IP prefix on behalf of the NVE identified by the VN and UN
   addresses.  The `cost` parameter provides the administrative
   preference of the forwarding information for remote advertisement.  If
@@ -874,9 +874,9 @@ information.
   forwarding preference.  If omitted, it defaults to 255 (lowest
   preference).
 
-.. index:: {Command} {add vnc mac xx:xx:xx:xx:xx:xx virtual-network-identifier <1-4294967295> vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) [prefix (A.B.C.D/M|X:X::X:X/M)] [cost <0-255>] [lifetime (infinite|<1-4294967295>)]} {}
+.. index:: {Command} {add vnc mac xx:xx:xx:xx:xx:xx virtual-network-identifier (1-4294967295) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) [prefix (A.B.C.D/M|X:X::X:X/M)] [cost (0-255)] [lifetime (infinite|(1-4294967295))]} {}
 
-{Command} {add vnc mac xx:xx:xx:xx:xx:xx virtual-network-identifier <1-4294967295> vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) [prefix (A.B.C.D/M|X:X::X:X/M)] [cost <0-255>] [lifetime (infinite|<1-4294967295>)]} {}
+{Command} {add vnc mac xx:xx:xx:xx:xx:xx virtual-network-identifier (1-4294967295) vn (A.B.C.D|X:X::X:X) un (A.B.C.D|X:X::X:X) [prefix (A.B.C.D/M|X:X::X:X/M)] [cost (0-255)] [lifetime (infinite|(1-4294967295))]} {}
   Register a MAC address for a logical Ethernet (L2VPN) on behalf of the
   NVE identified by the VN and UN addresses.
   The optional `prefix` parameter is to support enable IP address
@@ -897,9 +897,9 @@ information.
   The optional `local-next-hop` parameter is used to
   delete specific local nexthop information.
 
-.. index:: {Command} {clear vnc mac (*|xx:xx:xx:xx:xx:xx) virtual-network-identifier (*|<1-4294967295>) (*|[(vn|un) (A.B.C.D|X:X::X:X|*) [(un|vn) (A.B.C.D|X:X::X:X|*)] [prefix (*|A.B.C.D/M|X:X::X:X/M)])} {}
+.. index:: {Command} {clear vnc mac (*|xx:xx:xx:xx:xx:xx) virtual-network-identifier (*|(1-4294967295)) (*|[(vn|un) (A.B.C.D|X:X::X:X|*) [(un|vn) (A.B.C.D|X:X::X:X|*)] [prefix (*|A.B.C.D/M|X:X::X:X/M)])} {}
 
-{Command} {clear vnc mac (*|xx:xx:xx:xx:xx:xx) virtual-network-identifier (*|<1-4294967295>) (*|[(vn|un) (A.B.C.D|X:X::X:X|*) [(un|vn) (A.B.C.D|X:X::X:X|*)] [prefix (*|A.B.C.D/M|X:X::X:X/M)])} {}
+{Command} {clear vnc mac (*|xx:xx:xx:xx:xx:xx) virtual-network-identifier (*|(1-4294967295)) (*|[(vn|un) (A.B.C.D|X:X::X:X|*) [(un|vn) (A.B.C.D|X:X::X:X|*)] [prefix (*|A.B.C.D/M|X:X::X:X/M)])} {}
   Delete mac forwarding information.
   Any or all of these parameters may be wilcarded to (potentially) match
   more than one registration.

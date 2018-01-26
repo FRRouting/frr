@@ -187,9 +187,9 @@ Command {no router ospf} {}
                 This command supercedes the *timers spf* command in previous FRR
                 releases.
 
-.. index:: {OSPF Command} {max-metric router-lsa [on-startup|on-shutdown] <5-86400>} {}
+.. index:: {OSPF Command} {max-metric router-lsa [on-startup|on-shutdown] (5-86400)} {}
 
-{OSPF Command} {max-metric router-lsa [on-startup|on-shutdown] <5-86400>} {}
+{OSPF Command} {max-metric router-lsa [on-startup|on-shutdown] (5-86400)} {}
 .. index:: {OSPF Command} {max-metric router-lsa administrative} {}
 
 {OSPF Command} {max-metric router-lsa administrative} {}
@@ -225,9 +225,9 @@ Command {no router ospf} {}
                     number of second remaining till on-startup or on-shutdown ends, can be
                     viewed with the :ref:`show_ip_ospf` command.
 
-.. index:: {OSPF Command} {auto-cost reference-bandwidth <1-4294967>} {}
+.. index:: {OSPF Command} {auto-cost reference-bandwidth (1-4294967)} {}
 
-{OSPF Command} {auto-cost reference-bandwidth <1-4294967>} {}
+{OSPF Command} {auto-cost reference-bandwidth (1-4294967)} {}
 .. index:: {OSPF Command} {no auto-cost reference-bandwidth} {}
 
 {OSPF Command} {no auto-cost reference-bandwidth} {}
@@ -246,15 +246,15 @@ Command {no router ospf} {}
 .. index:: {OSPF Command} {network `a.b.c.d/m` area `a.b.c.d`} {}
 
 {OSPF Command} {network `a.b.c.d/m` area `a.b.c.d`} {}
-.. index:: {OSPF Command} {network `a.b.c.d/m` area `<0-4294967295>`} {}
+.. index:: {OSPF Command} {network `a.b.c.d/m` area `(0-4294967295)`} {}
 
-{OSPF Command} {network `a.b.c.d/m` area `<0-4294967295>`} {}
+{OSPF Command} {network `a.b.c.d/m` area `(0-4294967295)`} {}
 .. index:: {OSPF Command} {no network `a.b.c.d/m` area `a.b.c.d`} {}
 
 {OSPF Command} {no network `a.b.c.d/m` area `a.b.c.d`} {}
-.. index:: {OSPF Command} {no network `a.b.c.d/m` area `<0-4294967295>`} {}
+.. index:: {OSPF Command} {no network `a.b.c.d/m` area `(0-4294967295)`} {}
 
-{OSPF Command} {no network `a.b.c.d/m` area `<0-4294967295>`} {}
+{OSPF Command} {no network `a.b.c.d/m` area `(0-4294967295)`} {}
                             .. _OSPF_network_command:
 
                             This command specifies the OSPF enabled interface(s).  If the interface has
@@ -292,15 +292,15 @@ OSPF area
 .. index:: {OSPF Command} {area `a.b.c.d` range `a.b.c.d/m`} {}
 
 {OSPF Command} {area `a.b.c.d` range `a.b.c.d/m`} {}
-.. index:: {OSPF Command} {area <0-4294967295> range `a.b.c.d/m`} {}
+.. index:: {OSPF Command} {area (0-4294967295) range `a.b.c.d/m`} {}
 
-{OSPF Command} {area <0-4294967295> range `a.b.c.d/m`} {}
+{OSPF Command} {area (0-4294967295) range `a.b.c.d/m`} {}
 .. index:: {OSPF Command} {no area `a.b.c.d` range `a.b.c.d/m`} {}
 
 {OSPF Command} {no area `a.b.c.d` range `a.b.c.d/m`} {}
-.. index:: {OSPF Command} {no area <0-4294967295> range `a.b.c.d/m`} {}
+.. index:: {OSPF Command} {no area (0-4294967295) range `a.b.c.d/m`} {}
 
-{OSPF Command} {no area <0-4294967295> range `a.b.c.d/m`} {}
+{OSPF Command} {no area (0-4294967295) range `a.b.c.d/m`} {}
         Summarize intra area paths from specified area into one Type-3 summary-LSA
         announced to other areas. This command can be used only in ABR and ONLY
         router-LSAs (Type-1) and network-LSAs (Type-2) (ie. LSAs with scope area) can
@@ -353,44 +353,44 @@ OSPF area
 .. index:: {OSPF Command} {area `a.b.c.d` virtual-link `a.b.c.d`} {}
 
 {OSPF Command} {area `a.b.c.d` virtual-link `a.b.c.d`} {}
-.. index:: {OSPF Command} {area <0-4294967295> virtual-link `a.b.c.d`} {}
+.. index:: {OSPF Command} {area (0-4294967295) virtual-link `a.b.c.d`} {}
 
-{OSPF Command} {area <0-4294967295> virtual-link `a.b.c.d`} {}
+{OSPF Command} {area (0-4294967295) virtual-link `a.b.c.d`} {}
 .. index:: {OSPF Command} {no area `a.b.c.d` virtual-link `a.b.c.d`} {}
 
 {OSPF Command} {no area `a.b.c.d` virtual-link `a.b.c.d`} {}
-.. index:: {OSPF Command} {no area <0-4294967295> virtual-link `a.b.c.d`} {}
+.. index:: {OSPF Command} {no area (0-4294967295) virtual-link `a.b.c.d`} {}
 
-{OSPF Command} {no area <0-4294967295> virtual-link `a.b.c.d`} {}
+{OSPF Command} {no area (0-4294967295) virtual-link `a.b.c.d`} {}
                   .. _OSPF_virtual-link:
 
 .. index:: {OSPF Command} {area `a.b.c.d` shortcut} {}
 
 {OSPF Command} {area `a.b.c.d` shortcut} {}
-.. index:: {OSPF Command} {area <0-4294967295> shortcut} {}
+.. index:: {OSPF Command} {area (0-4294967295) shortcut} {}
 
-{OSPF Command} {area <0-4294967295> shortcut} {}
+{OSPF Command} {area (0-4294967295) shortcut} {}
 .. index:: {OSPF Command} {no area `a.b.c.d` shortcut} {}
 
 {OSPF Command} {no area `a.b.c.d` shortcut} {}
-.. index:: {OSPF Command} {no area <0-4294967295> shortcut} {}
+.. index:: {OSPF Command} {no area (0-4294967295) shortcut} {}
 
-{OSPF Command} {no area <0-4294967295> shortcut} {}
+{OSPF Command} {no area (0-4294967295) shortcut} {}
                         Configure the area as Shortcut capable. See :rfc:`3509`. This requires
                         that the 'abr-type' be set to 'shortcut'.
 
 .. index:: {OSPF Command} {area `a.b.c.d` stub} {}
 
 {OSPF Command} {area `a.b.c.d` stub} {}
-.. index:: {OSPF Command} {area <0-4294967295> stub} {}
+.. index:: {OSPF Command} {area (0-4294967295) stub} {}
 
-{OSPF Command} {area <0-4294967295> stub} {}
+{OSPF Command} {area (0-4294967295) stub} {}
 .. index:: {OSPF Command} {no area `a.b.c.d` stub} {}
 
 {OSPF Command} {no area `a.b.c.d` stub} {}
-.. index:: {OSPF Command} {no area <0-4294967295> stub} {}
+.. index:: {OSPF Command} {no area (0-4294967295) stub} {}
 
-{OSPF Command} {no area <0-4294967295> stub} {}
+{OSPF Command} {no area (0-4294967295) stub} {}
                               Configure the area to be a stub area. That is, an area where no router
                               originates routes external to OSPF and hence an area where all external 
                               routes are via the ABR(s). Hence, ABRs for such an area do not need
@@ -401,38 +401,38 @@ OSPF area
 .. index:: {OSPF Command} {area `a.b.c.d` stub no-summary} {}
 
 {OSPF Command} {area `a.b.c.d` stub no-summary} {}
-.. index:: {OSPF Command} {area <0-4294967295> stub no-summary} {}
+.. index:: {OSPF Command} {area (0-4294967295) stub no-summary} {}
 
-{OSPF Command} {area <0-4294967295> stub no-summary} {}
+{OSPF Command} {area (0-4294967295) stub no-summary} {}
 .. index:: {OSPF Command} {no area `a.b.c.d` stub no-summary} {}
 
 {OSPF Command} {no area `a.b.c.d` stub no-summary} {}
-.. index:: {OSPF Command} {no area <0-4294967295> stub no-summary} {}
+.. index:: {OSPF Command} {no area (0-4294967295) stub no-summary} {}
 
-{OSPF Command} {no area <0-4294967295> stub no-summary} {}
+{OSPF Command} {no area (0-4294967295) stub no-summary} {}
                                     Prevents an *ospfd* ABR from injecting inter-area 
                                     summaries into the specified stub area.
 
-.. index:: {OSPF Command} {area `a.b.c.d` default-cost <0-16777215>} {}
+.. index:: {OSPF Command} {area `a.b.c.d` default-cost (0-16777215)} {}
 
-{OSPF Command} {area `a.b.c.d` default-cost <0-16777215>} {}
-.. index:: {OSPF Command} {no area `a.b.c.d` default-cost <0-16777215>} {}
+{OSPF Command} {area `a.b.c.d` default-cost (0-16777215)} {}
+.. index:: {OSPF Command} {no area `a.b.c.d` default-cost (0-16777215)} {}
 
-{OSPF Command} {no area `a.b.c.d` default-cost <0-16777215>} {}
+{OSPF Command} {no area `a.b.c.d` default-cost (0-16777215)} {}
                                       Set the cost of default-summary LSAs announced to stubby areas.
 
 .. index:: {OSPF Command} {area `a.b.c.d` export-list NAME} {}
 
 {OSPF Command} {area `a.b.c.d` export-list NAME} {}
-.. index:: {OSPF Command} {area <0-4294967295> export-list NAME} {}
+.. index:: {OSPF Command} {area (0-4294967295) export-list NAME} {}
 
-{OSPF Command} {area <0-4294967295> export-list NAME} {}
+{OSPF Command} {area (0-4294967295) export-list NAME} {}
 .. index:: {OSPF Command} {no area `a.b.c.d` export-list NAME} {}
 
 {OSPF Command} {no area `a.b.c.d` export-list NAME} {}
-.. index:: {OSPF Command} {no area <0-4294967295> export-list NAME} {}
+.. index:: {OSPF Command} {no area (0-4294967295) export-list NAME} {}
 
-{OSPF Command} {no area <0-4294967295> export-list NAME} {}
+{OSPF Command} {no area (0-4294967295) export-list NAME} {}
                                             Filter Type-3 summary-LSAs announced to other areas originated from intra-
                                             area paths from specified area.
 
@@ -458,15 +458,15 @@ OSPF area
 .. index:: {OSPF Command} {area `a.b.c.d` import-list NAME} {}
 
 {OSPF Command} {area `a.b.c.d` import-list NAME} {}
-.. index:: {OSPF Command} {area <0-4294967295> import-list NAME} {}
+.. index:: {OSPF Command} {area (0-4294967295) import-list NAME} {}
 
-{OSPF Command} {area <0-4294967295> import-list NAME} {}
+{OSPF Command} {area (0-4294967295) import-list NAME} {}
 .. index:: {OSPF Command} {no area `a.b.c.d` import-list NAME} {}
 
 {OSPF Command} {no area `a.b.c.d` import-list NAME} {}
-.. index:: {OSPF Command} {no area <0-4294967295> import-list NAME} {}
+.. index:: {OSPF Command} {no area (0-4294967295) import-list NAME} {}
 
-{OSPF Command} {no area <0-4294967295> import-list NAME} {}
+{OSPF Command} {no area (0-4294967295) import-list NAME} {}
                                                   Same as export-list, but it applies to paths announced into specified area as
                                                   Type-3 summary-LSAs.
 
@@ -476,48 +476,48 @@ OSPF area
 .. index:: {OSPF Command} {area `a.b.c.d` filter-list prefix NAME out} {}
 
 {OSPF Command} {area `a.b.c.d` filter-list prefix NAME out} {}
-.. index:: {OSPF Command} {area <0-4294967295> filter-list prefix NAME in} {}
+.. index:: {OSPF Command} {area (0-4294967295) filter-list prefix NAME in} {}
 
-{OSPF Command} {area <0-4294967295> filter-list prefix NAME in} {}
-.. index:: {OSPF Command} {area <0-4294967295> filter-list prefix NAME out} {}
+{OSPF Command} {area (0-4294967295) filter-list prefix NAME in} {}
+.. index:: {OSPF Command} {area (0-4294967295) filter-list prefix NAME out} {}
 
-{OSPF Command} {area <0-4294967295> filter-list prefix NAME out} {}
+{OSPF Command} {area (0-4294967295) filter-list prefix NAME out} {}
 .. index:: {OSPF Command} {no area `a.b.c.d` filter-list prefix NAME in} {}
 
 {OSPF Command} {no area `a.b.c.d` filter-list prefix NAME in} {}
 .. index:: {OSPF Command} {no area `a.b.c.d` filter-list prefix NAME out} {}
 
 {OSPF Command} {no area `a.b.c.d` filter-list prefix NAME out} {}
-.. index:: {OSPF Command} {no area <0-4294967295> filter-list prefix NAME in} {}
+.. index:: {OSPF Command} {no area (0-4294967295) filter-list prefix NAME in} {}
 
-{OSPF Command} {no area <0-4294967295> filter-list prefix NAME in} {}
-.. index:: {OSPF Command} {no area <0-4294967295> filter-list prefix NAME out} {}
+{OSPF Command} {no area (0-4294967295) filter-list prefix NAME in} {}
+.. index:: {OSPF Command} {no area (0-4294967295) filter-list prefix NAME out} {}
 
-{OSPF Command} {no area <0-4294967295> filter-list prefix NAME out} {}
+{OSPF Command} {no area (0-4294967295) filter-list prefix NAME out} {}
                                                                 Filtering Type-3 summary-LSAs to/from area using prefix lists. This command
                                                                 makes sense in ABR only.
 
 .. index:: {OSPF Command} {area `a.b.c.d` authentication} {}
 
 {OSPF Command} {area `a.b.c.d` authentication} {}
-.. index:: {OSPF Command} {area <0-4294967295> authentication} {}
+.. index:: {OSPF Command} {area (0-4294967295) authentication} {}
 
-{OSPF Command} {area <0-4294967295> authentication} {}
+{OSPF Command} {area (0-4294967295) authentication} {}
 .. index:: {OSPF Command} {no area `a.b.c.d` authentication} {}
 
 {OSPF Command} {no area `a.b.c.d` authentication} {}
-.. index:: {OSPF Command} {no area <0-4294967295> authentication} {}
+.. index:: {OSPF Command} {no area (0-4294967295) authentication} {}
 
-{OSPF Command} {no area <0-4294967295> authentication} {}
+{OSPF Command} {no area (0-4294967295) authentication} {}
                                                                       Specify that simple password authentication should be used for the given
                                                                       area.
 
 .. index:: {OSPF Command} {area `a.b.c.d` authentication message-digest} {}
 
 {OSPF Command} {area `a.b.c.d` authentication message-digest} {}
-.. index:: {OSPF Command} {area <0-4294967295> authentication message-digest} {}
+.. index:: {OSPF Command} {area (0-4294967295) authentication message-digest} {}
 
-{OSPF Command} {area <0-4294967295> authentication message-digest} {}
+{OSPF Command} {area (0-4294967295) authentication message-digest} {}
                                                                         .. _area_authentication_message-digest:
 
                                                                         Specify that OSPF packets
@@ -597,21 +597,21 @@ OSPF interface
         KEY is the actual message digest key, of up to 16 chars (larger strings
         will be truncated), and is associated with the given KEYID.
 
-.. index:: {Interface Command} {ip ospf cost <1-65535>} {}
+.. index:: {Interface Command} {ip ospf cost (1-65535)} {}
 
-{Interface Command} {ip ospf cost <1-65535>} {}
+{Interface Command} {ip ospf cost (1-65535)} {}
 .. index:: {Interface Command} {no ip ospf cost} {}
 
 {Interface Command} {no ip ospf cost} {}
           Set link cost for the specified interface.  The cost value is set to router-LSA's
           metric field and used for SPF calculation.
 
-.. index:: {Interface Command} {ip ospf dead-interval <1-65535>} {}
+.. index:: {Interface Command} {ip ospf dead-interval (1-65535)} {}
 
-{Interface Command} {ip ospf dead-interval <1-65535>} {}
-.. index:: {Interface Command} {ip ospf dead-interval minimal hello-multiplier <2-20>} {}
+{Interface Command} {ip ospf dead-interval (1-65535)} {}
+.. index:: {Interface Command} {ip ospf dead-interval minimal hello-multiplier (2-20)} {}
 
-{Interface Command} {ip ospf dead-interval minimal hello-multiplier <2-20>} {}
+{Interface Command} {ip ospf dead-interval minimal hello-multiplier (2-20)} {}
 .. index:: {Interface Command} {no ip ospf dead-interval} {}
 
 {Interface Command} {no ip ospf dead-interval} {}
@@ -631,9 +631,9 @@ OSPF interface
               the hello-multiplier need NOT be the same across multiple routers on a common
               link.
 
-.. index:: {Interface Command} {ip ospf hello-interval <1-65535>} {}
+.. index:: {Interface Command} {ip ospf hello-interval (1-65535)} {}
 
-{Interface Command} {ip ospf hello-interval <1-65535>} {}
+{Interface Command} {ip ospf hello-interval (1-65535)} {}
 .. index:: {Interface Command} {no ip ospf hello-interval} {}
 
 {Interface Command} {no ip ospf hello-interval} {}
@@ -653,9 +653,9 @@ OSPF interface
 {Interface Command} {no ip ospf network} {}
                   Set explicitly network type for specifed interface.
 
-.. index:: {Interface Command} {ip ospf priority <0-255>} {}
+.. index:: {Interface Command} {ip ospf priority (0-255)} {}
 
-{Interface Command} {ip ospf priority <0-255>} {}
+{Interface Command} {ip ospf priority (0-255)} {}
 .. index:: {Interface Command} {no ip ospf priority} {}
 
 {Interface Command} {no ip ospf priority} {}
@@ -664,9 +664,9 @@ OSPF interface
                     to 0, makes the router ineligible to become Designated Router. The
                     default value is 1.
 
-.. index:: {Interface Command} {ip ospf retransmit-interval <1-65535>} {}
+.. index:: {Interface Command} {ip ospf retransmit-interval (1-65535)} {}
 
-{Interface Command} {ip ospf retransmit-interval <1-65535>} {}
+{Interface Command} {ip ospf retransmit-interval (1-65535)} {}
 .. index:: {Interface Command} {no ip ospf retransmit interval} {}
 
 {Interface Command} {no ip ospf retransmit interval} {}
@@ -684,9 +684,9 @@ OSPF interface
                         incremented by this value when transmitting.
                         The default value is 1 seconds.
 
-.. index:: {Interface Command} {ip ospf area (A.B.C.D|<0-4294967295>)} {}
+.. index:: {Interface Command} {ip ospf area (A.B.C.D|(0-4294967295))} {}
 
-{Interface Command} {ip ospf area (A.B.C.D|<0-4294967295>)} {}
+{Interface Command} {ip ospf area (A.B.C.D|(0-4294967295))} {}
 .. index:: {Interface Command} {no ip ospf area} {}
 
 {Interface Command} {no ip ospf area} {}
@@ -709,18 +709,18 @@ Redistribute routes to OSPF
 .. index:: {OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) route-map `word`} {}
 
 {OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) route-map `word`} {}
-.. index:: {OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric <0-16777214>} {}
+.. index:: {OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric (0-16777214)} {}
 
-{OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric <0-16777214>} {}
-.. index:: {OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric <0-16777214> route-map `word`} {}
+{OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric (0-16777214)} {}
+.. index:: {OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric (0-16777214) route-map `word`} {}
 
-{OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric <0-16777214> route-map `word`} {}
-.. index:: {OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric <0-16777214>} {}
+{OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric (0-16777214) route-map `word`} {}
+.. index:: {OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric (0-16777214)} {}
 
-{OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric <0-16777214>} {}
-.. index:: {OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric <0-16777214> route-map `word`} {}
+{OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric (0-16777214)} {}
+.. index:: {OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric (0-16777214) route-map `word`} {}
 
-{OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric <0-16777214> route-map `word`} {}
+{OSPF Command} {redistribute (kernel|connected|static|rip|bgp) metric-type (1|2) metric (0-16777214) route-map `word`} {}
 .. index:: {OSPF Command} {no redistribute (kernel|connected|static|rip|bgp)} {}
 
 {OSPF Command} {no redistribute (kernel|connected|static|rip|bgp)} {}
@@ -743,27 +743,27 @@ Redistribute routes to OSPF
 .. index:: {OSPF Command} {default-information originate} {}
 
 {OSPF Command} {default-information originate} {}
-.. index:: {OSPF Command} {default-information originate metric <0-16777214>} {}
+.. index:: {OSPF Command} {default-information originate metric (0-16777214)} {}
 
-{OSPF Command} {default-information originate metric <0-16777214>} {}
-.. index:: {OSPF Command} {default-information originate metric <0-16777214> metric-type (1|2)} {}
+{OSPF Command} {default-information originate metric (0-16777214)} {}
+.. index:: {OSPF Command} {default-information originate metric (0-16777214) metric-type (1|2)} {}
 
-{OSPF Command} {default-information originate metric <0-16777214> metric-type (1|2)} {}
-.. index:: {OSPF Command} {default-information originate metric <0-16777214> metric-type (1|2) route-map `word`} {}
+{OSPF Command} {default-information originate metric (0-16777214) metric-type (1|2)} {}
+.. index:: {OSPF Command} {default-information originate metric (0-16777214) metric-type (1|2) route-map `word`} {}
 
-{OSPF Command} {default-information originate metric <0-16777214> metric-type (1|2) route-map `word`} {}
+{OSPF Command} {default-information originate metric (0-16777214) metric-type (1|2) route-map `word`} {}
 .. index:: {OSPF Command} {default-information originate always} {}
 
 {OSPF Command} {default-information originate always} {}
-.. index:: {OSPF Command} {default-information originate always metric <0-16777214>} {}
+.. index:: {OSPF Command} {default-information originate always metric (0-16777214)} {}
 
-{OSPF Command} {default-information originate always metric <0-16777214>} {}
-.. index:: {OSPF Command} {default-information originate always metric <0-16777214> metric-type (1|2)} {}
+{OSPF Command} {default-information originate always metric (0-16777214)} {}
+.. index:: {OSPF Command} {default-information originate always metric (0-16777214) metric-type (1|2)} {}
 
-{OSPF Command} {default-information originate always metric <0-16777214> metric-type (1|2)} {}
-.. index:: {OSPF Command} {default-information originate always metric <0-16777214> metric-type (1|2) route-map `word`} {}
+{OSPF Command} {default-information originate always metric (0-16777214) metric-type (1|2)} {}
+.. index:: {OSPF Command} {default-information originate always metric (0-16777214) metric-type (1|2) route-map `word`} {}
 
-{OSPF Command} {default-information originate always metric <0-16777214> metric-type (1|2) route-map `word`} {}
+{OSPF Command} {default-information originate always metric (0-16777214) metric-type (1|2) route-map `word`} {}
 .. index:: {OSPF Command} {no default-information originate} {}
 
 {OSPF Command} {no default-information originate} {}
@@ -784,21 +784,21 @@ Redistribute routes to OSPF
                                     redistributed routes of the given type before allowing the routes to
                                     redistributed into OSPF (:ref:`OSPF_redistribute`).
 
-.. index:: {OSPF Command} {default-metric <0-16777214>} {}
+.. index:: {OSPF Command} {default-metric (0-16777214)} {}
 
-{OSPF Command} {default-metric <0-16777214>} {}
+{OSPF Command} {default-metric (0-16777214)} {}
 .. index:: {OSPF Command} {no default-metric} {}
 
 {OSPF Command} {no default-metric} {}
-.. index:: {OSPF Command} {distance <1-255>} {}
+.. index:: {OSPF Command} {distance (1-255)} {}
 
-{OSPF Command} {distance <1-255>} {}
-.. index:: {OSPF Command} {no distance <1-255>} {}
+{OSPF Command} {distance (1-255)} {}
+.. index:: {OSPF Command} {no distance (1-255)} {}
 
-{OSPF Command} {no distance <1-255>} {}
-.. index:: {OSPF Command} {distance ospf (intra-area|inter-area|external) <1-255>} {}
+{OSPF Command} {no distance (1-255)} {}
+.. index:: {OSPF Command} {distance ospf (intra-area|inter-area|external) (1-255)} {}
 
-{OSPF Command} {distance ospf (intra-area|inter-area|external) <1-255>} {}
+{OSPF Command} {distance ospf (intra-area|inter-area|external) (1-255)} {}
 .. index:: {OSPF Command} {no distance ospf} {}
 
 {OSPF Command} {no distance ospf} {}
@@ -976,18 +976,18 @@ Router Information
 .. index:: {OSPF Command} {no pce address} {}
 
 {OSPF Command} {no pce address} {}
-.. index:: {OSPF Command} {pce domain as <0-65535>} {}
+.. index:: {OSPF Command} {pce domain as (0-65535)} {}
 
-{OSPF Command} {pce domain as <0-65535>} {}
-.. index:: {OSPF Command} {no pce domain as <0-65535>} {}
+{OSPF Command} {pce domain as (0-65535)} {}
+.. index:: {OSPF Command} {no pce domain as (0-65535)} {}
 
-{OSPF Command} {no pce domain as <0-65535>} {}
-.. index:: {OSPF Command} {pce neighbor as <0-65535>} {}
+{OSPF Command} {no pce domain as (0-65535)} {}
+.. index:: {OSPF Command} {pce neighbor as (0-65535)} {}
 
-{OSPF Command} {pce neighbor as <0-65535>} {}
-.. index:: {OSPF Command} {no pce neighbor as <0-65535>} {}
+{OSPF Command} {pce neighbor as (0-65535)} {}
+.. index:: {OSPF Command} {no pce neighbor as (0-65535)} {}
 
-{OSPF Command} {no pce neighbor as <0-65535>} {}
+{OSPF Command} {no pce neighbor as (0-65535)} {}
 .. index:: {OSPF Command} {pce flag BITPATTERN} {}
 
 {OSPF Command} {pce flag BITPATTERN} {}

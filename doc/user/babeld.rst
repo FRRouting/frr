@@ -39,14 +39,14 @@ Babel configuration
    single: router babel
    single: no router babel
 
-``[no] router babel``
+.. clicmd:: [no] router babel
     Enable or disable Babel routing.
 
 .. index::
-   single: babel resend-delay <20-655340>
-   single: no babel resend-delay [<20-655340>]
+   single: babel resend-delay (20-655340)
+   single: no babel resend-delay [(20-655340)]
 
-``[no] babel resend-delay <20-655340>``
+.. clicmd:: [no] babel resend-delay (20-655340)
     Specifies the time after which important messages are resent when
     avoiding a black-hole. The default is 2000 ms.
 
@@ -54,15 +54,15 @@ Babel configuration
    single: babel diversity
    single: no babel diversity
 
-``[no] babel diversity``
+.. clicmd:: [no] babel diversity
       Enable or disable routing using radio frequency diversity.  This is
       highly recommended in networks with many wireless nodes.
       If you enable this, you will probably want to set `babel
       diversity-factor` and `babel channel` below.
 
-.. index:: babel diversity-factor <1-256>
+.. index:: babel diversity-factor (1-256)
 
-``babel diversity-factor <1-256>``
+.. clicmd:: babel diversity-factor (1-256)
       Sets the multiplicative factor used for diversity routing, in units of
       1/256; lower values cause diversity to play a more important role in
       route selection.  The default it 256, which means that diversity plays
@@ -73,12 +73,12 @@ Babel configuration
    single: network IFNAME
    single: no network IFNAME
 
-``no network IFNAME``
+.. clicmd:: no network IFNAME
       Enable or disable Babel on the given interface.
 
 .. index:: babel <wired|wireless>
 
-``babel <wired|wireless>``
+.. clicmd:: babel <wired|wireless>
       Specifies whether this interface is wireless, which disables a number
       of optimisations that are only correct on wired interfaces.
       Specifying `wireless` (the default) is always correct, but may
@@ -88,7 +88,7 @@ Babel configuration
    single: babel split-horizon
    single: no babel split-horizon
 
-``[no] babel split-horizon``
+.. clicmd:: [no] babel split-horizon
       Specifies whether to perform split-horizon on the interface.  Specifying
       ``no babel split-horizon`` is always correct, while ``babel
       split-horizon`` is an optimisation that should only be used on symmetric
@@ -97,34 +97,34 @@ Babel configuration
       interfaces.  This flag is reset when the wired/wireless status of an
       interface is changed.
 
-.. index:: babel hello-interval <20-655340>
+.. index:: babel hello-interval (20-655340)
 
-``babel hello-interval <20-655340>``
+.. clicmd:: babel hello-interval (20-655340)
       Specifies the time in milliseconds between two scheduled hellos.  On
       wired links, Babel notices a link failure within two hello intervals;
       on wireless links, the link quality value is reestimated at every
       hello interval.  The default is 4000 ms.
 
-.. index:: babel update-interval <20-655340>
+.. index:: babel update-interval (20-655340)
 
-``babel update-interval <20-655340>``
+.. clicmd:: babel update-interval (20-655340)
       Specifies the time in milliseconds between two scheduled updates.
       Since Babel makes extensive use of triggered updates, this can be set
       to fairly high values on links with little packet loss.  The default
       is 20000 ms.
 
 .. index::
-   single: babel channel <1-254>
+   single: babel channel (1-254)
    single: babel channel interfering
    single: babel channel noninterfering
 
-``babel channel <1-254>``
+.. clicmd:: babel channel (1-254)
       see below
 
-``babel channel interfering``
+.. clicmd:: babel channel interfering
       see below
 
-``babel channel noninterfering``
+.. clicmd:: babel channel noninterfering
       Set the channel number that diversity routing uses for this interface
       (see `babel diversity` above).  Noninterfering interfaces are
       assumed to only interfere with themselves, interfering interfaces are
@@ -136,9 +136,9 @@ Babel configuration
       interfaces.  This is reset when the wired/wireless status of an
       interface is changed.
 
-.. index:: babel rxcost <1-65534>
+.. index:: babel rxcost (1-65534)
 
-``babel rxcost <1-65534>``
+.. clicmd:: babel rxcost (1-65534)
       Specifies the base receive cost for this interface.  For wireless
       interfaces, it specifies the multiplier used for computing the ETX
       reception cost (default 256); for wired interfaces, it specifies the
@@ -149,29 +149,29 @@ Babel configuration
       networks, acting directly on the cost using route maps is a better
       technique.
 
-.. index:: babel rtt-decay <1-256>
+.. index:: babel rtt-decay (1-256)
 
-``babel rtt-decay <1-256>``
+.. clicmd:: babel rtt-decay (1-256)
       This specifies the decay factor for the exponential moving average of
       RTT samples, in units of 1/256.  Higher values discard old samples
       faster.  The default is 42.
 
-.. index:: babel rtt-min <1-65535>
+.. index:: babel rtt-min (1-65535)
 
-``babel rtt-min <1-65535>``
+.. clicmd:: babel rtt-min (1-65535)
       This specifies the minimum RTT, in milliseconds, starting from which we
       increase the cost to a neighbour. The additional cost is linear in
       (rtt - rtt-min).  The default is 100 ms.
 
-.. index:: babel rtt-max <1-65535>
+.. index:: babel rtt-max (1-65535)
 
-``babel rtt-max <1-65535>``
+.. clicmd:: babel rtt-max (1-65535)
       This specifies the maximum RTT, in milliseconds, above which we don't
       increase the cost to a neighbour. The default is 120 ms.
 
-.. index:: babel max-rtt-penalty <0-65535>
+.. index:: babel max-rtt-penalty (0-65535)
 
-``babel max-rtt-penalty <0-65535>``
+.. clicmd:: babel max-rtt-penalty (0-65535)
       This specifies the maximum cost added to a neighbour because of RTT,
       i.e. when the RTT is higher or equal than rtt-max.  The default is 0,
       which effectively disables the use of a RTT-based cost.
@@ -180,20 +180,20 @@ Babel configuration
    single: babel enable-timestamps
    single: no babel enable-timestamps
 
-``[no] babel enable-timestamps``
+.. clicmd:: [no] babel enable-timestamps
       Enable or disable sending timestamps with each Hello and IHU message in
       order to compute RTT values.  The default is `no babel enable-timestamps`.
 
-.. index:: babel resend-delay <20-655340>
+.. index:: babel resend-delay (20-655340)
 
-``babel resend-delay <20-655340>``
+.. clicmd:: babel resend-delay (20-655340)
       Specifies the time in milliseconds after which an 'important'
       request or update will be resent.  The default is 2000 ms.  You
       probably don't want to tweak this value.
 
-.. index:: babel smoothing-half-life <0-65534>
+.. index:: babel smoothing-half-life (0-65534)
 
-``babel smoothing-half-life <0-65534>``
+.. clicmd:: babel smoothing-half-life (0-65534)
       Specifies the time constant, in seconds, of the smoothing algorithm
       used for implementing hysteresis.  Larger values reduce route
       oscillation at the cost of very slightly increasing convergence time.
@@ -209,7 +209,7 @@ Babel redistribution
    single: redistribute <ipv4|ipv6> KIND
    single: no redistribute <ipv4|ipv6> KIND
 
-``[no] redistribute <ipv4|ipv6> KIND``
+.. clicmd:: [no] redistribute <ipv4|ipv6> KIND
       Specify which kind of routes should be redistributed into Babel.
 
 .. _Show_Babel_information:
@@ -221,47 +221,47 @@ These commands dump various parts of *babeld*'s internal state.
 
 .. index:: show babel route
 
-``show babel route``
+.. clicmd:: show babel route
       *missing description*
 
 .. index:: show babel route A.B.C.D
 
-``show babel route A.B.C.D``
+.. clicmd:: show babel route A.B.C.D
       *missing description*
 
 .. index:: show babel route X:X::X:X
 
-``show babel route X:X::X:X``
+.. clicmd:: show babel route X:X::X:X
       *missing description*
 
 .. index:: show babel route A.B.C.D/M
 
-``show babel route A.B.C.D/M``
+.. clicmd:: show babel route A.B.C.D/M
       *missing description*
 
 .. index:: show babel route X:X::X:X/M
 
-``show babel route X:X::X:X/M``
+.. clicmd:: show babel route X:X::X:X/M
       *missing description*
 
 .. index:: show babel interface
 
-``show babel interface``
+.. clicmd:: show babel interface
       *missing description*
 
 .. index:: show babel interface `IFNAME`
 
-``show babel interface IFNAME``
+.. clicmd:: show babel interface IFNAME
       *missing description*
 
 .. index:: show babel neighbor
 
-``show babel neighbor``
+.. clicmd:: show babel neighbor
       *missing description*
 
 .. index:: show babel parameters
 
-``show babel parameters``
+.. clicmd:: show babel parameters
       *missing description*
 
 Babel debugging commands
@@ -271,7 +271,7 @@ Babel debugging commands
    simple: debug babel KIND
    simple: no debug babel KIND
 
-``[no] debug babel KIND``
+.. clicmd:: [no] debug babel KIND
       Enable or disable debugging messages of a given kind. ``KIND`` can
       be one of:
 

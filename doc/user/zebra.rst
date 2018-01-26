@@ -110,12 +110,12 @@ Command {interface `ifname`} {}
 {Interface Command} {no multicast} {}
                 Enable or disables multicast flag for the interface.
 
-.. index:: {Interface Command} {bandwidth <1-10000000>} {}
+.. index:: {Interface Command} {bandwidth (1-10000000)} {}
 
-{Interface Command} {bandwidth <1-10000000>} {}
-.. index:: {Interface Command} {no bandwidth <1-10000000>} {}
+{Interface Command} {bandwidth (1-10000000)} {}
+.. index:: {Interface Command} {no bandwidth (1-10000000)} {}
 
-{Interface Command} {no bandwidth <1-10000000>} {}
+{Interface Command} {no bandwidth (1-10000000)} {}
                   Set bandwidth value of the interface in kilobits/sec.  This is for
                   calculating OSPF cost. This command does not affect the actual device
                   configuration.
@@ -153,18 +153,18 @@ Link Parameters Commands
 link-params {enable}
     Enable link parameters for this interface.
 
-.. index:: link-params {metric <0-4294967295>} {}
+.. index:: link-params {metric (0-4294967295)} {}
 
-link-params {metric <0-4294967295>} {}
+link-params {metric (0-4294967295)} {}
 .. index:: link-params {max-bw `bandwidth`} {}
 
 link-params {max-bw `bandwidth`} {}
 .. index:: link-params {max-rsv-bw `bandwidth`} {}
 
 link-params {max-rsv-bw `bandwidth`} {}
-.. index:: link-params {unrsv-bw <0-7> `bandwidth`} {}
+.. index:: link-params {unrsv-bw (0-7) `bandwidth`} {}
 
-link-params {unrsv-bw <0-7> `bandwidth`} {}
+link-params {unrsv-bw (0-7) `bandwidth`} {}
 .. index:: link-params {admin-grp `bandwidth`} {}
 
 link-params {admin-grp `bandwidth`} {}
@@ -176,12 +176,12 @@ link-params {admin-grp `bandwidth`} {}
 
             Note that `bandwidth` are specified in IEEE floating point format and express in Bytes/second.
 
-.. index::  link-param {delay <0-16777215> [min <0-16777215> | max <0-16777215>]} {}
+.. index::  link-param {delay (0-16777215) [min (0-16777215) | max (0-16777215)]} {}
 
-link-param {delay <0-16777215> [min <0-16777215> | max <0-16777215>]} {}
-.. index::  link-param {delay-variation <0-16777215>} {}
+link-param {delay (0-16777215) [min (0-16777215) | max (0-16777215)]} {}
+.. index::  link-param {delay-variation (0-16777215)} {}
 
-link-param {delay-variation <0-16777215>} {}
+link-param {delay-variation (0-16777215)} {}
 .. index::  link-param {packet-loss `percentage`} {}
 
 link-param {packet-loss `percentage`} {}
@@ -202,9 +202,9 @@ link-param {use-bw `bandwidth`} {}
                       Delays and delay variation are express in micro-second (µs). Loss is specified in `percentage` ranging
                       from 0 to 50.331642% by step of 0.000003.
 
-.. index:: link-param {neighbor <A.B.C.D> as <0-65535>} {}
+.. index:: link-param {neighbor <A.B.C.D> as (0-65535)} {}
 
-link-param {neighbor <A.B.C.D> as <0-65535>} {}
+link-param {neighbor <A.B.C.D> as (0-65535)} {}
 .. index:: link-param {no neighbor} {}
 
 link-param {no neighbor} {}

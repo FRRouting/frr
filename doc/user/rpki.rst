@@ -83,9 +83,9 @@ Configuring RPKI/RTR Cache Servers
 
 The following commands are independent of a specific cache server.
 
-.. index:: {RPKI Command} {rpki polling_period <1-3600>} {}
+.. index:: {RPKI Command} {rpki polling_period (1-3600)} {}
 
-{RPKI Command} {rpki polling_period <1-3600>} {}
+{RPKI Command} {rpki polling_period (1-3600)} {}
 .. index:: {RPKI Command} {no rpki polling_period} {}
 
 {RPKI Command} {no rpki polling_period} {}

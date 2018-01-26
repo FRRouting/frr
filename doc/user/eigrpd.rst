@@ -66,22 +66,22 @@ EIGRP Configuration
 
 .. index:: router eigrp (1-65535)
 
-``router eigrp (1-65535)``
+.. clicmd:: router eigrp (1-65535)
    The `router eigrp` command is necessary to enable EIGRP. To disable EIGRP,
    use the `no router eigrp (1-65535)` command. EIGRP must be enabled before
    carrying out any of the EIGRP commands.
 
 .. index:: no router eigrp (1-65535)
 
-``no router eigrp (1-65535)``
+.. clicmd:: no router eigrp (1-65535)
    Disable EIGRP.
 
 .. index:: network NETWORK
 
-``network NETWORK``
+.. clicmd:: network NETWORK
 .. index:: no network NETWORK
 
-``no network NETWORK``
+.. clicmd:: no network NETWORK
    Set the EIGRP enable interface by `network`. The interfaces which
    have addresses matching with `network` are enabled.
 
@@ -106,10 +106,10 @@ EIGRP Configuration
 
 .. index:: passive-interface (IFNAME|default)
 
-``passive-interface (IFNAME|default)``
+.. clicmd:: passive-interface (IFNAME|default)
 .. index:: no passive-interface IFNAME
 
-``no passive-interface IFNAME``
+.. clicmd:: no passive-interface IFNAME
    This command sets the specified interface to passive mode. On passive mode
    interface, all receiving packets are ignored and eigrpd does
    not send either multicast or unicast EIGRP packets except to EIGRP neighbors
@@ -125,39 +125,39 @@ How to Announce EIGRP route
 
 .. index:: redistribute kernel
 
-``redistribute kernel``
+.. clicmd:: redistribute kernel
 .. index:: redistribute kernel metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
 
-``redistribute kernel metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)``
+.. clicmd:: redistribute kernel metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
 .. index:: no redistribute kernel
 
-``no redistribute kernel``
+.. clicmd:: no redistribute kernel
   `redistribute kernel` redistributes routing information from
   kernel route entries into the EIGRP tables. `no redistribute kernel`
   disables the routes.
 
 .. index:: redistribute static
 
-``redistribute static``
+.. clicmd:: redistribute static
 .. index:: redistribute static metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
 
-``redistribute static metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)``
+.. clicmd:: redistribute static metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
 .. index:: no redistribute static
 
-``no redistribute static``
+.. clicmd:: no redistribute static
     `redistribute static` redistributes routing information from
     static route entries into the EIGRP tables. `no redistribute static`
     disables the routes.
 
 .. index:: redistribute connected
 
-``redistribute connected``
+.. clicmd:: redistribute connected
 .. index:: redistribute connected metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
 
-``redistribute connected metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)``
+.. clicmd:: redistribute connected metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
 .. index:: no redistribute connected
 
-``no redistribute connected``
+.. clicmd:: no redistribute connected
   Redistribute connected routes into the EIGRP tables. `no redistribute
   connected` disables the connected routes in the EIGRP tables. This command
   redistribute connected of the interface which EIGRP disabled. The connected
@@ -165,26 +165,26 @@ How to Announce EIGRP route
 
 .. index:: redistribute ospf
 
-``redistribute ospf``
+.. clicmd:: redistribute ospf
 .. index:: redistribute ospf metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
 
-``redistribute ospf metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)``
+.. clicmd:: redistribute ospf metric (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
 .. index:: no redistribute ospf
 
-``no redistribute ospf``
+.. clicmd:: no redistribute ospf
   `redistribute ospf` redistributes routing information from ospf route
   entries into the EIGRP tables. `no redistribute ospf` disables the
   routes.
 
 .. index:: redistribute bgp
 
-``redistribute bgp``
+.. clicmd:: redistribute bgp
 .. index:: redistribute bgp metric  (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
 
-``redistribute bgp metric  (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)``
+.. clicmd:: redistribute bgp metric  (1-4294967295) (0-4294967295) (0-255) (1-255) (1-65535)
 .. index:: no redistribute bgp
 
-``no redistribute bgp``
+.. clicmd:: no redistribute bgp
   `redistribute bgp` redistributes routing information from
   bgp route entries into the EIGRP tables. `no redistribute bgp`
   disables the routes.
@@ -198,14 +198,14 @@ To display EIGRP routes.
 
 .. index:: show ip eigrp topology
 
-``show ip eigrp topology``
+.. clicmd:: show ip eigrp topology
   Show EIGRP routes.
 
 The command displays all EIGRP routes.
 
 .. index:: show ip eigrp topology
 
-``show ip eigrp topology``
+.. clicmd:: show ip eigrp topology
   The command displays current EIGRP status
 
 ::
@@ -229,21 +229,21 @@ Debug for EIGRP protocol.
 
 .. index:: debug eigrp packets
 
-``debug eigrp packets``
+.. clicmd:: debug eigrp packets
   Debug eigrp packets
 
 `debug eigrp` will show EIGRP packets that are sent and recevied.
 
 .. index:: debug eigrp transmit
 
-``debug eigrp transmit``
+.. clicmd:: debug eigrp transmit
   Debug eigrp transmit events
 
 `debug eigrp transmit` will display detailed information about the EIGRP transmit events.
 
 .. index:: show debugging eigrp
 
-``show debugging eigrp``
+.. clicmd:: show debugging eigrp
   Display *eigrpd*'s debugging option.
 
 `show debugging eigrp` will show all information currently set for eigrpd
