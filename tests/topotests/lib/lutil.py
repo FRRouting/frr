@@ -221,12 +221,15 @@ Total %-4d                                                           %-4d %d\n\
         found = self.command(target, command, regexp, 'pass', '%s +%4.2f secs' % (result, delta))
         return found
 
-#init class
-LUtil=lUtil()
+#initialized by luStart
+LUtil=None
 
 #entry calls
 def luStart(baseScriptDir='.', baseLogDir='.', net='',
             fout='output.log', fsum='summary.txt', level=9):
+    global LUtil
+    #init class
+    LUtil=lUtil()
     LUtil.base_script_dir = baseScriptDir
     LUtil.base_log_dir = baseLogDir
     LUtil.net = net
@@ -242,23 +245,27 @@ def luCommand(target, command, regexp='.', op='none', result='', time=10):
     else:
         return LUtil.wait(target, command, regexp, op, result, time)
 
-
 def luInclude(filename, CallOnFail=None):
-    global LUtil
     tstFile = LUtil.base_script_dir + '/' + filename
     LUtil.setFilename(filename)
     if CallOnFail != None:
         oldCallOnFail = LUtil.getCallOnFail()
         LUtil.setCallOnFail(CallOnFail)
     if filename.endswith('.py'):
+        LUtil.log("luInclude: execfile "+tstFile)
         execfile(tstFile)
     else:
+        LUtil.log("luInclude: execTestFile "+tstFile)
         LUtil.execTestFile(tstFile)
     if CallOnFail != None:
         LUtil.setCallOnFail(oldCallOnFail)
 
 def luFinish():
-    return LUtil.closeFiles()
+    global LUtil
+    ret = LUtil.closeFiles()
+    #done
+    LUtil = None
+    return ret;
 
 def luNumFail():
     return LUtil.l_fail

@@ -28,6 +28,7 @@ ltemplate.py: LabN template for FRR tests.
 import os
 import sys
 import pytest
+import imp
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -38,49 +39,87 @@ from lib.lutil import *
 
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
-from customize import *
+
+customize = None
+
+class LTemplate():
+    scriptdir = None
+    test = None
+    testdir = None
+
+    def __init__(self, test, testdir):
+        global customize
+        customize = imp.load_source('customize', os.path.join(testdir, 'customize.py'))
+        self.test = test
+        self.testdir = testdir
+        logger.info('LTemplate: '+test)
+
+    def setup_module(self, mod):
+        "Sets up the pytest environment"
+        # This function initiates the topology build with Topogen...
+        tgen = Topogen(customize.ThisTestTopo, mod.__name__)
+        # ... and here it calls Mininet initialization functions.
+        tgen.start_topology()
+
+        logger.info('Topology started')
+        try:
+            customize.ltemplatePreRouterStartHook()
+        except NameError:
+            #not defined
+            logger.debug("ltemplatePreRouterStartHook() not defined")
+
+        # This is a sample of configuration loading.
+        router_list = tgen.routers()
+
+        # For all registred routers, load the zebra configuration file
+        for rname, router in router_list.iteritems():
+            print("Setting up %s" % rname)
+            config = os.path.join(self.testdir, '{}/zebra.conf'.format(rname))
+            if os.path.exists(config):
+                router.load_config(TopoRouter.RD_ZEBRA, config)
+            config = os.path.join(self.testdir, '{}/ospfd.conf'.format(rname))
+            if os.path.exists(config):
+                router.load_config(TopoRouter.RD_OSPF, config)
+            config = os.path.join(self.testdir, '{}/ldpd.conf'.format(rname))
+            if os.path.exists(config):
+                router.load_config(TopoRouter.RD_LDP, config)
+            config = os.path.join(self.testdir, '{}/bgpd.conf'.format(rname))
+            if os.path.exists(config):
+                router.load_config(TopoRouter.RD_BGP, config)
+
+        # After loading the configurations, this function loads configured daemons.
+        logger.info('Starting routers')
+        tgen.start_router()
+        try:
+            customize.ltemplatePostRouterStartHook()
+        except NameError:
+            #not defined
+            logger.debug("ltemplatePostRouterStartHook() not defined")
+
+#initialized by ltemplate_start
+_lt = None
 
 def setup_module(mod):
-    "Sets up the pytest environment"
-    # This function initiates the topology build with Topogen...
-    tgen = Topogen(ThisTestTopo, mod.__name__)
-    # ... and here it calls Mininet initialization functions.
-    tgen.start_topology()
+    global _lt
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    test = mod.__name__[:mod.__name__.rfind(".")]
+    testdir = os.path.join(root, test)
 
-    logger.info('Topology started')
-    try:
-        ltemplatePreRouterStartHook()
-    except NameError:
-        #not defined
-        logger.debug("ltemplatePreRouterStartHook() not defined")
+    #don't do this for now as reload didn't work as expected
+    #fixup sys.path, want test dir there only once
+    #try:
+    #    sys.path.remove(testdir)
+    #except ValueError:
+    #    logger.debug(testdir+" not found in original sys.path")
+    #add testdir
+    #sys.path.append(testdir)
 
-    # This is a sample of configuration loading.
-    router_list = tgen.routers()
+    #init class
+    _lt = LTemplate(test, testdir)
+    _lt.setup_module(mod)
 
-    # For all registred routers, load the zebra configuration file
-    for rname, router in router_list.iteritems():
-        print("Setting up %s" % rname)
-        config = os.path.join(CWD, '{}/zebra.conf'.format(rname))
-        if os.path.exists(config):
-            router.load_config(TopoRouter.RD_ZEBRA, config)
-        config = os.path.join(CWD, '{}/ospfd.conf'.format(rname))
-        if os.path.exists(config):
-            router.load_config(TopoRouter.RD_OSPF, config)
-        config = os.path.join(CWD, '{}/ldpd.conf'.format(rname))
-        if os.path.exists(config):
-            router.load_config(TopoRouter.RD_LDP, config)
-        config = os.path.join(CWD, '{}/bgpd.conf'.format(rname))
-        if os.path.exists(config):
-            router.load_config(TopoRouter.RD_BGP, config)
-
-    # After loading the configurations, this function loads configured daemons.
-    logger.info('Starting routers')
-    tgen.start_router()
-    try:
-        ltemplatePostRouterStartHook()
-    except NameError:
-        #not defined
-        logger.debug("ltemplatePostRouterStartHook() not defined")
+    #drop testdir
+    #sys.path.remove(testdir)
 
 def teardown_module(mod):
     "Teardown the pytest environment"
@@ -88,12 +127,6 @@ def teardown_module(mod):
 
     # This function tears down the whole topology.
     tgen.stop_topology()
-
-class LTemplate:
-    scriptdir = None
-
-#init class
-_lt = LTemplate()
 
 def ltemplate_start(testDir):
     logger.info('ltemplate start in ' + testDir)
@@ -143,9 +176,12 @@ def test_memory_leak():
 #clean up ltemplate
 
 def test_ltemplate_finish():
+    global _lt
     logger.info('Done with ltemplate tests')
-    if _lt.scriptdir != None:
+    if _lt != None and _lt.scriptdir != None:
         print(luFinish())
+    #done
+    _lt = None
 
 #for testing
 if __name__ == '__main__':
