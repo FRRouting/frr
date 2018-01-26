@@ -209,14 +209,14 @@ If 'type' is PROTOCOL_BGP4MP and 'subtype' is BGP4MP_SNAPSHOT::
 The file specified in "File Name" contains all routing entries,
 which are in the format of ``subtype == BGP4MP_ENTRY``.
 
-@example
-Constants:::
+::
+   Constants:
 
-  /* type value */
-  #define MSG_PROTOCOL_BGP4MP    16
-  #define MSG_PROTOCOL_BGP4MP_ET 17
-  /* subtype value */
-  #define BGP4MP_STATE_CHANGE 0
-  #define BGP4MP_MESSAGE 1
-  #define BGP4MP_ENTRY 2
-  #define BGP4MP_SNAPSHOT 3
+     /* type value */
+     #define MSG_PROTOCOL_BGP4MP    16
+     #define MSG_PROTOCOL_BGP4MP_ET 17
+     /* subtype value */
+     #define BGP4MP_STATE_CHANGE 0
+     #define BGP4MP_MESSAGE 1
+     #define BGP4MP_ENTRY 2
+     #define BGP4MP_SNAPSHOT 3

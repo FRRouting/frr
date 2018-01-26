@@ -5,11 +5,11 @@ ISIS
 ****
 
 :abbr:`ISIS (Intermediate System to Intermediate System)` is a routing protocol
-which is described in @cite{ISO10589, RFC1195, RFC5308}.  ISIS is an
+which is described in :t:`ISO10589`, :rfc:`1195`, :rfc:`5308`.  ISIS is an
 :abbr:`IGP (Interior Gateway Protocol)`.  Compared with :abbr:`RIP`,
-:abbr:`ISIS` can provide scalable network support and faster
-convergence times like :abbr:`OSPF`. ISIS is widely used in large networks such as
-:abbr:`ISP (Internet Service Provider)` and carrier backbone networks.
+:abbr:`ISIS` can provide scalable network support and faster convergence times
+like :abbr:`OSPF`. ISIS is widely used in large networks such as :abbr:`ISP
+(Internet Service Provider)` and carrier backbone networks.
 
 .. _Configuring_isisd:
 

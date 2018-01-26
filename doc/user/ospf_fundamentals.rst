@@ -9,7 +9,7 @@ OSPF Fundamentals
 
 :abbr:`OSPF` is, mostly, a link-state routing protocol. In contrast
 to :term:`distance-vector` protocols, such as :abbr:`RIP` or
-:abbr:`BGP`, where routers describe available :term:`paths` (i.e@. routes)
+:abbr:`BGP`, where routers describe available :term:`paths` (i.e. routes)
 to each other, in :term:`link-state` protocols routers instead
 describe the state of their links to their immediate neighbouring
 routers.
@@ -28,9 +28,9 @@ through to all other routers in a link-state routing domain, by a
 process called :term:`flooding`. Each router thus builds up an
 :abbr:`LSDB (Link State Database)` of all the link-state messages. From
 this collection of LSAs in the LSDB, each router can then calculate the
-shortest path to any other router, based on some common metric, by
-using an algorithm such as @url{http://www.cs.utexas.edu/users/EWD/,
-Edgser Dijkstra}'s :abbr:`SPF (Shortest Path First)`.
+shortest path to any other router, based on some common metric, by using an
+algorithm such as `Edgar Djikstra's <http://www.cs.utexas.edu/users/EWD/>`_
+:abbr:`SPF (Shortest Path First)` algorithm.
 
 .. index:: Link-state routing protocol advantages
 
@@ -57,8 +57,8 @@ link-state area increases, in managing the :abbr:`LSDB` and required
 flooding.
 
 This section aims to give a distilled, but accurate, description of the
-more important workings of :abbr:`OSPF`@ which an administrator may need
-to know to be able best configure and trouble-shoot :abbr:`OSPF`@.
+more important workings of :abbr:`OSPF` which an administrator may need
+to know to be able best configure and trouble-shoot :abbr:`OSPF`.
 
 OSPF Mechanisms
 ---------------
@@ -117,7 +117,7 @@ broadly classed as:
 
 
 *External Routes*
-      Routes entirely external to :abbr:`OSPF`@. Routers originating such
+      Routes entirely external to :abbr:`OSPF`. Routers originating such
       routes are known as :abbr:`ASBR (Autonomous-System Border Router)`
       routers.
 
@@ -149,7 +149,7 @@ broadly classed as:
 
   Note that only summaries and external routes are passed between areas.
   As these describe *paths*, rather than any router link-states,
-  routing between areas hence is by :term:`distance-vector`, @strong{not}
+  routing between areas hence is by :term:`distance-vector`, **not**
   link-state.
 
   :ref:`OSPF_Areas`.
@@ -157,7 +157,7 @@ broadly classed as:
 OSPF LSAs
 ---------
 
-:abbr:`LSA`s are the core object in OSPF@. Everything else in OSPF
+:abbr:`LSA`s are the core object in OSPF. Everything else in OSPF
 revolves around detecting what to describe in LSAs, when to update
 them, how to flood them throughout a network and how to calculate
 routes from them.
@@ -176,7 +176,7 @@ All LSAs share a common header with the following information:
 * Type
 
   Different types of :abbr:`LSA`s describe different things in
-  :abbr:`OSPF`@. Types include:
+  :abbr:`OSPF`. Types include:
 
   * Router LSA
   * Network LSA
@@ -195,10 +195,10 @@ All LSAs share a common header with the following information:
   The ID of the LSA, which is typically derived in some way from the
   information the LSA describes, e.g. a Router LSA uses the Router ID as
   the LSA ID, a Network LSA will have the IP address of the :abbr:`DR`
-  as its LSA ID@.
+  as its LSA ID.
 
   The combination of the Type, ID and Advertising Router ID must uniquely
-  identify the :abbr:`LSA`@. There can however be multiple instances of
+  identify the :abbr:`LSA`. There can however be multiple instances of
   an LSA with the same Type, LSA ID and Advertising Router ID, see
   :ref:`OSPF_LSA_sequence_number,,LSA_Sequence_Number`.
 
@@ -214,7 +214,7 @@ All LSAs share a common header with the following information:
 
   Routers may deliberately flood LSAs with the age artificially set to
   3600 to indicate an LSA is no longer valid. This is called
-  :term:`flushing` of an LSA@.
+  :term:`flushing` of an LSA.
 
   It is not abnormal to see stale LSAs in the LSDB, this can occur where
   a router has shutdown without flushing its LSA(s), e.g. where it has
@@ -270,24 +270,17 @@ called :term:`intra-area routes`.
 
     These values depend on the Link Type:
 
-    @multitable @columnfractions .18 .32 .32
-    @headitem Link Type @tab Link ID @tab Link Data
-
-  * Transit
-    @tab Link IP address of the :abbr:`DR`
-    @tab Interface IP address
-
-  * Point-to-Point
-    @tab Router ID of the remote router
-    @tab Local interface IP address,
-    or the :abbr:`ifindex (MIB-II interface index)`
-    for unnumbered links
-
-  * Stub
-    @tab IP address
-    @tab Subnet Mask
-
-    @end multitable
+ +----------------+-----------------------------------+------------------------------------------+
+ | Link Type      | Link ID                           | Link Data                                |
+ +================+===================================+==========================================+
+ | Transit        | Link IP address of the :abbr:`DR` | Interface IP address                     |
+ +----------------+-----------------------------------+------------------------------------------+
+ | Point-to-Point | Router ID of the remote router    | Local interface IP address, or the       |
+ |                |                                   | :abbr:`ifindex (MIB-II interface index)` |
+ |                |                                   | for unnumbered links                     |
+ +----------------+-----------------------------------+------------------------------------------+
+ | Stub           | IP address                        | Subnet Mask                              |
+ +----------------+-----------------------------------+------------------------------------------+
 
   Links on a router may be listed multiple times in the Router LSA, e.g.
   a :abbr:`PtP` interface on which OSPF is enabled must *always*
@@ -300,8 +293,8 @@ called :term:`intra-area routes`.
 
 * Network LSA
 
-  On multi-access links (e.g. ethernets, certain kinds of ATM and X@.25
-  configurations), routers elect a :abbr:`DR`@. The :abbr:`DR` is
+  On multi-access links (e.g. ethernets, certain kinds of ATM and X.25
+  configurations), routers elect a :abbr:`DR`. The :abbr:`DR` is
   responsible for originating a Network :abbr:`LSA`, which helps reduce
   the information needed to describe multi-access networks with multiple
   routers attached. The :abbr:`DR` also acts as a hub for the flooding of
@@ -319,23 +312,19 @@ called :term:`intra-area routes`.
 
     Each router fully-adjacent with the :abbr:`DR` is listed in the LSA,
     by their Router-ID. This allows the corresponding Router :abbr:`LSA`s to be
-    easily retrieved from the :abbr:`LSDB`@.
+    easily retrieved from the :abbr:`LSDB`.
 
 Summary of Link State LSAs:
 
-@multitable @columnfractions .18 .32 .40
-@headitem LSA Type @tab LSA ID Describes @tab LSA Data Describes
-
-* Router LSA
-@tab The Router ID
-@tab The :abbr:`OSPF` enabled links of the router, within
-a specific link-state area.
-
-* Network LSA
-@tab The IP address of the :abbr:`DR` for the network
-@tab The Subnet Mask of the network, and the Router IDs of all routers
-on the network.
-@end multitable
++-------------+----------------------------+--------------------------------------------+
+| LSA Type    | LSA ID                     | LSA Data Describes                         |
++=============+============================+============================================+
+| Router LSA  | Router ID                  | The :abbr:`OSPF` enabled links of the      |
+|             |                            | router, within a specific link-state area. |
++-------------+----------------------------+--------------------------------------------+
+| Network LSA | The IP address of the      | The subet mask of the network and the      |
+|             | :abbr:`DR` for the network | Router IDs of all routers on the network   |
++-------------+----------------------------+--------------------------------------------+
 
 With an LSDB composed of just these two types of :abbr:`LSA`, it is
 possible to construct a directed graph of the connectivity between all
@@ -424,10 +413,10 @@ are fully adjacent with 192.168.0.49.
 Note that from one LSA, you can find the other. E.g. Given the
 Network-LSA you have a list of Router IDs on that network, from which
 you can then look up, in the local :abbr:`LSDB`, the matching Router
-LSA@. From that Router-LSA you may (potentially) find links to other
+LSA. From that Router-LSA you may (potentially) find links to other
 Transit networks and Routers IDs which can be used to lookup the
-corresponding Router or Network LSA@. And in that fashion, one can find
-all the Routers and Networks reachable from that starting :abbr:`LSA`@.
+corresponding Router or Network LSA. And in that fashion, one can find
+all the Routers and Networks reachable from that starting :abbr:`LSA`.
 
 Given the Router LSA instead, you have the IP address of the
 :abbr:`DR` of any attached transit links. Network LSAs will have that IP
@@ -437,10 +426,10 @@ links and Network and Router LSAs, etc. etc.
 
 From just the above two :abbr:`LSA`s, one can already see the
 following partial topology:
+
 ::
 
-
-     --------------------- Network: ......
+  ------------------------ Network: ......
               |            Designated Router IP: 192.168.1.3
               |
         IP: 192.168.1.3
@@ -471,7 +460,7 @@ External LSAs
 
 External, or "Type 5", :abbr:`LSA`s describe routing information which is
 entirely external to :abbr:`OSPF`, and is "injected" into
-:abbr:`OSPF`@. Such routing information may have come from another
+:abbr:`OSPF`. Such routing information may have come from another
 routing protocol, such as RIP or BGP, they may represent static routes
 or they may represent a default route.
 

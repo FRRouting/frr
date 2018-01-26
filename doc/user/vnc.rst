@@ -20,11 +20,8 @@ Ethernet/Layer 2 (L2) VNs are supported.
 BGP, with IP VPNs and Tunnel Encapsulation, is used to distribute VN
 information between NVAs. BGP based IP VPN support is defined in
 :rfc:`4364`, and
-@cite{RFC4659, BGP-MPLS IP Virtual Private Network (VPN) Extension for
-IPv6 VPN }.  Both the Encapsulation Subsequent Address Family Identifier
-(SAFI) and the Tunnel Encapsulation Attribute, @cite{RFC5512, The BGP
-Encapsulation Subsequent Address Family Identifier (SAFI) and the BGP
-Tunnel Encapsulation Attribute}, are supported.
+:rfc:`4659`. Both the Encapsulation Subsequent Address Family Identifier
+(SAFI) and the Tunnel Encapsulation Attribute, :rfc:`5512` are supported.
 
 The protocol that is used to communicate routing and Ethernet / Layer 2
 (L2) forwarding information between NVAs and NVEs is referred to as the

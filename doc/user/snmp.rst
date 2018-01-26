@@ -203,5 +203,4 @@ The following syntax is understood by the FRR daemons for configuring SNMP using
 
 {Command} {no agentx} {}
 
-      @include snmptrap.texi
-
+.. include:: snmptrap.rst

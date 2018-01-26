@@ -89,8 +89,7 @@ Command {no router ospf} {}
         hence are unaffected by this setting (:ref:`OSPF_virtual-link`).
 
         More information regarding the behaviour controlled by this command can
-        be found in @cite{RFC 3509, Alternative Implementations of OSPF Area
-        Border Routers}, and @cite{draft-ietf-ospf-shortcut-abr-02.txt}.
+        be found in :rfc:`3509`, and :t:`draft-ietf-ospf-shortcut-abr-02.txt`.
 
         Quote: "Though the definition of the :abbr:`ABR (Area Border Router)`
         in the OSPF specification does not require a router with multiple

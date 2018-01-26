@@ -16,10 +16,9 @@ In combination with a  BGP Prefix Origin Validation scheme a router is able
 to verify received BGP updates without suffering from cryptographic
 complexity.
 
-The RPKI/RTR protocol is defined in @cite{RFC6810, The Resource Public Key
-Infrastructure (RPKI) to Router Protocol}, and the validation scheme in
-:rfc:`6811`. The current version of Prefix
-Origin Validation in FRR implements both RFCs.
+The RPKI/RTR protocol is defined in :rfc:`6810` and the validation scheme in
+:rfc:`6811`. The current version of Prefix Origin Validation in FRR implements
+both RFCs.
 
 For a more detailed but still easy-to-read background, we suggest the
 following two articles:
@@ -174,7 +173,7 @@ Validating BGP Updates
 {Route Map Command} {no match rpki {notfound|invalid|valid}} {}
     Create a clause for a route map to match prefixes with the specified RPKI state.
 
-    @strong{Note} that the matching of invalid prefixes requires that invalid
+    **Note** that the matching of invalid prefixes requires that invalid
     prefixes are considered for best path selection, i.e., @command{bgp
     bestpath prefix-validate disallow-invalid} is not enabled.
 
