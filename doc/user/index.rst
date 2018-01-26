@@ -7,7 +7,7 @@ Welcome to FRR's documentation!
    overview
    installation
    basic
-   main
+   zebra 
    ripd
    ripngd
    ospfd
