@@ -467,10 +467,17 @@ void vrf_terminate(void)
 /* Create a socket for the VRF. */
 int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id)
 {
-	int ret = -1;
+	int ret, save_errno, ret2;
 
+	ret = vrf_switch_to_netns(vrf_id);
+	if (ret < 0)
+		zlog_err("Can't switch to VRF %u", vrf_id);
 	ret = socket(domain, type, protocol);
-
+	save_errno = errno;
+	ret2 = vrf_switchback_to_initial();
+	if (ret2 < 0)
+		zlog_err("Can't switch to VRF %u", vrf_id);
+	errno = save_errno;
 	return ret;
 }
 
@@ -633,4 +640,38 @@ vrf_id_t vrf_get_default_id(void)
 		return ns_get_default_id();
 	else
 		return VRF_DEFAULT_INTERNAL;
+}
+
+int vrf_getaddrinfo(const char *node, const char *service,
+		    const struct addrinfo *hints,
+		    struct addrinfo **res, vrf_id_t vrf_id)
+{
+	int ret, ret2, save_errno;
+
+	ret = vrf_switch_to_netns(vrf_id);
+	if (ret < 0)
+		zlog_err("Can't switch to VRF %u", vrf_id);
+	ret = getaddrinfo(node, service, hints, res);
+	save_errno = errno;
+	ret2 = vrf_switchback_to_initial();
+	if (ret2 < 0)
+		zlog_err("Can't switchback from VRF %u", vrf_id);
+	errno = save_errno;
+	return ret;
+}
+
+int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id)
+{
+	int ret, save_errno, ret2;
+
+	ret = vrf_switch_to_netns(vrf_id);
+	if (ret < 0)
+		zlog_err("Can't switch to VRF %u", vrf_id);
+	ret = sockunion_socket(su);
+	save_errno = errno;
+	ret2 = vrf_switchback_to_initial();
+	if (ret2 < 0)
+		zlog_err("Can't switchback from VRF %u", vrf_id);
+	errno = save_errno;
+	return ret;
 }
