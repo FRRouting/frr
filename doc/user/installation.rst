@@ -33,10 +33,10 @@ Configure the Software
 ======================
 
 
-.. _The_Configure_script_and_its_options:
+.. _The_Configure_Script:
 
-The Configure script and its options
-------------------------------------
+The Configure Script
+--------------------
 
 .. index:: Configuration options
 
@@ -52,111 +52,132 @@ FRR has an excellent configure script which automatically detects most
 host configurations.  There are several additional configure options to
 customize the build to include or exclude specific features and dependencies.
 
+.. program:: configure
+
+.. option:: --disable-zebra
 
 
-*--disable-zebra*
-  Do not build zebra daemon.
+   Do not build zebra daemon.
 
-*--disable-ripd*
-  Do not build ripd.
+.. option:: --disable-ripd
 
-*--disable-ripngd*
-  Do not build ripngd.
+   Do not build ripd.
 
-*--disable-ospfd*
-  Do not build ospfd.
+.. option:: --disable-ripngd
 
-*--disable-ospf6d*
-  Do not build ospf6d.
+   Do not build ripngd.
 
-*--disable-bgpd*
-  Do not build bgpd.
+.. option:: --disable-ospfd
 
-*--disable-bgp-announce*
-  Make *bgpd* which does not make bgp announcements at all.  This
-  feature is good for using *bgpd* as a BGP announcement listener.
+   Do not build ospfd.
 
-*--enable-datacenter*
-  Enable system defaults to work as if in a Data Center. See defaults.h
-  for what is changed by this configure option.
+.. option:: --disable-ospf6d
 
-*--enable-snmp*
-  Enable SNMP support.  By default, SNMP support is disabled.
+   Do not build ospf6d.
 
-*--disable-ospfapi*
-  Disable support for OSPF-API, an API to interface directly with ospfd.
-  OSPF-API is enabled if --enable-opaque-lsa is set.
+.. option:: --disable-bgpd
 
-*--disable-ospfclient*
-  Disable building of the example OSPF-API client.
+   Do not build bgpd.
 
-*--disable-ospf-ri*
-  Disable support for OSPF Router Information (RFC4970 & RFC5088) this
-  requires support for Opaque LSAs and Traffic Engineering.
+.. option:: --disable-bgp-announce
 
-*--disable-isisd*
-  Do not build isisd.
+   Make *bgpd* which does not make bgp announcements at all.  This
+   feature is good for using *bgpd* as a BGP announcement listener.
 
-*--enable-isis-topology*
-  Enable IS-IS topology generator.
+.. option:: --enable-datacenter
 
-*--enable-isis-te*
-  Enable Traffic Engineering Extension for ISIS (RFC5305)
+   Enable system defaults to work as if in a Data Center. See defaults.h
+   for what is changed by this configure option.
 
-*--enable-multipath=`ARG`*
-  Enable support for Equal Cost Multipath. `ARG` is the maximum number
-  of ECMP paths to allow, set to 0 to allow unlimited number of paths.
+.. option:: --enable-snmp
 
-*--disable-rtadv*
-  Disable support IPV6 router advertisement in zebra.
+   Enable SNMP support.  By default, SNMP support is disabled.
 
-*--enable-gcc-rdynamic*
-  Pass the *-rdynamic* option to the linker driver.  This is in most
-  cases neccessary for getting usable backtraces.  This option defaults to on
-  if the compiler is detected as gcc, but giving an explicit enable/disable is
-  suggested.
+.. option:: --disable-ospfapi
 
-*--disable-backtrace*
-  Controls backtrace support for the crash handlers. This is autodetected by
-  default. Using the switch will enforce the requested behaviour, failing with
-  an error if support is requested but not available.  On BSD systems, this
-  needs libexecinfo, while on glibc support for this is part of libc itself.
+   Disable support for OSPF-API, an API to interface directly with ospfd.
+   OSPF-API is enabled if --enable-opaque-lsa is set.
 
-*--enable-dev-build*
-  Turn on some options for compiling FRR within a development environment in
-  mind.  Specifically turn on -g3 -O0 for compiling options and add inclusion
-  of grammar sandbox.
+.. option:: --disable-ospfclient
 
-*--enable-fuzzing*
-  Turn on some compile options to allow you to run fuzzing tools
-  against the system.  This tools is intended as a developer
-  only tool and should not be used for normal operations
+   Disable building of the example OSPF-API client.
+
+.. option:: --disable-ospf-ri
+
+   Disable support for OSPF Router Information (RFC4970 & RFC5088) this
+   requires support for Opaque LSAs and Traffic Engineering.
+
+.. option:: --disable-isisd
+
+   Do not build isisd.
+
+.. option:: --enable-isis-topology
+
+   Enable IS-IS topology generator.
+
+.. option:: --enable-isis-te
+
+   Enable Traffic Engineering Extension for ISIS (RFC5305)
+
+.. option:: --enable-multipath=`ARG`
+
+   Enable support for Equal Cost Multipath. `ARG` is the maximum number
+   of ECMP paths to allow, set to 0 to allow unlimited number of paths.
+
+.. option:: --disable-rtadv
+
+   Disable support IPV6 router advertisement in zebra.
+
+.. option:: --enable-gcc-rdynamic
+
+   Pass the *-rdynamic* option to the linker driver.  This is in most
+   cases neccessary for getting usable backtraces.  This option defaults to on
+   if the compiler is detected as gcc, but giving an explicit enable/disable is
+   suggested.
+
+.. option:: --disable-backtrace
+
+   Controls backtrace support for the crash handlers. This is autodetected by
+   default. Using the switch will enforce the requested behaviour, failing with
+   an error if support is requested but not available.  On BSD systems, this
+   needs libexecinfo, while on glibc support for this is part of libc itself.
+
+.. option:: --enable-dev-build
+
+   Turn on some options for compiling FRR within a development environment in
+   mind.  Specifically turn on -g3 -O0 for compiling options and add inclusion
+   of grammar sandbox.
+
+.. option:: --enable-fuzzing
+
+   Turn on some compile options to allow you to run fuzzing tools against the
+   system. This flag is intended as a developer only tool and should not be
+   used for normal operations.
+
+.. option:: --disable-snmp
+
+   Build without SNMP support.
+
 
 You may specify any combination of the above options to the configure
-script.  By default, the executables are placed in :file:`/usr/local/sbin`
+script. By default, the executables are placed in :file:`/usr/local/sbin`
 and the configuration files in :file:`/usr/local/etc`. The :file:`/usr/local/`
 installation prefix and other directories may be changed using the following
 options to the configuration script.
 
+.. option:: --prefix=`prefix`
 
+   Install architecture-independent files in `prefix` [/usr/local].
 
-*--prefix=`prefix`*
-  Install architecture-independent files in `prefix` [/usr/local].
+.. option:: --sysconfdir=`dir`
 
-*--sysconfdir=`dir`*
-  Look for configuration files in `dir` [`prefix`/etc]. Note
-  that sample configuration files will be installed here.
+   Look for configuration files in `dir` [`prefix`/etc]. Note that sample
+   configuration files will be installed here.
 
-*--localstatedir=`dir`*
-  Configure zebra to use `dir` for local state files, such
-  as pid files and unix sockets.
+.. option:: --localstatedir=`dir`
 
-::
-
-  % ./configure --disable-snmp
-
-
-This command will configure zebra and the routing daemons.
+   Configure zebra to use `dir` for local state files, such
+   as pid files and unix sockets.
 
 .. _Least-Privilege_support:
 
@@ -172,34 +193,34 @@ shortly after startup and switch to another user. The configure script will
 automatically try to configure this support. There are three configure
 options to control the behaviour of FRR daemons.
 
+.. option:: --enable-user=`user`
 
+   Switch to user `ARG` shortly after startup, and run as user `ARG`
+   in normal operation.
 
-*--enable-user=`user`*
-  Switch to user `ARG` shortly after startup, and run as user `ARG`
-  in normal operation.
+.. option:: --enable-group=`group`
 
-*--enable-group=`group`*
-  Switch real and effective group to `group` shortly after
-  startup.
+   Switch real and effective group to `group` shortly after
+   startup.
 
-*--enable-vty-group=`group`*
-  Create Unix Vty sockets (for use with vtysh) with group owndership set to
-  `group`. This allows one to create a seperate group which is
-  restricted to accessing only the Vty sockets, hence allowing one to
-  delegate this group to individual users, or to run vtysh setgid to
-  this group.
+.. option:: --enable-vty-group=`group`
+
+   Create Unix Vty sockets (for use with vtysh) with group owndership set to
+   `group`. This allows one to create a seperate group which is
+   restricted to accessing only the Vty sockets, hence allowing one to
+   delegate this group to individual users, or to run vtysh setgid to
+   this group.
 
 The default user and group which will be configured is 'frr' if no user
 or group is specified. Note that this user or group requires write access to
-the local state directory (see --localstatedir) and requires at least read
+the local state directory (see `--localstatedir`) and requires at least read
 access, and write access if you wish to allow daemons to write out their
-configuration, to the configuration directory (see --sysconfdir).
+configuration, to the configuration directory (see `--sysconfdir`).
 
-On systems which have the 'libcap' capabilities manipulation library
-(currently only linux), the frr system will retain only minimal
-capabilities required, further it will only raise these capabilities for
-brief periods. On systems without libcap, frr will run as the user
-specified and only raise its uid back to uid 0 for brief periods.
+On systems which have the 'libcap' capabilities manipulation library (currently
+only Linux), FRR will retain only minimal capabilities required and will only
+raise these capabilities for brief periods. On systems without libcap, FRR will
+run as the user specified and only raise its UID to 0 for brief periods.
 
 .. _Linux_Notes:
 
@@ -219,32 +240,24 @@ what you want.  FRR will run with any kernel configuration but some
 recommendations do exist.
 
 
-
-*CONFIG_NETLINK*
+- CONFIG_NETLINK
   Kernel/User netlink socket. This is a brand new feature which enables an
   advanced interface between the Linux kernel and zebra (:ref:`Kernel_Interface`).
-
-
-*CONFIG_RTNETLINK*
+- CONFIG_RTNETLINK
   Routing messages.
   This makes it possible to receive netlink routing messages.  If you
   specify this option, *zebra* can detect routing information
   updates directly from the kernel (:ref:`Kernel_Interface`).
-
-
-*CONFIG_IP_MULTICAST*
+- CONFIG_IP_MULTICAST
   IP: multicasting.
   This option should be specified when you use *ripd* (:ref:`RIP`) or
   *ospfd* (:ref:`OSPFv2`) because these protocols use multicast.
-
 
 IPv6 support has been added in GNU/Linux kernel version 2.2.  If you
 try to use the FRR IPv6 feature on a GNU/Linux kernel, please
 make sure the following libraries have been installed.  Please note that
 these libraries will not be needed when you uses GNU C library 2.1
 or upper.
-
-
 
 *inet6-apps*
   The `inet6-apps` package includes basic IPv6 related libraries such
@@ -266,21 +279,18 @@ or upper.
 Build the Software
 ==================
 
-After configuring the software, you will need to compile it for your
-system. Simply issue the command *make* in the root of the source
-directory and the software will be compiled. Cliff Note versions of
-different compilation examples can be found in the doc/Building_FRR_on_XXX.md
-files.  If you have *any* problems at this stage, be certain to send a
-bug report :ref:`Bug_Reports`.
+After configuring the software, you will need to compile it for your system.
+Simply issue the command *make* in the root of the source directory and the
+software will be compiled. Cliff Notes versions of different compilation
+examples can be found in the Developer's Manual Appendix.  If you have *any*
+problems at this stage, please send a bug report :ref:`Bug_Reports`.
 
 ::
 
-  % ./bootstrap.sh
-  % ./configure <appropriate to your system>
-  % make
+  $ ./bootstrap.sh
+  $ ./configure <appropriate to your system>
+  $ make
 
-
-@comment  node-name,  next,  previous,  up
 
 Install the Software
 ====================
@@ -291,18 +301,13 @@ installation process has completed, these files have been copied
 from your work directory to :file:`/usr/local/bin`, and :file:`/usr/local/etc`.
 
 To install the FRR suite, issue the following command at your shell
-prompt: *make install*.
+prompt:::
 
-::
-
-  %
-  % make install
-  %
-
+  $ make install
 
 FRR daemons have their own terminal interface or VTY.  After
 installation, you have to setup each beast's port number to connect to
-them.  Please add the following entries to :file:`/etc/services`.
+them. Please add the following entries to :file:`/etc/services`.
 
 ::
 
@@ -325,5 +330,5 @@ specify a port number when starting the daemon, these entries may not be
 needed.
 
 You may need to make changes to the config files in
-:file:`|INSTALL_PREFIX_ETC`/\*.conf|. :ref:`Config_Commands`.
+|INSTALL_PREFIX_ETC|. :ref:`Config_Commands`.
 

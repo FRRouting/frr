@@ -37,16 +37,12 @@ routing daemon configurations, a log file name, and so forth. This
 information forms the initial command set for a routing beast as it is
 starting.
 
-Config files are generally found in:
-
-* :file:`|INSTALL_PREFIX_ETC|`/\*.conf
+Config files are generally found in |INSTALL_PREFIX_ETC|.
 
 Each of the daemons has its own
-config file. For example, zebra's default config file name is:
+config file. For example, zebra's default config file name is *zebra.conf*.
 
-* :file:`INSTALL_PREFIX_ETC`/zebra.conf
-
-The daemon name plus :file:`.conf` is the default config file name. You
+The daemon name plus `.conf` is the default config file name. You
 can specify a config file using the :kbd:`-f` or :kbd:`--config-file`
 options when starting the daemon.
 
