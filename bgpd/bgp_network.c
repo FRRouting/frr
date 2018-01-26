@@ -781,6 +781,32 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 	return 0;
 }
 
+/* this function closes vrf socket
+ * this should be called only for vrf socket with netns backend
+ */
+void bgp_close_vrf_socket(struct bgp *bgp)
+{
+	struct listnode *node, *next;
+	struct bgp_listener *listener;
+
+	if (!bgp)
+		return;
+
+	if (bm->listen_sockets == NULL)
+		return;
+
+	for (ALL_LIST_ELEMENTS(bm->listen_sockets, node, next, listener)) {
+		if (listener->bgp == bgp) {
+			thread_cancel(listener->thread);
+			close(listener->fd);
+			listnode_delete(bm->listen_sockets, listener);
+			XFREE(MTYPE_BGP_LISTENER, listener);
+		}
+	}
+}
+
+/* this function closes main socket
+ */
 void bgp_close(void)
 {
 	struct listnode *node, *next;
@@ -790,6 +816,8 @@ void bgp_close(void)
 		return;
 
 	for (ALL_LIST_ELEMENTS(bm->listen_sockets, node, next, listener)) {
+		if (listener->bgp)
+			continue;
 		thread_cancel(listener->thread);
 		close(listener->fd);
 		listnode_delete(bm->listen_sockets, listener);
