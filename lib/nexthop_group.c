@@ -21,6 +21,12 @@
 
 #include <nexthop.h>
 #include <nexthop_group.h>
+#include <vty.h>
+#include <command.h>
+
+#ifndef VTYSH_EXTRACT_PL
+#include "lib/nexthop_group_clippy.c"
+#endif
 
 /* Add nexthop to the end of a nexthop list.  */
 void nexthop_add(struct nexthop **target, struct nexthop *nexthop)
@@ -63,4 +69,32 @@ void copy_nexthops(struct nexthop **tnh, struct nexthop *nh,
 			copy_nexthops(&nexthop->resolved, nh1->resolved,
 				      nexthop);
 	}
+}
+
+DEFPY (nexthop_group,
+       nexthop_group_cmd,
+       "nexthop-group NAME",
+       "Enter into the nexthop-group submode\n"
+       "Specify the NAME of the nexthop-group\n")
+{
+	return CMD_SUCCESS;
+}
+
+struct cmd_node nexthop_group_node = {
+	NH_GROUP_NODE,
+	"%s(config-nh-group)# ",
+	1
+};
+
+static int nexthop_group_write(struct vty *vty)
+{
+	vty_out(vty, "!\n");
+
+	return 1;
+}
+
+void nexthop_group_init(void)
+{
+	install_node(&nexthop_group_node, nexthop_group_write);
+	install_element(CONFIG_NODE, &nexthop_group_cmd);
 }

@@ -82,6 +82,8 @@ lib_libfrr_la_SOURCES = \
 
 lib/plist_clippy.c: $(CLIPPY_DEPS)
 lib/plist.lo: lib/plist_clippy.c
+lib/nexthop_group_clippy.c: $(CLIPPY_DEPS)
+lib/nexthop_group.lo: lib/nexthop_group_clippy.c
 
 pkginclude_HEADERS += \
 	lib/bfd.h \

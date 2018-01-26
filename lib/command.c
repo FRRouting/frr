@@ -65,6 +65,7 @@ const char *node_names[] = {
 	"logical-router",	   // LOGICALROUTER_NODE,
 	"vrf",			    // VRF_NODE,
 	"interface",		    // INTERFACE_NODE,
+	"nexthop-group",            // NH_GROUP_NODE,
 	"zebra",		    // ZEBRA_NODE,
 	"table",		    // TABLE_NODE,
 	"rip",			    // RIP_NODE,
@@ -1294,6 +1295,7 @@ void cmd_exit(struct vty *vty)
 	case PW_NODE:
 	case LOGICALROUTER_NODE:
 	case VRF_NODE:
+	case NH_GROUP_NODE:
 	case ZEBRA_NODE:
 	case BGP_NODE:
 	case RIP_NODE:
@@ -1379,6 +1381,7 @@ DEFUN (config_end,
 	case PW_NODE:
 	case LOGICALROUTER_NODE:
 	case VRF_NODE:
+	case NH_GROUP_NODE:
 	case ZEBRA_NODE:
 	case RIP_NODE:
 	case RIPNG_NODE:

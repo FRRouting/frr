@@ -88,6 +88,7 @@ enum node_type {
 	LOGICALROUTER_NODE,     /* Logical-Router node. */
 	VRF_NODE,		/* VRF mode node. */
 	INTERFACE_NODE,		/* Interface mode node. */
+	NH_GROUP_NODE,          /* Nexthop-Group mode node. */
 	ZEBRA_NODE,		/* zebra connection node. */
 	TABLE_NODE,		/* rtm_table selection node. */
 	RIP_NODE,		/* RIP protocol mode node. */

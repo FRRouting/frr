@@ -33,6 +33,8 @@ struct nexthop_group {
 	struct nexthop *nexthop;
 };
 
+void nexthop_group_init(void);
+
 void nexthop_add(struct nexthop **target, struct nexthop *nexthop);
 void copy_nexthops(struct nexthop **tnh, struct nexthop *nh,
 		   struct nexthop *rparent);
