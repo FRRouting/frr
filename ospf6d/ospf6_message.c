@@ -2163,6 +2163,40 @@ int ospf6_lsupdate_send_neighbor(struct thread *thread)
 	return 0;
 }
 
+int ospf6_lsupdate_send_neighbor_now(struct ospf6_neighbor *on,
+				     struct ospf6_lsa *lsa)
+{
+	struct ospf6_header *oh;
+	struct ospf6_lsupdate *lsupdate;
+	u_char *p;
+	int lsa_cnt = 0;
+
+	memset(sendbuf, 0, iobuflen);
+	oh = (struct ospf6_header *)sendbuf;
+	lsupdate = (struct ospf6_lsupdate *)((caddr_t)oh
+					     + sizeof(struct ospf6_header));
+
+	p = (u_char *)((caddr_t)lsupdate + sizeof(struct ospf6_lsupdate));
+	ospf6_lsa_age_update_to_send(lsa, on->ospf6_if->transdelay);
+	memcpy(p, lsa->header, OSPF6_LSA_SIZE(lsa->header));
+	p += OSPF6_LSA_SIZE(lsa->header);
+	lsa_cnt++;
+
+	oh->type = OSPF6_MESSAGE_TYPE_LSUPDATE;
+	oh->length = htons(p - sendbuf);
+	lsupdate->lsa_number = htonl(lsa_cnt);
+
+	if (IS_OSPF6_DEBUG_FLOODING ||
+	    IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_LSUPDATE, SEND))
+		zlog_debug("%s: Send lsupdate with lsa %s (age %u)",
+		   __PRETTY_FUNCTION__, lsa->name,
+		   ntohs(lsa->header->age));
+
+	ospf6_send_lsupdate(on, NULL, oh);
+
+	return 0;
+}
+
 int ospf6_lsupdate_send_interface(struct thread *thread)
 {
 	struct ospf6_interface *oi;
