@@ -7,10 +7,10 @@ BGP
 :abbr:`BGP` stands for a Border Gateway Protocol. The lastest BGP version is 4.
 It is referred as BGP-4. BGP-4 is one of the Exterior Gateway Protocols and
 de-fact standard of Inter Domain routing protocol.  BGP-4 is described in
-:t:`RFC1771, A Border Gateway Protocol 4 (BGP-4)`.
+:rfc:`1771`.
 
-Many extensions have been added to :t:`RFC1771`. :t:`RFC2858, Multiprotocol
-Extensions for BGP-4` provides multiprotocol support to BGP-4.
+Many extensions have been added to :rfc:`1771`. :rfc:`2858` provides
+multiprotocol support to BGP-4.
 
 .. _Starting_BGP:
 
@@ -233,7 +233,6 @@ BGP route flap dampening
   This command enables BGP route-flap dampening and specifies dampening parameters.
 
 
-
 *@asis{half-life}*
     Half-life time for the penalty
 
@@ -246,25 +245,25 @@ BGP route flap dampening
 *@asis{max-suppress}*
     Maximum duration to suppress a stable route
 
-  The route-flap damping algorithm is compatible with :t:`RFC2439`. The use of this command
-  is not recommended nowadays, see `http://www.ripe.net/ripe/docs/ripe-378,,RIPE-378 <http://www.ripe.net/ripe/docs/ripe-378,,RIPE-378>`_.
+  The route-flap damping algorithm is compatible with :rfc:`2439`. The use of this command
+  is not recommended nowadays, see http://www.ripe.net/ripe/docs/ripe-378,,RIPE-378 <http://www.ripe.net/ripe/docs/ripe-378,,RIPE-378>.
 
 .. _BGP_MED:
 
 BGP MED
 =======
 
-The BGP MED (Multi_Exit_Discriminator) attribute has properties which can
+The BGP :abbr:`MED (Multi Exit Discriminator)` attribute has properties which can
 cause subtle convergence problems in BGP. These properties and problems
 have proven to be hard to understand, at least historically, and may still
 not be widely understood. The following attempts to collect together and
 present what is known about MED, to help operators and FRR users in
 designing and configuring their networks.
 
-The BGP :abbr:`MED ( Multi_Exit_Discriminator)` attribute is intended to
-allow one AS to indicate its preferences for its ingress points to another
-AS. The MED attribute will not be propagated on to another AS by the
-receiving AS - it is 'non-transitive' in the BGP sense.
+The BGP :abbr:`MED` attribute is intended to allow one AS to indicate its
+preferences for its ingress points to another AS. The MED attribute will not be
+propagated on to another AS by the receiving AS - it is 'non-transitive' in the
+BGP sense.
 
 E.g., if AS X and AS Y have 2 different BGP peering points, then AS X
 might set a MED of 100 on routes advertised at one and a MED of 200 at the
@@ -941,8 +940,8 @@ Network Layer protocols. BGP supports multiple Address Family
 Identifier (AFI), namely IPv4 and IPv6. Support is also provided for
 multiple sets of per-AFI information via Subsequent Address Family
 Identifiers (SAFI). In addition to unicast information, VPN information
-:t:`RFC4364` and :t:`RFC4659`, and Encapsulation information
-:t:`RFC5512` is supported.
+:rfc:`4364` and :rfc:`4659`, and Encapsulation information
+:rfc:`5512` is supported.
 
 .. index:: show ip bgp vpnv4 all
 
@@ -1784,7 +1783,7 @@ When adding IPv6 routing information exchange feature to BGP. There
 were some proposals. :abbr:`IETF (Internet Engineering Task Force)`
 :abbr:`IDR ( Inter Domain Routing)` :abbr:`IDR ( Inter Domain Routing)` adopted
 a proposal called Multiprotocol Extension for BGP. The specification
-is described in :t:`RFC2283`. The protocol does not define new protocols.
+is described in :rfc:`2283`. The protocol does not define new protocols.
 It defines new attributes to existing BGP. When it is used exchanging
 IPv6 routing information it is called BGP-4+. When it is used for
 exchanging multicast routing information it is called MBGP.

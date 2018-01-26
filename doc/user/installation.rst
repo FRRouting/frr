@@ -13,18 +13,17 @@ Installation
 Several distributions provide packages for FRR. Check your distribution's
 respositories to find out if a suitable version is available.
 
-If you wish to build FRR yourself, please see the `Building`_ appendix.
+FRR depends on various libraries depending on your operating system.
 
-FRR depends on various libraries depending on your operationg system.
-
-After installing these dependencies, change to the frr source directory and issue the following commands:
+After installing these dependencies, change to the frr source directory and
+issue the following commands:
 
 ::
 
-  % ./bootstrap.sh
-  % ./configure
-  % make
-  % make install
+  $ ./bootstrap.sh
+  $ ./configure
+  $ make
+  $ make install
 
 
 .. _Configure_the_Software:
@@ -211,11 +210,11 @@ options to control the behaviour of FRR daemons.
    delegate this group to individual users, or to run vtysh setgid to
    this group.
 
-The default user and group which will be configured is 'frr' if no user
-or group is specified. Note that this user or group requires write access to
-the local state directory (see `--localstatedir`) and requires at least read
-access, and write access if you wish to allow daemons to write out their
-configuration, to the configuration directory (see `--sysconfdir`).
+The default user and group which will be configured is 'frr' if no user or
+group is specified. Note that this user or group requires write access to the
+local state directory (see :option:`--localstatedir`) and requires at least
+read access, and write access if you wish to allow daemons to write out their
+configuration, to the configuration directory (see :option:`--sysconfdir`).
 
 On systems which have the 'libcap' capabilities manipulation library (currently
 only Linux), FRR will retain only minimal capabilities required and will only
@@ -239,15 +238,15 @@ you want.  FRR will run with any kernel configuration but some recommendations
 do exist.
 
 
-- CONFIG_NETLINK
+- :makevar:`CONFIG_NETLINK`
   Kernel/User netlink socket. This is a brand new feature which enables an
   advanced interface between the Linux kernel and zebra (:ref:`Kernel_Interface`).
-- CONFIG_RTNETLINK
+- :makevar:`CONFIG_RTNETLINK`
   Routing messages.
   This makes it possible to receive netlink routing messages.  If you
   specify this option, *zebra* can detect routing information
   updates directly from the kernel (:ref:`Kernel_Interface`).
-- CONFIG_IP_MULTICAST
+- :makevar:`CONFIG_IP_MULTICAST`
   IP: multicasting.
   This option should be specified when you use *ripd* (:ref:`RIP`) or
   *ospfd* (:ref:`OSPFv2`) because these protocols use multicast.
@@ -265,13 +264,10 @@ or upper.
   included. The `inet-apps` can be found at
   `ftp://ftp.inner.net/pub/ipv6/ <ftp://ftp.inner.net/pub/ipv6/>`_.
 
-
 *net-tools*
-  The `net-tools` package provides an IPv6 enabled interface and
-  routing utility.  It contains *ifconfig*, *route*,
-  *netstat*, and other tools.  `net-tools` may be found at
-  `http://www.tazenda.demon.co.uk/phil/net-tools/ <http://www.tazenda.demon.co.uk/phil/net-tools/>`_.
-
+  The `net-tools` package provides an IPv6 enabled interface and routing
+  utility.  It contains *ifconfig*, *route*, *netstat*, and other tools.
+  `net-tools` may be found at http://www.tazenda.demon.co.uk/phil/net-tools/.
 
 .. _Build_the_Software:
 
@@ -282,7 +278,7 @@ After configuring the software, you will need to compile it for your system.
 Simply issue the command *make* in the root of the source directory and the
 software will be compiled. Cliff Notes versions of different compilation
 examples can be found in the Developer's Manual Appendix.  If you have *any*
-problems at this stage, please send a bug report :ref:`Bug_Reports`.
+problems at this stage, please send a bug report :ref:`Bug-Reports`.
 
 ::
 

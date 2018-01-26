@@ -44,30 +44,26 @@ Please note that *zebra* must be invoked before *ripd*.
 To stop *ripd*.  Please use @command{kill `cat
 /var/run/ripd.pid`}.  Certain signals have special meaningss to *ripd*.
 
-
-
-*SIGHUP*
-  Reload configuration file :file:`ripd.conf`.  All configurations are
-  reseted.  All routes learned so far are cleared and removed from routing
-  table.
-
-*SIGUSR1*
-  Rotate *ripd* logfile.
-
-*SIGINT*
-
-*SIGTERM*
-  *ripd* sweeps all installed RIP routes then terminates properly.
+ +-------------+------------------------------------------------------+
+ | Signal      | Action                                               |
+ +=============+======================================================+
+ | ``SIGHUP``  | Reload configuration file :file:`ripd.conf`.         |
+ |             | All configurations are reset. All routes learned     |
+ |             | so far are cleared and removed from routing table.   |
+ +-------------+------------------------------------------------------+
+ | ``SIGUSR1`` | Rotate the *ripd* logfile.                           |
+ +-------------+------------------------------------------------------+
+ | ``SIGINT``  |                                                      |
+ | ``SIGTERM`` | Sweep all installed routes and gracefully terminate. |
+ +-------------+------------------------------------------------------+
 
 *ripd* invocation options.  Common options that can be specified
 (:ref:`Common_Invocation_Options`).
 
+.. option:: -r
+.. option:: --retain
 
-
-*-r*
-
-*--retain*
-  When the program terminates, retain routes added by *ripd*.
+   When the program terminates, retain routes added by *ripd*.
 
 .. _RIP_netmask:
 

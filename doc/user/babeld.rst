@@ -13,7 +13,7 @@ perform reliable link quality estimation on wireless links.  Babel is
 a double-stack routing protocol, meaning that a single Babel instance
 is able to perform routing for both IPv4 and IPv6.
 
-FRR imlements Babel as described in :t:`RFC6126`.
+FRR implements Babel as described in :rfc:`6126`.
 
 .. _Configuring_babeld:
 
