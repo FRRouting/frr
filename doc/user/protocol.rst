@@ -93,7 +93,7 @@ Zebra Protocol Commands
 
 @multitable {ZEBRA_REDISTRIBUTE_DEFAULT_DELETE_WHATEVER} {99999}
 @headitem Command @tab Value
-@item ZEBRA_INTERFACE_ADD	
+@item ZEBRA_INTERFACE_ADD
 @tab 1
 @item ZEBRA_INTERFACE_DELETE
 @tab 2

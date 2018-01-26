@@ -56,7 +56,7 @@ OSPF6 router
 
       router ospf6
        timers throttle spf 200 400 10000
-      
+
 
     In this example, the `delay` is set to 200ms, the @var{initial
     holdtime} is set to 400ms and the `maximum holdtime` to 10s. Hence
@@ -200,5 +200,5 @@ Example of ospf6d configured on one interface and area:
    area 0.0.0.0 range 2001:770:105:2::/64
    interface eth0 area 0.0.0.0
   !
-  
+
 

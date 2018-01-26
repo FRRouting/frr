@@ -6,11 +6,11 @@ VNC and VNC-GW
 
 This chapter describes how to use
 Virtual Network Control (:abbr:`VNC`) services,
-including Network Virtualization Authority (:abbr:`NVA`) and 
+including Network Virtualization Authority (:abbr:`NVA`) and
 VNC Gateway (:abbr:`VNC-GW`) functions.
-Background information on NVAs, 
+Background information on NVAs,
 Network Virtualization Edges (:abbr:`NVE`s), underlay networks (:abbr:`UN`s),
-and virtual networks (:abbr:`VN`s) is available from the  
+and virtual networks (:abbr:`VN`s) is available from the
 `IETF Network Virtualization Overlays <https://datatracker.ietf.org/wg/nvo3>`_
 VNC Gateways (:abbr:`VNC-GW`s) support the import/export of routing
 information between VNC and customer edge routers (:abbr:`CE`s)
@@ -48,14 +48,14 @@ the following areas:
 
 `General VNC` configuration applies to general VNC operation and is
 primarily used to control the method used to advertise tunnel
-information.  
+information.
 
 `Remote Forwarder Protocol (RFP)` configuration relates to the
-protocol used between NVAs and NVEs.  
+protocol used between NVAs and NVEs.
 
 `VNC Defaults` provides default parameters for registered NVEs.
 
-`VNC NVE Group` provides for configuration of a specific set of 
+`VNC NVE Group` provides for configuration of a specific set of
 registered NVEs and overrides default parameters.
 
 `Redistribution` and `Export` control VNC-GW operation, i.e.,
@@ -73,9 +73,9 @@ General VNC Configuration
 {VNC} {vnc advertise-un-method encap-safi|encap-attr} {}
   Advertise NVE underlay-network IP addresses using the encapsulation SAFI
   (`encap-safi`) or the UN address sub-TLV of the Tunnel Encapsulation attribute
-  (`encap-attr`). When `encap-safi` is used, neighbors under 
+  (`encap-attr`). When `encap-safi` is used, neighbors under
   `address-family encap` and/or `address-family encapv6` must be
-  configured.  The default is `encap-attr`. 
+  configured.  The default is `encap-attr`.
 
 .. _RFP_Related_Configuration:
 
@@ -88,9 +88,9 @@ Remote Forwarder Protocol (RFP).  Currently, only a simple example RFP
 is included in FRR.  Developers may use this example as a starting
 point to integrate FRR with an RFP of their choosing, e.g.,
 `OpenFlow`.  The example code includes the following sample
-configuration: 
+configuration:
 
-.. index:: {RFP} {rfp example-config-value `VALUE`} 
+.. index:: {RFP} {rfp example-config-value `VALUE`}
 
 {RFP} {rfp example-config-value `VALUE`}
   This is a simple example configuration parameter included as part of the
@@ -103,7 +103,7 @@ VNC Defaults Configuration
 
 The VNC Defaults section allows the user to specify default values for
 configuration parameters for all registered NVEs.
-Default values are overridden by :ref:`VNC_NVE_Group_Configuration`. 
+Default values are overridden by :ref:`VNC_NVE_Group_Configuration`.
 
 .. index:: {VNC} {vnc defaults} {}
 
@@ -116,7 +116,7 @@ Default values are overridden by :ref:`VNC_NVE_Group_Configuration`.
     vnc defaults
       ... various VNC defaults
     exit-vnc
-    
+
 
 These are the statements that can appear between `vnc defaults`
 and `exit-vnc`.
@@ -230,7 +230,7 @@ prefixes specified in the NVE Group definition.  When an NVE Group
 definition specifies both VN and UN address prefixes, then an NVE must
 match both prefixes in order to be assigned to the NVE Group.  In the
 event that multiple NVE Groups match based on VN and/or UN addresses,
-the NVE is assigned to the first NVE Group listed in the configuration.  
+the NVE is assigned to the first NVE Group listed in the configuration.
 If an NVE is not assigned to an NVE Group, its messages will be ignored.
 
 Configuration values specified for an NVE group apply to all
@@ -243,7 +243,7 @@ operation.}
 .. index:: {VNC} {vnc nve-group `name`} {}
 
 {VNC} {vnc nve-group `name`} {}
-  Enter VNC configuration mode for defining the NVE group `name`.  
+  Enter VNC configuration mode for defining the NVE group `name`.
   Use `exit` or `exit-vnc` to exit group configuration mode.
 
 ::
@@ -251,7 +251,7 @@ operation.}
     vnc nve-group group1
       ... configuration commands
     exit-vnc
-    
+
 
 .. index:: {VNC} {no vnc nve-group `name`} {}
 
@@ -307,7 +307,7 @@ auto:vn:`two-byte-integer`
 
   Routes originated by NVEs in the NVE group will use
   the group's specified `route-distinguisher` when they are
-  advertised via BGP. 
+  advertised via BGP.
   If the `auto` form is specified, it means that a matching NVE has
   its RD set to
   `rd_type=IP=1`:`IPv4-address=VN-address`:`two-byte-integer`,
@@ -359,7 +359,7 @@ auto:vn:`two-byte-integer`
 
       The first form, `rt export`, specifies an `export rt-list`.
       The `export rt-list` will be attached to routes originated by
-      NVEs in the NVE group when they are advertised via BGP. 
+      NVEs in the NVE group when they are advertised via BGP.
       If the NVE group definition does not specify an `export rt-list`,
       then the default `export rt-list` is used.
       If neither a group nor a default `export rt-list` is configured,
@@ -388,8 +388,8 @@ auto:vn:`two-byte-integer`
 
 {VNC} {export bgp|zebra route-map MAP-NAME}
       Specify that the named route-map should be applied to routes
-      being exported to bgp or zebra. 
-      This paramter is used in conjunction with 
+      being exported to bgp or zebra.
+      This paramter is used in conjunction with
       :ref:`Configuring_Export_of_Routes_to_Other_Routing_Protocols`.
       This item is optional.
 
@@ -397,8 +397,8 @@ auto:vn:`two-byte-integer`
 
 {VNC} {export bgp|zebra no route-map}
       Specify that no route-map should be applied to routes
-      being exported to bgp or zebra. 
-      This paramter is used in conjunction with 
+      being exported to bgp or zebra.
+      This paramter is used in conjunction with
       :ref:`Configuring_Export_of_Routes_to_Other_Routing_Protocols`.
       This item is optional.
 
@@ -407,8 +407,8 @@ auto:vn:`two-byte-integer`
 {VNC} {export bgp|zebra ipv4|ipv6 prefix-list LIST-NAME}
       Specify that the named prefix-list filter should be applied to
       routes being exported to bgp or zebra.
-      Prefix-lists for ipv4 and ipv6 are independent of each other. 
-      This paramter is used in conjunction with 
+      Prefix-lists for ipv4 and ipv6 are independent of each other.
+      This paramter is used in conjunction with
       :ref:`Configuring_Export_of_Routes_to_Other_Routing_Protocols`.
       This item is optional.
 
@@ -416,8 +416,8 @@ auto:vn:`two-byte-integer`
 
 {VNC} {export bgp|zebra no ipv4|ipv6 prefix-list}
       Specify that no prefix-list filter should be applied to
-      routes being exported to bgp or zebra. 
-      This paramter is used in conjunction with 
+      routes being exported to bgp or zebra.
+      This paramter is used in conjunction with
       :ref:`Configuring_Export_of_Routes_to_Other_Routing_Protocols`.
       This item is optional.
 
@@ -444,7 +444,7 @@ not impacted by L2 Group Configuration.
 .. index:: {VNC} {vnc l2-group `name`} {}
 
 {VNC} {vnc l2-group `name`} {}
-  Enter VNC configuration mode for defining the L2 group `name`.  
+  Enter VNC configuration mode for defining the L2 group `name`.
   Use `exit` or `exit-vnc` to exit group configuration mode.
 
 ::
@@ -452,7 +452,7 @@ not impacted by L2 Group Configuration.
     vnc l2-group group1
       ... configuration commands
     exit-vnc
-    
+
 
 .. index:: {VNC} {no vnc l2-group `name`} {}
 
@@ -465,7 +465,7 @@ The following statements are valid in a L2 group definition:
 
 {VNC} {logical-network-id `VALUE`}
   Define the Logical Network Identifier with a value in the range of
-  0-4294967295 that identifies the logical Ethernet segment. 
+  0-4294967295 that identifies the logical Ethernet segment.
 
 .. index:: {VNC} {labels `label-list`}
 
@@ -537,16 +537,16 @@ In `plain` mode, the route's next hop is unchanged and the RD is set
 based on the next hop.
 For `bgp-direct` redistribution, the following translations are performed:
 
-* 
+*
   The VN address is set to the original unicast route's next hop address.
-* 
+*
   The UN address is NOT set. (VN->UN mapping will occur via
   ENCAP route or attribute, based on `vnc advertise-un-method`
-  setting, generated by the RFP registration of the actual NVE) 
-* 
+  setting, generated by the RFP registration of the actual NVE)
+*
   The RD is set to as if auto:vn:0 were specified (i.e.,
   `rd_type=IP=1`:`IPv4-address=VN-address`:`two-byte-integer=0`)
-* 
+*
   The RT list is included in the extended community list copied from the
   original unicast route (i.e., it must be set in the original unicast route).
 
@@ -555,17 +555,17 @@ if they came from an NVE in the nve-group designated in the
 `vnc redistribute nve-group` command. The following
 translations are performed:
 
-* 
+*
   The next hop/VN address is set to the VN prefix configured for the
   redistribute nve-group.
-* 
+*
   The UN address is set to the UN prefix configured for the
   redistribute nve-group.
-* 
+*
   The RD is set to the RD configured for the redistribute nve-group.
-* 
+*
   The RT list is set to the RT list configured for the redistribute nve-group.
-  If `bgp-direct` routes are being redistributed, 
+  If `bgp-direct` routes are being redistributed,
   any extended communities present in the original unicast route
   will also be included.
 
@@ -590,26 +590,26 @@ route, no corresponding VNC route will be imported.
 
 The following translations are applied:
 
-* 
+*
   The Next Hop is set to the next hop of the NVE route (i.e., the
   VN address of the NVE).
 
-* 
-  The extended community list in the new route is set to the 
+*
+  The extended community list in the new route is set to the
   union of:
 
-  * 
+  *
     Any extended communities in the original BGP route
-  * 
+  *
     Any extended communities in the NVE route
-  * 
+  *
     An added route-origin extended community with the next hop of the
     original BGP route
     is added to the new route.
     The value of the local administrator field defaults 5226 but may
     be configured by the user via the `roo-ec-local-admin` parameter.
 
-* 
+*
   The Tunnel Encapsulation attribute is set to the value of the Tunnel
   Encapsulation attribute of the NVE route, if any.
 
@@ -631,7 +631,7 @@ In order for a route in the unicast BGP RIB to be made
 available to a querying NVE, there must already be, available to
 that NVE, an (interior) VNC route matching the next hop address
 of the unicast route.
-When the unicast route is provided to the NVE, its next hop 
+When the unicast route is provided to the NVE, its next hop
 is replaced by the next hop of the corresponding
 NVE. If there are multiple longest-prefix-match VNC routes,
 the unicast route will be replicated for each.
@@ -692,13 +692,13 @@ Redistribution Command Syntax
         `infinite`, to prefixes redistributed from other routing
         protocols as if they had been received via RFP registration messages
         from an NVE.  `lifetime` can be any integer between 1 and
-        4294967295, inclusive. 
+        4294967295, inclusive.
 
 .. index:: {VNC} {vnc redistribute resolve-nve roo-ec-local-admin `0-65536`}
 
 {VNC} {vnc redistribute resolve-nve roo-ec-local-admin `0-65536`}
         Assign a value to the local-administrator subfield used in the
-        Route Origin extended community that is assigned to routes exported 
+        Route Origin extended community that is assigned to routes exported
         under the `resolve-nve` mode. The default value is `5226`.
 
       The following four `prefix-list` and `route-map` commands
@@ -884,7 +884,7 @@ information.
   preference of the forwarding information.  If omitted, it defaults to
   255.  The `lifetime` parameter identifies the period, in seconds,
   that the information remains valid.  If omitted, it defaults to
-  `infinite`. 
+  `infinite`.
 
 .. index:: {Command} {clear vnc prefix (*|A.B.C.D/M|X:X::X:X/M) (*|[(vn|un) (A.B.C.D|X:X::X:X|*) [(un|vn) (A.B.C.D|X:X::X:X|*)] [mac xx:xx:xx:xx:xx:xx] [local-next-hop (A.B.C.D|X:X::X:X)])} {}
 
@@ -922,7 +922,7 @@ Other VNC-Related Commands
 
 Note: VNC-Related configuration can be obtained via the `show running-configuration` command when in `enable` mode.
 
-The following commands are used to clear and display 
+The following commands are used to clear and display
 Virtual Network Control related information:
 
 .. index:: {COMMAND} {clear vnc counters} {}
@@ -935,8 +935,8 @@ Virtual Network Control related information:
 .. index:: {Command} {show vnc summary} {}
 
 {Command} {show vnc summary} {}
-  Print counter values and other general information 
-  about the NVA. Counter values can be reset 
+  Print counter values and other general information
+  about the NVA. Counter values can be reset
   using the `clear vnc counters` command listed below.
 
 .. index:: {Command} {show vnc nves} {}

@@ -16,7 +16,7 @@ your trapsink by adding the following lines to :file:`/etc/snmpd/snmpd.conf`:
 
     # send traps to the snmptrapd on localhost
     trapsink localhost
-  
+
 
 This will send all traps to an snmptrapd running on localhost. You can
 of course also use a dedicated management station to catch traps.
@@ -26,7 +26,7 @@ Configure the snmptrapd daemon by adding the following line to
 ::
 
     traphandle .1.3.6.1.4.1.3317.1.2.2 /etc/snmp/snmptrap_handle.sh
-  
+
 
 This will use the bash script :file:`/etc/snmp/snmptrap_handle.sh` to handle
 the BGP4 traps. To add traps for other protocol daemons, lookup their
@@ -111,7 +111,7 @@ case "$suberrorcode" in
 *) suberror="Unknown" ;;
 esac
 ;;
-02)    
+02)
 error="OPEN Message Error"
 case "$suberrorcode" in
 01) suberror="Unsupported Version Number" ;;

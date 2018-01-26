@@ -165,16 +165,16 @@ Command {no router ospf} {}
                 Events which occur within the holdtime of the previous SPF calculation
                 will cause the holdtime to be increased by `initial-holdtime`, bounded
                 by the `maximum-holdtime` configured with this command. If the adaptive
-                hold-time elapses without any SPF-triggering event occuring then 
+                hold-time elapses without any SPF-triggering event occuring then
                 the current holdtime is reset to the `initial-holdtime`. The current
-                holdtime can be viewed with :ref:`show_ip_ospf`, where it is expressed as 
+                holdtime can be viewed with :ref:`show_ip_ospf`, where it is expressed as
                 a multiplier of the `initial-holdtime`.
 
 ::
 
                   router ospf
                    timers throttle spf 200 400 10000
-                  
+
 
                 In this example, the `delay` is set to 200ms, the @var{initial
                 holdtime} is set to 400ms and the `maximum holdtime` to 10s. Hence
@@ -205,14 +205,14 @@ Command {no router ospf} {}
                     This support may be enabled administratively (and indefinitely) or
                     conditionally. Conditional enabling of max-metric router-lsas can be
                     for a period of seconds after startup and/or for a period of seconds
-                    prior to shutdown. 
+                    prior to shutdown.
 
                     Enabling this for a period after startup allows OSPF to converge fully
                     first without affecting any existing routes used by other routers,
                     while still allowing any connected stub links and/or redistributed
                     routes to be reachable. Enabling this for a period of time in advance
                     of shutdown allows the router to gracefully excuse itself from the OSPF
-                    domain. 
+                    domain.
 
                     Enabling this feature administratively allows for administrative
                     intervention for whatever reason, for an indefinite period of time.
@@ -266,7 +266,7 @@ Command {no router ospf} {}
 
                               router ospf
                                network 192.168.1.0/24 area 0.0.0.0
-                              
+
 
                             Prefix length in interface must be equal or bigger (ie. smaller network) than
                             prefix length in network statement. For example statement above doesn't enable
@@ -278,7 +278,7 @@ Command {no router ospf} {}
                             Currently, if a peer prefix has been configured,
                             then we test whether the prefix in the network command contains
                             the destination prefix.  Otherwise, we test whether the network command prefix
-                            contains the local address prefix of the interface. 
+                            contains the local address prefix of the interface.
 
                             In some cases it may be more convenient to enable OSPF on a per
                             interface/subnet basis (:ref:`OSPF_ip_ospf_area_command`).
@@ -313,7 +313,7 @@ OSPF area
            network 192.168.1.0/24 area 0.0.0.0
            network 10.0.0.0/8 area 0.0.0.10
            area 0.0.0.10 range 10.0.0.0/8
-          
+
 
         With configuration above one Type-3 Summary-LSA with routing info 10.0.0.0/8 is
         announced into backbone area if area 0.0.0.10 contains at least one intra-area
@@ -343,7 +343,7 @@ OSPF area
                network 192.168.1.0/24 area 0.0.0.0
                network 10.0.0.0/8 area 0.0.0.10
                area 0.0.0.10 range 10.0.0.0/8 substitute 11.0.0.0/8
-              
+
 
             One Type-3 summary-LSA with routing info 11.0.0.0/8 is announced into backbone area if
             area 0.0.0.10 contains at least one intra-area network (ie. described with router-LSA or
@@ -392,7 +392,7 @@ OSPF area
 
 {OSPF Command} {no area (0-4294967295) stub} {}
                               Configure the area to be a stub area. That is, an area where no router
-                              originates routes external to OSPF and hence an area where all external 
+                              originates routes external to OSPF and hence an area where all external
                               routes are via the ABR(s). Hence, ABRs for such an area do not need
                               to pass AS-External LSAs (type-5s) or ASBR-Summary LSAs (type-4) into the
                               area. They need only pass Network-Summary (type-3) LSAs into such an area,
@@ -410,7 +410,7 @@ OSPF area
 .. index:: {OSPF Command} {no area (0-4294967295) stub no-summary} {}
 
 {OSPF Command} {no area (0-4294967295) stub no-summary} {}
-                                    Prevents an *ospfd* ABR from injecting inter-area 
+                                    Prevents an *ospfd* ABR from injecting inter-area
                                     summaries into the specified stub area.
 
 .. index:: {OSPF Command} {area `a.b.c.d` default-cost (0-16777215)} {}
@@ -445,7 +445,7 @@ OSPF area
                                               !
                                               access-list foo permit 10.10.0.0/16
                                               access-list foo deny any
-                                              
+
 
                                             With example above any intra-area paths from area 0.0.0.10 and from range
                                             10.10.0.0/16 (for example 10.10.1.0/24 and 10.10.2.128/30) are announced into
@@ -533,7 +533,7 @@ OSPF area
 OSPF interface
 ==============
 
-.. index:: {Interface Command} {ip ospf area `AREA` [`ADDR`]} {} 
+.. index:: {Interface Command} {ip ospf area `AREA` [`ADDR`]} {}
 
 {Interface Command} {ip ospf area `AREA` [`ADDR`]} {}
 .. index:: {Interface Command} {no ip ospf area [`ADDR`]} {}
@@ -588,7 +588,7 @@ OSPF interface
         .. _ip_ospf_message-digest-key:
 
         Set OSPF authentication key to a
-        cryptographic password.  The cryptographic algorithm is MD5.  
+        cryptographic password.  The cryptographic algorithm is MD5.
 
         KEYID identifies secret key used to create the message digest. This ID
         is part of the protocol and must be consistent across routers on a
@@ -627,7 +627,7 @@ OSPF interface
               specifies how many Hellos to send per second, from 2 (every 500ms) to
               20 (every 50ms). Thus one can have 1s convergence time for OSPF. If this form
               is specified, then the hello-interval advertised in Hello packets is set to
-              0 and the hello-interval on received Hello packets is not checked, thus 
+              0 and the hello-interval on received Hello packets is not checked, thus
               the hello-multiplier need NOT be the same across multiple routers on a common
               link.
 
@@ -642,7 +642,7 @@ OSPF interface
                 This value must be the same for all routers attached to a common network.
                 The default value is 10 seconds.
 
-                This command has no effect if :ref:`ip_ospf_dead-interval_minimal` is also 
+                This command has no effect if :ref:`ip_ospf_dead-interval_minimal` is also
                 specified for the interface.
 
 .. index:: {Interface Command} {ip ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point)} {}
@@ -680,7 +680,7 @@ OSPF interface
 .. index:: {Interface Command} {no ip ospf transmit-delay} {}
 
 {Interface Command} {no ip ospf transmit-delay} {}
-                        Set number of seconds for InfTransDelay value.  LSAs' age should be 
+                        Set number of seconds for InfTransDelay value.  LSAs' age should be
                         incremented by this value when transmitting.
                         The default value is 1 seconds.
 
@@ -1127,7 +1127,7 @@ A simple example, with MD5 authentication enabled:
   router ospf
    network 192.168.0.0/16 area 0.0.0.1
    area 0.0.0.1 authentication message-digest
-  
+
 
 An :abbr:`ABR` router, with MD5 authentication and performing summarisation
 of networks between the areas:
@@ -1162,7 +1162,7 @@ of networks between the areas:
    area 0.0.0.1 authentication message-digest
    area 0.0.0.1 range 10.2.0.0/16
   !
-  
+
 
 A Traffic Engineering configuration, with Inter-ASv2 support.
 
@@ -1206,7 +1206,7 @@ A Traffic Engineering configuration, with Inter-ASv2 support.
    mpls-te link unrsv-bw 7 1.25e+06
    mpls-te link rsc-clsclr 0xab
    mpls-te neighbor 192.168.2.2 as 65000
-  
+
 
 - Then the 'ospfd.conf' itself:
 
@@ -1235,7 +1235,7 @@ A Traffic Engineering configuration, with Inter-ASv2 support.
     mpls-te inter-as area 1
   !
   line vty
-  
+
 
 A router information example with PCE advsertisement:
 
@@ -1256,5 +1256,5 @@ A router information example with PCE advsertisement:
     pce neighbor as 65200
     pce scope 0x80
   !
-  
+
 

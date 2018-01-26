@@ -233,7 +233,7 @@ Command {ip route `network` `gateway`} {}
     ip route 10.0.0.0/8 10.0.0.2
     ip route 10.0.0.0/8 ppp0
     ip route 10.0.0.0/8 null0
-    
+
 
   First example defines 10.0.0.0/8 static route with gateway 10.0.0.2.
   Second one defines the same prefix but with gateway to interface ppp0. The
@@ -251,7 +251,7 @@ Command {ip route `network` `netmask` `gateway`} {}
     ip route 10.0.0.0 255.255.255.0 10.0.0.2
     ip route 10.0.0.0 255.255.255.0 ppp0
     ip route 10.0.0.0 255.255.255.0 null0
-    
+
 
   These statements are equivalent to those in the previous example.
 
@@ -267,7 +267,7 @@ Multiple nexthop static route
   ip route 10.0.0.1/32 10.0.0.2
   ip route 10.0.0.1/32 10.0.0.3
   ip route 10.0.0.1/32 eth0
-  
+
 
 If there is no route to 10.0.0.2 and 10.0.0.3, and interface eth0
 is reachable, then the last route is installed into the kernel.
@@ -282,14 +282,14 @@ nexthops, if the platform supports this.
   S>  10.0.0.1/32 [1/0] via 10.0.0.2 inactive
                         via 10.0.0.3 inactive
     *                   is directly connected, eth0
-  
+
 
 ::
 
   ip route 10.0.0.0/8 10.0.0.2
   ip route 10.0.0.0/8 10.0.0.3
   ip route 10.0.0.0/8 null0 255
-  
+
 
 This will install a multihop route via the specified next-hops if they are
 reachable, as well as a high-metric blackhole route, which can be useful to
@@ -307,7 +307,7 @@ default) should the specified gateways not be reachable. Eg:
   Routing entry for 10.0.0.0/8
     Known via "static", distance 255, metric 0
       directly connected, Null0
-  
+
 
 .. index:: Command {ipv6 route `network` `gateway`} {}
 
@@ -406,7 +406,7 @@ Command {show ip rpf `addr`} {}
       Routing entry for 192.0.2.0/24 using Unicast RIB
         Known via "kernel", distance 0, metric 0, best
         * 198.51.100.1, via eth0
-      
+
 
     Indicates that a multicast source lookup for 192.0.2.1 would use an
     Unicast RIB entry for 192.0.2.0/24 with a gateway of 198.51.100.1.
@@ -473,7 +473,7 @@ Command {ip protocol `protocol` route-map `routemap`} {}
        set src 10.0.0.1
 
   ip protocol rip route-map RM1
-  
+
 
 .. _zebra_FIB_push_interface:
 
@@ -527,11 +527,11 @@ schema. Protobuf messages can be extended easily while maintaining
 backward-compatibility with older code. Protobuf has the following
 advantages over netlink:
 
-* 
+*
   Code for serialization/deserialization is generated
   automatically. This reduces the likelihood of bugs, allows third-party
   programs to be integrated quickly, and makes it easy to add fields.
-* 
+*
   The message format is not tied to an OS (Linux), and can be evolved
   independently.
 
@@ -566,7 +566,7 @@ Command {show ip route} {}
     S  0.0.0.0/0              203.181.89.1
     C* 127.0.0.0/8            lo
     C* 203.181.89.240/28      eth0
-    
+
 
 .. index:: Command {show ipv6 route} {}
 

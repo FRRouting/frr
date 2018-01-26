@@ -563,7 +563,7 @@ A simple example, with MD5 authentication enabled:
   net 47.0023.0000.0000.0000.0000.0000.0000.1900.0004.00
    metric-style wide
    is-type level-2-only
-  
+
 
 A Traffic Engineering configuration, with Inter-ASv2 support.
 
@@ -607,7 +607,7 @@ A Traffic Engineering configuration, with Inter-ASv2 support.
    mpls-te link unrsv-bw 7 1.25e+06
    mpls-te link rsc-clsclr 0xab
    mpls-te neighbor 10.1.1.2 as 65000
-  
+
 
 - Then the 'isisd.conf' itself:
 
@@ -631,5 +631,5 @@ A Traffic Engineering configuration, with Inter-ASv2 support.
     mpls-te router-address 10.1.1.1
   !
   line vty
-  
+
 

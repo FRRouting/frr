@@ -63,7 +63,7 @@ command will enable AgentX support.
   	!
   	agentx
   	!
-  
+
 
 Upon successful connection, you should get something like this in the
 log of each FRR daemons:
@@ -71,7 +71,7 @@ log of each FRR daemons:
 ::
 
   2012/05/25 11:39:08 ZEBRA: snmp[info]: NET-SNMP version 5.4.3 AgentX subagent connected
-  
+
 
 Then, you can use the following command to check everything works as expected:
 
@@ -80,7 +80,7 @@ Then, you can use the following command to check everything works as expected:
   # snmpwalk -c public -v1 localhost .1.3.6.1.2.1.14.1.1
   OSPF-MIB::ospfRouterId.0 = IpAddress: 192.168.42.109
   [...]
-  
+
 
 The AgentX protocol can be transported over a Unix socket or using TCP
 or UDP. It usually defaults to a Unix socket and depends on how NetSNMP
@@ -93,7 +93,7 @@ configure it through `/etc/snmp/frr.conf`:
   	[snmpd]
   	# Use a remote master agent
   	agentXSocket tcp:192.168.15.12:705
-  
+
 
 .. _SMUX_configuration:
 
@@ -134,20 +134,20 @@ restrictions can be hard to debug.
   	!
   	smux peer .1.3.6.1.4.1.3317.1.2.5 frr_ospfd
   	!
-  
+
 
 After restarting snmpd and frr, a successful connection can be verified in
 the syslog and by querying the SNMP daemon:
 
 ::
 
-  snmpd[12300]: [smux_accept] accepted fd 12 from 127.0.0.1:36255 
+  snmpd[12300]: [smux_accept] accepted fd 12 from 127.0.0.1:36255
   snmpd[12300]: accepted smux peer: \\
   	oid GNOME-PRODUCT-ZEBRA-MIB::ospfd, frr-0.96.5
 
   # snmpwalk -c public -v1 localhost .1.3.6.1.2.1.14.1.1
   OSPF-MIB::ospfRouterId.0 = IpAddress: 192.168.42.109
-  
+
 
 Be warned that the current version (5.1.1) of the Net-SNMP daemon writes a line
 for every SNMP connect to the syslog which can lead to enormous log file sizes.
@@ -168,7 +168,7 @@ the FRR daemons with SMUX only.
   ripd	.1.3.6.1.4.1.3317.1.2.3 .gnome.gnomeProducts.zebra.ripd
   ospfd	.1.3.6.1.4.1.3317.1.2.5 .gnome.gnomeProducts.zebra.ospfd
   ospf6d	.1.3.6.1.4.1.3317.1.2.6 .gnome.gnomeProducts.zebra.ospf6d
-  
+
 
 Sadly, SNMP has not been implemented in all daemons yet. The following
 OID numbers are used for querying the SNMP daemon by a client:
@@ -176,10 +176,10 @@ OID numbers are used for querying the SNMP daemon by a client:
 
   zebra	.1.3.6.1.2.1.4.24   .iso.org.dot.internet.mgmt.mib-2.ip.ipForward
   ospfd	.1.3.6.1.2.1.14	    .iso.org.dot.internet.mgmt.mib-2.ospf
-  bgpd	.1.3.6.1.2.1.15	    .iso.org.dot.internet.mgmt.mib-2.bgp 
+  bgpd	.1.3.6.1.2.1.15	    .iso.org.dot.internet.mgmt.mib-2.bgp
   ripd	.1.3.6.1.2.1.23	    .iso.org.dot.internet.mgmt.mib-2.rip2
   ospf6d	.1.3.6.1.3.102	    .iso.org.dod.internet.experimental.ospfv3
-  
+
 
 The following syntax is understood by the FRR daemons for configuring SNMP using SMUX:
 .. index:: {Command} {smux peer `oid`} {}

@@ -37,7 +37,7 @@ RIP is like below:
 
   # zebra -d
   # ripd -d
-  
+
 
 Please note that *zebra* must be invoked before *ripd*.
 
@@ -153,7 +153,7 @@ Command {no router rip} {}
          network 10.0.0.0/8
          network eth0
         !
-        
+
 
       Passive interface
 
@@ -167,7 +167,7 @@ Command {no router rip} {}
           interface, all receiving packets are processed as normal and ripd does
           not send either multicast or unicast RIP packets except to RIP neighbors
           specified with `neighbor` command. The interface may be specified
-          as `default` to make ripd default to passive on all interfaces. 
+          as `default` to make ripd default to passive on all interfaces.
 
           The default is to be passive on all interfaces.
 
@@ -204,7 +204,7 @@ RIPv1 see :ref:`RIP_Authentication`.
 
 {RIP Command} {version `version`} {}
   Set RIP version to accept for reads and send.  `version`
-  can be either `1'' or `2''. 
+  can be either `1'' or `2''.
 
   Disabling RIPv1 by specifying version 2 is STRONGLY encouraged,
   :ref:`RIP_Authentication`. This may become the default in a future
@@ -224,7 +224,7 @@ RIPv1 see :ref:`RIP_Authentication`.
 
   This interface command overrides the global rip version setting, and
   selects which version of RIP to send packets with, for this interface
-  specifically. Choice of RIP Version 1, RIP Version 2, or both versions. 
+  specifically. Choice of RIP Version 1, RIP Version 2, or both versions.
   In the latter case, where `1 2' is specified, packets will be both
   broadcast and multicast.
 
@@ -374,7 +374,7 @@ Command {distribute-list `access_list` `direct` `ifname`} {}
     access-list private permit 10 10.0.0.0/8
     access-list private deny any
     !
-    
+
 
 `distribute-list` can be applied to both incoming and outgoing data.
 
@@ -463,9 +463,9 @@ statement.
   redistribute static [route-map MAP_NAME]
   redistribute connected [route-map MAP_NAME]
   .....
-  
 
-Cisco applies route-map _before_ routes will exported to rip route table. 
+
+Cisco applies route-map _before_ routes will exported to rip route table.
 In current FRR's test implementation, *ripd* applies route-map
 after routes are listed in the route table and before routes will be
 announced to an interface (something like output filter). I think it is not
@@ -536,10 +536,10 @@ RIPv1 can not be authenticated at all, thus when authentication is
 configured `ripd` will discard routing updates received via RIPv1
 packets.
 
-However, unless RIPv1 reception is disabled entirely, 
+However, unless RIPv1 reception is disabled entirely,
 :ref:`RIP_Version_Control`, RIPv1 REQUEST packets which are received,
 which query the router for routing information, will still be honoured
-by `ripd`, and `ripd` WILL reply to such packets. This allows 
+by `ripd`, and `ripd` WILL reply to such packets. This allows
 `ripd` to honour such REQUESTs (which sometimes is used by old
 equipment and very simple devices to bootstrap their default route),
 while still providing security for route updates which are received.
@@ -596,7 +596,7 @@ To prevent such unauthenticated querying of routes disable RIPv1,
            ip rip authentication mode md5
            ip rip authentication key-chain test
           !
-          
+
 
 .. _RIP_Timers:
 
@@ -610,7 +610,7 @@ RIP Timers
   RIP protocol has several timers.  User can configure those timers' values
   by `timers basic` command.
 
-  The default settings for the timers are as follows: 
+  The default settings for the timers are as follows:
 
 
 ``
@@ -674,7 +674,7 @@ Command {show ip rip status} {}
     Incoming update filter list for all interface is not set
     Default redistribution metric is 1
     Redistributing: kernel connected
-    Default version control: send version 2, receive version 2 
+    Default version control: send version 2, receive version 2
       Interface        Send  Recv
     Routing for Networks:
       eth0
@@ -683,7 +683,7 @@ Command {show ip rip status} {}
       203.181.89.241
     Routing Information Sources:
       Gateway          BadPackets BadRoutes  Distance Last Update
-  
+
 
 RIP Debug Commands
 ==================

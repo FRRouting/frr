@@ -194,7 +194,7 @@ Validating BGP Updates
         route-map rpki permit 500
          match rpki valid
          set local-preference 500
-      
+
 
 
 .. _Debugging:
@@ -273,5 +273,5 @@ RPKI Configuration Example
   !
   route-map rpki permit 40
   !
-  
+
 

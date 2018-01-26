@@ -25,7 +25,7 @@ IP Access List
 
     access-list filter deny 10.0.0.0/9
     access-list filter permit 10.0.0.0/8
-    
+
 
   @comment  node-name,  next,  previous,  up
 
@@ -38,7 +38,7 @@ filtering mechanism.  In addition to *access-list* functionality,
 sequential number specification.  You can add or delete prefix based
 filters to arbitrary points of prefix-list using sequential number specification.
 
-If no ip prefix-list is specified, it acts as permit.  If *ip prefix-list* 
+If no ip prefix-list is specified, it acts as permit.  If *ip prefix-list*
 is defined, and no match is found, default deny is applied.
 
 .. index:: {Command} {ip prefix-list `name` (permit|deny) `prefix` [le `len`] [ge `len`]} {}
@@ -66,12 +66,12 @@ is defined, and no match is found, default deny is applied.
 
 
 *@asis{le}*
-      *le* command specifies prefix length.  The prefix list will be 
+      *le* command specifies prefix length.  The prefix list will be
       applied if the prefix length is less than or equal to the le prefix length.
 
 
 *@asis{ge}*
-      *ge* command specifies prefix length.  The prefix list will be 
+      *ge* command specifies prefix length.  The prefix list will be
       applied if the prefix length is greater than or equal to the ge prefix length.
 
 

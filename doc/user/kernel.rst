@@ -40,8 +40,8 @@ interfaces.
   communication between kernel and FRR possible, similar to a routing
   socket on BSD systems.
 
-  Before you use this feature, be sure to select (in kernel configuration) 
-  the kernel/netlink support option 'Kernel/User network link driver' and 
+  Before you use this feature, be sure to select (in kernel configuration)
+  the kernel/netlink support option 'Kernel/User network link driver' and
   'Routing messages'.
 
   Today, the /dev/route special device file is obsolete.  Netlink

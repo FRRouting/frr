@@ -38,7 +38,7 @@ commands):
    ip tunnel add gre1 mode gre key 42 ttl 64
    ip addr add 10.255.255.2/32 dev gre1
    ip link set gre1 up
-  
+
 
 Note that the IP-address is assigned as host prefix to gre1. nhrpd will
 automatically create additional host routes pointing to gre1 when
@@ -62,7 +62,7 @@ command defines the GRE subnet):
      network 172.16.0.0/16
      redistribute nhrp
    exit-address-family
-  
+
 
 .. _Configuring_NHRP:
 
@@ -91,7 +91,7 @@ This can be achieved with the following iptables rule.
   	-m hashlimit --hashlimit-upto 4/minute --hashlimit-burst 1 \\
   	--hashlimit-mode srcip,dstip --hashlimit-srcmask 24 --hashlimit-dstmask 24 \\
   	--hashlimit-name loglimit-0 -j NFLOG --nflog-group 1 --nflog-range 128
-  
+
 
 You can fine tune the src/dstmask according to the prefix lengths you
 announce internal, add additional IP range matches, or rate limitation
@@ -102,7 +102,7 @@ with:
 ::
 
   nhrp nflog-group 1
-  
+
 
 To start sending these traffic notices out from hubs, use the nhrp
 per-interface directive:
@@ -110,7 +110,7 @@ per-interface directive:
 
   interface gre1
    ip nhrp redirect
-  
+
 
 .. _Integration_with_IKE:
 

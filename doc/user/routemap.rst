@@ -222,7 +222,7 @@ Route Map Set Command
 .. index:: {Route-map Command} {set local-preference `local_pref`} {}
 
 {Route-map Command} {set local-preference `local_pref`} {}
-  Set the BGP local preference to `local_pref`. 
+  Set the BGP local preference to `local_pref`.
 
 .. index:: {Route-map Command} {set weight `weight`} {}
 
@@ -298,7 +298,7 @@ A simple example of a route-map:
   route-map test permit 10
    match ip address 10
    set local-preference 200
-  
+
 
 This means that if a route matches ip access-list number 10 it's
 local-preference value is set to 200.

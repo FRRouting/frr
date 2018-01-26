@@ -9,7 +9,7 @@ OSPF Fundamentals
 
 :abbr:`OSPF` is, mostly, a link-state routing protocol. In contrast
 to :term:`distance-vector` protocols, such as :abbr:`RIP` or
-:abbr:`BGP`, where routers describe available :term:`paths` (i.e@. routes) 
+:abbr:`BGP`, where routers describe available :term:`paths` (i.e@. routes)
 to each other, in :term:`link-state` protocols routers instead
 describe the state of their links to their immediate neighbouring
 routers.
@@ -96,7 +96,7 @@ broadly classed as:
   The Hello protocol is comparatively trivial and will not be explored in
   greater detail than here.
 
-  .. index:: OSPF LSA overview 
+  .. index:: OSPF LSA overview
 
 
 *LSAs*
@@ -160,11 +160,11 @@ OSPF LSAs
 :abbr:`LSA`s are the core object in OSPF@. Everything else in OSPF
 revolves around detecting what to describe in LSAs, when to update
 them, how to flood them throughout a network and how to calculate
-routes from them. 
+routes from them.
 
 There are a variety of different :abbr:`LSA`s, for purposes such
 as describing actual link-state information, describing paths (i.e.
-routes), describing bandwidth usage of links for 
+routes), describing bandwidth usage of links for
 :abbr:`TE (Traffic Engineering)` purposes, and even arbitrary data
 by way of *Opaque* :abbr:`LSA`s.
 
@@ -232,7 +232,7 @@ Link-State LSAs
 Of all the various kinds of :abbr:`LSA`s, just two types comprise the
 actual link-state part of :abbr:`OSPF`, Router :abbr:`LSA`s and
 Network :abbr:`LSA`s. These LSA types are absolutely core to the
-protocol. 
+protocol.
 
 Instances of these LSAs are specific to the link-state area in which
 they are originated. Routes calculated from these two LSA types are
@@ -280,7 +280,7 @@ called :term:`intra-area routes`.
   * Point-to-Point
     @tab Router ID of the remote router
     @tab Local interface IP address,
-    or the :abbr:`ifindex (MIB-II interface index)` 
+    or the :abbr:`ifindex (MIB-II interface index)`
     for unnumbered links
 
   * Stub
@@ -327,7 +327,7 @@ Summary of Link State LSAs:
 @headitem LSA Type @tab LSA ID Describes @tab LSA Data Describes
 
 * Router LSA
-@tab The Router ID 
+@tab The Router ID
 @tab The :abbr:`OSPF` enabled links of the router, within
 a specific link-state area.
 
@@ -372,10 +372,10 @@ are fully adjacent with 192.168.0.49.
 
     LS age: 38
     Options: 0x2  : *|-|-|-|-|-|E|*
-    LS Flags: 0x6  
+    LS Flags: 0x6
     Flags: 0x2 : ASBR
     LS Type: router-LSA
-    Link State ID: 192.168.0.49 
+    Link State ID: 192.168.0.49
     Advertising Router: 192.168.0.49
     LS Seq Number: 80000f90
     Checksum: 0x518b
@@ -407,7 +407,7 @@ are fully adjacent with 192.168.0.49.
 
     LS age: 285
     Options: 0x2  : *|-|-|-|-|-|E|*
-    LS Flags: 0x6  
+    LS Flags: 0x6
     LS Type: network-LSA
     Link State ID: 192.168.0.49 (address of Designated Router)
     Advertising Router: 192.168.0.49
@@ -419,7 +419,7 @@ are fully adjacent with 192.168.0.49.
           Attached Router: 192.168.0.52
           Attached Router: 192.168.0.53
           Attached Router: 192.168.0.54
-  
+
 
 Note that from one LSA, you can find the other. E.g. Given the
 Network-LSA you have a list of Router IDs on that network, from which
@@ -460,7 +460,7 @@ following partial topology:
     |   Router ID: 192.168.0.53
     |
   Router ID: 192.168.0.52
-  
+
 
 Note the Router IDs, though they look like IP addresses and often are
 IP addresses, are not strictly speaking IP addresses, nor need they be
@@ -548,7 +548,7 @@ selected.
           Metric: 20
           Forward Address: 0.0.0.0
           External Route Tag: 0
-  
+
 
 We can add this to our partial topology from above, which now looks
 like:
@@ -574,12 +574,12 @@ like:
     |   Router ID: 192.168.0.53
     |
   Router ID: 192.168.0.52
-  
+
 
 Summary LSAs
 ^^^^^^^^^^^^
 
-Summary LSAs are created by :abbr:`ABR`s to summarise the destinations available within one area to other areas. These LSAs may describe IP networks, potentially in aggregated form, or :abbr:`ASBR` routers. 
+Summary LSAs are created by :abbr:`ABR`s to summarise the destinations available within one area to other areas. These LSAs may describe IP networks, potentially in aggregated form, or :abbr:`ASBR` routers.
 
 .. _OSPF_Flooding:
 

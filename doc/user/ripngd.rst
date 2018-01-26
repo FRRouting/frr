@@ -89,5 +89,5 @@ Command {distribute-list `access_list` (in|out) `ifname`} {}
 ::
 
     distribute-list local-only out sit1
-    
+
 
