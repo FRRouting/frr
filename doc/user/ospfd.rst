@@ -738,7 +738,7 @@ Redistribute routes to OSPF
                   external routes are not permitted.
 
                   Note that for connected routes, one may instead use
-                  @dfn{passive-interface}, see :ref:`OSPF_passive-interface`.
+                  :term:`passive-interface`, see :ref:`OSPF_passive-interface`.
 
 .. index:: {OSPF Command} {default-information originate} {}
 

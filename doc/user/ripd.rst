@@ -6,8 +6,8 @@ RIP
 
 RIP -- Routing Information Protocol is widely deployed interior gateway
 protocol.  RIP was developed in the 1970s at Xerox Labs as part of the
-XNS routing protocol.  RIP is a @dfn{distance-vector} protocol and is
-based on the @dfn{Bellman-Ford} algorithms.  As a distance-vector
+XNS routing protocol.  RIP is a :term:`distance-vector` protocol and is
+based on the :term:`Bellman-Ford` algorithms.  As a distance-vector
 protocol, RIP router send updates to its neighbors periodically, thus
 allowing the convergence to a known topology.  In each update, the
 distance to any given network will be broadcasted to its neighboring

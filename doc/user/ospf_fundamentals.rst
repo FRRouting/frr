@@ -8,9 +8,9 @@ OSPF Fundamentals
 .. index:: Distance-vector routing protocol
 
 @acronym{OSPF} is, mostly, a link-state routing protocol. In contrast
-to @dfn{distance-vector} protocols, such as @acronym{RIP} or
-@acronym{BGP}, where routers describe available @dfn{paths} (i.e@. routes) 
-to each other, in @dfn{link-state} protocols routers instead
+to :term:`distance-vector` protocols, such as @acronym{RIP} or
+@acronym{BGP}, where routers describe available :term:`paths` (i.e@. routes) 
+to each other, in :term:`link-state` protocols routers instead
 describe the state of their links to their immediate neighbouring
 routers.
 
@@ -25,7 +25,7 @@ routers.
 Each router describes their link-state information in a message known
 as an @acronym{LSA,Link State Advertisement}, which is then propogated
 through to all other routers in a link-state routing domain, by a
-process called @dfn{flooding}. Each router thus builds up an
+process called :term:`flooding`. Each router thus builds up an
 @acronym{LSDB,Link State Database} of all the link-state messages. From
 this collection of LSAs in the LSDB, each router can then calculate the
 shortest path to any other router, based on some common metric, by
@@ -131,7 +131,7 @@ broadly classed as:
 *LSA Flooding*
   OSPF defines several related mechanisms, used to manage synchronisation of
   @acronym{LSDB}s between neighbours as neighbours form adjacencies and
-  the propogation, or @dfn{flooding} of new or updated @acronym{LSA}s.
+  the propogation, or :term:`flooding` of new or updated @acronym{LSA}s.
 
   :ref:`OSPF_Flooding`.
 
@@ -143,13 +143,13 @@ broadly classed as:
   and independent link-state areas. Each area must be connected to a
   common backbone area by an @acronym{ABR,Area Boundary Router}. These
   @acronym{ABR} routers are responsible for summarising the link-state
-  routing information of an area into @dfn{Summary LSAs}, possibly in a
+  routing information of an area into :term:`Summary LSAs`, possibly in a
   condensed (i.e. aggregated) form, and then originating these summaries
   into all other areas the @acronym{ABR} is connected to.
 
   Note that only summaries and external routes are passed between areas.
   As these describe *paths*, rather than any router link-states,
-  routing between areas hence is by @dfn{distance-vector}, @strong{not}
+  routing between areas hence is by :term:`distance-vector`, @strong{not}
   link-state.
 
   :ref:`OSPF_Areas`.
@@ -208,13 +208,13 @@ All LSAs share a common header with the following information:
   from their @acronym{LSDB}s.
 
   The value nominally is one of seconds. An age of 3600, i.e. 1 hour, is
-  called the @dfn{MaxAge}. MaxAge LSAs are ignored in routing
+  called the :term:`MaxAge`. MaxAge LSAs are ignored in routing
   calculations. LSAs must be periodically refreshed by their Advertising
   Router before reaching MaxAge if they are to remain valid.
 
   Routers may deliberately flood LSAs with the age artificially set to
   3600 to indicate an LSA is no longer valid. This is called
-  @dfn{flushing} of an LSA@.
+  :term:`flushing` of an LSA@.
 
   It is not abnormal to see stale LSAs in the LSDB, this can occur where
   a router has shutdown without flushing its LSA(s), e.g. where it has
@@ -236,7 +236,7 @@ protocol.
 
 Instances of these LSAs are specific to the link-state area in which
 they are originated. Routes calculated from these two LSA types are
-called @dfn{intra-area routes}.
+called :term:`intra-area routes`.
 
 * Router LSA
 
@@ -296,7 +296,7 @@ called @dfn{intra-area routes}.
   with the remote router is Full.
 
   Stub links may also be used as a way to describe links on which OSPF is
-  *not* spoken, known as @dfn{passive interfaces}, see :ref:`OSPF_passive-interface,,passive-interface`.
+  *not* spoken, known as :term:`passive interfaces`, see :ref:`OSPF_passive-interface,,passive-interface`.
 
 * Network LSA
 

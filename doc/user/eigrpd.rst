@@ -6,7 +6,7 @@ EIGRP
 
 EIGRP -- Routing Information Protocol is widely deployed interior gateway
 routing protocol. EIGRP was developed in the 1990's. EIGRP is a
-@dfn{distance-vector} protocol and is based on the @dfn{dual} algorithms.
+:term:`distance-vector` protocol and is based on the :term:`dual` algorithms.
 As a distance-vector protocol, the EIGRP router send updates to its
 neighbors as networks change, thus allowing the convergence to a
 known topology.
@@ -33,7 +33,7 @@ EIGRP is like below:
 
   # zebra -d
   # eigrpd -d
-  
+
 
 Please note that *zebra* must be invoked before *eigrpd*.
 
@@ -100,7 +100,7 @@ EIGRP Configuration
     router eigrp 1
      network 10.0.0.0/8
     !
-    
+
 
   Passive interface
 
@@ -114,7 +114,7 @@ EIGRP Configuration
    interface, all receiving packets are ignored and eigrpd does
    not send either multicast or unicast EIGRP packets except to EIGRP neighbors
    specified with `neighbor` command. The interface may be specified
-   as `default` to make eigrpd default to passive on all interfaces. 
+   as `default` to make eigrpd default to passive on all interfaces.
 
    The default is to be passive on all interfaces.
 
@@ -218,9 +218,9 @@ The command displays all EIGRP routes.
   Codes: P - Passive, A - Active, U - Update, Q - Query, R - Reply
          r - reply Status, s - sia Status
 
-  P  10.0.2.0/24, 1 successors, FD is 256256, serno: 0 
+  P  10.0.2.0/24, 1 successors, FD is 256256, serno: 0
          via Connected, enp0s3
-  
+
 
 EIGRP Debug Commands
 ====================
