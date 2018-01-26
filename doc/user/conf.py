@@ -331,3 +331,9 @@ texinfo_documents = [
 
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
+
+# custom extensions here
+def setup(app):
+    # object type for FRR CLI commands, can be extended to document parent CLI
+    # node later on
+    app.add_object_type('clicmd', 'clicmd')
