@@ -467,14 +467,12 @@ Command {ip protocol `protocol` route-map `routemap`} {}
   that sets the preferred source address, and applies the route-map to all
   *rip* routes.
 
-  @group
   ip prefix-list ANY permit 0.0.0.0/0 le 32
   route-map RM1 permit 10
        match ip address prefix-list ANY
        set src 10.0.0.1
 
   ip protocol rip route-map RM1
-  @end group
   
 
 .. _zebra_FIB_push_interface:
@@ -560,7 +558,6 @@ Command {show ip route} {}
 
 ::
 
-    @group
     Router# show ip route
     Codes: K - kernel route, C - connected, S - static, R - RIP,
            B - BGP * - FIB route.
@@ -569,7 +566,6 @@ Command {show ip route} {}
     S  0.0.0.0/0              203.181.89.1
     C* 127.0.0.0/8            lo
     C* 203.181.89.240/28      eth0
-    @end group
     
 
 .. index:: Command {show ipv6 route} {}

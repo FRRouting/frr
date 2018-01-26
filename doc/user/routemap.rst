@@ -295,11 +295,9 @@ A simple example of a route-map:
 
 ::
 
-  @group
   route-map test permit 10
    match ip address 10
    set local-preference 200
-  @end group
   
 
 This means that if a route matches ip access-list number 10 it's

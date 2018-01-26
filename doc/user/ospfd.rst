@@ -172,10 +172,8 @@ Command {no router ospf} {}
 
 ::
 
-                  @group
                   router ospf
                    timers throttle spf 200 400 10000
-                  @end group
                   
 
                 In this example, the `delay` is set to 200ms, the @var{initial
@@ -266,10 +264,8 @@ Command {no router ospf} {}
 
 ::
 
-                              @group
                               router ospf
                                network 192.168.1.0/24 area 0.0.0.0
-                              @end group
                               
 
                             Prefix length in interface must be equal or bigger (ie. smaller network) than
@@ -313,12 +309,10 @@ OSPF area
 
 ::
 
-          @group
           router ospf
            network 192.168.1.0/24 area 0.0.0.0
            network 10.0.0.0/8 area 0.0.0.10
            area 0.0.0.10 range 10.0.0.0/8
-          @end group
           
 
         With configuration above one Type-3 Summary-LSA with routing info 10.0.0.0/8 is
@@ -345,12 +339,10 @@ OSPF area
 
 ::
 
-              @group
               router ospf
                network 192.168.1.0/24 area 0.0.0.0
                network 10.0.0.0/8 area 0.0.0.10
                area 0.0.0.10 range 10.0.0.0/8 substitute 11.0.0.0/8
-              @end group
               
 
             One Type-3 summary-LSA with routing info 11.0.0.0/8 is announced into backbone area if
@@ -446,7 +438,6 @@ OSPF area
 
 ::
 
-                                              @group
                                               router ospf
                                                network 192.168.1.0/24 area 0.0.0.0
                                                network 10.0.0.0/8 area 0.0.0.10
@@ -454,7 +445,6 @@ OSPF area
                                               !
                                               access-list foo permit 10.10.0.0/16
                                               access-list foo deny any
-                                              @end group
                                               
 
                                             With example above any intra-area paths from area 0.0.0.10 and from range
@@ -1129,7 +1119,6 @@ A simple example, with MD5 authentication enabled:
 
 ::
 
-  @group
   !
   interface bge0
    ip ospf authentication message-digest
@@ -1138,7 +1127,6 @@ A simple example, with MD5 authentication enabled:
   router ospf
    network 192.168.0.0/16 area 0.0.0.1
    area 0.0.0.1 authentication message-digest
-  @end group
   
 
 An @acronym{ABR} router, with MD5 authentication and performing summarisation
@@ -1146,7 +1134,6 @@ of networks between the areas:
 
 ::
 
-  @group
   !
   password ABCDEF
   log file /var/log/frr/ospfd.log
@@ -1175,7 +1162,6 @@ of networks between the areas:
    area 0.0.0.1 authentication message-digest
    area 0.0.0.1 range 10.2.0.0/16
   !
-  @end group
   
 
 A Traffic Engineering configuration, with Inter-ASv2 support.
@@ -1184,7 +1170,6 @@ A Traffic Engineering configuration, with Inter-ASv2 support.
 
 ::
 
-  @group
   hostname HOSTNAME
   password PASSWORD
   log file /var/log/zebra.log
@@ -1221,14 +1206,12 @@ A Traffic Engineering configuration, with Inter-ASv2 support.
    mpls-te link unrsv-bw 7 1.25e+06
    mpls-te link rsc-clsclr 0xab
    mpls-te neighbor 192.168.2.2 as 65000
-  @end group
   
 
 - Then the 'ospfd.conf' itself:
 
 ::
 
-  @group
   hostname HOSTNAME
   password PASSWORD
   log file /var/log/ospfd.log
@@ -1252,14 +1235,12 @@ A Traffic Engineering configuration, with Inter-ASv2 support.
     mpls-te inter-as area 1
   !
   line vty
-  @end group
   
 
 A router information example with PCE advsertisement:
 
 ::
 
-  @group
   !
   router ospf
    ospf router-id 192.168.1.1
@@ -1275,6 +1256,5 @@ A router information example with PCE advsertisement:
     pce neighbor as 65200
     pce scope 0x80
   !
-  @end group
   
 

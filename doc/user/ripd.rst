@@ -35,10 +35,8 @@ RIP is like below:
 
 ::
 
-  @group
   # zebra -d
   # ripd -d
-  @end group
   
 
 Please note that *zebra* must be invoked before *ripd*.
@@ -154,13 +152,11 @@ Command {no router rip} {}
 
 ::
 
-        @group
         !
         router rip
          network 10.0.0.0/8
          network eth0
         !
-        @end group
         
 
       Passive interface
@@ -375,7 +371,6 @@ Command {distribute-list `access_list` `direct` `ifname`} {}
 
 ::
 
-    @group
     !
     router rip
      distribute-list private in eth0
@@ -383,7 +378,6 @@ Command {distribute-list `access_list` `direct` `ifname`} {}
     access-list private permit 10 10.0.0.0/8
     access-list private deny any
     !
-    @end group
     
 
 `distribute-list` can be applied to both incoming and outgoing data.
@@ -676,7 +670,6 @@ Command {show ip rip status} {}
 
 ::
 
-  @group
   ripd> **show ip rip status**
   Routing Protocol is "rip"
     Sending updates every 30 seconds with +/-50%, next due in 35 seconds
@@ -694,7 +687,6 @@ Command {show ip rip status} {}
       203.181.89.241
     Routing Information Sources:
       Gateway          BadPackets BadRoutes  Distance Last Update
-  @end group
   
 
 RIP Debug Commands

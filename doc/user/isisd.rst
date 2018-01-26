@@ -553,7 +553,6 @@ A simple example, with MD5 authentication enabled:
 
 ::
 
-  @group
   !
   interface eth0
    ip router isis FOO
@@ -564,7 +563,6 @@ A simple example, with MD5 authentication enabled:
   net 47.0023.0000.0000.0000.0000.0000.0000.1900.0004.00
    metric-style wide
    is-type level-2-only
-  @end group
   
 
 A Traffic Engineering configuration, with Inter-ASv2 support.
@@ -573,7 +571,6 @@ A Traffic Engineering configuration, with Inter-ASv2 support.
 
 ::
 
-  @group
   hostname HOSTNAME
   password PASSWORD
   log file /var/log/zebra.log
@@ -610,14 +607,12 @@ A Traffic Engineering configuration, with Inter-ASv2 support.
    mpls-te link unrsv-bw 7 1.25e+06
    mpls-te link rsc-clsclr 0xab
    mpls-te neighbor 10.1.1.2 as 65000
-  @end group
   
 
 - Then the 'isisd.conf' itself:
 
 ::
 
-  @group
   hostname HOSTNAME
   password PASSWORD
   log file /var/log/isisd.log
@@ -636,6 +631,5 @@ A Traffic Engineering configuration, with Inter-ASv2 support.
     mpls-te router-address 10.1.1.1
   !
   line vty
-  @end group
   
 

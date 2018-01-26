@@ -35,11 +35,9 @@ To create NBMA GRE tunnel you might use the following (linux terminal
 commands):
 ::
 
-  @group
    ip tunnel add gre1 mode gre key 42 ttl 64
    ip addr add 10.255.255.2/32 dev gre1
    ip link set gre1 up
-  @end group
   
 
 Note that the IP-address is assigned as host prefix to gre1. nhrpd will
@@ -59,13 +57,11 @@ This can be achieved in hubs with the following bgp configuration (network
 command defines the GRE subnet):
 ::
 
-  @group
   router bgp 65555
    address-family ipv4 unicast
      network 172.16.0.0/16
      redistribute nhrp
    exit-address-family
-  @end group
   
 
 .. _Configuring_NHRP:
@@ -91,12 +87,10 @@ This can be achieved with the following iptables rule.
 
 ::
 
-  @group
   iptables -A FORWARD -i gre1 -o gre1 \\
   	-m hashlimit --hashlimit-upto 4/minute --hashlimit-burst 1 \\
   	--hashlimit-mode srcip,dstip --hashlimit-srcmask 24 --hashlimit-dstmask 24 \\
   	--hashlimit-name loglimit-0 -j NFLOG --nflog-group 1 --nflog-range 128
-  @end group
   
 
 You can fine tune the src/dstmask according to the prefix lengths you
@@ -107,19 +101,15 @@ This kernel NFLOG target's nflog-group is configured in global nhrp config
 with:
 ::
 
-  @group
   nhrp nflog-group 1
-  @end group
   
 
 To start sending these traffic notices out from hubs, use the nhrp
 per-interface directive:
 ::
 
-  @group
   interface gre1
    ip nhrp redirect
-  @end group
   
 
 .. _Integration_with_IKE:

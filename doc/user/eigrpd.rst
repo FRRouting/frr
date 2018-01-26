@@ -31,10 +31,8 @@ EIGRP is like below:
 
 ::
 
-  @group
   # zebra -d
   # eigrpd -d
-  @end group
   
 
 Please note that *zebra* must be invoked before *eigrpd*.
@@ -99,12 +97,10 @@ Command {no router eigrp (1-65535)} {}
 
 ::
 
-    @group
     !
     router eigrp 1
      network 10.0.0.0/8
     !
-    @end group
     
 
   Passive interface
@@ -214,7 +210,6 @@ Command {show ip eigrp topology} {}
 
 ::
 
-  @group
   eigrpd> **show ip eigrp topology**
   # show ip eigrp topo
 
@@ -225,7 +220,6 @@ Command {show ip eigrp topology} {}
 
   P  10.0.2.0/24, 1 successors, FD is 256256, serno: 0 
          via Connected, enp0s3
-  @end group
   
 
 EIGRP Debug Commands

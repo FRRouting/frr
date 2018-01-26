@@ -439,7 +439,6 @@ From just the above two @acronym{LSA}s, one can already see the
 following partial topology:
 ::
 
-  @group
 
      --------------------- Network: ......
               |            Designated Router IP: 192.168.1.3
@@ -461,7 +460,6 @@ following partial topology:
     |   Router ID: 192.168.0.53
     |
   Router ID: 192.168.0.52
-  @end group
   
 
 Note the Router IDs, though they look like IP addresses and often are
@@ -534,7 +532,6 @@ selected.
 
 ::
 
-  @group
   # show ip ospf database external 192.168.165.0
     LS age: 995
     Options: 0x2  : *|-|-|-|-|-|E|*
@@ -551,14 +548,12 @@ selected.
           Metric: 20
           Forward Address: 0.0.0.0
           External Route Tag: 0
-  @end group
   
 
 We can add this to our partial topology from above, which now looks
 like:
 ::
 
-  @group
      --------------------- Network: ......
               |            Designated Router IP: 192.168.1.3
               |
@@ -579,7 +574,6 @@ like:
     |   Router ID: 192.168.0.53
     |
   Router ID: 192.168.0.52
-  @end group
   
 
 Summary LSAs

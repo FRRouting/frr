@@ -54,10 +54,8 @@ OSPF6 router
 
 ::
 
-      @group
       router ospf6
        timers throttle spf 200 400 10000
-      @end group
       
 
     In this example, the `delay` is set to 200ms, the @var{initial

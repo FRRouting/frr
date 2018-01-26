@@ -210,7 +210,6 @@ The file specified in "File Name" contains all routing entries,
 which are in the format of ``subtype == BGP4MP_ENTRY``.
 
 @example
-@group
 Constants:::
 
   /* type value */
