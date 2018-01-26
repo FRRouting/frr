@@ -25,8 +25,9 @@
 #include "privs.h"
 #include "queue.h"
 #include "filter.h"
+#include "frr_pthread.h"
 
-#include "bgpd/bgpd.h"
+#include "bgpd/bgpd.c"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_attr.h"
 #include "bgpd/bgp_packet.h"
@@ -1271,6 +1272,9 @@ static int handle_attr_test(struct aspath_tests *t)
 	int initfail = failed;
 	struct aspath *asp;
 	size_t datalen;
+
+	bgp_pthreads_init();
+	frr_pthread_get(PTHREAD_KEEPALIVES)->running = true;
 
 	asp = make_aspath(t->segment->asdata, t->segment->len, 0);
 
