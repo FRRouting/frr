@@ -123,7 +123,7 @@ static int kernel_rtm_ipv4(int cmd, struct prefix *p, struct route_entry *re)
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
 	/* Make gateway. */
-	for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
+	for (ALL_NEXTHOPS(re->ng, nexthop)) {
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 			continue;
 
@@ -303,7 +303,7 @@ static int kernel_rtm_ipv6(int cmd, struct prefix *p, struct route_entry *re)
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
 	/* Make gateway. */
-	for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
+	for (ALL_NEXTHOPS(re->ng, nexthop)) {
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 			continue;
 

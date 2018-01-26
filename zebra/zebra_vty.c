@@ -743,7 +743,7 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				tm->tm_hour);
 		vty_out(vty, " ago\n");
 
-		for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
+		for (ALL_NEXTHOPS(re->ng, nexthop)) {
 			char addrstr[32];
 
 			vty_out(vty, "  %c%s",
@@ -922,7 +922,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 
 		json_object_string_add(json_route, "uptime", buf);
 
-		for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
+		for (ALL_NEXTHOPS(re->ng, nexthop)) {
 			json_nexthop = json_object_new_object();
 
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
@@ -1088,8 +1088,8 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	}
 
 	/* Nexthop information. */
-	for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
-		if (nexthop == re->nexthop) {
+	for (ALL_NEXTHOPS(re->ng, nexthop)) {
+		if (nexthop == re->ng.nexthop) {
 			/* Prefix information. */
 			len = vty_out(vty, "%c", zebra_route_char(re->type));
 			if (re->instance)
@@ -1842,7 +1842,7 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 			 * In case of ECMP, count only once.
 			 */
 			cnt = 0;
-			for (nexthop = re->nexthop; (!cnt && nexthop);
+			for (nexthop = re->ng.nexthop; (!cnt && nexthop);
 			     nexthop = nexthop->next) {
 				cnt++;
 				rib_cnt[ZEBRA_ROUTE_TOTAL]++;
