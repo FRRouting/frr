@@ -475,12 +475,15 @@ DEFPY(ip_route_address_interface,
 		ifname = NULL;
 	}
 
-	nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
-	if (!nh_zvrf) {
-		vty_out(vty, "%% nexthop vrf %s is not defined\n",
-			nexthop_vrf);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	if (nexthop_vrf) {
+		nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+		if (!nh_zvrf) {
+			vty_out(vty, "%% nexthop vrf %s is not defined\n",
+				nexthop_vrf);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else
+		nh_zvrf = zebra_vrf_lookup_by_name(vrf);
 
 	zvrf = zebra_vrf_lookup_by_name(vrf);
 	if (!nh_zvrf) {
@@ -579,12 +582,15 @@ DEFPY(ip_route,
 		ifname = NULL;
 	}
 
-	nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
-	if (!nh_zvrf) {
-		vty_out(vty, "%% nexthop vrf %s is not defined\n",
-			nexthop_vrf);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
+	if (nexthop_vrf) {
+		nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+		if (!nh_zvrf) {
+			vty_out(vty, "%% nexthop vrf %s is not defined\n",
+				nexthop_vrf);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else
+		nh_zvrf = zebra_vrf_lookup_by_name(vrf);
 
 	zvrf = zebra_vrf_lookup_by_name(vrf);
 	if (!nh_zvrf) {
