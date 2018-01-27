@@ -43,15 +43,18 @@ from mininet.topo import Topo
 customize = None
 
 class LTemplate():
-    scriptdir = None
     test = None
     testdir = None
+    scriptdir = None
+    logdir = None
 
     def __init__(self, test, testdir):
         global customize
         customize = imp.load_source('customize', os.path.join(testdir, 'customize.py'))
         self.test = test
         self.testdir = testdir
+        self.scriptdir = testdir
+        self.logdir = '/tmp/topotests/{0}.test_{0}'.format(test)
         logger.info('LTemplate: '+test)
 
     def setup_module(self, mod):
@@ -95,6 +98,7 @@ class LTemplate():
         except NameError:
             #not defined
             logger.debug("ltemplatePostRouterStartHook() not defined")
+        luStart(baseScriptDir=self.scriptdir, baseLogDir=self.logdir, net=tgen.net)
 
 #initialized by ltemplate_start
 _lt = None
@@ -122,19 +126,16 @@ def setup_module(mod):
     #sys.path.remove(testdir)
 
 def teardown_module(mod):
+    global _lt
     "Teardown the pytest environment"
     tgen = get_topogen()
 
+    if _lt != None and _lt.scriptdir != None:
+        print(luFinish())
+
     # This function tears down the whole topology.
     tgen.stop_topology()
-
-def ltemplate_start(testDir):
-    logger.info('ltemplate start in ' + testDir)
-    test = os.path.basename(testDir)
-    logDir = '/tmp/topotests/{0}.test_{0}'.format(test)
-    tgen = get_topogen()
-    luStart(baseScriptDir=testDir, baseLogDir=logDir, net=tgen.net)
-    _lt.scriptdir = testDir
+    _lt = None
 
 def ltemplateTest(script, SkipIfFailed=True, CallOnFail=None, CheckFuncStr=None):
     tgen = get_topogen()
@@ -172,16 +173,6 @@ def test_memory_leak():
         pytest.skip('Memory leak test/report is disabled')
 
     tgen.report_memory_leaks()
-
-#clean up ltemplate
-
-def test_ltemplate_finish():
-    global _lt
-    logger.info('Done with ltemplate tests')
-    if _lt != None and _lt.scriptdir != None:
-        print(luFinish())
-    #done
-    _lt = None
 
 #for testing
 if __name__ == '__main__':
