@@ -186,9 +186,15 @@ def test_ospf_convergence():
     router = tgen.gears['r1']
     output = router.vtysh_cmd("show ip ospf neighbor json", isjson=True)
 
-    if isinstance(output["2.2.2.2"], dict):
-        reffile = "show_ip_ospf_neighbor.ref-old-nolist"
-    else:
+    # We could have either old format (without "neighbors" and direct list
+    # of IP's or new format from PR1659 with "neighbors".
+    # Trying old formats first and fall back to new format
+    try:
+        if isinstance(output["2.2.2.2"], dict):
+            reffile = "show_ip_ospf_neighbor.ref-old-nolist"
+        else:
+            reffile = "show_ip_ospf_neighbor.ref-no-neigh"
+    except:
         reffile = "show_ip_ospf_neighbor.ref"
 
     for rname in ['r1', 'r2', 'r3']:
