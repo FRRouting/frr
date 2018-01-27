@@ -29,10 +29,6 @@ sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..'))
 
 from lib.ltemplate import *
 
-def test_ltemplate_start():
-    cwd = os.path.dirname(os.path.realpath(__file__))
-    ltemplate_start(cwd)
-
 def test_adjacencies():
     CliOnFail = None
     # For debugging, uncomment the next line
