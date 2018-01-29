@@ -66,6 +66,7 @@
 #include "zebra/kernel_netlink.h"
 #include "zebra/if_netlink.h"
 
+extern struct zebra_privs_t zserv_privs;
 
 /* Note: on netlink systems, there should be a 1-to-1 mapping between interface
    names and ifindex values. */
@@ -344,12 +345,14 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 	}
 }
 
-static int get_iflink_speed(const char *ifname)
+static int get_iflink_speed(struct interface *interface)
 {
 	struct ifreq ifdata;
 	struct ethtool_cmd ecmd;
 	int sd;
 	int rc;
+	int ret, saved_errno;
+	const char *ifname = interface->name;
 
 	/* initialize struct */
 	memset(&ifdata, 0, sizeof(ifdata));
@@ -363,16 +366,29 @@ static int get_iflink_speed(const char *ifname)
 	ifdata.ifr_data = (__caddr_t)&ecmd;
 
 	/* use ioctl to get IP address of an interface */
-	sd = socket(PF_INET, SOCK_DGRAM, IPPROTO_IP);
+	if (zserv_privs.change(ZPRIVS_RAISE))
+		zlog_err("Can't raise privileges");
+	sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP, interface->vrf_id);
 	if (sd < 0) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("Failure to read interface %s speed: %d %s",
 				   ifname, errno, safe_strerror(errno));
 		return 0;
 	}
-
 	/* Get the current link state for the interface */
+	ret = vrf_switch_to_netns(interface->vrf_id);
+	if (ret < 0)
+		zlog_err("%s: Can't switch to VRF %u (%s)",
+			 __func__, interface->vrf_id, safe_strerror(errno));
 	rc = ioctl(sd, SIOCETHTOOL, (char *)&ifdata);
+	saved_errno = errno;
+	ret = vrf_switchback_to_initial();
+	if (ret < 0)
+		zlog_err("%s: Can't switchback from VRF %u (%s)",
+			 __func__, interface->vrf_id, safe_strerror(errno));
+	errno = saved_errno;
+	if (zserv_privs.change(ZPRIVS_LOWER))
+		zlog_err("Can't lower privileges");
 	if (rc < 0) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
@@ -389,7 +405,7 @@ static int get_iflink_speed(const char *ifname)
 
 uint32_t kernel_get_speed(struct interface *ifp)
 {
-	return get_iflink_speed(ifp->name);
+	return get_iflink_speed(ifp);
 }
 
 static int netlink_extract_bridge_info(struct rtattr *link_data,
@@ -647,7 +663,7 @@ static int netlink_interface(struct sockaddr_nl *snl, struct nlmsghdr *h,
 		SET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
 	ifp->mtu6 = ifp->mtu = *(uint32_t *)RTA_DATA(tb[IFLA_MTU]);
 	ifp->metric = 0;
-	ifp->speed = get_iflink_speed(name);
+	ifp->speed = get_iflink_speed(ifp);
 	ifp->ptm_status = ZEBRA_PTM_STATUS_UNKNOWN;
 
 	if (desc)
