@@ -1,11 +1,12 @@
+.. _packet-binary-dump-format:
+
 Packet Binary Dump Format
 =========================
 
 Packet Binary Dump Format
 -------------------------
 
-FRR can dump routing protocol packet into file with a binary format
-(@pxref{Dump BGP packets and table}).
+FRR can dump routing protocol packet into file with a binary format.
 
 It seems to be better that we share the MRT's header format for
 backward compatibility with MRT's dump logs. We should also define the

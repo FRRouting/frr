@@ -4,16 +4,16 @@
 RIPng
 *****
 
-*ripngd* supports the RIPng protocol as described in RFC2080.  It's an
-IPv6 reincarnation of the RIP protocol.
+*ripngd* supports the RIPng protocol as described in :rfc:`2080`. It's an IPv6
+reincarnation of the RIP protocol.
 
 .. _Invoking_ripngd:
 
 Invoking ripngd
 ===============
 
-There are no `ripngd` specific invocation options.  Common options
-can be specified (:ref:`Common_Invocation_Options`).
+There are no `ripngd` specific invocation options. Common options can be
+specified (:ref:`Common_Invocation_Options`).
 
 .. _ripngd_Configuration:
 
@@ -22,72 +22,68 @@ ripngd Configuration
 
 Currently ripngd supports the following commands:
 
-.. index:: Command {router ripng} {}
+.. index:: router ripng
+.. clicmd:: router ripng
 
-Command {router ripng} {}
-  Enable RIPng.
+   Enable RIPng.
 
-.. index:: {RIPng Command} {flush_timer `time`} {}
+.. index:: flush_timer TIME
+.. clicmd:: flush_timer TIME
 
-{RIPng Command} {flush_timer `time`} {}
-  Set flush timer.
+   Set flush timer.
 
-.. index:: {RIPng Command} {network `network`} {}
+.. index:: network NETWORK
+.. clicmd:: network NETWORK
 
-{RIPng Command} {network `network`} {}
-  Set RIPng enabled interface by `network`
+   Set RIPng enabled interface by NETWORK.
 
-.. index:: {RIPng Command} {network `ifname`} {}
+.. index:: network IFNAME
+.. clicmd:: network IFNAME
 
-{RIPng Command} {network `ifname`} {}
-  Set RIPng enabled interface by `ifname`
+   Set RIPng enabled interface by IFNAME.
 
-.. index:: {RIPng Command} {route `network`} {}
+.. index:: route NETWORK
+.. clicmd:: route NETWORK
 
-{RIPng Command} {route `network`} {}
-  Set RIPng static routing announcement of `network`.
+   Set RIPng static routing announcement of NETWORK.
 
-.. index:: Command {router zebra} {}
+.. index:: router zebra
+.. clicmd:: router zebra
 
-Command {router zebra} {}
-  This command is the default and does not appear in the configuration.
-  With this statement, RIPng routes go to the *zebra* daemon.
+   This command is the default and does not appear in the configuration. With
+   this statement, RIPng routes go to the *zebra* daemon.
 
 .. _ripngd_Terminal_Mode_Commands:
 
 ripngd Terminal Mode Commands
 =============================
 
-.. index:: Command {show ip ripng} {}
+.. index:: show ip ripng
+.. clicmd:: show ip ripng
 
-Command {show ip ripng} {}
+.. index:: show debugging ripng
+.. clicmd:: show debugging ripng
 
-.. index:: Command {show debugging ripng} {}
+.. index:: debug ripng events
+.. clicmd:: debug ripng events
 
-Command {show debugging ripng} {}
-.. index:: Command {debug ripng events} {}
+.. index:: debug ripng packet
+.. clicmd:: debug ripng packet
 
-Command {debug ripng events} {}
-.. index:: Command {debug ripng packet} {}
+.. index:: debug ripng zebra
+.. clicmd:: debug ripng zebra
 
-Command {debug ripng packet} {}
-.. index:: Command {debug ripng zebra} {}
-
-Command {debug ripng zebra} {}
 
 ripngd Filtering Commands
 =========================
 
-.. index:: Command {distribute-list `access_list` (in|out) `ifname`} {}
+.. index:: distribute-list ACCESS_LIST (in|out) IFNAME
+.. clicmd:: distribute-list ACCESS_LIST (in|out) IFNAME
 
-Command {distribute-list `access_list` (in|out) `ifname`} {}
-  You can apply an access-list to the interface using the
-  `distribute-list` command.  `access_list` is an access-list
-  name.  `direct` is ``in`` or ``out``.  If `direct` is
-  ``in``, the access-list is applied only to incoming packets.
+   You can apply an access-list to the interface using the `distribute-list`
+   command. ACCESS_LIST is an access-list name. `direct` is ``in`` or
+   ``out``. If `direct` is ``in``, the access-list is applied only to incoming
+   packets.::
 
-::
-
-    distribute-list local-only out sit1
-
+      distribute-list local-only out sit1
 

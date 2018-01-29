@@ -156,6 +156,9 @@ customize the build to include or exclude specific features and dependencies.
 
    Build without SNMP support.
 
+.. option:: --disable-vtysh
+
+   Build without VTYSH.
 
 You may specify any combination of the above options to the configure
 script. By default, the executables are placed in :file:`/usr/local/sbin`

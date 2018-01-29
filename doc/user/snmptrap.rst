@@ -1,18 +1,18 @@
 Handling SNMP Traps
 ===================
 
-To handle snmp traps make sure your snmp setup of frr works
-correctly as described in the frr documentation in :ref:`SNMP_Support`.
+To handle snmp traps make sure your snmp setup of frr works correctly as
+described in the frr documentation in :ref:`SNMP_Support`.
 
-The BGP4 mib will send traps on peer up/down events. These should be
-visible in your snmp logs with a message similar to:
+The BGP4 mib will send traps on peer up/down events. These should be visible in
+your snmp logs with a message similar to:
 
 ::
 
    snmpd[13733]: Got trap from peer on fd 14
 
-To react on these traps they should be handled by a trapsink. Configure
-your trapsink by adding the following lines to :file:`/etc/snmpd/snmpd.conf`:
+To react on these traps they should be handled by a trapsink. Configure your
+trapsink by adding the following lines to :file:`/etc/snmpd/snmpd.conf`:
 
 ::
 
@@ -20,9 +20,9 @@ your trapsink by adding the following lines to :file:`/etc/snmpd/snmpd.conf`:
    trapsink localhost
 
 
-This will send all traps to an snmptrapd running on localhost. You can
-of course also use a dedicated management station to catch traps.
-Configure the snmptrapd daemon by adding the following line to
+This will send all traps to an snmptrapd running on localhost. You can of
+course also use a dedicated management station to catch traps. Configure the
+snmptrapd daemon by adding the following line to
 :file:`/etc/snmpd/snmptrapd.conf`:
 
 ::
@@ -32,15 +32,15 @@ Configure the snmptrapd daemon by adding the following line to
 
 This will use the bash script :file:`/etc/snmp/snmptrap_handle.sh` to handle
 the BGP4 traps. To add traps for other protocol daemons, lookup their
-appropriate OID from their mib. (For additional information about which
-traps are supported by your mib, lookup the mib on
+appropriate OID from their mib. (For additional information about which traps
+are supported by your mib, lookup the mib on
 `http://www.oidview.com/mibs/detail.html <http://www.oidview.com/mibs/detail.html>`_).
 
-Make sure snmptrapd is started.
+Make sure *snmptrapd* is started.
 
-The snmptrap_handle.sh script I personally use for handling BGP4 traps
-is below. You can of course do all sorts of things when handling traps,
-like sound a siren, have your display flash, etc., be creative ;).
+The snmptrap_handle.sh script I personally use for handling BGP4 traps is
+below. You can of course do all sorts of things when handling traps, like sound
+a siren, have your display flash, etc., be creative ;).
 
 ::
 

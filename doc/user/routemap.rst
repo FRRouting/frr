@@ -269,6 +269,6 @@ A simple example of a route-map:
 This means that if a route matches ip access-list number 10 it's
 local-preference value is set to 200.
 
-See :ref:`BGP_Configuration_Examples` for examples of more sophisticated
+See :ref:`bgp-configuration-examples` for examples of more sophisticated
 useage of route-maps, including of the ``call`` action.
 

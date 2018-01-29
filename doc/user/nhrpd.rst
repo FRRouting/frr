@@ -4,18 +4,17 @@
 NHRP
 ****
 
-*nhrpd* is a daemon to support Next Hop Routing Protocol (NHRP).
-NHRP is described in RFC2332.
+*nhrpd* is an implementation of the :abbr:NHRP `(Next Hop Routing Protocol)`.
+NHRP is described in :rfc`2332`.
 
-NHRP is used to improve the efficiency of routing computer network
-traffic over Non-Broadcast, Multiple Access (NBMA) Networks. NHRP provides
-an ARP-like solution that allows a system to dynamically learn the NBMA
-address of the other systems that are part of that network, allowing
-these systems to directly communicate without requiring traffic to use
-an intermediate hop.
+NHRP is used to improve the efficiency of routing computer network traffic over
+:abbr:`NBMA (Non-Broadcast, Multiple Access)` networks. NHRP provides an
+ARP-like solution that allows a system to dynamically learn the NBMA address of
+the other systems that are part of that network, allowing these systems to
+directly communicate without requiring traffic to use an intermediate hop.
 
-Cisco Dynamic Multipoint VPN (DMVPN) is based on NHRP, and
-|PACKAGE_NAME| nhrpd implements this scenario.
+Cisco Dynamic Multipoint VPN (DMVPN) is based on NHRP, and |PACKAGE_NAME| nhrpd
+implements this scenario.
 
 .. _Routing_Design:
 
@@ -31,9 +30,8 @@ nhrpd does route NHRP domain addresses individually using per-host prefixes.
 This is similar to Cisco FlexVPN; but in contrast to opennhrp which uses
 a generic subnet route.
 
-To create NBMA GRE tunnel you might use the following (linux terminal
-commands):
-::
+To create NBMA GRE tunnel you might use the following (Linux terminal
+commands):::
 
    ip tunnel add gre1 mode gre key 42 ttl 64
    ip addr add 10.255.255.2/32 dev gre1
@@ -54,8 +52,7 @@ hub nodes, these routes should be internally redistributed using some
 routing protocol (e.g. iBGP) to allow hubs to be able to relay all traffic.
 
 This can be achieved in hubs with the following bgp configuration (network
-command defines the GRE subnet):
-::
+command defines the GRE subnet):::
 
   router bgp 65555
    address-family ipv4 unicast
@@ -98,19 +95,15 @@ announce internal, add additional IP range matches, or rate limitation
 if needed. However, the above should be good in most cases.
 
 This kernel NFLOG target's nflog-group is configured in global nhrp config
-with:
-::
+with:::
 
   nhrp nflog-group 1
 
-
 To start sending these traffic notices out from hubs, use the nhrp
-per-interface directive:
-::
+per-interface directive:::
 
   interface gre1
    ip nhrp redirect
-
 
 .. _Integration_with_IKE:
 
