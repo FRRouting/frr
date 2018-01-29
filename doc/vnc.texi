@@ -1010,7 +1010,7 @@ router bgp 64512
     neighbor 192.168.1.101  remote-as 64512
     neighbor 192.168.1.102  remote-as 64512
 
-    address-family vpnv4
+    address-family ipv4 vpn
         neighbor 192.168.1.101 activate
         neighbor 192.168.1.102 activate
     exit-address-family
@@ -1043,7 +1043,7 @@ router bgp 64512
     neighbor 192.168.1.100  remote-as 64512
     neighbor 192.168.1.102  remote-as 64512
 
-    address-family vpnv4
+    address-family ipv4 vpn
         neighbor 192.168.1.100 activate
         neighbor 192.168.1.102 activate
     exit-address-family
@@ -1066,7 +1066,7 @@ router bgp 64512
     neighbor 192.168.1.101  remote-as 64512
     neighbor 192.168.1.102  remote-as 64512
 
-    address-family vpnv4
+    address-family ipv4 vpn
         neighbor 192.168.1.100 activate
         neighbor 192.168.1.101 activate
     exit-address-family
@@ -1131,7 +1131,7 @@ router bgp 64512
   neighbor 172.16.2.2 route-reflector-client
  exit-address-family
  !
- address-family vpnv4 unicast
+ address-family ipv4 vpn
    neighbor 192.168.1.102 activate
    neighbor 192.168.1.103 activate
    neighbor 192.168.1.104 activate
@@ -1161,7 +1161,7 @@ router bgp 64512
   no neighbor 192.168.1.103 activate
  exit-address-family
  !
- address-family vpnv4 unicast
+ address-family ipv4 vpn
    neighbor 192.168.1.101 activate
    neighbor 192.168.1.102 activate
    neighbor 192.168.1.103 activate
@@ -1250,7 +1250,7 @@ router bgp 64512
         neighbor 192.168.1.102 route-reflector-client
     exit-address-family
 
-    address-family vpnv4
+    address-family ipv4 vpn
         neighbor 192.168.1.101 activate
         neighbor 192.168.1.102 activate
 
@@ -1269,7 +1269,7 @@ router bgp 64512
 
     neighbor 192.168.1.100  remote-as 64512
 
-    address-family vpnv4
+    address-family ipv4 vpn
         neighbor 192.168.1.100 activate
     exit-address-family
 
@@ -1290,7 +1290,7 @@ router bgp 64512
 
     neighbor 192.168.1.100  remote-as 64512
 
-    address-family vpnv4
+    address-family ipv4 vpn
         neighbor 192.168.1.100 activate
     exit-address-family
 
@@ -1381,7 +1381,7 @@ router bgp 64512
 
     neighbor 192.168.1.100  remote-as 64512
 
-    address-family vpnv4
+    address-family ipv4 vpn
         neighbor 192.168.1.100 activate
     exit-address-family
 
@@ -1402,7 +1402,7 @@ router bgp 64512
 
     neighbor 192.168.1.100  remote-as 64512
 
-    address-family vpnv4
+    address-family ipv4 vpn
         neighbor 192.168.1.100 activate
     exit-address-family
 
@@ -1450,7 +1450,7 @@ router bgp 64512
     neighbor 192.168.1.102 description iBGP-client-192-168-1-102
     neighbor 192.168.1.102 route-reflector-client
 
-    address-family vpnv4
+    address-family ipv4 vpn
 	neighbor 192.168.1.101 activate
 	neighbor 192.168.1.102 activate
 	neighbor 192.168.1.104 activate
@@ -1470,7 +1470,7 @@ router bgp 64512
     neighbor 192.168.1.100  remote-as 64512
     neighbor 192.168.1.104  remote-as 64512
 
-    address-family vpnv4
+    address-family ipv4 vpn
         neighbor 192.168.1.100 activate
         neighbor 192.168.1.104 activate
     exit-address-family
@@ -1493,7 +1493,7 @@ router bgp 64512
     neighbor 192.168.1.100  remote-as 64512
     neighbor 192.168.1.104  remote-as 64512
 
-    address-family vpnv4
+    address-family ipv4 vpn
         neighbor 192.168.1.100 activate
         neighbor 192.168.1.104 activate
     exit-address-family

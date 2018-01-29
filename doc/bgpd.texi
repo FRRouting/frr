@@ -826,8 +826,8 @@ Identifiers (SAFI).  In addition to unicast information, VPN information
 @cite{RFC4364} and @cite{RFC4659}, and Encapsulation information
 @cite{RFC5512} is supported.
 
-@deffn {Command} {show ip bgp vpnv4 all} {}
-@deffnx {Command} {show ipv6 bgp vpn all} {}
+@deffn {Command} {show ip bgp ipv4 vpn} {}
+@deffnx {Command} {show ipv6 bgp ipv6 vpn} {}
 Print active IPV4 or IPV6 routes advertised via the VPN SAFI.
 @end deffn
 
