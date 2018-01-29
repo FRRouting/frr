@@ -210,6 +210,9 @@ void if_delete(struct interface *ifp)
 
 	if_link_params_free(ifp);
 
+	if (ifp->desc)
+		XFREE(MTYPE_TMP, ifp->desc);
+
 	XFREE(MTYPE_IF, ifp);
 }
 

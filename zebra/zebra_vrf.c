@@ -456,6 +456,7 @@ struct route_table *zebra_vrf_other_route_table(afi_t afi, u_int32_t table_id,
 			info->afi = afi;
 			info->safi = SAFI_UNICAST;
 			table->info = info;
+			table->cleanup = zebra_rtable_node_cleanup;
 			zvrf->other_table[afi][table_id] = table;
 		}
 
