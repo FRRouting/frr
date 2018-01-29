@@ -22,8 +22,8 @@ BGP, with IP VPNs and Tunnel Encapsulation, is used to distribute VN
 information between NVAs. BGP based IP VPN support is defined in
 @cite{RFC4364, BGP/MPLS IP Virtual Private Networks (VPNs)}, and
 @cite{RFC4659, BGP-MPLS IP Virtual Private Network (VPN) Extension for
-IPv6 VPN }.  Both the Encapsulation Subsequent Address Family Identifier
-(SAFI) and the Tunnel Encapsulation Attribute, @cite{RFC5512, The BGP
+IPv6 VPN }.  Encapsulation information is provided via
+the Tunnel Encapsulation Attribute, @cite{RFC5512, The BGP
 Encapsulation Subsequent Address Family Identifier (SAFI) and the BGP
 Tunnel Encapsulation Attribute}, are supported.
 
@@ -83,12 +83,10 @@ operating within a VN.
 @node General VNC Configuration
 @subsection General VNC Configuration
 
-@deffn {VNC} {vnc advertise-un-method encap-safi|encap-attr} {}
-Advertise NVE underlay-network IP addresses using the encapsulation SAFI
-(@code{encap-safi}) or the UN address sub-TLV of the Tunnel Encapsulation attribute
-(@code{encap-attr}). When @code{encap-safi} is used, neighbors under 
-@code{address-family encap} and/or @code{address-family encapv6} must be
-configured.  The default is @code{encap-attr}. 
+@deffn {VNC} {vnc advertise-un-method encap-attr} {}
+Advertise NVE underlay-network IP addresses using
+the UN address sub-TLV of the Tunnel Encapsulation attribute
+(@code{encap-attr}). The default is @code{encap-attr}. 
 @end deffn
 
 @node RFP Related Configuration
@@ -356,8 +354,7 @@ by receiving NVAs.
 The second form, @code{rt import} specifies an @var{import rt-list},
 which is a filter for incoming routes.
 In order to be made available to NVEs in the group,
-incoming BGP VPN and @w{ENCAP} @w{SAFI} (when @code{vnc
-advertise-un-method encap-safi} is set) routes must have
+incoming BGP VPN @w{SAFI} routes must have
 RT lists that have at least one route target in common with the
 group's @var{import rt-list}.
 
