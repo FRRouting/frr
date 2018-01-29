@@ -55,7 +55,6 @@ customize the build to include or exclude specific features and dependencies.
 
 .. option:: --disable-zebra
 
-
    Do not build zebra daemon.
 
 .. option:: --disable-ripd
@@ -118,7 +117,7 @@ customize the build to include or exclude specific features and dependencies.
 
    Enable Traffic Engineering Extension for ISIS (RFC5305)
 
-.. option:: --enable-multipath=`ARG`
+.. option:: --enable-multipath <ARG>
 
    Enable support for Equal Cost Multipath. `ARG` is the maximum number
    of ECMP paths to allow, set to 0 to allow unlimited number of paths.
@@ -129,9 +128,9 @@ customize the build to include or exclude specific features and dependencies.
 
 .. option:: --enable-gcc-rdynamic
 
-   Pass the *-rdynamic* option to the linker driver.  This is in most
-   cases neccessary for getting usable backtraces.  This option defaults to on
-   if the compiler is detected as gcc, but giving an explicit enable/disable is
+   Pass the ``-rdynamic`` option to the linker driver.  This is in most cases
+   neccessary for getting usable backtraces.  This option defaults to on if the
+   compiler is detected as gcc, but giving an explicit enable/disable is
    suggested.
 
 .. option:: --disable-backtrace
@@ -164,23 +163,23 @@ and the configuration files in :file:`/usr/local/etc`. The :file:`/usr/local/`
 installation prefix and other directories may be changed using the following
 options to the configuration script.
 
-.. option:: --prefix=`prefix`
+.. option:: --prefix <prefix>
 
    Install architecture-independent files in `prefix` [/usr/local].
 
-.. option:: --sysconfdir=`dir`
+.. option:: --sysconfdir <dir>
 
    Look for configuration files in `dir` [`prefix`/etc]. Note that sample
    configuration files will be installed here.
 
-.. option:: --localstatedir=`dir`
+.. option:: --localstatedir <dir>
 
-   Configure zebra to use `dir` for local state files, such
-   as pid files and unix sockets.
+   Configure zebra to use `dir` for local state files, such as pid files and
+   unix sockets.
 
 .. _Least-Privilege_support:
 
-Least-Privilege support
+Least-Privilege Support
 -----------------------
 
 .. index:: FRR Least-Privileges
@@ -192,23 +191,21 @@ shortly after startup and switch to another user. The configure script will
 automatically try to configure this support. There are three configure
 options to control the behaviour of FRR daemons.
 
-.. option:: --enable-user=`user`
+.. option:: --enable-user <user>
 
-   Switch to user `ARG` shortly after startup, and run as user `ARG`
-   in normal operation.
+   Switch to user `user shortly after startup, and run as user `user` in normal
+   operation.
 
-.. option:: --enable-group=`group`
+.. option:: --enable-group <user>
 
-   Switch real and effective group to `group` shortly after
-   startup.
+   Switch real and effective group to `group` shortly after startup.
 
-.. option:: --enable-vty-group=`group`
+.. option:: --enable-vty-group <group>
 
    Create Unix Vty sockets (for use with vtysh) with group owndership set to
-   `group`. This allows one to create a seperate group which is
-   restricted to accessing only the Vty sockets, hence allowing one to
-   delegate this group to individual users, or to run vtysh setgid to
-   this group.
+   `group`. This allows one to create a seperate group which is restricted to
+   accessing only the vty sockets, hence allowing one to delegate this group to
+   individual users, or to run vtysh setgid to this group.
 
 The default user and group which will be configured is 'frr' if no user or
 group is specified. Note that this user or group requires write access to the
@@ -257,14 +254,16 @@ make sure the following libraries have been installed.  Please note that
 these libraries will not be needed when you uses GNU C library 2.1
 or upper.
 
-*inet6-apps*
+- inet6-apps
+
   The `inet6-apps` package includes basic IPv6 related libraries such
   as `inet_ntop` and `inet_pton`.  Some basic IPv6 programs such
   as *ping*, *ftp*, and *inetd* are also
   included. The `inet-apps` can be found at
   `ftp://ftp.inner.net/pub/ipv6/ <ftp://ftp.inner.net/pub/ipv6/>`_.
 
-*net-tools*
+- net-tools
+
   The `net-tools` package provides an IPv6 enabled interface and routing
   utility.  It contains *ifconfig*, *route*, *netstat*, and other tools.
   `net-tools` may be found at http://www.tazenda.demon.co.uk/phil/net-tools/.

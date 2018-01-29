@@ -39,12 +39,10 @@ starting.
 
 Config files are generally found in |INSTALL_PREFIX_ETC|.
 
-Each of the daemons has its own
-config file. For example, zebra's default config file name is *zebra.conf*.
-
-The daemon name plus `.conf` is the default config file name. You
-can specify a config file using the :kbd:`-f` or :kbd:`--config-file`
-options when starting the daemon.
+Each of the daemons has its own config file. The daemon name plus ``.conf`` is
+the default config file name. For example, zebra's default config file name is
+:file:`zebra.conf`. You can specify a config file using the :option:`-f` or
+:option:`--config-file` options when starting the daemon.
 
 .. _Basic_Config_Commands:
 
@@ -71,8 +69,8 @@ Basic Config Commands
    Set enable password.
 
 .. index::
-    single: no log trap [LEVEL]
-    single: log trap LEVEL
+   single: no log trap [LEVEL]
+   single: log trap LEVEL
 
 .. clicmd:: [no] log trap LEVEL
 
@@ -85,8 +83,8 @@ Basic Config Commands
    existing logging destinations.
 
 .. index::
-    single: no log stdout [LEVEL]
-    single: log stdout [LEVEL]
+   single: no log stdout [LEVEL]
+   single: log stdout [LEVEL]
 
 .. clicmd:: [no] log stdout LEVEL
 
@@ -100,8 +98,8 @@ Basic Config Commands
    ``errors``.
 
 .. index::
-    single: no log file [FILENAME [LEVEL]]
-    single: log file FILENAME [LEVEL]
+   single: no log file [FILENAME [LEVEL]]
+   single: log file FILENAME [LEVEL]
 
 .. clicmd:: [no] log file [FILENAME [LEVEL]]
 
@@ -121,8 +119,8 @@ Basic Config Commands
    information.
 
 .. index::
-    single: no log syslog [LEVEL]
-    single: log syslog [LEVEL]
+   single: no log syslog [LEVEL]
+   single: log syslog [LEVEL]
 
 .. clicmd:: [no] log syslog [LEVEL]
 
@@ -132,8 +130,8 @@ Basic Config Commands
    be used. The ``no`` form of the command disables logging to syslog.
 
 .. index::
-    single: no log monitor [LEVEL]
-    single: log monitor [LEVEL]
+   single: no log monitor [LEVEL]
+   single: log monitor [LEVEL]
 
 .. clicmd:: [no] log monitor [LEVEL]
 
@@ -147,8 +145,8 @@ Basic Config Commands
    terminal monitors.
 
 .. index::
-    single: no log facility [FACILITY]
-    single: log facility [FACILITY]
+   single: no log facility [FACILITY]
+   single: log facility [FACILITY]
 
 .. clicmd:: [no] log facility [FACILITY]
 
@@ -157,8 +155,8 @@ Basic Config Commands
    the facility to the default ``daemon`` facility.
 
 .. index::
-    single: no log record-priority
-    single: log record-priority
+   single: no log record-priority
+   single: log record-priority
 
 .. clicmd:: [no] log record-priority
 
@@ -171,8 +169,8 @@ Basic Config Commands
    the facility and level in the messages emitted.
 
 .. index::
-    single: log timestamp precision (0-6)
-    single: [no] log timestamp precision (0-6)
+   single: log timestamp precision (0-6)
+   single: [no] log timestamp precision (0-6)
 
 .. clicmd:: [no] log timestamp precision [(0-6)]
 
@@ -298,59 +296,59 @@ Terminal Mode Commands
 
 .. clicmd:: write terminal
 
-  Displays the current configuration to the vty interface.
+   Displays the current configuration to the vty interface.
 
 .. index:: write file
 
 .. clicmd:: write file
 
-  Write current configuration to configuration file.
+   Write current configuration to configuration file.
 
 .. index:: configure terminal
 
 .. clicmd:: configure terminal
 
-  Change to configuration mode. This command is the first step to
-  configuration.
+   Change to configuration mode. This command is the first step to
+   configuration.
 
 .. index:: terminal length (0-512)
 
 .. clicmd:: terminal length (0-512)
 
-  Set terminal display length to ``(0-512)``. If length is 0, no
-  display control is performed.
+   Set terminal display length to ``(0-512)``. If length is 0, no
+   display control is performed.
 
 .. index:: who
 
 .. clicmd:: who
 
-  Show a list of currently connected vty sessions.
+   Show a list of currently connected vty sessions.
 
 .. index:: list
 
 .. clicmd:: list
 
-  List all available commands.
+   List all available commands.
 
 .. index:: show version
 
 .. clicmd:: show version
 
-  Show the current version of |PACKAGE_NAME| and its build host information.
+   Show the current version of |PACKAGE_NAME| and its build host information.
 
 .. index:: show logging
 
 .. clicmd:: show logging
 
-  Shows the current configuration of the logging system. This includes
-  the status of all logging destinations.
+   Shows the current configuration of the logging system. This includes
+   the status of all logging destinations.
 
 .. index:: logmsg LEVEL MESSAGE
 
 .. clicmd:: logmsg LEVEL MESSAGE
 
-  Send a message to all logging destinations that are enabled for messages
-  of the given severity.
+   Send a message to all logging destinations that are enabled for messages
+   of the given severity.
 
 .. _Common_Invocation_Options:
 
@@ -360,56 +358,55 @@ Common Invocation Options
 These options apply to all |PACKAGE_NAME| daemons.
 
 
-.. clicmd:: -d, --daemon
+.. option:: -d
+.. option:: --daemon
 
-  Runs in daemon mode.
+   Run in daemon mode.
 
+.. option:: -f <file>
+.. option:: --config-file <file>
 
-.. clicmd:: -f file, --config_file=FILE
+   Set configuration file name.
 
-  Set configuration file name.
+.. option:: -h, --help
 
+   Display this help and exit.
 
-.. clicmd:: -h, --help
+.. option:: -i <file>
+.. option:: --pid-file <file>
 
-  Display this help and exit.
+   Upon startup the process identifier of the daemon is written to a file,
+   typically in :file:`/var/run`. This file can be used by the init system
+   to implement commands such as ``.../init.d/zebra status``,
+   ``.../init.d/zebra restart`` or ``.../init.d/zebra stop``.
 
+   The file name is an run-time option rather than a configure-time option
+   so that multiple routing daemons can be run simultaneously. This is
+   useful when using |PACKAGE_NAME| to implement a routing looking glass. One
+   machine can be used to collect differing routing views from differing
+   points in the network.
 
-.. clicmd:: -i file, --pid_file=file
+.. option:: -A <address>
+.. option:: --vty-addr <address>
 
-  Upon startup the process identifier of the daemon is written to a file,
-  typically in :file:`/var/run`. This file can be used by the init system
-  to implement commands such as ``.../init.d/zebra status``,
-  ``.../init.d/zebra restart`` or ``.../init.d/zebra stop``.
+   Set the VTY local address to bind to. If set, the VTY socket will only
+   be bound to this address.
 
-  The file name is an run-time option rather than a configure-time option
-  so that multiple routing daemons can be run simultaneously. This is
-  useful when using |PACKAGE_NAME| to implement a routing looking glass. One
-  machine can be used to collect differing routing views from differing
-  points in the network.
+.. option:: -P <port>
+.. option:: --vty-port <port>
 
+   Set the VTY TCP port number. If set to 0 then the TCP VTY sockets will not
+   be opened.
 
-.. clicmd:: -A address, --vty_addr=address
+.. option:: -u <user>
+.. option:: --vty_addr <user>
 
-  Set the VTY local address to bind to. If set, the VTY socket will only
-  be bound to this address.
+   Set the user and group to run as.
 
+.. option:: -v
+.. option:: --version
 
-.. clicmd:: -P port, --vty_port=port
-
-  Set the VTY TCP port number. If set to 0 then the TCP VTY sockets will not
-  be opened.
-
-
-.. clicmd:: -u user, --vty_addr=user
-
-  Set the user and group to run as.
-
-
-.. clicmd:: -v, --version
-
-  Print program version.
-
+   Print program version.
 
 .. _Loadable_Module_Support:
 
@@ -421,17 +418,18 @@ unloading modules at runtime is not supported (yet). To load a module, use
 the following command line option at daemon startup:
 
 
-.. clicmd:: -M module:options, --module module:options
+.. option:: -M <module:options>
+.. option:: --module <module:options>
 
-  Load the specified module, optionally passing options to it. If the module
-  name contains a slash (/), it is assumed to be a full pathname to a file to
-  be loaded. If it does not contain a slash, the
-  `INSTALL_PREFIX_MODULES` directory is searched for a module of
-  the given name; first with the daemon name prepended (e.g. ``zebra_mod``
-  for ``mod``), then without the daemon name prepended.
+   Load the specified module, optionally passing options to it. If the module
+   name contains a slash (/), it is assumed to be a full pathname to a file to
+   be loaded. If it does not contain a slash, the |INSTALL_PREFIX_MODULES|
+   directory is searched for a module of the given name; first with the daemon
+   name prepended (e.g. ``zebra_mod`` for ``mod``), then without the daemon
+   name prepended.
 
-  This option is available on all daemons, though some daemons may not have
-  any modules available to be loaded.
+   This option is available on all daemons, though some daemons may not have
+   any modules available to be loaded.
 
 The SNMP Module
 ---------------
@@ -446,15 +444,14 @@ for information on its usage.
 The FPM Module
 --------------
 
-If FPM is enabled during compile-time and installed as part of the package,
-the ``fpm`` module can be loaded for the *zebra* daemon. This
-provides the Forwarding Plane Manager ("FPM") API.
+If FPM is enabled during compile-time and installed as part of the package, the
+``fpm`` module can be loaded for the *zebra* daemon. This provides the
+Forwarding Plane Manager ("FPM") API.
 
-The module expects its argument to be either ``netlink`` or
-.. clicmd:: protobuf, specifying the encapsulation to use. `netlink` is the
-default, and `protobuf` may not be available if the module was built
-without protobuf support. Refer to :ref:`zebra_FIB_push_interface` for more
-information.
+The module expects its argument to be either ``netlink`` or ``protobuf``,
+specifying the encapsulation to use. ``netlink`` is the default, and
+``protobuf`` may not be available if the module was built without protobuf
+support. Refer to :ref:`zebra_FIB_push_interface` for more information.
 
 .. _Virtual_Terminal_Interfaces:
 
@@ -505,7 +502,7 @@ is no VTY password, one cannot connect to the VTY interface at all.
   Router#
 
 
-:kbd:`?` is very useful for looking up commands.
+:kbd:`?` and the ``find`` command are very useful for looking up commands.
 
 .. _VTY_Modes:
 
