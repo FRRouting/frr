@@ -1,211 +1,179 @@
 .. _Route_Map:
 
-*********
-Route Map
-*********
+**********
+Route Maps
+**********
 
-Route maps provide a means to both filter and/or apply actions to
-route, hence allowing policy to be applied to routes.
+Route maps provide a means to both filter and/or apply actions to route, hence
+allowing policy to be applied to routes.
 
-Route-maps are an ordered list of route-map entries. Each entry may
-specify up to four distincts sets of clauses:
+Route maps are an ordered list of route map entries. Each entry may specify up
+to four distincts sets of clauses:
 
+- :dfn:`Matching Policy`
 
-
-*Matching Policy*
-  This specifies the policy implied if the ``Matching Conditions`` are
+  This specifies the policy implied if the *Matching Conditions* are
   met or not met, and which actions of the route-map are to be taken, if
   any. The two possibilities are:
 
+  - :dfn:`permit`: If the entry matches, then carry out the :term:`Set
+    Actions`. Then finish processing the route-map, permitting the route,
+    unless an *Exit Action* indicates otherwise.
 
-**
-    ``permit``: If the entry matches, then carry out the @samp{Set
-    Actions}. Then finish processing the route-map, permitting the route,
-    unless an ``Exit Action`` indicates otherwise.
-
-
-**
-    ``deny``: If the entry matches, then finish processing the route-map and
+  - :dfn:`deny`: If the entry matches, then finish processing the route-map and
     deny the route (return ``deny``).
 
-  The ``Matching Policy`` is specified as part of the command which
-  defines the ordered entry in the route-map. See below.
+    The *Matching Policy* is specified as part of the command which
+    defines the ordered entry in the route-map. See below.
 
+- :dfn:`Matching Conditions`
 
-*Matching Conditions*
-  A route-map entry may, optionally, specify one or more conditions which
-  must be matched if the entry is to be considered further, as governed
-  by the Match Policy. If a route-map entry does not explicitely specify
-  any matching conditions, then it always matches.
+  A route-map entry may, optionally, specify one or more conditions which must
+  be matched if the entry is to be considered further, as governed by the Match
+  Policy. If a route-map entry does not explicitely specify any matching
+  conditions, then it always matches.
 
+- :dfn:`Set Actions`
 
-*Set Actions*
-  A route-map entry may, optionally, specify one or more @samp{Set
-  Actions} to set or modify attributes of the route.
+  A route-map entry may, optionally, specify one or more *Set Actions* to
+  set or modify attributes of the route.
 
+- :dfn:`Call Action`
 
-*Call Action*
-  Call to another route-map, after any ``Set Actions`` have been
-  carried out. If the route-map called returns ``deny`` then
-  processing of the route-map finishes and the route is denied,
-  regardless of the ``Matching Policy`` or the ``Exit Policy``. If
-  the called route-map returns ``permit``, then ``Matching Policy``
-  and ``Exit Policy`` govern further behaviour, as normal.
+  Call to another route-map, after any *Set Actions* have been carried out.
+  If the route-map called returns *deny* then processing of the route-map
+  finishes and the route is denied, regardless of the *Matching Policy* or
+  the *Exit Policy*. If the called route-map returns *permit*, then
+  *Matching Policy* and *Exit Policy* govern further behaviour, as normal.
 
+- :dfn:`Exit Policy`
 
-*Exit Policy*
-  An entry may, optionally, specify an alternative ``Exit Policy`` to
+  An entry may, optionally, specify an alternative *Exit Policy* to
   take if the entry matched, rather than the normal policy of exiting the
   route-map and permitting the route. The two possibilities are:
 
+  - :dfn:`next`: Continue on with processing of the route-map entries.
 
-**
-    ``next``: Continue on with processing of the route-map entries.
-
-
-**
-    ``goto N``: Jump ahead to the first route-map entry whose order in
+  - :dfn:`goto N`: Jump ahead to the first route-map entry whose order in
     the route-map is >= N. Jumping to a previous entry is not permitted.
 
-The default action of a route-map, if no entries match, is to deny.
-I.e. a route-map essentially has as its last entry an empty ``deny``
-entry, which matches all routes. To change this behaviour, one must
-specify an empty ``permit`` entry as the last entry in the route-map.
+The default action of a route-map, if no entries match, is to deny.  I.e. a
+route-map essentially has as its last entry an empty *deny* entry, which
+matches all routes. To change this behaviour, one must specify an empty
+*permit* entry as the last entry in the route-map.
 
 To summarise the above:
 
-@multitable {permit} {action} {No Match}
-@headitem           @tab Match  @tab No Match
-* *Permit* @tab action @tab cont
-* *Deny*   @tab deny   @tab cont
-@end multitable
++--------+--------+----------+
+|        | Match  | No Match |
++========+========+==========+
+| Permit | action | cont     |
++--------+--------+----------+
+| Deny   | deny   | cont     |
++--------+--------+----------+
 
+action
+   - Apply *set* statements
+   - If *call* is present, call given route-map. If that returns a ``deny``,
+     finish processing and return ``deny``.
+   - If *Exit Policy* is *next*, goto next route-map entry
+   - If *Exit Policy* is *goto*, goto first entry whose order in the
+     list is >= the given order.
+   - Finish processing the route-map and permit the route.
 
+deny
+   The route is denied by the route-map (return ``deny``).
 
-*action*
-
-**
-    Apply *set* statements
-
-
-**
-    If *call* is present, call given route-map. If that returns a ``deny``, finish
-    processing and return ``deny``.
-
-
-**
-    If ``Exit Policy`` is *next*, goto next route-map entry
-
-
-**
-    If ``Exit Policy`` is *goto*, goto first entry whose order in the list
-    is >= the given order.
-
-
-**
-    Finish processing the route-map and permit the route.
-
-
-*deny*
-
-**
-    The route is denied by the route-map (return ``deny``).
-
-
-*cont*
-
-**
-    goto next route-map entry
+cont
+   goto next route-map entry
 
 .. _Route_Map_Command:
 
 Route Map Command
 =================
 
-.. index:: {Command} {route-map `route-map-name` (permit|deny) `order`} {}
+.. index:: route-map ROUTE-MAP-NAME (permit|deny) ORDER
+.. clicmd:: route-map ROUTE-MAP-NAME (permit|deny) ORDER
 
-{Command} {route-map `route-map-name` (permit|deny) `order`} {}
-
-  Configure the `order`'th entry in `route-map-name` with
-  ``Match Policy`` of either *permit* or *deny*.
-
+   Configure the `order`'th entry in `route-map-name` with ``Match Policy`` of
+   either *permit* or *deny*.
 
 .. _Route_Map_Match_Command:
 
 Route Map Match Command
 =======================
 
-.. index:: {Route-map Command} {match ip address `access_list`} {}
+.. index:: match ip address ACCESS_LIST
+.. clicmd:: match ip address ACCESS_LIST
 
-{Route-map Command} {match ip address `access_list`} {}
-  Matches the specified `access_list`
+   Matches the specified `access_list`
 
-.. index:: {Route-map Command} {match ip address `prefix-list`} {}
+.. index:: match ip address PREFIX-LIST
+.. clicmd:: match ip address PREFIX-LIST
 
-{Route-map Command} {match ip address `prefix-list`} {}
-  Matches the specified `prefix-list`
+   Matches the specified `prefix-list`
 
-.. index:: {Route-map Command} {match ip address prefix-len `0-32`} {}
+.. index:: match ip address prefix-len 0-32
+.. clicmd:: match ip address prefix-len 0-32
 
-{Route-map Command} {match ip address prefix-len `0-32`} {}
-  Matches the specified `prefix-len`.  This is a Zebra specific command.
+   Matches the specified `prefix-len`. This is a Zebra specific command.
 
-.. index:: {Route-map Command} {match ipv6 address `access_list`} {}
+.. index:: match ipv6 address ACCESS_LIST
+.. clicmd:: match ipv6 address ACCESS_LIST
 
-{Route-map Command} {match ipv6 address `access_list`} {}
-  Matches the specified `access_list`
+   Matches the specified `access_list`
 
-.. index:: {Route-map Command} {match ipv6 address `prefix-list`} {}
+.. index:: match ipv6 address PREFIX-LIST
+.. clicmd:: match ipv6 address PREFIX-LIST
 
-{Route-map Command} {match ipv6 address `prefix-list`} {}
-  Matches the specified `prefix-list`
+   Matches the specified `prefix-list`
 
-.. index:: {Route-map Command} {match ipv6 address prefix-len `0-128`} {}
+.. index:: match ipv6 address prefix-len 0-128
+.. clicmd:: match ipv6 address prefix-len 0-128
 
-{Route-map Command} {match ipv6 address prefix-len `0-128`} {}
-  Matches the specified `prefix-len`.  This is a Zebra specific command.
+   Matches the specified `prefix-len`. This is a Zebra specific command.
 
-.. index:: {Route-map Command} {match ip next-hop `ipv4_addr`} {}
+.. index:: match ip next-hop IPV4_ADDR
+.. clicmd:: match ip next-hop IPV4_ADDR
 
-{Route-map Command} {match ip next-hop `ipv4_addr`} {}
-  Matches the specified `ipv4_addr`.
+   Matches the specified `ipv4_addr`.
 
-.. index:: {Route-map Command} {match aspath `as_path`} {}
+.. index:: match aspath AS_PATH
+.. clicmd:: match aspath AS_PATH
 
-{Route-map Command} {match aspath `as_path`} {}
-  Matches the specified `as_path`.
+   Matches the specified `as_path`.
 
-.. index:: {Route-map Command} {match metric `metric`} {}
+.. index:: match metric METRIC
+.. clicmd:: match metric METRIC
 
-{Route-map Command} {match metric `metric`} {}
-  Matches the specified `metric`.
+   Matches the specified `metric`.
 
-.. index:: {Route-map Command} {match local-preference `metric`} {}
+.. index:: match local-preference METRIC
+.. clicmd:: match local-preference METRIC
 
-{Route-map Command} {match local-preference `metric`} {}
-  Matches the specified `local-preference`.
+   Matches the specified `local-preference`.
 
-.. index:: {Route-map Command} {match community `community_list`} {}
+.. index:: match community COMMUNITY_LIST
+.. clicmd:: match community COMMUNITY_LIST
 
-{Route-map Command} {match community `community_list`} {}
-  Matches the specified  `community_list`
+   Matches the specified  `community_list`
 
-.. index:: {Route-map Command} {match peer `ipv4_addr`} {}
+.. index:: match peer IPV4_ADDR
+.. clicmd:: match peer IPV4_ADDR
 
-{Route-map Command} {match peer `ipv4_addr`} {}
-  This is a BGP specific match command.  Matches the peer ip address
-  if the neighbor was specified in this manner.
+   This is a BGP specific match command. Matches the peer ip address
+   if the neighbor was specified in this manner.
 
-.. index:: {Route-map Command} {match peer `ipv6_addr`} {}
+.. index:: match peer IPV6_ADDR
+.. clicmd:: match peer IPV6_ADDR
 
-{Route-map Command} {match peer `ipv6_addr`} {}
-  This is a BGP specific match command.  Matches the peer ipv6
-  address if the neighbor was specified in this manner.
+   This is a BGP specific match command. Matches the peer ipv6
+   address if the neighbor was specified in this manner.
 
-.. index:: {Route-map Command} {match peer `interface_name`} {}
+.. index:: match peer INTERFACE_NAME
+.. clicmd:: match peer INTERFACE_NAME
 
-{Route-map Command} {match peer `interface_name`} {}
-  This is a BGP specific match command.  Matches the peer
+  This is a BGP specific match command. Matches the peer
   interface name specified if the neighbor was specified
   in this manner.
 
@@ -214,79 +182,77 @@ Route Map Match Command
 Route Map Set Command
 =====================
 
-.. index:: {Route-map Command} {set ip next-hop `ipv4_address`} {}
+.. index:: set ip next-hop IPV4_ADDRESS
+.. clicmd:: set ip next-hop IPV4_ADDRESS
 
-{Route-map Command} {set ip next-hop `ipv4_address`} {}
-  Set the BGP nexthop address.
+   Set the BGP nexthop address.
 
-.. index:: {Route-map Command} {set local-preference `local_pref`} {}
+.. index:: set local-preference LOCAL_PREF
+.. clicmd:: set local-preference LOCAL_PREF
 
-{Route-map Command} {set local-preference `local_pref`} {}
-  Set the BGP local preference to `local_pref`.
+   Set the BGP local preference to `local_pref`.
 
-.. index:: {Route-map Command} {set weight `weight`} {}
+.. index:: set weight WEIGHT
+.. clicmd:: set weight WEIGHT
 
-{Route-map Command} {set weight `weight`} {}
-  Set the route's weight.
+   Set the route's weight.
 
-.. index:: {Route-map Command} {set metric `metric`} {}
+.. index:: set metric METRIC
+.. clicmd:: set metric METRIC
 
-{Route-map Command} {set metric `metric`} {}
-  .. _routemap_set_metric:
+   Set the BGP attribute MED.
 
-  Set the BGP attribute MED.
+.. index:: set as-path prepend AS_PATH
+.. clicmd:: set as-path prepend AS_PATH
 
-.. index:: {Route-map Command} {set as-path prepend `as_path`} {}
+   Set the BGP AS path to prepend.
 
-{Route-map Command} {set as-path prepend `as_path`} {}
-  Set the BGP AS path to prepend.
+.. index:: set community COMMUNITY
+.. clicmd:: set community COMMUNITY
 
-.. index:: {Route-map Command} {set community `community`} {}
+   Set the BGP community attribute.
 
-{Route-map Command} {set community `community`} {}
-  Set the BGP community attribute.
+.. index:: set ipv6 next-hop global IPV6_ADDRESS
+.. clicmd:: set ipv6 next-hop global IPV6_ADDRESS
 
-.. index:: {Route-map Command} {set ipv6 next-hop global `ipv6_address`} {}
+   Set the BGP-4+ global IPv6 nexthop address.
 
-{Route-map Command} {set ipv6 next-hop global `ipv6_address`} {}
-  Set the BGP-4+ global IPv6 nexthop address.
+.. index:: set ipv6 next-hop local IPV6_ADDRESS
+.. clicmd:: set ipv6 next-hop local IPV6_ADDRESS
 
-.. index:: {Route-map Command} {set ipv6 next-hop local `ipv6_address`} {}
-
-{Route-map Command} {set ipv6 next-hop local `ipv6_address`} {}
-  Set the BGP-4+ link local IPv6 nexthop address.
+   Set the BGP-4+ link local IPv6 nexthop address.
 
 .. _Route_Map_Call_Command:
 
 Route Map Call Command
 ======================
 
-.. index:: {Route-map Command} {call `name`} {}
+.. index:: call NAME
+.. clicmd:: call NAME
 
-{Route-map Command} {call `name`} {}
-  Call route-map `name`. If it returns deny, deny the route and
-  finish processing the route-map.
+   Call route-map `name`. If it returns deny, deny the route and
+   finish processing the route-map.
 
 .. _Route_Map_Exit_Action_Command:
 
 Route Map Exit Action Command
 =============================
 
-.. index:: {Route-map Command} {on-match next} {}
+.. index:: on-match next
+.. clicmd:: on-match next
 
-{Route-map Command} {on-match next} {}
-.. index:: {Route-map Command} {continue} {}
+.. index:: continue
+.. clicmd:: continue
 
-{Route-map Command} {continue} {}
-    Proceed on to the next entry in the route-map.
+   Proceed on to the next entry in the route-map.
 
-.. index:: {Route-map Command} {on-match goto `N`} {}
+.. index:: on-match goto N
+.. clicmd:: on-match goto N
 
-{Route-map Command} {on-match goto `N`} {}
-.. index:: {Route-map Command} {continue `N`} {}
+.. index:: continue N
+.. clicmd:: continue N
 
-{Route-map Command} {continue `N`} {}
-      Proceed processing the route-map at the first entry whose order is >= N
+   Proceed processing the route-map at the first entry whose order is >= N
 
 Route Map Examples
 ==================
