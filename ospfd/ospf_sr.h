@@ -7,24 +7,21 @@
  * Author: Olivier Dugeon <olivier.dugeon@orange.com>
  * Author: Anselme Sawadogo <anselmesawadogo@gmail.com>
  *
- * Copyright (C) 2016 - 2017 Orange Labs http://www.orange.com
+ * Copyright (C) 2016 - 2018 Orange Labs http://www.orange.com
  *
- * This file is part of FRR.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation; either version 2 of the License, or (at your option)
+ * any later version.
  *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _FRR_OSPF_SR_H
@@ -43,9 +40,9 @@
 #define SET_LABEL(label) ((label << 8) & SET_LABEL_MASK)
 #define GET_LABEL(label) ((label >> 8) & GET_LABEL_MASK)
 
-/* Label range for Adj-SID attribution purpose. See ospf_ext.c */
-#define ADJ_SID_MIN                     50000
-#define ADJ_SID_MAX                     51000
+/* Label range for Adj-SID attribution purpose. Start just right after SRGB */
+#define ADJ_SID_MIN                     MPLS_DEFAULT_MAX_SRGB_LABEL
+#define ADJ_SID_MAX                     (MPLS_DEFAULT_MAX_SRGB_LABEL + 1000)
 
 #define OSPF_SR_DEFAULT_METRIC		1
 
@@ -259,7 +256,7 @@ struct sr_link {
 	uint32_t instance;
 
 	/* Flags to manage this link parameters. */
-	uint32_t flags[2];
+	uint8_t flags[2];
 
 	/* Segment Routing ID */
 	uint32_t sid[2];
@@ -279,7 +276,7 @@ struct sr_prefix {
 	uint32_t instance;
 
 	/* Flags to manage this prefix parameters. */
-	uint32_t flags;
+	uint8_t flags;
 
 	/* Segment Routing ID */
 	uint32_t sid;
@@ -291,8 +288,10 @@ struct sr_prefix {
 	/* Back pointer to SR Node which advertise this Prefix */
 	struct sr_node *srn;
 
-	/* Pointer to SR Node which is the next hop for this Prefix
-	 * or NULL if next hop is the destination of the prefix */
+	/*
+	 * Pointer to SR Node which is the next hop for this Prefix
+	 * or NULL if next hop is the destination of the prefix
+	 */
 	struct sr_node *nexthop;
 };
 
@@ -303,13 +302,14 @@ extern void ospf_sr_term(void);
 /* Segment Routing LSA update & delete functions */
 extern void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa);
 extern void ospf_sr_ri_lsa_delete(struct ospf_lsa *lsa);
-extern void ospf_sr_ext_link_lsa_update(struct ospf_lsa *);
-extern void ospf_sr_ext_link_lsa_delete(struct ospf_lsa *);
-extern void ospf_sr_ext_prefix_lsa_update(struct ospf_lsa *);
-extern void ospf_sr_ext_prefix_lsa_delete(struct ospf_lsa *);
+extern void ospf_sr_ext_link_lsa_update(struct ospf_lsa *lsa);
+extern void ospf_sr_ext_link_lsa_delete(struct ospf_lsa *lsa);
+extern void ospf_sr_ext_prefix_lsa_update(struct ospf_lsa *lsa);
+extern void ospf_sr_ext_prefix_lsa_delete(struct ospf_lsa *lsa);
 /* Segment Routing configuration functions */
 extern uint32_t get_ext_link_label_value(void);
-extern void ospf_sr_config_write_router(struct vty *);
+extern void ospf_sr_config_write_router(struct vty *vty);
+extern void ospf_sr_update_prefix(struct interface *ifp, struct prefix *p);
 /* Segment Routing re-routing function */
-extern void ospf_sr_update_timer_add(struct ospf *);
+extern void ospf_sr_update_timer_add(struct ospf *ospf);
 #endif /* _FRR_OSPF_SR_H */

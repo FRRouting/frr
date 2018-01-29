@@ -4,27 +4,24 @@
  *
  * Module name: Extended Prefix/Link Opaque LSA header definition
  *
- * Author: Anselme Sawadogo <anselmesawadogo@gmail.com>
  * Author: Olivier Dugeon <olivier.dugeon@orange.com>
+ * Author: Anselme Sawadogo <anselmesawadogo@gmail.com>
  *
- * Copyright (C) 2016 - 2017 Orange Labs http://www.orange.com
+ * Copyright (C) 2016 - 2018 Orange Labs http://www.orange.com
  *
- * This file is part of FRR.
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation; either version 2 of the License, or (at your option)
+ * any later version.
  *
- * FRR is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License as published by the
- * Free Software Foundation; either version 2, or (at your option) any
- * later version.
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
  *
- * FRR is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- * General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with FRR; see the file COPYING.  If not, write to the Free
- * Software Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA
- * 02111-1307, USA.
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef _FRR_OSPF_EXT_PREF_H_
@@ -42,7 +39,7 @@
  *
  *
  * Type:      IANA has assigned '7' for Extended Prefix Opaque LSA
- * 			    and '8' for Extended Link Opaque LSA
+ *            and '8' for Extended Link Opaque LSA
  * Instance:  User may select arbitrary 24-bit values to identify
  *            different instances of Extended Prefix/Link Opaque LSA
  *
@@ -71,7 +68,7 @@
 
 /* Global use constant numbers */
 
-#define	MAX_LEGAL_EXT_INSTANCE_NUM	(0xffff)
+#define MAX_LEGAL_EXT_INSTANCE_NUM	(0xffff)
 #define LEGAL_EXT_INSTANCE_RANGE(i)	(0 <= (i) && (i) <= 0xffff)
 
 /* Flags to manage Extended Link/Prefix Opaque LSA */
@@ -94,8 +91,10 @@
 #define EXT_TLV_PREF_ROUTE_AS_EXT	5
 #define EXT_TLV_PREF_ROUTE_NSSA_EXT	7
 
-/* Extended Prefix and Extended Prefix Range TLVs'
- * Address family flag for IPv4 */
+/*
+ * Extended Prefix and Extended Prefix Range TLVs'
+ * Address family flag for IPv4
+ */
 #define EXT_TLV_PREF_AF_IPV4		0
 
 /* Extended Prefix TLV Flags */
@@ -146,8 +145,10 @@ struct ospf_ext_lp {
 	/* Flags to manage this Extended Prefix/Link Opaque LSA */
 	uint32_t flags;
 
-	/* Scope is area Opaque Type 10 or AS Opaque LSA Type 11 for
-	 * Extended Prefix and area Opaque Type 10 for Extended Link */
+	/*
+	 * Scope is area Opaque Type 10 or AS Opaque LSA Type 11 for
+	 * Extended Prefix and area Opaque Type 10 for Extended Link
+	 */
 	uint8_t scope;
 
 	/* area pointer if flooding is Type 10 Null if flooding is AS scope */
@@ -190,7 +191,9 @@ struct ext_itf {
 /* Prototypes. */
 extern int ospf_ext_init(void);
 extern void ospf_ext_term(void);
-extern void ospf_ext_update_sr(bool);
-extern int ospf_ext_schedule_prefix_index(struct interface *, uint32_t,
-					  struct prefix_ipv4 *);
+extern void ospf_ext_update_sr(bool enable);
+extern int ospf_ext_schedule_prefix_index(struct interface *ifp,
+					  uint32_t index,
+					  struct prefix_ipv4 *p,
+					  uint8_t flags);
 #endif /* _FRR_OSPF_EXT_PREF_H_ */

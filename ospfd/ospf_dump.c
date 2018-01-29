@@ -1788,6 +1788,18 @@ static int config_write_debug(struct vty *vty)
 		write = 1;
 	}
 
+	/* debug ospf te */
+	if (IS_CONF_DEBUG_OSPF(te, TE) == OSPF_DEBUG_TE) {
+		vty_out(vty, "debug ospf%s te\n", str);
+		write = 1;
+	}
+
+	/* debug ospf sr */
+	if (IS_CONF_DEBUG_OSPF(sr, SR) == OSPF_DEBUG_SR) {
+		vty_out(vty, "debug ospf%s sr\n", str);
+		write = 1;
+	}
+
 	return write;
 }
 
