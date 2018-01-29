@@ -69,7 +69,10 @@ struct ospf_pce_info {
 	struct ri_pce_subtlv_cap_flag pce_cap_flag;
 };
 
-/* Store Router Information Segment Routing TLV and SubTLV in network byte order. */
+/*
+ * Store Router Information Segment Routing TLV and SubTLV
+ * in network byte order
+ */
 struct ospf_ri_sr_info {
 	bool enabled;
 	/* Algorithms supported by the node */
@@ -195,23 +198,6 @@ static int ospf_router_info_register(u_int8_t scope)
 	return rc;
 }
 
-static int ospf_router_info_unregister()
-{
-
-	if ((OspfRI.scope != OSPF_OPAQUE_AS_LSA)
-	    && (OspfRI.scope != OSPF_OPAQUE_AREA_LSA)) {
-		zlog_warn(
-			"Unable to unregister Router Info functions: Wrong scope!");
-		return -1;
-	}
-
-	ospf_delete_opaque_functab(OspfRI.scope,
-				   OPAQUE_TYPE_ROUTER_INFORMATION_LSA);
-
-	OspfRI.registered = 0;
-	return 0;
-}
-
 void ospf_router_info_term(void)
 {
 
@@ -219,8 +205,6 @@ void ospf_router_info_term(void)
 	list_delete_and_null(&OspfRI.pce_info.pce_neighbor);
 
 	OspfRI.enabled = false;
-
-	ospf_router_info_unregister();
 
 	return;
 }
@@ -235,6 +219,7 @@ static void del_pce_info(void *val)
 struct scope_info ospf_router_info_get_flooding_scope(void)
 {
 	struct scope_info flooding_scope;
+
 	if (OspfRI.scope == OSPF_OPAQUE_AS_LSA) {
 		flooding_scope.scope = OSPF_OPAQUE_AS_LSA;
 		flooding_scope.area_id.s_addr = 0;
@@ -454,7 +439,6 @@ static void set_sr_algorithm(uint8_t algo)
 	TLV_TYPE(OspfRI.sr_info.algo) = htons(RI_SR_TLV_SR_ALGORITHM);
 	TLV_LEN(OspfRI.sr_info.algo) = htons(sizeof(uint8_t));
 
-	return;
 }
 
 /* unset Aglogithm SubTLV */
@@ -468,7 +452,6 @@ static void unset_sr_algorithm(uint8_t algo)
 	TLV_TYPE(OspfRI.sr_info.algo) = htons(0);
 	TLV_LEN(OspfRI.sr_info.algo) = htons(0);
 
-	return;
 }
 
 /* Segment Routing Global Block SubTLV - section 3.2 */
@@ -485,11 +468,10 @@ static void set_sr_sid_label_range(struct sr_srgb srgb)
 	TLV_LEN(OspfRI.sr_info.range.lower) = htons(SID_RANGE_LABEL_LENGTH);
 	OspfRI.sr_info.range.lower.value = htonl(SET_LABEL(srgb.lower_bound));
 
-	return;
 }
 
 /* Unset this SRGB SubTLV */
-static void unset_sr_sid_label_range()
+static void unset_sr_sid_label_range(void)
 {
 
 	TLV_TYPE(OspfRI.sr_info.range) = htons(0);
@@ -497,7 +479,6 @@ static void unset_sr_sid_label_range()
 	TLV_TYPE(OspfRI.sr_info.range.lower) = htons(0);
 	TLV_LEN(OspfRI.sr_info.range.lower) = htons(0);
 
-	return;
 }
 
 /* Set Maximum Stack Depth for this router */
@@ -507,16 +488,14 @@ static void set_sr_node_msd(uint8_t msd)
 	TLV_LEN(OspfRI.sr_info.msd) = htons(sizeof(uint32_t));
 	OspfRI.sr_info.msd.value = msd;
 
-	return;
 }
 
 /* Unset this router MSD */
-static void unset_sr_node_msd()
+static void unset_sr_node_msd(void)
 {
 	TLV_TYPE(OspfRI.sr_info.msd) = htons(0);
 	TLV_LEN(OspfRI.sr_info.msd) = htons(0);
 
-	return;
 }
 
 static void unset_param(struct tlv_header *tlv)
@@ -1041,7 +1020,7 @@ static int ospf_router_info_lsa_update(struct ospf_lsa *lsa)
 
 	/* Sanity Check */
 	if (lsa == NULL) {
-		zlog_warn("OSPF-RI (ospf_router_info_lsa_update): Abort! LSA is NULL");
+		zlog_warn("OSPF-RI (%s): Abort! LSA is NULL", __func__);
 		return -1;
 	}
 
@@ -1050,8 +1029,8 @@ static int ospf_router_info_lsa_update(struct ospf_lsa *lsa)
 		return 0;
 
 	/* Process only Router Information LSA */
-	if (GET_OPAQUE_TYPE(
-			ntohl(lsa->data->id.s_addr)) != OPAQUE_TYPE_ROUTER_INFORMATION_LSA)
+	if (GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr)) !=
+			OPAQUE_TYPE_ROUTER_INFORMATION_LSA)
 		return 0;
 
 	/* Check if Router Info & Segment Routing are enable */
@@ -1239,6 +1218,7 @@ static uint16_t show_vty_sr_algorithm(struct vty *vty, struct tlv_header *tlvh)
 	struct ri_sr_tlv_sr_algorithm *algo =
 		(struct ri_sr_tlv_sr_algorithm *)tlvh;
 	int i;
+
 	if (vty != NULL) {
 		vty_out(vty, "  Segment Routing Algorithm TLV:\n");
 		for (i = 0; i < ntohs(algo->header.length); i++) {

@@ -94,15 +94,15 @@
 /* Macro for checking debug option. */
 #define IS_DEBUG_OSPF_PACKET(a, b) (term_debug_ospf_packet[a] & OSPF_DEBUG_##b)
 #define IS_DEBUG_OSPF(a, b) (term_debug_ospf_##a & OSPF_DEBUG_##b)
-#define IS_DEBUG_OSPF_EVENT IS_DEBUG_OSPF(event,EVENT)
+#define IS_DEBUG_OSPF_EVENT IS_DEBUG_OSPF(event, EVENT)
 
-#define IS_DEBUG_OSPF_NSSA  IS_DEBUG_OSPF(nssa,NSSA)
+#define IS_DEBUG_OSPF_NSSA  IS_DEBUG_OSPF(nssa, NSSA)
 
-#define IS_DEBUG_OSPF_TE  IS_DEBUG_OSPF(te,TE)
+#define IS_DEBUG_OSPF_TE  IS_DEBUG_OSPF(te, TE)
 
-#define IS_DEBUG_OSPF_EXT  IS_DEBUG_OSPF(ext,EXT)
+#define IS_DEBUG_OSPF_EXT  IS_DEBUG_OSPF(ext, EXT)
 
-#define IS_DEBUG_OSPF_SR  IS_DEBUG_OSPF(sr,SR)
+#define IS_DEBUG_OSPF_SR  IS_DEBUG_OSPF(sr, SR)
 
 #define IS_CONF_DEBUG_OSPF_PACKET(a, b)                                        \
 	(conf_debug_ospf_packet[a] & OSPF_DEBUG_##b)

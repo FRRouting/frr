@@ -780,6 +780,8 @@ static void ospf_finish_final(struct ospf *ospf)
 	if (!CHECK_FLAG(om->options, OSPF_MASTER_SHUTDOWN))
 		instance = ospf->instance;
 
+	ospf_opaque_term();
+
 	ospf_delete(ospf);
 
 	if (ospf->name) {

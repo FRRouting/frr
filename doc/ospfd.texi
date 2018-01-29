@@ -729,7 +729,7 @@ Show Router Capabilities PCE parameters.
 @section Segment Routing
 
 This is an EXPERIMENTAL support of Segment Routing as per draft
- draft-ietf-ospf-segment-routing-extensions-24i for MPLS dataplane.
+ draft-ietf-ospf-segment-routing-extensions-24.txt for MPLS dataplane.
 
 @deffn {OSPF Command} {segment-routing on} {}
 @deffnx {OSPF Command} {no segment-routing} {}
@@ -746,15 +746,17 @@ label in the MPLS FIB.
 
 @deffn {OSPF Command} {segment-routing node-msd (1-16)} {}
 @deffnx {OSPF Command} {no segment-routing node-msd} {}
-Fix the Maximum Stack Depth supported by the router. The value depend of the 
+Fix the Maximum Stack Depth supported by the router. The value depend of the
 MPLS dataplane. E.g. for Linux kernel, since version 4.13 it is 32.
 @end deffn
 
 @deffn {OSPF Command} {segment-routing prefix A.B.C.D/M index (0-65535)} {}
+@deffnx {OSPF Command} {segment-routing prefix A.B.C.D/M index (0-65535) no-php-flag} {}
 @deffnx {OSPF Command} {no segment-routing prefix A.B.C.D/M} {}
 Set the Segment Rounting index for the specifyed prefix. Note
-that, only prefix with /32 corresponding to a loopback interface are  
-currently supported.
+that, only prefix with /32 corresponding to a loopback interface are
+currently supported. The 'no-php-flag' means NO Penultimate Hop Popping that
+allows SR node to request to its neighbor to not pop the label.
 @end deffn
 
 @deffn {Command} {show ip ospf database segment-routing} {}

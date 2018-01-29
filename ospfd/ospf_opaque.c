@@ -93,7 +93,6 @@ void ospf_opaque_init(void)
 	if (ospf_router_info_init() != 0)
 		exit(1);
 
-	/* Force Extended Prefix/Link to Type 10 */
 	if (ospf_ext_init() != 0)
 		exit(1);
 
