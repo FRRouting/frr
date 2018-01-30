@@ -6308,15 +6308,26 @@ int zebra_vxlan_if_update(struct interface *ifp, u_int16_t chgflags)
 			}
 		}
 
+		/*
+		 * local-ip change - process oper down, associate with new
+		 * local-ip and then process oper up again
+		 */
+		if (chgflags & ZEBRA_VXLIF_LOCAL_IP_CHANGE) {
+			if (if_is_operative(ifp)) {
+				zebra_vxlan_process_l3vni_oper_down(zl3vni);
+				zl3vni->local_vtep_ip = vxl->vtep_ip;
+				if (is_l3vni_oper_up(zl3vni))
+					zebra_vxlan_process_l3vni_oper_up(
+									zl3vni);
+			}
+		}
+
 		/* Update local tunnel IP. */
 		zl3vni->local_vtep_ip = vxl->vtep_ip;
 
-		/* if we have a valid new master or there is a change to the tunnel IP,
-		 * process l3-vni oper up
-		 */
-		if (chgflags
-		    & (ZEBRA_VXLIF_MASTER_CHANGE | ZEBRA_VXLIF_LOCAL_IP_CHANGE)) {
-			if (is_l3vni_oper_up(zl3vni))
+		/* if we have a valid new master, process l3-vni oper up */
+		if (chgflags & ZEBRA_VXLIF_MASTER_CHANGE) {
+			if (if_is_operative(ifp) && is_l3vni_oper_up(zl3vni))
 				zebra_vxlan_process_l3vni_oper_up(zl3vni);
 		}
 	} else {
