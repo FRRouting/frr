@@ -7151,7 +7151,7 @@ int bgp_config_write(struct vty *vty)
 
 		/* BGP default autoshutdown neighbors */
 		if (bgp->autoshutdown)
-			vty_out(vty, " bgp default auto-shutdown\n");
+			vty_out(vty, " bgp default shutdown\n");
 
 		/* BGP client-to-client reflection. */
 		if (bgp_flag_check(bgp, BGP_FLAG_NO_CLIENT_TO_CLIENT))
