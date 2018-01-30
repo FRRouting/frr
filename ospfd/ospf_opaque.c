@@ -1780,7 +1780,7 @@ void ospf_opaque_lsa_reoriginate_schedule(void *lsa_type_dependent,
 			lsa_type, delay,
 			GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr)));
 
-	OSPF_OPAQUE_TIMER_ON(oipt->t_opaque_lsa_self, func, oipt, delay * 1000);
+	OSPF_OPAQUE_TIMER_ON(oipt->t_opaque_lsa_self, func, oipt, delay);
 
 out:
 	return;

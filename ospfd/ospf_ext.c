@@ -622,7 +622,8 @@ static void ospf_ext_pref_ism_change(struct ospf_interface *oi, int old_status)
 			oi->ifp->name);
 
 		/* Complete SRDB if the interface belongs to a Prefix */
-		ospf_sr_update_prefix(oi->ifp, oi->address);
+		if (OspfEXT.enabled)
+			ospf_sr_update_prefix(oi->ifp, oi->address);
 	}
 }
 

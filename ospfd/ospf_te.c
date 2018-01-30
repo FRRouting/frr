@@ -147,32 +147,12 @@ static int ospf_mpls_te_register(enum inter_as_mode mode)
 	return rc;
 }
 
-static int ospf_mpls_te_unregister()
-{
-	u_int8_t scope;
-
-	if (OspfMplsTE.inter_as == Off)
-		return 0;
-
-	if (OspfMplsTE.inter_as == AS)
-		scope = OSPF_OPAQUE_AS_LSA;
-	else
-		scope = OSPF_OPAQUE_AREA_LSA;
-
-	ospf_delete_opaque_functab(scope, OPAQUE_TYPE_INTER_AS_LSA);
-
-	return 0;
-}
-
 void ospf_mpls_te_term(void)
 {
 	list_delete_and_null(&OspfMplsTE.iflist);
 
-	ospf_delete_opaque_functab(OSPF_OPAQUE_AREA_LSA,
-				   OPAQUE_TYPE_TRAFFIC_ENGINEERING_LSA);
 	OspfMplsTE.enabled = false;
 
-	ospf_mpls_te_unregister();
 	OspfMplsTE.inter_as = Off;
 
 	return;
@@ -2411,9 +2391,6 @@ DEFUN (no_ospf_mpls_te_inter_as,
 			    && CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED))
 				ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
 	}
-
-	/* Deregister the Callbacks for Inter-AS suport */
-	ospf_mpls_te_unregister();
 
 	return CMD_SUCCESS;
 }
