@@ -862,7 +862,6 @@ static void ospf_ext_link_lsa_body_set(struct stream *s, struct ext_itf *exti)
 		if (ntohs(TLV_TYPE(exti->rmt_itf_addr)) != 0)
 			size = size + EXT_SUBTLV_RMT_ITF_ADDR_SIZE
 				    + TLV_HDR_SIZE;
-		zlog_debug("EXT (%s): TLV size = %u", __func__, size);
 		TLV_LEN(exti->link) = htons(size);
 
 		/* Build LSA body for an Extended Link TLV with Adj. SID */
