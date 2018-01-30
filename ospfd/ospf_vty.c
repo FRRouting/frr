@@ -10239,9 +10239,6 @@ static int config_write_ospf_distribute(struct vty *vty, struct ospf *ospf)
 
 				if (red->dmetric.type == EXTERNAL_METRIC_TYPE_1)
 					vty_out(vty, " metric-type 1");
-				else if (red->dmetric.type ==
-						EXTERNAL_METRIC_TYPE_2)
-					vty_out(vty, " metric-type 2");
 
 				if (ROUTEMAP_NAME(red))
 					vty_out(vty, " route-map %s",
