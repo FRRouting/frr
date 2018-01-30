@@ -2485,6 +2485,51 @@ stream_failure:
 	return 1;
 }
 
+static void zread_vrf_label(struct zserv *client,
+			    struct zebra_vrf *zvrf)
+{
+	struct interface *ifp;
+	mpls_label_t nlabel;
+	struct stream *s;
+	struct zebra_vrf *def_zvrf;
+
+	s = client->ibuf;
+	STREAM_GETL(s, nlabel);
+
+	if (nlabel == zvrf->label) {
+		/*
+		 * Nothing to do here move along
+		 */
+		return;
+	}
+
+	if (zvrf->vrf->vrf_id != VRF_DEFAULT)
+		ifp = if_lookup_by_name(zvrf->vrf->name, zvrf->vrf->vrf_id);
+	else
+		ifp = if_lookup_by_name("lo", VRF_DEFAULT);
+
+	if (!ifp) {
+		zlog_debug("Unable to find specified Interface for %s",
+			   zvrf->vrf->name);
+		return;
+	}
+
+	def_zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (zvrf->label != MPLS_LABEL_IPV4NULL)
+		mpls_lsp_uninstall(def_zvrf, ZEBRA_LSP_STATIC,
+				   zvrf->label, NEXTHOP_TYPE_IFINDEX,
+				   NULL, ifp->ifindex);
+
+	if (nlabel != MPLS_LABEL_IPV4NULL)
+		mpls_lsp_install(def_zvrf, ZEBRA_LSP_STATIC, nlabel,
+				 MPLS_LABEL_IMPLICIT_NULL, NEXTHOP_TYPE_IFINDEX, NULL, ifp->ifindex);
+
+	zvrf->label = nlabel;
+stream_failure:
+	return;
+}
+
 static inline void zserv_handle_commands(struct zserv *client,
 					 uint16_t command,
 					 uint16_t length,
@@ -2568,6 +2613,9 @@ static inline void zserv_handle_commands(struct zserv *client,
 		break;
 	case ZEBRA_VRF_UNREGISTER:
 		zread_vrf_unregister(client, length, zvrf);
+		break;
+	case ZEBRA_VRF_LABEL:
+		zread_vrf_label(client, zvrf);
 		break;
 	case ZEBRA_BFD_CLIENT_REGISTER:
 		zebra_ptm_bfd_client_register(client, length);

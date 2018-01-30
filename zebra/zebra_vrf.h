@@ -79,6 +79,9 @@ struct zebra_vrf {
 	 */
 	struct zebra_ns *zns;
 
+	/* MPLS Label to handle L3VPN <-> vrf popping */
+	mpls_label_t label;
+
 	/* MPLS static LSP config table */
 	struct hash *slsp_table;
 
