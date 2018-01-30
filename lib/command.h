@@ -119,7 +119,6 @@ enum node_type {
 	LDP_L2VPN_NODE,		/* LDP L2VPN node */
 	LDP_PSEUDOWIRE_NODE,    /* LDP Pseudowire node */
 	ISIS_NODE,		/* ISIS protocol mode */
-	PIM_NODE,		/* PIM protocol mode */
 	MASC_NODE,		/* MASC for multicast.  */
 	IRDP_NODE,		/* ICMP Router Discovery Protocol mode. */
 	IP_NODE,		/* Static ip route node. */
