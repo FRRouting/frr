@@ -1490,9 +1490,6 @@ DEFUN (no_router_info,
 	if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED))
 		ospf_router_info_lsa_schedule(FLUSH_THIS_LSA);
 
-	/* Unregister the callbacks */
-	ospf_router_info_unregister();
-
 	OspfRI.enabled = false;
 
 	return CMD_SUCCESS;
