@@ -7,6 +7,7 @@ checkpatch="$tree/tools/checkpatch.pl --no-tree -f"
 ignore="ldpd\|babeld"
 cwd=${PWD##*/}
 dirty=0
+stat=0
 
 if [[ -z "$1" || -z "$2" ]]; then
   echo "$usage"
@@ -66,6 +67,9 @@ else
     else
       cat $file | grep -v "normally be const" | grep -A3 "ERROR\|WARNING"
     fi
+    if [ "$?" -eq "0" ]; then
+      stat=1
+    fi
   done
 fi
 
@@ -79,3 +83,5 @@ if [ $dirty -eq 1 ]; then
   fi
   git -C $tree config --unset gc.auto;
 fi
+
+exit $stat
