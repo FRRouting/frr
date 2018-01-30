@@ -24,4 +24,5 @@ Welcome to FRR's documentation!
    kernel
    snmp
    protocol
+   pim
 
