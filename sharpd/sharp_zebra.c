@@ -152,6 +152,11 @@ static void zebra_connected(struct zclient *zclient)
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 }
 
+void vrf_label_add(vrf_id_t vrf_id, mpls_label_t label)
+{
+	zclient_send_vrf_label(zclient, vrf_id, label);
+}
+
 void route_add(struct prefix *p, struct nexthop *nh)
 {
 	struct zapi_route api;

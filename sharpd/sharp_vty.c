@@ -26,6 +26,8 @@
 #include "prefix.h"
 #include "nexthop.h"
 #include "log.h"
+#include "vrf.h"
+#include "zclient.h"
 
 #include "sharpd/sharp_zebra.h"
 #include "sharpd/sharp_vty.h"
@@ -76,6 +78,30 @@ DEFPY (install_routes,
 	return CMD_SUCCESS;
 }
 
+DEFPY(vrf_label,
+      vrf_label_cmd,
+      "label vrf NAME$name label (0-100000)$label",
+      "Give a vrf a label\n"
+      VRF_CMD_HELP_STR
+      "The label to use\n"
+      "Specified range to use\n")
+{
+	struct vrf *vrf;
+
+	if (strcmp(name, "default") == 0)
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	else
+		vrf = vrf_lookup_by_name(name);
+
+	if (!vrf) {
+		vty_out(vty, "Unable to find vrf you silly head");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	vrf_label_add(vrf->vrf_id, label);
+	return CMD_SUCCESS;
+}
+
 DEFPY (remove_routes,
        remove_routes_cmd,
        "remove routes A.B.C.D$start (1-1000000)$routes",
@@ -112,5 +138,6 @@ void sharp_vty_init(void)
 {
 	install_element(ENABLE_NODE, &install_routes_cmd);
 	install_element(ENABLE_NODE, &remove_routes_cmd);
+	install_element(ENABLE_NODE, &vrf_label_cmd);
 	return;
 }
