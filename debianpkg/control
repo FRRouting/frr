@@ -10,7 +10,7 @@ Homepage: http://www.frrouting.org/
 
 Package: frr
 Architecture: any
-Depends: ${shlibs:Depends}, logrotate (>= 3.2-11), iproute2 | iproute, ${misc:Depends}, libc-ares2
+Depends: ${shlibs:Depends}, logrotate (>= 3.2-11), iproute2 | iproute, ${misc:Depends}, libc-ares2, python-ipaddr
 Pre-Depends: adduser
 Conflicts: zebra, zebra-pj, quagga
 Replaces: zebra, zebra-pj
