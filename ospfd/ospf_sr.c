@@ -1873,7 +1873,7 @@ DEFUN (sr_node_msd,
        "Maximum number of label that could be stack (1-16)\n")
 {
 	uint32_t msd;
-	int idx;
+	int idx = 1;
 
 	if (!ospf_sr_enabled(vty))
 		return CMD_WARNING_CONFIG_FAILED;
