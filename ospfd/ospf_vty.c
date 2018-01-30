@@ -8160,11 +8160,13 @@ DEFUN (ospf_redistribute_source,
 		if (!str2metric(argv[idx]->arg, &metric))
 			return CMD_WARNING_CONFIG_FAILED;
 	}
+	idx = 1;
 	/* Get metric type. */
 	if (argv_find(argv, argc, "(1-2)", &idx)) {
 		if (!str2metric_type(argv[idx]->arg, &type))
 			return CMD_WARNING_CONFIG_FAILED;
 	}
+	idx = 1;
 	/* Get route-map */
 	if (argv_find(argv, argc, "WORD", &idx)) {
 		ospf_routemap_set(red, argv[idx]->arg);
@@ -8389,16 +8391,19 @@ DEFUN (ospf_default_information_originate,
 	/* Check whether "always" was specified */
 	if (argv_find(argv, argc, "always", &idx))
 		default_originate = DEFAULT_ORIGINATE_ALWAYS;
+	idx = 1;
 	/* Get metric value */
 	if (argv_find(argv, argc, "(0-16777214)", &idx)) {
 		if (!str2metric(argv[idx]->arg, &metric))
 			return CMD_WARNING_CONFIG_FAILED;
 	}
+	idx = 1;
 	/* Get metric type. */
 	if (argv_find(argv, argc, "(1-2)", &idx)) {
 		if (!str2metric_type(argv[idx]->arg, &type))
 			return CMD_WARNING_CONFIG_FAILED;
 	}
+	idx = 1;
 	/* Get route-map */
 	if (argv_find(argv, argc, "WORD", &idx))
 		ospf_routemap_set(red, argv[idx]->arg);
@@ -10231,8 +10236,12 @@ static int config_write_ospf_distribute(struct vty *vty, struct ospf *ospf)
 				if (red->dmetric.value >= 0)
 					vty_out(vty, " metric %d",
 						red->dmetric.value);
+
 				if (red->dmetric.type == EXTERNAL_METRIC_TYPE_1)
 					vty_out(vty, " metric-type 1");
+				else if (red->dmetric.type ==
+						EXTERNAL_METRIC_TYPE_2)
+					vty_out(vty, " metric-type 2");
 
 				if (ROUTEMAP_NAME(red))
 					vty_out(vty, " route-map %s",
