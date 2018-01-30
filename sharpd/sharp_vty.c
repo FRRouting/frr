@@ -41,7 +41,8 @@ extern uint32_t removed_routes;
 
 DEFPY (install_routes,
        install_routes_cmd,
-       "install routes A.B.C.D$start nexthop A.B.C.D$nexthop (1-1000000)$routes",
+       "sharp install routes A.B.C.D$start nexthop A.B.C.D$nexthop (1-1000000)$routes",
+       "Sharp routing Protocol\n"
        "install some routes\n"
        "Routes to install\n"
        "Address to start /32 generation at\n"
@@ -80,7 +81,8 @@ DEFPY (install_routes,
 
 DEFPY(vrf_label,
       vrf_label_cmd,
-      "label vrf NAME$name label (0-100000)$label",
+      "sharp label vrf NAME$name label (0-100000)$label",
+      "Sharp Routing Protocol\n"
       "Give a vrf a label\n"
       VRF_CMD_HELP_STR
       "The label to use\n"
@@ -104,7 +106,8 @@ DEFPY(vrf_label,
 
 DEFPY (remove_routes,
        remove_routes_cmd,
-       "remove routes A.B.C.D$start (1-1000000)$routes",
+       "sharp remove routes A.B.C.D$start (1-1000000)$routes",
+       "Sharp Routing Protocol\n"
        "Remove some routes\n"
        "Routes to remove\n"
        "Starting spot\n"
