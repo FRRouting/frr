@@ -148,6 +148,12 @@ Route Map Match Command
 
    Matches the specified `metric`.
 
+.. index:: match tag TAG
+.. clicmd:: match tag TAG
+
+   Matches the specified tag value associated with the route. This tag value
+   can be in the range of (1-4294967295).
+
 .. index:: match local-preference METRIC
 .. clicmd:: match local-preference METRIC
 
@@ -181,6 +187,16 @@ Route Map Match Command
 
 Route Map Set Command
 =====================
+
+.. index:: set tag TAG
+.. clicmd:: set tag TAG
+
+.. program:: configure
+
+   Set a tag on the matched route. This tag value can be from (1-4294967295).
+   Additionally if you have compiled with the :option:`--enable-realms`
+   configure option. Tag values from (1-255) are sent to the Linux kernel as a
+   realm value. Then route policy can be applied. See the tc man page.
 
 .. index:: set ip next-hop IPV4_ADDRESS
 .. clicmd:: set ip next-hop IPV4_ADDRESS

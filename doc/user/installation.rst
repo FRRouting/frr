@@ -122,6 +122,12 @@ customize the build to include or exclude specific features and dependencies.
    Enable support for Equal Cost Multipath. `ARG` is the maximum number
    of ECMP paths to allow, set to 0 to allow unlimited number of paths.
 
+.. option:: --enable-realms
+
+   Enable the support of Linux Realms. Convert tag values from 1-255 into a
+   realm value when inserting into the Linux kernel. Then routing policy can be
+   assigned to the realm. See the tc man page.
+
 .. option:: --disable-rtadv
 
    Disable support IPV6 router advertisement in zebra.

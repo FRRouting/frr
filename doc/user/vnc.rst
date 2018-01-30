@@ -4,15 +4,15 @@
 VNC and VNC-GW
 **************
 
-This chapter describes how to use Virtual Network Control (:abbr:`VNC`)
-services, including Network Virtualization Authority (:abbr:`NVA`) and VNC
-Gateway (:abbr:`VNC-GW`) functions. Background information on NVAs, Network
-Virtualization Edges (:abbr:`NVE`s), underlay networks (:abbr:`UN`s), and
-virtual networks (:abbr:`VN`s) is available from the
-`IETF Network Virtualization Overlays <https://datatracker.ietf.org/wg/nvo3>`_
-:abbr:`VNC-GW (VNC-Gateways)` support the import/export of routing information
-between VNC and customer edge routers (:abbr:`CE` s) operating within a VN.
-Both IP/Layer 3 (L3) VNs, and IP with Ethernet/Layer 2 (L2) VNs are supported.
+This chapter describes how to use :abbr:`VNC (Virtual Network Control)`
+services, including :abbr:`NVA (Network Virtualization Authority)` and
+:abbr:`VNC-GW (VNC Gateway)` functions. Background information on NVAs,
+:abbr:`NVE (Network Virtualization Edge)` s, :abbr:`UN (Underlay Network)` s,
+and :abbr:`VN (Virtual Network)` is available from the
+`IETF <https://datatracker.ietf.org/wg/nvo3>`_. :abbr:`VNC-GW (VNC Gateway)` s
+support the import/export of routing information between VNC and :abbr:`CE
+(customer edge)` routers operating within a VN.  Both IP/Layer 3 (L3) VNs, and
+IP with Ethernet/Layer 2 (L2) VNs are supported.
 
 BGP, with IP VPNs and Tunnel Encapsulation, is used to distribute VN
 information between NVAs. BGP based IP VPN support is defined in :rfc:`4364`,
@@ -902,7 +902,7 @@ Mesh NVA Configuration
 
 This example includes three NVAs, nine NVEs, and two NVE groups. Note that
 while not shown, a single physical device may support multiple logical NVEs.
-:figure:`fig-vnc-mesh` shows ``code NVA-1`` (192.168.1.100), ``NVA 2``
+:ref:`fig-vnc-mesh` shows ``code NVA-1`` (192.168.1.100), ``NVA 2``
 (192.168.1.101), and ``NVA 3`` (192.168.1.102), which are connected in a full
 mesh. Each is a member of the autonomous system 64512. Each NVA provides VNC
 services to three NVE clients in the 172.16.0.0/16 virtual-network address
@@ -919,7 +919,7 @@ Each NVA advertises NVE underlay-network IP addresses using the
 Tunnel Encapsulation Attribute.
 
 .. _vnc-fig-vnc-mesh:
-.. figure:: ../figure/fig-vnc-mesh.png
+.. figure:: ../figures/fig-vnc-mesh.png
    :align: center
    :alt: Three-way Mesh
 
@@ -1021,7 +1021,7 @@ and combine NVA and VNC-GW functions in a single FRR instance.
 
    Meshed NVEs and VNC-GWs
 
-As shown in :figure:`fig-vnc-gw`, NVAs and VNC-GWs are connected in a full iBGP
+As shown in :ref:`vnc-fig-vnc-gw`, NVAs and VNC-GWs are connected in a full iBGP
 mesh. The VNC-GWs each have two CEs configured as route-reflector clients.
 Each client provides BGP updates with unicast routes that the VNC-GW reflects
 to the other client. The VNC-GW also imports these unicast routes into VPN
@@ -1130,7 +1130,7 @@ VNC with FRR Route Reflector Configuration
 ------------------------------------------
 
 A route reflector eliminates the need for a fully meshed NVA network by acting
-as the hub between NVAs. :figure:`vnc-fig-vnc-frr-route-reflector` shows BGP
+as the hub between NVAs. :ref:`vnc-fig-vnc-frr-route-reflector` shows BGP
 route reflector ``BGP Route Reflector 1`` (192.168.1.100) as a route reflector
 for NVAs ``NVA 2``(192.168.1.101) and ``NVA 3`` (192.168.1.102).
 
@@ -1238,7 +1238,7 @@ This example is identical to :ref:`vnc-with-frr-route-reflector-configuration`
 with the exception that the route reflector is a commercial router. Only the
 VNC-relevant configuration is provided.
 
-.. figure:: ../figures/fig-vnc-commercial-route-reflector
+.. figure:: ../figures/fig-vnc-commercial-route-reflector.png
    :align: center
    :alt: Commercial Route Reflector
 
@@ -1349,7 +1349,7 @@ reflector configuration.  BGP route reflectors ``BGP Route Reflector 1`` and
 ``Commercial Router`` are the route reflectors for NVAs ``NVA 2`` and ``NVA
 3``.  The two NVAs have connections to both route reflectors.
 
-.. figure:: ../fig-vnc-redundant-route-reflectors.png
+.. figure:: ../figures/fig-vnc-redundant-route-reflectors.png
    :align: center
    :alt: Redundant Route Reflectors
 
