@@ -2698,7 +2698,7 @@ DEFUN (bgp_default_shutdown,
        NO_STR
        BGP_STR
        "Configure BGP defaults\n"
-       "Do not automatically activate peers upon configuration\n")
+       "Apply administrative shutdown to newly configured peers\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	bgp->autoshutdown = !strmatch(argv[0]->text, "no");
