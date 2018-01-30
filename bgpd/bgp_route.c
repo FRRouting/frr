@@ -2719,7 +2719,9 @@ int bgp_update(struct peer *peer, struct prefix *p, u_int32_t addpath_id,
 
 	/* AS path local-as loop check. */
 	if (peer->change_local_as) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND))
+		if (peer->allowas_in[afi][safi])
+			aspath_loop_count = peer->allowas_in[afi][safi];
+		else if (!CHECK_FLAG(peer->flags, PEER_FLAG_LOCAL_AS_NO_PREPEND))
 			aspath_loop_count = 1;
 
 		if (aspath_loop_check(attr->aspath, peer->change_local_as)
@@ -7857,7 +7859,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 		vty_out(vty,
 			"{\n \"vrfId\": %d,\n \"vrfName\": \"%s\",\n \"tableVersion\": %" PRId64
 			",\n \"routerId\": \"%s\",\n \"routes\": { ",
-			bgp->vrf_id == VRF_UNKNOWN ? -1 : bgp->vrf_id,
+			bgp->vrf_id == VRF_UNKNOWN ? -1 : (int)bgp->vrf_id,
 			bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT ? "Default"
 								    : bgp->name,
 			table->version, inet_ntoa(bgp->router_id));
@@ -8125,6 +8127,9 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 	struct bgp_node *rn, *next;
 	unsigned long output_cum = 0;
 	unsigned long total_cum = 0;
+	bool show_msg;
+
+	show_msg = (!use_json && type == bgp_show_type_normal);
 
 	for (rn = bgp_table_top(table); rn; rn = next) {
 		next = bgp_route_next(rn);
@@ -8140,7 +8145,18 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 				       output_arg, use_json,
 				       rd, next == NULL,
 				       &output_cum, &total_cum);
+			if (next == NULL)
+				show_msg = false;
 		}
+	}
+	if (show_msg) {
+		if (output_cum == 0)
+			vty_out(vty, "No BGP prefixes displayed, %ld exist\n",
+				total_cum);
+		else
+			vty_out(vty,
+				"\nDisplayed  %ld routes and %ld total paths\n",
+				output_cum, total_cum);
 	}
 	if (use_json)
 		vty_out(vty, " } }");
@@ -10902,7 +10918,7 @@ static void bgp_config_write_network_evpn(struct vty *vty, struct bgp *bgp,
 					  &bgp_static->gatewayIp.u.prefix, buf2,
 					  sizeof(buf2));
 			vty_out(vty,
-				" network %s rd %s ethtag %u tag %u esi %s gwip %s routermac %s\n",
+				"  network %s rd %s ethtag %u label %u esi %s gwip %s routermac %s\n",
 				buf, rdbuf, p->u.prefix_evpn.eth_tag,
 				decode_label(&bgp_static->label), esi, buf2,
 				macrouter);

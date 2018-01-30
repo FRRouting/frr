@@ -291,7 +291,7 @@ void zclient_create_header(struct stream *s, uint16_t command, vrf_id_t vrf_id)
 	stream_putw(s, ZEBRA_HEADER_SIZE);
 	stream_putc(s, ZEBRA_HEADER_MARKER);
 	stream_putc(s, ZSERV_VERSION);
-	stream_putw(s, vrf_id);
+	stream_putl(s, vrf_id);
 	stream_putw(s, command);
 }
 
@@ -306,7 +306,7 @@ int zclient_read_header(struct stream *s, int sock, u_int16_t *size,
 	*size -= ZEBRA_HEADER_SIZE;
 	STREAM_GETC(s, *marker);
 	STREAM_GETC(s, *version);
-	STREAM_GETW(s, *vrf_id);
+	STREAM_GETL(s, *vrf_id);
 	STREAM_GETW(s, *cmd);
 
 	if (*version != ZSERV_VERSION || *marker != ZEBRA_HEADER_MARKER) {
@@ -389,25 +389,28 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 			       vrf_id);
 
 	/* Flush all redistribute request. */
-	if (vrf_id == VRF_DEFAULT)
-		for (afi = AFI_IP; afi < AFI_MAX; afi++)
-			for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-				if (zclient->mi_redist[afi][i].enabled) {
-					struct listnode *node;
-					u_short *id;
+	if (vrf_id == VRF_DEFAULT) {
+		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+			for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+				if (!zclient->mi_redist[afi][i].enabled)
+					continue;
 
-					for (ALL_LIST_ELEMENTS_RO(
-						     zclient->mi_redist[afi][i]
-							     .instances,
-						     node, id))
-						if (!(i == zclient->redist_default
-						      && *id == zclient->instance))
-							zebra_redistribute_send(
-								ZEBRA_REDISTRIBUTE_ADD,
-								zclient, afi, i,
-								*id,
-								VRF_DEFAULT);
-				}
+				struct listnode *node;
+				u_short *id;
+
+				for (ALL_LIST_ELEMENTS_RO(
+					     zclient->mi_redist[afi][i]
+					     .instances, node, id))
+					if (!(i == zclient->redist_default
+					      && *id == zclient->instance))
+						zebra_redistribute_send(
+							ZEBRA_REDISTRIBUTE_ADD,
+							zclient, afi, i,
+							*id,
+							VRF_DEFAULT);
+			}
+		}
+	}
 
 	/* Flush all redistribute request. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
@@ -447,29 +450,32 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 
 	/* Set unwanted redistribute route. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		vrf_bitmap_set(zclient->redist[afi][zclient->redist_default],
-			       vrf_id);
+		vrf_bitmap_unset(zclient->redist[afi][zclient->redist_default],
+				 vrf_id);
 
 	/* Flush all redistribute request. */
-	if (vrf_id == VRF_DEFAULT)
-		for (afi = AFI_IP; afi < AFI_MAX; afi++)
-			for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-				if (zclient->mi_redist[afi][i].enabled) {
-					struct listnode *node;
-					u_short *id;
+	if (vrf_id == VRF_DEFAULT) {
+		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+			for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+				if (!zclient->mi_redist[afi][i].enabled)
+					continue;
 
-					for (ALL_LIST_ELEMENTS_RO(
-						     zclient->mi_redist[afi][i]
-							     .instances,
-						     node, id))
-						if (!(i == zclient->redist_default
-						      && *id == zclient->instance))
-							zebra_redistribute_send(
-								ZEBRA_REDISTRIBUTE_DELETE,
-								zclient, afi, i,
-								*id,
-								VRF_DEFAULT);
-				}
+				struct listnode *node;
+				u_short *id;
+
+				for (ALL_LIST_ELEMENTS_RO(
+					     zclient->mi_redist[afi][i]
+					     .instances, node, id))
+					if (!(i == zclient->redist_default
+					      && *id == zclient->instance))
+						zebra_redistribute_send(
+							ZEBRA_REDISTRIBUTE_DELETE,
+							zclient, afi, i,
+							*id,
+							VRF_DEFAULT);
+			}
+		}
+	}
 
 	/* Flush all redistribute request. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
@@ -606,6 +612,33 @@ static int zclient_connect(struct thread *t)
 		zlog_debug("zclient_connect is called");
 
 	return zclient_start(zclient);
+}
+
+int zclient_send_rnh(struct zclient *zclient, int command, struct prefix *p,
+		     bool exact_match, vrf_id_t vrf_id)
+{
+	struct stream *s;
+
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, command, vrf_id);
+	stream_putc(s, (exact_match) ? 1 : 0);
+
+	stream_putw(s, PREFIX_FAMILY(p));
+	stream_putc(s, p->prefixlen);
+	switch (PREFIX_FAMILY(p)) {
+	case AF_INET:
+		stream_put_in_addr(s, &p->u.prefix4);
+		break;
+	case AF_INET6:
+		stream_put(s, &(p->u.prefix6), 16);
+		break;
+	default:
+		break;
+	}
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
 }
 
 /*
@@ -942,6 +975,8 @@ int zapi_route_encode(u_char cmd, struct stream *s, struct zapi_route *api)
 		}
 
 		stream_putw(s, api->nexthop_num);
+		if (api->nexthop_num)
+			stream_putw(s, api->nh_vrf_id);
 
 		for (i = 0; i < api->nexthop_num; i++) {
 			api_nh = &api->nexthops[i];
@@ -1090,6 +1125,9 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 				  __func__, api->nexthop_num);
 			return -1;
 		}
+
+		if (api->nexthop_num)
+			STREAM_GETW(s, api->nh_vrf_id);
 
 		for (i = 0; i < api->nexthop_num; i++) {
 			api_nh = &api->nexthops[i];
@@ -1677,7 +1715,7 @@ struct interface *zebra_interface_vrf_update_read(struct stream *s,
 {
 	unsigned int ifindex;
 	struct interface *ifp;
-	vrf_id_t new_id = VRF_DEFAULT;
+	vrf_id_t new_id;
 
 	/* Get interface index. */
 	ifindex = stream_getl(s);
@@ -2043,7 +2081,7 @@ static int zclient_read(struct thread *thread)
 	length = stream_getw(zclient->ibuf);
 	marker = stream_getc(zclient->ibuf);
 	version = stream_getc(zclient->ibuf);
-	vrf_id = stream_getw(zclient->ibuf);
+	vrf_id = stream_getl(zclient->ibuf);
 	command = stream_getw(zclient->ibuf);
 
 	if (marker != ZEBRA_HEADER_MARKER || version != ZSERV_VERSION) {
@@ -2346,9 +2384,9 @@ void zclient_interface_set_master(struct zclient *client,
 
 	zclient_create_header(s, ZEBRA_INTERFACE_SET_MASTER, master->vrf_id);
 
-	stream_putw(s, master->vrf_id);
+	stream_putl(s, master->vrf_id);
 	stream_putl(s, master->ifindex);
-	stream_putw(s, slave->vrf_id);
+	stream_putl(s, slave->vrf_id);
 	stream_putl(s, slave->ifindex);
 
 	stream_putw_at(s, 0, stream_get_endp(s));

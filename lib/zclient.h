@@ -40,7 +40,7 @@
 #define ZEBRA_MAX_PACKET_SIZ          4096
 
 /* Zebra header size. */
-#define ZEBRA_HEADER_SIZE             8
+#define ZEBRA_HEADER_SIZE             10
 
 /* special socket path name to use TCP
  * @ is used as first character because that's abstract socket names on Linux
@@ -227,7 +227,7 @@ struct zserv_header {
 			 * always set to 255 in new zserv.
 			 */
 	uint8_t version;
-#define ZSERV_VERSION	4
+#define ZSERV_VERSION	5
 	vrf_id_t vrf_id;
 	uint16_t command;
 };
@@ -281,6 +281,7 @@ struct zapi_route {
 	u_int32_t mtu;
 
 	vrf_id_t vrf_id;
+	vrf_id_t nh_vrf_id;
 
 	struct ethaddr rmac;
 };
@@ -420,6 +421,11 @@ extern struct interface *zebra_interface_vrf_update_read(struct stream *s,
 							 vrf_id_t *new_vrf_id);
 extern void zebra_interface_if_set_value(struct stream *, struct interface *);
 extern void zebra_router_id_update_read(struct stream *s, struct prefix *rid);
+
+#if CONFDATE > 20180823
+CPP_NOTICE("zapi_ipv4_route, zapi_ipv6_route, zapi_ipv4_route_ipv6_nexthop as well as the zapi_ipv4 and zapi_ipv6 data structures should be removed now");
+#endif
+
 extern int zapi_ipv4_route(u_char, struct zclient *, struct prefix_ipv4 *,
 			   struct zapi_ipv4 *) __attribute__((deprecated));
 
@@ -478,6 +484,9 @@ extern int zapi_ipv4_route_ipv6_nexthop(u_char, struct zclient *,
 					struct zapi_ipv6 *)
 	__attribute__((deprecated));
 extern int zclient_route_send(u_char, struct zclient *, struct zapi_route *);
+extern int zclient_send_rnh(struct zclient *zclient, int command,
+			    struct prefix *p, bool exact_match,
+			    vrf_id_t vrf_id);
 extern int zapi_route_encode(u_char, struct stream *, struct zapi_route *);
 extern int zapi_route_decode(struct stream *, struct zapi_route *);
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,

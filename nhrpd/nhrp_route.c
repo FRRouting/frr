@@ -95,6 +95,8 @@ void nhrp_route_announce(int add, enum nhrp_cache_type type, const struct prefix
 	memset(&api, 0, sizeof(api));
 	api.type = ZEBRA_ROUTE_NHRP;
 	api.safi = SAFI_UNICAST;
+	api.vrf_id = VRF_DEFAULT;
+	api.nh_vrf_id = VRF_DEFAULT;
 	api.prefix = *p;
 
 	switch (type) {

@@ -360,6 +360,49 @@ DEFUN (show_ipv6_ospf6_database_router,
 	return CMD_SUCCESS;
 }
 
+DEFUN_HIDDEN (show_ipv6_ospf6_database_aggr_router,
+       show_ipv6_ospf6_database_aggr_router_cmd,
+       "show ipv6 ospf6 database aggr adv-router A.B.C.D",
+       SHOW_STR
+       IPV6_STR
+       OSPF6_STR
+       "Display Link state database\n"
+       "Aggregated Router LSA\n"
+       "Search by Advertising Router\n"
+       "Specify Advertising Router as IPv4 address notation\n")
+{
+	int level = OSPF6_LSDB_SHOW_LEVEL_DETAIL;
+	uint16_t type = htons(OSPF6_LSTYPE_ROUTER);
+	int idx_ipv4 = 6;
+	struct listnode *i;
+	struct ospf6 *o = ospf6;
+	struct ospf6_area *oa;
+	struct ospf6_lsdb *lsdb;
+	uint32_t adv_router = 0;
+
+	inet_pton(AF_INET, argv[idx_ipv4]->arg, &adv_router);
+
+	for (ALL_LIST_ELEMENTS_RO(o->area_list, i, oa)) {
+		if (adv_router == o->router_id)
+			lsdb = oa->lsdb_self;
+		else
+			lsdb = oa->lsdb;
+		if (ospf6_create_single_router_lsa(oa, lsdb,
+						   adv_router) == NULL) {
+			vty_out(vty, "Adv router is not found in LSDB.");
+			return CMD_SUCCESS;
+		}
+		ospf6_lsdb_show(vty, level, &type, NULL, NULL,
+				oa->temp_router_lsa_lsdb);
+		/* Remove the temp cache */
+		ospf6_remove_temp_router_lsa(oa);
+	}
+
+	vty_out(vty, "\n");
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (show_ipv6_ospf6_database_type_id,
        show_ipv6_ospf6_database_type_id_cmd,
        "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> linkstate-id A.B.C.D [<detail|dump|internal>]",
@@ -1219,6 +1262,7 @@ void ospf6_init(void)
 	install_element(
 		VIEW_NODE,
 		&show_ipv6_ospf6_database_type_self_originated_linkstate_id_cmd);
+	install_element(VIEW_NODE, &show_ipv6_ospf6_database_aggr_router_cmd);
 
 	/* Make ospf protocol socket. */
 	ospf6_serv_sock();

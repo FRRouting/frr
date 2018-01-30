@@ -866,8 +866,7 @@ static void peer_af_flag_reset(struct peer *peer, afi_t afi, safi_t safi)
 /* peer global config reset */
 static void peer_global_config_reset(struct peer *peer)
 {
-
-	int v6only;
+	int saved_flags = 0;
 
 	peer->change_local_as = 0;
 	peer->ttl = (peer_sort(peer) == BGP_PEER_IBGP ? MAXTTL : 1);
@@ -885,13 +884,11 @@ static void peer_global_config_reset(struct peer *peer)
 	else
 		peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
 
-	/* This is a per-peer specific flag and so we must preserve it */
-	v6only = CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
-
+	/* These are per-peer specific flags and so we must preserve them */
+	saved_flags |= CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+	saved_flags |= CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN);
 	peer->flags = 0;
-
-	if (v6only)
-		SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+	SET_FLAG(peer->flags, saved_flags);
 
 	peer->config = 0;
 	peer->holdtime = 0;
@@ -1498,8 +1495,11 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 		peer_af_create(peer, afi, safi);
 	}
 
+	/* auto shutdown if configured */
+	if (bgp->autoshutdown)
+		peer_flag_set(peer, PEER_FLAG_SHUTDOWN);
 	/* Set up peer's events and timers. */
-	if (!active && peer_active(peer))
+	else if (!active && peer_active(peer))
 		bgp_timer_set(peer);
 
 	return peer;
@@ -2340,7 +2340,7 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 					struct peer *peer)
 {
 	struct peer *conf;
-	int v6only;
+	int saved_flags = 0;
 
 	conf = group->conf;
 
@@ -2358,14 +2358,11 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	/* GTSM hops */
 	peer->gtsm_hops = conf->gtsm_hops;
 
-	/* this flag is per-neighbor and so has to be preserved */
-	v6only = CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
-
-	/* peer flags apply */
+	/* These are per-peer specific flags and so we must preserve them */
+	saved_flags |= CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+	saved_flags |= CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN);
 	peer->flags = conf->flags;
-
-	if (v6only)
-		SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+	SET_FLAG(peer->flags, saved_flags);
 
 	/* peer config apply */
 	peer->config = conf->config;
@@ -7152,6 +7149,10 @@ int bgp_config_write(struct vty *vty)
 			vty_out(vty, " bgp default subgroup-pkt-queue-max %u\n",
 				bgp->default_subgroup_pkt_queue_max);
 
+		/* BGP default autoshutdown neighbors */
+		if (bgp->autoshutdown)
+			vty_out(vty, " bgp default auto-shutdown\n");
+
 		/* BGP client-to-client reflection. */
 		if (bgp_flag_check(bgp, BGP_FLAG_NO_CLIENT_TO_CLIENT))
 			vty_out(vty, " no bgp client-to-client reflection\n");
@@ -7469,32 +7470,33 @@ static void bgp_pthreads_init()
 {
 	frr_pthread_init();
 
-	frr_pthread_new("BGP i/o thread", PTHREAD_IO, bgp_io_start,
-			bgp_io_stop);
-	frr_pthread_new("BGP keepalives thread", PTHREAD_KEEPALIVES,
-			bgp_keepalives_start, bgp_keepalives_stop);
-
-	/* pre-run initialization */
-	bgp_keepalives_init();
-	bgp_io_init();
+	struct frr_pthread_attr io = {
+		.id = PTHREAD_IO,
+		.start = frr_pthread_attr_default.start,
+		.stop = frr_pthread_attr_default.stop,
+		.name = "BGP I/O thread",
+	};
+	struct frr_pthread_attr ka = {
+		.id = PTHREAD_KEEPALIVES,
+		.start = bgp_keepalives_start,
+		.stop = bgp_keepalives_stop,
+		.name = "BGP Keepalives thread",
+	};
+	frr_pthread_new(&io);
+	frr_pthread_new(&ka);
 }
 
 void bgp_pthreads_run()
 {
-	pthread_attr_t attr;
-	pthread_attr_init(&attr);
-	pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+	struct frr_pthread *io = frr_pthread_get(PTHREAD_IO);
+	struct frr_pthread *ka = frr_pthread_get(PTHREAD_KEEPALIVES);
 
-	/*
-	 * Please ensure that the io thread is running
-	 * by calling bgp_io_running.  The BGP threads
-	 * depend on it being running when we start
-	 * looking for it.
-	 */
-	frr_pthread_run(PTHREAD_IO, &attr, NULL);
-	bgp_io_running();
+	frr_pthread_run(io, NULL);
+	frr_pthread_run(ka, NULL);
 
-	frr_pthread_run(PTHREAD_KEEPALIVES, &attr, NULL);
+	/* Wait until threads are ready. */
+	frr_pthread_wait_running(io);
+	frr_pthread_wait_running(ka);
 }
 
 void bgp_pthreads_finish()

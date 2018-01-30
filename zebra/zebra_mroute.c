@@ -61,7 +61,7 @@ stream_failure:
 
 	stream_reset(s);
 
-	zserv_create_header(s, ZEBRA_IPMR_ROUTE_STATS, zvrf_id(zvrf));
+	zclient_create_header(s, ZEBRA_IPMR_ROUTE_STATS, zvrf_id(zvrf));
 	stream_put_in_addr(s, &mroute.sg.src);
 	stream_put_in_addr(s, &mroute.sg.grp);
 	stream_put(s, &mroute.lastused, sizeof(mroute.lastused));

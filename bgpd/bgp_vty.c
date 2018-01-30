@@ -2692,6 +2692,19 @@ static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
 	return bgp_vty_return(vty, ret);
 }
 
+DEFUN (bgp_default_shutdown,
+       bgp_default_shutdown_cmd,
+       "[no] bgp default shutdown",
+       NO_STR
+       BGP_STR
+       "Configure BGP defaults\n"
+       "Do not automatically activate peers upon configuration\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	bgp->autoshutdown = !strmatch(argv[0]->text, "no");
+	return CMD_SUCCESS;
+}
+
 DEFUN (neighbor_remote_as,
        neighbor_remote_as_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> remote-as <(1-4294967295)|internal|external>",
@@ -3237,7 +3250,6 @@ DEFUN (no_neighbor_password,
 	ret = peer_password_unset(peer);
 	return bgp_vty_return(vty, ret);
 }
-
 
 DEFUN (neighbor_activate,
        neighbor_activate_cmd,
@@ -6490,7 +6502,6 @@ DEFUN (show_bgp_vrfs,
 		struct listnode *node, *nnode;
 		int peers_cfg, peers_estb;
 		json_object *json_vrf = NULL;
-		int vrf_id_ui;
 
 		/* Skip Views. */
 		if (bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
@@ -6524,8 +6535,10 @@ DEFUN (show_bgp_vrfs,
 			type = "VRF";
 		}
 
-		vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN) ? -1 : bgp->vrf_id;
+
 		if (uj) {
+			int64_t vrf_id_ui = (bgp->vrf_id == VRF_UNKNOWN) ? -1 :
+				(int64_t)bgp->vrf_id;
 			json_object_string_add(json_vrf, "type", type);
 			json_object_int_add(json_vrf, "vrfId", vrf_id_ui);
 			json_object_string_add(json_vrf, "routerId",
@@ -6543,7 +6556,9 @@ DEFUN (show_bgp_vrfs,
 		} else
 			vty_out(vty,
 				"%4s  %-5d  %-16s  %9u  %10u  %-37s %-10u %-15s\n",
-				type, vrf_id_ui, inet_ntoa(bgp->router_id),
+				type, bgp->vrf_id == VRF_UNKNOWN ?
+				-1 : (int)bgp->vrf_id,
+				inet_ntoa(bgp->router_id),
 				peers_cfg, peers_estb, name, bgp->l3vni,
 				prefix_mac2str(&bgp->rmac, buf, sizeof(buf)));
 	}
@@ -6863,10 +6878,11 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 		if (!count) {
 			unsigned long ents;
 			char memstrbuf[MTYPE_MEMSTR_LEN];
-			int vrf_id_ui;
+			int64_t vrf_id_ui;
 
 			vrf_id_ui =
-				(bgp->vrf_id == VRF_UNKNOWN) ? -1 : bgp->vrf_id;
+				(bgp->vrf_id == VRF_UNKNOWN) ? -1 :
+				(int64_t)bgp->vrf_id;
 
 			/* Usage summary and header */
 			if (use_json) {
@@ -6885,7 +6901,8 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 				vty_out(vty,
 					"BGP router identifier %s, local AS number %u vrf-id %d",
 					inet_ntoa(bgp->router_id), bgp->as,
-					vrf_id_ui);
+					bgp->vrf_id == VRF_UNKNOWN ? -1 :
+					(int)bgp->vrf_id);
 				vty_out(vty, "\n");
 			}
 
@@ -9853,7 +9870,6 @@ static int bgp_show_neighbor(struct vty *vty, struct bgp *bgp,
 	}
 
 	if (use_json) {
-		bgp_show_bestpath_json(bgp, json);
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
 					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
@@ -9887,8 +9903,7 @@ static void bgp_show_all_instances_neighbors_vty(struct vty *vty,
 
 			json_object_int_add(json, "vrfId",
 					    (bgp->vrf_id == VRF_UNKNOWN)
-						    ? -1
-						    : bgp->vrf_id);
+					    ? -1 : (int64_t) bgp->vrf_id);
 			json_object_string_add(
 				json, "vrfName",
 				(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT)
@@ -11577,6 +11592,9 @@ void bgp_vty_init(void)
 	/* "bgp listen range" commands. */
 	install_element(BGP_NODE, &bgp_listen_range_cmd);
 	install_element(BGP_NODE, &no_bgp_listen_range_cmd);
+
+	/* "neighbors auto-shutdown" command */
+	install_element(BGP_NODE, &bgp_default_shutdown_cmd);
 
 	/* "neighbor remote-as" commands. */
 	install_element(BGP_NODE, &neighbor_remote_as_cmd);

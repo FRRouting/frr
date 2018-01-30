@@ -81,7 +81,7 @@ int zebra_ns_init(void)
 
 	zebra_vrf_init();
 
-	zebra_ns_enable(0, (void **)&dzns);
+	zebra_ns_enable(NS_DEFAULT, (void **)&dzns);
 
 	return 0;
 }

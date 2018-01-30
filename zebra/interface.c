@@ -57,7 +57,28 @@ DEFINE_HOOK(zebra_if_extra_info, (struct vty *vty, struct interface *ifp),
 DEFINE_HOOK(zebra_if_config_wr, (struct vty *vty, struct interface *ifp),
 				(vty, ifp))
 
+
 static void if_down_del_nbr_connected(struct interface *ifp);
+
+static int if_zebra_speed_update(struct thread *thread)
+{
+	struct interface *ifp = THREAD_ARG(thread);
+	struct zebra_if *zif = ifp->info;
+	uint32_t new_speed;
+
+	zif->speed_update = NULL;
+
+	new_speed = kernel_get_speed(ifp);
+	if (new_speed != ifp->speed) {
+		zlog_info("%s: %s old speed: %u new speed: %u",
+			  __PRETTY_FUNCTION__, ifp->name,
+			  ifp->speed, new_speed);
+		ifp->speed = new_speed;
+		if_add_update(ifp);
+	}
+
+	return 1;
+}
 
 static void zebra_if_node_destroy(route_table_delegate_t *delegate,
 				  struct route_table *table,
@@ -119,6 +140,16 @@ static int if_zebra_new_hook(struct interface *ifp)
 		route_table_init_with_delegate(&zebra_if_table_delegate);
 
 	ifp->info = zebra_if;
+
+	/*
+	 * Some platforms are telling us that the interface is
+	 * up and ready to go.  When we check the speed we
+	 * sometimes get the wrong value.  Wait a couple
+	 * of seconds and ask again.  Hopefully it's all settled
+	 * down upon startup.
+	 */
+	thread_add_timer(zebrad.master, if_zebra_speed_update,
+			 ifp, 15, &zebra_if->speed_update);
 	return 0;
 }
 
@@ -140,6 +171,8 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		rtadv = &zebra_if->rtadv;
 		list_delete_and_null(&rtadv->AdvPrefixList);
 #endif /* HAVE_RTADV */
+
+		THREAD_OFF(zebra_if->speed_update);
 
 		XFREE(MTYPE_TMP, zebra_if);
 	}
@@ -735,7 +768,8 @@ void if_handle_vrf_change(struct interface *ifp, vrf_id_t vrf_id)
 	zebra_interface_vrf_update_add(ifp, old_vrf_id);
 
 	/* Install connected routes (in new VRF). */
-	if_install_connected(ifp);
+	if (if_is_operative(ifp))
+		if_install_connected(ifp);
 
 	static_ifindex_update(ifp, true);
 

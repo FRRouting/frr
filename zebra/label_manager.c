@@ -121,7 +121,7 @@ static int reply_error(int cmd, struct zserv *zserv, vrf_id_t vrf_id)
 	s = zserv->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, cmd, vrf_id);
+	zclient_create_header(s, cmd, vrf_id);
 
 	/* result */
 	stream_putc(s, 1);

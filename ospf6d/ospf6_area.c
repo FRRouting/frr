@@ -117,7 +117,9 @@ static void ospf6_area_lsdb_hook_remove(struct ospf6_lsa *lsa)
 
 static void ospf6_area_route_hook_add(struct ospf6_route *route)
 {
-	struct ospf6_route *copy = ospf6_route_copy(route);
+	struct ospf6_route *copy;
+
+	copy = ospf6_route_copy(route);
 	ospf6_route_add(copy, ospf6->route_table);
 }
 
@@ -219,6 +221,7 @@ struct ospf6_area *ospf6_area_create(u_int32_t area_id, struct ospf6 *o, int df)
 	oa->lsdb->hook_add = ospf6_area_lsdb_hook_add;
 	oa->lsdb->hook_remove = ospf6_area_lsdb_hook_remove;
 	oa->lsdb_self = ospf6_lsdb_create(oa);
+	oa->temp_router_lsa_lsdb = ospf6_lsdb_create(oa);
 
 	oa->spf_table = OSPF6_ROUTE_TABLE_CREATE(AREA, SPF_RESULTS);
 	oa->spf_table->scope = oa;
@@ -277,6 +280,7 @@ void ospf6_area_delete(struct ospf6_area *oa)
 
 	ospf6_lsdb_delete(oa->lsdb);
 	ospf6_lsdb_delete(oa->lsdb_self);
+	ospf6_lsdb_delete(oa->temp_router_lsa_lsdb);
 
 	ospf6_spf_table_finish(oa->spf_table);
 	ospf6_route_table_delete(oa->spf_table);

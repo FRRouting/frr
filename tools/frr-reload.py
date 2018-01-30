@@ -434,7 +434,14 @@ end
                 new_ctx = False
                 log.debug('LINE %-50s: entering new context, %-50s', line, ctx_keys)
 
-            elif "vni " in line:
+            # The 'vni' keyword under 'router bgp X/address-family l2vpn evpn' creates
+            # a sub-context but the 'vni' keyword in other places (such as 'vrf BLUE')
+            # does not.
+            elif ("vni " in line and
+                len(ctx_keys) == 2 and
+                ctx_keys[0].startswith('router bgp') and
+                ctx_keys[1] == 'address-family l2vpn evpn'):
+
                 main_ctx_key = []
 
                 # Save old context first

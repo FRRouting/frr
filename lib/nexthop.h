@@ -55,13 +55,6 @@ enum blackhole_type {
 	((type) == NEXTHOP_TYPE_IFINDEX || (type) == NEXTHOP_TYPE_BLACKHOLE) \
 		? (type) : ((type) | 1)
 
-/* Nexthop label structure. */
-struct nexthop_label {
-	u_int8_t num_labels;
-	u_int8_t reserved[3];
-	mpls_label_t label[0]; /* 1 or more labels. */
-};
-
 /* Nexthop structure. */
 struct nexthop {
 	struct nexthop *next;
@@ -107,7 +100,7 @@ struct nexthop {
 	enum lsp_types_t nh_label_type;
 
 	/* Label(s) associated with this nexthop. */
-	struct nexthop_label *nh_label;
+	struct mpls_label_stack *nh_label;
 };
 
 /* The following for loop allows to iterate over the nexthop

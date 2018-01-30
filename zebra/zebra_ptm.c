@@ -432,7 +432,7 @@ static void if_bfd_session_update(struct interface *ifp, struct prefix *dp,
 		} else {
 			zlog_debug(
 				"MESSAGE: ZEBRA_INTERFACE_BFD_DEST_UPDATE %s/%d "
-				"with src %s/%d and vrf %d %s event",
+				"with src %s/%d and vrf %u %s event",
 				inet_ntop(dp->family, &dp->u.prefix, buf[0],
 					  INET6_ADDRSTRLEN),
 				dp->prefixlen,
@@ -816,6 +816,8 @@ int zebra_ptm_bfd_dst_register(struct zserv *client, u_short length,
 			   ptm_cb.out_data);
 	zebra_ptm_send_message(ptm_cb.out_data, data_len);
 
+	return 0;
+
 stream_failure:
 	ptm_lib_cleanup_msg(ptm_hdl, out_ctxt);
 	return 0;
@@ -946,6 +948,8 @@ int zebra_ptm_bfd_dst_deregister(struct zserv *client, u_short length,
 
 	zebra_ptm_send_message(ptm_cb.out_data, data_len);
 
+	return 0;
+
 stream_failure:
 	ptm_lib_cleanup_msg(ptm_hdl, out_ctxt);
 	return 0;
@@ -957,7 +961,7 @@ int zebra_ptm_bfd_client_register(struct zserv *client,
 {
 	struct stream *s;
 	unsigned int pid;
-	void *out_ctxt;
+	void *out_ctxt = NULL;
 	char tmp_buf[64];
 	int data_len = ZEBRA_PTM_SEND_MAX_SOCKBUF;
 
@@ -999,7 +1003,12 @@ int zebra_ptm_bfd_client_register(struct zserv *client,
 
 	SET_FLAG(ptm_cb.client_flags[client->proto],
 		 ZEBRA_PTM_BFD_CLIENT_FLAG_REG);
+
+	return 0;
+
 stream_failure:
+	if (out_ctxt)
+		ptm_lib_cleanup_msg(ptm_hdl, out_ctxt);
 	return 0;
 }
 

@@ -390,6 +390,9 @@ struct bgp {
 	/* Actual coalesce time */
 	uint32_t coalesce_time;
 
+	/* Auto-shutdown new peers */
+	bool autoshutdown;
+
 	u_int32_t addpath_tx_id;
 	int addpath_tx_used[AFI_MAX][SAFI_MAX];
 
@@ -915,9 +918,6 @@ struct peer {
 
 	/* Send prefix count. */
 	unsigned long scount[AFI_MAX][SAFI_MAX];
-
-	/* Announcement attribute hash.  */
-	struct hash *hash[AFI_MAX][SAFI_MAX];
 
 	/* Notify data. */
 	struct bgp_notify notify;
