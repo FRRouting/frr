@@ -87,7 +87,7 @@ struct ri_tlv_router_cap {
 #define RI_STUB_SUPPORT		0x20000000
 #define RI_TE_SUPPORT		0x10000000
 #define RI_P2P_OVER_LAN		0x08000000
-#define RI_TE_EXPERIMENTA	0x04000000
+#define RI_TE_EXPERIMENTAL	0x04000000
 
 #define RI_TLV_LENGTH		4
 
