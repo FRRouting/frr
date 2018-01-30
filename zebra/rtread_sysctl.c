@@ -28,7 +28,6 @@
 #include "log.h"
 #include "vrf.h"
 
-#include "zebra/zserv.h"
 #include "zebra/rt.h"
 #include "zebra/kernel_socket.h"
 

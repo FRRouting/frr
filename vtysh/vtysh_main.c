@@ -644,6 +644,8 @@ int main(int argc, char **argv, char **env)
 	while (vtysh_rl_gets())
 		vtysh_execute(line_read);
 
+	vtysh_uninit();
+
 	history_truncate_file(history_file, 1000);
 	printf("\n");
 

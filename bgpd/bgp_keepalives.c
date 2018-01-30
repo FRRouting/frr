@@ -36,14 +36,14 @@
 #include "bgpd/bgp_keepalives.h"
 /* clang-format on */
 
-/**
+/*
  * Peer KeepAlive Timer.
  * Associates a peer with the time of its last keepalive.
  */
 struct pkat {
-	// the peer to send keepalives to
+	/* the peer to send keepalives to */
 	struct peer *peer;
-	// absolute time of last keepalive sent
+	/* absolute time of last keepalive sent */
 	struct timeval last;
 };
 
@@ -51,9 +51,6 @@ struct pkat {
 static pthread_mutex_t *peerhash_mtx;
 static pthread_cond_t *peerhash_cond;
 static struct hash *peerhash;
-
-/* Thread control flag. */
-bool bgp_keepalives_thread_run = false;
 
 static struct pkat *pkat_new(struct peer *peer)
 {
@@ -100,10 +97,10 @@ static void peer_process(struct hash_backet *hb, void *arg)
 
 	static struct timeval tolerance = {0, 100000};
 
-	// calculate elapsed time since last keepalive
+	/* calculate elapsed time since last keepalive */
 	monotime_since(&pkat->last, &elapsed);
 
-	// calculate difference between elapsed time and configured time
+	/* calculate difference between elapsed time and configured time */
 	ka.tv_sec = pkat->peer->v_keepalive;
 	timersub(&ka, &elapsed, &diff);
 
@@ -118,10 +115,10 @@ static void peer_process(struct hash_backet *hb, void *arg)
 		bgp_keepalive_send(pkat->peer);
 		monotime(&pkat->last);
 		memset(&elapsed, 0x00, sizeof(struct timeval));
-		diff = ka; // time until next keepalive == peer keepalive time
+		diff = ka;
 	}
 
-	// if calculated next update for this peer < current delay, use it
+	/* if calculated next update for this peer < current delay, use it */
 	if (next_update->tv_sec <= 0 || timercmp(&diff, next_update, <))
 		*next_update = diff;
 }
@@ -139,29 +136,9 @@ static unsigned int peer_hash_key(void *arg)
 	return (uintptr_t)pkat->peer;
 }
 
-void bgp_keepalives_init()
-{
-	peerhash_mtx = XCALLOC(MTYPE_TMP, sizeof(pthread_mutex_t));
-	peerhash_cond = XCALLOC(MTYPE_TMP, sizeof(pthread_cond_t));
-
-	// initialize mutex
-	pthread_mutex_init(peerhash_mtx, NULL);
-
-	// use monotonic clock with condition variable
-	pthread_condattr_t attrs;
-	pthread_condattr_init(&attrs);
-	pthread_condattr_setclock(&attrs, CLOCK_MONOTONIC);
-	pthread_cond_init(peerhash_cond, &attrs);
-	pthread_condattr_destroy(&attrs);
-
-	// initialize peer hashtable
-	peerhash = hash_create_size(2048, peer_hash_key, peer_hash_cmp, NULL);
-}
-
+/* Cleanup handler / deinitializer. */
 static void bgp_keepalives_finish(void *arg)
 {
-	bgp_keepalives_thread_run = false;
-
 	if (peerhash) {
 		hash_clean(peerhash, pkat_del);
 		hash_free(peerhash);
@@ -177,32 +154,50 @@ static void bgp_keepalives_finish(void *arg)
 	XFREE(MTYPE_TMP, peerhash_cond);
 }
 
-/**
+/*
  * Entry function for peer keepalive generation pthread.
- *
- * bgp_keepalives_init() must be called prior to this.
  */
 void *bgp_keepalives_start(void *arg)
 {
+	struct frr_pthread *fpt = arg;
+	fpt->master->owner = pthread_self();
+
 	struct timeval currtime = {0, 0};
 	struct timeval aftertime = {0, 0};
 	struct timeval next_update = {0, 0};
 	struct timespec next_update_ts = {0, 0};
 
+	peerhash_mtx = XCALLOC(MTYPE_TMP, sizeof(pthread_mutex_t));
+	peerhash_cond = XCALLOC(MTYPE_TMP, sizeof(pthread_cond_t));
+
+	/* initialize mutex */
+	pthread_mutex_init(peerhash_mtx, NULL);
+
+	/* use monotonic clock with condition variable */
+	pthread_condattr_t attrs;
+	pthread_condattr_init(&attrs);
+	pthread_condattr_setclock(&attrs, CLOCK_MONOTONIC);
+	pthread_cond_init(peerhash_cond, &attrs);
+	pthread_condattr_destroy(&attrs);
+
+	/* initialize peer hashtable */
+	peerhash = hash_create_size(2048, peer_hash_key, peer_hash_cmp, NULL);
 	pthread_mutex_lock(peerhash_mtx);
 
-	// register cleanup handler
+	/* register cleanup handler */
 	pthread_cleanup_push(&bgp_keepalives_finish, NULL);
 
-	bgp_keepalives_thread_run = true;
+	/* notify anybody waiting on us that we are done starting up */
+	frr_pthread_notify_running(fpt);
 
-	while (bgp_keepalives_thread_run) {
+	while (atomic_load_explicit(&fpt->running, memory_order_relaxed)) {
 		if (peerhash->count > 0)
 			pthread_cond_timedwait(peerhash_cond, peerhash_mtx,
 					       &next_update_ts);
 		else
 			while (peerhash->count == 0
-			       && bgp_keepalives_thread_run)
+			       && atomic_load_explicit(&fpt->running,
+						       memory_order_relaxed))
 				pthread_cond_wait(peerhash_cond, peerhash_mtx);
 
 		monotime(&currtime);
@@ -219,7 +214,7 @@ void *bgp_keepalives_start(void *arg)
 		TIMEVAL_TO_TIMESPEC(&next_update, &next_update_ts);
 	}
 
-	// clean up
+	/* clean up */
 	pthread_cleanup_pop(1);
 
 	return NULL;
@@ -229,6 +224,12 @@ void *bgp_keepalives_start(void *arg)
 
 void bgp_keepalives_on(struct peer *peer)
 {
+	if (CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON))
+		return;
+
+	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_KEEPALIVES);
+	assert(fpt->running);
+
 	/* placeholder bucket data to use for fast key lookups */
 	static struct pkat holder = {0};
 
@@ -253,6 +254,12 @@ void bgp_keepalives_on(struct peer *peer)
 
 void bgp_keepalives_off(struct peer *peer)
 {
+	if (!CHECK_FLAG(peer->thread_flags, PEER_THREAD_KEEPALIVES_ON))
+		return;
+
+	struct frr_pthread *fpt = frr_pthread_get(PTHREAD_KEEPALIVES);
+	assert(fpt->running);
+
 	/* placeholder bucket data to use for fast key lookups */
 	static struct pkat holder = {0};
 
@@ -283,10 +290,13 @@ void bgp_keepalives_wake()
 	pthread_mutex_unlock(peerhash_mtx);
 }
 
-int bgp_keepalives_stop(void **result, struct frr_pthread *fpt)
+int bgp_keepalives_stop(struct frr_pthread *fpt, void **result)
 {
-	bgp_keepalives_thread_run = false;
+	assert(fpt->running);
+
+	atomic_store_explicit(&fpt->running, false, memory_order_relaxed);
 	bgp_keepalives_wake();
+
 	pthread_join(fpt->thread, result);
 	return 0;
 }

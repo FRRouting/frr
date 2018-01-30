@@ -67,7 +67,7 @@ static int sin_masklen(struct in_addr mask)
 #endif /* HAVE_STRUCT_SOCKADDR_IN_SIN_LEN */
 
 #ifdef __OpenBSD__
-static int kernel_rtm_add_labels(struct nexthop_label *nh_label,
+static int kernel_rtm_add_labels(struct mpls_label_stack *nh_label,
 				 struct sockaddr_mpls *smpls)
 {
 	if (nh_label->num_labels > 1) {
@@ -387,8 +387,9 @@ static int kernel_rtm(int cmd, struct prefix *p, struct route_entry *re)
 	return 0;
 }
 
-void kernel_route_rib(struct prefix *p, struct prefix *src_p,
-		      struct route_entry *old, struct route_entry *new)
+void kernel_route_rib(struct route_node *rn, struct prefix *p,
+		      struct prefix *src_p, struct route_entry *old,
+		      struct route_entry *new)
 {
 	int route = 0;
 
@@ -410,12 +411,12 @@ void kernel_route_rib(struct prefix *p, struct prefix *src_p,
 		zlog_err("Can't lower privileges");
 
 	if (new) {
-		kernel_route_rib_pass_fail(p, new,
+		kernel_route_rib_pass_fail(rn, p, new,
 					   (!route) ?
 					   SOUTHBOUND_INSTALL_SUCCESS :
 					   SOUTHBOUND_INSTALL_FAILURE);
 	} else {
-		kernel_route_rib_pass_fail(p, old,
+		kernel_route_rib_pass_fail(rn, p, old,
 					   (!route) ?
 					   SOUTHBOUND_DELETE_SUCCESS :
 					   SOUTHBOUND_DELETE_FAILURE);
@@ -471,6 +472,11 @@ extern int kernel_interface_set_master(struct interface *master,
 				       struct interface *slave)
 {
 	return 0;
+}
+
+uint32_t kernel_get_speed(struct interface *ifp)
+{
+	return ifp->speed;
 }
 
 #endif /* !HAVE_NETLINK */

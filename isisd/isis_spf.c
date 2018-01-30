@@ -1249,7 +1249,7 @@ static void init_spt(struct isis_spftree *spftree, int mtid, int level,
 }
 
 static int isis_run_spf(struct isis_area *area, int level, int family,
-			u_char *sysid)
+			u_char *sysid, struct timeval *nowtv)
 {
 	int retval = ISIS_OK;
 	struct isis_vertex *vertex;
@@ -1263,9 +1263,8 @@ static int isis_run_spf(struct isis_area *area, int level, int family,
 	uint16_t mtid;
 
 	/* Get time that can't roll backwards. */
-	monotime(&time_now);
-	start_time = time_now.tv_sec;
-	start_time = (start_time * 1000000) + time_now.tv_usec;
+	start_time = nowtv->tv_sec;
+	start_time = (start_time * 1000000) + nowtv->tv_usec;
 
 	if (family == AF_INET)
 		spftree = area->spftree[level - 1];
@@ -1372,9 +1371,11 @@ static int isis_run_spf_cb(struct thread *thread)
 			   area->area_tag, level);
 
 	if (area->ip_circuits)
-		retval = isis_run_spf(area, level, AF_INET, isis->sysid);
+		retval = isis_run_spf(area, level, AF_INET, isis->sysid,
+			&thread->real);
 	if (area->ipv6_circuits)
-		retval = isis_run_spf(area, level, AF_INET6, isis->sysid);
+		retval = isis_run_spf(area, level, AF_INET6, isis->sysid,
+			&thread->real);
 
 	return retval;
 }
@@ -1435,9 +1436,8 @@ int isis_spf_schedule(struct isis_area *area, int level)
 			 timer, &area->spf_timer[level - 1]);
 
 	if (isis->debugs & DEBUG_SPF_EVENTS)
-		zlog_debug("ISIS-Spf (%s) L%d SPF scheduled %d sec from now",
-			   area->area_tag, level,
-			   area->min_spf_interval[level - 1] - diff);
+		zlog_debug("ISIS-Spf (%s) L%d SPF scheduled %ld sec from now",
+			   area->area_tag, level, timer);
 
 	return ISIS_OK;
 }

@@ -16,8 +16,8 @@ Both IP/Layer 3 (L3) VNs, and IP with Ethernet/Layer 2 (L2) VNs are supported.
 
 BGP, with IP VPNs and Tunnel Encapsulation, is used to distribute VN
 information between NVAs. BGP based IP VPN support is defined in :rfc:`4364`,
-and :rfc:`4659`. Both the Encapsulation Subsequent Address Family Identifier
-(SAFI) and the Tunnel Encapsulation Attribute, :rfc:`5512` are supported.
+and :rfc:`4659`. Encapsulation information is provided via the Tunnel
+Encapsulation Attribute, :rfc:`5512`.
 
 The protocol that is used to communicate routing and Ethernet / Layer 2 (L2)
 forwarding information between NVAs and NVEs is referred to as the Remote
@@ -40,30 +40,26 @@ following areas:
 
 - :dfn:`General VNC` configuration applies to general VNC operation and is
   primarily used to control the method used to advertise tunnel information.
-  - :dfn:`Remote Forwarder Protocol (RFP)` configuration relates to the protocol
-    used between NVAs and NVEs.
-    - :dfn:`VNC Defaults` provides default parameters for registered NVEs.
-      - :dfn:`VNC NVE Group` provides for configuration of a specific set of
-        registered NVEs and overrides default parameters.
-        - :dfn:`Redistribution` and :dfn:`Export` control VNC-GW operation, i.e., the
-          import/export of routing information between VNC and customer edge routers
-          (:abbr:`CE`s) operating within a VN.
+
+- :dfn:`Remote Forwarder Protocol (RFP)` configuration relates to the protocol
+  used between NVAs and NVEs.
+
+- :dfn:`VNC Defaults` provides default parameters for registered NVEs.
+
+- :dfn:`VNC NVE Group` provides for configuration of a specific set of
+  registered NVEs and overrides default parameters.
+
+- :dfn:`Redistribution` and :dfn:`Export` control VNC-GW operation, i.e., the
+  import/export of routing information between VNC and customer edge routers
+  (:abbr:`CE` s) operating within a VN.
 
 
-        .. _General_VNC_Configuration:
+.. _General_VNC_Configuration:
 
-     General VNC Configuration
-     -------------------------
+.. General VNC Configuration
+.. -------------------------
 
-     .. clicmd:: vnc advertise-un-method encap-safi|encap-attr
-
-  Advertise NVE underlay-network IP addresses using the encapsulation SAFI
-  (`encap-safi`) or the UN address sub-TLV of the Tunnel Encapsulation
-  attribute (`encap-attr`). When `encap-safi` is used, neighbors under
-  `address-family encap` and/or `address-family encapv6` must be configured.
-  The default is `encap-attr`.
-
-  .. _RFP_Related_Configuration:
+.. _RFP_Related_Configuration:
 
 RFP Related Configuration
 -------------------------
@@ -96,9 +92,9 @@ Enter VNC configuration mode for specifying VNC default behaviors. Use
 
 ::
 
-vnc defaults
-... various VNC defaults
-exit-vnc
+   vnc defaults
+   ... various VNC defaults
+   exit-vnc
 
 
 These are the statements that can appear between ``vnc defaults`` and
@@ -118,43 +114,42 @@ These are the statements that can appear between ``vnc defaults`` and
    in one of the following forms:
 
    - ``IPv4-address:two-byte-integer``
-     - ``four-byte-autonomous-system-number:two-byte-integer``
-       - ``two-byte-autonomous-system-number:four-byte-integer``
+   - ``four-byte-autonomous-system-number:two-byte-integer``
+   - ``two-byte-autonomous-system-number:four-byte-integer``
 
-       If no default import RT list is specified, then the default import RT list
-       is empty. If no default export RT list is specified, then the default export
-       RT list is empty.
+   If no default import RT list is specified, then the default import RT list
+   is empty. If no default export RT list is specified, then the default export
+   RT list is empty.
 
-       A complete definition of these parameters is given below
-       (:ref:`VNC_NVE_Group_Configuration`).
+   A complete definition of these parameters is given below
+   (:ref:`VNC_NVE_Group_Configuration`).
 
-       .. index:: rd route-distinguisher
-       .. clicmd:: rd ROUTE-DISTINGUISHER
+.. index:: rd route-distinguisher
+.. clicmd:: rd ROUTE-DISTINGUISHER
 
    Specify the default route distinguisher (RD) for routes advertised via BGP
    VPNs. The route distinguisher must be in one of four forms:
 
     - ``IPv4-address:two-byte-integer``
-      - ``four-byte-autonomous-system-number:two-byte-integer``
-        - ``two-byte-autonomous-system-number:four-byte-integer``
-          - ``auto:vn:two-byte-integer``
+    - ``four-byte-autonomous-system-number:two-byte-integer``
+    - ``two-byte-autonomous-system-number:four-byte-integer``
+    - ``auto:vn:two-byte-integer``
 
-          If RD is specified in the defaults section, the default RD value is
-          `two-byte-autonomous-system-number=0`:`four-byte-integer=0`.
+    If RD is specified in the defaults section, the default RD value is
+    `two-byte-autonomous-system-number=0:four-byte-integer=0`.
 
-          A complete definition of this parameter is given below
-          (:ref:`VNC_NVE_Group_Configuration`).
+    A complete definition of this parameter is given below
+    (:ref:`VNC_NVE_Group_Configuration`).
 
-          .. index:: l2rd NVE-ID-VALUE
-
-       .. clicmd:: l2rd NVE-ID-VALUE
+.. index:: l2rd NVE-ID-VALUE
+.. clicmd:: l2rd NVE-ID-VALUE
 
    Set the value used to distinguish NVEs connected to the same logical
    Ethernet segment (i.e., L2VPN).  A complete definition of this parameter is
    given below (:ref:`VNC_NVE_Group_Configuration`).
 
-   .. index:: response-lifetime LIFETIME|infinite
-   .. clicmd:: response-lifetime LIFETIME|infinite
+.. index:: response-lifetime LIFETIME|infinite
+.. clicmd:: response-lifetime LIFETIME|infinite
 
    Specify the default lifetime to be included in RFP response messages sent to
    NVEs.
@@ -163,25 +158,23 @@ These are the statements that can appear between ``vnc defaults`` and
    (:ref:`VNC_NVE_Group_Configuration`).
 
 .. index:: export bgp|zebra route-map MAP-NAME
-
 .. clicmd:: export bgp|zebra route-map MAP-NAME
 
-Specify that the named route-map should be applied to routes being exported
-to bgp or zebra.
+   Specify that the named route-map should be applied to routes being exported
+   to bgp or zebra.
 
 .. index:: export bgp|zebra no route-map
-
 .. clicmd:: export bgp|zebra no route-map
 
-Specify that no route-map should be applied to routes being exported to bgp
-or zebra.
+   Specify that no route-map should be applied to routes being exported to bgp
+   or zebra.
 
 .. index:: exit-vnc
 .. clicmd:: exit-vnc
 
    Exit VNC configuration mode.
 
-   .. _VNC_NVE_Group_Configuration:
+.. _VNC_NVE_Group_Configuration:
 
 VNC NVE Group Configuration
 ---------------------------
@@ -210,9 +203,9 @@ Defaults section.
 
   ::
 
-  vnc nve-group group1
-  ... configuration commands
-  exit-vnc
+     vnc nve-group group1
+     ... configuration commands
+     exit-vnc
 
 
 .. index:: no vnc nve-group NAME
@@ -222,73 +215,73 @@ Defaults section.
 
    The following statements are valid in an NVE group definition:
 
-   .. index:: l2rd NVE-ID-VALUE
-   .. clicmd:: l2rd NVE-ID-VALUE
+.. index:: l2rd NVE-ID-VALUE
+.. clicmd:: l2rd NVE-ID-VALUE
 
-Set the value used to distinguish NVEs connected to the same physical
-Ethernet segment (i.e., at the same location) [#]_.
+   Set the value used to distinguish NVEs connected to the same physical
+   Ethernet segment (i.e., at the same location) [#]_.
 
-The nve-id subfield may be specified as either a literal value in the range
-1-255, or it may be specified as `auto:vn`, which means to use the
-least-significant octet of the originating NVE's VN address.
+   The nve-id subfield may be specified as either a literal value in the range
+   1-255, or it may be specified as `auto:vn`, which means to use the
+   least-significant octet of the originating NVE's VN address.
 
 .. index:: prefix vn|un A.B.C.D/M|X:X::X:X/M
 .. clicmd:: prefix vn|un A.B.C.D/M|X:X::X:X/M
 
-  Specify the matching prefix for this NVE group by either virtual-network
-  address (`vn`) or underlay-network address (`un`). Either or both
-  virtual-network and underlay-network prefixes may be specified. Subsequent
-  virtual-network or underlay-network values within a `vnc nve-group`
-  `exit-vnc` block override their respective previous values.
+   Specify the matching prefix for this NVE group by either virtual-network
+   address (`vn`) or underlay-network address (`un`). Either or both
+   virtual-network and underlay-network prefixes may be specified. Subsequent
+   virtual-network or underlay-network values within a `vnc nve-group`
+   `exit-vnc` block override their respective previous values.
 
-  These prefixes are used only for determining assignments of NVEs to NVE
-  Groups.
+   These prefixes are used only for determining assignments of NVEs to NVE
+   Groups.
 
-  .. index:: rd ROUTE-DISTINGUISHER
-  .. clicmd:: rd ROUTE-DISTINGUISHER
+.. index:: rd ROUTE-DISTINGUISHER
+.. clicmd:: rd ROUTE-DISTINGUISHER
 
    Specify the route distinguisher for routes advertised via BGP
    VPNs. The route distinguisher must be in one of these forms:
 
    - ``IPv4-address:two-byte-integer``
-     - ``four-byte-autonomous-system-number:two-byte-integer``
-       - ``two-byte-autonomous-system-number:four-byte-integer``
-         - ``auto:vn:`two-byte-integer`
+   - ``four-byte-autonomous-system-number:two-byte-integer``
+   - ``two-byte-autonomous-system-number:four-byte-integer``
+   - ``auto:vn:`two-byte-integer`
 
-         Routes originated by NVEs in the NVE group will use the group's specified
-         `route-distinguisher` when they are advertised via BGP.  If the `auto` form
-         is specified, it means that a matching NVE has its RD set to
-         ``rd_type=IP=1:IPv4-address=VN-address:two-byte-integer``, for IPv4 VN
-         addresses and
-         ``rd_type=IP=1`:`IPv4-address=Last-four-bytes-of-VN-address:two-byte-integer``,
-         for IPv6 VN addresses.
+   Routes originated by NVEs in the NVE group will use the group's specified
+   `route-distinguisher` when they are advertised via BGP.  If the `auto` form
+   is specified, it means that a matching NVE has its RD set to
+   ``rd_type=IP=1:IPv4-address=VN-address:two-byte-integer``, for IPv4 VN
+   addresses and
+   ``rd_type=IP=1:IPv4-address=Last-four-bytes-of-VN-address:two-byte-integer``,
+   for IPv6 VN addresses.
 
-         If the NVE group definition does not specify a `route-distinguisher`, then
-         the default `route-distinguisher` is used.  If neither a group nor a default
-         `route-distinguisher` is configured, then the advertised RD is set to
-         ``two-byte-autonomous-system-number=0:four-byte-integer=0``.
+   If the NVE group definition does not specify a `route-distinguisher`, then
+   the default `route-distinguisher` is used.  If neither a group nor a default
+   `route-distinguisher` is configured, then the advertised RD is set to
+   ``two-byte-autonomous-system-number=0:four-byte-integer=0``.
 
-         .. index:: response-lifetime LIFETIME|infinite
-         .. clicmd:: response-lifetime LIFETIME|infinite
+.. index:: response-lifetime LIFETIME|infinite
+.. clicmd:: response-lifetime LIFETIME|infinite
 
-      Specify the response lifetime, in seconds, to be included in RFP response
-      messages sent to NVEs. If the value 'infinite' is given, an infinite
-      lifetime will be used.
+   Specify the response lifetime, in seconds, to be included in RFP response
+   messages sent to NVEs. If the value 'infinite' is given, an infinite
+   lifetime will be used.
 
-      Note that this parameter is not the same as the lifetime supplied by NVEs in
-      RFP registration messages. This parameter does not affect the lifetime value
-      attached to routes sent by this server via BGP.
+   Note that this parameter is not the same as the lifetime supplied by NVEs in
+   RFP registration messages. This parameter does not affect the lifetime value
+   attached to routes sent by this server via BGP.
 
-      If the NVE group definition does not specify a `response-lifetime`, the
-      default `response-lifetime` will be used.  If neither a group nor a default
-      `response-lifetime` is configured, the value 3600 will be used. The maximum
-      response lifetime is 2147483647.
+   If the NVE group definition does not specify a `response-lifetime`, the
+   default `response-lifetime` will be used.  If neither a group nor a default
+   `response-lifetime` is configured, the value 3600 will be used. The maximum
+   response lifetime is 2147483647.
 
-      .. index:: rt export RT-LIST
-      .. clicmd:: rt export RT-LIST
+.. index:: rt export RT-LIST
+.. clicmd:: rt export RT-LIST
 
-   .. index:: rt import RT-LIST
-   .. clicmd:: rt import RT-LIST
+.. index:: rt import RT-LIST
+.. clicmd:: rt import RT-LIST
 
 .. index:: rt both RT-LIST
 .. clicmd:: rt both RT-LIST
@@ -297,9 +290,9 @@ least-significant octet of the originating NVE's VN address.
    space-separated list of route targets, each element of which is
    in one of the following forms:
 
-   ``IPv4-address:two-byte-integer``
-   ``four-byte-autonomous-system-number:two-byte-integer``
-   ``two-byte-autonomous-system-number:four-byte-integer``
+   - ``IPv4-address:two-byte-integer``
+   - ``four-byte-autonomous-system-number:two-byte-integer``
+   - ``two-byte-autonomous-system-number:four-byte-integer``
 
    The first form, `rt export`, specifies an `export rt-list`.  The `export
    rt-list` will be attached to routes originated by NVEs in the NVE group
@@ -311,8 +304,7 @@ least-significant octet of the originating NVE's VN address.
 
    The second form, `rt import` specifies an `import rt-list`, which is a
    filter for incoming routes.  In order to be made available to NVEs in the
-   group, incoming BGP VPN and `ENCAP` `SAFI` (when `vnc advertise-un-method
-   encap-safi` is set) routes must have RT lists that have at least one
+   group, incoming BGP VPN routes must have RT lists that have at least one
    route target in common with the group's `import rt-list`.
 
    If the NVE group definition does not specify an import filter, then the
@@ -560,7 +552,6 @@ Redistribution Command Syntax
 .. index:: no vnc redistribute ipv4|ipv6 bgp|bgp-direct|bgp-direct-to-nve-groups|connected|kernel|ospf|rip|static
 .. clicmd:: no vnc redistribute ipv4|ipv6 bgp|bgp-direct|bgp-direct-to-nve-groups|connected|kernel|ospf|rip|static
 
-
    Import (or do not import) prefixes from another routing protocols. Specify
    both the address family to import (`ipv4` or `ipv6`) and the protocol
    (`bgp`, `bgp-direct`, `bgp-direct-to-nve-groups`, `connected`, `kernel`,
@@ -573,7 +564,6 @@ Redistribution Command Syntax
 .. index:: vnc redistribute mode plain|nve-group|resolve-nve
 .. clicmd:: vnc redistribute mode plain|nve-group|resolve-nve
 
-
    Redistribute routes from other protocols into VNC using the specified mode.
    Not all combinations of modes and protocols are supported.
 
@@ -582,7 +572,6 @@ Redistribution Command Syntax
 
 .. index:: no vnc redistribute nve-group GROUP-NAME
 .. clicmd:: no vnc redistribute nve-group GROUP-NAME
-
 
    When using `nve-group` mode, assign (or do not assign) the NVE group
    `group-name` to routes redistributed from another routing protocol.
@@ -595,7 +584,6 @@ Redistribution Command Syntax
 .. index:: vnc redistribute lifetime LIFETIME|infinite
 .. clicmd:: vnc redistribute lifetime LIFETIME|infinite
 
-
    Assign a registration lifetime, either `lifetime` seconds or `infinite`, to
    prefixes redistributed from other routing protocols as if they had been
    received via RFP registration messages from an NVE. `lifetime` can be any
@@ -603,7 +591,6 @@ Redistribution Command Syntax
 
 .. index:: vnc redistribute resolve-nve roo-ec-local-admin 0-65536
 .. clicmd:: vnc redistribute resolve-nve roo-ec-local-admin 0-65536
-
 
    Assign a value to the local-administrator subfield used in the
    Route Origin extended community that is assigned to routes exported
@@ -657,7 +644,6 @@ a corresponding `redistribute vnc-direct` statement.
 .. index:: export bgp|zebra mode none|group-nve|registering-nve|ce
 .. clicmd:: export bgp|zebra mode none|group-nve|registering-nve|ce
 
-
    Specify how routes should be exported to bgp or zebra.  If the mode is
    `none`, routes are not exported.  If the mode is `group-nve`, routes are
    exported according to nve-group or vrf-policy group configuration
@@ -671,7 +657,7 @@ a corresponding `redistribute vnc-direct` statement.
    The next hop of the exported route is set to the encoded NVE connected CE
    Router.
 
-  The default for both bgp and zebra is mode `none`.
+   The default for both bgp and zebra is mode `none`.
 
 .. index:: vnc export bgp|zebra group-nve group GROUP-NAME
 .. clicmd:: vnc export bgp|zebra group-nve group GROUP-NAME
@@ -697,13 +683,12 @@ a corresponding `redistribute vnc-direct` statement.
 .. index:: export bgp|zebra no ipv4|ipv6 prefix-list
 .. clicmd:: export bgp|zebra no ipv4|ipv6 prefix-list
 
-    When export mode is `ce` or `registering-nve`,
-    specifies that no prefix-list should be applied to routes
-    being exported to bgp or zebra.
+   When export mode is `ce` or `registering-nve`,
+   specifies that no prefix-list should be applied to routes
+   being exported to bgp or zebra.
 
 .. index:: export bgp|zebra route-map MAP-NAME
 .. clicmd:: export bgp|zebra route-map MAP-NAME
-
 
    When export mode is `ce` or `registering-nve`, specifies that the named
    route-map should be applied to routes being exported to bgp or zebra.
@@ -903,13 +888,612 @@ related information:
 .. index:: show memory vnc
 .. clicmd:: show memory vnc
 
-
    Print the number of memory items allocated by the NVA.
 
 .. _Example_VNC_and_VNC-GW_Configurations:
 
 Example VNC and VNC-GW Configurations
 =====================================
+
+.. _vnc-mesh-nva-config:
+
+Mesh NVA Configuration
+----------------------
+
+This example includes three NVAs, nine NVEs, and two NVE groups. Note that
+while not shown, a single physical device may support multiple logical NVEs.
+:figure:`fig-vnc-mesh` shows ``code NVA-1`` (192.168.1.100), ``NVA 2``
+(192.168.1.101), and ``NVA 3`` (192.168.1.102), which are connected in a full
+mesh. Each is a member of the autonomous system 64512. Each NVA provides VNC
+services to three NVE clients in the 172.16.0.0/16 virtual-network address
+range. The 172.16.0.0/16 address range is partitioned into two NVE groups,
+``group1`` (172.16.0.0/17) and ``group2`` (172.16.128.0/17).
+
+Each NVE belongs to either NVE group ``group1`` or NVE group
+``group2``.  The NVEs ``NVE 1``, ``NVE 2``, @code{NVE
+4}, ``NVE 7``, and ``NVE 8`` are members of the NVE group
+``group1``.  The NVEs ``NVE 3``, ``NVE 5``, @code{NVE
+6}, and ``NVE 9`` are members of the NVE group ``group2``.
+
+Each NVA advertises NVE underlay-network IP addresses using the
+Tunnel Encapsulation Attribute.
+
+.. _vnc-fig-vnc-mesh:
+.. figure:: ../figure/fig-vnc-mesh.png
+   :align: center
+   :alt: Three-way Mesh
+
+   A three-way full mesh with three NVEs per NVA.
+
+:file:`bgpd.conf` for ``NVA 1`` (192.168.1.100):::
+
+   router bgp 64512
+
+       bgp router-id 192.168.1.100
+
+       neighbor 192.168.1.101  remote-as 64512
+       neighbor 192.168.1.102  remote-as 64512
+
+       address-family ipv4 vpn
+           neighbor 192.168.1.101 activate
+           neighbor 192.168.1.102 activate
+       exit-address-family
+
+       vnc defaults
+           rd 64512:1
+           response-lifetime 200
+           rt both 1000:1 1000:2
+       exit-vnc
+
+       vnc nve-group group1
+           prefix vn 172.16.0.0/17
+           rt both 1000:1
+       exit-vnc
+
+       vnc nve-group group2
+           prefix vn 172.16.128.0/17
+           rt both 1000:2
+       exit-vnc
+
+   exit
+
+:file:`bgpd.conf` for ``NVA 2`` (192.168.1.101):::
+
+   router bgp 64512
+
+       bgp router-id 192.168.1.101
+
+       neighbor 192.168.1.100  remote-as 64512
+       neighbor 192.168.1.102  remote-as 64512
+
+       address-family ipv4 vpn
+           neighbor 192.168.1.100 activate
+           neighbor 192.168.1.102 activate
+       exit-address-family
+
+       vnc nve-group group1
+           prefix vn 172.16.0.0/17
+           rd 64512:1
+           response-lifetime 200
+           rt both 1000:1 1000:2
+       exit-vnc
+   exit
+
+:file:`bgpd.conf` for ``NVA 3`` (192.168.1.102):::
+
+   router bgp 64512
+
+       bgp router-id 192.168.1.102
+
+       neighbor 192.168.1.101  remote-as 64512
+       neighbor 192.168.1.102  remote-as 64512
+
+       address-family ipv4 vpn
+           neighbor 192.168.1.100 activate
+           neighbor 192.168.1.101 activate
+       exit-address-family
+
+       vnc defaults
+           rd 64512:1
+           response-lifetime 200
+           rt both 1000:1 1000:2
+       exit-vnc
+
+       vnc nve-group group1
+           prefix vn 172.16.128.0/17
+       exit-vnc
+   exit
+
+
+Mesh NVA and VNC-GW Configuration
+---------------------------------
+
+This example includes two NVAs, each with two associated NVEs, and two VNC-GWs,
+each supporting two CE routers physically attached to the four NVEs. Note that
+this example is showing a more complex configuration where VNC-GW is separated
+from normal NVA functions; it is equally possible to simplify the configuration
+and combine NVA and VNC-GW functions in a single FRR instance.
+
+.. _vnc-fig-vnc-gw:
+.. figure:: ../figures/fig-vnc-gw.png
+   :align: center
+   :alt: FRR VNC Gateway
+
+   Meshed NVEs and VNC-GWs
+
+As shown in :figure:`fig-vnc-gw`, NVAs and VNC-GWs are connected in a full iBGP
+mesh. The VNC-GWs each have two CEs configured as route-reflector clients.
+Each client provides BGP updates with unicast routes that the VNC-GW reflects
+to the other client. The VNC-GW also imports these unicast routes into VPN
+routes to be shared with the other VNC-GW and the two NVAs. This route
+importation is controlled with the ``vnc redistribute`` statements shown in the
+configuration. Similarly, registrations sent by NVEs via RFP to the NVAs are
+exported by the VNC-GWs to the route-reflector clients as unicast routes. RFP
+registrations exported this way have a next-hop address of the CE behind the
+connected (registering) NVE. Exporting VNC routes as IPv4 unicast is enabled
+with the ``vnc export`` command below.
+
+The configuration for ``VNC-GW 1`` is shown below.::
+
+   router bgp 64512
+    bgp router-id 192.168.1.101
+    bgp cluster-id 1.2.3.4
+    neighbor 192.168.1.102 remote-as 64512
+    neighbor 192.168.1.103 remote-as 64512
+    neighbor 192.168.1.104 remote-as 64512
+    neighbor 172.16.1.2 remote-as 64512
+    neighbor 172.16.2.2 remote-as 64512
+    !
+    address-family ipv4 unicast
+     redistribute vnc-direct
+     no neighbor 192.168.1.102 activate
+     no neighbor 192.168.1.103 activate
+     no neighbor 192.168.1.104 activate
+     neighbor 172.16.1.2 route-reflector-client
+     neighbor 172.16.2.2 route-reflector-client
+    exit-address-family
+    !
+    address-family ipv4 vpn
+      neighbor 192.168.1.102 activate
+      neighbor 192.168.1.103 activate
+      neighbor 192.168.1.104 activate
+    exit-address-family
+    vnc export bgp mode ce
+    vnc redistribute mode resolve-nve
+    vnc redistribute ipv4 bgp-direct
+    exit
+
+Note that in the VNC-GW configuration, the neighboring VNC-GW and NVAs each
+have a statement disabling the IPv4 unicast address family. IPv4 unicast is on
+by default and this prevents the other VNC-GW and NVAs from learning unicast
+routes advertised by the route-reflector clients.
+
+Configuration for ``NVA 2``:::
+
+   router bgp 64512
+    bgp router-id 192.168.1.104
+    neighbor 192.168.1.101 remote-as 64512
+    neighbor 192.168.1.102 remote-as 64512
+    neighbor 192.168.1.103 remote-as 64512
+    !
+    address-family ipv4 unicast
+     no neighbor 192.168.1.101 activate
+     no neighbor 192.168.1.102 activate
+     no neighbor 192.168.1.103 activate
+    exit-address-family
+    !
+    address-family ipv4 vpn
+      neighbor 192.168.1.101 activate
+      neighbor 192.168.1.102 activate
+      neighbor 192.168.1.103 activate
+    exit-address-family
+    !
+    vnc defaults
+     response-lifetime 3600
+     exit-vnc
+    vnc nve-group nve1
+     prefix vn 172.16.1.1/32
+     response-lifetime 3600
+     rt both 1000:1 1000:2
+     exit-vnc
+    vnc nve-group nve2
+     prefix vn 172.16.2.1/32
+     response-lifetime 3600
+     rt both 1000:1 1000:2
+     exit-vnc
+    exit
+
+.. TBD make this its own example:
+..
+.. @float Figure,fig:fig-vnc-gw-rr
+.. @center @image{fig-vnc-gw-rr,400pt,,Frr VNC Gateway with RR}
+.. @end float
+.. An NVA can also import unicast routes from BGP without advertising the
+.. imported routes as VPN routes.  Such imported routes, while not
+.. distributed to other NVAs or VNC-GWs, are are available to NVEs via
+.. RFP query messages sent to the NVA. @ref{fig:fig-vnc-gw-rr}
+.. shows an example topology where unicast routes are imported into NVAs
+.. from a Route Reflector.  (@pxref{Route Reflector} for route reflector
+.. configuration details.)  The following three lines can be added to the
+.. ``NVA 1`` and ``NVA 2`` configurations to import routes into VNC
+.. for local VNC use:
+..
+.. @verbatim
+..  neighbor 192.168.1.105 remote-as 64512
+..  vnc redistribute mode plain
+..  vnc redistribute ipv4 bgp-direct-to-nve-groups
+.. @end verbatim
+
+.. _vnc-with-frr-route-reflector-config:
+
+VNC with FRR Route Reflector Configuration
+------------------------------------------
+
+A route reflector eliminates the need for a fully meshed NVA network by acting
+as the hub between NVAs. :figure:`vnc-fig-vnc-frr-route-reflector` shows BGP
+route reflector ``BGP Route Reflector 1`` (192.168.1.100) as a route reflector
+for NVAs ``NVA 2``(192.168.1.101) and ``NVA 3`` (192.168.1.102).
+
+@float Figure,fig:fig-vnc-frr-route-reflector @center
+@image{fig-vnc-frr-route-reflector,400pt,,Frr Route Reflector} @caption{Two
+NVAs and a BGP Route Reflector} @end float
+
+.. _vnc-fig-vnc-frr-route-reflector:
+.. figure:: ../figures/fig-vnc-frr-route-reflector.png
+   :align: center
+   :alt: FRR Route Reflector
+
+   Two NVAs and a BGP Route Reflector
+
+``NVA 2`` and ``NVA 3`` advertise NVE underlay-network IP addresses using the
+Tunnel Encapsulation Attribute. ``BGP Route Reflector 1`` ``reflects''
+advertisements from ``NVA 2`` to ``NVA 3`` and vice versa.
+
+As in the example of :ref:`vnc-mesh-nva-config`, there are two NVE groups.  The
+172.16.0.0/16 address range is partitioned into two NVE groups, ``group1``
+(172.16.0.0/17) and ``group2`` (172.16.128.0/17).  The NVE ``NVE 4``, ``NVE
+7``, and ``NVE 8`` are members of the NVE group ``group1``.  The NVEs ``NVE
+5``, ``NVE 6``, and ``NVE 9`` are members of the NVE group ``group2``.
+
+:file:`bgpd.conf` for ``BGP Route Reflector 1`` on 192.168.1.100:::
+
+   router bgp 64512
+
+       bgp router-id 192.168.1.100
+
+       neighbor 192.168.1.101 remote-as 64512
+       neighbor 192.168.1.101 port 7179
+       neighbor 192.168.1.101 description iBGP-client-192-168-1-101
+
+       neighbor 192.168.1.102 remote-as 64512
+       neighbor 192.168.1.102 port 7179
+       neighbor 192.168.1.102 description iBGP-client-192-168-1-102
+
+       address-family ipv4 unicast
+           neighbor 192.168.1.101 route-reflector-client
+           neighbor 192.168.1.102 route-reflector-client
+       exit-address-family
+
+       address-family ipv4 vpn
+           neighbor 192.168.1.101 activate
+           neighbor 192.168.1.102 activate
+
+           neighbor 192.168.1.101 route-reflector-client
+           neighbor 192.168.1.102 route-reflector-client
+       exit-address-family
+
+   exit
+
+:file:`bgpd.conf` for ``NVA 2`` on 192.168.1.101:::
+
+   router bgp 64512
+
+       bgp router-id 192.168.1.101
+
+       neighbor 192.168.1.100  remote-as 64512
+
+       address-family ipv4 vpn
+           neighbor 192.168.1.100 activate
+       exit-address-family
+
+       vnc nve-group group1
+           prefix vn 172.16.0.0/17
+           rd 64512:1
+           response-lifetime 200
+           rt both 1000:1 1000:2
+       exit-vnc
+   exit
+
+:file:`bgpd.conf` for ``NVA 2`` on 192.168.1.102:::
+
+  router bgp 64512
+
+      bgp router-id 192.168.1.102
+
+      neighbor 192.168.1.100  remote-as 64512
+
+      address-family ipv4 vpn
+          neighbor 192.168.1.100 activate
+      exit-address-family
+
+      vnc defaults
+          rd 64512:1
+          response-lifetime 200
+          rt both 1000:1 1000:2
+      exit-vnc
+
+      vnc nve-group group1
+          prefix vn 172.16.128.0/17
+      exit-vnc
+  exit
+
+While not shown, an NVA can also be configured as a route reflector.
+
+.. _vnc-with-commercial-route-reflector-config:
+
+VNC with Commercial Route Reflector Configuration
+-------------------------------------------------
+
+This example is identical to :ref:`vnc-with-frr-route-reflector-configuration`
+with the exception that the route reflector is a commercial router. Only the
+VNC-relevant configuration is provided.
+
+.. figure:: ../figures/fig-vnc-commercial-route-reflector
+   :align: center
+   :alt: Commercial Route Reflector
+
+   Two NVAs with a commercial route reflector
+
+:file:`bgpd.conf` for BGP route reflector ``Commercial Router`` on 192.168.1.104:::
+
+   version 8.5R1.13;
+   routing-options {
+       rib inet.0 {
+           static {
+               route 172.16.0.0/16 next-hop 192.168.1.104;
+           }
+       }
+       autonomous-system 64512;
+       resolution {
+           rib inet.3 {
+               resolution-ribs inet.0;
+           }
+           rib bgp.l3vpn.0 {
+               resolution-ribs inet.0;
+           }
+       }
+   }
+   protocols {
+       bgp {
+           advertise-inactive;
+           family inet {
+               labeled-unicast;
+           }
+          group 1 {
+               type internal;
+               advertise-inactive;
+               advertise-peer-as;
+               import h;
+               family inet {
+                   unicast;
+               }
+               family inet-vpn {
+                   unicast;
+               }
+               cluster 192.168.1.104;
+               neighbor 192.168.1.101;
+               neighbor 192.168.1.102;
+           }
+       }
+   }
+   policy-options {
+       policy-statement h {
+           from protocol bgp;
+           then {
+               as-path-prepend 64512;
+               accept;
+           }
+       }
+   }
+
+:file:`bgpd.conf` for ``NVA 2`` on 192.168.1.101:::
+
+   router bgp 64512
+
+       bgp router-id 192.168.1.101
+
+       neighbor 192.168.1.100  remote-as 64512
+
+       address-family ipv4 vpn
+           neighbor 192.168.1.100 activate
+       exit-address-family
+
+       vnc nve-group group1
+           prefix vn 172.16.0.0/17
+           rd 64512:1
+           response-lifetime 200
+           rt both 1000:1 1000:2
+       exit-vnc
+   exit
+
+:file:`bgpd.conf` for ``NVA 3`` on 192.168.1.102:::
+
+   router bgp 64512
+
+       bgp router-id 192.168.1.102
+
+       neighbor 192.168.1.100  remote-as 64512
+
+       address-family ipv4 vpn
+           neighbor 192.168.1.100 activate
+       exit-address-family
+
+       vnc defaults
+           rd 64512:1
+           response-lifetime 200
+           rt both 1000:1 1000:2
+       exit-vnc
+
+       vnc nve-group group1
+           prefix vn 172.16.128.0/17
+       exit-vnc
+   exit
+
+VNC with Redundant Route Reflectors Configuration
+-------------------------------------------------
+
+This example combines the previous two
+(:ref:`vnc-with-frr-route-reflector-config` and
+:ref:`vnc-with-commercial-route-reflector-config`) into a redundant route
+reflector configuration.  BGP route reflectors ``BGP Route Reflector 1`` and
+``Commercial Router`` are the route reflectors for NVAs ``NVA 2`` and ``NVA
+3``.  The two NVAs have connections to both route reflectors.
+
+.. figure:: ../fig-vnc-redundant-route-reflectors.png
+   :align: center
+   :alt: Redundant Route Reflectors
+
+   FRR-based NVA with redundant route reflectors
+
+:file:`bgpd.conf` for ``Bgpd Route Reflector 1`` on 192.168.1.100:::
+
+   router bgp 64512
+
+    bgp router-id 192.168.1.100
+    bgp cluster-id 192.168.1.100
+
+    neighbor 192.168.1.104 remote-as 64512
+
+    neighbor 192.168.1.101 remote-as 64512
+    neighbor 192.168.1.101 description iBGP-client-192-168-1-101
+    neighbor 192.168.1.101 route-reflector-client
+
+    neighbor 192.168.1.102 remote-as 64512
+    neighbor 192.168.1.102 description iBGP-client-192-168-1-102
+    neighbor 192.168.1.102 route-reflector-client
+
+    address-family ipv4 vpn
+     neighbor 192.168.1.101 activate
+     neighbor 192.168.1.102 activate
+     neighbor 192.168.1.104 activate
+
+     neighbor 192.168.1.101 route-reflector-client
+     neighbor 192.168.1.102 route-reflector-client
+    exit-address-family
+   exit
+
+:file:`bgpd.conf` for ``NVA 2`` on 192.168.1.101:::
+
+    router bgp 64512
+
+     bgp router-id 192.168.1.101
+
+     neighbor 192.168.1.100  remote-as 64512
+     neighbor 192.168.1.104  remote-as 64512
+
+     address-family ipv4 vpn
+      neighbor 192.168.1.100 activate
+      neighbor 192.168.1.104 activate
+     exit-address-family
+
+     vnc nve-group group1
+      prefix vn 172.16.0.0/17
+      rd 64512:1
+      response-lifetime 200
+      rt both 1000:1 1000:2
+     exit-vnc
+    exit
+
+:file:`bgpd.conf` for ``NVA 3`` on 192.168.1.102:::
+
+   router bgp 64512
+
+    bgp router-id 192.168.1.102
+
+    neighbor 192.168.1.100  remote-as 64512
+    neighbor 192.168.1.104  remote-as 64512
+
+    address-family ipv4 vpn
+     neighbor 192.168.1.100 activate
+     neighbor 192.168.1.104 activate
+    exit-address-family
+
+    vnc defaults
+     rd 64512:1
+     response-lifetime 200
+     rt both 1000:1 1000:2
+    exit-vnc
+
+    vnc nve-group group1
+     prefix vn 172.16.128.0/17
+    exit-vnc
+   exit
+
+:file:`bgpd.conf` for the Commercial Router route reflector on 192.168.1.104:::
+
+   routing-options {
+       rib inet.0 {
+           static {
+               route 172.16.0.0/16 next-hop 192.168.1.104;
+           }
+       }
+       autonomous-system 64512;
+       resolution {
+           rib inet.3 {
+               resolution-ribs inet.0;
+           }
+           rib bgp.l3vpn.0 {
+               resolution-ribs inet.0;
+           }
+       }
+   }
+   protocols {
+       bgp {
+           advertise-inactive;
+           family inet {
+               labeled-unicast;
+           }
+          group 1 {
+               type internal;
+               advertise-inactive;
+               advertise-peer-as;
+               import h;
+               family inet {
+                   unicast;
+               }
+               family inet-vpn {
+                   unicast;
+               }
+               cluster 192.168.1.104;
+               neighbor 192.168.1.101;
+               neighbor 192.168.1.102;
+           }
+
+          group 2 {
+               type internal;
+               advertise-inactive;
+               advertise-peer-as;
+               import h;
+               family inet {
+                   unicast;
+               }
+               family inet-vpn {
+                   unicast;
+               }
+               neighbor 192.168.1.100;
+           }
+
+       }
+   }
+   policy-options {
+       policy-statement h {
+           from protocol bgp;
+           then {
+               as-path-prepend 64512;
+               accept;
+           }
+       }
+   }
 
 .. [#] The nve-id is carriedin the route distinguisher. It is the second octet
        of the eight-octet route distinguisher generated for Ethernet / L2

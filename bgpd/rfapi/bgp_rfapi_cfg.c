@@ -170,12 +170,12 @@ struct rfapi_nve_group_cfg *bgp_rfapi_cfg_match_group(struct rfapi_cfg *hc,
 
 #if BGP_VNC_DEBUG_MATCH_GROUP
 	{
-		char buf[BUFSIZ];
+		char buf[PREFIX_STRLEN];
 
-		prefix2str(vn, buf, BUFSIZ);
+		prefix2str(vn, buf, sizeof(buf));
 		vnc_zlog_debug_verbose("%s: vn prefix: %s", __func__, buf);
 
-		prefix2str(un, buf, BUFSIZ);
+		prefix2str(un, buf, sizeof(buf));
 		vnc_zlog_debug_verbose("%s: un prefix: %s", __func__, buf);
 
 		vnc_zlog_debug_verbose(
@@ -1626,7 +1626,11 @@ DEFUN (vnc_nve_group_export_no_prefixlist,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	argv_find_and_parse_afi(argv, argc, &idx, &afi);
+	if (!argv_find_and_parse_afi(argv, argc, &idx, &afi)) {
+		vty_out(vty, "%% Malformed Address Family\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	if (argv[idx-1]->text[0] == 'z')
 		is_bgp = 0;
 	idx += 2;		/* skip afi and keyword */
@@ -1691,7 +1695,11 @@ DEFUN (vnc_nve_group_export_prefixlist,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	argv_find_and_parse_afi(argv, argc, &idx, &afi);
+	if (!argv_find_and_parse_afi(argv, argc, &idx, &afi)) {
+		vty_out(vty, "%% Malformed Address Family\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	if (argv[idx-1]->text[0] == 'z')
 		is_bgp = 0;
 	idx = argc - 1;
@@ -3884,8 +3892,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 			}
 
 			if (rfg->rd.prefixlen) {
-				char buf[BUFSIZ];
-				buf[0] = buf[BUFSIZ - 1] = 0;
+				char buf[RD_ADDRSTRLEN];
 
 				if (AF_UNIX == rfg->rd.family) {
 
@@ -3898,18 +3905,10 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 					vty_out(vty, "  rd auto:nh:%d\n",
 						value);
 
-				} else {
-
-					if (!prefix_rd2str(&rfg->rd, buf,
-							   BUFSIZ)
-					    || !buf[0] || buf[BUFSIZ - 1]) {
-
-						vty_out(vty,
-							"!Error: Can't convert rd\n");
-					} else {
-						vty_out(vty, "  rd %s\n", buf);
-					}
-				}
+				} else
+					vty_out(vty, "  rd %s\n",
+						prefix_rd2str(&rfg->rd, buf,
+							      sizeof(buf)));
 			}
 
 			if (rfg->rt_import_list && rfg->rt_export_list
@@ -4098,7 +4097,8 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 			}
 		}
 
-		if (hc->default_rd.prefixlen || hc->default_response_lifetime
+		if (hc->default_rd.prefixlen
+		    || hc->default_response_lifetime != BGP_VNC_DEFAULT_RESPONSE_LIFETIME_DEFAULT
 		    || hc->default_rt_import_list || hc->default_rt_export_list
 		    || hc->nve_groups_sequential->count) {
 
@@ -4107,8 +4107,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 			vty_out(vty, " vnc defaults\n");
 
 			if (hc->default_rd.prefixlen) {
-				char buf[BUFSIZ];
-				buf[0] = buf[BUFSIZ - 1] = 0;
+				char buf[RD_ADDRSTRLEN];
 
 				if (AF_UNIX == hc->default_rd.family) {
 					uint16_t value = 0;
@@ -4121,20 +4120,14 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 					vty_out(vty, "  rd auto:vn:%d\n",
 						value);
 
-				} else {
-
-					if (!prefix_rd2str(&hc->default_rd, buf,
-							   BUFSIZ)
-					    || !buf[0] || buf[BUFSIZ - 1]) {
-
-						vty_out(vty,
-							"!Error: Can't convert rd\n");
-					} else {
-						vty_out(vty, "  rd %s\n", buf);
-					}
-				}
+				} else
+					vty_out(vty, "  rd %s\n",
+						prefix_rd2str(&hc->default_rd,
+							      buf,
+							      sizeof(buf)));
 			}
-			if (hc->default_response_lifetime) {
+			if (hc->default_response_lifetime
+			    != BGP_VNC_DEFAULT_RESPONSE_LIFETIME_DEFAULT) {
 				vty_out(vty, "  response-lifetime ");
 				if (hc->default_response_lifetime != UINT32_MAX)
 					vty_out(vty, "%d",
@@ -4187,38 +4180,26 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 				vty_out(vty, " vnc nve-group %s\n", rfg->name);
 
 				if (rfg->vn_prefix.family && rfg->vn_node) {
-					char buf[BUFSIZ];
-					buf[0] = buf[BUFSIZ - 1] = 0;
+					char buf[PREFIX_STRLEN];
 
 					prefix2str(&rfg->vn_prefix, buf,
-						   BUFSIZ);
-					if (!buf[0] || buf[BUFSIZ - 1]) {
-						vty_out(vty,
-							"!Error: Can't convert prefix\n");
-					} else {
-						vty_out(vty, "  prefix %s %s\n",
-							"vn", buf);
-					}
+						   sizeof(buf));
+					vty_out(vty, "  prefix %s %s\n",
+						"vn", buf);
 				}
 
 				if (rfg->un_prefix.family && rfg->un_node) {
-					char buf[BUFSIZ];
-					buf[0] = buf[BUFSIZ - 1] = 0;
+					char buf[PREFIX_STRLEN];
+
 					prefix2str(&rfg->un_prefix, buf,
-						   BUFSIZ);
-					if (!buf[0] || buf[BUFSIZ - 1]) {
-						vty_out(vty,
-							"!Error: Can't convert prefix\n");
-					} else {
-						vty_out(vty, "  prefix %s %s\n",
-							"un", buf);
-					}
+						   sizeof(buf));
+					vty_out(vty, "  prefix %s %s\n",
+						"un", buf);
 				}
 
 
 				if (rfg->rd.prefixlen) {
-					char buf[BUFSIZ];
-					buf[0] = buf[BUFSIZ - 1] = 0;
+					char buf[RD_ADDRSTRLEN];
 
 					if (AF_UNIX == rfg->rd.family) {
 
@@ -4233,21 +4214,12 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 							"  rd auto:vn:%d\n",
 							value);
 
-					} else {
-
-						if (!prefix_rd2str(&rfg->rd,
-								   buf, BUFSIZ)
-						    || !buf[0]
-						    || buf[BUFSIZ - 1]) {
-
-							vty_out(vty,
-								"!Error: Can't convert rd\n");
-						} else {
-							vty_out(vty,
-								"  rd %s\n",
-								buf);
-						}
-					}
+					} else
+						vty_out(vty,
+							"  rd %s\n",
+							prefix_rd2str(&rfg->rd,
+								      buf,
+								      sizeof(buf)));
 				}
 				if (rfg->flags & RFAPI_RFG_RESPONSE_LIFETIME) {
 					vty_out(vty, "  response-lifetime ");

@@ -409,6 +409,7 @@ extern const char *zserv_command_string(unsigned int command);
 #define ZEBRA_FLAG_STATIC             0x40
 #define ZEBRA_FLAG_SCOPE_LINK         0x100
 #define ZEBRA_FLAG_FIB_OVERRIDE       0x200
+#define ZEBRA_FLAG_EVPN_ROUTE         0x400
 /* ZEBRA_FLAG_BLACKHOLE was 0x04 */
 /* ZEBRA_FLAG_REJECT was 0x80 */
 
@@ -485,7 +486,7 @@ typedef u_int16_t zebra_size_t;
 typedef u_int16_t zebra_command_t;
 
 /* VRF ID type. */
-typedef u_int16_t vrf_id_t;
+typedef uint32_t vrf_id_t;
 
 typedef uint32_t route_tag_t;
 #define ROUTE_TAG_MAX UINT32_MAX

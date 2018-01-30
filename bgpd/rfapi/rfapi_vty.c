@@ -1146,7 +1146,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 
 		char buf_age[BUFSIZ];
 
-		if (bi && bi->extra && bi->extra->vnc.import.create_time) {
+		if (bi->extra && bi->extra->vnc.import.create_time) {
 			rfapiFormatAge(bi->extra->vnc.import.create_time,
 				       buf_age, BUFSIZ);
 		} else {
@@ -1163,7 +1163,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		 * print that on the next line
 		 */
 
-		if (bi && bi->extra
+		if (bi->extra
 		    && bi->extra->vnc.import.aux_prefix.family) {
 			const char *sp;
 
@@ -1527,11 +1527,9 @@ void rfapiPrintRfapiIpPrefix(void *stream, struct rfapi_ip_prefix *p)
 
 void rfapiPrintRd(struct vty *vty, struct prefix_rd *prd)
 {
-	char buf[BUFSIZ];
+	char buf[RD_ADDRSTRLEN];
 
-	buf[0] = 0;
-	prefix_rd2str(prd, buf, BUFSIZ);
-	buf[BUFSIZ - 1] = 0;
+	prefix_rd2str(prd, buf, sizeof(buf));
 	vty_out(vty, "%s", buf);
 }
 
@@ -1599,7 +1597,7 @@ void rfapiPrintDescriptor(struct vty *vty, struct rfapi_descriptor *rfd)
 	int rc;
 	afi_t afi;
 	struct rfapi_adb *adb;
-	char buf[BUFSIZ];
+	char buf[PREFIX_STRLEN];
 
 	vty_out(vty, "%-10p ", rfd);
 	rfapiPrintRfapiIpAddr(vty, &rfd->un_addr);
@@ -1651,8 +1649,7 @@ void rfapiPrintDescriptor(struct vty *vty, struct rfapi_descriptor *rfd)
 			if (family != adb->u.s.prefix_ip.family)
 				continue;
 
-			prefix2str(&adb->u.s.prefix_ip, buf, BUFSIZ);
-			buf[BUFSIZ - 1] = 0; /* guarantee NUL-terminated */
+			prefix2str(&adb->u.s.prefix_ip, buf, sizeof(buf));
 
 			vty_out(vty, "  Adv Pfx: %s%s", buf, HVTYNL);
 			rfapiPrintAdvertisedInfo(vty, rfd, SAFI_MPLS_VPN,
@@ -1664,8 +1661,7 @@ void rfapiPrintDescriptor(struct vty *vty, struct rfapi_descriptor *rfd)
 	     rc == 0; rc = skiplist_next(rfd->advertised.ip0_by_ether, NULL,
 					 (void **)&adb, &cursor)) {
 
-		prefix2str(&adb->u.s.prefix_eth, buf, BUFSIZ);
-		buf[BUFSIZ - 1] = 0; /* guarantee NUL-terminated */
+		prefix2str(&adb->u.s.prefix_eth, buf, sizeof(buf));
 
 		vty_out(vty, "  Adv Pfx: %s%s", buf, HVTYNL);
 

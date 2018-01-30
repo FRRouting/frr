@@ -649,7 +649,7 @@ static int ospf_ase_calculate_timer(struct thread *t)
 
 		/* Calculate external route for each AS-external-LSA */
 		LSDB_LOOP(EXTERNAL_LSDB(ospf), rn, lsa)
-		ospf_ase_calculate_route(ospf, lsa);
+			ospf_ase_calculate_route(ospf, lsa);
 
 		/*  This version simple adds to the table all NSSA areas  */
 		if (ospf->anyNSSA)
@@ -661,11 +661,12 @@ static int ospf_ase_calculate_timer(struct thread *t)
 
 				if (area->external_routing == OSPF_AREA_NSSA)
 					LSDB_LOOP(NSSA_LSDB(area), rn, lsa)
-				ospf_ase_calculate_route(ospf, lsa);
+						ospf_ase_calculate_route(ospf,
+									 lsa);
 			}
 		/* kevinm: And add the NSSA routes in ospf_top */
 		LSDB_LOOP(NSSA_LSDB(ospf), rn, lsa)
-		ospf_ase_calculate_route(ospf, lsa);
+			ospf_ase_calculate_route(ospf, lsa);
 
 		/* Compare old and new external routing table and install the
 		   difference info zebra/kernel */
@@ -679,8 +680,9 @@ static int ospf_ase_calculate_timer(struct thread *t)
 
 		monotime(&stop_time);
 
-		zlog_info("SPF Processing Time(usecs): External Routes: %lld\n",
-			  (stop_time.tv_sec - start_time.tv_sec) * 1000000LL
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_info("SPF Processing Time(usecs): External Routes: %lld\n",
+				  (stop_time.tv_sec - start_time.tv_sec) * 1000000LL
 				  + (stop_time.tv_usec - start_time.tv_usec));
 	}
 	return 0;

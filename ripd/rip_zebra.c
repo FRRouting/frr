@@ -48,6 +48,7 @@ static void rip_zebra_ipv4_send(struct route_node *rp, u_char cmd)
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
+	api.nh_vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_RIP;
 	api.safi = SAFI_UNICAST;
 

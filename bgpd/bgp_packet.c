@@ -545,19 +545,26 @@ void bgp_open_send(struct peer *peer)
 	bgp_writes_on(peer);
 }
 
-/* This is only for sending NOTIFICATION message to neighbor. */
+/*
+ * Writes NOTIFICATION message directly to a peer socket without waiting for
+ * the I/O thread.
+ *
+ * There must be exactly one stream on the peer->obuf FIFO, and the data within
+ * this stream must match the format of a BGP NOTIFICATION message.
+ * Transmission is best-effort.
+ *
+ * @requires peer->io_mtx
+ * @param peer
+ * @return 0
+ */
 static int bgp_write_notify(struct peer *peer)
 {
 	int ret, val;
 	u_char type;
 	struct stream *s;
 
-	pthread_mutex_lock(&peer->io_mtx);
-	{
-		/* There should be at least one packet. */
-		s = stream_fifo_pop(peer->obuf);
-	}
-	pthread_mutex_unlock(&peer->io_mtx);
+	/* There should be at least one packet. */
+	s = stream_fifo_pop(peer->obuf);
 
 	if (!s)
 		return 0;
@@ -595,6 +602,7 @@ static int bgp_write_notify(struct peer *peer)
 	assert(type == BGP_MSG_NOTIFY);
 
 	/* Type should be notify. */
+	atomic_fetch_add_explicit(&peer->notify_out, 1, memory_order_relaxed);
 	peer->notify_out++;
 
 	/* Double start timer. */
@@ -621,6 +629,14 @@ static int bgp_write_notify(struct peer *peer)
  * This function attempts to write the packet from the thread it is called
  * from, to ensure the packet gets out ASAP.
  *
+ * This function may be called from multiple threads. Since the function
+ * modifies I/O buffer(s) in the peer, these are locked for the duration of the
+ * call to prevent tampering from other threads.
+ *
+ * Delivery of the NOTIFICATION is attempted once and is best-effort. After
+ * return, the peer structure *must* be reset; no assumptions about session
+ * state are valid.
+ *
  * @param peer
  * @param code      BGP error code
  * @param sub_code  BGP error subcode
@@ -632,6 +648,10 @@ void bgp_notify_send_with_data(struct peer *peer, u_char code, u_char sub_code,
 {
 	struct stream *s;
 	int length;
+
+	/* Lock I/O mutex to prevent other threads from pushing packets */
+	pthread_mutex_lock(&peer->io_mtx);
+	/* ============================================== */
 
 	/* Allocate new stream. */
 	s = stream_new(BGP_MAX_PACKET_SIZE);
@@ -650,20 +670,8 @@ void bgp_notify_send_with_data(struct peer *peer, u_char code, u_char sub_code,
 	/* Set BGP packet length. */
 	length = bgp_packet_set_size(s);
 
-	/*
-	 * Turn off keepalive generation for peer. This is necessary because
-	 * otherwise between the time we wipe the output buffer and the time we
-	 * push the NOTIFY onto it, the KA generation thread could have pushed
-	 * a KEEPALIVE in the middle.
-	 */
-	bgp_keepalives_off(peer);
-
 	/* wipe output buffer */
-	pthread_mutex_lock(&peer->io_mtx);
-	{
-		stream_fifo_clean(peer->obuf);
-	}
-	pthread_mutex_unlock(&peer->io_mtx);
+	stream_fifo_clean(peer->obuf);
 
 	/*
 	 * If possible, store last packet for debugging purposes. This check is
@@ -727,9 +735,12 @@ void bgp_notify_send_with_data(struct peer *peer, u_char code, u_char sub_code,
 		peer->last_reset = PEER_DOWN_NOTIFY_SEND;
 
 	/* Add packet to peer's output queue */
-	bgp_packet_add(peer, s);
+	stream_fifo_push(peer->obuf, s);
 
 	bgp_write_notify(peer);
+
+	/* ============================================== */
+	pthread_mutex_unlock(&peer->io_mtx);
 }
 
 /*
@@ -1682,7 +1693,7 @@ static int bgp_notify_receive(struct peer *peer, bgp_size_t size)
 	}
 
 	/* peer count update */
-	peer->notify_in++;
+	atomic_fetch_add_explicit(&peer->notify_in, 1, memory_order_relaxed);
 
 	peer->last_reset = PEER_DOWN_NOTIFY_RECEIVED;
 
@@ -2192,7 +2203,8 @@ int bgp_process_packet(struct thread *thread)
 		 */
 		switch (type) {
 		case BGP_MSG_OPEN:
-			peer->open_in++;
+			atomic_fetch_add_explicit(&peer->open_in, 1,
+						  memory_order_relaxed);
 			mprc = bgp_open_receive(peer, size);
 			if (mprc == BGP_Stop)
 				zlog_err(
@@ -2200,7 +2212,8 @@ int bgp_process_packet(struct thread *thread)
 					__FUNCTION__, peer->host);
 			break;
 		case BGP_MSG_UPDATE:
-			peer->update_in++;
+			atomic_fetch_add_explicit(&peer->update_in, 1,
+						  memory_order_relaxed);
 			peer->readtime = monotime(NULL);
 			mprc = bgp_update_receive(peer, size);
 			if (mprc == BGP_Stop)
@@ -2209,7 +2222,8 @@ int bgp_process_packet(struct thread *thread)
 					__FUNCTION__, peer->host);
 			break;
 		case BGP_MSG_NOTIFY:
-			peer->notify_in++;
+			atomic_fetch_add_explicit(&peer->notify_in, 1,
+						  memory_order_relaxed);
 			mprc = bgp_notify_receive(peer, size);
 			if (mprc == BGP_Stop)
 				zlog_err(
@@ -2218,7 +2232,8 @@ int bgp_process_packet(struct thread *thread)
 			break;
 		case BGP_MSG_KEEPALIVE:
 			peer->readtime = monotime(NULL);
-			peer->keepalive_in++;
+			atomic_fetch_add_explicit(&peer->keepalive_in, 1,
+						  memory_order_relaxed);
 			mprc = bgp_keepalive_receive(peer, size);
 			if (mprc == BGP_Stop)
 				zlog_err(
@@ -2227,7 +2242,8 @@ int bgp_process_packet(struct thread *thread)
 			break;
 		case BGP_MSG_ROUTE_REFRESH_NEW:
 		case BGP_MSG_ROUTE_REFRESH_OLD:
-			peer->refresh_in++;
+			atomic_fetch_add_explicit(&peer->refresh_in, 1,
+						  memory_order_relaxed);
 			mprc = bgp_route_refresh_receive(peer, size);
 			if (mprc == BGP_Stop)
 				zlog_err(
@@ -2235,7 +2251,8 @@ int bgp_process_packet(struct thread *thread)
 					__FUNCTION__, peer->host);
 			break;
 		case BGP_MSG_CAPABILITY:
-			peer->dynamic_cap_in++;
+			atomic_fetch_add_explicit(&peer->dynamic_cap_in, 1,
+						  memory_order_relaxed);
 			mprc = bgp_capability_receive(peer, size);
 			if (mprc == BGP_Stop)
 				zlog_err(

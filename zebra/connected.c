@@ -238,11 +238,13 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		break;
 	}
 
-	rib_add(afi, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
-		&p, NULL, &nh, RT_TABLE_MAIN, ifp->metric, 0, 0);
+	rib_add(afi, SAFI_UNICAST, ifp->vrf_id, ifp->vrf_id,
+		ZEBRA_ROUTE_CONNECT, 0, 0,
+		&p, NULL, &nh, RT_TABLE_MAIN, ifp->metric, 0, 0, 0);
 
-	rib_add(afi, SAFI_MULTICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
-		&p, NULL, &nh, RT_TABLE_MAIN, ifp->metric, 0, 0);
+	rib_add(afi, SAFI_MULTICAST, ifp->vrf_id, ifp->vrf_id,
+		ZEBRA_ROUTE_CONNECT, 0, 0,
+		&p, NULL, &nh, RT_TABLE_MAIN, ifp->metric, 0, 0, 0);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		char buf[PREFIX_STRLEN];
@@ -396,10 +398,10 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	 * head.
 	 */
 	rib_delete(afi, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0,
-		   &p, NULL, &nh, 0, 0, false);
+		   &p, NULL, &nh, 0, 0, false, NULL);
 
 	rib_delete(afi, SAFI_MULTICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
-		   0, &p, NULL, &nh, 0, 0, false);
+		   0, &p, NULL, &nh, 0, 0, false, NULL);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		char buf[PREFIX_STRLEN];

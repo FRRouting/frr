@@ -951,6 +951,8 @@ static void copy_state(struct rnh *rnh, struct route_entry *re,
 	state->type = re->type;
 	state->distance = re->distance;
 	state->metric = re->metric;
+	state->vrf_id = re->vrf_id;
+	state->nh_vrf_id = re->vrf_id;
 
 	route_entry_copy_nexthops(state, re->nexthop);
 	rnh->state = state;
@@ -1000,7 +1002,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, cmd, vrf_id);
+	zclient_create_header(s, cmd, vrf_id);
 
 	stream_putw(s, rn->p.family);
 	switch (rn->p.family) {

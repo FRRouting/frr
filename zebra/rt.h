@@ -60,20 +60,24 @@ enum southbound_results {
  * semantics so we will end up with a delete than
  * a re-add.
  */
-extern void kernel_route_rib(struct prefix *p, struct prefix *src_p,
-			     struct route_entry *old, struct route_entry *new);
+extern void kernel_route_rib(struct route_node *rn, struct prefix *p,
+			     struct prefix *src_p, struct route_entry *old,
+			     struct route_entry *new);
 
 /*
  * So route install/failure may not be immediately known
  * so let's separate it out and allow the result to
  * be passed back up.
  */
-extern void kernel_route_rib_pass_fail(struct prefix *p,
+extern void kernel_route_rib_pass_fail(struct route_node *rn,
+				       struct prefix *p,
 				       struct route_entry *re,
 				       enum southbound_results res);
 
 extern int kernel_address_add_ipv4(struct interface *, struct connected *);
 extern int kernel_address_delete_ipv4(struct interface *, struct connected *);
+extern int kernel_address_add_ipv6 (struct interface *, struct connected *);
+extern int kernel_address_delete_ipv6 (struct interface *, struct connected *);
 extern int kernel_neigh_update(int, int, uint32_t, char *, int);
 extern int kernel_interface_set_master(struct interface *master,
 				       struct interface *slave);
@@ -96,6 +100,7 @@ extern void kernel_lsp_pass_fail(zebra_lsp_t *lsp,
 
 extern int mpls_kernel_init(void);
 
+extern uint32_t kernel_get_speed(struct interface *ifp);
 extern int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *mroute);
 extern int kernel_add_vtep(vni_t vni, struct interface *ifp,
 			   struct in_addr *vtep_ip);
@@ -111,5 +116,19 @@ extern int kernel_del_mac(struct interface *ifp, vlanid_t vid,
 extern int kernel_add_neigh(struct interface *ifp, struct ipaddr *ip,
 			    struct ethaddr *mac);
 extern int kernel_del_neigh(struct interface *ifp, struct ipaddr *ip);
+
+/*
+ * Southbound Initialization routines to get initial starting
+ * state.
+ */
+extern void interface_list(struct zebra_ns *zns);
+extern void kernel_init(struct zebra_ns *zns);
+extern void kernel_terminate(struct zebra_ns *zns);
+extern void macfdb_read(struct zebra_ns *zns);
+extern void macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
+				   struct interface *br_if);
+extern void neigh_read(struct zebra_ns *zns);
+extern void neigh_read_for_vlan(struct zebra_ns *zns, struct interface *ifp);
+extern void route_read(struct zebra_ns *zns);
 
 #endif /* _ZEBRA_RT_H */

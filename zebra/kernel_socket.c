@@ -1039,7 +1039,7 @@ void rtm_read(struct rt_msghdr *rtm)
 		if (rtm->rtm_type == RTM_CHANGE)
 			rib_delete(AFI_IP, SAFI_UNICAST, VRF_DEFAULT,
 				   ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
-				   NULL, 0, 0, true);
+				   NULL, 0, 0, true, NULL);
 
 		if (!nh.type) {
 			nh.type = NEXTHOP_TYPE_IPV4;
@@ -1048,13 +1048,13 @@ void rtm_read(struct rt_msghdr *rtm)
 
 		if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
 		    || rtm->rtm_type == RTM_CHANGE)
-			rib_add(AFI_IP, SAFI_UNICAST, VRF_DEFAULT,
+			rib_add(AFI_IP, SAFI_UNICAST, VRF_DEFAULT, VRF_DEFAULT,
 				ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
-				&nh, 0, 0, 0, 0);
+				&nh, 0, 0, 0, 0, 0);
 		else
 			rib_delete(AFI_IP, SAFI_UNICAST, VRF_DEFAULT,
 				   ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
-				   &nh, 0, 0, true);
+				   &nh, 0, 0, true, NULL);
 	}
 	if (dest.sa.sa_family == AF_INET6) {
 		/* One day we might have a debug section here like one in the
@@ -1085,7 +1085,7 @@ void rtm_read(struct rt_msghdr *rtm)
 		if (rtm->rtm_type == RTM_CHANGE)
 			rib_delete(AFI_IP6, SAFI_UNICAST, VRF_DEFAULT,
 				   ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
-				   NULL, 0, 0, true);
+				   NULL, 0, 0, true, NULL);
 
 		if (!nh.type) {
 			nh.type = ifindex ? NEXTHOP_TYPE_IPV6_IFINDEX
@@ -1096,13 +1096,13 @@ void rtm_read(struct rt_msghdr *rtm)
 
 		if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
 		    || rtm->rtm_type == RTM_CHANGE)
-			rib_add(AFI_IP6, SAFI_UNICAST, VRF_DEFAULT,
+			rib_add(AFI_IP6, SAFI_UNICAST, VRF_DEFAULT, VRF_DEFAULT,
 				ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
-				&nh, 0, 0, 0, 0);
+				&nh, 0, 0, 0, 0, 0);
 		else
 			rib_delete(AFI_IP6, SAFI_UNICAST, VRF_DEFAULT,
 				   ZEBRA_ROUTE_KERNEL, 0, zebra_flags, &p, NULL,
-				   &nh, 0, 0, true);
+				   &nh, 0, 0, true, NULL);
 	}
 }
 

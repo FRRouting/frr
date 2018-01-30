@@ -45,7 +45,7 @@
 #define FUZZY(X) ((X)+JITTER((X)/20))
 
 #define DEFAULT_PERIOD		5
-#define DEFAULT_TIMEOUT		10
+#define DEFAULT_TIMEOUT		90
 #define DEFAULT_RESTART_TIMEOUT	20
 #define DEFAULT_LOGLEVEL	LOG_INFO
 #define DEFAULT_MIN_RESTART	60
@@ -596,7 +596,8 @@ static void daemon_send_ready(void)
 		FILE *fp;
 
 		fp = fopen(DAEMON_VTY_DIR "/watchfrr.started", "w");
-		fclose(fp);
+		if (fp)
+			fclose(fp);
 #if defined HAVE_SYSTEMD
 		zlog_notice(
 			"Watchfrr: Notifying Systemd we are up and running");

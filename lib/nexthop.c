@@ -124,7 +124,7 @@ const char *nexthop_type_to_str(enum nexthop_types_t nh_type)
  */
 int nexthop_labels_match(struct nexthop *nh1, struct nexthop *nh2)
 {
-	struct nexthop_label *nhl1, *nhl2;
+	struct mpls_label_stack *nhl1, *nhl2;
 
 	nhl1 = nh1->nh_label;
 	nhl2 = nh2->nh_label;
@@ -210,12 +210,12 @@ void nexthops_free(struct nexthop *nexthop)
 void nexthop_add_labels(struct nexthop *nexthop, enum lsp_types_t type,
 			u_int8_t num_labels, mpls_label_t *label)
 {
-	struct nexthop_label *nh_label;
+	struct mpls_label_stack *nh_label;
 	int i;
 
 	nexthop->nh_label_type = type;
 	nh_label = XCALLOC(MTYPE_NH_LABEL,
-			   sizeof(struct nexthop_label)
+			   sizeof(struct mpls_label_stack)
 				   + num_labels * sizeof(mpls_label_t));
 	nh_label->num_labels = num_labels;
 	for (i = 0; i < num_labels; i++)

@@ -387,6 +387,11 @@ static int get_iflink_speed(const char *ifname)
 	return (ecmd.speed_hi << 16) | ecmd.speed;
 }
 
+uint32_t kernel_get_speed(struct interface *ifp)
+{
+	return get_iflink_speed(ifp->name);
+}
+
 static int netlink_extract_bridge_info(struct rtattr *link_data,
 				       struct zebra_l2info_bridge *bridge_info)
 {
@@ -836,6 +841,16 @@ int kernel_address_add_ipv4(struct interface *ifp, struct connected *ifc)
 int kernel_address_delete_ipv4(struct interface *ifp, struct connected *ifc)
 {
 	return netlink_address(RTM_DELADDR, AF_INET, ifp, ifc);
+}
+
+int kernel_address_add_ipv6 (struct interface *ifp, struct connected *ifc)
+{
+  return netlink_address (RTM_NEWADDR, AF_INET6, ifp, ifc);
+}
+
+int kernel_address_delete_ipv6 (struct interface *ifp, struct connected *ifc)
+{
+  return netlink_address (RTM_DELADDR, AF_INET6, ifp, ifc);
 }
 
 int netlink_interface_addr(struct sockaddr_nl *snl, struct nlmsghdr *h,

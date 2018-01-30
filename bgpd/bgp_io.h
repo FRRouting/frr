@@ -29,14 +29,6 @@
 #include "frr_pthread.h"
 
 /**
- * Initializes data structures and flags for the write thread.
- *
- * This function should be called from the main thread before
- * bgp_writes_start() is invoked.
- */
-extern void bgp_io_init(void);
-
-/**
  * Start function for write thread.
  *
  * @param arg - unused

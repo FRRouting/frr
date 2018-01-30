@@ -63,6 +63,7 @@ extern char frr_config[];
 extern char vtydir[];
 
 void vtysh_init_vty(void);
+void vtysh_uninit(void);
 void vtysh_init_cmd(void);
 extern int vtysh_connect_all(const char *optional_daemon_name);
 void vtysh_readline_init(void);

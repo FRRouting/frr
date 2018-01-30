@@ -170,7 +170,12 @@ struct rtadvconf {
 #define RTADV_PREF_MEDIUM 0x0 /* Per RFC4191. */
 
 	u_char inFastRexmit; /* True if we're rexmits faster than usual */
-	u_char configured;   /* Has operator configured RA? */
+
+	/* Track if RA was configured by BGP or by the Operator or both */
+	u_char ra_configured;     /* Was RA configured? */
+#define BGP_RA_CONFIGURED (1<<0)  /* BGP configured RA? */
+#define VTY_RA_CONFIGURED (1<<1)  /* Operator configured RA? */
+#define VTY_RA_INTERVAL_CONFIGURED (1<<2)  /* Operator configured RA interval */
 	int
 		NumFastReXmitsRemain; /* Loaded first with number of fast
 					 rexmits to do */
@@ -268,6 +273,8 @@ struct zebra_if {
 	/* Link fields - for sub-interfaces. */
 	ifindex_t link_ifindex;
 	struct interface *link;
+
+	struct thread *speed_update;
 };
 
 DECLARE_HOOK(zebra_if_extra_info, (struct vty *vty, struct interface *ifp),
@@ -307,6 +314,8 @@ static inline void zebra_if_set_ziftype(struct interface *ifp,
 
 #define IS_ZEBRA_IF_VRF_SLAVE(ifp)                                             \
 	(((struct zebra_if *)(ifp->info))->zif_slave_type == ZEBRA_IF_SLAVE_VRF)
+
+extern void zebra_if_init(void);
 
 extern struct interface *if_lookup_by_index_per_ns(struct zebra_ns *,
 						   u_int32_t);

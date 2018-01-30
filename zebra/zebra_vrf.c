@@ -250,6 +250,10 @@ static int zebra_vrf_delete(struct vrf *vrf)
 		route_table_finish(zvrf->rnh_table[afi]);
 		route_table_finish(zvrf->import_check_table[afi]);
 	}
+
+	/* cleanup evpn states for vrf */
+	zebra_vxlan_vrf_delete(zvrf);
+
 	list_delete_all_node(zvrf->rid_all_sorted_list);
 	list_delete_all_node(zvrf->rid_lo_sorted_list);
 	XFREE(MTYPE_ZEBRA_VRF, zvrf);
@@ -452,6 +456,7 @@ struct route_table *zebra_vrf_other_route_table(afi_t afi, u_int32_t table_id,
 			info->afi = afi;
 			info->safi = SAFI_UNICAST;
 			table->info = info;
+			table->cleanup = zebra_rtable_node_cleanup;
 			zvrf->other_table[afi][table_id] = table;
 		}
 
@@ -472,10 +477,18 @@ static int vrf_config_write(struct vty *vty)
 		if (!zvrf)
 			continue;
 
-		if (strcmp(zvrf_name(zvrf), VRF_DEFAULT_NAME)) {
+		if (vrf->vrf_id != VRF_DEFAULT)
 			vty_out(vty, "vrf %s\n", zvrf_name(zvrf));
+
+		static_config(vty, zvrf, AFI_IP, SAFI_UNICAST, "ip route");
+		static_config(vty, zvrf, AFI_IP, SAFI_MULTICAST, "ip mroute");
+		static_config(vty, zvrf, AFI_IP6, SAFI_UNICAST, "ipv6 route");
+
+		if (vrf->vrf_id != VRF_DEFAULT && zvrf->l3vni)
+			vty_out(vty, " vni %u\n", zvrf->l3vni);
+
+		if (vrf->vrf_id != VRF_DEFAULT)
 			vty_out(vty, "!\n");
-		}
 	}
 	return 0;
 }

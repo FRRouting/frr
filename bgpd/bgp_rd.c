@@ -166,8 +166,7 @@ char *prefix_rd2str(struct prefix_rd *prd, char *buf, size_t size)
 	struct rd_as rd_as;
 	struct rd_ip rd_ip;
 
-	if (size < RD_ADDRSTRLEN)
-		return NULL;
+	assert(size >= RD_ADDRSTRLEN);
 
 	pnt = prd->val;
 
@@ -197,5 +196,7 @@ char *prefix_rd2str(struct prefix_rd *prd, char *buf, size_t size)
 		return buf;
 	}
 #endif
-	return NULL;
+
+	snprintf(buf, size, "Unknown Type: %d", type);
+	return buf;
 }

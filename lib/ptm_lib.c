@@ -223,6 +223,25 @@ int ptm_lib_init_msg(ptm_lib_handle_t *hdl, int cmd_id, int type, void *in_ctxt,
 	return 0;
 }
 
+int ptm_lib_cleanup_msg(ptm_lib_handle_t *hdl, void *ctxt)
+{
+	ptm_lib_msg_ctxt_t *p_ctxt = ctxt;
+	csv_t *csv;
+
+	if (!p_ctxt) {
+		ERRLOG("%s: no context \n", __FUNCTION__);
+		return -1;
+	}
+
+	csv = p_ctxt->csv;
+
+	csv_clean(csv);
+	csv_free(csv);
+	free(p_ctxt);
+
+	return 0;
+}
+
 int ptm_lib_complete_msg(ptm_lib_handle_t *hdl, void *ctxt, char *buf, int *len)
 {
 	ptm_lib_msg_ctxt_t *p_ctxt = ctxt;

@@ -40,7 +40,7 @@ int kernel_route(int operation, const unsigned char *dest, unsigned short plen,
                  const unsigned char *gate, int ifindex, unsigned int metric,
                  const unsigned char *newgate, int newifindex,
                  unsigned int newmetric);
-int if_eui64(char *ifname, int ifindex, unsigned char *eui);
+int if_eui64(int ifindex, unsigned char *eui);
 int gettime(struct timeval *tv);
 int read_random_bytes(void *buf, size_t len);
 

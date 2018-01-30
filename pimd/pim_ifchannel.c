@@ -640,6 +640,13 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
 
 	ch = THREAD_ARG(t);
 
+	if (PIM_DEBUG_TRACE)
+		zlog_debug("%s: IFCHANNEL%s %s Prune Pending Timer Popped",
+			   __PRETTY_FUNCTION__,
+			   pim_str_sg_dump(&ch->sg),
+			   pim_ifchannel_ifjoin_name(ch->ifjoin_state,
+						     ch->flags));
+
 	if (ch->ifjoin_state == PIM_IFJOIN_PRUNE_PENDING) {
 		ifp = ch->interface;
 		pim_ifp = ifp->info;
@@ -665,16 +672,19 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
 			 *  message on RP path upon prune timer expiry.
 			 */
 			ch->ifjoin_state = PIM_IFJOIN_PRUNE;
-			if (ch->upstream)
+			if (ch->upstream) {
+				struct pim_upstream *parent =
+					ch->upstream->parent;
+
 				pim_upstream_update_join_desired(pim_ifp->pim,
 								 ch->upstream);
+
+				pim_jp_agg_single_upstream_send(&parent->rpf,
+								parent,
+								true);
+			}
 		}
 		/* from here ch may have been deleted */
-	} else {
-		zlog_warn(
-			"%s: IFCHANNEL%s Prune Pending Timer Popped while in %s state",
-			__PRETTY_FUNCTION__, pim_str_sg_dump(&ch->sg),
-			pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags));
 	}
 
 	return 0;

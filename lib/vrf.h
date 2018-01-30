@@ -32,8 +32,7 @@
 
 /* The default VRF ID */
 #define VRF_DEFAULT 0
-#define VRF_UNKNOWN UINT16_MAX
-#define VRF_ALL UINT16_MAX - 1
+#define VRF_UNKNOWN UINT32_MAX
 
 /* Pending: May need to refine this. */
 #ifndef IFLA_VRF_MAX
@@ -103,6 +102,7 @@ extern struct vrf_name_head vrfs_by_name;
 extern struct vrf *vrf_lookup_by_id(vrf_id_t);
 extern struct vrf *vrf_lookup_by_name(const char *);
 extern struct vrf *vrf_get(vrf_id_t, const char *);
+extern const char *vrf_id_to_name(vrf_id_t vrf_id);
 extern vrf_id_t vrf_name_to_id(const char *);
 
 #define VRF_GET_ID(V, NAME)                                                    \

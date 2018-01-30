@@ -73,8 +73,11 @@ struct bgp_info_extra {
 	/* Nexthop reachability check.  */
 	u_int32_t igpmetric;
 
-	/* MPLS label.  */
+	/* MPLS label - L2VNI  */
 	mpls_label_t label;
+
+	/* MPLS label - L3-VNI */
+	mpls_label_t label2;
 
 #if ENABLE_BGP_VNC
 	union {

@@ -389,6 +389,7 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = ospf->vrf_id;
+	api.nh_vrf_id = ospf->vrf_id;
 	api.type = ZEBRA_ROUTE_OSPF;
 	api.instance = ospf->instance;
 	api.safi = SAFI_UNICAST;
@@ -466,6 +467,7 @@ void ospf_zebra_delete(struct ospf *ospf, struct prefix_ipv4 *p,
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = ospf->vrf_id;
+	api.nh_vrf_id = ospf->vrf_id;
 	api.type = ZEBRA_ROUTE_OSPF;
 	api.instance = ospf->instance;
 	api.safi = SAFI_UNICAST;
@@ -487,6 +489,7 @@ void ospf_zebra_add_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = ospf->vrf_id;
+	api.nh_vrf_id = ospf->vrf_id;
 	api.type = ZEBRA_ROUTE_OSPF;
 	api.instance = ospf->instance;
 	api.safi = SAFI_UNICAST;
@@ -506,6 +509,7 @@ void ospf_zebra_delete_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = ospf->vrf_id;
+	api.nh_vrf_id = ospf->vrf_id;
 	api.type = ZEBRA_ROUTE_OSPF;
 	api.instance = ospf->instance;
 	api.safi = SAFI_UNICAST;

@@ -2082,7 +2082,10 @@ static void *route_set_aggregator_as_compile(const char *arg)
 
 	aggregator =
 		XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct aggregator));
-	sscanf(arg, "%s %s", as, address);
+	if (sscanf(arg, "%s %s", as, address) != 2) {
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, aggregator);
+		return NULL;
+	}
 
 	aggregator->as = strtoul(as, NULL, 10);
 	ret = inet_aton(address, &aggregator->address);

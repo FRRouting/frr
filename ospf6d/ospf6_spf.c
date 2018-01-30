@@ -145,6 +145,7 @@ static struct ospf6_vertex *ospf6_vertex_create(struct ospf6_lsa *lsa)
 	v->options[2] = *(u_char *)(OSPF6_LSA_HEADER_END(lsa->header) + 3);
 
 	v->nh_list = list_new();
+	v->nh_list->cmp = (int (*)(void *, void *))ospf6_nexthop_cmp;
 	v->nh_list->del = (void (*) (void *))ospf6_nexthop_delete;
 
 	v->parent = NULL;
@@ -162,21 +163,20 @@ static void ospf6_vertex_delete(struct ospf6_vertex *v)
 }
 
 static struct ospf6_lsa *ospf6_lsdesc_lsa(caddr_t lsdesc,
-					  struct ospf6_vertex *v,
-					  uint32_t link_id)
+					  struct ospf6_vertex *v)
 {
-	struct ospf6_lsa *lsa;
+	struct ospf6_lsa *lsa = NULL;
 	u_int16_t type = 0;
 	u_int32_t id = 0, adv_router = 0;
 
 	if (VERTEX_IS_TYPE(NETWORK, v)) {
 		type = htons(OSPF6_LSTYPE_ROUTER);
-		id = link_id;
+		id = htonl(0);
 		adv_router = NETWORK_LSDESC_GET_NBR_ROUTERID(lsdesc);
 	} else {
 		if (ROUTER_LSDESC_IS_TYPE(POINTTOPOINT, lsdesc)) {
 			type = htons(OSPF6_LSTYPE_ROUTER);
-			id = link_id;
+			id = htonl(0);
 			adv_router = ROUTER_LSDESC_GET_NBR_ROUTERID(lsdesc);
 		} else if (ROUTER_LSDESC_IS_TYPE(TRANSIT_NETWORK, lsdesc)) {
 			type = htons(OSPF6_LSTYPE_NETWORK);
@@ -185,19 +185,22 @@ static struct ospf6_lsa *ospf6_lsdesc_lsa(caddr_t lsdesc,
 		}
 	}
 
-	lsa = ospf6_lsdb_lookup(type, id, adv_router, v->area->lsdb);
-
+	if (type == htons(OSPF6_LSTYPE_NETWORK))
+		lsa = ospf6_lsdb_lookup(type, id, adv_router, v->area->lsdb);
+	else
+		lsa = ospf6_create_single_router_lsa(v->area, v->area->lsdb,
+						     adv_router);
 	if (IS_OSPF6_DEBUG_SPF(PROCESS)) {
 		char ibuf[16], abuf[16];
 		inet_ntop(AF_INET, &id, ibuf, sizeof(ibuf));
 		inet_ntop(AF_INET, &adv_router, abuf, sizeof(abuf));
 		if (lsa)
-			zlog_debug("  Link to: %s , V %s id %u", lsa->name,
-				   v->name, link_id);
+			zlog_debug("  Link to: %s len %u, V %s", lsa->name,
+				   ntohs(lsa->header->length), v->name);
 		else
-			zlog_debug("  Link to: [%s Id:%s Adv:%s] No LSA , V %s id %u",
+			zlog_debug("  Link to: [%s Id:%s Adv:%s] No LSA , V %s",
 				   ospf6_lstype_name(type), ibuf, abuf,
-				   v->name, link_id);
+				   v->name);
 	}
 
 	return lsa;
@@ -460,25 +463,20 @@ void ospf6_spf_calculation(u_int32_t router_id,
 	struct ospf6_vertex *root, *v, *w;
 	int size;
 	caddr_t lsdesc;
-	struct ospf6_lsa *lsa, *self_rtr_lsa = NULL, *rtr_lsa = NULL;
-	const struct route_node *end = NULL;
+	struct ospf6_lsa *lsa;
 	struct in6_addr address;
-	struct ospf6_lsdb *lsdb = NULL;
 
 	ospf6_spf_table_finish(result_table);
 
 	/* Install the calculating router itself as the root of the SPF tree */
 	/* construct root vertex */
-	lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_ROUTER), htonl(0), router_id,
-				oa->lsdb_self);
+	lsa = ospf6_create_single_router_lsa(oa, oa->lsdb_self, router_id);
 	if (lsa == NULL) {
 		if (IS_OSPF6_DEBUG_SPF(PROCESS))
 			zlog_debug("%s: No router LSA for area %s\n", __func__,
 				   oa->name);
 		return;
 	}
-
-	self_rtr_lsa = lsa;
 
 	/* initialize */
 	candidate_list = pqueue_create();
@@ -509,138 +507,62 @@ void ospf6_spf_calculation(u_int32_t router_id,
 		     && ospf6_router_is_stub_router(v->lsa)))
 			continue;
 
-		if (VERTEX_IS_TYPE(ROUTER, v)) {
-			/* First fetch root Router LSAs from lsdb_self */
-			if (v->lsa == self_rtr_lsa)
-				lsdb = oa->lsdb_self;
-			else
-				lsdb = v->area->lsdb;
+		/* For each LS description in the just-added vertex V's LSA */
+		size = (VERTEX_IS_TYPE(ROUTER, v)
+				? sizeof(struct ospf6_router_lsdesc)
+				: sizeof(struct ospf6_network_lsdesc));
+		for (lsdesc = OSPF6_LSA_HEADER_END(v->lsa->header) + 4;
+		     lsdesc + size <= OSPF6_LSA_END(v->lsa->header);
+		     lsdesc += size) {
+			lsa = ospf6_lsdesc_lsa(lsdesc, v);
+			if (lsa == NULL)
+				continue;
 
-			/* Iterating multiple ROUTER LSAs from same adv router
-			 * with different Link State ID */
-			end = ospf6_lsdb_head(lsdb, 2,
-					htons(OSPF6_LSTYPE_ROUTER),
-					v->lsa->header->adv_router,
-					&rtr_lsa);
-			while (rtr_lsa) {
-				if (IS_OSPF6_DEBUG_SPF(PROCESS))
-					zlog_debug("%s: Next LSA %s to process"
-						   ,__PRETTY_FUNCTION__,
-						  rtr_lsa->name);
-				size = sizeof(struct ospf6_router_lsdesc);
-				/* For each LS description in the just-added vertex V's LSA */
-				for (lsdesc = OSPF6_LSA_HEADER_END(
-							rtr_lsa->header) + 4;
-				     lsdesc + size <= OSPF6_LSA_END(
-							rtr_lsa->header);
-				     lsdesc += size) {
-					lsa = ospf6_lsdesc_lsa(lsdesc, v,
-						rtr_lsa->header->id);
-					if (lsa == NULL)
-						continue;
+			if (OSPF6_LSA_IS_MAXAGE(lsa))
+				continue;
 
-					if (OSPF6_LSA_IS_MAXAGE(lsa))
-						continue;
+			if (!ospf6_lsdesc_backlink(lsa, lsdesc, v))
+				continue;
 
-					if (!ospf6_lsdesc_backlink(lsa,
-								   lsdesc, v))
-						continue;
-
-					w = ospf6_vertex_create(lsa);
-					w->area = oa;
-					w->parent = v;
-					w->link_id = rtr_lsa->header->id;
-
-					if (VERTEX_IS_TYPE(ROUTER, v)) {
-						w->cost = v->cost
-						+ ROUTER_LSDESC_GET_METRIC(lsdesc);
-						w->hops =
-							v->hops
-							+ (VERTEX_IS_TYPE(NETWORK, w)
-							   ? 0 : 1);
-					} else /* NETWORK */ {
-						w->cost = v->cost;
-						w->hops = v->hops + 1;
-					}
-
-					/* nexthop calculation */
-					if (w->hops == 0)
-						ospf6_add_nexthop(w->nh_list,
-							ROUTER_LSDESC_GET_IFID(lsdesc)
-							, NULL);
-					else if (w->hops == 1 && v->hops == 0)
-						ospf6_nexthop_calc(w, v, lsdesc);
-					else {
-						ospf6_copy_nexthops(w->nh_list,
-								    v->nh_list);
-					}
-
-					/* add new candidate to the candidate_list */
-					if (IS_OSPF6_DEBUG_SPF(PROCESS))
-						zlog_debug(
-							"  New candidate: %s hops %d cost %d",
-							w->name, w->hops,
-							w->cost);
-					pqueue_enqueue(w, candidate_list);
-				}
-				/* Fetch next Link state ID Router LSA */
-				rtr_lsa = ospf6_lsdb_next(end, rtr_lsa);
-			}
-		} else {
-			/* For each LS description in the just-added vertex V's LSA */
-			size = (VERTEX_IS_TYPE(ROUTER, v)
-					? sizeof(struct ospf6_router_lsdesc)
-					: sizeof(struct ospf6_network_lsdesc));
-			for (lsdesc = OSPF6_LSA_HEADER_END(v->lsa->header) + 4;
-			     lsdesc + size <= OSPF6_LSA_END(v->lsa->header);
-			     lsdesc += size) {
-				lsa = ospf6_lsdesc_lsa(lsdesc, v, v->link_id);
-				if (lsa == NULL)
-					continue;
-
-				if (OSPF6_LSA_IS_MAXAGE(lsa))
-					continue;
-
-				if (!ospf6_lsdesc_backlink(lsa, lsdesc, v))
-					continue;
-
-				w = ospf6_vertex_create(lsa);
-				w->area = oa;
-				w->parent = v;
-				if (VERTEX_IS_TYPE(ROUTER, v)) {
-					w->cost = v->cost
+			w = ospf6_vertex_create(lsa);
+			w->area = oa;
+			w->parent = v;
+			if (VERTEX_IS_TYPE(ROUTER, v)) {
+				w->cost = v->cost
 					  + ROUTER_LSDESC_GET_METRIC(lsdesc);
-					w->hops =
-						v->hops
-						+ (VERTEX_IS_TYPE(NETWORK, w) ?
-						   0 : 1);
-				} else /* NETWORK */ {
-					w->cost = v->cost;
-					w->hops = v->hops + 1;
-				}
+				w->hops =
+					v->hops
+					+ (VERTEX_IS_TYPE(NETWORK, w) ? 0 : 1);
+			} else {
+				/* NETWORK */
+				w->cost = v->cost;
+				w->hops = v->hops + 1;
+			}
 
-				/* nexthop calculation */
-				if (w->hops == 0)
-					ospf6_add_nexthop(w->nh_list,
+			/* nexthop calculation */
+			if (w->hops == 0)
+				ospf6_add_nexthop(
+					w->nh_list,
 					ROUTER_LSDESC_GET_IFID(lsdesc), NULL);
-				else if (w->hops == 1 && v->hops == 0)
-					ospf6_nexthop_calc(w, v, lsdesc);
-				else {
-					ospf6_copy_nexthops(w->nh_list,
-							    v->nh_list);
-				}
+			else if (w->hops == 1 && v->hops == 0)
+				ospf6_nexthop_calc(w, v, lsdesc);
+			else
+				ospf6_copy_nexthops(w->nh_list, v->nh_list);
 
-				/* add new candidate to the candidate_list */
-				if (IS_OSPF6_DEBUG_SPF(PROCESS))
-					zlog_debug(
+
+			/* add new candidate to the candidate_list */
+			if (IS_OSPF6_DEBUG_SPF(PROCESS))
+				zlog_debug(
 					"  New candidate: %s hops %d cost %d",
 						w->name, w->hops, w->cost);
-				pqueue_enqueue(w, candidate_list);
-			}
+			pqueue_enqueue(w, candidate_list);
 		}
 	}
 
+
 	pqueue_delete(candidate_list);
+
+	ospf6_remove_temp_router_lsa(oa);
 
 	oa->spf_calculation++;
 }
@@ -1027,4 +949,154 @@ void ospf6_spf_init(void)
 {
 	install_element(OSPF6_NODE, &ospf6_timers_throttle_spf_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_timers_throttle_spf_cmd);
+}
+
+/* Create Aggregated Large Router-LSA from multiple Link-State IDs
+ * RFC 5340 A 4.3:
+ * When more than one router-LSA is received from a single router,
+ * the links are processed as if concatenated into a single LSA.*/
+struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
+						 struct ospf6_lsdb *lsdb,
+						 uint32_t adv_router)
+{
+	struct ospf6_lsa *lsa = NULL;
+	struct ospf6_lsa *rtr_lsa = NULL;
+	struct ospf6_lsa_header *lsa_header = NULL;
+	uint8_t *new_header = NULL;
+	const struct route_node *end = NULL;
+	uint16_t lsa_length, total_lsa_length = 0, num_lsa = 0;
+	u_int16_t type = 0;
+	char ifbuf[16];
+	uint32_t interface_id;
+	caddr_t lsd;
+
+	lsa_length = sizeof(struct ospf6_lsa_header) +
+				sizeof(struct ospf6_router_lsa);
+	total_lsa_length = lsa_length;
+	type = htons(OSPF6_LSTYPE_ROUTER);
+
+	/* First check Aggregated LSA formed earlier in Cache */
+	lsa = ospf6_lsdb_lookup(type, htonl(0), adv_router,
+				area->temp_router_lsa_lsdb);
+	if (lsa)
+		return lsa;
+
+	inet_ntop(AF_INET, &adv_router, ifbuf, sizeof(ifbuf));
+
+	/* Determine total LSA length from all link state ids */
+	end = ospf6_lsdb_head(lsdb, 2, type, adv_router, &rtr_lsa);
+	while (rtr_lsa) {
+		lsa = rtr_lsa;
+		if (OSPF6_LSA_IS_MAXAGE(rtr_lsa)) {
+			rtr_lsa = ospf6_lsdb_next(end, rtr_lsa);
+			continue;
+		}
+		lsa_header = (struct ospf6_lsa_header *) rtr_lsa->header;
+		total_lsa_length += (ntohs(lsa_header->length)
+				     - lsa_length);
+		num_lsa++;
+		rtr_lsa = ospf6_lsdb_next(end, rtr_lsa);
+	}
+	if (IS_OSPF6_DEBUG_SPF(PROCESS))
+		zlog_debug("%s: adv_router %s num_lsa %u to convert.",
+			__PRETTY_FUNCTION__, ifbuf, num_lsa);
+	if (num_lsa == 1)
+		return lsa;
+
+	if (num_lsa == 0) {
+		if (IS_OSPF6_DEBUG_SPF(PROCESS))
+			zlog_debug("%s: adv_router %s not found in LSDB.",
+				   __PRETTY_FUNCTION__, ifbuf);
+		return NULL;
+	}
+
+	/* Allocate memory for this LSA */
+	new_header = XMALLOC(MTYPE_OSPF6_LSA_HEADER, total_lsa_length);
+	if (!new_header)
+		return NULL;
+
+	/* LSA information structure */
+	lsa = (struct ospf6_lsa *)XCALLOC(MTYPE_OSPF6_LSA,
+					  sizeof(struct ospf6_lsa));
+	if (!lsa) {
+		free(new_header);
+		return NULL;
+	}
+
+	lsa->header = (struct ospf6_lsa_header *)new_header;
+
+	lsa->lsdb = area->temp_router_lsa_lsdb;
+
+	/* Fill Larger LSA Payload */
+	end = ospf6_lsdb_head(lsdb, 2, type, adv_router, &rtr_lsa);
+	if (rtr_lsa) {
+		if (!OSPF6_LSA_IS_MAXAGE(rtr_lsa)) {
+			/* Append first Link State ID LSA */
+			lsa_header = (struct ospf6_lsa_header *)rtr_lsa->header;
+			memcpy(new_header, lsa_header,
+				ntohs(lsa_header->length));
+			/* Assign new lsa length as aggregated length. */
+			((struct ospf6_lsa_header *)new_header)->length =
+					htons(total_lsa_length);
+			new_header += ntohs(lsa_header->length);
+			num_lsa--;
+		}
+	}
+
+	/* Print LSA Name */
+	ospf6_lsa_printbuf(lsa, lsa->name, sizeof(lsa->name));
+
+	rtr_lsa = ospf6_lsdb_next(end, rtr_lsa);
+	while (rtr_lsa) {
+		if (OSPF6_LSA_IS_MAXAGE(rtr_lsa)) {
+			rtr_lsa = ospf6_lsdb_next(end, rtr_lsa);
+			continue;
+		}
+
+		if (IS_OSPF6_DEBUG_SPF(PROCESS)) {
+			lsd = OSPF6_LSA_HEADER_END(rtr_lsa->header) + 4;
+			interface_id = ROUTER_LSDESC_GET_IFID(lsd);
+			inet_ntop(AF_INET, &interface_id, ifbuf, sizeof(ifbuf));
+			zlog_debug("%s: Next Router LSA %s to aggreat with len %u interface_id %s",
+				   __PRETTY_FUNCTION__, rtr_lsa->name,
+				   ntohs(lsa_header->length), ifbuf);
+		}
+
+		/* Append Next Link State ID LSA */
+		lsa_header = (struct ospf6_lsa_header *) rtr_lsa->header;
+		memcpy(new_header, (OSPF6_LSA_HEADER_END(rtr_lsa->header) + 4),
+		       (ntohs(lsa_header->length) - lsa_length));
+		new_header += (ntohs(lsa_header->length) - lsa_length);
+		num_lsa--;
+
+		rtr_lsa = ospf6_lsdb_next(end, rtr_lsa);
+	}
+
+	/* Calculate birth of this lsa */
+	ospf6_lsa_age_set(lsa);
+
+	/* Store Aggregated LSA into area temp lsdb */
+	ospf6_lsdb_add(lsa, area->temp_router_lsa_lsdb);
+
+	if (IS_OSPF6_DEBUG_SPF(PROCESS))
+		zlog_debug("%s: LSA %s id %u type 0%x len %u num_lsa %u",
+			   __PRETTY_FUNCTION__, lsa->name,
+			   ntohl(lsa->header->id), ntohs(lsa->header->type),
+			   ntohs(lsa->header->length), num_lsa);
+
+	return lsa;
+}
+
+void ospf6_remove_temp_router_lsa(struct ospf6_area *area)
+{
+	struct ospf6_lsa *lsa = NULL;
+
+	for (ALL_LSDB(area->temp_router_lsa_lsdb, lsa)) {
+		if (IS_OSPF6_DEBUG_SPF(PROCESS))
+			zlog_debug("%s Remove LSA %s lsa->lock %u lsdb count %u",
+				   __PRETTY_FUNCTION__,
+				   lsa->name, lsa->lock,
+				   area->temp_router_lsa_lsdb->count);
+		ospf6_lsdb_remove(lsa, area->temp_router_lsa_lsdb);
+	}
 }

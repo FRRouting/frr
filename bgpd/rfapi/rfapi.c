@@ -31,6 +31,7 @@
 #include "lib/linklist.h"
 #include "lib/command.h"
 #include "lib/stream.h"
+#include "lib/ringbuf.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ecommunity.h"
@@ -363,15 +364,11 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 	afi_t afi; /* of the VN address */
 	struct bgp_node *bn;
 	struct bgp_info *bi;
-	char buf[BUFSIZ];
-	char buf2[BUFSIZ];
+	char buf[PREFIX_STRLEN];
+	char buf2[RD_ADDRSTRLEN];
 	struct prefix_rd prd0;
 
-	prefix2str(p, buf, BUFSIZ);
-	buf[BUFSIZ - 1] = 0; /* guarantee NUL-terminated */
-
-	prefix_rd2str(prd, buf2, BUFSIZ);
-	buf2[BUFSIZ - 1] = 0;
+	prefix2str(p, buf, sizeof(buf));
 
 	afi = family2afi(p->family);
 	assert(afi == AFI_IP || afi == AFI_IP6);
@@ -386,7 +383,8 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 
 	vnc_zlog_debug_verbose(
 		"%s: peer=%p, prefix=%s, prd=%s afi=%d, safi=%d bn=%p, bn->info=%p",
-		__func__, peer, buf, buf2, afi, safi, bn,
+		__func__, peer, buf,
+		prefix_rd2str(prd, buf2, sizeof(buf2)), afi, safi, bn,
 		(bn ? bn->info : NULL));
 
 	for (bi = (bn ? bn->info : NULL); bi; bi = bi->next) {
@@ -464,11 +462,9 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 	rfapiProcessWithdraw(peer, rfd, p, prd, NULL, afi, safi, type, kill);
 
 	if (bi) {
-		char buf[BUFSIZ];
+		char buf[PREFIX_STRLEN];
 
-		prefix2str(p, buf, BUFSIZ);
-		buf[BUFSIZ - 1] = 0; /* guarantee NUL-terminated */
-
+		prefix2str(p, buf, sizeof(buf));
 		vnc_zlog_debug_verbose(
 			"%s: Found route (safi=%d) to delete at prefix %s",
 			__func__, safi, buf);
@@ -593,8 +589,8 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	uint32_t label_val;
 
 	struct bgp_attr_encap_subtlv *encaptlv;
-	char buf[BUFSIZ];
-	char buf2[BUFSIZ];
+	char buf[PREFIX_STRLEN];
+	char buf2[RD_ADDRSTRLEN];
 #if 0 /* unused? */
   struct prefix pfx_buf;
 #endif
@@ -650,9 +646,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	else
 		label_val = MPLS_LABEL_IMPLICIT_NULL;
 
-	prefix_rd2str(prd, buf2, BUFSIZ);
-	buf2[BUFSIZ - 1] = 0;
-
+	prefix_rd2str(prd, buf2, sizeof(buf2));
 
 	afi = family2afi(p->family);
 	assert(afi == AFI_IP || afi == AFI_IP6);
@@ -907,8 +901,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	}
 
 
-	prefix2str(p, buf, BUFSIZ);
-	buf[BUFSIZ - 1] = 0; /* guarantee NUL-terminated */
+	prefix2str(p, buf, sizeof(buf));
 
 	/*
 	 * At this point:
@@ -920,7 +913,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	 *  aspath: points to interned hash from aspath hash table
 	 */
 
-	red = bgp_redist_lookup(bgp, afi, type, VRF_DEFAULT);
+	red = bgp_redist_lookup(bgp, afi, type, 0);
 
 	if (red && red->redist_metric_flag) {
 		attr.med = red->redist_metric;
@@ -1318,7 +1311,7 @@ static int rfapi_open_inner(struct rfapi_descriptor *rfd, struct bgp *bgp,
 			stream_fifo_free(rfd->peer->obuf);
 
 		if (rfd->peer->ibuf_work)
-			stream_free(rfd->peer->ibuf_work);
+			ringbuf_del(rfd->peer->ibuf_work);
 		if (rfd->peer->obuf_work)
 			stream_free(rfd->peer->obuf_work);
 
@@ -1611,11 +1604,10 @@ rfapi_query_inner(void *handle, struct rfapi_ip_addr *target,
 	}
 
 	{
-		char buf[BUFSIZ];
+		char buf[PREFIX_STRLEN];
 		char *s;
 
-		prefix2str(&p, buf, BUFSIZ);
-		buf[BUFSIZ - 1] = 0; /* guarantee NUL-terminated */
+		prefix2str(&p, buf, sizeof(buf));
 		vnc_zlog_debug_verbose("%s(rfd=%p, target=%s, ppNextHop=%p)",
 				       __func__, rfd, buf, ppNextHopEntry);
 
@@ -2434,10 +2426,9 @@ int rfapi_register(void *handle, struct rfapi_ip_prefix *prefix,
 
 
 	{
-		char buf[BUFSIZ];
+		char buf[PREFIX_STRLEN];
 
-		prefix2str(&p, buf, BUFSIZ);
-		buf[BUFSIZ - 1] = 0; /* guarantee NUL-terminated */
+		prefix2str(&p, buf, sizeof(buf));
 		vnc_zlog_debug_verbose(
 			"%s(rfd=%p, pfx=%s, lifetime=%d, opts_un=%p, opts_vn=%p, action=%s)",
 			__func__, rfd, buf, lifetime, options_un, options_vn,
@@ -3841,12 +3832,10 @@ int rfapi_set_autord_from_vn(struct prefix_rd *rd, struct rfapi_ip_addr *vn)
 		       4); /* low order 4 bytes */
 	}
 	{
-		char buf[BUFSIZ];
-		buf[0] = 0;
-		prefix_rd2str(rd, buf, BUFSIZ);
-		buf[BUFSIZ - 1] = 0;
+		char buf[RD_ADDRSTRLEN];
+
 		vnc_zlog_debug_verbose("%s: auto-RD is set to %s", __func__,
-				       buf);
+				       prefix_rd2str(rd, buf, sizeof(buf)));
 	}
 	return 0;
 }

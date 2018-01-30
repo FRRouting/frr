@@ -871,32 +871,18 @@ Layer protocols. BGP supports multiple Address Family Identifier (AFI), namely
 IPv4 and IPv6. Support is also provided for multiple sets of per-AFI
 information via Subsequent Address Family Identifiers (SAFI). In addition to
 unicast information, VPN information :rfc:`4364` and :rfc:`4659`, and
-Encapsulation information :rfc:`5512` is supported.
+Encapsulation attribute :rfc:`5512` is supported.
 
-.. index:: show ip bgp vpnv4 all
-.. clicmd:: show ip bgp vpnv4 all
+.. index:: show ip bgp ipv4 vpn
+.. clicmd:: show ip bgp ipv4 vpn
 
-.. index:: show ipv6 bgp vpn all
-.. clicmd:: show ipv6 bgp vpn all
+.. index:: show ipv6 bgp ipv6 vpn
+.. clicmd:: show ipv6 bgp ipv6 vpn
 
    Print active IPV4 or IPV6 routes advertised via the VPN SAFI.
 
-.. index:: show ip bgp encap all
-.. clicmd:: show ip bgp encap all
-
-.. index:: show ipv6 bgp encap all
-.. clicmd:: show ipv6 bgp encap all
-
-   Print active IPV4 or IPV6 routes advertised via the Encapsulation SAFI.
-
-.. index:: show bgp ipv4 encap summary
-.. clicmd:: show bgp ipv4 encap summary
-
 .. index:: show bgp ipv4 vpn summary
 .. clicmd:: show bgp ipv4 vpn summary
-
-.. index:: show bgp ipv6 encap summary
-.. clicmd:: show bgp ipv6 encap summary
 
 .. index:: show bgp ipv6 vpn summary
 .. clicmd:: show bgp ipv6 vpn summary

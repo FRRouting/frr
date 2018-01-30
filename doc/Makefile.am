@@ -59,17 +59,37 @@ $(srcdir)/frr.info: $(frr_TEXINFOS) defines.texi
 frr.dvi: $(frr_TEXINFOS) defines.texi
 frr.html: $(frr_TEXINFOS) defines.texi
 
-frr_TEXINFOS = appendix.texi basic.texi bgpd.texi isisd.texi filter.texi \
+frr_TEXINFOS = \
+	appendix.texi \
+	basic.texi \
+	bgpd.texi \
+	isisd.texi \
+	filter.texi \
 	vnc.texi \
 	babeld.texi \
-	install.texi ipv6.texi kernel.texi main.texi \
+	install.texi \
+	ipv6.texi  \
+	kernel.texi \
+	main.texi \
 	nhrpd.texi \
 	eigrpd.texi \
-	ospf6d.texi ospfd.texi \
-	overview.texi protocol.texi ripd.texi ripngd.texi routemap.texi \
-	snmp.texi vtysh.texi routeserver.texi $(figures_png) \
-	snmptrap.texi ospf_fundamentals.texi isisd.texi $(figures_txt) \
-	rpki.texi
+	ospf6d.texi \
+	ospfd.texi \
+	overview.texi \
+	protocol.texi \
+	ripd.texi \
+	ripngd.texi \
+	routemap.texi \
+	snmp.texi \
+	vtysh.texi \
+	routeserver.texi \
+	$(figures_png) \
+	snmptrap.texi \
+	ospf_fundamentals.texi \
+	isisd.texi $(figures_txt) \
+	rpki.texi \
+	pimd.texi \
+	#END
 
 .png.eps:
 	$(PNGTOEPS) $< "$@"

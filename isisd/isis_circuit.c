@@ -676,7 +676,8 @@ int isis_circuit_up(struct isis_circuit *circuit)
 
 	circuit->lsp_queue = list_new();
 	circuit->lsp_hash = isis_lsp_hash_new();
-	circuit->lsp_queue_last_push = monotime(NULL);
+	circuit->lsp_queue_last_push[0] = circuit->lsp_queue_last_push[1] =
+		monotime(NULL);
 
 	return ISIS_OK;
 }

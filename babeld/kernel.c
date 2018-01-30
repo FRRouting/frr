@@ -166,6 +166,7 @@ zebra_route(int add, int family, const unsigned char *pref, unsigned short plen,
     api.type  = ZEBRA_ROUTE_BABEL;
     api.safi = SAFI_UNICAST;
     api.vrf_id = VRF_DEFAULT;
+    api.nh_vrf_id = VRF_DEFAULT;
     api.prefix = quagga_prefix;
 
     if(metric >= KERNEL_INFINITY) {
@@ -203,7 +204,7 @@ zebra_route(int add, int family, const unsigned char *pref, unsigned short plen,
 }
 
 int
-if_eui64(char *ifname, int ifindex, unsigned char *eui)
+if_eui64(int ifindex, unsigned char *eui)
 {
     struct interface *ifp = if_lookup_by_index(ifindex, VRF_DEFAULT);
     if (ifp == NULL) {

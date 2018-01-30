@@ -81,6 +81,12 @@ typedef unsigned int mpls_lse_t;
 /* MPLS label value as a 32-bit (mostly we only care about the label value). */
 typedef unsigned int mpls_label_t;
 
+struct mpls_label_stack {
+	uint8_t num_labels;
+	uint8_t reserved[3];
+	mpls_label_t label[0]; /* 1 or more labels */
+};
+
 /* The MPLS explicit-null label is 0 which means when you memset a mpls_label_t
  * to zero you have set that variable to explicit-null which was probably not
  * your intent. The work-around is to use one bit to indicate if the

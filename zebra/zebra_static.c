@@ -91,7 +91,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 			nh_p.family = AF_INET;
 			nh_p.prefixlen = IPV4_MAX_BITLEN;
 			nh_p.u.prefix4 = si->addr.ipv4;
-			zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
+			zebra_register_rnh_static_nh(si->nh_vrf_id, &nh_p, rn);
 			break;
 		case STATIC_IPV4_GATEWAY_IFNAME:
 			nexthop = route_entry_nexthop_ipv4_ifindex_add(
@@ -111,7 +111,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 			nh_p.family = AF_INET6;
 			nh_p.prefixlen = IPV6_MAX_BITLEN;
 			nh_p.u.prefix6 = si->addr.ipv6;
-			zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
+			zebra_register_rnh_static_nh(si->nh_vrf_id, &nh_p, rn);
 			break;
 		case STATIC_IPV6_GATEWAY_IFNAME:
 			nexthop = route_entry_nexthop_ipv6_ifindex_add(
@@ -141,7 +141,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 		 */
 		if (si->type == STATIC_IPV4_GATEWAY
 		    || si->type == STATIC_IPV6_GATEWAY)
-			zebra_evaluate_rnh(si->vrf_id, nh_p.family, 1,
+			zebra_evaluate_rnh(si->nh_vrf_id, nh_p.family, 1,
 					   RNH_NEXTHOP_TYPE, &nh_p);
 		else
 			rib_queue_add(rn);
@@ -155,8 +155,9 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 		re->metric = 0;
 		re->mtu = 0;
 		re->vrf_id = si->vrf_id;
+		re->nh_vrf_id = si->nh_vrf_id;
 		re->table =
-			si->vrf_id
+			(si->vrf_id != VRF_DEFAULT)
 				? (zebra_vrf_lookup_by_id(si->vrf_id))->table_id
 				: zebrad.rtm_table_default;
 		re->nexthop_num = 0;
@@ -169,7 +170,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 			nh_p.family = AF_INET;
 			nh_p.prefixlen = IPV4_MAX_BITLEN;
 			nh_p.u.prefix4 = si->addr.ipv4;
-			zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
+			zebra_register_rnh_static_nh(si->nh_vrf_id, &nh_p, rn);
 			break;
 		case STATIC_IPV4_GATEWAY_IFNAME:
 			nexthop = route_entry_nexthop_ipv4_ifindex_add(
@@ -189,7 +190,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 			nh_p.family = AF_INET6;
 			nh_p.prefixlen = IPV6_MAX_BITLEN;
 			nh_p.u.prefix6 = si->addr.ipv6;
-			zebra_register_rnh_static_nh(si->vrf_id, &nh_p, rn);
+			zebra_register_rnh_static_nh(si->nh_vrf_id, &nh_p, rn);
 			break;
 		case STATIC_IPV6_GATEWAY_IFNAME:
 			nexthop = route_entry_nexthop_ipv6_ifindex_add(
@@ -221,7 +222,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 		if (si->type == STATIC_IPV4_GATEWAY
 		    || si->type == STATIC_IPV6_GATEWAY) {
 			rib_addnode(rn, re, 0);
-			zebra_evaluate_rnh(si->vrf_id, nh_p.family, 1,
+			zebra_evaluate_rnh(si->nh_vrf_id, nh_p.family, 1,
 					   RNH_NEXTHOP_TYPE, &nh_p);
 		} else
 			rib_addnode(rn, re, 1);
@@ -331,11 +332,12 @@ void static_uninstall_route(afi_t afi, safi_t safi, struct prefix *p,
 		}
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB)) {
+			rib_dest_t *dest = rib_dest_from_rnode(rn);
+
 			/* If there are other active nexthops, do an update. */
 			if (re->nexthop_active_num > 1) {
 				/* Update route in kernel if it's in fib */
-				if (CHECK_FLAG(re->status,
-					       ROUTE_ENTRY_SELECTED_FIB))
+				if (dest->selected_fib)
 					rib_install_kernel(rn, re, re);
 				/* Update redistribution if it's selected */
 				if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED))
@@ -350,8 +352,7 @@ void static_uninstall_route(afi_t afi, safi_t safi, struct prefix *p,
 						p, (struct prefix *)src_p, re);
 				/* Remove from kernel if fib route becomes
 				 * inactive */
-				if (CHECK_FLAG(re->status,
-					       ROUTE_ENTRY_SELECTED_FIB))
+				if (dest->selected_fib)
 					rib_uninstall_kernel(rn, re);
 			}
 		}
@@ -378,6 +379,7 @@ int static_add_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 		     struct prefix_ipv6 *src_p, union g_addr *gate,
 		     const char *ifname, enum static_blackhole_type bh_type,
 		     route_tag_t tag, u_char distance, struct zebra_vrf *zvrf,
+		     struct zebra_vrf *nh_zvrf,
 		     struct static_nh_label *snh_label)
 {
 	struct route_node *rn;
@@ -439,6 +441,8 @@ int static_add_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	si->bh_type = bh_type;
 	si->tag = tag;
 	si->vrf_id = zvrf_id(zvrf);
+	si->nh_vrf_id = zvrf_id(nh_zvrf);
+
 	if (ifname)
 		strlcpy(si->ifname, ifname, sizeof(si->ifname));
 	si->ifindex = IFINDEX_INTERNAL;
@@ -493,7 +497,7 @@ int static_add_route(afi_t afi, safi_t safi, u_char type, struct prefix *p,
 	else {
 		struct interface *ifp;
 
-		ifp = if_lookup_by_name(ifname, zvrf_id(zvrf));
+		ifp = if_lookup_by_name(ifname, zvrf_id(nh_zvrf));
 		if (ifp && ifp->ifindex != IFINDEX_INTERNAL) {
 			si->ifindex = ifp->ifindex;
 			static_install_route(afi, safi, p, src_p, si);

@@ -1193,7 +1193,7 @@ static void *route_set_src_compile(const char *arg)
 	union g_addr src, *psrc;
 
 	if ((inet_pton(AF_INET6, arg, &src.ipv6) == 1)
-	    || (src.ipv4.s_addr && (inet_pton(AF_INET, arg, &src.ipv4) == 1))) {
+	    || (inet_pton(AF_INET, arg, &src.ipv4) == 1)) {
 		psrc = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(union g_addr));
 		*psrc = src;
 		return psrc;
@@ -1329,7 +1329,7 @@ route_map_result_t zebra_nht_route_map_check(int family, int client_proto,
 	struct nh_rmap_obj nh_obj;
 
 	nh_obj.nexthop = nexthop;
-	nh_obj.vrf_id = re->vrf_id;
+	nh_obj.vrf_id = re->nh_vrf_id;
 	nh_obj.source_protocol = re->type;
 	nh_obj.metric = re->metric;
 	nh_obj.tag = re->tag;

@@ -30,6 +30,7 @@
 #include "lib/command.h"
 #include "lib/zclient.h"
 #include "lib/stream.h"
+#include "lib/ringbuf.h"
 #include "lib/memory.h"
 
 #include "bgpd/bgpd.h"
@@ -198,7 +199,7 @@ static void vnc_redistribute_add(struct prefix *p, u_int32_t metric,
 					stream_fifo_free(vncHD1VR.peer->obuf);
 
 				if (vncHD1VR.peer->ibuf_work)
-					stream_free(vncHD1VR.peer->ibuf_work);
+					ringbuf_del(vncHD1VR.peer->ibuf_work);
 				if (vncHD1VR.peer->obuf_work)
 					stream_free(vncHD1VR.peer->obuf_work);
 
@@ -384,6 +385,8 @@ static void vnc_zebra_route_msg(struct prefix *p, unsigned int nhp_count,
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
 	int i;
+	struct in_addr **nhp_ary4 = nhp_ary;
+	struct in6_addr **nhp_ary6 = nhp_ary;
 
 	if (!nhp_count) {
 		vnc_zlog_debug_verbose("%s: empty nexthop list, skipping",
@@ -393,6 +396,7 @@ static void vnc_zebra_route_msg(struct prefix *p, unsigned int nhp_count,
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
+	api.nh_vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_VNC;
 	api.safi = SAFI_UNICAST;
 	api.prefix = *p;
@@ -401,20 +405,16 @@ static void vnc_zebra_route_msg(struct prefix *p, unsigned int nhp_count,
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 	api.nexthop_num = MIN(nhp_count, multipath_num);
 	for (i = 0; i < api.nexthop_num; i++) {
-		struct in_addr *nhp_ary4;
-		struct in6_addr *nhp_ary6;
 
 		api_nh = &api.nexthops[i];
 		switch (p->family) {
 		case AF_INET:
-			nhp_ary4 = nhp_ary;
-			memcpy(&api_nh->gate.ipv4, &nhp_ary4[i],
+			memcpy(&api_nh->gate.ipv4, nhp_ary4[i],
 			       sizeof(api_nh->gate.ipv4));
 			api_nh->type = NEXTHOP_TYPE_IPV4;
 			break;
 		case AF_INET6:
-			nhp_ary6 = nhp_ary;
-			memcpy(&api_nh->gate.ipv6, &nhp_ary6[i],
+			memcpy(&api_nh->gate.ipv6, nhp_ary6[i],
 			       sizeof(api_nh->gate.ipv6));
 			api_nh->type = NEXTHOP_TYPE_IPV6;
 			break;

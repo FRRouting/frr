@@ -314,8 +314,8 @@ extern struct crypt_key *ospf_crypt_key_lookup(struct list *, u_char);
 extern struct crypt_key *ospf_crypt_key_new(void);
 extern void ospf_crypt_key_add(struct list *, struct crypt_key *);
 extern int ospf_crypt_key_delete(struct list *, u_char);
-
 extern u_char ospf_default_iftype(struct interface *ifp);
+extern int ospf_interface_neighbor_count(struct ospf_interface *oi);
 
 /* Set all multicast memberships appropriately based on the type and
    state of the interface. */

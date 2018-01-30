@@ -80,7 +80,7 @@ static int pim_zebra_if_add(int command, struct zclient *zclient,
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d(%d) flags %ld metric %d mtu %d operative %d",
+			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
 			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex, vrf_id,
 			(long)ifp->flags, ifp->metric, ifp->mtu,
 			if_is_operative(ifp));
@@ -130,7 +130,7 @@ static int pim_zebra_if_del(int command, struct zclient *zclient,
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d(%d) flags %ld metric %d mtu %d operative %d",
+			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
 			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex, vrf_id,
 			(long)ifp->flags, ifp->metric, ifp->mtu,
 			if_is_operative(ifp));
@@ -158,7 +158,7 @@ static int pim_zebra_if_state_up(int command, struct zclient *zclient,
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d(%d) flags %ld metric %d mtu %d operative %d",
+			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
 			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex, vrf_id,
 			(long)ifp->flags, ifp->metric, ifp->mtu,
 			if_is_operative(ifp));
@@ -213,7 +213,7 @@ static int pim_zebra_if_state_down(int command, struct zclient *zclient,
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d(%d) flags %ld metric %d mtu %d operative %d",
+			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
 			__PRETTY_FUNCTION__, ifp->name, ifp->ifindex, vrf_id,
 			(long)ifp->flags, ifp->metric, ifp->mtu,
 			if_is_operative(ifp));
@@ -293,7 +293,7 @@ static int pim_zebra_if_address_add(int command, struct zclient *zclient,
 	if (PIM_DEBUG_ZEBRA) {
 		char buf[BUFSIZ];
 		prefix2str(p, buf, BUFSIZ);
-		zlog_debug("%s: %s(%d) connected IP address %s flags %u %s",
+		zlog_debug("%s: %s(%u) connected IP address %s flags %u %s",
 			   __PRETTY_FUNCTION__, c->ifp->name, vrf_id, buf,
 			   c->flags, CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
 					     ? "secondary"
@@ -372,7 +372,7 @@ static int pim_zebra_if_address_del(int command, struct zclient *client,
 			char buf[BUFSIZ];
 			prefix2str(p, buf, BUFSIZ);
 			zlog_debug(
-				"%s: %s(%d) disconnected IP address %s flags %u %s",
+				"%s: %s(%u) disconnected IP address %s flags %u %s",
 				__PRETTY_FUNCTION__, c->ifp->name, vrf_id, buf,
 				c->flags,
 				CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
@@ -764,8 +764,6 @@ void pim_zebra_init(void)
 	if (PIM_DEBUG_PIM_TRACE) {
 		zlog_info("zclient_init cleared redistribution request");
 	}
-
-	zassert(zclient->redist_default == ZEBRA_ROUTE_PIM);
 
 	/* Request all redistribution */
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {

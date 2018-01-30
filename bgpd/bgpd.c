@@ -24,6 +24,7 @@
 #include "thread.h"
 #include "buffer.h"
 #include "stream.h"
+#include "ringbuf.h"
 #include "command.h"
 #include "sockunion.h"
 #include "sockopt.h"
@@ -78,7 +79,7 @@
 #include "bgpd/bgp_evpn_vty.h"
 #include "bgpd/bgp_keepalives.h"
 #include "bgpd/bgp_io.h"
-
+#include "bgpd/bgp_ecommunity.h"
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_QOBJ_TYPE(bgp_master)
@@ -217,7 +218,7 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id)
 		return 0;
 
 	/* EVPN uses router id in RD, withdraw them */
-	if (bgp->advertise_all_vni)
+	if (is_evpn_enabled())
 		bgp_evpn_handle_router_id_update(bgp, TRUE);
 
 	IPV4_ADDR_COPY(&bgp->router_id, id);
@@ -234,7 +235,7 @@ static int bgp_router_id_set(struct bgp *bgp, const struct in_addr *id)
 	}
 
 	/* EVPN uses router id in RD, update them */
-	if (bgp->advertise_all_vni)
+	if (is_evpn_enabled())
 		bgp_evpn_handle_router_id_update(bgp, FALSE);
 
 	return 0;
@@ -865,8 +866,7 @@ static void peer_af_flag_reset(struct peer *peer, afi_t afi, safi_t safi)
 /* peer global config reset */
 static void peer_global_config_reset(struct peer *peer)
 {
-
-	int v6only;
+	int saved_flags = 0;
 
 	peer->change_local_as = 0;
 	peer->ttl = (peer_sort(peer) == BGP_PEER_IBGP ? MAXTTL : 1);
@@ -884,13 +884,11 @@ static void peer_global_config_reset(struct peer *peer)
 	else
 		peer->v_routeadv = BGP_DEFAULT_EBGP_ROUTEADV;
 
-	/* This is a per-peer specific flag and so we must preserve it */
-	v6only = CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
-
+	/* These are per-peer specific flags and so we must preserve them */
+	saved_flags |= CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+	saved_flags |= CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN);
 	peer->flags = 0;
-
-	if (v6only)
-		SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+	SET_FLAG(peer->flags, saved_flags);
 
 	peer->config = 0;
 	peer->holdtime = 0;
@@ -912,7 +910,7 @@ static void peer_global_config_reset(struct peer *peer)
 }
 
 /* Check peer's AS number and determines if this peer is IBGP or EBGP */
-static bgp_peer_sort_t peer_calc_sort(struct peer *peer)
+static inline bgp_peer_sort_t peer_calc_sort(struct peer *peer)
 {
 	struct bgp *bgp;
 
@@ -1150,19 +1148,19 @@ struct peer *peer_new(struct bgp *bgp)
 	 * - We RX a BGP_UPDATE where the attributes alone are just
 	 *   under BGP_MAX_PACKET_SIZE
 	 * - The user configures an outbound route-map that does many as-path
-	 *   prepends or adds many communities.  At most they can have
-	 * CMD_ARGC_MAX
-	 *   args in a route-map so there is a finite limit on how large they
-	 * can
-	 *   make the attributes.
+	 *   prepends or adds many communities. At most they can have
+	 *   CMD_ARGC_MAX args in a route-map so there is a finite limit on how
+	 *   large they can make the attributes.
 	 *
 	 * Having a buffer with BGP_MAX_PACKET_SIZE_OVERFLOW allows us to avoid
-	 * bounds
-	 * checking for every single attribute as we construct an UPDATE.
+	 * bounds checking for every single attribute as we construct an
+	 * UPDATE.
 	 */
 	peer->obuf_work =
 		stream_new(BGP_MAX_PACKET_SIZE + BGP_MAX_PACKET_SIZE_OVERFLOW);
-	peer->ibuf_work = stream_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX);
+	peer->ibuf_work =
+		ringbuf_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX);
+
 	peer->scratch = stream_new(BGP_MAX_PACKET_SIZE);
 
 	bgp_sync_init(peer);
@@ -1204,7 +1202,7 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 	peer_dst->local_as = peer_src->local_as;
 	peer_dst->ifindex = peer_src->ifindex;
 	peer_dst->port = peer_src->port;
-	peer_sort(peer_dst);
+	(void)peer_sort(peer_dst);
 	peer_dst->rmap_type = peer_src->rmap_type;
 
 	/* Timers */
@@ -1475,9 +1473,12 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 	hash_get(bgp->peerhash, peer, hash_alloc_intern);
 
 	/* Adjust update-group coalesce timer heuristics for # peers. */
-	long ct = BGP_DEFAULT_SUBGROUP_COALESCE_TIME
-		  + (bgp->peer->count * BGP_PEER_ADJUST_SUBGROUP_COALESCE_TIME);
-	bgp->coalesce_time = MIN(BGP_MAX_SUBGROUP_COALESCE_TIME, ct);
+	if (bgp->heuristic_coalesce) {
+		long ct = BGP_DEFAULT_SUBGROUP_COALESCE_TIME
+			  + (bgp->peer->count
+			     * BGP_PEER_ADJUST_SUBGROUP_COALESCE_TIME);
+		bgp->coalesce_time = MIN(BGP_MAX_SUBGROUP_COALESCE_TIME, ct);
+	}
 
 	active = peer_active(peer);
 
@@ -1494,8 +1495,11 @@ struct peer *peer_create(union sockunion *su, const char *conf_if,
 		peer_af_create(peer, afi, safi);
 	}
 
+	/* auto shutdown if configured */
+	if (bgp->autoshutdown)
+		peer_flag_set(peer, PEER_FLAG_SHUTDOWN);
 	/* Set up peer's events and timers. */
-	if (!active && peer_active(peer))
+	else if (!active && peer_active(peer))
 		bgp_timer_set(peer);
 
 	return peer;
@@ -2176,7 +2180,7 @@ int peer_delete(struct peer *peer)
 	}
 
 	if (peer->ibuf_work) {
-		stream_free(peer->ibuf_work);
+		ringbuf_del(peer->ibuf_work);
 		peer->ibuf_work = NULL;
 	}
 
@@ -2336,7 +2340,7 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 					struct peer *peer)
 {
 	struct peer *conf;
-	int v6only;
+	int saved_flags = 0;
 
 	conf = group->conf;
 
@@ -2354,14 +2358,11 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 	/* GTSM hops */
 	peer->gtsm_hops = conf->gtsm_hops;
 
-	/* this flag is per-neighbor and so has to be preserved */
-	v6only = CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
-
-	/* peer flags apply */
+	/* These are per-peer specific flags and so we must preserve them */
+	saved_flags |= CHECK_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+	saved_flags |= CHECK_FLAG(peer->flags, PEER_FLAG_SHUTDOWN);
 	peer->flags = conf->flags;
-
-	if (v6only)
-		SET_FLAG(peer->flags, PEER_FLAG_IFPEER_V6ONLY);
+	SET_FLAG(peer->flags, saved_flags);
 
 	/* peer config apply */
 	peer->config = conf->config;
@@ -3138,6 +3139,9 @@ int bgp_delete(struct bgp *bgp)
 					   : "VIEW",
 				   bgp->name);
 	}
+
+	/* unmap from RT list */
+	bgp_evpn_vrf_delete(bgp);
 
 	/* Stop timers. */
 	if (bgp->t_rmap_def_originate_eval) {
@@ -7077,6 +7081,11 @@ int bgp_config_write(struct vty *vty)
 
 	/* BGP configuration. */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
+
+		/* skip all auto created vrf as they dont have user config */
+		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_AUTO))
+			continue;
+
 		/* Router bgp ASN */
 		vty_out(vty, "router bgp %u", bgp->as);
 
@@ -7139,6 +7148,10 @@ int bgp_config_write(struct vty *vty)
 		    != BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX)
 			vty_out(vty, " bgp default subgroup-pkt-queue-max %u\n",
 				bgp->default_subgroup_pkt_queue_max);
+
+		/* BGP default autoshutdown neighbors */
+		if (bgp->autoshutdown)
+			vty_out(vty, " bgp default auto-shutdown\n");
 
 		/* BGP client-to-client reflection. */
 		if (bgp_flag_check(bgp, BGP_FLAG_NO_CLIENT_TO_CLIENT))
@@ -7301,6 +7314,38 @@ int bgp_config_write(struct vty *vty)
 		if (bgp_option_check(BGP_OPT_CONFIG_CISCO))
 			vty_out(vty, " no auto-summary\n");
 
+		/* import route-target */
+		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_IMPORT_RT_CFGD)) {
+			char *ecom_str;
+			struct listnode *node, *nnode;
+			struct ecommunity *ecom;
+
+			for (ALL_LIST_ELEMENTS(bgp->vrf_import_rtl, node, nnode,
+					       ecom)) {
+				ecom_str = ecommunity_ecom2str(
+					ecom, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+				vty_out(vty, "   route-target import %s\n",
+					ecom_str);
+				XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+			}
+		}
+
+		/* export route-target */
+		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_EXPORT_RT_CFGD)) {
+			char *ecom_str;
+			struct listnode *node, *nnode;
+			struct ecommunity *ecom;
+
+			for (ALL_LIST_ELEMENTS(bgp->vrf_export_rtl, node, nnode,
+					       ecom)) {
+				ecom_str = ecommunity_ecom2str(
+					ecom, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+				vty_out(vty, "   route-target export %s\n",
+					ecom_str);
+				XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+			}
+		}
+
 		/* IPv4 unicast configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_UNICAST);
 
@@ -7361,6 +7406,13 @@ void bgp_master_init(struct thread_master *master)
 
 	bgp_process_queue_init();
 
+	/* init the rd id space.
+	   assign 0th index in the bitfield,
+	   so that we start with id 1
+	 */
+	bf_init(bm->rd_idspace, UINT16_MAX);
+	bf_assign_zero_index(bm->rd_idspace);
+
 	/* Enable multiple instances by default. */
 	bgp_option_set(BGP_OPT_MULTIPLE_INSTANCE);
 
@@ -7418,24 +7470,33 @@ static void bgp_pthreads_init()
 {
 	frr_pthread_init();
 
-	frr_pthread_new("BGP i/o thread", PTHREAD_IO, bgp_io_start,
-			bgp_io_stop);
-	frr_pthread_new("BGP keepalives thread", PTHREAD_KEEPALIVES,
-			bgp_keepalives_start, bgp_keepalives_stop);
-
-	/* pre-run initialization */
-	bgp_keepalives_init();
-	bgp_io_init();
+	struct frr_pthread_attr io = {
+		.id = PTHREAD_IO,
+		.start = frr_pthread_attr_default.start,
+		.stop = frr_pthread_attr_default.stop,
+		.name = "BGP I/O thread",
+	};
+	struct frr_pthread_attr ka = {
+		.id = PTHREAD_KEEPALIVES,
+		.start = bgp_keepalives_start,
+		.stop = bgp_keepalives_stop,
+		.name = "BGP Keepalives thread",
+	};
+	frr_pthread_new(&io);
+	frr_pthread_new(&ka);
 }
 
 void bgp_pthreads_run()
 {
-	pthread_attr_t attr;
-	pthread_attr_init(&attr);
-	pthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+	struct frr_pthread *io = frr_pthread_get(PTHREAD_IO);
+	struct frr_pthread *ka = frr_pthread_get(PTHREAD_KEEPALIVES);
 
-	frr_pthread_run(PTHREAD_IO, &attr, NULL);
-	frr_pthread_run(PTHREAD_KEEPALIVES, &attr, NULL);
+	frr_pthread_run(io, NULL);
+	frr_pthread_run(ka, NULL);
+
+	/* Wait until threads are ready. */
+	frr_pthread_wait_running(io);
+	frr_pthread_wait_running(ka);
 }
 
 void bgp_pthreads_finish()
@@ -7517,6 +7578,7 @@ void bgp_terminate(void)
 	 */
 	/* reverse bgp_master_init */
 	bgp_close();
+
 	if (bm->listen_sockets)
 		list_delete_and_null(&bm->listen_sockets);
 

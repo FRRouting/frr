@@ -36,6 +36,7 @@
 #include "defaults.h"
 #include "bgp_memory.h"
 #include "bitfield.h"
+#include "vxlan.h"
 
 #define BGP_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 #define BGP_PEER_MAX_HASH_SIZE 16384
@@ -135,6 +136,9 @@ struct bgp_master {
 				      /* $FRR indent$ */
 				      /* clang-format off */
 #define RMAP_DEFAULT_UPDATE_TIMER 5 /* disabled by default */
+
+	/* Id space for automatic RD derivation for an EVI/VRF */
+	bitfield_t rd_idspace;
 
 	QOBJ_FIELDS
 };
@@ -381,7 +385,13 @@ struct bgp {
 	_Atomic uint32_t wpkt_quanta; // max # packets to write per i/o cycle
 	_Atomic uint32_t rpkt_quanta; // max # packets to read per i/o cycle
 
-	u_int32_t coalesce_time;
+	/* Automatic coalesce adjust on/off */
+	bool heuristic_coalesce;
+	/* Actual coalesce time */
+	uint32_t coalesce_time;
+
+	/* Auto-shutdown new peers */
+	bool autoshutdown;
 
 	u_int32_t addpath_tx_id;
 	int addpath_tx_used[AFI_MAX][SAFI_MAX];
@@ -405,8 +415,41 @@ struct bgp {
 	/* Hash table of Import RTs to EVIs */
 	struct hash *import_rt_hash;
 
-	/* Id space for automatic RD derivation for an EVI */
-	bitfield_t rd_idspace;
+	/* Hash table of VRF import RTs to VRFs */
+	struct hash *vrf_import_rt_hash;
+
+	/* L3-VNI corresponding to this vrf */
+	vni_t l3vni;
+
+	/* router-mac to be used in mac-ip routes for this vrf */
+	struct ethaddr rmac;
+
+	/* originator ip - to be used as NH for type-5 routes */
+	struct in_addr originator_ip;
+
+	/* vrf flags */
+	uint32_t vrf_flags;
+#define BGP_VRF_AUTO                        (1 << 0)
+#define BGP_VRF_ADVERTISE_IPV4_IN_EVPN      (1 << 1)
+#define BGP_VRF_ADVERTISE_IPV6_IN_EVPN      (1 << 2)
+#define BGP_VRF_IMPORT_RT_CFGD              (1 << 3)
+#define BGP_VRF_EXPORT_RT_CFGD              (1 << 4)
+#define BGP_VRF_RD_CFGD                     (1 << 5)
+
+	/* unique ID for auto derivation of RD for this vrf */
+	uint16_t vrf_rd_id;
+
+	/* RD for this VRF */
+	struct prefix_rd vrf_prd;
+
+	/* import rt list for the vrf instance */
+	struct list *vrf_import_rtl;
+
+	/* export rt list for the vrf instance */
+	struct list *vrf_export_rtl;
+
+	/* list of corresponding l2vnis (struct bgpevpn) */
+	struct list *l2vnis;
 
 	QOBJ_FIELDS
 };
@@ -595,8 +638,8 @@ struct peer {
 	struct stream_fifo *ibuf; // packets waiting to be processed
 	struct stream_fifo *obuf; // packets waiting to be written
 
-	struct stream *ibuf_work; // WiP buffer used by bgp_read() only
-	struct stream *obuf_work; // WiP buffer used to construct packets
+	struct ringbuf *ibuf_work; // WiP buffer used by bgp_read() only
+	struct stream *obuf_work;  // WiP buffer used to construct packets
 
 	struct stream *curr; // the current packet being parsed
 
@@ -826,6 +869,22 @@ struct peer {
 	/* workqueues */
 	struct work_queue *clear_node_queue;
 
+#define PEER_TOTAL_RX(peer) \
+	atomic_load_explicit(&peer->open_in, memory_order_relaxed) +		\
+	atomic_load_explicit(&peer->update_in, memory_order_relaxed) +		\
+	atomic_load_explicit(&peer->notify_in, memory_order_relaxed) +		\
+	atomic_load_explicit(&peer->refresh_in, memory_order_relaxed) +		\
+	atomic_load_explicit(&peer->keepalive_in, memory_order_relaxed) +	\
+	atomic_load_explicit(&peer->dynamic_cap_in, memory_order_relaxed)
+
+#define PEER_TOTAL_TX(peer) \
+	atomic_load_explicit(&peer->open_out, memory_order_relaxed) +		\
+	atomic_load_explicit(&peer->update_out, memory_order_relaxed) +		\
+	atomic_load_explicit(&peer->notify_out, memory_order_relaxed) +		\
+	atomic_load_explicit(&peer->refresh_out, memory_order_relaxed) +	\
+	atomic_load_explicit(&peer->keepalive_out, memory_order_relaxed) +	\
+	atomic_load_explicit(&peer->dynamic_cap_out, memory_order_relaxed)
+
 	/* Statistics field */
 	_Atomic uint32_t open_in;         /* Open message input count */
 	_Atomic uint32_t open_out;        /* Open message output count */
@@ -859,9 +918,6 @@ struct peer {
 
 	/* Send prefix count. */
 	unsigned long scount[AFI_MAX][SAFI_MAX];
-
-	/* Announcement attribute hash.  */
-	struct hash *hash[AFI_MAX][SAFI_MAX];
 
 	/* Notify data. */
 	struct bgp_notify notify;
@@ -1017,6 +1073,7 @@ struct bgp_nlri {
 #define BGP_ATTR_AS4_PATH                       17
 #define BGP_ATTR_AS4_AGGREGATOR                 18
 #define BGP_ATTR_AS_PATHLIMIT                   21
+#define BGP_ATTR_PMSI_TUNNEL                    22
 #define BGP_ATTR_ENCAP                          23
 #define BGP_ATTR_LARGE_COMMUNITIES              32
 #define BGP_ATTR_PREFIX_SID                     40

@@ -713,7 +713,15 @@ static int zfpm_read_cb(struct thread *thread)
 		nbyte = stream_read_try(ibuf, zfpm_g->sock,
 					FPM_MSG_HDR_LEN - already);
 		if (nbyte == 0 || nbyte == -1) {
-			zfpm_connection_down("closed socket in read");
+			if (nbyte == -1) {
+				char buffer[1024];
+
+				sprintf(buffer, "closed socket in read(%d): %s",
+					errno, safe_strerror(errno));
+				zfpm_connection_down(buffer);
+			}
+			else
+				zfpm_connection_down("closed socket in read");
 			return 0;
 		}
 
@@ -743,7 +751,15 @@ static int zfpm_read_cb(struct thread *thread)
 		nbyte = stream_read_try(ibuf, zfpm_g->sock, msg_len - already);
 
 		if (nbyte == 0 || nbyte == -1) {
-			zfpm_connection_down("failed to read message");
+			if (nbyte == -1) {
+				char buffer[1024];
+
+				sprintf(buffer, "failed to read message(%d) %s",
+					errno, safe_strerror(errno));
+				zfpm_connection_down(buffer);
+			}
+			else
+				zfpm_connection_down("failed to read message");
 			return 0;
 		}
 
@@ -842,19 +858,7 @@ static inline int zfpm_encode_route(rib_dest_t *dest, struct route_entry *re,
  */
 struct route_entry *zfpm_route_for_update(rib_dest_t *dest)
 {
-	struct route_entry *re;
-
-	RE_DEST_FOREACH_ROUTE (dest, re) {
-		if (!CHECK_FLAG(re->status, ROUTE_ENTRY_SELECTED_FIB))
-			continue;
-
-		return re;
-	}
-
-	/*
-	 * We have no route for this destination.
-	 */
-	return NULL;
+	return dest->selected_fib;
 }
 
 /*
