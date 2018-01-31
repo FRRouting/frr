@@ -43,6 +43,7 @@ class lUtil:
     l_pass = 0
     l_fail = 0
     l_filename = ''
+    l_last = None
     l_line = 0
 
     fout = ''
@@ -244,6 +245,11 @@ def luCommand(target, command, regexp='.', op='none', result='', time=10):
         return LUtil.command(target, command, regexp, op, result)
     else:
         return LUtil.wait(target, command, regexp, op, result, time)
+
+def luLast():
+    if LUtil.l_last != None:
+        LUtil.log('luLast:%s:' %  LUtil.l_last.group())
+    return LUtil.l_last
 
 def luInclude(filename, CallOnFail=None):
     tstFile = LUtil.base_script_dir + '/' + filename
