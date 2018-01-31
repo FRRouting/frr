@@ -36,3 +36,5 @@ stamp-vti
 *.loT
 refix
 _build
+_static
+_template
