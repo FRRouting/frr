@@ -56,6 +56,16 @@ def test_check_routes():
     #CheckFunc = 'customize.versionCheck(\'3.1\', cli=True)'
     ltemplateTest('scripts/check_routes.py', False, CliOnFail, CheckFunc)
 
+#manual data path setup test - remove once have bgp/zebra vrf path working
+def test_check_linux_mpls():
+    CliOnFail = None
+    # For debugging, uncomment the next line
+    #CliOnFail = 'tgen.mininet_cli'
+    CheckFunc = 'customize.versionCheck(\'3.1\')'
+    #uncomment next line to start cli *before* script is run
+    #CheckFunc = 'customize.versionCheck(\'3.1\', cli=True)'
+    ltemplateTest('scripts/check_linux_mpls.py', False, CliOnFail, CheckFunc)
+
 def SKIP_test_cleanup_all():
     CliOnFail = None
     # For debugging, uncomment the next line
