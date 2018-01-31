@@ -17,7 +17,11 @@ Git Structure
 The master Git for FRR resides on `Github
 <https://github.com/frrouting/frr>`__.
 
-.. figure:: git_branches.png
+.. figure:: ../figures/git_branches.png
+   :align: right
+   :alt: merging get branches into a central trunk
+
+   Rough outline of FRR development workflow
 
 There is one main branch for development, ``master``. For each major release
 (2.0, 3.0 etc) a new release branch is created based on the master. Subsequent
