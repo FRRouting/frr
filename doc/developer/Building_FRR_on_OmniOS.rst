@@ -14,7 +14,7 @@ Enable IP & IPv6 forwarding
 ::
 
     routeadm -e ipv4-forwarding
-    routeadm -e ipv6-forwarding 
+    routeadm -e ipv6-forwarding
 
 Install required packages
 -------------------------
@@ -37,7 +37,7 @@ Add packages:
       library/idnkit/header-idnkit \
       system/header \
       system/library/math/header-math \
-      git libtool gawk pkg-config   
+      git libtool gawk pkg-config
 
 Add additional Solaris packages:
 
@@ -128,7 +128,7 @@ an example)
         --enable-rtadv \
         --enable-fpm \
         --with-pkg-git-version \
-        --with-pkg-extra-version=-MyOwnFRRVersion   
+        --with-pkg-extra-version=-MyOwnFRRVersion
     gmake
     gmake check
     sudo gmake install

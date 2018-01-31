@@ -70,7 +70,7 @@ an example)
         --enable-rtadv \
         --enable-fpm \
         --with-pkg-git-version \
-        --with-pkg-extra-version=-MyOwnFRRVersion   
+        --with-pkg-extra-version=-MyOwnFRRVersion
     gmake
     gmake check
     sudo gmake install

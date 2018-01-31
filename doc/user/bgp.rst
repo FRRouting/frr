@@ -639,15 +639,15 @@ Defining Peer
 
    Creates a new neighbor whose remote-as is ASN. PEER can be an IPv4 address
    or an IPv6 address.::
- 
+
       router bgp 1
        neighbor 10.0.0.1 remote-as 2
- 
+
    In this case my router, in AS-1, is trying to peer with AS-2 at 10.0.0.1.
- 
+
    This command must be the first command used when configuring a neighbor.  If
    the remote-as is not specified, *bgpd* will complain like this:::
- 
+
       can't find neighbor 10.0.0.1
 
 
@@ -1066,14 +1066,14 @@ expanded community list.
    specified the specified community list's information is shown.
 
    ::
-   
+
        # show ip community-list
        Named Community standard list CLIST
        permit 7675:80 7675:100 no-export
        deny internet
          Named Community expanded list EXPAND
        permit :
-   
+
          # show ip community-list CLIST
          Named Community standard list CLIST
        permit 7675:80 7675:100 no-export
@@ -1567,14 +1567,14 @@ Showing BGP information
    display all of IPv4 BGP routes.
 
    ::
-   
+
       BGP table version is 0, local router ID is 10.1.1.1
          Status codes: s suppressed, d damped, h history, * valid, > best, i - internal
          Origin codes: i - IGP, e - EGP, ? - incomplete
-   
+
       Network    Next Hop      Metric LocPrf Weight Path
          \*> 1.1.1.1/32       0.0.0.0      0   32768 i
-   
+
          Total number of prefixes 1
 
 
@@ -1863,7 +1863,7 @@ same time when BGP multiple instance feature is enabled.
    Make a new BGP instance. You can use arbitrary word for the `name`.
 
   ::
-  
+
      bgp multiple-instance
      !
      router bgp 1
@@ -1888,7 +1888,7 @@ only for exchanging BGP routing information.
    With this command, you can setup Route Server like below.
 
    ::
-   
+
       bgp multiple-instance
       !
       router bgp 1 view 1

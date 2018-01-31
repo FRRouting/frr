@@ -69,7 +69,7 @@ an example.)
         --enable-eigrpd \
         --enable-babeld \
         --with-pkg-git-version \
-        --with-pkg-extra-version=-MyOwnFRRVersion    
+        --with-pkg-extra-version=-MyOwnFRRVersion
     make
     make check
     sudo make install

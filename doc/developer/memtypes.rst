@@ -81,7 +81,7 @@ Definition
    >80% of cases.
 
    .. todo::
-   
+
       Daemons currently have ``daemon_memory.[ch]`` files listing all of
       their MTYPEs.  This is not how it should be, most of these types
       should be moved into the appropriate files where they are used.

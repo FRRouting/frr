@@ -65,7 +65,7 @@ an example.)
         --enable-fpm \
         --enable-systemd=yes \
         --with-pkg-git-version \
-        --with-pkg-extra-version=-MyOwnFRRVersion   
+        --with-pkg-extra-version=-MyOwnFRRVersion
     make
     make check
     sudo make install
@@ -86,7 +86,7 @@ Create empty FRR configuration files
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/ripngd.conf
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/pimd.conf
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/ldpd.conf
-    sudo install -m 640 -o frr -g frr /dev/null /etc/frr/nhrpd.conf    
+    sudo install -m 640 -o frr -g frr /dev/null /etc/frr/nhrpd.conf
     sudo install -m 640 -o frr -g frrvty /dev/null /etc/frr/vtysh.conf
 
 Enable IPv4 & IPv6 forwarding

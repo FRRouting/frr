@@ -27,13 +27,13 @@ source is too old)
     wget http://archive.ubuntu.com/ubuntu/pool/main/b/bison/bison_3.0.2.dfsg-2.dsc
     wget http://archive.ubuntu.com/ubuntu/pool/main/b/bison/bison_3.0.2.dfsg.orig.tar.bz2
     wget http://archive.ubuntu.com/ubuntu/pool/main/b/bison/bison_3.0.2.dfsg-2.debian.tar.gz
-    tar -jxvf bison_3.0.2.dfsg.orig.tar.bz2 
+    tar -jxvf bison_3.0.2.dfsg.orig.tar.bz2
     cd bison-3.0.2.dfsg/
-    tar xzf ../bison_3.0.2.dfsg-2.debian.tar.gz 
+    tar xzf ../bison_3.0.2.dfsg-2.debian.tar.gz
     sudo apt-get build-dep bison
     debuild -b -uc -us
     cd ..
-    sudo dpkg -i ./libbison-dev_3.0.2.dfsg-2_amd64.deb ./bison_3.0.2.dfsg-2_amd64.deb 
+    sudo dpkg -i ./libbison-dev_3.0.2.dfsg-2_amd64.deb ./bison_3.0.2.dfsg-2_amd64.deb
     cd ..
     rm -rf builddir
 
@@ -110,7 +110,7 @@ an example.)
         --enable-rtadv \
         --enable-fpm \
         --with-pkg-git-version \
-        --with-pkg-extra-version=-MyOwnFRRVersion   
+        --with-pkg-extra-version=-MyOwnFRRVersion
     make
     make check
     sudo make install
@@ -172,13 +172,13 @@ Enable daemons
 
 ::
 
-    zebra=yes  
-    bgpd=yes  
-    ospfd=yes  
-    ospf6d=yes  
-    ripd=yes  
-    ripngd=yes  
-    isisd=yes 
+    zebra=yes
+    bgpd=yes
+    ospfd=yes
+    ospf6d=yes
+    ripd=yes
+    ripngd=yes
+    isisd=yes
 
 Start the init.d service
 ~~~~~~~~~~~~~~~~~~~~~~~~

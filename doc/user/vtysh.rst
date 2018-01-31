@@ -160,4 +160,4 @@ in whose file the error is made.
    configuration (either in its individual configuration file, or in
    :file:`frr.conf`).  This is particularly troublesome for route-maps and
    prefix lists, which would otherwise be synchronized between daemons.
-   
+

@@ -155,7 +155,7 @@ The next hop registration control flow is the following:
                   |                   |       register() |
                   |                   |                  | zebra_add_rnh()
                   |                   |                  |
-    
+
 
 The next hop notification control flow is the following:
 
@@ -201,7 +201,7 @@ encoded in the following way:
     .      Nexthop prefix                                           .
     .                                                               .
     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- 
+
 
 ``ZEBRA_NEXTHOP_UPDATE`` message is encoded as follows:
 
@@ -240,12 +240,12 @@ Legend:
 
     /\   struct bgp_node: a BGP destination/route/prefix
     \/
-    
+
     [ ]  struct bgp_info: a BGP path (e.g. route received from a peer)
-    
+
      _
     (_)  struct bgp_nexthop_cache: a BGP nexthop
-         
+
     /\         NULL
     \/--+        ^
         |        :
@@ -300,33 +300,33 @@ User interface changes
      resolved via kernel
      via 10.0.1.2, eth0
      Client list: bgp(fd 12)
-    
+
     frr# show ip bgp nexthop
     Current BGP nexthop cache:
      3.3.3.3 valid [IGP metric 0], #paths 3
       Last update: Wed Oct 16 04:43:49 2013
-    
+
      11.0.0.10 valid [IGP metric 1], #paths 1
       Last update: Wed Oct 16 04:43:51 2013
-    
+
      11.0.0.18 valid [IGP metric 1], #paths 2
       Last update: Wed Oct 16 04:43:47 2013
-    
+
      11.11.11.11 valid [IGP metric 0], #paths 1
       Last update: Wed Oct 16 04:43:47 2013
-    
+
     frr# show ipv6 nht
     frr# show ip bgp nexthop detail
-    
+
     frr# debug bgp nht
     frr# debug zebra nht
-    
+
     6. Sample test cases
-    
+
          r2----r3
         /  \  /
       r1----r4
-    
+
     - Verify that a change in IGP cost triggers NHT
       + shutdown the r1-r4 and r2-r4 links
       + no shut the r1-r4 and r2-r4 links and wait for OSPF to come back

@@ -23,7 +23,7 @@ Install newer pytest (>3.0) from pip
 
 ::
 
-    sudo pip install pytest    
+    sudo pip install pytest
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
@@ -74,7 +74,7 @@ an example.)
         --enable-fpm \
         --enable-ldpd \
         --with-pkg-git-version \
-        --with-pkg-extra-version=-MyOwnFRRVersion   
+        --with-pkg-extra-version=-MyOwnFRRVersion
     make
     make check
     sudo make install

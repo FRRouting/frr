@@ -165,7 +165,7 @@ Validating BGP Updates
     prefixes because invalid routes have a lower local preference.
 
     ::
-    
+
        ! Allow for invalid routes in route selection process
        route bgp 60001
        !

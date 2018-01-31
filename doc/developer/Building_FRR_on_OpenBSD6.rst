@@ -69,7 +69,7 @@ an example)
         --enable-rtadv \
         --enable-fpm \
         --with-pkg-git-version \
-        --with-pkg-extra-version=-MyOwnFRRVersion   
+        --with-pkg-extra-version=-MyOwnFRRVersion
     gmake
     gmake check
     doas gmake install
@@ -106,7 +106,7 @@ Add the following lines to the end of ``/etc/rc.conf``:
 
 ::
 
-    net.inet6.ip6.forwarding=1      # 1=Permit forwarding of IPv6 packets 
+    net.inet6.ip6.forwarding=1      # 1=Permit forwarding of IPv6 packets
     net.inet6.ip6.mforwarding=1     # 1=Permit forwarding of IPv6 multicast packets
     net.inet6.ip6.multipath=1       # 1=Enable IPv6 multipath routing
 
