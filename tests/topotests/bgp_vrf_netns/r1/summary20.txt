@@ -1,0 +1,15 @@
+{
+  "routerId":"10.0.1.1",
+  "as":100,
+  "vrfName":"re1-cust1",
+  "peerCount":1,
+  "peers":{
+    "10.0.1.101":{
+      "outq":0,
+      "inq":0,
+      "prefixReceivedCount":10,
+      "state":"Established"
+    }
+  },
+  "totalPeers":1
+}
