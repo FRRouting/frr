@@ -279,16 +279,7 @@ and sometimes not, depending on the properties of those other routes, means MED
 can cause the order of preference over all the routes to be undefined. That is,
 given routes A, B, and C, if A is preferred to B, and B is preferred to C, then
 a well-defined order should mean the preference is transitive (in the sense of
-orders @footnote{For some set of objects to have an order, there *must* be some
-binary ordering relation that is defined for *every* combination of those
-objects, and that relation *must* be transitive. I.e.@:, if the relation
-operator is <, and if a < b and b < c then that relation
-must carry over and it *must* be that a < c for the objects to have an
-order. The ordering relation may allow for equality, i.e.  a < b and b
-< a may both be true amd imply that a and b are equal in the order and
-not distinguished by it, in which case the set has a partial order. Otherwise,
-if there is an order, all the objects have a distinct place in the order and
-the set has a total order) and that A would be preferred to C.
+orders [#med-transitivity-rant])_ and that A would be preferred to C.
 
 However, when MED is involved this need not be the case. With MED it is
 possible that C is actually preferred over A. So A is preferred to B, B is
@@ -432,7 +423,7 @@ complex, non-full-mesh, iBGP topologies may be avoided either by:
 - Setting :ref:`bgp_always-compare-med`, however this allows MED to be compared
   across values set by different neighbour ASes, which may not produce
   coherent desirable results, of itself.
-- Effectively ignoring MED by setting MED to the same value (e.g.@: 0) using
+- Effectively ignoring MED by setting MED to the same value (e.g.: 0) using
   :ref:`routemap_set_metric` on all received routes, in combination with
   setting :ref:`bgp_always-compare-med` on all speakers. This is the simplest
   and most performant way to avoid MED oscillation issues, where an AS is happy
@@ -1667,39 +1658,36 @@ Other BGP commands
 Capability Negotiation
 ======================
 
-When adding IPv6 routing information exchange feature to BGP. There
-were some proposals. :abbr:`IETF (Internet Engineering Task Force)`
-:abbr:`IDR ( Inter Domain Routing)` :abbr:`IDR ( Inter Domain Routing)` adopted
-a proposal called Multiprotocol Extension for BGP. The specification
-is described in :rfc:`2283`. The protocol does not define new protocols.
-It defines new attributes to existing BGP. When it is used exchanging
-IPv6 routing information it is called BGP-4+. When it is used for
-exchanging multicast routing information it is called MBGP.
+When adding IPv6 routing information exchange feature to BGP. There were some
+proposals. :abbr:`IETF (Internet Engineering Task Force)` :abbr:`IDR ( Inter
+Domain Routing)` :abbr:`IDR ( Inter Domain Routing)` adopted a proposal called
+Multiprotocol Extension for BGP. The specification is described in :rfc:`2283`.
+The protocol does not define new protocols. It defines new attributes to
+existing BGP. When it is used exchanging IPv6 routing information it is called
+BGP-4+. When it is used for exchanging multicast routing information it is
+called MBGP.
 
-*bgpd* supports Multiprotocol Extension for BGP. So if remote
-peer supports the protocol, *bgpd* can exchange IPv6 and/or
-multicast routing information.
+*bgpd* supports Multiprotocol Extension for BGP. So if remote peer supports the
+protocol, *bgpd* can exchange IPv6 and/or multicast routing information.
 
-Traditional BGP did not have the feature to detect remote peer's
-capabilities, e.g. whether it can handle prefix types other than IPv4
-unicast routes. This was a big problem using Multiprotocol Extension
-for BGP to operational network. @cite{RFC2842, Capabilities
-Advertisement with BGP-4} adopted a feature called Capability
-Negotiation. *bgpd* use this Capability Negotiation to detect
-the remote peer's capabilities. If the peer is only configured as IPv4
-unicast neighbor, *bgpd* does not send these Capability
-Negotiation packets (at least not unless other optional BGP features
-require capability negotation).
+Traditional BGP did not have the feature to detect remote peer's capabilities,
+e.g. whether it can handle prefix types other than IPv4 unicast routes. This
+was a big problem using Multiprotocol Extension for BGP to operational network.
+:rfc:`2842` adopted a feature called Capability Negotiation. *bgpd* use this
+Capability Negotiation to detect the remote peer's capabilities. If the peer is
+only configured as IPv4 unicast neighbor, *bgpd* does not send these Capability
+Negotiation packets (at least not unless other optional BGP features require
+capability negotation).
 
-By default, FRR will bring up peering with minimal common capability
-for the both sides. For example, local router has unicast and
-multicast capabilitie and remote router has unicast capability. In
-this case, the local router will establish the connection with unicast
-only capability. When there are no common capabilities, FRR sends
-Unsupported Capability error and then resets the connection.
+By default, FRR will bring up peering with minimal common capability for the
+both sides. For example, local router has unicast and multicast capabilitie and
+remote router has unicast capability. In this case, the local router will
+establish the connection with unicast only capability. When there are no common
+capabilities, FRR sends Unsupported Capability error and then resets the
+connection.
 
-If you want to completely match capabilities with remote peer. Please
-use *strict-capability-match* command.
+If you want to completely match capabilities with remote peer. Please use
+*strict-capability-match* command.
 
 .. index:: neighbor PEER strict-capability-match
 .. clicmd:: neighbor PEER strict-capability-match
@@ -2330,6 +2318,7 @@ Server.
 .. include:: rpki.rst
 
 
+.. [#med-transitivity-rant] For some set of objects to have an order, there *must* be some binary ordering relation that is defined for *every* combination of those objects, and that relation *must* be transitive. I.e.:, if the relation operator is <, and if a < b and b < c then that relation must carry over and it *must* be that a < c for the objects to have an order. The ordering relation may allow for equality, i.e. a < b and b < a may both be true amd imply that a and b are equal in the order and not distinguished by it, in which case the set has a partial order. Otherwise, if there is an order, all the objects have a distinct place in the order and the set has a total order)
 .. [bgp-route-osci-cond] McPherson, D. and Gill, V. and Walton, D., "Border Gateway Protocol (BGP) Persistent Route Oscillation Condition", IETF RFC3345
 .. [stable-flexible-ibgp] Flavel, A. and M. Roughan, "Stable and flexible iBGP", ACM SIGCOMM 2009
 .. [ibgp-correctness] Griffin, T. and G. Wilfong, "On the correctness of IBGP configuration", ACM SIGCOMM 2002

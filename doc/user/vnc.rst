@@ -909,11 +909,10 @@ services to three NVE clients in the 172.16.0.0/16 virtual-network address
 range. The 172.16.0.0/16 address range is partitioned into two NVE groups,
 ``group1`` (172.16.0.0/17) and ``group2`` (172.16.128.0/17).
 
-Each NVE belongs to either NVE group ``group1`` or NVE group
-``group2``.  The NVEs ``NVE 1``, ``NVE 2``, @code{NVE
-4}, ``NVE 7``, and ``NVE 8`` are members of the NVE group
-``group1``.  The NVEs ``NVE 3``, ``NVE 5``, @code{NVE
-6}, and ``NVE 9`` are members of the NVE group ``group2``.
+Each NVE belongs to either NVE group ``group1`` or NVE group ``group2``.  The
+NVEs ``NVE 1``, ``NVE 2``, ``NVE 4``, ``NVE 7``, and ``NVE 8`` are members of
+the NVE group ``group1``.  The NVEs ``NVE 3``, ``NVE 5``, ``NVE 6``, and ``NVE
+9`` are members of the NVE group ``group2``.
 
 Each NVA advertises NVE underlay-network IP addresses using the
 Tunnel Encapsulation Attribute.
@@ -1133,10 +1132,6 @@ A route reflector eliminates the need for a fully meshed NVA network by acting
 as the hub between NVAs. :ref:`vnc-fig-vnc-frr-route-reflector` shows BGP
 route reflector ``BGP Route Reflector 1`` (192.168.1.100) as a route reflector
 for NVAs ``NVA 2``(192.168.1.101) and ``NVA 3`` (192.168.1.102).
-
-@float Figure,fig:fig-vnc-frr-route-reflector @center
-@image{fig-vnc-frr-route-reflector,400pt,,Frr Route Reflector} @caption{Two
-NVAs and a BGP Route Reflector} @end float
 
 .. _vnc-fig-vnc-frr-route-reflector:
 .. figure:: ../figures/fig-vnc-frr-route-reflector.png
