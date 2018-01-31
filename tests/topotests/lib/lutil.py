@@ -58,6 +58,17 @@ class lUtil:
         if self.l_level > 5:
             print(str)
 
+    def summary(self, str):
+        if self.fsum == '':
+            self.fsum = open(self.fsum_name, 'w', 0)
+            self.fsum.write('\
+******************************************************************************\n')
+            self.fsum.write('\
+Test Target Summary                                                  Pass Fail\n')
+            self.fsum.write('\
+******************************************************************************\n')
+        self.fsum.write(str+'\n')
+
     def result(self, target, success, str):
         if success:
             p = 1
@@ -69,15 +80,7 @@ class lUtil:
             self.l_fail += 1
         res = "%-4d %-6s %-56s %-4d %d" % (self.l_total, target, str, p, f)
         self.log ('R:'+res)
-        if self.fsum == '':
-            self.fsum = open(self.fsum_name, 'w', 0)
-            self.fsum.write('\
-******************************************************************************\n')
-            self.fsum.write('\
-Test Target Summary                                                  Pass Fail\n')
-            self.fsum.write('\
-******************************************************************************\n')
-        self.fsum.write(res+'\n')
+        self.summary(res)
         if f == 1 and self.CallOnFail != False:
             self.CallOnFail()
 
@@ -101,7 +104,9 @@ Total %-4d                                                           %-4d %d\n\
         return ret
 
     def setFilename(self, name):
-        self.log('FILE: ' + name)
+        str = 'FILE: ' + name
+        self.log(str)
+        self.summary(str)
         self.l_filename = name
         self.line = 0
 
