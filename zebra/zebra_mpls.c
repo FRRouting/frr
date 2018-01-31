@@ -711,6 +711,22 @@ static int nhlfe_nexthop_active(zebra_nhlfe_t *nhlfe)
 
 	/* Check on nexthop based on type. */
 	switch (nexthop->type) {
+	case NEXTHOP_TYPE_IFINDEX:
+		/*
+		 * Lookup if this type is special.  The
+		 * NEXTHOP_TYPE_IFINDEX is a pop and
+		 * forward into a different table for
+		 * processing.  As such this ifindex
+		 * passed to us may be a VRF device
+		 * which will not be in the default
+		 * VRF.  So let's look in all of them
+		 */
+		ifp = if_lookup_by_index(nexthop->ifindex, VRF_UNKNOWN);
+		if (ifp && if_is_operative(ifp))
+			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		else
+			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
+		break;
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		if (nhlfe_nexthop_active_ipv4(nhlfe, nexthop))
@@ -1053,6 +1069,8 @@ static char *nhlfe2str(zebra_nhlfe_t *nhlfe, char *buf, int size)
 	case NEXTHOP_TYPE_IPV6:
 		inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf, size);
 		break;
+	case NEXTHOP_TYPE_IFINDEX:
+		snprintf(buf, size, "Ifindex: %u", nexthop->ifindex);
 	default:
 		break;
 	}
@@ -1090,6 +1108,9 @@ static int nhlfe_nhop_match(zebra_nhlfe_t *nhlfe, enum nexthop_types_t gtype,
 			     sizeof(struct in6_addr));
 		if (!cmp && nhop->type == NEXTHOP_TYPE_IPV6_IFINDEX)
 			cmp = !(nhop->ifindex == ifindex);
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+		cmp = !(nhop->ifindex == ifindex);
 		break;
 	default:
 		break;
@@ -1164,6 +1185,9 @@ static zebra_nhlfe_t *nhlfe_add(zebra_lsp_t *lsp, enum lsp_types_t lsp_type,
 		nexthop->gate.ipv6 = gate->ipv6;
 		if (ifindex)
 			nexthop->ifindex = ifindex;
+		break;
+	case NEXTHOP_TYPE_IFINDEX:
+		nexthop->ifindex = ifindex;
 		break;
 	default:
 		nexthop_free(nexthop);
@@ -2768,6 +2792,15 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 				nexthop = nhlfe->nexthop;
 
 				switch (nexthop->type) {
+				case NEXTHOP_TYPE_IFINDEX:
+				{
+					struct interface *ifp;
+
+					ifp = if_lookup_by_index(
+						nexthop->ifindex, VRF_UNKNOWN);
+					vty_out(vty, "%15s", ifp->name);
+					break;
+				}
 				case NEXTHOP_TYPE_IPV4:
 				case NEXTHOP_TYPE_IPV4_IFINDEX:
 					vty_out(vty, "%15s",
@@ -2784,8 +2817,11 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 					break;
 				}
 
-				vty_out(vty, "  %8d\n",
-					nexthop->nh_label->label[0]);
+				if (nexthop->type != NEXTHOP_TYPE_IFINDEX)
+					vty_out(vty, "  %8d\n",
+						nexthop->nh_label->label[0]);
+				else
+					vty_out(vty, "\n");
 			}
 		}
 
