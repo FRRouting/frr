@@ -1197,7 +1197,7 @@ int rtm_write(int message, union sockunion *dest, union sockunion *mask,
 		msg.rtm.rtm_flags |= RTF_MPLS;
 
 		if (mpls->smpls.smpls_label
-		    != htonl(MPLS_IMP_NULL_LABEL << MPLS_LABEL_OFFSET))
+		    != htonl(MPLS_LABEL_IMPLICIT_NULL << MPLS_LABEL_OFFSET))
 			msg.rtm.rtm_mpls = MPLS_OP_PUSH;
 	}
 #endif

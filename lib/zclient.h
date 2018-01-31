@@ -387,7 +387,7 @@ extern void redist_del_instance(struct redist_proto *, u_short);
  * Send to zebra that the specified vrf is using label to resolve
  * itself for L3VPN's.  Repeated calls of this function with
  * different labels will cause an effective update of the
- * label for lookup.  If you pass in MPLS_V4_EXP_NULL_LABEL
+ * label for lookup.  If you pass in MPLS_LABEL_IPV4_EXPLICIT_NULL
  * we will cause a delete action and remove this label pop
  * operation.
  */

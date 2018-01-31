@@ -165,8 +165,8 @@ static int zebra_static_route_leak(struct vty *vty,
 			case -2:
 				vty_out(vty,
 					"%% Cannot use reserved label(s) (%d-%d)\n",
-					MPLS_MIN_RESERVED_LABEL,
-					MPLS_MAX_RESERVED_LABEL);
+					MPLS_LABEL_RESERVED_MIN,
+					MPLS_LABEL_RESERVED_MAX);
 				break;
 			case -3:
 				vty_out(vty,

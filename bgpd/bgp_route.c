@@ -2098,7 +2098,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_node *rn,
 						    rn->flags,
 						    BGP_NODE_REGISTERED_FOR_LABEL))
 						bgp_unregister_for_label(rn);
-					label_ntop(MPLS_IMP_NULL_LABEL, 1,
+					label_ntop(MPLS_LABEL_IMPLICIT_NULL, 1,
 						   &rn->local_label);
 					bgp_set_valid_label(&rn->local_label);
 				} else
