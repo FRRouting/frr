@@ -469,6 +469,7 @@ class Router(Node):
         self.daemons = {'zebra': 0, 'ripd': 0, 'ripngd': 0, 'ospfd': 0,
                         'ospf6d': 0, 'isisd': 0, 'bgpd': 0, 'pimd': 0,
                         'ldpd': 0, 'eigrpd': 0, 'nhrpd': 0}
+        self.daemons_options = {'zebra': ''}
 
     def _config_frr(self, **params):
         "Configure FRR binaries"
@@ -569,10 +570,23 @@ class Router(Node):
     def removeIPs(self):
         for interface in self.intfNames():
             self.cmd('ip address flush', interface)
-    def loadConf(self, daemon, source=None):
+
+    def checkCapability(self, daemon, param):
+        if param is not None:
+            daemon_path = os.path.join(self.daemondir, daemon)
+            daemon_search_option = param.replace('-','')
+            output = self.cmd('{0} -h | grep {1}'.format(
+                daemon_path, daemon_search_option))
+            if daemon_search_option not in output:
+                return False
+        return True
+
+    def loadConf(self, daemon, source=None, param=None):
         # print "Daemons before:", self.daemons
         if daemon in self.daemons.keys():
             self.daemons[daemon] = 1
+            if param is not None:
+                self.daemons_options[daemon] = param
             if source is None:
                 self.cmd('touch /etc/%s/%s.conf' % (self.routertype, daemon))
                 self.waitOutput()
@@ -632,7 +646,6 @@ class Router(Node):
                 logger.info("EIGRP Test, but no eigrpd compiled or installed")
                 return "EIGRP Test, but no eigrpd compiled or installed"
 
-        # Init done - now restarting daemons
         self.restartRouter()
         return ""
     def restartRouter(self):
@@ -640,8 +653,9 @@ class Router(Node):
         # Start Zebra first
         if self.daemons['zebra'] == 1:
             zebra_path = os.path.join(self.daemondir, 'zebra')
-            self.cmd('{0} > {1}/{2}-zebra.out 2> {1}/{2}-zebra.err &'.format(
-                zebra_path, self.logdir, self.name
+            zebra_option = self.daemons_options['zebra']
+            self.cmd('{0} {1} > {2}/{3}-zebra.out 2> {2}/{3}-zebra.err &'.format(
+                 zebra_path, zebra_option, self.logdir, self.name
             ))
             self.waitOutput()
             logger.debug('{}: {} zebra started'.format(self, self.routertype))
