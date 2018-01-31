@@ -68,7 +68,7 @@ static int zebra_mpls_transit_lsp(struct vty *vty, int add_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	out_label = MPLS_IMP_NULL_LABEL; /* as initialization */
+	out_label = MPLS_LABEL_IMPLICIT_NULL; /* as initialization */
 	label = atoi(inlabel_str);
 	if (!IS_MPLS_UNRESERVED_LABEL(label)) {
 		vty_out(vty, "%% Invalid label\n");
@@ -107,11 +107,11 @@ static int zebra_mpls_transit_lsp(struct vty *vty, int add_cmd,
 
 	if (outlabel_str) {
 		if (outlabel_str[0] == 'i')
-			out_label = MPLS_IMP_NULL_LABEL;
+			out_label = MPLS_LABEL_IMPLICIT_NULL;
 		else if (outlabel_str[0] == 'e' && gtype == NEXTHOP_TYPE_IPV4)
-			out_label = MPLS_V4_EXP_NULL_LABEL;
+			out_label = MPLS_LABEL_IPV4_EXPLICIT_NULL;
 		else if (outlabel_str[0] == 'e' && gtype == NEXTHOP_TYPE_IPV6)
-			out_label = MPLS_V6_EXP_NULL_LABEL;
+			out_label = MPLS_LABEL_IPV6_EXPLICIT_NULL;
 		else
 			out_label = atoi(outlabel_str);
 	}
@@ -221,12 +221,12 @@ static int zebra_mpls_bind(struct vty *vty, int add_cmd, const char *prefix,
 		}
 
 		if (!strcmp(label_str, "implicit-null"))
-			label = MPLS_IMP_NULL_LABEL;
+			label = MPLS_LABEL_IMPLICIT_NULL;
 		else if (!strcmp(label_str, "explicit-null")) {
 			if (p.family == AF_INET)
-				label = MPLS_V4_EXP_NULL_LABEL;
+				label = MPLS_LABEL_IPV4_EXPLICIT_NULL;
 			else
-				label = MPLS_V6_EXP_NULL_LABEL;
+				label = MPLS_LABEL_IPV6_EXPLICIT_NULL;
 		} else {
 			label = atoi(label_str);
 			if (!IS_MPLS_UNRESERVED_LABEL(label)) {

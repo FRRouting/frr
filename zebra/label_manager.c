@@ -283,13 +283,13 @@ struct label_manager_chunk *assign_label_chunk(u_char proto, u_short instance,
 		return NULL;
 
 	if (list_isempty(lbl_mgr.lc_list))
-		lmc->start = MPLS_MIN_UNRESERVED_LABEL;
+		lmc->start = MPLS_LABEL_UNRESERVED_MIN;
 	else
 		lmc->start = ((struct label_manager_chunk *)listgetdata(
 				      listtail(lbl_mgr.lc_list)))
 				     ->end
 			     + 1;
-	if (lmc->start > MPLS_MAX_UNRESERVED_LABEL - size + 1) {
+	if (lmc->start > MPLS_LABEL_UNRESERVED_MAX - size + 1) {
 		zlog_err("Reached max labels. Start: %u, size: %u", lmc->start,
 			 size);
 		XFREE(MTYPE_LM_CHUNK, lmc);
