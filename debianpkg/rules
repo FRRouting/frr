@@ -15,7 +15,6 @@ WANT_BGP_VNC ?= 1
 WANT_CUMULUS_MODE ?= 0
 WANT_MULTIPATH ?= 1
 WANT_SNMP ?= 0
-WANT_CUMULUS_NODE ?= 0
 
 # If multipath is enabled (WANT_MULTIPATH=1), then set number of multipaths here
 # Please be aware that 0 is NOT disabled, but treated as unlimited
@@ -83,7 +82,7 @@ else
   USE_MULTIPATH=--disable-multipath
 endif
 
-ifeq ($(WANT_CUMULUS_NODE), 1)
+ifeq ($(WANT_CUMULUS_MODE), 1)
   USE_CUMULUS=--enable-cumulus=yes
 else
   USE_CUMULUS=--enable-cumulus=no
