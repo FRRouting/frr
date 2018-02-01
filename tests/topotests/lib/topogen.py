@@ -775,6 +775,10 @@ class TopoRouter(TopoGear):
         curtype = self.version_info()['type']
         return rtype == curtype
 
+    def has_mpls(self):
+        nrouter = self.tgen.net[self.name]
+        return nrouter.hasmpls
+
 class TopoSwitch(TopoGear):
     """
     Switch abstraction. Has the following properties:

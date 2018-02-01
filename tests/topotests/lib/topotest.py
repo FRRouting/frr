@@ -464,6 +464,7 @@ class Router(Node):
         super(Router, self).__init__(name, **params)
         self.logdir = params.get('logdir', '/tmp')
         self.daemondir = None
+        self.hasmpls = False
         self.routertype = 'frr'
         self.daemons = {'zebra': 0, 'ripd': 0, 'ripngd': 0, 'ospfd': 0,
                         'ospf6d': 0, 'isisd': 0, 'bgpd': 0, 'pimd': 0,
@@ -617,6 +618,7 @@ class Router(Node):
                 logger.info("LDP Test needs mpls-iptunnel kernel module")
                 return "LDP Test needs mpls-router kernel module"
 
+            self.hasmpls = True
             self.cmd('/sbin/modprobe mpls-router')
             self.cmd('/sbin/modprobe mpls-iptunnel')
             self.cmd('echo 100000 > /proc/sys/net/mpls/platform_labels')
