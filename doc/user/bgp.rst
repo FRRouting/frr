@@ -141,7 +141,7 @@ The decision process FRR BGP uses to select routes is as follows:
 
    If multi-pathing is enabled, then check whether the routes not yet
    distinguished in preference may be considered equal. If
-   :ref:`bgp-bestpath-as-path-multipath-relax` is set, all such routes are
+   :clicmd:`bgp bestpath as-path multipath-relax` is set, all such routes are
    considered equal, otherwise routes received via iBGP with identical AS_PATHs
    or routes received from eBGP neighbours in the same AS are considered equal.
 
@@ -149,8 +149,8 @@ The decision process FRR BGP uses to select routes is as follows:
 
     Where both routes were received from eBGP peers, then prefer the route
     which is already selected. Note that this check is not applied if
-    :ref:`bgp-bestpath-compare-routerid` is configured. This check can prevent
-    some cases of oscillation.
+    :clicmd:`bgp bestpath compare-routerid` is configured. This check can
+    prevent some cases of oscillation.
 
 11. Router-ID check
 
@@ -178,7 +178,6 @@ The decision process FRR BGP uses to select routes is as follows:
    sequences should should be taken into account during the BGP best path
    decision process.
 
-.. _bgp-bestpath-as-path-multipath-relax:
 .. index:: bgp bestpath as-path multipath-relax
 .. clicmd:: bgp bestpath as-path multipath-relax
 
@@ -186,7 +185,6 @@ The decision process FRR BGP uses to select routes is as follows:
    of equal AS_PATH length candidates for multipath computation. Without
    the knob, the entire AS_PATH must match for multipath computation.
 
-.. _bgp-bestpath-compare-routerid:
 .. clicmd:: bgp bestpath compare-routerid
 
    Ensure that when comparing routes where both are equal on most metrics,
@@ -312,7 +310,7 @@ updates may be produced than at other times in reaction to some event .
 
 This first issue can be fixed with a more deterministic route selection that
 ensures routes are ordered by the neighbouring AS during selection.
-:ref:`bgp-deterministic-med`. This may reduce the number of updates as routes
+:clicmd:`bgp deterministic-med`. This may reduce the number of updates as routes
 are received, and may in some cases reduce routing churn. Though, it could
 equally deterministically produce the largest possible set of updates in
 response to the most common sequence of received updates.
@@ -389,8 +387,8 @@ avoided by speakers preferring already selected, external routes rather than
 choosing to update to new a route based on a post-MED metric (e.g.  router-ID),
 at the cost of a non-deterministic selection process. FRR implements this, as
 do many other implementations, so long as it is not overridden by setting
-:ref:`bgp-bestpath-compare-routerid`, and see also :ref:`bgp-decision-process`,
-.
+:clicmd:`bgp bestpath compare-routerid`, and see also
+:ref:`bgp-decision-process`.
 
 However, more complex and insidious cycles of oscillation are possible with
 iBGP route-reflection, which are not so easily avoided. These have been
@@ -442,8 +440,6 @@ topologies are at cross-purposes with each other - see the Flavel and Roughan
 paper above for an example. Hence the guideline that the iBGP topology should
 follow the IGP topology.
 
-.. _bgp-deterministic-med:
-
 .. index:: bgp deterministic-med
 .. clicmd:: bgp deterministic-med
 
@@ -464,8 +460,6 @@ Note that there are other sources of indeterminism in the route selection
 process, specifically, the preference for older and already selected routes
 from eBGP peers, :ref:`bgp-decision-process`.
 
-.. _bgp-always-compare-med:
-
 .. index:: bgp always-compare-med
 .. clicmd:: bgp always-compare-med
 
@@ -475,12 +469,12 @@ from eBGP peers, :ref:`bgp-decision-process`.
    oscillations.
 
    If using this option, it may also be desirable to use
-   :ref:`routemap-set-metric` to set MED to 0 on routes received from external
+   :clicmd:`set metric METRIC` to set MED to 0 on routes received from external
    neighbours.
 
-   This option can be used, together with :ref:`routemap-set-metric` to use MED
-   as an intra-AS metric to steer equal-length AS_PATH routes to, e.g., desired
-   exit points.
+   This option can be used, together with :clicmd:`set metric METRIC` to use
+   MED as an intra-AS metric to steer equal-length AS_PATH routes to, e.g.,
+   desired exit points.
 
 .. _bgp-network:
 
@@ -2298,23 +2292,7 @@ flaws.
    route-map rm-peer-in permit 10
     set community additive 64512:3200
 
-
-.. _configuring-frr-as-a-route-server:
-
-Configuring FRR as a Route Server
-=================================
-
-The purpose of a Route Server is to centralize the peerings between BGP
-speakers. For example if we have an exchange point scenario with four BGP
-speakers, each of which maintaining a BGP peering with the other three
-(:ref:`fig:full-mesh`), we can convert it into a centralized scenario where
-each of the four establishes a single BGP peering against the Route Server
-(:ref:`fig:route-server`).
-
-We will first describe briefly the Route Server model implemented by FRR.
-We will explain the commands that have been added for configuring that
-model. And finally we will show a full example of FRR configured as Route
-Server.
+.. include:: routeserver.rst
 
 .. include:: rpki.rst
 

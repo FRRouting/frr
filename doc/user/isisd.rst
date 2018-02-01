@@ -410,6 +410,8 @@ Showing ISIS information
    Show the ISIS routing table, as determined by the most recent SPF
    calculation.
 
+.. _isis-traffic-engineering:
+
 Traffic Engineering
 ===================
 

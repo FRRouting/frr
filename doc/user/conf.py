@@ -123,7 +123,7 @@ language = None
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
-exclude_patterns = ['_build', 'rpki.rst', 'ospf_fundamentals.rst']
+exclude_patterns = ['_build', 'rpki.rst', 'routeserver.rst', 'ospf_fundamentals.rst']
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
