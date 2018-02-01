@@ -2,7 +2,7 @@ Handling SNMP Traps
 ===================
 
 To handle snmp traps make sure your snmp setup of frr works correctly as
-described in the frr documentation in :ref:`SNMP_Support`.
+described in the frr documentation in :ref:`snmp-support`.
 
 The BGP4 mib will send traps on peer up/down events. These should be visible in
 your snmp logs with a message similar to:

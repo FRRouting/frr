@@ -1,4 +1,4 @@
-.. _Basic_commands:
+.. _basic-commands:
 
 **************
 Basic commands
@@ -19,7 +19,7 @@ incoming VTY connections. The routing daemons are:
 The following sections discuss commands common to all the routing
 daemons.
 
-.. _Config_Commands:
+.. _config-commands:
 
 Config Commands
 ===============
@@ -44,7 +44,7 @@ the default config file name. For example, zebra's default config file name is
 :file:`zebra.conf`. You can specify a config file using the :option:`-f` or
 :option:`--config-file` options when starting the daemon.
 
-.. _Basic_Config_Commands:
+.. _basic-config-commands:
 
 Basic Config Commands
 ---------------------
@@ -254,7 +254,7 @@ Basic Config Commands
 
    Restrict vty connections with an access list.
 
-.. _Sample_Config_File:
+.. _sample-config-file:
 
 Sample Config File
 ------------------
@@ -287,7 +287,7 @@ If a comment character is not the first character of the word, it's a
 normal character. So in the above example '!' will not be regarded as a
 comment and the password is set to 'zebra!password'.
 
-.. _Terminal_Mode_Commands:
+.. _terminal-mode-commands:
 
 Terminal Mode Commands
 ======================
@@ -350,7 +350,7 @@ Terminal Mode Commands
    Send a message to all logging destinations that are enabled for messages
    of the given severity.
 
-.. _Common_Invocation_Options:
+.. _common-invocation-options:
 
 Common Invocation Options
 =========================
@@ -408,7 +408,7 @@ These options apply to all |PACKAGE_NAME| daemons.
 
    Print program version.
 
-.. _Loadable_Module_Support:
+.. _loadable-module-support:
 
 Loadable Module Support
 =======================
@@ -438,7 +438,7 @@ If SNMP is enabled during compile-time and installed as part of the package,
 the ``snmp`` module can be loaded for the *zebra*, *bgpd*, *ospfd*, *ospf6d*
 and *ripd* daemons.
 
-The module ignores any options passed to it. Refer to :ref:`SNMP_Support`
+The module ignores any options passed to it. Refer to :ref:`snmp-support`
 for information on its usage.
 
 The FPM Module
@@ -451,9 +451,9 @@ Forwarding Plane Manager ("FPM") API.
 The module expects its argument to be either ``netlink`` or ``protobuf``,
 specifying the encapsulation to use. ``netlink`` is the default, and
 ``protobuf`` may not be available if the module was built without protobuf
-support. Refer to :ref:`zebra_FIB_push_interface` for more information.
+support. Refer to :ref:`zebra-fib-push-interface` for more information.
 
-.. _Virtual_Terminal_Interfaces:
+.. _virtual-terminal-interfaces:
 
 Virtual Terminal Interfaces
 ===========================
@@ -461,7 +461,7 @@ Virtual Terminal Interfaces
 VTY -- Virtual Terminal [aka TeletYpe] Interface is a command line
 interface (CLI) for user interaction with the routing daemon.
 
-.. _VTY_Overview:
+.. _vty-overview:
 
 VTY Overview
 ------------
@@ -504,7 +504,7 @@ is no VTY password, one cannot connect to the VTY interface at all.
 
 :kbd:`?` and the ``find`` command are very useful for looking up commands.
 
-.. _VTY_Modes:
+.. _vty-modes:
 
 VTY Modes
 ---------
@@ -513,7 +513,7 @@ There are three basic VTY modes:
 
 There are commands that may be restricted to specific VTY modes.
 
-.. _VTY_View_Mode:
+.. _vty-view-mode:
 
 VTY View Mode
 ^^^^^^^^^^^^^
@@ -521,7 +521,7 @@ VTY View Mode
 This mode is for read-only access to the CLI. One may exit the mode by
 leaving the system, or by entering `enable` mode.
 
-.. _VTY_Enable_Mode:
+.. _vty-enable-mode:
 
 VTY Enable Mode
 ^^^^^^^^^^^^^^^
@@ -529,14 +529,14 @@ VTY Enable Mode
 This mode is for read-write access to the CLI. One may exit the mode by
 leaving the system, or by escaping to view mode.
 
-.. _VTY_Other_Modes:
+.. _vty-other-modes:
 
 VTY Other Modes
 ^^^^^^^^^^^^^^^
 
 This page is for describing other modes.
 
-.. _VTY_CLI_Commands:
+.. _vty-cli-commands:
 
 VTY CLI Commands
 ----------------
@@ -544,7 +544,7 @@ VTY CLI Commands
 Commands that you may use at the command-line are described in the following
 three subsubsections.
 
-.. _CLI_Movement_Commands:
+.. _cli-movement-commands:
 
 CLI Movement Commands
 ^^^^^^^^^^^^^^^^^^^^^
@@ -571,7 +571,7 @@ means press the Control Key.
   Move to the end of the line.
 
 
-.. _CLI_Editing_Commands:
+.. _cli-editing-commands:
 
 CLI Editing Commands
 ^^^^^^^^^^^^^^^^^^^^

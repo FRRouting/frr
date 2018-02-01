@@ -1,4 +1,4 @@
-.. _BGP:
+.. _bgp:
 
 ***
 BGP
@@ -12,7 +12,7 @@ de-fact standard of Inter Domain routing protocol.  BGP-4 is described in
 Many extensions have been added to :rfc:`1771`. :rfc:`2858` provides
 multiprotocol support to BGP-4.
 
-.. _Starting_BGP:
+.. _starting-bgp:
 
 Starting BGP
 ============
@@ -22,7 +22,7 @@ current directory first then |INSTALL_PREFIX_ETC|/bgpd.conf. All of bgpd's
 command must be configured in :file:`bgpd.conf`.
 
 *bgpd* specific invocation options are described below. Common options may also
-be specified (:ref:`Common_Invocation_Options`).
+be specified (:ref:`common-invocation-options`).
 
 .. program:: bgpd
 
@@ -44,7 +44,7 @@ be specified (:ref:`Common_Invocation_Options`).
    to an internal address, or to run multiple bgpd processes on one host.
 
 
-.. _BGP_router:
+.. _bgp-router:
 
 BGP router
 ==========
@@ -60,7 +60,7 @@ BGP connection is internal one or external one.
    Enable a BGP protocol process with the specified ASN. After
    this statement you can input any `BGP Commands`. You can not
    create different BGP process under different ASN without
-   specifying `multiple-instance` (:ref:`Multiple_instance`).
+   specifying `multiple-instance` (:ref:`multiple-instance`).
 
 .. index:: no router bgp ASN
 .. clicmd:: no router bgp ASN
@@ -76,7 +76,7 @@ BGP connection is internal one or external one.
    not enabled *bgpd* can't get interface information so `router-id` is set to
    0.0.0.0. So please set router-id by hand.
 
-.. _BGP_distance:
+.. _bgp-distance:
 
 BGP distance
 ------------
@@ -93,7 +93,7 @@ BGP distance
 .. index:: distance (1-255) A.B.C.D/M word
 .. clicmd:: distance (1-255) A.B.C.D/M word
 
-.. _BGP_decision_process:
+.. _bgp-decision-process:
 
 BGP decision process
 --------------------
@@ -126,7 +126,7 @@ The decision process FRR BGP uses to select routes is as follows:
 6. MED check
 
    Where routes with a MED were received from the same AS, prefer the route
-   with the lowest MED. :ref:`BGP_MED`.
+   with the lowest MED. :ref:`bgp-med`.
 
 7. External check
 
@@ -141,7 +141,7 @@ The decision process FRR BGP uses to select routes is as follows:
 
    If multi-pathing is enabled, then check whether the routes not yet
    distinguished in preference may be considered equal. If
-   :ref:`bgp_bestpath_as-path_multipath-relax` is set, all such routes are
+   :ref:`bgp-bestpath-as-path-multipath-relax` is set, all such routes are
    considered equal, otherwise routes received via iBGP with identical AS_PATHs
    or routes received from eBGP neighbours in the same AS are considered equal.
 
@@ -149,7 +149,7 @@ The decision process FRR BGP uses to select routes is as follows:
 
     Where both routes were received from eBGP peers, then prefer the route
     which is already selected. Note that this check is not applied if
-    :ref:`bgp_bestpath_compare-routerid` is configured. This check can prevent
+    :ref:`bgp-bestpath-compare-routerid` is configured. This check can prevent
     some cases of oscillation.
 
 11. Router-ID check
@@ -178,7 +178,7 @@ The decision process FRR BGP uses to select routes is as follows:
    sequences should should be taken into account during the BGP best path
    decision process.
 
-.. _bgp_bestpath_as-path_multipath-relax:
+.. _bgp-bestpath-as-path-multipath-relax:
 .. index:: bgp bestpath as-path multipath-relax
 .. clicmd:: bgp bestpath as-path multipath-relax
 
@@ -186,7 +186,7 @@ The decision process FRR BGP uses to select routes is as follows:
    of equal AS_PATH length candidates for multipath computation. Without
    the knob, the entire AS_PATH must match for multipath computation.
 
-.. _bgp_bestpath_compare-routerid:
+.. _bgp-bestpath-compare-routerid:
 .. clicmd:: bgp bestpath compare-routerid
 
    Ensure that when comparing routes where both are equal on most metrics,
@@ -208,7 +208,7 @@ The decision process FRR BGP uses to select routes is as follows:
    sensitive to the iBGP and reflection topology.
 
 
-.. _BGP_route_flap_dampening:
+.. _bgp-route-flap-dampening:
 
 BGP route flap dampening
 ------------------------
@@ -238,7 +238,7 @@ BGP route flap dampening
 
    `http://www.ripe.net/ripe/docs/ripe-378,,RIPE-378 <http://www.ripe.net/ripe/docs/ripe-378,,RIPE-378>`_
 
-.. _BGP_MED:
+.. _bgp-med:
 
 BGP MED
 =======
@@ -312,7 +312,7 @@ updates may be produced than at other times in reaction to some event .
 
 This first issue can be fixed with a more deterministic route selection that
 ensures routes are ordered by the neighbouring AS during selection.
-:ref:`bgp_deterministic-med`. This may reduce the number of updates as routes
+:ref:`bgp-deterministic-med`. This may reduce the number of updates as routes
 are received, and may in some cases reduce routing churn. Though, it could
 equally deterministically produce the largest possible set of updates in
 response to the most common sequence of received updates.
@@ -389,7 +389,7 @@ avoided by speakers preferring already selected, external routes rather than
 choosing to update to new a route based on a post-MED metric (e.g.  router-ID),
 at the cost of a non-deterministic selection process. FRR implements this, as
 do many other implementations, so long as it is not overridden by setting
-:ref:`bgp_bestpath_compare-routerid`, and see also :ref:`BGP_decision_process`,
+:ref:`bgp-bestpath-compare-routerid`, and see also :ref:`bgp-decision-process`,
 .
 
 However, more complex and insidious cycles of oscillation are possible with
@@ -442,7 +442,7 @@ topologies are at cross-purposes with each other - see the Flavel and Roughan
 paper above for an example. Hence the guideline that the iBGP topology should
 follow the IGP topology.
 
-.. _bgp_deterministic-med:
+.. _bgp-deterministic-med:
 
 .. index:: bgp deterministic-med
 .. clicmd:: bgp deterministic-med
@@ -462,9 +462,9 @@ follow the IGP topology.
 
 Note that there are other sources of indeterminism in the route selection
 process, specifically, the preference for older and already selected routes
-from eBGP peers, :ref:`BGP_decision_process`.
+from eBGP peers, :ref:`bgp-decision-process`.
 
-.. _bgp_always-compare-med:
+.. _bgp-always-compare-med:
 
 .. index:: bgp always-compare-med
 .. clicmd:: bgp always-compare-med
@@ -475,20 +475,20 @@ from eBGP peers, :ref:`BGP_decision_process`.
    oscillations.
 
    If using this option, it may also be desirable to use
-   :ref:`routemap_set_metric` to set MED to 0 on routes received from external
+   :ref:`routemap-set-metric` to set MED to 0 on routes received from external
    neighbours.
 
-   This option can be used, together with :ref:`routemap_set_metric` to use MED
+   This option can be used, together with :ref:`routemap-set-metric` to use MED
    as an intra-AS metric to steer equal-length AS_PATH routes to, e.g., desired
    exit points.
 
-.. _BGP_network:
+.. _bgp-network:
 
 BGP network
 ===========
 
 
-.. _BGP_route:
+.. _bgp-route:
 
 BGP route
 ---------
@@ -512,7 +512,7 @@ BGP route
 .. clicmd:: no network A.B.C.D/M
 
 
-.. _Route_Aggregation:
+.. _route-aggregation:
 
 Route Aggregation
 -----------------
@@ -539,7 +539,7 @@ Route Aggregation
 
 
 
-.. _Redistribute_to_BGP:
+.. _redistribute-to-bgp:
 
 Redistribute to BGP
 -------------------
@@ -615,12 +615,12 @@ Redistribute to BGP
    Supported for ipv4 and ipv6 address families. It works on multi-paths as
    well, however, metric setting is based on the best-path only.
 
-.. _BGP_Peer:
+.. _bgp-peer:
 
 BGP Peer
 ========
 
-.. _Defining_Peer:
+.. _defining-peer:
 
 Defining Peer
 -------------
@@ -643,7 +643,7 @@ Defining Peer
       can't find neighbor 10.0.0.1
 
 
-.. _BGP_Peer_commands:
+.. _bgp-peer-commands:
 
 BGP Peer commands
 -----------------
@@ -809,7 +809,7 @@ required.
    specified number of hops away will be allowed to become neighbors. This
    command is mututally exclusive with *ebgp-multihop*.
 
-.. _Peer_filtering:
+.. _peer-filtering:
 
 Peer filtering
 --------------
@@ -838,7 +838,7 @@ Peer filtering
    on reflected routes. This option allows the modifications to be reflected as
    well. Once enabled, it affects all reflected routes.
 
-.. _BGP_Peer_Group:
+.. _bgp-peer-group:
 
 BGP Peer Group
 ==============
@@ -853,7 +853,7 @@ BGP Peer Group
 
    This command bind specific peer to peer group WORD.
 
-.. _BGP_Address_Family:
+.. _bgp-address-family:
 
 BGP Address Family
 ==================
@@ -881,7 +881,7 @@ Encapsulation attribute :rfc:`5512` is supported.
 
    Print a summary of neighbor connections for the specified AFI/SAFI combination.
 
-.. _Autonomous_System:
+.. _autonomous-system:
 
 Autonomous System
 =================
@@ -895,7 +895,7 @@ The AS number is a two octet value, ranging in value from 1 to 65535. The AS
 numbers 64512 through 65535 are defined as private AS numbers. Private AS
 numbers must not to be advertised in the global Internet.
 
-.. _Display_BGP_Routes_by_AS_Path:
+.. _display-bgp-routes-by-as-path:
 
 Display BGP Routes by AS Path
 -----------------------------
@@ -907,9 +907,9 @@ can be used.
 .. clicmd:: show bgp ipv4|ipv6 regexp LINE
 
    This commands displays BGP routes that matches a regular
-   expression `line` (:ref:`BGP_Regular_Expressions`).
+   expression `line` (:ref:`bgp-regular-expressions`).
 
-.. _AS_Path_Access_List:
+.. _as-path-access-list:
 
 AS Path Access List
 -------------------
@@ -927,7 +927,7 @@ AS path access list is user defined AS path.
 .. index:: no ip as-path access-list WORD permit|deny LINE
 .. clicmd:: no ip as-path access-list WORD permit|deny LINE
 
-.. _Using_AS_Path_in_Route_Map:
+.. _using-as-path-in-route-map:
 
 Using AS Path in Route Map
 --------------------------
@@ -946,12 +946,12 @@ Using AS Path in Route Map
 
    Prepend the existing last AS number (the leftmost ASN) to the AS_PATH.
 
-.. _Private_AS_Numbers:
+.. _private-as-numbers:
 
 Private AS Numbers
 ------------------
 
-.. _BGP_Communities_Attribute:
+.. _bgp-communities-attribute:
 
 BGP Communities Attribute
 =========================
@@ -999,7 +999,7 @@ When BGP communities attribute is received, duplicated communities value in the
 communities attribute is ignored and each communities values are sorted in
 numerical order.
 
-.. _BGP_Community_Lists:
+.. _bgp-community-lists:
 
 BGP Community Lists
 -------------------
@@ -1032,7 +1032,7 @@ expanded community list.
 
    This command defines a new expanded community list. COMUNITY is a
    string expression of communities attribute. COMUNITY can be a
-   regular expression (:ref:`BGP_Regular_Expressions`) to match
+   regular expression (:ref:`bgp-regular-expressions`) to match
    the communities attribute in BGP updates.
 
 .. index:: no ip community-list NAME
@@ -1072,7 +1072,7 @@ expanded community list.
        deny internet
 
 
-.. _Numbered_BGP_Community_Lists:
+.. _numbered-bgp-community-lists:
 
 Numbered BGP Community Lists
 ----------------------------
@@ -1108,12 +1108,12 @@ is called as named community lists.
    Otherwise it is defined as an expanded community list. This feature is left
    for backward compability. Use of this feature is not recommended.
 
-.. _BGP_Community_in_Route_Map:
+.. _bgp-community-in-route-map:
 
 BGP Community in Route Map
 --------------------------
 
-In Route Map (:ref:`Route_Map`), we can match or set BGP
+In Route Map (:ref:`route-map`), we can match or set BGP
 communities attribute. Using this feature network operator can
 implement their network policy based on BGP communities attribute.
 
@@ -1158,7 +1158,7 @@ Following commands can be used in Route Map.
    is removed. When all of communities value is removed eventually, the
    BGP update's communities attribute is completely removed.
 
-.. _Display_BGP_Routes_by_Community:
+.. _display-bgp-routes-by-community:
 
 Display BGP Routes by Community
 -------------------------------
@@ -1193,7 +1193,7 @@ To show BGP routes which has specific BGP communities attribute,
    community list `word`. When `exact-match` is specified, display only
    routes that have an exact match.
 
-.. _Using_BGP_Communities_Attribute:
+.. _using-bgp-communities-attribute:
 
 Using BGP Communities Attribute
 -------------------------------
@@ -1311,7 +1311,7 @@ community-list is used. `deny` community-list is ignored.::
     set comm-list DEL delete
 
 
-.. _BGP_Extended_Communities_Attribute:
+.. _bgp-extended-communities-attribute:
 
 BGP Extended Communities Attribute
 ==================================
@@ -1346,7 +1346,7 @@ the other is IP address based format.
    `VAL` part is 2 octets Local Administrator subfield.
    `10.0.0.1:100` represents
 
-.. _BGP_Extended_Community_Lists:
+.. _bgp-extended-community-lists:
 
 BGP Extended Community Lists
 ----------------------------
@@ -1372,7 +1372,7 @@ Lists.
 
    This command defines a new expanded extcommunity-list. `line` is
    a string expression of extended communities attribute. `line` can
-   be a regular expression (:ref:`BGP_Regular_Expressions`) to match an
+   be a regular expression (:ref:`bgp-regular-expressions`) to match an
    extended communities attribute in BGP updates.
 
 .. index:: no ip extcommunity-list NAME
@@ -1403,7 +1403,7 @@ Lists.
     # show ip extcommunity-list
 
 
-.. _BGP_Extended_Communities_in_Route_Map:
+.. _bgp-extended-communities-in-route-map:
 
 BGP Extended Communities in Route Map
 -------------------------------------
@@ -1422,7 +1422,7 @@ BGP Extended Communities in Route Map
 
    This command set Site of Origin value.
 
-.. _BGP_Large_Communities_Attribute:
+.. _bgp-large-communities-attribute:
 
 BGP Large Communities Attribute
 ===============================
@@ -1451,7 +1451,7 @@ AS4 operators seamless use.
    function 1 and parameter 10.
    The referenced RFC above gives some guidelines on recommended usage.
 
-.. _BGP_Large_Community_Lists:
+.. _bgp-large-community-lists:
 
 BGP Large Community Lists
 -------------------------
@@ -1507,7 +1507,7 @@ Two types of large community lists are supported, namely `standard` and
 
    This command displays the current large communities in use.
 
-.. _BGP_Large_Communities_in_Route_Map:
+.. _bgp-large-communities-in-route-map:
 
 BGP Large Communities in Route Map
 ----------------------------------
@@ -1535,13 +1535,13 @@ BGP Large Communities in Route Map
    large-community list. The third will add a large-community value without
    overwriting other values. Multiple large-community values can be specified.
 
-.. _Displaying_BGP_information:
+.. _displaying-bgp-information:
 
 Displaying BGP information
 ==========================
 
 
-.. _Showing_BGP_information:
+.. _showing-bgp-information:
 
 Showing BGP information
 -----------------------
@@ -1574,7 +1574,7 @@ Showing BGP information
 .. clicmd:: show ip bgp regexp LINE
 
    This command displays BGP routes using AS path regular expression
-   (:ref:`BGP_Regular_Expressions`).
+   (:ref:`bgp-regular-expressions`).
 
 .. index:: show ip bgp community COMMUNITY
 .. clicmd:: show ip bgp community COMMUNITY
@@ -1582,7 +1582,7 @@ Showing BGP information
 .. index:: show ip bgp community COMMUNITY exact-match
 .. clicmd:: show ip bgp community COMMUNITY exact-match
 
-   This command displays BGP routes using `community` (:ref:`Display_BGP_Routes_by_Community`).
+   This command displays BGP routes using `community` (:ref:`display-bgp-routes-by-community`).
 
 .. index:: show ip bgp community-list WORD
 .. clicmd:: show ip bgp community-list WORD
@@ -1590,7 +1590,7 @@ Showing BGP information
 .. index:: show ip bgp community-list WORD exact-match
 .. clicmd:: show ip bgp community-list WORD exact-match
 
-   This command displays BGP routes using community list (:ref:`Display_BGP_Routes_by_Community`).
+   This command displays BGP routes using community list (:ref:`display-bgp-routes-by-community`).
 
 .. index:: show bgp ipv4|ipv6 summary
 .. clicmd:: show bgp ipv4|ipv6 summary
@@ -1612,7 +1612,7 @@ Showing BGP information
 
    Display flap statistics of routes.
 
-.. _Other_BGP_commands:
+.. _other-bgp-commands:
 
 Other BGP commands
 ------------------
@@ -1654,7 +1654,7 @@ Other BGP commands
 .. clicmd:: no debug keepalive
 
 
-.. _Capability_Negotiation:
+.. _capability-negotiation:
 
 Capability Negotiation
 ======================
@@ -1733,7 +1733,7 @@ If you want to completely match capabilities with remote peer. Please use
    Override the result of Capability Negotiation with local configuration.
    Ignore remote peer's capability value.
 
-.. _Route_Reflector:
+.. _route-reflector:
 
 Route Reflector
 ===============
@@ -1748,7 +1748,7 @@ Route Reflector
 .. clicmd:: no neighbor PEER route-reflector-client
 
 
-.. _Route_Server:
+.. _route-server:
 
 Route Server
 ============
@@ -1768,7 +1768,7 @@ managing different routing policies for each BGP speaker. We call the routing
 tables as different "views". *bgpd* can work as normal BGP router or Route
 Server or both at the same time.
 
-.. _Multiple_instance:
+.. _multiple-instance:
 
 Multiple instance
 -----------------
@@ -1837,7 +1837,7 @@ to specify *neighbor A.B.C.D send-community* command.::
 
    FRR style BGP configuration. This is default.
 
-.. _BGP_instance_and_view:
+.. _bgp-instance-and-view:
 
 BGP instance and view
 ---------------------
@@ -1889,7 +1889,7 @@ only for exchanging BGP routing information.
        neighbor 10.0.0.4 remote-as 5
 
 
-.. _Routing_policy:
+.. _routing-policy:
 
 Routing policy
 --------------
@@ -1917,7 +1917,7 @@ This means BGP update from a peer 10.0.0.1 goes to both BGP view 1 and view
 applied. On the other hand, when the update is inserted into view 2,
 distribute-list 2 is applied.
 
-.. _Viewing_the_view:
+.. _viewing-the-view:
 
 Viewing the view
 ----------------
@@ -1929,7 +1929,7 @@ To display routing table of BGP view, you must specify view name.
 
    Display routing table of BGP view ``NAME``.
 
-.. _BGP_Regular_Expressions:
+.. _bgp-regular-expressions:
 
 BGP Regular Expressions
 =======================
@@ -1965,7 +1965,7 @@ _
    the end of the line. So `_` can be used for AS value boundaries match. This
    character technically evaluates to `(^|[,{}() ]|$)`.
 
-.. _How_to_set_up_a_6-Bone_connection:
+.. _How-to-set-up-a-6-Bone-connection:
 
 How to set up a 6-Bone connection
 =================================
@@ -2014,7 +2014,7 @@ How to set up a 6-Bone connection
    !
 
 
-.. _Dump_BGP_packets_and_table:
+.. _dump-bgp-packets-and-table:
 
 Dump BGP packets and table
 ==========================
@@ -2031,8 +2031,8 @@ Dump BGP packets and table
    Dump all BGP packet and events to `path` file.
    If `interval` is set, a new file will be created for echo `interval` of seconds.
    The path `path` can be set with date and time formatting (strftime).
-   The type ‘all-et’ enables support for Extended Timestamp Header (:ref:`Packet_Binary_Dump_Format`).
-   (:ref:`Packet_Binary_Dump_Format`)
+   The type ‘all-et’ enables support for Extended Timestamp Header (:ref:`packet-binary-dump-format`).
+   (:ref:`packet-binary-dump-format`)
 
 .. index:: dump bgp updates PATH [INTERVAL]
 .. clicmd:: dump bgp updates PATH [INTERVAL]
@@ -2046,7 +2046,7 @@ Dump BGP packets and table
    Dump only BGP updates messages to `path` file.
    If `interval` is set, a new file will be created for echo `interval` of seconds.
    The path `path` can be set with date and time formatting (strftime).
-   The type ‘updates-et’ enables support for Extended Timestamp Header (:ref:`Packet_Binary_Dump_Format`).
+   The type ‘updates-et’ enables support for Extended Timestamp Header (:ref:`packet-binary-dump-format`).
 
 .. index:: dump bgp routes-mrt PATH
 .. clicmd:: dump bgp routes-mrt PATH
@@ -2299,7 +2299,7 @@ flaws.
     set community additive 64512:3200
 
 
-.. _Configuring_FRR_as_a_Route_Server:
+.. _configuring-frr-as-a-route-server:
 
 Configuring FRR as a Route Server
 =================================

@@ -1,4 +1,4 @@
-.. _VNC_and_VNC-GW:
+.. _VNC-and-VNC-GW:
 
 **************
 VNC and VNC-GW
@@ -54,12 +54,12 @@ following areas:
   (:abbr:`CE` s) operating within a VN.
 
 
-.. _General_VNC_Configuration:
+.. _general-vnc-configuration:
 
 .. General VNC Configuration
 .. -------------------------
 
-.. _RFP_Related_Configuration:
+.. _rfp-related-configuration:
 
 RFP Related Configuration
 -------------------------
@@ -76,14 +76,14 @@ following sample configuration:
 This is a simple example configuration parameter included as part of the RFP
 example code. VALUE must be in the range of 0 to 4294967295.
 
-.. _VNC_Defaults_Configuration:
+.. _vnc-defaults-configuration:
 
 VNC Defaults Configuration
 --------------------------
 
 The VNC Defaults section allows the user to specify default values for
 configuration parameters for all registered NVEs.
-Default values are overridden by :ref:`VNC_NVE_Group_Configuration`.
+Default values are overridden by :ref:`vnc-nve-group-configuration`.
 
 .. clicmd:: vnc defaults
 
@@ -122,7 +122,7 @@ These are the statements that can appear between ``vnc defaults`` and
    RT list is empty.
 
    A complete definition of these parameters is given below
-   (:ref:`VNC_NVE_Group_Configuration`).
+   (:ref:`vnc-nve-group-configuration`).
 
 .. index:: rd route-distinguisher
 .. clicmd:: rd ROUTE-DISTINGUISHER
@@ -139,14 +139,14 @@ These are the statements that can appear between ``vnc defaults`` and
     `two-byte-autonomous-system-number=0:four-byte-integer=0`.
 
     A complete definition of this parameter is given below
-    (:ref:`VNC_NVE_Group_Configuration`).
+    (:ref:`vnc-nve-group-configuration`).
 
 .. index:: l2rd NVE-ID-VALUE
 .. clicmd:: l2rd NVE-ID-VALUE
 
    Set the value used to distinguish NVEs connected to the same logical
    Ethernet segment (i.e., L2VPN).  A complete definition of this parameter is
-   given below (:ref:`VNC_NVE_Group_Configuration`).
+   given below (:ref:`vnc-nve-group-configuration`).
 
 .. index:: response-lifetime LIFETIME|infinite
 .. clicmd:: response-lifetime LIFETIME|infinite
@@ -155,7 +155,7 @@ These are the statements that can appear between ``vnc defaults`` and
    NVEs.
 
    A complete definition of this parameter is given below
-   (:ref:`VNC_NVE_Group_Configuration`).
+   (:ref:`vnc-nve-group-configuration`).
 
 .. index:: export bgp|zebra route-map MAP-NAME
 .. clicmd:: export bgp|zebra route-map MAP-NAME
@@ -174,7 +174,7 @@ These are the statements that can appear between ``vnc defaults`` and
 
    Exit VNC configuration mode.
 
-.. _VNC_NVE_Group_Configuration:
+.. _vnc-nve-group-configuration:
 
 VNC NVE Group Configuration
 ---------------------------
@@ -322,7 +322,7 @@ Defaults section.
 
    Specify that the named route-map should be applied to routes being exported
    to bgp or zebra.  This paramter is used in conjunction with
-   :ref:`Configuring_Export_of_Routes_to_Other_Routing_Protocols`.  This item
+   :ref:`configuring-export-of-routes-to-other-routing-protocols`.  This item
    is optional.
 
 .. index:: export bgp|zebra no route-map
@@ -330,7 +330,7 @@ Defaults section.
 
    Specify that no route-map should be applied to routes being exported to bgp
    or zebra.  This paramter is used in conjunction with
-   :ref:`Configuring_Export_of_Routes_to_Other_Routing_Protocols`.  This item
+   :ref:`configuring-export-of-routes-to-other-routing-protocols`.  This item
    is optional.
 
 .. index:: export bgp|zebra ipv4|ipv6 prefix-list LIST-NAME
@@ -339,7 +339,7 @@ Defaults section.
    Specify that the named prefix-list filter should be applied to routes being
    exported to bgp or zebra. Prefix-lists for ipv4 and ipv6 are independent of
    each other. This paramter is used in conjunction with
-   :ref:`Configuring_Export_of_Routes_to_Other_Routing_Protocols`.  This item
+   :ref:`configuring-export-of-routes-to-other-routing-protocols`.  This item
    is optional.
 
 .. index:: export bgp|zebra no ipv4|ipv6 prefix-list
@@ -347,17 +347,17 @@ Defaults section.
 
    Specify that no prefix-list filter should be applied to routes being
    exported to bgp or zebra. This parameter is used in conjunction with
-   :ref:`Configuring_Export_of_Routes_to_Other_Routing_Protocols`.  This item
+   :ref:`configuring-export-of-routes-to-other-routing-protocols`.  This item
    is optional.
 
-.. _VNC_L2_Group_Configuration:
+.. _VNC-L2-Group-Configuration:
 
 VNC L2 Group Configuration
 --------------------------
 
 The route targets advertised with prefixes and addresses registered by an NVE
 are determined based on the NVE's associated VNC NVE Group Configuration,
-:ref:`VNC_NVE_Group_Configuration`. Layer 2 (L2) Groups are used to override
+:ref:`vnc-nve-group-configuration`. Layer 2 (L2) Groups are used to override
 the route targets for an NVE's Ethernet registrations based on the Logical
 Network Identifier and label value.  A Logical Network Identifier is used to
 uniquely identify a logical Ethernet segment and is conceptually similar to the
@@ -414,9 +414,9 @@ The following statements are valid in a L2 group definition:
 
    Specify the route target import and export value associated with the group.
    A complete definition of these parameters is given above,
-   :ref:`VNC_NVE_Group_Configuration`.
+   :ref:`vnc-nve-group-configuration`.
 
-.. _Configuring_Redistribution_of_Routes_from_Other_Routing_Protocols:
+.. _configuring-redistribution-of-routes-from-other-routing-protocols:
 
 Configuring Redistribution of Routes from Other Routing Protocols
 -----------------------------------------------------------------
@@ -628,7 +628,7 @@ being redistributed from `bgp-direct`.
    When redistributing `bgp-direct` routes,
    specifies that no route-map should be applied.
 
-.. _Configuring_Export_of_Routes_to_Other_Routing_Protocols:
+.. _configuring-export-of-routes-to-other-routing-protocols:
 
 Configuring Export of Routes to Other Routing Protocols
 -------------------------------------------------------
@@ -647,7 +647,7 @@ a corresponding `redistribute vnc-direct` statement.
    Specify how routes should be exported to bgp or zebra.  If the mode is
    `none`, routes are not exported.  If the mode is `group-nve`, routes are
    exported according to nve-group or vrf-policy group configuration
-   (:ref:`VNC_NVE_Group_Configuration`): if a group is configured to allow
+   (:ref:`vnc-nve-group-configuration`): if a group is configured to allow
    export, then each prefix visible to the group is exported with next hops set
    to the currently-registered NVEs.  If the mode is `registering-nve`, then all
    VNC routes are exported with their original next hops.  If the mode is `ce`,
@@ -701,7 +701,7 @@ a corresponding `redistribute vnc-direct` statement.
 
    When the export mode is `group-nve`, policy for exported routes is specified
    per-NVE-group or vrf-policy group inside a `nve-group` `RFG-NAME` block via
-   the following commands(:ref:`VNC_NVE_Group_Configuration`):
+   the following commands(:ref:`vnc-nve-group-configuration`):
 
 .. index:: export bgp|zebra route-map MAP-NAME
 .. clicmd:: export bgp|zebra route-map MAP-NAME
@@ -733,7 +733,7 @@ a corresponding `redistribute vnc-direct` statement.
    that no prefix-list filter should be applied to routes being exported to
    bgp or zebra.
 
-.. _Manual_Address_Control:
+.. _manual-address-control:
 
 Manual Address Control
 ======================
@@ -792,7 +792,7 @@ manually and dynamically added information.
    `*` in lieu of any VN or UN address, in which case all registrations will
    match.
 
-.. _Other_VNC-Related_Commands:
+.. _Other-VNC-Related-Commands:
 
 Other VNC-Related Commands
 ==========================
@@ -835,8 +835,8 @@ related information:
 .. clicmd:: show vnc queries PREFIX
 
    Display active Query information. Queries remain valid for the default
-   Response Lifetime (:ref:`VNC_Defaults_Configuration`) or NVE-group Response
-   Lifetime (:ref:`VNC_NVE_Group_Configuration`). Specifying `prefix` limits
+   Response Lifetime (:ref:`vnc-defaults-configuration`) or NVE-group Response
+   Lifetime (:ref:`vnc-nve-group-configuration`). Specifying `prefix` limits
    the output to Query Targets that fall within `prefix`.
 
    Query information is provided for each querying NVE, and includes the Query
@@ -873,9 +873,9 @@ related information:
 
    Display all, active and/or removed response information which are
    present in the NVA Responses Cache. Responses remain valid for the
-   default Response Lifetime (:ref:`VNC_Defaults_Configuration`) or
-   NVE-group Response Lifetime (:ref:`VNC_NVE_Group_Configuration`.)
-   When Removal Responses are enabled (:ref:`General_VNC_Configuration`),
+   default Response Lifetime (:ref:`vnc-defaults-configuration`) or
+   NVE-group Response Lifetime (:ref:`vnc-nve-group-configuration`.)
+   When Removal Responses are enabled (:ref:`general-vnc-configuration`),
    such responses are listed for the Response Lifetime. Specifying
    `prefix` limits the output to the addresses that fall within
    `prefix`.
@@ -890,7 +890,7 @@ related information:
 
    Print the number of memory items allocated by the NVA.
 
-.. _Example_VNC_and_VNC-GW_Configurations:
+.. _Example-VNC-and-VNC-GW-Configurations:
 
 Example VNC and VNC-GW Configurations
 =====================================

@@ -1,4 +1,4 @@
-.. _OSPF_Fundamentals:
+.. _ospf-fundamentals:
 
 OSPF Fundamentals
 =================
@@ -121,7 +121,7 @@ OSPF defines several related mechanisms, used to manage synchronisation of
 :abbr:`LSDB` s between neighbours as neighbours form adjacencies and the
 propogation, or :term:`flooding` of new or updated :abbr:`LSA` s.
 
-:ref:`OSPF_Flooding`.
+:ref:`ospf-flooding`.
 
 
 .. index:: OSPF Areas overview
@@ -174,7 +174,7 @@ All LSAs share a common header with the following information:
 
 - Advertising Router
 
-  The Router ID of the router originating the LSA, see :ref:`ospf_router-id`.
+  The Router ID of the router originating the LSA, see :ref:`ospf-router-id`.
 
 - LSA ID
 
@@ -186,7 +186,7 @@ All LSAs share a common header with the following information:
   The combination of the Type, ID and Advertising Router ID must uniquely
   identify the :abbr:`LSA`. There can however be multiple instances of
   an LSA with the same Type, LSA ID and Advertising Router ID, see
-  :ref:`OSPF_LSA_sequence_number,,LSA_Sequence_Number`.
+  :ref:`ospf-lsa-sequence-number,,lsa-sequence-number`.
 
 - Age
 
@@ -206,7 +206,7 @@ All LSAs share a common header with the following information:
   a router has shutdown without flushing its LSA(s), e.g. where it has
   become disconnected from the network. Such LSAs do little harm.
 
-  .. _OSPF_LSA_sequence_number:
+  .. _ospf-lsa-sequence-number:
 
 - Sequence Number
 
@@ -232,7 +232,7 @@ called :term:`intra-area routes`.
 
   Cost
      The output cost of that interface, scaled inversely to some commonly known
-     reference value, :ref:`OSPF_auto-cost_reference-bandwidth,,auto-cost_reference-bandwidth`.
+     reference value, :ref:`ospf-auto-cost-reference-bandwidth,,auto-cost-reference-bandwidth`.
 
   Link Type
      Transit Network
@@ -272,7 +272,7 @@ called :term:`intra-area routes`.
 
     Stub links may also be used as a way to describe links on which OSPF is
     *not* spoken, known as :term:`passive interfaces`, see
-    :ref:`OSPF_passive-interface,,passive-interface`.
+    :ref:`ospf-passive-interface,,passive-interface`.
 
 - Network LSA
 
@@ -451,7 +451,7 @@ An :abbr:`OSPF` router which originates External :abbr:`LSA` s is known as an
 most other :abbr:`LSA` s, which are flooded only within the area in
 which they originate, External :abbr:`LSA` s are flooded through-out
 the :abbr:`OSPF` network to all areas capable of carrying External
-:abbr:`LSA` s (:ref:`OSPF_Areas`).
+:abbr:`LSA` s (:ref:`ospf-areas`).
 
 Routes internal to OSPF (intra-area or inter-area) are always preferred
 over external routes.

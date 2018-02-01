@@ -1,4 +1,4 @@
-.. _Installation:
+.. _installation:
 
 ************
 Installation
@@ -26,13 +26,13 @@ issue the following commands:
   $ make install
 
 
-.. _Configure_the_Software:
+.. _configure-the-software:
 
 Configure the Software
 ======================
 
 
-.. _The_Configure_Script:
+.. _the-configure-script:
 
 The Configure Script
 --------------------
@@ -190,7 +190,7 @@ options to the configuration script.
    Configure zebra to use `dir` for local state files, such as pid files and
    unix sockets.
 
-.. _Least-Privilege_support:
+.. _Least-Privilege-support:
 
 Least-Privilege Support
 -----------------------
@@ -231,7 +231,7 @@ only Linux), FRR will retain only minimal capabilities required and will only
 raise these capabilities for brief periods. On systems without libcap, FRR will
 run as the user specified and only raise its UID to 0 for brief periods.
 
-.. _Linux_Notes:
+.. _linux-notes:
 
 Linux Notes
 -----------
@@ -250,16 +250,16 @@ do exist.
 
 - :makevar:`CONFIG_NETLINK`
   Kernel/User netlink socket. This is a brand new feature which enables an
-  advanced interface between the Linux kernel and zebra (:ref:`Kernel_Interface`).
+  advanced interface between the Linux kernel and zebra (:ref:`kernel-interface`).
 - :makevar:`CONFIG_RTNETLINK`
   Routing messages.
   This makes it possible to receive netlink routing messages.  If you
   specify this option, *zebra* can detect routing information
-  updates directly from the kernel (:ref:`Kernel_Interface`).
+  updates directly from the kernel (:ref:`kernel-interface`).
 - :makevar:`CONFIG_IP_MULTICAST`
   IP: multicasting.
-  This option should be specified when you use *ripd* (:ref:`RIP`) or
-  *ospfd* (:ref:`OSPFv2`) because these protocols use multicast.
+  This option should be specified when you use *ripd* (:ref:`rip`) or
+  *ospfd* (:ref:`ospfv2`) because these protocols use multicast.
 
 IPv6 support has been added in GNU/Linux kernel version 2.2.  If you
 try to use the FRR IPv6 feature on a GNU/Linux kernel, please
@@ -281,7 +281,7 @@ or upper.
   utility.  It contains *ifconfig*, *route*, *netstat*, and other tools.
   `net-tools` may be found at http://www.tazenda.demon.co.uk/phil/net-tools/.
 
-.. _Build_the_Software:
+.. _build-the-software:
 
 Build the Software
 ==================
@@ -290,7 +290,7 @@ After configuring the software, you will need to compile it for your system.
 Simply issue the command *make* in the root of the source directory and the
 software will be compiled. Cliff Notes versions of different compilation
 examples can be found in the Developer's Manual Appendix.  If you have *any*
-problems at this stage, please send a bug report :ref:`Bug-Reports`.
+problems at this stage, please send a bug report :ref:`bug-reports`.
 
 ::
 
@@ -337,6 +337,6 @@ specify a port number when starting the daemon, these entries may not be
 needed.
 
 You may need to make changes to the config files in
-|INSTALL_PREFIX_ETC|. :ref:`Config_Commands`.
+|INSTALL_PREFIX_ETC|. :ref:`config-commands`.
 
 .. [#] GNU/Linux has very flexible kernel configuration features.

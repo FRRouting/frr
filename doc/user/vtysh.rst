@@ -1,4 +1,4 @@
-.. _VTY_shell:
+.. _vty-shell:
 
 *********
 VTY shell
@@ -60,7 +60,7 @@ could be made SGID (set group ID) to the |INSTALL_VTY_GROUP| group.
   at all.
 
 
-.. _Integrated_configuration_mode:
+.. _integrated-configuration-mode:
 
 Integrated configuration mode
 =============================

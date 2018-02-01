@@ -1,4 +1,4 @@
-.. _Prefix_Origin_Validation_Using_RPKI:
+.. _prefix-origin-validation-using-rpki:
 
 Prefix Origin Validation Using RPKI
 ===================================
@@ -24,7 +24,7 @@ For a more detailed but still easy-to-read background, we suggest:
 - [Securing-BGP]_
 - [Resource-Certification]_
 
-.. _Features_of_the_Current_Implementation:
+.. _features-of-the-current-implementation:
 
 Features of the Current Implementation
 --------------------------------------
@@ -46,7 +46,7 @@ In a nutshell, the current implementation provides the following features
   outcome of the Prefix Origin Validation.
 
 
-.. _Enabling_RPKI:
+.. _enabling-rpki:
 
 Enabling RPKI
 -------------
@@ -143,7 +143,7 @@ The following commands are independent of a specific cache server.
       :file:`~/.ssh/known_hosts`.
 
 
-.. _Validating_BGP_Updates:
+.. _validating-bgp-updates:
 
 Validating BGP Updates
 ----------------------
@@ -180,7 +180,7 @@ Validating BGP Updates
         set local-preference 500
 
 
-.. _Debugging:
+.. _debugging:
 
 Debugging
 ---------
@@ -193,7 +193,7 @@ Debugging
 
    Enable or disable debugging output for RPKI.
 
-.. _Displaying_RPKI:
+.. _displaying-rpki:
 
 Displaying RPKI
 ---------------

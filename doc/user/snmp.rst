@@ -1,4 +1,4 @@
-.. _SNMP_Support:
+.. _snmp-support:
 
 ************
 SNMP Support
@@ -11,9 +11,9 @@ a SNMP agent using the SMUX protocol (:rfc:`1227`) or the AgentX protocol
 (:rfc:`2741`) and make the routing protocol MIBs available through it.
 
 Note that SNMP Support needs to be enabled at compile-time and loaded as module
-on daemon startup. Refer to :ref:`Loadable_Module_Support` on the latter.
+on daemon startup. Refer to :ref:`loadable-module-support` on the latter.
 
-.. _Getting_and_installing_an_SNMP_agent:
+.. _getting-and-installing-an-snmp-agent:
 
 Getting and installing an SNMP agent
 ====================================
@@ -29,7 +29,7 @@ protocol.
 Nowadays, SMUX is a legacy protocol. The AgentX protocol should be preferred
 for any new deployment. Both protocols have the same coverage.
 
-.. _AgentX_configuration:
+.. _agentx-configuration:
 
 AgentX configuration
 ====================
@@ -94,7 +94,7 @@ need to configure FRR to use another transport, you can configure it through
       agentXSocket tcp:192.168.15.12:705
 
 
-.. _SMUX_configuration:
+.. _smux-configuration:
 
 SMUX configuration
 ==================

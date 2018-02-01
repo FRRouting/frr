@@ -1,4 +1,4 @@
-.. _RIP:
+.. _rip:
 
 ***
 RIP
@@ -16,7 +16,7 @@ router.
 *ripd* supports RIP version 2 as described in RFC2453 and RIP
 version 1 as described in RFC1058.
 
-.. _Starting_and_Stopping_ripd:
+.. _starting-and-stopping-ripd:
 
 Starting and Stopping ripd
 ==========================
@@ -58,14 +58,14 @@ Certain signals have special meaningss to *ripd*.
  +-------------+------------------------------------------------------+
 
 *ripd* invocation options. Common options that can be specified
-(:ref:`Common_Invocation_Options`).
+(:ref:`common-invocation-options`).
 
 .. option:: -r
 .. option:: --retain
 
    When the program terminates, retain routes added by *ripd*.
 
-.. _RIP_netmask:
+.. _rip-netmask:
 
 RIP netmask
 -----------
@@ -86,7 +86,7 @@ In a case of similar information with the same prefix and metric, the old
 information will be suppressed. Ripd does not currently support equal cost
 multipath routing.
 
-.. _RIP_Configuration:
+.. _rip-configuration:
 
 RIP Configuration
 =================
@@ -180,7 +180,7 @@ RIP Configuration
    you don't perform split-horizon on the interface, please specify `no ip
    split-horizon`.
 
-.. _RIP_Version_Control:
+.. _rip-version-control:
 
 RIP Version Control
 ===================
@@ -194,7 +194,7 @@ a per-interface basis if needs be for send and receive seperately (see below).
 It is important to note that RIPv1 cannot be authenticated. Further, if RIPv1
 is enabled then RIP will reply to REQUEST packets, sending the state of its RIP
 routing table to any remote routers that ask on demand. For a more detailed
-discussion on the security implications of RIPv1 see :ref:`RIP_Authentication`.
+discussion on the security implications of RIPv1 see :ref:`rip-authentication`.
 
 .. index:: version VERSION
 .. clicmd:: version VERSION
@@ -203,7 +203,7 @@ discussion on the security implications of RIPv1 see :ref:`RIP_Authentication`.
    1.
 
    Disabling RIPv1 by specifying version 2 is STRONGLY encouraged,
-   :ref:`RIP_Authentication`. This may become the default in a future release.
+   :ref:`rip-authentication`. This may become the default in a future release.
 
    Default: Send Version 2, and accept either version.
 
@@ -236,7 +236,7 @@ discussion on the security implications of RIPv1 see :ref:`RIP_Authentication`.
 
    Default: Accept packets according to the global setting (both 1 and 2).
 
-.. _How_to_Announce_RIP_route:
+.. _how-to-announce-rip-route:
 
 How to Announce RIP route
 =========================
@@ -335,7 +335,7 @@ How to Announce RIP route
    recommend creating a static route in FRR and redistributing it in RIP using
    `redistribute static`.
 
-.. _Filtering_RIP_Routes:
+.. _filtering-rip-routes:
 
 Filtering RIP Routes
 ====================
@@ -376,7 +376,7 @@ RIP routes can be filtered by a distribute-list.
    ``in`` or ``out``. If DIRECT is ``in`` the access list is applied to input
    packets.
 
-.. _RIP_Metric_Manipulation:
+.. _rip-metric-manipulation:
 
 RIP Metric Manipulation
 =======================
@@ -404,7 +404,7 @@ received. Redistributed routes' metric is set to 1.
 .. clicmd:: offset-list ACCESS-LIST (in|out) IFNAME
 
 
-.. _RIP_distance:
+.. _rip-distance:
 
 RIP distance
 ============
@@ -437,7 +437,7 @@ Distance value is used in zebra daemon. Default RIP distance is 120.
    Set default RIP distance to specified value when the route's source IP
    address matches the specified prefix and the specified access-list.
 
-.. _RIP_route-map:
+.. _RIP-route-map:
 
 RIP route-map
 =============
@@ -460,7 +460,7 @@ listed in the route table and before routes will be announced to an interface
 (something like output filter). I think it is not so clear, but it is draft and
 it may be changed at future.
 
-Route-map statement (:ref:`Route_Map`) is needed to use route-map
+Route-map statement (:ref:`route-map`) is needed to use route-map
 functionality.
 
 .. index:: match interface WORD
@@ -512,7 +512,7 @@ functionality.
    range is very large for compatibility with other protocols. For RIP, valid
    metric values are from 1 to 16.
 
-.. _RIP_Authentication:
+.. _rip-authentication:
 
 RIP Authentication
 ==================
@@ -525,7 +525,7 @@ configured `ripd` will discard routing updates received via RIPv1
 packets.
 
 However, unless RIPv1 reception is disabled entirely,
-:ref:`RIP_Version_Control`, RIPv1 REQUEST packets which are received,
+:ref:`rip-version-control`, RIPv1 REQUEST packets which are received,
 which query the router for routing information, will still be honoured
 by `ripd`, and `ripd` WILL reply to such packets. This allows
 `ripd` to honour such REQUESTs (which sometimes is used by old
@@ -538,7 +538,7 @@ entire RIP routing table) to be queried remotely, potentially by anyone
 on the internet, via RIPv1.
 
 To prevent such unauthenticated querying of routes disable RIPv1,
-:ref:`RIP_Version_Control`.
+:ref:`rip-version-control`.
 
 .. index:: ip rip authentication mode md5
 .. clicmd:: ip rip authentication mode md5
@@ -586,7 +586,7 @@ To prevent such unauthenticated querying of routes disable RIPv1,
     !
 
 
-.. _RIP_Timers:
+.. _rip-timers:
 
 RIP Timers
 ==========
@@ -620,7 +620,7 @@ RIP Timers
    The `no timers basic` command will reset the timers to the default settings
    listed above.
 
-.. _Show_RIP_Information:
+.. _show-rip-information:
 
 Show RIP Information
 ====================

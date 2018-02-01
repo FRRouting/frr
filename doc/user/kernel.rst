@@ -1,4 +1,4 @@
-.. _Kernel_Interface:
+.. _kernel-interface:
 
 ****************
 Kernel Interface

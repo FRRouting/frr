@@ -1,4 +1,4 @@
-.. _NHRP:
+.. _nhrp:
 
 ****
 NHRP
@@ -16,7 +16,7 @@ directly communicate without requiring traffic to use an intermediate hop.
 Cisco Dynamic Multipoint VPN (DMVPN) is based on NHRP, and |PACKAGE_NAME| nhrpd
 implements this scenario.
 
-.. _Routing_Design:
+.. _routing-design:
 
 Routing Design
 ==============
@@ -61,14 +61,14 @@ command defines the GRE subnet):::
    exit-address-family
 
 
-.. _Configuring_NHRP:
+.. _configuring-nhrp:
 
 Configuring NHRP
 ================
 
 FIXME
 
-.. _Hub_Functionality:
+.. _hub-functionality:
 
 Hub Functionality
 =================
@@ -105,7 +105,7 @@ per-interface directive:::
   interface gre1
    ip nhrp redirect
 
-.. _Integration_with_IKE:
+.. _integration-with-ike:
 
 Integration with IKE
 ====================
@@ -122,7 +122,7 @@ and
 `http://git.alpinelinux.org/cgit/user/tteras/strongswan/log/?h=tteras,working tree <http://git.alpinelinux.org/cgit/user/tteras/strongswan/log/?h=tteras,working tree>`_
 git repositories for the patches.
 
-.. _NHRP_Events:
+.. _nhrp-events:
 
 NHRP Events
 ===========

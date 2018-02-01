@@ -1,4 +1,4 @@
-.. _Babel:
+.. _babel:
 
 *****
 Babel
@@ -14,13 +14,13 @@ instance is able to perform routing for both IPv4 and IPv6.
 
 FRR implements Babel as described in :rfc:`6126`.
 
-.. _Configuring_babeld:
+.. _configuring-babeld:
 
 Configuring babeld
 ==================
 
 The *babeld* daemon can be invoked with any of the common
-options (:ref:`Common_Invocation_Options`).
+options (:ref:`common-invocation-options`).
 
 The *zebra* daemon must be running before *babeld* is
 invoked. Also, if *zebra* is restarted then *babeld*
@@ -29,7 +29,7 @@ must be too.
 Configuration of *babeld* is done in its configuration file
 :file:`babeld.conf`.
 
-.. _Babel_configuration:
+.. _babel-configuration:
 
 Babel configuration
 ===================
@@ -211,7 +211,7 @@ Babel configuration
    of very slightly increasing convergence time.  The value 0 disables
    hysteresis, and is suitable for wired networks.  The default is 4 s.
 
-.. _Babel_redistribution:
+.. _babel-redistribution:
 
 Babel redistribution
 ====================
@@ -224,7 +224,7 @@ Babel redistribution
 
    Specify which kind of routes should be redistributed into Babel.
 
-.. _Show_Babel_information:
+.. _show-babel-information:
 
 Show Babel information
 ======================

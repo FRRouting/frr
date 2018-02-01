@@ -1,4 +1,4 @@
-.. _Route_Map:
+.. _route-map:
 
 **********
 Route Maps
@@ -84,7 +84,7 @@ deny
 cont
    goto next route-map entry
 
-.. _Route_Map_Command:
+.. _route-map-command:
 
 Route Map Command
 =================
@@ -95,7 +95,7 @@ Route Map Command
    Configure the `order`'th entry in `route-map-name` with ``Match Policy`` of
    either *permit* or *deny*.
 
-.. _Route_Map_Match_Command:
+.. _route-map-match-command:
 
 Route Map Match Command
 =======================
@@ -180,7 +180,7 @@ Route Map Match Command
   interface name specified if the neighbor was specified
   in this manner.
 
-.. _Route_Map_Set_Command:
+.. _route-map-set-command:
 
 Route Map Set Command
 =====================
@@ -235,7 +235,7 @@ Route Map Set Command
 
    Set the BGP-4+ link local IPv6 nexthop address.
 
-.. _Route_Map_Call_Command:
+.. _route-map-call-command:
 
 Route Map Call Command
 ======================
@@ -246,7 +246,7 @@ Route Map Call Command
    Call route-map `name`. If it returns deny, deny the route and
    finish processing the route-map.
 
-.. _Route_Map_Exit_Action_Command:
+.. _route-map-exit-action-command:
 
 Route Map Exit Action Command
 =============================

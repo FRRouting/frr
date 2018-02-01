@@ -1,4 +1,4 @@
-.. _EIGRP:
+.. _eigrp:
 
 *****
 EIGRP
@@ -13,7 +13,7 @@ known topology.
 
 *eigrpd* supports EIGRP as described in RFC7868
 
-.. _Starting_and_Stopping_eigrpd:
+.. _starting-and-stopping-eigrpd:
 
 Starting and Stopping eigrpd
 ============================
@@ -50,7 +50,7 @@ Certain signals have special meanings to *eigrpd*.
 
 
 *eigrpd* invocation options. Common options that can be specified
-(:ref:`Common_Invocation_Options`).
+(:ref:`common-invocation-options`).
 
 .. program:: eigrpd
 
@@ -59,7 +59,7 @@ Certain signals have special meanings to *eigrpd*.
 
    When the program terminates, retain routes added by *eigrpd*.
 
-.. _EIGRP_Configuration:
+.. _eigrp-configuration:
 
 EIGRP Configuration
 ===================
@@ -116,7 +116,7 @@ EIGRP Configuration
 
    The default is to be passive on all interfaces.
 
-.. _How_to_Announce_EIGRP_route:
+.. _how-to-announce-eigrp-route:
 
 How to Announce EIGRP route
 ===========================
@@ -183,7 +183,7 @@ How to Announce EIGRP route
    `redistribute bgp` redistributes routing information from bgp route entries
    into the EIGRP tables. `no redistribute bgp` disables the routes.
 
-.. _Show_EIGRP_Information:
+.. _show-eigrp-information:
 
 Show EIGRP Information
 ======================

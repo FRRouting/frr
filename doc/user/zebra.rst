@@ -1,4 +1,4 @@
-.. _Zebra:
+.. _zebra:
 
 *****
 Zebra
@@ -8,12 +8,12 @@ Zebra
 table updates, interface lookups, and redistribution of routes between
 different routing protocols.
 
-.. _Invoking_zebra:
+.. _invoking-zebra:
 
 Invoking zebra
 ==============
 
-Besides the common invocation options (:ref:`Common_Invocation_Options`), the
+Besides the common invocation options (:ref:`common-invocation-options`), the
 *zebra* specific invocation options are listed below.
 
 .. program:: zebra
@@ -36,12 +36,12 @@ Besides the common invocation options (:ref:`Common_Invocation_Options`), the
 
 .. program:: configure
 
-.. _Interface_Commands:
+.. _interface-commands:
 
 Interface Commands
 ==================
 
-.. _Standard_Commands:
+.. _standard-commands:
 
 Standard Commands
 -----------------
@@ -136,7 +136,7 @@ Standard Commands
    Linux and Solaris, and only where network interface drivers support
    reporting link-state via the ``IFF_RUNNING`` flag.
 
-.. _Link_Parameters_Commands:
+.. _link-parameters-commands:
 
 Link Parameters Commands
 ------------------------
@@ -150,7 +150,7 @@ Link Parameters Commands
    Enter into the link parameters sub node. At least 'enable' must be set to
    activate the link parameters, and consequently Traffic Engineering on this
    interface. MPLS-TE must be enable at the OSPF
-   (:ref:`OSPF_Traffic_Engineering`) or ISIS (:ref:`ISIS_Traffic_Engineering`)
+   (:ref:`ospf-traffic-engineering`) or ISIS (:ref:`isis-traffic-engineering`)
    router level in complement to this.  Disable link parameters for this
    interface.
 
@@ -225,7 +225,7 @@ Link Parameters Commands
    for InterASv2 link in OSPF (RFC5392).  Note that this option is not yet
    supported for ISIS (RFC5316).
 
-.. _Static_Route_Commands:
+.. _static-route-commands:
 
 Static Route Commands
 =====================
@@ -351,7 +351,7 @@ default) should the specified gateways not be reachable. Eg:
    and later). After setting TABLENO with this command,
    static routes defined after this are added to the specified table.
 
-.. _Multicast_RIB_Commands:
+.. _multicast-rib-commands:
 
 Multicast RIB Commands
 ======================
@@ -441,12 +441,12 @@ longer-prefix
    ``ip route`` command, except that it inserts the route in the Multicast RIB
    instead of the Unicast RIB.
 
-.. _zebra_Route_Filtering:
+.. _zebra-route-filtering:
 
 zebra Route Filtering
 =====================
 
-Zebra supports :dfn:`prefix-list` s and :ref:`Route_Map` s to match routes
+Zebra supports :dfn:`prefix-list` s and :ref:`route-map` s to match routes
 received from other FRR components. The permit/deny facilities provided by
 these commands can be used to filter which routes zebra will install in the
 kernel.
@@ -490,7 +490,7 @@ that sets the preferred source address, and applies the route-map to all
    ip protocol rip route-map RM1
 
 
-.. _zebra_FIB_push_interface:
+.. _zebra-fib-push-interface:
 
 zebra FIB push interface
 ========================
@@ -498,7 +498,7 @@ zebra FIB push interface
 Zebra supports a 'FIB push' interface that allows an external
 component to learn the forwarding information computed by the FRR
 routing suite. This is a loadable module that needs to be enabled
-at startup as described in :ref:`Loadable_Module_Support`.
+at startup as described in :ref:`loadable-module-support`.
 
 In FRR, the Routing Information Base (RIB) resides inside
 zebra. Routing protocols communicate their best routes to zebra, and

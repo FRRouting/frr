@@ -1,4 +1,4 @@
-.. _PIM:
+.. _pim:
 
 ***
 PIM
@@ -10,7 +10,7 @@ PIM -- Protocol Independent Multicast
 vrf aware and can work within the context of vrf's in order to
 do S,G mrouting.
 
-.. _Starting_and_Stopping_pimd:
+.. _starting-and-stopping-pimd:
 
 Starting and Stopping pimd
 ==========================
@@ -46,7 +46,7 @@ Certain signals have special meanings to *pimd*.
 +---------+---------------------------------------------------------------------+
 
 *pimd* invocation options. Common options that can be specified
-(:ref:`Common_Invocation_Options`).
+(:ref:`common-invocation-options`).
 
 .. index:: ip pim rp A.B.C.D A.B.C.D/M
 .. clicmd:: ip pim rp A.B.C.D A.B.C.D/M
@@ -151,7 +151,7 @@ Certain signals have special meanings to *pimd*.
       Lookup in the Unicast Rib only.
 
 
-.. _PIM_Interface_Configuration:
+.. _pim-interface-configuration:
 
 PIM Interface Configuration
 ===========================
@@ -212,7 +212,7 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    or IGMP report is received on this interface and the Group is denyed by the
    prefix-list, PIM will ignore the join or report.
 
-.. _PIM_Multicast_RIB_insertion:
+.. _pim-multicast-rib-insertion:
 
 PIM Multicast RIB insertion::
 =============================
@@ -236,7 +236,7 @@ caution. Most of the time this will not be necessary.
    Insert into the Multicast Rib Route A.B.C.D/M using the specified INTERFACE.
    The distance can be specified as well if desired.
 
-.. _Show_PIM_Information:
+.. _show-pim-information:
 
 Show PIM Information
 ====================

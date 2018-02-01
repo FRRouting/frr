@@ -1,4 +1,4 @@
-.. _ISIS:
+.. _isis:
 
 ****
 ISIS
@@ -11,13 +11,13 @@ which is described in :t:`ISO10589`, :rfc:`1195`, :rfc:`5308`. ISIS is an
 like :abbr:`OSPF`. ISIS is widely used in large networks such as :abbr:`ISP
 (Internet Service Provider)` and carrier backbone networks.
 
-.. _Configuring_isisd:
+.. _configuring-isisd:
 
 Configuring isisd
 =================
 
 There are no *isisd* specific options. Common options can be specified
-(:ref:`Common_Invocation_Options`) to *isisd*. *isisd* needs to acquire
+(:ref:`common-invocation-options`) to *isisd*. *isisd* needs to acquire
 interface information from *zebra* in order to function. Therefore *zebra* must
 be running before invoking *isisd*. Also, if *zebra* is restarted then *isisd*
 must be too.
@@ -25,7 +25,7 @@ must be too.
 Like other daemons, *isisd* configuration is done in :abbr:`ISIS` specific
 configuration file :file:`isisd.conf`.
 
-.. _ISIS_router:
+.. _isis-router:
 
 ISIS router
 ===========
@@ -39,12 +39,12 @@ writing, *isisd* does not support multiple ISIS processes.
 .. index:: no router isis WORD
 .. clicmd:: no router isis WORD
 
-   .. _router_isis_WORD:
+   .. _router-isis-word:
 
    Enable or disable the ISIS process by specifying the ISIS domain with
    'WORD'.  *isisd* does not yet support multiple ISIS processes but you must
    specify the name of ISIS process. The ISIS process name 'WORD' is then used
-   for interface (see command :ref:`ip_router_isis_WORD`).
+   for interface (see command :ref:`ip-router-isis-word`).
 
 .. index:: net XX.XXXX. ... .XXX.XX
 .. clicmd:: net XX.XXXX. ... .XXX.XX
@@ -110,7 +110,7 @@ writing, *isisd* does not support multiple ISIS processes.
 
    Set overload bit to avoid any transit traffic.
 
-.. _ISIS_Timer:
+.. _isis-timer:
 
 ISIS Timer
 ==========
@@ -168,7 +168,7 @@ ISIS Timer
 
    Set minimum interval between consecutive SPF calculations in seconds.
 
-.. _ISIS_region:
+.. _isis-region:
 
 ISIS region
 ===========
@@ -188,7 +188,7 @@ ISIS region
    - level-2-only
      Act as an area router only
 
-.. _ISIS_interface:
+.. _isis-interface:
 
 ISIS interface
 ==============
@@ -199,11 +199,11 @@ ISIS interface
 .. index:: no ip router isis WORD
 .. clicmd:: no ip router isis WORD
 
-.. _ip_router_isis_WORD:
+.. _ip-router-isis-word:
 
    Activate ISIS adjacency on this interface. Note that the name
    of ISIS instance must be the same as the one used to configure the ISIS process
-   (see command :ref:`router_isis_WORD`).
+   (see command :ref:`router-isis-word`).
 
 .. index:: isis circuit-type [level-1 | level-1-2 | level-2]
 .. clicmd:: isis circuit-type [level-1 | level-1-2 | level-2]
@@ -341,7 +341,7 @@ ISIS interface
    Set PSNP interval in seconds globally, for an area (level-1) or a domain
    (level-2).
 
-.. _Showing_ISIS_information:
+.. _showing-isis-information:
 
 Showing ISIS information
 ========================
@@ -446,7 +446,7 @@ Traffic Engineering
 
    :ref:`ospf-traffic-engineering`
 
-.. _Debugging_ISIS:
+.. _debugging-isis:
 
 Debugging ISIS
 ==============

@@ -19,7 +19,7 @@ Configuring ospfd
 =================
 
 There are no *ospfd* specific options. Common options can be specified
-(:ref:`Common_Invocation_Options`) to *ospfd*.  *ospfd* needs to acquire
+(:ref:`common-invocation-options`) to *ospfd*.  *ospfd* needs to acquire
 interface information from *zebra* in order to function. Therefore *zebra* must
 be running before invoking *ospfd*. Also, if *zebra* is restarted then *ospfd*
 must be too.
@@ -27,7 +27,7 @@ must be too.
 Like other daemons, *ospfd* configuration is done in :abbr:`OSPF` specific
 configuration file :file:`ospfd.conf`.
 
-.. _OSPF_router:
+.. _ospf-router:
 
 OSPF router
 ===========
@@ -51,7 +51,7 @@ writing, *ospfd* does not support multiple OSPF processes.
 .. index:: no ospf router-id
 .. clicmd:: no ospf router-id
 
-.. _ospf_router-id:
+.. _ospf-router-id:
 
    This sets the router-ID of the OSPF process. The
    router-ID may be an IP address of the router, but need not be - it can
@@ -84,7 +84,7 @@ writing, *ospfd* does not support multiple OSPF processes.
 
   Note that areas with fully-adjacent virtual-links are considered to be
   "transit capable" and can always be used to route backbone traffic, and
-  hence are unaffected by this setting (:ref:`OSPF_virtual-link`).
+  hence are unaffected by this setting (:ref:`ospf-virtual-link`).
 
   More information regarding the behaviour controlled by this command can
   be found in :rfc:`3509`, and :t:`draft-ietf-ospf-shortcut-abr-02.txt`.
@@ -129,7 +129,7 @@ writing, *ospfd* does not support multiple OSPF processes.
 .. index:: no passive-interface INTERFACE
 .. clicmd:: no passive-interface INTERFACE
 
-.. _ospf_passive-interface:
+.. _ospf-passive-interface:
 
     Do not speak OSPF interface on the
     given interface, but do advertise the interface as a stub link in the
@@ -137,7 +137,7 @@ writing, *ospfd* does not support multiple OSPF processes.
     allows one to advertise addresses on such connected interfaces without
     having to originate AS-External/Type-5 LSAs (which have global flooding
     scope) - as would occur if connected addresses were redistributed into
-    OSPF (:ref:`Redistribute_routes_to_OSPF`). This is the only way to
+    OSPF (:ref:`redistribute-routes-to-ospf`). This is the only way to
     advertise non-OSPF links into stub areas.
 
 .. index:: timers throttle spf DELAY INITIAL-HOLDTIME MAX-HOLDTIME
@@ -164,7 +164,7 @@ writing, *ospfd* does not support multiple OSPF processes.
    by the `maximum-holdtime` configured with this command. If the adaptive
    hold-time elapses without any SPF-triggering event occuring then
    the current holdtime is reset to the `initial-holdtime`. The current
-   holdtime can be viewed with :ref:`show_ip_ospf`, where it is expressed as
+   holdtime can be viewed with :ref:`show-ip-ospf`, where it is expressed as
    a multiplier of the `initial-holdtime`.
 
    ::
@@ -218,7 +218,7 @@ writing, *ospfd* does not support multiple OSPF processes.
 
    Configured state of this feature as well as current status, such as the
    number of second remaining till on-startup or on-shutdown ends, can be
-   viewed with the :ref:`show_ip_ospf` command.
+   viewed with the :ref:`show-ip-ospf` command.
 
 .. index:: auto-cost reference-bandwidth (1-4294967)
 .. clicmd:: auto-cost reference-bandwidth (1-4294967)
@@ -226,7 +226,7 @@ writing, *ospfd* does not support multiple OSPF processes.
 .. index:: no auto-cost reference-bandwidth
 .. clicmd:: no auto-cost reference-bandwidth
 
-.. _OSPF_auto-cost_reference-bandwidth:
+.. _OSPF-auto-cost-reference-bandwidth:
 
    This sets the reference
    bandwidth for cost calculations, where this bandwidth is considered
@@ -250,7 +250,7 @@ writing, *ospfd* does not support multiple OSPF processes.
 .. index:: no network A.B.C.D/M area (0-4294967295)
 .. clicmd:: no network A.B.C.D/M area (0-4294967295)
 
-.. _OSPF_network_command:
+.. _ospf-network-command:
 
    This command specifies the OSPF enabled interface(s). If the interface has
    an address from range 192.168.1.0/24 then the command below enables ospf
@@ -276,10 +276,10 @@ writing, *ospfd* does not support multiple OSPF processes.
    contains the local address prefix of the interface.
 
    In some cases it may be more convenient to enable OSPF on a per
-   interface/subnet basis (:ref:`OSPF_ip_ospf_area_command`).
+   interface/subnet basis (:ref:`ospf-ip-ospf-area-command`).
 
 
-.. _OSPF_area:
+.. _ospf-area:
 
 OSPF area
 =========
@@ -357,7 +357,7 @@ OSPF area
 .. index:: no area (0-4294967295) virtual-link A.B.C.D
 .. clicmd:: no area (0-4294967295) virtual-link A.B.C.D
 
-.. _OSPF_virtual-link:
+.. _OSPF-virtual-link:
 
 .. index:: area A.B.C.D shortcut
 .. clicmd:: area A.B.C.D shortcut
@@ -513,17 +513,17 @@ OSPF area
 .. index:: area (0-4294967295) authentication message-digest
 .. clicmd:: area (0-4294967295) authentication message-digest
 
-.. _area_authentication_message-digest:
+.. _area-authentication-message-digest:
 
       Specify that OSPF packets
       must be authenticated with MD5 HMACs within the given area. Keying
-      material must also be configured on a per-interface basis (:ref:`ip_ospf_message-digest-key`).
+      material must also be configured on a per-interface basis (:ref:`ip-ospf-message-digest-key`).
 
       MD5 authentication may also be configured on a per-interface basis
-      (:ref:`ip_ospf_authentication_message-digest`). Such per-interface
+      (:ref:`ip-ospf-authentication-message-digest`). Such per-interface
       settings will override any per-area authentication setting.
 
-.. _OSPF_interface:
+.. _ospf-interface:
 
 OSPF interface
 ==============
@@ -534,11 +534,11 @@ OSPF interface
 .. index:: no ip ospf area [ADDR]
 .. clicmd:: no ip ospf area [ADDR]
 
-.. _OSPF_ip_ospf_area_command:
+.. _ospf-ip-ospf-area-command:
 
    Enable OSPF on the interface, optionally restricted to just the IP address
    given by `ADDR`, putting it in the `AREA` area. Per interface area
-   settings take precedence to network commands (:ref:`OSPF_network_command`).
+   settings take precedence to network commands (:ref:`ospf-network-command`).
 
    If you have a lot of interfaces, and/or a lot of subnets, then enabling OSPF
    via this command may result in a slight performance improvement.
@@ -553,17 +553,17 @@ OSPF interface
    all OSPF packets are authenticated. `AUTH_KEY` has length up to 8 chars.
 
    Simple text password authentication is insecure and deprecated in favour of
-   MD5 HMAC authentication (:ref:`ip_ospf_authentication_message-digest`).
+   MD5 HMAC authentication (:ref:`ip-ospf-authentication-message-digest`).
 
 .. index:: ip ospf authentication message-digest
 .. clicmd:: ip ospf authentication message-digest
 
-.. _ip_ospf_authentication_message-digest:
+.. _ip-ospf-authentication-message-digest:
 
    Specify that MD5 HMAC
    authentication must be used on this interface. MD5 keying material must
-   also be configured (:ref:`ip_ospf_message-digest-key`). Overrides any
-   authentication enabled on a per-area basis (:ref:`area_authentication_message-digest`).
+   also be configured (:ref:`ip-ospf-message-digest-key`). Overrides any
+   authentication enabled on a per-area basis (:ref:`area-authentication-message-digest`).
 
    Note that OSPF MD5 authentication requires that time never go backwards
    (correct time is NOT important, only that it never goes backwards), even
@@ -580,7 +580,7 @@ OSPF interface
 .. index:: no ip ospf message-digest-key
 .. clicmd:: no ip ospf message-digest-key
 
-.. _ip_ospf_message-digest-key:
+.. _ip-ospf-message-digest-key:
 
   Set OSPF authentication key to a
   cryptographic password. The cryptographic algorithm is MD5.
@@ -610,7 +610,7 @@ OSPF interface
 .. index:: no ip ospf dead-interval
 .. clicmd:: no ip ospf dead-interval
 
-.. _ip_ospf_dead-interval_minimal:
+.. _ip-ospf-dead-interval-minimal:
 
     Set number of seconds for
     RouterDeadInterval timer value used for Wait Timer and Inactivity
@@ -637,7 +637,7 @@ OSPF interface
    This value must be the same for all routers attached to a common network.
    The default value is 10 seconds.
 
-   This command has no effect if :ref:`ip_ospf_dead-interval_minimal` is also
+   This command has no effect if :ref:`ip-ospf-dead-interval-minimal` is also
    specified for the interface.
 
 .. index:: ip ospf network (broadcast|non-broadcast|point-to-multipoint|point-to-point)
@@ -687,7 +687,7 @@ OSPF interface
 
     Enable ospf on an interface and set associated area.
 
-.. _Redistribute_routes_to_OSPF:
+.. _redistribute-routes-to-ospf:
 
 Redistribute routes to OSPF
 ===========================
@@ -719,13 +719,13 @@ Redistribute routes to OSPF
 .. index:: no redistribute (kernel|connected|static|rip|bgp)
 .. clicmd:: no redistribute (kernel|connected|static|rip|bgp)
 
-.. _OSPF_redistribute:
+.. _ospf-redistribute:
 
    Redistribute routes of the specified protocol
    or kind into OSPF, with the metric type and metric set if specified,
    filtering the routes using the given route-map if specified.
    Redistributed routes may also be filtered with distribute-lists, see
-   :ref:`ospf_distribute-list`.
+   :ref:`ospf-distribute-list`.
 
    Redistributed routes are distributed as into OSPF as Type-5 External
    LSAs into links to areas that accept external routes, Type-7 External LSAs
@@ -733,7 +733,7 @@ Redistribute routes to OSPF
    external routes are not permitted.
 
    Note that for connected routes, one may instead use
-   :term:`passive-interface`, see :ref:`OSPF_passive-interface`.
+   :term:`passive-interface`, see :ref:`ospf-passive-interface`.
 
 .. index:: default-information originate
 .. clicmd:: default-information originate
@@ -773,11 +773,11 @@ Redistribute routes to OSPF
 .. index:: no distribute-list NAME out (kernel|connected|static|rip|ospf
 .. clicmd:: no distribute-list NAME out (kernel|connected|static|rip|ospf
 
-.. _ospf_distribute-list:
+.. _ospf-distribute-list:
 
     Apply the access-list filter, NAME, to
     redistributed routes of the given type before allowing the routes to
-    redistributed into OSPF (:ref:`OSPF_redistribute`).
+    redistributed into OSPF (:ref:`ospf-redistribute`).
 
 .. index:: default-metric (0-16777214)
 .. clicmd:: default-metric (0-16777214)
@@ -804,12 +804,12 @@ Redistribute routes to OSPF
 .. clicmd:: no router zebra
 
 
-.. _Showing_OSPF_information:
+.. _showing-ospf-information:
 
 Showing OSPF information
 ========================
 
-.. _show_ip_ospf:
+.. _show-ip-ospf:
 
 .. index:: show ip ospf
 .. clicmd:: show ip ospf
@@ -867,7 +867,7 @@ Showing OSPF information
 
    Show the OSPF routing table, as determined by the most recent SPF calculation.
 
-.. _Opaque_LSA:
+.. _opaque-lsa:
 
 Opaque LSA
 ==========
@@ -952,7 +952,7 @@ Traffic Engineering
 
    Show Traffic Engineering router parameters.
 
-.. _Router_Information:
+.. _router-information:
 
 Router Information
 ==================
@@ -1013,7 +1013,7 @@ Router Information
 
    Show Router Capabilities PCE parameters.
 
-.. _Debugging_OSPF:
+.. _debugging-ospf:
 
 Debugging OSPF
 ==============

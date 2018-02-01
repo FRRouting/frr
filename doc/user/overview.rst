@@ -1,4 +1,4 @@
-.. _Overview:
+.. _overview:
 
 ********
 Overview
@@ -10,7 +10,7 @@ OSPFv2, OSPFv3, IS-IS, BGP-4, and BGP-4+ (:ref:`supported-rfcs`). FRR also
 supports special BGP Route Reflector and Route Server behavior.  In addition to
 traditional IPv4 routing protocols, FRR also supports IPv6 routing protocols.
 With SNMP daemon which supports SMUX and AgentX protocol, FRR provides routing
-protocol MIBs (:ref:`SNMP_Support`).
+protocol MIBs (:ref:`snmp-support`).
 
 FRR uses an advanced software architecture to provide you with a high
 quality, multi server routing engine. FRR has an interactive user
@@ -296,7 +296,7 @@ When you send a bug report, please be careful about the points below.
 
 Bug reports help us improve FRR and are very much appreciated.
 
-.. _FRR: |PACKAGE_URL|
-.. _GitHub: https://github.com/frrouting/frr/
+.. _frr: |PACKAGE-URL|
+.. _github: https://github.com/frrouting/frr/
 .. _GitHub issues: https://github.com/frrouting/frr/issues
-.. _Slack: https://frrouting.slack.com/
+.. _slack: https://frrouting.slack.com/

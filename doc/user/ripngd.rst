@@ -1,4 +1,4 @@
-.. _RIPng:
+.. _ripng:
 
 *****
 RIPng
@@ -7,15 +7,15 @@ RIPng
 *ripngd* supports the RIPng protocol as described in :rfc:`2080`. It's an IPv6
 reincarnation of the RIP protocol.
 
-.. _Invoking_ripngd:
+.. _invoking-ripngd:
 
 Invoking ripngd
 ===============
 
 There are no `ripngd` specific invocation options. Common options can be
-specified (:ref:`Common_Invocation_Options`).
+specified (:ref:`common-invocation-options`).
 
-.. _ripngd_Configuration:
+.. _ripngd-configuration:
 
 ripngd Configuration
 ====================
@@ -53,7 +53,7 @@ Currently ripngd supports the following commands:
    This command is the default and does not appear in the configuration. With
    this statement, RIPng routes go to the *zebra* daemon.
 
-.. _ripngd_Terminal_Mode_Commands:
+.. _ripngd-terminal-mode-commands:
 
 ripngd Terminal Mode Commands
 =============================

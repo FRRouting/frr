@@ -87,7 +87,7 @@ is defined, and no match is found, default deny is applied.
 .. index:: no ip prefix-list NAME
 .. clicmd:: no ip prefix-list NAME
 
-.. _ip_prefix-list_description:
+.. _ip-prefix-list-description:
 
 ip prefix-list description
 --------------------------
@@ -104,7 +104,7 @@ ip prefix-list description
    Deletes the description from a prefix list. It is possible to use the
    command without the full description.
 
-.. _ip_prefix-list_sequential_number_control:
+.. _ip-prefix-list-sequential-number-control:
 
 ip prefix-list sequential number control
 ----------------------------------------
@@ -121,7 +121,7 @@ ip prefix-list sequential number control
    With this command, the IP prefix list sequential number is not
    displayed.
 
-.. _Showing_ip_prefix-list:
+.. _Showing-ip-prefix-list:
 
 Showing ip prefix-list
 ----------------------

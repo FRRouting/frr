@@ -1,4 +1,4 @@
-.. _IPv6_Support:
+.. _IPv6-Support:
 
 ************
 IPv6 Support
