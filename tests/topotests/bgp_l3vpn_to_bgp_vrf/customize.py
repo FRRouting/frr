@@ -74,6 +74,7 @@ r3-eth1 .3 |  | .3  r3-eth0      | .4 r4-eth0
 """
 
 import os
+import re
 import sys
 import pytest
 
@@ -91,6 +92,8 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 # test name based on directory
 TEST = os.path.basename(CWD)
 
+MplsInit = False
+
 class ThisTestTopo(Topo):
     "Test topology builder"
     def build(self, *_args, **_opts):
@@ -101,7 +104,14 @@ class ThisTestTopo(Topo):
         # between routers, switches and hosts.
         #
         # Create P/PE routers
-        for routern in range(1, 5):
+        #check for mpls - there may be a better way to check...
+        tgen.add_router('r1')
+        if os.path.exists('/proc/sys/net/mpls/conf') != True:
+            logger.info('MPLS not available, tests will be skipped')
+            return
+        global MplsInit
+        MplsInit = True
+        for routern in range(2, 5):
             tgen.add_router('r{}'.format(routern))
         # Create CE routers
         for routern in range(1, 5):
@@ -129,14 +139,21 @@ class ThisTestTopo(Topo):
         switch[1].add_link(tgen.gears['r2'], nodeif='r2-eth2')
         switch[1].add_link(tgen.gears['r3'], nodeif='r3-eth1')
 
-def doCmd(tgen, rtr, cmd):
+def doCmd(tgen, rtr, cmd, checkstr = None):
     output = tgen.net[rtr].cmd(cmd).strip()
     if len(output):
+        if checkstr != None:
+            return re.search(checkstr, output)
         logger.info('command output: ' + output)
+    return None
 
 def ltemplatePreRouterStartHook():
     tgen = get_topogen()
     logger.info('pre router-start hook')
+    #check for mpls
+    if MplsInit == False:
+        logger.info('MPLS not available, skipping setup')
+        return
     #configure r2 mpls interfaces
     intfs = ['lo', 'r2-eth0', 'r2-eth1', 'r2-eth2']
     for intf in intfs:
@@ -148,9 +165,7 @@ def ltemplatePreRouterStartHook():
             'ip ru add iif cust1 table 10',
             'ip link set dev cust1 up']
     for rtr in rtrs:
-        if router.has_mpls() == False:
-            logger.info('MPLS not supported, test will be skipped')
-            return
+        router = tgen.gears[rtr]
         for cmd in cmds:
             doCmd(tgen, rtr, cmd)
         doCmd(tgen, rtr, 'ip link set dev {}-eth4 master cust1'.format(rtr))
@@ -183,8 +198,8 @@ def versionCheck(vstr, rname='r1', compstr='<',cli=False):
 
     router = tgen.gears[rname]
 
-    if router.has_mpls() == False:
-        ret = 'MPLS not supported'
+    if MplsInit == False:
+        ret = 'MPLS not initialized'
         return ret
 
     ret = True
