@@ -192,7 +192,7 @@ struct ext_itf {
 extern int ospf_ext_init(void);
 extern void ospf_ext_term(void);
 extern void ospf_ext_update_sr(bool enable);
-extern int ospf_ext_schedule_prefix_index(struct interface *ifp,
+extern uint32_t ospf_ext_schedule_prefix_index(struct interface *ifp,
 					  uint32_t index,
 					  struct prefix_ipv4 *p,
 					  uint8_t flags);

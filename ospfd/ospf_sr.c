@@ -1489,7 +1489,6 @@ void ospf_sr_update_prefix(struct interface *ifp, struct prefix *p)
 {
 	struct listnode *node;
 	struct sr_prefix *srp;
-	uint32_t rc;
 
 	/* Sanity Check */
 	if ((ifp == NULL) || (p == NULL))
@@ -1514,10 +1513,8 @@ void ospf_sr_update_prefix(struct interface *ifp, struct prefix *p)
 			IPV4_ADDR_COPY(&srp->nhlfe.nexthop, &p->u.prefix4);
 
 			/* OK. Let's Schedule Extended Prefix LSA */
-			rc = ospf_ext_schedule_prefix_index(ifp, srp->sid,
-				&srp->nhlfe.prefv4, srp->flags);
-			srp->instance = SET_OPAQUE_LSID(
-				OPAQUE_TYPE_EXTENDED_PREFIX_LSA, rc);
+			srp->instance = ospf_ext_schedule_prefix_index(ifp,
+				srp->sid, &srp->nhlfe.prefv4, srp->flags);
 
 			/* Install NHLFE if NO-PHP is requested */
 			if (CHECK_FLAG(srp->flags,
@@ -2021,14 +2018,13 @@ DEFUN (sr_prefix_sid,
 	}
 
 	/* Finally, update Extended Prefix LSA */
-	rc = ospf_ext_schedule_prefix_index(ifp, srp->sid,
-			&srp->nhlfe.prefv4, srp->flags);
-	if (rc == 0) {
+	srp->instance = ospf_ext_schedule_prefix_index(ifp, srp->sid,
+				&srp->nhlfe.prefv4, srp->flags);
+	if (srp->instance) {
 		vty_out(vty, "Unable to set index %u for prefix %s/%u\n", index,
 			inet_ntoa(p.u.prefix4), p.prefixlen);
 		return CMD_WARNING;
 	}
-	srp->instance = SET_OPAQUE_LSID(OPAQUE_TYPE_EXTENDED_PREFIX_LSA, rc);
 
 	return CMD_SUCCESS;
 }

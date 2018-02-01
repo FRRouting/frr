@@ -238,10 +238,12 @@ static struct ext_itf *lookup_ext_by_instance(struct ospf_lsa *lsa)
 {
 	struct listnode *node;
 	struct ext_itf *exti;
-	unsigned int key = GET_OPAQUE_ID(ntohl(lsa->data->id.s_addr));
+	uint32_t key = GET_OPAQUE_ID(ntohl(lsa->data->id.s_addr));
+	uint8_t type = GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr));
+
 
 	for (ALL_LIST_ELEMENTS_RO(OspfEXT.iflist, node, exti))
-		if (exti->instance == key)
+		if ((exti->instance == key) && (exti->type == type))
 			return exti;
 
 	return NULL;
@@ -419,8 +421,8 @@ static void set_rmt_itf_addr(struct ext_itf *exti, struct in_addr rmtif)
  *
  * @return instance number if update is OK, 0 otherwise
  */
-int ospf_ext_schedule_prefix_index(struct interface *ifp, uint32_t index,
-				   struct prefix_ipv4 *p, uint8_t flags)
+uint32_t ospf_ext_schedule_prefix_index(struct interface *ifp, uint32_t index,
+				   	struct prefix_ipv4 *p, uint8_t flags)
 {
 	int rc = 0;
 	struct ext_itf *exti;
@@ -462,7 +464,7 @@ int ospf_ext_schedule_prefix_index(struct interface *ifp, uint32_t index,
 		}
 	}
 
-	return exti->instance;
+	return SET_OPAQUE_LSID(exti->type, exti->instance);
 }
 
 /*
@@ -587,6 +589,7 @@ static void ospf_ext_link_ism_change(struct ospf_interface *oi, int old_status)
 			exti->stype = ADJ_SID;
 
 		exti->instance = get_ext_link_instance_value();
+		exti->type = OPAQUE_TYPE_EXTENDED_LINK_LSA;
 
 		zlog_debug(
 			"EXT (%s): Set %s SID to interface %s ", __func__,
@@ -616,6 +619,7 @@ static void ospf_ext_pref_ism_change(struct ospf_interface *oi, int old_status)
 	if (oi->type == OSPF_IFTYPE_LOOPBACK) {
 		exti->stype = PREF_SID;
 		exti->instance = get_ext_pref_instance_value();
+		exti->type = OPAQUE_TYPE_EXTENDED_PREFIX_LSA;
 
 		zlog_debug(
 			"EXT (%s): Set Node SID to interface %s ", __func__,
@@ -1329,8 +1333,7 @@ static struct ospf_lsa *ospf_ext_pref_lsa_refresh(struct ospf_lsa *lsa)
 	}
 
 	/* Create new Opaque-LSA/Extended Prefix Opaque LSA instance. */
-	if (exti)
-		new = ospf_ext_pref_lsa_new(area, exti);
+	new = ospf_ext_pref_lsa_new(area, exti);
 
 	if (new == NULL) {
 		zlog_warn("EXT (%s): ospf_ext_pref_lsa_new() error", __func__);
