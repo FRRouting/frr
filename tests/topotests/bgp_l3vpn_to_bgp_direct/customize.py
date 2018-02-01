@@ -128,14 +128,21 @@ class ThisTestTopo(Topo):
         switch[1].add_link(tgen.gears['r2'], nodeif='r2-eth2')
         switch[1].add_link(tgen.gears['r3'], nodeif='r3-eth1')
 
-def doCmd(tgen, rtr, cmd):
+def doCmd(tgen, rtr, cmd, checkstr=None):
     output = tgen.net[rtr].cmd(cmd).strip()
     if len(output):
         logger.info('command output: ' + output)
+        if checkstr != None:
+            return re.search(checkstr, output)
+    return None
 
 def ltemplatePreRouterStartHook():
     tgen = get_topogen()
     logger.info('pre router-start hook')
+    #check for mpls - there may be a better way to check...
+    if doCmd(tgen, 'r2', 'ls /proc/sys/net/mpls/conf', 'No such'):
+        logger.info('MPLS not supported, tests will be skipped')
+        return
     #configure r2 mpls interfaces
     intfs = ['lo', 'r2-eth0', 'r2-eth1', 'r2-eth2']
     for intf in intfs:
@@ -144,6 +151,7 @@ def ltemplatePreRouterStartHook():
     rtrs = ['r1', 'r3', 'r4']
     cmds = ['echo 1 > /proc/sys/net/mpls/conf/lo/input']
     for rtr in rtrs:
+        router = tgen.gears[rtr]
         for cmd in cmds:
             doCmd(tgen, rtr, cmd)
         intfs = ['lo', rtr+'-eth0', rtr+'-eth4']
@@ -160,6 +168,11 @@ def versionCheck(vstr, rname='r1', compstr='<',cli=False):
     tgen = get_topogen()
 
     router = tgen.gears[rname]
+
+    if router.has_mpls() == False:
+        ret = 'MPLS not supported'
+        return ret
+
     ret = True
     try:
         if router.has_version(compstr, vstr):
