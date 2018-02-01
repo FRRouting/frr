@@ -148,6 +148,9 @@ def ltemplatePreRouterStartHook():
             'ip ru add iif cust1 table 10',
             'ip link set dev cust1 up']
     for rtr in rtrs:
+        if router.has_mpls() == False:
+            logger.info('MPLS not supported, test will be skipped')
+            return
         for cmd in cmds:
             doCmd(tgen, rtr, cmd)
         doCmd(tgen, rtr, 'ip link set dev {}-eth4 master cust1'.format(rtr))
@@ -179,6 +182,11 @@ def versionCheck(vstr, rname='r1', compstr='<',cli=False):
     tgen = get_topogen()
 
     router = tgen.gears[rname]
+
+    if router.has_mpls() == False:
+        ret = 'MPLS not supported'
+        return ret
+
     ret = True
     try:
         if router.has_version(compstr, vstr):
