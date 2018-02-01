@@ -68,6 +68,18 @@ endif
 # handled by subdir target
 man: ;
 
+FRR.pdf:
+	$(MAKE) -C user latexpdf
+
+developer.pdf:
+	$(MAKE) -C developer latexpdf
+
+FRR.html:
+	$(MAKE) -C user html
+
+developer.html:
+	$(MAKE) -C developer html
+
 # include sources for shipped docs
 EXTRA_DIST = manpages/defines.txt \
 	manpages/ldpd.rst \
