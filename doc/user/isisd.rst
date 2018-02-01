@@ -410,8 +410,6 @@ Showing ISIS information
    Show the ISIS routing table, as determined by the most recent SPF
    calculation.
 
-.. _ospf-traffic-engineering:
-
 Traffic Engineering
 ===================
 
@@ -443,6 +441,10 @@ Traffic Engineering
 .. clicmd:: show isis mpls-te router
 
    Show Traffic Engineering router parameters.
+
+.. seealso::
+
+   :ref:`ospf-traffic-engineering`
 
 .. _Debugging_ISIS:
 

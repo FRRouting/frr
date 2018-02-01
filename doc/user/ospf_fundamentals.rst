@@ -73,8 +73,8 @@ The Hello Protocol
 The OSPF Hello protocol allows OSPF to quickly detect changes in two-way
 reachability between routers on a link. OSPF can additionally avail of other
 sources of reachability information, such as link-state information provided by
-hardware, or through dedicated reachability protocols such as :abbr:`BFD
-(Bidirectional Forwarding Detection)`.
+hardware, or through dedicated reachability protocols such as
+:abbr:`BFD (Bidirectional Forwarding Detection)`.
 
 OSPF also uses the Hello protocol to propagate certain state between routers
 sharing a link, for example:
@@ -118,7 +118,7 @@ LSA Flooding
 """"""""""""
 
 OSPF defines several related mechanisms, used to manage synchronisation of
-:abbr:`LSDB`s between neighbours as neighbours form adjacencies and the
+:abbr:`LSDB` s between neighbours as neighbours form adjacencies and the
 propogation, or :term:`flooding` of new or updated :abbr:`LSA` s.
 
 :ref:`OSPF_Flooding`.
@@ -191,7 +191,7 @@ All LSAs share a common header with the following information:
 - Age
 
   A number to allow stale :abbr:`LSA` s to, eventually, be purged by routers
-  from their :abbr:`LSDB`s.
+  from their :abbr:`LSDB` s.
 
   The value nominally is one of seconds. An age of 3600, i.e. 1 hour, is
   called the :term:`MaxAge`. MaxAge LSAs are ignored in routing
@@ -540,6 +540,6 @@ like:::
 Summary LSAs
 ^^^^^^^^^^^^
 
-Summary LSAs are created by :abbr:`ABR`s to summarise the destinations
+Summary LSAs are created by :abbr:`ABR` s to summarise the destinations
 available within one area to other areas. These LSAs may describe IP networks,
 potentially in aggregated form, or :abbr:`ASBR` routers.

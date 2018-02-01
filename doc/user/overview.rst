@@ -262,13 +262,12 @@ Italicized lists are private.
 +--------------------------------+------------------------------+
 
 The Development list is used to discuss and document general issues related to
-project development and governance. The public `Slack instance
-<https://frrouting.slack.com>`_, and weekly technical meetings provide a higher
-bandwidth channel for discussions. The results of such discussions are
-reflected in updates, as appropriate, to code (i.e., merges), `GitHub
-<https://github.com/FRRouting/frr/issues>`_ tracked issues, and for governance
-or process changes, updates to the Development list and either this file or
-information posted at https://frrouting.org/.
+project development and governance. The public `Slack`_ instance and weekly
+technical meetings provide a higher bandwidth channel for discussions. The
+results of such discussions are reflected in updates, as appropriate, to code
+(i.e., merges), `GitHub issues`_ tracked issues, and for governance or process
+changes, updates to the Development list and either this file or information
+posted at `FRR`_.
 
 .. index:: Bug Reports
 .. index:: Bug hunting
@@ -298,5 +297,6 @@ When you send a bug report, please be careful about the points below.
 Bug reports help us improve FRR and are very much appreciated.
 
 .. _FRR: |PACKAGE_URL|
-.. _GitHub: http://github.com/frrouting/frr/
-.. _GitHub issues: http://github.com/frrouting/frr/
+.. _GitHub: https://github.com/frrouting/frr/
+.. _GitHub issues: https://github.com/frrouting/frr/issues
+.. _Slack: https://frrouting.slack.com/

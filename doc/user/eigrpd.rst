@@ -188,19 +188,10 @@ How to Announce EIGRP route
 Show EIGRP Information
 ======================
 
-To display EIGRP routes.
-
 .. index:: show ip eigrp topology
 .. clicmd:: show ip eigrp topology
 
-   Show EIGRP routes.
-
-The command displays all EIGRP routes.
-
-.. index:: show ip eigrp topology
-.. clicmd:: show ip eigrp topology
-
-   The command displays current EIGRP status
+   Display current EIGRP status.
 
    ::
 

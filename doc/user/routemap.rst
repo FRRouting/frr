@@ -10,52 +10,49 @@ allowing policy to be applied to routes.
 Route maps are an ordered list of route map entries. Each entry may specify up
 to four distincts sets of clauses:
 
-- :dfn:`Matching Policy`
+.. glossary::
 
-  This specifies the policy implied if the *Matching Conditions* are
-  met or not met, and which actions of the route-map are to be taken, if
-  any. The two possibilities are:
+   Matching Conditions
+      A route-map entry may, optionally, specify one or more conditions which
+      must be matched if the entry is to be considered further, as governed by
+      the Match Policy. If a route-map entry does not explicitely specify any
+      matching conditions, then it always matches.
 
-  - :dfn:`permit`: If the entry matches, then carry out the :term:`Set
-    Actions`. Then finish processing the route-map, permitting the route,
-    unless an *Exit Action* indicates otherwise.
+   Set Actions
+      A route-map entry may, optionally, specify one or more Set Actions to set
+      or modify attributes of the route.
 
-  - :dfn:`deny`: If the entry matches, then finish processing the route-map and
-    deny the route (return ``deny``).
+   Matching Policy
+      This specifies the policy implied if the :term:`Matching Conditions` are
+      met or not met, and which actions of the route-map are to be taken, if
+      any. The two possibilities are:
 
-    The *Matching Policy* is specified as part of the command which
-    defines the ordered entry in the route-map. See below.
+      - :dfn:`permit`: If the entry matches, then carry out the
+        :term:`Set Actions`. Then finish processing the route-map, permitting
+        the route, unless an :term:`Exit Policy` action indicates otherwise.
 
-- :dfn:`Matching Conditions`
+      - :dfn:`deny`: If the entry matches, then finish processing the route-map and
+        deny the route (return `deny`).
 
-  A route-map entry may, optionally, specify one or more conditions which must
-  be matched if the entry is to be considered further, as governed by the Match
-  Policy. If a route-map entry does not explicitely specify any matching
-  conditions, then it always matches.
+      The `Matching Policy` is specified as part of the command which defines
+      the ordered entry in the route-map. See below.
 
-- :dfn:`Set Actions`
+   Call Action
+      Call to another route-map, after any :term:`Set Actions` have been carried out.
+      If the route-map called returns `deny` then processing of the route-map
+      finishes and the route is denied, regardless of the :term:Matching Policy` or
+      the :term:`Exit Policy`. If the called route-map returns `permit`, then
+      :term:`Matching Policy` and :term:`Exit Policy` govern further behaviour, as normal.
 
-  A route-map entry may, optionally, specify one or more *Set Actions* to
-  set or modify attributes of the route.
+   Exit Policy
+      An entry may, optionally, specify an alternative :dfn:`Exit Policy` to
+      take if the entry matched, rather than the normal policy of exiting the
+      route-map and permitting the route. The two possibilities are:
 
-- :dfn:`Call Action`
+      - :dfn:`next`: Continue on with processing of the route-map entries.
 
-  Call to another route-map, after any *Set Actions* have been carried out.
-  If the route-map called returns *deny* then processing of the route-map
-  finishes and the route is denied, regardless of the *Matching Policy* or
-  the *Exit Policy*. If the called route-map returns *permit*, then
-  *Matching Policy* and *Exit Policy* govern further behaviour, as normal.
-
-- :dfn:`Exit Policy`
-
-  An entry may, optionally, specify an alternative *Exit Policy* to
-  take if the entry matched, rather than the normal policy of exiting the
-  route-map and permitting the route. The two possibilities are:
-
-  - :dfn:`next`: Continue on with processing of the route-map entries.
-
-  - :dfn:`goto N`: Jump ahead to the first route-map entry whose order in
-    the route-map is >= N. Jumping to a previous entry is not permitted.
+      - :dfn:`goto N`: Jump ahead to the first route-map entry whose order in
+        the route-map is >= N. Jumping to a previous entry is not permitted.
 
 The default action of a route-map, if no entries match, is to deny.  I.e. a
 route-map essentially has as its last entry an empty *deny* entry, which
@@ -188,10 +185,10 @@ Route Map Match Command
 Route Map Set Command
 =====================
 
+.. program:: configure
+
 .. index:: set tag TAG
 .. clicmd:: set tag TAG
-
-.. program:: configure
 
    Set a tag on the matched route. This tag value can be from (1-4294967295).
    Additionally if you have compiled with the :option:`--enable-realms`

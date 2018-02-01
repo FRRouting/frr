@@ -34,6 +34,8 @@ Besides the common invocation options (:ref:`Common_Invocation_Options`), the
 
    When program terminates, retain routes added by zebra.
 
+.. program:: configure
+
 .. _Interface_Commands:
 
 Interface Commands
@@ -444,28 +446,28 @@ longer-prefix
 zebra Route Filtering
 =====================
 
-Zebra supports :dfn:`prefix-list`s and :ref:`Route_Map`s to match routes
-received from other frr components. The permit/deny facilities provided by
+Zebra supports :dfn:`prefix-list` s and :ref:`Route_Map` s to match routes
+received from other FRR components. The permit/deny facilities provided by
 these commands can be used to filter which routes zebra will install in the
 kernel.
 
 .. index:: ip protocol PROTOCOL route-map ROUTEMAP
 .. clicmd:: ip protocol PROTOCOL route-map ROUTEMAP
 
-  Apply a route-map filter to routes for the specified protocol. PROTOCOL can
-  be **any** or one of
+   Apply a route-map filter to routes for the specified protocol. PROTOCOL can
+   be **any** or one of
 
-  - system,
-  - kernel,
-  - connected,
-  - static,
-  - rip,
-  - ripng,
-  - ospf,
-  - ospf6,
-  - isis,
-  - bgp,
-  - hsls.
+   - system,
+   - kernel,
+   - connected,
+   - static,
+   - rip,
+   - ripng,
+   - ospf,
+   - ospf6,
+   - isis,
+   - bgp,
+   - hsls.
 
 .. index:: set src ADDRESS
 .. clicmd:: set src ADDRESS

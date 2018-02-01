@@ -166,6 +166,10 @@ customize the build to include or exclude specific features and dependencies.
 
    Build without VTYSH.
 
+.. option:: --enable-fpm
+
+   Build with FPM module support.
+
 You may specify any combination of the above options to the configure
 script. By default, the executables are placed in :file:`/usr/local/sbin`
 and the configuration files in :file:`/usr/local/etc`. The :file:`/usr/local/`

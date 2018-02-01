@@ -279,7 +279,7 @@ and sometimes not, depending on the properties of those other routes, means MED
 can cause the order of preference over all the routes to be undefined. That is,
 given routes A, B, and C, if A is preferred to B, and B is preferred to C, then
 a well-defined order should mean the preference is transitive (in the sense of
-orders [#med-transitivity-rant])_ and that A would be preferred to C.
+orders [#med-transitivity-rant]_) and that A would be preferred to C.
 
 However, when MED is involved this need not be the case. With MED it is
 possible that C is actually preferred over A. So A is preferred to B, B is
@@ -409,7 +409,7 @@ induce; in general on arbitrary networks.
 
 There may be iBGP topology specific ways to reduce the instability risks, even
 while using MED, e.g.: by constraining the reflection topology and by tuning
-IGP costs between route-reflector clusters, see RFC3345 for details.  In the
+IGP costs between route-reflector clusters, see :rfc:`3345` for details.  In the
 near future, the Add-Path extension to BGP may also solve MED oscillation while
 still allowing MED to be used as intended, by distributing "best-paths per
 neighbour AS". This would be at the cost of distributing at least as many
@@ -420,12 +420,12 @@ Add-Path reflector.
 More generally, the instability problems that MED can introduce on more
 complex, non-full-mesh, iBGP topologies may be avoided either by:
 
-- Setting :ref:`bgp_always-compare-med`, however this allows MED to be compared
+- Setting :clicmd:`bgp always-compare-med`, however this allows MED to be compared
   across values set by different neighbour ASes, which may not produce
   coherent desirable results, of itself.
 - Effectively ignoring MED by setting MED to the same value (e.g.: 0) using
-  :ref:`routemap_set_metric` on all received routes, in combination with
-  setting :ref:`bgp_always-compare-med` on all speakers. This is the simplest
+  :clicmd:`set metric METRIC` on all received routes, in combination with
+  setting :clicmd:`bgp always-compare-med` on all speakers. This is the simplest
   and most performant way to avoid MED oscillation issues, where an AS is happy
   not to allow neighbours to inject this problematic metric.
 
@@ -443,6 +443,7 @@ paper above for an example. Hence the guideline that the iBGP topology should
 follow the IGP topology.
 
 .. _bgp_deterministic-med:
+
 .. index:: bgp deterministic-med
 .. clicmd:: bgp deterministic-med
 
@@ -463,10 +464,10 @@ Note that there are other sources of indeterminism in the route selection
 process, specifically, the preference for older and already selected routes
 from eBGP peers, :ref:`BGP_decision_process`.
 
+.. _bgp_always-compare-med:
+
 .. index:: bgp always-compare-med
 .. clicmd:: bgp always-compare-med
-
-.. _bgp_always-compare-med:
 
    Always compare the MED on routes, even when they were received from
    different neighbouring ASes. Setting this option makes the order of

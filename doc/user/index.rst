@@ -7,22 +7,24 @@ Welcome to FRR's documentation!
    overview
    installation
    basic
-   zebra
-   ripd
-   ripngd
-   ospfd
-   ospf6d
-   isisd
-   nhrpd
-   bgp
-   babeld
-   vnc
    vtysh
    filter
    routemap
    ipv6
    kernel
    snmp
+   zebra
    protocol
+   bgp
+   babeld
+   eigrpd
+   isisd
+   nhrpd
+   ospfd
+   ospf6d
    pim
+   ripd
+   ripngd
+   vnc
+   appendix
 
