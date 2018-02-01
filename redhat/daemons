@@ -38,6 +38,7 @@ watchfrr_enable=no
 watchfrr_options=("-b_" "-r/usr/lib/frr/frr_restart_%s" "-s/usr/lib/frr/frr_start_%s" "-k/usr/lib/frr/frr_stop_%s")
 #
 zebra=no
+bfdd=no
 bgpd=no
 ospfd=no
 ospf6d=no
@@ -55,6 +56,7 @@ pbrd=no
 # Command line options for the daemons
 #
 zebra_options=("-A 127.0.0.1")
+bfdd_options=("-A 127.0.0.1")
 bgpd_options=("-A 127.0.0.1")
 ospfd_options=("-A 127.0.0.1")
 ospf6d_options=("-A ::1")

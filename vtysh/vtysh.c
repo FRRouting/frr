@@ -72,6 +72,7 @@ struct vtysh_client vtysh_client[] = {
 	{.fd = -1, .name = "ospfd", .flag = VTYSH_OSPFD, .next = NULL},
 	{.fd = -1, .name = "ospf6d", .flag = VTYSH_OSPF6D, .next = NULL},
 	{.fd = -1, .name = "ldpd", .flag = VTYSH_LDPD, .next = NULL},
+	{.fd = -1, .name = "bfdd", .flag = VTYSH_BFDD, .next = NULL},
 	{.fd = -1, .name = "bgpd", .flag = VTYSH_BGPD, .next = NULL},
 	{.fd = -1, .name = "isisd", .flag = VTYSH_ISISD, .next = NULL},
 	{.fd = -1, .name = "pimd", .flag = VTYSH_PIMD, .next = NULL},
@@ -994,6 +995,14 @@ static char **new_completion(char *text, int start, int end)
 }
 
 /* Vty node structures. */
+static struct cmd_node bfd_node = {
+	BFD_NODE, "%s(config-bfd)# ", 1,
+};
+
+static struct cmd_node bfd_peer_node = {
+	BFD_PEER_NODE, "%s(config-bfd-peer)# ", 1,
+};
+
 static struct cmd_node bgp_node = {
 	BGP_NODE, "%s(config-router)# ",
 };
@@ -1144,6 +1153,33 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_end_all, vtysh_end_all_cmd, "end",
 {
 	return vtysh_end();
 }
+
+#if defined(HAVE_BFDD)
+DEFUNSH(VTYSH_BFDD, bfd_enter, bfd_enter_cmd,
+	"bfd",
+	"Configure BFD peers\n")
+{
+	vty->node = BFD_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_BFDD, bfd_peer_enter, bfd_peer_enter_cmd,
+	"peer <A.B.C.D|X:X::X:X> [<{interface IFNAME}|{local-address <A.B.C.D|X:X::X:X>|vrf NAME}>]",
+	"Configure peer\n"
+	"IPv4 peer address\n"
+	"IPv6 peer address\n"
+	INTERFACE_STR
+	"Configure interface name to use\n"
+	"Configure local address (enables multihop)\n"
+	"IPv4 local address\n"
+	"IPv6 local address\n"
+	"Configure VRF\n"
+	"Configure VRF name\n")
+{
+	vty->node = BFD_PEER_NODE;
+	return CMD_SUCCESS;
+}
+#endif /* HAVE_BFDD */
 
 DEFUNSH(VTYSH_BGPD, router_bgp, router_bgp_cmd,
 	"router bgp [(1-4294967295) [<view|vrf> WORD]]",
@@ -1602,6 +1638,7 @@ static int vtysh_exit(struct vty *vty)
 	case VRF_NODE:
 	case NH_GROUP_NODE:
 	case ZEBRA_NODE:
+	case BFD_NODE:
 	case BGP_NODE:
 	case RIP_NODE:
 	case RIPNG_NODE:
@@ -1619,6 +1656,9 @@ static int vtysh_exit(struct vty *vty)
 		vtysh_execute("end");
 		vtysh_execute("configure terminal");
 		vty->node = CONFIG_NODE;
+		break;
+	case BFD_PEER_NODE:
+		vty->node = BFD_NODE;
 		break;
 	case BGP_VPNV4_NODE:
 	case BGP_VPNV6_NODE:
@@ -1676,6 +1716,17 @@ DEFUNSH(VTYSH_ALL, vtysh_quit_all, vtysh_quit_all_cmd, "quit",
 {
 	return vtysh_exit_all(self, vty, argc, argv);
 }
+
+#if defined(HAVE_BFDD)
+DEFUNSH(VTYSH_BFDD, vtysh_exit_bfdd, vtysh_exit_bfdd_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit(vty);
+}
+
+ALIAS(vtysh_exit_bfdd, vtysh_quit_bfdd_cmd, "quit",
+      "Exit current mode and down to previous mode\n")
+#endif
 
 DEFUNSH(VTYSH_BGPD, exit_address_family, exit_address_family_cmd,
 	"exit-address-family", "Exit from Address Family configuration mode\n")
@@ -3229,6 +3280,10 @@ void vtysh_init_vty(void)
 	cmd_variable_handler_register(vtysh_var_handler);
 
 	/* Install nodes. */
+#if defined(HAVE_BFDD)
+	install_node(&bfd_node, NULL);
+	install_node(&bfd_peer_node, NULL);
+#endif /* HAVE_BFDD */
 	install_node(&bgp_node, NULL);
 	install_node(&rip_node, NULL);
 	install_node(&interface_node, NULL);
@@ -3289,6 +3344,14 @@ void vtysh_init_vty(void)
 	install_element(ENABLE_NODE, &vtysh_disable_cmd);
 
 	/* "exit" command. */
+#if defined(HAVE_BFDD)
+	install_element(CONFIG_NODE, &bfd_enter_cmd);
+	install_element(BFD_NODE, &bfd_peer_enter_cmd);
+	install_element(BFD_NODE, &vtysh_exit_bfdd_cmd);
+	install_element(BFD_NODE, &vtysh_quit_bfdd_cmd);
+	install_element(BFD_PEER_NODE, &vtysh_exit_bfdd_cmd);
+	install_element(BFD_PEER_NODE, &vtysh_quit_bfdd_cmd);
+#endif /* HAVE_BFDD */
 	install_element(VIEW_NODE, &vtysh_exit_all_cmd);
 	install_element(CONFIG_NODE, &vtysh_exit_all_cmd);
 	install_element(VIEW_NODE, &vtysh_quit_all_cmd);
@@ -3411,6 +3474,10 @@ void vtysh_init_vty(void)
 	install_element(RMAP_NODE, &vtysh_end_all_cmd);
 	install_element(PBRMAP_NODE, &vtysh_end_all_cmd);
 	install_element(VTY_NODE, &vtysh_end_all_cmd);
+#if defined(HAVE_BFDD)
+	install_element(BFD_NODE, &vtysh_end_all_cmd);
+	install_element(BFD_PEER_NODE, &vtysh_end_all_cmd);
+#endif /* HAVE_BFDD */
 
 	install_element(INTERFACE_NODE, &vtysh_interface_desc_cmd);
 	install_element(INTERFACE_NODE, &vtysh_no_interface_desc_cmd);

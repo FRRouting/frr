@@ -1,0 +1,25 @@
+#
+# bfdd
+#
+
+if BFDD
+noinst_LIBRARIES += bfdd/libbfd.a
+sbin_PROGRAMS += bfdd/bfdd
+dist_examples_DATA += bfdd/bfdd.conf.sample
+endif
+
+bfdd_libbfd_a_SOURCES = \
+	bfdd/bfdd_frr.c \
+	bfdd/bfdd_vty.c \
+	# end
+
+bfdd/bfdd_vty_clippy.c: $(CLIPPY_DEPS)
+bfdd/bfdd_vty.$(OBJEXT): bfdd/bfdd_vty_clippy.c
+
+noinst_HEADERS += \
+	bfdd/bfdctl.h \
+	bfdd/bfdd_frr.h \
+	# end
+
+bfdd_bfdd_SOURCES = bfdd/bfdd.c
+bfdd_bfdd_LDADD = bfdd/libbfd.a lib/libfrr.la

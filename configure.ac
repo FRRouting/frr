@@ -330,6 +330,8 @@ AC_ARG_ENABLE(doc,
   AS_HELP_STRING([--disable-doc], [do not build docs]))
 AC_ARG_ENABLE(zebra,
   AS_HELP_STRING([--disable-zebra], [do not build zebra daemon]))
+AC_ARG_ENABLE(bfdd,
+  AS_HELP_STRING([--enable-bfdd], [build bfdd]))
 AC_ARG_ENABLE(bgpd,
   AS_HELP_STRING([--disable-bgpd], [do not build bgpd]))
 AC_ARG_ENABLE(ripd,
@@ -1330,9 +1332,14 @@ else
 fi
 AM_CONDITIONAL(BGPD, test "x$BGPD" = "xbgpd")
 
+AM_CONDITIONAL(BFDD, test "${enable_bfdd}" != "no")
 AM_CONDITIONAL(RIPD, test "${enable_ripd}" != "no")
 AM_CONDITIONAL(OSPFD, test "${enable_ospfd}" != "no")
 AM_CONDITIONAL(LDPD, test "${enable_ldpd}" != "no")
+
+AS_IF([test "${enable_bfdd}" != "no"], [
+  AC_DEFINE(HAVE_BFDD, 1, bfdd)
+])
 
 AS_IF([test "${enable_ldpd}" != "no"], [
   AC_DEFINE(HAVE_LDPD, 1, ldpd)

@@ -94,6 +94,8 @@ enum node_type {
 	RIPNG_NODE,		 /* RIPng protocol mode node. */
 	BABEL_NODE,		 /* BABEL protocol mode node. */
 	EIGRP_NODE,		 /* EIGRP protocol mode node. */
+	BFD_NODE,		 /* Bidirectional Forwarding Detection protocol mode. */
+	BFD_PEER_NODE,		 /* Bidirectional Forwarding Detection peer configuration. */
 	BGP_NODE,		 /* BGP protocol mode which includes BGP4+ */
 	BGP_VPNV4_NODE,		 /* BGP MPLS-VPN PE exchange. */
 	BGP_VPNV6_NODE,		 /* BGP MPLS-VPN PE exchange. */

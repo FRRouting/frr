@@ -44,6 +44,7 @@ include qpb/subdir.am
 include fpm/subdir.am
 include tools/subdir.am
 
+include bfdd/subdir.am
 include ripd/subdir.am
 include ripngd/subdir.am
 include ospfd/subdir.am
