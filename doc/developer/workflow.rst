@@ -550,6 +550,11 @@ The documentation is currently incomplete and needs love. If you find a broken
 cross-reference, figure, dead hyperlink, style issue or any other nastiness we
 gladly accept documentation patches.
 
+To build the docs, please ensure you have installed a recent version of
+`Sphinx <http://www.sphinx-doc.org/en/stable/install.html>`_. If you want to
+build LaTeX or PDF docs, you will also need a full LaTeX distribution
+installed.
+
 Code
 ----
 
