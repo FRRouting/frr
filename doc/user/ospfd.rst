@@ -713,8 +713,8 @@ Redistribute routes to OSPF
    for NSSA areas and are not redistributed at all into Stub areas, where
    external routes are not permitted.
 
-   Note that for connected routes, one may instead use
-   :term:`passive-interface`;
+   Note that for connected routes, one may instead use the `passive-interface`
+   configuration.
 
 .. seealso::
 
@@ -760,9 +760,9 @@ Redistribute routes to OSPF
 
 .. _ospf-distribute-list:
 
-    Apply the access-list filter, NAME, to
-    redistributed routes of the given type before allowing the routes to
-    redistributed into OSPF (:ref:`OSPF redistribution <ospf-redistribute>`).
+   Apply the access-list filter, NAME, to
+   redistributed routes of the given type before allowing the routes to
+   redistributed into OSPF (:ref:`OSPF redistribution <ospf-redistribute>`).
 
 .. index:: default-metric (0-16777214)
 .. clicmd:: default-metric (0-16777214)

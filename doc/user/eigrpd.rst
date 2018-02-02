@@ -4,9 +4,15 @@
 EIGRP
 *****
 
+.. glossary::
+
+   DUAL
+      The *Diffusing Update ALgorithm*, a :term:`Bellman-Ford` based routing
+      algorithm used by EIGRP.
+
 EIGRP -- Routing Information Protocol is widely deployed interior gateway
 routing protocol. EIGRP was developed in the 1990's. EIGRP is a
-:term:`distance-vector` protocol and is based on the :term:`dual` algorithms.
+:term:`distance-vector` protocol and is based on the :term:`DUAL` algorithms.
 As a distance-vector protocol, the EIGRP router send updates to its
 neighbors as networks change, thus allowing the convergence to a
 known topology.

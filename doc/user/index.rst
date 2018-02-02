@@ -26,5 +26,6 @@ Welcome to FRR's documentation!
    ripd
    ripngd
    vnc
+   glossary
    appendix
 

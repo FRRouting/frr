@@ -6,26 +6,25 @@ OSPF Fundamentals
 .. index:: Link-state routing protocol
 .. index:: Distance-vector routing protocol
 
-:abbr:`OSPF` is, mostly, a link-state routing protocol. In contrast
-to :term:`distance-vector` protocols, such as :abbr:`RIP` or
-:abbr:`BGP`, where routers describe available :term:`paths` (i.e. routes)
-to each other, in :term:`link-state` protocols routers instead
-describe the state of their links to their immediate neighbouring
-routers.
+:abbr:`OSPF` is, mostly, a link-state routing protocol. In contrast to
+:term:`distance-vector` protocols, such as :abbr:`RIP` or :abbr:`BGP`, where
+routers describe available `paths` (i.e. routes) to each other, in
+:term:`link-state` protocols routers instead describe the state of their links
+to their immediate neighbouring routers.
 
 .. index:: Link State Announcement
 .. index:: Link State Advertisement
 .. index:: LSA flooding
 .. index:: Link State Database
 
-Each router describes their link-state information in a message known
-as an :abbr:`LSA (Link State Advertisement)`, which is then propogated
-through to all other routers in a link-state routing domain, by a
-process called :term:`flooding`. Each router thus builds up an
-:abbr:`LSDB (Link State Database)` of all the link-state messages. From
-this collection of LSAs in the LSDB, each router can then calculate the
-shortest path to any other router, based on some common metric, by using an
-algorithm such as `Edgar Djikstra's <http://www.cs.utexas.edu/users/EWD/>`_
+Each router describes their link-state information in a message known as an
+:abbr:`LSA (Link State Advertisement)`, which is then propogated through to all
+other routers in a link-state routing domain, by a process called `flooding`.
+Each router thus builds up an :abbr:`LSDB (Link State Database)` of all the
+link-state messages. From this collection of LSAs in the LSDB, each router can
+then calculate the shortest path to any other router, based on some common
+metric, by using an algorithm such as
+`Edgar Djikstra's <http://www.cs.utexas.edu/users/EWD/>`_
 :abbr:`SPF (Shortest Path First)` algorithm.
 
 .. index:: Link-state routing protocol advantages
@@ -119,7 +118,7 @@ LSA Flooding
 
 OSPF defines several related mechanisms, used to manage synchronisation of
 :abbr:`LSDB` s between neighbours as neighbours form adjacencies and the
-propogation, or :term:`flooding` of new or updated :abbr:`LSA` s.
+propogation, or `flooding` of new or updated :abbr:`LSA` s.
 
 .. index:: OSPF Areas overview
 
@@ -132,7 +131,7 @@ OSPF provides for the protocol to be broken up into multiple smaller and
 independent link-state areas. Each area must be connected to a common backbone
 area by an :abbr:`ABR (Area Boundary Router)`. These :abbr:`ABR` routers are
 responsible for summarising the link-state routing information of an area into
-:term:`Summary LSAs`, possibly in a condensed (i.e. aggregated) form, and then
+`Summary LSAs`, possibly in a condensed (i.e. aggregated) form, and then
 originating these summaries into all other areas the :abbr:`ABR` is connected
 to.
 
@@ -196,13 +195,13 @@ All LSAs share a common header with the following information:
   from their :abbr:`LSDB` s.
 
   The value nominally is one of seconds. An age of 3600, i.e. 1 hour, is
-  called the :term:`MaxAge`. MaxAge LSAs are ignored in routing
+  called the `MaxAge`. MaxAge LSAs are ignored in routing
   calculations. LSAs must be periodically refreshed by their Advertising
   Router before reaching MaxAge if they are to remain valid.
 
   Routers may deliberately flood LSAs with the age artificially set to
   3600 to indicate an LSA is no longer valid. This is called
-  :term:`flushing` of an LSA.
+  `flushing` of an LSA.
 
   It is not abnormal to see stale LSAs in the LSDB, this can occur where
   a router has shutdown without flushing its LSA(s), e.g. where it has
@@ -224,7 +223,7 @@ protocol.
 
 Instances of these LSAs are specific to the link-state area in which
 they are originated. Routes calculated from these two LSA types are
-called :term:`intra-area routes`.
+called `intra-area routes`.
 
 - Router LSA
 
@@ -273,7 +272,7 @@ called :term:`intra-area routes`.
     is Full.
 
     Stub links may also be used as a way to describe links on which OSPF is
-    *not* spoken, known as :term:`passive interfaces`, see
+    *not* spoken, known as `passive interfaces`, see
     :clicmd:`passive-interface INTERFACE`.
 
 - Network LSA
