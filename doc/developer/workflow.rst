@@ -1,53 +1,21 @@
+.. _process-and-workflow:
+
+*******************
 Process & Workflow
-========================
+*******************
 
 FRR is a large project developed by many different groups. This section
 documents standards for code style & quality, commit messages, pull requests
 and best practices that all contributors are asked to follow.
 
-This section is "descriptive/post-factual" in that it documents pratices that
-are in use; it is not "definitive/pre-factual" in prescribing practices.  This
+This chapter is "descriptive/post-factual" in that it documents pratices that
+are in use; it is not "definitive/pre-factual" in prescribing practices. This
 means that when a procedure changes, it is agreed upon, then put into practice,
 and then documented here. If this document doesn't match reality, it's the
 document that needs to be updated, not reality.
 
-Git Structure
--------------
-
-The master Git for FRR resides on `Github
-<https://github.com/frrouting/frr>`__.
-
-.. figure:: ../figures/git_branches.png
-   :align: right
-   :alt: merging get branches into a central trunk
-
-   Rough outline of FRR development workflow
-
-There is one main branch for development, ``master``. For each major release
-(2.0, 3.0 etc) a new release branch is created based on the master. Subsequent
-point releases based on a major branch are marked by tagging.
-
-Programming language, Tools and Libraries
------------------------------------------
-
-The core of FRR is written in C (gcc or clang supported) and makes
-use of GNU compiler extensions. A few non-essential scripts are
-implemented in Perl and Python. FRR requires the following tools
-to build distribution packages: automake, autoconf, texinfo, libtool and
-gawk and various libraries (i.e. libpam and libjson-c).
-
-If your contribution requires a new library or other tool, then please
-highlight this in your description of the change. Also make sure it’s
-supported by all FRR platform OSes or provide a way to build
-without the library (potentially without the new feature) on the other
-platforms.
-
-Documentation should be written in reStructuredText. Sphinx extensions may be
-utilized but pure ReST is preferred where possible. See `Documentation
-<#documentation>`__.
-
-Mailing lists
--------------
+Mailing Lists
+=============
 
 The FRR development group maintains multiple mailing lists for use by the
 community. Italicized lists are private.
@@ -66,19 +34,17 @@ community. Italicized lists are private.
 | *Technical Steering Committee*   | tsc@lists.frrouting.org        |
 +----------------------------------+--------------------------------+
 
-The Development list is used to discuss and document general issues
-related to project development and governance. The public Slack
-instance, frrouting.slack.com, and weekly technical meetings provide a
-higher bandwidth channel for discussions.  The results of such
-discussions must be reflected in updates, as appropriate, to code (i.e.,
-merges), `Github <#https://github.com/FRRouting/frr/issues`__ tracked
-issues, and for governance or process changes, updates to the
-Development list and either this file or information posted at
-`https://frrouting.org/ <#https://frrouting.org/>`__.
+The Development list is used to discuss and document general issues related to
+project development and governance. The public Slack instance,
+frrouting.slack.com, and weekly technical meetings provide a higher bandwidth
+channel for discussions.  The results of such discussions must be reflected in
+updates, as appropriate, to code (i.e., merges), `Github issues`_, and for
+governance or process changes, updates to the Development list and either this
+file or information posted at https://frrouting.org/.
 
 
 Changelog
-~~~~~~~~~
+=========
 
 The changelog will be the base for the release notes. A changelog entry for
 your changes is usually not required and will be added based on your commit
@@ -86,7 +52,7 @@ messages by the maintainers. However, you are free to include an update to the
 changelog with some better description.
 
 Submitting Patches and Enhancements
------------------------------------
+===================================
 
 FRR accepts patches from two sources:
 
@@ -102,7 +68,7 @@ The base branch for new contributions and non-critical bug fixes should be
 submit it.
 
 Pre-submission Checklist
-~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------
 
 -  Format code (see `Code Formatting <#developers-guidelines>`__)
 -  Verify and acknowledge license (see `License for
@@ -125,14 +91,14 @@ Pre-submission Checklist
    feature
 
 License for contributions
-~~~~~~~~~~~~~~~~~~~~~~~~~
+-------------------------
 
 FRR is under a “GPLv2 or later” license. Any code submitted must
 be released under the same license (preferred) or any license which
 allows redistribution under this GPLv2 license (eg MIT License).
 
 Signing Off
-~~~~~~~~~~~
+-----------
 
 Code submitted to FRR must be signed off. We have the same
 requirements for using the signed-off-by process as the Linux kernel. In
@@ -181,7 +147,7 @@ all of the following:
         this project or the open source license(s) involved.
 
 What do I submit my changes against?
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+------------------------------------
 
 We've documented where we would like to have the different fixes applied
 at
@@ -190,7 +156,7 @@ If you are unsure where your submission goes, look at that document or
 ask a project maintainer.
 
 Github pull requests
-~~~~~~~~~~~~~~~~~~~~
+--------------------
 
 The preferred method of submitting changes is a Github pull request.
 Code submitted by pull request will be automatically tested by one or
@@ -200,7 +166,7 @@ resolved, your code will be merged into the branch it was submitted
 against.
 
 Patch submission via mailing list
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------------
 
 As an alternative submission method, a patch can be mailed to the
 development mailing list. Patches received on the mailing list will be
@@ -264,11 +230,47 @@ After submitting your changes
    community members.
 -  Your submission is done once it is merged to the master branch.
 
+Git Structure
+=============
+
+.. figure:: ../figures/git_branches.png
+   :align: center
+   :scale: 55%
+   :alt: Merging Git branches into a central trunk
+
+   Rough outline of FRR development workflow
+
+The master Git for FRR resides on `GitHub`_.
+
+There is one main branch for development, ``master``. For each major release
+(2.0, 3.0 etc) a new release branch is created based on the master. Subsequent
+point releases based on a major branch are marked by tagging.
+
+Programming Languages, Tools and Libraries
+==========================================
+
+The core of FRR is written in C (gcc or clang supported) and makes
+use of GNU compiler extensions. A few non-essential scripts are
+implemented in Perl and Python. FRR requires the following tools
+to build distribution packages: automake, autoconf, texinfo, libtool and
+gawk and various libraries (i.e. libpam and libjson-c).
+
+If your contribution requires a new library or other tool, then please
+highlight this in your description of the change. Also make sure it’s
+supported by all FRR platform OSes or provide a way to build
+without the library (potentially without the new feature) on the other
+platforms.
+
+Documentation should be written in reStructuredText. Sphinx extensions may be
+utilized but pure ReST is preferred where possible. See
+:ref:`documentation`.
+
+
 Coding Practices & Style
-------------------------
+========================
 
 Commit messages
-~~~~~~~~~~~~~~~
+---------------
 
 Commit messages should be formatted in the same way as Linux kernel
 commit messages. The format is roughly
@@ -280,15 +282,15 @@ commit messages. The format is roughly
     extended summary
 
 ``dir`` should be the top level source directory under which the change
-was made. For example, a change in bgpd/rfapi would be formatted as:
+was made. For example, a change in bgpd/rfapi would be formatted as:::
 
-``bgpd: short summary``
+   bgpd: short summary
 
 The first line should be no longer than 50 characters. Subsequent lines
 should be wrapped to 72 characters.
 
 Source file header
-~~~~~~~~~~~~~~~~~~
+------------------
 
 New files need to have a Copyright header (see `License for
 contributions <#license-for-contributions>`__ above) added to the file.
@@ -318,7 +320,7 @@ Preferred form of the header is as follows:
     #include <zebra.h>
 
 Adding copyright claims to existing files
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------------------
 
 When adding copyright claims for modifications to an existing file,
 please preface the claim with "Portions: " on a line before it and
@@ -332,7 +334,7 @@ your indented claim immediately after. E.g.:
       Copyright (C) 2016 Your name [optional brief change description]
 
 Code formatting
-~~~~~~~~~~~~~~~
+---------------
 
 FRR uses Linux kernel style except where noted below. Code which does
 not comply with these style guidelines will not be accepted.
@@ -349,9 +351,6 @@ release of ``clang-format`` is in your PATH.
 in patches that change actual code.** To change/fix formatting issues,
 please create a separate patch that only does formatting changes and
 nothing else.
-
-Style documentation
-^^^^^^^^^^^^^^^^^^^
 
 Kernel and BSD styles are documented externally:
 
@@ -370,7 +369,8 @@ Exceptions
 FRR project code comes from a variety of sources, so there are some
 stylistic exceptions in place. They are organized here by branch.
 
-**For ``master``:**
+For ``master``
+""""""""""""""
 
 BSD coding style applies to:
 
@@ -382,7 +382,8 @@ BSD coding style applies to:
 -  Indents are 4 spaces
 -  Function return types are on their own line
 
-**For ``stable/3.0`` and ``stable/2.0``:**
+For ``stable/3.0`` and ``stable/2.0``
+"""""""""""""""""""""""""""""""""""""
 
 GNU coding style apply to the following parts:
 
@@ -400,70 +401,8 @@ BSD coding style applies to:
 
 -  ``ldpd/``
 
-Documentation
-~~~~~~~~~~~~~
-
-FRR is a large and complex software project developed by many different people
-over a long period of time. Without adequate documentation, it can be
-exceedingly difficult to understand code segments, APIs and other interfaces.
-In the interest of keeping the project healthy and maintainable, you should
-make every effort to document your code so that other people can understand
-what it does without needing to closely read the code itself.
-
-Some specific guidelines that contributors should follow are:
-
--  Functions exposed in header files should have descriptive comments
-   above their signatures in the header file. At a minimum, a function
-   comment should contain information about the return value,
-   parameters, and a general summary of the function's purpose.
-   Documentation on parameter values can be omitted if it is (very)
-   obvious what they are used for.
-
-Function comments must follow the style for multiline comments laid out
-in the kernel style guide.
-
-Example:
-
-::
-
-    /*
-     * Determines whether or not a string is cool.
-     *
-     * @param text - the string to check for coolness
-     * @param is_clccfc - whether capslock is cruise control for cool
-     * @return 7 if the text is cool, 0 otherwise
-     */
-    int check_coolness(const char *text, bool is_clccfc);
-
-The Javadoc-style annotations are not required, but you should still
-strive to make it equally clear what parameters and return values are
-used for.
-
--  Static functions should have descriptive comments in the same form as
-   above if what they do is not immediately obvious. Use good
-   engineering judgement when deciding whether a comment is necessary.
-   If you are unsure, document your code.
-
--  Global variables, static or not, should have a comment describing
-   their use.
-
--  **For new code in ``lib/``, these guidelines are hard requirements.**
-
-If you are contributing code that adds significant user-visible
-functionality please document it in ``doc/``. If you make significant changes
-to portions of the codebase covered in the Developer's Manual, please
-update the relevant sections. If you add a major feature or introduce a new
-API, please document the architecture and API to the best of your abilities in
-the Developer's Manual.
-
-Documentation should be in reStructuredText.
-
-Finally, if you come across some code that is undocumented and feel like
-going above and beyond, document it! We absolutely appreciate and accept
-patches that document previously undocumented code.
-
 Compile-time conditional code
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------
 
 Many users access FRR via binary packages from 3rd party sources;
 compile-time code puts inclusion/exclusion in the hands of the package
@@ -495,7 +434,7 @@ Note that the former approach requires ensuring that ``SOME_SYMBOL``
 will be defined (watch your ``AC_DEFINE``\ s).
 
 Debug-guards in code
-~~~~~~~~~~~~~~~~~~~~
+--------------------
 
 Debugging statements are an important methodology to allow developers to
 fix issues found in the code after it has been released. The caveat here
@@ -507,7 +446,7 @@ CLI and it is expected that the developer will use this convention to
 allow control of their debugs.
 
 CLI changes
-~~~~~~~~~~~
+-----------
 
 CLI's are a complicated ugly beast. Additions or changes to the CLI
 should use a DEFUN to encapsulate one setting as much as is possible.
@@ -515,7 +454,7 @@ Additionally as new DEFUN's are added to the system, documentation
 should be provided for the new commands.
 
 Backwards Compatibility
-~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------
 
 As a general principle, changes to CLI and code in the lib/ directory
 should be made in a backwards compatible fashion. This means that
@@ -551,7 +490,163 @@ pointing to the appropriate update path. A ``-Werror`` build should fail
 if compatibility bits are used.
 
 Miscellaneous
-~~~~~~~~~~~~~
+-------------
 
 When in doubt, follow the guidelines in the Linux kernel style guide, or
 ask on the development mailing list / public Slack instance.
+
+
+.. _documentation:
+
+Documentation
+=============
+
+FRR uses Sphinx+RST as its documentation system. The document you are currently
+reading was generated by Sphinx from RST source in
+:file:`doc/developer/workflow.rst`. The documentation is structured as follows:
+
++-----------------------+--------------------------------------------------------------+
+| Directory             | Contents                                                     |
++=======================+==============================================================+
+| :file:`doc/user`      | User documentation; configuration guides; protocol overviews |
++-----------------------+--------------------------------------------------------------+
+| :file:`doc/developer` | Developer's documentation; API specs; datastructures;        |
+|                       | architecture overviews; project management procedure         |
++-----------------------+--------------------------------------------------------------+
+| :file:`doc/manpages`  | Source for manpages                                          |
++-----------------------+--------------------------------------------------------------+
+| :file:`doc/figures`   | Images and diagrams                                          |
++-----------------------+--------------------------------------------------------------+
+
+Each of these directories, with the exception of :file:`doc/figures`, contains
+a Sphinx-generated Makefile and configuration script :file:`conf.py` used to
+set various document parameters. The makefile can be used for a variety of
+targets; invoke `make help` in any of these directories for a listing of
+available output formats. For convenience, there is a top-level
+:file:`Makefile.am` that has targets for PDF and HTML documentation for both
+developer and user documentation, respectively. That makefile is also
+responsible for building manual pages packed with distribution builds.
+
+Indent and styling should follow existing conventions:
+
+- 3 spaces for indents under directives
+- Cross references may contain only lowercase alphanumeric characters and
+  hyphens ('-')
+- Lines wrapped to 80 characters where possible
+
+Characters for header levels should follow Python documentation guide:
+
+- ``#`` with overline, for parts
+- ``*`` with overline, for chapters
+- ``=``, for sections
+- ``-``, for subsections
+- ``^``, for subsubsections
+- ``"``, for paragraphs
+
+After you have made your changes, please make sure that you can invoke
+``make latexpdf`` and ``make html`` with no warnings.
+
+The documentation is currently incomplete and needs love. If you find a broken
+cross-reference, figure, dead hyperlink, style issue or any other nastiness we
+gladly accept documentation patches.
+
+Code
+----
+
+FRR is a large and complex software project developed by many different people
+over a long period of time. Without adequate documentation, it can be
+exceedingly difficult to understand code segments, APIs and other interfaces.
+In the interest of keeping the project healthy and maintainable, you should
+make every effort to document your code so that other people can understand
+what it does without needing to closely read the code itself.
+
+Some specific guidelines that contributors should follow are:
+
+- Functions exposed in header files should have descriptive comments above
+  their signatures in the header file. At a minimum, a function comment should
+  contain information about the return value, parameters, and a general summary
+  of the function's purpose.  Documentation on parameter values can be omitted
+  if it is (very) obvious what they are used for.
+
+  Function comments must follow the style for multiline comments laid out in
+  the kernel style guide.
+
+  Example:
+
+  .. code-block:: c
+
+     /*
+      * Determines whether or not a string is cool.
+      *
+      * @param text - the string to check for coolness
+      * @param is_clccfc - whether capslock is cruise control for cool
+      * @return 7 if the text is cool, 0 otherwise
+      */
+     int check_coolness(const char *text, bool is_clccfc);
+
+  The Javadoc-style annotations are not required, but you should still strive
+  to make it equally clear what parameters and return values are used for.
+
+- Static functions should have descriptive comments in the same form as above
+  if what they do is not immediately obvious. Use good engineering judgement
+  when deciding whether a comment is necessary.  If you are unsure, document
+  your code.
+- Global variables, static or not, should have a comment describing their use.
+- **For new code in lib/, these guidelines are hard requirements.**
+
+If you make significant changes to portions of the codebase covered in the
+Developer's Manual, add a major subsystem or feature, or gain arcane mastery of
+some undocumented or poorly documented part of the codebase, please document
+your work so others can benefit. If you add a major feature or introduce a new
+API, please document the architecture and API to the best of your abilities in
+the Developer's Manual, using good judgement when choosing where to place it.
+
+Finally, if you come across some code that is undocumented and feel like
+going above and beyond, document it! We absolutely appreciate and accept
+patches that document previously undocumented code.
+
+User
+----
+
+If you are contributing code that adds significant user-visible functionality
+please document how to use it in :file:`doc/user`. Use good judgement when
+choosing where to place documentation. For example, instructions on how to use
+your implementation of a new BGP draft should go in the BGP chapter instead of
+being its own chapter. If you are adding a new protocol daemon, please create a
+new chapter.
+
+When documenting CLI please use a combination of the ``.. index::`` and
+``.. clicmd::`` directives. For example, the command :clicmd:`show pony` would
+be documented as follows:
+
+.. code-block:: rest
+
+   .. index:: show pony
+   .. clicmd:: show pony
+
+      Prints an ASCII pony. Example output:::
+
+              >>\.
+             /_  )`.
+            /  _)`^)`.   _.---. _
+           (_,' \  `^-)""      `.\
+                 |  | \
+                 \              / |
+                / \  /.___.'\  (\ (_
+               < ,"||     \ |`. \`-'
+                \\ ()      )|  )/
+         hjw    |_>|>     /_] //
+                  /_]        /_]
+
+When documented this way, CLI commands can be cross referenced with the
+``:clicmd:`` inline markup like so:
+
+.. code-block:: rest
+
+   :clicmd:`show pony`
+
+This is very helpful for users who want to quickly remind themselves what a
+particular command does.
+
+.. _GitHub: https://github.com/frrouting/frr
+.. _GitHub issues: https://github.com/frrouting/frr/issues
