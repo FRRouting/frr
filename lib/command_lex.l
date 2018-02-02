@@ -23,8 +23,9 @@
  */
 
 %{
-/* ignore harmless bug in old versions of flex */
+/* ignore harmless bugs in old versions of flex */
 #pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wmissing-prototypes"
 
 #include "command_parse.h"
 

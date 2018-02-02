@@ -504,11 +504,11 @@ static char *trim(char *s)
 		return s;
 
 	end = s + size - 1;
-	while (end >= s && isspace(*end))
+	while (end >= s && isspace((int)*end))
 		end--;
 	*(end + 1) = '\0';
 
-	while (*s && isspace(*s))
+	while (*s && isspace((int)*s))
 		s++;
 
 	return s;
