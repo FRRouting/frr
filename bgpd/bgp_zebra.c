@@ -1763,7 +1763,7 @@ static int bgp_zebra_process_local_vni(int command, struct zclient *zclient,
 	struct stream *s;
 	vni_t vni;
 	struct bgp *bgp;
-	struct in_addr vtep_ip;
+	struct in_addr vtep_ip = { INADDR_ANY };
 	vrf_id_t tenant_vrf_id = VRF_DEFAULT;
 
 	s = zclient->ibuf;
