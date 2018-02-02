@@ -2098,6 +2098,9 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 		dest->routes = re->next;
 	}
 
+	if (dest->selected_fib == re)
+		dest->selected_fib = NULL;
+
 	/* free RE and nexthops */
 	zebra_deregister_rnh_static_nexthops(re->vrf_id, re->nexthop, rn);
 	nexthops_free(re->nexthop);
