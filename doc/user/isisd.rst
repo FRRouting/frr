@@ -39,12 +39,10 @@ writing, *isisd* does not support multiple ISIS processes.
 .. index:: no router isis WORD
 .. clicmd:: no router isis WORD
 
-   .. _router-isis-word:
-
    Enable or disable the ISIS process by specifying the ISIS domain with
    'WORD'.  *isisd* does not yet support multiple ISIS processes but you must
    specify the name of ISIS process. The ISIS process name 'WORD' is then used
-   for interface (see command :ref:`ip-router-isis-word`).
+   for interface (see command :clicmd:`ip router isis WORD`).
 
 .. index:: net XX.XXXX. ... .XXX.XX
 .. clicmd:: net XX.XXXX. ... .XXX.XX
@@ -90,8 +88,6 @@ writing, *isisd* does not support multiple ISIS processes.
 
 .. index:: no metric-style
 .. clicmd:: no metric-style
-
-.. _metric-style:
 
    Set old-style (ISO 10589) or new-style packet formats:
 
@@ -203,7 +199,7 @@ ISIS interface
 
    Activate ISIS adjacency on this interface. Note that the name
    of ISIS instance must be the same as the one used to configure the ISIS process
-   (see command :ref:`router-isis-word`).
+   (see command :clicmd:`router isis WORD`).
 
 .. index:: isis circuit-type [level-1 | level-1-2 | level-2]
 .. clicmd:: isis circuit-type [level-1 | level-1-2 | level-2]
@@ -284,7 +280,7 @@ ISIS interface
 
    Set default metric value globally, for an area (level-1) or a domain
    (level-2).  Max value depend if metric support narrow or wide value (see
-   command :ref:`metric-style`).
+   command :clicmd:`metric-style [narrow | transition | wide]`).
 
 .. index:: isis network point-to-point
 .. clicmd:: isis network point-to-point

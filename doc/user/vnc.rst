@@ -56,8 +56,8 @@ following areas:
 
 .. _general-vnc-configuration:
 
-.. General VNC Configuration
-.. -------------------------
+General VNC Configuration
+-------------------------
 
 .. _rfp-related-configuration:
 
@@ -246,7 +246,7 @@ Defaults section.
    - ``IPv4-address:two-byte-integer``
    - ``four-byte-autonomous-system-number:two-byte-integer``
    - ``two-byte-autonomous-system-number:four-byte-integer``
-   - ``auto:vn:`two-byte-integer`
+   - ``auto:vn:two-byte-integer``
 
    Routes originated by NVEs in the NVE group will use the group's specified
    `route-distinguisher` when they are advertised via BGP.  If the `auto` form
@@ -902,7 +902,7 @@ Mesh NVA Configuration
 
 This example includes three NVAs, nine NVEs, and two NVE groups. Note that
 while not shown, a single physical device may support multiple logical NVEs.
-:ref:`fig-vnc-mesh` shows ``code NVA-1`` (192.168.1.100), ``NVA 2``
+:ref:`vnc-fig-vnc-mesh` shows ``code NVA-1`` (192.168.1.100), ``NVA 2``
 (192.168.1.101), and ``NVA 3`` (192.168.1.102), which are connected in a full
 mesh. Each is a member of the autonomous system 64512. Each NVA provides VNC
 services to three NVE clients in the 172.16.0.0/16 virtual-network address
@@ -918,6 +918,7 @@ Each NVA advertises NVE underlay-network IP addresses using the
 Tunnel Encapsulation Attribute.
 
 .. _vnc-fig-vnc-mesh:
+
 .. figure:: ../figures/fig-vnc-mesh.png
    :align: center
    :alt: Three-way Mesh
@@ -1229,7 +1230,7 @@ While not shown, an NVA can also be configured as a route reflector.
 VNC with Commercial Route Reflector Configuration
 -------------------------------------------------
 
-This example is identical to :ref:`vnc-with-frr-route-reflector-configuration`
+This example is identical to :ref:`vnc-with-frr-route-reflector-config`
 with the exception that the route reflector is a commercial router. Only the
 VNC-relevant configuration is provided.
 

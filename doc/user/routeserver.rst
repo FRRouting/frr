@@ -43,6 +43,7 @@ it consists of three steps:
   accepted by the `Out` filters of a peer are announced to that peer.
 
 .. _fig-normal-processing:
+
 .. figure:: ../figures/fig-normal-processing.png
    :alt: Normal announcement processing
    :align: center
@@ -50,6 +51,7 @@ it consists of three steps:
    Announcement processing inside a 'normal' BGP speaker
 
 .. _fig-topologies-full:
+
 .. figure:: ../figures/fig_topologies_full.png
    :alt: Full Mesh BGP Topology
    :align: center
@@ -57,6 +59,7 @@ it consists of three steps:
    Full Mesh
 
 .. _fig-topologies-rs:
+
 .. figure:: ../figures/fig_topologies_rs.png
    :alt: Route Server BGP Topology
    :align: center
@@ -69,6 +72,7 @@ having a single BGP peering (against the route server), the BGP speakers can no
 longer distinguish from/to which peer each announce comes/goes.
 
 .. _filter-delegation:
+
 This means that the routers connected to the route server are not able to apply
 by themselves the same input/output filters as in the full mesh scenario, so
 they have to delegate those functions to the route server.

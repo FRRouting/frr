@@ -121,10 +121,8 @@ OSPF defines several related mechanisms, used to manage synchronisation of
 :abbr:`LSDB` s between neighbours as neighbours form adjacencies and the
 propogation, or :term:`flooding` of new or updated :abbr:`LSA` s.
 
-:ref:`ospf-flooding`.
-
-
 .. index:: OSPF Areas overview
+
 .. _ospf-areas:
 
 Areas
@@ -174,7 +172,11 @@ All LSAs share a common header with the following information:
 
 - Advertising Router
 
-  The Router ID of the router originating the LSA, see :ref:`ospf-router-id`.
+  The Router ID of the router originating the LSA.
+
+.. seealso::
+
+   :clicmd:`ospf router-id A.B.C.D`.
 
 - LSA ID
 
@@ -186,7 +188,7 @@ All LSAs share a common header with the following information:
   The combination of the Type, ID and Advertising Router ID must uniquely
   identify the :abbr:`LSA`. There can however be multiple instances of
   an LSA with the same Type, LSA ID and Advertising Router ID, see
-  :ref:`ospf-lsa-sequence-number,,lsa-sequence-number`.
+  :ref:`Sequence Number <ospf-lsa-sequence-number>`.
 
 - Age
 
@@ -206,7 +208,7 @@ All LSAs share a common header with the following information:
   a router has shutdown without flushing its LSA(s), e.g. where it has
   become disconnected from the network. Such LSAs do little harm.
 
-  .. _ospf-lsa-sequence-number:
+.. _ospf-lsa-sequence-number:
 
 - Sequence Number
 
@@ -232,7 +234,7 @@ called :term:`intra-area routes`.
 
   Cost
      The output cost of that interface, scaled inversely to some commonly known
-     reference value, :ref:`ospf-auto-cost-reference-bandwidth,,auto-cost-reference-bandwidth`.
+     reference value, :clicmd:`auto-cost reference-bandwidth (1-4294967`.
 
   Link Type
      Transit Network
@@ -272,7 +274,7 @@ called :term:`intra-area routes`.
 
     Stub links may also be used as a way to describe links on which OSPF is
     *not* spoken, known as :term:`passive interfaces`, see
-    :ref:`ospf-passive-interface,,passive-interface`.
+    :clicmd:`passive-interface INTERFACE`.
 
 - Network LSA
 
