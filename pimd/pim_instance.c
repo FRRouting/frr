@@ -198,12 +198,13 @@ static int pim_vrf_config_write(struct vty *vty)
 		if (!pim)
 			continue;
 
-		if (vrf->vrf_id == VRF_DEFAULT)
-			continue;
+		if (vrf->vrf_id != VRF_DEFAULT)
+			vty_frame(vty, "vrf %s\n", vrf->name);
 
-		vty_frame(vty, "vrf %s\n", vrf->name);
 		pim_global_config_write_worker(pim, vty);
-		vty_endframe(vty, "!\n");
+
+		if (vrf->vrf_id != VRF_DEFAULT)
+			vty_endframe(vty, "!\n");
 	}
 
 	return 0;
