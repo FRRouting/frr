@@ -1,3 +1,7 @@
+********
+Glossary
+********
+
 .. glossary::
 
    distance-vector
