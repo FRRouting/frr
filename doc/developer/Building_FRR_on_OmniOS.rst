@@ -1,14 +1,17 @@
-Building FRR on OmniOS (OpenSolaris) from Git Source
+OmniOS (OpenSolaris)
 ====================================================
 
 OmniOS restrictions:
 --------------------
 
-- MPLS is not supported on `OmniOS` or `Solaris`. MPLS requires a Linux 
-  Kernel (4.5 or higher). LDP can be built, but may have limited use 
-  without MPLS
+-  MPLS is not supported on ``OmniOS`` or ``Solaris``. MPLS requires a
+   Linux Kernel (4.5 or higher). LDP can be built, but may have limited
+   use without MPLS
 
-### Enable IP & IPv6 forwarding
+Enable IP & IPv6 forwarding
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
 
     routeadm -e ipv4-forwarding
     routeadm -e ipv6-forwarding 
@@ -17,6 +20,8 @@ Install required packages
 -------------------------
 
 Add packages:
+
+::
 
     pkg install \
       developer/build/autoconf \
@@ -36,6 +41,8 @@ Add packages:
 
 Add additional Solaris packages:
 
+::
+
     pkgadd -d http://get.opencsw.org/now
     /opt/csw/bin/pkgutil -U
     /opt/csw/bin/pkgutil -y -i texinfo
@@ -45,33 +52,46 @@ Add additional Solaris packages:
 
 Add libjson to Solaris equivalent of ld.so.conf
 
+::
+
     crle -l /opt/csw/lib -u
 
 Add pytest:
+
+::
 
     pip install pytest
 
 Select Python 2.7 as default (required for pytest)
 
+::
+
     rm -f /usr/bin/python
     ln -s /opt/csw/bin/python2.7 /usr/bin/python
 
-Fix PATH for all users and non-interactive sessions. Edit `/etc/default/login`
-and add the following default PATH:
+Fix PATH for all users and non-interactive sessions. Edit
+``/etc/default/login`` and add the following default PATH:
+
+::
 
     PATH=/usr/gnu/bin:/usr/bin:/usr/sbin:/sbin:/opt/csw/bin
 
-Edit `~/.profile` and add the following default PATH:
+Edit ``~/.profile`` and add the following default PATH:
+
+::
 
     PATH=/usr/gnu/bin:/usr/bin:/usr/sbin:/sbin:/opt/csw/bin
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 
-**This assumes you want to build and install FRR from source and not using
-any packages**
+**This assumes you want to build and install FRR from source and not
+using any packages**
 
-### Add frr group and user
+Add frr group and user
+~~~~~~~~~~~~~~~~~~~~~~
+
+::
 
     sudo groupadd -g 93 frr
     sudo groupadd -g 94 frrvty
@@ -80,6 +100,8 @@ any packages**
 
 (You may prefer different options on configure statement. These are just
 an example)
+
+::
 
     git clone https://github.com/frrouting/frr.git frr
     cd frr
@@ -111,7 +133,10 @@ an example)
     gmake check
     sudo gmake install
 
-### Enable IP & IPv6 forwarding
+Enable IP & IPv6 forwarding
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
 
     routeadm -e ipv4-forwarding
-    routeadm -e ipv6-forwarding 
+    routeadm -e ipv6-forwarding

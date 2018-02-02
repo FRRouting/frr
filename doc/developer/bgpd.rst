@@ -1,10 +1,8 @@
-libfrr library facilities
+BGPD
 =========================
 
 .. toctree::
    :maxdepth: 2
 
-   memtypes
-   hooks
-
+   next-hop-tracking
 

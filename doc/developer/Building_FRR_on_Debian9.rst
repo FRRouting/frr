@@ -1,33 +1,27 @@
-Building FRR on Debian 8 from Git Source
+Debian 9
 ========================================
-
-Debian 8 restrictions:
-----------------------
-
-- MPLS is not supported on `Debian 8` with default kernel. MPLS requires
-  Linux Kernel 4.5 or higher (LDP can be built, but may have limited use
-  without MPLS)
 
 Install required packages
 -------------------------
 
 Add packages:
 
-    sudo apt-get install git autoconf automake libtool make gawk \
-       libreadline-dev texinfo libjson-c-dev pkg-config bison flex \
-       python-pip libc-ares-dev python3-dev
+::
 
-Install newer pytest (>3.0) from pip    
-
-    sudo pip install pytest    
+    sudo apt-get install git autoconf automake libtool make \
+      libreadline-dev texinfo libjson-c-dev pkg-config bison flex \
+      python-pip libc-ares-dev python3-dev python-pytest
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 
-**This assumes you want to build and install FRR from source and not using
-any packages**
+**This assumes you want to build and install FRR from source and not
+using any packages**
 
-### Add frr groups and user
+Add frr groups and user
+~~~~~~~~~~~~~~~~~~~~~~~
+
+::
 
     sudo addgroup --system --gid 92 frr
     sudo addgroup --system --gid 85 frrvty
@@ -35,12 +29,17 @@ any packages**
        --gecos "FRR suite" --shell /bin/false frr
     sudo usermod -a -G frrvty frr
 
-### Download Source, configure and compile it
+Download Source, configure and compile it
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 (You may prefer different options on configure statement. These are just
 an example.)
 
+::
+
     git clone https://github.com/frrouting/frr.git frr
     cd frr
+    git checkout stable/3.0
     ./bootstrap.sh
     ./configure \
         --enable-exampledir=/usr/share/doc/frr/examples/ \
@@ -68,7 +67,10 @@ an example.)
     make check
     sudo make install
 
-### Create empty FRR configuration files
+Create empty FRR configuration files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
 
     sudo install -m 755 -o frr -g frr -d /var/log/frr
     sudo install -m 775 -o frr -g frrvty -d /etc/frr
@@ -84,10 +86,13 @@ an example.)
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/nhrpd.conf
     sudo install -m 640 -o frr -g frrvty /dev/null /etc/frr/vtysh.conf
 
-### Enable IP & IPv6 forwarding
+Enable IP & IPv6 forwarding
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Edit `/etc/sysctl.conf` and uncomment the following values (ignore the
+Edit ``/etc/sysctl.conf`` and uncomment the following values (ignore the
 other settings)
+
+::
 
     # Uncomment the next line to enable packet forwarding for IPv4
     net.ipv4.ip_forward=1
@@ -97,35 +102,43 @@ other settings)
     #  based on Router Advertisements for this host
     net.ipv6.conf.all.forwarding=1
 
-**Reboot** or use `sysctl -p` to apply the same config to the running system
+**Reboot** or use ``sysctl -p`` to apply the same config to the running
+system
 
-### Troubleshooting
+Troubleshooting
+~~~~~~~~~~~~~~~
 
 **Local state directory**
 
-The local state directory must exist and have the correct permissions applied
-for the frrouting daemons to start.  In the above ./configure example the
-local state directory is set to /var/run/frr (--localstatedir=/var/run/frr)
-Debian considers /var/run/frr to be temporary and this is removed after a
-reboot.
+The local state directory must exist and have the correct permissions
+applied for the frrouting daemons to start. In the above ./configure
+example the local state directory is set to /var/run/frr
+(--localstatedir=/var/run/frr) Debian considers /var/run/frr to be
+temporary and this is removed after a reboot.
 
 When using a different local state directory you need to create the new
 directory and change the ownership to the frr user, for example:
+
+::
 
     mkdir /var/opt/frr
     chown frr /var/opt/frr
 
 **Shared library error**
 
-If you try and start any of the frrouting daemons you may see the below error
-due to the frrouting shared library directory not being found:
+If you try and start any of the frrouting daemons you may see the below
+error due to the frrouting shared library directory not being found:
+
+::
 
     ./zebra: error while loading shared libraries: libfrr.so.0: cannot open shared object file: No such file or directory
 
-The fix is to add the following line to /etc/ld.so.conf which will continue to
-reference the library directory after the system reboots.  To load the library
-directory path immediately run the ldconfig command after adding the line to
-the file eg:
+The fix is to add the following line to /etc/ld.so.conf which will
+continue to reference the library directory after the system reboots. To
+load the library directory path immediately run the ldconfig command
+after adding the line to the file eg:
+
+::
 
     echo include /usr/local/lib >> /etc/ld.so.conf
     ldconfig

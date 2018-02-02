@@ -1,21 +1,23 @@
-Building FRR on CentOS 7 from Git Source
+CentOS 7
 ========================================
 
 (As an alternative to this installation, you may prefer to create a FRR
 rpm package yourself and install that package instead. See instructions
-in redhat/README.rpm_build.md on how to build a rpm package)
+in redhat/README.rpm\_build.md on how to build a rpm package)
 
 CentOS 7 restrictions:
 ----------------------
 
-- MPLS is not supported on `CentOS 7` with default kernel. MPLS requires 
-  Linux Kernel 4.5 or higher (LDP can be built, but may have limited use 
-  without MPLS)
-  
+-  MPLS is not supported on ``CentOS 7`` with default kernel. MPLS
+   requires Linux Kernel 4.5 or higher (LDP can be built, but may have
+   limited use without MPLS)
+
 Install required packages
 -------------------------
 
 Add packages:
+
+::
 
     sudo yum install git autoconf automake libtool make gawk \
       readline-devel texinfo net-snmp-devel groff pkgconfig \
@@ -25,19 +27,26 @@ Add packages:
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
 
-**This assumes you want to build and install FRR from source and not using 
-any packages**
+**This assumes you want to build and install FRR from source and not
+using any packages**
 
-### Add frr groups and user
+Add frr groups and user
+~~~~~~~~~~~~~~~~~~~~~~~
+
+::
 
     sudo groupadd -g 92 frr
     sudo groupadd -r -g 85 frrvt
     sudo useradd -u 92 -g 92 -M -r -G frrvt -s /sbin/nologin \
       -c "FRR FRRouting suite" -d /var/run/frr frr
 
-### Download Source, configure and compile it
-(You may prefer different options on configure statement. These are just 
+Download Source, configure and compile it
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(You may prefer different options on configure statement. These are just
 an example.)
+
+::
 
     git clone https://github.com/frrouting/frr.git frr
     cd frr
@@ -72,7 +81,11 @@ an example.)
     make check
     sudo make install
 
-### Create empty FRR configuration files
+Create empty FRR configuration files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
     sudo mkdir /var/log/frr
     sudo mkdir /etc/frr
     sudo touch /etc/frr/zebra.conf
@@ -91,19 +104,27 @@ an example.)
     sudo chown frr:frrvt /etc/frr/vtysh.conf
     sudo chmod 640 /etc/frr/*.conf
 
-### Install daemon config file
+Install daemon config file
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
     sudo install -p -m 644 redhat/daemons /etc/frr/
     sudo chown frr:frr /etc/frr/daemons
 
-### Edit /etc/frr/daemons as needed to select the required daemons
+Edit /etc/frr/daemons as needed to select the required daemons
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Look for the section with `watchfrr_enable=...` and `zebra=...` etc.
-Enable the daemons as required by changing the value to `yes` 
+Look for the section with ``watchfrr_enable=...`` and ``zebra=...`` etc.
+Enable the daemons as required by changing the value to ``yes``
 
-### Enable IP & IPv6 forwarding
+Enable IP & IPv6 forwarding
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Create a new file `/etc/sysctl.d/90-routing-sysctl.conf` with the 
+Create a new file ``/etc/sysctl.d/90-routing-sysctl.conf`` with the
 following content:
+
+::
 
     # Sysctl for routing
     #
@@ -113,17 +134,35 @@ following content:
 
 Load the modifed sysctl's on the system:
 
+::
+
     sudo sysctl -p /etc/sysctl.d/90-routing-sysctl.conf
 
-### Install frr Service and redhat init files 
+Install frr Service and redhat init files
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
     sudo install -p -m 644 redhat/frr.service /usr/lib/systemd/system/frr.service
     sudo install -p -m 755 redhat/frr.init /usr/lib/frr/frr
 
-### Register the systemd files
+Register the systemd files
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
     sudo systemctl preset frr.service
- 
-### Enable required frr at startup
+
+Enable required frr at startup
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
     sudo systemctl enable frr
 
-### Reboot or start FRR manually
+Reboot or start FRR manually
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+::
+
     sudo systemctl start frr

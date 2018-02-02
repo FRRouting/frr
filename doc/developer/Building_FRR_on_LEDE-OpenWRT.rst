@@ -1,9 +1,10 @@
-Building FRR for OpenWRT/LEDE from Git Source
-===============================================
+OpenWRT/LEDE
+=============================================
 
-- for the moment because of cross compile problems, master is not supported,
-  only upto 3.0
-- LDP can't be built because of missing Perl-XML-LibXML in OpenWRT/LEDE tree
+-  for the moment because of cross compile problems, master is not
+   supported, only up to 3.0
+-  LDP can't be built because of missing Perl-XML-LibXML in OpenWRT/LEDE
+   tree
 
 Prepare build environment
 -------------------------
@@ -14,26 +15,36 @@ for
 
 Ubuntu 12.04LTS:
 
+::
+
     sudo apt-get install build-essential subversion git-core \
        libncurses5-dev zlib1g-dev gawk flex quilt libssl-dev xsltproc \
        libxml-parser-perl mercurial bzr ecj cvs unzip
 
 Ubuntu 64bit:
 
+::
+
     sudo apt-get install build-essential subversion libncurses5-dev zlib1g-dev \
        gawk gcc-multilib flex git-core gettext libssl-dev
 
 Debian 8 Jessie:
+
+::
 
     sudo apt-get install build-essential libncurses5-dev gawk git subversion \
        libssl-dev gettext unzip zlib1g-dev file python
 
 Debian 9 Stretch:
 
+::
+
     sudo apt-get install build-essential libncurses5-dev gawk git subversion \
        libssl-dev gettext zlib1g-dev
 
 Centos x86-64 (some packages require EPEL):
+
+::
 
     yum install subversion binutils bzip2 gcc gcc-c++ gawk gettext flex \
        ncurses-devel zlib-devel zlib-static make patch unzip glibc glibc-devel \
@@ -42,35 +53,33 @@ Centos x86-64 (some packages require EPEL):
 
 Fedora 24 - 64Bit:
 
+::
+
     dnf install -y subversion binutils bzip2 gcc gcc-c++ gawk gettext git-core \
        unzip ncurses-devel ncurses-compat-libs zlib-devel zlib-static make \
        flex patch perl-ExtUtils-MakeMaker perl-Thread-Queue glibc glibc-devel \
        glibc-static quilt sed sdcc intltool sharutils bison wget openssl-devel
 
-
 Get LEDE Sources (from Git)
 ---------------------------
 
-LEDE and OpenWRT is planned to remerge and won't cover the similar OpenWRT build
-As normal user:
-    git clone https://git.lede-project.org/source.git lede
-    cd lede
-    ./scripts/feeds update -a
-    ./scripts/feeds install -a
-    cd feeds/routing
-    git pull origin pull/319/head
-    ln -s ../../../feeds/routing/frr/ ../../package/feeds/routing/
-    cd ../..
-    make menuconfig
+LEDE and OpenWRT is planned to remerge and won't cover the similar
+OpenWRT build As normal user: git clone
+https://git.lede-project.org/source.git lede cd lede ./scripts/feeds
+update -a ./scripts/feeds install -a cd feeds/routing git pull origin
+pull/319/head ln -s ../../../feeds/routing/frr/
+../../package/feeds/routing/ cd ../.. make menuconfig
 
-Select the needed target then select needed packages in
-Network -> Routing and Redirection -> frr, exit and save
+Select the needed target then select needed packages in Network ->
+Routing and Redirection -> frr, exit and save
+
+::
 
     make or make package/frr/compile
 
-It may be possible that on first build `make package/frr/compile` not to work
-and it may be needed to run a `make` for the entire build envronment, add V=s
-for debugging
+It may be possible that on first build ``make package/frr/compile`` not
+to work and it may be needed to run a ``make`` for the entire build
+envronment, add V=s for debugging
 
 Work with sources
 -----------------
@@ -78,19 +87,21 @@ Work with sources
 To update the rc1 version or add other options, the Makefile is found in
 feeds/routing/frr
 
-edit:
-    PKG_VERSION:=
-    PKG_SOURCE_VERSION:=<git-hash>
+edit: PKG\_VERSION:= PKG\_SOURCE\_VERSION:=
 
 Usage
 -----
 
-Edit `/usr/sbin/frr.init` and add/remove the daemons name in section DAEMONS=
-or don't install unneded packages
-For example: zebra bgpd ldpd isisd nhrpd ospfd ospf6d pimd ripd ripngd
+Edit ``/usr/sbin/frr.init`` and add/remove the daemons name in section
+DAEMONS= or don't install unneded packages For example: zebra bgpd ldpd
+isisd nhrpd ospfd ospf6d pimd ripd ripngd
 
-### Enable the serivce
- - service frr enable
+Enable the serivce
+~~~~~~~~~~~~~~~~~~
 
-### Start the service
- -  service frr start
+-  service frr enable
+
+Start the service
+~~~~~~~~~~~~~~~~~
+
+-  service frr start
