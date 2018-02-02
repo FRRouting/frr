@@ -39,12 +39,6 @@
 #define ETH_ALEN 6
 #endif
 
-/* for compatibility */
-#ifdef ETHER_ADDR_LEN
-#undef ETHER_ADDR_LEN
-#endif
-#define ETHER_ADDR_LEN 6 CPP_WARN("ETHER_ADDR_LEN is being replaced by ETH_ALEN.\\n")
-
 #define ETHER_ADDR_STRLEN (3*ETH_ALEN)
 /*
  * there isn't a portable ethernet address type. We define our

@@ -40,6 +40,7 @@
 #include "privs.h"
 #include "vrf.h"
 
+#include "zebra/rt.h"
 #include "zebra/interface.h"
 #include "zebra/zserv.h"
 #include "zebra/debug.h"
