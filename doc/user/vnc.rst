@@ -98,76 +98,17 @@ Enter VNC configuration mode for specifying VNC default behaviors. Use
 
 
 These are the statements that can appear between ``vnc defaults`` and
-``exit-vnc``.
+``exit-vnc``. Documentation for these statements is given in
+:ref:`vnc-nve-group-configuration`.
 
-.. index:: rt import RT-LIST
-.. clicmd:: rt import RT-LIST
-
-.. index:: rt export RT-LIST
-.. clicmd:: rt export RT-LIST
-
-.. index:: rt both RT-LIST
-.. clicmd:: rt both RT-LIST
-
-   Specify default route target import and export lists. `rt-list` is a
-   space-separated list of route targets, each element of which is
-   in one of the following forms:
-
-   - ``IPv4-address:two-byte-integer``
-   - ``four-byte-autonomous-system-number:two-byte-integer``
-   - ``two-byte-autonomous-system-number:four-byte-integer``
-
-   If no default import RT list is specified, then the default import RT list
-   is empty. If no default export RT list is specified, then the default export
-   RT list is empty.
-
-   A complete definition of these parameters is given below
-   (:ref:`vnc-nve-group-configuration`).
-
-.. index:: rd route-distinguisher
-.. clicmd:: rd ROUTE-DISTINGUISHER
-
-   Specify the default route distinguisher (RD) for routes advertised via BGP
-   VPNs. The route distinguisher must be in one of four forms:
-
-    - ``IPv4-address:two-byte-integer``
-    - ``four-byte-autonomous-system-number:two-byte-integer``
-    - ``two-byte-autonomous-system-number:four-byte-integer``
-    - ``auto:vn:two-byte-integer``
-
-    If RD is specified in the defaults section, the default RD value is
-    `two-byte-autonomous-system-number=0:four-byte-integer=0`.
-
-    A complete definition of this parameter is given below
-    (:ref:`vnc-nve-group-configuration`).
-
-.. index:: l2rd NVE-ID-VALUE
-.. clicmd:: l2rd NVE-ID-VALUE
-
-   Set the value used to distinguish NVEs connected to the same logical
-   Ethernet segment (i.e., L2VPN).  A complete definition of this parameter is
-   given below (:ref:`vnc-nve-group-configuration`).
-
-.. index:: response-lifetime LIFETIME|infinite
-.. clicmd:: response-lifetime LIFETIME|infinite
-
-   Specify the default lifetime to be included in RFP response messages sent to
-   NVEs.
-
-   A complete definition of this parameter is given below
-   (:ref:`vnc-nve-group-configuration`).
-
-.. index:: export bgp|zebra route-map MAP-NAME
-.. clicmd:: export bgp|zebra route-map MAP-NAME
-
-   Specify that the named route-map should be applied to routes being exported
-   to bgp or zebra.
-
-.. index:: export bgp|zebra no route-map
-.. clicmd:: export bgp|zebra no route-map
-
-   Specify that no route-map should be applied to routes being exported to bgp
-   or zebra.
+- :clicmd:`rt import RT-LIST`
+- :clicmd:`rt export RT-LIST`
+- :clicmd:`rt both RT-LIST`
+- :clicmd:`rd ROUTE-DISTINGUISHER`
+- :clicmd:`l2rd NVE-ID-VALUE`
+- :clicmd:`response-lifetime LIFETIME|infinite`
+- :clicmd:`export bgp|zebra route-map MAP-NAME`
+- :clicmd:`export bgp|zebra no route-map`
 
 .. index:: exit-vnc
 .. clicmd:: exit-vnc
@@ -672,30 +613,24 @@ a corresponding `redistribute vnc-direct` statement.
    next hop corresponding to one of the N NVEs currently associated with the
    nve-group.
 
-.. index:: export bgp|zebra ipv4|ipv6 prefix-list LIST-NAME
-.. clicmd:: export bgp|zebra ipv4|ipv6 prefix-list LIST-NAME
+Some commands have a special meaning under certain export modes.
 
+:clicmd:`export bgp|zebra ipv4|ipv6 prefix-list LIST-NAME`
    When export mode is `ce` or `registering-nve`,
    specifies that the named prefix-list should be applied to routes
    being exported to bgp or zebra.
    Prefix-lists for ipv4 and ipv6 are independent of each other.
 
-.. index:: export bgp|zebra no ipv4|ipv6 prefix-list
-.. clicmd:: export bgp|zebra no ipv4|ipv6 prefix-list
-
+:clicmd:`export bgp|zebra no ipv4|ipv6 prefix-list`
    When export mode is `ce` or `registering-nve`,
    specifies that no prefix-list should be applied to routes
    being exported to bgp or zebra.
 
-.. index:: export bgp|zebra route-map MAP-NAME
-.. clicmd:: export bgp|zebra route-map MAP-NAME
-
+:clicmd:`export bgp|zebra route-map MAP-NAME`
    When export mode is `ce` or `registering-nve`, specifies that the named
    route-map should be applied to routes being exported to bgp or zebra.
 
-.. index:: export bgp|zebra no route-map
-.. clicmd:: export bgp|zebra no route-map
-
+:clicmd:`export bgp|zebra no route-map`
    When export mode is `ce` or `registering-nve`, specifies that no route-map
    should be applied to routes being exported to bgp or zebra.
 
@@ -703,32 +638,23 @@ a corresponding `redistribute vnc-direct` statement.
    per-NVE-group or vrf-policy group inside a `nve-group` `RFG-NAME` block via
    the following commands(:ref:`vnc-nve-group-configuration`):
 
-.. index:: export bgp|zebra route-map MAP-NAME
-.. clicmd:: export bgp|zebra route-map MAP-NAME
-
+:clicmd:`export bgp|zebra route-map MAP-NAME`
    This command is valid inside a `nve-group` `RFG-NAME` block.  It specifies
    that the named route-map should be applied to routes being exported to bgp
    or zebra.
 
-.. index:: export bgp|zebra no route-map
-.. clicmd:: export bgp|zebra no route-map
-
+:clicmd:`export bgp|zebra no route-map`
    This command is valid inside a `nve-group` `RFG-NAME` block.  It specifies
    that no route-map should be applied to routes being exported to bgp or
    zebra.
 
-.. index:: export bgp|zebra ipv4|ipv6 prefix-list LIST-NAME
-.. clicmd:: export bgp|zebra ipv4|ipv6 prefix-list LIST-NAME
-
+:clicmd:`export bgp|zebra ipv4|ipv6 prefix-list LIST-NAME`
    This command is valid inside a `nve-group` `RFG-NAME` block.  It specifies
    that the named prefix-list filter should be applied to routes being exported
    to bgp or zebra.  Prefix-lists for ipv4 and ipv6 are independent of each
    other.
 
-.. index:: export bgp|zebra no ipv4|ipv6 prefix-list
-
-.. clicmd:: export bgp|zebra no ipv4|ipv6 prefix-list
-
+:clicmd:`export bgp|zebra no ipv4|ipv6 prefix-list`
    This command is valid inside a `nve-group` `RFG-NAME` block.  It specifies
    that no prefix-list filter should be applied to routes being exported to
    bgp or zebra.
