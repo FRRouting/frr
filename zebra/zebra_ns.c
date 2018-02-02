@@ -1,6 +1,7 @@
 /* zebra NS Routines
  * Copyright (C) 2016 Cumulus Networks, Inc.
  *                    Donald Sharp
+ * Copyright (C) 2017/2018 6WIND
  *
  * This file is part of Quagga.
  *
@@ -31,6 +32,11 @@
 #include "zebra_memory.h"
 #include "rt.h"
 #include "zebra_vxlan.h"
+#include "debug.h"
+#include "zebra_netns_notify.h"
+#include "zebra_netns_id.h"
+
+extern struct zebra_privs_t zserv_privs;
 
 DEFINE_MTYPE(ZEBRA, ZEBRA_NS, "Zebra Name Space")
 
@@ -38,12 +44,70 @@ static struct zebra_ns *dzns;
 
 struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id)
 {
-	return dzns;
+	if (ns_id == NS_DEFAULT)
+		return dzns;
+	struct zebra_ns *info = (struct zebra_ns *)ns_info_lookup(ns_id);
+
+	return (info == NULL) ? dzns : info;
+}
+
+static struct zebra_ns *zebra_ns_alloc(void)
+{
+	return XCALLOC(MTYPE_ZEBRA_NS, sizeof(struct zebra_ns));
+}
+
+static int zebra_ns_new(struct ns *ns)
+{
+	struct zebra_ns *zns;
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_info("ZNS %s with id %u (created)", ns->name, ns->ns_id);
+
+	zns = zebra_ns_alloc();
+	ns->info = zns;
+	zns->ns = ns;
+	return 0;
+}
+
+static int zebra_ns_delete(struct ns *ns)
+{
+	struct zebra_ns *zns = (struct zebra_ns *) ns->info;
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_info("ZNS %s with id %u (deleted)", ns->name, ns->ns_id);
+	if (!zns)
+		return 0;
+	XFREE(MTYPE_ZEBRA_NS, zns);
+	return 0;
+}
+
+static int zebra_ns_enabled(struct ns *ns)
+{
+	struct zebra_ns *zns = ns->info;
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_info("ZNS %s with id %u (enabled)", ns->name, ns->ns_id);
+	if (!zns)
+		return 0;
+	return zebra_ns_enable(ns->ns_id, (void **)&zns);
+}
+
+int zebra_ns_disabled(struct ns *ns)
+{
+	struct zebra_ns *zns = ns->info;
+
+	if (IS_ZEBRA_DEBUG_EVENT)
+		zlog_info("ZNS %s with id %u (disabled)", ns->name, ns->ns_id);
+	if (!zns)
+		return 0;
+	return zebra_ns_disable(ns->ns_id, (void **)&zns);
 }
 
 int zebra_ns_enable(ns_id_t ns_id, void **info)
 {
 	struct zebra_ns *zns = (struct zebra_ns *)(*info);
+
+	zns->ns_id = ns_id;
 
 #if defined(HAVE_RTADV)
 	rtadv_init(zns);
@@ -70,18 +134,43 @@ int zebra_ns_disable(ns_id_t ns_id, void **info)
 
 	kernel_terminate(zns);
 
+	zns->ns_id = NS_DEFAULT;
+
 	return 0;
 }
 
 int zebra_ns_init(void)
 {
-	dzns = XCALLOC(MTYPE_ZEBRA_NS, sizeof(struct zebra_ns));
+	ns_id_t ns_id;
 
-	ns_init();
+	dzns = zebra_ns_alloc();
+
+	if (zserv_privs.change(ZPRIVS_RAISE))
+		zlog_err("Can't raise privileges");
+	ns_id = zebra_ns_id_get_default();
+	if (zserv_privs.change(ZPRIVS_LOWER))
+		zlog_err("Can't lower privileges");
+	ns_init_zebra(ns_id);
 
 	zebra_vrf_init();
 
 	zebra_ns_enable(NS_DEFAULT, (void **)&dzns);
 
+	if (vrf_is_backend_netns()) {
+		ns_add_hook(NS_NEW_HOOK, zebra_ns_new);
+		ns_add_hook(NS_ENABLE_HOOK, zebra_ns_enabled);
+		ns_add_hook(NS_DISABLE_HOOK, zebra_ns_disabled);
+		ns_add_hook(NS_DELETE_HOOK, zebra_ns_delete);
+		zebra_ns_notify_parse();
+		zebra_ns_notify_init();
+	}
+	return 0;
+}
+
+int zebra_ns_config_write(struct vty *vty, struct ns *ns)
+{
+	if (ns && ns->name != NULL) {
+		vty_out(vty, " netns %s\n", ns->name);
+	}
 	return 0;
 }

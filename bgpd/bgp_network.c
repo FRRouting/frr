@@ -34,6 +34,7 @@
 #include "queue.h"
 #include "hash.h"
 #include "filter.h"
+#include "ns.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_open.h"
@@ -51,6 +52,7 @@ struct bgp_listener {
 	int fd;
 	union sockunion su;
 	struct thread *thread;
+	struct bgp *bgp;
 };
 
 /*
@@ -284,6 +286,10 @@ static int bgp_accept(struct thread *thread)
 		return -1;
 	}
 	listener->thread = NULL;
+
+	if (listener->bgp)
+		bgp = listener->bgp;
+
 	thread_add_read(bm->master, bgp_accept, listener, accept_sock,
 			&listener->thread);
 
@@ -442,10 +448,11 @@ static int bgp_bind(struct peer *peer)
 	int myerrno;
 	char *name = NULL;
 
-	/* If not bound to an interface or part of a VRF, we don't care. */
-	if (!peer->bgp->vrf_id && !peer->ifname && !peer->conf_if)
+	/* If not bound to an interface or part of a VRF lite, we don't care. */
+	if ((peer->bgp->vrf_id == VRF_DEFAULT) && !peer->ifname && !peer->conf_if)
 		return 0;
-
+	if (vrf_is_mapped_on_netns(peer->bgp->vrf_id))
+		return 0;
 	if (peer->su.sa.sa_family != AF_INET
 	    && peer->su.sa.sa_family != AF_INET6)
 		return 0; // unexpected
@@ -559,7 +566,7 @@ int bgp_connect(struct peer *peer)
 		return 0;
 	}
 	/* Make socket for the peer. */
-	peer->fd = sockunion_socket(&peer->su);
+	peer->fd = vrf_sockunion_socket(&peer->su, peer->bgp->vrf_id);
 	if (peer->fd < 0)
 		return -1;
 
@@ -642,12 +649,12 @@ int bgp_getsockname(struct peer *peer)
 		return -1;
 #endif
 	}
-
 	return 0;
 }
 
 
-static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen)
+static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
+			struct bgp *bgp)
 {
 	struct bgp_listener *listener;
 	int ret, en;
@@ -683,8 +690,14 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen)
 		return ret;
 	}
 
-	listener = XMALLOC(MTYPE_BGP_LISTENER, sizeof(*listener));
+	listener = XCALLOC(MTYPE_BGP_LISTENER, sizeof(*listener));
 	listener->fd = sock;
+
+	/* this socket needs a change of ns. record bgp back pointer */
+	if (bgp->vrf_id != VRF_DEFAULT &&
+	    vrf_is_mapped_on_netns(bgp->vrf_id))
+		listener->bgp = bgp;
+
 	memcpy(&listener->su, sa, salen);
 	listener->thread = NULL;
 	thread_add_read(bm->master, bgp_accept, listener, sock,
@@ -695,7 +708,7 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen)
 }
 
 /* IPv6 supported version of BGP server socket setup.  */
-int bgp_socket(unsigned short port, const char *address)
+int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 {
 	struct addrinfo *ainfo;
 	struct addrinfo *ainfo_save;
@@ -710,7 +723,7 @@ int bgp_socket(unsigned short port, const char *address)
 	snprintf(port_str, sizeof(port_str), "%d", port);
 	port_str[sizeof(port_str) - 1] = '\0';
 
-	ret = getaddrinfo(address, port_str, &req, &ainfo_save);
+	ret = vrf_getaddrinfo(address, port_str, &req, &ainfo_save, bgp->vrf_id);
 	if (ret != 0) {
 		zlog_err("getaddrinfo: %s", gai_strerror(ret));
 		return -1;
@@ -723,8 +736,8 @@ int bgp_socket(unsigned short port, const char *address)
 		if (ainfo->ai_family != AF_INET && ainfo->ai_family != AF_INET6)
 			continue;
 
-		sock = socket(ainfo->ai_family, ainfo->ai_socktype,
-			      ainfo->ai_protocol);
+		sock = vrf_socket(ainfo->ai_family, ainfo->ai_socktype,
+				  ainfo->ai_protocol, bgp->vrf_id);
 		if (sock < 0) {
 			zlog_err("socket: %s", safe_strerror(errno));
 			continue;
@@ -734,7 +747,8 @@ int bgp_socket(unsigned short port, const char *address)
 		 * ttl=255 */
 		sockopt_ttl(ainfo->ai_family, sock, MAXTTL);
 
-		ret = bgp_listener(sock, ainfo->ai_addr, ainfo->ai_addrlen);
+		ret = bgp_listener(sock, ainfo->ai_addr,
+				   ainfo->ai_addrlen, bgp);
 		if (ret == 0)
 			++count;
 		else

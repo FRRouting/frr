@@ -23,7 +23,7 @@
 
 #define BGP_SOCKET_SNDBUF_SIZE 65536
 
-extern int bgp_socket(unsigned short, const char *);
+extern int bgp_socket(struct bgp *, unsigned short, const char *);
 extern void bgp_close(void);
 extern int bgp_connect(struct peer *);
 extern int bgp_getsockname(struct peer *);

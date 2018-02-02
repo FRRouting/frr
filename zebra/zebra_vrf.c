@@ -25,8 +25,9 @@
 #include "command.h"
 #include "memory.h"
 #include "srcdest_table.h"
-
+#include "vrf.h"
 #include "vty.h"
+
 #include "zebra/debug.h"
 #include "zebra/zserv.h"
 #include "zebra/rib.h"
@@ -71,7 +72,7 @@ void zebra_vrf_update_all(struct zserv *client)
 	struct vrf *vrf;
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		if (vrf->vrf_id)
+		if (vrf->vrf_id != VRF_UNKNOWN)
 			zsend_vrf_add(client, vrf_info_lookup(vrf->vrf_id));
 	}
 }
@@ -85,12 +86,9 @@ static int zebra_vrf_new(struct vrf *vrf)
 		zlog_info("ZVRF %s with id %u", vrf->name, vrf->vrf_id);
 
 	zvrf = zebra_vrf_alloc();
-	zvrf->zns = zebra_ns_lookup(
-		NS_DEFAULT); /* Point to the global (single) NS */
-	router_id_init(zvrf);
 	vrf->info = zvrf;
 	zvrf->vrf = vrf;
-
+	router_id_init(zvrf);
 	return 0;
 }
 
@@ -107,6 +105,10 @@ static int zebra_vrf_enable(struct vrf *vrf)
 
 	assert(zvrf);
 
+	if (vrf_is_backend_netns())
+		zvrf->zns = zebra_ns_lookup((ns_id_t)vrf->vrf_id);
+	else
+		zvrf->zns = zebra_ns_lookup(NS_DEFAULT);
 	zebra_vrf_add_update(zvrf);
 
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
@@ -484,11 +486,12 @@ static int vrf_config_write(struct vty *vty)
 		static_config(vty, zvrf, AFI_IP, SAFI_MULTICAST, "ip mroute");
 		static_config(vty, zvrf, AFI_IP6, SAFI_UNICAST, "ipv6 route");
 
-		if (vrf->vrf_id != VRF_DEFAULT && zvrf->l3vni)
-			vty_out(vty, " vni %u\n", zvrf->l3vni);
-
-		if (vrf->vrf_id != VRF_DEFAULT)
+		if (vrf->vrf_id != VRF_DEFAULT) {
+			if (zvrf->l3vni)
+				vty_out(vty, " vni %u\n", zvrf->l3vni);
+			zebra_ns_config_write(vty, (struct ns *)vrf->ns_ctxt);
 			vty_out(vty, "!\n");
+		}
 	}
 	return 0;
 }

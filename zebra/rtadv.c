@@ -34,6 +34,7 @@
 #include "command.h"
 #include "privs.h"
 #include "vrf.h"
+#include "ns.h"
 
 #include "zebra/interface.h"
 #include "zebra/rtadv.h"
@@ -621,7 +622,7 @@ static int rtadv_read(struct thread *thread)
 	return 0;
 }
 
-static int rtadv_make_socket(void)
+static int rtadv_make_socket(ns_id_t ns_id)
 {
 	int sock;
 	int ret = 0;
@@ -631,7 +632,7 @@ static int rtadv_make_socket(void)
 		zlog_err("rtadv_make_socket: could not raise privs, %s",
 			 safe_strerror(errno));
 
-	sock = socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6);
+	sock = ns_socket(AF_INET6, SOCK_RAW, IPPROTO_ICMPV6, ns_id);
 
 	if (zserv_privs.change(ZPRIVS_LOWER))
 		zlog_err("rtadv_make_socket: could not lower privs, %s",
@@ -1686,7 +1687,7 @@ static void rtadv_event(struct zebra_ns *zns, enum rtadv_event event, int val)
 
 void rtadv_init(struct zebra_ns *zns)
 {
-	zns->rtadv.sock = rtadv_make_socket();
+	zns->rtadv.sock = rtadv_make_socket(zns->ns_id);
 }
 
 void rtadv_terminate(struct zebra_ns *zns)

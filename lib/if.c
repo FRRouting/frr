@@ -384,29 +384,39 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id, int vty)
 {
 	struct interface *ifp;
 
-	ifp = if_lookup_by_name_all_vrf(name);
+	ifp = if_lookup_by_name(name, vrf_id);
 	if (ifp) {
-		if (ifp->vrf_id == vrf_id)
-			return ifp;
-
-		/* Found a match on a different VRF. If the interface command
+		return ifp;
+	} else {
+		/* Not Found on same VRF. If the interface command
 		 * was entered in vty without a VRF (passed as VRF_DEFAULT),
 		 * accept the ifp we found. If a vrf was entered and there is
-		 * a mismatch, reject it if from vty. If it came from the kernel
-		 * or by way of zclient, believe it and update the ifp
-		 * accordingly.
+		 * a mismatch, reject it if from vty.
 		 */
-		if (vty) {
-			if (vrf_id == VRF_DEFAULT)
+		ifp = if_lookup_by_name_all_vrf(name);
+		if (ifp) {
+			if (vty) {
+				if (vrf_id == VRF_DEFAULT)
+					return ifp;
+				return NULL;
+			} else {
+				/* if vrf backend uses NETNS, then
+				 * this should not be considered as an update
+				 * then create the new interface
+				 */
+				if (ifp->vrf_id != vrf_id &&
+				    vrf_is_mapped_on_netns(vrf_id))
+					return if_create(name, vrf_id);
+				/* If it came from the kernel
+				 * or by way of zclient, believe it and update
+				 * the ifp accordingly.
+				 */
+				if_update_to_new_vrf(ifp, vrf_id);
 				return ifp;
-			return NULL;
-		} else {
-			if_update_to_new_vrf(ifp, vrf_id);
-			return ifp;
+			}
 		}
+		return if_create(name, vrf_id);
 	}
-
-	return if_create(name, vrf_id);
 }
 
 void if_set_index(struct interface *ifp, ifindex_t ifindex)

@@ -85,6 +85,7 @@ struct option longopts[] = {{"batch", no_argument, NULL, 'b'},
 			    {"label_socket", no_argument, NULL, 'l'},
 			    {"retain", no_argument, NULL, 'r'},
 #ifdef HAVE_NETLINK
+			    {"vrfwnetns", no_argument, NULL, 'n'},
 			    {"nl-bufsize", required_argument, NULL, 's'},
 #endif /* HAVE_NETLINK */
 			    {0}};
@@ -122,7 +123,6 @@ static void sigint(void)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
-	struct zebra_ns *zns;
 
 	zlog_notice("Terminating on signal");
 
@@ -137,10 +137,11 @@ static void sigint(void)
 			if (zvrf)
 				SET_FLAG(zvrf->flags, ZEBRA_VRF_RETAIN);
 		}
+	if (zebrad.lsp_process_q)
+		work_queue_free(zebrad.lsp_process_q);
 	vrf_terminate();
 
-	zns = zebra_ns_lookup(NS_DEFAULT);
-	zebra_ns_disable(0, (void **)&zns);
+	ns_walk_func(zebra_ns_disabled);
 
 	access_list_reset();
 	prefix_list_reset();
@@ -148,8 +149,6 @@ static void sigint(void)
 
 	list_delete_and_null(&zebrad.client_list);
 	work_queue_free(zebrad.ribq);
-	if (zebrad.lsp_process_q)
-		work_queue_free(zebrad.lsp_process_q);
 	meta_queue_free(zebrad.mq);
 
 	frr_fini();
@@ -205,12 +204,14 @@ int main(int argc, char **argv)
 	char *fuzzing = NULL;
 #endif
 
+	vrf_configure_backend(VRF_BACKEND_VRF_LITE);
+
 	frr_preinit(&zebra_di, argc, argv);
 
 	frr_opt_add(
 		"bakz:e:l:r"
 #ifdef HAVE_NETLINK
-		"s:"
+		"s:n"
 #endif
 #if defined(HANDLE_ZAPI_FUZZING)
 		"c:"
@@ -225,6 +226,7 @@ int main(int argc, char **argv)
 		"  -k, --keep_kernel  Don't delete old routes which installed by zebra.\n"
 		"  -r, --retain       When program terminates, retain added route by zebra.\n"
 #ifdef HAVE_NETLINK
+		"  -n, --vrfwnetns    Set VRF with NetNS\n"
 		"  -s, --nl-bufsize   Set netlink receive buffer size\n"
 #endif /* HAVE_NETLINK */
 #if defined(HANDLE_ZAPI_FUZZING)
@@ -278,6 +280,9 @@ int main(int argc, char **argv)
 #ifdef HAVE_NETLINK
 		case 's':
 			nl_rcvbufsize = atoi(optarg);
+			break;
+		case 'n':
+			vrf_configure_backend(VRF_BACKEND_NETNS);
 			break;
 #endif /* HAVE_NETLINK */
 #if defined(HANDLE_ZAPI_FUZZING)

@@ -78,7 +78,7 @@ extern int kernel_address_add_ipv4(struct interface *, struct connected *);
 extern int kernel_address_delete_ipv4(struct interface *, struct connected *);
 extern int kernel_address_add_ipv6 (struct interface *, struct connected *);
 extern int kernel_address_delete_ipv6 (struct interface *, struct connected *);
-extern int kernel_neigh_update(int, int, uint32_t, char *, int);
+extern int kernel_neigh_update(int, int, uint32_t, char *, int, ns_id_t);
 extern int kernel_interface_set_master(struct interface *master,
 				       struct interface *slave);
 

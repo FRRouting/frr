@@ -29,6 +29,10 @@
 #include "log.h"
 #include "memory.h"
 #include "command.h"
+#include "ns.h"
+
+/* default VRF ID value used when VRF backend is not NETNS */
+#define VRF_DEFAULT_INTERNAL 0
 
 DEFINE_MTYPE_STATIC(LIB, VRF, "VRF")
 DEFINE_MTYPE_STATIC(LIB, VRF_BITMAP, "VRF bit-map")
@@ -43,6 +47,8 @@ RB_GENERATE(vrf_name_head, vrf, name_entry, vrf_name_compare);
 
 struct vrf_id_head vrfs_by_id = RB_INITIALIZER(&vrfs_by_id);
 struct vrf_name_head vrfs_by_name = RB_INITIALIZER(&vrfs_by_name);
+
+static int vrf_backend;
 
 /*
  * Turn on/off debug code
@@ -61,7 +67,6 @@ struct vrf_master {
 };
 
 static int vrf_is_enabled(struct vrf *vrf);
-static void vrf_disable(struct vrf *vrf);
 
 /* VRF list existance check by name. */
 struct vrf *vrf_lookup_by_name(const char *name)
@@ -81,6 +86,51 @@ static int vrf_name_compare(const struct vrf *a, const struct vrf *b)
 	return strcmp(a->name, b->name);
 }
 
+int vrf_switch_to_netns(vrf_id_t vrf_id)
+{
+	char *name;
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+	/* VRF has no NETNS backend. silently ignore */
+	if (!vrf || vrf->data.l.netns_name[0] == '\0')
+		return 0;
+	/* VRF is default VRF. silently ignore */
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return 0;
+	name = ns_netns_pathname(NULL, vrf->data.l.netns_name);
+	if (debug_vrf)
+		zlog_debug("VRF_SWITCH: %s(%u)", name, vrf->vrf_id);
+	return ns_switch_to_netns (name);
+}
+
+int vrf_switchback_to_initial (void)
+{
+	int ret = ns_switchback_to_initial ();
+
+	if (ret == 0 && debug_vrf)
+		zlog_debug("VRF_SWITCHBACK");
+	return ret;
+}
+
+/* return 1 if vrf can be enabled */
+int vrf_update_vrf_id(vrf_id_t vrf_id, struct vrf *vrf)
+{
+	vrf_id_t old_vrf_id;
+
+	if (!vrf)
+		return 0;
+	old_vrf_id = vrf->vrf_id;
+	if (vrf_id == vrf->vrf_id)
+		return 0;
+	if (vrf->vrf_id != VRF_UNKNOWN)
+		RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
+	vrf->vrf_id = vrf_id;
+	RB_INSERT(vrf_id_head, &vrfs_by_id, vrf);
+	if (old_vrf_id == VRF_UNKNOWN)
+		return 1;
+	return 0;
+}
+
 /* Get a VRF. If not found, create one.
  * Arg:
  *   name   - The name of the vrf.  May be NULL if unknown.
@@ -94,7 +144,8 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 	int new = 0;
 
 	if (debug_vrf)
-		zlog_debug("VRF_GET: %s(%u)", name, vrf_id);
+		zlog_debug("VRF_GET: %s(%u)",
+			   name == NULL ? "(NULL)" : name, vrf_id);
 
 	/* Nothing to see, move along here */
 	if (!name && vrf_id == VRF_UNKNOWN)
@@ -109,8 +160,6 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 	if (vrf == NULL) {
 		vrf = XCALLOC(MTYPE_VRF, sizeof(struct vrf));
 		vrf->vrf_id = VRF_UNKNOWN;
-		RB_INIT(if_name_head, &vrf->ifaces_by_name);
-		RB_INIT(if_index_head, &vrf->ifaces_by_index);
 		QOBJ_REG(vrf, vrf);
 		new = 1;
 
@@ -134,7 +183,8 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 		strlcpy(vrf->name, name, sizeof(vrf->name));
 		RB_INSERT(vrf_name_head, &vrfs_by_name, vrf);
 	}
-
+	if (vrf && vrf->name)
+		strlcpy(vrf->data.l.netns_name, basename(vrf->name), NS_NAMSIZ);
 	if (new &&vrf_master.vrf_new_hook)
 		(*vrf_master.vrf_new_hook)(vrf);
 
@@ -208,7 +258,7 @@ int vrf_enable(struct vrf *vrf)
  * The VRF_DELETE_HOOK callback will be called to inform
  * that they must release the resources in the VRF.
  */
-static void vrf_disable(struct vrf *vrf)
+void vrf_disable(struct vrf *vrf)
 {
 	if (!vrf_is_enabled(vrf))
 		return;
@@ -417,11 +467,69 @@ void vrf_terminate(void)
 /* Create a socket for the VRF. */
 int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id)
 {
-	int ret = -1;
+	int ret, save_errno, ret2;
 
+	ret = vrf_switch_to_netns(vrf_id);
+	if (ret < 0)
+		zlog_err("Can't switch to VRF %u", vrf_id);
 	ret = socket(domain, type, protocol);
-
+	save_errno = errno;
+	ret2 = vrf_switchback_to_initial();
+	if (ret2 < 0)
+		zlog_err("Can't switch to VRF %u", vrf_id);
+	errno = save_errno;
 	return ret;
+}
+
+int vrf_is_backend_netns(void)
+{
+	return (vrf_backend == VRF_BACKEND_NETNS);
+}
+
+int vrf_get_backend(void)
+{
+	return vrf_backend;
+}
+
+void vrf_configure_backend(int vrf_backend_netns)
+{
+	vrf_backend = vrf_backend_netns;
+}
+
+int vrf_handler_create(struct vty *vty, const char *vrfname, struct vrf **vrf)
+{
+	struct vrf *vrfp;
+
+	if (strlen(vrfname) > VRF_NAMSIZ) {
+		if (vty)
+			vty_out(vty,
+			    "%% VRF name %s is invalid: length exceeds "
+			    "%d characters\n", vrfname, VRF_NAMSIZ);
+		else
+			zlog_warn("%% VRF name %s is invalid: length exceeds "
+				  "%d characters\n", vrfname, VRF_NAMSIZ);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	vrfp = vrf_get(VRF_UNKNOWN, vrfname);
+
+	if (vty)
+		VTY_PUSH_CONTEXT(VRF_NODE, vrfp);
+
+	if (vrf)
+		*vrf = vrfp;
+	return CMD_SUCCESS;
+}
+
+int vrf_is_mapped_on_netns(vrf_id_t vrf_id)
+{
+	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
+
+	if (!vrf || vrf->data.l.netns_name[0] == '\0')
+		return 0;
+	if (vrf->vrf_id == NS_DEFAULT)
+		return 0;
+	return 1;
 }
 
 /* vrf CLI commands */
@@ -433,21 +541,8 @@ DEFUN_NOSH (vrf,
 {
 	int idx_name = 1;
 	const char *vrfname = argv[idx_name]->arg;
-	struct vrf *vrfp;
 
-	if (strlen(vrfname) > VRF_NAMSIZ) {
-		vty_out(vty,
-			"%% VRF name %s is invalid: length exceeds "
-			"%d characters\n",
-			vrfname, VRF_NAMSIZ);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	vrfp = vrf_get(VRF_UNKNOWN, vrfname);
-
-	VTY_PUSH_CONTEXT(VRF_NODE, vrfp);
-
-	return CMD_SUCCESS;
+	return vrf_handler_create(vty, vrfname, NULL);
 }
 
 DEFUN_NOSH (no_vrf,
@@ -533,4 +628,50 @@ void vrf_cmd_init(int (*writefunc)(struct vty *vty))
 	install_element(CONFIG_NODE, &no_vrf_cmd);
 	install_node(&vrf_node, writefunc);
 	install_default(VRF_NODE);
+	ns_cmd_init();
+}
+
+vrf_id_t vrf_get_default_id(void)
+{
+	struct vrf *vrf = vrf_lookup_by_name(VRF_DEFAULT_NAME);
+	if (vrf)
+		return vrf->vrf_id;
+	if (vrf_is_backend_netns())
+		return ns_get_default_id();
+	else
+		return VRF_DEFAULT_INTERNAL;
+}
+
+int vrf_getaddrinfo(const char *node, const char *service,
+		    const struct addrinfo *hints,
+		    struct addrinfo **res, vrf_id_t vrf_id)
+{
+	int ret, ret2, save_errno;
+
+	ret = vrf_switch_to_netns(vrf_id);
+	if (ret < 0)
+		zlog_err("Can't switch to VRF %u", vrf_id);
+	ret = getaddrinfo(node, service, hints, res);
+	save_errno = errno;
+	ret2 = vrf_switchback_to_initial();
+	if (ret2 < 0)
+		zlog_err("Can't switchback from VRF %u", vrf_id);
+	errno = save_errno;
+	return ret;
+}
+
+int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id)
+{
+	int ret, save_errno, ret2;
+
+	ret = vrf_switch_to_netns(vrf_id);
+	if (ret < 0)
+		zlog_err("Can't switch to VRF %u", vrf_id);
+	ret = sockunion_socket(su);
+	save_errno = errno;
+	ret2 = vrf_switchback_to_initial();
+	if (ret2 < 0)
+		zlog_err("Can't switchback from VRF %u", vrf_id);
+	errno = save_errno;
+	return ret;
 }

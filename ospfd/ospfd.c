@@ -2047,7 +2047,7 @@ static int ospf_vrf_delete(struct vrf *vrf)
 static int ospf_vrf_enable(struct vrf *vrf)
 {
 	struct ospf *ospf = NULL;
-	vrf_id_t old_vrf_id = VRF_DEFAULT;
+	vrf_id_t old_vrf_id;
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: VRF %s id %u enabled",
