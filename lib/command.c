@@ -1862,7 +1862,7 @@ DEFUN (config_password,
 		return CMD_SUCCESS;
 	}
 
-	if (!isalnum(argv[idx_8]->arg[0])) {
+	if (!isalnum((int)argv[idx_8]->arg[0])) {
 		vty_out(vty,
 			"Please specify string starting with alphanumeric\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1914,7 +1914,7 @@ DEFUN (config_enable_password,
 		}
 	}
 
-	if (!isalnum(argv[idx_8]->arg[0])) {
+	if (!isalnum((int)argv[idx_8]->arg[0])) {
 		vty_out(vty,
 			"Please specify string starting with alphanumeric\n");
 		return CMD_WARNING_CONFIG_FAILED;
