@@ -190,7 +190,7 @@ options to the configuration script.
    Configure zebra to use `dir` for local state files, such as pid files and
    unix sockets.
 
-.. _Least-Privilege-support:
+.. _least-privilege-support:
 
 Least-Privilege Support
 -----------------------

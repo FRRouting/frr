@@ -1,4 +1,4 @@
-.. _VNC-and-VNC-GW:
+.. _vnc-and-vnc-gw:
 
 **************
 VNC and VNC-GW
@@ -291,7 +291,7 @@ Defaults section.
    :ref:`configuring-export-of-routes-to-other-routing-protocols`.  This item
    is optional.
 
-.. _VNC-L2-Group-Configuration:
+.. _vnc-l2-group-configuration:
 
 VNC L2 Group Configuration
 --------------------------
@@ -718,7 +718,7 @@ manually and dynamically added information.
    `*` in lieu of any VN or UN address, in which case all registrations will
    match.
 
-.. _Other-VNC-Related-Commands:
+.. _other-vnc-related-commands:
 
 Other VNC-Related Commands
 ==========================
@@ -816,7 +816,7 @@ related information:
 
    Print the number of memory items allocated by the NVA.
 
-.. _Example-VNC-and-VNC-GW-Configurations:
+.. _example-vnc-and-vnc-gw-configurations:
 
 Example VNC and VNC-GW Configurations
 =====================================

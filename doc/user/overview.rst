@@ -20,7 +20,7 @@ can use FRR library as your program's client user interface.
 
 FRR is distributed under the GNU General Public License.
 
-.. _About-FRR:
+.. _about-frr:
 
 About FRR
 =========
@@ -276,7 +276,7 @@ posted at `FRR`_.
 .. index:: Reporting software errors
 .. index:: Errors in the software
 
-.. _Bug-Reports:
+.. _bug-reports:
 
 Bug Reports
 ===========
@@ -296,7 +296,7 @@ When you send a bug report, please be careful about the points below.
 
 Bug reports help us improve FRR and are very much appreciated.
 
-.. _frr: |PACKAGE-URL|
+.. _frr: |package-url|
 .. _github: https://github.com/frrouting/frr/
-.. _GitHub issues: https://github.com/frrouting/frr/issues
+.. _github issues: https://github.com/frrouting/frr/issues
 .. _slack: https://frrouting.slack.com/

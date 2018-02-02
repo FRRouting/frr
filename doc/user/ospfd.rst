@@ -1,4 +1,4 @@
-.. _OSPFv2:
+.. _ospfv2:
 
 ******
 OSPFv2
@@ -706,7 +706,7 @@ Redistribute routes to OSPF
    or kind into OSPF, with the metric type and metric set if specified,
    filtering the routes using the given route-map if specified.
    Redistributed routes may also be filtered with distribute-lists, see
-   :ref:`OSPF distribute-list configuration <ospf-distribute-list>`.
+   :ref:`ospf distribute-list configuration <ospf-distribute-list>`.
 
    Redistributed routes are distributed as into OSPF as Type-5 External
    LSAs into links to areas that accept external routes, Type-7 External LSAs
@@ -762,7 +762,7 @@ Redistribute routes to OSPF
 
    Apply the access-list filter, NAME, to
    redistributed routes of the given type before allowing the routes to
-   redistributed into OSPF (:ref:`OSPF redistribution <ospf-redistribute>`).
+   redistributed into OSPF (:ref:`ospf redistribution <ospf-redistribute>`).
 
 .. index:: default-metric (0-16777214)
 .. clicmd:: default-metric (0-16777214)

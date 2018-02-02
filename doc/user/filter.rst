@@ -121,7 +121,7 @@ ip prefix-list sequential number control
    With this command, the IP prefix list sequential number is not
    displayed.
 
-.. _Showing-ip-prefix-list:
+.. _showing-ip-prefix-list:
 
 Showing ip prefix-list
 ----------------------

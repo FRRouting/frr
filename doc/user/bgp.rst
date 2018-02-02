@@ -1959,7 +1959,7 @@ _
    the end of the line. So `_` can be used for AS value boundaries match. This
    character technically evaluates to `(^|[,{}() ]|$)`.
 
-.. _How-to-set-up-a-6-Bone-connection:
+.. _how-to-set-up-a-6-bone-connection:
 
 How to set up a 6-Bone connection
 =================================

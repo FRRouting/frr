@@ -1,4 +1,4 @@
-.. _OSPFv3:
+.. _ospfv3:
 
 ******
 OSPFv3
@@ -7,7 +7,7 @@ OSPFv3
 *ospf6d* is a daemon support OSPF version 3 for IPv6 network. OSPF for IPv6 is
 described in :rfc:`2740`.
 
-.. _OSPF6-router:
+.. _ospf6-router:
 
 OSPF6 router
 ============
@@ -78,14 +78,14 @@ OSPF6 router
    This configuration setting MUST be consistent across all routers
    within the OSPF domain.
 
-.. _OSPF6-area:
+.. _ospf6-area:
 
 OSPF6 area
 ==========
 
 Area support for OSPFv3 is not yet implemented.
 
-.. _OSPF6-interface:
+.. _ospf6-interface:
 
 OSPF6 interface
 ===============
@@ -126,7 +126,7 @@ OSPF6 interface
 
    Set explicitly network type for specifed interface.
 
-.. _Redistribute-routes-to-OSPF6:
+.. _redistribute-routes-to-ospf6:
 
 Redistribute routes to OSPF6
 ============================
@@ -141,7 +141,7 @@ Redistribute routes to OSPF6
 .. clicmd:: redistribute ripng
 
 
-.. _Showing-OSPF6-information:
+.. _showing-ospf6-information:
 
 Showing OSPF6 information
 =========================

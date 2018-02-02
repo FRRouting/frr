@@ -187,7 +187,7 @@ All LSAs share a common header with the following information:
   The combination of the Type, ID and Advertising Router ID must uniquely
   identify the :abbr:`LSA`. There can however be multiple instances of
   an LSA with the same Type, LSA ID and Advertising Router ID, see
-  :ref:`Sequence Number <ospf-lsa-sequence-number>`.
+  :ref:`sequence number <ospf-lsa-sequence-number>`.
 
 - Age
 

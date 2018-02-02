@@ -1,4 +1,4 @@
-.. _Zebra-Protocol:
+.. _zebra-protocol:
 
 **************
 Zebra Protocol

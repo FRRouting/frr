@@ -437,7 +437,7 @@ Distance value is used in zebra daemon. Default RIP distance is 120.
    Set default RIP distance to specified value when the route's source IP
    address matches the specified prefix and the specified access-list.
 
-.. _RIP-route-map:
+.. _rip-route-map:
 
 RIP route-map
 =============
