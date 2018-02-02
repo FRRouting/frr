@@ -34,8 +34,9 @@
  * code documentation in it.
  */
 
-/* ignore harmless bug in old versions of flex */
+/* ignore harmless bugs in old versions of flex */
 #pragma GCC diagnostic ignored "-Wsign-compare"
+#pragma GCC diagnostic ignored "-Wunused-value"
 
 #include "config.h"
 #include <Python.h>
