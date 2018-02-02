@@ -347,7 +347,7 @@ int ptm_lib_process_msg(ptm_lib_handle_t *hdl, int fd, char *inbuf, int inlen,
 {
 	int rc, len;
 	char client_name[32];
-	int cmd_id, type, ver, msglen;
+	int cmd_id = 0, type = 0, ver = 0, msglen = 0;
 	csv_t *csv;
 	ptm_lib_msg_ctxt_t *p_ctxt = NULL;
 

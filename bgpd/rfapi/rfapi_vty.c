@@ -494,7 +494,7 @@ void rfapiPrintBi(void *stream, struct bgp_info *bi)
 	char *p = line;
 	int r;
 	int has_macaddr = 0;
-	struct ethaddr macaddr;
+	struct ethaddr macaddr = {{0}};
 	struct rfapi_l2address_option l2o_buf;
 	uint8_t l2hid = 0; /* valid if has_macaddr */
 
