@@ -352,7 +352,6 @@ int ospf_sr_init(void)
  * Segment Routing termination function
  *
  * @param - nothing
- *
  * @return - nothing
  */
 void ospf_sr_term(void)
@@ -368,6 +367,21 @@ void ospf_sr_term(void)
 	/* Clear Prefix Table */
 	if (OspfSR.prefix)
 		route_table_finish(OspfSR.prefix);
+
+	OspfSR.enabled = false;
+	OspfSR.self = NULL;
+}
+
+/*
+ * Segment Routing finish function
+ *
+ * @param - nothing
+ * @return - nothing
+ */
+void ospf_sr_finish(void)
+{
+	/* Stop Segment Routing */
+	ospf_sr_stop();
 
 	OspfSR.enabled = false;
 }

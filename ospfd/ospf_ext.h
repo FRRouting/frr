@@ -191,6 +191,7 @@ struct ext_itf {
 /* Prototypes. */
 extern int ospf_ext_init(void);
 extern void ospf_ext_term(void);
+extern void ospf_ext_finish(void);
 extern void ospf_ext_update_sr(bool enable);
 extern uint32_t ospf_ext_schedule_prefix_index(struct interface *ifp,
 					  uint32_t index,

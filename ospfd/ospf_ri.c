@@ -198,6 +198,23 @@ static int ospf_router_info_register(u_int8_t scope)
 	return rc;
 }
 
+static int ospf_router_info_unregister()
+{
+
+	if ((OspfRI.scope != OSPF_OPAQUE_AS_LSA)
+	    && (OspfRI.scope != OSPF_OPAQUE_AREA_LSA)) {
+		zlog_warn(
+			"Unable to unregister Router Info functions: Wrong scope!");
+		return -1;
+	}
+
+	ospf_delete_opaque_functab(OspfRI.scope,
+				   OPAQUE_TYPE_ROUTER_INFORMATION_LSA);
+
+	OspfRI.registered = 0;
+	return 0;
+}
+
 void ospf_router_info_term(void)
 {
 
@@ -206,7 +223,17 @@ void ospf_router_info_term(void)
 
 	OspfRI.enabled = false;
 
+	ospf_router_info_unregister();
+
 	return;
+}
+
+void ospf_router_info_finish(void)
+{
+	list_delete_all_node(OspfRI.pce_info.pce_domain);
+	list_delete_all_node(OspfRI.pce_info.pce_neighbor);
+
+	OspfRI.enabled = false;
 }
 
 static void del_pce_info(void *val)

@@ -299,6 +299,7 @@ struct sr_prefix {
 /* Segment Routing initialisation functions */
 extern int ospf_sr_init(void);
 extern void ospf_sr_term(void);
+extern void ospf_sr_finish(void);
 /* Segment Routing LSA update & delete functions */
 extern void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa);
 extern void ospf_sr_ri_lsa_delete(struct ospf_lsa *lsa);

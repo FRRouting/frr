@@ -168,17 +168,41 @@ int ospf_ext_init(void)
 /*
  * Extended Link/Prefix termination function
  *
- * @param - node
- *
+ * @param - none
  * @return - none
  */
 void ospf_ext_term(void)
 {
 
+	if ((OspfEXT.scope != OSPF_OPAQUE_AREA_LSA)
+	    || (OspfEXT.scope != OSPF_OPAQUE_AS_LSA))
+		zlog_warn(
+			"EXT: Unable to unregister Extended Prefix "
+			"Opaque LSA functions: Wrong scope!");
+	else
+		ospf_delete_opaque_functab(OspfEXT.scope,
+					   OPAQUE_TYPE_EXTENDED_PREFIX_LSA);
+
+	ospf_delete_opaque_functab(OSPF_OPAQUE_AREA_LSA,
+				   OPAQUE_TYPE_EXTENDED_LINK_LSA);
+
 	list_delete_and_null(&OspfEXT.iflist);
 	OspfEXT.scope = 0;
 	OspfEXT.enabled = false;
 
+	return;
+}
+
+/*
+ * Extended Link/Prefix finish function
+ *
+ * @param - none
+ * @return - none
+ */
+void ospf_ext_finish(void)
+{
+	// list_delete_all_node(OspfEXT.iflist);
+	OspfEXT.enabled = false;
 }
 
 /*
