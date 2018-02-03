@@ -610,6 +610,8 @@ static void ospf_finish_final(struct ospf *ospf)
 
 	ospf_opaque_type11_lsa_term(ospf);
 
+	ospf_opaque_finish();
+
 	ospf_flush_self_originated_lsas_now(ospf);
 
 	/* Unregister redistribution */
@@ -779,8 +781,6 @@ static void ospf_finish_final(struct ospf *ospf)
 
 	if (!CHECK_FLAG(om->options, OSPF_MASTER_SHUTDOWN))
 		instance = ospf->instance;
-
-	ospf_opaque_term();
 
 	ospf_delete(ospf);
 

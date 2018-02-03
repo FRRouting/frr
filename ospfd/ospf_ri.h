@@ -176,6 +176,7 @@ struct scope_info {
 /* Prototypes. */
 extern int ospf_router_info_init(void);
 extern void ospf_router_info_term(void);
+extern void ospf_router_info_finish(void);
 extern int ospf_router_info_enable(void);
 extern void ospf_router_info_update_sr(bool enable, struct sr_srgb srgb,
 				       uint8_t msd);

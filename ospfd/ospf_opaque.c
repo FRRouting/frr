@@ -122,6 +122,15 @@ void ospf_opaque_term(void)
 	return;
 }
 
+void ospf_opaque_finish(void)
+{
+	ospf_router_info_finish();
+
+	ospf_ext_finish();
+
+	ospf_sr_finish();
+}
+
 int ospf_opaque_type9_lsa_init(struct ospf_interface *oi)
 {
 	if (oi->opaque_lsa_self != NULL)

@@ -122,6 +122,7 @@ enum lsa_opcode {
 
 extern void ospf_opaque_init(void);
 extern void ospf_opaque_term(void);
+extern void ospf_opaque_finish(void);
 extern int ospf_opaque_type9_lsa_init(struct ospf_interface *oi);
 extern void ospf_opaque_type9_lsa_term(struct ospf_interface *oi);
 extern int ospf_opaque_type10_lsa_init(struct ospf_area *area);
