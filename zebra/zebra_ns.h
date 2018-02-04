@@ -23,6 +23,7 @@
 #define __ZEBRA_NS_H__
 
 #include <lib/ns.h>
+#include <lib/vrf.h>
 
 #ifdef HAVE_NETLINK
 /* Socket interface to kernel */
