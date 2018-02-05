@@ -570,10 +570,8 @@ void rfapiRibClear(struct rfapi_descriptor *rfd)
 			}
 		}
 	}
-	if (rfd->updated_responses_queue) {
-		work_queue_free(rfd->updated_responses_queue);
-		rfd->updated_responses_queue = NULL;
-	}
+	if (rfd->updated_responses_queue)
+		work_queue_free_and_null(&rfd->updated_responses_queue);
 }
 
 /*

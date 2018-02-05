@@ -4338,7 +4338,7 @@ void bgp_rfapi_destroy(struct bgp *bgp, struct rfapi *h)
 		h->import_mac = NULL;
 	}
 
-	work_queue_free(h->deferred_close_q);
+	work_queue_free_and_null(&h->deferred_close_q);
 
 	if (h->rfp != NULL)
 		rfp_stop(h->rfp);

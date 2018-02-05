@@ -28,7 +28,7 @@
 DECLARE_MTYPE(WORK_QUEUE)
 
 /* Hold time for the initial schedule of a queue run, in  millisec */
-#define WORK_QUEUE_DEFAULT_HOLD  50 
+#define WORK_QUEUE_DEFAULT_HOLD 50
 
 /* action value, for use by item processor and item error handlers */
 typedef enum {
@@ -146,8 +146,22 @@ static inline void work_queue_item_dequeue(struct work_queue *wq,
  * anything to it
  */
 extern struct work_queue *work_queue_new(struct thread_master *, const char *);
+
 /* destroy work queue */
-extern void work_queue_free(struct work_queue *);
+/*
+ * The usage of work_queue_free is being transitioned to pass
+ * in the double pointer to remove use after free's.
+ */
+#if CONFDATE > 20190205
+CPP_NOTICE("work_queue_free without double pointer is deprecated, please fixup")
+#endif
+extern void work_queue_free_and_null(struct work_queue **);
+extern void work_queue_free_original(struct work_queue *);
+#define work_queue_free(X)                                                     \
+	do {                                                                   \
+		work_queue_free_original((X));                                 \
+		CPP_WARN("Please use work_queue_free_and_null");               \
+	} while (0)
 
 /* Add the supplied data as an item onto the workqueue */
 extern void work_queue_add(struct work_queue *, void *);
