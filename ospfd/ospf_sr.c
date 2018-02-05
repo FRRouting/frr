@@ -1148,7 +1148,7 @@ void ospf_sr_ri_lsa_update(struct ospf_lsa *lsa)
 	srgb.range_size = 0;
 	srgb.lower_bound = 0;
 
-	for (tlvh = TLV_HDR_TOP(lsah); sum < length;
+	for (tlvh = TLV_HDR_TOP(lsah); (sum < length) && (tlvh != NULL);
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 		switch (ntohs(tlvh->type)) {
 		case RI_SR_TLV_SR_ALGORITHM:
@@ -1296,7 +1296,7 @@ void ospf_sr_ext_link_lsa_update(struct ospf_lsa *lsa)
 	/* Initialize TLV browsing */
 	length = ntohs(lsah->length) - OSPF_LSA_HEADER_SIZE;
 	sum = 0;
-	for (tlvh = TLV_HDR_TOP(lsah); sum < length;
+	for (tlvh = TLV_HDR_TOP(lsah); (sum < length) && (tlvh != NULL);
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
 		if (ntohs(tlvh->type) == EXT_TLV_LINK) {
 			/* Got Extended Link information */
@@ -1950,17 +1950,15 @@ DEFUN (sr_prefix_sid,
 	struct prefix p;
 	uint32_t index;
 	struct listnode *node;
-	struct sr_prefix *srp;
+	struct sr_prefix *srp, *new;
 	struct interface *ifp;
-	int rc;
 
 	if (!ospf_sr_enabled(vty))
 		return CMD_WARNING_CONFIG_FAILED;
 
 	/* Get network prefix */
 	argv_find(argv, argc, "A.B.C.D/M", &idx);
-	rc = str2prefix(argv[idx]->arg, &p);
-	if (!rc) {
+	if (!str2prefix(argv[idx]->arg, &p)) {
 		vty_out(vty, "Invalid prefix format %s\n",
 			argv[idx]->arg);
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1983,23 +1981,25 @@ DEFUN (sr_prefix_sid,
 		}
 	}
 
-	/* Add new Extended Prefix to SRDB */
-	srp = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_prefix));
-	IPV4_ADDR_COPY(&srp->nhlfe.prefv4.prefix, &p.u.prefix4);
-	IPV4_ADDR_COPY(&srp->nhlfe.nexthop, &p.u.prefix4);
-	srp->nhlfe.prefv4.prefixlen = p.prefixlen;
-	srp->nhlfe.prefv4.family = p.family;
-	srp->sid = index;
-	/* Set NO PHP flag if present */
-	if (argv_find(argv, argc, "no-php-flag", &idx))
-		SET_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_NPFLG);
-	listnode_add(OspfSR.self->ext_prefix, srp);
+	/* Create new Extended Prefix to SRDB if not found */
+	new = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_prefix));
+	IPV4_ADDR_COPY(&new->nhlfe.prefv4.prefix, &p.u.prefix4);
+	IPV4_ADDR_COPY(&new->nhlfe.nexthop, &p.u.prefix4);
+	new->nhlfe.prefv4.prefixlen = p.prefixlen;
+	new->nhlfe.prefv4.family = p.family;
+	new->sid = index;
+	/* Set NO PHP flag if present and compute NHLFE */
+	if (argv_find(argv, argc, "no-php-flag", &idx)) {
+		SET_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_NPFLG);
+		new->nhlfe.label_in = index2label(new->sid, OspfSR.self->srgb);
+		new->nhlfe.label_out = MPLS_IMP_NULL_LABEL;
+	}
 
 	if (IS_DEBUG_OSPF_SR)
 		zlog_debug(
-			"SR (%s): Add new Prefix %s/%u with index %u",
-			__func__, inet_ntoa(srp->nhlfe.prefv4.prefix),
-			srp->nhlfe.prefv4.prefixlen, index);
+			"SR (%s): Add new index %u to Prefix %s/%u",
+			__func__, index, inet_ntoa(new->nhlfe.prefv4.prefix),
+			new->nhlfe.prefv4.prefixlen);
 
 	/* Get Interface and check if it is a Loopback */
 	ifp = if_lookup_prefix(&p, VRF_DEFAULT);
@@ -2010,6 +2010,7 @@ DEFUN (sr_prefix_sid,
 		 * ready. In this case, store the prefix SID for latter
 		 * update of this Extended Prefix
 		 */
+		listnode_add(OspfSR.self->ext_prefix, new);
 		zlog_warn(
 			"Interface for prefix %s/%u not found. Deferred LSA "
 			"flooding", inet_ntoa(p.u.prefix4), p.prefixlen);
@@ -2018,23 +2019,34 @@ DEFUN (sr_prefix_sid,
 
 	if (!if_is_loopback(ifp)) {
 		vty_out(vty, "interface %s is not a Loopback\n", ifp->name);
-		listnode_delete(OspfSR.self->ext_prefix, srp);
-		XFREE(MTYPE_OSPF_SR_PARAMS, srp);
+		XFREE(MTYPE_OSPF_SR_PARAMS, new);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
-	srp->nhlfe.ifindex = ifp->ifindex;
+	new->nhlfe.ifindex = ifp->ifindex;
 
-	/* Install NHLFE if NO-PHP is requested */
-	if (CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_NPFLG)) {
-		srp->nhlfe.label_in = index2label(srp->sid, OspfSR.self->srgb);
-		srp->nhlfe.label_out = MPLS_IMP_NULL_LABEL;
-		add_sid_nhlfe(srp->nhlfe);
+	/* Search if this prefix already exist */
+	for (ALL_LIST_ELEMENTS_RO(OspfSR.self->ext_prefix, node, srp)) {
+		if ((IPV4_ADDR_SAME(&srp->nhlfe.prefv4.prefix, &p.u.prefix4)
+		    && srp->nhlfe.prefv4.prefixlen == p.prefixlen))
+			break;
+		else
+			srp = NULL;
+	}
+
+	/* Update or Add this new SR Prefix */
+	if (srp) {
+		update_sid_nhlfe(srp->nhlfe, new->nhlfe);
+		listnode_delete(OspfSR.self->ext_prefix, srp);
+		listnode_add(OspfSR.self->ext_prefix, new);
+	} else {
+		listnode_add(OspfSR.self->ext_prefix, new);
+		add_sid_nhlfe(new->nhlfe);
 	}
 
 	/* Finally, update Extended Prefix LSA */
-	srp->instance = ospf_ext_schedule_prefix_index(ifp, srp->sid,
-				&srp->nhlfe.prefv4, srp->flags);
-	if (srp->instance) {
+	new->instance = ospf_ext_schedule_prefix_index(ifp, new->sid,
+				&new->nhlfe.prefv4, new->flags);
+	if (new->instance == 0) {
 		vty_out(vty, "Unable to set index %u for prefix %s/%u\n", index,
 			inet_ntoa(p.u.prefix4), p.prefixlen);
 		return CMD_WARNING;
