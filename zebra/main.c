@@ -140,7 +140,7 @@ static void sigint(void)
 				SET_FLAG(zvrf->flags, ZEBRA_VRF_RETAIN);
 		}
 	if (zebrad.lsp_process_q)
-		work_queue_free(zebrad.lsp_process_q);
+		work_queue_free_and_null(&zebrad.lsp_process_q);
 	vrf_terminate();
 
 	ns_walk_func(zebra_ns_disabled);
@@ -151,7 +151,7 @@ static void sigint(void)
 	route_map_finish();
 
 	list_delete_and_null(&zebrad.client_list);
-	work_queue_free(zebrad.ribq);
+	work_queue_free_and_null(&zebrad.ribq);
 	meta_queue_free(zebrad.mq);
 
 	frr_fini();
