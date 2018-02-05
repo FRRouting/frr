@@ -77,6 +77,7 @@ import os
 import re
 import sys
 import pytest
+import platform
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -144,8 +145,9 @@ def doCmd(tgen, rtr, cmd, checkstr = None):
     return None
 
 def ltemplatePreRouterStartHook():
+    krel = platform.release()
     tgen = get_topogen()
-    logger.info('pre router-start hook')
+    logger.info('pre router-start hook, kernel=' + krel)
     #check for mpls
     if tgen.hasmpls != True:
         logger.info('MPLS not available, skipping setup')
@@ -189,7 +191,7 @@ def ltemplatePostRouterStartHook():
     logger.info('post router-start hook')
     return;
 
-def versionCheck(vstr, rname='r1', compstr='<',cli=False):
+def versionCheck(vstr, rname='r1', compstr='<',cli=False, kernel='4.9'):
     tgen = get_topogen()
 
     router = tgen.gears[rname]
@@ -206,8 +208,13 @@ def versionCheck(vstr, rname='r1', compstr='<',cli=False):
     except:
         ret = True
     if ret == False:
-        ret = 'Skipping main tests on old version ({}{})'.format(compstr, vstr)
+        ret = 'Skipping tests on old version ({}{})'.format(compstr, vstr)
         logger.info(ret)
+    elif kernel != None:
+        krel = platform.release()
+        if topotest.version_cmp(krel, kernel) < 0:
+            ret = 'Skipping tests on old version ({} < {})'.format(krel, kernel)
+            logger.info(ret)
     if cli:
         logger.info('calling mininet CLI')
         tgen.mininet_cli()
