@@ -3415,6 +3415,9 @@ static struct interface *zl3vni_map_to_svi_if(zebra_l3vni_t *zl3vni)
 	struct zebra_if *zif = NULL; /* zebra_if for vxlan_if */
 	struct zebra_l2info_vxlan *vxl = NULL; /* l2 info for vxlan_if */
 
+	if (!zl3vni)
+		return NULL;
+
 	if (!zl3vni->vxlan_if)
 		return NULL;
 
@@ -3587,6 +3590,9 @@ static int zl3vni_send_del_to_client(zebra_l3vni_t *zl3vni)
 
 static void zebra_vxlan_process_l3vni_oper_up(zebra_l3vni_t *zl3vni)
 {
+	if (!zl3vni)
+		return;
+
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("L3-VNI %u is UP - send add to BGP",
 			   zl3vni->vni);
@@ -3597,6 +3603,9 @@ static void zebra_vxlan_process_l3vni_oper_up(zebra_l3vni_t *zl3vni)
 
 static void zebra_vxlan_process_l3vni_oper_down(zebra_l3vni_t *zl3vni)
 {
+	if (!zl3vni)
+		return;
+
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("L3-VNI %u is Down - Send del to BGP",
 			   zl3vni->vni);
@@ -5945,9 +5954,6 @@ int zebra_vxlan_if_del(struct interface *ifp)
 
 	zl3vni = zl3vni_lookup(vni);
 	if (zl3vni) {
-
-		/* process if-del for l3-vni */
-		zebra_l3vni_t *zl3vni = NULL;
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Del L3-VNI %u intf %s(%u)",
