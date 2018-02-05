@@ -2874,7 +2874,7 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 	num_labels++;
 	memset(label, 0, sizeof(label));
 	memcpy(&label[0], pfx, BGP_LABEL_BYTES);
-	pfx += 3;
+	pfx += BGP_LABEL_BYTES;
 	psize -= (33 + ipaddr_len);
 	/* Do we have a second VNI? */
 	if (psize) {
@@ -2882,7 +2882,7 @@ static int process_type2_route(struct peer *peer, afi_t afi, safi_t safi,
 		memcpy(&label[1], pfx, BGP_LABEL_BYTES);
 		/*
 		 * If in future, we are required to access additional fields,
-		 * we MUST increment pfx by 3 in before reading the next field
+		 * we MUST increment pfx by BGP_LABEL_BYTES in before reading the next field
 		 */
 	}
 
@@ -3042,7 +3042,7 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 
 	/*
 	 * If in future, we are required to access additional fields,
-	 * we MUST increment pfx by 3 in before reading the next field
+	 * we MUST increment pfx by BGP_LABEL_BYTES in before reading the next field
 	 */
 
 	/* Process the route. */
