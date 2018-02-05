@@ -2698,7 +2698,7 @@ DEFUN (bgp_default_shutdown,
        NO_STR
        BGP_STR
        "Configure BGP defaults\n"
-       "Do not automatically activate peers upon configuration\n")
+       "Apply administrative shutdown to newly configured peers\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	bgp->autoshutdown = !strmatch(argv[0]->text, "no");
@@ -11612,7 +11612,7 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &bgp_listen_range_cmd);
 	install_element(BGP_NODE, &no_bgp_listen_range_cmd);
 
-	/* "neighbors auto-shutdown" command */
+	/* "bgp default shutdown" command */
 	install_element(BGP_NODE, &bgp_default_shutdown_cmd);
 
 	/* "neighbor remote-as" commands. */
