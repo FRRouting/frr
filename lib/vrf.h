@@ -230,6 +230,8 @@ extern int vrf_getaddrinfo(const char *node, const char *service,
 		    const struct addrinfo *hints,
 		    struct addrinfo **res, vrf_id_t vrf_id);
 
+extern int vrf_ioctl(vrf_id_t vrf_id, int d, unsigned long request, char *args);
+
 /*
  * VRF backend routines
  * should be called from zebra only

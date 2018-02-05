@@ -808,6 +808,26 @@ int vrf_getaddrinfo(const char *node, const char *service,
 	return ret;
 }
 
+int vrf_ioctl(vrf_id_t vrf_id, int d, unsigned long request, char *params)
+{
+	int ret, saved_errno, rc;
+
+	ret = vrf_switch_to_netns(vrf_id);
+	if (ret < 0) {
+		zlog_err("%s: Can't switch to VRF %u (%s)",
+			 __func__, vrf_id, safe_strerror(errno));
+		return 0;
+	}
+	rc = ioctl(d, request, params);
+	saved_errno = errno;
+	ret = vrf_switchback_to_initial();
+	if (ret < 0)
+		zlog_err("%s: Can't switchback from VRF %u (%s)",
+			 __func__, vrf_id, safe_strerror(errno));
+	errno = saved_errno;
+	return rc;
+}
+
 int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id)
 {
 	int ret, save_errno, ret2;

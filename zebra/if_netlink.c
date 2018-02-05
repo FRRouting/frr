@@ -351,7 +351,6 @@ static int get_iflink_speed(struct interface *interface)
 	struct ethtool_cmd ecmd;
 	int sd;
 	int rc;
-	int ret, saved_errno;
 	const char *ifname = interface->name;
 
 	/* initialize struct */
@@ -376,17 +375,7 @@ static int get_iflink_speed(struct interface *interface)
 		return 0;
 	}
 	/* Get the current link state for the interface */
-	ret = vrf_switch_to_netns(interface->vrf_id);
-	if (ret < 0)
-		zlog_err("%s: Can't switch to VRF %u (%s)",
-			 __func__, interface->vrf_id, safe_strerror(errno));
-	rc = ioctl(sd, SIOCETHTOOL, (char *)&ifdata);
-	saved_errno = errno;
-	ret = vrf_switchback_to_initial();
-	if (ret < 0)
-		zlog_err("%s: Can't switchback from VRF %u (%s)",
-			 __func__, interface->vrf_id, safe_strerror(errno));
-	errno = saved_errno;
+	rc = vrf_ioctl(interface->vrf_id, sd, SIOCETHTOOL, (char *)&ifdata);
 	if (zserv_privs.change(ZPRIVS_LOWER))
 		zlog_err("Can't lower privileges");
 	if (rc < 0) {
