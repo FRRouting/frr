@@ -581,8 +581,8 @@ static int vrf_config_write(struct vty *vty)
 /* Zebra VRF initialization. */
 void zebra_vrf_init(void)
 {
-	vrf_init(zebra_vrf_new, zebra_vrf_enable, zebra_vrf_disable,
-		 zebra_vrf_delete);
+	vrf_init(zebra_vrf_new, zebra_vrf_enable,
+		 zebra_vrf_disable, zebra_vrf_delete);
 
 	vrf_cmd_init(vrf_config_write);
 }

@@ -19,10 +19,9 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-#if !defined(__ZEBRA_RIB_H__)
-#define __ZEBRA_RIB_H__
+#if !defined(__ZEBRA_VRF_H__)
+#define __ZEBRA_VRF_H__
 
-#include <lib/ns.h>
 #include <zebra/zebra_ns.h>
 #include <zebra/zebra_pw.h>
 #include <lib/vxlan.h>
@@ -169,4 +168,4 @@ extern void zebra_vrf_init(void);
 
 extern void zebra_rtable_node_cleanup(struct route_table *table,
 				      struct route_node *node);
-#endif
+#endif /* ZEBRA_VRF_H */

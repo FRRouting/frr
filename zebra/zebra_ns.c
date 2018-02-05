@@ -23,6 +23,7 @@
 
 #include "lib/ns.h"
 #include "lib/vrf.h"
+#include "lib/logicalrouter.h"
 #include "lib/prefix.h"
 #include "lib/memory.h"
 
@@ -58,6 +59,8 @@ zebra_ns_table_entry_compare(const struct zebra_ns_table *e1,
 
 	return e1->tableid - e2->tableid;
 }
+
+static int logicalrouter_config_write(struct vty *vty);
 
 struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id)
 {
@@ -241,9 +244,10 @@ int zebra_ns_init(void)
 	ns_id = zebra_ns_id_get_default();
 	if (zserv_privs.change(ZPRIVS_LOWER))
 		zlog_err("Can't lower privileges");
-	ns_init_zebra(ns_id);
 
-	ns_init();
+	ns_init_management(ns_id);
+
+	logicalrouter_init(logicalrouter_config_write);
 
 	/* Do any needed per-NS data structure allocation. */
 	dzns->if_table = route_table_init();
@@ -253,7 +257,7 @@ int zebra_ns_init(void)
 	zebra_vrf_init();
 
 	/* Default NS is activated */
-	zebra_ns_enable(NS_DEFAULT, (void **)&dzns);
+	zebra_ns_enable(ns_id, (void **)&dzns);
 
 	if (vrf_is_backend_netns()) {
 		ns_add_hook(NS_NEW_HOOK, zebra_ns_new);
@@ -264,6 +268,21 @@ int zebra_ns_init(void)
 		zebra_ns_notify_init();
 	}
 	return 0;
+}
+
+static int logicalrouter_config_write(struct vty *vty)
+{
+	struct ns *ns;
+	int write = 0;
+
+	RB_FOREACH(ns, ns_head, &ns_tree) {
+		if (ns->ns_id == NS_DEFAULT || ns->name == NULL)
+			continue;
+		vty_out(vty, "logical-router %u netns %s\n", ns->ns_id,
+			ns->name);
+		write = 1;
+	}
+	return write;
 }
 
 int zebra_ns_config_write(struct vty *vty, struct ns *ns)
