@@ -34,6 +34,7 @@
 #include "privs.h"
 #include "sigevent.h"
 #include "vrf.h"
+#include "logicalrouter.h"
 #include "libfrr.h"
 
 #include "zebra/rib.h"
@@ -205,6 +206,8 @@ int main(int argc, char **argv)
 #endif
 
 	vrf_configure_backend(VRF_BACKEND_VRF_LITE);
+	logicalrouter_configure_backend(
+			 LOGICALROUTER_BACKEND_NETNS);
 
 	frr_preinit(&zebra_di, argc, argv);
 
@@ -283,6 +286,7 @@ int main(int argc, char **argv)
 			break;
 		case 'n':
 			vrf_configure_backend(VRF_BACKEND_NETNS);
+			logicalrouter_configure_backend(LOGICALROUTER_BACKEND_OFF);
 			break;
 #endif /* HAVE_NETLINK */
 #if defined(HANDLE_ZAPI_FUZZING)

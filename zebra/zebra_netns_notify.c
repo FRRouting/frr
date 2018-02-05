@@ -85,7 +85,7 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 	ns_id = zebra_ns_id_get(netnspath);
 	if (zserv_privs.change(ZPRIVS_LOWER))
 		zlog_err("Can't lower privileges");
-	ret = ns_handler_create(NULL, vrf, netnspath, ns_id);
+	ret = vrf_netns_handler_create(NULL, vrf, netnspath, ns_id);
 	if (ret != CMD_SUCCESS) {
 		zlog_warn("NS notify : failed to create NS %s", netnspath);
 		return;
