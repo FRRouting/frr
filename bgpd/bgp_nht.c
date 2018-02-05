@@ -338,7 +338,12 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 		return;
 	}
 
-	zapi_nexthop_update_decode(zclient->ibuf, &nhr);
+	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
+		if (BGP_DEBUG(nht, NHT))
+			zlog_debug("%s: Failure to decode nexthop update",
+				   __PRETTY_FUNCTION__);
+		return;
+	}
 
 	if (command == ZEBRA_NEXTHOP_UPDATE)
 		rn = bgp_node_lookup(
