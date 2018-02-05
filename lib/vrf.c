@@ -487,7 +487,8 @@ void vrf_terminate(void)
 }
 
 /* Create a socket for the VRF. */
-int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id)
+int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
+	       char *interfacename)
 {
 	int ret, save_errno, ret2;
 
@@ -502,6 +503,13 @@ int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id)
 		zlog_err("vrf_socket: Can't switchback from VRF %u (%s)",
 			 vrf_id, safe_strerror(errno));
 	errno = save_errno;
+	if (ret <= 0)
+		return ret;
+	ret2 = vrf_bind(vrf_id, ret, interfacename);
+	if (ret2 < 0) {
+		close(ret);
+		ret = ret2;
+	}
 	return ret;
 }
 
@@ -788,6 +796,23 @@ vrf_id_t vrf_get_default_id(void)
 		return VRF_DEFAULT_INTERNAL;
 }
 
+int vrf_bind(vrf_id_t vrf_id, int fd, char *name)
+{
+	int ret = 0;
+
+	if (fd < 0 || name == NULL)
+		return fd;
+	if (vrf_is_mapped_on_netns(vrf_id))
+		return fd;
+#ifdef SO_BINDTODEVICE
+	ret = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, name,
+			 strlen(name));
+	if (ret < 0)
+		zlog_debug("bind to interface %s failed, errno=%d",
+			   name, errno);
+#endif /* SO_BINDTODEVICE */
+	return ret;
+}
 int vrf_getaddrinfo(const char *node, const char *service,
 		    const struct addrinfo *hints,
 		    struct addrinfo **res, vrf_id_t vrf_id)
@@ -828,7 +853,8 @@ int vrf_ioctl(vrf_id_t vrf_id, int d, unsigned long request, char *params)
 	return rc;
 }
 
-int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id)
+int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id,
+			 char *interfacename)
 {
 	int ret, save_errno, ret2;
 
@@ -843,5 +869,13 @@ int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id)
 		zlog_err("%s: Can't switchback from VRF %u (%s)",
 			 __func__, vrf_id, safe_strerror(errno));
 	errno = save_errno;
+
+	if (ret <= 0)
+		return ret;
+	ret2 = vrf_bind(vrf_id, ret, interfacename);
+	if (ret2 < 0) {
+		close(ret);
+		ret = ret2;
+	}
 	return ret;
 }

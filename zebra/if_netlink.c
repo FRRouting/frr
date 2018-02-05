@@ -367,7 +367,8 @@ static int get_iflink_speed(struct interface *interface)
 	/* use ioctl to get IP address of an interface */
 	if (zserv_privs.change(ZPRIVS_RAISE))
 		zlog_err("Can't raise privileges");
-	sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP, interface->vrf_id);
+	sd = vrf_socket(PF_INET, SOCK_DGRAM, IPPROTO_IP,
+			interface->vrf_id, NULL);
 	if (sd < 0) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("Failure to read interface %s speed: %d %s",
