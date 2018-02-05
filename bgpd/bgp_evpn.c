@@ -99,19 +99,8 @@ static unsigned int vrf_import_rt_hash_key_make(void *p)
 {
 	struct vrf_irt_node *irt = p;
 	char *pnt = irt->rt.val;
-	unsigned int key = 0;
-	int c = 0;
 
-	key += pnt[c];
-	key += pnt[c + 1];
-	key += pnt[c + 2];
-	key += pnt[c + 3];
-	key += pnt[c + 4];
-	key += pnt[c + 5];
-	key += pnt[c + 6];
-	key += pnt[c + 7];
-
-	return key;
+	return jhash(pnt, 8, 0x5abc1234);
 }
 
 /*
@@ -224,19 +213,8 @@ static unsigned int import_rt_hash_key_make(void *p)
 {
 	struct irt_node *irt = p;
 	char *pnt = irt->rt.val;
-	unsigned int key = 0;
-	int c = 0;
 
-	key += pnt[c];
-	key += pnt[c + 1];
-	key += pnt[c + 2];
-	key += pnt[c + 3];
-	key += pnt[c + 4];
-	key += pnt[c + 5];
-	key += pnt[c + 6];
-	key += pnt[c + 7];
-
-	return (key);
+	return jhash(pnt, 8, 0xdeadbeef);
 }
 
 /*
