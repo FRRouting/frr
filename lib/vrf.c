@@ -89,16 +89,37 @@ static int vrf_name_compare(const struct vrf *a, const struct vrf *b)
 	return strcmp(a->name, b->name);
 }
 
+/* return 1 if vrf can be enabled */
+static int vrf_update_vrf_id(ns_id_t ns_id, void *opaqueptr)
+{
+	ns_id_t vrf_id = (vrf_id_t)ns_id;
+	vrf_id_t old_vrf_id;
+	struct vrf *vrf = (struct vrf *)opaqueptr;
+
+	if (!vrf)
+		return 0;
+	old_vrf_id = vrf->vrf_id;
+	if (vrf_id == vrf->vrf_id)
+		return 0;
+	if (vrf->vrf_id != VRF_UNKNOWN)
+		RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
+	vrf->vrf_id = vrf_id;
+	RB_INSERT(vrf_id_head, &vrfs_by_id, vrf);
+	if (old_vrf_id == VRF_UNKNOWN)
+		return 1;
+	return 0;
+}
+
 int vrf_switch_to_netns(vrf_id_t vrf_id)
 {
 	char *name;
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 
-	/* VRF has no NETNS backend. silently ignore */
-	if (!vrf || vrf->data.l.netns_name[0] == '\0')
-		return 0;
 	/* VRF is default VRF. silently ignore */
-	if (vrf->vrf_id == VRF_DEFAULT)
+	if (!vrf || vrf->vrf_id == VRF_DEFAULT)
+		return 0;
+	/* VRF has no NETNS backend. silently ignore */
+	if (vrf->data.l.netns_name[0] == '\0')
 		return 0;
 	name = ns_netns_pathname(NULL, vrf->data.l.netns_name);
 	if (debug_vrf)
@@ -113,25 +134,6 @@ int vrf_switchback_to_initial(void)
 	if (ret == 0 && debug_vrf)
 		zlog_debug("VRF_SWITCHBACK");
 	return ret;
-}
-
-/* return 1 if vrf can be enabled */
-int vrf_update_vrf_id(vrf_id_t vrf_id, struct vrf *vrf)
-{
-	vrf_id_t old_vrf_id;
-
-	if (!vrf)
-		return 0;
-	old_vrf_id = vrf->vrf_id;
-	if (vrf_id == vrf->vrf_id)
-		return 0;
-	if (vrf->vrf_id != VRF_UNKNOWN)
-		RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
-	vrf->vrf_id = vrf_id;
-	RB_INSERT(vrf_id_head, &vrfs_by_id, vrf);
-	if (old_vrf_id == VRF_UNKNOWN)
-		return 1;
-	return 0;
 }
 
 /* Get a VRF. If not found, create one.
@@ -436,6 +438,8 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 {
 	struct vrf *default_vrf;
 
+	/* initialise NS, in case VRF backend if NETNS */
+	ns_init();
 	if (debug_vrf)
 		zlog_debug("%s: Initializing VRF subsystem",
 			   __PRETTY_FUNCTION__);
@@ -541,6 +545,72 @@ int vrf_handler_create(struct vty *vty, const char *vrfname, struct vrf **vrf)
 	return CMD_SUCCESS;
 }
 
+int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
+			     char *pathname, ns_id_t ns_id)
+{
+	struct ns *ns = NULL;
+
+	if (!vrf)
+		return CMD_WARNING_CONFIG_FAILED;
+	if (vrf->vrf_id != VRF_UNKNOWN && vrf->ns_ctxt == NULL) {
+		if (vty)
+			vty_out(vty,
+				"VRF %u is already configured with VRF %s\n",
+				vrf->vrf_id, vrf->name);
+		else
+			zlog_warn("VRF %u is already configured with VRF %s\n",
+				  vrf->vrf_id, vrf->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (vrf->ns_ctxt != NULL) {
+		ns = (struct ns *) vrf->ns_ctxt;
+		if (ns && 0 != strcmp(ns->name, pathname)) {
+			if (vty)
+				vty_out(vty,
+					"VRF %u is already configured"
+					" with NETNS %s\n",
+					vrf->vrf_id, ns->name);
+			else
+				zlog_warn("VRF %u is already configured with NETNS %s",
+					  vrf->vrf_id, ns->name);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	}
+	ns = ns_lookup_name(pathname);
+	if (ns && ns->vrf_ctxt) {
+		struct vrf *vrf2 = (struct vrf *)ns->vrf_ctxt;
+
+		if (vrf2 == vrf)
+			return CMD_SUCCESS;
+		if (vty)
+			vty_out(vty, "NS %s is already configured"
+				" with VRF %u(%s)\n",
+			    ns->name, vrf2->vrf_id, vrf2->name);
+		else
+			zlog_warn("NS %s is already configured with VRF %u(%s)",
+				  ns->name, vrf2->vrf_id, vrf2->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	ns = ns_get_created(ns, pathname, ns_id);
+	ns->vrf_ctxt = (void *)vrf;
+	vrf->ns_ctxt = (void *)ns;
+	/* update VRF netns NAME */
+	if (vrf)
+		strlcpy(vrf->data.l.netns_name, basename(pathname), NS_NAMSIZ);
+
+	if (!ns_enable(ns, vrf_update_vrf_id)) {
+		if (vty)
+			vty_out(vty, "Can not associate NS %u with NETNS %s\n",
+			    ns->ns_id, ns->name);
+		else
+			zlog_warn("Can not associate NS %u with NETNS %s",
+				  ns->ns_id, ns->name);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return CMD_SUCCESS;
+}
+
 int vrf_is_mapped_on_netns(vrf_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
@@ -598,6 +668,55 @@ DEFUN_NOSH (no_vrf,
 
 struct cmd_node vrf_node = {VRF_NODE, "%s(config-vrf)# ", 1};
 
+DEFUN_NOSH (vrf_netns,
+	    vrf_netns_cmd,
+	    "netns NAME",
+	    "Attach VRF to a Namespace\n"
+	    "The file name in " NS_RUN_DIR ", or a full pathname\n")
+{
+	int idx_name = 1;
+	char *pathname = ns_netns_pathname(vty, argv[idx_name]->arg);
+
+	VTY_DECLVAR_CONTEXT(vrf, vrf);
+
+	if (!pathname)
+		return CMD_WARNING_CONFIG_FAILED;
+	return vrf_netns_handler_create(vty, vrf, pathname, NS_UNKNOWN);
+}
+
+DEFUN (no_vrf_netns,
+	no_vrf_netns_cmd,
+	"no netns [NAME]",
+	NO_STR
+	"Detach VRF from a Namespace\n"
+	"The file name in " NS_RUN_DIR ", or a full pathname\n")
+{
+	struct ns *ns = NULL;
+
+	VTY_DECLVAR_CONTEXT(vrf, vrf);
+
+	if (!vrf_is_backend_netns()) {
+		vty_out(vty, "VRF backend is not Netns. Aborting\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (!vrf->ns_ctxt) {
+		vty_out(vty, "VRF %s(%u) is not configured with NetNS\n",
+			vrf->name, vrf->vrf_id);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ns = (struct ns *)vrf->ns_ctxt;
+
+	ns->vrf_ctxt = NULL;
+	vrf_disable(vrf);
+	/* vrf ID from VRF is necessary for Zebra
+	 * so that propagate to other clients is done
+	 */
+	ns_delete(ns);
+	vrf->ns_ctxt = NULL;
+	return CMD_SUCCESS;
+}
+
 /*
  * Debug CLI for vrf's
  */
@@ -650,7 +769,11 @@ void vrf_cmd_init(int (*writefunc)(struct vty *vty))
 	install_element(CONFIG_NODE, &no_vrf_cmd);
 	install_node(&vrf_node, writefunc);
 	install_default(VRF_NODE);
-	ns_cmd_init();
+	if (vrf_is_backend_netns() && ns_have_netns()) {
+		/* Install NS commands. */
+		install_element(VRF_NODE, &vrf_netns_cmd);
+		install_element(VRF_NODE, &no_vrf_netns_cmd);
+	}
 }
 
 vrf_id_t vrf_get_default_id(void)

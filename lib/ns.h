@@ -25,7 +25,6 @@
 #include "openbsd-tree.h"
 #include "linklist.h"
 #include "vty.h"
-#include "vrf.h"
 
 typedef u_int32_t ns_id_t;
 
@@ -68,6 +67,11 @@ RB_PROTOTYPE(ns_head, ns, entry, ns_compare)
 extern struct ns_head ns_tree;
 
 /*
+ * API for managing NETNS. eg from zebra daemon
+ * one want to manage the list of NETNS, etc...
+ */
+
+/*
  * NS hooks
  */
 
@@ -86,35 +90,83 @@ extern struct ns_head ns_tree;
  */
 extern void ns_add_hook(int type, int (*)(struct ns *));
 
+
 /*
  * NS initializer/destructor
  */
-extern void ns_init(void);
-extern void ns_init_zebra(ns_id_t ns_id);
+
 extern void ns_terminate(void);
+
+/* API to initialize NETNS managerment
+ * parameter is the default ns_id
+ */
+extern void ns_init_management(ns_id_t ns_id);
+
 
 /*
  * NS utilities
  */
 
-/* Create a socket serving for the given NS */
-extern int ns_socket(int, int, int, ns_id_t);
-extern void ns_cmd_init(void);
-extern int ns_handler_create(struct vty *vty, struct vrf *vrf,
-			     char *pathname, ns_id_t ns_id);
-extern char *ns_netns_pathname(struct vty *vty, const char *name);
-extern void *ns_info_lookup(ns_id_t ns_id);
-extern void ns_walk_func(int (*func)(struct ns *));
-extern const char *ns_get_name(struct ns *ns);
-extern ns_id_t ns_get_default_id(void);
+/* Create a socket serving for the given NS
+ */
+int ns_socket(int domain, int type, int protocol, ns_id_t ns_id);
 
-/* API that can be used by all daemons */
-extern int ns_switchback_to_initial(void);
-extern int ns_switch_to_netns(const char *netns_name);
+/* return the path of the NETNS */
+extern char *ns_netns_pathname(struct vty *vty, const char *name);
+
+/* Parse and execute a function on all the NETNS */
+extern void ns_walk_func(int (*func)(struct ns *));
+
+/* API to get the NETNS name, from the ns pointer */
+extern const char *ns_get_name(struct ns *ns);
+
+/* only called from vrf ( when removing netns from vrf)
+ * or at VRF or logical router termination
+ */
+extern void ns_delete(struct ns *ns);
+
+/* return > 0 if netns is available
+ * called by VRF to check netns backend is available for VRF
+ */
+extern int ns_have_netns(void);
+
+/* API to get context information of a NS */
+extern void *ns_info_lookup(ns_id_t ns_id);
+
+/*
+ * NS init routine
+ * should be called from backendx
+ */
 extern void ns_init(void);
 
+/* API to retrieve default NS */
+extern ns_id_t ns_get_default_id(void);
 
-/* The default NS ID */
 #define NS_DEFAULT ns_get_default_id()
+
+/* API to initialise NETNS in backend */
+extern void ns_init(void);
+
+/* API that can be used to change from NS */
+extern int ns_switchback_to_initial(void);
+extern int ns_switch_to_netns(const char *netns_name);
+
+/*
+ * NS handling routines.
+ * called by modules that use NS backend
+ */
+
+/* API to search for already present NETNS */
+extern struct ns *ns_lookup(ns_id_t ns_id);
+extern struct ns *ns_lookup_name(const char *name);
+
+/* API to handle NS : creation, enable, disable
+ * for enable, a callback function is passed as parameter
+ * the callback belongs to the module that uses NS as backend
+ * upon enabling the NETNS, the upper layer is informed
+ */
+extern int ns_enable(struct ns *ns, int (*func)(ns_id_t, void *));
+extern struct ns *ns_get_created(struct ns *ns, char *name, ns_id_t ns_id);
+extern void ns_disable(struct ns *ns);
 
 #endif /*_ZEBRA_NS_H*/
