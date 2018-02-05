@@ -1051,13 +1051,18 @@ static int ospf_router_info_lsa_update(struct ospf_lsa *lsa)
 		return -1;
 	}
 
-	/* Check if it is not my LSA */
-	if (IS_LSA_SELF(lsa))
+	/* Process only Opaque LSA */
+	if ((lsa->data->type != OSPF_OPAQUE_AREA_LSA)
+	    && (lsa->data->type != OSPF_OPAQUE_AS_LSA))
 		return 0;
 
 	/* Process only Router Information LSA */
 	if (GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr)) !=
 			OPAQUE_TYPE_ROUTER_INFORMATION_LSA)
+		return 0;
+
+	/* Check if it is not my LSA */
+	if (IS_LSA_SELF(lsa))
 		return 0;
 
 	/* Check if Router Info & Segment Routing are enable */
