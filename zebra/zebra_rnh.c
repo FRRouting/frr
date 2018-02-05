@@ -1034,6 +1034,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 				stream_putc(s, nexthop->type);
 				switch (nexthop->type) {
 				case NEXTHOP_TYPE_IPV4:
+				case NEXTHOP_TYPE_IPV4_IFINDEX:
 					stream_put_in_addr(s,
 							   &nexthop->gate.ipv4);
 					stream_putl(s, nexthop->ifindex);
@@ -1041,15 +1042,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 				case NEXTHOP_TYPE_IFINDEX:
 					stream_putl(s, nexthop->ifindex);
 					break;
-				case NEXTHOP_TYPE_IPV4_IFINDEX:
-					stream_put_in_addr(s,
-							   &nexthop->gate.ipv4);
-					stream_putl(s, nexthop->ifindex);
-					break;
 				case NEXTHOP_TYPE_IPV6:
-					stream_put(s, &nexthop->gate.ipv6, 16);
-					stream_putl(s, nexthop->ifindex);
-					break;
 				case NEXTHOP_TYPE_IPV6_IFINDEX:
 					stream_put(s, &nexthop->gate.ipv6, 16);
 					stream_putl(s, nexthop->ifindex);
