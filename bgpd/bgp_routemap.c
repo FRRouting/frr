@@ -723,8 +723,6 @@ static void *route_match_evpn_route_type_compile(const char *arg)
 	u_char *route_type = NULL;
 
 	route_type = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(u_char));
-	if (!route_type)
-		return NULL;
 
 	if (strncmp(arg, "ma", 2) == 0)
 		*route_type = BGP_EVPN_MAC_IP_ROUTE;
@@ -3186,7 +3184,7 @@ DEFUN (no_match_mac_address,
 
 DEFUN (match_evpn_route_type,
        match_evpn_route_type_cmd,
-       "match evpn route-type {macip | multicast | prefix}",
+       "match evpn route-type <macip | multicast | prefix>",
        MATCH_STR
        EVPN_HELP_STR
        "Match route-type\n"
@@ -3200,7 +3198,7 @@ DEFUN (match_evpn_route_type,
 
 DEFUN (no_match_evpn_route_type,
        no_match_evpn_route_type_cmd,
-       "no match evpn route-type {macip | multicast | prefix}",
+       "no match evpn route-type <macip | multicast | prefix>",
        NO_STR
        MATCH_STR
        EVPN_HELP_STR
