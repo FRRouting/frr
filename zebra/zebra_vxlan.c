@@ -6022,9 +6022,6 @@ int zebra_vxlan_if_up(struct interface *ifp)
 	zl3vni = zl3vni_lookup(vni);
 	if (zl3vni) {
 
-		/* Handle L3-VNI add */
-		zebra_l3vni_t *zl3vni = NULL;
-
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Intf %s(%u) L3-VNI %u is UP",
 				   ifp->name, ifp->ifindex, vni);
