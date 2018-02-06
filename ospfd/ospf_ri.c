@@ -3,9 +3,8 @@
  * with support of RFC5088 PCE Capabilites announcement
  *
  * Module name: Router Information
- * Version:     0.99.22
- * Created:     2012-02-01 by Olivier Dugeon
- * Copyright (C) 2012 Orange Labs http://www.orange.com/
+ * Author: Olivier Dugeon <olivier.dugeon@orange.com>
+ * Copyright (C) 2012 - 2017 Orange Labs http://www.orange.com/
  *
  * This file is part of GNU Quagga.
  *
@@ -39,6 +38,7 @@
 #include "thread.h"
 #include "hash.h"
 #include "sockunion.h" /* for inet_aton() */
+#include "mpls.h"
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -55,8 +55,8 @@
 #include "ospfd/ospf_route.h"
 #include "ospfd/ospf_ase.h"
 #include "ospfd/ospf_zebra.h"
+#include "ospfd/ospf_sr.h"
 #include "ospfd/ospf_ri.h"
-#include "ospfd/ospf_te.h"
 
 /* Store Router Information PCE TLV and SubTLV in network byte order. */
 struct ospf_pce_info {
@@ -69,6 +69,23 @@ struct ospf_pce_info {
 	struct ri_pce_subtlv_cap_flag pce_cap_flag;
 };
 
+/*
+ * Store Router Information Segment Routing TLV and SubTLV
+ * in network byte order
+ */
+struct ospf_ri_sr_info {
+	bool enabled;
+	/* Algorithms supported by the node */
+	struct ri_sr_tlv_sr_algorithm algo;
+	/*
+	 * Segment Routing Global Block i.e. label range
+	 * Only one range supported in this code
+	 */
+	struct ri_sr_tlv_sid_label_range range;
+	/* Maximum SID Depth supported by the node */
+	struct ri_sr_tlv_node_msd msd;
+};
+
 /* Following structure are internal use only. */
 struct ospf_router_info {
 	bool enabled;
@@ -77,7 +94,7 @@ struct ospf_router_info {
 	u_int8_t scope;
 
 /* Flags to manage this router information. */
-#define RIFLG_LSA_ENGAGED			0x1
+#define RIFLG_LSA_ENGAGED		0x1
 #define RIFLG_LSA_FORCED_REFRESH	0x2
 	u_int32_t flags;
 
@@ -90,6 +107,9 @@ struct ospf_router_info {
 
 	/* Store PCE capability LSA */
 	struct ospf_pce_info pce_info;
+
+	/* Store SR capability LSA */
+	struct ospf_ri_sr_info sr_info;
 };
 
 /*
@@ -113,15 +133,19 @@ static int ospf_router_info_lsa_originate(void *arg);
 static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa);
 static void ospf_router_info_lsa_schedule(enum lsa_opcode opcode);
 static void ospf_router_info_register_vty(void);
+static int ospf_router_info_lsa_update(struct ospf_lsa *lsa);
 static void del_pce_info(void *val);
 
 int ospf_router_info_init(void)
 {
 
+	zlog_info("RI -> Initialize Router Information");
+
 	memset(&OspfRI, 0, sizeof(struct ospf_router_info));
 	OspfRI.enabled = false;
 	OspfRI.registered = 0;
 	OspfRI.scope = OSPF_OPAQUE_AS_LSA;
+	OspfRI.area_id.s_addr = 0;
 	OspfRI.flags = 0;
 
 	/* Initialize pce domain and neighbor list */
@@ -130,6 +154,9 @@ int ospf_router_info_init(void)
 	OspfRI.pce_info.pce_domain->del = del_pce_info;
 	OspfRI.pce_info.pce_neighbor = list_new();
 	OspfRI.pce_info.pce_neighbor->del = del_pce_info;
+
+	/* Initialize Segment Routing information structure */
+	OspfRI.sr_info.enabled = false;
 
 	ospf_router_info_register_vty();
 
@@ -143,19 +170,22 @@ static int ospf_router_info_register(u_int8_t scope)
 	if (OspfRI.registered)
 		return rc;
 
-	zlog_info("Register Router Information with scope %s(%d)",
+	zlog_info("RI -> Register Router Information with scope %s(%d)",
 		  scope == OSPF_OPAQUE_AREA_LSA ? "Area" : "AS", scope);
 	rc = ospf_register_opaque_functab(
 		scope, OPAQUE_TYPE_ROUTER_INFORMATION_LSA,
 		NULL, /* new interface */
 		NULL, /* del interface */
-		ospf_router_info_ism_change, ospf_router_info_nsm_change,
+		ospf_router_info_ism_change,
+		ospf_router_info_nsm_change,
 		ospf_router_info_config_write_router,
 		NULL, /* Config. write interface */
 		NULL, /* Config. write debug */
-		ospf_router_info_show_info, ospf_router_info_lsa_originate,
-		ospf_router_info_lsa_refresh, NULL, /* new_lsa_hook */
-		NULL);				    /* del_lsa_hook */
+		ospf_router_info_show_info,
+		ospf_router_info_lsa_originate,
+		ospf_router_info_lsa_refresh,
+		ospf_router_info_lsa_update,
+		NULL); /* del_lsa_hook */
 
 	if (rc != 0) {
 		zlog_warn(
@@ -198,10 +228,33 @@ void ospf_router_info_term(void)
 	return;
 }
 
+void ospf_router_info_finish(void)
+{
+	list_delete_all_node(OspfRI.pce_info.pce_domain);
+	list_delete_all_node(OspfRI.pce_info.pce_neighbor);
+
+	OspfRI.enabled = false;
+}
+
 static void del_pce_info(void *val)
 {
 	XFREE(MTYPE_OSPF_PCE_PARAMS, val);
 	return;
+}
+
+/* Catch RI LSA flooding Scope for ospf_ext.[h,c] code */
+struct scope_info ospf_router_info_get_flooding_scope(void)
+{
+	struct scope_info flooding_scope;
+
+	if (OspfRI.scope == OSPF_OPAQUE_AS_LSA) {
+		flooding_scope.scope = OSPF_OPAQUE_AS_LSA;
+		flooding_scope.area_id.s_addr = 0;
+		return flooding_scope;
+	}
+	flooding_scope.scope = OSPF_OPAQUE_AREA_LSA;
+	flooding_scope.area_id.s_addr = OspfRI.area_id.s_addr;
+	return flooding_scope;
 }
 
 /*------------------------------------------------------------------------*
@@ -399,6 +452,78 @@ static void set_pce_cap_flag(u_int32_t cap, struct ospf_pce_info *pce)
 	return;
 }
 
+/* Segment Routing TLV setter */
+
+/* Algorithm SubTLV - section 3.1 */
+static void set_sr_algorithm(uint8_t algo)
+{
+
+	OspfRI.sr_info.algo.value[0] = algo;
+	for (int i = 1; i < ALGORITHM_COUNT; i++)
+		OspfRI.sr_info.algo.value[i] = SR_ALGORITHM_UNSET;
+
+	/* Set TLV type and length == only 1 Algorithm */
+	TLV_TYPE(OspfRI.sr_info.algo) = htons(RI_SR_TLV_SR_ALGORITHM);
+	TLV_LEN(OspfRI.sr_info.algo) = htons(sizeof(uint8_t));
+
+}
+
+/* unset Aglogithm SubTLV */
+static void unset_sr_algorithm(uint8_t algo)
+{
+
+	for (int i = 0; i < ALGORITHM_COUNT; i++)
+		OspfRI.sr_info.algo.value[i] = SR_ALGORITHM_UNSET;
+
+	/* Unset TLV type and length */
+	TLV_TYPE(OspfRI.sr_info.algo) = htons(0);
+	TLV_LEN(OspfRI.sr_info.algo) = htons(0);
+
+}
+
+/* Segment Routing Global Block SubTLV - section 3.2 */
+static void set_sr_sid_label_range(struct sr_srgb srgb)
+{
+	/* Set Header */
+	TLV_TYPE(OspfRI.sr_info.range) = htons(RI_SR_TLV_SID_LABEL_RANGE);
+	TLV_LEN(OspfRI.sr_info.range) =
+		htons(SUBTLV_SID_LABEL_SIZE + sizeof(uint32_t));
+	/* Set Range Size */
+	OspfRI.sr_info.range.size = htonl(SET_RANGE_SIZE(srgb.range_size));
+	/* Set Lower bound label SubTLV */
+	TLV_TYPE(OspfRI.sr_info.range.lower) = htons(SUBTLV_SID_LABEL);
+	TLV_LEN(OspfRI.sr_info.range.lower) = htons(SID_RANGE_LABEL_LENGTH);
+	OspfRI.sr_info.range.lower.value = htonl(SET_LABEL(srgb.lower_bound));
+
+}
+
+/* Unset this SRGB SubTLV */
+static void unset_sr_sid_label_range(void)
+{
+
+	TLV_TYPE(OspfRI.sr_info.range) = htons(0);
+	TLV_LEN(OspfRI.sr_info.range) = htons(0);
+	TLV_TYPE(OspfRI.sr_info.range.lower) = htons(0);
+	TLV_LEN(OspfRI.sr_info.range.lower) = htons(0);
+
+}
+
+/* Set Maximum Stack Depth for this router */
+static void set_sr_node_msd(uint8_t msd)
+{
+	TLV_TYPE(OspfRI.sr_info.msd) = htons(RI_SR_TLV_NODE_MSD);
+	TLV_LEN(OspfRI.sr_info.msd) = htons(sizeof(uint32_t));
+	OspfRI.sr_info.msd.value = msd;
+
+}
+
+/* Unset this router MSD */
+static void unset_sr_node_msd(void)
+{
+	TLV_TYPE(OspfRI.sr_info.msd) = htons(0);
+	TLV_LEN(OspfRI.sr_info.msd) = htons(0);
+
+}
 
 static void unset_param(struct tlv_header *tlv)
 {
@@ -466,9 +591,60 @@ static int is_mandated_params_set(struct ospf_router_info ori)
 	    && (ntohs(ori.pce_info.pce_cap_flag.header.type) == 0))
 		return rc;
 
+	if ((ori.sr_info.enabled) && (ntohs(TLV_TYPE(ori.sr_info.algo)) == 0)
+	    && (ntohs(TLV_TYPE(ori.sr_info.range)) == 0))
+		return rc;
+
 	rc = 1;
 
 	return rc;
+}
+
+/*
+ * Used by Segment Routing to set new TLVs and Sub-TLVs values
+ *
+ * @param enable To activate or not Segment Routing router Information flooding
+ * @param size   Size of Label Range i.e. SRGB size
+ * @param lower  Lower bound of the Label Range i.e. SRGB first label
+ * @param msd    Maximum label Stack Depth suported by the router
+ *
+ * @return none
+ */
+void ospf_router_info_update_sr(bool enable, struct sr_srgb srgb, uint8_t msd)
+{
+
+	/* First activate and initialize Router Information is necessary */
+	if (!OspfRI.enabled) {
+		OspfRI.enabled = true;
+		initialize_params(&OspfRI);
+	}
+
+	if (IS_DEBUG_OSPF_SR)
+		zlog_debug("RI-> %s Routing Information for Segment Routing",
+			enable ? "Enable" : "Disable");
+
+	/* Unset or Set SR parameters */
+	if (!enable) {
+		unset_sr_algorithm(SR_ALGORITHM_SPF);
+		unset_sr_sid_label_range();
+		unset_sr_node_msd();
+		OspfRI.sr_info.enabled = false;
+	} else {
+		// Only SR_ALGORITHM_SPF is supported
+		set_sr_algorithm(SR_ALGORITHM_SPF);
+		set_sr_sid_label_range(srgb);
+		if (msd != 0)
+			set_sr_node_msd(msd);
+		else
+			unset_sr_node_msd();
+		OspfRI.sr_info.enabled = true;
+	}
+
+	/* Refresh if already engaged or originate RI LSA */
+	if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED))
+		ospf_router_info_lsa_schedule(REFRESH_THIS_LSA);
+	else
+		ospf_router_info_lsa_schedule(REORIGINATE_THIS_LSA);
 }
 
 /*------------------------------------------------------------------------*
@@ -519,11 +695,21 @@ static void ospf_router_info_lsa_body_set(struct stream *s)
 	/* Build Router Information TLV */
 	build_tlv(s, &OspfRI.router_cap.header);
 
-	/* Compute PCE Info header first */
-	set_pce_header (&OspfRI.pce_info);
+	/* Build Segment Routing TLVs if enabled */
+	if (OspfRI.sr_info.enabled) {
+		/* Build Algorithm TLV */
+		build_tlv(s, &TLV_HDR(OspfRI.sr_info.algo));
+		/* Build SRGB TLV */
+		build_tlv(s, &TLV_HDR(OspfRI.sr_info.range));
+		/* Build MSD TLV */
+		build_tlv(s, &TLV_HDR(OspfRI.sr_info.msd));
+	}
 
 	/* Add RI PCE TLV if it is set */
 	if (OspfRI.pce_info.enabled) {
+
+		/* Compute PCE Info header first */
+		set_pce_header (&OspfRI.pce_info);
 
 		/* Build PCE TLV */
 		build_tlv_header(s, &OspfRI.pce_info.pce_header.header);
@@ -855,6 +1041,43 @@ static void ospf_router_info_lsa_schedule(enum lsa_opcode opcode)
 	return;
 }
 
+/* Callback to handle Segment Routing information */
+static int ospf_router_info_lsa_update(struct ospf_lsa *lsa)
+{
+
+	/* Sanity Check */
+	if (lsa == NULL) {
+		zlog_warn("OSPF-RI (%s): Abort! LSA is NULL", __func__);
+		return -1;
+	}
+
+	/* Process only Opaque LSA */
+	if ((lsa->data->type != OSPF_OPAQUE_AREA_LSA)
+	    && (lsa->data->type != OSPF_OPAQUE_AS_LSA))
+		return 0;
+
+	/* Process only Router Information LSA */
+	if (GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr)) !=
+			OPAQUE_TYPE_ROUTER_INFORMATION_LSA)
+		return 0;
+
+	/* Check if it is not my LSA */
+	if (IS_LSA_SELF(lsa))
+		return 0;
+
+	/* Check if Router Info & Segment Routing are enable */
+	if (!OspfRI.enabled || !OspfRI.sr_info.enabled)
+		return 0;
+
+	/* Call Segment Routing LSA update or deletion */
+	if (!IS_LSA_MAXAGE(lsa))
+		ospf_sr_ri_lsa_update(lsa);
+	else
+		ospf_sr_ri_lsa_delete(lsa);
+
+	return 0;
+}
+
 /*------------------------------------------------------------------------*
  * Followings are vty session control functions.
  *------------------------------------------------------------------------*/
@@ -1021,6 +1244,99 @@ static u_int16_t show_vty_pce_info(struct vty *vty, struct tlv_header *ri,
 	return sum;
 }
 
+/* Display Segment Routing Algorithm TLV information */
+static uint16_t show_vty_sr_algorithm(struct vty *vty, struct tlv_header *tlvh)
+{
+	struct ri_sr_tlv_sr_algorithm *algo =
+		(struct ri_sr_tlv_sr_algorithm *)tlvh;
+	int i;
+
+	if (vty != NULL) {
+		vty_out(vty, "  Segment Routing Algorithm TLV:\n");
+		for (i = 0; i < ntohs(algo->header.length); i++) {
+			switch (algo->value[i]) {
+			case 0:
+				vty_out(vty, "    Algorithm %d: SPF\n", i);
+				break;
+			case 1:
+				vty_out(vty, "    Algorithm %d: Strict SPF\n",
+					i);
+				break;
+			default:
+				vty_out(vty,
+					"  Algorithm %d: Unknown value %d\n", i,
+					algo->value[i]);
+				break;
+			}
+		}
+	}
+
+	else {
+		zlog_debug("  Segment Routing Algorithm TLV:\n");
+		for (i = 0; i < ntohs(algo->header.length); i++)
+			switch (algo->value[i]) {
+			case 0:
+				zlog_debug("    Algorithm %d: SPF\n", i);
+				break;
+			case 1:
+				zlog_debug("    Algorithm %d: Strict SPF\n", i);
+				break;
+			default:
+				zlog_debug(
+					"    Algorithm %d: Unknown value %d\n",
+					i, algo->value[i]);
+				break;
+			}
+	}
+
+	return TLV_SIZE(tlvh);
+}
+
+/* Display Segment Routing SID/Label Range TLV information */
+static uint16_t show_vty_sr_range(struct vty *vty, struct tlv_header *tlvh)
+{
+	struct ri_sr_tlv_sid_label_range *range =
+		(struct ri_sr_tlv_sid_label_range *)tlvh;
+
+	if (vty != NULL) {
+		vty_out(vty,
+			"  Segment Routing Range TLV:\n"
+			"    Range Size = %d\n"
+			"    SID Label = %d\n\n",
+			GET_RANGE_SIZE(ntohl(range->size)),
+			GET_LABEL(ntohl(range->lower.value)));
+	} else {
+		zlog_debug(
+			"  Segment Routing Range TLV:\n"
+			"    Range Size = %d\n"
+			"    SID Label = %d\n\n",
+			GET_RANGE_SIZE(ntohl(range->size)),
+			GET_LABEL(ntohl(range->lower.value)));
+	}
+
+	return TLV_SIZE(tlvh);
+}
+
+/* Display Segment Routing Maximum Stack Depth TLV information */
+static uint16_t show_vty_sr_msd(struct vty *vty, struct tlv_header *tlvh)
+{
+	struct ri_sr_tlv_node_msd *msd = (struct ri_sr_tlv_node_msd *)tlvh;
+
+	if (vty != NULL) {
+		vty_out(vty,
+			"  Segment Routing MSD TLV:\n"
+			"    Node Maximum Stack Depth = %d\n",
+			msd->value);
+	} else {
+		zlog_debug(
+			"  Segment Routing MSD TLV:\n"
+			"    Node Maximum Stack Depth = %d\n",
+			msd->value);
+	}
+
+	return TLV_SIZE(tlvh);
+}
+
 static void ospf_router_info_show_info(struct vty *vty, struct ospf_lsa *lsa)
 {
 	struct lsa_header *lsah = (struct lsa_header *)lsa->data;
@@ -1041,6 +1357,16 @@ static void ospf_router_info_show_info(struct vty *vty, struct ospf_lsa *lsa)
 			sum += TLV_HDR_SIZE;
 			sum += show_vty_pce_info(vty, tlvh, length - sum);
 			break;
+		case RI_SR_TLV_SR_ALGORITHM:
+			sum += show_vty_sr_algorithm(vty, tlvh);
+			break;
+		case RI_SR_TLV_SID_LABEL_RANGE:
+			sum += show_vty_sr_range(vty, tlvh);
+			break;
+		case RI_SR_TLV_NODE_MSD:
+			sum += show_vty_sr_msd(vty, tlvh);
+			break;
+
 		default:
 			sum += show_vty_unknown_tlv(vty, tlvh);
 			break;
@@ -1058,53 +1384,54 @@ static void ospf_router_info_config_write_router(struct vty *vty)
 	struct ri_pce_subtlv_neighbor *neighbor;
 	struct in_addr tmp;
 
-	if (OspfRI.enabled) {
-		if (OspfRI.scope == OSPF_OPAQUE_AS_LSA)
-			vty_out(vty, " router-info as\n");
-		else
-			vty_out(vty, " router-info area %s\n",
-				inet_ntoa(OspfRI.area_id));
+	if (!OspfRI.enabled)
+		return;
 
-		if (OspfRI.pce_info.enabled) {
+	if (OspfRI.scope == OSPF_OPAQUE_AS_LSA)
+		vty_out(vty, " router-info as\n");
+	else
+		vty_out(vty, " router-info area %s\n",
+			inet_ntoa(OspfRI.area_id));
 
-			if (pce->pce_address.header.type != 0)
-				vty_out(vty, "  pce address %s\n",
-					inet_ntoa(pce->pce_address.address.value));
+	if (OspfRI.pce_info.enabled) {
 
-			if (pce->pce_cap_flag.header.type != 0)
-				vty_out(vty, "  pce flag 0x%x\n",
-					ntohl(pce->pce_cap_flag.value));
+		if (pce->pce_address.header.type != 0)
+			vty_out(vty, "  pce address %s\n",
+				inet_ntoa(pce->pce_address.address.value));
 
-			for (ALL_LIST_ELEMENTS_RO(pce->pce_domain, node, domain)) {
-				if (domain->header.type != 0) {
-					if (domain->type == PCE_DOMAIN_TYPE_AREA) {
-						tmp.s_addr = domain->value;
-						vty_out(vty, "  pce domain area %s\n",
-							inet_ntoa(tmp));
-					} else {
-						vty_out(vty, "  pce domain as %d\n",
-							ntohl(domain->value));
-					}
+		if (pce->pce_cap_flag.header.type != 0)
+			vty_out(vty, "  pce flag 0x%x\n",
+				ntohl(pce->pce_cap_flag.value));
+
+		for (ALL_LIST_ELEMENTS_RO(pce->pce_domain, node, domain)) {
+			if (domain->header.type != 0) {
+				if (domain->type == PCE_DOMAIN_TYPE_AREA) {
+					tmp.s_addr = domain->value;
+					vty_out(vty, "  pce domain area %s\n",
+						inet_ntoa(tmp));
+				} else {
+					vty_out(vty, "  pce domain as %d\n",
+						ntohl(domain->value));
 				}
 			}
-
-			for (ALL_LIST_ELEMENTS_RO(pce->pce_neighbor, node, neighbor)) {
-				if (neighbor->header.type != 0) {
-					if (neighbor->type == PCE_DOMAIN_TYPE_AREA) {
-						tmp.s_addr = neighbor->value;
-						vty_out(vty, "  pce neighbor area %s\n",
-							inet_ntoa(tmp));
-					} else {
-						vty_out(vty, "  pce neighbor as %d\n",
-							ntohl(neighbor->value));
-					}
-				}
-			}
-
-			if (pce->pce_scope.header.type != 0)
-				vty_out(vty, "  pce scope 0x%x\n",
-					ntohl(OspfRI.pce_info.pce_scope.value));
 		}
+
+		for (ALL_LIST_ELEMENTS_RO(pce->pce_neighbor, node, neighbor)) {
+			if (neighbor->header.type != 0) {
+				if (neighbor->type == PCE_DOMAIN_TYPE_AREA) {
+					tmp.s_addr = neighbor->value;
+					vty_out(vty, "  pce neighbor area %s\n",
+						inet_ntoa(tmp));
+				} else {
+					vty_out(vty, "  pce neighbor as %d\n",
+						ntohl(neighbor->value));
+				}
+			}
+		}
+
+		if (pce->pce_scope.header.type != 0)
+			vty_out(vty, "  pce scope 0x%x\n",
+				ntohl(OspfRI.pce_info.pce_scope.value));
 	}
 	return;
 }
@@ -1194,9 +1521,6 @@ DEFUN (no_router_info,
 
 	if (CHECK_FLAG(OspfRI.flags, RIFLG_LSA_ENGAGED))
 		ospf_router_info_lsa_schedule(FLUSH_THIS_LSA);
-
-	/* Unregister the callbacks */
-	ospf_router_info_unregister();
 
 	OspfRI.enabled = false;
 
@@ -1539,7 +1863,7 @@ DEFUN (show_ip_opsf_router_info_pce,
 	struct ri_pce_subtlv_domain *domain;
 	struct ri_pce_subtlv_neighbor *neighbor;
 
-	if (OspfRI.enabled) {
+	if ((OspfRI.enabled) && (OspfRI.pce_info.enabled)) {
 		vty_out(vty, "--- PCE parameters ---\n");
 
 		if (pce->pce_address.header.type != 0)
@@ -1568,7 +1892,7 @@ DEFUN (show_ip_opsf_router_info_pce,
 
 	} else {
 		vty_out(vty,
-			"  Router Information is disabled on this router\n");
+			"  PCE info is disabled on this router\n");
 	}
 
 	return CMD_SUCCESS;

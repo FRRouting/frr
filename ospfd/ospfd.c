@@ -610,6 +610,8 @@ static void ospf_finish_final(struct ospf *ospf)
 
 	ospf_opaque_type11_lsa_term(ospf);
 
+	ospf_opaque_finish();
+
 	ospf_flush_self_originated_lsas_now(ospf);
 
 	/* Unregister redistribution */

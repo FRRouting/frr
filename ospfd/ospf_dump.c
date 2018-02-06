@@ -51,6 +51,8 @@ unsigned long conf_debug_ospf_lsa = 0;
 unsigned long conf_debug_ospf_zebra = 0;
 unsigned long conf_debug_ospf_nssa = 0;
 unsigned long conf_debug_ospf_te = 0;
+unsigned long conf_debug_ospf_ext = 0;
+unsigned long conf_debug_ospf_sr = 0;
 
 /* Enable debug option variables -- valid only session. */
 unsigned long term_debug_ospf_packet[5] = {0, 0, 0, 0, 0};
@@ -61,7 +63,8 @@ unsigned long term_debug_ospf_lsa = 0;
 unsigned long term_debug_ospf_zebra = 0;
 unsigned long term_debug_ospf_nssa = 0;
 unsigned long term_debug_ospf_te = 0;
-
+unsigned long term_debug_ospf_ext = 0;
+unsigned long term_debug_ospf_sr = 0;
 
 const char *ospf_redist_string(u_int route_type)
 {
@@ -1441,6 +1444,33 @@ DEFUN (no_debug_ospf_te,
 	return CMD_SUCCESS;
 }
 
+DEFUN (debug_ospf_sr,
+       debug_ospf_sr_cmd,
+       "debug ospf sr",
+       DEBUG_STR
+       OSPF_STR
+       "OSPF-SR information\n")
+{
+	if (vty->node == CONFIG_NODE)
+		CONF_DEBUG_ON(sr, SR);
+	TERM_DEBUG_ON(sr, SR);
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_ospf_sr,
+       no_debug_ospf_sr_cmd,
+       "no debug ospf sr",
+       NO_STR
+       DEBUG_STR
+       OSPF_STR
+       "OSPF-SR information\n")
+{
+	if (vty->node == CONFIG_NODE)
+		CONF_DEBUG_OFF(sr, SR);
+	TERM_DEBUG_OFF(sr, SR);
+	return CMD_SUCCESS;
+}
+
 DEFUN (no_debug_ospf,
        no_debug_ospf_cmd,
        "no debug ospf",
@@ -1758,6 +1788,18 @@ static int config_write_debug(struct vty *vty)
 		write = 1;
 	}
 
+	/* debug ospf te */
+	if (IS_CONF_DEBUG_OSPF(te, TE) == OSPF_DEBUG_TE) {
+		vty_out(vty, "debug ospf%s te\n", str);
+		write = 1;
+	}
+
+	/* debug ospf sr */
+	if (IS_CONF_DEBUG_OSPF(sr, SR) == OSPF_DEBUG_SR) {
+		vty_out(vty, "debug ospf%s sr\n", str);
+		write = 1;
+	}
+
 	return write;
 }
 
@@ -1774,6 +1816,7 @@ void debug_init()
 	install_element(ENABLE_NODE, &debug_ospf_event_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_nssa_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_te_cmd);
+	install_element(ENABLE_NODE, &debug_ospf_sr_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_ism_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_nsm_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_lsa_cmd);
@@ -1781,6 +1824,7 @@ void debug_init()
 	install_element(ENABLE_NODE, &no_debug_ospf_event_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_nssa_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf_te_cmd);
+	install_element(ENABLE_NODE, &no_debug_ospf_sr_cmd);
 
 	install_element(ENABLE_NODE, &show_debugging_ospf_instance_cmd);
 	install_element(ENABLE_NODE, &debug_ospf_packet_cmd);
@@ -1809,12 +1853,14 @@ void debug_init()
 	install_element(CONFIG_NODE, &debug_ospf_event_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_nssa_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_te_cmd);
+	install_element(CONFIG_NODE, &debug_ospf_sr_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_nsm_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_lsa_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_zebra_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_event_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_nssa_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf_te_cmd);
+	install_element(CONFIG_NODE, &no_debug_ospf_sr_cmd);
 
 	install_element(CONFIG_NODE, &debug_ospf_instance_nsm_cmd);
 	install_element(CONFIG_NODE, &debug_ospf_instance_lsa_cmd);

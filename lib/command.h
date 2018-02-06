@@ -357,6 +357,7 @@ struct cmd_node {
 #define OSPF_RI_STR "OSPF Router Information specific commands\n"
 #define PCE_STR "PCE Router Information specific commands\n"
 #define MPLS_STR "MPLS information\n"
+#define SR_STR "Segment-Routing specific commands\n"
 #define WATCHFRR_STR "watchfrr information\n"
 #define ZEBRA_STR "Zebra information\n"
 
