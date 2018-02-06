@@ -130,6 +130,14 @@ class Topogen(object):
         # Set the global variable so the test cases can access it anywhere
         set_topogen(self)
 
+        # Test for MPLS Kernel modules available
+        self.hasmpls = False
+        if os.system('/sbin/modprobe mpls-router') != 0:
+            logger.info('MPLS tests will not run (missing mpls-router kernel module)')
+        elif os.system('/sbin/modprobe mpls-iptunnel') != 0:
+            logger.info('MPLS tests will not run (missing mpls-iptunnel kernel module)')
+        else:
+            self.hasmpls = True
         # Load the default topology configurations
         self._load_config()
 
@@ -624,7 +632,7 @@ class TopoRouter(TopoGear):
         """
         self.logger.debug('starting')
         nrouter = self.tgen.net[self.name]
-        result = nrouter.startRouter()
+        result = nrouter.startRouter(self.tgen)
 
         # Enable all daemon logging files and set them to the logdir.
         for daemon, enabled in nrouter.daemons.iteritems():

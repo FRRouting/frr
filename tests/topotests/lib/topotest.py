@@ -586,7 +586,7 @@ class Router(Node):
         else:
             logger.info('No daemon {} known'.format(daemon))
         # print "Daemons after:", self.daemons
-    def startRouter(self):
+    def startRouter(self, tgen=None):
         # Disable integrated-vtysh-config
         self.cmd('echo "no service integrated-vtysh-config" >> /etc/%s/vtysh.conf' % self.routertype)
         self.cmd('chown %s:%svty /etc/%s/vtysh.conf' % (self.routertype, self.routertype, self.routertype))
@@ -608,19 +608,22 @@ class Router(Node):
             if version_cmp(platform.release(), '4.5') < 0:
                 logger.info("LDP Test need Linux Kernel 4.5 minimum")
                 return "LDP Test need Linux Kernel 4.5 minimum"
-
-            # Check if required kernel modules are available with a dryrun modprobe
-            # Silent accept of modprobe command assumes ok status
-            if self.cmd('/sbin/modprobe -n mpls-router' ) != "":
-                logger.info("LDP Test needs mpls-router kernel module")
-                return "LDP Test needs mpls-router kernel module"
-            if self.cmd('/sbin/modprobe -n mpls-iptunnel') != "":
-                logger.info("LDP Test needs mpls-iptunnel kernel module")
-                return "LDP Test needs mpls-router kernel module"
-
-            self.hasmpls = True
-            self.cmd('/sbin/modprobe mpls-router')
-            self.cmd('/sbin/modprobe mpls-iptunnel')
+            # Check if have mpls
+            if tgen != None:
+                self.hasmpls = tgen.hasmpls
+                if self.hasmpls != True:
+                    logger.info("LDP/MPLS Tests will be skipped, platform missing module(s)")
+            else:
+                # Test for MPLS Kernel modules available
+                self.hasmpls = False
+                if os.system('/sbin/modprobe mpls-router') != 0:
+                    logger.info('MPLS tests will not run (missing mpls-router kernel module)')
+                elif os.system('/sbin/modprobe mpls-iptunnel') != 0:
+                    logger.info('MPLS tests will not run (missing mpls-iptunnel kernel module)')
+                else:
+                    self.hasmpls = True
+            if self.hasmpls != True:
+                return "LDP/MPLS Tests need mpls kernel modules"
             self.cmd('echo 100000 > /proc/sys/net/mpls/platform_labels')
 
         if self.daemons['eigrpd'] == 1:
