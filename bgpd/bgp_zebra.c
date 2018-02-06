@@ -1731,6 +1731,7 @@ static void bgp_zebra_connected(struct zclient *zclient)
 static int bgp_zebra_process_local_l3vni(int cmd, struct zclient *zclient,
 					 zebra_size_t length, vrf_id_t vrf_id)
 {
+	int filter = 0;
 	char buf[ETHER_ADDR_STRLEN];
 	vni_t l3vni = 0;
 	struct ethaddr rmac;
@@ -1744,17 +1745,20 @@ static int bgp_zebra_process_local_l3vni(int cmd, struct zclient *zclient,
 	if (cmd == ZEBRA_L3VNI_ADD) {
 		stream_get(&rmac, s, sizeof(struct ethaddr));
 		originator_ip.s_addr = stream_get_ipv4(s);
+		stream_get(&filter, s, sizeof(int));
 	}
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("Rx L3-VNI %s VRF %s VNI %u RMAC %s",
+		zlog_debug("Rx L3-VNI %s VRF %s VNI %u RMAC %s filter %s",
 			   (cmd == ZEBRA_L3VNI_ADD) ? "add" : "del",
 			   vrf_id_to_name(vrf_id),
 			   l3vni,
-			   prefix_mac2str(&rmac, buf, sizeof(buf)));
+			   prefix_mac2str(&rmac, buf, sizeof(buf)),
+			   filter ? "prefix-routes-only" : "none");
 
 	if (cmd == ZEBRA_L3VNI_ADD)
-		bgp_evpn_local_l3vni_add(l3vni, vrf_id, &rmac, originator_ip);
+		bgp_evpn_local_l3vni_add(l3vni, vrf_id, &rmac, originator_ip,
+					 filter);
 	else
 		bgp_evpn_local_l3vni_del(l3vni, vrf_id);
 

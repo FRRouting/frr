@@ -2338,20 +2338,26 @@ DEFUN (show_vrf,
 
 DEFUN (default_vrf_vni_mapping,
        default_vrf_vni_mapping_cmd,
-       "vni " CMD_VNI_RANGE,
+       "vni " CMD_VNI_RANGE "[prefix-routes-only]",
        "VNI corresponding to the DEFAULT VRF\n"
-       "VNI-ID\n")
+       "VNI-ID\n"
+       "Prefix routes only \n")
 {
 	int ret = 0;
 	char err[ERR_STR_SZ];
 	struct zebra_vrf *zvrf = NULL;
 	vni_t vni = strtoul(argv[1]->arg, NULL, 10);
+	int filter = 0;
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	if (!zvrf)
 		return CMD_WARNING;
 
-	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 1);
+	if (argc == 3)
+		filter = 1;
+
+	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ,
+					      filter, 1);
 	if (ret != 0) {
 		vty_out(vty, "%s\n", err);
 		return CMD_WARNING;
@@ -2376,7 +2382,7 @@ DEFUN (no_default_vrf_vni_mapping,
 	if (!zvrf)
 		return CMD_WARNING;
 
-	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 0);
+	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 0, 0);
 	if (ret != 0) {
 		vty_out(vty, "%s\n", err);
 		return CMD_WARNING;
@@ -2387,11 +2393,13 @@ DEFUN (no_default_vrf_vni_mapping,
 
 DEFUN (vrf_vni_mapping,
        vrf_vni_mapping_cmd,
-       "vni " CMD_VNI_RANGE,
+       "vni " CMD_VNI_RANGE "[prefix-routes-only]",
        "VNI corresponding to tenant VRF\n"
-       "VNI-ID\n")
+       "VNI-ID\n"
+       "prefix-routes-only\n")
 {
 	int ret = 0;
+	int filter = 0;
 
 	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
 	vni_t vni = strtoul(argv[1]->arg, NULL, 10);
@@ -2400,9 +2408,13 @@ DEFUN (vrf_vni_mapping,
 	assert(vrf);
 	assert(zvrf);
 
+	if (argc == 3)
+		filter = 1;
+
 	/* Mark as having FRR configuration */
 	vrf_set_user_cfged(vrf);
-	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 1);
+	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ,
+					      filter, 1);
 	if (ret != 0) {
 		vty_out(vty, "%s\n", err);
 		return CMD_WARNING;
@@ -2427,7 +2439,7 @@ DEFUN (no_vrf_vni_mapping,
 	assert(vrf);
 	assert(zvrf);
 
-	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 0);
+	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 0, 0);
 	if (ret != 0) {
 		vty_out(vty, "%s\n", err);
 		return CMD_WARNING;
