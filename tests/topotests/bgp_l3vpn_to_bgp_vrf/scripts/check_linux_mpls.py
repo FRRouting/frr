@@ -1,6 +1,19 @@
 from lutil import luCommand, luLast
-ret = luCommand('r2','ip -M route show','\d*(?= via inet 10.0.2.4 dev r2-eth1)','wait','See mpls route to r4')
+from lib import topotest
+from lib.topolog import logger
+minver = '4.9'
+ret = luCommand('r1','apt-cache policy iproute2', 'Installed: ([\d\.]*)')
 found = luLast()
+dotest = -1
+if ret != False and found != None:
+    dotest = topotest.version_cmp(found.group(1), minver)
+if dotest == -1:
+    luCommand('r1','apt-cache policy iproute2', '.', 'pass', 'Skipping test, iproute2 version {} < {}'.format(found.group(1), minver))
+    ret = False
+else:
+    logger.info('iproute2 ver = {} dotest = {}'.format(found.group(1), dotest))
+    ret = luCommand('r2','ip -M route show','\d*(?= via inet 10.0.2.4 dev r2-eth1)','wait','See mpls route to r4')
+    found = luLast()
 if ret != False and found != None:
     label4r4 = found.group(0)
     luCommand('r2','ip -M route show','.','pass','See %s as label to r4' % label4r4)
