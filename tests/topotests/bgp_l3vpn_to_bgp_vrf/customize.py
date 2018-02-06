@@ -92,8 +92,6 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 # test name based on directory
 TEST = os.path.basename(CWD)
 
-MplsInit = False
-
 class ThisTestTopo(Topo):
     "Test topology builder"
     def build(self, *_args, **_opts):
@@ -104,13 +102,11 @@ class ThisTestTopo(Topo):
         # between routers, switches and hosts.
         #
         # Create P/PE routers
-        #check for mpls - there may be a better way to check...
+        #check for mpls
         tgen.add_router('r1')
-        if os.path.exists('/proc/sys/net/mpls/conf') != True:
+        if tgen.hasmpls != True:
             logger.info('MPLS not available, tests will be skipped')
             return
-        global MplsInit
-        MplsInit = True
         for routern in range(2, 5):
             tgen.add_router('r{}'.format(routern))
         # Create CE routers
@@ -151,7 +147,7 @@ def ltemplatePreRouterStartHook():
     tgen = get_topogen()
     logger.info('pre router-start hook')
     #check for mpls
-    if MplsInit == False:
+    if tgen.hasmpls != True:
         logger.info('MPLS not available, skipping setup')
         return
     #configure r2 mpls interfaces
@@ -198,7 +194,7 @@ def versionCheck(vstr, rname='r1', compstr='<',cli=False):
 
     router = tgen.gears[rname]
 
-    if MplsInit == False:
+    if tgen.hasmpls != True:
         ret = 'MPLS not initialized'
         return ret
 
