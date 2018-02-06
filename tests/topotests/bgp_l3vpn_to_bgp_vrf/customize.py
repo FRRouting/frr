@@ -156,6 +156,11 @@ def ltemplatePreRouterStartHook():
     intfs = ['lo', 'r2-eth0', 'r2-eth1', 'r2-eth2']
     for intf in intfs:
         doCmd(tgen, 'r2', 'echo 1 > /proc/sys/net/mpls/conf/{}/input'.format(intf))
+    #collect/log info on iproute2
+    doCmd(tgen, 'r2', 'apt-cache policy iproute2')
+    doCmd(tgen, 'r2', 'yum info iproute2')
+    doCmd(tgen, 'r2', 'yum info iproute')
+
     #configure cust1 VRFs & MPLS
     rtrs = ['r1', 'r3', 'r4']
     cmds = ['ip link add cust1 type vrf table 10',
