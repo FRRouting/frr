@@ -2,7 +2,7 @@
 PIMD
 ****
 
-.. include:: defines.txt
+.. include:: defines.rst
 .. |DAEMON| replace:: pimd
 
 SYNOPSIS

@@ -2,7 +2,7 @@
 RIPNGD
 ******
 
-.. include:: defines.txt
+.. include:: defines.rst
 .. |DAEMON| replace:: ripngd
 
 SYNOPSIS

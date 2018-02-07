@@ -2,7 +2,7 @@
 ISISD
 *****
 
-.. include:: defines.txt
+.. include:: defines.rst
 .. |DAEMON| replace:: isisd
 
 SYNOPSIS

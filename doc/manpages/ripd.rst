@@ -2,7 +2,7 @@
 RIPD
 ****
 
-.. include:: defines.txt
+.. include:: defines.rst
 .. |DAEMON| replace:: ripd
 
 SYNOPSIS

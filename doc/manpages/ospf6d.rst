@@ -2,7 +2,7 @@
 OSPF6D
 ******
 
-.. include:: defines.txt
+.. include:: defines.rst
 .. |DAEMON| replace:: ospf6d
 
 SYNOPSIS

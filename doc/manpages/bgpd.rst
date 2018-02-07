@@ -2,7 +2,7 @@
 BGPD
 ****
 
-.. include:: defines.txt
+.. include:: defines.rst
 .. |DAEMON| replace:: bgpd
 
 SYNOPSIS
