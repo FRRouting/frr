@@ -2,7 +2,7 @@
 NHRPD
 *****
 
-.. include:: defines.txt
+.. include:: defines.rst
 .. |DAEMON| replace:: nhrpd
 
 SYNOPSIS

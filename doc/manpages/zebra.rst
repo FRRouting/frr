@@ -2,7 +2,7 @@
 ZEBRA
 *****
 
-.. include:: defines.txt
+.. include:: defines.rst
 .. |DAEMON| replace:: zebra
 
 SYNOPSIS

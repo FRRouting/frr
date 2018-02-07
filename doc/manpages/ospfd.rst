@@ -2,7 +2,7 @@
 OSPFD
 *****
 
-.. include:: defines.txt
+.. include:: defines.rst
 .. |DAEMON| replace:: ospfd
 
 SYNOPSIS
