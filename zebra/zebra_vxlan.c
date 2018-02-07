@@ -1129,7 +1129,8 @@ static void zvni_print_hash(struct hash_backet *backet, void *ctxt[])
 			"%-10u %-4s %-21s %-8u %-8u %-15u %-37s\n",
 			zvni->vni, "L2",
 			zvni->vxlan_if ? zvni->vxlan_if->name : "unknown",
-			num_macs, num_neigh, num_vteps,
+			num_macs, num_neigh,
+			num_vteps,
 			vrf_id_to_name(zvni->vrf_id));
 	else {
 		char vni_str[VNI_STR_LEN];
