@@ -8,4 +8,6 @@ Welcome to FRR's documentation!
    library
    bgpd
    building
+   ospf-api
+   ospf-sr
 

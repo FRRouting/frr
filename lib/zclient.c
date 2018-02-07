@@ -976,7 +976,7 @@ int zapi_route_encode(u_char cmd, struct stream *s, struct zapi_route *api)
 
 		stream_putw(s, api->nexthop_num);
 		if (api->nexthop_num)
-			stream_putw(s, api->nh_vrf_id);
+			stream_putl(s, api->nh_vrf_id);
 
 		for (i = 0; i < api->nexthop_num; i++) {
 			api_nh = &api->nexthops[i];
@@ -1127,7 +1127,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 		}
 
 		if (api->nexthop_num)
-			STREAM_GETW(s, api->nh_vrf_id);
+			STREAM_GETL(s, api->nh_vrf_id);
 
 		for (i = 0; i < api->nexthop_num; i++) {
 			api_nh = &api->nexthops[i];
@@ -1208,6 +1208,72 @@ bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 
 	return true;
 
+stream_failure:
+	return false;
+}
+
+struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh)
+{
+	struct nexthop *n = nexthop_new();
+
+	n->type = znh->type;
+	n->ifindex = znh->ifindex;
+	n->gate = znh->gate;
+
+	/*
+	 * This function does not currently handle labels
+	 */
+
+	return n;
+}
+
+bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
+{
+	uint32_t i;
+
+	memset(nhr, 0, sizeof(*nhr));
+
+	STREAM_GETW(s, nhr->prefix.family);
+	STREAM_GETC(s, nhr->prefix.prefixlen);
+	switch(nhr->prefix.family) {
+	case AF_INET:
+		STREAM_GET(&nhr->prefix.u.prefix4.s_addr, s, IPV4_MAX_BYTELEN);
+		break;
+	case AF_INET6:
+		STREAM_GET(&nhr->prefix.u.prefix6, s, IPV6_MAX_BYTELEN);
+		break;
+	default:
+		break;
+	}
+
+	STREAM_GETC(s, nhr->distance);
+	STREAM_GETL(s, nhr->metric);
+	STREAM_GETC(s, nhr->nexthop_num);
+
+	for (i = 0; i < nhr->nexthop_num ; i++) {
+		STREAM_GETC(s, nhr->nexthops[i].type);
+		switch (nhr->nexthops[i].type) {
+		case NEXTHOP_TYPE_IPV4:
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			STREAM_GET(&nhr->nexthops[i].gate.ipv4.s_addr,
+				   s, IPV4_MAX_BYTELEN);
+			STREAM_GETL(s, nhr->nexthops[i].ifindex);
+			break;
+		case NEXTHOP_TYPE_IFINDEX:
+			STREAM_GETL(s, nhr->nexthops[i].ifindex);
+			break;
+		case NEXTHOP_TYPE_IPV6:
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			STREAM_GET(&nhr->nexthops[i].gate.ipv6,
+				   s, IPV6_MAX_BYTELEN);
+			STREAM_GETL(s, nhr->nexthops[i].ifindex);
+			break;
+		case NEXTHOP_TYPE_BLACKHOLE:
+			break;
+		}
+	}
+
+	return true;
 stream_failure:
 	return false;
 }

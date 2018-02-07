@@ -97,6 +97,14 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 	ospf6_asbr_terminate();
 	ospf6_lsa_terminate();
 
+	/* reverse access_list_init */
+	access_list_reset();
+
+	/* reverse prefix_list_init */
+	prefix_list_add_hook(NULL);
+	prefix_list_delete_hook(NULL);
+	prefix_list_reset();
+
 	vrf_terminate();
 
 	if (zclient) {

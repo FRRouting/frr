@@ -50,6 +50,10 @@
 #include "ospfd/ospf_route.h"
 #include "ospfd/ospf_ase.h"
 #include "ospfd/ospf_zebra.h"
+#include "ospfd/ospf_te.h"
+#include "ospfd/ospf_sr.h"
+#include "ospfd/ospf_ri.h"
+#include "ospfd/ospf_ext.h"
 
 DEFINE_MTYPE_STATIC(OSPFD, OSPF_OPAQUE_FUNCTAB, "OSPF opaque function table")
 DEFINE_MTYPE_STATIC(OSPFD, OPAQUE_INFO_PER_TYPE, "OSPF opaque per-type info")
@@ -58,9 +62,6 @@ DEFINE_MTYPE_STATIC(OSPFD, OPAQUE_INFO_PER_ID, "OSPF opaque per-ID info")
 /*------------------------------------------------------------------------*
  * Followings are initialize/terminate functions for Opaque-LSAs handling.
  *------------------------------------------------------------------------*/
-
-#include "ospfd/ospf_te.h"
-#include "ospfd/ospf_ri.h"
 
 #ifdef SUPPORT_OSPF_API
 int ospf_apiserver_init(void);
@@ -85,7 +86,14 @@ void ospf_opaque_init(void)
 	if (ospf_mpls_te_init() != 0)
 		exit(1);
 
+	/* Segment Routing init */
+	if (ospf_sr_init() != 0)
+		exit(1);
+
 	if (ospf_router_info_init() != 0)
+		exit(1);
+
+	if (ospf_ext_init() != 0)
 		exit(1);
 
 #ifdef SUPPORT_OSPF_API
@@ -102,12 +110,25 @@ void ospf_opaque_term(void)
 
 	ospf_router_info_term();
 
+	ospf_ext_term();
+
+	ospf_sr_term();
+
 #ifdef SUPPORT_OSPF_API
 	ospf_apiserver_term();
 #endif /* SUPPORT_OSPF_API */
 
 	ospf_opaque_funclist_term();
 	return;
+}
+
+void ospf_opaque_finish(void)
+{
+	ospf_router_info_finish();
+
+	ospf_ext_finish();
+
+	ospf_sr_finish();
 }
 
 int ospf_opaque_type9_lsa_init(struct ospf_interface *oi)
@@ -208,6 +229,12 @@ static const char *ospf_opaque_type_name(u_char opaque_type)
 		break;
 	case OPAQUE_TYPE_ROUTER_INFORMATION_LSA:
 		name = "Router Information LSA";
+		break;
+	case OPAQUE_TYPE_EXTENDED_PREFIX_LSA:
+		name = "Extended Prefix Opaque LSA";
+		break;
+	case OPAQUE_TYPE_EXTENDED_LINK_LSA:
+		name = "Extended Link Opaque LSA";
 		break;
 	default:
 		if (OPAQUE_TYPE_RANGE_UNASSIGNED(opaque_type))
@@ -1762,7 +1789,7 @@ void ospf_opaque_lsa_reoriginate_schedule(void *lsa_type_dependent,
 			lsa_type, delay,
 			GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr)));
 
-	OSPF_OPAQUE_TIMER_ON(oipt->t_opaque_lsa_self, func, oipt, delay * 1000);
+	OSPF_OPAQUE_TIMER_ON(oipt->t_opaque_lsa_self, func, oipt, delay);
 
 out:
 	return;

@@ -62,10 +62,6 @@
 #include "pim_bfd.h"
 #include "bfd.h"
 
-static struct cmd_node pim_global_node = {
-	PIM_NODE, "", 1 /* vtysh ? yes */
-};
-
 static struct cmd_node interface_node = {
 	INTERFACE_NODE, "%s(config-if)# ", 1 /* vtysh ? yes */
 };
@@ -8523,7 +8519,6 @@ DEFUN (show_ip_msdp_sa_sg_vrf_all,
 
 void pim_cmd_init(void)
 {
-	install_node(&pim_global_node, pim_global_config_write); /* PIM_NODE */
 	install_node(&interface_node,
 		     pim_interface_config_write); /* INTERFACE_NODE */
 	if_cmd_init();

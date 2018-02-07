@@ -59,7 +59,9 @@
 #define OPAQUE_TYPE_L1VPN_LSA                          5
 #define OPAQUE_TYPE_ROUTER_INFORMATION_LSA             4
 #define OPAQUE_TYPE_INTER_AS_LSA                       6
-#define OPAQUE_TYPE_MAX                                6
+#define OPAQUE_TYPE_EXTENDED_PREFIX_LSA                7
+#define OPAQUE_TYPE_EXTENDED_LINK_LSA                  8
+#define OPAQUE_TYPE_MAX                                8
 
 /* Followings types are proposed in internet-draft documents. */
 #define OPAQUE_TYPE_8021_QOSPF				129
@@ -120,6 +122,7 @@ enum lsa_opcode {
 
 extern void ospf_opaque_init(void);
 extern void ospf_opaque_term(void);
+extern void ospf_opaque_finish(void);
 extern int ospf_opaque_type9_lsa_init(struct ospf_interface *oi);
 extern void ospf_opaque_type9_lsa_term(struct ospf_interface *oi);
 extern int ospf_opaque_type10_lsa_init(struct ospf_area *area);

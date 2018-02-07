@@ -232,11 +232,6 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	return writes;
 }
 
-int pim_global_config_write(struct vty *vty)
-{
-	return pim_global_config_write_worker(pimg, vty);
-}
-
 int pim_interface_config_write(struct vty *vty)
 {
 	struct pim_instance *pim;

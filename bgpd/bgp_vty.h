@@ -44,9 +44,9 @@ struct bgp;
 	"Address Family modifier\n"
 
 extern void bgp_vty_init(void);
-extern const char *afi_safi_print(afi_t, safi_t);
-extern const char *afi_safi_json(afi_t, safi_t);
-extern void bgp_config_write_update_delay(struct vty *, struct bgp *);
+extern const char *afi_safi_print(afi_t afi, safi_t safi);
+extern const char *afi_safi_json(afi_t afi, safi_t safi);
+extern void bgp_config_write_update_delay(struct vty *vty, struct bgp *bgp);
 extern void bgp_config_write_wpkt_quanta(struct vty *vty, struct bgp *bgp);
 extern void bgp_config_write_rpkt_quanta(struct vty *vty, struct bgp *bgp);
 extern void bgp_config_write_listen(struct vty *vty, struct bgp *bgp);

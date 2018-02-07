@@ -1312,7 +1312,7 @@ static int unpack_tlv_dynamic_hostname(enum isis_tlv_context context,
 	bool sane = true;
 	for (uint8_t i = 0; i < tlv_len; i++) {
 		if ((unsigned char)tlvs->hostname[i] > 127
-		    || !isprint(tlvs->hostname[i])) {
+		    || !isprint((int)tlvs->hostname[i])) {
 			sane = false;
 			tlvs->hostname[i] = '?';
 		}
