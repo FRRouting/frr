@@ -81,7 +81,7 @@ developer.html:
 	$(MAKE) -C developer html
 
 # include sources for shipped docs
-EXTRA_DIST = manpages/defines.txt \
+EXTRA_DIST = manpages/defines.rst \
 	manpages/ldpd.rst \
 	manpages/index.rst \
 	manpages/bgpd.rst \
