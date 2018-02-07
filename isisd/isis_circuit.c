@@ -554,7 +554,7 @@ void isis_circuit_stream(struct isis_circuit *circuit, struct stream **stream)
 
 void isis_circuit_prepare(struct isis_circuit *circuit)
 {
-#ifdef GNU_LINUX
+#if ISIS_METHOD != ISIS_METHOD_DLPI
 	thread_add_read(master, isis_receive, circuit, circuit->fd,
 			&circuit->t_read);
 #else
