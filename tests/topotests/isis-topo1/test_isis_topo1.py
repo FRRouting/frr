@@ -32,6 +32,7 @@ import os
 import re
 import sys
 import pytest
+import time
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, '../'))
@@ -126,21 +127,32 @@ def test_isis_convergence():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    topotest.sleep(45, "waiting for ISIS protocol to converge")
-
+    logger.info("waiting for ISIS protocol to converge")
     # Code to generate the json files.
     # for rname, router in tgen.routers().iteritems():
     #     open('/tmp/{}_topology.json'.format(rname), 'w').write(
     #         json.dumps(show_isis_topology(router), indent=2, sort_keys=True)
     #     )
-
-    for rname, router in tgen.routers().iteritems():
-        filename = '{0}/{1}/{1}_topology.json'.format(CWD, rname)
-        expected = json.loads(open(filename, 'r').read())
-        actual = show_isis_topology(router)
-        assertmsg = "Router '{}' topology mismatch".format(rname)
-        assert topotest.json_cmp(actual, expected) is None, assertmsg
-
+    wait = 90
+    startt = time.time()
+    loop = True
+    done = False
+    while loop and not done:
+        delta = time.time() - startt
+        loop = delta < wait
+        done = True
+        for rname, router in tgen.routers().iteritems():
+            filename = '{0}/{1}/{1}_topology.json'.format(CWD, rname)
+            expected = json.loads(open(filename, 'r').read())
+            actual = show_isis_topology(router)
+            if topotest.json_cmp(actual, expected) != None:
+                done = False
+                if loop == False:
+                    assertmsg = "Router '%s' topology mismatch after +%4.2f secs" % (rname, delta)
+                    assert topotest.json_cmp(actual, expected) is None, assertmsg
+        if loop and not done:
+            time.sleep (0.5)
+    logger.info("ISIS protocol converged after +%4.2f secs" % (delta))
 
 def test_isis_route_installation():
     "Check whether all expected routes are present"
