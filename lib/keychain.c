@@ -715,6 +715,24 @@ DEFUN (accept_lifetime_duration_month_day,
 		argv[idx_number_3]->arg);
 }
 
+DEFUN (no_accept_lifetime,
+       no_accept_lifetime_cmd,
+       "no accept-lifetime",
+       NO_STR
+       "Unset accept-lifetime\n")
+{
+	VTY_DECLVAR_CONTEXT_SUB(key, key);
+
+	if (key->accept.start)
+		key->accept.start = 0;
+	if (key->accept.end)
+		key->accept.end = 0;
+	if (key->accept.duration)
+		key->accept.duration = 0;
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (send_lifetime_day_month_day_month,
        send_lifetime_day_month_day_month_cmd,
        "send-lifetime HH:MM:SS (1-31) MONTH (1993-2035) HH:MM:SS (1-31) MONTH (1993-2035)",
@@ -925,6 +943,24 @@ DEFUN (send_lifetime_duration_month_day,
 		argv[idx_number_3]->arg);
 }
 
+DEFUN (no_send_lifetime,
+       no_send_lifetime_cmd,
+       "no send-lifetime",
+       NO_STR
+       "Unset send-lifetime\n")
+{
+	VTY_DECLVAR_CONTEXT_SUB(key, key);
+
+	if (key->send.start)
+		key->send.start = 0;
+	if (key->send.end)
+		key->send.end = 0;
+	if (key->send.duration)
+		key->send.duration = 0;
+
+	return CMD_SUCCESS;
+}
+
 static struct cmd_node keychain_node = {KEYCHAIN_NODE, "%s(config-keychain)# ",
 					1};
 
@@ -1047,6 +1083,8 @@ void keychain_init()
 			&accept_lifetime_duration_day_month_cmd);
 	install_element(KEYCHAIN_KEY_NODE,
 			&accept_lifetime_duration_month_day_cmd);
+	install_element(KEYCHAIN_KEY_NODE,
+			&no_accept_lifetime_cmd);
 
 	install_element(KEYCHAIN_KEY_NODE,
 			&send_lifetime_day_month_day_month_cmd);
@@ -1064,4 +1102,6 @@ void keychain_init()
 			&send_lifetime_duration_day_month_cmd);
 	install_element(KEYCHAIN_KEY_NODE,
 			&send_lifetime_duration_month_day_cmd);
+	install_element(KEYCHAIN_KEY_NODE,
+			&no_send_lifetime_cmd);
 }
