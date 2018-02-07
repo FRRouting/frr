@@ -22,7 +22,7 @@ Add packages:
     sudo yum install git autoconf automake libtool make gawk \
       readline-devel texinfo net-snmp-devel groff pkgconfig \
       json-c-devel pam-devel bison flex pytest c-ares-devel \
-      perl-XML-LibXML python-devel
+      perl-XML-LibXML python-devel python-sphinx
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------

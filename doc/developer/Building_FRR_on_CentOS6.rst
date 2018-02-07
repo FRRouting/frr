@@ -31,7 +31,7 @@ Add packages:
     sudo yum install git autoconf automake libtool make gawk \
       readline-devel texinfo net-snmp-devel groff pkgconfig \
       json-c-devel pam-devel flex epel-release perl-XML-LibXML \
-      c-ares-devel
+      c-ares-devel python-sphinx
 
 Install newer version of bison (CentOS 6 package source is too old) from
 CentOS 7

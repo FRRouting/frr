@@ -10,7 +10,7 @@ Add packages:
 
     sudo apt-get install git autoconf automake libtool make \
       libreadline-dev texinfo libjson-c-dev pkg-config bison flex \
-      python-pip libc-ares-dev python3-dev python-pytest
+      python-pip libc-ares-dev python3-dev python-pytest python3-sphinx
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
