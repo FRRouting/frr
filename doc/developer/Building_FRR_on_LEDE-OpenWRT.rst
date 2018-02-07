@@ -19,28 +19,28 @@ Ubuntu 12.04LTS:
 
     sudo apt-get install build-essential subversion git-core \
        libncurses5-dev zlib1g-dev gawk flex quilt libssl-dev xsltproc \
-       libxml-parser-perl mercurial bzr ecj cvs unzip
+       libxml-parser-perl mercurial bzr ecj cvs unzip python3-sphinx
 
 Ubuntu 64bit:
 
 ::
 
     sudo apt-get install build-essential subversion libncurses5-dev zlib1g-dev \
-       gawk gcc-multilib flex git-core gettext libssl-dev
+       gawk gcc-multilib flex git-core gettext libssl-dev python3-sphinx
 
 Debian 8 Jessie:
 
 ::
 
     sudo apt-get install build-essential libncurses5-dev gawk git subversion \
-       libssl-dev gettext unzip zlib1g-dev file python
+       libssl-dev gettext unzip zlib1g-dev file python python3-sphinx
 
 Debian 9 Stretch:
 
 ::
 
     sudo apt-get install build-essential libncurses5-dev gawk git subversion \
-       libssl-dev gettext zlib1g-dev
+       libssl-dev gettext zlib1g-dev python3-sphinx
 
 Centos x86-64 (some packages require EPEL):
 
@@ -49,7 +49,7 @@ Centos x86-64 (some packages require EPEL):
     yum install subversion binutils bzip2 gcc gcc-c++ gawk gettext flex \
        ncurses-devel zlib-devel zlib-static make patch unzip glibc glibc-devel \
        perl-ExtUtils-MakeMaker glibc-static quilt ncurses-libs sed sdcc bison \
-       intltool sharutils wget git-core openssl-devel xz
+       intltool sharutils wget git-core openssl-devel xz python-sphinx
 
 Fedora 24 - 64Bit:
 
@@ -58,7 +58,8 @@ Fedora 24 - 64Bit:
     dnf install -y subversion binutils bzip2 gcc gcc-c++ gawk gettext git-core \
        unzip ncurses-devel ncurses-compat-libs zlib-devel zlib-static make \
        flex patch perl-ExtUtils-MakeMaker perl-Thread-Queue glibc glibc-devel \
-       glibc-static quilt sed sdcc intltool sharutils bison wget openssl-devel
+       glibc-static quilt sed sdcc intltool sharutils bison wget openssl-devel \
+       python3-sphinx
 
 Get LEDE Sources (from Git)
 ---------------------------

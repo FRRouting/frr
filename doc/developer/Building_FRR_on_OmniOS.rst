@@ -62,6 +62,10 @@ Add pytest:
 
     pip install pytest
 
+Install Sphinx:::
+
+   pip install sphinx
+
 Select Python 2.7 as default (required for pytest)
 
 ::

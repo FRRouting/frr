@@ -15,7 +15,7 @@ Add packages:
     sudo dnf install git autoconf automake libtool make gawk \
       readline-devel texinfo net-snmp-devel groff pkgconfig \
       json-c-devel pam-devel perl-XML-LibXML pytest bison flex \
-      c-ares-devel python3-devel
+      c-ares-devel python3-devel python3-sphinx
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
