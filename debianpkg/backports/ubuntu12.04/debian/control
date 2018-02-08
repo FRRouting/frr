@@ -13,7 +13,7 @@ Package: frr
 Architecture: any
 Depends: ${shlibs:Depends}, logrotate (>= 3.2-11), ${misc:Depends}
 Pre-Depends: adduser
-Conflicts: zebra, zebra-pj
+Conflicts: zebra, zebra-pj, quagga
 Replaces: zebra, zebra-pj
 Suggests: snmpd
 Description: BGP/OSPF/RIP/RIPng/ISIS/PIM/LDP routing daemon forked from Quagga
