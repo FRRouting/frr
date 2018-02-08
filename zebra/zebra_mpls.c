@@ -614,7 +614,7 @@ static int nhlfe_nexthop_active_ipv4(zebra_nhlfe_t *nhlfe,
 	struct route_entry *match;
 	struct nexthop *match_nh;
 
-	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, VRF_DEFAULT);
+	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, nexthop->vrf_id);
 	if (!table)
 		return 0;
 
@@ -663,7 +663,7 @@ static int nhlfe_nexthop_active_ipv6(zebra_nhlfe_t *nhlfe,
 	struct route_node *rn;
 	struct route_entry *match;
 
-	table = zebra_vrf_table(AFI_IP6, SAFI_UNICAST, VRF_DEFAULT);
+	table = zebra_vrf_table(AFI_IP6, SAFI_UNICAST, nexthop->vrf_id);
 	if (!table)
 		return 0;
 
@@ -728,7 +728,8 @@ static int nhlfe_nexthop_active(zebra_nhlfe_t *nhlfe)
 
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
 		if (IN6_IS_ADDR_LINKLOCAL(&nexthop->gate.ipv6)) {
-			ifp = if_lookup_by_index(nexthop->ifindex, VRF_DEFAULT);
+			ifp = if_lookup_by_index(nexthop->ifindex,
+						 nexthop->vrf_id);
 			if (ifp && if_is_operative(ifp))
 				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 			else
@@ -1149,6 +1150,7 @@ static zebra_nhlfe_t *nhlfe_add(zebra_lsp_t *lsp, enum lsp_types_t lsp_type,
 	}
 	nexthop_add_labels(nexthop, lsp_type, 1, &out_label);
 
+	nexthop->vrf_id = VRF_DEFAULT;
 	nexthop->type = gtype;
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
@@ -1324,9 +1326,9 @@ static json_object *nhlfe_json(zebra_nhlfe_t *nhlfe)
 			inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
 
 		if (nexthop->ifindex)
-			json_object_string_add(
-				json_nhlfe, "interface",
-				ifindex2ifname(nexthop->ifindex, VRF_DEFAULT));
+			json_object_string_add(json_nhlfe, "interface",
+					       ifindex2ifname(nexthop->ifindex,
+							      nexthop->vrf_id));
 		break;
 	default:
 		break;
@@ -1356,7 +1358,8 @@ static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty)
 		vty_out(vty, "  via %s", inet_ntoa(nexthop->gate.ipv4));
 		if (nexthop->ifindex)
 			vty_out(vty, " dev %s",
-				ifindex2ifname(nexthop->ifindex, VRF_DEFAULT));
+				ifindex2ifname(nexthop->ifindex,
+					       nexthop->vrf_id));
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -1364,7 +1367,8 @@ static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty)
 			inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
 		if (nexthop->ifindex)
 			vty_out(vty, " dev %s",
-				ifindex2ifname(nexthop->ifindex, VRF_DEFAULT));
+				ifindex2ifname(nexthop->ifindex,
+					       nexthop->vrf_id));
 		break;
 	default:
 		break;

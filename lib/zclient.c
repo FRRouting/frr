@@ -975,12 +975,11 @@ int zapi_route_encode(u_char cmd, struct stream *s, struct zapi_route *api)
 		}
 
 		stream_putw(s, api->nexthop_num);
-		if (api->nexthop_num)
-			stream_putl(s, api->nh_vrf_id);
 
 		for (i = 0; i < api->nexthop_num; i++) {
 			api_nh = &api->nexthops[i];
 
+			stream_putl(s, api_nh->vrf_id);
 			stream_putc(s, api_nh->type);
 			switch (api_nh->type) {
 			case NEXTHOP_TYPE_BLACKHOLE:
@@ -1126,12 +1125,10 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 			return -1;
 		}
 
-		if (api->nexthop_num)
-			STREAM_GETL(s, api->nh_vrf_id);
-
 		for (i = 0; i < api->nexthop_num; i++) {
 			api_nh = &api->nexthops[i];
 
+			STREAM_GETL(s, api_nh->vrf_id);
 			STREAM_GETC(s, api_nh->type);
 			switch (api_nh->type) {
 			case NEXTHOP_TYPE_BLACKHOLE:
@@ -1217,6 +1214,7 @@ struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh)
 	struct nexthop *n = nexthop_new();
 
 	n->type = znh->type;
+	n->vrf_id = znh->vrf_id;
 	n->ifindex = znh->ifindex;
 	n->gate = znh->gate;
 
