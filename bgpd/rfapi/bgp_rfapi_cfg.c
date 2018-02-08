@@ -554,7 +554,7 @@ rfapi_group_new(struct bgp *bgp, rfapi_group_cfg_type_t type, const char *name)
 		/* add to tail of list */
 		listnode_add(bgp->rfapi_cfg->nve_groups_sequential, rfg);
 	}
-	rfg->label = MPLS_LABEL_ILLEGAL;
+	rfg->label = MPLS_LABEL_NONE;
 	QOBJ_REG(rfg, rfapi_nve_group_cfg);
 
 	return rfg;
@@ -3063,7 +3063,7 @@ DEFUN (vnc_vrf_policy_no_label,
 		vnc_redistribute_prechange(bgp);
 	}
 
-	rfg->label = MPLS_LABEL_ILLEGAL;
+	rfg->label = MPLS_LABEL_NONE;
 
 	if (bgp->rfapi_cfg->rfg_redist == rfg) {
 		vnc_redistribute_postchange(bgp);

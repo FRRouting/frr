@@ -79,13 +79,12 @@ DEFPY (install_routes,
 	return CMD_SUCCESS;
 }
 
-DEFPY(vrf_label,
-      vrf_label_cmd,
+DEFPY(vrf_label, vrf_label_cmd,
       "sharp label vrf NAME$name label (0-100000)$label",
       "Sharp Routing Protocol\n"
       "Give a vrf a label\n"
       VRF_CMD_HELP_STR
-      "The label to use\n"
+      "The label to use, 0 specifies remove the label installed from previous\n"
       "Specified range to use\n")
 {
 	struct vrf *vrf;
@@ -99,6 +98,9 @@ DEFPY(vrf_label,
 		vty_out(vty, "Unable to find vrf you silly head");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	if (label == 0)
+		label = MPLS_LABEL_NONE;
 
 	vrf_label_add(vrf->vrf_id, label);
 	return CMD_SUCCESS;
