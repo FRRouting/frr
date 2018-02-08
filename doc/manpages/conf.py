@@ -100,8 +100,8 @@ with open('../../config.status', 'r') as cfgstatus:
 
 # manually fill out some of these we can't get from config.status
 replace_vars['COPYRIGHT_STR'] = "Copyright (c)"
-replace_vars['COPYRIGHT_STR'] += ' {}'.format(replace_vars['COPYRIGHT_YEAR'])
-replace_vars['COPYRIGHT_STR'] += ' {}'.format(replace_vars['AUTHORS'])
+replace_vars['COPYRIGHT_STR'] += ' {0}'.format(replace_vars['COPYRIGHT_YEAR'])
+replace_vars['COPYRIGHT_STR'] += ' {0}'.format(replace_vars['AUTHORS'])
 release = replace_vars['PACKAGE_VERSION']
 version = release.split('-')[0]
 
@@ -306,7 +306,7 @@ latex_documents = [
 # If true, show URL addresses after external links.
 #man_show_urls = False
 
-fwfrr = "{} routing engine for use with FRRouting."
+fwfrr = "{0} routing engine for use with FRRouting."
 
 man_pages = [
     ('bgpd', 'bgpd', fwfrr.format("a BGPv4, BGPv4+, BGPv4- "), [], 8),

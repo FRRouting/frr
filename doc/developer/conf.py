@@ -98,8 +98,8 @@ with open('../../config.status', 'r') as cfgstatus:
 
 # manually fill out some of these we can't get from config.status
 replace_vars['COPYRIGHT_STR'] = "Copyright (c)"
-replace_vars['COPYRIGHT_STR'] += ' {}'.format(replace_vars['COPYRIGHT_YEAR'])
-replace_vars['COPYRIGHT_STR'] += ' {}'.format(replace_vars['AUTHORS'])
+replace_vars['COPYRIGHT_STR'] += ' {0}'.format(replace_vars['COPYRIGHT_YEAR'])
+replace_vars['COPYRIGHT_STR'] += ' {0}'.format(replace_vars['AUTHORS'])
 release = replace_vars['PACKAGE_VERSION']
 version = release.split('-')[0]
 
