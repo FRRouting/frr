@@ -239,6 +239,7 @@ struct zserv_header {
 
 struct zapi_nexthop {
 	enum nexthop_types_t type;
+	vrf_id_t vrf_id;
 	ifindex_t ifindex;
 	union {
 		union g_addr gate;
@@ -286,7 +287,6 @@ struct zapi_route {
 	u_int32_t mtu;
 
 	vrf_id_t vrf_id;
-	vrf_id_t nh_vrf_id;
 
 	struct ethaddr rmac;
 };
@@ -505,6 +505,7 @@ static inline void zapi_route_set_blackhole(struct zapi_route *api,
 {
 	api->nexthop_num = 1;
 	api->nexthops[0].type = NEXTHOP_TYPE_BLACKHOLE;
+	api->nexthops[0].vrf_id = VRF_DEFAULT;
 	api->nexthops[0].bh_type = bh_type;
 	SET_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP);
 };

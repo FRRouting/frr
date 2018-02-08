@@ -60,6 +60,11 @@ struct nexthop {
 	struct nexthop *next;
 	struct nexthop *prev;
 
+	/*
+	 * What vrf is this nexthop associated with?
+	 */
+	vrf_id_t vrf_id;
+
 	/* Interface index. */
 	ifindex_t ifindex;
 
