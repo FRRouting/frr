@@ -214,11 +214,11 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 		if (attr) {
 			bgp_update(peer, &p, addpath_id, attr, packet->afi,
 				   SAFI_MPLS_VPN, ZEBRA_ROUTE_BGP,
-				   BGP_ROUTE_NORMAL, &prd, &label, 0, NULL);
+				   BGP_ROUTE_NORMAL, &prd, &label, 1, 0, NULL);
 		} else {
 			bgp_withdraw(peer, &p, addpath_id, attr, packet->afi,
 				     SAFI_MPLS_VPN, ZEBRA_ROUTE_BGP,
-				     BGP_ROUTE_NORMAL, &prd, &label, NULL);
+				     BGP_ROUTE_NORMAL, &prd, &label, 1, NULL);
 		}
 	}
 	/* Packet length consistency check. */

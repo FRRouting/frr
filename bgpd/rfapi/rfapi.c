@@ -1083,7 +1083,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	/* save backref to rfapi handle */
 	assert(bgp_info_extra_get(new));
 	new->extra->vnc.export.rfapi_handle = (void *)rfd;
-	encode_label(label_val, &new->extra->label);
+	encode_label(label_val, &new->extra->label[0]);
 
 	/* debug */
 
