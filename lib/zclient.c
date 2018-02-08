@@ -364,7 +364,7 @@ static int zebra_hello_send(struct zclient *zclient)
 }
 
 void zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id,
-			    mpls_label_t label)
+			    mpls_label_t label, enum lsp_types_t ltype)
 {
 	struct stream *s;
 
@@ -373,6 +373,7 @@ void zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id,
 
 	zclient_create_header(s, ZEBRA_VRF_LABEL, vrf_id);
 	stream_putl(s, label);
+	stream_putc(s, ltype);
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zclient_send_message(zclient);
 }
