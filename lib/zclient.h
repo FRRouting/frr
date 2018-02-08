@@ -392,7 +392,7 @@ extern void redist_del_instance(struct redist_proto *, u_short);
  * operation.
  */
 extern void zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id,
-				   mpls_label_t label);
+				   mpls_label_t label, enum lsp_types_t ltype);
 
 extern void zclient_send_reg_requests(struct zclient *, vrf_id_t);
 extern void zclient_send_dereg_requests(struct zclient *, vrf_id_t);

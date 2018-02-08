@@ -2493,16 +2493,17 @@ static void zread_vrf_label(struct zserv *client,
 	mpls_label_t nlabel;
 	struct stream *s;
 	struct zebra_vrf *def_zvrf;
+	enum lsp_types_t ltype;
 
 	s = client->ibuf;
 	STREAM_GETL(s, nlabel);
-
 	if (nlabel == zvrf->label) {
 		/*
 		 * Nothing to do here move along
 		 */
 		return;
 	}
+	STREAM_GETC(s, ltype);
 
 	if (zvrf->vrf->vrf_id != VRF_DEFAULT)
 		ifp = if_lookup_by_name(zvrf->vrf->name, zvrf->vrf->vrf_id);
@@ -2518,13 +2519,12 @@ static void zread_vrf_label(struct zserv *client,
 	def_zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
 	if (zvrf->label != MPLS_LABEL_IPV4_EXPLICIT_NULL)
-		mpls_lsp_uninstall(def_zvrf, ZEBRA_LSP_STATIC,
-				   zvrf->label, NEXTHOP_TYPE_IFINDEX,
-				   NULL, ifp->ifindex);
+		mpls_lsp_uninstall(def_zvrf, ltype, zvrf->label,
+				   NEXTHOP_TYPE_IFINDEX, NULL, ifp->ifindex);
 
 	if (nlabel != MPLS_LABEL_IPV4_EXPLICIT_NULL)
-		mpls_lsp_install(def_zvrf, ZEBRA_LSP_STATIC, nlabel,
-				 MPLS_LABEL_IMPLICIT_NULL, NEXTHOP_TYPE_IFINDEX, NULL, ifp->ifindex);
+		mpls_lsp_install(def_zvrf, ltype, nlabel, MPLS_LABEL_IMPLICIT_NULL,
+				 NEXTHOP_TYPE_IFINDEX, NULL, ifp->ifindex);
 
 	zvrf->label = nlabel;
 stream_failure:

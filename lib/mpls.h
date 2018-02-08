@@ -115,7 +115,8 @@ enum lsp_types_t {
 	ZEBRA_LSP_STATIC = 1, /* Static LSP. */
 	ZEBRA_LSP_LDP = 2,    /* LDP LSP. */
 	ZEBRA_LSP_BGP = 3,    /* BGP LSP. */
-	ZEBRA_LSP_SR = 4      /* Segment Routing LSP. */
+	ZEBRA_LSP_SR = 4,     /* Segment Routing LSP. */
+	ZEBRA_LSP_SHARP = 5,  /* Identifier for test protocol */
 };
 
 /* Functions for basic label operations. */
