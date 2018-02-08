@@ -199,33 +199,33 @@ def ltemplatePreRouterStartHook():
 
     #configure cust1 VRFs & MPLS
     rtrs = ['r1', 'r3', 'r4']
-    cmds = ['ip link add cust1 type vrf table 10',
-            'ip ru add oif cust1 table 10',
-            'ip ru add iif cust1 table 10',
-            'ip link set dev cust1 up']
+    cmds = ['ip link add {0}-cust1 type vrf table 10',
+            'ip ru add oif {0}-cust1 table 10',
+            'ip ru add iif {0}-cust1 table 10',
+            'ip link set dev {0}-cust1 up']
     for rtr in rtrs:
         router = tgen.gears[rtr]
         for cmd in cmds:
-            cc.doCmd(tgen, rtr, cmd)
-        cc.doCmd(tgen, rtr, 'ip link set dev {}-eth4 master cust1'.format(rtr))
-        intfs = ['cust1', 'lo', rtr+'-eth0', rtr+'-eth4']
+            cc.doCmd(tgen, rtr, cmd.format(rtr))
+        cc.doCmd(tgen, rtr, 'ip link set dev {0}-eth4 master {0}-cust1'.format(rtr))
+        intfs = [rtr+'-cust1', 'lo', rtr+'-eth0', rtr+'-eth4']
         for intf in intfs:
             cc.doCmd(tgen, rtr, 'echo 1 > /proc/sys/net/mpls/conf/{}/input'.format(intf))
-        logger.info('setup {0} vrf cust1, {0}-eth4. enabled mpls input.'.format(rtr))
+        logger.info('setup {0} vrf {0}-cust1, {0}-eth4. enabled mpls input.'.format(rtr))
     #configure cust2 VRFs & MPLS
     rtrs = ['r4']
-    cmds = ['ip link add cust2 type vrf table 20',
-            'ip ru add oif cust1 table 20',
-            'ip ru add iif cust1 table 20',
-            'ip link set dev cust2 up']
+    cmds = ['ip link add {0}-cust2 type vrf table 20',
+            'ip ru add oif {0}-cust1 table 20',
+            'ip ru add iif {0}-cust1 table 20',
+            'ip link set dev {0}-cust2 up']
     for rtr in rtrs:
         for cmd in cmds:
-            cc.doCmd(tgen, rtr, cmd)
-        cc.doCmd(tgen, rtr, 'ip link set dev {}-eth5 master cust2'.format(rtr))
-        intfs = ['cust2', rtr+'-eth5']
+            cc.doCmd(tgen, rtr, cmd.format(rtr))
+        cc.doCmd(tgen, rtr, 'ip link set dev {0}-eth5 master {0}-cust2'.format(rtr))
+        intfs = [rtr+'-cust2', rtr+'-eth5']
         for intf in intfs:
             cc.doCmd(tgen, rtr, 'echo 1 > /proc/sys/net/mpls/conf/{}/input'.format(intf))
-        logger.info('setup {0} vrf cust2, {0}-eth5. enabled mpls input.'.format(rtr))
+        logger.info('setup {0} vrf {0}-cust2, {0}-eth5. enabled mpls input.'.format(rtr))
     global InitSuccess
     if cc.getOutput():
         InitSuccess = False

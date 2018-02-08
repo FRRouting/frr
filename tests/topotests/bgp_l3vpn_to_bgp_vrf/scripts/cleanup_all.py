@@ -1,7 +1,7 @@
 from lutil import luCommand
-luCommand('r1','vtysh -c "clear vrf cust1 prefix 99.0.0.1/32"','.','none','Cleared VRF route')
-luCommand('r3','vtysh -c "clear vrf cust1 prefix 99.0.0.2/32"','.','none','Cleared VRF route')
-luCommand('r4','vtysh -c "clear vrf cust1 prefix 99.0.0.3/32"','.','none','Cleared VRF route')
+luCommand('r1','vtysh -c "clear vrf r1-cust1 prefix 99.0.0.1/32"','.','none','Cleared VRF route')
+luCommand('r3','vtysh -c "clear vrf r3-cust1 prefix 99.0.0.2/32"','.','none','Cleared VRF route')
+luCommand('r4','vtysh -c "clear vrf r3-cust1 prefix 99.0.0.3/32"','.','none','Cleared VRF route')
 luCommand('r1','vtysh -c "show vnc registrations local"','99.0.0.1','fail','Local Registration cleared')
 luCommand('r3','vtysh -c "show vnc registrations local"','99.0.0.2','fail','Local Registration cleared')
 luCommand('r4','vtysh -c "show vnc registrations local"','99.0.0.3','fail','Local Registration cleared')
