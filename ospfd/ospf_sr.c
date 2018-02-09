@@ -47,6 +47,7 @@
 #include "thread.h"
 #include "vty.h"
 #include "zclient.h"
+#include <lib/json.h>
 
 #include "ospfd/ospfd.h"
 #include "ospfd/ospf_interface.h"
@@ -2136,91 +2137,196 @@ DEFUN (no_sr_prefix_sid,
 
 
 
-static void show_vty_sr_node(struct vty *vty, struct sr_node *srn)
+static void show_sr_node(struct vty *vty, struct json_object *json,
+			     struct sr_node *srn)
 {
 
 	struct listnode *node;
 	struct sr_link *srl;
 	struct sr_prefix *srp;
 	struct interface *itf;
-	char pref[16];
+	char pref[19];
 	char sid[22];
 	char label[8];
+	json_object *json_node = NULL, *json_algo, *json_obj;
+	json_object *json_prefix = NULL, *json_link = NULL;
 
 	/* Sanity Check */
 	if (srn == NULL)
 		return;
 
-	vty_out(vty, "SR-Node: %s", inet_ntoa(srn->adv_router));
-	vty_out(vty, "\tSRGB (Size/Label): %u/%u", srn->srgb.range_size,
-		srn->srgb.lower_bound);
-	vty_out(vty, "\tAlgorithm(s): %s",
-		srn->algo[0] == SR_ALGORITHM_SPF ? "SPF" : "S-SPF");
-	for (int i = 1; i < ALGORITHM_COUNT; i++) {
-		if (srn->algo[i] == SR_ALGORITHM_UNSET)
-			continue;
-		vty_out(vty, "/%s",
-			srn->algo[i] == SR_ALGORITHM_SPF ? "SPF" : "S-SPF");
+	if (json) {
+		json_node = json_object_new_object();
+		json_object_string_add(json_node, "routerID",
+			inet_ntoa(srn->adv_router));
+		json_object_int_add(json_node, "srgbSize",
+			srn->srgb.range_size);
+		json_object_int_add(json_node, "srgbLabel",
+			srn->srgb.lower_bound);
+		json_algo = json_object_new_array();
+		json_object_object_add(json_node, "algorithms", json_algo);
+		for (int i = 0; i < ALGORITHM_COUNT; i++) {
+			if (srn->algo[i] == SR_ALGORITHM_UNSET)
+				continue;
+			json_obj = json_object_new_object();
+			char tmp[2];
+			snprintf(tmp, 2, "%u", i);
+			json_object_string_add(json_obj, tmp,
+				srn->algo[i] == SR_ALGORITHM_SPF ?
+						"SPF" : "S-SPF");
+			json_object_array_add(json_algo, json_obj);
+		}
+		if (srn->msd != 0)
+			json_object_int_add(json_node, "nodeMsd", srn->msd);
+	} else {
+		vty_out(vty, "SR-Node: %s", inet_ntoa(srn->adv_router));
+		vty_out(vty, "\tSRGB (Size/Label): %u/%u",
+			srn->srgb.range_size, srn->srgb.lower_bound);
+		vty_out(vty, "\tAlgorithm(s): %s",
+			srn->algo[0] == SR_ALGORITHM_SPF ? "SPF" : "S-SPF");
+		for (int i = 1; i < ALGORITHM_COUNT; i++) {
+			if (srn->algo[i] == SR_ALGORITHM_UNSET)
+				continue;
+			vty_out(vty, "/%s",
+				srn->algo[i] == SR_ALGORITHM_SPF ?
+						"SPF" : "S-SPF");
+		}
+		if (srn->msd != 0)
+			vty_out(vty, "\tMSD: %u", srn->msd);
 	}
-	if (srn->msd != 0)
-		vty_out(vty, "\tMSD: %u", srn->msd);
 
-	vty_out(vty,
-		"\n\n    Prefix or Link  Label In  Label Out       "
-		"Node or Adj. SID  Interface          Nexthop\n");
-	vty_out(vty,
-		"------------------  --------  ---------  "
-		"---------------------  ---------  ---------------\n");
+	if (!json) {
+		vty_out(vty,
+			"\n\n    Prefix or Link  Label In  Label Out       "
+			"Node or Adj. SID  Interface          Nexthop\n");
+		vty_out(vty,
+			"------------------  --------  ---------  "
+			"---------------------  ---------  ---------------\n");
+	}
 	for (ALL_LIST_ELEMENTS_RO(srn->ext_prefix, node, srp)) {
-		strncpy(pref, inet_ntoa(srp->nhlfe.prefv4.prefix), 16);
+		snprintf(pref, 19, "%s/%u",
+			inet_ntoa(srp->nhlfe.prefv4.prefix),
+			srp->nhlfe.prefv4.prefixlen);
 		snprintf(sid, 22, "SR Pfx (idx %u)", srp->sid);
 		if (srp->nhlfe.label_out == MPLS_IMP_NULL_LABEL)
 			sprintf(label, "pop");
 		else
 			sprintf(label, "%u", srp->nhlfe.label_out);
 		itf = if_lookup_by_index(srp->nhlfe.ifindex, VRF_DEFAULT);
-		vty_out(vty, "%15s/%u  %8u  %9s  %21s  %9s  %15s\n", pref,
-			srp->nhlfe.prefv4.prefixlen, srp->nhlfe.label_in, label,
-			sid, itf ? itf->name : "-",
-			inet_ntoa(srp->nhlfe.nexthop));
+		if (json) {
+			if (!json_prefix) {
+				json_prefix = json_object_new_array();
+				json_object_object_add(json_node,
+					"extendedPrefix", json_prefix);
+			}
+			json_obj = json_object_new_object();
+			json_object_string_add(json_obj, "prefix", pref);
+			json_object_int_add(json_obj, "sid", srp->sid);
+			json_object_int_add(json_obj, "inputLabel",
+				srp->nhlfe.label_in);
+			json_object_string_add(json_obj, "outputLabel",
+				label);
+			json_object_string_add(json_obj, "interface",
+				itf ? itf->name : "-");
+			json_object_string_add(json_obj, "nexthop",
+				inet_ntoa(srp->nhlfe.nexthop));
+			json_object_array_add(json_prefix, json_obj);
+		} else {
+			vty_out(vty, "%18s  %8u  %9s  %21s  %9s  %15s\n",
+				pref, srp->nhlfe.label_in, label,
+				sid, itf ? itf->name : "-",
+				inet_ntoa(srp->nhlfe.nexthop));
+		}
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(srn->ext_link, node, srl)) {
-		strncpy(pref, inet_ntoa(srl->nhlfe[0].prefv4.prefix), 16);
+		snprintf(pref, 19, "%s/%u",
+			inet_ntoa(srl->nhlfe[0].prefv4.prefix),
+			srl->nhlfe[0].prefv4.prefixlen);
 		snprintf(sid, 22, "SR Adj. (lbl %u)", srl->sid[0]);
 		if (srl->nhlfe[0].label_out == MPLS_IMP_NULL_LABEL)
 			sprintf(label, "pop");
 		else
 			sprintf(label, "%u", srl->nhlfe[0].label_out);
 		itf = if_lookup_by_index(srl->nhlfe[0].ifindex, VRF_DEFAULT);
-		vty_out(vty, "%15s/%u  %8u  %9s  %21s  %9s  %15s\n", pref,
-			srl->nhlfe[0].prefv4.prefixlen, srl->nhlfe[0].label_in,
-			label, sid, itf ? itf->name : "-",
-			inet_ntoa(srl->nhlfe[0].nexthop));
-		snprintf(sid, 22, "SR Adj. (lbl %u)", srl->sid[1]);
-		if (srl->nhlfe[1].label_out == MPLS_IMP_NULL_LABEL)
-			sprintf(label, "pop");
-		else
-			sprintf(label, "%u", srl->nhlfe[0].label_out);
-		vty_out(vty, "%15s/%u  %8u  %9s  %21s  %9s  %15s\n", pref,
-			srl->nhlfe[1].prefv4.prefixlen, srl->nhlfe[1].label_in,
-			label, sid, itf ? itf->name : "-",
-			inet_ntoa(srl->nhlfe[1].nexthop));
+		if (json) {
+			if (!json_link) {
+				json_link = json_object_new_array();
+				json_object_object_add(json_node,
+					"extendedLink", json_link);
+			}
+			/* Primary Link */
+			json_obj = json_object_new_object();
+			json_object_string_add(json_obj, "prefix", pref);
+			json_object_int_add(json_obj, "sid", srl->sid[0]);
+			json_object_int_add(json_obj, "inputLabel",
+				srl->nhlfe[0].label_in);
+			json_object_string_add(json_obj, "outputLabel",
+				label);
+			json_object_string_add(json_obj, "interface",
+				itf ? itf->name : "-");
+			json_object_string_add(json_obj, "nexthop",
+				inet_ntoa(srl->nhlfe[0].nexthop));
+			json_object_array_add(json_link, json_obj);
+			/* Backup Link */
+			json_obj = json_object_new_object();
+			snprintf(sid, 22, "SR Adj. (lbl %u)", srl->sid[1]);
+			if (srl->nhlfe[1].label_out == MPLS_IMP_NULL_LABEL)
+				sprintf(label, "pop");
+			else
+				sprintf(label, "%u", srl->nhlfe[0].label_out);
+			json_object_string_add(json_obj, "prefix", pref);
+			json_object_int_add(json_obj, "sid", srl->sid[1]);
+			json_object_int_add(json_obj, "inputLabel",
+				srl->nhlfe[1].label_in);
+			json_object_string_add(json_obj, "outputLabel",
+				label);
+			json_object_string_add(json_obj, "interface",
+				itf ? itf->name : "-");
+			json_object_string_add(json_obj, "nexthop",
+				inet_ntoa(srl->nhlfe[1].nexthop));
+			json_object_array_add(json_link, json_obj);
+		} else {
+			vty_out(vty, "%18s  %8u  %9s  %21s  %9s  %15s\n",
+				pref, srl->nhlfe[0].label_in,
+				label, sid, itf ? itf->name : "-",
+				inet_ntoa(srl->nhlfe[0].nexthop));
+			snprintf(sid, 22, "SR Adj. (lbl %u)", srl->sid[1]);
+			if (srl->nhlfe[1].label_out == MPLS_IMP_NULL_LABEL)
+				sprintf(label, "pop");
+			else
+				sprintf(label, "%u", srl->nhlfe[1].label_out);
+			vty_out(vty, "%18s  %8u  %9s  %21s  %9s  %15s\n",
+				pref, srl->nhlfe[1].label_in,
+				label, sid, itf ? itf->name : "-",
+				inet_ntoa(srl->nhlfe[1].nexthop));
+		}
 	}
-	vty_out(vty, "\n");
+	if (json)
+		json_object_array_add(json, json_node);
+	else
+		vty_out(vty, "\n");
 }
 
-static void show_srdb_entry(struct hash_backet *backet, void *args)
+static void show_vty_srdb(struct hash_backet *backet, void *args)
 {
 	struct vty *vty = (struct vty *)args;
 	struct sr_node *srn = (struct sr_node *)backet->data;
 
-	show_vty_sr_node(vty, srn);
+	show_sr_node(vty, NULL, srn);
+}
+
+static void show_json_srdb(struct hash_backet *backet, void *args)
+{
+	struct json_object *json = (struct json_object *)args;
+	struct sr_node *srn = (struct sr_node *)backet->data;
+
+	show_sr_node(NULL, json, srn);
 }
 
 DEFUN (show_ip_opsf_srdb,
        show_ip_ospf_srdb_cmd,
-       "show ip ospf database segment-routing [adv-router A.B.C.D|self-originate]",
+       "show ip ospf database segment-routing [adv-router A.B.C.D|self-originate] [json]",
        SHOW_STR
        IP_STR
        OSPF_STR
@@ -2228,23 +2334,40 @@ DEFUN (show_ip_opsf_srdb,
        "Show Segment Routing Data Base\n"
        "Advertising SR node\n"
        "Advertising SR node ID (as an IP address)\n"
-       "Self-originated SR node\n")
+       "Self-originated SR node\n"
+       JSON_STR)
 {
 	int idx = 0;
 	struct in_addr rid;
 	struct sr_node *srn;
+	u_char uj = use_json(argc, argv);
+	json_object *json = NULL, *json_node_array = NULL;
 
 	if (!OspfSR.enabled) {
 		vty_out(vty, "Segment Routing is disabled on this router\n");
 		return CMD_WARNING;
 	}
 
-	vty_out(vty, "\n          OSPF Segment Routing database for ID %s\n\n",
-		inet_ntoa(OspfSR.self->adv_router));
+	if (uj) {
+		json = json_object_new_object();
+		json_node_array = json_object_new_array();
+		json_object_string_add(json, "srdbID",
+			inet_ntoa(OspfSR.self->adv_router));
+		json_object_object_add(json, "srNodes", json_node_array);
+	} else {
+		vty_out(vty, "\n          OSPF Segment Routing database for ID %s\n\n",
+			inet_ntoa(OspfSR.self->adv_router));
+	}
 
 	if (argv_find(argv, argc, "self-originate", &idx)) {
 		srn = OspfSR.self;
-		show_vty_sr_node(vty, srn);
+		show_sr_node(vty, json_node_array, srn);
+		if (uj) {
+			vty_out(vty, "%s\n",
+				json_object_to_json_string_ext(json,
+					  JSON_C_TO_STRING_PRETTY));
+			json_object_free(json);
+		}
 		return CMD_SUCCESS;
 	}
 
@@ -2258,15 +2381,32 @@ DEFUN (show_ip_opsf_srdb,
 		/* Get the SR Node from the SRDB */
 		srn = (struct sr_node *)hash_lookup(OspfSR.neighbors,
 						    (void *)&rid);
-		show_vty_sr_node(vty, srn);
+		show_sr_node(vty, json_node_array, srn);
+		if (uj) {
+			vty_out(vty, "%s\n",
+				json_object_to_json_string_ext(json,
+					  JSON_C_TO_STRING_PRETTY));
+			json_object_free(json);
+		}
 		return CMD_SUCCESS;
 	}
 
 	/* No parameters have been provided, Iterate through all the SRDB */
-	hash_iterate(
-		OspfSR.neighbors,
-		(void (*)(struct hash_backet *, void *))show_srdb_entry,
-		(void *)vty);
+	if (uj) {
+		hash_iterate(
+			OspfSR.neighbors,
+			(void (*)(struct hash_backet *, void *))show_json_srdb,
+			(void *)json_node_array);
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(json,
+				  JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	} else {
+		hash_iterate(
+			OspfSR.neighbors,
+			(void (*)(struct hash_backet *, void *))show_vty_srdb,
+			(void *)vty);
+	}
 	return CMD_SUCCESS;
 }
 
