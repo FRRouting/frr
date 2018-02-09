@@ -570,8 +570,8 @@ static int zebra_read_route(int command, struct zclient *zclient,
 
 		/* Now perform the add/update. */
 		bgp_redistribute_add(bgp, &api.prefix, &nexthop, ifindex,
-				     nhtype, api.metric, api.type,
-				     api.instance, api.tag);
+				     nhtype, api.metric, api.type, api.instance,
+				     api.tag);
 	} else {
 		bgp_redistribute_delete(bgp, &api.prefix, api.type,
 					api.instance);
@@ -1142,8 +1142,8 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 			api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
 		}
 
-		if (mpinfo->extra &&
-		    bgp_is_valid_label(&mpinfo->extra->label[0])
+		if (mpinfo->extra
+		    && bgp_is_valid_label(&mpinfo->extra->label[0])
 		    && !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
 			has_valid_label = 1;
 			label = label_pton(&mpinfo->extra->label[0]);
@@ -1155,8 +1155,7 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	}
 
 	/* if this is a evpn route we don't have to include the label */
-	if (has_valid_label &&
-	    !(CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)))
+	if (has_valid_label && !(CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)))
 		SET_FLAG(api.message, ZAPI_MESSAGE_LABEL);
 
 	if (info->sub_type != BGP_ROUTE_AGGREGATE)
@@ -1198,8 +1197,8 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 				  sizeof(nh_buf));
 
 			label_buf[0] = '\0';
-			if (has_valid_label &&
-			    !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE))
+			if (has_valid_label
+			    && !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE))
 				sprintf(label_buf, "label %u",
 					api_nh->labels[0]);
 			zlog_debug("  nhop [%d]: %s %s", i + 1, nh_buf,
@@ -1579,8 +1578,7 @@ void bgp_zebra_instance_register(struct bgp *bgp)
 
 	/* For default instance, register to learn about VNIs, if appropriate.
 	 */
-	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
-	    && is_evpn_enabled())
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT && is_evpn_enabled())
 		bgp_zebra_advertise_all_vni(bgp, 1);
 }
 
@@ -1598,8 +1596,7 @@ void bgp_zebra_instance_deregister(struct bgp *bgp)
 
 	/* For default instance, unregister learning about VNIs, if appropriate.
 	 */
-	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
-	    && is_evpn_enabled())
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT && is_evpn_enabled())
 		bgp_zebra_advertise_all_vni(bgp, 0);
 
 	/* Deregister for router-id, interfaces, redistributed routes. */
@@ -1749,8 +1746,7 @@ static int bgp_zebra_process_local_l3vni(int cmd, struct zclient *zclient,
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx L3-VNI %s VRF %s VNI %u RMAC %s",
 			   (cmd == ZEBRA_L3VNI_ADD) ? "add" : "del",
-			   vrf_id_to_name(vrf_id),
-			   l3vni,
+			   vrf_id_to_name(vrf_id), l3vni,
 			   prefix_mac2str(&rmac, buf, sizeof(buf)));
 
 	if (cmd == ZEBRA_L3VNI_ADD)
@@ -1767,7 +1763,7 @@ static int bgp_zebra_process_local_vni(int command, struct zclient *zclient,
 	struct stream *s;
 	vni_t vni;
 	struct bgp *bgp;
-	struct in_addr vtep_ip = { INADDR_ANY };
+	struct in_addr vtep_ip = {INADDR_ANY};
 	vrf_id_t tenant_vrf_id = VRF_DEFAULT;
 
 	s = zclient->ibuf;
@@ -1784,8 +1780,8 @@ static int bgp_zebra_process_local_vni(int command, struct zclient *zclient,
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx VNI %s VRF %s VNI %u tenant-vrf %s",
 			   (command == ZEBRA_VNI_ADD) ? "add" : "del",
-			   vrf_id_to_name(vrf_id),
-			   vni, vrf_id_to_name(tenant_vrf_id));
+			   vrf_id_to_name(vrf_id), vni,
+			   vrf_id_to_name(tenant_vrf_id));
 
 	if (command == ZEBRA_VNI_ADD)
 		return bgp_evpn_local_vni_add(
@@ -1844,8 +1840,7 @@ static int bgp_zebra_process_local_macip(int command, struct zclient *zclient,
 		return bgp_evpn_local_macip_del(bgp, vni, &mac, &ip);
 }
 
-static void bgp_zebra_process_local_ip_prefix(int cmd,
-					      struct zclient *zclient,
+static void bgp_zebra_process_local_ip_prefix(int cmd, struct zclient *zclient,
 					      zebra_size_t length,
 					      vrf_id_t vrf_id)
 {
@@ -1871,25 +1866,19 @@ static void bgp_zebra_process_local_ip_prefix(int cmd,
 	if (cmd == ZEBRA_IP_PREFIX_ROUTE_ADD) {
 
 		if (p.family == AF_INET)
-			return bgp_evpn_advertise_type5_route(bgp_vrf, &p,
-							      NULL,
-							      AFI_IP,
-							      SAFI_UNICAST);
+			return bgp_evpn_advertise_type5_route(
+				bgp_vrf, &p, NULL, AFI_IP, SAFI_UNICAST);
 		else
-			return bgp_evpn_advertise_type5_route(bgp_vrf, &p,
-							      NULL,
-							      AFI_IP6,
-							      SAFI_UNICAST);
+			return bgp_evpn_advertise_type5_route(
+				bgp_vrf, &p, NULL, AFI_IP6, SAFI_UNICAST);
 
 	} else {
 		if (p.family == AF_INET)
-			return bgp_evpn_withdraw_type5_route(bgp_vrf, &p,
-							     AFI_IP,
-							     SAFI_UNICAST);
+			return bgp_evpn_withdraw_type5_route(
+				bgp_vrf, &p, AFI_IP, SAFI_UNICAST);
 		else
-			return bgp_evpn_withdraw_type5_route(bgp_vrf, &p,
-							     AFI_IP6,
-							     SAFI_UNICAST);
+			return bgp_evpn_withdraw_type5_route(
+				bgp_vrf, &p, AFI_IP6, SAFI_UNICAST);
 	}
 }
 
