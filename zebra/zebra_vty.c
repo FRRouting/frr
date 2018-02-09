@@ -561,7 +561,11 @@ DEFPY(ip_route_address_interface_vrf,
 		ifname = NULL;
 	}
 
-	nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	if (nexthop_vrf)
+		nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	else
+		nh_zvrf = zvrf;
+
 	if (!nh_zvrf) {
 		vty_out(vty, "%% nexthop vrf %s is not defined\n",
 			nexthop_vrf);
@@ -668,7 +672,11 @@ DEFPY(ip_route_vrf,
 		ifname = NULL;
 	}
 
-	nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	if (nexthop_vrf)
+		nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	else
+		nh_zvrf = zvrf;
+
 	if (!nh_zvrf) {
 		vty_out(vty, "%% nexthop vrf %s is not defined\n",
 			nexthop_vrf);
@@ -2092,7 +2100,11 @@ DEFPY(ipv6_route_address_interface_vrf,
 	struct zebra_vrf *zvrf = vrf->info;
 	struct zebra_vrf *nh_zvrf;
 
-	nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	if (nexthop_vrf)
+		nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	else
+		nh_zvrf = zvrf;
+
 	if (!nh_zvrf) {
 		vty_out(vty, "%% nexthop vrf %s is not defined\n",
 			nexthop_vrf);
@@ -2186,7 +2198,11 @@ DEFPY(ipv6_route_vrf,
 	struct zebra_vrf *zvrf = vrf->info;
 	struct zebra_vrf *nh_zvrf;
 
-	nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	if (nexthop_vrf)
+		nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	else
+		nh_zvrf = zvrf;
+
 	if (!nh_zvrf) {
 		vty_out(vty, "%% nexthop vrf %s is not defined\n",
 			nexthop_vrf);
