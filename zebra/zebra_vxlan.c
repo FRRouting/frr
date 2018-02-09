@@ -128,7 +128,6 @@ static int zl3vni_rmac_uninstall(zebra_l3vni_t *zl3vni,
 				 zebra_mac_t *zrmac);
 
 /* l3-vni related APIs*/
-static int is_vni_l3(vni_t);
 static zebra_l3vni_t *zl3vni_lookup(vni_t vni);
 static void *zl3vni_alloc(void *p);
 static zebra_l3vni_t *zl3vni_add(vni_t vni, vrf_id_t vrf_id);
@@ -2664,6 +2663,8 @@ static void zvni_build_hash_table()
 	zns = zebra_ns_lookup(NS_DEFAULT);
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
 		vni_t vni;
+		zebra_vni_t *zvni = NULL;
+		zebra_l3vni_t *zl3vni = NULL;
 		struct zebra_if *zif;
 		struct zebra_l2info_vxlan *vxl;
 
@@ -2677,20 +2678,13 @@ static void zvni_build_hash_table()
 		vxl = &zif->l2info.vxl;
 		vni = vxl->vni;
 
-		if (is_vni_l3(vni)) {
-			zebra_l3vni_t *zl3vni = NULL;
+		/* L3-VNI and L2-VNI are handled seperately */
+		zl3vni = zl3vni_lookup(vni);
+		if (zl3vni) {
 
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug("create L3-VNI hash for Intf %s(%u) L3-VNI %u",
 					   ifp->name, ifp->ifindex, vni);
-
-			zl3vni = zl3vni_lookup(vni);
-			if (!zl3vni) {
-				zlog_err(
-					"Failed to locate L3-VNI hash at UP, IF %s(%u) VNI %u",
-					ifp->name, ifp->ifindex, vni);
-				return;
-			}
 
 			/* associate with vxlan_if */
 			zl3vni->local_vtep_ip = vxl->vtep_ip;
@@ -2707,8 +2701,6 @@ static void zvni_build_hash_table()
 				zebra_vxlan_process_l3vni_oper_up(zl3vni);
 
 		} else {
-			zebra_vni_t *zvni = NULL;
-			zebra_l3vni_t *zl3vni = NULL;
 			struct interface *vlan_if = NULL;
 
 			if (IS_ZEBRA_DEBUG_VXLAN)
@@ -3460,16 +3452,6 @@ static int zl3vni_del(zebra_l3vni_t *zl3vni)
 	return 0;
 }
 
-static int is_vni_l3(vni_t vni)
-{
-	zebra_l3vni_t *zl3vni = NULL;
-
-	zl3vni = zl3vni_lookup(vni);
-	if (zl3vni)
-		return 1;
-	return 0;
-}
-
 static struct interface *zl3vni_map_to_vxlan_if(zebra_l3vni_t *zl3vni)
 {
 	struct zebra_ns *zns = NULL;
@@ -3505,6 +3487,9 @@ static struct interface *zl3vni_map_to_svi_if(zebra_l3vni_t *zl3vni)
 {
 	struct zebra_if *zif = NULL; /* zebra_if for vxlan_if */
 	struct zebra_l2info_vxlan *vxl = NULL; /* l2 info for vxlan_if */
+
+	if (!zl3vni)
+		return NULL;
 
 	if (!zl3vni->vxlan_if)
 		return NULL;
@@ -3678,6 +3663,9 @@ static int zl3vni_send_del_to_client(zebra_l3vni_t *zl3vni)
 
 static void zebra_vxlan_process_l3vni_oper_up(zebra_l3vni_t *zl3vni)
 {
+	if (!zl3vni)
+		return;
+
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("L3-VNI %u is UP - send add to BGP",
 			   zl3vni->vni);
@@ -3688,6 +3676,9 @@ static void zebra_vxlan_process_l3vni_oper_up(zebra_l3vni_t *zl3vni)
 
 static void zebra_vxlan_process_l3vni_oper_down(zebra_l3vni_t *zl3vni)
 {
+	if (!zl3vni)
+		return;
+
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug("L3-VNI %u is Down - Send del to BGP",
 			   zl3vni->vni);
@@ -6019,6 +6010,8 @@ int zebra_vxlan_if_down(struct interface *ifp)
 	vni_t vni;
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
+	zebra_l3vni_t *zl3vni = NULL;
+	zebra_vni_t *zvni;
 
 	/* Check if EVPN is enabled. */
 	if (!is_evpn_enabled())
@@ -6029,30 +6022,16 @@ int zebra_vxlan_if_down(struct interface *ifp)
 	vxl = &zif->l2info.vxl;
 	vni = vxl->vni;
 
-
-	if (is_vni_l3(vni)) {
-
+	zl3vni = zl3vni_lookup(vni);
+	if (zl3vni) {
 		/* process-if-down for l3-vni */
-		zebra_l3vni_t *zl3vni = NULL;
-
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Intf %s(%u) L3-VNI %u is DOWN",
 				   ifp->name, ifp->ifindex, vni);
 
-		zl3vni = zl3vni_lookup(vni);
-		if (!zl3vni) {
-			zlog_err(
-				"Failed to locate L3-VNI hash at DOWN, IF %s(%u) VNI %u",
-				ifp->name, ifp->ifindex, vni);
-			return -1;
-		}
-
 		zebra_vxlan_process_l3vni_oper_down(zl3vni);
-
 	} else {
 		/* process if-down for l2-vni */
-		zebra_vni_t *zvni;
-
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Intf %s(%u) L2-VNI %u is DOWN",
 				   ifp->name, ifp->ifindex, vni);
@@ -6089,6 +6068,8 @@ int zebra_vxlan_if_up(struct interface *ifp)
 	vni_t vni;
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
+	zebra_vni_t *zvni = NULL;
+	zebra_l3vni_t *zl3vni = NULL;
 
 	/* Check if EVPN is enabled. */
 	if (!is_evpn_enabled())
@@ -6099,22 +6080,12 @@ int zebra_vxlan_if_up(struct interface *ifp)
 	vxl = &zif->l2info.vxl;
 	vni = vxl->vni;
 
-	if (is_vni_l3(vni)) {
-
-		/* Handle L3-VNI add */
-		zebra_l3vni_t *zl3vni = NULL;
+	zl3vni = zl3vni_lookup(vni);
+	if (zl3vni) {
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Intf %s(%u) L3-VNI %u is UP",
 				   ifp->name, ifp->ifindex, vni);
-
-		zl3vni = zl3vni_lookup(vni);
-		if (!zl3vni) {
-			zlog_err(
-				"Failed to locate L3-VNI hash at UP, IF %s(%u) VNI %u",
-				ifp->name, ifp->ifindex, vni);
-			return -1;
-		}
 
 		/* we need to associate with SVI, if any, we can associate with
 		 * svi-if only after association with vxlan-intf is complete
@@ -6125,9 +6096,6 @@ int zebra_vxlan_if_up(struct interface *ifp)
 			zebra_vxlan_process_l3vni_oper_up(zl3vni);
 	} else {
 		/* Handle L2-VNI add */
-
-		zebra_vni_t *zvni = NULL;
-		zebra_l3vni_t *zl3vni = NULL;
 		struct interface *vlan_if = NULL;
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
@@ -6173,6 +6141,8 @@ int zebra_vxlan_if_del(struct interface *ifp)
 	vni_t vni;
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
+	zebra_vni_t *zvni = NULL;
+	zebra_l3vni_t *zl3vni = NULL;
 
 	/* Check if EVPN is enabled. */
 	if (!is_evpn_enabled())
@@ -6183,22 +6153,12 @@ int zebra_vxlan_if_del(struct interface *ifp)
 	vxl = &zif->l2info.vxl;
 	vni = vxl->vni;
 
-	if (is_vni_l3(vni)) {
-
-		/* process if-del for l3-vni */
-		zebra_l3vni_t *zl3vni = NULL;
+	zl3vni = zl3vni_lookup(vni);
+	if (zl3vni) {
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Del L3-VNI %u intf %s(%u)",
 				   vni, ifp->name, ifp->ifindex);
-
-		zl3vni = zl3vni_lookup(vni);
-		if (!zl3vni) {
-			zlog_err(
-				"Failed to locate L3-VNI hash at del, IF %s(%u) VNI %u",
-				ifp->name, ifp->ifindex, vni);
-			return 0;
-		}
 
 		/* process oper-down for l3-vni */
 		zebra_vxlan_process_l3vni_oper_down(zl3vni);
@@ -6209,9 +6169,6 @@ int zebra_vxlan_if_del(struct interface *ifp)
 	} else {
 
 		/* process if-del for l2-vni*/
-		zebra_vni_t *zvni = NULL;
-		zebra_l3vni_t *zl3vni = NULL;
-
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("Del L2-VNI %u intf %s(%u)",
 				   vni, ifp->name, ifp->ifindex);
@@ -6247,7 +6204,6 @@ int zebra_vxlan_if_del(struct interface *ifp)
 			return -1;
 		}
 	}
-
 	return 0;
 }
 
@@ -6259,6 +6215,8 @@ int zebra_vxlan_if_update(struct interface *ifp, u_int16_t chgflags)
 	vni_t vni;
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
+	zebra_vni_t *zvni = NULL;
+	zebra_l3vni_t *zl3vni = NULL;
 
 	/* Check if EVPN is enabled. */
 	if (!is_evpn_enabled())
@@ -6269,16 +6227,8 @@ int zebra_vxlan_if_update(struct interface *ifp, u_int16_t chgflags)
 	vxl = &zif->l2info.vxl;
 	vni = vxl->vni;
 
-	if (is_vni_l3(vni)) {
-		zebra_l3vni_t *zl3vni = NULL;
-
-		zl3vni = zl3vni_lookup(vni);
-		if (!zl3vni) {
-			zlog_err(
-				"Failed to find L3-VNI hash on update, IF %s(%u) VNI %u",
-				ifp->name, ifp->ifindex, vni);
-			return -1;
-		}
+	zl3vni = zl3vni_lookup(vni);
+	if (zl3vni) {
 
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
@@ -6314,7 +6264,6 @@ int zebra_vxlan_if_update(struct interface *ifp, u_int16_t chgflags)
 				zebra_vxlan_process_l3vni_oper_up(zl3vni);
 		}
 	} else {
-		zebra_vni_t *zvni = NULL;
 
 		/* Update VNI hash. */
 		zvni = zvni_lookup(vni);
@@ -6405,6 +6354,8 @@ int zebra_vxlan_if_add(struct interface *ifp)
 	vni_t vni;
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
+	zebra_vni_t *zvni = NULL;
+	zebra_l3vni_t *zl3vni = NULL;
 
 	/* Check if EVPN is enabled. */
 	if (!is_evpn_enabled())
@@ -6415,31 +6366,16 @@ int zebra_vxlan_if_add(struct interface *ifp)
 	vxl = &zif->l2info.vxl;
 	vni = vxl->vni;
 
-	if (is_vni_l3(vni)) {
+	zl3vni = zl3vni_lookup(vni);
+	if (zl3vni) {
 
 		/* process if-add for l3-vni*/
-		zebra_l3vni_t *zl3vni = NULL;
-
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"Add L3-VNI %u intf %s(%u) VLAN %u local IP %s master %u",
 				vni, ifp->name, ifp->ifindex,
 				vxl->access_vlan, inet_ntoa(vxl->vtep_ip),
 				zif->brslave_info.bridge_ifindex);
-
-		/*
-		 *  we expect the l3-vni has entry to be present here.
-		 *  The only place l3-vni is created in zebra is vrf-vni mapping
-		 *  command. This might change when we have the switchd support
-		 *  for l3-vxlan interface.
-		 */
-		zl3vni = zl3vni_lookup(vni);
-		if (!zl3vni) {
-			zlog_err(
-				"Failed to locate L3-VNI hash at del, IF %s(%u) VNI %u",
-				ifp->name, ifp->ifindex, vni);
-			return 0;
-		}
 
 		/* associate with vxlan_if */
 		zl3vni->local_vtep_ip = vxl->vtep_ip;
@@ -6454,8 +6390,6 @@ int zebra_vxlan_if_add(struct interface *ifp)
 	} else {
 
 		/* process if-add for l2-vni */
-		zebra_vni_t *zvni = NULL;
-		zebra_l3vni_t *zl3vni = NULL;
 		struct interface *vlan_if = NULL;
 
 		/* Create or update VNI hash. */
