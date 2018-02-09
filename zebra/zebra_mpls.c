@@ -2819,8 +2819,13 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 				}
 
 				if (nexthop->type != NEXTHOP_TYPE_IFINDEX)
-					vty_out(vty, "  %8d\n",
-						nexthop->nh_label->label[0]);
+					vty_out(vty, "  %8s\n",
+						mpls_label2str(
+							nexthop->nh_label
+								->num_labels,
+							&nexthop->nh_label
+								 ->label[0],
+							buf, BUFSIZ, 1));
 				else
 					vty_out(vty, "\n");
 			}
