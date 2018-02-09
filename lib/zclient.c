@@ -1058,6 +1058,8 @@ int zapi_route_encode(u_char cmd, struct stream *s, struct zapi_route *api)
 		stream_putl(s, api->tag);
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_MTU))
 		stream_putl(s, api->mtu);
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_TABLEID))
+		stream_putl(s, api->tableid);
 
 	/* Put length at the first point of the stream. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -1207,6 +1209,8 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 		STREAM_GETL(s, api->tag);
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_MTU))
 		STREAM_GETL(s, api->mtu);
+	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_TABLEID))
+		STREAM_GETL(s, api->tableid);
 
 stream_failure:
 	return 0;

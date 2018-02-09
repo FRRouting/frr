@@ -1164,7 +1164,10 @@ static int zread_route_add(struct zserv *client, u_short length,
 	re->flags = api.flags;
 	re->uptime = time(NULL);
 	re->vrf_id = vrf_id;
-	re->table = zvrf->table_id;
+	if (api.tableid && vrf_id == VRF_DEFAULT)
+		re->table = api.tableid;
+	else
+		re->table = zvrf->table_id;
 
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP)) {
 		for (i = 0; i < api.nexthop_num; i++) {
