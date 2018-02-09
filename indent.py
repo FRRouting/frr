@@ -6,7 +6,7 @@ import sys, re, subprocess, os
 
 # find all DEFUNs
 defun_re = re.compile(
-        r'^(DEF(UN(_NOSH|_HIDDEN)?|PY)\s*\(.*?)^(?=\s*\{)',
+        r'^((DEF(UN(_NOSH|_HIDDEN)?|PY)|ALIAS)\s*\(.*?)^(?=\s*\{)',
         re.M | re.S)
 define_re = re.compile(
         r'((^#\s*define[^\n]+[^\\]\n)+)',
