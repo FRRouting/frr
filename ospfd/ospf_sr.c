@@ -2142,7 +2142,7 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 	char pref[19];
 	char sid[22];
 	char label[8];
-	json_object *json_node, *json_algo, *json_obj;
+	json_object *json_node = NULL, *json_algo, *json_obj;
 	json_object *json_prefix = NULL, *json_link = NULL;
 
 	/* Sanity Check */
