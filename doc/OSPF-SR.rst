@@ -5,6 +5,26 @@ This is an EXPERIMENTAL support of draft
 `draft-ietf-ospf-segment-routing-extensions-24`.
 DON'T use it for production network.
 
+Supported Features
+------------------
+
+* Automatic computation of Primary and Backup Adjacency SID with
+  Cisco experimental remote IP address
+* SRGB configuration
+* Prefix configuration for Node SID with optional NO-PHP flag (Linux
+  kernel support both mode)
+* Node MSD configuration (with Linux Kernel >= 4.10 a maximum of 32 labels
+  could be stack)
+* Automatic provisioning of MPLS table
+* Static route configuration with label stack up to 32 labels
+
+Interoperability
+----------------
+
+* tested on various topology including point-to-point and LAN interfaces
+  in a mix of Free Range Routing instance and Cisco IOS-XR 6.0.x
+* check OSPF LSA conformity with latest wireshark release 2.5.0-rc
+
 Implementation details
 ----------------------
 
@@ -248,9 +268,6 @@ Known limitations
 * MPLS table are not flush at startup. Thus, restarting zebra process is
   mandatory to remove old MPLS entries in the data plane after a crash of
   ospfd daemon
-* Due to a bug in OSPF Opaque, LSA are not flood when enable Segment Routing
-  through CLI once OSPFd started. You must configure Segment Routing within
-  configuration file before launching OSPFd
 * With NO Penultimate Hop Popping, it is not possible to express a Segment
   Path with an Adjacency SID due to the impossibility for the Linux Kernel to
   perform double POP instruction.
