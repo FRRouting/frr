@@ -452,6 +452,9 @@ struct bgp {
 	/* list of corresponding l2vnis (struct bgpevpn) */
 	struct list *l2vnis;
 
+	/* route map for advertise ipv4/ipv6 unicast (type-5 routes) */
+	struct bgp_rmap adv_cmd_rmap[AFI_MAX][SAFI_MAX];
+
 	QOBJ_FIELDS
 };
 DECLARE_QOBJ_TYPE(bgp)
