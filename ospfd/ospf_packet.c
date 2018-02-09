@@ -3897,6 +3897,10 @@ static void ospf_ls_upd_queue_send(struct ospf_interface *oi,
 		zlog_debug("listcount = %d, [%s]dst %s", listcount(update),
 			   IF_NAME(oi), inet_ntoa(addr));
 
+	/* Check that we have really something to process */
+	if (listcount(update) == 0)
+		return;
+
 	op = ospf_ls_upd_packet_new(update, oi);
 
 	/* Prepare OSPF common header. */
