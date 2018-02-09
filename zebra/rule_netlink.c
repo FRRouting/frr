@@ -58,14 +58,14 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule)
 	struct {
 		struct nlmsghdr n;
 		struct fib_rule_hdr frh;
-		char buf[NL_PKT_BUF_SIZE];
+		char buf[NL_PKT_TXBUF_SIZE];
 	} req;
 	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
 	struct sockaddr_nl snl;
 	char buf1[PREFIX_STRLEN];
 	char buf2[PREFIX_STRLEN];
 
-	memset(&req, 0, sizeof(req) - NL_PKT_BUF_SIZE);
+	memset(&req, 0, sizeof(req) - NL_PKT_TXBUF_SIZE);
 	family = PREFIX_FAMILY(&rule->rule.filter.src_ip);
 	bytelen = (family == AF_INET ? 4 : 16);
 

@@ -360,7 +360,7 @@ static int netlink_route_info_encode(netlink_route_info_t *ri, char *in_buf,
 	/*
 	 * Multipath case.
 	 */
-	char buf[NL_PKT_BUF_SIZE];
+	char buf[NL_PKT_TXBUF_SIZE];
 	struct rtattr *rta = (void *)buf;
 	struct rtnexthop *rtnh;
 

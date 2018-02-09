@@ -61,7 +61,7 @@ struct zebra_ns {
 #ifdef HAVE_NETLINK
 	struct nlsock netlink;     /* kernel messages */
 	struct nlsock netlink_cmd; /* command channel */
-	struct thread *t_netlink;
+	struct thread *t_netlink;  /* for reading kernel messages */
 #endif
 
 	struct route_table *if_table;

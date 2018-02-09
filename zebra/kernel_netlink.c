@@ -153,9 +153,10 @@ int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	return 0;
 }
 
-static int netlink_recvbuf(struct nlsock *nl, uint32_t newsize)
+static int netlink_recvbuf(struct nlsock *nl)
 {
 	uint32_t oldsize;
+	uint32_t newsize;
 	socklen_t newlen = sizeof(newsize);
 	socklen_t oldlen = sizeof(oldsize);
 	int ret;
@@ -190,8 +191,8 @@ static int netlink_recvbuf(struct nlsock *nl, uint32_t newsize)
 		return -1;
 	}
 
-	zlog_info("Setting netlink socket receive buffer size: %u -> %u",
-		  oldsize, newsize);
+	zlog_info("Set netlink socket receive buffer size: %u -> %u", oldsize,
+		  newsize);
 	return 0;
 }
 
@@ -373,6 +374,10 @@ static long netlink_read_file(char *buf, const char *fname)
 
 #endif /* HANDLE_NETLINK_FUZZING */
 
+/*
+ * This function corresponds to zebra_ns->t_netlink and is used for reading
+ * messages broadcast via netlink to us without any particular prompting.
+ */
 static int kernel_read(struct thread *thread)
 {
 	struct zebra_ns *zns = (struct zebra_ns *)THREAD_ARG(thread);
@@ -385,7 +390,19 @@ static int kernel_read(struct thread *thread)
 }
 
 /*
- * Filter out messages from self that occur on listener socket,
+ * Netlink talk response context. I'm sorry about the terrible name.
+ *
+ * This struct just stores information on the appropriate callbacks, zns, etc
+ * to use when processing ACKs from kernel commands.
+ */
+struct nltrsctx {
+	int (*filter)(struct nlmsghdr *h, ns_id_t ns_id, int startup);
+	struct zebra_ns *zns;
+	struct nlsock *nls;
+	int startup;
+};
+
+/* Filter out messages from self that occur on listener socket,
  * caused by our actions on the command socket
  *
  * When we add new Netlink message types we probably
@@ -669,8 +686,10 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 	int error;
 	int read_in = 0;
 
-	while (1) {
-		char buf[NL_RCV_PKT_BUF_SIZE];
+	static uint8_t buf[NL_PKT_RXBUF_SIZE];
+
+	/* read until block */
+	while (true) {
 		struct iovec iov = {.iov_base = buf, .iov_len = sizeof buf};
 		struct sockaddr_nl snl;
 		struct msghdr msg = {.msg_name = (void *)&snl,
@@ -780,11 +799,6 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 							err->msg.nlmsg_seq,
 							err->msg.nlmsg_pid);
 					}
-
-					/* return if not a multipart message,
-					 * otherwise continue */
-					if (!(h->nlmsg_flags & NLM_F_MULTI))
-						return 0;
 					continue;
 				}
 
@@ -889,18 +903,154 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 	return ret;
 }
 
+/**
+ * netlink_batch_expire() - Expires the batch to force write
+ * @thread:	Pointer to thread calling the command.
+ * Return:	Error code of netlink_write.
+ */
+static int netlink_batch_expire(struct thread *thread)
+{
+	zlog_debug("%s popped\n", __func__);
+	return netlink_talk(netlink_talk_filter, NULL, NULL, NULL, 0);
+}
+
+/* Netlink batching code from libmnl */
+struct mnl_nlmsg_batch {
+	/* the buffer that is used to store the batch. */
+	void *buf;
+	size_t limit;
+	size_t buflen;
+	/* the current netlink message in the batch. */
+	void *cur;
+	bool overflow;
+};
+
+/**
+ * mnl_nlmsg_batch_start() - Initializes a netlink batch
+ * @buf:        Pointer to netlink buffer to store messages in.
+ * @limit:      Maximum size of the batch (NL_TXPKT_BUF_SIZE).
+ *
+ * Return:      Pointer to mnl_nlmsg_batch, otherwise NULL.
+ *
+ * The buf should be allocated to double of NL_TXPKT_BUF_SIZE
+ * and the limit should be half this to prevent memory corruptions.
+ */
+static void mnl_nlmsg_batch_start(struct mnl_nlmsg_batch *b, void *buf,
+				  size_t limit)
+{
+	b->buf = buf;
+	b->limit = limit;
+	b->buflen = 0;
+	b->cur = buf;
+	b->overflow = false;
+}
+
+/**
+ * mnl_nlmsg_batch_next() - Get room for the next message in the batch
+ * @b:          Pointer to batch.
+ *
+ * Return:      False if last message did not fit into the batch,
+ *              otherwise True after preparing room for next message.
+ */
+static bool mnl_nlmsg_batch_next(struct mnl_nlmsg_batch *b)
+{
+	struct nlmsghdr *nlh = b->cur;
+
+	if (b->buflen + nlh->nlmsg_len > b->limit) {
+		b->overflow = true;
+		return false;
+	}
+	b->cur = (void *)((size_t)(b->buf) + (size_t)(b->buflen)
+			  + nlh->nlmsg_len);
+	b->buflen += nlh->nlmsg_len;
+	return true;
+}
+
+/**
+ * mnl_nlmsg_batch_reset() - Reset the batch
+ * @b:          Pointer to batch.
+ *
+ * Return:       Bool wether message still batched
+ *
+ * This function allows to reset a batch, so you can reuse it to create a
+ * new one. This function moves the last message which does not fit the
+ * batch to the head of the buffer, if any.
+ *
+ */
+static bool mnl_nlmsg_batch_reset(struct mnl_nlmsg_batch *b)
+{
+	if (b->overflow) {
+		struct nlmsghdr *nlh = b->cur;
+
+		memcpy(b->buf, b->cur, nlh->nlmsg_len);
+		b->buflen = nlh->nlmsg_len;
+		b->cur = (void *)((size_t)(b->buf) + (size_t)(b->buflen));
+		b->overflow = false;
+	} else {
+		b->buflen = 0;
+		b->cur = b->buf;
+		return false;
+	}
+	return true;
+}
+
+/**
+ * mnl_nlmsg_batch_size() - Get current size of the batch
+ * @b:          Pointer to batch.
+ *
+ * Return:      Current size of the batch.
+ */
+static size_t mnl_nlmsg_batch_size(struct mnl_nlmsg_batch *b)
+{
+	return b->buflen;
+}
+
+/**
+ * mnl_nlmsg_batch_head() - Get head of this batch
+ * @b:          Pointer to batch.
+ *
+ * Return:      Pointer to the head of the batch, which is the
+ *              beginning of the buffer that is used.
+ */
+static void *mnl_nlmsg_batch_head(struct mnl_nlmsg_batch *b)
+{
+	return b->buf;
+}
+
+/**
+ * mnl_nlmsg_batch_current() - Returns current position in the batch
+ * @b:          Pointer to batch.
+ *
+ * Return:      Pointer to the current position in the buffer
+ *              that is used to store the batch.
+ */
+static void *mnl_nlmsg_batch_current(struct mnl_nlmsg_batch *b)
+{
+	return b->cur;
+}
+
 /*
- * netlink_talk
+ * netlink_talk() - This function attempts to batch messages to netlink.
+ * Messages are cached for sequential netlink_talk calls while:
  *
- * sendmsg() to netlink socket then recvmsg().
- * Calls netlink_parse_info to parse returned data
- *
- * filter   -> The filter to read final results from kernel
- * nlmsghdr -> The data to send to the kernel
- * nl       -> The netlink socket information
- * zns      -> The zebra namespace information
- * startup  -> Are we reading in under startup conditions
+ * @filter:	The filter to read final results from kernel.
+ * @nlmsghdr:	The data to send to the kernel.
+ * @nl:		The netlink socket information.
+ * @zns:	The zebra namespace information.
+ * @startup:	Are we reading in under startup conditions.
  *             This is passed through eventually to filter.
+ *
+ * Return:	Status value.
+ * sendmsg() to netlink socket then recvmsg().
+ *
+ * 1. The provided nlsock, zns and startup flag are the same as the previous
+ * call
+ * 2. The cache has room for the passed message
+ * 3. It has been less than 20ms since the last call to netlink_talk
+ *
+ * If anyone one of these conditions is not met, netlink_talk will flush the
+ * cache to the netlink socket.
+ *
  */
 int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 		 struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns,
@@ -911,55 +1061,120 @@ int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	struct iovec iov;
 	struct msghdr msg;
 	int save_errno;
+	int ret = 0;
 
-	memset(&snl, 0, sizeof snl);
-	memset(&iov, 0, sizeof iov);
-	memset(&msg, 0, sizeof msg);
+	/* batched messages */
+	static struct mnl_nlmsg_batch nl_batch;
+	/* batch init */
+	static bool batch_init;
+	/* number cached */
+	static int cached;
+	/* batch buffer */
+	static uint8_t buf[2 * NL_PKT_TXBUF_SIZE];
+	/* thread pointer */
+	static struct thread *expiry;
+	/* context */
+	static bool ctx_initialized;
+	static struct nltrsctx ctx;
 
-	iov.iov_base = n;
-	iov.iov_len = n->nlmsg_len;
+	THREAD_OFF(expiry);
+
+	/* Only create the batch once */
+	if (!batch_init) {
+		zlog_debug("Creating batch");
+		memset(&nl_batch, 0, sizeof(nl_batch));
+		mnl_nlmsg_batch_start(&nl_batch, buf, NL_PKT_TXBUF_SIZE);
+		batch_init = true;
+	}
+
+
+	/* if context is different from currently cached messages, flush */
+	if (!(ctx_initialized
+	      && (ctx.filter != filter || ctx.zns != zns
+		  || ctx.startup != startup || ctx.nls != nl))) {
+		/* save context */
+		ctx.filter = filter;
+		ctx.zns = zns;
+		ctx.nls = nl;
+		ctx.startup = startup;
+
+		ctx_initialized = true;
+
+		if (n) {
+			n->nlmsg_seq = ++nl->seq;
+			n->nlmsg_pid = nl->snl.nl_pid;
+			memcpy(mnl_nlmsg_batch_current(&nl_batch), n,
+			       n->nlmsg_len);
+			cached++;
+
+			if (IS_ZEBRA_DEBUG_KERNEL) {
+				zlog_debug(
+					"%s %s type %s(%u), len=%d seq=%u flags 0x%x",
+					__func__, nl->name,
+					nl_msg_type_to_str(n->nlmsg_type),
+					n->nlmsg_type, n->nlmsg_len,
+					n->nlmsg_seq, n->nlmsg_flags);
+				zlog_debug("%s: cache depth = %d", __func__,
+					   cached);
+			}
+			if (mnl_nlmsg_batch_next(&nl_batch)) {
+				thread_add_timer_msec(zebrad.master,
+						      netlink_batch_expire,
+						      NULL, 2000, &expiry);
+				return ret;
+			}
+		}
+	}
+
+	memset(&snl, 0, sizeof(snl));
+	memset(&iov, 0, sizeof(iov));
+	memset(&msg, 0, sizeof(msg));
+
+	iov.iov_base = mnl_nlmsg_batch_head(&nl_batch);
+	iov.iov_len = mnl_nlmsg_batch_size(&nl_batch);
 	msg.msg_name = (void *)&snl;
-	msg.msg_namelen = sizeof snl;
+	msg.msg_namelen = sizeof(snl);
 	msg.msg_iov = &iov;
 	msg.msg_iovlen = 1;
 
 	snl.nl_family = AF_NETLINK;
 
-	n->nlmsg_seq = ++nl->seq;
-	n->nlmsg_pid = nl->snl.nl_pid;
-
-	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug(
-			"netlink_talk: %s type %s(%u), len=%d seq=%u flags 0x%x",
-			nl->name, nl_msg_type_to_str(n->nlmsg_type),
-			n->nlmsg_type, n->nlmsg_len, n->nlmsg_seq,
-			n->nlmsg_flags);
-
 	/* Send message to netlink interface. */
 	if (zserv_privs.change(ZPRIVS_RAISE))
 		zlog_err("Can't raise privileges");
-	status = sendmsg(nl->sock, &msg, 0);
+	status = sendmsg(ctx.nls->sock, &msg, 0);
 	save_errno = errno;
 	if (zserv_privs.change(ZPRIVS_LOWER))
 		zlog_err("Can't lower privileges");
 
 	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND) {
 		zlog_debug("%s: >> netlink message dump [sent]", __func__);
-		zlog_hexdump(n, n->nlmsg_len);
+		zlog_hexdump(mnl_nlmsg_batch_head(&nl_batch),
+			     mnl_nlmsg_batch_size(&nl_batch));
 	}
 
 	if (status < 0) {
 		zlog_err("netlink_talk sendmsg() error: %s",
 			 safe_strerror(save_errno));
-		return -1;
+		ret = -1;
+	} else {
+		zlog_debug("wrote [%d] messages (%u bytes) to netlink", cached,
+			   status);
+		ret = netlink_parse_info(filter, ctx.nls, ctx.zns, 0,
+					 ctx.startup);
 	}
 
+	/* flush cache */
+	if (mnl_nlmsg_batch_reset(&nl_batch)) {
+		cached = 1;
+		thread_add_timer_msec(zebrad.master, netlink_batch_expire, NULL,
+				      2000, &expiry);
+	} else {
+		cached = 0;
+		ctx_initialized = false;
+	}
 
-	/*
-	 * Get reply from netlink socket.
-	 * The reply should either be an acknowlegement or an error.
-	 */
-	return netlink_parse_info(filter, nl, zns, 0, startup);
+	return ret;
 }
 
 /* Issue request message to kernel via netlink socket. GET messages
@@ -1083,7 +1298,7 @@ void kernel_init(struct zebra_ns *zns)
 
 	/* Set receive buffer size if it's set from command line */
 	if (nl_rcvbufsize)
-		netlink_recvbuf(&zns->netlink, nl_rcvbufsize);
+		netlink_recvbuf(&zns->netlink);
 
 	assert(zns->netlink.sock >= 0);
 	netlink_install_filter(zns->netlink.sock,

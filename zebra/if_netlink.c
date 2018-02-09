@@ -776,7 +776,7 @@ int kernel_interface_set_master(struct interface *master,
 	struct {
 		struct nlmsghdr n;
 		struct ifinfomsg ifa;
-		char buf[NL_PKT_BUF_SIZE];
+		char buf[NL_PKT_TXBUF_SIZE];
 	} req;
 
 	memset(&req, 0, sizeof req);
@@ -805,7 +805,7 @@ static int netlink_address(int cmd, int family, struct interface *ifp,
 	struct {
 		struct nlmsghdr n;
 		struct ifaddrmsg ifa;
-		char buf[NL_PKT_BUF_SIZE];
+		char buf[NL_PKT_TXBUF_SIZE];
 	} req;
 
 	struct zebra_ns *zns;
@@ -815,7 +815,7 @@ static int netlink_address(int cmd, int family, struct interface *ifp,
 	else
 		zns = zebra_ns_lookup(NS_DEFAULT);
 	p = ifc->address;
-	memset(&req, 0, sizeof req - NL_PKT_BUF_SIZE);
+	memset(&req, 0, sizeof(req) - NL_PKT_TXBUF_SIZE);
 
 	bytelen = (family == AF_INET ? 4 : 16);
 

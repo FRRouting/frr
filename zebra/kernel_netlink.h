@@ -24,7 +24,12 @@
 #ifdef HAVE_NETLINK
 
 #define NL_RCV_PKT_BUF_SIZE     32768
-#define NL_PKT_BUF_SIZE         8192
+/*
+ * Kernels after 4.4 may send us an apparently unspecified amount of data.
+ * Follow iproute2's rule of thumb here and use 32kb buffers for recvmsg().
+ */
+#define NL_PKT_TXBUF_SIZE 16384
+#define NL_PKT_RXBUF_SIZE 16777216
 
 extern void netlink_parse_rtattr(struct rtattr **tb, int max,
 				 struct rtattr *rta, int len);
