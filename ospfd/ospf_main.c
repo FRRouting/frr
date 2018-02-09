@@ -187,6 +187,7 @@ int main(int argc, char **argv)
 
 	/* Library inits. */
 	debug_init();
+	ns_init();
 	ospf_vrf_init();
 
 	access_list_init();

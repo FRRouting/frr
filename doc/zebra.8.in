@@ -92,6 +92,11 @@ maximum before starting zebra.
 
 Note that this affects Linux only.
 .TP
+\fB\-n\fR, \fB\-\-vrfwnetns \fR\fIEnable namespace VRF\fR
+Enable namespace VRF backend. By default, the VRF backend relies on VRF-lite
+support from Linux devices. This option permits discovering using Linux named
+Netns and map it to FRR VRF contexts.
+.TP
 \fB\-M\fR, \fB\-\-module \fR\fImodule:options\fR
 Load a module at startup.  May be specified more than once.
 The \fBsnmp\fR and \fBfpm\fR modules may be

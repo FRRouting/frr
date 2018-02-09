@@ -62,7 +62,7 @@ const char *node_names[] = {
 	"aaa",			    // AAA_NODE,
 	"keychain",		    // KEYCHAIN_NODE,
 	"keychain key",		    // KEYCHAIN_KEY_NODE,
-	"logical-router",	    // NS_NODE,
+	"logical-router",	    // LOGICALROUTER_NODE,
 	"vrf",			    // VRF_NODE,
 	"interface",		    // INTERFACE_NODE,
 	"zebra",		    // ZEBRA_NODE,
@@ -1291,7 +1291,7 @@ void cmd_exit(struct vty *vty)
 		break;
 	case INTERFACE_NODE:
 	case PW_NODE:
-	case NS_NODE:
+	case LOGICALROUTER_NODE:
 	case VRF_NODE:
 	case ZEBRA_NODE:
 	case BGP_NODE:
@@ -1376,7 +1376,7 @@ DEFUN (config_end,
 	case CONFIG_NODE:
 	case INTERFACE_NODE:
 	case PW_NODE:
-	case NS_NODE:
+	case LOGICALROUTER_NODE:
 	case VRF_NODE:
 	case ZEBRA_NODE:
 	case RIP_NODE:

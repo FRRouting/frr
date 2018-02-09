@@ -20,6 +20,8 @@
 
 #include <zebra.h>
 #include <sys/un.h>
+/* for basename */
+#include <libgen.h>
 
 #include "prefix.h"
 #include "command.h"
@@ -182,13 +184,19 @@ static void zserv_encode_interface(struct stream *s, struct interface *ifp)
 static void zserv_encode_vrf(struct stream *s, struct zebra_vrf *zvrf)
 {
 	struct vrf_data data;
+	const char *netns_name = zvrf_ns_name(zvrf);
 
 	data.l.table_id = zvrf->table_id;
-	/* Pass the tableid */
+
+	if (netns_name)
+		strlcpy(data.l.netns_name,
+			basename((char *)netns_name), NS_NAMSIZ);
+	else
+		memset(data.l.netns_name, 0, NS_NAMSIZ);
+	/* Pass the tableid and the netns NAME */
 	stream_put(s, &data, sizeof(struct vrf_data));
 	/* Interface information. */
 	stream_put(s, zvrf_name(zvrf), VRF_NAMSIZ);
-
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 }

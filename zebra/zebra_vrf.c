@@ -25,8 +25,9 @@
 #include "command.h"
 #include "memory.h"
 #include "srcdest_table.h"
-
+#include "vrf.h"
 #include "vty.h"
+
 #include "zebra/debug.h"
 #include "zebra/zserv.h"
 #include "zebra/rib.h"
@@ -76,7 +77,7 @@ void zebra_vrf_update_all(struct zserv *client)
 	struct vrf *vrf;
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		if (vrf->vrf_id)
+		if (vrf->vrf_id != VRF_UNKNOWN)
 			zsend_vrf_add(client, vrf_info_lookup(vrf->vrf_id));
 	}
 }
@@ -90,12 +91,9 @@ static int zebra_vrf_new(struct vrf *vrf)
 		zlog_info("VRF %s created, id %u", vrf->name, vrf->vrf_id);
 
 	zvrf = zebra_vrf_alloc();
-	zvrf->zns = zebra_ns_lookup(
-		NS_DEFAULT); /* Point to the global (single) NS */
-	router_id_init(zvrf);
 	vrf->info = zvrf;
 	zvrf->vrf = vrf;
-
+	router_id_init(zvrf);
 	return 0;
 }
 
@@ -116,6 +114,10 @@ static int zebra_vrf_enable(struct vrf *vrf)
 		zlog_debug("VRF %s id %u is now active",
 			   zvrf_name(zvrf), zvrf_id(zvrf));
 
+	if (vrf_is_backend_netns())
+		zvrf->zns = zebra_ns_lookup((ns_id_t)vrf->vrf_id);
+	else
+		zvrf->zns = zebra_ns_lookup(NS_DEFAULT);
 	/* Inform clients that the VRF is now active. This is an
 	 * add for the clients.
 	 */
@@ -599,6 +601,7 @@ static int vrf_config_write(struct vty *vty)
 			vty_out(vty, "vrf %s\n", zvrf_name(zvrf));
 			if (zvrf->l3vni)
 				vty_out(vty, " vni %u\n", zvrf->l3vni);
+			zebra_ns_config_write(vty, (struct ns *)vrf->ns_ctxt);
 			vty_out(vty, "!\n");
 		}
 

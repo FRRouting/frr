@@ -1388,8 +1388,8 @@ static void zclient_vrf_add(struct zclient *zclient, vrf_id_t vrf_id)
 
 	/* Lookup/create vrf by vrf_id. */
 	vrf = vrf_get(vrf_id, vrfname_tmp);
-	vrf->data = data;
-
+	vrf->data.l.table_id = data.l.table_id;
+	memcpy(vrf->data.l.netns_name, data.l.netns_name, NS_NAMSIZ);
 	vrf_enable(vrf);
 }
 
