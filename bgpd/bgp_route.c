@@ -9565,9 +9565,9 @@ static int bgp_peer_counts(struct vty *vty, struct peer *peer, afi_t afi,
 	pcounts.table = peer->bgp->rib[afi][safi];
 
 	/* in-place call via thread subsystem so as to record execution time
-	 *    * stats for the thread-walk (i.e. ensure this can't be blamed on
-	 *       * on just vty_read()).
-	 *          */
+	 * stats for the thread-walk (i.e. ensure this can't be blamed on
+	 * on just vty_read()).
+	 */
 	thread_execute(bm->master, bgp_peer_count_walker, &pcounts, 0);
 
 	if (use_json) {

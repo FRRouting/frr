@@ -895,8 +895,8 @@ struct peer {
 				       memory_order_relaxed)
 
 	/* Statistics field */
-	_Atomic uint32_t open_in;	 /* Open message input count */
-	_Atomic uint32_t open_out;	/* Open message output count */
+	_Atomic uint32_t open_in;         /* Open message input count */
+	_Atomic uint32_t open_out;        /* Open message output count */
 	_Atomic uint32_t update_in;       /* Update message input count */
 	_Atomic uint32_t update_out;      /* Update message ouput count */
 	_Atomic time_t update_time;       /* Update message received time. */
