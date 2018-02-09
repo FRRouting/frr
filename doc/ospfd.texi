@@ -759,10 +759,11 @@ currently supported. The 'no-php-flag' means NO Penultimate Hop Popping that
 allows SR node to request to its neighbor to not pop the label.
 @end deffn
 
-@deffn {Command} {show ip ospf database segment-routing} {}
-@deffnx {Command} {show ip ospf database segment-routing adv-router @var{adv-router}} {}
-@deffnx {Command} {show ip ospf database segment-routing self-originate} {}
+@deffn {Command} {show ip ospf database segment-routing [json]} {}
+@deffnx {Command} {show ip ospf database segment-routing adv-router @var{adv-router} [json]} {}
+@deffnx {Command} {show ip ospf database segment-routing self-originate [json]} {}
 Show Segment Routing Data Base, all SR nodes, specific advertized router or self router.
+Optional Json output could be obtain by adding 'json' at the end of the command.
 @end deffn
 
 @node Debugging OSPF
