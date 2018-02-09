@@ -7872,7 +7872,8 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			  struct bgp_table *table, enum bgp_show_type type,
 			  void *output_arg, u_char use_json,
 			  char *rd, int is_last,
-			  unsigned long *output_cum, unsigned long *total_cum)
+			  unsigned long *output_cum, unsigned long *total_cum,
+			  unsigned long *json_header_depth)
 {
 	struct bgp_info *ri;
 	struct bgp_node *rn;
@@ -7889,7 +7890,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 	if (output_cum && *output_cum != 0)
 		header = 0;
 
-	if (use_json && header) {
+	if (use_json && !*json_header_depth) {
 		vty_out(vty,
 			"{\n \"vrfId\": %d,\n \"vrfName\": \"%s\",\n \"tableVersion\": %" PRId64
 			",\n \"routerId\": \"%s\",\n \"routes\": { ",
@@ -7897,8 +7898,11 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT ? "Default"
 								    : bgp->name,
 			table->version, inet_ntoa(bgp->router_id));
-		if (rd)
+		*json_header_depth = 2;
+		if (rd) {
 			vty_out(vty, " \"routeDistinguishers\" : {");
+			++*json_header_depth;
+		}
 		json_paths = json_object_new_object();
 	}
 
@@ -8131,10 +8135,14 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 	if (use_json) {
 		if (json_paths)
 			json_object_free(json_paths);
-		if (is_last)
-			vty_out(vty, " } }\n");
-		else
-			vty_out(vty, " }, ");
+		if (rd) {
+			vty_out(vty, " }%s ", (is_last? "": ","));
+		}
+		if (is_last) {
+		    unsigned long i;
+		    for (i = 0; i < *json_header_depth; ++i)
+			vty_out(vty, " } ");
+		}
 	} else {
 		if (is_last) {
 			/* No route is displayed */
@@ -8161,6 +8169,7 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 	struct bgp_node *rn, *next;
 	unsigned long output_cum = 0;
 	unsigned long total_cum = 0;
+	unsigned long json_header_depth = 0;
 	bool show_msg;
 
 	show_msg = (!use_json && type == bgp_show_type_normal);
@@ -8178,7 +8187,8 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 			bgp_show_table(vty, bgp, safi, rn->info, type,
 				       output_arg, use_json,
 				       rd, next == NULL,
-				       &output_cum, &total_cum);
+				       &output_cum, &total_cum,
+				       &json_header_depth);
 			if (next == NULL)
 				show_msg = false;
 		}
@@ -8192,14 +8202,13 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 				"\nDisplayed  %ld routes and %ld total paths\n",
 				output_cum, total_cum);
 	}
-	if (use_json)
-		vty_out(vty, " } }");
 	return CMD_SUCCESS;
 }
 static int bgp_show(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		    enum bgp_show_type type, void *output_arg, u_char use_json)
 {
 	struct bgp_table *table;
+	unsigned long json_header_depth = 0;
 
 	if (bgp == NULL) {
 		bgp = bgp_get_default();
@@ -8224,7 +8233,7 @@ static int bgp_show(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		safi = SAFI_UNICAST;
 
 	return bgp_show_table(vty, bgp, safi, table, type, output_arg, use_json,
-			      NULL, 1, NULL, NULL);
+			      NULL, 1, NULL, NULL, &json_header_depth);
 }
 
 static void bgp_show_all_instances_routes_vty(struct vty *vty, afi_t afi,
