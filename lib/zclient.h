@@ -225,6 +225,12 @@ struct zclient {
 #define ZAPI_MESSAGE_MTU      0x10
 #define ZAPI_MESSAGE_SRCPFX   0x20
 #define ZAPI_MESSAGE_LABEL    0x40
+/*
+ * This should only be used by a DAEMON that needs to communicate
+ * the table being used is not in the VRF.  You must pass the
+ * default vrf, else this will be ignored.
+ */
+#define ZAPI_MESSAGE_TABLEID  0x80
 
 /* Zserv protocol message header */
 struct zserv_header {
@@ -288,6 +294,8 @@ struct zapi_route {
 	u_int32_t mtu;
 
 	vrf_id_t vrf_id;
+
+	uint32_t tableid;
 
 	struct ethaddr rmac;
 };
