@@ -1124,6 +1124,23 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 		    && !CHECK_FLAG(tmp_ri->flags, BGP_INFO_REMOVED))
 			route_change = 0;
 		else {
+			/*
+			 * The attributes have changed, type-2 routes needs to
+			 * be advertised with right labels.
+			 */
+			vni2label(vpn->vni, &label[0]);
+			if (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE) {
+				vni_t l3vni;
+
+				l3vni = bgpevpn_get_l3vni(vpn);
+				if (l3vni) {
+					vni2label(l3vni, &label[1]);
+					num_labels++;
+				}
+			}
+			memcpy(&tmp_ri->extra->label, label, sizeof(label));
+			tmp_ri->extra->num_labels = num_labels;
+
 			/* The attribute has changed. */
 			/* Add (or update) attribute to hash. */
 			attr_new = bgp_attr_intern(attr);
