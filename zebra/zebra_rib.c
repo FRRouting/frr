@@ -1031,8 +1031,7 @@ void kernel_route_rib_pass_fail(struct route_node *rn, struct prefix *p,
 			else
 				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		}
-		zsend_route_notify_owner(re->type, re->instance, re->vrf_id,
-					 p, ZAPI_ROUTE_INSTALLED);
+		zsend_route_notify_owner(re, p, ZAPI_ROUTE_INSTALLED);
 		break;
 	case SOUTHBOUND_INSTALL_FAILURE:
 		/*
@@ -1042,8 +1041,7 @@ void kernel_route_rib_pass_fail(struct route_node *rn, struct prefix *p,
 		 */
 		dest->selected_fib = re;
 
-		zsend_route_notify_owner(re->type, re->instance, re->vrf_id,
-					 p, ZAPI_ROUTE_FAIL_INSTALL);
+		zsend_route_notify_owner(re, p, ZAPI_ROUTE_FAIL_INSTALL);
 		zlog_warn("%u:%s: Route install failed", re->vrf_id,
 			  prefix2str(p, buf, sizeof(buf)));
 		break;
@@ -1111,9 +1109,7 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	 * know that they've lost
 	 */
 	if (old && old != re)
-		zsend_route_notify_owner(old->type, old->instance,
-					 old->vrf_id, p,
-					 ZAPI_ROUTE_BETTER_ADMIN_WON);
+		zsend_route_notify_owner(old, p, ZAPI_ROUTE_BETTER_ADMIN_WON);
 
 	/*
 	 * Make sure we update the FPM any time we send new information to

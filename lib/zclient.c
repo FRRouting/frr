@@ -1210,6 +1210,7 @@ stream_failure:
 }
 
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
+			      uint32_t *tableid,
 			      enum zapi_route_notify_owner *note)
 {
 	STREAM_GET(note, s, sizeof(*note));
@@ -1218,6 +1219,7 @@ bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 	STREAM_GETC(s, p->prefixlen);
 	STREAM_GET(&p->u.prefix, s,
 		   PSIZE(p->prefixlen));
+	STREAM_GETL(s, *tableid);
 
 	return true;
 

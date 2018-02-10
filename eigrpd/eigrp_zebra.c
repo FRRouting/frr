@@ -99,8 +99,9 @@ static int eigrp_zebra_notify_owner(int command, struct zclient *zclient,
 {
 	struct prefix p;
 	enum zapi_route_notify_owner note;
+	uint32_t table;
 
-	if (!zapi_route_notify_decode(zclient->ibuf, &p, &note))
+	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table, &note))
 		return -1;
 
 	return 0;
