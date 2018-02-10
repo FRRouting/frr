@@ -618,8 +618,7 @@ static route_map_result_t route_match_mac_address(void *rule,
 		p.prefixlen = ETH_ALEN * 8;
 		p.u.prefix_eth = prefix->u.prefix_evpn.mac;
 
-		return (access_list_apply(alist, &p)
-					== FILTER_DENY
+		return (access_list_apply(alist, &p) == FILTER_DENY
 				? RMAP_NOMATCH
 				: RMAP_MATCH);
 	}
@@ -3599,9 +3598,9 @@ DEFUN (set_ip_nexthop_peer,
        "Use peer address (for BGP only)\n")
 {
 	int (*func)(struct vty *, struct route_map_index *, const char *,
-		     const char *) = strmatch(argv[0]->text, "no")
-					     ? generic_set_delete
-					     : generic_set_add;
+		    const char *) = strmatch(argv[0]->text, "no")
+					    ? generic_set_delete
+					    : generic_set_add;
 
 	return func(vty, VTY_GET_CONTEXT(route_map_index), "ip next-hop",
 		    "peer-address");
@@ -3617,9 +3616,9 @@ DEFUN (set_ip_nexthop_unchanged,
        "Don't modify existing Next hop address\n")
 {
 	int (*func)(struct vty *, struct route_map_index *, const char *,
-		     const char *) = strmatch(argv[0]->text, "no")
-					     ? generic_set_delete
-					     : generic_set_add;
+		    const char *) = strmatch(argv[0]->text, "no")
+					    ? generic_set_delete
+					    : generic_set_add;
 
 	return func(vty, VTY_GET_CONTEXT(route_map_index), "ip next-hop",
 		    "unchanged");
@@ -3860,7 +3859,8 @@ DEFUN (set_community,
 			buffer_putstr(b, "no-export");
 			continue;
 		}
-		if (strncmp(argv[i]->arg, "graceful-shutdown", strlen(argv[i]->arg))
+		if (strncmp(argv[i]->arg, "graceful-shutdown",
+			    strlen(argv[i]->arg))
 		    == 0) {
 			buffer_putstr(b, "graceful-shutdown");
 			continue;
