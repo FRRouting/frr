@@ -110,6 +110,11 @@ class ThisTestTopo(Topo):
         if tgen.hasmpls != True:
             logger.info('MPLS not available, tests will be skipped')
             return
+        mach = platform.machine()
+        krel = platform.release()
+        if mach[:1] == 'a' and topotest.version_cmp(krel, '4.11') < 0:
+            logger.info('Need Kernel version 4.11 to run on arm processor')
+            return
         for routern in range(2, 5):
             tgen.add_router('r{}'.format(routern))
         # Create CE routers
@@ -185,6 +190,10 @@ def ltemplatePreRouterStartHook():
     #check for mpls
     if tgen.hasmpls != True:
         logger.info('MPLS not available, skipping setup')
+        return
+    #check for normal init
+    if len(tgen.net) == 1:
+        logger.info('Topology not configured, skipping setup')
         return
     #collect/log info on iproute2
     cc.doCmd(tgen, 'r2', 'apt-cache policy iproute2')
