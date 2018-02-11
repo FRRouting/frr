@@ -33,9 +33,9 @@ def test_check_linux_vrf():
     CliOnFail = None
     # For debugging, uncomment the next line
     #CliOnFail = 'tgen.mininet_cli'
-    CheckFunc = 'customize.versionCheck(\'3.1\')'
+    CheckFunc = 'customize.versionCheck(\'3.1\', iproute2=\'4.9\')'
     #uncomment next line to start cli *before* script is run
-    #CheckFunc = 'customize.versionCheck(\'3.1\', cli=True)'
+    #CheckFunc = 'customize.versionCheck(\'3.1\', cli=True, iproute2=\'4.9\')'
     ltemplateTest('scripts/check_linux_vrf.py', False, CliOnFail, CheckFunc)
 
 def test_adjacencies():
@@ -70,9 +70,9 @@ def test_check_linux_mpls():
     CliOnFail = None
     # For debugging, uncomment the next line
     #CliOnFail = 'tgen.mininet_cli'
-    CheckFunc = 'customize.versionCheck(\'3.1\')'
+    CheckFunc = 'customize.versionCheck(\'3.1\', iproute2=\'4.9\')'
     #uncomment next line to start cli *before* script is run
-    #CheckFunc = 'customize.versionCheck(\'3.1\', cli=True)'
+    #CheckFunc = 'customize.versionCheck(\'3.1\', cli=True, iproute2=\'4.9\')'
     ltemplateTest('scripts/check_linux_mpls.py', False, CliOnFail, CheckFunc)
 
 def SKIP_test_cleanup_all():

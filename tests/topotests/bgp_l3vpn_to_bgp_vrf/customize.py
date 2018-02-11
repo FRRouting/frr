@@ -94,6 +94,7 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 TEST = os.path.basename(CWD)
 
 InitSuccess = False
+iproute2Ver = None
 
 class ThisTestTopo(Topo):
     "Test topology builder"
@@ -196,10 +197,12 @@ def ltemplatePreRouterStartHook():
         logger.info('Topology not configured, skipping setup')
         return
     #collect/log info on iproute2
-    cc.doCmd(tgen, 'r2', 'apt-cache policy iproute2')
-    cc.doCmd(tgen, 'r2', 'yum info iproute2')
-    cc.doCmd(tgen, 'r2', 'yum info iproute')
-
+    found = cc.doCmd(tgen, 'r2', 'apt-cache policy iproute2', 'Installed: ([\d\.]*)')
+    if found != None:
+        global iproute2Ver
+        iproute2Ver = found.group(1)
+        logger.info('Have iproute2 version=' + iproute2Ver)
+    #trace errors/unexpected output
     cc.resetCounts()
     #configure r2 mpls interfaces
     intfs = ['lo', 'r2-eth0', 'r2-eth1', 'r2-eth2']
@@ -248,36 +251,40 @@ def ltemplatePostRouterStartHook():
     logger.info('post router-start hook')
     return;
 
-def versionCheck(vstr, rname='r1', compstr='<',cli=False, kernel='4.9'):
+def versionCheck(vstr, rname='r1', compstr='<',cli=False, kernel='4.9', iproute2=None):
     tgen = get_topogen()
-
     router = tgen.gears[rname]
+
+    if cli:
+        logger.info('calling mininet CLI')
+        tgen.mininet_cli()
+        logger.info('exited mininet CLI')
+
+    if InitSuccess != True:
+        ret = 'Test not initialized'
+        return ret
 
     if tgen.hasmpls != True:
         ret = 'MPLS not initialized'
         return ret
 
-    if InitSuccess != True:
-        ret = 'Test not successfully initialized'
-        return ret
+    if kernel != None:
+        krel = platform.release()
+        if topotest.version_cmp(krel, kernel) < 0:
+            ret = 'Skipping tests, old kernel ({} < {})'.format(krel, kernel)
+            return ret
+
+    if iproute2 != None:
+        if iproute2Ver == None or topotest.version_cmp(iproute2Ver, iproute2) < 0:
+            ret = 'Skipping tests, old iproute2 ({} < {})'.format(iproute2Ver, iproute2)
+            return ret
 
     ret = True
     try:
         if router.has_version(compstr, vstr):
-            ret = False
-            logger.debug('version check failed, version {} {}'.format(compstr, vstr))
+            ret = 'Skipping tests, old FRR version {} {}'.format(compstr, vstr)
+            return ret
     except:
         ret = True
-    if ret == False:
-        ret = 'Skipping tests on old version ({}{})'.format(compstr, vstr)
-        logger.info(ret)
-    elif kernel != None:
-        krel = platform.release()
-        if topotest.version_cmp(krel, kernel) < 0:
-            ret = 'Skipping tests on old version ({} < {})'.format(krel, kernel)
-            logger.info(ret)
-    if cli:
-        logger.info('calling mininet CLI')
-        tgen.mininet_cli()
-        logger.info('exited mininet CLI')
+
     return ret
