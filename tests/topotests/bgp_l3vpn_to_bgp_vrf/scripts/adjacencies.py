@@ -1,8 +1,4 @@
 from lutil import luCommand
-luCommand('ce1','ping 192.168.1.1 -c 1',' 0. packet loss','pass','CE->PE ping')
-luCommand('ce2','ping 192.168.1.1 -c 1',' 0. packet loss','pass','CE->PE ping')
-luCommand('ce3','ping 192.168.1.1 -c 1',' 0. packet loss','pass','CE->PE ping')
-luCommand('ce4','ping 192.168.2.1 -c 1',' 0. packet loss','pass','CE->PE ping')
 luCommand('ce1','vtysh -c "show bgp summary"',' 00:0','wait','Adjacencies up',180)
 luCommand('ce2','vtysh -c "show bgp summary"',' 00:0','wait','Adjacencies up')
 luCommand('ce3','vtysh -c "show bgp summary"',' 00:0','wait','Adjacencies up')
