@@ -2049,6 +2049,9 @@ void vnc_direct_bgp_rh_reexport(struct bgp *bgp, afi_t afi)
  */
 void vnc_export_bgp_enable(struct bgp *bgp, afi_t afi)
 {
+	if (!bgp->rfapi_cfg)
+		return;
+
 	switch (bgp->rfapi_cfg->flags & BGP_VNC_CONFIG_EXPORT_BGP_MODE_BITS) {
 	case BGP_VNC_CONFIG_EXPORT_BGP_MODE_NONE:
 		break;
@@ -2069,6 +2072,9 @@ void vnc_export_bgp_enable(struct bgp *bgp, afi_t afi)
 
 void vnc_export_bgp_disable(struct bgp *bgp, afi_t afi)
 {
+	if (!bgp->rfapi_cfg)
+		return;
+
 	switch (bgp->rfapi_cfg->flags & BGP_VNC_CONFIG_EXPORT_BGP_MODE_BITS) {
 	case BGP_VNC_CONFIG_EXPORT_BGP_MODE_NONE:
 		break;
