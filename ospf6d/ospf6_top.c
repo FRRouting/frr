@@ -521,6 +521,10 @@ DEFUN (ospf6_distance_ospf6,
 	VTY_DECLVAR_CONTEXT(ospf6, o);
 	int idx = 0;
 
+	o->distance_intra = 0;
+	o->distance_inter = 0;
+	o->distance_external = 0;
+
 	if (argv_find(argv, argc, "intra-area", &idx))
 		o->distance_intra = atoi(argv[idx + 1]->arg);
 	idx = 0;
