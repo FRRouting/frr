@@ -99,4 +99,6 @@ EXTRA_DIST = manpages/defines.rst \
 	manpages/nhrpd.rst \
 	manpages/pimd.rst \
 	manpages/ripngd.rst \
-	manpages/frr.rst
+	manpages/frr.rst \
+	manpages/conf.py \
+	manpages/Makefile
