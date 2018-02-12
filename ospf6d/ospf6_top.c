@@ -335,6 +335,8 @@ DEFUN(ospf6_router_id,
 	int ret;
 	const char *router_id_str;
 	u_int32_t router_id;
+	struct ospf6_area *oa;
+	struct listnode *node;
 
 	argv_find(argv, argc, "A.B.C.D", &idx);
 	router_id_str = argv[idx]->arg;
@@ -346,8 +348,17 @@ DEFUN(ospf6_router_id,
 	}
 
 	o->router_id_static = router_id;
-	if (o->router_id == 0)
-		o->router_id = router_id;
+
+	for (ALL_LIST_ELEMENTS_RO(o->area_list, node, oa)) {
+		if (oa->full_nbrs) {
+			vty_out(vty,
+				"For this router-id change to take effect,"
+				" save config and restart ospf6d\n");
+			return CMD_SUCCESS;
+		}
+	}
+
+	o->router_id = router_id;
 
 	return CMD_SUCCESS;
 }
@@ -360,8 +371,22 @@ DEFUN(no_ospf6_router_id,
       V4NOTATION_STR)
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
+	struct ospf6_area *oa;
+	struct listnode *node;
+
 	o->router_id_static = 0;
+
+	for (ALL_LIST_ELEMENTS_RO(o->area_list, node, oa)) {
+		if (oa->full_nbrs) {
+			vty_out(vty,
+				"For this router-id change to take effect,"
+				" save config and restart ospf6d\n");
+			return CMD_SUCCESS;
+		}
+	}
 	o->router_id = 0;
+	if (o->router_id_zebra.s_addr)
+		o->router_id = (uint32_t)o->router_id_zebra.s_addr;
 
 	return CMD_SUCCESS;
 }
