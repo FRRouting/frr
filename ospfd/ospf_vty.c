@@ -8547,6 +8547,10 @@ DEFUN (ospf_distance_ospf,
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx = 0;
 
+	ospf->distance_intra = 0;
+	ospf->distance_inter = 0;
+	ospf->distance_external = 0;
+
 	if (argv_find(argv, argc, "intra-area", &idx))
 		ospf->distance_intra = atoi(argv[idx + 1]->arg);
 	idx = 0;
