@@ -59,6 +59,7 @@ debug commands:
        clear ip pim interfaces		Reset PIM interfaces
        clear ip pim oil			Rescan PIM OIL (output interface list)
        debug igmp			IGMP protocol activity
+       debug mtrace			Mtrace protocol activity
        debug mroute			PIM interaction with kernel MFC cache
        debug pim			PIM protocol activity
        debug pim zebra			ZEBRA protocol activity
@@ -76,4 +77,6 @@ statistics commands:
        pimd:
        show memory pim		PIM memory statistics
 
+vtysh:
+	mtrace			Multicast traceroute
 -x-

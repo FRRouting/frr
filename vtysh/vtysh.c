@@ -2628,6 +2628,19 @@ ALIAS(vtysh_traceroute, vtysh_traceroute_ip_cmd, "traceroute ip WORD",
       "IP trace\n"
       "Trace route to destination address or hostname\n")
 
+DEFUN (vtysh_mtrace,
+       vtysh_mtrace_cmd,
+       "mtrace WORD",
+       "Multicast trace route to multicast source\n"
+       "Multicast trace route to multicast source address\n")
+{
+	int idx = 1;
+
+	argv_find(argv, argc, "WORD", &idx);
+	execute_command("mtracebis", 1, argv[idx]->arg, NULL);
+	return CMD_SUCCESS;
+}
+
 DEFUN (vtysh_ping6,
        vtysh_ping6_cmd,
        "ping ipv6 WORD",
@@ -3327,6 +3340,7 @@ void vtysh_init_vty(void)
 	install_element(VIEW_NODE, &vtysh_ping_ip_cmd);
 	install_element(VIEW_NODE, &vtysh_traceroute_cmd);
 	install_element(VIEW_NODE, &vtysh_traceroute_ip_cmd);
+	install_element(VIEW_NODE, &vtysh_mtrace_cmd);
 	install_element(VIEW_NODE, &vtysh_ping6_cmd);
 	install_element(VIEW_NODE, &vtysh_traceroute6_cmd);
 #if defined(HAVE_SHELL_ACCESS)

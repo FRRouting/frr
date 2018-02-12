@@ -104,6 +104,7 @@ man_MANS = frr.1 frr-args.8
 
 if PIMD
 man_MANS += pimd.8
+man_MANS += mtracebis.8
 endif
 
 if BGPD
@@ -169,6 +170,7 @@ EXTRA_DIST = BGP-TypeCode draft-zebra-00.ms draft-zebra-00.txt \
 	ripd.8.in \
 	ripngd.8.in \
 	pimd.8.in \
+	mtracebis.8.in \
 	nhrpd.8.in \
 	vtysh.1.in \
 	watchfrr.8.in \
