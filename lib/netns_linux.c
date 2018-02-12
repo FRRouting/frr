@@ -54,6 +54,8 @@ static struct ns *default_ns;
 static int ns_current_ns_fd;
 static int ns_default_ns_fd;
 
+static int ns_debug;
+
 #ifndef CLONE_NEWNET
 #define CLONE_NEWNET 0x40000000
 /* New network namespace (lo, device, names sockets, etc) */
@@ -164,10 +166,12 @@ static struct ns *ns_get_created_internal(struct ns *ns, char *name,
 	}
 	if (!created)
 		return ns;
-	if (ns->ns_id != NS_UNKNOWN)
-		zlog_info("NS %u is created.", ns->ns_id);
-	else
-		zlog_info("NS %s is created.", ns->name);
+	if (ns_debug) {
+		if (ns->ns_id != NS_UNKNOWN)
+			zlog_info("NS %u is created.", ns->ns_id);
+		else
+			zlog_info("NS %s is created.", ns->name);
+	}
 	if (ns_master.ns_new_hook)
 		(*ns_master.ns_new_hook) (ns);
 	return ns;
@@ -205,11 +209,12 @@ static int ns_enable_internal(struct ns *ns, void (*func)(ns_id_t, void *))
 		}
 		if (func)
 			func(ns->ns_id, (void *)ns->vrf_ctxt);
-		if (have_netns())
-			zlog_info("NS %u is associated with NETNS %s.",
-				  ns->ns_id, ns->name);
-
-		zlog_info("NS %u is enabled.", ns->ns_id);
+		if (ns_debug) {
+			if (have_netns())
+				zlog_info("NS %u is associated with NETNS %s.",
+					  ns->ns_id, ns->name);
+			zlog_info("NS %u is enabled.", ns->ns_id);
+		}
 		/* zebra first receives NS enable event,
 		 * then VRF enable event
 		 */
@@ -241,7 +246,9 @@ static int ns_is_enabled(struct ns *ns)
 static void ns_disable_internal(struct ns *ns)
 {
 	if (ns_is_enabled(ns)) {
-		zlog_info("NS %u is to be disabled.", ns->ns_id);
+		if (ns_debug)
+			zlog_info("NS %u is to be disabled.",
+				  ns->ns_id);
 
 		if (ns_master.ns_disable_hook)
 			(*ns_master.ns_disable_hook)(ns);
@@ -266,7 +273,8 @@ int ns_have_netns(void)
 /* Delete a NS. This is called in ns_terminate(). */
 void ns_delete(struct ns *ns)
 {
-	zlog_info("NS %u is to be deleted.", ns->ns_id);
+	if (ns_debug)
+		zlog_info("NS %u is to be deleted.", ns->ns_id);
 
 	ns_disable(ns);
 
@@ -398,6 +406,7 @@ void ns_init(void)
 {
 	static int ns_initialised;
 
+	ns_debug = 0;
 	/* silently return as initialisation done */
 	if (ns_initialised == 1)
 		return;
@@ -436,7 +445,9 @@ void ns_init_management(ns_id_t default_ns_id)
 	}
 	/* Set the default NS name. */
 	default_ns->name = XSTRDUP(MTYPE_NS_NAME, NS_DEFAULT_NAME);
-	zlog_info("%s: default NSID is %u", __func__, default_ns->ns_id);
+	if (ns_debug)
+		zlog_info("%s: default NSID is %u",
+			  __func__, default_ns->ns_id);
 
 	/* Enable the default NS. */
 	if (!ns_enable(default_ns, NULL)) {
