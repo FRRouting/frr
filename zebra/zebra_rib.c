@@ -295,6 +295,8 @@ struct nexthop *route_entry_nexthop_ipv6_ifindex_add(struct route_entry *re,
 	nexthop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
 	nexthop->gate.ipv6 = *ipv6;
 	nexthop->ifindex = ifindex;
+	if (CHECK_FLAG(re->flags, ZEBRA_FLAG_EVPN_ROUTE))
+		SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK);
 
 	route_entry_nexthop_add(re, nexthop);
 
@@ -410,6 +412,10 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		nexthop->resolved = NULL;
 		re->nexthop_mtu = 0;
 	}
+
+	/* Next hops (remote VTEPs) for EVPN routes are fully resolved. */
+	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN_RVTEP))
+		return 1;
 
 	/* Skip nexthops that have been filtered out due to route-map */
 	/* The nexthops are specific to this route and so the same */
@@ -848,9 +854,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		family = AFI_IP;
-		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN_RVTEP))
-			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
-		else if (nexthop_active(AFI_IP, re, nexthop, set, rn))
+		if (nexthop_active(AFI_IP, re, nexthop, set, rn))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -2539,10 +2543,17 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 				struct ipaddr vtep_ip;
 
 				memset(&vtep_ip, 0, sizeof(struct ipaddr));
-				vtep_ip.ipa_type = IPADDR_V4;
-				memcpy(&(vtep_ip.ipaddr_v4),
-				       &(tmp_nh->gate.ipv4),
-				       sizeof(struct in_addr));
+				if (afi == AFI_IP) {
+					vtep_ip.ipa_type = IPADDR_V4;
+					memcpy(&(vtep_ip.ipaddr_v4),
+					       &(tmp_nh->gate.ipv4),
+					       sizeof(struct in_addr));
+				} else {
+					vtep_ip.ipa_type = IPADDR_V6;
+					memcpy(&(vtep_ip.ipaddr_v6),
+					       &(tmp_nh->gate.ipv6),
+					       sizeof(struct in6_addr));
+				}
 				zebra_vxlan_evpn_vrf_route_del(re->vrf_id, rmac,
 							       &vtep_ip, p);
 			}

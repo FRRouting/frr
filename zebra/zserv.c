@@ -1124,6 +1124,7 @@ static int zread_route_add(struct zserv *client, u_short length,
 	struct nexthop *nexthop = NULL;
 	int i, ret;
 	vrf_id_t vrf_id = 0;
+	struct ipaddr vtep_ip;
 
 	s = client->ibuf;
 	if (zapi_route_decode(s, &api) < 0)
@@ -1154,10 +1155,7 @@ static int zread_route_add(struct zserv *client, u_short length,
 				nexthop = route_entry_nexthop_ipv4_add(
 					re, &api_nh->gate.ipv4, NULL);
 				break;
-			case NEXTHOP_TYPE_IPV4_IFINDEX: {
-
-				struct ipaddr vtep_ip;
-
+			case NEXTHOP_TYPE_IPV4_IFINDEX:
 				memset(&vtep_ip, 0, sizeof(struct ipaddr));
 				if (CHECK_FLAG(api.flags,
 					       ZEBRA_FLAG_EVPN_ROUTE)) {
@@ -1189,15 +1187,41 @@ static int zread_route_add(struct zserv *client, u_short length,
 								&api.prefix);
 				}
 				break;
-			}
 			case NEXTHOP_TYPE_IPV6:
 				nexthop = route_entry_nexthop_ipv6_add(
 					re, &api_nh->gate.ipv6);
 				break;
 			case NEXTHOP_TYPE_IPV6_IFINDEX:
+				memset(&vtep_ip, 0, sizeof(struct ipaddr));
+				if (CHECK_FLAG(api.flags,
+					       ZEBRA_FLAG_EVPN_ROUTE)) {
+					ifindex =
+						get_l3vni_svi_ifindex(vrf_id);
+				} else {
+					ifindex = api_nh->ifindex;
+				}
+
 				nexthop = route_entry_nexthop_ipv6_ifindex_add(
 					re, &api_nh->gate.ipv6,
-					api_nh->ifindex);
+					ifindex);
+
+				/* if this an EVPN route entry,
+				   program the nh as neigh
+				 */
+				if (CHECK_FLAG(api.flags,
+					       ZEBRA_FLAG_EVPN_ROUTE)) {
+					SET_FLAG(nexthop->flags,
+						 NEXTHOP_FLAG_EVPN_RVTEP);
+					vtep_ip.ipa_type = IPADDR_V6;
+					memcpy(&vtep_ip.ipaddr_v6,
+					       &(api_nh->gate.ipv6),
+					       sizeof(struct in6_addr));
+					zebra_vxlan_evpn_vrf_route_add(
+								vrf_id,
+								&api.rmac,
+								&vtep_ip,
+								&api.prefix);
+				}
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
 				nexthop = route_entry_nexthop_blackhole_add(
