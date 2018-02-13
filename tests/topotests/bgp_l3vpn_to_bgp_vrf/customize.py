@@ -75,7 +75,6 @@ r3-eth1 .3 |  | .3  r3-eth0      | .4 r4-eth0
 
 import os
 import re
-import sys
 import pytest
 import platform
 
@@ -84,6 +83,7 @@ import platform
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.ltemplate import ltemplateRtrCmd
 
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
@@ -92,9 +92,6 @@ import shutil
 CWD = os.path.dirname(os.path.realpath(__file__))
 # test name based on directory
 TEST = os.path.basename(CWD)
-
-InitSuccess = False
-iproute2Ver = None
 
 class ThisTestTopo(Topo):
     "Test topology builder"
@@ -144,64 +141,19 @@ class ThisTestTopo(Topo):
         switch[1].add_link(tgen.gears['r2'], nodeif='r2-eth2')
         switch[1].add_link(tgen.gears['r3'], nodeif='r3-eth1')
 
-class CustCmd():
-    def __init__(self):
-        self.resetCounts()
-
-    def doCmd(self, tgen, rtr, cmd, checkstr = None):
-        output = tgen.net[rtr].cmd(cmd).strip()
-        if len(output):
-            self.output += 1
-            if checkstr != None:
-                ret = re.search(checkstr, output)
-                if ret == None:
-                    self.nomatch += 1
-                else:
-                    self.match += 1
-                return ret
-            logger.info('command: {} {}'.format(rtr, cmd))
-            logger.info('output: ' + output)
-        self.none += 1
-        return None
-
-    def resetCounts(self):
-        self.match = 0
-        self.nomatch = 0
-        self.output = 0
-        self.none = 0
-
-    def getMatch(self):
-        return self.match
-
-    def getNoMatch(self):
-        return self.nomatch
-
-    def getOutput(self):
-        return self.output
-
-    def getNone(self):
-        return self.none
-
-cc = CustCmd()
-
 def ltemplatePreRouterStartHook():
+    cc = ltemplateRtrCmd()
     krel = platform.release()
     tgen = get_topogen()
     logger.info('pre router-start hook, kernel=' + krel)
     #check for mpls
     if tgen.hasmpls != True:
         logger.info('MPLS not available, skipping setup')
-        return
+        return False
     #check for normal init
     if len(tgen.net) == 1:
         logger.info('Topology not configured, skipping setup')
-        return
-    #collect/log info on iproute2
-    found = cc.doCmd(tgen, 'r2', 'apt-cache policy iproute2', 'Installed: ([\d\.]*)')
-    if found != None:
-        global iproute2Ver
-        iproute2Ver = found.group(1)
-        logger.info('Have iproute2 version=' + iproute2Ver)
+        return False
     #trace errors/unexpected output
     cc.resetCounts()
     #configure r2 mpls interfaces
@@ -238,53 +190,14 @@ def ltemplatePreRouterStartHook():
         for intf in intfs:
             cc.doCmd(tgen, rtr, 'echo 1 > /proc/sys/net/mpls/conf/{}/input'.format(intf))
         logger.info('setup {0} vrf {0}-cust2, {0}-eth5. enabled mpls input.'.format(rtr))
-    global InitSuccess
     if cc.getOutput():
         InitSuccess = False
         logger.info('VRF config failed ({}), tests will be skipped'.format(cc.getOutput()))
     else:
         InitSuccess = True
         logger.info('VRF config successful!')
-    return;
+    return InitSuccess
 
 def ltemplatePostRouterStartHook():
     logger.info('post router-start hook')
-    return;
-
-def versionCheck(vstr, rname='r1', compstr='<',cli=False, kernel='4.9', iproute2=None):
-    tgen = get_topogen()
-    router = tgen.gears[rname]
-
-    if cli:
-        logger.info('calling mininet CLI')
-        tgen.mininet_cli()
-        logger.info('exited mininet CLI')
-
-    if InitSuccess != True:
-        ret = 'Test not initialized'
-        return ret
-
-    if tgen.hasmpls != True:
-        ret = 'MPLS not initialized'
-        return ret
-
-    if kernel != None:
-        krel = platform.release()
-        if topotest.version_cmp(krel, kernel) < 0:
-            ret = 'Skipping tests, old kernel ({} < {})'.format(krel, kernel)
-            return ret
-
-    if iproute2 != None:
-        if iproute2Ver == None or topotest.version_cmp(iproute2Ver, iproute2) < 0:
-            ret = 'Skipping tests, old iproute2 ({} < {})'.format(iproute2Ver, iproute2)
-            return ret
-
-    ret = True
-    try:
-        if router.has_version(compstr, vstr):
-            ret = 'Skipping tests, old FRR version {} {}'.format(compstr, vstr)
-            return ret
-    except:
-        ret = True
-
-    return ret
+    return True
