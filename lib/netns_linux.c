@@ -130,7 +130,7 @@ static struct ns *ns_lookup_name_internal(const char *name)
 {
 	struct ns *ns = NULL;
 
-	RB_FOREACH(ns, ns_head, &ns_tree) {
+	RB_FOREACH (ns, ns_head, &ns_tree) {
 		if (ns->name != NULL) {
 			if (strcmp(name, ns->name) == 0)
 				return ns;
@@ -328,7 +328,7 @@ void ns_walk_func(int (*func)(struct ns *))
 {
 	struct ns *ns = NULL;
 
-	RB_FOREACH(ns, ns_head, &ns_tree)
+	RB_FOREACH (ns, ns_head, &ns_tree)
 		func(ns);
 }
 
