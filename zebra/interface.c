@@ -513,13 +513,14 @@ void if_add_update(struct interface *ifp)
 {
 	struct zebra_if *if_data;
 	struct zebra_ns *zns;
+	struct zebra_vrf *zvrf = vrf_info_lookup(ifp->vrf_id);
 
-	if (vrf_is_backend_netns())
-		zns = zebra_ns_lookup((ns_id_t)ifp->vrf_id);
+	/* case interface populate before vrf enabled */
+	if (zvrf->zns)
+		zns = zvrf->zns;
 	else
 		zns = zebra_ns_lookup(NS_DEFAULT);
 	if_link_per_ns(zns, ifp);
-
 	if_data = ifp->info;
 	assert(if_data);
 
@@ -810,11 +811,8 @@ void if_nbr_ipv6ll_to_ipv4ll_neigh_update(struct interface *ifp,
 	inet_pton(AF_INET, buf, &ipv4_ll);
 
 	ipv6_ll_address_to_mac(address, (u_char *)mac);
+	ns_id = zvrf->zns->ns_id;
 
-	if (!vrf_is_backend_netns())
-		ns_id = NS_DEFAULT;
-	else
-		ns_id = (ns_id_t)(ifp->vrf_id);
 	/*
 	 * Remove existed arp record for the interface as netlink
 	 * protocol does not have update message types

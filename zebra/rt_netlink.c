@@ -1337,10 +1337,7 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 	struct zebra_ns *zns;
 	struct zebra_vrf *zvrf = vrf_info_lookup(re->vrf_id);
 
-	if (!vrf_is_backend_netns())
-		zns = zebra_ns_lookup(NS_DEFAULT);
-	else
-		zns = (struct zebra_ns *)ns_info_lookup(re->vrf_id);
+	zns = zvrf->zns;
 	memset(&req, 0, sizeof req - NL_PKT_BUF_SIZE);
 
 	bytelen = (family == AF_INET ? 4 : 16);
@@ -1640,10 +1637,7 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	mroute = mr;
 	struct zebra_ns *zns;
 
-	if (!vrf_is_backend_netns())
-		zns = zebra_ns_lookup(NS_DEFAULT);
-	else
-		zns = (struct zebra_ns *)ns_info_lookup(zvrf->vrf->vrf_id);
+	zns = zvrf->zns;
 	memset(&req.n, 0, sizeof(req.n));
 	memset(&req.ndm, 0, sizeof(req.ndm));
 
@@ -1736,11 +1730,9 @@ static int netlink_vxlan_flood_list_update(struct interface *ifp,
 		char buf[256];
 	} req;
 	u_char dst_mac[6] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
 
-	if (!vrf_is_backend_netns())
-		zns = zebra_ns_lookup(NS_DEFAULT);
-	else
-		zns = (struct zebra_ns *)ns_info_lookup(ifp->vrf_id);
+	zns = zvrf->zns;
 	memset(&req.n, 0, sizeof(req.n));
 	memset(&req.ndm, 0, sizeof(req.ndm));
 
@@ -2046,11 +2038,9 @@ static int netlink_macfdb_update(struct interface *ifp, vlanid_t vid,
 	int vid_present = 0, dst_present = 0;
 	char vid_buf[20];
 	char dst_buf[30];
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
 
-	if (!vrf_is_backend_netns())
-		zns = zebra_ns_lookup(NS_DEFAULT);
-	else
-		zns = (struct zebra_ns *)ns_info_lookup(ifp->vrf_id);
+	zns = zvrf->zns;
 	zif = ifp->info;
 	if ((br_if = zif->brslave_info.br_if) == NULL) {
 		zlog_warn("MAC %s on IF %s(%u) - no mapping to bridge",
@@ -2355,11 +2345,9 @@ static int netlink_neigh_update2(struct interface *ifp, struct ipaddr *ip,
 	struct zebra_ns *zns;
 	char buf[INET6_ADDRSTRLEN];
 	char buf2[ETHER_ADDR_STRLEN];
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
 
-	if (!vrf_is_backend_netns())
-		zns = zebra_ns_lookup(NS_DEFAULT);
-	else
-		zns = (struct zebra_ns *)ns_info_lookup(ifp->vrf_id);
+	zns = zvrf->zns;
 	memset(&req.n, 0, sizeof(req.n));
 	memset(&req.ndm, 0, sizeof(req.ndm));
 
