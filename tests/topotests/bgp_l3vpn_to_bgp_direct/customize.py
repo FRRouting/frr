@@ -75,7 +75,6 @@ r3-eth1 .3 |  | .3  r3-eth0      | .4 r4-eth0
 
 import os
 import re
-import sys
 import pytest
 
 # pylint: disable=C0413
@@ -83,6 +82,7 @@ import pytest
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.ltemplate import ltemplateRtrCmd
 
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
@@ -134,63 +134,36 @@ class ThisTestTopo(Topo):
         switch[1].add_link(tgen.gears['r2'], nodeif='r2-eth2')
         switch[1].add_link(tgen.gears['r3'], nodeif='r3-eth1')
 
-def doCmd(tgen, rtr, cmd, checkstr = None):
-    output = tgen.net[rtr].cmd(cmd).strip()
-    if len(output):
-        if checkstr != None:
-            return re.search(checkstr, output)
-        logger.info('command output: ' + output)
-    return None
-
 def ltemplatePreRouterStartHook():
+    cc = ltemplateRtrCmd()
     tgen = get_topogen()
     logger.info('pre router-start hook')
     #check for mpls
     if tgen.hasmpls != True:
         logger.info('MPLS not available, skipping setup')
-        return
+        return False
+    #check for normal init
+    if len(tgen.net) == 1:
+        logger.info('Topology not configured, skipping setup')
+        return False
     #configure r2 mpls interfaces
     intfs = ['lo', 'r2-eth0', 'r2-eth1', 'r2-eth2']
     for intf in intfs:
-        doCmd(tgen, 'r2', 'echo 1 > /proc/sys/net/mpls/conf/{}/input'.format(intf))
+        cc.doCmd(tgen, 'r2', 'echo 1 > /proc/sys/net/mpls/conf/{}/input'.format(intf))
     #configure MPLS
     rtrs = ['r1', 'r3', 'r4']
     cmds = ['echo 1 > /proc/sys/net/mpls/conf/lo/input']
     for rtr in rtrs:
         router = tgen.gears[rtr]
         for cmd in cmds:
-            doCmd(tgen, rtr, cmd)
+            cc.doCmd(tgen, rtr, cmd)
         intfs = ['lo', rtr+'-eth0', rtr+'-eth4']
         for intf in intfs:
-            doCmd(tgen, rtr, 'echo 1 > /proc/sys/net/mpls/conf/{}/input'.format(intf))
+            cc.doCmd(tgen, rtr, 'echo 1 > /proc/sys/net/mpls/conf/{}/input'.format(intf))
     logger.info('setup mpls input')
-    return;
+    return True
 
 def ltemplatePostRouterStartHook():
     logger.info('post router-start hook')
-    return;
+    return True
 
-def versionCheck(vstr, rname='r1', compstr='<',cli=False):
-    tgen = get_topogen()
-
-    router = tgen.gears[rname]
-
-    if tgen.hasmpls != True:
-        ret = 'MPLS not initialized'
-        return ret
-
-    ret = True
-    try:
-        if router.has_version(compstr, vstr):
-            ret = False
-            logger.debug('version check failed, version {} {}'.format(compstr, vstr))
-    except:
-        ret = True
-    if ret == False:
-        ret = 'Skipping main tests on old version ({}{})'.format(compstr, vstr)
-        logger.info(ret)
-    if cli:
-        logger.info('calling mininet CLI')
-        tgen.mininet_cli()
-        logger.info('exited mininet CLI')
-    return ret
