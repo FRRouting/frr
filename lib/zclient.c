@@ -1213,13 +1213,17 @@ bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 			      uint32_t *tableid,
 			      enum zapi_route_notify_owner *note)
 {
+	uint32_t t;
+
 	STREAM_GET(note, s, sizeof(*note));
 
 	STREAM_GETC(s, p->family);
 	STREAM_GETC(s, p->prefixlen);
 	STREAM_GET(&p->u.prefix, s,
-		   PSIZE(p->prefixlen));
-	STREAM_GETL(s, *tableid);
+		   prefix_blen(p));
+	STREAM_GETL(s, t);
+
+	*tableid = t;
 
 	return true;
 
