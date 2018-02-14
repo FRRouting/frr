@@ -26,6 +26,8 @@
 #include "prefix.h"
 #include "nexthop.h"
 #include "log.h"
+#include "vrf.h"
+#include "zclient.h"
 
 #include "sharpd/sharp_zebra.h"
 #include "sharpd/sharp_vty.h"
@@ -39,7 +41,8 @@ extern uint32_t removed_routes;
 
 DEFPY (install_routes,
        install_routes_cmd,
-       "install routes A.B.C.D$start nexthop A.B.C.D$nexthop (1-1000000)$routes",
+       "sharp install routes A.B.C.D$start nexthop A.B.C.D$nexthop (1-1000000)$routes",
+       "Sharp routing Protocol\n"
        "install some routes\n"
        "Routes to install\n"
        "Address to start /32 generation at\n"
@@ -76,9 +79,37 @@ DEFPY (install_routes,
 	return CMD_SUCCESS;
 }
 
+DEFPY(vrf_label, vrf_label_cmd,
+      "sharp label vrf NAME$name label (0-100000)$label",
+      "Sharp Routing Protocol\n"
+      "Give a vrf a label\n"
+      VRF_CMD_HELP_STR
+      "The label to use, 0 specifies remove the label installed from previous\n"
+      "Specified range to use\n")
+{
+	struct vrf *vrf;
+
+	if (strcmp(name, "default") == 0)
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	else
+		vrf = vrf_lookup_by_name(name);
+
+	if (!vrf) {
+		vty_out(vty, "Unable to find vrf you silly head");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (label == 0)
+		label = MPLS_LABEL_NONE;
+
+	vrf_label_add(vrf->vrf_id, label);
+	return CMD_SUCCESS;
+}
+
 DEFPY (remove_routes,
        remove_routes_cmd,
-       "remove routes A.B.C.D$start (1-1000000)$routes",
+       "sharp remove routes A.B.C.D$start (1-1000000)$routes",
+       "Sharp Routing Protocol\n"
        "Remove some routes\n"
        "Routes to remove\n"
        "Starting spot\n"
@@ -112,5 +143,6 @@ void sharp_vty_init(void)
 {
 	install_element(ENABLE_NODE, &install_routes_cmd);
 	install_element(ENABLE_NODE, &remove_routes_cmd);
+	install_element(ENABLE_NODE, &vrf_label_cmd);
 	return;
 }

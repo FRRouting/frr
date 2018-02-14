@@ -511,8 +511,8 @@ static int compute_link_nhlfe(struct sr_link *srl)
 		srl->nhlfe[1].label_in =
 			index2label(srl->sid[1], srl->srn->srgb);
 
-	srl->nhlfe[0].label_out = MPLS_IMP_NULL_LABEL;
-	srl->nhlfe[1].label_out = MPLS_IMP_NULL_LABEL;
+	srl->nhlfe[0].label_out = MPLS_LABEL_IMPLICIT_NULL;
+	srl->nhlfe[1].label_out = MPLS_LABEL_IMPLICIT_NULL;
 
 	rc = 1;
 	return rc;
@@ -599,7 +599,7 @@ static int compute_prefix_nhlfe(struct sr_prefix *srp)
 	 */
 	if ((srp->nexthop == NULL)
 	    && (!CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_NPFLG)))
-		srp->nhlfe.label_out = MPLS_IMP_NULL_LABEL;
+		srp->nhlfe.label_out = MPLS_LABEL_IMPLICIT_NULL;
 	else if (CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_VFLG))
 		srp->nhlfe.label_out = srp->sid;
 	else
@@ -694,7 +694,7 @@ static inline void add_sid_nhlfe(struct sr_nhlfe nhlfe)
 {
 	if ((nhlfe.label_in != 0) && (nhlfe.label_out != 0)) {
 		ospf_zebra_send_mpls_labels(ZEBRA_MPLS_LABELS_ADD, nhlfe);
-		if (nhlfe.label_out != MPLS_IMP_NULL_LABEL)
+		if (nhlfe.label_out != MPLS_LABEL_IMPLICIT_NULL)
 			ospf_zebra_send_mpls_ftn(ZEBRA_ROUTE_ADD, nhlfe);
 	}
 }
@@ -704,7 +704,7 @@ static inline void del_sid_nhlfe(struct sr_nhlfe nhlfe)
 {
 	if ((nhlfe.label_in != 0) && (nhlfe.label_out != 0)) {
 		ospf_zebra_send_mpls_labels(ZEBRA_MPLS_LABELS_DELETE, nhlfe);
-		if (nhlfe.label_out != MPLS_IMP_NULL_LABEL)
+		if (nhlfe.label_out != MPLS_LABEL_IMPLICIT_NULL)
 			ospf_zebra_send_mpls_ftn(ZEBRA_ROUTE_DELETE, nhlfe);
 	}
 }
@@ -1535,7 +1535,7 @@ void ospf_sr_update_prefix(struct interface *ifp, struct prefix *p)
 			    EXT_SUBTLV_PREFIX_SID_NPFLG)) {
 				srp->nhlfe.label_in = index2label(srp->sid,
 						OspfSR.self->srgb);
-				srp->nhlfe.label_out = MPLS_IMP_NULL_LABEL;
+				srp->nhlfe.label_out = MPLS_LABEL_IMPLICIT_NULL;
 				add_sid_nhlfe(srp->nhlfe);
 			}
 		}
@@ -1992,7 +1992,7 @@ DEFUN (sr_prefix_sid,
 	if (argv_find(argv, argc, "no-php-flag", &idx)) {
 		SET_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_NPFLG);
 		new->nhlfe.label_in = index2label(new->sid, OspfSR.self->srgb);
-		new->nhlfe.label_out = MPLS_IMP_NULL_LABEL;
+		new->nhlfe.label_out = MPLS_LABEL_IMPLICIT_NULL;
 	}
 
 	if (IS_DEBUG_OSPF_SR)
@@ -2168,7 +2168,7 @@ static void show_vty_sr_node(struct vty *vty, struct sr_node *srn)
 	for (ALL_LIST_ELEMENTS_RO(srn->ext_prefix, node, srp)) {
 		strncpy(pref, inet_ntoa(srp->nhlfe.prefv4.prefix), 16);
 		snprintf(sid, 22, "SR Pfx (idx %u)", srp->sid);
-		if (srp->nhlfe.label_out == MPLS_IMP_NULL_LABEL)
+		if (srp->nhlfe.label_out == MPLS_LABEL_IMPLICIT_NULL)
 			sprintf(label, "pop");
 		else
 			sprintf(label, "%u", srp->nhlfe.label_out);
@@ -2182,7 +2182,7 @@ static void show_vty_sr_node(struct vty *vty, struct sr_node *srn)
 	for (ALL_LIST_ELEMENTS_RO(srn->ext_link, node, srl)) {
 		strncpy(pref, inet_ntoa(srl->nhlfe[0].prefv4.prefix), 16);
 		snprintf(sid, 22, "SR Adj. (lbl %u)", srl->sid[0]);
-		if (srl->nhlfe[0].label_out == MPLS_IMP_NULL_LABEL)
+		if (srl->nhlfe[0].label_out == MPLS_LABEL_IMPLICIT_NULL)
 			sprintf(label, "pop");
 		else
 			sprintf(label, "%u", srl->nhlfe[0].label_out);
@@ -2192,7 +2192,7 @@ static void show_vty_sr_node(struct vty *vty, struct sr_node *srn)
 			label, sid, itf ? itf->name : "-",
 			inet_ntoa(srl->nhlfe[0].nexthop));
 		snprintf(sid, 22, "SR Adj. (lbl %u)", srl->sid[1]);
-		if (srl->nhlfe[1].label_out == MPLS_IMP_NULL_LABEL)
+		if (srl->nhlfe[1].label_out == MPLS_LABEL_IMPLICIT_NULL)
 			sprintf(label, "pop");
 		else
 			sprintf(label, "%u", srl->nhlfe[0].label_out);

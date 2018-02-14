@@ -54,6 +54,15 @@ typedef enum { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE } rnh_type_t;
 extern int zebra_rnh_ip_default_route;
 extern int zebra_rnh_ipv6_default_route;
 
+static inline int rnh_resolve_via_default(int family)
+{
+	if (((family == AF_INET) && zebra_rnh_ip_default_route)
+	    || ((family == AF_INET6) && zebra_rnh_ipv6_default_route))
+		return 1;
+	else
+		return 0;
+}
+
 extern struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid,
 				 rnh_type_t type);
 extern struct rnh *zebra_lookup_rnh(struct prefix *p, vrf_id_t vrfid,

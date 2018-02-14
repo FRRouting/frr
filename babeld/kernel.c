@@ -166,7 +166,6 @@ zebra_route(int add, int family, const unsigned char *pref, unsigned short plen,
     api.type  = ZEBRA_ROUTE_BABEL;
     api.safi = SAFI_UNICAST;
     api.vrf_id = VRF_DEFAULT;
-    api.nh_vrf_id = VRF_DEFAULT;
     api.prefix = quagga_prefix;
 
     if(metric >= KERNEL_INFINITY) {
@@ -175,8 +174,8 @@ zebra_route(int add, int family, const unsigned char *pref, unsigned short plen,
         SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
         api.nexthop_num = 1;
         api_nh->ifindex = ifindex;
-
-        switch (family) {
+	api_nh->vrf_id = VRF_DEFAULT;
+	switch (family) {
         case AF_INET:
             uchar_to_inaddr(&api_nh->gate.ipv4, gate);
             if (IPV4_ADDR_SAME (&api_nh->gate.ipv4, &quagga_prefix.u.prefix4) &&

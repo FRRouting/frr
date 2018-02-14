@@ -87,7 +87,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 		switch (si->type) {
 		case STATIC_IPV4_GATEWAY:
 			nexthop = route_entry_nexthop_ipv4_add(
-				re, &si->addr.ipv4, NULL);
+				re, &si->addr.ipv4, NULL, si->nh_vrf_id);
 			nh_p.family = AF_INET;
 			nh_p.prefixlen = IPV4_MAX_BITLEN;
 			nh_p.u.prefix4 = si->addr.ipv4;
@@ -95,19 +95,20 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 			break;
 		case STATIC_IPV4_GATEWAY_IFNAME:
 			nexthop = route_entry_nexthop_ipv4_ifindex_add(
-				re, &si->addr.ipv4, NULL, si->ifindex);
+				re, &si->addr.ipv4, NULL, si->ifindex,
+				si->nh_vrf_id);
 			break;
 		case STATIC_IFNAME:
-			nexthop = route_entry_nexthop_ifindex_add(re,
-								  si->ifindex);
+			nexthop = route_entry_nexthop_ifindex_add(
+				re, si->ifindex, si->nh_vrf_id);
 			break;
 		case STATIC_BLACKHOLE:
 			nexthop = route_entry_nexthop_blackhole_add(
 				re, bh_type);
 			break;
 		case STATIC_IPV6_GATEWAY:
-			nexthop = route_entry_nexthop_ipv6_add(re,
-							       &si->addr.ipv6);
+			nexthop = route_entry_nexthop_ipv6_add(
+				re, &si->addr.ipv6, si->nh_vrf_id);
 			nh_p.family = AF_INET6;
 			nh_p.prefixlen = IPV6_MAX_BITLEN;
 			nh_p.u.prefix6 = si->addr.ipv6;
@@ -115,7 +116,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 			break;
 		case STATIC_IPV6_GATEWAY_IFNAME:
 			nexthop = route_entry_nexthop_ipv6_ifindex_add(
-				re, &si->addr.ipv6, si->ifindex);
+				re, &si->addr.ipv6, si->ifindex, si->nh_vrf_id);
 			break;
 		}
 		/* Update label(s), if present. */
@@ -155,7 +156,6 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 		re->metric = 0;
 		re->mtu = 0;
 		re->vrf_id = si->vrf_id;
-		re->nh_vrf_id = si->nh_vrf_id;
 		re->table =
 			(si->vrf_id != VRF_DEFAULT)
 				? (zebra_vrf_lookup_by_id(si->vrf_id))->table_id
@@ -166,7 +166,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 		switch (si->type) {
 		case STATIC_IPV4_GATEWAY:
 			nexthop = route_entry_nexthop_ipv4_add(
-				re, &si->addr.ipv4, NULL);
+				re, &si->addr.ipv4, NULL, si->nh_vrf_id);
 			nh_p.family = AF_INET;
 			nh_p.prefixlen = IPV4_MAX_BITLEN;
 			nh_p.u.prefix4 = si->addr.ipv4;
@@ -174,19 +174,20 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 			break;
 		case STATIC_IPV4_GATEWAY_IFNAME:
 			nexthop = route_entry_nexthop_ipv4_ifindex_add(
-				re, &si->addr.ipv4, NULL, si->ifindex);
+				re, &si->addr.ipv4, NULL, si->ifindex,
+				si->nh_vrf_id);
 			break;
 		case STATIC_IFNAME:
-			nexthop = route_entry_nexthop_ifindex_add(re,
-								  si->ifindex);
+			nexthop = route_entry_nexthop_ifindex_add(
+				re, si->ifindex, si->nh_vrf_id);
 			break;
 		case STATIC_BLACKHOLE:
 			nexthop = route_entry_nexthop_blackhole_add(
 				re, bh_type);
 			break;
 		case STATIC_IPV6_GATEWAY:
-			nexthop = route_entry_nexthop_ipv6_add(re,
-							       &si->addr.ipv6);
+			nexthop = route_entry_nexthop_ipv6_add(
+				re, &si->addr.ipv6, si->nh_vrf_id);
 			nh_p.family = AF_INET6;
 			nh_p.prefixlen = IPV6_MAX_BITLEN;
 			nh_p.u.prefix6 = si->addr.ipv6;
@@ -194,7 +195,7 @@ void static_install_route(afi_t afi, safi_t safi, struct prefix *p,
 			break;
 		case STATIC_IPV6_GATEWAY_IFNAME:
 			nexthop = route_entry_nexthop_ipv6_ifindex_add(
-				re, &si->addr.ipv6, si->ifindex);
+				re, &si->addr.ipv6, si->ifindex, si->nh_vrf_id);
 			break;
 		}
 		/* Update label(s), if present. */
