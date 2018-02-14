@@ -529,9 +529,6 @@ struct route_table *zebra_vrf_other_route_table(afi_t afi, u_int32_t table_id,
 	if (afi >= AFI_MAX)
 		return NULL;
 
-	if (table_id >= ZEBRA_KERNEL_TABLE_MAX)
-		return NULL;
-
 	if ((vrf_id == VRF_DEFAULT) && (table_id != RT_TABLE_MAIN)
 	    && (table_id != zebrad.rtm_table_default)) {
 		return zebra_ns_get_table(zns, zvrf, table_id, afi);
