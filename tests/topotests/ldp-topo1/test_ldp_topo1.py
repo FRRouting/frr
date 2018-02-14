@@ -606,8 +606,16 @@ def test_mpls_table():
     print("\n\n** Verifying MPLS table")
     print("******************************************\n")
     failures = 0
+
+    version = cli_version
+    if (version == ""):
+        # check for new output without implicit-null
+        output = net['r1'].cmd('vtysh -c "show mpls table" 2> /dev/null').rstrip()
+        if 'LDP         10.0.1.2         3' in output:
+            version = "-no-impl-null"
+
     for i in range(1, 5):
-        refTableFile = '%s/r%s/show_mpls_table.ref%s' % (thisDir, i, cli_version)
+        refTableFile = '%s/r%s/show_mpls_table.ref%s' % (thisDir, i, version)
         if os.path.isfile(refTableFile):
             # Read expected result from file
             expected = open(refTableFile).read().rstrip()
