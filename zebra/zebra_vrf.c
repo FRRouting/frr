@@ -174,7 +174,6 @@ static int zebra_vrf_disable(struct vrf *vrf)
 	struct static_route *si;
 	struct route_table *table;
 	struct interface *ifp;
-	u_int32_t table_id;
 	afi_t afi;
 	safi_t safi;
 	unsigned i;
@@ -213,12 +212,6 @@ static int zebra_vrf_disable(struct vrf *vrf)
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++)
 			rib_close_table(zvrf->table[afi][safi]);
-
-		if (vrf->vrf_id == VRF_DEFAULT)
-			for (table_id = 0; table_id < ZEBRA_KERNEL_TABLE_MAX;
-			     table_id++)
-				if (zvrf->other_table[afi][table_id])
-					rib_close_table(zvrf->other_table[afi][table_id]);
 	}
 
 	/* Cleanup Vxlan, MPLS and PW tables. */
@@ -258,17 +251,6 @@ static int zebra_vrf_disable(struct vrf *vrf)
 			zvrf->table[afi][safi] = NULL;
 		}
 
-		if (vrf->vrf_id == VRF_DEFAULT)
-			for (table_id = 0; table_id < ZEBRA_KERNEL_TABLE_MAX;
-			     table_id++)
-				if (zvrf->other_table[afi][table_id]) {
-					table = zvrf->other_table[afi][table_id];
-					table_info = table->info;
-					route_table_finish(table);
-					XFREE(MTYPE_RIB_TABLE_INFO, table_info);
-					zvrf->other_table[afi][table_id] = NULL;
-				}
-
 		route_table_finish(zvrf->rnh_table[afi]);
 		zvrf->rnh_table[afi] = NULL;
 		route_table_finish(zvrf->import_check_table[afi]);
@@ -282,7 +264,6 @@ static int zebra_vrf_delete(struct vrf *vrf)
 {
 	struct zebra_vrf *zvrf = vrf->info;
 	struct route_table *table;
-	u_int32_t table_id;
 	afi_t afi;
 	safi_t safi;
 	unsigned i;
@@ -327,14 +308,6 @@ static int zebra_vrf_delete(struct vrf *vrf)
 			table = zvrf->stable[afi][safi];
 			route_table_finish(table);
 		}
-
-		for (table_id = 0; table_id < ZEBRA_KERNEL_TABLE_MAX; table_id++)
-			if (zvrf->other_table[afi][table_id]) {
-				table = zvrf->other_table[afi][table_id];
-				table_info = table->info;
-				route_table_finish(table);
-				XFREE(MTYPE_RIB_TABLE_INFO, table_info);
-			}
 
 		route_table_finish(zvrf->rnh_table[afi]);
 		route_table_finish(zvrf->import_check_table[afi]);
@@ -407,8 +380,8 @@ struct route_table *zebra_vrf_table_with_table_id(afi_t afi, safi_t safi,
 	return table;
 }
 
-static void zebra_rtable_node_cleanup(struct route_table *table,
-				      struct route_node *node)
+void zebra_rtable_node_cleanup(struct route_table *table,
+			       struct route_node *node)
 {
 	struct route_entry *re, *next;
 
@@ -545,12 +518,13 @@ struct route_table *zebra_vrf_other_route_table(afi_t afi, u_int32_t table_id,
 						vrf_id_t vrf_id)
 {
 	struct zebra_vrf *zvrf;
-	rib_table_info_t *info;
-	struct route_table *table;
+	struct zebra_ns *zns;
 
 	zvrf = vrf_info_lookup(vrf_id);
 	if (!zvrf)
 		return NULL;
+
+	zns = zvrf->zns;
 
 	if (afi >= AFI_MAX)
 		return NULL;
@@ -560,19 +534,7 @@ struct route_table *zebra_vrf_other_route_table(afi_t afi, u_int32_t table_id,
 
 	if ((vrf_id == VRF_DEFAULT) && (table_id != RT_TABLE_MAIN)
 	    && (table_id != zebrad.rtm_table_default)) {
-		if (zvrf->other_table[afi][table_id] == NULL) {
-			table = (afi == AFI_IP6) ? srcdest_table_init()
-						 : route_table_init();
-			info = XCALLOC(MTYPE_RIB_TABLE_INFO, sizeof(*info));
-			info->zvrf = zvrf;
-			info->afi = afi;
-			info->safi = SAFI_UNICAST;
-			table->info = info;
-			table->cleanup = zebra_rtable_node_cleanup;
-			zvrf->other_table[afi][table_id] = table;
-		}
-
-		return (zvrf->other_table[afi][table_id]);
+		return zebra_ns_get_table(zns, zvrf, table_id, afi);
 	}
 
 	return zvrf->table[afi][SAFI_UNICAST];
