@@ -1029,18 +1029,21 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 
 	/* Fill Larger LSA Payload */
 	end = ospf6_lsdb_head(lsdb, 2, type, adv_router, &rtr_lsa);
-	if (rtr_lsa) {
-		if (!OSPF6_LSA_IS_MAXAGE(rtr_lsa)) {
-			/* Append first Link State ID LSA */
-			lsa_header = (struct ospf6_lsa_header *)rtr_lsa->header;
-			memcpy(new_header, lsa_header,
-				ntohs(lsa_header->length));
-			/* Assign new lsa length as aggregated length. */
-			((struct ospf6_lsa_header *)new_header)->length =
-					htons(total_lsa_length);
-			new_header += ntohs(lsa_header->length);
-			num_lsa--;
-		}
+
+	/*
+	 * We assume at this point in time that rtr_lsa is
+	 * a valid pointer.
+	 */
+	assert(rtr_lsa);
+	if (!OSPF6_LSA_IS_MAXAGE(rtr_lsa)) {
+		/* Append first Link State ID LSA */
+		lsa_header = (struct ospf6_lsa_header *)rtr_lsa->header;
+		memcpy(new_header, lsa_header, ntohs(lsa_header->length));
+		/* Assign new lsa length as aggregated length. */
+		((struct ospf6_lsa_header *)new_header)->length =
+			htons(total_lsa_length);
+		new_header += ntohs(lsa_header->length);
+		num_lsa--;
 	}
 
 	/* Print LSA Name */
