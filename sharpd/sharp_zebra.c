@@ -152,9 +152,9 @@ static void zebra_connected(struct zclient *zclient)
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 }
 
-void vrf_label_add(vrf_id_t vrf_id, mpls_label_t label)
+void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label)
 {
-	zclient_send_vrf_label(zclient, vrf_id, label, ZEBRA_LSP_SHARP);
+	zclient_send_vrf_label(zclient, vrf_id, afi, label, ZEBRA_LSP_SHARP);
 }
 
 void route_add(struct prefix *p, struct nexthop *nh)
