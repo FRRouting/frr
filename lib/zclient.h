@@ -390,9 +390,15 @@ extern void redist_del_instance(struct redist_proto *, u_short);
  * label for lookup.  If you pass in MPLS_LABEL_NONE
  * we will cause a delete action and remove this label pop
  * operation.
+ *
+ * The underlying AF_MPLS doesn't care about afi's
+ * but we can make the zebra_vrf keep track of what
+ * we have installed and play some special games
+ * to get them both installed.
  */
 extern void zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id,
-				   mpls_label_t label, enum lsp_types_t ltype);
+				   afi_t afi, mpls_label_t label,
+				   enum lsp_types_t ltype);
 
 extern void zclient_send_reg_requests(struct zclient *, vrf_id_t);
 extern void zclient_send_dereg_requests(struct zclient *, vrf_id_t);

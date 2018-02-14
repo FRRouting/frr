@@ -80,14 +80,17 @@ DEFPY (install_routes,
 }
 
 DEFPY(vrf_label, vrf_label_cmd,
-      "sharp label vrf NAME$name label (0-100000)$label",
+      "sharp label <ip$ipv4|ipv6$ipv6> vrf NAME$name label (0-100000)$label",
       "Sharp Routing Protocol\n"
       "Give a vrf a label\n"
+      "Pop and forward for IPv4\n"
+      "Pop and forward for IPv6\n"
       VRF_CMD_HELP_STR
       "The label to use, 0 specifies remove the label installed from previous\n"
       "Specified range to use\n")
 {
 	struct vrf *vrf;
+	afi_t afi = (ipv4) ? AFI_IP : AFI_IP6;
 
 	if (strcmp(name, "default") == 0)
 		vrf = vrf_lookup_by_id(VRF_DEFAULT);
@@ -102,7 +105,7 @@ DEFPY(vrf_label, vrf_label_cmd,
 	if (label == 0)
 		label = MPLS_LABEL_NONE;
 
-	vrf_label_add(vrf->vrf_id, label);
+	vrf_label_add(vrf->vrf_id, afi, label);
 	return CMD_SUCCESS;
 }
 
