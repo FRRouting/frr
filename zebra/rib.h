@@ -59,7 +59,6 @@ struct route_entry {
 
 	/* VRF identifier. */
 	vrf_id_t vrf_id;
-	vrf_id_t nh_vrf_id;
 
 	/* Which routing table */
 	uint32_t table;
@@ -231,22 +230,27 @@ typedef enum {
 } rib_update_event_t;
 
 extern struct nexthop *route_entry_nexthop_ifindex_add(struct route_entry *,
-						       ifindex_t);
+						       ifindex_t,
+						       vrf_id_t nh_vrf_id);
 extern struct nexthop *route_entry_nexthop_blackhole_add(struct route_entry *,
 							 enum blackhole_type);
 extern struct nexthop *route_entry_nexthop_ipv4_add(struct route_entry *,
 						    struct in_addr *,
-						    struct in_addr *);
+						    struct in_addr *,
+						    vrf_id_t nh_vrf_id);
 extern struct nexthop *
 route_entry_nexthop_ipv4_ifindex_add(struct route_entry *, struct in_addr *,
-				     struct in_addr *, ifindex_t);
+				     struct in_addr *, ifindex_t,
+				     vrf_id_t nh_vrf_id);
 extern void route_entry_nexthop_delete(struct route_entry *re,
 				       struct nexthop *nexthop);
 extern struct nexthop *route_entry_nexthop_ipv6_add(struct route_entry *,
-						    struct in6_addr *);
+						    struct in6_addr *,
+						    vrf_id_t nh_vrf_id);
 extern struct nexthop *
 route_entry_nexthop_ipv6_ifindex_add(struct route_entry *re,
-				     struct in6_addr *ipv6, ifindex_t ifindex);
+				     struct in6_addr *ipv6, ifindex_t ifindex,
+				     vrf_id_t nh_vrf_id);
 extern void route_entry_nexthop_add(struct route_entry *re,
 				    struct nexthop *nexthop);
 extern void route_entry_copy_nexthops(struct route_entry *re,
@@ -294,8 +298,8 @@ extern void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re);
 /* NOTE:
  * All rib_add function will not just add prefix into RIB, but
  * also implicitly withdraw equal prefix of same type. */
-extern int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, vrf_id_t nh_vrf_id,
-		   int type, u_short instance, int flags, struct prefix *p,
+extern int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
+		   u_short instance, int flags, struct prefix *p,
 		   struct prefix_ipv6 *src_p, const struct nexthop *nh,
 		   u_int32_t table_id, u_int32_t metric, u_int32_t mtu,
 		   uint8_t distance, route_tag_t tag);

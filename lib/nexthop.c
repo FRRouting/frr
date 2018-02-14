@@ -167,6 +167,7 @@ void copy_nexthops(struct nexthop **tnh, struct nexthop *nh,
 
 	for (nh1 = nh; nh1; nh1 = nh1->next) {
 		nexthop = nexthop_new();
+		nexthop->vrf_id = nh1->vrf_id;
 		nexthop->ifindex = nh1->ifindex;
 		nexthop->type = nh1->type;
 		nexthop->flags = nh1->flags;

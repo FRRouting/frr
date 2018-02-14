@@ -428,9 +428,19 @@ static inline u_char lsp_distance(enum lsp_types_t type)
 		return (route_distance(ZEBRA_ROUTE_LDP));
 	case ZEBRA_LSP_BGP:
 		return (route_distance(ZEBRA_ROUTE_BGP));
-	default:
+	case ZEBRA_LSP_NONE:
+	case ZEBRA_LSP_SHARP:
+	case ZEBRA_LSP_SR:
 		return 150;
 	}
+
+	/*
+	 * For some reason certain compilers do not believe
+	 * that all the cases have been handled.  And
+	 * WTF does this work differently than when I removed
+	 * the default case????
+	 */
+	return 150;
 }
 
 /*
@@ -444,6 +454,8 @@ static inline enum lsp_types_t lsp_type_from_re_type(int re_type)
 		return ZEBRA_LSP_STATIC;
 	case ZEBRA_ROUTE_BGP:
 		return ZEBRA_LSP_BGP;
+	case ZEBRA_ROUTE_SHARP:
+		return ZEBRA_LSP_SHARP;
 	default:
 		return ZEBRA_LSP_NONE;
 	}
@@ -464,9 +476,18 @@ static inline int re_type_from_lsp_type(enum lsp_types_t lsp_type)
 	case ZEBRA_LSP_SR:
 		return ZEBRA_ROUTE_OSPF;
 	case ZEBRA_LSP_NONE:
-	default:
 		return ZEBRA_ROUTE_KERNEL;
+	case ZEBRA_LSP_SHARP:
+		return ZEBRA_ROUTE_SHARP;
 	}
+
+	/*
+	 * For some reason certain compilers do not believe
+	 * that all the cases have been handled.  And
+	 * WTF does this work differently than when I removed
+	 * the default case????
+	 */
+	return ZEBRA_ROUTE_KERNEL;
 }
 
 /* NHLFE type as printable string. */
@@ -481,9 +502,19 @@ static inline const char *nhlfe_type2str(enum lsp_types_t lsp_type)
 		return "BGP";
 	case ZEBRA_LSP_SR:
 		return "SR";
-	default:
+	case ZEBRA_LSP_SHARP:
+		return "SHARP";
+	case ZEBRA_LSP_NONE:
 		return "Unknown";
 	}
+
+	/*
+	 * For some reason certain compilers do not believe
+	 * that all the cases have been handled.  And
+	 * WTF does this work differently than when I removed
+	 * the default case????
+	 */
+	return "Unknown";
 }
 
 static inline void mpls_mark_lsps_for_processing(struct zebra_vrf *zvrf)

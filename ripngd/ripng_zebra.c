@@ -48,7 +48,6 @@ static void ripng_zebra_ipv6_send(struct route_node *rp, u_char cmd)
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
-	api.nh_vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_RIPNG;
 	api.safi = SAFI_UNICAST;
 	api.prefix = rp->p;
@@ -58,6 +57,7 @@ static void ripng_zebra_ipv6_send(struct route_node *rp, u_char cmd)
 		if (count >= MULTIPATH_NUM)
 			break;
 		api_nh = &api.nexthops[count];
+		api_nh->vrf_id = VRF_DEFAULT;
 		api_nh->gate.ipv6 = rinfo->nexthop;
 		api_nh->ifindex = rinfo->ifindex;
 		api_nh->type = NEXTHOP_TYPE_IPV6_IFINDEX;
