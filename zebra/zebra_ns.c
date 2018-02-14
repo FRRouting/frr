@@ -74,6 +74,23 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 	return 0;
 }
 
+struct route_table *zebra_ns_find_table(struct zebra_ns *zns,
+					uint32_t tableid, afi_t afi)
+{
+	struct zebra_ns_tables finder;
+	struct zebra_ns_tables *znst;
+
+	memset(&finder, 0, sizeof(finder));
+	finder.afi = afi;
+	finder.tableid = tableid;
+	znst = RB_FIND(zebra_ns_tables_head, &zns->ns_tables, &finder);
+
+	if (znst)
+		return znst->table;
+	else
+		return NULL;
+}
+
 struct route_table *zebra_ns_get_table(struct zebra_ns *zns,
 				       struct zebra_vrf *zvrf, uint32_t tableid,
 				       afi_t afi)
