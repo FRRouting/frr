@@ -991,11 +991,19 @@ int zsend_route_notify_owner(struct route_entry *re, struct prefix *p,
 			char buff[PREFIX_STRLEN];
 
 			zlog_debug(
-				"Not Notifying Owner: %u about prefix %s(%u)",
+				"Not Notifying Owner: %u about prefix %s(%u) %d",
 				re->type, prefix2str(p, buff, sizeof(buff)),
-				re->table);
+				re->table, note);
 		}
 		return 0;
+	}
+
+	if (IS_ZEBRA_DEBUG_PACKET) {
+		char buff[PREFIX_STRLEN];
+
+		zlog_debug("Notifying Owner: %u about prefix %s(%u) %d",
+			   re->type, prefix2str(p, buff, sizeof(buff)),
+			   re->table, note);
 	}
 
 	s = client->obuf;
