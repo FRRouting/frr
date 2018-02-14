@@ -563,6 +563,7 @@ int ospf_flood_through_area(struct ospf_area *area, struct ospf_neighbor *inbr,
 	struct ospf_interface *oi;
 	int lsa_ack_flag = 0;
 
+	assert(area);
 	/* All other types are specific to a single area (Area A).  The
 	   eligible interfaces are all those interfaces attaching to the
 	   Area A.  If Area A is the backbone, this includes all the virtual
