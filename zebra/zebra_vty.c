@@ -432,6 +432,12 @@ DEFPY(ip_route_blackhole_vrf,
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 	struct zebra_vrf *zvrf = vrf->info;
 
+	/*
+	 * Coverity is complaining that prefix could
+	 * be dereferenced, but we know that prefix will
+	 * valid.  Add an assert to make it happy
+	 */
+	assert(prefix);
 	return zebra_static_route_leak(vty, zvrf, zvrf,
 				       AFI_IP, SAFI_UNICAST, no, prefix,
 				       mask_str, NULL, NULL, NULL, flag,
@@ -1988,6 +1994,12 @@ DEFPY(ipv6_route_blackhole_vrf,
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 	struct zebra_vrf *zvrf = vrf->info;
 
+	/*
+	 * Coverity is complaining that prefix could
+	 * be dereferenced, but we know that prefix will
+	 * valid.  Add an assert to make it happy
+	 */
+	assert(prefix);
 	return zebra_static_route_leak(vty, zvrf, zvrf,
 				       AFI_IP6, SAFI_UNICAST, no, prefix_str,
 				       NULL, from_str, NULL, NULL, flag,
