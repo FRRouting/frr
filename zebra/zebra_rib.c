@@ -1110,7 +1110,7 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	 * If this is a replace to a new RE let the originator of the RE
 	 * know that they've lost
 	 */
-	if (old && old != re)
+	if (old && (old != re) && (old->type != re->type))
 		zsend_route_notify_owner(old, p, ZAPI_ROUTE_BETTER_ADMIN_WON);
 
 	/*
