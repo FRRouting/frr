@@ -99,6 +99,8 @@ struct ospf6_area {
 
 	/* Time stamps. */
 	struct timeval ts_spf; /* SPF calculation time stamp. */
+
+	uint32_t full_nbrs; /* Fully adjacent neighbors. */
 };
 
 #define OSPF6_AREA_ENABLE     0x01

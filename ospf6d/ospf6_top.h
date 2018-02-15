@@ -32,6 +32,8 @@ struct ospf6 {
 	/* static router id */
 	u_int32_t router_id_static;
 
+	struct in_addr router_id_zebra;
+
 	/* start time */
 	struct timeval starttime;
 
