@@ -2522,9 +2522,29 @@ static void zread_vrf_label(struct zserv *client,
 
 	def_zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
 
-	if (zvrf->label[afi] != MPLS_LABEL_NONE)
-		mpls_lsp_uninstall(def_zvrf, ltype, zvrf->label[afi],
-				   NEXTHOP_TYPE_IFINDEX, NULL, ifp->ifindex);
+	if (zvrf->label[afi] != MPLS_LABEL_NONE) {
+		afi_t scrubber;
+		bool really_remove;
+
+		really_remove = true;
+		for (scrubber = AFI_IP; scrubber < AFI_MAX ; scrubber++) {
+			if (scrubber == afi)
+				continue;
+
+			if (zvrf->label[scrubber] == MPLS_LABEL_NONE)
+				continue;
+
+			if (zvrf->label[afi] == zvrf->label[scrubber]) {
+				really_remove = false;
+				break;
+			}
+		}
+
+		if (really_remove)
+			mpls_lsp_uninstall(def_zvrf, ltype, zvrf->label[afi],
+					   NEXTHOP_TYPE_IFINDEX, NULL,
+					   ifp->ifindex);
+	}
 
 	if (nlabel != MPLS_LABEL_NONE)
 		mpls_lsp_install(def_zvrf, ltype, nlabel, MPLS_LABEL_IMPLICIT_NULL,
