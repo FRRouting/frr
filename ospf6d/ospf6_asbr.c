@@ -148,6 +148,32 @@ static void ospf6_as_external_lsa_originate(struct ospf6_route *route)
 	ospf6_lsa_originate_process(lsa, ospf6);
 }
 
+int ospf6_orig_as_external_lsa(struct thread *thread)
+{
+	struct ospf6_interface *oi;
+	struct ospf6_lsa *lsa;
+	uint32_t type, adv_router;
+
+	oi = (struct ospf6_interface *)THREAD_ARG(thread);
+	oi->thread_as_extern_lsa = NULL;
+
+	if (oi->state == OSPF6_INTERFACE_DOWN)
+		return 0;
+
+	type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
+	adv_router = oi->area->ospf6->router_id;
+	for (ALL_LSDB_TYPED_ADVRTR(ospf6->lsdb, type, adv_router, lsa)) {
+		if (IS_OSPF6_DEBUG_ASBR)
+			zlog_debug("%s: Send update of AS-External LSA %s seq 0x%x",
+				   __PRETTY_FUNCTION__, lsa->name,
+				   ntohl(lsa->header->seqnum));
+
+		ospf6_flood_interface(NULL, lsa, oi);
+	}
+
+	return 0;
+}
+
 static route_tag_t ospf6_as_external_lsa_get_tag(struct ospf6_lsa *lsa)
 {
 	struct ospf6_as_external_lsa *external;
