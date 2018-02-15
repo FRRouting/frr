@@ -13,6 +13,11 @@ sharpd_libsharp_a_SOURCES = \
 	sharpd/sharp_vty.c \
 	# end
 
+noinst_HEADERS += \
+	sharpd/sharp_vty.h \
+	sharpd/sharp_zebra.h \
+	# end
+
 sharpd/sharp_vty_clippy.c: $(CLIPPY_DEPS)
 sharpd/sharp_vty.$(OBJEXT): sharpd/sharp_vty_clippy.c
 
