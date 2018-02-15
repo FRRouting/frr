@@ -60,6 +60,7 @@
 #include "zebra/label_manager.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/rt.h"
+#include "zebra/zebra_pbr.h"
 
 /* Event list of zebra. */
 enum event { ZEBRA_SERV, ZEBRA_READ, ZEBRA_WRITE };
@@ -2587,6 +2588,62 @@ stream_failure:
 	return;
 }
 
+static inline void zread_rule(uint16_t command, struct zserv *client,
+			      uint16_t length, struct zebra_vrf *zvrf)
+{
+	struct zebra_pbr_rule zpr;
+	struct interface *ifp;
+	struct stream *s;
+	uint32_t total, i;
+	uint32_t priority;
+	ifindex_t ifindex;
+
+	s = client->ibuf;
+	STREAM_GETL(s, total);
+
+	for (i = 0; i < total; i++) {
+		memset(&zpr, 0, sizeof(zpr));
+
+		STREAM_GETL(s, zpr.seq);
+		STREAM_GETL(s, priority);
+		STREAM_GETC(s, zpr.filter.src_ip.family);
+		STREAM_GETC(s, zpr.filter.src_ip.prefixlen);
+		STREAM_GET(&zpr.filter.src_ip.u.prefix, s,
+			   prefix_blen(&zpr.filter.src_ip));
+		STREAM_GETW(s, zpr.filter.src_port);
+		STREAM_GETC(s, zpr.filter.dst_ip.family);
+		STREAM_GETC(s, zpr.filter.dst_ip.prefixlen);
+		STREAM_GET(&zpr.filter.dst_ip.u.prefix, s,
+			   prefix_blen(&zpr.filter.dst_ip));
+		STREAM_GETW(s, zpr.filter.dst_port);
+		STREAM_GETL(s, zpr.action.table);
+		STREAM_GETL(s, ifindex);
+
+		ifp = if_lookup_by_index(ifindex, VRF_UNKNOWN);
+		if (!ifp) {
+			zlog_debug("FAiled to lookup ifindex: %u", ifindex);
+			return;
+		}
+
+		if (!is_default_prefix(&zpr.filter.src_ip))
+			zpr.filter.filter_bm |= PBR_FILTER_SRC_IP;
+
+		if (!is_default_prefix(&zpr.filter.dst_ip))
+			zpr.filter.filter_bm |= PBR_FILTER_DST_IP;
+
+		if (zpr.filter.src_port)
+			zpr.filter.filter_bm |= PBR_FILTER_SRC_PORT;
+
+		if (zpr.filter.dst_port)
+			zpr.filter.filter_bm |= PBR_FILTER_DST_PORT;
+
+		kernel_add_pbr_rule(&zpr, ifp, priority);
+	}
+
+stream_failure:
+	return;
+}
+
 static inline void zserv_handle_commands(struct zserv *client, uint16_t command,
 					 uint16_t length,
 					 struct zebra_vrf *zvrf)
@@ -2730,6 +2787,10 @@ static inline void zserv_handle_commands(struct zserv *client, uint16_t command,
 	case ZEBRA_PW_SET:
 	case ZEBRA_PW_UNSET:
 		zread_pseudowire(command, client, length, zvrf);
+		break;
+	case ZEBRA_RULE_ADD:
+	case ZEBRA_RULE_DELETE:
+		zread_rule(command, client, length, zvrf);
 		break;
 	default:
 		zlog_info("Zebra received unknown command %d", command);

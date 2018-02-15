@@ -129,6 +129,9 @@ typedef enum {
 	ZEBRA_PW_SET,
 	ZEBRA_PW_UNSET,
 	ZEBRA_PW_STATUS_UPDATE,
+	ZEBRA_RULE_ADD,
+	ZEBRA_RULE_DELETE,
+	ZEBRA_RULE_NOTIFY_OWNER,
 } zebra_message_types_t;
 
 struct redist_proto {
