@@ -203,7 +203,9 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	afi_t afi;
 	struct prefix p;
 	struct nexthop nh = {
-		.type = NEXTHOP_TYPE_IFINDEX, .ifindex = ifp->ifindex,
+		.type = NEXTHOP_TYPE_IFINDEX,
+		.ifindex = ifp->ifindex,
+		.vrf_id = ifp->vrf_id,
 	};
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
@@ -238,13 +240,11 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		break;
 	}
 
-	rib_add(afi, SAFI_UNICAST, ifp->vrf_id, ifp->vrf_id,
-		ZEBRA_ROUTE_CONNECT, 0, 0,
-		&p, NULL, &nh, RT_TABLE_MAIN, ifp->metric, 0, 0, 0);
+	rib_add(afi, SAFI_UNICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0, &p,
+		NULL, &nh, RT_TABLE_MAIN, ifp->metric, 0, 0, 0);
 
-	rib_add(afi, SAFI_MULTICAST, ifp->vrf_id, ifp->vrf_id,
-		ZEBRA_ROUTE_CONNECT, 0, 0,
-		&p, NULL, &nh, RT_TABLE_MAIN, ifp->metric, 0, 0, 0);
+	rib_add(afi, SAFI_MULTICAST, ifp->vrf_id, ZEBRA_ROUTE_CONNECT, 0, 0, &p,
+		NULL, &nh, RT_TABLE_MAIN, ifp->metric, 0, 0, 0);
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		char buf[PREFIX_STRLEN];
@@ -362,7 +362,9 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	afi_t afi;
 	struct prefix p;
 	struct nexthop nh = {
-		.type = NEXTHOP_TYPE_IFINDEX, .ifindex = ifp->ifindex,
+		.type = NEXTHOP_TYPE_IFINDEX,
+		.ifindex = ifp->ifindex,
+		.vrf_id = ifp->vrf_id,
 	};
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))

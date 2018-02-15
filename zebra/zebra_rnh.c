@@ -659,7 +659,7 @@ static struct route_entry *zebra_rnh_resolve_nexthop_entry(vrf_id_t vrfid,
 		 * match route to be exact if so specified
 		 */
 		if (is_default_prefix(&rn->p) &&
-		    !nh_resolve_via_default(rn->p.family))
+		    !rnh_resolve_via_default(rn->p.family))
 			return NULL;
 
 		/* Identify appropriate route entry. */
@@ -952,7 +952,6 @@ static void copy_state(struct rnh *rnh, struct route_entry *re,
 	state->distance = re->distance;
 	state->metric = re->metric;
 	state->vrf_id = re->vrf_id;
-	state->nh_vrf_id = re->vrf_id;
 
 	route_entry_copy_nexthops(state, re->nexthop);
 	rnh->state = state;

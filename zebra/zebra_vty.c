@@ -165,8 +165,8 @@ static int zebra_static_route_leak(struct vty *vty,
 			case -2:
 				vty_out(vty,
 					"%% Cannot use reserved label(s) (%d-%d)\n",
-					MPLS_MIN_RESERVED_LABEL,
-					MPLS_MAX_RESERVED_LABEL);
+					MPLS_LABEL_RESERVED_MIN,
+					MPLS_LABEL_RESERVED_MAX);
 				break;
 			case -3:
 				vty_out(vty,
@@ -231,13 +231,19 @@ static int zebra_static_route_leak(struct vty *vty,
 			type = STATIC_IPV6_GATEWAY;
 	}
 
-	if (!negate)
+	if (!negate) {
 		static_add_route(afi, safi, type, &p, src_p, gatep, ifname,
 				 bh_type, tag, distance, zvrf, nh_zvrf,
 				 &snh_label);
-	else
+		/* Mark as having FRR configuration */
+		vrf_set_user_cfged(zvrf->vrf);
+	} else {
 		static_delete_route(afi, safi, type, &p, src_p, gatep, ifname,
 				    tag, distance, zvrf, &snh_label);
+		/* If no other FRR config for this VRF, mark accordingly. */
+		if (!zebra_vrf_has_config(zvrf))
+			vrf_reset_user_cfged(zvrf->vrf);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -247,19 +253,39 @@ static int zebra_static_route(struct vty *vty, afi_t afi, safi_t safi,
                              const char *mask_str, const char *src_str,
                              const char *gate_str, const char *ifname,
                              const char *flag_str, const char *tag_str,
-                             const char *distance_str, const char *vrf_id_str,
+                             const char *distance_str, const char *vrf_name,
                              const char *label_str)
 {
 	struct zebra_vrf *zvrf;
+	struct vrf *vrf;
 
 	/* VRF id */
-	zvrf = zebra_vrf_lookup_by_name(vrf_id_str);
+	zvrf = zebra_vrf_lookup_by_name(vrf_name);
 
-	if (!zvrf) {
-		vty_out(vty, "%% vrf %s is not defined\n", vrf_id_str);
+	/* When trying to delete, the VRF must exist. */
+	if (negate && !zvrf) {
+		vty_out(vty, "%% vrf %s is not defined\n", vrf_name);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	/* When trying to create, create the VRF if it doesn't exist.
+	 * Note: The VRF isn't active until we hear about it from the kernel.
+	 */
+	if (!zvrf) {
+		vrf = vrf_get(VRF_UNKNOWN, vrf_name);
+		if (!vrf) {
+			vty_out(vty, "%% Could not create vrf %s\n", vrf_name);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		zvrf = vrf->info;
+		if (!zvrf) {
+			vty_out(vty, "%% Could not create vrf-info %s\n",
+				vrf_name);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		/* Mark as having FRR configuration */
+		vrf_set_user_cfged(vrf);
+	}
 	return zebra_static_route_leak(vty, zvrf, zvrf, afi, safi,
 				       negate, dest_str, mask_str, src_str,
 				       gate_str, ifname, flag_str, tag_str,
@@ -535,7 +561,11 @@ DEFPY(ip_route_address_interface_vrf,
 		ifname = NULL;
 	}
 
-	nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	if (nexthop_vrf)
+		nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	else
+		nh_zvrf = zvrf;
+
 	if (!nh_zvrf) {
 		vty_out(vty, "%% nexthop vrf %s is not defined\n",
 			nexthop_vrf);
@@ -642,7 +672,11 @@ DEFPY(ip_route_vrf,
 		ifname = NULL;
 	}
 
-	nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	if (nexthop_vrf)
+		nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	else
+		nh_zvrf = zvrf;
+
 	if (!nh_zvrf) {
 		vty_out(vty, "%% nexthop vrf %s is not defined\n",
 			nexthop_vrf);
@@ -736,8 +770,9 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 					inet_ntoa(nexthop->gate.ipv4));
 				if (nexthop->ifindex)
 					vty_out(vty, ", via %s",
-						ifindex2ifname(nexthop->ifindex,
-							       re->nh_vrf_id));
+						ifindex2ifname(
+							nexthop->ifindex,
+							nexthop->vrf_id));
 				break;
 			case NEXTHOP_TYPE_IPV6:
 			case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -746,13 +781,14 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 						  buf, sizeof buf));
 				if (nexthop->ifindex)
 					vty_out(vty, ", via %s",
-						ifindex2ifname(nexthop->ifindex,
-							       re->nh_vrf_id));
+						ifindex2ifname(
+							nexthop->ifindex,
+							nexthop->vrf_id));
 				break;
 			case NEXTHOP_TYPE_IFINDEX:
 				vty_out(vty, " directly connected, %s",
 					ifindex2ifname(nexthop->ifindex,
-						       re->nh_vrf_id));
+						       nexthop->vrf_id));
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
 				vty_out(vty, " unreachable");
@@ -775,9 +811,9 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				break;
 			}
 
-			if (re->vrf_id != re->nh_vrf_id) {
+			if (re->vrf_id != nexthop->vrf_id) {
 				struct vrf *vrf =
-					vrf_lookup_by_id(re->nh_vrf_id);
+					vrf_lookup_by_id(nexthop->vrf_id);
 
 				vty_out(vty, "(vrf %s)", vrf->name);
 			}
@@ -920,8 +956,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 							    nexthop->ifindex);
 					json_object_string_add(
 						json_nexthop, "interfaceName",
-						ifindex2ifname(nexthop->ifindex,
-							       re->nh_vrf_id));
+						ifindex2ifname(
+							nexthop->ifindex,
+							nexthop->vrf_id));
 				}
 				break;
 			case NEXTHOP_TYPE_IPV6:
@@ -939,8 +976,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 							    nexthop->ifindex);
 					json_object_string_add(
 						json_nexthop, "interfaceName",
-						ifindex2ifname(nexthop->ifindex,
-							       re->nh_vrf_id));
+						ifindex2ifname(
+							nexthop->ifindex,
+							nexthop->vrf_id));
 				}
 				break;
 
@@ -953,7 +991,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				json_object_string_add(
 					json_nexthop, "interfaceName",
 					ifindex2ifname(nexthop->ifindex,
-						       re->nh_vrf_id));
+						       nexthop->vrf_id));
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
 				json_object_boolean_true_add(json_nexthop,
@@ -980,9 +1018,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				break;
 			}
 
-			if (re->nh_vrf_id != re->vrf_id) {
+			if (nexthop->vrf_id != re->vrf_id) {
 				struct vrf *vrf =
-					vrf_lookup_by_id(re->nh_vrf_id);
+					vrf_lookup_by_id(nexthop->vrf_id);
 
 				json_object_string_add(json_nexthop,
 						       "vrf",
@@ -1095,7 +1133,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			if (nexthop->ifindex)
 				vty_out(vty, ", %s",
 					ifindex2ifname(nexthop->ifindex,
-						       re->nh_vrf_id));
+						       nexthop->vrf_id));
 			break;
 		case NEXTHOP_TYPE_IPV6:
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -1105,13 +1143,13 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			if (nexthop->ifindex)
 				vty_out(vty, ", %s",
 					ifindex2ifname(nexthop->ifindex,
-						       re->nh_vrf_id));
+						       nexthop->vrf_id));
 			break;
 
 		case NEXTHOP_TYPE_IFINDEX:
 			vty_out(vty, " is directly connected, %s",
 				ifindex2ifname(nexthop->ifindex,
-					       re->nh_vrf_id));
+					       nexthop->vrf_id));
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:
 			vty_out(vty, " unreachable");
@@ -1133,9 +1171,8 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			break;
 		}
 
-		if (re->nh_vrf_id != re->vrf_id) {
-			struct vrf *vrf =
-				vrf_lookup_by_id(re->nh_vrf_id);
+		if (nexthop->vrf_id != re->vrf_id) {
+			struct vrf *vrf = vrf_lookup_by_id(nexthop->vrf_id);
 
 			vty_out(vty, "(vrf %s)", vrf->name);
 		}
@@ -2066,7 +2103,11 @@ DEFPY(ipv6_route_address_interface_vrf,
 	struct zebra_vrf *zvrf = vrf->info;
 	struct zebra_vrf *nh_zvrf;
 
-	nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	if (nexthop_vrf)
+		nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	else
+		nh_zvrf = zvrf;
+
 	if (!nh_zvrf) {
 		vty_out(vty, "%% nexthop vrf %s is not defined\n",
 			nexthop_vrf);
@@ -2160,7 +2201,11 @@ DEFPY(ipv6_route_vrf,
 	struct zebra_vrf *zvrf = vrf->info;
 	struct zebra_vrf *nh_zvrf;
 
-	nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	if (nexthop_vrf)
+		nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	else
+		nh_zvrf = zvrf;
+
 	if (!nh_zvrf) {
 		vty_out(vty, "%% nexthop vrf %s is not defined\n",
 			nexthop_vrf);
@@ -2286,7 +2331,58 @@ DEFUN (show_vrf,
 		else
 			vty_out(vty, "id %u table %u", zvrf_id(zvrf),
 				zvrf->table_id);
+		if (vrf_is_user_cfged(vrf))
+			vty_out(vty, " (configured)");
 		vty_out(vty, "\n");
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (default_vrf_vni_mapping,
+       default_vrf_vni_mapping_cmd,
+       "vni " CMD_VNI_RANGE,
+       "VNI corresponding to the DEFAULT VRF\n"
+       "VNI-ID\n")
+{
+	int ret = 0;
+	char err[ERR_STR_SZ];
+	struct zebra_vrf *zvrf = NULL;
+	vni_t vni = strtoul(argv[1]->arg, NULL, 10);
+
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	if (!zvrf)
+		return CMD_WARNING;
+
+	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 1);
+	if (ret != 0) {
+		vty_out(vty, "%s\n", err);
+		return CMD_WARNING;
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_default_vrf_vni_mapping,
+       no_default_vrf_vni_mapping_cmd,
+       "no vni " CMD_VNI_RANGE,
+       NO_STR
+       "VNI corresponding to DEFAULT VRF\n"
+       "VNI-ID")
+{
+	int ret = 0;
+	char err[ERR_STR_SZ];
+	vni_t vni = strtoul(argv[2]->arg, NULL, 10);
+	struct zebra_vrf *zvrf = NULL;
+
+	zvrf = vrf_info_lookup(VRF_DEFAULT);
+	if (!zvrf)
+		return CMD_WARNING;
+
+	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 0);
+	if (ret != 0) {
+		vty_out(vty, "%s\n", err);
+		return CMD_WARNING;
 	}
 
 	return CMD_SUCCESS;
@@ -2295,7 +2391,7 @@ DEFUN (show_vrf,
 DEFUN (vrf_vni_mapping,
        vrf_vni_mapping_cmd,
        "vni " CMD_VNI_RANGE,
-       "VNI\n"
+       "VNI corresponding to tenant VRF\n"
        "VNI-ID\n")
 {
 	int ret = 0;
@@ -2307,6 +2403,8 @@ DEFUN (vrf_vni_mapping,
 	assert(vrf);
 	assert(zvrf);
 
+	/* Mark as having FRR configuration */
+	vrf_set_user_cfged(vrf);
 	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 1);
 	if (ret != 0) {
 		vty_out(vty, "%s\n", err);
@@ -2320,7 +2418,7 @@ DEFUN (no_vrf_vni_mapping,
        no_vrf_vni_mapping_cmd,
        "no vni " CMD_VNI_RANGE,
        NO_STR
-       "VNI\n"
+       "VNI corresponding to tenant VRF\n"
        "VNI-ID")
 {
 	int ret = 0;
@@ -2337,6 +2435,10 @@ DEFUN (no_vrf_vni_mapping,
 		vty_out(vty, "%s\n", err);
 		return CMD_WARNING;
 	}
+
+	/* If no other FRR config for this VRF, mark accordingly. */
+	if (!zebra_vrf_has_config(zvrf))
+		vrf_reset_user_cfged(vrf);
 
 	return CMD_SUCCESS;
 }
@@ -2361,29 +2463,16 @@ DEFUN (show_vrf_vni,
 		json_vrfs = json_object_new_array();
 	}
 
+	if (!uj)
+		vty_out(vty, "%-37s %-10s %-20s %-20s %-5s %-18s\n",
+			"VRF", "VNI", "VxLAN IF", "L3-SVI", "State", "Rmac");
+
 	RB_FOREACH(vrf, vrf_name_head, &vrfs_by_name) {
 		zvrf = vrf->info;
 		if (!zvrf)
 			continue;
 
-		if (!zvrf->l3vni)
-			continue;
-
-		if (!uj) {
-			vty_out(vty, "vrf: %s VNI: %u",
-				zvrf_name(zvrf),
-				zvrf->l3vni);
-			vty_out(vty, "\n");
-		} else {
-			json_object *json_vrf = NULL;
-
-			json_vrf = json_object_new_object();
-			json_object_string_add(json_vrf, "vrf",
-					       zvrf_name(zvrf));
-			json_object_int_add(json_vrf, "l3vni",
-					    zvrf->l3vni);
-			json_object_array_add(json_vrfs, json_vrf);
-		}
+		zebra_vxlan_print_vrf_vni(vty, zvrf, json_vrfs);
 	}
 
 	if (uj) {
@@ -2393,6 +2482,19 @@ DEFUN (show_vrf_vni,
 		json_object_free(json);
 	}
 
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_evpn_global,
+       show_evpn_global_cmd,
+       "show evpn [json]",
+       SHOW_STR
+       "EVPN\n"
+       JSON_STR)
+{
+	u_char uj = use_json(argc, argv);
+
+	zebra_vxlan_print_evpn(vty, uj);
 	return CMD_SUCCESS;
 }
 
@@ -2431,44 +2533,13 @@ DEFUN (show_evpn_vni_vni,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_evpn_l3vni,
-       show_evpn_l3vni_cmd,
-       "show evpn l3vni [json]",
-       SHOW_STR
-       "EVPN\n"
-       "L3 VNI\n"
-       JSON_STR)
-{
-	u_char uj = use_json(argc, argv);
-
-	zebra_vxlan_print_l3vnis(vty, uj);
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_evpn_l3vni_vni,
-       show_evpn_l3vni_vni_cmd,
-       "show evpn l3vni " CMD_VNI_RANGE "[json]",
-       SHOW_STR
-       "EVPN\n"
-       "L3 VxLAN Network Identifier\n"
-       "VNI number\n"
-       JSON_STR)
-{
-	vni_t vni;
-	u_char uj = use_json(argc, argv);
-
-	vni = strtoul(argv[3]->arg, NULL, 10);
-	zebra_vxlan_print_l3vni(vty, vni, uj);
-	return CMD_SUCCESS;
-}
-
-DEFUN (show_evpn_rmac_l3vni_mac,
-       show_evpn_rmac_l3vni_mac_cmd,
-       "show evpn rmac l3vni " CMD_VNI_RANGE " mac WORD [json]",
+DEFUN (show_evpn_rmac_vni_mac,
+       show_evpn_rmac_vni_mac_cmd,
+       "show evpn rmac vni " CMD_VNI_RANGE " mac WORD [json]",
        SHOW_STR
        "EVPN\n"
        "RMAC\n"
-       "L3-VNI\n"
+       "L3 VNI\n"
        "VNI number\n"
        "MAC\n"
        "mac-address (e.g. 0a:0a:0a:0a:0a:0a)\n"
@@ -2487,13 +2558,13 @@ DEFUN (show_evpn_rmac_l3vni_mac,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_evpn_rmac_l3vni,
-       show_evpn_rmac_l3vni_cmd,
-       "show evpn rmac l3vni " CMD_VNI_RANGE "[json]",
+DEFUN (show_evpn_rmac_vni,
+       show_evpn_rmac_vni_cmd,
+       "show evpn rmac vni " CMD_VNI_RANGE "[json]",
        SHOW_STR
        "EVPN\n"
        "RMAC\n"
-       "L3-VNI\n"
+       "L3 VNI\n"
        "VNI number\n"
        JSON_STR)
 {
@@ -2506,13 +2577,13 @@ DEFUN (show_evpn_rmac_l3vni,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_evpn_rmac_l3vni_all,
-       show_evpn_rmac_l3vni_all_cmd,
-       "show evpn rmac l3vni all [json]",
+DEFUN (show_evpn_rmac_vni_all,
+       show_evpn_rmac_vni_all_cmd,
+       "show evpn rmac vni all [json]",
        SHOW_STR
        "EVPN\n"
        "RMAC addresses\n"
-       "L3-VNI\n"
+       "L3 VNI\n"
        "All VNIs\n"
        JSON_STR)
 {
@@ -2523,13 +2594,13 @@ DEFUN (show_evpn_rmac_l3vni_all,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_evpn_nh_l3vni_ip,
-       show_evpn_nh_l3vni_ip_cmd,
-       "show evpn next-hops l3vni " CMD_VNI_RANGE " ip WORD [json]",
+DEFUN (show_evpn_nh_vni_ip,
+       show_evpn_nh_vni_ip_cmd,
+       "show evpn next-hops vni " CMD_VNI_RANGE " ip WORD [json]",
        SHOW_STR
        "EVPN\n"
        "Remote Vteps\n"
-       "L3-VNI\n"
+       "L3 VNI\n"
        "VNI number\n"
        "Ip address\n"
        "Host address (ipv4 or ipv6)\n"
@@ -2550,13 +2621,13 @@ DEFUN (show_evpn_nh_l3vni_ip,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_evpn_nh_l3vni,
-       show_evpn_nh_l3vni_cmd,
-       "show evpn next-hops l3vni " CMD_VNI_RANGE "[json]",
+DEFUN (show_evpn_nh_vni,
+       show_evpn_nh_vni_cmd,
+       "show evpn next-hops vni " CMD_VNI_RANGE "[json]",
        SHOW_STR
        "EVPN\n"
        "Remote Vteps\n"
-       "L3-VNI\n"
+       "L3 VNI\n"
        "VNI number\n"
        JSON_STR)
 {
@@ -2569,13 +2640,13 @@ DEFUN (show_evpn_nh_l3vni,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_evpn_nh_l3vni_all,
-       show_evpn_nh_l3vni_all_cmd,
-       "show evpn next-hops l3vni all [json]",
+DEFUN (show_evpn_nh_vni_all,
+       show_evpn_nh_vni_all_cmd,
+       "show evpn next-hops vni all [json]",
        SHOW_STR
        "EVPN\n"
        "Remote VTEPs\n"
-       "L3-VNI\n"
+       "L3 VNI\n"
        "All VNIs\n"
        JSON_STR)
 {
@@ -3283,16 +3354,15 @@ void zebra_vty_init(void)
 	/* Commands for VRF */
 	install_element(VIEW_NODE, &show_ipv6_mroute_vrf_all_cmd);
 
+	install_element(VIEW_NODE, &show_evpn_global_cmd);
 	install_element(VIEW_NODE, &show_evpn_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_vni_vni_cmd);
-	install_element(VIEW_NODE, &show_evpn_l3vni_cmd);
-	install_element(VIEW_NODE, &show_evpn_l3vni_vni_cmd);
-	install_element(VIEW_NODE, &show_evpn_rmac_l3vni_mac_cmd);
-	install_element(VIEW_NODE, &show_evpn_rmac_l3vni_cmd);
-	install_element(VIEW_NODE, &show_evpn_rmac_l3vni_all_cmd);
-	install_element(VIEW_NODE, &show_evpn_nh_l3vni_ip_cmd);
-	install_element(VIEW_NODE, &show_evpn_nh_l3vni_cmd);
-	install_element(VIEW_NODE, &show_evpn_nh_l3vni_all_cmd);
+	install_element(VIEW_NODE, &show_evpn_rmac_vni_mac_cmd);
+	install_element(VIEW_NODE, &show_evpn_rmac_vni_cmd);
+	install_element(VIEW_NODE, &show_evpn_rmac_vni_all_cmd);
+	install_element(VIEW_NODE, &show_evpn_nh_vni_ip_cmd);
+	install_element(VIEW_NODE, &show_evpn_nh_vni_cmd);
+	install_element(VIEW_NODE, &show_evpn_nh_vni_all_cmd);
 	install_element(VIEW_NODE, &show_evpn_mac_vni_cmd);
 	install_element(VIEW_NODE, &show_evpn_mac_vni_all_cmd);
 	install_element(VIEW_NODE, &show_evpn_mac_vni_all_vtep_cmd);
@@ -3303,7 +3373,8 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_neigh_cmd);
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_vtep_cmd);
 
-	install_element(CONFIG_NODE, &no_vrf_vni_mapping_cmd);
+	install_element(CONFIG_NODE, &default_vrf_vni_mapping_cmd);
+	install_element(CONFIG_NODE, &no_default_vrf_vni_mapping_cmd);
 	install_element(VRF_NODE, &vrf_vni_mapping_cmd);
 	install_element(VRF_NODE, &no_vrf_vni_mapping_cmd);
 

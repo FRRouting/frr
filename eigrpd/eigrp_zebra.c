@@ -366,7 +366,6 @@ void eigrp_zebra_route_add(struct prefix *p, struct list *successors)
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
-	api.nh_vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_EIGRP;
 	api.safi = SAFI_UNICAST;
 	memcpy(&api.prefix, p, sizeof(*p));
@@ -378,6 +377,7 @@ void eigrp_zebra_route_add(struct prefix *p, struct list *successors)
 		if (count >= MULTIPATH_NUM)
 			break;
 		api_nh = &api.nexthops[count];
+		api_nh->vrf_id = VRF_DEFAULT;
 		if (te->adv_router->src.s_addr) {
 			api_nh->gate.ipv4 = te->adv_router->src;
 			api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;
@@ -408,7 +408,6 @@ void eigrp_zebra_route_delete(struct prefix *p)
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
-	api.nh_vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_EIGRP;
 	api.safi = SAFI_UNICAST;
 	memcpy(&api.prefix, p, sizeof(*p));

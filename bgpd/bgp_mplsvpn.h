@@ -24,30 +24,6 @@
 #include "bgpd/bgp_route.h"
 #include "bgpd/bgp_rd.h"
 
-#ifdef MPLS_LABEL_MAX
-#undef MPLS_LABEL_MAX
-#endif
-
-typedef enum {
-	MPLS_LABEL_IPV4_EXPLICIT_NULL = 0, /* [RFC3032] */
-	MPLS_LABEL_ROUTER_ALERT = 1,       /* [RFC3032] */
-	MPLS_LABEL_IPV6_EXPLICIT_NULL = 2, /* [RFC3032] */
-	MPLS_LABEL_IMPLICIT_NULL = 3,      /* [RFC3032] */
-	MPLS_LABEL_UNASSIGNED4 = 4,
-	MPLS_LABEL_UNASSIGNED5 = 5,
-	MPLS_LABEL_UNASSIGNED6 = 6,
-	MPLS_LABEL_ELI = 7, /* Entropy Indicator [RFC6790] */
-	MPLS_LABEL_UNASSIGNED8 = 8,
-	MPLS_LABEL_UNASSIGNED9 = 9,
-	MPLS_LABEL_UNASSIGNED10 = 10,
-	MPLS_LABEL_UNASSIGNED11 = 11,
-	MPLS_LABEL_GAL = 13,       /* [RFC5586] */
-	MPLS_LABEL_OAM_ALERT = 14, /* [RFC3429] */
-	MPLS_LABEL_EXTENSION = 15, /* [RFC7274] */
-	MPLS_LABEL_MAX = 1048575,
-	MPLS_LABEL_ILLEGAL = 0xFFFFFFFF /* for internal use only */
-} mpls_special_label_t;
-
 #define MPLS_LABEL_IS_SPECIAL(label) ((label) <= MPLS_LABEL_EXTENSION)
 #define MPLS_LABEL_IS_NULL(label)                                              \
 	((label) == MPLS_LABEL_IPV4_EXPLICIT_NULL                              \

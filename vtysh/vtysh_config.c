@@ -352,13 +352,15 @@ void vtysh_config_dump(FILE *fp)
 	for (i = 0; i < vector_active(configvec); i++)
 		if ((master = vector_slot(configvec, i)) != NULL) {
 			for (ALL_LIST_ELEMENTS(master, node, nnode, config)) {
-				/* Don't print empty sections for interface/vrf.
+				/* Don't print empty sections for interface.
 				 * Route maps on the
 				 * other hand could have a legitimate empty
 				 * section at the end.
+				 * VRF is handled in the backend, we could have
+				 * "configured" VRFs with static routes which
+				 * are not under the VRF node.
 				 */
-				if ((config->index == INTERFACE_NODE
-				     || config->index == VRF_NODE)
+				if (config->index == INTERFACE_NODE
 				    && list_isempty(config->line))
 					continue;
 

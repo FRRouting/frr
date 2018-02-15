@@ -2319,13 +2319,15 @@ void rip_output_process(struct connected *ifc, struct sockaddr_in *to,
 							  tmp_rinfo))
 					if (tmp_rinfo->type == ZEBRA_ROUTE_RIP
 					    && tmp_rinfo->nh.ifindex
-						       == ifc->ifp->ifindex)
-						rinfo->metric_out =
+					    == ifc->ifp->ifindex)
+						tmp_rinfo->metric_out =
 							RIP_METRIC_INFINITY;
-				if (tmp_rinfo->type == ZEBRA_ROUTE_CONNECT
+
+				if (rinfo->type == ZEBRA_ROUTE_CONNECT
 				    && prefix_match((struct prefix *)p,
 						    ifc->address))
-					rinfo->metric_out = RIP_METRIC_INFINITY;
+					rinfo->metric_out =
+						RIP_METRIC_INFINITY;
 			}
 
 			/* Prepare preamble, auth headers, if needs be */

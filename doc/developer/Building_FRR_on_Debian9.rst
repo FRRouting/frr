@@ -25,7 +25,7 @@ Add frr groups and user
 
     sudo addgroup --system --gid 92 frr
     sudo addgroup --system --gid 85 frrvty
-    sudo adduser --system --ingroup frr --home /var/run/frr/ \
+    sudo adduser --system --ingroup frr --home /var/opt/frr/ \
        --gecos "FRR suite" --shell /bin/false frr
     sudo usermod -a -G frrvty frr
 
@@ -43,7 +43,7 @@ an example.)
     ./bootstrap.sh
     ./configure \
         --enable-exampledir=/usr/share/doc/frr/examples/ \
-        --localstatedir=/var/run/frr \
+        --localstatedir=/var/opt/frr \
         --sbindir=/usr/lib/frr \
         --sysconfdir=/etc/frr \
         --enable-vtysh \
@@ -73,6 +73,7 @@ Create empty FRR configuration files
 ::
 
     sudo install -m 755 -o frr -g frr -d /var/log/frr
+    sudo install -m 755 -o frr -g frr -d /var/opt/frr
     sudo install -m 775 -o frr -g frrvty -d /etc/frr
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/zebra.conf
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/bgpd.conf
@@ -106,32 +107,18 @@ other settings)
 system
 
 Troubleshooting
-~~~~~~~~~~~~~~~
+---------------
 
-**Local state directory**
-
-The local state directory must exist and have the correct permissions
-applied for the frrouting daemons to start. In the above ./configure
-example the local state directory is set to /var/run/frr
-(--localstatedir=/var/run/frr) Debian considers /var/run/frr to be
-temporary and this is removed after a reboot.
-
-When using a different local state directory you need to create the new
-directory and change the ownership to the frr user, for example:
-
-::
-
-    mkdir /var/opt/frr
-    chown frr /var/opt/frr
-
-**Shared library error**
+Shared library error
+~~~~~~~~~~~~~~~~~~~~
 
 If you try and start any of the frrouting daemons you may see the below
 error due to the frrouting shared library directory not being found:
 
 ::
 
-    ./zebra: error while loading shared libraries: libfrr.so.0: cannot open shared object file: No such file or directory
+   ./zebra: error while loading shared libraries: libfrr.so.0: cannot open
+   shared object file: No such file or directory
 
 The fix is to add the following line to /etc/ld.so.conf which will
 continue to reference the library directory after the system reboots. To
@@ -140,5 +127,5 @@ after adding the line to the file eg:
 
 ::
 
-    echo include /usr/local/lib >> /etc/ld.so.conf
-    ldconfig
+   echo include /usr/local/lib >> /etc/ld.so.conf
+   ldconfig

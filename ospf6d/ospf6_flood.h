@@ -58,5 +58,10 @@ extern void ospf6_install_lsa(struct ospf6_lsa *lsa);
 
 extern int config_write_ospf6_debug_flood(struct vty *vty);
 extern void install_element_ospf6_debug_flood(void);
+extern void ospf6_flood_interface(struct ospf6_neighbor *from,
+				  struct ospf6_lsa *lsa,
+				  struct ospf6_interface *oi);
+extern int ospf6_lsupdate_send_neighbor_now(struct ospf6_neighbor *on,
+					    struct ospf6_lsa *lsa);
 
 #endif /* OSPF6_FLOOD_H */

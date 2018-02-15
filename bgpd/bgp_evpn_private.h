@@ -65,6 +65,9 @@ struct bgpevpn {
 	/* Flag to indicate if we are advertising the g/w mac ip for this VNI*/
 	u_int8_t advertise_gw_macip;
 
+	/* Flag to indicate if we are advertising subnet for this VNI */
+	u_int8_t advertise_subnet;
+
 	/* Id for deriving the RD automatically for this VNI */
 	u_int16_t rd_id;
 
@@ -228,26 +231,6 @@ static inline int is_vni_param_configured(struct bgpevpn *vpn)
 		|| is_export_rt_configured(vpn));
 }
 
-static inline void vni2label(vni_t vni, mpls_label_t *label)
-{
-	u_char *tag = (u_char *)label;
-	tag[0] = (vni >> 16) & 0xFF;
-	tag[1] = (vni >> 8) & 0xFF;
-	tag[2] = vni & 0xFF;
-}
-
-static inline vni_t label2vni(mpls_label_t *label)
-{
-	u_char *tag = (u_char *)label;
-	vni_t vni;
-
-	vni = ((u_int32_t)*tag++ << 16);
-	vni |= (u_int32_t)*tag++ << 8;
-	vni |= (u_int32_t)(*tag & 0xFF);
-
-	return vni;
-}
-
 static inline void encode_rmac_extcomm(struct ecommunity_val *eval,
 				       struct ethaddr *rmac)
 {
@@ -255,6 +238,13 @@ static inline void encode_rmac_extcomm(struct ecommunity_val *eval,
 	eval->val[0] = ECOMMUNITY_ENCODE_EVPN;
 	eval->val[1] = ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC;
 	memcpy(&eval->val[2], rmac, ETH_ALEN);
+}
+
+static inline void encode_default_gw_extcomm(struct ecommunity_val *eval)
+{
+	memset(eval, 0, sizeof(*eval));
+	eval->val[0] = ECOMMUNITY_ENCODE_OPAQUE;
+	eval->val[1] = ECOMMUNITY_EVPN_SUBTYPE_DEF_GW;
 }
 
 static inline void encode_mac_mobility_extcomm(int static_mac, u_int32_t seq,

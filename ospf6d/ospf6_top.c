@@ -180,6 +180,8 @@ void ospf6_delete(struct ospf6 *o)
 	struct ospf6_area *oa;
 
 	QOBJ_UNREG(o);
+
+	ospf6_flush_self_originated_lsas_now();
 	ospf6_disable(ospf6);
 
 	for (ALL_LIST_ELEMENTS(o->area_list, node, nnode, oa))

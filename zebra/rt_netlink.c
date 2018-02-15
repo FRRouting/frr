@@ -443,10 +443,10 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 				if (ifp)
 					nh_vrf_id = ifp->vrf_id;
 			}
+			nh.vrf_id = nh_vrf_id;
 
-			rib_add(afi, SAFI_UNICAST, vrf_id, nh_vrf_id, proto,
-				0, flags, &p, NULL, &nh, table, metric,
-				mtu, distance, tag);
+			rib_add(afi, SAFI_UNICAST, vrf_id, proto, 0, flags, &p,
+				NULL, &nh, table, metric, mtu, distance, tag);
 		} else {
 			/* This is a multipath route */
 
@@ -463,13 +463,13 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 			re->metric = metric;
 			re->mtu = mtu;
 			re->vrf_id = vrf_id;
-			re->nh_vrf_id = vrf_id;
 			re->table = table;
 			re->nexthop_num = 0;
 			re->uptime = time(NULL);
 			re->tag = tag;
 
 			for (;;) {
+				vrf_id_t nh_vrf_id;
 				if (len < (int)sizeof(*rtnh)
 				    || rtnh->rtnh_len > len)
 					break;
@@ -485,8 +485,17 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 					ifp = if_lookup_by_index(index,
 								 VRF_UNKNOWN);
 					if (ifp)
-						re->nh_vrf_id = ifp->vrf_id;
-				}
+						nh_vrf_id = ifp->vrf_id;
+					else {
+						zlog_warn(
+							"%s: Unknown interface %u specified, defaulting to VRF_DEFAULT",
+							__PRETTY_FUNCTION__,
+							index);
+						nh_vrf_id = VRF_DEFAULT;
+					}
+				} else
+					nh_vrf_id = vrf_id;
+
 				gate = 0;
 				if (rtnh->rtnh_len > sizeof(*rtnh)) {
 					memset(tb, 0, sizeof(tb));
@@ -503,24 +512,27 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 						if (index)
 							route_entry_nexthop_ipv4_ifindex_add(
 								re, gate,
-								prefsrc, index);
+								prefsrc, index,
+								nh_vrf_id);
 						else
 							route_entry_nexthop_ipv4_add(
 								re, gate,
-								prefsrc);
+								prefsrc,
+								nh_vrf_id);
 					} else if (rtm->rtm_family
 						   == AF_INET6) {
 						if (index)
 							route_entry_nexthop_ipv6_ifindex_add(
-								re, gate,
-								index);
+								re, gate, index,
+								nh_vrf_id);
 						else
 							route_entry_nexthop_ipv6_add(
-								re, gate);
+								re, gate,
+								nh_vrf_id);
 					}
 				} else
-					route_entry_nexthop_ifindex_add(re,
-									index);
+					route_entry_nexthop_ifindex_add(
+						re, index, nh_vrf_id);
 
 				len -= NLMSG_ALIGN(rtnh->rtnh_len);
 				rtnh = RTNH_NEXT(rtnh);
@@ -852,7 +864,7 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 		char label_buf1[20];
 
 		for (i = 0; i < nh_label->num_labels; i++) {
-			if (nh_label->label[i] != MPLS_IMP_NULL_LABEL) {
+			if (nh_label->label[i] != MPLS_LABEL_IMPLICIT_NULL) {
 				bos = ((i == (nh_label->num_labels - 1)) ? 1
 									 : 0);
 				out_lse[i] = mpls_lse_encode(nh_label->label[i],
@@ -1062,7 +1074,7 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 		char label_buf1[20];
 
 		for (i = 0; i < nh_label->num_labels; i++) {
-			if (nh_label->label[i] != MPLS_IMP_NULL_LABEL) {
+			if (nh_label->label[i] != MPLS_LABEL_IMPLICIT_NULL) {
 				bos = ((i == (nh_label->num_labels - 1)) ? 1
 									 : 0);
 				out_lse[i] = mpls_lse_encode(nh_label->label[i],

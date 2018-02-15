@@ -618,8 +618,7 @@ static route_map_result_t route_match_mac_address(void *rule,
 		p.prefixlen = ETH_ALEN * 8;
 		p.u.prefix_eth = prefix->u.prefix_evpn.mac;
 
-		return (access_list_apply(alist, &p)
-					== FILTER_DENY
+		return (access_list_apply(alist, &p) == FILTER_DENY
 				? RMAP_NOMATCH
 				: RMAP_MATCH);
 	}
@@ -659,7 +658,7 @@ static route_map_result_t route_match_vni(void *rule, struct prefix *prefix,
 		vni = *((vni_t *)rule);
 		bgp_info = (struct bgp_info *)object;
 
-		if (vni == label2vni(&bgp_info->extra->label))
+		if (vni == label2vni(&bgp_info->extra->label[0]))
 			return RMAP_MATCH;
 	}
 
@@ -695,6 +694,56 @@ static void route_match_vni_free(void *rule)
 struct route_map_rule_cmd route_match_evpn_vni_cmd = {
 	"evpn vni", route_match_vni, route_match_vni_compile,
 	route_match_vni_free};
+
+/* `match evpn route-type' */
+
+/* Match function should return 1 if match is success else return
+   zero. */
+static route_map_result_t route_match_evpn_route_type(void *rule,
+						      struct prefix *prefix,
+						      route_map_object_t type,
+						      void *object)
+{
+	u_char route_type = 0;
+
+	if (type == RMAP_BGP) {
+		route_type = *((u_char *)rule);
+
+		if (route_type == prefix->u.prefix_evpn.route_type)
+			return RMAP_MATCH;
+	}
+
+	return RMAP_NOMATCH;
+}
+
+/* Route map `route-type' match statement. */
+static void *route_match_evpn_route_type_compile(const char *arg)
+{
+	u_char *route_type = NULL;
+
+	route_type = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(u_char));
+
+	if (strncmp(arg, "ma", 2) == 0)
+		*route_type = BGP_EVPN_MAC_IP_ROUTE;
+	else if (strncmp(arg, "mu", 2) == 0)
+		*route_type = BGP_EVPN_IMET_ROUTE;
+	else
+		*route_type = BGP_EVPN_IP_PREFIX_ROUTE;
+
+	return route_type;
+}
+
+/* Free route map's compiled `route-type' value. */
+static void route_match_evpn_route_type_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for evpn route-type  matching. */
+struct route_map_rule_cmd route_match_evpn_route_type_cmd = {
+	"evpn route-type", route_match_evpn_route_type,
+	route_match_evpn_route_type_compile,
+	route_match_evpn_route_type_free};
 
 /* `match local-preference LOCAL-PREF' */
 
@@ -3132,6 +3181,36 @@ DEFUN (no_match_mac_address,
 				      RMAP_EVENT_FILTER_DELETED);
 }
 
+DEFUN (match_evpn_route_type,
+       match_evpn_route_type_cmd,
+       "match evpn route-type <macip | multicast | prefix>",
+       MATCH_STR
+       EVPN_HELP_STR
+       "Match route-type\n"
+       "mac-ip route\n"
+       "IMET route\n"
+       "prefix route\n")
+{
+	return bgp_route_match_add(vty, "evpn route-type", argv[3]->arg,
+				   RMAP_EVENT_MATCH_ADDED);
+}
+
+DEFUN (no_match_evpn_route_type,
+       no_match_evpn_route_type_cmd,
+       "no match evpn route-type <macip | multicast | prefix>",
+       NO_STR
+       MATCH_STR
+       EVPN_HELP_STR
+       "Match route-type\n"
+       "mac-ip route\n"
+       "IMET route\n"
+       "prefix route\n")
+{
+	return bgp_route_match_delete(vty, "evpn route-type", argv[4]->arg,
+				      RMAP_EVENT_MATCH_DELETED);
+}
+
+
 DEFUN (match_evpn_vni,
        match_evpn_vni_cmd,
        "match evpn vni (1-16777215)",
@@ -3519,9 +3598,9 @@ DEFUN (set_ip_nexthop_peer,
        "Use peer address (for BGP only)\n")
 {
 	int (*func)(struct vty *, struct route_map_index *, const char *,
-		     const char *) = strmatch(argv[0]->text, "no")
-					     ? generic_set_delete
-					     : generic_set_add;
+		    const char *) = strmatch(argv[0]->text, "no")
+					    ? generic_set_delete
+					    : generic_set_add;
 
 	return func(vty, VTY_GET_CONTEXT(route_map_index), "ip next-hop",
 		    "peer-address");
@@ -3537,9 +3616,9 @@ DEFUN (set_ip_nexthop_unchanged,
        "Don't modify existing Next hop address\n")
 {
 	int (*func)(struct vty *, struct route_map_index *, const char *,
-		     const char *) = strmatch(argv[0]->text, "no")
-					     ? generic_set_delete
-					     : generic_set_add;
+		    const char *) = strmatch(argv[0]->text, "no")
+					    ? generic_set_delete
+					    : generic_set_add;
 
 	return func(vty, VTY_GET_CONTEXT(route_map_index), "ip next-hop",
 		    "unchanged");
@@ -3780,7 +3859,8 @@ DEFUN (set_community,
 			buffer_putstr(b, "no-export");
 			continue;
 		}
-		if (strncmp(argv[i]->arg, "graceful-shutdown", strlen(argv[i]->arg))
+		if (strncmp(argv[i]->arg, "graceful-shutdown",
+			    strlen(argv[i]->arg))
 		    == 0) {
 			buffer_putstr(b, "graceful-shutdown");
 			continue;
@@ -4534,6 +4614,7 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_tag_cmd);
 	route_map_install_match(&route_match_mac_address_cmd);
 	route_map_install_match(&route_match_evpn_vni_cmd);
+	route_map_install_match(&route_match_evpn_route_type_cmd);
 
 	route_map_install_set(&route_set_ip_nexthop_cmd);
 	route_map_install_set(&route_set_local_pref_cmd);
@@ -4568,6 +4649,8 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &no_match_mac_address_cmd);
 	install_element(RMAP_NODE, &match_evpn_vni_cmd);
 	install_element(RMAP_NODE, &no_match_evpn_vni_cmd);
+	install_element(RMAP_NODE, &match_evpn_route_type_cmd);
+	install_element(RMAP_NODE, &no_match_evpn_route_type_cmd);
 
 	install_element(RMAP_NODE, &match_aspath_cmd);
 	install_element(RMAP_NODE, &no_match_aspath_cmd);

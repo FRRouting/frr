@@ -93,6 +93,7 @@ typedef enum {
 	ZEBRA_VRF_UNREGISTER,
 	ZEBRA_VRF_ADD,
 	ZEBRA_VRF_DELETE,
+	ZEBRA_VRF_LABEL,
 	ZEBRA_INTERFACE_VRF_UPDATE,
 	ZEBRA_BFD_CLIENT_REGISTER,
 	ZEBRA_INTERFACE_ENABLE_RADV,
@@ -109,6 +110,7 @@ typedef enum {
 	ZEBRA_FEC_UNREGISTER,
 	ZEBRA_FEC_UPDATE,
 	ZEBRA_ADVERTISE_DEFAULT_GW,
+	ZEBRA_ADVERTISE_SUBNET,
 	ZEBRA_ADVERTISE_ALL_VNI,
 	ZEBRA_VNI_ADD,
 	ZEBRA_VNI_DEL,
@@ -118,6 +120,8 @@ typedef enum {
 	ZEBRA_REMOTE_VTEP_DEL,
 	ZEBRA_MACIP_ADD,
 	ZEBRA_MACIP_DEL,
+	ZEBRA_IP_PREFIX_ROUTE_ADD,
+	ZEBRA_IP_PREFIX_ROUTE_DEL,
 	ZEBRA_REMOTE_MACIP_ADD,
 	ZEBRA_REMOTE_MACIP_DEL,
 	ZEBRA_PW_ADD,
@@ -204,6 +208,8 @@ struct zclient {
 	int (*local_vni_del)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*local_l3vni_add)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*local_l3vni_del)(int, struct zclient *, uint16_t, vrf_id_t);
+	void (*local_ip_prefix_add)(int, struct zclient *, uint16_t, vrf_id_t);
+	void (*local_ip_prefix_del)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*local_macip_add)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*local_macip_del)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*pw_status_update)(int, struct zclient *, uint16_t, vrf_id_t);
@@ -234,6 +240,7 @@ struct zserv_header {
 
 struct zapi_nexthop {
 	enum nexthop_types_t type;
+	vrf_id_t vrf_id;
 	ifindex_t ifindex;
 	union {
 		union g_addr gate;
@@ -281,7 +288,6 @@ struct zapi_route {
 	u_int32_t mtu;
 
 	vrf_id_t vrf_id;
-	vrf_id_t nh_vrf_id;
 
 	struct ethaddr rmac;
 };
@@ -343,8 +349,8 @@ enum zapi_route_notify_owner {
 };
 
 /* Zebra MAC types */
-#define ZEBRA_MAC_TYPE_STICKY                0x01 /* Sticky MAC*/
-#define ZEBRA_MAC_TYPE_GW                    0x02 /* gateway (SVI) mac*/
+#define ZEBRA_MACIP_TYPE_STICKY                0x01 /* Sticky MAC*/
+#define ZEBRA_MACIP_TYPE_GW                    0x02 /* gateway (SVI) mac*/
 
 struct zclient_options {
 	bool receive_notify;
@@ -376,6 +382,17 @@ extern int zclient_socket_connect(struct zclient *);
 extern u_short *redist_check_instance(struct redist_proto *, u_short);
 extern void redist_add_instance(struct redist_proto *, u_short);
 extern void redist_del_instance(struct redist_proto *, u_short);
+
+/*
+ * Send to zebra that the specified vrf is using label to resolve
+ * itself for L3VPN's.  Repeated calls of this function with
+ * different labels will cause an effective update of the
+ * label for lookup.  If you pass in MPLS_LABEL_NONE
+ * we will cause a delete action and remove this label pop
+ * operation.
+ */
+extern void zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id,
+				   mpls_label_t label, enum lsp_types_t ltype);
 
 extern void zclient_send_reg_requests(struct zclient *, vrf_id_t);
 extern void zclient_send_dereg_requests(struct zclient *, vrf_id_t);
@@ -500,6 +517,7 @@ static inline void zapi_route_set_blackhole(struct zapi_route *api,
 {
 	api->nexthop_num = 1;
 	api->nexthops[0].type = NEXTHOP_TYPE_BLACKHOLE;
+	api->nexthops[0].vrf_id = VRF_DEFAULT;
 	api->nexthops[0].bh_type = bh_type;
 	SET_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP);
 };

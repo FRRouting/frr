@@ -192,10 +192,6 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 	struct timeval now;
 	struct ospf6_lsa *old;
 
-	if (IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type)
-	    || IS_OSPF6_DEBUG_EXAMIN_TYPE(lsa->header->type))
-		zlog_debug("Install LSA: %s", lsa->name);
-
 	/* Remove the old instance from all neighbors' Link state
 	   retransmission list (RFC2328 13.2 last paragraph) */
 	old = ospf6_lsdb_lookup(lsa->header->type, lsa->header->id,
@@ -237,6 +233,13 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 		ospf6_lsa_checksum(lsa->header);
 	}
 
+	if (IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type)
+	    || IS_OSPF6_DEBUG_EXAMIN_TYPE(lsa->header->type))
+		zlog_debug("%s Install LSA: %s age %d seqnum %x in LSDB.",
+			   __PRETTY_FUNCTION__, lsa->name,
+			   ntohs(lsa->header->age),
+			   ntohl(lsa->header->seqnum));
+
 	/* actually install */
 	lsa->installed = now;
 	ospf6_lsdb_add(lsa, lsa->lsdb);
@@ -246,7 +249,7 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 
 /* RFC2740 section 3.5.2. Sending Link State Update packets */
 /* RFC2328 section 13.3 Next step in the flooding procedure */
-static void ospf6_flood_interface(struct ospf6_neighbor *from,
+void ospf6_flood_interface(struct ospf6_neighbor *from,
 				  struct ospf6_lsa *lsa,
 				  struct ospf6_interface *oi)
 {
@@ -343,15 +346,24 @@ static void ospf6_flood_interface(struct ospf6_neighbor *from,
 			continue;
 		}
 
-		/* (d) add retrans-list, schedule retransmission */
-		if (is_debug)
-			zlog_debug("Add retrans-list of this neighbor");
-		ospf6_increment_retrans_count(lsa);
-		ospf6_lsdb_add(ospf6_lsa_copy(lsa), on->retrans_list);
-		thread_add_timer(master, ospf6_lsupdate_send_neighbor, on,
-				 on->ospf6_if->rxmt_interval,
-				 &on->thread_send_lsupdate);
-		retrans_added++;
+		if (ospf6->inst_shutdown) {
+			if (is_debug)
+				zlog_debug("%s: Send LSA %s (age %d) update now",
+					   __PRETTY_FUNCTION__, lsa->name,
+					   ntohs(lsa->header->age));
+			ospf6_lsupdate_send_neighbor_now(on, lsa);
+			continue;
+		} else {
+			/* (d) add retrans-list, schedule retransmission */
+			if (is_debug)
+				zlog_debug("Add retrans-list of this neighbor");
+			ospf6_increment_retrans_count(lsa);
+			ospf6_lsdb_add(ospf6_lsa_copy(lsa), on->retrans_list);
+			thread_add_timer(master, ospf6_lsupdate_send_neighbor,
+					 on, on->ospf6_if->rxmt_interval,
+					 &on->thread_send_lsupdate);
+			retrans_added++;
+		}
 	}
 
 	/* (2) examin next interface if not added to retrans-list */
@@ -806,6 +818,17 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 				zlog_debug("Received is duplicated LSA");
 			SET_FLAG(new->flag, OSPF6_LSA_DUPLICATE);
 		}
+		if (old->header->adv_router ==
+		    from->ospf6_if->area->ospf6->router_id
+		    && OSPF6_LSA_IS_MAXAGE(new)) {
+			ospf6_acknowledge_lsa(new, ismore_recent, from);
+			ospf6_lsa_delete(new);
+			if (is_debug)
+				zlog_debug("%s: Received is self orig MAXAGE LSA %s, discard (ismore_recent %d)",
+					   __PRETTY_FUNCTION__, old->name,
+					   ismore_recent);
+			return;
+		}
 	}
 
 	/* if no database copy or received is more recent */
@@ -959,19 +982,40 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 					"Send back directly and then discard");
 			}
 
+			/* Neighbor router sent recent age for LSA,
+			 * Router could be restarted while current copy is
+			 * MAXAGEd and not removed.*/
+			if (OSPF6_LSA_IS_MAXAGE(old) &&
+			    !OSPF6_LSA_IS_MAXAGE(new)) {
+
+				if (is_debug)
+					zlog_debug("%s: Current copy of LSA %s is MAXAGE, but new has recent Age.",
+						   old->name,
+					   __PRETTY_FUNCTION__);
+
+				ospf6_lsa_purge(old);
+				if (new->header->adv_router
+						!= from->ospf6_if->area->
+							ospf6->router_id)
+					ospf6_flood(from, new);
+
+				ospf6_install_lsa(new);
+				return;
+			}
+
 			/* XXX, MinLSArrival check !? RFC 2328 13 (8) */
 
 			ospf6_lsdb_add(ospf6_lsa_copy(old),
 				       from->lsupdate_list);
 			thread_add_event(master, ospf6_lsupdate_send_neighbor,
 					 from, 0, &from->thread_send_lsupdate);
+
 			ospf6_lsa_delete(new);
 			return;
 		}
 		return;
 	}
 }
-
 
 DEFUN (debug_ospf6_flooding,
        debug_ospf6_flooding_cmd,
