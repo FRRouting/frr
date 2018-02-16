@@ -39,7 +39,7 @@
  * specified.
  */
 struct zebra_pbr_filter {
-	u_int32_t filter_bm;
+	uint32_t filter_bm;
 #define PBR_FILTER_SRC_IP     (1 << 0)
 #define PBR_FILTER_DST_IP     (1 << 1)
 #define PBR_FILTER_SRC_PORT   (1 << 2)
@@ -50,8 +50,8 @@ struct zebra_pbr_filter {
 	struct prefix dst_ip;
 
 	/* Source and Destination higher-layer (TCP/UDP) port numbers. */
-	u_int16_t src_port;
-	u_int16_t dst_port;
+	uint16_t src_port;
+	uint16_t dst_port;
 };
 
 #define IS_RULE_FILTERING_ON_SRC_IP(r) \
@@ -73,7 +73,7 @@ struct zebra_pbr_filter {
  * the user criteria may directly point to a table too.
  */
 struct zebra_pbr_action {
-	u_int32_t table;
+	uint32_t table;
 };
 
 /*
@@ -84,7 +84,8 @@ struct zebra_pbr_action {
  * order amongst rules.
  */
 struct zebra_pbr_rule {
-	u_int32_t seq;
+	uint32_t seq;
+	uint32_t priority;
 	struct zebra_pbr_filter filter;
 	struct zebra_pbr_action action;
 };
@@ -97,13 +98,13 @@ struct zebra_pbr_rule {
  * rule priority - maps to preference/FRA_PRIORITY on Linux.
  */
 extern void kernel_add_pbr_rule(struct zebra_pbr_rule *rule,
-				struct interface *ifp, u_int32_t rule_pri);
+				struct interface *ifp);
 
 /*
  * Uninstall specified rule for a specific interface.
  */
 extern void kernel_del_pbr_rule(struct zebra_pbr_rule *rule,
-				struct interface *ifp, u_int32_t rule_pri);
+				struct interface *ifp);
 
 /*
  * Get to know existing PBR rules in the kernel - typically called at startup.
@@ -115,14 +116,12 @@ extern void kernel_read_pbr_rules(struct zebra_ns *zns);
  */
 extern void kernel_pbr_rule_add_del_status(struct zebra_pbr_rule *rule,
 					   struct interface *ifp,
-					   u_int32_t rule_pri,
 					   enum southbound_results res);
 
 /*
  * Handle rule delete notification from kernel.
  */
 extern int kernel_pbr_rule_del(struct zebra_pbr_rule *rule,
-			       struct interface *ifp,
-			       u_int32_t rule_pri);
+			       struct interface *ifp);
 
 #endif /* _ZEBRA_PBR_H */

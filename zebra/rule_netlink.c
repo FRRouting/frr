@@ -52,7 +52,7 @@
  * waiting for netlink status.
  */
 static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule,
-			       struct interface *ifp, u_int32_t rule_pri)
+			       struct interface *ifp)
 {
 	int family;
 	int bytelen;
@@ -66,7 +66,7 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule,
 	char buf1[PREFIX_STRLEN];
 	char buf2[PREFIX_STRLEN];
 
-	memset(&req, 0, sizeof req - NL_PKT_BUF_SIZE);
+	memset(&req, 0, sizeof(req) - NL_PKT_BUF_SIZE);
 	family = PREFIX_FAMILY(&rule->filter.src_ip);
 	bytelen = (family == AF_INET ? 4 : 16);
 
@@ -82,7 +82,7 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule,
 		req.n.nlmsg_flags |= NLM_F_CREATE | NLM_F_EXCL;
 
 	/* rule's pref # */
-	addattr32(&req.n, sizeof(req), FRA_PRIORITY, rule_pri);
+	addattr32(&req.n, sizeof(req), FRA_PRIORITY, rule->priority);
 
 	/* interface on which applied */
 	addattr_l(&req.n, sizeof(req), FRA_IFNAME, ifp->name,
@@ -111,14 +111,13 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule,
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("Tx %s family %s IF %s(%u) Pref %u Src %s "
-			   "Dst %s Table %u",
-			   nl_msg_type_to_str(cmd),
-			   nl_family_to_str(family),
-			   ifp->name, ifp->ifindex, rule_pri,
-			   prefix2str(&rule->filter.src_ip, buf1, sizeof(buf1)),
-			   prefix2str(&rule->filter.dst_ip, buf2, sizeof(buf2)),
-			   rule->action.table);
+		zlog_debug(
+			"Tx %s family %s IF %s(%u) Pref %u Src %s Dst %s Table %u",
+			nl_msg_type_to_str(cmd), nl_family_to_str(family),
+			ifp->name, ifp->ifindex, rule->priority,
+			prefix2str(&rule->filter.src_ip, buf1, sizeof(buf1)),
+			prefix2str(&rule->filter.dst_ip, buf2, sizeof(buf2)),
+			rule->action.table);
 
 	/* Ship off the message.
 	 * Note: Currently, netlink_talk() is a blocking call which returns
@@ -137,31 +136,27 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule,
  * goes in the rule to denote relative ordering; it may or may not be the
  * same as the rule's user-defined sequence number.
  */
-void kernel_add_pbr_rule(struct zebra_pbr_rule *rule,
-			 struct interface *ifp, u_int32_t rule_pri)
+void kernel_add_pbr_rule(struct zebra_pbr_rule *rule, struct interface *ifp)
 {
 	int ret = 0;
 
-	ret = netlink_rule_update(RTM_NEWRULE, rule, ifp, rule_pri);
-	kernel_pbr_rule_add_del_status(rule, ifp, rule_pri,
-				       (!ret) ?
-				       SOUTHBOUND_INSTALL_SUCCESS :
-				       SOUTHBOUND_INSTALL_FAILURE);
+	ret = netlink_rule_update(RTM_NEWRULE, rule, ifp);
+	kernel_pbr_rule_add_del_status(rule, ifp,
+				       (!ret) ? SOUTHBOUND_INSTALL_SUCCESS
+					      : SOUTHBOUND_INSTALL_FAILURE);
 }
 
 /*
  * Uninstall specified rule for a specific interface.
  */
-void kernel_del_pbr_rule(struct zebra_pbr_rule *rule,
-			 struct interface *ifp, u_int32_t rule_pri)
+void kernel_del_pbr_rule(struct zebra_pbr_rule *rule, struct interface *ifp)
 {
 	int ret = 0;
 
-	ret = netlink_rule_update(RTM_DELRULE, rule, ifp, rule_pri);
-	kernel_pbr_rule_add_del_status(rule, ifp, rule_pri,
-				       (!ret) ?
-				       SOUTHBOUND_DELETE_SUCCESS :
-				       SOUTHBOUND_DELETE_FAILURE);
+	ret = netlink_rule_update(RTM_DELRULE, rule, ifp);
+	kernel_pbr_rule_add_del_status(rule, ifp,
+				       (!ret) ? SOUTHBOUND_DELETE_SUCCESS
+					      : SOUTHBOUND_DELETE_FAILURE);
 }
 
 /*
@@ -180,7 +175,6 @@ int netlink_rule_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	int len;
 	char *ifname;
 	struct interface *ifp;
-	u_int32_t rule_pri = 0;
 	struct zebra_pbr_rule rule;
 	char buf1[PREFIX_STRLEN];
 	char buf2[PREFIX_STRLEN];
@@ -219,7 +213,7 @@ int netlink_rule_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 
 	memset(&rule, 0, sizeof(rule));
 	if (tb[FRA_PRIORITY])
-		rule_pri = *(u_int32_t *)RTA_DATA(tb[FRA_PRIORITY]);
+		rule.priority = *(uint32_t *)RTA_DATA(tb[FRA_PRIORITY]);
 
 	if (tb[FRA_SRC]) {
 		if (frh->family == AF_INET)
@@ -244,21 +238,21 @@ int netlink_rule_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	}
 
 	if (tb[FRA_TABLE])
-		rule.action.table = *(u_int32_t *)RTA_DATA(tb[FRA_TABLE]);
+		rule.action.table = *(uint32_t *)RTA_DATA(tb[FRA_TABLE]);
 	else
 		rule.action.table = frh->table;
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("Rx %s family %s IF %s(%u) Pref %u Src %s "
-			   "Dst %s Table %u",
-			   nl_msg_type_to_str(h->nlmsg_type),
-			   nl_family_to_str(frh->family),
-			   ifp->name, ifp->ifindex, rule_pri,
-			   prefix2str(&rule.filter.src_ip, buf1, sizeof(buf1)),
-			   prefix2str(&rule.filter.dst_ip, buf2, sizeof(buf2)),
-			   rule.action.table);
+		zlog_debug(
+			"Rx %s family %s IF %s(%u) Pref %u Src %s Dst %s Table %u",
+			nl_msg_type_to_str(h->nlmsg_type),
+			nl_family_to_str(frh->family), ifp->name, ifp->ifindex,
+			rule.priority,
+			prefix2str(&rule.filter.src_ip, buf1, sizeof(buf1)),
+			prefix2str(&rule.filter.dst_ip, buf2, sizeof(buf2)),
+			rule.action.table);
 
-	return kernel_pbr_rule_del(&rule, ifp, rule_pri);
+	return kernel_pbr_rule_del(&rule, ifp);
 }
 
 /*

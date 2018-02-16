@@ -36,7 +36,6 @@
  */
 void kernel_pbr_rule_add_del_status(struct zebra_pbr_rule *rule,
 				    struct interface *ifp,
-				    u_int32_t rule_pri,
 				    enum southbound_results res)
 {
 }
@@ -44,9 +43,7 @@ void kernel_pbr_rule_add_del_status(struct zebra_pbr_rule *rule,
 /*
  * Handle rule delete notification from kernel.
  */
-int kernel_pbr_rule_del(struct zebra_pbr_rule *rule,
-		        struct interface *ifp,
-		        u_int32_t rule_pri)
+int kernel_pbr_rule_del(struct zebra_pbr_rule *rule, struct interface *ifp)
 {
 	return 0;
 }

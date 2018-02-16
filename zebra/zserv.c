@@ -2595,7 +2595,6 @@ static inline void zread_rule(uint16_t command, struct zserv *client,
 	struct interface *ifp;
 	struct stream *s;
 	uint32_t total, i;
-	uint32_t priority;
 	ifindex_t ifindex;
 
 	s = client->ibuf;
@@ -2605,7 +2604,7 @@ static inline void zread_rule(uint16_t command, struct zserv *client,
 		memset(&zpr, 0, sizeof(zpr));
 
 		STREAM_GETL(s, zpr.seq);
-		STREAM_GETL(s, priority);
+		STREAM_GETL(s, zpr.priority);
 		STREAM_GETC(s, zpr.filter.src_ip.family);
 		STREAM_GETC(s, zpr.filter.src_ip.prefixlen);
 		STREAM_GET(&zpr.filter.src_ip.u.prefix, s,
@@ -2637,7 +2636,7 @@ static inline void zread_rule(uint16_t command, struct zserv *client,
 		if (zpr.filter.dst_port)
 			zpr.filter.filter_bm |= PBR_FILTER_DST_PORT;
 
-		kernel_add_pbr_rule(&zpr, ifp, priority);
+		kernel_add_pbr_rule(&zpr, ifp);
 	}
 
 stream_failure:
