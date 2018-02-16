@@ -46,11 +46,18 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
-class OSPFTopo(Topo):
+import shutil
+
+class OspfSrTopo(Topo):
     "Test topology builder"
     def build(self, *_args, **_opts):
         "Build function"
         tgen = get_topogen(self)
+
+        # Check for mpls
+        if tgen.hasmpls != True:
+            logger.info('MPLS not available, tests will be skipped')
+            return
 
         # Create 4 routers
         for routern in range(1, 5):
@@ -73,10 +80,11 @@ class OSPFTopo(Topo):
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(OSPFTopo, mod.__name__)
+    tgen = Topogen(OspfSrTopo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
+
     for rname, router in router_list.iteritems():
         router.load_config(
             TopoRouter.RD_ZEBRA,
@@ -89,6 +97,11 @@ def setup_module(mod):
 
     # Initialize all routers.
     tgen.start_router()
+
+    # Check version
+    for router in router_list.values():
+        if router.has_version('<', '4'):
+            tgen.set_error('unsupported version')
 
 def teardown_module(mod):
     "Teardown the pytest environment"
@@ -122,10 +135,15 @@ def test_ospf_sr():
     "Test OSPF daemon Segment Routing"
     tgen = get_topogen()
     if tgen.routers_have_failure():
-        pytest.skip('skipped because of router(s) failure')
+        pytest.skip(tgen.errors)
 
     for rnum in range(1, 5):
         router = 'r{}'.format(rnum)
+
+        # Check that Segment Routing is available
+        output = tgen.gears[router].vtysh_cmd("show ip ospf database segment-routing")
+        if output.find("Unknown") != -1:
+            pytest.skip('Segment Routing is not available')
 
         logger.info('Checking OSPF Segment Routing database on router "%s"',
                     router)
@@ -144,10 +162,15 @@ def test_ospf_kernel_route():
     "Test OSPF Segment Routing MPLS route installation"
     tgen = get_topogen()
     if tgen.routers_have_failure():
-        pytest.skip('skipped because of router(s) failure')
+        pytest.skip(tgen.errors)
 
     for rnum in range(1, 5):
         router = 'r{}'.format(rnum)
+
+        # Check that Segment Routing is available
+        output = tgen.gears[router].vtysh_cmd("show ip ospf database segment-routing")
+        if output.find("Unknown") != -1:
+            pytest.skip('Segment Routing is not available')
 
         logger.info('Checking OSPF SR MPLS table in "%s"', router)
 
