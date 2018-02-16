@@ -68,14 +68,17 @@ endif
 # handled by subdir target
 man: ;
 
-FRR.pdf:
+FRR.info:
+	$(MAKE) -C user info
+
+user.pdf:
 	$(MAKE) -C user latexpdf
+
+user.html:
+	$(MAKE) -C user html
 
 developer.pdf:
 	$(MAKE) -C developer latexpdf
-
-FRR.html:
-	$(MAKE) -C user html
 
 developer.html:
 	$(MAKE) -C developer html
