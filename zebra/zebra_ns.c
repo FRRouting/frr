@@ -36,6 +36,7 @@
 #include "debug.h"
 #include "zebra_netns_notify.h"
 #include "zebra_netns_id.h"
+#include "zebra_pbr.h"
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -211,12 +212,15 @@ int zebra_ns_disable(ns_id_t ns_id, void **info)
 	struct zebra_ns_table *znst;
 	struct zebra_ns *zns = (struct zebra_ns *)(*info);
 
+	hash_clean(zns->rules_hash, zebra_pbr_rules_free);
+	hash_free(zns->rules_hash);
 	while (!RB_EMPTY(zebra_ns_table_head, &zns->ns_tables)) {
 		znst = RB_ROOT(zebra_ns_table_head, &zns->ns_tables);
 
 		RB_REMOVE(zebra_ns_table_head, &zns->ns_tables, znst);
 		zebra_ns_free_table(znst);
 	}
+
 	route_table_finish(zns->if_table);
 	zebra_vxlan_ns_disable(zns);
 #if defined(HAVE_RTADV)
@@ -257,6 +261,9 @@ int zebra_ns_init(void)
 	/* Default NS is activated */
 	zebra_ns_enable(ns_id, (void **)&dzns);
 
+	dzns->rules_hash =
+		hash_create_size(8, zebra_pbr_rules_hash_key,
+				 zebra_pbr_rules_hash_equal, "Rules Hash");
 	if (vrf_is_backend_netns()) {
 		ns_add_hook(NS_NEW_HOOK, zebra_ns_new);
 		ns_add_hook(NS_ENABLE_HOOK, zebra_ns_enabled);

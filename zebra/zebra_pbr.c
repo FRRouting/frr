@@ -21,6 +21,9 @@
 
 #include <zebra.h>
 
+#include <jhash.h>
+#include <hash.h>
+
 #include "zebra/zebra_pbr.h"
 #include "zebra/rt.h"
 
@@ -31,14 +34,93 @@
 /* Private functions */
 
 /* Public functions */
-void zebra_pbr_add_rule(struct zebra_pbr_rule *rule, struct interface *ifp)
+void zebra_pbr_rules_free(void *arg)
 {
+	struct zebra_pbr_rule *rule;
+
+	rule = (struct zebra_pbr_rule *)arg;
+
+	kernel_del_pbr_rule(rule, NULL);
+	XFREE(MTYPE_TMP, rule);
+}
+
+uint32_t zebra_pbr_rules_hash_key(void *arg)
+{
+	struct zebra_pbr_rule *rule;
+	uint32_t key;
+
+	rule = (struct zebra_pbr_rule *)arg;
+	key = jhash_3words(rule->seq, rule->priority, rule->action.table,
+			   prefix_hash_key(&rule->filter.src_ip));
+	return jhash_3words(rule->filter.src_port, rule->filter.dst_port,
+			    prefix_hash_key(&rule->filter.dst_ip), key);
+}
+
+int zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
+{
+	const struct zebra_pbr_rule *r1, *r2;
+
+	r1 = (const struct zebra_pbr_rule *)arg1;
+	r2 = (const struct zebra_pbr_rule *)arg2;
+
+	if (r1->seq != r2->seq)
+		return 0;
+
+	if (r1->priority != r2->priority)
+		return 0;
+
+	if (r1->action.table != r2->action.table)
+		return 0;
+
+	if (r1->filter.src_port != r2->filter.src_port)
+		return 0;
+
+	if (r1->filter.dst_port != r2->filter.dst_port)
+		return 0;
+
+	if (!prefix_same(&r1->filter.src_ip, &r2->filter.src_ip))
+		return 0;
+
+	if (!prefix_same(&r1->filter.dst_ip, &r2->filter.dst_ip))
+		return 0;
+
+	return 1;
+}
+
+static void *pbr_rule_alloc_intern(void *arg)
+{
+	struct zebra_pbr_rule *zpr;
+	struct zebra_pbr_rule *new;
+
+	zpr = (struct zebra_pbr_rule *)arg;
+
+	new = XCALLOC(MTYPE_TMP, sizeof(*new));
+
+	memcpy(new, zpr, sizeof(*zpr));
+
+	return new;
+}
+
+void zebra_pbr_add_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule,
+			struct interface *ifp)
+{
+	(void)hash_get(zns->rules_hash, rule, pbr_rule_alloc_intern);
 	kernel_add_pbr_rule(rule, ifp);
 }
 
-void zebra_pbr_del_rule(struct zebra_pbr_rule *rule, struct interface *ifp)
+void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule,
+			struct interface *ifp)
 {
+	struct zebra_pbr_rule *lookup;
+
+	lookup = hash_lookup(zns->rules_hash, rule);
 	kernel_del_pbr_rule(rule, ifp);
+
+	if (lookup)
+		XFREE(MTYPE_TMP, lookup);
+	else
+		zlog_warn("%s: Rule being deleted we know nothing about",
+			  __PRETTY_FUNCTION__);
 }
 
 /*
@@ -57,5 +139,3 @@ int kernel_pbr_rule_del(struct zebra_pbr_rule *rule, struct interface *ifp)
 {
 	return 0;
 }
-
-

@@ -85,8 +85,9 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule,
 	addattr32(&req.n, sizeof(req), FRA_PRIORITY, rule->priority);
 
 	/* interface on which applied */
-	addattr_l(&req.n, sizeof(req), FRA_IFNAME, ifp->name,
-		  strlen(ifp->name)+1);
+	if (ifp)
+		addattr_l(&req.n, sizeof(req), FRA_IFNAME, ifp->name,
+			  strlen(ifp->name) + 1);
 
 	/* source IP, if specified */
 	if (IS_RULE_FILTERING_ON_SRC_IP(rule)) {
@@ -114,7 +115,8 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule,
 		zlog_debug(
 			"Tx %s family %s IF %s(%u) Pref %u Src %s Dst %s Table %u",
 			nl_msg_type_to_str(cmd), nl_family_to_str(family),
-			ifp->name, ifp->ifindex, rule->priority,
+			ifp ? ifp->name : "Unknown", ifp ? ifp->ifindex : 0,
+			rule->priority,
 			prefix2str(&rule->filter.src_ip, buf1, sizeof(buf1)),
 			prefix2str(&rule->filter.dst_ip, buf2, sizeof(buf2)),
 			rule->action.table);

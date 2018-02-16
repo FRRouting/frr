@@ -71,6 +71,8 @@ struct zebra_ns {
 
 	struct zebra_ns_table_head ns_tables;
 
+	struct hash *rules_hash;
+
 	/* Back pointer */
 	struct ns *ns;
 };
