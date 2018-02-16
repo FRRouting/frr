@@ -31,6 +31,16 @@
 /* Private functions */
 
 /* Public functions */
+void zebra_pbr_add_rule(struct zebra_pbr_rule *rule, struct interface *ifp)
+{
+	kernel_add_pbr_rule(rule, ifp);
+}
+
+void zebra_pbr_del_rule(struct zebra_pbr_rule *rule, struct interface *ifp)
+{
+	kernel_del_pbr_rule(rule, ifp);
+}
+
 /*
  * Handle success or failure of rule (un)install in the kernel.
  */

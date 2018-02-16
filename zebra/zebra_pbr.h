@@ -90,6 +90,8 @@ struct zebra_pbr_rule {
 	struct zebra_pbr_action action;
 };
 
+void zebra_pbr_add_rule(struct zebra_pbr_rule *rule, struct interface *ifp);
+void zebra_pbr_del_rule(struct zebra_pbr_rule *rule, struct interface *ifp);
 
 /*
  * Install specified rule for a specific interface.
