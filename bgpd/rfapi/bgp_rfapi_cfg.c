@@ -2977,6 +2977,11 @@ DEFUN_NOSH (vnc_vrf_policy,
 	struct rfapi_nve_group_cfg *rfg;
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF) {
+		vty_out(vty, "Can't configure vrf-policy within a BGP VRF instance\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	/* Search for name */
 	rfg = bgp_rfapi_cfg_match_byname(bgp, argv[1]->arg,
 					 RFAPI_GROUP_CFG_VRF);
@@ -3006,6 +3011,10 @@ DEFUN (vnc_no_vrf_policy,
        "VRF name\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	/* silently return */
+	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF)
+		return CMD_SUCCESS;
 
 	return bgp_rfapi_delete_named_nve_group(vty, bgp, argv[2]->arg,
 						RFAPI_GROUP_CFG_VRF);
