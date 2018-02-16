@@ -323,6 +323,8 @@ struct bgp {
 /* l2vpn evpn flags */
 #define BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST      (1 << 0)
 #define BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST      (1 << 1)
+#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV4	   (1 << 2)
+#define BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV6	   (1 << 3)
 
 
 	/* Route table for next-hop lookup cache. */

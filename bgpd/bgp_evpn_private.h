@@ -349,6 +349,20 @@ static inline void build_evpn_type3_prefix(struct prefix_evpn *p,
 	p->prefix.ip.ipaddr_v4 = originator_ip;
 }
 
+static inline int evpn_default_originate_set(struct bgp *bgp, afi_t afi,
+					     safi_t safi)
+{
+	if (afi == AFI_IP &&
+	    CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
+		       BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV4))
+		return 1;
+	else if (afi == AFI_IP6 &&
+		 CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
+			    BGP_L2VPN_EVPN_DEFAULT_ORIGINATE_IPV6))
+		return 1;
+	return 0;
+}
+
 extern void evpn_rt_delete_auto(struct bgp*, vni_t, struct list*);
 extern void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
 						 struct ecommunity *ecomadd);
