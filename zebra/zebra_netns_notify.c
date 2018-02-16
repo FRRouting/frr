@@ -75,15 +75,22 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 	if (netnspath == NULL)
 		return;
 
-	if (vrf_handler_create(NULL, name, &vrf) != CMD_SUCCESS) {
-		zlog_warn("NS notify : failed to create VRF %s", name);
-		return;
-	}
 	if (zserv_privs.change(ZPRIVS_RAISE))
 		zlog_err("Can't raise privileges");
 	ns_id = zebra_ns_id_get(netnspath);
 	if (zserv_privs.change(ZPRIVS_LOWER))
 		zlog_err("Can't lower privileges");
+	/* if VRF with NS ID already present */
+	vrf = vrf_lookup_by_id((vrf_id_t)ns_id);
+	if (vrf) {
+		zlog_warn("NS notify : same NSID used by VRF %s. Ignore NS %s creation",
+			  vrf->name, netnspath);
+		return;
+	}
+	if (vrf_handler_create(NULL, name, &vrf) != CMD_SUCCESS) {
+		zlog_warn("NS notify : failed to create VRF %s", name);
+		return;
+	}
 	ret = vrf_netns_handler_create(NULL, vrf, netnspath, ns_id);
 	if (ret != CMD_SUCCESS) {
 		zlog_warn("NS notify : failed to create NS %s", netnspath);
