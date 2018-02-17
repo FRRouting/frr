@@ -1168,7 +1168,6 @@ void isis_circuit_af_set(struct isis_circuit *circuit, bool ip_router,
 	struct isis_area *area = circuit->area;
 	bool change = circuit->ip_router != ip_router
 		      || circuit->ipv6_router != ipv6_router;
-	bool was_enabled = !!circuit->area;
 
 	area->ip_circuits += ip_router - circuit->ip_router;
 	area->ipv6_circuits += ipv6_router - circuit->ipv6_router;
@@ -1182,8 +1181,6 @@ void isis_circuit_af_set(struct isis_circuit *circuit, bool ip_router,
 
 	if (!ip_router && !ipv6_router)
 		isis_csm_state_change(ISIS_DISABLE, circuit, area);
-	else if (!was_enabled)
-		isis_csm_state_change(ISIS_ENABLE, circuit, area);
 	else
 		lsp_regenerate_schedule(circuit->area, circuit->is_type, 0);
 }
