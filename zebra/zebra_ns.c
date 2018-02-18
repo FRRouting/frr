@@ -124,7 +124,7 @@ struct route_table *zebra_ns_get_table(struct zebra_ns *zns,
 	return znst->table;
 }
 
-static struct zebra_ns_table *zebra_ns_free_table(struct zebra_ns_table *znst)
+static void zebra_ns_free_table(struct zebra_ns_table *znst)
 {
 	void *table_info;
 	rib_close_table(znst->table);
@@ -133,7 +133,6 @@ static struct zebra_ns_table *zebra_ns_free_table(struct zebra_ns_table *znst)
 	route_table_finish(znst->table);
 	XFREE(MTYPE_RIB_TABLE_INFO, table_info);
 	XFREE(MTYPE_ZEBRA_NS, znst);
-	return NULL;
 }
 
 int zebra_ns_disable(ns_id_t ns_id, void **info)
@@ -145,7 +144,7 @@ int zebra_ns_disable(ns_id_t ns_id, void **info)
 		znst = RB_ROOT(zebra_ns_table_head, &zns->ns_tables);
 
 		RB_REMOVE(zebra_ns_table_head, &zns->ns_tables, znst);
-		znst = zebra_ns_free_table(znst);
+		zebra_ns_free_table(znst);
 	}
 	route_table_finish(zns->if_table);
 	zebra_vxlan_ns_disable(zns);
