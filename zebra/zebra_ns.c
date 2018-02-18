@@ -77,13 +77,13 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 struct route_table *zebra_ns_find_table(struct zebra_ns *zns,
 					uint32_t tableid, afi_t afi)
 {
-	struct zebra_ns_tables finder;
-	struct zebra_ns_tables *znst;
+	struct zebra_ns_table finder;
+	struct zebra_ns_table *znst;
 
 	memset(&finder, 0, sizeof(finder));
 	finder.afi = afi;
 	finder.tableid = tableid;
-	znst = RB_FIND(zebra_ns_tables_head, &zns->ns_tables, &finder);
+	znst = RB_FIND(zebra_ns_table_head, &zns->ns_tables, &finder);
 
 	if (znst)
 		return znst->table;
@@ -141,8 +141,9 @@ int zebra_ns_disable(ns_id_t ns_id, void **info)
 	struct zebra_ns_table *znst;
 	struct zebra_ns *zns = (struct zebra_ns *)(*info);
 
-	while ((znst = RB_ROOT(zebra_ns_table_head, &zns->ns_tables))
-	       != NULL) {
+	while (!RB_EMPTY(zebra_ns_table_head, &zns->ns_tables)) {
+		znst = RB_ROOT(zebra_ns_table_head, &zns->ns_tables);
+
 		RB_REMOVE(zebra_ns_table_head, &zns->ns_tables, znst);
 		znst = zebra_ns_free_table(znst);
 	}

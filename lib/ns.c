@@ -424,8 +424,11 @@ void ns_terminate(void)
 {
 	struct ns *ns;
 
-	while ((ns = RB_ROOT(ns_head, &ns_tree)) != NULL)
+	while (!RB_EMPTY(ns_head, &ns_tree)) {
+		ns = RB_ROOT(ns_head, &ns_tree);
+
 		ns_delete(ns);
+	}
 }
 
 /* Create a socket for the NS. */

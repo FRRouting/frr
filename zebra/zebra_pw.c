@@ -294,8 +294,11 @@ void zebra_pw_exit(struct zebra_vrf *zvrf)
 {
 	struct zebra_pw *pw;
 
-	while ((pw = RB_ROOT(zebra_pw_head, &zvrf->pseudowires)) != NULL)
+	while (!RB_EMPTY(zebra_pw_head, &zvrf->pseudowires)) {
+		pw = RB_ROOT(zebra_pw_head, &zvrf->pseudowires);
+
 		zebra_pw_del(zvrf, pw);
+	}
 }
 
 DEFUN_NOSH (pseudowire_if,

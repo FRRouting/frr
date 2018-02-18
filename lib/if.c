@@ -1064,7 +1064,7 @@ ifaddr_ipv4_lookup (struct in_addr *addr, ifindex_t ifindex)
       rn = route_node_lookup (ifaddr_ipv4_table, (struct prefix *) &p);
       if (! rn)
 	return NULL;
-      
+
       ifp = rn->info;
       route_unlock_node (rn);
       return ifp;
@@ -1078,7 +1078,9 @@ void if_terminate(struct vrf *vrf)
 {
 	struct interface *ifp;
 
-	while ((ifp = RB_ROOT(if_name_head, &vrf->ifaces_by_name)) != NULL) {
+	while (!RB_EMPTY(if_name_head, &vrf->ifaces_by_name)) {
+		ifp = RB_ROOT(if_name_head, &vrf->ifaces_by_name);
+
 		if (ifp->node) {
 			ifp->node->info = NULL;
 			route_unlock_node(ifp->node);
