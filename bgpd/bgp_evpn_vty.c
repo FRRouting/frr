@@ -2967,16 +2967,23 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
  */
 DEFUN(show_bgp_l2vpn_evpn_summary,
       show_bgp_l2vpn_evpn_summary_cmd,
-      "show bgp l2vpn evpn summary [json]",
+      "show bgp [vrf VRFNAME] l2vpn evpn summary [json]",
       SHOW_STR
       BGP_STR
+      "bgp vrf\n"
+      "vrf name\n"
       L2VPN_HELP_STR
       EVPN_HELP_STR
       "Summary of BGP neighbor status\n"
       JSON_STR)
 {
+	int idx_vrf = 0;
 	u_char uj = use_json(argc, argv);
-	return bgp_show_summary_vty(vty, NULL, AFI_L2VPN, SAFI_EVPN, uj);
+	char *vrf = NULL;
+
+	if (argv_find(argv, argc, "vrf", &idx_vrf))
+		vrf = argv[++idx_vrf]->arg;
+	return bgp_show_summary_vty(vty, vrf, AFI_L2VPN, SAFI_EVPN, uj);
 }
 
 /*
