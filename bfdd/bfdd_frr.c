@@ -28,6 +28,163 @@
 #include "bfdd_frr.h"
 
 /*
+ * Prototypes
+ */
+struct bpc_node *bfdd_peer_notification_find(struct json_object *notification);
+void bfdd_peer_notification(struct json_object *notification);
+void bfdd_config_notification(struct json_object *notification);
+
+
+/*
+ * Notification handlers.
+ */
+struct bpc_node *bfdd_peer_notification_find(struct json_object *notification)
+{
+	const char *key, *sval;
+	struct json_object *jo_val;
+	struct json_object_iterator joi, join;
+	char *interface = NULL, *vrf = NULL;
+	struct sockaddr_any psa, lsa, *psap = NULL, *lsap = NULL;
+	struct bfd_peer_cfg bpc;
+
+	/* Search for peer information in the keys */
+	JSON_FOREACH (notification, joi, join) {
+		key = json_object_iter_peek_name(&joi);
+		jo_val = json_object_iter_peek_value(&joi);
+		sval = json_object_get_string(jo_val);
+
+		if (strcmp(key, "peer-address") == 0) {
+			strtosa(sval, &psa);
+			psap = &psa;
+		} else if (strcmp(key, "local-address") == 0) {
+			strtosa(sval, &lsa);
+			lsap = &lsa;
+		} else if (strcmp(key, "local-interface") == 0) {
+			interface = strdup(sval);
+		} else if (strcmp(key, "vrf-name") == 0) {
+			vrf = strdup(sval);
+		}
+	}
+
+	bfd_configure_peer(&bpc, psap, lsap, interface, vrf, NULL, 0);
+	free(interface);
+	free(vrf);
+
+	return bn_find(&bc.bc_bnlist, &bpc);
+}
+
+void bfdd_peer_notification(struct json_object *notification)
+{
+	const char *key, *sval;
+	struct json_object *jo_val;
+	struct json_object_iterator joi, join;
+	struct bpc_node *bn;
+
+	/* Find peer to update its status. */
+	bn = bfdd_peer_notification_find(notification);
+	if (bn == NULL) {
+		zlog_debug("%s:%d unable to find notification peer",
+			   __FUNCTION__, __LINE__);
+		return;
+	}
+
+	/* Get the new status information. */
+	JSON_FOREACH (notification, joi, join) {
+		key = json_object_iter_peek_name(&joi);
+		jo_val = json_object_iter_peek_value(&joi);
+
+		if (strcmp(key, "id") == 0) {
+			bn->bn_bpc.bpc_id = json_object_get_int64(jo_val);
+		} else if (strcmp(key, "remote-id") == 0) {
+			bn->bn_bpc.bpc_remoteid = json_object_get_int64(jo_val);
+		} else if (strcmp(key, "state") == 0) {
+			sval = json_object_get_string(jo_val);
+			if (strcmp(sval, "up") == 0) {
+				bn->bn_bpc.bpc_bps = BPS_UP;
+			} else if (strcmp(sval, "adm-down") == 0) {
+				bn->bn_bpc.bpc_bps = BPS_SHUTDOWN;
+			} else if (strcmp(sval, "down") == 0) {
+				bn->bn_bpc.bpc_bps = BPS_DOWN;
+			} else if (strcmp(sval, "init") == 0) {
+				bn->bn_bpc.bpc_bps = BPS_INIT;
+			}
+		}
+	}
+}
+
+void bfdd_config_notification(struct json_object *notification)
+{
+	const char *key, *sval;
+	struct json_object *jo_val;
+	struct json_object_iterator joi, join;
+	char *interface = NULL, *vrf = NULL;
+	struct sockaddr_any psa, lsa, *psap = NULL, *lsap = NULL;
+	struct bfd_peer_cfg bpc;
+	struct bpc_node *bn;
+	int result;
+
+	/* Find peer or create a new one for the incoming configuration. */
+	bn = bfdd_peer_notification_find(notification);
+	if (bn == NULL) {
+		/* Search for peer information in the keys */
+		JSON_FOREACH (notification, joi, join) {
+			key = json_object_iter_peek_name(&joi);
+			jo_val = json_object_iter_peek_value(&joi);
+			sval = json_object_get_string(jo_val);
+
+			if (strcmp(key, "peer-address") == 0) {
+				strtosa(sval, &psa);
+				psap = &psa;
+			} else if (strcmp(key, "local-address") == 0) {
+				strtosa(sval, &lsa);
+				lsap = &lsa;
+			} else if (strcmp(key, "local-interface") == 0) {
+				interface = strdup(sval);
+			} else if (strcmp(key, "vrf-name") == 0) {
+				vrf = strdup(sval);
+			}
+		}
+
+		result = bfd_configure_peer(&bpc, psap, lsap, interface, vrf, NULL, 0);
+		free(interface);
+		free(vrf);
+
+		if (result != 0) {
+			zlog_debug("%s:%d: bfd_configure_peer: failed",
+				   __FUNCTION__, __LINE__);
+			return;
+		}
+
+		bn = bn_new(&bc.bc_bnlist, &bpc);
+		if (bn == NULL) {
+			zlog_debug("%s:%d: bn_new", __FUNCTION__, __LINE__);
+			return;
+		}
+	}
+
+	/* Get the new configuration information. */
+	JSON_FOREACH (notification, joi, join) {
+		key = json_object_iter_peek_name(&joi);
+		jo_val = json_object_iter_peek_value(&joi);
+
+		if (strcmp(key, "detect-multiplier") == 0) {
+			bpc_set_detectmultiplier(&bn->bn_bpc,
+						 json_object_get_int64(jo_val));
+		} else if (strcmp(key, "receive-interval") == 0) {
+			bpc_set_recvinterval(&bn->bn_bpc,
+					     json_object_get_int64(jo_val));
+		} else if (strcmp(key, "transmit-interval") == 0) {
+			bpc_set_txinterval(&bn->bn_bpc,
+					   json_object_get_int64(jo_val));
+		} else if (strcmp(key, "shutdown") == 0) {
+			bn->bn_bpc.bpc_shutdown =
+				json_object_get_boolean(jo_val);
+		}
+	}
+}
+
+
+/*
  * Socket IO
  */
 void bfdd_receive_debug(struct bfd_control_msg *bcm);
@@ -61,6 +218,9 @@ void bfdd_receive_debug(struct bfd_control_msg *bcm)
 int bfdd_receive_notification(struct bfd_control_msg *bcm, bool *repeat,
 			      void *arg)
 {
+	struct json_object *notification, *jo_val;
+	const char *sval;
+
 	/* Report unhandled versions */
 	switch (bcm->bcm_ver) {
 	case BMV_VERSION_1:
@@ -79,6 +239,22 @@ int bfdd_receive_notification(struct bfd_control_msg *bcm, bool *repeat,
 			   __FUNCTION__, __LINE__);
 		bfdd_receive_debug(bcm);
 		return 0;
+	}
+
+	notification = json_tokener_parse((const char *)bcm->bcm_data);
+	if (json_object_object_get_ex(notification, "op", &jo_val) == false) {
+		zlog_debug("%s:%d: no operation described", __FUNCTION__,
+			   __LINE__);
+		return 0;
+	}
+
+	sval = json_object_get_string(jo_val);
+	if (strcmp(sval, BCM_NOTIFY_PEER_STATUS) == 0) {
+		bfdd_peer_notification(notification);
+	} else if (strcmp(sval, BCM_NOTIFY_CONFIG_ADD) == 0
+		   || strcmp(sval, BCM_NOTIFY_CONFIG_DELETE) == 0
+		   || strcmp(sval, BCM_NOTIFY_CONFIG_UPDATE) == 0) {
+		bfdd_config_notification(notification);
 	}
 
 	return 0;
