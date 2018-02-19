@@ -4323,6 +4323,8 @@ DEFUN (no_bgp_evpn_vni_rt_without_val,
 void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 				safi_t safi)
 {
+	char buf1[RD_ADDRSTRLEN];
+
 	if (bgp->vnihash)
 		hash_iterate(bgp->vnihash,
 			     (void (*)(struct hash_backet *,
@@ -4340,6 +4342,10 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_ADVERTISE_IPV6_IN_EVPN))
 		vty_out(vty, "  advertise ipv6 unicast\n");
+
+	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_RD_CFGD))
+		vty_out(vty, "   rd %s\n",
+			prefix_rd2str(&bgp->vrf_prd, buf1, sizeof(buf1)));
 
 	/* import route-target */
 	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_IMPORT_RT_CFGD)) {
