@@ -4340,6 +4340,38 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_ADVERTISE_IPV6_IN_EVPN))
 		vty_out(vty, "  advertise ipv6 unicast\n");
+
+	/* import route-target */
+	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_IMPORT_RT_CFGD)) {
+		char *ecom_str;
+		struct listnode *node, *nnode;
+		struct ecommunity *ecom;
+
+		for (ALL_LIST_ELEMENTS(bgp->vrf_import_rtl, node, nnode,
+				       ecom)) {
+			ecom_str = ecommunity_ecom2str(
+				ecom, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+			vty_out(vty, "   route-target import %s\n",
+				ecom_str);
+			XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+		}
+	}
+
+	/* export route-target */
+	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_EXPORT_RT_CFGD)) {
+		char *ecom_str;
+		struct listnode *node, *nnode;
+		struct ecommunity *ecom;
+
+		for (ALL_LIST_ELEMENTS(bgp->vrf_export_rtl, node, nnode,
+				       ecom)) {
+			ecom_str = ecommunity_ecom2str(
+				ecom, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+			vty_out(vty, "   route-target export %s\n",
+				ecom_str);
+			XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
+		}
+	}
 }
 
 void bgp_ethernetvpn_init(void)

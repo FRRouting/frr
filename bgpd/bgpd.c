@@ -7313,38 +7313,6 @@ int bgp_config_write(struct vty *vty)
 		if (bgp_option_check(BGP_OPT_CONFIG_CISCO))
 			vty_out(vty, " no auto-summary\n");
 
-		/* import route-target */
-		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_IMPORT_RT_CFGD)) {
-			char *ecom_str;
-			struct listnode *node, *nnode;
-			struct ecommunity *ecom;
-
-			for (ALL_LIST_ELEMENTS(bgp->vrf_import_rtl, node, nnode,
-					       ecom)) {
-				ecom_str = ecommunity_ecom2str(
-					ecom, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-				vty_out(vty, "   route-target import %s\n",
-					ecom_str);
-				XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
-			}
-		}
-
-		/* export route-target */
-		if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_EXPORT_RT_CFGD)) {
-			char *ecom_str;
-			struct listnode *node, *nnode;
-			struct ecommunity *ecom;
-
-			for (ALL_LIST_ELEMENTS(bgp->vrf_export_rtl, node, nnode,
-					       ecom)) {
-				ecom_str = ecommunity_ecom2str(
-					ecom, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
-				vty_out(vty, "   route-target export %s\n",
-					ecom_str);
-				XFREE(MTYPE_ECOMMUNITY_STR, ecom_str);
-			}
-		}
-
 		/* IPv4 unicast configuration.  */
 		bgp_config_write_family(vty, bgp, AFI_IP, SAFI_UNICAST);
 
