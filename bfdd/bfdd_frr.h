@@ -48,6 +48,7 @@ struct bfdd_config {
 	/* FRR main thread event. */
 	int bc_csock;
 	struct thread *bc_threcv;
+	struct thread *bc_thinit;
 };
 
 

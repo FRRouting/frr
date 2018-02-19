@@ -102,31 +102,138 @@ DEFINE_QOBJ_TYPE(bpc_node);
 /*
  * Adapter daemon code.
  */
+#define CSOCK_RECONNECT_TIMEOUT (4000) /* milliseconds */
 
 /* Prototypes */
+int bfdd_csock_reinit(struct thread *thread);
 int bfdd_csock_read(struct thread *thread);
 
 /* Definitions */
 struct bfdd_config bc;
 
+static int fd_is_valid(int fd)
+{
+	return fcntl(fd, F_GETFD) == -1 && errno == EBADF;
+}
+
+static int bfdd_reconfigure(int csock)
+{
+	struct bpc_node *bn;
+	struct json_object *jo;
+	const char *jsonstr;
+	uint16_t id;
+
+	TAILQ_FOREACH (bn, &bc.bc_bnlist, bn_entry) {
+		/* Create the request data and send. */
+		jo = bfd_ctrl_new_json();
+		if (jo == NULL) {
+			zlog_err("%s:%d: not enough memory", __FUNCTION__,
+				 __LINE__);
+			return -1;
+		}
+
+		bfd_ctrl_add_peer(jo, &bn->bn_bpc);
+		jsonstr = json_object_to_json_string_ext(jo, 0);
+		id = bfd_control_send(csock, BMT_REQUEST_ADD, jsonstr,
+				      strlen(jsonstr));
+		if (id == 0) {
+			zlog_err("%s:%d: Failed to reconfigure peer",
+				 __FUNCTION__, __LINE__);
+			json_object_put(jo);
+			return -1;
+		}
+
+		if (bfd_control_recv(csock, bfdd_receive_id, &id) != 0) {
+			zlog_err("%s:%d: Failed to reconfigure peer",
+				 __FUNCTION__, __LINE__);
+			json_object_put(jo);
+			return -1;
+		}
+
+		json_object_put(jo);
+	}
+
+	return 0;
+}
+
+int bfdd_csock_reinit(struct thread *thread)
+{
+	struct bfdd_config *bc = THREAD_ARG(thread);
+	int csock;
+	uint16_t reqid;
+	uint64_t notifications;
+
+	bc->bc_thinit = NULL;
+
+	csock = bfd_control_init();
+	if (csock == -1) {
+		thread_add_timer_msec(master, bfdd_csock_reinit, bc,
+				      CSOCK_RECONNECT_TIMEOUT, &bc->bc_thinit);
+		return 0;
+	}
+
+	/* Enable notifications. */
+	notifications = BCM_NOTIFY_PEER_STATE | BCM_NOTIFY_CONFIG;
+	reqid = bfd_control_send(csock, BMT_NOTIFY, &notifications,
+				 sizeof(notifications));
+	if (reqid == 0) {
+		zlog_err(
+			"failed to enable notifications, some features will not work");
+		goto skip_recv_id;
+	}
+
+	if (bfd_control_recv(csock, bfdd_receive_id, &reqid) != 0) {
+		zlog_err(
+			"failed to enable notifications, some features will not work");
+		if (!fd_is_valid(csock)) {
+			goto close_and_retry;
+		}
+	}
+
+	if (bfdd_reconfigure(csock) != 0) {
+		goto close_and_retry;
+	}
+
+skip_recv_id:
+	bc->bc_csock = csock;
+	thread_add_read(master, bfdd_csock_read, bc, bc->bc_csock,
+			&bc->bc_threcv);
+
+	return 0;
+
+close_and_retry:
+	close(csock);
+	thread_add_timer_msec(master, bfdd_csock_reinit, bc,
+			      CSOCK_RECONNECT_TIMEOUT, &bc->bc_thinit);
+	return 0;
+}
+
 int bfdd_csock_read(struct thread *thread)
 {
 	struct bfdd_config *bc = THREAD_ARG(thread);
 
-	/* Schedule next read. */
 	bc->bc_threcv = NULL;
-	thread_add_read(master, bfdd_csock_read, bc, bc->bc_csock,
-			&bc->bc_threcv);
 
 	/* Receive and handle the current packet. */
-	bfd_control_recv(bc->bc_csock, bfdd_receive_notification, NULL);
+	if (bfd_control_recv(bc->bc_csock, bfdd_receive_notification, NULL) != 0
+	    && !fd_is_valid(bc->bc_csock)) {
+		close(bc->bc_csock);
+		bc->bc_csock = -1;
+		thread_add_timer_msec(master, bfdd_csock_reinit, bc,
+				      CSOCK_RECONNECT_TIMEOUT, &bc->bc_thinit);
+		return 0;
+	}
+
+	/* Schedule next read. */
+	thread_add_read(master, bfdd_csock_read, bc, bc->bc_csock,
+			&bc->bc_threcv);
 
 	return 0;
 }
 
 int main(int argc, char *argv[])
 {
-	int opt, csock;
+	int opt;
 
 	frr_preinit(&bfdd_di, argc, argv);
 
@@ -145,10 +252,6 @@ int main(int argc, char *argv[])
 	openzlog(bfdd_di.progname, "BFD", 0, LOG_CONS | LOG_NDELAY | LOG_PID,
 		 LOG_DAEMON);
 
-	csock = bfd_control_init();
-	if (csock == -1)
-		exit(1);
-
 	/* Initialize FRR infrastructure. */
 	master = frr_init();
 
@@ -159,28 +262,7 @@ int main(int argc, char *argv[])
 
 	/* Handle BFDd control socket. */
 	memset(&bc, 0, sizeof(bc));
-	bc.bc_csock = csock;
-	thread_add_read(master, bfdd_csock_read, &bc, csock, &bc.bc_threcv);
-
-	/* Enable notifications. */
-	do {
-		uint16_t reqid;
-		uint64_t notifications;
-
-		notifications = BCM_NOTIFY_PEER_STATE | BCM_NOTIFY_CONFIG;
-		reqid = bfd_control_send(csock, BMT_NOTIFY, &notifications,
-					 sizeof(notifications));
-		if (reqid == 0) {
-			zlog_err(
-				"failed to enable notifications, some features will not work");
-			break;
-		}
-
-		if (bfd_control_recv(csock, bfdd_receive_id, &reqid) != 0) {
-			zlog_err(
-				"failed to enable notifications, some features will not work");
-		}
-	} while (0);
+	thread_add_timer_msec(master, bfdd_csock_reinit, &bc, 1, &bc.bc_thinit);
 
 	frr_run(master);
 	/* NOTREACHED */
