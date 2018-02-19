@@ -491,6 +491,12 @@ static int compute_link_nhlfe(struct sr_link *srl)
 	srl->nhlfe[0].ifindex = nh->oi->ifp->ifindex;
 	srl->nhlfe[1].ifindex = nh->oi->ifp->ifindex;
 
+	/* Update neighbor address for LAN_ADJ_SID */
+	if (srl->type == LAN_ADJ_SID) {
+		IPV4_ADDR_COPY(&srl->nhlfe[0].nexthop, &nh->src);
+		IPV4_ADDR_COPY(&srl->nhlfe[1].nexthop, &nh->src);
+	}
+
 	/* Set Input & Output Label */
 	if (CHECK_FLAG(srl->flags[0], EXT_SUBTLV_LINK_ADJ_SID_VFLG))
 		srl->nhlfe[0].label_in = srl->sid[0];
