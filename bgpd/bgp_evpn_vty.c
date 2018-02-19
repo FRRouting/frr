@@ -83,7 +83,7 @@ static void display_vrf_import_rt(struct vty *vty,
 	case ECOMMUNITY_ENCODE_AS:
 		eas.as = (*pnt++ << 8);
 		eas.as |= (*pnt++);
-		pnt = ptr_get_be32(pnt, &eas.val);
+		ptr_get_be32(pnt, &eas.val);
 
 		snprintf(rt_buf, RT_ADDRSTRLEN, "%u:%u", eas.as, eas.val);
 
@@ -195,7 +195,7 @@ static void display_import_rt(struct vty *vty, struct irt_node *irt,
 	case ECOMMUNITY_ENCODE_AS:
 		eas.as = (*pnt++ << 8);
 		eas.as |= (*pnt++);
-		pnt = ptr_get_be32(pnt, &eas.val);
+		ptr_get_be32(pnt, &eas.val);
 
 		snprintf(rt_buf, RT_ADDRSTRLEN, "%u:%u", eas.as, eas.val);
 
