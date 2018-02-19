@@ -23,10 +23,9 @@
 #ifndef _BFDD_H_
 #define _BFDD_H_
 
-#include <json-c/json.h>
-
 #include "bfdd/bfdctl.h"
 
+#include "json.h"
 #include "openbsd-queue.h"
 #include "thread.h"
 
