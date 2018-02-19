@@ -14,10 +14,14 @@ if ret != False and found != None:
     luCommand('ce1','ip route add default via 192.168.1.1')
     luCommand('r1','ip route add 99.0.0.1 vrf r1-cust1 dev r1-eth4 via 192.168.1.2')
     luCommand('r4','ip route add 99.0.0.4 vrf r4-cust2 dev r4-eth5 via 192.168.2.2')
-    luCommand('r1','ip -M route add 101 dev r1-cust1')
-    luCommand('r4','ip -M route add 104 dev r4-cust2')
-    luCommand('r1','ip route add 99.0.0.4/32 vrf r1-cust1 nexthop encap mpls %s/104 via 10.0.1.2 dev r1-eth0'%label4r4)
-    luCommand('r4','ip route add 99.0.0.1/32 vrf r4-cust2 nexthop encap mpls %s/101 via 10.0.2.2 dev r4-eth0'%label4r1)
+
+
+#    luCommand('r1','ip -M route add 101 dev r1-cust1')
+#    luCommand('r4','ip -M route add 104 dev r4-cust2')
+
+#    luCommand('r1','ip route add 99.0.0.4/32 vrf r1-cust1 nexthop encap mpls %s/104 via 10.0.1.2 dev r1-eth0'%label4r4)
+#    luCommand('r4','ip route add 99.0.0.1/32 vrf r4-cust2 nexthop encap mpls %s/101 via 10.0.2.2 dev r4-eth0'%label4r1)
+
     luCommand('r1','ip route show vrf r1-cust1','99.0.0.4','pass', 'VRF->MPLS PHP route installed')
     luCommand('r4','ip route show vrf r4-cust2','99.0.0.1','pass', 'VRF->MPLS PHP route installed')
     luCommand('r1','ip -M route show','101','MPLS->VRF route installed')

@@ -72,7 +72,7 @@ def test_check_linux_mpls():
     #CliOnFail = 'tgen.mininet_cli'
     CheckFunc = 'ltemplateVersionCheck(\'3.1\', iproute2=\'4.9\')'
     #uncomment next line to start cli *before* script is run
-    #CheckFunc = 'ltemplateVersionCheck(\'3.1\', cli=True, iproute2=\'4.9\')'
+    CheckFunc = 'ltemplateVersionCheck(\'3.1\', cli=True, iproute2=\'4.9\')'
     ltemplateTest('scripts/check_linux_mpls.py', False, CliOnFail, CheckFunc)
 
 def SKIP_test_cleanup_all():
