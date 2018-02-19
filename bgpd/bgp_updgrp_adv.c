@@ -113,6 +113,14 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 	peer = UPDGRP_PEER(updgrp);
 	addpath_capable = bgp_addpath_encode_tx(peer, afi, safi);
 
+	if (BGP_DEBUG(update, UPDATE_OUT)) {
+		char buf_prefix[PREFIX_STRLEN];
+		prefix2str(&ctx->rn->p, buf_prefix, sizeof(buf_prefix));
+		zlog_debug("%s: afi=%s, safi=%s, p=%s", __func__, afi2str(afi),
+			   safi2str(safi), buf_prefix);
+	}
+
+
 	UPDGRP_FOREACH_SUBGRP (updgrp, subgrp) {
 
 		/*

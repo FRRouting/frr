@@ -1966,6 +1966,13 @@ int subgroup_process_announce_selected(struct update_subgroup *subgrp,
 	onlypeer = ((SUBGRP_PCOUNT(subgrp) == 1) ? (SUBGRP_PFIRST(subgrp))->peer
 						 : NULL);
 
+	if (BGP_DEBUG(update, UPDATE_OUT)) {
+		char buf_prefix[PREFIX_STRLEN];
+		prefix2str(p, buf_prefix, sizeof(buf_prefix));
+		zlog_debug("%s: p=%s, selected=%p",
+		    __func__, buf_prefix, selected);
+	}
+
 	/* First update is deferred until ORF or ROUTE-REFRESH is received */
 	if (onlypeer && CHECK_FLAG(onlypeer->af_sflags[afi][safi],
 				   PEER_STATUS_ORF_WAIT_REFRESH))
