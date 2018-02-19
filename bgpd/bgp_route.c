@@ -73,6 +73,7 @@
 #include "bgpd/bgp_encap_tlv.h"
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_evpn_vty.h"
+#include "bgpd/bgp_flowspec.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "bgpd/bgp_route_clippy.c"
@@ -6316,6 +6317,9 @@ static void route_vty_out_route(struct prefix *p, struct vty *vty,
 		prefix2str(p, buf, PREFIX_STRLEN);
 		len = vty_out(vty, "%s", buf);
 #endif
+	} else if (p->family == AF_FLOWSPEC) {
+		route_vty_out_flowspec(vty, p, NULL,
+				       NLRI_STRING_FORMAT_MIN, json);
 	} else {
 		if (!json)
 			len = vty_out(
@@ -8429,6 +8433,12 @@ static int bgp_show(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		return bgp_show_table_rd(vty, bgp, safi, table, NULL, type,
 					 output_arg, use_json);
 	}
+
+	if (safi == SAFI_FLOWSPEC && type == bgp_show_type_detail) {
+		return bgp_show_table_flowspec(vty, bgp, afi, table, type,
+					       output_arg, use_json,
+					       1, NULL, NULL);
+	}
 	/* labeled-unicast routes live in the unicast table */
 	else if (safi == SAFI_LABELED_UNICAST)
 		safi = SAFI_UNICAST;
@@ -10425,6 +10435,32 @@ static int bgp_show_neighbor_route(struct vty *vty, struct peer *peer,
 	return bgp_show(vty, peer->bgp, afi, safi, type, &peer->su, use_json);
 }
 
+DEFUN (show_ip_bgp_flowspec_routes_detailed,
+       show_ip_bgp_flowspec_routes_detailed_cmd,
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" flowspec] detail [json]",
+       SHOW_STR
+       IP_STR
+       BGP_STR
+       BGP_INSTANCE_HELP_STR
+       BGP_AFI_HELP_STR
+       "SAFI Flowspec\n"
+       "Detailed information on flowspec entries\n"
+       JSON_STR)
+{
+	afi_t afi = AFI_IP;
+	safi_t safi = SAFI_UNICAST;
+	struct bgp *bgp = NULL;
+	int idx = 0;
+
+	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
+					    &bgp);
+	if (!idx)
+		return CMD_WARNING;
+
+	return bgp_show(vty, bgp, afi, safi,
+			bgp_show_type_detail, NULL, use_json(argc, argv));
+}
+
 DEFUN (show_ip_bgp_neighbor_routes,
        show_ip_bgp_neighbor_routes_cmd,
        "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] "
@@ -11439,6 +11475,10 @@ void bgp_route_init(void)
 	/* Large Communities */
 	install_element(VIEW_NODE, &show_ip_bgp_large_community_list_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_large_community_cmd);
+
+	/* show bgp ipv4 flowspec detailed */
+	install_element(VIEW_NODE, &show_ip_bgp_flowspec_routes_detailed_cmd);
+
 }
 
 void bgp_route_finish(void)
