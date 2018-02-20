@@ -29,6 +29,7 @@
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_flowspec_private.h"
+#include "bgpd/bgp_debug.h"
 
 /* Local Structures and variables declarations
  * This code block hosts the struct declared that host the flowspec rules
@@ -271,6 +272,43 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 	return CMD_SUCCESS;
 }
 
+DEFUN (debug_bgp_flowspec,
+       debug_bgp_flowspec_cmd,
+       "debug bgp flowspec",
+       DEBUG_STR
+       BGP_STR
+       "BGP allow flowspec debugging entries\n")
+{
+	if (vty->node == CONFIG_NODE)
+		DEBUG_ON(flowspec, FLOWSPEC);
+	else {
+		TERM_DEBUG_ON(flowspec, FLOWSPEC);
+		vty_out(vty, "BGP flowspec debugging is on\n");
+	}
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_bgp_flowspec,
+       no_debug_bgp_flowspec_cmd,
+       "no debug bgp flowspec",
+       NO_STR
+       DEBUG_STR
+       BGP_STR
+       "BGP allow flowspec debugging entries\n")
+{
+	if (vty->node == CONFIG_NODE)
+		DEBUG_OFF(flowspec, FLOWSPEC);
+	else {
+		TERM_DEBUG_OFF(flowspec, FLOWSPEC);
+		vty_out(vty, "BGP flowspec debugging is off\n");
+	}
+	return CMD_SUCCESS;
+}
+
 void bgp_flowspec_vty_init(void)
 {
+	install_element(ENABLE_NODE, &debug_bgp_flowspec_cmd);
+	install_element(CONFIG_NODE, &debug_bgp_flowspec_cmd);
+	install_element(ENABLE_NODE, &no_debug_bgp_flowspec_cmd);
+	install_element(CONFIG_NODE, &no_debug_bgp_flowspec_cmd);
 }

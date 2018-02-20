@@ -28,6 +28,8 @@
 #include "bgpd/bgp_flowspec.h"
 #include "bgpd/bgp_flowspec_util.h"
 #include "bgpd/bgp_flowspec_private.h"
+#include "bgpd/bgp_ecommunity.h"
+#include "bgpd/bgp_debug.h"
 
 static int bgp_fs_nlri_validate(uint8_t *nlri_content, uint32_t len)
 {
@@ -143,6 +145,35 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 		temp = XCALLOC(MTYPE_TMP, psize);
 		memcpy(temp, pnt, psize);
 		p.u.prefix_flowspec.ptr = (uintptr_t) temp;
+
+		if (BGP_DEBUG(flowspec, FLOWSPEC)) {
+			char return_string[BGP_FLOWSPEC_NLRI_STRING_MAX];
+			char local_string[BGP_FLOWSPEC_NLRI_STRING_MAX];
+			char ec_string[BGP_FLOWSPEC_NLRI_STRING_MAX];
+			char *s = NULL;
+
+			bgp_fs_nlri_get_string((unsigned char *)
+					       p.u.prefix_flowspec.ptr,
+					       p.u.prefix_flowspec.prefixlen,
+					       return_string,
+					       NLRI_STRING_FORMAT_MIN);
+			snprintf(ec_string, BGP_FLOWSPEC_NLRI_STRING_MAX,
+				 "EC{none}");
+			if (attr && attr->ecommunity) {
+				s = ecommunity_ecom2str(attr->ecommunity,
+						ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+				snprintf(ec_string,
+					 BGP_FLOWSPEC_NLRI_STRING_MAX,
+					 "EC{%s}",
+					s == NULL ? "none" : s);
+			}
+			snprintf(local_string, BGP_FLOWSPEC_NLRI_STRING_MAX,
+				 "FS Rx %s %s %s %s", withdraw ?
+				 "Withdraw":"Update",
+				 afi2str(afi), return_string,
+				 attr != NULL ? ec_string : "");
+			zlog_info("%s", local_string);
+		}
 		/* Process the route. */
 		if (!withdraw)
 			ret = bgp_update(peer, &p, 0, attr,
