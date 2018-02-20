@@ -68,7 +68,8 @@ endif
 # handled by subdir target
 man: ;
 
-FRR.info:
+# explicit targets
+frr.info:
 	$(MAKE) -C user info
 
 user.pdf:
@@ -82,6 +83,11 @@ developer.pdf:
 
 developer.html:
 	$(MAKE) -C developer html
+
+# info target, handled by automake installation
+install-data-local: frr.info
+	gzip < user/_build/texinfo/FRR.info > ${infodir}/FRR.info.gz
+	install-info user/_build/texinfo/FRR.info ${infodir}/dir
 
 # include sources for shipped docs
 EXTRA_DIST = manpages/defines.rst \

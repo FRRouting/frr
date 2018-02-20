@@ -142,8 +142,8 @@ override_dh_auto_build:
 ifeq ($(GENERATE_PDF), 1)
 	dh_auto_build -- -C doc user.pdf
 endif
-	rm -vf doc/_build/texinfo/FRR.info
-	dh_auto_build -- -C doc user.info
+	rm -vf doc/_build/texinfo/frr.info
+	dh_auto_build -- -C doc frr.info
 
 override_dh_auto_test:
 
