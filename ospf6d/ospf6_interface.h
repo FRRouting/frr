@@ -108,6 +108,7 @@ struct ospf6_interface {
 	struct thread *thread_network_lsa;
 	struct thread *thread_link_lsa;
 	struct thread *thread_intra_prefix_lsa;
+	struct thread *thread_as_extern_lsa;
 
 	struct ospf6_route_table *route_connected;
 

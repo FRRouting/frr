@@ -706,6 +706,37 @@ int ospf6_lsa_refresh(struct thread *thread)
 	return 0;
 }
 
+void ospf6_flush_self_originated_lsas_now(void)
+{
+	struct listnode *node;
+	struct ospf6_area *oa;
+	struct ospf6_lsa *lsa;
+	const struct route_node *end = NULL;
+	uint32_t type, adv_router;
+
+	ospf6->inst_shutdown = 1;
+
+	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
+		end = ospf6_lsdb_head(oa->lsdb_self, 0, 0,
+				      ospf6->router_id, &lsa);
+		while (lsa) {
+			/* RFC 2328 (14.1):  Set MAXAGE */
+			lsa->header->age = htons(OSPF_LSA_MAXAGE);
+			/* Flood MAXAGE LSA*/
+			ospf6_flood(NULL, lsa);
+
+			lsa = ospf6_lsdb_next(end, lsa);
+		}
+	}
+
+	type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
+	adv_router = ospf6->router_id;
+	for (ALL_LSDB_TYPED_ADVRTR(ospf6->lsdb, type, adv_router, lsa)) {
+		/* RFC 2328 (14.1):  Set MAXAGE */
+		lsa->header->age = htons(OSPF_LSA_MAXAGE);
+		ospf6_flood(NULL, lsa);
+	}
+}
 
 /* Fletcher Checksum -- Refer to RFC1008. */
 

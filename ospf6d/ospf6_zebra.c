@@ -46,8 +46,6 @@ unsigned char conf_debug_ospf6_zebra = 0;
 /* information about zebra. */
 struct zclient *zclient = NULL;
 
-struct in_addr router_id_zebra;
-
 /* Router-id update message from zebra. */
 static int ospf6_router_id_update_zebra(int command, struct zclient *zclient,
 					zebra_size_t length, vrf_id_t vrf_id)
@@ -56,13 +54,14 @@ static int ospf6_router_id_update_zebra(int command, struct zclient *zclient,
 	struct ospf6 *o = ospf6;
 
 	zebra_router_id_update_read(zclient->ibuf, &router_id);
-	router_id_zebra = router_id.u.prefix4;
 
 	if (o == NULL)
 		return 0;
 
+	o->router_id_zebra = router_id.u.prefix4;
+
 	if (o->router_id == 0)
-		o->router_id = (u_int32_t)router_id_zebra.s_addr;
+		o->router_id = (uint32_t)o->router_id_zebra.s_addr;
 
 	return 0;
 }

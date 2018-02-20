@@ -337,6 +337,7 @@ static struct route_map_rule_cmd route_match_tag_cmd = {
 };
 
 struct ospf_metric {
+	enum { metric_increment, metric_decrement, metric_absolute } type;
 	bool used;
 	u_int32_t metric;
 };
@@ -356,8 +357,19 @@ static route_map_result_t route_set_metric(void *rule, struct prefix *prefix,
 		ei = object;
 
 		/* Set metric out value. */
-		if (metric->used)
+		if (!metric->used)
+			return RMAP_OKAY;
+		if (metric->type == metric_increment)
+			ei->route_map_set.metric += metric->metric;
+		if (metric->type == metric_decrement)
+			ei->route_map_set.metric -= metric->metric;
+		if (metric->type == metric_absolute)
 			ei->route_map_set.metric = metric->metric;
+
+		if ((signed int)ei->route_map_set.metric < 1)
+			ei->route_map_set.metric = -1;
+		if (ei->route_map_set.metric > OSPF_LS_INFINITY)
+			ei->route_map_set.metric = OSPF_LS_INFINITY;
 	}
 	return RMAP_OKAY;
 }
@@ -370,23 +382,28 @@ static void *route_set_metric_compile(const char *arg)
 	metric = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(u_int32_t));
 	metric->used = false;
 
-	/* OSPF doesn't support the +/- in
-	   set metric <+/-metric> check
-	   Ignore the +/- component */
-	if (!all_digit(arg)) {
-		if ((arg[0] == '+' || arg[0] == '-') && all_digit(arg + 1)) {
-			zlog_warn("OSPF does not support 'set metric +/-'");
-			arg++;
-		} else {
-			if (strmatch(arg, "+rtt") || strmatch(arg, "-rtt"))
-				zlog_warn(
-					"OSPF does not support 'set metric +rtt / -rtt'");
+	if (all_digit(arg))
+		metric->type = metric_absolute;
 
-			return metric;
-		}
+	if (strmatch(arg, "+rtt") || strmatch(arg, "-rtt")) {
+		zlog_warn("OSPF does not support 'set metric +rtt / -rtt'");
+		return metric;
 	}
+
+	if ((arg[0] == '+') && all_digit(arg + 1)) {
+		metric->type = metric_increment;
+		arg++;
+	}
+
+	if ((arg[0] == '-') && all_digit(arg + 1)) {
+		metric->type = metric_decrement;
+		arg++;
+	}
+
 	metric->metric = strtoul(arg, NULL, 10);
-	metric->used = true;
+
+	if (metric->metric)
+		metric->used = true;
 
 	return metric;
 }
