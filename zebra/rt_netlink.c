@@ -840,6 +840,7 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 {
 	struct mpls_label_stack *nh_label;
 	mpls_lse_t out_lse[MPLS_MAX_LABELS];
+	int num_labels = 0;
 	char label_buf[256];
 
 	/*
@@ -849,56 +850,54 @@ static void _netlink_route_build_singlepath(const char *routedesc, int bytelen,
 	 * you fix this assumption
 	 */
 	label_buf[0] = '\0';
-	/* outgoing label - either as NEWDST (in the case of LSR) or as ENCAP
-	 * (in the case of LER)
-	 */
-	nh_label = nexthop->nh_label;
-	if (rtmsg->rtm_family == AF_MPLS) {
-		assert(nh_label);
-		assert(nh_label->num_labels == 1);
-	}
 
-	if (nh_label && nh_label->num_labels) {
-		int i, num_labels = 0;
-		u_int32_t bos;
+	assert(nexthop);
+	for (struct nexthop *nh = nexthop; nh; nh = nh->rparent) {
 		char label_buf1[20];
 
-		for (i = 0; i < nh_label->num_labels; i++) {
-			if (nh_label->label[i] != MPLS_LABEL_IMPLICIT_NULL) {
-				bos = ((i == (nh_label->num_labels - 1)) ? 1
-									 : 0);
-				out_lse[i] = mpls_lse_encode(nh_label->label[i],
-							     0, 0, bos);
-				if (IS_ZEBRA_DEBUG_KERNEL) {
-					if (!num_labels)
-						sprintf(label_buf, "label %u",
-							nh_label->label[i]);
-					else {
-						sprintf(label_buf1, "/%u",
-							nh_label->label[i]);
-						strlcat(label_buf, label_buf1,
-							sizeof(label_buf));
-					}
-				}
-				num_labels++;
-			}
-		}
-		if (num_labels) {
-			if (rtmsg->rtm_family == AF_MPLS)
-				addattr_l(nlmsg, req_size, RTA_NEWDST, &out_lse,
-					  num_labels * sizeof(mpls_lse_t));
-			else {
-				struct rtattr *nest;
-				u_int16_t encap = LWTUNNEL_ENCAP_MPLS;
+		nh_label = nh->nh_label;
+		if (!nh_label || !nh_label->num_labels)
+			continue;
 
-				addattr_l(nlmsg, req_size, RTA_ENCAP_TYPE,
-					  &encap, sizeof(u_int16_t));
-				nest = addattr_nest(nlmsg, req_size, RTA_ENCAP);
-				addattr_l(nlmsg, req_size, MPLS_IPTUNNEL_DST,
-					  &out_lse,
-					  num_labels * sizeof(mpls_lse_t));
-				addattr_nest_end(nlmsg, nest);
+		for (int i = 0; i < nh_label->num_labels; i++) {
+			if (nh_label->label[i] == MPLS_LABEL_IMPLICIT_NULL)
+				continue;
+
+			if (IS_ZEBRA_DEBUG_KERNEL) {
+				if (!num_labels)
+					sprintf(label_buf, "label %u",
+						nh_label->label[i]);
+				else {
+					sprintf(label_buf1, "/%u",
+						nh_label->label[i]);
+					strlcat(label_buf, label_buf1,
+						sizeof(label_buf));
+				}
 			}
+
+			out_lse[num_labels] =
+				mpls_lse_encode(nh_label->label[i], 0, 0, 0);
+			num_labels++;
+		}
+	}
+
+	if (num_labels) {
+		/* Set the BoS bit */
+		out_lse[num_labels - 1] |= htonl(1 << MPLS_LS_S_SHIFT);
+
+		if (rtmsg->rtm_family == AF_MPLS)
+			addattr_l(nlmsg, req_size, RTA_NEWDST, &out_lse,
+				  num_labels * sizeof(mpls_lse_t));
+		else {
+			struct rtattr *nest;
+			u_int16_t encap = LWTUNNEL_ENCAP_MPLS;
+
+			addattr_l(nlmsg, req_size, RTA_ENCAP_TYPE, &encap,
+				  sizeof(u_int16_t));
+			nest = addattr_nest(nlmsg, req_size, RTA_ENCAP);
+			addattr_l(nlmsg, req_size, MPLS_IPTUNNEL_DST, &out_lse,
+				  num_labels * sizeof(mpls_lse_t));
+			addattr_nest_end(nlmsg, nest);
 		}
 	}
 
@@ -1045,6 +1044,7 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 {
 	struct mpls_label_stack *nh_label;
 	mpls_lse_t out_lse[MPLS_MAX_LABELS];
+	int num_labels = 0;
 	char label_buf[256];
 
 	rtnh->rtnh_len = sizeof(*rtnh);
@@ -1059,63 +1059,60 @@ static void _netlink_route_build_multipath(const char *routedesc, int bytelen,
 	 * you fix this assumption
 	 */
 	label_buf[0] = '\0';
-	/* outgoing label - either as NEWDST (in the case of LSR) or as ENCAP
-	 * (in the case of LER)
-	 */
-	nh_label = nexthop->nh_label;
-	if (rtmsg->rtm_family == AF_MPLS) {
-		assert(nh_label);
-		assert(nh_label->num_labels == 1);
-	}
 
-	if (nh_label && nh_label->num_labels) {
-		int i, num_labels = 0;
-		u_int32_t bos;
+	assert(nexthop);
+	for (struct nexthop *nh = nexthop; nh; nh = nh->rparent) {
 		char label_buf1[20];
 
-		for (i = 0; i < nh_label->num_labels; i++) {
-			if (nh_label->label[i] != MPLS_LABEL_IMPLICIT_NULL) {
-				bos = ((i == (nh_label->num_labels - 1)) ? 1
-									 : 0);
-				out_lse[i] = mpls_lse_encode(nh_label->label[i],
-							     0, 0, bos);
-				if (IS_ZEBRA_DEBUG_KERNEL) {
-					if (!num_labels)
-						sprintf(label_buf, "label %u",
-							nh_label->label[i]);
-					else {
-						sprintf(label_buf1, "/%u",
-							nh_label->label[i]);
-						strlcat(label_buf, label_buf1,
-							sizeof(label_buf));
-					}
-				}
-				num_labels++;
-			}
-		}
-		if (num_labels) {
-			if (rtmsg->rtm_family == AF_MPLS) {
-				rta_addattr_l(rta, NL_PKT_BUF_SIZE, RTA_NEWDST,
-					      &out_lse,
-					      num_labels * sizeof(mpls_lse_t));
-				rtnh->rtnh_len += RTA_LENGTH(
-					num_labels * sizeof(mpls_lse_t));
-			} else {
-				struct rtattr *nest;
-				u_int16_t encap = LWTUNNEL_ENCAP_MPLS;
-				int len = rta->rta_len;
+		nh_label = nh->nh_label;
+		if (!nh_label || !nh_label->num_labels)
+			continue;
 
-				rta_addattr_l(rta, NL_PKT_BUF_SIZE,
-					      RTA_ENCAP_TYPE, &encap,
-					      sizeof(u_int16_t));
-				nest = rta_nest(rta, NL_PKT_BUF_SIZE,
-						RTA_ENCAP);
-				rta_addattr_l(rta, NL_PKT_BUF_SIZE,
-					      MPLS_IPTUNNEL_DST, &out_lse,
-					      num_labels * sizeof(mpls_lse_t));
-				rta_nest_end(rta, nest);
-				rtnh->rtnh_len += rta->rta_len - len;
+		for (int i = 0; i < nh_label->num_labels; i++) {
+			if (nh_label->label[i] == MPLS_LABEL_IMPLICIT_NULL)
+				continue;
+
+			if (IS_ZEBRA_DEBUG_KERNEL) {
+				if (!num_labels)
+					sprintf(label_buf, "label %u",
+						nh_label->label[i]);
+				else {
+					sprintf(label_buf1, "/%u",
+						nh_label->label[i]);
+					strlcat(label_buf, label_buf1,
+						sizeof(label_buf));
+				}
 			}
+
+			out_lse[num_labels] =
+				mpls_lse_encode(nh_label->label[i], 0, 0, 0);
+			num_labels++;
+		}
+	}
+
+	if (num_labels) {
+		/* Set the BoS bit */
+		out_lse[num_labels - 1] |= htonl(1 << MPLS_LS_S_SHIFT);
+
+		if (rtmsg->rtm_family == AF_MPLS) {
+			rta_addattr_l(rta, NL_PKT_BUF_SIZE, RTA_NEWDST,
+				      &out_lse,
+				      num_labels * sizeof(mpls_lse_t));
+			rtnh->rtnh_len +=
+				RTA_LENGTH(num_labels * sizeof(mpls_lse_t));
+		} else {
+			struct rtattr *nest;
+			u_int16_t encap = LWTUNNEL_ENCAP_MPLS;
+			int len = rta->rta_len;
+
+			rta_addattr_l(rta, NL_PKT_BUF_SIZE, RTA_ENCAP_TYPE,
+				      &encap, sizeof(u_int16_t));
+			nest = rta_nest(rta, NL_PKT_BUF_SIZE, RTA_ENCAP);
+			rta_addattr_l(rta, NL_PKT_BUF_SIZE, MPLS_IPTUNNEL_DST,
+				      &out_lse,
+				      num_labels * sizeof(mpls_lse_t));
+			rta_nest_end(rta, nest);
+			rtnh->rtnh_len += rta->rta_len - len;
 		}
 	}
 
