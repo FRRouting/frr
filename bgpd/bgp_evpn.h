@@ -62,11 +62,13 @@ static inline int advertise_type5_routes(struct bgp *bgp_vrf,
 		return 0;
 
 	if (afi == AFI_IP &&
-	    CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_ADVERTISE_IPV4_IN_EVPN))
+	    CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+		       BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST))
 		return 1;
 
 	if (afi == AFI_IP6 &&
-	    CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_ADVERTISE_IPV6_IN_EVPN))
+	    CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+		       BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST))
 		return 1;
 
 	return 0;

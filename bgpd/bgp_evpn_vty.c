@@ -2761,21 +2761,23 @@ DEFUN (bgp_evpn_advertise_type5,
 		/* if we are already advertising ipv4 prefix as type-5
 		 * nothing to do
 		 */
-		if (!rmap_changed && CHECK_FLAG(bgp_vrf->vrf_flags,
-						BGP_VRF_ADVERTISE_IPV4_IN_EVPN))
+		if (!rmap_changed &&
+		    CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+			       BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST))
 			return CMD_WARNING;
-		SET_FLAG(bgp_vrf->vrf_flags,
-			 BGP_VRF_ADVERTISE_IPV4_IN_EVPN);
+		SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+			 BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST);
 	} else {
 
 		/* if we are already advertising ipv6 prefix as type-5
 		 * nothing to do
 		 */
-		if (!rmap_changed && CHECK_FLAG(bgp_vrf->vrf_flags,
-						BGP_VRF_ADVERTISE_IPV6_IN_EVPN))
+		if (!rmap_changed &&
+		    CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+			       BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST))
 			return CMD_WARNING;
-		SET_FLAG(bgp_vrf->vrf_flags,
-			 BGP_VRF_ADVERTISE_IPV6_IN_EVPN);
+		SET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+			 BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST);
 	}
 
 	if (rmap_changed) {
@@ -2836,22 +2838,22 @@ DEFUN (no_bgp_evpn_advertise_type5,
 		/* if we are not advertising ipv4 prefix as type-5
 		 * nothing to do
 		 */
-		if (CHECK_FLAG(bgp_vrf->vrf_flags,
-			       BGP_VRF_ADVERTISE_IPV4_IN_EVPN)) {
+		if (CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+			       BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST)) {
 			bgp_evpn_withdraw_type5_routes(bgp_vrf, afi, safi);
-			UNSET_FLAG(bgp_vrf->vrf_flags,
-				   BGP_VRF_ADVERTISE_IPV4_IN_EVPN);
+			UNSET_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+				   BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST);
 		}
 	} else {
 
 		/* if we are not advertising ipv6 prefix as type-5
 		 * nothing to do
 		 */
-		if (CHECK_FLAG(bgp_vrf->vrf_flags,
-			       BGP_VRF_ADVERTISE_IPV6_IN_EVPN)) {
+		if (CHECK_FLAG(bgp_vrf->af_flags[AFI_L2VPN][SAFI_EVPN],
+			       BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST)) {
 			bgp_evpn_withdraw_type5_routes(bgp_vrf, afi, safi);
 			UNSET_FLAG(bgp_vrf->vrf_flags,
-				   BGP_VRF_ADVERTISE_IPV6_IN_EVPN);
+				   BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST);
 		}
 	}
 
@@ -4373,10 +4375,12 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 	if (bgp->advertise_gw_macip)
 		vty_out(vty, "  advertise-default-gw\n");
 
-	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_ADVERTISE_IPV4_IN_EVPN))
+	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
+		       BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST))
 		vty_out(vty, "  advertise ipv4 unicast\n");
 
-	if (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_ADVERTISE_IPV6_IN_EVPN))
+	if (CHECK_FLAG(bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
+		       BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST))
 		vty_out(vty, "  advertise ipv6 unicast\n");
 }
 
