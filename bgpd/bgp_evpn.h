@@ -55,6 +55,23 @@ static inline vni_t label2vni(mpls_label_t *label)
 	return vni;
 }
 
+static inline int advertise_type5_routes(struct bgp *bgp_vrf,
+					 afi_t afi)
+{
+	if (!bgp_vrf->l3vni)
+		return 0;
+
+	if (afi == AFI_IP &&
+	    CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_ADVERTISE_IPV4_IN_EVPN))
+		return 1;
+
+	if (afi == AFI_IP6 &&
+	    CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_ADVERTISE_IPV6_IN_EVPN))
+		return 1;
+
+	return 0;
+}
+
 extern void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf,
 					   struct prefix *p,
 					   struct attr *src_attr,

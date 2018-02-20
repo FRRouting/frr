@@ -2690,14 +2690,6 @@ DEFUN (bgp_evpn_advertise_vni_subnet,
 	if (!bgp_vrf)
 		return CMD_WARNING;
 
-	if (!(advertise_type5_routes(bgp_vrf, AFI_IP) ||
-	      advertise_type5_routes(bgp_vrf, AFI_IP6))) {
-		vty_out(vty,
-			"%%Please enable ip prefix advertisement under l2vpn evpn in %s",
-			vrf_id_to_name(bgp_vrf->vrf_id));
-		return CMD_WARNING;
-	}
-
 	evpn_set_advertise_subnet(bgp, vpn);
 	return CMD_SUCCESS;
 }
@@ -2841,7 +2833,7 @@ DEFUN (no_bgp_evpn_advertise_type5,
 
 	if (afi == AFI_IP) {
 
-		/* if we are already advertising ipv4 prefix as type-5
+		/* if we are not advertising ipv4 prefix as type-5
 		 * nothing to do
 		 */
 		if (CHECK_FLAG(bgp_vrf->vrf_flags,
@@ -2852,7 +2844,7 @@ DEFUN (no_bgp_evpn_advertise_type5,
 		}
 	} else {
 
-		/* if we are already advertising ipv6 prefix as type-5
+		/* if we are not advertising ipv6 prefix as type-5
 		 * nothing to do
 		 */
 		if (CHECK_FLAG(bgp_vrf->vrf_flags,

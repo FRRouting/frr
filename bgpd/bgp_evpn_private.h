@@ -349,23 +349,6 @@ static inline void build_evpn_type3_prefix(struct prefix_evpn *p,
 	p->prefix.ip.ipaddr_v4 = originator_ip;
 }
 
-static inline int advertise_type5_routes(struct bgp *bgp_vrf,
-					 afi_t afi)
-{
-	if (!bgp_vrf->l3vni)
-		return 0;
-
-	if (afi == AFI_IP &&
-	    CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_ADVERTISE_IPV4_IN_EVPN))
-		return 1;
-
-	if (afi == AFI_IP6 &&
-	    CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_ADVERTISE_IPV6_IN_EVPN))
-		return 1;
-
-	return 0;
-}
-
 extern void evpn_rt_delete_auto(struct bgp*, vni_t, struct list*);
 extern void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
 						 struct ecommunity *ecomadd);
