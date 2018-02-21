@@ -21,6 +21,7 @@ import re
 import sys
 import time
 import datetime
+import json
 from topolog import logger
 from mininet.net import Mininet
 
@@ -171,21 +172,29 @@ Total %-4d                                                           %-4d %d\n\
             self.log('unable to read: ' + tstFile)
             sys.exit(1)
 
-    def command(self, target, command, regexp, op, result):
+    def command(self, target, command, regexp, op, result, returnJson):
         global net
         if op != 'wait':
             self.l_line  += 1
+        if op == 'pass' or op == 'fail':
             self.l_total += 1
         self.log('%s:%s COMMAND:%s:%s:%s:%s:%s:' % \
                  (self.l_filename, self.l_line, target, command, regexp, op, result))
         if self.net == '':
             return False
         #self.log("Running %s %s" % (target, command))
+        js = None
         out = self.net[target].cmd(command).rstrip()
         if len(out) == 0:
             report = "<no output>"
         else:
             report = out
+            if returnJson == True:
+                try:
+                    js = json.loads(out)
+                except:
+                    js = None
+                    self.log('WARNING: JSON load failed -- confirm command output is in JSON format.')
         self.log('COMMAND OUTPUT:%s:' % report)
         out = " ".join(out.splitlines())
         search = re.search(regexp, out)
@@ -205,9 +214,11 @@ Total %-4d                                                           %-4d %d\n\
                 success = False
         if op == 'pass' or op == 'fail':
             self.result(target, success, result)
+        if js != None:
+            return js
         return ret
 
-    def wait(self, target, command, regexp, op, result, wait):
+    def wait(self, target, command, regexp, op, result, wait, returnJson):
         self.log('%s:%s WAIT:%s:%s:%s:%s:%s:%s:' % \
                  (self.l_filename, self.l_line, target, command, regexp, op, result,wait))
         llevel = LUtil.l_level
@@ -216,7 +227,7 @@ Total %-4d                                                           %-4d %d\n\
         startt = time.time()
         delta = time.time() - startt
         while delta < wait and found is False:
-            found = self.command(target, command, regexp, op, result)
+            found = self.command(target, command, regexp, op, result, returnJson)
             n+=1
             LUtil.l_level = 0
             delta = time.time() - startt
@@ -224,7 +235,7 @@ Total %-4d                                                           %-4d %d\n\
                 time.sleep (0.5)
         LUtil.l_level = llevel
         self.log('Done after %d loops, time=%s, Found=%s' % (n, delta, found))
-        found = self.command(target, command, regexp, 'pass', '%s +%4.2f secs' % (result, delta))
+        found = self.command(target, command, regexp, 'pass', '%s +%4.2f secs' % (result, delta), returnJson)
         return found
 
 #initialized by luStart
@@ -245,11 +256,11 @@ def luStart(baseScriptDir='.', baseLogDir='.', net='',
         LUtil.fsum_name = baseLogDir + '/' + fsum
     LUtil.l_level = level
 
-def luCommand(target, command, regexp='.', op='none', result='', time=10):
+def luCommand(target, command, regexp='.', op='none', result='', time=10, returnJson=False):
     if op != 'wait':
-        return LUtil.command(target, command, regexp, op, result)
+        return LUtil.command(target, command, regexp, op, result, returnJson)
     else:
-        return LUtil.wait(target, command, regexp, op, result, time)
+        return LUtil.wait(target, command, regexp, op, result, time, returnJson)
 
 def luLast():
     if LUtil.l_last != None:
