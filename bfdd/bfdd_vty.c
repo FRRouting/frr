@@ -172,6 +172,50 @@ DEFPY(bfd_peer_shutdown, bfd_peer_shutdown_cmd,
 	return bfdd_update_peer(vty, &bn->bn_bpc);
 }
 
+DEFPY(bfd_peer_label, bfd_peer_label_cmd,
+      "label WORD$label",
+      "Register peer label\n"
+      "Register peer label identification\n")
+{
+	struct bpc_node *bn;
+	struct bfd_peer_cfg *bpc;
+	char oldlabel[MAXNAMELEN] = {0};
+	int result;
+
+	/* Validate label length. */
+	if (strlen(label) > sizeof(oldlabel)) {
+		vty_out(vty, "%% Label name is too long\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	bn = VTY_GET_CONTEXT(bpc_node);
+	bpc = &bn->bn_bpc;
+
+	/* Save the old label if any. */
+	if (bpc->bpc_has_label) {
+		strlcpy(oldlabel, bpc->bpc_label, sizeof(oldlabel));
+	}
+
+	/* Apply configuration and test. */
+	bpc->bpc_has_label = true;
+	strlcpy(bpc->bpc_label, label, sizeof(bpc->bpc_label));
+
+	result = _bfdd_update_peer(vty, bpc, false);
+
+	/* If the update failed, then we must revert the configuration. */
+	if (result != CMD_SUCCESS) {
+		if (oldlabel[0] != 0) {
+			strlcpy(bpc->bpc_label, oldlabel,
+				sizeof(bpc->bpc_label));
+		} else {
+			memset(bpc->bpc_label, 0, sizeof(bpc->bpc_label));
+			bpc->bpc_has_label = false;
+		}
+	}
+
+	return result;
+}
+
 DEFPY(bfd_no_peer, bfd_no_peer_cmd,
       "no peer <A.B.C.D|X:X::X:X>$peer [<{interface IFNAME$ifname}|{local-address <A.B.C.D|X:X::X:X>$local|vrf NAME$vrfname}>]",
       NO_STR
@@ -255,6 +299,9 @@ int bfdd_peer_write_config(struct vty *vty)
 			vty_out(vty, "  transmit-interval %lu\n",
 				bpc->bpc_txinterval);
 		}
+		if (bpc->bpc_has_label) {
+			vty_out(vty, "  label %s\n", bpc->bpc_label);
+		}
 
 		vty_out(vty, "  %sshutdown\n", bpc->bpc_shutdown ? "" : "no ");
 
@@ -289,4 +336,5 @@ void bfdd_vty_init(void)
 	install_element(BFD_PEER_NODE, &bfd_peer_recvinterval_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_txinterval_cmd);
 	install_element(BFD_PEER_NODE, &bfd_peer_shutdown_cmd);
+	install_element(BFD_PEER_NODE, &bfd_peer_label_cmd);
 }

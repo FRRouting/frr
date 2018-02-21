@@ -45,6 +45,8 @@ int bfd_control_recv(int sd, bfd_control_recv_cb cb, void *arg);
  */
 struct json_object *bfd_ctrl_new_json(void);
 void bfd_ctrl_add_peer(struct json_object *msg, struct bfd_peer_cfg *bpc);
+void bfd_ctrl_add_peer_bylabel(struct json_object *msg,
+			       struct bfd_peer_cfg *bpc);
 
 
 /*

@@ -232,10 +232,19 @@ struct json_object *bfd_ctrl_new_json(void)
 	}
 	json_object_object_add(jo, "ipv6", jon);
 
+	/* Create the label list: '{ 'ipv4': [], 'ipv6': [], 'label': [] }' */
+	jon = json_object_new_array();
+	if (jon == NULL) {
+		json_object_put(jo);
+		return NULL;
+	}
+	json_object_object_add(jo, "label", jon);
+
 	return jo;
 }
 
-void bfd_ctrl_add_peer(struct json_object *msg, struct bfd_peer_cfg *bpc)
+static void _bfd_ctrl_add_peer(struct json_object *msg,
+			       struct bfd_peer_cfg *bpc, bool use_label)
 {
 	struct json_object *peer_jo, *plist;
 
@@ -243,19 +252,26 @@ void bfd_ctrl_add_peer(struct json_object *msg, struct bfd_peer_cfg *bpc)
 	if (peer_jo == NULL)
 		return;
 
-	json_object_add_bool(peer_jo, "multihop", bpc->bpc_mhop);
-
-	if (bpc->bpc_mhop) {
-		json_object_add_string(peer_jo, "local-address",
-				       satostr(&bpc->bpc_local));
+	if (bpc->bpc_has_label) {
+		json_object_add_string(peer_jo, "label", bpc->bpc_label);
 	}
 
-	json_object_add_string(peer_jo, "peer-address",
-			       satostr(&bpc->bpc_peer));
+	/* If using labels, don't add the keys as they are redundant. */
+	if (!use_label || !bpc->bpc_has_label) {
+		json_object_add_bool(peer_jo, "multihop", bpc->bpc_mhop);
 
-	if (bpc->bpc_has_localif) {
-		json_object_add_string(peer_jo, "local-interface",
-				       bpc->bpc_localif);
+		if (bpc->bpc_mhop) {
+			json_object_add_string(peer_jo, "local-address",
+					       satostr(&bpc->bpc_local));
+		}
+
+		json_object_add_string(peer_jo, "peer-address",
+				       satostr(&bpc->bpc_peer));
+
+		if (bpc->bpc_has_localif) {
+			json_object_add_string(peer_jo, "local-interface",
+					       bpc->bpc_localif);
+		}
 	}
 
 	if (bpc->bpc_has_detectmultiplier) {
@@ -277,12 +293,33 @@ void bfd_ctrl_add_peer(struct json_object *msg, struct bfd_peer_cfg *bpc)
 	json_object_add_bool(peer_jo, "shutdown", bpc->bpc_shutdown);
 
 	/* Select the appropriated peer list and add the peer to it. */
-	if (bpc->bpc_ipv4)
+	if (use_label && bpc->bpc_has_label) {
+		json_object_object_get_ex(msg, "label", &plist);
+	} else if (bpc->bpc_ipv4) {
 		json_object_object_get_ex(msg, "ipv4", &plist);
-	else
+	} else {
 		json_object_object_get_ex(msg, "ipv6", &plist);
+	}
 
 	json_object_array_add(plist, peer_jo);
+}
+
+/*
+ * This function tries to use the peer label to save some bytes on the
+ * message and to avoid ambiguity.
+ */
+void bfd_ctrl_add_peer_bylabel(struct json_object *msg,
+			       struct bfd_peer_cfg *bpc)
+{
+	_bfd_ctrl_add_peer(msg, bpc, true);
+}
+
+/*
+ * This function registers the peer always using addresses.
+ */
+void bfd_ctrl_add_peer(struct json_object *msg, struct bfd_peer_cfg *bpc)
+{
+	_bfd_ctrl_add_peer(msg, bpc, false);
 }
 
 

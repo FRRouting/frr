@@ -64,6 +64,8 @@ int bfd_configure_peer(struct bfd_peer_cfg *bpc,
 		       const char *vrfname, char *ebuf, size_t ebuflen);
 
 int bfdd_add_peer(struct vty *vty, struct bfd_peer_cfg *bpc);
+int _bfdd_update_peer(struct vty *vty, struct bfd_peer_cfg *bpc,
+		      bool use_label);
 int bfdd_update_peer(struct vty *vty, struct bfd_peer_cfg *bpc);
 int bfdd_delete_peer(struct vty *vty, struct bfd_peer_cfg *bpc);
 

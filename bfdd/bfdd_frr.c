@@ -145,7 +145,8 @@ void bfdd_config_notification(struct json_object *notification)
 			}
 		}
 
-		result = bfd_configure_peer(&bpc, psap, lsap, interface, vrf, NULL, 0);
+		result = bfd_configure_peer(&bpc, psap, lsap, interface, vrf,
+					    NULL, 0);
 		free(interface);
 		free(vrf);
 
@@ -179,6 +180,11 @@ void bfdd_config_notification(struct json_object *notification)
 		} else if (strcmp(key, "shutdown") == 0) {
 			bn->bn_bpc.bpc_shutdown =
 				json_object_get_boolean(jo_val);
+		} else if (strcmp(key, "label") == 0) {
+			strlcpy(bn->bn_bpc.bpc_label,
+				json_object_get_string(jo_val),
+				sizeof(bn->bn_bpc.bpc_label));
+			bn->bn_bpc.bpc_has_label = true;
 		}
 	}
 }
@@ -524,7 +530,7 @@ int bfdd_add_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 	return CMD_SUCCESS;
 }
 
-int bfdd_update_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
+int _bfdd_update_peer(struct vty *vty, struct bfd_peer_cfg *bpc, bool use_label)
 {
 	struct json_object *jo;
 	const char *jsonstr;
@@ -537,7 +543,12 @@ int bfdd_update_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	bfd_ctrl_add_peer(jo, bpc);
+	if (use_label) {
+		bfd_ctrl_add_peer_bylabel(jo, bpc);
+	} else {
+		bfd_ctrl_add_peer(jo, bpc);
+	}
+
 	jsonstr = json_object_to_json_string_ext(jo, JSON_C_TO_STRING_PRETTY);
 	id = bfd_control_send(bc.bc_csock, BMT_REQUEST_ADD, jsonstr,
 			      strlen(jsonstr));
@@ -558,6 +569,12 @@ int bfdd_update_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 	return CMD_SUCCESS;
 }
 
+int bfdd_update_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
+{
+	return _bfdd_update_peer(vty, bpc, true);
+}
+
+
 int bfdd_delete_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 {
 	struct json_object *jo;
@@ -572,7 +589,7 @@ int bfdd_delete_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	bfd_ctrl_add_peer(jo, bpc);
+	bfd_ctrl_add_peer_bylabel(jo, bpc);
 	jsonstr = json_object_to_json_string_ext(jo, JSON_C_TO_STRING_PRETTY);
 	id = bfd_control_send(bc.bc_csock, BMT_REQUEST_DEL, jsonstr,
 			      strlen(jsonstr));
