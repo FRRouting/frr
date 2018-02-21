@@ -40,10 +40,8 @@ void kernel_add_lsp(zebra_lsp_t *lsp)
 
 	ret = netlink_mpls_multipath(RTM_NEWROUTE, lsp);
 
-	kernel_lsp_pass_fail(lsp,
-			     (!ret) ?
-			     SOUTHBOUND_INSTALL_SUCCESS :
-			     SOUTHBOUND_INSTALL_FAILURE);
+	kernel_lsp_pass_fail(lsp, (!ret) ? SOUTHBOUND_INSTALL_SUCCESS
+					 : SOUTHBOUND_INSTALL_FAILURE);
 }
 
 /*
@@ -68,10 +66,8 @@ void kernel_upd_lsp(zebra_lsp_t *lsp)
 
 	ret = netlink_mpls_multipath(RTM_NEWROUTE, lsp);
 
-	kernel_lsp_pass_fail(lsp,
-			     (!ret) ?
-			     SOUTHBOUND_INSTALL_SUCCESS :
-			     SOUTHBOUND_INSTALL_FAILURE);
+	kernel_lsp_pass_fail(lsp, (!ret) ? SOUTHBOUND_INSTALL_SUCCESS
+					 : SOUTHBOUND_INSTALL_FAILURE);
 }
 
 /*
@@ -82,23 +78,19 @@ void kernel_del_lsp(zebra_lsp_t *lsp)
 	int ret;
 
 	if (!lsp) { // unexpected
-		kernel_lsp_pass_fail(lsp,
-				     SOUTHBOUND_DELETE_FAILURE);
+		kernel_lsp_pass_fail(lsp, SOUTHBOUND_DELETE_FAILURE);
 		return;
 	}
 
 	if (!CHECK_FLAG(lsp->flags, LSP_FLAG_INSTALLED)) {
-		kernel_lsp_pass_fail(lsp,
-				     SOUTHBOUND_DELETE_FAILURE);
+		kernel_lsp_pass_fail(lsp, SOUTHBOUND_DELETE_FAILURE);
 		return;
 	}
 
 	ret = netlink_mpls_multipath(RTM_DELROUTE, lsp);
 
-	kernel_lsp_pass_fail(lsp,
-			     (!ret) ?
-			     SOUTHBOUND_DELETE_SUCCESS :
-			     SOUTHBOUND_DELETE_FAILURE);
+	kernel_lsp_pass_fail(lsp, (!ret) ? SOUTHBOUND_DELETE_SUCCESS
+					 : SOUTHBOUND_DELETE_FAILURE);
 }
 
 int mpls_kernel_init(void)

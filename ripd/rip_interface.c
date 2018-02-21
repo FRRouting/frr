@@ -907,19 +907,17 @@ static void rip_connect_set(struct interface *ifp, int set)
 			 * "network IF_OR_PREF" one */
 			if ((rip_enable_if_lookup(connected->ifp->name) >= 0)
 			    || (rip_enable_network_lookup2(connected) >= 0))
-				rip_redistribute_add(
-					ZEBRA_ROUTE_CONNECT,
-					RIP_ROUTE_INTERFACE, &address,
-					&nh, 0, 0, 0);
+				rip_redistribute_add(ZEBRA_ROUTE_CONNECT,
+						     RIP_ROUTE_INTERFACE,
+						     &address, &nh, 0, 0, 0);
 		} else {
 			rip_redistribute_delete(ZEBRA_ROUTE_CONNECT,
 						RIP_ROUTE_INTERFACE, &address,
 						connected->ifp->ifindex);
 			if (rip_redistribute_check(ZEBRA_ROUTE_CONNECT))
-				rip_redistribute_add(
-					ZEBRA_ROUTE_CONNECT,
-					RIP_ROUTE_REDISTRIBUTE, &address,
-					&nh, 0, 0, 0);
+				rip_redistribute_add(ZEBRA_ROUTE_CONNECT,
+						     RIP_ROUTE_REDISTRIBUTE,
+						     &address, &nh, 0, 0, 0);
 		}
 	}
 }
@@ -1329,7 +1327,6 @@ DEFUN (no_ip_rip_receive_version,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (ip_rip_send_version,
        ip_rip_send_version_cmd,
        "ip rip send version (1-2)",
@@ -1397,7 +1394,6 @@ DEFUN (no_ip_rip_send_version,
 	ri->ri_send = RI_RIP_UNSPEC;
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (ip_rip_v2_broadcast,
        ip_rip_v2_broadcast_cmd,
@@ -1560,7 +1556,6 @@ DEFUN (no_ip_rip_authentication_string,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (ip_rip_authentication_key_chain,
        ip_rip_authentication_key_chain_cmd,
@@ -1860,7 +1855,9 @@ int config_write_rip_network(struct vty *vty, int config_mode)
 }
 
 static struct cmd_node interface_node = {
-	INTERFACE_NODE, "%s(config-if)# ", 1,
+	INTERFACE_NODE,
+	"%s(config-if)# ",
+	1,
 };
 
 /* Called when interface structure allocated. */

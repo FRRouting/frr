@@ -158,8 +158,8 @@ struct lsa_filter_type {
 #define	SELF_ORIGINATED  (OSPF_LSA_SELF)
 #define	ANY_ORIGIN 2
 
-	u_char num_areas;   /* number of areas in the filter. */
-			    /* areas, if any, go here. */
+	u_char num_areas; /* number of areas in the filter. */
+			  /* areas, if any, go here. */
 };
 
 struct msg_register_event {

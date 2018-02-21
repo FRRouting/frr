@@ -301,10 +301,10 @@ static void exchange(argv) char **argv;
 	int top = optind;
 	char *tem;
 
-/* Exchange the shorter segment with the far end of the longer segment.
-   That puts the shorter segment into the right place.
-   It leaves the longer segment in the right place overall,
-   but it consists of two parts that need to be swapped next.  */
+	/* Exchange the shorter segment with the far end of the longer segment.
+	   That puts the shorter segment into the right place.
+	   It leaves the longer segment in the right place overall,
+	   but it consists of two parts that need to be swapped next.  */
 
 #ifdef _LIBC
 	/* First make sure the handling of the `__getopt_nonoption_flags'
@@ -369,7 +369,7 @@ static void exchange(argv) char **argv;
 	last_nonopt = optind;
 }
 
-/* Initialize the internal data when the first call is made.  */
+	/* Initialize the internal data when the first call is made.  */
 
 #if defined __STDC__ && __STDC__
 static const char *_getopt_initialize(int, char *const *, const char *);
@@ -619,8 +619,9 @@ int long_only;
 
 	if (longopts != NULL
 	    && (argv[optind][1] == '-'
-		|| (long_only && (argv[optind][2]
-				  || !my_index(optstring, argv[optind][1]))))) {
+		|| (long_only
+		    && (argv[optind][2]
+			|| !my_index(optstring, argv[optind][1]))))) {
 		char *nameend;
 		const struct option *p;
 		const struct option *pfound = NULL;

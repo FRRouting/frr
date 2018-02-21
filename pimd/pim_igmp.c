@@ -839,8 +839,7 @@ static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 
 	snprintf(hash_name, 64, "IGMP %s hash", ifp->name);
 	igmp->igmp_group_hash = hash_create(igmp_group_hash_key,
-					    igmp_group_hash_equal,
-					    hash_name);
+					    igmp_group_hash_equal, hash_name);
 
 	igmp->fd = fd;
 	igmp->interface = ifp;

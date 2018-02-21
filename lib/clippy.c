@@ -97,8 +97,9 @@ int main(int argc, char **argv)
 	return 0;
 }
 
-/* and now for the ugly part... provide simplified logging functions so we
- * don't need to link libzebra (which would be a circular build dep) */
+	/* and now for the ugly part... provide simplified logging functions so
+	 * we don't need to link libzebra (which would be a circular build dep)
+	 */
 
 #ifdef __ASSERT_FUNCTION
 #undef __ASSERT_FUNCTION

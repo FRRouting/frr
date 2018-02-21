@@ -1,22 +1,22 @@
 /*
-*
-* Copyright 2009-2016, LabN Consulting, L.L.C.
-*
-*
-* This program is free software; you can redistribute it and/or
-* modify it under the terms of the GNU General Public License
-* as published by the Free Software Foundation; either version 2
-* of the License, or (at your option) any later version.
-*
-* This program is distributed in the hope that it will be useful,
-* but WITHOUT ANY WARRANTY; without even the implied warranty of
-* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License along
-* with this program; see the file COPYING; if not, write to the Free Software
-* Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
-*/
+ *
+ * Copyright 2009-2016, LabN Consulting, L.L.C.
+ *
+ *
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License
+ * as published by the Free Software Foundation; either version 2
+ * of the License, or (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ */
 
 /*
  * File:	rfapi_import.c
@@ -1083,9 +1083,8 @@ int rfapiEcommunityGetEthernetTag(struct ecommunity *ecom, uint16_t *tag_id)
 				} else if (encode == ECOMMUNITY_ENCODE_AS) {
 					as = (*p++ << 8);
 					as |= (*p++);
-					p +=
-						2; /* skip next two, tag/vid
-						      always in lowest bytes */
+					p += 2; /* skip next two, tag/vid
+						   always in lowest bytes */
 				}
 				if (as == bgp->as) {
 					*tag_id = *p++ << 8;
@@ -1221,8 +1220,7 @@ static int rfapiVpnBiSamePtUn(struct bgp_info *bi1, struct bgp_info *bi2)
 
 	switch (pfx_un1.family) {
 	case AF_INET:
-		if (!IPV4_ADDR_SAME(&pfx_un1.u.prefix4,
-				    &pfx_un2.u.prefix4))
+		if (!IPV4_ADDR_SAME(&pfx_un1.u.prefix4, &pfx_un2.u.prefix4))
 			return 0;
 		break;
 	case AF_INET6:
@@ -2006,8 +2004,9 @@ static void rfapiBgpInfoAttachSorted(struct route_node *rn,
 
 	for (prev = NULL, next = rn->info; next;
 	     prev = next, next = next->next) {
-		if (!bgp || (!CHECK_FLAG(info_new->flags, BGP_INFO_REMOVED)
-			     && CHECK_FLAG(next->flags, BGP_INFO_REMOVED))
+		if (!bgp
+		    || (!CHECK_FLAG(info_new->flags, BGP_INFO_REMOVED)
+			&& CHECK_FLAG(next->flags, BGP_INFO_REMOVED))
 		    || bgp_info_cmp_compatible(bgp, info_new, next, pfx_buf,
 					       afi, safi)
 			       == -1) { /* -1 if 1st is better */
@@ -2235,9 +2234,9 @@ static struct bgp_info *rfapiItBiIndexSearch(
 
 				vnc_zlog_debug_verbose(
 					"%s: bi has prd=%s, peer=%p", __func__,
-					prefix_rd2str(&bi_result->extra->vnc.import.rd,
-						      buf,
-						      sizeof(buf)),
+					prefix_rd2str(&bi_result->extra->vnc
+							       .import.rd,
+						      buf, sizeof(buf)),
 					bi_result->peer);
 			}
 #endif
@@ -3555,9 +3554,10 @@ void rfapiBgpInfoFilteredImportVPN(
 
 				vnc_zlog_debug_verbose(
 					"%s: withdrawing at prefix %s/%d%s",
-					__func__, rfapi_ntop(rn->p.family,
-							     &rn->p.u.prefix,
-							     buf, BUFSIZ),
+					__func__,
+					rfapi_ntop(rn->p.family,
+						   &rn->p.u.prefix, buf,
+						   BUFSIZ),
 					rn->p.prefixlen,
 					(washolddown
 						 ? " (already being withdrawn)"
@@ -4038,7 +4038,7 @@ void rfapiProcessWithdraw(struct peer *peer, void *rfd, struct prefix *p,
 				p,			 /* aux_prefix: IP */
 				AFI_L2VPN, prd, attr, type, 0,
 				NULL); /* sub_type & label unused for withdraw
-					  */
+					*/
 		}
 	}
 
@@ -4325,9 +4325,8 @@ void bgp_rfapi_destroy(struct bgp *bgp, struct rfapi *h)
 		void *cursor;
 		int rc;
 
-		for (cursor = NULL,
-		    rc = skiplist_next(h->import_mac, NULL, (void **)&it,
-				       &cursor);
+		for (cursor = NULL, rc = skiplist_next(h->import_mac, NULL,
+						       (void **)&it, &cursor);
 		     !rc; rc = skiplist_next(h->import_mac, NULL, (void **)&it,
 					     &cursor)) {
 
@@ -4732,9 +4731,8 @@ void rfapiDeleteRemotePrefixes(struct prefix *un, struct prefix *vn,
 		void *cursor = NULL;
 		int rc;
 
-		for (cursor = NULL,
-		    rc = skiplist_next(h->import_mac, NULL, (void **)&it,
-				       &cursor);
+		for (cursor = NULL, rc = skiplist_next(h->import_mac, NULL,
+						       (void **)&it, &cursor);
 		     !rc; rc = skiplist_next(h->import_mac, NULL, (void **)&it,
 					     &cursor)) {
 
@@ -4827,9 +4825,8 @@ void rfapiCountAllItRoutes(int *pALRcount, /* active local routes */
 	int rc;
 
 	if (h->import_mac) {
-		for (cursor = NULL,
-		    rc = skiplist_next(h->import_mac, NULL, (void **)&it,
-				       &cursor);
+		for (cursor = NULL, rc = skiplist_next(h->import_mac, NULL,
+						       (void **)&it, &cursor);
 		     !rc; rc = skiplist_next(h->import_mac, NULL, (void **)&it,
 					     &cursor)) {
 

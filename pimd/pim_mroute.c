@@ -530,7 +530,8 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 			return -2;
 		}
 		PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
-		pim_upstream_keep_alive_timer_start(up, pim_ifp->pim->keep_alive_time);
+		pim_upstream_keep_alive_timer_start(
+			up, pim_ifp->pim->keep_alive_time);
 		up->channel_oil = oil;
 		up->channel_oil->cc.pktcnt++;
 		pim_register_join(up);
@@ -720,9 +721,9 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 	}
 
 #ifdef SO_BINDTODEVICE
-	if (pim->vrf->vrf_id != VRF_DEFAULT &&
-	    setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, pim->vrf->name,
-		       strlen(pim->vrf->name))) {
+	if (pim->vrf->vrf_id != VRF_DEFAULT
+	    && setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, pim->vrf->name,
+			  strlen(pim->vrf->name))) {
 		zlog_warn("Could not setsockopt SO_BINDTODEVICE: %s",
 			  safe_strerror(errno));
 		close(fd);
@@ -786,8 +787,8 @@ int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr,
 
 	if (PIM_DEBUG_MROUTE)
 		zlog_debug("%s: Add Vif %d (%s[%s])", __PRETTY_FUNCTION__,
-			   pim_ifp->mroute_vif_index,
-			   ifp->name, pim_ifp->pim->vrf->name);
+			   pim_ifp->mroute_vif_index, ifp->name,
+			   pim_ifp->pim->vrf->name);
 
 	memset(&vc, 0, sizeof(vc));
 	vc.vifc_vifi = pim_ifp->mroute_vif_index;
@@ -823,9 +824,9 @@ int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr,
 
 		zlog_warn(
 			"%s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_VIF,vif_index=%d,ifaddr=%s,flag=%d): errno=%d: %s",
-			__PRETTY_FUNCTION__,
-			pim_ifp->pim->mroute_socket, ifp->ifindex, ifaddr_str,
-			flags, errno, safe_strerror(errno));
+			__PRETTY_FUNCTION__, pim_ifp->pim->mroute_socket,
+			ifp->ifindex, ifaddr_str, flags, errno,
+			safe_strerror(errno));
 		return -2;
 	}
 
@@ -839,9 +840,9 @@ int pim_mroute_del_vif(struct interface *ifp)
 	int err;
 
 	if (PIM_DEBUG_MROUTE)
-		zlog_debug("%s: Del Vif %d (%s[%s])",  __PRETTY_FUNCTION__,
-			   pim_ifp->mroute_vif_index,
-			   ifp->name, pim_ifp->pim->vrf->name);
+		zlog_debug("%s: Del Vif %d (%s[%s])", __PRETTY_FUNCTION__,
+			   pim_ifp->mroute_vif_index, ifp->name,
+			   pim_ifp->pim->vrf->name);
 
 	memset(&vc, 0, sizeof(vc));
 	vc.vifc_vifi = pim_ifp->mroute_vif_index;
@@ -927,8 +928,8 @@ int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 
 	if (PIM_DEBUG_MROUTE) {
 		char buf[1000];
-		zlog_debug("%s(%s), vrf %s Added Route: %s", __PRETTY_FUNCTION__, name,
-			   pim->vrf->name,
+		zlog_debug("%s(%s), vrf %s Added Route: %s",
+			   __PRETTY_FUNCTION__, name, pim->vrf->name,
 			   pim_channel_oil_dump(c_oil, buf, sizeof(buf)));
 	}
 
@@ -970,8 +971,8 @@ int pim_mroute_del(struct channel_oil *c_oil, const char *name)
 
 	if (PIM_DEBUG_MROUTE) {
 		char buf[1000];
-		zlog_debug("%s(%s), vrf %s Deleted Route: %s", __PRETTY_FUNCTION__,
-			   name, pim->vrf->name,
+		zlog_debug("%s(%s), vrf %s Deleted Route: %s",
+			   __PRETTY_FUNCTION__, name, pim->vrf->name,
 			   pim_channel_oil_dump(c_oil, buf, sizeof(buf)));
 	}
 

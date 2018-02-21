@@ -71,7 +71,7 @@ DEFPY (install_routes,
 	zlog_debug("Inserting %ld routes", routes);
 
 	temp = ntohl(p.u.prefix4.s_addr);
-	for (i = 0 ; i < routes ; i++) {
+	for (i = 0; i < routes; i++) {
 		route_add(&p, &nhop);
 		p.u.prefix4.s_addr = htonl(++temp);
 	}
@@ -134,7 +134,7 @@ DEFPY (remove_routes,
 	zlog_debug("Removing %ld routes", routes);
 
 	temp = ntohl(p.u.prefix4.s_addr);
-	for (i = 0; i < routes ; i++) {
+	for (i = 0; i < routes; i++) {
 		route_delete(&p);
 		p.u.prefix4.s_addr = htonl(++temp);
 	}

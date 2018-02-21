@@ -212,8 +212,9 @@ static void bgp_bfd_update_type(struct peer *peer)
 		if ((multihop
 		     && !CHECK_FLAG(bfd_info->flags,
 				    BFD_FLAG_BFD_TYPE_MULTIHOP))
-		    || (!multihop && CHECK_FLAG(bfd_info->flags,
-						BFD_FLAG_BFD_TYPE_MULTIHOP))) {
+		    || (!multihop
+			&& CHECK_FLAG(bfd_info->flags,
+				      BFD_FLAG_BFD_TYPE_MULTIHOP))) {
 			bgp_bfd_peer_sendmsg(peer, ZEBRA_BFD_DEST_DEREGISTER);
 			bgp_bfd_peer_sendmsg(peer, ZEBRA_BFD_DEST_REGISTER);
 		}
@@ -651,7 +652,6 @@ DEFUN (no_neighbor_bfd,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN_HIDDEN (no_neighbor_bfd_type,
        no_neighbor_bfd_type_cmd,

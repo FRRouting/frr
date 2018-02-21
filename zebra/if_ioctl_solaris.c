@@ -121,7 +121,7 @@ calculate_lifc_len: /* must hold privileges to enter here */
 	if (ret < 0) {
 		if (errno == EINVAL)
 			goto calculate_lifc_len; /* deliberately hold privileges
-						    */
+						  */
 
 		zlog_warn("SIOCGLIFCONF: %s", safe_strerror(errno));
 

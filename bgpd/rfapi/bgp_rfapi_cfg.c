@@ -300,7 +300,6 @@ DEFUN (vnc_advertise_un_method,
  *			RFG defaults
  *-----------------------------------------------------------------------*/
 
-
 DEFUN_NOSH (vnc_defaults,
 	    vnc_defaults_cmd,
 	    "vnc defaults", VNC_CONFIG_STR "Configure default NVE group\n")
@@ -649,9 +648,9 @@ static int rfapi_str2route_type(const char *l3str, const char *pstr, afi_t *afi,
 	return 0;
 }
 
-/*-------------------------------------------------------------------------
- *			redistribute
- *-----------------------------------------------------------------------*/
+	/*-------------------------------------------------------------------------
+	 *			redistribute
+	 *-----------------------------------------------------------------------*/
 
 #define VNC_REDIST_ENABLE(bgp, afi, type)                                      \
 	do {                                                                   \
@@ -776,7 +775,6 @@ DEFUN (vnc_redistribute_rh_roo_localadmin,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (vnc_redistribute_mode,
        vnc_redistribute_mode_cmd,
@@ -984,7 +982,6 @@ DEFUN (vnc_redistribute_no_nvegroup,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (vnc_redistribute_lifetime,
        vnc_redistribute_lifetime_cmd,
@@ -2205,7 +2202,6 @@ static void vnc_routemap_event(route_map_event_t type, /* ignored */
  *			nve-group
  *-----------------------------------------------------------------------*/
 
-
 DEFUN_NOSH (vnc_nve_group,
        vnc_nve_group_cmd,
        "vnc nve-group NAME",
@@ -2978,7 +2974,8 @@ DEFUN_NOSH (vnc_vrf_policy,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_VRF) {
-		vty_out(vty, "Can't configure vrf-policy within a BGP VRF instance\n");
+		vty_out(vty,
+			"Can't configure vrf-policy within a BGP VRF instance\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -3386,7 +3383,6 @@ static struct cmd_node bgp_vrf_policy_node = {
  *			vnc-l2-group
  *-----------------------------------------------------------------------*/
 
-
 DEFUN_NOSH (vnc_l2_group,
        vnc_l2_group_cmd,
        "vnc l2-group NAME",
@@ -3478,7 +3474,6 @@ DEFUN (vnc_no_l2_group,
 
 	return bgp_rfapi_delete_named_l2_group(vty, bgp, argv[3]->arg);
 }
-
 
 DEFUN (vnc_l2_group_lni,
        vnc_l2_group_lni_cmd,

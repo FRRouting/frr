@@ -518,9 +518,8 @@ struct ospf6_lsa *ospf6_lsa_create(struct ospf6_lsa_header *header)
 	lsa_size = ntohs(header->length); /* XXX vulnerable */
 
 	/* allocate memory for this LSA */
-	new_header =
-		(struct ospf6_lsa_header *)XMALLOC(MTYPE_OSPF6_LSA_HEADER,
-						   lsa_size);
+	new_header = (struct ospf6_lsa_header *)XMALLOC(MTYPE_OSPF6_LSA_HEADER,
+							lsa_size);
 
 	/* copy LSA from original header */
 	memcpy(new_header, header, lsa_size);
@@ -717,8 +716,8 @@ void ospf6_flush_self_originated_lsas_now(void)
 	ospf6->inst_shutdown = 1;
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
-		end = ospf6_lsdb_head(oa->lsdb_self, 0, 0,
-				      ospf6->router_id, &lsa);
+		end = ospf6_lsdb_head(oa->lsdb_self, 0, 0, ospf6->router_id,
+				      &lsa);
 		while (lsa) {
 			/* RFC 2328 (14.1):  Set MAXAGE */
 			lsa->header->age = htons(OSPF_LSA_MAXAGE);
@@ -786,7 +785,8 @@ static char *ospf6_lsa_handler_name(const struct ospf6_lsa_handler *h)
 	unsigned int i;
 	unsigned int size = strlen(h->lh_name);
 
-	if (!strcmp(h->lh_name, "unknown") && h->lh_type != OSPF6_LSTYPE_UNKNOWN) {
+	if (!strcmp(h->lh_name, "unknown")
+	    && h->lh_type != OSPF6_LSTYPE_UNKNOWN) {
 		snprintf(buf, sizeof(buf), "%#04hx", h->lh_type);
 		return buf;
 	}

@@ -784,7 +784,6 @@ DEFUN (no_bgp_config_type,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (no_synchronization,
        no_synchronization_cmd,
        "no synchronization",
@@ -1442,7 +1441,6 @@ void bgp_config_write_coalesce_time(struct vty *vty, struct bgp *bgp)
 		vty_out(vty, " coalesce-time %u\n", bgp->coalesce_time);
 }
 
-
 DEFUN (bgp_coalesce_time,
        bgp_coalesce_time_cmd,
        "coalesce-time (0-4294967295)",
@@ -1629,7 +1627,6 @@ DEFUN (no_bgp_timers,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (bgp_client_to_client_reflection,
        bgp_client_to_client_reflection_cmd,
@@ -2321,7 +2318,6 @@ DEFUN (no_bgp_default_local_preference,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (bgp_default_subgroup_pkt_queue_max,
        bgp_default_subgroup_pkt_queue_max_cmd,
        "bgp default subgroup-pkt-queue-max (20-100)",
@@ -2354,7 +2350,6 @@ DEFUN (no_bgp_default_subgroup_pkt_queue_max,
 	bgp_default_subgroup_pkt_queue_max_unset(bgp);
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (bgp_rr_allow_outbound_policy,
        bgp_rr_allow_outbound_policy_cmd,
@@ -2603,7 +2598,6 @@ void bgp_config_write_listen(struct vty *vty, struct bgp *bgp)
 		}
 	}
 }
-
 
 DEFUN (bgp_disable_connected_route_check,
        bgp_disable_connected_route_check_cmd,
@@ -2863,7 +2857,6 @@ DEFUN (neighbor_interface_config_v6only,
 	return peer_conf_interface_get(vty, argv[idx_word]->arg, AFI_IP,
 				       SAFI_UNICAST, 1, NULL, NULL);
 }
-
 
 DEFUN (neighbor_interface_config_remote_as,
        neighbor_interface_config_remote_as_cmd,
@@ -3169,7 +3162,6 @@ DEFUN (no_neighbor_local_as,
 	ret = peer_local_as_unset(peer);
 	return bgp_vty_return(vty, ret);
 }
-
 
 DEFUN (neighbor_solo,
        neighbor_solo_cmd,
@@ -10138,7 +10130,6 @@ DEFUN (show_ip_bgp_lcommunity_info,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (show_ip_bgp_attr_info,
        show_ip_bgp_attr_info_cmd,
        "show [ip] bgp attribute-info",
@@ -11327,31 +11318,45 @@ void bgp_config_write_redistribute(struct vty *vty, struct bgp *bgp, afi_t afi,
 
 /* BGP node structure. */
 static struct cmd_node bgp_node = {
-	BGP_NODE, "%s(config-router)# ", 1,
+	BGP_NODE,
+	"%s(config-router)# ",
+	1,
 };
 
 static struct cmd_node bgp_ipv4_unicast_node = {
-	BGP_IPV4_NODE, "%s(config-router-af)# ", 1,
+	BGP_IPV4_NODE,
+	"%s(config-router-af)# ",
+	1,
 };
 
 static struct cmd_node bgp_ipv4_multicast_node = {
-	BGP_IPV4M_NODE, "%s(config-router-af)# ", 1,
+	BGP_IPV4M_NODE,
+	"%s(config-router-af)# ",
+	1,
 };
 
 static struct cmd_node bgp_ipv4_labeled_unicast_node = {
-	BGP_IPV4L_NODE, "%s(config-router-af)# ", 1,
+	BGP_IPV4L_NODE,
+	"%s(config-router-af)# ",
+	1,
 };
 
 static struct cmd_node bgp_ipv6_unicast_node = {
-	BGP_IPV6_NODE, "%s(config-router-af)# ", 1,
+	BGP_IPV6_NODE,
+	"%s(config-router-af)# ",
+	1,
 };
 
 static struct cmd_node bgp_ipv6_multicast_node = {
-	BGP_IPV6M_NODE, "%s(config-router-af)# ", 1,
+	BGP_IPV6M_NODE,
+	"%s(config-router-af)# ",
+	1,
 };
 
 static struct cmd_node bgp_ipv6_labeled_unicast_node = {
-	BGP_IPV6L_NODE, "%s(config-router-af)# ", 1,
+	BGP_IPV6L_NODE,
+	"%s(config-router-af)# ",
+	1,
 };
 
 static struct cmd_node bgp_vpnv4_node = {BGP_VPNV4_NODE,

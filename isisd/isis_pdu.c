@@ -887,11 +887,10 @@ dontcheckadj:
 					lsp_set_all_srmflags(lsp);
 					/* v */
 					ISIS_FLAGS_CLEAR_ALL(
-						lsp
-							->SSNflags); /* FIXME:
-									OTHER
-									than c
-									*/
+						lsp->SSNflags); /* FIXME:
+								   OTHER
+								   than c
+								   */
 
 					/* For the case of lsp confusion, flood
 					 * the purge back to its
@@ -1185,7 +1184,8 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 		     entry = entry->next) {
 			zlog_debug(
 				"ISIS-Snp (%s):         %cSNP entry %s, seq 0x%08" PRIx32
-				", cksum 0x%04" PRIx16 ", lifetime %" PRIu16 "s",
+				", cksum 0x%04" PRIx16 ", lifetime %" PRIu16
+				"s",
 				circuit->area->area_tag, typechar,
 				rawlspid_print(entry->id), entry->seqno,
 				entry->checksum, entry->rem_lifetime);
@@ -1210,7 +1210,7 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 				ISIS_CLEAR_FLAG(lsp->SRMflags, circuit);
 			}
 			/* 7.3.15.2 b) 3) if it is older, clear SSN and set SRM
-			   */
+			 */
 			else if (cmp == LSP_OLDER) {
 				ISIS_CLEAR_FLAG(lsp->SSNflags, circuit);
 				ISIS_SET_FLAG(lsp->SRMflags, circuit);
@@ -1233,8 +1233,9 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 			 * are not 0,
 			 * insert it and set SSN on it */
 			if (entry->rem_lifetime && entry->checksum
-			    && entry->seqno && memcmp(entry->id, isis->sysid,
-						      ISIS_SYS_ID_LEN)) {
+			    && entry->seqno
+			    && memcmp(entry->id, isis->sysid,
+				      ISIS_SYS_ID_LEN)) {
 				struct isis_lsp *lsp0 = NULL;
 
 				if (LSP_FRAGMENT(entry->id)) {
@@ -1244,10 +1245,12 @@ static int process_snp(uint8_t pdu_type, struct isis_circuit *circuit,
 					       ISIS_SYS_ID_LEN + 1);
 					LSP_FRAGMENT(lspid) = 0;
 					lsp0 = lsp_search(
-						  lspid,
-						  circuit->area->lspdb[level - 1]);
+						lspid,
+						circuit->area
+							->lspdb[level - 1]);
 					if (!lsp0) {
-						zlog_debug("Got lsp frag in snp, while zero not in database");
+						zlog_debug(
+							"Got lsp frag in snp, while zero not in database");
 						continue;
 					}
 				}

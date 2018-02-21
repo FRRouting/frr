@@ -725,7 +725,8 @@ static u_char print_subtlv_max_rsv_bw(struct sbuf *buf, int indent,
 
 	fval = ntohf(tlv->value);
 
-	sbuf_push(buf, indent, "Maximum Reservable Bandwidth: %g (Bytes/sec)\n", fval);
+	sbuf_push(buf, indent, "Maximum Reservable Bandwidth: %g (Bytes/sec)\n",
+		  fval);
 
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
@@ -741,8 +742,9 @@ static u_char print_subtlv_unrsv_bw(struct sbuf *buf, int indent,
 	for (i = 0; i < MAX_CLASS_TYPE; i += 2) {
 		fval1 = ntohf(tlv->value[i]);
 		fval2 = ntohf(tlv->value[i + 1]);
-		sbuf_push(buf, indent + 2, "[%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)\n",
-			  i, fval1, i + 1, fval2);
+		sbuf_push(buf, indent + 2,
+			  "[%d]: %g (Bytes/sec),\t[%d]: %g (Bytes/sec)\n", i,
+			  fval1, i + 1, fval2);
 	}
 
 	return (SUBTLV_HDR_SIZE + TE_SUBTLV_UNRSV_SIZE);
@@ -786,7 +788,8 @@ static u_char print_subtlv_av_delay(struct sbuf *buf, int indent,
 	delay = (u_int32_t)ntohl(tlv->value) & TE_EXT_MASK;
 	A = (u_int32_t)ntohl(tlv->value) & TE_EXT_ANORMAL;
 
-	sbuf_push(buf, indent, "%s Average Link Delay: %" PRIu32 " (micro-sec)\n",
+	sbuf_push(buf, indent,
+		  "%s Average Link Delay: %" PRIu32 " (micro-sec)\n",
 		  A ? "Anomalous" : "Normal", delay);
 
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
@@ -802,7 +805,9 @@ static u_char print_subtlv_mm_delay(struct sbuf *buf, int indent,
 	A = (u_int32_t)ntohl(tlv->low) & TE_EXT_ANORMAL;
 	high = (u_int32_t)ntohl(tlv->high) & TE_EXT_MASK;
 
-	sbuf_push(buf, indent, "%s Min/Max Link Delay: %" PRIu32 " / %" PRIu32 " (micro-sec)\n",
+	sbuf_push(buf, indent,
+		  "%s Min/Max Link Delay: %" PRIu32 " / %" PRIu32
+		  " (micro-sec)\n",
 		  A ? "Anomalous" : "Normal", low, high);
 
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
@@ -815,7 +820,8 @@ static u_char print_subtlv_delay_var(struct sbuf *buf, int indent,
 
 	jitter = (u_int32_t)ntohl(tlv->value) & TE_EXT_MASK;
 
-	sbuf_push(buf, indent, "Delay Variation: %" PRIu32 " (micro-sec)\n", jitter);
+	sbuf_push(buf, indent, "Delay Variation: %" PRIu32 " (micro-sec)\n",
+		  jitter);
 
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
@@ -844,8 +850,8 @@ static u_char print_subtlv_res_bw(struct sbuf *buf, int indent,
 
 	fval = ntohf(tlv->value);
 
-	sbuf_push(buf, indent, "Unidirectional Residual Bandwidth: %g (Bytes/sec)\n",
-		  fval);
+	sbuf_push(buf, indent,
+		  "Unidirectional Residual Bandwidth: %g (Bytes/sec)\n", fval);
 
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
@@ -857,8 +863,8 @@ static u_char print_subtlv_ava_bw(struct sbuf *buf, int indent,
 
 	fval = ntohf(tlv->value);
 
-	sbuf_push(buf, indent, "Unidirectional Available Bandwidth: %g (Bytes/sec)\n",
-		  fval);
+	sbuf_push(buf, indent,
+		  "Unidirectional Available Bandwidth: %g (Bytes/sec)\n", fval);
 
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
@@ -870,8 +876,8 @@ static u_char print_subtlv_use_bw(struct sbuf *buf, int indent,
 
 	fval = ntohf(tlv->value);
 
-	sbuf_push(buf, indent, "Unidirectional Utilized Bandwidth: %g (Bytes/sec)\n",
-		  fval);
+	sbuf_push(buf, indent,
+		  "Unidirectional Utilized Bandwidth: %g (Bytes/sec)\n", fval);
 
 	return (SUBTLV_HDR_SIZE + SUBTLV_DEF_SIZE);
 }
@@ -892,8 +898,7 @@ static u_char print_unknown_tlv(struct sbuf *buf, int indent,
 			sbuf_push(buf, 0, " %#.2x", v[i]);
 			if (rtn == 8) {
 				sbuf_push(buf, 0, "\n");
-				sbuf_push(buf, indent + 8,
-					  "[%.2x]", i + 1);
+				sbuf_push(buf, indent + 8, "[%.2x]", i + 1);
 				rtn = 1;
 			} else
 				rtn++;
@@ -909,8 +914,8 @@ static u_char print_unknown_tlv(struct sbuf *buf, int indent,
 }
 
 /* Main Show function */
-void mpls_te_print_detail(struct sbuf *buf, int indent,
-			  uint8_t *subtlvs, uint8_t subtlv_len)
+void mpls_te_print_detail(struct sbuf *buf, int indent, uint8_t *subtlvs,
+			  uint8_t subtlv_len)
 {
 	struct subtlv_header *tlvh = (struct subtlv_header *)subtlvs;
 	uint16_t sum = 0;
@@ -918,72 +923,78 @@ void mpls_te_print_detail(struct sbuf *buf, int indent,
 	for (; sum < subtlv_len; tlvh = SUBTLV_HDR_NEXT(tlvh)) {
 		switch (tlvh->type) {
 		case TE_SUBTLV_ADMIN_GRP:
-			sum += print_subtlv_admin_grp(buf, indent,
+			sum += print_subtlv_admin_grp(
+				buf, indent,
 				(struct te_subtlv_admin_grp *)tlvh);
 			break;
 		case TE_SUBTLV_LLRI:
 			sum += print_subtlv_llri(buf, indent,
-				(struct te_subtlv_llri *)tlvh);
+						 (struct te_subtlv_llri *)tlvh);
 			break;
 		case TE_SUBTLV_LOCAL_IPADDR:
-			sum += print_subtlv_local_ipaddr(buf, indent,
+			sum += print_subtlv_local_ipaddr(
+				buf, indent,
 				(struct te_subtlv_local_ipaddr *)tlvh);
 			break;
 		case TE_SUBTLV_RMT_IPADDR:
-			sum += print_subtlv_rmt_ipaddr(buf, indent,
+			sum += print_subtlv_rmt_ipaddr(
+				buf, indent,
 				(struct te_subtlv_rmt_ipaddr *)tlvh);
 			break;
 		case TE_SUBTLV_MAX_BW:
-			sum += print_subtlv_max_bw(buf, indent,
-				(struct te_subtlv_max_bw *)tlvh);
+			sum += print_subtlv_max_bw(
+				buf, indent, (struct te_subtlv_max_bw *)tlvh);
 			break;
 		case TE_SUBTLV_MAX_RSV_BW:
-			sum += print_subtlv_max_rsv_bw(buf, indent,
+			sum += print_subtlv_max_rsv_bw(
+				buf, indent,
 				(struct te_subtlv_max_rsv_bw *)tlvh);
 			break;
 		case TE_SUBTLV_UNRSV_BW:
-			sum += print_subtlv_unrsv_bw(buf, indent,
-				(struct te_subtlv_unrsv_bw *)tlvh);
+			sum += print_subtlv_unrsv_bw(
+				buf, indent, (struct te_subtlv_unrsv_bw *)tlvh);
 			break;
 		case TE_SUBTLV_TE_METRIC:
-			sum += print_subtlv_te_metric(buf, indent,
+			sum += print_subtlv_te_metric(
+				buf, indent,
 				(struct te_subtlv_te_metric *)tlvh);
 			break;
 		case TE_SUBTLV_RAS:
 			sum += print_subtlv_ras(buf, indent,
-				(struct te_subtlv_ras *)tlvh);
+						(struct te_subtlv_ras *)tlvh);
 			break;
 		case TE_SUBTLV_RIP:
 			sum += print_subtlv_rip(buf, indent,
-				(struct te_subtlv_rip *)tlvh);
+						(struct te_subtlv_rip *)tlvh);
 			break;
 		case TE_SUBTLV_AV_DELAY:
-			sum += print_subtlv_av_delay(buf, indent,
-				(struct te_subtlv_av_delay *)tlvh);
+			sum += print_subtlv_av_delay(
+				buf, indent, (struct te_subtlv_av_delay *)tlvh);
 			break;
 		case TE_SUBTLV_MM_DELAY:
-			sum += print_subtlv_mm_delay(buf, indent,
-				(struct te_subtlv_mm_delay *)tlvh);
+			sum += print_subtlv_mm_delay(
+				buf, indent, (struct te_subtlv_mm_delay *)tlvh);
 			break;
 		case TE_SUBTLV_DELAY_VAR:
-			sum += print_subtlv_delay_var(buf, indent,
+			sum += print_subtlv_delay_var(
+				buf, indent,
 				(struct te_subtlv_delay_var *)tlvh);
 			break;
 		case TE_SUBTLV_PKT_LOSS:
-			sum += print_subtlv_pkt_loss(buf, indent,
-				(struct te_subtlv_pkt_loss *)tlvh);
+			sum += print_subtlv_pkt_loss(
+				buf, indent, (struct te_subtlv_pkt_loss *)tlvh);
 			break;
 		case TE_SUBTLV_RES_BW:
-			sum += print_subtlv_res_bw(buf, indent,
-				(struct te_subtlv_res_bw *)tlvh);
+			sum += print_subtlv_res_bw(
+				buf, indent, (struct te_subtlv_res_bw *)tlvh);
 			break;
 		case TE_SUBTLV_AVA_BW:
-			sum += print_subtlv_ava_bw(buf, indent,
-				(struct te_subtlv_ava_bw *)tlvh);
+			sum += print_subtlv_ava_bw(
+				buf, indent, (struct te_subtlv_ava_bw *)tlvh);
 			break;
 		case TE_SUBTLV_USE_BW:
-			sum += print_subtlv_use_bw(buf, indent,
-				(struct te_subtlv_use_bw *)tlvh);
+			sum += print_subtlv_use_bw(
+				buf, indent, (struct te_subtlv_use_bw *)tlvh);
 			break;
 		default:
 			sum += print_unknown_tlv(buf, indent, tlvh);

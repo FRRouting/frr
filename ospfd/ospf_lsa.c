@@ -431,8 +431,8 @@ static char link_info_set(struct stream *s, struct in_addr id,
 			 *
 			 * Simpler just to subtract OSPF_MAX_LSA_SIZE though.
 			 */
-			ret = stream_resize(
-				s, OSPF_MAX_PACKET_SIZE - OSPF_MAX_LSA_SIZE);
+			ret = stream_resize(s, OSPF_MAX_PACKET_SIZE
+						       - OSPF_MAX_LSA_SIZE);
 		}
 
 		if (ret == OSPF_MAX_LSA_SIZE) {
@@ -521,8 +521,9 @@ static int lsa_link_broadcast_set(struct stream *s, struct ospf_interface *oi)
 
 	dr = ospf_nbr_lookup_by_addr(oi->nbrs, &DR(oi));
 	/* Describe Type 2 link. */
-	if (dr && (dr->state == NSM_Full
-		   || IPV4_ADDR_SAME(&oi->address->u.prefix4, &DR(oi)))
+	if (dr
+	    && (dr->state == NSM_Full
+		|| IPV4_ADDR_SAME(&oi->address->u.prefix4, &DR(oi)))
 	    && ospf_nbr_count(oi, NSM_Full) > 0) {
 		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 			zlog_debug(
@@ -2114,8 +2115,8 @@ int ospf_default_originate_timer(struct thread *thread)
 		/* If there is no default route via redistribute,
 		   then originate AS-external-LSA with nexthop 0 (self). */
 		nexthop.s_addr = 0;
-		ospf_external_info_add(ospf, DEFAULT_ROUTE, 0, p, 0,
-				       nexthop, 0);
+		ospf_external_info_add(ospf, DEFAULT_ROUTE, 0, p, 0, nexthop,
+				       0);
 	}
 
 	if ((ei = ospf_default_external_info(ospf)))
@@ -2133,9 +2134,8 @@ void ospf_nssa_lsa_flush(struct ospf *ospf, struct prefix_ipv4 *p)
 
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
 		if (area->external_routing == OSPF_AREA_NSSA) {
-			lsa  = ospf_lsa_lookup(ospf, area,
-					       OSPF_AS_NSSA_LSA, p->prefix,
-					       ospf->router_id);
+			lsa = ospf_lsa_lookup(ospf, area, OSPF_AS_NSSA_LSA,
+					      p->prefix, ospf->router_id);
 			if (!lsa) {
 				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 					zlog_debug(
@@ -2260,14 +2260,14 @@ void ospf_external_lsa_refresh_type(struct ospf *ospf, u_char type,
 				if (!is_prefix_default(&ei->p)) {
 					struct ospf_lsa *lsa;
 
-					lsa = ospf_external_info_find_lsa(ospf,
-								&ei->p);
+					lsa = ospf_external_info_find_lsa(
+						ospf, &ei->p);
 					if (lsa)
-						ospf_external_lsa_refresh(ospf,
-								lsa, ei, force);
+						ospf_external_lsa_refresh(
+							ospf, lsa, ei, force);
 					else
-						ospf_external_lsa_originate(ospf
-									, ei);
+						ospf_external_lsa_originate(
+							ospf, ei);
 				}
 			}
 		}
@@ -2421,12 +2421,12 @@ static struct ospf_lsa *
 ospf_summary_lsa_install(struct ospf *ospf, struct ospf_lsa *new, int rt_recalc)
 {
 	if (rt_recalc && !IS_LSA_SELF(new)) {
-/* RFC 2328 Section 13.2 Summary-LSAs
-   The best route to the destination described by the summary-
-   LSA must be recalculated (see Section 16.5).  If this
-   destination is an AS boundary router, it may also be
-   necessary to re-examine all the AS-external-LSAs.
-*/
+	/* RFC 2328 Section 13.2 Summary-LSAs
+	   The best route to the destination described by the summary-
+	   LSA must be recalculated (see Section 16.5).  If this
+	   destination is an AS boundary router, it may also be
+	   necessary to re-examine all the AS-external-LSAs.
+	*/
 
 #if 0
       /* This doesn't exist yet... */
@@ -3005,27 +3005,27 @@ int ospf_lsa_maxage_walker(struct thread *thread)
 	ospf->t_maxage_walker = NULL;
 
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
-		LSDB_LOOP(ROUTER_LSDB(area), rn, lsa)
+		LSDB_LOOP (ROUTER_LSDB(area), rn, lsa)
 			ospf_lsa_maxage_walker_remover(ospf, lsa);
-		LSDB_LOOP(NETWORK_LSDB(area), rn, lsa)
+		LSDB_LOOP (NETWORK_LSDB(area), rn, lsa)
 			ospf_lsa_maxage_walker_remover(ospf, lsa);
-		LSDB_LOOP(SUMMARY_LSDB(area), rn, lsa)
+		LSDB_LOOP (SUMMARY_LSDB(area), rn, lsa)
 			ospf_lsa_maxage_walker_remover(ospf, lsa);
-		LSDB_LOOP(ASBR_SUMMARY_LSDB(area), rn, lsa)
+		LSDB_LOOP (ASBR_SUMMARY_LSDB(area), rn, lsa)
 			ospf_lsa_maxage_walker_remover(ospf, lsa);
-		LSDB_LOOP(OPAQUE_AREA_LSDB(area), rn, lsa)
+		LSDB_LOOP (OPAQUE_AREA_LSDB(area), rn, lsa)
 			ospf_lsa_maxage_walker_remover(ospf, lsa);
-		LSDB_LOOP(OPAQUE_LINK_LSDB(area), rn, lsa)
+		LSDB_LOOP (OPAQUE_LINK_LSDB(area), rn, lsa)
 			ospf_lsa_maxage_walker_remover(ospf, lsa);
-		LSDB_LOOP(NSSA_LSDB(area), rn, lsa)
+		LSDB_LOOP (NSSA_LSDB(area), rn, lsa)
 			ospf_lsa_maxage_walker_remover(ospf, lsa);
 	}
 
 	/* for AS-external-LSAs. */
 	if (ospf->lsdb) {
-		LSDB_LOOP(EXTERNAL_LSDB(ospf), rn, lsa)
+		LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa)
 			ospf_lsa_maxage_walker_remover(ospf, lsa);
-		LSDB_LOOP(OPAQUE_AS_LSDB(ospf), rn, lsa)
+		LSDB_LOOP (OPAQUE_AS_LSDB(ospf), rn, lsa)
 			ospf_lsa_maxage_walker_remover(ospf, lsa);
 	}
 
@@ -3348,20 +3348,20 @@ void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
 				need_to_flush_ase = 1;
 		}
 
-		LSDB_LOOP(SUMMARY_LSDB(area), rn, lsa)
+		LSDB_LOOP (SUMMARY_LSDB(area), rn, lsa)
 			ospf_lsa_flush_schedule(ospf, lsa);
-		LSDB_LOOP(ASBR_SUMMARY_LSDB(area), rn, lsa)
+		LSDB_LOOP (ASBR_SUMMARY_LSDB(area), rn, lsa)
 			ospf_lsa_flush_schedule(ospf, lsa);
-		LSDB_LOOP(OPAQUE_LINK_LSDB(area), rn, lsa)
+		LSDB_LOOP (OPAQUE_LINK_LSDB(area), rn, lsa)
 			ospf_lsa_flush_schedule(ospf, lsa);
-		LSDB_LOOP(OPAQUE_AREA_LSDB(area), rn, lsa)
+		LSDB_LOOP (OPAQUE_AREA_LSDB(area), rn, lsa)
 			ospf_lsa_flush_schedule(ospf, lsa);
 	}
 
 	if (need_to_flush_ase) {
-		LSDB_LOOP(EXTERNAL_LSDB(ospf), rn, lsa)
+		LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa)
 			ospf_lsa_flush_schedule(ospf, lsa);
-		LSDB_LOOP(OPAQUE_AS_LSDB(ospf), rn, lsa)
+		LSDB_LOOP (OPAQUE_AS_LSDB(ospf), rn, lsa)
 			ospf_lsa_flush_schedule(ospf, lsa);
 	}
 
@@ -3445,7 +3445,7 @@ struct in_addr ospf_lsa_unique_id(struct ospf *ospf, struct ospf_lsdb *lsdb,
 			return id;
 		}
 		/* Masklen differs, then apply wildcard mask to Link State ID.
-		   */
+		 */
 		else {
 			masklen2ip(p->prefixlen, &mask);
 
@@ -3468,7 +3468,6 @@ struct in_addr ospf_lsa_unique_id(struct ospf *ospf, struct ospf_lsdb *lsdb,
 
 	return id;
 }
-
 
 #define LSA_ACTION_FLOOD_AREA 1
 #define LSA_ACTION_FLUSH_AREA 2

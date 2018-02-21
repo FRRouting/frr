@@ -261,8 +261,9 @@ int setsockopt_ipv4_multicast(int sock, int optname, struct in_addr if_addr,
 		zlog_info(
 			"setsockopt_ipv4_multicast attempting to drop and "
 			"re-add (fd %d, mcast %s, ifindex %u)",
-			sock, inet_ntop(AF_INET, &mreqn.imr_multiaddr, buf[0],
-					sizeof(buf[0])),
+			sock,
+			inet_ntop(AF_INET, &mreqn.imr_multiaddr, buf[0],
+				  sizeof(buf[0])),
 			ifindex);
 		setsockopt(sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (void *)&mreqn,
 			   sizeof(mreqn));
@@ -271,10 +272,11 @@ int setsockopt_ipv4_multicast(int sock, int optname, struct in_addr if_addr,
 	}
 	return ret;
 
-/* Example defines for another OS, boilerplate off other code in this
-   function, AND handle optname as per other sections for consistency !! */
-/* #elif  defined(BOGON_NIX) && EXAMPLE_VERSION_CODE > -100000 */
-/* Add your favourite OS here! */
+	/* Example defines for another OS, boilerplate off other code in this
+	   function, AND handle optname as per other sections for consistency !!
+	 */
+	/* #elif  defined(BOGON_NIX) && EXAMPLE_VERSION_CODE > -100000 */
+	/* Add your favourite OS here! */
 
 #elif defined(HAVE_BSD_STRUCT_IP_MREQ_HACK) /* #if OS_TYPE */
 	/* standard BSD API */
@@ -303,8 +305,9 @@ int setsockopt_ipv4_multicast(int sock, int optname, struct in_addr if_addr,
 		zlog_info(
 			"setsockopt_ipv4_multicast attempting to drop and "
 			"re-add (fd %d, mcast %s, ifindex %u)",
-			sock, inet_ntop(AF_INET, &mreq.imr_multiaddr, buf[0],
-					sizeof(buf[0])),
+			sock,
+			inet_ntop(AF_INET, &mreq.imr_multiaddr, buf[0],
+				  sizeof(buf[0])),
 			ifindex);
 		setsockopt(sock, IPPROTO_IP, IP_DROP_MEMBERSHIP, (void *)&mreq,
 			   sizeof(mreq));
@@ -471,7 +474,7 @@ static ifindex_t getsockopt_ipv4_ifindex(struct msghdr *msgh)
 
 #elif defined(IP_RECVIF)
 
-/* retrieval based on IP_RECVIF */
+	/* retrieval based on IP_RECVIF */
 
 #ifndef SUNOS_5
 	/* BSD systems use a sockaddr_dl as the control message payload. */

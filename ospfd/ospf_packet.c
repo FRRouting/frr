@@ -518,8 +518,8 @@ int ospf_ls_upd_timer(struct thread *thread)
 		}
 
 		if (listcount(update) > 0)
-			ospf_ls_upd_send(nbr, update,
-					 OSPF_SEND_PACKET_DIRECT, 0);
+			ospf_ls_upd_send(nbr, update, OSPF_SEND_PACKET_DIRECT,
+					 0);
 		list_delete_and_null(&update);
 	}
 
@@ -775,10 +775,10 @@ static int ospf_write(struct thread *thread)
 		msg.msg_controllen = cm->cmsg_len;
 #endif
 
-	/* Sadly we can not rely on kernels to fragment packets
-	 * because of either IP_HDRINCL and/or multicast
-	 * destination being set.
-	 */
+		/* Sadly we can not rely on kernels to fragment packets
+		 * because of either IP_HDRINCL and/or multicast
+		 * destination being set.
+		 */
 
 #ifdef WANT_OSPF_WRITE_FRAGMENT
 		if (op->length > maxdatasize)
@@ -825,23 +825,23 @@ static int ospf_write(struct thread *thread)
 		}
 
 		switch (type) {
-			case OSPF_MSG_HELLO:
-				oi->hello_out++;
-				break;
-			case OSPF_MSG_DB_DESC:
-				oi->db_desc_out++;
-				break;
-			case OSPF_MSG_LS_REQ:
-				oi->ls_req_out++;
-				break;
-			case OSPF_MSG_LS_UPD:
-				oi->ls_upd_out++;
-				break;
-			case OSPF_MSG_LS_ACK:
-				oi->ls_ack_out++;
-				break;
-			default:
-				break;
+		case OSPF_MSG_HELLO:
+			oi->hello_out++;
+			break;
+		case OSPF_MSG_DB_DESC:
+			oi->db_desc_out++;
+			break;
+		case OSPF_MSG_LS_REQ:
+			oi->ls_req_out++;
+			break;
+		case OSPF_MSG_LS_UPD:
+			oi->ls_upd_out++;
+			break;
+		case OSPF_MSG_LS_ACK:
+			oi->ls_ack_out++;
+			break;
+		default:
+			break;
 		}
 
 		/* Now delete packet from queue. */
@@ -1363,8 +1363,9 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 				/* We're Slave---obey */
 				if (CHECK_FLAG(oi->ospf->config,
 					       OSPF_LOG_ADJACENCY_DETAIL))
-					zlog_info("Packet[DD]: Neighbor %s Negotiation done (Slave).",
-						  inet_ntoa(nbr->router_id));
+					zlog_info(
+						"Packet[DD]: Neighbor %s Negotiation done (Slave).",
+						inet_ntoa(nbr->router_id));
 
 				nbr->dd_seqnum = ntohl(dd->dd_seqnum);
 
@@ -1633,11 +1634,11 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 	/* Send rest of Link State Update. */
 	if (listcount(ls_upd) > 0) {
 		if (oi->type == OSPF_IFTYPE_NBMA)
-			ospf_ls_upd_send(nbr, ls_upd,
-					 OSPF_SEND_PACKET_DIRECT, 0);
+			ospf_ls_upd_send(nbr, ls_upd, OSPF_SEND_PACKET_DIRECT,
+					 0);
 		else
-			ospf_ls_upd_send(nbr, ls_upd,
-					 OSPF_SEND_PACKET_INDIRECT, 0);
+			ospf_ls_upd_send(nbr, ls_upd, OSPF_SEND_PACKET_INDIRECT,
+					 0);
 
 		list_delete_and_null(&ls_upd);
 	} else
@@ -2487,15 +2488,15 @@ static int ospf_check_auth(struct ospf_interface *oi, struct ospf_header *ospfh)
 			return 0;
 		}
 		/* only MD5 crypto method can pass ospf_packet_examin() */
-		if (
-			NULL == (ck = listgetdata(listtail(
-					 OSPF_IF_PARAM(oi, auth_crypt))))
-			|| ospfh->u.crypt.key_id != ck->key_id ||
-			/* Condition above uses the last key ID on the list,
-			   which is
-			   different from what ospf_crypt_key_lookup() does. A
-			   bug? */
-			!ospf_check_md5_digest(oi, ospfh)) {
+		if (NULL
+			    == (ck = listgetdata(listtail(
+					OSPF_IF_PARAM(oi, auth_crypt))))
+		    || ospfh->u.crypt.key_id != ck->key_id ||
+		    /* Condition above uses the last key ID on the list,
+		       which is
+		       different from what ospf_crypt_key_lookup() does. A
+		       bug? */
+		    !ospf_check_md5_digest(oi, ospfh)) {
 			if (IS_DEBUG_OSPF_PACKET(ospfh->type - 1, RECV))
 				zlog_warn("interface %s: MD5 auth failed",
 					  IF_NAME(oi));
@@ -2599,7 +2600,7 @@ static unsigned ospf_lsa_examin(struct lsa_header *lsah, const u_int16_t lsalen,
 							      header, "flags",
 							      0, "# links" */
 			ntohs(rlsa->links)		   /* 16 bits */
-			);
+		);
 		break;
 	case OSPF_AS_EXTERNAL_LSA:
 	/* RFC2328 A.4.5, LSA header + 4 bytes followed by N>=1 12-bytes long
@@ -2823,7 +2824,7 @@ static unsigned ospf_packet_examin(struct ospf_header *oh,
 			bytesdeclared - OSPF_HEADER_SIZE - OSPF_LS_UPD_MIN_SIZE,
 			0,		       /* full LSAs */
 			ntohl(lsupd->num_lsas) /* 32 bits */
-			);
+		);
 		break;
 	case OSPF_MSG_LS_ACK:
 		/* RFC2328 A.3.6, packet header followed by N>=0 header-only
@@ -2940,8 +2941,8 @@ int ospf_read(struct thread *thread)
 
 	ospfh = (struct ospf_header *)stream_pnt(ibuf);
 	if (MSG_OK
-	    != ospf_packet_examin(
-		       ospfh, stream_get_endp(ibuf) - stream_get_getp(ibuf)))
+	    != ospf_packet_examin(ospfh, stream_get_endp(ibuf)
+						 - stream_get_getp(ibuf)))
 		return -1;
 	/* Now it is safe to access all fields of OSPF packet header. */
 
@@ -2987,8 +2988,9 @@ int ospf_read(struct thread *thread)
 	 * or header area is backbone but ospf_interface is not
 	 * check for VLINK interface
 	 */
-	if ((oi == NULL) || (OSPF_IS_AREA_ID_BACKBONE(ospfh->area_id)
-			     && !OSPF_IS_AREA_ID_BACKBONE(oi->area->area_id))) {
+	if ((oi == NULL)
+	    || (OSPF_IS_AREA_ID_BACKBONE(ospfh->area_id)
+		&& !OSPF_IS_AREA_ID_BACKBONE(oi->area->area_id))) {
 		if ((oi = ospf_associate_packet_vl(ospf, ifp, iph, ospfh))
 		    == NULL) {
 			if (!ospf->instance && IS_DEBUG_OSPF_EVENT)
@@ -3541,10 +3543,11 @@ static void ospf_hello_send_sub(struct ospf_interface *oi, in_addr_t addr)
 
 	if (IS_DEBUG_OSPF_EVENT) {
 		if (oi->ospf->vrf_id)
-			zlog_debug("%s: Hello Tx interface %s ospf vrf %s id %u",
-				    __PRETTY_FUNCTION__, oi->ifp->name,
-				    ospf_vrf_id_to_name(oi->ospf->vrf_id),
-				    oi->ospf->vrf_id);
+			zlog_debug(
+				"%s: Hello Tx interface %s ospf vrf %s id %u",
+				__PRETTY_FUNCTION__, oi->ifp->name,
+				ospf_vrf_id_to_name(oi->ospf->vrf_id),
+				oi->ospf->vrf_id);
 	}
 	/* Add packet to the top of the interface output queue, so that they
 	 * can't get delayed by things like long queues of LS Update packets
@@ -4047,11 +4050,10 @@ void ospf_ls_upd_send(struct ospf_neighbor *nbr, struct list *update, int flag,
 
 			ospf_ls_upd_queue_send(oi, send_update_list,
 					       rn->p.u.prefix4, 1);
-
 		}
 	} else
 		thread_add_event(master, ospf_ls_upd_send_queue_event, oi, 0,
-			 &oi->t_ls_upd_event);
+				 &oi->t_ls_upd_event);
 }
 
 static void ospf_ls_ack_send_list(struct ospf_interface *oi, struct list *ack,
@@ -4172,8 +4174,8 @@ void ospf_proactively_arp(struct ospf_neighbor *nbr)
 		return;
 
 	snprintf(ping_nbr, sizeof(ping_nbr),
-		"ping -c 1 -I %s %s > /dev/null 2>&1 &",
-		nbr->oi->ifp->name, inet_ntoa(nbr->address.u.prefix4));
+		 "ping -c 1 -I %s %s > /dev/null 2>&1 &", nbr->oi->ifp->name,
+		 inet_ntoa(nbr->address.u.prefix4));
 
 	ret = system(ping_nbr);
 	if (IS_DEBUG_OSPF_EVENT)

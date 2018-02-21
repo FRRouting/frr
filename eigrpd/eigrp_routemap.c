@@ -655,7 +655,9 @@ static void route_set_metric_free(void *rule)
 
 /* Set metric rule structure. */
 static struct route_map_rule_cmd route_set_metric_cmd = {
-	"metric", route_set_metric, route_set_metric_compile,
+	"metric",
+	route_set_metric,
+	route_set_metric_compile,
 	route_set_metric_free,
 };
 

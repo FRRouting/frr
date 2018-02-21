@@ -49,19 +49,23 @@ static vector test_cmds;
 static char test_buf[32768];
 
 static struct cmd_node bgp_node = {
-	BGP_NODE, "%s(config-router)# ",
+	BGP_NODE,
+	"%s(config-router)# ",
 };
 
 static struct cmd_node rip_node = {
-	RIP_NODE, "%s(config-router)# ",
+	RIP_NODE,
+	"%s(config-router)# ",
 };
 
 static struct cmd_node isis_node = {
-	ISIS_NODE, "%s(config-router)# ",
+	ISIS_NODE,
+	"%s(config-router)# ",
 };
 
 static struct cmd_node interface_node = {
-	INTERFACE_NODE, "%s(config-if)# ",
+	INTERFACE_NODE,
+	"%s(config-if)# ",
 };
 
 static struct cmd_node rmap_node = {RMAP_NODE, "%s(config-route-map)# "};

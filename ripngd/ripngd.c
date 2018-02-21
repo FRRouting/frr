@@ -745,9 +745,8 @@ static void ripng_route_process(struct rte *rte, struct sockaddr_in6 *from,
 			}
 		}
 		rte->tag = htons(newinfo.tag_out); /* XXX */
-		rte->metric =
-			newinfo.metric_out; /* XXX: the routemap uses the
-					       metric_out field */
+		rte->metric = newinfo.metric_out;  /* XXX: the routemap uses the
+						      metric_out field */
 	}
 
 	/* Once the entry has been validated, update the metric by
@@ -2723,7 +2722,9 @@ static int ripng_config_write(struct vty *vty)
 
 /* RIPng node structure. */
 static struct cmd_node cmd_ripng_node = {
-	RIPNG_NODE, "%s(config-router)# ", 1,
+	RIPNG_NODE,
+	"%s(config-router)# ",
+	1,
 };
 
 static void ripng_distribute_update(struct distribute *dist)

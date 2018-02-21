@@ -63,7 +63,6 @@
 
 /* format related utilies */
 
-
 #define FMT_MIN      60         /* seconds */
 #define FMT_HOUR    (60  * FMT_MIN)
 #define FMT_DAY     (24  * FMT_HOUR)
@@ -1163,8 +1162,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		 * print that on the next line
 		 */
 
-		if (bi->extra
-		    && bi->extra->vnc.import.aux_prefix.family) {
+		if (bi->extra && bi->extra->vnc.import.aux_prefix.family) {
 			const char *sp;
 
 			sp = rfapi_ntop(
@@ -2528,7 +2526,6 @@ DEFUN (add_vnc_mac_vni_prefix_cost_life,
 			    argv[3], argv[5], 0, NULL);
 }
 
-
 DEFUN (add_vnc_mac_vni_prefix_life,
        add_vnc_mac_vni_prefix_life_cmd,
        "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M> lifetime (1-4294967295)",
@@ -2632,7 +2629,6 @@ DEFUN (add_vnc_mac_vni_cost_life,
 			    argv[3], argv[5], 0, NULL);
 }
 
-
 DEFUN (add_vnc_mac_vni_cost,
        add_vnc_mac_vni_cost_cmd,
        "add vnc mac YY:YY:YY:YY:YY:YY virtual-network-identifier (1-4294967295) vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> cost (0-255)",
@@ -2655,7 +2651,6 @@ DEFUN (add_vnc_mac_vni_cost,
 			    /* mac vni */
 			    argv[3], argv[5], 0, NULL);
 }
-
 
 DEFUN (add_vnc_mac_vni_life,
        add_vnc_mac_vni_life_cmd,
@@ -2680,7 +2675,6 @@ DEFUN (add_vnc_mac_vni_life,
 			    /* mac vni */
 			    argv[3], argv[5], 0, NULL);
 }
-
 
 DEFUN (add_vnc_mac_vni,
        add_vnc_mac_vni_cmd,
@@ -4279,7 +4273,6 @@ notcfg:
 	return CMD_WARNING;
 }
 
-
 DEFUN (vnc_show_summary,
        vnc_show_summary_cmd,
        "show vnc summary",
@@ -4630,7 +4623,7 @@ notcfg:
  ************************************************************************/
 void vnc_add_vrf_opener(struct bgp *bgp, struct rfapi_nve_group_cfg *rfg)
 {
-	if (rfg->rfd == NULL) {	/* need new rfapi_handle */
+	if (rfg->rfd == NULL) { /* need new rfapi_handle */
 		/* based on rfapi_open */
 		struct rfapi_descriptor *rfd;
 

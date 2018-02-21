@@ -383,9 +383,8 @@ void del_vnc_route(struct rfapi_descriptor *rfd,
 
 	vnc_zlog_debug_verbose(
 		"%s: peer=%p, prefix=%s, prd=%s afi=%d, safi=%d bn=%p, bn->info=%p",
-		__func__, peer, buf,
-		prefix_rd2str(prd, buf2, sizeof(buf2)), afi, safi, bn,
-		(bn ? bn->info : NULL));
+		__func__, peer, buf, prefix_rd2str(prd, buf2, sizeof(buf2)),
+		afi, safi, bn, (bn ? bn->info : NULL));
 
 	for (bi = (bn ? bn->info : NULL); bi; bi = bi->next) {
 
@@ -749,9 +748,8 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	if (lifetime && *lifetime != RFAPI_INFINITE_LIFETIME) {
 		uint32_t lt;
 
-		encaptlv =
-			XCALLOC(MTYPE_ENCAP_TLV,
-				sizeof(struct bgp_attr_encap_subtlv) + 4);
+		encaptlv = XCALLOC(MTYPE_ENCAP_TLV,
+				   sizeof(struct bgp_attr_encap_subtlv) + 4);
 		assert(encaptlv);
 		encaptlv->type =
 			BGP_VNC_SUBTLV_TYPE_LIFETIME; /* prefix lifetime */
@@ -795,8 +793,8 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 				 */
 				encaptlv = XCALLOC(
 					MTYPE_ENCAP_TLV,
-					sizeof(struct bgp_attr_encap_subtlv)
-					+ 2 + hop->length);
+					sizeof(struct bgp_attr_encap_subtlv) + 2
+						+ hop->length);
 				assert(encaptlv);
 				encaptlv->type =
 					BGP_VNC_SUBTLV_TYPE_RFPOPTION; /* RFP
@@ -2610,8 +2608,9 @@ int rfapi_register(void *handle, struct rfapi_ip_prefix *prefix,
 			ZEBRA_ROUTE_BGP, BGP_ROUTE_RFP, NULL,
 			action == RFAPI_REGISTER_KILL);
 
-		if (0 == rfapiApDelete(bgp, rfd, &p, pfx_mac, &prd,
-				       &adv_tunnel)) {
+		if (0
+		    == rfapiApDelete(bgp, rfd, &p, pfx_mac, &prd,
+				     &adv_tunnel)) {
 			if (adv_tunnel)
 				rfapiTunnelRouteAnnounce(
 					bgp, rfd, &rfd->max_prefix_lifetime);
@@ -2976,7 +2975,6 @@ DEFUN (debug_rfapi_open,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (debug_rfapi_close_vn_un,
        debug_rfapi_close_vn_un_cmd,
        "debug rfapi-dev close vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X>",
@@ -3223,7 +3221,6 @@ DEFUN (debug_rfapi_register_vn_un_l2o,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (debug_rfapi_unregister_vn_un,
        debug_rfapi_unregister_vn_un_cmd,
        "debug rfapi-dev unregister vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> prefix <A.B.C.D/M|X:X::X:X/M>",
@@ -3350,7 +3347,6 @@ DEFUN (debug_rfapi_query_vn_un,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (debug_rfapi_query_vn_un_l2o,
        debug_rfapi_query_vn_un_l2o_cmd,
        "debug rfapi-dev query vn <A.B.C.D|X:X::X:X> un <A.B.C.D|X:X::X:X> lni LNI target YY:YY:YY:YY:YY:YY",
@@ -3455,7 +3451,6 @@ DEFUN (debug_rfapi_query_vn_un_l2o,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (debug_rfapi_query_done_vn_un,
        debug_rfapi_query_vn_un_done_cmd,

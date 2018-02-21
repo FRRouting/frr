@@ -129,7 +129,6 @@ struct ospf_vl_data {
 	u_char flags;
 };
 
-
 #define OSPF_VL_MAX_COUNT 256
 #define OSPF_VL_MTU	  1500
 

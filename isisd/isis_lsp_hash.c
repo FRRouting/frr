@@ -71,7 +71,7 @@ void isis_lsp_hash_free(struct isis_lsp_hash *ih)
 }
 
 struct isis_lsp *isis_lsp_hash_lookup(struct isis_lsp_hash *ih,
-			    struct isis_lsp *lsp)
+				      struct isis_lsp *lsp)
 {
 	return hash_lookup(ih->h, lsp);
 }

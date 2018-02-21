@@ -52,10 +52,10 @@
 
 #define ZEBRA_PTM_SUPPORT
 
-DEFINE_HOOK(zebra_if_extra_info, (struct vty *vty, struct interface *ifp),
-				 (vty, ifp))
-DEFINE_HOOK(zebra_if_config_wr, (struct vty *vty, struct interface *ifp),
-				(vty, ifp))
+DEFINE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
+	    (vty, ifp))
+DEFINE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
+	    (vty, ifp))
 
 
 static void if_down_del_nbr_connected(struct interface *ifp);
@@ -71,8 +71,8 @@ static int if_zebra_speed_update(struct thread *thread)
 	new_speed = kernel_get_speed(ifp);
 	if (new_speed != ifp->speed) {
 		zlog_info("%s: %s old speed: %u new speed: %u",
-			  __PRETTY_FUNCTION__, ifp->name,
-			  ifp->speed, new_speed);
+			  __PRETTY_FUNCTION__, ifp->name, ifp->speed,
+			  new_speed);
 		ifp->speed = new_speed;
 		if_add_update(ifp);
 	}
@@ -148,8 +148,8 @@ static int if_zebra_new_hook(struct interface *ifp)
 	 * of seconds and ask again.  Hopefully it's all settled
 	 * down upon startup.
 	 */
-	thread_add_timer(zebrad.master, if_zebra_speed_update,
-			 ifp, 15, &zebra_if->speed_update);
+	thread_add_timer(zebrad.master, if_zebra_speed_update, ifp, 15,
+			 &zebra_if->speed_update);
 	return 0;
 }
 
@@ -464,7 +464,7 @@ static void if_addr_wakeup(struct interface *ifp)
 					 * XXX: RUNNING is not a settable flag
 					 * on any system
 					 * I (paulj) am aware of.
-					*/
+					 */
 					if_set_flags(ifp, IFF_UP | IFF_RUNNING);
 					if_refresh(ifp);
 				}
@@ -602,16 +602,14 @@ static void if_delete_connected(struct interface *ifp)
 	if (!ifp->connected)
 		return;
 
-	while ((node = (last ? last->next
-			: listhead(ifp->connected)))) {
+	while ((node = (last ? last->next : listhead(ifp->connected)))) {
 		ifc = listgetdata(node);
 
 		cp = *CONNECTED_PREFIX(ifc);
 		apply_mask(&cp);
 
 		if (cp.family == AF_INET
-		    && (rn = route_node_lookup(zebra_if->ipv4_subnets,
-					       &cp))) {
+		    && (rn = route_node_lookup(zebra_if->ipv4_subnets, &cp))) {
 			struct listnode *anode;
 			struct listnode *next;
 			struct listnode *first;
@@ -811,10 +809,10 @@ void if_nbr_ipv6ll_to_ipv4ll_neigh_update(struct interface *ifp,
 	 *
 	 * supported message types are RTM_NEWNEIGH and RTM_DELNEIGH
 	 */
-	kernel_neigh_update (0, ifp->ifindex, ipv4_ll.s_addr, mac, 6);
+	kernel_neigh_update(0, ifp->ifindex, ipv4_ll.s_addr, mac, 6);
 
 	/* Add arp record */
-	kernel_neigh_update (add, ifp->ifindex, ipv4_ll.s_addr, mac, 6);
+	kernel_neigh_update(add, ifp->ifindex, ipv4_ll.s_addr, mac, 6);
 	zvrf->neigh_updates++;
 }
 
@@ -1509,7 +1507,6 @@ DEFUN (show_interface_desc,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (show_interface_desc_vrf_all,
        show_interface_desc_vrf_all_cmd,
        "show interface description vrf all",
@@ -1521,7 +1518,7 @@ DEFUN (show_interface_desc_vrf_all,
 	struct vrf *vrf;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
-		if (!RB_EMPTY (if_name_head, &vrf->ifaces_by_name)) {
+		if (!RB_EMPTY(if_name_head, &vrf->ifaces_by_name)) {
 			vty_out(vty, "\n\tVRF %u\n\n", vrf->vrf_id);
 			if_show_description(vty, vrf->vrf_id);
 		}
@@ -1596,7 +1593,6 @@ DEFUN (linkdetect,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (no_linkdetect,
        no_linkdetect_cmd,
@@ -1720,7 +1716,9 @@ DEFUN (no_bandwidth_if,
 
 
 struct cmd_node link_params_node = {
-	LINK_PARAMS_NODE, "%s(config-link-params)# ", 1,
+	LINK_PARAMS_NODE,
+	"%s(config-link-params)# ",
+	1,
 };
 
 static void link_param_cmd_set_uint32(struct interface *ifp, uint32_t *field,

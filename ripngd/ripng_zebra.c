@@ -283,7 +283,6 @@ DEFUN (no_ripng_redistribute_type,
 	return ripng_redistribute_unset(type);
 }
 
-
 DEFUN (ripng_redistribute_type_metric,
        ripng_redistribute_type_metric_cmd,
        "redistribute " FRR_REDIST_STR_RIPNGD " metric (0-16)",

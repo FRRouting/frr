@@ -67,7 +67,7 @@ static int vtysh_pam(const char *user)
 	/* Is user really user? */
 	if (ret == PAM_SUCCESS)
 		ret = pam_authenticate(pamh, 0);
-/* printf ("ret %d\n", ret); */
+		/* printf ("ret %d\n", ret); */
 
 #if 0
   /* Permitted access? */

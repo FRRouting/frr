@@ -131,8 +131,8 @@ struct ospf {
 	struct in_addr router_id_static; /* Configured manually. */
 	struct in_addr router_id_zebra;
 
-	vrf_id_t vrf_id;  /* VRF Id */
-	char *name;       /* VRF name */
+	vrf_id_t vrf_id; /* VRF Id */
+	char *name;      /* VRF name */
 
 	/* ABR/ASBR internal flags. */
 	u_char flags;
@@ -184,7 +184,7 @@ struct ospf {
 	unsigned int
 		spf_hold_multiplier; /* Adaptive multiplier for hold time */
 
-	int default_originate;	/* Default information originate. */
+	int default_originate; /* Default information originate. */
 #define DEFAULT_ORIGINATE_NONE		0
 #define DEFAULT_ORIGINATE_ZEBRA		1
 #define DEFAULT_ORIGINATE_ALWAYS	2
@@ -347,7 +347,7 @@ struct ospf_area {
 	int auth_type;		 /* Authentication type. */
 
 
-	u_char NSSATranslatorRole;  /* NSSA configured role */
+	u_char NSSATranslatorRole; /* NSSA configured role */
 #define OSPF_NSSA_ROLE_NEVER     0
 #define OSPF_NSSA_ROLE_CANDIDATE 1
 #define OSPF_NSSA_ROLE_ALWAYS    2
@@ -356,7 +356,7 @@ struct ospf_area {
 #define OSPF_NSSA_TRANSLATE_ENABLED  1
 	int NSSATranslatorStabilityInterval;
 
-	u_char transit;		    /* TransitCapability. */
+	u_char transit; /* TransitCapability. */
 #define OSPF_TRANSIT_FALSE      0
 #define OSPF_TRANSIT_TRUE       1
 	struct route_table *ranges; /* Configured Area Ranges. */

@@ -75,7 +75,6 @@ static void opt_extend(const struct optspec *os)
 		memcpy(comb_next_lo++, lo, sizeof(*lo));
 }
 
-
 #define OPTION_VTYSOCK   1000
 #define OPTION_MODULEDIR 1002
 
@@ -613,7 +612,8 @@ static void frr_daemon_wait(int fd)
 	sigprocmask(SIG_BLOCK, &sigs, &prevsigs);
 
 	struct sigaction sa = {
-		.sa_handler = rcv_signal, .sa_flags = SA_RESETHAND,
+		.sa_handler = rcv_signal,
+		.sa_flags = SA_RESETHAND,
 	};
 	sigemptyset(&sa.sa_mask);
 	sigaction(SIGTSTP, &sa, NULL);
@@ -629,7 +629,7 @@ static void frr_daemon_wait(int fd)
 
 		rcvd_signal = 0;
 
-#if   defined(HAVE_PPOLL)
+#if defined(HAVE_PPOLL)
 		ret = ppoll(pfd, 1, NULL, &prevsigs);
 #elif defined(HAVE_POLLTS)
 		ret = pollts(pfd, 1, NULL, &prevsigs);
@@ -811,18 +811,18 @@ static int frr_daemon_ctl(struct thread *t)
 		return 0;
 
 	switch (buf[0]) {
-	case 'S':	/* SIGTSTP */
+	case 'S': /* SIGTSTP */
 		vty_stdio_suspend();
 		send(daemon_ctl_sock, "s", 1, 0);
 		break;
-	case 'R':	/* SIGTCNT [implicit] */
+	case 'R': /* SIGTCNT [implicit] */
 		vty_stdio_resume();
 		break;
-	case 'I':	/* SIGINT */
+	case 'I': /* SIGINT */
 		di->daemon_mode = false;
 		raise(SIGINT);
 		break;
-	case 'Q':	/* SIGQUIT */
+	case 'Q': /* SIGQUIT */
 		di->daemon_mode = true;
 		vty_stdio_close();
 		break;
@@ -914,10 +914,8 @@ void frr_fini(void)
 	if (!have_leftovers)
 		return;
 
-	snprintf(filename, sizeof(filename),
-		 "/tmp/frr-memstats-%s-%llu-%llu",
-		 di->name,
-		 (unsigned long long)getpid(),
+	snprintf(filename, sizeof(filename), "/tmp/frr-memstats-%s-%llu-%llu",
+		 di->name, (unsigned long long)getpid(),
 		 (unsigned long long)time(NULL));
 
 	fp = fopen(filename, "w");

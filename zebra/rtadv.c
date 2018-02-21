@@ -270,7 +270,7 @@ static void rtadv_send_packet(int sock, struct interface *ifp)
 								      for RL,
 								      but not
 								      for HAL*/
-			      );
+			);
 		len += sizeof(struct nd_opt_homeagent_info);
 	}
 
@@ -841,9 +841,9 @@ void zebra_interface_radv_set(struct zserv *client, u_short length,
 		SET_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED);
 		ipv6_nd_suppress_ra_set(ifp, RA_ENABLE);
 		if (ra_interval
-			&& (ra_interval * 1000) < zif->rtadv.MaxRtrAdvInterval
-			&& !CHECK_FLAG(zif->rtadv.ra_configured,
-				VTY_RA_INTERVAL_CONFIGURED))
+		    && (ra_interval * 1000) < zif->rtadv.MaxRtrAdvInterval
+		    && !CHECK_FLAG(zif->rtadv.ra_configured,
+				   VTY_RA_INTERVAL_CONFIGURED))
 			zif->rtadv.MaxRtrAdvInterval = ra_interval * 1000;
 	} else {
 		UNSET_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED);
@@ -1304,8 +1304,9 @@ DEFUN (ipv6_nd_prefix,
 {
 	/* prelude */
 	char *prefix = argv[3]->arg;
-	int lifetimes = (argc > 4) && (argv[4]->type == RANGE_TKN
-				       || strmatch(argv[4]->text, "infinite"));
+	int lifetimes = (argc > 4)
+			&& (argv[4]->type == RANGE_TKN
+			    || strmatch(argv[4]->text, "infinite"));
 	int routeropts = lifetimes ? argc > 6 : argc > 4;
 
 	int idx_routeropts = routeropts ? (lifetimes ? 6 : 4) : 0;

@@ -210,22 +210,25 @@ static void smux_getresp_send(oid objid[], size_t objid_len, long reqid,
 	ptr = asn_build_sequence(ptr, &len, (u_char)SMUX_GETRSP, 0);
 	h1e = ptr;
 
-	ptr = asn_build_int(ptr, &len, (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE
-						| ASN_INTEGER),
-			    &reqid, sizeof(reqid));
+	ptr = asn_build_int(
+		ptr, &len,
+		(u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER), &reqid,
+		sizeof(reqid));
 
 	if (debug_smux)
 		zlog_debug("SMUX GETRSP errstat: %ld", errstat);
 
-	ptr = asn_build_int(ptr, &len, (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE
-						| ASN_INTEGER),
-			    &errstat, sizeof(errstat));
+	ptr = asn_build_int(
+		ptr, &len,
+		(u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER), &errstat,
+		sizeof(errstat));
 	if (debug_smux)
 		zlog_debug("SMUX GETRSP errindex: %ld", errindex);
 
-	ptr = asn_build_int(ptr, &len, (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE
-						| ASN_INTEGER),
-			    &errindex, sizeof(errindex));
+	ptr = asn_build_int(
+		ptr, &len,
+		(u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
+		&errindex, sizeof(errindex));
 
 	h2 = ptr;
 	/* Place holder h2 for one variable */
@@ -884,24 +887,28 @@ static int smux_open(int sock)
 
 	/* SMUX Open. */
 	version = 0;
-	ptr = asn_build_int(ptr, &len, (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE
-						| ASN_INTEGER),
-			    &version, sizeof(version));
+	ptr = asn_build_int(
+		ptr, &len,
+		(u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER), &version,
+		sizeof(version));
 
 	/* SMUX connection oid. */
-	ptr = asn_build_objid(ptr, &len, (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE
-						  | ASN_OBJECT_ID),
-			      smux_oid, smux_oid_len);
+	ptr = asn_build_objid(
+		ptr, &len,
+		(u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_OBJECT_ID),
+		smux_oid, smux_oid_len);
 
 	/* SMUX connection description. */
-	ptr = asn_build_string(ptr, &len, (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE
-						   | ASN_OCTET_STR),
-			       (const u_char *)progname, strlen(progname));
+	ptr = asn_build_string(
+		ptr, &len,
+		(u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_OCTET_STR),
+		(const u_char *)progname, strlen(progname));
 
 	/* SMUX connection password. */
-	ptr = asn_build_string(ptr, &len, (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE
-						   | ASN_OCTET_STR),
-			       (u_char *)smux_passwd, strlen(smux_passwd));
+	ptr = asn_build_string(
+		ptr, &len,
+		(u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_OCTET_STR),
+		(u_char *)smux_passwd, strlen(smux_passwd));
 
 	/* Fill in real SMUX header.  We exclude ASN header size (2). */
 	len = BUFSIZ;
@@ -941,27 +948,31 @@ int smux_trap(struct variable *vp, size_t vp_len, const oid *ename,
 	ptr = asn_build_header(ptr, &len, (u_char)SMUX_TRAP, 0);
 
 	/* Sub agent enterprise oid. */
-	ptr = asn_build_objid(ptr, &len, (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE
-						  | ASN_OBJECT_ID),
-			      smux_oid, smux_oid_len);
+	ptr = asn_build_objid(
+		ptr, &len,
+		(u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_OBJECT_ID),
+		smux_oid, smux_oid_len);
 
 	/* IP address. */
 	addr.s_addr = 0;
-	ptr = asn_build_string(ptr, &len, (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE
-						   | ASN_IPADDRESS),
-			       (u_char *)&addr, sizeof(addr));
+	ptr = asn_build_string(
+		ptr, &len,
+		(u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_IPADDRESS),
+		(u_char *)&addr, sizeof(addr));
 
 	/* Generic trap integer. */
 	val = SNMP_TRAP_ENTERPRISESPECIFIC;
-	ptr = asn_build_int(ptr, &len, (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE
-						| ASN_INTEGER),
-			    (long *)&val, sizeof(val));
+	ptr = asn_build_int(
+		ptr, &len,
+		(u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
+		(long *)&val, sizeof(val));
 
 	/* Specific trap integer. */
 	val = sptrap;
-	ptr = asn_build_int(ptr, &len, (u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE
-						| ASN_INTEGER),
-			    (long *)&val, sizeof(val));
+	ptr = asn_build_int(
+		ptr, &len,
+		(u_char)(ASN_UNIVERSAL | ASN_PRIMITIVE | ASN_INTEGER),
+		(long *)&val, sizeof(val));
 
 	/* Timeticks timestamp. */
 	val = 0;

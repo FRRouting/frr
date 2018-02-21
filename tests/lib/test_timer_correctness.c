@@ -97,8 +97,8 @@ static int timer_func(struct thread *thread)
 
 static int cmp_timeval(const void *a, const void *b)
 {
-	const struct timeval *ta = *(struct timeval * const *)a;
-	const struct timeval *tb = *(struct timeval * const *)b;
+	const struct timeval *ta = *(struct timeval *const *)a;
+	const struct timeval *tb = *(struct timeval *const *)b;
 
 	if (timercmp(ta, tb, <))
 		return -1;

@@ -803,7 +803,6 @@ static enum match_type match_ipv4_prefix(const char *str)
 	return exact_match;
 }
 
-
 #define IPV6_ADDR_STR   "0123456789abcdefABCDEF:."
 #define IPV6_PREFIX_STR "0123456789abcdefABCDEF:./"
 #define STATE_START     1

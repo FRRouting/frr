@@ -82,8 +82,9 @@ struct isis_circuit {
 	struct thread *t_send_csnp[2];
 	struct thread *t_send_psnp[2];
 	struct thread *t_send_lsp;
-	struct list *lsp_queue;	/* LSPs to be txed (both levels) */
-	struct isis_lsp_hash *lsp_hash; /* Hashtable synchronized with lsp_queue */
+	struct list *lsp_queue; /* LSPs to be txed (both levels) */
+	struct isis_lsp_hash
+		*lsp_hash; /* Hashtable synchronized with lsp_queue */
 	time_t lsp_queue_last_push[2]; /* timestamp used to enforce transmit
 					* interval;
 					* for scalability, use one timestamp per
@@ -100,8 +101,8 @@ struct isis_circuit {
 #define CIRCUIT_T_BROADCAST  1
 #define CIRCUIT_T_P2P        2
 #define CIRCUIT_T_LOOPBACK   3
-	int circ_type;		   /* type of the physical interface */
-	int circ_type_config;      /* config type of the physical interface */
+	int circ_type;	/* type of the physical interface */
+	int circ_type_config; /* config type of the physical interface */
 	union {
 		struct isis_bcast_info bc;
 		struct isis_p2p_info p2p;
@@ -183,7 +184,7 @@ void isis_circuit_af_set(struct isis_circuit *circuit, bool ip_router,
 			 bool ipv6_router);
 ferr_r isis_circuit_passive_set(struct isis_circuit *circuit, bool passive);
 void isis_circuit_is_type_set(struct isis_circuit *circuit, int is_type);
-ferr_r isis_circuit_circ_type_set (struct isis_circuit *circuit, int circ_type);
+ferr_r isis_circuit_circ_type_set(struct isis_circuit *circuit, int circ_type);
 
 ferr_r isis_circuit_metric_set(struct isis_circuit *circuit, int level,
 			       int metric);

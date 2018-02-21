@@ -139,8 +139,9 @@ enum node_type {
 	VTY_NODE,		/* Vty node. */
 	LINK_PARAMS_NODE,       /* Link-parameters node */
 	BGP_EVPN_VNI_NODE,      /* BGP EVPN VNI */
-	RPKI_NODE,		/* RPKI node for configuration of RPKI cache server connections.*/
-	NODE_TYPE_MAX,		/* maximum */
+	RPKI_NODE,     /* RPKI node for configuration of RPKI cache server
+			  connections.*/
+	NODE_TYPE_MAX, /* maximum */
 };
 
 extern vector cmdvec;

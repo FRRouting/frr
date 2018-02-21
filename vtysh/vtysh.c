@@ -77,7 +77,7 @@ struct vtysh_client vtysh_client[] = {
 	{.fd = -1, .name = "nhrpd", .flag = VTYSH_NHRPD, .next = NULL},
 	{.fd = -1, .name = "eigrpd", .flag = VTYSH_EIGRPD, .next = NULL},
 	{.fd = -1, .name = "babeld", .flag = VTYSH_BABELD, .next = NULL},
-        {.fd = -1, .name = "sharpd", .flag = VTYSH_SHARPD, .next = NULL},
+	{.fd = -1, .name = "sharpd", .flag = VTYSH_SHARPD, .next = NULL},
 	{.fd = -1, .name = "watchfrr", .flag = VTYSH_WATCHFRR, .next = NULL},
 };
 
@@ -748,9 +748,8 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 		case CMD_ERR_NO_MATCH:
 			fprintf(stderr, "line %d: %% Unknown command[%d]: %s",
 				lineno, vty->node, vty->buf);
-			retcode =
-				CMD_ERR_NO_MATCH; /* once we have an error, we
-						     remember & return that */
+			retcode = CMD_ERR_NO_MATCH; /* once we have an error, we
+						       remember & return that */
 			break;
 		case CMD_ERR_INCOMPLETE:
 			fprintf(stderr,
@@ -956,31 +955,38 @@ static char **new_completion(char *text, int start, int end)
 
 /* Vty node structures. */
 static struct cmd_node bgp_node = {
-	BGP_NODE, "%s(config-router)# ",
+	BGP_NODE,
+	"%s(config-router)# ",
 };
 
 static struct cmd_node rip_node = {
-	RIP_NODE, "%s(config-router)# ",
+	RIP_NODE,
+	"%s(config-router)# ",
 };
 
 static struct cmd_node isis_node = {
-	ISIS_NODE, "%s(config-router)# ",
+	ISIS_NODE,
+	"%s(config-router)# ",
 };
 
 static struct cmd_node interface_node = {
-	INTERFACE_NODE, "%s(config-if)# ",
+	INTERFACE_NODE,
+	"%s(config-if)# ",
 };
 
 static struct cmd_node pw_node = {
-	PW_NODE, "%s(config-pw)# ",
+	PW_NODE,
+	"%s(config-pw)# ",
 };
 
 static struct cmd_node ns_node = {
-	NS_NODE, "%s(config-logical-router)# ",
+	NS_NODE,
+	"%s(config-logical-router)# ",
 };
 
 static struct cmd_node vrf_node = {
-	VRF_NODE, "%s(config-vrf)# ",
+	VRF_NODE,
+	"%s(config-vrf)# ",
 };
 
 static struct cmd_node rmap_node = {RMAP_NODE, "%s(config-route-map)# "};
@@ -1062,7 +1068,8 @@ static struct cmd_node keychain_key_node = {KEYCHAIN_KEY_NODE,
 					    "%s(config-keychain-key)# "};
 
 struct cmd_node link_params_node = {
-	LINK_PARAMS_NODE, "%s(config-link-params)# ",
+	LINK_PARAMS_NODE,
+	"%s(config-link-params)# ",
 };
 
 #if defined(HAVE_RPKI)
@@ -1773,7 +1780,8 @@ DEFUNSH(VTYSH_ZEBRA, vtysh_pseudowire, vtysh_pseudowire_cmd,
 /* TODO Implement "no interface command in isisd. */
 DEFSH(VTYSH_ZEBRA | VTYSH_RIPD | VTYSH_RIPNGD | VTYSH_OSPFD | VTYSH_OSPF6D
 	      | VTYSH_EIGRPD,
-      vtysh_no_interface_cmd, "no interface IFNAME", NO_STR
+      vtysh_no_interface_cmd, "no interface IFNAME",
+      NO_STR
       "Delete a pseudo interface's configuration\n"
       "Interface's name\n")
 
@@ -1800,7 +1808,8 @@ DEFUNSH(VTYSH_VRF, vtysh_vrf, vtysh_vrf_cmd, "vrf NAME",
 	return CMD_SUCCESS;
 }
 
-DEFSH(VTYSH_ZEBRA, vtysh_no_vrf_cmd, "no vrf NAME", NO_STR
+DEFSH(VTYSH_ZEBRA, vtysh_no_vrf_cmd, "no vrf NAME",
+      NO_STR
       "Delete a pseudo vrf's configuration\n"
       "VRF's name\n")
 
@@ -1966,8 +1975,7 @@ DEFUN (vtysh_show_debugging,
        SHOW_STR
        DEBUG_STR)
 {
-	return show_per_daemon("do show debugging\n",
-			       "");
+	return show_per_daemon("do show debugging\n", "");
 }
 
 DEFUN (vtysh_show_debugging_hashtable,
@@ -2000,8 +2008,7 @@ DEFUN (vtysh_show_memory,
        SHOW_STR
        "Memory statistics\n")
 {
-	return show_per_daemon("show memory\n",
-			       "Memory statistics for %s:\n");
+	return show_per_daemon("show memory\n", "Memory statistics for %s:\n");
 }
 
 DEFUN (vtysh_show_modules,
@@ -2140,7 +2147,8 @@ DEFUNSH_DEPRECATED(
 }
 
 DEFUNSH_DEPRECATED(VTYSH_ALL, no_vtysh_log_trap, no_vtysh_log_trap_cmd,
-		   "no log trap [LEVEL]", NO_STR
+		   "no log trap [LEVEL]",
+		   NO_STR
 		   "Logging control\n"
 		   "Permit all logging information\n"
 		   "Logging level\n")
@@ -2552,8 +2560,8 @@ DEFUN (vtysh_show_daemons,
 }
 
 /* Execute command in child process. */
-static void execute_command(const char *command, int argc,
-			    const char *arg1, const char *arg2)
+static void execute_command(const char *command, int argc, const char *arg1,
+			    const char *arg2)
 {
 	pid_t pid;
 	int status;

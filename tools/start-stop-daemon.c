@@ -865,12 +865,13 @@ static int run_stop_schedule(void)
 				if (ratio < 10)
 					ratio++;
 
-				TVCALC(interval,
-				       ratio * (TVELEM(&after) - TVELEM(&before)
-						+ TVADJUST));
-				TVCALC(maxinterval,
-				       TVELEM(&stopat) - TVELEM(&after)
-					       + TVADJUST);
+				TVCALC(interval, ratio
+							 * (TVELEM(&after)
+							    - TVELEM(&before)
+							    + TVADJUST));
+				TVCALC(maxinterval, TVELEM(&stopat)
+							    - TVELEM(&after)
+							    + TVADJUST);
 
 				if (timercmp(&interval, &maxinterval, >))
 					interval = maxinterval;

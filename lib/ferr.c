@@ -63,8 +63,8 @@ ferr_r ferr_clear(void)
 }
 
 static ferr_r ferr_set_va(const char *file, int line, const char *func,
-		enum ferr_kind kind, const char *pathname, int errno_val,
-		const char *text, va_list va)
+			  enum ferr_kind kind, const char *pathname,
+			  int errno_val, const char *text, va_list va)
 {
 	struct ferr *error = pthread_getspecific(errkey);
 
@@ -74,7 +74,8 @@ static ferr_r ferr_set_va(const char *file, int line, const char *func,
 			/* we're screwed */
 			zlog_err("out of memory while allocating error info");
 			raise(SIGSEGV);
-			abort(); /* raise() can return, but raise(SIGSEGV) shall not */
+			abort(); /* raise() can return, but raise(SIGSEGV) shall
+				    not */
 		}
 
 		pthread_setspecific(errkey, error);
@@ -86,12 +87,12 @@ static ferr_r ferr_set_va(const char *file, int line, const char *func,
 	error->kind = kind;
 
 	error->unique_id = jhash(text, strlen(text),
-			jhash(file, strlen(file), 0xd4ed0298));
+				 jhash(file, strlen(file), 0xd4ed0298));
 
 	error->errno_val = errno_val;
 	if (pathname)
-		snprintf(error->pathname, sizeof(error->pathname),
-				"%s", pathname);
+		snprintf(error->pathname, sizeof(error->pathname), "%s",
+			 pathname);
 	else
 		error->pathname[0] = '\0';
 
@@ -100,7 +101,7 @@ static ferr_r ferr_set_va(const char *file, int line, const char *func,
 }
 
 ferr_r ferr_set_internal(const char *file, int line, const char *func,
-		enum ferr_kind kind, const char *text, ...)
+			 enum ferr_kind kind, const char *text, ...)
 {
 	ferr_r rv;
 	va_list va;
@@ -111,8 +112,8 @@ ferr_r ferr_set_internal(const char *file, int line, const char *func,
 }
 
 ferr_r ferr_set_internal_ext(const char *file, int line, const char *func,
-		enum ferr_kind kind, const char *pathname, int errno_val,
-		const char *text, ...)
+			     enum ferr_kind kind, const char *pathname,
+			     int errno_val, const char *text, ...)
 {
 	ferr_r rv;
 	va_list va;
@@ -139,10 +140,8 @@ void vty_print_error(struct vty *vty, ferr_r err, const char *msg, ...)
 	else {
 		replacepos[0] = '\0';
 		replacepos += sizeof(REPLACE) - 1;
-		vty_out(vty, "%s%s%s\n",
-			tmpmsg,
+		vty_out(vty, "%s%s%s\n", tmpmsg,
 			last_error ? last_error->message : "(no error?)",
 			replacepos);
 	}
 }
-

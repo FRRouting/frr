@@ -170,13 +170,12 @@ struct rtadvconf {
 	u_char inFastRexmit; /* True if we're rexmits faster than usual */
 
 	/* Track if RA was configured by BGP or by the Operator or both */
-	u_char ra_configured;     /* Was RA configured? */
+	u_char ra_configured; /* Was RA configured? */
 #define BGP_RA_CONFIGURED (1<<0)  /* BGP configured RA? */
 #define VTY_RA_CONFIGURED (1<<1)  /* Operator configured RA? */
 #define VTY_RA_INTERVAL_CONFIGURED (1<<2)  /* Operator configured RA interval */
-	int
-		NumFastReXmitsRemain; /* Loaded first with number of fast
-					 rexmits to do */
+	int NumFastReXmitsRemain; /* Loaded first with number of fast
+				     rexmits to do */
 
 #define RTADV_FAST_REXMIT_PERIOD 1 /* 1 sec */
 #define RTADV_NUM_FAST_REXMITS   4 /* Fast Rexmit RA 4 times on certain events */
@@ -275,10 +274,10 @@ struct zebra_if {
 	struct thread *speed_update;
 };
 
-DECLARE_HOOK(zebra_if_extra_info, (struct vty *vty, struct interface *ifp),
-				  (vty, ifp))
-DECLARE_HOOK(zebra_if_config_wr, (struct vty *vty, struct interface *ifp),
-				 (vty, ifp))
+DECLARE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
+	     (vty, ifp))
+DECLARE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
+	     (vty, ifp))
 
 static inline void zebra_if_set_ziftype(struct interface *ifp,
 					zebra_iftype_t zif_type,

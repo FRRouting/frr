@@ -369,10 +369,9 @@ static void bgp_damp_parameter_set(int hlife, int reuse, int sup, int maxsup)
 	/* Initialize params per bgp_damp_config. */
 	damp->reuse_index_size = REUSE_ARRAY_SIZE;
 
-	damp->ceiling =
-		(int)(damp->reuse_limit * (pow(2,
-					       (double)damp->max_suppress_time
-						       / damp->half_life)));
+	damp->ceiling = (int)(damp->reuse_limit
+			      * (pow(2, (double)damp->max_suppress_time
+						/ damp->half_life)));
 
 	/* Decay-array computations */
 	damp->decay_array_size =
@@ -414,9 +413,11 @@ static void bgp_damp_parameter_set(int hlife, int reuse, int sup, int maxsup)
 	for (i = 0; i < damp->reuse_index_size; i++) {
 		damp->reuse_index[i] =
 			(int)(((double)damp->half_life / DELTA_REUSE)
-			      * log10(1.0 / (damp->reuse_limit
-					     * (1.0 + ((double)i
-						       / damp->scale_factor))))
+			      * log10(1.0
+				      / (damp->reuse_limit
+					 * (1.0
+					    + ((double)i
+					       / damp->scale_factor))))
 			      / log10(0.5));
 	}
 }
@@ -542,7 +543,7 @@ static const char *bgp_get_reuse_time(unsigned int penalty, char *buf,
 	} else
 		reuse_time = 0;
 
-/* Making formatted timer strings. */
+	/* Making formatted timer strings. */
 	if (reuse_time == 0) {
 		if (use_json)
 			json_object_int_add(json, "reuseTimerMsecs", 0);

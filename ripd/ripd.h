@@ -385,11 +385,9 @@ extern int rip_request_send(struct sockaddr_in *, struct interface *, u_char,
 extern int rip_neighbor_lookup(struct sockaddr_in *);
 
 extern int rip_redistribute_check(int);
-extern void rip_redistribute_add(int type, int sub_type,
-				 struct prefix_ipv4 *p,
-				 struct nexthop *nh,
-				 unsigned int metric, unsigned char distance,
-				 route_tag_t tag);
+extern void rip_redistribute_add(int type, int sub_type, struct prefix_ipv4 *p,
+				 struct nexthop *nh, unsigned int metric,
+				 unsigned char distance, route_tag_t tag);
 extern void rip_redistribute_delete(int, int, struct prefix_ipv4 *, ifindex_t);
 extern void rip_redistribute_withdraw(int);
 extern void rip_zebra_ipv4_add(struct route_node *);

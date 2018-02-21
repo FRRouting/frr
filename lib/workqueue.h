@@ -93,8 +93,9 @@ struct work_queue {
 	} spec;
 
 	/* remaining fields should be opaque to users */
-	STAILQ_HEAD(work_queue_items, work_queue_item) items; /* queue item list */
-	int item_count; /* queued items */
+	STAILQ_HEAD(work_queue_items, work_queue_item)
+	items;		      /* queue item list */
+	int item_count;       /* queued items */
 	unsigned long runs;   /* runs count */
 	unsigned long yields; /* yields count */
 
@@ -120,7 +121,8 @@ static inline bool work_queue_empty(struct work_queue *wq)
 	return (wq->item_count == 0) ? true : false;
 }
 
-static inline struct work_queue_item *work_queue_last_item(struct work_queue *wq)
+static inline struct work_queue_item *
+work_queue_last_item(struct work_queue *wq)
 {
 	return STAILQ_LAST(&wq->items, work_queue_item, wq);
 }

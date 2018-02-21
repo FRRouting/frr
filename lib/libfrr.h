@@ -84,7 +84,7 @@ struct frr_daemon_info {
 	FRR_COREMOD_SETUP(.name = #execname,                                   \
 			  .description = #execname " daemon",                  \
 			  .version = FRR_VERSION, )                            \
-/* end */
+	/* end */
 
 extern void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv);
 extern void frr_opt_add(const char *optstr, const struct option *longopts,

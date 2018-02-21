@@ -341,23 +341,23 @@ struct updwalk_context {
  * Walk all subgroups in an update group.
  */
 #define UPDGRP_FOREACH_SUBGRP(updgrp, subgrp)                                  \
-	LIST_FOREACH(subgrp, &((updgrp)->subgrps), updgrp_train)
+	LIST_FOREACH (subgrp, &((updgrp)->subgrps), updgrp_train)
 
 #define UPDGRP_FOREACH_SUBGRP_SAFE(updgrp, subgrp, tmp_subgrp)                 \
-	LIST_FOREACH_SAFE(subgrp, &((updgrp)->subgrps), updgrp_train,          \
-			  tmp_subgrp)
+	LIST_FOREACH_SAFE (subgrp, &((updgrp)->subgrps), updgrp_train,         \
+			   tmp_subgrp)
 
 #define SUBGRP_FOREACH_PEER(subgrp, paf)                                       \
-	LIST_FOREACH(paf, &(subgrp->peers), subgrp_train)
+	LIST_FOREACH (paf, &(subgrp->peers), subgrp_train)
 
 #define SUBGRP_FOREACH_PEER_SAFE(subgrp, paf, temp_paf)                        \
-	LIST_FOREACH_SAFE(paf, &(subgrp->peers), subgrp_train, temp_paf)
+	LIST_FOREACH_SAFE (paf, &(subgrp->peers), subgrp_train, temp_paf)
 
 #define SUBGRP_FOREACH_ADJ(subgrp, adj)                                        \
-	TAILQ_FOREACH(adj, &(subgrp->adjq), subgrp_adj_train)
+	TAILQ_FOREACH (adj, &(subgrp->adjq), subgrp_adj_train)
 
 #define SUBGRP_FOREACH_ADJ_SAFE(subgrp, adj, adj_temp)                         \
-	TAILQ_FOREACH_SAFE(adj, &(subgrp->adjq), subgrp_adj_train, adj_temp)
+	TAILQ_FOREACH_SAFE (adj, &(subgrp->adjq), subgrp_adj_train, adj_temp)
 
 /* Prototypes.  */
 /* bgp_updgrp.c */

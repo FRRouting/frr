@@ -121,16 +121,17 @@ int bgp_info_nexthop_cmp(struct bgp_info *bi1, struct bgp_info *bi2)
 					&bi2->attr->mp_nexthop_global);
 				break;
 			case BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL:
-				addr1 = (bi1->attr->mp_nexthop_prefer_global) ?
-					bi1->attr->mp_nexthop_global
-					: bi1->attr->mp_nexthop_local;
-				addr2 = (bi2->attr->mp_nexthop_prefer_global) ?
-					bi2->attr->mp_nexthop_global
-					: bi2->attr->mp_nexthop_local;
+				addr1 = (bi1->attr->mp_nexthop_prefer_global)
+						? bi1->attr->mp_nexthop_global
+						: bi1->attr->mp_nexthop_local;
+				addr2 = (bi2->attr->mp_nexthop_prefer_global)
+						? bi2->attr->mp_nexthop_global
+						: bi2->attr->mp_nexthop_local;
 
-				if (!bi1->attr->mp_nexthop_prefer_global &&
-				    !bi2->attr->mp_nexthop_prefer_global)
-					compare = !(bi1->peer->ifindex == bi2->peer->ifindex);
+				if (!bi1->attr->mp_nexthop_prefer_global
+				    && !bi2->attr->mp_nexthop_prefer_global)
+					compare = !(bi1->peer->ifindex
+						    == bi2->peer->ifindex);
 				if (!compare)
 					compare = IPV6_ADDR_CMP(&addr1, &addr2);
 				break;
@@ -681,8 +682,9 @@ void bgp_info_mpath_aggregate_update(struct bgp_info *new_best,
 
 	bgp_attr_dup(&attr, new_best->attr);
 
-	if (new_best->peer && bgp_flag_check(new_best->peer->bgp,
-					     BGP_FLAG_MULTIPATH_RELAX_AS_SET)) {
+	if (new_best->peer
+	    && bgp_flag_check(new_best->peer->bgp,
+			      BGP_FLAG_MULTIPATH_RELAX_AS_SET)) {
 
 		/* aggregate attribute from multipath constituents */
 		aspath = aspath_dup(attr.aspath);

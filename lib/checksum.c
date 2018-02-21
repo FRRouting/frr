@@ -10,7 +10,7 @@
 #include "checksum.h"
 
 int /* return checksum in low-order 16 bits */
-	in_cksum(void *parg, int nbytes)
+in_cksum(void *parg, int nbytes)
 {
 	u_short *ptr = parg;
 	register long sum; /* assumes long == 32 bits */

@@ -498,7 +498,8 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 	if (!as->segments) {
 		if (make_json) {
 			json_object_string_add(as->json, "string", "Local");
-			json_object_object_add(as->json, "segments", jaspath_segments);
+			json_object_object_add(as->json, "segments",
+					       jaspath_segments);
 			json_object_int_add(as->json, "length", 0);
 		}
 		as->str = XMALLOC(MTYPE_AS_STR, 1);
@@ -575,8 +576,9 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 		/* write out the ASNs, with their seperators, bar the last one*/
 		for (i = 0; i < seg->length; i++) {
 			if (make_json)
-				json_object_array_add(jseg_list,
-						      json_object_new_int(seg->as[i]));
+				json_object_array_add(
+					jseg_list,
+					json_object_new_int(seg->as[i]));
 
 			len += snprintf(str_buf + len, str_size - len, "%u",
 					seg->as[i]);
@@ -588,8 +590,9 @@ static void aspath_make_str_count(struct aspath *as, bool make_json)
 
 		if (make_json) {
 			jseg = json_object_new_object();
-			json_object_string_add(jseg, "type",
-					       aspath_segment_type_str[seg->type]);
+			json_object_string_add(
+				jseg, "type",
+				aspath_segment_type_str[seg->type]);
 			json_object_object_add(jseg, "list", jseg_list);
 			json_object_array_add(jaspath_segments, jseg);
 		}
@@ -890,8 +893,9 @@ size_t aspath_put(struct stream *s, struct aspath *as, int use32bit)
 		 * The general assumption here is that many things tested will
 		 * never happen.  And, in real live, up to now, they have not.
 		 */
-		while (seg && (ASSEGMENT_LEN(seg, use32bit)
-			       <= STREAM_WRITEABLE(s))) {
+		while (seg
+		       && (ASSEGMENT_LEN(seg, use32bit)
+			   <= STREAM_WRITEABLE(s))) {
 			struct assegment *next = seg->next;
 			int written = 0;
 			int asns_packed = 0;
@@ -904,7 +908,8 @@ size_t aspath_put(struct stream *s, struct aspath *as, int use32bit)
 				assegment_data_put(s, seg->as, AS_SEGMENT_MAX,
 						   use32bit);
 				written += AS_SEGMENT_MAX;
-				bytes += ASSEGMENT_SIZE(AS_SEGMENT_MAX, use32bit);
+				bytes += ASSEGMENT_SIZE(AS_SEGMENT_MAX,
+							use32bit);
 			}
 
 			/* write the final segment, probably is also the first
@@ -1596,12 +1601,14 @@ int aspath_cmp_left(const struct aspath *aspath1, const struct aspath *aspath2)
 		return 1;
 
 	/* find first non-confed segments for each */
-	while (seg1 && ((seg1->type == AS_CONFED_SEQUENCE)
-			|| (seg1->type == AS_CONFED_SET)))
+	while (seg1
+	       && ((seg1->type == AS_CONFED_SEQUENCE)
+		   || (seg1->type == AS_CONFED_SET)))
 		seg1 = seg1->next;
 
-	while (seg2 && ((seg2->type == AS_CONFED_SEQUENCE)
-			|| (seg2->type == AS_CONFED_SET)))
+	while (seg2
+	       && ((seg2->type == AS_CONFED_SEQUENCE)
+		   || (seg2->type == AS_CONFED_SET)))
 		seg2 = seg2->next;
 
 	/* Check as1's */
@@ -2032,9 +2039,7 @@ int aspath_cmp(const void *arg1, const void *arg2)
 /* AS path hash initialize. */
 void aspath_init(void)
 {
-	ashash = hash_create_size(32768,
-				  aspath_key_make,
-				  aspath_cmp,
+	ashash = hash_create_size(32768, aspath_key_make, aspath_cmp,
 				  "BGP AS Path");
 }
 
@@ -2082,7 +2087,8 @@ static void aspath_show_all_iterator(struct hash_backet *backet,
    `show [ip] bgp paths' command. */
 void aspath_print_all_vty(struct vty *vty)
 {
-	hash_iterate(ashash, (void (*)(struct hash_backet *,
-				       void *))aspath_show_all_iterator,
+	hash_iterate(ashash,
+		     (void (*)(struct hash_backet *,
+			       void *))aspath_show_all_iterator,
 		     vty);
 }

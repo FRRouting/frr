@@ -282,7 +282,7 @@ static void ospf_examine_summaries(struct ospf_area *area,
 	struct ospf_lsa *lsa;
 	struct route_node *rn;
 
-	LSDB_LOOP(lsdb_rt, rn, lsa)
+	LSDB_LOOP (lsdb_rt, rn, lsa)
 		process_summary_lsa(area, rt, rtrs, lsa);
 }
 
@@ -361,10 +361,8 @@ static void ospf_update_network_route(struct ospf *ospf, struct route_table *rt,
 	}
 
 	if (ospf->abr_type == OSPF_ABR_SHORTCUT) {
-		if (
-			or->path_type == OSPF_PATH_INTRA_AREA
-				  && !OSPF_IS_AREA_ID_BACKBONE(
-					     or->u.std.area_id)) {
+		if (or->path_type == OSPF_PATH_INTRA_AREA
+			      && !OSPF_IS_AREA_ID_BACKBONE(or->u.std.area_id)) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
 					"ospf_update_network_route(): Shortcut: "
@@ -582,7 +580,7 @@ static void ospf_examine_transit_summaries(struct ospf_area *area,
 	struct ospf_lsa *lsa;
 	struct route_node *rn;
 
-	LSDB_LOOP(lsdb_rt, rn, lsa)
+	LSDB_LOOP (lsdb_rt, rn, lsa)
 		process_transit_summary_lsa(area, rt, rtrs, lsa);
 }
 
@@ -650,7 +648,7 @@ void ospf_ia_routing(struct ospf *ospf, struct route_table *rt,
 							OSPF_EXAMINE_TRANSIT_SUMMARIES_ALL(
 								area, rt, rtrs);
 			} else { /* No active BB connection--consider all areas
-				    */
+				  */
 				if (IS_DEBUG_OSPF_EVENT)
 					zlog_debug(
 						"ospf_ia_routing(): "

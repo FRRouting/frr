@@ -69,15 +69,18 @@ static void ospf_route_map_update(const char *name)
 					struct route_map *old = ROUTEMAP(red);
 
 					/* Update route-map. */
-					ROUTEMAP(red) = route_map_lookup_by_name(
-										 ROUTEMAP_NAME(red));
+					ROUTEMAP(red) =
+						route_map_lookup_by_name(
+							ROUTEMAP_NAME(red));
 
-					/* No update for this distribute type. */
-					if (old == NULL && ROUTEMAP(red) == NULL)
+					/* No update for this distribute type.
+					 */
+					if (old == NULL
+					    && ROUTEMAP(red) == NULL)
 						continue;
 
-					ospf_distribute_list_update(ospf, type,
-								    red->instance);
+					ospf_distribute_list_update(
+						ospf, type, red->instance);
 				}
 			}
 		}
@@ -103,8 +106,8 @@ static void ospf_route_map_event(route_map_event_t event, const char *name)
 			for (ALL_LIST_ELEMENTS_RO(red_list, node, red)) {
 				if (ROUTEMAP_NAME(red) && ROUTEMAP(red)
 				    && !strcmp(ROUTEMAP_NAME(red), name)) {
-					ospf_distribute_list_update(ospf, type,
-								red->instance);
+					ospf_distribute_list_update(
+						ospf, type, red->instance);
 				}
 			}
 		}
@@ -332,7 +335,9 @@ static route_map_result_t route_match_tag(void *rule, struct prefix *prefix,
 
 /* Route map commands for tag matching. */
 static struct route_map_rule_cmd route_match_tag_cmd = {
-	"tag", route_match_tag, route_map_rule_tag_compile,
+	"tag",
+	route_match_tag,
+	route_map_rule_tag_compile,
 	route_map_rule_tag_free,
 };
 
@@ -416,7 +421,9 @@ static void route_set_metric_free(void *rule)
 
 /* Set metric rule structure. */
 struct route_map_rule_cmd route_set_metric_cmd = {
-	"metric", route_set_metric, route_set_metric_compile,
+	"metric",
+	route_set_metric,
+	route_set_metric_compile,
 	route_set_metric_free,
 };
 
@@ -468,7 +475,9 @@ static void route_set_metric_type_free(void *rule)
 
 /* Set metric rule structure. */
 struct route_map_rule_cmd route_set_metric_type_cmd = {
-	"metric-type", route_set_metric_type, route_set_metric_type_compile,
+	"metric-type",
+	route_set_metric_type,
+	route_set_metric_type_compile,
 	route_set_metric_type_free,
 };
 
@@ -491,7 +500,9 @@ static route_map_result_t route_set_tag(void *rule, struct prefix *prefix,
 
 /* Route map commands for tag set. */
 static struct route_map_rule_cmd route_set_tag_cmd = {
-	"tag", route_set_tag, route_map_rule_tag_compile,
+	"tag",
+	route_set_tag,
+	route_map_rule_tag_compile,
 	route_map_rule_tag_free,
 };
 

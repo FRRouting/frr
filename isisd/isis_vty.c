@@ -333,7 +333,6 @@ DEFUN (no_isis_passwd,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (isis_priority,
        isis_priority_cmd,
        "isis priority (0-127)",
@@ -377,7 +376,6 @@ DEFUN (no_isis_priority,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (isis_priority_l1,
        isis_priority_l1_cmd,
        "isis priority (0-127) level-1",
@@ -420,7 +418,6 @@ DEFUN (no_isis_priority_l1,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (isis_priority_l2,
        isis_priority_l2_cmd,
@@ -509,7 +506,6 @@ DEFUN (isis_metric,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (no_isis_metric,
        no_isis_metric_cmd,
        "no isis metric [(0-16777215)]",
@@ -531,7 +527,6 @@ DEFUN (no_isis_metric,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (isis_metric_l1,
        isis_metric_l1_cmd,
        "isis metric (0-16777215) level-1",
@@ -552,7 +547,6 @@ DEFUN (isis_metric_l1,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (no_isis_metric_l1,
        no_isis_metric_l1_cmd,
        "no isis metric [(0-16777215)] level-1",
@@ -571,7 +565,6 @@ DEFUN (no_isis_metric_l1,
 			"Failed to set L1 metric: $ERR");
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (isis_metric_l2,
        isis_metric_l2_cmd,
@@ -592,7 +585,6 @@ DEFUN (isis_metric_l2,
 			"Failed to set L2 metric: $ERR");
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (no_isis_metric_l2,
        no_isis_metric_l2_cmd,
@@ -641,7 +633,6 @@ DEFUN (isis_hello_interval,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (no_isis_hello_interval,
        no_isis_hello_interval_cmd,
        "no isis hello-interval [(1-600)]",
@@ -659,7 +650,6 @@ DEFUN (no_isis_hello_interval,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (isis_hello_interval_l1,
        isis_hello_interval_l1_cmd,
@@ -687,7 +677,6 @@ DEFUN (isis_hello_interval_l1,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (no_isis_hello_interval_l1,
        no_isis_hello_interval_l1_cmd,
        "no isis hello-interval [(1-600)] level-1",
@@ -705,7 +694,6 @@ DEFUN (no_isis_hello_interval_l1,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (isis_hello_interval_l2,
        isis_hello_interval_l2_cmd,
@@ -733,7 +721,6 @@ DEFUN (isis_hello_interval_l2,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (no_isis_hello_interval_l2,
        no_isis_hello_interval_l2_cmd,
        "no isis hello-interval [(1-600)] level-2",
@@ -751,7 +738,6 @@ DEFUN (no_isis_hello_interval_l2,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (isis_hello_multiplier,
        isis_hello_multiplier_cmd,
@@ -780,7 +766,6 @@ DEFUN (isis_hello_multiplier,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (no_isis_hello_multiplier,
        no_isis_hello_multiplier_cmd,
        "no isis hello-multiplier [(2-100)]",
@@ -798,7 +783,6 @@ DEFUN (no_isis_hello_multiplier,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (isis_hello_multiplier_l1,
        isis_hello_multiplier_l1_cmd,
@@ -827,7 +811,6 @@ DEFUN (isis_hello_multiplier_l1,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (no_isis_hello_multiplier_l1,
        no_isis_hello_multiplier_l1_cmd,
        "no isis hello-multiplier [(2-100)] level-1",
@@ -845,7 +828,6 @@ DEFUN (no_isis_hello_multiplier_l1,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (isis_hello_multiplier_l2,
        isis_hello_multiplier_l2_cmd,
@@ -874,7 +856,6 @@ DEFUN (isis_hello_multiplier_l2,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (no_isis_hello_multiplier_l2,
        no_isis_hello_multiplier_l2_cmd,
        "no isis hello-multiplier [(2-100)] level-2",
@@ -892,7 +873,6 @@ DEFUN (no_isis_hello_multiplier_l2,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (isis_hello_padding,
        isis_hello_padding_cmd,
@@ -953,7 +933,6 @@ DEFUN (csnp_interval,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (no_csnp_interval,
        no_csnp_interval_cmd,
        "no isis csnp-interval [(1-600)]",
@@ -971,7 +950,6 @@ DEFUN (no_csnp_interval,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (csnp_interval_l1,
        csnp_interval_l1_cmd,
@@ -999,7 +977,6 @@ DEFUN (csnp_interval_l1,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (no_csnp_interval_l1,
        no_csnp_interval_l1_cmd,
        "no isis csnp-interval [(1-600)] level-1",
@@ -1017,7 +994,6 @@ DEFUN (no_csnp_interval_l1,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (csnp_interval_l2,
        csnp_interval_l2_cmd,
@@ -1045,7 +1021,6 @@ DEFUN (csnp_interval_l2,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (no_csnp_interval_l2,
        no_csnp_interval_l2_cmd,
        "no isis csnp-interval [(1-600)] level-2",
@@ -1063,7 +1038,6 @@ DEFUN (no_csnp_interval_l2,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (psnp_interval,
        psnp_interval_cmd,
@@ -1091,7 +1065,6 @@ DEFUN (psnp_interval,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (no_psnp_interval,
        no_psnp_interval_cmd,
        "no isis psnp-interval [(1-120)]",
@@ -1109,7 +1082,6 @@ DEFUN (no_psnp_interval,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (psnp_interval_l1,
        psnp_interval_l1_cmd,
@@ -1137,7 +1109,6 @@ DEFUN (psnp_interval_l1,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (no_psnp_interval_l1,
        no_psnp_interval_l1_cmd,
        "no isis psnp-interval [(1-120)] level-1",
@@ -1155,7 +1126,6 @@ DEFUN (no_psnp_interval_l1,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (psnp_interval_l2,
        psnp_interval_l2_cmd,
@@ -1182,7 +1152,6 @@ DEFUN (psnp_interval_l2,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (no_psnp_interval_l2,
        no_psnp_interval_l2_cmd,
@@ -1457,7 +1426,6 @@ DEFUN (area_lsp_mtu,
 	return area_lsp_mtu_set(vty, lsp_mtu);
 }
 
-
 DEFUN (no_area_lsp_mtu,
        no_area_lsp_mtu_cmd,
        "no lsp-mtu [(128-4352)]",
@@ -1467,7 +1435,6 @@ DEFUN (no_area_lsp_mtu,
 {
 	return area_lsp_mtu_set(vty, DEFAULT_LSP_MTU);
 }
-
 
 DEFUN (is_type,
        is_type_cmd,
@@ -1612,7 +1579,6 @@ DEFUN (spf_interval,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (no_spf_interval,
        no_spf_interval_cmd,
        "no spf-interval [[<level-1|level-2>] (1-120)]",
@@ -1629,7 +1595,6 @@ DEFUN (no_spf_interval,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (spf_interval_l1,
        spf_interval_l1_cmd,
@@ -1661,7 +1626,6 @@ DEFUN (no_spf_interval_l1,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (spf_interval_l2,
        spf_interval_l2_cmd,
@@ -1820,7 +1784,6 @@ DEFUN (max_lsp_lifetime,
 	return area_max_lsp_lifetime_set(vty, level, lifetime);
 }
 
-
 DEFUN (no_max_lsp_lifetime,
        no_max_lsp_lifetime_cmd,
        "no max-lsp-lifetime [<level-1|level-2>] [(350-65535)]",
@@ -1932,7 +1895,6 @@ static int area_passwd_set(struct vty *vty, int level,
 	type_set(area, level, passwd, snp_auth);
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (area_passwd_md5,
        area_passwd_md5_cmd,

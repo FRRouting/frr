@@ -150,8 +150,8 @@ extern void _hook_register(struct hook *hook, void *funcptr, void *arg,
 		       NULL, false, THIS_MODULE, #func, prio)
 #define hook_register_arg_prio(hookname, prio, func, arg)                      \
 	_hook_register(&_hook_##hookname,                                      \
-		       _hook_typecheck_arg_##hookname(func),                   \
-		       arg, true, THIS_MODULE, #func, prio)
+		       _hook_typecheck_arg_##hookname(func), arg, true,        \
+		       THIS_MODULE, #func, prio)
 
 extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 			     bool has_arg);
@@ -190,14 +190,16 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 	{                                                                      \
 		return (void *)funcptr;                                        \
 	}
-#define DECLARE_KOOH(hookname, arglist, passlist) \
+#define DECLARE_KOOH(hookname, arglist, passlist)                              \
 	DECLARE_HOOK(hookname, arglist, passlist)
 
 /* use in source file - contains hook-related definitions.
  */
 #define DEFINE_HOOK_INT(hookname, arglist, passlist, rev)                      \
 	struct hook _hook_##hookname = {                                       \
-		.name = #hookname, .entries = NULL, .reverse = rev,            \
+		.name = #hookname,                                             \
+		.entries = NULL,                                               \
+		.reverse = rev,                                                \
 	};                                                                     \
 	static int hook_call_##hookname arglist                                \
 	{                                                                      \
@@ -220,9 +222,9 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 		return hooksum;                                                \
 	}
 
-#define DEFINE_HOOK(hookname, arglist, passlist) \
+#define DEFINE_HOOK(hookname, arglist, passlist)                               \
 	DEFINE_HOOK_INT(hookname, arglist, passlist, false)
-#define DEFINE_KOOH(hookname, arglist, passlist) \
+#define DEFINE_KOOH(hookname, arglist, passlist)                               \
 	DEFINE_HOOK_INT(hookname, arglist, passlist, true)
 
 #endif /* _FRR_HOOK_H */

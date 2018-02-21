@@ -311,7 +311,8 @@ static void netlink_install_filter(int sock, __u32 pid)
 	};
 
 	struct sock_fprog prog = {
-		.len = array_size(filter), .filter = filter,
+		.len = array_size(filter),
+		.filter = filter,
 	};
 
 	if (setsockopt(sock, SOL_SOCKET, SO_ATTACH_FILTER, &prog, sizeof(prog))

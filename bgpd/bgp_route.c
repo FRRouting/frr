@@ -9210,21 +9210,20 @@ enum bgp_stats {
 };
 
 static const char *table_stats_strs[] = {
-		[BGP_STATS_PREFIXES] = "Total Prefixes",
-		[BGP_STATS_TOTPLEN] = "Average prefix length",
-		[BGP_STATS_RIB] = "Total Advertisements",
-		[BGP_STATS_UNAGGREGATEABLE] = "Unaggregateable prefixes",
-		[BGP_STATS_MAX_AGGREGATEABLE] =
-			"Maximum aggregateable prefixes",
-		[BGP_STATS_AGGREGATES] = "BGP Aggregate advertisements",
-		[BGP_STATS_SPACE] = "Address space advertised",
-		[BGP_STATS_ASPATH_COUNT] = "Advertisements with paths",
-		[BGP_STATS_ASPATH_MAXHOPS] = "Longest AS-Path (hops)",
-		[BGP_STATS_ASPATH_MAXSIZE] = "Largest AS-Path (bytes)",
-		[BGP_STATS_ASPATH_TOTHOPS] = "Average AS-Path length (hops)",
-		[BGP_STATS_ASPATH_TOTSIZE] = "Average AS-Path size (bytes)",
-		[BGP_STATS_ASN_HIGHEST] = "Highest public ASN",
-		[BGP_STATS_MAX] = NULL,
+	[BGP_STATS_PREFIXES] = "Total Prefixes",
+	[BGP_STATS_TOTPLEN] = "Average prefix length",
+	[BGP_STATS_RIB] = "Total Advertisements",
+	[BGP_STATS_UNAGGREGATEABLE] = "Unaggregateable prefixes",
+	[BGP_STATS_MAX_AGGREGATEABLE] = "Maximum aggregateable prefixes",
+	[BGP_STATS_AGGREGATES] = "BGP Aggregate advertisements",
+	[BGP_STATS_SPACE] = "Address space advertised",
+	[BGP_STATS_ASPATH_COUNT] = "Advertisements with paths",
+	[BGP_STATS_ASPATH_MAXHOPS] = "Longest AS-Path (hops)",
+	[BGP_STATS_ASPATH_MAXSIZE] = "Largest AS-Path (bytes)",
+	[BGP_STATS_ASPATH_TOTHOPS] = "Average AS-Path length (hops)",
+	[BGP_STATS_ASPATH_TOTSIZE] = "Average AS-Path size (bytes)",
+	[BGP_STATS_ASN_HIGHEST] = "Highest public ASN",
+	[BGP_STATS_MAX] = NULL,
 };
 
 struct bgp_table_stats {
@@ -9455,16 +9454,11 @@ enum bgp_pcounts {
 };
 
 static const char *pcount_strs[] = {
-		[PCOUNT_ADJ_IN] = "Adj-in",
-		[PCOUNT_DAMPED] = "Damped",
-		[PCOUNT_REMOVED] = "Removed",
-		[PCOUNT_HISTORY] = "History",
-		[PCOUNT_STALE] = "Stale",
-		[PCOUNT_VALID] = "Valid",
-		[PCOUNT_ALL] = "All RIB",
-		[PCOUNT_COUNTED] = "PfxCt counted",
-		[PCOUNT_PFCNT] = "Useable",
-		[PCOUNT_MAX] = NULL,
+	[PCOUNT_ADJ_IN] = "Adj-in",   [PCOUNT_DAMPED] = "Damped",
+	[PCOUNT_REMOVED] = "Removed", [PCOUNT_HISTORY] = "History",
+	[PCOUNT_STALE] = "Stale",     [PCOUNT_VALID] = "Valid",
+	[PCOUNT_ALL] = "All RIB",     [PCOUNT_COUNTED] = "PfxCt counted",
+	[PCOUNT_PFCNT] = "Useable",   [PCOUNT_MAX] = NULL,
 };
 
 struct peer_pcounts {
@@ -10497,7 +10491,6 @@ DEFUN (no_bgp_distance,
 	bgp->distance_local[afi][safi] = 0;
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (bgp_distance_source,
        bgp_distance_source_cmd,

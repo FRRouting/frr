@@ -161,9 +161,11 @@ static int unpack_subtlv_ipv6_source_prefix(enum isis_tlv_context context,
 	sbuf_push(log, indent, "Unpacking IPv6 Source Prefix Sub-TLV...\n");
 
 	if (tlv_len < 1) {
-		sbuf_push(log, indent,
-			  "Not enough data left. (expected 1 or more bytes, got %" PRIu8 ")\n",
-			  tlv_len);
+		sbuf_push(
+			log, indent,
+			"Not enough data left. (expected 1 or more bytes, got %" PRIu8
+			")\n",
+			tlv_len);
 		return 1;
 	}
 
@@ -322,8 +324,9 @@ static int unpack_item_area_address(uint16_t mtid, uint8_t len,
 	rv->len = stream_getc(s);
 
 	if (len < 1 + rv->len) {
-		sbuf_push(log, indent, "Not enough data left. (Expected %" PRIu8
-				       " bytes of address, got %" PRIu8 ")\n",
+		sbuf_push(log, indent,
+			  "Not enough data left. (Expected %" PRIu8
+			  " bytes of address, got %" PRIu8 ")\n",
 			  rv->len, len - 1);
 		goto out;
 	}
@@ -496,8 +499,9 @@ static void format_item_lsp_entry(uint16_t mtid, struct isis_item *i,
 {
 	struct isis_lsp_entry *e = (struct isis_lsp_entry *)i;
 
-	sbuf_push(buf, indent, "LSP Entry: %s, seq 0x%08" PRIx32
-		  ", cksum 0x%04" PRIx16 ", lifetime %" PRIu16 "s\n",
+	sbuf_push(buf, indent,
+		  "LSP Entry: %s, seq 0x%08" PRIx32 ", cksum 0x%04" PRIx16
+		  ", lifetime %" PRIu16 "s\n",
 		  isis_format_id(e->id, 8), e->seqno, e->checksum,
 		  e->rem_lifetime);
 }
@@ -579,7 +583,8 @@ static void format_item_extended_reach(uint16_t mtid, struct isis_item *i,
 	sbuf_push(buf, 0, "\n");
 
 	if (r->subtlv_len && r->subtlvs)
-		mpls_te_print_detail(buf, indent + 2, r->subtlvs, r->subtlv_len);
+		mpls_te_print_detail(buf, indent + 2, r->subtlvs,
+				     r->subtlv_len);
 }
 
 static void free_item_extended_reach(struct isis_item *i)
@@ -621,10 +626,11 @@ static int unpack_item_extended_reach(uint16_t mtid, uint8_t len,
 		  (mtid == ISIS_MT_IPV4_UNICAST) ? "extended" : "mt");
 
 	if (len < 11) {
-		sbuf_push(log, indent,
-			  "Not enough data left. (expected 11 or more bytes, got %"
-			  PRIu8 ")\n",
-			  len);
+		sbuf_push(
+			log, indent,
+			"Not enough data left. (expected 11 or more bytes, got %" PRIu8
+			")\n",
+			len);
 		goto out;
 	}
 
@@ -690,7 +696,8 @@ static void format_item_oldstyle_ip_reach(uint16_t mtid, struct isis_item *i,
 	char prefixbuf[PREFIX2STR_BUFFER];
 
 	sbuf_push(buf, indent, "IP Reachability: %s (Metric: %" PRIu8 ")\n",
-		  prefix2str(&r->prefix, prefixbuf, sizeof(prefixbuf)), r->metric);
+		  prefix2str(&r->prefix, prefixbuf, sizeof(prefixbuf)),
+		  r->metric);
 }
 
 static void free_item_oldstyle_ip_reach(struct isis_item *i)
@@ -971,8 +978,7 @@ static void format_item_mt_router_info(uint16_t mtid, struct isis_item *i,
 	struct isis_mt_router_info *info = (struct isis_mt_router_info *)i;
 
 	sbuf_push(buf, indent, "MT Router Info: %s%s%s\n",
-		  isis_mtid2str(info->mtid),
-		  info->overload ? " Overload" : "",
+		  isis_mtid2str(info->mtid), info->overload ? " Overload" : "",
 		  info->attached ? " Attached" : "");
 }
 
@@ -1121,8 +1127,8 @@ static void format_item_extended_ip_reach(uint16_t mtid, struct isis_item *i,
 
 	sbuf_push(buf, indent, "%s IP Reachability: %s (Metric: %u)%s",
 		  (mtid == ISIS_MT_IPV4_UNICAST) ? "Extended" : "MT",
-		  prefix2str(&r->prefix, prefixbuf, sizeof(prefixbuf)), r->metric,
-		  r->down ? " Down" : "");
+		  prefix2str(&r->prefix, prefixbuf, sizeof(prefixbuf)),
+		  r->metric, r->down ? " Down" : "");
 	if (mtid != ISIS_MT_IPV4_UNICAST)
 		sbuf_push(buf, 0, " %s", isis_mtid2str(mtid));
 	sbuf_push(buf, 0, "\n");
@@ -1175,9 +1181,11 @@ static int unpack_item_extended_ip_reach(uint16_t mtid, uint8_t len,
 
 	consume = 5;
 	if (len < consume) {
-		sbuf_push(log, indent,
-			  "Not enough data left. (expected 5 or more bytes, got %" PRIu8 ")\n",
-			  len);
+		sbuf_push(
+			log, indent,
+			"Not enough data left. (expected 5 or more bytes, got %" PRIu8
+			")\n",
+			len);
 		goto out;
 	}
 
@@ -1196,9 +1204,10 @@ static int unpack_item_extended_ip_reach(uint16_t mtid, uint8_t len,
 
 	consume += PSIZE(rv->prefix.prefixlen);
 	if (len < consume) {
-		sbuf_push(log, indent,
-			  "Expected %u bytes of prefix, but only %u bytes available.\n",
-			  PSIZE(rv->prefix.prefixlen), len - 5);
+		sbuf_push(
+			log, indent,
+			"Expected %u bytes of prefix, but only %u bytes available.\n",
+			PSIZE(rv->prefix.prefixlen), len - 5);
 		goto out;
 	}
 	stream_get(&rv->prefix.prefix.s_addr, s, PSIZE(rv->prefix.prefixlen));
@@ -1213,23 +1222,26 @@ static int unpack_item_extended_ip_reach(uint16_t mtid, uint8_t len,
 	if (control & ISIS_EXTENDED_IP_REACH_SUBTLV) {
 		consume += 1;
 		if (len < consume) {
-			sbuf_push(log, indent,
-				  "Expected 1 byte of subtlv len, but no more data present.\n");
+			sbuf_push(
+				log, indent,
+				"Expected 1 byte of subtlv len, but no more data present.\n");
 			goto out;
 		}
 		subtlv_len = stream_getc(s);
 
 		if (!subtlv_len) {
-			sbuf_push(log, indent + 2,
-				  "  WARNING: subtlv bit is set, but there are no subtlvs.\n");
+			sbuf_push(
+				log, indent + 2,
+				"  WARNING: subtlv bit is set, but there are no subtlvs.\n");
 		}
 		consume += subtlv_len;
 		if (len < consume) {
-			sbuf_push(log, indent,
-				  "Expected %" PRIu8
-				  " bytes of subtlvs, but only %u bytes available.\n",
-				  subtlv_len,
-				  len - 6 - PSIZE(rv->prefix.prefixlen));
+			sbuf_push(
+				log, indent,
+				"Expected %" PRIu8
+				" bytes of subtlvs, but only %u bytes available.\n",
+				subtlv_len,
+				len - 6 - PSIZE(rv->prefix.prefixlen));
 			goto out;
 		}
 		sbuf_push(log, indent, "Skipping %" PRIu8 " bytes of subvls",
@@ -1350,8 +1362,7 @@ static void format_item_ipv6_reach(uint16_t mtid, struct isis_item *i,
 	sbuf_push(buf, indent, "%sIPv6 Reachability: %s (Metric: %u)%s%s",
 		  (mtid == ISIS_MT_IPV4_UNICAST) ? "" : "MT ",
 		  prefix2str(&r->prefix, prefixbuf, sizeof(prefixbuf)),
-		  r->metric,
-		  r->down ? " Down" : "",
+		  r->metric, r->down ? " Down" : "",
 		  r->external ? " External" : "");
 	if (mtid != ISIS_MT_IPV4_UNICAST)
 		sbuf_push(buf, 0, " %s", isis_mtid2str(mtid));
@@ -1416,10 +1427,11 @@ static int unpack_item_ipv6_reach(uint16_t mtid, uint8_t len, struct stream *s,
 		  (mtid == ISIS_MT_IPV4_UNICAST) ? "" : "mt ");
 	consume = 6;
 	if (len < consume) {
-		sbuf_push(log, indent,
-			  "Not enough data left. (expected 6 or more bytes, got %"
-			  PRIu8 ")\n",
-			  len);
+		sbuf_push(
+			log, indent,
+			"Not enough data left. (expected 6 or more bytes, got %" PRIu8
+			")\n",
+			len);
 		goto out;
 	}
 
@@ -1440,9 +1452,10 @@ static int unpack_item_ipv6_reach(uint16_t mtid, uint8_t len, struct stream *s,
 
 	consume += PSIZE(rv->prefix.prefixlen);
 	if (len < consume) {
-		sbuf_push(log, indent,
-			  "Expected %u bytes of prefix, but only %u bytes available.\n",
-			  PSIZE(rv->prefix.prefixlen), len - 6);
+		sbuf_push(
+			log, indent,
+			"Expected %u bytes of prefix, but only %u bytes available.\n",
+			PSIZE(rv->prefix.prefixlen), len - 6);
 		goto out;
 	}
 	stream_get(&rv->prefix.prefix.s6_addr, s, PSIZE(rv->prefix.prefixlen));
@@ -1456,23 +1469,26 @@ static int unpack_item_ipv6_reach(uint16_t mtid, uint8_t len, struct stream *s,
 	if (control & ISIS_IPV6_REACH_SUBTLV) {
 		consume += 1;
 		if (len < consume) {
-			sbuf_push(log, indent,
-				  "Expected 1 byte of subtlv len, but no more data persent.\n");
+			sbuf_push(
+				log, indent,
+				"Expected 1 byte of subtlv len, but no more data persent.\n");
 			goto out;
 		}
 		subtlv_len = stream_getc(s);
 
 		if (!subtlv_len) {
-			sbuf_push(log, indent + 2,
-				  "  WARNING: subtlv bit set, but there are no subtlvs.\n");
+			sbuf_push(
+				log, indent + 2,
+				"  WARNING: subtlv bit set, but there are no subtlvs.\n");
 		}
 		consume += subtlv_len;
 		if (len < consume) {
-			sbuf_push(log, indent,
-				  "Expected %" PRIu8
-				  " bytes of subtlvs, but only %u bytes available.\n",
-				  subtlv_len,
-				  len - 6 - PSIZE(rv->prefix.prefixlen));
+			sbuf_push(
+				log, indent,
+				"Expected %" PRIu8
+				" bytes of subtlvs, but only %u bytes available.\n",
+				subtlv_len,
+				len - 6 - PSIZE(rv->prefix.prefixlen));
 			goto out;
 		}
 
@@ -1695,16 +1711,19 @@ static int pack_item(enum isis_tlv_context context, enum isis_tlv_type type,
 	return 1;
 }
 
-static void add_item_to_fragment(struct isis_item *i, struct pack_order_entry *pe,
+static void add_item_to_fragment(struct isis_item *i,
+				 struct pack_order_entry *pe,
 				 struct isis_tlvs *fragment_tlvs, uint16_t mtid)
 {
 	struct isis_item_list *l;
 
 	if (pe->how_to_pack == ISIS_ITEMS) {
-		l = (struct isis_item_list *)(((char *)fragment_tlvs) + pe->what_to_pack);
+		l = (struct isis_item_list *)(((char *)fragment_tlvs)
+					      + pe->what_to_pack);
 	} else {
 		struct isis_mt_item_list *m;
-		m = (struct isis_mt_item_list *)(((char *)fragment_tlvs) + pe->what_to_pack);
+		m = (struct isis_mt_item_list *)(((char *)fragment_tlvs)
+						 + pe->what_to_pack);
 		l = isis_get_mt_items(m, mtid);
 	}
 
@@ -2284,8 +2303,9 @@ static int pack_tlvs(struct isis_tlvs *tlvs, struct stream *stream,
 	/* When fragmenting, don't add auth as it's already accounted for in the
 	 * size we are given. */
 	if (!fragment_tlvs) {
-		rv = pack_items(ISIS_CONTEXT_LSP, ISIS_TLV_AUTH, &tlvs->isis_auth,
-				stream, NULL, NULL, NULL, NULL);
+		rv = pack_items(ISIS_CONTEXT_LSP, ISIS_TLV_AUTH,
+				&tlvs->isis_auth, stream, NULL, NULL, NULL,
+				NULL);
 		if (rv)
 			return rv;
 	}
@@ -2440,9 +2460,11 @@ static int unpack_tlv(enum isis_tlv_context context, size_t avail_len,
 		  tlv_type, tlv_len);
 
 	if (avail_len < ((size_t)tlv_len) + 2) {
-		sbuf_push(log, indent + 2,
-			  "Available data %zu too short for claimed TLV len %" PRIu8 ".\n",
-			  avail_len - 2, tlv_len);
+		sbuf_push(
+			log, indent + 2,
+			"Available data %zu too short for claimed TLV len %" PRIu8
+			".\n",
+			avail_len - 2, tlv_len);
 		return 1;
 	}
 
@@ -2513,14 +2535,15 @@ int isis_unpack_tlvs(size_t avail_len, struct stream *stream,
 
 #define TLV_OPS(_name_, _desc_)                                                \
 	static const struct tlv_ops tlv_##_name_##_ops = {                     \
-		.name = _desc_, .unpack = unpack_tlv_##_name_,                 \
+		.name = _desc_,                                                \
+		.unpack = unpack_tlv_##_name_,                                 \
 	}
 
 #define ITEM_TLV_OPS(_name_, _desc_)                                           \
 	static const struct tlv_ops tlv_##_name_##_ops = {                     \
 		.name = _desc_,                                                \
 		.unpack = unpack_tlv_with_items,                               \
-									       \
+                                                                               \
 		.pack_item = pack_item_##_name_,                               \
 		.free_item = free_item_##_name_,                               \
 		.unpack_item = unpack_item_##_name_,                           \
@@ -2529,7 +2552,8 @@ int isis_unpack_tlvs(size_t avail_len, struct stream *stream,
 
 #define SUBTLV_OPS(_name_, _desc_)                                             \
 	static const struct tlv_ops subtlv_##_name_##_ops = {                  \
-		.name = _desc_, .unpack = unpack_subtlv_##_name_,              \
+		.name = _desc_,                                                \
+		.unpack = unpack_subtlv_##_name_,                              \
 	}
 
 ITEM_TLV_OPS(area_address, "TLV 1 Area Addresses");
@@ -2551,33 +2575,38 @@ ITEM_TLV_OPS(ipv6_reach, "TLV 236 IPv6 Reachability");
 SUBTLV_OPS(ipv6_source_prefix, "Sub-TLV 22 IPv6 Source Prefix");
 
 static const struct tlv_ops *tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
-	[ISIS_CONTEXT_LSP] = {
-		[ISIS_TLV_AREA_ADDRESSES] = &tlv_area_address_ops,
-		[ISIS_TLV_OLDSTYLE_REACH] = &tlv_oldstyle_reach_ops,
-		[ISIS_TLV_LAN_NEIGHBORS] = &tlv_lan_neighbor_ops,
-		[ISIS_TLV_LSP_ENTRY] = &tlv_lsp_entry_ops,
-		[ISIS_TLV_AUTH] = &tlv_auth_ops,
-		[ISIS_TLV_EXTENDED_REACH] = &tlv_extended_reach_ops,
-		[ISIS_TLV_MT_REACH] = &tlv_extended_reach_ops,
-		[ISIS_TLV_OLDSTYLE_IP_REACH] = &tlv_oldstyle_ip_reach_ops,
-		[ISIS_TLV_PROTOCOLS_SUPPORTED] = &tlv_protocols_supported_ops,
-		[ISIS_TLV_OLDSTYLE_IP_REACH_EXT] = &tlv_oldstyle_ip_reach_ops,
-		[ISIS_TLV_IPV4_ADDRESS] = &tlv_ipv4_address_ops,
-		[ISIS_TLV_TE_ROUTER_ID] = &tlv_te_router_id_ops,
-		[ISIS_TLV_EXTENDED_IP_REACH] = &tlv_extended_ip_reach_ops,
-		[ISIS_TLV_MT_IP_REACH] = &tlv_extended_ip_reach_ops,
-		[ISIS_TLV_DYNAMIC_HOSTNAME] = &tlv_dynamic_hostname_ops,
-		[ISIS_TLV_MT_ROUTER_INFO] = &tlv_mt_router_info_ops,
-		[ISIS_TLV_IPV6_ADDRESS] = &tlv_ipv6_address_ops,
-		[ISIS_TLV_IPV6_REACH] = &tlv_ipv6_reach_ops,
-		[ISIS_TLV_MT_IPV6_REACH] = &tlv_ipv6_reach_ops,
-	},
+	[ISIS_CONTEXT_LSP] =
+		{
+			[ISIS_TLV_AREA_ADDRESSES] = &tlv_area_address_ops,
+			[ISIS_TLV_OLDSTYLE_REACH] = &tlv_oldstyle_reach_ops,
+			[ISIS_TLV_LAN_NEIGHBORS] = &tlv_lan_neighbor_ops,
+			[ISIS_TLV_LSP_ENTRY] = &tlv_lsp_entry_ops,
+			[ISIS_TLV_AUTH] = &tlv_auth_ops,
+			[ISIS_TLV_EXTENDED_REACH] = &tlv_extended_reach_ops,
+			[ISIS_TLV_MT_REACH] = &tlv_extended_reach_ops,
+			[ISIS_TLV_OLDSTYLE_IP_REACH] =
+				&tlv_oldstyle_ip_reach_ops,
+			[ISIS_TLV_PROTOCOLS_SUPPORTED] =
+				&tlv_protocols_supported_ops,
+			[ISIS_TLV_OLDSTYLE_IP_REACH_EXT] =
+				&tlv_oldstyle_ip_reach_ops,
+			[ISIS_TLV_IPV4_ADDRESS] = &tlv_ipv4_address_ops,
+			[ISIS_TLV_TE_ROUTER_ID] = &tlv_te_router_id_ops,
+			[ISIS_TLV_EXTENDED_IP_REACH] =
+				&tlv_extended_ip_reach_ops,
+			[ISIS_TLV_MT_IP_REACH] = &tlv_extended_ip_reach_ops,
+			[ISIS_TLV_DYNAMIC_HOSTNAME] = &tlv_dynamic_hostname_ops,
+			[ISIS_TLV_MT_ROUTER_INFO] = &tlv_mt_router_info_ops,
+			[ISIS_TLV_IPV6_ADDRESS] = &tlv_ipv6_address_ops,
+			[ISIS_TLV_IPV6_REACH] = &tlv_ipv6_reach_ops,
+			[ISIS_TLV_MT_IPV6_REACH] = &tlv_ipv6_reach_ops,
+		},
 	[ISIS_CONTEXT_SUBTLV_NE_REACH] = {},
 	[ISIS_CONTEXT_SUBTLV_IP_REACH] = {},
 	[ISIS_CONTEXT_SUBTLV_IPV6_REACH] = {
-		[ISIS_SUBTLV_IPV6_SOURCE_PREFIX] = &subtlv_ipv6_source_prefix_ops,
-	}
-};
+		[ISIS_SUBTLV_IPV6_SOURCE_PREFIX] =
+			&subtlv_ipv6_source_prefix_ops,
+	}};
 
 /* Accessor functions */
 
@@ -2738,8 +2767,8 @@ static bool auth_validator_hmac_md5(struct isis_passwd *passwd,
 }
 
 static const auth_validator_func auth_validators[] = {
-		[ISIS_PASSWD_TYPE_CLEARTXT] = auth_validator_cleartxt,
-		[ISIS_PASSWD_TYPE_HMAC_MD5] = auth_validator_hmac_md5,
+	[ISIS_PASSWD_TYPE_CLEARTXT] = auth_validator_cleartxt,
+	[ISIS_PASSWD_TYPE_HMAC_MD5] = auth_validator_hmac_md5,
 };
 
 bool isis_tlvs_auth_is_valid(struct isis_tlvs *tlvs, struct isis_passwd *passwd,

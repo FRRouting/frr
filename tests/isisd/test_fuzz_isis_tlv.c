@@ -30,7 +30,7 @@ static void show_meminfo_at_exit(void)
 
 static int comp_line(const void *p1, const void *p2)
 {
-	return strcmp(*(char * const *)p1, *(char * const *)p2);
+	return strcmp(*(char *const *)p1, *(char *const *)p2);
 }
 
 static char *sortlines(char *in)
@@ -50,7 +50,7 @@ static char *sortlines(char *in)
 		return rv;
 	}
 
-	char **lines = XCALLOC(MTYPE_TMP, sizeof(char *)*line_count);
+	char **lines = XCALLOC(MTYPE_TMP, sizeof(char *) * line_count);
 	char *saveptr = NULL;
 	size_t i = 0;
 
@@ -65,7 +65,8 @@ static char *sortlines(char *in)
 	qsort(lines, line_count, sizeof(char *), comp_line);
 
 	for (i = 0; i < line_count; i++) {
-		int printf_rv = snprintf(rv + rv_pos, rv_len - rv_pos, "%s\n", lines[i]);
+		int printf_rv = snprintf(rv + rv_pos, rv_len - rv_pos, "%s\n",
+					 lines[i]);
 		assert(printf_rv >= 0);
 		rv_pos += printf_rv;
 	}
@@ -162,7 +163,8 @@ static int test(FILE *input, FILE *output)
 		stream_reset(s);
 		int rv = isis_pack_tlvs(tlvs, s, (size_t)-1, false, false);
 		if (rv) {
-			fprintf(output, "Could not pack fragment, too large.\n");
+			fprintf(output,
+				"Could not pack fragment, too large.\n");
 			assert(0);
 		}
 		sbuf_push(&fragment_format, 0, "%s", isis_format_tlvs(tlvs));
@@ -177,7 +179,8 @@ static int test(FILE *input, FILE *output)
 	XFREE(MTYPE_TMP, orig_tlvs);
 
 	if (strcmp(fragment_content, orig_tlv_content)) {
-		fprintf(output, "Fragmented and unfragmented LSP seem to differ.\n");
+		fprintf(output,
+			"Fragmented and unfragmented LSP seem to differ.\n");
 		fprintf(output, "Original:\n%s\nFragmented:\n%s\n",
 			orig_tlv_content, fragment_content);
 		assert(0);

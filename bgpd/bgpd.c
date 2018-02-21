@@ -3177,7 +3177,7 @@ int bgp_delete(struct bgp *bgp)
 
 	update_bgp_group_free(bgp);
 
-/* TODO - Other memory may need to be freed - e.g., NHT */
+	/* TODO - Other memory may need to be freed - e.g., NHT */
 
 #if ENABLE_BGP_VNC
 	rfapi_delete(bgp);

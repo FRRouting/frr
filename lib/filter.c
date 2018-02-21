@@ -1625,7 +1625,6 @@ DEFUN (no_ipv6_access_list_any,
 				0);
 }
 
-
 DEFUN (no_ipv6_access_list_all,
        no_ipv6_access_list_all_cmd,
        "no ipv6 access-list WORD",
@@ -1953,8 +1952,9 @@ void config_write_access_zebra(struct vty *vty, struct filter *mfilter)
 		if (p->prefixlen == 0)
 			vty_out(vty, " any");
 		else
-			vty_out(vty, " %s", prefix_mac2str(&(p->u.prefix_eth),
-							   buf, sizeof(buf)));
+			vty_out(vty, " %s",
+				prefix_mac2str(&(p->u.prefix_eth), buf,
+					       sizeof(buf)));
 	}
 
 	vty_out(vty, "\n");
