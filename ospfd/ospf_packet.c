@@ -645,8 +645,6 @@ static int ospf_write(struct thread *thread)
 	static u_int16_t ipid = 0;
 	u_int16_t maxdatasize;
 #endif /* WANT_OSPF_WRITE_FRAGMENT */
-       /* $FRR indent$ */
-       /* clang-format off */
 #define OSPF_WRITE_IPHL_SHIFT 2
 	int pkt_count = 0;
 

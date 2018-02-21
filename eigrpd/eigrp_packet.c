@@ -325,8 +325,6 @@ int eigrp_write(struct thread *thread)
 #ifdef WANT_EIGRP_WRITE_FRAGMENT
 	static u_int16_t ipid = 0;
 #endif /* WANT_EIGRP_WRITE_FRAGMENT */
-       /* $FRR indent$ */
-/* clang-format off */
 #define EIGRP_WRITE_IPHL_SHIFT 2
 
 	eigrp->t_write = NULL;

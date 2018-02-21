@@ -96,8 +96,6 @@ struct isis_circuit {
 	int (*tx)(struct isis_circuit *circuit, int level);
 	struct stream *snd_stream; /* Stream for sending */
 	int idx;		   /* idx in S[RM|SN] flags */
-				   /* $FRR indent$ */
-				   /* clang-format off */
 #define CIRCUIT_T_UNKNOWN    0
 #define CIRCUIT_T_BROADCAST  1
 #define CIRCUIT_T_P2P        2

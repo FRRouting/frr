@@ -60,8 +60,6 @@ struct rtadvconf {
 
 	   Default: 0.33 * MaxRtrAdvInterval */
 	int MinRtrAdvInterval; /* This field is currently unused. */
-			       /* $FRR indent$ */
-			       /* clang-format off */
 #define RTADV_MIN_RTR_ADV_INTERVAL (0.33 * RTADV_MAX_RTR_ADV_INTERVAL)
 
 	/* Unsolicited Router Advertisements' interval timer. */

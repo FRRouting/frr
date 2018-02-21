@@ -133,8 +133,6 @@ struct bgp_master {
 	/* timer to dampen route map changes */
 	struct thread *t_rmap_update; /* Handle route map updates */
 	u_int32_t rmap_update_timer;  /* Route map update timer */
-				      /* $FRR indent$ */
-				      /* clang-format off */
 #define RMAP_DEFAULT_UPDATE_TIMER 5 /* disabled by default */
 
 	/* Id space for automatic RD derivation for an EVI/VRF */
@@ -249,8 +247,6 @@ struct bgp {
 		*t_startup; /* start-up timer on only once at the beginning */
 
 	u_int32_t v_maxmed_onstartup;     /* Duration of max-med on start-up */
-					  /* $FRR indent$ */
-					  /* clang-format off */
 #define BGP_MAXMED_ONSTARTUP_UNCONFIGURED  0 /* 0 means off, its the default */
 	u_int32_t maxmed_onstartup_value; /* Max-med value when active on
 					     start-up */
@@ -259,13 +255,9 @@ struct bgp {
 	u_char maxmed_onstartup_over; /* Flag to make it effective only once */
 
 	u_char v_maxmed_admin; /* 1/0 if max-med administrative is on/off */
-			       /* $FRR indent$ */
-			       /* clang-format off */
 #define BGP_MAXMED_ADMIN_UNCONFIGURED  0 /* Off by default */
 	u_int32_t maxmed_admin_value; /* Max-med value when administrative in on
 				       */
-				      /* $FRR indent$ */
-				      /* clang-format off */
 #define BGP_MAXMED_VALUE_DEFAULT  4294967294 /* Maximum by default */
 
 	u_char maxmed_active;	 /* 1/0 if max-med is active or not */
@@ -679,8 +671,6 @@ struct peer {
 	unsigned short port; /* Destination port for peer */
 	char *host;	  /* Printable address of the peer. */
 	union sockunion su;  /* Sockunion address of the peer. */
-			     /* $FRR indent$ */
-			     /* clang-format off */
 #define BGP_PEER_SU_UNSPEC(peer) (peer->su.sa.sa_family == AF_UNSPEC)
 	time_t uptime;       /* Last Up/Down time */
 	time_t readtime;     /* Last read time */

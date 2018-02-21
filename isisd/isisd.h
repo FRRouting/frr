@@ -70,8 +70,6 @@ struct isis_area {
 	struct route_table *route_table[ISIS_LEVELS];  /* IPv4 routes */
 	struct isis_spftree *spftree6[ISIS_LEVELS];    /* The v6 SPTs */
 	struct route_table *route_table6[ISIS_LEVELS]; /* IPv6 routes */
-						       /* $FRR indent$ */
-/* clang-format off */
 #define DEFAULT_LSP_MTU 1497
 	unsigned int lsp_mtu;      /* Size of LSPs to generate */
 	struct list *circuit_list; /* IS-IS circuits */
