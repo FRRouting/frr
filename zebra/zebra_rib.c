@@ -416,8 +416,6 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 
 	if (set) {
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
-		zebra_deregister_rnh_static_nexthops(nexthop->vrf_id,
-						     nexthop->resolved, top);
 		nexthops_free(nexthop->resolved);
 		nexthop->resolved = NULL;
 		re->nexthop_mtu = 0;
@@ -2115,7 +2113,9 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 		dest->selected_fib = NULL;
 
 	/* free RE and nexthops */
-	zebra_deregister_rnh_static_nexthops(re->vrf_id, re->nexthop, rn);
+	if (re->type == ZEBRA_ROUTE_STATIC)
+		zebra_deregister_rnh_static_nexthops(re->vrf_id,
+						     re->nexthop, rn);
 	nexthops_free(re->nexthop);
 	XFREE(MTYPE_RE, re);
 }
