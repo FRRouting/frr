@@ -22,7 +22,7 @@ from lutil import luCommand,luResult
 import json
 
 # gpz: get rib in json form and compare against desired routes
-class Rib:
+class BgpRib:
     def routes_include_wanted(self,pfxtbl,want,debug):
 	# helper function to RequireVpnRoutes
 	for pfx in pfxtbl.iterkeys():
@@ -96,10 +96,10 @@ class Rib:
 	luResult(target, True, title)
 
 
-Rib=Rib()
+BgpRib=BgpRib()
 
-def ribRequireVpnRoutes(target, title, wantroutes):
-    Rib.RequireVpnRoutes(target, title, wantroutes)
+def bgpribRequireVpnRoutes(target, title, wantroutes):
+    BgpRib.RequireVpnRoutes(target, title, wantroutes)
 
-def ribRequireUnicastRoutes(target, afi, vrf, title, wantroutes):
-    Rib.RequireUnicastRoutes(target, afi, vrf, title, wantroutes)
+def bgpribRequireUnicastRoutes(target, afi, vrf, title, wantroutes):
+    BgpRib.RequireUnicastRoutes(target, afi, vrf, title, wantroutes)
