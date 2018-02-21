@@ -32,6 +32,8 @@ struct ospf6 {
 	/* static router id */
 	u_int32_t router_id_static;
 
+	struct in_addr router_id_zebra;
+
 	/* start time */
 	struct timeval starttime;
 
@@ -93,6 +95,10 @@ struct ospf6 {
 	u_char distance_external;
 
 	struct route_table *distance_table;
+
+	/* Used during ospf instance going down send LSDB
+	 * update to neighbors immediatly */
+	uint8_t inst_shutdown;
 
 	QOBJ_FIELDS
 };

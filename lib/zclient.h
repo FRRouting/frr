@@ -93,6 +93,7 @@ typedef enum {
 	ZEBRA_VRF_UNREGISTER,
 	ZEBRA_VRF_ADD,
 	ZEBRA_VRF_DELETE,
+	ZEBRA_VRF_LABEL,
 	ZEBRA_INTERFACE_VRF_UPDATE,
 	ZEBRA_BFD_CLIENT_REGISTER,
 	ZEBRA_INTERFACE_ENABLE_RADV,
@@ -239,6 +240,7 @@ struct zserv_header {
 
 struct zapi_nexthop {
 	enum nexthop_types_t type;
+	vrf_id_t vrf_id;
 	ifindex_t ifindex;
 	union {
 		union g_addr gate;
@@ -286,7 +288,6 @@ struct zapi_route {
 	u_int32_t mtu;
 
 	vrf_id_t vrf_id;
-	vrf_id_t nh_vrf_id;
 
 	struct ethaddr rmac;
 };
@@ -381,6 +382,23 @@ extern int zclient_socket_connect(struct zclient *);
 extern u_short *redist_check_instance(struct redist_proto *, u_short);
 extern void redist_add_instance(struct redist_proto *, u_short);
 extern void redist_del_instance(struct redist_proto *, u_short);
+
+/*
+ * Send to zebra that the specified vrf is using label to resolve
+ * itself for L3VPN's.  Repeated calls of this function with
+ * different labels will cause an effective update of the
+ * label for lookup.  If you pass in MPLS_LABEL_NONE
+ * we will cause a delete action and remove this label pop
+ * operation.
+ *
+ * The underlying AF_MPLS doesn't care about afi's
+ * but we can make the zebra_vrf keep track of what
+ * we have installed and play some special games
+ * to get them both installed.
+ */
+extern void zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id,
+				   afi_t afi, mpls_label_t label,
+				   enum lsp_types_t ltype);
 
 extern void zclient_send_reg_requests(struct zclient *, vrf_id_t);
 extern void zclient_send_dereg_requests(struct zclient *, vrf_id_t);
@@ -505,6 +523,7 @@ static inline void zapi_route_set_blackhole(struct zapi_route *api,
 {
 	api->nexthop_num = 1;
 	api->nexthops[0].type = NEXTHOP_TYPE_BLACKHOLE;
+	api->nexthops[0].vrf_id = VRF_DEFAULT;
 	api->nexthops[0].bh_type = bh_type;
 	SET_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP);
 };

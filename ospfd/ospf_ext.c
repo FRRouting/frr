@@ -175,7 +175,7 @@ void ospf_ext_term(void)
 {
 
 	if ((OspfEXT.scope != OSPF_OPAQUE_AREA_LSA)
-	    || (OspfEXT.scope != OSPF_OPAQUE_AS_LSA))
+	    && (OspfEXT.scope != OSPF_OPAQUE_AS_LSA))
 		zlog_warn(
 			"EXT: Unable to unregister Extended Prefix "
 			"Opaque LSA functions: Wrong scope!");

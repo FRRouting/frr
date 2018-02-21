@@ -165,8 +165,8 @@ static int zebra_static_route_leak(struct vty *vty,
 			case -2:
 				vty_out(vty,
 					"%% Cannot use reserved label(s) (%d-%d)\n",
-					MPLS_MIN_RESERVED_LABEL,
-					MPLS_MAX_RESERVED_LABEL);
+					MPLS_LABEL_RESERVED_MIN,
+					MPLS_LABEL_RESERVED_MAX);
 				break;
 			case -3:
 				vty_out(vty,
@@ -458,6 +458,12 @@ DEFPY(ip_route_blackhole_vrf,
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 	struct zebra_vrf *zvrf = vrf->info;
 
+	/*
+	 * Coverity is complaining that prefix could
+	 * be dereferenced, but we know that prefix will
+	 * valid.  Add an assert to make it happy
+	 */
+	assert(prefix);
 	return zebra_static_route_leak(vty, zvrf, zvrf,
 				       AFI_IP, SAFI_UNICAST, no, prefix,
 				       mask_str, NULL, NULL, NULL, flag,
@@ -561,7 +567,11 @@ DEFPY(ip_route_address_interface_vrf,
 		ifname = NULL;
 	}
 
-	nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	if (nexthop_vrf)
+		nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	else
+		nh_zvrf = zvrf;
+
 	if (!nh_zvrf) {
 		vty_out(vty, "%% nexthop vrf %s is not defined\n",
 			nexthop_vrf);
@@ -668,7 +678,11 @@ DEFPY(ip_route_vrf,
 		ifname = NULL;
 	}
 
-	nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	if (nexthop_vrf)
+		nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	else
+		nh_zvrf = zvrf;
+
 	if (!nh_zvrf) {
 		vty_out(vty, "%% nexthop vrf %s is not defined\n",
 			nexthop_vrf);
@@ -762,8 +776,9 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 					inet_ntoa(nexthop->gate.ipv4));
 				if (nexthop->ifindex)
 					vty_out(vty, ", via %s",
-						ifindex2ifname(nexthop->ifindex,
-							       re->nh_vrf_id));
+						ifindex2ifname(
+							nexthop->ifindex,
+							nexthop->vrf_id));
 				break;
 			case NEXTHOP_TYPE_IPV6:
 			case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -772,13 +787,14 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 						  buf, sizeof buf));
 				if (nexthop->ifindex)
 					vty_out(vty, ", via %s",
-						ifindex2ifname(nexthop->ifindex,
-							       re->nh_vrf_id));
+						ifindex2ifname(
+							nexthop->ifindex,
+							nexthop->vrf_id));
 				break;
 			case NEXTHOP_TYPE_IFINDEX:
 				vty_out(vty, " directly connected, %s",
 					ifindex2ifname(nexthop->ifindex,
-						       re->nh_vrf_id));
+						       nexthop->vrf_id));
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
 				vty_out(vty, " unreachable");
@@ -801,9 +817,9 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 				break;
 			}
 
-			if (re->vrf_id != re->nh_vrf_id) {
+			if (re->vrf_id != nexthop->vrf_id) {
 				struct vrf *vrf =
-					vrf_lookup_by_id(re->nh_vrf_id);
+					vrf_lookup_by_id(nexthop->vrf_id);
 
 				vty_out(vty, "(vrf %s)", vrf->name);
 			}
@@ -946,8 +962,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 							    nexthop->ifindex);
 					json_object_string_add(
 						json_nexthop, "interfaceName",
-						ifindex2ifname(nexthop->ifindex,
-							       re->nh_vrf_id));
+						ifindex2ifname(
+							nexthop->ifindex,
+							nexthop->vrf_id));
 				}
 				break;
 			case NEXTHOP_TYPE_IPV6:
@@ -965,8 +982,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 							    nexthop->ifindex);
 					json_object_string_add(
 						json_nexthop, "interfaceName",
-						ifindex2ifname(nexthop->ifindex,
-							       re->nh_vrf_id));
+						ifindex2ifname(
+							nexthop->ifindex,
+							nexthop->vrf_id));
 				}
 				break;
 
@@ -979,7 +997,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				json_object_string_add(
 					json_nexthop, "interfaceName",
 					ifindex2ifname(nexthop->ifindex,
-						       re->nh_vrf_id));
+						       nexthop->vrf_id));
 				break;
 			case NEXTHOP_TYPE_BLACKHOLE:
 				json_object_boolean_true_add(json_nexthop,
@@ -1006,9 +1024,9 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				break;
 			}
 
-			if (re->nh_vrf_id != re->vrf_id) {
+			if (nexthop->vrf_id != re->vrf_id) {
 				struct vrf *vrf =
-					vrf_lookup_by_id(re->nh_vrf_id);
+					vrf_lookup_by_id(nexthop->vrf_id);
 
 				json_object_string_add(json_nexthop,
 						       "vrf",
@@ -1121,7 +1139,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			if (nexthop->ifindex)
 				vty_out(vty, ", %s",
 					ifindex2ifname(nexthop->ifindex,
-						       re->nh_vrf_id));
+						       nexthop->vrf_id));
 			break;
 		case NEXTHOP_TYPE_IPV6:
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -1131,13 +1149,13 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			if (nexthop->ifindex)
 				vty_out(vty, ", %s",
 					ifindex2ifname(nexthop->ifindex,
-						       re->nh_vrf_id));
+						       nexthop->vrf_id));
 			break;
 
 		case NEXTHOP_TYPE_IFINDEX:
 			vty_out(vty, " is directly connected, %s",
 				ifindex2ifname(nexthop->ifindex,
-					       re->nh_vrf_id));
+					       nexthop->vrf_id));
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:
 			vty_out(vty, " unreachable");
@@ -1159,9 +1177,8 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 			break;
 		}
 
-		if (re->nh_vrf_id != re->vrf_id) {
-			struct vrf *vrf =
-				vrf_lookup_by_id(re->nh_vrf_id);
+		if (nexthop->vrf_id != re->vrf_id) {
+			struct vrf *vrf = vrf_lookup_by_id(nexthop->vrf_id);
 
 			vty_out(vty, "(vrf %s)", vrf->name);
 		}
@@ -2003,6 +2020,12 @@ DEFPY(ipv6_route_blackhole_vrf,
 	VTY_DECLVAR_CONTEXT(vrf, vrf);
 	struct zebra_vrf *zvrf = vrf->info;
 
+	/*
+	 * Coverity is complaining that prefix could
+	 * be dereferenced, but we know that prefix will
+	 * valid.  Add an assert to make it happy
+	 */
+	assert(prefix);
 	return zebra_static_route_leak(vty, zvrf, zvrf,
 				       AFI_IP6, SAFI_UNICAST, no, prefix_str,
 				       NULL, from_str, NULL, NULL, flag,
@@ -2092,7 +2115,11 @@ DEFPY(ipv6_route_address_interface_vrf,
 	struct zebra_vrf *zvrf = vrf->info;
 	struct zebra_vrf *nh_zvrf;
 
-	nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	if (nexthop_vrf)
+		nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	else
+		nh_zvrf = zvrf;
+
 	if (!nh_zvrf) {
 		vty_out(vty, "%% nexthop vrf %s is not defined\n",
 			nexthop_vrf);
@@ -2186,7 +2213,11 @@ DEFPY(ipv6_route_vrf,
 	struct zebra_vrf *zvrf = vrf->info;
 	struct zebra_vrf *nh_zvrf;
 
-	nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	if (nexthop_vrf)
+		nh_zvrf = zebra_vrf_lookup_by_name(nexthop_vrf);
+	else
+		nh_zvrf = zvrf;
+
 	if (!nh_zvrf) {
 		vty_out(vty, "%% nexthop vrf %s is not defined\n",
 			nexthop_vrf);

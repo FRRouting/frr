@@ -3301,6 +3301,18 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf,
 		for (ri = rn->info; ri; ri = ri->next) {
 			if (CHECK_FLAG(ri->flags, BGP_INFO_SELECTED) &&
 			    (!ri->extra || !ri->extra->parent)) {
+
+				/* apply the route-map */
+				if (bgp_vrf->adv_cmd_rmap[afi][safi].map) {
+					int ret = 0;
+
+					ret =
+						route_map_apply(
+							bgp_vrf->adv_cmd_rmap[afi][safi].map,
+							&rn->p, RMAP_BGP, ri);
+					if (ret == RMAP_DENYMATCH)
+						continue;
+				}
 				bgp_evpn_advertise_type5_route(bgp_vrf, &rn->p,
 							       ri->attr,
 							       afi, safi);

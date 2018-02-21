@@ -396,7 +396,6 @@ static void vnc_zebra_route_msg(struct prefix *p, unsigned int nhp_count,
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = VRF_DEFAULT;
-	api.nh_vrf_id = VRF_DEFAULT;
 	api.type = ZEBRA_ROUTE_VNC;
 	api.safi = SAFI_UNICAST;
 	api.prefix = *p;
@@ -407,6 +406,7 @@ static void vnc_zebra_route_msg(struct prefix *p, unsigned int nhp_count,
 	for (i = 0; i < api.nexthop_num; i++) {
 
 		api_nh = &api.nexthops[i];
+		api_nh->vrf_id = VRF_DEFAULT;
 		switch (p->family) {
 		case AF_INET:
 			memcpy(&api_nh->gate.ipv4, nhp_ary4[i],

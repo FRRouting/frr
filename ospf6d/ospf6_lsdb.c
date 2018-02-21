@@ -334,6 +334,7 @@ int ospf6_lsdb_maxage_remover(struct ospf6_lsdb *lsdb)
 		}
 		if (IS_OSPF6_DEBUG_LSA_TYPE(lsa->header->type))
 			zlog_debug("Remove MaxAge %s", lsa->name);
+
 		if (CHECK_FLAG(lsa->flag, OSPF6_LSA_SEQWRAPPED)) {
 			UNSET_FLAG(lsa->flag, OSPF6_LSA_SEQWRAPPED);
 			/*

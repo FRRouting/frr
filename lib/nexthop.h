@@ -60,6 +60,11 @@ struct nexthop {
 	struct nexthop *next;
 	struct nexthop *prev;
 
+	/*
+	 * What vrf is this nexthop associated with?
+	 */
+	vrf_id_t vrf_id;
+
 	/* Interface index. */
 	ifindex_t ifindex;
 
@@ -115,18 +120,6 @@ struct nexthop {
 	(nexthop) = (head);                                                    \
 	(nexthop);                                                             \
 	(nexthop) = nexthop_next(nexthop)
-
-extern int zebra_rnh_ip_default_route;
-extern int zebra_rnh_ipv6_default_route;
-
-static inline int nh_resolve_via_default(int family)
-{
-	if (((family == AF_INET) && zebra_rnh_ip_default_route)
-	    || ((family == AF_INET6) && zebra_rnh_ipv6_default_route))
-		return 1;
-	else
-		return 0;
-}
 
 struct nexthop *nexthop_new(void);
 void nexthop_add(struct nexthop **target, struct nexthop *nexthop);
