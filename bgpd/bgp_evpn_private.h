@@ -284,6 +284,14 @@ static inline void ip_prefix_from_type5_prefix(struct prefix_evpn *evp,
 	}
 }
 
+static inline int is_evpn_prefix_default(struct prefix *evp)
+{
+	if (evp->family != AF_EVPN)
+		return 0;
+
+	return ((evp->u.prefix_evpn.ip_prefix_length  == 0) ? 1 : 0);
+}
+
 static inline void ip_prefix_from_type2_prefix(struct prefix_evpn *evp,
 					       struct prefix *ip)
 {
