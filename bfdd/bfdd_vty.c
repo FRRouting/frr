@@ -251,6 +251,143 @@ DEFPY(bfd_no_peer, bfd_no_peer_cmd,
 	return bfdd_delete_peer(vty, &bpc);
 }
 
+static void _display_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
+{
+	vty_out(vty, "\tpeer %s", satostr(&bpc->bpc_peer));
+	if (bpc->bpc_has_localif) {
+		vty_out(vty, " interface %s", bpc->bpc_localif);
+	}
+	if (bpc->bpc_local.sa_sin.sin_family != 0) {
+		vty_out(vty, " local-address %s", satostr(&bpc->bpc_local));
+	}
+	if (bpc->bpc_has_vrfname) {
+		vty_out(vty, " vrf %s", bpc->bpc_vrfname);
+	}
+	vty_out(vty, "\n");
+
+	if (bpc->bpc_has_label) {
+		vty_out(vty, "\t\tlabel: %s\n", bpc->bpc_label);
+	}
+	vty_out(vty, "\t\tID: %u\n", bpc->bpc_id);
+	vty_out(vty, "\t\tRemote ID: %u\n", bpc->bpc_remoteid);
+
+	vty_out(vty, "\t\tStatus: ");
+	switch (bpc->bpc_bps) {
+	case BPS_SHUTDOWN:
+		vty_out(vty, "shutdown\n");
+		break;
+	case BPS_DOWN:
+		vty_out(vty, "down\n");
+		break;
+	case BPS_INIT:
+		vty_out(vty, "init\n");
+		break;
+	case BPS_UP:
+		vty_out(vty, "up\n");
+		break;
+
+	default:
+		vty_out(vty, "unknown\n");
+		break;
+	}
+
+	vty_out(vty, "\n");
+}
+
+DEFPY(bfd_show_peers, bfd_show_peers_cmd,
+      "show bfd peers",
+      SHOW_STR
+      "Bidirection Forwarding Detection\n"
+      "BFD peers status\n")
+{
+	struct bpc_node *bn;
+	struct bfd_peer_cfg *bpc;
+
+	vty_out(vty, "BFD Peers:\n");
+	TAILQ_FOREACH (bn, &bc.bc_bnlist, bn_entry) {
+		bpc = &bn->bn_bpc;
+
+		_display_peer(vty, bpc);
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(bfd_show_peer, bfd_show_peer_cmd,
+      "show bfd peer <WORD$label|<A.B.C.D|X:X::X:X>$peer [<{interface IFNAME$ifname}|{local-address <A.B.C.D|X:X::X:X>$local|vrf NAME$vrfname}>]>",
+      SHOW_STR
+      "Bidirection Forwarding Detection\n"
+      "BFD peers status\n"
+      "Peer label\n"
+      "IPv4 peer address\n"
+      "IPv6 peer address\n"
+      INTERFACE_STR
+      "Configure interface name to use\n"
+      "Configure local address (enables multihop)\n"
+      "IPv4 local address\n"
+      "IPv6 local address\n"
+      "Configure VRF\n"
+      "Configure VRF name\n")
+{
+	struct bpc_node *bn;
+	struct bfd_peer_cfg *bpcp;
+	struct bfd_peer_cfg bpc;
+	struct sockaddr_any psa, lsa, *lsap;
+	char errormsg[128];
+
+	/* Look up the BFD peer. */
+	if (label) {
+		TAILQ_FOREACH (bn, &bc.bc_bnlist, bn_entry) {
+			bpcp = &bn->bn_bpc;
+
+			if (strcmp(bpcp->bpc_label, label) == 0) {
+				break;
+			}
+		}
+	} else {
+		strtosa(peer_str, &psa);
+		if (local) {
+			strtosa(local_str, &lsa);
+			lsap = &lsa;
+		} else {
+			lsap = NULL;
+		}
+
+		if (bfd_configure_peer(&bpc, &psa, lsap, ifname, vrfname,
+				       errormsg, sizeof(errormsg))
+		    != 0) {
+			vty_out(vty, "%% Invalid peer configuration: %s\n",
+				errormsg);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+
+		bn = bn_find(&bc.bc_bnlist, &bpc);
+	}
+
+	/* Find peer data. */
+	if (bn == NULL) {
+		vty_out(vty, "%% Unable to find 'peer %s",
+			label ? label : peer_str);
+		if (ifname) {
+			vty_out(vty, " interface %s", ifname);
+		}
+		if (local) {
+			vty_out(vty, " local-address %s", local_str);
+		}
+		if (vrfname) {
+			vty_out(vty, " vrf %s", vrfname);
+		}
+		vty_out(vty, "'\n");
+
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty, "BFD Peer:\n");
+	_display_peer(vty, &bn->bn_bpc);
+
+	return CMD_SUCCESS;
+}
+
 
 /* Init function */
 int bfdd_write_config(struct vty *vty)
@@ -321,6 +458,8 @@ struct cmd_node bfd_peer_node = {
 
 void bfdd_vty_init(void)
 {
+	install_element(ENABLE_NODE, &bfd_show_peers_cmd);
+	install_element(ENABLE_NODE, &bfd_show_peer_cmd);
 	install_element(CONFIG_NODE, &bfd_enter_cmd);
 
 	/* Install BFD node and commands. */
