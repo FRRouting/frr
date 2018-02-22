@@ -112,6 +112,7 @@
 #define PIM_MASK_PIM_NHT             (1 << 22)
 #define PIM_MASK_PIM_NHT_DETAIL      (1 << 23)
 #define PIM_MASK_PIM_NHT_RP          (1 << 24)
+#define PIM_MASK_MTRACE              (1 << 25)
 /* Remember 32 bits!!! */
 
 /* PIM error codes */
@@ -188,6 +189,7 @@ extern int32_t qpim_register_probe_time;
 #define PIM_DEBUG_PIM_NHT             (qpim_debugs & PIM_MASK_PIM_NHT)
 #define PIM_DEBUG_PIM_NHT_DETAIL      (qpim_debugs & PIM_MASK_PIM_NHT_DETAIL)
 #define PIM_DEBUG_PIM_NHT_RP          (qpim_debugs & PIM_MASK_PIM_NHT_RP)
+#define PIM_DEBUG_MTRACE              (qpim_debugs & PIM_MASK_MTRACE)
 
 #define PIM_DEBUG_EVENTS       (qpim_debugs & (PIM_MASK_PIM_EVENTS | PIM_MASK_IGMP_EVENTS | PIM_MASK_MSDP_EVENTS))
 #define PIM_DEBUG_PACKETS      (qpim_debugs & (PIM_MASK_PIM_PACKETS | PIM_MASK_IGMP_PACKETS | PIM_MASK_MSDP_PACKETS))
@@ -216,6 +218,7 @@ extern int32_t qpim_register_probe_time;
 #define PIM_DO_DEBUG_MSDP_INTERNAL       (qpim_debugs |= PIM_MASK_MSDP_INTERNAL)
 #define PIM_DO_DEBUG_PIM_NHT             (qpim_debugs |= PIM_MASK_PIM_NHT)
 #define PIM_DO_DEBUG_PIM_NHT_RP          (qpim_debugs |= PIM_MASK_PIM_NHT_RP)
+#define PIM_DO_DEBUG_MTRACE              (qpim_debugs |= PIM_MASK_MTRACE)
 
 #define PIM_DONT_DEBUG_PIM_EVENTS          (qpim_debugs &= ~PIM_MASK_PIM_EVENTS)
 #define PIM_DONT_DEBUG_PIM_PACKETS         (qpim_debugs &= ~PIM_MASK_PIM_PACKETS)
@@ -240,6 +243,7 @@ extern int32_t qpim_register_probe_time;
 #define PIM_DONT_DEBUG_MSDP_INTERNAL       (qpim_debugs &= ~PIM_MASK_MSDP_INTERNAL)
 #define PIM_DONT_DEBUG_PIM_NHT             (qpim_debugs &= ~PIM_MASK_PIM_NHT)
 #define PIM_DONT_DEBUG_PIM_NHT_RP          (qpim_debugs &= ~PIM_MASK_PIM_NHT_RP)
+#define PIM_DONT_DEBUG_MTRACE              (qpim_debugs &= ~PIM_MASK_MTRACE)
 
 void pim_init(void);
 void pim_terminate(void);

@@ -135,8 +135,8 @@ void pim_channel_oil_free(struct channel_oil *c_oil)
 	XFREE(MTYPE_PIM_CHANNEL_OIL, c_oil);
 }
 
-static struct channel_oil *pim_find_channel_oil(struct pim_instance *pim,
-						struct prefix_sg *sg)
+struct channel_oil *pim_find_channel_oil(struct pim_instance *pim,
+					 struct prefix_sg *sg)
 {
 	struct channel_oil *c_oil = NULL;
 	struct channel_oil lookup;
