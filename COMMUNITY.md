@@ -492,6 +492,36 @@ In all cases, compatibility pieces should be marked with compiler/preprocessor
 annotations to print warnings at compile time, pointing to the appropriate
 update path.  A `-Werror` build should fail if compatibility bits are used.
 
+### Release Process/Schedule
+
+FRR employs a <MAJOR>.<MINOR>.<BUGFIX> versioning scheme.
+
+* MAJOR - Significant new features or multiple minor features
+  A example of a MAJOR feature is a New Routing Protocol
+* MINOR - Smaller Features
+  A example of a MINOR feature is the addition of the BGP Shutdown feature.
+* BUGFIX - Fixes for actual bugs and/or security issues.
+
+We will pull a new development branch for the next release every 4 months.
+The current schedule is Feb/June/October 1.  The decision for a MAJOR/MINOR
+release is made at the time of branch pull based on what has been received
+the previous 4 months.  The branch name will be dev/MAJOR.MINOR.  At
+this point in time the master branch configure.ac and packaging systems
+will be updated to reflect the next possible release name to allow
+for easy distinguishing.  Additionally the new dev branch will have
+these files updated too.
+
+After one month the development branch will be renamed to
+stable/MAJOR.MINOR.  This process is not held up unless a crash or
+security issue has been found and needs to be addressed.  Issues
+being fixed will not cause a delay.
+
+Bug fix releases are at 1 month intervals until next MAJOR.MINOR is
+pulled.  Then at that time as needed for issues filed.
+
+Security issues are fixed for 1 year minimum on old releases and
+normal bug fixes for the current and previous release
+
 ### Miscellaneous
 
 When in doubt, follow the guidelines in the Linux kernel style guide, or ask on
