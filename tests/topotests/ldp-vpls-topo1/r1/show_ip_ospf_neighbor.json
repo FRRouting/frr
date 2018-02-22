@@ -1,0 +1,26 @@
+{
+  "neighbors": {
+    "2.2.2.2": [
+      {
+        "dbSummaryCounter": 0,
+        "retransmitCounter": 0,
+        "priority": 1,
+        "state": "Full/DR",
+        "address": "10.0.1.2",
+        "ifaceName": "r1-eth1:10.0.1.1",
+        "requestCounter": 0
+      }
+    ],
+    "3.3.3.3": [
+      {
+        "dbSummaryCounter": 0,
+        "retransmitCounter": 0,
+        "priority": 1,
+        "state": "Full/DR",
+        "address": "10.0.2.3",
+        "ifaceName": "r1-eth2:10.0.2.1",
+        "requestCounter": 0
+      }
+    ]
+  }
+}

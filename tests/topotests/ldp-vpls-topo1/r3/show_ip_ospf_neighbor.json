@@ -1,0 +1,26 @@
+{
+  "neighbors": {
+    "1.1.1.1": [
+      {
+        "priority":1,
+        "state":"Full/Backup",
+        "address":"10.0.2.1",
+        "ifaceName":"r3-eth1:10.0.2.3",
+        "retransmitCounter":0,
+        "requestCounter":0,
+        "dbSummaryCounter":0
+      }
+    ],
+    "2.2.2.2": [
+      {
+        "priority":1,
+        "state":"Full/Backup",
+        "address":"10.0.3.2",
+        "ifaceName":"r3-eth2:10.0.3.3",
+        "retransmitCounter":0,
+        "requestCounter":0,
+        "dbSummaryCounter":0
+      }
+    ]
+  }
+}

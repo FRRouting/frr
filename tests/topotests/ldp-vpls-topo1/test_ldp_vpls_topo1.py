@@ -189,13 +189,18 @@ def test_ospf_convergence():
     # We could have either old format (without "neighbors" and direct list
     # of IP's or new format from PR1659 with "neighbors".
     # Trying old formats first and fall back to new format
-    try:
+    #
+    # New format: neighbors have dict instead of list of dicts (PR1723).
+    if output.has_key('neighbors'):
+        if isinstance(output['neighbors'], dict):
+            reffile = "show_ip_ospf_neighbor.json"
+        else:
+            reffile = "show_ip_ospf_neighbor.ref"
+    else:
         if isinstance(output["2.2.2.2"], dict):
             reffile = "show_ip_ospf_neighbor.ref-old-nolist"
         else:
             reffile = "show_ip_ospf_neighbor.ref-no-neigh"
-    except:
-        reffile = "show_ip_ospf_neighbor.ref"
 
     for rname in ['r1', 'r2', 'r3']:
         router_compare_json_output(rname, "show ip ospf neighbor json", reffile)
