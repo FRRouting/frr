@@ -317,7 +317,7 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'FRR', u"FRR Developer's Manual",
+    (master_doc, 'frr', u"FRR Developer's Manual",
      author, 'FRR', 'One line description of project.',
      'Miscellaneous'),
 ]
