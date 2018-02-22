@@ -614,21 +614,24 @@ static void free_opaque_info_owner(void *val)
 	case OSPF_OPAQUE_LINK_LSA: {
 		struct ospf_interface *oi =
 			(struct ospf_interface *)(oipt->owner);
+
 		listnode_delete(oi->opaque_lsa_self, oipt);
 		break;
 	}
 	case OSPF_OPAQUE_AREA_LSA: {
 		struct ospf_area *area = (struct ospf_area *)(oipt->owner);
+
 		listnode_delete(area->opaque_lsa_self, oipt);
 		break;
 	}
 	case OSPF_OPAQUE_AS_LSA: {
 		struct ospf *top = (struct ospf *)(oipt->owner);
+
 		listnode_delete(top->opaque_lsa_self, oipt);
 		break;
 	}
 	default:
-		zlog_warn("free_opaque_info_owner: Unexpected LSA-type(%u)",
+		zlog_warn("%s: Unexpected LSA-type(%u)", __func__,
 			oipt->lsa_type);
 		break; /* This case may not exist. */
 	}
