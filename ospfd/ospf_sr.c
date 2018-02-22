@@ -2202,7 +2202,7 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 			inet_ntoa(srp->nhlfe.prefv4.prefix),
 			srp->nhlfe.prefv4.prefixlen);
 		snprintf(sid, 22, "SR Pfx (idx %u)", srp->sid);
-		if (srp->nhlfe.label_out == MPLS_IMP_NULL_LABEL)
+		if (srp->nhlfe.label_out == MPLS_LABEL_IMPLICIT_NULL)
 			sprintf(label, "pop");
 		else
 			sprintf(label, "%u", srp->nhlfe.label_out);
@@ -2238,7 +2238,7 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 			inet_ntoa(srl->nhlfe[0].prefv4.prefix),
 			srl->nhlfe[0].prefv4.prefixlen);
 		snprintf(sid, 22, "SR Adj. (lbl %u)", srl->sid[0]);
-		if (srl->nhlfe[0].label_out == MPLS_IMP_NULL_LABEL)
+		if (srl->nhlfe[0].label_out == MPLS_LABEL_IMPLICIT_NULL)
 			sprintf(label, "pop");
 		else
 			sprintf(label, "%u", srl->nhlfe[0].label_out);
@@ -2265,7 +2265,7 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 			/* Backup Link */
 			json_obj = json_object_new_object();
 			snprintf(sid, 22, "SR Adj. (lbl %u)", srl->sid[1]);
-			if (srl->nhlfe[1].label_out == MPLS_IMP_NULL_LABEL)
+			if (srl->nhlfe[1].label_out == MPLS_LABEL_IMPLICIT_NULL)
 				sprintf(label, "pop");
 			else
 				sprintf(label, "%u", srl->nhlfe[0].label_out);
@@ -2286,7 +2286,7 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 				label, sid, itf ? itf->name : "-",
 				inet_ntoa(srl->nhlfe[0].nexthop));
 			snprintf(sid, 22, "SR Adj. (lbl %u)", srl->sid[1]);
-			if (srl->nhlfe[1].label_out == MPLS_IMP_NULL_LABEL)
+			if (srl->nhlfe[1].label_out == MPLS_LABEL_IMPLICIT_NULL)
 				sprintf(label, "pop");
 			else
 				sprintf(label, "%u", srl->nhlfe[1].label_out);
