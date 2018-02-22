@@ -2170,6 +2170,7 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 				continue;
 			json_obj = json_object_new_object();
 			char tmp[2];
+
 			snprintf(tmp, 2, "%u", i);
 			json_object_string_add(json_obj, tmp,
 				srn->algo[i] == SR_ALGORITHM_SPF ?
@@ -2355,7 +2356,8 @@ DEFUN (show_ip_opsf_srdb,
 			inet_ntoa(OspfSR.self->adv_router));
 		json_object_object_add(json, "srNodes", json_node_array);
 	} else {
-		vty_out(vty, "\n          OSPF Segment Routing database for ID %s\n\n",
+		vty_out(vty,
+			"\n\t\tOSPF Segment Routing database for ID %s\n\n",
 			inet_ntoa(OspfSR.self->adv_router));
 	}
 
