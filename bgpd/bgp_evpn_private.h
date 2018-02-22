@@ -113,15 +113,13 @@ struct vrf_irt_node {
 	struct list *vrfs;
 };
 
-
 #define RT_TYPE_IMPORT 1
 #define RT_TYPE_EXPORT 2
 #define RT_TYPE_BOTH   3
 
 static inline int is_vrf_rd_configured(struct bgp *bgp_vrf)
 {
-	return (CHECK_FLAG(bgp_vrf->vrf_flags,
-			   BGP_VRF_RD_CFGD));
+	return (CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_RD_CFGD));
 }
 
 static inline int bgp_evpn_vrf_rd_matches_existing(struct bgp *bgp_vrf,
@@ -268,14 +266,12 @@ static inline void ip_prefix_from_type5_prefix(struct prefix_evpn *evp,
 	if (IS_EVPN_PREFIX_IPADDR_V4(evp)) {
 		ip->family = AF_INET;
 		ip->prefixlen = evp->prefix.ip_prefix_length;
-		memcpy(&(ip->u.prefix4),
-		       &(evp->prefix.ip.ip),
+		memcpy(&(ip->u.prefix4), &(evp->prefix.ip.ip),
 		       IPV4_MAX_BYTELEN);
 	} else if (IS_EVPN_PREFIX_IPADDR_V6(evp)) {
 		ip->family = AF_INET6;
 		ip->prefixlen = evp->prefix.ip_prefix_length;
-		memcpy(&(ip->u.prefix6),
-		       &(evp->prefix.ip.ip),
+		memcpy(&(ip->u.prefix6), &(evp->prefix.ip.ip),
 		       IPV6_MAX_BYTELEN);
 	}
 }
@@ -287,14 +283,12 @@ static inline void ip_prefix_from_type2_prefix(struct prefix_evpn *evp,
 	if (IS_EVPN_PREFIX_IPADDR_V4(evp)) {
 		ip->family = AF_INET;
 		ip->prefixlen = IPV4_MAX_BITLEN;
-		memcpy(&(ip->u.prefix4),
-		       &(evp->prefix.ip.ip),
+		memcpy(&(ip->u.prefix4), &(evp->prefix.ip.ip),
 		       IPV4_MAX_BYTELEN);
 	} else if (IS_EVPN_PREFIX_IPADDR_V6(evp)) {
 		ip->family = AF_INET6;
 		ip->prefixlen = IPV6_MAX_BITLEN;
-		memcpy(&(ip->u.prefix6),
-		       &(evp->prefix.ip.ip),
+		memcpy(&(ip->u.prefix6), &(evp->prefix.ip.ip),
 		       IPV6_MAX_BYTELEN);
 	}
 }
@@ -349,24 +343,23 @@ static inline void build_evpn_type3_prefix(struct prefix_evpn *p,
 	p->prefix.ip.ipaddr_v4 = originator_ip;
 }
 
-static inline int advertise_type5_routes(struct bgp *bgp_vrf,
-					 afi_t afi)
+static inline int advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi)
 {
 	if (!bgp_vrf->l3vni)
 		return 0;
 
-	if (afi == AFI_IP &&
-	    CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_ADVERTISE_IPV4_IN_EVPN))
+	if (afi == AFI_IP
+	    && CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_ADVERTISE_IPV4_IN_EVPN))
 		return 1;
 
-	if (afi == AFI_IP6 &&
-	    CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_ADVERTISE_IPV6_IN_EVPN))
+	if (afi == AFI_IP6
+	    && CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_ADVERTISE_IPV6_IN_EVPN))
 		return 1;
 
 	return 0;
 }
 
-extern void evpn_rt_delete_auto(struct bgp*, vni_t, struct list*);
+extern void evpn_rt_delete_auto(struct bgp *, vni_t, struct list *);
 extern void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
 						 struct ecommunity *ecomadd);
 extern void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,

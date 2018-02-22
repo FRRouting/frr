@@ -45,22 +45,20 @@ enum lwtunnel_ip6_t {
 
 #define LWTUNNEL_IP6_MAX (__LWTUNNEL_IP6_MAX - 1)
 
-enum {
-	LWT_BPF_PROG_UNSPEC,
-	LWT_BPF_PROG_FD,
-	LWT_BPF_PROG_NAME,
-	__LWT_BPF_PROG_MAX,
+enum { LWT_BPF_PROG_UNSPEC,
+       LWT_BPF_PROG_FD,
+       LWT_BPF_PROG_NAME,
+       __LWT_BPF_PROG_MAX,
 };
 
 #define LWT_BPF_PROG_MAX (__LWT_BPF_PROG_MAX - 1)
 
-enum {
-	LWT_BPF_UNSPEC,
-	LWT_BPF_IN,
-	LWT_BPF_OUT,
-	LWT_BPF_XMIT,
-	LWT_BPF_XMIT_HEADROOM,
-	__LWT_BPF_MAX,
+enum { LWT_BPF_UNSPEC,
+       LWT_BPF_IN,
+       LWT_BPF_OUT,
+       LWT_BPF_XMIT,
+       LWT_BPF_XMIT_HEADROOM,
+       __LWT_BPF_MAX,
 };
 
 #define LWT_BPF_MAX (__LWT_BPF_MAX - 1)

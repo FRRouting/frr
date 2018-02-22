@@ -57,10 +57,9 @@ static inline vni_t label2vni(mpls_label_t *label)
 
 extern void bgp_evpn_advertise_type5_route(struct bgp *bgp_vrf,
 					   struct prefix *p,
-					   struct attr *src_attr,
-					   afi_t afi, safi_t safi);
-extern void bgp_evpn_withdraw_type5_route(struct bgp *bgp_vrf,
-					  struct prefix *p,
+					   struct attr *src_attr, afi_t afi,
+					   safi_t safi);
+extern void bgp_evpn_withdraw_type5_route(struct bgp *bgp_vrf, struct prefix *p,
 					  afi_t afi, safi_t safi);
 extern void bgp_evpn_withdraw_type5_routes(struct bgp *bgp_vrf, afi_t afi,
 					   safi_t safi);
@@ -73,10 +72,9 @@ extern char *bgp_evpn_label2str(mpls_label_t *label, u_int32_t num_labels,
 extern char *bgp_evpn_route2str(struct prefix_evpn *p, char *buf, int len);
 extern void bgp_evpn_route2json(struct prefix_evpn *p, json_object *json);
 extern void bgp_evpn_encode_prefix(struct stream *s, struct prefix *p,
-				   struct prefix_rd *prd,
-				   mpls_label_t *label, u_int32_t num_labels,
-				   struct attr *attr, int addpath_encode,
-				   u_int32_t addpath_tx_id);
+				   struct prefix_rd *prd, mpls_label_t *label,
+				   u_int32_t num_labels, struct attr *attr,
+				   int addpath_encode, u_int32_t addpath_tx_id);
 extern int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 			       struct bgp_nlri *packet, int withdraw);
 extern int bgp_evpn_import_route(struct bgp *bgp, afi_t afi, safi_t safi,

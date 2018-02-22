@@ -977,7 +977,6 @@ DEFUN (no_debug_ospf_nsm,
 	return no_debug_ospf_nsm_common(vty, 4, argc, argv);
 }
 
-
 DEFUN (no_debug_ospf_instance_nsm,
        no_debug_ospf_instance_nsm_cmd,
        "no debug ospf (1-65535) nsm [<status|events|timers>]",
@@ -1275,7 +1274,6 @@ DEFUN (no_debug_ospf_instance_zebra,
 
 	return no_debug_ospf_zebra_common(vty, 5, argc, argv);
 }
-
 
 DEFUN (debug_ospf_event,
        debug_ospf_event_cmd,

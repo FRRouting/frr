@@ -62,8 +62,8 @@ extern void json_object_free(struct json_object *obj);
 #ifndef JSON_C_TO_STRING_NOSLASHESCAPE
 
 /**
-  * Don't escape forward slashes.
-  */
+ * Don't escape forward slashes.
+ */
 #define JSON_C_TO_STRING_NOSLASHESCAPE (1<<4)
 #endif
 

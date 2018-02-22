@@ -244,8 +244,9 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 	}
 	if (use_json) {
 		json_object_object_add(json, "routes", json_routes);
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
 	return CMD_SUCCESS;

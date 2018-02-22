@@ -518,9 +518,8 @@ void bgp_open_send(struct peer *peer)
 
 	/* Set open packet values. */
 	stream_putc(s, BGP_VERSION_4); /* BGP version */
-	stream_putw(s,
-		    (local_as <= BGP_AS_MAX) ? (u_int16_t)local_as
-					     : BGP_AS_TRANS);
+	stream_putw(s, (local_as <= BGP_AS_MAX) ? (u_int16_t)local_as
+						: BGP_AS_TRANS);
 	stream_putw(s, send_holdtime);		/* Hold Time */
 	stream_put_in_addr(s, &peer->local_id); /* BGP Identifier */
 
@@ -1573,9 +1572,8 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 	 * Non-MP IPv4/Unicast EoR is a completely empty UPDATE
 	 * and MP EoR should have only an empty MP_UNREACH
 	 */
-	if ((!update_len && !withdraw_len &&
-	     nlris[NLRI_MP_UPDATE].length == 0) ||
-	    (attr_parse_ret == BGP_ATTR_PARSE_EOR)) {
+	if ((!update_len && !withdraw_len && nlris[NLRI_MP_UPDATE].length == 0)
+	    || (attr_parse_ret == BGP_ATTR_PARSE_EOR)) {
 		afi_t afi = 0;
 		safi_t safi;
 

@@ -382,11 +382,11 @@ static uint8_t isis_circuit_id_gen(struct interface *ifp)
 	/* Circuit ids MUST be unique for any broadcast circuits. Otherwise,
 	 * Pseudo-Node LSPs cannot be generated correctly.
 	 *
-	 * Currently, allocate one circuit ID for any circuit, limiting the total
-	 * numer of circuits IS-IS can run on to 255.
+	 * Currently, allocate one circuit ID for any circuit, limiting the
+	 * total numer of circuits IS-IS can run on to 255.
 	 *
-	 * We should revisit this when implementing 3-way adjacencies for p2p, since
-	 * we then have extended interface IDs available.
+	 * We should revisit this when implementing 3-way adjacencies for p2p,
+	 * since we then have extended interface IDs available.
 	 */
 	uint8_t id = ifp->ifindex;
 	unsigned int i;
@@ -398,7 +398,8 @@ static uint8_t isis_circuit_id_gen(struct interface *ifp)
 	}
 
 	if (i == 256) {
-		zlog_warn("Could not allocate a circuit id for '%s'", ifp->name);
+		zlog_warn("Could not allocate a circuit id for '%s'",
+			  ifp->name);
 		return 0;
 	}
 
@@ -1265,7 +1266,9 @@ ferr_r isis_circuit_passwd_hmac_md5_set(struct isis_circuit *circuit,
 }
 
 struct cmd_node interface_node = {
-	INTERFACE_NODE, "%s(config-if)# ", 1,
+	INTERFACE_NODE,
+	"%s(config-if)# ",
+	1,
 };
 
 ferr_r isis_circuit_circ_type_set(struct isis_circuit *circuit, int circ_type)
@@ -1349,7 +1352,8 @@ void isis_circuit_schedule_lsp_send(struct isis_circuit *circuit)
 {
 	if (circuit->t_send_lsp)
 		return;
-	circuit->t_send_lsp = thread_add_event(master, send_lsp, circuit, 0, NULL);
+	circuit->t_send_lsp =
+		thread_add_event(master, send_lsp, circuit, 0, NULL);
 }
 
 void isis_circuit_queue_lsp(struct isis_circuit *circuit, struct isis_lsp *lsp)

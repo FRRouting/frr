@@ -344,8 +344,9 @@ void frrzmq_check_events(struct frrzmq_cb **cbp, struct cb_core *core,
 		struct thread_master *tm = core->thread->master;
 		thread_cancel(core->thread);
 		core->thread = NULL;
-		thread_add_event(tm, (event == ZMQ_POLLIN ? frrzmq_read_msg
-							  : frrzmq_write_msg),
+		thread_add_event(tm,
+				 (event == ZMQ_POLLIN ? frrzmq_read_msg
+						      : frrzmq_write_msg),
 				 cbp, cb->fd, &core->thread);
 	}
 }

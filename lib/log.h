@@ -112,7 +112,7 @@ extern void zlog_signal(int signo, const char *action
 			,
 			siginfo_t *siginfo, void *program_counter
 #endif
-			);
+);
 
 /* Log a backtrace. */
 extern void zlog_backtrace(int priority);
@@ -146,7 +146,7 @@ struct timestamp_control {
 	int precision;			/* configuration parameter */
 	int already_rendered;		/* should be initialized to 0 */
 	char buf[QUAGGA_TIMESTAMP_LEN]; /* will contain the rendered timestamp
-					   */
+					 */
 };
 
 /* Defines for use in command construction: */

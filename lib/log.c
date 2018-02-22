@@ -177,9 +177,8 @@ static void time_print(FILE *fp, struct timestamp_control *ctl)
 
 
 static void vzlog_file(struct zlog *zl, struct timestamp_control *tsctl,
-		       const char *proto_str, int record_priority,
-		       int priority, FILE *fp, const char *format,
-		       va_list args)
+		       const char *proto_str, int record_priority, int priority,
+		       FILE *fp, const char *format, va_list args)
 {
 	va_list ac;
 
@@ -237,8 +236,8 @@ void vzlog(int priority, const char *format, va_list args)
 
 	/* File output. */
 	if ((priority <= zl->maxlvl[ZLOG_DEST_FILE]) && zl->fp)
-		vzlog_file(zl, &tsctl, proto_str, zl->record_priority,
-				priority, zl->fp, format, args);
+		vzlog_file(zl, &tsctl, proto_str, zl->record_priority, priority,
+			   zl->fp, format, args);
 
 	/* fixed-config logging to stderr while we're stating up & haven't
 	 * daemonized / reached mainloop yet
@@ -246,11 +245,11 @@ void vzlog(int priority, const char *format, va_list args)
 	 * note the "else" on stdout output -- we don't want to print the same
 	 * message to both stderr and stdout. */
 	if (zlog_startup_stderr && priority <= LOG_WARNING)
-		vzlog_file(zl, &tsctl, proto_str, 1,
-				priority, stderr, format, args);
+		vzlog_file(zl, &tsctl, proto_str, 1, priority, stderr, format,
+			   args);
 	else if (priority <= zl->maxlvl[ZLOG_DEST_STDOUT])
-		vzlog_file(zl, &tsctl, proto_str, zl->record_priority,
-				priority, stdout, format, args);
+		vzlog_file(zl, &tsctl, proto_str, zl->record_priority, priority,
+			   stdout, format, args);
 
 	/* Terminal monitor. */
 	if (priority <= zl->maxlvl[ZLOG_DEST_MONITOR])
@@ -425,7 +424,7 @@ void zlog_signal(int signo, const char *action
 		 ,
 		 siginfo_t *siginfo, void *program_counter
 #endif
-		 )
+)
 {
 	time_t now;
 	char buf[sizeof("DEFAULT: Received signal S at T (si_addr 0xP, PC 0xP); aborting...")
@@ -488,7 +487,7 @@ void zlog_signal(int signo, const char *action
 #else
 			       NULL
 #endif
-			       );
+	);
 
 	s = buf;
 	struct thread *tc;
@@ -1114,10 +1113,9 @@ void zlog_hexdump(const void *mem, unsigned int len)
 						 printing */
 					s += sprintf(s, " ");
 
-				else if (
-					isprint((int)((const char *)mem)
-							[j])) /* printable char
-								 */
+				else if (isprint((int)((const char *)mem)
+							 [j])) /* printable char
+								*/
 					s += sprintf(
 						s, "%c",
 						0xFF & ((const char *)mem)[j]);

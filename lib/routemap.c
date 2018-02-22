@@ -423,8 +423,7 @@ int generic_match_add(struct vty *vty, struct route_map_index *index,
 		}
 		break;
 	case RMAP_RULE_MISSING:
-		vty_out(vty, "%% [%s] Can't find rule.\n",
-			frr_protonameinst);
+		vty_out(vty, "%% [%s] Can't find rule.\n", frr_protonameinst);
 		return CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_ERROR:
@@ -464,8 +463,7 @@ int generic_match_delete(struct vty *vty, struct route_map_index *index,
 	ret = route_map_delete_match(index, command, dep_name);
 	switch (ret) {
 	case RMAP_RULE_MISSING:
-		vty_out(vty, "%% [%s] Can't find rule.\n",
-			frr_protonameinst);
+		vty_out(vty, "%% [%s] Can't find rule.\n", frr_protonameinst);
 		retval = CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_ERROR:
@@ -496,8 +494,7 @@ int generic_set_add(struct vty *vty, struct route_map_index *index,
 	ret = route_map_add_set(index, command, arg);
 	switch (ret) {
 	case RMAP_RULE_MISSING:
-		vty_out(vty, "%% [%s] Can't find rule.\n",
-			frr_protonameinst);
+		vty_out(vty, "%% [%s] Can't find rule.\n", frr_protonameinst);
 		return CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_ERROR:
@@ -521,8 +518,7 @@ int generic_set_delete(struct vty *vty, struct route_map_index *index,
 	ret = route_map_delete_set(index, command, arg);
 	switch (ret) {
 	case RMAP_RULE_MISSING:
-		vty_out(vty, "%% [%s] Can't find rule.\n",
-			frr_protonameinst);
+		vty_out(vty, "%% [%s] Can't find rule.\n", frr_protonameinst);
 		return CMD_WARNING_CONFIG_FAILED;
 		break;
 	case RMAP_COMPILE_ERROR:
@@ -1237,8 +1233,9 @@ int route_map_delete_match(struct route_map_index *index,
 		return 1;
 
 	for (rule = index->match_list.head; rule; rule = rule->next)
-		if (rule->cmd == cmd && (rulecmp(rule->rule_str, match_arg) == 0
-					 || match_arg == NULL)) {
+		if (rule->cmd == cmd
+		    && (rulecmp(rule->rule_str, match_arg) == 0
+			|| match_arg == NULL)) {
 			route_map_rule_delete(&index->match_list, rule);
 			/* Execute event hook. */
 			if (route_map_master.event_hook) {
@@ -1324,8 +1321,9 @@ int route_map_delete_set(struct route_map_index *index, const char *set_name,
 		return 1;
 
 	for (rule = index->set_list.head; rule; rule = rule->next)
-		if ((rule->cmd == cmd) && (rulecmp(rule->rule_str, set_arg) == 0
-					   || set_arg == NULL)) {
+		if ((rule->cmd == cmd)
+		    && (rulecmp(rule->rule_str, set_arg) == 0
+			|| set_arg == NULL)) {
 			route_map_rule_delete(&index->set_list, rule);
 			/* Execute event hook. */
 			if (route_map_master.event_hook) {
@@ -1581,10 +1579,9 @@ static void *route_map_dep_hash_alloc(void *p)
 
 	dep_entry = XCALLOC(MTYPE_ROUTE_MAP_DEP, sizeof(struct route_map_dep));
 	dep_entry->dep_name = XSTRDUP(MTYPE_ROUTE_MAP_NAME, dep_name);
-	dep_entry->dep_rmap_hash = hash_create_size(8,
-						    route_map_dep_hash_make_key,
-						    route_map_rmap_hash_cmp,
-						    "Route Map Dep Hash");
+	dep_entry->dep_rmap_hash =
+		hash_create_size(8, route_map_dep_hash_make_key,
+				 route_map_rmap_hash_cmp, "Route Map Dep Hash");
 	dep_entry->this_hash = NULL;
 
 	return ((void *)dep_entry);
@@ -1818,7 +1815,6 @@ DEFUN (no_match_interface,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (match_ip_address,
        match_ip_address_cmd,
        "match ip address <(1-199)|(1300-2699)|WORD>",
@@ -1838,7 +1834,6 @@ DEFUN (match_ip_address,
 			RMAP_EVENT_FILTER_ADDED);
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (no_match_ip_address,
        no_match_ip_address_cmd,
@@ -1866,7 +1861,6 @@ DEFUN (no_match_ip_address,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (match_ip_address_prefix_list,
        match_ip_address_prefix_list_cmd,
        "match ip address prefix-list WORD",
@@ -1885,7 +1879,6 @@ DEFUN (match_ip_address_prefix_list,
 			argv[idx_word]->arg, RMAP_EVENT_PLIST_ADDED);
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (no_match_ip_address_prefix_list,
        no_match_ip_address_prefix_list_cmd,
@@ -1913,7 +1906,6 @@ DEFUN (no_match_ip_address_prefix_list,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (match_ip_next_hop,
        match_ip_next_hop_cmd,
        "match ip next-hop <(1-199)|(1300-2699)|WORD>",
@@ -1933,7 +1925,6 @@ DEFUN (match_ip_next_hop,
 			RMAP_EVENT_FILTER_ADDED);
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (no_match_ip_next_hop,
        no_match_ip_next_hop_cmd,
@@ -1960,7 +1951,6 @@ DEFUN (no_match_ip_next_hop,
 	}
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (match_ip_next_hop_prefix_list,
        match_ip_next_hop_prefix_list_cmd,
@@ -2006,7 +1996,6 @@ DEFUN (no_match_ip_next_hop_prefix_list,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (match_ipv6_address,
        match_ipv6_address_cmd,
        "match ipv6 address WORD",
@@ -2043,7 +2032,6 @@ DEFUN (no_match_ipv6_address,
 			RMAP_EVENT_FILTER_DELETED);
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (match_ipv6_address_prefix_list,
        match_ipv6_address_prefix_list_cmd,
@@ -2084,7 +2072,6 @@ DEFUN (no_match_ipv6_address_prefix_list,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (match_metric,
        match_metric_cmd,
        "match metric (0-4294967295)",
@@ -2101,7 +2088,6 @@ DEFUN (match_metric,
 							RMAP_EVENT_MATCH_ADDED);
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (no_match_metric,
        no_match_metric_cmd,
@@ -2126,7 +2112,6 @@ DEFUN (no_match_metric,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (match_tag,
        match_tag_cmd,
        "match tag (1-4294967295)",
@@ -2143,7 +2128,6 @@ DEFUN (match_tag,
 						     RMAP_EVENT_MATCH_ADDED);
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (no_match_tag,
        no_match_tag_cmd,
@@ -2165,7 +2149,6 @@ DEFUN (no_match_tag,
 			vty, index, "tag", arg, RMAP_EVENT_MATCH_DELETED);
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (set_ip_nexthop,
        set_ip_nexthop_cmd,
@@ -2198,7 +2181,6 @@ DEFUN (set_ip_nexthop,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (no_set_ip_nexthop,
        no_set_ip_nexthop_cmd,
        "no set ip next-hop [A.B.C.D]",
@@ -2221,7 +2203,6 @@ DEFUN (no_set_ip_nexthop,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (set_ipv6_nexthop_local,
        set_ipv6_nexthop_local_cmd,
@@ -2252,7 +2233,6 @@ DEFUN (set_ipv6_nexthop_local,
 			vty, index, "ipv6 next-hop local", argv[idx_ipv6]->arg);
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (no_set_ipv6_nexthop_local,
        no_set_ipv6_nexthop_local_cmd,
@@ -2302,7 +2282,6 @@ DEFUN (set_metric,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (no_set_metric,
        no_set_metric_cmd,
        "no set metric [(0-4294967295)]",
@@ -2324,7 +2303,6 @@ DEFUN (no_set_metric,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (set_tag,
        set_tag_cmd,
        "set tag (1-4294967295)",
@@ -2340,7 +2318,6 @@ DEFUN (set_tag,
 						   argv[idx_number]->arg);
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (no_set_tag,
        no_set_tag_cmd,
@@ -2362,7 +2339,6 @@ DEFUN (no_set_tag,
 	}
 	return CMD_SUCCESS;
 }
-
 
 DEFUN_NOSH (route_map,
        route_map_cmd,
@@ -2575,7 +2551,6 @@ DEFUN (no_rmap_continue,
 	return no_rmap_onmatch_goto(self, vty, argc, argv);
 }
 
-
 DEFUN (rmap_show_name,
        rmap_show_name_cmd,
        "show route-map [WORD]",
@@ -2786,15 +2761,13 @@ void route_map_init(void)
 	route_match_vec = vector_init(1);
 	route_set_vec = vector_init(1);
 	route_map_master_hash =
-		hash_create_size(8, route_map_hash_key_make,
-				 route_map_hash_cmp,
+		hash_create_size(8, route_map_hash_key_make, route_map_hash_cmp,
 				 "Route Map Master Hash");
 
 	for (i = 1; i < ROUTE_MAP_DEP_MAX; i++)
-		route_map_dep_hash[i] =
-			hash_create_size(8, route_map_dep_hash_make_key,
-					 route_map_dep_hash_cmp,
-					 "Route Map Dep Hash");
+		route_map_dep_hash[i] = hash_create_size(
+			8, route_map_dep_hash_make_key, route_map_dep_hash_cmp,
+			"Route Map Dep Hash");
 
 	cmd_variable_handler_register(rmap_var_handlers);
 

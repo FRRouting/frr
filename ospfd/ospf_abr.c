@@ -976,7 +976,7 @@ static void ospf_abr_process_nssa_translates(struct ospf *ospf)
 				"looking at area %s",
 				inet_ntoa(area->area_id));
 
-		LSDB_LOOP(NSSA_LSDB(area), rn, lsa)
+		LSDB_LOOP (NSSA_LSDB(area), rn, lsa)
 			ospf_abr_translate_nssa(area, lsa);
 	}
 
@@ -1035,22 +1035,20 @@ static void ospf_abr_process_network_rt(struct ospf *ospf,
 			continue;
 		}
 
-		if (
-			or->path_type == OSPF_PATH_INTRA_AREA
-				  && !ospf_abr_should_announce(
-					     ospf, (struct prefix_ipv4 *)&rn->p,
-					     or)) {
+		if (or->path_type == OSPF_PATH_INTRA_AREA
+			      && !ospf_abr_should_announce(
+					 ospf, (struct prefix_ipv4 *)&rn->p,
+					 or)) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
 					"ospf_abr_process_network_rt(): denied by export-list");
 			continue;
 		}
 
-		if (
-			or->path_type == OSPF_PATH_INTRA_AREA
-				  && !ospf_abr_plist_out_check(
-					     area, or,
-					     (struct prefix_ipv4 *)&rn->p)) {
+		if (or->path_type == OSPF_PATH_INTRA_AREA
+			      && !ospf_abr_plist_out_check(
+					 area, or,
+					 (struct prefix_ipv4 *)&rn->p)) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
 					"ospf_abr_process_network_rt(): denied by prefix-list");
@@ -1272,10 +1270,9 @@ static void ospf_abr_process_router_rt(struct ospf *ospf,
 				continue;
 			}
 
-			if (
-				or->path_type == OSPF_PATH_INTER_AREA
-					  && !OSPF_IS_AREA_ID_BACKBONE(
-						     or->u.std.area_id)) {
+			if (or->path_type == OSPF_PATH_INTER_AREA
+				      && !OSPF_IS_AREA_ID_BACKBONE(
+						 or->u.std.area_id)) {
 				if (IS_DEBUG_OSPF_EVENT)
 					zlog_debug(
 						"ospf_abr_process_router_rt(): "
@@ -1323,7 +1320,7 @@ ospf_abr_unapprove_translates(struct ospf *ospf) /* For NSSA Translations */
 	/* NSSA Translator is not checked, because it may have gone away,
 	  and we would want to flush any residuals anyway */
 
-	LSDB_LOOP(EXTERNAL_LSDB(ospf), rn, lsa)
+	LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa)
 		if (CHECK_FLAG(lsa->flags, OSPF_LSA_LOCAL_XLT)) {
 			UNSET_FLAG(lsa->flags, OSPF_LSA_APPROVED);
 			if (IS_DEBUG_OSPF_NSSA)
@@ -1353,7 +1350,7 @@ static void ospf_abr_unapprove_summaries(struct ospf *ospf)
 				"ospf_abr_unapprove_summaries(): "
 				"considering area %s",
 				inet_ntoa(area->area_id));
-		LSDB_LOOP(SUMMARY_LSDB(area), rn, lsa)
+		LSDB_LOOP (SUMMARY_LSDB(area), rn, lsa)
 			if (ospf_lsa_is_self_originated(ospf, lsa)) {
 				if (IS_DEBUG_OSPF_EVENT)
 					zlog_debug(
@@ -1363,7 +1360,7 @@ static void ospf_abr_unapprove_summaries(struct ospf *ospf)
 				UNSET_FLAG(lsa->flags, OSPF_LSA_APPROVED);
 			}
 
-		LSDB_LOOP(ASBR_SUMMARY_LSDB(area), rn, lsa)
+		LSDB_LOOP (ASBR_SUMMARY_LSDB(area), rn, lsa)
 			if (ospf_lsa_is_self_originated(ospf, lsa)) {
 				if (IS_DEBUG_OSPF_EVENT)
 					zlog_debug(
@@ -1631,7 +1628,7 @@ static void ospf_abr_remove_unapproved_translates(struct ospf *ospf)
 	if (IS_DEBUG_OSPF_NSSA)
 		zlog_debug("ospf_abr_remove_unapproved_translates(): Start");
 
-	LSDB_LOOP(EXTERNAL_LSDB(ospf), rn, lsa)
+	LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa)
 		ospf_abr_remove_unapproved_translates_apply(ospf, lsa);
 
 	if (IS_DEBUG_OSPF_NSSA)
@@ -1655,12 +1652,12 @@ static void ospf_abr_remove_unapproved_summaries(struct ospf *ospf)
 				"looking at area %s",
 				inet_ntoa(area->area_id));
 
-		LSDB_LOOP(SUMMARY_LSDB(area), rn, lsa)
+		LSDB_LOOP (SUMMARY_LSDB(area), rn, lsa)
 			if (ospf_lsa_is_self_originated(ospf, lsa))
 				if (!CHECK_FLAG(lsa->flags, OSPF_LSA_APPROVED))
 					ospf_lsa_flush_area(lsa, area);
 
-		LSDB_LOOP(ASBR_SUMMARY_LSDB(area), rn, lsa)
+		LSDB_LOOP (ASBR_SUMMARY_LSDB(area), rn, lsa)
 			if (ospf_lsa_is_self_originated(ospf, lsa))
 				if (!CHECK_FLAG(lsa->flags, OSPF_LSA_APPROVED))
 					ospf_lsa_flush_area(lsa, area);
@@ -1683,13 +1680,14 @@ static void ospf_abr_manage_discard_routes(struct ospf *ospf)
 				if (CHECK_FLAG(range->flags,
 					       OSPF_AREA_RANGE_ADVERTISE)) {
 					if (range->specifics)
-						ospf_add_discard_route(ospf,
-							ospf->new_table, area,
+						ospf_add_discard_route(
+							ospf, ospf->new_table,
+							area,
 							(struct prefix_ipv4
 								 *)&rn->p);
 					else
-						ospf_delete_discard_route(ospf,
-							ospf->new_table,
+						ospf_delete_discard_route(
+							ospf, ospf->new_table,
 							(struct prefix_ipv4
 								 *)&rn->p);
 				}

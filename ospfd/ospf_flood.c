@@ -218,7 +218,7 @@ static void ospf_process_self_originated_lsa(struct ospf *ospf,
 		break;
 	case OSPF_OPAQUE_AS_LSA:
 		ospf_opaque_lsa_refresh(new);
-			/* Reconsideration may needed. */ /* XXX */
+		/* Reconsideration may needed. */ /* XXX */
 		break;
 	default:
 		break;
@@ -282,7 +282,7 @@ int ospf_flood(struct ospf *ospf, struct ospf_neighbor *nbr,
 					"LSA[Flooding]: Got a self-originated LSA, "
 					"while local one is initial instance.");
 			; /* Accept this LSA for quick LSDB resynchronization.
-			     */
+			   */
 		} else if (monotime_since(&current->tv_recv, NULL)
 			   < ospf->min_ls_arrival * 1000LL) {
 			if (IS_DEBUG_OSPF_EVENT)

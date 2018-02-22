@@ -37,6 +37,7 @@ struct rfp_instance_t
  * Sample VTY / internal function
  **********************************************************************/
 #define RFP_SHOW_STR "RFP information\n"
+
 DEFUN (rfp_example_config_value,
        rfp_example_config_value_cmd,
        "rfp example-config-value VALUE",

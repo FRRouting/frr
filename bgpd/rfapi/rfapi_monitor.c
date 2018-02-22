@@ -929,17 +929,14 @@ void rfapiMonitorItNodeChanged(
 					char buf_attach_pfx[PREFIX_STRLEN];
 					char buf_target_pfx[PREFIX_STRLEN];
 
-					prefix2str(&m->node->p,
-						   buf_attach_pfx,
+					prefix2str(&m->node->p, buf_attach_pfx,
 						   sizeof(buf_attach_pfx));
-					prefix2str(&m->p,
-						   buf_target_pfx,
+					prefix2str(&m->p, buf_target_pfx,
 						   sizeof(buf_target_pfx));
 					vnc_zlog_debug_verbose(
 						"%s: update rfd %p attached to pfx %s (targ=%s)",
 						__func__, m->rfd,
-						buf_attach_pfx,
-						buf_target_pfx);
+						buf_attach_pfx, buf_target_pfx);
 
 					/*
 					 * update its RIB
@@ -1338,10 +1335,11 @@ struct route_node *rfapiMonitorEthAdd(struct bgp *bgp,
 	{
 		char buf[BUFSIZ];
 
-		vnc_zlog_debug_verbose(
-			"%s: LNI=%d: rfd=%p, pfx=%s", __func__, logical_net_id,
-			rfd, rfapi_ntop(pfx_mac_buf.family, pfx_mac_buf.u.val,
-					buf, BUFSIZ));
+		vnc_zlog_debug_verbose("%s: LNI=%d: rfd=%p, pfx=%s", __func__,
+				       logical_net_id, rfd,
+				       rfapi_ntop(pfx_mac_buf.family,
+						  pfx_mac_buf.u.val, buf,
+						  BUFSIZ));
 	}
 
 

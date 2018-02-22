@@ -511,7 +511,8 @@ void rfapiRibClear(struct rfapi_descriptor *rfd)
 				if (pn->info) {
 					if (pn->info != (void *)1) {
 						list_delete_and_null(
-							(struct list **)(&pn->info));
+							(struct list *
+								 *)(&pn->info));
 					}
 					pn->info = NULL;
 					/* linklist or 1 deleted */
@@ -526,11 +527,11 @@ void rfapiRibClear(struct rfapi_descriptor *rfd)
 
 					struct rfapi_info *ri;
 
-					while (0 == skiplist_first(
-							    (struct skiplist *)
-								    rn->info,
-							    NULL,
-							    (void **)&ri)) {
+					while (0
+					       == skiplist_first(
+							  (struct skiplist *)
+								  rn->info,
+							  NULL, (void **)&ri)) {
 
 						rfapi_info_free(ri);
 						skiplist_delete_first(
@@ -1407,9 +1408,10 @@ callback:
 						vnc_zlog_debug_verbose(
 							"%s: move route to recently deleted list, rd=%s",
 							__func__,
-							prefix_rd2str(&ri->rk.rd,
-								      buf_rd,
-								      sizeof(buf_rd)));
+							prefix_rd2str(
+								&ri->rk.rd,
+								buf_rd,
+								sizeof(buf_rd)));
 					}
 #endif
 
@@ -2454,7 +2456,7 @@ void rfapiRibShowResponses(void *stream, struct prefix *pfx_match,
 #else
 					   "Remaining"
 #endif
-					   );
+					);
 				}
 				if (!printednve) {
 					char str_vn[BUFSIZ];

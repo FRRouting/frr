@@ -387,8 +387,8 @@ DEFUN_HIDDEN (show_ipv6_ospf6_database_aggr_router,
 			lsdb = oa->lsdb_self;
 		else
 			lsdb = oa->lsdb;
-		if (ospf6_create_single_router_lsa(oa, lsdb,
-						   adv_router) == NULL) {
+		if (ospf6_create_single_router_lsa(oa, lsdb, adv_router)
+		    == NULL) {
 			vty_out(vty, "Adv router is not found in LSDB.");
 			return CMD_SUCCESS;
 		}
@@ -551,7 +551,6 @@ DEFUN (show_ipv6_ospf6_database_type_router,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (show_ipv6_ospf6_database_id_router,
        show_ipv6_ospf6_database_id_router_cmd,
        "show ipv6 ospf6 database * A.B.C.D A.B.C.D [<detail|dump|internal>]",
@@ -603,7 +602,6 @@ DEFUN (show_ipv6_ospf6_database_id_router,
 	vty_out(vty, "\n");
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (show_ipv6_ospf6_database_adv_router_linkstate_id,
        show_ipv6_ospf6_database_adv_router_linkstate_id_cmd,
@@ -732,7 +730,6 @@ DEFUN (show_ipv6_ospf6_database_type_id_router,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
        show_ipv6_ospf6_database_type_adv_router_linkstate_id_cmd,
        "show ipv6 ospf6 database <router|network|inter-prefix|inter-router|as-external|group-membership|type-7|link|intra-prefix> adv-router A.B.C.D linkstate-id A.B.C.D [<dump|internal>]",
@@ -854,7 +851,6 @@ DEFUN (show_ipv6_ospf6_database_self_originated,
 	vty_out(vty, "\n");
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (show_ipv6_ospf6_database_type_self_originated,
        show_ipv6_ospf6_database_type_self_originated_cmd,
@@ -1127,7 +1123,6 @@ DEFUN (show_ipv6_ospf6_border_routers,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (show_ipv6_ospf6_linkstate,
        show_ipv6_ospf6_linkstate_cmd,
        "show ipv6 ospf6 linkstate <router A.B.C.D|network A.B.C.D A.B.C.D>",
@@ -1156,7 +1151,6 @@ DEFUN (show_ipv6_ospf6_linkstate,
 	vty_out(vty, "\n");
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (show_ipv6_ospf6_linkstate_detail,
        show_ipv6_ospf6_linkstate_detail_cmd,

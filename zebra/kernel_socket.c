@@ -316,8 +316,9 @@ static int ifan_read(struct if_announcemsghdr *ifan)
 		assert((ifp->ifindex == ifan->ifan_index)
 		       || (ifp->ifindex == IFINDEX_INTERNAL));
 
-	if ((ifp == NULL) || ((ifp->ifindex == IFINDEX_INTERNAL)
-			      && (ifan->ifan_what == IFAN_ARRIVAL))) {
+	if ((ifp == NULL)
+	    || ((ifp->ifindex == IFINDEX_INTERNAL)
+		&& (ifan->ifan_what == IFAN_ARRIVAL))) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"%s: creating interface for ifindex %d, name %s",
@@ -971,7 +972,7 @@ void rtm_read(struct rt_msghdr *rtm)
 						buf, gate_buf);
 					break;
 				case ZEBRA_RIB_FOUND_EXACT: /* RIB RR == FIB RR
-							       */
+							     */
 					zlog_debug(
 						"%s: %s %s: done Ok", __func__,
 						lookup_msg(rtm_type_str,

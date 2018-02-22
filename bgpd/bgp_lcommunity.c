@@ -174,13 +174,11 @@ struct lcommunity *lcommunity_merge(struct lcommunity *lcom1,
 				    struct lcommunity *lcom2)
 {
 	if (lcom1->val)
-		lcom1->val =
-			XREALLOC(MTYPE_LCOMMUNITY_VAL, lcom1->val,
-				 lcom_length(lcom1) + lcom_length(lcom2));
+		lcom1->val = XREALLOC(MTYPE_LCOMMUNITY_VAL, lcom1->val,
+				      lcom_length(lcom1) + lcom_length(lcom2));
 	else
-		lcom1->val =
-			XMALLOC(MTYPE_LCOMMUNITY_VAL,
-				lcom_length(lcom1) + lcom_length(lcom2));
+		lcom1->val = XMALLOC(MTYPE_LCOMMUNITY_VAL,
+				     lcom_length(lcom1) + lcom_length(lcom2));
 
 	memcpy(lcom1->val + lcom_length(lcom1), lcom2->val, lcom_length(lcom2));
 	lcom1->size += lcom2->size;
@@ -243,8 +241,7 @@ int lcommunity_cmp(const void *arg1, const void *arg2)
 	const struct lcommunity *lcom2 = arg2;
 
 	return (lcom1->size == lcom2->size
-		&& memcmp(lcom1->val, lcom2->val, lcom_length(lcom1))
-			   == 0);
+		&& memcmp(lcom1->val, lcom2->val, lcom_length(lcom1)) == 0);
 }
 
 /* Return communities hash.  */
@@ -256,8 +253,7 @@ struct hash *lcommunity_hash(void)
 /* Initialize Large Comminities related hash. */
 void lcommunity_init(void)
 {
-	lcomhash = hash_create(lcommunity_hash_make,
-			       lcommunity_cmp,
+	lcomhash = hash_create(lcommunity_hash_make, lcommunity_cmp,
 			       "BGP lcommunity hash");
 }
 
@@ -462,8 +458,8 @@ int lcommunity_match(const struct lcommunity *lcom1,
 
 	/* Every community on com2 needs to be on com1 for this to match */
 	while (i < lcom1->size && j < lcom2->size) {
-		if (memcmp(lcom1->val + (i * LCOMMUNITY_SIZE), lcom2->val + (j * LCOMMUNITY_SIZE),
-			   LCOMMUNITY_SIZE)
+		if (memcmp(lcom1->val + (i * LCOMMUNITY_SIZE),
+			   lcom2->val + (j * LCOMMUNITY_SIZE), LCOMMUNITY_SIZE)
 		    == 0)
 			j++;
 		i++;
@@ -499,8 +495,8 @@ void lcommunity_del_val(struct lcommunity *lcom, u_char *ptr)
 
 			if (lcom->size > 0)
 				lcom->val =
-					XREALLOC(MTYPE_LCOMMUNITY_VAL, lcom->val,
-						 lcom_length(lcom));
+					XREALLOC(MTYPE_LCOMMUNITY_VAL,
+						 lcom->val, lcom_length(lcom));
 			else {
 				XFREE(MTYPE_LCOMMUNITY_VAL, lcom->val);
 				lcom->val = NULL;

@@ -161,18 +161,19 @@ static int verify_bintree(dict_t *dict)
 }
 
 
-/*
- * This function recursively verifies that the given binary subtree satisfies
- * three of the red black properties. It checks that every red node has only
- * black children. It makes sure that each node is either red or black. And it
- * checks that every path has the same count of black nodes from root to leaf.
- * It returns the blackheight of the given subtree; this allows blackheights to
- * be computed recursively and compared for left and right siblings for
- * mismatches. It does not check for every nil node being black, because there
- * is only one sentinel nil node. The return value of this function is the
- * black height of the subtree rooted at the node ``root'', or zero if the
- * subtree is not red-black.
- */
+	/*
+	 * This function recursively verifies that the given binary subtree
+	 * satisfies three of the red black properties. It checks that every red
+	 * node has only black children. It makes sure that each node is either
+	 * red or black. And it checks that every path has the same count of
+	 * black nodes from root to leaf. It returns the blackheight of the
+	 * given subtree; this allows blackheights to be computed recursively
+	 * and compared for left and right siblings for mismatches. It does not
+	 * check for every nil node being black, because there is only one
+	 * sentinel nil node. The return value of this function is the black
+	 * height of the subtree rooted at the node ``root'', or zero if the
+	 * subtree is not red-black.
+	 */
 
 #ifdef EXTREME_DICT_DEBUG
 static unsigned int verify_redblack(dnode_t *nil, dnode_t *root)
@@ -201,11 +202,11 @@ static unsigned int verify_redblack(dnode_t *nil, dnode_t *root)
 }
 #endif
 
-/*
- * Compute the actual count of nodes by traversing the tree and
- * return it. This could be compared against the stored count to
- * detect a mismatch.
- */
+	/*
+	 * Compute the actual count of nodes by traversing the tree and
+	 * return it. This could be compared against the stored count to
+	 * detect a mismatch.
+	 */
 
 #ifdef EXTREME_DICT_DEBUG
 static dictcount_t verify_node_count(dnode_t *nil, dnode_t *root)
@@ -447,7 +448,7 @@ dnode_t *dict_lookup(dict_t *dict, const void *key)
 			root = root->right;
 		else {
 			if (!dict->dupes) { /* no duplicates, return match
-					       */
+					     */
 				return root;
 			} else { /* could be dupes, find leftmost one	*/
 				do {

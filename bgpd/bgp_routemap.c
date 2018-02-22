@@ -742,8 +742,7 @@ static void route_match_evpn_route_type_free(void *rule)
 /* Route map commands for evpn route-type  matching. */
 struct route_map_rule_cmd route_match_evpn_route_type_cmd = {
 	"evpn route-type", route_match_evpn_route_type,
-	route_match_evpn_route_type_compile,
-	route_match_evpn_route_type_free};
+	route_match_evpn_route_type_compile, route_match_evpn_route_type_free};
 
 /* `match local-preference LOCAL-PREF' */
 
@@ -825,7 +824,10 @@ static route_map_result_t route_match_metric(void *rule, struct prefix *prefix,
 
 /* Route map commands for metric matching. */
 struct route_map_rule_cmd route_match_metric_cmd = {
-	"metric", route_match_metric, route_value_compile, route_value_free,
+	"metric",
+	route_match_metric,
+	route_value_compile,
+	route_value_free,
 };
 
 /* `match as-path ASPATH' */
@@ -1220,7 +1222,9 @@ static route_map_result_t route_match_tag(void *rule, struct prefix *prefix,
 
 /* Route map commands for tag matching. */
 static struct route_map_rule_cmd route_match_tag_cmd = {
-	"tag", route_match_tag, route_map_rule_tag_compile,
+	"tag",
+	route_match_tag,
+	route_map_rule_tag_compile,
 	route_map_rule_tag_free,
 };
 
@@ -1365,7 +1369,9 @@ static route_map_result_t route_set_local_pref(void *rule,
 
 /* Set local preference rule structure. */
 struct route_map_rule_cmd route_set_local_pref_cmd = {
-	"local-preference", route_set_local_pref, route_value_compile,
+	"local-preference",
+	route_set_local_pref,
+	route_value_compile,
 	route_value_free,
 };
 
@@ -1394,7 +1400,10 @@ static route_map_result_t route_set_weight(void *rule, struct prefix *prefix,
 
 /* Set local preference rule structure. */
 struct route_map_rule_cmd route_set_weight_cmd = {
-	"weight", route_set_weight, route_value_compile, route_value_free,
+	"weight",
+	route_set_weight,
+	route_value_compile,
+	route_value_free,
 };
 
 /* `set metric METRIC' */
@@ -1426,7 +1435,10 @@ static route_map_result_t route_set_metric(void *rule, struct prefix *prefix,
 
 /* Set metric rule structure. */
 struct route_map_rule_cmd route_set_metric_cmd = {
-	"metric", route_set_metric, route_value_compile, route_value_free,
+	"metric",
+	route_set_metric,
+	route_value_compile,
+	route_value_free,
 };
 
 /* `set as-path prepend ASPATH' */
@@ -1484,8 +1496,10 @@ static void route_set_aspath_prepend_free(void *rule)
 
 /* Set as-path prepend rule structure. */
 struct route_map_rule_cmd route_set_aspath_prepend_cmd = {
-	"as-path prepend", route_set_aspath_prepend,
-	route_set_aspath_prepend_compile, route_set_aspath_prepend_free,
+	"as-path prepend",
+	route_set_aspath_prepend,
+	route_set_aspath_prepend_compile,
+	route_set_aspath_prepend_free,
 };
 
 /* `set as-path exclude ASn' */
@@ -1518,7 +1532,9 @@ static route_map_result_t route_set_aspath_exclude(void *rule,
 
 /* Set ASn exlude rule structure. */
 struct route_map_rule_cmd route_set_aspath_exclude_cmd = {
-	"as-path exclude", route_set_aspath_exclude, route_aspath_compile,
+	"as-path exclude",
+	route_set_aspath_exclude,
+	route_aspath_compile,
 	route_aspath_free,
 };
 
@@ -1632,7 +1648,9 @@ static void route_set_community_free(void *rule)
 
 /* Set community rule structure. */
 struct route_map_rule_cmd route_set_community_cmd = {
-	"community", route_set_community, route_set_community_compile,
+	"community",
+	route_set_community,
+	route_set_community_compile,
 	route_set_community_free,
 };
 
@@ -1751,7 +1769,9 @@ static void route_set_lcommunity_free(void *rule)
 
 /* Set community rule structure. */
 struct route_map_rule_cmd route_set_lcommunity_cmd = {
-	"large-community", route_set_lcommunity, route_set_lcommunity_compile,
+	"large-community",
+	route_set_lcommunity,
+	route_set_lcommunity_compile,
 	route_set_lcommunity_free,
 };
 
@@ -1834,8 +1854,10 @@ static void route_set_lcommunity_delete_free(void *rule)
 
 /* Set lcommunity rule structure. */
 struct route_map_rule_cmd route_set_lcommunity_delete_cmd = {
-	"large-comm-list", route_set_lcommunity_delete,
-	route_set_lcommunity_delete_compile, route_set_lcommunity_delete_free,
+	"large-comm-list",
+	route_set_lcommunity_delete,
+	route_set_lcommunity_delete_compile,
+	route_set_lcommunity_delete_free,
 };
 
 
@@ -1918,8 +1940,10 @@ static void route_set_community_delete_free(void *rule)
 
 /* Set community rule structure. */
 struct route_map_rule_cmd route_set_community_delete_cmd = {
-	"comm-list", route_set_community_delete,
-	route_set_community_delete_compile, route_set_community_delete_free,
+	"comm-list",
+	route_set_community_delete,
+	route_set_community_delete_compile,
+	route_set_community_delete_free,
 };
 
 /* `set extcommunity rt COMMUNITY' */
@@ -1986,8 +2010,10 @@ static void route_set_ecommunity_free(void *rule)
 
 /* Set community rule structure. */
 struct route_map_rule_cmd route_set_ecommunity_rt_cmd = {
-	"extcommunity rt", route_set_ecommunity,
-	route_set_ecommunity_rt_compile, route_set_ecommunity_free,
+	"extcommunity rt",
+	route_set_ecommunity,
+	route_set_ecommunity_rt_compile,
+	route_set_ecommunity_free,
 };
 
 /* `set extcommunity soo COMMUNITY' */
@@ -2006,8 +2032,10 @@ static void *route_set_ecommunity_soo_compile(const char *arg)
 
 /* Set community rule structure. */
 struct route_map_rule_cmd route_set_ecommunity_soo_cmd = {
-	"extcommunity soo", route_set_ecommunity,
-	route_set_ecommunity_soo_compile, route_set_ecommunity_free,
+	"extcommunity soo",
+	route_set_ecommunity,
+	route_set_ecommunity_soo_compile,
+	route_set_ecommunity_free,
 };
 
 /* `set origin ORIGIN' */
@@ -2055,7 +2083,9 @@ static void route_set_origin_free(void *rule)
 
 /* Set origin rule structure. */
 struct route_map_rule_cmd route_set_origin_cmd = {
-	"origin", route_set_origin, route_set_origin_compile,
+	"origin",
+	route_set_origin,
+	route_set_origin_compile,
 	route_set_origin_free,
 };
 
@@ -2092,8 +2122,10 @@ static void route_set_atomic_aggregate_free(void *rule)
 
 /* Set atomic aggregate rule structure. */
 struct route_map_rule_cmd route_set_atomic_aggregate_cmd = {
-	"atomic-aggregate", route_set_atomic_aggregate,
-	route_set_atomic_aggregate_compile, route_set_atomic_aggregate_free,
+	"atomic-aggregate",
+	route_set_atomic_aggregate,
+	route_set_atomic_aggregate_compile,
+	route_set_atomic_aggregate_free,
 };
 
 /* `set aggregator as AS A.B.C.D' */
@@ -2151,8 +2183,10 @@ static void route_set_aggregator_as_free(void *rule)
 }
 
 struct route_map_rule_cmd route_set_aggregator_as_cmd = {
-	"aggregator as", route_set_aggregator_as,
-	route_set_aggregator_as_compile, route_set_aggregator_as_free,
+	"aggregator as",
+	route_set_aggregator_as,
+	route_set_aggregator_as_compile,
+	route_set_aggregator_as_free,
 };
 
 /* Set tag to object. object must be pointer to struct bgp_info */
@@ -2175,7 +2209,9 @@ static route_map_result_t route_set_tag(void *rule, struct prefix *prefix,
 
 /* Route map commands for tag set. */
 static struct route_map_rule_cmd route_set_tag_cmd = {
-	"tag", route_set_tag, route_map_rule_tag_compile,
+	"tag",
+	route_set_tag,
+	route_map_rule_tag_compile,
 	route_map_rule_tag_free,
 };
 
@@ -2208,7 +2244,9 @@ static route_map_result_t route_set_label_index(void *rule,
 
 /* Route map commands for label-index set. */
 static struct route_map_rule_cmd route_set_label_index_cmd = {
-	"label-index", route_set_label_index, route_value_compile,
+	"label-index",
+	route_set_label_index,
+	route_value_compile,
 	route_value_free,
 };
 
@@ -2735,8 +2773,10 @@ static void route_set_originator_id_free(void *rule)
 
 /* Set originator-id rule structure. */
 struct route_map_rule_cmd route_set_originator_id_cmd = {
-	"originator-id", route_set_originator_id,
-	route_set_originator_id_compile, route_set_originator_id_free,
+	"originator-id",
+	route_set_originator_id,
+	route_set_originator_id_compile,
+	route_set_originator_id_free,
 };
 
 /* Add bgp route map rule. */
@@ -3079,12 +3119,13 @@ static void bgp_route_map_process_update(struct bgp *bgp, const char *rmap_name,
 
 	/* for type5 command route-maps */
 	FOREACH_AFI_SAFI (afi, safi) {
-		if (bgp->adv_cmd_rmap[afi][safi].name &&
-		    strcmp(rmap_name, bgp->adv_cmd_rmap[afi][safi].name) == 0) {
+		if (bgp->adv_cmd_rmap[afi][safi].name
+		    && strcmp(rmap_name, bgp->adv_cmd_rmap[afi][safi].name)
+			       == 0) {
 			if (BGP_DEBUG(zebra, ZEBRA))
 				zlog_debug(
-					   "Processing route_map %s update on advertise type5 route command",
-					   rmap_name);
+					"Processing route_map %s update on advertise type5 route command",
+					rmap_name);
 			bgp_evpn_withdraw_type5_routes(bgp, afi, safi);
 			bgp_evpn_advertise_type5_routes(bgp, afi, safi);
 		}
@@ -3223,7 +3264,6 @@ DEFUN (no_match_evpn_route_type,
 				      RMAP_EVENT_MATCH_DELETED);
 }
 
-
 DEFUN (match_evpn_vni,
        match_evpn_vni_cmd,
        "match evpn vni (1-16777215)",
@@ -3308,7 +3348,6 @@ DEFUN (match_probability,
 				   RMAP_EVENT_MATCH_ADDED);
 }
 
-
 DEFUN (no_match_probability,
        no_match_probability_cmd,
        "no match probability [(1-99)]",
@@ -3325,7 +3364,6 @@ DEFUN (no_match_probability,
 				      RMAP_EVENT_MATCH_DELETED);
 }
 
-
 DEFUN (match_ip_route_source,
        match_ip_route_source_cmd,
        "match ip route-source <(1-199)|(1300-2699)|WORD>",
@@ -3340,7 +3378,6 @@ DEFUN (match_ip_route_source,
 	return bgp_route_match_add(vty, "ip route-source", argv[idx_acl]->arg,
 				   RMAP_EVENT_FILTER_ADDED);
 }
-
 
 DEFUN (no_match_ip_route_source,
        no_match_ip_route_source_cmd,
@@ -3362,7 +3399,6 @@ DEFUN (no_match_ip_route_source,
 				      RMAP_EVENT_FILTER_DELETED);
 }
 
-
 DEFUN (match_ip_route_source_prefix_list,
        match_ip_route_source_prefix_list_cmd,
        "match ip route-source prefix-list WORD",
@@ -3376,7 +3412,6 @@ DEFUN (match_ip_route_source_prefix_list,
 	return bgp_route_match_add(vty, "ip route-source prefix-list",
 				   argv[idx_word]->arg, RMAP_EVENT_PLIST_ADDED);
 }
-
 
 DEFUN (no_match_ip_route_source_prefix_list,
        no_match_ip_route_source_prefix_list_cmd,
@@ -3398,7 +3433,6 @@ DEFUN (no_match_ip_route_source_prefix_list,
 				      RMAP_EVENT_PLIST_DELETED);
 }
 
-
 DEFUN (match_local_pref,
        match_local_pref_cmd,
        "match local-preference (0-4294967295)",
@@ -3411,7 +3445,6 @@ DEFUN (match_local_pref,
 				   argv[idx_number]->arg,
 				   RMAP_EVENT_MATCH_ADDED);
 }
-
 
 DEFUN (no_match_local_pref,
        no_match_local_pref_cmd,
@@ -3429,7 +3462,6 @@ DEFUN (no_match_local_pref,
 				      argv[idx_localpref]->arg,
 				      RMAP_EVENT_MATCH_DELETED);
 }
-
 
 DEFUN (match_community,
        match_community_cmd,
@@ -3520,7 +3552,6 @@ DEFUN (match_ecommunity,
 				   RMAP_EVENT_ECLIST_ADDED);
 }
 
-
 DEFUN (no_match_ecommunity,
        no_match_ecommunity_cmd,
        "no match extcommunity [<(1-99)|(100-500)|WORD>]",
@@ -3535,7 +3566,6 @@ DEFUN (no_match_ecommunity,
 				      RMAP_EVENT_ECLIST_DELETED);
 }
 
-
 DEFUN (match_aspath,
        match_aspath_cmd,
        "match as-path WORD",
@@ -3548,7 +3578,6 @@ DEFUN (match_aspath,
 				   RMAP_EVENT_ASLIST_ADDED);
 }
 
-
 DEFUN (no_match_aspath,
        no_match_aspath_cmd,
        "no match as-path [WORD]",
@@ -3560,7 +3589,6 @@ DEFUN (no_match_aspath,
 	return bgp_route_match_delete(vty, "as-path", NULL,
 				      RMAP_EVENT_ASLIST_DELETED);
 }
-
 
 DEFUN (match_origin,
        match_origin_cmd,
@@ -3585,7 +3613,6 @@ DEFUN (match_origin,
 	vty_out(vty, "%% Invalid match origin type\n");
 	return CMD_WARNING_CONFIG_FAILED;
 }
-
 
 DEFUN (no_match_origin,
        no_match_origin_cmd,
@@ -3637,7 +3664,6 @@ DEFUN (set_ip_nexthop_unchanged,
 		    "unchanged");
 }
 
-
 DEFUN (set_local_pref,
        set_local_pref_cmd,
        "set local-preference (0-4294967295)",
@@ -3649,7 +3675,6 @@ DEFUN (set_local_pref,
 	return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
 			       "local-preference", argv[idx_number]->arg);
 }
-
 
 DEFUN (no_set_local_pref,
        no_set_local_pref_cmd,
@@ -3667,7 +3692,6 @@ DEFUN (no_set_local_pref,
 				  "local-preference", argv[idx_localpref]->arg);
 }
 
-
 DEFUN (set_weight,
        set_weight_cmd,
        "set weight (0-4294967295)",
@@ -3679,7 +3703,6 @@ DEFUN (set_weight,
 	return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index), "weight",
 			       argv[idx_number]->arg);
 }
-
 
 DEFUN (no_set_weight,
        no_set_weight_cmd,
@@ -3777,7 +3800,6 @@ DEFUN (no_set_aspath_prepend,
 	return ret;
 }
 
-
 DEFUN (set_aspath_exclude,
        set_aspath_exclude_cmd,
        "set as-path exclude (1-4294967295)...",
@@ -3816,7 +3838,6 @@ DEFUN (no_set_aspath_exclude,
 	XFREE(MTYPE_TMP, str);
 	return ret;
 }
-
 
 DEFUN (set_community,
        set_community_cmd,
@@ -3939,7 +3960,6 @@ DEFUN (no_set_community,
 	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
 				  "community", NULL);
 }
-
 
 DEFUN (set_community_delete,
        set_community_delete_cmd,
@@ -4105,7 +4125,6 @@ DEFUN (no_set_ecommunity_rt,
 				  "extcommunity rt", NULL);
 }
 
-
 DEFUN (set_ecommunity_soo,
        set_ecommunity_soo_cmd,
        "set extcommunity soo ASN:NN_OR_IP-ADDRESS:NN...",
@@ -4125,7 +4144,6 @@ DEFUN (set_ecommunity_soo,
 	return ret;
 }
 
-
 DEFUN (no_set_ecommunity_soo,
        no_set_ecommunity_soo_cmd,
        "no set extcommunity soo ASN:NN_OR_IP-ADDRESS:NN...",
@@ -4138,7 +4156,6 @@ DEFUN (no_set_ecommunity_soo,
 	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
 				  "extcommunity soo", NULL);
 }
-
 
 DEFUN (set_origin,
        set_origin_cmd,
@@ -4164,7 +4181,6 @@ DEFUN (set_origin,
 	return CMD_WARNING_CONFIG_FAILED;
 }
 
-
 DEFUN (no_set_origin,
        no_set_origin_cmd,
        "no set origin [<egp|igp|incomplete>]",
@@ -4178,7 +4194,6 @@ DEFUN (no_set_origin,
 	return generic_set_delete(vty, VTY_GET_CONTEXT(route_map_index),
 				  "origin", NULL);
 }
-
 
 DEFUN (set_atomic_aggregate,
        set_atomic_aggregate_cmd,
@@ -4235,7 +4250,6 @@ DEFUN (set_aggregator_as,
 
 	return ret;
 }
-
 
 DEFUN (no_set_aggregator_as,
        no_set_aggregator_as_cmd,
@@ -4303,7 +4317,6 @@ DEFUN (no_match_ipv6_next_hop,
 	return bgp_route_match_delete(vty, "ipv6 next-hop", argv[idx_ipv6]->arg,
 				      RMAP_EVENT_MATCH_DELETED);
 }
-
 
 DEFUN (set_ipv6_nexthop_peer,
        set_ipv6_nexthop_peer_cmd,
@@ -4383,7 +4396,6 @@ DEFUN (set_ipv6_nexthop_global,
 	return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
 			       "ipv6 next-hop global", argv[idx_ipv6]->arg);
 }
-
 
 DEFUN (no_set_ipv6_nexthop_global,
        no_set_ipv6_nexthop_global_cmd,
@@ -4540,7 +4552,6 @@ DEFUN (set_originator_id,
 	return generic_set_add(vty, VTY_GET_CONTEXT(route_map_index),
 			       "originator-id", argv[idx_ipv4]->arg);
 }
-
 
 DEFUN (no_set_originator_id,
        no_set_originator_id_cmd,

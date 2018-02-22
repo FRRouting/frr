@@ -58,8 +58,9 @@ int ospf_if_add_allspfrouters(struct ospf *top, struct prefix *p,
 			safe_strerror(errno));
 	else {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("interface %s [%u] join AllSPFRouters Multicast group.",
-				   inet_ntoa(p->u.prefix4), ifindex);
+			zlog_debug(
+				"interface %s [%u] join AllSPFRouters Multicast group.",
+				inet_ntoa(p->u.prefix4), ifindex);
 	}
 
 	return ret;
@@ -81,8 +82,9 @@ int ospf_if_drop_allspfrouters(struct ospf *top, struct prefix *p,
 			safe_strerror(errno));
 	else {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("interface %s [%u] leave AllSPFRouters Multicast group.",
-				   inet_ntoa(p->u.prefix4), ifindex);
+			zlog_debug(
+				"interface %s [%u] leave AllSPFRouters Multicast group.",
+				inet_ntoa(p->u.prefix4), ifindex);
 	}
 
 	return ret;
@@ -175,19 +177,17 @@ int ospf_bind_vrfdevice(struct ospf *ospf, int ospf_sock)
 
 #ifdef SO_BINDTODEVICE
 
-	if (ospf && ospf->vrf_id != VRF_DEFAULT &&
-	    ospf->vrf_id != VRF_UNKNOWN) {
+	if (ospf && ospf->vrf_id != VRF_DEFAULT
+	    && ospf->vrf_id != VRF_UNKNOWN) {
 		ret = setsockopt(ospf_sock, SOL_SOCKET, SO_BINDTODEVICE,
-				 ospf->name,
-				 strlen(ospf->name));
+				 ospf->name, strlen(ospf->name));
 		if (ret < 0) {
 			int save_errno = errno;
 
 			zlog_warn("%s: Could not setsockopt SO_BINDTODEVICE %s",
-					__PRETTY_FUNCTION__,
-					safe_strerror(save_errno));
+				  __PRETTY_FUNCTION__,
+				  safe_strerror(save_errno));
 		}
-
 	}
 #endif
 	return ret;

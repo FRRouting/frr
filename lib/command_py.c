@@ -205,7 +205,7 @@ static PyObject *graph_to_pyobj(struct wrap_graph *wgraph,
 				/* plumbing types */
 				item(FORK_TKN) item(JOIN_TKN) item(START_TKN)
 					item(END_TKN) default
-				: wrap->type = "???";
+			    : wrap->type = "???";
 		}
 
 		wrap->deprecated = (tok->attr == CMD_ATTR_DEPRECATED);

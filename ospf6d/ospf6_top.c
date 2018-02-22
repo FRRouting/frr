@@ -394,21 +394,15 @@ DEFUN(no_ospf6_router_id,
 #if CONFDATE > 20180828
 CPP_NOTICE("ospf6: `router-id A.B.C.D` deprecated 2017/08/28")
 #endif
-ALIAS_HIDDEN(ospf6_router_id,
-	     ospf6_router_id_hdn_cmd,
-	     "router-id A.B.C.D",
-	     "Configure OSPF6 Router-ID\n"
-	     V4NOTATION_STR)
+ALIAS_HIDDEN(ospf6_router_id, ospf6_router_id_hdn_cmd, "router-id A.B.C.D",
+	     "Configure OSPF6 Router-ID\n" V4NOTATION_STR)
 
 #if CONFDATE > 20180828
 CPP_NOTICE("ospf6: `no router-id A.B.C.D` deprecated 2017/08/28")
 #endif
-ALIAS_HIDDEN(no_ospf6_router_id,
-	     no_ospf6_router_id_hdn_cmd,
+ALIAS_HIDDEN(no_ospf6_router_id, no_ospf6_router_id_hdn_cmd,
 	     "no router-id [A.B.C.D]",
-	     NO_STR
-	     "Configure OSPF6 Router-ID\n"
-	     V4NOTATION_STR)
+	     NO_STR "Configure OSPF6 Router-ID\n" V4NOTATION_STR)
 
 DEFUN (ospf6_log_adjacency_changes,
        ospf6_log_adjacency_changes_cmd,
@@ -504,7 +498,6 @@ DEFUN (no_ospf6_timers_lsa,
 
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (ospf6_distance,
        ospf6_distance_cmd,
@@ -976,7 +969,6 @@ DEFUN (show_ipv6_ospf6_route_match_detail,
 	ospf6_route_table_show(vty, 4, argc, argv, ospf6->route_table);
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (show_ipv6_ospf6_route_type_detail,
        show_ipv6_ospf6_route_type_detail_cmd,

@@ -154,14 +154,12 @@ static const u_int16_t Power2[] = {
 struct lsa_filter_type {
 	u_int16_t typemask; /* bitmask for selecting LSA types (1..16) */
 	u_char origin;      /* selects according to origin. */
-			    /* $FRR indent$ */
-			    /* clang-format off */
 #define NON_SELF_ORIGINATED	0
 #define	SELF_ORIGINATED  (OSPF_LSA_SELF)
 #define	ANY_ORIGIN 2
 
-	u_char num_areas;   /* number of areas in the filter. */
-			    /* areas, if any, go here. */
+	u_char num_areas; /* number of areas in the filter. */
+			  /* areas, if any, go here. */
 };
 
 struct msg_register_event {

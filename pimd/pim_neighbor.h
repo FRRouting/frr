@@ -54,7 +54,6 @@ struct pim_neighbor *pim_neighbor_find_by_secondary(struct interface *ifp,
 						    struct prefix *src);
 struct pim_neighbor *pim_neighbor_find_if(struct interface *ifp);
 
-
 #define PIM_NEIGHBOR_SEND_DELAY 0
 #define PIM_NEIGHBOR_SEND_NOW   1
 struct pim_neighbor *

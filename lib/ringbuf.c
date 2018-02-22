@@ -96,7 +96,7 @@ size_t ringbuf_peek(struct ringbuf *buf, size_t offset, void *data, size_t size)
 	size_t remain = ringbuf_remain(buf);
 	if (offset >= remain)
 		return 0;
-	size_t copysize = MAX(MIN(remain - offset, size), (size_t) 0);
+	size_t copysize = MAX(MIN(remain - offset, size), (size_t)0);
 	size_t tocopy = copysize;
 	size_t cstart = (buf->start + offset) % buf->size;
 	if (tocopy >= buf->size - cstart) {

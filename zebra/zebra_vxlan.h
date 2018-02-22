@@ -36,8 +36,7 @@
 
 /* Is EVPN enabled? */
 #define EVPN_ENABLED(zvrf)  (zvrf)->advertise_all_vni
-static inline int
-is_evpn_enabled()
+static inline int is_evpn_enabled()
 {
 	struct zebra_vrf *zvrf = NULL;
 	zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
@@ -96,11 +95,11 @@ extern void zebra_vxlan_print_vni(struct vty *vty, struct zebra_vrf *zvrf,
 				  vni_t vni, u_char use_json);
 extern void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf,
 				   u_char use_json);
-extern void zebra_vxlan_print_rmacs_l3vni(struct vty *vty, vni_t vni, u_char
-					  use_json);
+extern void zebra_vxlan_print_rmacs_l3vni(struct vty *vty, vni_t vni,
+					  u_char use_json);
 extern void zebra_vxlan_print_rmacs_all_l3vni(struct vty *vty, u_char use_json);
-extern void zebra_vxlan_print_nh_l3vni(struct vty *vty, vni_t vni, u_char
-				       use_json);
+extern void zebra_vxlan_print_nh_l3vni(struct vty *vty, vni_t vni,
+				       u_char use_json);
 extern void zebra_vxlan_print_nh_all_l3vni(struct vty *vty, u_char use_json);
 extern void zebra_vxlan_print_l3vni(struct vty *vty, vni_t vni,
 				    u_char use_json);
@@ -117,10 +116,10 @@ extern int zebra_vxlan_local_neigh_add_update(
 extern int zebra_vxlan_local_neigh_del(struct interface *ifp,
 				       struct interface *link_if,
 				       struct ipaddr *ip);
-extern int zebra_vxlan_remote_macip_add(struct zserv *client,
-					u_short length, struct zebra_vrf *zvrf);
-extern int zebra_vxlan_remote_macip_del(struct zserv *client,
-					u_short length, struct zebra_vrf *zvrf);
+extern int zebra_vxlan_remote_macip_add(struct zserv *client, u_short length,
+					struct zebra_vrf *zvrf);
+extern int zebra_vxlan_remote_macip_del(struct zserv *client, u_short length,
+					struct zebra_vrf *zvrf);
 extern int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 					    struct interface *br_if,
 					    struct ethaddr *mac, vlanid_t vid,
@@ -140,21 +139,18 @@ extern int zebra_vxlan_if_down(struct interface *ifp);
 extern int zebra_vxlan_if_add(struct interface *ifp);
 extern int zebra_vxlan_if_update(struct interface *ifp, u_int16_t chgflags);
 extern int zebra_vxlan_if_del(struct interface *ifp);
-extern int zebra_vxlan_remote_vtep_add(struct zserv *client,
-				       u_short length, struct zebra_vrf *zvrf);
-extern int zebra_vxlan_remote_vtep_del(struct zserv *client,
-				       u_short length, struct zebra_vrf *zvrf);
+extern int zebra_vxlan_remote_vtep_add(struct zserv *client, u_short length,
+				       struct zebra_vrf *zvrf);
+extern int zebra_vxlan_remote_vtep_del(struct zserv *client, u_short length,
+				       struct zebra_vrf *zvrf);
 extern int zebra_vxlan_advertise_subnet(struct zserv *client, u_short length,
 					struct zebra_vrf *zvrf);
-extern int zebra_vxlan_advertise_gw_macip(struct zserv *client,
-					  u_short length,
+extern int zebra_vxlan_advertise_gw_macip(struct zserv *client, u_short length,
 					  struct zebra_vrf *zvrf);
-extern int zebra_vxlan_advertise_all_vni(struct zserv *client,
-					 u_short length,
+extern int zebra_vxlan_advertise_all_vni(struct zserv *client, u_short length,
 					 struct zebra_vrf *zvrf);
 extern int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
-					   char *err,
-					   int err_str_sz, int add);
+					   char *err, int err_str_sz, int add);
 extern void zebra_vxlan_init_tables(struct zebra_vrf *zvrf);
 extern void zebra_vxlan_close_tables(struct zebra_vrf *);
 extern void zebra_vxlan_cleanup_tables(struct zebra_vrf *);

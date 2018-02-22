@@ -207,14 +207,14 @@ exit_handler(int signo
 	     ,
 	     siginfo_t *siginfo, void *context
 #endif
-	     )
+)
 {
 	zlog_signal(signo, "exiting..."
 #ifdef SA_SIGINFO
 		    ,
 		    siginfo, program_counter(context)
 #endif
-			    );
+	);
 	_exit(128 + signo);
 }
 
@@ -224,7 +224,7 @@ core_handler(int signo
 	     ,
 	     siginfo_t *siginfo, void *context
 #endif
-	     )
+)
 {
 	/* make sure we don't hang in here.  default for SIGALRM is terminate.
 	 * - if we're in backtrace for more than a second, abort. */
@@ -243,7 +243,7 @@ core_handler(int signo
 		    ,
 		    siginfo, program_counter(context)
 #endif
-			    );
+	);
 	/* dump memory stats on core */
 	log_memstats(stderr, "core_handler");
 	abort();
@@ -290,7 +290,7 @@ static void trap_default_signals(void)
 				,
 				siginfo_t *info, void *context
 #endif
-				);
+		);
 	} sigmap[] = {
 		{core_signals, array_size(core_signals), core_handler},
 		{exit_signals, array_size(exit_signals), exit_handler},

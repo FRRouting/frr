@@ -153,7 +153,9 @@ static route_map_result_t route_match_tag(void *rule, struct prefix *prefix,
 
 /* Route map commands for tag matching */
 static struct route_map_rule_cmd route_match_tag_cmd = {
-	"tag", route_match_tag, route_map_rule_tag_compile,
+	"tag",
+	route_match_tag,
+	route_map_rule_tag_compile,
 	route_map_rule_tag_free,
 };
 
@@ -238,8 +240,8 @@ DEFUN (match_ipv6_address_prefix_len,
        "Match prefix length of ipv6 address\n"
        "Prefix length\n")
 {
-	return zebra_route_match_add(vty, "ipv6 address prefix-len", argv[4]->arg,
-				     RMAP_EVENT_MATCH_ADDED);
+	return zebra_route_match_add(vty, "ipv6 address prefix-len",
+				     argv[4]->arg, RMAP_EVENT_MATCH_ADDED);
 }
 
 DEFUN (no_match_ipv6_address_prefix_len,
@@ -445,7 +447,6 @@ DEFUN (no_zebra_route_map_timer,
 
 	return (CMD_SUCCESS);
 }
-
 
 DEFUN (ip_protocol,
        ip_protocol_cmd,
@@ -1209,7 +1210,10 @@ static void route_set_src_free(void *rule)
 
 /* Set src rule structure. */
 static struct route_map_rule_cmd route_set_src_cmd = {
-	"src", route_set_src, route_set_src_compile, route_set_src_free,
+	"src",
+	route_set_src,
+	route_set_src_compile,
+	route_set_src_free,
 };
 
 static int zebra_route_map_update_timer(struct thread *thread)

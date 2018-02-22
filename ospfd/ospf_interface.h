@@ -129,7 +129,6 @@ struct ospf_vl_data {
 	u_char flags;
 };
 
-
 #define OSPF_VL_MAX_COUNT 256
 #define OSPF_VL_MTU	  1500
 
@@ -194,8 +193,6 @@ struct ospf_interface {
 	/* Neighbor information. */
 	struct route_table *nbrs;       /* OSPF Neighbor List */
 	struct ospf_neighbor *nbr_self; /* Neighbor Self */
-					/* $FRR indent$ */
-					/* clang-format off */
 #define DR(I)			((I)->nbr_self->d_router)
 #define BDR(I)			((I)->nbr_self->bd_router)
 #define OPTIONS(I)		((I)->nbr_self->options)

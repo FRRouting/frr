@@ -167,9 +167,9 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 	if (PIM_DEBUG_TRACE)
 		zlog_debug(
 			"%s(%s): Delete %s[%s] ref count: %d , flags: %d c_oil ref count %d (Pre decrement)",
-			__PRETTY_FUNCTION__, name, up->sg_str,
-			pim->vrf->name, up->ref_count,
-			up->flags, up->channel_oil->oil_ref_count);
+			__PRETTY_FUNCTION__, name, up->sg_str, pim->vrf->name,
+			up->ref_count, up->flags,
+			up->channel_oil->oil_ref_count);
 
 	--up->ref_count;
 
@@ -949,7 +949,8 @@ void pim_upstream_rpf_genid_changed(struct pim_instance *pim,
 				      sizeof(rpf_addr_str));
 			zlog_debug(
 				"%s: matching neigh=%s against upstream (S,G)=%s[%s] joined=%d rpf_addr=%s",
-				__PRETTY_FUNCTION__, neigh_str, up->sg_str, pim->vrf->name,
+				__PRETTY_FUNCTION__, neigh_str, up->sg_str,
+				pim->vrf->name,
 				up->join_state == PIM_UPSTREAM_JOINED,
 				rpf_addr_str);
 		}
@@ -1106,8 +1107,9 @@ static int pim_upstream_keep_alive_timer(struct thread *t)
 	if (PIM_UPSTREAM_FLAG_TEST_SRC_STREAM(up->flags)) {
 		pim_upstream_fhr_kat_expiry(pim, up);
 		if (PIM_DEBUG_TRACE)
-			zlog_debug("kat expired on %s[%s]; remove stream reference",
-				   up->sg_str, pim->vrf->name);
+			zlog_debug(
+				"kat expired on %s[%s]; remove stream reference",
+				up->sg_str, pim->vrf->name);
 		PIM_UPSTREAM_FLAG_UNSET_SRC_STREAM(up->flags);
 		pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
 	} else if (PIM_UPSTREAM_FLAG_TEST_SRC_LHR(up->flags)) {
@@ -1117,8 +1119,8 @@ static int pim_upstream_keep_alive_timer(struct thread *t)
 		pim_upstream_del(pim, up, __PRETTY_FUNCTION__);
 
 		if (parent) {
-			pim_jp_agg_single_upstream_send(&parent->rpf,
-							parent, true);
+			pim_jp_agg_single_upstream_send(&parent->rpf, parent,
+							true);
 		}
 	}
 
@@ -1620,8 +1622,8 @@ static void pim_upstream_sg_running(void *arg)
 	if (!up->channel_oil->installed) {
 		if (PIM_DEBUG_TRACE)
 			zlog_debug("%s: %s[%s] is not installed in mroute",
-				   __PRETTY_FUNCTION__,
-				   up->sg_str, pim->vrf->name);
+				   __PRETTY_FUNCTION__, up->sg_str,
+				   pim->vrf->name);
 		return;
 	}
 
@@ -1637,7 +1639,8 @@ static void pim_upstream_sg_running(void *arg)
 		if (PIM_DEBUG_TRACE)
 			zlog_debug(
 				"%s: Handling unscanned inherited_olist for %s[%s]",
-				__PRETTY_FUNCTION__, up->sg_str, pim->vrf->name);
+				__PRETTY_FUNCTION__, up->sg_str,
+				pim->vrf->name);
 		pim_upstream_inherited_olist_decide(pim, up);
 		up->channel_oil->oil_inherited_rescan = 0;
 	}
@@ -1765,8 +1768,7 @@ void pim_upstream_init(struct pim_instance *pim)
 		wheel_init(master, 31000, 100, pim_upstream_hash_key,
 			   pim_upstream_sg_running);
 
-	snprintf(hash_name, 64, "PIM %s Upstream Hash",
-		 pim->vrf->name);
+	snprintf(hash_name, 64, "PIM %s Upstream Hash", pim->vrf->name);
 	pim->upstream_hash = hash_create_size(8192, pim_upstream_hash_key,
 					      pim_upstream_equal, hash_name);
 

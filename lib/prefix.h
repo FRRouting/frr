@@ -50,9 +50,9 @@ struct ethaddr {
 
 
 /* length is the number of valuable bits of prefix structure
-* 18 bytes is current length in structure, if address is ipv4
-* 30 bytes is in case of ipv6
-*/
+ * 18 bytes is current length in structure, if address is ipv4
+ * 30 bytes is in case of ipv6
+ */
 #define PREFIX_LEN_ROUTE_TYPE_5_IPV4 (18*8)
 #define PREFIX_LEN_ROUTE_TYPE_5_IPV6 (30*8)
 
@@ -310,9 +310,9 @@ extern void prefix_ipv4_free(struct prefix_ipv4 *);
 extern int str2prefix_ipv4(const char *, struct prefix_ipv4 *);
 extern void apply_mask_ipv4(struct prefix_ipv4 *);
 
-#define PREFIX_COPY(DST, SRC)                                        \
+#define PREFIX_COPY(DST, SRC)                                                  \
 	*((struct prefix *)(DST)) = *((const struct prefix *)(SRC))
-#define PREFIX_COPY_IPV4(DST, SRC)                                   \
+#define PREFIX_COPY_IPV4(DST, SRC)                                             \
 	*((struct prefix_ipv4 *)(DST)) = *((const struct prefix_ipv4 *)(SRC));
 
 extern int prefix_ipv4_any(const struct prefix_ipv4 *);
@@ -380,15 +380,12 @@ static inline int is_default_prefix(const struct prefix *p)
 	if (!p)
 		return 0;
 
-	if ((p->family == AF_INET) &&
-	    (p->u.prefix4.s_addr == INADDR_ANY) &&
-	    (p->prefixlen == 0))
+	if ((p->family == AF_INET) && (p->u.prefix4.s_addr == INADDR_ANY)
+	    && (p->prefixlen == 0))
 		return 1;
 
-	if ((p->family == AF_INET6) &&
-	    (p->prefixlen == 0) &&
-	    (!memcmp(&p->u.prefix6, &in6addr_any,
-		     sizeof(struct in6_addr))))
+	if ((p->family == AF_INET6) && (p->prefixlen == 0)
+	    && (!memcmp(&p->u.prefix6, &in6addr_any, sizeof(struct in6_addr))))
 		return 1;
 
 	return 0;

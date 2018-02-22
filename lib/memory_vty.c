@@ -87,7 +87,6 @@ static int qmem_walker(void *arg, struct memgroup *mg, struct memtype *mt)
 	return 0;
 }
 
-
 DEFUN (show_memory,
        show_memory_cmd,
        "show memory",

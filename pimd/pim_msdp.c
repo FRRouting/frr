@@ -808,10 +808,10 @@ static void pim_msdp_peer_listen(struct pim_msdp_peer *mp)
 	}
 
 	/* this is interntionally asymmetric i.e. we set up listen-socket when
-	* the
-	* first listening peer is configured; but don't bother tearing it down
-	* when
-	* all the peers go down */
+	 * the
+	 * first listening peer is configured; but don't bother tearing it down
+	 * when
+	 * all the peers go down */
 	pim_msdp_sock_listen(mp->pim);
 }
 

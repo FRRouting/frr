@@ -99,113 +99,131 @@ static struct {
 	pvalue_t *system_caps;
 } cap_map[ZCAP_MAX] = {
 #ifdef HAVE_LCAPS /* Quagga -> Linux capabilities mappings */
-		[ZCAP_SETID] =
-			{
-				2, (pvalue_t[]){CAP_SETGID, CAP_SETUID},
+	[ZCAP_SETID] =
+		{
+			2,
+			(pvalue_t[]){CAP_SETGID, CAP_SETUID},
+		},
+	[ZCAP_BIND] =
+		{
+			1,
+			(pvalue_t[]){CAP_NET_BIND_SERVICE},
+		},
+	[ZCAP_NET_ADMIN] =
+		{
+			1,
+			(pvalue_t[]){CAP_NET_ADMIN},
+		},
+	[ZCAP_NET_RAW] =
+		{
+			1,
+			(pvalue_t[]){CAP_NET_RAW},
+		},
+	[ZCAP_CHROOT] =
+		{
+			1,
+			(pvalue_t[]){
+				CAP_SYS_CHROOT,
 			},
-		[ZCAP_BIND] =
-			{
-				1, (pvalue_t[]){CAP_NET_BIND_SERVICE},
-			},
-		[ZCAP_NET_ADMIN] =
-			{
-				1, (pvalue_t[]){CAP_NET_ADMIN},
-			},
-		[ZCAP_NET_RAW] =
-			{
-				1, (pvalue_t[]){CAP_NET_RAW},
-			},
-		[ZCAP_CHROOT] =
-			{
-				1,
-				(pvalue_t[]){
-					CAP_SYS_CHROOT,
-				},
-			},
-		[ZCAP_NICE] =
-			{
-				1, (pvalue_t[]){CAP_SYS_NICE},
-			},
-		[ZCAP_PTRACE] =
-			{
-				1, (pvalue_t[]){CAP_SYS_PTRACE},
-			},
-		[ZCAP_DAC_OVERRIDE] =
-			{
-				1, (pvalue_t[]){CAP_DAC_OVERRIDE},
-			},
-		[ZCAP_READ_SEARCH] =
-			{
-				1, (pvalue_t[]){CAP_DAC_READ_SEARCH},
-			},
-		[ZCAP_SYS_ADMIN] =
-			{
-				1, (pvalue_t[]){CAP_SYS_ADMIN},
-			},
-		[ZCAP_FOWNER] =
-			{
-				1, (pvalue_t[]){CAP_FOWNER},
-			},
+		},
+	[ZCAP_NICE] =
+		{
+			1,
+			(pvalue_t[]){CAP_SYS_NICE},
+		},
+	[ZCAP_PTRACE] =
+		{
+			1,
+			(pvalue_t[]){CAP_SYS_PTRACE},
+		},
+	[ZCAP_DAC_OVERRIDE] =
+		{
+			1,
+			(pvalue_t[]){CAP_DAC_OVERRIDE},
+		},
+	[ZCAP_READ_SEARCH] =
+		{
+			1,
+			(pvalue_t[]){CAP_DAC_READ_SEARCH},
+		},
+	[ZCAP_SYS_ADMIN] =
+		{
+			1,
+			(pvalue_t[]){CAP_SYS_ADMIN},
+		},
+	[ZCAP_FOWNER] =
+		{
+			1,
+			(pvalue_t[]){CAP_FOWNER},
+		},
 #elif defined(HAVE_SOLARIS_CAPABILITIES) /* HAVE_LCAPS */
-		/* Quagga -> Solaris privilege mappings */
-		[ZCAP_SETID] =
-			{
-				1, (pvalue_t[]){PRIV_PROC_SETID},
-			},
-		[ZCAP_BIND] =
-			{
-				1, (pvalue_t[]){PRIV_NET_PRIVADDR},
-			},
+	/* Quagga -> Solaris privilege mappings */
+	[ZCAP_SETID] =
+		{
+			1,
+			(pvalue_t[]){PRIV_PROC_SETID},
+		},
+	[ZCAP_BIND] =
+		{
+			1,
+			(pvalue_t[]){PRIV_NET_PRIVADDR},
+		},
 /* IP_CONFIG is a subset of NET_CONFIG and is allowed in zones */
 #ifdef PRIV_SYS_IP_CONFIG
-		[ZCAP_NET_ADMIN] =
-			{
-				1, (pvalue_t[]){PRIV_SYS_IP_CONFIG},
-			},
+	[ZCAP_NET_ADMIN] =
+		{
+			1,
+			(pvalue_t[]){PRIV_SYS_IP_CONFIG},
+		},
 #else
-		[ZCAP_NET_ADMIN] =
-			{
-				1, (pvalue_t[]){PRIV_SYS_NET_CONFIG},
-			},
+	[ZCAP_NET_ADMIN] =
+		{
+			1,
+			(pvalue_t[]){PRIV_SYS_NET_CONFIG},
+		},
 #endif
-		[ZCAP_NET_RAW] =
-			{
-				2, (pvalue_t[]){PRIV_NET_RAWACCESS,
-						PRIV_NET_ICMPACCESS},
-			},
-		[ZCAP_CHROOT] =
-			{
-				1, (pvalue_t[]){PRIV_PROC_CHROOT},
-			},
-		[ZCAP_NICE] =
-			{
-				1, (pvalue_t[]){PRIV_PROC_PRIOCNTL},
-			},
-		[ZCAP_PTRACE] =
-			{
-				1, (pvalue_t[]){PRIV_PROC_SESSION},
-			},
-		[ZCAP_DAC_OVERRIDE] =
-			{
-				5, (pvalue_t[]){PRIV_FILE_DAC_EXECUTE,
-						PRIV_FILE_DAC_READ,
-						PRIV_FILE_DAC_SEARCH,
-						PRIV_FILE_DAC_WRITE,
-						PRIV_FILE_DAC_SEARCH},
-			},
-		[ZCAP_READ_SEARCH] =
-			{
-				2, (pvalue_t[]){PRIV_FILE_DAC_SEARCH,
-						PRIV_FILE_DAC_READ},
-			},
-		[ZCAP_SYS_ADMIN] =
-			{
-				1, (pvalue_t[]){PRIV_SYS_ADMIN},
-			},
-		[ZCAP_FOWNER] =
-			{
-				1, (pvalue_t[]){PRIV_FILE_OWNER},
-			},
+	[ZCAP_NET_RAW] =
+		{
+			2,
+			(pvalue_t[]){PRIV_NET_RAWACCESS, PRIV_NET_ICMPACCESS},
+		},
+	[ZCAP_CHROOT] =
+		{
+			1,
+			(pvalue_t[]){PRIV_PROC_CHROOT},
+		},
+	[ZCAP_NICE] =
+		{
+			1,
+			(pvalue_t[]){PRIV_PROC_PRIOCNTL},
+		},
+	[ZCAP_PTRACE] =
+		{
+			1,
+			(pvalue_t[]){PRIV_PROC_SESSION},
+		},
+	[ZCAP_DAC_OVERRIDE] =
+		{
+			5,
+			(pvalue_t[]){PRIV_FILE_DAC_EXECUTE, PRIV_FILE_DAC_READ,
+				     PRIV_FILE_DAC_SEARCH, PRIV_FILE_DAC_WRITE,
+				     PRIV_FILE_DAC_SEARCH},
+		},
+	[ZCAP_READ_SEARCH] =
+		{
+			2,
+			(pvalue_t[]){PRIV_FILE_DAC_SEARCH, PRIV_FILE_DAC_READ},
+		},
+	[ZCAP_SYS_ADMIN] =
+		{
+			1,
+			(pvalue_t[]){PRIV_SYS_ADMIN},
+		},
+	[ZCAP_FOWNER] =
+		{
+			1,
+			(pvalue_t[]){PRIV_FILE_OWNER},
+		},
 #endif /* HAVE_SOLARIS_CAPABILITIES */
 };
 
@@ -776,7 +794,7 @@ void zprivs_init(struct zebra_privs_t *zprivs)
 
 	if (zprivs->vty_group)
 	/* Add the vty_group to the supplementary groups so it can be chowned to
-	   */
+	 */
 	{
 		if (zprivs_state.vtygrp == (gid_t)-1) {
 			fprintf(stderr,

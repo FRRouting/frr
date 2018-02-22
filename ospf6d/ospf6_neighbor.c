@@ -190,8 +190,8 @@ static void ospf6_neighbor_state_change(u_char next_state,
 		}
 		OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(on->ospf6_if->area);
 
-		if (prev_state == OSPF6_NEIGHBOR_LOADING &&
-		    next_state == OSPF6_NEIGHBOR_FULL) {
+		if (prev_state == OSPF6_NEIGHBOR_LOADING
+		    && next_state == OSPF6_NEIGHBOR_FULL) {
 			OSPF6_AS_EXTERN_LSA_SCHEDULE(on->ospf6_if);
 			on->ospf6_if->area->full_nbrs++;
 		}
@@ -806,7 +806,6 @@ DEFUN (show_ipv6_ospf6_neighbor,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (show_ipv6_ospf6_neighbor_one,
        show_ipv6_ospf6_neighbor_one_cmd,
        "show ipv6 ospf6 neighbor A.B.C.D",
@@ -872,7 +871,6 @@ DEFUN (debug_ospf6_neighbor,
 	return CMD_SUCCESS;
 }
 
-
 DEFUN (no_debug_ospf6_neighbor,
        no_debug_ospf6_neighbor_cmd,
        "no debug ospf6 neighbor [<state|event>]",
@@ -897,7 +895,6 @@ DEFUN (no_debug_ospf6_neighbor,
 	OSPF6_DEBUG_NEIGHBOR_OFF(level);
 	return CMD_SUCCESS;
 }
-
 
 DEFUN (no_debug_ospf6,
        no_debug_ospf6_cmd,

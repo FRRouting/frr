@@ -170,9 +170,8 @@ static route_map_result_t route_match_ip_next_hop(void *rule,
 	if (type == RMAP_RIP) {
 		rinfo = object;
 		p.family = AF_INET;
-		p.prefix =
-			(rinfo->nh.gate.ipv4.s_addr) ?
-			rinfo->nh.gate.ipv4 : rinfo->from;
+		p.prefix = (rinfo->nh.gate.ipv4.s_addr) ? rinfo->nh.gate.ipv4
+							: rinfo->from;
 		p.prefixlen = IPV4_MAX_BITLEN;
 
 		alist = access_list_lookup(AFI_IP, (char *)rule);
@@ -217,9 +216,8 @@ route_match_ip_next_hop_prefix_list(void *rule, struct prefix *prefix,
 	if (type == RMAP_RIP) {
 		rinfo = object;
 		p.family = AF_INET;
-		p.prefix =
-			(rinfo->nh.gate.ipv4.s_addr) ?
-			rinfo->nh.gate.ipv4 : rinfo->from;
+		p.prefix = (rinfo->nh.gate.ipv4.s_addr) ? rinfo->nh.gate.ipv4
+							: rinfo->from;
 		p.prefixlen = IPV4_MAX_BITLEN;
 
 		plist = prefix_list_lookup(AFI_IP, (char *)rule);
@@ -349,7 +347,9 @@ static route_map_result_t route_match_tag(void *rule, struct prefix *prefix,
 
 /* Route map commands for tag matching. */
 static struct route_map_rule_cmd route_match_tag_cmd = {
-	"tag", route_match_tag, route_map_rule_tag_compile,
+	"tag",
+	route_match_tag,
+	route_map_rule_tag_compile,
 	route_map_rule_tag_free,
 };
 
@@ -427,8 +427,9 @@ static void *route_set_metric_compile(const char *arg)
 		return mod;
 	}
 	if (metric > RIP_METRIC_INFINITY) {
-		zlog_info("%s: Metric specified: %ld is greater than RIP_METRIC_INFINITY, using INFINITY instead",
-			   __PRETTY_FUNCTION__, metric);
+		zlog_info(
+			"%s: Metric specified: %ld is greater than RIP_METRIC_INFINITY, using INFINITY instead",
+			__PRETTY_FUNCTION__, metric);
 		mod->metric = RIP_METRIC_INFINITY;
 	} else
 		mod->metric = metric;
@@ -446,7 +447,9 @@ static void route_set_metric_free(void *rule)
 
 /* Set metric rule structure. */
 static struct route_map_rule_cmd route_set_metric_cmd = {
-	"metric", route_set_metric, route_set_metric_compile,
+	"metric",
+	route_set_metric,
+	route_set_metric_compile,
 	route_set_metric_free,
 };
 

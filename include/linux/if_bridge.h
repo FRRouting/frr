@@ -114,12 +114,11 @@ struct __fdb_entry {
  *     [IFLA_BRIDGE_VLAN_INFO]
  * }
  */
-enum {
-	IFLA_BRIDGE_FLAGS,
-	IFLA_BRIDGE_MODE,
-	IFLA_BRIDGE_VLAN_INFO,
-	IFLA_BRIDGE_VLAN_TUNNEL_INFO,
-	__IFLA_BRIDGE_MAX,
+enum { IFLA_BRIDGE_FLAGS,
+       IFLA_BRIDGE_MODE,
+       IFLA_BRIDGE_VLAN_INFO,
+       IFLA_BRIDGE_VLAN_TUNNEL_INFO,
+       __IFLA_BRIDGE_MAX,
 };
 #define IFLA_BRIDGE_MAX (__IFLA_BRIDGE_MAX - 1)
 
@@ -135,12 +134,11 @@ struct bridge_vlan_info {
 	__u16 vid;
 };
 
-enum {
-	IFLA_BRIDGE_VLAN_TUNNEL_UNSPEC,
-	IFLA_BRIDGE_VLAN_TUNNEL_ID,
-	IFLA_BRIDGE_VLAN_TUNNEL_VID,
-	IFLA_BRIDGE_VLAN_TUNNEL_FLAGS,
-	__IFLA_BRIDGE_VLAN_TUNNEL_MAX,
+enum { IFLA_BRIDGE_VLAN_TUNNEL_UNSPEC,
+       IFLA_BRIDGE_VLAN_TUNNEL_ID,
+       IFLA_BRIDGE_VLAN_TUNNEL_VID,
+       IFLA_BRIDGE_VLAN_TUNNEL_FLAGS,
+       __IFLA_BRIDGE_VLAN_TUNNEL_MAX,
 };
 
 #define IFLA_BRIDGE_VLAN_TUNNEL_MAX (__IFLA_BRIDGE_VLAN_TUNNEL_MAX - 1)
@@ -171,62 +169,50 @@ struct bridge_vlan_xstats {
  *    }
  * }
  */
-enum {
-	MDBA_UNSPEC,
-	MDBA_MDB,
-	MDBA_ROUTER,
-	__MDBA_MAX,
+enum { MDBA_UNSPEC,
+       MDBA_MDB,
+       MDBA_ROUTER,
+       __MDBA_MAX,
 };
 #define MDBA_MAX (__MDBA_MAX - 1)
 
-enum {
-	MDBA_MDB_UNSPEC,
-	MDBA_MDB_ENTRY,
-	__MDBA_MDB_MAX,
+enum { MDBA_MDB_UNSPEC,
+       MDBA_MDB_ENTRY,
+       __MDBA_MDB_MAX,
 };
 #define MDBA_MDB_MAX (__MDBA_MDB_MAX - 1)
 
-enum {
-	MDBA_MDB_ENTRY_UNSPEC,
-	MDBA_MDB_ENTRY_INFO,
-	__MDBA_MDB_ENTRY_MAX,
+enum { MDBA_MDB_ENTRY_UNSPEC,
+       MDBA_MDB_ENTRY_INFO,
+       __MDBA_MDB_ENTRY_MAX,
 };
 #define MDBA_MDB_ENTRY_MAX (__MDBA_MDB_ENTRY_MAX - 1)
 
 /* per mdb entry additional attributes */
-enum {
-	MDBA_MDB_EATTR_UNSPEC,
-	MDBA_MDB_EATTR_TIMER,
-	__MDBA_MDB_EATTR_MAX
-};
+enum { MDBA_MDB_EATTR_UNSPEC, MDBA_MDB_EATTR_TIMER, __MDBA_MDB_EATTR_MAX };
 #define MDBA_MDB_EATTR_MAX (__MDBA_MDB_EATTR_MAX - 1)
 
 /* multicast router types */
-enum {
-	MDB_RTR_TYPE_DISABLED,
-	MDB_RTR_TYPE_TEMP_QUERY,
-	MDB_RTR_TYPE_PERM,
-	MDB_RTR_TYPE_TEMP
-};
+enum { MDB_RTR_TYPE_DISABLED,
+       MDB_RTR_TYPE_TEMP_QUERY,
+       MDB_RTR_TYPE_PERM,
+       MDB_RTR_TYPE_TEMP };
 
-enum {
-	MDBA_ROUTER_UNSPEC,
-	MDBA_ROUTER_PORT,
-	__MDBA_ROUTER_MAX,
+enum { MDBA_ROUTER_UNSPEC,
+       MDBA_ROUTER_PORT,
+       __MDBA_ROUTER_MAX,
 };
 #define MDBA_ROUTER_MAX (__MDBA_ROUTER_MAX - 1)
 
 /* router port attributes */
-enum {
-	MDBA_ROUTER_PATTR_UNSPEC,
-	MDBA_ROUTER_PATTR_TIMER,
-	MDBA_ROUTER_PATTR_TYPE,
-	__MDBA_ROUTER_PATTR_MAX
-};
+enum { MDBA_ROUTER_PATTR_UNSPEC,
+       MDBA_ROUTER_PATTR_TIMER,
+       MDBA_ROUTER_PATTR_TYPE,
+       __MDBA_ROUTER_PATTR_MAX };
 #define MDBA_ROUTER_PATTR_MAX (__MDBA_ROUTER_PATTR_MAX - 1)
 
 struct br_port_msg {
-	__u8  family;
+	__u8 family;
 	__u32 ifindex;
 };
 
@@ -240,35 +226,28 @@ struct br_mdb_entry {
 	__u16 vid;
 	struct {
 		union {
-			__be32	ip4;
+			__be32 ip4;
 			struct in6_addr ip6;
 		} u;
-		__be16		proto;
+		__be16 proto;
 	} addr;
 };
 
-enum {
-	MDBA_SET_ENTRY_UNSPEC,
-	MDBA_SET_ENTRY,
-	__MDBA_SET_ENTRY_MAX,
+enum { MDBA_SET_ENTRY_UNSPEC,
+       MDBA_SET_ENTRY,
+       __MDBA_SET_ENTRY_MAX,
 };
 #define MDBA_SET_ENTRY_MAX (__MDBA_SET_ENTRY_MAX - 1)
 
 /* Embedded inside LINK_XSTATS_TYPE_BRIDGE */
-enum {
-	BRIDGE_XSTATS_UNSPEC,
-	BRIDGE_XSTATS_VLAN,
-	BRIDGE_XSTATS_MCAST,
-	BRIDGE_XSTATS_PAD,
-	__BRIDGE_XSTATS_MAX
-};
+enum { BRIDGE_XSTATS_UNSPEC,
+       BRIDGE_XSTATS_VLAN,
+       BRIDGE_XSTATS_MCAST,
+       BRIDGE_XSTATS_PAD,
+       __BRIDGE_XSTATS_MAX };
 #define BRIDGE_XSTATS_MAX (__BRIDGE_XSTATS_MAX - 1)
 
-enum {
-	BR_MCAST_DIR_RX,
-	BR_MCAST_DIR_TX,
-	BR_MCAST_DIR_SIZE
-};
+enum { BR_MCAST_DIR_RX, BR_MCAST_DIR_TX, BR_MCAST_DIR_SIZE };
 
 /* IGMP/MLD statistics */
 struct br_mcast_stats {

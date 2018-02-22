@@ -158,8 +158,9 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 		if (ret) {
 			zlog_err(
 				"%s: Can't set TxTTL on peer (rtrid %s) socket, err = %d",
-				__func__, inet_ntop(AF_INET, &peer->remote_id,
-						    buf, sizeof(buf)),
+				__func__,
+				inet_ntop(AF_INET, &peer->remote_id, buf,
+					  sizeof(buf)),
 				errno);
 			return ret;
 		}
@@ -172,8 +173,9 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 		if (ret) {
 			zlog_err(
 				"%s: Can't set TxTTL on peer (rtrid %s) socket, err = %d",
-				__func__, inet_ntop(AF_INET, &peer->remote_id,
-						    buf, sizeof(buf)),
+				__func__,
+				inet_ntop(AF_INET, &peer->remote_id, buf,
+					  sizeof(buf)),
 				errno);
 			return ret;
 		}
@@ -182,8 +184,9 @@ int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 		if (ret) {
 			zlog_err(
 				"%s: Can't set MinTTL on peer (rtrid %s) socket, err = %d",
-				__func__, inet_ntop(AF_INET, &peer->remote_id,
-						    buf, sizeof(buf)),
+				__func__,
+				inet_ntop(AF_INET, &peer->remote_id, buf,
+					  sizeof(buf)),
 				errno);
 			return ret;
 		}
@@ -742,8 +745,9 @@ int bgp_socket(unsigned short port, const char *address)
 	}
 	freeaddrinfo(ainfo_save);
 	if (count == 0) {
-		zlog_err("%s: no usable addresses please check other programs usage of specified port %d",
-			 __func__, port);
+		zlog_err(
+			"%s: no usable addresses please check other programs usage of specified port %d",
+			__func__, port);
 		zlog_err("%s: Program cannot continue", __func__);
 		exit(-1);
 	}

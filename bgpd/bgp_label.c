@@ -287,7 +287,7 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 				 * an error SHOULD
 				 * be logged locally, and the prefix SHOULD be
 				 * ignored.
-				  */
+				 */
 				zlog_err(
 					"%s: IPv4 labeled-unicast NLRI is multicast address %s, ignoring",
 					peer->host, inet_ntoa(p.u.prefix4));

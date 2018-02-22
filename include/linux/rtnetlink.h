@@ -20,136 +20,135 @@
 
 /* Types of messages */
 
-enum {
-	RTM_BASE	= 16,
+enum { RTM_BASE = 16,
 #define RTM_BASE	RTM_BASE
 
-	RTM_NEWLINK	= 16,
+       RTM_NEWLINK = 16,
 #define RTM_NEWLINK	RTM_NEWLINK
-	RTM_DELLINK,
+       RTM_DELLINK,
 #define RTM_DELLINK	RTM_DELLINK
-	RTM_GETLINK,
+       RTM_GETLINK,
 #define RTM_GETLINK	RTM_GETLINK
-	RTM_SETLINK,
+       RTM_SETLINK,
 #define RTM_SETLINK	RTM_SETLINK
 
-	RTM_NEWADDR	= 20,
+       RTM_NEWADDR = 20,
 #define RTM_NEWADDR	RTM_NEWADDR
-	RTM_DELADDR,
+       RTM_DELADDR,
 #define RTM_DELADDR	RTM_DELADDR
-	RTM_GETADDR,
+       RTM_GETADDR,
 #define RTM_GETADDR	RTM_GETADDR
 
-	RTM_NEWROUTE	= 24,
+       RTM_NEWROUTE = 24,
 #define RTM_NEWROUTE	RTM_NEWROUTE
-	RTM_DELROUTE,
+       RTM_DELROUTE,
 #define RTM_DELROUTE	RTM_DELROUTE
-	RTM_GETROUTE,
+       RTM_GETROUTE,
 #define RTM_GETROUTE	RTM_GETROUTE
 
-	RTM_NEWNEIGH	= 28,
+       RTM_NEWNEIGH = 28,
 #define RTM_NEWNEIGH	RTM_NEWNEIGH
-	RTM_DELNEIGH,
+       RTM_DELNEIGH,
 #define RTM_DELNEIGH	RTM_DELNEIGH
-	RTM_GETNEIGH,
+       RTM_GETNEIGH,
 #define RTM_GETNEIGH	RTM_GETNEIGH
 
-	RTM_NEWRULE	= 32,
+       RTM_NEWRULE = 32,
 #define RTM_NEWRULE	RTM_NEWRULE
-	RTM_DELRULE,
+       RTM_DELRULE,
 #define RTM_DELRULE	RTM_DELRULE
-	RTM_GETRULE,
+       RTM_GETRULE,
 #define RTM_GETRULE	RTM_GETRULE
 
-	RTM_NEWQDISC	= 36,
+       RTM_NEWQDISC = 36,
 #define RTM_NEWQDISC	RTM_NEWQDISC
-	RTM_DELQDISC,
+       RTM_DELQDISC,
 #define RTM_DELQDISC	RTM_DELQDISC
-	RTM_GETQDISC,
+       RTM_GETQDISC,
 #define RTM_GETQDISC	RTM_GETQDISC
 
-	RTM_NEWTCLASS	= 40,
+       RTM_NEWTCLASS = 40,
 #define RTM_NEWTCLASS	RTM_NEWTCLASS
-	RTM_DELTCLASS,
+       RTM_DELTCLASS,
 #define RTM_DELTCLASS	RTM_DELTCLASS
-	RTM_GETTCLASS,
+       RTM_GETTCLASS,
 #define RTM_GETTCLASS	RTM_GETTCLASS
 
-	RTM_NEWTFILTER	= 44,
+       RTM_NEWTFILTER = 44,
 #define RTM_NEWTFILTER	RTM_NEWTFILTER
-	RTM_DELTFILTER,
+       RTM_DELTFILTER,
 #define RTM_DELTFILTER	RTM_DELTFILTER
-	RTM_GETTFILTER,
+       RTM_GETTFILTER,
 #define RTM_GETTFILTER	RTM_GETTFILTER
 
-	RTM_NEWACTION	= 48,
+       RTM_NEWACTION = 48,
 #define RTM_NEWACTION   RTM_NEWACTION
-	RTM_DELACTION,
+       RTM_DELACTION,
 #define RTM_DELACTION   RTM_DELACTION
-	RTM_GETACTION,
+       RTM_GETACTION,
 #define RTM_GETACTION   RTM_GETACTION
 
-	RTM_NEWPREFIX	= 52,
+       RTM_NEWPREFIX = 52,
 #define RTM_NEWPREFIX	RTM_NEWPREFIX
 
-	RTM_GETMULTICAST = 58,
+       RTM_GETMULTICAST = 58,
 #define RTM_GETMULTICAST RTM_GETMULTICAST
 
-	RTM_GETANYCAST	= 62,
+       RTM_GETANYCAST = 62,
 #define RTM_GETANYCAST	RTM_GETANYCAST
 
-	RTM_NEWNEIGHTBL	= 64,
+       RTM_NEWNEIGHTBL = 64,
 #define RTM_NEWNEIGHTBL	RTM_NEWNEIGHTBL
-	RTM_GETNEIGHTBL	= 66,
+       RTM_GETNEIGHTBL = 66,
 #define RTM_GETNEIGHTBL	RTM_GETNEIGHTBL
-	RTM_SETNEIGHTBL,
+       RTM_SETNEIGHTBL,
 #define RTM_SETNEIGHTBL	RTM_SETNEIGHTBL
 
-	RTM_NEWNDUSEROPT = 68,
+       RTM_NEWNDUSEROPT = 68,
 #define RTM_NEWNDUSEROPT RTM_NEWNDUSEROPT
 
-	RTM_NEWADDRLABEL = 72,
+       RTM_NEWADDRLABEL = 72,
 #define RTM_NEWADDRLABEL RTM_NEWADDRLABEL
-	RTM_DELADDRLABEL,
+       RTM_DELADDRLABEL,
 #define RTM_DELADDRLABEL RTM_DELADDRLABEL
-	RTM_GETADDRLABEL,
+       RTM_GETADDRLABEL,
 #define RTM_GETADDRLABEL RTM_GETADDRLABEL
 
-	RTM_GETDCB = 78,
+       RTM_GETDCB = 78,
 #define RTM_GETDCB RTM_GETDCB
-	RTM_SETDCB,
+       RTM_SETDCB,
 #define RTM_SETDCB RTM_SETDCB
 
-	RTM_NEWNETCONF = 80,
+       RTM_NEWNETCONF = 80,
 #define RTM_NEWNETCONF RTM_NEWNETCONF
-	RTM_DELNETCONF,
+       RTM_DELNETCONF,
 #define RTM_DELNETCONF RTM_DELNETCONF
-	RTM_GETNETCONF = 82,
+       RTM_GETNETCONF = 82,
 #define RTM_GETNETCONF RTM_GETNETCONF
 
-	RTM_NEWMDB = 84,
+       RTM_NEWMDB = 84,
 #define RTM_NEWMDB RTM_NEWMDB
-	RTM_DELMDB = 85,
+       RTM_DELMDB = 85,
 #define RTM_DELMDB RTM_DELMDB
-	RTM_GETMDB = 86,
+       RTM_GETMDB = 86,
 #define RTM_GETMDB RTM_GETMDB
 
-	RTM_NEWNSID = 88,
+       RTM_NEWNSID = 88,
 #define RTM_NEWNSID RTM_NEWNSID
-	RTM_DELNSID = 89,
+       RTM_DELNSID = 89,
 #define RTM_DELNSID RTM_DELNSID
-	RTM_GETNSID = 90,
+       RTM_GETNSID = 90,
 #define RTM_GETNSID RTM_GETNSID
 
-	RTM_NEWSTATS = 92,
+       RTM_NEWSTATS = 92,
 #define RTM_NEWSTATS RTM_NEWSTATS
-	RTM_GETSTATS = 94,
+       RTM_GETSTATS = 94,
 #define RTM_GETSTATS RTM_GETSTATS
 
-	RTM_NEWCACHEREPORT = 96,
+       RTM_NEWCACHEREPORT = 96,
 #define RTM_NEWCACHEREPORT RTM_NEWCACHEREPORT
 
-	__RTM_MAX,
+       __RTM_MAX,
 #define RTM_MAX		(((__RTM_MAX + 3) & ~3) - 1)
 };
 
@@ -157,31 +156,32 @@ enum {
 #define RTM_NR_FAMILIES	(RTM_NR_MSGTYPES >> 2)
 #define RTM_FAM(cmd)	(((cmd) - RTM_BASE) >> 2)
 
-/* 
+/*
    Generic structure for encapsulation of optional route information.
    It is reminiscent of sockaddr, but with sa_family replaced
    with attribute type.
  */
 
 struct rtattr {
-	unsigned short	rta_len;
-	unsigned short	rta_type;
+	unsigned short rta_len;
+	unsigned short rta_type;
 };
 
 /* Macros to handle rtattributes */
 
 #define RTA_ALIGNTO	4U
 #define RTA_ALIGN(len) ( ((len)+RTA_ALIGNTO-1) & ~(RTA_ALIGNTO-1) )
-#define RTA_OK(rta,len) ((len) >= (int)sizeof(struct rtattr) && \
-			 (rta)->rta_len >= sizeof(struct rtattr) && \
-			 (rta)->rta_len <= (len))
-#define RTA_NEXT(rta,attrlen)	((attrlen) -= RTA_ALIGN((rta)->rta_len), \
-				 (struct rtattr*)(((char*)(rta)) + RTA_ALIGN((rta)->rta_len)))
+#define RTA_OK(rta, len)                                                       \
+	((len) >= (int)sizeof(struct rtattr)                                   \
+	 && (rta)->rta_len >= sizeof(struct rtattr)                            \
+	 && (rta)->rta_len <= (len))
+#define RTA_NEXT(rta, attrlen)                                                 \
+	((attrlen) -= RTA_ALIGN((rta)->rta_len),                               \
+	 (struct rtattr *)(((char *)(rta)) + RTA_ALIGN((rta)->rta_len)))
 #define RTA_LENGTH(len)	(RTA_ALIGN(sizeof(struct rtattr)) + (len))
 #define RTA_SPACE(len)	RTA_ALIGN(RTA_LENGTH(len))
 #define RTA_DATA(rta)   ((void*)(((char*)(rta)) + RTA_LENGTH(0)))
 #define RTA_PAYLOAD(rta) ((int)((rta)->rta_len) - RTA_LENGTH(0))
-
 
 
 
@@ -190,38 +190,36 @@ struct rtattr {
  ****/
 
 struct rtmsg {
-	unsigned char		rtm_family;
-	unsigned char		rtm_dst_len;
-	unsigned char		rtm_src_len;
-	unsigned char		rtm_tos;
+	unsigned char rtm_family;
+	unsigned char rtm_dst_len;
+	unsigned char rtm_src_len;
+	unsigned char rtm_tos;
 
-	unsigned char		rtm_table;	/* Routing table id */
-	unsigned char		rtm_protocol;	/* Routing protocol; see below	*/
-	unsigned char		rtm_scope;	/* See below */	
-	unsigned char		rtm_type;	/* See below	*/
+	unsigned char rtm_table;    /* Routing table id */
+	unsigned char rtm_protocol; /* Routing protocol; see below	*/
+	unsigned char rtm_scope;    /* See below */
+	unsigned char rtm_type;     /* See below	*/
 
-	unsigned		rtm_flags;
+	unsigned rtm_flags;
 };
 
 /* rtm_type */
 
-enum {
-	RTN_UNSPEC,
-	RTN_UNICAST,		/* Gateway or direct route	*/
-	RTN_LOCAL,		/* Accept locally		*/
-	RTN_BROADCAST,		/* Accept locally as broadcast,
-				   send as broadcast */
-	RTN_ANYCAST,		/* Accept locally as broadcast,
-				   but send as unicast */
-	RTN_MULTICAST,		/* Multicast route		*/
-	RTN_BLACKHOLE,		/* Drop				*/
-	RTN_UNREACHABLE,	/* Destination is unreachable   */
-	RTN_PROHIBIT,		/* Administratively prohibited	*/
-	RTN_THROW,		/* Not in this table		*/
-	RTN_NAT,		/* Translate this address	*/
-	RTN_XRESOLVE,		/* Use external resolver	*/
-	__RTN_MAX
-};
+enum { RTN_UNSPEC,
+       RTN_UNICAST,     /* Gateway or direct route	*/
+       RTN_LOCAL,       /* Accept locally		*/
+       RTN_BROADCAST,   /* Accept locally as broadcast,
+			   send as broadcast */
+       RTN_ANYCAST,     /* Accept locally as broadcast,
+			   but send as unicast */
+       RTN_MULTICAST,   /* Multicast route		*/
+       RTN_BLACKHOLE,   /* Drop				*/
+       RTN_UNREACHABLE, /* Destination is unreachable   */
+       RTN_PROHIBIT,    /* Administratively prohibited	*/
+       RTN_THROW,       /* Not in this table		*/
+       RTN_NAT,		/* Translate this address	*/
+       RTN_XRESOLVE,    /* Use external resolver	*/
+       __RTN_MAX };
 
 #define RTN_MAX (__RTN_MAX - 1)
 
@@ -230,7 +228,7 @@ enum {
 
 #define RTPROT_UNSPEC	0
 #define RTPROT_REDIRECT	1	/* Route installed by ICMP redirects;
-				   not used by current IPv4 */
+not used by current IPv4 * /
 #define RTPROT_KERNEL	2	/* Route installed by kernel		*/
 #define RTPROT_BOOT	3	/* Route installed during boot		*/
 #define RTPROT_STATIC	4	/* Route installed by administrator	*/
@@ -254,25 +252,25 @@ enum {
 #define RTPROT_MROUTED	17      /* Multicast daemon */
 #define RTPROT_BABEL	42      /* Babel daemon */
 
-/* rtm_scope
+	/* rtm_scope
 
-   Really it is not scope, but sort of distance to the destination.
-   NOWHERE are reserved for not existing destinations, HOST is our
-   local addresses, LINK are destinations, located on directly attached
-   link and UNIVERSE is everywhere in the Universe.
+	   Really it is not scope, but sort of distance to the destination.
+	   NOWHERE are reserved for not existing destinations, HOST is our
+	   local addresses, LINK are destinations, located on directly attached
+	   link and UNIVERSE is everywhere in the Universe.
 
-   Intermediate values are also possible f.e. interior routes
-   could be assigned a value between UNIVERSE and LINK.
-*/
+	   Intermediate values are also possible f.e. interior routes
+	   could be assigned a value between UNIVERSE and LINK.
+	*/
 
-enum rt_scope_t {
-	RT_SCOPE_UNIVERSE=0,
-/* User defined values  */
-	RT_SCOPE_SITE=200,
-	RT_SCOPE_LINK=253,
-	RT_SCOPE_HOST=254,
-	RT_SCOPE_NOWHERE=255
-};
+	enum rt_scope_t {
+		RT_SCOPE_UNIVERSE = 0,
+		/* User defined values  */
+		RT_SCOPE_SITE = 200,
+		RT_SCOPE_LINK = 253,
+		RT_SCOPE_HOST = 254,
+		RT_SCOPE_NOWHERE = 255
+	};
 
 /* rtm_flags */
 
@@ -286,13 +284,13 @@ enum rt_scope_t {
 /* Reserved table identifiers */
 
 enum rt_class_t {
-	RT_TABLE_UNSPEC=0,
-/* User defined values */
-	RT_TABLE_COMPAT=252,
-	RT_TABLE_DEFAULT=253,
-	RT_TABLE_MAIN=254,
-	RT_TABLE_LOCAL=255,
-	RT_TABLE_MAX=0xFFFFFFFF
+	RT_TABLE_UNSPEC = 0,
+	/* User defined values */
+	RT_TABLE_COMPAT = 252,
+	RT_TABLE_DEFAULT = 253,
+	RT_TABLE_MAIN = 254,
+	RT_TABLE_LOCAL = 255,
+	RT_TABLE_MAX = 0xFFFFFFFF
 };
 
 
@@ -344,10 +342,10 @@ enum rtattr_type_t {
  */
 
 struct rtnexthop {
-	unsigned short		rtnh_len;
-	unsigned char		rtnh_flags;
-	unsigned char		rtnh_hops;
-	int			rtnh_ifindex;
+	unsigned short rtnh_len;
+	unsigned char rtnh_flags;
+	unsigned char rtnh_hops;
+	int rtnh_ifindex;
 };
 
 /* rtnh_flags */
@@ -365,8 +363,9 @@ struct rtnexthop {
 
 #define RTNH_ALIGNTO	4
 #define RTNH_ALIGN(len) ( ((len)+RTNH_ALIGNTO-1) & ~(RTNH_ALIGNTO-1) )
-#define RTNH_OK(rtnh,len) ((rtnh)->rtnh_len >= sizeof(struct rtnexthop) && \
-			   ((int)(rtnh)->rtnh_len) <= (len))
+#define RTNH_OK(rtnh, len)                                                     \
+	((rtnh)->rtnh_len >= sizeof(struct rtnexthop)                          \
+	 && ((int)(rtnh)->rtnh_len) <= (len))
 #define RTNH_NEXT(rtnh)	((struct rtnexthop*)(((char*)(rtnh)) + RTNH_ALIGN((rtnh)->rtnh_len)))
 #define RTNH_LENGTH(len) (RTNH_ALIGN(sizeof(struct rtnexthop)) + (len))
 #define RTNH_SPACE(len)	RTNH_ALIGN(RTNH_LENGTH(len))
@@ -374,64 +373,62 @@ struct rtnexthop {
 
 /* RTA_VIA */
 struct rtvia {
-	__kernel_sa_family_t	rtvia_family;
-	__u8			rtvia_addr[0];
+	__kernel_sa_family_t rtvia_family;
+	__u8 rtvia_addr[0];
 };
 
 /* RTM_CACHEINFO */
 
 struct rta_cacheinfo {
-	__u32	rta_clntref;
-	__u32	rta_lastuse;
-	__s32	rta_expires;
-	__u32	rta_error;
-	__u32	rta_used;
+	__u32 rta_clntref;
+	__u32 rta_lastuse;
+	__s32 rta_expires;
+	__u32 rta_error;
+	__u32 rta_used;
 
 #define RTNETLINK_HAVE_PEERINFO 1
-	__u32	rta_id;
-	__u32	rta_ts;
-	__u32	rta_tsage;
+	__u32 rta_id;
+	__u32 rta_ts;
+	__u32 rta_tsage;
 };
 
 /* RTM_METRICS --- array of struct rtattr with types of RTAX_* */
 
-enum {
-	RTAX_UNSPEC,
+enum { RTAX_UNSPEC,
 #define RTAX_UNSPEC RTAX_UNSPEC
-	RTAX_LOCK,
+       RTAX_LOCK,
 #define RTAX_LOCK RTAX_LOCK
-	RTAX_MTU,
+       RTAX_MTU,
 #define RTAX_MTU RTAX_MTU
-	RTAX_WINDOW,
+       RTAX_WINDOW,
 #define RTAX_WINDOW RTAX_WINDOW
-	RTAX_RTT,
+       RTAX_RTT,
 #define RTAX_RTT RTAX_RTT
-	RTAX_RTTVAR,
+       RTAX_RTTVAR,
 #define RTAX_RTTVAR RTAX_RTTVAR
-	RTAX_SSTHRESH,
+       RTAX_SSTHRESH,
 #define RTAX_SSTHRESH RTAX_SSTHRESH
-	RTAX_CWND,
+       RTAX_CWND,
 #define RTAX_CWND RTAX_CWND
-	RTAX_ADVMSS,
+       RTAX_ADVMSS,
 #define RTAX_ADVMSS RTAX_ADVMSS
-	RTAX_REORDERING,
+       RTAX_REORDERING,
 #define RTAX_REORDERING RTAX_REORDERING
-	RTAX_HOPLIMIT,
+       RTAX_HOPLIMIT,
 #define RTAX_HOPLIMIT RTAX_HOPLIMIT
-	RTAX_INITCWND,
+       RTAX_INITCWND,
 #define RTAX_INITCWND RTAX_INITCWND
-	RTAX_FEATURES,
+       RTAX_FEATURES,
 #define RTAX_FEATURES RTAX_FEATURES
-	RTAX_RTO_MIN,
+       RTAX_RTO_MIN,
 #define RTAX_RTO_MIN RTAX_RTO_MIN
-	RTAX_INITRWND,
+       RTAX_INITRWND,
 #define RTAX_INITRWND RTAX_INITRWND
-	RTAX_QUICKACK,
+       RTAX_QUICKACK,
 #define RTAX_QUICKACK RTAX_QUICKACK
-	RTAX_CC_ALGO,
+       RTAX_CC_ALGO,
 #define RTAX_CC_ALGO RTAX_CC_ALGO
-	__RTAX_MAX
-};
+       __RTAX_MAX };
 
 #define RTAX_MAX (__RTAX_MAX - 1)
 
@@ -440,34 +437,35 @@ enum {
 #define RTAX_FEATURE_TIMESTAMP	(1 << 2)
 #define RTAX_FEATURE_ALLFRAG	(1 << 3)
 
-#define RTAX_FEATURE_MASK	(RTAX_FEATURE_ECN | RTAX_FEATURE_SACK | \
-				 RTAX_FEATURE_TIMESTAMP | RTAX_FEATURE_ALLFRAG)
+#define RTAX_FEATURE_MASK                                                      \
+	(RTAX_FEATURE_ECN | RTAX_FEATURE_SACK | RTAX_FEATURE_TIMESTAMP         \
+	 | RTAX_FEATURE_ALLFRAG)
 
 struct rta_session {
-	__u8	proto;
-	__u8	pad1;
-	__u16	pad2;
+	__u8 proto;
+	__u8 pad1;
+	__u16 pad2;
 
 	union {
 		struct {
-			__u16	sport;
-			__u16	dport;
+			__u16 sport;
+			__u16 dport;
 		} ports;
 
 		struct {
-			__u8	type;
-			__u8	code;
-			__u16	ident;
+			__u8 type;
+			__u8 code;
+			__u16 ident;
 		} icmpt;
 
-		__u32		spi;
+		__u32 spi;
 	} u;
 };
 
 struct rta_mfc_stats {
-	__u64	mfcs_packets;
-	__u64	mfcs_bytes;
-	__u64	mfcs_wrong_if;
+	__u64 mfcs_packets;
+	__u64 mfcs_bytes;
+	__u64 mfcs_wrong_if;
 };
 
 /****
@@ -475,7 +473,7 @@ struct rta_mfc_stats {
  ****/
 
 struct rtgenmsg {
-	unsigned char		rtgen_family;
+	unsigned char rtgen_family;
 };
 
 /*****************************************************************
@@ -488,42 +486,36 @@ struct rtgenmsg {
  */
 
 struct ifinfomsg {
-	unsigned char	ifi_family;
-	unsigned char	__ifi_pad;
-	unsigned short	ifi_type;		/* ARPHRD_* */
-	int		ifi_index;		/* Link index	*/
-	unsigned	ifi_flags;		/* IFF_* flags	*/
-	unsigned	ifi_change;		/* IFF_* change mask */
+	unsigned char ifi_family;
+	unsigned char __ifi_pad;
+	unsigned short ifi_type; /* ARPHRD_* */
+	int ifi_index;		 /* Link index	*/
+	unsigned ifi_flags;      /* IFF_* flags	*/
+	unsigned ifi_change;     /* IFF_* change mask */
 };
 
 /********************************************************************
- *		prefix information 
+ *		prefix information
  ****/
 
 struct prefixmsg {
-	unsigned char	prefix_family;
-	unsigned char	prefix_pad1;
-	unsigned short	prefix_pad2;
-	int		prefix_ifindex;
-	unsigned char	prefix_type;
-	unsigned char	prefix_len;
-	unsigned char	prefix_flags;
-	unsigned char	prefix_pad3;
+	unsigned char prefix_family;
+	unsigned char prefix_pad1;
+	unsigned short prefix_pad2;
+	int prefix_ifindex;
+	unsigned char prefix_type;
+	unsigned char prefix_len;
+	unsigned char prefix_flags;
+	unsigned char prefix_pad3;
 };
 
-enum 
-{
-	PREFIX_UNSPEC,
-	PREFIX_ADDRESS,
-	PREFIX_CACHEINFO,
-	__PREFIX_MAX
-};
+enum { PREFIX_UNSPEC, PREFIX_ADDRESS, PREFIX_CACHEINFO, __PREFIX_MAX };
 
 #define PREFIX_MAX	(__PREFIX_MAX - 1)
 
 struct prefix_cacheinfo {
-	__u32	preferred_time;
-	__u32	valid_time;
+	__u32 preferred_time;
+	__u32 valid_time;
 };
 
 
@@ -532,30 +524,28 @@ struct prefix_cacheinfo {
  ****/
 
 struct tcmsg {
-	unsigned char	tcm_family;
-	unsigned char	tcm__pad1;
-	unsigned short	tcm__pad2;
-	int		tcm_ifindex;
-	__u32		tcm_handle;
-	__u32		tcm_parent;
-	__u32		tcm_info;
+	unsigned char tcm_family;
+	unsigned char tcm__pad1;
+	unsigned short tcm__pad2;
+	int tcm_ifindex;
+	__u32 tcm_handle;
+	__u32 tcm_parent;
+	__u32 tcm_info;
 };
 
-enum {
-	TCA_UNSPEC,
-	TCA_KIND,
-	TCA_OPTIONS,
-	TCA_STATS,
-	TCA_XSTATS,
-	TCA_RATE,
-	TCA_FCNT,
-	TCA_STATS2,
-	TCA_STAB,
-	TCA_PAD,
-	TCA_DUMP_INVISIBLE,
-	TCA_CHAIN,
-	__TCA_MAX
-};
+enum { TCA_UNSPEC,
+       TCA_KIND,
+       TCA_OPTIONS,
+       TCA_STATS,
+       TCA_XSTATS,
+       TCA_RATE,
+       TCA_FCNT,
+       TCA_STATS2,
+       TCA_STAB,
+       TCA_PAD,
+       TCA_DUMP_INVISIBLE,
+       TCA_CHAIN,
+       __TCA_MAX };
 
 #define TCA_MAX (__TCA_MAX - 1)
 
@@ -567,22 +557,18 @@ enum {
  ****/
 
 struct nduseroptmsg {
-	unsigned char	nduseropt_family;
-	unsigned char	nduseropt_pad1;
-	unsigned short	nduseropt_opts_len;	/* Total length of options */
-	int		nduseropt_ifindex;
-	__u8		nduseropt_icmp_type;
-	__u8		nduseropt_icmp_code;
-	unsigned short	nduseropt_pad2;
-	unsigned int	nduseropt_pad3;
+	unsigned char nduseropt_family;
+	unsigned char nduseropt_pad1;
+	unsigned short nduseropt_opts_len; /* Total length of options */
+	int nduseropt_ifindex;
+	__u8 nduseropt_icmp_type;
+	__u8 nduseropt_icmp_code;
+	unsigned short nduseropt_pad2;
+	unsigned int nduseropt_pad3;
 	/* Followed by one or more ND options */
 };
 
-enum {
-	NDUSEROPT_UNSPEC,
-	NDUSEROPT_SRCADDR,
-	__NDUSEROPT_MAX
-};
+enum { NDUSEROPT_UNSPEC, NDUSEROPT_SRCADDR, __NDUSEROPT_MAX };
 
 #define NDUSEROPT_MAX	(__NDUSEROPT_MAX - 1)
 
@@ -677,20 +663,19 @@ enum rtnetlink_groups {
 
 /* TC action piece */
 struct tcamsg {
-	unsigned char	tca_family;
-	unsigned char	tca__pad1;
-	unsigned short	tca__pad2;
+	unsigned char tca_family;
+	unsigned char tca__pad1;
+	unsigned short tca__pad2;
 };
 
-enum {
-	TCA_ROOT_UNSPEC,
-	TCA_ROOT_TAB,
+enum { TCA_ROOT_UNSPEC,
+       TCA_ROOT_TAB,
 #define TCA_ACT_TAB TCA_ROOT_TAB
 #define TCAA_MAX TCA_ROOT_TAB
-	TCA_ROOT_FLAGS,
-	TCA_ROOT_COUNT,
-	TCA_ROOT_TIME_DELTA, /* in msecs */
-	__TCA_ROOT_MAX,
+       TCA_ROOT_FLAGS,
+       TCA_ROOT_COUNT,
+       TCA_ROOT_TIME_DELTA, /* in msecs */
+       __TCA_ROOT_MAX,
 #define	TCA_ROOT_MAX (__TCA_ROOT_MAX - 1)
 };
 
@@ -698,9 +683,10 @@ enum {
 #define TA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct tcamsg))
 /* tcamsg flags stored in attribute TCA_ROOT_FLAGS
  *
- * TCA_FLAG_LARGE_DUMP_ON user->kernel to request for larger than TCA_ACT_MAX_PRIO
- * actions in a dump. All dump responses will contain the number of actions
- * being dumped stored in for user app's consumption in TCA_ROOT_COUNT
+ * TCA_FLAG_LARGE_DUMP_ON user->kernel to request for larger than
+ * TCA_ACT_MAX_PRIO actions in a dump. All dump responses will contain the
+ * number of actions being dumped stored in for user app's consumption in
+ * TCA_ROOT_COUNT
  *
  */
 #define TCA_FLAG_LARGE_DUMP_ON		(1 << 0)
@@ -712,7 +698,6 @@ enum {
 #define	RTEXT_FILTER_SKIP_STATS	(1 << 3)
 
 /* End of information exported to user level */
-
 
 
 #endif /* __LINUX_RTNETLINK_H */

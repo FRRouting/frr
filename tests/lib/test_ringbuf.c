@@ -77,7 +77,7 @@ int main(int argc, char **argv)
 
 	/* put another 10 bytes and validate wraparound */
 	printf("Validating wraparound...\n");
-	assert(ringbuf_put(soil, &compost[BUFSIZ/2], 10) == 10);
+	assert(ringbuf_put(soil, &compost[BUFSIZ / 2], 10) == 10);
 
 	validate_state(soil, BUFSIZ, BUFSIZ - 15 + 10);
 	assert(soil->start == 15);

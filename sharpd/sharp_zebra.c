@@ -56,7 +56,7 @@ static struct interface *zebra_interface_if_lookup(struct stream *s)
 
 /* Inteface addition message from zebra. */
 static int interface_add(int command, struct zclient *zclient,
-			       zebra_size_t length, vrf_id_t vrf_id)
+			 zebra_size_t length, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
 
@@ -198,7 +198,7 @@ extern struct zebra_privs_t sharp_privs;
 
 void sharp_zebra_init(void)
 {
-	struct zclient_options opt = { .receive_notify = true };
+	struct zclient_options opt = {.receive_notify = true};
 
 	zclient = zclient_new_notify(master, &opt);
 

@@ -87,7 +87,6 @@ DEFPY(lsa_drop, lsa_drop_cmd,
 	return CMD_SUCCESS;
 }
 
-
 DEFPY(lsdb_add, lsdb_add_cmd,
       "lsdb add (0-999999)$idx",
       "LSDB\n"

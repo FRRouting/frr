@@ -59,7 +59,7 @@ static struct list *masters;
 /* CLI start ---------------------------------------------------------------- */
 static unsigned int cpu_record_hash_key(struct cpu_thread_history *a)
 {
-	int size = sizeof (&a->func);
+	int size = sizeof(&a->func);
 
 	return jhash(&a->func, size, 0);
 }
@@ -380,8 +380,7 @@ struct thread_master *thread_master_create(const char *name)
 	}
 
 	rv->cpu_record = hash_create_size(
-		8,
-		(unsigned int (*)(void *))cpu_record_hash_key,
+		8, (unsigned int (*)(void *))cpu_record_hash_key,
 		(int (*)(const void *, const void *))cpu_record_hash_cmp,
 		"Thread Hash");
 
@@ -937,7 +936,7 @@ static void thread_cancel_rw(struct thread_master *master, int fd, short state)
 		zlog_debug(
 			"[!] Received cancellation request for nonexistent rw job");
 		zlog_debug("[!] threadmaster: %s | fd: %d",
-			 master->name ? master->name : "", fd);
+			   master->name ? master->name : "", fd);
 		return;
 	}
 

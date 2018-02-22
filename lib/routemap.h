@@ -98,15 +98,13 @@ struct route_map_rule_cmd {
 };
 
 /* Route map apply error. */
-enum {
-	RMAP_COMPILE_SUCCESS,
+enum { RMAP_COMPILE_SUCCESS,
 
-	/* Route map rule is missing. */
-	RMAP_RULE_MISSING,
+       /* Route map rule is missing. */
+       RMAP_RULE_MISSING,
 
-	/* Route map rule can't compile */
-	RMAP_COMPILE_ERROR
-};
+       /* Route map rule can't compile */
+       RMAP_COMPILE_ERROR };
 
 /* Route map rule list. */
 struct route_map_rule_list {

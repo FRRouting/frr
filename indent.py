@@ -6,23 +6,23 @@ import sys, re, subprocess, os
 
 # find all DEFUNs
 defun_re = re.compile(
-        r'^((DEF(UN(_NOSH|_HIDDEN)?|PY)|ALIAS)\s*\(.*?)^(?=\s*\{)',
+        r'^((DEF(UN(_NOSH|_HIDDEN|SH)?|PY)|ALIAS)\s*\(.*?)^(?=\s*\{)',
         re.M | re.S)
 define_re = re.compile(
-        r'((^#\s*define[^\n]+[^\\]\n)+)',
+        r'(^#\s*define[^\n]+[^\\]\n)',
         re.M | re.S)
 # find clang-format control that we just inserted
 clean_re = re.compile(
-        r'^/\* \$FRR indent\$ \*/\s*\n\s*/\* clang-format (on|off) \*/\s*\n',
+        r'\n/\* \$FRR indent\$ \*/\n[^\n]*/\* clang-format (on|off) \*/\n',
         re.M)
 
 def wrap_file(fn):
     with open(fn, 'r') as fd:
         text = fd.read()
 
-        repl = r'/* $FRR indent$ */\n/* clang-format off */\n' + \
+        repl = r'\n/* $FRR indent$ */\n/* clang-format off */\n' + \
                 r'\1' + \
-                r'/* $FRR indent$ */\n/* clang-format on */\n'
+                r'\n/* $FRR indent$ */\n/* clang-format on */\n'
 
         # around each DEFUN, insert an indent-on/off comment
         text = defun_re.sub(repl, text)

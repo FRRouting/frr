@@ -160,8 +160,8 @@ static inline int proto2zebra(int proto, int family)
 		proto = ZEBRA_ROUTE_BGP;
 		break;
 	case RTPROT_OSPF:
-		proto = (family == AFI_IP) ?
-			ZEBRA_ROUTE_OSPF : ZEBRA_ROUTE_OSPF6;
+		proto = (family == AFI_IP) ? ZEBRA_ROUTE_OSPF
+					   : ZEBRA_ROUTE_OSPF6;
 		break;
 	case RTPROT_ISIS:
 		proto = ZEBRA_ROUTE_ISIS;
@@ -331,8 +331,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 		struct rtattr *mxrta[RTAX_MAX + 1];
 
 		memset(mxrta, 0, sizeof mxrta);
-		netlink_parse_rtattr(mxrta, RTAX_MAX,
-				     RTA_DATA(tb[RTA_METRICS]),
+		netlink_parse_rtattr(mxrta, RTAX_MAX, RTA_DATA(tb[RTA_METRICS]),
 				     RTA_PAYLOAD(tb[RTA_METRICS]));
 
 		if (mxrta[RTAX_MTU])
@@ -383,19 +382,20 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 	 */
 	if (proto == ZEBRA_ROUTE_KERNEL) {
 		distance = (metric >> 24) & 0xFF;
-		metric   = (metric & 0x00FFFFFF);
+		metric = (metric & 0x00FFFFFF);
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL) {
 		char buf[PREFIX_STRLEN];
 		char buf2[PREFIX_STRLEN];
-		zlog_debug(
-			"%s %s%s%s vrf %u metric: %d Admin Distance: %d", nl_msg_type_to_str(h->nlmsg_type),
-			prefix2str(&p, buf, sizeof(buf)),
-			src_p.prefixlen ? " from " : "",
-			src_p.prefixlen ? prefix2str(&src_p, buf2, sizeof(buf2))
-					: "",
-			vrf_id, metric, distance);
+		zlog_debug("%s %s%s%s vrf %u metric: %d Admin Distance: %d",
+			   nl_msg_type_to_str(h->nlmsg_type),
+			   prefix2str(&p, buf, sizeof(buf)),
+			   src_p.prefixlen ? " from " : "",
+			   src_p.prefixlen
+				   ? prefix2str(&src_p, buf2, sizeof(buf2))
+				   : "",
+			   vrf_id, metric, distance);
 	}
 
 	afi_t afi = AFI_IP;
@@ -416,9 +416,10 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 				if (index && !gate)
 					nh.type = NEXTHOP_TYPE_IFINDEX;
 				else if (index && gate)
-					nh.type = (afi == AFI_IP)
-						? NEXTHOP_TYPE_IPV4_IFINDEX
-						: NEXTHOP_TYPE_IPV6_IFINDEX;
+					nh.type =
+						(afi == AFI_IP)
+							? NEXTHOP_TYPE_IPV4_IFINDEX
+							: NEXTHOP_TYPE_IPV6_IFINDEX;
 				else if (!index && gate)
 					nh.type = (afi == AFI_IP)
 							  ? NEXTHOP_TYPE_IPV4
@@ -438,8 +439,7 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 				memcpy(&nh.gate, gate, sz);
 
 			if (index) {
-				ifp = if_lookup_by_index(index,
-							 VRF_UNKNOWN);
+				ifp = if_lookup_by_index(index, VRF_UNKNOWN);
 				if (ifp)
 					nh_vrf_id = ifp->vrf_id;
 			}
@@ -544,8 +544,8 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 			if (re->nexthop_num == 0)
 				XFREE(MTYPE_RE, re);
 			else
-				rib_add_multipath(afi, SAFI_UNICAST, &p,
-						  NULL, re);
+				rib_add_multipath(afi, SAFI_UNICAST, &p, NULL,
+						  re);
 		}
 	} else {
 		if (!tb[RTA_MULTIPATH]) {
@@ -576,15 +576,13 @@ static int netlink_route_change_read_unicast(struct sockaddr_nl *snl,
 			nh.ifindex = index;
 			if (gate)
 				memcpy(&nh.gate, gate, sz);
-			rib_delete(afi, SAFI_UNICAST, vrf_id,
-				   proto, 0, flags, &p, NULL, &nh,
-				   table, metric, true, NULL);
+			rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0, flags,
+				   &p, NULL, &nh, table, metric, true, NULL);
 		} else {
 			/* XXX: need to compare the entire list of nexthops
 			 * here for NLM_F_APPEND stupidity */
-			rib_delete(afi, SAFI_UNICAST, vrf_id,
-				   proto, 0, flags, &p, NULL, NULL,
-				   table, metric, true, NULL);
+			rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0, flags,
+				   &p, NULL, NULL, table, metric, true, NULL);
 		}
 	}
 
@@ -1394,8 +1392,7 @@ static int netlink_route_multipath(int cmd, struct prefix *p,
 	for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
 		if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 			continue;
-		if (cmd == RTM_NEWROUTE
-		    && !NEXTHOP_IS_ACTIVE(nexthop->flags))
+		if (cmd == RTM_NEWROUTE && !NEXTHOP_IS_ACTIVE(nexthop->flags))
 			continue;
 		if (cmd == RTM_DELROUTE
 		    && !CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB))
@@ -1677,15 +1674,14 @@ void kernel_route_rib(struct route_node *rn, struct prefix *p,
 			 * screwed.
 			 */
 			if (old)
-				netlink_route_multipath(RTM_DELROUTE, p,
-							src_p, old, 0);
-			ret = netlink_route_multipath(RTM_NEWROUTE, p,
-						      src_p, new, 0);
+				netlink_route_multipath(RTM_DELROUTE, p, src_p,
+							old, 0);
+			ret = netlink_route_multipath(RTM_NEWROUTE, p, src_p,
+						      new, 0);
 		}
 		kernel_route_rib_pass_fail(rn, p, new,
-					   (!ret) ?
-					   SOUTHBOUND_INSTALL_SUCCESS :
-					   SOUTHBOUND_INSTALL_FAILURE);
+					   (!ret) ? SOUTHBOUND_INSTALL_SUCCESS
+						  : SOUTHBOUND_INSTALL_FAILURE);
 		return;
 	}
 
@@ -1693,9 +1689,8 @@ void kernel_route_rib(struct route_node *rn, struct prefix *p,
 		ret = netlink_route_multipath(RTM_DELROUTE, p, src_p, old, 0);
 
 		kernel_route_rib_pass_fail(rn, p, old,
-					   (!ret) ?
-					   SOUTHBOUND_DELETE_SUCCESS :
-					   SOUTHBOUND_DELETE_FAILURE);
+					   (!ret) ? SOUTHBOUND_DELETE_SUCCESS
+						  : SOUTHBOUND_DELETE_FAILURE);
 	}
 }
 
@@ -2162,7 +2157,8 @@ static int netlink_ipneigh_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 					nl_msg_type_to_str(h->nlmsg_type),
 					nl_family_to_str(ndm->ndm_family),
 					ifp->name, ndm->ndm_ifindex,
-					(unsigned long)RTA_PAYLOAD(tb[NDA_LLADDR]));
+					(unsigned long)RTA_PAYLOAD(
+						tb[NDA_LLADDR]));
 				return 0;
 			}
 

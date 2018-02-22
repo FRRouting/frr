@@ -1106,7 +1106,8 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	struct list *fragments = isis_fragment_tlvs(tlvs, tlv_space);
 	if (!fragments) {
 		zlog_warn("BUG: could not fragment own LSP:");
-		log_multiline(LOG_WARNING, "    ", "%s", isis_format_tlvs(tlvs));
+		log_multiline(LOG_WARNING, "    ", "%s",
+			      isis_format_tlvs(tlvs));
 		isis_free_tlvs(tlvs);
 		return;
 	}
@@ -1119,8 +1120,9 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			if (LSP_FRAGMENT(frag->hdr.lsp_id) == 255) {
 				if (!fragment_overflow) {
 					fragment_overflow = true;
-					zlog_warn("ISIS (%s): Too much information for 256 fragments",
-						  area->area_tag);
+					zlog_warn(
+						"ISIS (%s): Too much information for 256 fragments",
+						area->area_tag);
 				}
 				isis_free_tlvs(tlvs);
 				continue;
@@ -1749,9 +1751,9 @@ int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level)
 		THREAD_TIMER_OFF(circuit->u.bc.t_refresh_pseudo_lsp[lvl - 1]);
 		diff = now - lsp->last_generated;
 		if (diff < circuit->area->lsp_gen_interval[lvl - 1]) {
-			timeout =
-				1000 * (circuit->area->lsp_gen_interval[lvl - 1]
-					- diff);
+			timeout = 1000
+				  * (circuit->area->lsp_gen_interval[lvl - 1]
+				     - diff);
 			sched_debug(
 				"ISIS (%s): Sechduling in %ld ms to match configured lsp_gen_interval",
 				area->area_tag, timeout);
@@ -1794,7 +1796,7 @@ int lsp_tick(struct thread *thread)
 	dnode_t *dnode, *dnode_next;
 	int level;
 	u_int16_t rem_lifetime;
-        time_t now = monotime(NULL);
+	time_t now = monotime(NULL);
 
 	lsp_list = list_new();
 
@@ -1873,12 +1875,15 @@ int lsp_tick(struct thread *thread)
 					if (!circuit->lsp_queue)
 						continue;
 
-					if (now - circuit->lsp_queue_last_push[level]
+					if (now
+						    - circuit->lsp_queue_last_push
+							      [level]
 					    < MIN_LSP_RETRANS_INTERVAL) {
 						continue;
 					}
 
-					circuit->lsp_queue_last_push[level] = now;
+					circuit->lsp_queue_last_push[level] =
+						now;
 
 					for (ALL_LIST_ELEMENTS_RO(
 						     lsp_list, lspnode, lsp)) {
@@ -1887,7 +1892,8 @@ int lsp_tick(struct thread *thread)
 						    && ISIS_CHECK_FLAG(
 							       lsp->SRMflags,
 							       circuit)) {
-							isis_circuit_queue_lsp(circuit, lsp);
+							isis_circuit_queue_lsp(
+								circuit, lsp);
 						}
 					}
 				}

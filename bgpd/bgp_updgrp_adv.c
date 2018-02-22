@@ -635,9 +635,10 @@ void subgroup_announce_route(struct update_subgroup *subgrp)
 	 */
 	onlypeer = ((SUBGRP_PCOUNT(subgrp) == 1) ? (SUBGRP_PFIRST(subgrp))->peer
 						 : NULL);
-	if (onlypeer && CHECK_FLAG(onlypeer->af_sflags[SUBGRP_AFI(subgrp)]
-						      [SUBGRP_SAFI(subgrp)],
-				   PEER_STATUS_ORF_WAIT_REFRESH))
+	if (onlypeer
+	    && CHECK_FLAG(onlypeer->af_sflags[SUBGRP_AFI(subgrp)]
+					     [SUBGRP_SAFI(subgrp)],
+			  PEER_STATUS_ORF_WAIT_REFRESH))
 		return;
 
 	if (SUBGRP_SAFI(subgrp) != SAFI_MPLS_VPN

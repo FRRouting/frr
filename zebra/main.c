@@ -90,7 +90,9 @@ struct option longopts[] = {{"batch", no_argument, NULL, 'b'},
 			    {0}};
 
 zebra_capabilities_t _caps_p[] = {
-	ZCAP_NET_ADMIN, ZCAP_SYS_ADMIN, ZCAP_NET_RAW,
+	ZCAP_NET_ADMIN,
+	ZCAP_SYS_ADMIN,
+	ZCAP_NET_RAW,
 };
 
 /* zebra privileges to run with */
@@ -230,7 +232,7 @@ int main(int argc, char **argv)
 #if defined(HANDLE_ZAPI_FUZZING)
 		"  -c <file>          Bypass normal startup use this file for tetsting of zapi"
 #endif
-		);
+	);
 
 	while (1) {
 		int opt = frr_getopt(argc, argv, NULL);
@@ -332,25 +334,25 @@ int main(int argc, char **argv)
 #endif
 
 	/* Process the configuration file. Among other configuration
-	*  directives we can meet those installing static routes. Such
-	*  requests will not be executed immediately, but queued in
-	*  zebra->ribq structure until we enter the main execution loop.
-	*  The notifications from kernel will show originating PID equal
-	*  to that after daemon() completes (if ever called).
-	*/
+	 *  directives we can meet those installing static routes. Such
+	 *  requests will not be executed immediately, but queued in
+	 *  zebra->ribq structure until we enter the main execution loop.
+	 *  The notifications from kernel will show originating PID equal
+	 *  to that after daemon() completes (if ever called).
+	 */
 	frr_config_fork();
 
 	/* Clean up rib -- before fork (?) */
 	/* rib_weed_tables (); */
 
 	/* After we have successfully acquired the pidfile, we can be sure
-	*  about being the only copy of zebra process, which is submitting
-	*  changes to the FIB.
-	*  Clean up zebra-originated routes. The requests will be sent to OS
-	*  immediately, so originating PID in notifications from kernel
-	*  will be equal to the current getpid(). To know about such routes,
-	* we have to have route_read() called before.
-	*/
+	 *  about being the only copy of zebra process, which is submitting
+	 *  changes to the FIB.
+	 *  Clean up zebra-originated routes. The requests will be sent to OS
+	 *  immediately, so originating PID in notifications from kernel
+	 *  will be equal to the current getpid(). To know about such routes,
+	 * we have to have route_read() called before.
+	 */
 	if (!keep_kernel_mode)
 		rib_sweep_route();
 

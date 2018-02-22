@@ -39,14 +39,14 @@ struct rnh {
 	struct route_entry *state;
 	struct prefix resolved_route;
 	struct list *client_list;
-	struct list *
-		zebra_static_route_list; /* static routes dependent on this NH
-					    */
+	struct list
+		*zebra_static_route_list; /* static routes dependent on this NH
+					   */
 	struct list
 		*zebra_pseudowire_list; /* pseudowires dependent on this NH */
 	struct route_node *node;
 	int filtered[ZEBRA_ROUTE_MAX]; /* if this has been filtered for client
-					  */
+					*/
 };
 
 typedef enum { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE } rnh_type_t;
