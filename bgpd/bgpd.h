@@ -1038,6 +1038,9 @@ struct peer {
 	/* peer specific BFD information */
 	struct bfd_info *bfd_info;
 
+	/* bfdd: BFD peer monitor reference */
+	struct bfd_peer_cfg *bpc;
+
 	/* hostname and domainname advertised by host */
 	char *hostname;
 	char *domainname;
@@ -1718,5 +1721,10 @@ extern void bgp_update_redist_vrf_bitmaps(struct bgp *, vrf_id_t);
 
 /* For benefit of rfapi */
 extern struct peer *peer_new(struct bgp *bgp);
+
+/* bgp_bfdd.c */
+void bfdd_vty_init(struct thread_master *master);
+void bfdd_print_config(struct vty *vty, const char *addr, struct peer *p);
+int bfdd_unmonitor_peer(struct peer *peer);
 
 #endif /* _QUAGGA_BGPD_H */

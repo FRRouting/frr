@@ -942,6 +942,8 @@ static void peer_global_config_reset(struct peer *peer)
 
 	bfd_info_free(&(peer->bfd_info));
 
+	bfdd_unmonitor_peer(peer);
+
 	/* Set back the CONFIG_NODE flag. */
 	SET_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE);
 }
@@ -1090,6 +1092,8 @@ static void peer_free(struct peer *peer)
 	}
 
 	bfd_info_free(&(peer->bfd_info));
+
+	bfdd_unmonitor_peer(peer);
 
 	bgp_unlock(peer->bgp);
 
@@ -6602,6 +6606,9 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 			bgp_bfd_peer_config_write(vty, peer, addr);
 		}
 	}
+	if (peer->bpc) {
+		bfdd_print_config(vty, addr, peer);
+	}
 
 	/* password */
 	if (peer->password) {
@@ -7681,6 +7688,11 @@ void bgp_init(void)
 
 	/* BFD init */
 	bgp_bfd_init();
+
+#ifdef HAVE_BFDD
+	/* Initialize BFDd adapter code. */
+	bfdd_vty_init(bm->master);
+#endif /* HAVE_BFDD */
 
 	cmd_variable_handler_register(bgp_viewvrf_var_handlers);
 }

@@ -45,6 +45,7 @@ endif
 
 if BFDD
 vtysh_scan += $(top_srcdir)/bfdd/bfdd_vty.c
+vtysh_scan += $(top_srcdir)/bgpd/bgp_bfd_vty.c
 endif
 
 if BGPD
