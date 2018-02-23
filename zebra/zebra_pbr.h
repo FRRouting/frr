@@ -86,14 +86,13 @@ struct zebra_pbr_action {
 struct zebra_pbr_rule {
 	uint32_t seq;
 	uint32_t priority;
+	struct interface *ifp;
 	struct zebra_pbr_filter filter;
 	struct zebra_pbr_action action;
 };
 
-void zebra_pbr_add_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule,
-			struct interface *ifp);
-void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule,
-			struct interface *ifp);
+void zebra_pbr_add_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule);
+void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule);
 
 /*
  * Install specified rule for a specific interface.
@@ -101,14 +100,12 @@ void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule,
  * forwarding plane may not coincide, hence the API requires a separate
  * rule priority - maps to preference/FRA_PRIORITY on Linux.
  */
-extern void kernel_add_pbr_rule(struct zebra_pbr_rule *rule,
-				struct interface *ifp);
+extern void kernel_add_pbr_rule(struct zebra_pbr_rule *rule);
 
 /*
  * Uninstall specified rule for a specific interface.
  */
-extern void kernel_del_pbr_rule(struct zebra_pbr_rule *rule,
-				struct interface *ifp);
+extern void kernel_del_pbr_rule(struct zebra_pbr_rule *rule);
 
 /*
  * Get to know existing PBR rules in the kernel - typically called at startup.
@@ -119,14 +116,12 @@ extern void kernel_read_pbr_rules(struct zebra_ns *zns);
  * Handle success or failure of rule (un)install in the kernel.
  */
 extern void kernel_pbr_rule_add_del_status(struct zebra_pbr_rule *rule,
-					   struct interface *ifp,
 					   enum southbound_results res);
 
 /*
  * Handle rule delete notification from kernel.
  */
-extern int kernel_pbr_rule_del(struct zebra_pbr_rule *rule,
-			       struct interface *ifp);
+extern int kernel_pbr_rule_del(struct zebra_pbr_rule *rule);
 
 extern void zebra_pbr_rules_free(void *arg);
 extern uint32_t zebra_pbr_rules_hash_key(void *arg);

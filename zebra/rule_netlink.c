@@ -51,8 +51,7 @@
  * Form netlink message and ship it. Currently, notify status after
  * waiting for netlink status.
  */
-static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule,
-			       struct interface *ifp)
+static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule)
 {
 	int family;
 	int bytelen;
@@ -85,9 +84,9 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule,
 	addattr32(&req.n, sizeof(req), FRA_PRIORITY, rule->priority);
 
 	/* interface on which applied */
-	if (ifp)
-		addattr_l(&req.n, sizeof(req), FRA_IFNAME, ifp->name,
-			  strlen(ifp->name) + 1);
+	if (rule->ifp)
+		addattr_l(&req.n, sizeof(req), FRA_IFNAME, rule->ifp->name,
+			  strlen(rule->ifp->name) + 1);
 
 	/* source IP, if specified */
 	if (IS_RULE_FILTERING_ON_SRC_IP(rule)) {
@@ -115,8 +114,8 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule,
 		zlog_debug(
 			"Tx %s family %s IF %s(%u) Pref %u Src %s Dst %s Table %u",
 			nl_msg_type_to_str(cmd), nl_family_to_str(family),
-			ifp ? ifp->name : "Unknown", ifp ? ifp->ifindex : 0,
-			rule->priority,
+			rule->ifp ? rule->ifp->name : "Unknown",
+			rule->ifp ? rule->ifp->ifindex : 0, rule->priority,
 			prefix2str(&rule->filter.src_ip, buf1, sizeof(buf1)),
 			prefix2str(&rule->filter.dst_ip, buf2, sizeof(buf2)),
 			rule->action.table);
@@ -138,12 +137,12 @@ static int netlink_rule_update(int cmd, struct zebra_pbr_rule *rule,
  * goes in the rule to denote relative ordering; it may or may not be the
  * same as the rule's user-defined sequence number.
  */
-void kernel_add_pbr_rule(struct zebra_pbr_rule *rule, struct interface *ifp)
+void kernel_add_pbr_rule(struct zebra_pbr_rule *rule)
 {
 	int ret = 0;
 
-	ret = netlink_rule_update(RTM_NEWRULE, rule, ifp);
-	kernel_pbr_rule_add_del_status(rule, ifp,
+	ret = netlink_rule_update(RTM_NEWRULE, rule);
+	kernel_pbr_rule_add_del_status(rule,
 				       (!ret) ? SOUTHBOUND_INSTALL_SUCCESS
 					      : SOUTHBOUND_INSTALL_FAILURE);
 }
@@ -151,12 +150,12 @@ void kernel_add_pbr_rule(struct zebra_pbr_rule *rule, struct interface *ifp)
 /*
  * Uninstall specified rule for a specific interface.
  */
-void kernel_del_pbr_rule(struct zebra_pbr_rule *rule, struct interface *ifp)
+void kernel_del_pbr_rule(struct zebra_pbr_rule *rule)
 {
 	int ret = 0;
 
-	ret = netlink_rule_update(RTM_DELRULE, rule, ifp);
-	kernel_pbr_rule_add_del_status(rule, ifp,
+	ret = netlink_rule_update(RTM_DELRULE, rule);
+	kernel_pbr_rule_add_del_status(rule,
 				       (!ret) ? SOUTHBOUND_DELETE_SUCCESS
 					      : SOUTHBOUND_DELETE_FAILURE);
 }
@@ -176,7 +175,6 @@ int netlink_rule_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	struct rtattr *tb[FRA_MAX + 1];
 	int len;
 	char *ifname;
-	struct interface *ifp;
 	struct zebra_pbr_rule rule;
 	char buf1[PREFIX_STRLEN];
 	char buf2[PREFIX_STRLEN];
@@ -209,8 +207,8 @@ int netlink_rule_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 	/* If we don't know the interface, we don't care. */
 	ifname = (char *)RTA_DATA(tb[FRA_IFNAME]);
 	zns = zebra_ns_lookup(ns_id);
-	ifp = if_lookup_by_name_per_ns(zns, ifname);
-	if (!ifp)
+	rule.ifp = if_lookup_by_name_per_ns(zns, ifname);
+	if (!rule.ifp)
 		return 0;
 
 	memset(&rule, 0, sizeof(rule));
@@ -248,13 +246,13 @@ int netlink_rule_change(struct sockaddr_nl *snl, struct nlmsghdr *h,
 		zlog_debug(
 			"Rx %s family %s IF %s(%u) Pref %u Src %s Dst %s Table %u",
 			nl_msg_type_to_str(h->nlmsg_type),
-			nl_family_to_str(frh->family), ifp->name, ifp->ifindex,
-			rule.priority,
+			nl_family_to_str(frh->family), rule.ifp->name,
+			rule.ifp->ifindex, rule.priority,
 			prefix2str(&rule.filter.src_ip, buf1, sizeof(buf1)),
 			prefix2str(&rule.filter.dst_ip, buf2, sizeof(buf2)),
 			rule.action.table);
 
-	return kernel_pbr_rule_del(&rule, ifp);
+	return kernel_pbr_rule_del(&rule);
 }
 
 /*

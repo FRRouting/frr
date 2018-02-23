@@ -40,7 +40,7 @@ void zebra_pbr_rules_free(void *arg)
 
 	rule = (struct zebra_pbr_rule *)arg;
 
-	kernel_del_pbr_rule(rule, NULL);
+	kernel_del_pbr_rule(rule);
 	XFREE(MTYPE_TMP, rule);
 }
 
@@ -52,6 +52,11 @@ uint32_t zebra_pbr_rules_hash_key(void *arg)
 	rule = (struct zebra_pbr_rule *)arg;
 	key = jhash_3words(rule->seq, rule->priority, rule->action.table,
 			   prefix_hash_key(&rule->filter.src_ip));
+	if (rule->ifp)
+		key = jhash_1word(rule->ifp->ifindex, key);
+	else
+		key = jhash_1word(0, key);
+
 	return jhash_3words(rule->filter.src_port, rule->filter.dst_port,
 			    prefix_hash_key(&rule->filter.dst_ip), key);
 }
@@ -84,6 +89,9 @@ int zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
 	if (!prefix_same(&r1->filter.dst_ip, &r2->filter.dst_ip))
 		return 0;
 
+	if (r1->ifp != r2->ifp)
+		return 0;
+
 	return 1;
 }
 
@@ -101,20 +109,18 @@ static void *pbr_rule_alloc_intern(void *arg)
 	return new;
 }
 
-void zebra_pbr_add_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule,
-			struct interface *ifp)
+void zebra_pbr_add_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule)
 {
 	(void)hash_get(zns->rules_hash, rule, pbr_rule_alloc_intern);
-	kernel_add_pbr_rule(rule, ifp);
+	kernel_add_pbr_rule(rule);
 }
 
-void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule,
-			struct interface *ifp)
+void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule)
 {
 	struct zebra_pbr_rule *lookup;
 
 	lookup = hash_lookup(zns->rules_hash, rule);
-	kernel_del_pbr_rule(rule, ifp);
+	kernel_del_pbr_rule(rule);
 
 	if (lookup)
 		XFREE(MTYPE_TMP, lookup);
@@ -127,7 +133,6 @@ void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule,
  * Handle success or failure of rule (un)install in the kernel.
  */
 void kernel_pbr_rule_add_del_status(struct zebra_pbr_rule *rule,
-				    struct interface *ifp,
 				    enum southbound_results res)
 {
 }
@@ -135,7 +140,7 @@ void kernel_pbr_rule_add_del_status(struct zebra_pbr_rule *rule,
 /*
  * Handle rule delete notification from kernel.
  */
-int kernel_pbr_rule_del(struct zebra_pbr_rule *rule, struct interface *ifp)
+int kernel_pbr_rule_del(struct zebra_pbr_rule *rule)
 {
 	return 0;
 }

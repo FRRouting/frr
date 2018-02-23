@@ -2592,7 +2592,6 @@ static inline void zread_rule(uint16_t command, struct zserv *client,
 			      uint16_t length, struct zebra_vrf *zvrf)
 {
 	struct zebra_pbr_rule zpr;
-	struct interface *ifp;
 	struct stream *s;
 	uint32_t total, i;
 	ifindex_t ifindex;
@@ -2618,8 +2617,8 @@ static inline void zread_rule(uint16_t command, struct zserv *client,
 		STREAM_GETL(s, zpr.action.table);
 		STREAM_GETL(s, ifindex);
 
-		ifp = if_lookup_by_index(ifindex, VRF_UNKNOWN);
-		if (!ifp) {
+		zpr.ifp = if_lookup_by_index(ifindex, VRF_UNKNOWN);
+		if (!zpr.ifp) {
 			zlog_debug("FAiled to lookup ifindex: %u", ifindex);
 			return;
 		}
@@ -2636,7 +2635,10 @@ static inline void zread_rule(uint16_t command, struct zserv *client,
 		if (zpr.filter.dst_port)
 			zpr.filter.filter_bm |= PBR_FILTER_DST_PORT;
 
-		zebra_pbr_add_rule(zvrf->zns, &zpr, ifp);
+		if (command == ZEBRA_RULE_ADD)
+			zebra_pbr_add_rule(zvrf->zns, &zpr);
+		else
+			zebra_pbr_del_rule(zvrf->zns, &zpr);
 	}
 
 stream_failure:
