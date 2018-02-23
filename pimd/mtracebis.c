@@ -35,6 +35,8 @@
 #include <string.h>
 #include <time.h>
 #include <net/if.h>
+#include <unistd.h>
+#include <getopt.h>
 
 #define MTRACEBIS_VERSION "0.1"
 #define MTRACE_TIMEOUT (5)
