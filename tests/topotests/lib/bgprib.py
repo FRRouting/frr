@@ -98,8 +98,8 @@ class BgpRib:
 
 BgpRib=BgpRib()
 
-def bgpribRequireVpnRoutes(target, title, wantroutes):
-    BgpRib.RequireVpnRoutes(target, title, wantroutes)
+def bgpribRequireVpnRoutes(target, title, wantroutes, debug=0):
+    BgpRib.RequireVpnRoutes(target, title, wantroutes, debug)
 
-def bgpribRequireUnicastRoutes(target, afi, vrf, title, wantroutes):
-    BgpRib.RequireUnicastRoutes(target, afi, vrf, title, wantroutes)
+def bgpribRequireUnicastRoutes(target, afi, vrf, title, wantroutes, debug=0):
+    BgpRib.RequireUnicastRoutes(target, afi, vrf, title, wantroutes, debug)
