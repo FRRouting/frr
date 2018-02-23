@@ -86,8 +86,9 @@ developer.html:
 
 # info target, handled by automake installation
 install-data-local: frr.info
-	gzip < user/_build/texinfo/frr.info > ${infodir}/frr.info.gz
-	install-info user/_build/texinfo/frr.info ${infodir}/dir
+	install -d ${DESTDIR}${infodir}
+	gzip < user/_build/texinfo/frr.info > ${DESTDIR}${infodir}/frr.info.gz
+	install-info user/_build/texinfo/frr.info ${DESTDIR}${infodir}/dir
 
 # include sources for shipped docs
 EXTRA_DIST = manpages/defines.rst \
