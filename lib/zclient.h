@@ -213,8 +213,8 @@ struct zclient {
 	int (*local_macip_add)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*local_macip_del)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*pw_status_update)(int, struct zclient *, uint16_t, vrf_id_t);
-	int (*notify_owner)(int command, struct zclient *zclient,
-			    uint16_t length, vrf_id_t vrf_id);
+	int (*route_notify_owner)(int command, struct zclient *zclient,
+				  uint16_t length, vrf_id_t vrf_id);
 };
 
 /* Zebra API message flag. */

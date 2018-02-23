@@ -2369,9 +2369,9 @@ static int zclient_read(struct thread *thread)
 						     vrf_id);
 		break;
 	case ZEBRA_ROUTE_NOTIFY_OWNER:
-		if (zclient->notify_owner)
-			(*zclient->notify_owner)(command, zclient,
-						 length, vrf_id);
+		if (zclient->route_notify_owner)
+			(*zclient->route_notify_owner)(command, zclient, length,
+						       vrf_id);
 		break;
 	default:
 		break;
