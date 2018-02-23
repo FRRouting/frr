@@ -203,6 +203,80 @@ skip_and_return:
 	return ret;
 }
 
+static int socket_is_valid(int sd)
+{
+	return fcntl(sd, F_GETFD) == -1 && errno == EBADF;
+}
+
+/* Forward reinit function declaration. */
+static int bfd_adapter_reinit(struct thread *thread);
+
+static int bfd_adapter_read(struct thread *thread)
+{
+	struct bfdd_adapter_ctx *bac = THREAD_ARG(thread);
+
+	bac->bac_threcv = NULL;
+
+	/* Receive and handle the current packet. */
+	if (bfd_control_recv(bac->bac_csock, bac->bac_read, bac->bac_read_arg)
+		    != 0
+	    && !socket_is_valid(bac->bac_csock)) {
+		close(bac->bac_csock);
+		bac->bac_csock = -1;
+		thread_add_timer_msec(bac->bac_master, bfd_adapter_reinit, bac,
+				      BFDD_ADAPTER_CSOCK_TIMEOUT,
+				      &bac->bac_thinit);
+		return 0;
+	}
+
+	/* Schedule next read. */
+	thread_add_read(bac->bac_master, bfd_adapter_read, bac, bac->bac_csock,
+			&bac->bac_threcv);
+
+	return 0;
+}
+
+static int bfd_adapter_reinit(struct thread *thread)
+{
+	struct bfdd_adapter_ctx *bac = THREAD_ARG(thread);
+	int csock;
+
+	bac->bac_thinit = NULL;
+
+	csock = bfd_control_init();
+	if (csock == -1) {
+		thread_add_timer_msec(bac->bac_master, bfd_adapter_reinit, bac,
+				      BFDD_ADAPTER_CSOCK_TIMEOUT,
+				      &bac->bac_thinit);
+		return 0;
+	}
+
+	bac->bac_csock = csock;
+	if (bac->bac_reconfigure(csock, bac->bac_reconfigure_arg) != 0) {
+		goto close_and_retry;
+	}
+
+	thread_add_read(bac->bac_master, bfd_adapter_read, bac, bac->bac_csock,
+			&bac->bac_threcv);
+
+	return 0;
+
+close_and_retry:
+	bac->bac_csock = -1;
+	close(csock);
+	thread_add_timer_msec(bac->bac_master, bfd_adapter_reinit, bac,
+			      BFDD_ADAPTER_CSOCK_TIMEOUT, &bac->bac_thinit);
+	return 0;
+}
+
+void bfd_adapter_init(struct bfdd_adapter_ctx *bac)
+{
+	bac->bac_thinit = NULL;
+	bac->bac_threcv = NULL;
+	thread_add_timer_msec(bac->bac_master, bfd_adapter_reinit, bac,
+			      BFDD_ADAPTER_CSOCK_TIMEOUT, &bac->bac_thinit);
+}
+
 
 /*
  * JSON queries build

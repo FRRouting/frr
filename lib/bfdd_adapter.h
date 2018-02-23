@@ -32,12 +32,36 @@
 /*
  * Control socket functions
  */
+#define BFDD_ADAPTER_CSOCK_TIMEOUT (4000)
+
 typedef int (*bfd_control_recv_cb)(struct bfd_control_msg *, bool *, void *);
+typedef int (*bfd_reconfigure_cb)(int, void *);
 
 int bfd_control_init(void);
 uint16_t bfd_control_send(int sd, enum bc_msg_type bmt, const void *data,
 			  size_t datalen);
 int bfd_control_recv(int sd, bfd_control_recv_cb cb, void *arg);
+
+/* Client-side API (for BGP/OSPF/etc...) */
+struct bfdd_adapter_ctx {
+	/* BFD daemon control socket. */
+	int bac_csock;
+	struct thread *bac_threcv;
+	struct thread *bac_thinit;
+
+	/* Daemon master thread. */
+	struct thread_master *bac_master;
+
+	/* Callback: what to do when receiving a notification. */
+	bfd_control_recv_cb bac_read;
+	void *bac_read_arg;
+
+	/* Callback for daemon reconfiguration. */
+	bfd_reconfigure_cb bac_reconfigure;
+	void *bac_reconfigure_arg;
+};
+
+void bfd_adapter_init(struct bfdd_adapter_ctx *bac);
 
 
 /*

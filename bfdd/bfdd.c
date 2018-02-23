@@ -102,75 +102,18 @@ DEFINE_QOBJ_TYPE(bpc_node);
 /*
  * Adapter daemon code.
  */
-#define CSOCK_RECONNECT_TIMEOUT (4000) /* milliseconds */
-
-/* Prototypes */
-int bfdd_csock_reinit(struct thread *thread);
-int bfdd_csock_read(struct thread *thread);
-
-/* Definitions */
 struct bfdd_config bc;
 
-static int fd_is_valid(int fd)
+static int bfdd_reconfigure(int csock, void *arg)
 {
-	return fcntl(fd, F_GETFD) == -1 && errno == EBADF;
-}
-
-static int bfdd_reconfigure(int csock)
-{
+	struct bfdd_config *bc = (struct bfdd_config *)arg;
 	struct bpc_node *bn;
 	struct json_object *jo;
 	const char *jsonstr;
-	uint16_t id;
-
-	TAILQ_FOREACH (bn, &bc.bc_bnlist, bn_entry) {
-		/* Create the request data and send. */
-		jo = bfd_ctrl_new_json();
-		if (jo == NULL) {
-			zlog_err("%s:%d: not enough memory", __FUNCTION__,
-				 __LINE__);
-			return -1;
-		}
-
-		bfd_ctrl_add_peer(jo, &bn->bn_bpc);
-		jsonstr = json_object_to_json_string_ext(jo, 0);
-		id = bfd_control_send(csock, BMT_REQUEST_ADD, jsonstr,
-				      strlen(jsonstr));
-		if (id == 0) {
-			zlog_err("%s:%d: Failed to reconfigure peer",
-				 __FUNCTION__, __LINE__);
-			json_object_put(jo);
-			return -1;
-		}
-
-		if (bfd_control_recv(csock, bfdd_receive_id, &id) != 0) {
-			zlog_err("%s:%d: Failed to reconfigure peer",
-				 __FUNCTION__, __LINE__);
-			json_object_put(jo);
-			return -1;
-		}
-
-		json_object_put(jo);
-	}
-
-	return 0;
-}
-
-int bfdd_csock_reinit(struct thread *thread)
-{
-	struct bfdd_config *bc = THREAD_ARG(thread);
-	int csock;
 	uint16_t reqid;
 	uint64_t notifications;
 
-	bc->bc_thinit = NULL;
-
-	csock = bfd_control_init();
-	if (csock == -1) {
-		thread_add_timer_msec(master, bfdd_csock_reinit, bc,
-				      CSOCK_RECONNECT_TIMEOUT, &bc->bc_thinit);
-		return 0;
-	}
+	bc->bc_csock = csock;
 
 	/* Enable notifications. */
 	notifications = BCM_NOTIFY_PEER_STATE | BCM_NOTIFY_CONFIG;
@@ -185,48 +128,38 @@ int bfdd_csock_reinit(struct thread *thread)
 	if (bfd_control_recv(csock, bfdd_receive_id, &reqid) != 0) {
 		zlog_err(
 			"failed to enable notifications, some features will not work");
-		if (!fd_is_valid(csock)) {
-			goto close_and_retry;
-		}
-	}
-
-	if (bfdd_reconfigure(csock) != 0) {
-		goto close_and_retry;
 	}
 
 skip_recv_id:
-	bc->bc_csock = csock;
-	thread_add_read(master, bfdd_csock_read, bc, bc->bc_csock,
-			&bc->bc_threcv);
+	TAILQ_FOREACH (bn, &bc->bc_bnlist, bn_entry) {
+		/* Create the request data and send. */
+		jo = bfd_ctrl_new_json();
+		if (jo == NULL) {
+			zlog_err("%s:%d: not enough memory", __FUNCTION__,
+				 __LINE__);
+			return -1;
+		}
 
-	return 0;
+		bfd_ctrl_add_peer(jo, &bn->bn_bpc);
+		jsonstr = json_object_to_json_string_ext(jo, 0);
+		reqid = bfd_control_send(csock, BMT_REQUEST_ADD, jsonstr,
+				      strlen(jsonstr));
+		if (reqid == 0) {
+			zlog_err("%s:%d: Failed to reconfigure peer",
+				 __FUNCTION__, __LINE__);
+			json_object_put(jo);
+			return -1;
+		}
 
-close_and_retry:
-	close(csock);
-	thread_add_timer_msec(master, bfdd_csock_reinit, bc,
-			      CSOCK_RECONNECT_TIMEOUT, &bc->bc_thinit);
-	return 0;
-}
+		if (bfd_control_recv(csock, bfdd_receive_id, &reqid) != 0) {
+			zlog_err("%s:%d: Failed to reconfigure peer",
+				 __FUNCTION__, __LINE__);
+			json_object_put(jo);
+			return -1;
+		}
 
-int bfdd_csock_read(struct thread *thread)
-{
-	struct bfdd_config *bc = THREAD_ARG(thread);
-
-	bc->bc_threcv = NULL;
-
-	/* Receive and handle the current packet. */
-	if (bfd_control_recv(bc->bc_csock, bfdd_receive_notification, NULL) != 0
-	    && !fd_is_valid(bc->bc_csock)) {
-		close(bc->bc_csock);
-		bc->bc_csock = -1;
-		thread_add_timer_msec(master, bfdd_csock_reinit, bc,
-				      CSOCK_RECONNECT_TIMEOUT, &bc->bc_thinit);
-		return 0;
+		json_object_put(jo);
 	}
-
-	/* Schedule next read. */
-	thread_add_read(master, bfdd_csock_read, bc, bc->bc_csock,
-			&bc->bc_threcv);
 
 	return 0;
 }
@@ -234,6 +167,13 @@ int bfdd_csock_read(struct thread *thread)
 int main(int argc, char *argv[])
 {
 	int opt;
+	struct bfdd_adapter_ctx bac = {
+		.bac_csock = -1,
+		.bac_read = bfdd_receive_notification,
+		.bac_read_arg = &bc,
+		.bac_reconfigure = bfdd_reconfigure,
+		.bac_reconfigure_arg = &bc,
+	};
 
 	frr_preinit(&bfdd_di, argc, argv);
 
@@ -261,8 +201,8 @@ int main(int argc, char *argv[])
 	frr_config_fork();
 
 	/* Handle BFDd control socket. */
-	memset(&bc, 0, sizeof(bc));
-	thread_add_timer_msec(master, bfdd_csock_reinit, &bc, 1, &bc.bc_thinit);
+	bac.bac_master = master;
+	bfd_adapter_init(&bac);
 
 	frr_run(master);
 	/* NOTREACHED */
