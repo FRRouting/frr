@@ -34,7 +34,7 @@
 
 DEFINE_MTYPE(ZEBRA, ZEBRA_NS, "Zebra Name Space")
 
-static __inline int
+static inline int
 zebra_ns_table_entry_compare(const struct zebra_ns_table *e1,
 			     const struct zebra_ns_table *e2);
 
@@ -43,7 +43,7 @@ RB_GENERATE(zebra_ns_table_head, zebra_ns_table, zebra_ns_table_entry,
 
 static struct zebra_ns *dzns;
 
-static __inline int
+static inline int
 zebra_ns_table_entry_compare(const struct zebra_ns_table *e1,
 			     const struct zebra_ns_table *e2)
 {
@@ -127,6 +127,7 @@ struct route_table *zebra_ns_get_table(struct zebra_ns *zns,
 static void zebra_ns_free_table(struct zebra_ns_table *znst)
 {
 	void *table_info;
+
 	rib_close_table(znst->table);
 
 	table_info = znst->table->info;

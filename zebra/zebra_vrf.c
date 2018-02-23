@@ -229,7 +229,8 @@ static int zebra_vrf_disable(struct vrf *vrf)
 		struct route_node *rnode;
 		rib_dest_t *dest;
 
-		for (ALL_LIST_ELEMENTS(zebrad.mq->subq[i], lnode, nnode, rnode)) {
+		for (ALL_LIST_ELEMENTS(zebrad.mq->subq[i],
+				       lnode, nnode, rnode)) {
 			dest = rib_dest_from_rnode(rnode);
 			if (dest && rib_dest_vrf(dest) == zvrf) {
 				route_unlock_node(rnode);
