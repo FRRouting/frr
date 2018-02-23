@@ -1254,8 +1254,14 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
 	attr.mp_nexthop_len = BGP_ATTR_NHLEN_IPV4;
 	attr.sticky = CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY) ? 1 : 0;
 	attr.default_gw = CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW) ? 1 : 0;
-	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL);
-	bgpevpn_get_rmac(vpn, &attr.rmac);
+
+	/* PMSI is only needed for type-3 routes */
+	if (p->prefix.route_type == BGP_EVPN_IMET_ROUTE)
+		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL);
+
+	/* router mac is only needed for type-2 and type-5  routes */
+	if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE)
+		bgpevpn_get_rmac(vpn, &attr.rmac);
 	vni2label(vpn->vni, &(attr.label));
 
 	/* Set up RT and ENCAP extended community. */
