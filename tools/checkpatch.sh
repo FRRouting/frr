@@ -69,15 +69,20 @@ else
   done
   echo "Done."
   for file in /tmp/f1/*_cp; do
-    echo "Report for $(basename $file _cp)" 1>&2
-    echo "===============================================" 1>&2
     if [ -a /tmp/f2/$(basename $file) ]; then
-      diff $file /tmp/f2/$(basename $file) | grep -v "normally be const" | grep -A3 "ERROR\|WARNING" 1>&2
+      result=$(diff $file /tmp/f2/$(basename $file) | grep -A3 "ERROR\|WARNING")
     else
-      cat $file | grep -v "normally be const" | grep -A3 "ERROR\|WARNING" 1>&2
+      result=$(cat $file | grep -A4 "ERROR\|WARNING")
     fi
     if [ "$?" -eq "0" ]; then
-      stat=1
+      echo "Report for $(basename $file _cp)" 1>&2
+      echo "===============================================" 1>&2
+      echo "$result" 1>&2
+      if echo $result | grep -q "ERROR"; then
+        stat=2
+      elif [ "$stat" -eq "0" ]; then
+        stat=1
+      fi
     fi
   done
 fi
