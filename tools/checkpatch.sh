@@ -72,7 +72,7 @@ else
     echo "Report for $(basename $file _cp)" 1>&2
     echo "===============================================" 1>&2
     if [ -a /tmp/f2/$(basename $file) ]; then
-      diff $file /tmp/f2/$(basename $file) | grep -v "normally be const" | grep -A3 "ERROR\|WARNING" 1>&2
+      diff $file /tmp/f2/$(basename $file) | grep -v "normally be const" | grep -A3 "ERROR\|WARNING" | grep -A2 -B2 '/tmp/f1' 1>&2
     else
       cat $file | grep -v "normally be const" | grep -A3 "ERROR\|WARNING" 1>&2
     fi
