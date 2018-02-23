@@ -162,6 +162,9 @@ struct attr {
 	/* Static MAC for EVPN */
 	u_char sticky;
 
+	/* Flag for default gateway extended community in EVPN */
+	u_char default_gw;
+
 	/* route tag */
 	route_tag_t tag;
 
@@ -182,6 +185,9 @@ struct attr {
 
 	/* EVPN MAC Mobility sequence number, if any. */
 	u_int32_t mm_seqnum;
+
+	/* EVPN local router-mac */
+	struct ethaddr rmac;
 };
 
 /* rmap_change_flags definition */
@@ -254,7 +260,8 @@ extern bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *,
 				       struct bpacket_attr_vec_arr *vecarr,
 				       struct prefix *, afi_t, safi_t,
 				       struct peer *, struct prefix_rd *,
-				       mpls_label_t *, int, u_int32_t);
+				       mpls_label_t *, u_int32_t,
+				       int, u_int32_t);
 extern void bgp_dump_routes_attr(struct stream *, struct attr *,
 				 struct prefix *);
 extern int attrhash_cmp(const void *, const void *);
@@ -302,7 +309,8 @@ extern size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer,
 				      struct attr *attr);
 extern void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 				     struct prefix *p, struct prefix_rd *prd,
-				     mpls_label_t *label, int addpath_encode,
+				     mpls_label_t *label, u_int32_t num_labels,
+				     int addpath_encode,
 				     u_int32_t addpath_tx_id, struct attr *);
 extern size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
 					    struct prefix *p);
@@ -312,7 +320,8 @@ extern size_t bgp_packet_mpunreach_start(struct stream *s, afi_t afi,
 					 safi_t safi);
 extern void bgp_packet_mpunreach_prefix(struct stream *s, struct prefix *p,
 					afi_t afi, safi_t safi,
-					struct prefix_rd *prd, mpls_label_t *,
+					struct prefix_rd *prd,
+					mpls_label_t *, u_int32_t,
 					int, u_int32_t, struct attr *);
 extern void bgp_packet_mpunreach_end(struct stream *s, size_t attrlen_pnt);
 

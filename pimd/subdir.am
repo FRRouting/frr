@@ -5,6 +5,7 @@
 if PIMD
 noinst_LIBRARIES += pimd/libpim.a
 sbin_PROGRAMS += pimd/pimd
+bin_PROGRAMS += pimd/mtracebis
 noinst_PROGRAMS += pimd/test_igmpv3_join
 dist_examples_DATA += pimd/pimd.conf.sample
 endif
@@ -18,6 +19,7 @@ pimd_libpim_a_SOURCES = \
 	pimd/pim_iface.c \
 	pimd/pim_ifchannel.c \
 	pimd/pim_igmp.c \
+	pimd/pim_igmp_mtrace.c \
 	pimd/pim_igmpv2.c \
 	pimd/pim_igmpv3.c \
 	pimd/pim_instance.c \
@@ -66,6 +68,7 @@ noinst_HEADERS += \
 	pimd/pim_ifchannel.h \
 	pimd/pim_igmp.h \
 	pimd/pim_igmp_join.h \
+	pimd/pim_igmp_mtrace.h \
 	pimd/pim_igmpv2.h \
 	pimd/pim_igmpv3.h \
 	pimd/pim_instance.h \
@@ -101,6 +104,8 @@ noinst_HEADERS += \
 	pimd/pim_zebra.h \
 	pimd/pim_zlookup.h \
 	pimd/pimd.h \
+	pimd/mtracebis_netlink.h \
+	pimd/mtracebis_routeget.h \
 	# end
 
 pimd_pimd_LDADD = pimd/libpim.a lib/libfrr.la @LIBCAP@
@@ -108,3 +113,9 @@ pimd_pimd_SOURCES = pimd/pim_main.c
 
 pimd_test_igmpv3_join_LDADD = lib/libfrr.la
 pimd_test_igmpv3_join_SOURCES = pimd/test_igmpv3_join.c
+
+pimd_mtracebis_LDADD =  lib/libfrr.la
+pimd_mtracebis_SOURCES = pimd/mtracebis.c \
+			 pimd/mtracebis_netlink.c \
+			 pimd/mtracebis_routeget.c \
+			 # end

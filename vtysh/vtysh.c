@@ -46,6 +46,9 @@
 
 DEFINE_MTYPE_STATIC(MVTYSH, VTYSH_CMD, "Vtysh cmd copy")
 
+/* Destination for vtysh output */
+FILE *outputfile;
+
 /* Struct VTY. */
 struct vty *vty;
 
@@ -138,16 +141,25 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 
 		bufvalid += nread;
 
-		end = memmem(buf, bufvalid - buf, terminator,
-			     sizeof(terminator));
-		if (end + sizeof(terminator) + 1 > bufvalid)
+		if (bufvalid - buf >= 4)
+			end = memmem(bufvalid - 4, 4, terminator,
+				     sizeof(terminator));
+
+		if (end && end + sizeof(terminator) + 1 > bufvalid)
 			/* found \0\0\0 but return code hasn't been read yet */
 			end = NULL;
 		if (end)
 			ret = end[sizeof(terminator)];
 
-		while (bufvalid > buf && (end > buf || !end)) {
-			size_t textlen = (end ? end : bufvalid) - buf;
+		/*
+		 * calculate # bytes we have, up to & not including the
+		 * terminator if present
+		 */
+		size_t textlen = (end ? end : bufvalid) - buf;
+
+		/* feed line processing callback if present */
+		while (callback && bufvalid > buf && (end > buf || !end)) {
+			textlen = (end ? end : bufvalid) - buf;
 			char *eol = memchr(buf, '\n', textlen);
 			if (eol)
 				/* line break */
@@ -165,8 +177,7 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 				/* continue reading */
 				break;
 
-			/* eol is at a line end now, either \n => \0 or \0\0\0
-			 */
+			/* eol is at line end now, either \n => \0 or \0\0\0 */
 			assert(eol && eol <= bufvalid);
 
 			if (fp) {
@@ -184,6 +195,14 @@ static int vtysh_client_run(struct vtysh_client *vclient, const char *line,
 			bufvalid -= eol - buf;
 			if (end)
 				end -= eol - buf;
+		}
+
+		/* else if no callback, dump raw */
+		if (!callback) {
+			if (fp)
+				fwrite(buf, 1, textlen, fp);
+			memmove(buf, buf + textlen, bufvalid - buf - textlen);
+			bufvalid -= textlen;
 		}
 
 		if (bufvalid == buf + bufsz) {
@@ -375,21 +394,21 @@ static int vtysh_execute_func(const char *line, int pager)
 		fprintf(stdout, "%% Command incomplete.\n");
 		break;
 	case CMD_SUCCESS_DAEMON: {
-		/* FIXME: Don't open pager for exit commands. popen() causes
-		 * problems
-		 * if exited from vtysh at all. This hack shouldn't cause any
-		 * problem
-		 * but is really ugly. */
-		if (pager && vtysh_pager_name
+		/*
+		 * FIXME: Don't open pager for exit commands. popen() causes
+		 * problems if exited from vtysh at all. This hack shouldn't
+		 * cause any problem but is really ugly.
+		 */
+		fp = outputfile;
+		if (pager && vtysh_pager_name && outputfile == stdout
 		    && (strncmp(line, "exit", 4) != 0)) {
 			fp = popen(vtysh_pager_name, "w");
 			if (fp == NULL) {
 				perror("popen failed for pager");
-				fp = stdout;
+				fp = outputfile;
 			} else
 				closepager = 1;
-		} else
-			fp = stdout;
+		}
 
 		if (!strcmp(cmd->string, "configure terminal")) {
 			for (i = 0; i < array_size(vtysh_client); i++) {
@@ -405,7 +424,7 @@ static int vtysh_execute_func(const char *line, int pager)
 
 				if (vline == NULL) {
 					if (pager && vtysh_pager_name && fp
-					    && closepager) {
+					    && fp != outputfile && closepager) {
 						if (pclose(fp) == -1) {
 							perror("pclose failed for pager");
 						}
@@ -455,7 +474,7 @@ static int vtysh_execute_func(const char *line, int pager)
 			(*cmd->func)(cmd, vty, 0, NULL);
 	}
 	}
-	if (pager && vtysh_pager_name && fp && closepager) {
+	if (pager && vtysh_pager_name && fp && closepager && fp != outputfile) {
 		if (pclose(fp) == -1) {
 			perror("pclose failed for pager");
 		}
@@ -485,11 +504,11 @@ static char *trim(char *s)
 		return s;
 
 	end = s + size - 1;
-	while (end >= s && isspace(*end))
+	while (end >= s && isspace((int)*end))
 		end--;
 	*(end + 1) = '\0';
 
-	while (*s && isspace(*s))
+	while (*s && isspace((int)*s))
 		s++;
 
 	return s;
@@ -537,19 +556,19 @@ int vtysh_mark_file(const char *filename)
 		switch (vty->node) {
 		case LDP_IPV4_IFACE_NODE:
 			if (strncmp(vty_buf_copy, "   ", 3)) {
-				fprintf(stdout, "  end\n");
+				fprintf(outputfile, "  end\n");
 				vty->node = LDP_IPV4_NODE;
 			}
 			break;
 		case LDP_IPV6_IFACE_NODE:
 			if (strncmp(vty_buf_copy, "   ", 3)) {
-				fprintf(stdout, "  end\n");
+				fprintf(outputfile, "  end\n");
 				vty->node = LDP_IPV6_NODE;
 			}
 			break;
 		case LDP_PSEUDOWIRE_NODE:
 			if (strncmp(vty_buf_copy, "  ", 2)) {
-				fprintf(stdout, " end\n");
+				fprintf(outputfile, " end\n");
 				vty->node = LDP_L2VPN_NODE;
 			}
 			break;
@@ -558,7 +577,7 @@ int vtysh_mark_file(const char *filename)
 		}
 
 		if (vty_buf_trimmed[0] == '!' || vty_buf_trimmed[0] == '#') {
-			fprintf(stdout, "%s", vty->buf);
+			fprintf(outputfile, "%s", vty->buf);
 			continue;
 		}
 
@@ -566,7 +585,7 @@ int vtysh_mark_file(const char *filename)
 		vline = cmd_make_strvec(vty->buf);
 
 		if (vline == NULL) {
-			fprintf(stdout, "%s", vty->buf);
+			fprintf(outputfile, "%s", vty->buf);
 			continue;
 		}
 
@@ -609,15 +628,15 @@ int vtysh_mark_file(const char *filename)
 			     || prev_node == BGP_IPV6M_NODE
 			     || prev_node == BGP_EVPN_NODE)
 			    && (tried == 1)) {
-				fprintf(stdout, "exit-address-family\n");
+				fprintf(outputfile, "exit-address-family\n");
 			} else if ((prev_node == BGP_EVPN_VNI_NODE)
 				   && (tried == 1)) {
-				fprintf(stdout, "exit-vni\n");
+				fprintf(outputfile, "exit-vni\n");
 			} else if ((prev_node == KEYCHAIN_KEY_NODE)
 				   && (tried == 1)) {
-				fprintf(stdout, "exit\n");
+				fprintf(outputfile, "exit\n");
 			} else if (tried) {
-				fprintf(stdout, "end\n");
+				fprintf(outputfile, "end\n");
 			}
 		}
 		/* If command didn't succeed in any node, continue with return
@@ -667,12 +686,12 @@ int vtysh_mark_file(const char *filename)
 			u_int i;
 			int cmd_stat = CMD_SUCCESS;
 
-			fprintf(stdout, "%s", vty->buf);
+			fprintf(outputfile, "%s", vty->buf);
 			for (i = 0; i < array_size(vtysh_client); i++) {
 				if (cmd->daemon & vtysh_client[i].flag) {
 					cmd_stat = vtysh_client_execute(
 						&vtysh_client[i], vty->buf,
-						stdout);
+						outputfile);
 					if (cmd_stat != CMD_SUCCESS)
 						break;
 				}
@@ -686,7 +705,7 @@ int vtysh_mark_file(const char *filename)
 		}
 	}
 	/* This is the end */
-	fprintf(stdout, "\nend\n");
+	fprintf(outputfile, "\nend\n");
 	vty_close(vty);
 	XFREE(MTYPE_VTYSH_CMD, vty_buf_copy);
 
@@ -749,7 +768,7 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 				if (cmd->daemon & vtysh_client[i].flag) {
 					cmd_stat = vtysh_client_execute(
 						&vtysh_client[i], vty->buf,
-						stdout);
+						outputfile);
 					/*
 					 * CMD_WARNING - Can mean that the
 					 * command was
@@ -1854,7 +1873,7 @@ DEFUN (vtysh_show_thread,
 			fprintf(stdout, "Thread statistics for %s:\n",
 				vtysh_client[i].name);
 			ret = vtysh_client_execute(&vtysh_client[i], line,
-						   stdout);
+						   outputfile);
 			fprintf(stdout, "\n");
 		}
 	return ret;
@@ -1875,7 +1894,7 @@ DEFUN (vtysh_show_work_queues,
 			fprintf(stdout, "Work queue statistics for %s:\n",
 				vtysh_client[i].name);
 			ret = vtysh_client_execute(&vtysh_client[i], line,
-						   stdout);
+						   outputfile);
 			fprintf(stdout, "\n");
 		}
 
@@ -1905,7 +1924,7 @@ DEFUN (vtysh_show_work_queues_daemon,
 	}
 
 	ret = vtysh_client_execute(&vtysh_client[i], "show work-queues\n",
-				   stdout);
+				   outputfile);
 
 	return ret;
 }
@@ -1932,9 +1951,9 @@ static int show_per_daemon(const char *line, const char *headline)
 
 	for (i = 0; i < array_size(vtysh_client); i++)
 		if (vtysh_client[i].fd >= 0) {
-			fprintf(stdout, headline, vtysh_client[i].name);
+			fprintf(outputfile, headline, vtysh_client[i].name);
 			ret = vtysh_client_execute(&vtysh_client[i], line,
-						   stdout);
+						   outputfile);
 			fprintf(stdout, "\n");
 		}
 
@@ -2226,20 +2245,19 @@ DEFUN (vtysh_write_terminal,
 {
 	u_int i;
 	char line[] = "do write terminal\n";
-	FILE *fp = NULL;
+	FILE *fp = outputfile;
 
-	if (vtysh_pager_name) {
+	if (fp == stdout && vtysh_pager_name) {
 		fp = popen(vtysh_pager_name, "w");
 		if (fp == NULL) {
 			perror("popen");
 			exit(1);
 		}
-	} else
-		fp = stdout;
+	}
 
-	vty_out(vty, "Building configuration...\n");
-	vty_out(vty, "\nCurrent configuration:\n");
-	vty_out(vty, "!\n");
+	fprintf(outputfile, "Building configuration...\n");
+	fprintf(outputfile, "\nCurrent configuration:\n");
+	fprintf(outputfile, "!\n");
 
 	for (i = 0; i < array_size(vtysh_client); i++)
 		if ((argc < 3)
@@ -2251,7 +2269,7 @@ DEFUN (vtysh_write_terminal,
 
 	vtysh_config_dump(fp);
 
-	if (vtysh_pager_name && fp) {
+	if (vtysh_pager_name && fp && fp != outputfile) {
 		fflush(fp);
 		if (pclose(fp) == -1) {
 			perror("pclose");
@@ -2260,7 +2278,7 @@ DEFUN (vtysh_write_terminal,
 		fp = NULL;
 	}
 
-	vty_out(vty, "end\n");
+	fprintf(outputfile, "end\n");
 	return CMD_SUCCESS;
 }
 
@@ -2429,7 +2447,7 @@ DEFUN (vtysh_write_memory,
 	char line[] = "do write memory\n";
 	u_int i;
 
-	fprintf(stdout,
+	fprintf(outputfile,
 		"Note: this version of vtysh never writes vtysh.conf\n");
 
 	/* If integrated frr.conf explicitely set. */
@@ -2441,7 +2459,7 @@ DEFUN (vtysh_write_memory,
 		if (i < array_size(vtysh_client) && vtysh_client[i].fd != -1)
 			ret = vtysh_client_execute(&vtysh_client[i],
 						   "do write integrated",
-						   stdout);
+						   outputfile);
 
 		if (ret != CMD_SUCCESS) {
 			printf("\nWarning: attempting direct configuration write without "
@@ -2452,10 +2470,10 @@ DEFUN (vtysh_write_memory,
 		return ret;
 	}
 
-	fprintf(stdout, "Building Configuration...\n");
+	fprintf(outputfile, "Building Configuration...\n");
 
 	for (i = 0; i < array_size(vtysh_client); i++)
-		ret = vtysh_client_execute(&vtysh_client[i], line, stdout);
+		ret = vtysh_client_execute(&vtysh_client[i], line, outputfile);
 
 	return ret;
 }
@@ -2484,7 +2502,7 @@ DEFUN (vtysh_terminal_length,
 
 	lines = strtol(argv[idx_number]->arg, &endptr, 10);
 	if (lines < 0 || lines > 512 || *endptr != '\0') {
-		vty_out(vty, "length is malformed\n");
+		fprintf(outputfile, "length is malformed\n");
 		return CMD_WARNING;
 	}
 
@@ -2527,8 +2545,8 @@ DEFUN (vtysh_show_daemons,
 
 	for (i = 0; i < array_size(vtysh_client); i++)
 		if (vtysh_client[i].fd >= 0)
-			vty_out(vty, " %s", vtysh_client[i].name);
-	vty_out(vty, "\n");
+			fprintf(outputfile, " %s", vtysh_client[i].name);
+	fprintf(outputfile, "\n");
 
 	return CMD_SUCCESS;
 }
@@ -2609,6 +2627,19 @@ ALIAS(vtysh_traceroute, vtysh_traceroute_ip_cmd, "traceroute ip WORD",
       "Trace route to destination\n"
       "IP trace\n"
       "Trace route to destination address or hostname\n")
+
+DEFUN (vtysh_mtrace,
+       vtysh_mtrace_cmd,
+       "mtrace WORD",
+       "Multicast trace route to multicast source\n"
+       "Multicast trace route to multicast source address\n")
+{
+	int idx = 1;
+
+	argv_find(argv, argc, "WORD", &idx);
+	execute_command("mtracebis", 1, argv[idx]->arg, NULL);
+	return CMD_SUCCESS;
+}
 
 DEFUN (vtysh_ping6,
        vtysh_ping6_cmd,
@@ -2703,6 +2734,38 @@ DEFUN (config_list,
 	return cmd_list_cmds(vty, argc == 2);
 }
 
+DEFUN (vtysh_output_file,
+       vtysh_output_file_cmd,
+       "output file FILE",
+       "Direct vtysh output to file\n"
+       "Direct vtysh output to file\n"
+       "Path to dump output to\n")
+{
+	const char *path = argv[argc - 1]->arg;
+	outputfile = fopen(path, "a");
+	if (!outputfile) {
+		fprintf(stdout, "Failed to open file '%s': %s\n", path,
+			safe_strerror(errno));
+		outputfile = stdout;
+	}
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_vtysh_output_file,
+       no_vtysh_output_file_cmd,
+       "no output file [FILE]",
+       NO_STR
+       "Direct vtysh output to file\n"
+       "Direct vtysh output to file\n"
+       "Path to dump output to\n")
+{
+	if (outputfile != stdout) {
+		fclose(outputfile);
+		outputfile = stdout;
+	}
+	return CMD_SUCCESS;
+}
+
 DEFUN(find,
       find_cmd,
       "find COMMAND...",
@@ -2736,6 +2799,8 @@ static void vtysh_install_default(enum node_type node)
 {
 	install_element(node, &config_list_cmd);
 	install_element(node, &find_cmd);
+	install_element(node, &vtysh_output_file_cmd);
+	install_element(node, &no_vtysh_output_file_cmd);
 }
 
 /* Making connection to protocol daemon. */
@@ -2964,12 +3029,21 @@ static const struct cmd_variable_handler vtysh_var_handler[] = {
 	 .completions = vtysh_autocomplete},
 	{.completions = NULL}};
 
+void vtysh_uninit()
+{
+	if (outputfile != stdout)
+		fclose(outputfile);
+}
+
 void vtysh_init_vty(void)
 {
 	/* Make vty structure. */
 	vty = vty_new();
 	vty->type = VTY_SHELL;
 	vty->node = VIEW_NODE;
+
+	/* set default output */
+	outputfile = stdout;
 
 	/* Initialize commands. */
 	cmd_init(0);
@@ -3266,6 +3340,7 @@ void vtysh_init_vty(void)
 	install_element(VIEW_NODE, &vtysh_ping_ip_cmd);
 	install_element(VIEW_NODE, &vtysh_traceroute_cmd);
 	install_element(VIEW_NODE, &vtysh_traceroute_ip_cmd);
+	install_element(VIEW_NODE, &vtysh_mtrace_cmd);
 	install_element(VIEW_NODE, &vtysh_ping6_cmd);
 	install_element(VIEW_NODE, &vtysh_traceroute6_cmd);
 #if defined(HAVE_SHELL_ACCESS)

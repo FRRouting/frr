@@ -59,6 +59,11 @@ enum bgp_show_type {
 #define BGP_SHOW_OCODE_HEADER "Origin codes: i - IGP, e - EGP, ? - incomplete\n\n"
 #define BGP_SHOW_HEADER "   Network          Next Hop            Metric LocPrf Weight Path\n"
 
+/* Maximum number of labels we can process or send with a prefix. We
+ * really do only 1 for MPLS (BGP-LU) but we can do 2 for EVPN-VxLAN.
+ */
+#define BGP_MAX_LABELS 2
+
 /* Ancillary information to struct bgp_info,
  * used for uncommonly used data (aggregation, MPLS, etc.)
  * and lazily allocated to save memory.
@@ -73,8 +78,9 @@ struct bgp_info_extra {
 	/* Nexthop reachability check.  */
 	u_int32_t igpmetric;
 
-	/* MPLS label.  */
-	mpls_label_t label;
+	/* MPLS label(s) - VNI(s) for EVPN-VxLAN  */
+	mpls_label_t label[BGP_MAX_LABELS];
+	u_int32_t num_labels;
 
 #if ENABLE_BGP_VNC
 	union {
@@ -357,10 +363,10 @@ extern int bgp_static_unset_safi(afi_t afi, safi_t safi, struct vty *,
 /* this is primarily for MPLS-VPN */
 extern int bgp_update(struct peer *, struct prefix *, u_int32_t, struct attr *,
 		      afi_t, safi_t, int, int, struct prefix_rd *,
-		      mpls_label_t *, int, struct bgp_route_evpn *);
+		      mpls_label_t *, u_int32_t, int, struct bgp_route_evpn *);
 extern int bgp_withdraw(struct peer *, struct prefix *, u_int32_t,
 			struct attr *, afi_t, safi_t, int, int,
-			struct prefix_rd *, mpls_label_t *,
+			struct prefix_rd *, mpls_label_t *, u_int32_t,
 			struct bgp_route_evpn *);
 
 /* for bgp_nexthop and bgp_damp */
@@ -415,8 +421,6 @@ extern void bgp_peer_clear_node_queue_drain_immediate(struct peer *peer);
 extern void bgp_process_queues_drain_immediate(void);
 
 /* for encap/vpn */
-extern struct bgp_node *bgp_afi_node_get(struct bgp_table *, afi_t, safi_t,
-					 struct prefix *, struct prefix_rd *);
 extern struct bgp_node *bgp_afi_node_lookup(struct bgp_table *table, afi_t afi,
 					    safi_t safi, struct prefix *p,
 					    struct prefix_rd *prd);

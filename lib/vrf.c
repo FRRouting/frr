@@ -94,7 +94,7 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 	int new = 0;
 
 	if (debug_vrf)
-		zlog_debug("VRF_GET: %s(%d)", name, vrf_id);
+		zlog_debug("VRF_GET: %s(%u)", name, vrf_id);
 
 	/* Nothing to see, move along here */
 	if (!name && vrf_id == VRF_UNKNOWN)
@@ -141,7 +141,9 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 	return vrf;
 }
 
-/* Delete a VRF. This is called in vrf_terminate(). */
+/* Delete a VRF. This is called when the underlying VRF goes away, a
+ * pre-configured VRF is deleted or when shutting down (vrf_terminate()).
+ */
 void vrf_delete(struct vrf *vrf)
 {
 	if (debug_vrf)
@@ -149,6 +151,23 @@ void vrf_delete(struct vrf *vrf)
 
 	if (vrf_is_enabled(vrf))
 		vrf_disable(vrf);
+
+	/* If the VRF is user configured, it'll stick around, just remove
+	 * the ID mapping. Interfaces assigned to this VRF should've been
+	 * removed already as part of the VRF going down.
+	 */
+	if (vrf_is_user_cfged(vrf)) {
+		if (vrf->vrf_id != VRF_UNKNOWN) {
+			/* Delete any VRF interfaces - should be only
+			 * the VRF itself, other interfaces should've
+			 * been moved out of the VRF.
+			 */
+			if_terminate(vrf);
+			RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
+			vrf->vrf_id = VRF_UNKNOWN;
+		}
+		return;
+	}
 
 	if (vrf_master.vrf_delete_hook)
 		(*vrf_master.vrf_delete_hook)(vrf);
@@ -170,14 +189,6 @@ struct vrf *vrf_lookup_by_id(vrf_id_t vrf_id)
 	struct vrf vrf;
 	vrf.vrf_id = vrf_id;
 	return (RB_FIND(vrf_id_head, &vrfs_by_id, &vrf));
-}
-
-/*
- * Check whether the VRF is enabled.
- */
-static int vrf_is_enabled(struct vrf *vrf)
-{
-	return vrf && CHECK_FLAG(vrf->status, VRF_ACTIVE);
 }
 
 /*
@@ -225,6 +236,17 @@ static void vrf_disable(struct vrf *vrf)
 		(*vrf_master.vrf_disable_hook)(vrf);
 }
 
+const char *vrf_id_to_name(vrf_id_t vrf_id)
+{
+	struct vrf *vrf;
+
+	vrf = vrf_lookup_by_id(vrf_id);
+	if (vrf)
+		return vrf->name;
+
+	return "n/a";
+}
+
 vrf_id_t vrf_name_to_id(const char *name)
 {
 	struct vrf *vrf;
@@ -256,8 +278,8 @@ void *vrf_info_lookup(vrf_id_t vrf_id)
  * VRF bit-map
  */
 
-#define VRF_BITMAP_NUM_OF_GROUPS            8
-#define VRF_BITMAP_NUM_OF_BITS_IN_GROUP (UINT16_MAX / VRF_BITMAP_NUM_OF_GROUPS)
+#define VRF_BITMAP_NUM_OF_GROUPS            1024
+#define VRF_BITMAP_NUM_OF_BITS_IN_GROUP (UINT32_MAX / VRF_BITMAP_NUM_OF_GROUPS)
 #define VRF_BITMAP_NUM_OF_BYTES_IN_GROUP                                       \
 	(VRF_BITMAP_NUM_OF_BITS_IN_GROUP / CHAR_BIT + 1) /* +1 for ensure */
 
@@ -344,7 +366,7 @@ static void vrf_autocomplete(vector comps, struct cmd_token *token)
 	struct vrf *vrf = NULL;
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (vrf->vrf_id != 0)
+		if (vrf->vrf_id != VRF_DEFAULT)
 			vector_set(comps, XSTRDUP(MTYPE_COMPLETION, vrf->name));
 	}
 }
@@ -397,10 +419,16 @@ void vrf_terminate(void)
 		zlog_debug("%s: Shutting down vrf subsystem",
 			   __PRETTY_FUNCTION__);
 
-	while ((vrf = RB_ROOT(vrf_id_head, &vrfs_by_id)) != NULL)
+	while ((vrf = RB_ROOT(vrf_id_head, &vrfs_by_id)) != NULL) {
+		/* Clear configured flag and invoke delete. */
+		UNSET_FLAG(vrf->status, VRF_CONFIGURED);
 		vrf_delete(vrf);
-	while ((vrf = RB_ROOT(vrf_name_head, &vrfs_by_name)) != NULL)
+	}
+	while ((vrf = RB_ROOT(vrf_name_head, &vrfs_by_name)) != NULL) {
+		/* Clear configured flag and invoke delete. */
+		UNSET_FLAG(vrf->status, VRF_CONFIGURED);
 		vrf_delete(vrf);
+	}
 }
 
 /* Create a socket for the VRF. */
@@ -462,6 +490,8 @@ DEFUN_NOSH (no_vrf,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	/* Clear configured flag and invoke delete. */
+	UNSET_FLAG(vrfp->status, VRF_CONFIGURED);
 	vrf_delete(vrfp);
 
 	return CMD_SUCCESS;

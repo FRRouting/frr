@@ -20,7 +20,7 @@ any packages**
 
     sudo addgroup --system --gid 92 frr
     sudo addgroup --system --gid 85 frrvty
-    sudo adduser --system --ingroup frr --home /var/run/frr/ \
+    sudo adduser --system --ingroup frr --home /var/opt/frr/ \
        --gecos "FRR suite" --shell /bin/false frr
     sudo usermod -a -G frrvty frr
 
@@ -34,7 +34,7 @@ an example.)
     ./bootstrap.sh
     ./configure \
         --enable-exampledir=/usr/share/doc/frr/examples/ \
-        --localstatedir=/var/run/frr \
+        --localstatedir=/var/opt/frr \
         --sbindir=/usr/lib/frr \
         --sysconfdir=/etc/frr \
         --enable-vtysh \
@@ -61,6 +61,7 @@ an example.)
 ### Create empty FRR configuration files
 
     sudo install -m 755 -o frr -g frr -d /var/log/frr
+    sudo install -m 755 -o frr -g frr -d /var/opt/frr
     sudo install -m 775 -o frr -g frrvty -d /etc/frr
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/zebra.conf
     sudo install -m 640 -o frr -g frr /dev/null /etc/frr/bgpd.conf
@@ -90,20 +91,6 @@ other settings)
 **Reboot** or use `sysctl -p` to apply the same config to the running system
 
 ### Troubleshooting
-
-**Local state directory**
-
-The local state directory must exist and have the correct permissions applied
-for the frrouting daemons to start.  In the above ./configure example the
-local state directory is set to /var/run/frr (--localstatedir=/var/run/frr)
-Debian considers /var/run/frr to be temporary and this is removed after a
-reboot.
-
-When using a different local state directory you need to create the new
-directory and change the ownership to the frr user, for example:
-
-    mkdir /var/opt/frr
-    chown frr /var/opt/frr
 
 **Shared library error**
 

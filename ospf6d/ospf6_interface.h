@@ -108,6 +108,7 @@ struct ospf6_interface {
 	struct thread *thread_network_lsa;
 	struct thread *thread_link_lsa;
 	struct thread *thread_intra_prefix_lsa;
+	struct thread *thread_as_extern_lsa;
 
 	struct ospf6_route_table *route_connected;
 
@@ -116,6 +117,19 @@ struct ospf6_interface {
 
 	/* BFD information */
 	void *bfd_info;
+
+	/* Statistics Fields */
+	u_int32_t hello_in;
+	u_int32_t hello_out;
+	u_int32_t db_desc_in;
+	u_int32_t db_desc_out;
+	u_int32_t ls_req_in;
+	u_int32_t ls_req_out;
+	u_int32_t ls_upd_in;
+	u_int32_t ls_upd_out;
+	u_int32_t ls_ack_in;
+	u_int32_t ls_ack_out;
+	u_int32_t discarded;
 
 	QOBJ_FIELDS
 };

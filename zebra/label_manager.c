@@ -41,6 +41,8 @@
 
 struct label_manager lbl_mgr;
 
+extern struct zebra_privs_t zserv_privs;
+
 DEFINE_MGROUP(LBL_MGR, "Label Manager");
 DEFINE_MTYPE_STATIC(LBL_MGR, LM_CHUNK, "Label Manager Chunk");
 
@@ -119,7 +121,7 @@ static int reply_error(int cmd, struct zserv *zserv, vrf_id_t vrf_id)
 	s = zserv->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, cmd, vrf_id);
+	zclient_create_header(s, cmd, vrf_id);
 
 	/* result */
 	stream_putc(s, 1);
@@ -222,6 +224,7 @@ static void lm_zclient_init(char *lm_zserv_path)
 
 	/* Set default values. */
 	zclient = zclient_new_notify(zebrad.master, &zclient_options_default);
+	zclient->privs = &zserv_privs;
 	zclient->sock = -1;
 	zclient->t_connect = NULL;
 	lm_zclient_connect(NULL);
@@ -280,13 +283,13 @@ struct label_manager_chunk *assign_label_chunk(u_char proto, u_short instance,
 		return NULL;
 
 	if (list_isempty(lbl_mgr.lc_list))
-		lmc->start = MPLS_MIN_UNRESERVED_LABEL;
+		lmc->start = MPLS_LABEL_UNRESERVED_MIN;
 	else
 		lmc->start = ((struct label_manager_chunk *)listgetdata(
 				      listtail(lbl_mgr.lc_list)))
 				     ->end
 			     + 1;
-	if (lmc->start > MPLS_MAX_UNRESERVED_LABEL - size + 1) {
+	if (lmc->start > MPLS_LABEL_UNRESERVED_MAX - size + 1) {
 		zlog_err("Reached max labels. Start: %u, size: %u", lmc->start,
 			 size);
 		XFREE(MTYPE_LM_CHUNK, lmc);

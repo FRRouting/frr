@@ -32,8 +32,7 @@
 
 /* The default VRF ID */
 #define VRF_DEFAULT 0
-#define VRF_UNKNOWN UINT16_MAX
-#define VRF_ALL UINT16_MAX - 1
+#define VRF_UNKNOWN UINT32_MAX
 
 /* Pending: May need to refine this. */
 #ifndef IFLA_VRF_MAX
@@ -76,7 +75,8 @@ struct vrf {
 
 	/* Zebra internal VRF status */
 	u_char status;
-#define VRF_ACTIVE     (1 << 0)
+#define VRF_ACTIVE     (1 << 0) /* VRF is up in kernel */
+#define VRF_CONFIGURED (1 << 1) /* VRF has some FRR configuration */
 
 	/* Interfaces belonging to this VRF */
 	struct if_name_head ifaces_by_name;
@@ -103,6 +103,7 @@ extern struct vrf_name_head vrfs_by_name;
 extern struct vrf *vrf_lookup_by_id(vrf_id_t);
 extern struct vrf *vrf_lookup_by_name(const char *);
 extern struct vrf *vrf_get(vrf_id_t, const char *);
+extern const char *vrf_id_to_name(vrf_id_t vrf_id);
 extern vrf_id_t vrf_name_to_id(const char *);
 
 #define VRF_GET_ID(V, NAME)                                                    \
@@ -118,6 +119,32 @@ extern vrf_id_t vrf_name_to_id(const char *);
 		}                                                              \
 		(V) = vrf->vrf_id;                                             \
 	} while (0)
+
+/*
+ * Check whether the VRF is enabled.
+ */
+static inline int vrf_is_enabled(struct vrf *vrf)
+{
+	return vrf && CHECK_FLAG(vrf->status, VRF_ACTIVE);
+}
+
+/* check if the vrf is user configured */
+static inline int vrf_is_user_cfged(struct vrf *vrf)
+{
+	return vrf && CHECK_FLAG(vrf->status, VRF_CONFIGURED);
+}
+
+/* Mark that VRF has user configuration */
+static inline void vrf_set_user_cfged(struct vrf *vrf)
+{
+	SET_FLAG(vrf->status, VRF_CONFIGURED);
+}
+
+/* Mark that VRF no longer has any user configuration */
+static inline void vrf_reset_user_cfged(struct vrf *vrf)
+{
+	UNSET_FLAG(vrf->status, VRF_CONFIGURED);
+}
 
 /*
  * Utilities to obtain the user data

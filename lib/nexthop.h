@@ -55,17 +55,15 @@ enum blackhole_type {
 	((type) == NEXTHOP_TYPE_IFINDEX || (type) == NEXTHOP_TYPE_BLACKHOLE) \
 		? (type) : ((type) | 1)
 
-/* Nexthop label structure. */
-struct nexthop_label {
-	u_int8_t num_labels;
-	u_int8_t reserved[3];
-	mpls_label_t label[0]; /* 1 or more labels. */
-};
-
 /* Nexthop structure. */
 struct nexthop {
 	struct nexthop *next;
 	struct nexthop *prev;
+
+	/*
+	 * What vrf is this nexthop associated with?
+	 */
+	vrf_id_t vrf_id;
 
 	/* Interface index. */
 	ifindex_t ifindex;
@@ -80,6 +78,7 @@ struct nexthop {
 #define NEXTHOP_FLAG_MATCHED    (1 << 4) /* Already matched vs a nexthop */
 #define NEXTHOP_FLAG_FILTERED   (1 << 5) /* rmap filtered, used by static only */
 #define NEXTHOP_FLAG_DUPLICATE  (1 << 6) /* nexthop duplicates another active one */
+#define NEXTHOP_FLAG_EVPN_RVTEP (1 << 7) /* EVPN remote vtep nexthop */
 #define NEXTHOP_IS_ACTIVE(flags) \
 	(CHECK_FLAG(flags, NEXTHOP_FLAG_ACTIVE) \
 		&& !CHECK_FLAG(flags, NEXTHOP_FLAG_DUPLICATE))
@@ -106,7 +105,7 @@ struct nexthop {
 	enum lsp_types_t nh_label_type;
 
 	/* Label(s) associated with this nexthop. */
-	struct nexthop_label *nh_label;
+	struct mpls_label_stack *nh_label;
 };
 
 /* The following for loop allows to iterate over the nexthop
@@ -121,18 +120,6 @@ struct nexthop {
 	(nexthop) = (head);                                                    \
 	(nexthop);                                                             \
 	(nexthop) = nexthop_next(nexthop)
-
-extern int zebra_rnh_ip_default_route;
-extern int zebra_rnh_ipv6_default_route;
-
-static inline int nh_resolve_via_default(int family)
-{
-	if (((family == AF_INET) && zebra_rnh_ip_default_route)
-	    || ((family == AF_INET6) && zebra_rnh_ipv6_default_route))
-		return 1;
-	else
-		return 0;
-}
 
 struct nexthop *nexthop_new(void);
 void nexthop_add(struct nexthop **target, struct nexthop *nexthop);

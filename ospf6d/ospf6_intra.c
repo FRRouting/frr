@@ -1404,7 +1404,8 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 
 		if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
 			prefix2str(&route->prefix, buf, sizeof(buf));
-			zlog_debug("  route %s add", buf);
+			zlog_debug("  route %s add with nh count %u", buf,
+				   listcount(route->nh_list));
 		}
 
 		ospf6_route_add(route, oa->route_table);

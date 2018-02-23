@@ -377,6 +377,7 @@ void eigrp_zebra_route_add(struct prefix *p, struct list *successors)
 		if (count >= MULTIPATH_NUM)
 			break;
 		api_nh = &api.nexthops[count];
+		api_nh->vrf_id = VRF_DEFAULT;
 		if (te->adv_router->src.s_addr) {
 			api_nh->gate.ipv4 = te->adv_router->src;
 			api_nh->type = NEXTHOP_TYPE_IPV4_IFINDEX;

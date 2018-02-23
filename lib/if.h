@@ -452,6 +452,13 @@ struct nbr_connected {
 /* Prototypes. */
 extern int if_cmp_name_func(char *, char *);
 
+/*
+ * Passing in VRF_UNKNOWN is a valid thing to do, unless we
+ * are creating a new interface.
+ *
+ * This is useful for vrf route-leaking.  So more than anything
+ * else think before you use VRF_UNKNOWN
+ */
 extern void if_update_to_new_vrf(struct interface *, vrf_id_t vrf_id);
 extern struct interface *if_create(const char *name,  vrf_id_t vrf_id);
 extern struct interface *if_lookup_by_index(ifindex_t, vrf_id_t vrf_id);

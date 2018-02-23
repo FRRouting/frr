@@ -93,5 +93,8 @@ extern void ospf6_asbr_send_externals_to_area(struct ospf6_area *);
 
 extern int config_write_ospf6_debug_asbr(struct vty *vty);
 extern void install_element_ospf6_debug_asbr(void);
+extern void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
+					      struct ospf6_route *route);
+extern void ospf6_asbr_distribute_list_update(int type);
 
 #endif /* OSPF6_ASBR_H */

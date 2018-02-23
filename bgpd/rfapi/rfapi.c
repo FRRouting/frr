@@ -31,6 +31,7 @@
 #include "lib/linklist.h"
 #include "lib/command.h"
 #include "lib/stream.h"
+#include "lib/ringbuf.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_ecommunity.h"
@@ -912,7 +913,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	 *  aspath: points to interned hash from aspath hash table
 	 */
 
-	red = bgp_redist_lookup(bgp, afi, type, VRF_DEFAULT);
+	red = bgp_redist_lookup(bgp, afi, type, 0);
 
 	if (red && red->redist_metric_flag) {
 		attr.med = red->redist_metric;
@@ -1082,7 +1083,7 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	/* save backref to rfapi handle */
 	assert(bgp_info_extra_get(new));
 	new->extra->vnc.export.rfapi_handle = (void *)rfd;
-	encode_label(label_val, &new->extra->label);
+	encode_label(label_val, &new->extra->label[0]);
 
 	/* debug */
 
@@ -1310,7 +1311,7 @@ static int rfapi_open_inner(struct rfapi_descriptor *rfd, struct bgp *bgp,
 			stream_fifo_free(rfd->peer->obuf);
 
 		if (rfd->peer->ibuf_work)
-			stream_free(rfd->peer->ibuf_work);
+			ringbuf_del(rfd->peer->ibuf_work);
 		if (rfd->peer->obuf_work)
 			stream_free(rfd->peer->obuf_work);
 

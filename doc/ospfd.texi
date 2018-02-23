@@ -22,6 +22,7 @@ networks.
 * Opaque LSA::
 * OSPF Traffic Engineering::
 * Router Information::
+* Segment Routing::
 * Debugging OSPF::              
 * OSPF Configuration Examples::
 @end menu
@@ -724,6 +725,46 @@ Show Router Capabilities flag.
 Show Router Capabilities PCE parameters.
 @end deffn
 
+@node Segment Routing
+@section Segment Routing
+
+This is an EXPERIMENTAL support of Segment Routing as per draft
+ draft-ietf-ospf-segment-routing-extensions-24.txt for MPLS dataplane.
+
+@deffn {OSPF Command} {segment-routing on} {}
+@deffnx {OSPF Command} {no segment-routing} {}
+Enable Segment Routing. Even if this also activate routing information support,
+it is preferable to also activate routing information, and set accordingly the
+Area or AS flooding.
+@end deffn
+
+@deffn {OSPF Command} {segment-routing global-block (0-1048575) (0-1048575)} {}
+@deffnx {OSPF Command} {no segment-routing global-block} {}
+Fix the Segment Routing Global Block i.e. the label range used by MPLS to store
+label in the MPLS FIB.
+@end deffn
+
+@deffn {OSPF Command} {segment-routing node-msd (1-16)} {}
+@deffnx {OSPF Command} {no segment-routing node-msd} {}
+Fix the Maximum Stack Depth supported by the router. The value depend of the
+MPLS dataplane. E.g. for Linux kernel, since version 4.13 it is 32.
+@end deffn
+
+@deffn {OSPF Command} {segment-routing prefix A.B.C.D/M index (0-65535)} {}
+@deffnx {OSPF Command} {segment-routing prefix A.B.C.D/M index (0-65535) no-php-flag} {}
+@deffnx {OSPF Command} {no segment-routing prefix A.B.C.D/M} {}
+Set the Segment Rounting index for the specifyed prefix. Note
+that, only prefix with /32 corresponding to a loopback interface are
+currently supported. The 'no-php-flag' means NO Penultimate Hop Popping that
+allows SR node to request to its neighbor to not pop the label.
+@end deffn
+
+@deffn {Command} {show ip ospf database segment-routing} {}
+@deffnx {Command} {show ip ospf database segment-routing adv-router @var{adv-router}} {}
+@deffnx {Command} {show ip ospf database segment-routing self-originate} {}
+Show Segment Routing Data Base, all SR nodes, specific advertized router or self router.
+@end deffn
+
 @node Debugging OSPF
 @section Debugging OSPF
 
@@ -843,36 +884,37 @@ log file /var/log/zebra.log
 !
 interface eth0
  ip address 198.168.1.1/24
- mpls-te on
- mpls-te link metric 10
- mpls-te link max-bw 1.25e+06
- mpls-te link max-rsv-bw 1.25e+06
- mpls-te link unrsv-bw 0 1.25e+06
- mpls-te link unrsv-bw 1 1.25e+06
- mpls-te link unrsv-bw 2 1.25e+06
- mpls-te link unrsv-bw 3 1.25e+06
- mpls-te link unrsv-bw 4 1.25e+06
- mpls-te link unrsv-bw 5 1.25e+06
- mpls-te link unrsv-bw 6 1.25e+06
- mpls-te link unrsv-bw 7 1.25e+06
- mpls-te link rsc-clsclr 0xab
+ link-params
+  enable
+  admin-grp 0xa1
+  metric 100
+  max-bw 1.25e+07
+  max-rsv-bw 1.25e+06
+  unrsv-bw 0 1.25e+06
+  unrsv-bw 1 1.25e+06
+  unrsv-bw 2 1.25e+06
+  unrsv-bw 3 1.25e+06
+  unrsv-bw 4 1.25e+06
+  unrsv-bw 5 1.25e+06
+  unrsv-bw 6 1.25e+06
+  unrsv-bw 7 1.25e+06
 !
 interface eth1
  ip address 192.168.2.1/24
- mpls-te on
- mpls-te link metric 10
- mpls-te link max-bw 1.25e+06
- mpls-te link max-rsv-bw 1.25e+06
- mpls-te link unrsv-bw 0 1.25e+06
- mpls-te link unrsv-bw 1 1.25e+06
- mpls-te link unrsv-bw 2 1.25e+06
- mpls-te link unrsv-bw 3 1.25e+06
- mpls-te link unrsv-bw 4 1.25e+06
- mpls-te link unrsv-bw 5 1.25e+06
- mpls-te link unrsv-bw 6 1.25e+06
- mpls-te link unrsv-bw 7 1.25e+06
- mpls-te link rsc-clsclr 0xab
- mpls-te neighbor 192.168.2.2 as 65000
+ link-params
+  enable
+  metric 10
+  max-bw 1.25e+07
+  max-rsv-bw 1.25e+06
+  unrsv-bw 0 1.25e+06
+  unrsv-bw 1 1.25e+06
+  unrsv-bw 2 1.25e+06
+  unrsv-bw 3 1.25e+06
+  unrsv-bw 4 1.25e+06
+  unrsv-bw 5 1.25e+06
+  unrsv-bw 6 1.25e+06
+  unrsv-bw 7 1.25e+06
+  neighbor 192.168.2.2 as 65000
 @end group
 @end example
 

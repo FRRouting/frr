@@ -70,9 +70,9 @@ else
   echo "Done."
   for file in /tmp/f1/*_cp; do
     if [ -a /tmp/f2/$(basename $file) ]; then
-      result=$(diff $file /tmp/f2/$(basename $file) | grep -A3 "ERROR\|WARNING")
+      result=$(diff $file /tmp/f2/$(basename $file) | grep -A3 "ERROR\|WARNING" | grep -A2 -B2 '/tmp/f1')
     else
-      result=$(cat $file | grep -A4 "ERROR\|WARNING")
+      result=$(cat $file | grep -A3 "ERROR\|WARNING" | grep -A2 -B2 '/tmp/f1')
     fi
     if [ "$?" -eq "0" ]; then
       echo "Report for $(basename $file _cp)" 1>&2

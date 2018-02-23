@@ -133,6 +133,7 @@ dist_examples_DATA = bgpd.conf.sample bgpd.conf.sample2 \
 	bgpd.conf.vnc.sample
 
 bgp_vty.o: bgp_vty_clippy.c
+bgp_route.o: bgp_route_clippy.c
 
 EXTRA_DIST = BGP4-MIB.txt
 

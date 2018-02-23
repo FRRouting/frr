@@ -919,6 +919,8 @@ struct thread *funcname_thread_add_event(struct thread_master *m,
  */
 static void thread_cancel_rw(struct thread_master *master, int fd, short state)
 {
+	bool found = false;
+
 	/* Cancel POLLHUP too just in case some bozo set it */
 	state |= POLLHUP;
 
@@ -926,8 +928,18 @@ static void thread_cancel_rw(struct thread_master *master, int fd, short state)
 	nfds_t i;
 
 	for (i = 0; i < master->handler.pfdcount; i++)
-		if (master->handler.pfds[i].fd == fd)
+		if (master->handler.pfds[i].fd == fd) {
+			found = true;
 			break;
+		}
+
+	if (!found) {
+		zlog_debug(
+			"[!] Received cancellation request for nonexistent rw job");
+		zlog_debug("[!] threadmaster: %s | fd: %d",
+			 master->name ? master->name : "", fd);
+		return;
+	}
 
 	/* NOT out event. */
 	master->handler.pfds[i].events &= ~(state);

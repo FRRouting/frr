@@ -320,54 +320,44 @@ void bgp_delete_connected_nexthop(afi_t afi, struct peer *peer)
 
 void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 {
-	struct stream *s;
 	struct bgp_node *rn = NULL;
 	struct bgp_nexthop_cache *bnc;
 	struct nexthop *nexthop;
 	struct nexthop *oldnh;
 	struct nexthop *nhlist_head = NULL;
 	struct nexthop *nhlist_tail = NULL;
-	uint32_t metric;
-	u_char nexthop_num;
-	struct prefix p;
 	int i;
 	struct bgp *bgp;
+	struct zapi_route nhr;
 
 	bgp = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp) {
 		zlog_err(
-			"parse nexthop update: instance not found for vrf_id %d",
+			"parse nexthop update: instance not found for vrf_id %u",
 			vrf_id);
 		return;
 	}
 
-	s = zclient->ibuf;
-
-	memset(&p, 0, sizeof(struct prefix));
-	p.family = stream_getw(s);
-	p.prefixlen = stream_getc(s);
-	switch (p.family) {
-	case AF_INET:
-		p.u.prefix4.s_addr = stream_get_ipv4(s);
-		break;
-	case AF_INET6:
-		stream_get(&p.u.prefix6, s, 16);
-		break;
-	default:
-		break;
+	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
+		if (BGP_DEBUG(nht, NHT))
+			zlog_debug("%s: Failure to decode nexthop update",
+				   __PRETTY_FUNCTION__);
+		return;
 	}
 
 	if (command == ZEBRA_NEXTHOP_UPDATE)
 		rn = bgp_node_lookup(
-			bgp->nexthop_cache_table[family2afi(p.family)], &p);
+			bgp->nexthop_cache_table[family2afi(nhr.prefix.family)],
+			&nhr.prefix);
 	else if (command == ZEBRA_IMPORT_CHECK_UPDATE)
 		rn = bgp_node_lookup(
-			bgp->import_check_table[family2afi(p.family)], &p);
+			bgp->import_check_table[family2afi(nhr.prefix.family)],
+			&nhr.prefix);
 
 	if (!rn || !rn->info) {
 		if (BGP_DEBUG(nht, NHT)) {
 			char buf[PREFIX2STR_BUFFER];
-			prefix2str(&p, buf, sizeof(buf));
+			prefix2str(&nhr.prefix, buf, sizeof(buf));
 			zlog_debug("parse nexthop update(%s): rn not found",
 				   buf);
 		}
@@ -380,62 +370,34 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 	bgp_unlock_node(rn);
 	bnc->last_update = bgp_clock();
 	bnc->change_flags = 0;
-	stream_getc(s); // Distance but not currently used
-	metric = stream_getl(s);
-	nexthop_num = stream_getc(s);
 
 	/* debug print the input */
 	if (BGP_DEBUG(nht, NHT)) {
 		char buf[PREFIX2STR_BUFFER];
-		prefix2str(&p, buf, sizeof(buf));
+		prefix2str(&nhr.prefix, buf, sizeof(buf));
 		zlog_debug(
-			"%d: Rcvd NH update %s - metric %d/%d #nhops %d/%d flags 0x%x",
-			vrf_id, buf, metric, bnc->metric, nexthop_num,
+			"%u: Rcvd NH update %s - metric %d/%d #nhops %d/%d flags 0x%x",
+			vrf_id, buf, nhr.metric, bnc->metric, nhr.nexthop_num,
 			bnc->nexthop_num, bnc->flags);
 	}
 
-	if (metric != bnc->metric)
+	if (nhr.metric != bnc->metric)
 		bnc->change_flags |= BGP_NEXTHOP_METRIC_CHANGED;
 
-	if (nexthop_num != bnc->nexthop_num)
+	if (nhr.nexthop_num != bnc->nexthop_num)
 		bnc->change_flags |= BGP_NEXTHOP_CHANGED;
 
-	if (nexthop_num) {
+	if (nhr.nexthop_num) {
 		/* notify bgp fsm if nbr ip goes from invalid->valid */
 		if (!bnc->nexthop_num)
 			UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
 
 		bnc->flags |= BGP_NEXTHOP_VALID;
-		bnc->metric = metric;
-		bnc->nexthop_num = nexthop_num;
+		bnc->metric = nhr.metric;
+		bnc->nexthop_num = nhr.nexthop_num;
 
-		for (i = 0; i < nexthop_num; i++) {
-			nexthop = nexthop_new();
-			nexthop->type = stream_getc(s);
-			switch (nexthop->type) {
-			case NEXTHOP_TYPE_IPV4:
-				nexthop->gate.ipv4.s_addr = stream_get_ipv4(s);
-				nexthop->ifindex = stream_getl(s);
-				break;
-			case NEXTHOP_TYPE_IFINDEX:
-				nexthop->ifindex = stream_getl(s);
-				break;
-			case NEXTHOP_TYPE_IPV4_IFINDEX:
-				nexthop->gate.ipv4.s_addr = stream_get_ipv4(s);
-				nexthop->ifindex = stream_getl(s);
-				break;
-			case NEXTHOP_TYPE_IPV6:
-				stream_get(&nexthop->gate.ipv6, s, 16);
-				nexthop->ifindex = stream_getl(s);
-				break;
-			case NEXTHOP_TYPE_IPV6_IFINDEX:
-				stream_get(&nexthop->gate.ipv6, s, 16);
-				nexthop->ifindex = stream_getl(s);
-				break;
-			default:
-				/* do nothing */
-				break;
-			}
+		for (i = 0; i < nhr.nexthop_num; i++) {
+			nexthop = nexthop_from_zapi_nexthop(&nhr.nexthops[i]);
 
 			if (BGP_DEBUG(nht, NHT)) {
 				char buf[NEXTHOP_STRLEN];
@@ -470,7 +432,7 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 		bnc->nexthop = nhlist_head;
 	} else {
 		bnc->flags &= ~BGP_NEXTHOP_VALID;
-		bnc->nexthop_num = nexthop_num;
+		bnc->nexthop_num = nhr.nexthop_num;
 
 		/* notify bgp fsm if nbr ip goes from valid->invalid */
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);
@@ -572,12 +534,11 @@ static int make_prefix(int afi, struct bgp_info *ri, struct prefix *p)
  */
 static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 {
-	struct stream *s;
 	struct prefix *p;
+	bool exact_match = false;
 	int ret;
 
-	/* Check socket. */
-	if (!zclient || zclient->sock < 0)
+	if (!zclient)
 		return;
 
 	/* Don't try to register if Zebra doesn't know of this instance. */
@@ -585,32 +546,14 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 		return;
 
 	p = &(bnc->node->p);
-	s = zclient->obuf;
-	stream_reset(s);
-	zclient_create_header(s, command, bnc->bgp->vrf_id);
 	if ((command == ZEBRA_NEXTHOP_REGISTER ||
 	     command == ZEBRA_IMPORT_ROUTE_REGISTER) &&
 	    (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED)
 	     || CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH)))
-		stream_putc(s, 1);
-	else
-		stream_putc(s, 0);
+		exact_match = true;
 
-	stream_putw(s, PREFIX_FAMILY(p));
-	stream_putc(s, p->prefixlen);
-	switch (PREFIX_FAMILY(p)) {
-	case AF_INET:
-		stream_put_in_addr(s, &p->u.prefix4);
-		break;
-	case AF_INET6:
-		stream_put(s, &(p->u.prefix6), 16);
-		break;
-	default:
-		break;
-	}
-	stream_putw_at(s, 0, stream_get_endp(s));
-
-	ret = zclient_send_message(zclient);
+	ret = zclient_send_rnh(zclient, command, p,
+			       exact_match, bnc->bgp->vrf_id);
 	/* TBD: handle the failure */
 	if (ret < 0)
 		zlog_warn("sendmsg_nexthop: zclient_send_message() failed");

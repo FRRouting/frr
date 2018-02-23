@@ -385,8 +385,8 @@ int bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES)))
 		snprintf(buf + strlen(buf), size - strlen(buf),
-			 ", community %s", community_str(attr->community,
-							 false));
+			 ", community %s",
+			 community_str(attr->community, false));
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)))
 		snprintf(buf + strlen(buf), size - strlen(buf),
@@ -2017,8 +2017,9 @@ int bgp_debug_zebra(struct prefix *p)
 const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 				    struct prefix_rd *prd,
 				    union prefixconstptr pu,
-				    mpls_label_t *label, int addpath_valid,
-				    u_int32_t addpath_id, char *str, int size)
+				    mpls_label_t *label, u_int32_t num_labels,
+				    int addpath_valid, u_int32_t addpath_id,
+				    char *str, int size)
 {
 	char rd_buf[RD_ADDRSTRLEN];
 	char pfx_buf[PREFIX_STRLEN];
@@ -2041,11 +2042,19 @@ const char *bgp_debug_rdpfxpath2str(afi_t afi, safi_t safi,
 			 addpath_id);
 
 	tag_buf[0] = '\0';
-	if (bgp_labeled_safi(safi) && label) {
-		u_int32_t label_value;
+	if (bgp_labeled_safi(safi) && num_labels) {
 
-		label_value = decode_label(label);
-		sprintf(tag_buf, " label %u", label_value);
+		if (safi == SAFI_EVPN) {
+			char tag_buf2[20];
+
+			bgp_evpn_label2str(label, num_labels, tag_buf2, 20);
+			sprintf(tag_buf, " label %s", tag_buf2);
+		} else {
+			u_int32_t label_value;
+
+			label_value = decode_label(label);
+			sprintf(tag_buf, " label %u", label_value);
+		}
 	}
 
 	if (prd)

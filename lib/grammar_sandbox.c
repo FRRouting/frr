@@ -33,8 +33,6 @@
 
 DEFINE_MTYPE_STATIC(LIB, CMD_TOKENS, "Command desc")
 
-#define MAXDEPTH 64
-
 /** headers **/
 void grammar_sandbox_init(void);
 void pretty_print_graph(struct vty *vty, struct graph_node *, int, int,
@@ -262,7 +260,7 @@ DEFUN (grammar_test_show,
 {
 	check_nodegraph();
 
-	struct graph_node *stack[MAXDEPTH];
+	struct graph_node *stack[CMD_ARGC_MAX];
 	pretty_print_graph(vty, vector_slot(nodegraph->nodes, 0), 0, argc >= 3,
 			   stack, 0);
 	return CMD_SUCCESS;
@@ -277,8 +275,8 @@ DEFUN (grammar_test_dot,
 {
 	check_nodegraph();
 
-	struct graph_node *stack[MAXDEPTH];
-	struct graph_node *visited[MAXDEPTH * MAXDEPTH];
+	struct graph_node *stack[CMD_ARGC_MAX];
+	struct graph_node *visited[CMD_ARGC_MAX * CMD_ARGC_MAX];
 	size_t vpos = 0;
 
 	FILE *ofd = fopen(argv[2]->arg, "w");
@@ -334,7 +332,7 @@ static void cmd_graph_permute(struct list *out, struct graph_node **stack,
 		return;
 	}
 
-	if (++stackpos == MAXDEPTH)
+	if (++stackpos == CMD_ARGC_MAX)
 		return;
 
 	for (i = 0; i < vector_active(gn->to); i++) {
@@ -354,7 +352,7 @@ static void cmd_graph_permute(struct list *out, struct graph_node **stack,
 static struct list *cmd_graph_permutations(struct graph *graph)
 {
 	char accumulate[2048] = "";
-	struct graph_node *stack[MAXDEPTH];
+	struct graph_node *stack[CMD_ARGC_MAX];
 
 	struct list *rv = list_new();
 	rv->cmp = cmd_permute_cmp;
@@ -532,7 +530,7 @@ void pretty_print_graph(struct vty *vty, struct graph_node *start, int level,
 		vty_out(vty, " ?'%s'", tok->desc);
 	vty_out(vty, " ");
 
-	if (stackpos == MAXDEPTH) {
+	if (stackpos == CMD_ARGC_MAX) {
 		vty_out(vty, " -aborting! (depth limit)\n");
 		return;
 	}
@@ -586,7 +584,7 @@ static void pretty_print_dot(FILE *ofd, unsigned opts, struct graph_node *start,
 		if (visited[i] == start)
 			return;
 	visited[(*visitpos)++] = start;
-	if ((*visitpos) == MAXDEPTH * MAXDEPTH)
+	if ((*visitpos) == CMD_ARGC_MAX * CMD_ARGC_MAX)
 		return;
 
 	snprintf(tokennum, sizeof(tokennum), "%d?", tok->type);
@@ -626,7 +624,7 @@ static void pretty_print_dot(FILE *ofd, unsigned opts, struct graph_node *start,
 	}
 	fprintf(ofd, ">, style = filled, fillcolor = \"%s\" ];\n", color);
 
-	if (stackpos == MAXDEPTH)
+	if (stackpos == CMD_ARGC_MAX)
 		return;
 	stack[stackpos++] = start;
 

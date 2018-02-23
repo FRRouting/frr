@@ -214,11 +214,11 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 		if (attr) {
 			bgp_update(peer, &p, addpath_id, attr, packet->afi,
 				   SAFI_MPLS_VPN, ZEBRA_ROUTE_BGP,
-				   BGP_ROUTE_NORMAL, &prd, &label, 0, NULL);
+				   BGP_ROUTE_NORMAL, &prd, &label, 1, 0, NULL);
 		} else {
 			bgp_withdraw(peer, &p, addpath_id, attr, packet->afi,
 				     SAFI_MPLS_VPN, ZEBRA_ROUTE_BGP,
-				     BGP_ROUTE_NORMAL, &prd, &label, NULL);
+				     BGP_ROUTE_NORMAL, &prd, &label, 1, NULL);
 		}
 	}
 	/* Packet length consistency check. */
@@ -366,8 +366,8 @@ int bgp_show_mpls_vpn(struct vty *vty, afi_t afi, struct prefix_rd *prd,
 		return CMD_WARNING;
 	}
 	table = bgp->rib[afi][SAFI_MPLS_VPN];
-	return bgp_show_table_rd(vty, bgp, SAFI_MPLS_VPN,
-				 table, prd, type, output_arg, use_json);
+	return bgp_show_table_rd(vty, bgp, SAFI_MPLS_VPN, table, prd, type,
+				 output_arg, use_json);
 }
 
 DEFUN (show_bgp_ip_vpn_all_rd,
@@ -389,7 +389,7 @@ DEFUN (show_bgp_ip_vpn_all_rd,
 
 	if (argv_find_and_parse_afi(argv, argc, &idx, &afi)) {
 		if (argv_find(argv, argc, "rd", &idx)) {
-			ret = str2prefix_rd(argv[idx+1]->arg, &prd);
+			ret = str2prefix_rd(argv[idx + 1]->arg, &prd);
 			if (!ret) {
 				vty_out(vty,
 					"%% Malformed Route Distinguisher\n");

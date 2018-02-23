@@ -27,6 +27,7 @@
 #include "thread.h"
 #include "log.h"
 #include "stream.h"
+#include "ringbuf.h"
 #include "memory.h"
 #include "plist.h"
 #include "workqueue.h"
@@ -155,7 +156,6 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 
 		stream_fifo_clean(peer->ibuf);
 		stream_fifo_clean(peer->obuf);
-		stream_reset(peer->ibuf_work);
 
 		/*
 		 * this should never happen, since bgp_process_packet() is the
@@ -183,7 +183,9 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 			stream_fifo_push(peer->ibuf,
 					 stream_fifo_pop(from_peer->ibuf));
 
-		stream_copy(peer->ibuf_work, from_peer->ibuf_work);
+		ringbuf_wipe(peer->ibuf_work);
+		ringbuf_copy(peer->ibuf_work, from_peer->ibuf_work,
+			     ringbuf_remain(from_peer->ibuf_work));
 	}
 	pthread_mutex_unlock(&from_peer->io_mtx);
 	pthread_mutex_unlock(&peer->io_mtx);
@@ -264,13 +266,15 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 		}
 	}
 
+
+	// Note: peer_xfer_stats() must be called with I/O turned OFF
+	if (from_peer)
+		peer_xfer_stats(peer, from_peer);
+
 	bgp_reads_on(peer);
 	bgp_writes_on(peer);
 	thread_add_timer_msec(bm->master, bgp_process_packet, peer, 0,
 			      &peer->t_process_packet);
-
-	if (from_peer)
-		peer_xfer_stats(peer, from_peer);
 
 	return (peer);
 }
@@ -1097,7 +1101,7 @@ int bgp_stop(struct peer *peer)
 			stream_fifo_clean(peer->obuf);
 
 		if (peer->ibuf_work)
-			stream_reset(peer->ibuf_work);
+			ringbuf_wipe(peer->ibuf_work);
 		if (peer->obuf_work)
 			stream_reset(peer->obuf_work);
 

@@ -74,6 +74,7 @@ static const struct message attr_str[] = {
 	{BGP_ATTR_AS4_PATH, "AS4_PATH"},
 	{BGP_ATTR_AS4_AGGREGATOR, "AS4_AGGREGATOR"},
 	{BGP_ATTR_AS_PATHLIMIT, "AS_PATHLIMIT"},
+	{BGP_ATTR_PMSI_TUNNEL, "PMSI_TUNNEL_ATTRIBUTE"},
 	{BGP_ATTR_ENCAP, "ENCAP"},
 #if ENABLE_BGP_VNC
 	{BGP_ATTR_VNC, "VNC"},
@@ -492,19 +493,13 @@ unsigned int attrhash_key_make(void *p)
 	const struct attr *attr = (struct attr *)p;
 	uint32_t key = 0;
 #define MIX(val)	key = jhash_1word(val, key)
+#define MIX3(a, b, c)	key = jhash_3words((a), (b), (c), key)
 
-	MIX(attr->origin);
-	MIX(attr->nexthop.s_addr);
-	MIX(attr->med);
-	MIX(attr->local_pref);
-	MIX(attr->aggregator_as);
-	MIX(attr->aggregator_addr.s_addr);
-	MIX(attr->weight);
-	MIX(attr->mp_nexthop_global_in.s_addr);
-	MIX(attr->originator_id.s_addr);
-	MIX(attr->tag);
-	MIX(attr->label);
-	MIX(attr->label_index);
+	MIX3(attr->origin, attr->nexthop.s_addr, attr->med);
+	MIX3(attr->local_pref, attr->aggregator_as, attr->aggregator_addr.s_addr);
+	MIX3(attr->weight, attr->mp_nexthop_global_in.s_addr,
+	     attr->originator_id.s_addr);
+	MIX3(attr->tag, attr->label, attr->label_index);
 
 	if (attr->aspath)
 		MIX(aspath_key_make(attr->aspath));
@@ -550,12 +545,6 @@ int attrhash_cmp(const void *p1, const void *p2)
 		    && attr1->tag == attr2->tag
 		    && attr1->label_index == attr2->label_index
 		    && attr1->mp_nexthop_len == attr2->mp_nexthop_len
-		    && IPV6_ADDR_SAME(&attr1->mp_nexthop_global,
-				      &attr2->mp_nexthop_global)
-		    && IPV6_ADDR_SAME(&attr1->mp_nexthop_local,
-				      &attr2->mp_nexthop_local)
-		    && IPV4_ADDR_SAME(&attr1->mp_nexthop_global_in,
-				      &attr2->mp_nexthop_global_in)
 		    && attr1->ecommunity == attr2->ecommunity
 		    && attr1->lcommunity == attr2->lcommunity
 		    && attr1->cluster == attr2->cluster
@@ -565,6 +554,12 @@ int attrhash_cmp(const void *p1, const void *p2)
 #if ENABLE_BGP_VNC
 		    && encap_same(attr1->vnc_subtlvs, attr2->vnc_subtlvs)
 #endif
+		    && IPV6_ADDR_SAME(&attr1->mp_nexthop_global,
+				      &attr2->mp_nexthop_global)
+		    && IPV6_ADDR_SAME(&attr1->mp_nexthop_local,
+				      &attr2->mp_nexthop_local)
+		    && IPV4_ADDR_SAME(&attr1->mp_nexthop_global_in,
+				      &attr2->mp_nexthop_global_in)
 		    && IPV4_ADDR_SAME(&attr1->originator_id,
 				      &attr2->originator_id)
 		    && overlay_index_same(attr1, attr2))
@@ -1039,6 +1034,8 @@ const u_int8_t attr_flags_values[] = {
 		[BGP_ATTR_AS4_PATH] =
 			BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
 		[BGP_ATTR_AS4_AGGREGATOR] =
+			BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
+		[BGP_ATTR_PMSI_TUNNEL] =
 			BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
 		[BGP_ATTR_LARGE_COMMUNITIES] =
 			BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS,
@@ -1879,6 +1876,12 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	attr->mm_seqnum = bgp_attr_mac_mobility_seqnum(attr, &sticky);
 	attr->sticky = sticky;
 
+	/* Check if this is a Gateway MAC-IP advertisement */
+	attr->default_gw = bgp_attr_default_gw(attr);
+
+	/* Extract the Rmac, if any */
+	bgp_attr_rmac(attr, &attr->rmac);
+
 	return BGP_ATTR_PARSE_PROCEED;
 }
 
@@ -2698,8 +2701,9 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 
 void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 			      struct prefix *p, struct prefix_rd *prd,
-			      mpls_label_t *label, int addpath_encode,
-			      u_int32_t addpath_tx_id, struct attr *attr)
+			      mpls_label_t *label, u_int32_t num_labels,
+			      int addpath_encode, u_int32_t addpath_tx_id,
+			      struct attr *attr)
 {
 	if (safi == SAFI_MPLS_VPN) {
 		if (addpath_encode)
@@ -2711,8 +2715,8 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 		stream_put(s, &p->u.prefix, PSIZE(p->prefixlen));
 	} else if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
 		/* EVPN prefix - contents depend on type */
-		bgp_evpn_encode_prefix(s, p, prd, label, attr, addpath_encode,
-				       addpath_tx_id);
+		bgp_evpn_encode_prefix(s, p, prd, label, num_labels,
+				       attr, addpath_encode, addpath_tx_id);
 	} else if (safi == SAFI_LABELED_UNICAST) {
 		/* Prefix write with label. */
 		stream_put_labeled_prefix(s, p, label);
@@ -2840,8 +2844,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 				struct bpacket_attr_vec_arr *vecarr,
 				struct prefix *p, afi_t afi, safi_t safi,
 				struct peer *from, struct prefix_rd *prd,
-				mpls_label_t *label, int addpath_encode,
-				u_int32_t addpath_tx_id)
+				mpls_label_t *label, u_int32_t num_labels,
+				int addpath_encode, u_int32_t addpath_tx_id)
 {
 	size_t cp;
 	size_t aspath_sizep;
@@ -2863,7 +2867,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 
 		mpattrlen_pos = bgp_packet_mpattr_start(s, peer, afi, safi,
 							vecarr, attr);
-		bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label,
+		bgp_packet_mpattr_prefix(s, afi, safi, p, prd,
+					 label, num_labels,
 					 addpath_encode, addpath_tx_id, attr);
 		bgp_packet_mpattr_end(s, mpattrlen_pos);
 	}
@@ -3252,6 +3257,17 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 #endif
 	}
 
+	/* PMSI Tunnel */
+	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_PMSI_TUNNEL)) {
+		stream_putc(s, BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS);
+		stream_putc(s, BGP_ATTR_PMSI_TUNNEL);
+		stream_putc(s, 9); // Length
+		stream_putc(s, 0); // Flags
+		stream_putc(s, 6); // Tunnel type: Ingress Replication (6)
+		stream_put(s, &(attr->label), BGP_LABEL_BYTES); // MPLS Label / VXLAN VNI
+		stream_put_ipv4(s, attr->nexthop.s_addr); // Unicast tunnel endpoint IP address
+	}
+
 	/* Unknown transit attribute. */
 	if (attr->transit)
 		stream_put(s, attr->transit->val, attr->transit->length);
@@ -3284,15 +3300,19 @@ size_t bgp_packet_mpunreach_start(struct stream *s, afi_t afi, safi_t safi)
 
 void bgp_packet_mpunreach_prefix(struct stream *s, struct prefix *p, afi_t afi,
 				 safi_t safi, struct prefix_rd *prd,
-				 mpls_label_t *label, int addpath_encode,
-				 u_int32_t addpath_tx_id, struct attr *attr)
+				 mpls_label_t *label, u_int32_t num_labels,
+				 int addpath_encode, u_int32_t addpath_tx_id,
+				 struct attr *attr)
 {
 	u_char wlabel[3] = {0x80, 0x00, 0x00};
 
-	if (safi == SAFI_LABELED_UNICAST)
+	if (safi == SAFI_LABELED_UNICAST) {
 		label = (mpls_label_t *)wlabel;
+		num_labels = 1;
+	}
 
-	return bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label,
+	return bgp_packet_mpattr_prefix(s, afi, safi, p, prd,
+					label, num_labels,
 					addpath_encode, addpath_tx_id, attr);
 }
 

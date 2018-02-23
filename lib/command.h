@@ -119,7 +119,6 @@ enum node_type {
 	LDP_L2VPN_NODE,		/* LDP L2VPN node */
 	LDP_PSEUDOWIRE_NODE,    /* LDP Pseudowire node */
 	ISIS_NODE,		/* ISIS protocol mode */
-	PIM_NODE,		/* PIM protocol mode */
 	MASC_NODE,		/* MASC for multicast.  */
 	IRDP_NODE,		/* ICMP Router Discovery Protocol mode. */
 	IP_NODE,		/* Static ip route node. */
@@ -190,7 +189,7 @@ struct cmd_node {
 #define CMD_NOT_MY_INSTANCE	14
 
 /* Argc max counts. */
-#define CMD_ARGC_MAX   25
+#define CMD_ARGC_MAX   256
 
 /* Turn off these macros when uisng cpp with extract.pl */
 #ifndef VTYSH_EXTRACT_PL
@@ -358,6 +357,7 @@ struct cmd_node {
 #define OSPF_RI_STR "OSPF Router Information specific commands\n"
 #define PCE_STR "PCE Router Information specific commands\n"
 #define MPLS_STR "MPLS information\n"
+#define SR_STR "Segment-Routing specific commands\n"
 #define WATCHFRR_STR "watchfrr information\n"
 #define ZEBRA_STR "Zebra information\n"
 

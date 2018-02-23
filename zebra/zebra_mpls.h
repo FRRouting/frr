@@ -316,6 +316,12 @@ void mpls_ldp_lsp_uninstall_all(struct hash_backet *backet, void *ctxt);
  */
 void mpls_ldp_ftn_uninstall_all(struct zebra_vrf *zvrf, int afi);
 
+/*
+ * Uninstall all Segment Routing NHLFEs for a particular LSP forwarding entry.
+ * If no other NHLFEs exist, the entry would be deleted.
+ */
+void mpls_sr_lsp_uninstall_all(struct hash_backet *backet, void *ctxt);
+
 #if defined(HAVE_CUMULUS)
 /*
  * Check that the label values used in LSP creation are consistent. The
@@ -379,6 +385,13 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 int zebra_mpls_write_lsp_config(struct vty *vty, struct zebra_vrf *zvrf);
 
 /*
+ * Called when VRF becomes inactive, cleans up information but keeps
+ * the table itself.
+ * NOTE: Currently supported only for default VRF.
+ */
+void zebra_mpls_cleanup_tables(struct zebra_vrf *zvrf);
+
+/*
  * Called upon process exiting, need to delete LSP forwarding
  * entries from the kernel.
  * NOTE: Currently supported only for default VRF.
@@ -415,9 +428,19 @@ static inline u_char lsp_distance(enum lsp_types_t type)
 		return (route_distance(ZEBRA_ROUTE_LDP));
 	case ZEBRA_LSP_BGP:
 		return (route_distance(ZEBRA_ROUTE_BGP));
-	default:
+	case ZEBRA_LSP_NONE:
+	case ZEBRA_LSP_SHARP:
+	case ZEBRA_LSP_SR:
 		return 150;
 	}
+
+	/*
+	 * For some reason certain compilers do not believe
+	 * that all the cases have been handled.  And
+	 * WTF does this work differently than when I removed
+	 * the default case????
+	 */
+	return 150;
 }
 
 /*
@@ -431,6 +454,8 @@ static inline enum lsp_types_t lsp_type_from_re_type(int re_type)
 		return ZEBRA_LSP_STATIC;
 	case ZEBRA_ROUTE_BGP:
 		return ZEBRA_LSP_BGP;
+	case ZEBRA_ROUTE_SHARP:
+		return ZEBRA_LSP_SHARP;
 	default:
 		return ZEBRA_LSP_NONE;
 	}
@@ -448,10 +473,21 @@ static inline int re_type_from_lsp_type(enum lsp_types_t lsp_type)
 		return ZEBRA_ROUTE_LDP;
 	case ZEBRA_LSP_BGP:
 		return ZEBRA_ROUTE_BGP;
+	case ZEBRA_LSP_SR:
+		return ZEBRA_ROUTE_OSPF;
 	case ZEBRA_LSP_NONE:
-	default:
 		return ZEBRA_ROUTE_KERNEL;
+	case ZEBRA_LSP_SHARP:
+		return ZEBRA_ROUTE_SHARP;
 	}
+
+	/*
+	 * For some reason certain compilers do not believe
+	 * that all the cases have been handled.  And
+	 * WTF does this work differently than when I removed
+	 * the default case????
+	 */
+	return ZEBRA_ROUTE_KERNEL;
 }
 
 /* NHLFE type as printable string. */
@@ -464,9 +500,21 @@ static inline const char *nhlfe_type2str(enum lsp_types_t lsp_type)
 		return "LDP";
 	case ZEBRA_LSP_BGP:
 		return "BGP";
-	default:
+	case ZEBRA_LSP_SR:
+		return "SR";
+	case ZEBRA_LSP_SHARP:
+		return "SHARP";
+	case ZEBRA_LSP_NONE:
 		return "Unknown";
 	}
+
+	/*
+	 * For some reason certain compilers do not believe
+	 * that all the cases have been handled.  And
+	 * WTF does this work differently than when I removed
+	 * the default case????
+	 */
+	return "Unknown";
 }
 
 static inline void mpls_mark_lsps_for_processing(struct zebra_vrf *zvrf)

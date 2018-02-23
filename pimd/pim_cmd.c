@@ -62,10 +62,6 @@
 #include "pim_bfd.h"
 #include "bfd.h"
 
-static struct cmd_node pim_global_node = {
-	PIM_NODE, "", 1 /* vtysh ? yes */
-};
-
 static struct cmd_node interface_node = {
 	INTERFACE_NODE, "%s(config-if)# ", 1 /* vtysh ? yes */
 };
@@ -7315,6 +7311,27 @@ DEFUN (no_debug_msdp_packets,
 ALIAS(no_debug_msdp_packets, undebug_msdp_packets_cmd, "undebug msdp packets",
       UNDEBUG_STR DEBUG_MSDP_STR DEBUG_MSDP_PACKETS_STR)
 
+DEFUN (debug_mtrace,
+       debug_mtrace_cmd,
+       "debug mtrace",
+       DEBUG_STR
+       DEBUG_MTRACE_STR)
+{
+	PIM_DO_DEBUG_MTRACE;
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_mtrace,
+       no_debug_mtrace_cmd,
+       "no debug mtrace",
+       NO_STR
+       DEBUG_STR
+       DEBUG_MTRACE_STR)
+{
+	PIM_DONT_DEBUG_MTRACE;
+	return CMD_SUCCESS;
+}
+
 DEFUN_NOSH (show_debugging_pim,
 	    show_debugging_pim_cmd,
 	    "show debugging [pim]",
@@ -7333,6 +7350,7 @@ static int interface_pim_use_src_cmd_worker(struct vty *vty, const char *source)
 {
 	int result;
 	struct in_addr source_addr;
+	int ret = CMD_SUCCESS;
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 
 	result = inet_pton(AF_INET, source, &source_addr);
@@ -7347,16 +7365,19 @@ static int interface_pim_use_src_cmd_worker(struct vty *vty, const char *source)
 	case PIM_SUCCESS:
 		break;
 	case PIM_IFACE_NOT_FOUND:
+		ret = CMD_WARNING_CONFIG_FAILED;
 		vty_out(vty, "Pim not enabled on this interface\n");
 		break;
 	case PIM_UPDATE_SOURCE_DUP:
+		ret = CMD_WARNING;
 		vty_out(vty, "%% Source already set to %s\n", source);
 		break;
 	default:
+		ret = CMD_WARNING_CONFIG_FAILED;
 		vty_out(vty, "%% Source set failed\n");
 	}
 
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
+	return ret;
 }
 
 DEFUN (interface_pim_use_source,
@@ -7485,6 +7506,7 @@ static int ip_msdp_peer_cmd_worker(struct pim_instance *pim, struct vty *vty,
 	enum pim_msdp_err result;
 	struct in_addr peer_addr;
 	struct in_addr local_addr;
+	int ret = CMD_SUCCESS;
 
 	result = inet_pton(AF_INET, peer, &peer_addr);
 	if (result <= 0) {
@@ -7506,19 +7528,23 @@ static int ip_msdp_peer_cmd_worker(struct pim_instance *pim, struct vty *vty,
 	case PIM_MSDP_ERR_NONE:
 		break;
 	case PIM_MSDP_ERR_OOM:
+		ret = CMD_WARNING_CONFIG_FAILED;
 		vty_out(vty, "%% Out of memory\n");
 		break;
 	case PIM_MSDP_ERR_PEER_EXISTS:
+		ret = CMD_WARNING;
 		vty_out(vty, "%% Peer exists\n");
 		break;
 	case PIM_MSDP_ERR_MAX_MESH_GROUPS:
+		ret = CMD_WARNING_CONFIG_FAILED;
 		vty_out(vty, "%% Only one mesh-group allowed currently\n");
 		break;
 	default:
+		ret = CMD_WARNING_CONFIG_FAILED;
 		vty_out(vty, "%% peer add failed\n");
 	}
 
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
+	return ret;
 }
 
 DEFUN_HIDDEN (ip_msdp_peer,
@@ -7581,6 +7607,7 @@ static int ip_msdp_mesh_group_member_cmd_worker(struct pim_instance *pim,
 {
 	enum pim_msdp_err result;
 	struct in_addr mbr_ip;
+	int ret = CMD_SUCCESS;
 
 	result = inet_pton(AF_INET, mbr, &mbr_ip);
 	if (result <= 0) {
@@ -7594,19 +7621,23 @@ static int ip_msdp_mesh_group_member_cmd_worker(struct pim_instance *pim,
 	case PIM_MSDP_ERR_NONE:
 		break;
 	case PIM_MSDP_ERR_OOM:
+		ret = CMD_WARNING_CONFIG_FAILED;
 		vty_out(vty, "%% Out of memory\n");
 		break;
 	case PIM_MSDP_ERR_MG_MBR_EXISTS:
+		ret = CMD_WARNING;
 		vty_out(vty, "%% mesh-group member exists\n");
 		break;
 	case PIM_MSDP_ERR_MAX_MESH_GROUPS:
+		ret = CMD_WARNING_CONFIG_FAILED;
 		vty_out(vty, "%% Only one mesh-group allowed currently\n");
 		break;
 	default:
+		ret = CMD_WARNING_CONFIG_FAILED;
 		vty_out(vty, "%% member add failed\n");
 	}
 
-	return result ? CMD_WARNING_CONFIG_FAILED : CMD_SUCCESS;
+	return ret;
 }
 
 DEFUN (ip_msdp_mesh_group_member,
@@ -8509,7 +8540,6 @@ DEFUN (show_ip_msdp_sa_sg_vrf_all,
 
 void pim_cmd_init(void)
 {
-	install_node(&pim_global_node, pim_global_config_write); /* PIM_NODE */
 	install_node(&interface_node,
 		     pim_interface_config_write); /* INTERFACE_NODE */
 	if_cmd_init();
@@ -8712,6 +8742,8 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &debug_msdp_packets_cmd);
 	install_element(ENABLE_NODE, &no_debug_msdp_packets_cmd);
 	install_element(ENABLE_NODE, &undebug_msdp_packets_cmd);
+	install_element(ENABLE_NODE, &debug_mtrace_cmd);
+	install_element(ENABLE_NODE, &no_debug_mtrace_cmd);
 
 	install_element(CONFIG_NODE, &debug_igmp_cmd);
 	install_element(CONFIG_NODE, &no_debug_igmp_cmd);
@@ -8754,6 +8786,8 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &debug_msdp_packets_cmd);
 	install_element(CONFIG_NODE, &no_debug_msdp_packets_cmd);
 	install_element(CONFIG_NODE, &undebug_msdp_packets_cmd);
+	install_element(CONFIG_NODE, &debug_mtrace_cmd);
+	install_element(CONFIG_NODE, &no_debug_mtrace_cmd);
 
 	install_element(CONFIG_NODE, &ip_msdp_mesh_group_member_cmd);
 	install_element(VRF_NODE, &ip_msdp_mesh_group_member_cmd);

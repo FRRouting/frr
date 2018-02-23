@@ -75,6 +75,7 @@ vtysh_scan += $(top_srcdir)/ospfd/ospf_opaque.c
 vtysh_scan += $(top_srcdir)/ospfd/ospf_ri.c
 vtysh_scan += $(top_srcdir)/ospfd/ospf_routemap.c
 vtysh_scan += $(top_srcdir)/ospfd/ospf_te.c
+vtysh_scan += $(top_srcdir)/ospfd/ospf_sr.c
 vtysh_scan += $(top_srcdir)/ospfd/ospf_vty.c
 endif
 

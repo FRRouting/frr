@@ -32,6 +32,7 @@
 #include "log.h"
 #include "sockunion.h" /* for inet_aton () */
 #include "zclient.h"
+#include "routemap.h"
 #include "plist.h"
 #include "sockopt.h"
 #include "bfd.h"
@@ -159,8 +160,8 @@ void ospf_router_id_update(struct ospf *ospf)
 			struct ospf_lsa *lsa;
 
 			LSDB_LOOP(EXTERNAL_LSDB(ospf), rn, lsa)
-			if (IS_LSA_SELF(lsa))
-				ospf_lsa_flush_schedule(ospf, lsa);
+				if (IS_LSA_SELF(lsa))
+					ospf_lsa_flush_schedule(ospf, lsa);
 		}
 
 		ospf->router_id = router_id;
@@ -183,8 +184,7 @@ void ospf_router_id_update(struct ospf *ospf)
 			struct route_node *rn;
 			struct ospf_lsa *lsa;
 
-			LSDB_LOOP(EXTERNAL_LSDB(ospf), rn, lsa)
-			{
+			LSDB_LOOP (EXTERNAL_LSDB(ospf), rn, lsa) {
 				/* AdvRouter and Router ID is the same. */
 				if (IPV4_ADDR_SAME(&lsa->data->adv_router,
 						   &ospf->router_id)) {
@@ -241,7 +241,7 @@ static struct ospf *ospf_new(u_short instance, const char *name)
 		new->name = XSTRDUP(MTYPE_OSPF_TOP, name);
 		vrf = vrf_lookup_by_name(new->name);
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: Create new ospf instance with vrf_name %s vrf_id %d",
+			zlog_debug("%s: Create new ospf instance with vrf_name %s vrf_id %u",
 				   __PRETTY_FUNCTION__, name, new->vrf_id);
 		if (vrf)
 			ospf_vrf_link(new, vrf);
@@ -555,6 +555,20 @@ void ospf_terminate(void)
 	for (ALL_LIST_ELEMENTS(om->ospf, node, nnode, ospf))
 		ospf_finish(ospf);
 
+	/* Cleanup route maps */
+	route_map_add_hook(NULL);
+	route_map_delete_hook(NULL);
+	route_map_event_hook(NULL);
+	route_map_finish();
+
+	/* reverse prefix_list_init */
+	prefix_list_add_hook(NULL);
+	prefix_list_delete_hook(NULL);
+	prefix_list_reset();
+
+	/* Cleanup vrf info */
+	ospf_vrf_terminate();
+
 	/* Deliberately go back up, hopefully to thread scheduler, as
 	 * One or more ospf_finish()'s may have deferred shutdown to a timer
 	 * thread
@@ -595,6 +609,8 @@ static void ospf_finish_final(struct ospf *ospf)
 	QOBJ_UNREG(ospf);
 
 	ospf_opaque_type11_lsa_term(ospf);
+
+	ospf_opaque_finish();
 
 	ospf_flush_self_originated_lsas_now(ospf);
 
@@ -693,9 +709,9 @@ static void ospf_finish_final(struct ospf *ospf)
 	stream_free(ospf->ibuf);
 
 	LSDB_LOOP(OPAQUE_AS_LSDB(ospf), rn, lsa)
-	ospf_discard_from_db(ospf, ospf->lsdb, lsa);
+		ospf_discard_from_db(ospf, ospf->lsdb, lsa);
 	LSDB_LOOP(EXTERNAL_LSDB(ospf), rn, lsa)
-	ospf_discard_from_db(ospf, ospf->lsdb, lsa);
+		ospf_discard_from_db(ospf, ospf->lsdb, lsa);
 
 	ospf_lsdb_delete_all(ospf->lsdb);
 	ospf_lsdb_free(ospf->lsdb);
@@ -830,22 +846,21 @@ static void ospf_area_free(struct ospf_area *area)
 
 	/* Free LSDBs. */
 	LSDB_LOOP(ROUTER_LSDB(area), rn, lsa)
-	ospf_discard_from_db(area->ospf, area->lsdb, lsa);
+		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
 	LSDB_LOOP(NETWORK_LSDB(area), rn, lsa)
-	ospf_discard_from_db(area->ospf, area->lsdb, lsa);
+		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
 	LSDB_LOOP(SUMMARY_LSDB(area), rn, lsa)
-	ospf_discard_from_db(area->ospf, area->lsdb, lsa);
+		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
 	LSDB_LOOP(ASBR_SUMMARY_LSDB(area), rn, lsa)
-	ospf_discard_from_db(area->ospf, area->lsdb, lsa);
+		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
 
 	LSDB_LOOP(NSSA_LSDB(area), rn, lsa)
-	ospf_discard_from_db(area->ospf, area->lsdb, lsa);
+		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
 	LSDB_LOOP(OPAQUE_AREA_LSDB(area), rn, lsa)
-	ospf_discard_from_db(area->ospf, area->lsdb, lsa);
+		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
 	LSDB_LOOP(OPAQUE_LINK_LSDB(area), rn, lsa)
-	ospf_discard_from_db(area->ospf, area->lsdb, lsa);
+		ospf_discard_from_db(area->ospf, area->lsdb, lsa);
 
-	ospf_opaque_type10_lsa_term(area);
 	ospf_lsdb_delete_all(area->lsdb);
 	ospf_lsdb_free(area->lsdb);
 
@@ -1031,9 +1046,15 @@ int ospf_network_set(struct ospf *ospf, struct prefix_ipv4 *p,
 
 	rn = route_node_get(ospf->networks, (struct prefix *)p);
 	if (rn->info) {
-		/* There is already same network statement. */
+		network = rn->info;
 		route_unlock_node(rn);
-		return 0;
+
+		if (IPV4_ADDR_SAME(&area_id, &network->area_id)) {
+			return 1;
+		} else {
+			/* There is already same network statement. */
+			return 0;
+		}
 	}
 
 	rn->info = network = ospf_network_new(area_id);
@@ -2008,7 +2029,7 @@ void ospf_vrf_unlink(struct ospf *ospf, struct vrf *vrf)
 static int ospf_vrf_new(struct vrf *vrf)
 {
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: VRF Created: %s(%d)", __PRETTY_FUNCTION__,
+		zlog_debug("%s: VRF Created: %s(%u)", __PRETTY_FUNCTION__,
 			   vrf->name, vrf->vrf_id);
 
 	return 0;
@@ -2018,7 +2039,7 @@ static int ospf_vrf_new(struct vrf *vrf)
 static int ospf_vrf_delete(struct vrf *vrf)
 {
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: VRF Deletion: %s(%d)", __PRETTY_FUNCTION__,
+		zlog_debug("%s: VRF Deletion: %s(%u)", __PRETTY_FUNCTION__,
 			   vrf->name, vrf->vrf_id);
 
 	return 0;
@@ -2031,7 +2052,7 @@ static int ospf_vrf_enable(struct vrf *vrf)
 	vrf_id_t old_vrf_id = VRF_DEFAULT;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: VRF %s id %d enabled",
+		zlog_debug("%s: VRF %s id %u enabled",
 			   __PRETTY_FUNCTION__, vrf->name, vrf->vrf_id);
 
 	ospf = ospf_lookup_by_name(vrf->name);
@@ -2040,7 +2061,7 @@ static int ospf_vrf_enable(struct vrf *vrf)
 		/* We have instance configured, link to VRF and make it "up". */
 		ospf_vrf_link(ospf, vrf);
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: ospf linked to vrf %s vrf_id %d (old id %d)",
+			zlog_debug("%s: ospf linked to vrf %s vrf_id %u (old id %u)",
 				   __PRETTY_FUNCTION__, vrf->name, ospf->vrf_id,
 				   old_vrf_id);
 

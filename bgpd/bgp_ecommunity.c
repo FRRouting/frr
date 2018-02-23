@@ -690,24 +690,27 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				tunneltype = ntohs(tunneltype);
 				len = sprintf(str_buf + str_pnt, "ET:%d",
 					      tunneltype);
+			}  else if (*pnt == ECOMMUNITY_EVPN_SUBTYPE_DEF_GW) {
+				len = sprintf(str_buf + str_pnt,
+					      "Default Gateway");
 			} else
 				unk_ecom = 1;
 		} else if (type == ECOMMUNITY_ENCODE_EVPN) {
 			if (filter == ECOMMUNITY_ROUTE_TARGET)
 				continue;
-			if (*pnt == ECOMMUNITY_SITE_ORIGIN) {
-				char macaddr[6];
+			if (*pnt == ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC) {
+				struct ethaddr rmac;
 				pnt++;
-				memcpy(&macaddr, pnt, 6);
+				memcpy(&rmac, pnt, ETH_ALEN);
 				len = sprintf(
 					str_buf + str_pnt,
-					"EVPN:%02x:%02x:%02x:%02x:%02x:%02x",
-					(uint8_t)macaddr[0],
-					(uint8_t)macaddr[1],
-					(uint8_t)macaddr[2],
-					(uint8_t)macaddr[3],
-					(uint8_t)macaddr[4],
-					(uint8_t)macaddr[5]);
+					"Rmac:%02x:%02x:%02x:%02x:%02x:%02x",
+					(uint8_t)rmac.octet[0],
+					(uint8_t)rmac.octet[1],
+					(uint8_t)rmac.octet[2],
+					(uint8_t)rmac.octet[3],
+					(uint8_t)rmac.octet[4],
+					(uint8_t)rmac.octet[5]);
 			} else if (*pnt
 				   == ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY) {
 				u_int32_t seqnum;

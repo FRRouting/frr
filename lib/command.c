@@ -96,7 +96,6 @@ const char *node_names[] = {
 	"ldp l2vpn",		    // LDP_L2VPN_NODE,
 	"ldp",			    // LDP_PSEUDOWIRE_NODE,
 	"isis",			    // ISIS_NODE,
-	"pim",			    // PIM_NODE,
 	"masc",			    // MASC_NODE,
 	"irdp",			    // IRDP_NODE,
 	"static ip",		    // IP_NODE,
@@ -1308,7 +1307,6 @@ void cmd_exit(struct vty *vty)
 	case KEYCHAIN_NODE:
 	case MASC_NODE:
 	case RMAP_NODE:
-	case PIM_NODE:
 	case VTY_NODE:
 		vty->node = CONFIG_NODE;
 		break;
@@ -1414,7 +1412,6 @@ DEFUN (config_end,
 	case KEYCHAIN_NODE:
 	case KEYCHAIN_KEY_NODE:
 	case MASC_NODE:
-	case PIM_NODE:
 	case VTY_NODE:
 	case LINK_PARAMS_NODE:
 		vty_config_unlock(vty);
@@ -1865,7 +1862,7 @@ DEFUN (config_password,
 		return CMD_SUCCESS;
 	}
 
-	if (!isalnum(argv[idx_8]->arg[0])) {
+	if (!isalnum((int)argv[idx_8]->arg[0])) {
 		vty_out(vty,
 			"Please specify string starting with alphanumeric\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1917,7 +1914,7 @@ DEFUN (config_enable_password,
 		}
 	}
 
-	if (!isalnum(argv[idx_8]->arg[0])) {
+	if (!isalnum((int)argv[idx_8]->arg[0])) {
 		vty_out(vty,
 			"Please specify string starting with alphanumeric\n");
 		return CMD_WARNING_CONFIG_FAILED;

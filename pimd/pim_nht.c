@@ -47,39 +47,13 @@
 void pim_sendmsg_zebra_rnh(struct pim_instance *pim, struct zclient *zclient,
 			   struct pim_nexthop_cache *pnc, int command)
 {
-	struct stream *s;
 	struct prefix *p;
 	int ret;
 
-	/* Check socket. */
-	if (!zclient || zclient->sock < 0)
-		return;
-
 	p = &(pnc->rpf.rpf_addr);
-	s = zclient->obuf;
-	stream_reset(s);
-	zclient_create_header(s, command, pim->vrf_id);
-	/* get update for all routes for a prefix */
-	stream_putc(s, 0);
-
-	stream_putw(s, PREFIX_FAMILY(p));
-	stream_putc(s, p->prefixlen);
-	switch (PREFIX_FAMILY(p)) {
-	case AF_INET:
-		stream_put_in_addr(s, &p->u.prefix4);
-		break;
-	case AF_INET6:
-		stream_put(s, &(p->u.prefix6), 16);
-		break;
-	default:
-		break;
-	}
-	stream_putw_at(s, 0, stream_get_endp(s));
-
-	ret = zclient_send_message(zclient);
+	ret = zclient_send_rnh(zclient, command, p, false, pim->vrf_id);
 	if (ret < 0)
 		zlog_warn("sendmsg_nexthop: zclient_send_message() failed");
-
 
 	if (PIM_DEBUG_PIM_NHT) {
 		char buf[PREFIX2STR_BUFFER];
@@ -634,13 +608,9 @@ int pim_ecmp_nexthop_search(struct pim_instance *pim,
 int pim_parse_nexthop_update(int command, struct zclient *zclient,
 			     zebra_size_t length, vrf_id_t vrf_id)
 {
-	struct stream *s;
-	struct prefix p;
 	struct nexthop *nexthop;
 	struct nexthop *nhlist_head = NULL;
 	struct nexthop *nhlist_tail = NULL;
-	uint32_t metric, distance;
-	u_char nexthop_num = 0;
 	int i;
 	struct pim_rpf rpf;
 	struct pim_nexthop_cache *pnc = NULL;
@@ -649,30 +619,21 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 	struct interface *ifp1 = NULL;
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct pim_instance *pim;
+	struct zapi_route nhr;
 
 	if (!vrf)
 		return 0;
 	pim = vrf->info;
 
-	s = zclient->ibuf;
-	memset(&p, 0, sizeof(struct prefix));
-	p.family = stream_getw(s);
-	p.prefixlen = stream_getc(s);
-	switch (p.family) {
-	case AF_INET:
-		p.u.prefix4.s_addr = stream_get_ipv4(s);
-		break;
-	case AF_INET6:
-		stream_get(&p.u.prefix6, s, 16);
-		break;
-	default:
-		break;
+	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
+		if (PIM_DEBUG_PIM_NHT)
+			zlog_debug("%s: Decode of nexthop update from zebra failed",
+				   __PRETTY_FUNCTION__);
+		return 0;
 	}
 
 	if (command == ZEBRA_NEXTHOP_UPDATE) {
-		rpf.rpf_addr.family = p.family;
-		rpf.rpf_addr.prefixlen = p.prefixlen;
-		rpf.rpf_addr.u.prefix4.s_addr = p.u.prefix4.s_addr;
+		prefix_copy(&rpf.rpf_addr, &nhr.prefix);
 		pnc = pim_nexthop_cache_find(pim, &rpf);
 		if (!pnc) {
 			if (PIM_DEBUG_PIM_NHT) {
@@ -692,34 +653,20 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 	}
 
 	pnc->last_update = pim_time_monotonic_usec();
-	distance = stream_getc(s);
-	metric = stream_getl(s);
-	nexthop_num = stream_getc(s);
 
-	if (nexthop_num) {
+	if (nhr.nexthop_num) {
 		pnc->nexthop_num = 0; // Only increment for pim enabled rpf.
 
-		for (i = 0; i < nexthop_num; i++) {
-			nexthop = nexthop_new();
-			nexthop->type = stream_getc(s);
+		for (i = 0; i < nhr.nexthop_num; i++) {
+			nexthop = nexthop_from_zapi_nexthop(&nhr.nexthops[i]);
 			switch (nexthop->type) {
 			case NEXTHOP_TYPE_IPV4:
-				nexthop->gate.ipv4.s_addr = stream_get_ipv4(s);
-				nexthop->ifindex = stream_getl(s);
-				break;
 			case NEXTHOP_TYPE_IFINDEX:
-				nexthop->ifindex = stream_getl(s);
-				break;
 			case NEXTHOP_TYPE_IPV4_IFINDEX:
-				nexthop->gate.ipv4.s_addr = stream_get_ipv4(s);
-				nexthop->ifindex = stream_getl(s);
-				break;
 			case NEXTHOP_TYPE_IPV6:
-				stream_get(&nexthop->gate.ipv6, s, 16);
+			case NEXTHOP_TYPE_BLACKHOLE:
 				break;
 			case NEXTHOP_TYPE_IPV6_IFINDEX:
-				stream_get(&nexthop->gate.ipv6, s, 16);
-				nexthop->ifindex = stream_getl(s);
 				ifp1 = if_lookup_by_index(nexthop->ifindex,
 							  pim->vrf_id);
 				nbr = pim_neighbor_find_if(ifp1);
@@ -733,9 +680,6 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 						PIM_NET_INADDR_ANY;
 				}
 
-				break;
-			default:
-				/* do nothing */
 				break;
 			}
 
@@ -757,19 +701,21 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 
 			if (PIM_DEBUG_PIM_NHT) {
 				char p_str[PREFIX2STR_BUFFER];
-				prefix2str(&p, p_str, sizeof(p_str));
+
+				prefix2str(&nhr.prefix, p_str, sizeof(p_str));
 				zlog_debug(
 					"%s: NHT addr %s(%s) %d-nhop via %s(%s) type %d distance:%u metric:%u ",
 					__PRETTY_FUNCTION__, p_str,
 					pim->vrf->name, i + 1,
 					inet_ntoa(nexthop->gate.ipv4),
-					ifp->name, nexthop->type, distance,
-					metric);
+					ifp->name, nexthop->type, nhr.distance,
+					nhr.metric);
 			}
 
 			if (!ifp->info) {
 				if (PIM_DEBUG_PIM_NHT) {
 					char buf[NEXTHOP_STRLEN];
+
 					zlog_debug(
 						"%s: multicast not enabled on input interface %s(%s) (ifindex=%d, addr %s)",
 						__PRETTY_FUNCTION__, ifp->name,
@@ -797,23 +743,24 @@ int pim_parse_nexthop_update(int command, struct zclient *zclient,
 		pnc->nexthop = nhlist_head;
 		if (pnc->nexthop_num) {
 			pnc->flags |= PIM_NEXTHOP_VALID;
-			pnc->distance = distance;
-			pnc->metric = metric;
+			pnc->distance = nhr.distance;
+			pnc->metric = nhr.metric;
 		}
 	} else {
 		pnc->flags &= ~PIM_NEXTHOP_VALID;
-		pnc->nexthop_num = nexthop_num;
+		pnc->nexthop_num = nhr.nexthop_num;
 		nexthops_free(pnc->nexthop);
 		pnc->nexthop = NULL;
 	}
 
 	if (PIM_DEBUG_PIM_NHT) {
 		char buf[PREFIX2STR_BUFFER];
-		prefix2str(&p, buf, sizeof(buf));
+		prefix2str(&nhr.prefix, buf, sizeof(buf));
 		zlog_debug(
-			"%s: NHT Update for %s(%s) num_nh %d num_pim_nh %d vrf:%d up %ld rp %d",
-			__PRETTY_FUNCTION__, buf, pim->vrf->name, nexthop_num,
-			pnc->nexthop_num, vrf_id, pnc->upstream_hash->count,
+			"%s: NHT Update for %s(%s) num_nh %d num_pim_nh %d vrf:%u up %ld rp %d",
+			__PRETTY_FUNCTION__, buf, pim->vrf->name,
+			nhr.nexthop_num, pnc->nexthop_num, vrf_id,
+			pnc->upstream_hash->count,
 			listcount(pnc->rp_list));
 	}
 

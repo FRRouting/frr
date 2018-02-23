@@ -115,11 +115,11 @@ log_label(uint32_t label)
 	case NO_LABEL:
 		snprintf(buf, TF_LEN, "-");
 		break;
-	case MPLS_LABEL_IMPLNULL:
+	case MPLS_LABEL_IMPLICIT_NULL:
 		snprintf(buf, TF_LEN, "imp-null");
 		break;
-	case MPLS_LABEL_IPV4NULL:
-	case MPLS_LABEL_IPV6NULL:
+	case MPLS_LABEL_IPV4_EXPLICIT_NULL:
+	case MPLS_LABEL_IPV6_EXPLICIT_NULL:
 		snprintf(buf, TF_LEN, "exp-null");
 		break;
 	default:

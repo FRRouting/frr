@@ -40,7 +40,7 @@
 #define ZEBRA_MAX_PACKET_SIZ          4096
 
 /* Zebra header size. */
-#define ZEBRA_HEADER_SIZE             8
+#define ZEBRA_HEADER_SIZE             10
 
 /* special socket path name to use TCP
  * @ is used as first character because that's abstract socket names on Linux
@@ -93,6 +93,7 @@ typedef enum {
 	ZEBRA_VRF_UNREGISTER,
 	ZEBRA_VRF_ADD,
 	ZEBRA_VRF_DELETE,
+	ZEBRA_VRF_LABEL,
 	ZEBRA_INTERFACE_VRF_UPDATE,
 	ZEBRA_BFD_CLIENT_REGISTER,
 	ZEBRA_INTERFACE_ENABLE_RADV,
@@ -109,13 +110,18 @@ typedef enum {
 	ZEBRA_FEC_UNREGISTER,
 	ZEBRA_FEC_UPDATE,
 	ZEBRA_ADVERTISE_DEFAULT_GW,
+	ZEBRA_ADVERTISE_SUBNET,
 	ZEBRA_ADVERTISE_ALL_VNI,
 	ZEBRA_VNI_ADD,
 	ZEBRA_VNI_DEL,
+	ZEBRA_L3VNI_ADD,
+	ZEBRA_L3VNI_DEL,
 	ZEBRA_REMOTE_VTEP_ADD,
 	ZEBRA_REMOTE_VTEP_DEL,
 	ZEBRA_MACIP_ADD,
 	ZEBRA_MACIP_DEL,
+	ZEBRA_IP_PREFIX_ROUTE_ADD,
+	ZEBRA_IP_PREFIX_ROUTE_DEL,
 	ZEBRA_REMOTE_MACIP_ADD,
 	ZEBRA_REMOTE_MACIP_DEL,
 	ZEBRA_PW_ADD,
@@ -200,6 +206,10 @@ struct zclient {
 	int (*fec_update)(int, struct zclient *, uint16_t);
 	int (*local_vni_add)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*local_vni_del)(int, struct zclient *, uint16_t, vrf_id_t);
+	int (*local_l3vni_add)(int, struct zclient *, uint16_t, vrf_id_t);
+	int (*local_l3vni_del)(int, struct zclient *, uint16_t, vrf_id_t);
+	void (*local_ip_prefix_add)(int, struct zclient *, uint16_t, vrf_id_t);
+	void (*local_ip_prefix_del)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*local_macip_add)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*local_macip_del)(int, struct zclient *, uint16_t, vrf_id_t);
 	int (*pw_status_update)(int, struct zclient *, uint16_t, vrf_id_t);
@@ -223,13 +233,14 @@ struct zserv_header {
 			 * always set to 255 in new zserv.
 			 */
 	uint8_t version;
-#define ZSERV_VERSION	4
+#define ZSERV_VERSION	5
 	vrf_id_t vrf_id;
 	uint16_t command;
 };
 
 struct zapi_nexthop {
 	enum nexthop_types_t type;
+	vrf_id_t vrf_id;
 	ifindex_t ifindex;
 	union {
 		union g_addr gate;
@@ -277,6 +288,8 @@ struct zapi_route {
 	u_int32_t mtu;
 
 	vrf_id_t vrf_id;
+
+	struct ethaddr rmac;
 };
 
 /* Zebra IPv4 route message API. */
@@ -336,8 +349,8 @@ enum zapi_route_notify_owner {
 };
 
 /* Zebra MAC types */
-#define ZEBRA_MAC_TYPE_STICKY                0x01 /* Sticky MAC*/
-#define ZEBRA_MAC_TYPE_GW                    0x02 /* gateway (SVI) mac*/
+#define ZEBRA_MACIP_TYPE_STICKY                0x01 /* Sticky MAC*/
+#define ZEBRA_MACIP_TYPE_GW                    0x02 /* gateway (SVI) mac*/
 
 struct zclient_options {
 	bool receive_notify;
@@ -369,6 +382,23 @@ extern int zclient_socket_connect(struct zclient *);
 extern u_short *redist_check_instance(struct redist_proto *, u_short);
 extern void redist_add_instance(struct redist_proto *, u_short);
 extern void redist_del_instance(struct redist_proto *, u_short);
+
+/*
+ * Send to zebra that the specified vrf is using label to resolve
+ * itself for L3VPN's.  Repeated calls of this function with
+ * different labels will cause an effective update of the
+ * label for lookup.  If you pass in MPLS_LABEL_NONE
+ * we will cause a delete action and remove this label pop
+ * operation.
+ *
+ * The underlying AF_MPLS doesn't care about afi's
+ * but we can make the zebra_vrf keep track of what
+ * we have installed and play some special games
+ * to get them both installed.
+ */
+extern void zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id,
+				   afi_t afi, mpls_label_t label,
+				   enum lsp_types_t ltype);
 
 extern void zclient_send_reg_requests(struct zclient *, vrf_id_t);
 extern void zclient_send_dereg_requests(struct zclient *, vrf_id_t);
@@ -414,6 +444,11 @@ extern struct interface *zebra_interface_vrf_update_read(struct stream *s,
 							 vrf_id_t *new_vrf_id);
 extern void zebra_interface_if_set_value(struct stream *, struct interface *);
 extern void zebra_router_id_update_read(struct stream *s, struct prefix *rid);
+
+#if CONFDATE > 20180823
+CPP_NOTICE("zapi_ipv4_route, zapi_ipv6_route, zapi_ipv4_route_ipv6_nexthop as well as the zapi_ipv4 and zapi_ipv6 data structures should be removed now");
+#endif
+
 extern int zapi_ipv4_route(u_char, struct zclient *, struct prefix_ipv4 *,
 			   struct zapi_ipv4 *) __attribute__((deprecated));
 
@@ -472,16 +507,23 @@ extern int zapi_ipv4_route_ipv6_nexthop(u_char, struct zclient *,
 					struct zapi_ipv6 *)
 	__attribute__((deprecated));
 extern int zclient_route_send(u_char, struct zclient *, struct zapi_route *);
+extern int zclient_send_rnh(struct zclient *zclient, int command,
+			    struct prefix *p, bool exact_match,
+			    vrf_id_t vrf_id);
 extern int zapi_route_encode(u_char, struct stream *, struct zapi_route *);
 extern int zapi_route_decode(struct stream *, struct zapi_route *);
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
 			      enum zapi_route_notify_owner *note);
+extern struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh);
+extern bool zapi_nexthop_update_decode(struct stream *s,
+				       struct zapi_route *nhr);
 
 static inline void zapi_route_set_blackhole(struct zapi_route *api,
 					    enum blackhole_type bh_type)
 {
 	api->nexthop_num = 1;
 	api->nexthops[0].type = NEXTHOP_TYPE_BLACKHOLE;
+	api->nexthops[0].vrf_id = VRF_DEFAULT;
 	api->nexthops[0].bh_type = bh_type;
 	SET_FLAG(api->message, ZAPI_MESSAGE_NEXTHOP);
 };

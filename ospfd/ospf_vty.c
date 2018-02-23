@@ -218,7 +218,7 @@ DEFUN_NOSH (router_ospf,
 		if (ospf->vrf_id != VRF_UNKNOWN)
 			ospf->oi_running = 1;
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("Config command 'router ospf %d' received, vrf %s id %d oi_running %u",
+			zlog_debug("Config command 'router ospf %d' received, vrf %s id %u oi_running %u",
 				   instance,  ospf->name ? ospf->name : "NIL",
 				   ospf->vrf_id, ospf->oi_running);
 		VTY_PUSH_CONTEXT(OSPF_NODE, ospf);
@@ -534,11 +534,11 @@ DEFUN (no_ospf_passive_interface,
 	}
 
 	if (ospf->vrf_id != VRF_UNKNOWN)
-		ifp = if_get_by_name(argv[1]->arg, ospf->vrf_id, 0);
+		ifp = if_get_by_name(argv[2]->arg, ospf->vrf_id, 0);
 
 	if (ifp == NULL) {
 		vty_out(vty, "interface %s not found.\n",
-			(char *)argv[1]->arg);
+			(char *)argv[2]->arg);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -619,7 +619,7 @@ DEFUN (ospf_network_area,
 	ret = ospf_network_set(ospf, &p, area_id, format);
 	if (ret == 0) {
 		vty_out(vty, "There is already same network statement.\n");
-		return CMD_WARNING;
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	return CMD_SUCCESS;
@@ -1974,12 +1974,13 @@ DEFUN (ospf_area_authentication_message_digest,
        "Use message-digest authentication\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx_ipv4_number = 1;
+	int idx = 0;
 	struct ospf_area *area;
 	struct in_addr area_id;
 	int format;
 
-	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
+	argv_find(argv, argc, "area", &idx);
+	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx + 1]->arg);
 
 	area = ospf_area_get(ospf, area_id);
 	ospf_area_display_format_set(ospf, area, format);
@@ -3693,13 +3694,14 @@ static int show_ip_ospf_interface_common(struct vty *vty, struct ospf *ospf,
 	struct interface *ifp;
 	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
 	json_object *json_vrf = NULL;
-	json_object *json_interface_sub = NULL;
+	json_object *json_interface_sub = NULL, *json_interface = NULL;
 
 	if (use_json) {
 		if (use_vrf)
 			json_vrf = json_object_new_object();
 		else
 			json_vrf = json;
+		json_interface = json_object_new_object();
 	}
 
 	if (ospf->instance) {
@@ -3716,20 +3718,24 @@ static int show_ip_ospf_interface_common(struct vty *vty, struct ospf *ospf,
 		/* Show All Interfaces.*/
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			if (ospf_oi_count(ifp)) {
-				if (use_json)
+				if (use_json) {
 					json_interface_sub =
 						json_object_new_object();
-
+				}
 				show_ip_ospf_interface_sub(vty, ospf, ifp,
 							   json_interface_sub,
 							   use_json);
 
-				if (use_json)
+				if (use_json) {
 					json_object_object_add(
-						json_vrf, ifp->name,
+						json_interface, ifp->name,
 						json_interface_sub);
+				}
 			}
 		}
+		if (use_json)
+			json_object_object_add(json_vrf, "interfaces",
+				       json_interface);
 	} else {
 		/* Interface name is specified. */
 		ifp = if_lookup_by_name(intf_name, ospf->vrf_id);
@@ -3740,15 +3746,21 @@ static int show_ip_ospf_interface_common(struct vty *vty, struct ospf *ospf,
 			else
 				vty_out(vty, "No such interface name\n");
 		} else {
-			if (use_json)
+			if (use_json) {
 				json_interface_sub = json_object_new_object();
+				json_interface = json_object_new_object();
+			}
 
 			show_ip_ospf_interface_sub(
 				vty, ospf, ifp, json_interface_sub, use_json);
 
-			if (use_json)
-				json_object_object_add(json_vrf, ifp->name,
+			if (use_json) {
+				json_object_object_add(json_interface,
+						       ifp->name,
 						       json_interface_sub);
+				json_object_object_add(json_vrf, "interfaces",
+						       json_interface);
+			}
 		}
 	}
 
@@ -4283,12 +4295,14 @@ static int show_ip_ospf_neighbor_common(struct vty *vty, struct ospf *ospf,
 	struct ospf_interface *oi;
 	struct listnode *node;
 	json_object *json_vrf = NULL;
+	json_object *json_nbr_sub = NULL;
 
 	if (use_json) {
 		if (use_vrf)
 			json_vrf = json_object_new_object();
 		else
 			json_vrf = json;
+		json_nbr_sub = json_object_new_object();
 	}
 
 	if (ospf->instance) {
@@ -4303,10 +4317,15 @@ static int show_ip_ospf_neighbor_common(struct vty *vty, struct ospf *ospf,
 	if (!use_json)
 		show_ip_ospf_neighbour_header(vty);
 
-	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi))
-		show_ip_ospf_neighbor_sub(vty, oi, json_vrf, use_json);
+	for (ALL_LIST_ELEMENTS_RO(ospf->oiflist, node, oi)) {
+		if (ospf_interface_neighbor_count(oi) == 0)
+			continue;
+		show_ip_ospf_neighbor_sub(vty, oi, json_nbr_sub, use_json);
+	}
 
 	if (use_json) {
+		json_object_object_add(json_vrf, "neighbors",
+				       json_nbr_sub);
 		if (use_vrf) {
 			if (ospf->vrf_id == VRF_DEFAULT)
 				json_object_object_add(json, "default",
@@ -4680,7 +4699,6 @@ static int show_ip_ospf_neighbor_int_common(struct vty *vty, struct ospf *ospf,
 
 	ospf_show_vrf_name(ospf, vty, json, use_vrf);
 
-	/*ifp = if_lookup_by_name(argv[arg_base]->arg, ospf->vrf_id);*/
 	ifp = if_lookup_by_name_all_vrf(argv[arg_base]->arg);
 	if (!ifp) {
 		if (use_json)
@@ -6166,7 +6184,7 @@ static void show_ip_ospf_database_summary(struct vty *vty, struct ospf *ospf,
 					show_database_header[type]);
 
 				LSDB_LOOP(AREA_LSDB(area, type), rn, lsa)
-				show_lsa_summary(vty, lsa, self);
+					show_lsa_summary(vty, lsa, self);
 
 				vty_out(vty, "\n");
 			}
@@ -6188,7 +6206,7 @@ static void show_ip_ospf_database_summary(struct vty *vty, struct ospf *ospf,
 			vty_out(vty, "%s\n", show_database_header[type]);
 
 			LSDB_LOOP(AS_LSDB(ospf, type), rn, lsa)
-			show_lsa_summary(vty, lsa, self);
+				show_lsa_summary(vty, lsa, self);
 
 			vty_out(vty, "\n");
 		}
@@ -8098,7 +8116,7 @@ DEFUN (no_ip_ospf_area,
 
 DEFUN (ospf_redistribute_source,
        ospf_redistribute_source_cmd,
-       "redistribute " FRR_REDIST_STR_OSPFD " [<metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
+       "redistribute " FRR_REDIST_STR_OSPFD " [{metric (0-16777214)|metric-type (1-2)|route-map WORD}]",
        REDIST_STR
        FRR_REDIST_HELP_STR_OSPFD
        "Metric for redistributed routes\n"
@@ -8131,13 +8149,15 @@ DEFUN (ospf_redistribute_source,
 		if (!str2metric(argv[idx]->arg, &metric))
 			return CMD_WARNING_CONFIG_FAILED;
 	}
+	idx = 1;
 	/* Get metric type. */
-	else if (argv_find(argv, argc, "(1-2)", &idx)) {
+	if (argv_find(argv, argc, "(1-2)", &idx)) {
 		if (!str2metric_type(argv[idx]->arg, &type))
 			return CMD_WARNING_CONFIG_FAILED;
 	}
+	idx = 1;
 	/* Get route-map */
-	else if (argv_find(argv, argc, "WORD", &idx)) {
+	if (argv_find(argv, argc, "WORD", &idx)) {
 		ospf_routemap_set(red, argv[idx]->arg);
 	} else
 		ospf_routemap_unset(red);
@@ -8147,7 +8167,7 @@ DEFUN (ospf_redistribute_source,
 
 DEFUN (no_ospf_redistribute_source,
        no_ospf_redistribute_source_cmd,
-       "no redistribute " FRR_REDIST_STR_OSPFD " [<metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
+       "no redistribute " FRR_REDIST_STR_OSPFD " [{metric (0-16777214)|metric-type (1-2)|route-map WORD}]",
        NO_STR
        REDIST_STR
        FRR_REDIST_HELP_STR_OSPFD
@@ -8337,7 +8357,7 @@ DEFUN (no_ospf_distribute_list_out,
 /* Default information originate. */
 DEFUN (ospf_default_information_originate,
        ospf_default_information_originate_cmd,
-       "default-information originate [<always|metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
+       "default-information originate [{always|metric (0-16777214)|metric-type (1-2)|route-map WORD}]",
        "Control distribution of default information\n"
        "Distribute a default route\n"
        "Always advertise default route\n"
@@ -8360,18 +8380,21 @@ DEFUN (ospf_default_information_originate,
 	/* Check whether "always" was specified */
 	if (argv_find(argv, argc, "always", &idx))
 		default_originate = DEFAULT_ORIGINATE_ALWAYS;
+	idx = 1;
 	/* Get metric value */
-	else if (argv_find(argv, argc, "(0-16777214)", &idx)) {
+	if (argv_find(argv, argc, "(0-16777214)", &idx)) {
 		if (!str2metric(argv[idx]->arg, &metric))
 			return CMD_WARNING_CONFIG_FAILED;
 	}
+	idx = 1;
 	/* Get metric type. */
-	else if (argv_find(argv, argc, "(1-2)", &idx)) {
+	if (argv_find(argv, argc, "(1-2)", &idx)) {
 		if (!str2metric_type(argv[idx]->arg, &type))
 			return CMD_WARNING_CONFIG_FAILED;
 	}
+	idx = 1;
 	/* Get route-map */
-	else if (argv_find(argv, argc, "WORD", &idx))
+	if (argv_find(argv, argc, "WORD", &idx))
 		ospf_routemap_set(red, argv[idx]->arg);
 	else
 		ospf_routemap_unset(red);
@@ -8382,7 +8405,7 @@ DEFUN (ospf_default_information_originate,
 
 DEFUN (no_ospf_default_information_originate,
        no_ospf_default_information_originate_cmd,
-       "no default-information originate [<always|metric (0-16777214)|metric-type (1-2)|route-map WORD>]",
+       "no default-information originate [{always|metric (0-16777214)|metric-type (1-2)|route-map WORD}]",
        NO_STR
        "Control distribution of default information\n"
        "Distribute a default route\n"
@@ -8523,6 +8546,10 @@ DEFUN (ospf_distance_ospf,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx = 0;
+
+	ospf->distance_intra = 0;
+	ospf->distance_inter = 0;
+	ospf->distance_external = 0;
 
 	if (argv_find(argv, argc, "intra-area", &idx))
 		ospf->distance_intra = atoi(argv[idx + 1]->arg);
@@ -9495,9 +9522,9 @@ DEFUN (show_ip_ospf_route,
 			}
 
 			if (uj) {
+				/* Keep Non-pretty format */
 				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(json,
-						  JSON_C_TO_STRING_PRETTY));
+					json_object_to_json_string(json));
 				json_object_free(json);
 			}
 
@@ -9521,9 +9548,9 @@ DEFUN (show_ip_ospf_route,
 
 	if (ospf) {
 		ret = show_ip_ospf_route_common(vty, ospf, json, use_vrf);
+		/* Keep Non-pretty format */
 		if (uj)
-			vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+			vty_out(vty, "%s\n", json_object_to_json_string(json));
 	}
 
 	if (uj)
@@ -9582,7 +9609,7 @@ DEFUN (show_ip_ospf_vrfs,
 	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 		json_object *json_vrf = NULL;
 		const char *name = NULL;
-		int vrf_id_ui = 0;
+		int64_t vrf_id_ui = 0;
 
 		count++;
 
@@ -9596,7 +9623,8 @@ DEFUN (show_ip_ospf_vrfs,
 		else
 			name = ospf->name;
 
-		vrf_id_ui = (ospf->vrf_id == VRF_UNKNOWN) ? -1 : ospf->vrf_id;
+		vrf_id_ui = (ospf->vrf_id == VRF_UNKNOWN) ? -1 :
+			(int64_t) ospf->vrf_id;
 
 		if (uj) {
 			json_object_int_add(json_vrf, "vrfId", vrf_id_ui);
@@ -10201,6 +10229,7 @@ static int config_write_ospf_distribute(struct vty *vty, struct ospf *ospf)
 				if (red->dmetric.value >= 0)
 					vty_out(vty, " metric %d",
 						red->dmetric.value);
+
 				if (red->dmetric.type == EXTERNAL_METRIC_TYPE_1)
 					vty_out(vty, " metric-type 1");
 

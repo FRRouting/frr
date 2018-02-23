@@ -78,6 +78,11 @@ int pim_debug_config_write(struct vty *vty)
 		++writes;
 	}
 
+	if (PIM_DEBUG_MTRACE) {
+		vty_out(vty, "debug mtrace\n");
+		++writes;
+	}
+
 	if (PIM_DEBUG_MROUTE_DETAIL) {
 		vty_out(vty, "debug mroute detail\n");
 		++writes;
@@ -230,11 +235,6 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	}
 
 	return writes;
-}
-
-int pim_global_config_write(struct vty *vty)
-{
-	return pim_global_config_write_worker(pimg, vty);
 }
 
 int pim_interface_config_write(struct vty *vty)

@@ -97,7 +97,7 @@ void cmd_token_varname_set(struct cmd_token *token, const char *varname)
 			token->varname[i] = '_';
 			break;
 		default:
-			token->varname[i] = tolower(varname[i]);
+			token->varname[i] = tolower((int)varname[i]);
 		}
 	token->varname[len] = '\0';
 }

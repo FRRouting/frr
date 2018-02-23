@@ -659,7 +659,7 @@ static struct route_entry *zebra_rnh_resolve_nexthop_entry(vrf_id_t vrfid,
 		 * match route to be exact if so specified
 		 */
 		if (is_default_prefix(&rn->p) &&
-		    !nh_resolve_via_default(rn->p.family))
+		    !rnh_resolve_via_default(rn->p.family))
 			return NULL;
 
 		/* Identify appropriate route entry. */
@@ -951,6 +951,7 @@ static void copy_state(struct rnh *rnh, struct route_entry *re,
 	state->type = re->type;
 	state->distance = re->distance;
 	state->metric = re->metric;
+	state->vrf_id = re->vrf_id;
 
 	route_entry_copy_nexthops(state, re->nexthop);
 	rnh->state = state;
@@ -1000,7 +1001,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 	s = client->obuf;
 	stream_reset(s);
 
-	zserv_create_header(s, cmd, vrf_id);
+	zclient_create_header(s, cmd, vrf_id);
 
 	stream_putw(s, rn->p.family);
 	switch (rn->p.family) {
@@ -1032,6 +1033,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 				stream_putc(s, nexthop->type);
 				switch (nexthop->type) {
 				case NEXTHOP_TYPE_IPV4:
+				case NEXTHOP_TYPE_IPV4_IFINDEX:
 					stream_put_in_addr(s,
 							   &nexthop->gate.ipv4);
 					stream_putl(s, nexthop->ifindex);
@@ -1039,15 +1041,7 @@ static int send_client(struct rnh *rnh, struct zserv *client, rnh_type_t type,
 				case NEXTHOP_TYPE_IFINDEX:
 					stream_putl(s, nexthop->ifindex);
 					break;
-				case NEXTHOP_TYPE_IPV4_IFINDEX:
-					stream_put_in_addr(s,
-							   &nexthop->gate.ipv4);
-					stream_putl(s, nexthop->ifindex);
-					break;
 				case NEXTHOP_TYPE_IPV6:
-					stream_put(s, &nexthop->gate.ipv6, 16);
-					stream_putl(s, nexthop->ifindex);
-					break;
 				case NEXTHOP_TYPE_IPV6_IFINDEX:
 					stream_put(s, &nexthop->gate.ipv6, 16);
 					stream_putl(s, nexthop->ifindex);

@@ -373,36 +373,37 @@ log file /var/log/zebra.log
 !
 interface eth0
  ip address 10.2.2.2/24
- mpls-te on
- mpls-te link metric 10
- mpls-te link max-bw 1.25e+06
- mpls-te link max-rsv-bw 1.25e+06
- mpls-te link unrsv-bw 0 1.25e+06
- mpls-te link unrsv-bw 1 1.25e+06
- mpls-te link unrsv-bw 2 1.25e+06
- mpls-te link unrsv-bw 3 1.25e+06
- mpls-te link unrsv-bw 4 1.25e+06
- mpls-te link unrsv-bw 5 1.25e+06
- mpls-te link unrsv-bw 6 1.25e+06
- mpls-te link unrsv-bw 7 1.25e+06
- mpls-te link rsc-clsclr 0xab
+ link-params
+  enable
+  metric 100
+  max-bw 1.25e+07
+  max-rsv-bw 1.25e+06
+  unrsv-bw 0 1.25e+06
+  unrsv-bw 1 1.25e+06
+  unrsv-bw 2 1.25e+06
+  unrsv-bw 3 1.25e+06
+  unrsv-bw 4 1.25e+06
+  unrsv-bw 5 1.25e+06
+  unrsv-bw 6 1.25e+06
+  unrsv-bw 7 1.25e+06
+  admin-grp 0xab
 !
 interface eth1
  ip address 10.1.1.1/24
- mpls-te on
- mpls-te link metric 10
- mpls-te link max-bw 1.25e+06
- mpls-te link max-rsv-bw 1.25e+06
- mpls-te link unrsv-bw 0 1.25e+06
- mpls-te link unrsv-bw 1 1.25e+06
- mpls-te link unrsv-bw 2 1.25e+06
- mpls-te link unrsv-bw 3 1.25e+06
- mpls-te link unrsv-bw 4 1.25e+06
- mpls-te link unrsv-bw 5 1.25e+06
- mpls-te link unrsv-bw 6 1.25e+06
- mpls-te link unrsv-bw 7 1.25e+06
- mpls-te link rsc-clsclr 0xab
- mpls-te neighbor 10.1.1.2 as 65000
+ link-params
+  enable
+  metric 100
+  max-bw 1.25e+07
+  max-rsv-bw 1.25e+06
+  unrsv-bw 0 1.25e+06
+  unrsv-bw 1 1.25e+06
+  unrsv-bw 2 1.25e+06
+  unrsv-bw 3 1.25e+06
+  unrsv-bw 4 1.25e+06
+  unrsv-bw 5 1.25e+06
+  unrsv-bw 6 1.25e+06
+  unrsv-bw 7 1.25e+06
+  neighbor 10.1.1.2 as 65000
 @end group
 @end example
 

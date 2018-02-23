@@ -1872,8 +1872,7 @@ struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
 			if (area->external_routing != OSPF_AREA_NSSA && !type7)
 				continue;
 
-			LSDB_LOOP(NSSA_LSDB(area), rn, lsa)
-			{
+			LSDB_LOOP (NSSA_LSDB(area), rn, lsa) {
 				if (lsa->data->id.s_addr
 				    == type5->data->id.s_addr) {
 					type7 = lsa;
@@ -3007,27 +3006,27 @@ int ospf_lsa_maxage_walker(struct thread *thread)
 
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area)) {
 		LSDB_LOOP(ROUTER_LSDB(area), rn, lsa)
-		ospf_lsa_maxage_walker_remover(ospf, lsa);
+			ospf_lsa_maxage_walker_remover(ospf, lsa);
 		LSDB_LOOP(NETWORK_LSDB(area), rn, lsa)
-		ospf_lsa_maxage_walker_remover(ospf, lsa);
+			ospf_lsa_maxage_walker_remover(ospf, lsa);
 		LSDB_LOOP(SUMMARY_LSDB(area), rn, lsa)
-		ospf_lsa_maxage_walker_remover(ospf, lsa);
+			ospf_lsa_maxage_walker_remover(ospf, lsa);
 		LSDB_LOOP(ASBR_SUMMARY_LSDB(area), rn, lsa)
-		ospf_lsa_maxage_walker_remover(ospf, lsa);
+			ospf_lsa_maxage_walker_remover(ospf, lsa);
 		LSDB_LOOP(OPAQUE_AREA_LSDB(area), rn, lsa)
-		ospf_lsa_maxage_walker_remover(ospf, lsa);
+			ospf_lsa_maxage_walker_remover(ospf, lsa);
 		LSDB_LOOP(OPAQUE_LINK_LSDB(area), rn, lsa)
-		ospf_lsa_maxage_walker_remover(ospf, lsa);
+			ospf_lsa_maxage_walker_remover(ospf, lsa);
 		LSDB_LOOP(NSSA_LSDB(area), rn, lsa)
-		ospf_lsa_maxage_walker_remover(ospf, lsa);
+			ospf_lsa_maxage_walker_remover(ospf, lsa);
 	}
 
 	/* for AS-external-LSAs. */
 	if (ospf->lsdb) {
 		LSDB_LOOP(EXTERNAL_LSDB(ospf), rn, lsa)
-		ospf_lsa_maxage_walker_remover(ospf, lsa);
+			ospf_lsa_maxage_walker_remover(ospf, lsa);
 		LSDB_LOOP(OPAQUE_AS_LSDB(ospf), rn, lsa)
-		ospf_lsa_maxage_walker_remover(ospf, lsa);
+			ospf_lsa_maxage_walker_remover(ospf, lsa);
 	}
 
 	OSPF_TIMER_ON(ospf->t_maxage_walker, ospf_lsa_maxage_walker,
@@ -3350,20 +3349,20 @@ void ospf_flush_self_originated_lsas_now(struct ospf *ospf)
 		}
 
 		LSDB_LOOP(SUMMARY_LSDB(area), rn, lsa)
-		ospf_lsa_flush_schedule(ospf, lsa);
+			ospf_lsa_flush_schedule(ospf, lsa);
 		LSDB_LOOP(ASBR_SUMMARY_LSDB(area), rn, lsa)
-		ospf_lsa_flush_schedule(ospf, lsa);
+			ospf_lsa_flush_schedule(ospf, lsa);
 		LSDB_LOOP(OPAQUE_LINK_LSDB(area), rn, lsa)
-		ospf_lsa_flush_schedule(ospf, lsa);
+			ospf_lsa_flush_schedule(ospf, lsa);
 		LSDB_LOOP(OPAQUE_AREA_LSDB(area), rn, lsa)
-		ospf_lsa_flush_schedule(ospf, lsa);
+			ospf_lsa_flush_schedule(ospf, lsa);
 	}
 
 	if (need_to_flush_ase) {
 		LSDB_LOOP(EXTERNAL_LSDB(ospf), rn, lsa)
-		ospf_lsa_flush_schedule(ospf, lsa);
+			ospf_lsa_flush_schedule(ospf, lsa);
 		LSDB_LOOP(OPAQUE_AS_LSDB(ospf), rn, lsa)
-		ospf_lsa_flush_schedule(ospf, lsa);
+			ospf_lsa_flush_schedule(ospf, lsa);
 	}
 
 	/*

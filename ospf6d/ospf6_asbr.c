@@ -148,6 +148,32 @@ static void ospf6_as_external_lsa_originate(struct ospf6_route *route)
 	ospf6_lsa_originate_process(lsa, ospf6);
 }
 
+int ospf6_orig_as_external_lsa(struct thread *thread)
+{
+	struct ospf6_interface *oi;
+	struct ospf6_lsa *lsa;
+	uint32_t type, adv_router;
+
+	oi = (struct ospf6_interface *)THREAD_ARG(thread);
+	oi->thread_as_extern_lsa = NULL;
+
+	if (oi->state == OSPF6_INTERFACE_DOWN)
+		return 0;
+
+	type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
+	adv_router = oi->area->ospf6->router_id;
+	for (ALL_LSDB_TYPED_ADVRTR(ospf6->lsdb, type, adv_router, lsa)) {
+		if (IS_OSPF6_DEBUG_ASBR)
+			zlog_debug("%s: Send update of AS-External LSA %s seq 0x%x",
+				   __PRETTY_FUNCTION__, lsa->name,
+				   ntohl(lsa->header->seqnum));
+
+		ospf6_flood_interface(NULL, lsa, oi);
+	}
+
+	return 0;
+}
+
 static route_tag_t ospf6_as_external_lsa_get_tag(struct ospf6_lsa *lsa)
 {
 	struct ospf6_as_external_lsa *external;
@@ -173,11 +199,136 @@ static route_tag_t ospf6_as_external_lsa_get_tag(struct ospf6_lsa *lsa)
 	return ntohl(network_order);
 }
 
+void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
+				       struct ospf6_route *route)
+{
+	struct ospf6_route *old_route;
+	struct ospf6_path *ecmp_path, *o_path = NULL;
+	struct listnode *anode;
+	struct listnode *nnode, *rnode, *rnext;
+	struct ospf6_nexthop *nh, *rnh;
+	char buf[PREFIX2STR_BUFFER];
+	bool route_found = false;
+
+	for (old_route = old; old_route; old_route = old_route->next) {
+		if (ospf6_route_is_same(old_route, route) &&
+			(old_route->path.type == route->path.type) &&
+			(old_route->path.cost == route->path.cost) &&
+			(old_route->path.u.cost_e2 == route->path.u.cost_e2)) {
+
+			if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
+				prefix2str(&old_route->prefix, buf,
+					   sizeof(buf));
+				zlog_debug("%s: old route %s path  cost %u [%u]",
+					   __PRETTY_FUNCTION__, buf,
+					   old_route->path.cost,
+					   ospf6_route_is_same(old_route,
+							       route));
+			}
+			route_found = true;
+			/* check if this path exists already in
+			 * route->paths list, if so, replace nh_list
+			 * from asbr_entry.
+			 */
+			for (ALL_LIST_ELEMENTS_RO(old_route->paths, anode,
+						  o_path)) {
+				if ((o_path->origin.id == route->path.origin.id)
+					&& (o_path->origin.adv_router ==
+						route->path.origin.adv_router))
+					break;
+			}
+			/* If path is not found in old_route paths's list,
+			 * add a new path to route paths list and merge
+			 * nexthops in route->path->nh_list.
+			 * Otherwise replace existing path's nh_list.
+			 */
+			if (o_path == NULL) {
+				ecmp_path = ospf6_path_dup(&route->path);
+
+				/* Add a nh_list to new ecmp path */
+				ospf6_copy_nexthops(ecmp_path->nh_list,
+						    route->nh_list);
+				/* Merge nexthop to existing route's nh_list */
+				ospf6_route_merge_nexthops(old_route, route);
+
+				/* Update RIB/FIB */
+				if (ospf6->route_table->hook_add)
+					(*ospf6->route_table->hook_add)
+						(old_route);
+
+				/* Add the new path to route's path list */
+				listnode_add_sort(old_route->paths, ecmp_path);
+
+				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
+					prefix2str(&route->prefix, buf,
+						   sizeof(buf));
+					zlog_debug("%s: route %s another path added with nh %u, Paths %u",
+						__PRETTY_FUNCTION__, buf,
+						listcount(ecmp_path->nh_list),
+						old_route->paths ?
+						listcount(old_route->paths)
+						: 0);
+				}
+			} else {
+				for (ALL_LIST_ELEMENTS_RO(o_path->nh_list,
+							  nnode, nh)) {
+					for (ALL_LIST_ELEMENTS(
+							old_route->nh_list,
+							rnode, rnext, rnh)) {
+						if (!ospf6_nexthop_is_same(rnh,
+									   nh))
+							continue;
+
+						listnode_delete(
+							old_route->nh_list,
+							rnh);
+						ospf6_nexthop_delete(rnh);
+					}
+				}
+				list_delete_all_node(o_path->nh_list);
+				ospf6_copy_nexthops(o_path->nh_list,
+					    route->nh_list);
+
+				/* Merge nexthop to existing route's nh_list */
+				ospf6_route_merge_nexthops(old_route,
+							   route);
+
+				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
+					prefix2str(&route->prefix,
+						   buf, sizeof(buf));
+					zlog_debug("%s: existing route %s with effective nh count %u",
+						   __PRETTY_FUNCTION__, buf,
+						   old_route->nh_list ?
+						   listcount(old_route->nh_list)
+						   : 0);
+				}
+
+				/* Update RIB/FIB */
+				if (ospf6->route_table->hook_add)
+					(*ospf6->route_table->hook_add)
+						(old_route);
+
+			}
+			/* Delete the new route its info added to existing
+			 * route.
+			 */
+			ospf6_route_delete(route);
+			break;
+		}
+	}
+
+	if (!route_found) {
+		/* Add new route to existing node in ospf6 route table. */
+		ospf6_route_add(route, ospf6->route_table);
+	}
+}
+
 void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 {
 	struct ospf6_as_external_lsa *external;
 	struct prefix asbr_id;
-	struct ospf6_route *asbr_entry, *route;
+	struct ospf6_route *asbr_entry, *route, *old;
+	struct ospf6_path *path;
 	char buf[PREFIX2STR_BUFFER];
 
 	external = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
@@ -245,12 +396,34 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 
 	ospf6_route_copy_nexthops(route, asbr_entry);
 
+	path = ospf6_path_dup(&route->path);
+	ospf6_copy_nexthops(path->nh_list, asbr_entry->nh_list);
+	listnode_add_sort(route->paths, path);
+
+
 	if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
 		prefix2str(&route->prefix, buf, sizeof(buf));
-		zlog_debug("AS-External route add: %s", buf);
+		zlog_debug("%s: AS-External %u route add %s cost %u(%u) nh %u",
+			   __PRETTY_FUNCTION__,
+			   (route->path.type == OSPF6_PATH_TYPE_EXTERNAL1)
+			   ? 1 : 2, buf, route->path.cost,
+			   route->path.u.cost_e2,
+			   listcount(route->nh_list));
 	}
 
-	ospf6_route_add(route, ospf6->route_table);
+	old = ospf6_route_lookup(&route->prefix, ospf6->route_table);
+	if (!old) {
+		/* Add the new route to ospf6 instance route table. */
+		ospf6_route_add(route, ospf6->route_table);
+	} else {
+		/* RFC 2328 16.4 (6)
+		 * ECMP: Keep new equal preference path in current
+		 * route's path list, update zebra with new effective
+		 * list along with addition of ECMP path.
+		 */
+		ospf6_asbr_update_route_ecmp_path(old, route);
+	}
+
 }
 
 void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa)
@@ -291,16 +464,126 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa)
 		nroute = ospf6_route_next(route);
 		if (route->type != OSPF6_DEST_TYPE_NETWORK)
 			continue;
-		if (route->path.origin.type != lsa->header->type)
-			continue;
-		if (route->path.origin.id != lsa->header->id)
-			continue;
-		if (route->path.origin.adv_router != lsa->header->adv_router)
+
+		/* Route has multiple ECMP paths remove,
+		 * matching path and update effective route's  nh list.
+		 */
+		if (listcount(route->paths) > 1) {
+			struct listnode *anode, *anext;
+			struct listnode *nnode, *rnode, *rnext;
+			struct ospf6_nexthop *nh, *rnh;
+			struct ospf6_path *o_path;
+			bool nh_updated = false;
+
+			/* Iterate all paths of route to find maching with LSA
+			 * remove from route path list. If route->path is same,
+			 * replace from paths list.
+			 */
+			for (ALL_LIST_ELEMENTS(route->paths, anode, anext,
+						  o_path)) {
+				if (o_path->origin.type != lsa->header->type)
+					continue;
+				if (o_path->origin.id != lsa->header->id)
+					continue;
+				if (o_path->origin.adv_router !=
+					lsa->header->adv_router)
+					continue;
+
+				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))  {
+					prefix2str(&prefix, buf, sizeof(buf));
+					zlog_debug(
+						"%s: route %s path found with nh %u",
+						__PRETTY_FUNCTION__, buf,
+						listcount(o_path->nh_list));
+				}
+
+				/* Remove found path's nh_list from
+				 * the route's nh_list.
+				 */
+				for (ALL_LIST_ELEMENTS_RO(o_path->nh_list,
+							  nnode, nh)) {
+					for (ALL_LIST_ELEMENTS(route->nh_list,
+							rnode, rnext, rnh)) {
+						if (!ospf6_nexthop_is_same(rnh,
+								nh))
+							continue;
+						listnode_delete(route->nh_list,
+								rnh);
+						ospf6_nexthop_delete(rnh);
+					}
+				}
+				/* Delete the path from route's path list */
+				listnode_delete(route->paths, o_path);
+				ospf6_path_free(o_path);
+				nh_updated = true;
+			}
+
+			if (nh_updated) {
+				/* Iterate all paths and merge nexthop,
+				 * unlesss any of the nexthop similar to
+				 * ones deleted as part of path deletion.
+				 */
+
+				for (ALL_LIST_ELEMENTS(route->paths, anode,
+						       anext, o_path)) {
+					ospf6_merge_nexthops(route->nh_list,
+							     o_path->nh_list);
+				}
+
+				if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
+					prefix2str(&route->prefix, buf,
+						   sizeof(buf));
+					zlog_debug("%s: AS-External %u route %s update paths %u nh %u"
+						   , __PRETTY_FUNCTION__,
+						   (route->path.type ==
+						   OSPF6_PATH_TYPE_EXTERNAL1)
+						   ? 1 : 2, buf,
+						   listcount(route->paths),
+						   listcount(route->nh_list));
+				}
+
+				/* Update RIB/FIB w/ effective nh_list */
+				if (ospf6->route_table->hook_add)
+					(*ospf6->route_table->hook_add)(route);
+
+				/* route's path is similar to lsa header,
+				 * replace route's path with route's
+				 * paths list head.
+				 */
+				if (route->path.origin.id == lsa->header->id &&
+				    route->path.origin.adv_router ==
+						lsa->header->adv_router) {
+					struct ospf6_path *h_path;
+
+					h_path = (struct ospf6_path *)
+					listgetdata(listhead(route->paths));
+					route->path.origin.type =
+						h_path->origin.type;
+					route->path.origin.id =
+						h_path->origin.id;
+					route->path.origin.adv_router =
+						h_path->origin.adv_router;
+				}
+			}
 			continue;
 
+		} else {
+			if (route->path.origin.type != lsa->header->type)
+				continue;
+			if (route->path.origin.id != lsa->header->id)
+				continue;
+			if (route->path.origin.adv_router !=
+					lsa->header->adv_router)
+				continue;
+		}
 		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL)) {
 			prefix2str(&route->prefix, buf, sizeof(buf));
-			zlog_debug("AS-External route remove: %s", buf);
+			zlog_debug("%s: AS-External %u route remove %s cost %u(%u) nh %u",
+				   __PRETTY_FUNCTION__,
+				   route->path.type == OSPF6_PATH_TYPE_EXTERNAL1
+				   ? 1 : 2, buf, route->path.cost,
+				   route->path.u.cost_e2,
+				   listcount(route->nh_list));
 		}
 		ospf6_route_remove(route, ospf6->route_table);
 	}
@@ -361,6 +644,56 @@ static void ospf6_asbr_routemap_unset(int type)
 	ospf6->rmap[type].map = NULL;
 }
 
+static int ospf6_asbr_routemap_update_timer(struct thread *thread)
+{
+	void **arg;
+	int arg_type;
+
+	arg = THREAD_ARG(thread);
+	arg_type = (int)(intptr_t)arg[1];
+
+	ospf6->t_distribute_update = NULL;
+
+	if (ospf6->rmap[arg_type].name)
+		ospf6->rmap[arg_type].map = route_map_lookup_by_name(
+					ospf6->rmap[arg_type].name);
+	if (ospf6->rmap[arg_type].map) {
+		if (IS_OSPF6_DEBUG_ASBR)
+			zlog_debug("%s: route-map %s update, reset redist %s",
+				   __PRETTY_FUNCTION__,
+				   ospf6->rmap[arg_type].name,
+				   ZROUTE_NAME(arg_type));
+
+		ospf6_zebra_no_redistribute(arg_type);
+		ospf6_zebra_redistribute(arg_type);
+	}
+
+	XFREE(MTYPE_OSPF6_DIST_ARGS, arg);
+	return 0;
+}
+
+void ospf6_asbr_distribute_list_update(int type)
+{
+	void **args = NULL;
+
+	if (ospf6->t_distribute_update)
+		return;
+
+	args = XCALLOC(MTYPE_OSPF6_DIST_ARGS, sizeof(void *)*2);
+
+	args[0] = ospf6;
+	args[1] = (void *)((ptrdiff_t)type);
+
+	if (IS_OSPF6_DEBUG_ASBR)
+		zlog_debug("%s: trigger redistribute %s reset thread",
+			   __PRETTY_FUNCTION__, ZROUTE_NAME(type));
+
+	ospf6->t_distribute_update = NULL;
+	thread_add_timer_msec(master, ospf6_asbr_routemap_update_timer,
+			      (void **)args, OSPF_MIN_LS_INTERVAL,
+			      &ospf6->t_distribute_update);
+}
+
 static void ospf6_asbr_routemap_update(const char *mapname)
 {
 	int type;
@@ -369,11 +702,34 @@ static void ospf6_asbr_routemap_update(const char *mapname)
 		return;
 
 	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
-		if (ospf6->rmap[type].name)
+		if (ospf6->rmap[type].name) {
 			ospf6->rmap[type].map = route_map_lookup_by_name(
 				ospf6->rmap[type].name);
-		else
+
+			if (mapname && ospf6->rmap[type].map &&
+			    (strcmp(ospf6->rmap[type].name, mapname) == 0)) {
+				if (IS_OSPF6_DEBUG_ASBR)
+					zlog_debug("%s: route-map %s update, reset redist %s",
+						   __PRETTY_FUNCTION__, mapname,
+						   ZROUTE_NAME(type));
+				ospf6_asbr_distribute_list_update(type);
+			}
+		} else
 			ospf6->rmap[type].map = NULL;
+	}
+}
+
+static void ospf6_asbr_routemap_event(route_map_event_t event, const char *name)
+{
+	int type;
+
+	if (ospf6 == NULL)
+		return;
+	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+		if ((ospf6->rmap[type].name) &&
+		    (strcmp(ospf6->rmap[type].name, name) == 0)) {
+			ospf6_asbr_distribute_list_update(type);
+		}
 	}
 }
 
@@ -477,7 +833,6 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	match = ospf6_route_lookup(prefix, ospf6->external_table);
 	if (match) {
 		info = match->route_option;
-
 		/* copy result of route-map */
 		if (ospf6->rmap[type].map) {
 			if (troute.path.metric_type)
@@ -511,7 +866,9 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 		if (IS_OSPF6_DEBUG_ASBR) {
 			inet_ntop(AF_INET, &prefix_id.u.prefix4, ibuf,
 				  sizeof(ibuf));
-			zlog_debug("Advertise as AS-External Id:%s", ibuf);
+			prefix2str(prefix, pbuf, sizeof(pbuf));
+			zlog_debug("Advertise as AS-External Id:%s prefix %s metric %u",
+				   ibuf, pbuf, match->path.metric_type);
 		}
 
 		match->path.origin.id = htonl(info->id);
@@ -562,7 +919,9 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 
 	if (IS_OSPF6_DEBUG_ASBR) {
 		inet_ntop(AF_INET, &prefix_id.u.prefix4, ibuf, sizeof(ibuf));
-		zlog_debug("Advertise as AS-External Id:%s", ibuf);
+		prefix2str(prefix, pbuf, sizeof(pbuf));
+		zlog_debug("Advertise as AS-External Id:%s prefix %s metric %u",
+			   ibuf, pbuf, route->path.metric_type);
 	}
 
 	route->path.origin.id = htonl(info->id);
@@ -1071,6 +1430,7 @@ static void ospf6_routemap_init(void)
 
 	route_map_add_hook(ospf6_asbr_routemap_update);
 	route_map_delete_hook(ospf6_asbr_routemap_update);
+	route_map_event_hook(ospf6_asbr_routemap_event);
 
 	route_map_set_metric_hook(generic_set_add);
 	route_map_no_set_metric_hook(generic_set_delete);
@@ -1270,6 +1630,10 @@ void ospf6_asbr_redistribute_reset(void)
 
 void ospf6_asbr_terminate(void)
 {
+	/* Cleanup route maps */
+	route_map_add_hook(NULL);
+	route_map_delete_hook(NULL);
+	route_map_event_hook(NULL);
 	route_map_finish();
 }
 

@@ -46,6 +46,7 @@
 #include "ospfd/ospf_ase.h"
 #include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_dump.h"
+#include "ospfd/ospf_sr.h"
 
 /* Variables to ensure a SPF scheduled log message is printed only once */
 
@@ -1339,7 +1340,6 @@ static int ospf_spf_calculate_timer(struct thread *thread)
 
 	ospf_ase_calculate_timer_add(ospf);
 
-
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: ospf install new route, vrf %s id %u new_table count %lu",
 			   __PRETTY_FUNCTION__,
@@ -1365,6 +1365,9 @@ static int ospf_spf_calculate_timer(struct thread *thread)
 	if (IS_OSPF_ABR(ospf))
 		ospf_abr_task(ospf);
 	abr_time = monotime_since(&start_time, NULL);
+
+	/* Schedule Segment Routing update */
+	ospf_sr_update_timer_add(ospf);
 
 	total_spf_time =
 		monotime_since(&spf_start_time, &ospf->ts_spf_duration);
@@ -1463,9 +1466,7 @@ void ospf_spf_calculate_schedule(struct ospf *ospf, ospf_spf_reason_t reason)
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("SPF: calculation timer delay = %ld", delay);
-
-	zlog_info("SPF: Scheduled in %ld msec", delay);
+		zlog_debug("SPF: calculation timer delay = %ld msec", delay);
 
 	ospf->t_spf_calc = NULL;
 	thread_add_timer_msec(master, ospf_spf_calculate_timer, ospf, delay,

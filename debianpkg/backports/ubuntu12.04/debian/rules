@@ -6,23 +6,27 @@
 #    WANT_xxxx   --> Set to 1 for enable, 0 for disable
 # The following are the defaults. They can be overridden by setting a 
 # env variable to a different value
-#
-#   export WANT_LDP=1
-#   export WANT_PIM=1
-#   export WANT_OSPFAPI=1
-#   export WANT_TCP_ZEBRA=0
-#   export WANT_BGP_VNC=0
-#   export WANT_CUMULUS_MODE=0
-#   export WANT_MULTIPATH=1
-#
+
+WANT_LDP ?= 1
+WANT_PIM ?= 1
+WANT_OSPFAPI ?= 1
+WANT_TCP_ZEBRA ?= 0
+WANT_BGP_VNC ?= 1
+WANT_CUMULUS_MODE ?= 0
+WANT_MULTIPATH ?= 1
+WANT_SNMP ?= 0
+
 # If multipath is enabled (WANT_MULTIPATH=1), then set number of multipaths here
 # Please be aware that 0 is NOT disabled, but treated as unlimited
-#   export MULTIPATH=256
-#
-# Set the following to the value required (or leave undefined for the default below)
+
+MULTIPATH ?= 256
+
+# Set the following to the value required (or leave alone for the default below)
 # WANT_FRR_USER is used for the username and groupname of the FRR user account
-#   export WANT_FRR_USER=frr
-#   export WANT_FRR_VTY_GROUP=frrvty
+
+WANT_FRR_USER ?= frr
+WANT_FRR_VTY_GROUP ?= frrvty
+
 #
 ####################################
 
@@ -34,22 +38,23 @@ ifeq ($(WANT_SNMP), 1)
   USE_SNMP=--enable-snmp
   $(warning "DEBIAN: SNMP enabled, sorry for your inconvenience")
 else
+  USE_SNMP=--disable-snmp
   $(warning "DEBIAN: SNMP disabled, see README.Debian")
 endif
 
-ifneq ($(WANT_LDP), 0)
+ifeq ($(WANT_LDP), 1)
   USE_LDP=--enable-ldpd
 else
   USE_LDP=--disable-ldpd
 endif
 
-ifneq ($(WANT_PIM), 0)
+ifeq ($(WANT_PIM), 1)
   USE_PIM=--enable-pimd
 else
   USE_PIM=--disable-pimd
 endif
 
-ifneq ($(WANT_OSPFAPI), 0)
+ifeq ($(WANT_OSPFAPI), 1)
   USE_OSPFAPI=--enable-ospfapi=yes
 else
   USE_OSPFAPI=--enable-ospfapi=no
@@ -57,39 +62,27 @@ endif
 
 ifeq ($(WANT_TCP_ZEBRA),1)
   USE_TCP_ZEBRA=--enable-tcp-zebra
+else
+  USE_TCP_ZEBRA=--disable-tcp-zebra
 endif
 
-ifneq ($(WANT_BGP_VNC), 0)
+ifeq ($(WANT_BGP_VNC), 1)
   USE_BGP_VNC=--enable-bgp-vnc=yes
 else
   USE_BGP_VNC=--enable-bgp-vnc=no
 endif
 
-ifndef WANT_FRR_USER
-  USE_FRR_USER=--enable-user=frr
-  USE_FRR_GROUP=--enable-group=frr
-else
-  USE_FRR_USER=$(WANT_FRR_USER)
-  USE_FRR_GROUP=$(WANT_FRR_USER)
-endif
+USE_FRR_USER=--enable-user=$(WANT_FRR_USER)
+USE_FRR_GROUP=--enable-group=$(WANT_FRR_USER)
+USE_FRR_VTY_GROUP=--enable-vty-group=$(WANT_FRR_VTY_GROUP)
 
-ifndef WANT_FRR_VTY_GROUP
-  USE_FRR_VTY_GROUP=--enable-vty-group=frrvty
-else
-  USE_FRR_VTY_GROUP=--enable-vty-group=$(WANT_FRR_VTY_GROUP)
-endif
-
-ifneq ($(WANT_MULTIPATH), 0)
-  ifdef MULTIPATH
-    USE_MULTIPATH=--enable-multipath=$(MULTIPATH)
-  else
-    USE_MULTIPATH=--enable-multipath=256
-  endif
+ifeq ($(WANT_MULTIPATH), 1)
+  USE_MULTIPATH=--enable-multipath=$(MULTIPATH)
 else
   USE_MULTIPATH=--disable-multipath
 endif
 
-ifeq ($(WANT_CUMULUS_NODE), 1)
+ifeq ($(WANT_CUMULUS_MODE), 1)
   USE_CUMULUS=--enable-cumulus=yes
 else
   USE_CUMULUS=--enable-cumulus=no
@@ -171,9 +164,12 @@ override_dh_auto_install:
 	perl -pi -e 's#^!log file #!log file /var/log/frr/#' debian/tmp/usr/share/doc/frr/examples/*sample*
 
 	# installing the Frr specific SNMP MIB
+ifeq ($(WANT_SNMP), 1)
 	install -D -m 644 ./zebra/GNOME-PRODUCT-ZEBRA-MIB debian/tmp/usr/share/snmp/mibs/GNOME-PRODUCT-ZEBRA-MIB
+else
+	mkdir -p debian/tmp/usr/share/snmp/mibs
+endif
 
 	# cleaning .la files
 	sed -i "/dependency_libs/ s/'.*'/''/" debian/tmp/usr/lib/*.la
 	sed -i "/dependency_libs/ s/'.*'/''/" debian/tmp/usr/lib/frr/modules/*.la
-

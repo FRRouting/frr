@@ -221,6 +221,7 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 #endif
 	bgp_zebra_destroy();
 
+	bf_free(bm->rd_idspace);
 	list_delete_and_null(&bm->bgp);
 	memset(bm, 0, sizeof(*bm));
 
@@ -231,7 +232,7 @@ static __attribute__((__noreturn__)) void bgp_exit(int status)
 static int bgp_vrf_new(struct vrf *vrf)
 {
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("VRF Created: %s(%d)", vrf->name, vrf->vrf_id);
+		zlog_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
 
 	return 0;
 }
@@ -239,7 +240,7 @@ static int bgp_vrf_new(struct vrf *vrf)
 static int bgp_vrf_delete(struct vrf *vrf)
 {
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("VRF Deletion: %s(%d)", vrf->name, vrf->vrf_id);
+		zlog_debug("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id);
 
 	return 0;
 }
@@ -250,7 +251,7 @@ static int bgp_vrf_enable(struct vrf *vrf)
 	vrf_id_t old_vrf_id;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("VRF enable add %s id %d", vrf->name, vrf->vrf_id);
+		zlog_debug("VRF enable add %s id %u", vrf->name, vrf->vrf_id);
 
 	bgp = bgp_lookup_by_name(vrf->name);
 	if (bgp) {

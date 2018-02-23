@@ -87,11 +87,11 @@ int ipforward_off(void)
 
 /* IPv6 forwarding control MIB. */
 int mib_ipv6[MIB_SIZ] = {CTL_NET, PF_INET6,
-#if defined(KAME)
+#if defined(BSD_V6_SYSCTL)
 			 IPPROTO_IPV6, IPV6CTL_FORWARDING
-#else  /* NOT KAME */
+#else  /* NOT BSD_V6_SYSCTL */
 			 IPPROTO_IP, IP6CTL_FORWARDING
-#endif /* KAME */
+#endif /* BSD_V6_SYSCTL */
 };
 
 int ipforward_ipv6(void)

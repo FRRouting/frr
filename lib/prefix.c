@@ -301,7 +301,7 @@ static const struct in6_addr maskbytes6[] = {
 
 #define MASKBIT(offset)  ((0xff << (PNBBY - (offset))) & 0xff)
 
-static int is_zero_mac(const struct ethaddr *mac)
+int is_zero_mac(struct ethaddr *mac)
 {
 	int i = 0;
 
@@ -1043,10 +1043,11 @@ static const char *prefixevpn2str(const struct prefix *p, char *str, int size)
 		family = IS_EVPN_PREFIX_IPADDR_V4((struct prefix_evpn *)p)
 				 ? AF_INET
 				 : AF_INET6;
-		snprintf(str, size, "[%d]:[%u][%s]/%d",
+		snprintf(str, size, "[%d]:[%u][%s/%d]/%d",
 			 p->u.prefix_evpn.route_type, p->u.prefix_evpn.eth_tag,
 			 inet_ntop(family, &p->u.prefix_evpn.ip.ip.addr, buf,
 				   PREFIX2STR_BUFFER),
+			 p->u.prefix_evpn.ip_prefix_length,
 			 p->prefixlen);
 	} else {
 		sprintf(str, "Unsupported EVPN route type %d",

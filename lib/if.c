@@ -210,6 +210,9 @@ void if_delete(struct interface *ifp)
 
 	if_link_params_free(ifp);
 
+	if (ifp->desc)
+		XFREE(MTYPE_TMP, ifp->desc);
+
 	XFREE(MTYPE_IF, ifp);
 }
 
@@ -218,6 +221,18 @@ struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id)
 {
 	struct vrf *vrf;
 	struct interface if_tmp;
+
+	if (vrf_id == VRF_UNKNOWN) {
+		struct interface *ifp;
+
+		RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id) {
+			ifp = if_lookup_by_index(ifindex, vrf->vrf_id);
+			if (ifp)
+				return ifp;
+		}
+
+		return NULL;
+	}
 
 	vrf = vrf_lookup_by_id(vrf_id);
 	if (!vrf)
@@ -663,8 +678,9 @@ DEFUN_NOSH (no_interface,
            "Interface's name\n"
            VRF_CMD_HELP_STR)
 {
+	int idx_vrf = 4;
 	const char *ifname = argv[2]->arg;
-	const char *vrfname = (argc > 3) ? argv[3]->arg : NULL;
+	const char *vrfname = (argc > 3) ? argv[idx_vrf]->arg : NULL;
 
 	// deleting interface
 	struct interface *ifp;
