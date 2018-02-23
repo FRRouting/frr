@@ -58,7 +58,8 @@ uint32_t zebra_pbr_rules_hash_key(void *arg)
 		key = jhash_1word(0, key);
 
 	return jhash_3words(rule->filter.src_port, rule->filter.dst_port,
-			    prefix_hash_key(&rule->filter.dst_ip), key);
+			    prefix_hash_key(&rule->filter.dst_ip),
+			    jhash_1word(rule->unique, key));
 }
 
 int zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
@@ -72,6 +73,9 @@ int zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
 		return 0;
 
 	if (r1->priority != r2->priority)
+		return 0;
+
+	if (r1->unique != r2->unique)
 		return 0;
 
 	if (r1->action.table != r2->action.table)
@@ -135,6 +139,18 @@ void zebra_pbr_del_rule(struct zebra_ns *zns, struct zebra_pbr_rule *rule)
 void kernel_pbr_rule_add_del_status(struct zebra_pbr_rule *rule,
 				    enum southbound_results res)
 {
+	switch (res) {
+	case SOUTHBOUND_INSTALL_SUCCESS:
+		zsend_rule_notify_owner(rule, ZAPI_RULE_INSTALLED);
+		break;
+	case SOUTHBOUND_INSTALL_FAILURE:
+		zsend_rule_notify_owner(rule, ZAPI_RULE_FAIL_INSTALL);
+		break;
+	case SOUTHBOUND_DELETE_SUCCESS:
+		break;
+	case SOUTHBOUND_DELETE_FAILURE:
+		break;
+	}
 }
 
 /*

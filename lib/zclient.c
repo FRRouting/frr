@@ -1237,6 +1237,35 @@ stream_failure:
 	return false;
 }
 
+bool zapi_rule_notify_decode(struct stream *s, uint32_t *seqno,
+			     uint32_t *priority, uint32_t *unique,
+			     ifindex_t *ifindex,
+			     enum zapi_rule_notify_owner *note)
+{
+	uint32_t prio, seq, uni;
+	ifindex_t ifi;
+
+	STREAM_GET(note, s, sizeof(*note));
+
+	STREAM_GETL(s, seq);
+	STREAM_GETL(s, prio);
+	STREAM_GETL(s, uni);
+	STREAM_GETL(s, ifi);
+
+	if (zclient_debug)
+		zlog_debug("%s: %u %u %u %u", __PRETTY_FUNCTION__,
+			   seq, prio, uni, ifi);
+	*seqno = seq;
+	*priority = prio;
+	*unique = uni;
+	*ifindex = ifi;
+
+	return true;
+
+stream_failure:
+	return false;
+}
+
 struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh)
 {
 	struct nexthop *n = nexthop_new();
@@ -2381,6 +2410,10 @@ static int zclient_read(struct thread *thread)
 			(*zclient->route_notify_owner)(command, zclient, length,
 						       vrf_id);
 		break;
+	case ZEBRA_RULE_NOTIFY_OWNER:
+		if (zclient->rule_notify_owner)
+			(*zclient->rule_notify_owner)(command, zclient, length,
+						      vrf_id);
 	default:
 		break;
 	}

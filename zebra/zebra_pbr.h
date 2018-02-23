@@ -28,6 +28,7 @@
 
 #include "prefix.h"
 #include "if.h"
+
 #include "rt.h"
 
 /*
@@ -84,9 +85,16 @@ struct zebra_pbr_action {
  * order amongst rules.
  */
 struct zebra_pbr_rule {
+	/*
+	 * Originating zclient sock fd, so we can know who to send
+	 * back to.
+	 */
+	int sock;
+
 	uint32_t seq;
 	uint32_t priority;
 	struct interface *ifp;
+	uint32_t unique;
 	struct zebra_pbr_filter filter;
 	struct zebra_pbr_action action;
 };
@@ -112,6 +120,7 @@ extern void kernel_del_pbr_rule(struct zebra_pbr_rule *rule);
  */
 extern void kernel_read_pbr_rules(struct zebra_ns *zns);
 
+enum southbound_results;
 /*
  * Handle success or failure of rule (un)install in the kernel.
  */

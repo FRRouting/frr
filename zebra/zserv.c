@@ -1043,6 +1043,44 @@ int zsend_route_notify_owner(struct route_entry *re, struct prefix *p,
 	return zebra_server_send_message(client);
 }
 
+void zsend_rule_notify_owner(struct zebra_pbr_rule *rule,
+			     enum zapi_rule_notify_owner note)
+{
+	struct listnode *node;
+	struct zserv *client;
+	struct stream *s;
+
+	if (IS_ZEBRA_DEBUG_PACKET) {
+		zlog_debug("%s: Notifying %u",
+			   __PRETTY_FUNCTION__, rule->unique);
+	}
+
+	for (ALL_LIST_ELEMENTS_RO(zebrad.client_list, node, client)) {
+		if (rule->sock == client->sock)
+			break;
+	}
+
+	if (!client)
+		return;
+
+	s = client->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_RULE_NOTIFY_OWNER, VRF_DEFAULT);
+	stream_put(s, &note, sizeof(note));
+	stream_putl(s, rule->seq);
+	stream_putl(s, rule->priority);
+	stream_putl(s, rule->unique);
+	if (rule->ifp)
+		stream_putl(s, rule->ifp->ifindex);
+	else
+		stream_putl(s, 0);
+
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	zebra_server_send_message(client);
+}
+
 /* Router-id is updated. Send ZEBRA_ROUTER_ID_ADD to client. */
 int zsend_router_id_update(struct zserv *client, struct prefix *p,
 			   vrf_id_t vrf_id)
@@ -2602,8 +2640,10 @@ static inline void zread_rule(uint16_t command, struct zserv *client,
 	for (i = 0; i < total; i++) {
 		memset(&zpr, 0, sizeof(zpr));
 
+		zpr.sock = client->sock;
 		STREAM_GETL(s, zpr.seq);
 		STREAM_GETL(s, zpr.priority);
+		STREAM_GETL(s, zpr.unique);
 		STREAM_GETC(s, zpr.filter.src_ip.family);
 		STREAM_GETC(s, zpr.filter.src_ip.prefixlen);
 		STREAM_GET(&zpr.filter.src_ip.u.prefix, s,
