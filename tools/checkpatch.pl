@@ -55,7 +55,6 @@ my $min_conf_desc_length = 4;
 my $spelling_file = "$D/spelling.txt";
 my $codespell = 0;
 my $codespellfile = "/usr/share/codespell/dictionary.txt";
-my $conststructsfile = "$D/const_structs.checkpatch";
 my $typedefsfile = "";
 my $color = "auto";
 my $allow_c99_comments = 1;
@@ -684,10 +683,6 @@ sub read_words {
 
 	return 0;
 }
-
-my $const_structs = "";
-read_words(\$const_structs, $conststructsfile)
-    or warn "No structs that should be const will be found - file '$conststructsfile': $!\n";
 
 my $typeOtherTypedefs = "";
 if (length($typedefsfile)) {
@@ -2766,18 +2761,6 @@ sub process {
 			$rpt_cleaners = 1;
 		}
 
-# Check for FSF mailing addresses.
-		if ($rawline =~ /\bwrite to the Free/i ||
-		    $rawline =~ /\b675\s+Mass\s+Ave/i ||
-		    $rawline =~ /\b59\s+Temple\s+Pl/i ||
-		    $rawline =~ /\b51\s+Franklin\s+St/i) {
-			my $herevet = "$here\n" . cat_vet($rawline) . "\n";
-			my $msg_level = \&ERROR;
-			$msg_level = \&CHK if ($file);
-			&{$msg_level}("FSF_MAILING_ADDRESS",
-				      "Do not include the paragraph about writing to the Free Software Foundation's mailing address from the sample GPL notice. The FSF has changed addresses in the past, and may do so again. Linux already includes a copy of the GPL.\n" . $herevet)
-		}
-
 # check for Kconfig help text having a real description
 # Only applies when adding the entry originally, after that we do not have
 # sufficient context to determine whether it is indeed long enough.
@@ -4057,6 +4040,10 @@ sub process {
 			# If this whole things ends with a type its most
 			# likely a typedef for a function.
 			} elsif ($ctx =~ /$Type$/) {
+
+			# All-uppercase function names are usually macros,
+			# ignore those
+			} elsif ($name eq uc $name) {
 
 			} else {
 				if (WARN("SPACING",
@@ -6203,14 +6190,6 @@ sub process {
 		if ($line =~ /^.\s*__initcall\s*\(/) {
 			WARN("USE_DEVICE_INITCALL",
 			     "please use device_initcall() or more appropriate function instead of __initcall() (see include/linux/init.h)\n" . $herecurr);
-		}
-
-# check for various structs that are normally const (ops, kgdb, device_tree)
-# and avoid what seem like struct definitions 'struct foo {'
-		if ($line !~ /\bconst\b/ &&
-		    $line =~ /\bstruct\s+($const_structs)\b(?!\s*\{)/) {
-			WARN("CONST_STRUCT",
-			     "struct $1 should normally be const\n" . $herecurr);
 		}
 
 # use of NR_CPUS is usually wrong
