@@ -67,7 +67,7 @@ static inline int setns(int fd, int nstype)
 #ifdef __NR_setns
 	return syscall(__NR_setns, fd, nstype);
 #else
-	errno = ENOSYS;
+	errno = EINVAL;
 	return -1;
 #endif
 }
@@ -480,7 +480,7 @@ int ns_switch_to_netns(const char *name)
 		return -1;
 	fd = open(name, O_RDONLY);
 	if (fd == -1) {
-		errno = ENOSYS;
+		errno = EINVAL;
 		return -1;
 	}
 	ret = setns(fd, CLONE_NEWNET);
@@ -512,7 +512,7 @@ int ns_socket(int domain, int type, int protocol, ns_id_t ns_id)
 	int ret;
 
 	if (!ns || !ns_is_enabled(ns)) {
-		errno = ENOSYS;
+		errno = EINVAL;
 		return -1;
 	}
 	if (have_netns()) {
