@@ -2412,7 +2412,7 @@ int kernel_del_mac(struct interface *ifp, vlanid_t vid, struct ethaddr *mac,
 int kernel_add_neigh(struct interface *ifp, struct ipaddr *ip,
 		     struct ethaddr *mac)
 {
-	return netlink_neigh_update2(ifp, ip, mac, NUD_REACHABLE, RTM_NEWNEIGH);
+	return netlink_neigh_update2(ifp, ip, mac, NUD_NOARP, RTM_NEWNEIGH);
 }
 
 int kernel_del_neigh(struct interface *ifp, struct ipaddr *ip)
