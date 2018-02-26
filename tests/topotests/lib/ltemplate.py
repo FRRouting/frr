@@ -251,7 +251,7 @@ def ltemplateVersionCheck(vstr, rname='r1', compstr='<',cli=False, kernel='4.9',
         if _lt.iproute2Ver == None:
             #collect/log info on iproute2
             cc = ltemplateRtrCmd()
-            found = cc.doCmd(tgen, 'r2', 'apt-cache policy iproute2', 'Installed: ([\d\.]*)')
+            found = cc.doCmd(tgen, rname, 'apt-cache policy iproute2', 'Installed: ([\d\.]*)')
             if found != None:
                 iproute2Ver = found.group(1)
             else:
