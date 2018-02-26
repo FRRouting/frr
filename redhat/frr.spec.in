@@ -135,14 +135,14 @@ URL:            http://www.frrouting.org
 Requires(pre):  /sbin/install-info
 Requires(preun): /sbin/install-info
 Requires(post): /sbin/install-info
-BuildRequires:  gcc texi2html texinfo patch libcap-devel groff
+BuildRequires:  gcc patch libcap-devel
 BuildRequires:  readline readline-devel ncurses ncurses-devel
 BuildRequires:  json-c-devel bison >= 2.7 flex make
 %if 0%{?rhel} && 0%{?rhel} < 7
 #python27-devel is available from ius community repo for RedHat/CentOS 6
-BuildRequires:  python27-devel
+BuildRequires:  python27-devel python-sphinx10
 %else
-BuildRequires:  python-devel >= 2.7
+BuildRequires:  python-devel >= 2.7 python-sphinx
 %endif
 Requires:       ncurses json-c initscripts
 %if %{with_pam}
@@ -169,7 +169,7 @@ protocol. It takes multi-server and multi-thread approach to resolve
 the current complexity of the Internet.
 
 FRRouting supports BGP4, OSPFv2, OSPFv3, ISIS, RIP, RIPng, PIM, LDP
-NHRP and EIGRP.
+NHRP, Babel and EIGRP.
 
 FRRouting is a fork of Quagga.
 
@@ -302,11 +302,7 @@ developing OSPF-API and frr applications.
 make %{?_smp_mflags} MAKEINFO="makeinfo --no-split"
 
 pushd doc
-if [ $(texi2html --version | cut -d. -f1) -lt 5 ]; then
-texi2html --number-sections frr.texi
-else
-texi2html --number-footnotes  --number-sections frr.texi
-fi
+make frr.info
 popd
 
 %install
@@ -506,7 +502,6 @@ rm -rf %{buildroot}
 %files
 %defattr(-,root,root)
 %doc */*.sample* AUTHORS COPYING
-%doc doc/frr.html
 %doc doc/mpls
 %doc ChangeLog INSTALL NEWS README REPORTING-BUGS SERVICES
 %if 0%{?frr_user:1}
@@ -602,7 +597,10 @@ rm -rf %{buildroot}
 %endif
 
 %changelog
-* Fri Oct 20 2017 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+* Tue Feb 20 2018 Martin Winter <mwinter@opensourcerouting.org> - %{version}
+- Adapt to new documentation structure based on Sphinx
+
+* Fri Oct 20 2017 Martin Winter <mwinter@opensourcerouting.org>
 - Fix script location for watchfrr restart functions in daemon config
 - Fix postun script to restart frr during upgrade
 
