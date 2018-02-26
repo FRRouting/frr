@@ -2079,8 +2079,10 @@ static int zvni_remote_neigh_update(zebra_vni_t *zvni,
 
 	/* If a remote entry, see if it needs to be refreshed */
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_REMOTE)) {
+#ifdef GNU_LINUX
 		if (state & NUD_STALE)
 			zvni_neigh_install(zvni, n);
+#endif
 	} else {
 		/* We got a "remote" neighbor notification for an entry
 		 * we think is local. This can happen in a multihoming
