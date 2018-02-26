@@ -160,7 +160,7 @@ static const char *bpc2str(struct bfd_peer_cfg *bpc, char *buf, size_t buflen)
 	return buf;
 }
 
-int bfdd_unmonitor_peer(struct peer *peer)
+static int _bfdd_unmonitor_peer(struct peer *peer)
 {
 	struct bgp_peer_notification *bpn;
 	const char *jsonstr;
@@ -181,7 +181,7 @@ int bfdd_unmonitor_peer(struct peer *peer)
 	bfd_ctrl_add_peer_bylabel(msg, peer->bpc);
 	jsonstr = json_object_to_json_string_ext(msg, 0);
 
-	id = bfd_control_send(bbc.bbc_csock, BMT_NOTIFY_ADD, jsonstr,
+	id = bfd_control_send(bbc.bbc_csock, BMT_NOTIFY_DEL, jsonstr,
 			      strlen(jsonstr));
 	json_object_put(msg);
 
@@ -209,6 +209,31 @@ save_and_return:
 	}
 
 	return 0;
+}
+
+int bfdd_unmonitor_peer(struct peer *peer)
+{
+	struct bgp_peer_notification *bpn;
+	struct peer_group *group;
+	struct listnode *node;
+	int error = 0;
+
+	/* Save notification configuration. */
+	bpn = bpn_find(peer);
+	if (bpn) {
+		bpn_free(bpn);
+	}
+
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		group = peer->group;
+		for (ALL_LIST_ELEMENTS_RO(group->peer, node, peer)) {
+			error |= _bfdd_unmonitor_peer(peer);
+		}
+	} else {
+		error = _bfdd_unmonitor_peer(peer);
+	}
+
+	return error;
 }
 
 static int _bfdd_monitor_peer(struct peer *peer, const char *label,
@@ -284,14 +309,23 @@ static int _bfdd_monitor_peer(struct peer *peer, const char *label,
 static int bfdd_monitor_peer(struct peer *peer, const char *label,
 			     bool multihop)
 {
+	struct bgp_peer_notification *bpn;
 	struct peer_group *group;
 	struct listnode *node;
 	int error = 0;
 
+	/* Save notification configuration. */
+	bpn = bpn_find(peer);
+	if (bpn == NULL) {
+		bpn = bpn_new(peer);
+		if (bpn == NULL)
+			return -1;
+	}
+
 	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		group = peer->group;
 		for (ALL_LIST_ELEMENTS_RO(group->peer, node, peer)) {
-			error = _bfdd_monitor_peer(peer, label, multihop);
+			error |= _bfdd_monitor_peer(peer, label, multihop);
 		}
 	} else {
 		error = _bfdd_monitor_peer(peer, label, multihop);
@@ -353,6 +387,28 @@ DEFUN(bfd_monitor_peer_label, bfd_monitor_peer_label_cmd,
 	}
 
 	if (bfdd_monitor_peer(peer, argv[4]->arg, false) != 0) {
+		vty_out(vty, "%% Failed to configure BFD peer notification.\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(bfd_unmonitor_peer, bfd_unmonitor_peer_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD> bfdd",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Configure Bidirectional Forwarding Detection\n")
+{
+	struct peer *peer;
+
+	peer = peer_and_group_lookup_vty(vty, argv[2]->arg);
+	if (peer == NULL) {
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (bfdd_unmonitor_peer(peer) != 0) {
 		vty_out(vty, "%% Failed to configure BFD peer notification.\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -648,6 +704,7 @@ void bfdd_vty_init(struct thread_master *master)
 {
 	install_element(BGP_NODE, &bfd_monitor_peer_cmd);
 	install_element(BGP_NODE, &bfd_monitor_peer_label_cmd);
+	install_element(BGP_NODE, &bfd_unmonitor_peer_cmd);
 
 	TAILQ_INIT(&bbc.bbc_bpnlist);
 	bac.bac_master = master;
