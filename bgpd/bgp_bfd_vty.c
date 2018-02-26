@@ -179,7 +179,7 @@ static int _bfdd_unmonitor_peer(struct peer *peer)
 	}
 
 	bfd_ctrl_add_peer_bylabel(msg, peer->bpc);
-	jsonstr = json_object_to_json_string_ext(msg, 0);
+	jsonstr = json_object_to_json_string_ext(msg, BFDD_JSON_CONV_OPTIONS);
 
 	id = bfd_control_send(bbc.bbc_csock, BMT_NOTIFY_DEL, jsonstr,
 			      strlen(jsonstr));
@@ -285,7 +285,7 @@ static int _bfdd_monitor_peer(struct peer *peer, const char *label,
 	}
 
 	bfd_ctrl_add_peer_bylabel(msg, peer->bpc);
-	jsonstr = json_object_to_json_string_ext(msg, 0);
+	jsonstr = json_object_to_json_string_ext(msg, BFDD_JSON_CONV_OPTIONS);
 
 	id = bfd_control_send(bbc.bbc_csock, BMT_NOTIFY_ADD, jsonstr,
 			      strlen(jsonstr));

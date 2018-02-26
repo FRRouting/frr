@@ -34,6 +34,12 @@
  */
 #define BFDD_ADAPTER_CSOCK_TIMEOUT (4000)
 
+#ifdef BFD_DEBUG
+#define BFDD_JSON_CONV_OPTIONS (JSON_C_TO_STRING_PRETTY)
+#else
+#define BFDD_JSON_CONV_OPTIONS (0)
+#endif
+
 typedef int (*bfd_control_recv_cb)(struct bfd_control_msg *, bool *, void *);
 typedef int (*bfd_reconfigure_cb)(int, void *);
 

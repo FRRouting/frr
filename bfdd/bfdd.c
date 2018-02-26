@@ -141,9 +141,10 @@ skip_recv_id:
 		}
 
 		bfd_ctrl_add_peer(jo, &bn->bn_bpc);
-		jsonstr = json_object_to_json_string_ext(jo, 0);
+		jsonstr = json_object_to_json_string_ext(
+			jo, BFDD_JSON_CONV_OPTIONS);
 		reqid = bfd_control_send(csock, BMT_REQUEST_ADD, jsonstr,
-				      strlen(jsonstr));
+					 strlen(jsonstr));
 		if (reqid == 0) {
 			zlog_err("%s:%d: Failed to reconfigure peer",
 				 __FUNCTION__, __LINE__);

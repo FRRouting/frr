@@ -502,7 +502,7 @@ int bfdd_add_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 	}
 
 	bfd_ctrl_add_peer(jo, bpc);
-	jsonstr = json_object_to_json_string_ext(jo, JSON_C_TO_STRING_PRETTY);
+	jsonstr = json_object_to_json_string_ext(jo, BFDD_JSON_CONV_OPTIONS);
 	id = bfd_control_send(bc.bc_csock, BMT_REQUEST_ADD, jsonstr,
 			      strlen(jsonstr));
 
@@ -549,7 +549,7 @@ int _bfdd_update_peer(struct vty *vty, struct bfd_peer_cfg *bpc, bool use_label)
 		bfd_ctrl_add_peer(jo, bpc);
 	}
 
-	jsonstr = json_object_to_json_string_ext(jo, JSON_C_TO_STRING_PRETTY);
+	jsonstr = json_object_to_json_string_ext(jo, BFDD_JSON_CONV_OPTIONS);
 	id = bfd_control_send(bc.bc_csock, BMT_REQUEST_ADD, jsonstr,
 			      strlen(jsonstr));
 
@@ -590,7 +590,7 @@ int bfdd_delete_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 	}
 
 	bfd_ctrl_add_peer_bylabel(jo, bpc);
-	jsonstr = json_object_to_json_string_ext(jo, JSON_C_TO_STRING_PRETTY);
+	jsonstr = json_object_to_json_string_ext(jo, BFDD_JSON_CONV_OPTIONS);
 	id = bfd_control_send(bc.bc_csock, BMT_REQUEST_DEL, jsonstr,
 			      strlen(jsonstr));
 
