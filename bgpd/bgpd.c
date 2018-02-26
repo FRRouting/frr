@@ -1200,7 +1200,6 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 	peer_dst->config = peer_src->config;
 
 	peer_dst->local_as = peer_src->local_as;
-	peer_dst->ifindex = peer_src->ifindex;
 	peer_dst->port = peer_src->port;
 	(void)peer_sort(peer_dst);
 	peer_dst->rmap_type = peer_src->rmap_type;
