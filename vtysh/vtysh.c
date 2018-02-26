@@ -1446,7 +1446,7 @@ DEFUNSH(VTYSH_LDPD, ldp_member_pseudowire_ifname,
 DEFUNSH(VTYSH_ISISD, router_isis, router_isis_cmd, "router isis WORD",
 	ROUTER_STR
 	"ISO IS-IS\n"
-	"ISO Routing area tag")
+	"ISO Routing area tag\n")
 {
 	vty->node = ISIS_NODE;
 	return CMD_SUCCESS;
