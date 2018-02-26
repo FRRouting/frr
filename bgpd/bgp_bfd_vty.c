@@ -596,6 +596,7 @@ static void bfdd_peer_notification(struct json_object *notification)
 static int bfdd_receive_id(struct bfd_control_msg *bcm, bool *repeat, void *arg)
 {
 	uint16_t *id = arg;
+	struct bfdd_response br;
 
 	/* This is not the response we are waiting. */
 	if (*id != ntohs(bcm->bcm_id)) {
@@ -605,6 +606,14 @@ static int bfdd_receive_id(struct bfd_control_msg *bcm, bool *repeat, void *arg)
 
 	if (bcm->bcm_type != BMT_RESPONSE) {
 		return -1;
+	}
+
+	if (bfd_response_parse((const char *)bcm->bcm_data, &br) == 0) {
+		if (br.br_status == BRS_OK) {
+			return 0;
+		} else {
+			return -1;
+		}
 	}
 
 	return 0;

@@ -396,6 +396,40 @@ void bfd_ctrl_add_peer(struct json_object *msg, struct bfd_peer_cfg *bpc)
 	_bfd_ctrl_add_peer(msg, bpc, false);
 }
 
+int bfd_response_parse(const char *json, struct bfdd_response *br)
+{
+	struct json_object *jo, *status, *message;
+	const char *sval;
+
+	memset(br, 0, sizeof(*br));
+
+	jo = json_tokener_parse(json);
+	if (jo == NULL) {
+		return -1;
+	}
+
+	if (!json_object_object_get_ex(jo, "status", &status)) {
+		json_object_put(jo);
+		return -1;
+	}
+
+	sval = json_object_get_string(status);
+	if (strcmp(sval, BCM_RESPONSE_OK) == 0) {
+		br->br_status = BRS_OK;
+	} else if (strcmp(sval, BCM_RESPONSE_ERROR) == 0) {
+		br->br_status = BRS_ERROR;
+	}
+
+	if (json_object_object_get_ex(jo, "error", &message)) {
+		sval = json_object_get_string(status);
+		strlcpy(br->br_message, sval, sizeof(br->br_message));
+	}
+
+	json_object_put(jo);
+
+	return 0;
+}
+
 
 /*
  * JSON helper functions

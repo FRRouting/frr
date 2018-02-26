@@ -95,4 +95,21 @@ int json_object_add_string(struct json_object *jo, const char *key,
 int json_object_add_bool(struct json_object *jo, const char *key, bool boolean);
 int json_object_add_int(struct json_object *jo, const char *key, int64_t value);
 
+
+/*
+ * JSON helpers to parse queries/response.
+ */
+enum bfd_response_status {
+	BRS_UNKNOWN = 0,
+	BRS_OK = 1,
+	BRS_ERROR = 2,
+};
+
+struct bfdd_response {
+	enum bfd_response_status br_status;
+	char br_message[256];
+};
+
+int bfd_response_parse(const char *json, struct bfdd_response *br);
+
 #endif /* _BFDD_H_ */
