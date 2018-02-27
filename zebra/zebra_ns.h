@@ -69,12 +69,16 @@ struct zebra_ns {
 #endif /* HAVE_RTADV */
 
 	struct zebra_ns_table_head ns_tables;
+
+	/* Back pointer */
+	struct ns *ns;
 };
 
 struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id);
 
 int zebra_ns_init(void);
 int zebra_ns_enable(ns_id_t ns_id, void **info);
+int zebra_ns_disabled(struct ns *ns);
 int zebra_ns_disable(ns_id_t ns_id, void **info);
 
 extern struct route_table *zebra_ns_find_table(struct zebra_ns *zns,
@@ -82,4 +86,5 @@ extern struct route_table *zebra_ns_find_table(struct zebra_ns *zns,
 extern struct route_table *zebra_ns_get_table(struct zebra_ns *zns,
 					      struct zebra_vrf *zvrf,
 					      uint32_t tableid, afi_t afi);
+int zebra_ns_config_write(struct vty *vty, struct ns *ns);
 #endif

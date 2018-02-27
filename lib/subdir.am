@@ -42,7 +42,8 @@ lib_libfrr_la_SOURCES = \
 	lib/module.c \
 	lib/network.c \
 	lib/nexthop.c \
-	lib/ns.c \
+	lib/netns_linux.c \
+	lib/netns_other.c \
 	lib/openbsd-tree.c \
 	lib/pid_output.c \
 	lib/plist.c \
@@ -74,6 +75,7 @@ lib_libfrr_la_SOURCES = \
 	lib/wheel.c \
 	lib/workqueue.c \
 	lib/zclient.c \
+	lib/logicalrouter.c \
 	# end
 
 lib/plist_clippy.c: $(CLIPPY_DEPS)
@@ -158,6 +160,7 @@ pkginclude_HEADERS += \
 	lib/zassert.h \
 	lib/zclient.h \
 	lib/zebra.h \
+	lib/logicalrouter.h \
 	# end
 
 nodist_pkginclude_HEADERS += \

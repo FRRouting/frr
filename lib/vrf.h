@@ -26,12 +26,9 @@
 #include "linklist.h"
 #include "qobj.h"
 #include "vty.h"
-
-/* The default NS ID */
-#define NS_DEFAULT 0
+#include "ns.h"
 
 /* The default VRF ID */
-#define VRF_DEFAULT 0
 #define VRF_UNKNOWN UINT32_MAX
 
 /* Pending: May need to refine this. */
@@ -42,6 +39,7 @@ enum { IFLA_VRF_UNSPEC, IFLA_VRF_TABLE, __IFLA_VRF_MAX };
 #endif
 
 #define VRF_NAMSIZ      36
+#define NS_NAMSIZ       16
 
 #define VRF_DEFAULT_NAME    "Default-IP-Routing-Table"
 
@@ -60,6 +58,7 @@ struct vrf_data {
 	union {
 		struct {
 			uint32_t table_id;
+			char netns_name[NS_NAMSIZ];
 		} l;
 	};
 };
@@ -88,6 +87,9 @@ struct vrf {
 	/* The table_id from the kernel */
 	struct vrf_data data;
 
+	/* Back pointer to namespace context */
+	void *ns_ctxt;
+
 	QOBJ_FIELDS
 };
 RB_HEAD(vrf_id_head, vrf);
@@ -96,6 +98,9 @@ RB_HEAD(vrf_name_head, vrf);
 RB_PROTOTYPE(vrf_name_head, vrf, name_entry, vrf_name_compare)
 DECLARE_QOBJ_TYPE(vrf)
 
+/* Allow VRF with netns as backend */
+#define VRF_BACKEND_VRF_LITE 0
+#define VRF_BACKEND_NETNS    1
 
 extern struct vrf_id_head vrfs_by_id;
 extern struct vrf_name_head vrfs_by_name;
@@ -195,17 +200,85 @@ extern void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
  */
 extern void vrf_terminate(void);
 
+/*
+ * Utilities to create networks objects,
+ * or call network operations
+ */
+
+/* Create a socket serving for the given VRF */
+extern int vrf_socket(int domain, int type,
+		      int protocol, vrf_id_t vrf_id,
+		      char *name);
+
+extern int vrf_sockunion_socket(const union sockunion *su,
+				vrf_id_t vrf_id, char *name);
+
+extern int vrf_bind(vrf_id_t vrf_id, int fd, char *name);
+
+/* VRF ioctl operations */
+extern int vrf_getaddrinfo(const char *node, const char *service,
+		    const struct addrinfo *hints,
+		    struct addrinfo **res, vrf_id_t vrf_id);
+
+extern int vrf_ioctl(vrf_id_t vrf_id, int d, unsigned long request, char *args);
+
+/* function called by macro VRF_DEFAULT
+ * to get the default VRF_ID
+ */
+extern vrf_id_t vrf_get_default_id(void);
+/* The default VRF ID */
+#define VRF_DEFAULT vrf_get_default_id()
+
+/* VRF is mapped on netns or not ? */
+int vrf_is_mapped_on_netns(vrf_id_t vrf_id);
+
+/* VRF switch from NETNS */
+extern int vrf_switch_to_netns(vrf_id_t vrf_id);
+extern int vrf_switchback_to_initial(void);
+
+/*
+ * VRF backend routines
+ * should be called from zebra only
+ */
+
+/* VRF vty command initialisation
+ */
 extern void vrf_cmd_init(int (*writefunc)(struct vty *vty));
+
+/* VRF vty debugging
+ */
+extern void vrf_install_commands(void);
 
 /*
  * VRF utilities
  */
 
-/* Create a socket serving for the given VRF */
-extern int vrf_socket(int, int, int, vrf_id_t);
-
-/*
- * VRF Debugging
+/* API for configuring VRF backend
+ * should be called from zebra only
  */
-extern void vrf_install_commands(void);
+extern void vrf_configure_backend(int vrf_backend_netns);
+extern int vrf_get_backend(void);
+extern int vrf_is_backend_netns(void);
+
+
+/* API to create a VRF. either from vty
+ * or through discovery
+ */
+extern int vrf_handler_create(struct vty *vty,
+			      const char *name,
+			      struct vrf **vrf);
+
+/* API to associate a VRF with a NETNS.
+ * called either from vty or through discovery
+ * should be called from zebra only
+ */
+extern int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
+			     char *pathname, ns_id_t ns_id);
+
+/* used internally to enable or disable VRF.
+ * Notify a change in the VRF ID of the VRF
+ */
+extern void vrf_disable(struct vrf *vrf);
+extern int vrf_enable(struct vrf *vrf);
+
 #endif /*_ZEBRA_VRF_H*/

@@ -512,9 +512,15 @@ static void if_addr_wakeup(struct interface *ifp)
 void if_add_update(struct interface *ifp)
 {
 	struct zebra_if *if_data;
+	struct zebra_ns *zns;
+	struct zebra_vrf *zvrf = vrf_info_lookup(ifp->vrf_id);
 
-	if_link_per_ns(zebra_ns_lookup(NS_DEFAULT), ifp);
-
+	/* case interface populate before vrf enabled */
+	if (zvrf->zns)
+		zns = zvrf->zns;
+	else
+		zns = zebra_ns_lookup(NS_DEFAULT);
+	if_link_per_ns(zns, ifp);
 	if_data = ifp->info;
 	assert(if_data);
 
@@ -800,10 +806,12 @@ void if_nbr_ipv6ll_to_ipv4ll_neigh_update(struct interface *ifp,
 	char buf[16] = "169.254.0.1";
 	struct in_addr ipv4_ll;
 	char mac[6];
+	ns_id_t ns_id;
 
 	inet_pton(AF_INET, buf, &ipv4_ll);
 
 	ipv6_ll_address_to_mac(address, (u_char *)mac);
+	ns_id = zvrf->zns->ns_id;
 
 	/*
 	 * Remove existed arp record for the interface as netlink
@@ -811,10 +819,10 @@ void if_nbr_ipv6ll_to_ipv4ll_neigh_update(struct interface *ifp,
 	 *
 	 * supported message types are RTM_NEWNEIGH and RTM_DELNEIGH
 	 */
-	kernel_neigh_update (0, ifp->ifindex, ipv4_ll.s_addr, mac, 6);
+	kernel_neigh_update(0, ifp->ifindex, ipv4_ll.s_addr, mac, 6, ns_id);
 
 	/* Add arp record */
-	kernel_neigh_update (add, ifp->ifindex, ipv4_ll.s_addr, mac, 6);
+	kernel_neigh_update(add, ifp->ifindex, ipv4_ll.s_addr, mac, 6, ns_id);
 	zvrf->neigh_updates++;
 }
 
@@ -1404,7 +1412,7 @@ DEFUN (show_interface_name_vrf,
 	int idx_ifname = 2;
 	int idx_name = 4;
 	struct interface *ifp;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	vrf_id_t vrf_id;
 
 	interface_update_stats();
 
