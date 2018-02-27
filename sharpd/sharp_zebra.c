@@ -169,6 +169,7 @@ void route_add(struct prefix *p, struct nexthop *nh)
 	api.safi = SAFI_UNICAST;
 	memcpy(&api.prefix, p, sizeof(*p));
 
+	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 
 	api_nh = &api.nexthops[0];
