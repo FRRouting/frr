@@ -49,11 +49,10 @@
 /* Segment Routing TLVs as per draft-ietf-ospf-segment-routing-extensions-19 */
 
 /* Segment ID could be a Label (3 bytes) or an Index (4 bytes) */
-#define SID_BASE_SIZE	4
 #define SID_LABEL	3
-#define SID_LABEL_SIZE	(SID_BASE_SIZE + SID_LABEL)
+#define SID_LABEL_SIZE(U) (U - 1)
 #define SID_INDEX	4
-#define SID_INDEX_SIZE	(SID_BASE_SIZE + SID_INDEX)
+#define SID_INDEX_SIZE(U) (U)
 
 /* SID/Label Sub TLV - section 2.1 */
 #define SUBTLV_SID_LABEL		1
