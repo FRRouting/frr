@@ -1026,14 +1026,14 @@ void bgp_zebra_announce(struct bgp_node *rn, struct prefix *p,
 	if (peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED
 	    || info->sub_type == BGP_ROUTE_AGGREGATE) {
 		SET_FLAG(api.flags, ZEBRA_FLAG_IBGP);
-		SET_FLAG(api.flags, ZEBRA_FLAG_INTERNAL);
+		SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 	}
 
 	if ((peer->sort == BGP_PEER_EBGP && peer->ttl != 1)
 	    || CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
 	    || bgp_flag_check(bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 
-		SET_FLAG(api.flags, ZEBRA_FLAG_INTERNAL);
+		SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 
 	/* Metric is currently based on the best-path only */
 	metric = info->attr->med;
@@ -1265,14 +1265,14 @@ void bgp_zebra_withdraw(struct prefix *p, struct bgp_info *info, safi_t safi)
 		SET_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE);
 
 	if (peer->sort == BGP_PEER_IBGP) {
-		SET_FLAG(api.flags, ZEBRA_FLAG_INTERNAL);
+		SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 		SET_FLAG(api.flags, ZEBRA_FLAG_IBGP);
 	}
 
 	if ((peer->sort == BGP_PEER_EBGP && peer->ttl != 1)
 	    || CHECK_FLAG(peer->flags, PEER_FLAG_DISABLE_CONNECTED_CHECK)
 	    || bgp_flag_check(peer->bgp, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
-		SET_FLAG(api.flags, ZEBRA_FLAG_INTERNAL);
+		SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 
 	if (bgp_debug_zebra(p)) {
 		char buf[PREFIX_STRLEN];
