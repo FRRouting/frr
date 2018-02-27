@@ -91,7 +91,8 @@ extern int bgp_evpn_local_macip_add(struct bgp *bgp, vni_t vni,
 				    u_char flags);
 extern int bgp_evpn_local_l3vni_add(vni_t vni, vrf_id_t vrf_id,
 				    struct ethaddr *rmac,
-				    struct in_addr originator_ip);
+				    struct in_addr originator_ip,
+				    int filter);
 extern int bgp_evpn_local_l3vni_del(vni_t vni, vrf_id_t vrf_id);
 extern int bgp_evpn_local_vni_del(struct bgp *bgp, vni_t vni);
 extern int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
