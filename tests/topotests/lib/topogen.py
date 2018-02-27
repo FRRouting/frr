@@ -449,7 +449,7 @@ class TopoGear(object):
         """
         self.tgen.add_link(self, node, myif, nodeif)
 
-    def link_enable(self, myif, enabled=True):
+    def link_enable(self, myif, enabled=True, netns=None):
         """
         Set this node interface administrative state.
         myif: this node interface name
@@ -466,9 +466,12 @@ class TopoGear(object):
         logger.info('setting node "{}" link "{}" to state "{}"'.format(
             self.name, myif, operation
         ))
-        return self.run('ip link set dev {} {}'.format(myif, operation))
+        extract=''
+        if netns is not None:
+            extract = 'ip netns exec {} '.format(netns)
+        return self.run('{}ip link set dev {} {}'.format(extract, myif, operation))
 
-    def peer_link_enable(self, myif, enabled=True):
+    def peer_link_enable(self, myif, enabled=True, netns=None):
         """
         Set the peer interface administrative state.
         myif: this node interface name
@@ -481,7 +484,7 @@ class TopoGear(object):
             raise KeyError('interface doesn\'t exists')
 
         node, nodeif = self.links[myif]
-        node.link_enable(nodeif, enabled)
+        node.link_enable(nodeif, enabled, netns)
 
     def new_link(self):
         """
