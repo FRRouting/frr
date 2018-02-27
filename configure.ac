@@ -1886,6 +1886,7 @@ AC_CONFIG_FILES([Makefile
 	  doc/eigrpd.8
 	  doc/ripngd.8
 	  doc/pimd.8
+	  doc/mtracebis.8
 	  doc/nhrpd.8
 	  doc/vtysh.1
 	  doc/watchfrr.8

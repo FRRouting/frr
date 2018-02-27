@@ -1235,46 +1235,21 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 	}
 }
 
-static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
-			    safi_t safi, bool use_fib, u_char use_json,
-			    route_tag_t tag,
-			    const struct prefix *longer_prefix_p,
-			    bool supernets_only, int type,
-			    u_short ospf_instance_id)
+static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
+				 struct route_table *table, afi_t afi,
+				 bool use_fib, route_tag_t tag,
+				 const struct prefix *longer_prefix_p,
+				 bool supernets_only, int type,
+				 u_short ospf_instance_id, u_char use_json)
 {
-	struct route_table *table;
-	rib_dest_t *dest;
 	struct route_node *rn;
 	struct route_entry *re;
 	int first = 1;
-	struct zebra_vrf *zvrf = NULL;
-	char buf[BUFSIZ];
+	rib_dest_t *dest;
 	json_object *json = NULL;
 	json_object *json_prefix = NULL;
-	u_int32_t addr;
-
-	if (!(zvrf = zebra_vrf_lookup_by_name(vrf_name))) {
-		if (use_json)
-			vty_out(vty, "{}\n");
-		else
-			vty_out(vty, "vrf %s not defined\n", vrf_name);
-		return CMD_SUCCESS;
-	}
-
-	if (zvrf_id(zvrf) == VRF_UNKNOWN) {
-		if (use_json)
-			vty_out(vty, "{}\n");
-		else
-			vty_out(vty, "vrf %s inactive\n", vrf_name);
-		return CMD_SUCCESS;
-	}
-
-	table = zebra_vrf_table(afi, safi, zvrf_id(zvrf));
-	if (!table) {
-		if (use_json)
-			vty_out(vty, "{}\n");
-		return CMD_SUCCESS;
-	}
+	uint32_t addr;
+	char buf[BUFSIZ];
 
 	if (use_json)
 		json = json_object_new_object();
@@ -1352,6 +1327,67 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 					     json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
+}
+
+static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
+			    safi_t safi, bool use_fib, u_char use_json,
+			    route_tag_t tag,
+			    const struct prefix *longer_prefix_p,
+			    bool supernets_only, int type,
+			    u_short ospf_instance_id)
+{
+	struct route_table *table;
+	struct zebra_vrf *zvrf = NULL;
+
+	if (!(zvrf = zebra_vrf_lookup_by_name(vrf_name))) {
+		if (use_json)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty, "vrf %s not defined\n", vrf_name);
+		return CMD_SUCCESS;
+	}
+
+	if (zvrf_id(zvrf) == VRF_UNKNOWN) {
+		if (use_json)
+			vty_out(vty, "{}\n");
+		else
+			vty_out(vty, "vrf %s inactive\n", vrf_name);
+		return CMD_SUCCESS;
+	}
+
+	table = zebra_vrf_table(afi, safi, zvrf_id(zvrf));
+	if (!table) {
+		if (use_json)
+			vty_out(vty, "{}\n");
+		return CMD_SUCCESS;
+	}
+
+	do_show_route_helper(vty, zvrf, table, afi, use_fib, tag,
+			     longer_prefix_p, supernets_only, type,
+			     ospf_instance_id, use_json);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_route_table,
+       show_route_table_cmd,
+       "show <ip$ipv4|ipv6$ipv6> route table (1-4294967295)$table [json$json]",
+       SHOW_STR
+       IP_STR
+       IP6_STR
+       "IP routing table\n"
+       "Table to display\n"
+       "The table number to display, if available\n"
+       JSON_STR)
+{
+	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
+	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+	struct route_table *t;
+
+	t = zebra_ns_find_table(zvrf->zns, table, afi);
+	if (t)
+		do_show_route_helper(vty, zvrf, t, afi, false, 0, false, false,
+				     0, 0, !!json);
 
 	return CMD_SUCCESS;
 }
@@ -2353,20 +2389,26 @@ DEFUN (show_vrf,
 
 DEFUN (default_vrf_vni_mapping,
        default_vrf_vni_mapping_cmd,
-       "vni " CMD_VNI_RANGE,
+       "vni " CMD_VNI_RANGE "[prefix-routes-only]",
        "VNI corresponding to the DEFAULT VRF\n"
-       "VNI-ID\n")
+       "VNI-ID\n"
+       "Prefix routes only \n")
 {
 	int ret = 0;
 	char err[ERR_STR_SZ];
 	struct zebra_vrf *zvrf = NULL;
 	vni_t vni = strtoul(argv[1]->arg, NULL, 10);
+	int filter = 0;
 
 	zvrf = vrf_info_lookup(VRF_DEFAULT);
 	if (!zvrf)
 		return CMD_WARNING;
 
-	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 1);
+	if (argc == 3)
+		filter = 1;
+
+	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ,
+					      filter, 1);
 	if (ret != 0) {
 		vty_out(vty, "%s\n", err);
 		return CMD_WARNING;
@@ -2391,7 +2433,7 @@ DEFUN (no_default_vrf_vni_mapping,
 	if (!zvrf)
 		return CMD_WARNING;
 
-	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 0);
+	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 0, 0);
 	if (ret != 0) {
 		vty_out(vty, "%s\n", err);
 		return CMD_WARNING;
@@ -2402,11 +2444,13 @@ DEFUN (no_default_vrf_vni_mapping,
 
 DEFUN (vrf_vni_mapping,
        vrf_vni_mapping_cmd,
-       "vni " CMD_VNI_RANGE,
+       "vni " CMD_VNI_RANGE "[prefix-routes-only]",
        "VNI corresponding to tenant VRF\n"
-       "VNI-ID\n")
+       "VNI-ID\n"
+       "prefix-routes-only\n")
 {
 	int ret = 0;
+	int filter = 0;
 
 	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
 	vni_t vni = strtoul(argv[1]->arg, NULL, 10);
@@ -2415,9 +2459,13 @@ DEFUN (vrf_vni_mapping,
 	assert(vrf);
 	assert(zvrf);
 
+	if (argc == 3)
+		filter = 1;
+
 	/* Mark as having FRR configuration */
 	vrf_set_user_cfged(vrf);
-	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 1);
+	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ,
+					      filter, 1);
 	if (ret != 0) {
 		vty_out(vty, "%s\n", err);
 		return CMD_WARNING;
@@ -2442,7 +2490,7 @@ DEFUN (no_vrf_vni_mapping,
 	assert(vrf);
 	assert(zvrf);
 
-	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 0);
+	ret = zebra_vxlan_process_vrf_vni_cmd(zvrf, vni, err, ERR_STR_SZ, 0, 0);
 	if (ret != 0) {
 		vty_out(vty, "%s\n", err);
 		return CMD_WARNING;
@@ -3341,6 +3389,7 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_vrf_cmd);
 	install_element(VIEW_NODE, &show_vrf_vni_cmd);
 	install_element(VIEW_NODE, &show_route_cmd);
+	install_element(VIEW_NODE, &show_route_table_cmd);
 	install_element(VIEW_NODE, &show_route_detail_cmd);
 	install_element(VIEW_NODE, &show_route_summary_cmd);
 	install_element(VIEW_NODE, &show_ip_nht_cmd);

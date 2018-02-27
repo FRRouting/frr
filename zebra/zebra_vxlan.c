@@ -928,6 +928,9 @@ static void zl3vni_print(zebra_l3vni_t *zl3vni, void **ctx)
 			zl3vni_svi_if_name(zl3vni));
 		vty_out(vty, "  State: %s\n",
 			zl3vni_state2str(zl3vni));
+		vty_out(vty, "  VNI Filter: %s\n",
+			CHECK_FLAG(zl3vni->filter, PREFIX_ROUTES_ONLY) ?
+				"prefix-routes-only" : "none");
 		vty_out(vty, "  Router MAC: %s\n",
 			zl3vni_rmac2str(zl3vni, buf, sizeof(buf)));
 		vty_out(vty, "  L2 VNIs: ");
@@ -951,6 +954,10 @@ static void zl3vni_print(zebra_l3vni_t *zl3vni, void **ctx)
 		json_object_string_add(json, "routerMac",
 				       zl3vni_rmac2str(zl3vni, buf,
 						       sizeof(buf)));
+		json_object_string_add(json, "vniFilter",
+				       CHECK_FLAG(zl3vni->filter,
+						  PREFIX_ROUTES_ONLY) ?
+						"prefix-routes-only" : "none");
 		for (ALL_LIST_ELEMENTS(zl3vni->l2vnis, node, nnode, zvni)) {
 			json_object_array_add(json_vni_list,
 					      json_object_new_int(zvni->vni));
@@ -3612,15 +3619,19 @@ static int zl3vni_send_add_to_client(zebra_l3vni_t *zl3vni)
 	stream_putl(s, zl3vni->vni);
 	stream_put(s, &rmac, sizeof(struct ethaddr));
 	stream_put_in_addr(s, &zl3vni->local_vtep_ip);
+	stream_put(s, &zl3vni->filter, sizeof(int));
 
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("Send L3_VNI_ADD %u VRF %s RMAC %s local-ip %s to %s",
+		zlog_debug(
+			   "Send L3_VNI_ADD %u VRF %s RMAC %s local-ip %s filter %s to %s",
 			   zl3vni->vni, vrf_id_to_name(zl3vni_vrf_id(zl3vni)),
 			   prefix_mac2str(&rmac, buf, sizeof(buf)),
 			   inet_ntoa(zl3vni->local_vtep_ip),
+			   CHECK_FLAG(zl3vni->filter, PREFIX_ROUTES_ONLY) ?
+				"prefix-routes-only" : "none",
 			   zebra_route_string(client->proto));
 
 	client->l3vniadd_cnt++;
@@ -3665,10 +3676,6 @@ static void zebra_vxlan_process_l3vni_oper_up(zebra_l3vni_t *zl3vni)
 	if (!zl3vni)
 		return;
 
-	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("L3-VNI %u is UP - send add to BGP",
-			   zl3vni->vni);
-
 	/* send l3vni add to BGP */
 	zl3vni_send_add_to_client(zl3vni);
 }
@@ -3677,10 +3684,6 @@ static void zebra_vxlan_process_l3vni_oper_down(zebra_l3vni_t *zl3vni)
 {
 	if (!zl3vni)
 		return;
-
-	if (IS_ZEBRA_DEBUG_VXLAN)
-		zlog_debug("L3-VNI %u is Down - Send del to BGP",
-			   zl3vni->vni);
 
 	/* send l3-vni del to BGP*/
 	zl3vni_send_del_to_client(zl3vni);
@@ -3833,6 +3836,17 @@ static int zebra_vxlan_readd_remote_rmac(zebra_l3vni_t *zl3vni,
 }
 
 /* Public functions */
+
+int is_l3vni_for_prefix_routes_only(vni_t vni)
+{
+	zebra_l3vni_t *zl3vni = NULL;
+
+	zl3vni = zl3vni_lookup(vni);
+	if (!zl3vni)
+		return 0;
+
+	return CHECK_FLAG(zl3vni->filter, PREFIX_ROUTES_ONLY) ? 1 : 0;
+}
 
 /* handle evpn route in vrf table */
 void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id,
@@ -6449,7 +6463,7 @@ int zebra_vxlan_if_add(struct interface *ifp)
 int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf,
 				    vni_t vni,
 				    char *err, int err_str_sz,
-				    int add)
+				    int filter, int add)
 {
 	zebra_l3vni_t *zl3vni = NULL;
 	struct zebra_vrf *zvrf_default = NULL;
@@ -6493,6 +6507,12 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf,
 
 		/* associate the vrf with vni */
 		zvrf->l3vni = vni;
+
+		/* set the filter in l3vni to denote if we are using l3vni only
+		 * for prefix routes
+		 */
+		if (filter)
+			SET_FLAG(zl3vni->filter, PREFIX_ROUTES_ONLY);
 
 		/* associate with vxlan-intf;
 		 * we need to associate with the vxlan-intf first

@@ -52,6 +52,7 @@ is_evpn_enabled()
 
 #define VNI_STR_LEN 32
 
+extern int is_l3vni_for_prefix_routes_only(vni_t vni);
 extern ifindex_t get_l3vni_svi_ifindex(vrf_id_t vrf_id);
 extern int zebra_vxlan_vrf_delete(struct zebra_vrf *zvrf);
 extern int zebra_vxlan_vrf_enable(struct zebra_vrf *zvrf);
@@ -154,7 +155,7 @@ extern int zebra_vxlan_advertise_all_vni(struct zserv *client,
 					 struct zebra_vrf *zvrf);
 extern int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 					   char *err,
-					   int err_str_sz, int add);
+					   int err_str_sz, int filter, int add);
 extern void zebra_vxlan_init_tables(struct zebra_vrf *zvrf);
 extern void zebra_vxlan_close_tables(struct zebra_vrf *);
 extern void zebra_vxlan_cleanup_tables(struct zebra_vrf *);
