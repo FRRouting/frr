@@ -61,6 +61,8 @@ struct bgpevpn {
 #define VNI_FLAG_RD_CFGD           0x4  /* RD is user configured. */
 #define VNI_FLAG_IMPRT_CFGD        0x8  /* Import RT is user configured */
 #define VNI_FLAG_EXPRT_CFGD        0x10 /* Export RT is user configured */
+#define VNI_FLAG_USE_TWO_LABELS    0x20 /* Attach both L2-VNI and L3-VNI if
+					   needed for this VPN */
 
 	/* Flag to indicate if we are advertising the g/w mac ip for this VNI*/
 	u_int8_t advertise_gw_macip;
@@ -179,9 +181,13 @@ static inline void bgpevpn_unlink_from_l3vni(struct bgpevpn *vpn)
 	struct bgp *bgp_vrf = NULL;
 
 	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
-	if (!bgp_vrf || !bgp_vrf->l2vnis)
+	if (!bgp_vrf)
 		return;
-	listnode_delete(bgp_vrf->l2vnis, vpn);
+
+	UNSET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
+
+	if (bgp_vrf->l2vnis)
+		listnode_delete(bgp_vrf->l2vnis, vpn);
 }
 
 static inline void bgpevpn_link_to_l3vni(struct bgpevpn *vpn)
@@ -189,9 +195,16 @@ static inline void bgpevpn_link_to_l3vni(struct bgpevpn *vpn)
 	struct bgp *bgp_vrf = NULL;
 
 	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
-	if (!bgp_vrf || !bgp_vrf->l2vnis)
+	if (!bgp_vrf)
 		return;
-	listnode_add_sort(bgp_vrf->l2vnis, vpn);
+
+	/* check if we are advertising two labels for this vpn */
+	if (!CHECK_FLAG(bgp_vrf->vrf_flags,
+		       BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY))
+		SET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
+
+	if (bgp_vrf->l2vnis)
+		listnode_add_sort(bgp_vrf->l2vnis, vpn);
 }
 
 static inline int is_vni_configured(struct bgpevpn *vpn)

@@ -1,5 +1,6 @@
 etc/frr/
 usr/bin/vtysh
+usr/bin/mtracebis
 usr/include/frr/
 usr/lib/
 tools/frr usr/lib/frr
@@ -16,6 +17,7 @@ usr/share/man/man8/zebra.8
 usr/share/man/man8/isisd.8
 usr/share/man/man8/watchfrr.8
 usr/share/man/man8/frr-args.8
+usr/share/man/man8/mtracebis.8
 usr/share/snmp/mibs/
 tools/etc/* etc/
 tools/*.service    lib/systemd/system

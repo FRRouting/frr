@@ -4014,6 +4014,10 @@ DEFUN (show_bgp_vrf_l3vni_info,
 		vty_out(vty, "  L3-VNI: %u\n", bgp->l3vni);
 		vty_out(vty, "  Rmac: %s\n",
 			prefix_mac2str(&bgp->rmac, buf, sizeof(buf)));
+		vty_out(vty, "  VNI Filter: %s\n",
+			CHECK_FLAG(bgp->vrf_flags,
+				   BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY) ?
+				"prefix-routes-only" : "none");
 		vty_out(vty, "  L2-VNI List:\n");
 		vty_out(vty, "    ");
 		for (ALL_LIST_ELEMENTS_RO(bgp->l2vnis, node, vpn))
@@ -4039,6 +4043,10 @@ DEFUN (show_bgp_vrf_l3vni_info,
 		json_object_string_add(json, "rmac",
 				       prefix_mac2str(&bgp->rmac, buf,
 						      sizeof(buf)));
+		json_object_string_add(json, "vniFilter",
+				       CHECK_FLAG(bgp->vrf_flags,
+						  BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY)
+				       ? "prefix-routes-only" : "none");
 		/* list of l2vnis */
 		for (ALL_LIST_ELEMENTS_RO(bgp->l2vnis, node, vpn))
 			json_object_array_add(json_vnis,

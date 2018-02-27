@@ -1324,8 +1324,11 @@ lde_nbr_clear(void)
 {
 	struct lde_nbr	*ln;
 
-	 while ((ln = RB_ROOT(nbr_tree, &lde_nbrs)) != NULL)
+	while (!RB_EMPTY(nbr_tree, &lde_nbrs)) {
+		ln = RB_ROOT(nbr_tree, &lde_nbrs);
+
 		lde_nbr_del(ln);
+	}
 }
 
 static void

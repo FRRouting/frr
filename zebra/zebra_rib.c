@@ -1150,7 +1150,8 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 	 */
 	hook_call(rib_update, rn, "uninstalling from kernel");
 	kernel_route_rib(rn, p, src_p, re, NULL);
-	zvrf->removals++;
+	if (zvrf)
+		zvrf->removals++;
 
 	return;
 }

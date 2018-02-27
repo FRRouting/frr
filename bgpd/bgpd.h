@@ -441,6 +441,8 @@ struct bgp {
 #define BGP_VRF_IMPORT_RT_CFGD              (1 << 1)
 #define BGP_VRF_EXPORT_RT_CFGD              (1 << 2)
 #define BGP_VRF_RD_CFGD                     (1 << 3)
+#define BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY    (1 << 4)
+
 
 	/* unique ID for auto derivation of RD for this vrf */
 	uint16_t vrf_rd_id;
