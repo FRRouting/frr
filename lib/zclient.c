@@ -1210,14 +1210,20 @@ stream_failure:
 }
 
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
+			      uint32_t *tableid,
 			      enum zapi_route_notify_owner *note)
 {
+	uint32_t t;
+
 	STREAM_GET(note, s, sizeof(*note));
 
 	STREAM_GETC(s, p->family);
 	STREAM_GETC(s, p->prefixlen);
 	STREAM_GET(&p->u.prefix, s,
-		   PSIZE(p->prefixlen));
+		   prefix_blen(p));
+	STREAM_GETL(s, t);
+
+	*tableid = t;
 
 	return true;
 
@@ -2363,9 +2369,9 @@ static int zclient_read(struct thread *thread)
 						     vrf_id);
 		break;
 	case ZEBRA_ROUTE_NOTIFY_OWNER:
-		if (zclient->notify_owner)
-			(*zclient->notify_owner)(command, zclient,
-						 length, vrf_id);
+		if (zclient->route_notify_owner)
+			(*zclient->route_notify_owner)(command, zclient, length,
+						       vrf_id);
 		break;
 	default:
 		break;
