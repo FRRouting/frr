@@ -167,9 +167,9 @@ T26 DONE Zebra daemon is marking recursive static route as inactive.
     pointing to kernel routes as inactive:
       zebra/zebra_rib.c nexthop_active_ipv4:
         -- Original:
-	  else if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_INTERNAL))
+	  else if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_ALLOW_RECURSION))
         -- Fixed:
-	  else if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_INTERNAL) ||
+	  else if (CHECK_FLAG (rib->flags, ZEBRA_FLAG_ALLOW_RECURSION) ||
 		   match->type == ZEBRA_ROUTE_KERNEL)
 
     Old problem description:
