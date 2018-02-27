@@ -173,4 +173,10 @@ C19 Provision to prevent group mode clash
     flow. There could be some provision to prevent such a behavior,
     but currently there is none.
 
+C20 Multicast traceroute module is based on:
+    draft-ietf-idmr-traceroute-ipm-07
+    It only implements, so far, weak traceroutes. The multicast routing
+    state of the router is not quieried but RPF path is followed along
+    PIM and IGMP enabled interfaces.
+
 -x-
