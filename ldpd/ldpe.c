@@ -219,8 +219,11 @@ ldpe_shutdown(void)
 		assert(if_addr != LIST_FIRST(&global.addr_list));
 		free(if_addr);
 	}
-	while ((adj = RB_ROOT(global_adj_head, &global.adj_tree)) != NULL)
+	while (!RB_EMPTY(global_adj_head, &global.adj_tree)) {
+		adj = RB_ROOT(global_adj_head, &global.adj_tree);
+
 		adj_del(adj, S_SHUTDOWN);
+	}
 
 	/* clean up */
 	if (iev_lde)

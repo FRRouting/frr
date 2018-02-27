@@ -306,8 +306,11 @@ if_reset(struct iface *iface, int af)
 	ia = iface_af_get(iface, af);
 	if_stop_hello_timer(ia);
 
-	while ((adj = RB_ROOT(ia_adj_head, &ia->adj_tree)) != NULL)
+	while (!RB_EMPTY(ia_adj_head, &ia->adj_tree)) {
+		adj = RB_ROOT(ia_adj_head, &ia->adj_tree);
+
 		adj_del(adj, S_SHUTDOWN);
+	}
 
 	/* try to cleanup */
 	switch (af) {
