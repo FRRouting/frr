@@ -110,27 +110,20 @@ static int bfdd_reconfigure(int csock, void *arg)
 	struct bpc_node *bn;
 	struct json_object *jo;
 	const char *jsonstr;
-	uint16_t reqid;
 	uint64_t notifications;
+	int rv;
 
 	bc->bc_csock = csock;
 
 	/* Enable notifications. */
 	notifications = BCM_NOTIFY_PEER_STATE | BCM_NOTIFY_CONFIG;
-	reqid = bfd_control_send(csock, BMT_NOTIFY, &notifications,
-				 sizeof(notifications));
-	if (reqid == 0) {
-		zlog_err(
-			"failed to enable notifications, some features will not work");
-		goto skip_recv_id;
-	}
-
-	if (bfd_control_recv(csock, bfdd_receive_id, &reqid) != 0) {
+	rv = bfd_control_call(&bac, BMT_NOTIFY, &notifications,
+			      sizeof(notifications));
+	if (rv == -1) {
 		zlog_err(
 			"failed to enable notifications, some features will not work");
 	}
 
-skip_recv_id:
 	TAILQ_FOREACH (bn, &bc->bc_bnlist, bn_entry) {
 		/* Create the request data and send. */
 		jo = bfd_ctrl_new_json();
@@ -143,38 +136,28 @@ skip_recv_id:
 		bfd_ctrl_add_peer(jo, &bn->bn_bpc);
 		jsonstr = json_object_to_json_string_ext(
 			jo, BFDD_JSON_CONV_OPTIONS);
-		reqid = bfd_control_send(csock, BMT_REQUEST_ADD, jsonstr,
-					 strlen(jsonstr));
-		if (reqid == 0) {
-			zlog_err("%s:%d: Failed to reconfigure peer",
-				 __FUNCTION__, __LINE__);
-			json_object_put(jo);
-			return -1;
-		}
 
-		if (bfd_control_recv(csock, bfdd_receive_id, &reqid) != 0) {
-			zlog_err("%s:%d: Failed to reconfigure peer",
-				 __FUNCTION__, __LINE__);
-			json_object_put(jo);
-			return -1;
-		}
-
+		rv = bfd_control_call(&bac, BMT_REQUEST_ADD, jsonstr,
+				      strlen(jsonstr));
 		json_object_put(jo);
+		if (rv == -1) {
+			return -1;
+		}
 	}
 
 	return 0;
 }
 
+struct bfdd_adapter_ctx bac = {
+	.bac_read = bfdd_receive_notification,
+	.bac_read_arg = &bc,
+	.bac_reconfigure = bfdd_reconfigure,
+	.bac_reconfigure_arg = &bc,
+};
+
 int main(int argc, char *argv[])
 {
 	int opt;
-	struct bfdd_adapter_ctx bac = {
-		.bac_csock = -1,
-		.bac_read = bfdd_receive_notification,
-		.bac_read_arg = &bc,
-		.bac_reconfigure = bfdd_reconfigure,
-		.bac_reconfigure_arg = &bc,
-	};
 
 	frr_preinit(&bfdd_di, argc, argv);
 

@@ -68,6 +68,8 @@ struct bfdd_adapter_ctx {
 };
 
 void bfd_adapter_init(struct bfdd_adapter_ctx *bac);
+int bfd_control_call(struct bfdd_adapter_ctx *bac, enum bc_msg_type bmt,
+		     const void *data, size_t datalen);
 
 
 /*

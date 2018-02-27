@@ -41,8 +41,6 @@ static void bpn_free(struct bgp_peer_notification *bpn);
 static struct bgp_peer_notification *
 bpn_notification_find(struct json_object *notification);
 
-static int bfdd_receive_id(struct bfd_control_msg *bcm, bool *repeat,
-			   void *arg);
 static int bfdd_receive_notification(struct bfd_control_msg *bcm, bool *repeat,
 				     void *arg);
 static void bfdd_peer_notification(struct json_object *notification);
@@ -165,7 +163,7 @@ static int _bfdd_unmonitor_peer(struct peer *peer)
 	struct bgp_peer_notification *bpn;
 	const char *jsonstr;
 	struct json_object *msg;
-	uint16_t id;
+	int rv;
 
 	if (peer->bpc == NULL) {
 		goto save_and_return;
@@ -181,19 +179,12 @@ static int _bfdd_unmonitor_peer(struct peer *peer)
 	bfd_ctrl_add_peer_bylabel(msg, peer->bpc);
 	jsonstr = json_object_to_json_string_ext(msg, BFDD_JSON_CONV_OPTIONS);
 
-	id = bfd_control_send(bbc.bbc_csock, BMT_NOTIFY_DEL, jsonstr,
-			      strlen(jsonstr));
+	rv = bfd_control_call(&bac, BMT_NOTIFY_DEL, jsonstr, strlen(jsonstr));
 	json_object_put(msg);
 
-	if (id == 0) {
-		zlog_debug("%s:%d: monitor delete failure: id == 0",
-			   __FUNCTION__, __LINE__);
-		return -1;
-	}
-
-	if (bfd_control_recv(bbc.bbc_csock, bfdd_receive_id, &id) != 0) {
-		zlog_debug("%s:%d: monitor delete failure: bfd_control_recv",
-			   __FUNCTION__, __LINE__);
+	if (rv == -1) {
+		zlog_debug("%s:%d: monitor delete failure", __FUNCTION__,
+			   __LINE__);
 		return -1;
 	}
 
@@ -242,7 +233,7 @@ static int _bfdd_monitor_peer(struct peer *peer, const char *label,
 	struct bgp_peer_notification *bpn;
 	struct json_object *msg;
 	const char *jsonstr;
-	uint16_t id;
+	int rv;
 
 	/* Save notification configuration. */
 	bpn = bpn_find(peer);
@@ -287,19 +278,12 @@ static int _bfdd_monitor_peer(struct peer *peer, const char *label,
 	bfd_ctrl_add_peer_bylabel(msg, peer->bpc);
 	jsonstr = json_object_to_json_string_ext(msg, BFDD_JSON_CONV_OPTIONS);
 
-	id = bfd_control_send(bbc.bbc_csock, BMT_NOTIFY_ADD, jsonstr,
-			      strlen(jsonstr));
+	rv = bfd_control_call(&bac, BMT_NOTIFY_ADD, jsonstr, strlen(jsonstr));
 	json_object_put(msg);
 
-	if (id == 0) {
-		zlog_debug("%s:%d: monitor add failure: id == 0", __FUNCTION__,
+	if (rv == -1) {
+		zlog_debug("%s:%d: monitor add failure", __FUNCTION__,
 			   __LINE__);
-		return -1;
-	}
-
-	if (bfd_control_recv(bbc.bbc_csock, bfdd_receive_id, &id) != 0) {
-		zlog_debug("%s:%d: monitor add failure: bfd_control_recv",
-			   __FUNCTION__, __LINE__);
 		return -1;
 	}
 
@@ -591,32 +575,6 @@ static void bfdd_peer_notification(struct json_object *notification)
 	}
 
 	bfdd_peer_notify_handle(bpn->bpn_p, bpc->bpc_bps);
-}
-
-static int bfdd_receive_id(struct bfd_control_msg *bcm, bool *repeat, void *arg)
-{
-	uint16_t *id = arg;
-	struct bfdd_response br;
-
-	/* This is not the response we are waiting. */
-	if (*id != ntohs(bcm->bcm_id)) {
-		*repeat = true;
-		return 0;
-	}
-
-	if (bcm->bcm_type != BMT_RESPONSE) {
-		return -1;
-	}
-
-	if (bfd_response_parse((const char *)bcm->bcm_data, &br) == 0) {
-		if (br.br_status == BRS_OK) {
-			return 0;
-		} else {
-			return -1;
-		}
-	}
-
-	return 0;
 }
 
 static int bfdd_receive_notification(struct bfd_control_msg *bcm, bool *repeat,

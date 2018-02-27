@@ -35,6 +35,19 @@
 #include "log.h"
 #include "bfdd_adapter.h"
 
+/* Declare bfd_receive_id context structure. */
+struct bfd_receive_ctx {
+	uint16_t brc_reqid;
+	bfd_control_recv_cb brc_dispatch;
+	void *brc_dispatch_arg;
+};
+
+/*
+ * Prototypes
+ */
+static int bfd_receive_id(struct bfd_control_msg *bcm, bool *repeat, void *arg);
+
+
 /*
  * Control socket
  */
@@ -201,6 +214,34 @@ skip_and_return:
 		goto read_next;
 
 	return ret;
+}
+
+/*
+ * bfd_control_call: sends a request and expects a response.
+ *
+ * This function receives the module adapter with the necessary callbacks to
+ * dispatch requests that were not meant to the one made here.
+ *
+ * Returns 0 on success or -1 on failure.
+ */
+int bfd_control_call(struct bfdd_adapter_ctx *bac, enum bc_msg_type bmt,
+		     const void *data, size_t datalen)
+{
+	struct bfd_receive_ctx brc;
+
+	brc.brc_reqid = bfd_control_send(bac->bac_csock, bmt, data, datalen);
+	if (brc.brc_reqid == 0) {
+		return -1;
+	}
+
+	brc.brc_dispatch = bac->bac_read;
+	brc.brc_dispatch_arg = bac->bac_read_arg;
+	if (bfd_control_recv(bac->bac_csock, bfd_receive_id, &brc.brc_reqid)
+	    != 0) {
+		return -1;
+	}
+
+	return 0;
 }
 
 static int socket_is_valid(int sd)
@@ -541,6 +582,37 @@ int sa_cmp(const struct sockaddr_any *sa, const struct sockaddr_any *san)
 			      sizeof(sa->sa_sin6.sin6_addr));
 	default:
 		return sa->sa_sin.sin_family != san->sa_sin.sin_family;
+	}
+
+	return 0;
+}
+
+/*
+ * bfd_receive_id: callback to wait for an specific ID, otherwise dispatch to
+ * the appropriated callback.
+ */
+static int bfd_receive_id(struct bfd_control_msg *bcm, bool *repeat, void *arg)
+{
+	struct bfd_receive_ctx *brc = arg;
+	struct bfdd_response br;
+
+	/* This is not the response we are waiting. */
+	if (brc->brc_reqid != ntohs(bcm->bcm_id)) {
+		brc->brc_dispatch(bcm, repeat, brc->brc_dispatch_arg);
+		*repeat = true;
+		return 0;
+	}
+
+	if (bcm->bcm_type != BMT_RESPONSE) {
+		return -1;
+	}
+
+	if (bfd_response_parse((const char *)bcm->bcm_data, &br) == 0) {
+		if (br.br_status == BRS_OK) {
+			return 0;
+		} else {
+			return -1;
+		}
 	}
 
 	return 0;

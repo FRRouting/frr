@@ -52,6 +52,7 @@ struct bfdd_config {
 
 /* bfdd.c */
 extern struct bfdd_config bc;
+extern struct bfdd_adapter_ctx bac;
 
 
 /* bfdd_frr.c */
@@ -80,7 +81,6 @@ void bn_free(struct bpc_node *bn, struct bnlist *bnlist);
 /* bfdctl.c */
 int bfdd_receive_notification(struct bfd_control_msg *bcm, bool *repeat,
 			      void *arg);
-int bfdd_receive_id(struct bfd_control_msg *bcm, bool *repeat, void *arg);
 
 
 /* bfdd_vty.c */

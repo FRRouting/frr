@@ -266,36 +266,6 @@ int bfdd_receive_notification(struct bfd_control_msg *bcm, bool *repeat,
 	return 0;
 }
 
-/* Generic BFD function to handle responses to requests.  */
-int bfdd_receive_id(struct bfd_control_msg *bcm, bool *repeat, void *arg)
-{
-	uint16_t *id = arg;
-	struct bfdd_response br;
-
-	/* This is not the response we are waiting. */
-	if (*id != ntohs(bcm->bcm_id)) {
-		bfdd_receive_notification(bcm, repeat, NULL);
-		*repeat = true;
-		return 0;
-	}
-
-	bfdd_receive_debug(bcm);
-
-	if (bcm->bcm_type != BMT_RESPONSE) {
-		return -1;
-	}
-
-	if (bfd_response_parse((const char *)bcm->bcm_data, &br) == 0) {
-		if (br.br_status == BRS_OK) {
-			return 0;
-		} else {
-			return -1;
-		}
-	}
-
-	return 0;
-}
-
 
 /*
  * Auxiliary functions.
@@ -495,7 +465,7 @@ int bfdd_add_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 	struct bpc_node *bn;
 	struct json_object *jo;
 	const char *jsonstr;
-	uint16_t id;
+	int rv;
 
 	bn = bn_find(&bc.bc_bnlist, bpc);
 	if (bn != NULL) {
@@ -512,18 +482,10 @@ int bfdd_add_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 
 	bfd_ctrl_add_peer(jo, bpc);
 	jsonstr = json_object_to_json_string_ext(jo, BFDD_JSON_CONV_OPTIONS);
-	id = bfd_control_send(bc.bc_csock, BMT_REQUEST_ADD, jsonstr,
-			      strlen(jsonstr));
 
-	/* Free the allocate memory for JSON. */
+	rv = bfd_control_call(&bac, BMT_REQUEST_ADD, jsonstr, strlen(jsonstr));
 	json_object_put(jo);
-
-	if (id == 0) {
-		vty_out(vty, "%% Failed to configure peer\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (bfd_control_recv(bc.bc_csock, bfdd_receive_id, &id) != 0) {
+	if (rv == -1) {
 		vty_out(vty, "%% Failed to configure peer\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -543,7 +505,7 @@ int _bfdd_update_peer(struct vty *vty, struct bfd_peer_cfg *bpc, bool use_label)
 {
 	struct json_object *jo;
 	const char *jsonstr;
-	uint16_t id;
+	int rv;
 
 	/* Create the request data and send. */
 	jo = bfd_ctrl_new_json();
@@ -559,18 +521,11 @@ int _bfdd_update_peer(struct vty *vty, struct bfd_peer_cfg *bpc, bool use_label)
 	}
 
 	jsonstr = json_object_to_json_string_ext(jo, BFDD_JSON_CONV_OPTIONS);
-	id = bfd_control_send(bc.bc_csock, BMT_REQUEST_ADD, jsonstr,
-			      strlen(jsonstr));
 
-	/* Free the allocate memory for JSON. */
+	rv = bfd_control_call(&bac, BMT_REQUEST_ADD, jsonstr, strlen(jsonstr));
 	json_object_put(jo);
 
-	if (id == 0) {
-		vty_out(vty, "%% Failed to update peer\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (bfd_control_recv(bc.bc_csock, bfdd_receive_id, &id) != 0) {
+	if (rv == -1) {
 		vty_out(vty, "%% Failed to update peer\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -589,7 +544,7 @@ int bfdd_delete_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 	struct json_object *jo;
 	struct bpc_node *bn;
 	const char *jsonstr;
-	uint16_t id;
+	int rv;
 
 	/* Create the request data and send. */
 	jo = bfd_ctrl_new_json();
@@ -600,18 +555,11 @@ int bfdd_delete_peer(struct vty *vty, struct bfd_peer_cfg *bpc)
 
 	bfd_ctrl_add_peer_bylabel(jo, bpc);
 	jsonstr = json_object_to_json_string_ext(jo, BFDD_JSON_CONV_OPTIONS);
-	id = bfd_control_send(bc.bc_csock, BMT_REQUEST_DEL, jsonstr,
-			      strlen(jsonstr));
 
-	/* Free the allocate memory for JSON. */
+	rv = bfd_control_call(&bac, BMT_REQUEST_DEL, jsonstr, strlen(jsonstr));
 	json_object_put(jo);
 
-	if (id == 0) {
-		vty_out(vty, "%% Failed to delete peer\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (bfd_control_recv(bc.bc_csock, bfdd_receive_id, &id) != 0) {
+	if (rv == -1) {
 		vty_out(vty, "%% Failed to delete peer\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
