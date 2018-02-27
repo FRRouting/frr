@@ -202,6 +202,9 @@ int main(int argc, char *argv[], char *envp[])
 		exit(1);
 	}
 
+	/* OSPF6 master init. */
+	ospf6_master_init();
+
 	/* thread master */
 	master = frr_init();
 

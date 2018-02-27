@@ -24,6 +24,11 @@
 #include "qobj.h"
 #include "routemap.h"
 
+struct ospf6_master {
+
+	uint32_t zebra_router_id;
+};
+
 /* OSPFv3 top level data structure */
 struct ospf6 {
 	/* my router id */
@@ -109,10 +114,13 @@ DECLARE_QOBJ_TYPE(ospf6)
 
 /* global pointer for OSPF top data structure */
 extern struct ospf6 *ospf6;
+extern struct ospf6_master *om6;
 
 /* prototypes */
+extern void ospf6_master_init(void);
 extern void ospf6_top_init(void);
 extern void ospf6_delete(struct ospf6 *o);
+extern void ospf6_router_id_update(void);
 
 extern void ospf6_maxage_remove(struct ospf6 *o);
 

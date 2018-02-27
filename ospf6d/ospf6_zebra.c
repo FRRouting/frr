@@ -55,13 +55,22 @@ static int ospf6_router_id_update_zebra(int command, struct zclient *zclient,
 
 	zebra_router_id_update_read(zclient->ibuf, &router_id);
 
+	om6->zebra_router_id = router_id.u.prefix4.s_addr;
+
 	if (o == NULL)
 		return 0;
 
 	o->router_id_zebra = router_id.u.prefix4;
+	if (IS_OSPF6_DEBUG_ZEBRA(RECV)) {
+		char buf[INET_ADDRSTRLEN];
 
-	if (o->router_id == 0)
-		o->router_id = (uint32_t)o->router_id_zebra.s_addr;
+		zlog_debug("%s: zebra router-id %s update",
+			   __PRETTY_FUNCTION__,
+			   inet_ntop(AF_INET, &router_id.u.prefix4,
+				     buf, INET_ADDRSTRLEN));
+	}
+
+	ospf6_router_id_update();
 
 	return 0;
 }
