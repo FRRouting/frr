@@ -101,6 +101,9 @@ struct zebra_l3vni_t_ {
 	/* vrf_id */
 	vrf_id_t vrf_id;
 
+	uint32_t filter;
+#define PREFIX_ROUTES_ONLY	(1 << 0) /* l3-vni used for prefix routes only */
+
 	/* Local IP */
 	struct in_addr local_vtep_ip;
 
