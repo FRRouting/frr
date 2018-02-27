@@ -2374,8 +2374,12 @@ DEFUN (show_vrf,
 			continue;
 
 		vty_out(vty, "vrf %s ", zvrf_name(zvrf));
-		if (zvrf_id(zvrf) == VRF_UNKNOWN)
+		if (zvrf_id(zvrf) == VRF_UNKNOWN
+		    || !zvrf_is_active(zvrf))
 			vty_out(vty, "inactive");
+		else if (zvrf_ns_name(zvrf))
+			vty_out(vty, "id %u netns %s",
+				zvrf_id(zvrf), zvrf_ns_name(zvrf));
 		else
 			vty_out(vty, "id %u table %u", zvrf_id(zvrf),
 				zvrf->table_id);

@@ -20,6 +20,8 @@
 
 #include <zebra.h>
 #include <sys/un.h>
+/* for basename */
+#include <libgen.h>
 
 #include "prefix.h"
 #include "command.h"
@@ -182,13 +184,19 @@ static void zserv_encode_interface(struct stream *s, struct interface *ifp)
 static void zserv_encode_vrf(struct stream *s, struct zebra_vrf *zvrf)
 {
 	struct vrf_data data;
+	const char *netns_name = zvrf_ns_name(zvrf);
 
 	data.l.table_id = zvrf->table_id;
-	/* Pass the tableid */
+
+	if (netns_name)
+		strlcpy(data.l.netns_name,
+			basename((char *)netns_name), NS_NAMSIZ);
+	else
+		memset(data.l.netns_name, 0, NS_NAMSIZ);
+	/* Pass the tableid and the netns NAME */
 	stream_put(s, &data, sizeof(struct vrf_data));
 	/* Interface information. */
 	stream_put(s, zvrf_name(zvrf), VRF_NAMSIZ);
-
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
 }
@@ -978,29 +986,38 @@ static int zsend_ipv4_nexthop_lookup_mrib(struct zserv *client,
 	return zebra_server_send_message(client);
 }
 
-int zsend_route_notify_owner(u_char proto, u_short instance,
-			     vrf_id_t vrf_id, struct prefix *p,
+int zsend_route_notify_owner(struct route_entry *re, struct prefix *p,
 			     enum zapi_route_notify_owner note)
 {
 	struct zserv *client;
 	struct stream *s;
 	uint8_t blen;
 
-	client = zebra_find_client(proto, instance);
+	client = zebra_find_client(re->type, re->instance);
 	if (!client || !client->notify_owner) {
 		if (IS_ZEBRA_DEBUG_PACKET) {
 			char buff[PREFIX_STRLEN];
 
-			zlog_debug("Not Notifying Owner: %u about prefix %s",
-				   proto, prefix2str(p, buff, sizeof(buff)));
+			zlog_debug(
+				"Not Notifying Owner: %u about prefix %s(%u) %d",
+				re->type, prefix2str(p, buff, sizeof(buff)),
+				re->table, note);
 		}
 		return 0;
+	}
+
+	if (IS_ZEBRA_DEBUG_PACKET) {
+		char buff[PREFIX_STRLEN];
+
+		zlog_debug("Notifying Owner: %u about prefix %s(%u) %d",
+			   re->type, prefix2str(p, buff, sizeof(buff)),
+			   re->table, note);
 	}
 
 	s = client->obuf;
 	stream_reset(s);
 
-	zclient_create_header(s, ZEBRA_ROUTE_NOTIFY_OWNER, vrf_id);
+	zclient_create_header(s, ZEBRA_ROUTE_NOTIFY_OWNER, re->vrf_id);
 
 	stream_put(s, &note, sizeof(note));
 
@@ -1009,6 +1026,8 @@ int zsend_route_notify_owner(u_char proto, u_short instance,
 	blen = prefix_blen(p);
 	stream_putc(s, p->prefixlen);
 	stream_put(s, &p->u.prefix, blen);
+
+	stream_putl(s, re->table);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 

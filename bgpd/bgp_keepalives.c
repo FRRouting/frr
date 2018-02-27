@@ -119,7 +119,7 @@ static void peer_process(struct hash_backet *hb, void *arg)
 	}
 
 	/* if calculated next update for this peer < current delay, use it */
-	if (next_update->tv_sec <= 0 || timercmp(&diff, next_update, <))
+	if (next_update->tv_sec < 0 || timercmp(&diff, next_update, <))
 		*next_update = diff;
 }
 

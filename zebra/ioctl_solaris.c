@@ -30,6 +30,7 @@
 #include "log.h"
 #include "privs.h"
 #include "vty.h"
+#include "vrf.h"
 
 #include "zebra/rib.h"
 #include "zebra/rt.h"
@@ -42,6 +43,11 @@ extern struct zebra_privs_t zserv_privs;
 void lifreq_set_name(struct lifreq *lifreq, const char *ifname)
 {
 	strncpy(lifreq->lifr_name, ifname, IFNAMSIZ);
+}
+
+int vrf_if_ioctl(u_long request, caddr_t buffer, vrf_id_t vrf_id)
+{
+	return if_ioctl(request, buffer);
 }
 
 /* call ioctl system call */

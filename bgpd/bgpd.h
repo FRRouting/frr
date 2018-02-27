@@ -693,7 +693,6 @@ struct peer {
 	time_t readtime;     /* Last read time */
 	time_t resettime;    /* Last reset time */
 
-	ifindex_t ifindex;     /* ifindex of the BGP connection. */
 	char *conf_if;	 /* neighbor interface config name. */
 	struct interface *ifp; /* corresponding interface */
 	char *ifname;	  /* bind interface name. */
@@ -1360,6 +1359,9 @@ extern int bgp_get(struct bgp **, as_t *, const char *, enum bgp_instance_type);
 extern void bgp_instance_up(struct bgp *);
 extern void bgp_instance_down(struct bgp *);
 extern int bgp_delete(struct bgp *);
+
+extern int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf,
+			     vrf_id_t old_vrf_id, bool create);
 
 extern int bgp_flag_set(struct bgp *, int);
 extern int bgp_flag_unset(struct bgp *, int);

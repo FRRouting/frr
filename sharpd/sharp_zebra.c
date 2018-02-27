@@ -131,13 +131,14 @@ static int interface_state_down(int command, struct zclient *zclient,
 extern uint32_t total_routes;
 extern uint32_t installed_routes;
 
-static int notify_owner(int command, struct zclient *zclient,
-			zebra_size_t length, vrf_id_t vrf_id)
+static int route_notify_owner(int command, struct zclient *zclient,
+			      zebra_size_t length, vrf_id_t vrf_id)
 {
 	struct prefix p;
 	enum zapi_route_notify_owner note;
+	uint32_t table;
 
-	if (!zapi_route_notify_decode(zclient->ibuf, &p, &note))
+	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table, &note))
 		return -1;
 
 	installed_routes++;
@@ -210,5 +211,5 @@ void sharp_zebra_init(void)
 	zclient->interface_down = interface_state_down;
 	zclient->interface_address_add = interface_address_add;
 	zclient->interface_address_delete = interface_address_delete;
-	zclient->notify_owner = notify_owner;
+	zclient->route_notify_owner = route_notify_owner;
 }

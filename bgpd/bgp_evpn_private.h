@@ -64,6 +64,8 @@ struct bgpevpn {
 #define VNI_FLAG_USE_TWO_LABELS    0x20 /* Attach both L2-VNI and L3-VNI if
 					   needed for this VPN */
 
+	struct bgp *bgp_vrf; /* back pointer to the vrf instance */
+
 	/* Flag to indicate if we are advertising the g/w mac ip for this VNI*/
 	u_int8_t advertise_gw_macip;
 
@@ -134,77 +136,66 @@ static inline int bgp_evpn_vrf_rd_matches_existing(struct bgp *bgp_vrf,
 
 static inline vni_t bgpevpn_get_l3vni(struct bgpevpn *vpn)
 {
-	struct bgp *bgp_vrf = NULL;
-
-	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
-	if (!bgp_vrf)
-		return 0;
-
-	return bgp_vrf->l3vni;
+	return vpn->bgp_vrf ? vpn->bgp_vrf->l3vni : 0;
 }
 
 static inline void bgpevpn_get_rmac(struct bgpevpn *vpn, struct ethaddr *rmac)
 {
-	struct bgp *bgp_vrf = NULL;
-
 	memset(rmac, 0, sizeof(struct ethaddr));
-	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
-	if (!bgp_vrf)
+	if (!vpn->bgp_vrf)
 		return;
-	memcpy(rmac, &bgp_vrf->rmac, sizeof(struct ethaddr));
+	memcpy(rmac, &vpn->bgp_vrf->rmac, sizeof(struct ethaddr));
 }
 
 static inline struct list *bgpevpn_get_vrf_export_rtl(struct bgpevpn *vpn)
 {
-	struct bgp *bgp_vrf = NULL;
-
-	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
-	if (!bgp_vrf)
+	if (!vpn->bgp_vrf)
 		return NULL;
 
-	return bgp_vrf->vrf_export_rtl;
+	return vpn->bgp_vrf->vrf_export_rtl;
 }
 
 static inline struct list *bgpevpn_get_vrf_import_rtl(struct bgpevpn *vpn)
 {
-	struct bgp *bgp_vrf = NULL;
-
-	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
-	if (!bgp_vrf)
+	if (!vpn->bgp_vrf)
 		return NULL;
 
-	return bgp_vrf->vrf_import_rtl;
+	return vpn->bgp_vrf->vrf_import_rtl;
 }
 
 static inline void bgpevpn_unlink_from_l3vni(struct bgpevpn *vpn)
 {
-	struct bgp *bgp_vrf = NULL;
-
-	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
-	if (!bgp_vrf)
+	/* bail if vpn is not associated to bgp_vrf */
+	if (!vpn->bgp_vrf)
 		return;
-
+  
 	UNSET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
-
-	if (bgp_vrf->l2vnis)
-		listnode_delete(bgp_vrf->l2vnis, vpn);
+	listnode_delete(vpn->bgp_vrf->l2vnis, vpn);
+  
+	/* remove the backpointer to the vrf instance */
+	vpn->bgp_vrf = NULL;
 }
 
 static inline void bgpevpn_link_to_l3vni(struct bgpevpn *vpn)
 {
 	struct bgp *bgp_vrf = NULL;
 
+	/* bail if vpn is already associated to vrf */
+	if (vpn->bgp_vrf)
+		return;
+
 	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
 	if (!bgp_vrf)
 		return;
+
+	/* associate the vpn to the bgp_vrf instance */
+	vpn->bgp_vrf = bgp_vrf;
+	listnode_add_sort(bgp_vrf->l2vnis, vpn);
 
 	/* check if we are advertising two labels for this vpn */
 	if (!CHECK_FLAG(bgp_vrf->vrf_flags,
 		       BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY))
 		SET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
-
-	if (bgp_vrf->l2vnis)
-		listnode_add_sort(bgp_vrf->l2vnis, vpn);
 }
 
 static inline int is_vni_configured(struct bgpevpn *vpn)

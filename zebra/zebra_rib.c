@@ -416,8 +416,6 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 
 	if (set) {
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
-		zebra_deregister_rnh_static_nexthops(nexthop->vrf_id,
-						     nexthop->resolved, top);
 		nexthops_free(nexthop->resolved);
 		nexthop->resolved = NULL;
 		re->nexthop_mtu = 0;
@@ -1033,8 +1031,7 @@ void kernel_route_rib_pass_fail(struct route_node *rn, struct prefix *p,
 			else
 				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		}
-		zsend_route_notify_owner(re->type, re->instance, re->vrf_id,
-					 p, ZAPI_ROUTE_INSTALLED);
+		zsend_route_notify_owner(re, p, ZAPI_ROUTE_INSTALLED);
 		break;
 	case SOUTHBOUND_INSTALL_FAILURE:
 		/*
@@ -1044,8 +1041,7 @@ void kernel_route_rib_pass_fail(struct route_node *rn, struct prefix *p,
 		 */
 		dest->selected_fib = re;
 
-		zsend_route_notify_owner(re->type, re->instance, re->vrf_id,
-					 p, ZAPI_ROUTE_FAIL_INSTALL);
+		zsend_route_notify_owner(re, p, ZAPI_ROUTE_FAIL_INSTALL);
 		zlog_warn("%u:%s: Route install failed", re->vrf_id,
 			  prefix2str(p, buf, sizeof(buf)));
 		break;
@@ -1112,10 +1108,8 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	 * If this is a replace to a new RE let the originator of the RE
 	 * know that they've lost
 	 */
-	if (old && old != re)
-		zsend_route_notify_owner(old->type, old->instance,
-					 old->vrf_id, p,
-					 ZAPI_ROUTE_BETTER_ADMIN_WON);
+	if (old && (old != re) && (old->type != re->type))
+		zsend_route_notify_owner(old, p, ZAPI_ROUTE_BETTER_ADMIN_WON);
 
 	/*
 	 * Make sure we update the FPM any time we send new information to
@@ -2116,7 +2110,9 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 		dest->selected_fib = NULL;
 
 	/* free RE and nexthops */
-	zebra_deregister_rnh_static_nexthops(re->vrf_id, re->nexthop, rn);
+	if (re->type == ZEBRA_ROUTE_STATIC)
+		zebra_deregister_rnh_static_nexthops(re->vrf_id,
+						     re->nexthop, rn);
 	nexthops_free(re->nexthop);
 	XFREE(MTYPE_RE, re);
 }

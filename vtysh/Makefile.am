@@ -147,7 +147,7 @@ vtysh_cmd_FILES = $(vtysh_scan) \
 		  $(top_srcdir)/lib/distribute.c $(top_srcdir)/lib/if_rmap.c \
 		  $(top_srcdir)/lib/vrf.c \
 		  $(top_srcdir)/lib/vty.c $(top_srcdir)/zebra/debug.c \
-		  $(top_srcdir)/lib/ns.c \
+		  $(top_srcdir)/lib/logicalrouter.c \
 		  $(top_srcdir)/zebra/interface.c \
 		  $(top_srcdir)/zebra/irdp_interface.c \
 		  $(top_srcdir)/zebra/rtadv.c $(top_srcdir)/zebra/zebra_vty.c \
