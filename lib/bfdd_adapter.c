@@ -233,6 +233,11 @@ int bfd_control_call(struct bfdd_adapter_ctx *bac, enum bc_msg_type bmt,
 {
 	struct bfd_receive_ctx brc;
 
+	/* Always allow configuration when the daemon is not running. */
+	if (bac->bac_csock == -1) {
+		return 0;
+	}
+
 	brc.brc_reqid = bfd_control_send(bac->bac_csock, bmt, data, datalen);
 	if (brc.brc_reqid == 0) {
 		return -1;
@@ -316,6 +321,7 @@ close_and_retry:
 
 void bfd_adapter_init(struct bfdd_adapter_ctx *bac)
 {
+	bac->bac_csock = -1;
 	bac->bac_thinit = NULL;
 	bac->bac_threcv = NULL;
 	thread_add_timer_msec(bac->bac_master, bfd_adapter_reinit, bac,

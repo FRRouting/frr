@@ -198,12 +198,12 @@ int main(int argc, char *argv[])
 
 	bfdd_vty_init();
 
-	/* read configuration file and daemonize  */
-	frr_config_fork();
-
 	/* Handle BFDd control socket. */
 	bac.bac_master = master;
 	bfd_adapter_init(&bac);
+
+	/* read configuration file and daemonize  */
+	frr_config_fork();
 
 	frr_run(master);
 	/* NOTREACHED */
