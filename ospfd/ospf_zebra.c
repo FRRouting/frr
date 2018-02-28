@@ -946,6 +946,14 @@ static int ospf_zebra_read_route(int command, struct zclient *zclient,
 	if (IPV4_NET127(ntohl(p.prefix.s_addr)))
 		return 0;
 
+	if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {
+		char buf_prefix[PREFIX_STRLEN];
+		prefix2str(&api.prefix, buf_prefix, sizeof(buf_prefix));
+
+		zlog_debug("%s: from client %s: vrf_id %d, p %s", __func__,
+			   zebra_route_string(api.type), vrf_id, buf_prefix);
+	}
+
 	if (command == ZEBRA_REDISTRIBUTE_ROUTE_ADD) {
 		/* XXX|HACK|TODO|FIXME:
 		 * Maybe we should ignore reject/blackhole routes? Testing
@@ -1443,8 +1451,6 @@ void ospf_zebra_vrf_register(struct ospf *ospf)
 				   __PRETTY_FUNCTION__,
 				   ospf_vrf_id_to_name(ospf->vrf_id),
 				   ospf->vrf_id);
-		/* Deregister for router-id, interfaces,
-		 * redistributed routes. */
 		zclient_send_reg_requests(zclient, ospf->vrf_id);
 	}
 }
