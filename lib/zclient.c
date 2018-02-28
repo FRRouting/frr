@@ -428,7 +428,7 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 		}
 	}
 
-	/* Flush all redistribute request. */
+	/* Resend all redistribute request. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
 		for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
 			if (i != zclient->redist_default
