@@ -2049,6 +2049,23 @@ static int ospf_vrf_delete(struct vrf *vrf)
 	return 0;
 }
 
+static void ospf_set_redist_vrf_bitmaps(struct ospf *ospf)
+{
+	int type;
+	struct list *red_list;
+
+	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
+		red_list = ospf->redist[type];
+		if (!red_list)
+			continue;
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug(
+				"%s: setting redist vrf %d bitmap for type %d",
+				__func__, ospf->vrf_id, type);
+		vrf_bitmap_set(zclient->redist[AFI_IP][type], ospf->vrf_id);
+	}
+}
+
 /* Enable OSPF VRF instance */
 static int ospf_vrf_enable(struct vrf *vrf)
 {
@@ -2075,6 +2092,15 @@ static int ospf_vrf_enable(struct vrf *vrf)
 				zlog_err("ospf_sock_init: could not raise privs, %s",
 					 safe_strerror(errno));
 			}
+
+			/* stop zebra redist to us for old vrf */
+			zclient_send_dereg_requests(zclient, old_vrf_id);
+
+			ospf_set_redist_vrf_bitmaps(ospf);
+
+			/* start zebra redist to us for new vrf */
+			ospf_zebra_vrf_register(ospf);
+
 			ret = ospf_sock_init(ospf);
 			if (ospfd_privs.change(ZPRIVS_LOWER)) {
 				zlog_err("ospf_sock_init: could not lower privs, %s",
@@ -2085,7 +2111,6 @@ static int ospf_vrf_enable(struct vrf *vrf)
 			thread_add_read(master, ospf_read, ospf,
 					ospf->fd, &ospf->t_read);
 			ospf->oi_running = 1;
-			ospf_zebra_vrf_register(ospf);
 			ospf_router_id_update(ospf);
 		}
 	}
