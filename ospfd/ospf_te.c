@@ -170,12 +170,21 @@ void ospf_mpls_te_term(void)
 
 	ospf_delete_opaque_functab(OSPF_OPAQUE_AREA_LSA,
 				   OPAQUE_TYPE_TRAFFIC_ENGINEERING_LSA);
+
 	OspfMplsTE.enabled = false;
 
 	ospf_mpls_te_unregister();
 	OspfMplsTE.inter_as = Off;
 
 	return;
+}
+
+void ospf_mpls_te_finish(void)
+{
+	// list_delete_all_node(OspfMplsTE.iflist);
+
+	OspfMplsTE.enabled = false;
+	OspfMplsTE.inter_as = Off;
 }
 
 /*------------------------------------------------------------------------*

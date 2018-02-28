@@ -103,7 +103,7 @@ mpls_label_t bgp_adv_label(struct bgp_node *rn, struct bgp_info *ri,
 	if (!rn || !ri || !to)
 		return MPLS_INVALID_LABEL;
 
-	remote_label = ri->extra ? ri->extra->label : MPLS_INVALID_LABEL;
+	remote_label = ri->extra ? ri->extra->label[0] : MPLS_INVALID_LABEL;
 	from = ri->peer;
 	reflect =
 		((from->sort == BGP_PEER_IBGP) && (to->sort == BGP_PEER_IBGP));
@@ -325,11 +325,11 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 		if (attr) {
 			bgp_update(peer, &p, addpath_id, attr, packet->afi,
 				   SAFI_UNICAST, ZEBRA_ROUTE_BGP,
-				   BGP_ROUTE_NORMAL, NULL, &label, 0, NULL);
+				   BGP_ROUTE_NORMAL, NULL, &label, 1, 0, NULL);
 		} else {
 			bgp_withdraw(peer, &p, addpath_id, attr, packet->afi,
 				     SAFI_UNICAST, ZEBRA_ROUTE_BGP,
-				     BGP_ROUTE_NORMAL, NULL, &label, NULL);
+				     BGP_ROUTE_NORMAL, NULL, &label, 1, NULL);
 		}
 	}
 

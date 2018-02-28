@@ -114,6 +114,8 @@ struct zserv {
 	u_int32_t l3vnidel_cnt;
 	u_int32_t macipadd_cnt;
 	u_int32_t macipdel_cnt;
+	u_int32_t prefixadd_cnt;
+	u_int32_t prefixdel_cnt;
 
 	time_t connect_time;
 	time_t last_read_time;
@@ -173,8 +175,7 @@ extern int zsend_interface_vrf_update(struct zserv *, struct interface *,
 extern int zsend_interface_link_params(struct zserv *, struct interface *);
 extern int zsend_pw_update(struct zserv *, struct zebra_pw *);
 
-extern int zsend_route_notify_owner(u_char proto, u_short instance,
-				    vrf_id_t vrf_id, struct prefix *p,
+extern int zsend_route_notify_owner(struct route_entry *re, struct prefix *p,
 				    enum zapi_route_notify_owner note);
 
 extern void zserv_nexthop_num_warn(const char *, const struct prefix *,

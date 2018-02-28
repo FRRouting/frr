@@ -25,6 +25,7 @@
 /* Prototypes. */
 extern void ifreq_set_name(struct ifreq *, struct interface *);
 extern int if_ioctl(u_long, caddr_t);
+extern int vrf_if_ioctl(u_long request, caddr_t buffer, vrf_id_t vrf_id);
 
 extern int if_set_flags(struct interface *, uint64_t);
 extern int if_unset_flags(struct interface *, uint64_t);

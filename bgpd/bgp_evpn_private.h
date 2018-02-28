@@ -61,9 +61,16 @@ struct bgpevpn {
 #define VNI_FLAG_RD_CFGD           0x4  /* RD is user configured. */
 #define VNI_FLAG_IMPRT_CFGD        0x8  /* Import RT is user configured */
 #define VNI_FLAG_EXPRT_CFGD        0x10 /* Export RT is user configured */
+#define VNI_FLAG_USE_TWO_LABELS    0x20 /* Attach both L2-VNI and L3-VNI if
+					   needed for this VPN */
+
+	struct bgp *bgp_vrf; /* back pointer to the vrf instance */
 
 	/* Flag to indicate if we are advertising the g/w mac ip for this VNI*/
 	u_int8_t advertise_gw_macip;
+
+	/* Flag to indicate if we are advertising subnet for this VNI */
+	u_int8_t advertise_subnet;
 
 	/* Id for deriving the RD automatically for this VNI */
 	u_int16_t rd_id;
@@ -129,66 +136,66 @@ static inline int bgp_evpn_vrf_rd_matches_existing(struct bgp *bgp_vrf,
 
 static inline vni_t bgpevpn_get_l3vni(struct bgpevpn *vpn)
 {
-	struct bgp *bgp_vrf = NULL;
-
-	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
-	if (!bgp_vrf)
-		return 0;
-
-	return bgp_vrf->l3vni;
+	return vpn->bgp_vrf ? vpn->bgp_vrf->l3vni : 0;
 }
 
 static inline void bgpevpn_get_rmac(struct bgpevpn *vpn, struct ethaddr *rmac)
 {
-	struct bgp *bgp_vrf = NULL;
-
 	memset(rmac, 0, sizeof(struct ethaddr));
-	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
-	if (!bgp_vrf)
+	if (!vpn->bgp_vrf)
 		return;
-	memcpy(rmac, &bgp_vrf->rmac, sizeof(struct ethaddr));
+	memcpy(rmac, &vpn->bgp_vrf->rmac, sizeof(struct ethaddr));
 }
 
 static inline struct list *bgpevpn_get_vrf_export_rtl(struct bgpevpn *vpn)
 {
-	struct bgp *bgp_vrf = NULL;
-
-	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
-	if (!bgp_vrf)
+	if (!vpn->bgp_vrf)
 		return NULL;
 
-	return bgp_vrf->vrf_export_rtl;
+	return vpn->bgp_vrf->vrf_export_rtl;
 }
 
 static inline struct list *bgpevpn_get_vrf_import_rtl(struct bgpevpn *vpn)
 {
-	struct bgp *bgp_vrf = NULL;
-
-	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
-	if (!bgp_vrf)
+	if (!vpn->bgp_vrf)
 		return NULL;
 
-	return bgp_vrf->vrf_import_rtl;
+	return vpn->bgp_vrf->vrf_import_rtl;
 }
 
 static inline void bgpevpn_unlink_from_l3vni(struct bgpevpn *vpn)
 {
-	struct bgp *bgp_vrf = NULL;
-
-	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
-	if (!bgp_vrf || !bgp_vrf->l2vnis)
+	/* bail if vpn is not associated to bgp_vrf */
+	if (!vpn->bgp_vrf)
 		return;
-	listnode_delete(bgp_vrf->l2vnis, vpn);
+  
+	UNSET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
+	listnode_delete(vpn->bgp_vrf->l2vnis, vpn);
+  
+	/* remove the backpointer to the vrf instance */
+	vpn->bgp_vrf = NULL;
 }
 
 static inline void bgpevpn_link_to_l3vni(struct bgpevpn *vpn)
 {
 	struct bgp *bgp_vrf = NULL;
 
-	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
-	if (!bgp_vrf || !bgp_vrf->l2vnis)
+	/* bail if vpn is already associated to vrf */
+	if (vpn->bgp_vrf)
 		return;
+
+	bgp_vrf = bgp_lookup_by_vrf_id(vpn->tenant_vrf_id);
+	if (!bgp_vrf)
+		return;
+
+	/* associate the vpn to the bgp_vrf instance */
+	vpn->bgp_vrf = bgp_vrf;
 	listnode_add_sort(bgp_vrf->l2vnis, vpn);
+
+	/* check if we are advertising two labels for this vpn */
+	if (!CHECK_FLAG(bgp_vrf->vrf_flags,
+		       BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY))
+		SET_FLAG(vpn->flags, VNI_FLAG_USE_TWO_LABELS);
 }
 
 static inline int is_vni_configured(struct bgpevpn *vpn)
@@ -228,26 +235,6 @@ static inline int is_vni_param_configured(struct bgpevpn *vpn)
 		|| is_export_rt_configured(vpn));
 }
 
-static inline void vni2label(vni_t vni, mpls_label_t *label)
-{
-	u_char *tag = (u_char *)label;
-	tag[0] = (vni >> 16) & 0xFF;
-	tag[1] = (vni >> 8) & 0xFF;
-	tag[2] = vni & 0xFF;
-}
-
-static inline vni_t label2vni(mpls_label_t *label)
-{
-	u_char *tag = (u_char *)label;
-	vni_t vni;
-
-	vni = ((u_int32_t)*tag++ << 16);
-	vni |= (u_int32_t)*tag++ << 8;
-	vni |= (u_int32_t)(*tag & 0xFF);
-
-	return vni;
-}
-
 static inline void encode_rmac_extcomm(struct ecommunity_val *eval,
 				       struct ethaddr *rmac)
 {
@@ -255,6 +242,13 @@ static inline void encode_rmac_extcomm(struct ecommunity_val *eval,
 	eval->val[0] = ECOMMUNITY_ENCODE_EVPN;
 	eval->val[1] = ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC;
 	memcpy(&eval->val[2], rmac, ETH_ALEN);
+}
+
+static inline void encode_default_gw_extcomm(struct ecommunity_val *eval)
+{
+	memset(eval, 0, sizeof(*eval));
+	eval->val[0] = ECOMMUNITY_ENCODE_OPAQUE;
+	eval->val[1] = ECOMMUNITY_EVPN_SUBTYPE_DEF_GW;
 }
 
 static inline void encode_mac_mobility_extcomm(int static_mac, u_int32_t seq,

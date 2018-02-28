@@ -94,6 +94,7 @@ static void handle_route_entry(mib2_ipRouteEntry_t *routeEntry)
 	prefix.prefixlen = ip_masklen(tmpaddr);
 
 	memset(&nh, 0, sizeof(nh));
+	nh.vrf_id = VRF_DEFAULT;
 	nh.type = NEXTHOP_TYPE_IPV4;
 	nh.gate.ipv4.s_addr = routeEntry->ipRouteNextHop;
 

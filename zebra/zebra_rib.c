@@ -86,6 +86,7 @@ static const struct {
 		[ZEBRA_ROUTE_BGP_DIRECT] = {ZEBRA_ROUTE_BGP_DIRECT, 20},
 		[ZEBRA_ROUTE_BGP_DIRECT_EXT] = {ZEBRA_ROUTE_BGP_DIRECT_EXT, 20},
 		[ZEBRA_ROUTE_BABEL] = {ZEBRA_ROUTE_BABEL, 100},
+		[ZEBRA_ROUTE_SHARP] = {ZEBRA_ROUTE_SHARP, 150},
 
 	/* no entry/default: 150 */
 };
@@ -212,13 +213,15 @@ void route_entry_nexthop_delete(struct route_entry *re, struct nexthop *nexthop)
 
 
 struct nexthop *route_entry_nexthop_ifindex_add(struct route_entry *re,
-						ifindex_t ifindex)
+						ifindex_t ifindex,
+						vrf_id_t nh_vrf_id)
 {
 	struct nexthop *nexthop;
 
 	nexthop = nexthop_new();
 	nexthop->type = NEXTHOP_TYPE_IFINDEX;
 	nexthop->ifindex = ifindex;
+	nexthop->vrf_id = nh_vrf_id;
 
 	route_entry_nexthop_add(re, nexthop);
 
@@ -227,12 +230,14 @@ struct nexthop *route_entry_nexthop_ifindex_add(struct route_entry *re,
 
 struct nexthop *route_entry_nexthop_ipv4_add(struct route_entry *re,
 					     struct in_addr *ipv4,
-					     struct in_addr *src)
+					     struct in_addr *src,
+					     vrf_id_t nh_vrf_id)
 {
 	struct nexthop *nexthop;
 
 	nexthop = nexthop_new();
 	nexthop->type = NEXTHOP_TYPE_IPV4;
+	nexthop->vrf_id = nh_vrf_id;
 	nexthop->gate.ipv4 = *ipv4;
 	if (src)
 		nexthop->src.ipv4 = *src;
@@ -245,18 +250,20 @@ struct nexthop *route_entry_nexthop_ipv4_add(struct route_entry *re,
 struct nexthop *route_entry_nexthop_ipv4_ifindex_add(struct route_entry *re,
 						     struct in_addr *ipv4,
 						     struct in_addr *src,
-						     ifindex_t ifindex)
+						     ifindex_t ifindex,
+						     vrf_id_t nh_vrf_id)
 {
 	struct nexthop *nexthop;
 	struct interface *ifp;
 
 	nexthop = nexthop_new();
+	nexthop->vrf_id = nh_vrf_id;
 	nexthop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
 	nexthop->gate.ipv4 = *ipv4;
 	if (src)
 		nexthop->src.ipv4 = *src;
 	nexthop->ifindex = ifindex;
-	ifp = if_lookup_by_index(nexthop->ifindex, re->vrf_id);
+	ifp = if_lookup_by_index(nexthop->ifindex, nh_vrf_id);
 	/*Pending: need to think if null ifp here is ok during bootup?
 	  There was a crash because ifp here was coming to be NULL */
 	if (ifp)
@@ -271,11 +278,13 @@ struct nexthop *route_entry_nexthop_ipv4_ifindex_add(struct route_entry *re,
 }
 
 struct nexthop *route_entry_nexthop_ipv6_add(struct route_entry *re,
-					     struct in6_addr *ipv6)
+					     struct in6_addr *ipv6,
+					     vrf_id_t nh_vrf_id)
 {
 	struct nexthop *nexthop;
 
 	nexthop = nexthop_new();
+	nexthop->vrf_id = nh_vrf_id;
 	nexthop->type = NEXTHOP_TYPE_IPV6;
 	nexthop->gate.ipv6 = *ipv6;
 
@@ -286,11 +295,13 @@ struct nexthop *route_entry_nexthop_ipv6_add(struct route_entry *re,
 
 struct nexthop *route_entry_nexthop_ipv6_ifindex_add(struct route_entry *re,
 						     struct in6_addr *ipv6,
-						     ifindex_t ifindex)
+						     ifindex_t ifindex,
+						     vrf_id_t nh_vrf_id)
 {
 	struct nexthop *nexthop;
 
 	nexthop = nexthop_new();
+	nexthop->vrf_id = nh_vrf_id;
 	nexthop->type = NEXTHOP_TYPE_IPV6_IFINDEX;
 	nexthop->gate.ipv6 = *ipv6;
 	nexthop->ifindex = ifindex;
@@ -306,6 +317,7 @@ struct nexthop *route_entry_nexthop_blackhole_add(struct route_entry *re,
 	struct nexthop *nexthop;
 
 	nexthop = nexthop_new();
+	nexthop->vrf_id = VRF_DEFAULT;
 	nexthop->type = NEXTHOP_TYPE_BLACKHOLE;
 	nexthop->bh_type = bh_type;
 
@@ -322,6 +334,7 @@ static void nexthop_set_resolved(afi_t afi, struct nexthop *newhop,
 	resolved_hop = nexthop_new();
 	SET_FLAG(resolved_hop->flags, NEXTHOP_FLAG_ACTIVE);
 
+	resolved_hop->vrf_id = nexthop->vrf_id;
 	switch (newhop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
@@ -403,8 +416,6 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 
 	if (set) {
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE);
-		zebra_deregister_rnh_static_nexthops(re->vrf_id,
-						     nexthop->resolved, top);
 		nexthops_free(nexthop->resolved);
 		nexthop->resolved = NULL;
 		re->nexthop_mtu = 0;
@@ -422,7 +433,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 	 * address in the routing table.
 	 */
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK)) {
-		ifp = if_lookup_by_index(nexthop->ifindex, re->vrf_id);
+		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
 		if (ifp && connected_is_unnumbered(ifp)) {
 			if (if_is_operative(ifp))
 				return 1;
@@ -450,7 +461,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		break;
 	}
 	/* Lookup table.  */
-	table = zebra_vrf_table(afi, SAFI_UNICAST, re->vrf_id);
+	table = zebra_vrf_table(afi, SAFI_UNICAST, nexthop->vrf_id);
 	if (!table)
 		return 0;
 
@@ -472,7 +483,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 		/* However, do not resolve over default route unless explicitly
 		 * allowed. */
 		if (is_default_prefix(&rn->p)
-		    && !nh_resolve_via_default(p.family))
+		    && !rnh_resolve_via_default(p.family))
 			return 0;
 
 		dest = rib_dest_from_rnode(rn);
@@ -503,7 +514,7 @@ static int nexthop_active(afi_t afi, struct route_entry *re,
 					nexthop->ifindex = newhop->ifindex;
 			}
 			return 1;
-		} else if (CHECK_FLAG(re->flags, ZEBRA_FLAG_INTERNAL)) {
+		} else if (CHECK_FLAG(re->flags, ZEBRA_FLAG_ALLOW_RECURSION)) {
 			resolved = 0;
 			for (ALL_NEXTHOPS(match->nexthop, newhop)) {
 				if (!CHECK_FLAG(newhop->flags,
@@ -838,7 +849,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 		family = 0;
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IFINDEX:
-		ifp = if_lookup_by_index(nexthop->ifindex, re->vrf_id);
+		ifp = if_lookup_by_index(nexthop->ifindex, nexthop->vrf_id);
 		if (ifp && if_is_operative(ifp))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
@@ -866,7 +877,8 @@ static unsigned nexthop_active_check(struct route_node *rn,
 		if (rn->p.family != AF_INET)
 			family = AFI_IP6;
 		if (IN6_IS_ADDR_LINKLOCAL(&nexthop->gate.ipv6)) {
-			ifp = if_lookup_by_index(nexthop->ifindex, re->vrf_id);
+			ifp = if_lookup_by_index(nexthop->ifindex,
+						 nexthop->vrf_id);
 			if (ifp && if_is_operative(ifp))
 				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 			else
@@ -909,15 +921,16 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	memset(&nexthop->rmap_src.ipv6, 0, sizeof(union g_addr));
 
 	/* It'll get set if required inside */
-	ret = zebra_route_map_check(family, re->type, p, nexthop, re->vrf_id,
-				    re->tag);
+	ret = zebra_route_map_check(family, re->type, p, nexthop,
+				    nexthop->vrf_id, re->tag);
 	if (ret == RMAP_DENYMATCH) {
 		if (IS_ZEBRA_DEBUG_RIB) {
 			srcdest_rnode2str(rn, buf, sizeof(buf));
 			zlog_debug(
 				"%u:%s: Filtering out with NH out %s due to route map",
 				re->vrf_id, buf,
-				ifindex2ifname(nexthop->ifindex, re->vrf_id));
+				ifindex2ifname(nexthop->ifindex,
+					       nexthop->vrf_id));
 		}
 		UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 	}
@@ -996,14 +1009,19 @@ int zebra_rib_labeled_unicast(struct route_entry *re)
 	return 1;
 }
 
-void kernel_route_rib_pass_fail(struct prefix *p, struct route_entry *re,
+void kernel_route_rib_pass_fail(struct route_node *rn, struct prefix *p,
+				struct route_entry *re,
 				enum southbound_results res)
 {
 	struct nexthop *nexthop;
 	char buf[PREFIX_STRLEN];
+	rib_dest_t *dest;
+
+	dest = rib_dest_from_rnode(rn);
 
 	switch (res) {
 	case SOUTHBOUND_INSTALL_SUCCESS:
+		dest->selected_fib = re;
 		for (ALL_NEXTHOPS(re->nexthop, nexthop)) {
 			if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE))
 				continue;
@@ -1013,20 +1031,39 @@ void kernel_route_rib_pass_fail(struct prefix *p, struct route_entry *re,
 			else
 				UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		}
-		zsend_route_notify_owner(re->type, re->instance, re->vrf_id,
-					 p, ZAPI_ROUTE_INSTALLED);
+		zsend_route_notify_owner(re, p, ZAPI_ROUTE_INSTALLED);
 		break;
 	case SOUTHBOUND_INSTALL_FAILURE:
-		zsend_route_notify_owner(re->type, re->instance, re->vrf_id,
-					 p, ZAPI_ROUTE_FAIL_INSTALL);
+		/*
+		 * I am not sure this is the right thing to do here
+		 * but the code always set selected_fib before
+		 * this assignment was moved here.
+		 */
+		dest->selected_fib = re;
+
+		zsend_route_notify_owner(re, p, ZAPI_ROUTE_FAIL_INSTALL);
 		zlog_warn("%u:%s: Route install failed", re->vrf_id,
 			  prefix2str(p, buf, sizeof(buf)));
 		break;
 	case SOUTHBOUND_DELETE_SUCCESS:
+		/*
+		 * The case where selected_fib is not re is
+		 * when we have received a system route
+		 * that is overriding our installed route
+		 * as such we should leave the selected_fib
+		 * pointer alone
+		 */
+		if (dest->selected_fib == re)
+			dest->selected_fib = NULL;
 		for (ALL_NEXTHOPS(re->nexthop, nexthop))
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 		break;
 	case SOUTHBOUND_DELETE_FAILURE:
+		/*
+		 * Should we set this to NULL if the
+		 * delete fails?
+		 */
+		dest->selected_fib = NULL;
 		zlog_warn("%u:%s: Route Deletion failure", re->vrf_id,
 			  prefix2str(p, buf, sizeof(buf)));
 		break;
@@ -1071,17 +1108,15 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	 * If this is a replace to a new RE let the originator of the RE
 	 * know that they've lost
 	 */
-	if (old && old != re)
-		zsend_route_notify_owner(old->type, old->instance,
-					 old->vrf_id, p,
-					 ZAPI_ROUTE_BETTER_ADMIN_WON);
+	if (old && (old != re) && (old->type != re->type))
+		zsend_route_notify_owner(old, p, ZAPI_ROUTE_BETTER_ADMIN_WON);
 
 	/*
 	 * Make sure we update the FPM any time we send new information to
 	 * the kernel.
 	 */
 	hook_call(rib_update, rn, "installing in kernel");
-	kernel_route_rib(p, src_p, old, re);
+	kernel_route_rib(rn, p, src_p, old, re);
 	zvrf->installs++;
 
 	return;
@@ -1108,8 +1143,9 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 	 * the kernel.
 	 */
 	hook_call(rib_update, rn, "uninstalling from kernel");
-	kernel_route_rib(p, src_p, re, NULL);
-	zvrf->removals++;
+	kernel_route_rib(rn, p, src_p, re, NULL);
+	if (zvrf)
+		zvrf->removals++;
 
 	return;
 }
@@ -1130,8 +1166,6 @@ static void rib_uninstall(struct route_node *rn, struct route_entry *re)
 		/* If labeled-unicast route, uninstall transit LSP. */
 		if (zebra_rib_labeled_unicast(re))
 			zebra_mpls_lsp_uninstall(info->zvrf, rn, re);
-
-		dest->selected_fib = NULL;
 	}
 
 	if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)) {
@@ -1216,7 +1250,6 @@ static void rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 		return;
 	}
 
-	dest->selected_fib = new;
 	if (IS_ZEBRA_DEBUG_RIB) {
 		char buf[SRCDEST2STR_BUFFER];
 		srcdest_rnode2str(rn, buf, sizeof(buf));
@@ -1230,6 +1263,8 @@ static void rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 
 	if (!RIB_SYSTEM_ROUTE(new))
 		rib_install_kernel(rn, new, NULL);
+	else
+		dest->selected_fib = new;
 
 	UNSET_FLAG(new->status, ROUTE_ENTRY_CHANGED);
 }
@@ -1254,8 +1289,17 @@ static void rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 
 	if (!RIB_SYSTEM_ROUTE(old))
 		rib_uninstall_kernel(rn, old);
-
-	dest->selected_fib = NULL;
+	else {
+		/*
+		 * We are setting this to NULL here
+		 * because that is what we traditionally
+		 * have been doing.  I am not positive
+		 * that this is the right thing to do
+		 * but let's leave the code alone
+		 * for the RIB_SYSTEM_ROUTE case
+		 */
+		dest->selected_fib = NULL;
+	}
 
 	/* Update nexthop for route, reset changed flag. */
 	nexthop_active_update(rn, old, 1);
@@ -1269,7 +1313,6 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 {
 	struct nexthop *nexthop = NULL;
 	int nh_active = 0;
-	int installed = 1;
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 
 	/*
@@ -1319,11 +1362,23 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 					zebra_mpls_lsp_install(zvrf, rn, new);
 
 				rib_install_kernel(rn, new, old);
+			} else {
+				/*
+				 * We do not need to install the
+				 * selected route because it
+				 * is already isntalled by
+				 * the system( ie not us )
+				 * so just mark it as winning
+				 * we do need to ensure that
+				 * if we uninstall a route
+				 * from ourselves we don't
+				 * over write this pointer
+				 */
+				dest->selected_fib = NULL;
 			}
-
 			/* If install succeeded or system route, cleanup flags
 			 * for prior route. */
-			if (installed && new != old) {
+			if (new != old) {
 				if (RIB_SYSTEM_ROUTE(new)) {
 					if (!RIB_SYSTEM_ROUTE(old))
 						rib_uninstall_kernel(rn, old);
@@ -1334,10 +1389,6 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 							   NEXTHOP_FLAG_FIB);
 				}
 			}
-
-			/* Update for redistribution. */
-			if (installed)
-				dest->selected_fib = new;
 		}
 
 		/*
@@ -1345,7 +1396,7 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 		 * failed, we
 		 * may need to uninstall and delete for redistribution.
 		 */
-		if (!nh_active || !installed) {
+		if (!nh_active) {
 			if (IS_ZEBRA_DEBUG_RIB) {
 				char buf[SRCDEST2STR_BUFFER];
 				srcdest_rnode2str(rn, buf, sizeof(buf));
@@ -1372,7 +1423,8 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 
 			if (!RIB_SYSTEM_ROUTE(old))
 				rib_uninstall_kernel(rn, old);
-			dest->selected_fib = NULL;
+			else
+				dest->selected_fib = NULL;
 		}
 	} else {
 		/*
@@ -1385,12 +1437,12 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 		 * to add routes.
 		 */
 		if (!RIB_SYSTEM_ROUTE(new)) {
-			int in_fib = 0;
+			bool in_fib = false;
 
 			for (ALL_NEXTHOPS(new->nexthop, nexthop))
 				if (CHECK_FLAG(nexthop->flags,
 					       NEXTHOP_FLAG_FIB)) {
-					in_fib = 1;
+					in_fib = true;
 					break;
 				}
 			if (!in_fib)
@@ -2054,8 +2106,13 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 		dest->routes = re->next;
 	}
 
+	if (dest->selected_fib == re)
+		dest->selected_fib = NULL;
+
 	/* free RE and nexthops */
-	zebra_deregister_rnh_static_nexthops(re->vrf_id, re->nexthop, rn);
+	if (re->type == ZEBRA_ROUTE_STATIC)
+		zebra_deregister_rnh_static_nexthops(re->vrf_id,
+						     re->nexthop, rn);
 	nexthops_free(re->nexthop);
 	XFREE(MTYPE_RE, re);
 }
@@ -2437,6 +2494,11 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 					UNSET_FLAG(rtnh->flags,
 						   NEXTHOP_FLAG_FIB);
 
+				/*
+				 * This is a non FRR route
+				 * as such we should mark
+				 * it as deleted
+				 */
 				dest->selected_fib = NULL;
 			} else {
 				/* This means someone else, other than Zebra,

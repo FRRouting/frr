@@ -315,6 +315,7 @@ void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
 			if (i >= entries)
 				return;
 
+			nexthops[i].vrf_id = VRF_DEFAULT;
 			nexthops[i].ifindex = nh->ifindex;
 			if (!IN6_IS_ADDR_UNSPECIFIED(&nh->address)) {
 				nexthops[i].gate.ipv6 = nh->address;

@@ -27,8 +27,9 @@
 #include "memory.h"
 #include "queue.h"
 #include "filter.h"
+#include "frr_pthread.h"
 
-#include "bgpd/bgpd.h"
+#include "bgpd/bgpd.c"
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_packet.h"
@@ -62,8 +63,8 @@ static struct test_segment {
 
 	/* AFI/SAFI validation */
 	int validate_afi;
-	afi_t afi;
-	safi_t safi;
+	iana_afi_t afi;
+	iana_safi_t safi;
 #define VALID_AFI 1
 #define INVALID_AFI 0
 	int afi_valid;
@@ -112,8 +113,8 @@ static struct test_segment mp_segments[] = {
 		SHOULD_PARSE,
 		0,
 		1,
-		AFI_IP,
-		SAFI_UNICAST,
+		IANA_AFI_IPV4,
+		IANA_SAFI_UNICAST,
 		VALID_AFI,
 	},
 	{
@@ -124,8 +125,8 @@ static struct test_segment mp_segments[] = {
 		SHOULD_PARSE,
 		0,
 		1,
-		AFI_IP6,
-		SAFI_UNICAST,
+		IANA_AFI_IPV6,
+		IANA_SAFI_UNICAST,
 		VALID_AFI,
 	},
 	/* 5 */
@@ -137,8 +138,8 @@ static struct test_segment mp_segments[] = {
 		SHOULD_PARSE,
 		0,
 		1,
-		AFI_IP,
-		SAFI_MULTICAST,
+		IANA_AFI_IPV4,
+		IANA_SAFI_MULTICAST,
 		VALID_AFI,
 	},
 	/* 6 */
@@ -150,7 +151,7 @@ static struct test_segment mp_segments[] = {
 		SHOULD_PARSE,
 		0,
 		1,
-		AFI_IP6,
+		IANA_AFI_IPV6,
 		IANA_SAFI_MPLS_VPN,
 		VALID_AFI,
 	},
@@ -163,7 +164,7 @@ static struct test_segment mp_segments[] = {
 		SHOULD_PARSE,
 		0,
 		1,
-		AFI_IP6,
+		IANA_AFI_IPV6,
 		IANA_SAFI_MPLS_VPN,
 		VALID_AFI,
 	},
@@ -176,7 +177,7 @@ static struct test_segment mp_segments[] = {
 		SHOULD_PARSE,
 		0,
 		1,
-		AFI_IP,
+		IANA_AFI_IPV4,
 		IANA_SAFI_MPLS_VPN,
 		VALID_AFI,
 	},
@@ -210,8 +211,8 @@ static struct test_segment mp_segments[] = {
 		SHOULD_ERR,
 		0,
 		1,
-		AFI_IP,
-		SAFI_UNICAST,
+		IANA_AFI_IPV4,
+		IANA_SAFI_UNICAST,
 		VALID_AFI,
 	},
 	{NULL, NULL, {0}, 0, 0}};
@@ -843,8 +844,7 @@ static void parse_test(struct peer *peer, struct test_segment *t, int type)
 		safi_t safi;
 
 		/* Convert AFI, SAFI to internal values, check. */
-		if (bgp_map_afi_safi_iana2int(afi_int2iana(t->afi), t->safi,
-					      &afi, &safi)) {
+		if (bgp_map_afi_safi_iana2int(t->afi, t->safi, &afi, &safi)) {
 			if (t->afi_valid == VALID_AFI)
 				failed++;
 		}
@@ -914,6 +914,9 @@ int main(void)
 	bgp_master_init(master);
 	vrf_init(NULL, NULL, NULL, NULL);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
+
+	bgp_pthreads_init();
+	frr_pthread_get(PTHREAD_KEEPALIVES)->running = true;
 
 	if (fileno(stdout) >= 0)
 		tty = isatty(fileno(stdout));

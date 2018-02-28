@@ -406,6 +406,7 @@ struct mpls_te_link {
 /* Prototypes. */
 extern int ospf_mpls_te_init(void);
 extern void ospf_mpls_te_term(void);
+extern void ospf_mpls_te_finish(void);
 extern struct ospf_mpls_te *get_ospf_mpls_te(void);
 extern void ospf_mpls_te_update_if(struct interface *);
 extern void ospf_mpls_te_lsa_schedule(struct mpls_te_link *, enum lsa_opcode);

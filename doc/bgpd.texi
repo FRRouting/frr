@@ -823,22 +823,15 @@ Network Layer protocols. BGP supports multiple Address Family
 Identifier (AFI), namely IPv4 and IPv6. Support is also provided for
 multiple sets of per-AFI information via Subsequent Address Family
 Identifiers (SAFI).  In addition to unicast information, VPN information
-@cite{RFC4364} and @cite{RFC4659}, and Encapsulation information
+@cite{RFC4364} and @cite{RFC4659}, and Encapsulation attribute
 @cite{RFC5512} is supported.
 
-@deffn {Command} {show ip bgp vpnv4 all} {}
-@deffnx {Command} {show ipv6 bgp vpn all} {}
+@deffn {Command} {show ip bgp ipv4 vpn} {}
+@deffnx {Command} {show ipv6 bgp ipv6 vpn} {}
 Print active IPV4 or IPV6 routes advertised via the VPN SAFI.
 @end deffn
 
-@deffn {Command} {show ip bgp encap all} {}
-@deffnx {Command} {show ipv6 bgp encap all} {}
-Print active IPV4 or IPV6 routes advertised via the Encapsulation SAFI.
-@end deffn
-
-@deffn {Command} {show bgp ipv4 encap summary} {}
-@deffnx {Command} {show bgp ipv4 vpn summary} {}
-@deffnx {Command} {show bgp ipv6 encap summary} {}
+@deffn {Command} {show bgp ipv4 vpn summary} {}
 @deffnx {Command} {show bgp ipv6 vpn summary} {}
 Print a summary of neighbor connections for the specified AFI/SAFI combination.
 @end deffn

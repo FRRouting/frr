@@ -63,6 +63,7 @@
 #define DEBUG_MSDP_EVENTS_STR                       "MSDP protocol events\n"
 #define DEBUG_MSDP_INTERNAL_STR                     "MSDP protocol internal\n"
 #define DEBUG_MSDP_PACKETS_STR                      "MSDP protocol packets\n"
+#define DEBUG_MTRACE_STR                            "Mtrace protocol activity\n"
 
 void pim_cmd_init(void);
 

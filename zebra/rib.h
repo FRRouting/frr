@@ -230,22 +230,27 @@ typedef enum {
 } rib_update_event_t;
 
 extern struct nexthop *route_entry_nexthop_ifindex_add(struct route_entry *,
-						       ifindex_t);
+						       ifindex_t,
+						       vrf_id_t nh_vrf_id);
 extern struct nexthop *route_entry_nexthop_blackhole_add(struct route_entry *,
 							 enum blackhole_type);
 extern struct nexthop *route_entry_nexthop_ipv4_add(struct route_entry *,
 						    struct in_addr *,
-						    struct in_addr *);
+						    struct in_addr *,
+						    vrf_id_t nh_vrf_id);
 extern struct nexthop *
 route_entry_nexthop_ipv4_ifindex_add(struct route_entry *, struct in_addr *,
-				     struct in_addr *, ifindex_t);
+				     struct in_addr *, ifindex_t,
+				     vrf_id_t nh_vrf_id);
 extern void route_entry_nexthop_delete(struct route_entry *re,
 				       struct nexthop *nexthop);
 extern struct nexthop *route_entry_nexthop_ipv6_add(struct route_entry *,
-						    struct in6_addr *);
+						    struct in6_addr *,
+						    vrf_id_t nh_vrf_id);
 extern struct nexthop *
 route_entry_nexthop_ipv6_ifindex_add(struct route_entry *re,
-				     struct in6_addr *ipv6, ifindex_t ifindex);
+				     struct in6_addr *ipv6, ifindex_t ifindex,
+				     vrf_id_t nh_vrf_id);
 extern void route_entry_nexthop_add(struct route_entry *re,
 				    struct nexthop *nexthop);
 extern void route_entry_copy_nexthops(struct route_entry *re,
@@ -439,6 +444,8 @@ DECLARE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 
 
 extern void zebra_vty_init(void);
+extern int static_config(struct vty *vty, struct zebra_vrf *zvrf,
+			 afi_t afi, safi_t safi, const char *cmd);
 extern pid_t pid;
 
 #endif /*_ZEBRA_RIB_H */

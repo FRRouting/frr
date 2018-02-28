@@ -286,7 +286,7 @@ static void put_lsp_hdr(struct isis_lsp *lsp, size_t *len_pointer, bool keep)
 		(lsp->level == IS_LEVEL_1) ? L1_LINK_STATE : L2_LINK_STATE;
 	struct isis_lsp_hdr *hdr = &lsp->hdr;
 	struct stream *stream = lsp->pdu;
-	size_t orig_getp, orig_endp;
+	size_t orig_getp = 0, orig_endp = 0;
 
 	if (keep) {
 		orig_getp = stream_get_getp(lsp->pdu);

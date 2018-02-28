@@ -432,7 +432,7 @@ void rfapi_vty_out_vncinfo(struct vty *vty, struct prefix *p,
 	}
 
 	if (bi->extra != NULL)
-		vty_out(vty, " label=%u", decode_label(&bi->extra->label));
+		vty_out(vty, " label=%u", decode_label(&bi->extra->label[0]));
 
 	if (!rfapiGetVncLifetime(bi->attr, &lifetime)) {
 		vty_out(vty, " life=%d", lifetime);
@@ -494,7 +494,7 @@ void rfapiPrintBi(void *stream, struct bgp_info *bi)
 	char *p = line;
 	int r;
 	int has_macaddr = 0;
-	struct ethaddr macaddr;
+	struct ethaddr macaddr = {{0}};
 	struct rfapi_l2address_option l2o_buf;
 	uint8_t l2hid = 0; /* valid if has_macaddr */
 
@@ -1068,7 +1068,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 			 inet_ntop(pfx_vn.family, &pfx_vn.u.prefix, buf_ntop,
 				   BUFSIZ));
 		if (bi->extra) {
-			u_int32_t l = decode_label(&bi->extra->label);
+			u_int32_t l = decode_label(&bi->extra->label[0]);
 			snprintf(buf_vn, BUFSIZ, "Label: %d", l);
 		} else /* should never happen */
 		{
@@ -1181,7 +1181,7 @@ static int rfapiPrintRemoteRegBi(struct bgp *bgp, void *stream,
 		}
 	}
 	if (tun_type != BGP_ENCAP_TYPE_MPLS && bi->extra) {
-		u_int32_t l = decode_label(&bi->extra->label);
+		u_int32_t l = decode_label(&bi->extra->label[0]);
 		if (!MPLS_LABEL_IS_NULL(l)) {
 			fp(out, "  Label: %d", l);
 			if (nlines == 1)

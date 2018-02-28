@@ -262,13 +262,14 @@ struct bgp {
 			       /* $FRR indent$ */
 			       /* clang-format off */
 #define BGP_MAXMED_ADMIN_UNCONFIGURED  0 /* Off by default */
-	u_int32_t
-		maxmed_admin_value; /* Max-med value when administrative in on
+	u_int32_t maxmed_admin_value; /* Max-med value when administrative in on
 				       */
+				      /* $FRR indent$ */
+				      /* clang-format off */
 #define BGP_MAXMED_VALUE_DEFAULT  4294967294 /* Maximum by default */
 
-	u_char maxmed_active;   /* 1/0 if max-med is active or not */
-	u_int32_t maxmed_value; /* Max-med value when its active */
+	u_char maxmed_active;	 /* 1/0 if max-med is active or not */
+	u_int32_t maxmed_value;       /* Max-med value when its active */
 
 	/* BGP update delay on startup */
 	struct thread *t_update_delay;
@@ -435,6 +436,7 @@ struct bgp {
 #define BGP_VRF_IMPORT_RT_CFGD              (1 << 3)
 #define BGP_VRF_EXPORT_RT_CFGD              (1 << 4)
 #define BGP_VRF_RD_CFGD                     (1 << 5)
+#define BGP_VRF_L3VNI_PREFIX_ROUTES_ONLY    (1 << 6)
 
 	/* unique ID for auto derivation of RD for this vrf */
 	uint16_t vrf_rd_id;
@@ -450,6 +452,9 @@ struct bgp {
 
 	/* list of corresponding l2vnis (struct bgpevpn) */
 	struct list *l2vnis;
+
+	/* route map for advertise ipv4/ipv6 unicast (type-5 routes) */
+	struct bgp_rmap adv_cmd_rmap[AFI_MAX][SAFI_MAX];
 
 	QOBJ_FIELDS
 };
@@ -682,7 +687,6 @@ struct peer {
 	time_t readtime;     /* Last read time */
 	time_t resettime;    /* Last reset time */
 
-	ifindex_t ifindex;     /* ifindex of the BGP connection. */
 	char *conf_if;	 /* neighbor interface config name. */
 	struct interface *ifp; /* corresponding interface */
 	char *ifname;	  /* bind interface name. */
@@ -828,8 +832,8 @@ struct peer {
 #define PEER_CONFIG_ROUTEADV          (1 << 2) /* route advertise */
 #define PEER_GROUP_CONFIG_TIMER       (1 << 3) /* timers from peer-group */
 
-#define PEER_OR_GROUP_TIMER_SET(peer)                                        \
-	(CHECK_FLAG(peer->config, PEER_CONFIG_TIMER)			     \
+#define PEER_OR_GROUP_TIMER_SET(peer)                                          \
+	(CHECK_FLAG(peer->config, PEER_CONFIG_TIMER)                           \
 	 || CHECK_FLAG(peer->config, PEER_GROUP_CONFIG_TIMER))
 
 	_Atomic uint32_t holdtime;
@@ -869,21 +873,29 @@ struct peer {
 	/* workqueues */
 	struct work_queue *clear_node_queue;
 
-#define PEER_TOTAL_RX(peer) \
-	atomic_load_explicit(&peer->open_in, memory_order_relaxed) +		\
-	atomic_load_explicit(&peer->update_in, memory_order_relaxed) +		\
-	atomic_load_explicit(&peer->notify_in, memory_order_relaxed) +		\
-	atomic_load_explicit(&peer->refresh_in, memory_order_relaxed) +		\
-	atomic_load_explicit(&peer->keepalive_in, memory_order_relaxed) +	\
-	atomic_load_explicit(&peer->dynamic_cap_in, memory_order_relaxed)
+#define PEER_TOTAL_RX(peer)                                                    \
+	atomic_load_explicit(&peer->open_in, memory_order_relaxed)             \
+		+ atomic_load_explicit(&peer->update_in, memory_order_relaxed) \
+		+ atomic_load_explicit(&peer->notify_in, memory_order_relaxed) \
+		+ atomic_load_explicit(&peer->refresh_in,                      \
+				       memory_order_relaxed)                   \
+		+ atomic_load_explicit(&peer->keepalive_in,                    \
+				       memory_order_relaxed)                   \
+		+ atomic_load_explicit(&peer->dynamic_cap_in,                  \
+				       memory_order_relaxed)
 
-#define PEER_TOTAL_TX(peer) \
-	atomic_load_explicit(&peer->open_out, memory_order_relaxed) +		\
-	atomic_load_explicit(&peer->update_out, memory_order_relaxed) +		\
-	atomic_load_explicit(&peer->notify_out, memory_order_relaxed) +		\
-	atomic_load_explicit(&peer->refresh_out, memory_order_relaxed) +	\
-	atomic_load_explicit(&peer->keepalive_out, memory_order_relaxed) +	\
-	atomic_load_explicit(&peer->dynamic_cap_out, memory_order_relaxed)
+#define PEER_TOTAL_TX(peer)                                                    \
+	atomic_load_explicit(&peer->open_out, memory_order_relaxed)            \
+		+ atomic_load_explicit(&peer->update_out,                      \
+				       memory_order_relaxed)                   \
+		+ atomic_load_explicit(&peer->notify_out,                      \
+				       memory_order_relaxed)                   \
+		+ atomic_load_explicit(&peer->refresh_out,                     \
+				       memory_order_relaxed)                   \
+		+ atomic_load_explicit(&peer->keepalive_out,                   \
+				       memory_order_relaxed)                   \
+		+ atomic_load_explicit(&peer->dynamic_cap_out,                 \
+				       memory_order_relaxed)
 
 	/* Statistics field */
 	_Atomic uint32_t open_in;         /* Open message input count */
@@ -898,7 +910,7 @@ struct peer {
 	_Atomic uint32_t refresh_in;      /* Route Refresh input count */
 	_Atomic uint32_t refresh_out;     /* Route Refresh output count */
 	_Atomic uint32_t dynamic_cap_in;  /* Dynamic Capability input count.  */
-	_Atomic uint32_t dynamic_cap_out; /* Dynamic Capability output count.  */
+	_Atomic uint32_t dynamic_cap_out; /* Dynamic Capability output count. */
 
 	/* BGP state count */
 	u_int32_t established; /* Established */
@@ -1342,6 +1354,9 @@ extern void bgp_instance_up(struct bgp *);
 extern void bgp_instance_down(struct bgp *);
 extern int bgp_delete(struct bgp *);
 
+extern int bgp_handle_socket(struct bgp *bgp, struct vrf *vrf,
+			     vrf_id_t old_vrf_id, bool create);
+
 extern int bgp_flag_set(struct bgp *, int);
 extern int bgp_flag_unset(struct bgp *, int);
 extern int bgp_flag_check(struct bgp *, int);
@@ -1480,7 +1495,8 @@ extern int peer_cmp(struct peer *p1, struct peer *p2);
 extern int bgp_map_afi_safi_iana2int(iana_afi_t pkt_afi, iana_safi_t pkt_safi,
 				     afi_t *afi, safi_t *safi);
 extern int bgp_map_afi_safi_int2iana(afi_t afi, safi_t safi,
-				     iana_afi_t *pkt_afi, iana_safi_t *pkt_safi);
+				     iana_afi_t *pkt_afi,
+				     iana_safi_t *pkt_safi);
 
 extern struct peer_af *peer_af_create(struct peer *, afi_t, safi_t);
 extern struct peer_af *peer_af_find(struct peer *, afi_t, safi_t);

@@ -50,6 +50,10 @@
 #include "ospfd/ospf_route.h"
 #include "ospfd/ospf_ase.h"
 #include "ospfd/ospf_zebra.h"
+#include "ospfd/ospf_te.h"
+#include "ospfd/ospf_sr.h"
+#include "ospfd/ospf_ri.h"
+#include "ospfd/ospf_ext.h"
 
 DEFINE_MTYPE_STATIC(OSPFD, OSPF_OPAQUE_FUNCTAB, "OSPF opaque function table")
 DEFINE_MTYPE_STATIC(OSPFD, OPAQUE_INFO_PER_TYPE, "OSPF opaque per-type info")
@@ -58,9 +62,6 @@ DEFINE_MTYPE_STATIC(OSPFD, OPAQUE_INFO_PER_ID, "OSPF opaque per-ID info")
 /*------------------------------------------------------------------------*
  * Followings are initialize/terminate functions for Opaque-LSAs handling.
  *------------------------------------------------------------------------*/
-
-#include "ospfd/ospf_te.h"
-#include "ospfd/ospf_ri.h"
 
 #ifdef SUPPORT_OSPF_API
 int ospf_apiserver_init(void);
@@ -74,6 +75,7 @@ static void ospf_opaque_funclist_init(void);
 static void ospf_opaque_funclist_term(void);
 static void free_opaque_info_per_type(void *val);
 static void free_opaque_info_per_id(void *val);
+static void free_opaque_info_owner(void *val);
 static int ospf_opaque_lsa_install_hook(struct ospf_lsa *lsa);
 static int ospf_opaque_lsa_delete_hook(struct ospf_lsa *lsa);
 
@@ -85,7 +87,14 @@ void ospf_opaque_init(void)
 	if (ospf_mpls_te_init() != 0)
 		exit(1);
 
+	/* Segment Routing init */
+	if (ospf_sr_init() != 0)
+		exit(1);
+
 	if (ospf_router_info_init() != 0)
+		exit(1);
+
+	if (ospf_ext_init() != 0)
 		exit(1);
 
 #ifdef SUPPORT_OSPF_API
@@ -102,12 +111,25 @@ void ospf_opaque_term(void)
 
 	ospf_router_info_term();
 
+	ospf_ext_term();
+
+	ospf_sr_term();
+
 #ifdef SUPPORT_OSPF_API
 	ospf_apiserver_term();
 #endif /* SUPPORT_OSPF_API */
 
 	ospf_opaque_funclist_term();
 	return;
+}
+
+void ospf_opaque_finish(void)
+{
+	ospf_router_info_finish();
+
+	ospf_ext_finish();
+
+	ospf_sr_finish();
 }
 
 int ospf_opaque_type9_lsa_init(struct ospf_interface *oi)
@@ -208,6 +230,12 @@ static const char *ospf_opaque_type_name(u_char opaque_type)
 		break;
 	case OPAQUE_TYPE_ROUTER_INFORMATION_LSA:
 		name = "Router Information LSA";
+		break;
+	case OPAQUE_TYPE_EXTENDED_PREFIX_LSA:
+		name = "Extended Prefix Opaque LSA";
+		break;
+	case OPAQUE_TYPE_EXTENDED_LINK_LSA:
+		name = "Extended Link Opaque LSA";
 		break;
 	default:
 		if (OPAQUE_TYPE_RANGE_UNASSIGNED(opaque_type))
@@ -412,9 +440,11 @@ void ospf_delete_opaque_functab(u_char lsa_type, u_char opaque_type)
 			if (functab->opaque_type == opaque_type) {
 				/* Cleanup internal control information, if it
 				 * still remains. */
-				if (functab->oipt != NULL)
+				if (functab->oipt != NULL) {
 					free_opaque_info_per_type(
 						functab->oipt);
+					free_opaque_info_owner(functab->oipt);
+				}
 
 				/* Dequeue listnode entry from the list. */
 				listnode_delete(funclist, functab);
@@ -545,6 +575,7 @@ register_opaque_info_per_type(struct ospf_opaque_functab *functab,
 		top = ospf_lookup_by_vrf_id(new->vrf_id);
 		if (new->area != NULL && (top = new->area->ospf) == NULL) {
 			free_opaque_info_per_type((void *)oipt);
+			free_opaque_info_owner(oipt);
 			oipt = NULL;
 			goto out; /* This case may not exist. */
 		}
@@ -556,6 +587,7 @@ register_opaque_info_per_type(struct ospf_opaque_functab *functab,
 			"register_opaque_info_per_type: Unexpected LSA-type(%u)",
 			new->data->type);
 		free_opaque_info_per_type((void *)oipt);
+		free_opaque_info_owner(oipt);
 		oipt = NULL;
 		goto out; /* This case may not exist. */
 	}
@@ -573,6 +605,35 @@ out:
 	return oipt;
 }
 
+/* Remove "oipt" from its owner's self-originated LSA list. */
+static void free_opaque_info_owner(void *val)
+{
+	struct opaque_info_per_type *oipt = (struct opaque_info_per_type *)val;
+
+        switch (oipt->lsa_type) {
+        case OSPF_OPAQUE_LINK_LSA: {
+                struct ospf_interface *oi =
+                        (struct ospf_interface *)(oipt->owner);
+                listnode_delete(oi->opaque_lsa_self, oipt);
+                break;
+        }
+        case OSPF_OPAQUE_AREA_LSA: {
+                struct ospf_area *area = (struct ospf_area *)(oipt->owner);
+                listnode_delete(area->opaque_lsa_self, oipt);
+                break;
+        }
+        case OSPF_OPAQUE_AS_LSA: {
+                struct ospf *top = (struct ospf *)(oipt->owner);
+                listnode_delete(top->opaque_lsa_self, oipt);
+                break;
+        }
+        default:
+                zlog_warn("free_opaque_info_owner: Unexpected LSA-type(%u)",
+                          oipt->lsa_type);
+                break; /* This case may not exist. */
+        }
+}
+
 static void free_opaque_info_per_type(void *val)
 {
 	struct opaque_info_per_type *oipt = (struct opaque_info_per_type *)val;
@@ -587,30 +648,6 @@ static void free_opaque_info_per_type(void *val)
 		if (IS_LSA_MAXAGE(lsa))
 			continue;
 		ospf_opaque_lsa_flush_schedule(lsa);
-	}
-
-	/* Remove "oipt" from its owner's self-originated LSA list. */
-	switch (oipt->lsa_type) {
-	case OSPF_OPAQUE_LINK_LSA: {
-		struct ospf_interface *oi =
-			(struct ospf_interface *)(oipt->owner);
-		listnode_delete(oi->opaque_lsa_self, oipt);
-		break;
-	}
-	case OSPF_OPAQUE_AREA_LSA: {
-		struct ospf_area *area = (struct ospf_area *)(oipt->owner);
-		listnode_delete(area->opaque_lsa_self, oipt);
-		break;
-	}
-	case OSPF_OPAQUE_AS_LSA: {
-		struct ospf *top = (struct ospf *)(oipt->owner);
-		listnode_delete(top->opaque_lsa_self, oipt);
-		break;
-	}
-	default:
-		zlog_warn("free_opaque_info_per_type: Unexpected LSA-type(%u)",
-			  oipt->lsa_type);
-		break; /* This case may not exist. */
 	}
 
 	OSPF_TIMER_OFF(oipt->t_opaque_lsa_self);
@@ -1786,7 +1823,7 @@ void ospf_opaque_lsa_reoriginate_schedule(void *lsa_type_dependent,
 			lsa_type, delay,
 			GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr)));
 
-	OSPF_OPAQUE_TIMER_ON(oipt->t_opaque_lsa_self, func, oipt, delay * 1000);
+	OSPF_OPAQUE_TIMER_ON(oipt->t_opaque_lsa_self, func, oipt, delay);
 
 out:
 	return;

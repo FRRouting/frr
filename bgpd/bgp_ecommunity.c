@@ -690,6 +690,9 @@ char *ecommunity_ecom2str(struct ecommunity *ecom, int format, int filter)
 				tunneltype = ntohs(tunneltype);
 				len = sprintf(str_buf + str_pnt, "ET:%d",
 					      tunneltype);
+			}  else if (*pnt == ECOMMUNITY_EVPN_SUBTYPE_DEF_GW) {
+				len = sprintf(str_buf + str_pnt,
+					      "Default Gateway");
 			} else
 				unk_ecom = 1;
 		} else if (type == ECOMMUNITY_ENCODE_EVPN) {

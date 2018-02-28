@@ -149,5 +149,9 @@ extern int config_write_ospf6_debug_spf(struct vty *vty);
 extern void install_element_ospf6_debug_spf(void);
 extern void ospf6_spf_init(void);
 extern void ospf6_spf_reason_string(unsigned int reason, char *buf, int size);
+extern struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
+							struct ospf6_lsdb *lsdb,
+							uint32_t adv_router);
+extern void ospf6_remove_temp_router_lsa(struct ospf6_area *area);
 
 #endif /* OSPF6_SPF_H */

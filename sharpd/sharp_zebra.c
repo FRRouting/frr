@@ -131,13 +131,14 @@ static int interface_state_down(int command, struct zclient *zclient,
 extern uint32_t total_routes;
 extern uint32_t installed_routes;
 
-static int notify_owner(int command, struct zclient *zclient,
-			zebra_size_t length, vrf_id_t vrf_id)
+static int route_notify_owner(int command, struct zclient *zclient,
+			      zebra_size_t length, vrf_id_t vrf_id)
 {
 	struct prefix p;
 	enum zapi_route_notify_owner note;
+	uint32_t table;
 
-	if (!zapi_route_notify_decode(zclient->ibuf, &p, &note))
+	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table, &note))
 		return -1;
 
 	installed_routes++;
@@ -152,6 +153,11 @@ static void zebra_connected(struct zclient *zclient)
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 }
 
+void vrf_label_add(vrf_id_t vrf_id, afi_t afi, mpls_label_t label)
+{
+	zclient_send_vrf_label(zclient, vrf_id, afi, label, ZEBRA_LSP_SHARP);
+}
+
 void route_add(struct prefix *p, struct nexthop *nh)
 {
 	struct zapi_route api;
@@ -163,9 +169,11 @@ void route_add(struct prefix *p, struct nexthop *nh)
 	api.safi = SAFI_UNICAST;
 	memcpy(&api.prefix, p, sizeof(*p));
 
+	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
 	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
 
 	api_nh = &api.nexthops[0];
+	api_nh->vrf_id = VRF_DEFAULT;
 	api_nh->gate.ipv4 = nh->gate.ipv4;
 	api_nh->type = nh->type;
 	api_nh->ifindex = nh->ifindex;
@@ -204,5 +212,5 @@ void sharp_zebra_init(void)
 	zclient->interface_down = interface_state_down;
 	zclient->interface_address_add = interface_address_add;
 	zclient->interface_address_delete = interface_address_delete;
-	zclient->notify_owner = notify_owner;
+	zclient->route_notify_owner = route_notify_owner;
 }

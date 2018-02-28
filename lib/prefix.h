@@ -39,12 +39,6 @@
 #define ETH_ALEN 6
 #endif
 
-/* for compatibility */
-#ifdef ETHER_ADDR_LEN
-#undef ETHER_ADDR_LEN
-#endif
-#define ETHER_ADDR_LEN 6 CPP_WARN("ETHER_ADDR_LEN is being replaced by ETH_ALEN.\\n")
-
 #define ETHER_ADDR_STRLEN (3*ETH_ALEN)
 /*
  * there isn't a portable ethernet address type. We define our
@@ -245,6 +239,7 @@ static inline void ipv4_addr_copy(struct in_addr *dst,
 #define IPV4_NET127(a)  ((((u_int32_t) (a)) & 0xff000000) == 0x7f000000)
 #define IPV4_LINKLOCAL(a) ((((u_int32_t) (a)) & 0xffff0000) == 0xa9fe0000)
 #define IPV4_CLASS_DE(a)  ((((u_int32_t) (a)) & 0xe0000000) == 0xe0000000)
+#define IPV4_MC_LINKLOCAL(a)  ((((u_int32_t) (a)) & 0xffffff00) == 0xe0000000)
 
 /* Max bit/byte length of IPv6 address. */
 #define IPV6_MAX_BYTELEN    16

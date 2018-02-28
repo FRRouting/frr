@@ -20,7 +20,7 @@ Add packages:
     sudo yum install git autoconf automake libtool make gawk \
       readline-devel texinfo net-snmp-devel groff pkgconfig \
       json-c-devel pam-devel bison flex pytest c-ares-devel \
-      perl-XML-LibXML python-devel
+      perl-XML-LibXML python-devel systemd-devel
 
 Get FRR, compile it and install it (from Git)
 ---------------------------------------------
@@ -59,6 +59,7 @@ an example.)
         --enable-group=frr \
         --enable-vty-group=frrvt \
         --enable-rtadv \
+	--enable-systemd=yes \
         --disable-exampledir \
         --enable-watchfrr \
         --disable-ldpd \

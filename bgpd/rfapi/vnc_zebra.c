@@ -406,6 +406,7 @@ static void vnc_zebra_route_msg(struct prefix *p, unsigned int nhp_count,
 	for (i = 0; i < api.nexthop_num; i++) {
 
 		api_nh = &api.nexthops[i];
+		api_nh->vrf_id = VRF_DEFAULT;
 		switch (p->family) {
 		case AF_INET:
 			memcpy(&api_nh->gate.ipv4, nhp_ary4[i],

@@ -702,20 +702,20 @@ lde_update_label(struct fec_node *fn)
 		switch (fn->fec.type) {
 		case FEC_TYPE_IPV4:
 			if (!(ldeconf->ipv4.flags & F_LDPD_AF_EXPNULL))
-				return (MPLS_LABEL_IMPLNULL);
+				return (MPLS_LABEL_IMPLICIT_NULL);
 			if (lde_acl_check(ldeconf->ipv4.acl_label_expnull_for,
 			    AF_INET, (union ldpd_addr *)&fn->fec.u.ipv4.prefix,
 			    fn->fec.u.ipv4.prefixlen) != FILTER_PERMIT)
-				return (MPLS_LABEL_IMPLNULL);
-			return (MPLS_LABEL_IPV4NULL);
+				return (MPLS_LABEL_IMPLICIT_NULL);
+			return MPLS_LABEL_IPV4_EXPLICIT_NULL;
 		case FEC_TYPE_IPV6:
 			if (!(ldeconf->ipv6.flags & F_LDPD_AF_EXPNULL))
-				return (MPLS_LABEL_IMPLNULL);
+				return (MPLS_LABEL_IMPLICIT_NULL);
 			if (lde_acl_check(ldeconf->ipv6.acl_label_expnull_for,
 			    AF_INET6, (union ldpd_addr *)&fn->fec.u.ipv6.prefix,
 			    fn->fec.u.ipv6.prefixlen) != FILTER_PERMIT)
-				return (MPLS_LABEL_IMPLNULL);
-			return (MPLS_LABEL_IPV6NULL);
+				return (MPLS_LABEL_IMPLICIT_NULL);
+			return MPLS_LABEL_IPV6_EXPLICIT_NULL;
 		default:
 			fatalx("lde_update_label: unexpected fec type");
 			break;
@@ -1324,8 +1324,11 @@ lde_nbr_clear(void)
 {
 	struct lde_nbr	*ln;
 
-	 while ((ln = RB_ROOT(nbr_tree, &lde_nbrs)) != NULL)
+	while (!RB_EMPTY(nbr_tree, &lde_nbrs)) {
+		ln = RB_ROOT(nbr_tree, &lde_nbrs);
+
 		lde_nbr_del(ln);
+	}
 }
 
 static void
@@ -1522,11 +1525,15 @@ lde_change_egress_label(int af)
 
 	/* explicitly withdraw all null labels */
 	RB_FOREACH(ln, nbr_tree, &lde_nbrs) {
-		lde_send_labelwithdraw_wcard(ln, MPLS_LABEL_IMPLNULL);
+		lde_send_labelwithdraw_wcard(ln, MPLS_LABEL_IMPLICIT_NULL);
 		if (ln->v4_enabled)
-			lde_send_labelwithdraw_wcard(ln, MPLS_LABEL_IPV4NULL);
+			lde_send_labelwithdraw_wcard(
+				ln,
+				MPLS_LABEL_IPV4_EXPLICIT_NULL);
 		if (ln->v6_enabled)
-			lde_send_labelwithdraw_wcard(ln, MPLS_LABEL_IPV6NULL);
+			lde_send_labelwithdraw_wcard(
+				ln,
+				MPLS_LABEL_IPV6_EXPLICIT_NULL);
 	}
 
 	/* update label of connected routes */

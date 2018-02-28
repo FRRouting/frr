@@ -441,6 +441,7 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 			api_nh->ifindex = path->ifindex;
 			api_nh->type = NEXTHOP_TYPE_IFINDEX;
 		}
+		api_nh->vrf_id = ospf->vrf_id;
 		count++;
 
 		if (IS_DEBUG_OSPF(zebra, ZEBRA_REDISTRIBUTE)) {

@@ -62,7 +62,7 @@ const char *node_names[] = {
 	"aaa",			    // AAA_NODE,
 	"keychain",		    // KEYCHAIN_NODE,
 	"keychain key",		    // KEYCHAIN_KEY_NODE,
-	"logical-router",	    // NS_NODE,
+	"logical-router",	    // LOGICALROUTER_NODE,
 	"vrf",			    // VRF_NODE,
 	"interface",		    // INTERFACE_NODE,
 	"zebra",		    // ZEBRA_NODE,
@@ -96,7 +96,6 @@ const char *node_names[] = {
 	"ldp l2vpn",		    // LDP_L2VPN_NODE,
 	"ldp",			    // LDP_PSEUDOWIRE_NODE,
 	"isis",			    // ISIS_NODE,
-	"pim",			    // PIM_NODE,
 	"masc",			    // MASC_NODE,
 	"irdp",			    // IRDP_NODE,
 	"static ip",		    // IP_NODE,
@@ -1292,7 +1291,7 @@ void cmd_exit(struct vty *vty)
 		break;
 	case INTERFACE_NODE:
 	case PW_NODE:
-	case NS_NODE:
+	case LOGICALROUTER_NODE:
 	case VRF_NODE:
 	case ZEBRA_NODE:
 	case BGP_NODE:
@@ -1308,7 +1307,6 @@ void cmd_exit(struct vty *vty)
 	case KEYCHAIN_NODE:
 	case MASC_NODE:
 	case RMAP_NODE:
-	case PIM_NODE:
 	case VTY_NODE:
 		vty->node = CONFIG_NODE;
 		break;
@@ -1378,7 +1376,7 @@ DEFUN (config_end,
 	case CONFIG_NODE:
 	case INTERFACE_NODE:
 	case PW_NODE:
-	case NS_NODE:
+	case LOGICALROUTER_NODE:
 	case VRF_NODE:
 	case ZEBRA_NODE:
 	case RIP_NODE:
@@ -1414,7 +1412,6 @@ DEFUN (config_end,
 	case KEYCHAIN_NODE:
 	case KEYCHAIN_KEY_NODE:
 	case MASC_NODE:
-	case PIM_NODE:
 	case VTY_NODE:
 	case LINK_PARAMS_NODE:
 		vty_config_unlock(vty);
@@ -1865,7 +1862,7 @@ DEFUN (config_password,
 		return CMD_SUCCESS;
 	}
 
-	if (!isalnum(argv[idx_8]->arg[0])) {
+	if (!isalnum((int)argv[idx_8]->arg[0])) {
 		vty_out(vty,
 			"Please specify string starting with alphanumeric\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1917,7 +1914,7 @@ DEFUN (config_enable_password,
 		}
 	}
 
-	if (!isalnum(argv[idx_8]->arg[0])) {
+	if (!isalnum((int)argv[idx_8]->arg[0])) {
 		vty_out(vty,
 			"Please specify string starting with alphanumeric\n");
 		return CMD_WARNING_CONFIG_FAILED;

@@ -63,13 +63,6 @@ static struct test_segment {
 #define SHOULD_PARSE	0
 #define SHOULD_ERR	-1
 	int parses; /* whether it should parse or not */
-
-	/* AFI/SAFI validation */
-	afi_t afi;
-	safi_t safi;
-#define VALID_AFI 1
-#define INVALID_AFI 0
-	int afi_valid;
 } mp_reach_segments[] = {
 	{
 		"IPv6",
@@ -104,9 +97,6 @@ static struct test_segment {
 		},
 		(4 + 16 + 1 + 5),
 		SHOULD_PARSE,
-		AFI_IP6,
-		SAFI_UNICAST,
-		VALID_AFI,
 	},
 	{
 		"IPv6-2",
@@ -150,9 +140,6 @@ static struct test_segment {
 		},
 		(4 + 16 + 1 + 5 + 9),
 		SHOULD_PARSE,
-		AFI_IP6,
-		SAFI_UNICAST,
-		VALID_AFI,
 	},
 	{
 		"IPv6-default",
@@ -197,9 +184,6 @@ static struct test_segment {
 		},
 		(4 + 16 + 1 + 5 + 9 + 1),
 		SHOULD_PARSE,
-		AFI_IP6,
-		SAFI_UNICAST,
-		VALID_AFI,
 	},
 	{
 		"IPv6-lnh",
@@ -260,9 +244,6 @@ static struct test_segment {
 		},
 		(4 + 32 + 1 + 5 + 9 + 1),
 		SHOULD_PARSE,
-		AFI_IP6,
-		SAFI_UNICAST,
-		VALID_AFI,
 	},
 	{
 		"IPv6-nhlen",
@@ -323,9 +304,6 @@ static struct test_segment {
 		},
 		(4 + 32 + 1 + 5 + 9 + 1),
 		SHOULD_ERR,
-		AFI_IP6,
-		SAFI_UNICAST,
-		VALID_AFI,
 	},
 	{
 		"IPv6-nhlen2",
@@ -386,9 +364,6 @@ static struct test_segment {
 		},
 		(4 + 32 + 1 + 5 + 9 + 1),
 		SHOULD_ERR,
-		AFI_IP6,
-		SAFI_UNICAST,
-		VALID_AFI,
 	},
 	{
 		"IPv6-nhlen3",
@@ -417,9 +392,6 @@ static struct test_segment {
 		},
 		(4 + 16),
 		SHOULD_ERR,
-		AFI_IP6,
-		SAFI_UNICAST,
-		VALID_AFI,
 	},
 	{
 		"IPv6-nhlen4",
@@ -480,9 +452,6 @@ static struct test_segment {
 		},
 		(4 + 32 + 1 + 5 + 9 + 1),
 		SHOULD_ERR,
-		AFI_IP6,
-		SAFI_UNICAST,
-		VALID_AFI,
 	},
 	{
 		"IPv6-nlri",
@@ -543,9 +512,6 @@ static struct test_segment {
 		},
 		(4 + 32 + 1 + 5 + 9 + 1),
 		SHOULD_ERR,
-		AFI_IP6,
-		SAFI_UNICAST,
-		VALID_AFI,
 	},
 	{
 		"IPv4",
@@ -561,9 +527,6 @@ static struct test_segment {
 		},
 		(4 + 4 + 1 + 3 + 4 + 1),
 		SHOULD_PARSE,
-		AFI_IP,
-		SAFI_UNICAST,
-		VALID_AFI,
 	},
 	{
 		"IPv4-nhlen",
@@ -579,9 +542,6 @@ static struct test_segment {
 		},
 		(4 + 4 + 1 + 3 + 4 + 1),
 		SHOULD_ERR,
-		AFI_IP,
-		SAFI_UNICAST,
-		VALID_AFI,
 	},
 	{
 		"IPv4-nlrilen",
@@ -596,9 +556,6 @@ static struct test_segment {
 		},
 		(4 + 4 + 1 + 3 + 2 + 1),
 		SHOULD_ERR,
-		AFI_IP,
-		SAFI_UNICAST,
-		VALID_AFI,
 	},
 	{
 		"IPv4-VPNv4",
@@ -623,9 +580,6 @@ static struct test_segment {
 		},
 		(4 + 12 + 1 + (1 + 3 + 8 + 2) + (1 + 3 + 8 + 3)),
 		SHOULD_PARSE,
-		AFI_IP,
-		IANA_SAFI_MPLS_VPN,
-		VALID_AFI,
 	},
 	{
 		"IPv4-VPNv4-bogus-plen",
@@ -659,9 +613,6 @@ static struct test_segment {
 		},
 		(3 + 1 + 3 * 4 + 1 + 3 + 4 + 1),
 		SHOULD_ERR,
-		AFI_IP,
-		IANA_SAFI_MPLS_VPN,
-		VALID_AFI,
 	},
 	{
 		"IPv4-VPNv4-plen1-short",
@@ -686,9 +637,6 @@ static struct test_segment {
 		},
 		(4 + 12 + 1 + (1 + 3 + 8 + 2) + (1 + 3 + 8 + 3)),
 		SHOULD_ERR,
-		AFI_IP,
-		IANA_SAFI_MPLS_VPN,
-		VALID_AFI,
 	},
 	{
 		"IPv4-VPNv4-plen1-long",
@@ -713,9 +661,6 @@ static struct test_segment {
 		},
 		(4 + 12 + 1 + (1 + 3 + 8 + 2) + (1 + 3 + 8 + 3)),
 		SHOULD_ERR,
-		AFI_IP,
-		IANA_SAFI_MPLS_VPN,
-		VALID_AFI,
 	},
 	{
 		"IPv4-VPNv4-plenn-long",
@@ -741,9 +686,6 @@ static struct test_segment {
 		},
 		(4 + 12 + 1 + (1 + 3 + 8 + 2) + (1 + 3 + 8 + 3) + 1),
 		SHOULD_ERR,
-		AFI_IP,
-		IANA_SAFI_MPLS_VPN,
-		VALID_AFI,
 	},
 	{
 		"IPv4-VPNv4-plenn-short",
@@ -768,9 +710,6 @@ static struct test_segment {
 		},
 		(4 + 12 + 1 + (1 + 3 + 8 + 2) + (1 + 3 + 8 + 3)),
 		SHOULD_ERR,
-		AFI_IP,
-		IANA_SAFI_MPLS_VPN,
-		VALID_AFI,
 	},
 	{
 		"IPv4-VPNv4-bogus-rd-type",
@@ -795,9 +734,6 @@ static struct test_segment {
 		},
 		(4 + 12 + 1 + (1 + 3 + 8 + 2) + (1 + 3 + 8 + 3)),
 		SHOULD_PARSE,
-		AFI_IP,
-		IANA_SAFI_MPLS_VPN,
-		VALID_AFI,
 	},
 	{
 		"IPv4-VPNv4-0-nlri",
@@ -823,9 +759,6 @@ static struct test_segment {
 		},
 		(4 + 12 + 1 + (1 + 3 + 8 + 2) + (1 + 3 + 8 + 3) + 1),
 		SHOULD_ERR,
-		AFI_IP,
-		IANA_SAFI_MPLS_VPN,
-		VALID_AFI,
 	},
 
 	/* From bug #385 */
@@ -875,9 +808,6 @@ static struct test_segment {
 		},
 		37,
 		SHOULD_ERR,
-		AFI_IP6,
-		SAFI_UNICAST,
-		VALID_AFI,
 	},
 
 	{NULL, NULL, {0}, 0, 0}};
@@ -894,9 +824,6 @@ static struct test_segment mp_unreach_segments[] = {
 		},
 		(3 + 5),
 		SHOULD_PARSE,
-		AFI_IP6,
-		SAFI_UNICAST,
-		VALID_AFI,
 	},
 	{
 		"IPv6-unreach2",
@@ -910,9 +837,6 @@ static struct test_segment mp_unreach_segments[] = {
 		},
 		(3 + 5 + 9),
 		SHOULD_PARSE,
-		AFI_IP6,
-		SAFI_UNICAST,
-		VALID_AFI,
 	},
 	{
 		"IPv6-unreach-default",
@@ -926,9 +850,6 @@ static struct test_segment mp_unreach_segments[] = {
 		},
 		(3 + 5 + 9 + 1),
 		SHOULD_PARSE,
-		AFI_IP6,
-		SAFI_UNICAST,
-		VALID_AFI,
 	},
 	{
 		"IPv6-unreach-nlri",
@@ -942,9 +863,6 @@ static struct test_segment mp_unreach_segments[] = {
 		},
 		(3 + 5 + 9 + 1),
 		SHOULD_ERR,
-		AFI_IP6,
-		SAFI_UNICAST,
-		VALID_AFI,
 	},
 	{
 		"IPv4-unreach",
@@ -957,9 +875,6 @@ static struct test_segment mp_unreach_segments[] = {
 		},
 		(3 + 3 + 4 + 1),
 		SHOULD_PARSE,
-		AFI_IP,
-		SAFI_UNICAST,
-		VALID_AFI,
 	},
 	{
 		"IPv4-unreach-nlrilen",
@@ -971,9 +886,6 @@ static struct test_segment mp_unreach_segments[] = {
 		},
 		(3 + 3 + 2 + 1),
 		SHOULD_ERR,
-		AFI_IP,
-		SAFI_UNICAST,
-		VALID_AFI,
 	},
 	{
 		"IPv4-unreach-VPNv4",
@@ -993,9 +905,6 @@ static struct test_segment mp_unreach_segments[] = {
 		},
 		(3 + (1 + 3 + 8 + 2) + (1 + 3 + 8 + 3)),
 		SHOULD_PARSE,
-		AFI_IP,
-		IANA_SAFI_MPLS_VPN,
-		VALID_AFI,
 	},
 	{NULL, NULL, {0}, 0, 0}};
 

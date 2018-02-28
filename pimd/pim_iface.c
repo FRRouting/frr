@@ -85,9 +85,11 @@ static void *if_list_clean(struct pim_interface *pim_ifp)
 	if (pim_ifp->sec_addr_list)
 		list_delete_and_null(&pim_ifp->sec_addr_list);
 
-	while ((ch = RB_ROOT(pim_ifchannel_rb,
-			     &pim_ifp->ifchannel_rb)) != NULL)
+	while (!RB_EMPTY(pim_ifchannel_rb, &pim_ifp->ifchannel_rb)) {
+		ch = RB_ROOT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb);
+
 		pim_ifchannel_delete(ch);
+	}
 
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
 
@@ -250,9 +252,11 @@ void pim_if_delete(struct interface *ifp)
 	if (pim_ifp->boundary_oil_plist)
 		XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
 
-	while ((ch = RB_ROOT(pim_ifchannel_rb,
-			     &pim_ifp->ifchannel_rb)) != NULL)
+	while (!RB_EMPTY(pim_ifchannel_rb, &pim_ifp->ifchannel_rb)) {
+		ch = RB_ROOT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb);
+
 		pim_ifchannel_delete(ch);
+	}
 
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
 

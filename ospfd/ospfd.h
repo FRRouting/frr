@@ -240,6 +240,7 @@ struct ospf {
 	struct thread *t_external_lsa;      /* AS-external-LSA origin timer. */
 	struct thread
 		*t_opaque_lsa_self; /* Type-11 Opaque-LSAs origin event. */
+	struct thread *t_sr_update; /* Segment Routing update timer */
 
 	unsigned int maxage_delay;      /* Delay on Maxage remover timer, sec */
 	struct thread *t_maxage;	/* MaxAge LSA remover timer. */

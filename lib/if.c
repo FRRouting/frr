@@ -210,6 +210,9 @@ void if_delete(struct interface *ifp)
 
 	if_link_params_free(ifp);
 
+	if (ifp->desc)
+		XFREE(MTYPE_TMP, ifp->desc);
+
 	XFREE(MTYPE_IF, ifp);
 }
 
@@ -218,6 +221,18 @@ struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id)
 {
 	struct vrf *vrf;
 	struct interface if_tmp;
+
+	if (vrf_id == VRF_UNKNOWN) {
+		struct interface *ifp;
+
+		RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id) {
+			ifp = if_lookup_by_index(ifindex, vrf->vrf_id);
+			if (ifp)
+				return ifp;
+		}
+
+		return NULL;
+	}
 
 	vrf = vrf_lookup_by_id(vrf_id);
 	if (!vrf)
@@ -369,29 +384,35 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id, int vty)
 {
 	struct interface *ifp;
 
+	ifp = if_lookup_by_name(name, vrf_id);
+	if (ifp)
+		return ifp;
+	/* Not Found on same VRF. If the interface command
+	 * was entered in vty without a VRF (passed as VRF_DEFAULT),
+	 * accept the ifp we found. If a vrf was entered and there is
+	 * a mismatch, reject it if from vty.
+	 */
 	ifp = if_lookup_by_name_all_vrf(name);
-	if (ifp) {
-		if (ifp->vrf_id == vrf_id)
+	if (!ifp)
+		return if_create(name, vrf_id);
+	if (vty) {
+		if (vrf_id == VRF_DEFAULT)
 			return ifp;
-
-		/* Found a match on a different VRF. If the interface command
-		 * was entered in vty without a VRF (passed as VRF_DEFAULT),
-		 * accept the ifp we found. If a vrf was entered and there is
-		 * a mismatch, reject it if from vty. If it came from the kernel
-		 * or by way of zclient, believe it and update the ifp
-		 * accordingly.
-		 */
-		if (vty) {
-			if (vrf_id == VRF_DEFAULT)
-				return ifp;
-			return NULL;
-		} else {
-			if_update_to_new_vrf(ifp, vrf_id);
-			return ifp;
-		}
+		return NULL;
 	}
-
-	return if_create(name, vrf_id);
+	/* if vrf backend uses NETNS, then
+	 * this should not be considered as an update
+	 * then create the new interface
+	 */
+	if (ifp->vrf_id != vrf_id &&
+	    vrf_is_mapped_on_netns(vrf_id))
+		return if_create(name, vrf_id);
+	/* If it came from the kernel
+	 * or by way of zclient, believe it and update
+	 * the ifp accordingly.
+	 */
+	if_update_to_new_vrf(ifp, vrf_id);
+	return ifp;
 }
 
 void if_set_index(struct interface *ifp, ifindex_t ifindex)
@@ -1049,7 +1070,7 @@ ifaddr_ipv4_lookup (struct in_addr *addr, ifindex_t ifindex)
       rn = route_node_lookup (ifaddr_ipv4_table, (struct prefix *) &p);
       if (! rn)
 	return NULL;
-      
+
       ifp = rn->info;
       route_unlock_node (rn);
       return ifp;
@@ -1063,7 +1084,9 @@ void if_terminate(struct vrf *vrf)
 {
 	struct interface *ifp;
 
-	while ((ifp = RB_ROOT(if_name_head, &vrf->ifaces_by_name)) != NULL) {
+	while (!RB_EMPTY(if_name_head, &vrf->ifaces_by_name)) {
+		ifp = RB_ROOT(if_name_head, &vrf->ifaces_by_name);
+
 		if (ifp->node) {
 			ifp->node->info = NULL;
 			route_unlock_node(ifp->node);

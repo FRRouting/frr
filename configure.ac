@@ -7,7 +7,7 @@
 ##
 AC_PREREQ(2.60)
 
-AC_INIT(frr, 3.1-dev, [https://github.com/frrouting/frr/issues])
+AC_INIT(frr, 4.1-dev, [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST(PACKAGE_URL)
 PACKAGE_FULLNAME="FRRouting"
@@ -1886,6 +1886,7 @@ AC_CONFIG_FILES([Makefile
 	  doc/eigrpd.8
 	  doc/ripngd.8
 	  doc/pimd.8
+	  doc/mtracebis.8
 	  doc/nhrpd.8
 	  doc/vtysh.1
 	  doc/watchfrr.8

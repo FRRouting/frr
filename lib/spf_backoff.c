@@ -205,7 +205,7 @@ static const char *timeval_format(struct timeval *tv)
 
 	size_t offset = strlen(timebuf);
 	snprintf(timebuf + offset, sizeof(timebuf) - offset, ".%ld",
-		 tv->tv_usec);
+		 (long int)tv->tv_usec);
 
 	return timebuf;
 }

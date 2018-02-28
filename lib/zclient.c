@@ -363,6 +363,22 @@ static int zebra_hello_send(struct zclient *zclient)
 	return 0;
 }
 
+void zclient_send_vrf_label(struct zclient *zclient, vrf_id_t vrf_id, afi_t afi,
+			    mpls_label_t label, enum lsp_types_t ltype)
+{
+	struct stream *s;
+
+	s = zclient->obuf;
+	stream_reset(s);
+
+	zclient_create_header(s, ZEBRA_VRF_LABEL, vrf_id);
+	stream_putl(s, label);
+	stream_putc(s, afi);
+	stream_putc(s, ltype);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(zclient);
+}
+
 /* Send register requests to zebra daemon for the information in a VRF. */
 void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 {
@@ -389,25 +405,28 @@ void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 			       vrf_id);
 
 	/* Flush all redistribute request. */
-	if (vrf_id == VRF_DEFAULT)
-		for (afi = AFI_IP; afi < AFI_MAX; afi++)
-			for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-				if (zclient->mi_redist[afi][i].enabled) {
-					struct listnode *node;
-					u_short *id;
+	if (vrf_id == VRF_DEFAULT) {
+		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+			for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+				if (!zclient->mi_redist[afi][i].enabled)
+					continue;
 
-					for (ALL_LIST_ELEMENTS_RO(
-						     zclient->mi_redist[afi][i]
-							     .instances,
-						     node, id))
-						if (!(i == zclient->redist_default
-						      && *id == zclient->instance))
-							zebra_redistribute_send(
-								ZEBRA_REDISTRIBUTE_ADD,
-								zclient, afi, i,
-								*id,
-								VRF_DEFAULT);
-				}
+				struct listnode *node;
+				u_short *id;
+
+				for (ALL_LIST_ELEMENTS_RO(
+					     zclient->mi_redist[afi][i]
+					     .instances, node, id))
+					if (!(i == zclient->redist_default
+					      && *id == zclient->instance))
+						zebra_redistribute_send(
+							ZEBRA_REDISTRIBUTE_ADD,
+							zclient, afi, i,
+							*id,
+							VRF_DEFAULT);
+			}
+		}
+	}
 
 	/* Flush all redistribute request. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
@@ -447,29 +466,32 @@ void zclient_send_dereg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 
 	/* Set unwanted redistribute route. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		vrf_bitmap_set(zclient->redist[afi][zclient->redist_default],
-			       vrf_id);
+		vrf_bitmap_unset(zclient->redist[afi][zclient->redist_default],
+				 vrf_id);
 
 	/* Flush all redistribute request. */
-	if (vrf_id == VRF_DEFAULT)
-		for (afi = AFI_IP; afi < AFI_MAX; afi++)
-			for (i = 0; i < ZEBRA_ROUTE_MAX; i++)
-				if (zclient->mi_redist[afi][i].enabled) {
-					struct listnode *node;
-					u_short *id;
+	if (vrf_id == VRF_DEFAULT) {
+		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+			for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
+				if (!zclient->mi_redist[afi][i].enabled)
+					continue;
 
-					for (ALL_LIST_ELEMENTS_RO(
-						     zclient->mi_redist[afi][i]
-							     .instances,
-						     node, id))
-						if (!(i == zclient->redist_default
-						      && *id == zclient->instance))
-							zebra_redistribute_send(
-								ZEBRA_REDISTRIBUTE_DELETE,
-								zclient, afi, i,
-								*id,
-								VRF_DEFAULT);
-				}
+				struct listnode *node;
+				u_short *id;
+
+				for (ALL_LIST_ELEMENTS_RO(
+					     zclient->mi_redist[afi][i]
+					     .instances, node, id))
+					if (!(i == zclient->redist_default
+					      && *id == zclient->instance))
+						zebra_redistribute_send(
+							ZEBRA_REDISTRIBUTE_DELETE,
+							zclient, afi, i,
+							*id,
+							VRF_DEFAULT);
+			}
+		}
+	}
 
 	/* Flush all redistribute request. */
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)
@@ -606,6 +628,33 @@ static int zclient_connect(struct thread *t)
 		zlog_debug("zclient_connect is called");
 
 	return zclient_start(zclient);
+}
+
+int zclient_send_rnh(struct zclient *zclient, int command, struct prefix *p,
+		     bool exact_match, vrf_id_t vrf_id)
+{
+	struct stream *s;
+
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, command, vrf_id);
+	stream_putc(s, (exact_match) ? 1 : 0);
+
+	stream_putw(s, PREFIX_FAMILY(p));
+	stream_putc(s, p->prefixlen);
+	switch (PREFIX_FAMILY(p)) {
+	case AF_INET:
+		stream_put_in_addr(s, &p->u.prefix4);
+		break;
+	case AF_INET6:
+		stream_put(s, &(p->u.prefix6), 16);
+		break;
+	default:
+		break;
+	}
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
 }
 
 /*
@@ -946,6 +995,7 @@ int zapi_route_encode(u_char cmd, struct stream *s, struct zapi_route *api)
 		for (i = 0; i < api->nexthop_num; i++) {
 			api_nh = &api->nexthops[i];
 
+			stream_putl(s, api_nh->vrf_id);
 			stream_putc(s, api_nh->type);
 			switch (api_nh->type) {
 			case NEXTHOP_TYPE_BLACKHOLE:
@@ -1094,6 +1144,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 		for (i = 0; i < api->nexthop_num; i++) {
 			api_nh = &api->nexthops[i];
 
+			STREAM_GETL(s, api_nh->vrf_id);
 			STREAM_GETC(s, api_nh->type);
 			switch (api_nh->type) {
 			case NEXTHOP_TYPE_BLACKHOLE:
@@ -1159,17 +1210,90 @@ stream_failure:
 }
 
 bool zapi_route_notify_decode(struct stream *s, struct prefix *p,
+			      uint32_t *tableid,
 			      enum zapi_route_notify_owner *note)
 {
+	uint32_t t;
+
 	STREAM_GET(note, s, sizeof(*note));
 
 	STREAM_GETC(s, p->family);
 	STREAM_GETC(s, p->prefixlen);
 	STREAM_GET(&p->u.prefix, s,
-		   PSIZE(p->prefixlen));
+		   prefix_blen(p));
+	STREAM_GETL(s, t);
+
+	*tableid = t;
 
 	return true;
 
+stream_failure:
+	return false;
+}
+
+struct nexthop *nexthop_from_zapi_nexthop(struct zapi_nexthop *znh)
+{
+	struct nexthop *n = nexthop_new();
+
+	n->type = znh->type;
+	n->vrf_id = znh->vrf_id;
+	n->ifindex = znh->ifindex;
+	n->gate = znh->gate;
+
+	/*
+	 * This function does not currently handle labels
+	 */
+
+	return n;
+}
+
+bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
+{
+	uint32_t i;
+
+	memset(nhr, 0, sizeof(*nhr));
+
+	STREAM_GETW(s, nhr->prefix.family);
+	STREAM_GETC(s, nhr->prefix.prefixlen);
+	switch(nhr->prefix.family) {
+	case AF_INET:
+		STREAM_GET(&nhr->prefix.u.prefix4.s_addr, s, IPV4_MAX_BYTELEN);
+		break;
+	case AF_INET6:
+		STREAM_GET(&nhr->prefix.u.prefix6, s, IPV6_MAX_BYTELEN);
+		break;
+	default:
+		break;
+	}
+
+	STREAM_GETC(s, nhr->distance);
+	STREAM_GETL(s, nhr->metric);
+	STREAM_GETC(s, nhr->nexthop_num);
+
+	for (i = 0; i < nhr->nexthop_num ; i++) {
+		STREAM_GETC(s, nhr->nexthops[i].type);
+		switch (nhr->nexthops[i].type) {
+		case NEXTHOP_TYPE_IPV4:
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			STREAM_GET(&nhr->nexthops[i].gate.ipv4.s_addr,
+				   s, IPV4_MAX_BYTELEN);
+			STREAM_GETL(s, nhr->nexthops[i].ifindex);
+			break;
+		case NEXTHOP_TYPE_IFINDEX:
+			STREAM_GETL(s, nhr->nexthops[i].ifindex);
+			break;
+		case NEXTHOP_TYPE_IPV6:
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			STREAM_GET(&nhr->nexthops[i].gate.ipv6,
+				   s, IPV6_MAX_BYTELEN);
+			STREAM_GETL(s, nhr->nexthops[i].ifindex);
+			break;
+		case NEXTHOP_TYPE_BLACKHOLE:
+			break;
+		}
+	}
+
+	return true;
 stream_failure:
 	return false;
 }
@@ -1284,8 +1408,8 @@ static void zclient_vrf_add(struct zclient *zclient, vrf_id_t vrf_id)
 
 	/* Lookup/create vrf by vrf_id. */
 	vrf = vrf_get(vrf_id, vrfname_tmp);
-	vrf->data = data;
-
+	vrf->data.l.table_id = data.l.table_id;
+	memcpy(vrf->data.l.netns_name, data.l.netns_name, NS_NAMSIZ);
 	vrf_enable(vrf);
 }
 
@@ -1875,8 +1999,8 @@ int lm_get_label_chunk(struct zclient *zclient, u_char keep,
 			__func__, *start, *end, keep, response_keep);
 	}
 	/* sanity */
-	if (*start > *end || *start < MPLS_MIN_UNRESERVED_LABEL
-	    || *end > MPLS_MAX_UNRESERVED_LABEL) {
+	if (*start > *end || *start < MPLS_LABEL_UNRESERVED_MIN
+	    || *end > MPLS_LABEL_UNRESERVED_MAX) {
 		zlog_err("%s: Invalid Label chunk: %u - %u", __func__, *start,
 			 *end);
 		return -1;
@@ -2229,15 +2353,25 @@ static int zclient_read(struct thread *thread)
 			(*zclient->local_macip_del)(command, zclient, length,
 						    vrf_id);
 		break;
+	case ZEBRA_IP_PREFIX_ROUTE_ADD:
+		if (zclient->local_ip_prefix_add)
+			(*zclient->local_ip_prefix_add)(command, zclient,
+							length, vrf_id);
+		break;
+	case ZEBRA_IP_PREFIX_ROUTE_DEL:
+		if (zclient->local_ip_prefix_del)
+			(*zclient->local_ip_prefix_del)(command, zclient,
+							length, vrf_id);
+		break;
 	case ZEBRA_PW_STATUS_UPDATE:
 		if (zclient->pw_status_update)
 			(*zclient->pw_status_update)(command, zclient, length,
 						     vrf_id);
 		break;
 	case ZEBRA_ROUTE_NOTIFY_OWNER:
-		if (zclient->notify_owner)
-			(*zclient->notify_owner)(command, zclient,
-						 length, vrf_id);
+		if (zclient->route_notify_owner)
+			(*zclient->route_notify_owner)(command, zclient, length,
+						       vrf_id);
 		break;
 	default:
 		break;
