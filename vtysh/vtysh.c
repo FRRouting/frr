@@ -1971,14 +1971,24 @@ static int show_per_daemon(const char *line, const char *headline)
 	return ret;
 }
 
+DEFUNSH_HIDDEN (0x00,
+                vtysh_debug_all,
+                vtysh_debug_all_cmd,
+                "[no] debug all",
+                NO_STR
+                DEBUG_STR
+                "Toggle all debugs on or off\n")
+{
+	return CMD_SUCCESS;
+}
+
 DEFUN (vtysh_show_debugging,
        vtysh_show_debugging_cmd,
        "show debugging",
        SHOW_STR
        DEBUG_STR)
 {
-	return show_per_daemon("do show debugging\n",
-			       "");
+	return show_per_daemon("do show debugging\n", "");
 }
 
 DEFUN (vtysh_show_debugging_hashtable,
@@ -3368,14 +3378,17 @@ void vtysh_init_vty(void)
 	install_element(ENABLE_NODE, &vtysh_start_zsh_cmd);
 #endif
 
+	/* debugging */
 	install_element(VIEW_NODE, &vtysh_show_debugging_cmd);
 	install_element(VIEW_NODE, &vtysh_show_debugging_hashtable_cmd);
+	install_element(VIEW_NODE, &vtysh_debug_all_cmd);
+	install_element(CONFIG_NODE, &vtysh_debug_all_cmd);
+
+	/* misc lib show commands */
 	install_element(VIEW_NODE, &vtysh_show_memory_cmd);
 	install_element(VIEW_NODE, &vtysh_show_modules_cmd);
-
 	install_element(VIEW_NODE, &vtysh_show_work_queues_cmd);
 	install_element(VIEW_NODE, &vtysh_show_work_queues_daemon_cmd);
-
 	install_element(VIEW_NODE, &vtysh_show_thread_cmd);
 
 	/* Logging */
