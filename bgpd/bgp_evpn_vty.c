@@ -2780,7 +2780,7 @@ DEFUN (no_bgp_evpn_advertise_type5,
 	argv_find_and_parse_afi(argv, argc, &idx_afi, &afi);
 	argv_find_and_parse_safi(argv, argc, &idx_safi, &safi);
 
-	if (!(afi == AFI_IP) || (afi == AFI_IP6)) {
+	if (!(afi == AFI_IP || afi == AFI_IP6)) {
 		vty_out(vty,
 			"%%only ipv4 or ipv6 address families are supported");
 		return CMD_WARNING;

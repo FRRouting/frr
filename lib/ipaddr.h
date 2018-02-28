@@ -85,4 +85,14 @@ static inline char *ipaddr2str(struct ipaddr *ip, char *buf, int size)
 	}
 	return buf;
 }
+
+static inline void ipv4_to_ipv4_mapped_ipv6(struct in6_addr *in6,
+					    struct in_addr in)
+{
+	u_int32_t addr_type = htonl(0xFFFF);
+	memset(in6, 0, sizeof(struct in6_addr));
+	memcpy((char *)in6 + 8, &addr_type, sizeof(addr_type));
+	memcpy((char *)in6 + 12, &in, sizeof(struct in_addr));
+}
+
 #endif /* __IPADDR_H__ */
